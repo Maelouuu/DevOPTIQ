@@ -401,12 +401,12 @@ def sync_activities_with_svg(entity_id, svg_path):
         except Exception as e:
             db.session.rollback()
             error_msg = str(e)
-            if "UNIQUE constraint" in error_msg:
-                print(f"[SYNC] ⚠️ Doublon ignoré: {name} (shape_id={shape_id})")
-                stats["skipped"] += 1
-            else:
-                print(f"[SYNC] Erreur ajout {name}: {e}")
-                stats["skipped"] += 1
+            print(f"[SYNC] ❌ ERREUR pour '{name}' (shape_id={shape_id}): {error_msg}")
+            stats["skipped"] += 1
+            # Stocker le détail de l'erreur
+            if "errors" not in stats:
+                stats["errors"] = []
+            stats["errors"].append(f"{name}: {error_msg[:100]}")
     
     print(f"[SYNC] Terminé: {stats['added']} ajoutées, {stats['existing']} existantes, {stats['skipped']} ignorées")
     return stats
@@ -500,3 +500,108 @@ def resync_activities():
 @activities_map_bp.route("/update-cartography")
 def update_cartography():
     return jsonify({"status": "ok", "message": "Cartographie rechargée"}), 200
+
+
+# ============================================================
+# DIAGNOSTIC BASE DE DONNÉES (pour débug)
+# ============================================================
+@activities_map_bp.route("/api/diagnostic")
+def diagnostic_db():
+    """Route de diagnostic pour vérifier les index et les activités."""
+    from sqlalchemy import text
+    
+    result = {
+        "indexes": [],
+        "entities": [],
+        "problem_detected": False,
+        "problem_description": None
+    }
+    
+    # Vérifier les index sur activities
+    try:
+        indexes = db.session.execute(text("""
+            SELECT name, sql 
+            FROM sqlite_master 
+            WHERE type='index' AND tbl_name='activities' AND sql IS NOT NULL
+        """)).fetchall()
+        
+        for name, sql in indexes:
+            result["indexes"].append({"name": name, "sql": sql})
+            
+            # Détecter un index UNIQUE sur shape_id seul
+            if sql and "UNIQUE" in sql.upper() and "shape_id" in sql.lower():
+                if "entity_id" not in sql.lower() or (
+                    "shape_id" in sql.lower() and 
+                    "entity_id, shape_id" not in sql.lower() and
+                    "entity_id,shape_id" not in sql.lower()
+                ):
+                    # Vérifier si c'est l'ancien format problématique
+                    if "ix_activities_shape_id" in name or (
+                        "shape_id" in sql and "entity_id" not in sql
+                    ):
+                        result["problem_detected"] = True
+                        result["problem_description"] = f"Index UNIQUE sur shape_id seul: {name}"
+    except Exception as e:
+        result["index_error"] = str(e)
+    
+    # Vérifier les entités et leurs activités
+    try:
+        entities = Entity.query.all()
+        for e in entities:
+            count = Activities.query.filter_by(entity_id=e.id).count()
+            result["entities"].append({
+                "id": e.id,
+                "name": e.name,
+                "is_active": e.is_active,
+                "activities_count": count
+            })
+    except Exception as e:
+        result["entity_error"] = str(e)
+    
+    return jsonify(result)
+
+
+@activities_map_bp.route("/api/fix-index", methods=["POST"])
+def fix_shape_id_index():
+    """Corrige l'index UNIQUE sur shape_id pour permettre les doublons entre entités."""
+    from sqlalchemy import text
+    
+    result = {
+        "status": "ok",
+        "actions": [],
+        "errors": []
+    }
+    
+    try:
+        # Supprimer l'ancien index problématique s'il existe
+        try:
+            db.session.execute(text("DROP INDEX IF EXISTS ix_activities_shape_id"))
+            result["actions"].append("Supprimé: ix_activities_shape_id")
+        except Exception as e:
+            result["actions"].append(f"Pas d'index ix_activities_shape_id à supprimer")
+        
+        # Vérifier si l'index correct existe
+        existing = db.session.execute(text("""
+            SELECT name FROM sqlite_master 
+            WHERE type='index' AND name='ix_activities_entity_shape'
+        """)).fetchone()
+        
+        if not existing:
+            # Créer l'index correct
+            db.session.execute(text("""
+                CREATE UNIQUE INDEX ix_activities_entity_shape 
+                ON activities(entity_id, shape_id)
+                WHERE shape_id IS NOT NULL
+            """))
+            result["actions"].append("Créé: ix_activities_entity_shape sur (entity_id, shape_id)")
+        else:
+            result["actions"].append("L'index ix_activities_entity_shape existe déjà")
+        
+        db.session.commit()
+        
+    except Exception as e:
+        result["status"] = "error"
+        result["errors"].append(str(e))
+        db.session.rollback()
+    
+    return jsonify(result)

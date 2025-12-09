@@ -499,7 +499,7 @@ function initResyncButton() {
         return;
       }
 
-      const msg = `Re-synchronisation terminée!\n\nActivités ajoutées: ${data.sync.added}\nActivités existantes: ${data.sync.existing}\nTotal dans SVG: ${data.sync.total_in_svg}`;
+      const msg = `Re-synchronisation terminée!\n\nActivités ajoutées: ${data.sync.added}\nActivités existantes: ${data.sync.existing}\nActivités ignorées (erreurs): ${data.sync.skipped || 0}\nTotal dans SVG: ${data.sync.total_in_svg}`;
       alert(msg);
       
       // Recharger la page pour voir les nouvelles activités
