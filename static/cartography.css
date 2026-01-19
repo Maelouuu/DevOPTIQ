@@ -782,3 +782,116 @@
   filter: drop-shadow(0 0 8px #22c55e);
   opacity: 0.85;
 }
+/* ================================================
+   DROPZONE DANS POPUP ACTIONS
+================================================ */
+.action-section {
+  margin-bottom: 16px;
+}
+
+.action-section h3 {
+  font-size: 1.1rem;
+  margin-bottom: 8px;
+  color: #111827;
+}
+
+#carto-dropzone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 30px;
+  background: #f9fafb;
+  border: 2px dashed #d1d5db;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+#carto-dropzone:hover,
+#carto-dropzone.dragover {
+  background: #ecfdf5;
+  border-color: #22c55e;
+}
+
+#carto-dropzone .dropzone-icon {
+  font-size: 2rem;
+}
+
+#carto-dropzone .dropzone-hint {
+  font-size: 0.85rem;
+  color: #6b7280;
+}
+
+/* Status de la dropzone */
+#carto-dropzone-status {
+  margin-top: 12px;
+}
+
+.status-loading {
+  color: #f59e0b;
+  font-weight: 500;
+}
+
+.status-error {
+  color: #ef4444;
+  font-weight: 500;
+}
+
+/* Résultats de synchronisation */
+.sync-result {
+  background: #ecfdf5;
+  border: 1px solid #22c55e;
+  border-radius: 10px;
+  padding: 16px;
+  margin-top: 12px;
+}
+
+.sync-result h4 {
+  margin: 0 0 12px 0;
+  color: #16a34a;
+}
+
+.sync-result ul {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 12px 0;
+}
+
+.sync-result li {
+  padding: 4px 0;
+}
+
+.sync-details {
+  margin-top: 12px;
+  padding: 10px;
+  background: #f0fdf4;
+  border-radius: 8px;
+  font-size: 0.9rem;
+}
+
+.sync-details ul {
+  margin: 8px 0 0 16px;
+  list-style: disc;
+}
+
+.sync-warning {
+  margin-top: 12px;
+  padding: 10px;
+  background: #fffbeb;
+  border: 1px solid #f59e0b;
+  border-radius: 8px;
+  font-size: 0.9rem;
+}
+
+.sync-warning .hint {
+  font-size: 0.8rem;
+  color: #92400e;
+  margin: 4px 0;
+}
+
+.sync-warning ul {
+  margin: 8px 0 0 16px;
+  list-style: disc;
+}

@@ -18,6 +18,7 @@ from flask import (
     send_file
 )
 
+from sqlalchemy import or_
 from Code.extensions import db
 from Code.models.models import Activities, Entity
 
@@ -52,7 +53,10 @@ def ensure_entity_dir(entity_id):
 # ============================================================
 @activities_map_bp.route("/map")
 def activities_map_page():
+    from flask import session
+    
     active_entity = Entity.get_active()
+    active_entity_id = session.get('active_entity_id')
     
     svg_exists = False
     if active_entity:
@@ -72,7 +76,7 @@ def activities_map_page():
         if act.shape_id is not None
     }
     
-    all_entities = Entity.query.order_by(Entity.name).all()
+    all_entities = Entity.for_user().all()
     
     active_entity_dict = None
     if active_entity:
@@ -81,7 +85,7 @@ def activities_map_page():
             "name": active_entity.name,
             "description": active_entity.description or "",
             "svg_filename": active_entity.svg_filename,
-            "is_active": active_entity.is_active
+            "is_active": True  # Par définition, c'est l'entité active
         }
     
     all_entities_list = [
@@ -90,7 +94,7 @@ def activities_map_page():
             "name": e.name,
             "description": e.description or "",
             "svg_filename": e.svg_filename,
-            "is_active": e.is_active
+            "is_active": (e.id == active_entity_id)  # Basé sur la session
         }
         for e in all_entities
     ]
@@ -131,14 +135,24 @@ def serve_svg():
 # ============================================================
 @activities_map_bp.route("/api/entities", methods=["GET"])
 def list_entities():
-    entities = Entity.query.order_by(Entity.name).all()
+    from flask import session
+    
+    user_id = session.get('user_id')
+    active_entity_id = session.get('active_entity_id')
+    
+    if not user_id:
+        return jsonify([])  # Pas connecté = pas d'entités
+    
+    # STRICT: Seulement les entités de l'utilisateur
+    entities = Entity.query.filter_by(owner_id=user_id).order_by(Entity.name).all()
+    
     return jsonify([
         {
             "id": e.id,
             "name": e.name,
             "description": e.description,
             "svg_filename": e.svg_filename,
-            "is_active": e.is_active,
+            "is_active": (e.id == active_entity_id),
             "activities_count": Activities.query.filter_by(entity_id=e.id).count()
         }
         for e in entities
@@ -147,14 +161,19 @@ def list_entities():
 
 @activities_map_bp.route("/api/entities", methods=["POST"])
 def create_entity():
+    from flask import session
+    
     data = request.get_json()
     
     if not data or not data.get("name"):
         return jsonify({"error": "Nom requis"}), 400
     
+    user_id = session.get('user_id')
+    
     entity = Entity(
         name=data["name"],
         description=data.get("description", ""),
+        owner_id=user_id,
         is_active=False
     )
     db.session.add(entity)
@@ -175,24 +194,23 @@ def create_entity():
 
 @activities_map_bp.route("/api/entities/<int:entity_id>/activate", methods=["POST"])
 def activate_entity(entity_id):
-    """Active une entité (désactive les autres)."""
-    entity = Entity.query.get(entity_id)
+    """Active une entité pour l'utilisateur courant (stocké dans la session)."""
+    from flask import session
+    
+    user_id = session.get('user_id')
+    
+    if not user_id:
+        return jsonify({"error": "Non connecté"}), 401
+    
+    # STRICT: Vérifier que l'entité appartient à l'utilisateur
+    entity = Entity.query.filter_by(id=entity_id, owner_id=user_id).first()
     
     if not entity:
-        return jsonify({"error": "Entité non trouvée"}), 404
+        return jsonify({"error": "Entité non trouvée ou non autorisée"}), 404
     
     try:
-        # IMPORTANT: Ne PAS utiliser Entity.query.update() qui bloque SQLite
-        # À la place, on récupère et modifie chaque entité individuellement
-        all_entities = Entity.query.all()
-        
-        for e in all_entities:
-            if e.id == entity_id:
-                e.is_active = True
-            else:
-                e.is_active = False
-        
-        db.session.commit()
+        # Stocker l'entité active dans la session
+        session['active_entity_id'] = entity.id
         
         return jsonify({
             "status": "ok",
@@ -200,17 +218,24 @@ def activate_entity(entity_id):
         })
         
     except Exception as e:
-        db.session.rollback()
         print(f"[ACTIVATE] Erreur: {e}")
         return jsonify({"error": str(e)}), 500
 
 
 @activities_map_bp.route("/api/entities/<int:entity_id>", methods=["DELETE"])
 def delete_entity(entity_id):
-    entity = Entity.query.get(entity_id)
+    from flask import session
+    
+    user_id = session.get('user_id')
+    
+    if not user_id:
+        return jsonify({"error": "Non connecté"}), 401
+    
+    # STRICT: Vérifier que l'entité appartient à l'utilisateur
+    entity = Entity.query.filter_by(id=entity_id, owner_id=user_id).first()
     
     if not entity:
-        return jsonify({"error": "Entité non trouvée"}), 404
+        return jsonify({"error": "Entité non trouvée ou non autorisée"}), 404
     
     activities_count = Activities.query.filter_by(entity_id=entity_id).count()
     
@@ -224,11 +249,13 @@ def delete_entity(entity_id):
         db.session.delete(entity)
         db.session.commit()
         
-        if not Entity.get_active():
-            first = Entity.query.first()
+        # Si l'entité supprimée était l'active, en choisir une autre
+        if session.get('active_entity_id') == entity_id:
+            first = Entity.query.filter_by(owner_id=user_id).first()
             if first:
-                first.is_active = True
-                db.session.commit()
+                session['active_entity_id'] = first.id
+            else:
+                session.pop('active_entity_id', None)
         
         return jsonify({
             "status": "ok",
@@ -242,10 +269,18 @@ def delete_entity(entity_id):
 
 @activities_map_bp.route("/api/entities/<int:entity_id>", methods=["PATCH"])
 def update_entity(entity_id):
-    entity = Entity.query.get(entity_id)
+    from flask import session
+    
+    user_id = session.get('user_id')
+    
+    if not user_id:
+        return jsonify({"error": "Non connecté"}), 401
+    
+    # STRICT: Vérifier que l'entité appartient à l'utilisateur
+    entity = Entity.query.filter_by(id=entity_id, owner_id=user_id).first()
     
     if not entity:
-        return jsonify({"error": "Entité non trouvée"}), 404
+        return jsonify({"error": "Entité non trouvée ou non autorisée"}), 404
     
     data = request.get_json()
     
@@ -347,12 +382,24 @@ def extract_activities_from_svg(svg_path):
 
 
 def sync_activities_with_svg(entity_id, svg_path):
-    """Synchronise les activités en base avec celles du SVG."""
+    """
+    Synchronise INTELLIGEMMENT les activités en base avec celles du SVG.
+    
+    Logique basée sur le shape_id (identifiant unique Visio) :
+    - shape_id dans SVG mais pas en base → CRÉER
+    - shape_id existe en base avec nom différent → RENOMMER (garder les données)
+    - shape_id en base mais pas dans SVG → SIGNALER comme supprimé
+    """
     stats = {
         "added": 0,
-        "existing": 0,
+        "renamed": 0,
+        "unchanged": 0,
+        "deleted_warning": 0,
         "skipped": 0,
-        "total_in_svg": 0
+        "total_in_svg": 0,
+        "renamed_list": [],      # Liste des renommages effectués
+        "deleted_list": [],      # Liste des activités potentiellement supprimées
+        "errors": []
     }
     
     print(f"[SYNC] Démarrage pour entity_id={entity_id}")
@@ -364,20 +411,21 @@ def sync_activities_with_svg(entity_id, svg_path):
         print("[SYNC] Aucune activité extraite!")
         return stats
     
-    # Shape IDs existants pour CETTE entité
-    existing = Activities.query.filter_by(entity_id=entity_id).all()
-    existing_shape_ids = {str(a.shape_id) for a in existing if a.shape_id}
-    existing_names = {a.name.lower() for a in existing}
+    # Créer un dictionnaire shape_id -> name depuis le SVG
+    svg_shape_map = {str(act["shape_id"]): act["name"] for act in svg_activities}
+    svg_shape_ids = set(svg_shape_map.keys())
     
-    for act_data in svg_activities:
-        shape_id = str(act_data["shape_id"])
-        name = act_data["name"]
-        
-        # Vérifier si existe déjà pour cette entité
-        if shape_id in existing_shape_ids or name.lower() in existing_names:
-            stats["existing"] += 1
-            continue
-        
+    # Récupérer les activités existantes pour cette entité
+    existing_activities = Activities.query.filter_by(entity_id=entity_id).all()
+    existing_shape_map = {str(a.shape_id): a for a in existing_activities if a.shape_id}
+    existing_shape_ids = set(existing_shape_map.keys())
+    
+    print(f"[SYNC] SVG: {len(svg_shape_ids)} activités | Base: {len(existing_shape_ids)} activités")
+    
+    # === 1. NOUVELLES ACTIVITÉS (dans SVG mais pas en base) ===
+    new_shape_ids = svg_shape_ids - existing_shape_ids
+    for shape_id in new_shape_ids:
+        name = svg_shape_map[shape_id]
         try:
             new_activity = Activities(
                 entity_id=entity_id,
@@ -389,26 +437,53 @@ def sync_activities_with_svg(entity_id, svg_path):
                 delay_minutes=0
             )
             db.session.add(new_activity)
-            # Commit immédiat pour chaque activité (évite les gros rollbacks)
             db.session.commit()
             stats["added"] += 1
-            print(f"[SYNC] ✓ Ajouté: {name}")
-            
-            # Mettre à jour les sets pour éviter les doublons
-            existing_shape_ids.add(shape_id)
-            existing_names.add(name.lower())
-            
+            print(f"[SYNC] ✓ AJOUTÉ: {name} (shape_id={shape_id})")
         except Exception as e:
             db.session.rollback()
-            error_msg = str(e)
-            if "UNIQUE constraint" in error_msg:
-                print(f"[SYNC] ⚠️ Doublon ignoré: {name} (shape_id={shape_id})")
-                stats["skipped"] += 1
-            else:
-                print(f"[SYNC] Erreur ajout {name}: {e}")
-                stats["skipped"] += 1
+            stats["skipped"] += 1
+            stats["errors"].append(f"{name}: {str(e)[:100]}")
+            print(f"[SYNC] ❌ ERREUR ajout '{name}': {e}")
     
-    print(f"[SYNC] Terminé: {stats['added']} ajoutées, {stats['existing']} existantes, {stats['skipped']} ignorées")
+    # === 2. ACTIVITÉS EXISTANTES - vérifier les renommages ===
+    common_shape_ids = svg_shape_ids & existing_shape_ids
+    for shape_id in common_shape_ids:
+        svg_name = svg_shape_map[shape_id]
+        db_activity = existing_shape_map[shape_id]
+        
+        if db_activity.name != svg_name:
+            # Renommage détecté !
+            old_name = db_activity.name
+            db_activity.name = svg_name
+            try:
+                db.session.commit()
+                stats["renamed"] += 1
+                stats["renamed_list"].append({
+                    "old": old_name,
+                    "new": svg_name,
+                    "shape_id": shape_id
+                })
+                print(f"[SYNC] ✏️ RENOMMÉ: '{old_name}' → '{svg_name}'")
+            except Exception as e:
+                db.session.rollback()
+                print(f"[SYNC] ❌ ERREUR renommage: {e}")
+        else:
+            stats["unchanged"] += 1
+    
+    # === 3. ACTIVITÉS SUPPRIMÉES (en base mais plus dans SVG) ===
+    deleted_shape_ids = existing_shape_ids - svg_shape_ids
+    for shape_id in deleted_shape_ids:
+        db_activity = existing_shape_map[shape_id]
+        stats["deleted_warning"] += 1
+        stats["deleted_list"].append({
+            "id": db_activity.id,
+            "name": db_activity.name,
+            "shape_id": shape_id
+        })
+        print(f"[SYNC] ⚠️ SUPPRIMÉ DU SVG: '{db_activity.name}' (shape_id={shape_id})")
+    
+    print(f"[SYNC] Terminé: +{stats['added']} ajoutées, ✏️{stats['renamed']} renommées, ⚠️{stats['deleted_warning']} supprimées du SVG")
     return stats
 
 
@@ -500,3 +575,190 @@ def resync_activities():
 @activities_map_bp.route("/update-cartography")
 def update_cartography():
     return jsonify({"status": "ok", "message": "Cartographie rechargée"}), 200
+
+
+# ============================================================
+# DIAGNOSTIC BASE DE DONNÉES (pour débug)
+# ============================================================
+@activities_map_bp.route("/api/diagnostic")
+def diagnostic_db():
+    """Route de diagnostic pour vérifier les index et les activités."""
+    from sqlalchemy import text
+    
+    result = {
+        "indexes": [],
+        "entities": [],
+        "problem_detected": False,
+        "problem_description": None,
+        "database_type": "unknown"
+    }
+    
+    # Détecter le type de base de données
+    try:
+        db.session.execute(text("SELECT version()"))
+        result["database_type"] = "postgresql"
+    except:
+        result["database_type"] = "sqlite"
+    
+    # Vérifier les index sur activities
+    try:
+        if result["database_type"] == "postgresql":
+            indexes = db.session.execute(text("""
+                SELECT indexname, indexdef 
+                FROM pg_indexes 
+                WHERE tablename = 'activities'
+            """)).fetchall()
+        else:
+            indexes = db.session.execute(text("""
+                SELECT name, sql 
+                FROM sqlite_master 
+                WHERE type='index' AND tbl_name='activities' AND sql IS NOT NULL
+            """)).fetchall()
+        
+        for row in indexes:
+            name, sql = row[0], row[1]
+            result["indexes"].append({"name": name, "sql": sql})
+            
+            # Détecter un index UNIQUE sur shape_id seul
+            if sql and "shape_id" in sql.lower():
+                # Si c'est un index sur shape_id sans entity_id
+                if "ix_activities_shape_id" in name.lower():
+                    result["problem_detected"] = True
+                    result["problem_description"] = f"Index UNIQUE sur shape_id seul détecté: {name}"
+                elif "unique" in sql.lower() and "entity_id" not in sql.lower():
+                    result["problem_detected"] = True
+                    result["problem_description"] = f"Index UNIQUE sur shape_id seul: {name}"
+                    
+    except Exception as e:
+        result["index_error"] = str(e)[:200]
+    
+    # Vérifier les entités et leurs activités
+    try:
+        entities = Entity.query.all()
+        for e in entities:
+            count = Activities.query.filter_by(entity_id=e.id).count()
+            result["entities"].append({
+                "id": e.id,
+                "name": e.name,
+                "is_active": e.is_active,
+                "activities_count": count
+            })
+    except Exception as e:
+        result["entity_error"] = str(e)[:200]
+    
+    return jsonify(result)
+
+
+@activities_map_bp.route("/api/drop-bad-index", methods=["POST"])
+def drop_bad_index():
+    """Force la suppression de l'index ix_activities_shape_id."""
+    from sqlalchemy import text
+    import time
+    
+    result = {
+        "status": "pending",
+        "attempts": [],
+        "final_check": None
+    }
+    
+    # Essayer plusieurs fois
+    for attempt in range(5):
+        try:
+            db.session.execute(text("DROP INDEX IF EXISTS ix_activities_shape_id"))
+            db.session.commit()
+            result["attempts"].append(f"Tentative {attempt + 1}: SUCCESS")
+            result["status"] = "ok"
+            break
+        except Exception as e:
+            db.session.rollback()
+            result["attempts"].append(f"Tentative {attempt + 1}: {str(e)[:80]}")
+            time.sleep(0.5)  # Attendre un peu avant de réessayer
+    
+    # Vérifier si l'index existe encore
+    try:
+        check = db.session.execute(text("""
+            SELECT indexname FROM pg_indexes 
+            WHERE tablename = 'activities' AND indexname = 'ix_activities_shape_id'
+        """)).fetchone()
+        
+        if check:
+            result["final_check"] = "ÉCHEC - L'index existe toujours!"
+            result["status"] = "failed"
+        else:
+            result["final_check"] = "OK - L'index a été supprimé"
+            result["status"] = "ok"
+    except Exception as e:
+        result["final_check"] = f"Erreur vérification: {str(e)[:80]}"
+    
+    return jsonify(result)
+
+
+@activities_map_bp.route("/api/fix-index", methods=["POST"])
+def fix_shape_id_index():
+    """Corrige l'index UNIQUE sur shape_id pour permettre les doublons entre entités."""
+    from sqlalchemy import text
+    
+    result = {
+        "status": "ok",
+        "actions": [],
+        "errors": []
+    }
+    
+    try:
+        # 1. Supprimer l'ancien index problématique
+        try:
+            db.session.execute(text("DROP INDEX IF EXISTS ix_activities_shape_id"))
+            db.session.commit()
+            result["actions"].append("DROP ix_activities_shape_id: OK")
+        except Exception as e:
+            db.session.rollback()
+            result["actions"].append(f"DROP ix_activities_shape_id: {str(e)[:100]}")
+        
+        # 2. Vérifier les index existants (PostgreSQL)
+        try:
+            indexes = db.session.execute(text("""
+                SELECT indexname FROM pg_indexes 
+                WHERE tablename = 'activities' AND indexname LIKE '%shape%'
+            """)).fetchall()
+            result["existing_indexes"] = [row[0] for row in indexes]
+        except Exception as e:
+            result["existing_indexes"] = f"Erreur: {str(e)[:100]}"
+        
+        # 3. Créer le nouvel index si nécessaire
+        try:
+            # Vérifier si l'index correct existe
+            check = db.session.execute(text("""
+                SELECT 1 FROM pg_indexes 
+                WHERE tablename = 'activities' AND indexname = 'ix_activities_entity_shape'
+            """)).fetchone()
+            
+            if not check:
+                db.session.execute(text("""
+                    CREATE UNIQUE INDEX ix_activities_entity_shape 
+                    ON activities(entity_id, shape_id)
+                    WHERE shape_id IS NOT NULL
+                """))
+                db.session.commit()
+                result["actions"].append("CREATE ix_activities_entity_shape: OK")
+            else:
+                result["actions"].append("ix_activities_entity_shape existe déjà")
+        except Exception as e:
+            db.session.rollback()
+            result["errors"].append(f"CREATE index: {str(e)[:150]}")
+        
+        # 4. Vérification finale
+        try:
+            final_indexes = db.session.execute(text("""
+                SELECT indexname, indexdef FROM pg_indexes 
+                WHERE tablename = 'activities' AND indexname LIKE '%shape%'
+            """)).fetchall()
+            result["final_indexes"] = [{"name": row[0], "def": row[1]} for row in final_indexes]
+        except Exception as e:
+            result["final_indexes"] = f"Erreur: {str(e)[:100]}"
+            
+    except Exception as e:
+        result["status"] = "error"
+        result["errors"].append(str(e)[:200])
+        db.session.rollback()
+    
+    return jsonify(result)

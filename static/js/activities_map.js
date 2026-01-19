@@ -469,15 +469,105 @@ function initPopup() {
   });
 }
 
-function initReloadButton() {
-  const btn = document.getElementById("reload-carto-btn");
-  if (!btn) return;
+/* ============================================================
+   DROPZONE DANS POPUP ACTIONS CARTOGRAPHIE
+============================================================ */
+function initCartoDropzone() {
+  const dropzone = document.getElementById("carto-dropzone");
+  const fileInput = document.getElementById("carto-file-input");
+  const status = document.getElementById("carto-dropzone-status");
+  
+  if (!dropzone || !fileInput) return;
+  
+  // Clic sur la dropzone = ouvrir le sélecteur de fichier
+  dropzone.onclick = () => fileInput.click();
+  
+  // Drag & drop
+  dropzone.addEventListener("dragover", (e) => {
+    e.preventDefault();
+    dropzone.classList.add("dragover");
+  });
+  
+  dropzone.addEventListener("dragleave", () => {
+    dropzone.classList.remove("dragover");
+  });
+  
+  dropzone.addEventListener("drop", async (e) => {
+    e.preventDefault();
+    dropzone.classList.remove("dragover");
+    const file = e.dataTransfer.files[0];
+    if (file) await uploadCartoFile(file, status);
+  });
+  
+  // Sélection via input file
+  fileInput.addEventListener("change", async (e) => {
+    const file = e.target.files[0];
+    if (file) await uploadCartoFile(file, status);
+  });
+}
 
-  btn.onclick = () => {
-    btn.textContent = "⏳ Mise à jour…";
-    btn.disabled = true;
-    window.location.reload();
-  };
+async function uploadCartoFile(file, statusEl) {
+  if (!file.name.toLowerCase().endsWith(".svg")) {
+    statusEl.innerHTML = '<span class="status-error">❌ Format invalide - fichier SVG requis</span>';
+    return;
+  }
+  
+  statusEl.innerHTML = '<span class="status-loading">⏳ Upload en cours...</span>';
+  
+  const formData = new FormData();
+  formData.append("file", file);
+  
+  try {
+    const res = await fetch("/activities/upload-carto", {
+      method: "POST",
+      body: formData
+    });
+    
+    const data = await res.json();
+    
+    if (data.error) {
+      statusEl.innerHTML = `<span class="status-error">❌ ${data.error}</span>`;
+      return;
+    }
+    
+    // Afficher le résumé de la synchronisation
+    const sync = data.sync || {};
+    let html = '<div class="sync-result">';
+    html += '<h4>✅ Cartographie mise à jour</h4>';
+    html += '<ul>';
+    html += `<li>📊 Total dans SVG: <strong>${sync.total_in_svg || 0}</strong></li>`;
+    html += `<li>➕ Nouvelles activités: <strong>${sync.added || 0}</strong></li>`;
+    html += `<li>✏️ Renommées: <strong>${sync.renamed || 0}</strong></li>`;
+    html += `<li>⚠️ Supprimées du SVG: <strong>${sync.deleted_warning || 0}</strong></li>`;
+    html += '</ul>';
+    
+    // Afficher les renommages
+    if (sync.renamed_list && sync.renamed_list.length > 0) {
+      html += '<div class="sync-details"><strong>Renommages:</strong><ul>';
+      sync.renamed_list.forEach(r => {
+        html += `<li>"${r.old}" → "${r.new}"</li>`;
+      });
+      html += '</ul></div>';
+    }
+    
+    // Afficher les suppressions potentielles
+    if (sync.deleted_list && sync.deleted_list.length > 0) {
+      html += '<div class="sync-warning"><strong>⚠️ Activités absentes du SVG:</strong>';
+      html += '<p class="hint">Ces activités existent en base mais ne sont plus dans le SVG. Leurs données sont conservées.</p><ul>';
+      sync.deleted_list.forEach(d => {
+        html += `<li>${d.name}</li>`;
+      });
+      html += '</ul></div>';
+    }
+    
+    html += '<button onclick="window.location.reload()" class="btn-blue">🔄 Recharger la page</button>';
+    html += '</div>';
+    
+    statusEl.innerHTML = html;
+    
+  } catch (e) {
+    statusEl.innerHTML = `<span class="status-error">❌ Erreur réseau: ${e}</span>`;
+  }
 }
 
 function initResyncButton() {
@@ -494,20 +584,40 @@ function initResyncButton() {
 
       if (data.error) {
         alert("Erreur: " + data.error);
-        btn.textContent = "🔄 Re-synchroniser les activités depuis le SVG";
+        btn.textContent = "🔄 Re-synchroniser les activités";
         btn.disabled = false;
         return;
       }
 
-      const msg = `Re-synchronisation terminée!\n\nActivités ajoutées: ${data.sync.added}\nActivités existantes: ${data.sync.existing}\nTotal dans SVG: ${data.sync.total_in_svg}`;
-      alert(msg);
+      // Construire le message avec les nouvelles stats
+      const sync = data.sync || {};
+      let msg = `Re-synchronisation terminée!\n\n`;
+      msg += `📊 Total dans SVG: ${sync.total_in_svg || 0}\n`;
+      msg += `➕ Nouvelles activités: ${sync.added || 0}\n`;
+      msg += `✏️ Renommées: ${sync.renamed || 0}\n`;
+      msg += `✓ Inchangées: ${sync.unchanged || 0}\n`;
+      msg += `⚠️ Absentes du SVG: ${sync.deleted_warning || 0}\n`;
       
-      // Recharger la page pour voir les nouvelles activités
+      if (sync.renamed_list && sync.renamed_list.length > 0) {
+        msg += `\nRenommages:\n`;
+        sync.renamed_list.forEach(r => {
+          msg += `  • "${r.old}" → "${r.new}"\n`;
+        });
+      }
+      
+      if (sync.deleted_list && sync.deleted_list.length > 0) {
+        msg += `\n⚠️ Activités absentes du SVG (données conservées):\n`;
+        sync.deleted_list.forEach(d => {
+          msg += `  • ${d.name}\n`;
+        });
+      }
+      
+      alert(msg);
       window.location.reload();
 
     } catch (e) {
       alert("Erreur réseau: " + e);
-      btn.textContent = "🔄 Re-synchroniser les activités depuis le SVG";
+      btn.textContent = "🔄 Re-synchroniser les activités";
       btn.disabled = false;
     }
   };
@@ -883,7 +993,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   // Initialiser les contrôles UI
   initListClicks();
   initPopup();
-  initReloadButton();
+  initCartoDropzone();
   initResyncButton();
   initEntityManager();
 

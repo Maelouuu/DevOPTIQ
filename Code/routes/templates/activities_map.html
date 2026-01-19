@@ -139,30 +139,41 @@
   </div>
 
   <!-- ============================================================
-       POPUP ACTIONS CARTOGRAPHIE (ancien)
+       POPUP ACTIONS CARTOGRAPHIE
   ============================================================ -->
   <div id="carto-actions-popup" class="popup hidden">
     <div class="popup-content">
       <h2>Actions sur la cartographie</h2>
 
-      <button id="reload-carto-btn" class="btn-blue">
-        🔄 Recharger la cartographie
-      </button>
+      <!-- SECTION 1: Upload/Rechargement de cartographie -->
+      <div class="action-section">
+        <h3>📤 Mettre à jour la cartographie</h3>
+        <p class="info-text-small">
+          Glissez un fichier SVG exporté depuis Visio pour mettre à jour la cartographie.
+        </p>
+        <div id="carto-dropzone" class="dropzone">
+          <span class="dropzone-icon">📁</span>
+          <span>Glissez votre fichier SVG ici</span>
+          <span class="dropzone-hint">ou cliquez pour sélectionner</span>
+          <input type="file" id="carto-file-input" accept=".svg" hidden>
+        </div>
+        <div id="carto-dropzone-status"></div>
+      </div>
 
       <hr>
 
-      <button id="resync-activities-btn" class="btn-green">
-        🔄 Re-synchroniser les activités depuis le SVG
-      </button>
-      <p class="info-text-small">
-        Utilisez ce bouton si les activités n'apparaissent pas dans la liste après un upload.
-      </p>
+      <!-- SECTION 2: Synchronisation -->
+      <div class="action-section">
+        <h3>🔄 Synchronisation</h3>
+        <button id="resync-activities-btn" class="btn-green">
+          🔄 Re-synchroniser les activités
+        </button>
+        <p class="info-text-small">
+          Vérifie les différences entre le SVG et la base de données.
+        </p>
+      </div>
 
       <hr>
-
-      <p class="info-text">
-        Pour importer une nouvelle cartographie, utilisez le <strong>Gestionnaire d'entités</strong>.
-      </p>
 
       <button id="close-popup" class="btn-red">Fermer</button>
     </div>

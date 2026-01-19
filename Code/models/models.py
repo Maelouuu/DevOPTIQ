@@ -1,5 +1,7 @@
 # Code/models/models.py
 from datetime import datetime
+from flask import session
+from sqlalchemy import or_
 from Code.extensions import db
 
 # -------------------------------------------------------------------
@@ -36,6 +38,9 @@ class Entity(db.Model):
     """
     Représente une organisation/entreprise avec sa cartographie.
     Chaque entité possède ses propres données (activités, rôles, etc.)
+    et appartient à un utilisateur (owner_id).
+    
+    L'entité ACTIVE est stockée dans la session utilisateur (pas en base).
     """
     __tablename__ = 'entities'
 
@@ -43,10 +48,13 @@ class Entity(db.Model):
     name = db.Column(db.String(200), nullable=False)
     description = db.Column(db.Text, nullable=True)
     
+    # Propriétaire de l'entité (user qui l'a créée)
+    owner_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True, index=True)
+    
     # Fichier SVG actif pour cette entité
     svg_filename = db.Column(db.String(255), nullable=True)
     
-    # Statut
+    # DEPRECATED: is_active n'est plus utilisé, l'entité active est dans la session
     is_active = db.Column(db.Boolean, default=False, nullable=False)
     
     # Timestamps
@@ -64,27 +72,82 @@ class Entity(db.Model):
         return f'<Entity {self.id}: {self.name}>'
     
     @classmethod
-    def get_active(cls):
-        """Retourne l'entité actuellement active."""
-        return cls.query.filter_by(is_active=True).first()
+    def get_active(cls, user_id=None):
+        """
+        Retourne l'entité active pour l'utilisateur courant.
+        L'ID de l'entité active est stocké dans session['active_entity_id'].
+        STRICT: Ne retourne que les entités appartenant à l'utilisateur.
+        """
+        if user_id is None:
+            user_id = session.get('user_id')
+        
+        if not user_id:
+            return None  # Pas connecté = pas d'entité
+        
+        active_entity_id = session.get('active_entity_id')
+        
+        if active_entity_id:
+            # Vérifier que l'entité appartient à cet utilisateur
+            entity = cls.query.filter(
+                cls.id == active_entity_id,
+                cls.owner_id == user_id
+            ).first()
+            
+            if entity:
+                return entity
+        
+        # Fallback: retourner la première entité de l'utilisateur
+        first_entity = cls.query.filter_by(owner_id=user_id).first()
+        
+        if first_entity:
+            session['active_entity_id'] = first_entity.id
+            return first_entity
+        
+        return None
     
     @classmethod
-    def get_active_id(cls):
+    def get_active_id(cls, user_id=None):
         """Retourne l'ID de l'entité active (ou None)."""
-        entity = cls.get_active()
+        entity = cls.get_active(user_id)
         return entity.id if entity else None
     
     @classmethod
-    def set_active(cls, entity_id):
-        """Définit une entité comme active (désactive les autres)."""
-        # Désactiver toutes les entités
-        cls.query.update({cls.is_active: False})
-        # Activer l'entité spécifiée
-        entity = cls.query.get(entity_id)
+    def set_active(cls, entity_id, user_id=None):
+        """
+        Définit une entité comme active pour l'utilisateur courant.
+        Stocke l'ID dans la session (pas en base).
+        STRICT: Ne permet d'activer que les entités appartenant à l'utilisateur.
+        """
+        if user_id is None:
+            user_id = session.get('user_id')
+        
+        if not user_id:
+            return None  # Pas connecté
+        
+        # Vérifier que l'entité appartient à cet utilisateur
+        entity = cls.query.filter_by(id=entity_id, owner_id=user_id).first()
+        
         if entity:
-            entity.is_active = True
-            db.session.commit()
-        return entity
+            session['active_entity_id'] = entity.id
+            return entity
+        
+        return None
+    
+    @classmethod
+    def for_user(cls, user_id=None):
+        """
+        Retourne les entités appartenant à un utilisateur.
+        STRICT: Ne retourne que les entités avec owner_id correspondant.
+        """
+        if user_id is None:
+            user_id = session.get('user_id')
+        
+        if user_id:
+            return cls.query.filter_by(owner_id=user_id).order_by(cls.name)
+        
+        # Pas connecté = pas d'entités
+        return cls.query.filter(cls.id < 0)  # Query vide
+        return cls.query.order_by(cls.name)
 
 
 # -------------------------------------------------------------------
