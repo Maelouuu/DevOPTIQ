@@ -2,124 +2,31 @@
 <html lang="fr">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Liste des activités</title>
-  
   <!-- Font Awesome -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  
-  <!-- CSS principal (garde le style de base) -->
+  <!-- CSS principal -->
   <link rel="stylesheet" href="/static/optiq.css">
-  <link rel="stylesheet" href="/static/spinner.css">
-  
-  <!-- CSS de la refonte liste des activités -->
   <link rel="stylesheet" href="/static/activities_list.css">
+  <!-- CSS spinner -->
+  <link rel="stylesheet" href="/static/spinner.css">
 </head>
 <body>
 
-{% include "header_buttons.html" %}
+  {% include "header_buttons.html" %}
 
-<div class="activities-page">
-  
-  <!-- HEADER DE LA PAGE -->
-  <div class="activities-page-header">
-    <h1>
-      Liste des activités
-      <span class="activities-count">{{ activity_data|length }} activité{{ 's' if activity_data|length > 1 else '' }}</span>
-    </h1>
-    
-    <div class="activities-search-bar">
-      <input type="text" id="search-activities" placeholder="🔍 Rechercher une activité...">
-    </div>
-  </div>
+  <h1>Liste des activités</h1>
 
-  <!-- LISTE DES ACTIVITÉS -->
-  <div id="activities-container">
-    {% for item in activity_data %}
-      {% include "activity_card.html" %}
-    {% endfor %}
-  </div>
+  {% for item in activity_data %}
+    {% include "activity_card.html" %}
+  {% endfor %}
 
-</div>
+  {% include "modals_and_spinner.html" %}
 
-<!-- Modals et Spinner -->
-{% include "modals_and_spinner.html" %}
-
-<!-- Scripts existants -->
-{% include "script_loader.html" %}
-<script defer src="{{ url_for('static', filename='js/activities_time.js') }}"></script>
-<script defer src="{{ url_for('static', filename='js/activity_highlight.js') }}"></script>
-
-<!-- Script de la page -->
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-  
-  // ====== RECHERCHE ======
-  const searchInput = document.getElementById('search-activities');
-  const containers = document.querySelectorAll('.activity-container');
-  
-  if (searchInput) {
-    searchInput.addEventListener('input', function() {
-      const query = this.value.toLowerCase().trim();
-      
-      containers.forEach(container => {
-        const title = container.querySelector('.activity-header h2');
-        const titleText = title ? title.textContent.toLowerCase() : '';
-        const description = container.querySelector('.activity-description');
-        const descText = description ? description.textContent.toLowerCase() : '';
-        
-        if (titleText.includes(query) || descText.includes(query) || query === '') {
-          container.style.display = '';
-        } else {
-          container.style.display = 'none';
-        }
-      });
-    });
-  }
-  
-  // ====== TOGGLE CARTE (override de l'ancien toggleDetails) ======
-  window.toggleDetails = function(detailsId, headerElement) {
-    const details = document.getElementById(detailsId);
-    const container = headerElement.closest('.activity-container');
-    
-    if (details.style.display === 'none' || details.style.display === '') {
-      details.style.display = 'block';
-      container.classList.add('expanded');
-      
-      // Activer le premier onglet si pas déjà fait
-      const firstTab = container.querySelector('.activity-tab');
-      const firstContent = container.querySelector('.activity-tab-content');
-      if (firstTab && !container.querySelector('.activity-tab.active')) {
-        firstTab.classList.add('active');
-        if (firstContent) firstContent.classList.add('active');
-      }
-    } else {
-      details.style.display = 'none';
-      container.classList.remove('expanded');
-    }
-  };
-  
-  // ====== SYSTÈME D'ONGLETS ======
-  document.querySelectorAll('.activity-tab').forEach(tab => {
-    tab.addEventListener('click', function(e) {
-      e.stopPropagation();
-      
-      const container = this.closest('.activity-container');
-      const tabTarget = this.dataset.tab;
-      
-      // Désactiver tous les onglets de cette carte
-      container.querySelectorAll('.activity-tab').forEach(t => t.classList.remove('active'));
-      container.querySelectorAll('.activity-tab-content').forEach(c => c.classList.remove('active'));
-      
-      // Activer l'onglet cliqué
-      this.classList.add('active');
-      const content = container.querySelector(`.activity-tab-content[data-tab="${tabTarget}"]`);
-      if (content) content.classList.add('active');
-    });
-  });
-  
-});
-</script>
+  {% include "script_loader.html" %}
+  <script defer src="{{ url_for('static', filename='js/activities_time.js') }}"></script>
+  <script defer src="{{ url_for('static', filename='js/activity_highlight.js') }}"></script>
 
 </body>
 </html>
+
