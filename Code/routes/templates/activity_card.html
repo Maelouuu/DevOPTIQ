@@ -1,152 +1,263 @@
-<!-- activity_card.html -->
+<!-- activity_card.html - Refonte avec onglets -->
 
 <div class="activity-container" data-activity-id="{{ item.activity.id }}">
-    <div class="activity-header" onclick="toggleDetails('details-{{ item.activity.id }}', this)">
-      <span class="toggle-icon" id="icon-{{ item.activity.id }}">▶</span>
-      <h2>{{ item.activity.name }}</h2>
-    </div>
   
-    <div class="activity-details" id="details-{{ item.activity.id }}" style="display:none;">
-      <p>{{ item.activity.description or "" }}</p>
-  
-      <!-- Garant -->
-      <div class="activity-garant" style="margin-bottom:10px;">
-        <button onclick="openGarantModal({{ item.activity.id }})">Garant</button>
-        <span id="activity-garant-{{ item.activity.id }}" style="margin-left:10px;">
-          {% if item.garant %}
-            {{ item.garant.name }}
-          {% else %}
-            Aucun
-          {% endif %}
+  <!-- HEADER DE LA CARTE -->
+  <div class="activity-header" onclick="toggleDetails('details-{{ item.activity.id }}', this)">
+    <span class="toggle-icon" id="icon-{{ item.activity.id }}">▶</span>
+    <span class="activity-number">{{ item.activity.id }}</span>
+    <h2>{{ item.activity.name }}</h2>
+    
+    <!-- Badges résumés -->
+    <div class="activity-badges">
+      {% if item.garant %}
+        <span class="badge badge-garant">
+          <i class="fa-solid fa-user-shield"></i> Garant
         </span>
-      </div>
+      {% endif %}
+      {% if item.tasks and item.tasks|length > 0 %}
+        <span class="badge badge-tasks">
+          {{ item.tasks|length }} tâche{{ 's' if item.tasks|length > 1 else '' }}
+        </span>
+      {% endif %}
+      {% if item.competencies and item.competencies|length > 0 %}
+        <span class="badge badge-competences">
+          {{ item.competencies|length }} comp.
+        </span>
+      {% endif %}
+    </div>
+  </div>
   
-      <!-- Connexions -->
-      <div class="connections-container">
+  <!-- CONTENU DÉTAILLÉ -->
+  <div class="activity-details" id="details-{{ item.activity.id }}" style="display:none;">
+    
+    <!-- Description -->
+    {% if item.activity.description %}
+    <div class="activity-description">
+      {{ item.activity.description }}
+    </div>
+    {% endif %}
+    
+    <!-- SYSTÈME D'ONGLETS -->
+    <div class="activity-tabs">
+      <div class="activity-tab active" data-tab="overview-{{ item.activity.id }}">
+        <i class="fa-solid fa-eye"></i> Vue d'ensemble
+      </div>
+      <div class="activity-tab" data-tab="connections-{{ item.activity.id }}">
+        <i class="fa-solid fa-arrows-left-right"></i> Connexions
+        <span class="tab-count">{{ (item.incoming|length if item.incoming else 0) + (item.outgoing|length if item.outgoing else 0) }}</span>
+      </div>
+      <div class="activity-tab" data-tab="tasks-{{ item.activity.id }}">
+        <i class="fa-solid fa-list-check"></i> Tâches
+        <span class="tab-count">{{ item.tasks|length if item.tasks else 0 }}</span>
+      </div>
+      <div class="activity-tab" data-tab="competences-{{ item.activity.id }}">
+        <i class="fa-solid fa-graduation-cap"></i> Compétences
+        <span class="tab-count">{{ item.competencies|length if item.competencies else 0 }}</span>
+      </div>
+      <div class="activity-tab" data-tab="skills-{{ item.activity.id }}">
+        <i class="fa-solid fa-brain"></i> Savoirs & Aptitudes
+      </div>
+    </div>
+    
+    <!-- ========== ONGLET VUE D'ENSEMBLE ========== -->
+    <div class="activity-tab-content active" data-tab="overview-{{ item.activity.id }}">
+      
+      <!-- Garant -->
+      <div class="section-header">
+        <h4><i class="fa-solid fa-user-shield"></i> Garant de l'activité</h4>
+      </div>
+      
+      <div class="garant-display">
+        {% if item.garant %}
+          <div class="garant-avatar">{{ item.garant.name[0] if item.garant.name else '?' }}</div>
+          <div class="garant-info">
+            <div class="name" id="activity-garant-{{ item.activity.id }}">{{ item.garant.name }}</div>
+            <div class="role">Rôle garant</div>
+          </div>
+        {% else %}
+          <div class="garant-avatar empty">?</div>
+          <div class="garant-info">
+            <div class="name" id="activity-garant-{{ item.activity.id }}">Aucun garant défini</div>
+            <div class="role">Cliquez pour assigner</div>
+          </div>
+        {% endif %}
+        <button class="garant-btn" onclick="openGarantModal({{ item.activity.id }})">
+          <i class="fa-solid fa-pencil"></i> Modifier
+        </button>
+      </div>
+      
+      <!-- Contraintes -->
+      {% if item.constraints and item.constraints|length > 0 %}
+      <div class="constraints-section">
+        <div class="section-header">
+          <h4><i class="fa-solid fa-triangle-exclamation"></i> Contraintes ({{ item.constraints|length }})</h4>
+        </div>
+        {% for constraint in item.constraints %}
+        <div class="constraint-item">
+          <div class="constraint-icon"><i class="fa-solid fa-exclamation"></i></div>
+          <div class="constraint-text">{{ constraint.name or constraint.description or constraint }}</div>
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+      
+      <!-- Temps -->
+      <div style="margin-top: 20px;">
+        {% include "activity_time_section.html" %}
+      </div>
+      
+    </div>
+    
+    <!-- ========== ONGLET CONNEXIONS ========== -->
+    <div class="activity-tab-content" data-tab="connections-{{ item.activity.id }}">
+      
+      <div class="connections-grid">
+        
         <!-- Connexions entrantes -->
-        <div class="incoming-connections">
-          <h3>Connexions entrantes</h3>
+        <div class="connections-box">
+          <h5><i class="fa-solid fa-arrow-right-to-bracket icon-in"></i> Connexions entrantes</h5>
+          
           {% if item.incoming and item.incoming|length > 0 %}
-            <table class="conn-table">
+          <table class="conn-table">
+            <thead>
               <tr>
-                <th>Nom de la donnée</th>
-                <th>Provenance</th>
+                <th>Donnée</th>
+                <th>Source</th>
               </tr>
+            </thead>
+            <tbody>
               {% for conn in item.incoming %}
-                <tr>
-                  <td>
-                    {% if conn.type|lower == 'déclenchante' %}
-                      <span class="declenchante">{{ conn.data_name }}</span>
-                    {% elif conn.type|lower == 'nourrissante' %}
-                      <span class="nourrissante">{{ conn.data_name }}</span>
-                    {% else %}
-                      {{ conn.data_name }}
-                    {% endif %}
-                  </td>
-                  <td>{{ conn.source_name }}</td>
-                </tr>
+              <tr>
+                <td>
+                  {% if conn.type|lower == 'déclenchante' %}
+                    <span class="declenchante">{{ conn.data_name }}</span>
+                  {% elif conn.type|lower == 'nourrissante' %}
+                    <span class="nourrissante">{{ conn.data_name }}</span>
+                  {% else %}
+                    {{ conn.data_name }}
+                  {% endif %}
+                </td>
+                <td>{{ conn.source_name }}</td>
+              </tr>
               {% endfor %}
-            </table>
+            </tbody>
+          </table>
           {% else %}
-            <p>Aucune connexion entrante.</p>
+          <div class="empty-message">Aucune connexion entrante</div>
           {% endif %}
         </div>
-  
+        
         <!-- Connexions sortantes -->
-        <div class="outgoing-connections">
-          <h3>Connexions sortantes</h3>
+        <div class="connections-box">
+          <h5><i class="fa-solid fa-arrow-right-from-bracket icon-out"></i> Connexions sortantes</h5>
+          
           {% if item.outgoing and item.outgoing|length > 0 %}
-            <table class="conn-table">
+          <table class="conn-table">
+            <thead>
               <tr>
-                <th>Nom de la donnée</th>
-                <th>Vers</th>
+                <th>Donnée</th>
+                <th>Destination</th>
                 <th>Performance</th>
               </tr>
+            </thead>
+            <tbody>
               {% for conn in item.outgoing %}
-                <tr>
-                  <td>
-                    {% if conn.type|lower == 'déclenchante' %}
-                      <span class="declenchante">{{ conn.data_name }}</span>
-                    {% elif conn.type|lower == 'nourrissante' %}
-                      <span class="nourrissante">{{ conn.data_name }}</span>
+              <tr>
+                <td>
+                  {% if conn.type|lower == 'déclenchante' %}
+                    <span class="declenchante">{{ conn.data_name }}</span>
+                  {% elif conn.type|lower == 'nourrissante' %}
+                    <span class="nourrissante">{{ conn.data_name }}</span>
+                  {% else %}
+                    {{ conn.data_name }}
+                  {% endif %}
+                </td>
+                <td>{{ conn.target_name }}</td>
+                <td>
+                  <div id="perf-cell-{{ conn.link_id }}" class="perf-container" data-linkid="{{ conn.link_id }}">
+                    {% if conn.performance %}
+                      <div id="perf-display-{{ conn.performance.id }}">
+                        <span class="perf-tag" id="perf-info-{{ conn.performance.id }}">
+                          {{ conn.performance.name }}
+                        </span>
+                        <button class="perf-btn" onclick="showEditPerfForm('{{ conn.performance.id }}','{{ conn.performance.name|escapejs }}')">
+                          <i class="fa-solid fa-pencil"></i>
+                        </button>
+                        <button class="perf-btn" onclick="deletePerformance('{{ conn.performance.id }}')">
+                          <i class="fa-solid fa-trash"></i>
+                        </button>
+                      </div>
+                      <div id="perf-edit-form-{{ conn.performance.id }}" style="display:none; margin-top:5px;">
+                        <input type="text" id="perf-edit-input-{{ conn.performance.id }}" style="width:200px !important; min-height:30px !important; font-size:0.8em !important;" />
+                        <button class="perf-btn" onclick="submitEditPerf('{{ conn.performance.id }}')">OK</button>
+                        <button class="perf-btn" onclick="hideEditPerfForm('{{ conn.performance.id }}')">✕</button>
+                      </div>
                     {% else %}
-                      {{ conn.data_name }}
+                      <button class="perf-btn" onclick="showAddPerfForm('{{ conn.link_id }}')">+ Performance</button>
+                      <div id="perf-add-form-{{ conn.link_id }}" style="display:none; margin-top:5px;">
+                        <input type="text" id="perf-add-input-{{ conn.link_id }}" style="width:200px !important; min-height:30px !important; font-size:0.8em !important;" />
+                        <button class="perf-btn" onclick="submitAddPerf('{{ conn.link_id }}')">OK</button>
+                        <button class="perf-btn" onclick="hideAddPerfForm('{{ conn.link_id }}')">✕</button>
+                      </div>
                     {% endif %}
-                  </td>
-                  <td>{{ conn.target_name }}</td>
-                  <td>
-                    <div id="perf-cell-{{ conn.link_id }}" class="perf-container" data-linkid="{{ conn.link_id }}">
-                      {% if conn.performance %}
-                        <div id="perf-display-{{ conn.performance.id }}">
-                          <span id="perf-info-{{ conn.performance.id }}">
-                            {{ conn.performance.name }}
-                            {% if conn.performance.description %}
-                              - {{ conn.performance.description }}
-                            {% endif %}
-                          </span>
-                          <button onclick="showEditPerfForm('{{ conn.performance.id }}','{{ conn.performance.name|escapejs }}')">
-                            <i class="fa-solid fa-pencil"></i>
-                          </button>
-                          <button onclick="deletePerformance('{{ conn.performance.id }}')">
-                            <i class="fa-solid fa-trash"></i>
-                          </button>
-                        </div>
-                        <div id="perf-edit-form-{{ conn.performance.id }}" style="display:none; margin-top:5px;">
-                          <input type="text" id="perf-edit-input-{{ conn.performance.id }}" style="width:350px;" />
-                          <button onclick="submitEditPerf('{{ conn.performance.id }}')">Enregistrer</button>
-                          <button onclick="hideEditPerfForm('{{ conn.performance.id }}')">Annuler</button>
-                        </div>
-                      {% else %}
-                        <button onclick="showAddPerfForm('{{ conn.link_id }}')">Performance</button>
-                        <div id="perf-add-form-{{ conn.link_id }}" style="display:none; margin-top:5px;">
-                          <input type="text" id="perf-add-input-{{ conn.link_id }}" style="width:350px;" />
-                          <button onclick="submitAddPerf('{{ conn.link_id }}')">Enregistrer</button>
-                          <button onclick="hideAddPerfForm('{{ conn.link_id }}')">Annuler</button>
-                        </div>
-                      {% endif %}
-                    </div>
-                  </td>
-                </tr>
+                  </div>
+                </td>
+              </tr>
               {% endfor %}
-            </table>
+            </tbody>
+          </table>
           {% else %}
-            <p>Aucune connexion sortante.</p>
+          <div class="empty-message">Aucune connexion sortante</div>
           {% endif %}
         </div>
+        
       </div>
-  
-      <!-- Contraintes -->
-      {% include "activity_constraints.html" %}
-  
-      <!-- Tâches -->
+      
+    </div>
+    
+    <!-- ========== ONGLET TÂCHES ========== -->
+    <div class="activity-tab-content" data-tab="tasks-{{ item.activity.id }}">
+      
       <div id="tasks-section-{{ item.activity.id }}">
         {% set activity = item.activity %}
         {% set tasks = item.tasks %}
         {% include "tasks_partial.html" %}
       </div>
-  
-      <!-- Compétences -->
-      <div style="margin-top:20px;">
-        {% include "activity_competencies.html" %}
-      </div>
-
-      <!-- Temps -->
-      <div>
-        {% include "activity_time_section.html" %}
-      </div>
-
-      <!-- 3 colonnes : Savoirs & Savoir-Faire / Aptitudes / HSC -->
-      <div style="display:flex; gap:30px; margin-top:20px;">
-        <div style="flex:2;">
+      
+    </div>
+    
+    <!-- ========== ONGLET COMPÉTENCES ========== -->
+    <div class="activity-tab-content" data-tab="competences-{{ item.activity.id }}">
+      
+      {% include "activity_competencies.html" %}
+      
+    </div>
+    
+    <!-- ========== ONGLET SAVOIRS & APTITUDES ========== -->
+    <div class="activity-tab-content" data-tab="skills-{{ item.activity.id }}">
+      
+      <div class="skills-grid">
+        
+        <!-- Savoirs & Savoir-faire -->
+        <div class="skill-column savoirs">
           {% include "activity_savoirs_faires.html" %}
         </div>
-        <div style="flex:1;">
+        
+        <!-- Aptitudes -->
+        <div class="skill-column aptitudes">
           {% include "activity_aptitudes.html" %}
         </div>
-        <div style="flex:1;">
+        
+        <!-- Softskills / HSC -->
+        <div class="skill-column softskills">
           {% include "activity_softskills.html" %}
         </div>
+        
       </div>
+      
     </div>
+    
   </div>
   
+</div>
