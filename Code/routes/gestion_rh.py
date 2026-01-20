@@ -29,6 +29,7 @@ def gestion_rh_home():
             settings = dict(row) if row else {}
         except Exception as e:
             print(f"⚠️ Erreur récupération settings: {e}")
+            db.session.rollback()  # IMPORTANT: Rollback pour réinitialiser la transaction
             settings = {}
 
         # Filtrer par entité active
@@ -44,6 +45,7 @@ def gestion_rh_home():
         print(f"❌ Erreur dans gestion_rh_home: {e}")
         import traceback
         traceback.print_exc()
+        db.session.rollback()  # Rollback en cas d'erreur globale
         return f"<h1>Erreur</h1><p>Une erreur est survenue: {str(e)}</p><pre>{traceback.format_exc()}</pre>", 500
 
 

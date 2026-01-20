@@ -597,6 +597,7 @@ def users_global_summary():
         print(f"❌ Erreur dans users_global_summary: {e}")
         import traceback
         traceback.print_exc()
+        db.session.rollback()  # Rollback pour réinitialiser la transaction
         # Retourner un message d'erreur HTML au lieu d'une erreur 500
         return f"<p style='color: red;'>Erreur lors du chargement des données: {str(e)}</p>", 500
 

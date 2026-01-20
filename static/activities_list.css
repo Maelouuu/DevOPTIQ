@@ -1,0 +1,676 @@
+/* ========================================
+   LISTE DES ACTIVITÉS - REFONTE MODERNE
+   ======================================== */
+
+/* Global styles */
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: #f4f6f8;
+    margin: 0;
+    padding: 20px;
+    color: #333;
+    font-size: 16px;
+    line-height: 1.6;
+}
+
+/* Titre principal */
+h1 {
+    text-align: center;
+    color: #2c3e50;
+    font-size: 2.5em;
+    margin-bottom: 30px;
+    font-weight: 600;
+}
+
+/* ========================================
+   CONTENEUR DE L'ACTIVITÉ
+   ======================================== */
+
+.activity-container {
+    background: #ffffff;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    margin-bottom: 24px;
+    overflow: hidden;
+    transition: box-shadow 0.3s ease, transform 0.2s ease;
+}
+
+.activity-container:hover {
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+}
+
+/* Mise en évidence */
+.activity-container.highlighted-activity {
+    border: 2px solid #22c55e;
+    box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.25);
+    animation: highlight-pulse 1s ease-out;
+}
+
+@keyframes highlight-pulse {
+    0% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.02);
+    }
+    100% {
+        transform: scale(1);
+    }
+}
+
+/* ========================================
+   HEADER DE L'ACTIVITÉ
+   ======================================== */
+
+.activity-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    padding: 20px 24px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    transition: background 0.3s ease;
+}
+
+.activity-header:hover {
+    background: linear-gradient(135deg, #5568d3 0%, #653a8f 100%);
+}
+
+.activity-header h2 {
+    margin: 0;
+    color: #ffffff;
+    font-size: 1.5em;
+    font-weight: 600;
+    flex: 1;
+}
+
+.toggle-icon {
+    color: #ffffff;
+    font-size: 1.2em;
+    transition: transform 0.3s ease;
+    display: inline-block;
+}
+
+.toggle-icon.rotated {
+    transform: rotate(90deg);
+}
+
+/* ========================================
+   SECTION SOMMAIRE (Description + Garant)
+   ======================================== */
+
+.activity-summary {
+    padding: 20px 24px;
+    border-bottom: 1px solid #e9ecef;
+    background-color: #f8f9fa;
+}
+
+.activity-description {
+    color: #495057;
+    font-size: 1em;
+    margin-bottom: 16px;
+    line-height: 1.6;
+}
+
+.activity-garant {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.activity-garant button {
+    background-color: #3498db;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 6px;
+    font-size: 0.9em;
+    cursor: pointer;
+    transition: background-color 0.2s, transform 0.1s;
+}
+
+.activity-garant button:hover {
+    background-color: #2980b9;
+    transform: translateY(-1px);
+}
+
+.activity-garant span {
+    color: #495057;
+    font-size: 0.95em;
+}
+
+/* ========================================
+   SYSTÈME D'ONGLETS
+   ======================================== */
+
+.tabs-container {
+    display: flex;
+    background-color: #fff;
+    border-bottom: 2px solid #e9ecef;
+    overflow-x: auto;
+    scrollbar-width: thin;
+}
+
+.tabs-container::-webkit-scrollbar {
+    height: 4px;
+}
+
+.tabs-container::-webkit-scrollbar-track {
+    background: #f1f1f1;
+}
+
+.tabs-container::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 4px;
+}
+
+.tab-button {
+    background: none;
+    border: none;
+    padding: 16px 24px;
+    font-size: 0.95em;
+    color: #6c757d;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    border-bottom: 3px solid transparent;
+    white-space: nowrap;
+    font-weight: 500;
+}
+
+.tab-button:hover {
+    color: #495057;
+    background-color: #f8f9fa;
+}
+
+.tab-button.active {
+    color: #667eea;
+    border-bottom-color: #667eea;
+    background-color: #f8f9fa;
+}
+
+/* ========================================
+   CONTENU DES ONGLETS
+   ======================================== */
+
+.tab-content {
+    display: none;
+    padding: 24px;
+    animation: fadeIn 0.3s ease;
+}
+
+.tab-content.active {
+    display: block;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Titre de section dans un onglet */
+.section-title {
+    font-size: 1.2em;
+    color: #2c3e50;
+    margin-bottom: 16px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.section-title i {
+    color: #667eea;
+}
+
+/* ========================================
+   TABLEAUX
+   ======================================== */
+
+.data-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 12px;
+    background-color: #ffffff;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.data-table th {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 14px 16px;
+    text-align: left;
+    font-weight: 600;
+    font-size: 0.9em;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.data-table td {
+    padding: 12px 16px;
+    border-bottom: 1px solid #e9ecef;
+    color: #495057;
+    font-size: 0.95em;
+}
+
+.data-table tbody tr:hover {
+    background-color: #f8f9fa;
+}
+
+.data-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+/* Badges pour types de données */
+.declenchante {
+    background-color: #e74c3c;
+    color: white;
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 0.85em;
+    font-weight: 600;
+    display: inline-block;
+}
+
+.nourrissante {
+    background-color: #f39c12;
+    color: white;
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 0.85em;
+    font-weight: 600;
+    display: inline-block;
+}
+
+/* ========================================
+   GRILLE CONNEXIONS
+   ======================================== */
+
+.connections-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+    margin-top: 16px;
+}
+
+@media (max-width: 768px) {
+    .connections-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.connection-section {
+    background-color: #ffffff;
+    border-radius: 8px;
+    padding: 16px;
+    border: 1px solid #e9ecef;
+}
+
+.connection-section h3 {
+    font-size: 1.1em;
+    color: #2c3e50;
+    margin-bottom: 12px;
+    font-weight: 600;
+}
+
+/* ========================================
+   GRILLE COMPÉTENCES/SAVOIRS/HSC
+   ======================================== */
+
+.skills-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 20px;
+    margin-top: 16px;
+}
+
+.skill-card {
+    background-color: #ffffff;
+    border: 1px solid #e9ecef;
+    border-radius: 8px;
+    padding: 16px;
+    transition: box-shadow 0.2s ease;
+}
+
+.skill-card:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.skill-card h4 {
+    font-size: 1em;
+    color: #667eea;
+    margin-bottom: 8px;
+    font-weight: 600;
+}
+
+.skill-card p {
+    color: #6c757d;
+    font-size: 0.9em;
+    margin: 0;
+}
+
+/* ========================================
+   BOUTONS D'ACTION
+   ======================================== */
+
+.action-btn {
+    background-color: #27ae60;
+    color: white;
+    border: none;
+    padding: 8px 14px;
+    border-radius: 6px;
+    font-size: 0.85em;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.action-btn:hover {
+    background-color: #229954;
+    transform: translateY(-1px);
+}
+
+.action-btn.secondary {
+    background-color: #95a5a6;
+}
+
+.action-btn.secondary:hover {
+    background-color: #7f8c8d;
+}
+
+.action-btn.danger {
+    background-color: #e74c3c;
+}
+
+.action-btn.danger:hover {
+    background-color: #c0392b;
+}
+
+/* ========================================
+   MESSAGE VIDE
+   ======================================== */
+
+.empty-message {
+    text-align: center;
+    padding: 40px 20px;
+    color: #95a5a6;
+    font-style: italic;
+}
+
+.empty-message i {
+    font-size: 3em;
+    margin-bottom: 16px;
+    display: block;
+    opacity: 0.3;
+}
+
+/* ========================================
+   PERFORMANCE DANS TABLEAU
+   ======================================== */
+
+.perf-container {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.perf-container button {
+    background-color: #3498db;
+    color: white;
+    border: none;
+    padding: 6px 12px;
+    border-radius: 4px;
+    font-size: 0.85em;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.perf-container button:hover {
+    background-color: #2980b9;
+}
+
+.perf-container input {
+    padding: 6px 10px;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+    font-size: 0.9em;
+}
+
+/* ========================================
+   CONTRAINTES
+   ======================================== */
+
+.constraints-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.constraints-list li {
+    padding: 12px;
+    border-bottom: 1px solid #e9ecef;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.constraints-list li:last-child {
+    border-bottom: none;
+}
+
+.constraint-text {
+    flex: 1;
+    color: #495057;
+}
+
+/* ========================================
+   TEMPS
+   ======================================== */
+
+.time-info {
+    background-color: #f8f9fa;
+    border-left: 4px solid #667eea;
+    padding: 16px;
+    border-radius: 6px;
+    margin-top: 12px;
+}
+
+.time-info p {
+    margin: 8px 0;
+    color: #495057;
+    font-size: 0.95em;
+}
+
+.time-info strong {
+    color: #2c3e50;
+}
+
+/* ========================================
+   STYLES POUR LES TEMPLATES INCLUS
+   ======================================== */
+
+/* Contraintes */
+.constraints-section h3,
+.savoirs-faires-section h3,
+.competencies-section h3,
+.aptitudes-section h3,
+.softskills-section h3 {
+    font-size: 1.1em;
+    color: #2c3e50;
+    margin-bottom: 12px;
+    font-weight: 600;
+}
+
+.constraints-section ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.constraints-section li {
+    padding: 12px;
+    border-bottom: 1px solid #e9ecef;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.constraints-section li:last-child {
+    border-bottom: none;
+}
+
+.constraints-section button,
+.savoirs-faires-section button,
+.competencies-section button,
+.aptitudes-section button,
+.softskills-section button {
+    background-color: #3498db;
+    color: white;
+    border: none;
+    padding: 8px 14px;
+    border-radius: 6px;
+    font-size: 0.9em;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.constraints-section button:hover,
+.savoirs-faires-section button:hover,
+.competencies-section button:hover,
+.aptitudes-section button:hover,
+.softskills-section button:hover {
+    background-color: #2980b9;
+    transform: translateY(-1px);
+}
+
+.constraints-section input,
+.savoirs-faires-section input,
+.competencies-section input,
+.aptitudes-section input,
+.softskills-section input {
+    padding: 8px 12px;
+    border: 1px solid #ced4da;
+    border-radius: 6px;
+    font-size: 0.9em;
+    margin-right: 8px;
+}
+
+/* Tâches */
+.tasks-section {
+    margin-top: 0;
+}
+
+.tasks-section h3 {
+    font-size: 1.1em;
+    color: #2c3e50;
+    margin-bottom: 12px;
+    font-weight: 600;
+}
+
+.task {
+    background-color: #f8f9fa;
+    border: 1px solid #e9ecef;
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 12px;
+}
+
+.task-row {
+    display: grid;
+    grid-template-columns: 40% 30% 30%;
+    gap: 16px;
+    align-items: start;
+}
+
+/* Compétences */
+.competencies-list,
+.savoirs-list,
+.savoir-faires-list,
+.aptitudes-list,
+.softskills-list {
+    list-style: none;
+    padding: 0;
+    margin: 12px 0;
+}
+
+.competencies-list li,
+.savoirs-list li,
+.savoir-faires-list li,
+.aptitudes-list li,
+.softskills-list li {
+    padding: 10px 12px;
+    background-color: #f8f9fa;
+    border-left: 3px solid #667eea;
+    margin-bottom: 8px;
+    border-radius: 4px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.competencies-list li:hover,
+.savoirs-list li:hover,
+.savoir-faires-list li:hover,
+.aptitudes-list li:hover,
+.softskills-list li:hover {
+    background-color: #e9ecef;
+}
+
+/* Icônes dans les boutons */
+.edit-btn i,
+.delete-btn i,
+.add-btn i {
+    font-size: 0.9em;
+}
+
+/* Messages d'information */
+.info-message {
+    padding: 12px 16px;
+    background-color: #d1ecf1;
+    border-left: 4px solid #0c5460;
+    color: #0c5460;
+    border-radius: 4px;
+    margin: 12px 0;
+}
+
+/* Formulaires inline */
+.inline-form {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    margin-top: 8px;
+}
+
+.inline-form input {
+    flex: 1;
+    min-width: 200px;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .task-row {
+        grid-template-columns: 1fr;
+    }
+
+    .skills-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .tabs-container {
+        flex-wrap: wrap;
+    }
+
+    .tab-button {
+        padding: 12px 16px;
+        font-size: 0.85em;
+    }
+}

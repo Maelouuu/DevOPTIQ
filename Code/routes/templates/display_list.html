@@ -2,11 +2,12 @@
 <html lang="fr">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Liste des activités</title>
   <!-- Font Awesome -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <!-- CSS principal -->
-  <link rel="stylesheet" href="/static/optiq.css">
+  <!-- CSS pour la liste des activités refaite -->
+  <link rel="stylesheet" href="/static/activities_list.css">
   <!-- CSS spinner -->
   <link rel="stylesheet" href="/static/spinner.css">
 </head>
@@ -16,13 +17,32 @@
 
   <h1>Liste des activités</h1>
 
+  <!-- Boutons de contrôle global -->
+  <div style="text-align: center; margin-bottom: 24px;">
+    <button class="action-btn" onclick="toggleAllActivities(true)">
+      <i class="fa-solid fa-chevron-down"></i> Tout déplier
+    </button>
+    <button class="action-btn secondary" onclick="toggleAllActivities(false)">
+      <i class="fa-solid fa-chevron-up"></i> Tout replier
+    </button>
+  </div>
+
   {% for item in activity_data %}
-    {% include "activity_card.html" %}
+    {% include "activity_card_new.html" %}
   {% endfor %}
+
+  {% if not activity_data or activity_data|length == 0 %}
+    <div class="empty-message" style="margin-top: 60px;">
+      <i class="fa-solid fa-inbox"></i>
+      <p>Aucune activité à afficher</p>
+    </div>
+  {% endif %}
 
   {% include "modals_and_spinner.html" %}
 
   {% include "script_loader.html" %}
+  <!-- Scripts spécifiques à la page -->
+  <script defer src="{{ url_for('static', filename='js/activities_tabs.js') }}"></script>
   <script defer src="{{ url_for('static', filename='js/activities_time.js') }}"></script>
   <script defer src="{{ url_for('static', filename='js/activity_highlight.js') }}"></script>
 
