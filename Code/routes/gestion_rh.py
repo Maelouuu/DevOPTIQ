@@ -14,30 +14,37 @@ def get_active_entity_id():
 
 @gestion_rh_bp.route('/')
 def gestion_rh_home():
-    active_entity_id = get_active_entity_id()
-    
-    # Récupérer les paramètres entreprise
     try:
+        active_entity_id = get_active_entity_id()
+
+        # Récupérer les paramètres entreprise
+        try:
+            if active_entity_id:
+                row = db.session.execute(
+                    text("SELECT * FROM entreprise_settings WHERE entity_id = :eid LIMIT 1"),
+                    {"eid": active_entity_id}
+                ).mappings().fetchone()
+            else:
+                row = db.session.execute(text("SELECT * FROM entreprise_settings LIMIT 1")).mappings().fetchone()
+            settings = dict(row) if row else {}
+        except Exception as e:
+            print(f"⚠️ Erreur récupération settings: {e}")
+            settings = {}
+
+        # Filtrer par entité active
         if active_entity_id:
-            row = db.session.execute(
-                text("SELECT * FROM entreprise_settings WHERE entity_id = :eid LIMIT 1"),
-                {"eid": active_entity_id}
-            ).mappings().fetchone()
+            roles = Role.query.filter_by(entity_id=active_entity_id).order_by(Role.name).all()
+            users = User.query.filter_by(entity_id=active_entity_id).order_by(User.last_name).all()
         else:
-            row = db.session.execute(text("SELECT * FROM entreprise_settings LIMIT 1")).mappings().fetchone()
-        settings = dict(row) if row else {}
-    except Exception:
-        settings = {}
-    
-    # Filtrer par entité active
-    if active_entity_id:
-        roles = Role.query.filter_by(entity_id=active_entity_id).order_by(Role.name).all()
-        users = User.query.filter_by(entity_id=active_entity_id).order_by(User.last_name).all()
-    else:
-        roles = Role.query.order_by(Role.name).all()
-        users = User.query.order_by(User.last_name).all()
-    
-    return render_template('gestion_rh.html', settings=settings, roles=roles, users=users)
+            roles = Role.query.order_by(Role.name).all()
+            users = User.query.order_by(User.last_name).all()
+
+        return render_template('gestion_rh.html', settings=settings, roles=roles, users=users)
+    except Exception as e:
+        print(f"❌ Erreur dans gestion_rh_home: {e}")
+        import traceback
+        traceback.print_exc()
+        return f"<h1>Erreur</h1><p>Une erreur est survenue: {str(e)}</p><pre>{traceback.format_exc()}</pre>", 500
 
 
 @gestion_rh_bp.route('/update_settings', methods=['POST'])

@@ -536,62 +536,69 @@ def global_flat_summary(user_id):
 
 @competences_bp.route('/users/global_summary', methods=['GET'])
 def users_global_summary():
-    # CORRIGÉ: Filtrer par entité active
-    active_entity_id = Entity.get_active_id()
-    
-    if active_entity_id:
-        users = User.query.filter_by(entity_id=active_entity_id).all()
-        roles = Role.query.filter_by(entity_id=active_entity_id).order_by(Role.name).all()
-    else:
-        users = User.query.all()
-        roles = Role.query.order_by(Role.name).all()
+    try:
+        # CORRIGÉ: Filtrer par entité active
+        active_entity_id = Entity.get_active_id()
 
-    # Préparer l'ensemble des activités par rôle
-    role_activities_map = {}
-    for role in roles:
-        query = db.session.query(Activities).join(activity_roles).filter(activity_roles.c.role_id == role.id)
         if active_entity_id:
-            query = query.filter(Activities.entity_id == active_entity_id)
-        acts = query.all()
-        role_activities_map[role.id] = acts
+            users = User.query.filter_by(entity_id=active_entity_id).all()
+            roles = Role.query.filter_by(entity_id=active_entity_id).order_by(Role.name).all()
+        else:
+            users = User.query.all()
+            roles = Role.query.order_by(Role.name).all()
 
-    user_rows = []
-    for user in users:
-        # CORRIGÉ: Filtrer uniquement les évaluations d'activités (pas les savoirs/SF/HSC)
-        evals = CompetencyEvaluation.query.filter(
-            CompetencyEvaluation.user_id == user.id,
-            CompetencyEvaluation.eval_number == 'manager',
-            CompetencyEvaluation.item_type == 'activities',
-            CompetencyEvaluation.item_id.is_(None)
-        ).all()
-        notes = []
-
+        # Préparer l'ensemble des activités par rôle
+        role_activities_map = {}
         for role in roles:
-            role_activities = role_activities_map.get(role.id, [])
-            related_notes = [
-                e.note for e in evals
-                if e.activity_id in [a.id for a in role_activities]
-            ]
-            note = related_notes[0] if related_notes else None
-            notes.append(note)
+            query = db.session.query(Activities).join(activity_roles).filter(activity_roles.c.role_id == role.id)
+            if active_entity_id:
+                query = query.filter(Activities.entity_id == active_entity_id)
+            acts = query.all()
+            role_activities_map[role.id] = acts
 
-        user_rows.append({
-            'user': f"{user.first_name} {user.last_name}",
-            'user_id': user.id,
-            'manager_id': user.manager_id,  
-            'notes': notes
-        })
+        user_rows = []
+        for user in users:
+            # CORRIGÉ: Filtrer uniquement les évaluations d'activités (pas les savoirs/SF/HSC)
+            evals = CompetencyEvaluation.query.filter(
+                CompetencyEvaluation.user_id == user.id,
+                CompetencyEvaluation.eval_number == 'manager',
+                CompetencyEvaluation.item_type == 'activities',
+                CompetencyEvaluation.item_id.is_(None)
+            ).all()
+            notes = []
 
-    role_names = [r.name for r in roles]
-    roles_loop = [r.name for r in roles]
+            for role in roles:
+                role_activities = role_activities_map.get(role.id, [])
+                related_notes = [
+                    e.note for e in evals
+                    if e.activity_id in [a.id for a in role_activities]
+                ]
+                note = related_notes[0] if related_notes else None
+                notes.append(note)
 
-    return render_template(
-        'global_users_summary.html',
-        roles=roles,
-        user_rows=user_rows,
-        all_role_names=role_names,
-        roles_loop=roles_loop
-    )
+            user_rows.append({
+                'user': f"{user.first_name} {user.last_name}",
+                'user_id': user.id,
+                'manager_id': user.manager_id,
+                'notes': notes
+            })
+
+        role_names = [r.name for r in roles]
+        roles_loop = [r.name for r in roles]
+
+        return render_template(
+            'global_users_summary.html',
+            roles=roles,
+            user_rows=user_rows,
+            all_role_names=role_names,
+            roles_loop=roles_loop
+        )
+    except Exception as e:
+        print(f"❌ Erreur dans users_global_summary: {e}")
+        import traceback
+        traceback.print_exc()
+        # Retourner un message d'erreur HTML au lieu d'une erreur 500
+        return f"<p style='color: red;'>Erreur lors du chargement des données: {str(e)}</p>", 500
 
 
 @competences_bp.route('/general_performance/<int:activity_id>', methods=['GET'])
