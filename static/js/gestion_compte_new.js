@@ -300,6 +300,66 @@ function loadSheetJS() {
     }
 }
 
+// ========================================
+// AFFICHAGE DES RÔLES SUPPLÉMENTAIRES
+// ========================================
+
+function showAllRoles(event, userId) {
+    event.preventDefault();
+    const button = event.target;
+    const roles = button.getAttribute('data-roles').split(',');
+
+    // Créer une popup simple
+    const popup = document.createElement('div');
+    popup.style.cssText = `
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: white;
+        padding: 24px;
+        border-radius: 16px;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+        z-index: 10000;
+        min-width: 300px;
+    `;
+
+    let html = '<h3 style="margin-top: 0; color: #333;">Tous les rôles</h3>';
+    html += '<div style="display: flex; flex-wrap: wrap; gap: 8px; margin: 16px 0;">';
+    roles.forEach(role => {
+        html += `<span class="badge badge-role">${role}</span>`;
+    });
+    html += '</div>';
+    html += '<button onclick="closeRolesPopup()" style="width: 100%; padding: 10px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">Fermer</button>';
+
+    popup.innerHTML = html;
+    popup.id = 'roles-popup';
+
+    // Overlay
+    const overlay = document.createElement('div');
+    overlay.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.5);
+        z-index: 9999;
+    `;
+    overlay.id = 'roles-overlay';
+    overlay.onclick = closeRolesPopup;
+
+    document.body.appendChild(overlay);
+    document.body.appendChild(popup);
+}
+
+function closeRolesPopup() {
+    const popup = document.getElementById('roles-popup');
+    const overlay = document.getElementById('roles-overlay');
+    if (popup) popup.remove();
+    if (overlay) overlay.remove();
+}
+
 // Charger au chargement de la page
 document.addEventListener('DOMContentLoaded', () => {
     loadSheetJS();

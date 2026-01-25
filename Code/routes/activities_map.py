@@ -76,12 +76,11 @@ def ensure_entity_dir(entity_id):
 
 
 def check_svg_exists(entity_id):
-    """Vérifie si un SVG existe pour l'entité (avec fallback)."""
+    """Vérifie si un SVG existe pour l'entité."""
     svg_path = get_entity_svg_path(entity_id)
     if os.path.exists(svg_path):
         return True, svg_path
-    if os.path.exists(OLD_SVG_PATH):
-        return True, OLD_SVG_PATH
+    # Ne plus utiliser le fallback OLD_SVG_PATH pour éviter d'afficher la mauvaise cartographie
     return False, None
 
 
@@ -217,9 +216,11 @@ def serve_svg():
     svg_exists, svg_path = check_svg_exists(active_entity.id)
     
     if not svg_exists or not svg_path:
-        return jsonify({"error": "SVG non trouvé"}), 404
-    
-    print(f"[CARTO] Serving SVG: {svg_path}")
+        print(f"[CARTO] SVG non trouvé pour l'entité {active_entity.id}")
+        return jsonify({"error": "SVG non trouvé pour cette entité"}), 404
+
+    print(f"[CARTO] Serving SVG pour entité {active_entity.id}: {svg_path}")
+    print(f"[CARTO] Nombre d'activités de cette entité: {Activities.query.filter_by(entity_id=active_entity.id).count()}")
     
     return send_file(
         svg_path, 

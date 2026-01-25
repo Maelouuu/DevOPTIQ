@@ -169,17 +169,31 @@
                     </tr>
                 </thead>
                 <tbody id="usersTableBody">
-                    {% if role_users and role_users|length > 0 %}
-                        {% for role_name, users_list in role_users.items() %}
-                            {% for user in users_list %}
+                    {% if users_with_roles and users_with_roles|length > 0 %}
+                        {% for item in users_with_roles %}
+                            {% set user = item.user %}
+                            {% set user_roles = item.roles %}
                             <tr class="user-row"
                                 data-name="{{ user.first_name }} {{ user.last_name }}"
                                 data-status="{{ user.status }}"
-                                data-role="{{ role_name }}">
+                                data-role="{{ user_roles|join(',') }}">
                                 <td><strong>{{ user.first_name }} {{ user.last_name }}</strong></td>
                                 <td>{{ user.email }}</td>
                                 <td>{{ user.age or 'N/A' }} ans</td>
-                                <td>{{ role_name }}</td>
+                                <td>
+                                    {% if user_roles|length <= 2 %}
+                                        {% for role in user_roles %}
+                                            <span class="badge badge-role">{{ role }}</span>
+                                        {% endfor %}
+                                    {% else %}
+                                        {% for role in user_roles[:2] %}
+                                            <span class="badge badge-role">{{ role }}</span>
+                                        {% endfor %}
+                                        <button class="btn-more-roles" onclick="showAllRoles(event, {{ user.id }})" data-roles="{{ user_roles|join(',') }}">
+                                            +{{ user_roles|length - 2 }}
+                                        </button>
+                                    {% endif %}
+                                </td>
                                 <td>
                                     {% if user.status == 'administrateur' %}
                                         <span class="badge badge-admin">Admin</span>
@@ -202,7 +216,6 @@
                                     </form>
                                 </td>
                             </tr>
-                            {% endfor %}
                         {% endfor %}
                     {% else %}
                         <tr>

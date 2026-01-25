@@ -20,15 +20,6 @@ def list_users():
 
         print(f"📊 Nombre de rôles trouvés: {len(roles)}")
 
-        # Récupérer les utilisateurs par rôle
-        role_users = {}
-        for role in roles:
-            if active_entity_id:
-                users_for_role = User.query.filter_by(entity_id=active_entity_id).join(UserRole).filter(UserRole.role_id == role.id).all()
-            else:
-                users_for_role = User.query.join(UserRole).filter(UserRole.role_id == role.id).all()
-            role_users[role.name] = users_for_role
-
         # Récupérer tous les utilisateurs
         if active_entity_id:
             users = User.query.filter_by(entity_id=active_entity_id).all()
@@ -36,6 +27,21 @@ def list_users():
             users = User.query.all()
 
         print(f"👥 Nombre d'utilisateurs trouvés: {len(users)}")
+
+        # Créer un dictionnaire utilisateur -> liste de rôles
+        users_with_roles = []
+        for user in users:
+            user_roles = UserRole.query.filter_by(user_id=user.id).all()
+            role_names = [Role.query.get(ur.role_id).name for ur in user_roles if Role.query.get(ur.role_id)]
+            users_with_roles.append({
+                'user': user,
+                'roles': role_names
+            })
+
+        # Pour compatibilité avec le template existant, créer aussi role_users
+        role_users = {}
+        for role in roles:
+            role_users[role.name] = []
 
         # Récupérer les managers
         if active_entity_id:
@@ -58,6 +64,7 @@ def list_users():
             role_users=role_users,
             roles=roles,
             users=users,
+            users_with_roles=users_with_roles,
             managers=managers
         )
 
@@ -72,6 +79,7 @@ def list_users():
             role_users={},
             roles=[],
             users=[],
+            users_with_roles=[],
             managers=[]
         )
 

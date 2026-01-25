@@ -126,14 +126,23 @@ h1 {
 
 /* Grid pour deux colonnes */
 .two-column-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
+    display: flex;
     gap: 24px;
+    flex-wrap: wrap;
 }
 
-@media (max-width: 1024px) {
+.two-column-grid .form-group {
+    flex: 1;
+    min-width: 200px;
+}
+
+@media (max-width: 768px) {
     .two-column-grid {
-        grid-template-columns: 1fr;
+        flex-direction: column;
+    }
+
+    #age {
+        max-width: 100%;
     }
 }
 
@@ -177,6 +186,20 @@ h1 {
 .form-group input[type="password"] {
     font-family: 'Courier New', monospace;
     letter-spacing: 2px;
+}
+
+/* Ajustement des tailles de champs spécifiques */
+#age {
+    max-width: 120px;
+}
+
+/* Email prend 70% de l'espace */
+.two-column-grid .form-group:has(#email) {
+    flex: 2;
+}
+
+.two-column-grid .form-group:has(#age) {
+    flex: 0.5;
 }
 
 /* ========================================
@@ -223,10 +246,25 @@ h1 {
 .btn-small {
     padding: 8px 16px;
     font-size: 0.9em;
+    min-width: 110px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    text-decoration: none;
 }
 
 .btn i {
     font-size: 1em;
+}
+
+/* Corrections pour les liens boutons */
+a.btn {
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
 }
 
 /* ========================================
@@ -417,6 +455,31 @@ h1 {
     border-radius: 12px;
     font-size: 0.85em;
     font-weight: 600;
+    margin: 2px;
+}
+
+.badge-role {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    font-size: 0.8em;
+    padding: 4px 10px;
+}
+
+.btn-more-roles {
+    background: linear-gradient(135deg, #95a5a6 0%, #7f8c8d 100%);
+    color: white;
+    border: none;
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 0.8em;
+    cursor: pointer;
+    font-weight: 600;
+    margin-left: 4px;
+    transition: transform 0.2s ease;
+}
+
+.btn-more-roles:hover {
+    transform: translateY(-2px);
 }
 
 .badge-user {
