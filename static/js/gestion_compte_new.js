@@ -407,6 +407,34 @@ function closeRolesPopup() {
     if (overlay) overlay.remove();
 }
 
+// ========================================
+// CONFIRMATION DE SUPPRESSION
+// ========================================
+
+let deleteUserId = null;
+
+function confirmDelete(userId, userName) {
+    deleteUserId = userId;
+    document.getElementById('deleteUserName').textContent = userName;
+    document.getElementById('deleteConfirmModal').style.display = 'flex';
+}
+
+function closeDeleteModal() {
+    deleteUserId = null;
+    document.getElementById('deleteConfirmModal').style.display = 'none';
+}
+
+function executeDelete() {
+    if (deleteUserId) {
+        // Créer un formulaire et le soumettre
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = `/comptes/delete/${deleteUserId}`;
+        document.body.appendChild(form);
+        form.submit();
+    }
+}
+
 // Charger au chargement de la page
 document.addEventListener('DOMContentLoaded', () => {
     loadSheetJS();

@@ -207,13 +207,10 @@
                                     <a href="{{ url_for('gestion_compte.update_user', user_id=user.id) }}" class="btn btn-small">
                                         <i class="fa-solid fa-pencil"></i> Modifier
                                     </a>
-                                    <form method="POST" action="{{ url_for('gestion_compte.delete_user', user_id=user.id) }}"
-                                          style="display: inline;"
-                                          onsubmit="return confirm('Êtes-vous sûr de vouloir supprimer cet utilisateur ?');">
-                                        <button type="submit" class="btn btn-danger btn-small">
-                                            <i class="fa-solid fa-trash"></i> Supprimer
-                                        </button>
-                                    </form>
+                                    <button type="button" class="btn btn-danger btn-small"
+                                            onclick="confirmDelete('{{ user.id }}', '{{ user.first_name }} {{ user.last_name }}')">
+                                        <i class="fa-solid fa-trash"></i> Supprimer
+                                    </button>
                                 </td>
                             </tr>
                         {% endfor %}
@@ -341,6 +338,29 @@
                 </button>
             </div>
         </form>
+    </div>
+</div>
+
+<!-- Modal de confirmation de suppression -->
+<div class="modal-overlay" id="deleteConfirmModal" style="display: none;">
+    <div class="modal-content" style="max-width: 500px;">
+        <h3 style="color: #e74c3c; margin-top: 0;">
+            <i class="fa-solid fa-triangle-exclamation"></i> Confirmation de suppression
+        </h3>
+        <p style="font-size: 1.1em; margin: 20px 0;">
+            Êtes-vous sûr de vouloir supprimer <strong id="deleteUserName"></strong> ?
+        </p>
+        <p style="color: #e74c3c; font-weight: 600;">
+            ⚠️ Cette action est irréversible !
+        </p>
+        <div style="display: flex; gap: 12px; margin-top: 24px;">
+            <button type="button" class="btn btn-secondary" style="flex: 1;" onclick="closeDeleteModal()">
+                <i class="fa-solid fa-xmark"></i> Annuler
+            </button>
+            <button type="button" class="btn btn-danger" style="flex: 1;" onclick="executeDelete()">
+                <i class="fa-solid fa-trash"></i> Supprimer
+            </button>
+        </div>
     </div>
 </div>
 

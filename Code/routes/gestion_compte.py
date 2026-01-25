@@ -115,9 +115,28 @@ def create_user():
 
 @gestion_compte_bp.route('/delete/<int:user_id>', methods=['POST'])
 def delete_user(user_id):
-    User.query.filter_by(id=user_id).delete()
-    db.session.commit()
-    return redirect(url_for('gestion_compte.list_users'))
+    try:
+        # Récupérer l'utilisateur
+        user = User.query.get_or_404(user_id)
+
+        print(f"🗑️ Suppression de l'utilisateur: {user.first_name} {user.last_name} (ID: {user_id})")
+
+        # Supprimer d'abord les relations UserRole
+        UserRole.query.filter_by(user_id=user_id).delete()
+        print(f"   ✅ UserRole supprimés")
+
+        # Supprimer l'utilisateur
+        db.session.delete(user)
+        db.session.commit()
+        print(f"   ✅ Utilisateur supprimé")
+
+        return redirect(url_for('gestion_compte.list_users'))
+    except Exception as e:
+        print(f"❌ Erreur lors de la suppression de l'utilisateur {user_id}: {e}")
+        import traceback
+        traceback.print_exc()
+        db.session.rollback()
+        return f"Erreur lors de la suppression: {str(e)}", 500
 
 
 
