@@ -78,9 +78,39 @@ def ensure_entity_dir(entity_id):
 def check_svg_exists(entity_id):
     """Vérifie si un SVG existe pour l'entité."""
     svg_path = get_entity_svg_path(entity_id)
+
     if os.path.exists(svg_path):
+        print(f"[CARTO] SVG trouvé pour entité {entity_id}: {svg_path}")
         return True, svg_path
-    # Ne plus utiliser le fallback OLD_SVG_PATH pour éviter d'afficher la mauvaise cartographie
+
+    # Migration automatique: Si l'ancien SVG global existe et que l'entité a des activités,
+    # copier automatiquement le SVG global dans le dossier de l'entité
+    if os.path.exists(OLD_SVG_PATH):
+        from Code.models.models import Activities
+        activities_count = Activities.query.filter_by(entity_id=entity_id).count()
+
+        if activities_count > 0:
+            # Copier l'ancien SVG dans le nouveau dossier
+            try:
+                ensure_entity_dir(entity_id)
+                shutil.copy2(OLD_SVG_PATH, svg_path)
+                print(f"[CARTO] Migration: SVG global copié vers {svg_path}")
+
+                # Mettre à jour le nom du fichier en base
+                entity = Entity.query.get(entity_id)
+                if entity and not entity.svg_filename:
+                    entity.svg_filename = "carto_activities.svg"
+                    db.session.commit()
+
+                return True, svg_path
+            except Exception as e:
+                print(f"[CARTO] Erreur lors de la migration du SVG: {e}")
+        else:
+            # Pas d'activités, on peut utiliser le SVG global directement
+            print(f"[CARTO] Utilisation temporaire du SVG global pour entité {entity_id} (pas d'activités)")
+            return True, OLD_SVG_PATH
+
+    print(f"[CARTO] Aucun SVG trouvé pour entité {entity_id}")
     return False, None
 
 

@@ -90,8 +90,15 @@ function handleFileUpload(file) {
                 const data = new Uint8Array(e.target.result);
                 const workbook = XLSX.read(data, { type: 'array' });
                 const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-                const jsonData = XLSX.utils.sheet_to_json(firstSheet, { header: 1 });
 
+                // Utiliser defval pour remplir les cellules vides avec ""
+                const jsonData = XLSX.utils.sheet_to_json(firstSheet, {
+                    header: 1,
+                    defval: '',
+                    blankrows: false  // Ignorer les lignes complètement vides
+                });
+
+                console.log('📊 Excel data loaded:', jsonData);
                 excelData = parseExcelData(jsonData);
                 displayPreview(excelData);
             } else {
@@ -118,16 +125,29 @@ function handleFileUpload(file) {
 
 // Parser les données Excel
 function parseExcelData(rawData) {
+    console.log('📊 Raw data received:', rawData);
+    console.log('📊 Number of rows:', rawData.length);
+
     if (rawData.length < 2) {
         alert('Le fichier ne contient pas assez de données.');
         return [];
     }
 
     const headers = rawData[0];
-    const rows = rawData.slice(1);
+    console.log('📊 Headers:', headers);
 
-    const parsed = rows.filter(row => row.length > 0 && row[0]).map(row => {
-        return {
+    const rows = rawData.slice(1);
+    console.log('📊 Data rows (before filter):', rows.length);
+
+    const parsed = rows.filter(row => {
+        // Filtrer les lignes vides - vérifier si au moins le prénom ou l'email existe
+        const hasData = row && row.length > 0 && (row[0] || row[2]);
+        if (!hasData) {
+            console.log('⚠️ Skipping empty row:', row);
+        }
+        return hasData;
+    }).map(row => {
+        const user = {
             prenom: row[0] || '',
             nom: row[1] || '',
             email: row[2] || '',
@@ -136,8 +156,11 @@ function parseExcelData(rawData) {
             role: row[5] || '',
             statut: row[6] || 'user'
         };
+        console.log('✅ Parsed user:', user);
+        return user;
     });
 
+    console.log('📊 Total parsed users:', parsed.length);
     return parsed;
 }
 
@@ -176,10 +199,15 @@ function displayPreview(data) {
 
 // Confirmer l'import
 function confirmImport() {
+    console.log('🚀 Starting import...');
+    console.log('📊 Data to import:', excelData);
+
     if (excelData.length === 0) {
         alert('Aucune donnée à importer.');
         return;
     }
+
+    console.log(`📤 Sending ${excelData.length} users to server...`);
 
     // Envoyer les données au serveur
     fetch('/comptes/import_excel', {
@@ -189,18 +217,25 @@ function confirmImport() {
         },
         body: JSON.stringify({ users: excelData })
     })
-    .then(response => response.json())
+    .then(response => {
+        console.log('📥 Response status:', response.status);
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.json();
+    })
     .then(data => {
+        console.log('✅ Server response:', data);
         if (data.success) {
-            alert(`Import réussi ! ${data.imported} utilisateur(s) importé(s).`);
+            alert(`Import réussi ! ${data.imported} utilisateur(s) importé(s).${data.errors && data.errors.length > 0 ? '\n\nErreurs: ' + data.errors.join('\n') : ''}`);
             location.reload();
         } else {
             alert(`Erreur lors de l'import : ${data.message}`);
         }
     })
     .catch(error => {
-        console.error('Erreur:', error);
-        alert('Erreur lors de l\'envoi des données au serveur.');
+        console.error('❌ Erreur:', error);
+        alert('Erreur lors de l\'envoi des données au serveur: ' + error.message);
     });
 }
 

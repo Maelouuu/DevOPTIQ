@@ -232,61 +232,95 @@ def import_excel():
     Format attendu: prenom, nom, email, age, mot_de_passe, role, statut
     """
     try:
+        print("📥 Import Excel - Début")
         data = request.get_json()
+        print(f"📊 Data reçue: {data}")
+
         users_data = data.get('users', [])
+        print(f"👥 Nombre d'utilisateurs à importer: {len(users_data)}")
 
         if not users_data:
+            print("⚠️ Aucune donnée fournie")
             return jsonify({'success': False, 'message': 'Aucune donnée fournie'}), 400
 
         active_entity_id = Entity.get_active_id()
+        print(f"🏢 Active entity ID: {active_entity_id}")
+
         imported_count = 0
         errors = []
 
-        for user_data in users_data:
+        for idx, user_data in enumerate(users_data):
+            print(f"\n--- Traitement utilisateur {idx + 1}/{len(users_data)} ---")
+            print(f"📧 Email: {user_data.get('email')}")
+            print(f"👤 Nom: {user_data.get('prenom')} {user_data.get('nom')}")
             try:
                 # Vérifier que l'email n'existe pas déjà
                 existing_user = User.query.filter_by(email=user_data.get('email')).first()
                 if existing_user:
-                    errors.append(f"Email {user_data.get('email')} déjà existant")
+                    error_msg = f"Email {user_data.get('email')} déjà existant"
+                    print(f"⚠️ {error_msg}")
+                    errors.append(error_msg)
                     continue
 
                 # Trouver le rôle
                 role_name = user_data.get('role', '').strip()
-                role = Role.query.filter_by(name=role_name).first() if role_name else None
+                print(f"🔍 Recherche du rôle: '{role_name}'")
+
+                role = Role.query.filter_by(name=role_name, entity_id=active_entity_id).first() if role_name else None
 
                 if not role and role_name:
-                    errors.append(f"Rôle '{role_name}' introuvable pour {user_data.get('email')}")
+                    error_msg = f"Rôle '{role_name}' introuvable pour {user_data.get('email')}"
+                    print(f"⚠️ {error_msg}")
+                    errors.append(error_msg)
                     continue
 
+                print(f"✅ Rôle trouvé: {role.name if role else 'Aucun'}")
+
                 # Créer l'utilisateur
+                print(f"➕ Création de l'utilisateur...")
                 user = User(
                     first_name=user_data.get('prenom', '').strip(),
                     last_name=user_data.get('nom', '').strip(),
                     email=user_data.get('email', '').strip(),
-                    age=user_data.get('age') if user_data.get('age') else None,
+                    age=int(user_data.get('age')) if user_data.get('age') and str(user_data.get('age')).strip() else None,
                     password=user_data.get('mot_de_passe', '').strip(),
                     status=user_data.get('statut', 'user').strip(),
                     entity_id=active_entity_id
                 )
                 db.session.add(user)
                 db.session.flush()  # Pour obtenir l'ID
+                print(f"✅ Utilisateur créé avec ID: {user.id}")
 
                 # Associer le rôle si trouvé
                 if role:
+                    print(f"🔗 Association du rôle {role.name}")
                     user_role = UserRole(user_id=user.id, role_id=role.id)
                     db.session.add(user_role)
 
                 imported_count += 1
+                print(f"✅ Utilisateur importé avec succès ({imported_count}/{len(users_data)})")
 
             except Exception as e:
-                errors.append(f"Erreur pour {user_data.get('email')}: {str(e)}")
+                error_msg = f"Erreur pour {user_data.get('email')}: {str(e)}"
+                print(f"❌ {error_msg}")
+                import traceback
+                traceback.print_exc()
+                errors.append(error_msg)
                 continue
 
+        print(f"\n💾 Commit de la transaction...")
         db.session.commit()
+        print(f"✅ Transaction commitée avec succès")
 
         message = f"{imported_count} utilisateur(s) importé(s)"
         if errors:
             message += f". {len(errors)} erreur(s): {', '.join(errors[:3])}"
+
+        print(f"\n📊 Résultat final:")
+        print(f"   - Importés: {imported_count}")
+        print(f"   - Erreurs: {len(errors)}")
+        if errors:
+            print(f"   - Liste des erreurs: {errors}")
 
         return jsonify({
             'success': True,
@@ -296,5 +330,8 @@ def import_excel():
         })
 
     except Exception as e:
+        print(f"\n❌ ERREUR GLOBALE: {e}")
+        import traceback
+        traceback.print_exc()
         db.session.rollback()
         return jsonify({'success': False, 'message': f'Erreur serveur: {str(e)}'}), 500
