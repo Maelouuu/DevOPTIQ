@@ -6,30 +6,74 @@ gestion_compte_bp = Blueprint('gestion_compte', __name__, url_prefix='/comptes')
 
 @gestion_compte_bp.route('/')
 def list_users():
-    # MODIFIÉ: Filtrer par entité active
-    roles = Role.for_active_entity().all()
-    role_users = {
-        role.name: User.for_active_entity().join(UserRole).filter(UserRole.role_id == role.id).all()
-        for role in roles
-    }
-    users = User.for_active_entity().all()
+    try:
+        # MODIFIÉ: Filtrer par entité active
+        active_entity_id = Entity.get_active_id()
 
-    # version affiche tout les users ayant le role manager
-    manager_role = Role.for_active_entity().filter_by(name="manager").first()
-    managers = (
-        User.for_active_entity().join(UserRole)
-        .filter(UserRole.role_id == manager_role.id)
-        .all()
-        if manager_role else []
-    )
+        print(f"🔍 Active entity ID: {active_entity_id}")
 
-    return render_template(
-        'gestion_compte_new.html',  # Utilisation du nouveau template
-        role_users=role_users,
-        roles=roles,
-        users=users,
-        managers=managers
-    )
+        # Récupérer les rôles
+        if active_entity_id:
+            roles = Role.query.filter_by(entity_id=active_entity_id).all()
+        else:
+            roles = Role.query.all()
+
+        print(f"📊 Nombre de rôles trouvés: {len(roles)}")
+
+        # Récupérer les utilisateurs par rôle
+        role_users = {}
+        for role in roles:
+            if active_entity_id:
+                users_for_role = User.query.filter_by(entity_id=active_entity_id).join(UserRole).filter(UserRole.role_id == role.id).all()
+            else:
+                users_for_role = User.query.join(UserRole).filter(UserRole.role_id == role.id).all()
+            role_users[role.name] = users_for_role
+
+        # Récupérer tous les utilisateurs
+        if active_entity_id:
+            users = User.query.filter_by(entity_id=active_entity_id).all()
+        else:
+            users = User.query.all()
+
+        print(f"👥 Nombre d'utilisateurs trouvés: {len(users)}")
+
+        # Récupérer les managers
+        if active_entity_id:
+            manager_role = Role.query.filter_by(name="manager", entity_id=active_entity_id).first()
+        else:
+            manager_role = Role.query.filter_by(name="manager").first()
+
+        if manager_role:
+            if active_entity_id:
+                managers = User.query.filter_by(entity_id=active_entity_id).join(UserRole).filter(UserRole.role_id == manager_role.id).all()
+            else:
+                managers = User.query.join(UserRole).filter(UserRole.role_id == manager_role.id).all()
+        else:
+            managers = []
+
+        print(f"👔 Nombre de managers trouvés: {len(managers)}")
+
+        return render_template(
+            'gestion_compte_new.html',
+            role_users=role_users,
+            roles=roles,
+            users=users,
+            managers=managers
+        )
+
+    except Exception as e:
+        print(f"❌ Erreur dans list_users: {e}")
+        import traceback
+        traceback.print_exc()
+
+        # Retourner une page avec des listes vides en cas d'erreur
+        return render_template(
+            'gestion_compte_new.html',
+            role_users={},
+            roles=[],
+            users=[],
+            managers=[]
+        )
 
 @gestion_compte_bp.route('/create', methods=['POST'])
 def create_user():

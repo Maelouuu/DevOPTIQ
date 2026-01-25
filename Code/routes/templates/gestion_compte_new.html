@@ -169,40 +169,49 @@
                     </tr>
                 </thead>
                 <tbody id="usersTableBody">
-                    {% for role_name, users_list in role_users.items() %}
-                        {% for user in users_list %}
-                        <tr class="user-row"
-                            data-name="{{ user.first_name }} {{ user.last_name }}"
-                            data-status="{{ user.status }}"
-                            data-role="{{ role_name }}">
-                            <td><strong>{{ user.first_name }} {{ user.last_name }}</strong></td>
-                            <td>{{ user.email }}</td>
-                            <td>{{ user.age or 'N/A' }} ans</td>
-                            <td>{{ role_name }}</td>
-                            <td>
-                                {% if user.status == 'administrateur' %}
-                                    <span class="badge badge-admin">Admin</span>
-                                {% elif user.status == 'rh' %}
-                                    <span class="badge badge-rh">RH</span>
-                                {% else %}
-                                    <span class="badge badge-user">Utilisateur</span>
-                                {% endif %}
-                            </td>
-                            <td>
-                                <a href="{{ url_for('gestion_compte.update_user', user_id=user.id) }}" class="btn btn-small">
-                                    <i class="fa-solid fa-pencil"></i> Modifier
-                                </a>
-                                <form method="POST" action="{{ url_for('gestion_compte.delete_user', user_id=user.id) }}"
-                                      style="display: inline;"
-                                      onsubmit="return confirm('Êtes-vous sûr de vouloir supprimer cet utilisateur ?');">
-                                    <button type="submit" class="btn btn-danger btn-small">
-                                        <i class="fa-solid fa-trash"></i> Supprimer
-                                    </button>
-                                </form>
+                    {% if role_users and role_users|length > 0 %}
+                        {% for role_name, users_list in role_users.items() %}
+                            {% for user in users_list %}
+                            <tr class="user-row"
+                                data-name="{{ user.first_name }} {{ user.last_name }}"
+                                data-status="{{ user.status }}"
+                                data-role="{{ role_name }}">
+                                <td><strong>{{ user.first_name }} {{ user.last_name }}</strong></td>
+                                <td>{{ user.email }}</td>
+                                <td>{{ user.age or 'N/A' }} ans</td>
+                                <td>{{ role_name }}</td>
+                                <td>
+                                    {% if user.status == 'administrateur' %}
+                                        <span class="badge badge-admin">Admin</span>
+                                    {% elif user.status == 'rh' %}
+                                        <span class="badge badge-rh">RH</span>
+                                    {% else %}
+                                        <span class="badge badge-user">Utilisateur</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <a href="{{ url_for('gestion_compte.update_user', user_id=user.id) }}" class="btn btn-small">
+                                        <i class="fa-solid fa-pencil"></i> Modifier
+                                    </a>
+                                    <form method="POST" action="{{ url_for('gestion_compte.delete_user', user_id=user.id) }}"
+                                          style="display: inline;"
+                                          onsubmit="return confirm('Êtes-vous sûr de vouloir supprimer cet utilisateur ?');">
+                                        <button type="submit" class="btn btn-danger btn-small">
+                                            <i class="fa-solid fa-trash"></i> Supprimer
+                                        </button>
+                                    </form>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        {% endfor %}
+                    {% else %}
+                        <tr>
+                            <td colspan="6" style="text-align: center; padding: 40px; color: #6c757d;">
+                                <i class="fa-solid fa-inbox" style="font-size: 3em; margin-bottom: 16px; opacity: 0.3; display: block;"></i>
+                                <p>Aucun utilisateur trouvé</p>
                             </td>
                         </tr>
-                        {% endfor %}
-                    {% endfor %}
+                    {% endif %}
                 </tbody>
             </table>
         </div>

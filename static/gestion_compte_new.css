@@ -102,6 +102,7 @@ h1 {
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
     margin-bottom: 24px;
     transition: transform 0.2s ease, box-shadow 0.2s ease;
+    overflow: hidden;
 }
 
 .card:hover {
@@ -155,12 +156,14 @@ h1 {
 .form-group input,
 .form-group select {
     width: 100%;
+    max-width: 100%;
     padding: 12px 16px;
     border: 2px solid #e9ecef;
     border-radius: 8px;
     font-size: 1em;
     transition: border-color 0.3s ease, box-shadow 0.3s ease;
     background-color: #f8f9fa;
+    box-sizing: border-box;
 }
 
 .form-group input:focus,
