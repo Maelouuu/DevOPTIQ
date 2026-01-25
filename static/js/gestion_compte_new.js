@@ -128,15 +128,27 @@ function parseExcelData(rawData) {
     console.log('📊 Raw data received:', rawData);
     console.log('📊 Number of rows:', rawData.length);
 
-    if (rawData.length < 2) {
-        alert('Le fichier ne contient pas assez de données.');
+    if (rawData.length < 1) {
+        alert('Le fichier ne contient pas de données.');
         return [];
     }
 
-    const headers = rawData[0];
-    console.log('📊 Headers:', headers);
+    // Déterminer si la première ligne est un en-tête ou des données
+    // En-tête si elle contient des mots comme "prenom", "nom", "email", etc.
+    const firstRow = rawData[0];
+    const isHeader = firstRow.some(cell => {
+        if (typeof cell === 'string') {
+            const lower = cell.toLowerCase().trim();
+            return ['prenom', 'prénom', 'nom', 'email', 'age', 'âge', 'mot de passe', 'password', 'role', 'rôle', 'statut'].includes(lower);
+        }
+        return false;
+    });
 
-    const rows = rawData.slice(1);
+    console.log('📊 First row is header:', isHeader);
+    console.log('📊 First row content:', firstRow);
+
+    // Si la première ligne est un en-tête, on la saute, sinon on commence à la ligne 1
+    const rows = isHeader ? rawData.slice(1) : rawData;
     console.log('📊 Data rows (before filter):', rows.length);
 
     const parsed = rows.filter(row => {

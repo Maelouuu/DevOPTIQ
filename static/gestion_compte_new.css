@@ -246,7 +246,9 @@ h1 {
 .btn-small {
     padding: 8px 16px;
     font-size: 0.9em;
-    min-width: 110px;
+    min-width: 120px;
+    width: 120px;
+    height: 38px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
