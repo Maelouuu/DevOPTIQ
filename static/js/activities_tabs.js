@@ -9,13 +9,22 @@
 function toggleActivity(activityId) {
     const content = document.getElementById(`content-${activityId}`);
     const icon = document.getElementById(`icon-${activityId}`);
+    const container = document.querySelector(`[data-activity-id="${activityId}"]`);
 
     if (content.style.display === 'none' || content.style.display === '') {
         content.style.display = 'block';
         icon.classList.add('rotated');
+        // Ajouter la classe expanded pour l'animation d'agrandissement
+        if (container) {
+            container.classList.add('expanded');
+        }
     } else {
         content.style.display = 'none';
         icon.classList.remove('rotated');
+        // Retirer la classe expanded pour rétrécir
+        if (container) {
+            container.classList.remove('expanded');
+        }
     }
 }
 
@@ -55,11 +64,15 @@ function openActivityTab(activityId, tabName) {
     // Ouvrir l'activité si elle est fermée
     const content = document.getElementById(`content-${activityId}`);
     const icon = document.getElementById(`icon-${activityId}`);
+    const activityContainer = document.querySelector(`[data-activity-id="${activityId}"]`);
 
     if (content && (content.style.display === 'none' || content.style.display === '')) {
         content.style.display = 'block';
         if (icon) {
             icon.classList.add('rotated');
+        }
+        if (activityContainer) {
+            activityContainer.classList.add('expanded');
         }
     }
 
@@ -68,7 +81,6 @@ function openActivityTab(activityId, tabName) {
     openTab(null, tabId, activityId);
 
     // Scroller jusqu'à l'activité
-    const activityContainer = document.querySelector(`[data-activity-id="${activityId}"]`);
     if (activityContainer) {
         activityContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
@@ -109,9 +121,11 @@ function toggleAllActivities(expand = true) {
             if (expand) {
                 content.style.display = 'block';
                 icon.classList.add('rotated');
+                container.classList.add('expanded');
             } else {
                 content.style.display = 'none';
                 icon.classList.remove('rotated');
+                container.classList.remove('expanded');
             }
         }
     });

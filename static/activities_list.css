@@ -32,11 +32,20 @@ h1 {
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
     margin-bottom: 24px;
     overflow: hidden;
-    transition: box-shadow 0.3s ease, transform 0.2s ease;
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    max-width: 600px;
+    margin-left: auto;
+    margin-right: auto;
 }
 
 .activity-container:hover {
     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+}
+
+/* Animation d'agrandissement quand l'activité est ouverte */
+.activity-container.expanded {
+    max-width: 100%;
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 /* Mise en évidence */
@@ -655,6 +664,99 @@ h1 {
     min-width: 200px;
 }
 
+/* ========================================
+   VUE D'ENSEMBLE - DISPOSITION CÔTE À CÔTE
+   ======================================== */
+
+.overview-side-by-side {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 24px;
+    margin-top: 24px;
+}
+
+@media (max-width: 968px) {
+    .overview-side-by-side {
+        grid-template-columns: 1fr;
+    }
+}
+
+.overview-section {
+    background-color: #f8f9fa;
+    border-radius: 8px;
+    padding: 20px;
+    border: 1px solid #e9ecef;
+}
+
+.overview-section-title {
+    font-size: 1.15em;
+    color: #2c3e50;
+    margin-bottom: 16px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.overview-section-title i {
+    color: #667eea;
+}
+
+.connection-section-compact {
+    margin-bottom: 16px;
+}
+
+.connection-section-compact:last-child {
+    margin-bottom: 0;
+}
+
+.connection-section-compact h5 {
+    font-size: 1em;
+    color: #495057;
+    margin-bottom: 10px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.empty-message-compact {
+    text-align: center;
+    padding: 20px 10px;
+    color: #95a5a6;
+    font-style: italic;
+    font-size: 0.9em;
+}
+
+.empty-message-compact i {
+    font-size: 2em;
+    margin-bottom: 8px;
+    display: block;
+    opacity: 0.3;
+}
+
+/* ========================================
+   DIFFÉRENCIATION DONNÉES DÉCLENCHANTES/NOURISSANTES
+   ======================================== */
+
+/* Fond plus clair pour les lignes déclenchantes */
+.row-declenchante {
+    background-color: rgba(231, 76, 60, 0.08);
+}
+
+.row-declenchante:hover {
+    background-color: rgba(231, 76, 60, 0.15) !important;
+}
+
+/* Fond plus clair pour les lignes nourrissantes */
+.row-nourrissante {
+    background-color: rgba(243, 156, 18, 0.08);
+}
+
+.row-nourrissante:hover {
+    background-color: rgba(243, 156, 18, 0.15) !important;
+}
+
 /* Responsive */
 @media (max-width: 768px) {
     .task-row {
@@ -672,5 +774,13 @@ h1 {
     .tab-button {
         padding: 12px 16px;
         font-size: 0.85em;
+    }
+
+    .activity-container {
+        max-width: 100%;
+    }
+
+    .activity-container.expanded {
+        max-width: 100%;
     }
 }
