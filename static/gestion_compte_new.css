@@ -1,0 +1,597 @@
+/* ========================================
+   GESTION DES COMPTES - REFONTE MODERNE
+   ======================================== */
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+    min-height: 100vh;
+    padding: 20px;
+    color: #2c3e50;
+}
+
+/* Titre principal */
+h1 {
+    text-align: center;
+    color: #2c3e50;
+    font-size: 2.5em;
+    margin-bottom: 40px;
+    font-weight: 700;
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* ========================================
+   SYSTÈME D'ONGLETS
+   ======================================== */
+
+.tabs-navigation {
+    display: flex;
+    justify-content: center;
+    gap: 16px;
+    margin-bottom: 32px;
+    flex-wrap: wrap;
+}
+
+.tab-nav-button {
+    background: white;
+    border: none;
+    padding: 16px 32px;
+    border-radius: 12px;
+    font-size: 1em;
+    font-weight: 600;
+    color: #6c757d;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.tab-nav-button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    color: #495057;
+}
+
+.tab-nav-button.active {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    box-shadow: 0 4px 16px rgba(102, 126, 234, 0.4);
+}
+
+.tab-nav-button i {
+    font-size: 1.2em;
+}
+
+/* Contenu des onglets */
+.tab-pane {
+    display: none;
+    animation: fadeIn 0.4s ease;
+}
+
+.tab-pane.active {
+    display: block;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* ========================================
+   CARTES (BOXES)
+   ======================================== */
+
+.card {
+    background: white;
+    border-radius: 16px;
+    padding: 28px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    margin-bottom: 24px;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12);
+}
+
+.card h2 {
+    color: #667eea;
+    font-size: 1.5em;
+    margin-bottom: 20px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.card h2 i {
+    font-size: 0.9em;
+}
+
+/* Grid pour deux colonnes */
+.two-column-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+}
+
+@media (max-width: 1024px) {
+    .two-column-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* ========================================
+   FORMULAIRES
+   ======================================== */
+
+.form-group {
+    margin-bottom: 20px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 8px;
+    color: #495057;
+    font-weight: 600;
+    font-size: 0.95em;
+}
+
+.form-group input,
+.form-group select {
+    width: 100%;
+    padding: 12px 16px;
+    border: 2px solid #e9ecef;
+    border-radius: 8px;
+    font-size: 1em;
+    transition: border-color 0.3s ease, box-shadow 0.3s ease;
+    background-color: #f8f9fa;
+}
+
+.form-group input:focus,
+.form-group select:focus {
+    outline: none;
+    border-color: #667eea;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    background-color: white;
+}
+
+.form-group input[type="password"] {
+    font-family: 'Courier New', monospace;
+    letter-spacing: 2px;
+}
+
+/* ========================================
+   BOUTONS
+   ======================================== */
+
+.btn {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    padding: 12px 24px;
+    border-radius: 8px;
+    font-size: 1em;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+}
+
+.btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.btn:active {
+    transform: translateY(0);
+}
+
+.btn-success {
+    background: linear-gradient(135deg, #27ae60 0%, #229954 100%);
+}
+
+.btn-danger {
+    background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+}
+
+.btn-secondary {
+    background: linear-gradient(135deg, #95a5a6 0%, #7f8c8d 100%);
+}
+
+.btn-small {
+    padding: 8px 16px;
+    font-size: 0.9em;
+}
+
+.btn i {
+    font-size: 1em;
+}
+
+/* ========================================
+   ZONE DRAG & DROP EXCEL
+   ======================================== */
+
+.drag-drop-zone {
+    border: 3px dashed #667eea;
+    border-radius: 16px;
+    padding: 48px 24px;
+    text-align: center;
+    background: linear-gradient(135deg, rgba(102, 126, 234, 0.05) 0%, rgba(118, 75, 162, 0.05) 100%);
+    cursor: pointer;
+    transition: all 0.3s ease;
+    position: relative;
+}
+
+.drag-drop-zone:hover {
+    border-color: #764ba2;
+    background: linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%);
+    transform: scale(1.02);
+}
+
+.drag-drop-zone.dragover {
+    border-color: #27ae60;
+    background: rgba(39, 174, 96, 0.1);
+    transform: scale(1.05);
+}
+
+.drag-drop-zone i {
+    font-size: 4em;
+    color: #667eea;
+    margin-bottom: 16px;
+    display: block;
+}
+
+.drag-drop-zone p {
+    font-size: 1.2em;
+    color: #495057;
+    margin-bottom: 8px;
+    font-weight: 600;
+}
+
+.drag-drop-zone .subtitle {
+    font-size: 0.9em;
+    color: #6c757d;
+    margin-top: 8px;
+}
+
+/* Info tooltip */
+.info-tooltip {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: #d1ecf1;
+    color: #0c5460;
+    padding: 12px 16px;
+    border-radius: 8px;
+    margin-top: 16px;
+    font-size: 0.9em;
+    border-left: 4px solid #17a2b8;
+}
+
+.info-tooltip i {
+    font-size: 1.2em;
+}
+
+.info-icon {
+    cursor: pointer;
+    color: #17a2b8;
+    font-size: 1.2em;
+    margin-left: 8px;
+    transition: transform 0.2s ease;
+}
+
+.info-icon:hover {
+    transform: scale(1.2);
+}
+
+/* Modal pour format Excel */
+.modal-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.6);
+    z-index: 9999;
+    justify-content: center;
+    align-items: center;
+}
+
+.modal-overlay.active {
+    display: flex;
+}
+
+.modal-content-format {
+    background: white;
+    border-radius: 16px;
+    padding: 32px;
+    max-width: 600px;
+    width: 90%;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+    animation: modalSlideIn 0.3s ease;
+}
+
+@keyframes modalSlideIn {
+    from {
+        transform: translateY(-50px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+.modal-content-format h3 {
+    color: #667eea;
+    margin-bottom: 20px;
+    font-size: 1.5em;
+}
+
+.format-example {
+    background: #f8f9fa;
+    border-left: 4px solid #667eea;
+    padding: 16px;
+    border-radius: 8px;
+    margin: 16px 0;
+    font-family: 'Courier New', monospace;
+    font-size: 0.9em;
+}
+
+.format-example code {
+    display: block;
+    margin: 4px 0;
+    color: #2c3e50;
+}
+
+/* ========================================
+   LISTE D'UTILISATEURS
+   ======================================== */
+
+.users-table-container {
+    overflow-x: auto;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.users-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: white;
+}
+
+.users-table thead {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+}
+
+.users-table th {
+    padding: 16px;
+    text-align: left;
+    font-weight: 600;
+    font-size: 0.95em;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.users-table td {
+    padding: 14px 16px;
+    border-bottom: 1px solid #e9ecef;
+    color: #495057;
+}
+
+.users-table tbody tr {
+    transition: background-color 0.2s ease;
+}
+
+.users-table tbody tr:hover {
+    background-color: #f8f9fa;
+}
+
+.badge {
+    display: inline-block;
+    padding: 6px 12px;
+    border-radius: 12px;
+    font-size: 0.85em;
+    font-weight: 600;
+}
+
+.badge-user {
+    background-color: #3498db;
+    color: white;
+}
+
+.badge-rh {
+    background-color: #f39c12;
+    color: white;
+}
+
+.badge-admin {
+    background-color: #e74c3c;
+    color: white;
+}
+
+/* ========================================
+   FILTRES
+   ======================================== */
+
+.filter-bar {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+}
+
+.filter-bar input,
+.filter-bar select {
+    flex: 1;
+    min-width: 200px;
+    padding: 12px 16px;
+    border: 2px solid #e9ecef;
+    border-radius: 8px;
+    font-size: 0.95em;
+    background-color: white;
+}
+
+.filter-bar input:focus,
+.filter-bar select:focus {
+    outline: none;
+    border-color: #667eea;
+}
+
+/* ========================================
+   MESSAGES & NOTIFICATIONS
+   ======================================== */
+
+.success-message {
+    background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
+    color: #155724;
+    padding: 16px 20px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    border-left: 4px solid #28a745;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    animation: slideIn 0.3s ease;
+}
+
+.error-message {
+    background: linear-gradient(135deg, #f8d7da 0%, #f5c6cb 100%);
+    color: #721c24;
+    padding: 16px 20px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    border-left: 4px solid #dc3545;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    animation: slideIn 0.3s ease;
+}
+
+@keyframes slideIn {
+    from {
+        transform: translateX(-20px);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+/* ========================================
+   SECTION MANAGERS
+   ======================================== */
+
+.manager-card {
+    background: white;
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 16px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    transition: all 0.3s ease;
+}
+
+.manager-card:hover {
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+}
+
+.manager-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: pointer;
+    padding-bottom: 12px;
+    border-bottom: 2px solid #e9ecef;
+}
+
+.manager-name {
+    font-size: 1.2em;
+    font-weight: 600;
+    color: #2c3e50;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.manager-name i {
+    color: #667eea;
+}
+
+.toggle-icon-manager {
+    font-size: 1.2em;
+    color: #6c757d;
+    transition: transform 0.3s ease;
+}
+
+.toggle-icon-manager.rotated {
+    transform: rotate(90deg);
+}
+
+.subordinates-list {
+    list-style: none;
+    margin-top: 16px;
+}
+
+.subordinates-list li {
+    padding: 10px 14px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    margin-bottom: 8px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+/* ========================================
+   RESPONSIVE
+   ======================================== */
+
+@media (max-width: 768px) {
+    h1 {
+        font-size: 2em;
+    }
+
+    .tabs-navigation {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .tab-nav-button {
+        justify-content: center;
+    }
+
+    .two-column-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .users-table {
+        font-size: 0.9em;
+    }
+
+    .users-table th,
+    .users-table td {
+        padding: 10px;
+    }
+}

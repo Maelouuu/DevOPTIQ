@@ -24,7 +24,7 @@ def list_users():
     )
 
     return render_template(
-        'gestion_compte.html',
+        'gestion_compte_new.html',  # Utilisation du nouveau template
         role_users=role_users,
         roles=roles,
         users=users,
@@ -165,10 +165,84 @@ def get_all_users():
 @gestion_compte_bp.route('/manager/<int:manager_id>/subordinates')
 def get_subordinates(manager_id):
     manager = User.query.get_or_404(manager_id)
-    subordinates = manager.subordinates  
+    subordinates = manager.subordinates
     return jsonify({
         'subordinates': [
             {'id': s.id, 'name': f"{s.first_name} {s.last_name}"}
             for s in subordinates
         ]
     })
+
+@gestion_compte_bp.route('/import_excel', methods=['POST'])
+def import_excel():
+    """
+    Import d'utilisateurs via fichier Excel
+    Format attendu: prenom, nom, email, age, mot_de_passe, role, statut
+    """
+    try:
+        data = request.get_json()
+        users_data = data.get('users', [])
+
+        if not users_data:
+            return jsonify({'success': False, 'message': 'Aucune donnée fournie'}), 400
+
+        active_entity_id = Entity.get_active_id()
+        imported_count = 0
+        errors = []
+
+        for user_data in users_data:
+            try:
+                # Vérifier que l'email n'existe pas déjà
+                existing_user = User.query.filter_by(email=user_data.get('email')).first()
+                if existing_user:
+                    errors.append(f"Email {user_data.get('email')} déjà existant")
+                    continue
+
+                # Trouver le rôle
+                role_name = user_data.get('role', '').strip()
+                role = Role.query.filter_by(name=role_name).first() if role_name else None
+
+                if not role and role_name:
+                    errors.append(f"Rôle '{role_name}' introuvable pour {user_data.get('email')}")
+                    continue
+
+                # Créer l'utilisateur
+                user = User(
+                    first_name=user_data.get('prenom', '').strip(),
+                    last_name=user_data.get('nom', '').strip(),
+                    email=user_data.get('email', '').strip(),
+                    age=user_data.get('age') if user_data.get('age') else None,
+                    password=user_data.get('mot_de_passe', '').strip(),
+                    status=user_data.get('statut', 'user').strip(),
+                    entity_id=active_entity_id
+                )
+                db.session.add(user)
+                db.session.flush()  # Pour obtenir l'ID
+
+                # Associer le rôle si trouvé
+                if role:
+                    user_role = UserRole(user_id=user.id, role_id=role.id)
+                    db.session.add(user_role)
+
+                imported_count += 1
+
+            except Exception as e:
+                errors.append(f"Erreur pour {user_data.get('email')}: {str(e)}")
+                continue
+
+        db.session.commit()
+
+        message = f"{imported_count} utilisateur(s) importé(s)"
+        if errors:
+            message += f". {len(errors)} erreur(s): {', '.join(errors[:3])}"
+
+        return jsonify({
+            'success': True,
+            'imported': imported_count,
+            'errors': errors,
+            'message': message
+        })
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'message': f'Erreur serveur: {str(e)}'}), 500

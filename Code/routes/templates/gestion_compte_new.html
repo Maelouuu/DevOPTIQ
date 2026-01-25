@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestion des comptes utilisateurs</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='gestion_compte_new.css') }}">
+</head>
+<body>
+
+{% include "header_buttons.html" %}
+
+<h1><i class="fa-solid fa-users"></i> Gestion des comptes utilisateurs</h1>
+
+<!-- Navigation par onglets -->
+<div class="tabs-navigation">
+    <button class="tab-nav-button active" onclick="switchTab('create-tab')">
+        <i class="fa-solid fa-user-plus"></i> Créer un utilisateur
+    </button>
+    <button class="tab-nav-button" onclick="switchTab('import-tab')">
+        <i class="fa-solid fa-file-excel"></i> Import Excel
+    </button>
+    <button class="tab-nav-button" onclick="switchTab('list-tab')">
+        <i class="fa-solid fa-list"></i> Liste des utilisateurs
+    </button>
+    <button class="tab-nav-button" onclick="switchTab('managers-tab')">
+        <i class="fa-solid fa-user-tie"></i> Managers
+    </button>
+</div>
+
+<!-- ONGLET 1: Créer un utilisateur -->
+<div id="create-tab" class="tab-pane active">
+    <div class="card" style="max-width: 800px; margin: 0 auto;">
+        <h2><i class="fa-solid fa-user-plus"></i> Créer un nouvel utilisateur</h2>
+        <form action="{{ url_for('gestion_compte.create_user') }}" method="POST" id="createUserForm">
+            <div class="two-column-grid">
+                <div class="form-group">
+                    <label for="first_name"><i class="fa-solid fa-user"></i> Prénom *</label>
+                    <input type="text" id="first_name" name="first_name" required placeholder="Ex: Jean">
+                </div>
+                <div class="form-group">
+                    <label for="last_name"><i class="fa-solid fa-user"></i> Nom *</label>
+                    <input type="text" id="last_name" name="last_name" required placeholder="Ex: Dupont">
+                </div>
+            </div>
+
+            <div class="two-column-grid">
+                <div class="form-group">
+                    <label for="email"><i class="fa-solid fa-envelope"></i> Email *</label>
+                    <input type="email" id="email" name="email" required placeholder="jean.dupont@exemple.com">
+                </div>
+                <div class="form-group">
+                    <label for="age"><i class="fa-solid fa-calendar"></i> Âge</label>
+                    <input type="number" id="age" name="age" min="18" max="100" placeholder="Ex: 30">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="password"><i class="fa-solid fa-lock"></i> Mot de passe *</label>
+                <input type="password" id="password" name="password" required minlength="6" placeholder="Minimum 6 caractères">
+            </div>
+
+            <div class="two-column-grid">
+                <div class="form-group">
+                    <label for="role_id"><i class="fa-solid fa-briefcase"></i> Rôle *</label>
+                    <select id="role_id" name="role_id" required>
+                        <option value="">-- Sélectionner un rôle --</option>
+                        {% for role in roles %}
+                            <option value="{{ role.id }}">{{ role.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="status"><i class="fa-solid fa-shield"></i> Statut *</label>
+                    <select id="status" name="status" required>
+                        <option value="user">Utilisateur</option>
+                        <option value="rh">RH</option>
+                        <option value="administrateur">Administrateur</option>
+                    </select>
+                </div>
+            </div>
+
+            <button type="submit" class="btn btn-success" style="width: 100%; margin-top: 10px;">
+                <i class="fa-solid fa-check"></i> Créer l'utilisateur
+            </button>
+        </form>
+    </div>
+</div>
+
+<!-- ONGLET 2: Import Excel -->
+<div id="import-tab" class="tab-pane">
+    <div class="card" style="max-width: 900px; margin: 0 auto;">
+        <h2><i class="fa-solid fa-file-excel"></i> Importer des utilisateurs via Excel</h2>
+
+        <!-- Zone drag & drop -->
+        <div class="drag-drop-zone" id="dropZone">
+            <i class="fa-solid fa-cloud-arrow-up"></i>
+            <p>Glissez-déposez votre fichier Excel ici</p>
+            <p class="subtitle">ou cliquez pour sélectionner un fichier</p>
+            <input type="file" id="excelFileInput" accept=".xlsx,.xls,.csv" style="display: none;">
+        </div>
+
+        <!-- Info sur le format -->
+        <div style="margin-top: 24px; text-align: center;">
+            <span>Format attendu</span>
+            <i class="fa-solid fa-circle-info info-icon" onclick="showFormatModal()" title="Voir le format requis"></i>
+        </div>
+
+        <div class="info-tooltip" style="margin-top: 16px; display: block;">
+            <i class="fa-solid fa-lightbulb"></i>
+            <div>
+                <strong>Astuce :</strong> Le fichier doit contenir les colonnes suivantes dans l'ordre :
+                <strong>prenom, nom, email, age, mot_de_passe, role, statut</strong>
+            </div>
+        </div>
+
+        <!-- Zone de prévisualisation -->
+        <div id="previewZone" style="display: none; margin-top: 24px;">
+            <h3 style="color: #667eea; margin-bottom: 16px;">
+                <i class="fa-solid fa-eye"></i> Prévisualisation des données
+            </h3>
+            <div id="previewTable"></div>
+            <div style="margin-top: 20px; text-align: center;">
+                <button class="btn btn-success" onclick="confirmImport()">
+                    <i class="fa-solid fa-check"></i> Confirmer l'import
+                </button>
+                <button class="btn btn-secondary" onclick="cancelImport()">
+                    <i class="fa-solid fa-times"></i> Annuler
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ONGLET 3: Liste des utilisateurs -->
+<div id="list-tab" class="tab-pane">
+    <div class="card">
+        <h2><i class="fa-solid fa-list"></i> Liste des utilisateurs</h2>
+
+        <!-- Barre de filtres -->
+        <div class="filter-bar">
+            <input type="text" id="searchInput" placeholder="Rechercher par nom ou prénom..." onkeyup="filterUsers()">
+            <select id="statusFilter" onchange="filterUsers()">
+                <option value="">Tous les statuts</option>
+                <option value="user">Utilisateur</option>
+                <option value="rh">RH</option>
+                <option value="administrateur">Administrateur</option>
+            </select>
+            <select id="roleFilter" onchange="filterUsers()">
+                <option value="">Tous les rôles</option>
+                {% for role in roles %}
+                    <option value="{{ role.name }}">{{ role.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <!-- Tableau des utilisateurs -->
+        <div class="users-table-container">
+            <table class="users-table">
+                <thead>
+                    <tr>
+                        <th>Nom complet</th>
+                        <th>Email</th>
+                        <th>Âge</th>
+                        <th>Rôle</th>
+                        <th>Statut</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="usersTableBody">
+                    {% for role_name, users_list in role_users.items() %}
+                        {% for user in users_list %}
+                        <tr class="user-row"
+                            data-name="{{ user.first_name }} {{ user.last_name }}"
+                            data-status="{{ user.status }}"
+                            data-role="{{ role_name }}">
+                            <td><strong>{{ user.first_name }} {{ user.last_name }}</strong></td>
+                            <td>{{ user.email }}</td>
+                            <td>{{ user.age or 'N/A' }} ans</td>
+                            <td>{{ role_name }}</td>
+                            <td>
+                                {% if user.status == 'administrateur' %}
+                                    <span class="badge badge-admin">Admin</span>
+                                {% elif user.status == 'rh' %}
+                                    <span class="badge badge-rh">RH</span>
+                                {% else %}
+                                    <span class="badge badge-user">Utilisateur</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <a href="{{ url_for('gestion_compte.update_user', user_id=user.id) }}" class="btn btn-small">
+                                    <i class="fa-solid fa-pencil"></i> Modifier
+                                </a>
+                                <form method="POST" action="{{ url_for('gestion_compte.delete_user', user_id=user.id) }}"
+                                      style="display: inline;"
+                                      onsubmit="return confirm('Êtes-vous sûr de vouloir supprimer cet utilisateur ?');">
+                                    <button type="submit" class="btn btn-danger btn-small">
+                                        <i class="fa-solid fa-trash"></i> Supprimer
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- ONGLET 4: Managers -->
+<div id="managers-tab" class="tab-pane">
+    <div class="card">
+        <h2><i class="fa-solid fa-user-tie"></i> Managers et leurs collaborateurs</h2>
+
+        {% if managers and managers|length > 0 %}
+            {% for manager in managers %}
+            <div class="manager-card">
+                <div class="manager-header" onclick="toggleManagerSubordinates({{ manager.id }})">
+                    <div class="manager-name">
+                        <i class="fa-solid fa-user-tie"></i>
+                        {{ manager.first_name }} {{ manager.last_name }}
+                        <span style="color: #6c757d; font-size: 0.85em; font-weight: normal;">
+                            ({{ manager.subordinates|length if manager.subordinates else 0 }} collaborateur{{ 's' if manager.subordinates and manager.subordinates|length > 1 else '' }})
+                        </span>
+                    </div>
+                    <i class="fa-solid fa-chevron-right toggle-icon-manager" id="icon-manager-{{ manager.id }}"></i>
+                </div>
+
+                <div id="subordinates-{{ manager.id }}" style="display: none;">
+                    {% if manager.subordinates and manager.subordinates|length > 0 %}
+                        <ul class="subordinates-list">
+                            {% for sub in manager.subordinates %}
+                            <li>
+                                <span><i class="fa-solid fa-user"></i> {{ sub.first_name }} {{ sub.last_name }}</span>
+                                <form method="POST" action="{{ url_for('gestion_compte.remove_collaborator', user_id=sub.id) }}"
+                                      style="display: inline;"
+                                      onsubmit="return confirm('Retirer ce collaborateur ?');">
+                                    <button type="submit" class="btn btn-danger btn-small">
+                                        <i class="fa-solid fa-user-minus"></i> Retirer
+                                    </button>
+                                </form>
+                            </li>
+                            {% endfor %}
+                        </ul>
+                    {% else %}
+                        <p style="margin-top: 16px; color: #6c757d; font-style: italic;">
+                            <i class="fa-solid fa-inbox"></i> Aucun collaborateur pour le moment
+                        </p>
+                    {% endif %}
+
+                    <button class="btn" style="margin-top: 16px;" onclick="showAddCollaboratorModal({{ manager.id }}, '{{ manager.first_name }}')">
+                        <i class="fa-solid fa-user-plus"></i> Ajouter un collaborateur
+                    </button>
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+            <div style="text-align: center; padding: 40px; color: #6c757d;">
+                <i class="fa-solid fa-inbox" style="font-size: 3em; margin-bottom: 16px; opacity: 0.3;"></i>
+                <p>Aucun manager trouvé</p>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Modal pour format Excel -->
+<div class="modal-overlay" id="formatModal">
+    <div class="modal-content-format">
+        <h3><i class="fa-solid fa-circle-info"></i> Format du fichier Excel requis</h3>
+        <p>Votre fichier Excel doit respecter le format suivant :</p>
+
+        <div class="format-example">
+            <strong>En-têtes (première ligne) :</strong>
+            <code>prenom | nom | email | age | mot_de_passe | role | statut</code>
+        </div>
+
+        <div class="format-example">
+            <strong>Exemple de données :</strong>
+            <code>Jean | Dupont | jean.dupont@mail.com | 30 | motdepasse123 | Développeur | user</code>
+            <code>Marie | Martin | marie.martin@mail.com | 28 | pass456 | Designer | rh</code>
+        </div>
+
+        <div style="margin-top: 20px; padding: 12px; background: #fff3cd; border-left: 4px solid #ffc107; border-radius: 8px;">
+            <strong>Note :</strong> Les statuts possibles sont : <code>user</code>, <code>rh</code>, <code>administrateur</code>
+        </div>
+
+        <button class="btn" style="margin-top: 20px; width: 100%;" onclick="closeFormatModal()">
+            <i class="fa-solid fa-check"></i> J'ai compris
+        </button>
+    </div>
+</div>
+
+<!-- Modal ajout collaborateur (sera géré en JS) -->
+<div class="modal-overlay" id="addCollaboratorModal">
+    <div class="modal-content-format">
+        <h3><i class="fa-solid fa-user-plus"></i> Ajouter un collaborateur à <span id="managerNameDisplay"></span></h3>
+        <form id="addCollaboratorForm" method="POST" action="{{ url_for('gestion_compte.assign_manager') }}">
+            <input type="hidden" name="manager_id" id="modalManagerId">
+            <input type="hidden" name="multi_select" value="0">
+
+            <div class="form-group">
+                <label>Sélectionner un utilisateur :</label>
+                <select name="user_id" id="collaboratorSelect" required>
+                    <option value="">-- Choisir un utilisateur --</option>
+                    {% for user in users %}
+                        <option value="{{ user.id }}">{{ user.first_name }} {{ user.last_name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div style="display: flex; gap: 12px; margin-top: 20px;">
+                <button type="submit" class="btn btn-success" style="flex: 1;">
+                    <i class="fa-solid fa-check"></i> Ajouter
+                </button>
+                <button type="button" class="btn btn-secondary" style="flex: 1;" onclick="closeAddCollaboratorModal()">
+                    <i class="fa-solid fa-times"></i> Annuler
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script src="{{ url_for('static', filename='js/gestion_compte_new.js') }}"></script>
+
+</body>
+</html>

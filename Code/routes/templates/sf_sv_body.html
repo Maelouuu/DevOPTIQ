@@ -1,67 +1,7 @@
 {# templates/partials/_sf_sv_body.html #}
 <div style="display:flex; gap:20px;">
 
-  <!-- =================== SAVOIR-FAIRE =================== -->
-  <div style="flex:1;">
-    <h4>Savoir-faire</h4>
-
-    {% if activity.savoir_faires and activity.savoir_faires|length > 0 %}
-      <ul>
-        {% for sf in activity.savoir_faires %}
-          <li id="savoir-faires-{{ sf.id }}" class="sf-item">
-
-              <!-- Mode affichage -->
-              <div id="sf-display-{{ sf.id }}" class="sf-display">
-                  <span class="sf-text" id="savoir-faires-desc-{{ sf.id }}">{{ sf.description }}</span>
-
-                  <button class="icon-btn"
-                          onclick="showEditSavoirFairesForm('{{ sf.id }}')">
-                    <i class="fa-solid fa-pencil"></i>
-                  </button>
-
-                  <button class="icon-btn"
-                          onclick="deleteSavoirFaires('{{ activity.id }}','{{ sf.id }}')">
-                    <i class="fa-solid fa-trash"></i>
-                  </button>
-              </div>
-
-              <!-- Mode édition -->
-              <div id="sf-edit-area-{{ sf.id }}" class="sf-edit-area" style="display:none;">
-                  <input type="text"
-                         id="edit-savoir-faires-input-{{ sf.id }}"
-                         class="sf-input"
-                         value="{{ sf.description }}" />
-
-                  <button class="icon-btn"
-                          onclick="submitEditSavoirFaires('{{ activity.id }}','{{ sf.id }}')">
-                    <i class="fa-solid fa-check"></i>
-                  </button>
-
-                  <button class="icon-btn"
-                          onclick="hideEditSavoirFairesForm('{{ sf.id }}')">
-                    <i class="fa-solid fa-xmark"></i>
-                  </button>
-              </div>
-          </li>
-        {% endfor %}
-      </ul>
-    {% else %}
-      <p>Aucun savoir-faire enregistré.</p>
-    {% endif %}
-
-    <!-- Add -->
-    <button onclick="showAddSavoirFairesForm('{{ activity.id }}')">+ Ajouter un savoir-faire</button>
-    <div id="add-savoir-faires-form-{{ activity.id }}" style="display:none; margin-top:5px;">
-      <input type="text" id="add-savoir-faires-input-{{ activity.id }}" />
-      <button onclick="submitAddSavoirFaires('{{ activity.id }}')">Enregistrer</button>
-      <button onclick="hideAddSavoirFairesForm('{{ activity.id }}')">Annuler</button>
-    </div>
-  </div>
-
-
-
   <!-- =================== SAVOIRS =================== -->
-    <!-- =================== SAVOIRS =================== -->
   <div style="flex:1;">
     <h4>Savoirs</h4>
 
@@ -119,6 +59,65 @@
       <input type="text" id="add-savoir-input-{{ activity.id }}" />
       <button onclick="submitAddSavoir('{{ activity.id }}')">Enregistrer</button>
       <button onclick="hideAddSavoirForm('{{ activity.id }}')">Annuler</button>
+    </div>
+  </div>
+
+
+
+  <!-- =================== SAVOIR-FAIRE =================== -->
+  <div style="flex:1;">
+    <h4>Savoir-faire</h4>
+
+    {% if activity.savoir_faires and activity.savoir_faires|length > 0 %}
+      <ul>
+        {% for sf in activity.savoir_faires %}
+          <li id="savoir-faires-{{ sf.id }}" class="sf-item">
+
+              <!-- Mode affichage -->
+              <div id="sf-display-{{ sf.id }}" class="sf-display">
+                  <span class="sf-text" id="savoir-faires-desc-{{ sf.id }}">{{ sf.description }}</span>
+
+                  <button class="icon-btn"
+                          onclick="showEditSavoirFairesForm('{{ sf.id }}')">
+                    <i class="fa-solid fa-pencil"></i>
+                  </button>
+
+                  <button class="icon-btn"
+                          onclick="deleteSavoirFaires('{{ activity.id }}','{{ sf.id }}')">
+                    <i class="fa-solid fa-trash"></i>
+                  </button>
+              </div>
+
+              <!-- Mode édition -->
+              <div id="sf-edit-area-{{ sf.id }}" class="sf-edit-area" style="display:none;">
+                  <input type="text"
+                         id="edit-savoir-faires-input-{{ sf.id }}"
+                         class="sf-input"
+                         value="{{ sf.description }}" />
+
+                  <button class="icon-btn"
+                          onclick="submitEditSavoirFaires('{{ activity.id }}','{{ sf.id }}')">
+                    <i class="fa-solid fa-check"></i>
+                  </button>
+
+                  <button class="icon-btn"
+                          onclick="hideEditSavoirFairesForm('{{ sf.id }}')">
+                    <i class="fa-solid fa-xmark"></i>
+                  </button>
+              </div>
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p>Aucun savoir-faire enregistré.</p>
+    {% endif %}
+
+    <!-- Add -->
+    <button onclick="showAddSavoirFairesForm('{{ activity.id }}')">+ Ajouter un savoir-faire</button>
+    <div id="add-savoir-faires-form-{{ activity.id }}" style="display:none; margin-top:5px;">
+      <input type="text" id="add-savoir-faires-input-{{ activity.id }}" />
+      <button onclick="submitAddSavoirFaires('{{ activity.id }}')">Enregistrer</button>
+      <button onclick="hideAddSavoirFairesForm('{{ activity.id }}')">Annuler</button>
     </div>
   </div>
 
