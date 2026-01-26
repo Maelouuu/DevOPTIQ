@@ -4,20 +4,26 @@
 
 <ul id="competencies-list-{{ item.activity.id }}">
   {% for comp in item.activity.competencies %}
-    <li data-comp-id="{{ comp.id }}" style="margin-bottom:5px;">
-      <span class="validated-skill-text">{{ comp.description }}</span>
-      <button onclick="editCompetency(this, {{ comp.id }})" style="margin-left:5px;">
-        <i class="fa-solid fa-pencil"></i>
-      </button>
-      <button onclick="deleteCompetency(this, {{ comp.id }})" style="margin-left:5px;">
-        <i class="fa-solid fa-trash"></i>
-      </button>
-      <!-- Formulaire d'édition local (caché) -->
-      <div class="edit-competency-form" id="edit-competency-form-{{ comp.id }}" style="display:none; margin-top:5px;">
-        <label>Description :</label>
-        <input type="text" id="edit-competency-desc-{{ comp.id }}" value="{{ comp.description }}" />
-        <button onclick="submitEditCompetency('{{ comp.id }}')">Enregistrer</button>
-        <button onclick="hideEditCompetencyForm('{{ comp.id }}')">Annuler</button>
+    <li data-comp-id="{{ comp.id }}" class="sf-item">
+      <!-- Mode affichage -->
+      <div id="comp-display-{{ comp.id }}" class="sf-display">
+        <span class="sf-text">{{ comp.description }}</span>
+        <button class="icon-btn" onclick="editCompetency(this, {{ comp.id }})">
+          <i class="fa-solid fa-pencil"></i>
+        </button>
+        <button class="icon-btn" onclick="deleteCompetency(this, {{ comp.id }})">
+          <i class="fa-solid fa-trash"></i>
+        </button>
+      </div>
+      <!-- Mode édition -->
+      <div class="sf-edit-area" id="edit-competency-form-{{ comp.id }}" style="display:none;">
+        <input type="text" class="sf-input" id="edit-competency-desc-{{ comp.id }}" value="{{ comp.description }}" />
+        <button class="icon-btn" onclick="submitEditCompetency('{{ comp.id }}')">
+          <i class="fa-solid fa-check"></i>
+        </button>
+        <button class="icon-btn" onclick="hideEditCompetencyForm('{{ comp.id }}')">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
       </div>
     </li>
   {% endfor %}

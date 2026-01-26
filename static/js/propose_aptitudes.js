@@ -130,64 +130,53 @@ function parseAptitudesFromText(input) {
 
   // -------- UI modale (overlay inline, pas de CSS externe requis) --------
   function ensureModal() {
-    let modal = $("#proposeAptitudesModal");
-    if (!modal) {
-      modal = document.createElement("div");
-      modal.id = "proposeAptitudesModal";
-      Object.assign(modal.style, {
-        position: "fixed",
-        inset: "0",
-        background: "rgba(0,0,0,0.35)",
-        zIndex: "9999",
-        display: "none",
-      });
+    let overlay = $("#proposeAptitudesModalOverlay");
+    if (!overlay) {
+      overlay = document.createElement("div");
+      overlay.id = "proposeAptitudesModalOverlay";
+      overlay.className = "modal-overlay-propose";
+      overlay.style.display = "none";
+      overlay.onclick = (e) => { if (e.target === overlay) hideModal(); };
 
       const dialog = document.createElement("div");
-      Object.assign(dialog.style, {
-        position: "absolute",
-        left: "50%",
-        top: "8%",
-        transform: "translateX(-50%)",
-        width: "min(900px, 92vw)",
-        maxHeight: "84vh",
-        overflow: "auto",
-        background: "#fff",
-        border: "1px solid #aaa",
-        borderRadius: "10px",
-        boxShadow: "0 10px 25px rgba(0,0,0,0.15)",
-        padding: "16px",
-      });
+      dialog.id = "proposeAptitudesModal";
+      dialog.className = "modal-content-propose";
       dialog.innerHTML = `
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-          <h3 style="margin:0;">Propositions d'aptitudes</h3>
-          <button id="apt-close" title="Fermer" style="font-size:20px; line-height:1;">&times;</button>
+        <div class="modal-header-propose">
+          <h3><i class="fa-solid fa-sparkles"></i> Propositions d'aptitudes</h3>
+          <button class="modal-close-btn-propose" id="apt-close">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
         </div>
-        <div id="aptitudes-groups"></div>
-        <div style="margin-top:16px; display:flex; gap:10px; justify-content:space-between; align-items:center;">
-          <div>
+        <div class="modal-body-propose">
+          <div id="aptitudes-groups"></div>
+          <div style="margin-top:16px;">
             <label><input type="checkbox" id="apt-select-all"> Tout sélectionner</label>
           </div>
-          <div>
-            <button id="btn-validate-aptitudes" class="btn btn-primary">Enregistrer</button>
-            <button id="btn-cancel-aptitudes" class="btn">Annuler</button>
-          </div>
+        </div>
+        <div class="modal-footer-propose">
+          <button id="btn-cancel-aptitudes" class="btn-modal-secondary-propose">
+            <i class="fa-solid fa-xmark"></i> Annuler
+          </button>
+          <button id="btn-validate-aptitudes" class="btn-modal-primary-propose">
+            <i class="fa-solid fa-check"></i> Enregistrer
+          </button>
         </div>
       `;
-      modal.appendChild(dialog);
-      document.body.appendChild(modal);
+      overlay.appendChild(dialog);
+      document.body.appendChild(overlay);
 
-      $("#apt-close", modal).onclick = () => hideModal();
-      $("#btn-cancel-aptitudes", modal).onclick = () => hideModal();
-      modal.addEventListener("click", (e) => { if (e.target === modal) hideModal(); });
-      $("#apt-select-all", modal).addEventListener("change", (e) => {
+      $("#apt-close", dialog).onclick = () => hideModal();
+      $("#btn-cancel-aptitudes", dialog).onclick = () => hideModal();
+      $("#apt-select-all", dialog).addEventListener("change", (e) => {
         const checked = e.target.checked;
-        $all('input[type="checkbox"][data-apt="1"]', modal).forEach(cb => cb.checked = checked);
+        $all('input[type="checkbox"][data-apt="1"]', overlay).forEach(cb => cb.checked = checked);
       });
     }
-    return modal;
+    return overlay;
   }
-  function showModal() { const m = ensureModal(); m.style.display = "block"; }
-  function hideModal() { const m = $("#proposeAptitudesModal"); if (m) m.style.display = "none"; }
+  function showModal() { const m = ensureModal(); m.style.display = "flex"; }
+  function hideModal() { const m = $("#proposeAptitudesModalOverlay"); if (m) m.style.display = "none"; }
 
   function renderGroupsInModal(groups) {
     const container = $("#aptitudes-groups");
@@ -207,15 +196,13 @@ function parseAptitudesFromText(input) {
       block.appendChild(title);
 
       const ul = document.createElement("ul");
-      ul.style.listStyle = "none";
-      ul.style.paddingLeft = "0";
+      ul.className = "proposals-list-propose";
       g.items.forEach(item => {
         const li = document.createElement("li");
-        li.style.marginBottom = "6px";
         li.innerHTML = `
-          <label>
-            <input type="checkbox" data-apt="1" value="${item}">
-            ${item}
+          <label class="proposal-item-propose">
+            <input type="checkbox" data-apt="1" value="${item}" checked>
+            <span>${item}</span>
           </label>`;
         ul.appendChild(li);
       });

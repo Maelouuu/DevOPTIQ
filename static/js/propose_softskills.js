@@ -66,32 +66,118 @@ function proposeSoftskills(activityData) {
 
 
 
-function showProposedSoftskills(hscProposals, activityId) {
-  showSpinner();
+function escapeHtml(str) {
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
 
-  const addPromises = hscProposals.map(p => {
-    return fetch('/softskills/add', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        activity_id: activityId,
-        habilete: p.habilete,
-        niveau: p.niveau,
-        justification: p.justification || ""
-      })
-    }).then(r => r.json()).catch(err => {
-      console.error("Erreur lors de l'ajout de la softskill :", err);
-    });
+function ensureHSCModal() {
+  let overlay = document.getElementById("proposeHSCModalOverlay");
+  if (!overlay) {
+    overlay = document.createElement("div");
+    overlay.id = "proposeHSCModalOverlay";
+    overlay.className = "modal-overlay-propose";
+    overlay.style.display = "none";
+    overlay.onclick = (e) => { if(e.target === overlay) overlay.style.display = 'none'; };
+
+    const modal = document.createElement("div");
+    modal.id = "proposeHSCModal";
+    modal.className = "modal-content-propose";
+    overlay.appendChild(modal);
+    document.body.appendChild(overlay);
+  }
+  return overlay;
+}
+
+function showProposedSoftskills(hscProposals, activityId) {
+  const overlay = ensureHSCModal();
+  const modal = overlay.querySelector('#proposeHSCModal');
+
+  modal.innerHTML = `
+    <div class="modal-header-propose">
+      <h3><i class="fa-solid fa-sparkles"></i> Propositions de HSC</h3>
+      <button class="modal-close-btn-propose" id="closeHSCModalBtn">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+    </div>
+    <div class="modal-body-propose">
+      <ul id="hscProposalsList" class="proposals-list-propose"></ul>
+    </div>
+    <div class="modal-footer-propose">
+      <button class="btn-modal-secondary-propose" id="cancelHSCBtn">
+        <i class="fa-solid fa-xmark"></i> Annuler
+      </button>
+      <button class="btn-modal-primary-propose" id="validateHSCBtn">
+        <i class="fa-solid fa-check"></i> Enregistrer
+      </button>
+    </div>
+  `;
+
+  const listEl = modal.querySelector('#hscProposalsList');
+  listEl.innerHTML = "";
+
+  hscProposals.forEach((p, idx) => {
+    const li = document.createElement('li');
+    li.innerHTML = `
+      <label class="proposal-item-propose">
+        <input type="checkbox"
+               data-idx="${idx}"
+               data-habilete="${escapeHtml(p.habilete)}"
+               data-niveau="${escapeHtml(p.niveau)}"
+               data-justification="${escapeHtml(p.justification || '')}"
+               checked />
+        <span><strong>${escapeHtml(p.habilete)}</strong> - Niveau: ${escapeHtml(p.niveau)}</span>
+      </label>
+    `;
+    listEl.appendChild(li);
   });
 
-  if (typeof refreshActivityItems === "function") {
-    refreshActivityItems(activityId);
-  }
+  modal.querySelector('#closeHSCModalBtn').onclick = () => {
+    overlay.style.display = 'none';
+  };
+  modal.querySelector('#cancelHSCBtn').onclick = () => {
+    overlay.style.display = 'none';
+  };
 
+  modal.querySelector('#validateHSCBtn').onclick = () => {
+    const selected = listEl.querySelectorAll('input[type="checkbox"]:checked');
+    if (!selected.length) {
+      alert("Veuillez sélectionner au moins une HSC.");
+      return;
+    }
 
-  Promise.all(addPromises)
-    .then(() => {
-      hideSpinner();
-      updateSoftskillsList(activityId);
+    showSpinner();
+    const addPromises = Array.from(selected).map(cb => {
+      return fetch('/softskills/add', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          activity_id: activityId,
+          habilete: cb.getAttribute('data-habilete'),
+          niveau: cb.getAttribute('data-niveau'),
+          justification: cb.getAttribute('data-justification') || ""
+        })
+      }).then(r => r.json()).catch(err => {
+        console.error("Erreur lors de l'ajout de la softskill :", err);
+      });
     });
+
+    Promise.all(addPromises)
+      .then(() => {
+        hideSpinner();
+        overlay.style.display = 'none';
+        if (typeof refreshActivityItems === "function") {
+          refreshActivityItems(activityId);
+        }
+        if (typeof updateSoftskillsList === "function") {
+          updateSoftskillsList(activityId);
+        }
+      });
+  };
+
+  overlay.style.display = 'flex';
 }

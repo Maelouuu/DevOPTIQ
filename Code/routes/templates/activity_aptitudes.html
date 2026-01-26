@@ -6,24 +6,31 @@
       {% if activity.aptitudes and activity.aptitudes|length > 0 %}
         <ul>
           {% for ap in activity.aptitudes %}
-            <li id="aptitude-{{ ap.id }}">
-              <span class="aptitude-text">{{ ap.description }}</span>
-              <button
-                class="edit-aptitude-btn"
-                data-aptitude='{{ {"id": ap.id, "description": ap.description}|tojson|safe }}'
-                onclick="showEditAptitudeForm(this)"
-              >
-                <i class="fa-solid fa-pencil"></i>
-              </button>
-              <button onclick="deleteAptitude('{{ activity.id }}','{{ ap.id }}')">
-                <i class="fa-solid fa-trash"></i>
-              </button>
-  
-              <!-- Formulaire d'édition caché -->
-              <div id="edit-aptitude-form-{{ ap.id }}" style="display:none; margin-top:5px;">
-                <input type="text" id="edit-aptitude-input-{{ ap.id }}" />
-                <button onclick="submitEditAptitude('{{ activity.id }}','{{ ap.id }}')">Enregistrer</button>
-                <button onclick="hideEditAptitudeForm('{{ ap.id }}')">Annuler</button>
+            <li id="aptitude-{{ ap.id }}" class="sf-item">
+              <!-- Mode affichage -->
+              <div id="apt-display-{{ ap.id }}" class="sf-display">
+                <span class="sf-text">{{ ap.description }}</span>
+                <button
+                  class="icon-btn edit-aptitude-btn"
+                  data-aptitude='{{ {"id": ap.id, "description": ap.description}|tojson|safe }}'
+                  onclick="showEditAptitudeForm(this)"
+                >
+                  <i class="fa-solid fa-pencil"></i>
+                </button>
+                <button class="icon-btn" onclick="deleteAptitude('{{ activity.id }}','{{ ap.id }}')">
+                  <i class="fa-solid fa-trash"></i>
+                </button>
+              </div>
+
+              <!-- Mode édition -->
+              <div class="sf-edit-area" id="edit-aptitude-form-{{ ap.id }}" style="display:none;">
+                <input type="text" class="sf-input" id="edit-aptitude-input-{{ ap.id }}" />
+                <button class="icon-btn" onclick="submitEditAptitude('{{ activity.id }}','{{ ap.id }}')">
+                  <i class="fa-solid fa-check"></i>
+                </button>
+                <button class="icon-btn" onclick="hideEditAptitudeForm('{{ ap.id }}')">
+                  <i class="fa-solid fa-xmark"></i>
+                </button>
               </div>
             </li>
           {% endfor %}

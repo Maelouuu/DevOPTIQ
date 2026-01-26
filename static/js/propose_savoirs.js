@@ -73,51 +73,64 @@ function fetchActivityDetailsForSavoirs(activityId) {
 
 
   function showProposedSavoirs(proposals, activityId) {
-    let modal = document.getElementById('proposeSavoirsModal');
-    if (!modal) {
-      modal = document.createElement('div');
+    let overlay = document.getElementById('proposeSavoirsModalOverlay');
+    if (!overlay) {
+      overlay = document.createElement('div');
+      overlay.id = 'proposeSavoirsModalOverlay';
+      overlay.className = 'modal-overlay-propose';
+      overlay.onclick = (e) => { if(e.target === overlay) overlay.style.display = 'none'; };
+
+      const modal = document.createElement('div');
       modal.id = 'proposeSavoirsModal';
-      modal.style.position = 'fixed';
-      modal.style.left = '25%';
-      modal.style.top = '25%';
-      modal.style.width = '50%';
-      modal.style.background = '#fff';
-      modal.style.border = '1px solid #aaa';
-      modal.style.padding = '10px';
-      modal.style.zIndex = '9999';
-      document.body.appendChild(modal);
+      modal.className = 'modal-content-propose';
+      overlay.appendChild(modal);
+      document.body.appendChild(overlay);
     }
-  
+
+    const modal = overlay.querySelector('#proposeSavoirsModal');
     modal.innerHTML = `
-      <h4>Propositions de Savoirs</h4>
-      <ul id="proposedSavoirsList" style="list-style:none; padding-left:0;"></ul>
-      <div style="margin-top:10px;">
-        <button id="validateProposedSavoirsBtn">Enregistrer</button>
-        <button id="cancelProposedSavoirsBtn">Annuler</button>
+      <div class="modal-header-propose">
+        <h3><i class="fa-solid fa-sparkles"></i> Propositions de savoirs</h3>
+        <button class="modal-close-btn-propose" id="closeSavoirsModalBtn">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+      <div class="modal-body-propose">
+        <ul id="proposedSavoirsList" class="proposals-list-propose"></ul>
+      </div>
+      <div class="modal-footer-propose">
+        <button class="btn-modal-secondary-propose" id="cancelProposedSavoirsBtn">
+          <i class="fa-solid fa-xmark"></i> Annuler
+        </button>
+        <button class="btn-modal-primary-propose" id="validateProposedSavoirsBtn">
+          <i class="fa-solid fa-check"></i> Enregistrer
+        </button>
       </div>
     `;
-  
+
     const listEl = modal.querySelector('#proposedSavoirsList');
     listEl.innerHTML = "";
     proposals.forEach((p) => {
       const li = document.createElement('li');
-      li.style.marginBottom = "5px";
+      const escaped = String(p).replace(/'/g, "\\'").replace(/"/g, '&quot;');
       li.innerHTML = `
-        <label style="cursor:pointer;">
-          <input type="checkbox" 
-                data-description="${p}" />
-          ${p}
+        <label class="proposal-item-propose">
+          <input type="checkbox" data-description="${escaped}" checked />
+          <span>${p}</span>
         </label>
       `;
       listEl.appendChild(li);
     });
-  
-    modal.style.display = 'block';
+
+    overlay.style.display = 'flex';
   
 
-    // Bouton d'annulation
+    // Boutons de fermeture
+    modal.querySelector('#closeSavoirsModalBtn').onclick = () => {
+      overlay.style.display = 'none';
+    };
     modal.querySelector('#cancelProposedSavoirsBtn').onclick = () => {
-      modal.style.display = 'none';
+      overlay.style.display = 'none';
     };
     
 
@@ -154,7 +167,7 @@ function fetchActivityDetailsForSavoirs(activityId) {
                
         Promise.all(addPromises).then(() => {
             hideSpinner();
-            modal.style.display = 'none';
+            overlay.style.display = 'none';
             updateSavoirs(activityId);
         })
         .catch(err => {
