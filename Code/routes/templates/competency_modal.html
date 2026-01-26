@@ -1,12 +1,23 @@
 <!-- Code/routes/templates/competency_modal.html -->
-<div id="competencyModal"
-     style="display:none; position:fixed; left:20%; top:20%; width:60%; background:#fff;
-            border:1px solid #aaa; padding:10px; z-index:9999;">
-  <h4>Propositions de compétences :</h4>
-  <ul id="proposalsList" style="list-style:none; padding-left:0;"></ul>
-  <div style="margin-top:10px;">
-    <button onclick="validateAllSelectedProposals()">Valider les compétences</button>
-    <button onclick="closeCompetencyModal()">Annuler</button>
+<div id="competencyModalOverlay" class="modal-overlay-propose" style="display:none;" onclick="if(event.target === this) closeCompetencyModal()">
+  <div id="competencyModal" class="modal-content-propose">
+    <div class="modal-header-propose">
+      <h3><i class="fa-solid fa-sparkles"></i> Propositions de compétences</h3>
+      <button class="modal-close-btn-propose" onclick="closeCompetencyModal()">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+    </div>
+    <div class="modal-body-propose">
+      <ul id="proposalsList" class="proposals-list-propose"></ul>
+    </div>
+    <div class="modal-footer-propose">
+      <button class="btn-modal-secondary-propose" onclick="closeCompetencyModal()">
+        <i class="fa-solid fa-xmark"></i> Annuler
+      </button>
+      <button class="btn-modal-primary-propose" onclick="validateAllSelectedProposals()">
+        <i class="fa-solid fa-check"></i> Valider les compétences
+      </button>
+    </div>
   </div>
 </div>
 
@@ -22,19 +33,17 @@ function showProposalsModal(proposals, activityId) {
 
   proposals.forEach((proposal, index) => {
     const li = document.createElement('li');
-    li.style.marginBottom = "5px";
-    // on échappe d’éventuelles apostrophes
     const escaped = proposal.replace(/'/g, "\\'");
     li.innerHTML = `
-      <label style="cursor:pointer;">
+      <label class="proposal-item-propose">
         <input type="checkbox" data-proposal="${escaped}" />
-        ${proposal}
+        <span>${proposal}</span>
       </label>
     `;
     proposalsList.appendChild(li);
   });
 
-  document.getElementById('competencyModal').style.display = "block";
+  document.getElementById('competencyModalOverlay').style.display = "flex";
 }
 
 function validateAllSelectedProposals() {
@@ -61,7 +70,6 @@ function validateAllSelectedProposals() {
       if (data.error) {
         console.error("Erreur en ajoutant la compétence:", data.error);
       } else {
-        // Ajouter dans le DOM
         addCompetencyItemToDOM(currentActivityId, data.id, data.description);
       }
     })
@@ -78,6 +86,6 @@ function validateAllSelectedProposals() {
 }
 
 function closeCompetencyModal() {
-  document.getElementById('competencyModal').style.display = "none";
+  document.getElementById('competencyModalOverlay').style.display = "none";
 }
 </script>

@@ -13,18 +13,10 @@ function toggleActivity(activityId) {
 
     if (content.style.display === 'none' || content.style.display === '') {
         content.style.display = 'block';
-        icon.classList.add('rotated');
-        // Ajouter la classe expanded pour l'animation d'agrandissement
-        if (container) {
-            container.classList.add('expanded');
-        }
+        icon.textContent = '▼';
     } else {
         content.style.display = 'none';
-        icon.classList.remove('rotated');
-        // Retirer la classe expanded pour rétrécir
-        if (container) {
-            container.classList.remove('expanded');
-        }
+        icon.textContent = '▶';
     }
 }
 
@@ -69,10 +61,7 @@ function openActivityTab(activityId, tabName) {
     if (content && (content.style.display === 'none' || content.style.display === '')) {
         content.style.display = 'block';
         if (icon) {
-            icon.classList.add('rotated');
-        }
-        if (activityContainer) {
-            activityContainer.classList.add('expanded');
+            icon.textContent = '▼';
         }
     }
 
@@ -120,12 +109,10 @@ function toggleAllActivities(expand = true) {
         if (content && icon) {
             if (expand) {
                 content.style.display = 'block';
-                icon.classList.add('rotated');
-                container.classList.add('expanded');
+                icon.textContent = '▼';
             } else {
                 content.style.display = 'none';
-                icon.classList.remove('rotated');
-                container.classList.remove('expanded');
+                icon.textContent = '▶';
             }
         }
     });

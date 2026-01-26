@@ -85,7 +85,7 @@
                                     </thead>
                                     <tbody>
                                         {% for conn in item.incoming %}
-                                            <tr class="{% if conn.type|lower == 'déclenchante' %}row-declenchante{% elif conn.type|lower == 'nourrissante' %}row-nourrissante{% endif %}">
+                                            <tr >
                                                 <td>
                                                     {% if conn.type|lower == 'déclenchante' %}
                                                         <span class="declenchante">{{ conn.data_name }}</span>
@@ -122,7 +122,7 @@
                                     </thead>
                                     <tbody>
                                         {% for conn in item.outgoing %}
-                                            <tr class="{% if conn.type|lower == 'déclenchante' %}row-declenchante{% elif conn.type|lower == 'nourrissante' %}row-nourrissante{% endif %}">
+                                            <tr >
                                                 <td>
                                                     {% if conn.type|lower == 'déclenchante' %}
                                                         <span class="declenchante">{{ conn.data_name }}</span>
