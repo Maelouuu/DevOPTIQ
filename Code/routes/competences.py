@@ -1,7 +1,7 @@
 # FICHIER: Code/routes/competences.py
 # VERSION CORRIGÉE - Gestion UPSERT pour PostgreSQL
 
-from flask import Blueprint, jsonify, render_template, request
+from flask import Blueprint, jsonify, render_template, request, session
 from Code.extensions import db
 from datetime import datetime
 from sqlalchemy import text
@@ -15,6 +15,52 @@ competences_bp = Blueprint('competences_bp', __name__, url_prefix='/competences'
 @competences_bp.route('/view', methods=['GET'])
 def competences_view():
     return render_template('competences_view.html')
+
+
+@competences_bp.route('/current_user_manager', methods=['GET'])
+def get_current_user_manager():
+    """Retourne l'utilisateur connecté et le manager approprié"""
+    user_id = session.get('user_id')
+    if not user_id:
+        return jsonify({'error': 'Non connecté'}), 401
+
+    user = User.query.get(user_id)
+    if not user:
+        return jsonify({'error': 'Utilisateur introuvable'}), 404
+
+    # Récupérer l'entité active
+    active_entity_id = Entity.get_active_id()
+
+    # Vérifier si l'utilisateur est un manager
+    if active_entity_id:
+        role_manager = Role.query.filter_by(name='manager', entity_id=active_entity_id).first()
+    else:
+        role_manager = Role.query.filter_by(name='manager').first()
+
+    is_manager = False
+    if role_manager:
+        user_role = UserRole.query.filter_by(user_id=user_id, role_id=role_manager.id).first()
+        is_manager = user_role is not None
+
+    # Si c'est un manager, retourner ses infos
+    if is_manager:
+        return jsonify({
+            'manager_id': user.id,
+            'manager_name': f"{user.first_name} {user.last_name}",
+            'is_manager': True
+        })
+
+    # Sinon, retourner son manager
+    if user.manager_id:
+        manager = User.query.get(user.manager_id)
+        if manager:
+            return jsonify({
+                'manager_id': manager.id,
+                'manager_name': f"{manager.first_name} {manager.last_name}",
+                'is_manager': False
+            })
+
+    return jsonify({'error': 'Aucun manager trouvé'}), 404
 
 
 @competences_bp.route('/managers', methods=['GET'])

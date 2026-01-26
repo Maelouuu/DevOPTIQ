@@ -52,22 +52,29 @@ document.addEventListener('DOMContentLoaded', async () => {
 // ═══════════════════════════════════════════════════════════════
 async function loadCurrentManager() {
     try {
-        const res = await fetch('/competences/managers');
-        const managers = await res.json();
-        
-        if (managers.length > 0) {
-            // Prendre le premier manager (ou celui connecté)
-            AppState.managerId = managers[0].id;
-            AppState.managerName = managers[0].name;
-            
-            document.getElementById('manager-name').textContent = AppState.managerName;
-            
-            // Charger ses collaborateurs
-            await loadCollaborators(AppState.managerId);
+        // Récupérer l'utilisateur connecté et le manager approprié
+        const res = await fetch('/competences/current_user_manager');
+
+        if (!res.ok) {
+            throw new Error('Erreur lors de la récupération du manager');
         }
+
+        const data = await res.json();
+
+        if (data.error) {
+            throw new Error(data.error);
+        }
+
+        AppState.managerId = data.manager_id;
+        AppState.managerName = data.manager_name;
+
+        document.getElementById('manager-name').textContent = AppState.managerName;
+
+        // Charger les collaborateurs de ce manager
+        await loadCollaborators(AppState.managerId);
     } catch (err) {
-        console.error('Erreur chargement managers:', err);
-        showToast('Erreur lors du chargement', 'error');
+        console.error('Erreur chargement manager:', err);
+        showToast('Erreur lors du chargement du manager: ' + err.message, 'error');
     }
 }
 

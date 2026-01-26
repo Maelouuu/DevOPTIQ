@@ -30,7 +30,7 @@ h1 {
     border: 1px solid #e3e3e3;
     padding: 10px 10px 14px;
     margin-bottom: 14px;
-    background-color: #faf9ff;
+    background-color: #f8f7ff;
     color: #222;
     border-radius: 8px;
     transition: all 0.2s ease;
@@ -68,7 +68,7 @@ h1 {
     font-size: 1.1rem;
     font-weight: 700;
     padding: 6px 8px;
-    background-color: #ede9f8;
+    background-color: #e9e6f8;
     border-radius: 6px;
     display: flex;
     align-items: center;
@@ -77,7 +77,7 @@ h1 {
 }
 
 .activity-header:hover {
-    background-color: #e0daf5;
+    background-color: #ddd8f5;
 }
 
 .activity-header h2 {
