@@ -101,12 +101,48 @@ fetch(`/tasks/${taskId}/roles/add`, {
 
 /**
 * Récupère la liste des rôles existants pour la tâche, et l'affiche dans le DOM
-* en ajoutant un bouton poubelle pour supprimer le rôle
+* Support pour l'ancien format (ul) et le nouveau format (badges)
 */
 function loadTaskRolesForDisplay(taskId) {
 fetch(`/tasks/${taskId}/roles`)
   .then(r => r.json())
   .then(data => {
+    // Nouveau format avec badges
+    const badgesContainer = document.getElementById(`roles-badges-${taskId}`);
+    if (badgesContainer) {
+      // Supprimer les anciens badges (garder le bouton d'ajout)
+      const existingBadges = badgesContainer.querySelectorAll('.role-badge');
+      existingBadges.forEach(badge => badge.remove());
+
+      // Ajouter les nouveaux badges avant le bouton d'ajout
+      const addBtn = badgesContainer.querySelector('.add-badge-btn');
+
+      data.roles.forEach(role => {
+        let badge = document.createElement('span');
+        badge.className = 'role-badge';
+        badge.dataset.roleId = role.id;
+
+        // Déterminer la classe du status
+        const statusClass = role.status.toLowerCase().replace('é', 'e');
+
+        badge.innerHTML = `
+          <i class="fa-solid fa-user"></i> ${role.name}
+          <span class="role-status-badge ${statusClass}">${role.status}</span>
+          <button class="badge-remove" onclick="deleteRoleFromTask('${taskId}', '${role.id}')">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        `;
+
+        if (addBtn) {
+          badgesContainer.insertBefore(badge, addBtn);
+        } else {
+          badgesContainer.appendChild(badge);
+        }
+      });
+      return;
+    }
+
+    // Ancien format avec ul (fallback)
     const rolesUl = document.querySelector(`#roles-for-task-${taskId} ul`);
     if (!rolesUl) return;
 

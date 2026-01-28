@@ -44,6 +44,9 @@
             <button class="tab-button" onclick="openTab(event, 'softskills-{{ item.activity.id }}', '{{ item.activity.id }}')">
                 <i class="fa-solid fa-heart"></i> HSC
             </button>
+            <button class="tab-button" onclick="openTab(event, 'time-{{ item.activity.id }}', '{{ item.activity.id }}')">
+                <i class="fa-solid fa-clock"></i> Temps
+            </button>
         </div>
 
         <!-- Contenu des onglets -->
@@ -255,6 +258,17 @@
                 Habiletés Socio-Cognitives
             </h3>
             {% include "activity_softskills.html" %}
+        </div>
+
+        <!-- Onglet 5: Temps -->
+        <div id="time-{{ item.activity.id }}" class="tab-content">
+            <h3 class="section-title">
+                <i class="fa-solid fa-clock"></i>
+                Gestion du temps
+            </h3>
+            {% set activity = item.activity %}
+            {% set tasks = item.tasks %}
+            {% include "activity_time_new.html" %}
         </div>
 
     </div>

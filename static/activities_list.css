@@ -24,27 +24,32 @@ h1 {
 
 /* ========================================
    CONTENEUR DE L'ACTIVITÉ
+   Spécificité augmentée pour écraser optiq.css
    ======================================== */
 
+body .activity-container,
 .activity-container {
-    border: 1px solid #e3e3e3;
-    padding: 10px 10px 14px;
-    margin-bottom: 14px;
-    background-color: #f8f7ff;
-    color: #222;
-    border-radius: 8px;
-    transition: all 0.2s ease;
+    border: 1px solid #d4c8eb !important;
+    padding: 10px 10px 14px !important;
+    margin-bottom: 14px !important;
+    background-color: #ebe7f8 !important;
+    color: #222 !important;
+    border-radius: 8px !important;
+    transition: all 0.2s ease !important;
+    overflow: visible !important;
 }
 
+body .activity-container:hover,
 .activity-container:hover {
-    box-shadow: 0 2px 8px rgba(102, 126, 234, 0.15);
+    box-shadow: 0 2px 8px rgba(124, 58, 237, 0.2) !important;
 }
 
 /* Mise en évidence */
+body .activity-container.highlighted-activity,
 .activity-container.highlighted-activity {
-    border: 2px solid #22c55e;
-    box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.25);
-    animation: highlight-pulse 1s ease-out;
+    border: 2px solid #22c55e !important;
+    box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.25) !important;
+    animation: highlight-pulse 1s ease-out !important;
 }
 
 @keyframes highlight-pulse {
@@ -61,41 +66,46 @@ h1 {
 
 /* ========================================
    HEADER DE L'ACTIVITÉ
+   Spécificité augmentée pour écraser optiq.css
    ======================================== */
 
+body .activity-header,
 .activity-header {
-    cursor: pointer;
-    font-size: 1.1rem;
-    font-weight: 700;
-    padding: 6px 8px;
-    background-color: #e9e6f8;
-    border-radius: 6px;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    transition: background-color 0.2s ease;
+    cursor: pointer !important;
+    font-size: 1.1rem !important;
+    font-weight: 700 !important;
+    padding: 10px 14px !important;
+    background-color: #7c3aed !important;
+    border-radius: 6px !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 10px !important;
+    transition: background-color 0.2s ease !important;
 }
 
+body .activity-header:hover,
 .activity-header:hover {
-    background-color: #ddd8f5;
+    background-color: #6d28d9 !important;
 }
 
+body .activity-header h2,
 .activity-header h2 {
-    margin: 0;
-    color: #222;
-    font-size: 1.1rem;
-    font-weight: 700;
-    flex: 1;
+    margin: 0 !important;
+    color: #ffffff !important;
+    font-size: 1.1rem !important;
+    font-weight: 700 !important;
+    flex: 1 !important;
 }
 
+body .toggle-icon,
 .toggle-icon {
-    font-weight: 700;
-    width: 18px;
-    display: inline-block;
-    text-align: center;
-    color: #222;
-    font-size: 1rem;
-    transition: none;
+    font-weight: 700 !important;
+    width: 20px !important;
+    display: inline-block !important;
+    text-align: center !important;
+    color: #ffffff !important;
+    font-size: 1rem !important;
+    transition: none !important;
 }
 
 .toggle-icon.rotated {
@@ -962,4 +972,651 @@ h1 {
 
 .btn-modal-secondary-propose:hover {
     background: #d3d3d3;
+}
+
+/* ========================================
+   SECTION TEMPS - STYLE MODERNE COMPACT
+   ======================================== */
+
+.time-section-modern {
+    padding: 12px 0;
+}
+
+.time-mode-selector {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 16px;
+    padding: 10px;
+    background: #f9fafb;
+    border-radius: 8px;
+    border: 1px solid #e3e3e3;
+}
+
+.time-mode-option {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    padding: 8px 14px;
+    border-radius: 6px;
+    transition: all 0.2s ease;
+}
+
+.time-mode-option:hover {
+    background: #ebe7f8;
+}
+
+.time-mode-option input[type="radio"] {
+    accent-color: #7c3aed;
+    width: 16px;
+    height: 16px;
+}
+
+.time-mode-option input[type="radio"]:checked + .mode-label {
+    color: #7c3aed;
+    font-weight: 600;
+}
+
+.mode-label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.85rem;
+    color: #495057;
+}
+
+.mode-label i {
+    font-size: 0.9rem;
+}
+
+.time-block {
+    background: #fff;
+    border: 1px solid #e3e3e3;
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 12px;
+}
+
+.time-fields-row {
+    display: flex;
+    gap: 24px;
+    flex-wrap: wrap;
+}
+
+.time-field {
+    flex: 1;
+    min-width: 200px;
+}
+
+.time-field label {
+    display: block;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #495057;
+    margin-bottom: 6px;
+}
+
+.time-input-group {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.time-input {
+    flex: 1;
+    padding: 8px 12px;
+    border: 1px solid #d0d7de;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    max-width: 100px;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.time-input:focus {
+    outline: none;
+    border-color: #7c3aed;
+    box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.1);
+}
+
+.time-unit-select {
+    padding: 8px 10px;
+    border: 1px solid #d0d7de;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    background: #fff;
+    cursor: pointer;
+    min-width: 65px;
+}
+
+.time-unit-select:focus {
+    outline: none;
+    border-color: #7c3aed;
+}
+
+/* Tableau des tâches */
+.time-tasks-table-wrapper {
+    overflow-x: auto;
+}
+
+.time-tasks-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.85rem;
+}
+
+.time-tasks-table th {
+    background: #f3f6f8;
+    color: #222;
+    padding: 8px 10px;
+    text-align: left;
+    font-weight: 600;
+    font-size: 0.8rem;
+    border-bottom: 1px solid #e3e3e3;
+}
+
+.time-tasks-table td {
+    padding: 8px 10px;
+    border-bottom: 1px solid #f0f0f0;
+    color: #495057;
+}
+
+.time-tasks-table tbody tr:hover {
+    background: #f9fafb;
+}
+
+.task-name-cell {
+    font-weight: 500;
+    color: #222;
+}
+
+.time-task-input {
+    width: 70px !important;
+    padding: 6px 8px !important;
+}
+
+.time-task-unit {
+    padding: 6px 8px !important;
+    min-width: 55px !important;
+}
+
+.time-sum-row {
+    background: #ebe7f8;
+}
+
+.time-sum-row td {
+    border-bottom: none;
+    font-weight: 600;
+    color: #7c3aed;
+}
+
+.time-sum-value {
+    font-size: 1rem;
+    font-weight: 700;
+}
+
+.no-tasks-row td {
+    text-align: center;
+    color: #95a5a6;
+    font-style: italic;
+    padding: 20px;
+}
+
+/* Boutons d'action temps */
+.time-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 16px;
+}
+
+.btn-action-primary {
+    background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%);
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.2s ease;
+}
+
+.btn-action-primary:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(124, 58, 237, 0.35);
+}
+
+.btn-action-secondary {
+    background: #e9ecef;
+    color: #495057;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.2s ease;
+}
+
+.btn-action-secondary:hover {
+    background: #d3d3d3;
+}
+
+/* ========================================
+   STYLES UNIFORMISÉS SAVOIRS/SF/APTITUDES
+   ======================================== */
+
+/* Section d'actions en haut */
+.section-actions-top {
+    margin-bottom: 16px;
+}
+
+/* Grille savoirs / savoir-faire */
+.sf-sv-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+    margin-top: 10px;
+}
+
+@media (max-width: 768px) {
+    .sf-sv-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.sf-sv-column {
+    background: #fff;
+    border: 1px solid #e3e3e3;
+    border-radius: 8px;
+    padding: 16px;
+}
+
+.sf-sv-subtitle {
+    font-size: 0.95rem;
+    color: #222;
+    margin: 0 0 12px 0;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    border-bottom: 1px solid #ebe7f8;
+    padding-bottom: 8px;
+}
+
+/* Liste d'éléments uniformisée */
+.items-list {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 12px 0;
+}
+
+.items-list li {
+    padding: 8px 10px;
+    background-color: #f9fafb;
+    border-left: 3px solid #7c3aed;
+    margin-bottom: 6px;
+    border-radius: 4px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.85rem;
+    transition: all 0.2s ease;
+}
+
+.items-list li:hover {
+    background-color: #ebe7f8;
+}
+
+/* Texte vide */
+.empty-text {
+    color: #95a5a6;
+    font-style: italic;
+    font-size: 0.85rem;
+    text-align: center;
+    padding: 16px 8px;
+}
+
+/* Section d'ajout d'élément */
+.add-item-section {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid #e9ecef;
+}
+
+/* Formulaire inline d'ajout */
+.inline-add-form {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    margin-top: 10px;
+    padding: 10px;
+    background: #f9fafb;
+    border-radius: 6px;
+}
+
+.inline-add-form input {
+    flex: 1;
+    padding: 8px 12px;
+    border: 1px solid #d0d7de;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.inline-add-form input:focus {
+    outline: none;
+    border-color: #7c3aed;
+    box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.1);
+}
+
+/* Boutons icône danger et success */
+.icon-btn-danger {
+    color: #dc3545 !important;
+}
+
+.icon-btn-danger:hover {
+    color: #b02a37 !important;
+    background: rgba(220, 53, 69, 0.1);
+    border-radius: 4px;
+}
+
+.icon-btn-success {
+    color: #198754 !important;
+}
+
+.icon-btn-success:hover {
+    color: #146c43 !important;
+    background: rgba(25, 135, 84, 0.1);
+    border-radius: 4px;
+}
+
+/* ========================================
+   SECTION TÂCHES - VERSION COMPACTE MODERNE
+   ======================================== */
+
+.tasks-section-modern {
+    padding: 0;
+}
+
+.tasks-list-compact {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+/* Élément tâche compact avec touche subtile de violet */
+.task-item-compact {
+    background: #fff;
+    border: 1px solid #e3e3e3;
+    border-left: 3px solid #7c3aed;
+    border-radius: 6px;
+    margin-bottom: 8px;
+    padding: 10px 12px;
+    transition: all 0.2s ease;
+}
+
+.task-item-compact:hover {
+    border-left-color: #6d28d9;
+    box-shadow: 0 2px 8px rgba(124, 58, 237, 0.12);
+    background: linear-gradient(to right, rgba(124, 58, 237, 0.03) 0%, #fff 15%);
+}
+
+/* Ligne principale de la tâche */
+.task-main-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+/* Icône de drag */
+.task-drag-handle {
+    color: #b8b8b8;
+    cursor: move;
+    font-size: 0.85rem;
+    padding: 4px;
+    transition: color 0.2s;
+}
+
+.task-drag-handle:hover {
+    color: #7c3aed;
+}
+
+/* Info de la tâche */
+.task-info {
+    flex: 1;
+    min-width: 150px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.task-name {
+    font-weight: 600;
+    color: #222;
+    font-size: 0.9rem;
+}
+
+.task-desc {
+    font-size: 0.8rem;
+    color: #6c757d;
+}
+
+/* Badges outils et rôles */
+.task-tools-badges,
+.task-roles-badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    align-items: center;
+}
+
+.tool-badge,
+.role-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: #f0f0f0;
+    padding: 3px 8px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    color: #495057;
+    transition: all 0.2s;
+}
+
+.tool-badge {
+    border: 1px solid #d0d7de;
+}
+
+.tool-badge:hover {
+    background: #e9ecef;
+}
+
+.role-badge {
+    background: #ebe7f8;
+    border: 1px solid #d4c8eb;
+    color: #6d28d9;
+}
+
+.role-badge:hover {
+    background: #d4c8eb;
+}
+
+.tool-badge i,
+.role-badge i {
+    font-size: 0.7rem;
+}
+
+.badge-remove {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0 2px;
+    color: #95a5a6;
+    font-size: 0.7rem;
+    transition: color 0.2s;
+    line-height: 1;
+}
+
+.badge-remove:hover {
+    color: #dc3545;
+}
+
+/* Bouton ajouter badge */
+.add-badge-btn {
+    background: transparent;
+    border: 1px dashed #c0c0c0;
+    border-radius: 12px;
+    padding: 3px 8px;
+    font-size: 0.75rem;
+    color: #95a5a6;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.add-badge-btn:hover {
+    border-color: #7c3aed;
+    color: #7c3aed;
+    background: rgba(124, 58, 237, 0.05);
+}
+
+.role-badge-btn {
+    border-color: #d4c8eb;
+}
+
+.role-badge-btn:hover {
+    border-color: #7c3aed;
+}
+
+/* Actions de la tâche */
+.task-actions {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+}
+
+/* Formulaires de tâche */
+.task-edit-form,
+.task-tool-form,
+.task-role-form {
+    margin-top: 10px;
+    padding: 12px;
+    background: #f9fafb;
+    border-radius: 6px;
+    border: 1px solid #e3e3e3;
+}
+
+.form-row {
+    margin-bottom: 10px;
+}
+
+.form-row label {
+    display: block;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #495057;
+    margin-bottom: 4px;
+}
+
+.task-input {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid #d0d7de;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    box-sizing: border-box;
+}
+
+.task-input:focus {
+    outline: none;
+    border-color: #7c3aed;
+    box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.1);
+}
+
+.task-select {
+    width: 100%;
+    min-height: 60px;
+    padding: 6px;
+    border: 1px solid #d0d7de;
+    border-radius: 6px;
+    font-size: 0.85rem;
+}
+
+.task-select-single {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid #d0d7de;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    background: #fff;
+}
+
+.task-form-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 10px;
+}
+
+/* Boutons petits */
+.btn-sm {
+    padding: 6px 12px !important;
+    font-size: 0.8rem !important;
+}
+
+/* Status badges pour les rôles */
+.role-status-badge {
+    font-size: 0.65rem;
+    padding: 1px 4px;
+    border-radius: 3px;
+    margin-left: 4px;
+    font-weight: 500;
+}
+
+.role-status-badge.realisateur {
+    background: #d4edda;
+    color: #155724;
+}
+
+.role-status-badge.conseil {
+    background: #cce5ff;
+    color: #004085;
+}
+
+.role-status-badge.approbateur {
+    background: #fff3cd;
+    color: #856404;
+}
+
+.role-status-badge.ressource {
+    background: #f8d7da;
+    color: #721c24;
+}
+
+/* Responsive tâches */
+@media (max-width: 768px) {
+    .task-main-row {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .task-tools-badges,
+    .task-roles-badges {
+        width: 100%;
+        margin-top: 6px;
+    }
+
+    .task-actions {
+        width: 100%;
+        justify-content: flex-end;
+        margin-top: 8px;
+        padding-top: 8px;
+        border-top: 1px solid #e9ecef;
+    }
 }

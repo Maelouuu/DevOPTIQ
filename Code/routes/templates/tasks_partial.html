@@ -1,120 +1,125 @@
-{# Code/routes/templates/tasks_partial.html #}
-<div class="tasks-section">
-  <h3>Tâches</h3>
+{# Code/routes/templates/tasks_partial.html - Version compacte moderne #}
+<div class="tasks-section-modern">
 
   {% if tasks and tasks|length > 0 %}
-    <ul id="tasks-list-{{ activity.id }}">
+    <ul class="tasks-list-compact" id="tasks-list-{{ activity.id }}">
       {% for task in tasks %}
-        <li class="task" id="task-{{ task.id }}" data-task-id="{{ task.id }}" data-activity-id="{{ activity.id }}">
-          <div class="task-row" style="display:flex; gap:10px; align-items:flex-start;">
-            
-            <!-- 1) COLONNE GAUCHE : Nom de la tâche + boutons -->
-            <div class="task-left" style="display:flex; align-items:center; gap:5px;">
-              <i class="fa-solid fa-bars icon-btn" style="cursor: move;"></i>
-              <span class="task-title">
-                <strong id="task-name-display-{{ task.id }}">{{ task.name }}</strong>
-                {% if task.description %}
-                  - <span id="task-desc-display-{{ task.id }}">{{ task.description }}</span>
-                {% endif %}
-              </span>
-              <button class="icon-btn" onclick="deleteTask('{{ activity.id }}', '{{ task.id }}')">
-                <i class="fa-solid fa-trash"></i>
+        <li class="task-item-compact" id="task-{{ task.id }}" data-task-id="{{ task.id }}" data-activity-id="{{ activity.id }}">
+
+          <!-- Ligne principale de la tâche -->
+          <div class="task-main-row">
+            <!-- Drag handle -->
+            <i class="fa-solid fa-grip-vertical task-drag-handle"></i>
+
+            <!-- Info tâche -->
+            <div class="task-info">
+              <span class="task-name" id="task-name-display-{{ task.id }}">{{ task.name }}</span>
+              {% if task.description %}
+                <span class="task-desc" id="task-desc-display-{{ task.id }}">{{ task.description }}</span>
+              {% endif %}
+            </div>
+
+            <!-- Badges outils -->
+            <div class="task-tools-badges" id="tools-badges-{{ task.id }}">
+              {% if task.tools and task.tools|length > 0 %}
+                {% for tool in task.tools %}
+                  <span class="tool-badge" data-tool-id="{{ tool.id }}">
+                    <i class="fa-solid fa-wrench"></i> {{ tool.name }}
+                    <button class="badge-remove" onclick="deleteToolFromTask('{{ task.id }}', '{{ tool.id }}')">
+                      <i class="fa-solid fa-xmark"></i>
+                    </button>
+                  </span>
+                {% endfor %}
+              {% endif %}
+              <button class="add-badge-btn" onclick="showToolForm('{{ task.id }}')" title="Ajouter un outil">
+                <i class="fa-solid fa-plus"></i>
               </button>
-              <button class="icon-btn"
-                      onclick="showEditTaskForm('{{ activity.id }}', '{{ task.id }}',
-                                                '{{ task.name|escapejs }}',
-                                                '{{ task.description|default('')|escapejs }}')">
+            </div>
+
+            <!-- Badges rôles -->
+            <div class="task-roles-badges" id="roles-badges-{{ task.id }}">
+              <!-- Rempli dynamiquement via JS -->
+              <button class="add-badge-btn role-badge-btn" onclick="showTaskRoleForm('{{ task.id }}')" title="Ajouter un rôle">
+                <i class="fa-solid fa-user-plus"></i>
+              </button>
+            </div>
+
+            <!-- Actions -->
+            <div class="task-actions">
+              <button class="icon-btn" onclick="showEditTaskForm('{{ activity.id }}', '{{ task.id }}', '{{ task.name|escapejs }}', '{{ task.description|default('')|escapejs }}')" title="Modifier">
                 <i class="fa-solid fa-pencil"></i>
               </button>
-            </div> <!-- /.task-left -->
-
-            <!-- 2) COLONNE OUTILS -->
-            <div class="task-right" style="display:flex; flex-direction:column; gap:5px;">
-              <div class="tools-list" id="tools-for-task-{{ task.id }}">
-                <ul>
-                  {% if task.tools and task.tools|length > 0 %}
-                    {% for tool in task.tools %}
-                      <li data-tool-id="{{ tool.id }}">
-                        <span class="tool-name">{{ tool.name }}</span>
-                        <button class="icon-btn" onclick="deleteToolFromTask('{{ task.id }}', '{{ tool.id }}')">
-                          <i class="fa-solid fa-trash"></i>
-                        </button>
-                      </li>
-                    {% endfor %}
-                  {% else %}
-                    <li id="no-tools-msg-{{ task.id }}">Aucun outil associé.</li>
-                  {% endif %}
-                  <li class="add-tool-li">
-                    <button class="icon-btn add-tool-btn" onclick="showToolForm('{{ task.id }}')">
-                      <i class="fa-solid fa-plus"></i>
-                    </button>
-                  </li>
-                </ul>
-              </div>
-            </div> <!-- /.task-right -->
-
-            <!-- 3) COLONNE RÔLES -->
-            <div class="task-roles" id="roles-for-task-{{ task.id }}"
-                 style="display:flex; flex-direction:column; gap:5px;">
-              <!-- Liste des rôles attachés à cette tâche (rempli dynamiquement) -->
-              <ul style="list-style:none; padding:0; margin:0;"></ul>
-              
-              <!-- Bouton "+" pour ajouter un rôle -->
-              <button class="icon-btn" onclick="showTaskRoleForm('{{ task.id }}')"
-                      style="border:1px solid #ccc; padding:5px;">
-                <i class="fa-solid fa-plus"></i> Rôle
+              <button class="icon-btn icon-btn-danger" onclick="deleteTask('{{ activity.id }}', '{{ task.id }}')" title="Supprimer">
+                <i class="fa-solid fa-trash"></i>
               </button>
+            </div>
+          </div>
 
-              <!-- Formulaire d'ajout de rôles (caché) -->
-              <div id="task-role-form-{{ task.id }}" class="role-form"
-                   style="display: none; border:1px solid #ccc; padding:5px; margin-top:5px;">
-                <label for="existing-roles-{{ task.id }}">Rôles existants:</label>
-                <select id="existing-roles-{{ task.id }}" multiple style="width:100%; height:80px;"></select>
-
-                <label for="new-roles-{{ task.id }}">Nouveaux rôles (séparés par des virgules):</label>
-                <input type="text" id="new-roles-{{ task.id }}"
-                       placeholder="Ex: Expert Contrôle, Pilote Drone" style="width:100%;" />
-
-                <label for="role-status-{{ task.id }}">Statut:</label>
-                <select id="role-status-{{ task.id }}" style="width:100%;">
-                  <option value="Réalisateur">Réalisateur</option>
-                  <option value="Conseil">Conseil</option>
-                  <option value="Approbateur">Approbateur</option>
-                  <option value="Ressource">Ressource</option>
-                </select>
-
-                <button onclick="submitTaskRoles('{{ task.id }}')">Enregistrer</button>
-                <button onclick="hideTaskRoleForm('{{ task.id }}')">Annuler</button>
-              </div>
-            </div> <!-- /.task-roles -->
-
-          </div> <!-- /.task-row -->
-
-          <!-- Formulaire d'édition de la tâche (caché) -->
-          <div class="edit-task-form" id="edit-task-form-{{ task.id }}" style="display:none;">
-            <input type="text" id="edit-task-name-{{ task.id }}" placeholder="Nom de la tâche" />
-            <input type="text" id="edit-task-desc-{{ task.id }}" placeholder="Description (optionnelle)" />
-            <button onclick="submitEditTask('{{ activity.id }}', '{{ task.id }}')">Enregistrer</button>
-            <button onclick="hideEditTaskForm('{{ task.id }}')">Annuler</button>
+          <!-- Formulaire d'édition (caché) -->
+          <div class="task-edit-form" id="edit-task-form-{{ task.id }}" style="display:none;">
+            <input type="text" id="edit-task-name-{{ task.id }}" class="task-input" placeholder="Nom de la tâche" />
+            <input type="text" id="edit-task-desc-{{ task.id }}" class="task-input" placeholder="Description (optionnelle)" />
+            <div class="task-form-actions">
+              <button class="btn-action-primary btn-sm" onclick="submitEditTask('{{ activity.id }}', '{{ task.id }}')">
+                <i class="fa-solid fa-check"></i> Enregistrer
+              </button>
+              <button class="btn-action-secondary btn-sm" onclick="hideEditTaskForm('{{ task.id }}')">
+                <i class="fa-solid fa-xmark"></i> Annuler
+              </button>
+            </div>
           </div>
 
           <!-- Formulaire d'ajout d'outils (caché) -->
-          <div id="tool-form-{{ task.id }}" class="tool-form" style="display: none;">
-            <div>
+          <div id="tool-form-{{ task.id }}" class="task-tool-form" style="display: none;">
+            <div class="form-row">
               <label for="existing-tools-{{ task.id }}">Outils existants:</label>
-              <select id="existing-tools-{{ task.id }}" multiple style="width: 100%;"></select>
+              <select id="existing-tools-{{ task.id }}" multiple class="task-select"></select>
             </div>
-            <div>
-              <label for="new-tools-{{ task.id }}">Nouveaux outils (séparés par des virgules):</label>
-              <input type="text" id="new-tools-{{ task.id }}"
-                     placeholder="Ex: Outil1, Outil2" style="width: 100%;" />
+            <div class="form-row">
+              <label for="new-tools-{{ task.id }}">Nouveaux outils (virgules):</label>
+              <input type="text" id="new-tools-{{ task.id }}" class="task-input" placeholder="Outil1, Outil2" />
             </div>
-            <button onclick="submitTools('{{ task.id }}')">Enregistrer</button>
-            <button onclick="hideToolForm('{{ task.id }}')">Annuler</button>
+            <div class="task-form-actions">
+              <button class="btn-action-primary btn-sm" onclick="submitTools('{{ task.id }}')">
+                <i class="fa-solid fa-check"></i> Enregistrer
+              </button>
+              <button class="btn-action-secondary btn-sm" onclick="hideToolForm('{{ task.id }}')">
+                <i class="fa-solid fa-xmark"></i> Annuler
+              </button>
+            </div>
           </div>
+
+          <!-- Formulaire d'ajout de rôles (caché) -->
+          <div id="task-role-form-{{ task.id }}" class="task-role-form" style="display: none;">
+            <div class="form-row">
+              <label for="existing-roles-{{ task.id }}">Rôles existants:</label>
+              <select id="existing-roles-{{ task.id }}" multiple class="task-select"></select>
+            </div>
+            <div class="form-row">
+              <label for="new-roles-{{ task.id }}">Nouveaux rôles (virgules):</label>
+              <input type="text" id="new-roles-{{ task.id }}" class="task-input" placeholder="Rôle1, Rôle2" />
+            </div>
+            <div class="form-row">
+              <label for="role-status-{{ task.id }}">Statut:</label>
+              <select id="role-status-{{ task.id }}" class="task-select-single">
+                <option value="Réalisateur">Réalisateur</option>
+                <option value="Conseil">Conseil</option>
+                <option value="Approbateur">Approbateur</option>
+                <option value="Ressource">Ressource</option>
+              </select>
+            </div>
+            <div class="task-form-actions">
+              <button class="btn-action-primary btn-sm" onclick="submitTaskRoles('{{ task.id }}')">
+                <i class="fa-solid fa-check"></i> Enregistrer
+              </button>
+              <button class="btn-action-secondary btn-sm" onclick="hideTaskRoleForm('{{ task.id }}')">
+                <i class="fa-solid fa-xmark"></i> Annuler
+              </button>
+            </div>
+          </div>
+
         </li>
 
-        <!-- Script pour charger les rôles existants au chargement de la page -->
         <script>
           document.addEventListener('DOMContentLoaded', function() {
             loadTaskRolesForDisplay({{ task.id }});
@@ -123,20 +128,26 @@
       {% endfor %}
     </ul>
   {% else %}
-    <p>Aucune tâche enregistrée.</p>
+    <p class="empty-text"><i class="fa-solid fa-tasks"></i> Aucune tâche enregistrée.</p>
   {% endif %}
 
-  <!-- Bouton pour ajouter une nouvelle tâche -->
-  <button onclick="showTaskForm('{{ activity.id }}')" style="margin-top:5px; padding:5px 10px; font-size:0.8em;">
-    <i class="fa-solid fa-plus"></i> Ajouter une tâche
-  </button>
+  <!-- Bouton ajouter une tâche -->
+  <div class="add-item-section">
+    <button class="btn-action-secondary" onclick="showTaskForm('{{ activity.id }}')">
+      <i class="fa-solid fa-plus"></i> Ajouter une tâche
+    </button>
 
-  <!-- Formulaire d'ajout de tâche (caché) -->
-  <div id="task-form-{{ activity.id }}" class="task-form" style="display:none;">
-    <input type="text" id="task-name-{{ activity.id }}" placeholder="Nom de la tâche" />
-    <input type="text" id="task-desc-{{ activity.id }}" placeholder="Description (optionnelle)" />
-    <button onclick="submitTask('{{ activity.id }}')">Enregistrer</button>
-    <button onclick="hideTaskForm('{{ activity.id }}')">Annuler</button>
+    <!-- Formulaire d'ajout (caché) -->
+    <div id="task-form-{{ activity.id }}" class="inline-add-form" style="display:none;">
+      <input type="text" id="task-name-{{ activity.id }}" class="task-input" placeholder="Nom de la tâche" />
+      <input type="text" id="task-desc-{{ activity.id }}" class="task-input" placeholder="Description (optionnelle)" />
+      <button class="icon-btn icon-btn-success" onclick="submitTask('{{ activity.id }}')">
+        <i class="fa-solid fa-check"></i>
+      </button>
+      <button class="icon-btn" onclick="hideTaskForm('{{ activity.id }}')">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+    </div>
   </div>
 </div>
 
@@ -147,13 +158,12 @@
     if (taskList) {
       new Sortable(taskList, {
         animation: 150,
-        handle: '.fa-bars', // icône de drag
+        handle: '.task-drag-handle',
         onEnd: function (evt) {
           var newOrder = [];
           taskList.querySelectorAll('li').forEach(function(li) {
             newOrder.push(li.getAttribute('data-task-id'));
           });
-          // Envoi de la liste ordonnée
           fetch('/activities/{{ activity.id }}/tasks/reorder', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },

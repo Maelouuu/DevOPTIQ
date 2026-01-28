@@ -35,7 +35,7 @@ function updateTasks(activityId) {
         if (taskList) {
           new Sortable(taskList, {
             animation: 150,
-            handle: '.fa-bars',  // Utilise l'icône "bars" comme poignée
+            handle: '.task-drag-handle',  // Utilise l'icône grip comme poignée
             onEnd: function (evt) {
               var newOrder = [];
               taskList.querySelectorAll('li[data-task-id]').forEach(function(li) {
@@ -402,6 +402,43 @@ function loadTaskRolesForDisplay(taskId) {
         console.error("Erreur loadTaskRolesForDisplay:", data.error);
         return;
       }
+
+      // Nouveau format avec badges
+      const badgesContainer = document.getElementById(`roles-badges-${taskId}`);
+      if (badgesContainer) {
+        // Supprimer les anciens badges (garder le bouton d'ajout)
+        const existingBadges = badgesContainer.querySelectorAll('.role-badge');
+        existingBadges.forEach(badge => badge.remove());
+
+        // Ajouter les nouveaux badges avant le bouton d'ajout
+        const addBtn = badgesContainer.querySelector('.add-badge-btn');
+
+        data.roles.forEach(role => {
+          let badge = document.createElement('span');
+          badge.className = 'role-badge';
+          badge.dataset.roleId = role.id;
+
+          // Déterminer la classe du status
+          const statusClass = role.status.toLowerCase().replace('é', 'e');
+
+          badge.innerHTML = `
+            <i class="fa-solid fa-user"></i> ${role.name}
+            <span class="role-status-badge ${statusClass}">${role.status}</span>
+            <button class="badge-remove" onclick="deleteRoleFromTask('${taskId}', '${role.id}')">
+              <i class="fa-solid fa-xmark"></i>
+            </button>
+          `;
+
+          if (addBtn) {
+            badgesContainer.insertBefore(badge, addBtn);
+          } else {
+            badgesContainer.appendChild(badge);
+          }
+        });
+        return;
+      }
+
+      // Ancien format avec ul (fallback)
       const rolesUL = document.querySelector(`#roles-for-task-${taskId} ul`);
       if (!rolesUL) return;
       rolesUL.innerHTML = "";

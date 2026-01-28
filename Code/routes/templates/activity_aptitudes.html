@@ -2,9 +2,15 @@
 
 <div class="aptitudes-section">
     <div id="aptitudes-container-{{ activity.id }}">
-      <h3>Aptitudes</h3>
+      <!-- Bouton proposer aptitudes en premier -->
+      <div class="section-actions-top">
+        <button class="btn-action-primary" onclick="showProposedAptitudes('{{ activity.id }}')">
+          <i class="fa-solid fa-sparkles"></i> Proposer Aptitudes
+        </button>
+      </div>
+
       {% if activity.aptitudes and activity.aptitudes|length > 0 %}
-        <ul>
+        <ul class="items-list">
           {% for ap in activity.aptitudes %}
             <li id="aptitude-{{ ap.id }}" class="sf-item">
               <!-- Mode affichage -->
@@ -17,7 +23,7 @@
                 >
                   <i class="fa-solid fa-pencil"></i>
                 </button>
-                <button class="icon-btn" onclick="deleteAptitude('{{ activity.id }}','{{ ap.id }}')">
+                <button class="icon-btn icon-btn-danger" onclick="deleteAptitude('{{ activity.id }}','{{ ap.id }}')">
                   <i class="fa-solid fa-trash"></i>
                 </button>
               </div>
@@ -25,7 +31,7 @@
               <!-- Mode édition -->
               <div class="sf-edit-area" id="edit-aptitude-form-{{ ap.id }}" style="display:none;">
                 <input type="text" class="sf-input" id="edit-aptitude-input-{{ ap.id }}" />
-                <button class="icon-btn" onclick="submitEditAptitude('{{ activity.id }}','{{ ap.id }}')">
+                <button class="icon-btn icon-btn-success" onclick="submitEditAptitude('{{ activity.id }}','{{ ap.id }}')">
                   <i class="fa-solid fa-check"></i>
                 </button>
                 <button class="icon-btn" onclick="hideEditAptitudeForm('{{ ap.id }}')">
@@ -34,22 +40,29 @@
               </div>
             </li>
           {% endfor %}
-
         </ul>
       {% else %}
-        <p>Aucune Aptitude enregistrée.</p>
+        <p class="empty-text">Aucune aptitude enregistrée.</p>
       {% endif %}
-      <button onclick="showAddAptitudeForm('{{ activity.id }}')">+ Ajouter une Aptitude</button>
-      <div id="add-aptitude-form-{{ activity.id }}" style="display:none; margin-top:5px;">
-        <input type="text" id="add-aptitude-input-{{ activity.id }}" />
-        <button onclick="submitAddAptitude('{{ activity.id }}')">Enregistrer</button>
-        <button onclick="hideAddAptitudeForm('{{ activity.id }}')">Annuler</button>
-      </div>
-      <button onclick="showProposedAptitudes('{{ activity.id }}')" >Proposer Aptitudes</button>
-      </div>
-      <script src="{{ url_for('static', filename='js/propose_aptitudes.js') }}"></script>
-      <script src="{{ url_for('static', filename='js/competences_crud.js') }}"></script>
-</div>
 
+      <div class="add-item-section">
+        <button class="btn-action-secondary" onclick="showAddAptitudeForm('{{ activity.id }}')">
+          <i class="fa-solid fa-plus"></i> Ajouter une Aptitude
+        </button>
+        <div id="add-aptitude-form-{{ activity.id }}" class="inline-add-form" style="display:none;">
+          <input type="text" class="sf-input" id="add-aptitude-input-{{ activity.id }}" placeholder="Description de l'aptitude" />
+          <button class="icon-btn icon-btn-success" onclick="submitAddAptitude('{{ activity.id }}')">
+            <i class="fa-solid fa-check"></i>
+          </button>
+          <button class="icon-btn" onclick="hideAddAptitudeForm('{{ activity.id }}')">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/propose_aptitudes.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/competences_crud.js') }}"></script>
+</div>
 
 {% include 'aptitudes_modal.html' %}

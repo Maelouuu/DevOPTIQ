@@ -1,0 +1,231 @@
+<!-- Code/routes/templates/activity_time_new.html -->
+<!-- Section Temps - Style moderne compact -->
+
+<div class="time-section-modern" data-activity-id="{{ activity.id }}">
+
+    <!-- Mode de saisie -->
+    <div class="time-mode-selector">
+        <label class="time-mode-option">
+            <input type="radio" name="time-mode-{{ activity.id }}" value="activity" checked>
+            <span class="mode-label">
+                <i class="fa-solid fa-stopwatch"></i>
+                Durée globale
+            </span>
+        </label>
+        <label class="time-mode-option">
+            <input type="radio" name="time-mode-{{ activity.id }}" value="tasks">
+            <span class="mode-label">
+                <i class="fa-solid fa-list-check"></i>
+                Par tâches
+            </span>
+        </label>
+    </div>
+
+    <!-- Bloc durée globale -->
+    <div class="time-block time-global-block" id="time-global-{{ activity.id }}">
+        <div class="time-fields-row">
+            <div class="time-field">
+                <label>Durée de l'activité</label>
+                <div class="time-input-group">
+                    <input type="number" step="0.1" min="0"
+                           class="time-input"
+                           id="time-duration-{{ activity.id }}"
+                           value="{{ activity.time_value or '' }}"
+                           placeholder="0">
+                    <select class="time-unit-select" id="time-unit-{{ activity.id }}">
+                        <option value="minutes" {% if activity.time_unit == 'minutes' %}selected{% endif %}>min</option>
+                        <option value="heures" {% if activity.time_unit == 'heures' %}selected{% endif %}>h</option>
+                        <option value="jours" {% if activity.time_unit == 'jours' %}selected{% endif %}>j</option>
+                    </select>
+                </div>
+            </div>
+            <div class="time-field">
+                <label>Délai de production</label>
+                <div class="time-input-group">
+                    <input type="number" step="0.1" min="0"
+                           class="time-input"
+                           id="time-delay-{{ activity.id }}"
+                           value="{{ activity.delay_value or '' }}"
+                           placeholder="0">
+                    <select class="time-unit-select" id="delay-unit-{{ activity.id }}">
+                        <option value="minutes" {% if activity.delay_unit == 'minutes' %}selected{% endif %}>min</option>
+                        <option value="heures" {% if activity.delay_unit == 'heures' %}selected{% endif %}>h</option>
+                        <option value="jours" {% if activity.delay_unit == 'jours' %}selected{% endif %}>j</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bloc durées par tâches -->
+    <div class="time-block time-tasks-block" id="time-tasks-{{ activity.id }}" style="display: none;">
+        <div class="time-tasks-table-wrapper">
+            <table class="time-tasks-table">
+                <thead>
+                    <tr>
+                        <th>Tâche</th>
+                        <th>Durée</th>
+                        <th>Unité</th>
+                    </tr>
+                </thead>
+                <tbody id="time-tasks-body-{{ activity.id }}">
+                    {% if tasks and tasks|length > 0 %}
+                        {% for task in tasks %}
+                        <tr data-task-id="{{ task.id }}">
+                            <td class="task-name-cell">{{ task.name }}</td>
+                            <td>
+                                <input type="number" step="0.1" min="0"
+                                       class="time-input time-task-input"
+                                       data-task-id="{{ task.id }}"
+                                       value="{{ task.duration or '' }}"
+                                       placeholder="0">
+                            </td>
+                            <td>
+                                <select class="time-unit-select time-task-unit" data-task-id="{{ task.id }}">
+                                    <option value="minutes" {% if task.duration_unit == 'minutes' %}selected{% endif %}>min</option>
+                                    <option value="heures" {% if task.duration_unit == 'heures' %}selected{% endif %}>h</option>
+                                    <option value="jours" {% if task.duration_unit == 'jours' %}selected{% endif %}>j</option>
+                                </select>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    {% else %}
+                        <tr class="no-tasks-row">
+                            <td colspan="3">Aucune tâche définie</td>
+                        </tr>
+                    {% endif %}
+                </tbody>
+                <tfoot>
+                    <tr class="time-sum-row">
+                        <td><strong>Total</strong></td>
+                        <td colspan="2">
+                            <span class="time-sum-value" id="time-sum-{{ activity.id }}">0</span> min
+                        </td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+
+        <div class="time-field" style="margin-top: 12px;">
+            <label>Délai de production (global)</label>
+            <div class="time-input-group">
+                <input type="number" step="0.1" min="0"
+                       class="time-input"
+                       id="time-delay-tasks-{{ activity.id }}"
+                       placeholder="0">
+                <select class="time-unit-select" id="delay-tasks-unit-{{ activity.id }}">
+                    <option value="minutes">min</option>
+                    <option value="heures">h</option>
+                    <option value="jours">j</option>
+                </select>
+            </div>
+        </div>
+    </div>
+
+    <!-- Boutons d'action -->
+    <div class="time-actions">
+        <button type="button" class="btn-action-primary" onclick="saveActivityTime('{{ activity.id }}')">
+            <i class="fa-solid fa-save"></i> Enregistrer
+        </button>
+        <button type="button" class="btn-action-secondary" onclick="resetActivityTime('{{ activity.id }}')">
+            <i class="fa-solid fa-undo"></i> Réinitialiser
+        </button>
+    </div>
+</div>
+
+<script>
+(function() {
+    const activityId = '{{ activity.id }}';
+    const modeRadios = document.querySelectorAll(`input[name="time-mode-${activityId}"]`);
+    const globalBlock = document.getElementById(`time-global-${activityId}`);
+    const tasksBlock = document.getElementById(`time-tasks-${activityId}`);
+
+    modeRadios.forEach(radio => {
+        radio.addEventListener('change', function() {
+            if (this.value === 'activity') {
+                globalBlock.style.display = 'block';
+                tasksBlock.style.display = 'none';
+            } else {
+                globalBlock.style.display = 'none';
+                tasksBlock.style.display = 'block';
+                calculateTasksSum(activityId);
+            }
+        });
+    });
+
+    // Calcul automatique de la somme des tâches
+    const taskInputs = document.querySelectorAll(`#time-tasks-body-${activityId} .time-task-input`);
+    taskInputs.forEach(input => {
+        input.addEventListener('input', () => calculateTasksSum(activityId));
+    });
+})();
+
+function calculateTasksSum(activityId) {
+    const inputs = document.querySelectorAll(`#time-tasks-body-${activityId} .time-task-input`);
+    let totalMinutes = 0;
+
+    inputs.forEach(input => {
+        const value = parseFloat(input.value) || 0;
+        const unitSelect = input.closest('tr').querySelector('.time-task-unit');
+        const unit = unitSelect ? unitSelect.value : 'minutes';
+
+        if (unit === 'heures') totalMinutes += value * 60;
+        else if (unit === 'jours') totalMinutes += value * 60 * 8;
+        else totalMinutes += value;
+    });
+
+    document.getElementById(`time-sum-${activityId}`).textContent = totalMinutes.toFixed(1);
+}
+
+function saveActivityTime(activityId) {
+    const mode = document.querySelector(`input[name="time-mode-${activityId}"]:checked`).value;
+    let data = { activity_id: activityId, mode: mode };
+
+    if (mode === 'activity') {
+        data.duration = document.getElementById(`time-duration-${activityId}`).value;
+        data.duration_unit = document.getElementById(`time-unit-${activityId}`).value;
+        data.delay = document.getElementById(`time-delay-${activityId}`).value;
+        data.delay_unit = document.getElementById(`delay-unit-${activityId}`).value;
+    } else {
+        const tasks = [];
+        document.querySelectorAll(`#time-tasks-body-${activityId} tr[data-task-id]`).forEach(row => {
+            const taskId = row.dataset.taskId;
+            const duration = row.querySelector('.time-task-input').value;
+            const unit = row.querySelector('.time-task-unit').value;
+            tasks.push({ task_id: taskId, duration: duration, unit: unit });
+        });
+        data.tasks = tasks;
+        data.delay = document.getElementById(`time-delay-tasks-${activityId}`).value;
+        data.delay_unit = document.getElementById(`delay-tasks-unit-${activityId}`).value;
+    }
+
+    fetch(`/activities/${activityId}/time`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+    })
+    .then(r => r.json())
+    .then(resp => {
+        if (resp.success) {
+            alert('Temps enregistré avec succès !');
+        } else {
+            alert('Erreur: ' + (resp.error || 'Erreur inconnue'));
+        }
+    })
+    .catch(err => {
+        console.error('Erreur:', err);
+        alert('Erreur lors de l\'enregistrement');
+    });
+}
+
+function resetActivityTime(activityId) {
+    if (!confirm('Réinitialiser les valeurs de temps ?')) return;
+
+    document.getElementById(`time-duration-${activityId}`).value = '';
+    document.getElementById(`time-delay-${activityId}`).value = '';
+    document.querySelectorAll(`#time-tasks-body-${activityId} .time-task-input`).forEach(input => {
+        input.value = '';
+    });
+    document.getElementById(`time-sum-${activityId}`).textContent = '0';
+}
+</script>
