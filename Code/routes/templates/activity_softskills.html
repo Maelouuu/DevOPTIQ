@@ -1,8 +1,16 @@
 <!-- Code/routes/templates/activity_softskills.html -->
 
-<h3>Habiletés socio-cognitives (HSC)</h3>
-
 <div class="softskills-section" data-activity-id="{{ item.activity.id }}">
+
+    <!-- Boutons proposer en premier -->
+    <div class="section-actions-top hsc-actions-row">
+        <button class="btn-modal-primary-propose" onclick="fetchActivityDetailsForPropose('{{ item.activity.id }}')">
+            <i class="fa-solid fa-sparkles"></i> Proposer HSC
+        </button>
+        <button class="btn-modal-secondary-propose" onclick="openTranslateSoftskillsModal('{{ item.activity.id }}')">
+            <i class="fa-solid fa-language"></i> Traduire Softskills
+        </button>
+    </div>
 
     <!-- Conteneur du partial -->
     <div id="softskills-list-{{ item.activity.id }}">
@@ -10,44 +18,40 @@
         {% include "softskills_partial.html" %}
     </div>
 
-    <!-- Bouton Ajouter HSC (manuel) -->
-    <button onclick="showAddSoftskillForm('{{ item.activity.id }}')">+ Ajouter une HSC</button>
+    <!-- Section ajouter HSC -->
+    <div class="add-item-section">
+        <button class="btn-action-secondary" onclick="showAddSoftskillForm('{{ item.activity.id }}')">
+            <i class="fa-solid fa-plus"></i> Ajouter une HSC
+        </button>
 
-    <!-- Formulaire d'ajout manuel (caché par défaut) - Structure VERTICALE -->
-    <div id="add-softskill-form-{{ item.activity.id }}" style="display:none; margin-top:8px; border:1px solid #ccc; padding:10px; max-width:500px;">
-        
-        <div style="margin-bottom:8px;">
-            <label style="display:block; font-weight:bold; margin-bottom:3px;">Habileté :</label>
-            <input type="text" id="new-softskill-name-{{ item.activity.id }}" placeholder="Ex: Analyse critique" style="width:100%;"/>
-        </div>
-        
-        <div style="margin-bottom:8px;">
-            <label style="display:block; font-weight:bold; margin-bottom:3px;">Niveau :</label>
-            <select id="new-softskill-level-{{ item.activity.id }}" style="width:100%;">
-                <option value="1 (Aptitude)">1 (Aptitude)</option>
-                <option value="2 (Acquisition)" selected>2 (Acquisition)</option>
-                <option value="3 (Maîtrise)">3 (Maîtrise)</option>
-                <option value="4 (Excellence)">4 (Excellence)</option>
-            </select>
-        </div>
-
-        <div style="margin-bottom:10px;">
-            <label style="display:block; font-weight:bold; margin-bottom:3px;">Justification (optionnel) :</label>
-            <textarea id="new-softskill-justif-{{ item.activity.id }}" rows="2" placeholder="Pourquoi cette habileté est requise..." style="width:100%; resize:vertical;"></textarea>
-        </div>
-
-        <div style="display:flex; gap:10px;">
-            <button onclick="submitAddSoftskill('{{ item.activity.id }}')">
-                <i class="fa-solid fa-check"></i> Enregistrer
-            </button>
-            <button onclick="hideAddSoftskillForm('{{ item.activity.id }}')">
-                <i class="fa-solid fa-xmark"></i> Annuler
-            </button>
+        <!-- Formulaire d'ajout manuel (caché par défaut) -->
+        <div id="add-softskill-form-{{ item.activity.id }}" class="hsc-add-form" style="display:none;">
+            <div class="form-row">
+                <label for="new-softskill-name-{{ item.activity.id }}">Habileté :</label>
+                <input type="text" class="task-input" id="new-softskill-name-{{ item.activity.id }}" placeholder="Ex: Analyse critique" />
+            </div>
+            <div class="form-row">
+                <label for="new-softskill-level-{{ item.activity.id }}">Niveau :</label>
+                <select id="new-softskill-level-{{ item.activity.id }}" class="task-select-single">
+                    <option value="1 (Aptitude)">1 (Aptitude)</option>
+                    <option value="2 (Acquisition)" selected>2 (Acquisition)</option>
+                    <option value="3 (Maîtrise)">3 (Maîtrise)</option>
+                    <option value="4 (Excellence)">4 (Excellence)</option>
+                </select>
+            </div>
+            <div class="form-row">
+                <label for="new-softskill-justif-{{ item.activity.id }}">Justification (optionnel) :</label>
+                <textarea id="new-softskill-justif-{{ item.activity.id }}" class="task-input hsc-textarea" rows="2" placeholder="Pourquoi cette habileté est requise..."></textarea>
+            </div>
+            <div class="task-form-actions">
+                <button class="btn-action-primary btn-sm" onclick="submitAddSoftskill('{{ item.activity.id }}')">
+                    <i class="fa-solid fa-check"></i> Enregistrer
+                </button>
+                <button class="btn-action-secondary btn-sm" onclick="hideAddSoftskillForm('{{ item.activity.id }}')">
+                    <i class="fa-solid fa-xmark"></i> Annuler
+                </button>
+            </div>
         </div>
     </div>
-
-    <!-- Boutons IA -->
-    <button onclick="fetchActivityDetailsForPropose('{{ item.activity.id }}')">Proposer HSC</button>
-    <button onclick="openTranslateSoftskillsModal('{{ item.activity.id }}')">Traduire Softskills</button>
 
 </div>

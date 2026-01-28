@@ -1620,3 +1620,65 @@ body .toggle-icon,
         border-top: 1px solid #e9ecef;
     }
 }
+
+/* ========================================
+   SECTION HSC - HABILETÉS SOCIO-COGNITIVES
+   ======================================== */
+
+/* Ligne de boutons d'action HSC */
+.hsc-actions-row {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+/* Item HSC */
+.hsc-item {
+    flex-direction: column;
+    align-items: stretch !important;
+}
+
+/* Badge niveau HSC */
+.hsc-level-badge {
+    display: inline-block;
+    background: #ebe7f8;
+    color: #6d28d9;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    margin-left: 8px;
+}
+
+/* Justification HSC */
+.hsc-justification {
+    margin-top: 8px;
+    padding: 10px 12px;
+    background: #fffbeb;
+    border-left: 3px solid #f59e0b;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    color: #92400e;
+}
+
+.hsc-justification i {
+    color: #f59e0b;
+    margin-right: 6px;
+    font-size: 0.75rem;
+}
+
+/* Formulaire d'édition HSC */
+.hsc-edit-form,
+.hsc-add-form {
+    margin-top: 12px;
+    padding: 14px;
+    background: #f9fafb;
+    border-radius: 8px;
+    border: 1px solid #e3e3e3;
+}
+
+/* Textarea HSC */
+.hsc-textarea {
+    resize: vertical;
+    min-height: 60px;
+}
