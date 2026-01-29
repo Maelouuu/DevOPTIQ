@@ -537,11 +537,8 @@ body .toggle-icon,
     border-bottom: none;
 }
 
-.constraints-section button,
-.savoirs-faires-section button,
-.competencies-section button,
-.aptitudes-section button,
-.softskills-section button {
+/* Boutons génériques UNIQUEMENT pour les contraintes (les autres sections utilisent des classes spécifiques) */
+.constraints-section button {
     background-color: #3498db;
     color: white;
     border: none;
@@ -552,11 +549,7 @@ body .toggle-icon,
     transition: all 0.2s ease;
 }
 
-.constraints-section button:hover,
-.savoirs-faires-section button:hover,
-.competencies-section button:hover,
-.aptitudes-section button:hover,
-.softskills-section button:hover {
+.constraints-section button:hover {
     background-color: #2980b9;
     transform: translateY(-1px);
 }
@@ -619,7 +612,7 @@ body .toggle-icon,
 .sf-item {
     padding: 6px 8px;
     background-color: #f9fafb;
-    border-left: 2px solid #667eea;
+    border-left: 2px solid #7c3aed;
     margin-bottom: 6px;
     border-radius: 4px;
     display: flex;
@@ -660,19 +653,20 @@ body .toggle-icon,
 }
 
 .icon-btn {
-    background: none;
-    border: none;
+    background: none !important;
+    border: none !important;
     cursor: pointer;
     padding: 4px 6px;
-    color: #667eea;
+    color: #7c3aed;
     transition: all 0.2s ease;
     font-size: 0.85rem;
     flex-shrink: 0;
 }
 
 .icon-btn:hover {
-    color: #5568d3;
+    color: #6d28d9;
     transform: scale(1.1);
+    background: none !important;
 }
 
 /* Icônes dans les boutons */
