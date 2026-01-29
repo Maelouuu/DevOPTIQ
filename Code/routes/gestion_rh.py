@@ -357,3 +357,54 @@ def get_users_with_role():
     
     users = db.session.query(User).join(UserRole).filter(UserRole.role_id == role.id).all()
     return jsonify([{'id': u.id, 'first_name': u.first_name, 'last_name': u.last_name} for u in users])
+
+
+@gestion_rh_bp.route('/all_collaborators_with_manager')
+def get_all_collaborators_with_manager():
+    """Retourne TOUS les collaborateurs de l'entité avec leurs rôles et manager_id"""
+    active_entity_id = get_active_entity_id()
+
+    if active_entity_id:
+        users = User.query.filter_by(entity_id=active_entity_id).order_by(User.last_name).all()
+        all_roles = Role.query.filter_by(entity_id=active_entity_id).order_by(Role.name).all()
+    else:
+        users = User.query.order_by(User.last_name).all()
+        all_roles = Role.query.order_by(Role.name).all()
+
+    users_data = []
+    for u in users:
+        roles = [{'id': ur.role.id, 'name': ur.role.name} for ur in u.user_roles if ur.role]
+        users_data.append({
+            'id': u.id,
+            'first_name': u.first_name,
+            'last_name': u.last_name,
+            'manager_id': u.manager_id,
+            'roles': roles
+        })
+
+    roles_data = [{'id': r.id, 'name': r.name} for r in all_roles]
+    return jsonify({'users': users_data, 'roles': roles_data})
+
+
+@gestion_rh_bp.route('/assign_manager_simple', methods=['POST'])
+def assign_manager_simple():
+    """Affecte ou retire un collaborateur d'un manager (met à jour manager_id)"""
+    data = request.get_json()
+    user_id = data.get('user_id')
+    manager_id = data.get('manager_id')  # None pour retirer
+
+    if not user_id:
+        return jsonify({'success': False, 'message': 'user_id requis'}), 400
+
+    user = User.query.get(user_id)
+    if not user:
+        return jsonify({'success': False, 'message': 'Utilisateur introuvable'}), 404
+
+    user.manager_id = manager_id
+    db.session.commit()
+
+    return jsonify({
+        'success': True,
+        'user_id': user.id,
+        'manager_id': user.manager_id
+    })

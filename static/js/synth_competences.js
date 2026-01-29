@@ -17,10 +17,7 @@
 const AppState = {
     managerId: null,
     managerName: '',
-    allCollaborators: [],   // Tous les collaborateurs de l'entité
-    allRoles: [],           // Tous les rôles de l'entité (pour le filtre)
-    activeRoleFilter: 'all', // Filtre rôle actif
-    collaborators: [],      // Collaborateurs affectés au manager (legacy compat)
+    collaborators: [],
     selectedCollabId: null,
     selectedCollabName: '',
     roles: [],
@@ -83,14 +80,9 @@ async function loadCurrentManager() {
 
 async function loadCollaborators(managerId) {
     try {
-        const res = await fetch('/competences/all_collaborators');
-        const data = await res.json();
-        AppState.allCollaborators = data.users || [];
-        AppState.allRoles = data.roles || [];
-        // Compat: filtrer les collaborateurs affectés au manager
-        AppState.collaborators = AppState.allCollaborators.filter(u => u.manager_id === managerId);
-
-        renderRoleFilterBar();
+        const res = await fetch(`/competences/collaborators/${managerId}`);
+        AppState.collaborators = await res.json();
+        
         renderCollaboratorsList();
     } catch (err) {
         console.error('Erreur chargement collaborateurs:', err);
@@ -151,63 +143,24 @@ async function loadRoleStructure(userId, roleId) {
 // ═══════════════════════════════════════════════════════════════
 // RENDU DES COMPOSANTS
 // ═══════════════════════════════════════════════════════════════
-function renderRoleFilterBar() {
-    const bar = document.getElementById('role-filter-bar');
-    if (!bar) return;
-
-    let html = `<span class="role-filter-badge ${AppState.activeRoleFilter === 'all' ? 'active' : ''}" data-role-id="all">Tous</span>`;
-    html += `<span class="role-filter-badge ${AppState.activeRoleFilter === 'assigned' ? 'active' : ''}" data-role-id="assigned">Affectés</span>`;
-    AppState.allRoles.forEach(r => {
-        html += `<span class="role-filter-badge ${AppState.activeRoleFilter === String(r.id) ? 'active' : ''}" data-role-id="${r.id}">${capitalize(r.name)}</span>`;
-    });
-    bar.innerHTML = html;
-}
-
 function renderCollaboratorsList() {
     const list = document.getElementById('collaborator-list');
     const emptyMsg = document.getElementById('no-collab-msg');
-
-    // Filtrer selon le filtre actif
-    let filtered = AppState.allCollaborators;
-    if (AppState.activeRoleFilter === 'assigned') {
-        filtered = filtered.filter(c => c.manager_id === AppState.managerId);
-    } else if (AppState.activeRoleFilter !== 'all') {
-        const roleId = parseInt(AppState.activeRoleFilter);
-        filtered = filtered.filter(c => c.roles && c.roles.some(r => r.id === roleId));
-    }
-
-    if (filtered.length === 0) {
+    
+    if (AppState.collaborators.length === 0) {
         list.innerHTML = '';
         emptyMsg.classList.remove('hidden');
         return;
     }
-
+    
     emptyMsg.classList.add('hidden');
-
-    // Trier : affectés en premier
-    filtered.sort((a, b) => {
-        const aAssigned = a.manager_id === AppState.managerId ? 0 : 1;
-        const bAssigned = b.manager_id === AppState.managerId ? 0 : 1;
-        if (aAssigned !== bAssigned) return aAssigned - bAssigned;
-        return `${a.first_name} ${a.last_name}`.localeCompare(`${b.first_name} ${b.last_name}`);
-    });
-
-    list.innerHTML = filtered.map(c => {
+    
+    list.innerHTML = AppState.collaborators.map(c => {
         const initials = getInitials(c.first_name, c.last_name);
-        const isAssigned = c.manager_id === AppState.managerId;
-        const isActive = c.id === AppState.selectedCollabId;
         return `
-            <li class="collab-item ${isActive ? 'active' : ''} ${!isAssigned ? 'collab-unassigned' : ''}" data-id="${c.id}" data-name="${c.first_name} ${c.last_name}">
-                <div class="collab-item-wrapper">
-                    <div class="collab-item-info">
-                        ${isAssigned ? '<span class="collab-assigned-dot"></span>' : ''}
-                        <div class="collab-avatar">${initials}</div>
-                        <span class="collab-name">${c.first_name} ${c.last_name}</span>
-                    </div>
-                    <button class="collab-assign-btn" onclick="event.stopPropagation(); openAssignModal(${c.id})" title="Gérer l'affectation">
-                        <i class="fa-solid fa-link"></i>
-                    </button>
-                </div>
+            <li class="collab-item" data-id="${c.id}" data-name="${c.first_name} ${c.last_name}">
+                <div class="collab-avatar">${initials}</div>
+                <span class="collab-name">${c.first_name} ${c.last_name}</span>
             </li>
         `;
     }).join('');
@@ -612,37 +565,25 @@ function renderPlanModal(plan) {
 // EVENT LISTENERS
 // ═══════════════════════════════════════════════════════════════
 function initEventListeners() {
-    // Clic sur un filtre de rôle
-    document.getElementById('role-filter-bar')?.addEventListener('click', (e) => {
-        const badge = e.target.closest('.role-filter-badge');
-        if (!badge) return;
-        AppState.activeRoleFilter = badge.dataset.roleId;
-        renderRoleFilterBar();
-        renderCollaboratorsList();
-    });
-
     // Clic sur un collaborateur
     document.getElementById('collaborator-list').addEventListener('click', async (e) => {
-        // Ignorer si clic sur le bouton d'affectation
-        if (e.target.closest('.collab-assign-btn')) return;
-
         const item = e.target.closest('.collab-item');
         if (!item) return;
-
+        
         // Mettre à jour l'état actif
         document.querySelectorAll('.collab-item').forEach(el => el.classList.remove('active'));
         item.classList.add('active');
-
+        
         AppState.selectedCollabId = parseInt(item.dataset.id);
         AppState.selectedCollabName = item.dataset.name;
-
+        
         // Mettre à jour le sous-titre
         document.getElementById('selected-collab-name').textContent = AppState.selectedCollabName;
-
+        
         // Activer les boutons
         document.getElementById('toggle-summary').disabled = false;
         document.getElementById('save-competencies-button').disabled = false;
-
+        
         // Charger les rôles
         await loadUserRoles(AppState.selectedCollabId);
     });
@@ -676,11 +617,6 @@ function initModalListeners() {
             const modal = btn.closest('.modal');
             if (modal) closeModal(modal.id.replace('modal-', ''));
         });
-    });
-
-    // Fermeture modal assign
-    document.querySelector('[data-action="close-assign"]')?.addEventListener('click', () => {
-        closeModal('assign');
     });
     
     document.querySelectorAll('[data-action="close-all-modals"]').forEach(btn => {
@@ -1143,119 +1079,6 @@ function showToast(message, type = 'info') {
 }
 
 // ═══════════════════════════════════════════════════════════════
-// ASSIGNMENT MODAL
-// ═══════════════════════════════════════════════════════════════
-function openAssignModal(userId) {
-    const user = AppState.allCollaborators.find(u => u.id === userId);
-    if (!user) return;
-
-    const isAssigned = user.manager_id === AppState.managerId;
-    const initials = getInitials(user.first_name, user.last_name);
-    const fullName = `${user.first_name} ${user.last_name}`;
-
-    document.getElementById('modal-assign-title').textContent = fullName;
-
-    const body = document.getElementById('modal-assign-body');
-    let rolesHtml = '';
-    if (user.roles && user.roles.length > 0) {
-        rolesHtml = user.roles.map(r => `<span class="assign-role-badge">${capitalize(r.name)}</span>`).join('');
-    } else {
-        rolesHtml = '<span style="color:#94a3b8; font-size:12px; font-style:italic;">Aucun rôle</span>';
-    }
-
-    let actionsHtml = '';
-    if (isAssigned) {
-        actionsHtml = `
-            <button class="assign-action-btn danger" onclick="unassignCollaborator(${user.id})">
-                <div class="assign-action-icon">
-                    <i class="fa-solid fa-link-slash"></i>
-                </div>
-                <div class="assign-action-text">
-                    <strong>Retirer l'affectation</strong>
-                    <span>Ce collaborateur ne sera plus assigné à ${AppState.managerName}</span>
-                </div>
-            </button>
-        `;
-    } else {
-        actionsHtml = `
-            <button class="assign-action-btn" onclick="assignCollaborator(${user.id}, ${AppState.managerId})">
-                <div class="assign-action-icon">
-                    <i class="fa-solid fa-link"></i>
-                </div>
-                <div class="assign-action-text">
-                    <strong>Affecter à ${AppState.managerName}</strong>
-                    <span>Ce collaborateur sera assigné globalement au manager</span>
-                </div>
-            </button>
-        `;
-    }
-
-    body.innerHTML = `
-        <div class="assign-collab-info">
-            <div class="assign-collab-avatar">${initials}</div>
-            <div class="assign-collab-details">
-                <h3>${fullName}</h3>
-                <div class="assign-collab-roles">${rolesHtml}</div>
-            </div>
-        </div>
-        <div class="assign-actions">
-            ${actionsHtml}
-        </div>
-    `;
-
-    openModal('assign');
-}
-
-async function assignCollaborator(userId, managerId) {
-    try {
-        const res = await fetch('/competences/assign_collaborator', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ user_id: userId, manager_id: managerId })
-        });
-        const data = await res.json();
-        if (data.success) {
-            // Mettre à jour l'état local
-            const user = AppState.allCollaborators.find(u => u.id === userId);
-            if (user) user.manager_id = managerId;
-            AppState.collaborators = AppState.allCollaborators.filter(u => u.manager_id === AppState.managerId);
-            closeModal('assign');
-            renderCollaboratorsList();
-            showToast('Collaborateur affecté avec succès', 'success');
-        } else {
-            showToast(data.message || 'Erreur', 'error');
-        }
-    } catch (err) {
-        console.error('Erreur affectation:', err);
-        showToast('Erreur lors de l\'affectation', 'error');
-    }
-}
-
-async function unassignCollaborator(userId) {
-    try {
-        const res = await fetch('/competences/assign_collaborator', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ user_id: userId, manager_id: null })
-        });
-        const data = await res.json();
-        if (data.success) {
-            const user = AppState.allCollaborators.find(u => u.id === userId);
-            if (user) user.manager_id = null;
-            AppState.collaborators = AppState.allCollaborators.filter(u => u.manager_id === AppState.managerId);
-            closeModal('assign');
-            renderCollaboratorsList();
-            showToast('Affectation retirée', 'success');
-        } else {
-            showToast(data.message || 'Erreur', 'error');
-        }
-    } catch (err) {
-        console.error('Erreur désaffectation:', err);
-        showToast('Erreur lors de la désaffectation', 'error');
-    }
-}
-
-// ═══════════════════════════════════════════════════════════════
 // EXPOSE GLOBAL (pour compatibilité avec autres scripts)
 // ═══════════════════════════════════════════════════════════════
 window.AppState = AppState;
@@ -1265,6 +1088,3 @@ window.showToast = showToast;
 window.openModal = openModal;
 window.closeModal = closeModal;
 window.saveEvaluationsFromModal = saveEvaluationsFromModal;
-window.openAssignModal = openAssignModal;
-window.assignCollaborator = assignCollaborator;
-window.unassignCollaborator = unassignCollaborator;

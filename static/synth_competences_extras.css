@@ -25,7 +25,7 @@
 }
 .manager-chip .dot {
   width: 10px; height: 10px; border-radius: 50%;
-  background: #d97706; box-shadow: 0 0 0 2px rgba(217,119,6,0.18);
+  background: #28a745; box-shadow: 0 0 0 2px rgba(40,167,69,0.18);
 }
 .collab-select { display: flex; align-items: center; gap: 10px; }
 .collab-select label { color: #555; font-weight: 600; }

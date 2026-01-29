@@ -2,123 +2,213 @@
 <html lang="fr">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Gestion RH</title>
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&display=swap" rel="stylesheet">
+
+  <!-- Font Awesome -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+  <!-- CSS -->
   <link rel="stylesheet" href="{{ url_for('static', filename='gestion_rh.css') }}">
-  <script src="{{ url_for('static', filename='js/gestion_rh.js') }}" defer></script>
 </head>
-<header>
-  {% include 'header_buttons.html' %}
-</header>
 <body>
-  <div id="toast" class="toast-message">Changement enregistré !</div>
+  <header>
+    {% include 'header_buttons.html' %}
+  </header>
 
-  <div class="container-gestionrh">
+  <!-- ═══════════════════════════════════════════════════════════════
+       PAGE HEADER
+  ═══════════════════════════════════════════════════════════════ -->
+  <div class="grh-page-header">
+    <h1>Gestion RH</h1>
+    <p>Paramètres, rôles et collaborateurs</p>
+  </div>
 
-    <h2>Paramètres de l’entreprise</h2>
-    {% set keys = {
-      "work_hours_per_day": "Heures / jour",
-      "work_days_per_week": "Jours / semaine",
-      "work_weeks_per_year": "Semaines / an",
-      "work_days_per_year": "Jours / an"
-    } %}
-    {% for key, label in keys.items() %}
-    <div class="param-group" data-key="{{ key }}">
-      <div class="param-label">{{ label }}</div>
-      <div class="param-value">{{ settings[key] if key in settings else "" }}</div>
-      <div class="param-actions">
-        <button class="edit-btn">Modifier</button>
+  <div class="grh-container">
+
+    <!-- ═══════════════════════════════════════════════════════════════
+         SECTION 1 : Paramètres de l'entreprise
+    ═══════════════════════════════════════════════════════════════ -->
+    <div class="grh-card">
+      <div class="grh-card-header">
+        <i class="fa-solid fa-gear"></i>
+        Paramètres de l'entreprise
       </div>
-    </div>
-    {% endfor %}
-
-    <hr>
-
-    <h2>Créer un rôle</h2>
-    <form id="create-role-form">
-      <input type="text" name="name" placeholder="Nom du rôle" required>
-      <button type="submit">Créer</button>
-    </form>
-
-    <hr>
-
-    <h2>Modifier les rôles existants</h2>
-    {% for role in roles %}
-    <div class="role-group" data-role-id="{{ role.id }}">
-      <div class="role-label">{{ role.name }}</div>
-      <div class="role-actions">
-        <button class="edit-role-btn">Modifier</button>
-      </div>
-    </div>
-    {% endfor %}
-
-    <hr>
-
-    <h2>Import de rôles via CSV</h2>
-    <form method="POST" action="{{ url_for('gestion_rh.import_roles') }}" enctype="multipart/form-data">
-      <input type="file" name="role_file" accept=".csv" required>
-      <button type="submit">Importer</button>
-    </form>
-
-    <hr>
-
-    <h2>Collaborateurs</h2>
-    <div class="collaborateur-controls">
-      <input type="text" id="search-collab" placeholder="Rechercher un collaborateur...">
-      <select id="filter-role">
-        <option value="">Tous les rôles</option>
-        {% for role in roles %}
-          <option value="{{ role.name }}">{{ role.name }}</option>
+      <div class="grh-card-body">
+        {% set keys = {
+          "work_hours_per_day": "Heures / jour",
+          "work_days_per_week": "Jours / semaine",
+          "work_weeks_per_year": "Semaines / an",
+          "work_days_per_year": "Jours / an"
+        } %}
+        {% for key, label in keys.items() %}
+        <div class="grh-param-row" data-key="{{ key }}">
+          <span class="grh-param-label">{{ label }}</span>
+          <span class="grh-param-value">{{ settings[key] if key in settings else "—" }}</span>
+          <div class="grh-param-actions">
+            <button class="btn btn-icon-only edit-param-btn" title="Modifier">
+              <i class="fa-solid fa-pen"></i>
+            </button>
+          </div>
+        </div>
         {% endfor %}
-      </select>
-    </div>
-
-    <div id="collaborateur-list-wrapper">
-      <div id="collaborateur-list" class="collaborateur-list"></div>
-      <div style="margin-top: 10px;">
-        <button id="toggle-collab-view" class="btn-validate">Afficher tous les collaborateurs</button>
       </div>
     </div>
 
-    <hr>
-
-    <h2>Affectation des Managers</h2>
-    <div class="manager-section">
-      <label for="manager-select">Choisir un manager :</label>
-      <select id="manager-select"></select>
-
-      <div class="manager-options">
-        <button type="button" id="mode-by-roles">Par rôles</button>
-        <button type="button" id="mode-by-users">Par collaborateurs</button>
+    <!-- ═══════════════════════════════════════════════════════════════
+         SECTION 2 : Gestion des rôles
+    ═══════════════════════════════════════════════════════════════ -->
+    <div class="grh-card">
+      <div class="grh-card-header">
+        <span><i class="fa-solid fa-tags"></i> Gestion des rôles</span>
+        <button class="btn btn-sm btn-outline" id="show-create-role" style="color:#0f172a;">
+          <i class="fa-solid fa-plus"></i> Nouveau rôle
+        </button>
       </div>
+      <div class="grh-card-body">
+        <!-- Formulaire création rôle (caché par défaut) -->
+        <div id="create-role-form" class="grh-create-form hidden">
+          <input type="text" id="new-role-name" placeholder="Nom du rôle" required>
+          <button class="btn btn-sm btn-primary" id="submit-create-role">Créer</button>
+          <button class="btn btn-sm btn-outline" id="cancel-create-role">Annuler</button>
+        </div>
 
-      <div id="manager-assignment-container"></div>
+        <!-- Liste des rôles -->
+        <div id="roles-list">
+          {% for role in roles %}
+          <div class="grh-role-row" data-role-id="{{ role.id }}">
+            <div class="grh-role-icon">
+              <i class="fa-solid fa-tag"></i>
+            </div>
+            <span class="grh-role-name">{{ role.name }}</span>
+            <div class="grh-role-actions">
+              <button class="btn btn-icon-only edit-role-btn" title="Modifier">
+                <i class="fa-solid fa-pen"></i>
+              </button>
+              <button class="btn btn-icon-only danger delete-role-btn" title="Supprimer">
+                <i class="fa-solid fa-trash"></i>
+              </button>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
 
-      <button id="confirm-manager-assignment" class="btn-validate hidden">Valider l’affectation</button>
+        <!-- Import CSV -->
+        <div class="grh-import-section">
+          <i class="fa-solid fa-file-csv"></i>
+          <form method="POST" action="{{ url_for('gestion_rh.import_roles') }}" enctype="multipart/form-data" style="display:flex; gap:12px; align-items:center; flex:1;">
+            <input type="file" name="role_file" accept=".csv" required>
+            <button type="submit" class="btn btn-sm btn-outline">Importer</button>
+          </form>
+        </div>
+      </div>
     </div>
 
-    <section id="global-user-summary">
-      <h2>Aperçu global des utilisateurs</h2>
-      <div id="global-users-container">Chargement...</div>
-    </section>
+    <!-- ═══════════════════════════════════════════════════════════════
+         SECTION 3 : Collaborateurs
+    ═══════════════════════════════════════════════════════════════ -->
+    <div class="grh-card">
+      <div class="grh-card-header">
+        <i class="fa-solid fa-users"></i>
+        Collaborateurs
+      </div>
+      <div class="grh-card-body">
+        <div class="grh-search-bar">
+          <input type="text" id="search-collab" placeholder="Rechercher un collaborateur...">
+          <select id="filter-role">
+            <option value="">Tous les rôles</option>
+          </select>
+        </div>
+        <div id="collaborateur-list" class="grh-collab-list"></div>
+        <button id="toggle-collab-view" class="grh-toggle-btn">
+          <i class="fa-solid fa-chevron-down"></i>
+          Afficher tous les collaborateurs
+        </button>
+      </div>
+    </div>
 
-    <!-- JS du tableau -->
-    <script src="{{ url_for('static', filename='js/global_users_summary.js') }}"></script>
-    <script>
-      // Charge dynamiquement le tableau via AJAX
-      fetch("/competences/users/global_summary")
-        .then(res => res.text())
-        .then(html => {
-          document.getElementById("global-users-container").innerHTML = html;
-        })
-        .catch(err => {
-          document.getElementById("global-users-container").innerHTML = "<p>Erreur de chargement.</p>";
-          console.error(err);
-        });
-    </script>
+    <!-- ═══════════════════════════════════════════════════════════════
+         SECTION 4 : Affectation des managers (REFONTE)
+    ═══════════════════════════════════════════════════════════════ -->
+    <div class="grh-card">
+      <div class="grh-card-header">
+        <span><i class="fa-solid fa-sitemap"></i> Affectation des managers</span>
+        <div class="grh-manager-select">
+          <label>Manager :</label>
+          <select id="manager-select">
+            <option value="">— Choisir un manager —</option>
+          </select>
+        </div>
+      </div>
+      <div class="grh-card-body">
+        <div class="grh-role-filter" id="manager-role-filter">
+          <!-- Badges injectés par JS -->
+        </div>
+        <div class="grh-assign-list" id="manager-assignment-container">
+          <div class="grh-no-results">Sélectionnez un manager pour voir les collaborateurs</div>
+        </div>
+      </div>
+    </div>
 
-
-
+    <!-- ═══════════════════════════════════════════════════════════════
+         SECTION 5 : Aperçu global des utilisateurs
+    ═══════════════════════════════════════════════════════════════ -->
+    <div class="grh-card">
+      <div class="grh-card-header">
+        <i class="fa-solid fa-table-cells"></i>
+        Aperçu global des utilisateurs
+      </div>
+      <div class="grh-card-body" id="global-users-container">
+        <div class="grh-no-results">Chargement...</div>
+      </div>
+    </div>
 
   </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════
+       MODAL : Affectation d'un collaborateur
+  ═══════════════════════════════════════════════════════════════ -->
+  <div id="modal-assign" class="grh-modal hidden">
+    <div class="grh-modal-backdrop" id="modal-assign-backdrop"></div>
+    <div class="grh-modal-container">
+      <div class="grh-modal-header">
+        <h3 id="modal-assign-title">—</h3>
+        <button class="grh-modal-close" id="modal-assign-close">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+      <div class="grh-modal-body" id="modal-assign-body">
+        <!-- Contenu injecté par JS -->
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════
+       TOAST CONTAINER
+  ═══════════════════════════════════════════════════════════════ -->
+  <div id="toast-container"></div>
+
+  <!-- ═══════════════════════════════════════════════════════════════
+       SCRIPTS
+  ═══════════════════════════════════════════════════════════════ -->
+  <script src="{{ url_for('static', filename='js/gestion_rh.js') }}" defer></script>
+  <script src="{{ url_for('static', filename='js/global_users_summary.js') }}"></script>
+  <script>
+    // Charge dynamiquement le tableau récap via AJAX
+    fetch("/competences/users/global_summary")
+      .then(res => res.text())
+      .then(html => {
+        document.getElementById("global-users-container").innerHTML = html;
+      })
+      .catch(err => {
+        document.getElementById("global-users-container").innerHTML = "<p class='grh-no-results'>Erreur de chargement.</p>";
+        console.error(err);
+      });
+  </script>
 </body>
 </html>

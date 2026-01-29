@@ -1,511 +1,590 @@
-function showToast(message = "Changement enregistré !") {
-  const toast = document.getElementById("toast");
-  toast.textContent = message;
-  toast.classList.add("show");
-  setTimeout(() => {
-    toast.classList.remove("show");
-  }, 2000);
+/* ════════════════════════════════════════════════════════════════════════════
+   GESTION RH – JavaScript
+   Design System "Minimal Editorial" – Thème Marron
+════════════════════════════════════════════════════════════════════════════ */
+
+// ═══════════════════════════════════════════════════════════════
+// UTILITIES
+// ═══════════════════════════════════════════════════════════════
+function showToast(message, type = 'success') {
+    const container = document.getElementById('toast-container');
+    const toast = document.createElement('div');
+    toast.className = `grh-toast ${type}`;
+    toast.innerHTML = `<i class="fa-solid ${type === 'error' ? 'fa-circle-exclamation' : 'fa-check-circle'}"></i> ${message}`;
+    container.appendChild(toast);
+    setTimeout(() => toast.remove(), 4000);
 }
 
-document.addEventListener("DOMContentLoaded", () => {
-  // PARAMÈTRES ENTREPRISE
-  document.querySelectorAll(".param-group").forEach(group => {
-    const key = group.dataset.key;
-    const valueDiv = group.querySelector(".param-value");
-    const editBtn = group.querySelector(".edit-btn");
+function getInitials(firstName, lastName) {
+    return ((firstName || '')[0] || '') + ((lastName || '')[0] || '');
+}
 
-    editBtn.addEventListener("click", () => {
-      const currentValue = valueDiv.textContent.trim();
-      valueDiv.innerHTML = `<input type="number" value="${currentValue}" class="param-input">`;
-      editBtn.style.display = "none";
+function capitalize(str) {
+    if (!str) return '';
+    return str.charAt(0).toUpperCase() + str.slice(1);
+}
 
-      const saveBtn = document.createElement("button");
-      saveBtn.textContent = "Enregistrer";
-      const cancelBtn = document.createElement("button");
-      cancelBtn.textContent = "Annuler";
+// ═══════════════════════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════════════════════
+let allRoles = [];
+let fullCollabData = [];
+let managerAllCollabs = [];
+let managerAllRoles = [];
+let managerActiveFilter = 'all';
+let selectedManagerId = null;
+let selectedManagerName = '';
 
-      saveBtn.addEventListener("click", async () => {
-        const input = valueDiv.querySelector("input");
-        const newValue = input.value;
+// ═══════════════════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════════════════
+document.addEventListener('DOMContentLoaded', () => {
+    // Load roles first, then collaborators
+    fetch('/gestion_rh/roles')
+        .then(res => res.json())
+        .then(data => {
+            allRoles = data;
+            populateRoleFilter();
+            loadCollaborateurs();
+        });
+
+    initParamListeners();
+    initRoleListeners();
+    initCollabListeners();
+    initManagerSection();
+    initModalListeners();
+});
+
+// ═══════════════════════════════════════════════════════════════
+// SECTION 1 : PARAMÈTRES ENTREPRISE
+// ═══════════════════════════════════════════════════════════════
+function initParamListeners() {
+    document.querySelectorAll('.grh-param-row').forEach(row => {
+        const key = row.dataset.key;
+        const valueEl = row.querySelector('.grh-param-value');
+        const editBtn = row.querySelector('.edit-param-btn');
+        const actionsEl = row.querySelector('.grh-param-actions');
+
+        editBtn.addEventListener('click', () => {
+            const currentValue = valueEl.textContent.trim();
+            valueEl.innerHTML = `<input type="number" value="${currentValue === '—' ? '' : currentValue}" class="grh-param-input">`;
+            editBtn.style.display = 'none';
+
+            const saveBtn = document.createElement('button');
+            saveBtn.className = 'btn btn-sm btn-primary';
+            saveBtn.textContent = 'Enregistrer';
+
+            const cancelBtn = document.createElement('button');
+            cancelBtn.className = 'btn btn-sm btn-outline';
+            cancelBtn.textContent = 'Annuler';
+
+            saveBtn.addEventListener('click', async () => {
+                const input = valueEl.querySelector('input');
+                const newValue = input.value;
+                const formData = new FormData();
+                formData.append('key', key);
+                formData.append('value', newValue);
+                await fetch('/gestion_rh/update_single_setting', { method: 'POST', body: formData });
+                valueEl.textContent = newValue || '—';
+                editBtn.style.display = '';
+                saveBtn.remove();
+                cancelBtn.remove();
+                showToast('Paramètre mis à jour');
+            });
+
+            cancelBtn.addEventListener('click', () => {
+                valueEl.textContent = currentValue;
+                editBtn.style.display = '';
+                saveBtn.remove();
+                cancelBtn.remove();
+            });
+
+            actionsEl.appendChild(saveBtn);
+            actionsEl.appendChild(cancelBtn);
+        });
+    });
+}
+
+// ═══════════════════════════════════════════════════════════════
+// SECTION 2 : GESTION DES RÔLES
+// ═══════════════════════════════════════════════════════════════
+function initRoleListeners() {
+    // Toggle create form
+    document.getElementById('show-create-role').addEventListener('click', () => {
+        document.getElementById('create-role-form').classList.remove('hidden');
+    });
+
+    document.getElementById('cancel-create-role').addEventListener('click', () => {
+        document.getElementById('create-role-form').classList.add('hidden');
+        document.getElementById('new-role-name').value = '';
+    });
+
+    // Submit create role
+    document.getElementById('submit-create-role').addEventListener('click', async () => {
+        const nameInput = document.getElementById('new-role-name');
+        const name = nameInput.value.trim();
+        if (!name) return;
 
         const formData = new FormData();
-        formData.append("key", key);
-        formData.append("value", newValue);
+        formData.append('name', name);
+        await fetch('/gestion_rh/role', { method: 'POST', body: formData });
+        showToast('Rôle créé');
+        setTimeout(() => location.reload(), 800);
+    });
 
-        await fetch("/gestion_rh/update_single_setting", {
-          method: "POST",
-          body: formData,
+    // Edit & delete role buttons
+    document.querySelectorAll('.grh-role-row').forEach(row => {
+        const roleId = row.dataset.roleId;
+        const nameEl = row.querySelector('.grh-role-name');
+        const editBtn = row.querySelector('.edit-role-btn');
+        const deleteBtn = row.querySelector('.delete-role-btn');
+
+        // Delete
+        deleteBtn.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            if (!confirm('Supprimer ce rôle ?')) return;
+            const res = await fetch(`/gestion_rh/delete_role/${roleId}`, { method: 'POST' });
+            if (res.ok) {
+                row.remove();
+                showToast('Rôle supprimé');
+            }
         });
 
-        valueDiv.textContent = newValue;
-        editBtn.style.display = "inline-block";
-        saveBtn.remove();
-        cancelBtn.remove();
-        showToast("Paramètre mis à jour");
-      });
+        // Edit
+        editBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const currentName = nameEl.textContent.trim();
+            nameEl.innerHTML = `<input type="text" value="${currentName}" class="grh-role-input">`;
+            editBtn.style.display = 'none';
+            deleteBtn.style.display = 'none';
 
-      cancelBtn.addEventListener("click", () => {
-        valueDiv.textContent = currentValue;
-        editBtn.style.display = "inline-block";
-        saveBtn.remove();
-        cancelBtn.remove();
-      });
+            const saveBtn = document.createElement('button');
+            saveBtn.className = 'btn btn-sm btn-primary';
+            saveBtn.textContent = 'Enregistrer';
 
-      group.querySelector(".param-actions").appendChild(saveBtn);
-      group.querySelector(".param-actions").appendChild(cancelBtn);
-    });
-  });
+            const cancelBtn = document.createElement('button');
+            cancelBtn.className = 'btn btn-sm btn-outline';
+            cancelBtn.textContent = 'Annuler';
 
-  // CRÉATION DE RÔLE
-  const createRoleForm = document.getElementById("create-role-form");
-  createRoleForm.addEventListener("submit", async (e) => {
-    e.preventDefault();
-    const formData = new FormData(createRoleForm);
-    await fetch("/gestion_rh/role", {
-      method: "POST",
-      body: formData,
-    });
-    showToast("Rôle créé");
-    setTimeout(() => location.reload(), 1000);
-  });
+            saveBtn.addEventListener('click', async () => {
+                const input = nameEl.querySelector('input');
+                const newName = input.value.trim();
+                if (!newName) return;
 
-  // MODIFICATION + SUPPRESSION DES RÔLES
-  document.querySelectorAll(".role-group").forEach(group => {
-    const roleId = group.dataset.roleId;
-    const label = group.querySelector(".role-label");
-    const editBtn = group.querySelector(".edit-role-btn");
+                const formData = new FormData();
+                formData.append('id', roleId);
+                formData.append('name', newName);
+                await fetch('/gestion_rh/role', { method: 'POST', body: formData });
+                nameEl.textContent = newName;
+                editBtn.style.display = '';
+                deleteBtn.style.display = '';
+                saveBtn.remove();
+                cancelBtn.remove();
+                showToast('Rôle modifié');
+            });
 
-    const deleteBtn = document.createElement("button");
-    deleteBtn.textContent = "Supprimer";
-    deleteBtn.style.marginLeft = "10px";
-    deleteBtn.style.backgroundColor = "#e74c3c";
+            cancelBtn.addEventListener('click', () => {
+                nameEl.textContent = currentName;
+                editBtn.style.display = '';
+                deleteBtn.style.display = '';
+                saveBtn.remove();
+                cancelBtn.remove();
+            });
 
-    deleteBtn.addEventListener("click", async () => {
-      if (confirm("Supprimer ce rôle ?")) {
-        const response = await fetch(`/gestion_rh/delete_role/${roleId}`, {
-          method: "POST"
+            row.querySelector('.grh-role-actions').appendChild(saveBtn);
+            row.querySelector('.grh-role-actions').appendChild(cancelBtn);
         });
-        if (response.ok) {
-          group.remove();
-          showToast("Rôle supprimé");
-        }
-      }
     });
+}
 
-    editBtn.after(deleteBtn);
-    editBtn.addEventListener("click", () => {
-      const currentValue = label.textContent.trim();
-      label.innerHTML = `<input type="text" value="${currentValue}" class="role-input">`;
-      editBtn.style.display = "none";
-      deleteBtn.style.display = "none";
-
-      const saveBtn = document.createElement("button");
-      saveBtn.textContent = "Enregistrer";
-      const cancelBtn = document.createElement("button");
-      cancelBtn.textContent = "Annuler";
-
-      saveBtn.addEventListener("click", async () => {
-        const input = label.querySelector("input");
-        const newValue = input.value;
-
-        const formData = new FormData();
-        formData.append("id", roleId);
-        formData.append("name", newValue);
-
-        await fetch("/gestion_rh/role", {
-          method: "POST",
-          body: formData,
-        });
-
-        label.textContent = newValue;
-        editBtn.style.display = "inline-block";
-        deleteBtn.style.display = "inline-block";
-        saveBtn.remove();
-        cancelBtn.remove();
-        showToast("Rôle modifié");
-      });
-
-      cancelBtn.addEventListener("click", () => {
-        label.textContent = currentValue;
-        editBtn.style.display = "inline-block";
-        deleteBtn.style.display = "inline-block";
-        saveBtn.remove();
-        cancelBtn.remove();
-      });
-
-      group.querySelector(".role-actions").appendChild(saveBtn);
-      group.querySelector(".role-actions").appendChild(cancelBtn);
+// ═══════════════════════════════════════════════════════════════
+// SECTION 3 : COLLABORATEURS
+// ═══════════════════════════════════════════════════════════════
+function populateRoleFilter() {
+    const select = document.getElementById('filter-role');
+    // Remove dynamically added options (keep first "Tous les rôles")
+    while (select.options.length > 1) select.remove(1);
+    allRoles.forEach(role => {
+        const option = document.createElement('option');
+        option.value = role.name;
+        option.textContent = capitalize(role.name);
+        select.appendChild(option);
     });
-  });
+}
 
-  // COLLABORATEURS
-  async function loadCollaborateurs() {
-    const search = document.getElementById("search-collab").value;
-    const role = document.getElementById("filter-role").value;
+function initCollabListeners() {
+    document.getElementById('search-collab').addEventListener('input', loadCollaborateurs);
+    document.getElementById('filter-role').addEventListener('change', loadCollaborateurs);
+}
+
+async function loadCollaborateurs() {
+    const search = document.getElementById('search-collab').value;
+    const role = document.getElementById('filter-role').value;
 
     const res = await fetch(`/gestion_rh/collaborateurs?search=${encodeURIComponent(search)}&role=${encodeURIComponent(role)}`);
-    const data = await res.json();
+    fullCollabData = await res.json();
+    renderCollaborateurs(false);
+}
 
-    const container = document.getElementById("collaborateur-list");
-    container.innerHTML = "";
-
-    window.fullCollabData = data;
-    renderPartialCollaborators();
-  }
-
-  function renderPartialCollaborators(showAll = false) {
-    const container = document.getElementById("collaborateur-list");
-    container.innerHTML = "";
-    const data = showAll ? window.fullCollabData : window.fullCollabData.slice(0, 4);
+function renderCollaborateurs(showAll = false) {
+    const container = document.getElementById('collaborateur-list');
+    container.innerHTML = '';
+    const data = showAll ? fullCollabData : fullCollabData.slice(0, 4);
 
     data.forEach(user => {
-      const div = document.createElement("div");
-      div.className = "collab-item";
+        const initials = getInitials(user.name.split(' ')[0], user.name.split(' ').slice(1).join(' '));
+        const rolesText = user.roles.length ? user.roles.map(r => capitalize(r)).join(', ') : 'Aucun rôle';
 
-      // Nom du collaborateur (cliquable pour éditer)
-      const label = document.createElement("div");
-      label.className = "collab-name";
-      label.textContent = user.name;
-      
-      // Icône d'édition du nom
-      const editNameIcon = document.createElement("span");
-      editNameIcon.innerHTML = " ✏️";
-      editNameIcon.style.cursor = "pointer";
-      editNameIcon.style.fontSize = "0.8em";
-      editNameIcon.title = "Modifier le nom";
-      editNameIcon.addEventListener("click", (e) => {
-        e.stopPropagation();
-        editCollaboratorName(user.id, user.name, label);
-      });
-      label.appendChild(editNameIcon);
-
-      const summary = document.createElement("div");
-      summary.className = "collab-summary";
-      summary.textContent = "Rôles : " + (user.roles.length ? user.roles.join(", ") : "Aucun");
-
-      const editZone = document.createElement("div");
-      editZone.className = "collab-edit-zone";
-
-      const roleContainer = document.createElement("div");
-      roleContainer.className = "collab-role-checkboxes";
-
-      roles.forEach(r => {
-        const cbLabel = document.createElement("label");
-        cbLabel.className = "checkbox-label";
-        const checkbox = document.createElement("input");
-        checkbox.type = "checkbox";
-        checkbox.value = r.id;
-        checkbox.checked = user.roles.includes(r.name);
-        if (checkbox.checked) cbLabel.classList.add("active");
-
-        checkbox.addEventListener("change", () => {
-          if (checkbox.checked) {
-            cbLabel.classList.remove("removed");
-            cbLabel.classList.add("active");
-          } else if (user.roles.includes(r.name)) {
-            cbLabel.classList.remove("active");
-            cbLabel.classList.add("removed");
-          } else {
-            cbLabel.classList.remove("removed");
-            cbLabel.classList.remove("active");
-          }
-        });
-
-        cbLabel.appendChild(checkbox);
-        cbLabel.appendChild(document.createTextNode(" " + r.name));
-        roleContainer.appendChild(cbLabel);
-      });
-
-      const saveBtn = document.createElement("button");
-      saveBtn.textContent = "Enregistrer les rôles";
-      saveBtn.addEventListener("click", async () => {
-        const selectedRoles = Array.from(roleContainer.querySelectorAll("input:checked")).map(c => c.value);
-        const formData = new FormData();
-        formData.append("user_id", user.id);
-        selectedRoles.forEach(id => formData.append("role_ids[]", id));
-        await fetch("/gestion_rh/collaborateur_roles", {
-          method: "POST",
-          body: formData
-        });
-        showToast("Rôles mis à jour");
-
-        // 🔁 recharge à chaud
-        loadCollaborateurs();
-        document.getElementById("mode-by-users").click();
-
-        roleContainer.querySelectorAll(".checkbox-label").forEach(lab => {
-          lab.classList.remove("removed");
-          lab.classList.add("transition-reset");
-          setTimeout(() => {
-            lab.classList.remove("transition-reset");
-          }, 500);
-        });
-      });
-
-      editZone.appendChild(roleContainer);
-      editZone.appendChild(saveBtn);
-
-      label.addEventListener("click", (e) => {
-        // Ne pas expand si on clique sur l'icône d'édition
-        if (e.target.tagName === 'SPAN') return;
-        div.classList.toggle("expanded");
-      });
-
-      div.appendChild(label);
-      div.appendChild(summary);
-      div.appendChild(editZone);
-      container.appendChild(div);
-    });
-
-    const toggleBtn = document.getElementById("toggle-collab-view");
-    if (toggleBtn) {
-      toggleBtn.textContent = showAll ? "Réduire la liste" : "Afficher tous les collaborateurs";
-      toggleBtn.onclick = () => renderPartialCollaborators(!showAll);
-    }
-  }
-
-  // Fonction pour éditer le nom d'un collaborateur
-  function editCollaboratorName(userId, currentName, labelElement) {
-    const newName = prompt("Modifier le nom du collaborateur :", currentName);
-    if (newName === null || newName.trim() === "" || newName.trim() === currentName) return;
-
-    fetch(`/gestion_rh/update_collaborator_name`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ user_id: userId, name: newName.trim() })
-    })
-    .then(res => res.json())
-    .then(data => {
-      if (data.success) {
-        showToast("Nom mis à jour");
-        loadCollaborateurs();
-      } else {
-        alert("Erreur lors de la mise à jour du nom");
-      }
-    })
-    .catch(err => {
-      console.error(err);
-      alert("Erreur réseau");
-    });
-  }
-
-  document.getElementById("search-collab").addEventListener("input", loadCollaborateurs);
-  document.getElementById("filter-role").addEventListener("change", loadCollaborateurs);
-
-  window.roles = [];  
-  fetch("/gestion_rh/roles")
-    .then(res => res.json())
-    .then(data => {
-      window.roles = data;
-
-      const select = document.getElementById("filter-role");
-      if (select) {
-        data.forEach(role => {
-          const option = document.createElement("option");
-          option.value = role.name;
-          option.textContent = role.name;
-          select.appendChild(option);
-        });
-      }
-
-      loadCollaborateurs();  // charger les collaborateurs une fois que les rôles sont prêts
-    });
-});
-
-// ---------- AFFECTATION DES MANAGERS ----------
-document.addEventListener("DOMContentLoaded", () => {
-  const managerSelect = document.getElementById("manager-select");
-  const container = document.getElementById("manager-assignment-container");
-  const btnConfirm = document.getElementById("confirm-manager-assignment");
-  let selectedUserIds = new Set();
-  let selectedUserRolesMap = {};
-
-  // Charger les managers existants (utilisateurs ayant le rôle manager)
-  fetch("/gestion_rh/users_with_role?role=manager")
-    .then(res => res.json())
-    .then(users => {
-      users.forEach(u => {
-        const opt = document.createElement("option");
-        opt.value = u.id;
-        opt.textContent = `${u.first_name} ${u.last_name}`;
-        managerSelect.appendChild(opt);
-      });
-    });
-
-  // Fonction pour recharger les utilisateurs + rôles dans la section manager (utilisée dynamiquement)
-  function reloadManagerUserList() {
-    const activeTab = document.querySelector(".manager-options .active-tab");
-    if (activeTab && activeTab.id === "mode-by-users") {
-      document.getElementById("mode-by-users").click();
-    } else if (activeTab && activeTab.id === "mode-by-roles") {
-      document.getElementById("mode-by-roles").click();
-    }
-  }
-
-  // MODE PAR RÔLES
-  document.getElementById("mode-by-roles").addEventListener("click", (e) => {
-    e.target.classList.add("active-tab");
-    document.getElementById("mode-by-users").classList.remove("active-tab");
-
-    fetch("/gestion_rh/roles")
-      .then(r => r.json())
-      .then(roles => {
-        container.innerHTML = `
-          <div class="manager-role-section">
-            <label class="section-title">Choisir des rôles :</label>
-            <div id="multi-role-checkboxes" class="collab-role-checkboxes"></div>
-          </div>
-          <div class="manager-user-section">
-            <label class="section-title">Collaborateurs correspondants :</label>
-            <div id="user-list-by-role" class="user-list"></div>
-          </div>
+        const div = document.createElement('div');
+        div.className = 'grh-collab-item';
+        div.innerHTML = `
+            <div class="grh-collab-header">
+                <div class="grh-collab-avatar">${initials}</div>
+                <div class="grh-collab-info">
+                    <div class="grh-collab-name">
+                        ${user.name}
+                        <button class="edit-name-btn" title="Modifier le nom">
+                            <i class="fa-solid fa-pen"></i>
+                        </button>
+                    </div>
+                    <div class="grh-collab-roles-summary">${rolesText}</div>
+                </div>
+                <i class="fa-solid fa-chevron-down grh-collab-toggle"></i>
+            </div>
+            <div class="grh-collab-edit">
+                <div class="grh-role-checkboxes" id="collab-roles-${user.id}"></div>
+                <div class="grh-collab-save-row">
+                    <button class="btn btn-sm btn-primary save-collab-roles" data-user-id="${user.id}">Enregistrer les rôles</button>
+                </div>
+            </div>
         `;
 
-        const roleContainer = document.getElementById("multi-role-checkboxes");
-
-        roles.forEach(role => {
-          const label = document.createElement("label");
-          label.className = "checkbox-label";
-          const checkbox = document.createElement("input");
-          checkbox.type = "checkbox";
-          checkbox.value = role.id;
-          checkbox.dataset.name = role.name;
-
-          checkbox.addEventListener("change", () => {
-            label.classList.toggle("active", checkbox.checked);
-          });
-
-          label.appendChild(checkbox);
-          label.appendChild(document.createTextNode(" " + role.name));
-          roleContainer.appendChild(label);
+        // Toggle expand
+        div.querySelector('.grh-collab-header').addEventListener('click', (e) => {
+            if (e.target.closest('.edit-name-btn')) return;
+            div.classList.toggle('expanded');
         });
 
-        const loadBtn = document.createElement("button");
-        loadBtn.textContent = "Charger collaborateurs";
-        loadBtn.style.marginTop = "12px";
-        loadBtn.style.marginBottom = "12px";
-        loadBtn.className = "btn-validate";
-        container.appendChild(loadBtn);
-
-        loadBtn.addEventListener("click", () => {
-          const selectedRoles = Array.from(roleContainer.querySelectorAll("input:checked")).map(c => c.value);
-          fetch(`/gestion_rh/users_by_roles?roles=${selectedRoles.join(",")}`)
-            .then(r => r.json())
-            .then(users => {
-              const list = document.getElementById("user-list-by-role");
-              list.innerHTML = "";
-              users.forEach(user => {
-                const item = document.createElement("div");
-                item.className = "user-item";
-                item.textContent = `${user.first_name} ${user.last_name} (${user.roles.join(", ")})`;
-                item.dataset.userId = user.id;
-                item.addEventListener("click", () => {
-                  const id = user.id;
-                  item.classList.toggle("selected");
-                  if (item.classList.contains("selected")) selectedUserIds.add(id);
-                  else selectedUserIds.delete(id);
-                  btnConfirm.classList.remove("hidden");
-                });
-                list.appendChild(item);
-              });
-            });
+        // Edit name
+        div.querySelector('.edit-name-btn').addEventListener('click', (e) => {
+            e.stopPropagation();
+            editCollaboratorName(user.id, user.name);
         });
-      });
-  });
 
-  // MODE PAR UTILISATEUR
-  document.getElementById("mode-by-users").addEventListener("click", (e) => {
-    e.target.classList.add("active-tab");
-    document.getElementById("mode-by-roles").classList.remove("active-tab");
+        // Render role checkboxes
+        const roleContainer = div.querySelector(`#collab-roles-${user.id}`);
+        allRoles.forEach(r => {
+            const isActive = user.roles.includes(r.name);
+            const label = document.createElement('label');
+            label.className = `grh-checkbox-label ${isActive ? 'active' : ''}`;
+            const cb = document.createElement('input');
+            cb.type = 'checkbox';
+            cb.value = r.id;
+            cb.checked = isActive;
 
-    fetch("/gestion_rh/users_with_roles")
-      .then(r => r.json())
-      .then(users => {
-        container.innerHTML = `<div id="user-list-by-user" class="user-list"></div>`;
-        const list = document.getElementById("user-list-by-user");
-        list.innerHTML = "";
-        selectedUserIds = new Set();
-        selectedUserRolesMap = {};
-
-        users.forEach(user => {
-          const item = document.createElement("div");
-          item.className = "user-item";
-          item.dataset.userId = user.id;
-
-          const nameDiv = document.createElement("div");
-          nameDiv.textContent = `${user.first_name} ${user.last_name}`;
-
-          const roleBox = document.createElement("div");
-          roleBox.className = "user-role-box";
-
-          user.roles.forEach(r => {
-            const roleObj = window.roles.find(ro => ro.name === r);
-            if (!roleObj) return;
-            const cbLabel = document.createElement("label");
-            cbLabel.className = "checkbox-label";
-            const cb = document.createElement("input");
-            cb.type = "checkbox";
-            cb.value = roleObj.id;
-
-            cb.addEventListener("change", () => {
-              const uid = user.id;
-              if (!selectedUserRolesMap[uid]) selectedUserRolesMap[uid] = new Set();
-              if (cb.checked) {
-                cbLabel.classList.add("active");
-                selectedUserRolesMap[uid].add(roleObj.id);
-                selectedUserIds.add(uid);
-              } else {
-                cbLabel.classList.remove("active");
-                selectedUserRolesMap[uid].delete(roleObj.id);
-                if (selectedUserRolesMap[uid].size === 0) {
-                  selectedUserIds.delete(uid);
+            cb.addEventListener('change', () => {
+                if (cb.checked) {
+                    label.classList.remove('removed');
+                    label.classList.add('active');
+                } else if (user.roles.includes(r.name)) {
+                    label.classList.remove('active');
+                    label.classList.add('removed');
+                } else {
+                    label.classList.remove('active', 'removed');
                 }
-              }
-              btnConfirm.classList.remove("hidden");
             });
 
-            cbLabel.appendChild(cb);
-            cbLabel.appendChild(document.createTextNode(" " + r));
-            roleBox.appendChild(cbLabel);
-          });
-
-          item.appendChild(nameDiv);
-          item.appendChild(roleBox);
-          list.appendChild(item);
+            label.appendChild(cb);
+            label.appendChild(document.createTextNode(capitalize(r.name)));
+            roleContainer.appendChild(label);
         });
-      });
-  });
 
-  // ENREGISTRER
-  btnConfirm.addEventListener("click", () => {
-    const managerId = managerSelect.value;
-    if (!managerId || selectedUserIds.size === 0) return;
-
-    let assignments = [];
-
-    selectedUserIds.forEach(uid => {
-      const roleIds = selectedUserRolesMap[uid];
-      if (roleIds && roleIds.size > 0) {
-        roleIds.forEach(rid => {
-          assignments.push({ user_id: uid, role_id: rid });
+        // Save roles
+        div.querySelector('.save-collab-roles').addEventListener('click', async () => {
+            const selectedRoles = Array.from(roleContainer.querySelectorAll('input:checked')).map(c => c.value);
+            const formData = new FormData();
+            formData.append('user_id', user.id);
+            selectedRoles.forEach(id => formData.append('role_ids[]', id));
+            await fetch('/gestion_rh/collaborateur_roles', { method: 'POST', body: formData });
+            showToast('Rôles mis à jour');
+            loadCollaborateurs();
+            // Refresh manager section too
+            if (selectedManagerId) loadManagerCollabs();
         });
-      }
+
+        container.appendChild(div);
     });
 
-    fetch("/gestion_rh/assign_manager", {
-      method: "POST",
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        manager_id: managerId,
-        assignments: assignments
-      })
-    }).then(() => {
-      showToast("Affectation réussie !");
-      selectedUserIds.clear();
-      selectedUserRolesMap = {};
-      btnConfirm.classList.add("hidden");
-      reloadManagerUserList(); // 🔁 recharger section dynamique
-    });
-  });
+    // Toggle button
+    const toggleBtn = document.getElementById('toggle-collab-view');
+    if (toggleBtn) {
+        const icon = toggleBtn.querySelector('i');
+        if (showAll) {
+            toggleBtn.innerHTML = '<i class="fa-solid fa-chevron-up"></i> Réduire la liste';
+        } else {
+            toggleBtn.innerHTML = '<i class="fa-solid fa-chevron-down"></i> Afficher tous les collaborateurs';
+        }
+        toggleBtn.onclick = () => renderCollaborateurs(!showAll);
+        toggleBtn.style.display = fullCollabData.length > 4 ? '' : 'none';
+    }
+}
 
-});
+function editCollaboratorName(userId, currentName) {
+    const newName = prompt('Modifier le nom du collaborateur :', currentName);
+    if (newName === null || newName.trim() === '' || newName.trim() === currentName) return;
+
+    fetch('/gestion_rh/update_collaborator_name', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: userId, name: newName.trim() })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            showToast('Nom mis à jour');
+            loadCollaborateurs();
+        } else {
+            showToast('Erreur lors de la mise à jour', 'error');
+        }
+    })
+    .catch(() => showToast('Erreur réseau', 'error'));
+}
+
+// ═══════════════════════════════════════════════════════════════
+// SECTION 4 : AFFECTATION DES MANAGERS (REFONTE)
+// ═══════════════════════════════════════════════════════════════
+function initManagerSection() {
+    const managerSelect = document.getElementById('manager-select');
+
+    // Load managers (users with role "manager")
+    fetch('/gestion_rh/users_with_role?role=manager')
+        .then(res => res.json())
+        .then(users => {
+            users.forEach(u => {
+                const opt = document.createElement('option');
+                opt.value = u.id;
+                opt.textContent = `${u.first_name} ${u.last_name}`;
+                managerSelect.appendChild(opt);
+            });
+        });
+
+    // On manager change → load all collabs
+    managerSelect.addEventListener('change', () => {
+        selectedManagerId = managerSelect.value ? parseInt(managerSelect.value) : null;
+        selectedManagerName = managerSelect.options[managerSelect.selectedIndex]?.textContent || '';
+        if (selectedManagerId) {
+            loadManagerCollabs();
+        } else {
+            document.getElementById('manager-assignment-container').innerHTML =
+                '<div class="grh-no-results">Sélectionnez un manager pour voir les collaborateurs</div>';
+            document.getElementById('manager-role-filter').innerHTML = '';
+        }
+    });
+}
+
+async function loadManagerCollabs() {
+    try {
+        const res = await fetch('/gestion_rh/all_collaborators_with_manager');
+        const data = await res.json();
+        managerAllCollabs = data.users || [];
+        managerAllRoles = data.roles || [];
+        managerActiveFilter = 'all';
+        renderManagerRoleFilter();
+        renderManagerCollabList();
+    } catch (err) {
+        console.error('Erreur chargement collaborateurs manager:', err);
+    }
+}
+
+function renderManagerRoleFilter() {
+    const bar = document.getElementById('manager-role-filter');
+    if (!bar) return;
+
+    let html = '';
+    html += `<span class="role-filter-badge ${managerActiveFilter === 'all' ? 'active' : ''}" data-filter="all">Tous</span>`;
+    html += `<span class="role-filter-badge ${managerActiveFilter === 'assigned' ? 'active' : ''}" data-filter="assigned">Affectés</span>`;
+    managerAllRoles.forEach(r => {
+        html += `<span class="role-filter-badge ${managerActiveFilter === String(r.id) ? 'active' : ''}" data-filter="${r.id}">${capitalize(r.name)}</span>`;
+    });
+    bar.innerHTML = html;
+
+    // Attach click handlers
+    bar.querySelectorAll('.role-filter-badge').forEach(badge => {
+        badge.addEventListener('click', () => {
+            managerActiveFilter = badge.dataset.filter;
+            renderManagerRoleFilter();
+            renderManagerCollabList();
+        });
+    });
+}
+
+function renderManagerCollabList() {
+    const container = document.getElementById('manager-assignment-container');
+
+    // Filter
+    let filtered = managerAllCollabs;
+    if (managerActiveFilter === 'assigned') {
+        filtered = filtered.filter(c => c.manager_id === selectedManagerId);
+    } else if (managerActiveFilter !== 'all') {
+        const roleId = parseInt(managerActiveFilter);
+        filtered = filtered.filter(c => c.roles && c.roles.some(r => r.id === roleId));
+    }
+
+    if (filtered.length === 0) {
+        container.innerHTML = '<div class="grh-no-results">Aucun collaborateur trouvé</div>';
+        return;
+    }
+
+    // Sort: assigned first
+    filtered.sort((a, b) => {
+        const aAssigned = a.manager_id === selectedManagerId ? 0 : 1;
+        const bAssigned = b.manager_id === selectedManagerId ? 0 : 1;
+        if (aAssigned !== bAssigned) return aAssigned - bAssigned;
+        return `${a.first_name} ${a.last_name}`.localeCompare(`${b.first_name} ${b.last_name}`);
+    });
+
+    container.innerHTML = filtered.map(c => {
+        const initials = getInitials(c.first_name, c.last_name);
+        const isAssigned = c.manager_id === selectedManagerId;
+        const rolesText = c.roles.map(r => capitalize(r.name)).join(', ') || 'Aucun rôle';
+        return `
+            <div class="grh-assign-item ${!isAssigned ? 'unassigned' : ''}" data-user-id="${c.id}" onclick="openAssignModal(${c.id})">
+                ${isAssigned ? '<span class="grh-assign-dot"></span>' : ''}
+                <div class="grh-assign-avatar">${initials}</div>
+                <div class="grh-assign-info">
+                    <div class="grh-assign-name">${c.first_name} ${c.last_name}</div>
+                    <div class="grh-assign-roles">${rolesText}</div>
+                </div>
+                <button class="grh-assign-btn" title="Gérer l'affectation">
+                    <i class="fa-solid fa-link"></i>
+                </button>
+            </div>
+        `;
+    }).join('');
+}
+
+// ═══════════════════════════════════════════════════════════════
+// MODAL AFFECTATION
+// ═══════════════════════════════════════════════════════════════
+function openAssignModal(userId) {
+    const user = managerAllCollabs.find(u => u.id === userId);
+    if (!user) return;
+
+    const isAssigned = user.manager_id === selectedManagerId;
+    const initials = getInitials(user.first_name, user.last_name);
+    const fullName = `${user.first_name} ${user.last_name}`;
+
+    document.getElementById('modal-assign-title').textContent = fullName;
+
+    const body = document.getElementById('modal-assign-body');
+    let rolesHtml = '';
+    if (user.roles && user.roles.length > 0) {
+        rolesHtml = user.roles.map(r => `<span class="grh-assign-role-badge">${capitalize(r.name)}</span>`).join('');
+    } else {
+        rolesHtml = '<span style="color:#94a3b8; font-size:12px; font-style:italic;">Aucun rôle</span>';
+    }
+
+    let actionsHtml = '';
+    if (isAssigned) {
+        actionsHtml = `
+            <button class="grh-assign-action-btn danger" onclick="unassignFromManager(${user.id})">
+                <div class="grh-assign-action-icon">
+                    <i class="fa-solid fa-link-slash"></i>
+                </div>
+                <div class="grh-assign-action-text">
+                    <strong>Retirer l'affectation</strong>
+                    <span>Ce collaborateur ne sera plus assigné à ${selectedManagerName}</span>
+                </div>
+            </button>
+        `;
+    } else {
+        actionsHtml = `
+            <button class="grh-assign-action-btn" onclick="assignToManager(${user.id}, ${selectedManagerId})">
+                <div class="grh-assign-action-icon">
+                    <i class="fa-solid fa-link"></i>
+                </div>
+                <div class="grh-assign-action-text">
+                    <strong>Affecter à ${selectedManagerName}</strong>
+                    <span>Ce collaborateur sera assigné globalement au manager</span>
+                </div>
+            </button>
+        `;
+    }
+
+    body.innerHTML = `
+        <div class="grh-assign-collab-info">
+            <div class="grh-assign-collab-avatar">${initials}</div>
+            <div class="grh-assign-collab-details">
+                <h4>${fullName}</h4>
+                <div class="grh-assign-collab-roles-list">${rolesHtml}</div>
+            </div>
+        </div>
+        <div class="grh-assign-actions">
+            ${actionsHtml}
+        </div>
+    `;
+
+    document.getElementById('modal-assign').classList.remove('hidden');
+}
+
+function closeAssignModal() {
+    document.getElementById('modal-assign').classList.add('hidden');
+}
+
+function initModalListeners() {
+    document.getElementById('modal-assign-close').addEventListener('click', closeAssignModal);
+    document.getElementById('modal-assign-backdrop').addEventListener('click', closeAssignModal);
+}
+
+async function assignToManager(userId, managerId) {
+    try {
+        const res = await fetch('/gestion_rh/assign_manager_simple', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ user_id: userId, manager_id: managerId })
+        });
+        const data = await res.json();
+        if (data.success) {
+            const user = managerAllCollabs.find(u => u.id === userId);
+            if (user) user.manager_id = managerId;
+            closeAssignModal();
+            renderManagerCollabList();
+            showToast('Collaborateur affecté avec succès');
+        } else {
+            showToast(data.message || 'Erreur', 'error');
+        }
+    } catch (err) {
+        console.error('Erreur affectation:', err);
+        showToast("Erreur lors de l'affectation", 'error');
+    }
+}
+
+async function unassignFromManager(userId) {
+    try {
+        const res = await fetch('/gestion_rh/assign_manager_simple', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ user_id: userId, manager_id: null })
+        });
+        const data = await res.json();
+        if (data.success) {
+            const user = managerAllCollabs.find(u => u.id === userId);
+            if (user) user.manager_id = null;
+            closeAssignModal();
+            renderManagerCollabList();
+            showToast('Affectation retirée');
+        } else {
+            showToast(data.message || 'Erreur', 'error');
+        }
+    } catch (err) {
+        console.error('Erreur désaffectation:', err);
+        showToast('Erreur lors de la désaffectation', 'error');
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// EXPOSE GLOBAL
+// ═══════════════════════════════════════════════════════════════
+window.openAssignModal = openAssignModal;
+window.assignToManager = assignToManager;
+window.unassignFromManager = unassignFromManager;
