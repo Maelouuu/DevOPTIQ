@@ -32,21 +32,49 @@
 
         <!-- Système d'onglets -->
         <div class="tabs-container">
-            <button class="tab-button active" onclick="openTab(event, 'overview-{{ item.activity.id }}', '{{ item.activity.id }}')">
+            <button class="tab-button active" draggable="true"
+                    data-tab-id="overview-{{ item.activity.id }}"
+                    data-tab-label="Vue d'ensemble"
+                    data-activity-id="{{ item.activity.id }}"
+                    onclick="openTab(event, 'overview-{{ item.activity.id }}', '{{ item.activity.id }}')">
                 <i class="fa-solid fa-home"></i> Vue d'ensemble
             </button>
-            <button class="tab-button" onclick="openTab(event, 'competencies-{{ item.activity.id }}', '{{ item.activity.id }}')">
+            <button class="tab-button" draggable="true"
+                    data-tab-id="competencies-{{ item.activity.id }}"
+                    data-tab-label="Compétences"
+                    data-activity-id="{{ item.activity.id }}"
+                    onclick="openTab(event, 'competencies-{{ item.activity.id }}', '{{ item.activity.id }}')">
                 <i class="fa-solid fa-star"></i> Compétences
             </button>
-            <button class="tab-button" onclick="openTab(event, 'skills-{{ item.activity.id }}', '{{ item.activity.id }}')">
+            <button class="tab-button" draggable="true"
+                    data-tab-id="skills-{{ item.activity.id }}"
+                    data-tab-label="Savoirs & SF"
+                    data-activity-id="{{ item.activity.id }}"
+                    onclick="openTab(event, 'skills-{{ item.activity.id }}', '{{ item.activity.id }}')">
                 <i class="fa-solid fa-brain"></i> Savoirs & SF
             </button>
-            <button class="tab-button" onclick="openTab(event, 'softskills-{{ item.activity.id }}', '{{ item.activity.id }}')">
+            <button class="tab-button" draggable="true"
+                    data-tab-id="softskills-{{ item.activity.id }}"
+                    data-tab-label="HSC"
+                    data-activity-id="{{ item.activity.id }}"
+                    onclick="openTab(event, 'softskills-{{ item.activity.id }}', '{{ item.activity.id }}')">
                 <i class="fa-solid fa-heart"></i> HSC
             </button>
-            <button class="tab-button" onclick="openTab(event, 'time-{{ item.activity.id }}', '{{ item.activity.id }}')">
+            <button class="tab-button" draggable="true"
+                    data-tab-id="time-{{ item.activity.id }}"
+                    data-tab-label="Temps"
+                    data-activity-id="{{ item.activity.id }}"
+                    onclick="openTab(event, 'time-{{ item.activity.id }}', '{{ item.activity.id }}')">
                 <i class="fa-solid fa-clock"></i> Temps
             </button>
+        </div>
+
+        <!-- Drop zone pour le split-view (apparaît lors du drag) -->
+        <div class="split-drop-zone" id="split-drop-zone-{{ item.activity.id }}" style="display:none;">
+            <div class="split-drop-indicator">
+                <i class="fa-solid fa-columns"></i>
+                <span>Déposer ici pour afficher côte à côte</span>
+            </div>
         </div>
 
         <!-- Contenu des onglets -->
