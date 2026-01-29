@@ -145,10 +145,10 @@
 }
 .logo-text{ font-weight:700; font-size:1rem; }
 
-.hamburger-menu{ display:flex; flex-direction:column; gap:5px; cursor:pointer; }
-.hamburger-line{ width:22px; height:2px; background:var(--ink); transition:transform .3s ease; }
-.hamburger-menu.open .hamburger-line:first-child{ transform: translateY(4px) rotate(45deg); }
-.hamburger-menu.open .hamburger-line:last-child{  transform: translateY(-4px) rotate(-45deg); }
+.hamburger-menu{ display:flex; flex-direction:column; gap:7px; cursor:pointer; padding:8px; }
+.hamburger-line{ width:30px; height:3px; background:var(--ink); border-radius:2px; transition:transform .3s ease; }
+.hamburger-menu.open .hamburger-line:first-child{ transform: translateY(5px) rotate(45deg); }
+.hamburger-menu.open .hamburger-line:last-child{  transform: translateY(-5px) rotate(-45deg); }
 
 /* ============================
    Contenu déroulant (cartes uniquement)
