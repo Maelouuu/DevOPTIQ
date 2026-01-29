@@ -64,7 +64,7 @@
          SECTION 2 : Gestion des rôles
     ═══════════════════════════════════════════════════════════════ -->
     <div class="grh-card">
-      <div class="grh-card-header">
+      <div class="grh-card-header secondary">
         <span><i class="fa-solid fa-tags"></i> Gestion des rôles</span>
         <button class="btn btn-sm btn-outline" id="show-create-role" style="color:#0f172a;">
           <i class="fa-solid fa-plus"></i> Nouveau rôle
@@ -79,7 +79,7 @@
         </div>
 
         <!-- Liste des rôles -->
-        <div id="roles-list">
+        <div id="roles-list" class="grh-scroll-section">
           {% for role in roles %}
           <div class="grh-role-row" data-role-id="{{ role.id }}">
             <div class="grh-role-icon">
@@ -124,7 +124,7 @@
             <option value="">Tous les rôles</option>
           </select>
         </div>
-        <div id="collaborateur-list" class="grh-collab-list"></div>
+        <div id="collaborateur-list" class="grh-collab-list grh-scroll-section"></div>
         <button id="toggle-collab-view" class="grh-toggle-btn">
           <i class="fa-solid fa-chevron-down"></i>
           Afficher tous les collaborateurs
@@ -133,11 +133,11 @@
     </div>
 
     <!-- ═══════════════════════════════════════════════════════════════
-         SECTION 4 : Affectation des managers (REFONTE)
+         SECTION 4 : Affectation des collaborateurs
     ═══════════════════════════════════════════════════════════════ -->
     <div class="grh-card">
-      <div class="grh-card-header">
-        <span><i class="fa-solid fa-sitemap"></i> Affectation des managers</span>
+      <div class="grh-card-header secondary">
+        <span><i class="fa-solid fa-sitemap"></i> Affectation des collaborateurs</span>
         <div class="grh-manager-select">
           <label>Manager :</label>
           <select id="manager-select">
@@ -149,7 +149,7 @@
         <div class="grh-role-filter" id="manager-role-filter">
           <!-- Badges injectés par JS -->
         </div>
-        <div class="grh-assign-list" id="manager-assignment-container">
+        <div class="grh-assign-list grh-scroll-section" id="manager-assignment-container">
           <div class="grh-no-results">Sélectionnez un manager pour voir les collaborateurs</div>
         </div>
       </div>

@@ -12,9 +12,21 @@ def get_active_entity_id():
     return session.get('active_entity_id')
 
 
+def ensure_manager_id_column():
+    """Ajoute la colonne manager_id à user_roles si elle n'existe pas."""
+    try:
+        db.session.execute(text(
+            "ALTER TABLE user_roles ADD COLUMN manager_id INTEGER REFERENCES users(id)"
+        ))
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+
+
 @gestion_rh_bp.route('/')
 def gestion_rh_home():
     try:
+        ensure_manager_id_column()
         active_entity_id = get_active_entity_id()
 
         # Récupérer les paramètres entreprise
@@ -361,7 +373,7 @@ def get_users_with_role():
 
 @gestion_rh_bp.route('/all_collaborators_with_manager')
 def get_all_collaborators_with_manager():
-    """Retourne TOUS les collaborateurs de l'entité avec leurs rôles et manager_id"""
+    """Retourne TOUS les collaborateurs de l'entité avec leurs rôles et affectations manager par rôle"""
     active_entity_id = get_active_entity_id()
 
     if active_entity_id:
@@ -373,7 +385,14 @@ def get_all_collaborators_with_manager():
 
     users_data = []
     for u in users:
-        roles = [{'id': ur.role.id, 'name': ur.role.name} for ur in u.user_roles if ur.role]
+        roles = []
+        for ur in u.user_roles:
+            if ur.role:
+                roles.append({
+                    'id': ur.role.id,
+                    'name': ur.role.name,
+                    'manager_id': ur.manager_id
+                })
         users_data.append({
             'id': u.id,
             'first_name': u.first_name,
@@ -388,10 +407,17 @@ def get_all_collaborators_with_manager():
 
 @gestion_rh_bp.route('/assign_manager_simple', methods=['POST'])
 def assign_manager_simple():
-    """Affecte ou retire un collaborateur d'un manager (met à jour manager_id)"""
+    """
+    Affecte ou retire un collaborateur d'un manager.
+    Body JSON:
+    - user_id: int (requis)
+    - manager_id: int ou null (null pour retirer)
+    - role_ids: list[int] ou null (null = global, liste = par rôle)
+    """
     data = request.get_json()
     user_id = data.get('user_id')
-    manager_id = data.get('manager_id')  # None pour retirer
+    manager_id = data.get('manager_id')
+    role_ids = data.get('role_ids')  # None = global, liste = par rôle
 
     if not user_id:
         return jsonify({'success': False, 'message': 'user_id requis'}), 400
@@ -400,7 +426,20 @@ def assign_manager_simple():
     if not user:
         return jsonify({'success': False, 'message': 'Utilisateur introuvable'}), 404
 
-    user.manager_id = manager_id
+    if role_ids is not None:
+        # Affectation par rôle : mettre à jour manager_id sur les user_roles spécifiques
+        for ur in user.user_roles:
+            if ur.role_id in role_ids:
+                ur.manager_id = manager_id
+            elif manager_id is None:
+                # Si on retire, on retire aussi des rôles spécifiés
+                pass
+    else:
+        # Affectation globale : mettre à jour tous les user_roles + le user.manager_id
+        user.manager_id = manager_id
+        for ur in user.user_roles:
+            ur.manager_id = manager_id
+
     db.session.commit()
 
     return jsonify({

@@ -202,7 +202,6 @@ function initRoleListeners() {
 // ═══════════════════════════════════════════════════════════════
 function populateRoleFilter() {
     const select = document.getElementById('filter-role');
-    // Remove dynamically added options (keep first "Tous les rôles")
     while (select.options.length > 1) select.remove(1);
     allRoles.forEach(role => {
         const option = document.createElement('option');
@@ -254,7 +253,7 @@ function renderCollaborateurs(showAll = false) {
             <div class="grh-collab-edit">
                 <div class="grh-role-checkboxes" id="collab-roles-${user.id}"></div>
                 <div class="grh-collab-save-row">
-                    <button class="btn btn-sm btn-primary save-collab-roles" data-user-id="${user.id}">Enregistrer les rôles</button>
+                    <button class="btn btn-sm btn-secondary save-collab-roles" data-user-id="${user.id}">Enregistrer les rôles</button>
                 </div>
             </div>
         `;
@@ -308,7 +307,6 @@ function renderCollaborateurs(showAll = false) {
             await fetch('/gestion_rh/collaborateur_roles', { method: 'POST', body: formData });
             showToast('Rôles mis à jour');
             loadCollaborateurs();
-            // Refresh manager section too
             if (selectedManagerId) loadManagerCollabs();
         });
 
@@ -318,7 +316,6 @@ function renderCollaborateurs(showAll = false) {
     // Toggle button
     const toggleBtn = document.getElementById('toggle-collab-view');
     if (toggleBtn) {
-        const icon = toggleBtn.querySelector('i');
         if (showAll) {
             toggleBtn.innerHTML = '<i class="fa-solid fa-chevron-up"></i> Réduire la liste';
         } else {
@@ -351,7 +348,7 @@ function editCollaboratorName(userId, currentName) {
 }
 
 // ═══════════════════════════════════════════════════════════════
-// SECTION 4 : AFFECTATION DES MANAGERS (REFONTE)
+// SECTION 4 : AFFECTATION DES COLLABORATEURS
 // ═══════════════════════════════════════════════════════════════
 function initManagerSection() {
     const managerSelect = document.getElementById('manager-select');
@@ -408,7 +405,6 @@ function renderManagerRoleFilter() {
     });
     bar.innerHTML = html;
 
-    // Attach click handlers
     bar.querySelectorAll('.role-filter-badge').forEach(badge => {
         badge.addEventListener('click', () => {
             managerActiveFilter = badge.dataset.filter;
@@ -418,13 +414,36 @@ function renderManagerRoleFilter() {
     });
 }
 
+function isAssignedToManager(collab, managerId) {
+    // Check if any role has this manager assigned
+    if (collab.roles && collab.roles.length > 0) {
+        return collab.roles.some(r => r.manager_id === managerId);
+    }
+    // Fallback to global manager_id
+    return collab.manager_id === managerId;
+}
+
+function getAssignmentStatus(collab, managerId) {
+    // Returns 'full', 'partial', or 'none'
+    if (!collab.roles || collab.roles.length === 0) {
+        return collab.manager_id === managerId ? 'full' : 'none';
+    }
+    const assignedCount = collab.roles.filter(r => r.manager_id === managerId).length;
+    if (assignedCount === 0) {
+        // Check global fallback
+        return collab.manager_id === managerId ? 'full' : 'none';
+    }
+    if (assignedCount === collab.roles.length) return 'full';
+    return 'partial';
+}
+
 function renderManagerCollabList() {
     const container = document.getElementById('manager-assignment-container');
 
     // Filter
     let filtered = managerAllCollabs;
     if (managerActiveFilter === 'assigned') {
-        filtered = filtered.filter(c => c.manager_id === selectedManagerId);
+        filtered = filtered.filter(c => isAssignedToManager(c, selectedManagerId));
     } else if (managerActiveFilter !== 'all') {
         const roleId = parseInt(managerActiveFilter);
         filtered = filtered.filter(c => c.roles && c.roles.some(r => r.id === roleId));
@@ -437,23 +456,42 @@ function renderManagerCollabList() {
 
     // Sort: assigned first
     filtered.sort((a, b) => {
-        const aAssigned = a.manager_id === selectedManagerId ? 0 : 1;
-        const bAssigned = b.manager_id === selectedManagerId ? 0 : 1;
-        if (aAssigned !== bAssigned) return aAssigned - bAssigned;
+        const aStatus = getAssignmentStatus(a, selectedManagerId);
+        const bStatus = getAssignmentStatus(b, selectedManagerId);
+        const order = { full: 0, partial: 1, none: 2 };
+        if (order[aStatus] !== order[bStatus]) return order[aStatus] - order[bStatus];
         return `${a.first_name} ${a.last_name}`.localeCompare(`${b.first_name} ${b.last_name}`);
     });
 
     container.innerHTML = filtered.map(c => {
         const initials = getInitials(c.first_name, c.last_name);
-        const isAssigned = c.manager_id === selectedManagerId;
-        const rolesText = c.roles.map(r => capitalize(r.name)).join(', ') || 'Aucun rôle';
+        const status = getAssignmentStatus(c, selectedManagerId);
+
+        // Build role tags showing assignment status per role
+        let rolesHtml = '';
+        if (c.roles && c.roles.length > 0) {
+            rolesHtml = c.roles.map(r => {
+                const isRoleAssigned = r.manager_id === selectedManagerId;
+                return `<span class="grh-assign-role-tag ${isRoleAssigned ? 'assigned' : 'unassigned'}">${capitalize(r.name)}</span>`;
+            }).join('');
+        } else {
+            rolesHtml = '<span style="color:#94a3b8; font-size:11px;">Aucun rôle</span>';
+        }
+
+        let dotHtml = '';
+        if (status === 'full') {
+            dotHtml = '<span class="grh-assign-dot"></span>';
+        } else if (status === 'partial') {
+            dotHtml = '<span class="grh-assign-dot partial"></span>';
+        }
+
         return `
-            <div class="grh-assign-item ${!isAssigned ? 'unassigned' : ''}" data-user-id="${c.id}" onclick="openAssignModal(${c.id})">
-                ${isAssigned ? '<span class="grh-assign-dot"></span>' : ''}
+            <div class="grh-assign-item ${status === 'none' ? 'unassigned' : ''}" data-user-id="${c.id}" onclick="openAssignModal(${c.id})">
+                ${dotHtml}
                 <div class="grh-assign-avatar">${initials}</div>
                 <div class="grh-assign-info">
                     <div class="grh-assign-name">${c.first_name} ${c.last_name}</div>
-                    <div class="grh-assign-roles">${rolesText}</div>
+                    <div class="grh-assign-roles">${rolesHtml}</div>
                 </div>
                 <button class="grh-assign-btn" title="Gérer l'affectation">
                     <i class="fa-solid fa-link"></i>
@@ -464,13 +502,12 @@ function renderManagerCollabList() {
 }
 
 // ═══════════════════════════════════════════════════════════════
-// MODAL AFFECTATION
+// MODAL AFFECTATION (avec sélection par rôle)
 // ═══════════════════════════════════════════════════════════════
 function openAssignModal(userId) {
     const user = managerAllCollabs.find(u => u.id === userId);
     if (!user) return;
 
-    const isAssigned = user.manager_id === selectedManagerId;
     const initials = getInitials(user.first_name, user.last_name);
     const fullName = `${user.first_name} ${user.last_name}`;
 
@@ -484,30 +521,34 @@ function openAssignModal(userId) {
         rolesHtml = '<span style="color:#94a3b8; font-size:12px; font-style:italic;">Aucun rôle</span>';
     }
 
-    let actionsHtml = '';
-    if (isAssigned) {
-        actionsHtml = `
-            <button class="grh-assign-action-btn danger" onclick="unassignFromManager(${user.id})">
-                <div class="grh-assign-action-icon">
-                    <i class="fa-solid fa-link-slash"></i>
-                </div>
-                <div class="grh-assign-action-text">
-                    <strong>Retirer l'affectation</strong>
-                    <span>Ce collaborateur ne sera plus assigné à ${selectedManagerName}</span>
-                </div>
-            </button>
-        `;
-    } else {
-        actionsHtml = `
-            <button class="grh-assign-action-btn" onclick="assignToManager(${user.id}, ${selectedManagerId})">
-                <div class="grh-assign-action-icon">
-                    <i class="fa-solid fa-link"></i>
-                </div>
-                <div class="grh-assign-action-text">
-                    <strong>Affecter à ${selectedManagerName}</strong>
-                    <span>Ce collaborateur sera assigné globalement au manager</span>
-                </div>
-            </button>
+    // Build role selection checkboxes
+    let roleSelectHtml = '';
+    if (user.roles && user.roles.length > 0) {
+        const allAssigned = user.roles.every(r => r.manager_id === selectedManagerId);
+        const noneAssigned = user.roles.every(r => r.manager_id !== selectedManagerId);
+
+        roleSelectHtml = `
+            <div class="grh-modal-section-title">
+                <i class="fa-solid fa-list-check"></i>
+                Sélectionner les rôles à affecter
+                <button class="grh-modal-select-all" id="modal-toggle-all">
+                    ${allAssigned ? 'Tout désélectionner' : 'Tout sélectionner'}
+                </button>
+            </div>
+            <div class="grh-modal-role-select" id="modal-role-select">
+                ${user.roles.map(r => {
+                    const isRoleAssigned = r.manager_id === selectedManagerId;
+                    return `
+                        <label class="grh-modal-role-item ${isRoleAssigned ? 'selected' : ''}" data-role-id="${r.id}">
+                            <input type="checkbox" value="${r.id}" ${isRoleAssigned ? 'checked' : ''}>
+                            <span class="role-label">${capitalize(r.name)}</span>
+                            <span class="role-status ${isRoleAssigned ? 'assigned' : 'not-assigned'}">
+                                ${isRoleAssigned ? 'Affecté' : 'Non affecté'}
+                            </span>
+                        </label>
+                    `;
+                }).join('')}
+            </div>
         `;
     }
 
@@ -519,12 +560,105 @@ function openAssignModal(userId) {
                 <div class="grh-assign-collab-roles-list">${rolesHtml}</div>
             </div>
         </div>
+        ${roleSelectHtml}
         <div class="grh-assign-actions">
-            ${actionsHtml}
+            <button class="grh-assign-action-btn" id="modal-assign-btn">
+                <div class="grh-assign-action-icon">
+                    <i class="fa-solid fa-link"></i>
+                </div>
+                <div class="grh-assign-action-text">
+                    <strong>Affecter les rôles sélectionnés</strong>
+                    <span>Affecter ce collaborateur à ${selectedManagerName} pour les rôles cochés</span>
+                </div>
+            </button>
+            <button class="grh-assign-action-btn danger" id="modal-unassign-btn">
+                <div class="grh-assign-action-icon">
+                    <i class="fa-solid fa-link-slash"></i>
+                </div>
+                <div class="grh-assign-action-text">
+                    <strong>Retirer les rôles sélectionnés</strong>
+                    <span>Retirer l'affectation pour les rôles cochés</span>
+                </div>
+            </button>
         </div>
     `;
 
+    // Bind checkbox visual toggle
+    body.querySelectorAll('.grh-modal-role-item').forEach(item => {
+        const cb = item.querySelector('input[type="checkbox"]');
+        cb.addEventListener('change', () => {
+            item.classList.toggle('selected', cb.checked);
+            updateModalButtons(userId);
+        });
+    });
+
+    // Toggle all
+    const toggleAllBtn = body.querySelector('#modal-toggle-all');
+    if (toggleAllBtn) {
+        toggleAllBtn.addEventListener('click', () => {
+            const checkboxes = body.querySelectorAll('#modal-role-select input[type="checkbox"]');
+            const allChecked = Array.from(checkboxes).every(cb => cb.checked);
+            checkboxes.forEach(cb => {
+                cb.checked = !allChecked;
+                cb.closest('.grh-modal-role-item').classList.toggle('selected', !allChecked);
+            });
+            toggleAllBtn.textContent = allChecked ? 'Tout sélectionner' : 'Tout désélectionner';
+            updateModalButtons(userId);
+        });
+    }
+
+    // Bind assign button
+    body.querySelector('#modal-assign-btn').addEventListener('click', () => {
+        const selectedRoleIds = getSelectedModalRoleIds();
+        if (selectedRoleIds.length === 0) {
+            showToast('Sélectionnez au moins un rôle', 'error');
+            return;
+        }
+        assignToManager(userId, selectedManagerId, selectedRoleIds);
+    });
+
+    // Bind unassign button
+    body.querySelector('#modal-unassign-btn').addEventListener('click', () => {
+        const selectedRoleIds = getSelectedModalRoleIds();
+        if (selectedRoleIds.length === 0) {
+            showToast('Sélectionnez au moins un rôle', 'error');
+            return;
+        }
+        unassignFromManager(userId, selectedRoleIds);
+    });
+
+    updateModalButtons(userId);
     document.getElementById('modal-assign').classList.remove('hidden');
+}
+
+function getSelectedModalRoleIds() {
+    const checkboxes = document.querySelectorAll('#modal-role-select input[type="checkbox"]:checked');
+    return Array.from(checkboxes).map(cb => parseInt(cb.value));
+}
+
+function updateModalButtons(userId) {
+    const assignBtn = document.querySelector('#modal-assign-btn');
+    const unassignBtn = document.querySelector('#modal-unassign-btn');
+    if (!assignBtn || !unassignBtn) return;
+
+    const selectedRoleIds = getSelectedModalRoleIds();
+    const user = managerAllCollabs.find(u => u.id === userId);
+    if (!user) return;
+
+    // Check if any selected role is not yet assigned
+    const hasUnassigned = selectedRoleIds.some(rid => {
+        const role = user.roles.find(r => r.id === rid);
+        return role && role.manager_id !== selectedManagerId;
+    });
+
+    // Check if any selected role is already assigned
+    const hasAssigned = selectedRoleIds.some(rid => {
+        const role = user.roles.find(r => r.id === rid);
+        return role && role.manager_id === selectedManagerId;
+    });
+
+    assignBtn.disabled = selectedRoleIds.length === 0 || !hasUnassigned;
+    unassignBtn.disabled = selectedRoleIds.length === 0 || !hasAssigned;
 }
 
 function closeAssignModal() {
@@ -536,20 +670,35 @@ function initModalListeners() {
     document.getElementById('modal-assign-backdrop').addEventListener('click', closeAssignModal);
 }
 
-async function assignToManager(userId, managerId) {
+async function assignToManager(userId, managerId, roleIds) {
     try {
         const res = await fetch('/gestion_rh/assign_manager_simple', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ user_id: userId, manager_id: managerId })
+            body: JSON.stringify({
+                user_id: userId,
+                manager_id: managerId,
+                role_ids: roleIds || null
+            })
         });
         const data = await res.json();
         if (data.success) {
+            // Update local state
             const user = managerAllCollabs.find(u => u.id === userId);
-            if (user) user.manager_id = managerId;
+            if (user && roleIds) {
+                user.roles.forEach(r => {
+                    if (roleIds.includes(r.id)) {
+                        r.manager_id = managerId;
+                    }
+                });
+            } else if (user) {
+                user.manager_id = managerId;
+                user.roles.forEach(r => { r.manager_id = managerId; });
+            }
             closeAssignModal();
             renderManagerCollabList();
-            showToast('Collaborateur affecté avec succès');
+            const count = roleIds ? roleIds.length : 'tous les';
+            showToast(`${count} rôle(s) affecté(s) à ${selectedManagerName}`);
         } else {
             showToast(data.message || 'Erreur', 'error');
         }
@@ -559,17 +708,35 @@ async function assignToManager(userId, managerId) {
     }
 }
 
-async function unassignFromManager(userId) {
+async function unassignFromManager(userId, roleIds) {
     try {
         const res = await fetch('/gestion_rh/assign_manager_simple', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ user_id: userId, manager_id: null })
+            body: JSON.stringify({
+                user_id: userId,
+                manager_id: null,
+                role_ids: roleIds || null
+            })
         });
         const data = await res.json();
         if (data.success) {
+            // Update local state
             const user = managerAllCollabs.find(u => u.id === userId);
-            if (user) user.manager_id = null;
+            if (user && roleIds) {
+                user.roles.forEach(r => {
+                    if (roleIds.includes(r.id)) {
+                        r.manager_id = null;
+                    }
+                });
+                // If all roles are unassigned, also clear global
+                if (user.roles.every(r => r.manager_id === null)) {
+                    user.manager_id = null;
+                }
+            } else if (user) {
+                user.manager_id = null;
+                user.roles.forEach(r => { r.manager_id = null; });
+            }
             closeAssignModal();
             renderManagerCollabList();
             showToast('Affectation retirée');

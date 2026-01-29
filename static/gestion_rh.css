@@ -1,18 +1,20 @@
 /* ════════════════════════════════════════════════════════════════════════════
    GESTION RH - Design System "Minimal Editorial" – Thème Marron
 
-   Palette:
-   - Background: #f8fafc (slate-50)
-   - Cards: #ffffff
+   Palette Primaire (ambre foncé):
    - Primary: #92400e (amber-800)
    - Primary Dark: #78350f (amber-900)
-   - Accent: #d97706 (amber-600)
+
+   Palette Secondaire (caramel doré):
+   - Secondary: #b45309 (amber-700)
+   - Secondary Light: #d97706 (amber-600)
+   - Secondary Glow: #f59e0b (amber-500)
+
+   Backgrounds:
    - Pastel: #fef3c7 (amber-100)
    - Very light: #fffbeb (amber-50)
    - Hover: #fde68a (amber-200)
-   - Text: #0f172a (slate-900)
-   - Text Muted: #64748b (slate-500)
-   - Border: #e2e8f0 (slate-200)
+   - Page: #f8fafc (slate-50)
 
    Typography:
    - Headings: 'Fraunces', serif
@@ -103,12 +105,45 @@ h1, h2, h3, h4, h5, h6 {
     font-weight: 600;
 }
 
+/* Secondary card header variant (caramel) */
+.grh-card-header.secondary {
+    background: linear-gradient(135deg, #b45309 0%, #92400e 100%);
+}
+
 .grh-card-header .btn {
     flex-shrink: 0;
 }
 
 .grh-card-body {
     padding: 20px;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   SCROLL SECTIONS
+═══════════════════════════════════════════════════════════════ */
+.grh-scroll-section {
+    max-height: 400px;
+    overflow-y: auto;
+    padding-right: 4px;
+}
+
+.grh-scroll-section::-webkit-scrollbar {
+    width: 6px;
+}
+
+.grh-scroll-section::-webkit-scrollbar-track {
+    background: transparent;
+    border-radius: 3px;
+}
+
+.grh-scroll-section::-webkit-scrollbar-thumb {
+    background: #d97706;
+    border-radius: 3px;
+    opacity: 0.6;
+}
+
+.grh-scroll-section::-webkit-scrollbar-thumb:hover {
+    background: #b45309;
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -143,6 +178,18 @@ h1, h2, h3, h4, h5, h6 {
 
 .btn-primary:hover:not(:disabled) {
     box-shadow: 0 4px 16px rgba(146, 64, 14, 0.35);
+    transform: translateY(-1px);
+}
+
+/* Secondary button variant (caramel) */
+.btn-secondary {
+    background: linear-gradient(135deg, #b45309 0%, #d97706 100%);
+    color: #ffffff;
+    box-shadow: 0 2px 8px rgba(180, 83, 9, 0.25);
+}
+
+.btn-secondary:hover:not(:disabled) {
+    box-shadow: 0 4px 16px rgba(180, 83, 9, 0.35);
     transform: translateY(-1px);
 }
 
@@ -218,8 +265,8 @@ input[type="text"]:focus,
 input[type="number"]:focus,
 textarea:focus,
 select:focus {
-    border-color: #92400e;
-    box-shadow: 0 0 0 3px rgba(146, 64, 14, 0.12);
+    border-color: #b45309;
+    box-shadow: 0 0 0 3px rgba(180, 83, 9, 0.12);
 }
 
 select {
@@ -252,7 +299,7 @@ select {
 
 .grh-param-value {
     font-weight: 700;
-    color: #92400e;
+    color: #b45309;
     min-width: 80px;
     text-align: center;
     font-size: 16px;
@@ -309,11 +356,11 @@ select {
     width: 36px;
     height: 36px;
     border-radius: 10px;
-    background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+    background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
     display: flex;
     align-items: center;
     justify-content: center;
-    color: #92400e;
+    color: #b45309;
     flex-shrink: 0;
     font-size: 14px;
 }
@@ -349,7 +396,7 @@ select {
 }
 
 .grh-import-section i {
-    color: #92400e;
+    color: #b45309;
     font-size: 18px;
 }
 
@@ -392,7 +439,7 @@ select {
 
 .grh-collab-item.expanded {
     border-color: #d97706;
-    box-shadow: 0 4px 12px rgba(146, 64, 14, 0.08);
+    box-shadow: 0 4px 12px rgba(180, 83, 9, 0.08);
 }
 
 .grh-collab-header {
@@ -405,7 +452,7 @@ select {
     width: 40px;
     height: 40px;
     border-radius: 50%;
-    background: linear-gradient(135deg, #92400e 0%, #78350f 100%);
+    background: linear-gradient(135deg, #b45309 0%, #92400e 100%);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -432,7 +479,7 @@ select {
 .grh-collab-name .edit-name-btn {
     background: none;
     border: none;
-    color: #92400e;
+    color: #b45309;
     cursor: pointer;
     font-size: 13px;
     opacity: 0;
@@ -451,7 +498,7 @@ select {
 }
 
 .grh-collab-toggle {
-    color: #92400e;
+    color: #b45309;
     font-size: 12px;
     transition: transform 0.2s;
 }
@@ -502,11 +549,11 @@ select {
 .grh-checkbox-label:hover {
     border-color: #fde68a;
     background: #fffbeb;
-    color: #92400e;
+    color: #b45309;
 }
 
 .grh-checkbox-label.active {
-    background: linear-gradient(135deg, #92400e 0%, #78350f 100%);
+    background: linear-gradient(135deg, #b45309 0%, #d97706 100%);
     border-color: transparent;
     color: #ffffff;
 }
@@ -545,11 +592,11 @@ select {
 .grh-toggle-btn:hover {
     background: #fffbeb;
     border-color: #fde68a;
-    color: #92400e;
+    color: #b45309;
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   SECTION: AFFECTATION MANAGERS
+   SECTION: AFFECTATION DES COLLABORATEURS
 ═══════════════════════════════════════════════════════════════ */
 .grh-manager-select {
     display: flex;
@@ -605,11 +652,11 @@ select {
 .role-filter-badge:hover {
     border-color: #fde68a;
     background: #fffbeb;
-    color: #92400e;
+    color: #b45309;
 }
 
 .role-filter-badge.active {
-    background: linear-gradient(135deg, #92400e 0%, #78350f 100%);
+    background: linear-gradient(135deg, #b45309 0%, #d97706 100%);
     border-color: transparent;
     color: #ffffff;
 }
@@ -655,11 +702,16 @@ select {
     box-shadow: 0 0 0 2px rgba(217, 119, 6, 0.2);
 }
 
+.grh-assign-dot.partial {
+    background: #f59e0b;
+    box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.2);
+}
+
 .grh-assign-avatar {
     width: 36px;
     height: 36px;
     border-radius: 50%;
-    background: linear-gradient(135deg, #92400e 0%, #78350f 100%);
+    background: linear-gradient(135deg, #b45309 0%, #92400e 100%);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -686,10 +738,29 @@ select {
     margin-top: 1px;
 }
 
+.grh-assign-role-tag {
+    display: inline-block;
+    padding: 1px 8px;
+    font-size: 11px;
+    font-weight: 600;
+    border-radius: 12px;
+    margin-right: 4px;
+}
+
+.grh-assign-role-tag.assigned {
+    background: #fef3c7;
+    color: #92400e;
+}
+
+.grh-assign-role-tag.unassigned {
+    background: #f1f5f9;
+    color: #94a3b8;
+}
+
 .grh-assign-btn {
     background: none;
     border: none;
-    color: #92400e;
+    color: #b45309;
     cursor: pointer;
     font-size: 14px;
     padding: 4px;
@@ -740,7 +811,7 @@ select {
     flex-direction: column;
     animation: grhSlideUp 0.25s ease;
     width: 100%;
-    max-width: 480px;
+    max-width: 520px;
 }
 
 .grh-modal-header {
@@ -749,7 +820,7 @@ select {
     justify-content: space-between;
     gap: 12px;
     padding: 16px 20px;
-    background: linear-gradient(135deg, #92400e 0%, #78350f 100%);
+    background: linear-gradient(135deg, #b45309 0%, #92400e 100%);
     color: #ffffff;
 }
 
@@ -777,6 +848,7 @@ select {
 
 .grh-modal-body {
     padding: 24px;
+    overflow-y: auto;
 }
 
 /* Assign modal content */
@@ -784,7 +856,7 @@ select {
     display: flex;
     align-items: center;
     gap: 16px;
-    margin-bottom: 24px;
+    margin-bottom: 20px;
     padding: 16px;
     background: #fffbeb;
     border-radius: 12px;
@@ -795,7 +867,7 @@ select {
     width: 52px;
     height: 52px;
     border-radius: 50%;
-    background: linear-gradient(135deg, #92400e 0%, #78350f 100%);
+    background: linear-gradient(135deg, #b45309 0%, #92400e 100%);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -827,17 +899,96 @@ select {
     color: #92400e;
 }
 
+/* Modal role selection for per-role assignment */
+.grh-modal-section-title {
+    font-family: 'Fraunces', serif;
+    font-size: 15px;
+    font-weight: 600;
+    color: #0f172a;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.grh-modal-section-title i {
+    color: #b45309;
+    font-size: 14px;
+}
+
+.grh-modal-role-select {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 20px;
+}
+
+.grh-modal-role-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    user-select: none;
+}
+
+.grh-modal-role-item:hover {
+    border-color: #fde68a;
+    background: #fffbeb;
+}
+
+.grh-modal-role-item.selected {
+    border-color: #d97706;
+    background: #fef3c7;
+}
+
+.grh-modal-role-item input[type="checkbox"] {
+    accent-color: #b45309;
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+}
+
+.grh-modal-role-item .role-label {
+    flex: 1;
+    font-weight: 600;
+    font-size: 14px;
+    color: #0f172a;
+    text-transform: capitalize;
+}
+
+.grh-modal-role-item .role-status {
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 10px;
+}
+
+.grh-modal-role-item .role-status.assigned {
+    background: #d97706;
+    color: #ffffff;
+}
+
+.grh-modal-role-item .role-status.not-assigned {
+    background: #e2e8f0;
+    color: #64748b;
+}
+
 .grh-assign-actions {
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 10px;
 }
 
 .grh-assign-action-btn {
     display: flex;
     align-items: center;
     gap: 12px;
-    padding: 16px;
+    padding: 14px 16px;
     background: #f8fafc;
     border: 1px solid #e2e8f0;
     border-radius: 12px;
@@ -855,6 +1006,16 @@ select {
     background: #fffbeb;
 }
 
+.grh-assign-action-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.grh-assign-action-btn:disabled:hover {
+    border-color: #e2e8f0;
+    background: #f8fafc;
+}
+
 .grh-assign-action-btn.danger {
     border-color: #fecaca;
 }
@@ -868,7 +1029,7 @@ select {
     width: 40px;
     height: 40px;
     border-radius: 10px;
-    background: linear-gradient(135deg, #92400e 0%, #78350f 100%);
+    background: linear-gradient(135deg, #b45309 0%, #d97706 100%);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -892,6 +1053,195 @@ select {
 .grh-assign-action-text span {
     font-size: 12px;
     color: #64748b;
+}
+
+/* Select all / Deselect all link */
+.grh-modal-select-all {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #b45309;
+    cursor: pointer;
+    margin-left: auto;
+    background: none;
+    border: none;
+    font-family: 'DM Sans', sans-serif;
+    padding: 2px 6px;
+    border-radius: 6px;
+    transition: background 0.15s;
+}
+
+.grh-modal-select-all:hover {
+    background: #fef3c7;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   SECTION 5: APERÇU GLOBAL DES UTILISATEURS (restyled)
+   Overrides the inline styles from global_users_summary.html
+═══════════════════════════════════════════════════════════════ */
+#global-users-container .filter-controls {
+    margin-bottom: 16px;
+    display: flex;
+    gap: 16px;
+    align-items: center;
+    flex-wrap: wrap;
+    padding: 14px 16px;
+    background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+    border: 1px solid #fde68a;
+    border-radius: 12px;
+}
+
+#global-users-container .filter-controls label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    color: #0f172a;
+}
+
+#global-users-container .filter-controls select {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    padding: 8px 32px 8px 12px;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    background: #ffffff;
+    color: #0f172a;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2'%3E%3Cpolyline points='6,9 12,15 18,9'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    cursor: pointer;
+    min-width: 160px;
+}
+
+#global-users-container .filter-controls select:focus {
+    border-color: #b45309;
+    box-shadow: 0 0 0 3px rgba(180, 83, 9, 0.12);
+    outline: none;
+}
+
+#global-users-container .filter-controls input[type="checkbox"] {
+    accent-color: #b45309;
+    width: 16px;
+    height: 16px;
+}
+
+#global-users-container > div[style*="overflow-x"] {
+    max-height: 450px;
+    overflow-y: auto;
+    border-radius: 12px;
+    border: 1px solid #e2e8f0;
+}
+
+#global-users-container > div[style*="overflow-x"]::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+
+#global-users-container > div[style*="overflow-x"]::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+#global-users-container > div[style*="overflow-x"]::-webkit-scrollbar-thumb {
+    background: #d97706;
+    border-radius: 3px;
+}
+
+/* Table styles override */
+#global-users-container .global-summary-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px;
+}
+
+#global-users-container .global-summary-table thead th {
+    background: linear-gradient(135deg, #92400e 0%, #78350f 100%);
+    color: #ffffff;
+    padding: 12px 16px;
+    text-align: center;
+    font-weight: 600;
+    font-size: 13px;
+    font-family: 'DM Sans', sans-serif;
+    text-transform: capitalize;
+    border: none;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+#global-users-container .global-summary-table thead th:first-child {
+    text-align: left;
+    border-radius: 0;
+}
+
+#global-users-container .global-summary-table tbody td {
+    padding: 10px 16px;
+    text-align: center;
+    border: none;
+    border-bottom: 1px solid #f1f5f9;
+    color: #374151;
+}
+
+#global-users-container .global-summary-table tbody td:first-child {
+    text-align: left;
+    font-weight: 600;
+    color: #0f172a;
+}
+
+#global-users-container .global-summary-table tbody tr {
+    transition: background 0.1s;
+}
+
+#global-users-container .global-summary-table tbody tr:hover {
+    background: #fffbeb;
+}
+
+#global-users-container .global-summary-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+/* Eval indicators restyled */
+#global-users-container .eval-indicator {
+    display: inline-block;
+    width: 24px;
+    height: 24px;
+    border-radius: 8px;
+    border: none;
+    transition: transform 0.15s;
+}
+
+#global-users-container .eval-indicator:hover {
+    transform: scale(1.2);
+}
+
+#global-users-container .eval-indicator.green {
+    background: linear-gradient(135deg, #22c55e, #16a34a);
+    box-shadow: 0 2px 6px rgba(34, 197, 94, 0.3);
+}
+
+#global-users-container .eval-indicator.orange {
+    background: linear-gradient(135deg, #f59e0b, #d97706);
+    box-shadow: 0 2px 6px rgba(245, 158, 11, 0.3);
+}
+
+#global-users-container .eval-indicator.red {
+    background: linear-gradient(135deg, #ef4444, #dc2626);
+    box-shadow: 0 2px 6px rgba(239, 68, 68, 0.3);
+}
+
+#global-users-container .eval-indicator.empty {
+    background: #f1f5f9;
+    border: 2px dashed #cbd5e1;
+    box-shadow: none;
+    width: 22px;
+    height: 22px;
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -922,37 +1272,8 @@ select {
     animation: grhToastIn 0.3s ease;
 }
 
-.grh-toast.success { background: #92400e; }
+.grh-toast.success { background: linear-gradient(135deg, #b45309 0%, #92400e 100%); }
 .grh-toast.error { background: #dc2626; }
-
-/* ═══════════════════════════════════════════════════════════════
-   GLOBAL USERS SUMMARY TABLE
-═══════════════════════════════════════════════════════════════ */
-.grh-card-body table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 14px;
-}
-
-.grh-card-body table th {
-    background: #f8fafc;
-    color: #0f172a;
-    padding: 10px 12px;
-    text-align: left;
-    font-weight: 600;
-    font-size: 13px;
-    border-bottom: 2px solid #e2e8f0;
-}
-
-.grh-card-body table td {
-    padding: 10px 12px;
-    border-bottom: 1px solid #f1f5f9;
-    color: #374151;
-}
-
-.grh-card-body table tbody tr:hover {
-    background: #fffbeb;
-}
 
 /* ═══════════════════════════════════════════════════════════════
    ANIMATIONS
@@ -986,10 +1307,12 @@ select {
     .grh-create-form { flex-direction: column; }
     .grh-manager-select { flex-direction: column; align-items: flex-start; }
     .grh-manager-select select { width: 100%; min-width: unset; }
+    .grh-scroll-section { max-height: 300px; }
+    #global-users-container .filter-controls { flex-direction: column; align-items: flex-start; }
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   SCROLLBAR
+   SCROLLBAR (global)
 ═══════════════════════════════════════════════════════════════ */
 ::-webkit-scrollbar { width: 8px; height: 8px; }
 ::-webkit-scrollbar-track { background: transparent; }

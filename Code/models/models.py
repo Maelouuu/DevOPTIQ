@@ -418,9 +418,11 @@ class UserRole(db.Model):
 
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), primary_key=True)
     role_id = db.Column(db.Integer, db.ForeignKey('roles.id'), primary_key=True)
+    manager_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
 
-    user = db.relationship('User', backref='user_roles')
+    user = db.relationship('User', backref='user_roles', foreign_keys=[user_id])
     role = db.relationship('Role', backref='user_roles')
+    manager = db.relationship('User', foreign_keys=[manager_id])
 
 
 class CompetencyEvaluation(db.Model):
