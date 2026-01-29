@@ -19,6 +19,8 @@
     
     <!-- Main CSS -->
     <link rel="stylesheet" type="text/css" href="./../../../static/synthese_comp.css">
+    <!-- Font Awesome pour les icônes -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
     <header>
@@ -41,17 +43,17 @@
                     </div>
                 </div>
             </div>
-            
+
             <div class="sidebar-section">
                 <h3 class="sidebar-title">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
-                        <circle cx="9" cy="7" r="4"/>
-                        <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
-                        <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
-                    </svg>
+                    <i class="fa-solid fa-users" style="color: #92400e;"></i>
                     Collaborateurs
                 </h3>
+                <!-- Filtre par rôle -->
+                <div class="role-filter-bar" id="role-filter-bar">
+                    <span class="role-filter-badge active" data-role-id="all">Tous</span>
+                    <!-- Badges de rôles injectés par JS -->
+                </div>
                 <ul class="collab-list" id="collaborator-list">
                     <!-- Injecté par JS -->
                 </ul>
@@ -206,12 +208,11 @@
         <div class="modal-backdrop"></div>
         <div class="modal-container modal-xl">
             <div class="modal-header">
-                <button class="modal-back" data-action="back-to-role">
+                <button class="modal-back" data-action="back-to-role" title="Retour au rôle">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <line x1="19" y1="12" x2="5" y2="12"/>
                         <polyline points="12,19 5,12 12,5"/>
                     </svg>
-                    <span>Retour au rôle</span>
                 </button>
                 <div class="modal-header-content">
                     <span class="modal-badge modal-badge-activity">Activité</span>
@@ -377,26 +378,14 @@
                                 Commentaires du manager
                             </h4>
                             <div class="prerequis-actions">
-                                <button class="btn btn-sm btn-outline" data-action="load-prerequis">
-                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                        <polyline points="1,4 1,10 7,10"/>
-                                        <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/>
-                                    </svg>
-                                    Charger
+                                <button class="btn btn-sm btn-icon-only" data-action="load-prerequis" title="Charger">
+                                    <i class="fa-solid fa-rotate-right" style="color: #92400e;"></i>
                                 </button>
-                                <button class="btn btn-sm btn-primary" data-action="save-prerequis" disabled>
-                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                        <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
-                                        <polyline points="17,21 17,13 7,13 7,21"/>
-                                        <polyline points="7,3 7,8 15,8"/>
-                                    </svg>
-                                    Enregistrer
+                                <button class="btn btn-sm btn-icon-only" data-action="save-prerequis" disabled title="Enregistrer">
+                                    <i class="fa-solid fa-floppy-disk" style="color: #92400e;"></i>
                                 </button>
-                                <button class="btn btn-sm btn-emerald" data-action="generate-plan" disabled>
-                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                        <polygon points="13,2 3,14 12,14 11,22 21,10 12,10 13,2"/>
-                                    </svg>
-                                    Générer un plan
+                                <button class="btn btn-sm btn-icon-only" data-action="generate-plan" disabled title="Générer un plan">
+                                    <i class="fa-solid fa-bolt" style="color: #92400e;"></i>
                                 </button>
                             </div>
                         </div>
@@ -431,12 +420,11 @@
         <div class="modal-backdrop"></div>
         <div class="modal-container modal-lg">
             <div class="modal-header modal-header-plan">
-                <button class="modal-back" data-action="back-to-activity">
+                <button class="modal-back" data-action="back-to-activity" title="Retour">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <line x1="19" y1="12" x2="5" y2="12"/>
                         <polyline points="12,19 5,12 12,5"/>
                     </svg>
-                    <span>Retour</span>
                 </button>
                 <div class="modal-header-content">
                     <span class="modal-badge modal-badge-plan">Plan</span>
@@ -454,6 +442,27 @@
             </div>
             <div class="modal-footer">
                 <button class="btn btn-outline" data-action="close-plan-modal">Fermer</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════════
+         MODAL : Affectation d'un collaborateur
+    ═══════════════════════════════════════════════════════════════ -->
+    <div id="modal-assign" class="modal hidden" data-modal="assign">
+        <div class="modal-backdrop"></div>
+        <div class="modal-container" style="max-width: 480px; width: 100%;">
+            <div class="modal-header">
+                <div class="modal-header-content">
+                    <span class="modal-badge">Affectation</span>
+                    <h2 class="modal-title" id="modal-assign-title">—</h2>
+                </div>
+                <button class="modal-close" data-action="close-assign">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            <div class="assign-modal-body" id="modal-assign-body">
+                <!-- Contenu injecté par JS -->
             </div>
         </div>
     </div>

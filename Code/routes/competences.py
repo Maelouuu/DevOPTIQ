@@ -54,15 +54,80 @@ def get_managers():
 
 @competences_bp.route('/collaborators/<int:manager_id>', methods=['GET'])
 def get_collaborators(manager_id):
-    # CORRIGÉ: Filtrer par entité active
     active_entity_id = Entity.get_active_id()
-    
+
     if active_entity_id:
         collaborateurs = User.query.filter_by(manager_id=manager_id, entity_id=active_entity_id).all()
     else:
         collaborateurs = User.query.filter_by(manager_id=manager_id).all()
-    
-    return jsonify([{'id': u.id, 'first_name': u.first_name, 'last_name': u.last_name} for u in collaborateurs])
+
+    result = []
+    for u in collaborateurs:
+        roles = [ur.role.name for ur in u.user_roles if ur.role]
+        result.append({
+            'id': u.id,
+            'first_name': u.first_name,
+            'last_name': u.last_name,
+            'manager_id': u.manager_id,
+            'roles': roles
+        })
+    return jsonify(result)
+
+
+@competences_bp.route('/all_collaborators', methods=['GET'])
+def get_all_collaborators():
+    """Retourne TOUS les collaborateurs de l'entité active avec leurs rôles et manager_id"""
+    active_entity_id = Entity.get_active_id()
+
+    if active_entity_id:
+        users = User.query.filter_by(entity_id=active_entity_id).all()
+    else:
+        users = User.query.all()
+
+    # Récupérer tous les rôles de l'entité pour le filtre
+    if active_entity_id:
+        all_roles = Role.query.filter_by(entity_id=active_entity_id).all()
+    else:
+        all_roles = Role.query.all()
+
+    users_data = []
+    for u in users:
+        roles = [{'id': ur.role.id, 'name': ur.role.name} for ur in u.user_roles if ur.role]
+        users_data.append({
+            'id': u.id,
+            'first_name': u.first_name,
+            'last_name': u.last_name,
+            'manager_id': u.manager_id,
+            'roles': roles
+        })
+
+    roles_data = [{'id': r.id, 'name': r.name} for r in all_roles]
+
+    return jsonify({'users': users_data, 'roles': roles_data})
+
+
+@competences_bp.route('/assign_collaborator', methods=['POST'])
+def assign_collaborator():
+    """Affecte ou retire un collaborateur d'un manager"""
+    data = request.get_json()
+    user_id = data.get('user_id')
+    manager_id = data.get('manager_id')  # None pour retirer l'affectation
+
+    if not user_id:
+        return jsonify({'success': False, 'message': 'user_id requis'}), 400
+
+    user = User.query.get(user_id)
+    if not user:
+        return jsonify({'success': False, 'message': 'Utilisateur introuvable'}), 404
+
+    user.manager_id = manager_id
+    db.session.commit()
+
+    return jsonify({
+        'success': True,
+        'user_id': user.id,
+        'manager_id': user.manager_id
+    })
 
 
 @competences_bp.route('/get_user_roles/<int:user_id>', methods=['GET'])
@@ -417,7 +482,7 @@ def render_global_summary_html(user, role_data):
         for role in role_data:
             html += f'''
             <div style="margin-bottom: 24px;">
-                <h3 style="font-size: 16px; color: #10b981; margin-bottom: 12px; text-transform: capitalize;">
+                <h3 style="font-size: 16px; color: #92400e; margin-bottom: 12px; text-transform: capitalize;">
                     {role['name']}
                 </h3>
             '''
