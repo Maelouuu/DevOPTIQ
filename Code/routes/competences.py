@@ -45,9 +45,9 @@ def get_managers():
         return jsonify([])
     
     if active_entity_id:
-        managers = User.query.filter_by(entity_id=active_entity_id).join(UserRole).filter(UserRole.role_id == role_manager.id).all()
+        managers = User.query.filter_by(entity_id=active_entity_id).join(UserRole, User.id == UserRole.user_id).filter(UserRole.role_id == role_manager.id).all()
     else:
-        managers = User.query.join(UserRole).filter(UserRole.role_id == role_manager.id).all()
+        managers = User.query.join(UserRole, User.id == UserRole.user_id).filter(UserRole.role_id == role_manager.id).all()
     
     return jsonify([{'id': m.id, 'name': f"{m.first_name} {m.last_name}"} for m in managers])
 

@@ -205,7 +205,7 @@ def get_collaborateurs():
     role_filter = request.args.get('role', '')
 
     active_entity_id = get_active_entity_id()
-    query = db.session.query(User).join(UserRole, isouter=True).join(Role, isouter=True)
+    query = db.session.query(User).join(UserRole, User.id == UserRole.user_id, isouter=True).join(Role, UserRole.role_id == Role.id, isouter=True)
     
     if active_entity_id:
         query = query.filter(User.entity_id == active_entity_id)
@@ -367,7 +367,7 @@ def get_users_with_role():
     if not role:
         return jsonify([])
     
-    users = db.session.query(User).join(UserRole).filter(UserRole.role_id == role.id).all()
+    users = db.session.query(User).join(UserRole, User.id == UserRole.user_id).filter(UserRole.role_id == role.id).all()
     return jsonify([{'id': u.id, 'first_name': u.first_name, 'last_name': u.last_name} for u in users])
 
 

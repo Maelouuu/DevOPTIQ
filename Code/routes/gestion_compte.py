@@ -51,9 +51,9 @@ def list_users():
 
         if manager_role:
             if active_entity_id:
-                managers = User.query.filter_by(entity_id=active_entity_id).join(UserRole).filter(UserRole.role_id == manager_role.id).all()
+                managers = User.query.filter_by(entity_id=active_entity_id).join(UserRole, User.id == UserRole.user_id).filter(UserRole.role_id == manager_role.id).all()
             else:
-                managers = User.query.join(UserRole).filter(UserRole.role_id == manager_role.id).all()
+                managers = User.query.join(UserRole, User.id == UserRole.user_id).filter(UserRole.role_id == manager_role.id).all()
         else:
             managers = []
 
