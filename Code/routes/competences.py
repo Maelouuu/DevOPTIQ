@@ -19,65 +19,14 @@ def competences_view():
 
 @competences_bp.route('/current_user_manager', methods=['GET'])
 def get_current_user_manager():
-    """Retourne l'utilisateur connecté et le manager approprié"""
-    from sqlalchemy import func
+    """Retourne toujours Mael Girardin (id 114) comme manager"""
+    manager = User.query.get(114)
+    if not manager:
+        return jsonify({'error': 'Manager introuvable'}), 404
 
-    user_id = session.get('user_id')
-    if not user_id:
-        return jsonify({'error': 'Non connecté'}), 401
-
-    user = User.query.get(user_id)
-    if not user:
-        return jsonify({'error': 'Utilisateur introuvable'}), 404
-
-    # Récupérer l'entité active
-    active_entity_id = Entity.get_active_id()
-
-    # Vérifier si l'utilisateur est un manager (recherche insensible à la casse)
-    role_manager = None
-    if active_entity_id:
-        role_manager = Role.query.filter(
-            func.lower(Role.name) == 'manager',
-            Role.entity_id == active_entity_id
-        ).first()
-    if not role_manager:
-        role_manager = Role.query.filter(
-            func.lower(Role.name) == 'manager'
-        ).first()
-
-    is_manager = False
-    if role_manager:
-        user_role = UserRole.query.filter_by(user_id=user_id, role_id=role_manager.id).first()
-        is_manager = user_role is not None
-
-    # Fallback : vérifier si l'utilisateur a des subordonnés (= c'est un manager)
-    if not is_manager:
-        has_subordinates = User.query.filter_by(manager_id=user_id).first()
-        if has_subordinates:
-            is_manager = True
-
-    # Si c'est un manager, retourner ses infos
-    if is_manager:
-        return jsonify({
-            'manager_id': user.id,
-            'manager_name': f"{user.first_name} {user.last_name}",
-            'is_manager': True
-        })
-
-    # Sinon, retourner son manager
-    if user.manager_id:
-        manager = User.query.get(user.manager_id)
-        if manager:
-            return jsonify({
-                'manager_id': manager.id,
-                'manager_name': f"{manager.first_name} {manager.last_name}",
-                'is_manager': False
-            })
-
-    # Dernier fallback : retourner l'utilisateur lui-même comme manager
     return jsonify({
-        'manager_id': user.id,
-        'manager_name': f"{user.first_name} {user.last_name}",
+        'manager_id': 114,
+        'manager_name': f"{manager.first_name} {manager.last_name}",
         'is_manager': True
     })
 
