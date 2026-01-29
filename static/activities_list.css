@@ -1839,3 +1839,540 @@ body .toggle-icon,
 .split-panel-content .skills-grid {
     grid-template-columns: 1fr;
 }
+
+/* ========================================
+   POPUPS PROPOSER - TABLEAUX HSC & SCORING
+   ======================================== */
+
+/* Modale large pour tableaux */
+.modal-content-propose.modal-wide {
+    max-width: 900px;
+    width: 95%;
+}
+
+/* ---- Tableau HSC (Proposer / Traduire) ---- */
+.propose-table {
+    width: 100%;
+    border-collapse: collapse;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.propose-table thead th {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 10px 12px;
+    text-align: left;
+    font-size: 0.82rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    white-space: nowrap;
+}
+
+.propose-table thead th:first-child {
+    border-radius: 8px 0 0 0;
+}
+.propose-table thead th:last-child {
+    border-radius: 0 8px 0 0;
+}
+
+.propose-table tbody td {
+    padding: 10px 12px;
+    border-bottom: 1px solid #e9ecef;
+    font-size: 0.85rem;
+    vertical-align: top;
+    color: #334155;
+}
+
+.propose-table tbody tr {
+    transition: background 0.15s ease;
+    cursor: pointer;
+}
+
+.propose-table tbody tr:hover {
+    background: #f3f0ff;
+}
+
+.propose-table tbody tr.unchecked {
+    opacity: 0.5;
+}
+
+.propose-table .col-check {
+    width: 40px;
+    text-align: center;
+    vertical-align: middle;
+}
+
+.propose-table .col-check input[type="checkbox"] {
+    width: 17px;
+    height: 17px;
+    accent-color: #667eea;
+    cursor: pointer;
+}
+
+.propose-table .col-habilete {
+    width: 160px;
+    font-weight: 600;
+    color: #1e293b;
+}
+
+.propose-table .col-niveau {
+    width: 130px;
+    white-space: nowrap;
+}
+
+.propose-table .col-justification {
+    font-size: 0.82rem;
+    color: #475569;
+    line-height: 1.5;
+}
+
+/* ---- Badges niveau ---- */
+.badge-niveau {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 12px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    white-space: nowrap;
+}
+.badge-niveau-1 { background: #e0e7ff; color: #3730a3; }
+.badge-niveau-2 { background: #dbeafe; color: #1e40af; }
+.badge-niveau-3 { background: #fef3c7; color: #92400e; }
+.badge-niveau-4 { background: #fce7f3; color: #9d174d; }
+
+/* ---- Tout sélectionner (dans le footer) ---- */
+.propose-select-all {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.85rem;
+    color: #475569;
+    cursor: pointer;
+    padding: 4px 0;
+}
+.propose-select-all input[type="checkbox"] {
+    width: 17px;
+    height: 17px;
+    accent-color: #667eea;
+    cursor: pointer;
+}
+
+/* ========================================
+   SCORING INCLUSION (Aptitudes étape 1)
+   ======================================== */
+
+.scoring-container {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.scoring-category {
+    background: #f9fafb;
+    border-radius: 8px;
+    padding: 14px 16px;
+    border-left: 4px solid #667eea;
+    transition: box-shadow 0.2s ease;
+}
+.scoring-category:hover {
+    box-shadow: 0 2px 8px rgba(102, 126, 234, 0.12);
+}
+
+.scoring-category-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.scoring-category-title {
+    font-weight: 600;
+    font-size: 0.95rem;
+    color: #1e293b;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.scoring-category-title i {
+    color: #667eea;
+    font-size: 0.9rem;
+}
+
+.scoring-niveau-badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 12px;
+    font-size: 0.78rem;
+    font-weight: 600;
+}
+.scoring-niveau-0 { background: #d1fae5; color: #065f46; }
+.scoring-niveau-1 { background: #dbeafe; color: #1e40af; }
+.scoring-niveau-2 { background: #fef3c7; color: #92400e; }
+.scoring-niveau-3 { background: #fee2e2; color: #991b1b; }
+
+.scoring-sub-levels {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 6px;
+}
+.scoring-sub-level {
+    font-size: 0.8rem;
+    color: #64748b;
+    background: #f1f5f9;
+    padding: 2px 8px;
+    border-radius: 6px;
+}
+
+.scoring-risque {
+    font-size: 0.85rem;
+    color: #64748b;
+    margin-bottom: 6px;
+    font-style: italic;
+}
+
+.scoring-leviers {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+.scoring-leviers li {
+    font-size: 0.85rem;
+    color: #334155;
+    padding: 3px 0 3px 18px;
+    position: relative;
+    line-height: 1.4;
+}
+.scoring-leviers li::before {
+    content: "\2192";
+    position: absolute;
+    left: 0;
+    color: #667eea;
+    font-weight: 600;
+}
+
+/* Profils valorisables */
+.scoring-profils-title {
+    font-weight: 600;
+    color: #5b21b6;
+    margin-bottom: 10px;
+    font-size: 0.95rem;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.scoring-profils-title i {
+    color: #7c3aed;
+}
+
+.profil-valorisable {
+    background: #ede9fe;
+    border-radius: 8px;
+    padding: 12px 14px;
+    margin-bottom: 8px;
+}
+.profil-valorisable .profil-name {
+    font-weight: 600;
+    color: #5b21b6;
+    margin-bottom: 4px;
+}
+.profil-valorisable .profil-atout {
+    font-size: 0.85rem;
+    color: #4c1d95;
+    margin-bottom: 2px;
+}
+.profil-valorisable .profil-condition {
+    font-size: 0.82rem;
+    color: #6b7280;
+    font-style: italic;
+}
+
+/* ========================================
+   FAISABILITÉ HANDICAP (Aptitudes étape 2)
+   ======================================== */
+
+/* Indicateur d'étape */
+.step-indicator {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid #e9ecef;
+}
+.step-dot {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: white;
+}
+.step-dot.active {
+    background: linear-gradient(135deg, #667eea, #764ba2);
+}
+.step-dot.inactive {
+    background: #d1d5db;
+}
+.step-label {
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: #334155;
+}
+.step-label.active {
+    color: #667eea;
+    font-weight: 600;
+}
+.step-separator {
+    width: 24px;
+    height: 2px;
+    background: #d1d5db;
+}
+
+/* Formulaire faisabilité */
+.feasibility-section-title {
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: #1e293b;
+    margin: 16px 0 10px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.feasibility-section-title i {
+    color: #667eea;
+}
+
+.feasibility-form {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}
+
+.feasibility-field {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+.feasibility-field label {
+    font-size: 0.82rem;
+    font-weight: 500;
+    color: #334155;
+}
+.feasibility-field select,
+.feasibility-field input[type="text"],
+.feasibility-field textarea {
+    padding: 8px 10px;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    font-family: inherit;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+.feasibility-field select:focus,
+.feasibility-field input[type="text"]:focus,
+.feasibility-field textarea:focus {
+    border-color: #667eea;
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.15);
+}
+
+/* Aides/compensations multi-select */
+.aids-section {
+    margin-top: 16px;
+}
+.aids-group-title {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: #475569;
+    margin: 10px 0 6px;
+    padding-left: 2px;
+}
+.aids-checklist {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4px;
+}
+.aids-checklist label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.82rem;
+    padding: 4px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    color: #334155;
+    transition: background 0.15s;
+}
+.aids-checklist label:hover {
+    background: #f3f0ff;
+}
+.aids-checklist input[type="checkbox"] {
+    width: 15px;
+    height: 15px;
+    accent-color: #667eea;
+}
+
+.aids-other-field {
+    margin-top: 8px;
+}
+.aids-other-field input {
+    width: 100%;
+    padding: 8px 10px;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    font-size: 0.85rem;
+}
+.aids-other-field input:focus {
+    border-color: #667eea;
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.15);
+}
+
+/* Résultat faisabilité */
+.feasibility-result {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.feasibility-statut {
+    font-size: 1.05rem;
+    font-weight: 600;
+    padding: 10px 16px;
+    border-radius: 8px;
+    text-align: center;
+}
+.feasibility-statut.ok { background: #d1fae5; color: #065f46; }
+.feasibility-statut.adaptations { background: #fef3c7; color: #92400e; }
+.feasibility-statut.instruire { background: #dbeafe; color: #1e40af; }
+.feasibility-statut.non-recommande { background: #fee2e2; color: #991b1b; }
+
+.feasibility-block {
+    background: #f9fafb;
+    border-radius: 8px;
+    padding: 12px 14px;
+}
+.feasibility-block-title {
+    font-weight: 600;
+    font-size: 0.85rem;
+    color: #1e293b;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.feasibility-block-title i {
+    color: #667eea;
+}
+
+.feasibility-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+.feasibility-list li {
+    font-size: 0.85rem;
+    color: #334155;
+    padding: 3px 0 3px 18px;
+    position: relative;
+    line-height: 1.4;
+}
+.feasibility-list li::before {
+    position: absolute;
+    left: 0;
+    font-weight: 600;
+}
+.feasibility-list.positives li::before {
+    content: "\2713";
+    color: #16a34a;
+}
+.feasibility-list.warnings li::before {
+    content: "\26A0";
+    color: #d97706;
+    font-size: 0.8rem;
+}
+.feasibility-list.negatives li::before {
+    content: "\2717";
+    color: #dc2626;
+}
+.feasibility-list.questions li::before {
+    content: "?";
+    color: #2563eb;
+    font-weight: 700;
+}
+
+.feasibility-risque {
+    font-size: 0.85rem;
+    color: #64748b;
+    font-style: italic;
+    padding: 8px 12px;
+    background: #fff7ed;
+    border-radius: 6px;
+    border-left: 3px solid #f59e0b;
+}
+
+.feasibility-commentaire {
+    font-size: 0.85rem;
+    color: #475569;
+    padding: 8px 12px;
+    background: #f0f9ff;
+    border-radius: 6px;
+    border-left: 3px solid #667eea;
+}
+
+/* ---- Modale translate input stylée ---- */
+.translate-input-container {
+    padding: 0;
+}
+.translate-input-container textarea {
+    width: 100%;
+    min-height: 100px;
+    padding: 12px;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    font-family: inherit;
+    resize: vertical;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+.translate-input-container textarea:focus {
+    border-color: #667eea;
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.15);
+}
+.translate-input-hint {
+    font-size: 0.82rem;
+    color: #94a3b8;
+    margin-top: 6px;
+}
+
+/* Loading dans la modale */
+.modal-loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 20px;
+    gap: 16px;
+    color: #667eea;
+}
+.modal-loading .spinner-ring {
+    width: 36px;
+    height: 36px;
+    border: 3px solid #e0e7ff;
+    border-top-color: #667eea;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+}
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+.modal-loading span {
+    font-size: 0.9rem;
+    color: #64748b;
+}
