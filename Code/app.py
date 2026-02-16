@@ -45,6 +45,13 @@ def create_app():
         if db_url.startswith("postgres://"):
             db_url = db_url.replace("postgres://", "postgresql://", 1)
         app.config["SQLALCHEMY_DATABASE_URI"] = db_url
+        # Pool de connexions limité pour Neon (free tier = max ~20 connexions)
+        app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
+            "pool_pre_ping": True,
+            "pool_recycle": 300,
+            "pool_size": 2,
+            "max_overflow": 3,
+        }
     else:
         instance_path = os.path.join(os.path.dirname(__file__), "instance")
         os.makedirs(instance_path, exist_ok=True)
