@@ -431,7 +431,7 @@ body .toggle-icon,
     gap: 8px;
 }
 
-.perf-container button {
+.perf-container button:not(.icon-btn):not(.action-btn) {
     background-color: #3498db;
     color: white;
     border: none;
@@ -442,7 +442,7 @@ body .toggle-icon,
     transition: background-color 0.2s;
 }
 
-.perf-container button:hover {
+.perf-container button:not(.icon-btn):not(.action-btn):hover {
     background-color: #2980b9;
 }
 
@@ -727,7 +727,7 @@ body .toggle-icon,
     border: none !important;
     cursor: pointer;
     padding: 4px 6px;
-    color: #7c3aed;
+    color: #7c3aed !important;
     transition: all 0.2s ease;
     font-size: 0.85rem;
     flex-shrink: 0;
@@ -2574,11 +2574,25 @@ body .toggle-icon,
     flex-wrap: wrap;
 }
 
+/* Ligne performance existante : texte + boutons à droite */
+.perf-display {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    width: 100%;
+}
+
 .perf-info {
     flex: 1;
     min-width: 0;
     font-size: 0.85rem;
     color: #334155;
+}
+
+/* Boutons modifier/supprimer perf poussés à droite */
+.perf-display .icon-btn {
+    flex-shrink: 0;
+    margin-left: 0;
 }
 
 /* ========================================

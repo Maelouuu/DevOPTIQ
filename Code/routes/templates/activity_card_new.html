@@ -179,8 +179,8 @@
                                                 <td>
                                                     <div id="perf-cell-{{ conn.link_id }}" class="perf-container" data-linkid="{{ conn.link_id }}">
                                                         {% if conn.performance %}
-                                                            <div id="perf-display-{{ conn.performance.id }}">
-                                                                <span id="perf-info-{{ conn.performance.id }}">
+                                                            <div id="perf-display-{{ conn.performance.id }}" class="perf-display">
+                                                                <span id="perf-info-{{ conn.performance.id }}" class="perf-info">
                                                                     {{ conn.performance.name }}
                                                                     {% if conn.performance.description %}
                                                                         - {{ conn.performance.description }}

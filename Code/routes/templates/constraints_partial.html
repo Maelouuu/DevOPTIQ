@@ -5,20 +5,25 @@
     {% for c in activity.constraints %}
       <li id="constraint-{{ c.id }}">
         <span class="constraint-text">{{ c.description }}</span>
-        <button 
-          class="edit-constraint-btn"
+
+        <button
+          class="icon-btn"
           data-constraint='{{ {"id": c.id, "description": c.description}|tojson|safe }}'
           onclick="showEditConstraintForm(this)"
+          title="Modifier"
         >
           <i class="fa-solid fa-pencil"></i>
         </button>
-        <button onclick="deleteConstraint('{{ activity.id }}','{{ c.id }}')">
+
+        <button class="icon-btn icon-btn-danger" onclick="deleteConstraint('{{ activity.id }}','{{ c.id }}')" title="Supprimer">
           <i class="fa-solid fa-trash"></i>
         </button>
+
+        <!-- Formulaire d'édition caché -->
         <div id="edit-constraint-form-{{ c.id }}" style="display:none; margin-top:5px;">
           <input type="text" id="edit-constraint-input-{{ c.id }}" />
-          <button onclick="submitEditConstraint('{{ activity.id }}','{{ c.id }}')">Enregistrer</button>
-          <button onclick="hideEditConstraintForm('{{ c.id }}')">Annuler</button>
+          <button class="icon-btn icon-btn-success" onclick="submitEditConstraint('{{ activity.id }}','{{ c.id }}')" title="Enregistrer"><i class="fa-solid fa-check"></i></button>
+          <button class="icon-btn" onclick="hideEditConstraintForm('{{ c.id }}')" title="Annuler"><i class="fa-solid fa-xmark"></i></button>
         </div>
       </li>
     {% endfor %}

@@ -86,8 +86,18 @@
   //  STEP 1 : SCORING INCLUSION
   // ============================================================
   function renderNiveauBadge(niveau) {
-    const m = String(niveau).match(/(\d)/);
-    const n = m ? m[1] : "0";
+    const s = String(niveau).toLowerCase();
+    const m = s.match(/(\d)/);
+    let n = '0';
+    if (m) {
+      n = m[1];
+    } else if (s.includes('sév') || s.includes('sev') || s.includes('fort') || s.includes('élevé')) {
+      n = '3';
+    } else if (s.includes('mod')) {
+      n = '2';
+    } else if (s.includes('lég') || s.includes('leg') || s.includes('faible') || s.includes('limit')) {
+      n = '1';
+    }
     return `<span class="scoring-niveau-badge scoring-niveau-${n}">${escHtml(niveau)}</span>`;
   }
 
@@ -227,7 +237,7 @@
         <i class="fa-solid fa-xmark"></i> Fermer
       </button>
       <button class="btn-modal-secondary-propose" id="apt-save-leviers-btn">
-        <i class="fa-solid fa-floppy-disk"></i> Sauvegarder les leviers
+        <i class="fa-solid fa-floppy-disk"></i> Sauvegarder le scoring
       </button>
       <button class="btn-modal-primary-propose" id="apt-feasibility-btn">
         <i class="fa-solid fa-wheelchair"></i> Évaluer la faisabilité
@@ -517,27 +527,57 @@
     const btn = $("#apt-save-leviers-btn");
     if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Enregistrement...'; }
 
-    // Collecter tous les leviers de toutes les catégories
-    const leviers = [];
-    ['vision', 'auditif', 'physique', 'environnemental', 'exposition_risque'].forEach(cat => {
-      if (data[cat] && Array.isArray(data[cat].leviers)) {
-        data[cat].leviers.forEach(l => { if (l && l.trim()) leviers.push(l.trim()); });
+    // Construire les entrées à sauvegarder depuis le scoring inclusion complet
+    const entries = [];
+
+    const CATS = [
+      { key: 'vision',            label: 'Vision' },
+      { key: 'auditif',           label: 'Auditif' },
+      { key: 'environnemental',   label: 'Environnemental' },
+      { key: 'exposition_risque', label: 'Exposition / Risque' }
+    ];
+
+    CATS.forEach(({ key, label }) => {
+      const cat = data[key];
+      if (!cat) return;
+      // Entrée principale : label + niveau + risque
+      const niveau = cat.niveau ? ` (${cat.niveau})` : '';
+      const risque = cat.risque ? ` : ${cat.risque}` : '';
+      if (cat.niveau || cat.risque) {
+        entries.push(`${label}${niveau}${risque}`);
+      }
+      // Leviers
+      if (Array.isArray(cat.leviers)) {
+        cat.leviers.forEach(l => { if (l && l.trim()) entries.push(`[${label}] ${l.trim()}`); });
       }
     });
 
-    if (!leviers.length) {
-      if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Sauvegarder les leviers'; }
+    // Physique (sous-niveaux spécifiques)
+    if (data.physique) {
+      const p = data.physique;
+      const niveaux = [p.haut_du_corps, p.bas_du_corps, p.fatigabilite].filter(Boolean).join(' / ');
+      const risque = p.risque ? ` : ${p.risque}` : '';
+      if (niveaux || p.risque) {
+        entries.push(`Physique (${niveaux})${risque}`);
+      }
+      if (Array.isArray(p.leviers)) {
+        p.leviers.forEach(l => { if (l && l.trim()) entries.push(`[Physique] ${l.trim()}`); });
+      }
+    }
+
+    if (!entries.length) {
+      if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Sauvegarder le scoring'; }
       return;
     }
 
     let added = 0;
     let errors = 0;
-    for (const levier of leviers) {
+    for (const entry of entries) {
       try {
         const r = await fetch('/aptitudes/add', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ description: levier, activity_id: _activityId })
+          body: JSON.stringify({ description: entry, activity_id: _activityId })
         });
         if (r.ok || r.status === 201) added++;
         else errors++;
@@ -551,7 +591,7 @@
     if (btn) {
       btn.disabled = false;
       if (errors === 0) {
-        btn.innerHTML = `<i class="fa-solid fa-check"></i> ${added} levier${added > 1 ? 's' : ''} ajouté${added > 1 ? 's' : ''}`;
+        btn.innerHTML = `<i class="fa-solid fa-check"></i> ${added} entrée${added > 1 ? 's' : ''} ajoutée${added > 1 ? 's' : ''}`;
         btn.style.background = '#d1fae5';
         btn.style.color = '#065f46';
         btn.style.borderColor = '#6ee7b7';
