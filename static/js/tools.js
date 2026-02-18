@@ -40,33 +40,27 @@ function submitTools(taskId) {
   })
   .then(response => response.json())
   .then(data => {
-    const noToolsMsg = document.getElementById('no-tools-msg-' + taskId);
-    if (noToolsMsg) {
-      noToolsMsg.parentNode.removeChild(noToolsMsg);
-    }
-    const toolsContainer = document.getElementById('tools-for-task-' + taskId);
-    let ul = toolsContainer.querySelector('ul');
-    if (!ul) {
-      ul = document.createElement('ul');
-      toolsContainer.appendChild(ul);
-    }
-    let addBtn = ul.querySelector('li.add-tool-li');
-    if (addBtn) {
-      addBtn.parentNode.removeChild(addBtn);
-    }
+    const badgesContainer = document.getElementById('tools-badges-' + taskId);
+    if (!badgesContainer) { hideToolForm(taskId); return; }
+
+    // Trouver le bouton "+" d'ajout pour insérer avant lui
+    const addBtn = badgesContainer.querySelector('.add-badge-btn');
+
     data.added_tools.forEach(tool => {
-      const li = document.createElement('li');
-      li.setAttribute("data-tool-id", tool.id);
-      li.innerHTML = tool.name + ` <button class="icon-btn" onclick="deleteToolFromTask('${taskId}', '${tool.id}')">
-                                    <i class="fa-solid fa-trash"></i></button>`;
-      ul.appendChild(li);
+      const span = document.createElement('span');
+      span.className = 'tool-badge';
+      span.setAttribute('data-tool-id', tool.id);
+      span.innerHTML = `<i class="fa-solid fa-wrench"></i> ${tool.name}
+        <button class="badge-remove" onclick="deleteToolFromTask('${taskId}', '${tool.id}')">
+          <i class="fa-solid fa-xmark"></i>
+        </button>`;
+      if (addBtn) {
+        badgesContainer.insertBefore(span, addBtn);
+      } else {
+        badgesContainer.appendChild(span);
+      }
     });
-    const newAddLi = document.createElement('li');
-    newAddLi.className = 'add-tool-li';
-    newAddLi.innerHTML = `<button class="icon-btn add-tool-btn" onclick="showToolForm('${taskId}')">
-                            <i class="fa-solid fa-plus"></i>
-                          </button>`;
-    ul.appendChild(newAddLi);
+
     selectElem.selectedIndex = -1;
     newToolsInput.value = "";
     hideToolForm(taskId);
@@ -92,22 +86,10 @@ function deleteToolFromTask(taskId, toolId) {
       alert("Erreur : " + data.error);
       return;
     }
-    const toolsContainer = document.getElementById('tools-for-task-' + taskId);
-    const ul = toolsContainer.querySelector('ul');
-    if (!ul) return;
-    const realToolElem = ul.querySelector(`li[data-tool-id="${toolId}"]`);
-    if (realToolElem) {
-      realToolElem.parentNode.removeChild(realToolElem);
-    }
-    let addBtn = ul.querySelector('li.add-tool-li');
-    if (!addBtn) {
-      const newAddLi = document.createElement('li');
-      newAddLi.className = 'add-tool-li';
-      newAddLi.innerHTML = `<button class="icon-btn add-tool-btn" onclick="showToolForm('${taskId}')">
-                              <i class="fa-solid fa-plus"></i>
-                            </button>`;
-      ul.appendChild(newAddLi);
-    }
+    const badgesContainer = document.getElementById('tools-badges-' + taskId);
+    if (!badgesContainer) return;
+    const badge = badgesContainer.querySelector(`span[data-tool-id="${toolId}"]`);
+    if (badge) badge.remove();
   })
   .catch(error => {
     alert(error.message);

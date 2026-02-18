@@ -29,10 +29,10 @@ h1 {
 
 body .activity-container,
 .activity-container {
-    border: 1px solid #d4c8eb !important;
+    border: 1px solid #c4b0e8 !important;
     padding: 10px 10px 14px !important;
     margin-bottom: 14px !important;
-    background-color: #ebe7f8 !important;
+    background-color: #ede8fb !important;
     color: #222 !important;
     border-radius: 8px !important;
     transition: all 0.2s ease !important;
@@ -75,7 +75,7 @@ body .activity-header,
     font-size: 1.1rem !important;
     font-weight: 700 !important;
     padding: 10px 14px !important;
-    background-color: #7c3aed !important;
+    background-color: #8b5cf6 !important;
     border-radius: 6px !important;
     display: flex !important;
     align-items: center !important;
@@ -85,7 +85,7 @@ body .activity-header,
 
 body .activity-header:hover,
 .activity-header:hover {
-    background-color: #6d28d9 !important;
+    background-color: #7c3aed !important;
 }
 
 body .activity-header h2,
@@ -526,32 +526,102 @@ body .toggle-icon,
 }
 
 .constraints-section li {
-    padding: 12px;
+    padding: 8px 10px;
     border-bottom: 1px solid #e9ecef;
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 8px;
+    flex-wrap: wrap;
 }
 
 .constraints-section li:last-child {
     border-bottom: none;
 }
 
-/* Boutons génériques UNIQUEMENT pour les contraintes (les autres sections utilisent des classes spécifiques) */
-.constraints-section button {
-    background-color: #3498db;
-    color: white;
-    border: none;
-    padding: 8px 14px;
-    border-radius: 6px;
-    font-size: 0.9em;
-    cursor: pointer;
-    transition: all 0.2s ease;
+.constraints-section .constraint-text {
+    flex: 1;
+    min-width: 0;
+    font-size: 0.85rem;
+    color: #334155;
 }
 
-.constraints-section button:hover {
-    background-color: #2980b9;
-    transform: translateY(-1px);
+/* Boutons modifier/supprimer contrainte — taille fixe, alignement indépendant du texte */
+.constraints-section .edit-constraint-btn,
+.constraints-section li > button {
+    flex-shrink: 0;
+    background-color: #8b5cf6;
+    color: white;
+    border: none;
+    padding: 5px 10px;
+    border-radius: 5px;
+    font-size: 0.8em;
+    cursor: pointer;
+    transition: background-color 0.2s;
+    line-height: 1;
+}
+
+.constraints-section .edit-constraint-btn:hover,
+.constraints-section li > button:hover {
+    background-color: #7c3aed;
+}
+
+/* Bouton supprimer contrainte — rouge */
+.constraints-section li > button:last-of-type:not(.edit-constraint-btn) {
+    background-color: #ef4444;
+}
+
+.constraints-section li > button:last-of-type:not(.edit-constraint-btn):hover {
+    background-color: #dc2626;
+}
+
+/* Bouton "+ Ajouter une contrainte" */
+.constraints-section > button {
+    flex-shrink: 0;
+    background-color: #8b5cf6;
+    color: white;
+    border: none;
+    padding: 7px 14px;
+    border-radius: 6px;
+    font-size: 0.85em;
+    cursor: pointer;
+    margin-top: 8px;
+    transition: background-color 0.2s;
+}
+
+.constraints-section > button:hover {
+    background-color: #7c3aed;
+}
+
+/* Formulaire d'ajout/édition contrainte inline */
+.constraints-section [id^="add-constraint-form-"],
+.constraints-section [id^="edit-constraint-form-"] {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-top: 6px;
+    padding: 8px;
+    background: #f5f3ff;
+    border-radius: 6px;
+    border: 1px solid #c4b0e8;
+}
+
+.constraints-section [id^="add-constraint-form-"] input,
+.constraints-section [id^="edit-constraint-form-"] input {
+    flex: 1;
+    min-width: 150px;
+    padding: 6px 10px;
+    border: 1px solid #c4b0e8;
+    border-radius: 5px;
+    font-size: 0.85rem;
+    margin-right: 0;
+}
+
+.constraints-section [id^="add-constraint-form-"] button,
+.constraints-section [id^="edit-constraint-form-"] button {
+    flex-shrink: 0;
+    padding: 6px 12px;
+    font-size: 0.8em;
 }
 
 .constraints-section input,
@@ -2025,6 +2095,24 @@ body .toggle-icon,
     border-radius: 6px;
 }
 
+/* Badges Physique dans le header (haut/bas/fatigue) */
+.scoring-physique-badges {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    align-items: center;
+}
+.scoring-physique-sub {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+.scoring-physique-label {
+    font-size: 0.72rem;
+    color: #64748b;
+    font-weight: 500;
+}
+
 .scoring-risque {
     font-size: 0.85rem;
     color: #64748b;
@@ -2117,6 +2205,14 @@ body .toggle-icon,
 }
 .step-dot.inactive {
     background: #d1d5db;
+}
+.step-dot.clickable {
+    cursor: pointer;
+    transition: background 0.2s, transform 0.1s;
+}
+.step-dot.clickable:hover {
+    background: #a78bca;
+    transform: scale(1.1);
 }
 .step-label {
     font-size: 0.85rem;
@@ -2375,4 +2471,89 @@ body .toggle-icon,
 .modal-loading span {
     font-size: 0.9rem;
     color: #64748b;
+}
+
+/* ========================================
+   BARRE DE RECHERCHE
+   ======================================== */
+
+.activity-search-wrapper {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    margin-bottom: 28px;
+}
+
+.activity-search-box {
+    position: relative;
+    width: 420px;
+    max-width: 100%;
+}
+
+.activity-search-icon {
+    position: absolute;
+    left: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #8b5cf6;
+    font-size: 0.95rem;
+    pointer-events: none;
+}
+
+.activity-search-input {
+    width: 100%;
+    padding: 11px 18px 11px 40px;
+    border: 2px solid #c4b0e8;
+    border-radius: 30px;
+    font-size: 0.95rem;
+    font-family: inherit;
+    color: #2c3e50;
+    background: #fff;
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    box-sizing: border-box;
+}
+
+.activity-search-input::placeholder {
+    color: #a78bca;
+}
+
+.activity-search-input:focus {
+    border-color: #8b5cf6;
+    box-shadow: 0 0 0 4px rgba(139, 92, 246, 0.12);
+}
+
+.activity-search-input::-webkit-search-cancel-button {
+    -webkit-appearance: none;
+    appearance: none;
+    height: 14px;
+    width: 14px;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14'%3E%3Cpath fill='%238b5cf6' d='M1 1l12 12M13 1L1 13' stroke='%238b5cf6' stroke-width='2'/%3E%3C/svg%3E");
+    cursor: pointer;
+}
+
+.activity-search-count {
+    font-size: 0.85rem;
+    color: #7c6fa0;
+    white-space: nowrap;
+    min-width: 80px;
+}
+
+/* ========================================
+   PERF CONTAINER — alignement boutons
+   ======================================== */
+
+.perf-container {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.perf-info {
+    flex: 1;
+    min-width: 0;
+    font-size: 0.85rem;
+    color: #334155;
 }

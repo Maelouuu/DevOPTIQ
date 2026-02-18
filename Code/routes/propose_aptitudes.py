@@ -24,9 +24,10 @@ ECHELLE DE COTATION (utilise exactement ces libelles) :
 
 CATEGORIES (uniquement celles-ci) :
 1) Vision
-2) Physique (haut du corps / bas du corps / fatigabilite)
-3) Environnemental (bruit/interruptions + modalites oral/ecrit + exigences de qualite de communication si explicites)
-4) Exposition / Risque (accident, machines, hauteur, engins, chimique, exterieur, isolement)
+2) Auditif (communication orale, alertes sonores, reunions, telephone, bruit ambiant necessaire/genants)
+3) Physique (haut du corps / bas du corps / fatigabilite)
+4) Environnemental (bruit/interruptions + modalites oral/ecrit + exigences de qualite de communication si explicites)
+5) Exposition / Risque (accident, machines, hauteur, engins, chimique, exterieur, isolement)
 
 REGLES :
 A) Concision : chaque categorie = 1 risque court + 1 a 2 leviers (specifiques).
@@ -45,6 +46,11 @@ Reponds UNIQUEMENT en JSON brut (pas de texte hors JSON, pas de backticks) :
 
 {{
   "vision": {{
+    "niveau": "X (Libelle)",
+    "risque": "<7-12 mots>",
+    "leviers": ["<adaptation inclusive 7-12 mots>", "<optionnel>"]
+  }},
+  "auditif": {{
     "niveau": "X (Libelle)",
     "risque": "<7-12 mots>",
     "leviers": ["<adaptation inclusive 7-12 mots>", "<optionnel>"]

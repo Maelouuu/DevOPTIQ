@@ -17,15 +17,39 @@
 
   <h1>Liste des activités</h1>
 
-  <!-- Boutons de contrôle global -->
-  <div style="text-align: center; margin-bottom: 24px;">
-    <button class="action-btn" onclick="toggleAllActivities(true)">
-      <i class="fa-solid fa-chevron-down"></i> Tout déplier
-    </button>
-    <button class="action-btn secondary" onclick="toggleAllActivities(false)">
-      <i class="fa-solid fa-chevron-up"></i> Tout replier
-    </button>
+  <!-- Barre de recherche -->
+  <div class="activity-search-wrapper">
+    <div class="activity-search-box">
+      <i class="fa-solid fa-magnifying-glass activity-search-icon"></i>
+      <input
+        type="search"
+        id="activity-search"
+        class="activity-search-input"
+        placeholder="Rechercher une activité..."
+        oninput="filterActivities(this.value)"
+        autocomplete="off"
+      >
+    </div>
+    <span id="activity-search-count" class="activity-search-count"></span>
   </div>
+
+  <script>
+    function filterActivities(query) {
+      const q = query.trim().toLowerCase();
+      const cards = document.querySelectorAll('.activity-container');
+      let visible = 0;
+      cards.forEach(card => {
+        const name = (card.querySelector('h2') || {}).textContent || '';
+        const match = !q || name.toLowerCase().includes(q);
+        card.style.display = match ? '' : 'none';
+        if (match) visible++;
+      });
+      const countEl = document.getElementById('activity-search-count');
+      if (countEl) {
+        countEl.textContent = q ? `${visible} résultat${visible > 1 ? 's' : ''}` : '';
+      }
+    }
+  </script>
 
   {% for item in activity_data %}
     {% include "activity_card_new.html" %}

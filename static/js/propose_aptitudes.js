@@ -99,13 +99,13 @@
 
     let html = '';
 
-    // Step indicator
+    // Step indicator (dot 2 cliquable pour aller à la faisabilité si scoring chargé)
     html += `
       <div class="step-indicator">
         <span class="step-dot active">1</span>
         <span class="step-label active">Scoring Inclusion</span>
         <span class="step-separator"></span>
-        <span class="step-dot inactive">2</span>
+        <span class="step-dot inactive clickable" id="apt-dot-2">2</span>
         <span class="step-label">Faisabilité</span>
       </div>
     `;
@@ -128,18 +128,34 @@
       `;
     }
 
-    // Physique
+    // Auditif
+    if (data.auditif) {
+      html += `
+        <div class="scoring-category">
+          <div class="scoring-category-header">
+            <span class="scoring-category-title"><i class="fa-solid fa-ear-deaf"></i> Auditif</span>
+            ${renderNiveauBadge(data.auditif.niveau)}
+          </div>
+          <div class="scoring-risque">${escHtml(data.auditif.risque || '')}</div>
+          <ul class="scoring-leviers">
+            ${(data.auditif.leviers || []).map(l => `<li>${escHtml(l)}</li>`).join('')}
+          </ul>
+        </div>
+      `;
+    }
+
+    // Physique — sous-niveaux comme badges dans le header
     if (data.physique) {
       const p = data.physique;
       html += `
         <div class="scoring-category">
           <div class="scoring-category-header">
             <span class="scoring-category-title"><i class="fa-solid fa-person"></i> Physique</span>
-          </div>
-          <div class="scoring-sub-levels">
-            <span class="scoring-sub-level">Haut du corps : ${escHtml(p.haut_du_corps || '—')}</span>
-            <span class="scoring-sub-level">Bas du corps : ${escHtml(p.bas_du_corps || '—')}</span>
-            <span class="scoring-sub-level">Fatigabilité : ${escHtml(p.fatigabilite || '—')}</span>
+            <div class="scoring-physique-badges">
+              <span class="scoring-physique-sub"><span class="scoring-physique-label">Haut</span>${renderNiveauBadge(p.haut_du_corps)}</span>
+              <span class="scoring-physique-sub"><span class="scoring-physique-label">Bas</span>${renderNiveauBadge(p.bas_du_corps)}</span>
+              <span class="scoring-physique-sub"><span class="scoring-physique-label">Fatigue</span>${renderNiveauBadge(p.fatigabilite)}</span>
+            </div>
           </div>
           <div class="scoring-risque">${escHtml(p.risque || '')}</div>
           <ul class="scoring-leviers">
@@ -201,6 +217,10 @@
 
     body.innerHTML = html;
 
+    // Dot 2 → naviguer vers faisabilité
+    const dot2 = $("#apt-dot-2");
+    if (dot2) dot2.onclick = () => renderFeasibilityForm();
+
     // Footer
     footer.innerHTML = `
       <button class="btn-modal-secondary-propose" id="apt-close-btn">
@@ -243,10 +263,10 @@
 
     let html = '';
 
-    // Step indicator
+    // Step indicator (dot 1 cliquable pour revenir au scoring)
     html += `
       <div class="step-indicator">
-        <span class="step-dot inactive">1</span>
+        <span class="step-dot inactive clickable" id="apt-dot-1">1</span>
         <span class="step-label">Scoring Inclusion</span>
         <span class="step-separator"></span>
         <span class="step-dot active">2</span>
@@ -295,6 +315,10 @@
     html += '</div>';
 
     body.innerHTML = html;
+
+    // Dot 1 → revenir au scoring si disponible
+    const dot1 = $("#apt-dot-1");
+    if (dot1 && _scoringData) dot1.onclick = () => renderScoringStep(_scoringData);
 
     // Footer
     footer.innerHTML = `

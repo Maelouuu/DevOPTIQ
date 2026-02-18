@@ -217,20 +217,7 @@
                     <h4 class="overview-section-title">
                         <i class="fa-solid fa-exclamation-triangle"></i> Contraintes
                     </h4>
-                    {% if item.activity.constraints %}
-                        <ul class="constraints-list">
-                            {% for constraint in item.activity.constraints %}
-                                <li>
-                                    <span class="constraint-text">{{ constraint.description }}</span>
-                                </li>
-                            {% endfor %}
-                        </ul>
-                    {% else %}
-                        <div class="empty-message-compact">
-                            <i class="fa-solid fa-inbox"></i>
-                            <p>Aucune contrainte</p>
-                        </div>
-                    {% endif %}
+                    {% include "activity_constraints.html" %}
                 </div>
             </div>
 
