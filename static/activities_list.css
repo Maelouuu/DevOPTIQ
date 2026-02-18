@@ -2557,3 +2557,120 @@ body .toggle-icon,
     font-size: 0.85rem;
     color: #334155;
 }
+
+/* ========================================
+   DRAG & DROP — Connexions vers Tâches
+   ======================================== */
+
+/* Icône de drag sur les lignes de connexion */
+.conn-drag-icon {
+    color: #a78bfa;
+    cursor: grab;
+    margin-right: 6px;
+    font-size: 0.75rem;
+    opacity: 0.6;
+    transition: opacity 0.15s;
+}
+.conn-draggable:hover .conn-drag-icon {
+    opacity: 1;
+}
+.conn-draggable {
+    cursor: default;
+}
+.conn-draggable.conn-dragging {
+    opacity: 0.5;
+}
+
+/* Wrapper 3 colonnes autour de chaque tâche */
+.task-conn-wrapper {
+    display: flex;
+    align-items: stretch;
+    width: 100%;
+    gap: 4px;
+}
+
+/* Contenu central de la tâche */
+.task-content {
+    flex: 1;
+    min-width: 0;
+}
+
+/* Slots drop zone */
+.task-conn-slot {
+    width: 110px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+    min-height: 36px;
+    border: 2px dashed transparent;
+    transition: border-color 0.2s, background-color 0.2s;
+    padding: 2px;
+    position: relative;
+}
+
+.task-conn-slot.task-conn-incoming {
+    border-color: #c4b5fd;
+    background: transparent;
+}
+.task-conn-slot.task-conn-outgoing {
+    border-color: #a5f3fc;
+    background: transparent;
+}
+
+/* Etat drag-over */
+.task-conn-slot.drag-over {
+    border-color: #7c3aed;
+    background: #f5f3ff;
+    box-shadow: inset 0 0 0 2px #c4b5fd;
+}
+
+/* Etat avec pill */
+.task-conn-slot.has-conn.task-conn-incoming {
+    background: #f5f3ff;
+    border-style: solid;
+    border-color: #c4b5fd;
+}
+.task-conn-slot.has-conn.task-conn-outgoing {
+    background: #ecfeff;
+    border-style: solid;
+    border-color: #a5f3fc;
+}
+
+/* Pills dans les slots */
+.task-conn-pill {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    font-size: 0.75rem;
+    padding: 2px 4px;
+    border-radius: 4px;
+    max-width: 106px;
+    overflow: hidden;
+}
+
+.task-conn-pill span {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 74px;
+    font-size: 0.72rem;
+    font-weight: 600;
+}
+
+.pill-remove {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 1px 3px;
+    border-radius: 3px;
+    color: #6b7280;
+    font-size: 0.65rem;
+    line-height: 1;
+    flex-shrink: 0;
+}
+.pill-remove:hover {
+    background: #fee2e2;
+    color: #dc2626;
+}

@@ -226,12 +226,16 @@
       <button class="btn-modal-secondary-propose" id="apt-close-btn">
         <i class="fa-solid fa-xmark"></i> Fermer
       </button>
+      <button class="btn-modal-secondary-propose" id="apt-save-leviers-btn">
+        <i class="fa-solid fa-floppy-disk"></i> Sauvegarder les leviers
+      </button>
       <button class="btn-modal-primary-propose" id="apt-feasibility-btn">
         <i class="fa-solid fa-wheelchair"></i> Évaluer la faisabilité
       </button>
     `;
 
     $("#apt-close-btn").onclick = () => hideModal();
+    $("#apt-save-leviers-btn").onclick = () => saveLeviers(data);
     $("#apt-feasibility-btn").onclick = () => renderFeasibilityForm();
   }
 
@@ -504,6 +508,59 @@
     $("#apt-back-scoring-btn").onclick = () => renderScoringStep(_scoringData);
     $("#apt-redo-btn").onclick = () => renderFeasibilityForm();
     $("#apt-close-final-btn").onclick = () => hideModal();
+  }
+
+  // ============================================================
+  //  SAVE LEVIERS → APTITUDES
+  // ============================================================
+  async function saveLeviers(data) {
+    const btn = $("#apt-save-leviers-btn");
+    if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Enregistrement...'; }
+
+    // Collecter tous les leviers de toutes les catégories
+    const leviers = [];
+    ['vision', 'auditif', 'physique', 'environnemental', 'exposition_risque'].forEach(cat => {
+      if (data[cat] && Array.isArray(data[cat].leviers)) {
+        data[cat].leviers.forEach(l => { if (l && l.trim()) leviers.push(l.trim()); });
+      }
+    });
+
+    if (!leviers.length) {
+      if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Sauvegarder les leviers'; }
+      return;
+    }
+
+    let added = 0;
+    let errors = 0;
+    for (const levier of leviers) {
+      try {
+        const r = await fetch('/aptitudes/add', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ description: levier, activity_id: _activityId })
+        });
+        if (r.ok || r.status === 201) added++;
+        else errors++;
+      } catch (_) { errors++; }
+    }
+
+    // Refresh la liste d'aptitudes dans la page
+    if (typeof updateAptitudes === 'function') updateAptitudes(_activityId);
+
+    // Feedback dans le footer
+    if (btn) {
+      btn.disabled = false;
+      if (errors === 0) {
+        btn.innerHTML = `<i class="fa-solid fa-check"></i> ${added} levier${added > 1 ? 's' : ''} ajouté${added > 1 ? 's' : ''}`;
+        btn.style.background = '#d1fae5';
+        btn.style.color = '#065f46';
+        btn.style.borderColor = '#6ee7b7';
+      } else {
+        btn.innerHTML = `<i class="fa-solid fa-triangle-exclamation"></i> ${added} ajouté${added > 1 ? 's' : ''}, ${errors} erreur${errors > 1 ? 's' : ''}`;
+        btn.style.background = '#fef3c7';
+        btn.style.color = '#92400e';
+      }
+    }
   }
 
   // ============================================================

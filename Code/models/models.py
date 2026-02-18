@@ -569,3 +569,17 @@ class TimeWeakness(db.Model):
     wait_added_unit = db.Column(db.String(16), nullable=False, default='minutes')
     prob_denom = db.Column(db.Integer, nullable=False, default=1)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+
+class TaskLinkAssignment(db.Model):
+    """Associe une connexion (link) à une tâche, avec une direction ('incoming' ou 'outgoing')."""
+    __tablename__ = 'task_link_assignments'
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    link_id = db.Column(db.Integer, db.ForeignKey('links.id', ondelete='CASCADE'), nullable=False)
+    task_id = db.Column(db.Integer, db.ForeignKey('tasks.id', ondelete='CASCADE'), nullable=False)
+    direction = db.Column(db.String(20), nullable=False)  # 'incoming' ou 'outgoing'
+
+    __table_args__ = (
+        db.UniqueConstraint('link_id', 'direction', name='uq_task_link_dir'),
+    )

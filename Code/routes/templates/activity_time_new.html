@@ -192,21 +192,21 @@ function saveActivityTime(activityId) {
             const taskId = row.dataset.taskId;
             const duration = row.querySelector('.time-task-input').value;
             const unit = row.querySelector('.time-task-unit').value;
-            tasks.push({ task_id: taskId, duration: duration, unit: unit });
+            tasks.push({ task_id: taskId, duration: duration, duration_unit: unit });
         });
         data.tasks = tasks;
         data.delay = document.getElementById(`time-delay-tasks-${activityId}`).value;
         data.delay_unit = document.getElementById(`delay-tasks-unit-${activityId}`).value;
     }
 
-    fetch(`/activities/${activityId}/time`, {
+    fetch(`/temps/api/activity_time/${activityId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data)
     })
     .then(r => r.json())
     .then(resp => {
-        if (resp.success) {
+        if (resp.ok) {
             alert('Temps enregistré avec succès !');
         } else {
             alert('Erreur: ' + (resp.error || 'Erreur inconnue'));
@@ -220,6 +220,9 @@ function saveActivityTime(activityId) {
 
 function resetActivityTime(activityId) {
     if (!confirm('Réinitialiser les valeurs de temps ?')) return;
+
+    fetch(`/temps/api/activity_time/${activityId}`, { method: 'DELETE' })
+        .catch(err => console.error('Erreur reset temps:', err));
 
     document.getElementById(`time-duration-${activityId}`).value = '';
     document.getElementById(`time-delay-${activityId}`).value = '';

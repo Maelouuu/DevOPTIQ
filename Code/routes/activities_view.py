@@ -7,7 +7,7 @@ MODIFICATION POUR MULTI-ENTITÉS:
 - C'est la seule modification nécessaire pour filtrer par entité.
 """
 from flask import render_template
-from sqlalchemy import or_, desc
+from sqlalchemy import or_, desc, text
 from .activities_bp import activities_bp
 from Code.extensions import db
 from Code.models.models import Activities, Task, Link, Data, Performance, Role, activity_roles
@@ -15,6 +15,12 @@ from Code.models.models import Activities, Task, Link, Data, Performance, Role, 
 
 @activities_bp.route('/view', methods=['GET'])
 def view_activities():
+    # Crée la table task_link_assignments si elle n'existe pas
+    try:
+        from Code.routes.task_link_assignments import ensure_table as _ensure_tla
+        _ensure_tla()
+    except Exception:
+        pass
     """
     Affiche la liste des activités de l'ENTITÉ ACTIVE.
     
@@ -55,7 +61,8 @@ def view_activities():
             incoming_list.append({
                 'type': d_type,
                 'data_name': data_name,
-                'source_name': source_name
+                'source_name': source_name,
+                'link_id': link.id
             })
 
         # Connexions sortantes
@@ -104,6 +111,38 @@ def view_activities():
                 "name": garant_role.name
             }
 
+        # Charger les task-link assignments pour cette activité
+        # (ensure_table appelé une seule fois via le blueprint au premier hit)
+        task_conn_map = {}
+        try:
+            rows = db.session.execute(text("""
+                SELECT tla.link_id, tla.task_id, tla.direction
+                FROM task_link_assignments tla
+                JOIN tasks t ON t.id = tla.task_id
+                WHERE t.activity_id = :aid
+            """), {"aid": activity.id}).fetchall()
+
+            # Construire un lookup : link_id → {data_name, type}
+            link_lookup = {}
+            for c in incoming_list:
+                link_lookup[(c['link_id'], 'incoming')] = {'data_name': c['data_name'], 'conn_type': c['type']}
+            for c in outgoing_list:
+                link_lookup[(c['link_id'], 'outgoing')] = {'data_name': c['data_name'], 'conn_type': c['type']}
+
+            for row in rows:
+                tid = str(row[1])
+                direction = row[2]
+                info = link_lookup.get((row[0], direction), {'data_name': '?', 'conn_type': ''})
+                if tid not in task_conn_map:
+                    task_conn_map[tid] = {}
+                task_conn_map[tid][direction] = {
+                    'link_id': row[0],
+                    'data_name': info['data_name'],
+                    'conn_type': info['conn_type']
+                }
+        except Exception:
+            db.session.rollback()
+
         # Ajout dans la liste
         activity_data.append({
             'activity': activity,
@@ -116,7 +155,8 @@ def view_activities():
             'softskills': activity.softskills,
             'savoirs': activity.savoirs,
             'savoir_faires': activity.savoir_faires,
-            'aptitudes': activity.aptitudes
+            'aptitudes': activity.aptitudes,
+            'task_conn_map': task_conn_map
         })
 
     return render_template('display_list.html', activity_data=activity_data)

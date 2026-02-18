@@ -116,8 +116,14 @@
                                     </thead>
                                     <tbody>
                                         {% for conn in item.incoming %}
-                                            <tr >
+                                            <tr draggable="true"
+                                                class="conn-draggable"
+                                                data-link-id="{{ conn.link_id }}"
+                                                data-direction="incoming"
+                                                data-data-name="{{ conn.data_name }}"
+                                                data-conn-type="{{ conn.type }}">
                                                 <td>
+                                                    <i class="fa-solid fa-grip-vertical conn-drag-icon" title="Glisser vers une tâche"></i>
                                                     {% if conn.type|lower == 'déclenchante' %}
                                                         <span class="declenchante">{{ conn.data_name }}</span>
                                                     {% elif conn.type|lower == 'nourrissante' %}
@@ -153,8 +159,14 @@
                                     </thead>
                                     <tbody>
                                         {% for conn in item.outgoing %}
-                                            <tr >
+                                            <tr draggable="true"
+                                                class="conn-draggable"
+                                                data-link-id="{{ conn.link_id }}"
+                                                data-direction="outgoing"
+                                                data-data-name="{{ conn.data_name }}"
+                                                data-conn-type="{{ conn.type }}">
                                                 <td>
+                                                    <i class="fa-solid fa-grip-vertical conn-drag-icon" title="Glisser vers une tâche"></i>
                                                     {% if conn.type|lower == 'déclenchante' %}
                                                         <span class="declenchante">{{ conn.data_name }}</span>
                                                     {% elif conn.type|lower == 'nourrissante' %}
@@ -174,10 +186,10 @@
                                                                         - {{ conn.performance.description }}
                                                                     {% endif %}
                                                                 </span>
-                                                                <button onclick="showEditPerfForm('{{ conn.performance.id }}','{{ conn.performance.name|escapejs }}')">
+                                                                <button class="icon-btn" onclick="showEditPerfForm('{{ conn.performance.id }}','{{ conn.performance.name|escapejs }}')" title="Modifier">
                                                                     <i class="fa-solid fa-pencil"></i>
                                                                 </button>
-                                                                <button onclick="deletePerformance('{{ conn.performance.id }}')" class="action-btn danger" style="padding: 4px 8px;">
+                                                                <button class="icon-btn icon-btn-danger" onclick="deletePerformance('{{ conn.performance.id }}')" title="Supprimer">
                                                                     <i class="fa-solid fa-trash"></i>
                                                                 </button>
                                                             </div>

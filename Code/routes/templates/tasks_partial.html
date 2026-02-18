@@ -4,119 +4,166 @@
   {% if tasks and tasks|length > 0 %}
     <ul class="tasks-list-compact" id="tasks-list-{{ activity.id }}">
       {% for task in tasks %}
+        {% set _task_assignments = item.get('task_conn_map', {}).get(task.id|string, {}) %}
         <li class="task-item-compact" id="task-{{ task.id }}" data-task-id="{{ task.id }}" data-activity-id="{{ activity.id }}">
 
-          <!-- Ligne principale de la tâche -->
-          <div class="task-main-row">
-            <!-- Drag handle -->
-            <i class="fa-solid fa-grip-vertical task-drag-handle"></i>
+          <!-- Wrapper 3 colonnes : incoming | tâche | outgoing -->
+          <div class="task-conn-wrapper">
 
-            <!-- Info tâche -->
-            <div class="task-info">
-              <span class="task-name" id="task-name-display-{{ task.id }}">{{ task.name }}</span>
-              {% if task.description %}
-                <span class="task-desc" id="task-desc-display-{{ task.id }}">{{ task.description }}</span>
+            <!-- Slot connexion entrante (gauche) -->
+            <div class="task-conn-slot task-conn-incoming{% if _task_assignments.get('incoming') %} has-conn{% endif %}"
+                 id="incoming-slot-{{ task.id }}"
+                 data-task-id="{{ task.id }}"
+                 data-direction="incoming"
+                 data-activity-id="{{ activity.id }}"
+                 title="Déposez une connexion entrante ici">
+              {% if _task_assignments.get('incoming') %}
+                {% set _inc = _task_assignments.incoming %}
+                <div class="task-conn-pill" data-link-id="{{ _inc.link_id }}" data-direction="incoming">
+                  <span class="{{ _inc.conn_type|lower|replace('é','e')|replace(' ','') }}" title="{{ _inc.data_name }}">{{ _inc.data_name[:18] }}{% if _inc.data_name|length > 18 %}…{% endif %}</span>
+                  <button class="pill-remove" onclick="removeTaskLinkAssignment({{ _inc.link_id }}, 'incoming', {{ task.id }})" title="Supprimer">
+                    <i class="fa-solid fa-xmark"></i>
+                  </button>
+                </div>
               {% endif %}
             </div>
 
-            <!-- Badges outils -->
-            <div class="task-tools-badges" id="tools-badges-{{ task.id }}">
-              {% if task.tools and task.tools|length > 0 %}
-                {% for tool in task.tools %}
-                  <span class="tool-badge" data-tool-id="{{ tool.id }}">
-                    <i class="fa-solid fa-wrench"></i> {{ tool.name }}
-                    <button class="badge-remove" onclick="deleteToolFromTask('{{ task.id }}', '{{ tool.id }}')">
-                      <i class="fa-solid fa-xmark"></i>
-                    </button>
-                  </span>
-                {% endfor %}
+            <!-- Contenu central de la tâche -->
+            <div class="task-content">
+
+              <!-- Ligne principale de la tâche -->
+              <div class="task-main-row">
+                <!-- Drag handle -->
+                <i class="fa-solid fa-grip-vertical task-drag-handle"></i>
+
+                <!-- Info tâche -->
+                <div class="task-info">
+                  <span class="task-name" id="task-name-display-{{ task.id }}">{{ task.name }}</span>
+                  {% if task.description %}
+                    <span class="task-desc" id="task-desc-display-{{ task.id }}">{{ task.description }}</span>
+                  {% endif %}
+                </div>
+
+                <!-- Badges outils -->
+                <div class="task-tools-badges" id="tools-badges-{{ task.id }}">
+                  {% if task.tools and task.tools|length > 0 %}
+                    {% for tool in task.tools %}
+                      <span class="tool-badge" data-tool-id="{{ tool.id }}">
+                        <i class="fa-solid fa-wrench"></i> {{ tool.name }}
+                        <button class="badge-remove" onclick="deleteToolFromTask('{{ task.id }}', '{{ tool.id }}')">
+                          <i class="fa-solid fa-xmark"></i>
+                        </button>
+                      </span>
+                    {% endfor %}
+                  {% endif %}
+                  <button class="add-badge-btn" onclick="showToolForm('{{ task.id }}')" title="Ajouter un outil">
+                    <i class="fa-solid fa-plus"></i>
+                  </button>
+                </div>
+
+                <!-- Badges rôles -->
+                <div class="task-roles-badges" id="roles-badges-{{ task.id }}">
+                  <!-- Rempli dynamiquement via JS -->
+                  <button class="add-badge-btn role-badge-btn" onclick="showTaskRoleForm('{{ task.id }}')" title="Ajouter un rôle">
+                    <i class="fa-solid fa-user-plus"></i>
+                  </button>
+                </div>
+
+                <!-- Actions -->
+                <div class="task-actions">
+                  <button class="icon-btn" onclick="showEditTaskForm('{{ activity.id }}', '{{ task.id }}', '{{ task.name|escapejs }}', '{{ task.description|default('')|escapejs }}')" title="Modifier">
+                    <i class="fa-solid fa-pencil"></i>
+                  </button>
+                  <button class="icon-btn icon-btn-danger" onclick="deleteTask('{{ activity.id }}', '{{ task.id }}')" title="Supprimer">
+                    <i class="fa-solid fa-trash"></i>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Formulaire d'édition (caché) -->
+              <div class="task-edit-form" id="edit-task-form-{{ task.id }}" style="display:none;">
+                <input type="text" id="edit-task-name-{{ task.id }}" class="task-input" placeholder="Nom de la tâche" />
+                <input type="text" id="edit-task-desc-{{ task.id }}" class="task-input" placeholder="Description (optionnelle)" />
+                <div class="task-form-actions">
+                  <button class="btn-action-primary btn-sm" onclick="submitEditTask('{{ activity.id }}', '{{ task.id }}')">
+                    <i class="fa-solid fa-check"></i> Enregistrer
+                  </button>
+                  <button class="btn-action-secondary btn-sm" onclick="hideEditTaskForm('{{ task.id }}')">
+                    <i class="fa-solid fa-xmark"></i> Annuler
+                  </button>
+                </div>
+              </div>
+
+              <!-- Formulaire d'ajout d'outils (caché) -->
+              <div id="tool-form-{{ task.id }}" class="task-tool-form" style="display: none;">
+                <div class="form-row">
+                  <label for="existing-tools-{{ task.id }}">Outils existants:</label>
+                  <select id="existing-tools-{{ task.id }}" multiple class="task-select"></select>
+                </div>
+                <div class="form-row">
+                  <label for="new-tools-{{ task.id }}">Nouveaux outils (virgules):</label>
+                  <input type="text" id="new-tools-{{ task.id }}" class="task-input" placeholder="Outil1, Outil2" />
+                </div>
+                <div class="task-form-actions">
+                  <button class="btn-action-primary btn-sm" onclick="submitTools('{{ task.id }}')">
+                    <i class="fa-solid fa-check"></i> Enregistrer
+                  </button>
+                  <button class="btn-action-secondary btn-sm" onclick="hideToolForm('{{ task.id }}')">
+                    <i class="fa-solid fa-xmark"></i> Annuler
+                  </button>
+                </div>
+              </div>
+
+              <!-- Formulaire d'ajout de rôles (caché) -->
+              <div id="task-role-form-{{ task.id }}" class="task-role-form" style="display: none;">
+                <div class="form-row">
+                  <label for="existing-roles-{{ task.id }}">Rôles existants:</label>
+                  <select id="existing-roles-{{ task.id }}" multiple class="task-select"></select>
+                </div>
+                <div class="form-row">
+                  <label for="new-roles-{{ task.id }}">Nouveaux rôles (virgules):</label>
+                  <input type="text" id="new-roles-{{ task.id }}" class="task-input" placeholder="Rôle1, Rôle2" />
+                </div>
+                <div class="form-row">
+                  <label for="role-status-{{ task.id }}">Statut:</label>
+                  <select id="role-status-{{ task.id }}" class="task-select-single">
+                    <option value="Réalisateur">Réalisateur</option>
+                    <option value="Conseil">Conseil</option>
+                    <option value="Approbateur">Approbateur</option>
+                    <option value="Ressource">Ressource</option>
+                  </select>
+                </div>
+                <div class="task-form-actions">
+                  <button class="btn-action-primary btn-sm" onclick="submitTaskRoles('{{ task.id }}')">
+                    <i class="fa-solid fa-check"></i> Enregistrer
+                  </button>
+                  <button class="btn-action-secondary btn-sm" onclick="hideTaskRoleForm('{{ task.id }}')">
+                    <i class="fa-solid fa-xmark"></i> Annuler
+                  </button>
+                </div>
+              </div>
+
+            </div><!-- /task-content -->
+
+            <!-- Slot connexion sortante (droite) -->
+            <div class="task-conn-slot task-conn-outgoing{% if _task_assignments.get('outgoing') %} has-conn{% endif %}"
+                 id="outgoing-slot-{{ task.id }}"
+                 data-task-id="{{ task.id }}"
+                 data-direction="outgoing"
+                 data-activity-id="{{ activity.id }}"
+                 title="Déposez une connexion sortante ici">
+              {% if _task_assignments.get('outgoing') %}
+                {% set _out = _task_assignments.outgoing %}
+                <div class="task-conn-pill" data-link-id="{{ _out.link_id }}" data-direction="outgoing">
+                  <span class="{{ _out.conn_type|lower|replace('é','e')|replace(' ','') }}" title="{{ _out.data_name }}">{{ _out.data_name[:18] }}{% if _out.data_name|length > 18 %}…{% endif %}</span>
+                  <button class="pill-remove" onclick="removeTaskLinkAssignment({{ _out.link_id }}, 'outgoing', {{ task.id }})" title="Supprimer">
+                    <i class="fa-solid fa-xmark"></i>
+                  </button>
+                </div>
               {% endif %}
-              <button class="add-badge-btn" onclick="showToolForm('{{ task.id }}')" title="Ajouter un outil">
-                <i class="fa-solid fa-plus"></i>
-              </button>
             </div>
 
-            <!-- Badges rôles -->
-            <div class="task-roles-badges" id="roles-badges-{{ task.id }}">
-              <!-- Rempli dynamiquement via JS -->
-              <button class="add-badge-btn role-badge-btn" onclick="showTaskRoleForm('{{ task.id }}')" title="Ajouter un rôle">
-                <i class="fa-solid fa-user-plus"></i>
-              </button>
-            </div>
-
-            <!-- Actions -->
-            <div class="task-actions">
-              <button class="icon-btn" onclick="showEditTaskForm('{{ activity.id }}', '{{ task.id }}', '{{ task.name|escapejs }}', '{{ task.description|default('')|escapejs }}')" title="Modifier">
-                <i class="fa-solid fa-pencil"></i>
-              </button>
-              <button class="icon-btn icon-btn-danger" onclick="deleteTask('{{ activity.id }}', '{{ task.id }}')" title="Supprimer">
-                <i class="fa-solid fa-trash"></i>
-              </button>
-            </div>
-          </div>
-
-          <!-- Formulaire d'édition (caché) -->
-          <div class="task-edit-form" id="edit-task-form-{{ task.id }}" style="display:none;">
-            <input type="text" id="edit-task-name-{{ task.id }}" class="task-input" placeholder="Nom de la tâche" />
-            <input type="text" id="edit-task-desc-{{ task.id }}" class="task-input" placeholder="Description (optionnelle)" />
-            <div class="task-form-actions">
-              <button class="btn-action-primary btn-sm" onclick="submitEditTask('{{ activity.id }}', '{{ task.id }}')">
-                <i class="fa-solid fa-check"></i> Enregistrer
-              </button>
-              <button class="btn-action-secondary btn-sm" onclick="hideEditTaskForm('{{ task.id }}')">
-                <i class="fa-solid fa-xmark"></i> Annuler
-              </button>
-            </div>
-          </div>
-
-          <!-- Formulaire d'ajout d'outils (caché) -->
-          <div id="tool-form-{{ task.id }}" class="task-tool-form" style="display: none;">
-            <div class="form-row">
-              <label for="existing-tools-{{ task.id }}">Outils existants:</label>
-              <select id="existing-tools-{{ task.id }}" multiple class="task-select"></select>
-            </div>
-            <div class="form-row">
-              <label for="new-tools-{{ task.id }}">Nouveaux outils (virgules):</label>
-              <input type="text" id="new-tools-{{ task.id }}" class="task-input" placeholder="Outil1, Outil2" />
-            </div>
-            <div class="task-form-actions">
-              <button class="btn-action-primary btn-sm" onclick="submitTools('{{ task.id }}')">
-                <i class="fa-solid fa-check"></i> Enregistrer
-              </button>
-              <button class="btn-action-secondary btn-sm" onclick="hideToolForm('{{ task.id }}')">
-                <i class="fa-solid fa-xmark"></i> Annuler
-              </button>
-            </div>
-          </div>
-
-          <!-- Formulaire d'ajout de rôles (caché) -->
-          <div id="task-role-form-{{ task.id }}" class="task-role-form" style="display: none;">
-            <div class="form-row">
-              <label for="existing-roles-{{ task.id }}">Rôles existants:</label>
-              <select id="existing-roles-{{ task.id }}" multiple class="task-select"></select>
-            </div>
-            <div class="form-row">
-              <label for="new-roles-{{ task.id }}">Nouveaux rôles (virgules):</label>
-              <input type="text" id="new-roles-{{ task.id }}" class="task-input" placeholder="Rôle1, Rôle2" />
-            </div>
-            <div class="form-row">
-              <label for="role-status-{{ task.id }}">Statut:</label>
-              <select id="role-status-{{ task.id }}" class="task-select-single">
-                <option value="Réalisateur">Réalisateur</option>
-                <option value="Conseil">Conseil</option>
-                <option value="Approbateur">Approbateur</option>
-                <option value="Ressource">Ressource</option>
-              </select>
-            </div>
-            <div class="task-form-actions">
-              <button class="btn-action-primary btn-sm" onclick="submitTaskRoles('{{ task.id }}')">
-                <i class="fa-solid fa-check"></i> Enregistrer
-              </button>
-              <button class="btn-action-secondary btn-sm" onclick="hideTaskRoleForm('{{ task.id }}')">
-                <i class="fa-solid fa-xmark"></i> Annuler
-              </button>
-            </div>
-          </div>
+          </div><!-- /task-conn-wrapper -->
 
         </li>
 

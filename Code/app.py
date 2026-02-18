@@ -201,6 +201,9 @@ def create_app():
     from Code.routes.activities_map import activities_map_bp
     app.register_blueprint(activities_map_bp)
 
+    from Code.routes.task_link_assignments import task_links_bp
+    app.register_blueprint(task_links_bp)
+
     # secret key
     app.secret_key = os.getenv("SECRET_KEY", "devoptiq-secret")
 
