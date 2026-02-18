@@ -20,7 +20,7 @@
               {% if _task_assignments.get('incoming') %}
                 {% set _inc = _task_assignments.incoming %}
                 <div class="task-conn-pill" data-link-id="{{ _inc.link_id }}" data-direction="incoming">
-                  <span class="{{ _inc.conn_type|lower|replace('é','e')|replace(' ','') }}" title="{{ _inc.data_name }}">{{ _inc.data_name[:18] }}{% if _inc.data_name|length > 18 %}…{% endif %}</span>
+                  <span class="{{ _inc.conn_type|lower|replace('é','e')|replace(' ','') }}" title="{{ _inc.data_name }}">{{ _inc.data_name[:22] }}{% if _inc.data_name|length > 22 %}…{% endif %}</span>
                   <button class="pill-remove" onclick="removeTaskLinkAssignment({{ _inc.link_id }}, 'incoming', {{ task.id }})" title="Supprimer">
                     <i class="fa-solid fa-xmark"></i>
                   </button>
@@ -155,7 +155,7 @@
               {% if _task_assignments.get('outgoing') %}
                 {% set _out = _task_assignments.outgoing %}
                 <div class="task-conn-pill" data-link-id="{{ _out.link_id }}" data-direction="outgoing">
-                  <span class="{{ _out.conn_type|lower|replace('é','e')|replace(' ','') }}" title="{{ _out.data_name }}">{{ _out.data_name[:18] }}{% if _out.data_name|length > 18 %}…{% endif %}</span>
+                  <span class="{{ _out.conn_type|lower|replace('é','e')|replace(' ','') }}" title="{{ _out.data_name }}">{{ _out.data_name[:22] }}{% if _out.data_name|length > 22 %}…{% endif %}</span>
                   <button class="pill-remove" onclick="removeTaskLinkAssignment({{ _out.link_id }}, 'outgoing', {{ task.id }})" title="Supprimer">
                     <i class="fa-solid fa-xmark"></i>
                   </button>
