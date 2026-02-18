@@ -540,28 +540,26 @@
     CATS.forEach(({ key, label }) => {
       const cat = data[key];
       if (!cat) return;
-      // Entrée principale : label + niveau + risque
-      const niveau = cat.niveau ? ` (${cat.niveau})` : '';
-      const risque = cat.risque ? ` : ${cat.risque}` : '';
-      if (cat.niveau || cat.risque) {
-        entries.push(`${label}${niveau}${risque}`);
-      }
-      // Leviers
-      if (Array.isArray(cat.leviers)) {
-        cat.leviers.forEach(l => { if (l && l.trim()) entries.push(`[${label}] ${l.trim()}`); });
-      }
+      const leviers = (cat.leviers || []).map(l => l && l.trim()).filter(Boolean);
+      if (!cat.niveau && !cat.risque && !leviers.length) return;
+      // Une seule entrée par catégorie : "Label (niveau) : risque. Leviers : l1, l2, l3"
+      let entry = label;
+      if (cat.niveau) entry += ` (${cat.niveau})`;
+      if (cat.risque) entry += ` : ${cat.risque}`;
+      if (leviers.length) entry += `. Leviers : ${leviers.join(', ')}`;
+      entries.push(entry);
     });
 
-    // Physique (sous-niveaux spécifiques)
+    // Physique (sous-niveaux spécifiques) — une seule entrée
     if (data.physique) {
       const p = data.physique;
       const niveaux = [p.haut_du_corps, p.bas_du_corps, p.fatigabilite].filter(Boolean).join(' / ');
-      const risque = p.risque ? ` : ${p.risque}` : '';
-      if (niveaux || p.risque) {
-        entries.push(`Physique (${niveaux})${risque}`);
-      }
-      if (Array.isArray(p.leviers)) {
-        p.leviers.forEach(l => { if (l && l.trim()) entries.push(`[Physique] ${l.trim()}`); });
+      const leviers = (p.leviers || []).map(l => l && l.trim()).filter(Boolean);
+      if (niveaux || p.risque || leviers.length) {
+        let entry = `Physique (${niveaux})`;
+        if (p.risque) entry += ` : ${p.risque}`;
+        if (leviers.length) entry += `. Leviers : ${leviers.join(', ')}`;
+        entries.push(entry);
       }
     }
 
