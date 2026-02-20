@@ -7,10 +7,12 @@
   'use strict';
 
   // ── État global ────────────────────────────────────────────
-  let sessionId      = null;
-  let currentActId   = null;
-  let isWaiting      = false;
-  let lastDraftTasks = [];
+  let currentActId        = null;
+  let storedContext       = null;   // contexte de l'activité en cours
+  let conversationHistory = [];     // [{role, content}, ...]
+  let isWaiting           = false;
+  let lastDraftTasks      = [];
+  let _fetchController    = null;   // AbortController pour annuler les fetches en vol
 
   // ── Références DOM ─────────────────────────────────────────
   const overlay      = () => document.getElementById('chatbot-overlay');
@@ -27,7 +29,14 @@
     const actId   = btn.dataset.activityId;
     const actName = btn.dataset.activityName;
 
-    currentActId = actId;
+    // Annuler tout fetch en cours (race condition si on change d'activité rapidement)
+    if (_fetchController) _fetchController.abort();
+    _fetchController = new AbortController();
+    const signal = _fetchController.signal;
+
+    currentActId        = actId;
+    storedContext       = null;
+    conversationHistory = [];
 
     // Mettre à jour le header immédiatement
     headerTitle().textContent = `Assistant OPTIQ — ${actName}`;
@@ -44,30 +53,31 @@
     // Afficher un indicateur de chargement dans la conversation
     const loadingEl = _showTyping();
 
-    // 1. Récupérer le contexte complet depuis la DB
-    fetch(`/api/chatbot/activity/${actId}/context`)
+    // Récupérer le contexte complet depuis la DB
+    fetch(`/api/chatbot/activity/${actId}/context`, { signal })
       .then(r => {
         if (!r.ok) throw new Error(`Erreur ${r.status}`);
         return r.json();
       })
       .then(activityContext => {
-        _removeTyping(loadingEl);
+        // Vérifier que l'activité n'a pas changé entre temps
+        if (currentActId !== actId) return;
 
-        // Mettre à jour le sous-titre avec un résumé du contexte chargé
+        _removeTyping(loadingEl);
+        storedContext = activityContext;
+
+        // Mettre à jour le sous-titre
         const nbTasks   = activityContext.tasks   ? activityContext.tasks.length   : 0;
         const nbSavoirs = activityContext.savoirs  ? activityContext.savoirs.length  : 0;
         const nbHSC     = activityContext.hsc      ? activityContext.hsc.length      : 0;
         headerSub().textContent =
           `${nbTasks} tâche(s) existante(s) · ${nbSavoirs} savoir(s) · ${nbHSC} HSC chargé(s)`;
 
-        // 2. Créer une session et injecter le contexte complet
-        return _createSession().then(() => _setContext(activityContext));
-      })
-      .then(() => {
-        // 3. Message d'amorce automatique
+        // Message d'amorce automatique
         _sendToBot('Bonjour, je veux définir les tâches de cette activité.');
       })
       .catch(err => {
+        if (err.name === 'AbortError') return; // fetch annulé volontairement
         _removeTyping(loadingEl);
         _appendBotMessage('❌ Impossible de charger le contexte de l\'activité : ' + err.message);
         headerSub().textContent = 'Erreur de chargement';
@@ -168,23 +178,9 @@
       });
   };
 
-  // ── Appels API internes ────────────────────────────────────
-  function _createSession() {
-    return fetch('/api/chatbot/session/new', { method: 'POST' })
-      .then(r => r.json())
-      .then(data => { sessionId = data.session_id; });
-  }
-
-  function _setContext(activityContext) {
-    return fetch('/api/chatbot/session/context', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ session_id: sessionId, activity: activityContext }),
-    }).then(r => r.json());
-  }
-
+  // ── Appel API chat (stateless) ────────────────────────────
   function _sendToBot(message) {
-    if (!sessionId) return;
+    if (!storedContext) return;
     isWaiting = true;
     _setInputEnabled(false);
     const typingEl = _showTyping();
@@ -192,7 +188,11 @@
     fetch('/api/chatbot/chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ session_id: sessionId, message: message }),
+      body: JSON.stringify({
+        activity: storedContext,
+        history:  conversationHistory.slice(-14),
+        message:  message,
+      }),
     })
       .then(r => r.json())
       .then(data => {
@@ -200,6 +200,9 @@
         if (data.error) {
           _appendBotMessage('❌ ' + data.error);
         } else {
+          // Mettre à jour l'historique local
+          conversationHistory.push({ role: 'user',      content: message });
+          conversationHistory.push({ role: 'assistant', content: data.assistant_message || '' });
           _appendBotMessage(data.assistant_message);
           _renderDraft(data);
         }

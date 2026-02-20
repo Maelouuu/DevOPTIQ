@@ -2,7 +2,6 @@
 # Blueprint Flask — Assistant OPTIQ Chatbot (saisie de tâches)
 
 import os
-import uuid
 import json
 from flask import Blueprint, request, jsonify
 from sqlalchemy import or_
@@ -16,11 +15,6 @@ from Code.models.models import (
 )
 
 chatbot_bp = Blueprint('chatbot', __name__, url_prefix='/api/chatbot')
-
-# ---------------------------------------------------------------------------
-# Sessions en mémoire (session_id -> {history, activity})
-# ---------------------------------------------------------------------------
-_SESSIONS: dict = {}
 
 # ---------------------------------------------------------------------------
 # Prompt système OPTIQ
@@ -261,44 +255,34 @@ def get_activity_context(activity_id):
 
 
 # ---------------------------------------------------------------------------
-# Endpoints session / chat
+# Endpoint chat — entièrement stateless (contexte + historique côté client)
 # ---------------------------------------------------------------------------
-
-@chatbot_bp.post('/session/new')
-def new_session():
-    sid = str(uuid.uuid4())
-    _SESSIONS[sid] = {'history': [], 'activity': {}}
-    return jsonify({'session_id': sid})
-
-
-@chatbot_bp.post('/session/context')
-def set_context():
-    data = request.get_json(force=True) or {}
-    sid = data.get('session_id')
-    if not sid or sid not in _SESSIONS:
-        return jsonify({'error': 'Session inconnue'}), 404
-    _SESSIONS[sid]['activity'] = data.get('activity', {})
-    return jsonify({'ok': True})
-
 
 @chatbot_bp.post('/chat')
 def chat():
-    data = request.get_json(force=True) or {}
-    sid = data.get('session_id')
-    message = (data.get('message') or '').strip()
+    """
+    Corps attendu :
+      {
+        "activity": { ... },     # contexte complet de l'activité
+        "history":  [ ... ],     # historique [{role, content}, ...] (max 14 derniers)
+        "message":  "..."        # message de l'utilisateur
+      }
+    """
+    data    = request.get_json(force=True) or {}
+    activity = data.get('activity', {})
+    history  = data.get('history', [])
+    message  = (data.get('message') or '').strip()
 
-    if not sid or sid not in _SESSIONS:
-        return jsonify({'error': "Session inconnue. Merci de relancer l'assistant."}), 404
     if not message:
         return jsonify({'error': 'Message vide'}), 400
 
-    sess = _SESSIONS[sid]
-    context_block = _build_context(sess.get('activity', {}))
+    context_block = _build_context(activity)
+    recent = history[-14:] if len(history) > 14 else history
 
     messages = [
         {'role': 'system', 'content': SYSTEM_PROMPT},
         {'role': 'system', 'content': context_block},
-        *sess['history'][-14:],
+        *recent,
         {'role': 'user', 'content': message},
     ]
 
@@ -316,9 +300,6 @@ def chat():
         result = json.loads(raw)
     except Exception as e:
         return jsonify({'error': f'Erreur API OpenAI : {str(e)}'}), 500
-
-    sess['history'].append({'role': 'user', 'content': message})
-    sess['history'].append({'role': 'assistant', 'content': result.get('assistant_message', '')})
 
     return jsonify(result)
 
