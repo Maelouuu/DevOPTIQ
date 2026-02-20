@@ -73,8 +73,16 @@
         headerSub().textContent =
           `${nbTasks} tâche(s) existante(s) · ${nbSavoirs} savoir(s) · ${nbHSC} HSC chargé(s)`;
 
-        // Message d'amorce automatique
-        _sendToBot('Bonjour, je veux définir les tâches de cette activité.');
+        // Message d'amorce automatique — contextuel selon les tâches existantes
+        const nbExisting = activityContext.tasks ? activityContext.tasks.length : 0;
+        let amorce;
+        if (nbExisting > 0) {
+          const taskList = activityContext.tasks.map(t => `"${t.name}"`).join(', ');
+          amorce = `Bonjour. L'activité "${activityContext.name}" a déjà ${nbExisting} tâche(s) saisie(s) : ${taskList}. Peux-tu les passer en revue selon les règles OPTIQ, me dire si elles sont correctes ou à améliorer, et m'aider à les compléter si nécessaire ?`;
+        } else {
+          amorce = `Bonjour. Je travaille sur l'activité "${activityContext.name}". Elle n'a pas encore de tâches. Aide-moi à les définir selon les règles OPTIQ.`;
+        }
+        _sendToBot(amorce);
       })
       .catch(err => {
         if (err.name === 'AbortError') return; // fetch annulé volontairement
