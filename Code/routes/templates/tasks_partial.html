@@ -185,17 +185,10 @@
     </button>
 
     <!-- Bouton déclencheur du chatbot OPTIQ -->
-    {% set _cb_inputs  = item.incoming | map(attribute='data_name') | list if item is defined and item.incoming  else [] %}
-    {% set _cb_outputs = item.outgoing  | map(attribute='data_name') | list if item is defined and item.outgoing else [] %}
-    {% set _cb_tasks   = tasks | map(attribute='name') | list if tasks else [] %}
     <button
       class="btn-chatbot-trigger"
       data-activity-id="{{ activity.id }}"
       data-activity-name="{{ activity.name | escapejs }}"
-      data-activity-desc="{{ (activity.description or '') | escapejs }}"
-      data-inputs='{{ _cb_inputs | tojson }}'
-      data-outputs='{{ _cb_outputs | tojson }}'
-      data-existing-tasks='{{ _cb_tasks | tojson }}'
       onclick="openChatbotFromBtn(this)"
       title="Assistant IA — Saisie guidée de tâches OPTIQ"
     >

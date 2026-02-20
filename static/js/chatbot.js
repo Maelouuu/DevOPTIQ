@@ -24,18 +24,14 @@
 
   // ── Ouverture du chatbot ───────────────────────────────────
   window.openChatbotFromBtn = function (btn) {
-    const actId    = btn.dataset.activityId;
-    const actName  = btn.dataset.activityName;
-    const actDesc  = btn.dataset.activityDesc  || '';
-    const inputs   = JSON.parse(btn.dataset.inputs        || '[]');
-    const outputs  = JSON.parse(btn.dataset.outputs       || '[]');
-    const existing = JSON.parse(btn.dataset.existingTasks || '[]');
+    const actId   = btn.dataset.activityId;
+    const actName = btn.dataset.activityName;
 
     currentActId = actId;
 
-    // Mettre à jour le header
+    // Mettre à jour le header immédiatement
     headerTitle().textContent = `Assistant OPTIQ — ${actName}`;
-    headerSub().textContent   = `Activité · Saisie guidée de tâches`;
+    headerSub().textContent   = 'Chargement du contexte…';
 
     // Réinitialiser l'UI
     _clearMessages();
@@ -45,21 +41,37 @@
     overlay().classList.add('active');
     document.body.style.overflow = 'hidden';
 
-    // Créer une nouvelle session puis envoyer le contexte
-    _createSession().then(() => {
-      return _setContext({
-        name: actName,
-        description: actDesc,
-        inputs: inputs,
-        outputs: outputs,
-        existing_tasks: existing,
+    // Afficher un indicateur de chargement dans la conversation
+    const loadingEl = _showTyping();
+
+    // 1. Récupérer le contexte complet depuis la DB
+    fetch(`/api/chatbot/activity/${actId}/context`)
+      .then(r => {
+        if (!r.ok) throw new Error(`Erreur ${r.status}`);
+        return r.json();
+      })
+      .then(activityContext => {
+        _removeTyping(loadingEl);
+
+        // Mettre à jour le sous-titre avec un résumé du contexte chargé
+        const nbTasks   = activityContext.tasks   ? activityContext.tasks.length   : 0;
+        const nbSavoirs = activityContext.savoirs  ? activityContext.savoirs.length  : 0;
+        const nbHSC     = activityContext.hsc      ? activityContext.hsc.length      : 0;
+        headerSub().textContent =
+          `${nbTasks} tâche(s) existante(s) · ${nbSavoirs} savoir(s) · ${nbHSC} HSC chargé(s)`;
+
+        // 2. Créer une session et injecter le contexte complet
+        return _createSession().then(() => _setContext(activityContext));
+      })
+      .then(() => {
+        // 3. Message d'amorce automatique
+        _sendToBot('Bonjour, je veux définir les tâches de cette activité.');
+      })
+      .catch(err => {
+        _removeTyping(loadingEl);
+        _appendBotMessage('❌ Impossible de charger le contexte de l\'activité : ' + err.message);
+        headerSub().textContent = 'Erreur de chargement';
       });
-    }).then(() => {
-      // Message d'amorce automatique
-      _sendToBot('Bonjour, je veux définir les tâches de cette activité.');
-    }).catch((err) => {
-      _appendBotMessage('❌ Impossible de démarrer la session : ' + err.message);
-    });
   };
 
   // ── Fermeture ──────────────────────────────────────────────

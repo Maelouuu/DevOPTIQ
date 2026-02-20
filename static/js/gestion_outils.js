@@ -298,6 +298,48 @@ async function createTool() {
   }
 }
 
+/* ── Création d'outil dans la modale ────────────────────── */
+async function createToolInModal() {
+  const nameInput = document.getElementById("modalNewToolName");
+  const descInput = document.getElementById("modalNewToolDesc");
+  const btn       = document.getElementById("modalCreateToolBtn");
+  const name = (nameInput?.value || "").trim();
+  const desc = (descInput?.value || "").trim();
+  if (!name) { showToast("Renseigne un nom d'outil.", "warn"); nameInput?.focus(); return; }
+
+  if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>'; }
+  try {
+    const res  = await fetch("/gestion_outils/api/tools", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name, description: desc }),
+    });
+    const data = await res.json();
+    if (!res.ok) { showToast(data.error || "Échec de création.", "error"); return; }
+
+    // Ajouter au cache local
+    const newTool = { id: data.id ?? data.tool_id, name, description: desc, usages: [] };
+    if (newTool.id) toolsCache.push(newTool);
+
+    // Mettre à jour le select de remplacement s'il est visible
+    const sel = document.getElementById("replacementSelectNew");
+    if (sel && newTool.id) {
+      const opt = document.createElement("option");
+      opt.value = newTool.id;
+      opt.textContent = escapeHTML(name);
+      sel.appendChild(opt);
+    }
+
+    if (nameInput) nameInput.value = "";
+    if (descInput) descInput.value = "";
+    showToast(`Outil « ${name} » créé.`);
+  } catch {
+    showToast("Erreur réseau.", "error");
+  } finally {
+    if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-plus"></i> Créer'; }
+  }
+}
+
 /* ── Modal USAGES (vue seule) ────────────────────────────── */
 function openUsage(tool) {
   usageModalTitle.innerHTML = `<i class="fa-solid fa-eye"></i> Usages de « ${escapeHTML(tool.name)} »`;
@@ -353,39 +395,66 @@ function renderManageStep1() {
     .map(t => `<option value="${t.id}">${escapeHTML(t.name)}</option>`)
     .join("");
 
-  // Section usages avec checkboxes
+  // Section usages avec checkboxes visuelles
   let usageSection = "";
   if (noUsages) {
-    usageSection = `<div class="empty-soft" style="text-align:center;padding:8px 0;">
-      <i class="fa-solid fa-circle-check" style="color:#16a34a;"></i>
-      Cet outil n'est utilisé dans aucune activité.
+    usageSection = `<div class="chk-no-usage">
+      <i class="fa-solid fa-circle-check"></i>
+      Cet outil n'est utilisé dans aucune tâche — suppression directe possible.
     </div>`;
   } else {
     const items = usages.map(u => `
-      <label class="usage-check-item">
+      <label class="usage-check-item will-keep">
+        <i class="fa-solid fa-circle-check chk-icon"></i>
         <input type="checkbox" class="task-check" value="${u.task_id}" checked>
         <span><strong>${escapeHTML(u.activity_name)}</strong> → ${escapeHTML(u.task_name)}</span>
       </label>`).join("");
     usageSection = `
-      <label class="usage-check-item select-all-row">
+      <label class="usage-check-item select-all-row will-keep">
+        <i class="fa-solid fa-circle-check chk-icon"></i>
         <input type="checkbox" id="selectAllTasks" checked>
         <span style="font-weight:700;color:var(--brown);">Tout sélectionner / désélectionner</span>
       </label>
       <div class="usage-checkbox-list">${items}</div>`;
   }
 
+  // Légende keep / delete
+  const legend = noUsages ? "" : `
+    <div class="chk-legend">
+      <span class="chk-legend-item keep"><i class="fa-solid fa-circle-check"></i> Coché = conservé</span>
+      <span class="chk-legend-item del"><i class="fa-solid fa-circle-xmark"></i> Décoché = supprimé</span>
+    </div>`;
+
+  // Section création dans la modale
+  const createSection = `
+    <div class="manage-section">
+      <div class="modal-divider"></div>
+      <div class="modal-section-title" style="margin-bottom:6px;">
+        <i class="fa-solid fa-plus-circle"></i> Créer un nouvel outil
+      </div>
+      <div class="modal-create-inline">
+        <div class="modal-create-row">
+          <input type="text" id="modalNewToolName" class="input" placeholder="Nom de l'outil *" />
+          <input type="text" id="modalNewToolDesc" class="input" placeholder="Description (optionnelle)" />
+          <button class="btn btn-brown btn-small" id="modalCreateToolBtn">
+            <i class="fa-solid fa-plus"></i> Créer
+          </button>
+        </div>
+      </div>
+    </div>`;
+
   // Contenu complet du body
   manageModalBody.innerHTML = `
-    <div>
+    <div class="manage-section">
       <div class="modal-section-title" style="margin-bottom:4px;">
         <i class="fa-solid fa-list-check"></i> Usages (${usages.length})
       </div>
-      ${usages.length ? `<p class="modal-hint" style="margin-bottom:8px;">✓ Coché = conservé · Décochez les usages que vous souhaitez cibler.</p>` : ""}
+      ${legend}
       ${usageSection}
     </div>
 
     ${noUsages ? "" : `
-    <div>
+    <div class="manage-section">
       <div class="modal-divider"></div>
       <div class="modal-section-title" style="margin-bottom:8px;">
         <i class="fa-solid fa-arrows-rotate"></i> Remplacer par un autre outil
@@ -399,7 +468,7 @@ function renderManageStep1() {
     </div>
     `}
 
-    <div>
+    <div class="manage-section">
       ${!noUsages ? '<div class="modal-divider"></div>' : ""}
       <div class="modal-section-title modal-section-title--danger" style="margin-bottom:6px;">
         <i class="fa-solid fa-trash"></i>
@@ -408,9 +477,11 @@ function renderManageStep1() {
       <p class="modal-hint">
         ${noUsages
           ? "Aucun usage : l'outil sera supprimé immédiatement."
-          : "Détache l'outil des tâches sélectionnées, puis supprime l'outil si plus aucun usage ne reste."}
+          : "Détache l'outil des tâches décochées, puis supprime l'outil si plus aucun usage ne reste."}
       </p>
     </div>
+
+    ${createSection}
   `;
 
   // Footer
@@ -427,15 +498,42 @@ function renderManageStep1() {
   document.getElementById("previewReplaceBtn")?.addEventListener("click", showReplaceConfirmation);
   document.getElementById("deleteSelBtn")?.addEventListener("click", () => doDeleteSelection(noUsages));
 
-  // Select-all
+  // Bouton créer dans la modale
+  document.getElementById("modalCreateToolBtn")?.addEventListener("click", createToolInModal);
+  document.getElementById("modalNewToolName")?.addEventListener("keydown", e => {
+    if (e.key === "Enter") createToolInModal();
+  });
+
+  // Select-all avec mise à jour visuelle
   const selectAll = document.getElementById("selectAllTasks");
   if (selectAll) {
     selectAll.addEventListener("change", () => {
-      document.querySelectorAll(".task-check").forEach(cb => (cb.checked = selectAll.checked));
+      document.querySelectorAll(".task-check").forEach(cb => {
+        cb.checked = selectAll.checked;
+        _updateChkVisual(cb);
+      });
+      _updateChkVisual(selectAll);
     });
     document.querySelectorAll(".task-check").forEach(cb => {
-      cb.addEventListener("change", syncSelectAll);
+      cb.addEventListener("change", () => {
+        _updateChkVisual(cb);
+        syncSelectAll();
+      });
     });
+  }
+}
+
+/* ── Visuel checkbox (keep / delete) ────────────────────── */
+function _updateChkVisual(cb) {
+  const label = cb.closest(".usage-check-item");
+  if (!label) return;
+  const icon = label.querySelector(".chk-icon");
+  label.classList.toggle("will-keep",   cb.checked);
+  label.classList.toggle("will-delete", !cb.checked);
+  if (icon) {
+    icon.className = cb.checked
+      ? "fa-solid fa-circle-check chk-icon"
+      : "fa-solid fa-circle-xmark chk-icon";
   }
 }
 
@@ -446,6 +544,8 @@ function syncSelectAll() {
   if (!sa) return;
   sa.checked       = all.length === checked.length;
   sa.indeterminate = checked.length > 0 && checked.length < all.length;
+  // Mettre à jour le visuel de la ligne "tout sélectionner"
+  _updateChkVisual(sa);
 }
 
 // Retourne les task_ids DÉCOCHÉS — ce sont eux qui sont ciblés par l'action
