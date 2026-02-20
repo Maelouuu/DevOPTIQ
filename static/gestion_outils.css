@@ -179,10 +179,9 @@ html, body { background: var(--bg); color: var(--text); }
 /* ── Formulaire création ───────────────────────────────────── */
 .create-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr auto;
+  grid-template-columns: minmax(0, 220px) minmax(0, 260px) auto;
   gap: 14px;
   align-items: end;
-  max-width: 900px;
 }
 
 .field { display: flex; flex-direction: column; gap: 6px; }

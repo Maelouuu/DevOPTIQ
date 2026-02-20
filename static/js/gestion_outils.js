@@ -377,9 +377,10 @@ function renderManageStep1() {
   // Contenu complet du body
   manageModalBody.innerHTML = `
     <div>
-      <div class="modal-section-title" style="margin-bottom:8px;">
+      <div class="modal-section-title" style="margin-bottom:4px;">
         <i class="fa-solid fa-list-check"></i> Usages (${usages.length})
       </div>
+      ${usages.length ? `<p class="modal-hint" style="margin-bottom:8px;">✓ Coché = conservé · Décochez les usages que vous souhaitez cibler.</p>` : ""}
       ${usageSection}
     </div>
 
@@ -447,8 +448,9 @@ function syncSelectAll() {
   sa.indeterminate = checked.length > 0 && checked.length < all.length;
 }
 
-function getSelectedTaskIds() {
-  return Array.from(document.querySelectorAll(".task-check:checked"))
+// Retourne les task_ids DÉCOCHÉS — ce sont eux qui sont ciblés par l'action
+function getTargetTaskIds() {
+  return Array.from(document.querySelectorAll(".task-check:not(:checked)"))
     .map(cb => parseInt(cb.value, 10));
 }
 
@@ -457,17 +459,17 @@ function showReplaceConfirmation() {
   const replacementId = parseInt(document.getElementById("replacementSelectNew")?.value || "0", 10);
   if (!replacementId) return showToast("Choisis un outil de remplacement.", "warn");
 
-  const selectedIds = getSelectedTaskIds();
-  if (selectedIds.length === 0) return showToast("Sélectionne au moins un usage à remplacer.", "warn");
+  const targetIds = getTargetTaskIds(); // décochés = ciblés par le remplacement
+  if (targetIds.length === 0) return showToast("Décoche au moins un usage à remplacer.", "warn");
 
   const replacementTool  = toolsCache.find(t => t.id === replacementId);
-  const selectedUsages   = manageUsages.filter(u => selectedIds.includes(u.task_id));
+  const selectedUsages   = manageUsages.filter(u => targetIds.includes(u.task_id));
 
   const usageList = selectedUsages.map(u =>
     `<li><strong>${escapeHTML(u.activity_name)}</strong> → ${escapeHTML(u.task_name)}</li>`
   ).join("");
 
-  const isAll = selectedIds.length === manageUsages.length;
+  const isAll = targetIds.length === manageUsages.length;
 
   manageModalBody.innerHTML = `
     <div class="confirm-warning">
@@ -496,7 +498,7 @@ function showReplaceConfirmation() {
 
   document.getElementById("backStep1Btn")?.addEventListener("click", renderManageStep1);
   document.getElementById("confirmReplaceBtn")?.addEventListener("click",
-    () => doReplace(manageTarget.id, replacementId, selectedIds));
+    () => doReplace(manageTarget.id, replacementId, targetIds));
 }
 
 /* ── Exécution remplacement ──────────────────────────────── */
@@ -530,27 +532,27 @@ async function doDeleteSelection(noUsages) {
     return;
   }
 
-  const selectedIds = getSelectedTaskIds();
-  if (selectedIds.length === 0) return showToast("Sélectionne au moins un usage.", "warn");
+  const targetIds = getTargetTaskIds(); // décochés = à détacher
+  if (targetIds.length === 0) return showToast("Décoche au moins un usage à détacher.", "warn");
 
-  const isAll = selectedIds.length === manageUsages.length;
+  const isAll = targetIds.length === manageUsages.length;
 
   try {
     if (isAll) {
       await doFullDelete(tool);
     } else {
-      // Détachement partiel
+      // Détachement partiel (seulement les décochés)
       const res  = await fetch(`/gestion_outils/api/tools/${tool.id}`, {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ task_ids: selectedIds }),
+        body: JSON.stringify({ task_ids: targetIds }),
       });
       const data = await res.json();
       if (!res.ok) { showToast(data.error || "Échec.", "error"); return; }
       if (data.deleted) {
         showToast(`Outil « ${tool.name} » détaché et supprimé.`);
       } else {
-        showToast(`Détaché de ${selectedIds.length} tâche(s). ${data.remaining} usage(s) restant(s).`);
+        showToast(`Détaché de ${targetIds.length} tâche(s). ${data.remaining} usage(s) restant(s).`);
       }
       toggleModal(manageModal, false);
       await loadTools();
