@@ -9,7 +9,7 @@ from openai import OpenAI
 
 from Code.extensions import db
 from Code.models.models import (
-    Activities, Task, Link, Data, Performance,
+    Activities, Task, Link, Data, Tool, Entity, Performance,
     Constraint, Savoir, SavoirFaire, Aptitude,
     Softskill, Competency,
 )
@@ -50,6 +50,14 @@ de façon claire et exploitable dans une application.
    - Valider la cohérence des tâches proposées
    - Challenger intelligemment ("tu mentionnes X savoir-faire, quelle tâche le mobilise ?")
    - Détecter des oublis ("les contraintes indiquent Y, est-ce couvert par tes tâches ?")
+8) OUTILS : le contexte fournit la liste des outils déjà dans le référentiel (section
+   "OUTILS DISPONIBLES"). Utilise TOUJOURS ces noms exacts en priorité dans le champ "tools".
+   Si aucun ne correspond, tu peux proposer un nouveau nom — il sera créé automatiquement.
+9) CONNEXIONS SORTANTES : si une tâche produit une donnée transmise à une autre activité,
+   renseigne "outgoing_link" avec le nom de la donnée et le type.
+   Types valides : "nourrissante" | "descendante" | "remontante".
+   Utilise les connexions sortantes du contexte quand elles correspondent.
+   Si la connexion n'existe pas encore, propose-en une nouvelle.
 
 === DIALOGUE ===
 - 1 à 3 questions courtes max par tour.
@@ -67,14 +75,19 @@ Schéma obligatoire :
   "tasks": [
     {
       "label": "Verbe d'action + objet (court, niveau tâche)",
-      "tools": ["outil1"],
+      "tools": ["nom exact de l'outil du référentiel, ou nouveau nom"],
       "flags": {
         "too_detailed": false,
         "contains_how": false,
         "contains_two_tasks": false,
         "out_of_scope": false
       },
-      "rewrite_suggestion": "suggestion si problème, sinon chaîne vide"
+      "rewrite_suggestion": "suggestion si problème, sinon chaîne vide",
+      "outgoing_link": {
+        "data_name": "Nom de la donnée produite (vide si aucune)",
+        "data_type": "nourrissante|descendante|remontante",
+        "target_activity_name": "Activité destinataire si connue, sinon vide"
+      }
     }
   ],
   "quality_checks": [
@@ -85,6 +98,7 @@ Schéma obligatoire :
     { "condition": "Si…", "impact": "impact sur les tâches", "task_variants": ["tâche variante"] }
   ]
 }
+Note : si une tâche ne produit pas de connexion sortante, omets "outgoing_link" ou mets data_name à "".
 """
 
 
@@ -133,6 +147,11 @@ def _build_context(activity: dict) -> str:
             for h in lst
         )
 
+    def fmt_tools(lst):
+        if not lst:
+            return "    - (aucun outil dans le référentiel)"
+        return "\n".join(f"    - {t}" for t in lst)
+
     sections = [
         "=== CONTEXTE COMPLET DE L'ACTIVITÉ (OPTIQ) ===",
         f"Nom : {activity.get('name', '(non renseigné)')}",
@@ -164,6 +183,9 @@ def _build_context(activity: dict) -> str:
         "",
         "── APTITUDES ──",
         fmt_list(activity.get("aptitudes")),
+        "",
+        "── OUTILS DISPONIBLES DANS LE RÉFÉRENTIEL (utilise ces noms exacts) ──",
+        fmt_tools(activity.get("available_tools", [])),
     ]
 
     return "\n".join(sections)
@@ -230,6 +252,9 @@ def get_activity_context(activity_id):
             'performance': {'name': perf.name} if perf else None,
         })
 
+    # Outils disponibles pour l'entité active
+    available_tools = [t.name for t in Tool.for_active_entity().order_by(Tool.name).all()]
+
     context = {
         'name': activity.name,
         'description': activity.description or '',
@@ -249,9 +274,139 @@ def get_activity_context(activity_id):
             for sk in activity.softskills
         ],
         'aptitudes': [a.description for a in activity.aptitudes],
+        'available_tools': available_tools,
     }
 
     return jsonify(context)
+
+
+# ---------------------------------------------------------------------------
+# Endpoint inject — création des tâches validées en base
+# ---------------------------------------------------------------------------
+
+@chatbot_bp.post('/inject')
+def inject_tasks():
+    """
+    Corps attendu :
+      {
+        "activity_id": int,
+        "tasks": [
+          {
+            "label": str,
+            "tools": [str],           # noms d'outils (existants ou nouveaux)
+            "outgoing_link": {        # optionnel
+              "data_name": str,
+              "data_type": str,       # "nourrissante" | "descendante" | "remontante"
+              "target_activity_name": str   # optionnel
+            }
+          }
+        ]
+      }
+    Crée les tâches, résout/crée les outils, et crée les liens sortants si demandé.
+    """
+    data        = request.get_json(force=True) or {}
+    activity_id = data.get('activity_id')
+    tasks_in    = data.get('tasks', [])
+
+    if not activity_id:
+        return jsonify({'error': 'activity_id requis'}), 400
+
+    activity = Activities.query.get(activity_id)
+    if not activity:
+        return jsonify({'error': 'Activité introuvable'}), 404
+
+    entity_id = activity.entity_id
+    created   = []
+
+    try:
+        for i, t in enumerate(tasks_in):
+            label = (t.get('label') or '').strip()
+            if not label:
+                continue
+
+            # ── Créer la tâche ────────────────────────────────────
+            task = Task(
+                name=label,
+                description='',
+                order=i + 1,
+                activity_id=activity_id,
+            )
+            db.session.add(task)
+            db.session.flush()  # pour avoir task.id
+
+            # ── Résoudre / créer les outils ──────────────────────
+            for tool_name in (t.get('tools') or []):
+                tool_name = tool_name.strip()
+                if not tool_name:
+                    continue
+                tool = Tool.query.filter(
+                    Tool.entity_id == entity_id,
+                    db.func.lower(Tool.name) == tool_name.lower(),
+                ).first()
+                if not tool:
+                    tool = Tool(name=tool_name, entity_id=entity_id)
+                    db.session.add(tool)
+                    db.session.flush()
+                if tool not in task.tools:
+                    task.tools.append(tool)
+
+            # ── Créer la connexion sortante si demandée ───────────
+            ol = t.get('outgoing_link') or {}
+            data_name = (ol.get('data_name') or '').strip()
+            if data_name:
+                data_type = (ol.get('data_type') or 'nourrissante').strip()
+                target_act_name = (ol.get('target_activity_name') or '').strip()
+
+                # Trouver ou créer le Data
+                data_obj = Data.query.filter(
+                    Data.entity_id == entity_id,
+                    db.func.lower(Data.name) == data_name.lower(),
+                ).first()
+                if not data_obj:
+                    data_obj = Data(
+                        entity_id=entity_id,
+                        name=data_name,
+                        type=data_type,
+                    )
+                    db.session.add(data_obj)
+                    db.session.flush()
+
+                # Trouver l'activité cible (si précisée)
+                target_activity_id = None
+                if target_act_name:
+                    target_act = Activities.query.filter(
+                        Activities.entity_id == entity_id,
+                        db.func.lower(Activities.name) == target_act_name.lower(),
+                    ).first()
+                    if target_act:
+                        target_activity_id = target_act.id
+
+                # Créer le Link si pas déjà existant
+                existing_link = Link.query.filter_by(
+                    entity_id=entity_id,
+                    source_activity_id=activity_id,
+                    source_data_id=data_obj.id,
+                ).first()
+                if not existing_link:
+                    link = Link(
+                        entity_id=entity_id,
+                        source_activity_id=activity_id,
+                        source_data_id=data_obj.id,
+                        target_activity_id=target_activity_id,
+                        type=data_type,
+                        description=data_name,
+                    )
+                    db.session.add(link)
+                    db.session.flush()
+
+            created.append({'id': task.id, 'name': task.name})
+
+        db.session.commit()
+        return jsonify({'created': created, 'count': len(created)}), 201
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
 
 
 # ---------------------------------------------------------------------------

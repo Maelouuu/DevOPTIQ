@@ -138,36 +138,40 @@
     btn.disabled = true;
     btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Injection en cours…';
 
-    const promises = lastDraftTasks
+    const validTasks = lastDraftTasks
       .filter(t => !t.flags?.out_of_scope)
-      .map(task =>
-        fetch('/tasks/add', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            activity_id: parseInt(currentActId),
-            name: task.label,
-            description: task.tools && task.tools.length > 0
-              ? 'Outils : ' + task.tools.join(', ')
-              : '',
-          }),
-        }).then(r => r.json())
-      );
+      .map(t => ({
+        label: t.label,
+        tools: t.tools || [],
+        outgoing_link: (t.outgoing_link && t.outgoing_link.data_name)
+          ? t.outgoing_link
+          : undefined,
+      }));
 
-    Promise.all(promises)
-      .then(() => {
-        btn.innerHTML = '<i class="fa-solid fa-check"></i> Tâches ajoutées !';
+    fetch('/api/chatbot/inject', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        activity_id: parseInt(currentActId),
+        tasks: validTasks,
+      }),
+    })
+      .then(r => r.json().then(data => ({ ok: r.ok, data })))
+      .then(({ ok, data }) => {
+        if (!ok) {
+          throw new Error(data.error || 'Échec de l\'injection');
+        }
+        btn.innerHTML = `<i class="fa-solid fa-check"></i> ${data.count} tâche(s) ajoutée(s) !`;
         btn.style.background = 'linear-gradient(135deg, #667eea, #8b5cf6)';
 
         // Rafraîchir la section tâches de l'activité
-        if (typeof loadTasksForActivity === 'function') {
-          loadTasksForActivity(currentActId);
-        } else if (typeof refreshActivityItems === 'function') {
-          refreshActivityItems(currentActId);
-        } else {
-          // Fallback : rechargement doux après 1.2s
-          setTimeout(() => location.reload(), 1200);
-        }
+        setTimeout(() => {
+          if (typeof loadTasksForActivity === 'function') {
+            loadTasksForActivity(currentActId);
+          } else {
+            location.reload();
+          }
+        }, 800);
 
         setTimeout(() => closeChatbot(), 1600);
       })
@@ -307,6 +311,13 @@
         toolsHtml = `<div class="cb-task-tools"><i class="fa-solid fa-wrench"></i> ${_esc(task.tools.join(', '))}</div>`;
       }
 
+      let linkHtml = '';
+      const ol = task.outgoing_link;
+      if (ol && ol.data_name) {
+        const target = ol.target_activity_name ? ` → ${_esc(ol.target_activity_name)}` : '';
+        linkHtml = `<div class="cb-task-link"><i class="fa-solid fa-arrow-right"></i> ${_esc(ol.data_name)}${target} <span class="cb-link-type">${_esc(ol.data_type || '')}</span></div>`;
+      }
+
       let hintHtml = '';
       if (task.rewrite_suggestion) {
         hintHtml = `<div class="cb-task-hint">💡 ${_esc(task.rewrite_suggestion)}</div>`;
@@ -317,6 +328,7 @@
         <div style="flex:1; min-width:0;">
           <div class="cb-task-label">T${i + 1}. ${_esc(task.label)}</div>
           ${toolsHtml}
+          ${linkHtml}
           ${hintHtml}
         </div>
       `;

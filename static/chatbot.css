@@ -352,6 +352,22 @@
   color: #7c3aed;
   margin-top: 2px;
 }
+.cb-task-link {
+  font-size: 0.75em;
+  color: #0369a1;
+  margin-top: 2px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.cb-link-type {
+  background: #e0f2fe;
+  color: #0369a1;
+  border-radius: 4px;
+  padding: 0 5px;
+  font-size: 0.85em;
+  font-weight: 600;
+}
 .cb-task-hint {
   font-size: 0.73em;
   color: #b45309;
