@@ -1,62 +1,61 @@
 // static/js/gestion_outils.js
 
-// Références DOM
+/* ── Références DOM ────────────────────────────────────────── */
 const toolsContainer = document.getElementById("toolsContainer");
-const toast = document.getElementById("toast");
+const toast          = document.getElementById("toast");
+const toolsCount     = document.getElementById("toolsCount");
 
 // Modale édition
-const editModal        = document.getElementById("editModal");
-const editModalTitle   = document.getElementById("editModalTitle");
-const editLabel        = document.getElementById("editLabel");
-const editInput        = document.getElementById("editInput");
-const saveEditBtn      = document.getElementById("saveEditBtn");
-const cancelEditBtn    = document.getElementById("cancelEditBtn");
-const cancelEditBtn2   = document.getElementById("cancelEditBtn2");
+const editModal      = document.getElementById("editModal");
+const editModalTitle = document.getElementById("editModalTitle");
+const editLabel      = document.getElementById("editLabel");
+const editInput      = document.getElementById("editInput");
+const saveEditBtn    = document.getElementById("saveEditBtn");
+const cancelEditBtn  = document.getElementById("cancelEditBtn");
+const cancelEditBtn2 = document.getElementById("cancelEditBtn2");
 
-// Modale suppression
-const deleteModal       = document.getElementById("deleteModal");
-const deleteModalTitle  = document.getElementById("deleteModalTitle");
-const deleteModalUsages = document.getElementById("deleteModalUsages");
-const replacementSelect = document.getElementById("replacementSelect");
-const confirmReplaceBtn = document.getElementById("confirmReplaceBtn");
-const forceDeleteBtn    = document.getElementById("forceDeleteBtn");
-const closeDeleteModal  = document.getElementById("closeDeleteModal");
-const closeDeleteModal2 = document.getElementById("closeDeleteModal2");
-
-// Modale usages
-const usageModal     = document.getElementById("usageModal");
+// Modale usages (vue seule)
+const usageModal      = document.getElementById("usageModal");
 const usageModalTitle = document.getElementById("usageModalTitle");
 const usageModalBody  = document.getElementById("usageModalBody");
 const closeUsageModal  = document.getElementById("closeUsageModal");
 const closeUsageModal2 = document.getElementById("closeUsageModal2");
+
+// Modale manage (gestion unifiée)
+const manageModal       = document.getElementById("manageModal");
+const manageModalTitle  = document.getElementById("manageModalTitle");
+const manageModalBody   = document.getElementById("manageModalBody");
+const manageModalFooter = document.getElementById("manageModalFooter");
+const closeManageModal  = document.getElementById("closeManageModal");
 
 // Création
 const createToolBtn = document.getElementById("createToolBtn");
 const newToolName   = document.getElementById("newToolName");
 const newToolDesc   = document.getElementById("newToolDesc");
 
-// Compteur dans le banner
-const toolsCount = document.getElementById("toolsCount");
+// Recherche
+const toolSearch  = document.getElementById("toolSearch");
+const searchClear = document.getElementById("searchClear");
+const searchCount = document.getElementById("searchCount");
 
-let toolsCache  = [];
-let toolToDelete = null;
+let toolsCache   = [];
 let editContext  = { toolId: null, field: null };
+let manageTarget = null;      // outil en cours de gestion
+let manageUsages = [];        // usages chargés pour la modale manage
 
+/* ── Init ──────────────────────────────────────────────────── */
 document.addEventListener("DOMContentLoaded", () => {
   loadTools();
 
   createToolBtn.addEventListener("click", createTool);
   newToolName.addEventListener("keydown", e => { if (e.key === "Enter") createTool(); });
 
-  // Suppression
-  closeDeleteModal?.addEventListener("click",  () => toggleModal(deleteModal, false));
-  closeDeleteModal2?.addEventListener("click", () => toggleModal(deleteModal, false));
-  confirmReplaceBtn.addEventListener("click", doReplaceInDeleteFlow);
-  forceDeleteBtn.addEventListener("click", doForceDelete);
-
-  // Usages
+  // Usages modal
   closeUsageModal?.addEventListener("click",  () => toggleModal(usageModal, false));
   closeUsageModal2?.addEventListener("click", () => toggleModal(usageModal, false));
+
+  // Manage modal close
+  closeManageModal?.addEventListener("click", () => toggleModal(manageModal, false));
 
   // Édition
   cancelEditBtn?.addEventListener("click",  () => toggleModal(editModal, false));
@@ -64,23 +63,60 @@ document.addEventListener("DOMContentLoaded", () => {
   saveEditBtn.addEventListener("click", saveEdit);
   editInput.addEventListener("keydown", e => { if (e.key === "Enter") saveEdit(); });
 
-  // Esc pour toutes les modales
-  document.addEventListener("keydown", (e) => {
+  // Recherche
+  toolSearch?.addEventListener("input", onSearch);
+  searchClear?.addEventListener("click", () => {
+    toolSearch.value = "";
+    onSearch();
+    toolSearch.focus();
+  });
+
+  // Esc
+  document.addEventListener("keydown", e => {
     if (e.key === "Escape") {
-      [editModal, deleteModal, usageModal].forEach(m => {
-        if (!m.classList.contains("hidden")) toggleModal(m, false);
+      [editModal, usageModal, manageModal].forEach(m => {
+        if (m && !m.classList.contains("hidden")) toggleModal(m, false);
       });
     }
   });
 });
 
+/* ── Toast ─────────────────────────────────────────────────── */
 function showToast(msg, type = "ok") {
   toast.textContent = msg;
-  toast.className = `toast show ${type}`;
-  setTimeout(() => (toast.className = "toast"), 2400);
+  toast.className   = `toast show ${type}`;
+  setTimeout(() => (toast.className = "toast"), 2600);
 }
 
-/* ── Chargement ──────────────────────────────────────────── */
+/* ── Recherche ─────────────────────────────────────────────── */
+function onSearch() {
+  const q = (toolSearch.value || "").trim().toLowerCase();
+  const cards = [...document.querySelectorAll(".tool-card")];
+  let visible = 0;
+
+  cards.forEach(card => {
+    const name = (card.dataset.name || "").toLowerCase();
+    const desc = (card.dataset.desc || "").toLowerCase();
+    const show = !q || name.includes(q) || desc.includes(q);
+    card.style.display = show ? "" : "none";
+    if (show) visible++;
+  });
+
+  // Bouton clear
+  if (searchClear) searchClear.classList.toggle("hidden", !q);
+
+  // Compteur
+  if (searchCount) {
+    if (q && cards.length) {
+      searchCount.textContent = `${visible} / ${cards.length} outil${cards.length > 1 ? "s" : ""}`;
+      searchCount.classList.remove("hidden");
+    } else {
+      searchCount.classList.add("hidden");
+    }
+  }
+}
+
+/* ── Chargement ──────────────────────────────────────────────  */
 async function loadTools() {
   toolsContainer.innerHTML = `
     <div class="tools-loading">
@@ -101,9 +137,8 @@ async function loadTools() {
   }
 }
 
-/* ── Rendu cartes ────────────────────────────────────────── */
+/* ── Rendu cartes ────────────────────────────────────────────  */
 function renderTools() {
-  // Mise à jour du compteur dans le banner
   if (toolsCount) {
     toolsCount.innerHTML = `<span class="stat-val">${toolsCache.length}</span><span class="stat-lbl">outil${toolsCache.length > 1 ? "s" : ""}</span>`;
   }
@@ -117,16 +152,14 @@ function renderTools() {
     return;
   }
 
-  const allOptions = toolsCache
-    .map(t => `<option value="${t.id}">${escapeHTML(t.name)}</option>`)
-    .join("");
-
   toolsContainer.innerHTML = "";
 
   toolsCache.forEach(tool => {
-    const card = document.createElement("div");
-    card.className = "tool-card";
-    card.dataset.id = tool.id;
+    const card  = document.createElement("div");
+    card.className   = "tool-card";
+    card.dataset.id  = tool.id;
+    card.dataset.name = (tool.name || "").toLowerCase();
+    card.dataset.desc = (tool.description || "").toLowerCase();
 
     const count = tool.usages.length;
     const desc  = (tool.description || "").trim();
@@ -147,41 +180,28 @@ function renderTools() {
       </div>
 
       <div class="tool-card__meta">
-        <span class="badge ${count ? "badge-brown" : "badge-gray"}">
+        <button class="badge ${count ? "badge-brown" : "badge-gray"} badge-clickable"
+                data-action="see-usage"
+                title="${count ? "Voir les activités utilisant cet outil" : "Aucun usage"}">
           <i class="fa-solid fa-link" style="font-size:.7rem;"></i>
           ${count} usage${count > 1 ? "s" : ""}
-        </span>
-        <button class="btn-link" data-action="see-usage">
-          <i class="fa-solid fa-eye"></i> Voir
-        </button>
-      </div>
-
-      <hr class="tool-card__sep">
-
-      <div class="tool-card__replace">
-        <select class="select replace-select">
-          <option value="">— Remplacer par —</option>
-          ${allOptions}
-        </select>
-        <button class="btn btn-brown btn-small" data-action="replace" title="Remplacer partout">
-          <i class="fa-solid fa-arrows-rotate"></i>
         </button>
       </div>
 
       <div class="tool-card__actions">
-        <button class="btn btn-danger btn-small" data-action="delete">
-          <i class="fa-solid fa-trash"></i> Supprimer
+        <button class="btn btn-danger btn-small" data-action="manage">
+          <i class="fa-solid fa-gear"></i> Gérer / Supprimer
         </button>
       </div>
     `;
-
-    // Désactiver l'option de l'outil lui-même dans le select de remplacement
-    card.querySelector(`option[value="${tool.id}"]`)?.setAttribute("disabled", "disabled");
 
     toolsContainer.appendChild(card);
   });
 
   toolsContainer.onclick = onCardClick;
+
+  // Re-appliquer la recherche si active
+  if (toolSearch?.value.trim()) onSearch();
 }
 
 function onCardClick(e) {
@@ -192,31 +212,18 @@ function onCardClick(e) {
   const id   = parseInt(card?.dataset?.id || "0", 10);
   if (!id) return;
 
-  // Édition via icône crayon
-  if (btn.dataset.edit === "name" || btn.dataset.edit === "description") {
+  // Édition via crayon
+  if (btn.dataset.edit) {
     const tool = toolsCache.find(t => t.id === id);
     openEditModal(tool, btn.dataset.edit);
     return;
   }
 
   const action = btn.dataset.action;
+  const tool   = toolsCache.find(t => t.id === id);
 
-  if (action === "replace") {
-    const select = card.querySelector(".replace-select");
-    const target = parseInt(select.value || "0", 10);
-    if (!target || target === id) return showToast("Choisis un autre outil de remplacement.", "warn");
-    return replaceTool(id, target);
-  }
-
-  if (action === "delete") {
-    const tool = toolsCache.find(t => t.id === id);
-    return openDelete(tool);
-  }
-
-  if (action === "see-usage") {
-    const tool = toolsCache.find(t => t.id === id);
-    return openUsage(tool);
-  }
+  if (action === "see-usage") return openUsage(tool);
+  if (action === "manage")    return openManage(tool);
 }
 
 /* ── Édition ─────────────────────────────────────────────── */
@@ -267,12 +274,9 @@ async function updateTool(id, field, value) {
 async function createTool() {
   const name = newToolName.value.trim();
   const desc = newToolDesc.value.trim();
-  if (!name) {
-    showToast("Renseigne un nom d'outil.", "warn");
-    newToolName.focus();
-    return;
-  }
-  createToolBtn.disabled = true;
+  if (!name) { showToast("Renseigne un nom d'outil.", "warn"); newToolName.focus(); return; }
+
+  createToolBtn.disabled  = true;
   createToolBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Ajout…';
   try {
     const res  = await fetch("/gestion_outils/api/tools", {
@@ -281,7 +285,7 @@ async function createTool() {
       body: JSON.stringify({ name, description: desc }),
     });
     const data = await res.json();
-    if (!res.ok) return showToast(data.error || "Échec de création.", "error");
+    if (!res.ok) { showToast(data.error || "Échec de création.", "error"); return; }
     newToolName.value = "";
     newToolDesc.value = "";
     showToast(`Outil « ${name} » ajouté.`);
@@ -289,80 +293,12 @@ async function createTool() {
   } catch {
     showToast("Erreur réseau.", "error");
   } finally {
-    createToolBtn.disabled = false;
+    createToolBtn.disabled  = false;
     createToolBtn.innerHTML = '<i class="fa-solid fa-plus"></i> Ajouter';
   }
 }
 
-/* ── Remplacement ────────────────────────────────────────── */
-async function replaceTool(srcId, dstId) {
-  try {
-    const res  = await fetch(`/gestion_outils/api/tools/${srcId}/replace`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ replacement_id: parseInt(dstId, 10) }),
-    });
-    const data = await res.json();
-    if (!res.ok) return showToast(data.error || "Échec du remplacement.", "error");
-    showToast("Remplacement effectué.");
-    await loadTools();
-  } catch {
-    showToast("Erreur réseau.", "error");
-  }
-}
-
-/* ── Suppression ─────────────────────────────────────────── */
-function openDelete(tool) {
-  toolToDelete = tool;
-  deleteModalTitle.textContent = `Supprimer « ${tool.name} »`;
-  replacementSelect.innerHTML  =
-    `<option value="">— Choisir un outil —</option>` +
-    toolsCache.filter(t => t.id !== tool.id)
-              .map(t => `<option value="${t.id}">${escapeHTML(t.name)}</option>`)
-              .join("");
-  deleteModalUsages.innerHTML = `<div class="loading-soft"><i class="fa-solid fa-spinner fa-spin"></i> Recherche des usages…</div>`;
-  toggleModal(deleteModal, true);
-
-  fetch(`/gestion_outils/api/tools/${tool.id}/usages`)
-    .then(r => r.json())
-    .then(data => {
-      const usages = data.usages || [];
-      if (!usages.length) {
-        deleteModalUsages.innerHTML = `<div class="empty-soft">Aucun usage détecté — suppression sans impact.</div>`;
-      } else {
-        deleteModalUsages.innerHTML = `<ul class="usage-ul">${
-          usages.map(u => `<li><strong>${escapeHTML(u.activity_name)}</strong> → ${escapeHTML(u.task_name)}</li>`).join("")
-        }</ul>`;
-      }
-    })
-    .catch(() => {
-      deleteModalUsages.innerHTML = `<div class="error-soft">Impossible d'obtenir les usages.</div>`;
-    });
-}
-
-async function doReplaceInDeleteFlow() {
-  if (!toolToDelete) return;
-  const dst = replacementSelect.value;
-  if (!dst) return showToast("Choisis un outil de remplacement.", "warn");
-  await replaceTool(toolToDelete.id, dst);
-  toggleModal(deleteModal, false);
-}
-
-async function doForceDelete() {
-  if (!toolToDelete) return;
-  try {
-    const res  = await fetch(`/gestion_outils/api/tools/${toolToDelete.id}?force_detach=true`, { method: "DELETE" });
-    const data = await res.json();
-    if (!res.ok) return showToast(data.error || "Échec suppression.", "error");
-    showToast(`Outil « ${toolToDelete.name} » supprimé.`);
-    toggleModal(deleteModal, false);
-    await loadTools();
-  } catch {
-    showToast("Erreur réseau.", "error");
-  }
-}
-
-/* ── Usages ──────────────────────────────────────────────── */
+/* ── Modal USAGES (vue seule) ────────────────────────────── */
 function openUsage(tool) {
   usageModalTitle.innerHTML = `<i class="fa-solid fa-eye"></i> Usages de « ${escapeHTML(tool.name)} »`;
   usageModalBody.innerHTML  = `<div class="loading-soft"><i class="fa-solid fa-spinner fa-spin"></i> Chargement…</div>`;
@@ -381,12 +317,265 @@ function openUsage(tool) {
       }
     })
     .catch(() => {
-      usageModalBody.innerHTML = `<div class="error-soft">Erreur de chargement des usages.</div>`;
+      usageModalBody.innerHTML = `<div class="error-soft">Erreur de chargement.</div>`;
     });
+}
+
+/* ── Modal MANAGE ─────────────────────────────────────────── */
+async function openManage(tool) {
+  manageTarget = tool;
+  manageModalTitle.innerHTML = `<i class="fa-solid fa-screwdriver-wrench"></i> Gérer « ${escapeHTML(tool.name)} »`;
+
+  // Chargement
+  manageModalBody.innerHTML   = `<div class="loading-soft"><i class="fa-solid fa-spinner fa-spin"></i> Chargement des usages…</div>`;
+  manageModalFooter.innerHTML = `<button class="btn btn-ghost" id="cancelManageBtn0">Annuler</button>`;
+  document.getElementById("cancelManageBtn0")?.addEventListener("click", () => toggleModal(manageModal, false));
+  toggleModal(manageModal, true);
+
+  try {
+    const res    = await fetch(`/gestion_outils/api/tools/${tool.id}/usages`);
+    const data   = await res.json();
+    manageUsages = data.usages || [];
+    renderManageStep1();
+  } catch {
+    manageModalBody.innerHTML = `<div class="error-soft">Impossible de charger les usages.</div>`;
+  }
+}
+
+/* ── Step 1 : Sélection + options ────────────────────────── */
+function renderManageStep1() {
+  const tool     = manageTarget;
+  const usages   = manageUsages;
+  const noUsages = usages.length === 0;
+
+  const allOpts = toolsCache
+    .filter(t => t.id !== tool.id)
+    .map(t => `<option value="${t.id}">${escapeHTML(t.name)}</option>`)
+    .join("");
+
+  // Section usages avec checkboxes
+  let usageSection = "";
+  if (noUsages) {
+    usageSection = `<div class="empty-soft" style="text-align:center;padding:8px 0;">
+      <i class="fa-solid fa-circle-check" style="color:#16a34a;"></i>
+      Cet outil n'est utilisé dans aucune activité.
+    </div>`;
+  } else {
+    const items = usages.map(u => `
+      <label class="usage-check-item">
+        <input type="checkbox" class="task-check" value="${u.task_id}" checked>
+        <span><strong>${escapeHTML(u.activity_name)}</strong> → ${escapeHTML(u.task_name)}</span>
+      </label>`).join("");
+    usageSection = `
+      <label class="usage-check-item select-all-row">
+        <input type="checkbox" id="selectAllTasks" checked>
+        <span style="font-weight:700;color:var(--brown);">Tout sélectionner / désélectionner</span>
+      </label>
+      <div class="usage-checkbox-list">${items}</div>`;
+  }
+
+  // Contenu complet du body
+  manageModalBody.innerHTML = `
+    <div>
+      <div class="modal-section-title" style="margin-bottom:8px;">
+        <i class="fa-solid fa-list-check"></i> Usages (${usages.length})
+      </div>
+      ${usageSection}
+    </div>
+
+    ${noUsages ? "" : `
+    <div>
+      <div class="modal-divider"></div>
+      <div class="modal-section-title" style="margin-bottom:8px;">
+        <i class="fa-solid fa-arrows-rotate"></i> Remplacer par un autre outil
+      </div>
+      <div class="replace-row">
+        <select id="replacementSelectNew" class="select select--full">
+          <option value="">— Choisir l'outil de remplacement —</option>
+          ${allOpts}
+        </select>
+      </div>
+    </div>
+    `}
+
+    <div>
+      ${!noUsages ? '<div class="modal-divider"></div>' : ""}
+      <div class="modal-section-title modal-section-title--danger" style="margin-bottom:6px;">
+        <i class="fa-solid fa-trash"></i>
+        ${noUsages ? "Supprimer l'outil" : "Détacher & supprimer"}
+      </div>
+      <p class="modal-hint">
+        ${noUsages
+          ? "Aucun usage : l'outil sera supprimé immédiatement."
+          : "Détache l'outil des tâches sélectionnées, puis supprime l'outil si plus aucun usage ne reste."}
+      </p>
+    </div>
+  `;
+
+  // Footer
+  manageModalFooter.innerHTML = `
+    <button class="btn btn-ghost" id="cancelManageBtn"><i class="fa-solid fa-xmark"></i> Annuler</button>
+    ${noUsages ? "" : `<button class="btn btn-brown btn-small" id="previewReplaceBtn"><i class="fa-solid fa-arrows-rotate"></i> Aperçu remplacement</button>`}
+    <button class="btn btn-danger btn-small" id="deleteSelBtn">
+      <i class="fa-solid fa-trash"></i> ${noUsages ? "Supprimer" : "Détacher & supprimer"}
+    </button>
+  `;
+
+  // Listeners footer
+  document.getElementById("cancelManageBtn")?.addEventListener("click", () => toggleModal(manageModal, false));
+  document.getElementById("previewReplaceBtn")?.addEventListener("click", showReplaceConfirmation);
+  document.getElementById("deleteSelBtn")?.addEventListener("click", () => doDeleteSelection(noUsages));
+
+  // Select-all
+  const selectAll = document.getElementById("selectAllTasks");
+  if (selectAll) {
+    selectAll.addEventListener("change", () => {
+      document.querySelectorAll(".task-check").forEach(cb => (cb.checked = selectAll.checked));
+    });
+    document.querySelectorAll(".task-check").forEach(cb => {
+      cb.addEventListener("change", syncSelectAll);
+    });
+  }
+}
+
+function syncSelectAll() {
+  const all     = document.querySelectorAll(".task-check");
+  const checked = document.querySelectorAll(".task-check:checked");
+  const sa      = document.getElementById("selectAllTasks");
+  if (!sa) return;
+  sa.checked       = all.length === checked.length;
+  sa.indeterminate = checked.length > 0 && checked.length < all.length;
+}
+
+function getSelectedTaskIds() {
+  return Array.from(document.querySelectorAll(".task-check:checked"))
+    .map(cb => parseInt(cb.value, 10));
+}
+
+/* ── Step 2 : Confirmation remplacement ─────────────────── */
+function showReplaceConfirmation() {
+  const replacementId = parseInt(document.getElementById("replacementSelectNew")?.value || "0", 10);
+  if (!replacementId) return showToast("Choisis un outil de remplacement.", "warn");
+
+  const selectedIds = getSelectedTaskIds();
+  if (selectedIds.length === 0) return showToast("Sélectionne au moins un usage à remplacer.", "warn");
+
+  const replacementTool  = toolsCache.find(t => t.id === replacementId);
+  const selectedUsages   = manageUsages.filter(u => selectedIds.includes(u.task_id));
+
+  const usageList = selectedUsages.map(u =>
+    `<li><strong>${escapeHTML(u.activity_name)}</strong> → ${escapeHTML(u.task_name)}</li>`
+  ).join("");
+
+  const isAll = selectedIds.length === manageUsages.length;
+
+  manageModalBody.innerHTML = `
+    <div class="confirm-warning">
+      <i class="fa-solid fa-triangle-exclamation"></i>
+      <div>
+        <p>L'outil <strong>${escapeHTML(replacementTool.name)}</strong> va remplacer
+        <strong>${escapeHTML(manageTarget.name)}</strong> pour les usages suivants :</p>
+      </div>
+    </div>
+
+    <ul class="usage-ul">${usageList}</ul>
+
+    <p class="modal-hint">
+      ${isAll
+        ? `Tous les usages (${selectedUsages.length}) seront remplacés.`
+        : `${selectedUsages.length} usage(s) sur ${manageUsages.length} seront remplacés. Les autres resteront inchangés.`}
+    </p>
+  `;
+
+  manageModalFooter.innerHTML = `
+    <button class="btn btn-ghost" id="backStep1Btn"><i class="fa-solid fa-arrow-left"></i> Retour</button>
+    <button class="btn btn-brown" id="confirmReplaceBtn">
+      <i class="fa-solid fa-check"></i> Confirmer le remplacement
+    </button>
+  `;
+
+  document.getElementById("backStep1Btn")?.addEventListener("click", renderManageStep1);
+  document.getElementById("confirmReplaceBtn")?.addEventListener("click",
+    () => doReplace(manageTarget.id, replacementId, selectedIds));
+}
+
+/* ── Exécution remplacement ──────────────────────────────── */
+async function doReplace(srcId, dstId, taskIds) {
+  const btn = document.getElementById("confirmReplaceBtn");
+  if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> En cours…'; }
+
+  try {
+    const res  = await fetch(`/gestion_outils/api/tools/${srcId}/replace`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ replacement_id: dstId, task_ids: taskIds }),
+    });
+    const data = await res.json();
+    if (!res.ok) { showToast(data.error || "Échec du remplacement.", "error"); return; }
+    showToast(`Remplacement effectué (${data.replaced_count || taskIds.length} usage(s)).`);
+    toggleModal(manageModal, false);
+    await loadTools();
+  } catch {
+    showToast("Erreur réseau.", "error");
+  }
+}
+
+/* ── Exécution suppression/détachement ───────────────────── */
+async function doDeleteSelection(noUsages) {
+  const tool = manageTarget;
+
+  // Aucun usage → suppression directe
+  if (noUsages) {
+    await doFullDelete(tool);
+    return;
+  }
+
+  const selectedIds = getSelectedTaskIds();
+  if (selectedIds.length === 0) return showToast("Sélectionne au moins un usage.", "warn");
+
+  const isAll = selectedIds.length === manageUsages.length;
+
+  try {
+    if (isAll) {
+      await doFullDelete(tool);
+    } else {
+      // Détachement partiel
+      const res  = await fetch(`/gestion_outils/api/tools/${tool.id}`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ task_ids: selectedIds }),
+      });
+      const data = await res.json();
+      if (!res.ok) { showToast(data.error || "Échec.", "error"); return; }
+      if (data.deleted) {
+        showToast(`Outil « ${tool.name} » détaché et supprimé.`);
+      } else {
+        showToast(`Détaché de ${selectedIds.length} tâche(s). ${data.remaining} usage(s) restant(s).`);
+      }
+      toggleModal(manageModal, false);
+      await loadTools();
+    }
+  } catch {
+    showToast("Erreur réseau.", "error");
+  }
+}
+
+async function doFullDelete(tool) {
+  try {
+    const res  = await fetch(`/gestion_outils/api/tools/${tool.id}?force_detach=true`, { method: "DELETE" });
+    const data = await res.json();
+    if (!res.ok) { showToast(data.error || "Échec suppression.", "error"); return; }
+    showToast(`Outil « ${tool.name} » supprimé.`);
+    toggleModal(manageModal, false);
+    await loadTools();
+  } catch {
+    showToast("Erreur réseau.", "error");
+  }
 }
 
 /* ── Utils ───────────────────────────────────────────────── */
 function toggleModal(modal, show = true) {
+  if (!modal) return;
   if (show) {
     modal.classList.remove("hidden");
     modal.setAttribute("aria-hidden", "false");

@@ -315,6 +315,68 @@ html, body { background: var(--bg); color: var(--text); }
 .tools-empty i, .tools-loading i { font-size: 2rem; opacity: .45; }
 .tools-error { color: var(--red); }
 
+/* ── Barre de recherche ────────────────────────────────────── */
+.search-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+.search-wrap {
+  position: relative;
+  flex: 1;
+  max-width: 480px;
+  display: flex;
+  align-items: center;
+}
+.search-icon {
+  position: absolute;
+  left: 12px;
+  color: var(--muted);
+  font-size: 0.85rem;
+  pointer-events: none;
+}
+.search-input {
+  width: 100%;
+  height: 38px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 0 36px 0 34px;
+  font-size: 0.875rem;
+  color: var(--text);
+  background: var(--bg);
+  outline: none;
+  transition: border-color .15s, box-shadow .15s;
+}
+.search-input:focus {
+  border-color: var(--brown-2);
+  box-shadow: 0 0 0 3px rgba(180,83,9,0.1);
+  background: var(--white);
+}
+.search-clear {
+  position: absolute;
+  right: 8px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 0.8rem;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background .1s, color .1s;
+}
+.search-clear:hover { background: var(--border); color: var(--text); }
+.search-count {
+  font-size: 0.8rem;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
 /* ── Tool card ─────────────────────────────────────────────── */
 .tool-card {
   background: var(--white);
@@ -349,16 +411,21 @@ html, body { background: var(--bg); color: var(--text); }
 /* Header : nom + bouton edit */
 .tool-card__header {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  gap: 6px;
+  min-width: 0;
 }
 .tool-card__name {
-  font-size: 0.98rem;
+  font-size: 0.95rem;
   font-weight: 700;
   color: var(--text);
   line-height: 1.3;
-  word-break: break-word;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* Description */
@@ -373,8 +440,17 @@ html, body { background: var(--bg); color: var(--text); }
   border-radius: 7px;
   font-size: 0.83rem;
   color: var(--muted);
+  overflow: hidden;
 }
-.tool-card__desc span { flex: 1; line-height: 1.45; }
+.tool-card__desc span {
+  flex: 1;
+  min-width: 0;
+  line-height: 1.45;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
 .tool-card__desc .placeholder { font-style: italic; opacity: .65; }
 
 /* Meta : usages + voir */
@@ -406,25 +482,21 @@ html, body { background: var(--bg); color: var(--text); }
   color: var(--muted);
   border-color: var(--border);
 }
-
-/* Séparateur léger */
-.tool-card__sep {
-  border: none;
-  border-top: 1px dashed var(--border);
-  margin: 2px 0;
+/* Badge cliquable (usages) */
+.badge-clickable {
+  cursor: pointer;
+  background: none;
+  transition: filter .12s, transform .08s, box-shadow .12s;
 }
-
-/* Replace row */
-.tool-card__replace {
-  display: flex;
-  gap: 7px;
-  align-items: center;
+.badge-brown.badge-clickable:hover {
+  filter: brightness(0.92);
+  box-shadow: 0 2px 8px rgba(120,53,15,0.2);
+  transform: translateY(-1px);
 }
-.tool-card__replace .select {
-  flex: 1;
-  height: 34px;
-  font-size: 0.8rem;
-  padding: 5px 8px;
+.badge-gray.badge-clickable:hover {
+  filter: brightness(0.93);
+  box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+  transform: translateY(-1px);
 }
 
 /* Delete row */
@@ -447,6 +519,10 @@ html, body { background: var(--bg); color: var(--text); }
 
 .modal-card {
   width: min(520px, 94vw);
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
   background: var(--white);
   border-radius: var(--radius);
   box-shadow: 0 20px 60px rgba(28,20,16,0.2);
@@ -462,11 +538,19 @@ html, body { background: var(--bg); color: var(--text); }
   padding: 18px 20px;
   background: var(--brown-light);
   border-bottom: 1px solid var(--brown-border);
+  flex-shrink: 0;
 }
 .modal-header--danger {
   background: #fef2f2;
   border-bottom-color: #fecaca;
 }
+.modal-header--warning {
+  background: linear-gradient(135deg, #431407, #78350f);
+  border-bottom: none;
+}
+.modal-header--warning .modal-title { color: #fff; }
+
+.modal-card--wide { width: min(680px, 96vw); }
 
 .modal-title {
   margin: 0;
@@ -502,6 +586,8 @@ html, body { background: var(--bg); color: var(--text); }
   display: flex;
   flex-direction: column;
   gap: 14px;
+  overflow-y: auto;
+  flex: 1;
 }
 
 .modal-hint {
@@ -548,6 +634,77 @@ html, body { background: var(--bg); color: var(--text); }
   padding: 14px 20px;
   background: #faf7f4;
   border-top: 1px solid var(--border);
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+
+/* ── Styles modale manage ──────────────────────────────────── */
+.modal-section-title--danger { color: var(--red) !important; }
+
+/* Checkboxes usages */
+.usage-checkbox-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 200px;
+  overflow-y: auto;
+  padding: 4px 2px;
+}
+.select-all-row {
+  padding: 6px 8px;
+  background: var(--brown-light);
+  border-radius: 7px;
+  border: 1px solid var(--brown-border);
+}
+.usage-check-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 10px;
+  border-radius: 7px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  transition: background .1s;
+}
+.usage-check-item:hover { background: var(--brown-light); }
+.usage-check-item input[type="checkbox"] {
+  accent-color: var(--brown);
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+
+/* Replace row dans la modale */
+.replace-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.replace-row .select { flex: 1; }
+
+/* Bloc de confirmation remplacement */
+.confirm-warning {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  background: #fff8f0;
+  border: 1px solid var(--brown-border);
+  border-left: 4px solid var(--brown);
+  border-radius: 8px;
+  padding: 14px 16px;
+  color: var(--brown);
+}
+.confirm-warning i { flex-shrink: 0; margin-top: 2px; }
+.confirm-warning p { margin: 0; font-size: 0.9rem; line-height: 1.5; color: var(--text); }
+.confirm-warning strong { color: var(--brown); }
+
+.modal-close--dark {
+  color: rgba(255,255,255,0.75);
+}
+.modal-close--dark:hover {
+  background: rgba(255,255,255,0.15);
+  color: #fff;
 }
 
 /* Usage list */

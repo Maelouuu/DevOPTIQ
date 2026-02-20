@@ -30,7 +30,6 @@
         </div>
       </div>
     </div>
-
     <div class="create-grid">
       <div class="field">
         <label for="newToolName" class="label">Nom de l'outil <span class="req">*</span></label>
@@ -56,9 +55,21 @@
         <span class="section-icon section-icon--muted"><i class="fa-solid fa-toolbox"></i></span>
         <div>
           <h2 id="list-title" class="section-card__title">Liste des outils</h2>
-          <p class="section-card__subtitle">Cliquez sur <i class="fa-solid fa-pencil" style="font-size:11px;"></i> pour modifier · Sélectionnez un remplacement avant de supprimer</p>
+          <p class="section-card__subtitle">Cliquez sur <i class="fa-solid fa-pencil" style="font-size:11px;"></i> pour modifier · Cliquez sur le badge d'usages pour voir le détail</p>
         </div>
       </div>
+    </div>
+
+    <!-- Barre de recherche -->
+    <div class="search-row">
+      <div class="search-wrap">
+        <i class="fa-solid fa-magnifying-glass search-icon"></i>
+        <input type="search" id="toolSearch" class="search-input" placeholder="Rechercher un outil par nom ou description…" autocomplete="off">
+        <button class="search-clear hidden" id="searchClear" title="Effacer">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+      <span id="searchCount" class="search-count hidden"></span>
     </div>
 
     <div id="toolsContainer" class="tools-grid">
@@ -88,35 +99,7 @@
   </div>
 </div>
 
-<!-- ── Modal SUPPRESSION ── -->
-<div id="deleteModal" class="modal hidden" aria-hidden="true" role="dialog" aria-labelledby="deleteModalTitle">
-  <div class="modal-card">
-    <div class="modal-header modal-header--danger">
-      <h3 id="deleteModalTitle" class="modal-title"><i class="fa-solid fa-triangle-exclamation"></i> Supprimer l'outil</h3>
-      <button class="modal-close modal-close--light" id="closeDeleteModal" aria-label="Fermer"><i class="fa-solid fa-xmark"></i></button>
-    </div>
-    <div class="modal-body">
-      <p class="modal-hint">Cet outil est utilisé dans les éléments suivants :</p>
-      <div id="deleteModalUsages" class="usage-list"></div>
-
-      <div class="modal-divider"></div>
-
-      <div class="modal-section-title"><i class="fa-solid fa-arrows-rotate"></i> Remplacer par un autre outil</div>
-      <div class="replace-inline">
-        <select id="replacementSelect" class="select select--full"></select>
-        <button id="confirmReplaceBtn" class="btn btn-brown btn-small">Remplacer partout</button>
-      </div>
-
-      <div class="modal-or">ou</div>
-    </div>
-    <div class="modal-footer">
-      <button id="forceDeleteBtn" class="btn btn-danger-outline"><i class="fa-solid fa-link-slash"></i> Détacher & supprimer</button>
-      <button id="closeDeleteModal2" class="btn btn-ghost">Annuler</button>
-    </div>
-  </div>
-</div>
-
-<!-- ── Modal USAGES ── -->
+<!-- ── Modal USAGES (vue seule, badge cliquable) ── -->
 <div id="usageModal" class="modal hidden" aria-hidden="true" role="dialog" aria-labelledby="usageModalTitle">
   <div class="modal-card">
     <div class="modal-header">
@@ -129,6 +112,18 @@
     <div class="modal-footer">
       <button id="closeUsageModal2" class="btn btn-ghost">Fermer</button>
     </div>
+  </div>
+</div>
+
+<!-- ── Modal GESTION (remplacer / supprimer avec sélection) ── -->
+<div id="manageModal" class="modal hidden" aria-hidden="true" role="dialog" aria-labelledby="manageModalTitle">
+  <div class="modal-card modal-card--wide">
+    <div class="modal-header modal-header--warning">
+      <h3 id="manageModalTitle" class="modal-title"></h3>
+      <button class="modal-close modal-close--dark" id="closeManageModal" aria-label="Fermer"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div id="manageModalBody" class="modal-body"></div>
+    <div id="manageModalFooter" class="modal-footer"></div>
   </div>
 </div>
 
