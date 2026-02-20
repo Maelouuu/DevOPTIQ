@@ -179,10 +179,13 @@ html, body { background: var(--bg); color: var(--text); }
 /* ── Formulaire création ───────────────────────────────────── */
 .create-grid {
   display: grid;
-  grid-template-columns: minmax(0, 220px) minmax(0, 260px) auto;
-  gap: 14px;
+  grid-template-columns: 2fr 2fr 1fr;
+  gap: 12px;
   align-items: end;
+  box-sizing: border-box;
 }
+.create-grid .input { max-width: none; width: 100%; }
+.create-grid .btn   { width: 100%; justify-content: center; }
 
 .field { display: flex; flex-direction: column; gap: 6px; }
 .field-btn { display: flex; flex-direction: column; gap: 6px; }
