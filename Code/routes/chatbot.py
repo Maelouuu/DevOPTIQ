@@ -101,6 +101,38 @@ Schéma obligatoire :
 Note : si une tâche ne produit pas de connexion sortante, omets "outgoing_link" ou mets data_name à "".
 """
 
+# ---------------------------------------------------------------------------
+# Prompts additionnels — spécifiques au mode de conversation
+# ---------------------------------------------------------------------------
+MODE_AMELIORER_PROMPT = """
+
+=== MODE ACTIF : RÉVISION ET AMÉLIORATION DES TÂCHES ===
+L'utilisateur veut revoir et améliorer les tâches déjà définies pour cette activité.
+- Commence par analyser méthodiquement chaque tâche existante selon les règles OPTIQ.
+- Pour chaque tâche : indique si elle est bien formulée, trop détaillée, hors scope,
+  ou si elle contient deux tâches en une.
+- Valorise ce qui est déjà correct AVANT de signaler les problèmes.
+- Propose des reformulations précises et justifiées quand nécessaire.
+- Identifie les tâches manquantes si des éléments du contexte (savoirs, SF, HSC, contraintes)
+  ne sont pas couverts par les tâches existantes.
+- Procède de façon collaborative : soumets chaque suggestion à la validation de l'utilisateur.
+"""
+
+MODE_CREER_PROMPT = """
+
+=== MODE ACTIF : CRÉATION DE NOUVELLES TÂCHES ===
+L'utilisateur veut créer les tâches de l'activité depuis le début via un entretien guidé.
+- Commence par UNE SEULE question ouverte et bienveillante :
+  "Pour tenir cette activité, que faites-vous ?"
+- N'énumère JAMAIS les tâches toi-même à la place de l'utilisateur : laisse-le s'exprimer.
+- Après chaque réponse, utilise des questions relais courtes :
+  "Et ensuite ?", "C'est-à-dire ?", "Plus précisément ?", "Avec quel outil ?"
+- Reformule chaque tâche identifiée selon les règles OPTIQ, propose la reformulation
+  et demande validation avant de continuer.
+- Construis la liste progressivement, tâche par tâche.
+- Ne pose JAMAIS plus d'une question par tour.
+"""
+
 
 # ---------------------------------------------------------------------------
 # Construction du contexte riche pour le prompt
@@ -427,15 +459,17 @@ def chat():
     activity = data.get('activity', {})
     history  = data.get('history', [])
     message  = (data.get('message') or '').strip()
+    mode     = (data.get('mode') or 'creer').strip()
 
     if not message:
         return jsonify({'error': 'Message vide'}), 400
 
+    mode_prompt = MODE_AMELIORER_PROMPT if mode == 'ameliorer' else MODE_CREER_PROMPT
     context_block = _build_context(activity)
     recent = history[-14:] if len(history) > 14 else history
 
     messages = [
-        {'role': 'system', 'content': SYSTEM_PROMPT},
+        {'role': 'system', 'content': SYSTEM_PROMPT + mode_prompt},
         {'role': 'system', 'content': context_block},
         *recent,
         {'role': 'user', 'content': message},

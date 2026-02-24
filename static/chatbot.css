@@ -397,27 +397,107 @@
 .cb-check-item.warning { background: #fffbeb; color: #92400e; }
 .cb-check-item.blocker { background: #fef2f2; color: #991b1b; }
 
-/* Questions */
-.cb-questions-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
+/* ── Sélection du mode au démarrage ──────────────────────── */
+.cb-mode-selection {
+  max-width: 100% !important;
+  background: #f3f0ff !important;
+  border: 1px solid #e0d9f7 !important;
+  border-bottom-left-radius: 14px !important;
+}
+.cb-mode-greeting {
+  font-size: 0.85rem;
+  color: #2c1a6b;
+  margin-bottom: 14px;
+  line-height: 1.6;
+}
+.cb-mode-choices {
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: 8px;
 }
-.cb-question-item {
-  font-size: 0.8rem;
-  color: #4c1d95;
-  padding: 5px 8px;
-  background: #f5f3ff;
-  border-left: 3px solid #8b5cf6;
-  border-radius: 0 6px 6px 0;
+.cb-mode-choice {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  background: #fff;
+  border: 1.5px solid #c4b0e8;
+  border-radius: 10px;
+  padding: 10px 14px;
   cursor: pointer;
-  transition: background 0.15s;
+  text-align: left;
+  transition: border-color 0.18s, background 0.18s, box-shadow 0.18s;
+  font-family: inherit;
+  width: 100%;
 }
-.cb-question-item:hover {
+.cb-mode-choice:hover:not(:disabled) {
+  border-color: #8b5cf6;
+  background: #f5f3ff;
+  box-shadow: 0 2px 8px rgba(139, 92, 246, 0.15);
+}
+.cb-mode-choice:disabled,
+.cb-mode-no-tasks {
+  opacity: 0.4;
+  cursor: not-allowed !important;
+}
+.cb-mode-choice > i {
+  font-size: 1.25em;
+  color: #8b5cf6;
+  flex-shrink: 0;
+}
+.cb-mode-choice-text {
+  display: flex;
+  flex-direction: column;
+}
+.cb-mode-choice-text strong {
+  font-size: 0.85rem;
+  color: #2c1a6b;
+  font-weight: 700;
+}
+.cb-mode-choice-text span {
+  font-size: 0.74rem;
+  color: #6b7280;
+  margin-top: 2px;
+}
+
+/* ── Suggestions de réponse rapide (dans la conversation) ── */
+.cb-quick-replies {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 2px 0 4px 2px;
+  align-self: flex-start;
+  max-width: 90%;
+}
+.cb-quick-reply-btn {
+  background: #fff;
+  border: 1.5px solid #8b5cf6;
+  color: #6d28d9;
+  border-radius: 16px;
+  padding: 5px 13px;
+  font-size: 0.78rem;
+  font-family: inherit;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  line-height: 1.4;
+}
+.cb-quick-reply-btn:hover {
+  background: #8b5cf6;
+  color: #fff;
+}
+
+/* ── Badge mode (panneau droit) ───────────────────────────── */
+.cb-mode-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 8px;
+  font-size: 0.73rem;
+  color: #7c3aed;
   background: #ede8fb;
+  padding: 3px 9px;
+  border-radius: 12px;
+  font-weight: 600;
 }
 
 /* Branches */

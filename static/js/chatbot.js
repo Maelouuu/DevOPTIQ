@@ -12,6 +12,7 @@
   let conversationHistory = [];     // [{role, content}, ...]
   let isWaiting           = false;
   let lastDraftTasks      = [];
+  let currentMode         = null;   // 'ameliorer' | 'creer'
   let _fetchController    = null;   // AbortController pour annuler les fetches en vol
 
   // ── Références DOM ─────────────────────────────────────────
@@ -29,7 +30,6 @@
     const actId   = btn.dataset.activityId;
     const actName = btn.dataset.activityName;
 
-    // Annuler tout fetch en cours (race condition si on change d'activité rapidement)
     if (_fetchController) _fetchController.abort();
     _fetchController = new AbortController();
     const signal = _fetchController.signal;
@@ -37,59 +37,118 @@
     currentActId        = actId;
     storedContext       = null;
     conversationHistory = [];
+    currentMode         = null;
 
-    // Mettre à jour le header immédiatement
     headerTitle().textContent = `Assistant OPTIQ — ${actName}`;
     headerSub().textContent   = 'Chargement du contexte…';
 
-    // Réinitialiser l'UI
     _clearMessages();
     _clearDraft();
 
-    // Ouvrir l'overlay
     overlay().classList.add('active');
     document.body.style.overflow = 'hidden';
 
-    // Afficher un indicateur de chargement dans la conversation
     const loadingEl = _showTyping();
 
-    // Récupérer le contexte complet depuis la DB
     fetch(`/api/chatbot/activity/${actId}/context`, { signal })
       .then(r => {
         if (!r.ok) throw new Error(`Erreur ${r.status}`);
         return r.json();
       })
       .then(activityContext => {
-        // Vérifier que l'activité n'a pas changé entre temps
         if (currentActId !== actId) return;
 
         _removeTyping(loadingEl);
         storedContext = activityContext;
 
-        // Mettre à jour le sous-titre
         const nbTasks   = activityContext.tasks   ? activityContext.tasks.length   : 0;
         const nbSavoirs = activityContext.savoirs  ? activityContext.savoirs.length  : 0;
         const nbHSC     = activityContext.hsc      ? activityContext.hsc.length      : 0;
         headerSub().textContent =
-          `${nbTasks} tâche(s) existante(s) · ${nbSavoirs} savoir(s) · ${nbHSC} HSC chargé(s)`;
+          `${nbTasks} tâche(s) · ${nbSavoirs} savoir(s) · ${nbHSC} HSC`;
 
-        // Message d'amorce automatique — contextuel selon les tâches existantes
-        const nbExisting = activityContext.tasks ? activityContext.tasks.length : 0;
-        let amorce;
-        if (nbExisting > 0) {
-          const taskList = activityContext.tasks.map(t => `"${t.name}"`).join(', ');
-          amorce = `Bonjour. L'activité "${activityContext.name}" a déjà ${nbExisting} tâche(s) saisie(s) : ${taskList}. Peux-tu les passer en revue selon les règles OPTIQ, me dire si elles sont correctes ou à améliorer, et m'aider à les compléter si nécessaire ?`;
-        } else {
-          amorce = `Bonjour. Je travaille sur l'activité "${activityContext.name}". Elle n'a pas encore de tâches. Aide-moi à les définir selon les règles OPTIQ.`;
-        }
-        _sendToBot(amorce);
+        // Proposer le choix du mode avant de démarrer la conversation
+        _showModeSelection(activityContext);
       })
       .catch(err => {
-        if (err.name === 'AbortError') return; // fetch annulé volontairement
+        if (err.name === 'AbortError') return;
         _removeTyping(loadingEl);
         _appendBotMessage('❌ Impossible de charger le contexte de l\'activité : ' + err.message);
         headerSub().textContent = 'Erreur de chargement';
       });
+  };
+
+  // ── Sélection du mode au démarrage ────────────────────────
+  function _showModeSelection(ctx) {
+    const nbTasks    = ctx.tasks ? ctx.tasks.length : 0;
+    const hasExisting = nbTasks > 0;
+
+    const el = document.createElement('div');
+    el.className = 'cb-msg bot cb-mode-selection';
+    el.id = 'cb-mode-selection-el';
+
+    el.innerHTML = `
+      <div class="cb-mode-greeting">
+        Bonjour ! Je suis l'<strong>Assistant OPTIQ</strong> pour l'activité
+        <strong>${_esc(ctx.name)}</strong>.<br><br>
+        ${hasExisting
+          ? `Cette activité possède déjà <strong>${nbTasks} tâche(s)</strong>.`
+          : `Cette activité n'a pas encore de tâches.`
+        }
+        Que souhaitez-vous faire ?
+      </div>
+      <div class="cb-mode-choices">
+        <button
+          class="cb-mode-choice${!hasExisting ? ' cb-mode-no-tasks' : ''}"
+          onclick="selectChatbotMode('ameliorer')"
+          ${!hasExisting ? 'disabled' : ''}>
+          <i class="fa-solid fa-magnifying-glass-chart"></i>
+          <div class="cb-mode-choice-text">
+            <strong>Revoir les tâches existantes</strong>
+            <span>${hasExisting
+              ? `Analyser et améliorer les ${nbTasks} tâche(s) selon les règles OPTIQ`
+              : 'Aucune tâche existante à revoir'
+            }</span>
+          </div>
+        </button>
+        <button class="cb-mode-choice" onclick="selectChatbotMode('creer')">
+          <i class="fa-solid fa-wand-magic-sparkles"></i>
+          <div class="cb-mode-choice-text">
+            <strong>Créer des tâches</strong>
+            <span>Définir de nouvelles tâches via un entretien guidé</span>
+          </div>
+        </button>
+      </div>
+    `;
+
+    msgContainer().appendChild(el);
+    _scrollToBottom();
+  }
+
+  window.selectChatbotMode = function (mode) {
+    currentMode = mode;
+
+    // Retirer l'écran de sélection
+    const el = document.getElementById('cb-mode-selection-el');
+    if (el) el.remove();
+
+    const ctx        = storedContext;
+    const nbExisting = ctx.tasks ? ctx.tasks.length : 0;
+
+    // Mettre à jour le sous-titre du header
+    const modeLabel = mode === 'ameliorer' ? 'Mode révision' : 'Mode création';
+    headerSub().textContent = `${modeLabel} · ${nbExisting} tâche(s) chargée(s)`;
+
+    // Construire le message d'amorce selon le mode
+    let amorce;
+    if (mode === 'ameliorer') {
+      const taskList = ctx.tasks.map(t => `"${t.name}"`).join(', ');
+      amorce = `Mode révision activé. L'activité "${ctx.name}" a ${nbExisting} tâche(s) existante(s) : ${taskList}. Analyse-les selon les règles OPTIQ et propose des améliorations détaillées.`;
+    } else {
+      amorce = `Mode création activé. Je souhaite créer les tâches pour l'activité "${ctx.name}" via un entretien guidé. Commence l'interview.`;
+    }
+
+    _sendToBot(amorce);
   };
 
   // ── Fermeture ──────────────────────────────────────────────
@@ -98,7 +157,6 @@
     document.body.style.overflow = '';
   };
 
-  // Fermer en cliquant sur l'overlay
   document.addEventListener('DOMContentLoaded', function () {
     const ov = overlay();
     if (!ov) return;
@@ -106,7 +164,6 @@
       if (e.target === ov) closeChatbot();
     });
 
-    // Envoi avec Entrée (Shift+Entrée = nouvelle ligne)
     const inp = inputEl();
     if (inp) {
       inp.addEventListener('keydown', function (e) {
@@ -125,17 +182,13 @@
     const text = inp.value.trim();
     if (!text) return;
 
+    // Supprimer les suggestions de réponse rapide
+    document.querySelectorAll('.cb-quick-replies').forEach(el => el.remove());
+
     inp.value = '';
     inp.style.height = 'auto';
     _appendUserMessage(text);
     _sendToBot(text);
-  };
-
-  // ── Clic sur une suggestion de question ───────────────────
-  window.clickSuggestedQuestion = function (text) {
-    const inp = inputEl();
-    if (inp) inp.value = text;
-    sendMessage();
   };
 
   // ── Injection des tâches dans la DB ───────────────────────
@@ -166,13 +219,10 @@
     })
       .then(r => r.json().then(data => ({ ok: r.ok, data })))
       .then(({ ok, data }) => {
-        if (!ok) {
-          throw new Error(data.error || 'Échec de l\'injection');
-        }
+        if (!ok) throw new Error(data.error || 'Échec de l\'injection');
         btn.innerHTML = `<i class="fa-solid fa-check"></i> ${data.count} tâche(s) ajoutée(s) !`;
         btn.style.background = 'linear-gradient(135deg, #667eea, #8b5cf6)';
 
-        // Rafraîchir la section tâches de l'activité
         setTimeout(() => {
           if (typeof loadTasksForActivity === 'function') {
             loadTasksForActivity(currentActId);
@@ -204,6 +254,7 @@
         activity: storedContext,
         history:  conversationHistory.slice(-14),
         message:  message,
+        mode:     currentMode || 'creer',
       }),
     })
       .then(r => r.json())
@@ -212,10 +263,9 @@
         if (data.error) {
           _appendBotMessage('❌ ' + data.error);
         } else {
-          // Mettre à jour l'historique local
           conversationHistory.push({ role: 'user',      content: message });
           conversationHistory.push({ role: 'assistant', content: data.assistant_message || '' });
-          _appendBotMessage(data.assistant_message);
+          _appendBotMessage(data.assistant_message, data.next_questions);
           _renderDraft(data);
         }
       })
@@ -231,11 +281,36 @@
   }
 
   // ── Rendu des messages ─────────────────────────────────────
-  function _appendBotMessage(text) {
+  function _appendBotMessage(text, nextQuestions) {
+    // Supprimer les anciennes suggestions rapides
+    document.querySelectorAll('.cb-quick-replies').forEach(el => el.remove());
+
     const el = document.createElement('div');
     el.className = 'cb-msg bot';
     el.innerHTML = _mdToHtml(text);
     msgContainer().appendChild(el);
+
+    // Afficher les suggestions de réponse dans la conversation (pas dans le panneau)
+    if (nextQuestions && nextQuestions.length > 0) {
+      const qrDiv = document.createElement('div');
+      qrDiv.className = 'cb-quick-replies';
+
+      nextQuestions.forEach(q => {
+        const btn = document.createElement('button');
+        btn.className = 'cb-quick-reply-btn';
+        btn.textContent = q;
+        btn.onclick = () => {
+          document.querySelectorAll('.cb-quick-replies').forEach(el => el.remove());
+          const inp = inputEl();
+          if (inp) inp.value = q;
+          sendMessage();
+        };
+        qrDiv.appendChild(btn);
+      });
+
+      msgContainer().appendChild(qrDiv);
+    }
+
     _scrollToBottom();
   }
 
@@ -272,17 +347,16 @@
 
   // ── Rendu du brouillon OPTIQ (panneau droit) ───────────────
   function _renderDraft(data) {
-    const tasks   = data.tasks          || [];
-    const checks  = data.quality_checks || [];
-    const qsts    = data.next_questions  || [];
-    const branches= data.branches        || [];
-    const status  = data.status          || 'need_more_info';
+    const tasks    = data.tasks          || [];
+    const checks   = data.quality_checks || [];
+    const branches = data.branches       || [];
+    const status   = data.status         || 'need_more_info';
 
     lastDraftTasks = tasks;
 
     _renderTasks(tasks);
     _renderChecks(checks);
-    _renderQuestions(qsts);
+    _renderStatus(status);
     _renderBranches(branches);
     _updateInjectBtn(tasks, status);
   }
@@ -300,19 +374,15 @@
     ul.className = 'cb-tasks-list';
 
     tasks.forEach((task, i) => {
-      const flags = task.flags || {};
+      const flags    = task.flags || {};
       const hasIssue = flags.too_detailed || flags.contains_how || flags.contains_two_tasks;
       const isOut    = flags.out_of_scope;
 
       const li = document.createElement('li');
       li.className = 'cb-task-item' + (isOut ? ' out-of-scope' : hasIssue ? ' has-issue' : '');
 
-      const iconCls = isOut ? 'error' : hasIssue ? 'warn' : 'ok';
-      const iconSymbol = isOut
-        ? 'fa-ban'
-        : hasIssue
-          ? 'fa-triangle-exclamation'
-          : 'fa-check';
+      const iconCls    = isOut ? 'error' : hasIssue ? 'warn' : 'ok';
+      const iconSymbol = isOut ? 'fa-ban' : hasIssue ? 'fa-triangle-exclamation' : 'fa-check';
 
       let toolsHtml = '';
       if (task.tools && task.tools.length > 0) {
@@ -335,9 +405,7 @@
         <i class="fa-solid ${iconSymbol} cb-task-icon ${iconCls}"></i>
         <div style="flex:1; min-width:0;">
           <div class="cb-task-label">T${i + 1}. ${_esc(task.label)}</div>
-          ${toolsHtml}
-          ${linkHtml}
-          ${hintHtml}
+          ${toolsHtml}${linkHtml}${hintHtml}
         </div>
       `;
       ul.appendChild(li);
@@ -352,7 +420,7 @@
     if (!container) return;
 
     if (!checks || checks.length === 0) {
-      container.innerHTML = '<p class="cb-empty-hint">Aucune alerte.</p>';
+      container.innerHTML = '<p class="cb-empty-hint">Aucune alerte qualité.</p>';
       return;
     }
 
@@ -360,9 +428,9 @@
     ul.className = 'cb-checks-list';
 
     checks.forEach(check => {
-      const sev = check.severity || 'info';
+      const sev  = check.severity || 'info';
       const icon = sev === 'blocker' ? 'fa-circle-xmark' : sev === 'warning' ? 'fa-triangle-exclamation' : 'fa-circle-info';
-      const li = document.createElement('li');
+      const li   = document.createElement('li');
       li.className = `cb-check-item ${sev}`;
       li.innerHTML = `<i class="fa-solid ${icon}"></i><div><strong>${_esc(check.issue)}</strong><br><span style="opacity:.8">${_esc(check.fix || '')}</span></div>`;
       ul.appendChild(li);
@@ -372,29 +440,55 @@
     container.appendChild(ul);
   }
 
-  function _renderQuestions(questions) {
-    const container = document.getElementById('cb-draft-questions-body');
+  function _renderStatus(status) {
+    const container = document.getElementById('cb-draft-status-body');
     if (!container) return;
 
-    if (!questions || questions.length === 0) {
-      container.innerHTML = '<p class="cb-empty-hint">Aucune question en attente.</p>';
-      return;
-    }
+    const statusConfig = {
+      'need_more_info': {
+        icon: 'fa-hourglass-half',
+        color: '#f59e0b',
+        bg: '#fffbeb',
+        label: 'Analyse en cours',
+        desc: 'L\'assistant recueille les informations nécessaires.',
+      },
+      'ready_for_validation': {
+        icon: 'fa-circle-check',
+        color: '#22c55e',
+        bg: '#f0fdf4',
+        label: 'Prêt à valider',
+        desc: 'Les tâches peuvent être injectées dans l\'activité.',
+      },
+      'validated': {
+        icon: 'fa-trophy',
+        color: '#8b5cf6',
+        bg: '#f5f3ff',
+        label: 'Validé',
+        desc: 'Les tâches ont été validées avec l\'utilisateur.',
+      },
+    };
 
-    const ul = document.createElement('ul');
-    ul.className = 'cb-questions-list';
+    const s = statusConfig[status] || statusConfig['need_more_info'];
 
-    questions.forEach(q => {
-      const li = document.createElement('li');
-      li.className = 'cb-question-item';
-      li.textContent = q;
-      li.title = 'Cliquer pour répondre';
-      li.onclick = () => clickSuggestedQuestion(q);
-      ul.appendChild(li);
-    });
+    const modeHtml = currentMode
+      ? `<div class="cb-mode-badge">
+          ${currentMode === 'ameliorer'
+            ? '<i class="fa-solid fa-magnifying-glass-chart"></i> Mode révision'
+            : '<i class="fa-solid fa-wand-magic-sparkles"></i> Mode création'
+          }
+         </div>`
+      : '';
 
-    container.innerHTML = '';
-    container.appendChild(ul);
+    container.innerHTML = `
+      <div class="cb-status-row" style="background:${s.bg}; border-radius:7px; padding:8px 10px; display:flex; align-items:center; gap:9px;">
+        <i class="fa-solid ${s.icon}" style="color:${s.color}; font-size:1.15em; flex-shrink:0;"></i>
+        <div>
+          <div style="font-weight:700; color:${s.color}; font-size:0.81rem;">${s.label}</div>
+          <div style="font-size:0.73rem; color:#6b7280; margin-top:2px;">${s.desc}</div>
+        </div>
+      </div>
+      ${modeHtml}
+    `;
   }
 
   function _renderBranches(branches) {
@@ -447,7 +541,7 @@
 
   function _clearDraft() {
     lastDraftTasks = [];
-    const ids = ['cb-draft-tasks-body', 'cb-draft-checks-body', 'cb-draft-questions-body', 'cb-draft-branches-body'];
+    const ids = ['cb-draft-tasks-body', 'cb-draft-checks-body', 'cb-draft-status-body', 'cb-draft-branches-body'];
     ids.forEach(id => {
       const el = document.getElementById(id);
       if (el) el.innerHTML = '<p class="cb-empty-hint">En attente de la conversation…</p>';
@@ -487,14 +581,10 @@
   function _mdToHtml(text) {
     if (!text) return '';
     let html = _esc(text);
-    // Bold
     html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
-    // Italic
     html = html.replace(/\*(.+?)\*/g, '<em>$1</em>');
-    // Lignes avec puce
     html = html.replace(/^[-•] (.+)$/gm, '<li>$1</li>');
     html = html.replace(/(<li>[\s\S]*?<\/li>)/g, '<ul>$1</ul>');
-    // Sauts de ligne → <br>
     html = html.replace(/\n/g, '<br>');
     return html;
   }
