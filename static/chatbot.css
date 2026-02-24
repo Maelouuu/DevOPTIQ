@@ -306,6 +306,17 @@
 .cb-draft-section-body {
   padding: 10px 12px;
 }
+#cb-draft-tasks-body {
+  max-height: 280px;
+  overflow-y: auto;
+}
+#cb-draft-tasks-body::-webkit-scrollbar {
+  width: 4px;
+}
+#cb-draft-tasks-body::-webkit-scrollbar-thumb {
+  background: #c4b0e8;
+  border-radius: 4px;
+}
 
 /* Liste de tâches */
 .cb-tasks-list {
@@ -484,6 +495,16 @@
 .cb-quick-reply-btn:hover {
   background: #8b5cf6;
   color: #fff;
+}
+.cb-quick-reply-other {
+  border-color: #c4b0e8;
+  border-style: dashed;
+  color: #9ca3af;
+}
+.cb-quick-reply-other:hover {
+  background: #f5f3ff !important;
+  color: #6d28d9 !important;
+  border-style: solid;
 }
 
 /* ── Badge mode (panneau droit) ───────────────────────────── */

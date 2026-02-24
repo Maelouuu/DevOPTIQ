@@ -60,7 +60,7 @@ de façon claire et exploitable dans une application.
    Si la connexion n'existe pas encore, propose-en une nouvelle.
 
 === DIALOGUE ===
-- 1 à 3 questions courtes max par tour.
+- UNE seule question par tour (jamais plus).
 - Séquence : Challenge → Reformulation OPTIQ → "Tu confirmes ?"
 - Mettre à jour les tâches proposées à chaque tour.
 - Exploite intelligemment le contexte : si des savoirs/HSC/contraintes sont définis,
@@ -90,14 +90,17 @@ Schéma obligatoire :
       }
     }
   ],
-  "quality_checks": [
-    { "issue": "description du problème", "severity": "info|warning|blocker", "fix": "action corrective" }
-  ],
-  "next_questions": ["question courte"],
+  "next_questions": ["réponse courte que l'utilisateur pourrait donner"],
   "branches": [
     { "condition": "Si…", "impact": "impact sur les tâches", "task_variants": ["tâche variante"] }
   ]
 }
+
+RÈGLE next_questions : ce champ contient 2 à 4 RÉPONSES COURTES que l'utilisateur
+pourrait cliquer pour répondre rapidement à ta question. Formule-les comme des réponses,
+PAS comme des questions. Exemples : ["Oui, c'est correct", "Non, à reformuler", "Partiellement"],
+ou ["SAP", "Excel", "Aucun outil"], ou ["Oui", "Non, il y en a d'autres"].
+L'option "Autre réponse…" sera ajoutée automatiquement par l'interface.
 Note : si une tâche ne produit pas de connexion sortante, omets "outgoing_link" ou mets data_name à "".
 """
 

@@ -290,23 +290,33 @@
     el.innerHTML = _mdToHtml(text);
     msgContainer().appendChild(el);
 
-    // Afficher les suggestions de réponse dans la conversation (pas dans le panneau)
+    // Afficher les réponses suggérées dans la conversation (pas dans le panneau)
     if (nextQuestions && nextQuestions.length > 0) {
       const qrDiv = document.createElement('div');
       qrDiv.className = 'cb-quick-replies';
 
-      nextQuestions.forEach(q => {
+      nextQuestions.forEach(answer => {
         const btn = document.createElement('button');
         btn.className = 'cb-quick-reply-btn';
-        btn.textContent = q;
+        btn.textContent = answer;
         btn.onclick = () => {
           document.querySelectorAll('.cb-quick-replies').forEach(el => el.remove());
           const inp = inputEl();
-          if (inp) inp.value = q;
+          if (inp) inp.value = answer;
           sendMessage();
         };
         qrDiv.appendChild(btn);
       });
+
+      // Bouton "Autre réponse…" — permet à l'utilisateur de taper librement
+      const otherBtn = document.createElement('button');
+      otherBtn.className = 'cb-quick-reply-btn cb-quick-reply-other';
+      otherBtn.textContent = 'Autre réponse…';
+      otherBtn.onclick = () => {
+        document.querySelectorAll('.cb-quick-replies').forEach(el => el.remove());
+        inputEl()?.focus();
+      };
+      qrDiv.appendChild(otherBtn);
 
       msgContainer().appendChild(qrDiv);
     }
@@ -347,15 +357,13 @@
 
   // ── Rendu du brouillon OPTIQ (panneau droit) ───────────────
   function _renderDraft(data) {
-    const tasks    = data.tasks          || [];
-    const checks   = data.quality_checks || [];
-    const branches = data.branches       || [];
-    const status   = data.status         || 'need_more_info';
+    const tasks    = data.tasks    || [];
+    const branches = data.branches || [];
+    const status   = data.status   || 'need_more_info';
 
     lastDraftTasks = tasks;
 
     _renderTasks(tasks);
-    _renderChecks(checks);
     _renderStatus(status);
     _renderBranches(branches);
     _updateInjectBtn(tasks, status);
@@ -408,31 +416,6 @@
           ${toolsHtml}${linkHtml}${hintHtml}
         </div>
       `;
-      ul.appendChild(li);
-    });
-
-    container.innerHTML = '';
-    container.appendChild(ul);
-  }
-
-  function _renderChecks(checks) {
-    const container = document.getElementById('cb-draft-checks-body');
-    if (!container) return;
-
-    if (!checks || checks.length === 0) {
-      container.innerHTML = '<p class="cb-empty-hint">Aucune alerte qualité.</p>';
-      return;
-    }
-
-    const ul = document.createElement('ul');
-    ul.className = 'cb-checks-list';
-
-    checks.forEach(check => {
-      const sev  = check.severity || 'info';
-      const icon = sev === 'blocker' ? 'fa-circle-xmark' : sev === 'warning' ? 'fa-triangle-exclamation' : 'fa-circle-info';
-      const li   = document.createElement('li');
-      li.className = `cb-check-item ${sev}`;
-      li.innerHTML = `<i class="fa-solid ${icon}"></i><div><strong>${_esc(check.issue)}</strong><br><span style="opacity:.8">${_esc(check.fix || '')}</span></div>`;
       ul.appendChild(li);
     });
 
@@ -541,7 +524,7 @@
 
   function _clearDraft() {
     lastDraftTasks = [];
-    const ids = ['cb-draft-tasks-body', 'cb-draft-checks-body', 'cb-draft-status-body', 'cb-draft-branches-body'];
+    const ids = ['cb-draft-tasks-body', 'cb-draft-status-body', 'cb-draft-branches-body'];
     ids.forEach(id => {
       const el = document.getElementById(id);
       if (el) el.innerHTML = '<p class="cb-empty-hint">En attente de la conversation…</p>';
