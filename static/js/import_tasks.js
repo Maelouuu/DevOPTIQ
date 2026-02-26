@@ -6,7 +6,7 @@
   'use strict';
 
   // ── État ──────────────────────────────────────────────────
-  let currentFmt       = 'csv';
+  let currentFmt       = 'xlsx';
   let lastResults      = [];   // résultats de validation
 
   // ── Références DOM ────────────────────────────────────────
@@ -46,12 +46,12 @@
   });
 
   function _reset() {
-    currentFmt  = 'csv';
+    currentFmt  = 'xlsx';
     lastResults = [];
     if (textarea())  textarea().value = '';
     if (fileName())  fileName().textContent = '';
     if (parseErr())  parseErr().textContent = '';
-    _setFmtUI('csv');
+    _setFmtUI('xlsx');
     _showStep(1);
   }
 
@@ -62,12 +62,18 @@
   };
 
   function _setFmtUI(fmt) {
+    document.getElementById('fmt-btn-xlsx')?.classList.toggle('active', fmt === 'xlsx');
     document.getElementById('fmt-btn-csv')?.classList.toggle('active', fmt === 'csv');
-    document.getElementById('fmt-btn-json')?.classList.toggle('active', fmt === 'json');
+    const hintXlsx = document.getElementById('import-hint-xlsx');
     const hintCsv  = document.getElementById('import-hint-csv');
-    const hintJson = document.getElementById('import-hint-json');
+    if (hintXlsx) hintXlsx.style.display = fmt === 'xlsx' ? '' : 'none';
     if (hintCsv)  hintCsv.style.display  = fmt === 'csv'  ? '' : 'none';
-    if (hintJson) hintJson.style.display  = fmt === 'json' ? '' : 'none';
+    // Masquer la zone de saisie manuelle pour XLSX (format binaire)
+    const divider = document.querySelector('.import-divider');
+    const ta      = textarea();
+    const isXlsx  = fmt === 'xlsx';
+    if (divider) divider.style.display = isXlsx ? 'none' : '';
+    if (ta)      ta.style.display      = isXlsx ? 'none' : '';
   }
 
   // ── Navigation entre étapes ───────────────────────────────
@@ -147,45 +153,36 @@
 
   // ── Téléchargement du modèle ──────────────────────────────
   window.downloadImportTemplate = function () {
-    let content, filename, type;
+    const HEADERS = [
+      'nom_tache', 'activite', 'description', 'outils',
+      'entree_nom', 'entree_type', 'sortie_nom', 'sortie_type', 'sortie_activite_cible',
+    ];
+    const ROWS = [
+      ["Saisir la demande client", "Nom de l'activité", "Description optionnelle",
+       "SAP;Excel", "Bon de commande", "nourrissante", "Demande traitée", "nourrissante", "Activité suivante"],
+      ["Valider la commande", "Nom de l'activité", "",
+       "SAP", "", "", "Commande validée", "descendante", ""],
+    ];
 
-    if (currentFmt === 'json') {
-      content = JSON.stringify([
-        {
-          nom: 'Saisir la demande client',
-          activite: 'Nom de l\'activité',
-          description: 'Description optionnelle',
-          outils: ['SAP', 'Excel'],
-          entree: { nom: 'Bon de commande', type: 'nourrissante' },
-          sortie: { nom: 'Demande traitée', type: 'nourrissante', activite_cible: 'Activité suivante' },
-        },
-        {
-          nom: 'Valider la commande',
-          activite: 'Nom de l\'activité',
-          description: '',
-          outils: ['SAP'],
-          entree: null,
-          sortie: { nom: 'Commande validée', type: 'descendante', activite_cible: '' },
-        },
-      ], null, 2);
-      filename = 'modele_import_taches.json';
-      type     = 'application/json';
-    } else {
-      const rows = [
-        'nom_tache,activite,description,outils,entree_nom,entree_type,sortie_nom,sortie_type,sortie_activite_cible',
-        'Saisir la demande client,Nom de l\'activité,Description optionnelle,SAP;Excel,Bon de commande,nourrissante,Demande traitée,nourrissante,Activité suivante',
-        'Valider la commande,Nom de l\'activité,,SAP,,,Commande validée,descendante,',
-      ];
-      content  = rows.join('\n');
-      filename = 'modele_import_taches.csv';
-      type     = 'text/csv;charset=utf-8;';
+    if (currentFmt === 'xlsx') {
+      if (typeof XLSX === 'undefined') {
+        alert('Librairie XLSX non disponible.');
+        return;
+      }
+      const ws = XLSX.utils.aoa_to_sheet([HEADERS, ...ROWS]);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Modèle');
+      XLSX.writeFile(wb, 'modele_import_taches.xlsx');
+      return;
     }
 
-    const blob = new Blob(['\ufeff' + content], { type });
-    const url  = URL.createObjectURL(blob);
-    const a    = document.createElement('a');
-    a.href     = url;
-    a.download = filename;
+    // CSV
+    const lines = [HEADERS.join(','), ...ROWS.map(r => r.join(','))];
+    const blob  = new Blob(['\ufeff' + lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
+    const url   = URL.createObjectURL(blob);
+    const a     = document.createElement('a');
+    a.href      = url;
+    a.download  = 'modele_import_taches.csv';
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -206,10 +203,12 @@
       analyzeBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Analyse…';
     }
 
+    // XLSX is converted to CSV client-side by SheetJS before reaching here
+    const backendFmt = currentFmt === 'xlsx' ? 'csv' : currentFmt;
     fetch('/api/import-tasks/validate', {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ format: currentFmt, content }),
+      body:    JSON.stringify({ format: backendFmt, content }),
     })
       .then(r => r.json())
       .then(data => {

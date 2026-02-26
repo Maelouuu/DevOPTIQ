@@ -93,20 +93,18 @@ class TestTasksRoles:
 class TestTasksRender:
     """Rendu partiel des tâches (AJAX)."""
 
-    def test_render_tasks_route_exists(self, auth_client, ids):
+    def test_render_tasks_returns_200(self, auth_client, ids):
         """
-        La route /tasks/<id>/render existe mais le template nécessite la variable
-        `item` qui n'est fournie que par la vue principale (activities/view).
-        Ce test vérifie que la route est déclarée dans l'app.
+        La route /tasks/<id>/render doit retourner 200 avec le HTML partiel
+        (maintenant que item/task_conn_map est calculé dans la route elle-même).
         """
-        try:
-            r = auth_client.get(f"/tasks/{ids['activity_id']}/render")
-            assert r.status_code in (200, 404, 500)
-        except Exception as exc:
-            # Jinja2 UndefinedError propagé en mode TEST : la route existe mais
-            # nécessite un contexte complet (variable `item`). Comportement attendu.
-            assert "undefined" in str(exc).lower() or "item" in str(exc).lower(), \
-                f"Erreur inattendue : {exc}"
+        r = auth_client.get(f"/tasks/{ids['activity_id']}/render")
+        assert r.status_code == 200, f"Rendu tâches échoué : {r.status_code}"
+        assert b"task" in r.data.lower() or b"t\xc3\xa2che" in r.data or b"Aucune" in r.data
+
+    def test_render_tasks_unknown_activity(self, auth_client):
+        r = auth_client.get("/tasks/999999/render")
+        assert r.status_code in (404, 200)
 
 
 class TestTasksReorder:

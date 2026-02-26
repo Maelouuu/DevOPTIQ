@@ -26,11 +26,11 @@
       <div class="import-format-bar">
         <span class="import-format-label">Format :</span>
         <div class="import-format-toggle">
-          <button class="import-fmt-btn active" id="fmt-btn-csv" onclick="setImportFmt('csv')">
-            <i class="fa-solid fa-table"></i> CSV
+          <button class="import-fmt-btn active" id="fmt-btn-xlsx" onclick="setImportFmt('xlsx')">
+            <i class="fa-solid fa-file-excel"></i> XLSX
           </button>
-          <button class="import-fmt-btn" id="fmt-btn-json" onclick="setImportFmt('json')">
-            <i class="fa-solid fa-code"></i> JSON
+          <button class="import-fmt-btn" id="fmt-btn-csv" onclick="setImportFmt('csv')">
+            <i class="fa-solid fa-table"></i> CSV
           </button>
         </div>
         <button class="import-template-btn" onclick="downloadImportTemplate()">
@@ -38,18 +38,18 @@
         </button>
       </div>
 
+      <!-- Hint XLSX -->
+      <div class="import-hint-box" id="import-hint-xlsx">
+        <i class="fa-solid fa-circle-info"></i>
+        Glissez-déposez votre fichier <strong>.xlsx</strong> ou <strong>.xls</strong>.
+        Colonnes : <code>nom_tache, activite, description, outils&nbsp;(séparateur&nbsp;<strong>;</strong>), entree_nom, entree_type, sortie_nom, sortie_type, sortie_activite_cible</code>
+      </div>
+
       <!-- Hint CSV -->
-      <div class="import-hint-box" id="import-hint-csv">
+      <div class="import-hint-box" id="import-hint-csv" style="display:none">
         <i class="fa-solid fa-circle-info"></i>
         Colonnes (séparateur <strong>,</strong>) :
         <code>nom_tache, activite, description, outils&nbsp;(séparateur&nbsp;<strong>;</strong>), entree_nom, entree_type, sortie_nom, sortie_type, sortie_activite_cible</code>
-      </div>
-
-      <!-- Hint JSON -->
-      <div class="import-hint-box" id="import-hint-json" style="display:none">
-        <i class="fa-solid fa-circle-info"></i>
-        Tableau d'objets avec les champs :
-        <code>nom, activite, description, outils&nbsp;(tableau), entree&nbsp;{nom,&nbsp;type}, sortie&nbsp;{nom,&nbsp;type,&nbsp;activite_cible}</code>
       </div>
 
       <!-- Drop zone -->
