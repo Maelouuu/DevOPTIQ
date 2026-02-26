@@ -207,6 +207,9 @@ def create_app():
     from Code.routes.chatbot import chatbot_bp
     app.register_blueprint(chatbot_bp)
 
+    from Code.routes.import_tasks import import_tasks_bp
+    app.register_blueprint(import_tasks_bp)
+
     # secret key
     app.secret_key = os.getenv("SECRET_KEY", "devoptiq-secret")
 
