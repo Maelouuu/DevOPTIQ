@@ -83,32 +83,29 @@ def check_svg_exists(entity_id):
         print(f"[CARTO] SVG trouvé pour entité {entity_id}: {svg_path}")
         return True, svg_path
 
-    # Migration automatique: Si l'ancien SVG global existe et que l'entité a des activités,
-    # copier automatiquement le SVG global dans le dossier de l'entité
+    # Si l'entité a un svg_filename configuré en base, le fichier devrait exister
+    # mais il est absent → ne pas faire de fallback sur un SVG d'une autre entité
+    entity = Entity.query.get(entity_id)
+    if entity and entity.svg_filename:
+        print(f"[CARTO] SVG configuré ('{entity.svg_filename}') mais fichier absent pour entité {entity_id}")
+        return False, None
+
+    # Migration legacy : si l'entité n'a pas encore de SVG dédié ET qu'un SVG global existe
+    # ET que l'entité a des activités → copier le SVG global dans le dossier de l'entité
     if os.path.exists(OLD_SVG_PATH):
         from Code.models.models import Activities
         activities_count = Activities.query.filter_by(entity_id=entity_id).count()
-
         if activities_count > 0:
-            # Copier l'ancien SVG dans le nouveau dossier
             try:
                 ensure_entity_dir(entity_id)
                 shutil.copy2(OLD_SVG_PATH, svg_path)
-                print(f"[CARTO] Migration: SVG global copié vers {svg_path}")
-
-                # Mettre à jour le nom du fichier en base
-                entity = Entity.query.get(entity_id)
+                print(f"[CARTO] Migration legacy: SVG global copié vers {svg_path}")
                 if entity and not entity.svg_filename:
                     entity.svg_filename = "carto_activities.svg"
                     db.session.commit()
-
                 return True, svg_path
             except Exception as e:
-                print(f"[CARTO] Erreur lors de la migration du SVG: {e}")
-        else:
-            # Pas d'activités, on peut utiliser le SVG global directement
-            print(f"[CARTO] Utilisation temporaire du SVG global pour entité {entity_id} (pas d'activités)")
-            return True, OLD_SVG_PATH
+                print(f"[CARTO] Erreur migration SVG: {e}")
 
     print(f"[CARTO] Aucun SVG trouvé pour entité {entity_id}")
     return False, None
@@ -121,16 +118,45 @@ def check_vsdx_exists(entity_id):
 
 
 def get_active_entity():
-    """Récupère l'entité active depuis la session."""
+    """
+    Récupère l'entité active.
+    Priorité : session → is_active en DB → première entité de l'utilisateur.
+    Synchronise toujours la session avec ce qui est trouvé.
+    """
+    user_id = session.get('user_id')
     entity_id = session.get('active_entity_id')
-    if not entity_id:
+
+    # 1. Session valide → vérifier que l'entité appartient à l'utilisateur
+    if entity_id and user_id:
+        entity = Entity.query.filter_by(id=entity_id, owner_id=user_id).first()
+        if entity:
+            return entity
+
+    if not user_id:
+        # Fallback sans vérif owner si pas de user en session
+        if entity_id:
+            return Entity.query.get(entity_id)
         return None
-    return Entity.query.get(entity_id)
+
+    # 2. Chercher l'entité marquée is_active=True en DB
+    active_db = Entity.query.filter_by(owner_id=user_id, is_active=True).first()
+    if active_db:
+        session['active_entity_id'] = active_db.id
+        return active_db
+
+    # 3. Dernière entité créée par l'utilisateur (plus récente = plus probable)
+    latest = Entity.query.filter_by(owner_id=user_id).order_by(Entity.id.desc()).first()
+    if latest:
+        session['active_entity_id'] = latest.id
+        return latest
+
+    return None
 
 
 def get_active_entity_id():
-    """Récupère l'ID de l'entité active depuis la session."""
-    return session.get('active_entity_id')
+    """Récupère l'ID de l'entité active."""
+    entity = get_active_entity()
+    return entity.id if entity else None
 
 
 def _normalize_link_type(raw):
@@ -356,18 +382,24 @@ def create_entity():
 @activities_map_bp.route("/api/entities/<int:entity_id>/activate", methods=["POST"])
 def activate_entity(entity_id):
     user_id = session.get('user_id')
-    
+
     if not user_id:
         return jsonify({"error": "Non connecté"}), 401
-    
+
     entity = Entity.query.filter_by(id=entity_id, owner_id=user_id).first()
-    
+
     if not entity:
         return jsonify({"error": "Entité non trouvée"}), 404
-    
+
+    # Désactiver toutes les autres entités de l'utilisateur en DB
+    Entity.query.filter_by(owner_id=user_id).update({'is_active': False})
+    entity.is_active = True
+    db.session.commit()
+
+    # Mettre aussi à jour la session (double garantie)
     session['active_entity_id'] = entity.id
     print(f"[CARTO] Entité activée: {entity.id} ({entity.name})")
-    
+
     return jsonify({
         "status": "ok",
         "message": f"Entité '{entity.name}' activée"

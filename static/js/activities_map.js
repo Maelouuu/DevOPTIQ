@@ -763,11 +763,15 @@ async function submitWizard() {
     setStep("svg", "done"); setStep("vsdx", "active");
     const data = await res.json();
     setStep("vsdx", "done"); setStep("save", "active");
-    
+
+    if (data.error) { showError(data.error); return; }
+
+    // Auto-activer l'entité uploadée pour qu'elle s'affiche correctement après reload
+    await fetch(`/activities/api/entities/${entity.id}/activate`, { method: "POST" });
+
     await new Promise(r => setTimeout(r, 200));
     setStep("save", "done");
 
-    if (data.error) { showError(data.error); return; }
     showSuccess(data);
   } catch (e) { showError("Erreur réseau"); }
 }
