@@ -83,15 +83,18 @@ def check_svg_exists(entity_id):
         print(f"[CARTO] SVG trouvé pour entité {entity_id}: {svg_path}")
         return True, svg_path
 
-    # Si l'entité a un svg_filename configuré en base, le fichier devrait exister
-    # mais il est absent → ne pas faire de fallback sur un SVG d'une autre entité
-    entity = Entity.query.get(entity_id)
-    if entity and entity.svg_filename:
-        print(f"[CARTO] SVG configuré ('{entity.svg_filename}') mais fichier absent pour entité {entity_id}")
-        return False, None
+    # Scan du dossier entité pour tout fichier .svg (fallback nom différent)
+    entity_dir = get_entity_dir(entity_id)
+    if os.path.isdir(entity_dir):
+        svgs = sorted(f for f in os.listdir(entity_dir) if f.endswith('.svg'))
+        if svgs:
+            found_path = os.path.join(entity_dir, svgs[0])
+            print(f"[CARTO] SVG trouvé (scan) pour entité {entity_id}: {found_path}")
+            return True, found_path
 
-    # Migration legacy : si l'entité n'a pas encore de SVG dédié ET qu'un SVG global existe
+    # Migration legacy : si aucun SVG dédié ET SVG global existe
     # ET que l'entité a des activités → copier le SVG global dans le dossier de l'entité
+    entity = Entity.query.get(entity_id)
     if os.path.exists(OLD_SVG_PATH):
         from Code.models.models import Activities
         activities_count = Activities.query.filter_by(entity_id=entity_id).count()
@@ -126,16 +129,15 @@ def get_active_entity():
     user_id = session.get('user_id')
     entity_id = session.get('active_entity_id')
 
-    # 1. Session valide → vérifier que l'entité appartient à l'utilisateur
-    if entity_id and user_id:
-        entity = Entity.query.filter_by(id=entity_id, owner_id=user_id).first()
+    # 1. Session valide → récupérer sans filtre strict owner_id
+    if entity_id:
+        entity = Entity.query.get(entity_id)
         if entity:
-            return entity
+            # Vérification souple : valide si owner_id est None ou correspond à user
+            if not user_id or entity.owner_id is None or entity.owner_id == user_id:
+                return entity
 
     if not user_id:
-        # Fallback sans vérif owner si pas de user en session
-        if entity_id:
-            return Entity.query.get(entity_id)
         return None
 
     # 2. Chercher l'entité marquée is_active=True en DB
