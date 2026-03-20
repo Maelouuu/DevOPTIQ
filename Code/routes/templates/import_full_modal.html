@@ -1,0 +1,307 @@
+<!-- ============================================================
+     IMPORT GLOBAL IA — Modal complet
+     Inclus dans activities_map.html
+     ============================================================ -->
+<link rel="stylesheet" href="{{ url_for('static', filename='import_full.css') }}">
+<script defer src="{{ url_for('static', filename='js/import_full.js') }}"></script>
+
+<!-- ── Overlay principal ────────────────────────────────────── -->
+<div id="import-full-overlay" class="if-overlay hidden">
+  <div class="if-modal">
+
+    <!-- HEADER -->
+    <div class="if-header">
+      <div class="if-header-left">
+        <div class="if-header-icon">
+          <i class="fa-solid fa-wand-magic-sparkles"></i>
+        </div>
+        <div class="if-header-text">
+          <h2>Import global IA</h2>
+          <span class="if-header-sub">Analyse intelligente de votre fichier Excel</span>
+        </div>
+      </div>
+      <button class="if-close-btn" id="if-close-btn" title="Fermer">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+    </div>
+
+    <!-- STEPPER -->
+    <div class="if-stepper" id="if-stepper">
+      <div class="if-step active" data-step="1">
+        <div class="if-step-dot"><span>1</span></div>
+        <span class="if-step-label">Fichier</span>
+      </div>
+      <div class="if-step-line"></div>
+      <div class="if-step" data-step="2">
+        <div class="if-step-dot"><span>2</span></div>
+        <span class="if-step-label">Analyse IA</span>
+      </div>
+      <div class="if-step-line"></div>
+      <div class="if-step" data-step="3">
+        <div class="if-step-dot"><span>3</span></div>
+        <span class="if-step-label">Validation</span>
+      </div>
+      <div class="if-step-line"></div>
+      <div class="if-step" data-step="4">
+        <div class="if-step-dot"><span>4</span></div>
+        <span class="if-step-label">Résultat</span>
+      </div>
+    </div>
+
+    <!-- BODY SCROLLABLE -->
+    <div class="if-body">
+
+      <!-- ═══ ÉTAPE 1 : UPLOAD ═══════════════════════════════════ -->
+      <div class="if-screen active" id="if-screen-1">
+        <div class="if-upload-zone" id="if-dropzone">
+          <div class="if-upload-icon">
+            <i class="fa-solid fa-file-excel"></i>
+          </div>
+          <p class="if-upload-title">Déposez votre fichier Excel ici</p>
+          <p class="if-upload-hint">ou cliquez pour sélectionner</p>
+          <p class="if-upload-formats">.xlsx · .xls · .xlsm</p>
+          <input type="file" id="if-file-input" accept=".xlsx,.xls,.xlsm" hidden>
+        </div>
+
+        <div class="if-file-preview hidden" id="if-file-preview">
+          <div class="if-file-preview-icon">
+            <i class="fa-solid fa-file-excel"></i>
+          </div>
+          <div class="if-file-preview-info">
+            <span class="if-file-name" id="if-file-name">fichier.xlsx</span>
+            <span class="if-file-size" id="if-file-size">0 KB</span>
+          </div>
+          <button class="if-file-remove" id="if-file-remove" title="Supprimer">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        </div>
+
+        <div class="if-info-box">
+          <i class="fa-solid fa-circle-info"></i>
+          <div>
+            <strong>Comment ça marche ?</strong>
+            <p>L'assistant IA analyse votre fichier, détecte les activités et tâches, puis les mappe intelligemment aux activités déjà présentes dans la cartographie active. Vous validez avant tout import.</p>
+          </div>
+        </div>
+
+        <div class="if-footer">
+          <button class="if-btn-secondary" id="if-cancel-1">Annuler</button>
+          <button class="if-btn-primary" id="if-analyze-btn" disabled>
+            <i class="fa-solid fa-magnifying-glass-chart"></i>
+            Analyser avec l'IA
+          </button>
+        </div>
+      </div>
+
+      <!-- ═══ ÉTAPE 2 : ANALYSE EN COURS ══════════════════════════ -->
+      <div class="if-screen" id="if-screen-2">
+        <div class="if-loading-zone">
+          <div class="if-ai-spinner">
+            <div class="if-spinner-ring"></div>
+            <div class="if-spinner-ring"></div>
+            <div class="if-spinner-ring"></div>
+            <div class="if-spinner-core">
+              <i class="fa-solid fa-robot"></i>
+            </div>
+          </div>
+          <h3 class="if-loading-title">Analyse en cours…</h3>
+          <div class="if-loading-steps">
+            <div class="if-loading-step active" id="proc-read">
+              <i class="fa-solid fa-circle-notch fa-spin"></i>
+              Lecture du fichier Excel
+            </div>
+            <div class="if-loading-step" id="proc-match">
+              <i class="fa-solid fa-circle-notch fa-spin"></i>
+              Matching des activités
+            </div>
+            <div class="if-loading-step" id="proc-struct">
+              <i class="fa-solid fa-circle-notch fa-spin"></i>
+              Structuration des données
+            </div>
+          </div>
+          <p class="if-loading-note">Cela peut prendre quelques secondes selon la taille du fichier.</p>
+        </div>
+      </div>
+
+      <!-- ═══ ÉTAPE 3 : VALIDATION ════════════════════════════════ -->
+      <div class="if-screen" id="if-screen-3">
+
+        <!-- Résumé global -->
+        <div class="if-review-summary" id="if-review-summary">
+          <div class="if-summary-card matched">
+            <div class="if-summary-num" id="if-sum-matched">0</div>
+            <div class="if-summary-label">Activités mappées</div>
+          </div>
+          <div class="if-summary-card unmatched">
+            <div class="if-summary-num" id="if-sum-unmatched">0</div>
+            <div class="if-summary-label">À résoudre</div>
+          </div>
+          <div class="if-summary-card tasks">
+            <div class="if-summary-num" id="if-sum-tasks">0</div>
+            <div class="if-summary-label">Tâches détectées</div>
+          </div>
+        </div>
+
+        <!-- Notes de l'IA -->
+        <div class="if-ai-notes hidden" id="if-ai-notes">
+          <i class="fa-solid fa-robot"></i>
+          <span id="if-ai-notes-text"></span>
+        </div>
+
+        <!-- Tabs -->
+        <div class="if-tabs">
+          <button class="if-tab active" data-tab="matched">
+            <i class="fa-solid fa-circle-check"></i>
+            Données mappées <span class="if-tab-badge" id="tab-badge-matched">0</span>
+          </button>
+          <button class="if-tab" data-tab="unmatched">
+            <i class="fa-solid fa-triangle-exclamation"></i>
+            À résoudre <span class="if-tab-badge unmatched" id="tab-badge-unmatched">0</span>
+          </button>
+        </div>
+
+        <!-- Contenu tab : Mappées -->
+        <div class="if-tab-content active" id="if-tab-matched">
+          <div class="if-tab-info">
+            <i class="fa-solid fa-circle-info"></i>
+            Ces données seront importées dans les activités correspondantes. Décochez celles à exclure.
+          </div>
+          <div id="if-matched-list" class="if-groups-list"></div>
+        </div>
+
+        <!-- Contenu tab : Non mappées -->
+        <div class="if-tab-content" id="if-tab-unmatched">
+          <div class="if-tab-info unmatched">
+            <i class="fa-solid fa-triangle-exclamation"></i>
+            Ces groupes n'ont pas été mappés automatiquement. Assignez-les manuellement ou ignorez-les.
+          </div>
+          <div id="if-unmatched-list" class="if-groups-list"></div>
+        </div>
+
+        <div class="if-footer">
+          <button class="if-btn-secondary" id="if-back-3">← Recommencer</button>
+          <div class="if-footer-right">
+            <span class="if-footer-note" id="if-inject-preview"></span>
+            <button class="if-btn-success" id="if-inject-btn">
+              <i class="fa-solid fa-bolt"></i>
+              Importer les données validées
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══ ÉTAPE 4 : RÉSULTAT ══════════════════════════════════ -->
+      <div class="if-screen" id="if-screen-4">
+        <div class="if-result-zone" id="if-result-success" class="hidden">
+          <div class="if-result-icon success">
+            <i class="fa-solid fa-circle-check"></i>
+          </div>
+          <h3>Import réussi !</h3>
+          <p class="if-result-subtitle">Les données ont été importées avec succès dans la cartographie.</p>
+          <div class="if-result-stats" id="if-result-stats"></div>
+        </div>
+        <div class="if-result-zone hidden" id="if-result-error">
+          <div class="if-result-icon error">
+            <i class="fa-solid fa-circle-xmark"></i>
+          </div>
+          <h3>Une erreur s'est produite</h3>
+          <p class="if-result-error-msg" id="if-result-error-msg"></p>
+        </div>
+        <div class="if-footer">
+          <button class="if-btn-secondary hidden" id="if-retry-btn">Réessayer</button>
+          <button class="if-btn-primary" id="if-done-btn">
+            <i class="fa-solid fa-xmark"></i>
+            Fermer
+          </button>
+        </div>
+      </div>
+
+    </div><!-- / if-body -->
+
+  </div><!-- / if-modal -->
+</div><!-- / if-overlay -->
+
+
+<!-- ── Template : Groupe mappé ──────────────────────────────── -->
+<template id="tpl-matched-group">
+  <div class="if-group-card matched">
+    <div class="if-group-header">
+      <label class="if-group-checkbox-label">
+        <input type="checkbox" class="if-group-select" checked>
+        <span class="if-group-checkmark"></span>
+      </label>
+      <div class="if-group-title-area">
+        <span class="if-group-activity-name"></span>
+        <span class="if-group-confidence-badge"></span>
+      </div>
+      <div class="if-group-meta">
+        <span class="if-group-match-name"></span>
+        <span class="if-group-tasks-count"></span>
+      </div>
+      <button class="if-group-toggle" title="Développer">
+        <i class="fa-solid fa-chevron-down"></i>
+      </button>
+    </div>
+    <div class="if-group-body hidden">
+      <div class="if-match-reason"></div>
+      <table class="if-tasks-table">
+        <thead>
+          <tr>
+            <th>Tâche</th>
+            <th>Outils</th>
+            <th>Doer</th>
+            <th>Compétences</th>
+          </tr>
+        </thead>
+        <tbody class="if-tasks-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+</template>
+
+<!-- ── Template : Groupe non mappé ──────────────────────────── -->
+<template id="tpl-unmatched-group">
+  <div class="if-group-card unmatched">
+    <div class="if-group-header">
+      <div class="if-group-warning-icon">
+        <i class="fa-solid fa-triangle-exclamation"></i>
+      </div>
+      <div class="if-group-title-area">
+        <span class="if-group-activity-name"></span>
+        <span class="if-group-tasks-count"></span>
+      </div>
+      <button class="if-group-toggle" title="Développer">
+        <i class="fa-solid fa-chevron-down"></i>
+      </button>
+    </div>
+    <div class="if-group-body">
+      <div class="if-unmatched-reason"></div>
+      <div class="if-unmatched-assign">
+        <label class="if-assign-label">
+          <i class="fa-solid fa-link"></i>
+          Assigner à une activité :
+        </label>
+        <div class="if-assign-row">
+          <select class="if-activity-select">
+            <option value="">— Ignorer ce groupe —</option>
+          </select>
+        </div>
+      </div>
+      <div class="if-possible-matches hidden">
+        <p class="if-pm-title"><i class="fa-solid fa-lightbulb"></i> Suggestions de l'IA :</p>
+        <div class="if-pm-list"></div>
+      </div>
+      <table class="if-tasks-table">
+        <thead>
+          <tr>
+            <th>Tâche</th>
+            <th>Outils</th>
+            <th>Doer</th>
+            <th>Compétences</th>
+          </tr>
+        </thead>
+        <tbody class="if-tasks-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+</template>

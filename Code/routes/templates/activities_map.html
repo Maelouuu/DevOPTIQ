@@ -1,4 +1,5 @@
 {% include "header_buttons.html" %}
+{% include "import_full_modal.html" %}
 <link rel="stylesheet" href="{{ url_for('static', filename='cartography.css') }}">
 
 <script>
@@ -25,7 +26,13 @@
         <span class="entity-badge inactive">⚠️ Aucune entité active</span>
       {% endif %}
     </div>
-    <button id="carto-wizard-btn" class="carto-wizard-btn">📦 Gérer la cartographie</button>
+    <div class="carto-header-right">
+      <button id="btn-import-full" class="btn-import-full">
+        <i class="fa-solid fa-wand-magic-sparkles"></i>
+        Import global IA
+      </button>
+      <button id="carto-wizard-btn" class="carto-wizard-btn">📦 Gérer la cartographie</button>
+    </div>
   </div>
 
   <!-- INFO NAVIGATION -->

@@ -210,6 +210,9 @@ def create_app():
     from Code.routes.import_tasks import import_tasks_bp
     app.register_blueprint(import_tasks_bp)
 
+    from Code.routes.import_full import import_full_bp
+    app.register_blueprint(import_full_bp)
+
     # secret key
     app.secret_key = os.getenv("SECRET_KEY", "devoptiq-secret")
 

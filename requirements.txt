@@ -11,4 +11,5 @@ python-dotenv
 gunicorn
 psycopg2-binary
 requests
+openpyxl
 
