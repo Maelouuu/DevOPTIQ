@@ -140,14 +140,20 @@ def get_active_entity():
     if not user_id:
         return None
 
-    # 2. Chercher l'entité marquée is_active=True en DB
-    active_db = Entity.query.filter_by(owner_id=user_id, is_active=True).first()
+    # 2. Chercher l'entité marquée is_active=True en DB (avec ou sans owner_id)
+    from sqlalchemy import or_
+    active_db = Entity.query.filter(
+        Entity.is_active == True,
+        or_(Entity.owner_id == user_id, Entity.owner_id == None)
+    ).first()
     if active_db:
         session['active_entity_id'] = active_db.id
         return active_db
 
-    # 3. Dernière entité créée par l'utilisateur (plus récente = plus probable)
-    latest = Entity.query.filter_by(owner_id=user_id).order_by(Entity.id.desc()).first()
+    # 3. Dernière entité de l'utilisateur (avec ou sans owner_id)
+    latest = Entity.query.filter(
+        or_(Entity.owner_id == user_id, Entity.owner_id == None)
+    ).order_by(Entity.id.desc()).first()
     if latest:
         session['active_entity_id'] = latest.id
         return latest
@@ -388,13 +394,20 @@ def activate_entity(entity_id):
     if not user_id:
         return jsonify({"error": "Non connecté"}), 401
 
-    entity = Entity.query.filter_by(id=entity_id, owner_id=user_id).first()
+    entity = Entity.query.get(entity_id)
 
     if not entity:
         return jsonify({"error": "Entité non trouvée"}), 404
 
+    # Vérification souple : accepter si owner_id est None ou correspond
+    if entity.owner_id is not None and entity.owner_id != user_id:
+        return jsonify({"error": "Entité non trouvée"}), 404
+
     # Désactiver toutes les autres entités de l'utilisateur en DB
     Entity.query.filter_by(owner_id=user_id).update({'is_active': False})
+    # Couvrir aussi les entités sans owner_id (données legacy)
+    if entity.owner_id is None:
+        Entity.query.filter(Entity.owner_id == None, Entity.id != entity_id).update({'is_active': False})
     entity.is_active = True
     db.session.commit()
 
