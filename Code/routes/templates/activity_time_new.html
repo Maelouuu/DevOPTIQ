@@ -3,6 +3,9 @@
 
 <div class="time-section-modern" data-activity-id="{{ activity.id }}">
 
+    <!-- Feedback inline -->
+    <div class="time-feedback-msg" id="time-feedback-{{ activity.id }}" style="display:none;" role="status" aria-live="polite"></div>
+
     <!-- Mode de saisie -->
     <div class="time-mode-selector">
         <label class="time-mode-option">
@@ -30,12 +33,11 @@
                     <input type="number" step="0.1" min="0"
                            class="time-input"
                            id="time-duration-{{ activity.id }}"
-                           value="{{ activity.time_value or '' }}"
                            placeholder="0">
                     <select class="time-unit-select" id="time-unit-{{ activity.id }}">
-                        <option value="minutes" {% if activity.time_unit == 'minutes' %}selected{% endif %}>min</option>
-                        <option value="heures" {% if activity.time_unit == 'heures' %}selected{% endif %}>h</option>
-                        <option value="jours" {% if activity.time_unit == 'jours' %}selected{% endif %}>j</option>
+                        <option value="minutes">min</option>
+                        <option value="heures">h</option>
+                        <option value="jours">j</option>
                     </select>
                 </div>
             </div>
@@ -45,12 +47,11 @@
                     <input type="number" step="0.1" min="0"
                            class="time-input"
                            id="time-delay-{{ activity.id }}"
-                           value="{{ activity.delay_value or '' }}"
                            placeholder="0">
                     <select class="time-unit-select" id="delay-unit-{{ activity.id }}">
-                        <option value="minutes" {% if activity.delay_unit == 'minutes' %}selected{% endif %}>min</option>
-                        <option value="heures" {% if activity.delay_unit == 'heures' %}selected{% endif %}>h</option>
-                        <option value="jours" {% if activity.delay_unit == 'jours' %}selected{% endif %}>j</option>
+                        <option value="minutes">min</option>
+                        <option value="heures">h</option>
+                        <option value="jours">j</option>
                     </select>
                 </div>
             </div>
@@ -77,14 +78,13 @@
                                 <input type="number" step="0.1" min="0"
                                        class="time-input time-task-input"
                                        data-task-id="{{ task.id }}"
-                                       value="{{ task.duration or '' }}"
                                        placeholder="0">
                             </td>
                             <td>
                                 <select class="time-unit-select time-task-unit" data-task-id="{{ task.id }}">
-                                    <option value="minutes" {% if task.duration_unit == 'minutes' %}selected{% endif %}>min</option>
-                                    <option value="heures" {% if task.duration_unit == 'heures' %}selected{% endif %}>h</option>
-                                    <option value="jours" {% if task.duration_unit == 'jours' %}selected{% endif %}>j</option>
+                                    <option value="minutes">min</option>
+                                    <option value="heures">h</option>
+                                    <option value="jours">j</option>
                                 </select>
                             </td>
                         </tr>
@@ -138,97 +138,166 @@
     const activityId = '{{ activity.id }}';
     const modeRadios = document.querySelectorAll(`input[name="time-mode-${activityId}"]`);
     const globalBlock = document.getElementById(`time-global-${activityId}`);
-    const tasksBlock = document.getElementById(`time-tasks-${activityId}`);
+    const tasksBlock  = document.getElementById(`time-tasks-${activityId}`);
+    const taskBody    = document.getElementById(`time-tasks-body-${activityId}`);
 
+    // Basculement de mode
     modeRadios.forEach(radio => {
         radio.addEventListener('change', function() {
             if (this.value === 'activity') {
                 globalBlock.style.display = 'block';
-                tasksBlock.style.display = 'none';
+                tasksBlock.style.display  = 'none';
             } else {
                 globalBlock.style.display = 'none';
-                tasksBlock.style.display = 'block';
+                tasksBlock.style.display  = 'block';
                 calculateTasksSum(activityId);
             }
         });
     });
 
-    // Calcul automatique de la somme des tâches
-    const taskInputs = document.querySelectorAll(`#time-tasks-body-${activityId} .time-task-input`);
-    taskInputs.forEach(input => {
-        input.addEventListener('input', () => calculateTasksSum(activityId));
-    });
+    // Recalcul somme tâches
+    if (taskBody) {
+        taskBody.addEventListener('input', () => calculateTasksSum(activityId));
+    }
+
+    // Charger l'état sauvegardé depuis l'API
+    loadActivityTimeState(activityId);
 })();
 
+/* ---------- Feedback inline ---------- */
+function showTimeFeedback(activityId, isOk, msg) {
+    const el = document.getElementById(`time-feedback-${activityId}`);
+    if (!el) return;
+    el.textContent = msg;
+    el.className = 'time-feedback-msg ' + (isOk ? 'time-feedback-ok' : 'time-feedback-error');
+    el.style.display = 'block';
+    setTimeout(() => { el.style.display = 'none'; }, 3500);
+}
+
+/* ---------- Chargement depuis l'API ---------- */
+async function loadActivityTimeState(activityId) {
+    try {
+        const r = await fetch(`/temps/api/activity_time/${activityId}`);
+        const j = await r.json();
+        if (!j.ok) return;
+
+        const durEl      = document.getElementById(`time-duration-${activityId}`);
+        const unitEl     = document.getElementById(`time-unit-${activityId}`);
+        const delEl      = document.getElementById(`time-delay-${activityId}`);
+        const delUnitEl  = document.getElementById(`delay-unit-${activityId}`);
+
+        // Valeurs toujours stockées en minutes
+        if (durEl)     durEl.value     = j.activity?.duration_minutes || '';
+        if (unitEl)    unitEl.value    = 'minutes';
+        if (delEl)     delEl.value     = j.activity?.delay_minutes || '';
+        if (delUnitEl) delUnitEl.value = 'minutes';
+
+        // Durées par tâches
+        (j.tasks || []).forEach(t => {
+            const input = document.querySelector(
+                `#time-tasks-body-${activityId} input[data-task-id="${t.id}"]`
+            );
+            if (input && t.duration_minutes) input.value = t.duration_minutes;
+        });
+        calculateTasksSum(activityId);
+
+        // Mode suggéré
+        const mode = j.mode || 'activity';
+        document.querySelectorAll(`input[name="time-mode-${activityId}"]`).forEach(r => {
+            r.checked = (r.value === mode);
+        });
+        const globalBlock = document.getElementById(`time-global-${activityId}`);
+        const tasksBlock  = document.getElementById(`time-tasks-${activityId}`);
+        if (globalBlock) globalBlock.style.display = (mode === 'tasks') ? 'none' : 'block';
+        if (tasksBlock)  tasksBlock.style.display  = (mode === 'tasks') ? 'block' : 'none';
+
+    } catch (err) {
+        console.error('Erreur chargement temps activité:', err);
+    }
+}
+
+/* ---------- Calcul somme tâches ---------- */
 function calculateTasksSum(activityId) {
     const inputs = document.querySelectorAll(`#time-tasks-body-${activityId} .time-task-input`);
     let totalMinutes = 0;
-
     inputs.forEach(input => {
         const value = parseFloat(input.value) || 0;
-        const unitSelect = input.closest('tr').querySelector('.time-task-unit');
+        const unitSelect = input.closest('tr')?.querySelector('.time-task-unit');
         const unit = unitSelect ? unitSelect.value : 'minutes';
-
-        if (unit === 'heures') totalMinutes += value * 60;
-        else if (unit === 'jours') totalMinutes += value * 60 * 8;
-        else totalMinutes += value;
+        if      (unit === 'heures') totalMinutes += value * 60;
+        else if (unit === 'jours')  totalMinutes += value * 480;
+        else                        totalMinutes += value;
     });
-
-    document.getElementById(`time-sum-${activityId}`).textContent = totalMinutes.toFixed(1);
+    const sumEl = document.getElementById(`time-sum-${activityId}`);
+    if (sumEl) sumEl.textContent = totalMinutes.toFixed(1);
 }
 
+/* ---------- Enregistrement ---------- */
 function saveActivityTime(activityId) {
-    const mode = document.querySelector(`input[name="time-mode-${activityId}"]:checked`).value;
-    let data = { activity_id: activityId, mode: mode };
+    const modeEl = document.querySelector(`input[name="time-mode-${activityId}"]:checked`);
+    if (!modeEl) return;
+    const mode = modeEl.value;
+    const data = { activity_id: activityId, mode };
 
     if (mode === 'activity') {
-        data.duration = document.getElementById(`time-duration-${activityId}`).value;
-        data.duration_unit = document.getElementById(`time-unit-${activityId}`).value;
-        data.delay = document.getElementById(`time-delay-${activityId}`).value;
-        data.delay_unit = document.getElementById(`delay-unit-${activityId}`).value;
+        data.duration      = document.getElementById(`time-duration-${activityId}`)?.value || '0';
+        data.duration_unit = document.getElementById(`time-unit-${activityId}`)?.value || 'minutes';
+        data.delay         = document.getElementById(`time-delay-${activityId}`)?.value || '0';
+        data.delay_unit    = document.getElementById(`delay-unit-${activityId}`)?.value || 'minutes';
     } else {
         const tasks = [];
         document.querySelectorAll(`#time-tasks-body-${activityId} tr[data-task-id]`).forEach(row => {
-            const taskId = row.dataset.taskId;
-            const duration = row.querySelector('.time-task-input').value;
-            const unit = row.querySelector('.time-task-unit').value;
-            tasks.push({ task_id: taskId, duration: duration, duration_unit: unit });
+            tasks.push({
+                task_id:       row.dataset.taskId,
+                duration:      row.querySelector('.time-task-input')?.value || '0',
+                duration_unit: row.querySelector('.time-task-unit')?.value  || 'minutes'
+            });
         });
-        data.tasks = tasks;
-        data.delay = document.getElementById(`time-delay-tasks-${activityId}`).value;
-        data.delay_unit = document.getElementById(`delay-tasks-unit-${activityId}`).value;
+        data.tasks      = tasks;
+        data.delay      = document.getElementById(`time-delay-tasks-${activityId}`)?.value || '0';
+        data.delay_unit = document.getElementById(`delay-tasks-unit-${activityId}`)?.value || 'minutes';
     }
 
     fetch(`/temps/api/activity_time/${activityId}`, {
-        method: 'POST',
+        method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data)
+        body:    JSON.stringify(data)
     })
     .then(r => r.json())
     .then(resp => {
         if (resp.ok) {
-            alert('Temps enregistré avec succès !');
+            showTimeFeedback(activityId, true, 'Temps enregistré avec succès');
         } else {
-            alert('Erreur: ' + (resp.error || 'Erreur inconnue'));
+            showTimeFeedback(activityId, false, 'Erreur : ' + (resp.error || 'Erreur inconnue'));
         }
     })
-    .catch(err => {
-        console.error('Erreur:', err);
-        alert('Erreur lors de l\'enregistrement');
-    });
+    .catch(() => showTimeFeedback(activityId, false, "Erreur lors de l'enregistrement"));
 }
 
+/* ---------- Réinitialisation ---------- */
 function resetActivityTime(activityId) {
-    if (!confirm('Réinitialiser les valeurs de temps ?')) return;
+    if (!confirm('Réinitialiser les valeurs de temps pour cette activité ?')) return;
 
     fetch(`/temps/api/activity_time/${activityId}`, { method: 'DELETE' })
-        .catch(err => console.error('Erreur reset temps:', err));
-
-    document.getElementById(`time-duration-${activityId}`).value = '';
-    document.getElementById(`time-delay-${activityId}`).value = '';
-    document.querySelectorAll(`#time-tasks-body-${activityId} .time-task-input`).forEach(input => {
-        input.value = '';
-    });
-    document.getElementById(`time-sum-${activityId}`).textContent = '0';
+    .then(r => r.json())
+    .then(resp => {
+        if (resp.ok) {
+            const durEl     = document.getElementById(`time-duration-${activityId}`);
+            const delEl     = document.getElementById(`time-delay-${activityId}`);
+            const delTaskEl = document.getElementById(`time-delay-tasks-${activityId}`);
+            if (durEl)     durEl.value     = '';
+            if (delEl)     delEl.value     = '';
+            if (delTaskEl) delTaskEl.value = '';
+            document.querySelectorAll(`#time-tasks-body-${activityId} .time-task-input`).forEach(inp => {
+                inp.value = '';
+            });
+            const sumEl = document.getElementById(`time-sum-${activityId}`);
+            if (sumEl) sumEl.textContent = '0';
+            showTimeFeedback(activityId, true, 'Valeurs réinitialisées');
+        } else {
+            showTimeFeedback(activityId, false, 'Erreur lors de la réinitialisation');
+        }
+    })
+    .catch(() => showTimeFeedback(activityId, false, 'Erreur lors de la réinitialisation'));
 }
 </script>

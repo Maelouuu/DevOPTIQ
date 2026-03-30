@@ -203,11 +203,20 @@
   });
   toggleFwMode();
 
+  function showFwFeedback(isOk, msg) {
+    const el = document.getElementById('fw-feedback');
+    if (!el) return;
+    el.textContent = msg;
+    el.className = 'time-inline-feedback ' + (isOk ? 'ok' : 'error');
+    el.style.display = 'block';
+    setTimeout(() => { el.style.display = 'none'; }, 3500);
+  }
+
   async function sendWeakness(save=false){
     const modeEl = $$('input[name="fw-mode"]:checked')[0];
-    if (!modeEl) return alert('Sélectionnez un mode');
+    if (!modeEl) return showFwFeedback(false, 'Sélectionnez un mode');
     const mode = modeEl.value;
-    
+
     const payload = {
       mode,
       activity_id: parseInt($('#fw-activity')?.value || '0', 10),
@@ -235,7 +244,7 @@
 
     const r = await fetch('/temps/api/weakness', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)});
     const j = await r.json();
-    if (!j.ok) return alert('Erreur de calcul/enregistrement');
+    if (!j.ok) return showFwFeedback(false, 'Erreur de calcul / enregistrement');
 
     const m = j.calc || {};
     ['S','T','U','V','W','X','Y','Z','AA'].forEach(k=>{
@@ -243,7 +252,7 @@
       const el = document.getElementById(k);
       if (el) el.textContent = val;
     });
-    if (save) alert('Analyse faiblesse enregistrée.');
+    if (save) showFwFeedback(true, 'Analyse faiblesse enregistrée avec succès');
   }
 
   $('#btn-fw-calc')?.addEventListener('click', ()=> sendWeakness(false));
