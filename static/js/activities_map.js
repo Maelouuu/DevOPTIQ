@@ -389,13 +389,13 @@ async function loadEntitiesList() {
 
     list.innerHTML = data.map(e => `
       <div class="entity-grid-item ${e.is_active ? 'active' : ''}" data-id="${e.id}">
-        <div class="entity-grid-icon">🏢</div>
+        <div class="entity-grid-icon"><i class="fa-solid fa-building"></i></div>
         <div class="entity-grid-info">
           <span class="entity-grid-name">${e.name}</span>
           <span class="entity-grid-stats">${e.activities_count || 0} activités</span>
         </div>
         ${e.is_active ? '<span class="entity-grid-badge">Active</span>' : ''}
-        ${e.svg_filename ? '<span class="entity-grid-svg">🖼️</span>' : ''}
+        ${e.svg_exists ? '<span class="entity-grid-svg"><i class="fa-solid fa-image"></i></span>' : ''}
       </div>
     `).join("");
 

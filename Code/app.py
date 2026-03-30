@@ -213,6 +213,16 @@ def create_app():
     from Code.routes.import_full import import_full_bp
     app.register_blueprint(import_full_bp)
 
+    # Auto-migration au démarrage (nécessaire sur les serveurs cloud avec filesystem éphémère)
+    # Les blueprints sont enregistrés avant pour garantir que tous les modèles sont chargés
+    with app.app_context():
+        try:
+            from flask_migrate import upgrade as db_upgrade
+            db_upgrade()
+            print("[DB] Migrations appliquées avec succès")
+        except Exception as e:
+            print(f"[DB] Avertissement migration (ignoré): {e}")
+
     # secret key
     app.secret_key = os.getenv("SECRET_KEY", "devoptiq-secret")
 

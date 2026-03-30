@@ -21,9 +21,9 @@
     <div class="carto-header-left">
       <h1>Cartographie des activités</h1>
       {% if active_entity %}
-        <span class="entity-badge active">🏢 {{ active_entity.name }}</span>
+        <span class="entity-badge active"><i class="fa-solid fa-building"></i> {{ active_entity.name }}</span>
       {% else %}
-        <span class="entity-badge inactive">⚠️ Aucune entité active</span>
+        <span class="entity-badge inactive"><i class="fa-solid fa-triangle-exclamation"></i> Aucune entité active</span>
       {% endif %}
     </div>
     <div class="carto-header-right">
@@ -31,7 +31,7 @@
         <i class="fa-solid fa-wand-magic-sparkles"></i>
         Import global IA
       </button>
-      <button id="carto-wizard-btn" class="carto-wizard-btn">📦 Gérer la cartographie</button>
+      <button id="carto-wizard-btn" class="carto-wizard-btn"><i class="fa-solid fa-layer-group"></i> Gérer la cartographie</button>
     </div>
   </div>
 
@@ -47,8 +47,8 @@
     <div class="wizard-container">
       
       <div class="wizard-header">
-        <h2 id="wizard-title">📦 Gestion de la cartographie</h2>
-        <button id="close-wizard" class="btn-close">✕</button>
+        <h2 id="wizard-title"><i class="fa-solid fa-layer-group" style="color:#8b5cf6;margin-right:8px"></i>Gestion de la cartographie</h2>
+        <button id="close-wizard" class="btn-close"><i class="fa-solid fa-xmark"></i></button>
       </div>
 
       <div class="wizard-progress hidden" id="wizard-progress">
@@ -74,7 +74,7 @@
         <div id="wizard-screen-entities" class="wizard-screen active">
           <div class="entities-screen">
             <div class="entities-header">
-              <h3>🏢 Sélectionnez une entité</h3>
+              <h3><i class="fa-solid fa-building" style="color:#7c3aed;margin-right:6px"></i>Sélectionnez une entité</h3>
               <p>Choisissez l'entité dont vous souhaitez gérer la cartographie</p>
             </div>
             <div class="new-entity-inline">
@@ -95,7 +95,7 @@
           <div class="action-screen">
             <div class="selected-entity-card">
               <div class="entity-card-header">
-                <div class="entity-card-icon">🏢</div>
+                <div class="entity-card-icon"><i class="fa-solid fa-building"></i></div>
                 <div class="entity-card-info">
                   <h3 id="selected-entity-name">Nom de l'entité</h3>
                   <div class="entity-card-stats">
@@ -108,12 +108,12 @@
               </div>
               <div class="entity-files-status">
                 <div class="file-status-item">
-                  <span class="file-icon">🖼️</span>
+                  <span class="file-icon"><i class="fa-solid fa-image" style="color:#8b5cf6"></i></span>
                   <span class="file-label">SVG</span>
                   <span class="file-value" id="selected-entity-svg-value">-</span>
                 </div>
                 <div class="file-status-item">
-                  <span class="file-icon">📄</span>
+                  <span class="file-icon"><i class="fa-solid fa-file-lines" style="color:#7c3aed"></i></span>
                   <span class="file-label">VSDX</span>
                   <span class="file-value" id="selected-entity-vsdx-value">-</span>
                 </div>
@@ -123,14 +123,14 @@
             <div class="action-section-title"><h4>Actions cartographie</h4></div>
             <div class="wizard-actions-grid">
               <button id="wizard-new-btn" class="wizard-action-card">
-                <div class="action-card-icon">✨</div>
+                <div class="action-card-icon"><i class="fa-solid fa-wand-magic-sparkles"></i></div>
                 <div class="action-card-content">
                   <strong>Nouvelle cartographie</strong>
                   <span>Remplacer tous les fichiers</span>
                 </div>
               </button>
               <button id="wizard-update-btn" class="wizard-action-card" disabled>
-                <div class="action-card-icon">🔄</div>
+                <div class="action-card-icon"><i class="fa-solid fa-arrows-rotate"></i></div>
                 <div class="action-card-content">
                   <strong>Modifier l'existante</strong>
                   <span>Mettre à jour les fichiers</span>
@@ -140,9 +140,9 @@
 
             <div class="action-section-title"><h4>Actions entité</h4></div>
             <div class="entity-actions-row">
-              <button id="wizard-activate-btn" class="btn-action activate">✔ Activer</button>
-              <button id="wizard-rename-btn" class="btn-action rename">✏️ Renommer</button>
-              <button id="wizard-delete-btn" class="btn-action delete">🗑️ Supprimer</button>
+              <button id="wizard-activate-btn" class="btn-action activate"><i class="fa-solid fa-check"></i> Activer</button>
+              <button id="wizard-rename-btn" class="btn-action rename"><i class="fa-solid fa-pen"></i> Renommer</button>
+              <button id="wizard-delete-btn" class="btn-action delete"><i class="fa-solid fa-trash"></i> Supprimer</button>
             </div>
 
             <div class="wizard-nav">
@@ -154,7 +154,7 @@
         <!-- ÉTAPE 1 : VSDX -->
         <div id="wizard-screen-step1" class="wizard-screen">
           <div class="wizard-step-header">
-            <div class="step-icon vsdx">📄</div>
+            <div class="step-icon vsdx"><i class="fa-solid fa-file-lines"></i></div>
             <div class="step-info">
               <h3>Étape 1 : Fichier de connexions</h3>
               <p>Importez votre fichier Visio (.vsdx) contenant les connexions</p>
@@ -173,14 +173,14 @@
           <div id="vsdx-dropzone-wrapper">
             <div id="vsdx-dropzone" class="wizard-dropzone">
               <div class="dropzone-content">
-                <div class="dropzone-icon">📁</div>
+                <div class="dropzone-icon"><i class="fa-solid fa-folder-open"></i></div>
                 <p class="dropzone-text">Glissez votre fichier .vsdx ici</p>
                 <p class="dropzone-hint">ou cliquez pour sélectionner</p>
               </div>
               <input type="file" id="vsdx-file-input" accept=".vsdx" hidden>
             </div>
             <div id="vsdx-preview" class="file-preview hidden">
-              <div class="preview-icon">📄</div>
+              <div class="preview-icon"><i class="fa-solid fa-file-lines"></i></div>
               <div class="preview-info">
                 <span class="preview-name" id="vsdx-filename"></span>
                 <span class="preview-size" id="vsdx-filesize"></span>
@@ -201,7 +201,7 @@
         <!-- ÉTAPE 2 : SVG -->
         <div id="wizard-screen-step2" class="wizard-screen">
           <div class="wizard-step-header">
-            <div class="step-icon svg">🖼️</div>
+            <div class="step-icon svg"><i class="fa-solid fa-image"></i></div>
             <div class="step-info">
               <h3>Étape 2 : Fichier cartographie</h3>
               <p>Importez votre fichier SVG exporté depuis Visio</p>
@@ -220,14 +220,14 @@
           <div id="svg-dropzone-wrapper">
             <div id="svg-dropzone" class="wizard-dropzone">
               <div class="dropzone-content">
-                <div class="dropzone-icon">📁</div>
+                <div class="dropzone-icon"><i class="fa-solid fa-folder-open"></i></div>
                 <p class="dropzone-text">Glissez votre fichier .svg ici</p>
                 <p class="dropzone-hint">ou cliquez pour sélectionner</p>
               </div>
               <input type="file" id="svg-file-input" accept=".svg" hidden>
             </div>
             <div id="svg-preview" class="file-preview hidden">
-              <div class="preview-icon">🖼️</div>
+              <div class="preview-icon"><i class="fa-solid fa-image"></i></div>
               <div class="preview-info">
                 <span class="preview-name" id="svg-filename"></span>
                 <span class="preview-size" id="svg-filesize"></span>
@@ -248,7 +248,7 @@
         <!-- ÉTAPE 3 : RÉCAPITULATIF -->
         <div id="wizard-screen-step3" class="wizard-screen">
           <div class="wizard-step-header">
-            <div class="step-icon recap">📋</div>
+            <div class="step-icon recap"><i class="fa-solid fa-clipboard-check"></i></div>
             <div class="step-info">
               <h3>Étape 3 : Récapitulatif</h3>
               <p>Vérifiez les informations avant de valider</p>
@@ -260,7 +260,7 @@
           </div>
           <div class="recap-files">
             <div class="recap-file-card" id="recap-vsdx">
-              <div class="recap-file-icon vsdx">📄</div>
+              <div class="recap-file-icon vsdx"><i class="fa-solid fa-file-lines"></i></div>
               <div class="recap-file-info">
                 <span class="recap-file-type">Fichier VSDX</span>
                 <span class="recap-file-name" id="recap-vsdx-name">-</span>
@@ -268,7 +268,7 @@
               <div class="recap-file-status" id="recap-vsdx-status"></div>
             </div>
             <div class="recap-file-card" id="recap-svg">
-              <div class="recap-file-icon svg">🖼️</div>
+              <div class="recap-file-icon svg"><i class="fa-solid fa-image"></i></div>
               <div class="recap-file-info">
                 <span class="recap-file-type">Fichier SVG</span>
                 <span class="recap-file-name" id="recap-svg-name">-</span>
@@ -321,9 +321,9 @@
             <h3>Traitement en cours...</h3>
             <p>Veuillez patienter</p>
             <div class="processing-steps">
-              <div class="processing-step" id="proc-step-svg"><span class="proc-icon">⏳</span> Importation cartographie</div>
-              <div class="processing-step" id="proc-step-vsdx"><span class="proc-icon">⏳</span> Analyse connexions</div>
-              <div class="processing-step" id="proc-step-save"><span class="proc-icon">⏳</span> Enregistrement</div>
+              <div class="processing-step" id="proc-step-svg"><span class="proc-icon"><i class="fa-solid fa-image"></i></span> Importation cartographie</div>
+              <div class="processing-step" id="proc-step-vsdx"><span class="proc-icon"><i class="fa-solid fa-diagram-project"></i></span> Analyse connexions</div>
+              <div class="processing-step" id="proc-step-save"><span class="proc-icon"><i class="fa-solid fa-floppy-disk"></i></span> Enregistrement</div>
             </div>
           </div>
         </div>
@@ -331,7 +331,7 @@
         <!-- ÉCRAN SUCCÈS -->
         <div id="wizard-screen-success" class="wizard-screen">
           <div class="success-content">
-            <div class="success-icon">✓</div>
+            <div class="success-icon"><i class="fa-solid fa-check"></i></div>
             <h3>Importation réussie !</h3>
             <p id="success-message">Cartographie mise à jour avec succès.</p>
             <div class="success-stats" id="success-stats"></div>
@@ -342,7 +342,7 @@
         <!-- ÉCRAN ERREUR -->
         <div id="wizard-screen-error" class="wizard-screen">
           <div class="error-content">
-            <div class="error-icon">✕</div>
+            <div class="error-icon"><i class="fa-solid fa-xmark"></i></div>
             <h3>Une erreur s'est produite</h3>
             <p id="error-message">Impossible de terminer l'importation.</p>
             <div class="error-actions">
@@ -359,12 +359,12 @@
   <!-- MODAL SUPPRESSION - Style inline de sécurité -->
   <div id="confirm-delete-modal" class="modal hidden" >
     <div class="modal-content modal-danger">
-      <h3>⚠️ Confirmer la suppression</h3>
+      <h3><i class="fa-solid fa-triangle-exclamation" style="color:#ef4444;margin-right:6px"></i>Confirmer la suppression</h3>
       <p>Cette action supprimera définitivement l'entité et toutes ses données.</p>
       <p class="delete-warning-final">Cette action est <strong>IRRÉVERSIBLE</strong>.</p>
       <div class="modal-actions">
         <button id="cancel-delete-btn" class="btn-gray">Annuler</button>
-        <button id="confirm-delete-btn" class="btn-red">🗑️ Supprimer</button>
+        <button id="confirm-delete-btn" class="btn-red"><i class="fa-solid fa-trash"></i> Supprimer</button>
       </div>
     </div>
   </div>
@@ -372,7 +372,7 @@
   <!-- MODAL RENOMMAGE - Style inline de sécurité -->
   <div id="rename-modal" class="modal hidden" >
     <div class="modal-content">
-      <h3>✏️ Renommer l'entité</h3>
+      <h3><i class="fa-solid fa-pen" style="color:#7c3aed;margin-right:6px"></i>Renommer l'entité</h3>
       <input type="text" id="rename-input" placeholder="Nouveau nom" />
       <div class="modal-actions">
         <button id="cancel-rename-btn" class="btn-gray">Annuler</button>

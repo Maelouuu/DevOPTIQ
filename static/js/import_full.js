@@ -336,6 +336,15 @@
     card.dataset.activityId = group.activity_id;
     card.dataset.guarantor = group.guarantor || '';
 
+    // Afficher le garant si présent
+    if (group.guarantor) {
+      const gEl = card.querySelector('.if-group-guarantor');
+      if (gEl) {
+        gEl.querySelector('.if-guarantor-name').textContent = group.guarantor;
+        gEl.classList.remove('hidden');
+      }
+    }
+
     // Build tasks table
     const tbody = card.querySelector('.if-tasks-tbody');
     buildTaskRows(tbody, tasks);
@@ -403,10 +412,20 @@
       });
     }
 
+    card.dataset.guarantor = group.guarantor || '';
+
+    // Afficher le garant si présent
+    if (group.guarantor) {
+      const gEl = card.querySelector('.if-group-guarantor');
+      if (gEl) {
+        gEl.querySelector('.if-guarantor-name').textContent = group.guarantor;
+        gEl.classList.remove('hidden');
+      }
+    }
+
     // Build tasks table
     const tbody = card.querySelector('.if-tasks-tbody');
     buildTaskRows(tbody, tasks);
-    card.dataset.guarantor = group.guarantor || '';
 
     // Toggle
     const toggle = card.querySelector('.if-group-toggle');

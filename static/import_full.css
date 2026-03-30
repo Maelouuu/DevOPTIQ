@@ -724,6 +724,22 @@
   border-left: 3px solid var(--if-orange);
 }
 
+/* Guarantor badge */
+.if-group-guarantor {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+  padding: 5px 10px;
+  background: #f0f4ff;
+  border: 1px solid #c7d2fe;
+  border-radius: 6px;
+  font-size: 0.82rem;
+  color: #3730a3;
+}
+.if-group-guarantor i { color: #6366f1; }
+.if-group-guarantor.hidden { display: none; }
+
 /* Tasks table */
 .if-tasks-table {
   width: 100%;

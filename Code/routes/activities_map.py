@@ -76,14 +76,15 @@ def ensure_entity_dir(entity_id):
 
 
 def check_svg_exists(entity_id):
-    """Vérifie si un SVG existe pour l'entité."""
+    """Vérifie si un SVG existe pour l'entité (filesystem ou base de données)."""
     svg_path = get_entity_svg_path(entity_id)
 
+    # 1. Fichier présent sur disque
     if os.path.exists(svg_path):
-        print(f"[CARTO] SVG trouvé pour entité {entity_id}: {svg_path}")
+        print(f"[CARTO] SVG trouvé sur disque pour entité {entity_id}: {svg_path}")
         return True, svg_path
 
-    # Scan du dossier entité pour tout fichier .svg (fallback nom différent)
+    # 2. Scan du dossier entité pour tout fichier .svg (fallback nom différent)
     entity_dir = get_entity_dir(entity_id)
     if os.path.isdir(entity_dir):
         svgs = sorted(f for f in os.listdir(entity_dir) if f.endswith('.svg'))
@@ -92,32 +93,33 @@ def check_svg_exists(entity_id):
             print(f"[CARTO] SVG trouvé (scan) pour entité {entity_id}: {found_path}")
             return True, found_path
 
-    # Migration legacy : si aucun SVG dédié ET SVG global existe
-    # ET que l'entité a des activités → copier le SVG global dans le dossier de l'entité
+    # 3. Fallback DB : contenu SVG stocké en base (filesystem éphémère sur cloud)
     entity = Entity.query.get(entity_id)
-    if os.path.exists(OLD_SVG_PATH):
-        from Code.models.models import Activities
-        activities_count = Activities.query.filter_by(entity_id=entity_id).count()
-        if activities_count > 0:
-            try:
-                ensure_entity_dir(entity_id)
-                shutil.copy2(OLD_SVG_PATH, svg_path)
-                print(f"[CARTO] Migration legacy: SVG global copié vers {svg_path}")
-                if entity and not entity.svg_filename:
-                    entity.svg_filename = "carto_activities.svg"
-                    db.session.commit()
-                return True, svg_path
-            except Exception as e:
-                print(f"[CARTO] Erreur migration SVG: {e}")
+    if entity and entity.svg_content:
+        try:
+            ensure_entity_dir(entity_id)
+            with open(svg_path, 'w', encoding='utf-8') as f:
+                f.write(entity.svg_content)
+            print(f"[CARTO] SVG restauré depuis DB pour entité {entity_id}")
+            return True, svg_path
+        except Exception as e:
+            print(f"[CARTO] Erreur restauration SVG depuis DB: {e}")
 
     print(f"[CARTO] Aucun SVG trouvé pour entité {entity_id}")
     return False, None
 
 
 def check_vsdx_exists(entity_id):
-    """Vérifie si un VSDX existe pour l'entité."""
+    """Vérifie si un VSDX a été uploadé pour l'entité (fichier ou nom stocké en DB)."""
     vsdx_path = get_entity_vsdx_path(entity_id)
-    return os.path.exists(vsdx_path), vsdx_path
+    if os.path.exists(vsdx_path):
+        return True, vsdx_path
+    # Fallback : vérifier si un nom de fichier VSDX est enregistré en DB
+    entity = Entity.query.get(entity_id)
+    if entity and entity.vsdx_filename:
+        # Le fichier a été uploadé par le passé (connexions importées en DB)
+        return True, vsdx_path
+    return False, vsdx_path
 
 
 def get_active_entity():
@@ -206,8 +208,7 @@ def activities_map_page():
         if svg_exists:
             current_svg = active_entity.svg_filename or "carto.svg"
         if vsdx_exists:
-            # Utiliser le nom stocké en base ou le nom par défaut
-            current_vsdx = getattr(active_entity, 'vsdx_filename', None) or "connections.vsdx"
+            current_vsdx = active_entity.vsdx_filename or "connections.vsdx"
         
         # Log pour debug
         print(f"[CARTO] Entité {active_entity.id}: SVG={svg_exists} ({svg_path}), VSDX={vsdx_exists}")
@@ -235,7 +236,7 @@ def activities_map_page():
                 "name": e.name,
                 "description": e.description or "",
                 "svg_filename": e.svg_filename,
-                "vsdx_filename": getattr(e, 'vsdx_filename', None),
+                "vsdx_filename": e.vsdx_filename,
                 "is_active": (e.id == active_entity_id),
                 "activities_count": Activities.query.filter_by(entity_id=e.id).count(),
                 "svg_exists": e_svg_exists,
@@ -249,7 +250,7 @@ def activities_map_page():
             "name": active_entity.name,
             "description": active_entity.description or "",
             "svg_filename": active_entity.svg_filename,
-            "vsdx_filename": getattr(active_entity, 'vsdx_filename', None),
+            "vsdx_filename": active_entity.vsdx_filename,
             "is_active": True
         }
     
@@ -271,26 +272,27 @@ def activities_map_page():
 # ============================================================
 @activities_map_bp.route("/svg")
 def serve_svg():
-    """Sert le fichier SVG de l'entité active."""
+    """Sert le fichier SVG de l'entité active (filesystem ou DB)."""
     active_entity = get_active_entity()
-    
+
     if not active_entity:
         return jsonify({"error": "Aucune entité active"}), 404
-    
+
+    # check_svg_exists gère automatiquement la restauration depuis la DB
     svg_exists, svg_path = check_svg_exists(active_entity.id)
-    
+
     if not svg_exists or not svg_path:
+        # Dernier recours : servir directement depuis DB sans passer par le disque
+        if active_entity.svg_content:
+            from flask import Response
+            print(f"[CARTO] Serving SVG depuis DB (direct) pour entité {active_entity.id}")
+            return Response(active_entity.svg_content, mimetype='image/svg+xml',
+                            headers={"Cache-Control": "no-store"})
         print(f"[CARTO] SVG non trouvé pour l'entité {active_entity.id}")
         return jsonify({"error": "SVG non trouvé pour cette entité"}), 404
 
     print(f"[CARTO] Serving SVG pour entité {active_entity.id}: {svg_path}")
-    print(f"[CARTO] Nombre d'activités de cette entité: {Activities.query.filter_by(entity_id=active_entity.id).count()}")
-    
-    return send_file(
-        svg_path, 
-        mimetype='image/svg+xml',
-        max_age=0
-    )
+    return send_file(svg_path, mimetype='image/svg+xml', max_age=0)
 
 
 # ============================================================
@@ -315,7 +317,7 @@ def list_entities():
             "name": e.name,
             "description": e.description,
             "svg_filename": e.svg_filename,
-            "vsdx_filename": getattr(e, 'vsdx_filename', None),
+            "vsdx_filename": e.vsdx_filename,
             "is_active": (e.id == active_entity_id),
             "activities_count": Activities.query.filter_by(entity_id=e.id).count(),
             "svg_exists": svg_exists,
@@ -348,7 +350,7 @@ def get_entity_details(entity_id):
         "svg_exists": svg_exists,
         "vsdx_exists": vsdx_exists,
         "current_svg": entity.svg_filename if svg_exists else None,
-        "current_vsdx": getattr(entity, 'vsdx_filename', None) or ("connections.vsdx" if vsdx_exists else None),
+        "current_vsdx": entity.vsdx_filename or ("connections.vsdx" if vsdx_exists else None),
         "activities_count": Activities.query.filter_by(entity_id=entity_id).count(),
         "connections_count": Link.query.filter_by(entity_id=entity_id).count()
     })
@@ -654,12 +656,19 @@ def upload_cartography():
             # Nouveau fichier SVG uploadé
             if not svg_file.filename.lower().endswith(".svg"):
                 return jsonify({"error": "Format SVG requis"}), 400
-            
+
             svg_file.save(svg_path)
             print(f"[CARTO] SVG sauvegardé: {svg_path} ({os.path.exists(svg_path)})")
-            
-            # IMPORTANT: Sauvegarder le nom original en base
+
+            # IMPORTANT: Sauvegarder le nom original ET le contenu en base
+            # Le contenu en DB permet de restaurer le fichier si le filesystem éphémère est vidé
             entity.svg_filename = svg_file.filename
+            try:
+                with open(svg_path, 'r', encoding='utf-8') as f:
+                    entity.svg_content = f.read()
+                print(f"[CARTO] Contenu SVG sauvegardé en DB pour entité {entity_id}")
+            except Exception as e:
+                print(f"[CARTO] Avertissement: impossible de lire SVG pour stockage DB: {e}")
             db.session.commit()
             
             sync_stats = sync_activities_with_svg(entity_id, svg_path)
@@ -692,11 +701,10 @@ def upload_cartography():
             
             vsdx_file.save(vsdx_path)
             print(f"[CARTO] VSDX sauvegardé: {vsdx_path} ({os.path.exists(vsdx_path)})")
-            
-            # IMPORTANT: Sauvegarder le nom original en base (si le champ existe)
-            if hasattr(entity, 'vsdx_filename'):
-                entity.vsdx_filename = vsdx_file.filename
-                db.session.commit()
+
+            # IMPORTANT: Sauvegarder le nom original en base
+            entity.vsdx_filename = vsdx_file.filename
+            db.session.commit()
             
             # Parser et importer les connexions
             connections, errors = parse_vsdx_connections(vsdx_path)
