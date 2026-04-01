@@ -47,6 +47,15 @@ let manageUsages = [];        // usages chargés pour la modale manage
 document.addEventListener("DOMContentLoaded", () => {
   loadTools();
 
+  // Toggle section créer
+  document.getElementById("create-toggle-btn")?.addEventListener("click", () => {
+    document.getElementById("createSection")?.classList.add("expanded");
+    setTimeout(() => newToolName?.focus(), 350);
+  });
+  document.getElementById("create-collapse-btn")?.addEventListener("click", () => {
+    document.getElementById("createSection")?.classList.remove("expanded");
+  });
+
   createToolBtn.addEventListener("click", createTool);
   newToolName.addEventListener("keydown", e => { if (e.key === "Enter") createTool(); });
 
@@ -102,10 +111,8 @@ function onSearch() {
     if (show) visible++;
   });
 
-  // Bouton clear
   if (searchClear) searchClear.classList.toggle("hidden", !q);
 
-  // Compteur
   if (searchCount) {
     if (q && cards.length) {
       searchCount.textContent = `${visible} / ${cards.length} outil${cards.length > 1 ? "s" : ""}`;
@@ -200,7 +207,6 @@ function renderTools() {
 
   toolsContainer.onclick = onCardClick;
 
-  // Re-appliquer la recherche si active
   if (toolSearch?.value.trim()) onSearch();
 }
 
@@ -212,7 +218,6 @@ function onCardClick(e) {
   const id   = parseInt(card?.dataset?.id || "0", 10);
   if (!id) return;
 
-  // Édition via crayon
   if (btn.dataset.edit) {
     const tool = toolsCache.find(t => t.id === id);
     openEditModal(tool, btn.dataset.edit);
@@ -288,6 +293,8 @@ async function createTool() {
     if (!res.ok) { showToast(data.error || "Échec de création.", "error"); return; }
     newToolName.value = "";
     newToolDesc.value = "";
+    // Replier le formulaire après succès
+    document.getElementById("createSection")?.classList.remove("expanded");
     showToast(`Outil « ${name} » ajouté.`);
     await loadTools();
   } catch {
@@ -317,11 +324,10 @@ async function createToolInModal() {
     const data = await res.json();
     if (!res.ok) { showToast(data.error || "Échec de création.", "error"); return; }
 
-    // Ajouter au cache local
     const newTool = { id: data.id ?? data.tool_id, name, description: desc, usages: [] };
     if (newTool.id) toolsCache.push(newTool);
 
-    // Mettre à jour le select de remplacement s'il est visible
+    // Ajouter au select de remplacement s'il est visible
     const sel = document.getElementById("replacementSelectNew");
     if (sel && newTool.id) {
       const opt = document.createElement("option");
@@ -368,7 +374,6 @@ async function openManage(tool) {
   manageTarget = tool;
   manageModalTitle.innerHTML = `<i class="fa-solid fa-screwdriver-wrench"></i> Gérer « ${escapeHTML(tool.name)} »`;
 
-  // Chargement
   manageModalBody.innerHTML   = `<div class="loading-soft"><i class="fa-solid fa-spinner fa-spin"></i> Chargement des usages…</div>`;
   manageModalFooter.innerHTML = `<button class="btn btn-ghost" id="cancelManageBtn0">Annuler</button>`;
   document.getElementById("cancelManageBtn0")?.addEventListener("click", () => toggleModal(manageModal, false));
@@ -384,7 +389,7 @@ async function openManage(tool) {
   }
 }
 
-/* ── Step 1 : Sélection + options ────────────────────────── */
+/* ── Step 1 : Nouvelle UX ────────────────────────────────── */
 function renderManageStep1() {
   const tool     = manageTarget;
   const usages   = manageUsages;
@@ -395,7 +400,7 @@ function renderManageStep1() {
     .map(t => `<option value="${t.id}">${escapeHTML(t.name)}</option>`)
     .join("");
 
-  // Section usages avec checkboxes visuelles
+  // Section usages
   let usageSection = "";
   if (noUsages) {
     usageSection = `<div class="chk-no-usage">
@@ -404,38 +409,62 @@ function renderManageStep1() {
     </div>`;
   } else {
     const items = usages.map(u => `
-      <label class="usage-check-item will-keep">
-        <i class="fa-solid fa-circle-check chk-icon"></i>
-        <input type="checkbox" class="task-check" value="${u.task_id}" checked>
-        <span><strong>${escapeHTML(u.activity_name)}</strong> → ${escapeHTML(u.task_name)}</span>
+      <label class="usage-item" data-task-id="${u.task_id}">
+        <input type="checkbox" class="task-check" value="${u.task_id}">
+        <span class="usage-item__icon"><i class="fa-regular fa-circle"></i></span>
+        <span class="usage-item__text">
+          <strong>${escapeHTML(u.activity_name)}</strong>
+          <span class="usage-item__sep">›</span>
+          ${escapeHTML(u.task_name)}
+        </span>
       </label>`).join("");
+
     usageSection = `
-      <label class="usage-check-item select-all-row will-keep">
-        <i class="fa-solid fa-circle-check chk-icon"></i>
-        <input type="checkbox" id="selectAllTasks" checked>
-        <span style="font-weight:700;color:var(--brown);">Tout sélectionner / désélectionner</span>
-      </label>
-      <div class="usage-checkbox-list">${items}</div>`;
+      <div class="usage-select-bar">
+        <label class="usage-select-all">
+          <input type="checkbox" id="selectAllTasks">
+          <span>Tout sélectionner</span>
+        </label>
+        <span id="usageSelCount" class="usage-sel-count">0 sélectionné</span>
+      </div>
+      <div class="usage-items-list">${items}</div>`;
   }
 
-  // Légende keep / delete
-  const legend = noUsages ? "" : `
-    <div class="chk-legend">
-      <span class="chk-legend-item keep"><i class="fa-solid fa-circle-check"></i> Coché = conservé</span>
-      <span class="chk-legend-item del"><i class="fa-solid fa-circle-xmark"></i> Décoché = supprimé</span>
+  // Section remplacement
+  const replaceSection = noUsages ? "" : `
+    <div class="manage-section">
+      <div class="modal-divider"></div>
+      <div class="modal-section-title">
+        <i class="fa-solid fa-arrows-rotate"></i> Remplacer par
+        <span class="modal-section-hint">Sélectionnez des usages puis choisissez le nouvel outil</span>
+      </div>
+      <div class="replace-select-wrap">
+        <i class="fa-solid fa-screwdriver-wrench replace-sel-icon"></i>
+        <select id="replacementSelectNew" class="replace-select">
+          <option value="">— Choisir l'outil de remplacement —</option>
+          ${allOpts}
+        </select>
+      </div>
+      <div id="replace-preview" class="replace-preview hidden"></div>
     </div>`;
 
-  // Section création dans la modale
+  // Section créer outil
   const createSection = `
     <div class="manage-section">
       <div class="modal-divider"></div>
-      <div class="modal-section-title" style="margin-bottom:6px;">
+      <div class="modal-section-title">
         <i class="fa-solid fa-plus-circle"></i> Créer un nouvel outil
       </div>
       <div class="modal-create-inline">
         <div class="modal-create-row">
-          <input type="text" id="modalNewToolName" class="input" placeholder="Nom de l'outil *" />
-          <input type="text" id="modalNewToolDesc" class="input" placeholder="Description (optionnelle)" />
+          <div class="search-style-wrap">
+            <i class="fa-solid fa-tag search-style-icon"></i>
+            <input type="text" id="modalNewToolName" class="search-style-input" placeholder="Nom de l'outil *" />
+          </div>
+          <div class="search-style-wrap">
+            <i class="fa-solid fa-align-left search-style-icon"></i>
+            <input type="text" id="modalNewToolDesc" class="search-style-input" placeholder="Description (optionnelle)" />
+          </div>
           <button class="btn btn-brown btn-small" id="modalCreateToolBtn">
             <i class="fa-solid fa-plus"></i> Créer
           </button>
@@ -443,41 +472,27 @@ function renderManageStep1() {
       </div>
     </div>`;
 
-  // Contenu complet du body
   manageModalBody.innerHTML = `
     <div class="manage-section">
-      <div class="modal-section-title" style="margin-bottom:4px;">
+      <div class="modal-section-title">
         <i class="fa-solid fa-list-check"></i> Usages (${usages.length})
+        ${noUsages ? "" : `<span class="modal-section-hint">Cochez les usages à traiter</span>`}
       </div>
-      ${legend}
       ${usageSection}
     </div>
 
-    ${noUsages ? "" : `
-    <div class="manage-section">
-      <div class="modal-divider"></div>
-      <div class="modal-section-title" style="margin-bottom:8px;">
-        <i class="fa-solid fa-arrows-rotate"></i> Remplacer par un autre outil
-      </div>
-      <div class="replace-row">
-        <select id="replacementSelectNew" class="select select--full">
-          <option value="">— Choisir l'outil de remplacement —</option>
-          ${allOpts}
-        </select>
-      </div>
-    </div>
-    `}
+    ${replaceSection}
 
     <div class="manage-section">
       ${!noUsages ? '<div class="modal-divider"></div>' : ""}
-      <div class="modal-section-title modal-section-title--danger" style="margin-bottom:6px;">
+      <div class="modal-section-title modal-section-title--danger">
         <i class="fa-solid fa-trash"></i>
-        ${noUsages ? "Supprimer l'outil" : "Détacher & supprimer"}
+        ${noUsages ? "Supprimer l'outil" : "Zone de danger"}
       </div>
       <p class="modal-hint">
         ${noUsages
           ? "Aucun usage : l'outil sera supprimé immédiatement."
-          : "Détache l'outil des tâches décochées, puis supprime l'outil si plus aucun usage ne reste."}
+          : "Détache l'outil des usages sélectionnés, puis supprime l'outil si plus aucun usage ne reste."}
       </p>
     </div>
 
@@ -487,9 +502,9 @@ function renderManageStep1() {
   // Footer
   manageModalFooter.innerHTML = `
     <button class="btn btn-ghost" id="cancelManageBtn"><i class="fa-solid fa-xmark"></i> Annuler</button>
-    ${noUsages ? "" : `<button class="btn btn-brown btn-small" id="previewReplaceBtn"><i class="fa-solid fa-arrows-rotate"></i> Aperçu remplacement</button>`}
-    <button class="btn btn-danger btn-small" id="deleteSelBtn">
-      <i class="fa-solid fa-trash"></i> ${noUsages ? "Supprimer" : "Détacher & supprimer"}
+    ${noUsages ? "" : `<button class="btn btn-brown btn-small" id="previewReplaceBtn" disabled><i class="fa-solid fa-arrows-rotate"></i> Remplacer</button>`}
+    <button class="btn btn-danger btn-small" id="deleteSelBtn" ${noUsages ? "" : "disabled"}>
+      <i class="fa-solid fa-trash"></i> ${noUsages ? "Supprimer" : "Supprimer sélection"}
     </button>
   `;
 
@@ -498,42 +513,88 @@ function renderManageStep1() {
   document.getElementById("previewReplaceBtn")?.addEventListener("click", showReplaceConfirmation);
   document.getElementById("deleteSelBtn")?.addEventListener("click", () => doDeleteSelection(noUsages));
 
+  // Listener select remplacement
+  const replaceSel = document.getElementById("replacementSelectNew");
+  replaceSel?.addEventListener("change", () => {
+    updateReplacePreview();
+    updateActionButtons();
+  });
+
   // Bouton créer dans la modale
   document.getElementById("modalCreateToolBtn")?.addEventListener("click", createToolInModal);
   document.getElementById("modalNewToolName")?.addEventListener("keydown", e => {
     if (e.key === "Enter") createToolInModal();
   });
 
-  // Select-all avec mise à jour visuelle
+  // Checkboxes usages — DÉCOCHÉES par défaut
   const selectAll = document.getElementById("selectAllTasks");
   if (selectAll) {
     selectAll.addEventListener("change", () => {
       document.querySelectorAll(".task-check").forEach(cb => {
         cb.checked = selectAll.checked;
-        _updateChkVisual(cb);
+        _updateUsageItemVisual(cb);
       });
-      _updateChkVisual(selectAll);
+      updateUsageSelCount();
+      updateActionButtons();
     });
     document.querySelectorAll(".task-check").forEach(cb => {
       cb.addEventListener("change", () => {
-        _updateChkVisual(cb);
+        _updateUsageItemVisual(cb);
         syncSelectAll();
+        updateUsageSelCount();
+        updateActionButtons();
       });
     });
   }
 }
 
-/* ── Visuel checkbox (keep / delete) ────────────────────── */
-function _updateChkVisual(cb) {
-  const label = cb.closest(".usage-check-item");
+/* ── Visuel item usage (coché = sélectionné pour action) ── */
+function _updateUsageItemVisual(cb) {
+  const label = cb.closest(".usage-item");
   if (!label) return;
-  const icon = label.querySelector(".chk-icon");
-  label.classList.toggle("will-keep",   cb.checked);
-  label.classList.toggle("will-delete", !cb.checked);
+  const icon = label.querySelector(".usage-item__icon i");
+  label.classList.toggle("usage-item--selected", cb.checked);
   if (icon) {
     icon.className = cb.checked
-      ? "fa-solid fa-circle-check chk-icon"
-      : "fa-solid fa-circle-xmark chk-icon";
+      ? "fa-solid fa-circle-check"
+      : "fa-regular fa-circle";
+  }
+}
+
+function updateUsageSelCount() {
+  const checked = document.querySelectorAll(".task-check:checked").length;
+  const total   = document.querySelectorAll(".task-check").length;
+  const el      = document.getElementById("usageSelCount");
+  if (el) el.textContent = `${checked} / ${total} sélectionné${checked > 1 ? "s" : ""}`;
+}
+
+function updateActionButtons() {
+  const checked   = document.querySelectorAll(".task-check:checked").length;
+  const replaceId = document.getElementById("replacementSelectNew")?.value;
+
+  const replaceBtn = document.getElementById("previewReplaceBtn");
+  if (replaceBtn) replaceBtn.disabled = !(checked > 0 && replaceId);
+
+  const deleteBtn = document.getElementById("deleteSelBtn");
+  if (deleteBtn) deleteBtn.disabled = checked === 0;
+}
+
+function updateReplacePreview() {
+  const replaceId = parseInt(document.getElementById("replacementSelectNew")?.value || "0");
+  const preview   = document.getElementById("replace-preview");
+  if (!preview) return;
+
+  if (replaceId) {
+    const dst = toolsCache.find(t => t.id === replaceId);
+    preview.innerHTML = `
+      <i class="fa-solid fa-right-long"></i>
+      <span class="preview-src">${escapeHTML(manageTarget.name)}</span>
+      <i class="fa-solid fa-arrow-right"></i>
+      <span class="preview-dst">${escapeHTML(dst?.name || "?")}</span>
+    `;
+    preview.classList.remove("hidden");
+  } else {
+    preview.classList.add("hidden");
   }
 }
 
@@ -542,15 +603,13 @@ function syncSelectAll() {
   const checked = document.querySelectorAll(".task-check:checked");
   const sa      = document.getElementById("selectAllTasks");
   if (!sa) return;
-  sa.checked       = all.length === checked.length;
+  sa.checked       = all.length > 0 && all.length === checked.length;
   sa.indeterminate = checked.length > 0 && checked.length < all.length;
-  // Mettre à jour le visuel de la ligne "tout sélectionner"
-  _updateChkVisual(sa);
 }
 
-// Retourne les task_ids DÉCOCHÉS — ce sont eux qui sont ciblés par l'action
+/* Retourne les task_ids COCHÉS (sélectionnés pour action) */
 function getTargetTaskIds() {
-  return Array.from(document.querySelectorAll(".task-check:not(:checked)"))
+  return Array.from(document.querySelectorAll(".task-check:checked"))
     .map(cb => parseInt(cb.value, 10));
 }
 
@@ -559,11 +618,11 @@ function showReplaceConfirmation() {
   const replacementId = parseInt(document.getElementById("replacementSelectNew")?.value || "0", 10);
   if (!replacementId) return showToast("Choisis un outil de remplacement.", "warn");
 
-  const targetIds = getTargetTaskIds(); // décochés = ciblés par le remplacement
-  if (targetIds.length === 0) return showToast("Décoche au moins un usage à remplacer.", "warn");
+  const targetIds = getTargetTaskIds();
+  if (targetIds.length === 0) return showToast("Coche au moins un usage à remplacer.", "warn");
 
-  const replacementTool  = toolsCache.find(t => t.id === replacementId);
-  const selectedUsages   = manageUsages.filter(u => targetIds.includes(u.task_id));
+  const replacementTool = toolsCache.find(t => t.id === replacementId);
+  const selectedUsages  = manageUsages.filter(u => targetIds.includes(u.task_id));
 
   const usageList = selectedUsages.map(u =>
     `<li><strong>${escapeHTML(u.activity_name)}</strong> → ${escapeHTML(u.task_name)}</li>`
@@ -626,14 +685,13 @@ async function doReplace(srcId, dstId, taskIds) {
 async function doDeleteSelection(noUsages) {
   const tool = manageTarget;
 
-  // Aucun usage → suppression directe
   if (noUsages) {
     await doFullDelete(tool);
     return;
   }
 
-  const targetIds = getTargetTaskIds(); // décochés = à détacher
-  if (targetIds.length === 0) return showToast("Décoche au moins un usage à détacher.", "warn");
+  const targetIds = getTargetTaskIds();
+  if (targetIds.length === 0) return showToast("Coche au moins un usage à détacher.", "warn");
 
   const isAll = targetIds.length === manageUsages.length;
 
@@ -641,7 +699,6 @@ async function doDeleteSelection(noUsages) {
     if (isAll) {
       await doFullDelete(tool);
     } else {
-      // Détachement partiel (seulement les décochés)
       const res  = await fetch(`/gestion_outils/api/tools/${tool.id}`, {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },

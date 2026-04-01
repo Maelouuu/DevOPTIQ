@@ -19,33 +19,50 @@
     </div>
   </div>
 
-  <!-- ── Section 1 : Créer un outil ── -->
-  <section class="section-card section-card--create" aria-labelledby="create-title">
-    <div class="section-card__head">
-      <div class="section-card__head-left">
-        <span class="section-icon"><i class="fa-solid fa-plus"></i></span>
-        <div>
-          <h2 id="create-title" class="section-card__title">Ajouter un outil</h2>
-          <p class="section-card__subtitle">Créez un outil avec un nom et une description optionnelle</p>
+  <!-- ── Section 1 : Créer un outil (toggle) ── -->
+  <section class="section-card section-card--create" id="createSection" aria-labelledby="create-title">
+
+    <!-- Bouton visible quand replié -->
+    <button id="create-toggle-btn" class="create-toggle-btn">
+      <i class="fa-solid fa-plus-circle"></i>
+      Ajouter un outil
+    </button>
+
+    <!-- Formulaire animé (caché par défaut) -->
+    <div class="create-form-wrap" id="createFormWrap">
+      <div class="section-card__head">
+        <div class="section-card__head-left">
+          <span class="section-icon"><i class="fa-solid fa-plus"></i></span>
+          <div>
+            <h2 id="create-title" class="section-card__title">Ajouter un outil</h2>
+            <p class="section-card__subtitle">Créez un outil avec un nom et une description optionnelle</p>
+          </div>
+        </div>
+        <button id="create-collapse-btn" class="btn-icon-collapse" title="Replier" aria-label="Replier le formulaire">
+          <i class="fa-solid fa-chevron-up"></i>
+        </button>
+      </div>
+      <div class="create-grid">
+        <div class="field">
+          <div class="search-style-wrap">
+            <i class="fa-solid fa-tag search-style-icon"></i>
+            <input id="newToolName" class="search-style-input" type="text" placeholder="Nom de l'outil *" autocomplete="off">
+          </div>
+        </div>
+        <div class="field">
+          <div class="search-style-wrap">
+            <i class="fa-solid fa-align-left search-style-icon"></i>
+            <input id="newToolDesc" class="search-style-input" type="text" placeholder="Description (optionnelle)" autocomplete="off">
+          </div>
+        </div>
+        <div class="field-btn">
+          <button id="createToolBtn" class="btn btn-brown create-submit-btn">
+            <i class="fa-solid fa-plus"></i> Ajouter
+          </button>
         </div>
       </div>
     </div>
-    <div class="create-grid">
-      <div class="field">
-        <label for="newToolName" class="label">Nom de l'outil <span class="req">*</span></label>
-        <input id="newToolName" class="input" type="text" placeholder="Ex. : Figma" autocomplete="off">
-      </div>
-      <div class="field">
-        <label for="newToolDesc" class="label">Description</label>
-        <input id="newToolDesc" class="input" type="text" placeholder="Ex. : Outil de design collaboratif" autocomplete="off">
-      </div>
-      <div class="field-btn">
-        <label class="label">&nbsp;</label>
-        <button id="createToolBtn" class="btn btn-brown">
-          <i class="fa-solid fa-plus"></i> Ajouter
-        </button>
-      </div>
-    </div>
+
   </section>
 
   <!-- ── Section 2 : Liste des outils ── -->
