@@ -205,19 +205,19 @@ def _algorithmic_match(excel_groups: list, db_activities: list) -> dict:
                 best_score = score
                 best_reason = f'Correspondance approximative ({score:.0%})'
 
-        if best_act and best_score >= 0.60:
-            conf = 'high' if best_score >= 0.90 else ('medium' if best_score >= 0.75 else 'low')
+        if best_act and best_score >= 0.90:
+            # Correspondance sûre uniquement → section "Mappé"
             matched_groups.append({
                 'activity_name_excel': excel_name,
                 'activity_id': best_act['id'],
                 'activity_name_db': best_act['name'],
-                'confidence': conf,
+                'confidence': 'high',
                 'match_reason': best_reason,
                 'guarantor': group.get('guarantor', ''),
                 'tasks': group['tasks'],
             })
         else:
-            # Top 3 suggestions pour les non-matchés
+            # Probable, incertain ou sans correspondance → section "À résoudre"
             scored = sorted(
                 db_activities,
                 key=lambda a: _similarity(excel_name, a['name']),
@@ -231,10 +231,15 @@ def _algorithmic_match(excel_groups: list, db_activities: list) -> dict:
                 }
                 for a in scored[:3]
             ]
-            reason = (
-                f'Meilleur score : {best_score:.0%} — aucune correspondance fiable.'
-                if best_act else 'Aucune activité dans la base.'
-            )
+            if best_act and best_score >= 0.75:
+                reason = f'Correspondance probable ({best_score:.0%}) — vérification recommandée.'
+            elif best_act and best_score >= 0.60:
+                reason = f'Correspondance incertaine ({best_score:.0%}) — vérification recommandée.'
+            else:
+                reason = (
+                    f'Meilleur score : {best_score:.0%} — aucune correspondance fiable.'
+                    if best_act else 'Aucune activité dans la base.'
+                )
             unmatched_groups.append({
                 'activity_name_excel': excel_name,
                 'reason': reason,
@@ -375,15 +380,34 @@ def analyze_excel():
                 name = grp['activity_name_excel']
                 if name in resolved_map:
                     r = resolved_map[name]
-                    analysis['matched_groups'].append({
-                        'activity_name_excel': name,
-                        'activity_id': r['activity_id'],
-                        'activity_name_db': r['activity_name_db'],
-                        'confidence': r.get('confidence', 'medium'),
-                        'match_reason': r.get('match_reason', 'Résolu par IA'),
-                        'guarantor': grp.get('guarantor', ''),
-                        'tasks': grp['tasks'],
-                    })
+                    ai_conf = r.get('confidence', 'medium')
+                    if ai_conf == 'high':
+                        # Seulement les correspondances sûres de l'IA vont dans "Mappé"
+                        analysis['matched_groups'].append({
+                            'activity_name_excel': name,
+                            'activity_id': r['activity_id'],
+                            'activity_name_db': r['activity_name_db'],
+                            'confidence': 'high',
+                            'match_reason': r.get('match_reason', 'Résolu par IA'),
+                            'guarantor': grp.get('guarantor', ''),
+                            'tasks': grp['tasks'],
+                        })
+                    else:
+                        # Suggestion IA non sûre → reste dans "À résoudre" avec la suggestion en tête
+                        ai_suggestion = {
+                            'activity_id': r['activity_id'],
+                            'activity_name': r['activity_name_db'],
+                            'similarity': ai_conf,
+                        }
+                        existing_possible = list(grp.get('possible_matches', []))
+                        ids_present = {p['activity_id'] for p in existing_possible}
+                        if r['activity_id'] not in ids_present:
+                            existing_possible = [ai_suggestion] + existing_possible
+                        still_unmatched.append({
+                            **grp,
+                            'reason': f"Suggestion IA ({ai_conf}) — {r.get('match_reason', 'Résolu par IA')}",
+                            'possible_matches': existing_possible[:3],
+                        })
                 else:
                     still_unmatched.append(grp)
 
@@ -468,6 +492,14 @@ def inject_full():
             for i, task_in in enumerate(group.get('tasks', [])):
                 task_name = (task_in.get('name') or '').strip()
                 if not task_name:
+                    continue
+
+                # Éviter les doublons : vérifier si la tâche existe déjà pour cette activité
+                existing_task = Task.query.filter(
+                    Task.activity_id == activity_id,
+                    func.lower(Task.name) == task_name.lower()
+                ).first()
+                if existing_task:
                     continue
 
                 task = Task(

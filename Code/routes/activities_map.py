@@ -564,14 +564,28 @@ def sync_activities_with_svg(entity_id, svg_path):
     # Nouvelles activités
     for shape_id in (svg_shape_ids - existing_ids):
         name = svg_shape_map[shape_id]
-        new_act = Activities(
-            entity_id=entity_id,
-            shape_id=shape_id,
-            name=name,
-            description=""
-        )
-        db.session.add(new_act)
-        stats["added"] += 1
+
+        # Éviter les doublons : si une activité du même nom existe déjà sans shape_id
+        # (ex : créée via import Excel), on lui assigne le shape_id plutôt que de créer un doublon
+        existing_by_name = Activities.query.filter(
+            Activities.entity_id == entity_id,
+            db.func.lower(Activities.name) == name.lower(),
+            Activities.shape_id.is_(None)
+        ).first()
+
+        if existing_by_name:
+            existing_by_name.shape_id = shape_id
+            stats["unchanged"] += 1
+            print(f"[CARTO] Activité existante reliée au SVG : '{name}' (shape_id={shape_id})")
+        else:
+            new_act = Activities(
+                entity_id=entity_id,
+                shape_id=shape_id,
+                name=name,
+                description=""
+            )
+            db.session.add(new_act)
+            stats["added"] += 1
     
     # Renommages
     for shape_id in (svg_shape_ids & existing_ids):
