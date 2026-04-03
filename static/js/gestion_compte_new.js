@@ -1,441 +1,243 @@
 /**
  * gestion_compte_new.js
- * Gestion des comptes utilisateurs - Version refaite
  */
 
-// Variable globale pour stocker les données Excel
 let excelData = [];
 
-// ========================================
-// GESTION DES ONGLETS
-// ========================================
+// ── ONGLETS ─────────────────────────────────────────────────────────────────
 
-function switchTab(tabId) {
-    // Masquer tous les onglets
-    document.querySelectorAll('.tab-pane').forEach(pane => {
-        pane.classList.remove('active');
+document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+        const tabId = btn.dataset.tab;
+        document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+        document.querySelectorAll('.tab-btn').forEach(b => { b.classList.remove('active'); b.setAttribute('aria-selected', 'false'); });
+        document.getElementById(tabId).classList.add('active');
+        btn.classList.add('active');
+        btn.setAttribute('aria-selected', 'true');
     });
+});
 
-    // Désactiver tous les boutons
-    document.querySelectorAll('.tab-nav-button').forEach(btn => {
-        btn.classList.remove('active');
+// ── DRAG & DROP EXCEL ────────────────────────────────────────────────────────
+
+const dropZone   = document.getElementById('dropZone');
+const fileInput  = document.getElementById('excelFileInput');
+
+if (dropZone) {
+    dropZone.addEventListener('click', () => fileInput.click());
+    dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
+    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+    dropZone.addEventListener('drop', e => {
+        e.preventDefault();
+        dropZone.classList.remove('dragover');
+        if (e.dataTransfer.files.length > 0) handleFileUpload(e.dataTransfer.files[0]);
     });
-
-    // Activer l'onglet sélectionné
-    document.getElementById(tabId).classList.add('active');
-
-    // Activer le bouton correspondant
-    event.target.closest('.tab-nav-button').classList.add('active');
 }
 
-// ========================================
-// DRAG & DROP EXCEL
-// ========================================
+if (fileInput) {
+    fileInput.addEventListener('change', e => {
+        if (e.target.files.length > 0) handleFileUpload(e.target.files[0]);
+    });
+}
 
-const dropZone = document.getElementById('dropZone');
-const fileInput = document.getElementById('excelFileInput');
-
-// Clic sur la zone = ouvrir le sélecteur de fichiers
-dropZone.addEventListener('click', () => {
-    fileInput.click();
-});
-
-// Drag over
-dropZone.addEventListener('dragover', (e) => {
-    e.preventDefault();
-    dropZone.classList.add('dragover');
-});
-
-// Drag leave
-dropZone.addEventListener('dragleave', () => {
-    dropZone.classList.remove('dragover');
-});
-
-// Drop
-dropZone.addEventListener('drop', (e) => {
-    e.preventDefault();
-    dropZone.classList.remove('dragover');
-
-    const files = e.dataTransfer.files;
-    if (files.length > 0) {
-        handleFileUpload(files[0]);
-    }
-});
-
-// Sélection via input
-fileInput.addEventListener('change', (e) => {
-    if (e.target.files.length > 0) {
-        handleFileUpload(e.target.files[0]);
-    }
-});
-
-// Traiter le fichier uploadé
 function handleFileUpload(file) {
-    const fileName = file.name;
-    const fileExtension = fileName.split('.').pop().toLowerCase();
-
-    // Vérifier l'extension
-    if (!['xlsx', 'xls', 'csv'].includes(fileExtension)) {
-        alert('Format de fichier non supporté. Veuillez utiliser .xlsx, .xls ou .csv');
+    const ext = file.name.split('.').pop().toLowerCase();
+    if (!['xlsx', 'xls', 'csv'].includes(ext)) {
+        alert('Format non supporté. Utilisez .xlsx, .xls ou .csv');
         return;
     }
-
-    // Lire le fichier
     const reader = new FileReader();
-
-    reader.onload = function(e) {
+    reader.onload = e => {
         try {
-            // Parse Excel file using SheetJS (si disponible)
             if (typeof XLSX !== 'undefined') {
                 const data = new Uint8Array(e.target.result);
-                const workbook = XLSX.read(data, { type: 'array' });
-                const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-
-                // Utiliser defval pour remplir les cellules vides avec ""
-                const jsonData = XLSX.utils.sheet_to_json(firstSheet, {
-                    header: 1,
-                    defval: '',
-                    blankrows: false  // Ignorer les lignes complètement vides
-                });
-
-                console.log('📊 Excel data loaded:', jsonData);
-                excelData = parseExcelData(jsonData);
-                displayPreview(excelData);
+                const wb   = XLSX.read(data, { type: 'array' });
+                const ws   = wb.Sheets[wb.SheetNames[0]];
+                const json = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '', blankrows: false });
+                excelData  = parseExcelData(json);
             } else {
-                // Fallback pour CSV simple
-                const text = e.target.result;
-                const lines = text.split('\n');
-                const csvData = lines.map(line => line.split(','));
-                excelData = parseExcelData(csvData);
-                displayPreview(excelData);
+                excelData = parseExcelData(e.target.result.split('\n').map(l => l.split(',')));
             }
-        } catch (error) {
-            console.error('Erreur lors de la lecture du fichier:', error);
-            alert('Erreur lors de la lecture du fichier. Vérifiez le format.');
+            displayPreview(excelData);
+        } catch(err) {
+            console.error(err);
+            alert('Erreur de lecture du fichier.');
         }
     };
-
-    // Lire selon le type de fichier
-    if (fileExtension === 'csv') {
-        reader.readAsText(file);
-    } else {
-        reader.readAsArrayBuffer(file);
-    }
+    ext === 'csv' ? reader.readAsText(file) : reader.readAsArrayBuffer(file);
 }
 
-// Parser les données Excel
-function parseExcelData(rawData) {
-    console.log('📊 Raw data received:', rawData);
-    console.log('📊 Number of rows:', rawData.length);
-
-    if (rawData.length < 1) {
-        alert('Le fichier ne contient pas de données.');
-        return [];
-    }
-
-    // Déterminer si la première ligne est un en-tête ou des données
-    // En-tête si elle contient des mots comme "prenom", "nom", "email", etc.
-    const firstRow = rawData[0];
-    const isHeader = firstRow.some(cell => {
-        if (typeof cell === 'string') {
-            const lower = cell.toLowerCase().trim();
-            return ['prenom', 'prénom', 'nom', 'email', 'age', 'âge', 'mot de passe', 'password', 'role', 'rôle', 'statut'].includes(lower);
-        }
-        return false;
-    });
-
-    console.log('📊 First row is header:', isHeader);
-    console.log('📊 First row content:', firstRow);
-
-    // Si la première ligne est un en-tête, on la saute, sinon on commence à la ligne 1
-    const rows = isHeader ? rawData.slice(1) : rawData;
-    console.log('📊 Data rows (before filter):', rows.length);
-
-    const parsed = rows.filter(row => {
-        // Filtrer les lignes vides - vérifier si au moins le prénom ou l'email existe
-        const hasData = row && row.length > 0 && (row[0] || row[2]);
-        if (!hasData) {
-            console.log('⚠️ Skipping empty row:', row);
-        }
-        return hasData;
-    }).map(row => {
-        const user = {
-            prenom: row[0] || '',
-            nom: row[1] || '',
-            email: row[2] || '',
-            age: row[3] || '',
-            mot_de_passe: row[4] || '',
-            role: row[5] || '',
-            statut: row[6] || 'user'
-        };
-        console.log('✅ Parsed user:', user);
-        return user;
-    });
-
-    console.log('📊 Total parsed users:', parsed.length);
-    return parsed;
+function parseExcelData(raw) {
+    if (!raw.length) { alert('Fichier vide.'); return []; }
+    const first    = raw[0];
+    const keywords = ['prenom','prénom','nom','email','age','âge','mot de passe','password','role','rôle','statut'];
+    const isHeader = first.some(c => typeof c === 'string' && keywords.includes(c.toLowerCase().trim()));
+    const rows     = isHeader ? raw.slice(1) : raw;
+    return rows
+        .filter(r => r && r.length > 0 && (r[0] || r[2]))
+        .map(r => ({
+            prenom:      String(r[0] || '').trim(),
+            nom:         String(r[1] || '').trim(),
+            email:       String(r[2] || '').trim(),
+            age:         r[3] || '',
+            mot_de_passe:String(r[4] || '').trim(),
+            role:        String(r[5] || '').trim(),
+            statut:      String(r[6] || 'user').trim()
+        }));
 }
 
-// Afficher la prévisualisation
 function displayPreview(data) {
-    if (data.length === 0) {
-        alert('Aucune donnée valide trouvée dans le fichier.');
-        return;
-    }
-
-    const previewZone = document.getElementById('previewZone');
+    if (!data.length) { alert('Aucune donnée valide trouvée.'); return; }
     const previewTable = document.getElementById('previewTable');
-
-    let html = '<div class="users-table-container"><table class="users-table">';
-    html += '<thead><tr>';
-    html += '<th>Prénom</th><th>Nom</th><th>Email</th><th>Âge</th><th>Mot de passe</th><th>Rôle</th><th>Statut</th>';
-    html += '</tr></thead><tbody>';
-
-    data.forEach(user => {
-        html += '<tr>';
-        html += `<td>${user.prenom}</td>`;
-        html += `<td>${user.nom}</td>`;
-        html += `<td>${user.email}</td>`;
-        html += `<td>${user.age}</td>`;
-        html += `<td>******</td>`;
-        html += `<td>${user.role}</td>`;
-        html += `<td><span class="badge badge-user">${user.statut}</span></td>`;
-        html += '</tr>';
+    let html = '<table><thead><tr><th>Prénom</th><th>Nom</th><th>Email</th><th>Âge</th><th>Mot de passe</th><th>Rôle</th><th>Statut</th></tr></thead><tbody>';
+    data.forEach(u => {
+        html += `<tr><td>${u.prenom}</td><td>${u.nom}</td><td>${u.email}</td><td>${u.age}</td><td>••••••</td><td>${u.role}</td><td><span class="badge badge-user">${u.statut}</span></td></tr>`;
     });
-
-    html += '</tbody></table></div>';
-
+    html += '</tbody></table>';
     previewTable.innerHTML = html;
-    previewZone.style.display = 'block';
+    document.getElementById('previewZone').style.display = 'block';
 }
 
-// Confirmer l'import
 function confirmImport() {
-    console.log('🚀 Starting import...');
-    console.log('📊 Data to import:', excelData);
-
-    if (excelData.length === 0) {
-        alert('Aucune donnée à importer.');
-        return;
-    }
-
-    console.log(`📤 Sending ${excelData.length} users to server...`);
-
-    // Envoyer les données au serveur
+    if (!excelData.length) { alert('Aucune donnée à importer.'); return; }
     fetch('/comptes/import_excel', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ users: excelData })
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ users: excelData })
     })
-    .then(response => {
-        console.log('📥 Response status:', response.status);
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        return response.json();
-    })
-    .then(data => {
-        console.log('✅ Server response:', data);
-        if (data.success) {
-            alert(`Import réussi ! ${data.imported} utilisateur(s) importé(s).${data.errors && data.errors.length > 0 ? '\n\nErreurs: ' + data.errors.join('\n') : ''}`);
-            location.reload();
+    .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
+    .then(d => {
+        if (d.success) {
+            showToast(`${d.imported} utilisateur(s) importé(s)`, 'ok');
+            setTimeout(() => location.reload(), 1200);
         } else {
-            alert(`Erreur lors de l'import : ${data.message}`);
+            showToast(`Erreur : ${d.message}`, 'err');
         }
     })
-    .catch(error => {
-        console.error('❌ Erreur:', error);
-        alert('Erreur lors de l\'envoi des données au serveur: ' + error.message);
-    });
+    .catch(err => showToast('Erreur serveur : ' + err.message, 'err'));
 }
 
-// Annuler l'import
 function cancelImport() {
     excelData = [];
     document.getElementById('previewZone').style.display = 'none';
     document.getElementById('excelFileInput').value = '';
 }
 
-// ========================================
-// MODAL FORMAT EXCEL
-// ========================================
+// ── MODALS ───────────────────────────────────────────────────────────────────
 
-function showFormatModal() {
-    document.getElementById('formatModal').classList.add('active');
+function showFormatModal()        { openModal('formatModal'); }
+function closeFormatModal()       { closeModal('formatModal'); }
+function closeAddCollaboratorModal() { closeModal('addCollaboratorModal'); }
+
+function openModal(id) {
+    const m = document.getElementById(id);
+    if (m) { m.classList.remove('hidden'); m.setAttribute('aria-hidden', 'false'); }
+}
+function closeModal(id) {
+    const m = document.getElementById(id);
+    if (m) { m.classList.add('hidden'); m.setAttribute('aria-hidden', 'true'); }
 }
 
-function closeFormatModal() {
-    document.getElementById('formatModal').classList.remove('active');
-}
-
-// ========================================
-// FILTRES UTILISATEURS
-// ========================================
-
-function filterUsers() {
-    const searchTerm = document.getElementById('searchInput').value.toLowerCase();
-    const statusFilter = document.getElementById('statusFilter').value;
-    const roleFilter = document.getElementById('roleFilter').value;
-
-    const rows = document.querySelectorAll('.user-row');
-
-    rows.forEach(row => {
-        const name = row.getAttribute('data-name').toLowerCase();
-        const status = row.getAttribute('data-status');
-        const role = row.getAttribute('data-role');
-
-        const matchesSearch = name.includes(searchTerm);
-        const matchesStatus = !statusFilter || status === statusFilter;
-        const matchesRole = !roleFilter || role === roleFilter;
-
-        if (matchesSearch && matchesStatus && matchesRole) {
-            row.style.display = '';
-        } else {
-            row.style.display = 'none';
-        }
-    });
-}
-
-// ========================================
-// GESTION DES MANAGERS
-// ========================================
-
-function toggleManagerSubordinates(managerId) {
-    const subordinatesDiv = document.getElementById(`subordinates-${managerId}`);
-    const icon = document.getElementById(`icon-manager-${managerId}`);
-
-    if (subordinatesDiv.style.display === 'none' || subordinatesDiv.style.display === '') {
-        subordinatesDiv.style.display = 'block';
-        icon.classList.add('rotated');
-    } else {
-        subordinatesDiv.style.display = 'none';
-        icon.classList.remove('rotated');
-    }
-}
-
-function showAddCollaboratorModal(managerId, managerName) {
-    document.getElementById('modalManagerId').value = managerId;
-    document.getElementById('managerNameDisplay').textContent = managerName;
-    document.getElementById('addCollaboratorModal').classList.add('active');
-}
-
-function closeAddCollaboratorModal() {
-    document.getElementById('addCollaboratorModal').classList.remove('active');
-}
-
-// Fermer les modals en cliquant en dehors
-document.querySelectorAll('.modal-overlay').forEach(modal => {
-    modal.addEventListener('click', (e) => {
-        if (e.target === modal) {
-            modal.classList.remove('active');
-        }
+// Close on backdrop click
+document.querySelectorAll('.modal').forEach(modal => {
+    modal.addEventListener('click', e => {
+        if (e.target === modal) modal.classList.add('hidden');
     });
 });
 
-// ========================================
-// CHARGEMENT SHEETJS (optionnel)
-// ========================================
+// ── FILTRES ──────────────────────────────────────────────────────────────────
 
-// Charger SheetJS dynamiquement si besoin
-function loadSheetJS() {
-    if (typeof XLSX === 'undefined') {
-        const script = document.createElement('script');
-        script.src = 'https://cdn.sheetjs.com/xlsx-0.20.0/package/dist/xlsx.full.min.js';
-        document.head.appendChild(script);
-    }
+function filterUsers() {
+    const search = (document.getElementById('searchInput')?.value || '').toLowerCase();
+    const status = document.getElementById('statusFilter')?.value || '';
+    const role   = document.getElementById('roleFilter')?.value   || '';
+    document.querySelectorAll('.user-row').forEach(row => {
+        const matchName   = row.dataset.name.toLowerCase().includes(search);
+        const matchStatus = !status || row.dataset.status === status;
+        const matchRole   = !role   || row.dataset.role === role;
+        row.style.display = (matchName && matchStatus && matchRole) ? '' : 'none';
+    });
 }
 
-// ========================================
-// AFFICHAGE DES RÔLES SUPPLÉMENTAIRES
-// ========================================
+// ── MANAGERS ─────────────────────────────────────────────────────────────────
+
+function toggleManagerSubordinates(managerId) {
+    const div  = document.getElementById(`subordinates-${managerId}`);
+    const icon = document.getElementById(`icon-manager-${managerId}`);
+    const open = div.style.display === 'none' || div.style.display === '';
+    div.style.display = open ? 'block' : 'none';
+    icon.classList.toggle('rotated', open);
+}
+
+function showAddCollaboratorModal(managerId, managerName) {
+    document.getElementById('modalManagerId').value     = managerId;
+    document.getElementById('managerNameDisplay').textContent = managerName;
+    openModal('addCollaboratorModal');
+}
+
+// ── RÔLES SUPPLÉMENTAIRES ────────────────────────────────────────────────────
 
 function showAllRoles(event, userId) {
     event.preventDefault();
-    const button = event.target;
-    const roles = button.getAttribute('data-roles').split(',');
-
-    // Créer une popup simple
-    const popup = document.createElement('div');
-    popup.style.cssText = `
-        position: fixed;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        background: white;
-        padding: 24px;
-        border-radius: 16px;
-        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
-        z-index: 10000;
-        min-width: 300px;
-    `;
-
-    let html = '<h3 style="margin-top: 0; color: #333;">Tous les rôles</h3>';
-    html += '<div style="display: flex; flex-wrap: wrap; gap: 8px; margin: 16px 0;">';
-    roles.forEach(role => {
-        html += `<span class="badge badge-role">${role}</span>`;
-    });
-    html += '</div>';
-    html += '<button onclick="closeRolesPopup()" style="width: 100%; padding: 10px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">Fermer</button>';
-
-    popup.innerHTML = html;
-    popup.id = 'roles-popup';
-
-    // Overlay
+    const roles  = event.currentTarget.dataset.roles.split(',');
     const overlay = document.createElement('div');
-    overlay.style.cssText = `
-        position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background: rgba(0, 0, 0, 0.5);
-        z-index: 9999;
-    `;
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(59,10,31,.45);z-index:9999;display:flex;align-items:center;justify-content:center;';
     overlay.id = 'roles-overlay';
-    overlay.onclick = closeRolesPopup;
-
+    const box = document.createElement('div');
+    box.style.cssText = 'background:#fff;border-radius:12px;padding:24px;min-width:280px;max-width:400px;box-shadow:0 8px 32px rgba(157,23,77,.2);';
+    box.innerHTML = `<h3 style="margin:0 0 14px;color:#3b0a1f;font-size:.95rem;">Tous les rôles</h3>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px;">${roles.map(r => `<span class="badge badge-role">${r}</span>`).join('')}</div>
+      <button onclick="closeRolesPopup()" style="width:100%;padding:9px;background:#9d174d;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:600;font-size:.84rem;">Fermer</button>`;
+    overlay.appendChild(box);
+    overlay.addEventListener('click', e => { if (e.target === overlay) closeRolesPopup(); });
     document.body.appendChild(overlay);
-    document.body.appendChild(popup);
 }
 
 function closeRolesPopup() {
-    const popup = document.getElementById('roles-popup');
-    const overlay = document.getElementById('roles-overlay');
-    if (popup) popup.remove();
-    if (overlay) overlay.remove();
+    document.getElementById('roles-overlay')?.remove();
 }
 
-// ========================================
-// CONFIRMATION DE SUPPRESSION
-// ========================================
+// ── SUPPRESSION ──────────────────────────────────────────────────────────────
 
 let deleteUserId = null;
 
 function confirmDelete(userId, userName) {
     deleteUserId = userId;
     document.getElementById('deleteUserName').textContent = userName;
-    document.getElementById('deleteConfirmModal').style.display = 'flex';
+    openModal('deleteConfirmModal');
 }
 
 function closeDeleteModal() {
     deleteUserId = null;
-    document.getElementById('deleteConfirmModal').style.display = 'none';
+    closeModal('deleteConfirmModal');
 }
 
 function executeDelete() {
-    if (deleteUserId) {
-        // Créer un formulaire et le soumettre
-        const form = document.createElement('form');
-        form.method = 'POST';
-        form.action = `/comptes/delete/${deleteUserId}`;
-        document.body.appendChild(form);
-        form.submit();
-    }
+    if (!deleteUserId) return;
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = `/comptes/delete/${deleteUserId}`;
+    document.body.appendChild(form);
+    form.submit();
 }
 
-// Charger au chargement de la page
+// ── TOAST ────────────────────────────────────────────────────────────────────
+
+function showToast(msg, type = '') {
+    const t = document.getElementById('toast');
+    if (!t) return;
+    t.textContent = msg;
+    t.className   = 'toast' + (type ? ' toast-' + type : '');
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 3200);
+}
+
+// ── INIT ─────────────────────────────────────────────────────────────────────
+
 document.addEventListener('DOMContentLoaded', () => {
-    loadSheetJS();
+    // Charger SheetJS dynamiquement
+    if (typeof XLSX === 'undefined') {
+        const s = document.createElement('script');
+        s.src   = 'https://cdn.sheetjs.com/xlsx-0.20.0/package/dist/xlsx.full.min.js';
+        document.head.appendChild(s);
+    }
 });

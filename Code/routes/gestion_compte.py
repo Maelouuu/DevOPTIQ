@@ -1,4 +1,5 @@
 from flask import Blueprint, render_template, request, redirect, url_for, jsonify
+from werkzeug.security import generate_password_hash
 from Code.extensions import db
 from Code.models.models import User, Role, UserRole, Entity
 
@@ -96,11 +97,11 @@ def create_user():
     # MODIFIÉ: Associer le nouvel utilisateur à l'entité active
     active_entity_id = Entity.get_active_id()
     user = User(
-        first_name=first_name, 
-        last_name=last_name, 
-        age=age, 
-        email=email, 
-        password=password, 
+        first_name=first_name,
+        last_name=last_name,
+        age=age,
+        email=email,
+        password=generate_password_hash(password),
         status=status,
         entity_id=active_entity_id
     )
@@ -302,7 +303,7 @@ def import_excel():
                     last_name=user_data.get('nom', '').strip(),
                     email=user_data.get('email', '').strip(),
                     age=int(user_data.get('age')) if user_data.get('age') and str(user_data.get('age')).strip() else None,
-                    password=user_data.get('mot_de_passe', '').strip(),
+                    password=generate_password_hash(user_data.get('mot_de_passe', '').strip()),
                     status=user_data.get('statut', 'user').strip(),
                     entity_id=active_entity_id
                 )

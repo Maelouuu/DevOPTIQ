@@ -935,7 +935,7 @@ html, body { background: var(--bg); color: var(--text); }
   height: 36px;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
-  padding: 0 10px 0 30px;
+  padding: 0 10px 0 38px;
   font-size: 0.82rem;
   font-family: inherit;
   color: var(--text);
