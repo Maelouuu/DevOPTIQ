@@ -30,9 +30,6 @@
     <button class="tab-btn" role="tab" aria-selected="false" data-tab="list-tab">
       <i class="fa-solid fa-list"></i> Utilisateurs
     </button>
-    <button class="tab-btn" role="tab" aria-selected="false" data-tab="managers-tab">
-      <i class="fa-solid fa-user-tie"></i> Managers
-    </button>
   </div>
 
   <!-- ── ONGLET 1 : Créer un utilisateur ── -->
@@ -259,69 +256,6 @@
     </section>
   </div>
 
-  <!-- ── ONGLET 4 : Managers ── -->
-  <div id="managers-tab" class="tab-pane">
-    <section class="section-card" aria-labelledby="managers-title">
-      <div class="section-card__head">
-        <div class="section-card__head-left">
-          <span class="section-icon section-icon--muted"><i class="fa-solid fa-sitemap"></i></span>
-          <div>
-            <h2 id="managers-title" class="section-card__title">Managers & collaborateurs</h2>
-            <p class="section-card__subtitle">Gérez les relations hiérarchiques</p>
-          </div>
-        </div>
-      </div>
-
-      {% if managers and managers|length > 0 %}
-        {% for manager in managers %}
-        <div class="manager-card">
-          <div class="manager-header" onclick="toggleManagerSubordinates({{ manager.id }})">
-            <div class="manager-name">
-              <span class="manager-avatar"><i class="fa-solid fa-user-tie"></i></span>
-              {{ manager.first_name }} {{ manager.last_name }}
-              <span class="manager-count">
-                {{ manager.subordinates|length if manager.subordinates else 0 }}
-                collaborateur{{ 's' if manager.subordinates and manager.subordinates|length > 1 else '' }}
-              </span>
-            </div>
-            <i class="fa-solid fa-chevron-right toggle-icon-manager" id="icon-manager-{{ manager.id }}"></i>
-          </div>
-
-          <div id="subordinates-{{ manager.id }}" class="subordinates-wrap" style="display:none;">
-            {% if manager.subordinates and manager.subordinates|length > 0 %}
-              <ul class="subordinates-list">
-                {% for sub in manager.subordinates %}
-                <li>
-                  <span><i class="fa-solid fa-user"></i> {{ sub.first_name }} {{ sub.last_name }}</span>
-                  <form method="POST" action="{{ url_for('gestion_compte.remove_collaborator', user_id=sub.id) }}"
-                        style="display:inline;"
-                        onsubmit="return confirm('Retirer ce collaborateur ?');">
-                    <button type="submit" class="btn btn-sm btn-danger">
-                      <i class="fa-solid fa-user-minus"></i> Retirer
-                    </button>
-                  </form>
-                </li>
-                {% endfor %}
-              </ul>
-            {% else %}
-              <p class="no-subs"><i class="fa-solid fa-inbox"></i> Aucun collaborateur</p>
-            {% endif %}
-
-            <button class="btn btn-outline btn-sm" style="margin-top:14px;"
-                    onclick="showAddCollaboratorModal({{ manager.id }}, '{{ manager.first_name }}')">
-              <i class="fa-solid fa-user-plus"></i> Ajouter un collaborateur
-            </button>
-          </div>
-        </div>
-        {% endfor %}
-      {% else %}
-        <div class="empty-state">
-          <i class="fa-solid fa-inbox"></i>
-          <p>Aucun manager trouvé</p>
-        </div>
-      {% endif %}
-    </section>
-  </div>
 
 </div>
 
@@ -349,39 +283,6 @@
     </div>
     <div class="modal-footer">
       <button class="btn btn-pink" onclick="closeFormatModal()"><i class="fa-solid fa-check"></i> J'ai compris</button>
-    </div>
-  </div>
-</div>
-
-<!-- ── Modal Ajouter collaborateur ── -->
-<div class="modal hidden" id="addCollaboratorModal" aria-hidden="true">
-  <div class="modal-card">
-    <div class="modal-header">
-      <h3 class="modal-title"><i class="fa-solid fa-user-plus"></i> Ajouter à <span id="managerNameDisplay"></span></h3>
-      <button class="modal-close" onclick="closeAddCollaboratorModal()" aria-label="Fermer"><i class="fa-solid fa-xmark"></i></button>
-    </div>
-    <div class="modal-body">
-      <form id="addCollaboratorForm" method="POST" action="{{ url_for('gestion_compte.assign_manager') }}">
-        <input type="hidden" name="manager_id" id="modalManagerId">
-        <input type="hidden" name="multi_select" value="0">
-        <div class="field">
-          <div class="search-style-wrap search-style-wrap--select">
-            <i class="fa-solid fa-user search-style-icon"></i>
-            <select name="user_id" id="collaboratorSelect" class="search-style-input" required>
-              <option value="">-- Choisir un utilisateur --</option>
-              {% for user in users %}
-                <option value="{{ user.id }}">{{ user.first_name }} {{ user.last_name }}</option>
-              {% endfor %}
-            </select>
-          </div>
-        </div>
-      </form>
-    </div>
-    <div class="modal-footer">
-      <button class="btn btn-pink" onclick="document.getElementById('addCollaboratorForm').submit()">
-        <i class="fa-solid fa-check"></i> Ajouter
-      </button>
-      <button class="btn btn-ghost" onclick="closeAddCollaboratorModal()">Annuler</button>
     </div>
   </div>
 </div>

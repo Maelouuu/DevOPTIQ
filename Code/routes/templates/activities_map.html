@@ -31,14 +31,40 @@
         <i class="fa-solid fa-wand-magic-sparkles"></i>
         Import global IA
       </button>
+      <!-- Mode connexions inter-cartos -->
+      <button id="cross-carto-btn" class="cross-carto-btn" title="Visualiser les connexions inter-cartos">
+        <span class="cross-carto-switch" id="cross-carto-switch">
+          <span class="cross-carto-knob"></span>
+        </span>
+        <i class="fa-solid fa-diagram-project"></i>
+        <span id="cross-carto-label">Connexions</span>
+      </button>
       <button id="carto-wizard-btn" class="carto-wizard-btn"><i class="fa-solid fa-layer-group"></i> Gérer la cartographie</button>
     </div>
   </div>
 
   <!-- INFO NAVIGATION -->
-  <div class="carto-info-message">
-    <strong>Navigation :</strong> 
+  <div class="carto-info-message" id="carto-info-default">
+    <strong>Navigation :</strong>
     Clic gauche maintenu pour se déplacer • Molette pour zoomer • Clic sur une activité pour y accéder
+  </div>
+  <div class="carto-info-message carto-info-cross hidden" id="carto-info-cross">
+    <i class="fa-solid fa-diagram-project"></i>
+    <strong>Mode connexions :</strong>
+    Les activités <span class="cross-highlight-label">surlignées</span> existent dans d'autres cartos — cliquez pour y accéder.
+    <span id="cross-carto-count" class="cross-count-badge">0</span> connexion(s) trouvée(s)
+  </div>
+
+  <!-- Popup entité choice (cross-carto click with multiple matches) -->
+  <div id="cross-entity-popup" class="cross-entity-popup hidden">
+    <div class="cross-entity-popup-inner">
+      <div class="cross-entity-popup-head">
+        <strong id="cross-entity-activity-name"></strong>
+        <button onclick="document.getElementById('cross-entity-popup').classList.add('hidden')" class="cross-entity-close"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <p class="cross-entity-popup-sub">Cette activité existe dans les cartos suivantes :</p>
+      <div id="cross-entity-list" class="cross-entity-list"></div>
+    </div>
   </div>
 
   <!-- WIZARD UNIFIÉ -->

@@ -1001,3 +1001,63 @@ def debug_files():
             })
     
     return jsonify(result)
+
+# ============================================================
+# API : CORRESPONDANCES CROSS-CARTO
+# ============================================================
+
+@activities_map_bp.route("/api/cross_carto_matches", methods=["GET"])
+def cross_carto_matches():
+    """
+    Pour l'entité active, retourne les activités (avec shape_id) dont le nom
+    correspond à une activité d'une autre entité du même utilisateur.
+    """
+    user_id = session.get('user_id')
+    active_entity_id = get_active_entity_id()
+
+    if not active_entity_id or not user_id:
+        return jsonify({"matches": []}), 200
+
+    # Activités de l'entité active ayant un shape_id (présentes sur la carto)
+    active_acts = Activities.query.filter(
+        Activities.entity_id == active_entity_id,
+        Activities.shape_id.isnot(None)
+    ).all()
+
+    if not active_acts:
+        return jsonify({"matches": []}), 200
+
+    # Toutes les autres entités du même utilisateur
+    other_entities = Entity.query.filter(
+        Entity.owner_id == user_id,
+        Entity.id != active_entity_id
+    ).all()
+
+    if not other_entities:
+        return jsonify({"matches": []}), 200
+
+    matches = []
+    for act in active_acts:
+        name_lower = (act.name or "").strip().lower()
+        if not name_lower:
+            continue
+        matched_entities = []
+        for entity in other_entities:
+            hit = Activities.query.filter(
+                Activities.entity_id == entity.id,
+                db.func.lower(Activities.name) == name_lower
+            ).first()
+            if hit:
+                matched_entities.append({"id": entity.id, "name": entity.name})
+        if matched_entities:
+            matches.append({
+                "shape_id": str(act.shape_id),
+                "activity_name": act.name,
+                "matched_entities": matched_entities
+            })
+
+    return jsonify({
+        "matches": matches,
+        "active_entity_id": active_entity_id,
+        "total": len(matches)
+    }), 200

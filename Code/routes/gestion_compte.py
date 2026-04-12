@@ -154,6 +154,10 @@ def update_user(user_id):
         user.email = request.form['email']
         user.status = request.form['status']
 
+        new_password = request.form.get('password', '').strip()
+        if new_password:
+            user.password = generate_password_hash(new_password)
+
         # Mise à jour du rôle
         new_role_id = int(request.form['role_id'])
         user_role = UserRole.query.filter_by(user_id=user.id).first()

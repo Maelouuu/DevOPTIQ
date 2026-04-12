@@ -18,6 +18,10 @@ let startX = 0, startY = 0;
 let hasMoved = false;
 let svgWidth = 0, svgHeight = 0;
 
+/* État mode connexions inter-cartos */
+let crossCartoMode = false;
+let crossCartoMatches = [];
+
 const ZOOM_MIN = 0.1, ZOOM_MAX = 10;
 
 /* État du wizard */
@@ -212,17 +216,28 @@ function activateSvgClicks() {
     el.classList.add("carto-activity");
 
     el.addEventListener("mouseenter", () => {
+      if (crossCartoMode) return;
       el.style.filter = "drop-shadow(0 0 6px #22c55e)";
       el.style.opacity = "0.9";
     });
     el.addEventListener("mouseleave", () => {
+      if (crossCartoMode) return;
       el.style.filter = "";
       el.style.opacity = "1";
     });
     el.addEventListener("click", (e) => {
       if (!hasMoved) {
         e.stopPropagation();
-        window.location.href = `/activities/view?activity_id=${actId}`;
+        if (crossCartoMode) {
+          const raw = el.dataset.crossEntities;
+          if (raw) {
+            const entities = JSON.parse(raw);
+            const name = el.dataset.crossActivity || "Activité";
+            handleCrossCartoClick(name, entities);
+          }
+        } else {
+          window.location.href = `/activities/view?activity_id=${actId}`;
+        }
       }
     });
   });
@@ -805,13 +820,162 @@ function showError(msg) {
 /* ============================================================
    INIT
 ============================================================ */
+/* ============================================================
+   MODE CONNEXIONS INTER-CARTOS
+============================================================ */
+
+function initCrossCartoMode() {
+  const btn = document.getElementById("cross-carto-btn");
+  if (!btn) return;
+
+  btn.addEventListener("click", async () => {
+    crossCartoMode = !crossCartoMode;
+    btn.classList.toggle("active", crossCartoMode);
+
+    const infoDefault = document.getElementById("carto-info-default");
+    const infoCross   = document.getElementById("carto-info-cross");
+    if (infoDefault) infoDefault.classList.toggle("hidden", crossCartoMode);
+    if (infoCross)   infoCross.classList.toggle("hidden", !crossCartoMode);
+
+    if (crossCartoMode) {
+      await applyCrossCartoMode();
+    } else {
+      clearCrossCartoMode();
+    }
+  });
+}
+
+async function applyCrossCartoMode() {
+  if (!svgElement) return;
+
+  // Fetch matches from API
+  let data;
+  try {
+    const res = await fetch("/activities/api/cross_carto_matches");
+    data = await res.json();
+  } catch (e) {
+    console.error("cross_carto_matches fetch error:", e);
+    data = { matches: [] };
+  }
+  crossCartoMatches = data.matches || [];
+
+  // Build a lookup: shape_id → match info
+  const matchMap = {};
+  crossCartoMatches.forEach(m => { matchMap[m.shape_id] = m; });
+
+  // Update count badge
+  const countEl = document.getElementById("cross-carto-count");
+  if (countEl) countEl.textContent = crossCartoMatches.length;
+
+  // Apply visual effects to all carto-activity elements
+  svgElement.querySelectorAll(".carto-activity").forEach(el => {
+    // Find shape_id: iterate SHAPE_ACTIVITY_MAP entries to find which shape maps to this el
+    let shapeId = null;
+    // el.dataset.activityId was set in initShapeHandlers
+    // We need shape_id for the match. Let's store it directly.
+    // Actually we need reverse: actId → shapeId
+    // Use el.dataset.shapeId if set, otherwise we scan all keys
+    if (el.dataset.shapeId) {
+      shapeId = el.dataset.shapeId;
+    } else {
+      const actId = el.dataset.activityId;
+      if (actId) {
+        for (const [sid, aid] of Object.entries(SHAPE_ACTIVITY_MAP)) {
+          if (String(aid) === String(actId)) { shapeId = sid; break; }
+        }
+        el.dataset.shapeId = shapeId || "";
+      }
+    }
+
+    const match = shapeId ? matchMap[shapeId] : null;
+
+    if (match) {
+      // Highlight matched shape
+      el.dataset.crossEntities = JSON.stringify(match.matched_entities);
+      el.dataset.crossActivity  = match.activity_name;
+      el.style.opacity = "1";
+      el.style.filter  = "drop-shadow(0 0 6px #0ea5e9) drop-shadow(0 0 14px #38bdf8)";
+      el.style.cursor  = "pointer";
+      el.style.animation = "cross-pulse-svg 1.8s ease-in-out infinite";
+    } else {
+      // Dim non-matched shape
+      el.dataset.crossEntities = "";
+      el.style.opacity   = "0.12";
+      el.style.filter    = "grayscale(1)";
+      el.style.cursor    = "default";
+      el.style.animation = "none";
+    }
+  });
+}
+
+function clearCrossCartoMode() {
+  crossCartoMatches = [];
+  if (!svgElement) return;
+
+  svgElement.querySelectorAll(".carto-activity").forEach(el => {
+    el.style.opacity   = "1";
+    el.style.filter    = "";
+    el.style.cursor    = "pointer";
+    el.style.animation = "";
+    el.dataset.crossEntities = "";
+  });
+
+  const countEl = document.getElementById("cross-carto-count");
+  if (countEl) countEl.textContent = "0";
+}
+
+function handleCrossCartoClick(activityName, entities) {
+  if (!entities || entities.length === 0) return;
+
+  if (entities.length === 1) {
+    // Switch directly
+    switchEntityAndReload(entities[0].id);
+    return;
+  }
+
+  // Show selection popup
+  const popup    = document.getElementById("cross-entity-popup");
+  const nameEl   = document.getElementById("cross-entity-activity-name");
+  const listEl   = document.getElementById("cross-entity-list");
+  if (!popup || !listEl) return;
+
+  if (nameEl) nameEl.textContent = `"${activityName}"`;
+  listEl.innerHTML = "";
+
+  entities.forEach(entity => {
+    const item = document.createElement("div");
+    item.className = "cross-entity-item";
+    item.innerHTML = `<i class="fa-solid fa-building"></i> ${entity.name}`;
+    item.addEventListener("click", () => {
+      popup.classList.add("hidden");
+      switchEntityAndReload(entity.id);
+    });
+    listEl.appendChild(item);
+  });
+
+  popup.classList.remove("hidden");
+}
+
+async function switchEntityAndReload(entityId) {
+  try {
+    await fetch(`/activities/api/entities/${entityId}/activate`, { method: "POST" });
+  } catch(e) {
+    console.error("switchEntity error:", e);
+  }
+  window.location.reload();
+}
+
+/* ============================================================
+   INIT
+============================================================ */
 document.addEventListener("DOMContentLoaded", async () => {
   // Cacher tous les modals immédiatement
   hideAllModals();
-  
+
   // Initialiser
   initListClicks();
   initWizard();
   initPan();
+  initCrossCartoMode();
   await loadSvgInline();
 });
