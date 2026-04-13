@@ -56,6 +56,7 @@ def list_tools():
             "id": t.id,
             "name": t.name,
             "description": t.description or "",
+            "file_path": t.file_path or "",
             "usages": usages_by_tool.get(t.id, [])
         })
     return jsonify(data)
@@ -69,6 +70,7 @@ def create_tool():
     payload = request.get_json(silent=True) or {}
     name = (payload.get("name") or "").strip()
     description = (payload.get("description") or "").strip() or None
+    file_path = (payload.get("file_path") or "").strip() or None
 
     if not name:
         return jsonify({"error": "Le nom de l'outil est requis."}), 400
@@ -80,7 +82,7 @@ def create_tool():
 
     # MODIFIÉ: Créer l'outil avec l'entité active
     active_entity_id = Entity.get_active_id()
-    tool = Tool(name=name, description=description, entity_id=active_entity_id)
+    tool = Tool(name=name, description=description, file_path=file_path, entity_id=active_entity_id)
     db.session.add(tool)
     db.session.commit()
     return jsonify({"message": "Outil créé.", "id": tool.id}), 201
@@ -117,8 +119,12 @@ def update_tool(tool_id):
         new_desc = new_desc.strip() or None
         tool.description = new_desc
 
+    new_file = payload.get("file_path")
+    if new_file is not None:
+        tool.file_path = new_file.strip() or None
+
     db.session.commit()
-    return jsonify({"message": "Outil mis à jour."})
+    return jsonify({"message": "Outil mis à jour.", "file_path": tool.file_path})
 
 
 # -------------------------

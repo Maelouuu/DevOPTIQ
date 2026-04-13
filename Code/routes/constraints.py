@@ -17,17 +17,20 @@ def add_constraint(activity_id):
     if not description:
         return jsonify({"error": "description is required"}), 400
 
+    file_path = (data.get("file_path") or "").strip() or None
+
     activity = Activities.query.get(activity_id)
     if not activity:
         return jsonify({"error": "Activity not found"}), 404
 
     try:
-        new_constraint = Constraint(description=description, activity_id=activity_id)
+        new_constraint = Constraint(description=description, activity_id=activity_id, file_path=file_path)
         db.session.add(new_constraint)
         db.session.commit()
         return jsonify({
             "id": new_constraint.id,
-            "description": new_constraint.description
+            "description": new_constraint.description,
+            "file_path": new_constraint.file_path
         }), 201
     except Exception as e:
         db.session.rollback()
@@ -50,10 +53,13 @@ def update_constraint(activity_id, constraint_id):
 
     try:
         constraint_obj.description = new_desc
+        if "file_path" in data:
+            constraint_obj.file_path = (data["file_path"] or "").strip() or None
         db.session.commit()
         return jsonify({
             "id": constraint_obj.id,
-            "description": constraint_obj.description
+            "description": constraint_obj.description,
+            "file_path": constraint_obj.file_path
         }), 200
     except Exception as e:
         db.session.rollback()

@@ -10,14 +10,15 @@
           <li id="constraint-{{ c.id }}">
             <span class="constraint-text">{{ c.description }}</span>
 
-            <!-- 
-                 On stocke la contrainte complète dans data-constraint,
-                 au format JSON, sans faire de replace() manuel.
-                 Jinja gère l'échappement via |tojson.
-            -->
+            {% if c.file_path %}
+              <a class="constraint-file-link" href="/utils/serve-file?path={{ c.file_path }}" target="_blank" title="Ouvrir : {{ c.file_path }}">
+                <i class="fa-solid fa-paperclip"></i>
+              </a>
+            {% endif %}
+
             <button
               class="icon-btn"
-              data-constraint='{{ {"id": c.id, "description": c.description}|tojson|safe }}'
+              data-constraint='{{ {"id": c.id, "description": c.description, "file_path": c.file_path or ""}|tojson|safe }}'
               onclick="showEditConstraintForm(this)"
               title="Modifier"
             >
@@ -30,7 +31,8 @@
 
             <!-- Formulaire d'édition caché -->
             <div id="edit-constraint-form-{{ c.id }}" style="display:none; margin-top:5px;">
-              <input type="text" id="edit-constraint-input-{{ c.id }}" />
+              <input type="text" id="edit-constraint-input-{{ c.id }}" placeholder="Description" />
+              <input type="text" id="edit-constraint-filepath-{{ c.id }}" placeholder="Chemin du fichier (optionnel)" style="margin-top:4px;" />
               <button class="icon-btn icon-btn-success" onclick="submitEditConstraint('{{ item.activity.id }}','{{ c.id }}')" title="Enregistrer"><i class="fa-solid fa-check"></i></button>
               <button class="icon-btn" onclick="hideEditConstraintForm('{{ c.id }}')" title="Annuler"><i class="fa-solid fa-xmark"></i></button>
             </div>
@@ -44,7 +46,8 @@
 
   <button class="btn-modal-primary-propose" onclick="showAddConstraintForm('{{ item.activity.id }}')"><i class="fa-solid fa-plus"></i> Ajouter une contrainte</button>
   <div id="add-constraint-form-{{ item.activity.id }}" style="display:none; margin-top:8px;">
-    <input type="text" id="add-constraint-input-{{ item.activity.id }}" />
+    <input type="text" id="add-constraint-input-{{ item.activity.id }}" placeholder="Description de la contrainte *" />
+    <input type="text" id="add-constraint-filepath-{{ item.activity.id }}" placeholder="Chemin du fichier lié (optionnel)" style="margin-top:4px;" />
     <button class="icon-btn icon-btn-success" onclick="submitAddConstraint('{{ item.activity.id }}')" title="Enregistrer"><i class="fa-solid fa-check"></i></button>
     <button class="icon-btn" onclick="hideAddConstraintForm('{{ item.activity.id }}')" title="Annuler"><i class="fa-solid fa-xmark"></i></button>
   </div>

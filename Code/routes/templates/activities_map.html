@@ -31,6 +31,10 @@
         <i class="fa-solid fa-wand-magic-sparkles"></i>
         Import global IA
       </button>
+      <button id="btn-export" class="btn-export-carto" title="Exporter les données de l'entité">
+        <i class="fa-solid fa-file-export"></i>
+        Exporter
+      </button>
       <!-- Mode connexions inter-cartos -->
       <button id="cross-carto-btn" class="cross-carto-btn" title="Visualiser les connexions inter-cartos">
         <i class="fa-solid fa-diagram-project cross-carto-icon"></i>
@@ -465,3 +469,143 @@
   </div>
 
 </div>
+
+<!-- ── Modal EXPORT ── -->
+<div id="exportModal" class="export-modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="exportModalTitle">
+  <div class="export-modal-card">
+
+    <!-- Header gradient -->
+    <div class="export-modal-header">
+      <div class="export-modal-header-glow"></div>
+      <div class="export-modal-header-content">
+        <div class="export-modal-icon-wrap">
+          <i class="fa-solid fa-file-export"></i>
+        </div>
+        <div>
+          <h2 id="exportModalTitle" class="export-modal-title">Exporter les données</h2>
+          <p class="export-modal-subtitle" id="exportModalSubtitle">Chargement de l'entité…</p>
+        </div>
+      </div>
+      <button class="export-modal-close" id="exportModalClose" aria-label="Fermer">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+    </div>
+
+    <!-- Body -->
+    <div class="export-modal-body">
+
+      <!-- Filtre rôle -->
+      <div class="export-field">
+        <label class="export-label">
+          <i class="fa-solid fa-user-tag"></i> Filtrer par rôle <span class="export-optional">(optionnel)</span>
+        </label>
+        <div class="export-select-wrap">
+          <select id="exportRoleSelect" class="export-select">
+            <option value="">— Toute l'entité —</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Format -->
+      <div class="export-field">
+        <label class="export-label"><i class="fa-solid fa-file"></i> Format</label>
+        <div class="export-format-row">
+          <label class="export-format-card" id="fmt-excel-card">
+            <input type="radio" name="exportFormat" value="excel" checked>
+            <span class="export-format-icon"><i class="fa-solid fa-table"></i></span>
+            <span class="export-format-name">Excel</span>
+            <span class="export-format-ext">.xlsx</span>
+          </label>
+          <label class="export-format-card" id="fmt-html-card">
+            <input type="radio" name="exportFormat" value="html">
+            <span class="export-format-icon"><i class="fa-solid fa-globe"></i></span>
+            <span class="export-format-name">Rapport HTML</span>
+            <span class="export-format-ext">.html</span>
+          </label>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Footer -->
+    <div class="export-modal-footer">
+      <button class="export-btn-cancel" id="exportModalCancel">Annuler</button>
+      <button class="export-btn-dl" id="exportModalDownload">
+        <i class="fa-solid fa-download"></i> Télécharger
+      </button>
+    </div>
+
+  </div>
+</div>
+
+<script>
+(function() {
+  const btn     = document.getElementById("btn-export");
+  const modal   = document.getElementById("exportModal");
+  const closeBtn = document.getElementById("exportModalClose");
+  const cancelBtn = document.getElementById("exportModalCancel");
+  const dlBtn   = document.getElementById("exportModalDownload");
+  const roleSelect = document.getElementById("exportRoleSelect");
+  const subtitle = document.getElementById("exportModalSubtitle");
+
+  function openExportModal() {
+    const entity = window.ACTIVE_ENTITY;
+    if (!entity) {
+      alert("Aucune entité active. Activez d'abord une entité.");
+      return;
+    }
+    subtitle.textContent = entity.name || "Entité active";
+    modal.classList.remove("hidden");
+    document.body.style.overflow = "hidden";
+
+    // Load roles
+    roleSelect.innerHTML = '<option value="">— Toute l\'entité —</option>';
+    fetch("/roles/list")
+      .then(r => r.json())
+      .then(roles => {
+        roles.forEach(r => {
+          const opt = document.createElement("option");
+          opt.value = r.id;
+          opt.textContent = r.name;
+          roleSelect.appendChild(opt);
+        });
+      })
+      .catch(() => {});
+  }
+
+  function closeExportModal() {
+    modal.classList.add("hidden");
+    document.body.style.overflow = "";
+  }
+
+  function doDownload() {
+    const entity = window.ACTIVE_ENTITY;
+    if (!entity) return;
+    const roleId = roleSelect.value;
+    const format = document.querySelector('input[name="exportFormat"]:checked')?.value || "excel";
+    let url = `/export/entity?entity_id=${entity.id}&format=${format}`;
+    if (roleId) url += `&role_id=${roleId}`;
+    window.location.href = url;
+    closeExportModal();
+  }
+
+  btn?.addEventListener("click", openExportModal);
+  closeBtn?.addEventListener("click", closeExportModal);
+  cancelBtn?.addEventListener("click", closeExportModal);
+  dlBtn?.addEventListener("click", doDownload);
+  modal?.addEventListener("click", e => { if (e.target === modal) closeExportModal(); });
+  document.addEventListener("keydown", e => {
+    if (e.key === "Escape" && !modal.classList.contains("hidden")) closeExportModal();
+  });
+
+  // Format card visual
+  document.querySelectorAll('input[name="exportFormat"]').forEach(radio => {
+    radio.addEventListener("change", () => {
+      document.querySelectorAll(".export-format-card").forEach(c => c.classList.remove("selected"));
+      radio.closest(".export-format-card")?.classList.add("selected");
+    });
+  });
+  // Init selected state
+  document.querySelector('input[name="exportFormat"]:checked')?.closest(".export-format-card")?.classList.add("selected");
+})();
+</script>

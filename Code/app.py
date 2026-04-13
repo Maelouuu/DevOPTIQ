@@ -216,6 +216,9 @@ def create_app():
     from Code.routes.changelog import changelog_bp
     app.register_blueprint(changelog_bp)
 
+    from Code.routes.export import export_bp
+    app.register_blueprint(export_bp)
+
     # Auto-migration au démarrage (nécessaire sur les serveurs cloud avec filesystem éphémère)
     # Les blueprints sont enregistrés avant pour garantir que tous les modèles sont chargés
     with app.app_context():
@@ -225,6 +228,19 @@ def create_app():
             print("[DB] Migrations appliquées avec succès")
         except Exception as e:
             print(f"[DB] Avertissement migration (ignoré): {e}")
+
+        # Ajout sécurisé des colonnes file_path (compatible SQLite et PostgreSQL)
+        try:
+            from sqlalchemy import text as _text
+            for _tbl, _col in [("tools", "file_path"), ("constraints", "file_path")]:
+                try:
+                    db.session.execute(_text(f"ALTER TABLE {_tbl} ADD COLUMN {_col} VARCHAR(512)"))
+                    db.session.commit()
+                    print(f"[DB] Colonne {_tbl}.{_col} ajoutée")
+                except Exception:
+                    db.session.rollback()  # colonne déjà présente
+        except Exception as e:
+            print(f"[DB] file_path migration check: {e}")
 
     # secret key
     app.secret_key = os.getenv("SECRET_KEY", "devoptiq-secret")

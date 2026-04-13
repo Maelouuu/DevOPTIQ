@@ -50,6 +50,11 @@
                     {% for tool in task.tools %}
                       <span class="tool-badge" data-tool-id="{{ tool.id }}">
                         <i class="fa-solid fa-wrench"></i> {{ tool.name }}
+                        {% if tool.file_path %}
+                          <a class="tool-badge-file" href="/utils/serve-file?path={{ tool.file_path }}" target="_blank" title="Ouvrir : {{ tool.file_path }}">
+                            <i class="fa-solid fa-paperclip"></i>
+                          </a>
+                        {% endif %}
                         <button class="badge-remove" onclick="deleteToolFromTask('{{ task.id }}', '{{ tool.id }}')">
                           <i class="fa-solid fa-xmark"></i>
                         </button>

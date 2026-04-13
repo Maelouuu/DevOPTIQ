@@ -29,9 +29,10 @@ const manageModalFooter = document.getElementById("manageModalFooter");
 const closeManageModal  = document.getElementById("closeManageModal");
 
 // Création
-const createToolBtn = document.getElementById("createToolBtn");
-const newToolName   = document.getElementById("newToolName");
-const newToolDesc   = document.getElementById("newToolDesc");
+const createToolBtn  = document.getElementById("createToolBtn");
+const newToolName    = document.getElementById("newToolName");
+const newToolDesc    = document.getElementById("newToolDesc");
+const newToolFilePath = document.getElementById("newToolFilePath");
 
 // Recherche
 const toolSearch  = document.getElementById("toolSearch");
@@ -168,8 +169,15 @@ function renderTools() {
     card.dataset.name = (tool.name || "").toLowerCase();
     card.dataset.desc = (tool.description || "").toLowerCase();
 
-    const count = tool.usages.length;
-    const desc  = (tool.description || "").trim();
+    const count    = tool.usages.length;
+    const desc     = (tool.description || "").trim();
+    const filePath = (tool.file_path || "").trim();
+
+    const fileLink = filePath
+      ? `<a class="tool-card__file-link" href="/utils/serve-file?path=${encodeURIComponent(filePath)}" target="_blank" title="Ouvrir : ${escapeHTML(filePath)}">
+           <i class="fa-solid fa-paperclip"></i> <span class="tool-file-name">${escapeHTML(filePath.split(/[\\/]/).pop())}</span>
+         </a>`
+      : "";
 
     card.innerHTML = `
       <div class="tool-card__header">
@@ -185,6 +193,17 @@ function renderTools() {
           <i class="fa-solid fa-pencil"></i>
         </button>
       </div>
+
+      ${filePath ? `<div class="tool-card__file">
+        ${fileLink}
+        <button class="icon-btn" data-edit="file_path" title="Modifier le fichier lié">
+          <i class="fa-solid fa-pencil"></i>
+        </button>
+      </div>` : `<div class="tool-card__file tool-card__file--empty">
+        <button class="icon-btn tool-add-file-btn" data-edit="file_path" title="Lier un fichier">
+          <i class="fa-solid fa-paperclip"></i> <span style="font-size:.75rem;">Lier un fichier</span>
+        </button>
+      </div>`}
 
       <div class="tool-card__meta">
         <button class="badge ${count ? "badge-brown" : "badge-gray"} badge-clickable"
@@ -234,10 +253,28 @@ function onCardClick(e) {
 /* ── Édition ─────────────────────────────────────────────── */
 function openEditModal(tool, field) {
   editContext = { toolId: tool.id, field };
-  const isName = field === "name";
-  editModalTitle.innerHTML = `<i class="fa-solid fa-pencil"></i> ${isName ? "Modifier le nom" : "Modifier la description"}`;
-  editLabel.textContent    = isName ? "Nom de l'outil" : "Description";
+  const isName     = field === "name";
+  const isFilePath = field === "file_path";
+  const label      = isName ? "Nom de l'outil" : isFilePath ? "Chemin du fichier lié" : "Description";
+  const title      = isName ? "Modifier le nom" : isFilePath ? "Modifier le fichier lié" : "Modifier la description";
+
+  editModalTitle.innerHTML = `<i class="fa-solid fa-pencil"></i> ${title}`;
+  editLabel.textContent    = label;
   editInput.value          = (tool[field] || "").trim();
+  editInput.placeholder    = isFilePath ? "ex : C:\\Documents\\fichier.pdf" : "";
+
+  // Afficher le champ chemin secondaire si on édite name ou description (pour pouvoir aussi modifier file_path en même temps)
+  const fpField = document.getElementById("editFilePathField");
+  const fpInput = document.getElementById("editFilePathInput");
+  if (fpField && fpInput) {
+    if (isName || field === "description") {
+      fpField.style.display = "block";
+      fpInput.value = (tool.file_path || "").trim();
+    } else {
+      fpField.style.display = "none";
+    }
+  }
+
   toggleModal(editModal, true);
   setTimeout(() => editInput.focus(), 50);
 }
@@ -248,25 +285,38 @@ async function saveEdit() {
   const newVal = editInput.value.trim();
   if (field === "name" && !newVal) return showToast("Le nom ne peut pas être vide.", "warn");
 
-  const ok = await updateTool(toolId, field, newVal);
+  // Build payload — may include file_path from the secondary field
+  const payload = { [field]: newVal };
+  const fpInput = document.getElementById("editFilePathInput");
+  const fpField = document.getElementById("editFilePathField");
+  if (fpField && fpField.style.display !== "none" && fpInput) {
+    payload.file_path = fpInput.value.trim() || null;
+  }
+
+  const ok = await updateToolPayload(toolId, payload);
   if (ok) {
     const tool = toolsCache.find(t => t.id === toolId);
-    if (tool) tool[field] = newVal;
+    if (tool) {
+      tool[field] = newVal;
+      if ("file_path" in payload) tool.file_path = payload.file_path || "";
+    }
     toggleModal(editModal, false);
-    if (field === "name") await loadTools(); else renderTools();
+    renderTools();
   }
 }
 
-async function updateTool(id, field, value) {
+async function updateToolPayload(id, payload) {
   try {
-    const body = {}; body[field] = value;
     const res  = await fetch(`/gestion_outils/api/tools/${id}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
+      body: JSON.stringify(payload),
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) { showToast(data.error || "Échec de la mise à jour.", "error"); return false; }
+    // Sync file_path from server response if available
+    const tool = toolsCache.find(t => t.id === id);
+    if (tool && data.file_path !== undefined) tool.file_path = data.file_path || "";
     showToast("Modifié avec succès.");
     return true;
   } catch {
@@ -277,8 +327,9 @@ async function updateTool(id, field, value) {
 
 /* ── Création ────────────────────────────────────────────── */
 async function createTool() {
-  const name = newToolName.value.trim();
-  const desc = newToolDesc.value.trim();
+  const name     = newToolName.value.trim();
+  const desc     = newToolDesc.value.trim();
+  const filePath = newToolFilePath ? newToolFilePath.value.trim() : "";
   if (!name) { showToast("Renseigne un nom d'outil.", "warn"); newToolName.focus(); return; }
 
   createToolBtn.disabled  = true;
@@ -287,13 +338,13 @@ async function createTool() {
     const res  = await fetch("/gestion_outils/api/tools", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, description: desc }),
+      body: JSON.stringify({ name, description: desc, file_path: filePath || null }),
     });
     const data = await res.json();
     if (!res.ok) { showToast(data.error || "Échec de création.", "error"); return; }
     newToolName.value = "";
     newToolDesc.value = "";
-    // Replier le formulaire après succès
+    if (newToolFilePath) newToolFilePath.value = "";
     document.getElementById("createSection")?.classList.remove("expanded");
     showToast(`Outil « ${name} » ajouté.`);
     await loadTools();

@@ -6,9 +6,10 @@ function showAddConstraintForm(activityId) {
 
 function hideAddConstraintForm(activityId) {
   document.getElementById("add-constraint-form-" + activityId).style.display = "none";
-  // On remet le champ à vide au passage
   const inputElem = document.getElementById("add-constraint-input-" + activityId);
   if (inputElem) inputElem.value = "";
+  const fpElem = document.getElementById("add-constraint-filepath-" + activityId);
+  if (fpElem) fpElem.value = "";
 }
 
 // Soumission de l'ajout
@@ -20,11 +21,13 @@ function submitAddConstraint(activityId) {
     alert("Veuillez saisir une description de contrainte.");
     return;
   }
+  const fpElem = document.getElementById("add-constraint-filepath-" + activityId);
+  const filePath = fpElem ? fpElem.value.trim() : "";
 
   fetch(`/constraints/${activityId}/add`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ description: desc })
+    body: JSON.stringify({ description: desc, file_path: filePath || null })
   })
   .then(resp => resp.json())
   .then(data => {
@@ -83,10 +86,12 @@ function showEditConstraintForm(btnElem) {
   const constraintId = constraintObj.id;
   const formDiv = document.getElementById("edit-constraint-form-" + constraintId);
   const inputEl = document.getElementById("edit-constraint-input-" + constraintId);
+  const fpEl    = document.getElementById("edit-constraint-filepath-" + constraintId);
 
   if (formDiv && inputEl) {
     formDiv.style.display = "block";
     inputEl.value = constraintObj.description || "";
+    if (fpEl) fpEl.value = constraintObj.file_path || "";
   }
 }
 
@@ -105,11 +110,13 @@ function submitEditConstraint(activityId, constraintId) {
     alert("Veuillez saisir une description.");
     return;
   }
+  const fpElem   = document.getElementById("edit-constraint-filepath-" + constraintId);
+  const filePath = fpElem ? fpElem.value.trim() : null;
 
   fetch(`/constraints/${activityId}/${constraintId}`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ description: newDesc })
+    body: JSON.stringify({ description: newDesc, file_path: filePath })
   })
   .then(resp => resp.json())
   .then(data => {

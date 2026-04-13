@@ -55,6 +55,12 @@
             <input id="newToolDesc" class="search-style-input" type="text" placeholder="Description (optionnelle)" autocomplete="off">
           </div>
         </div>
+        <div class="field">
+          <div class="search-style-wrap">
+            <i class="fa-solid fa-paperclip search-style-icon"></i>
+            <input id="newToolFilePath" class="search-style-input" type="text" placeholder="Chemin du fichier lié (optionnel)" autocomplete="off">
+          </div>
+        </div>
         <div class="field-btn">
           <button id="createToolBtn" class="btn btn-brown create-submit-btn">
             <i class="fa-solid fa-plus"></i> Ajouter
@@ -107,6 +113,10 @@
       <div class="field">
         <label for="editInput" class="label" id="editLabel">Valeur</label>
         <input id="editInput" class="input input--full" type="text" />
+      </div>
+      <div class="field" id="editFilePathField" style="display:none; margin-top:10px;">
+        <label for="editFilePathInput" class="label"><i class="fa-solid fa-paperclip"></i> Fichier lié (chemin local)</label>
+        <input id="editFilePathInput" class="input input--full" type="text" placeholder="ex : C:\Documents\outil.pdf" />
       </div>
     </div>
     <div class="modal-footer">

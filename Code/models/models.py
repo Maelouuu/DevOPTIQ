@@ -257,6 +257,7 @@ class Tool(db.Model):
     entity_id = db.Column(db.Integer, db.ForeignKey('entities.id'), nullable=True, index=True)
     name = db.Column(db.String(255), nullable=False)
     description = db.Column(db.Text, nullable=True)
+    file_path = db.Column(db.String(512), nullable=True)
 
     __table_args__ = (
         db.UniqueConstraint('entity_id', 'name', name='uq_entity_tool_name'),
@@ -367,6 +368,7 @@ class Constraint(db.Model):
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     description = db.Column(db.Text, nullable=False)
     activity_id = db.Column(db.Integer, db.ForeignKey('activities.id'), nullable=False)
+    file_path = db.Column(db.String(512), nullable=True)
 
 
 class Savoir(db.Model):
