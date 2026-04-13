@@ -45,7 +45,7 @@
                 <th>Durée</th><th>Unité</th>
                 <th>Délai</th><th>Unité</th>
                 <th>Nb</th>
-                <th>Charge (min)</th>
+                <th>Charge (h)</th>
                 <th>Actions</th>
               </tr>
             </thead>
@@ -55,9 +55,9 @@
 
         <div class="kpis" style="grid-template-columns:repeat(4,minmax(0,1fr));margin-top:14px;">
           <div class="kpi"><div class="label">Nb activités</div><div class="value" id="kpi-proj-nb">0</div></div>
-          <div class="kpi"><div class="label">Durée totale</div><div class="value"><span id="kpi-proj-dur">0</span><span class="unit"> min</span></div></div>
-          <div class="kpi"><div class="label">Délai moyen</div><div class="value"><span id="kpi-proj-del">0</span><span class="unit"> min</span></div></div>
-          <div class="kpi"><div class="label">Charge globale</div><div class="value"><span id="kpi-proj-charge">0</span><span class="unit"> min</span></div></div>
+          <div class="kpi"><div class="label">Durée totale</div><div class="value" id="kpi-proj-dur">0h</div></div>
+          <div class="kpi"><div class="label">Délai moyen</div><div class="value" id="kpi-proj-del">0h</div></div>
+          <div class="kpi"><div class="label">Charge globale</div><div class="value" id="kpi-proj-charge">0h</div></div>
         </div>
 
         <div class="row-actions">
@@ -116,7 +116,7 @@
         </div>
 
         <div class="summary-pill">
-          Total estimé : <b><span id="act-total">0</span> min</b>
+          Total estimé : <b><span id="act-total">0h</span></b>
         </div>
 
         <div class="row-actions">
@@ -159,10 +159,10 @@
             <thead>
               <tr>
                 <th>Activité</th>
-                <th>Durée (min)</th>
+                <th>Durée (h)</th>
                 <th>Récurrence</th>
                 <th>Fréq.</th>
-                <th>Pesée (min)</th>
+                <th>Pesée (h)</th>
                 <th>Actions</th>
               </tr>
             </thead>
@@ -171,14 +171,14 @@
         </div>
 
         <div class="kpis" style="grid-template-columns:repeat(4,minmax(0,1fr));margin-top:14px;">
-          <div class="kpi"><div class="label">Somme Jour</div><div class="value"><span id="kpi-role-d">0</span><span class="unit"> min</span></div></div>
-          <div class="kpi"><div class="label">Somme Hebdo</div><div class="value"><span id="kpi-role-w">0</span><span class="unit"> min</span></div></div>
-          <div class="kpi"><div class="label">Somme Mensuelle</div><div class="value"><span id="kpi-role-m">0</span><span class="unit"> min</span></div></div>
-          <div class="kpi"><div class="label">Somme Annuelle</div><div class="value"><span id="kpi-role-a">0</span><span class="unit"> min</span></div></div>
+          <div class="kpi"><div class="label">Somme Jour</div><div class="value" id="kpi-role-d">0h</div></div>
+          <div class="kpi"><div class="label">Somme Hebdo</div><div class="value" id="kpi-role-w">0h</div></div>
+          <div class="kpi"><div class="label">Somme Mensuelle</div><div class="value" id="kpi-role-m">0h</div></div>
+          <div class="kpi"><div class="label">Somme Annuelle</div><div class="value" id="kpi-role-a">0h</div></div>
         </div>
         <div class="kpis kpis-emerald-strong" style="grid-template-columns:repeat(2,minmax(0,1fr));margin-top:6px;">
-          <div class="kpi"><div class="label">Estimation Mensuelle</div><div class="value"><span id="kpi-role-monthly">0</span><span class="unit"> min</span></div></div>
-          <div class="kpi"><div class="label">Estimation Annuelle</div><div class="value"><span id="kpi-role-annual">0</span><span class="unit"> min</span></div></div>
+          <div class="kpi"><div class="label">Estimation Mensuelle</div><div class="value" id="kpi-role-monthly">0h</div></div>
+          <div class="kpi"><div class="label">Estimation Annuelle</div><div class="value" id="kpi-role-annual">0h</div></div>
         </div>
 
         <div class="row-actions">
@@ -293,7 +293,7 @@
           </div>
           <div class="summary-pill" style="margin-top:8px;">
             <strong>Somme durées tâches → Durée activité :</strong>
-            <span id="fw-task-sum">0</span> min
+            <span id="fw-task-sum">0h</span>
           </div>
         </div>
 
@@ -360,14 +360,14 @@
             <div class="fw-group-body" style="grid-template-columns:1fr 1fr;">
               <div class="fw-kpi-card fw-accent-pink">
                 <div class="fw-kpi-label">Durée moyenne corrigée</div>
-                <div class="fw-kpi-value"><span id="S">—</span><span class="fw-kpi-unit">min</span></div>
+                <div class="fw-kpi-value"><span id="S">—</span><span class="fw-kpi-unit">h</span></div>
                 <div class="fw-kpi-desc">
                   Durée standard + surcroît moyen dû à la faiblesse (pondéré par sa probabilité d'apparition).
                 </div>
               </div>
               <div class="fw-kpi-card fw-accent-pink">
                 <div class="fw-kpi-label">Délai moyen corrigé</div>
-                <div class="fw-kpi-value"><span id="T">—</span><span class="fw-kpi-unit">min</span></div>
+                <div class="fw-kpi-value"><span id="T">—</span><span class="fw-kpi-unit">h</span></div>
                 <div class="fw-kpi-desc">
                   Délai standard + retard moyen (travail + attente), pondéré par la probabilité de la faiblesse.
                 </div>
@@ -384,14 +384,14 @@
             <div class="fw-group-body" style="grid-template-columns:1fr 1fr 1fr;">
               <div class="fw-kpi-card fw-accent-orange">
                 <div class="fw-kpi-label">Délai total en cas dégradé</div>
-                <div class="fw-kpi-value"><span id="Y">—</span><span class="fw-kpi-unit">min</span></div>
+                <div class="fw-kpi-value"><span id="Y">—</span><span class="fw-kpi-unit">h</span></div>
                 <div class="fw-kpi-desc">
                   Délai standard + attente complète (M) : ce que subissent les parties prenantes quand ça rate.
                 </div>
               </div>
               <div class="fw-kpi-card fw-accent-orange">
                 <div class="fw-kpi-label">Retard par occurrence</div>
-                <div class="fw-kpi-value"><span id="Z">—</span><span class="fw-kpi-unit">min</span></div>
+                <div class="fw-kpi-value"><span id="Z">—</span><span class="fw-kpi-unit">h</span></div>
                 <div class="fw-kpi-desc">
                   Temps d'attente ou de blocage généré à chaque apparition de la faiblesse.
                 </div>
@@ -415,14 +415,14 @@
             <div class="fw-group-body" style="grid-template-columns:1fr 1fr;">
               <div class="fw-kpi-card fw-accent-red">
                 <div class="fw-kpi-label">Surcroît de travail / an</div>
-                <div class="fw-kpi-value"><span id="U">—</span><span class="fw-kpi-unit">min</span></div>
+                <div class="fw-kpi-value"><span id="U">—</span><span class="fw-kpi-unit">h</span></div>
                 <div class="fw-kpi-desc">
                   Total des minutes de <em>travail supplémentaire</em> que génère cette faiblesse sur une année entière.
                 </div>
               </div>
               <div class="fw-kpi-card fw-accent-red">
                 <div class="fw-kpi-label">Retard cumulé / an</div>
-                <div class="fw-kpi-value"><span id="V">—</span><span class="fw-kpi-unit">min</span></div>
+                <div class="fw-kpi-value"><span id="V">—</span><span class="fw-kpi-unit">h</span></div>
                 <div class="fw-kpi-desc">
                   Total du temps perdu (travail + attente) sur l'année — l'impact réel sur les délais de livraison.
                 </div>
@@ -439,14 +439,14 @@
             <div class="fw-group-body" style="grid-template-columns:1fr 1fr;">
               <div class="fw-kpi-card fw-accent-violet">
                 <div class="fw-kpi-label">Surcroît de travail / mois</div>
-                <div class="fw-kpi-value"><span id="W">—</span><span class="fw-kpi-unit">min</span></div>
+                <div class="fw-kpi-value"><span id="W">—</span><span class="fw-kpi-unit">h</span></div>
                 <div class="fw-kpi-desc">
                   Minutes de travail supplémentaire par mois, en moyenne sur l'année.
                 </div>
               </div>
               <div class="fw-kpi-card fw-accent-violet">
                 <div class="fw-kpi-label">Retard total / mois</div>
-                <div class="fw-kpi-value"><span id="X">—</span><span class="fw-kpi-unit">min</span></div>
+                <div class="fw-kpi-value"><span id="X">—</span><span class="fw-kpi-unit">h</span></div>
                 <div class="fw-kpi-desc">
                   Temps total perdu (travail + attente) par mois, en moyenne sur l'année.
                 </div>

@@ -213,6 +213,9 @@ def create_app():
     from Code.routes.import_full import import_full_bp
     app.register_blueprint(import_full_bp)
 
+    from Code.routes.changelog import changelog_bp
+    app.register_blueprint(changelog_bp)
+
     # Auto-migration au démarrage (nécessaire sur les serveurs cloud avec filesystem éphémère)
     # Les blueprints sont enregistrés avant pour garantir que tous les modèles sont chargés
     with app.app_context():

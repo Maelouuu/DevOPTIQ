@@ -928,7 +928,7 @@ function handleCrossCartoClick(activityName, entities) {
   if (!entities || entities.length === 0) return;
 
   if (entities.length === 1) {
-    showCartoPopup(entities[0].id, entities[0].name);
+    navigateToLinkedCarto(entities[0].id, entities[0].name, activityName);
     return;
   }
 
@@ -947,7 +947,7 @@ function handleCrossCartoClick(activityName, entities) {
     item.innerHTML = `<i class="fa-solid fa-building"></i> ${entity.name}`;
     item.addEventListener("click", () => {
       popup.classList.add("hidden");
-      showCartoPopup(entity.id, entity.name);
+      navigateToLinkedCarto(entity.id, entity.name, activityName);
     });
     listEl.appendChild(item);
   });
@@ -955,48 +955,13 @@ function handleCrossCartoClick(activityName, entities) {
   popup.classList.remove("hidden");
 }
 
-async function showCartoPopup(entityId, entityName) {
-  const popup   = document.getElementById("carto-preview-popup");
-  const title   = document.getElementById("carto-preview-title");
-  const loading = document.getElementById("carto-preview-loading");
-  const svgWrap = document.getElementById("carto-preview-svg-wrap");
-  if (!popup || !svgWrap) return;
-
-  if (title) title.textContent = entityName || "Cartographie";
-  svgWrap.innerHTML = "";
-  if (loading) loading.style.display = "flex";
-  popup.classList.remove("hidden");
-
+async function navigateToLinkedCarto(entityId, entityName, activityName) {
   try {
-    const res = await fetch(`/activities/api/svg/${entityId}`);
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const svgText = await res.text();
-    if (loading) loading.style.display = "none";
-
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(svgText, "image/svg+xml");
-    const svgEl = doc.querySelector("svg");
-    if (svgEl) {
-      // Let CSS control dimensions
-      svgEl.removeAttribute("width");
-      svgEl.removeAttribute("height");
-      svgEl.style.maxWidth  = "100%";
-      svgEl.style.maxHeight = "100%";
-      svgEl.style.display   = "block";
-      svgWrap.appendChild(document.adoptNode(svgEl));
-    } else {
-      throw new Error("SVG introuvable");
-    }
+    await fetch(`/activities/api/entities/${entityId}/activate`, { method: "POST" });
   } catch (e) {
-    console.error("showCartoPopup error:", e);
-    if (loading) loading.style.display = "none";
-    svgWrap.innerHTML = `<p style="color:#ef4444;text-align:center;padding:32px;font-weight:600;">Impossible de charger la cartographie.</p>`;
+    console.error("Erreur activation entité:", e);
   }
-}
-
-function closeCartoPopup() {
-  const popup = document.getElementById("carto-preview-popup");
-  if (popup) popup.classList.add("hidden");
+  window.location.href = `/activities/view?highlight_name=${encodeURIComponent(activityName)}`;
 }
 
 /* ============================================================
@@ -1013,15 +978,11 @@ document.addEventListener("DOMContentLoaded", async () => {
   initCrossCartoMode();
   await loadSvgInline();
 
-  // Fermer le popup carto via le bouton close ou le backdrop
-  const previewCloseBtn = document.getElementById("carto-preview-close");
-  if (previewCloseBtn) previewCloseBtn.addEventListener("click", closeCartoPopup);
-
-  const previewBackdrop = document.getElementById("carto-preview-backdrop");
-  if (previewBackdrop) previewBackdrop.addEventListener("click", closeCartoPopup);
-
-  // Touche Echap pour fermer
+  // Touche Echap pour fermer le popup entité (si ouvert)
   document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape") closeCartoPopup();
+    if (e.key === "Escape") {
+      const entityPopup = document.getElementById("cross-entity-popup");
+      if (entityPopup) entityPopup.classList.add("hidden");
+    }
   });
 });
