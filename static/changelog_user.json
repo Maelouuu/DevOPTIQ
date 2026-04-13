@@ -10,8 +10,8 @@
     "desc": "Depuis la page Comptes, vous pouvez désormais modifier le mot de passe de n'importe quel utilisateur directement, sans aucune manipulation technique."
   },
   {
-    "icon": "fa-solid fa-clock",
-    "title": "Analyse des temps en heures",
-    "desc": "Toutes les durées de la page Analyse des temps sont maintenant affichées en heures pour une lecture plus intuitive de vos charges de travail."
+    "icon": "fa-solid fa-file-export",
+    "title": "Export Excel & rapport HTML",
+    "desc": "Exportez toutes les données d'une entité en un clic depuis la Cartographie — fichier Excel multi-feuilles ou rapport HTML visuel, avec filtre optionnel par rôle."
   }
 ]

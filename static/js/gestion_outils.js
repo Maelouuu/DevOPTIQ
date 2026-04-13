@@ -183,7 +183,7 @@ function renderTools() {
 
     const fileLink = filePath
       ? `<a class="tool-card__file-link" href="/utils/serve-file?path=${encodeURIComponent(filePath)}" target="_blank" title="Ouvrir : ${escapeHTML(filePath)}">
-           <i class="fa-solid fa-paperclip"></i> <span class="tool-file-name">${escapeHTML(filePath.split(/[\\/]/).pop())}</span>
+           <i class="fa-solid fa-paperclip"></i>
          </a>`
       : "";
 

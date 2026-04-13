@@ -2483,17 +2483,5 @@
   transform: translateY(-1px);
 }
 
-/* File link styles for tools/constraints */
-.constraint-file-link,
-.tool-badge-file {
-  display: inline-flex;
-  align-items: center;
-  color: #7c3aed;
-  text-decoration: none;
-  margin: 0 4px;
-  opacity: 0.8;
-  transition: opacity 0.15s;
-}
-.constraint-file-link:hover,
-.tool-badge-file:hover { opacity: 1; }
+/* File link styles → see static/css/file-picker.css (.item-file-link, .tool-card__file-link, .tool-badge-file) */
 
