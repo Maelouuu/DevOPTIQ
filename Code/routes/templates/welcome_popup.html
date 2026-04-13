@@ -1,4 +1,4 @@
-<!-- welcome_popup.html — Popup d'accueil changelog -->
+<!-- welcome_popup.html — Popup d'accueil changelog — Design premium -->
 <link rel="stylesheet" href="{{ url_for('static', filename='welcome_popup.css') }}">
 
 <div id="welcome-popup-overlay" role="dialog" aria-modal="true" aria-labelledby="wp-title">
@@ -6,30 +6,40 @@
 
     <!-- En-tête -->
     <div id="welcome-popup-header">
+      <!-- Déco lumineuse -->
+      <div class="wp-light-ray"></div>
+
       <button id="welcome-popup-close" title="Fermer" aria-label="Fermer">
         <i class="fa-solid fa-xmark"></i>
       </button>
+
       <div class="wp-brand">
         <div class="wp-logo-badge">◉</div>
         <span class="wp-brand-name">OPTIQ</span>
       </div>
-      <div class="wp-badge-new">Nouveautés</div>
+
+      <div class="wp-badge-new">
+        <span class="wp-badge-dot"></span>
+        Nouveautés
+      </div>
+
       <h2 class="wp-header-title" id="wp-title">Quoi de neuf ?</h2>
-      <p class="wp-header-sub">Voici ce qui a évolué dans l'application</p>
+      <p class="wp-header-sub">Voici ce qui a évolué depuis votre dernière visite</p>
     </div>
 
     <!-- Corps -->
     <div id="welcome-popup-body">
       <div id="welcome-popup-loading">
         <div class="wp-spinner"></div>
-        <span style="font-size:13px;color:#7c3aed;font-weight:600;">Chargement des nouveautés…</span>
+        <span>Chargement des nouveautés…</span>
       </div>
       <div id="welcome-popup-items" class="wp-items" style="display:none;"></div>
     </div>
 
     <!-- Pied -->
     <div id="welcome-popup-footer">
-      <button id="welcome-popup-ok">C'est parti !</button>
+      <div class="wp-divider"></div>
+      <button id="welcome-popup-cta">C'est parti !</button>
     </div>
 
   </div>
@@ -37,53 +47,53 @@
 
 <script>
 (function() {
-  const STORAGE_KEY = 'optiq_welcome_seen_v1';
+  const STORAGE_KEY = 'optiq_welcome_seen_v2';
   const overlay = document.getElementById('welcome-popup-overlay');
   const closeBtn = document.getElementById('welcome-popup-close');
-  const okBtn = document.getElementById('welcome-popup-ok');
-  const loading = document.getElementById('welcome-popup-loading');
-  const itemsEl = document.getElementById('welcome-popup-items');
+  const ctaBtn   = document.getElementById('welcome-popup-cta');
+  const loading  = document.getElementById('welcome-popup-loading');
+  const itemsEl  = document.getElementById('welcome-popup-items');
 
   function closePopup() {
     overlay.classList.remove('wp-visible');
-    setTimeout(() => { overlay.style.display = 'none'; }, 400);
+    setTimeout(() => { overlay.style.display = 'none'; }, 450);
     sessionStorage.setItem(STORAGE_KEY, '1');
   }
 
   closeBtn.addEventListener('click', closePopup);
-  okBtn.addEventListener('click', closePopup);
+  ctaBtn.addEventListener('click', closePopup);
   overlay.addEventListener('click', (e) => { if (e.target === overlay) closePopup(); });
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closePopup(); });
 
-  // Afficher seulement si pas encore vu dans cette session
   if (!sessionStorage.getItem(STORAGE_KEY)) {
     overlay.style.display = 'flex';
-    // Déclencher l'animation au prochain frame
     requestAnimationFrame(() => requestAnimationFrame(() => overlay.classList.add('wp-visible')));
 
-    // Charger le changelog
     fetch('/api/changelog')
       .then(r => r.json())
       .then(data => {
         loading.style.display = 'none';
         if (!data.ok || !data.items || !data.items.length) {
-          itemsEl.innerHTML = '<p style="color:#6b7280;text-align:center;padding:16px;">Aucune nouveauté à afficher.</p>';
+          itemsEl.innerHTML = '<p style="color:#9ca3af;text-align:center;padding:20px;font-size:13px;">Aucune nouveauté à afficher.</p>';
         } else {
-          itemsEl.innerHTML = data.items.map(item => `
-            <div class="wp-item">
-              <div class="wp-item-icon">${item.icon || '✨'}</div>
+          itemsEl.innerHTML = data.items.map(item => {
+            const iconClass = (item.icon || '').startsWith('fa-') ? item.icon : 'fa-solid fa-sparkles';
+            return `<div class="wp-item">
+              <div class="wp-item-icon-wrap">
+                <i class="${iconClass}"></i>
+              </div>
               <div class="wp-item-content">
                 <div class="wp-item-title">${item.title || ''}</div>
                 <div class="wp-item-desc">${item.desc || ''}</div>
               </div>
-            </div>
-          `).join('');
+            </div>`;
+          }).join('');
         }
         itemsEl.style.display = 'flex';
       })
       .catch(() => {
         loading.style.display = 'none';
-        itemsEl.innerHTML = '<p style="color:#6b7280;text-align:center;padding:16px;">Impossible de charger les nouveautés.</p>';
+        itemsEl.innerHTML = '<p style="color:#9ca3af;text-align:center;padding:20px;font-size:13px;">Impossible de charger les nouveautés.</p>';
         itemsEl.style.display = 'flex';
       });
   } else {

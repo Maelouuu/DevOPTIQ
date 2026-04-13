@@ -8,11 +8,13 @@ from flask import Blueprint, jsonify
 
 changelog_bp = Blueprint('changelog', __name__)
 
-# Cache in-memory : { commit_hash: { 'ts': float, 'data': dict } }
 _changelog_cache = {}
 
 def _repo_root():
     return os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+def _curated_file():
+    return os.path.join(_repo_root(), 'static', 'changelog_user.json')
 
 def _get_latest_commit_hash():
     try:
@@ -38,11 +40,25 @@ def _get_recent_commits(n=30):
     except Exception:
         return []
 
+def _read_curated():
+    """Lit changelog_user.json s'il existe. Retourne None sinon."""
+    path = _curated_file()
+    if not os.path.exists(path):
+        return None
+    try:
+        with open(path, 'r', encoding='utf-8') as f:
+            items = json.load(f)
+        if isinstance(items, list) and items:
+            return {"items": items}
+    except Exception:
+        pass
+    return None
+
 def _fallback_changelog():
     return {"items": [
-        {"icon": "✨", "title": "Nouvelles fonctionnalités", "desc": "Plusieurs améliorations ont été apportées à l'application pour simplifier votre quotidien."},
-        {"icon": "🚀", "title": "Expérience améliorée", "desc": "La navigation et les interactions ont été optimisées pour une meilleure fluidité."},
-        {"icon": "🔒", "title": "Fiabilité renforcée", "desc": "Corrections diverses pour garantir la stabilité et la sécurité de vos données."}
+        {"icon": "fa-solid fa-sparkles", "title": "Nouvelles fonctionnalités", "desc": "Plusieurs améliorations ont été apportées pour simplifier votre quotidien."},
+        {"icon": "fa-solid fa-rocket", "title": "Expérience améliorée", "desc": "La navigation et les interactions ont été optimisées pour une meilleure fluidité."},
+        {"icon": "fa-solid fa-shield-halved", "title": "Fiabilité renforcée", "desc": "Corrections diverses pour garantir la stabilité et la sécurité de vos données."}
     ]}
 
 def _generate_with_openai(commits):
@@ -61,19 +77,18 @@ def _generate_with_openai(commits):
                     'content': (
                         "Tu es le rédacteur des notes de version d'une application web professionnelle de gestion "
                         "de processus métier appelée OPTIQ.\n"
-                        "Tu reçois des messages de commits git (techniques) et tu dois les transformer en annonces "
-                        "de nouveautés positives et claires pour des utilisateurs non-techniques (responsables, managers, RH).\n\n"
-                        "RÈGLES STRICTES :\n"
-                        "- Regroupe les commits en 3 à 6 points maximum\n"
-                        "- Langue : français uniquement\n"
-                        "- Ton : positif, simple, orienté bénéfice utilisateur\n"
-                        "- NE JAMAIS mentionner : ORM, SQL, CSS, hash, token, migration, backend, bug technique, "
-                        "refactoring, fix spécificité, debug, console.log, etc.\n"
-                        "- Reformule en avantages concrets : 'vous pouvez maintenant…', 'la page X affiche…', etc.\n"
-                        "- Chaque point : un titre court (≤5 mots) + une description (1-2 phrases)\n"
-                        "- Choisis un emoji pertinent par point\n"
+                        "Tu reçois des messages de commits git et tu dois les transformer en annonces concrètes "
+                        "et positives pour des utilisateurs non-techniques.\n\n"
+                        "RÈGLES :\n"
+                        "- 3 à 5 points maximum, regroupés par thème\n"
+                        "- Langue : français uniquement, ton positif et concret\n"
+                        "- JAMAIS mentionner : ORM, SQL, CSS, hash, token, migration, backend, bug, refactoring\n"
+                        "- Décris le bénéfice : 'vous pouvez désormais…', 'la page X affiche maintenant…'\n"
+                        "- Chaque point : titre court (≤5 mots) + description (1-2 phrases)\n"
+                        "- icon : une classe Font Awesome existante (ex: 'fa-solid fa-diagram-project')\n"
+                        "  Choisis des icônes précises et pertinentes pour chaque fonctionnalité\n"
                         "- Réponds UNIQUEMENT en JSON strict (pas de markdown) :\n"
-                        '  {"items": [{"icon":"emoji","title":"...","desc":"..."}, ...]}'
+                        '  {"items": [{"icon":"fa-solid fa-...","title":"...","desc":"..."}, ...]}'
                     )
                 },
                 {
@@ -81,11 +96,10 @@ def _generate_with_openai(commits):
                     'content': f"Commits récents :\n{commits_text}\n\nGénère le changelog utilisateur."
                 }
             ],
-            temperature=0.35,
+            temperature=0.3,
             max_tokens=700
         )
         raw = response.choices[0].message.content.strip()
-        # Nettoyer d'éventuels blocs markdown
         if raw.startswith('```'):
             raw = raw.split('\n', 1)[1]
             raw = raw.rsplit('```', 1)[0]
@@ -99,18 +113,19 @@ def _generate_with_openai(commits):
 def get_changelog():
     global _changelog_cache
 
-    commit_hash = _get_latest_commit_hash()
+    # 1. Lire le fichier curated en priorité absolue
+    curated = _read_curated()
+    if curated:
+        return jsonify({'ok': True, **curated})
 
-    # Retourner le cache si valide (même commit, moins d'1 heure)
+    # 2. Sinon : génération via OpenAI + cache
+    commit_hash = _get_latest_commit_hash()
     cached = _changelog_cache.get(commit_hash)
     if cached and time.time() - cached['ts'] < 3600:
         return jsonify({'ok': True, **cached['data']})
 
     commits = _get_recent_commits(30)
-    if not commits:
-        data = _fallback_changelog()
-    else:
-        data = _generate_with_openai(commits) or _fallback_changelog()
+    data = (_generate_with_openai(commits) if commits else None) or _fallback_changelog()
 
     _changelog_cache = {commit_hash: {'ts': time.time(), 'data': data}}
     return jsonify({'ok': True, **data})

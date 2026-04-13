@@ -1,8 +1,8 @@
 /* =========================================================
-   WELCOME POPUP — Changelog d'accueil
+   WELCOME POPUP — Changelog d'accueil — Design premium
    ========================================================= */
 
-/* ---- Overlay ---- */
+/* ---- Overlay backdrop ---- */
 #welcome-popup-overlay {
   position: fixed;
   inset: 0;
@@ -10,30 +10,34 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(10, 8, 20, 0.55);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  padding: 16px;
+  background: rgba(6, 3, 18, 0.7);
+  backdrop-filter: blur(14px) saturate(1.4);
+  -webkit-backdrop-filter: blur(14px) saturate(1.4);
+  padding: 20px;
   opacity: 0;
-  transition: opacity 0.35s ease;
+  transition: opacity 0.4s ease;
 }
 #welcome-popup-overlay.wp-visible {
   opacity: 1;
 }
 
-/* ---- Carte principale (forme verticale) ---- */
+/* ---- Carte principale — forme verticale ---- */
 #welcome-popup-card {
   position: relative;
   width: 100%;
-  max-width: 420px;
+  max-width: 400px;
   background: #ffffff;
-  border-radius: 24px;
+  border-radius: 26px;
   box-shadow:
-    0 32px 80px rgba(80, 30, 160, 0.25),
-    0 8px 24px rgba(0, 0, 0, 0.15);
+    0 0 0 1px rgba(139, 92, 246, 0.15),
+    0 24px 60px rgba(76, 29, 149, 0.35),
+    0 8px 20px rgba(0, 0, 0, 0.2),
+    0 0 80px rgba(124, 58, 237, 0.12);
   overflow: hidden;
-  transform: translateY(28px) scale(0.96);
-  transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.35s ease;
+  transform: translateY(32px) scale(0.95);
+  transition:
+    transform 0.45s cubic-bezier(0.34, 1.52, 0.64, 1),
+    opacity 0.4s ease;
   opacity: 0;
   max-height: calc(100vh - 48px);
   display: flex;
@@ -44,124 +48,181 @@
   opacity: 1;
 }
 
-/* ---- En-tête dégradé ---- */
+/* ---- En-tête — gradient multi-violet ---- */
 #welcome-popup-header {
-  background: linear-gradient(135deg, #7c3aed 0%, #4f46e5 60%, #6366f1 100%);
-  padding: 28px 28px 24px;
+  background:
+    radial-gradient(ellipse at 85% 15%, rgba(192, 132, 252, 0.55) 0%, transparent 55%),
+    radial-gradient(ellipse at 15% 85%, rgba(99, 102, 241, 0.4) 0%, transparent 50%),
+    radial-gradient(ellipse at 50% 50%, rgba(124, 58, 237, 0.2) 0%, transparent 70%),
+    linear-gradient(155deg, #12053d 0%, #2e0f6b 30%, #4c1d95 58%, #5b21b6 75%, #4338ca 100%);
+  padding: 30px 28px 26px;
   position: relative;
+  overflow: hidden;
   flex-shrink: 0;
 }
+
+/* Orbe lumineux décoratif – haut droite */
+#welcome-popup-header::before {
+  content: '';
+  position: absolute;
+  top: -40px;
+  right: -40px;
+  width: 180px;
+  height: 180px;
+  background: radial-gradient(circle, rgba(216, 180, 254, 0.45) 0%, rgba(167, 139, 250, 0.2) 40%, transparent 70%);
+  border-radius: 50%;
+  pointer-events: none;
+}
+/* Orbe lumineux décoratif – bas gauche */
+#welcome-popup-header::after {
+  content: '';
+  position: absolute;
+  bottom: -50px;
+  left: -30px;
+  width: 160px;
+  height: 160px;
+  background: radial-gradient(circle, rgba(99, 102, 241, 0.3) 0%, transparent 65%);
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+/* Trait lumineux diagonal */
+.wp-light-ray {
+  position: absolute;
+  top: 0;
+  right: 60px;
+  width: 1.5px;
+  height: 100%;
+  background: linear-gradient(to bottom, transparent, rgba(216,180,254,0.5) 40%, rgba(167,139,250,0.3) 60%, transparent);
+  transform: rotate(18deg) translateX(20px);
+  pointer-events: none;
+}
+
+/* ---- Brand ---- */
 .wp-brand {
   display: flex;
   align-items: center;
   gap: 10px;
-  margin-bottom: 14px;
+  margin-bottom: 16px;
 }
 .wp-logo-badge {
-  width: 36px;
-  height: 36px;
-  background: rgba(255, 255, 255, 0.2);
+  width: 34px;
+  height: 34px;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1.5px solid rgba(255, 255, 255, 0.3);
   border-radius: 10px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 18px;
-  color: #fff;
+  font-size: 17px;
+  color: #e9d5ff;
   font-weight: 900;
-  letter-spacing: -1px;
-  border: 1.5px solid rgba(255,255,255,0.35);
+  letter-spacing: -0.5px;
+  box-shadow: 0 0 12px rgba(167, 139, 250, 0.4) inset;
 }
 .wp-brand-name {
-  font-size: 17px;
+  font-size: 15px;
   font-weight: 800;
-  color: #fff;
-  letter-spacing: 1px;
+  color: rgba(255,255,255,0.85);
+  letter-spacing: 2px;
+  text-transform: uppercase;
 }
-.wp-header-title {
-  font-size: 22px;
-  font-weight: 800;
-  color: #fff;
-  line-height: 1.25;
-  margin: 0;
-}
-.wp-header-sub {
-  font-size: 13px;
-  color: rgba(255,255,255,0.75);
-  margin-top: 6px;
-}
+
+/* ---- Badge nouveautés (pulsant) ---- */
 .wp-badge-new {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  background: rgba(255,255,255,0.2);
-  border: 1px solid rgba(255,255,255,0.35);
+  gap: 7px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(196, 181, 253, 0.4);
   border-radius: 20px;
-  padding: 4px 10px;
-  font-size: 11px;
+  padding: 4px 12px;
+  font-size: 10.5px;
   font-weight: 700;
-  color: #fff;
+  color: #e9d5ff;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
-  margin-bottom: 12px;
+  letter-spacing: 1px;
+  margin-bottom: 13px;
+  backdrop-filter: blur(4px);
 }
-.wp-badge-new::before {
-  content: '';
-  width: 6px;
-  height: 6px;
+.wp-badge-dot {
+  width: 7px;
+  height: 7px;
   background: #4ade80;
   border-radius: 50%;
-  display: inline-block;
-  box-shadow: 0 0 6px #4ade80;
+  box-shadow: 0 0 0 0 rgba(74, 222, 128, 0.6);
+  animation: wp-pulse 2s ease-out infinite;
+}
+@keyframes wp-pulse {
+  0%   { box-shadow: 0 0 0 0 rgba(74, 222, 128, 0.7); }
+  70%  { box-shadow: 0 0 0 7px rgba(74, 222, 128, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(74, 222, 128, 0); }
 }
 
-/* Bouton fermer ---- */
+/* ---- Titre & sous-titre ---- */
+.wp-header-title {
+  font-size: 23px;
+  font-weight: 800;
+  color: #ffffff;
+  line-height: 1.2;
+  margin: 0 0 6px;
+  text-shadow: 0 2px 12px rgba(76, 29, 149, 0.5);
+}
+.wp-header-sub {
+  font-size: 13px;
+  color: rgba(221, 214, 254, 0.8);
+  margin: 0;
+  font-weight: 400;
+}
+
+/* ---- Bouton fermer ---- */
 #welcome-popup-close {
   position: absolute;
-  top: 16px;
-  right: 16px;
-  width: 32px;
-  height: 32px;
+  top: 18px;
+  right: 18px;
+  width: 30px;
+  height: 30px;
   border: none;
-  background: rgba(255,255,255,0.18);
+  background: rgba(255,255,255,0.12);
+  border: 1px solid rgba(255,255,255,0.2);
   border-radius: 50%;
-  color: #fff;
-  font-size: 16px;
+  color: rgba(255,255,255,0.85);
+  font-size: 13px;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: background 0.2s, transform 0.15s;
-  line-height: 1;
+  transition: background 0.2s, transform 0.15s, box-shadow 0.2s;
+  backdrop-filter: blur(4px);
 }
 #welcome-popup-close:hover {
-  background: rgba(255,255,255,0.32);
-  transform: scale(1.1);
+  background: rgba(255,255,255,0.22);
+  box-shadow: 0 0 12px rgba(167, 139, 250, 0.4);
+  transform: scale(1.08);
 }
 
 /* ---- Corps ---- */
 #welcome-popup-body {
-  padding: 24px 28px 28px;
+  padding: 22px 24px 18px;
   overflow-y: auto;
   flex: 1;
   scrollbar-width: thin;
-  scrollbar-color: #e0d6ff transparent;
+  scrollbar-color: #ddd6fe transparent;
+  background: #fff;
 }
-#welcome-popup-body::-webkit-scrollbar {
-  width: 4px;
-}
+#welcome-popup-body::-webkit-scrollbar { width: 4px; }
 #welcome-popup-body::-webkit-scrollbar-thumb {
   background: #c4b5fd;
   border-radius: 4px;
 }
 
-/* ---- Loading state ---- */
+/* ---- Loading ---- */
 #welcome-popup-loading {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 12px;
-  padding: 24px 0;
-  color: #7c3aed;
+  gap: 14px;
+  padding: 28px 0;
 }
 .wp-spinner {
   width: 32px;
@@ -169,93 +230,126 @@
   border: 3px solid #ede9fe;
   border-top-color: #7c3aed;
   border-radius: 50%;
-  animation: wp-spin 0.8s linear infinite;
+  animation: wp-spin 0.75s linear infinite;
 }
-@keyframes wp-spin {
-  to { transform: rotate(360deg); }
+@keyframes wp-spin { to { transform: rotate(360deg); } }
+#welcome-popup-loading span {
+  font-size: 13px;
+  color: #7c3aed;
+  font-weight: 600;
 }
 
 /* ---- Items changelog ---- */
 .wp-items {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 10px;
 }
+
+/* Couleurs tournantes pour les items */
+.wp-item:nth-child(1) { --item-color: #6d28d9; --item-bg: #f5f3ff; --item-border: #ddd6fe; --item-icon-bg: linear-gradient(135deg, #6d28d9, #7c3aed); }
+.wp-item:nth-child(2) { --item-color: #4338ca; --item-bg: #eef2ff; --item-border: #c7d2fe; --item-icon-bg: linear-gradient(135deg, #4338ca, #6366f1); }
+.wp-item:nth-child(3) { --item-color: #7c3aed; --item-bg: #faf5ff; --item-border: #e9d5ff; --item-icon-bg: linear-gradient(135deg, #7c3aed, #a855f7); }
+.wp-item:nth-child(4) { --item-color: #5b21b6; --item-bg: #f5f3ff; --item-border: #ddd6fe; --item-icon-bg: linear-gradient(135deg, #5b21b6, #8b5cf6); }
+.wp-item:nth-child(5) { --item-color: #3730a3; --item-bg: #eef2ff; --item-border: #c7d2fe; --item-icon-bg: linear-gradient(135deg, #3730a3, #4f46e5); }
+
 .wp-item {
   display: flex;
   gap: 14px;
   align-items: flex-start;
-  padding: 14px 16px;
-  background: #faf8ff;
+  padding: 14px 14px 14px 16px;
+  background: var(--item-bg, #f5f3ff);
   border-radius: 14px;
-  border: 1px solid #ede9fe;
-  transition: background 0.2s, border-color 0.2s;
+  border: 1px solid var(--item-border, #ddd6fe);
+  border-left: 3px solid var(--item-color, #7c3aed);
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
 }
 .wp-item:hover {
-  background: #f3eeff;
-  border-color: #c4b5fd;
+  transform: translateX(2px);
+  box-shadow: 0 4px 16px rgba(109, 40, 217, 0.1);
 }
-.wp-item-icon {
-  font-size: 22px;
-  line-height: 1;
+
+/* Icône Font Awesome dans un cercle coloré */
+.wp-item-icon-wrap {
   flex-shrink: 0;
-  margin-top: 1px;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: var(--item-icon-bg, linear-gradient(135deg, #6d28d9, #7c3aed));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 10px rgba(109, 40, 217, 0.25);
 }
-.wp-item-content {
-  flex: 1;
-  min-width: 0;
-}
-.wp-item-title {
+.wp-item-icon-wrap i {
   font-size: 14px;
+  color: #ffffff;
+}
+
+.wp-item-content { flex: 1; min-width: 0; }
+.wp-item-title {
+  font-size: 13.5px;
   font-weight: 700;
   color: #1e1040;
   margin-bottom: 4px;
   line-height: 1.3;
 }
 .wp-item-desc {
-  font-size: 13px;
+  font-size: 12.5px;
   color: #6b7280;
-  line-height: 1.5;
+  line-height: 1.55;
+}
+
+/* ---- Séparateur ---- */
+.wp-divider {
+  height: 1px;
+  background: linear-gradient(to right, transparent, #ede9fe 30%, #ede9fe 70%, transparent);
+  margin: 4px 0 14px;
 }
 
 /* ---- Pied de page ---- */
 #welcome-popup-footer {
-  padding: 0 28px 24px;
+  padding: 0 24px 22px;
   flex-shrink: 0;
+  background: #fff;
 }
-#welcome-popup-footer button {
+#welcome-popup-cta {
   width: 100%;
-  padding: 12px 0;
-  background: linear-gradient(135deg, #7c3aed, #4f46e5);
+  padding: 13px 0;
+  background: linear-gradient(135deg, #5b21b6 0%, #7c3aed 50%, #6366f1 100%);
   color: #fff;
   border: none;
-  border-radius: 12px;
-  font-size: 15px;
+  border-radius: 13px;
+  font-size: 14.5px;
   font-weight: 700;
   cursor: pointer;
-  transition: opacity 0.2s, transform 0.15s;
   letter-spacing: 0.3px;
+  position: relative;
+  overflow: hidden;
+  transition: opacity 0.2s, transform 0.15s, box-shadow 0.2s;
+  box-shadow: 0 4px 18px rgba(109, 40, 217, 0.35);
 }
-#welcome-popup-footer button:hover {
-  opacity: 0.9;
+#welcome-popup-cta::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(255,255,255,0.15) 0%, transparent 60%);
+  pointer-events: none;
+}
+#welcome-popup-cta:hover {
+  opacity: 0.93;
   transform: translateY(-1px);
+  box-shadow: 0 6px 24px rgba(109, 40, 217, 0.45);
 }
-#welcome-popup-footer button:active {
+#welcome-popup-cta:active {
   transform: translateY(0);
+  box-shadow: 0 3px 12px rgba(109, 40, 217, 0.3);
 }
 
 /* ---- Responsive ---- */
 @media (max-width: 480px) {
-  #welcome-popup-card {
-    border-radius: 18px;
-  }
-  #welcome-popup-header {
-    padding: 22px 20px 20px;
-  }
-  #welcome-popup-body {
-    padding: 20px 20px 20px;
-  }
-  #welcome-popup-footer {
-    padding: 0 20px 20px;
-  }
+  #welcome-popup-card { border-radius: 20px; max-width: 100%; }
+  #welcome-popup-header { padding: 24px 20px 22px; }
+  #welcome-popup-body { padding: 18px 18px 14px; }
+  #welcome-popup-footer { padding: 0 18px 18px; }
 }
