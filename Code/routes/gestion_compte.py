@@ -1,5 +1,6 @@
 from flask import Blueprint, render_template, request, redirect, url_for, jsonify
 from werkzeug.security import generate_password_hash
+from sqlalchemy.orm.attributes import flag_modified
 from Code.extensions import db
 from Code.models.models import User, Role, UserRole, Entity
 
@@ -156,7 +157,10 @@ def update_user(user_id):
 
         new_password = request.form.get('password', '').strip()
         if new_password:
-            user.password = generate_password_hash(new_password)
+            new_hash = generate_password_hash(new_password)
+            user.password = new_hash
+            flag_modified(user, 'password')  # force SQLAlchemy à inclure password dans l'UPDATE
+            print(f"[UPDATE_USER] Password updated for user {user_id}, hash[:25]={new_hash[:25]}")
 
         # Mise à jour du rôle
         new_role_id = int(request.form['role_id'])
@@ -166,7 +170,9 @@ def update_user(user_id):
         else:
             db.session.add(UserRole(user_id=user.id, role_id=new_role_id))
 
+        db.session.add(user)
         db.session.commit()
+        print(f"[UPDATE_USER] Commit OK for user {user_id}")
         return redirect(url_for('gestion_compte.list_users', tab='list-tab', msg='updated'))
 
     current_role = UserRole.query.filter_by(user_id=user.id).first()

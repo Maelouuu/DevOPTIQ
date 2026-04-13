@@ -1,10 +1,17 @@
 {% include "header_buttons.html" %}
 <link rel="stylesheet" href="{{ url_for('static', filename='gestion_compte_new.css') }}">
 <script>
-  // Empêche l'auto-remplissage du navigateur sur le champ mot de passe
+  // Prévention agressive de l'autofill navigateur sur le champ nouveau mot de passe.
+  // Les navigateurs (Chrome/Firefox) n'autofillent pas les champs readonly.
+  // On retire readonly + on vide le champ après le délai d'autofill (~200ms).
   document.addEventListener('DOMContentLoaded', () => {
-    const pw = document.querySelector('input[name="password"]');
-    if (pw) pw.value = '';
+    const pw = document.getElementById('new-password-field');
+    if (!pw) return;
+    pw.value = '';
+    setTimeout(() => {
+      pw.removeAttribute('readonly');
+      pw.value = '';           // vider même si le navigateur a quand même tenté de remplir
+    }, 250);
   });
 </script>
 
@@ -71,8 +78,10 @@
         <div class="field" style="grid-column: 1 / -1;">
           <div class="search-style-wrap">
             <i class="fa-solid fa-lock search-style-icon"></i>
-            <input type="password" name="password" class="search-style-input search-style-input--pass"
-                   placeholder="Nouveau mot de passe (laisser vide = inchangé)" autocomplete="new-password">
+            <input type="password" name="password" id="new-password-field"
+                   class="search-style-input search-style-input--pass"
+                   placeholder="Nouveau mot de passe (laisser vide = inchangé)"
+                   autocomplete="new-password" readonly>
           </div>
         </div>
 
