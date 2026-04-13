@@ -33,11 +33,9 @@
       </button>
       <!-- Mode connexions inter-cartos -->
       <button id="cross-carto-btn" class="cross-carto-btn" title="Visualiser les connexions inter-cartos">
-        <span class="cross-carto-switch" id="cross-carto-switch">
-          <span class="cross-carto-knob"></span>
-        </span>
-        <i class="fa-solid fa-diagram-project"></i>
+        <i class="fa-solid fa-diagram-project cross-carto-icon"></i>
         <span id="cross-carto-label">Connexions</span>
+        <span class="cross-carto-dot"></span>
       </button>
       <button id="carto-wizard-btn" class="carto-wizard-btn"><i class="fa-solid fa-layer-group"></i> Gérer la cartographie</button>
     </div>
@@ -64,6 +62,31 @@
       </div>
       <p class="cross-entity-popup-sub">Cette activité existe dans les cartos suivantes :</p>
       <div id="cross-entity-list" class="cross-entity-list"></div>
+    </div>
+  </div>
+
+  <!-- Popup aperçu carto inter-entités -->
+  <div id="carto-preview-popup" class="carto-preview-popup hidden">
+    <div class="carto-preview-backdrop" id="carto-preview-backdrop"></div>
+    <div class="carto-preview-modal">
+      <div class="carto-preview-header">
+        <div class="carto-preview-header-left">
+          <i class="fa-solid fa-diagram-project"></i>
+          <span id="carto-preview-title">Cartographie</span>
+        </div>
+        <button id="carto-preview-close" class="carto-preview-close" title="Fermer">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+      <div class="carto-preview-body" id="carto-preview-body">
+        <div class="carto-preview-loading" id="carto-preview-loading">
+          <i class="fa-solid fa-circle-notch fa-spin"></i> Chargement de la cartographie…
+        </div>
+        <div id="carto-preview-svg-wrap" class="carto-preview-svg-wrap"></div>
+        <div class="carto-preview-readonly-badge">
+          <i class="fa-solid fa-eye"></i> Lecture seule — entité active inchangée
+        </div>
+      </div>
     </div>
   </div>
 

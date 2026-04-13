@@ -296,6 +296,29 @@ def serve_svg():
 
 
 # ============================================================
+# SERVIR LE SVG D'UNE ENTITÉ QUELCONQUE (sans toucher la session)
+# ============================================================
+@activities_map_bp.route("/api/svg/<int:entity_id>")
+def serve_entity_svg(entity_id):
+    """Sert le SVG d'une entité par son ID sans modifier la session active."""
+    from flask import Response as FlaskResponse
+    entity = Entity.query.get(entity_id)
+    if not entity:
+        return jsonify({"error": "Entité non trouvée"}), 404
+
+    svg_exists, svg_path = check_svg_exists(entity_id)
+
+    if svg_exists and svg_path:
+        return send_file(svg_path, mimetype='image/svg+xml', max_age=0)
+
+    if entity.svg_content:
+        return FlaskResponse(entity.svg_content, mimetype='image/svg+xml',
+                             headers={"Cache-Control": "no-store"})
+
+    return jsonify({"error": "SVG non trouvé pour cette entité"}), 404
+
+
+# ============================================================
 # API ENTITÉS
 # ============================================================
 @activities_map_bp.route("/api/entities", methods=["GET"])

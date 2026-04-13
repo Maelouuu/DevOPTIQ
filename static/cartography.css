@@ -1898,8 +1898,8 @@
 .cross-carto-btn {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  padding: 7px 14px;
+  gap: 7px;
+  padding: 7px 13px 7px 11px;
   border-radius: 8px;
   border: 1.5px solid #bae6fd;
   background: #f0f9ff;
@@ -1907,51 +1907,53 @@
   font-size: 0.82rem;
   font-weight: 600;
   cursor: pointer;
-  transition: background .2s, border-color .2s, box-shadow .2s;
+  transition: background .18s, border-color .18s, color .18s, box-shadow .18s;
   font-family: inherit;
+  position: relative;
 }
 
 .cross-carto-btn:hover {
   background: #e0f2fe;
-  border-color: #0ea5e9;
+  border-color: #38bdf8;
 }
 
 .cross-carto-btn.active {
-  background: #0369a1;
-  color: #fff;
-  border-color: #0369a1;
-  box-shadow: 0 0 0 3px rgba(3,105,161,0.22);
+  background: #0c4a6e;
+  color: #e0f2fe;
+  border-color: #0c4a6e;
+  box-shadow: 0 0 0 3px rgba(3,105,161,0.2);
 }
 
-/* ── Toggle switch ── */
-.cross-carto-switch {
-  display: inline-flex;
-  align-items: center;
-  width: 30px;
-  height: 17px;
-  border-radius: 10px;
-  background: #cbd5e1;
-  position: relative;
-  transition: background .25s;
-  flex-shrink: 0;
+.cross-carto-btn .cross-carto-icon {
+  font-size: 0.88rem;
+  transition: transform .25s;
 }
 
-.cross-carto-btn.active .cross-carto-switch {
-  background: #38bdf8;
+.cross-carto-btn.active .cross-carto-icon {
+  transform: rotate(180deg);
 }
 
-.cross-carto-knob {
-  position: absolute;
-  left: 2px;
-  width: 13px;
-  height: 13px;
+/* Status dot (off = gray, on = cyan pulsing) */
+.cross-carto-dot {
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
-  background: #fff;
-  box-shadow: 0 1px 3px rgba(0,0,0,.25);
-  transition: left .25s;
+  background: #94a3b8;
+  flex-shrink: 0;
+  transition: background .2s;
 }
 
-.cross-carto-btn.active .cross-carto-knob { left: 15px; }
+.cross-carto-btn.active .cross-carto-dot {
+  background: #38bdf8;
+  box-shadow: 0 0 0 0 rgba(56,189,248,0.6);
+  animation: dot-pulse .9s ease-out infinite;
+}
+
+@keyframes dot-pulse {
+  0%   { box-shadow: 0 0 0 0 rgba(56,189,248,0.6); }
+  70%  { box-shadow: 0 0 0 5px rgba(56,189,248,0); }
+  100% { box-shadow: 0 0 0 0 rgba(56,189,248,0); }
+}
 
 /* ── Info bar cross mode ── */
 .carto-info-cross {
@@ -2082,4 +2084,141 @@
   0%   { filter: drop-shadow(0 0 4px #0ea5e9) drop-shadow(0 0 8px #38bdf8); }
   50%  { filter: drop-shadow(0 0 10px #0ea5e9) drop-shadow(0 0 20px #38bdf8); }
   100% { filter: drop-shadow(0 0 4px #0ea5e9) drop-shadow(0 0 8px #38bdf8); }
+}
+
+/* ════════════════════════════════════════════
+   POPUP APERÇU CARTO INTER-ENTITÉS
+   ════════════════════════════════════════════ */
+
+.carto-preview-popup {
+  position: fixed;
+  inset: 0;
+  z-index: 4000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.carto-preview-popup.hidden { display: none; }
+
+.carto-preview-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  cursor: pointer;
+}
+
+.carto-preview-modal {
+  position: relative;
+  z-index: 1;
+  background: #fff;
+  border: 3px solid #111;
+  border-radius: 12px;
+  width: min(90vw, 1100px);
+  height: min(84vh, 780px);
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 24px 60px rgba(0,0,0,0.45);
+  animation: previewPopIn .22s cubic-bezier(0.34,1.4,0.64,1);
+  overflow: hidden;
+}
+
+@keyframes previewPopIn {
+  from { opacity: 0; transform: scale(0.93) translateY(16px); }
+  to   { opacity: 1; transform: none; }
+}
+
+.carto-preview-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px 13px;
+  border-bottom: 2px solid #111;
+  background: #111;
+  color: #fff;
+  flex-shrink: 0;
+  border-radius: 9px 9px 0 0;
+}
+
+.carto-preview-header-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.carto-preview-header-left i {
+  font-size: 1rem;
+  color: #38bdf8;
+}
+
+.carto-preview-close {
+  background: rgba(255,255,255,0.1);
+  border: 1px solid rgba(255,255,255,0.2);
+  color: #fff;
+  cursor: pointer;
+  font-size: 1rem;
+  width: 30px;
+  height: 30px;
+  border-radius: 7px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background .15s;
+  flex-shrink: 0;
+}
+
+.carto-preview-close:hover {
+  background: rgba(255,255,255,0.22);
+}
+
+.carto-preview-body {
+  flex: 1;
+  overflow: hidden;
+  position: relative;
+  background: #f8fafc;
+}
+
+.carto-preview-loading {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  font-size: 0.9rem;
+  color: #64748b;
+  font-weight: 500;
+}
+
+.carto-preview-svg-wrap {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.carto-preview-svg-wrap svg {
+  max-width: 100%;
+  max-height: 100%;
+  display: block;
+}
+
+/* Note readonly overlay */
+.carto-preview-readonly-badge {
+  position: absolute;
+  bottom: 12px;
+  right: 14px;
+  background: rgba(17,17,17,0.72);
+  color: #e2e8f0;
+  font-size: 0.73rem;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 20px;
+  letter-spacing: 0.04em;
+  pointer-events: none;
 }
