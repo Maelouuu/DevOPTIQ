@@ -1,5 +1,7 @@
 {% include "header_buttons.html" %}
 <link rel="stylesheet" href="{{ url_for('static', filename='gestion_outils.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/file-picker.css') }}">
+<script src="{{ url_for('static', filename='js/file-picker.js') }}"></script>
 <script defer src="{{ url_for('static', filename='js/gestion_outils.js') }}"></script>
 
 <div class="tools-page">
@@ -55,10 +57,22 @@
             <input id="newToolDesc" class="search-style-input" type="text" placeholder="Description (optionnelle)" autocomplete="off">
           </div>
         </div>
-        <div class="field">
-          <div class="search-style-wrap">
-            <i class="fa-solid fa-paperclip search-style-icon"></i>
-            <input id="newToolFilePath" class="search-style-input" type="text" placeholder="Chemin du fichier lié (optionnel)" autocomplete="off">
+        <div class="field field--full">
+          <label class="create-field-label"><i class="fa-solid fa-paperclip"></i> Fichier lié (optionnel)</label>
+          <div class="fp-wrap" id="newToolPicker">
+            <div class="fp-zone">
+              <span class="fp-spinner" style="display:none"><i class="fa-solid fa-spinner fa-spin"></i></span>
+              <i class="fa-solid fa-cloud-arrow-up fp-icon"></i>
+              <p class="fp-text">Glisser un fichier ou <span class="fp-browse">parcourir</span></p>
+              <p class="fp-hint">PDF, Word, Excel, Visio, JSON… (optionnel)</p>
+            </div>
+            <div class="fp-selected hidden">
+              <i class="fa-solid fa-file-circle-check fp-ok-icon"></i>
+              <span class="fp-fname"></span>
+              <button type="button" class="fp-clear" title="Retirer"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <input type="file" class="fp-input">
+            <input type="hidden" class="fp-path" id="newToolFilePath">
           </div>
         </div>
         <div class="field-btn">
@@ -114,9 +128,23 @@
         <label for="editInput" class="label" id="editLabel">Valeur</label>
         <input id="editInput" class="input input--full" type="text" />
       </div>
-      <div class="field" id="editFilePathField" style="display:none; margin-top:10px;">
-        <label for="editFilePathInput" class="label"><i class="fa-solid fa-paperclip"></i> Fichier lié (chemin local)</label>
-        <input id="editFilePathInput" class="input input--full" type="text" placeholder="ex : C:\Documents\outil.pdf" />
+      <div id="editFilePathField" style="display:none; margin-top:14px;">
+        <label class="label"><i class="fa-solid fa-paperclip"></i> Fichier lié</label>
+        <div class="fp-wrap" id="editToolPicker">
+          <div class="fp-zone">
+            <span class="fp-spinner" style="display:none"><i class="fa-solid fa-spinner fa-spin"></i></span>
+            <i class="fa-solid fa-cloud-arrow-up fp-icon"></i>
+            <p class="fp-text">Glisser un fichier ou <span class="fp-browse">parcourir</span></p>
+            <p class="fp-hint">Remplace le fichier actuel si sélectionné</p>
+          </div>
+          <div class="fp-selected hidden">
+            <i class="fa-solid fa-file-circle-check fp-ok-icon"></i>
+            <span class="fp-fname"></span>
+            <button type="button" class="fp-clear" title="Retirer"><i class="fa-solid fa-xmark"></i></button>
+          </div>
+          <input type="file" class="fp-input">
+          <input type="hidden" class="fp-path" id="editFilePathInput">
+        </div>
       </div>
     </div>
     <div class="modal-footer">

@@ -231,6 +231,9 @@ function showToolForm(taskId) {
   if (form) {
     form.style.display = 'block';
     loadExistingTools(taskId);
+    // Init file picker du formulaire
+    const picker = document.getElementById(`new-tool-fp-${taskId}`);
+    if (picker) initFilePicker(picker);
   }
 }
 
@@ -238,6 +241,11 @@ function hideToolForm(taskId) {
   const form = document.getElementById(`tool-form-${taskId}`);
   if (form) {
     form.style.display = 'none';
+    // Reset le picker
+    const picker = document.getElementById(`new-tool-fp-${taskId}`);
+    if (picker) fpReset(picker);
+    const nameIn = document.getElementById(`new-tool-name-${taskId}`);
+    if (nameIn) nameIn.value = "";
   }
 }
 
@@ -251,7 +259,7 @@ function loadExistingTools(taskId) {
       data.forEach(tool => {
         const opt = document.createElement('option');
         opt.value = tool.id;
-        opt.textContent = tool.name;
+        opt.textContent = tool.name + (tool.file_path ? ' 📎' : '');
         select.appendChild(opt);
       });
     })
@@ -260,51 +268,70 @@ function loadExistingTools(taskId) {
     });
 }
 
-function submitTools(taskId) {
+function _refreshTaskActivity(taskId) {
+  const li = document.getElementById(`task-${taskId}`);
+  if (li) {
+    const activityId = li.getAttribute("data-activity-id");
+    if (activityId) { updateTasks(activityId); return; }
+  }
+  location.reload();
+}
+
+/* submitToolsNew : gère la sélection d'outils existants + création d'un outil avec fichier */
+async function submitToolsNew(taskId) {
   const existingSelect = document.getElementById(`existing-tools-${taskId}`);
-  const newToolsInput = document.getElementById(`new-tools-${taskId}`);
-  if (!existingSelect || !newToolsInput) return;
+  const nameIn         = document.getElementById(`new-tool-name-${taskId}`);
+  const picker         = document.getElementById(`new-tool-fp-${taskId}`);
 
-  const selectedOptions = [...existingSelect.options].filter(opt => opt.selected);
-  const existing_tool_ids = selectedOptions.map(opt => parseInt(opt.value));
+  const existing_tool_ids = existingSelect
+    ? [...existingSelect.options].filter(o => o.selected).map(o => parseInt(o.value))
+    : [];
 
-  const newToolsStr = newToolsInput.value.trim();
-  let new_tools = [];
-  if (newToolsStr) {
-    new_tools = newToolsStr.split(',').map(s => s.trim()).filter(s => s);
+  const newName  = nameIn ? nameIn.value.trim() : "";
+  const filePath = picker ? fpGetPath(picker) : "";
+
+  // Construire le payload new_tools (compatibilité backend existant)
+  // new_tools est un tableau de strings OU d'objets selon l'API
+  // L'API /tools/add actuelle accepte { task_id, existing_tool_ids, new_tools: [string] }
+  // On va d'abord créer l'outil via l'API gestion_outils si fichier, sinon passer via new_tools
+
+  if (!existing_tool_ids.length && !newName) {
+    alert("Sélectionnez un outil existant ou saisissez le nom d'un nouvel outil.");
+    return;
   }
 
-  fetch('/tools/add', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      task_id: parseInt(taskId),
-      existing_tool_ids: existing_tool_ids,
-      new_tools: new_tools
-    })
-  })
-  .then(resp => resp.json())
-  .then(data => {
-    if (data.error) {
-      alert("Erreur : " + data.error);
-    } else {
-      // On cherche l'activitéId pour updateTasks
-      const li = document.getElementById(`task-${taskId}`);
-      if (li) {
-        const activityId = li.getAttribute("data-activity-id");
-        if (activityId) {
-          updateTasks(activityId);
-        } else {
-          location.reload();
-        }
-      } else {
-        location.reload();
-      }
-    }
-  })
-  .catch(err => {
-    console.error("Erreur submitTools:", err);
-  });
+  // Si un nouveau nom est fourni, créer l'outil avec le fichier éventuel
+  let new_tool_ids = [];
+  if (newName) {
+    try {
+      const r = await fetch("/gestion_outils/api/tools", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: newName, file_path: filePath || null }),
+      });
+      const d = await r.json();
+      if (!r.ok) { alert(d.error || "Impossible de créer l'outil."); return; }
+      new_tool_ids.push(d.id);
+    } catch { alert("Erreur réseau (création outil)."); return; }
+  }
+
+  // Lier tous les outils à la tâche
+  const all_ids = [...existing_tool_ids, ...new_tool_ids];
+  if (!all_ids.length) { hideToolForm(taskId); return; }
+
+  try {
+    const res = await fetch('/tools/add', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ task_id: parseInt(taskId), existing_tool_ids: all_ids, new_tools: [] })
+    });
+    const data = await res.json();
+    if (data.error) { alert("Erreur : " + data.error); return; }
+    hideToolForm(taskId);
+    _refreshTaskActivity(taskId);
+  } catch (err) {
+    console.error("Erreur submitToolsNew:", err);
+  }
 }
 
 /* =====================================================

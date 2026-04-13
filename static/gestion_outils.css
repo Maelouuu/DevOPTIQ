@@ -181,13 +181,28 @@ html, body { background: var(--bg); color: var(--text); }
   display: grid;
   grid-template-columns: 2fr 2fr auto;
   gap: 10px;
-  align-items: center;
+  align-items: start;
   box-sizing: border-box;
   min-width: 0;
 }
 .create-grid > * { min-width: 0; }
 .create-grid .input { max-width: none; width: 100%; }
 .create-grid .btn   { white-space: nowrap; }
+
+/* Champ pleine largeur dans la grille */
+.field--full {
+  grid-column: 1 / -1;
+}
+
+.create-field-label {
+  display: block;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #5c4b3a;
+  margin-bottom: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
 
 .field { display: flex; flex-direction: column; gap: 6px; }
 .field-btn { display: flex; flex-direction: column; gap: 6px; }

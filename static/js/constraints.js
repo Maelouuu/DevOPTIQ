@@ -2,14 +2,17 @@
 
 function showAddConstraintForm(activityId) {
   document.getElementById("add-constraint-form-" + activityId).style.display = "block";
+  // Init le file-picker si pas encore fait
+  const picker = document.getElementById("add-fp-" + activityId);
+  if (picker) initFilePicker(picker);
 }
 
 function hideAddConstraintForm(activityId) {
   document.getElementById("add-constraint-form-" + activityId).style.display = "none";
   const inputElem = document.getElementById("add-constraint-input-" + activityId);
   if (inputElem) inputElem.value = "";
-  const fpElem = document.getElementById("add-constraint-filepath-" + activityId);
-  if (fpElem) fpElem.value = "";
+  const picker = document.getElementById("add-fp-" + activityId);
+  if (picker) fpReset(picker);
 }
 
 // Soumission de l'ajout
@@ -21,8 +24,8 @@ function submitAddConstraint(activityId) {
     alert("Veuillez saisir une description de contrainte.");
     return;
   }
-  const fpElem = document.getElementById("add-constraint-filepath-" + activityId);
-  const filePath = fpElem ? fpElem.value.trim() : "";
+  const picker   = document.getElementById("add-fp-" + activityId);
+  const filePath = picker ? fpGetPath(picker) : "";
 
   fetch(`/constraints/${activityId}/add`, {
     method: "POST",
@@ -34,10 +37,7 @@ function submitAddConstraint(activityId) {
     if (data.error) {
       alert("Erreur : " + data.error);
     } else {
-      // (1) Fermer le formulaire et vider le champ
       hideAddConstraintForm(activityId);
-
-      // (2) Rafraîchir l’affichage des contraintes
       updateConstraints(activityId);
     }
   })
@@ -50,17 +50,15 @@ function submitAddConstraint(activityId) {
 function updateConstraints(activityId) {
   fetch(`/constraints/${activityId}/render`)
     .then(response => {
-      if (!response.ok) {
-        throw new Error("Erreur lors du rafraîchissement des contraintes.");
-      }
+      if (!response.ok) throw new Error("Erreur lors du rafraîchissement des contraintes.");
       return response.text();
     })
     .then(html => {
-      // On remplace le HTML du conteneur
       document.getElementById("constraints-container-" + activityId).innerHTML = html;
-
-      // BONUS : Forcer la fermeture du formulaire et le reset du champ
-      // si jamais l'utilisateur l'avait laissé ouvert
+      // Init les file-pickers des formulaires d'édition fraîchement injectés
+      document.querySelectorAll(
+        "#constraints-container-" + activityId + " .fp-wrap"
+      ).forEach(initFilePicker);
       hideAddConstraintForm(activityId);
     })
     .catch(err => {
@@ -72,7 +70,6 @@ function updateConstraints(activityId) {
 /* ============== ÉDITION ET SUPPRESSION ============== */
 
 function showEditConstraintForm(btnElem) {
-  // On récupère l'objet JSON
   const constraintStr = btnElem.getAttribute("data-constraint");
   let constraintObj;
   try {
@@ -86,20 +83,26 @@ function showEditConstraintForm(btnElem) {
   const constraintId = constraintObj.id;
   const formDiv = document.getElementById("edit-constraint-form-" + constraintId);
   const inputEl = document.getElementById("edit-constraint-input-" + constraintId);
-  const fpEl    = document.getElementById("edit-constraint-filepath-" + constraintId);
+  const picker  = document.getElementById("edit-fp-" + constraintId);
 
   if (formDiv && inputEl) {
     formDiv.style.display = "block";
     inputEl.value = constraintObj.description || "";
-    if (fpEl) fpEl.value = constraintObj.file_path || "";
+    // Pré-remplir le file picker si un fichier existant
+    if (picker) {
+      initFilePicker(picker);
+      if (constraintObj.file_path) {
+        fpSetPath(picker, constraintObj.file_path);
+      } else {
+        fpReset(picker);
+      }
+    }
   }
 }
 
 function hideEditConstraintForm(constraintId) {
   const formDiv = document.getElementById("edit-constraint-form-" + constraintId);
-  if (formDiv) {
-    formDiv.style.display = "none";
-  }
+  if (formDiv) formDiv.style.display = "none";
 }
 
 function submitEditConstraint(activityId, constraintId) {
@@ -110,8 +113,8 @@ function submitEditConstraint(activityId, constraintId) {
     alert("Veuillez saisir une description.");
     return;
   }
-  const fpElem   = document.getElementById("edit-constraint-filepath-" + constraintId);
-  const filePath = fpElem ? fpElem.value.trim() : null;
+  const picker   = document.getElementById("edit-fp-" + constraintId);
+  const filePath = picker ? fpGetPath(picker) : null;
 
   fetch(`/constraints/${activityId}/${constraintId}`, {
     method: "PUT",
@@ -123,7 +126,6 @@ function submitEditConstraint(activityId, constraintId) {
     if (data.error) {
       alert("Erreur : " + data.error);
     } else {
-      // Après modification, on recharge le bloc
       updateConstraints(activityId);
     }
   })
@@ -140,7 +142,6 @@ function deleteConstraint(activityId, constraintId) {
     if (data.error) {
       alert("Erreur : " + data.error);
     } else {
-      // Après suppression, on recharge le bloc
       updateConstraints(activityId);
     }
   })

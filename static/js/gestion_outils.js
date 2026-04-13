@@ -32,7 +32,7 @@ const closeManageModal  = document.getElementById("closeManageModal");
 const createToolBtn  = document.getElementById("createToolBtn");
 const newToolName    = document.getElementById("newToolName");
 const newToolDesc    = document.getElementById("newToolDesc");
-const newToolFilePath = document.getElementById("newToolFilePath");
+const newToolPicker  = document.getElementById("newToolPicker"); // fp-wrap
 
 // Recherche
 const toolSearch  = document.getElementById("toolSearch");
@@ -47,6 +47,13 @@ let manageUsages = [];        // usages chargés pour la modale manage
 /* ── Init ──────────────────────────────────────────────────── */
 document.addEventListener("DOMContentLoaded", () => {
   loadTools();
+
+  // Init file picker création
+  if (newToolPicker) initFilePicker(newToolPicker);
+
+  // S'assurer que le panneau file_path de la modale est caché par défaut
+  const _fpField = document.getElementById("editFilePathField");
+  if (_fpField) _fpField.style.display = "none";
 
   // Toggle section créer
   document.getElementById("create-toggle-btn")?.addEventListener("click", () => {
@@ -68,8 +75,8 @@ document.addEventListener("DOMContentLoaded", () => {
   closeManageModal?.addEventListener("click", () => toggleModal(manageModal, false));
 
   // Édition
-  cancelEditBtn?.addEventListener("click",  () => toggleModal(editModal, false));
-  cancelEditBtn2?.addEventListener("click", () => toggleModal(editModal, false));
+  cancelEditBtn?.addEventListener("click",  () => _closeEditModal());
+  cancelEditBtn2?.addEventListener("click", () => _closeEditModal());
   saveEditBtn.addEventListener("click", saveEdit);
   editInput.addEventListener("keydown", e => { if (e.key === "Enter") saveEdit(); });
 
@@ -84,7 +91,8 @@ document.addEventListener("DOMContentLoaded", () => {
   // Esc
   document.addEventListener("keydown", e => {
     if (e.key === "Escape") {
-      [editModal, usageModal, manageModal].forEach(m => {
+      if (editModal && !editModal.classList.contains("hidden")) _closeEditModal();
+      [usageModal, manageModal].forEach(m => {
         if (m && !m.classList.contains("hidden")) toggleModal(m, false);
       });
     }
@@ -251,56 +259,78 @@ function onCardClick(e) {
 }
 
 /* ── Édition ─────────────────────────────────────────────── */
+function _closeEditModal() {
+  // Restaurer le champ input texte si caché pour le mode "file_path"
+  editInput.closest && editInput.closest(".field") && (editInput.closest(".field").style.display = "");
+  const fpField = document.getElementById("editFilePathField");
+  if (fpField) fpField.style.display = "none";
+  toggleModal(editModal, false);
+}
+
 function openEditModal(tool, field) {
   editContext = { toolId: tool.id, field };
   const isName     = field === "name";
   const isFilePath = field === "file_path";
-  const label      = isName ? "Nom de l'outil" : isFilePath ? "Chemin du fichier lié" : "Description";
+  const label      = isName ? "Nom de l'outil" : isFilePath ? "Fichier lié" : "Description";
   const title      = isName ? "Modifier le nom" : isFilePath ? "Modifier le fichier lié" : "Modifier la description";
 
   editModalTitle.innerHTML = `<i class="fa-solid fa-pencil"></i> ${title}`;
   editLabel.textContent    = label;
   editInput.value          = (tool[field] || "").trim();
-  editInput.placeholder    = isFilePath ? "ex : C:\\Documents\\fichier.pdf" : "";
+  editInput.placeholder    = "";
 
-  // Afficher le champ chemin secondaire si on édite name ou description (pour pouvoir aussi modifier file_path en même temps)
-  const fpField = document.getElementById("editFilePathField");
-  const fpInput = document.getElementById("editFilePathInput");
-  if (fpField && fpInput) {
-    if (isName || field === "description") {
+  // Le file picker s'affiche pour name / description
+  // Pour file_path uniquement, l'input texte est masqué et seul le picker est visible
+  const fpField  = document.getElementById("editFilePathField");
+  const fpPicker = document.getElementById("editToolPicker");
+
+  if (fpField && fpPicker) {
+    if (isFilePath) {
+      // Mode "modifier le fichier" : cacher le champ texte, montrer seulement le picker
       fpField.style.display = "block";
-      fpInput.value = (tool.file_path || "").trim();
+      editInput.closest(".field").style.display = "none";
+      initFilePicker(fpPicker);
+      fpSetPath(fpPicker, tool.file_path || "");
     } else {
-      fpField.style.display = "none";
+      // Mode name/description : montrer aussi le picker pour le fichier
+      editInput.closest(".field").style.display = "";
+      fpField.style.display = "block";
+      initFilePicker(fpPicker);
+      fpSetPath(fpPicker, tool.file_path || "");
     }
   }
 
   toggleModal(editModal, true);
-  setTimeout(() => editInput.focus(), 50);
+  setTimeout(() => { if (!isFilePath) editInput.focus(); }, 50);
 }
 
 async function saveEdit() {
   const { toolId, field } = editContext;
   if (!toolId || !field) return toggleModal(editModal, false);
-  const newVal = editInput.value.trim();
+
+  const isFilePath = field === "file_path";
+  const newVal = isFilePath ? "" : editInput.value.trim();
   if (field === "name" && !newVal) return showToast("Le nom ne peut pas être vide.", "warn");
 
-  // Build payload — may include file_path from the secondary field
-  const payload = { [field]: newVal };
-  const fpInput = document.getElementById("editFilePathInput");
-  const fpField = document.getElementById("editFilePathField");
-  if (fpField && fpField.style.display !== "none" && fpInput) {
-    payload.file_path = fpInput.value.trim() || null;
+  // Build payload
+  const payload = {};
+  if (!isFilePath) payload[field] = newVal;
+
+  // Toujours inclure file_path depuis le picker s'il est visible
+  const fpField  = document.getElementById("editFilePathField");
+  const fpPicker = document.getElementById("editToolPicker");
+  if (fpField && fpField.style.display !== "none" && fpPicker) {
+    payload.file_path = fpGetPath(fpPicker) || null;
   }
 
   const ok = await updateToolPayload(toolId, payload);
   if (ok) {
     const tool = toolsCache.find(t => t.id === toolId);
     if (tool) {
-      tool[field] = newVal;
+      if (!isFilePath) tool[field] = newVal;
       if ("file_path" in payload) tool.file_path = payload.file_path || "";
     }
-    toggleModal(editModal, false);
+    _closeEditModal();
     renderTools();
   }
 }
@@ -329,7 +359,7 @@ async function updateToolPayload(id, payload) {
 async function createTool() {
   const name     = newToolName.value.trim();
   const desc     = newToolDesc.value.trim();
-  const filePath = newToolFilePath ? newToolFilePath.value.trim() : "";
+  const filePath = newToolPicker ? fpGetPath(newToolPicker) : "";
   if (!name) { showToast("Renseigne un nom d'outil.", "warn"); newToolName.focus(); return; }
 
   createToolBtn.disabled  = true;
@@ -344,7 +374,7 @@ async function createTool() {
     if (!res.ok) { showToast(data.error || "Échec de création.", "error"); return; }
     newToolName.value = "";
     newToolDesc.value = "";
-    if (newToolFilePath) newToolFilePath.value = "";
+    if (newToolPicker) fpReset(newToolPicker);
     document.getElementById("createSection")?.classList.remove("expanded");
     showToast(`Outil « ${name} » ajouté.`);
     await loadTools();

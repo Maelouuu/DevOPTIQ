@@ -102,15 +102,33 @@
               <!-- Formulaire d'ajout d'outils (caché) -->
               <div id="tool-form-{{ task.id }}" class="task-tool-form" style="display: none;">
                 <div class="form-row">
-                  <label for="existing-tools-{{ task.id }}">Outils existants:</label>
+                  <label for="existing-tools-{{ task.id }}">Lier un outil existant :</label>
                   <select id="existing-tools-{{ task.id }}" multiple class="task-select"></select>
                 </div>
+                <!-- Créer un nouvel outil avec fichier -->
                 <div class="form-row">
-                  <label for="new-tools-{{ task.id }}">Nouveaux outils (virgules):</label>
-                  <input type="text" id="new-tools-{{ task.id }}" class="task-input" placeholder="Outil1, Outil2" />
+                  <label>Créer un nouvel outil :</label>
+                  <input type="text" id="new-tool-name-{{ task.id }}" class="task-input" placeholder="Nom de l'outil *" />
+                  <div style="margin-top:6px;">
+                    <div class="fp-wrap" id="new-tool-fp-{{ task.id }}">
+                      <div class="fp-zone">
+                        <span class="fp-spinner" style="display:none"><i class="fa-solid fa-spinner fa-spin"></i></span>
+                        <i class="fa-solid fa-cloud-arrow-up fp-icon"></i>
+                        <p class="fp-text">Glisser un fichier ou <span class="fp-browse">parcourir</span></p>
+                        <p class="fp-hint">PDF, Word, Excel, Visio… (optionnel)</p>
+                      </div>
+                      <div class="fp-selected hidden">
+                        <i class="fa-solid fa-file-circle-check fp-ok-icon"></i>
+                        <span class="fp-fname"></span>
+                        <button type="button" class="fp-clear" title="Retirer"><i class="fa-solid fa-xmark"></i></button>
+                      </div>
+                      <input type="file" class="fp-input">
+                      <input type="hidden" class="fp-path">
+                    </div>
+                  </div>
                 </div>
                 <div class="task-form-actions">
-                  <button class="btn-action-primary btn-sm" onclick="submitTools('{{ task.id }}')">
+                  <button class="btn-action-primary btn-sm" onclick="submitToolsNew('{{ task.id }}')">
                     <i class="fa-solid fa-check"></i> Enregistrer
                   </button>
                   <button class="btn-action-secondary btn-sm" onclick="hideToolForm('{{ task.id }}')">

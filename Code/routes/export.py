@@ -1,14 +1,17 @@
 # Code/routes/export.py
 """
 Export des données d'une entité vers Excel ou HTML.
-Serve-file : ouvre un fichier local depuis son chemin.
+Serve-file : ouvre un fichier local ou uploadé depuis son chemin.
+Upload-file : sauvegarde un fichier dans static/uploads/.
 """
 import os
 import io
+import uuid
 import mimetypes
 from datetime import datetime
 
-from flask import Blueprint, request, jsonify, send_file, session, Response
+from flask import Blueprint, request, jsonify, send_file, session, Response, redirect
+from werkzeug.utils import secure_filename
 from sqlalchemy import or_
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
@@ -24,19 +27,70 @@ export_bp = Blueprint("export", __name__)
 
 
 # ──────────────────────────────────────────────
-# Route : servir un fichier local
+# Helpers chemins uploads
+# ──────────────────────────────────────────────
+def _uploads_dir():
+    """Dossier static/uploads/ à la racine du projet."""
+    here = os.path.dirname(os.path.abspath(__file__))
+    return os.path.join(here, "..", "..", "static", "uploads")
+
+def _resolve_path(path):
+    """
+    Résout un chemin :
+    - "/static/uploads/..." → chemin absolu dans le dossier uploads
+    - chemin absolu local  → utilisé tel quel
+    """
+    if path.startswith("/static/uploads/"):
+        filename = os.path.basename(path)
+        return os.path.join(_uploads_dir(), filename)
+    return path
+
+
+# ──────────────────────────────────────────────
+# Route : servir un fichier (uploadé ou local)
 # ──────────────────────────────────────────────
 @export_bp.route("/utils/serve-file")
 def serve_local_file():
     path = request.args.get("path", "").strip()
     if not path:
         return jsonify({"error": "Chemin manquant"}), 400
+
+    # Fichier uploadé → rediriger vers la route static de Flask
+    if path.startswith("/static/uploads/"):
+        return redirect(path)
+
+    # Fichier local absolu
     if not os.path.exists(path):
         return jsonify({"error": "Fichier introuvable"}), 404
     mime, _ = mimetypes.guess_type(path)
     mime = mime or "application/octet-stream"
     return send_file(path, mimetype=mime, as_attachment=False,
                      download_name=os.path.basename(path))
+
+
+# ──────────────────────────────────────────────
+# Route : uploader un fichier → static/uploads/
+# ──────────────────────────────────────────────
+@export_bp.route("/utils/upload-file", methods=["POST"])
+def upload_file():
+    f = request.files.get("file")
+    if not f or not f.filename:
+        return jsonify({"error": "Aucun fichier fourni"}), 400
+
+    upload_dir = _uploads_dir()
+    os.makedirs(upload_dir, exist_ok=True)
+
+    # Nom sécurisé + UUID pour éviter les collisions
+    original_name = secure_filename(f.filename)
+    ext = os.path.splitext(original_name)[1]
+    filename = f"{uuid.uuid4().hex}{ext}"
+    save_path = os.path.join(upload_dir, filename)
+    f.save(save_path)
+
+    return jsonify({
+        "path": f"/static/uploads/{filename}",
+        "original_name": f.filename
+    }), 201
 
 
 # ──────────────────────────────────────────────

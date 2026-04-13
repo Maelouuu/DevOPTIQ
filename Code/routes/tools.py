@@ -50,7 +50,7 @@ def add_tools_to_task():
 def get_all_tools():
     # MODIFIÉ: Filtrer par entité active
     tools = Tool.for_active_entity().order_by(Tool.name).all()
-    return jsonify([{'id': tool.id, 'name': tool.name} for tool in tools])
+    return jsonify([{'id': tool.id, 'name': tool.name, 'file_path': tool.file_path or ''} for tool in tools])
 
 @tools_bp.route('/delete', methods=['POST'])
 def delete_tool_from_task():
