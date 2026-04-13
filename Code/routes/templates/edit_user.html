@@ -1,5 +1,12 @@
 {% include "header_buttons.html" %}
 <link rel="stylesheet" href="{{ url_for('static', filename='gestion_compte_new.css') }}">
+<script>
+  // Empêche l'auto-remplissage du navigateur sur le champ mot de passe
+  document.addEventListener('DOMContentLoaded', () => {
+    const pw = document.querySelector('input[name="password"]');
+    if (pw) pw.value = '';
+  });
+</script>
 
 <div class="accounts-page">
 

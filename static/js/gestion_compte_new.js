@@ -240,4 +240,36 @@ document.addEventListener('DOMContentLoaded', () => {
         s.src   = 'https://cdn.sheetjs.com/xlsx-0.20.0/package/dist/xlsx.full.min.js';
         document.head.appendChild(s);
     }
+
+    // Lire les paramètres URL pour activer le bon onglet et afficher un toast
+    const params = new URLSearchParams(window.location.search);
+    const tabParam = params.get('tab');
+    const msgParam = params.get('msg');
+
+    if (tabParam) {
+        document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+        document.querySelectorAll('.tab-btn').forEach(b => {
+            b.classList.remove('active');
+            b.setAttribute('aria-selected', 'false');
+        });
+        const targetPane = document.getElementById(tabParam);
+        const targetBtn  = document.querySelector(`.tab-btn[data-tab="${tabParam}"]`);
+        if (targetPane) targetPane.classList.add('active');
+        if (targetBtn)  { targetBtn.classList.add('active'); targetBtn.setAttribute('aria-selected', 'true'); }
+    }
+
+    const toastMessages = {
+        created: 'Utilisateur créé avec succès.',
+        updated: 'Modifications enregistrées.',
+        deleted: 'Utilisateur supprimé.'
+    };
+    if (msgParam && toastMessages[msgParam]) {
+        setTimeout(() => showToast(toastMessages[msgParam], 'ok'), 80);
+    }
+
+    // Nettoyer l'URL pour éviter un re-toast au rafraîchissement
+    if (tabParam || msgParam) {
+        const clean = window.location.pathname;
+        window.history.replaceState({}, '', clean);
+    }
 });

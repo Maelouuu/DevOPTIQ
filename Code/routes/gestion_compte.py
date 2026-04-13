@@ -111,8 +111,8 @@ def create_user():
     user_role = UserRole(user_id=user.id, role_id=role_id)
     db.session.add(user_role)
     db.session.commit()
-    
-    return redirect(url_for('gestion_compte.list_users'))
+
+    return redirect(url_for('gestion_compte.list_users', tab='list-tab', msg='created'))
 
 @gestion_compte_bp.route('/delete/<int:user_id>', methods=['POST'])
 def delete_user(user_id):
@@ -131,7 +131,7 @@ def delete_user(user_id):
         db.session.commit()
         print(f"   ✅ Utilisateur supprimé")
 
-        return redirect(url_for('gestion_compte.list_users'))
+        return redirect(url_for('gestion_compte.list_users', tab='list-tab', msg='deleted'))
     except Exception as e:
         print(f"❌ Erreur lors de la suppression de l'utilisateur {user_id}: {e}")
         import traceback
@@ -167,7 +167,7 @@ def update_user(user_id):
             db.session.add(UserRole(user_id=user.id, role_id=new_role_id))
 
         db.session.commit()
-        return redirect(url_for('gestion_compte.list_users'))
+        return redirect(url_for('gestion_compte.list_users', tab='list-tab', msg='updated'))
 
     current_role = UserRole.query.filter_by(user_id=user.id).first()
     return render_template('edit_user.html', user=user, roles=roles, current_role=current_role)
