@@ -577,6 +577,18 @@ class TimeWeakness(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 
+class FileBlob(db.Model):
+    """Stocke le contenu binaire des fichiers liés aux outils et contraintes.
+    Persistant en base (PostgreSQL BYTEA / SQLite BLOB) — survit aux redémarrages cloud."""
+    __tablename__ = 'file_blobs'
+
+    id         = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    filename   = db.Column(db.String(255), nullable=False)
+    mimetype   = db.Column(db.String(128), nullable=False, default='application/octet-stream')
+    data       = db.Column(db.LargeBinary, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+
 class TaskLinkAssignment(db.Model):
     """Associe une connexion (link) à une tâche, avec une direction ('incoming' ou 'outgoing')."""
     __tablename__ = 'task_link_assignments'

@@ -242,6 +242,14 @@ def create_app():
         except Exception as e:
             print(f"[DB] file_path migration check: {e}")
 
+        # Création table file_blobs (stockage binaire des fichiers liés — persistant)
+        try:
+            from Code.models.models import FileBlob
+            FileBlob.__table__.create(db.engine, checkfirst=True)
+            print("[DB] Table file_blobs prête")
+        except Exception as e:
+            print(f"[DB] file_blobs check: {e}")
+
     # secret key
     app.secret_key = os.getenv("SECRET_KEY", "devoptiq-secret")
 
