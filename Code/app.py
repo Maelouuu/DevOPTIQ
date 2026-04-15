@@ -258,6 +258,15 @@ def create_app():
         except Exception as e:
             print(f"[DB] recent_events check: {e}")
 
+        # Ajout colonne detail (JSON avant/après) sur recent_events si absente
+        try:
+            from sqlalchemy import text as _text
+            db.session.execute(_text("ALTER TABLE recent_events ADD COLUMN detail TEXT"))
+            db.session.commit()
+            print("[DB] Colonne recent_events.detail ajoutée")
+        except Exception:
+            db.session.rollback()  # déjà présente
+
     # secret key
     app.secret_key = os.getenv("SECRET_KEY", "devoptiq-secret")
 

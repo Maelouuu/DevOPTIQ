@@ -413,6 +413,126 @@
   margin-top: 2px;
 }
 
+/* Chevron pour les items cliquables */
+.wp-recent-chevron {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #9ca3af;
+  font-size: 10px;
+}
+.wp-recent-chevron i {
+  transition: transform 0.22s ease;
+}
+
+.wp-recent-clickable {
+  cursor: pointer;
+}
+.wp-recent-clickable:hover {
+  background: #f0fdfa;
+  border-radius: 8px;
+}
+.wp-recent-clickable:hover .wp-recent-chevron {
+  color: #0d9488;
+}
+
+/* Section déroulante */
+.wp-recent-detail {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.28s ease, padding 0.22s ease;
+  padding: 0 4px;
+  margin-left: 38px;  /* aligné après l'icône */
+}
+.wp-recent-detail.wp-detail-open {
+  max-height: 280px;
+  padding: 6px 4px 8px;
+}
+
+/* Titre de la section détail */
+.wp-diff-header {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: #9ca3af;
+  margin-bottom: 6px;
+}
+
+/* Liste des lignes de diff */
+.wp-diff-list {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.wp-diff-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  font-size: 11.5px;
+  line-height: 1.4;
+  flex-wrap: wrap;
+}
+
+.wp-diff-field {
+  font-weight: 700;
+  color: #6b7280;
+  min-width: 80px;
+  flex-shrink: 0;
+}
+
+/* Avant (rouge doux) */
+.wp-diff-before {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 5px;
+  padding: 1px 7px;
+  color: #dc2626;
+  font-size: 11px;
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Flèche */
+.wp-diff-arrow {
+  color: #9ca3af;
+  font-size: 10px;
+  margin-top: 2px;
+  flex-shrink: 0;
+}
+
+/* Après (vert doux) */
+.wp-diff-after {
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 5px;
+  padding: 1px 7px;
+  color: #16a34a;
+  font-size: 11px;
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Ligne de création / données actuelles (pas de rouge/vert) */
+.wp-diff-row--create .wp-diff-value {
+  color: #374151;
+  font-size: 11px;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
 /* ---- Séparateur ---- */
 .wp-divider {
   height: 1px;

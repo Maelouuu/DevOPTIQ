@@ -146,15 +146,22 @@ def get_recent_activity():
                   .all())
 
         if events:
-            items = [
-                {
+            items = []
+            for ev in events:
+                detail = None
+                if ev.detail:
+                    try:
+                        import json as _j
+                        detail = _j.loads(ev.detail)
+                    except Exception:
+                        pass
+                items.append({
                     "icon": ev.icon,
                     "label": ev.label,
                     "type": ev.event_type,
                     "time": _format_relative_time(ev.created_at),
-                }
-                for ev in events
-            ]
+                    "detail": detail,
+                })
             return jsonify({"ok": True, "items": items})
 
         # ── Fallback : table vide → on reconstruit depuis les modèles ──
@@ -173,11 +180,13 @@ def get_recent_activity():
                 q = q.filter(getattr(Model, eid_col) == entity_id)
             rows = q.order_by(Model.id.desc()).limit(5).all()
             for row in rows:
+                desc = getattr(row, 'description', None) or getattr(row, 'onboarding_plan', None) or ""
                 items.append({
                     "icon": icon,
                     "label": f"{label_prefix} : {row.name}",
                     "type": "existing",
                     "time": "",
+                    "detail": {"name": row.name, "description": desc},
                 })
 
         # Garder les 15 premiers pour ne pas surcharger

@@ -613,61 +613,102 @@ class RecentEvent(db.Model):
     label = db.Column(db.String(255), nullable=False)
     entity_id = db.Column(db.Integer, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    detail = db.Column(db.Text, nullable=True)  # JSON — avant/après ou données de création
 
 
 # -------------------------------------------------------------------
 # SQLAlchemy event listeners — journal d'activité automatique
 # -------------------------------------------------------------------
-from sqlalchemy import event
+import json as _json
+from sqlalchemy import event, inspect as _sa_inspect
 from sqlalchemy import text as _sql_text
 
 
-def _log_recent(connection, event_type, icon, label, entity_id=None):
+def _log_recent(connection, event_type, icon, label, entity_id=None, detail=None):
     """Insère un événement récent via la connexion active (dans la même transaction)."""
     try:
+        detail_str = _json.dumps(detail, ensure_ascii=False) if detail else None
         connection.execute(
             _sql_text(
-                "INSERT INTO recent_events (event_type, icon, label, entity_id, created_at) "
-                "VALUES (:et, :icon, :label, :eid, :ts)"
+                "INSERT INTO recent_events (event_type, icon, label, entity_id, created_at, detail) "
+                "VALUES (:et, :icon, :label, :eid, :ts, :detail)"
             ),
             {"et": event_type, "icon": icon, "label": label,
-             "eid": entity_id, "ts": datetime.utcnow()}
+             "eid": entity_id, "ts": datetime.utcnow(), "detail": detail_str}
         )
     except Exception:
-        pass  # Table absente au 1er démarrage — ignoré silencieusement
+        pass  # Table absente ou colonne manquante — ignoré silencieusement
 
 
+def _capture_changes(target, fields):
+    """Retourne la liste des champs modifiés avec avant/après via l'historique SQLAlchemy."""
+    try:
+        state = _sa_inspect(target)
+        changes = []
+        for field, label in fields.items():
+            hist = state.attrs[field].history
+            if hist.deleted:
+                before = str(hist.deleted[0] or "—")
+                after  = str(hist.added[0] if hist.added else getattr(target, field, "—") or "—")
+                if before != after:
+                    changes.append({"field": label, "before": before, "after": after})
+        return changes
+    except Exception:
+        return []
+
+
+# ── Activities ────────────────────────────────────────────────────
 @event.listens_for(Activities, 'after_insert')
 def _on_activity_insert(mapper, connection, target):
+    detail = {"name": target.name, "description": target.description or ""}
     _log_recent(connection, 'activity_created', 'fa-solid fa-diagram-project',
-                f'Activité créée : {target.name}', target.entity_id)
+                f'Activité créée : {target.name}', target.entity_id, detail=detail)
+
+
+@event.listens_for(Activities, 'before_update')
+def _before_activity_update(mapper, connection, target):
+    target._prev_changes = _capture_changes(target, {"name": "Nom", "description": "Description"})
 
 
 @event.listens_for(Activities, 'after_update')
 def _on_activity_update(mapper, connection, target):
+    changes = getattr(target, '_prev_changes', None) or []
+    detail = {"changes": changes} if changes else None
     _log_recent(connection, 'activity_updated', 'fa-solid fa-pen-to-square',
-                f'Activité modifiée : {target.name}', target.entity_id)
+                f'Activité modifiée : {target.name}', target.entity_id, detail=detail)
 
 
+# ── Tasks ─────────────────────────────────────────────────────────
 @event.listens_for(Task, 'after_insert')
 def _on_task_insert(mapper, connection, target):
+    detail = {"name": target.name, "description": target.description or ""}
     _log_recent(connection, 'task_created', 'fa-solid fa-list-check',
-                f'Tâche créée : {target.name}')
+                f'Tâche créée : {target.name}', detail=detail)
+
+
+@event.listens_for(Task, 'before_update')
+def _before_task_update(mapper, connection, target):
+    target._prev_changes = _capture_changes(target, {"name": "Nom", "description": "Description"})
 
 
 @event.listens_for(Task, 'after_update')
 def _on_task_update(mapper, connection, target):
+    changes = getattr(target, '_prev_changes', None) or []
+    detail = {"changes": changes} if changes else None
     _log_recent(connection, 'task_updated', 'fa-solid fa-pen-to-square',
-                f'Tâche modifiée : {target.name}')
+                f'Tâche modifiée : {target.name}', detail=detail)
 
 
+# ── Roles & Tools (insertion uniquement) ─────────────────────────
 @event.listens_for(Role, 'after_insert')
 def _on_role_insert(mapper, connection, target):
+    detail = {"name": target.name, "mission": target.onboarding_plan or ""}
     _log_recent(connection, 'role_created', 'fa-solid fa-user-tie',
-                f'Rôle créé : {target.name}', target.entity_id)
+                f'Rôle créé : {target.name}', target.entity_id, detail=detail)
 
 
 @event.listens_for(Tool, 'after_insert')
 def _on_tool_insert(mapper, connection, target):
+    detail = {"name": target.name, "description": target.description or ""}
     _log_recent(connection, 'tool_created', 'fa-solid fa-toolbox',
-                f'Outil créé : {target.name}', target.entity_id)
+                f'Outil créé : {target.name}', target.entity_id, detail=detail)

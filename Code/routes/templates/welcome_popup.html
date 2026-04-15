@@ -135,17 +135,35 @@
         if (!data.ok || !data.items || !data.items.length) {
           rcItems.innerHTML = '<p class="wp-empty">Aucune activité récente.</p>';
         } else {
-          rcItems.innerHTML = data.items.map(item => {
-            return `<div class="wp-recent-item">
+          rcItems.innerHTML = data.items.map((item, idx) => {
+            const detailHtml = _renderDetail(item.detail, item.type);
+            const hasDetail  = !!detailHtml;
+            return `<div class="wp-recent-item${hasDetail ? ' wp-recent-clickable' : ''}"
+                         data-idx="${idx}"
+                         ${hasDetail ? 'role="button" tabindex="0"' : ''}>
               <div class="wp-recent-icon">
                 <i class="${item.icon}"></i>
               </div>
               <div class="wp-recent-content">
                 <div class="wp-recent-label">${item.label}</div>
-                <div class="wp-recent-time">${item.time}</div>
+                ${item.time ? `<div class="wp-recent-time">${item.time}</div>` : ''}
               </div>
-            </div>`;
+              ${hasDetail ? '<div class="wp-recent-chevron"><i class="fa-solid fa-chevron-down"></i></div>' : ''}
+            </div>
+            ${hasDetail ? `<div class="wp-recent-detail" id="wp-detail-${idx}">${detailHtml}</div>` : ''}`;
           }).join('');
+
+          // Gestion des clics pour ouvrir/fermer
+          rcItems.querySelectorAll('.wp-recent-clickable').forEach(el => {
+            el.addEventListener('click', () => {
+              const idx    = el.dataset.idx;
+              const detail = document.getElementById(`wp-detail-${idx}`);
+              const chev   = el.querySelector('.wp-recent-chevron i');
+              const open   = detail.classList.toggle('wp-detail-open');
+              if (chev) chev.style.transform = open ? 'rotate(180deg)' : '';
+            });
+            el.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') el.click(); });
+          });
         }
         rcItems.style.display = 'flex';
       })
@@ -154,6 +172,59 @@
         rcItems.innerHTML = '<p class="wp-empty">Impossible de charger l\'activité.</p>';
         rcItems.style.display = 'flex';
       });
+
+    function _renderDetail(detail, type) {
+      if (!detail) return '';
+
+      // Modifications avec avant/après
+      if (detail.changes && detail.changes.length > 0) {
+        const rows = detail.changes.map(ch =>
+          `<div class="wp-diff-row">
+            <span class="wp-diff-field">${_esc(ch.field)}</span>
+            <span class="wp-diff-before" title="Avant">${_esc(ch.before)}</span>
+            <span class="wp-diff-arrow"><i class="fa-solid fa-arrow-right"></i></span>
+            <span class="wp-diff-after" title="Après">${_esc(ch.after)}</span>
+          </div>`
+        ).join('');
+        return `<div class="wp-diff-header">Modifications</div><div class="wp-diff-list">${rows}</div>`;
+      }
+
+      // Association outil → tâche
+      if (detail.tool && detail.task) {
+        return `<div class="wp-diff-header">Détail</div>
+          <div class="wp-diff-list">
+            <div class="wp-diff-row">
+              <span class="wp-diff-field">Outil</span>
+              <span class="wp-diff-after" style="margin-left:0">${_esc(detail.tool)}</span>
+            </div>
+            <div class="wp-diff-row">
+              <span class="wp-diff-field">Tâche</span>
+              <span class="wp-diff-after" style="margin-left:0">${_esc(detail.task)}</span>
+            </div>
+          </div>`;
+      }
+
+      // Création ou élément existant
+      const lines = [];
+      if (detail.name)        lines.push({k: 'Nom',         v: detail.name});
+      if (detail.description) lines.push({k: 'Description', v: detail.description});
+      if (detail.mission)     lines.push({k: 'Mission',     v: detail.mission});
+      if (!lines.length) return '';
+
+      const rows = lines.map(l =>
+        `<div class="wp-diff-row wp-diff-row--create">
+          <span class="wp-diff-field">${_esc(l.k)}</span>
+          <span class="wp-diff-value">${_esc(l.v)}</span>
+        </div>`
+      ).join('');
+      const header = type === 'existing' ? 'Données actuelles' : 'Créé avec';
+      return `<div class="wp-diff-header">${header}</div><div class="wp-diff-list">${rows}</div>`;
+    }
+
+    function _esc(s) {
+      if (!s) return '—';
+      return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
   } else {
     overlay.style.display = 'none';
   }
