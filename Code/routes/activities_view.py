@@ -36,7 +36,7 @@ def view_activities():
     # Avant:  activities = Activities.query.all()
     # Après:  activities = Activities.for_active_entity().all()
     # ========================================
-    activities = Activities.for_active_entity().all()
+    activities = Activities.for_active_entity().order_by(Activities.name).all()
 
     activity_data = []
     for activity in activities:

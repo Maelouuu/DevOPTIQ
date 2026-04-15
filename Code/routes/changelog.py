@@ -131,23 +131,59 @@ def _format_relative_time(dt):
 
 @changelog_bp.route('/api/recent-activity', methods=['GET'])
 def get_recent_activity():
-    """Retourne les derniers événements d'activité depuis la table recent_events."""
+    """
+    Retourne les derniers événements depuis recent_events.
+    Si la table est vide (premier démarrage), fallback sur les derniers
+    enregistrements de chaque modèle principal, triés par ID DESC.
+    """
     try:
-        from Code.models.models import RecentEvent
+        from Code.models.models import RecentEvent, Activities, Task, Role, Tool
+        from flask import session
+
         events = (RecentEvent.query
                   .order_by(RecentEvent.created_at.desc())
                   .limit(20)
                   .all())
-        items = [
-            {
-                "icon": ev.icon,
-                "label": ev.label,
-                "type": ev.event_type,
-                "time": _format_relative_time(ev.created_at),
-            }
-            for ev in events
+
+        if events:
+            items = [
+                {
+                    "icon": ev.icon,
+                    "label": ev.label,
+                    "type": ev.event_type,
+                    "time": _format_relative_time(ev.created_at),
+                }
+                for ev in events
+            ]
+            return jsonify({"ok": True, "items": items})
+
+        # ── Fallback : table vide → on reconstruit depuis les modèles ──
+        entity_id = session.get('active_entity_id')
+        items = []
+
+        _DEFS = [
+            (Activities, 'fa-solid fa-diagram-project', 'Activité', 'entity_id'),
+            (Role,       'fa-solid fa-user-tie',        'Rôle',     'entity_id'),
+            (Tool,       'fa-solid fa-toolbox',         'Outil',    'entity_id'),
+            (Task,       'fa-solid fa-list-check',      'Tâche',    None),
         ]
+        for Model, icon, label_prefix, eid_col in _DEFS:
+            q = Model.query
+            if entity_id and eid_col:
+                q = q.filter(getattr(Model, eid_col) == entity_id)
+            rows = q.order_by(Model.id.desc()).limit(5).all()
+            for row in rows:
+                items.append({
+                    "icon": icon,
+                    "label": f"{label_prefix} : {row.name}",
+                    "type": "existing",
+                    "time": "",
+                })
+
+        # Garder les 15 premiers pour ne pas surcharger
+        items = items[:15]
         return jsonify({"ok": True, "items": items})
+
     except Exception as e:
         return jsonify({"ok": False, "items": [], "error": str(e)})
 
