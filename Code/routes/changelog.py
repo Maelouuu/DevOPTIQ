@@ -129,69 +129,83 @@ def _format_relative_time(dt):
         return f"il y a {days}j"
 
 
+_EVENT_LABELS = {
+    'activity_created': 'Ajout',
+    'activity_updated': 'Modification',
+    'activity_deleted': 'Suppression',
+    'task_created':     'Ajout',
+    'task_updated':     'Modification',
+    'task_deleted':     'Suppression',
+    'role_created':     'Ajout',
+    'role_deleted':     'Suppression',
+    'tool_created':     'Ajout',
+    'tool_deleted':     'Suppression',
+    'tool_linked':      'Association',
+}
+
+_EVENT_COLORS = {
+    'created': 'green',
+    'updated': 'orange',
+    'deleted': 'red',
+    'linked':  'blue',
+}
+
+
+def _event_color(event_type):
+    for suffix, color in _EVENT_COLORS.items():
+        if event_type.endswith(suffix):
+            return color
+    return 'gray'
+
+
+def _format_date(dt):
+    if not dt:
+        return ""
+    months = ['jan.', 'fév.', 'mars', 'avr.', 'mai', 'juin',
+              'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.']
+    return f"{dt.day} {months[dt.month - 1]} à {dt.strftime('%H:%M')}"
+
+
 @changelog_bp.route('/api/recent-activity', methods=['GET'])
 def get_recent_activity():
-    """
-    Retourne les derniers événements depuis recent_events.
-    Si la table est vide (premier démarrage), fallback sur les derniers
-    enregistrements de chaque modèle principal, triés par ID DESC.
-    """
+    """Retourne les 20 derniers événements depuis recent_events."""
     try:
-        from Code.models.models import RecentEvent, Activities, Task, Role, Tool
-        from flask import session
+        import json as _j
+        from Code.models.models import RecentEvent, User
 
         events = (RecentEvent.query
                   .order_by(RecentEvent.created_at.desc())
                   .limit(20)
                   .all())
 
-        if events:
-            items = []
-            for ev in events:
-                detail = None
-                if ev.detail:
-                    try:
-                        import json as _j
-                        detail = _j.loads(ev.detail)
-                    except Exception:
-                        pass
-                items.append({
-                    "icon": ev.icon,
-                    "label": ev.label,
-                    "type": ev.event_type,
-                    "time": _format_relative_time(ev.created_at),
-                    "detail": detail,
-                })
-            return jsonify({"ok": True, "items": items})
+        # Cache user names
+        user_cache = {}
+        for ev in events:
+            if ev.user_id and ev.user_id not in user_cache:
+                u = User.query.get(ev.user_id)
+                user_cache[ev.user_id] = (f"{u.first_name} {u.last_name}" if u else None)
 
-        # ── Fallback : table vide → on reconstruit depuis les modèles ──
-        entity_id = session.get('active_entity_id')
         items = []
+        for ev in events:
+            detail = None
+            if ev.detail:
+                try:
+                    detail = _j.loads(ev.detail)
+                except Exception:
+                    pass
+            items.append({
+                "icon":        ev.icon,
+                "label":       ev.label,
+                "type":        ev.event_type,
+                "event_label": _EVENT_LABELS.get(ev.event_type, 'Événement'),
+                "color":       _event_color(ev.event_type),
+                "time":        _format_relative_time(ev.created_at),
+                "date":        _format_date(ev.created_at),
+                "user":        user_cache.get(ev.user_id),
+                "detail":      detail,
+            })
 
-        _DEFS = [
-            (Activities, 'fa-solid fa-diagram-project', 'Activité', 'entity_id'),
-            (Role,       'fa-solid fa-user-tie',        'Rôle',     'entity_id'),
-            (Tool,       'fa-solid fa-toolbox',         'Outil',    'entity_id'),
-            (Task,       'fa-solid fa-list-check',      'Tâche',    None),
-        ]
-        for Model, icon, label_prefix, eid_col in _DEFS:
-            q = Model.query
-            if entity_id and eid_col:
-                q = q.filter(getattr(Model, eid_col) == entity_id)
-            rows = q.order_by(Model.id.desc()).limit(5).all()
-            for row in rows:
-                desc = getattr(row, 'description', None) or getattr(row, 'onboarding_plan', None) or ""
-                items.append({
-                    "icon": icon,
-                    "label": f"{label_prefix} : {row.name}",
-                    "type": "existing",
-                    "time": "",
-                    "detail": {"name": row.name, "description": desc},
-                })
-
-        # Garder les 15 premiers pour ne pas surcharger
-        items = items[:15]
-        return jsonify({"ok": True, "items": items})
+        return jsonify({"ok": True, "items": items, "empty": len(items) == 0})
 
     except Exception as e:
         return jsonify({"ok": False, "items": [], "error": str(e)})

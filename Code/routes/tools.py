@@ -1,5 +1,6 @@
 import json
-from flask import Blueprint, request, jsonify
+import json
+from flask import Blueprint, request, jsonify, session
 from Code.extensions import db
 from Code.models.models import Task, Tool, Entity, RecentEvent
 from sqlalchemy import func
@@ -48,6 +49,7 @@ def add_tools_to_task():
                     icon='fa-solid fa-link',
                     label=f'Outil associé : {t["name"]}',
                     detail=json.dumps({"tool": t["name"], "task": task.name}, ensure_ascii=False),
+                    user_id=session.get('user_id'),
                 )
                 db.session.add(ev)
             except Exception:

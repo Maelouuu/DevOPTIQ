@@ -132,39 +132,53 @@
       .then(r => r.json())
       .then(data => {
         rcLoading.style.display = 'none';
-        if (!data.ok || !data.items || !data.items.length) {
-          rcItems.innerHTML = '<p class="wp-empty">Aucune activité récente.</p>';
-        } else {
-          rcItems.innerHTML = data.items.map((item, idx) => {
-            const detailHtml = _renderDetail(item.detail, item.type);
-            const hasDetail  = !!detailHtml;
-            return `<div class="wp-recent-item${hasDetail ? ' wp-recent-clickable' : ''}"
-                         data-idx="${idx}"
-                         ${hasDetail ? 'role="button" tabindex="0"' : ''}>
-              <div class="wp-recent-icon">
+
+        if (!data.ok || data.empty || !data.items || !data.items.length) {
+          rcItems.innerHTML = `
+            <div class="wp-empty-state">
+              <div class="wp-empty-icon"><i class="fa-solid fa-clock-rotate-left"></i></div>
+              <p class="wp-empty-title">Aucun événement enregistré</p>
+              <p class="wp-empty-sub">Les prochaines modifications apparaîtront ici.</p>
+            </div>`;
+          rcItems.style.display = 'flex';
+          return;
+        }
+
+        rcItems.innerHTML = data.items.map((item, idx) => {
+          const detailHtml = _renderDetail(item.detail, item.type);
+          const hasDetail  = !!detailHtml;
+          const meta = [item.date, item.user ? `par ${_esc(item.user)}` : null].filter(Boolean).join(' · ');
+
+          return `
+            <div class="wp-ev-item wp-ev-${item.color}${hasDetail ? ' wp-ev-clickable' : ''}"
+                 data-idx="${idx}"
+                 ${hasDetail ? 'role="button" tabindex="0"' : ''}>
+              <div class="wp-ev-icon">
                 <i class="${item.icon}"></i>
               </div>
-              <div class="wp-recent-content">
-                <div class="wp-recent-label">${item.label}</div>
-                ${item.time ? `<div class="wp-recent-time">${item.time}</div>` : ''}
+              <div class="wp-ev-body">
+                <div class="wp-ev-top">
+                  <span class="wp-ev-badge wp-ev-badge-${item.color}">${item.event_label}</span>
+                  ${hasDetail ? '<div class="wp-ev-chevron"><i class="fa-solid fa-chevron-down"></i></div>' : ''}
+                </div>
+                <div class="wp-ev-label">${_esc(item.label)}</div>
+                ${meta ? `<div class="wp-ev-meta">${meta}</div>` : ''}
               </div>
-              ${hasDetail ? '<div class="wp-recent-chevron"><i class="fa-solid fa-chevron-down"></i></div>' : ''}
             </div>
             ${hasDetail ? `<div class="wp-recent-detail" id="wp-detail-${idx}">${detailHtml}</div>` : ''}`;
-          }).join('');
+        }).join('');
 
-          // Gestion des clics pour ouvrir/fermer
-          rcItems.querySelectorAll('.wp-recent-clickable').forEach(el => {
-            el.addEventListener('click', () => {
-              const idx    = el.dataset.idx;
-              const detail = document.getElementById(`wp-detail-${idx}`);
-              const chev   = el.querySelector('.wp-recent-chevron i');
-              const open   = detail.classList.toggle('wp-detail-open');
-              if (chev) chev.style.transform = open ? 'rotate(180deg)' : '';
-            });
-            el.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') el.click(); });
+        // Gestion des clics
+        rcItems.querySelectorAll('.wp-ev-clickable').forEach(el => {
+          el.addEventListener('click', () => {
+            const detail = document.getElementById(`wp-detail-${el.dataset.idx}`);
+            const chev   = el.querySelector('.wp-ev-chevron i');
+            const open   = detail.classList.toggle('wp-detail-open');
+            if (chev) chev.style.transform = open ? 'rotate(180deg)' : '';
           });
-        }
+          el.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') el.click(); });
+        });
+
         rcItems.style.display = 'flex';
       })
       .catch(() => {
@@ -173,6 +187,7 @@
         rcItems.style.display = 'flex';
       });
 
+    // ── Rendu du contenu de la section déroulante ──────────────────
     function _renderDetail(detail, type) {
       if (!detail) return '';
 
@@ -181,43 +196,37 @@
         const rows = detail.changes.map(ch =>
           `<div class="wp-diff-row">
             <span class="wp-diff-field">${_esc(ch.field)}</span>
-            <span class="wp-diff-before" title="Avant">${_esc(ch.before)}</span>
-            <span class="wp-diff-arrow"><i class="fa-solid fa-arrow-right"></i></span>
-            <span class="wp-diff-after" title="Après">${_esc(ch.after)}</span>
+            <span class="wp-diff-before">${_esc(ch.before)}</span>
+            <i class="fa-solid fa-arrow-right wp-diff-arrow"></i>
+            <span class="wp-diff-after">${_esc(ch.after)}</span>
           </div>`
         ).join('');
-        return `<div class="wp-diff-header">Modifications</div><div class="wp-diff-list">${rows}</div>`;
+        return `<div class="wp-diff-header">Champs modifiés</div><div class="wp-diff-list">${rows}</div>`;
       }
 
       // Association outil → tâche
       if (detail.tool && detail.task) {
-        return `<div class="wp-diff-header">Détail</div>
+        return `<div class="wp-diff-header">Détail de l'association</div>
           <div class="wp-diff-list">
-            <div class="wp-diff-row">
-              <span class="wp-diff-field">Outil</span>
-              <span class="wp-diff-after" style="margin-left:0">${_esc(detail.tool)}</span>
-            </div>
-            <div class="wp-diff-row">
-              <span class="wp-diff-field">Tâche</span>
-              <span class="wp-diff-after" style="margin-left:0">${_esc(detail.task)}</span>
-            </div>
+            <div class="wp-diff-row"><span class="wp-diff-field">Outil</span><span class="wp-diff-value">${_esc(detail.tool)}</span></div>
+            <div class="wp-diff-row"><span class="wp-diff-field">Tâche</span><span class="wp-diff-value">${_esc(detail.task)}</span></div>
           </div>`;
       }
 
-      // Création ou élément existant
+      // Création / suppression / données
       const lines = [];
-      if (detail.name)        lines.push({k: 'Nom',         v: detail.name});
       if (detail.description) lines.push({k: 'Description', v: detail.description});
       if (detail.mission)     lines.push({k: 'Mission',     v: detail.mission});
-      if (!lines.length) return '';
+      if (!lines.length && !detail.name) return '';
 
+      const header = type && type.endsWith('deleted') ? 'Données supprimées'
+                   : type && type.endsWith('created') ? 'Données créées' : 'Détail';
       const rows = lines.map(l =>
-        `<div class="wp-diff-row wp-diff-row--create">
+        `<div class="wp-diff-row">
           <span class="wp-diff-field">${_esc(l.k)}</span>
           <span class="wp-diff-value">${_esc(l.v)}</span>
         </div>`
-      ).join('');
-      const header = type === 'existing' ? 'Données actuelles' : 'Créé avec';
+      ).join('') || `<div class="wp-diff-row"><span class="wp-diff-value" style="color:#6b7280;font-style:italic;">Aucun détail supplémentaire.</span></div>`;
       return `<div class="wp-diff-header">${header}</div><div class="wp-diff-list">${rows}</div>`;
     }
 

@@ -604,7 +604,7 @@ class TaskLinkAssignment(db.Model):
 
 
 class RecentEvent(db.Model):
-    """Journal d'activité récente : créations/modifications des 4 entités principales."""
+    """Journal d'activité récente : créations/modifications/suppressions des 4 entités principales."""
     __tablename__ = 'recent_events'
 
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
@@ -613,7 +613,8 @@ class RecentEvent(db.Model):
     label = db.Column(db.String(255), nullable=False)
     entity_id = db.Column(db.Integer, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    detail = db.Column(db.Text, nullable=True)  # JSON — avant/après ou données de création
+    detail = db.Column(db.Text, nullable=True)   # JSON — avant/après ou données de création
+    user_id = db.Column(db.Integer, nullable=True)  # utilisateur à l'origine de l'action
 
 
 # -------------------------------------------------------------------
@@ -627,14 +628,24 @@ from sqlalchemy import text as _sql_text
 def _log_recent(connection, event_type, icon, label, entity_id=None, detail=None):
     """Insère un événement récent via la connexion active (dans la même transaction)."""
     try:
+        # Récupérer l'utilisateur depuis la session Flask (disponible dans le contexte de requête)
+        user_id = None
+        try:
+            from flask import session as _fs
+            user_id = _fs.get('user_id')
+        except Exception:
+            pass
+
         detail_str = _json.dumps(detail, ensure_ascii=False) if detail else None
         connection.execute(
             _sql_text(
-                "INSERT INTO recent_events (event_type, icon, label, entity_id, created_at, detail) "
-                "VALUES (:et, :icon, :label, :eid, :ts, :detail)"
+                "INSERT INTO recent_events "
+                "(event_type, icon, label, entity_id, created_at, detail, user_id) "
+                "VALUES (:et, :icon, :label, :eid, :ts, :detail, :uid)"
             ),
             {"et": event_type, "icon": icon, "label": label,
-             "eid": entity_id, "ts": datetime.utcnow(), "detail": detail_str}
+             "eid": entity_id, "ts": datetime.utcnow(),
+             "detail": detail_str, "uid": user_id}
         )
     except Exception:
         pass  # Table absente ou colonne manquante — ignoré silencieusement
@@ -712,3 +723,32 @@ def _on_tool_insert(mapper, connection, target):
     detail = {"name": target.name, "description": target.description or ""}
     _log_recent(connection, 'tool_created', 'fa-solid fa-toolbox',
                 f'Outil créé : {target.name}', target.entity_id, detail=detail)
+
+
+# ── Suppressions ──────────────────────────────────────────────────
+@event.listens_for(Activities, 'after_delete')
+def _on_activity_delete(mapper, connection, target):
+    detail = {"name": target.name, "description": target.description or ""}
+    _log_recent(connection, 'activity_deleted', 'fa-solid fa-trash',
+                f'Activité supprimée : {target.name}', target.entity_id, detail=detail)
+
+
+@event.listens_for(Task, 'after_delete')
+def _on_task_delete(mapper, connection, target):
+    detail = {"name": target.name}
+    _log_recent(connection, 'task_deleted', 'fa-solid fa-trash',
+                f'Tâche supprimée : {target.name}', detail=detail)
+
+
+@event.listens_for(Role, 'after_delete')
+def _on_role_delete(mapper, connection, target):
+    detail = {"name": target.name}
+    _log_recent(connection, 'role_deleted', 'fa-solid fa-trash',
+                f'Rôle supprimé : {target.name}', target.entity_id, detail=detail)
+
+
+@event.listens_for(Tool, 'after_delete')
+def _on_tool_delete(mapper, connection, target):
+    detail = {"name": target.name, "description": target.description or ""}
+    _log_recent(connection, 'tool_deleted', 'fa-solid fa-trash',
+                f'Outil supprimé : {target.name}', target.entity_id, detail=detail)

@@ -258,14 +258,18 @@ def create_app():
         except Exception as e:
             print(f"[DB] recent_events check: {e}")
 
-        # Ajout colonne detail (JSON avant/après) sur recent_events si absente
+        # Ajout colonnes detail + user_id sur recent_events si absentes
         try:
             from sqlalchemy import text as _text
-            db.session.execute(_text("ALTER TABLE recent_events ADD COLUMN detail TEXT"))
-            db.session.commit()
-            print("[DB] Colonne recent_events.detail ajoutée")
-        except Exception:
-            db.session.rollback()  # déjà présente
+            for _col, _type in [("detail", "TEXT"), ("user_id", "INTEGER")]:
+                try:
+                    db.session.execute(_text(f"ALTER TABLE recent_events ADD COLUMN {_col} {_type}"))
+                    db.session.commit()
+                    print(f"[DB] Colonne recent_events.{_col} ajoutée")
+                except Exception:
+                    db.session.rollback()  # déjà présente
+        except Exception as e:
+            print(f"[DB] recent_events columns check: {e}")
 
     # secret key
     app.secret_key = os.getenv("SECRET_KEY", "devoptiq-secret")

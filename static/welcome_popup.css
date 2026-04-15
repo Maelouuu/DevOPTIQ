@@ -367,162 +367,214 @@
   line-height: 1.5;
 }
 
-/* ---- Items activité récente (panneau droit) ---- */
+/* ---- Items activité récente — redesign ---- */
 .wp-recent-list {
   display: flex;
   flex-direction: column;
+  gap: 6px;
 }
 
-.wp-recent-item {
+/* Couleurs par type d'événement */
+.wp-ev-item {
   display: flex;
   align-items: flex-start;
   gap: 10px;
-  padding: 9px 4px;
-  border-bottom: 1px solid #f3f4f6;
-  transition: background 0.15s;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border-left: 3px solid var(--ev-color, #9ca3af);
+  background: var(--ev-bg, #f9fafb);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
-.wp-recent-item:last-child { border-bottom: none; }
-.wp-recent-item:hover { background: #f0fdfa; border-radius: 8px; }
+.wp-ev-item:hover { transform: translateX(2px); }
+.wp-ev-clickable { cursor: pointer; }
+.wp-ev-clickable:hover {
+  box-shadow: 0 3px 10px rgba(0,0,0,0.07);
+}
 
-.wp-recent-icon {
+/* Thèmes couleur */
+.wp-ev-green  { --ev-color:#059669; --ev-bg:#f0fdf4; --ev-icon: linear-gradient(135deg,#059669,#10b981); --ev-shadow:rgba(5,150,105,0.2); }
+.wp-ev-orange { --ev-color:#d97706; --ev-bg:#fffbeb; --ev-icon: linear-gradient(135deg,#d97706,#f59e0b); --ev-shadow:rgba(217,119,6,0.2); }
+.wp-ev-red    { --ev-color:#dc2626; --ev-bg:#fef2f2; --ev-icon: linear-gradient(135deg,#dc2626,#ef4444); --ev-shadow:rgba(220,38,38,0.2); }
+.wp-ev-blue   { --ev-color:#4338ca; --ev-bg:#eef2ff; --ev-icon: linear-gradient(135deg,#4338ca,#6366f1); --ev-shadow:rgba(67,56,202,0.2); }
+.wp-ev-gray   { --ev-color:#9ca3af; --ev-bg:#f9fafb; --ev-icon: linear-gradient(135deg,#6b7280,#9ca3af); --ev-shadow:rgba(107,114,128,0.15); }
+
+/* Icône */
+.wp-ev-icon {
   flex-shrink: 0;
-  width: 28px;
-  height: 28px;
-  border-radius: 8px;
-  background: linear-gradient(135deg, #0d9488, #14b8a6);
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  background: var(--ev-icon, linear-gradient(135deg,#6b7280,#9ca3af));
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 2px 6px rgba(13, 148, 136, 0.25);
+  box-shadow: 0 3px 8px var(--ev-shadow, rgba(0,0,0,0.15));
 }
-.wp-recent-icon i { font-size: 11px; color: #fff; }
+.wp-ev-icon i { font-size: 12px; color: #fff; }
 
-.wp-recent-content { flex: 1; min-width: 0; }
-.wp-recent-label {
+/* Corps */
+.wp-ev-body { flex: 1; min-width: 0; }
+
+.wp-ev-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 3px;
+}
+
+/* Badge type d'événement */
+.wp-ev-badge {
+  font-size: 9.5px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.7px;
+  border-radius: 4px;
+  padding: 1px 6px;
+}
+.wp-ev-badge-green  { background:#dcfce7; color:#15803d; }
+.wp-ev-badge-orange { background:#fef3c7; color:#92400e; }
+.wp-ev-badge-red    { background:#fee2e2; color:#b91c1c; }
+.wp-ev-badge-blue   { background:#e0e7ff; color:#3730a3; }
+.wp-ev-badge-gray   { background:#f3f4f6; color:#6b7280; }
+
+/* Chevron */
+.wp-ev-chevron {
+  color: #9ca3af;
+  font-size: 10px;
+  transition: color 0.15s;
+}
+.wp-ev-chevron i { transition: transform 0.22s ease; }
+.wp-ev-clickable:hover .wp-ev-chevron { color: var(--ev-color, #6b7280); }
+
+/* Texte principal */
+.wp-ev-label {
   font-size: 12px;
   font-weight: 600;
   color: #1e1040;
-  line-height: 1.4;
-  white-space: nowrap;
+  line-height: 1.35;
   overflow: hidden;
   text-overflow: ellipsis;
-}
-.wp-recent-time {
-  font-size: 11px;
-  color: #9ca3af;
-  margin-top: 2px;
+  white-space: nowrap;
 }
 
-/* Chevron pour les items cliquables */
-.wp-recent-chevron {
-  flex-shrink: 0;
-  width: 20px;
-  height: 20px;
+/* Méta : date + utilisateur */
+.wp-ev-meta {
+  font-size: 10.5px;
+  color: #9ca3af;
+  margin-top: 3px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* ---- État vide ---- */
+.wp-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 28px 12px;
+  flex: 1;
+}
+.wp-empty-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #e5e7eb, #d1d5db);
   display: flex;
   align-items: center;
   justify-content: center;
+  font-size: 18px;
   color: #9ca3af;
-  font-size: 10px;
 }
-.wp-recent-chevron i {
-  transition: transform 0.22s ease;
+.wp-empty-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #374151;
+  text-align: center;
 }
-
-.wp-recent-clickable {
-  cursor: pointer;
-}
-.wp-recent-clickable:hover {
-  background: #f0fdfa;
-  border-radius: 8px;
-}
-.wp-recent-clickable:hover .wp-recent-chevron {
-  color: #0d9488;
+.wp-empty-sub {
+  font-size: 11.5px;
+  color: #9ca3af;
+  text-align: center;
+  line-height: 1.5;
 }
 
-/* Section déroulante */
+/* ---- Section déroulante ---- */
 .wp-recent-detail {
   max-height: 0;
   overflow: hidden;
   transition: max-height 0.28s ease, padding 0.22s ease;
-  padding: 0 4px;
-  margin-left: 38px;  /* aligné après l'icône */
+  padding: 0 12px;
+  background: #fafafa;
+  border-radius: 0 0 10px 10px;
+  margin-top: -4px;
 }
 .wp-recent-detail.wp-detail-open {
-  max-height: 280px;
-  padding: 6px 4px 8px;
+  max-height: 300px;
+  padding: 10px 12px 12px;
+  border: 1px solid #e5e7eb;
+  border-top: none;
+  overflow-y: auto;
 }
 
-/* Titre de la section détail */
+/* Titre section diff */
 .wp-diff-header {
   font-size: 10px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.8px;
   color: #9ca3af;
-  margin-bottom: 6px;
+  margin-bottom: 7px;
 }
 
-/* Liste des lignes de diff */
-.wp-diff-list {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-}
+/* Lignes diff */
+.wp-diff-list { display: flex; flex-direction: column; gap: 6px; }
 
 .wp-diff-row {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 6px;
   font-size: 11.5px;
-  line-height: 1.4;
   flex-wrap: wrap;
 }
-
 .wp-diff-field {
   font-weight: 700;
   color: #6b7280;
-  min-width: 80px;
+  min-width: 78px;
   flex-shrink: 0;
 }
-
-/* Avant (rouge doux) */
 .wp-diff-before {
   background: #fef2f2;
   border: 1px solid #fecaca;
   border-radius: 5px;
-  padding: 1px 7px;
+  padding: 2px 8px;
   color: #dc2626;
   font-size: 11px;
-  max-width: 120px;
+  max-width: 110px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-
-/* Flèche */
 .wp-diff-arrow {
   color: #9ca3af;
-  font-size: 10px;
-  margin-top: 2px;
+  font-size: 9px;
   flex-shrink: 0;
 }
-
-/* Après (vert doux) */
 .wp-diff-after {
   background: #f0fdf4;
   border: 1px solid #bbf7d0;
   border-radius: 5px;
-  padding: 1px 7px;
+  padding: 2px 8px;
   color: #16a34a;
   font-size: 11px;
-  max-width: 120px;
+  max-width: 110px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-
-/* Ligne de création / données actuelles (pas de rouge/vert) */
-.wp-diff-row--create .wp-diff-value {
+.wp-diff-value {
   color: #374151;
   font-size: 11px;
   flex: 1;
