@@ -137,8 +137,10 @@ _EVENT_LABELS = {
     'task_updated':     'Modification',
     'task_deleted':     'Suppression',
     'role_created':     'Ajout',
+    'role_updated':     'Modification',
     'role_deleted':     'Suppression',
     'tool_created':     'Ajout',
+    'tool_updated':     'Modification',
     'tool_deleted':     'Suppression',
     'tool_linked':      'Association',
 }

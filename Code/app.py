@@ -258,6 +258,55 @@ def create_app():
         except Exception as e:
             print(f"[DB] recent_events check: {e}")
 
+        # Données de démonstration dans recent_events si la table est vide
+        try:
+            import json as _json_seed
+            from datetime import timedelta
+            from Code.models.models import RecentEvent as _RE
+            if _RE.query.count() == 0:
+                _now = datetime.utcnow()
+                _seeds = [
+                    _RE(event_type='activity_created',
+                        icon='fa-solid fa-diagram-project',
+                        label='Activité créée : Gestion des commandes',
+                        created_at=_now - timedelta(days=3, hours=2),
+                        detail=_json_seed.dumps({"name": "Gestion des commandes",
+                                                  "description": "Traitement et suivi des commandes clients"}, ensure_ascii=False)),
+                    _RE(event_type='activity_updated',
+                        icon='fa-solid fa-pen-to-square',
+                        label='Activité modifiée : Facturation',
+                        created_at=_now - timedelta(days=2, hours=5),
+                        detail=_json_seed.dumps({"changes": [
+                            {"field": "Nom", "before": "Factures clients", "after": "Facturation"},
+                            {"field": "Description", "before": "Émission des factures", "after": "Création, validation et envoi des factures clients"}
+                        ]}, ensure_ascii=False)),
+                    _RE(event_type='role_updated',
+                        icon='fa-solid fa-pen-to-square',
+                        label='Rôle modifié : Responsable Qualité',
+                        created_at=_now - timedelta(hours=18),
+                        detail=_json_seed.dumps({"changes": [
+                            {"field": "Mission", "before": "Contrôle qualité", "after": "Assurer la conformité des processus aux standards ISO"}
+                        ]}, ensure_ascii=False)),
+                    _RE(event_type='tool_created',
+                        icon='fa-solid fa-toolbox',
+                        label='Outil créé : CRM Salesforce',
+                        created_at=_now - timedelta(hours=6),
+                        detail=_json_seed.dumps({"name": "CRM Salesforce",
+                                                  "description": "Gestion de la relation client"}, ensure_ascii=False)),
+                    _RE(event_type='tool_linked',
+                        icon='fa-solid fa-link',
+                        label='Outil associé : ERP SAP',
+                        created_at=_now - timedelta(minutes=45),
+                        detail=_json_seed.dumps({"tool": "ERP SAP", "task": "Saisie des commandes"}, ensure_ascii=False)),
+                ]
+                for _s in _seeds:
+                    db.session.add(_s)
+                db.session.commit()
+                print("[DB] Données de démonstration recent_events insérées")
+        except Exception as e:
+            db.session.rollback()
+            print(f"[DB] Seed recent_events: {e}")
+
         # Ajout colonnes detail + user_id sur recent_events si absentes
         try:
             from sqlalchemy import text as _text

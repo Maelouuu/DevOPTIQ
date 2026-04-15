@@ -710,7 +710,7 @@ def _on_task_update(mapper, connection, target):
                 f'Tâche modifiée : {target.name}', detail=detail)
 
 
-# ── Roles & Tools (insertion uniquement) ─────────────────────────
+# ── Roles ─────────────────────────────────────────────────────────
 @event.listens_for(Role, 'after_insert')
 def _on_role_insert(mapper, connection, target):
     detail = {"name": target.name, "mission": target.onboarding_plan or ""}
@@ -718,11 +718,38 @@ def _on_role_insert(mapper, connection, target):
                 f'Rôle créé : {target.name}', target.entity_id, detail=detail)
 
 
+@event.listens_for(Role, 'before_update')
+def _before_role_update(mapper, connection, target):
+    target._prev_changes = _capture_changes(target, {"name": "Nom", "onboarding_plan": "Mission"})
+
+
+@event.listens_for(Role, 'after_update')
+def _on_role_update(mapper, connection, target):
+    changes = getattr(target, '_prev_changes', None) or []
+    detail = {"changes": changes} if changes else None
+    _log_recent(connection, 'role_updated', 'fa-solid fa-pen-to-square',
+                f'Rôle modifié : {target.name}', target.entity_id, detail=detail)
+
+
+# ── Tools ──────────────────────────────────────────────────────────
 @event.listens_for(Tool, 'after_insert')
 def _on_tool_insert(mapper, connection, target):
     detail = {"name": target.name, "description": target.description or ""}
     _log_recent(connection, 'tool_created', 'fa-solid fa-toolbox',
                 f'Outil créé : {target.name}', target.entity_id, detail=detail)
+
+
+@event.listens_for(Tool, 'before_update')
+def _before_tool_update(mapper, connection, target):
+    target._prev_changes = _capture_changes(target, {"name": "Nom", "description": "Description"})
+
+
+@event.listens_for(Tool, 'after_update')
+def _on_tool_update(mapper, connection, target):
+    changes = getattr(target, '_prev_changes', None) or []
+    detail = {"changes": changes} if changes else None
+    _log_recent(connection, 'tool_updated', 'fa-solid fa-pen-to-square',
+                f'Outil modifié : {target.name}', target.entity_id, detail=detail)
 
 
 # ── Suppressions ──────────────────────────────────────────────────
