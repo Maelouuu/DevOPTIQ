@@ -250,6 +250,14 @@ def create_app():
         except Exception as e:
             print(f"[DB] file_blobs check: {e}")
 
+        # Création table recent_events (journal d'activité pour la popup d'accueil)
+        try:
+            from Code.models.models import RecentEvent
+            RecentEvent.__table__.create(db.engine, checkfirst=True)
+            print("[DB] Table recent_events prête")
+        except Exception as e:
+            print(f"[DB] recent_events check: {e}")
+
     # secret key
     app.secret_key = os.getenv("SECRET_KEY", "devoptiq-secret")
 

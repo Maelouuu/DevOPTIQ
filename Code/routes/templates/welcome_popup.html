@@ -1,4 +1,4 @@
-<!-- welcome_popup.html — Popup d'accueil changelog — Design premium -->
+<!-- welcome_popup.html — Popup d'accueil deux panneaux -->
 <link rel="stylesheet" href="{{ url_for('static', filename='welcome_popup.css') }}">
 
 <div id="welcome-popup-overlay" role="dialog" aria-modal="true" aria-labelledby="wp-title">
@@ -6,7 +6,6 @@
 
     <!-- En-tête -->
     <div id="welcome-popup-header">
-      <!-- Déco lumineuse -->
       <div class="wp-light-ray"></div>
 
       <button id="welcome-popup-close" title="Fermer" aria-label="Fermer">
@@ -18,22 +17,48 @@
         <span class="wp-brand-name">OPTIQ</span>
       </div>
 
-      <div class="wp-badge-new">
-        <span class="wp-badge-dot"></span>
-        Nouveautés
-      </div>
-
-      <h2 class="wp-header-title" id="wp-title">Quoi de neuf ?</h2>
-      <p class="wp-header-sub">Voici ce qui a évolué depuis votre dernière visite</p>
+      <h2 class="wp-header-title" id="wp-title">Bienvenue</h2>
+      <p class="wp-header-sub">Nouveautés et activité récente sur votre espace</p>
     </div>
 
-    <!-- Corps -->
-    <div id="welcome-popup-body">
-      <div id="welcome-popup-loading">
-        <div class="wp-spinner"></div>
-        <span>Chargement des nouveautés…</span>
+    <!-- Deux panneaux -->
+    <div id="welcome-popup-panels">
+
+      <!-- Panneau gauche : Nouveautés -->
+      <div class="wp-panel" id="wp-panel-changelog">
+        <div class="wp-panel-header">
+          <div class="wp-panel-icon-wrap wp-panel-icon-violet">
+            <i class="fa-solid fa-sparkles"></i>
+          </div>
+          <span class="wp-panel-title">Nouveautés</span>
+          <span class="wp-badge-new"><span class="wp-badge-dot"></span>New</span>
+        </div>
+        <div class="wp-panel-body">
+          <div id="welcome-popup-loading" class="wp-panel-loading">
+            <div class="wp-spinner"></div>
+            <span>Chargement…</span>
+          </div>
+          <div id="welcome-popup-items" class="wp-items" style="display:none;"></div>
+        </div>
       </div>
-      <div id="welcome-popup-items" class="wp-items" style="display:none;"></div>
+
+      <!-- Panneau droit : Activité récente -->
+      <div class="wp-panel wp-panel-right" id="wp-panel-activity">
+        <div class="wp-panel-header">
+          <div class="wp-panel-icon-wrap wp-panel-icon-teal">
+            <i class="fa-solid fa-clock-rotate-left"></i>
+          </div>
+          <span class="wp-panel-title">Activité récente</span>
+        </div>
+        <div class="wp-panel-body">
+          <div id="wp-recent-loading" class="wp-panel-loading">
+            <div class="wp-spinner wp-spinner-teal"></div>
+            <span>Chargement…</span>
+          </div>
+          <div id="wp-recent-items" class="wp-recent-list" style="display:none;"></div>
+        </div>
+      </div>
+
     </div>
 
     <!-- Pied -->
@@ -47,12 +72,16 @@
 
 <script>
 (function() {
-  const STORAGE_KEY = 'optiq_welcome_seen_v3';
-  const overlay = document.getElementById('welcome-popup-overlay');
-  const closeBtn = document.getElementById('welcome-popup-close');
-  const ctaBtn   = document.getElementById('welcome-popup-cta');
-  const loading  = document.getElementById('welcome-popup-loading');
-  const itemsEl  = document.getElementById('welcome-popup-items');
+  const STORAGE_KEY = 'optiq_welcome_seen_v4';
+  const overlay    = document.getElementById('welcome-popup-overlay');
+  const closeBtn   = document.getElementById('welcome-popup-close');
+  const ctaBtn     = document.getElementById('welcome-popup-cta');
+
+  const clLoading  = document.getElementById('welcome-popup-loading');
+  const clItems    = document.getElementById('welcome-popup-items');
+
+  const rcLoading  = document.getElementById('wp-recent-loading');
+  const rcItems    = document.getElementById('wp-recent-items');
 
   function closePopup() {
     overlay.classList.remove('wp-visible');
@@ -69,14 +98,15 @@
     overlay.style.display = 'flex';
     requestAnimationFrame(() => requestAnimationFrame(() => overlay.classList.add('wp-visible')));
 
+    // Charger les nouveautés
     fetch('/api/changelog')
       .then(r => r.json())
       .then(data => {
-        loading.style.display = 'none';
+        clLoading.style.display = 'none';
         if (!data.ok || !data.items || !data.items.length) {
-          itemsEl.innerHTML = '<p style="color:#9ca3af;text-align:center;padding:20px;font-size:13px;">Aucune nouveauté à afficher.</p>';
+          clItems.innerHTML = '<p class="wp-empty">Aucune nouveauté à afficher.</p>';
         } else {
-          itemsEl.innerHTML = data.items.map(item => {
+          clItems.innerHTML = data.items.map(item => {
             const iconClass = (item.icon || '').startsWith('fa-') ? item.icon : 'fa-solid fa-sparkles';
             return `<div class="wp-item">
               <div class="wp-item-icon-wrap">
@@ -89,12 +119,40 @@
             </div>`;
           }).join('');
         }
-        itemsEl.style.display = 'flex';
+        clItems.style.display = 'flex';
       })
       .catch(() => {
-        loading.style.display = 'none';
-        itemsEl.innerHTML = '<p style="color:#9ca3af;text-align:center;padding:20px;font-size:13px;">Impossible de charger les nouveautés.</p>';
-        itemsEl.style.display = 'flex';
+        clLoading.style.display = 'none';
+        clItems.innerHTML = '<p class="wp-empty">Impossible de charger les nouveautés.</p>';
+        clItems.style.display = 'flex';
+      });
+
+    // Charger l'activité récente
+    fetch('/api/recent-activity')
+      .then(r => r.json())
+      .then(data => {
+        rcLoading.style.display = 'none';
+        if (!data.ok || !data.items || !data.items.length) {
+          rcItems.innerHTML = '<p class="wp-empty">Aucune activité récente.</p>';
+        } else {
+          rcItems.innerHTML = data.items.map(item => {
+            return `<div class="wp-recent-item">
+              <div class="wp-recent-icon">
+                <i class="${item.icon}"></i>
+              </div>
+              <div class="wp-recent-content">
+                <div class="wp-recent-label">${item.label}</div>
+                <div class="wp-recent-time">${item.time}</div>
+              </div>
+            </div>`;
+          }).join('');
+        }
+        rcItems.style.display = 'flex';
+      })
+      .catch(() => {
+        rcLoading.style.display = 'none';
+        rcItems.innerHTML = '<p class="wp-empty">Impossible de charger l\'activité.</p>';
+        rcItems.style.display = 'flex';
       });
   } else {
     overlay.style.display = 'none';

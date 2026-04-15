@@ -601,3 +601,73 @@ class TaskLinkAssignment(db.Model):
     __table_args__ = (
         db.UniqueConstraint('link_id', 'direction', name='uq_task_link_dir'),
     )
+
+
+class RecentEvent(db.Model):
+    """Journal d'activité récente : créations/modifications des 4 entités principales."""
+    __tablename__ = 'recent_events'
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    event_type = db.Column(db.String(50), nullable=False)
+    icon = db.Column(db.String(80), nullable=False, default='fa-solid fa-circle')
+    label = db.Column(db.String(255), nullable=False)
+    entity_id = db.Column(db.Integer, nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+
+# -------------------------------------------------------------------
+# SQLAlchemy event listeners — journal d'activité automatique
+# -------------------------------------------------------------------
+from sqlalchemy import event
+from sqlalchemy import text as _sql_text
+
+
+def _log_recent(connection, event_type, icon, label, entity_id=None):
+    """Insère un événement récent via la connexion active (dans la même transaction)."""
+    try:
+        connection.execute(
+            _sql_text(
+                "INSERT INTO recent_events (event_type, icon, label, entity_id, created_at) "
+                "VALUES (:et, :icon, :label, :eid, :ts)"
+            ),
+            {"et": event_type, "icon": icon, "label": label,
+             "eid": entity_id, "ts": datetime.utcnow()}
+        )
+    except Exception:
+        pass  # Table absente au 1er démarrage — ignoré silencieusement
+
+
+@event.listens_for(Activities, 'after_insert')
+def _on_activity_insert(mapper, connection, target):
+    _log_recent(connection, 'activity_created', 'fa-solid fa-diagram-project',
+                f'Activité créée : {target.name}', target.entity_id)
+
+
+@event.listens_for(Activities, 'after_update')
+def _on_activity_update(mapper, connection, target):
+    _log_recent(connection, 'activity_updated', 'fa-solid fa-pen-to-square',
+                f'Activité modifiée : {target.name}', target.entity_id)
+
+
+@event.listens_for(Task, 'after_insert')
+def _on_task_insert(mapper, connection, target):
+    _log_recent(connection, 'task_created', 'fa-solid fa-list-check',
+                f'Tâche créée : {target.name}')
+
+
+@event.listens_for(Task, 'after_update')
+def _on_task_update(mapper, connection, target):
+    _log_recent(connection, 'task_updated', 'fa-solid fa-pen-to-square',
+                f'Tâche modifiée : {target.name}')
+
+
+@event.listens_for(Role, 'after_insert')
+def _on_role_insert(mapper, connection, target):
+    _log_recent(connection, 'role_created', 'fa-solid fa-user-tie',
+                f'Rôle créé : {target.name}', target.entity_id)
+
+
+@event.listens_for(Tool, 'after_insert')
+def _on_tool_insert(mapper, connection, target):
+    _log_recent(connection, 'tool_created', 'fa-solid fa-toolbox',
+                f'Outil créé : {target.name}', target.entity_id)

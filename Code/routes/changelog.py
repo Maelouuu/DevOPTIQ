@@ -3,6 +3,7 @@ import subprocess
 import os
 import json
 import time
+from datetime import datetime
 
 from flask import Blueprint, jsonify
 
@@ -107,6 +108,48 @@ def _generate_with_openai(commits):
     except Exception as e:
         print(f"[CHANGELOG] Erreur OpenAI : {e}")
         return None
+
+
+def _format_relative_time(dt):
+    """Retourne une chaîne de type 'il y a 2h' à partir d'un datetime UTC."""
+    if not dt:
+        return ""
+    diff = datetime.utcnow() - dt
+    seconds = diff.total_seconds()
+    if seconds < 60:
+        return "à l'instant"
+    elif seconds < 3600:
+        minutes = int(seconds / 60)
+        return f"il y a {minutes} min"
+    elif seconds < 86400:
+        hours = int(seconds / 3600)
+        return f"il y a {hours}h"
+    else:
+        days = int(seconds / 86400)
+        return f"il y a {days}j"
+
+
+@changelog_bp.route('/api/recent-activity', methods=['GET'])
+def get_recent_activity():
+    """Retourne les derniers événements d'activité depuis la table recent_events."""
+    try:
+        from Code.models.models import RecentEvent
+        events = (RecentEvent.query
+                  .order_by(RecentEvent.created_at.desc())
+                  .limit(20)
+                  .all())
+        items = [
+            {
+                "icon": ev.icon,
+                "label": ev.label,
+                "type": ev.event_type,
+                "time": _format_relative_time(ev.created_at),
+            }
+            for ev in events
+        ]
+        return jsonify({"ok": True, "items": items})
+    except Exception as e:
+        return jsonify({"ok": False, "items": [], "error": str(e)})
 
 
 @changelog_bp.route('/api/changelog', methods=['GET'])

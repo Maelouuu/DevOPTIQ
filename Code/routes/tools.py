@@ -1,6 +1,6 @@
 from flask import Blueprint, request, jsonify
 from Code.extensions import db
-from Code.models.models import Task, Tool, Entity
+from Code.models.models import Task, Tool, Entity, RecentEvent
 from sqlalchemy import func
 
 tools_bp = Blueprint('tools', __name__, url_prefix='/tools')
@@ -39,6 +39,17 @@ def add_tools_to_task():
                     if tool not in task.tools:
                         task.tools.append(tool)
                         added_tools.append({"id": tool.id, "name": tool.name})
+        # Log tool-task associations
+        for t in added_tools:
+            try:
+                ev = RecentEvent(
+                    event_type='tool_linked',
+                    icon='fa-solid fa-link',
+                    label=f'Outil lié : {t["name"]} → {task.name}',
+                )
+                db.session.add(ev)
+            except Exception:
+                pass
         db.session.commit()
     except Exception as e:
         db.session.rollback()
