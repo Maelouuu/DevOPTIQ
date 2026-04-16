@@ -22,11 +22,11 @@ def list_users():
 
         print(f"📊 Nombre de rôles trouvés: {len(roles)}")
 
-        # Récupérer tous les utilisateurs
+        # Récupérer tous les utilisateurs (tri alphabétique par NOM COMPLET)
         if active_entity_id:
-            users = User.query.filter_by(entity_id=active_entity_id).all()
+            users = User.query.filter_by(entity_id=active_entity_id).order_by(User.first_name, User.last_name).all()
         else:
-            users = User.query.all()
+            users = User.query.order_by(User.first_name, User.last_name).all()
 
         print(f"👥 Nombre d'utilisateurs trouvés: {len(users)}")
 
