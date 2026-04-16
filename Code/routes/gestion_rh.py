@@ -47,10 +47,10 @@ def gestion_rh_home():
         # Filtrer par entité active
         if active_entity_id:
             roles = Role.query.filter_by(entity_id=active_entity_id).order_by(Role.name).all()
-            users = User.query.filter_by(entity_id=active_entity_id).order_by(User.last_name).all()
+            users = User.query.filter_by(entity_id=active_entity_id).order_by(User.first_name).all()
         else:
             roles = Role.query.order_by(Role.name).all()
-            users = User.query.order_by(User.last_name).all()
+            users = User.query.order_by(User.first_name).all()
 
         return render_template('gestion_rh.html', settings=settings, roles=roles, users=users)
     except Exception as e:

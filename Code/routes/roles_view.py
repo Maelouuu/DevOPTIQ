@@ -219,7 +219,9 @@ def view_roles():
             "holders": holders
         })
 
-    return render_template("roles_view.html", roles_data=roles_data)
+    active_entity = Entity.get_active()
+    active_entity_dict = {"id": active_entity.id, "name": active_entity.name} if active_entity else None
+    return render_template("roles_view.html", roles_data=roles_data, active_entity=active_entity_dict)
 
 @roles_view_bp.route('/<int:role_id>/mission', methods=['PUT'])
 def update_role_mission(role_id: int):

@@ -15,11 +15,22 @@ from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
 
+from sqlalchemy import text as _sql_text
+
 from Code.extensions import db
 from Code.models.models import (
     Activities, Role, Savoir, SavoirFaire, Aptitude, Competency,
     activity_roles, Entity, FileBlob
 )
+
+
+def _get_role_mission(role_id):
+    """Récupère mission_generale depuis la table roles via SQL brut."""
+    row = db.session.execute(
+        _sql_text("SELECT mission_generale FROM roles WHERE id = :rid"),
+        {"rid": role_id}
+    ).fetchone()
+    return row[0] if row and row[0] else ""
 
 export_bp = Blueprint("export", __name__)
 
@@ -146,6 +157,7 @@ def _collect_entity_data(entity_id, role_id=None):
     return {
         "entity": entity,
         "role": role,
+        "mission_generale": _get_role_mission(role_id) if role_id else "",
         "activities": activities,
         "savoirs": all_savoirs,
         "savoir_faires": all_sf,
@@ -231,7 +243,7 @@ def _make_excel(data, role_label=None):
         r += 1
         r = write_title(ws, r, "Rôle exporté")
         r = write_kv(ws, r, "Nom du rôle", role.name)
-        r = write_kv(ws, r, "Mission", role.onboarding_plan or "—")
+        r = write_kv(ws, r, "Mission", data.get("mission_generale") or "—")
     else:
         r += 1
         r = write_title(ws, r, "Périmètre")
@@ -307,7 +319,8 @@ def _make_html(data, role_label=None):
     # ── Section rôle (si export par rôle) ───────────────────
     role_section = ""
     if role:
-        mission = esc(role.onboarding_plan) if role.onboarding_plan else "<em>Non renseignée</em>"
+        mission_text = data.get("mission_generale") or ""
+        mission = esc(mission_text) if mission_text else "<em>Non renseignée</em>"
         role_section = f"""
         <div class="role-card">
           <div class="role-header">
