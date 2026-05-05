@@ -38,9 +38,6 @@
         <span class="cross-carto-dot"></span>
       </button>
       <button id="carto-wizard-btn" class="carto-wizard-btn"><i class="fa-solid fa-layer-group"></i> Gérer la cartographie</button>
-      <a href="/cartography/editor" class="btn-open-optiqcarto">
-        <i class="fa-solid fa-pen-ruler"></i> Ouvrir OptiqCarto
-      </a>
     </div>
   </div>
 
@@ -436,15 +433,11 @@
   <!-- CONTENU PRINCIPAL -->
   <div class="carto-container">
     <div class="carto-left">
-      <div class="carto-toolbar">
-        <button id="carto-zoom-out">−</button>
-        <button id="carto-zoom-reset">100%</button>
-        <button id="carto-zoom-in">+</button>
-      </div>
-      <div id="carto-pan-wrapper" class="carto-pan-wrapper">
-        <div id="pan-inner">
-          <div id="svg-container"></div>
-        </div>
+      <div class="carto-viewer-wrap">
+        <iframe id="carto-viewer-frame" src="/cartography/viewer" frameborder="0"></iframe>
+        <a href="/cartography/editor" class="btn-open-editor" title="Ouvrir dans l'éditeur">
+          <i class="fa-solid fa-pen-ruler"></i> Ouvrir l'éditeur
+        </a>
       </div>
     </div>
     <div class="carto-right">
@@ -606,5 +599,63 @@
   });
   // Init selected state
   document.querySelector('input[name="exportFormat"]:checked')?.closest(".export-format-card")?.classList.add("selected");
+})();
+</script>
+
+<!-- Ring de progression pour le hold 3s -->
+<div id="hold-ring" style="display:none;position:fixed;pointer-events:none;z-index:9999;transform:translate(-50%,-50%)">
+  <svg width="56" height="56" viewBox="0 0 56 56">
+    <circle cx="28" cy="28" r="23" fill="rgba(233,30,140,0.07)" stroke="rgba(233,30,140,0.18)" stroke-width="2.5"/>
+    <circle cx="28" cy="28" r="23" fill="none" stroke="#e91e8c" stroke-width="3"
+            stroke-dasharray="144.5" stroke-dashoffset="144.5"
+            id="hold-ring-arc" stroke-linecap="round"
+            transform="rotate(-90 28 28)"/>
+  </svg>
+</div>
+
+<script>
+(function () {
+  const ring    = document.getElementById('hold-ring');
+  const arc     = document.getElementById('hold-ring-arc');
+  const HOLD_MS = 3000;
+  let holdTimer = null;
+
+  function startHold(pageX, pageY) {
+    ring.style.left = pageX + 'px';
+    ring.style.top  = pageY + 'px';
+    ring.style.display = 'block';
+
+    arc.style.transition = 'none';
+    arc.setAttribute('stroke-dashoffset', '144.5');
+    arc.getBoundingClientRect(); // force reflow
+    arc.style.transition = `stroke-dashoffset ${HOLD_MS}ms linear`;
+    arc.setAttribute('stroke-dashoffset', '0');
+
+    holdTimer = setTimeout(() => {
+      window.location.href = '/cartography/editor';
+    }, HOLD_MS);
+  }
+
+  function cancelHold() {
+    if (!holdTimer) return;
+    clearTimeout(holdTimer);
+    holdTimer = null;
+    ring.style.display = 'none';
+    arc.style.transition = 'none';
+    arc.setAttribute('stroke-dashoffset', '144.5');
+  }
+
+  window.addEventListener('message', (e) => {
+    if (!e.data || typeof e.data !== 'object') return;
+    const { t, x, y } = e.data;
+    if (t === 'hold-start') {
+      const iframe = document.getElementById('carto-viewer-frame');
+      if (!iframe) return;
+      const r = iframe.getBoundingClientRect();
+      startHold(r.left + (x || 0), r.top + (y || 0));
+    } else if (t === 'hold-cancel') {
+      cancelHold();
+    }
+  });
 })();
 </script>

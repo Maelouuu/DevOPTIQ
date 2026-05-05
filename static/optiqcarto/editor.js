@@ -45,6 +45,7 @@ function bandMutedColor(hex) {
 
 function updateShapeColor(s) {
   if (s.type === 'decision') { s.color = '#9ca3af'; return; }
+  if (s._colorFixed) return; // couleur importée depuis Visio — ne pas écraser
   const band = getBandForY(s.y + s.h / 2);
   if (!band) return;
   s.color = s.colorVariant === 1 ? bandMutedColor(band.color) : band.color;
@@ -3173,11 +3174,18 @@ async function importVSDX(file) {
       const shapeType = detectVSDXShapeType(masterIdToName[mid], vType, mInfoForType.isEllipse, mInfoForType.isDiamond, mInfoForType.isSubprocess);
       const oid = nextOid++;
       shapeIdMap[id] = oid;
+
+      // Couleur Visio par forme (FillForegnd)
+      const rawFill = vCell(s, 'FillForegnd');
+      const vsdxColor = rawFill && rawFill.startsWith('#') && !isWashedOut(rawFill) ? rawFill : null;
+      const shapeColor = shapeType === 'decision' ? '#9ca3af' : (vsdxColor || '#22c55e');
+
       newShapes.push({
         id: oid, type: shapeType, subtype: 'normal',
         x: screenX, y: screenY, w: screenW, h: screenH,
         label:          vText(s),
-        color:          shapeType === 'decision' ? '#9ca3af' : '#22c55e',
+        color:          shapeColor,
+        _colorFixed:    shapeType !== 'decision' && !!vsdxColor, // préserve la couleur Visio
         textColor:      '#ffffff',
         strokeColor:    '',
         fontSize:       18,

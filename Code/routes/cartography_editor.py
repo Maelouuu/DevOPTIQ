@@ -71,6 +71,21 @@ def _vsdx_path(entity):
 # PAGE ÉDITEUR
 # ─────────────────────────────────────────────
 
+@cartography_editor_bp.route("/viewer")
+def viewer():
+    if not _require_auth():
+        return ("", 403)
+    entity = _get_active_entity()
+    has_optiqcarto = entity and os.path.exists(_carto_path(entity.id))
+    entity_name = entity.name if entity else ""
+    return render_template(
+        "cartography_viewer.html",
+        entity_name=entity_name,
+        entity_id=entity.id if entity else None,
+        has_optiqcarto=has_optiqcarto,
+    )
+
+
 @cartography_editor_bp.route("/editor")
 def editor():
     if not _require_auth():

@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Viewer</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='optiqcarto/style.css') }}">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+
+  <script>
+    window.OPTIQCARTO_API_BASE    = '/cartography';
+    window.OPTIQCARTO_DEFAULT_NAME = {{ (entity_name or '')|tojson }};
+    window.OPTIQCARTO_HAS_CARTO   = {{ has_optiqcarto|tojson }};
+    window.OPTIQCARTO_READONLY    = true;
+  </script>
+
+  <style>
+    /* Viewer : canvas plein écran, tout le reste caché */
+    html, body { margin: 0; padding: 0; overflow: hidden; background: #f0f4f0; }
+
+    #toolbar, #properties, #dock-wrap,
+    #welcome-modal, #vsdx-dialog, #bands-dialog,
+    #load-dialog, #new-carto-dialog, #toast,
+    #label-editor, #left-panel { display: none !important; }
+
+    #canvas-wrap {
+      position: fixed !important;
+      top: 0 !important; left: 0 !important;
+      right: 0 !important; bottom: 0 !important;
+      border-radius: 0 !important;
+      background: transparent !important;
+    }
+
+    /* Placeholder si pas de carto chargée */
+    #viewer-placeholder {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 14px;
+      color: #9ca3af;
+      font-family: 'Inter', sans-serif;
+      pointer-events: none;
+    }
+    #viewer-placeholder i { font-size: 42px; opacity: 0.35; }
+    #viewer-placeholder p { font-size: 13px; margin: 0; opacity: 0.6; }
+  </style>
+</head>
+<body>
+
+<!-- Canvas OptiqCarto (géré par editor.js) -->
+<main id="canvas-wrap">
+  <svg id="canvas" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <marker id="ah-base" viewBox="0 0 12 12" refX="10" refY="6"
+              markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M1,1 L11,6 L1,11 Z" fill="#555" stroke="none"/>
+      </marker>
+      <filter id="f-shadow" x="-30%" y="-30%" width="160%" height="160%">
+        <feDropShadow dx="0" dy="4" stdDeviation="5" flood-color="rgba(0,0,0,0.22)"/>
+      </filter>
+      <filter id="f-shadow-sel" x="-30%" y="-30%" width="160%" height="160%">
+        <feDropShadow dx="0" dy="0" stdDeviation="8" flood-color="rgba(77,184,104,0.6)"/>
+        <feDropShadow dx="0" dy="4" stdDeviation="4" flood-color="rgba(0,0,0,0.28)"/>
+      </filter>
+      <linearGradient id="shape-shine" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%"   stop-color="rgba(255,255,255,0.22)"/>
+        <stop offset="55%"  stop-color="rgba(255,255,255,0.04)"/>
+        <stop offset="100%" stop-color="rgba(0,0,0,0.1)"/>
+      </linearGradient>
+    </defs>
+    <g id="root-group">
+      <g id="g-bands"></g>
+      <g id="g-legend"></g>
+      <g id="g-groups"></g>
+      <g id="g-connections"></g>
+      <g id="g-shapes"></g>
+      <g id="g-handles"></g>
+      <g id="g-ui"></g>
+      <g id="g-overlay"></g>
+    </g>
+  </svg>
+</main>
+
+{% if not has_optiqcarto %}
+<div id="viewer-placeholder">
+  <i class="fa-solid fa-diagram-project"></i>
+  <p>Aucune cartographie créée — maintenez le clic 3 secondes pour ouvrir l'éditeur</p>
+</div>
+{% endif %}
+
+<!-- Éléments fantômes requis par editor.js mais cachés par CSS -->
+<textarea id="label-editor" autocomplete="off" spellcheck="false"></textarea>
+<div id="toast"></div>
+<div id="dock-wrap"><div id="dock-panel">
+  <button id="dock-left-panel"></button>
+  <button id="dock-props"></button>
+  <button id="dock-close"></button>
+</div></div>
+<aside id="left-panel"><div class="panel-prelayers" aria-hidden="true">
+  <div class="panel-prelayer panel-prelayer--1"></div>
+  <div class="panel-prelayer panel-prelayer--2"></div>
+</div>
+<div id="canvas-map-scroll"><div id="canvas-map-list"></div></div>
+</aside>
+<aside id="properties"><div class="panel-prelayers" aria-hidden="true">
+  <div class="panel-prelayer panel-prelayer--1"></div>
+  <div class="panel-prelayer panel-prelayer--2"></div>
+</div>
+<div id="prop-nothing"></div>
+<div id="prop-align" style="display:none"><span id="prop-align-count"></span></div>
+<div id="prop-shape" style="display:none">
+  <textarea id="prop-label"></textarea>
+  <input type="color" id="prop-color"><input type="color" id="prop-text-color">
+  <div id="prop-stroke-group" style="display:none"><input type="color" id="prop-stroke-color"></div>
+  <input type="checkbox" id="prop-validation-enabled">
+  <input type="color" id="prop-validation-color">
+  <div id="prop-validation-hint"></div>
+  <input type="number" id="prop-width"><input type="number" id="prop-height">
+  <input type="number" id="prop-font-size">
+  <div id="prop-subtype-row" style="display:none">
+    <button id="subtype-btn-normal"></button><button id="subtype-btn-external"></button><button id="subtype-btn-extco"></button>
+  </div>
+  <div id="prop-variant-row">
+    <button id="variant-btn-0"><span class="variant-swatch"></span></button>
+    <button id="variant-btn-1"><span class="variant-swatch"></span></button>
+  </div>
+  <button id="prop-delete-shape"></button>
+</div>
+<div id="prop-band" style="display:none">
+  <input type="text" id="band-label"><input type="color" id="band-color">
+  <div id="band-pastel-preview"></div>
+  <input type="number" id="band-font-size"><input type="number" id="band-height">
+  <button id="prop-delete-band"></button>
+</div>
+<div id="prop-connection" style="display:none">
+  <input type="radio" name="conn-style" value="solid" id="conn-style-solid" checked>
+  <input type="radio" name="conn-style" value="dashed" id="conn-style-dashed">
+  <input type="radio" name="conn-routing" value="smooth" id="conn-routing-smooth" checked>
+  <input type="radio" name="conn-routing" value="orthogonal" id="conn-routing-ortho">
+  <input type="color" id="conn-color" value="#555555">
+  <input type="text" id="conn-label">
+  <button id="btn-conn-forward"></button><button id="btn-conn-backward"></button>
+  <button id="prop-delete-conn"></button>
+</div>
+<div id="prop-group" style="display:none">
+  <input type="text" id="group-label-input"><input type="color" id="group-color-input" value="#b3a0ff">
+  <div id="group-shapes-list"></div>
+  <button id="prop-delete-group"></button>
+</div>
+</aside>
+<header id="toolbar">
+  <div class="tb-logo"></div>
+  <div class="tb-group-top">
+    <button class="tool-btn-top active" data-tool="select"></button>
+    <div class="shape-dropdown-wrap" id="connect-tool-wrap">
+      <button class="tool-btn-top" data-tool="connect" id="btn-connect-tool"></button>
+      <div class="shape-sub-dropdown connect-routing-dropdown">
+        <button class="shape-sub-btn conn-routing-btn active" data-routing="smooth"></button>
+        <button class="shape-sub-btn conn-routing-btn" data-routing="orthogonal"></button>
+      </div>
+    </div>
+    <button class="tool-btn-top" id="btn-group-create"></button>
+  </div>
+  <div class="tb-group-top">
+    <div class="shape-dropdown-wrap" id="process-shape-wrap">
+      <button class="shape-btn-top" data-tool="process"></button>
+      <div class="shape-sub-dropdown">
+        <button class="shape-sub-btn" data-shape-type="process" data-shape-subtype="normal"></button>
+        <button class="shape-sub-btn" data-shape-type="process" data-shape-subtype="external"></button>
+        <button class="shape-sub-btn" data-shape-type="process" data-shape-subtype="extco"></button>
+      </div>
+    </div>
+    <button class="shape-btn-top" data-tool="start-end"></button>
+    <button class="shape-btn-top" data-tool="special"></button>
+    <button class="shape-btn-top" data-tool="decision"></button>
+  </div>
+  <div class="tb-group-top">
+    <button class="tool-btn-top new-carto-btn" id="btn-new-carto"></button>
+    <button class="tool-btn-top" id="btn-architect"></button>
+    <button class="tool-btn-top" id="btn-undo"></button>
+    <button class="tool-btn-top" id="btn-redo"></button>
+    <button class="tool-btn-top" id="btn-fit"></button>
+    <button class="tool-btn-top danger" id="btn-delete"></button>
+  </div>
+  <div class="file-folder-section" id="file-folder-section">
+    <div class="folder-3d-wrap" id="btn-folder-toggle"></div>
+    <div class="folder-dropdown">
+      <button class="folder-action-btn" id="btn-save"></button>
+      <button class="folder-action-btn" id="btn-load"></button>
+      <button class="folder-action-btn" id="btn-export-svg"></button>
+      <button class="folder-action-btn" id="btn-export-pdf"></button>
+      <button class="folder-action-btn" id="btn-import-vsdx"></button>
+    </div>
+  </div>
+  <button class="tool-btn-top" id="btn-left-panel-open"></button>
+</header>
+<div id="vsdx-dialog" class="modal-overlay hidden">
+  <div class="modal-card">
+    <div class="modal-header"><button id="vsdx-dialog-close" class="modal-close"></button></div>
+    <div class="modal-body">
+      <div id="vsdx-dropzone" class="vsdx-dropzone">
+        <input type="file" id="vsdx-file-input" accept=".vsdx" style="display:none">
+      </div>
+      <div id="vsdx-loading" style="display:none"><div id="vsdx-loading-msg"></div></div>
+      <div id="vsdx-status" class="vsdx-status" style="display:none"></div>
+    </div>
+  </div>
+</div>
+<div id="bands-dialog" class="modal-overlay hidden"><div class="modal-card">
+  <div class="modal-header"><button id="bands-dialog-close" class="modal-close"></button></div>
+  <div class="modal-body"><div id="bands-list"></div><button id="btn-add-band"></button></div>
+  <div class="modal-footer"><button id="bands-dialog-ok" class="btn-ok"></button></div>
+</div></div>
+<div id="load-dialog" class="modal-overlay hidden"><div class="modal-card">
+  <div class="modal-header"><button id="load-dialog-close" class="modal-close"></button></div>
+  <div class="modal-body"><div id="load-list" class="load-list"></div></div>
+</div></div>
+<div id="new-carto-dialog" class="modal-overlay hidden"><div class="modal-card">
+  <div class="modal-header"><button id="new-carto-dialog-close" class="modal-close"></button></div>
+  <div class="modal-body"></div>
+  <div class="modal-footer">
+    <button id="new-carto-save" class="btn-ok"></button>
+    <button id="new-carto-confirm" class="btn-ok"></button>
+  </div>
+</div></div>
+
+<script src="{{ url_for('static', filename='optiqcarto/editor.js') }}"></script>
+
+<script>
+// ── PostMessage pour détection hold dans le parent ─────────────────
+let _pmStartX = 0, _pmStartY = 0;
+
+document.addEventListener('mousedown', (e) => {
+  _pmStartX = e.clientX; _pmStartY = e.clientY;
+  try { window.parent.postMessage({ t: 'hold-start', x: e.clientX, y: e.clientY }, '*'); } catch(e) {}
+});
+document.addEventListener('mousemove', (e) => {
+  if (Math.abs(e.clientX - _pmStartX) > 8 || Math.abs(e.clientY - _pmStartY) > 8) {
+    try { window.parent.postMessage({ t: 'hold-cancel' }, '*'); } catch(e) {}
+  }
+});
+document.addEventListener('mouseup', () => {
+  try { window.parent.postMessage({ t: 'hold-cancel' }, '*'); } catch(e) {}
+});
+
+// ── Désactiver la création de formes (readonly) ─────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  // Empêcher le drop de formes
+  const canvasEl = document.getElementById('canvas-wrap');
+  if (canvasEl) {
+    canvasEl.addEventListener('dragover', e => e.preventDefault(), true);
+    canvasEl.addEventListener('drop', e => e.preventDefault(), true);
+  }
+});
+</script>
+</body>
+</html>
