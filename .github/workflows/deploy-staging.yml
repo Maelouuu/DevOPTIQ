@@ -1,0 +1,66 @@
+name: Deploy → Staging
+
+on:
+  push:
+    branches: [staging]
+
+env:
+  PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+  REGION: europe-west1                        # ← adapte si besoin
+  SERVICE_STAGING: devoptiq-staging           # ← nom du service Cloud Run staging
+  IMAGE: europe-west1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/devoptiq/devoptiq-staging
+
+jobs:
+  deploy:
+    name: Build & Deploy (Staging)
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      id-token: write   # requis pour Workload Identity Federation
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
+          service_account: ${{ secrets.GCP_SA_EMAIL }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker europe-west1-docker.pkg.dev --quiet
+
+      - name: Build Docker image
+        run: |
+          docker build -t ${{ env.IMAGE }}:${{ github.sha }} -t ${{ env.IMAGE }}:latest .
+
+      - name: Push Docker image
+        run: |
+          docker push ${{ env.IMAGE }}:${{ github.sha }}
+          docker push ${{ env.IMAGE }}:latest
+
+      - name: Deploy to Cloud Run (Staging)
+        run: |
+          gcloud run deploy ${{ env.SERVICE_STAGING }} \
+            --image ${{ env.IMAGE }}:${{ github.sha }} \
+            --region ${{ env.REGION }} \
+            --platform managed \
+            --allow-unauthenticated \
+            --set-env-vars "DATABASE_URL=${{ secrets.STAGING_DATABASE_URL }}" \
+            --set-env-vars "SECRET_KEY=${{ secrets.STAGING_SECRET_KEY }}" \
+            --set-env-vars "FLASK_ENV=staging" \
+            --set-env-vars "GOOGLE_CLOUD_PROJECT=${{ secrets.GCP_PROJECT_ID }}" \
+            --memory 2Gi \
+            --timeout 120 \
+            --quiet
+
+      - name: Print staging URL
+        run: |
+          URL=$(gcloud run services describe ${{ env.SERVICE_STAGING }} \
+            --region ${{ env.REGION }} --format 'value(status.url)')
+          echo "✅ Staging déployé : $URL"
