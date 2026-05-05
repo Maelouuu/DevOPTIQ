@@ -56,6 +56,7 @@ def list_tools():
             "id": t.id,
             "name": t.name,
             "description": t.description or "",
+            "file_path": t.file_path or "",
             "usages": usages_by_tool.get(t.id, [])
         })
     return jsonify(data)
@@ -69,6 +70,7 @@ def create_tool():
     payload = request.get_json(silent=True) or {}
     name = (payload.get("name") or "").strip()
     description = (payload.get("description") or "").strip() or None
+    file_path = (payload.get("file_path") or "").strip() or None
 
     if not name:
         return jsonify({"error": "Le nom de l'outil est requis."}), 400
@@ -80,7 +82,7 @@ def create_tool():
 
     # MODIFIÉ: Créer l'outil avec l'entité active
     active_entity_id = Entity.get_active_id()
-    tool = Tool(name=name, description=description, entity_id=active_entity_id)
+    tool = Tool(name=name, description=description, file_path=file_path, entity_id=active_entity_id)
     db.session.add(tool)
     db.session.commit()
     return jsonify({"message": "Outil créé.", "id": tool.id}), 201
@@ -117,8 +119,12 @@ def update_tool(tool_id):
         new_desc = new_desc.strip() or None
         tool.description = new_desc
 
+    new_file = payload.get("file_path")
+    if new_file is not None:
+        tool.file_path = new_file.strip() or None
+
     db.session.commit()
-    return jsonify({"message": "Outil mis à jour."})
+    return jsonify({"message": "Outil mis à jour.", "file_path": tool.file_path})
 
 
 # -------------------------
@@ -160,6 +166,7 @@ def replace_tool(tool_id):
     tool_src = Tool.query.get_or_404(tool_id)
     payload = request.get_json(silent=True) or {}
     replacement_id = payload.get("replacement_id")
+    task_ids_filter = payload.get("task_ids")  # optionnel : liste de task_id ciblés
 
     if not replacement_id:
         return jsonify({"error": "replacement_id est requis."}), 400
@@ -171,13 +178,19 @@ def replace_tool(tool_id):
     if tool_src.id == tool_dst.id:
         return jsonify({"error": "Impossible de remplacer un outil par lui-même."}), 400
 
-    # Re-lier tous les enregistrements task_tools de src vers dst (en évitant les doublons)
-    # 1) trouver toutes les tasks liées à src
-    task_ids = [
-        r[0] for r in db.session.query(task_tools.c.task_id).filter(task_tools.c.tool_id == tool_src.id).all()
+    # Trouver toutes les tasks liées à src
+    all_linked = [
+        r[0] for r in db.session.query(task_tools.c.task_id)
+        .filter(task_tools.c.tool_id == tool_src.id).all()
     ]
+
+    # Filtrer sur les task_ids sélectionnés si fournis
+    if task_ids_filter is not None:
+        task_ids = [tid for tid in all_linked if tid in task_ids_filter]
+    else:
+        task_ids = all_linked
+
     if task_ids:
-        # Pour chaque task, si (task, dst) n'existe pas: ajouter; puis supprimer (task, src)
         existing_pairs = set(
             db.session.query(task_tools.c.task_id)
             .filter(task_tools.c.tool_id == tool_dst.id, task_tools.c.task_id.in_(task_ids))
@@ -185,15 +198,11 @@ def replace_tool(tool_id):
         )
         existing_task_ids = {tid for (tid,) in existing_pairs}
 
-        # Insert manquants
-        inserts = []
-        for tid in task_ids:
-            if tid not in existing_task_ids:
-                inserts.append({"task_id": tid, "tool_id": tool_dst.id})
+        inserts = [{"task_id": tid, "tool_id": tool_dst.id}
+                   for tid in task_ids if tid not in existing_task_ids]
         if inserts:
             db.session.execute(task_tools.insert(), inserts)
 
-        # Delete anciens liens
         db.session.execute(
             task_tools.delete().where(
                 (task_tools.c.tool_id == tool_src.id) & (task_tools.c.task_id.in_(task_ids))
@@ -201,20 +210,44 @@ def replace_tool(tool_id):
         )
 
     db.session.commit()
-    return jsonify({"message": f"Usages de '{tool_src.name}' remplacés par '{tool_dst.name}'."})
+    return jsonify({"message": f"Usages remplacés.", "replaced_count": len(task_ids)})
 
 
 # -------------------------
 # API: Supprimer un outil
-#   - si 'force_detach'=true => détacher des tâches et supprimer
-#   - sinon, si usages, renvoyer 409 + liste pour alerter
+#   - task_ids dans le corps JSON => détachement partiel
+#   - force_detach=true          => détacher tout et supprimer
+#   - sinon, si usages, renvoyer 409
 # -------------------------
 @bp_tools.route("/api/tools/<int:tool_id>", methods=["DELETE"])
 def delete_tool(tool_id):
     tool = Tool.query.get_or_404(tool_id)
     force_detach = request.args.get("force_detach", "false").lower() == "true"
 
-    # Vérifier les usages
+    payload = request.get_json(silent=True) or {}
+    task_ids_filter = payload.get("task_ids")  # optionnel : liste de task_id à détacher
+
+    # ── Détachement partiel ──
+    if task_ids_filter is not None:
+        db.session.execute(
+            task_tools.delete().where(
+                (task_tools.c.tool_id == tool.id) &
+                (task_tools.c.task_id.in_(task_ids_filter))
+            )
+        )
+        remaining = db.session.query(task_tools).filter(task_tools.c.tool_id == tool.id).count()
+        db.session.commit()
+        if remaining == 0:
+            db.session.delete(tool)
+            db.session.commit()
+            return jsonify({"message": "Outil détaché et supprimé.", "deleted": True})
+        return jsonify({
+            "message": f"Détaché de {len(task_ids_filter)} tâche(s). {remaining} usage(s) restant(s).",
+            "deleted": False,
+            "remaining": remaining
+        })
+
+    # ── Suppression complète ──
     count_usages = db.session.query(task_tools).filter(task_tools.c.tool_id == tool.id).count()
     if count_usages > 0 and not force_detach:
         return jsonify({
@@ -222,10 +255,9 @@ def delete_tool(tool_id):
             "usages_count": count_usages
         }), 409
 
-    if count_usages > 0 and force_detach:
-        # Détacher
+    if count_usages > 0:
         db.session.execute(task_tools.delete().where(task_tools.c.tool_id == tool.id))
 
     db.session.delete(tool)
     db.session.commit()
-    return jsonify({"message": "Outil supprimé."})
+    return jsonify({"message": "Outil supprimé.", "deleted": True})

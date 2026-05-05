@@ -2,7 +2,7 @@
   /* largeur & hauteurs */
   --nav-w: clamp(760px, 70vw, 1100px);
   --nav-h: 50px;
-  --nav-h-open: 200px;
+  --nav-h-open: 180px;  /* Réduit car plus de sidebar */
   --topbar-h: 28px;
 
   --radius-lg: 16px;
@@ -21,10 +21,91 @@
   background: transparent;
   border: 0;
   backdrop-filter: none;
-  padding: 6px 0;
+  padding: 6px 16px;
   width: 100%;
-  display: flex; justify-content: center;
+  display: flex; 
+  justify-content: center;
+  align-items: flex-start;
+  gap: 16px;
   overflow-x: hidden;
+}
+
+/* ============================
+   BOUTON DÉCONNEXION (rond → rectangle au hover)
+   ============================ */
+.logout-btn {
+  position: absolute;
+  right: 40px;  /* Marge depuis le bord droit */
+  top: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  
+  /* État par défaut : rond */
+  width: 42px;
+  height: 42px;
+  padding: 0;
+  
+  background: linear-gradient(135deg, #ff6b6b, #ee5a5a);
+  color: #fff;
+  text-decoration: none;
+  border-radius: 50%;  /* Rond */
+  font-size: 0.88rem;
+  font-weight: 600;
+  box-shadow: 0 4px 12px rgba(238, 90, 90, 0.35);
+  overflow: hidden;
+  
+  /* Transition fluide */
+  transition: 
+    width 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+    border-radius 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+    gap 0.25s ease,
+    padding 0.3s ease,
+    background 0.2s ease,
+    box-shadow 0.2s ease,
+    transform 0.2s ease;
+  
+  z-index: 1001;
+}
+
+/* État hover : rectangle avec texte */
+.logout-btn:hover {
+  width: 145px;
+  border-radius: 12px;
+  gap: 8px;
+  padding: 0 18px;
+  background: linear-gradient(135deg, #ff5252, #e04545);
+  box-shadow: 0 6px 18px rgba(238, 90, 90, 0.45);
+  transform: translateY(-2px);
+}
+
+/* Icône */
+.logout-btn i {
+  font-size: 1.1rem;
+  flex-shrink: 0;
+  transition: transform 0.2s ease;
+}
+
+.logout-btn:hover i {
+  transform: scale(0.95);
+}
+
+/* Texte masqué par défaut */
+.logout-btn span {
+  white-space: nowrap;
+  opacity: 0;
+  max-width: 0;
+  overflow: hidden;
+  transition: 
+    opacity 0.2s ease 0.15s,
+    max-width 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Texte visible au hover */
+.logout-btn:hover span {
+  opacity: 1;
+  max-width: 100px;
 }
 
 /* ============================
@@ -64,24 +145,25 @@
 }
 .logo-text{ font-weight:700; font-size:1rem; }
 
-.hamburger-menu{ display:flex; flex-direction:column; gap:5px; cursor:pointer; }
-.hamburger-line{ width:22px; height:2px; background:var(--ink); transition:transform .3s ease; }
-.hamburger-menu.open .hamburger-line:first-child{ transform: translateY(4px) rotate(45deg); }
-.hamburger-menu.open .hamburger-line:last-child{  transform: translateY(-4px) rotate(-45deg); }
+.hamburger-menu{ display:flex; flex-direction:column; gap:7px; cursor:pointer; padding:8px; }
+.hamburger-line{ width:30px; height:3px; background:var(--ink); border-radius:2px; transition:transform .3s ease; }
+.hamburger-menu.open .hamburger-line:first-child{ transform: translateY(5px) rotate(45deg); }
+.hamburger-menu.open .hamburger-line:last-child{  transform: translateY(-5px) rotate(-45deg); }
 
 /* ============================
-   Contenu déroulant (2 colonnes)
+   Contenu déroulant (cartes uniquement)
    ============================ */
 .card-nav-content{
   position: absolute;
   inset-inline: 0;
   top: var(--topbar-h);
   height: calc(var(--nav-h) - var(--topbar-h));
-  padding: 8px 10px 0;
+  padding: 12px 14px 16px;
   background: transparent;
   opacity: 0; pointer-events: none; transform: translateY(-6px);
   transition: opacity .22s ease, transform .22s ease, height .25s ease;
-  display: flex; align-items: stretch; gap: 12px;
+  display: flex; 
+  align-items: stretch;
 }
 .card-nav.open .card-nav-content{
   height: calc(var(--nav-h-open) - var(--topbar-h));
@@ -89,86 +171,72 @@
 }
 
 /* ============================
-   Rail des cartes (gauche)
+   Rail des cartes (pleine largeur)
    ============================ */
 .card-scroll{
   flex: 1 1 auto;
-  display:flex; gap:12px; align-items:center;
-  height: calc(100% - 8px);   /* ← remonte la scrollbar de 8px (solution robuste) */
-  overflow-x: auto; overflow-y: hidden;
+  display: flex; 
+  gap: 14px; 
+  align-items: center;
+  height: 100%;
+  overflow-x: auto; 
+  overflow-y: hidden;
   scroll-snap-type: x mandatory;
-  /* pas de padding-bottom nécessaire grâce au calc() */
-  padding-top: 2px;           /* léger centrage vertical des cartes */
+  padding: 8px 4px 14px;  /* Plus de padding en bas pour la scrollbar */
+  scroll-behavior: smooth;
 }
-.card-scroll::-webkit-scrollbar{ height: 6px; }
-.card-scroll::-webkit-scrollbar-thumb{
-  background:#cfcfcf;
-  border-radius:6px;
+
+/* Scrollbar agrandie et stylée */
+.card-scroll::-webkit-scrollbar { 
+  height: 12px;  /* Agrandi de 6px à 12px */
+}
+.card-scroll::-webkit-scrollbar-track {
+  background: #f0f0f0;
+  border-radius: 10px;
+  margin: 0 8px;
+}
+.card-scroll::-webkit-scrollbar-thumb {
+  background: linear-gradient(135deg, #33d299, #7fe3c2);
+  border-radius: 10px;
+  border: 2px solid #f0f0f0;
+}
+.card-scroll::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(135deg, #2bb886, #5fd9ac);
+}
+
+/* Firefox */
+.card-scroll {
+  scrollbar-width: auto;  /* Changé de 'thin' à 'auto' pour plus de visibilité */
+  scrollbar-color: #33d299 #f0f0f0;
 }
 
 /* ============================
    Cartes
    ============================ */
 .nav-card{
-  flex: 0 0 150px;
-  height: 68px;
+  flex: 0 0 160px;
+  height: 80px;  /* Légèrement plus grandes */
   border-radius: 14px;
   text-decoration: none;
-  color: var(--ink);
+  color: var(--card-fg, var(--ink));
   background: var(--card-bg, #f7f7f7);
-  box-shadow: 0 4px 8px rgba(0,0,0,.05);
-  display: inline-flex; align-items: center; justify-content: center;
-  padding: 10px;
-  font-weight: 700; font-size: .86rem;
+  box-shadow: 0 4px 10px rgba(0,0,0,.08);
+  display: inline-flex; 
+  align-items: center; 
+  justify-content: center;
+  padding: 12px;
+  font-weight: 700; 
+  font-size: .9rem;
   scroll-snap-align: start;
-  transition: transform .18s ease, filter .15s ease;
+  transition: transform .18s ease, filter .15s ease, box-shadow .18s ease;
   white-space: nowrap;
 }
-.nav-card i{ margin-right: 6px; }
-.nav-card:hover{ transform: translateY(-2px); filter: saturate(1.08); }
-
-/* ============================
-   Sidebar "Navigation rapide"
-   ============================ */
-.side-list-card{
-  flex: 0 0 230px;
-  height: 100%;
-  display: flex; flex-direction: column;
-  background: #fff;
-  border: 1px solid #eee;
-  border-radius: 12px;
-  box-shadow: inset 0 0 10px rgba(0,0,0,.03);
-  padding: 8px;
+.nav-card i{ margin-right: 8px; }
+.nav-card:hover{ 
+  transform: translateY(-3px); 
+  filter: saturate(1.1); 
+  box-shadow: 0 8px 20px rgba(0,0,0,.12);
 }
-
-.side-list-card h4{
-  margin: 0 0 6px 0; font-size: .82rem; font-weight: 700;
-  display: inline-flex; align-items: center; gap: 6px; color: #2a3c39;
-}
-
-.side-list-card ul{
-  list-style: none;
-  margin: 0; padding: 0;
-  display: flex; flex-direction: column;
-  gap: 0;                        /* ← aucun espace vertical entre éléments */
-  flex: 1 1 auto;
-  overflow-y: auto; overflow-x: hidden;
-  padding-right: 4px;
-}
-.side-list-card li{ margin:0; padding:0; }
-
-.side-list-card ul::-webkit-scrollbar{ width: 6px; }
-.side-list-card ul::-webkit-scrollbar-thumb{ background:#d0d0d0; border-radius:6px; }
-
-.side-list-card li a{
-  display: flex; align-items: center; gap: 6px;
-  text-decoration: none; color: #1c312b;
-  font-size: .82rem; padding: 4px 8px;
-  border-radius: 8px; background: #f7f7f7;
-  transition: background .15s ease;
-  white-space: nowrap;
-}
-.side-list-card li a:hover{ background: #efefef; }
 
 /* ============================
    Responsive
@@ -177,9 +245,63 @@
   :root{
     --nav-w: 96vw;
     --nav-h: 104px;
-    --nav-h-open: 240px;
+    --nav-h-open: 220px;
     --topbar-h: 46px;
   }
-  .card-nav{ width: var(--nav-w) !important; max-width: var(--nav-w) !important; }
-  .side-list-card{ flex-basis: 200px; }
+  .card-nav{ 
+    width: var(--nav-w) !important; 
+    max-width: var(--nav-w) !important; 
+  }
+  
+  .card-nav-container {
+    padding: 6px 10px;
+  }
+  
+  .logout-btn {
+    right: 30px;
+    width: 38px;
+    height: 38px;
+  }
+  
+  .logout-btn:hover {
+    width: 135px;
+  }
+  
+  .logout-btn i {
+    font-size: 1rem;
+  }
+  
+  .nav-card {
+    flex: 0 0 140px;
+    height: 70px;
+    font-size: .85rem;
+  }
+  
+  .card-scroll::-webkit-scrollbar {
+    height: 10px;
+  }
+}
+
+@media (max-width: 500px) {
+  .logout-btn {
+    right: 20px;
+    width: 36px;
+    height: 36px;
+  }
+  
+  .logout-btn:hover {
+    width: 125px;
+  }
+
+  .nav-card {
+    flex: 0 0 120px;
+    height: 65px;
+    font-size: .8rem;
+    padding: 10px;
+  }
+  
+  .nav-card i {
+    margin-right: 6px;
+    font-size: 0.9rem;
+  }
 }

@@ -53,7 +53,11 @@ class Entity(db.Model):
     
     # Fichier SVG actif pour cette entité
     svg_filename = db.Column(db.String(255), nullable=True)
-    
+    # Contenu SVG stocké en base (survit aux redémarrages serveur cloud)
+    svg_content = db.Column(db.Text, nullable=True)
+    # Nom original du fichier VSDX uploadé (pour affichage dans popup)
+    vsdx_filename = db.Column(db.String(255), nullable=True)
+
     # DEPRECATED: is_active n'est plus utilisé, l'entité active est dans la session
     is_active = db.Column(db.Boolean, default=False, nullable=False)
     
@@ -253,6 +257,7 @@ class Tool(db.Model):
     entity_id = db.Column(db.Integer, db.ForeignKey('entities.id'), nullable=True, index=True)
     name = db.Column(db.String(255), nullable=False)
     description = db.Column(db.Text, nullable=True)
+    file_path = db.Column(db.String(512), nullable=True)
 
     __table_args__ = (
         db.UniqueConstraint('entity_id', 'name', name='uq_entity_tool_name'),
@@ -363,6 +368,7 @@ class Constraint(db.Model):
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     description = db.Column(db.Text, nullable=False)
     activity_id = db.Column(db.Integer, db.ForeignKey('activities.id'), nullable=False)
+    file_path = db.Column(db.String(512), nullable=True)
 
 
 class Savoir(db.Model):
@@ -418,9 +424,11 @@ class UserRole(db.Model):
 
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), primary_key=True)
     role_id = db.Column(db.Integer, db.ForeignKey('roles.id'), primary_key=True)
+    manager_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
 
-    user = db.relationship('User', backref='user_roles')
+    user = db.relationship('User', backref='user_roles', foreign_keys=[user_id])
     role = db.relationship('Role', backref='user_roles')
+    manager = db.relationship('User', foreign_keys=[manager_id])
 
 
 class CompetencyEvaluation(db.Model):
@@ -567,3 +575,207 @@ class TimeWeakness(db.Model):
     wait_added_unit = db.Column(db.String(16), nullable=False, default='minutes')
     prob_denom = db.Column(db.Integer, nullable=False, default=1)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+
+class FileBlob(db.Model):
+    """Stocke le contenu binaire des fichiers liés aux outils et contraintes.
+    Persistant en base (PostgreSQL BYTEA / SQLite BLOB) — survit aux redémarrages cloud."""
+    __tablename__ = 'file_blobs'
+
+    id         = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    filename   = db.Column(db.String(255), nullable=False)
+    mimetype   = db.Column(db.String(128), nullable=False, default='application/octet-stream')
+    data       = db.Column(db.LargeBinary, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+
+class TaskLinkAssignment(db.Model):
+    """Associe une connexion (link) à une tâche, avec une direction ('incoming' ou 'outgoing')."""
+    __tablename__ = 'task_link_assignments'
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    link_id = db.Column(db.Integer, db.ForeignKey('links.id', ondelete='CASCADE'), nullable=False)
+    task_id = db.Column(db.Integer, db.ForeignKey('tasks.id', ondelete='CASCADE'), nullable=False)
+    direction = db.Column(db.String(20), nullable=False)  # 'incoming' ou 'outgoing'
+
+    __table_args__ = (
+        db.UniqueConstraint('link_id', 'direction', name='uq_task_link_dir'),
+    )
+
+
+class RecentEvent(db.Model):
+    """Journal d'activité récente : créations/modifications/suppressions des 4 entités principales."""
+    __tablename__ = 'recent_events'
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    event_type = db.Column(db.String(50), nullable=False)
+    icon = db.Column(db.String(80), nullable=False, default='fa-solid fa-circle')
+    label = db.Column(db.String(255), nullable=False)
+    entity_id = db.Column(db.Integer, nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    detail = db.Column(db.Text, nullable=True)   # JSON — avant/après ou données de création
+    user_id = db.Column(db.Integer, nullable=True)  # utilisateur à l'origine de l'action
+
+
+# -------------------------------------------------------------------
+# SQLAlchemy event listeners — journal d'activité automatique
+# -------------------------------------------------------------------
+import json as _json
+from sqlalchemy import event, inspect as _sa_inspect
+from sqlalchemy import text as _sql_text
+
+
+def _log_recent(connection, event_type, icon, label, entity_id=None, detail=None):
+    """Insère un événement récent via la connexion active (dans la même transaction)."""
+    try:
+        # Récupérer l'utilisateur depuis la session Flask (disponible dans le contexte de requête)
+        user_id = None
+        try:
+            from flask import session as _fs
+            user_id = _fs.get('user_id')
+        except Exception:
+            pass
+
+        detail_str = _json.dumps(detail, ensure_ascii=False) if detail else None
+        connection.execute(
+            _sql_text(
+                "INSERT INTO recent_events "
+                "(event_type, icon, label, entity_id, created_at, detail, user_id) "
+                "VALUES (:et, :icon, :label, :eid, :ts, :detail, :uid)"
+            ),
+            {"et": event_type, "icon": icon, "label": label,
+             "eid": entity_id, "ts": datetime.utcnow(),
+             "detail": detail_str, "uid": user_id}
+        )
+    except Exception:
+        pass  # Table absente ou colonne manquante — ignoré silencieusement
+
+
+def _capture_changes(target, fields):
+    """Retourne la liste des champs modifiés avec avant/après via l'historique SQLAlchemy."""
+    try:
+        state = _sa_inspect(target)
+        changes = []
+        for field, label in fields.items():
+            hist = state.attrs[field].history
+            if hist.deleted:
+                before = str(hist.deleted[0] or "—")
+                after  = str(hist.added[0] if hist.added else getattr(target, field, "—") or "—")
+                if before != after:
+                    changes.append({"field": label, "before": before, "after": after})
+        return changes
+    except Exception:
+        return []
+
+
+# ── Activities ────────────────────────────────────────────────────
+@event.listens_for(Activities, 'after_insert')
+def _on_activity_insert(mapper, connection, target):
+    detail = {"name": target.name, "description": target.description or ""}
+    _log_recent(connection, 'activity_created', 'fa-solid fa-diagram-project',
+                f'Activité créée : {target.name}', target.entity_id, detail=detail)
+
+
+@event.listens_for(Activities, 'before_update')
+def _before_activity_update(mapper, connection, target):
+    target._prev_changes = _capture_changes(target, {"name": "Nom", "description": "Description"})
+
+
+@event.listens_for(Activities, 'after_update')
+def _on_activity_update(mapper, connection, target):
+    changes = getattr(target, '_prev_changes', None) or []
+    detail = {"changes": changes} if changes else None
+    _log_recent(connection, 'activity_updated', 'fa-solid fa-pen-to-square',
+                f'Activité modifiée : {target.name}', target.entity_id, detail=detail)
+
+
+# ── Tasks ─────────────────────────────────────────────────────────
+@event.listens_for(Task, 'after_insert')
+def _on_task_insert(mapper, connection, target):
+    detail = {"name": target.name, "description": target.description or ""}
+    _log_recent(connection, 'task_created', 'fa-solid fa-list-check',
+                f'Tâche créée : {target.name}', detail=detail)
+
+
+@event.listens_for(Task, 'before_update')
+def _before_task_update(mapper, connection, target):
+    target._prev_changes = _capture_changes(target, {"name": "Nom", "description": "Description"})
+
+
+@event.listens_for(Task, 'after_update')
+def _on_task_update(mapper, connection, target):
+    changes = getattr(target, '_prev_changes', None) or []
+    detail = {"changes": changes} if changes else None
+    _log_recent(connection, 'task_updated', 'fa-solid fa-pen-to-square',
+                f'Tâche modifiée : {target.name}', detail=detail)
+
+
+# ── Roles ─────────────────────────────────────────────────────────
+@event.listens_for(Role, 'after_insert')
+def _on_role_insert(mapper, connection, target):
+    detail = {"name": target.name, "mission": target.onboarding_plan or ""}
+    _log_recent(connection, 'role_created', 'fa-solid fa-user-tie',
+                f'Rôle créé : {target.name}', target.entity_id, detail=detail)
+
+
+@event.listens_for(Role, 'before_update')
+def _before_role_update(mapper, connection, target):
+    target._prev_changes = _capture_changes(target, {"name": "Nom", "onboarding_plan": "Mission"})
+
+
+@event.listens_for(Role, 'after_update')
+def _on_role_update(mapper, connection, target):
+    changes = getattr(target, '_prev_changes', None) or []
+    detail = {"changes": changes} if changes else None
+    _log_recent(connection, 'role_updated', 'fa-solid fa-pen-to-square',
+                f'Rôle modifié : {target.name}', target.entity_id, detail=detail)
+
+
+# ── Tools ──────────────────────────────────────────────────────────
+@event.listens_for(Tool, 'after_insert')
+def _on_tool_insert(mapper, connection, target):
+    detail = {"name": target.name, "description": target.description or ""}
+    _log_recent(connection, 'tool_created', 'fa-solid fa-toolbox',
+                f'Outil créé : {target.name}', target.entity_id, detail=detail)
+
+
+@event.listens_for(Tool, 'before_update')
+def _before_tool_update(mapper, connection, target):
+    target._prev_changes = _capture_changes(target, {"name": "Nom", "description": "Description"})
+
+
+@event.listens_for(Tool, 'after_update')
+def _on_tool_update(mapper, connection, target):
+    changes = getattr(target, '_prev_changes', None) or []
+    detail = {"changes": changes} if changes else None
+    _log_recent(connection, 'tool_updated', 'fa-solid fa-pen-to-square',
+                f'Outil modifié : {target.name}', target.entity_id, detail=detail)
+
+
+# ── Suppressions ──────────────────────────────────────────────────
+@event.listens_for(Activities, 'after_delete')
+def _on_activity_delete(mapper, connection, target):
+    detail = {"name": target.name, "description": target.description or ""}
+    _log_recent(connection, 'activity_deleted', 'fa-solid fa-trash',
+                f'Activité supprimée : {target.name}', target.entity_id, detail=detail)
+
+
+@event.listens_for(Task, 'after_delete')
+def _on_task_delete(mapper, connection, target):
+    detail = {"name": target.name}
+    _log_recent(connection, 'task_deleted', 'fa-solid fa-trash',
+                f'Tâche supprimée : {target.name}', detail=detail)
+
+
+@event.listens_for(Role, 'after_delete')
+def _on_role_delete(mapper, connection, target):
+    detail = {"name": target.name}
+    _log_recent(connection, 'role_deleted', 'fa-solid fa-trash',
+                f'Rôle supprimé : {target.name}', target.entity_id, detail=detail)
+
+
+@event.listens_for(Tool, 'after_delete')
+def _on_tool_delete(mapper, connection, target):
+    detail = {"name": target.name, "description": target.description or ""}
+    _log_recent(connection, 'tool_deleted', 'fa-solid fa-trash',
+                f'Outil supprimé : {target.name}', target.entity_id, detail=detail)

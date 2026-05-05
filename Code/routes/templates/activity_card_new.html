@@ -1,0 +1,302 @@
+<!-- activity_card_new.html - Version refaite avec onglets -->
+
+<div class="activity-container" data-activity-id="{{ item.activity.id }}">
+    <!-- Header de l'activité -->
+    <div class="activity-header" onclick="toggleActivity('{{ item.activity.id }}')">
+        <span class="toggle-icon" id="icon-{{ item.activity.id }}">▶</span>
+        <h2>{{ item.activity.name }}</h2>
+    </div>
+
+    <!-- Contenu de l'activité (masqué par défaut) -->
+    <div class="activity-content" id="content-{{ item.activity.id }}" style="display: none;">
+
+        <!-- Section sommaire (toujours visible) -->
+        <div class="activity-summary">
+            {% if item.activity.description %}
+                <div class="activity-description">{{ item.activity.description }}</div>
+            {% endif %}
+
+            <div class="activity-garant">
+                <button onclick="openGarantModal({{ item.activity.id }})">
+                    <i class="fa-solid fa-user"></i> Garant
+                </button>
+                <span id="activity-garant-{{ item.activity.id }}">
+                    {% if item.garant %}
+                        {{ item.garant.name }}
+                    {% else %}
+                        Aucun garant assigné
+                    {% endif %}
+                </span>
+            </div>
+        </div>
+
+        <!-- Système d'onglets -->
+        <div class="tabs-container">
+            <button class="tab-button active" draggable="true"
+                    data-tab-id="overview-{{ item.activity.id }}"
+                    data-tab-label="Vue d'ensemble"
+                    data-activity-id="{{ item.activity.id }}"
+                    onclick="openTab(event, 'overview-{{ item.activity.id }}', '{{ item.activity.id }}')">
+                <i class="fa-solid fa-home"></i> Vue d'ensemble
+            </button>
+            <button class="tab-button" draggable="true"
+                    data-tab-id="competencies-{{ item.activity.id }}"
+                    data-tab-label="Compétences"
+                    data-activity-id="{{ item.activity.id }}"
+                    onclick="openTab(event, 'competencies-{{ item.activity.id }}', '{{ item.activity.id }}')">
+                <i class="fa-solid fa-star"></i> Compétences
+            </button>
+            <button class="tab-button" draggable="true"
+                    data-tab-id="skills-{{ item.activity.id }}"
+                    data-tab-label="Savoirs & SF"
+                    data-activity-id="{{ item.activity.id }}"
+                    onclick="openTab(event, 'skills-{{ item.activity.id }}', '{{ item.activity.id }}')">
+                <i class="fa-solid fa-brain"></i> Savoirs & SF
+            </button>
+            <button class="tab-button" draggable="true"
+                    data-tab-id="softskills-{{ item.activity.id }}"
+                    data-tab-label="HSC"
+                    data-activity-id="{{ item.activity.id }}"
+                    onclick="openTab(event, 'softskills-{{ item.activity.id }}', '{{ item.activity.id }}')">
+                <i class="fa-solid fa-heart"></i> HSC
+            </button>
+            <button class="tab-button" draggable="true"
+                    data-tab-id="time-{{ item.activity.id }}"
+                    data-tab-label="Temps"
+                    data-activity-id="{{ item.activity.id }}"
+                    onclick="openTab(event, 'time-{{ item.activity.id }}', '{{ item.activity.id }}')">
+                <i class="fa-solid fa-clock"></i> Temps
+            </button>
+        </div>
+
+        <!-- Drop zone pour le split-view (apparaît lors du drag) -->
+        <div class="split-drop-zone" id="split-drop-zone-{{ item.activity.id }}" style="display:none;">
+            <div class="split-drop-indicator">
+                <i class="fa-solid fa-columns"></i>
+                <span>Déposer ici pour afficher côte à côte</span>
+            </div>
+        </div>
+
+        <!-- Contenu des onglets -->
+
+        <!-- Onglet 1: Vue d'ensemble -->
+        <div id="overview-{{ item.activity.id }}" class="tab-content active">
+            <h3 class="section-title">
+                <i class="fa-solid fa-info-circle"></i>
+                Informations générales
+            </h3>
+
+            <!-- Temps -->
+            {% if item.activity.time_value or item.activity.time_unit %}
+                <div class="time-info">
+                    <p><strong><i class="fa-solid fa-clock"></i> Temps estimé:</strong>
+                        {{ item.activity.time_value or 'N/A' }} {{ item.activity.time_unit or '' }}
+                    </p>
+                </div>
+            {% endif %}
+
+            <!-- Connexions et Contraintes côte à côte -->
+            <div class="overview-side-by-side">
+                <!-- Connexions -->
+                <div class="overview-section">
+                    <h4 class="overview-section-title">
+                        <i class="fa-solid fa-link"></i> Connexions
+                    </h4>
+                    <div class="connections-grid">
+                        <!-- Connexions entrantes -->
+                        <div class="connection-section-compact">
+                            <h5><i class="fa-solid fa-arrow-down"></i> Entrantes</h5>
+                            {% if item.incoming and item.incoming|length > 0 %}
+                                <table class="data-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Donnée</th>
+                                            <th>Provenance</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for conn in item.incoming %}
+                                            <tr draggable="true"
+                                                class="conn-draggable"
+                                                data-link-id="{{ conn.link_id }}"
+                                                data-direction="incoming"
+                                                data-data-name="{{ conn.data_name }}"
+                                                data-conn-type="{{ conn.type }}">
+                                                <td>
+                                                    <i class="fa-solid fa-grip-vertical conn-drag-icon" title="Glisser vers une tâche"></i>
+                                                    {% if conn.type|lower == 'déclenchante' %}
+                                                        <span class="declenchante">{{ conn.data_name }}</span>
+                                                    {% elif conn.type|lower == 'nourrissante' %}
+                                                        <span class="nourrissante">{{ conn.data_name }}</span>
+                                                    {% else %}
+                                                        {{ conn.data_name }}
+                                                    {% endif %}
+                                                </td>
+                                                <td>{{ conn.source_name }}</td>
+                                            </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            {% else %}
+                                <div class="empty-message-compact">
+                                    <i class="fa-solid fa-inbox"></i>
+                                    <p>Aucune connexion entrante</p>
+                                </div>
+                            {% endif %}
+                        </div>
+
+                        <!-- Connexions sortantes -->
+                        <div class="connection-section-compact">
+                            <h5><i class="fa-solid fa-arrow-up"></i> Sortantes</h5>
+                            {% if item.outgoing and item.outgoing|length > 0 %}
+                                <table class="data-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Donnée</th>
+                                            <th>Destination</th>
+                                            <th>Performance</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for conn in item.outgoing %}
+                                            <tr draggable="true"
+                                                class="conn-draggable"
+                                                data-link-id="{{ conn.link_id }}"
+                                                data-direction="outgoing"
+                                                data-data-name="{{ conn.data_name }}"
+                                                data-conn-type="{{ conn.type }}">
+                                                <td>
+                                                    <i class="fa-solid fa-grip-vertical conn-drag-icon" title="Glisser vers une tâche"></i>
+                                                    {% if conn.type|lower == 'déclenchante' %}
+                                                        <span class="declenchante">{{ conn.data_name }}</span>
+                                                    {% elif conn.type|lower == 'nourrissante' %}
+                                                        <span class="nourrissante">{{ conn.data_name }}</span>
+                                                    {% else %}
+                                                        {{ conn.data_name }}
+                                                    {% endif %}
+                                                </td>
+                                                <td>{{ conn.target_name }}</td>
+                                                <td>
+                                                    <div id="perf-cell-{{ conn.link_id }}" class="perf-container" data-linkid="{{ conn.link_id }}">
+                                                        {% if conn.performance %}
+                                                            <div id="perf-display-{{ conn.performance.id }}" class="perf-display">
+                                                                <span id="perf-info-{{ conn.performance.id }}" class="perf-info">
+                                                                    {{ conn.performance.name }}
+                                                                    {% if conn.performance.description %}
+                                                                        - {{ conn.performance.description }}
+                                                                    {% endif %}
+                                                                </span>
+                                                                <button class="icon-btn" onclick="showEditPerfForm('{{ conn.performance.id }}','{{ conn.performance.name|escapejs }}')" title="Modifier">
+                                                                    <i class="fa-solid fa-pencil"></i>
+                                                                </button>
+                                                                <button class="icon-btn icon-btn-danger" onclick="deletePerformance('{{ conn.performance.id }}')" title="Supprimer">
+                                                                    <i class="fa-solid fa-trash"></i>
+                                                                </button>
+                                                            </div>
+                                                            <div id="perf-edit-form-{{ conn.performance.id }}" style="display:none; margin-top:8px;">
+                                                                <input type="text" id="perf-edit-input-{{ conn.performance.id }}" style="width:250px;" />
+                                                                <button class="action-btn" onclick="submitEditPerf('{{ conn.performance.id }}')">Enregistrer</button>
+                                                                <button class="action-btn secondary" onclick="hideEditPerfForm('{{ conn.performance.id }}')">Annuler</button>
+                                                            </div>
+                                                        {% else %}
+                                                            <button class="action-btn" onclick="showAddPerfForm('{{ conn.link_id }}')">
+                                                                <i class="fa-solid fa-plus"></i> Performance
+                                                            </button>
+                                                            <div id="perf-add-form-{{ conn.link_id }}" style="display:none; margin-top:8px;">
+                                                                <input type="text" id="perf-add-input-{{ conn.link_id }}" style="width:250px;" />
+                                                                <button class="action-btn" onclick="submitAddPerf('{{ conn.link_id }}')">Enregistrer</button>
+                                                                <button class="action-btn secondary" onclick="hideAddPerfForm('{{ conn.link_id }}')">Annuler</button>
+                                                            </div>
+                                                        {% endif %}
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            {% else %}
+                                <div class="empty-message-compact">
+                                    <i class="fa-solid fa-inbox"></i>
+                                    <p>Aucune connexion sortante</p>
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Contraintes -->
+                <div class="overview-section">
+                    <h4 class="overview-section-title">
+                        <i class="fa-solid fa-exclamation-triangle"></i> Contraintes
+                    </h4>
+                    {% include "activity_constraints.html" %}
+                </div>
+            </div>
+
+            <!-- Tâches (pleine largeur) -->
+            <div style="margin-top: 32px;">
+                <h4 class="overview-section-title">
+                    <i class="fa-solid fa-tasks"></i> Tâches associées
+                </h4>
+                <div id="tasks-section-{{ item.activity.id }}">
+                    {% set activity = item.activity %}
+                    {% set tasks = item.tasks %}
+                    {% include "tasks_partial.html" %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Onglet 2: Compétences -->
+        <div id="competencies-{{ item.activity.id }}" class="tab-content">
+            <h3 class="section-title">
+                <i class="fa-solid fa-star"></i>
+                Compétences requises
+            </h3>
+            {% include "activity_competencies.html" %}
+        </div>
+
+        <!-- Onglet 3: Savoirs & Savoir-faire -->
+        <div id="skills-{{ item.activity.id }}" class="tab-content">
+            <div class="skills-grid">
+                <!-- Savoirs & Savoir-faire -->
+                <div>
+                    <h3 class="section-title">
+                        <i class="fa-solid fa-book"></i>
+                        Savoirs & Savoir-faire
+                    </h3>
+                    {% include "activity_savoirs_faires.html" %}
+                </div>
+
+                <!-- Aptitudes -->
+                <div>
+                    <h3 class="section-title">
+                        <i class="fa-solid fa-lightbulb"></i>
+                        Aptitudes
+                    </h3>
+                    {% include "activity_aptitudes.html" %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Onglet 4: HSC (Habiletés Socio-Cognitives) -->
+        <div id="softskills-{{ item.activity.id }}" class="tab-content">
+            <h3 class="section-title">
+                <i class="fa-solid fa-heart"></i>
+                Habiletés Socio-Cognitives
+            </h3>
+            {% include "activity_softskills.html" %}
+        </div>
+
+        <!-- Onglet 5: Temps -->
+        <div id="time-{{ item.activity.id }}" class="tab-content">
+            <h3 class="section-title">
+                <i class="fa-solid fa-clock"></i>
+                Gestion du temps
+            </h3>
+            {% set activity = item.activity %}
+            {% set tasks = item.tasks %}
+            {% include "activity_time_new.html" %}
+        </div>
+
+    </div>
+</div>

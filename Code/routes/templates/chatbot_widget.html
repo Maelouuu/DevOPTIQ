@@ -1,0 +1,86 @@
+<!-- chatbot_widget.html — Modal Assistant OPTIQ (inclus 1 fois dans display_list.html) -->
+
+<!-- Overlay + Modal -->
+<div id="chatbot-overlay">
+  <div id="chatbot-modal" role="dialog" aria-modal="true" aria-labelledby="chatbot-header-title">
+
+    <!-- ── Header ────────────────────────────────────────── -->
+    <div id="chatbot-header">
+      <div class="cb-header-icon">
+        <i class="fa-solid fa-robot"></i>
+      </div>
+      <div class="cb-header-text">
+        <p class="cb-header-title" id="chatbot-header-title">Assistant OPTIQ</p>
+        <p class="cb-header-subtitle" id="chatbot-header-subtitle">Saisie guidée de tâches</p>
+      </div>
+      <button id="chatbot-close-btn" onclick="closeChatbot()" title="Fermer" aria-label="Fermer le chatbot">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+    </div>
+
+    <!-- ── Corps (conversation + brouillon) ──────────────── -->
+    <div id="chatbot-body">
+
+      <!-- Colonne gauche : conversation -->
+      <div id="chatbot-conversation">
+        <div id="chatbot-messages" role="log" aria-live="polite" aria-label="Conversation"></div>
+        <div id="chatbot-input-area">
+          <textarea
+            id="chatbot-input"
+            placeholder="Décrivez ce que vous faites dans cette activité…"
+            rows="1"
+            autocomplete="off"
+          ></textarea>
+          <button id="chatbot-send-btn" onclick="sendMessage()" title="Envoyer (Entrée)" aria-label="Envoyer">
+            <i class="fa-solid fa-paper-plane"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- Colonne droite : brouillon OPTIQ -->
+      <div id="chatbot-draft">
+
+        <!-- Section : Tâches -->
+        <div class="cb-draft-section">
+          <div class="cb-draft-section-header">
+            <i class="fa-solid fa-list-check"></i>
+            Tâches proposées
+          </div>
+          <div class="cb-draft-section-body" id="cb-draft-tasks-body">
+            <p class="cb-empty-hint">En attente de la conversation…</p>
+          </div>
+        </div>
+
+        <!-- Section : Avancement -->
+        <div class="cb-draft-section">
+          <div class="cb-draft-section-header">
+            <i class="fa-solid fa-gauge"></i>
+            Avancement
+          </div>
+          <div class="cb-draft-section-body" id="cb-draft-status-body">
+            <p class="cb-empty-hint">En attente de la conversation…</p>
+          </div>
+        </div>
+
+        <!-- Section : Variantes (masquée par défaut) -->
+        <div class="cb-draft-section" id="cb-draft-branches-section" style="display:none;">
+          <div class="cb-draft-section-header">
+            <i class="fa-solid fa-code-branch"></i>
+            Variantes "ça dépend"
+          </div>
+          <div class="cb-draft-section-body" id="cb-draft-branches-body"></div>
+        </div>
+
+        <!-- Bouton d'injection -->
+        <button id="chatbot-inject-btn" onclick="injectTasks()">
+          <span>
+            <i class="fa-solid fa-wand-magic-sparkles"></i>
+            Injecter <span id="chatbot-inject-count">0</span> tâche(s) dans l'activité
+          </span>
+          <span class="inject-subtitle">Les tâches validées seront ajoutées immédiatement</span>
+        </button>
+
+      </div><!-- /#chatbot-draft -->
+    </div><!-- /#chatbot-body -->
+  </div><!-- /#chatbot-modal -->
+</div><!-- /#chatbot-overlay -->

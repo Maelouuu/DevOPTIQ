@@ -1,0 +1,163 @@
+/* static/css/file-picker.css — Composant file-picker drag & drop */
+
+/* ── Wrapper ── */
+.fp-wrap {
+  width: 100%;
+}
+
+/* ── Zone de drop ── */
+.fp-zone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 18px 16px;
+  border: 2px dashed #c4b5fd;
+  border-radius: 12px;
+  background: #faf8ff;
+  cursor: pointer;
+  transition: border-color 0.18s, background 0.18s, transform 0.12s;
+  text-align: center;
+  min-height: 90px;
+  position: relative;
+}
+
+.fp-zone:hover {
+  border-color: #7c3aed;
+  background: #f3e8ff;
+}
+
+.fp-zone.fp-dragover {
+  border-color: #5b21b6;
+  background: #ede9fe;
+  transform: scale(1.01);
+  box-shadow: 0 0 0 4px rgba(124, 58, 237, 0.12);
+}
+
+.fp-zone.fp-uploading {
+  opacity: 0.7;
+  cursor: wait;
+}
+
+/* ── Icône principale ── */
+.fp-icon {
+  font-size: 1.8rem;
+  color: #a78bfa;
+  transition: color 0.18s, transform 0.18s;
+}
+.fp-zone:hover .fp-icon,
+.fp-zone.fp-dragover .fp-icon {
+  color: #7c3aed;
+  transform: translateY(-2px);
+}
+
+/* ── Texte ── */
+.fp-text {
+  font-size: 0.85rem;
+  color: #5b21b6;
+  font-weight: 500;
+  margin: 0;
+}
+.fp-browse {
+  color: #7c3aed;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.fp-hint {
+  font-size: 0.72rem;
+  color: #a78bfa;
+  margin: 0;
+}
+
+/* ── Spinner upload ── */
+.fp-spinner {
+  font-size: 1.2rem;
+  color: #7c3aed;
+}
+
+/* ── État : fichier sélectionné ── */
+.fp-selected {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1.5px solid #c4b5fd;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #f5f3ff, #ede9fe);
+  animation: fpFadeIn 0.22s ease;
+}
+
+@keyframes fpFadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.fp-ok-icon {
+  font-size: 1.3rem;
+  color: #7c3aed;
+  flex-shrink: 0;
+}
+
+.fp-fname {
+  flex: 1;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #3730a3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 280px;
+}
+
+.fp-clear {
+  background: rgba(124, 58, 237, 0.1);
+  border: none;
+  color: #7c3aed;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 0.8rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: background 0.15s, color 0.15s;
+}
+.fp-clear:hover {
+  background: #dc2626;
+  color: #fff;
+}
+
+/* ── Lien fichier dans les listes (contraintes, outils, badges) ── */
+.item-file-link,
+.tool-card__file-link,
+.tool-badge-file {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  color: #7c3aed;
+  text-decoration: none;
+  background: rgba(124, 58, 237, 0.08);
+  border: 1px solid rgba(124, 58, 237, 0.2);
+  border-radius: 7px;
+  width: 28px;
+  height: 28px;
+  margin-left: 6px;
+  flex-shrink: 0;
+  transition: background 0.15s, color 0.15s, transform 0.12s;
+  vertical-align: middle;
+}
+.item-file-link:hover,
+.tool-card__file-link:hover,
+.tool-badge-file:hover {
+  background: rgba(124, 58, 237, 0.18);
+  color: #5b21b6;
+  transform: scale(1.1);
+}
+
+/* ── Helper hidden ── */
+.hidden { display: none !important; }

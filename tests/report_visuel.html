@@ -1,0 +1,852 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>DevOPTIQ — Rapport de tests</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: #f1f5f9;
+      color: #1e293b;
+      padding: 28px 24px;
+      max-width: 920px;
+      margin: 0 auto;
+    }
+
+    h1 { font-size: 1.65rem; font-weight: 700; margin-bottom: 4px; }
+    .subtitle { color: #64748b; font-size: 0.9rem; margin-bottom: 24px; }
+
+    /* ── Global card ───────────────────────────────────── */
+    .global-card {
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      color: #fff;
+      border-radius: 14px;
+      padding: 28px;
+      margin-bottom: 28px;
+      box-shadow: 0 6px 24px rgba(102,126,234,0.3);
+    }
+    .global-card h2 { font-size: 3rem; font-weight: 800; letter-spacing: -1px; margin-bottom: 4px; }
+    .global-card p  { opacity: 0.9; font-size: 0.95rem; margin-bottom: 18px; }
+    .stats { display: flex; gap: 12px; flex-wrap: wrap; }
+    .stat {
+      background: rgba(255,255,255,0.2);
+      border-radius: 10px;
+      padding: 12px 20px;
+      text-align: center;
+      min-width: 90px;
+    }
+    .stat .val { font-size: 1.6rem; font-weight: 700; display: block; }
+    .stat .lbl { font-size: 0.75rem; opacity: 0.85; margin-top: 3px; display: block; }
+
+    /* ── Section title ─────────────────────────────────── */
+    .section-title {
+      font-size: 0.78rem;
+      color: #94a3b8;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      font-weight: 600;
+      margin-bottom: 14px;
+    }
+
+    /* ── Page card ─────────────────────────────────────── */
+    .page-card {
+      background: #fff;
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 12px;
+      box-shadow: 0 1px 6px rgba(0,0,0,0.07);
+      border-top: 4px solid;
+    }
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 14px;
+    }
+    .card-title { font-size: 1rem; font-weight: 600; color: #1e293b; }
+    .score-badge {
+      color: #fff;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 0.78rem;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    /* ── Progress bar ──────────────────────────────────── */
+    .progress-bar-bg {
+      background: #f1f5f9;
+      border-radius: 6px;
+      height: 8px;
+      overflow: hidden;
+      margin-bottom: 12px;
+    }
+    .progress-bar-fill { height: 100%; border-radius: 6px; }
+
+    /* ── Stats row ─────────────────────────────────────── */
+    .card-stats {
+      display: flex;
+      gap: 16px;
+      font-size: 0.85rem;
+      margin-bottom: 12px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .stat-pass { color: #16a34a; font-weight: 600; }
+    .stat-fail { color: #dc2626; font-weight: 600; }
+    .stat-skip { color: #6b7280; }
+    .stat-time { color: #94a3b8; margin-left: auto; font-size: 0.78rem; }
+
+    /* ── Failures ──────────────────────────────────────── */
+    .failures-section { margin-bottom: 8px; }
+    .failure-block {
+      background: #fef2f2;
+      border-left: 3px solid #dc2626;
+      padding: 10px 14px;
+      margin-bottom: 8px;
+      border-radius: 0 6px 6px 0;
+    }
+    .failure-title   { font-weight: 600; font-size: 0.88rem; color: #991b1b; margin-bottom: 4px; }
+    .failure-message { font-size: 0.82rem; color: #7f1d1d; margin-bottom: 2px; }
+    .failure-detail  {
+      font-size: 0.73rem;
+      color: #991b1b;
+      white-space: pre-wrap;
+      margin-top: 8px;
+      background: rgba(0,0,0,0.04);
+      padding: 8px;
+      border-radius: 4px;
+      line-height: 1.55;
+      overflow-x: auto;
+    }
+
+    /* ── Details accordion ─────────────────────────────── */
+    .tests-detail { margin-top: 6px; }
+    .tests-detail + .tests-detail { margin-top: 4px; }
+    .tests-summary {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 12px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 0.85rem;
+      font-weight: 600;
+      list-style: none;
+      user-select: none;
+    }
+    .tests-summary::-webkit-details-marker { display: none; }
+    .passed-summary  { background: #f0fdf4; color: #166534; }
+    .passed-summary:hover { background: #dcfce7; }
+    .skipped-summary { background: #f9fafb; color: #6b7280; }
+    .skipped-summary:hover { background: #f1f5f9; }
+    .summary-arrow { font-size: 1rem; transition: transform 0.2s; }
+    details[open] .summary-arrow { transform: rotate(90deg); }
+
+    /* ── Test list ─────────────────────────────────────── */
+    .tests-list { padding: 6px 0 2px; }
+    .test-group-header {
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: #94a3b8;
+      font-weight: 700;
+      padding: 10px 10px 4px;
+      border-bottom: 1px solid #f1f5f9;
+      margin-bottom: 2px;
+    }
+    .test-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 5px 10px;
+      border-radius: 6px;
+      font-size: 0.83rem;
+    }
+    .test-row:hover { background: #f8fafc; }
+    .test-passed { color: #374151; }
+    .test-skipped { color: #6b7280; }
+    .test-icon  { flex-shrink: 0; width: 16px; font-size: 0.82rem; }
+    .test-passed .test-icon  { color: #16a34a; }
+    .test-skipped .test-icon { color: #9ca3af; }
+    .test-name  { flex: 1; }
+    .test-time  { font-size: 0.73rem; color: #94a3b8; white-space: nowrap; }
+    .test-skip-reason { font-size: 0.73rem; color: #9ca3af; font-style: italic; }
+
+    /* ── Footer ────────────────────────────────────────── */
+    .report-footer {
+      text-align: center;
+      color: #cbd5e1;
+      font-size: 0.75rem;
+      margin-top: 36px;
+      padding-bottom: 20px;
+    }
+  </style>
+</head>
+<body>
+  <h1>DevOPTIQ — Rapport de fiabilité</h1>
+  <div class="subtitle">Généré le 18/02/2026 16:05</div>
+
+  <div class="global-card">
+    <h2>100%</h2>
+    <p>Taux de fiabilité global · 78 tests · 10 pages</p>
+    <div class="stats">
+      <div class="stat"><span class="val">78</span><span class="lbl">Tests totaux</span></div>
+      <div class="stat"><span class="val">78</span><span class="lbl">Passés ✓</span></div>
+      <div class="stat"><span class="val">0</span><span class="lbl">Échoués ✗</span></div>
+      <div class="stat"><span class="val">0</span><span class="lbl">Ignorés ⊘</span></div>
+      <div class="stat"><span class="val">10</span><span class="lbl">Pages testées</span></div>
+    </div>
+  </div>
+
+  <div class="section-title">Résultats par page</div>
+
+  
+        <div class="page-card" style="border-top-color:#16a34a;">
+          <div class="card-header">
+            <h3 class="card-title">Authentification</h3>
+            <span class="score-badge" style="background:#16a34a;">100% — Excellent</span>
+          </div>
+          <div class="progress-bar-bg">
+            <div class="progress-bar-fill" style="background:#16a34a;width:100%;"></div>
+          </div>
+          <div class="card-stats">
+            <span class="stat-pass">✓ 8 passés</span>
+            <span class="stat-fail">✗ 0 échoué</span>
+            
+            <span class="stat-time">⏱ 1.33s</span>
+          </div>
+          
+          
+    <details class="tests-detail">
+      <summary class="tests-summary passed-summary">
+        <span>Tests validés (8)</span>
+        <span class="summary-arrow">›</span>
+      </summary>
+      <div class="tests-list"><div class="test-group-header">Login Page</div>
+            <div class="test-row test-passed">
+              <span class="test-icon">✓</span>
+              <span class="test-name">Login page accessible</span>
+              <span class="test-time">1.18s</span>
+            </div>
+            <div class="test-row test-passed">
+              <span class="test-icon">✓</span>
+              <span class="test-name">Login page contains form</span>
+              <span class="test-time">1ms</span>
+            </div>
+            <div class="test-row test-passed">
+              <span class="test-icon">✓</span>
+              <span class="test-name">Login invalid email</span>
+              <span class="test-time">5ms</span>
+            </div>
+            <div class="test-row test-passed">
+              <span class="test-icon">✓</span>
+              <span class="test-name">Login wrong password</span>
+              <span class="test-time">69ms</span>
+            </div>
+            <div class="test-row test-passed">
+              <span class="test-icon">✓</span>
+              <span class="test-name">Login correct credentials</span>
+              <span class="test-time">70ms</span>
+            </div>
+            <div class="test-row test-passed">
+              <span class="test-icon">✓</span>
+              <span class="test-name">Logout redirects</span>
+              <span class="test-time">4ms</span>
+            </div><div class="test-group-header">Auth Current User</div>
+            <div class="test-row test-passed">
+              <span class="test-icon">✓</span>
+              <span class="test-name">Current user endpoint exists</span>
+              <span class="test-time">1ms</span>
+            </div>
+            <div class="test-row test-passed">
+              <span class="test-icon">✓</span>
+              <span class="test-name">Healthz always available</span>
+              <span class="test-time">0ms</span>
+            </div></div>
+    </details>
+          
+        </div>
+        <div class="page-card" style="border-top-color:#16a34a;">
+          <div class="card-header">
+            <h3 class="card-title">Liste des Activités</h3>
+            <span class="score-badge" style="background:#16a34a;">100% — Excellent</span>
+          </div>
+          <div class="progress-bar-bg">
+            <div class="progress-bar-fill" style="background:#16a34a;width:100%;"></div>
+          </div>
+          <div class="card-stats">
+            <span class="stat-pass">✓ 9 passés</span>
+            <span class="stat-fail">✗ 0 échoué</span>
+            
+            <span class="stat-time">⏱ 0.08s</span>
+          </div>
+          
+          
+    <details class="tests-detail">
+      <summary class="tests-summary passed-summary">
+        <span>Tests validés (9)</span>
+        <span class="summary-arrow">›</span>
+      </summary>
+      <div class="tests-list"><div class="test-group-header">Activities View</div>
+            <div class="test-row test-passed">
+              <span class="test-icon">✓</span>
+              <span class="test-name">View redirects or shows page</span>
+              <span class="test-time">12ms</span>
+            </div>
+            <div class="test-row test-passed">
+              <span class="test-icon">✓</span>
+              <span class="test-name">View accessible authenticated</span>
+              <span class="test-time">1ms</span>
+            </div>
+            <div class="test-row test-passed">
+              <span class="test-icon">✓</span>
+              <span class="test-name">View contains activity keyword</span>
+              <span class="test-time">1ms</span>
+            </div>
+            <div class="test-row test-passed">
+              <span class="test-icon">✓</span>
+              <span class="test-name">View returns html</span>
+              <span class="test-time">1ms</span>
+            </div><div class="test-group-header">Activities Details</div>
+            <div class="test-row test-passed">
+              <span class="test-icon">✓</span>
+              <span class="test-name">Get activity details</span>
+              <span class="test-time">49ms</span>
+            </div>
+            <div class="test-row test-passed">
+              <span class="test-icon">✓</span>
+              <span class="test-name">Get activity details not found</span>
+              <span class="test-time">1ms</span>
+            </div>
+            <div class="test-row test-passed">
+              <span class="test-icon">✓</span>
+              <span class="test-name">Activity details has name</span>
+              <span class="test-time">3ms</span>
+            </div><div class="test-group-header">Activities Routes</div>
+            <div class="test-row test-passed">
+              <span class="test-icon">✓</span>
+              <span class="test-name">Task reorder endpoint</span>
+              <span class="test-time">7ms</span>
+            </div>
+            <div class="test-row test-passed">
+              <span class="test-icon">✓</span>
+              <span class="test-name">View page has tasks section</span>
+              <span class="test-time">1ms</span>
+            </div></div>
+    </details>
+          
+        </div>
+        <div class="page-card" style="border-top-color:#16a34a;">
+          <div class="card-header">
+            <h3 class="card-title">Tâches</h3>
+            <span class="score-badge" style="background:#16a34a;">100% — Excellent</span>
+          </div>
+          <div class="progress-bar-bg">
+            <div class="progress-bar-fill" style="background:#16a34a;width:100%;"></div>
+          </div>
+          <div class="card-stats">
+            <span class="stat-pass">✓ 11 passés</span>
+            <span class="stat-fail">✗ 0 échoué</span>
+            
+            <span class="stat-time">⏱ 0.05s</span>
+          </div>
+          
+          
+    <details class="tests-detail">
+      <summary class="tests-summary passed-summary">
+        <span>Tests validés (11)</span>
+        <span class="summary-arrow">›</span>
+      </summary>
+      <div class="tests-list"><div class="test-group-header">Tasks C R U D</div>
+            <div class="test-row test-passed">
+              <span class="test-icon">✓</span>
+              <span class="test-name">Add task</span>
+              <span class="test-time">5ms</span>
+            </div>
+            <div class="test-row test-passed">
+              <span class="test-icon">✓</span>
+              <span class="test-name">Add task missing name</span>
+              <span class="test-time">1ms</span>
+            </div>
+            <div class="test-row test-passed">
+              <span class="test-icon">✓</span>
+              <span class="test-name">Add task missing activity</span>
+              <span class="test-time">0ms</span>
+            </div>
+            <div class="test-row test-passed">
+              <span class="test-icon">✓</span>
+              <span class="test-name">Update task</span>
+              <span class="test-time">7ms</span>
+            </div>
+            <div class="test-row test-passed">
+              <span class="test-icon">✓</span>
+              <span class="test-name">Update task not found</span>
+              <span class="test-time">3ms</span>
+            </div>
+            <div class="test-row test-passed">
+              <span class="test-icon">✓</span>
+              <span class="test-name">Delete task not found</span>
+              <span class="test-time">1ms</span>
+            </div><div class="test-group-header">Tasks Roles</div>
+            <div class="test-row test-passed">
+              <span class="test-icon">✓</span>
+              <span class="test-name">Get task roles returns data</span>
+              <span class="test-time">2ms</span>
+            </div>
+            <div class="test-row test-passed">
+              <span class="test-icon">✓</span>
+              <span class="test-name">Add role to task invalid</span>
+              <span class="test-time">2ms</span>
+            </div>
+            <div class="test-row test-passed">
+              <span class="test-icon">✓</span>
+              <span class="test-name">Remove role from task not found</span>
+              <span class="test-time">1ms</span>
+            </div><div class="test-group-header">Tasks Render</div>
+            <div class="test-row test-passed">
+              <span class="test-icon">✓</span>
+              <span class="test-name">Render tasks route exists</span>
+              <span class="test-time">22ms</span>
+            </div><div class="test-group-header">Tasks Reorder</div>
+            <div class="test-row test-passed">
+              <span class="test-icon">✓</span>
+              <span class="test-name">Reorder tasks</span>
+              <span class="test-time">2ms</span>
+            </div></div>
+    </details>
+          
+        </div>
+        <div class="page-card" style="border-top-color:#16a34a;">
+          <div class="card-header">
+            <h3 class="card-title">Contraintes</h3>
+            <span class="score-badge" style="background:#16a34a;">100% — Excellent</span>
+          </div>
+          <div class="progress-bar-bg">
+            <div class="progress-bar-fill" style="background:#16a34a;width:100%;"></div>
+          </div>
+          <div class="card-stats">
+            <span class="stat-pass">✓ 8 passés</span>
+            <span class="stat-fail">✗ 0 échoué</span>
+            
+            <span class="stat-time">⏱ 0.03s</span>
+          </div>
+          
+          
+    <details class="tests-detail">
+      <summary class="tests-summary passed-summary">
+        <span>Tests validés (8)</span>
+        <span class="summary-arrow">›</span>
+      </summary>
+      <div class="tests-list"><div class="test-group-header">Constraints C R U D</div>
+            <div class="test-row test-passed">
+              <span class="test-icon">✓</span>
+              <span class="test-name">Add constraint</span>
+              <span class="test-time">6ms</span>
+            </div>
+            <div class="test-row test-passed">
+              <span class="test-icon">✓</span>
+              <span class="test-name">Add constraint empty description</span>
+              <span class="test-time">1ms</span>
+            </div>
+            <div class="test-row test-passed">
+              <span class="test-icon">✓</span>
+              <span class="test-name">Add constraint activity not found</span>
+              <span class="test-time">1ms</span>
+            </div>
+            <div class="test-row test-passed">
+              <span class="test-icon">✓</span>
+              <span class="test-name">Update constraint</span>
+              <span class="test-time">9ms</span>
+            </div>
+            <div class="test-row test-passed">
+              <span class="test-icon">✓</span>
+              <span class="test-name">Delete constraint</span>
+              <span class="test-time">8ms</span>
+            </div>
+            <div class="test-row test-passed">
+              <span class="test-icon">✓</span>
+              <span class="test-name">Delete constraint not found</span>
+              <span class="test-time">1ms</span>
+            </div>
+            <div class="test-row test-passed">
+              <span class="test-icon">✓</span>
+              <span class="test-name">Render constraints</span>
+              <span class="test-time">4ms</span>
+            </div>
+            <div class="test-row test-passed">
+              <span class="test-icon">✓</span>
+              <span class="test-name">Render constraints activity not found</span>
+              <span class="test-time">1ms</span>
+            </div></div>
+    </details>
+          
+        </div>
+        <div class="page-card" style="border-top-color:#16a34a;">
+          <div class="card-header">
+            <h3 class="card-title">Aptitudes</h3>
+            <span class="score-badge" style="background:#16a34a;">100% — Excellent</span>
+          </div>
+          <div class="progress-bar-bg">
+            <div class="progress-bar-fill" style="background:#16a34a;width:100%;"></div>
+          </div>
+          <div class="card-stats">
+            <span class="stat-pass">✓ 6 passés</span>
+            <span class="stat-fail">✗ 0 échoué</span>
+            
+            <span class="stat-time">⏱ 0.03s</span>
+          </div>
+          
+          
+    <details class="tests-detail">
+      <summary class="tests-summary passed-summary">
+        <span>Tests validés (6)</span>
+        <span class="summary-arrow">›</span>
+      </summary>
+      <div class="tests-list"><div class="test-group-header">Aptitudes C R U D</div>
+            <div class="test-row test-passed">
+              <span class="test-icon">✓</span>
+              <span class="test-name">Add aptitude</span>
+              <span class="test-time">6ms</span>
+            </div>
+            <div class="test-row test-passed">
+              <span class="test-icon">✓</span>
+              <span class="test-name">Add aptitude empty description</span>
+              <span class="test-time">1ms</span>
+            </div>
+            <div class="test-row test-passed">
+              <span class="test-icon">✓</span>
+              <span class="test-name">Update aptitude</span>
+              <span class="test-time">10ms</span>
+            </div>
+            <div class="test-row test-passed">
+              <span class="test-icon">✓</span>
+              <span class="test-name">Delete aptitude</span>
+              <span class="test-time">7ms</span>
+            </div>
+            <div class="test-row test-passed">
+              <span class="test-icon">✓</span>
+              <span class="test-name">Delete aptitude not found</span>
+              <span class="test-time">1ms</span>
+            </div>
+            <div class="test-row test-passed">
+              <span class="test-icon">✓</span>
+              <span class="test-name">Render aptitudes</span>
+              <span class="test-time">6ms</span>
+            </div></div>
+    </details>
+          
+        </div>
+        <div class="page-card" style="border-top-color:#16a34a;">
+          <div class="card-header">
+            <h3 class="card-title">HSC / Habiletés Socio-Cognitives</h3>
+            <span class="score-badge" style="background:#16a34a;">100% — Excellent</span>
+          </div>
+          <div class="progress-bar-bg">
+            <div class="progress-bar-fill" style="background:#16a34a;width:100%;"></div>
+          </div>
+          <div class="card-stats">
+            <span class="stat-pass">✓ 6 passés</span>
+            <span class="stat-fail">✗ 0 échoué</span>
+            
+            <span class="stat-time">⏱ 0.03s</span>
+          </div>
+          
+          
+    <details class="tests-detail">
+      <summary class="tests-summary passed-summary">
+        <span>Tests validés (6)</span>
+        <span class="summary-arrow">›</span>
+      </summary>
+      <div class="tests-list"><div class="test-group-header">Softskills C R U D</div>
+            <div class="test-row test-passed">
+              <span class="test-icon">✓</span>
+              <span class="test-name">Add softskill</span>
+              <span class="test-time">7ms</span>
+            </div>
+            <div class="test-row test-passed">
+              <span class="test-icon">✓</span>
+              <span class="test-name">Add softskill missing fields</span>
+              <span class="test-time">1ms</span>
+            </div>
+            <div class="test-row test-passed">
+              <span class="test-icon">✓</span>
+              <span class="test-name">Update softskill</span>
+              <span class="test-time">10ms</span>
+            </div>
+            <div class="test-row test-passed">
+              <span class="test-icon">✓</span>
+              <span class="test-name">Delete softskill</span>
+              <span class="test-time">8ms</span>
+            </div>
+            <div class="test-row test-passed">
+              <span class="test-icon">✓</span>
+              <span class="test-name">Delete softskill not found</span>
+              <span class="test-time">1ms</span>
+            </div>
+            <div class="test-row test-passed">
+              <span class="test-icon">✓</span>
+              <span class="test-name">Render softskills</span>
+              <span class="test-time">5ms</span>
+            </div></div>
+    </details>
+          
+        </div>
+        <div class="page-card" style="border-top-color:#16a34a;">
+          <div class="card-header">
+            <h3 class="card-title">Performance / Connexions</h3>
+            <span class="score-badge" style="background:#16a34a;">100% — Excellent</span>
+          </div>
+          <div class="progress-bar-bg">
+            <div class="progress-bar-fill" style="background:#16a34a;width:100%;"></div>
+          </div>
+          <div class="card-stats">
+            <span class="stat-pass">✓ 7 passés</span>
+            <span class="stat-fail">✗ 0 échoué</span>
+            
+            <span class="stat-time">⏱ 0.03s</span>
+          </div>
+          
+          
+    <details class="tests-detail">
+      <summary class="tests-summary passed-summary">
+        <span>Tests validés (7)</span>
+        <span class="summary-arrow">›</span>
+      </summary>
+      <div class="tests-list"><div class="test-group-header">Performance C R U D</div>
+            <div class="test-row test-passed">
+              <span class="test-icon">✓</span>
+              <span class="test-name">Add performance</span>
+              <span class="test-time">5ms</span>
+            </div>
+            <div class="test-row test-passed">
+              <span class="test-icon">✓</span>
+              <span class="test-name">Add performance missing name</span>
+              <span class="test-time">1ms</span>
+            </div>
+            <div class="test-row test-passed">
+              <span class="test-icon">✓</span>
+              <span class="test-name">Update performance not found</span>
+              <span class="test-time">1ms</span>
+            </div>
+            <div class="test-row test-passed">
+              <span class="test-icon">✓</span>
+              <span class="test-name">Delete performance not found</span>
+              <span class="test-time">1ms</span>
+            </div>
+            <div class="test-row test-passed">
+              <span class="test-icon">✓</span>
+              <span class="test-name">Render performance for link</span>
+              <span class="test-time">2ms</span>
+            </div>
+            <div class="test-row test-passed">
+              <span class="test-icon">✓</span>
+              <span class="test-name">Render performance for activity</span>
+              <span class="test-time">2ms</span>
+            </div>
+            <div class="test-row test-passed">
+              <span class="test-icon">✓</span>
+              <span class="test-name">Performance add and delete</span>
+              <span class="test-time">13ms</span>
+            </div></div>
+    </details>
+          
+        </div>
+        <div class="page-card" style="border-top-color:#16a34a;">
+          <div class="card-header">
+            <h3 class="card-title">Drag &amp; Drop Connexions→Tâches</h3>
+            <span class="score-badge" style="background:#16a34a;">100% — Excellent</span>
+          </div>
+          <div class="progress-bar-bg">
+            <div class="progress-bar-fill" style="background:#16a34a;width:100%;"></div>
+          </div>
+          <div class="card-stats">
+            <span class="stat-pass">✓ 7 passés</span>
+            <span class="stat-fail">✗ 0 échoué</span>
+            
+            <span class="stat-time">⏱ 0.02s</span>
+          </div>
+          
+          
+    <details class="tests-detail">
+      <summary class="tests-summary passed-summary">
+        <span>Tests validés (7)</span>
+        <span class="summary-arrow">›</span>
+      </summary>
+      <div class="tests-list"><div class="test-group-header">Task Link Assignments</div>
+            <div class="test-row test-passed">
+              <span class="test-icon">✓</span>
+              <span class="test-name">Assign link to task</span>
+              <span class="test-time">4ms</span>
+            </div>
+            <div class="test-row test-passed">
+              <span class="test-icon">✓</span>
+              <span class="test-name">Assign missing fields</span>
+              <span class="test-time">0ms</span>
+            </div>
+            <div class="test-row test-passed">
+              <span class="test-icon">✓</span>
+              <span class="test-name">Get assignments for activity</span>
+              <span class="test-time">1ms</span>
+            </div>
+            <div class="test-row test-passed">
+              <span class="test-icon">✓</span>
+              <span class="test-name">Get assignments empty activity</span>
+              <span class="test-time">1ms</span>
+            </div>
+            <div class="test-row test-passed">
+              <span class="test-icon">✓</span>
+              <span class="test-name">Unassign link</span>
+              <span class="test-time">6ms</span>
+            </div>
+            <div class="test-row test-passed">
+              <span class="test-icon">✓</span>
+              <span class="test-name">Unassign nonexistent</span>
+              <span class="test-time">1ms</span>
+            </div>
+            <div class="test-row test-passed">
+              <span class="test-icon">✓</span>
+              <span class="test-name">Assign then reassign</span>
+              <span class="test-time">7ms</span>
+            </div></div>
+    </details>
+          
+        </div>
+        <div class="page-card" style="border-top-color:#16a34a;">
+          <div class="card-header">
+            <h3 class="card-title">Gestion du Temps</h3>
+            <span class="score-badge" style="background:#16a34a;">100% — Excellent</span>
+          </div>
+          <div class="progress-bar-bg">
+            <div class="progress-bar-fill" style="background:#16a34a;width:100%;"></div>
+          </div>
+          <div class="card-stats">
+            <span class="stat-pass">✓ 11 passés</span>
+            <span class="stat-fail">✗ 0 échoué</span>
+            
+            <span class="stat-time">⏱ 0.03s</span>
+          </div>
+          
+          
+    <details class="tests-detail">
+      <summary class="tests-summary passed-summary">
+        <span>Tests validés (11)</span>
+        <span class="summary-arrow">›</span>
+      </summary>
+      <div class="tests-list"><div class="test-group-header">Time Page</div>
+            <div class="test-row test-passed">
+              <span class="test-icon">✓</span>
+              <span class="test-name">Time page accessible</span>
+              <span class="test-time">5ms</span>
+            </div>
+            <div class="test-row test-passed">
+              <span class="test-icon">✓</span>
+              <span class="test-name">Get calendar params</span>
+              <span class="test-time">1ms</span>
+            </div>
+            <div class="test-row test-passed">
+              <span class="test-icon">✓</span>
+              <span class="test-name">Get activity defaults</span>
+              <span class="test-time">4ms</span>
+            </div>
+            <div class="test-row test-passed">
+              <span class="test-icon">✓</span>
+              <span class="test-name">Get activity time empty</span>
+              <span class="test-time">2ms</span>
+            </div>
+            <div class="test-row test-passed">
+              <span class="test-icon">✓</span>
+              <span class="test-name">Post activity time</span>
+              <span class="test-time">2ms</span>
+            </div>
+            <div class="test-row test-passed">
+              <span class="test-icon">✓</span>
+              <span class="test-name">Delete activity time</span>
+              <span class="test-time">2ms</span>
+            </div>
+            <div class="test-row test-passed">
+              <span class="test-icon">✓</span>
+              <span class="test-name">Get activities list</span>
+              <span class="test-time">1ms</span>
+            </div>
+            <div class="test-row test-passed">
+              <span class="test-icon">✓</span>
+              <span class="test-name">Get projects list</span>
+              <span class="test-time">1ms</span>
+            </div>
+            <div class="test-row test-passed">
+              <span class="test-icon">✓</span>
+              <span class="test-name">Get time analyses list</span>
+              <span class="test-time">1ms</span>
+            </div>
+            <div class="test-row test-passed">
+              <span class="test-icon">✓</span>
+              <span class="test-name">Create time analysis</span>
+              <span class="test-time">6ms</span>
+            </div>
+            <div class="test-row test-passed">
+              <span class="test-icon">✓</span>
+              <span class="test-name">Get role analyses list</span>
+              <span class="test-time">2ms</span>
+            </div></div>
+    </details>
+          
+        </div>
+        <div class="page-card" style="border-top-color:#16a34a;">
+          <div class="card-header">
+            <h3 class="card-title">Rôles</h3>
+            <span class="score-badge" style="background:#16a34a;">100% — Excellent</span>
+          </div>
+          <div class="progress-bar-bg">
+            <div class="progress-bar-fill" style="background:#16a34a;width:100%;"></div>
+          </div>
+          <div class="card-stats">
+            <span class="stat-pass">✓ 5 passés</span>
+            <span class="stat-fail">✗ 0 échoué</span>
+            
+            <span class="stat-time">⏱ 0.08s</span>
+          </div>
+          
+          
+    <details class="tests-detail">
+      <summary class="tests-summary passed-summary">
+        <span>Tests validés (5)</span>
+        <span class="summary-arrow">›</span>
+      </summary>
+      <div class="tests-list"><div class="test-group-header">Roles List</div>
+            <div class="test-row test-passed">
+              <span class="test-icon">✓</span>
+              <span class="test-name">List roles</span>
+              <span class="test-time">1ms</span>
+            </div>
+            <div class="test-row test-passed">
+              <span class="test-icon">✓</span>
+              <span class="test-name">Assign garant to activity not found</span>
+              <span class="test-time">1ms</span>
+            </div>
+            <div class="test-row test-passed">
+              <span class="test-icon">✓</span>
+              <span class="test-name">Update role not found</span>
+              <span class="test-time">1ms</span>
+            </div>
+            <div class="test-row test-passed">
+              <span class="test-icon">✓</span>
+              <span class="test-name">Delete role not found</span>
+              <span class="test-time">1ms</span>
+            </div>
+            <div class="test-row test-passed">
+              <span class="test-icon">✓</span>
+              <span class="test-name">Role lifecycle</span>
+              <span class="test-time">78ms</span>
+            </div></div>
+    </details>
+          
+        </div>
+
+  <div class="report-footer">
+    Rapport généré automatiquement · DevOPTIQ Test Suite · 18/02/2026 16:05
+  </div>
+</body>
+</html>

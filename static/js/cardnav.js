@@ -16,9 +16,12 @@
     hamburger?.classList.add('open');
     hamburger?.setAttribute('aria-label', 'Fermer le menu');
 
-    // Apparition des cartes (hauteur gérée par CSS, pas par GSAP)
+    // Apparition des cartes avec animation GSAP
     if (window.gsap) {
-      gsap.fromTo(cards, { y: 10, opacity: 0 }, { y: 0, opacity: 1, duration: 0.25, ease: 'power2.out', stagger: 0.04 });
+      gsap.fromTo(cards, 
+        { y: 12, opacity: 0 }, 
+        { y: 0, opacity: 1, duration: 0.3, ease: 'power2.out', stagger: 0.05 }
+      );
     }
     isOpen = true;
   }
@@ -26,7 +29,14 @@
   function closeMenu() {
     if (!nav || !content) return;
     if (window.gsap) {
-      gsap.to(cards, { y: -6, opacity: 0, duration: 0.18, ease: 'power2.in', stagger: 0.03, onComplete: finalize });
+      gsap.to(cards, { 
+        y: -8, 
+        opacity: 0, 
+        duration: 0.2, 
+        ease: 'power2.in', 
+        stagger: 0.03, 
+        onComplete: finalize 
+      });
     } else {
       finalize();
     }
@@ -41,15 +51,53 @@
     }
   }
 
-  function toggleMenu() { isOpen ? closeMenu() : openMenu(); }
+  function toggleMenu() { 
+    isOpen ? closeMenu() : openMenu(); 
+  }
 
+  // Event listeners
   hamburger?.addEventListener('click', toggleMenu);
   hamburger?.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleMenu(); }
+    if (e.key === 'Enter' || e.key === ' ') { 
+      e.preventDefault(); 
+      toggleMenu(); 
+    }
   });
 
-  // Au resize : on ne recalcul pas la hauteur (CSS only). On s'assure juste que rien d'inline n’apparaît.
+  // Fermer le menu si on clique en dehors
+  document.addEventListener('click', (e) => {
+    if (isOpen && nav && !nav.contains(e.target)) {
+      closeMenu();
+    }
+  });
+
+  // Au resize : on ne recalcul pas la hauteur (CSS only)
   window.addEventListener('resize', () => {
     if (nav) nav.style.height = '';
   });
+
+  // Support tactile pour le scroll horizontal
+  const cardScroll = document.querySelector('.card-scroll');
+  if (cardScroll) {
+    let isScrolling = false;
+    let startX;
+    let scrollLeft;
+
+    cardScroll.addEventListener('touchstart', (e) => {
+      isScrolling = true;
+      startX = e.touches[0].pageX - cardScroll.offsetLeft;
+      scrollLeft = cardScroll.scrollLeft;
+    }, { passive: true });
+
+    cardScroll.addEventListener('touchmove', (e) => {
+      if (!isScrolling) return;
+      const x = e.touches[0].pageX - cardScroll.offsetLeft;
+      const walk = (x - startX) * 1.5;
+      cardScroll.scrollLeft = scrollLeft - walk;
+    }, { passive: true });
+
+    cardScroll.addEventListener('touchend', () => {
+      isScrolling = false;
+    }, { passive: true });
+  }
 })();

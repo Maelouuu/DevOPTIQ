@@ -3,7 +3,7 @@
 from flask import Blueprint, request, jsonify, render_template
 from sqlalchemy import text
 from Code.extensions import db
-from Code.models.models import Task, Activities, Role, task_roles
+from Code.models.models import Task, Activities, Role, task_roles, Link, Data
 
 tasks_bp = Blueprint('tasks', __name__, url_prefix='/tasks')
 
@@ -226,12 +226,50 @@ def render_tasks(activity_id):
     if not activity:
         return "Activité introuvable.", 404
 
-    # On trie en Python (par "order")
     sorted_tasks = sorted(activity.tasks, key=lambda t: t.order if t.order is not None else 0)
+
+    # Construire task_conn_map pour l'affichage des connexions dans le partial
+    task_conn_map = {}
+    try:
+        rows = db.session.execute(text("""
+            SELECT tla.link_id, tla.task_id, tla.direction
+            FROM task_link_assignments tla
+            JOIN tasks t ON t.id = tla.task_id
+            WHERE t.activity_id = :aid
+        """), {"aid": activity_id}).fetchall()
+
+        link_lookup = {}
+        for link in Link.query.filter_by(target_activity_id=activity_id).all():
+            d = Data.query.get(link.source_data_id) if link.source_data_id else None
+            link_lookup[(link.id, 'incoming')] = {
+                'data_name': d.name if d else (link.description or '?'),
+                'conn_type': link.type or '',
+            }
+        for link in Link.query.filter_by(source_activity_id=activity_id).all():
+            d = Data.query.get(link.source_data_id) if link.source_data_id else None
+            link_lookup[(link.id, 'outgoing')] = {
+                'data_name': d.name if d else (link.description or '?'),
+                'conn_type': link.type or '',
+            }
+
+        for row in rows:
+            tid = str(row[1])
+            direction = row[2]
+            info = link_lookup.get((row[0], direction), {'data_name': '?', 'conn_type': ''})
+            if tid not in task_conn_map:
+                task_conn_map[tid] = {}
+            task_conn_map[tid][direction] = {
+                'link_id': row[0],
+                'data_name': info['data_name'],
+                'conn_type': info['conn_type'],
+            }
+    except Exception:
+        db.session.rollback()
 
     return render_template('tasks_partial.html',
                            activity=activity,
-                           tasks=sorted_tasks)
+                           tasks=sorted_tasks,
+                           item={'task_conn_map': task_conn_map})
 
 
 # -----------------------------------------------
@@ -280,6 +318,10 @@ def delete_task(task_id):
         return jsonify({"error": "Task not found"}), 404
 
     try:
+        # Supprimer les associations task_roles avant de supprimer la tâche
+        db.session.execute(
+            task_roles.delete().where(task_roles.c.task_id == task_id)
+        )
         db.session.delete(task)
         db.session.commit()
         return jsonify({"message": f"Task {task_id} deleted successfully"}), 200

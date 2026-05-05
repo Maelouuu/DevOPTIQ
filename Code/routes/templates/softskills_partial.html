@@ -1,12 +1,13 @@
 {% if activity.softskills and activity.softskills|length > 0 %}
-  <ul>
+  <ul class="items-list">
     {% for ss in activity.softskills %}
-      <li id="softskill-{{ ss.id }}" class="sf-item">
+      <li id="softskill-{{ ss.id }}" class="sf-item hsc-item">
 
           <!-- Mode affichage -->
           <div id="softskill-display-{{ ss.id }}" class="sf-display">
               <span class="sf-text" id="softskill-desc-{{ ss.id }}">
-                  {{ ss.habilete }} ({{ ss.niveau }})
+                  <strong>{{ ss.habilete }}</strong>
+                  <span class="hsc-level-badge">{{ ss.niveau }}</span>
               </span>
 
               {% if ss.justification %}
@@ -19,54 +20,49 @@
                   <i class="fa-solid fa-pencil"></i>
               </button>
 
-              <button class="icon-btn" onclick="deleteSoftskill('{{ activity.id }}', '{{ ss.id }}')" title="Supprimer">
+              <button class="icon-btn icon-btn-danger" onclick="deleteSoftskill('{{ activity.id }}', '{{ ss.id }}')" title="Supprimer">
                   <i class="fa-solid fa-trash"></i>
               </button>
           </div>
 
           {% if ss.justification %}
-              <div id="softskill-justif-{{ ss.id }}" style="display:none; margin-top:5px; border:1px solid #ddd; padding:5px; background:#fffbeb;">
-                  <strong>Justification :</strong> {{ ss.justification }}
+              <div id="softskill-justif-{{ ss.id }}" class="hsc-justification" style="display:none;">
+                  <i class="fa-solid fa-quote-left"></i> {{ ss.justification }}
               </div>
           {% endif %}
 
-          <!-- Mode édition - Structure VERTICALE compacte -->
-          <div id="softskill-edit-{{ ss.id }}" class="sf-edit-area" style="display:none; margin-top:8px; border:1px solid #ccc; padding:10px; max-width:500px;">
-              
-              <div style="margin-bottom:8px;">
-                  <label style="display:block; font-weight:bold; margin-bottom:3px;">Habileté :</label>
-                  <input type="text" id="softskill-edit-input-{{ ss.id }}" class="sf-input" value="{{ ss.habilete }}" style="width:100%;"/>
+          <!-- Mode édition -->
+          <div id="softskill-edit-{{ ss.id }}" class="hsc-edit-form" style="display:none;">
+              <div class="form-row">
+                  <label>Habileté :</label>
+                  <input type="text" id="softskill-edit-input-{{ ss.id }}" class="task-input" value="{{ ss.habilete }}" />
               </div>
-
-              <div style="margin-bottom:8px;">
-                  <label style="display:block; font-weight:bold; margin-bottom:3px;">Niveau :</label>
-                  <select id="softskill-edit-level-{{ ss.id }}" class="sf-input" style="width:100%;">
+              <div class="form-row">
+                  <label>Niveau :</label>
+                  <select id="softskill-edit-level-{{ ss.id }}" class="task-select-single">
                       <option value="1 (Aptitude)" {% if ss.niveau == "1 (Aptitude)" %}selected{% endif %}>1 (Aptitude)</option>
                       <option value="2 (Acquisition)" {% if ss.niveau == "2 (Acquisition)" %}selected{% endif %}>2 (Acquisition)</option>
                       <option value="3 (Maîtrise)" {% if ss.niveau == "3 (Maîtrise)" %}selected{% endif %}>3 (Maîtrise)</option>
                       <option value="4 (Excellence)" {% if ss.niveau == "4 (Excellence)" %}selected{% endif %}>4 (Excellence)</option>
                   </select>
               </div>
-
-              <div style="margin-bottom:10px;">
-                  <label style="display:block; font-weight:bold; margin-bottom:3px;">Justification :</label>
-                  <textarea id="softskill-edit-justif-{{ ss.id }}" class="sf-input" rows="2" style="width:100%; resize:vertical;">{{ ss.justification }}</textarea>
+              <div class="form-row">
+                  <label>Justification :</label>
+                  <textarea id="softskill-edit-justif-{{ ss.id }}" class="task-input hsc-textarea" rows="2">{{ ss.justification }}</textarea>
               </div>
-
-              <div style="display:flex; gap:10px;">
-                  <button onclick="submitEditSoftskill('{{ activity.id }}','{{ ss.id }}')">
+              <div class="task-form-actions">
+                  <button class="btn-action-primary btn-sm" onclick="submitEditSoftskill('{{ activity.id }}','{{ ss.id }}')">
                       <i class="fa-solid fa-check"></i> Enregistrer
                   </button>
-                  <button onclick="cancelEditSoftskill('{{ ss.id }}')">
+                  <button class="btn-action-secondary btn-sm" onclick="cancelEditSoftskill('{{ ss.id }}')">
                       <i class="fa-solid fa-xmark"></i> Annuler
                   </button>
               </div>
-
           </div>
 
       </li>
     {% endfor %}
   </ul>
 {% else %}
-  <p>Aucune habileté socio-cognitive n'est enregistrée.</p>
+  <p class="empty-text">Aucune habileté socio-cognitive enregistrée.</p>
 {% endif %}

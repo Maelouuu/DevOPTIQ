@@ -1,15 +1,24 @@
 <!-- Code/routes/templates/header_buttons.html -->
-<link rel="stylesheet" href="./../../../static/optiq.css">
-<link rel="stylesheet" href="./../../../static/cardnav.css">
+<!-- CORRIGÉ: Utilisation de url_for au lieu de chemins relatifs -->
+<link rel="stylesheet" href="{{ url_for('static', filename='optiq.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='cardnav.css') }}">
+<!-- Font Awesome pour les icônes -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
 
 <div class="card-nav-container">
+  <!-- Bouton déconnexion en haut à droite (hors du menu) -->
+  <a href="/logout" class="logout-btn" title="Se déconnecter">
+    <i class="fa-solid fa-right-from-bracket"></i>
+    <span>Déconnexion</span>
+  </a>
+
   <nav id="card-nav" class="card-nav" aria-label="Navigation principale">
 
     <!-- Barre supérieure -->
     <div class="card-nav-top">
-      <a class="logo-container" href="/activities/view">
-        <span class="logo-badge">◐</span>
+      <a class="logo-container" href="/activities/map">
+        <span class="logo-badge">◉</span>
         <span class="logo-text">OPTIQ</span>
       </a>
 
@@ -26,12 +35,12 @@
 
         <!-- Cartes -->
         <a class="nav-card" href="/activities/view"
-           style="--card-bg: linear-gradient(135deg,#D8FFE9,#88F0BB);--card-fg:#08321F">
+           style="--card-bg: linear-gradient(135deg,#F2E3FF,#D0A9FF);--card-fg:#2a1057">
           <div class="nav-card-label"><i class="fa-solid fa-list-check"></i> Activités</div>
         </a>
 
         <a class="nav-card" href="/roles_view"
-           style="--card-bg: linear-gradient(135deg,#F2E3FF,#D0A9FF);--card-fg:#2a1057">
+           style="--card-bg: linear-gradient(135deg,#D8FFE9,#88F0BB);--card-fg:#08321F">
           <div class="nav-card-label"><i class="fa-solid fa-users-rectangle"></i> Rôles</div>
         </a>
 
@@ -61,36 +70,21 @@
         </a>
 
         <a class="nav-card" href="/gestion_outils"
-           style="--card-bg: linear-gradient(135deg,#FFE6F1,#FFA6C9);--card-fg:#4A0C26">
+           style="--card-bg: linear-gradient(135deg,#FEF3E2,#F0B97A);--card-fg:#431407">
           <div class="nav-card-label"><i class="fa-solid fa-screwdriver-wrench"></i> Gestion Outils</div>
         </a>
 
         <a class="nav-card" href="/activities/map"
-           style="--card-bg: linear-gradient(135deg,#e6fffd,#a6ffed);--card-fg:#4A0C26">
+           style="--card-bg: linear-gradient(135deg,#e6fffd,#a6ffed);--card-fg:#0A4A45">
           <div class="nav-card-label"><i class="fa-solid fa-diagram-project"></i> Cartographie</div>
         </a>
+
       </div>
-
-      <!-- Sidebar "Navigation rapide" (hors du rail de cartes, à droite) -->
-      <aside class="side-list-card" aria-label="Navigation rapide">
-        <h4><i class="fa-solid fa-bars"></i> Navigation rapide</h4>
-        <ul>
-          <li><a href="/activities/view"><i class="fa-solid fa-list-check"></i> Activités</a></li>
-          <li><a href="/roles_view"><i class="fa-solid fa-users-rectangle"></i> Rôles</a></li>
-          <li><a href="/competences/view"><i class="fa-solid fa-layer-group"></i> Compétences</a></li>
-          <li><a href="/temps"><i class="fa-solid fa-clock"></i> Temps</a></li>
-          <li><a href="/comptes"><i class="fa-solid fa-users-gear"></i> Comptes</a></li>
-          <li><a href="/gestion_rh"><i class="fa-solid fa-building-user"></i> Gestion RH</a></li>
-          <li><a href="/projection_metier"><i class="fa-solid fa-briefcase"></i> Métiers (ROME)</a></li>
-          <li><a href="/gestion_outils"><i class="fa-solid fa-screwdriver-wrench"></i> Outils</a></li>
-          <li><a href="/activities/map"><i class="fa-solid fa-diagram-project"></i> Carte des activités</a></li>
-          <li><a href="/activities/update-cartography"><i class="fa-solid fa-arrows-rotate"></i> Mettre à jour la cartographie</a></li>
-
-
-        </ul>
-      </aside>
     </div>
   </nav>
 </div>
 
+<!-- CORRIGÉ: Utilisation de url_for au lieu de chemin relatif -->
 <script src="./../../../static/js/cardnav.js"></script>
+
+{% include "welcome_popup.html" %}

@@ -1,25 +1,39 @@
 <!-- Code/routes/templates/translate_softskills_modal.html -->
 
-<div id="translateSoftskillsModal"
-     style="display:none; position:fixed; left:20%; top:20%; width:60%; background:#fff;
-            border:1px solid #aaa; padding:10px; z-index:9999;">
-  <h4>Traduire Softskills</h4>
-  <p>Entrez ci-dessous ce que vous considérez comme soft skills :</p>
-  <textarea id="translateSoftskillsInput" style="width:100%; height:100px;"></textarea>
-  <div style="margin-top:10px;">
-    <button onclick="submitSoftskillsTranslation()">Valider</button>
-    <button onclick="closeTranslateSoftskillsModal()">Annuler</button>
-  </div>
-</div>
-
-<!-- Zone d'affichage => cases à cocher -->
-<div id="translateResultsModal"
-     style="display:none; position:fixed; left:25%; top:25%; width:50%; background:#fff;
-            border:1px solid #aaa; padding:10px; z-index:9999;">
-  <h4>Propositions de HSC (traduction) :</h4>
-  <ul id="translatedHscList" style="list-style:none; padding-left:0;"></ul>
-  <div style="margin-top:10px;">
-    <button onclick="validateTranslatedHSC()">Enregistrer les HSC</button>
-    <button onclick="closeTranslatedHscModal()">Annuler</button>
+<!-- Modale de saisie + résultats traduction HSC -->
+<div id="translateSoftskillsOverlay" class="modal-overlay-propose" style="display:none;">
+  <div class="modal-content-propose modal-wide" id="translateSoftskillsModal">
+    <div class="modal-header-propose">
+      <h3><i class="fa-solid fa-language"></i> Traduire vos soft skills en HSC</h3>
+      <button class="modal-close-btn-propose" onclick="closeTranslateSoftskillsModal()">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+    </div>
+    <div class="modal-body-propose" id="translateModalBody">
+      <!-- Vue saisie -->
+      <div id="translateInputView">
+        <p style="font-size:0.9rem; color:#475569; margin-bottom:12px;">
+          Décrivez les soft skills que vous associez à cette activité. L'IA les traduira en habiletés socio-cognitives (HSC) selon la norme X50-766.
+        </p>
+        <div class="translate-input-container">
+          <textarea id="translateSoftskillsInput"
+                    placeholder="Ex: capacité d'écoute, esprit d'équipe, rigueur, gestion du stress..."></textarea>
+          <p class="translate-input-hint">
+            <i class="fa-solid fa-circle-info"></i>
+            Saisissez librement, l'IA identifiera les HSC les plus pertinentes.
+          </p>
+        </div>
+      </div>
+      <!-- Vue résultats (injectée par JS) -->
+      <div id="translateResultsView" style="display:none;"></div>
+    </div>
+    <div class="modal-footer-propose" id="translateModalFooter">
+      <button class="btn-modal-secondary-propose" onclick="closeTranslateSoftskillsModal()">
+        <i class="fa-solid fa-xmark"></i> Annuler
+      </button>
+      <button class="btn-modal-primary-propose" id="translateSubmitBtn" onclick="submitSoftskillsTranslation()">
+        <i class="fa-solid fa-wand-magic-sparkles"></i> Traduire
+      </button>
+    </div>
   </div>
 </div>

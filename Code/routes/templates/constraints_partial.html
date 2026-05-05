@@ -5,20 +5,51 @@
     {% for c in activity.constraints %}
       <li id="constraint-{{ c.id }}">
         <span class="constraint-text">{{ c.description }}</span>
-        <button 
-          class="edit-constraint-btn"
-          data-constraint='{{ {"id": c.id, "description": c.description}|tojson|safe }}'
+
+        {% if c.file_path %}
+          <a class="item-file-link" href="/utils/serve-file?path={{ c.file_path }}" target="_blank" title="Ouvrir le fichier lié">
+            <i class="fa-solid fa-paperclip"></i>
+          </a>
+        {% endif %}
+
+        <button
+          class="icon-btn"
+          data-constraint='{{ {"id": c.id, "description": c.description, "file_path": c.file_path or ""}|tojson|safe }}'
           onclick="showEditConstraintForm(this)"
+          title="Modifier"
         >
           <i class="fa-solid fa-pencil"></i>
         </button>
-        <button onclick="deleteConstraint('{{ activity.id }}','{{ c.id }}')">
+
+        <button class="icon-btn icon-btn-danger" onclick="deleteConstraint('{{ activity.id }}','{{ c.id }}')" title="Supprimer">
           <i class="fa-solid fa-trash"></i>
         </button>
-        <div id="edit-constraint-form-{{ c.id }}" style="display:none; margin-top:5px;">
-          <input type="text" id="edit-constraint-input-{{ c.id }}" />
-          <button onclick="submitEditConstraint('{{ activity.id }}','{{ c.id }}')">Enregistrer</button>
-          <button onclick="hideEditConstraintForm('{{ c.id }}')">Annuler</button>
+
+        <!-- Formulaire d'édition caché -->
+        <div id="edit-constraint-form-{{ c.id }}" style="display:none; margin-top:8px;">
+          <input type="text" id="edit-constraint-input-{{ c.id }}" placeholder="Description" />
+          <!-- File picker édition -->
+          <div style="margin-top:8px;">
+            <div class="fp-wrap" id="edit-fp-{{ c.id }}">
+              <div class="fp-zone">
+                <span class="fp-spinner" style="display:none"><i class="fa-solid fa-spinner fa-spin"></i></span>
+                <i class="fa-solid fa-cloud-arrow-up fp-icon"></i>
+                <p class="fp-text">Glisser un fichier ou <span class="fp-browse">parcourir</span></p>
+                <p class="fp-hint">Remplace le fichier actuel si sélectionné</p>
+              </div>
+              <div class="fp-selected hidden">
+                <i class="fa-solid fa-file-circle-check fp-ok-icon"></i>
+                <span class="fp-fname"></span>
+                <button type="button" class="fp-clear" title="Retirer"><i class="fa-solid fa-xmark"></i></button>
+              </div>
+              <input type="file" class="fp-input">
+              <input type="hidden" class="fp-path" value="{{ c.file_path or '' }}">
+            </div>
+          </div>
+          <div style="margin-top:6px; display:flex; gap:4px;">
+            <button class="icon-btn icon-btn-success" onclick="submitEditConstraint('{{ activity.id }}','{{ c.id }}')" title="Enregistrer"><i class="fa-solid fa-check"></i></button>
+            <button class="icon-btn" onclick="hideEditConstraintForm('{{ c.id }}')" title="Annuler"><i class="fa-solid fa-xmark"></i></button>
+          </div>
         </div>
       </li>
     {% endfor %}

@@ -22,15 +22,17 @@ def login():
             flash('Mot de passe incorrect.', 'error')
             return redirect(url_for('auth.login'))
 
-        # Stocker l'email dans la session si la connexion est réussie
-        session['user_email'] = email  
-        return redirect(url_for('activities.view_activities'))  # Endpoint à adapter si nécessaire
+        session['user_email'] = email
+        session['user_id'] = user.id  # IMPORTANT pour le filtrage des entités
+        return redirect(url_for('activities_map_bp.activities_map_page'))
 
     return render_template('connexion.html')
 
 @auth_bp.route('/logout')
 def logout():
     session.pop('user_email', None)
+    session.pop('user_id', None)  # Nettoyer l'ID utilisateur
+    session.pop('active_entity_id', None)  # Nettoyer l'entité active
     flash('Déconnexion réussie.', 'success')
     return redirect(url_for('auth.login'))
 
@@ -60,4 +62,3 @@ def current_user_info():
         'manager_first_name': manager.first_name if manager else "",
         'manager_last_name': manager.last_name if manager else ""
     })
-

@@ -1,0 +1,641 @@
+/* =========================================================
+   WELCOME POPUP — Deux panneaux — Design premium
+   ========================================================= */
+
+/* ---- Overlay backdrop ---- */
+#welcome-popup-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(6, 3, 18, 0.72);
+  backdrop-filter: blur(14px) saturate(1.4);
+  -webkit-backdrop-filter: blur(14px) saturate(1.4);
+  padding: 20px;
+  opacity: 0;
+  transition: opacity 0.4s ease;
+}
+#welcome-popup-overlay.wp-visible {
+  opacity: 1;
+}
+
+/* ---- Carte principale — plus large pour deux colonnes ---- */
+#welcome-popup-card {
+  position: relative;
+  width: 100%;
+  max-width: 800px;
+  background: #ffffff;
+  border-radius: 26px;
+  box-shadow:
+    0 0 0 1px rgba(139, 92, 246, 0.15),
+    0 24px 60px rgba(76, 29, 149, 0.35),
+    0 8px 20px rgba(0, 0, 0, 0.2),
+    0 0 80px rgba(124, 58, 237, 0.12);
+  overflow: hidden;
+  transform: translateY(32px) scale(0.95);
+  transition:
+    transform 0.45s cubic-bezier(0.34, 1.52, 0.64, 1),
+    opacity 0.4s ease;
+  opacity: 0;
+  max-height: calc(100vh - 48px);
+  display: flex;
+  flex-direction: column;
+}
+#welcome-popup-overlay.wp-visible #welcome-popup-card {
+  transform: translateY(0) scale(1);
+  opacity: 1;
+}
+
+/* ---- En-tête — gradient multi-violet ---- */
+#welcome-popup-header {
+  background:
+    radial-gradient(ellipse at 85% 15%, rgba(192, 132, 252, 0.55) 0%, transparent 55%),
+    radial-gradient(ellipse at 15% 85%, rgba(99, 102, 241, 0.4) 0%, transparent 50%),
+    radial-gradient(ellipse at 50% 50%, rgba(124, 58, 237, 0.2) 0%, transparent 70%),
+    linear-gradient(155deg, #12053d 0%, #2e0f6b 30%, #4c1d95 58%, #5b21b6 75%, #4338ca 100%);
+  padding: 24px 28px 22px;
+  position: relative;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+/* Orbe lumineux décoratif – haut droite */
+#welcome-popup-header::before {
+  content: '';
+  position: absolute;
+  top: -40px;
+  right: -40px;
+  width: 180px;
+  height: 180px;
+  background: radial-gradient(circle, rgba(216, 180, 254, 0.45) 0%, rgba(167, 139, 250, 0.2) 40%, transparent 70%);
+  border-radius: 50%;
+  pointer-events: none;
+}
+/* Orbe lumineux décoratif – bas gauche */
+#welcome-popup-header::after {
+  content: '';
+  position: absolute;
+  bottom: -50px;
+  left: -30px;
+  width: 160px;
+  height: 160px;
+  background: radial-gradient(circle, rgba(99, 102, 241, 0.3) 0%, transparent 65%);
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+/* Trait lumineux diagonal */
+.wp-light-ray {
+  position: absolute;
+  top: 0;
+  right: 60px;
+  width: 1.5px;
+  height: 100%;
+  background: linear-gradient(to bottom, transparent, rgba(216,180,254,0.5) 40%, rgba(167,139,250,0.3) 60%, transparent);
+  transform: rotate(18deg) translateX(20px);
+  pointer-events: none;
+}
+
+/* ---- Brand ---- */
+.wp-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.wp-logo-badge {
+  width: 32px;
+  height: 32px;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1.5px solid rgba(255, 255, 255, 0.3);
+  border-radius: 9px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  color: #e9d5ff;
+  font-weight: 900;
+  box-shadow: 0 0 12px rgba(167, 139, 250, 0.4) inset;
+}
+.wp-brand-name {
+  font-size: 14px;
+  font-weight: 800;
+  color: rgba(255,255,255,0.85);
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+
+/* ---- Titre & sous-titre ---- */
+.wp-header-title {
+  font-size: 22px;
+  font-weight: 800;
+  color: #ffffff;
+  line-height: 1.2;
+  margin: 0 0 5px;
+  text-shadow: 0 2px 12px rgba(76, 29, 149, 0.5);
+}
+.wp-header-sub {
+  font-size: 13px;
+  color: rgba(221, 214, 254, 0.8);
+  margin: 0;
+  font-weight: 400;
+}
+
+/* ---- Bouton fermer ---- */
+#welcome-popup-close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  width: 30px;
+  height: 30px;
+  border: 1px solid rgba(255,255,255,0.2);
+  background: rgba(255,255,255,0.12);
+  border-radius: 50%;
+  color: rgba(255,255,255,0.85);
+  font-size: 13px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s, transform 0.15s, box-shadow 0.2s;
+  backdrop-filter: blur(4px);
+}
+#welcome-popup-close:hover {
+  background: rgba(255,255,255,0.22);
+  box-shadow: 0 0 12px rgba(167, 139, 250, 0.4);
+  transform: scale(1.08);
+}
+
+/* ---- Deux panneaux ---- */
+#welcome-popup-panels {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  flex: 1;
+  overflow: hidden;
+  min-height: 0;
+}
+
+.wp-panel {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.wp-panel-right {
+  border-left: 1px solid #ede9fe;
+}
+
+/* ---- En-tête de panneau ---- */
+.wp-panel-header {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 13px 18px 11px;
+  border-bottom: 1px solid #ede9fe;
+  flex-shrink: 0;
+  background: #fafafa;
+}
+
+.wp-panel-icon-wrap {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.wp-panel-icon-violet {
+  background: linear-gradient(135deg, #6d28d9, #7c3aed);
+  box-shadow: 0 3px 8px rgba(109, 40, 217, 0.3);
+}
+.wp-panel-icon-teal {
+  background: linear-gradient(135deg, #0d9488, #14b8a6);
+  box-shadow: 0 3px 8px rgba(13, 148, 136, 0.3);
+}
+.wp-panel-icon-wrap i {
+  font-size: 12px;
+  color: #fff;
+}
+
+.wp-panel-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #1e1040;
+  flex: 1;
+}
+
+/* ---- Badge nouveautés (pulsant) ---- */
+.wp-badge-new {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: rgba(124, 58, 237, 0.08);
+  border: 1px solid rgba(124, 58, 237, 0.2);
+  border-radius: 20px;
+  padding: 3px 9px;
+  font-size: 10px;
+  font-weight: 700;
+  color: #7c3aed;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+}
+.wp-badge-dot {
+  width: 6px;
+  height: 6px;
+  background: #4ade80;
+  border-radius: 50%;
+  animation: wp-pulse 2s ease-out infinite;
+}
+@keyframes wp-pulse {
+  0%   { box-shadow: 0 0 0 0 rgba(74, 222, 128, 0.7); }
+  70%  { box-shadow: 0 0 0 6px rgba(74, 222, 128, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(74, 222, 128, 0); }
+}
+
+/* ---- Corps de panneau ---- */
+.wp-panel-body {
+  padding: 14px 16px;
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+  scrollbar-width: thin;
+  scrollbar-color: #ddd6fe transparent;
+}
+.wp-panel-body::-webkit-scrollbar { width: 4px; }
+.wp-panel-body::-webkit-scrollbar-thumb {
+  background: #c4b5fd;
+  border-radius: 4px;
+}
+.wp-panel-right .wp-panel-body {
+  scrollbar-color: #99f6e4 transparent;
+}
+.wp-panel-right .wp-panel-body::-webkit-scrollbar-thumb {
+  background: #5eead4;
+}
+
+/* ---- Loading ---- */
+.wp-panel-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 24px 0;
+}
+.wp-spinner {
+  width: 28px;
+  height: 28px;
+  border: 3px solid #ede9fe;
+  border-top-color: #7c3aed;
+  border-radius: 50%;
+  animation: wp-spin 0.75s linear infinite;
+}
+.wp-spinner-teal {
+  border-color: #ccfbf1;
+  border-top-color: #0d9488;
+}
+@keyframes wp-spin { to { transform: rotate(360deg); } }
+.wp-panel-loading span {
+  font-size: 12px;
+  color: #9ca3af;
+  font-weight: 500;
+}
+
+/* ---- Empty state ---- */
+.wp-empty {
+  color: #9ca3af;
+  text-align: center;
+  padding: 16px 0;
+  font-size: 12.5px;
+}
+
+/* ---- Items changelog (panneau gauche) ---- */
+.wp-items {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.wp-item:nth-child(1) { --item-color: #6d28d9; --item-bg: #f5f3ff; --item-border: #ddd6fe; --item-icon-bg: linear-gradient(135deg, #6d28d9, #7c3aed); }
+.wp-item:nth-child(2) { --item-color: #4338ca; --item-bg: #eef2ff; --item-border: #c7d2fe; --item-icon-bg: linear-gradient(135deg, #4338ca, #6366f1); }
+.wp-item:nth-child(3) { --item-color: #7c3aed; --item-bg: #faf5ff; --item-border: #e9d5ff; --item-icon-bg: linear-gradient(135deg, #7c3aed, #a855f7); }
+.wp-item:nth-child(4) { --item-color: #5b21b6; --item-bg: #f5f3ff; --item-border: #ddd6fe; --item-icon-bg: linear-gradient(135deg, #5b21b6, #8b5cf6); }
+.wp-item:nth-child(5) { --item-color: #3730a3; --item-bg: #eef2ff; --item-border: #c7d2fe; --item-icon-bg: linear-gradient(135deg, #3730a3, #4f46e5); }
+
+.wp-item {
+  display: flex;
+  gap: 11px;
+  align-items: flex-start;
+  padding: 11px 12px 11px 13px;
+  background: var(--item-bg, #f5f3ff);
+  border-radius: 12px;
+  border: 1px solid var(--item-border, #ddd6fe);
+  border-left: 3px solid var(--item-color, #7c3aed);
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+.wp-item:hover {
+  transform: translateX(2px);
+  box-shadow: 0 3px 12px rgba(109, 40, 217, 0.1);
+}
+
+.wp-item-icon-wrap {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  background: var(--item-icon-bg, linear-gradient(135deg, #6d28d9, #7c3aed));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 3px 8px rgba(109, 40, 217, 0.22);
+}
+.wp-item-icon-wrap i { font-size: 13px; color: #fff; }
+
+.wp-item-content { flex: 1; min-width: 0; }
+.wp-item-title {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #1e1040;
+  margin-bottom: 3px;
+  line-height: 1.3;
+}
+.wp-item-desc {
+  font-size: 11.5px;
+  color: #6b7280;
+  line-height: 1.5;
+}
+
+/* ---- Items activité récente — redesign ---- */
+.wp-recent-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* Couleurs par type d'événement */
+.wp-ev-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border-left: 3px solid var(--ev-color, #9ca3af);
+  background: var(--ev-bg, #f9fafb);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.wp-ev-item:hover { transform: translateX(2px); }
+.wp-ev-clickable { cursor: pointer; }
+.wp-ev-clickable:hover {
+  box-shadow: 0 3px 10px rgba(0,0,0,0.07);
+}
+
+/* Thèmes couleur */
+.wp-ev-green  { --ev-color:#059669; --ev-bg:#f0fdf4; --ev-icon: linear-gradient(135deg,#059669,#10b981); --ev-shadow:rgba(5,150,105,0.2); }
+.wp-ev-orange { --ev-color:#d97706; --ev-bg:#fffbeb; --ev-icon: linear-gradient(135deg,#d97706,#f59e0b); --ev-shadow:rgba(217,119,6,0.2); }
+.wp-ev-red    { --ev-color:#dc2626; --ev-bg:#fef2f2; --ev-icon: linear-gradient(135deg,#dc2626,#ef4444); --ev-shadow:rgba(220,38,38,0.2); }
+.wp-ev-blue   { --ev-color:#4338ca; --ev-bg:#eef2ff; --ev-icon: linear-gradient(135deg,#4338ca,#6366f1); --ev-shadow:rgba(67,56,202,0.2); }
+.wp-ev-gray   { --ev-color:#9ca3af; --ev-bg:#f9fafb; --ev-icon: linear-gradient(135deg,#6b7280,#9ca3af); --ev-shadow:rgba(107,114,128,0.15); }
+
+/* Icône */
+.wp-ev-icon {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  background: var(--ev-icon, linear-gradient(135deg,#6b7280,#9ca3af));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 3px 8px var(--ev-shadow, rgba(0,0,0,0.15));
+}
+.wp-ev-icon i { font-size: 12px; color: #fff; }
+
+/* Corps */
+.wp-ev-body { flex: 1; min-width: 0; }
+
+.wp-ev-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 3px;
+}
+
+/* Badge type d'événement */
+.wp-ev-badge {
+  font-size: 9.5px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.7px;
+  border-radius: 4px;
+  padding: 1px 6px;
+}
+.wp-ev-badge-green  { background:#dcfce7; color:#15803d; }
+.wp-ev-badge-orange { background:#fef3c7; color:#92400e; }
+.wp-ev-badge-red    { background:#fee2e2; color:#b91c1c; }
+.wp-ev-badge-blue   { background:#e0e7ff; color:#3730a3; }
+.wp-ev-badge-gray   { background:#f3f4f6; color:#6b7280; }
+
+/* Chevron */
+.wp-ev-chevron {
+  color: #9ca3af;
+  font-size: 10px;
+  transition: color 0.15s;
+}
+.wp-ev-chevron i { transition: transform 0.22s ease; }
+.wp-ev-clickable:hover .wp-ev-chevron { color: var(--ev-color, #6b7280); }
+
+/* Texte principal */
+.wp-ev-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #1e1040;
+  line-height: 1.35;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Méta : date + utilisateur */
+.wp-ev-meta {
+  font-size: 10.5px;
+  color: #9ca3af;
+  margin-top: 3px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* ---- État vide ---- */
+.wp-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 28px 12px;
+  flex: 1;
+}
+.wp-empty-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #e5e7eb, #d1d5db);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  color: #9ca3af;
+}
+.wp-empty-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #374151;
+  text-align: center;
+}
+.wp-empty-sub {
+  font-size: 11.5px;
+  color: #9ca3af;
+  text-align: center;
+  line-height: 1.5;
+}
+
+/* ---- Section déroulante ---- */
+.wp-recent-detail {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.28s ease, padding 0.22s ease;
+  padding: 0 12px;
+  background: #fafafa;
+  border-radius: 0 0 10px 10px;
+  margin-top: -4px;
+}
+.wp-recent-detail.wp-detail-open {
+  max-height: 300px;
+  padding: 10px 12px 12px;
+  border: 1px solid #e5e7eb;
+  border-top: none;
+  overflow-y: auto;
+}
+
+/* Titre section diff */
+.wp-diff-header {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: #9ca3af;
+  margin-bottom: 7px;
+}
+
+/* Lignes diff */
+.wp-diff-list { display: flex; flex-direction: column; gap: 6px; }
+
+.wp-diff-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  flex-wrap: wrap;
+}
+.wp-diff-field {
+  font-weight: 700;
+  color: #6b7280;
+  min-width: 78px;
+  flex-shrink: 0;
+}
+.wp-diff-before {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 5px;
+  padding: 2px 8px;
+  color: #dc2626;
+  font-size: 11px;
+  max-width: 110px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.wp-diff-arrow {
+  color: #9ca3af;
+  font-size: 9px;
+  flex-shrink: 0;
+}
+.wp-diff-after {
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 5px;
+  padding: 2px 8px;
+  color: #16a34a;
+  font-size: 11px;
+  max-width: 110px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.wp-diff-value {
+  color: #374151;
+  font-size: 11px;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+/* ---- Séparateur ---- */
+.wp-divider {
+  height: 1px;
+  background: linear-gradient(to right, transparent, #ede9fe 30%, #ede9fe 70%, transparent);
+  margin: 4px 0 14px;
+}
+
+/* ---- Pied de page ---- */
+#welcome-popup-footer {
+  padding: 0 24px 22px;
+  flex-shrink: 0;
+  background: #fff;
+}
+#welcome-popup-cta {
+  width: 100%;
+  padding: 13px 0;
+  background: linear-gradient(135deg, #5b21b6 0%, #7c3aed 50%, #6366f1 100%);
+  color: #fff;
+  border: none;
+  border-radius: 13px;
+  font-size: 14.5px;
+  font-weight: 700;
+  cursor: pointer;
+  letter-spacing: 0.3px;
+  position: relative;
+  overflow: hidden;
+  transition: opacity 0.2s, transform 0.15s, box-shadow 0.2s;
+  box-shadow: 0 4px 18px rgba(109, 40, 217, 0.35);
+}
+#welcome-popup-cta::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(255,255,255,0.15) 0%, transparent 60%);
+  pointer-events: none;
+}
+#welcome-popup-cta:hover {
+  opacity: 0.93;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 24px rgba(109, 40, 217, 0.45);
+}
+#welcome-popup-cta:active {
+  transform: translateY(0);
+  box-shadow: 0 3px 12px rgba(109, 40, 217, 0.3);
+}
+
+/* ---- Responsive : empiler les panneaux sur mobile ---- */
+@media (max-width: 620px) {
+  #welcome-popup-card { border-radius: 20px; max-width: 100%; }
+  #welcome-popup-panels { grid-template-columns: 1fr; }
+  .wp-panel-right { border-left: none; border-top: 1px solid #ede9fe; }
+  #welcome-popup-header { padding: 20px 18px 18px; }
+  #welcome-popup-footer { padding: 0 16px 18px; }
+}

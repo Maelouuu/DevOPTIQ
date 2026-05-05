@@ -39,6 +39,11 @@
     const k={minutes:1, heures:60, jours:1440};
     return (parseFloat(qty||0)*(k[(unit||'minutes').toLowerCase()]||1));
   }
+  function fmtH(min){
+    if(min===null||min===undefined||isNaN(min)) return '—';
+    const h=min/60;
+    return (Math.round(h*10)/10).toFixed(1)+'h';
+  }
   function unitSelect(){
     const s=document.createElement('select');
     s.className='input';
@@ -187,7 +192,7 @@
         sum += toMinutes(d, u);
       }
     });
-    if (fwTaskSum) fwTaskSum.textContent = Math.round(sum);
+    if (fwTaskSum) fwTaskSum.textContent = fmtH(sum);
     
     // En mode tâches, la durée globale est la somme des tâches
     const modeEl = $$('input[name="fw-mode"]:checked')[0];
@@ -203,11 +208,20 @@
   });
   toggleFwMode();
 
+  function showFwFeedback(isOk, msg) {
+    const el = document.getElementById('fw-feedback');
+    if (!el) return;
+    el.textContent = msg;
+    el.className = 'time-inline-feedback ' + (isOk ? 'ok' : 'error');
+    el.style.display = 'block';
+    setTimeout(() => { el.style.display = 'none'; }, 3500);
+  }
+
   async function sendWeakness(save=false){
     const modeEl = $$('input[name="fw-mode"]:checked')[0];
-    if (!modeEl) return alert('Sélectionnez un mode');
+    if (!modeEl) return showFwFeedback(false, 'Sélectionnez un mode');
     const mode = modeEl.value;
-    
+
     const payload = {
       mode,
       activity_id: parseInt($('#fw-activity')?.value || '0', 10),
@@ -235,15 +249,18 @@
 
     const r = await fetch('/temps/api/weakness', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)});
     const j = await r.json();
-    if (!j.ok) return alert('Erreur de calcul/enregistrement');
+    if (!j.ok) return showFwFeedback(false, 'Erreur de calcul / enregistrement');
 
     const m = j.calc || {};
-    ['S','T','U','V','W','X','Y','Z','AA'].forEach(k=>{
-      const val = m[k] != null ? Math.round(m[k]) : '—';
+    ['S','T','U','V','W','X','Y','Z'].forEach(k=>{
+      const val = m[k] != null ? fmtH(m[k]) : '—';
       const el = document.getElementById(k);
       if (el) el.textContent = val;
     });
-    if (save) alert('Analyse faiblesse enregistrée.');
+    // AA = occurrences (nombre, pas de conversion)
+    const aaEl = document.getElementById('AA');
+    if (aaEl) aaEl.textContent = m['AA'] != null ? Math.round(m['AA']) : '—';
+    if (save) showFwFeedback(true, 'Analyse faiblesse enregistrée avec succès');
   }
 
   $('#btn-fw-calc')?.addEventListener('click', ()=> sendWeakness(false));
@@ -296,7 +313,9 @@
       const nbp = parseInt(tr.querySelector('.cell-nbp').value || '1', 10);
       const durMin = toMinutes(d, duV);
       const charge = durMin * Math.max(1, nbp);
-      tr.querySelector('.cell-chg').textContent = Math.round(charge);
+      const chgCell = tr.querySelector('.cell-chg');
+      chgCell.textContent = fmtH(charge);
+      chgCell.dataset.minutes = charge;
       recalcProjectTotals();
     }
     tr.addEventListener('input', recalc);
@@ -317,14 +336,14 @@
       const delu = tr.querySelector('.cell-deu select').value;
       sumD += toMinutes(d, du);
       sumDelay += toMinutes(del, delu);
-      sumC += parseFloat(tr.querySelector('.cell-chg').textContent || '0');
+      const chgCell = tr.querySelector('.cell-chg');
+      sumC += parseFloat(chgCell?.dataset?.minutes || '0');
     });
-    const avgDelay = nb ? Math.round(sumDelay/nb) : 0;
 
     updateKpi('kpi-proj-nb', nb);
-    updateKpi('kpi-proj-dur', Math.round(sumD));
-    updateKpi('kpi-proj-del', avgDelay);
-    updateKpi('kpi-proj-charge', Math.round(sumC));
+    updateKpi('kpi-proj-dur', fmtH(sumD));
+    updateKpi('kpi-proj-del', fmtH(sumDelay / (nb || 1)));
+    updateKpi('kpi-proj-charge', fmtH(sumC));
   }
 
   addLineBtn?.addEventListener('click', ()=> addProjectRow());
@@ -367,9 +386,9 @@
             <b class="proj-name">${p.name || 'Sans titre'}</b>
             <input class="proj-name-input hidden input" value="${(p.name || '').replace(/"/g,'&quot;')}" />
             <span class="badge">${p.nb_activites} act.</span>
-            <span class="badge">${Math.round(p.charge_globale_minutes)} min</span>
+            <span class="badge">${fmtH(p.charge_globale_minutes)}</span>
           </div>
-          <div class="acc-meta">Durée ${Math.round(p.tot_duree_minutes)} min · Délai ${Math.round(p.delais_optimum_minutes)} min</div>
+          <div class="acc-meta">Durée ${fmtH(p.tot_duree_minutes)} · Délai ${fmtH(p.delais_optimum_minutes)}</div>
           <div class="acc-actions">
             <button class="icon-btn edit-proj" title="Renommer">✎</button>
             <button class="icon-btn success save-proj hidden" title="Enregistrer">✔</button>
@@ -437,16 +456,16 @@
                 </colgroup>
                 <thead>
                   <tr>
-                    <th>Activité</th><th>Durée (min)</th><th>Délai (min)</th><th>Nb</th><th>Charge (min)</th><th>Actions</th>
+                    <th>Activité</th><th>Durée (h)</th><th>Délai (h)</th><th>Nb</th><th>Charge (h)</th><th>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   ${rows.map(r => `<tr data-line="${r.id}">
                     <td>${r.activity}</td>
-                    <td>${Math.round(r.duration_minutes)}</td>
-                    <td>${Math.round(r.delay_minutes)}</td>
+                    <td>${fmtH(r.duration_minutes)}</td>
+                    <td>${fmtH(r.delay_minutes)}</td>
                     <td>${r.nb_people}</td>
-                    <td>${Math.round(r.charge)}</td>
+                    <td>${fmtH(r.charge)}</td>
                     <td><button class="icon-btn danger del-line" title="Supprimer la ligne">🗑</button></td>
                   </tr>`).join('')}
                 </tbody>
@@ -497,7 +516,7 @@
     $('#act-duration').value = parseFloat(j.duration_minutes) || 0;
     $('#act-duration-unit').value = 'minutes';
     const total = toMinutes(n('#act-duration'), v('#act-duration-unit')) * parseInt(v('#act-frequency')||'1',10) * parseInt(v('#act-people')||'1',10);
-    $('#act-total').textContent = Math.round(total);
+    $('#act-total').textContent = fmtH(total);
   }
   $('#act-activity')?.addEventListener('change', refreshActivityDefaults);
 
@@ -524,7 +543,7 @@
       alert('Analyse activité enregistrée.');
     }
 
-    $('#act-total').textContent = Math.round(j.total_minutes || 0);
+    $('#act-total').textContent = fmtH(j.total_minutes || 0);
     currentActivityEditId = null;
     $('#act-editing')?.classList.add('hidden');
     await refreshActivityWorkloadList();
@@ -549,7 +568,7 @@
             <span class="badge">freq ${it.frequency}</span>
             <span class="badge">nb ${it.nb_people}</span>
           </div>
-          <div class="acc-meta">Durée ${Math.round(it.duration_minutes)} min · Total ${Math.round(it.total_minutes)} min</div>
+          <div class="acc-meta">Durée ${fmtH(it.duration_minutes)} · Total ${fmtH(it.total_minutes)}</div>
           <div class="acc-actions">
             <button class="icon-btn edit-aw" title="Éditer">✎</button>
             <button class="icon-btn danger del-aw" title="Supprimer">🗑</button>
@@ -563,17 +582,17 @@
                 <col class="col-activity"><col class="col-num"><col class="col-rec"><col class="col-num-xs"><col class="col-num-xs"><col class="col-num"><col class="col-num">
               </colgroup>
               <thead>
-                <tr><th>Activité</th><th>Durée (min)</th><th>Récurrence</th><th>Fréq.</th><th>Nb</th><th>Total (min)</th><th>Délai (min)</th></tr>
+                <tr><th>Activité</th><th>Durée (h)</th><th>Récurrence</th><th>Fréq.</th><th>Nb</th><th>Total (h)</th><th>Délai (h)</th></tr>
               </thead>
               <tbody>
                 <tr>
                   <td>${it.activity || ''}</td>
-                  <td>${Math.round(it.duration_minutes)}</td>
+                  <td>${fmtH(it.duration_minutes)}</td>
                   <td>${it.recurrence}</td>
                   <td>${it.frequency}</td>
                   <td>${it.nb_people}</td>
-                  <td>${Math.round(it.total_minutes)}</td>
-                  <td>${it.delay_minutes != null ? Math.round(it.delay_minutes) : '—'}</td>
+                  <td>${fmtH(it.total_minutes)}</td>
+                  <td>${it.delay_minutes != null ? fmtH(it.delay_minutes) : '—'}</td>
                 </tr>
               </tbody>
             </table>
@@ -682,7 +701,9 @@
       const durMin = parseFloat(tr.querySelector('.r-dur').value || '0');
       const freq = parseInt(tr.querySelector('.r-freq').value || '1', 10);
       const weight = durMin * Math.max(1, freq);
-      tr.querySelector('.r-weight').textContent = Math.round(weight);
+      const wCell = tr.querySelector('.r-weight');
+      wCell.textContent = fmtH(weight);
+      wCell.dataset.minutes = weight;
       recalcRoleTotals();
     }
     tr.addEventListener('input', recalc);
@@ -694,7 +715,8 @@
   function recalcRoleTotals(){
     let sumD=0, sumW=0, sumM=0, sumA=0;
     $$('#role-rows tr').forEach(tr=>{
-      const weight = parseFloat(tr.querySelector('.r-weight').textContent || '0');
+      const wCell = tr.querySelector('.r-weight');
+      const weight = parseFloat(wCell?.dataset?.minutes || wCell?.textContent || '0');
       const rec = tr.querySelector('.r-rec select').value;
       if (rec.startsWith('jour')) sumD += weight;
       else if (rec.startsWith('hebdo')) sumW += weight;
@@ -707,12 +729,12 @@
     const annual = sumD*(dpw*wpy) + sumW*wpy + sumM*12 + sumA;
     const monthly = sumD*(dpw*wpy/12) + sumW*(wpy/12) + sumM + sumA/12;
 
-    updateKpi('kpi-role-d', Math.round(sumD));
-    updateKpi('kpi-role-w', Math.round(sumW));
-    updateKpi('kpi-role-m', Math.round(sumM));
-    updateKpi('kpi-role-a', Math.round(sumA));
-    updateKpi('kpi-role-monthly', Math.round(monthly));
-    updateKpi('kpi-role-annual', Math.round(annual));
+    updateKpi('kpi-role-d', fmtH(sumD));
+    updateKpi('kpi-role-w', fmtH(sumW));
+    updateKpi('kpi-role-m', fmtH(sumM));
+    updateKpi('kpi-role-a', fmtH(sumA));
+    updateKpi('kpi-role-monthly', fmtH(monthly));
+    updateKpi('kpi-role-annual', fmtH(annual));
   }
 
   async function loadRoleActivities(roleId){
@@ -776,8 +798,8 @@
             <span class="badge">${it.role}</span>
           </div>
           <div class="acc-meta">
-            J:${Math.round(it.sum_daily_minutes)} · H:${Math.round(it.sum_weekly_minutes)} · M:${Math.round(it.sum_monthly_minutes)} · A:${Math.round(it.sum_yearly_minutes)} ·
-            Mensuel:${Math.round(it.monthly_minutes)} min · Annuel:${Math.round(it.annual_minutes)} min
+            J:${fmtH(it.sum_daily_minutes)} · H:${fmtH(it.sum_weekly_minutes)} · M:${fmtH(it.sum_monthly_minutes)} · A:${fmtH(it.sum_yearly_minutes)} ·
+            Mensuel:${fmtH(it.monthly_minutes)} · Annuel:${fmtH(it.annual_minutes)}
           </div>
           <div class="acc-actions">
             <button class="icon-btn edit-role" title="Renommer">✎</button>
@@ -845,15 +867,15 @@
                   <col class="col-activity"><col class="col-num"><col class="col-rec"><col class="col-num-xs"><col class="col-num"><col class="col-actions">
                 </colgroup>
                 <thead>
-                  <tr><th>Activité</th><th>Durée (min)</th><th>Récurrence</th><th>Fréq.</th><th>Pesée (min)</th><th>Actions</th></tr>
+                  <tr><th>Activité</th><th>Durée (h)</th><th>Récurrence</th><th>Fréq.</th><th>Pesée (h)</th><th>Actions</th></tr>
                 </thead>
                 <tbody>
                   ${rows.map(r => `<tr data-line="${r.id}">
                     <td>${r.activity}</td>
-                    <td>${Math.round(r.duration_minutes)}</td>
+                    <td>${fmtH(r.duration_minutes)}</td>
                     <td>${r.recurrence}</td>
                     <td>${r.frequency}</td>
-                    <td>${Math.round(r.weight_minutes)}</td>
+                    <td>${fmtH(r.weight_minutes)}</td>
                     <td><button class="icon-btn danger del-role-line" title="Supprimer la ligne">🗑</button></td>
                   </tr>`).join('')}
                 </tbody>
@@ -923,7 +945,7 @@
       $('#act-duration').value = parseFloat(j0.duration_minutes) || 0;
       $('#act-duration-unit').value = 'minutes';
       const total = toMinutes(n('#act-duration'), v('#act-duration-unit')) * parseInt(v('#act-frequency')||'1',10) * parseInt(v('#act-people')||'1',10);
-      $('#act-total').textContent = Math.round(total);
+      $('#act-total').textContent = fmtH(total);
     }
 
     // Projet : une ligne par défaut au démarrage

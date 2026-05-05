@@ -1,10 +1,13 @@
 {% include "header_buttons.html" %}
+{% include "import_full_modal.html" %}
 <link rel="stylesheet" href="{{ url_for('static', filename='cartography.css') }}">
 
 <script>
-  // Variables globales pour le JavaScript
   window.CARTO_SHAPE_MAP = {{ shape_activity_map | tojson | safe }};
   window.SVG_EXISTS = {{ svg_exists | tojson }};
+  window.VSDX_EXISTS = {{ vsdx_exists | tojson }};
+  window.CURRENT_SVG = {{ current_svg | tojson | safe }};
+  window.CURRENT_VSDX = {{ current_vsdx | tojson | safe }};
   window.ACTIVE_ENTITY = {{ active_entity | tojson | safe }};
   window.ALL_ENTITIES = {{ all_entities | tojson | safe }};
 </script>
@@ -17,203 +20,408 @@
   <div class="carto-header">
     <div class="carto-header-left">
       <h1>Cartographie des activités</h1>
-      
-      <!-- Badge entité active -->
       {% if active_entity %}
-        <span class="entity-badge active">
-          🏢 {{ active_entity.name }}
-        </span>
+        <span class="entity-badge active"><i class="fa-solid fa-building"></i> {{ active_entity.name }}</span>
       {% else %}
-        <span class="entity-badge inactive">
-          ⚠️ Aucune entité active
-        </span>
+        <span class="entity-badge inactive"><i class="fa-solid fa-triangle-exclamation"></i> Aucune entité active</span>
       {% endif %}
     </div>
-
     <div class="carto-header-right">
-      <button id="entity-manager-btn" class="btn-entity-manager">
-        🏢 Gestionnaire d'entités
+      <button id="btn-import-full" class="btn-import-full">
+        <i class="fa-solid fa-wand-magic-sparkles"></i>
+        Import global IA
       </button>
-      <button id="carto-actions-btn" class="carto-actions-btn">
-        ⚙️ Actions cartographie
+      <!-- Mode connexions inter-cartos -->
+      <button id="cross-carto-btn" class="cross-carto-btn" title="Visualiser les connexions inter-cartos">
+        <i class="fa-solid fa-diagram-project cross-carto-icon"></i>
+        <span id="cross-carto-label">Connexions</span>
+        <span class="cross-carto-dot"></span>
       </button>
+      <button id="carto-wizard-btn" class="carto-wizard-btn"><i class="fa-solid fa-layer-group"></i> Gérer la cartographie</button>
     </div>
   </div>
 
-  <!-- MESSAGE D'INFO NAVIGATION -->
-  <div class="carto-info-message">
-    <span>
-      <strong>Navigation :</strong> 
-      Clic gauche (drag) pour se déplacer • 
-      Molette pour zoomer • 
-      Clic gauche sur une activité pour y accéder
-    </span>
+  <!-- INFO NAVIGATION -->
+  <div class="carto-info-message" id="carto-info-default">
+    <strong>Navigation :</strong>
+    Clic gauche maintenu pour se déplacer • Molette pour zoomer • Clic sur une activité pour y accéder
+  </div>
+  <div class="carto-info-message carto-info-cross hidden" id="carto-info-cross">
+    <i class="fa-solid fa-diagram-project"></i>
+    <strong>Mode connexions :</strong>
+    Les activités <span class="cross-highlight-label">surlignées</span> existent dans d'autres cartos — cliquez pour y accéder.
+    <span id="cross-carto-count" class="cross-count-badge">0</span> connexion(s) trouvée(s)
   </div>
 
-  <!-- ============================================================
-       POPUP GESTIONNAIRE D'ENTITÉS
-  ============================================================ -->
-  <div id="entity-manager-popup" class="popup hidden">
-    <div class="popup-content popup-large">
-      
-      <div class="popup-header">
-        <h2>🏢 Gestionnaire d'entités</h2>
-        <button id="close-entity-manager" class="btn-close">✕</button>
+  <!-- Popup entité choice (cross-carto click with multiple matches) -->
+  <div id="cross-entity-popup" class="cross-entity-popup hidden">
+    <div class="cross-entity-popup-inner">
+      <div class="cross-entity-popup-head">
+        <strong id="cross-entity-activity-name"></strong>
+        <button onclick="document.getElementById('cross-entity-popup').classList.add('hidden')" class="cross-entity-close"><i class="fa-solid fa-xmark"></i></button>
       </div>
-
-      <div class="entity-manager-layout">
-        
-        <!-- Colonne gauche: Liste des entités -->
-        <div class="entity-list-section">
-          <h3>Entités disponibles</h3>
-          
-          <!-- Formulaire nouvelle entité -->
-          <div class="new-entity-form">
-            <input type="text" id="new-entity-name" placeholder="Nom de la nouvelle entité" />
-            <button id="create-entity-btn" class="btn-green">+ Créer</button>
-          </div>
-          
-          <!-- Liste des entités -->
-          <ul id="entities-list" class="entities-list">
-            {% for entity in all_entities %}
-              <li class="entity-item {% if entity.is_active %}active{% endif %}" 
-                  data-id="{{ entity.id }}">
-                <span class="entity-name">{{ entity.name }}</span>
-                {% if entity.is_active %}
-                  <span class="entity-active-badge">Active</span>
-                {% endif %}
-              </li>
-            {% else %}
-              <li class="no-entity">Aucune entité créée</li>
-            {% endfor %}
-          </ul>
-        </div>
-
-        <!-- Colonne droite: Détails de l'entité sélectionnée -->
-        <div class="entity-details-section">
-          <div id="entity-details-placeholder" class="entity-placeholder">
-            <p>👈 Sélectionnez une entité pour voir ses détails</p>
-          </div>
-          
-          <div id="entity-details" class="entity-details hidden">
-            <h3 id="entity-detail-name">Nom de l'entité</h3>
-            <p id="entity-detail-description" class="entity-description"></p>
-            
-            <div class="entity-stats">
-              <div class="stat-item">
-                <span class="stat-value" id="entity-activities-count">0</span>
-                <span class="stat-label">Activités</span>
-              </div>
-              <div class="stat-item">
-                <span class="stat-value" id="entity-svg-status">-</span>
-                <span class="stat-label">Cartographie</span>
-              </div>
-            </div>
-            
-            <!-- Actions sur l'entité -->
-            <div class="entity-actions">
-              <button id="activate-entity-btn" class="btn-blue">
-                ✓ Activer cette entité
-              </button>
-              <button id="rename-entity-btn" class="btn-gray">
-                ✏️ Renommer
-              </button>
-              <button id="delete-entity-btn" class="btn-red">
-                🗑️ Supprimer
-              </button>
-            </div>
-            
-            <!-- Upload SVG -->
-            <div class="entity-upload-section">
-              <h4>📁 Cartographie SVG</h4>
-              <div id="entity-dropzone" class="dropzone">
-                Glissez un fichier SVG ici ou cliquez pour sélectionner
-              </div>
-              <div id="entity-dropzone-status"></div>
-            </div>
-          </div>
-        </div>
-        
-      </div>
+      <p class="cross-entity-popup-sub">Cette activité existe dans les cartos suivantes :</p>
+      <div id="cross-entity-list" class="cross-entity-list"></div>
     </div>
   </div>
 
-  <!-- ============================================================
-       POPUP ACTIONS CARTOGRAPHIE
-  ============================================================ -->
-  <div id="carto-actions-popup" class="popup hidden">
-    <div class="popup-content">
-      <h2>Actions sur la cartographie</h2>
-
-      <!-- SECTION 1: Upload/Rechargement de cartographie -->
-      <div class="action-section">
-        <h3>📤 Mettre à jour la cartographie</h3>
-        <p class="info-text-small">
-          Glissez un fichier SVG exporté depuis Visio pour mettre à jour la cartographie.
-        </p>
-        <div id="carto-dropzone" class="dropzone">
-          <span class="dropzone-icon">📁</span>
-          <span>Glissez votre fichier SVG ici</span>
-          <span class="dropzone-hint">ou cliquez pour sélectionner</span>
-          <input type="file" id="carto-file-input" accept=".svg" hidden>
+  <!-- Popup aperçu carto inter-entités -->
+  <div id="carto-preview-popup" class="carto-preview-popup hidden">
+    <div class="carto-preview-backdrop" id="carto-preview-backdrop"></div>
+    <div class="carto-preview-modal">
+      <div class="carto-preview-header">
+        <div class="carto-preview-header-left">
+          <i class="fa-solid fa-diagram-project"></i>
+          <span id="carto-preview-title">Cartographie</span>
         </div>
-        <div id="carto-dropzone-status"></div>
-      </div>
-
-      <hr>
-
-      <!-- SECTION 2: Synchronisation -->
-      <div class="action-section">
-        <h3>🔄 Synchronisation</h3>
-        <button id="resync-activities-btn" class="btn-green">
-          🔄 Re-synchroniser les activités
+        <button id="carto-preview-close" class="carto-preview-close" title="Fermer">
+          <i class="fa-solid fa-xmark"></i>
         </button>
-        <p class="info-text-small">
-          Vérifie les différences entre le SVG et la base de données.
-        </p>
       </div>
-
-      <hr>
-
-      <button id="close-popup" class="btn-red">Fermer</button>
+      <div class="carto-preview-body" id="carto-preview-body">
+        <div class="carto-preview-loading" id="carto-preview-loading">
+          <i class="fa-solid fa-circle-notch fa-spin"></i> Chargement de la cartographie…
+        </div>
+        <div id="carto-preview-svg-wrap" class="carto-preview-svg-wrap"></div>
+        <div class="carto-preview-readonly-badge">
+          <i class="fa-solid fa-eye"></i> Lecture seule — entité active inchangée
+        </div>
+      </div>
     </div>
   </div>
 
-  <!-- ============================================================
-       MODAL DE CONFIRMATION SUPPRESSION
-  ============================================================ -->
-  <div id="confirm-delete-modal" class="modal hidden">
-    <div class="modal-content modal-danger">
-      <h3>⚠️ Confirmer la suppression</h3>
-      <p id="delete-warning-text">
-        Êtes-vous sûr de vouloir supprimer cette entité ?
-      </p>
-      <p class="delete-warning-detail">
-        <strong>ATTENTION :</strong> Cette action supprimera définitivement :
-      </p>
-      <ul class="delete-consequences">
-        <li>Toutes les activités de cette entité</li>
-        <li>Toutes les tâches associées</li>
-        <li>Tous les rôles et compétences</li>
-        <li>Tous les savoirs, savoir-faires et aptitudes</li>
-        <li>Toutes les analyses de temps</li>
-        <li>La cartographie SVG</li>
-      </ul>
-      <p class="delete-warning-final">Cette action est <strong>IRRÉVERSIBLE</strong>.</p>
+  <!-- WIZARD UNIFIÉ -->
+  <div id="carto-wizard-popup" class="popup hidden" >
+    <div class="wizard-overlay"></div>
+    <div class="wizard-container">
       
+      <div class="wizard-header">
+        <h2 id="wizard-title"><i class="fa-solid fa-layer-group" style="color:#8b5cf6;margin-right:8px"></i>Gestion de la cartographie</h2>
+        <button id="close-wizard" class="btn-close"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+
+      <div class="wizard-progress hidden" id="wizard-progress">
+        <div class="progress-step" data-step="1">
+          <div class="step-circle">1</div>
+          <span class="step-label">Connexions</span>
+        </div>
+        <div class="progress-line" data-line="1"></div>
+        <div class="progress-step" data-step="2">
+          <div class="step-circle">2</div>
+          <span class="step-label">Cartographie</span>
+        </div>
+        <div class="progress-line" data-line="2"></div>
+        <div class="progress-step" data-step="3">
+          <div class="step-circle">3</div>
+          <span class="step-label">Récapitulatif</span>
+        </div>
+      </div>
+
+      <div class="wizard-content">
+
+        <!-- ÉCRAN 0 : SÉLECTION ENTITÉ -->
+        <div id="wizard-screen-entities" class="wizard-screen active">
+          <div class="entities-screen">
+            <div class="entities-header">
+              <h3><i class="fa-solid fa-building" style="color:#7c3aed;margin-right:6px"></i>Sélectionnez une entité</h3>
+              <p>Choisissez l'entité dont vous souhaitez gérer la cartographie</p>
+            </div>
+            <div class="new-entity-inline">
+              <input type="text" id="wizard-new-entity-name" placeholder="Nom de la nouvelle entité..." />
+              <button id="wizard-create-entity-btn" class="btn-create-entity">+ Créer</button>
+            </div>
+            <div class="entities-grid" id="wizard-entities-list"></div>
+            <div class="wizard-entities-empty hidden" id="wizard-entities-empty">
+              <div class="empty-icon">🏢</div>
+              <p>Aucune entité créée</p>
+              <p class="hint">Créez votre première entité pour commencer</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- ÉCRAN 1 : CHOIX ACTION -->
+        <div id="wizard-screen-action" class="wizard-screen">
+          <div class="action-screen">
+            <div class="selected-entity-card">
+              <div class="entity-card-header">
+                <div class="entity-card-icon"><i class="fa-solid fa-building"></i></div>
+                <div class="entity-card-info">
+                  <h3 id="selected-entity-name">Nom de l'entité</h3>
+                  <div class="entity-card-stats">
+                    <span class="stat"><strong id="selected-entity-activities">0</strong> activités</span>
+                    <span class="stat-separator">•</span>
+                    <span class="stat"><strong id="selected-entity-connections">0</strong> connexions</span>
+                  </div>
+                </div>
+                <span id="selected-entity-active-badge" class="active-badge hidden">Active</span>
+              </div>
+              <div class="entity-files-status">
+                <div class="file-status-item">
+                  <span class="file-icon"><i class="fa-solid fa-image" style="color:#8b5cf6"></i></span>
+                  <span class="file-label">SVG</span>
+                  <span class="file-value" id="selected-entity-svg-value">-</span>
+                </div>
+                <div class="file-status-item">
+                  <span class="file-icon"><i class="fa-solid fa-file-lines" style="color:#7c3aed"></i></span>
+                  <span class="file-label">VSDX</span>
+                  <span class="file-value" id="selected-entity-vsdx-value">-</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="action-section-title"><h4>Actions cartographie</h4></div>
+            <div class="wizard-actions-grid">
+              <button id="wizard-new-btn" class="wizard-action-card">
+                <div class="action-card-icon"><i class="fa-solid fa-wand-magic-sparkles"></i></div>
+                <div class="action-card-content">
+                  <strong>Nouvelle cartographie</strong>
+                  <span>Remplacer tous les fichiers</span>
+                </div>
+              </button>
+              <button id="wizard-update-btn" class="wizard-action-card" disabled>
+                <div class="action-card-icon"><i class="fa-solid fa-arrows-rotate"></i></div>
+                <div class="action-card-content">
+                  <strong>Modifier l'existante</strong>
+                  <span>Mettre à jour les fichiers</span>
+                </div>
+              </button>
+            </div>
+
+            <div class="action-section-title"><h4>Actions entité</h4></div>
+            <div class="entity-actions-row">
+              <button id="wizard-activate-btn" class="btn-action activate"><i class="fa-solid fa-check"></i> Activer</button>
+              <button id="wizard-rename-btn" class="btn-action rename"><i class="fa-solid fa-pen"></i> Renommer</button>
+              <button id="wizard-delete-btn" class="btn-action delete"><i class="fa-solid fa-trash"></i> Supprimer</button>
+            </div>
+
+            <div class="wizard-nav">
+              <button id="action-back" class="wizard-btn-secondary">← Retour aux entités</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ÉTAPE 1 : VSDX -->
+        <div id="wizard-screen-step1" class="wizard-screen">
+          <div class="wizard-step-header">
+            <div class="step-icon vsdx"><i class="fa-solid fa-file-lines"></i></div>
+            <div class="step-info">
+              <h3>Étape 1 : Fichier de connexions</h3>
+              <p>Importez votre fichier Visio (.vsdx) contenant les connexions</p>
+            </div>
+          </div>
+          <div id="keep-vsdx-option" class="keep-current-option hidden">
+            <label class="keep-checkbox">
+              <input type="checkbox" id="keep-vsdx-checkbox">
+              <span class="checkmark"></span>
+              <span class="keep-label">
+                <strong>Conserver le fichier actuel</strong>
+                <span class="keep-filename" id="current-vsdx-name"></span>
+              </span>
+            </label>
+          </div>
+          <div id="vsdx-dropzone-wrapper">
+            <div id="vsdx-dropzone" class="wizard-dropzone">
+              <div class="dropzone-content">
+                <div class="dropzone-icon"><i class="fa-solid fa-folder-open"></i></div>
+                <p class="dropzone-text">Glissez votre fichier .vsdx ici</p>
+                <p class="dropzone-hint">ou cliquez pour sélectionner</p>
+              </div>
+              <input type="file" id="vsdx-file-input" accept=".vsdx" hidden>
+            </div>
+            <div id="vsdx-preview" class="file-preview hidden">
+              <div class="preview-icon"><i class="fa-solid fa-file-lines"></i></div>
+              <div class="preview-info">
+                <span class="preview-name" id="vsdx-filename"></span>
+                <span class="preview-size" id="vsdx-filesize"></span>
+              </div>
+              <button class="preview-remove" id="vsdx-remove">✕</button>
+            </div>
+          </div>
+          <div class="step-hint">
+            <span class="info-icon">💡</span>
+            <span class="info-text">Ce fichier contient les connexions entre les activités (optionnel).</span>
+          </div>
+          <div class="wizard-nav">
+            <button id="step1-back" class="wizard-btn-secondary">← Retour</button>
+            <button id="step1-next" class="wizard-btn-primary">Continuer →</button>
+          </div>
+        </div>
+
+        <!-- ÉTAPE 2 : SVG -->
+        <div id="wizard-screen-step2" class="wizard-screen">
+          <div class="wizard-step-header">
+            <div class="step-icon svg"><i class="fa-solid fa-image"></i></div>
+            <div class="step-info">
+              <h3>Étape 2 : Fichier cartographie</h3>
+              <p>Importez votre fichier SVG exporté depuis Visio</p>
+            </div>
+          </div>
+          <div id="keep-svg-option" class="keep-current-option hidden">
+            <label class="keep-checkbox">
+              <input type="checkbox" id="keep-svg-checkbox">
+              <span class="checkmark"></span>
+              <span class="keep-label">
+                <strong>Conserver le fichier actuel</strong>
+                <span class="keep-filename" id="current-svg-name"></span>
+              </span>
+            </label>
+          </div>
+          <div id="svg-dropzone-wrapper">
+            <div id="svg-dropzone" class="wizard-dropzone">
+              <div class="dropzone-content">
+                <div class="dropzone-icon"><i class="fa-solid fa-folder-open"></i></div>
+                <p class="dropzone-text">Glissez votre fichier .svg ici</p>
+                <p class="dropzone-hint">ou cliquez pour sélectionner</p>
+              </div>
+              <input type="file" id="svg-file-input" accept=".svg" hidden>
+            </div>
+            <div id="svg-preview" class="file-preview hidden">
+              <div class="preview-icon"><i class="fa-solid fa-image"></i></div>
+              <div class="preview-info">
+                <span class="preview-name" id="svg-filename"></span>
+                <span class="preview-size" id="svg-filesize"></span>
+              </div>
+              <button class="preview-remove" id="svg-remove">✕</button>
+            </div>
+          </div>
+          <div class="step-hint">
+            <span class="info-icon">💡</span>
+            <span class="info-text">Exportez depuis Visio via <strong>Fichier → Exporter → SVG</strong>.</span>
+          </div>
+          <div class="wizard-nav">
+            <button id="step2-back" class="wizard-btn-secondary">← Retour</button>
+            <button id="step2-next" class="wizard-btn-primary">Continuer →</button>
+          </div>
+        </div>
+
+        <!-- ÉTAPE 3 : RÉCAPITULATIF -->
+        <div id="wizard-screen-step3" class="wizard-screen">
+          <div class="wizard-step-header">
+            <div class="step-icon recap"><i class="fa-solid fa-clipboard-check"></i></div>
+            <div class="step-info">
+              <h3>Étape 3 : Récapitulatif</h3>
+              <p>Vérifiez les informations avant de valider</p>
+            </div>
+          </div>
+          <div class="recap-entity">
+            <span class="recap-entity-label">Entité :</span>
+            <span class="recap-entity-name" id="recap-entity-name">-</span>
+          </div>
+          <div class="recap-files">
+            <div class="recap-file-card" id="recap-vsdx">
+              <div class="recap-file-icon vsdx"><i class="fa-solid fa-file-lines"></i></div>
+              <div class="recap-file-info">
+                <span class="recap-file-type">Fichier VSDX</span>
+                <span class="recap-file-name" id="recap-vsdx-name">-</span>
+              </div>
+              <div class="recap-file-status" id="recap-vsdx-status"></div>
+            </div>
+            <div class="recap-file-card" id="recap-svg">
+              <div class="recap-file-icon svg"><i class="fa-solid fa-image"></i></div>
+              <div class="recap-file-info">
+                <span class="recap-file-type">Fichier SVG</span>
+                <span class="recap-file-name" id="recap-svg-name">-</span>
+              </div>
+              <div class="recap-file-status" id="recap-svg-status"></div>
+            </div>
+          </div>
+          <div id="connections-preview-section" class="connections-preview-section hidden">
+            <h4>Aperçu des connexions</h4>
+            
+            <!-- Message info pour mode création -->
+            <div id="new-mode-info" class="new-mode-info hidden">
+              <span class="info-icon">ℹ️</span>
+              <p>Les activités seront automatiquement créées à partir du fichier SVG lors de l'import.</p>
+            </div>
+            
+            <div class="connections-stats" id="wizard-connections-stats"></div>
+            <div id="wizard-missing-warning" class="warning-box hidden">
+              <strong>⚠️ Activités non trouvées :</strong>
+              <ul id="wizard-missing-list"></ul>
+            </div>
+            <div class="connections-table-wrapper">
+              <table class="connections-table" id="wizard-connections-table">
+                <thead><tr><th>Source</th><th>→</th><th>Cible</th><th>Donnée</th><th>Type</th><th>Statut</th></tr></thead>
+                <tbody id="wizard-connections-tbody"></tbody>
+              </table>
+            </div>
+            <div class="import-option">
+              <label class="import-checkbox">
+                <input type="checkbox" id="clear-connections-checkbox">
+                <span class="checkmark"></span>
+                <span>Supprimer les connexions existantes avant import</span>
+              </label>
+            </div>
+          </div>
+          <div id="no-vsdx-message" class="no-vsdx-message hidden">
+            <span class="info-icon">ℹ️</span>
+            <p>Aucun fichier VSDX — les connexions existantes seront conservées.</p>
+          </div>
+          <div class="wizard-nav">
+            <button id="step3-back" class="wizard-btn-secondary">← Retour</button>
+            <button id="step3-submit" class="wizard-btn-success">✓ Valider et importer</button>
+          </div>
+        </div>
+
+        <!-- ÉCRAN TRAITEMENT -->
+        <div id="wizard-screen-processing" class="wizard-screen">
+          <div class="processing-content">
+            <div class="processing-spinner"></div>
+            <h3>Traitement en cours...</h3>
+            <p>Veuillez patienter</p>
+            <div class="processing-steps">
+              <div class="processing-step" id="proc-step-svg"><span class="proc-icon"><i class="fa-solid fa-image"></i></span> Importation cartographie</div>
+              <div class="processing-step" id="proc-step-vsdx"><span class="proc-icon"><i class="fa-solid fa-diagram-project"></i></span> Analyse connexions</div>
+              <div class="processing-step" id="proc-step-save"><span class="proc-icon"><i class="fa-solid fa-floppy-disk"></i></span> Enregistrement</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ÉCRAN SUCCÈS -->
+        <div id="wizard-screen-success" class="wizard-screen">
+          <div class="success-content">
+            <div class="success-icon"><i class="fa-solid fa-check"></i></div>
+            <h3>Importation réussie !</h3>
+            <p id="success-message">Cartographie mise à jour avec succès.</p>
+            <div class="success-stats" id="success-stats"></div>
+            <button id="success-close" class="wizard-btn-primary">Fermer et actualiser</button>
+          </div>
+        </div>
+
+        <!-- ÉCRAN ERREUR -->
+        <div id="wizard-screen-error" class="wizard-screen">
+          <div class="error-content">
+            <div class="error-icon"><i class="fa-solid fa-xmark"></i></div>
+            <h3>Une erreur s'est produite</h3>
+            <p id="error-message">Impossible de terminer l'importation.</p>
+            <div class="error-actions">
+              <button id="error-retry" class="wizard-btn-secondary">Réessayer</button>
+              <button id="error-close" class="wizard-btn-primary">Fermer</button>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL SUPPRESSION - Style inline de sécurité -->
+  <div id="confirm-delete-modal" class="modal hidden" >
+    <div class="modal-content modal-danger">
+      <h3><i class="fa-solid fa-triangle-exclamation" style="color:#ef4444;margin-right:6px"></i>Confirmer la suppression</h3>
+      <p>Cette action supprimera définitivement l'entité et toutes ses données.</p>
+      <p class="delete-warning-final">Cette action est <strong>IRRÉVERSIBLE</strong>.</p>
       <div class="modal-actions">
         <button id="cancel-delete-btn" class="btn-gray">Annuler</button>
-        <button id="confirm-delete-btn" class="btn-red">🗑️ Supprimer définitivement</button>
+        <button id="confirm-delete-btn" class="btn-red"><i class="fa-solid fa-trash"></i> Supprimer</button>
       </div>
     </div>
   </div>
 
-  <!-- ============================================================
-       MODAL DE RENOMMAGE
-  ============================================================ -->
-  <div id="rename-modal" class="modal hidden">
+  <!-- MODAL RENOMMAGE - Style inline de sécurité -->
+  <div id="rename-modal" class="modal hidden" >
     <div class="modal-content">
-      <h3>✏️ Renommer l'entité</h3>
+      <h3><i class="fa-solid fa-pen" style="color:#7c3aed;margin-right:6px"></i>Renommer l'entité</h3>
       <input type="text" id="rename-input" placeholder="Nouveau nom" />
       <div class="modal-actions">
         <button id="cancel-rename-btn" class="btn-gray">Annuler</button>
@@ -222,33 +430,22 @@
     </div>
   </div>
 
-  <!-- ============================================================
-       CONTENU PRINCIPAL
-  ============================================================ -->
+  <!-- CONTENU PRINCIPAL -->
   <div class="carto-container">
-
-    <!-- SVG (chargé inline par JavaScript) -->
     <div class="carto-left">
-
       <div class="carto-toolbar">
         <button id="carto-zoom-out">−</button>
         <button id="carto-zoom-reset">100%</button>
         <button id="carto-zoom-in">+</button>
       </div>
-
       <div id="carto-pan-wrapper" class="carto-pan-wrapper">
         <div id="pan-inner">
-          <!-- Le SVG sera chargé ici par JavaScript -->
           <div id="svg-container"></div>
         </div>
       </div>
-
     </div>
-
-    <!-- LISTE ACTIVITÉS -->
     <div class="carto-right">
       <h2>Liste des activités</h2>
-
       {% if activities %}
         <ul class="activities-list">
           {% for a in activities %}
@@ -261,12 +458,150 @@
       {% else %}
         <div class="no-activities">
           <p>Aucune activité pour cette entité.</p>
-          <p class="hint">Créez des activités depuis la page "Liste des activités".</p>
+          <p class="hint">Utilisez le bouton "📦 Gérer la cartographie" pour importer.</p>
         </div>
       {% endif %}
-        </div>
     </div>
-
   </div>
 
 </div>
+
+<!-- ── Modal EXPORT ── -->
+<div id="exportModal" class="export-modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="exportModalTitle">
+  <div class="export-modal-card">
+
+    <!-- Header gradient -->
+    <div class="export-modal-header">
+      <div class="export-modal-header-glow"></div>
+      <div class="export-modal-header-content">
+        <div class="export-modal-icon-wrap">
+          <i class="fa-solid fa-file-export"></i>
+        </div>
+        <div>
+          <h2 id="exportModalTitle" class="export-modal-title">Exporter les données</h2>
+          <p class="export-modal-subtitle" id="exportModalSubtitle">Chargement de l'entité…</p>
+        </div>
+      </div>
+      <button class="export-modal-close" id="exportModalClose" aria-label="Fermer">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+    </div>
+
+    <!-- Body -->
+    <div class="export-modal-body">
+
+      <!-- Filtre rôle -->
+      <div class="export-field">
+        <label class="export-label">
+          <i class="fa-solid fa-user-tag"></i> Filtrer par rôle <span class="export-optional">(optionnel)</span>
+        </label>
+        <div class="export-select-wrap">
+          <select id="exportRoleSelect" class="export-select">
+            <option value="">— Toute l'entité —</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Format -->
+      <div class="export-field">
+        <label class="export-label"><i class="fa-solid fa-file"></i> Format</label>
+        <div class="export-format-row">
+          <label class="export-format-card" id="fmt-excel-card">
+            <input type="radio" name="exportFormat" value="excel" checked>
+            <span class="export-format-icon"><i class="fa-solid fa-table"></i></span>
+            <span class="export-format-name">Excel</span>
+            <span class="export-format-ext">.xlsx</span>
+          </label>
+          <label class="export-format-card" id="fmt-html-card">
+            <input type="radio" name="exportFormat" value="html">
+            <span class="export-format-icon"><i class="fa-solid fa-globe"></i></span>
+            <span class="export-format-name">Rapport HTML</span>
+            <span class="export-format-ext">.html</span>
+          </label>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Footer -->
+    <div class="export-modal-footer">
+      <button class="export-btn-cancel" id="exportModalCancel">Annuler</button>
+      <button class="export-btn-dl" id="exportModalDownload">
+        <i class="fa-solid fa-download"></i> Télécharger
+      </button>
+    </div>
+
+  </div>
+</div>
+
+<script>
+(function() {
+  const btn     = document.getElementById("btn-export");
+  const modal   = document.getElementById("exportModal");
+  const closeBtn = document.getElementById("exportModalClose");
+  const cancelBtn = document.getElementById("exportModalCancel");
+  const dlBtn   = document.getElementById("exportModalDownload");
+  const roleSelect = document.getElementById("exportRoleSelect");
+  const subtitle = document.getElementById("exportModalSubtitle");
+
+  function openExportModal() {
+    const entity = window.ACTIVE_ENTITY;
+    if (!entity) {
+      alert("Aucune entité active. Activez d'abord une entité.");
+      return;
+    }
+    subtitle.textContent = entity.name || "Entité active";
+    modal.classList.remove("hidden");
+    document.body.style.overflow = "hidden";
+
+    // Load roles
+    roleSelect.innerHTML = '<option value="">— Toute l\'entité —</option>';
+    fetch("/roles/list")
+      .then(r => r.json())
+      .then(roles => {
+        roles.forEach(r => {
+          const opt = document.createElement("option");
+          opt.value = r.id;
+          opt.textContent = r.name;
+          roleSelect.appendChild(opt);
+        });
+      })
+      .catch(() => {});
+  }
+
+  function closeExportModal() {
+    modal.classList.add("hidden");
+    document.body.style.overflow = "";
+  }
+
+  function doDownload() {
+    const entity = window.ACTIVE_ENTITY;
+    if (!entity) return;
+    const roleId = roleSelect.value;
+    const format = document.querySelector('input[name="exportFormat"]:checked')?.value || "excel";
+    let url = `/export/entity?entity_id=${entity.id}&format=${format}`;
+    if (roleId) url += `&role_id=${roleId}`;
+    window.location.href = url;
+    closeExportModal();
+  }
+
+  btn?.addEventListener("click", openExportModal);
+  closeBtn?.addEventListener("click", closeExportModal);
+  cancelBtn?.addEventListener("click", closeExportModal);
+  dlBtn?.addEventListener("click", doDownload);
+  modal?.addEventListener("click", e => { if (e.target === modal) closeExportModal(); });
+  document.addEventListener("keydown", e => {
+    if (e.key === "Escape" && !modal.classList.contains("hidden")) closeExportModal();
+  });
+
+  // Format card visual
+  document.querySelectorAll('input[name="exportFormat"]').forEach(radio => {
+    radio.addEventListener("change", () => {
+      document.querySelectorAll(".export-format-card").forEach(c => c.classList.remove("selected"));
+      radio.closest(".export-format-card")?.classList.add("selected");
+    });
+  });
+  // Init selected state
+  document.querySelector('input[name="exportFormat"]:checked')?.closest(".export-format-card")?.classList.add("selected");
+})();
+</script>

@@ -1,95 +1,488 @@
-<!-- templates/competences_view.html -->
+<!-- 
+    FICHIER À PLACER DANS : templates/competences_view.html
+    
+    DÉPENDANCES REQUISES :
+    - static/competences.css
+    - static/js/synth_competences.js
+-->
 <!DOCTYPE html>
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Synthèse des Compétences</title>
-
-    <!-- Ton CSS existant -->
+    <title>Gestion des Compétences</title>
+    
+    <!-- Google Fonts - Distinctive typography -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&display=swap" rel="stylesheet">
+    
+    <!-- Main CSS -->
     <link rel="stylesheet" type="text/css" href="./../../../static/synthese_comp.css">
-    <!-- Styles supplémentaires (entête + cartes prérequis, modal, etc.) -->
-    <link rel="stylesheet" type="text/css" href="./../../../static/synth_competences_extras.css">
 </head>
 <body>
     <header>
         {% include 'header_buttons.html' %}
     </header>
 
-    <main>
-        <h1>Synthèse des Compétences</h1>
+    <!-- ═══════════════════════════════════════════════════════════════
+         LAYOUT PRINCIPAL : Sidebar + Contenu
+    ═══════════════════════════════════════════════════════════════ -->
+    <div class="comp-layout">
+        
+        <!-- SIDEBAR COLLABORATEURS -->
+        <aside class="comp-sidebar">
+            <div class="sidebar-header">
+                <div class="manager-badge">
+                    <span class="manager-dot"></span>
+                    <div class="manager-info">
+                        <span class="manager-label">Manager</span>
+                        <span class="manager-name" id="manager-name">—</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="sidebar-section">
+                <h3 class="sidebar-title">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                        <circle cx="9" cy="7" r="4"/>
+                        <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                        <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                    </svg>
+                    Collaborateurs
+                </h3>
+                <ul class="collab-list" id="collaborator-list">
+                    <!-- Injecté par JS -->
+                </ul>
+                <p class="sidebar-empty" id="no-collab-msg">Aucun collaborateur</p>
+            </div>
+        </aside>
 
-        <!-- ====== ENTÊTE STYLÉE (remplace #manager-display + label/select) ====== -->
-        <header class="page-competences-header">
-          <div class="manager-chip">
-            <span class="dot"></span>
-            <span>Manager : <strong id="manager-name"></strong></span>
-          </div>
+        <!-- CONTENU PRINCIPAL -->
+        <main class="comp-main">
+            
+            <!-- En-tête page -->
+            <div class="page-header">
+                <div class="page-header-content">
+                    <h1 class="page-title">Gestion des Compétences</h1>
+                    <p class="page-subtitle" id="selected-collab-name">Sélectionnez un collaborateur</p>
+                </div>
+                <div class="page-actions">
+                    <button id="toggle-summary" class="btn btn-outline" disabled>
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                            <polyline points="14,2 14,8 20,8"/>
+                            <line x1="16" y1="13" x2="8" y2="13"/>
+                            <line x1="16" y1="17" x2="8" y2="17"/>
+                            <polyline points="10,9 9,9 8,9"/>
+                        </svg>
+                        Synthèse globale
+                    </button>
+                    <button id="save-competencies-button" class="btn btn-primary" disabled>
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+                            <polyline points="17,21 17,13 7,13 7,21"/>
+                            <polyline points="7,3 7,8 15,8"/>
+                        </svg>
+                        Enregistrer
+                    </button>
+                </div>
+            </div>
 
-          <div class="collab-select">
-            <label for="collaborator-select">Collaborateur :</label>
-            <!-- Laisse vide : ton JS remplira les options -->
-            <select id="collaborator-select"></select>
-          </div>
-        </header>
-        <!-- ================================================================ -->
+            <!-- Message état vide -->
+            <div class="empty-state" id="empty-state">
+                <div class="empty-state-icon">
+                    <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                        <circle cx="9" cy="7" r="4"/>
+                        <line x1="19" y1="8" x2="19" y2="14"/>
+                        <line x1="22" y1="11" x2="16" y2="11"/>
+                    </svg>
+                </div>
+                <h2>Bienvenue</h2>
+                <p>Sélectionnez un collaborateur dans la liste pour voir et gérer ses compétences.</p>
+            </div>
 
-        <!-- On garde le conteneur des sections rôles juste après l’entête -->
-        <div id="roles-sections-container" style="margin-top: 30px;"></div>
+            <!-- Grille des rôles -->
+            <div class="roles-grid" id="roles-grid">
+                <!-- Cartes de rôles injectées par JS -->
+            </div>
 
-        <hr>
-        <button id="toggle-summary" class="btn btn-secondary">Afficher la synthèse globale</button>
-        <div id="global-summary-section" class="hidden" style="margin-top: 30px;"></div>
+            <!-- Section synthèse globale (cachée par défaut) -->
+            <div id="global-summary-section" class="summary-section hidden"></div>
 
-        <div id="roles-competencies" style="margin-top: 40px;"></div>
+        </main>
+    </div>
 
-        <button id="save-competencies-button">Enregistrer ma notation de compétence</button>
-        <p id="admin-permission-message" style="margin-top: 10px; font-weight: bold; color: green; display: none;">
-            Vous avez le statut d'administrateur. Vous pouvez ainsi modifier cette page de manière permanente.
-        </p>
-    </main>
+    <!-- ═══════════════════════════════════════════════════════════════
+         MODAL : Détail d'un Rôle (Liste activités + Tableau synthèse)
+    ═══════════════════════════════════════════════════════════════ -->
+    <div id="modal-role" class="modal hidden" data-modal="role">
+        <div class="modal-backdrop"></div>
+        <div class="modal-container modal-lg">
+            <div class="modal-header">
+                <button class="modal-back hidden" data-action="close-modal">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="19" y1="12" x2="5" y2="12"/>
+                        <polyline points="12,19 5,12 12,5"/>
+                    </svg>
+                </button>
+                <div class="modal-header-content">
+                    <span class="modal-badge">Rôle</span>
+                    <h2 class="modal-title" id="modal-role-title">—</h2>
+                </div>
+                <button class="modal-close" data-action="close-modal">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18"/>
+                        <line x1="6" y1="6" x2="18" y2="18"/>
+                    </svg>
+                </button>
+            </div>
+            <div class="modal-body" id="modal-role-body">
+                
+                <!-- Section : Liste des activités -->
+                <section class="modal-section">
+                    <h3 class="section-title">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="3" y="3" width="7" height="7"/>
+                            <rect x="14" y="3" width="7" height="7"/>
+                            <rect x="14" y="14" width="7" height="7"/>
+                            <rect x="3" y="14" width="7" height="7"/>
+                        </svg>
+                        Activités du rôle
+                    </h3>
+                    <div class="activities-grid" id="modal-activities-list">
+                        <!-- Cartes d'activités injectées par JS -->
+                    </div>
+                </section>
 
-    {% include 'competence_role_section.html' %}
+                <!-- Section : Tableau synthèse -->
+                <section class="modal-section">
+                    <h3 class="section-title">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M3 3h18v18H3z"/>
+                            <path d="M3 9h18"/>
+                            <path d="M9 21V9"/>
+                        </svg>
+                        Évaluation des activités du rôle
+                    </h3>
+                    <div class="table-wrapper">
+                        <table class="eval-table" id="modal-synthese-table">
+                            <thead>
+                                <tr>
+                                    <th>Activité</th>
+                                    <th class="th-eval">Garant</th>
+                                    <th class="th-eval">Manager</th>
+                                    <th class="th-eval">RH</th>
+                                </tr>
+                            </thead>
+                            <tbody id="modal-synthese-body">
+                                <!-- Lignes injectées par JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+                
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" data-action="close-modal">Fermer</button>
+                <button class="btn btn-primary" id="save-role-evals">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+                        <polyline points="17,21 17,13 7,13 7,21"/>
+                        <polyline points="7,3 7,8 15,8"/>
+                    </svg>
+                    Enregistrer les évaluations
+                </button>
+            </div>
+        </div>
+    </div>
 
+    <!-- ═══════════════════════════════════════════════════════════════
+         MODAL : Détail d'une Activité (3 onglets)
+    ═══════════════════════════════════════════════════════════════ -->
+    <div id="modal-activity" class="modal hidden" data-modal="activity">
+        <div class="modal-backdrop"></div>
+        <div class="modal-container modal-xl">
+            <div class="modal-header">
+                <button class="modal-back" data-action="back-to-role">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="19" y1="12" x2="5" y2="12"/>
+                        <polyline points="12,19 5,12 12,5"/>
+                    </svg>
+                    <span>Retour au rôle</span>
+                </button>
+                <div class="modal-header-content">
+                    <span class="modal-badge modal-badge-activity">Activité</span>
+                    <h2 class="modal-title" id="modal-activity-title">—</h2>
+                </div>
+                <button class="modal-close" data-action="close-all-modals">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18"/>
+                        <line x1="6" y1="6" x2="18" y2="18"/>
+                    </svg>
+                </button>
+            </div>
+            
+            <!-- Tabs Navigation -->
+            <div class="tabs-nav">
+                <button class="tab-btn active" data-tab="performances">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="20" x2="18" y2="10"/>
+                        <line x1="12" y1="20" x2="12" y2="4"/>
+                        <line x1="6" y1="20" x2="6" y2="14"/>
+                    </svg>
+                    Performances
+                </button>
+                <button class="tab-btn" data-tab="savoirs">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
+                        <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
+                    </svg>
+                    Savoirs / SF / HSC
+                </button>
+                <button class="tab-btn" data-tab="prerequis">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                        <polyline points="14,2 14,8 20,8"/>
+                        <line x1="12" y1="18" x2="12" y2="12"/>
+                        <line x1="9" y1="15" x2="15" y2="15"/>
+                    </svg>
+                    Prérequis & Plan
+                </button>
+            </div>
+
+            <div class="modal-body">
+                
+                <!-- TAB : Performances -->
+                <div class="tab-panel active" data-panel="performances" id="tab-performances">
+                    <div class="perf-wrapper" id="perf-container">
+                        <!-- Contenu performances injecté par JS -->
+                    </div>
+                </div>
+
+                <!-- TAB : Savoirs / Savoir-Faire / HSC -->
+                <div class="tab-panel" data-panel="savoirs" id="tab-savoirs">
+                    
+                    <!-- Savoirs -->
+                    <div class="knowledge-block">
+                        <div class="knowledge-header">
+                            <h4>
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <circle cx="12" cy="12" r="10"/>
+                                    <line x1="12" y1="16" x2="12" y2="12"/>
+                                    <line x1="12" y1="8" x2="12.01" y2="8"/>
+                                </svg>
+                                Savoirs
+                            </h4>
+                        </div>
+                        <div class="table-wrapper">
+                            <table class="eval-table compact">
+                                <thead>
+                                    <tr>
+                                        <th>Description</th>
+                                        <th class="th-eval">1</th>
+                                        <th class="th-eval">2</th>
+                                        <th class="th-eval">3</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="savoirs-tbody">
+                                    <!-- Lignes injectées par JS -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Savoir-Faire -->
+                    <div class="knowledge-block">
+                        <div class="knowledge-header">
+                            <h4>
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
+                                </svg>
+                                Savoir-Faire
+                            </h4>
+                        </div>
+                        <div class="table-wrapper">
+                            <table class="eval-table compact">
+                                <thead>
+                                    <tr>
+                                        <th>Description</th>
+                                        <th class="th-eval">1</th>
+                                        <th class="th-eval">2</th>
+                                        <th class="th-eval">3</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="savoir-faires-tbody">
+                                    <!-- Lignes injectées par JS -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- HSC -->
+                    <div class="knowledge-block">
+                        <div class="knowledge-header">
+                            <h4>
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+                                </svg>
+                                Habiletés Socio-Cognitives (HSC)
+                            </h4>
+                        </div>
+                        <div class="table-wrapper">
+                            <table class="eval-table compact">
+                                <thead>
+                                    <tr>
+                                        <th>Description</th>
+                                        <th class="th-eval">1</th>
+                                        <th class="th-eval">2</th>
+                                        <th class="th-eval">3</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="hsc-tbody">
+                                    <!-- Lignes injectées par JS -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    
+                    <!-- Bouton enregistrer pour les savoirs/SF/HSC -->
+                    <div class="savoirs-actions">
+                        <button class="btn btn-primary" id="save-savoirs-evals">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+                                <polyline points="17,21 17,13 7,13 7,21"/>
+                                <polyline points="7,3 7,8 15,8"/>
+                            </svg>
+                            Enregistrer les évaluations
+                        </button>
+                    </div>
+                    
+                </div>
+
+                <!-- TAB : Prérequis & Plan -->
+                <div class="tab-panel" data-panel="prerequis" id="tab-prerequis">
+                    <div class="prerequis-card" id="prerequis-container"
+                         data-activity-id=""
+                         data-role-id="">
+                        
+                        <div class="prerequis-header">
+                            <h4>
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                                </svg>
+                                Commentaires du manager
+                            </h4>
+                            <div class="prerequis-actions">
+                                <button class="btn btn-sm btn-outline" data-action="load-prerequis">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <polyline points="1,4 1,10 7,10"/>
+                                        <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/>
+                                    </svg>
+                                    Charger
+                                </button>
+                                <button class="btn btn-sm btn-primary" data-action="save-prerequis" disabled>
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+                                        <polyline points="17,21 17,13 7,13 7,21"/>
+                                        <polyline points="7,3 7,8 15,8"/>
+                                    </svg>
+                                    Enregistrer
+                                </button>
+                                <button class="btn btn-sm btn-emerald" data-action="generate-plan" disabled>
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <polygon points="13,2 3,14 12,14 11,22 21,10 12,10 13,2"/>
+                                    </svg>
+                                    Générer un plan
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div class="prerequis-table-wrapper">
+                            <table class="prerequis-table">
+                                <thead>
+                                    <tr>
+                                        <th style="width:40%">Item</th>
+                                        <th style="width:15%">Type</th>
+                                        <th style="width:45%">Commentaire</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="prerequis-tbody">
+                                    <!-- Lignes injectées par JS -->
+                                </tbody>
+                            </table>
+                        </div>
+                        <p class="prerequis-hint">💡 Indiquez les prérequis, difficultés observées ou niveau actuel pour chaque item.</p>
+                        
+                    </div>
+                </div>
+                
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════════
+         MODAL : Aperçu du Plan généré
+    ═══════════════════════════════════════════════════════════════ -->
+    <div id="modal-plan" class="modal hidden" data-modal="plan">
+        <div class="modal-backdrop"></div>
+        <div class="modal-container modal-lg">
+            <div class="modal-header modal-header-plan">
+                <button class="modal-back" data-action="back-to-activity">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="19" y1="12" x2="5" y2="12"/>
+                        <polyline points="12,19 5,12 12,5"/>
+                    </svg>
+                    <span>Retour</span>
+                </button>
+                <div class="modal-header-content">
+                    <span class="modal-badge modal-badge-plan">Plan</span>
+                    <h2 class="modal-title">Proposition de plan</h2>
+                </div>
+                <button class="modal-close" data-action="close-plan-modal">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18"/>
+                        <line x1="6" y1="6" x2="18" y2="18"/>
+                    </svg>
+                </button>
+            </div>
+            <div class="modal-body" id="modal-plan-body">
+                <!-- Contenu du plan injecté par JS -->
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" data-action="close-plan-modal">Fermer</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════════
+         OVERLAY DE CHARGEMENT
+    ═══════════════════════════════════════════════════════════════ -->
+    <div id="page-loader" class="page-loader hidden">
+        <div class="loader-content">
+            <div class="loader-spinner"></div>
+            <p class="loader-text">Chargement...</p>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════════
+         TOAST NOTIFICATIONS
+    ═══════════════════════════════════════════════════════════════ -->
+    <div id="toast-container"></div>
+
+    <!-- ═══════════════════════════════════════════════════════════════
+         SCRIPTS
+    ═══════════════════════════════════════════════════════════════ -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/underscore.js/1.13.6/underscore-min.js"></script>
     <script src="{{ url_for('static', filename='js/synth_competences.js') }}"></script>
     <script src="{{ url_for('static', filename='js/plan_formation.js') }}"></script>
-
-    <script>
-        document.addEventListener("DOMContentLoaded", function () {
-            if (typeof userStatus !== 'undefined' && userStatus === 'administrateur') {
-                document.getElementById("admin-permission-message").style.display = "block";
-            }
-        });
-    </script>
-
-    {% include 'performance_perso_block.html' %}
     <script src="{{ url_for('static', filename='js/performance_perso.js') }}"></script>
 
-    <!-- Toast (conservé) -->
-    <div id="toast-message" class="toast hidden">Succès</div>
-
-    <!-- Modal d’aperçu du plan (unique) -->
-    <div id="plan-modal" class="modal hidden">
-      <div class="modal__panel">
-        <div class="modal__head">
-          <h3>Proposition de plan</h3>
-          <button class="modal__close" data-modal-close>×</button>
-        </div>
-        <div id="plan-modal-content" class="modal__body"></div>
-        <div class="modal__foot">
-          <button class="btn" data-modal-close>Fermer</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- Overlay de chargement global (génération de plan) -->
-    <div id="page-loader" class="page-loader hidden">
-      <div style="display:flex; flex-direction:column; align-items:center;">
-        <div class="spinner"></div>
-        <div class="label">Génération du plan…</div>
-      </div>
-    </div>
+    <!-- Templates inclus (pour compatibilité) -->
+    {% include 'performance_perso_block.html' %}
 
 </body>
 </html>

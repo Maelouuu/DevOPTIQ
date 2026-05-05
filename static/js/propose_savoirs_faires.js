@@ -67,48 +67,54 @@
   }
 
   function ensureModal() {
-    let modal = document.getElementById("proposeSavoirsFairesModal");
-    if (!modal) {
-      modal = document.createElement("div");
+    let overlay = document.getElementById("proposeSavoirsFairesModalOverlay");
+    if (!overlay) {
+      overlay = document.createElement("div");
+      overlay.id = "proposeSavoirsFairesModalOverlay";
+      overlay.className = "modal-overlay-propose";
+      overlay.style.display = "none";
+      overlay.onclick = (e) => { if(e.target === overlay) overlay.style.display = 'none'; };
+
+      const modal = document.createElement("div");
       modal.id = "proposeSavoirsFairesModal";
-      Object.assign(modal.style, {
-        position: "fixed",
-        left: "10%",
-        top: "10%",
-        width: "80%",
-        maxHeight: "80vh",
-        overflow: "auto",
-        background: "#fff",
-        border: "1px solid #aaa",
-        padding: "16px",
-        zIndex: "9999",
-        boxShadow: "0 10px 25px rgba(0,0,0,0.15)",
-        borderRadius: "10px",
-      });
-      document.body.appendChild(modal);
+      modal.className = "modal-content-propose";
+      overlay.appendChild(modal);
+      document.body.appendChild(overlay);
     }
-    return modal;
+    return overlay;
   }
 
   function showProposedSavoirsFairesModal(sfList, sList, activityId) {
-    const modal = ensureModal();
+    const overlay = ensureModal();
+    const modal = overlay.querySelector('#proposeSavoirsFairesModal');
 
     modal.innerHTML = `
-      <h3 style="margin-top:0">Propositions Savoir-Faire & Savoirs</h3>
-      <p style="color:#888;font-size:0.85rem;">(Si vous voyez des propositions “génériques”, c’est que la clé OpenAI n’est pas définie côté serveur.)</p>
-      <div style="display:flex; gap:30px; align-items:flex-start; flex-wrap:wrap;">
-        <div style="flex:1; min-width:280px;">
-          <h4 style="margin:6px 0 10px;">Savoir-Faire</h4>
-          <ul id="sfList" style="list-style:none; padding-left:0; margin:0;"></ul>
-        </div>
-        <div style="flex:1; min-width:280px;">
-          <h4 style="margin:6px 0 10px;">Savoirs</h4>
-          <ul id="sList" style="list-style:none; padding-left:0; margin:0;"></ul>
+      <div class="modal-header-propose">
+        <h3><i class="fa-solid fa-sparkles"></i> Propositions Savoir-Faire & Savoirs</h3>
+        <button class="modal-close-btn-propose" id="closeSFModalBtn">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+      <div class="modal-body-propose">
+        <p style="color:#888;font-size:0.85rem; margin-bottom:16px;">(Si vous voyez des propositions "génériques", c'est que la clé OpenAI n'est pas définie côté serveur.)</p>
+        <div style="display:flex; gap:30px; align-items:flex-start; flex-wrap:wrap;">
+          <div style="flex:1; min-width:280px;">
+            <h4 style="margin:6px 0 10px;">Savoir-Faire</h4>
+            <ul id="sfList" class="proposals-list-propose"></ul>
+          </div>
+          <div style="flex:1; min-width:280px;">
+            <h4 style="margin:6px 0 10px;">Savoirs</h4>
+            <ul id="sList" class="proposals-list-propose"></ul>
+          </div>
         </div>
       </div>
-      <div style="margin-top:16px; display:flex; gap:10px; justify-content:flex-end;">
-        <button id="validateBtn" class="btn btn-primary">Enregistrer</button>
-        <button id="cancelBtn" class="btn">Annuler</button>
+      <div class="modal-footer-propose">
+        <button id="cancelBtn" class="btn-modal-secondary-propose">
+          <i class="fa-solid fa-xmark"></i> Annuler
+        </button>
+        <button id="validateBtn" class="btn-modal-primary-propose">
+          <i class="fa-solid fa-check"></i> Enregistrer
+        </button>
       </div>
     `;
 
@@ -121,8 +127,8 @@
         return;
       }
       container.innerHTML = items.map(desc => `
-        <li style="margin-bottom:4px;">
-          <label style="display:flex; gap:6px; align-items:flex-start;">
+        <li>
+          <label class="proposal-item-propose">
             <input type="checkbox" data-type="${type}" data-desc="${escapeHtml(desc)}" checked />
             <span>${escapeHtml(desc)}</span>
           </label>
@@ -133,8 +139,11 @@
     fill(sfEl, sfList, "sf");
     fill(sEl, sList, "s");
 
+    modal.querySelector("#closeSFModalBtn").onclick = () => {
+      overlay.style.display = "none";
+    };
     modal.querySelector("#cancelBtn").onclick = () => {
-      modal.style.display = "none";
+      overlay.style.display = "none";
     };
 
     modal.querySelector("#validateBtn").onclick = async () => {
@@ -188,7 +197,7 @@
           await refreshActivityItems(activityId);
         }
 
-        modal.style.display = "none";
+        overlay.style.display = "none";
       } catch (err) {
         console.error("Erreur d'enregistrement:", err);
         alert("Erreur lors de l'enregistrement des propositions (voir console).");
@@ -197,7 +206,7 @@
       }
     };
 
-    modal.style.display = "block";
+    overlay.style.display = "flex";
   }
 
   // Exposer globalement

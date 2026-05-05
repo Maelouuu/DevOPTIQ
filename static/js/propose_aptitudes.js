@@ -1,330 +1,688 @@
 // Code/static/js/propose_aptitudes.js
 (function () {
-  const API_PROPOSE = "/propose_aptitudes/propose";
-  const API_ADD     = "/aptitudes/add";
-  const API_RENDER  = (activityId) => `/aptitudes/${activityId}/render`;
+  const API_PROPOSE     = "/propose_aptitudes/propose";
+  const API_FEASIBILITY = "/propose_aptitudes/feasibility";
 
   const safeShowSpinner = () => (typeof showSpinner === "function" ? showSpinner() : void 0);
-  const safeHideSpinner = () => (typeof hideSpinner === "function" ? hideSpinner()  : void 0);
+  const safeHideSpinner = () => (typeof hideSpinner === "function" ? hideSpinner() : void 0);
 
   function $(sel, ctx = document) { return ctx.querySelector(sel); }
-  function $all(sel, ctx = document) { return Array.from(ctx.querySelectorAll(sel)); }
 
-  // fetch avec timeout (par défaut 60s) pour éviter attente infinie, mais laisser le temps d'une analyse
+  function escHtml(str) {
+    return String(str).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#039;");
+  }
+
   async function fetchWithTimeout(url, opts = {}, timeoutMs = 60000) {
     const ctl = new AbortController();
     const id  = setTimeout(() => ctl.abort(), timeoutMs);
-    try {
-      const resp = await fetch(url, { signal: ctl.signal, ...opts });
-      return resp;
-    } finally {
-      clearTimeout(id);
-    }
+    try { return await fetch(url, { signal: ctl.signal, ...opts }); }
+    finally { clearTimeout(id); }
   }
 
-  // -------- Parsing des propositions (version anti-titres, anti-contexte) --------
-// Ne garde QUE les lignes d'aptitudes de la "Section A", jamais les titres/groupes.
-function parseAptitudesFromText(input) {
-  const groups = [];
-  if (!input) return groups;
+  // ============================================================
+  //  AIDES / COMPENSATIONS PRÉDÉFINIES
+  // ============================================================
+  const AIDS_CATEGORIES = [
+    { title: "Aides visuelles", items: [
+      "Zoom / agrandissement écran", "Contraste élevé", "Lecteur d'écran", "Grand écran / double écran"
+    ]},
+    { title: "Aides auditives", items: [
+      "Prothèse auditive", "Boucle magnétique", "Sous-titrage temps réel", "Communication écrite prioritaire"
+    ]},
+    { title: "Aides motrices", items: [
+      "Clavier / souris adapté", "Reconnaissance vocale / dictée", "Support bras / poignet", "Bureau réglable en hauteur"
+    ]},
+    { title: "Aides cognitives", items: [
+      "Aide-mémoire / check-lists", "Logiciel de structuration", "Temps supplémentaire", "Consignes simplifiées"
+    ]},
+    { title: "Aides environnementales", items: [
+      "Bureau isolé / calme", "Casque anti-bruit", "Éclairage adapté", "Horaires aménagés"
+    ]}
+  ];
 
-  // Si l’API renvoie déjà un tableau -> groupe unique
-  if (Array.isArray(input)) {
-    const cleaned = input.map(s => (s || "").toString().trim()).filter(Boolean);
-    if (cleaned.length) groups.push({ group: "Aptitudes", items: cleaned });
-    return groups;
-  }
+  // ============================================================
+  //  STATE
+  // ============================================================
+  let _scoringData = null;
+  let _activityName = "";
+  let _activityId = null;
 
-  // Normalisation de base
-  const norm = String(input)
-    // remplacer tirets longs/means par un simple "-"
-    .replace(/[–—]/g, "-")
-    // enlever doubles espaces
-    .replace(/[ \t]+/g, " ");
-
-  // Isoler Section A uniquement
-  const idxA = norm.toLowerCase().indexOf("section a");
-  if (idxA === -1) return groups;
-  let sectionA = norm.slice(idxA);
-  const idxB = sectionA.toLowerCase().indexOf("section b");
-  if (idxB !== -1) sectionA = sectionA.slice(0, idxB);
-
-  const lines = sectionA
-    .split(/\r?\n/)
-    .map(l => l.trim())
-    .filter(Boolean);
-
-  // Helpers
-  const stripMd = (s) =>
-    s.replace(/\*\*/g, "")       // gras
-     .replace(/`/g, "")          // code
-     .replace(/\s+/g, " ")
-     .trim();
-
-  const isSectionHeader = (l) => /^#{1,6}\s*section\s+[ab]\b/i.test(stripMd(l));
-  const isExample       = (l) => /^(\*{0,2})?exemple\b/i.test(stripMd(l));
-
-  // Titres groupe type: "1. **Aptitudes physiques :**" (ou sans "**")
-  const isGroupHeader = (l) => {
-    const s = stripMd(l);
-    // commence par chiffre + point
-    if (!/^\d+\.\s+/.test(s)) return false;
-    // ne doit PAS contenir d'info après le ":" (ou pas de ":" du tout)
-    // ex: "1. Aptitudes physiques :" ou "1. Aptitudes physiques"
-    const afterNum = s.replace(/^\d+\.\s+/, "");
-    // on considère que c'est un header si le libellé commence par "Aptitudes"
-    if (!/^Aptitudes\b/i.test(afterNum)) return false;
-    // s'il y a un ":", il ne doit rien y avoir d'utile après
-    const parts = afterNum.split(":");
-    return parts.length === 1 || (parts.length === 2 && parts[1].trim() === "");
-  };
-
-  // Une ligne sélectionnable = "libellé : valeur ..." qui:
-  // - n'est pas une section, ni un exemple
-  // - n'est pas un header de groupe
-  // - n'est pas une ligne de contexte "Aptitudes ... :" (pas d'info après le ':')
-  // - ne commence pas par "<num>. " (titres numérotés)
-  // - a bien du texte avant ET après le ":" (pas juste un libellé)
-  const isCandidate = (l) => {
-    const s = stripMd(l);
-    if (isSectionHeader(l) || isExample(l) || isGroupHeader(l)) return false;
-    if (/^\d+\.\s+/.test(s)) return false;                // titres numérotés
-    if (!s.includes(":")) return false;                   // doit contenir un ':'
-    const [left, right] = s.split(/:(.+)/).map(x => (x || "").trim());
-    if (!left || !right) return false;                    // rien après ':'
-    if (/^Aptitudes\b/i.test(left)) return false;         // contexte "Aptitudes … :"
-    return true;
-  };
-
-  let currentGroup = null;
-
-  for (const raw of lines) {
-    // ignorer sections/exemples
-    if (isSectionHeader(raw) || isExample(raw)) continue;
-
-    // en-tête de groupe ?
-    if (isGroupHeader(raw)) {
-      const name = stripMd(raw)
-        .replace(/^\d+\.\s+/, "")
-        .replace(/\s*:$/, "")
-        .trim(); // ex: "Aptitudes physiques"
-      currentGroup = { group: name, items: [] };
-      groups.push(currentGroup);
-      continue;
-    }
-
-    // item d’aptitude
-    if (isCandidate(raw)) {
-      const label = stripMd(raw).replace(/^[-•]\s*/, "").trim();
-      if (!label) continue;
-      if (!currentGroup) currentGroup = { group: "Aptitudes", items: [] }, groups.push(currentGroup);
-      if (!currentGroup.items.includes(label)) currentGroup.items.push(label);
-    }
-  }
-
-  // supprimer groupes vides
-  return groups.filter(g => g.items.length > 0);
-}
-
-
-
-  // -------- UI modale (overlay inline, pas de CSS externe requis) --------
+  // ============================================================
+  //  MODAL MANAGEMENT
+  // ============================================================
   function ensureModal() {
-    let modal = $("#proposeAptitudesModal");
-    if (!modal) {
-      modal = document.createElement("div");
-      modal.id = "proposeAptitudesModal";
-      Object.assign(modal.style, {
-        position: "fixed",
-        inset: "0",
-        background: "rgba(0,0,0,0.35)",
-        zIndex: "9999",
-        display: "none",
-      });
+    let overlay = $("#proposeAptitudesModalOverlay");
+    if (!overlay) {
+      overlay = document.createElement("div");
+      overlay.id = "proposeAptitudesModalOverlay";
+      overlay.className = "modal-overlay-propose";
+      overlay.style.display = "none";
+      overlay.onclick = (e) => { if (e.target === overlay) hideModal(); };
 
       const dialog = document.createElement("div");
-      Object.assign(dialog.style, {
-        position: "absolute",
-        left: "50%",
-        top: "8%",
-        transform: "translateX(-50%)",
-        width: "min(900px, 92vw)",
-        maxHeight: "84vh",
-        overflow: "auto",
-        background: "#fff",
-        border: "1px solid #aaa",
-        borderRadius: "10px",
-        boxShadow: "0 10px 25px rgba(0,0,0,0.15)",
-        padding: "16px",
-      });
+      dialog.id = "proposeAptitudesModal";
+      dialog.className = "modal-content-propose modal-wide";
       dialog.innerHTML = `
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-          <h3 style="margin:0;">Propositions d'aptitudes</h3>
-          <button id="apt-close" title="Fermer" style="font-size:20px; line-height:1;">&times;</button>
+        <div class="modal-header-propose">
+          <h3 id="apt-modal-title"><i class="fa-solid fa-universal-access"></i> Analyse Inclusion</h3>
+          <button class="modal-close-btn-propose" id="apt-close">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
         </div>
-        <div id="aptitudes-groups"></div>
-        <div style="margin-top:16px; display:flex; gap:10px; justify-content:space-between; align-items:center;">
-          <div>
-            <label><input type="checkbox" id="apt-select-all"> Tout sélectionner</label>
+        <div class="modal-body-propose" id="apt-modal-body"></div>
+        <div class="modal-footer-propose" id="apt-modal-footer"></div>
+      `;
+      overlay.appendChild(dialog);
+      document.body.appendChild(overlay);
+      $("#apt-close", dialog).onclick = () => hideModal();
+    }
+    return overlay;
+  }
+
+  function showModal() { ensureModal().style.display = "flex"; }
+  function hideModal() { const m = $("#proposeAptitudesModalOverlay"); if (m) m.style.display = "none"; }
+
+  // ============================================================
+  //  STEP 1 : SCORING INCLUSION
+  // ============================================================
+  function renderNiveauBadge(niveau) {
+    const s = String(niveau).toLowerCase();
+    const m = s.match(/(\d)/);
+    let n = '0';
+    if (m) {
+      n = m[1];
+    } else if (s.includes('sév') || s.includes('sev') || s.includes('fort') || s.includes('élevé')) {
+      n = '3';
+    } else if (s.includes('mod')) {
+      n = '2';
+    } else if (s.includes('lég') || s.includes('leg') || s.includes('faible') || s.includes('limit')) {
+      n = '1';
+    }
+    return `<span class="scoring-niveau-badge scoring-niveau-${n}">${escHtml(niveau)}</span>`;
+  }
+
+  function renderScoringStep(data) {
+    const body = $("#apt-modal-body");
+    const footer = $("#apt-modal-footer");
+    const title = $("#apt-modal-title");
+    title.innerHTML = '<i class="fa-solid fa-universal-access"></i> Analyse Inclusion — Scoring';
+
+    let html = '';
+
+    // Step indicator (dot 2 cliquable pour aller à la faisabilité si scoring chargé)
+    html += `
+      <div class="step-indicator">
+        <span class="step-dot active">1</span>
+        <span class="step-label active">Scoring Inclusion</span>
+        <span class="step-separator"></span>
+        <span class="step-dot inactive clickable" id="apt-dot-2">2</span>
+        <span class="step-label">Faisabilité</span>
+      </div>
+    `;
+
+    html += '<div class="scoring-container">';
+
+    // Vision
+    if (data.vision) {
+      html += `
+        <div class="scoring-category">
+          <div class="scoring-category-header">
+            <span class="scoring-category-title"><i class="fa-solid fa-eye"></i> Vision</span>
+            ${renderNiveauBadge(data.vision.niveau)}
           </div>
-          <div>
-            <button id="btn-validate-aptitudes" class="btn btn-primary">Enregistrer</button>
-            <button id="btn-cancel-aptitudes" class="btn">Annuler</button>
-          </div>
+          <div class="scoring-risque">${escHtml(data.vision.risque || '')}</div>
+          <ul class="scoring-leviers">
+            ${(data.vision.leviers || []).map(l => `<li>${escHtml(l)}</li>`).join('')}
+          </ul>
         </div>
       `;
-      modal.appendChild(dialog);
-      document.body.appendChild(modal);
-
-      $("#apt-close", modal).onclick = () => hideModal();
-      $("#btn-cancel-aptitudes", modal).onclick = () => hideModal();
-      modal.addEventListener("click", (e) => { if (e.target === modal) hideModal(); });
-      $("#apt-select-all", modal).addEventListener("change", (e) => {
-        const checked = e.target.checked;
-        $all('input[type="checkbox"][data-apt="1"]', modal).forEach(cb => cb.checked = checked);
-      });
     }
-    return modal;
+
+    // Auditif
+    if (data.auditif) {
+      html += `
+        <div class="scoring-category">
+          <div class="scoring-category-header">
+            <span class="scoring-category-title"><i class="fa-solid fa-ear-deaf"></i> Auditif</span>
+            ${renderNiveauBadge(data.auditif.niveau)}
+          </div>
+          <div class="scoring-risque">${escHtml(data.auditif.risque || '')}</div>
+          <ul class="scoring-leviers">
+            ${(data.auditif.leviers || []).map(l => `<li>${escHtml(l)}</li>`).join('')}
+          </ul>
+        </div>
+      `;
+    }
+
+    // Physique — sous-niveaux comme badges dans le header
+    if (data.physique) {
+      const p = data.physique;
+      html += `
+        <div class="scoring-category">
+          <div class="scoring-category-header">
+            <span class="scoring-category-title"><i class="fa-solid fa-person"></i> Physique</span>
+            <div class="scoring-physique-badges">
+              <span class="scoring-physique-sub"><span class="scoring-physique-label">Haut</span>${renderNiveauBadge(p.haut_du_corps)}</span>
+              <span class="scoring-physique-sub"><span class="scoring-physique-label">Bas</span>${renderNiveauBadge(p.bas_du_corps)}</span>
+              <span class="scoring-physique-sub"><span class="scoring-physique-label">Fatigue</span>${renderNiveauBadge(p.fatigabilite)}</span>
+            </div>
+          </div>
+          <div class="scoring-risque">${escHtml(p.risque || '')}</div>
+          <ul class="scoring-leviers">
+            ${(p.leviers || []).map(l => `<li>${escHtml(l)}</li>`).join('')}
+          </ul>
+        </div>
+      `;
+    }
+
+    // Environnemental
+    if (data.environnemental) {
+      html += `
+        <div class="scoring-category">
+          <div class="scoring-category-header">
+            <span class="scoring-category-title"><i class="fa-solid fa-volume-high"></i> Environnemental</span>
+            ${renderNiveauBadge(data.environnemental.niveau)}
+          </div>
+          <div class="scoring-risque">${escHtml(data.environnemental.risque || '')}</div>
+          <ul class="scoring-leviers">
+            ${(data.environnemental.leviers || []).map(l => `<li>${escHtml(l)}</li>`).join('')}
+          </ul>
+        </div>
+      `;
+    }
+
+    // Exposition / Risque
+    if (data.exposition_risque) {
+      html += `
+        <div class="scoring-category">
+          <div class="scoring-category-header">
+            <span class="scoring-category-title"><i class="fa-solid fa-triangle-exclamation"></i> Exposition / Risque</span>
+            ${renderNiveauBadge(data.exposition_risque.niveau)}
+          </div>
+          <div class="scoring-risque">${escHtml(data.exposition_risque.risque || '')}</div>
+          <ul class="scoring-leviers">
+            ${(data.exposition_risque.leviers || []).map(l => `<li>${escHtml(l)}</li>`).join('')}
+          </ul>
+        </div>
+      `;
+    }
+
+    html += '</div>'; // end scoring-container
+
+    // Profils valorisables
+    if (data.profils_valorisables && data.profils_valorisables.length) {
+      html += `<div style="margin-top:18px;">`;
+      html += `<div class="scoring-profils-title"><i class="fa-solid fa-star"></i> Profils valorisables</div>`;
+      data.profils_valorisables.forEach(pv => {
+        html += `
+          <div class="profil-valorisable">
+            <div class="profil-name">${escHtml(pv.profil)}</div>
+            <div class="profil-atout">${escHtml(pv.atout_possible)}</div>
+            <div class="profil-condition">${escHtml(pv.condition)}</div>
+          </div>
+        `;
+      });
+      html += '</div>';
+    }
+
+    body.innerHTML = html;
+
+    // Dot 2 → naviguer vers faisabilité
+    const dot2 = $("#apt-dot-2");
+    if (dot2) dot2.onclick = () => renderFeasibilityForm();
+
+    // Footer
+    footer.innerHTML = `
+      <button class="btn-modal-secondary-propose" id="apt-close-btn">
+        <i class="fa-solid fa-xmark"></i> Fermer
+      </button>
+      <button class="btn-modal-secondary-propose" id="apt-save-leviers-btn">
+        <i class="fa-solid fa-floppy-disk"></i> Sauvegarder le scoring
+      </button>
+      <button class="btn-modal-primary-propose" id="apt-feasibility-btn">
+        <i class="fa-solid fa-wheelchair"></i> Évaluer la faisabilité
+      </button>
+    `;
+
+    $("#apt-close-btn").onclick = () => hideModal();
+    $("#apt-save-leviers-btn").onclick = () => saveLeviers(data);
+    $("#apt-feasibility-btn").onclick = () => renderFeasibilityForm();
   }
-  function showModal() { const m = ensureModal(); m.style.display = "block"; }
-  function hideModal() { const m = $("#proposeAptitudesModal"); if (m) m.style.display = "none"; }
 
-  function renderGroupsInModal(groups) {
-    const container = $("#aptitudes-groups");
-    container.innerHTML = "";
+  // ============================================================
+  //  STEP 2 : FAISABILITÉ FORM
+  // ============================================================
+  function renderFeasibilityForm() {
+    const body = $("#apt-modal-body");
+    const footer = $("#apt-modal-footer");
+    const title = $("#apt-modal-title");
+    title.innerHTML = '<i class="fa-solid fa-wheelchair"></i> Faisabilité d\'adaptation';
 
-    if (!groups.length) {
-      container.innerHTML = `<p>Aucune aptitude sélectionnable n'a été trouvée dans la Section A.</p>`;
+    const profileFields = [
+      { key: "vision", label: "Vision" },
+      { key: "audition", label: "Audition / communication" },
+      { key: "motricite_fine", label: "Motricité fine (mains)" },
+      { key: "mobilite_posture", label: "Mobilité / posture" },
+      { key: "endurance", label: "Endurance / fatigabilité" },
+      { key: "sensibilite_env", label: "Sensibilité environnementale" }
+    ];
+
+    const options = `
+      <option value="inconnu">— Non renseigné —</option>
+      <option value="0">0 (Aucune limitation)</option>
+      <option value="1">1 (Légère)</option>
+      <option value="2">2 (Modérée)</option>
+      <option value="3">3 (Sévère)</option>
+    `;
+
+    let html = '';
+
+    // Step indicator (dot 1 cliquable pour revenir au scoring)
+    html += `
+      <div class="step-indicator">
+        <span class="step-dot inactive clickable" id="apt-dot-1">1</span>
+        <span class="step-label">Scoring Inclusion</span>
+        <span class="step-separator"></span>
+        <span class="step-dot active">2</span>
+        <span class="step-label active">Faisabilité</span>
+      </div>
+    `;
+
+    // Profil fonctionnel
+    html += `<div class="feasibility-section-title"><i class="fa-solid fa-user-gear"></i> Profil fonctionnel</div>`;
+    html += '<div class="feasibility-form">';
+    profileFields.forEach(f => {
+      html += `
+        <div class="feasibility-field">
+          <label for="feas-${f.key}">${f.label}</label>
+          <select id="feas-${f.key}">${options}</select>
+        </div>
+      `;
+    });
+    html += '</div>';
+
+    // Commentaire
+    html += `
+      <div class="feasibility-section-title"><i class="fa-solid fa-comment"></i> Commentaire court (facultatif)</div>
+      <div class="feasibility-field" style="max-width:100%;">
+        <input type="text" id="feas-commentaire" placeholder="Sans détail médical..." style="width:100%;">
+      </div>
+    `;
+
+    // Aides / compensations
+    html += `<div class="feasibility-section-title"><i class="fa-solid fa-toolbox"></i> Aides / compensations déjà en place</div>`;
+    html += '<div class="aids-section">';
+    AIDS_CATEGORIES.forEach(cat => {
+      html += `<div class="aids-group-title">${escHtml(cat.title)}</div>`;
+      html += '<div class="aids-checklist">';
+      cat.items.forEach(item => {
+        const id = 'aid-' + item.replace(/[^a-zA-Z0-9]/g, '-').toLowerCase();
+        html += `<label><input type="checkbox" id="${id}" value="${escHtml(item)}"> ${escHtml(item)}</label>`;
+      });
+      html += '</div>';
+    });
+    html += `
+      <div class="aids-other-field">
+        <input type="text" id="feas-aids-other" placeholder="Autres aides (préciser)...">
+      </div>
+    `;
+    html += '</div>';
+
+    body.innerHTML = html;
+
+    // Dot 1 → revenir au scoring si disponible
+    const dot1 = $("#apt-dot-1");
+    if (dot1 && _scoringData) dot1.onclick = () => renderScoringStep(_scoringData);
+
+    // Footer
+    footer.innerHTML = `
+      <button class="btn-modal-secondary-propose" id="apt-back-btn">
+        <i class="fa-solid fa-arrow-left"></i> Retour au scoring
+      </button>
+      <button class="btn-modal-primary-propose" id="apt-analyze-btn">
+        <i class="fa-solid fa-magnifying-glass-chart"></i> Analyser
+      </button>
+    `;
+
+    $("#apt-back-btn").onclick = () => renderScoringStep(_scoringData);
+    $("#apt-analyze-btn").onclick = () => submitFeasibility();
+  }
+
+  // ============================================================
+  //  SUBMIT FEASIBILITY
+  // ============================================================
+  async function submitFeasibility() {
+    const body = $("#apt-modal-body");
+    const footer = $("#apt-modal-footer");
+
+    // Collect profile
+    const profil = {};
+    ["vision", "audition", "motricite_fine", "mobilite_posture", "endurance", "sensibilite_env"].forEach(k => {
+      const sel = $(`#feas-${k}`);
+      profil[k] = sel ? sel.value : "inconnu";
+    });
+
+    const commentaire = ($("#feas-commentaire") || {}).value || "";
+
+    // Collect aids
+    const aids = [];
+    document.querySelectorAll('.aids-checklist input[type="checkbox"]:checked').forEach(cb => {
+      aids.push(cb.value);
+    });
+    const other = ($("#feas-aids-other") || {}).value || "";
+    if (other.trim()) aids.push(other.trim());
+
+    // Show loading
+    body.innerHTML = `
+      <div class="modal-loading">
+        <div class="spinner-ring"></div>
+        <span>Analyse de faisabilité en cours...</span>
+      </div>
+    `;
+    footer.innerHTML = '';
+
+    try {
+      const r = await fetchWithTimeout(API_FEASIBILITY, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          activity_name: _activityName,
+          inclusion_scoring_json: _scoringData,
+          profil_fonctionnel: profil,
+          commentaire_court: commentaire,
+          assistive_products: aids
+        })
+      }, 60000);
+
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+
+      const data = await r.json();
+      if (data.error) throw new Error(data.error);
+
+      renderFeasibilityResult(data.result);
+    } catch (err) {
+      console.error("Erreur faisabilité:", err);
+      body.innerHTML = `
+        <div style="text-align:center; padding:30px; color:#dc2626;">
+          <i class="fa-solid fa-triangle-exclamation" style="font-size:1.5rem; margin-bottom:10px; display:block;"></i>
+          <p>${escHtml(err.message)}</p>
+        </div>
+      `;
+      footer.innerHTML = `
+        <button class="btn-modal-secondary-propose" id="apt-back-form-btn">
+          <i class="fa-solid fa-arrow-left"></i> Retour
+        </button>
+      `;
+      $("#apt-back-form-btn").onclick = () => renderFeasibilityForm();
+    }
+  }
+
+  // ============================================================
+  //  RENDER FEASIBILITY RESULT
+  // ============================================================
+  function renderFeasibilityResult(result) {
+    const body = $("#apt-modal-body");
+    const footer = $("#apt-modal-footer");
+    const title = $("#apt-modal-title");
+    title.innerHTML = '<i class="fa-solid fa-clipboard-check"></i> Résultat — Faisabilité';
+
+    // Determine status class
+    let statutClass = 'ok';
+    const statut = (result.statut || '').toLowerCase();
+    if (statut.includes('adaptations')) statutClass = 'adaptations';
+    else if (statut.includes('instruire')) statutClass = 'instruire';
+    else if (statut.includes('non recommand')) statutClass = 'non-recommande';
+
+    let html = '';
+
+    // Status banner
+    html += `<div class="feasibility-statut ${statutClass}">${escHtml(result.statut)}</div>`;
+
+    html += '<div class="feasibility-result">';
+
+    // Mesures déjà en place
+    if (result.mesures_deja_en_place && result.mesures_deja_en_place.length) {
+      html += `
+        <div class="feasibility-block">
+          <div class="feasibility-block-title"><i class="fa-solid fa-check-circle"></i> Mesures déjà en place</div>
+          <ul class="feasibility-list positives">
+            ${result.mesures_deja_en_place.map(m => `<li>${escHtml(m)}</li>`).join('')}
+          </ul>
+        </div>
+      `;
+    }
+
+    // Ajouts recommandés
+    if (result.ajouts_recommandes && result.ajouts_recommandes.length) {
+      html += `
+        <div class="feasibility-block">
+          <div class="feasibility-block-title"><i class="fa-solid fa-plus-circle"></i> Ajouts recommandés</div>
+          <ul class="feasibility-list warnings">
+            ${result.ajouts_recommandes.map(m => `<li>${escHtml(m)}</li>`).join('')}
+          </ul>
+        </div>
+      `;
+    }
+
+    // À ajuster
+    if (result.a_ajuster && result.a_ajuster.length) {
+      html += `
+        <div class="feasibility-block">
+          <div class="feasibility-block-title"><i class="fa-solid fa-wrench"></i> À ajuster</div>
+          <ul class="feasibility-list negatives">
+            ${result.a_ajuster.map(m => `<li>${escHtml(m)}</li>`).join('')}
+          </ul>
+        </div>
+      `;
+    }
+
+    // Points à instruire
+    if (result.points_a_instruire && result.points_a_instruire.length) {
+      html += `
+        <div class="feasibility-block">
+          <div class="feasibility-block-title"><i class="fa-solid fa-magnifying-glass"></i> Points à instruire</div>
+          <ul class="feasibility-list questions">
+            ${result.points_a_instruire.map(m => `<li>${escHtml(m)}</li>`).join('')}
+          </ul>
+        </div>
+      `;
+    }
+
+    // Risque résiduel
+    if (result.risque_residuel) {
+      html += `<div class="feasibility-risque"><strong>Risque résiduel :</strong> ${escHtml(result.risque_residuel)}</div>`;
+    }
+
+    // Commentaire
+    if (result.commentaire) {
+      html += `<div class="feasibility-commentaire"><strong>Commentaire :</strong> ${escHtml(result.commentaire)}</div>`;
+    }
+
+    html += '</div>'; // end feasibility-result
+
+    body.innerHTML = html;
+
+    // Footer
+    footer.innerHTML = `
+      <button class="btn-modal-secondary-propose" id="apt-back-scoring-btn">
+        <i class="fa-solid fa-arrow-left"></i> Retour au scoring
+      </button>
+      <button class="btn-modal-secondary-propose" id="apt-redo-btn">
+        <i class="fa-solid fa-rotate-left"></i> Nouveau profil
+      </button>
+      <button class="btn-modal-primary-propose" id="apt-close-final-btn">
+        <i class="fa-solid fa-check"></i> Terminé
+      </button>
+    `;
+
+    $("#apt-back-scoring-btn").onclick = () => renderScoringStep(_scoringData);
+    $("#apt-redo-btn").onclick = () => renderFeasibilityForm();
+    $("#apt-close-final-btn").onclick = () => hideModal();
+  }
+
+  // ============================================================
+  //  SAVE LEVIERS → APTITUDES
+  // ============================================================
+  async function saveLeviers(data) {
+    const btn = $("#apt-save-leviers-btn");
+    if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Enregistrement...'; }
+
+    // Construire les entrées à sauvegarder depuis le scoring inclusion complet
+    const entries = [];
+
+    const CATS = [
+      { key: 'vision',            label: 'Vision' },
+      { key: 'auditif',           label: 'Auditif' },
+      { key: 'environnemental',   label: 'Environnemental' },
+      { key: 'exposition_risque', label: 'Exposition / Risque' }
+    ];
+
+    CATS.forEach(({ key, label }) => {
+      const cat = data[key];
+      if (!cat) return;
+      const leviers = (cat.leviers || []).map(l => l && l.trim()).filter(Boolean);
+      if (!cat.niveau && !cat.risque && !leviers.length) return;
+      // Une seule entrée par catégorie : "Label (niveau) : risque. Leviers : l1, l2, l3"
+      let entry = label;
+      if (cat.niveau) entry += ` (${cat.niveau})`;
+      if (cat.risque) entry += ` : ${cat.risque}`;
+      if (leviers.length) entry += `. Leviers : ${leviers.join(', ')}`;
+      entries.push(entry);
+    });
+
+    // Physique (sous-niveaux spécifiques) — une seule entrée
+    if (data.physique) {
+      const p = data.physique;
+      const niveaux = [p.haut_du_corps, p.bas_du_corps, p.fatigabilite].filter(Boolean).join(' / ');
+      const leviers = (p.leviers || []).map(l => l && l.trim()).filter(Boolean);
+      if (niveaux || p.risque || leviers.length) {
+        let entry = `Physique (${niveaux})`;
+        if (p.risque) entry += ` : ${p.risque}`;
+        if (leviers.length) entry += `. Leviers : ${leviers.join(', ')}`;
+        entries.push(entry);
+      }
+    }
+
+    if (!entries.length) {
+      if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Sauvegarder le scoring'; }
       return;
     }
 
-    groups.forEach(g => {
-      const block = document.createElement("div");
-      block.style.marginBottom = "14px";
-      const title = document.createElement("h4");
-      title.textContent = g.group;
-      title.style.margin = "6px 0 8px";
-      block.appendChild(title);
+    let added = 0;
+    let errors = 0;
+    for (const entry of entries) {
+      try {
+        const r = await fetch('/aptitudes/add', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ description: entry, activity_id: _activityId })
+        });
+        if (r.ok || r.status === 201) added++;
+        else errors++;
+      } catch (_) { errors++; }
+    }
 
-      const ul = document.createElement("ul");
-      ul.style.listStyle = "none";
-      ul.style.paddingLeft = "0";
-      g.items.forEach(item => {
-        const li = document.createElement("li");
-        li.style.marginBottom = "6px";
-        li.innerHTML = `
-          <label>
-            <input type="checkbox" data-apt="1" value="${item}">
-            ${item}
-          </label>`;
-        ul.appendChild(li);
-      });
-      block.appendChild(ul);
-      container.appendChild(block);
-    });
+    // Refresh la liste d'aptitudes dans la page
+    if (typeof updateAptitudes === 'function') updateAptitudes(_activityId);
+
+    // Feedback dans le footer
+    if (btn) {
+      btn.disabled = false;
+      if (errors === 0) {
+        btn.innerHTML = `<i class="fa-solid fa-check"></i> ${added} entrée${added > 1 ? 's' : ''} ajoutée${added > 1 ? 's' : ''}`;
+        btn.style.background = '#d1fae5';
+        btn.style.color = '#065f46';
+        btn.style.borderColor = '#6ee7b7';
+      } else {
+        btn.innerHTML = `<i class="fa-solid fa-triangle-exclamation"></i> ${added} ajouté${added > 1 ? 's' : ''}, ${errors} erreur${errors > 1 ? 's' : ''}`;
+        btn.style.background = '#fef3c7';
+        btn.style.color = '#92400e';
+      }
+    }
   }
 
-  // -------- Flux principal --------
+  // ============================================================
+  //  MAIN FLOW
+  // ============================================================
   async function showProposedAptitudes(activityId) {
+    _activityId = activityId;
     safeShowSpinner();
-    try {
-      const modal = ensureModal();
-      $("#aptitudes-groups", modal).innerHTML = "<p>Chargement...</p>";
-      showModal();
+    const overlay = ensureModal();
+    const body = $("#apt-modal-body", overlay);
+    const footer = $("#apt-modal-footer", overlay);
 
-      // (Optionnel) on récupère les détails d'activité, comme pour les autres propositions
+    body.innerHTML = `
+      <div class="modal-loading">
+        <div class="spinner-ring"></div>
+        <span>Analyse inclusion en cours...</span>
+      </div>
+    `;
+    footer.innerHTML = '';
+    showModal();
+
+    try {
+      // Fetch activity details
       let activityData = null;
       try {
         const rd = await fetchWithTimeout(`/activities/${activityId}/details`, {}, 15000);
         if (rd.ok) activityData = await rd.json();
       } catch (e) {
-        // pas bloquant : si on ne récupère pas les détails, on enverra juste l'ID
         console.warn("Récupération détails activité ignorée :", e);
       }
 
-      // On envoie l'ID + (si dispo) les détails d’activité
-      const proposeBody = activityData ? { activity_id: activityId, ...activityData }
-                                       : { activity_id: activityId };
+      _activityName = activityData?.name || activityData?.title || "Activité";
 
-      let r;
-      try {
-        r = await fetchWithTimeout(API_PROPOSE, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(proposeBody)
-        }, 60000);
-      } catch (e) {
-        if (e?.name === "AbortError") {
-          throw new Error("Temps dépassé (60s) pour la génération des aptitudes.");
-        }
-        throw e;
-      }
+      const proposeBody = activityData
+        ? { activity_id: activityId, ...activityData }
+        : { activity_id: activityId };
+
+      const r = await fetchWithTimeout(API_PROPOSE, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(proposeBody)
+      }, 60000);
 
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
 
-      let data;
-      try { data = await r.json(); }
-      catch { throw new Error("Réponse invalide du serveur (JSON attendu)."); }
+      const data = await r.json();
+      if (data.error) throw new Error(data.error);
 
-      const groups = parseAptitudesFromText(data.proposals);
-      renderGroupsInModal(groups);
+      _scoringData = data.proposals;
 
-      // Enregistrer (insertion unitaire { activity_id, description })
-      $("#btn-validate-aptitudes", modal).onclick = async () => {
-        const selected = $all('input[type="checkbox"][data-apt="1"]:checked', modal).map(cb => cb.value);
-        if (!selected.length) {
-          alert("Sélectionne au moins une aptitude.");
-          return;
-        }
-
-        safeShowSpinner();
-        try {
-          await Promise.all(selected.map(desc =>
-            fetchWithTimeout(API_ADD, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ activity_id: activityId, description: desc })
-            }, 60000).then(resp => {
-              if (!resp.ok) return resp.text().then(t => { throw new Error(`HTTP ${resp.status} ${t||""}`); });
-            })
-          ));
-
-          // Refresh du bloc aptitudes si un conteneur est prévu
-          try {
-            const r2 = await fetchWithTimeout(API_RENDER(activityId), {}, 15000);
-            if (r2.ok) {
-              const html = await r2.text();
-              const container = document.getElementById(`aptitudes-container-${activityId}`)
-                             || document.querySelector(`[data-aptitudes-container="${activityId}"]`);
-              if (container) container.innerHTML = html;
-            }
-          } catch (e) {
-            console.warn("Refresh aptitudes non appliqué :", e);
-          }
-
-          hideModal();
-        } catch (e) {
-          console.error("Erreur lors de l'ajout des aptitudes :", e);
-          alert(e.message || "Erreur lors de l'ajout des aptitudes.");
-        } finally {
-          safeHideSpinner();
-        }
-      };
-
+      // Check if proposals is a proper scoring object
+      if (_scoringData && typeof _scoringData === 'object' && !Array.isArray(_scoringData)) {
+        renderScoringStep(_scoringData);
+      } else {
+        // Fallback : old format (unlikely but just in case)
+        body.innerHTML = `<p style="color:#64748b; padding:20px; text-align:center;">
+          Le format de réponse n'est pas reconnu. Veuillez réessayer.
+        </p>`;
+        footer.innerHTML = `<button class="btn-modal-secondary-propose" onclick="document.getElementById('proposeAptitudesModalOverlay').style.display='none'">
+          <i class="fa-solid fa-xmark"></i> Fermer
+        </button>`;
+      }
     } catch (err) {
       console.error("Erreur showProposedAptitudes:", err);
-      alert(err.message || "Erreur lors de la proposition d'aptitudes.");
+      body.innerHTML = `
+        <div style="text-align:center; padding:30px; color:#dc2626;">
+          <i class="fa-solid fa-triangle-exclamation" style="font-size:1.5rem; margin-bottom:10px; display:block;"></i>
+          <p>${escHtml(err.message)}</p>
+        </div>
+      `;
+      footer.innerHTML = `<button class="btn-modal-secondary-propose" onclick="document.getElementById('proposeAptitudesModalOverlay').style.display='none'">
+        <i class="fa-solid fa-xmark"></i> Fermer
+      </button>`;
     } finally {
       safeHideSpinner();
     }
   }
 
-  // Aliases globaux (compat onclick)
+  // Global aliases
   window.showProposedAptitudes = showProposedAptitudes;
   window.openProposeAptitudes  = showProposedAptitudes;
   window.proposeAptitudes      = showProposedAptitudes;
 
-  // Délégation (si utilisation data-attributes)
+  // Delegation
   document.addEventListener("click", (e) => {
     const btn = e.target.closest('[data-action="propose-aptitudes"]');
     if (btn) {

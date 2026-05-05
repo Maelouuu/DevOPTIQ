@@ -1,0 +1,241 @@
+<!-- welcome_popup.html — Popup d'accueil deux panneaux -->
+<link rel="stylesheet" href="{{ url_for('static', filename='welcome_popup.css') }}">
+
+<div id="welcome-popup-overlay" role="dialog" aria-modal="true" aria-labelledby="wp-title">
+  <div id="welcome-popup-card">
+
+    <!-- En-tête -->
+    <div id="welcome-popup-header">
+      <div class="wp-light-ray"></div>
+
+      <button id="welcome-popup-close" title="Fermer" aria-label="Fermer">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+
+      <div class="wp-brand">
+        <div class="wp-logo-badge">◉</div>
+        <span class="wp-brand-name">OPTIQ</span>
+      </div>
+
+      <h2 class="wp-header-title" id="wp-title">Bienvenue</h2>
+      <p class="wp-header-sub">Nouveautés et activité récente sur votre espace</p>
+    </div>
+
+    <!-- Deux panneaux -->
+    <div id="welcome-popup-panels">
+
+      <!-- Panneau gauche : Nouveautés -->
+      <div class="wp-panel" id="wp-panel-changelog">
+        <div class="wp-panel-header">
+          <div class="wp-panel-icon-wrap wp-panel-icon-violet">
+            <i class="fa-solid fa-sparkles"></i>
+          </div>
+          <span class="wp-panel-title">Nouveautés</span>
+          <span class="wp-badge-new"><span class="wp-badge-dot"></span>New</span>
+        </div>
+        <div class="wp-panel-body">
+          <div id="welcome-popup-loading" class="wp-panel-loading">
+            <div class="wp-spinner"></div>
+            <span>Chargement…</span>
+          </div>
+          <div id="welcome-popup-items" class="wp-items" style="display:none;"></div>
+        </div>
+      </div>
+
+      <!-- Panneau droit : Activité récente -->
+      <div class="wp-panel wp-panel-right" id="wp-panel-activity">
+        <div class="wp-panel-header">
+          <div class="wp-panel-icon-wrap wp-panel-icon-teal">
+            <i class="fa-solid fa-clock-rotate-left"></i>
+          </div>
+          <span class="wp-panel-title">Activité récente</span>
+        </div>
+        <div class="wp-panel-body">
+          <div id="wp-recent-loading" class="wp-panel-loading">
+            <div class="wp-spinner wp-spinner-teal"></div>
+            <span>Chargement…</span>
+          </div>
+          <div id="wp-recent-items" class="wp-recent-list" style="display:none;"></div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Pied -->
+    <div id="welcome-popup-footer">
+      <div class="wp-divider"></div>
+      <button id="welcome-popup-cta">C'est parti !</button>
+    </div>
+
+  </div>
+</div>
+
+<script>
+(function() {
+  const STORAGE_KEY = 'optiq_welcome_seen_v4';
+  const overlay    = document.getElementById('welcome-popup-overlay');
+  const closeBtn   = document.getElementById('welcome-popup-close');
+  const ctaBtn     = document.getElementById('welcome-popup-cta');
+
+  const clLoading  = document.getElementById('welcome-popup-loading');
+  const clItems    = document.getElementById('welcome-popup-items');
+
+  const rcLoading  = document.getElementById('wp-recent-loading');
+  const rcItems    = document.getElementById('wp-recent-items');
+
+  function closePopup() {
+    overlay.classList.remove('wp-visible');
+    setTimeout(() => { overlay.style.display = 'none'; }, 450);
+    sessionStorage.setItem(STORAGE_KEY, '1');
+  }
+
+  closeBtn.addEventListener('click', closePopup);
+  ctaBtn.addEventListener('click', closePopup);
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) closePopup(); });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closePopup(); });
+
+  if (!sessionStorage.getItem(STORAGE_KEY)) {
+    overlay.style.display = 'flex';
+    requestAnimationFrame(() => requestAnimationFrame(() => overlay.classList.add('wp-visible')));
+
+    // Charger les nouveautés
+    fetch('/api/changelog')
+      .then(r => r.json())
+      .then(data => {
+        clLoading.style.display = 'none';
+        if (!data.ok || !data.items || !data.items.length) {
+          clItems.innerHTML = '<p class="wp-empty">Aucune nouveauté à afficher.</p>';
+        } else {
+          clItems.innerHTML = data.items.map(item => {
+            const iconClass = (item.icon || '').startsWith('fa-') ? item.icon : 'fa-solid fa-sparkles';
+            return `<div class="wp-item">
+              <div class="wp-item-icon-wrap">
+                <i class="${iconClass}"></i>
+              </div>
+              <div class="wp-item-content">
+                <div class="wp-item-title">${item.title || ''}</div>
+                <div class="wp-item-desc">${item.desc || ''}</div>
+              </div>
+            </div>`;
+          }).join('');
+        }
+        clItems.style.display = 'flex';
+      })
+      .catch(() => {
+        clLoading.style.display = 'none';
+        clItems.innerHTML = '<p class="wp-empty">Impossible de charger les nouveautés.</p>';
+        clItems.style.display = 'flex';
+      });
+
+    // Charger l'activité récente
+    fetch('/api/recent-activity')
+      .then(r => r.json())
+      .then(data => {
+        rcLoading.style.display = 'none';
+
+        if (!data.ok || data.empty || !data.items || !data.items.length) {
+          rcItems.innerHTML = `
+            <div class="wp-empty-state">
+              <div class="wp-empty-icon"><i class="fa-solid fa-clock-rotate-left"></i></div>
+              <p class="wp-empty-title">Aucun événement enregistré</p>
+              <p class="wp-empty-sub">Les prochaines modifications apparaîtront ici.</p>
+            </div>`;
+          rcItems.style.display = 'flex';
+          return;
+        }
+
+        rcItems.innerHTML = data.items.map((item, idx) => {
+          const detailHtml = _renderDetail(item.detail, item.type);
+          const hasDetail  = !!detailHtml;
+          const meta = [item.date, item.user ? `par ${_esc(item.user)}` : null].filter(Boolean).join(' · ');
+
+          return `
+            <div class="wp-ev-item wp-ev-${item.color}${hasDetail ? ' wp-ev-clickable' : ''}"
+                 data-idx="${idx}"
+                 ${hasDetail ? 'role="button" tabindex="0"' : ''}>
+              <div class="wp-ev-icon">
+                <i class="${item.icon}"></i>
+              </div>
+              <div class="wp-ev-body">
+                <div class="wp-ev-top">
+                  <span class="wp-ev-badge wp-ev-badge-${item.color}">${item.event_label}</span>
+                  ${hasDetail ? '<div class="wp-ev-chevron"><i class="fa-solid fa-chevron-down"></i></div>' : ''}
+                </div>
+                <div class="wp-ev-label">${_esc(item.label)}</div>
+                ${meta ? `<div class="wp-ev-meta">${meta}</div>` : ''}
+              </div>
+            </div>
+            ${hasDetail ? `<div class="wp-recent-detail" id="wp-detail-${idx}">${detailHtml}</div>` : ''}`;
+        }).join('');
+
+        // Gestion des clics
+        rcItems.querySelectorAll('.wp-ev-clickable').forEach(el => {
+          el.addEventListener('click', () => {
+            const detail = document.getElementById(`wp-detail-${el.dataset.idx}`);
+            const chev   = el.querySelector('.wp-ev-chevron i');
+            const open   = detail.classList.toggle('wp-detail-open');
+            if (chev) chev.style.transform = open ? 'rotate(180deg)' : '';
+          });
+          el.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') el.click(); });
+        });
+
+        rcItems.style.display = 'flex';
+      })
+      .catch(() => {
+        rcLoading.style.display = 'none';
+        rcItems.innerHTML = '<p class="wp-empty">Impossible de charger l\'activité.</p>';
+        rcItems.style.display = 'flex';
+      });
+
+    // ── Rendu du contenu de la section déroulante ──────────────────
+    function _renderDetail(detail, type) {
+      if (!detail) return '';
+
+      // Modifications avec avant/après
+      if (detail.changes && detail.changes.length > 0) {
+        const rows = detail.changes.map(ch =>
+          `<div class="wp-diff-row">
+            <span class="wp-diff-field">${_esc(ch.field)}</span>
+            <span class="wp-diff-before">${_esc(ch.before)}</span>
+            <i class="fa-solid fa-arrow-right wp-diff-arrow"></i>
+            <span class="wp-diff-after">${_esc(ch.after)}</span>
+          </div>`
+        ).join('');
+        return `<div class="wp-diff-header">Champs modifiés</div><div class="wp-diff-list">${rows}</div>`;
+      }
+
+      // Association outil → tâche
+      if (detail.tool && detail.task) {
+        return `<div class="wp-diff-header">Détail de l'association</div>
+          <div class="wp-diff-list">
+            <div class="wp-diff-row"><span class="wp-diff-field">Outil</span><span class="wp-diff-value">${_esc(detail.tool)}</span></div>
+            <div class="wp-diff-row"><span class="wp-diff-field">Tâche</span><span class="wp-diff-value">${_esc(detail.task)}</span></div>
+          </div>`;
+      }
+
+      // Création / suppression / données
+      const lines = [];
+      if (detail.description) lines.push({k: 'Description', v: detail.description});
+      if (detail.mission)     lines.push({k: 'Mission',     v: detail.mission});
+      if (!lines.length && !detail.name) return '';
+
+      const header = type && type.endsWith('deleted') ? 'Données supprimées'
+                   : type && type.endsWith('created') ? 'Données créées' : 'Détail';
+      const rows = lines.map(l =>
+        `<div class="wp-diff-row">
+          <span class="wp-diff-field">${_esc(l.k)}</span>
+          <span class="wp-diff-value">${_esc(l.v)}</span>
+        </div>`
+      ).join('') || `<div class="wp-diff-row"><span class="wp-diff-value" style="color:#6b7280;font-style:italic;">Aucun détail supplémentaire.</span></div>`;
+      return `<div class="wp-diff-header">${header}</div><div class="wp-diff-list">${rows}</div>`;
+    }
+
+    function _esc(s) {
+      if (!s) return '—';
+      return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+  } else {
+    overlay.style.display = 'none';
+  }
+})();
+</script>

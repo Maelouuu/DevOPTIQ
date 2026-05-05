@@ -59,12 +59,13 @@
     if (detailPanel) {
       detailPanel.innerHTML = `
         <div class="pm-detail-empty">
-          <h2>3. Détail d’un métier</h2>
-          <p>Sélectionne un métier dans les listes à gauche pour voir :</p>
-          <ul>
+          <div class="pm-detail-empty-icon"><i class="fa-solid fa-magnifying-glass-chart"></i></div>
+          <h2 class="pm-card-title" style="margin-bottom:8px;">Détail d’un métier</h2>
+          <p class="pm-help">Cliquez sur un métier pour voir :</p>
+          <ul class="pm-detail-empty-list">
             <li>Le score global de correspondance</li>
             <li>Les compétences ROME déjà couvertes</li>
-            <li>Les compétences à développer pour viser ce métier</li>
+            <li>Les compétences à développer</li>
           </ul>
         </div>`;
     }
@@ -240,8 +241,8 @@
   }
 
   function updateCounters() {
-    if (fullCount) fullCount.textContent = `${Math.min(fullOffset, fullTotal)}/${fullTotal}`;
-    if (partialCount) partialCount.textContent = `${Math.min(partialOffset, partialTotal)}/${partialTotal}`;
+    if (fullCount) fullCount.textContent = fullTotal;
+    if (partialCount) partialCount.textContent = partialTotal;
   }
 
   async function fetchPage({ userId, fullLim = 0, fullOff = 0, partialLim = 0, partialOff = 0 }) {

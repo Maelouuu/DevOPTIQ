@@ -1,35 +1,123 @@
 {% include "header_buttons.html" %}
-<link rel="stylesheet" href="./../../../static/gestion_compte.css">
+<link rel="stylesheet" href="{{ url_for('static', filename='gestion_compte_new.css') }}">
+<script>
+  // Prévention agressive de l'autofill navigateur sur le champ nouveau mot de passe.
+  // Les navigateurs (Chrome/Firefox) n'autofillent pas les champs readonly.
+  // On retire readonly + on vide le champ après le délai d'autofill (~200ms).
+  document.addEventListener('DOMContentLoaded', () => {
+    const pw = document.getElementById('new-password-field');
+    if (!pw) return;
+    pw.value = '';
+    setTimeout(() => {
+      pw.removeAttribute('readonly');
+      pw.value = '';           // vider même si le navigateur a quand même tenté de remplir
+    }, 250);
+  });
+</script>
 
-<h1>Modifier l'utilisateur</h1>
+<div class="accounts-page">
 
-<form method="POST" class="create-form">
-  <label>Prénom :</label>
-  <input type="text" name="first_name" value="{{ user.first_name }}" required><br>
+  <!-- ── Banner ── -->
+  <div class="page-banner">
+    <div class="page-banner__icon">
+      <i class="fa-solid fa-user-pen"></i>
+    </div>
+    <div class="page-banner__text">
+      <h1 class="page-banner__title">Modifier l'utilisateur</h1>
+      <p class="page-banner__sub">{{ user.first_name }} {{ user.last_name }}</p>
+    </div>
+  </div>
 
-  <label>Nom :</label>
-  <input type="text" name="last_name" value="{{ user.last_name }}" required><br>
+  <!-- ── Formulaire ── -->
+  <section class="section-card" style="max-width: 680px; margin: 0 auto;">
+    <div class="section-card__head">
+      <div class="section-card__head-left">
+        <span class="section-icon"><i class="fa-solid fa-pencil"></i></span>
+        <div>
+          <h2 class="section-card__title">Informations du compte</h2>
+          <p class="section-card__subtitle">Modifiez les champs puis enregistrez</p>
+        </div>
+      </div>
+    </div>
 
-  <label>Âge :</label>
-  <input type="number" name="age" value="{{ user.age }}"><br>
+    <form method="POST">
+      <div class="create-grid">
 
-  <label>Email :</label>
-  <input type="email" name="email" value="{{ user.email }}" required><br>
+        <div class="field">
+          <div class="search-style-wrap">
+            <i class="fa-solid fa-user search-style-icon"></i>
+            <input type="text" name="first_name" class="search-style-input"
+                   placeholder="Prénom *" value="{{ user.first_name }}" required autocomplete="off">
+          </div>
+        </div>
 
-  <label>Rôle :</label>
-  <select name="role_id">
-    {% for role in roles %}
-      <option value="{{ role.id }}" {% if current_role and current_role.role_id == role.id %}selected{% endif %}>{{ role.name }}</option>
-    {% endfor %}
-  </select><br>
+        <div class="field">
+          <div class="search-style-wrap">
+            <i class="fa-solid fa-user search-style-icon"></i>
+            <input type="text" name="last_name" class="search-style-input"
+                   placeholder="Nom *" value="{{ user.last_name }}" required autocomplete="off">
+          </div>
+        </div>
 
-  <label>Statut :</label>
-  <select name="status">
-    <option value="user" {% if user.status == 'user' %}selected{% endif %}>Utilisateur</option>
-    <option value="rh" {% if user.status == 'rh' %}selected{% endif %}>RH</option>
-    <option value="administrateur" {% if user.status == 'administrateur' %}selected{% endif %}>Administrateur</option>
-  </select><br>
+        <div class="field">
+          <div class="search-style-wrap">
+            <i class="fa-solid fa-envelope search-style-icon"></i>
+            <input type="email" name="email" class="search-style-input"
+                   placeholder="Email *" value="{{ user.email }}" required autocomplete="off">
+          </div>
+        </div>
 
-  <button type="submit">Enregistrer les modifications</button>
-  <a href="{{ url_for('gestion_compte.list_users') }}" class="btn-secondary">Annuler</a>
-</form>
+        <div class="field">
+          <div class="search-style-wrap">
+            <i class="fa-solid fa-calendar search-style-icon"></i>
+            <input type="number" name="age" class="search-style-input"
+                   placeholder="Âge" value="{{ user.age or '' }}" min="18" max="100" autocomplete="off">
+          </div>
+        </div>
+
+        <div class="field" style="grid-column: 1 / -1;">
+          <div class="search-style-wrap">
+            <i class="fa-solid fa-lock search-style-icon"></i>
+            <input type="password" name="password" id="new-password-field"
+                   class="search-style-input search-style-input--pass"
+                   placeholder="Nouveau mot de passe (laisser vide = inchangé)"
+                   autocomplete="new-password" readonly>
+          </div>
+        </div>
+
+        <div class="field">
+          <div class="search-style-wrap search-style-wrap--select">
+            <i class="fa-solid fa-briefcase search-style-icon"></i>
+            <select name="role_id" class="search-style-input" required>
+              {% for role in roles %}
+                <option value="{{ role.id }}" {% if current_role and current_role.role_id == role.id %}selected{% endif %}>{{ role.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+
+        <div class="field">
+          <div class="search-style-wrap search-style-wrap--select">
+            <i class="fa-solid fa-shield search-style-icon"></i>
+            <select name="status" class="search-style-input" required>
+              <option value="user"          {% if user.status == 'user' %}selected{% endif %}>Utilisateur</option>
+              <option value="rh"            {% if user.status == 'rh' %}selected{% endif %}>RH</option>
+              <option value="administrateur"{% if user.status == 'administrateur' %}selected{% endif %}>Administrateur</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="field-btn" style="gap: 10px; display: flex; justify-content: flex-end;">
+          <a href="{{ url_for('gestion_compte.list_users') }}" class="btn btn-ghost">
+            <i class="fa-solid fa-xmark"></i> Annuler
+          </a>
+          <button type="submit" class="btn btn-pink">
+            <i class="fa-solid fa-check"></i> Enregistrer
+          </button>
+        </div>
+
+      </div>
+    </form>
+  </section>
+
+</div>

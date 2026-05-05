@@ -1,0 +1,136 @@
+<!-- import_tasks_modal.html — Modal d'import de tâches (CSV / JSON / Excel) -->
+
+<div id="import-tasks-overlay">
+  <div id="import-tasks-modal" role="dialog" aria-modal="true" aria-labelledby="import-modal-title">
+
+    <!-- ── Header ──────────────────────────────────────────── -->
+    <div id="import-modal-header">
+      <div class="import-header-icon">
+        <i class="fa-solid fa-file-import"></i>
+      </div>
+      <div class="import-header-text">
+        <p class="import-header-title" id="import-modal-title">Importer des tâches</p>
+        <p class="import-header-subtitle" id="import-step-label">Étape 1 — Chargement des données</p>
+      </div>
+      <button id="import-close-btn" onclick="closeImportModal()" title="Fermer" aria-label="Fermer">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+    </div>
+
+    <!-- ════════════════════════════════════════════════════════
+         ÉTAPE 1 — Upload / Paste
+         ════════════════════════════════════════════════════════ -->
+    <div id="import-step-1">
+
+      <!-- Format + template -->
+      <div class="import-format-bar">
+        <span class="import-format-label">Format :</span>
+        <div class="import-format-toggle">
+          <button class="import-fmt-btn active" id="fmt-btn-xlsx" onclick="setImportFmt('xlsx')">
+            <i class="fa-solid fa-file-excel"></i> XLSX
+          </button>
+          <button class="import-fmt-btn" id="fmt-btn-csv" onclick="setImportFmt('csv')">
+            <i class="fa-solid fa-table"></i> CSV
+          </button>
+        </div>
+        <button class="import-template-btn" onclick="downloadImportTemplate()">
+          <i class="fa-solid fa-download"></i> Télécharger le modèle
+        </button>
+      </div>
+
+      <!-- Hint XLSX -->
+      <div class="import-hint-box" id="import-hint-xlsx">
+        <i class="fa-solid fa-circle-info"></i>
+        Glissez-déposez votre fichier <strong>.xlsx</strong> ou <strong>.xls</strong>.
+        Colonnes : <code>nom_tache, activite, description, outils&nbsp;(séparateur&nbsp;<strong>;</strong>), entree_nom, entree_type, sortie_nom, sortie_type, sortie_activite_cible</code>
+      </div>
+
+      <!-- Hint CSV -->
+      <div class="import-hint-box" id="import-hint-csv" style="display:none">
+        <i class="fa-solid fa-circle-info"></i>
+        Colonnes (séparateur <strong>,</strong>) :
+        <code>nom_tache, activite, description, outils&nbsp;(séparateur&nbsp;<strong>;</strong>), entree_nom, entree_type, sortie_nom, sortie_type, sortie_activite_cible</code>
+      </div>
+
+      <!-- Drop zone -->
+      <div id="import-dropzone"
+           ondragover="event.preventDefault(); this.classList.add('drag-over')"
+           ondragleave="this.classList.remove('drag-over')"
+           ondrop="handleImportDrop(event)">
+        <i class="fa-solid fa-cloud-arrow-up import-drop-icon"></i>
+        <p class="import-drop-title">Glissez votre fichier ici</p>
+        <p class="import-drop-sub">.csv · .json · .xlsx acceptés</p>
+        <label class="import-file-label" for="import-file-input">
+          <i class="fa-solid fa-folder-open"></i> Choisir un fichier
+        </label>
+        <input type="file" id="import-file-input" accept=".csv,.json,.xlsx"
+               onchange="handleImportFile(event)" style="display:none">
+        <p id="import-file-name" class="import-file-name"></p>
+      </div>
+
+      <!-- Divider -->
+      <div class="import-divider"><span>ou collez directement</span></div>
+
+      <!-- Textarea -->
+      <textarea
+        id="import-textarea"
+        placeholder="Collez votre CSV ou JSON ici…"
+        rows="5"
+        spellcheck="false"
+      ></textarea>
+
+      <!-- Footer step 1 -->
+      <div class="import-step-footer">
+        <span id="import-parse-error" class="import-parse-error"></span>
+        <button class="import-btn-primary" onclick="analyzeImportData()">
+          <i class="fa-solid fa-magnifying-glass-chart"></i>
+          Analyser
+        </button>
+      </div>
+
+    </div><!-- /#import-step-1 -->
+
+    <!-- ════════════════════════════════════════════════════════
+         ÉTAPE 2 — Résultats de validation
+         ════════════════════════════════════════════════════════ -->
+    <div id="import-step-2" style="display:none">
+
+      <!-- Summary bar -->
+      <div id="import-summary-bar"></div>
+
+      <!-- Table wrapper (scrollable) -->
+      <div id="import-table-wrapper">
+        <table id="import-table">
+          <thead>
+            <tr>
+              <th class="col-row">#</th>
+              <th class="col-task">Tâche</th>
+              <th class="col-activity">Activité</th>
+              <th class="col-tools">Outils</th>
+              <th class="col-in">Entrée</th>
+              <th class="col-out">Sortie</th>
+              <th class="col-status">Statut</th>
+            </tr>
+          </thead>
+          <tbody id="import-table-body"></tbody>
+        </table>
+      </div>
+
+      <!-- Footer step 2 -->
+      <div class="import-step-footer">
+        <button class="import-btn-secondary" onclick="backToImportStep1()">
+          <i class="fa-solid fa-arrow-left"></i> Retour
+        </button>
+        <div class="import-step-footer-right">
+          <span id="import-inject-warning" class="import-inject-warning"></span>
+          <button class="import-btn-inject" id="import-inject-btn" onclick="executeImport()">
+            <i class="fa-solid fa-wand-magic-sparkles"></i>
+            Injecter <span id="import-inject-count">0</span> tâche(s)
+          </button>
+        </div>
+      </div>
+
+    </div><!-- /#import-step-2 -->
+
+  </div><!-- /#import-tasks-modal -->
+</div><!-- /#import-tasks-overlay -->

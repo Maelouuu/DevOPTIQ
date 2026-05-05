@@ -1,9 +1,22 @@
 <!-- Code/routes/templates/savoir_modal.html -->
-<div id="savoirModal" style="display:none; position:fixed; left:20%; top:20%; width:60%; background:#fff; border:1px solid #aaa; padding:10px; z-index:9999;">
-  <h4>Propositions de savoirs :</h4>
-  <ul id="savoirList" style="list-style:none; padding-left:0;"></ul>
-  <div style="margin-top:10px;">
-    <button id="validateSavoirsBtn">Valider les savoirs</button> 
-    <button id="cancelSavoirsBtn">Annuler</button>
+<div id="savoirModalOverlay" class="modal-overlay-propose" style="display:none;" onclick="if(event.target === this) document.getElementById('cancelSavoirsBtn').click()">
+  <div id="savoirModal" class="modal-content-propose">
+    <div class="modal-header-propose">
+      <h3><i class="fa-solid fa-sparkles"></i> Propositions de savoirs</h3>
+      <button class="modal-close-btn-propose" onclick="document.getElementById('cancelSavoirsBtn').click()">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+    </div>
+    <div class="modal-body-propose">
+      <ul id="savoirList" class="proposals-list-propose"></ul>
+    </div>
+    <div class="modal-footer-propose">
+      <button class="btn-modal-secondary-propose" id="cancelSavoirsBtn">
+        <i class="fa-solid fa-xmark"></i> Annuler
+      </button>
+      <button class="btn-modal-primary-propose" id="validateSavoirsBtn">
+        <i class="fa-solid fa-check"></i> Valider les savoirs
+      </button>
+    </div>
   </div>
 </div>

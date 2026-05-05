@@ -1,1008 +1,988 @@
 /* ============================================================
-   CARTOGRAPHIE DES ACTIVITÉS - VERSION SVG INLINE + ENTITÉS
-   
-   Cette version charge le SVG inline dans le DOM, ce qui permet
-   un contrôle total sur les événements (pan + clic activités)
+   CARTOGRAPHIE DES ACTIVITÉS - WIZARD UNIFIÉ
+   Version corrigée - ouverture wizard
 ============================================================ */
 
 const SHAPE_ACTIVITY_MAP = window.CARTO_SHAPE_MAP || {};
 const SVG_EXISTS = window.SVG_EXISTS || false;
 const ACTIVE_ENTITY = window.ACTIVE_ENTITY || null;
 const ALL_ENTITIES = window.ALL_ENTITIES || [];
-
 const VISIO_NS = "http://schemas.microsoft.com/visio/2003/SVGExtensions/";
 
-/* ============================================================
-   ÉTAT GLOBAL PAN / ZOOM
-============================================================ */
+/* État global */
 let svgElement = null;
 let currentScale = 0.5;
-
-let panX = 0;
-let panY = 0;
-
-// Pour le pan (drag)
+let panX = 0, panY = 0;
 let isPanning = false;
-let startX = 0;
-let startY = 0;
+let startX = 0, startY = 0;
 let hasMoved = false;
+let svgWidth = 0, svgHeight = 0;
 
-// Dimensions du SVG
-let svgWidth = 0;
-let svgHeight = 0;
+/* État mode connexions inter-cartos */
+let crossCartoMode = false;
+let crossCartoMatches = [];
 
-// Éléments cliquables (activités)
-let clickableElements = new Set();
+const ZOOM_MIN = 0.1, ZOOM_MAX = 10;
 
-// Limites de zoom
-const ZOOM_MIN = 0.1;
-const ZOOM_MAX = 10;
+/* État du wizard */
+const wizardState = {
+  selectedEntity: null,
+  mode: null,
+  vsdxFile: null,
+  svgFile: null,
+  keepVsdx: false,
+  keepSvg: false,
+  connectionsPreview: null,
+  entitiesCache: []
+};
 
-// Entité actuellement sélectionnée dans le gestionnaire
-let selectedEntityId = null;
+/* Helpers */
+const $ = (s) => document.querySelector(s);
+const $$ = (s) => document.querySelectorAll(s);
+const formatSize = (b) => b < 1024 ? b + ' o' : b < 1048576 ? (b/1024).toFixed(1) + ' Ko' : (b/1048576).toFixed(1) + ' Mo';
 
 /* ============================================================
-   CENTRER LA CARTOGRAPHIE AU CHARGEMENT
+   PAN / ZOOM
 ============================================================ */
 function centerCartography() {
-  const wrapper = document.getElementById("carto-pan-wrapper");
-  const panInner = document.getElementById("pan-inner");
-  if (!wrapper || !panInner || !svgWidth || !svgHeight) return;
-
-  const wrapperRect = wrapper.getBoundingClientRect();
-  const scaledWidth = svgWidth * currentScale;
-  const scaledHeight = svgHeight * currentScale;
-
-  panX = (wrapperRect.width - scaledWidth) / 2;
-  panY = (wrapperRect.height - scaledHeight) / 2;
-
-  if (scaledWidth > wrapperRect.width) {
-    panX = 20;
-  }
-  if (scaledHeight > wrapperRect.height) {
-    panY = 20;
-  }
-
-  panInner.style.transform = `translate(${panX}px, ${panY}px) scale(${currentScale})`;
-  updateZoomDisplay();
-}
-
-/* ============================================================
-   ZOOM
-============================================================ */
-function updateZoomDisplay() {
-  const btn = document.getElementById("carto-zoom-reset");
-  if (btn) {
-    btn.textContent = `${Math.round(currentScale * 100)}%`;
-  }
-}
-
-function applyTransform() {
-  const panInner = document.getElementById("pan-inner");
-  if (!panInner) return;
-  panInner.style.transform = `translate(${panX}px, ${panY}px) scale(${currentScale})`;
-  updateZoomDisplay();
-}
-
-function zoomAtPoint(delta, mouseX, mouseY) {
-  const wrapper = document.getElementById("carto-pan-wrapper");
-  if (!wrapper) return;
-
-  const oldScale = currentScale;
-  const zoomStep = 0.15;
-
-  if (delta > 0) {
-    currentScale = Math.min(ZOOM_MAX, currentScale * (1 + zoomStep));
-  } else {
-    currentScale = Math.max(ZOOM_MIN, currentScale * (1 - zoomStep));
-  }
-
-  const scaleRatio = currentScale / oldScale;
-  panX = mouseX - (mouseX - panX) * scaleRatio;
-  panY = mouseY - (mouseY - panY) * scaleRatio;
-
+  const wrapper = $("#carto-pan-wrapper");
+  if (!wrapper || !svgWidth || !svgHeight) return;
+  const r = wrapper.getBoundingClientRect();
+  const sw = svgWidth * currentScale;
+  const sh = svgHeight * currentScale;
+  panX = Math.max(20, (r.width - sw) / 2);
+  panY = Math.max(20, (r.height - sh) / 2);
   applyTransform();
 }
 
-function zoomAtCenter(delta) {
-  const wrapper = document.getElementById("carto-pan-wrapper");
-  if (!wrapper) return;
+function updateZoomDisplay() {
+  const btn = $("#carto-zoom-reset");
+  if (btn) btn.textContent = Math.round(currentScale * 100) + '%';
+}
 
-  const rect = wrapper.getBoundingClientRect();
-  const centerX = rect.width / 2;
-  const centerY = rect.height / 2;
+function applyTransform() {
+  const inner = $("#pan-inner");
+  if (inner) inner.style.transform = `translate(${panX}px, ${panY}px) scale(${currentScale})`;
+  updateZoomDisplay();
+}
 
-  zoomAtPoint(delta, centerX, centerY);
+function zoomAt(delta, mx, my) {
+  const old = currentScale;
+  currentScale = delta > 0 
+    ? Math.min(ZOOM_MAX, currentScale * 1.15)
+    : Math.max(ZOOM_MIN, currentScale * 0.85);
+  const r = currentScale / old;
+  panX = mx - (mx - panX) * r;
+  panY = my - (my - panY) * r;
+  applyTransform();
 }
 
 function initZoomButtons() {
-  const btnIn = document.getElementById("carto-zoom-in");
-  const btnOut = document.getElementById("carto-zoom-out");
-  const btnReset = document.getElementById("carto-zoom-reset");
-
-  if (btnIn) {
-    btnIn.onclick = () => zoomAtCenter(1);
-  }
-  if (btnOut) {
-    btnOut.onclick = () => zoomAtCenter(-1);
-  }
-  if (btnReset) {
-    btnReset.onclick = () => {
-      const wrapper = document.getElementById("carto-pan-wrapper");
-      if (wrapper && svgWidth && svgHeight) {
-        const wrapperRect = wrapper.getBoundingClientRect();
-        const scaleX = (wrapperRect.width - 40) / svgWidth;
-        const scaleY = (wrapperRect.height - 40) / svgHeight;
-        currentScale = Math.min(scaleX, scaleY, 1);
-        currentScale = Math.max(currentScale, 0.1);
-      } else {
-        currentScale = 0.5;
-      }
-      centerCartography();
-    };
-  }
+  const wrapper = $("#carto-pan-wrapper");
+  $("#carto-zoom-in")?.addEventListener("click", () => {
+    const r = wrapper?.getBoundingClientRect();
+    if (r) zoomAt(1, r.width/2, r.height/2);
+  });
+  $("#carto-zoom-out")?.addEventListener("click", () => {
+    const r = wrapper?.getBoundingClientRect();
+    if (r) zoomAt(-1, r.width/2, r.height/2);
+  });
+  $("#carto-zoom-reset")?.addEventListener("click", () => {
+    if (wrapper && svgWidth && svgHeight) {
+      const r = wrapper.getBoundingClientRect();
+      currentScale = Math.min((r.width - 40) / svgWidth, (r.height - 40) / svgHeight, 1);
+      currentScale = Math.max(currentScale, 0.1);
+    } else {
+      currentScale = 0.5;
+    }
+    centerCartography();
+  });
 }
 
-/* ============================================================
-   PAN (DÉPLACEMENT À LA SOURIS)
-============================================================ */
 function initPan() {
-  const wrapper = document.getElementById("carto-pan-wrapper");
-  const panInner = document.getElementById("pan-inner");
-  if (!wrapper || !panInner) return;
+  const wrapper = $("#carto-pan-wrapper");
+  const inner = $("#pan-inner");
+  if (!wrapper || !inner) return;
 
-  const MOVE_THRESHOLD = 5;
-  let startPanX = 0;
-  let startPanY = 0;
+  let sx = 0, sy = 0;
 
   wrapper.addEventListener("mousedown", (e) => {
     if (e.button !== 0) return;
-    
     e.preventDefault();
-
     isPanning = true;
     hasMoved = false;
     startX = e.clientX;
     startY = e.clientY;
-    startPanX = panX;
-    startPanY = panY;
-    
+    sx = panX; sy = panY;
     wrapper.classList.add("panning");
-    panInner.classList.add("no-transition");
+    inner.classList.add("no-transition");
   });
 
   window.addEventListener("mousemove", (e) => {
     if (!isPanning) return;
-
     const dx = e.clientX - startX;
     const dy = e.clientY - startY;
-    const distance = Math.sqrt(dx * dx + dy * dy);
-
-    if (distance > MOVE_THRESHOLD && !hasMoved) {
-      hasMoved = true;
-    }
-
-    panX = startPanX + dx;
-    panY = startPanY + dy;
+    if (Math.sqrt(dx*dx + dy*dy) > 5) hasMoved = true;
+    panX = sx + dx;
+    panY = sy + dy;
     applyTransform();
   });
 
-  window.addEventListener("mouseup", (e) => {
+  window.addEventListener("mouseup", () => {
     if (!isPanning) return;
-
     isPanning = false;
     wrapper.classList.remove("panning");
-    panInner.classList.remove("no-transition");
-
-    setTimeout(() => {
-      hasMoved = false;
-    }, 10);
+    inner.classList.remove("no-transition");
+    setTimeout(() => hasMoved = false, 10);
   });
 
-  wrapper.addEventListener("dragstart", (e) => e.preventDefault());
+  wrapper.addEventListener("wheel", (e) => {
+    e.preventDefault();
+    const r = wrapper.getBoundingClientRect();
+    zoomAt(e.deltaY > 0 ? -1 : 1, e.clientX - r.left, e.clientY - r.top);
+  }, { passive: false });
 }
 
 /* ============================================================
-   ZOOM À LA MOLETTE
-============================================================ */
-function initWheelZoom() {
-  const wrapper = document.getElementById("carto-pan-wrapper");
-  if (!wrapper) return;
-
-  wrapper.addEventListener(
-    "wheel",
-    (e) => {
-      e.preventDefault();
-
-      const delta = e.deltaY > 0 ? -1 : 1;
-
-      const rect = wrapper.getBoundingClientRect();
-      const mouseX = e.clientX - rect.left;
-      const mouseY = e.clientY - rect.top;
-
-      zoomAtPoint(delta, mouseX, mouseY);
-    },
-    { passive: false }
-  );
-}
-
-/* ============================================================
-   CHARGEMENT DU SVG INLINE
+   CHARGEMENT SVG
 ============================================================ */
 async function loadSvgInline() {
-  const container = document.getElementById("svg-container");
-  if (!container) {
-    console.error("[CARTO] Container svg-container non trouvé !");
-    return;
-  }
-
-  console.log("[CARTO] SVG_EXISTS =", SVG_EXISTS);
+  const container = $("#svg-container");
+  if (!container) return;
 
   if (!SVG_EXISTS) {
-    container.innerHTML = `
-      <div class="svg-placeholder">
-        <p>🗺️ Aucune cartographie disponible</p>
-        <p>Utilisez le <strong>Gestionnaire d'entités</strong> pour importer un fichier SVG</p>
-      </div>
-    `;
+    container.innerHTML = '<div class="svg-placeholder"><p>🗺️ Aucune cartographie</p><p>Utilisez "📦 Gérer la cartographie" pour importer</p></div>';
     return;
   }
 
   try {
-    // Charger le SVG depuis l'API
-    const svgUrl = "/activities/svg?t=" + Date.now();
-    console.log("[CARTO] Chargement du SVG depuis:", svgUrl);
-    
-    const response = await fetch(svgUrl);
-    
-    if (!response.ok) {
-      throw new Error(`Fichier SVG introuvable (${response.status})`);
-    }
-
-    const svgText = await response.text();
-    console.log("[CARTO] SVG chargé, taille:", svgText.length, "caractères");
-    
-    container.innerHTML = svgText;
-
-    // Récupérer l'élément SVG
+    const res = await fetch("/activities/svg?t=" + Date.now());
+    if (!res.ok) throw new Error("SVG non trouvé");
+    container.innerHTML = await res.text();
     svgElement = container.querySelector("svg");
-    if (!svgElement) {
-      throw new Error("Pas d'élément <svg> trouvé dans le fichier");
-    }
-
-    // Configurer le SVG
+    if (!svgElement) throw new Error("Pas d'élément SVG");
     setupSvg();
-
-  } catch (error) {
-    console.error("[CARTO] Erreur chargement SVG:", error);
-    container.innerHTML = `
-      <div class="svg-error">
-        <p>❌ Erreur de chargement de la cartographie</p>
-        <p>${error.message}</p>
-      </div>
-    `;
+  } catch (e) {
+    container.innerHTML = `<div class="svg-error"><p>❌ Erreur</p><p>${e.message}</p></div>`;
   }
 }
 
-/* ============================================================
-   CONFIGURATION DU SVG APRÈS CHARGEMENT
-============================================================ */
 function setupSvg() {
   if (!svgElement) return;
 
-  // Récupérer les dimensions via viewBox en priorité
-  const vb = svgElement.viewBox && svgElement.viewBox.baseVal;
-  if (vb && vb.width > 0 && vb.height > 0) {
+  const vb = svgElement.viewBox?.baseVal;
+  if (vb?.width > 0 && vb?.height > 0) {
     svgWidth = vb.width;
     svgHeight = vb.height;
   } else {
-    const widthAttr = svgElement.getAttribute("width");
-    const heightAttr = svgElement.getAttribute("height");
-    
-    if (widthAttr && heightAttr) {
-      svgWidth = parseFloat(widthAttr) || 1000;
-      svgHeight = parseFloat(heightAttr) || 800;
-    } else {
-      const rect = svgElement.getBoundingClientRect();
-      svgWidth = rect.width || 1000;
-      svgHeight = rect.height || 800;
-    }
+    svgWidth = parseFloat(svgElement.getAttribute("width")) || 1000;
+    svgHeight = parseFloat(svgElement.getAttribute("height")) || 800;
   }
 
-  console.log(`[CARTO] Dimensions SVG: ${svgWidth} x ${svgHeight}`);
-
-  // Appliquer les dimensions au SVG
   svgElement.style.width = svgWidth + "px";
   svgElement.style.height = svgHeight + "px";
   svgElement.style.display = "block";
-  svgElement.style.overflow = "visible";
 
-  // Activer les clics sur les activités
   activateSvgClicks();
-
-  // Initialiser zoom
   initZoomButtons();
-  
-  // Calculer le scale initial
-  const wrapper = document.getElementById("carto-pan-wrapper");
+
+  const wrapper = $("#carto-pan-wrapper");
   if (wrapper) {
-    const wrapperRect = wrapper.getBoundingClientRect();
-    const scaleX = (wrapperRect.width - 40) / svgWidth;
-    const scaleY = (wrapperRect.height - 40) / svgHeight;
-    currentScale = Math.min(scaleX, scaleY, 1);
+    const r = wrapper.getBoundingClientRect();
+    currentScale = Math.min((r.width - 40) / svgWidth, (r.height - 40) / svgHeight, 1);
     currentScale = Math.max(currentScale, 0.1);
   }
-  
-  setTimeout(() => {
-    centerCartography();
-  }, 50);
 
-  console.log(`[CARTO] SVG configuré: scale=${Math.round(currentScale * 100)}%`);
+  setTimeout(centerCartography, 50);
 }
 
-/* ============================================================
-   ACTIVATION DES CLICS SUR LES ACTIVITÉS
-============================================================ */
 function activateSvgClicks() {
-  if (!svgElement) {
-    console.error("[CARTO] svgElement est null");
-    return;
-  }
+  if (!svgElement) return;
 
-  console.log("[CARTO] === ACTIVATION DES CLICS ===");
-  console.log("[CARTO] SHAPE_ACTIVITY_MAP:", SHAPE_ACTIVITY_MAP);
-  console.log("[CARTO] Nombre d'entrées:", Object.keys(SHAPE_ACTIVITY_MAP).length);
-
-  const allElements = svgElement.querySelectorAll("*");
-  console.log("[CARTO] Éléments dans le SVG:", allElements.length);
-
-  let foundMids = [];
-  let activatedCount = 0;
-
-  allElements.forEach((el) => {
-    // Chercher l'attribut mID (plusieurs méthodes)
-    let mid = el.getAttributeNS(VISIO_NS, "mID");
-    
+  svgElement.querySelectorAll("*").forEach((el) => {
+    let mid = el.getAttributeNS(VISIO_NS, "mID") || el.getAttribute("v:mID") || el.getAttribute("data-mid");
     if (!mid) {
-      mid = el.getAttribute("v:mID");
-    }
-    
-    if (!mid) {
-      mid = el.getAttribute("data-mid");
-    }
-    
-    if (!mid) {
-      for (let attr of el.attributes || []) {
-        if (attr.name.toLowerCase().includes("mid") || attr.name.toLowerCase().includes("shapeid")) {
-          mid = attr.value;
-          break;
-        }
+      for (let a of el.attributes || []) {
+        if (a.name.toLowerCase().includes("mid")) { mid = a.value; break; }
       }
     }
-
-    if (mid) {
-      foundMids.push(mid);
-    }
-
     if (!mid) return;
 
-    const activityId = SHAPE_ACTIVITY_MAP[mid];
-    
-    if (!activityId) return;
+    const actId = SHAPE_ACTIVITY_MAP[mid];
+    if (!actId) return;
 
-    activatedCount++;
-    console.log(`[CARTO] ✓ Activité: mID="${mid}" → id=${activityId}`);
-
-    // Marquer comme cliquable
-    clickableElements.add(el);
-    el.dataset.activityId = activityId;
-    el.dataset.mid = mid;
-
-    // Style
+    el.dataset.activityId = actId;
     el.style.cursor = "pointer";
     el.classList.add("carto-activity");
 
-    // Effets au survol
     el.addEventListener("mouseenter", () => {
-      el.style.filter = "drop-shadow(0 0 8px #22c55e)";
-      el.style.opacity = "0.85";
+      if (crossCartoMode) return;
+      el.style.filter = "drop-shadow(0 0 6px #22c55e)";
+      el.style.opacity = "0.9";
     });
-
     el.addEventListener("mouseleave", () => {
+      if (crossCartoMode) return;
       el.style.filter = "";
       el.style.opacity = "1";
     });
-
-    // Clic sur l'activité
     el.addEventListener("click", (e) => {
       if (!hasMoved) {
         e.stopPropagation();
-        e.preventDefault();
-        const url = `/activities/view?activity_id=${activityId}`;
-        console.log(`[CARTO] Navigation vers: ${url}`);
-        window.location.href = url;
-      }
-    });
-  });
-
-  console.log("[CARTO] === RÉSUMÉ ===");
-  console.log(`[CARTO] mIDs trouvés: ${foundMids.length}`);
-  console.log(`[CARTO] Activités cliquables: ${activatedCount}`);
-  
-  if (activatedCount === 0 && Object.keys(SHAPE_ACTIVITY_MAP).length > 0) {
-    console.warn("[CARTO] ⚠️ Aucune activité cliquable !");
-    console.warn("[CARTO] mIDs dans SVG:", [...new Set(foundMids)].slice(0, 20));
-    console.warn("[CARTO] mIDs attendus:", Object.keys(SHAPE_ACTIVITY_MAP).slice(0, 20));
-  }
-}
-
-/* ============================================================
-   LISTE DES ACTIVITÉS (colonne de droite)
-============================================================ */
-function initListClicks() {
-  document.querySelectorAll(".activity-item").forEach((li) => {
-    li.addEventListener("click", () => {
-      const id = li.dataset.id;
-      if (!id) return;
-      window.location.href = `/activities/view?activity_id=${id}`;
-    });
-  });
-}
-
-/* ============================================================
-   POPUP ACTIONS CARTOGRAPHIE
-============================================================ */
-function initPopup() {
-  const popup = document.getElementById("carto-actions-popup");
-  const btnOpen = document.getElementById("carto-actions-btn");
-  const btnClose = document.getElementById("close-popup");
-
-  if (!popup || !btnOpen || !btnClose) return;
-
-  btnOpen.onclick = () => popup.classList.remove("hidden");
-  btnClose.onclick = () => popup.classList.add("hidden");
-
-  popup.addEventListener("click", (e) => {
-    if (e.target === popup) {
-      popup.classList.add("hidden");
-    }
-  });
-}
-
-/* ============================================================
-   DROPZONE DANS POPUP ACTIONS CARTOGRAPHIE
-============================================================ */
-function initCartoDropzone() {
-  const dropzone = document.getElementById("carto-dropzone");
-  const fileInput = document.getElementById("carto-file-input");
-  const status = document.getElementById("carto-dropzone-status");
-  
-  if (!dropzone || !fileInput) return;
-  
-  // Clic sur la dropzone = ouvrir le sélecteur de fichier
-  dropzone.onclick = () => fileInput.click();
-  
-  // Drag & drop
-  dropzone.addEventListener("dragover", (e) => {
-    e.preventDefault();
-    dropzone.classList.add("dragover");
-  });
-  
-  dropzone.addEventListener("dragleave", () => {
-    dropzone.classList.remove("dragover");
-  });
-  
-  dropzone.addEventListener("drop", async (e) => {
-    e.preventDefault();
-    dropzone.classList.remove("dragover");
-    const file = e.dataTransfer.files[0];
-    if (file) await uploadCartoFile(file, status);
-  });
-  
-  // Sélection via input file
-  fileInput.addEventListener("change", async (e) => {
-    const file = e.target.files[0];
-    if (file) await uploadCartoFile(file, status);
-  });
-}
-
-async function uploadCartoFile(file, statusEl) {
-  if (!file.name.toLowerCase().endsWith(".svg")) {
-    statusEl.innerHTML = '<span class="status-error">❌ Format invalide - fichier SVG requis</span>';
-    return;
-  }
-  
-  statusEl.innerHTML = '<span class="status-loading">⏳ Upload en cours...</span>';
-  
-  const formData = new FormData();
-  formData.append("file", file);
-  
-  try {
-    const res = await fetch("/activities/upload-carto", {
-      method: "POST",
-      body: formData
-    });
-    
-    const data = await res.json();
-    
-    if (data.error) {
-      statusEl.innerHTML = `<span class="status-error">❌ ${data.error}</span>`;
-      return;
-    }
-    
-    // Afficher le résumé de la synchronisation
-    const sync = data.sync || {};
-    let html = '<div class="sync-result">';
-    html += '<h4>✅ Cartographie mise à jour</h4>';
-    html += '<ul>';
-    html += `<li>📊 Total dans SVG: <strong>${sync.total_in_svg || 0}</strong></li>`;
-    html += `<li>➕ Nouvelles activités: <strong>${sync.added || 0}</strong></li>`;
-    html += `<li>✏️ Renommées: <strong>${sync.renamed || 0}</strong></li>`;
-    html += `<li>⚠️ Supprimées du SVG: <strong>${sync.deleted_warning || 0}</strong></li>`;
-    html += '</ul>';
-    
-    // Afficher les renommages
-    if (sync.renamed_list && sync.renamed_list.length > 0) {
-      html += '<div class="sync-details"><strong>Renommages:</strong><ul>';
-      sync.renamed_list.forEach(r => {
-        html += `<li>"${r.old}" → "${r.new}"</li>`;
-      });
-      html += '</ul></div>';
-    }
-    
-    // Afficher les suppressions potentielles
-    if (sync.deleted_list && sync.deleted_list.length > 0) {
-      html += '<div class="sync-warning"><strong>⚠️ Activités absentes du SVG:</strong>';
-      html += '<p class="hint">Ces activités existent en base mais ne sont plus dans le SVG. Leurs données sont conservées.</p><ul>';
-      sync.deleted_list.forEach(d => {
-        html += `<li>${d.name}</li>`;
-      });
-      html += '</ul></div>';
-    }
-    
-    html += '<button onclick="window.location.reload()" class="btn-blue">🔄 Recharger la page</button>';
-    html += '</div>';
-    
-    statusEl.innerHTML = html;
-    
-  } catch (e) {
-    statusEl.innerHTML = `<span class="status-error">❌ Erreur réseau: ${e}</span>`;
-  }
-}
-
-function initResyncButton() {
-  const btn = document.getElementById("resync-activities-btn");
-  if (!btn) return;
-
-  btn.onclick = async () => {
-    btn.textContent = "⏳ Re-synchronisation...";
-    btn.disabled = true;
-
-    try {
-      const res = await fetch("/activities/resync", { method: "POST" });
-      const data = await res.json();
-
-      if (data.error) {
-        alert("Erreur: " + data.error);
-        btn.textContent = "🔄 Re-synchroniser les activités";
-        btn.disabled = false;
-        return;
-      }
-
-      // Construire le message avec les nouvelles stats
-      const sync = data.sync || {};
-      let msg = `Re-synchronisation terminée!\n\n`;
-      msg += `📊 Total dans SVG: ${sync.total_in_svg || 0}\n`;
-      msg += `➕ Nouvelles activités: ${sync.added || 0}\n`;
-      msg += `✏️ Renommées: ${sync.renamed || 0}\n`;
-      msg += `✓ Inchangées: ${sync.unchanged || 0}\n`;
-      msg += `⚠️ Absentes du SVG: ${sync.deleted_warning || 0}\n`;
-      
-      if (sync.renamed_list && sync.renamed_list.length > 0) {
-        msg += `\nRenommages:\n`;
-        sync.renamed_list.forEach(r => {
-          msg += `  • "${r.old}" → "${r.new}"\n`;
-        });
-      }
-      
-      if (sync.deleted_list && sync.deleted_list.length > 0) {
-        msg += `\n⚠️ Activités absentes du SVG (données conservées):\n`;
-        sync.deleted_list.forEach(d => {
-          msg += `  • ${d.name}\n`;
-        });
-      }
-      
-      alert(msg);
-      window.location.reload();
-
-    } catch (e) {
-      alert("Erreur réseau: " + e);
-      btn.textContent = "🔄 Re-synchroniser les activités";
-      btn.disabled = false;
-    }
-  };
-}
-
-/* ============================================================
-   GESTIONNAIRE D'ENTITÉS
-============================================================ */
-function initEntityManager() {
-  const popup = document.getElementById("entity-manager-popup");
-  const btnOpen = document.getElementById("entity-manager-btn");
-  const btnClose = document.getElementById("close-entity-manager");
-
-  if (!popup || !btnOpen) return;
-
-  btnOpen.onclick = () => {
-    popup.classList.remove("hidden");
-    loadEntitiesList();
-  };
-  
-  if (btnClose) {
-    btnClose.onclick = () => popup.classList.add("hidden");
-  }
-
-  popup.addEventListener("click", (e) => {
-    if (e.target === popup) {
-      popup.classList.add("hidden");
-    }
-  });
-
-  // Bouton créer entité
-  const createBtn = document.getElementById("create-entity-btn");
-  if (createBtn) {
-    createBtn.onclick = createEntity;
-  }
-
-  // Boutons d'action
-  document.getElementById("activate-entity-btn")?.addEventListener("click", activateEntity);
-  document.getElementById("rename-entity-btn")?.addEventListener("click", showRenameModal);
-  document.getElementById("delete-entity-btn")?.addEventListener("click", showDeleteModal);
-
-  // Modals
-  document.getElementById("cancel-delete-btn")?.addEventListener("click", hideDeleteModal);
-  document.getElementById("confirm-delete-btn")?.addEventListener("click", confirmDelete);
-  document.getElementById("cancel-rename-btn")?.addEventListener("click", hideRenameModal);
-  document.getElementById("confirm-rename-btn")?.addEventListener("click", confirmRename);
-
-  // Dropzone entité
-  initEntityDropzone();
-}
-
-async function loadEntitiesList() {
-  try {
-    const response = await fetch("/activities/api/entities");
-    const entities = await response.json();
-
-    const list = document.getElementById("entities-list");
-    if (!list) return;
-
-    if (entities.length === 0) {
-      list.innerHTML = '<li class="no-entity">Aucune entité créée</li>';
-      return;
-    }
-
-    list.innerHTML = entities.map(e => `
-      <li class="entity-item ${e.is_active ? 'active' : ''}" data-id="${e.id}">
-        <span class="entity-name">${e.name}</span>
-        ${e.is_active ? '<span class="entity-active-badge">Active</span>' : ''}
-        <span class="entity-count">${e.activities_count} activités</span>
-      </li>
-    `).join("");
-
-    // Ajouter les clics
-    list.querySelectorAll(".entity-item").forEach(li => {
-      li.addEventListener("click", () => selectEntity(parseInt(li.dataset.id)));
-    });
-
-  } catch (error) {
-    console.error("Erreur chargement entités:", error);
-  }
-}
-
-function selectEntity(entityId) {
-  selectedEntityId = entityId;
-
-  // Highlight dans la liste
-  document.querySelectorAll(".entity-item").forEach(li => {
-    li.classList.toggle("selected", parseInt(li.dataset.id) === entityId);
-  });
-
-  // Afficher les détails
-  const placeholder = document.getElementById("entity-details-placeholder");
-  const details = document.getElementById("entity-details");
-  
-  if (placeholder) placeholder.classList.add("hidden");
-  if (details) details.classList.remove("hidden");
-
-  // Charger les infos
-  fetch(`/activities/api/entities`)
-    .then(r => r.json())
-    .then(entities => {
-      const entity = entities.find(e => e.id === entityId);
-      if (entity) {
-        document.getElementById("entity-detail-name").textContent = entity.name;
-        document.getElementById("entity-detail-description").textContent = entity.description || "Pas de description";
-        document.getElementById("entity-activities-count").textContent = entity.activities_count;
-        document.getElementById("entity-svg-status").textContent = entity.svg_filename ? "✓" : "—";
-        
-        // Masquer le bouton activer si déjà active
-        const activateBtn = document.getElementById("activate-entity-btn");
-        if (activateBtn) {
-          activateBtn.style.display = entity.is_active ? "none" : "inline-block";
+        if (crossCartoMode) {
+          const raw = el.dataset.crossEntities;
+          if (raw) {
+            const entities = JSON.parse(raw);
+            const name = el.dataset.crossActivity || "Activité";
+            handleCrossCartoClick(name, entities);
+          }
+        } else {
+          window.location.href = `/activities/view?activity_id=${actId}`;
         }
       }
     });
+  });
+}
+
+function initListClicks() {
+  $$(".activity-item").forEach((li) => {
+    li.addEventListener("click", () => {
+      const id = li.dataset.id;
+      if (id) window.location.href = `/activities/view?activity_id=${id}`;
+    });
+  });
+}
+
+/* ============================================================
+   GESTION DES MODALS (SÉCURISÉE)
+============================================================ */
+function hideAllModals() {
+  const modals = ["confirm-delete-modal", "rename-modal", "carto-wizard-popup"];
+  modals.forEach(id => {
+    const modal = document.getElementById(id);
+    if (modal) {
+      modal.classList.add("hidden");
+      modal.style.display = "none";
+    }
+  });
+}
+
+function showModal(id) {
+  const modal = document.getElementById(id);
+  if (modal) {
+    modal.classList.remove("hidden");
+    modal.style.display = "flex";
+  }
+}
+
+function hideModal(id) {
+  const modal = document.getElementById(id);
+  if (modal) {
+    modal.classList.add("hidden");
+    modal.style.display = "none";
+  }
+}
+
+function initModalOverlays() {
+  const deleteModal = $("#confirm-delete-modal");
+  const renameModal = $("#rename-modal");
+
+  if (deleteModal) {
+    deleteModal.addEventListener("click", (e) => {
+      if (e.target === deleteModal) hideModal("confirm-delete-modal");
+    });
+  }
+
+  if (renameModal) {
+    renameModal.addEventListener("click", (e) => {
+      if (e.target === renameModal) hideModal("rename-modal");
+    });
+  }
+
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") {
+      hideModal("confirm-delete-modal");
+      hideModal("rename-modal");
+      hideModal("carto-wizard-popup");
+    }
+  });
+}
+
+/* ============================================================
+   WIZARD
+============================================================ */
+function initWizard() {
+  const popup = $("#carto-wizard-popup");
+  const btnOpen = $("#carto-wizard-btn");
+  
+  if (!popup || !btnOpen) return;
+
+  // CORRECTION: Utiliser showModal pour ouvrir
+  btnOpen.addEventListener("click", () => {
+    resetWizard();
+    loadEntitiesList();
+    showModal("carto-wizard-popup");
+  });
+
+  $("#close-wizard")?.addEventListener("click", () => hideModal("carto-wizard-popup"));
+  popup.addEventListener("click", (e) => {
+    if (e.target.classList.contains("wizard-overlay")) hideModal("carto-wizard-popup");
+  });
+
+  // Création entité
+  $("#wizard-create-entity-btn")?.addEventListener("click", createEntity);
+  $("#wizard-new-entity-name")?.addEventListener("keypress", (e) => { if (e.key === "Enter") createEntity(); });
+
+  // Navigation
+  $("#action-back")?.addEventListener("click", () => goToScreen("entities"));
+  $("#wizard-new-btn")?.addEventListener("click", () => startSteps("new"));
+  $("#wizard-update-btn")?.addEventListener("click", () => startSteps("update"));
+
+  // Actions entité
+  $("#wizard-activate-btn")?.addEventListener("click", activateEntity);
+  $("#wizard-rename-btn")?.addEventListener("click", () => showModal("rename-modal"));
+  $("#wizard-delete-btn")?.addEventListener("click", () => showModal("confirm-delete-modal"));
+
+  // Étapes
+  $("#step1-back")?.addEventListener("click", () => goToScreen("action"));
+  $("#step1-next")?.addEventListener("click", () => goToStep(2));
+  $("#step2-back")?.addEventListener("click", () => goToStep(1));
+  $("#step2-next")?.addEventListener("click", () => goToStep(3));
+  $("#step3-back")?.addEventListener("click", () => goToStep(2));
+  $("#step3-submit")?.addEventListener("click", submitWizard);
+
+  // Écrans finaux
+  $("#success-close")?.addEventListener("click", () => window.location.reload());
+  $("#error-retry")?.addEventListener("click", () => goToStep(3));
+  $("#error-close")?.addEventListener("click", () => hideModal("carto-wizard-popup"));
+
+  // Checkboxes
+  $("#keep-vsdx-checkbox")?.addEventListener("change", (e) => { wizardState.keepVsdx = e.target.checked; toggleDropzone("vsdx"); });
+  $("#keep-svg-checkbox")?.addEventListener("change", (e) => { wizardState.keepSvg = e.target.checked; toggleDropzone("svg"); });
+
+  // Dropzones
+  initDropzone("vsdx");
+  initDropzone("svg");
+
+  // Modals
+  $("#cancel-delete-btn")?.addEventListener("click", () => hideModal("confirm-delete-modal"));
+  $("#confirm-delete-btn")?.addEventListener("click", deleteEntity);
+  $("#cancel-rename-btn")?.addEventListener("click", () => hideModal("rename-modal"));
+  $("#confirm-rename-btn")?.addEventListener("click", renameEntity);
+
+  initModalOverlays();
+}
+
+function resetWizard() {
+  Object.assign(wizardState, { selectedEntity: null, mode: null, vsdxFile: null, svgFile: null, keepVsdx: false, keepSvg: false, connectionsPreview: null });
+  const kv = $("#keep-vsdx-checkbox"), ks = $("#keep-svg-checkbox");
+  if (kv) kv.checked = false;
+  if (ks) ks.checked = false;
+  $("#vsdx-preview")?.classList.add("hidden");
+  $("#svg-preview")?.classList.add("hidden");
+  $("#vsdx-dropzone")?.classList.remove("hidden", "disabled");
+  $("#svg-dropzone")?.classList.remove("hidden", "disabled");
+  const vi = $("#vsdx-file-input"), si = $("#svg-file-input");
+  if (vi) vi.value = "";
+  if (si) si.value = "";
+  goToScreen("entities");
+  $("#wizard-progress")?.classList.add("hidden");
+}
+
+/* Entités */
+async function loadEntitiesList() {
+  const list = $("#wizard-entities-list");
+  const empty = $("#wizard-entities-empty");
+  if (!list) return;
+
+  try {
+    const res = await fetch("/activities/api/entities");
+    const data = await res.json();
+    wizardState.entitiesCache = data;
+
+    if (!data.length) { list.innerHTML = ""; empty?.classList.remove("hidden"); return; }
+    empty?.classList.add("hidden");
+
+    list.innerHTML = data.map(e => `
+      <div class="entity-grid-item ${e.is_active ? 'active' : ''}" data-id="${e.id}">
+        <div class="entity-grid-icon"><i class="fa-solid fa-building"></i></div>
+        <div class="entity-grid-info">
+          <span class="entity-grid-name">${e.name}</span>
+          <span class="entity-grid-stats">${e.activities_count || 0} activités</span>
+        </div>
+        ${e.is_active ? '<span class="entity-grid-badge">Active</span>' : ''}
+        ${e.svg_exists ? '<span class="entity-grid-svg"><i class="fa-solid fa-image"></i></span>' : ''}
+      </div>
+    `).join("");
+
+    list.querySelectorAll(".entity-grid-item").forEach(item => {
+      item.addEventListener("click", () => selectEntity(parseInt(item.dataset.id)));
+    });
+  } catch (e) {
+    list.innerHTML = '<p class="error">Erreur de chargement</p>';
+  }
 }
 
 async function createEntity() {
-  const nameInput = document.getElementById("new-entity-name");
-  const name = nameInput?.value.trim();
-
-  if (!name) {
-    alert("Veuillez entrer un nom pour l'entité");
-    return;
-  }
+  const input = $("#wizard-new-entity-name");
+  const name = input?.value.trim();
+  if (!name) { alert("Nom requis"); return; }
 
   try {
-    const response = await fetch("/activities/api/entities", {
+    const res = await fetch("/activities/api/entities", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ name })
     });
+    const data = await res.json();
+    if (data.error) { alert(data.error); return; }
+    input.value = "";
+    await loadEntitiesList();
+    setTimeout(() => selectEntity(data.entity.id), 50);
+  } catch (e) { alert("Erreur réseau"); }
+}
 
-    const data = await response.json();
+async function selectEntity(id) {
+  const entity = wizardState.entitiesCache.find(e => e.id === id);
+  if (!entity) return;
 
-    if (data.error) {
-      alert("Erreur: " + data.error);
-      return;
+  let connCount = 0;
+  try {
+    const res = await fetch(`/activities/api/entities/${id}/details`);
+    if (res.ok) {
+      const d = await res.json();
+      connCount = d.connections_count || 0;
+      entity.svg_exists = d.svg_exists;
+      entity.vsdx_exists = d.vsdx_exists;
+      entity.current_svg = d.current_svg;
+      entity.current_vsdx = d.current_vsdx;
     }
+  } catch (e) {}
 
-    nameInput.value = "";
-    loadEntitiesList();
-    
-    // Sélectionner la nouvelle entité
-    setTimeout(() => selectEntity(data.entity.id), 100);
+  wizardState.selectedEntity = entity;
 
-  } catch (error) {
-    alert("Erreur réseau");
+  $("#selected-entity-name").textContent = entity.name;
+  $("#selected-entity-activities").textContent = entity.activities_count || 0;
+  $("#selected-entity-connections").textContent = connCount;
+  
+  const badge = $("#selected-entity-active-badge");
+  if (badge) badge.classList.toggle("hidden", !entity.is_active);
+  
+  const actBtn = $("#wizard-activate-btn");
+  if (actBtn) actBtn.style.display = entity.is_active ? "none" : "";
+
+  const svgVal = $("#selected-entity-svg-value");
+  const vsdxVal = $("#selected-entity-vsdx-value");
+  if (svgVal) {
+    svgVal.textContent = entity.svg_exists ? "✓ Présent" : "—";
+    svgVal.className = "file-value " + (entity.svg_exists ? "present" : "");
   }
+  if (vsdxVal) {
+    vsdxVal.textContent = entity.vsdx_exists ? "✓ Présent" : "—";
+    vsdxVal.className = "file-value " + (entity.vsdx_exists ? "present" : "");
+  }
+
+  const updateBtn = $("#wizard-update-btn");
+  if (updateBtn) updateBtn.disabled = !(entity.svg_exists || entity.vsdx_exists);
+
+  goToScreen("action");
 }
 
 async function activateEntity() {
-  if (!selectedEntityId) return;
-
+  if (!wizardState.selectedEntity) return;
   try {
-    const response = await fetch(`/activities/api/entities/${selectedEntityId}/activate`, {
-      method: "POST"
-    });
-
-    const data = await response.json();
-
-    if (data.error) {
-      alert("Erreur: " + data.error);
-      return;
-    }
-
-    // Recharger la page pour mettre à jour tout le contexte
+    const res = await fetch(`/activities/api/entities/${wizardState.selectedEntity.id}/activate`, { method: "POST" });
+    const data = await res.json();
+    if (data.error) { alert(data.error); return; }
     window.location.reload();
-
-  } catch (error) {
-    alert("Erreur réseau");
-  }
+  } catch (e) { alert("Erreur réseau"); }
 }
 
-function showDeleteModal() {
-  if (!selectedEntityId) return;
-  document.getElementById("confirm-delete-modal")?.classList.remove("hidden");
-}
-
-function hideDeleteModal() {
-  document.getElementById("confirm-delete-modal")?.classList.add("hidden");
-}
-
-async function confirmDelete() {
-  if (!selectedEntityId) return;
-
+async function deleteEntity() {
+  if (!wizardState.selectedEntity) return;
   try {
-    const response = await fetch(`/activities/api/entities/${selectedEntityId}`, {
-      method: "DELETE"
-    });
-
-    const data = await response.json();
-
-    if (data.error) {
-      alert("Erreur: " + data.error);
-      return;
-    }
-
-    hideDeleteModal();
-    
-    // Recharger la page
+    const res = await fetch(`/activities/api/entities/${wizardState.selectedEntity.id}`, { method: "DELETE" });
+    const data = await res.json();
+    if (data.error) { alert(data.error); return; }
+    hideModal("confirm-delete-modal");
     window.location.reload();
-
-  } catch (error) {
-    alert("Erreur réseau");
-  }
+  } catch (e) { alert("Erreur réseau"); }
 }
 
-function showRenameModal() {
-  if (!selectedEntityId) return;
-  
-  const currentName = document.getElementById("entity-detail-name")?.textContent || "";
-  const input = document.getElementById("rename-input");
-  if (input) input.value = currentName;
-  
-  document.getElementById("rename-modal")?.classList.remove("hidden");
-}
-
-function hideRenameModal() {
-  document.getElementById("rename-modal")?.classList.add("hidden");
-}
-
-async function confirmRename() {
-  if (!selectedEntityId) return;
-
-  const newName = document.getElementById("rename-input")?.value.trim();
-  if (!newName) {
-    alert("Veuillez entrer un nom");
-    return;
-  }
-
+async function renameEntity() {
+  if (!wizardState.selectedEntity) return;
+  const name = $("#rename-input")?.value.trim();
+  if (!name) { alert("Nom requis"); return; }
   try {
-    const response = await fetch(`/activities/api/entities/${selectedEntityId}`, {
+    const res = await fetch(`/activities/api/entities/${wizardState.selectedEntity.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: newName })
+      body: JSON.stringify({ name })
     });
-
-    const data = await response.json();
-
-    if (data.error) {
-      alert("Erreur: " + data.error);
-      return;
-    }
-
-    hideRenameModal();
-    loadEntitiesList();
-    selectEntity(selectedEntityId);
-
-  } catch (error) {
-    alert("Erreur réseau");
-  }
+    const data = await res.json();
+    if (data.error) { alert(data.error); return; }
+    hideModal("rename-modal");
+    wizardState.selectedEntity.name = name;
+    $("#selected-entity-name").textContent = name;
+    await loadEntitiesList();
+  } catch (e) { alert("Erreur réseau"); }
 }
 
-/* ============================================================
-   DROPZONE ENTITÉ (Upload SVG)
-============================================================ */
-function initEntityDropzone() {
-  const zone = document.getElementById("entity-dropzone");
-  const status = document.getElementById("entity-dropzone-status");
-  if (!zone || !status) return;
-
-  // Input file caché
-  const fileInput = document.createElement("input");
-  fileInput.type = "file";
-  fileInput.accept = ".svg";
-  fileInput.style.display = "none";
-  document.body.appendChild(fileInput);
-
-  zone.addEventListener("click", () => {
-    if (!selectedEntityId && !ACTIVE_ENTITY) {
-      alert("Veuillez d'abord sélectionner ou activer une entité");
-      return;
-    }
-    fileInput.click();
-  });
-
-  fileInput.addEventListener("change", async () => {
-    const file = fileInput.files[0];
-    if (file) {
-      await uploadEntitySvg(file, status);
-    }
-  });
-
-  // Drag & drop
-  zone.addEventListener("dragover", (e) => {
-    e.preventDefault();
-    zone.classList.add("dragover");
-  });
-
-  zone.addEventListener("dragleave", () => {
-    zone.classList.remove("dragover");
-  });
-
-  zone.addEventListener("drop", async (e) => {
-    e.preventDefault();
-    zone.classList.remove("dragover");
-
-    const file = e.dataTransfer.files[0];
-    if (file) {
-      await uploadEntitySvg(file, status);
-    }
-  });
-}
-
-async function uploadEntitySvg(file, status) {
-  if (!file.name.toLowerCase().endsWith(".svg")) {
-    status.innerHTML = "❌ Format invalide — fichier SVG requis";
-    status.className = "dropzone-status error";
-    return;
-  }
-
-  // Vérifier qu'on a une entité active ou sélectionnée
-  const targetEntityId = selectedEntityId || (ACTIVE_ENTITY ? ACTIVE_ENTITY.id : null);
+/* Navigation wizard */
+function goToScreen(id) {
+  $$(".wizard-screen").forEach(s => s.classList.remove("active"));
+  $(`#wizard-screen-${id}`)?.classList.add("active");
   
-  if (!targetEntityId) {
-    status.innerHTML = "❌ Aucune entité active";
-    status.className = "dropzone-status error";
-    return;
+  const prog = $("#wizard-progress");
+  if (prog) prog.classList.toggle("hidden", !["step1", "step2", "step3"].includes(id));
+
+  const title = $("#wizard-title");
+  if (title) {
+    if (id === "entities") title.textContent = "📦 Gestion de la cartographie";
+    else if (id === "action") title.textContent = "📦 " + (wizardState.selectedEntity?.name || "Entité");
+    else title.textContent = "📦 Import cartographie";
   }
+}
 
-  // Si l'entité sélectionnée n'est pas active, l'activer d'abord
-  if (selectedEntityId && (!ACTIVE_ENTITY || ACTIVE_ENTITY.id !== selectedEntityId)) {
-    status.innerHTML = "⏳ Activation de l'entité...";
-    status.className = "dropzone-status loading";
-    
-    await fetch(`/activities/api/entities/${selectedEntityId}/activate`, {
-      method: "POST"
-    });
+function goToStep(step) {
+  updateProgress(step);
+  if (step === 1) { goToScreen("step1"); toggleDropzone("vsdx"); }
+  else if (step === 2) { goToScreen("step2"); toggleDropzone("svg"); }
+  else if (step === 3) { prepareRecap(); goToScreen("step3"); }
+}
+
+function startSteps(mode) {
+  wizardState.mode = mode;
+  const entity = wizardState.selectedEntity;
+  const keepVsdx = $("#keep-vsdx-option");
+  const keepSvg = $("#keep-svg-option");
+
+  if (mode === "update" && entity) {
+    if (entity.vsdx_exists && keepVsdx) {
+      keepVsdx.classList.remove("hidden");
+      $("#current-vsdx-name").textContent = entity.current_vsdx || "Fichier actuel";
+    } else keepVsdx?.classList.add("hidden");
+
+    if (entity.svg_exists && keepSvg) {
+      keepSvg.classList.remove("hidden");
+      $("#current-svg-name").textContent = entity.current_svg || "Fichier actuel";
+    } else keepSvg?.classList.add("hidden");
+  } else {
+    keepVsdx?.classList.add("hidden");
+    keepSvg?.classList.add("hidden");
   }
+  goToStep(1);
+}
 
-  status.innerHTML = "⏳ Upload en cours...";
-  status.className = "dropzone-status loading";
+function updateProgress(step) {
+  const prog = $("#wizard-progress");
+  if (!prog) return;
+  prog.classList.remove("hidden");
 
+  for (let i = 1; i <= 3; i++) {
+    const el = $(`.progress-step[data-step="${i}"]`);
+    if (!el) continue;
+    el.classList.remove("active", "completed");
+    if (i < step) el.classList.add("completed");
+    else if (i === step) el.classList.add("active");
+  }
+  for (let i = 1; i <= 2; i++) {
+    const line = $(`.progress-line[data-line="${i}"]`);
+    if (line) line.classList.toggle("filled", i < step);
+  }
+}
+
+function toggleDropzone(type) {
+  const keep = type === "vsdx" ? wizardState.keepVsdx : wizardState.keepSvg;
+  const dz = $(`#${type}-dropzone`);
+  if (dz) dz.classList.toggle("disabled", keep);
+}
+
+/* Dropzones */
+function initDropzone(type) {
+  const dz = $(`#${type}-dropzone`);
+  const input = $(`#${type}-file-input`);
+  const remove = $(`#${type}-remove`);
+  if (!dz || !input) return;
+
+  dz.addEventListener("click", () => { if (!dz.classList.contains("disabled")) input.click(); });
+  dz.addEventListener("dragover", (e) => { e.preventDefault(); if (!dz.classList.contains("disabled")) dz.classList.add("dragover"); });
+  dz.addEventListener("dragleave", () => dz.classList.remove("dragover"));
+  dz.addEventListener("drop", (e) => {
+    e.preventDefault();
+    dz.classList.remove("dragover");
+    if (!dz.classList.contains("disabled") && e.dataTransfer.files[0]) handleFile(type, e.dataTransfer.files[0]);
+  });
+  input.addEventListener("change", () => { if (input.files[0]) handleFile(type, input.files[0]); });
+  remove?.addEventListener("click", (e) => { e.stopPropagation(); clearFile(type); });
+}
+
+function handleFile(type, file) {
+  const ext = type === "vsdx" ? ".vsdx" : ".svg";
+  if (!file.name.toLowerCase().endsWith(ext)) { alert(`Format ${ext} requis`); return; }
+
+  if (type === "vsdx") { wizardState.vsdxFile = file; analyzeVsdx(file); }
+  else wizardState.svgFile = file;
+
+  $(`#${type}-dropzone`)?.classList.add("hidden");
+  $(`#${type}-preview`)?.classList.remove("hidden");
+  const fn = $(`#${type}-filename`), fs = $(`#${type}-filesize`);
+  if (fn) fn.textContent = file.name;
+  if (fs) fs.textContent = formatSize(file.size);
+}
+
+function clearFile(type) {
+  if (type === "vsdx") { wizardState.vsdxFile = null; wizardState.connectionsPreview = null; }
+  else wizardState.svgFile = null;
+  $(`#${type}-dropzone`)?.classList.remove("hidden");
+  $(`#${type}-preview`)?.classList.add("hidden");
+  const input = $(`#${type}-file-input`);
+  if (input) input.value = "";
+}
+
+async function analyzeVsdx(file) {
+  if (!wizardState.selectedEntity) return;
   const form = new FormData();
   form.append("file", file);
-
+  form.append("entity_id", wizardState.selectedEntity.id);
   try {
-    const res = await fetch("/activities/upload-carto", {
-      method: "POST",
-      body: form,
-    });
-
+    const res = await fetch("/activities/preview-connections", { method: "POST", body: form });
     const data = await res.json();
+    if (!data.error) wizardState.connectionsPreview = data;
+  } catch (e) { console.error(e); }
+}
 
-    if (data.error) {
-      status.innerHTML = "❌ " + data.error;
-      status.className = "dropzone-status error";
-      return;
-    }
+/* Récapitulatif */
+function prepareRecap() {
+  const entity = wizardState.selectedEntity;
+  $("#recap-entity-name").textContent = entity?.name || "-";
 
-    status.innerHTML = "✓ Cartographie installée — rechargement...";
-    status.className = "dropzone-status success";
-    setTimeout(() => window.location.reload(), 1200);
+  const vCard = $("#recap-vsdx"), vName = $("#recap-vsdx-name"), vStatus = $("#recap-vsdx-status");
+  vCard?.classList.remove("new-file", "kept-file");
+  if (wizardState.vsdxFile) {
+    vName.textContent = wizardState.vsdxFile.name;
+    vStatus.textContent = "Nouveau"; vStatus.className = "recap-file-status new";
+    vCard?.classList.add("new-file");
+  } else if (wizardState.keepVsdx && entity?.vsdx_exists) {
+    vName.textContent = entity.current_vsdx || "Fichier actuel";
+    vStatus.textContent = "Conservé"; vStatus.className = "recap-file-status kept";
+    vCard?.classList.add("kept-file");
+  } else {
+    vName.textContent = "Aucun"; vStatus.textContent = "-"; vStatus.className = "recap-file-status";
+  }
 
-  } catch (error) {
-    status.innerHTML = "❌ Erreur réseau";
-    status.className = "dropzone-status error";
+  const sCard = $("#recap-svg"), sName = $("#recap-svg-name"), sStatus = $("#recap-svg-status");
+  sCard?.classList.remove("new-file", "kept-file");
+  if (wizardState.svgFile) {
+    sName.textContent = wizardState.svgFile.name;
+    sStatus.textContent = "Nouveau"; sStatus.className = "recap-file-status new";
+    sCard?.classList.add("new-file");
+  } else if (wizardState.keepSvg && entity?.svg_exists) {
+    sName.textContent = entity.current_svg || "Fichier actuel";
+    sStatus.textContent = "Conservé"; sStatus.className = "recap-file-status kept";
+    sCard?.classList.add("kept-file");
+  } else {
+    sName.textContent = "Aucun"; sStatus.textContent = "-"; sStatus.className = "recap-file-status";
+  }
+
+  const connSection = $("#connections-preview-section"), noVsdx = $("#no-vsdx-message");
+  const connTitle = connSection?.querySelector("h4");
+  
+  if (wizardState.vsdxFile && wizardState.connectionsPreview) {
+    connSection?.classList.remove("hidden");
+    noVsdx?.classList.add("hidden");
+    if (connTitle) connTitle.textContent = wizardState.mode === "new" ? "Connexions à importer" : "Aperçu des connexions";
+    displayConnections(wizardState.connectionsPreview);
+  } else {
+    connSection?.classList.add("hidden");
+    noVsdx?.classList.remove("hidden");
+    const p = noVsdx?.querySelector("p");
+    if (p) p.textContent = wizardState.keepVsdx ? "VSDX conservé — connexions inchangées." : "Pas de VSDX — connexions conservées.";
   }
 }
 
+function displayConnections(data) {
+  const stats = $("#wizard-connections-stats");
+  const isNewMode = wizardState.mode === "new";
+  const newModeInfo = $("#new-mode-info");
+  const missingCount = data.missing_activities?.length || 0;
+  const invalidCount = data.invalid_connections || 0;
+  
+  if (newModeInfo) newModeInfo.classList.toggle("hidden", !isNewMode);
+  
+  if (stats) {
+    if (isNewMode) {
+      stats.innerHTML = `
+        <div class="stat-box"><div class="stat-value">${data.total_connections || 0}</div><div class="stat-label">Connexions</div></div>
+        <div class="stat-box"><div class="stat-value">${data.valid_connections || 0}</div><div class="stat-label">Compatibles</div></div>
+        <div class="stat-box ${missingCount > 0 ? 'warning' : ''}"><div class="stat-value">${missingCount}</div><div class="stat-label">Non compatibles</div></div>
+      `;
+    } else {
+      stats.innerHTML = `
+        <div class="stat-box"><div class="stat-value">${data.total_connections || 0}</div><div class="stat-label">Total</div></div>
+        <div class="stat-box"><div class="stat-value">${data.valid_connections || 0}</div><div class="stat-label">Valides</div></div>
+        <div class="stat-box ${invalidCount > 0 ? 'warning' : ''}"><div class="stat-value">${invalidCount}</div><div class="stat-label">Invalides</div></div>
+      `;
+    }
+  }
+
+  const warn = $("#wizard-missing-warning"), list = $("#wizard-missing-list");
+  const warnTitle = warn?.querySelector("strong");
+  
+  if (missingCount > 0) {
+    warn?.classList.remove("hidden");
+    if (warnTitle) warnTitle.textContent = isNewMode ? "⚠️ Activités non compatibles (absentes du SVG) :" : "⚠️ Activités non trouvées :";
+    if (list) list.innerHTML = data.missing_activities.map(n => `<li>${n}</li>`).join("");
+  } else {
+    warn?.classList.add("hidden");
+  }
+
+  const tbody = $("#wizard-connections-tbody");
+  if (tbody && data.connections) {
+    tbody.innerHTML = data.connections.slice(0, 50).map(c => {
+      const tc = c.data_type === "déclenchante" ? "declenchante" : "nourrissante";
+      const statusClass = c.valid ? 'status-valid' : 'status-invalid';
+      const statusIcon = c.valid ? '✓' : '✗';
+      
+      return `<tr class="${c.valid ? '' : 'row-invalid'}">
+        <td>${c.source || "-"}</td><td>→</td><td>${c.target || "-"}</td>
+        <td>${c.data_name || "-"}</td>
+        <td>${c.data_type ? `<span class="data-type ${tc}">${c.data_type}</span>` : "-"}</td>
+        <td class="${statusClass}">${statusIcon}</td>
+      </tr>`;
+    }).join("");
+  }
+}
+
+/* Soumission */
+async function submitWizard() {
+  const entity = wizardState.selectedEntity;
+  if (!entity) { alert("Aucune entité"); return; }
+
+  const hasSvg = wizardState.svgFile || (wizardState.keepSvg && entity.svg_exists);
+  if (!hasSvg && wizardState.mode === "new") { alert("SVG requis"); return; }
+
+  goToScreen("processing");
+  setStep("svg", "active");
+
+  const form = new FormData();
+  form.append("entity_id", entity.id);
+  form.append("mode", wizardState.mode);
+  if (wizardState.svgFile) form.append("svg_file", wizardState.svgFile);
+  form.append("keep_svg", wizardState.keepSvg);
+  if (wizardState.vsdxFile) form.append("vsdx_file", wizardState.vsdxFile);
+  form.append("keep_vsdx", wizardState.keepVsdx);
+  form.append("clear_connections", $("#clear-connections-checkbox")?.checked || false);
+
+  try {
+    const res = await fetch("/activities/upload-cartography", { method: "POST", body: form });
+    setStep("svg", "done"); setStep("vsdx", "active");
+    const data = await res.json();
+    setStep("vsdx", "done"); setStep("save", "active");
+
+    if (data.error) { showError(data.error); return; }
+
+    // Auto-activer l'entité uploadée pour qu'elle s'affiche correctement après reload
+    await fetch(`/activities/api/entities/${entity.id}/activate`, { method: "POST" });
+
+    await new Promise(r => setTimeout(r, 200));
+    setStep("save", "done");
+
+    showSuccess(data);
+  } catch (e) { showError("Erreur réseau"); }
+}
+
+function setStep(id, status) {
+  const el = $(`#proc-step-${id}`);
+  if (!el) return;
+  el.classList.remove("active", "done");
+  el.classList.add(status);
+  const icon = el.querySelector(".proc-icon");
+  if (icon) icon.textContent = status === "done" ? "✓" : status === "active" ? "⏳" : "○";
+}
+
+function showSuccess(data) {
+  goToScreen("success");
+  const stats = $("#success-stats");
+  if (stats && data.stats) {
+    stats.innerHTML = `
+      <div class="stat-item"><span class="stat-value">${data.stats.activities || 0}</span><span class="stat-label">Activités</span></div>
+      <div class="stat-item"><span class="stat-value">${data.stats.connections || 0}</span><span class="stat-label">Connexions</span></div>
+    `;
+  }
+}
+
+function showError(msg) {
+  goToScreen("error");
+  const el = $("#error-message");
+  if (el) el.textContent = msg;
+}
+
 /* ============================================================
-   INITIALISATION GLOBALE
+   INIT
+============================================================ */
+/* ============================================================
+   MODE CONNEXIONS INTER-CARTOS
+============================================================ */
+
+function initCrossCartoMode() {
+  const btn = document.getElementById("cross-carto-btn");
+  if (!btn) return;
+
+  btn.addEventListener("click", async () => {
+    crossCartoMode = !crossCartoMode;
+    btn.classList.toggle("active", crossCartoMode);
+
+    const infoDefault = document.getElementById("carto-info-default");
+    const infoCross   = document.getElementById("carto-info-cross");
+    if (infoDefault) infoDefault.classList.toggle("hidden", crossCartoMode);
+    if (infoCross)   infoCross.classList.toggle("hidden", !crossCartoMode);
+
+    if (crossCartoMode) {
+      await applyCrossCartoMode();
+    } else {
+      clearCrossCartoMode();
+    }
+  });
+}
+
+async function applyCrossCartoMode() {
+  if (!svgElement) return;
+
+  // Fetch matches from API
+  let data;
+  try {
+    const res = await fetch("/activities/api/cross_carto_matches");
+    data = await res.json();
+  } catch (e) {
+    console.error("cross_carto_matches fetch error:", e);
+    data = { matches: [] };
+  }
+  crossCartoMatches = data.matches || [];
+
+  // Build a lookup: shape_id → match info
+  const matchMap = {};
+  crossCartoMatches.forEach(m => { matchMap[m.shape_id] = m; });
+
+  // Update count badge
+  const countEl = document.getElementById("cross-carto-count");
+  if (countEl) countEl.textContent = crossCartoMatches.length;
+
+  // Apply visual effects to all carto-activity elements
+  svgElement.querySelectorAll(".carto-activity").forEach(el => {
+    // Find shape_id: iterate SHAPE_ACTIVITY_MAP entries to find which shape maps to this el
+    let shapeId = null;
+    // el.dataset.activityId was set in initShapeHandlers
+    // We need shape_id for the match. Let's store it directly.
+    // Actually we need reverse: actId → shapeId
+    // Use el.dataset.shapeId if set, otherwise we scan all keys
+    if (el.dataset.shapeId) {
+      shapeId = el.dataset.shapeId;
+    } else {
+      const actId = el.dataset.activityId;
+      if (actId) {
+        for (const [sid, aid] of Object.entries(SHAPE_ACTIVITY_MAP)) {
+          if (String(aid) === String(actId)) { shapeId = sid; break; }
+        }
+        el.dataset.shapeId = shapeId || "";
+      }
+    }
+
+    const match = shapeId ? matchMap[shapeId] : null;
+
+    if (match) {
+      // Highlight matched shape
+      el.dataset.crossEntities = JSON.stringify(match.matched_entities);
+      el.dataset.crossActivity  = match.activity_name;
+      el.style.opacity = "1";
+      el.style.filter  = "drop-shadow(0 0 6px #0ea5e9) drop-shadow(0 0 14px #38bdf8)";
+      el.style.cursor  = "pointer";
+      el.style.animation = "cross-pulse-svg 1.8s ease-in-out infinite";
+    } else {
+      // Dim non-matched shape
+      el.dataset.crossEntities = "";
+      el.style.opacity   = "0.12";
+      el.style.filter    = "grayscale(1)";
+      el.style.cursor    = "default";
+      el.style.animation = "none";
+    }
+  });
+}
+
+function clearCrossCartoMode() {
+  crossCartoMatches = [];
+  if (!svgElement) return;
+
+  svgElement.querySelectorAll(".carto-activity").forEach(el => {
+    el.style.opacity   = "1";
+    el.style.filter    = "";
+    el.style.cursor    = "pointer";
+    el.style.animation = "";
+    el.dataset.crossEntities = "";
+  });
+
+  const countEl = document.getElementById("cross-carto-count");
+  if (countEl) countEl.textContent = "0";
+}
+
+function handleCrossCartoClick(activityName, entities) {
+  if (!entities || entities.length === 0) return;
+
+  if (entities.length === 1) {
+    navigateToLinkedCarto(entities[0].id, entities[0].name, activityName);
+    return;
+  }
+
+  // Multiple matches → show entity selection popup
+  const popup  = document.getElementById("cross-entity-popup");
+  const nameEl = document.getElementById("cross-entity-activity-name");
+  const listEl = document.getElementById("cross-entity-list");
+  if (!popup || !listEl) return;
+
+  if (nameEl) nameEl.textContent = `"${activityName}"`;
+  listEl.innerHTML = "";
+
+  entities.forEach(entity => {
+    const item = document.createElement("div");
+    item.className = "cross-entity-item";
+    item.innerHTML = `<i class="fa-solid fa-building"></i> ${entity.name}`;
+    item.addEventListener("click", () => {
+      popup.classList.add("hidden");
+      navigateToLinkedCarto(entity.id, entity.name, activityName);
+    });
+    listEl.appendChild(item);
+  });
+
+  popup.classList.remove("hidden");
+}
+
+async function navigateToLinkedCarto(entityId, entityName, activityName) {
+  try {
+    await fetch(`/activities/api/entities/${entityId}/activate`, { method: "POST" });
+  } catch (e) {
+    console.error("Erreur activation entité:", e);
+  }
+  window.location.href = `/activities/view?highlight_name=${encodeURIComponent(activityName)}`;
+}
+
+/* ============================================================
+   INIT
 ============================================================ */
 document.addEventListener("DOMContentLoaded", async () => {
-  console.log("[CARTO] ========================================");
-  console.log("[CARTO] Initialisation de la cartographie");
-  console.log("[CARTO] ACTIVE_ENTITY:", ACTIVE_ENTITY);
-  console.log("[CARTO] SVG_EXISTS:", SVG_EXISTS);
-  console.log("[CARTO] SHAPE_ACTIVITY_MAP:", Object.keys(SHAPE_ACTIVITY_MAP).length, "entrées");
-  console.log("[CARTO] ========================================");
+  // Cacher tous les modals immédiatement
+  hideAllModals();
 
-  // Initialiser les contrôles UI
+  // Initialiser
   initListClicks();
-  initPopup();
-  initCartoDropzone();
-  initResyncButton();
-  initEntityManager();
-
-  // Initialiser pan et zoom
+  initWizard();
   initPan();
-  initWheelZoom();
-
-  // Charger le SVG inline
+  initCrossCartoMode();
   await loadSvgInline();
-  
-  console.log("[CARTO] Initialisation terminée");
+
+  // Touche Echap pour fermer le popup entité (si ouvert)
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") {
+      const entityPopup = document.getElementById("cross-entity-popup");
+      if (entityPopup) entityPopup.classList.add("hidden");
+    }
+  });
 });
