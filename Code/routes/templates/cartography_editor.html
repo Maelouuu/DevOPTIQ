@@ -1,0 +1,730 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OptiqCarto — {{ entity_name or 'Éditeur' }}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='optiqcarto/style.css') }}">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+
+  <!-- Configuration DevOPTIQ injectée avant editor.js -->
+  <script>
+    window.OPTIQCARTO_API_BASE    = '/cartography';
+    window.OPTIQCARTO_DEFAULT_NAME = {{ (entity_name or '')|tojson }};
+    window.OPTIQCARTO_HAS_VSDX   = {{ has_vsdx|tojson }};
+    window.OPTIQCARTO_HAS_CARTO  = {{ has_optiqcarto|tojson }};
+  </script>
+</head>
+<body>
+
+<!-- ══════════════ TOOLBAR ══════════════ -->
+<header id="toolbar">
+
+  <!-- Logo + Retour -->
+  <div class="tb-logo">
+    <a href="/activities/map" class="tb-back-link" title="Retour à l'application">
+      <i class="fa-solid fa-chevron-left"></i>
+    </a>
+    <span class="tb-logo-mark">◉</span>
+    <span class="tb-logo-name">OptiqCarto</span>
+    {% if entity_name %}
+      <span class="tb-entity-badge">{{ entity_name }}</span>
+    {% endif %}
+  </div>
+
+  <div class="tb-divider-v"></div>
+
+  <!-- ── Outils ── -->
+  <div class="tb-group-top">
+    <button class="tool-btn-top active" data-tool="select" title="Sélection (V)">
+      <i class="fa-solid fa-arrow-pointer"></i>
+      <span>Sélection</span>
+    </button>
+    <div class="shape-dropdown-wrap" id="connect-tool-wrap">
+      <button class="tool-btn-top" data-tool="connect" id="btn-connect-tool" title="Connecter (C)">
+        <i class="fa-solid fa-bezier-curve"></i>
+        <span>Connecter</span>
+      </button>
+      <div class="shape-sub-dropdown connect-routing-dropdown">
+        <button class="shape-sub-btn conn-routing-btn active" data-routing="smooth">
+          <i class="fa-solid fa-bezier-curve" style="font-size:13px;margin-right:6px"></i>
+          <span>Courbe</span>
+        </button>
+        <div class="shape-sub-sep"></div>
+        <button class="shape-sub-btn conn-routing-btn" data-routing="orthogonal">
+          <i class="fa-solid fa-turn-up" style="font-size:13px;margin-right:6px"></i>
+          <span>Orthogonale</span>
+        </button>
+      </div>
+    </div>
+    <button class="tool-btn-top" id="btn-group-create" title="Grouper (G)">
+      <i class="fa-solid fa-object-group"></i>
+      <span>Grouper</span>
+    </button>
+  </div>
+
+  <div class="tb-divider-v"></div>
+
+  <!-- ── Formes ── -->
+  <div class="tb-group-top">
+    <div class="shape-dropdown-wrap" id="process-shape-wrap">
+      <button class="shape-btn-top" data-tool="process" title="Activité — glissez sur le canevas">
+        <i class="fa-solid fa-square-check"></i>
+        <span>Activité</span>
+      </button>
+      <div class="shape-sub-dropdown">
+        <button class="shape-sub-btn" data-shape-type="process" data-shape-subtype="normal">
+          <span class="shape-sub-preview shape-sub-preview--normal"></span>
+          <span>Normale</span>
+        </button>
+        <div class="shape-sub-sep"></div>
+        <button class="shape-sub-btn" data-shape-type="process" data-shape-subtype="external">
+          <span class="shape-sub-preview shape-sub-preview--external"></span>
+          <span>Externe</span>
+        </button>
+        <div class="shape-sub-sep"></div>
+        <button class="shape-sub-btn" data-shape-type="process" data-shape-subtype="extco">
+          <span class="shape-sub-preview shape-sub-preview--extco"></span>
+          <span>Ext. entreprise</span>
+        </button>
+      </div>
+    </div>
+    <button class="shape-btn-top" data-tool="start-end" title="Début/Fin">
+      <i class="fa-solid fa-circle-dot"></i>
+      <span>Début/Fin</span>
+    </button>
+    <button class="shape-btn-top" data-tool="special" title="Sous-activité">
+      <i class="fa-solid fa-puzzle-piece"></i>
+      <span>Sous-act.</span>
+    </button>
+    <button class="shape-btn-top" data-tool="decision" title="Décision">
+      <i class="fa-solid fa-gem"></i>
+      <span>Décision</span>
+    </button>
+  </div>
+
+  <div class="tb-divider-v"></div>
+
+  <!-- ── Actions ── -->
+  <div class="tb-group-top">
+    <button class="tool-btn-top new-carto-btn" id="btn-new-carto" title="Nouvelle cartographie">
+      <i class="fa-solid fa-file-circle-plus"></i>
+      <span>Nouveau</span>
+    </button>
+    <button class="tool-btn-top accent" id="btn-architect" title="Organiser automatiquement">
+      <i class="fa-solid fa-wand-magic-sparkles"></i>
+      <span>Architecte</span>
+    </button>
+    <button class="tool-btn-top" id="btn-undo" title="Annuler (Ctrl+Z)">
+      <i class="fa-solid fa-rotate-left"></i>
+      <span>Annuler</span>
+    </button>
+    <button class="tool-btn-top" id="btn-redo" title="Rétablir (Ctrl+Y)">
+      <i class="fa-solid fa-rotate-right"></i>
+      <span>Rétablir</span>
+    </button>
+    <button class="tool-btn-top" id="btn-fit" title="Ajuster la vue (F)">
+      <i class="fa-solid fa-expand"></i>
+      <span>Centrer</span>
+    </button>
+    <button class="tool-btn-top danger" id="btn-delete" title="Supprimer (Suppr)">
+      <i class="fa-solid fa-trash"></i>
+      <span>Supprimer</span>
+    </button>
+  </div>
+
+  <div class="tb-divider-v"></div>
+
+  <!-- ── Fichier ── -->
+  <div class="file-folder-section" id="file-folder-section">
+    <div class="folder-3d-wrap" id="btn-folder-toggle" role="button" tabindex="0" title="Fichier">
+      <div class="folder__back">
+        <div class="folder__paper"></div>
+        <div class="folder__paper"></div>
+        <div class="folder__paper"></div>
+        <div class="folder__front"></div>
+      </div>
+      <span class="folder-label">Fichier</span>
+    </div>
+    <div class="folder-dropdown">
+      <button class="folder-action-btn" id="btn-save" title="Sauvegarder (Ctrl+S)">
+        <i class="fa-solid fa-floppy-disk"></i>
+        <span>Sauvegarder</span>
+      </button>
+      <button class="folder-action-btn" id="btn-load" title="Charger">
+        <i class="fa-solid fa-folder-open"></i>
+        <span>Charger</span>
+      </button>
+      <button class="folder-action-btn accent" id="btn-export-svg" title="Exporter SVG (Ctrl+E)">
+        <i class="fa-solid fa-file-export"></i>
+        <span>Export SVG</span>
+      </button>
+      <button class="folder-action-btn" id="btn-export-pdf" title="Exporter PDF">
+        <i class="fa-solid fa-file-pdf"></i>
+        <span>Export PDF</span>
+      </button>
+      <button class="folder-action-btn" id="btn-import-vsdx" title="Importer depuis Visio (.vsdx)">
+        <i class="fa-solid fa-file-import"></i>
+        <span>Import Visio</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- ── Panneau gauche toggle ── -->
+  <button class="tool-btn-top panel-toggle-btn" id="btn-left-panel-open" title="Panneau gauche">
+    <i class="fa-solid fa-table-columns"></i>
+    <span>Panneau</span>
+  </button>
+
+</header>
+
+<!-- ══════════════ LEFT PANEL ══════════════ -->
+<aside id="left-panel">
+  <div class="panel-prelayers" aria-hidden="true">
+    <div class="panel-prelayer panel-prelayer--1"></div>
+    <div class="panel-prelayer panel-prelayer--2"></div>
+  </div>
+  <div class="left-panel-header">
+    <span>Panneau</span>
+    <button class="panel-close-btn" id="btn-close-left-panel" title="Fermer">
+      <i class="fa-solid fa-chevron-left"></i>
+    </button>
+  </div>
+
+  <div class="left-category-label">
+    <span class="lcat-icon"><i class="fa-solid fa-bookmark"></i></span>
+    Légende
+  </div>
+  <div class="left-category-sep"></div>
+
+  <div class="left-legend-item">
+    <svg width="30" height="16" viewBox="0 0 30 16" style="flex-shrink:0"><rect x="1" y="1" width="28" height="14" rx="4" fill="#22c55e"/></svg>
+    <span>Activité</span>
+  </div>
+  <div class="left-legend-item">
+    <svg width="30" height="16" viewBox="0 0 30 16" style="flex-shrink:0"><ellipse cx="15" cy="8" rx="14" ry="7" fill="#3b82f6"/></svg>
+    <span>Début / Fin</span>
+  </div>
+  <div class="left-legend-item">
+    <svg width="30" height="16" viewBox="0 0 30 16" style="flex-shrink:0"><path d="M3,1 H27 Q30,1 30,4 V12 C25,12 23,15 19,13 C15,11 13,14 10,13 C7,12 1,15 0,12 V4 Q0,1 3,1 Z" fill="#f59e0b"/></svg>
+    <span>Sous-activité</span>
+  </div>
+  <div class="left-legend-item">
+    <svg width="30" height="16" viewBox="0 0 30 16" style="flex-shrink:0"><path d="M15,1 L29,8 L15,15 L1,8 Z" fill="#9ca3af"/></svg>
+    <span>Décision</span>
+  </div>
+  <div class="left-legend-item">
+    <svg width="30" height="16" viewBox="0 0 30 16" style="flex-shrink:0">
+      <line x1="1" y1="8" x2="22" y2="8" stroke="#567460" stroke-width="2"/>
+      <polygon points="20,4 29,8 20,12" fill="#567460"/>
+    </svg>
+    <span>Flux continu</span>
+  </div>
+  <div class="left-legend-item">
+    <svg width="30" height="16" viewBox="0 0 30 16" style="flex-shrink:0">
+      <line x1="1" y1="8" x2="22" y2="8" stroke="#567460" stroke-width="2" stroke-dasharray="4,3"/>
+      <polygon points="20,4 29,8 20,12" fill="#567460"/>
+    </svg>
+    <span>Flux optionnel</span>
+  </div>
+
+  <div class="left-category-label" style="padding-top:18px">
+    <span class="lcat-icon"><i class="fa-solid fa-layer-group"></i></span>
+    Canvas (éléments)
+  </div>
+  <div class="left-category-sep"></div>
+  <div id="canvas-map-scroll">
+    <div id="canvas-map-list"></div>
+  </div>
+</aside>
+
+<!-- ══════════════ CANVAS ══════════════ -->
+<main id="canvas-wrap">
+  <svg id="canvas" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <marker id="ah-base" viewBox="0 0 12 12" refX="10" refY="6"
+              markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M1,1 L11,6 L1,11 Z" fill="#555" stroke="none"/>
+      </marker>
+      <filter id="f-shadow" x="-30%" y="-30%" width="160%" height="160%">
+        <feDropShadow dx="0" dy="4" stdDeviation="5" flood-color="rgba(0,0,0,0.22)"/>
+      </filter>
+      <filter id="f-shadow-sel" x="-30%" y="-30%" width="160%" height="160%">
+        <feDropShadow dx="0" dy="0" stdDeviation="8" flood-color="rgba(77,184,104,0.6)"/>
+        <feDropShadow dx="0" dy="4" stdDeviation="4" flood-color="rgba(0,0,0,0.28)"/>
+      </filter>
+      <linearGradient id="shape-shine" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%"   stop-color="rgba(255,255,255,0.22)"/>
+        <stop offset="55%"  stop-color="rgba(255,255,255,0.04)"/>
+        <stop offset="100%" stop-color="rgba(0,0,0,0.1)"/>
+      </linearGradient>
+    </defs>
+    <g id="root-group">
+      <g id="g-bands"></g>
+      <g id="g-legend"></g>
+      <g id="g-groups"></g>
+      <g id="g-connections"></g>
+      <g id="g-shapes"></g>
+      <g id="g-handles"></g>
+      <g id="g-ui"></g>
+      <g id="g-overlay"></g>
+    </g>
+  </svg>
+  <div id="zoom-pill">
+    <i class="fa-solid fa-magnifying-glass"></i>
+    <span id="status-zoom">100%</span>
+  </div>
+</main>
+
+<!-- ══════════════ PROPERTIES ══════════════ -->
+<aside id="properties">
+  <div class="panel-prelayers" aria-hidden="true">
+    <div class="panel-prelayer panel-prelayer--1"></div>
+    <div class="panel-prelayer panel-prelayer--2"></div>
+  </div>
+  <div class="prop-header">
+    <span>Propriétés</span>
+    <button class="panel-close-btn" id="btn-close-props" title="Fermer">
+      <i class="fa-solid fa-chevron-right"></i>
+    </button>
+  </div>
+
+  <div id="prop-nothing" class="prop-empty">
+    <i class="fa-solid fa-arrow-pointer"></i>
+    <p>Sélectionnez un élément pour modifier ses propriétés.</p>
+  </div>
+
+  <div id="prop-align" style="display:none">
+    <div class="prop-align-bar">
+      <span class="prop-align-badge">
+        <svg width="11" height="11" viewBox="0 0 11 11" fill="currentColor"><circle cx="3" cy="3" r="2.2"/><circle cx="8" cy="3" r="2.2"/><circle cx="3" cy="8" r="2.2"/></svg>
+        <span id="prop-align-count">2</span>
+      </span>
+      <span class="prop-align-title">Sélection multiple</span>
+    </div>
+    <div class="prop-align-btns">
+      <button class="align-btn" data-align="cy" title="Aligner sur axe horizontal">
+        <svg class="align-icon" viewBox="0 0 36 24" fill="none">
+          <rect x="1" y="4" width="14" height="16" rx="3" stroke="currentColor" stroke-width="1.8" opacity="0.7"/>
+          <rect x="21" y="7" width="14" height="10" rx="3" stroke="currentColor" stroke-width="1.8" opacity="0.7"/>
+          <line x1="0" y1="12" x2="36" y2="12" stroke="currentColor" stroke-width="1.5" stroke-dasharray="2.5 2"/>
+        </svg>
+        <span>Axe horizontal</span>
+      </button>
+      <button class="align-btn" data-align="cx" title="Aligner sur axe vertical">
+        <svg class="align-icon" viewBox="0 0 24 36" fill="none">
+          <rect x="4" y="1" width="16" height="14" rx="3" stroke="currentColor" stroke-width="1.8" opacity="0.7"/>
+          <rect x="7" y="21" width="10" height="14" rx="3" stroke="currentColor" stroke-width="1.8" opacity="0.7"/>
+          <line x1="12" y1="0" x2="12" y2="36" stroke="currentColor" stroke-width="1.5" stroke-dasharray="2.5 2"/>
+        </svg>
+        <span>Axe vertical</span>
+      </button>
+    </div>
+    <div class="prop-align-foot"></div>
+  </div>
+
+  <div id="prop-shape" style="display:none">
+    <div class="prop-group">
+      <label class="prop-label">Texte</label>
+      <textarea id="prop-label" class="prop-textarea" rows="3" placeholder="Texte de la forme…"></textarea>
+    </div>
+    <div class="prop-row">
+      <div class="prop-group half">
+        <label class="prop-label">Remplissage</label>
+        <input type="color" id="prop-color" class="prop-color">
+      </div>
+      <div class="prop-group half">
+        <label class="prop-label">Texte</label>
+        <input type="color" id="prop-text-color" class="prop-color">
+      </div>
+    </div>
+    <div class="prop-group" id="prop-stroke-group" style="display:none">
+      <label class="prop-label">Couleur auréole</label>
+      <input type="color" id="prop-stroke-color" class="prop-color">
+    </div>
+    <div class="prop-group">
+      <label class="prop-label">Badge validation</label>
+      <div class="prop-validation-row">
+        <label class="prop-stroke-toggle">
+          <input type="checkbox" id="prop-validation-enabled">
+          <span class="prop-stroke-switch prop-stroke-switch--validation"></span>
+          <span class="prop-stroke-label">Activer</span>
+        </label>
+        <input type="color" id="prop-validation-color" class="prop-color prop-validation-color-swatch" value="#4DB868" disabled>
+      </div>
+      <div class="prop-validation-hint">
+        <i class="fa-solid fa-circle-check"></i>
+        <span>Affiche un symbole ✓ en bas à droite</span>
+      </div>
+    </div>
+    <div class="prop-row">
+      <div class="prop-group half">
+        <label class="prop-label">Largeur</label>
+        <input type="number" id="prop-width" class="prop-input" min="60" max="500" step="10">
+      </div>
+      <div class="prop-group half">
+        <label class="prop-label">Hauteur</label>
+        <input type="number" id="prop-height" class="prop-input" min="40" max="300" step="10">
+      </div>
+    </div>
+    <div class="prop-group">
+      <label class="prop-label">Taille police</label>
+      <input type="number" id="prop-font-size" class="prop-input" min="8" max="36" step="1">
+    </div>
+    <div class="prop-group" id="prop-subtype-row" style="display:none">
+      <label class="prop-label">Type d'activité</label>
+      <div class="variant-btns-row">
+        <button class="variant-btn" id="subtype-btn-normal">
+          <span class="subtype-icon-preview subtype-icon-normal"></span><span>Normale</span>
+        </button>
+        <button class="variant-btn" id="subtype-btn-external">
+          <span class="subtype-icon-preview subtype-icon-external"></span><span>Externe</span>
+        </button>
+        <button class="variant-btn" id="subtype-btn-extco">
+          <span class="subtype-icon-preview subtype-icon-extco"></span><span>Ext. entreprise</span>
+        </button>
+      </div>
+    </div>
+    <div class="prop-group" id="prop-variant-row">
+      <label class="prop-label">Catégorisation de correspondance</label>
+      <div class="variant-btns-row">
+        <button class="variant-btn" id="variant-btn-0">
+          <span class="variant-swatch"></span><span>Fidèle</span>
+        </button>
+        <button class="variant-btn" id="variant-btn-1">
+          <span class="variant-swatch"></span><span>Atténuée</span>
+        </button>
+      </div>
+    </div>
+    <button class="prop-delete-btn" id="prop-delete-shape">
+      <i class="fa-solid fa-trash"></i> Supprimer la forme
+    </button>
+  </div>
+
+  <div id="prop-band" style="display:none">
+    <div class="prop-group">
+      <label class="prop-label">Nom de la bande</label>
+      <input type="text" id="band-label" class="prop-input" placeholder="Nom…">
+    </div>
+    <div class="prop-group">
+      <label class="prop-label">Couleur bande (vivid)</label>
+      <input type="color" id="band-color" class="prop-color">
+      <div id="band-pastel-preview" title="Dérivé pastel automatique"></div>
+    </div>
+    <div class="prop-row">
+      <div class="prop-group half">
+        <label class="prop-label">Police (px)</label>
+        <input type="number" id="band-font-size" class="prop-input" min="8" max="24" step="1">
+      </div>
+      <div class="prop-group half">
+        <label class="prop-label">Hauteur (px)</label>
+        <input type="number" id="band-height" class="prop-input" min="60" max="600" step="20">
+      </div>
+    </div>
+    <button class="prop-delete-btn" id="prop-delete-band">
+      <i class="fa-solid fa-trash"></i> Supprimer la bande
+    </button>
+  </div>
+
+  <div id="prop-connection" style="display:none">
+    <div class="prop-group">
+      <label class="prop-label">Style trait</label>
+      <div class="prop-radio-row">
+        <label class="prop-radio-card">
+          <input type="radio" name="conn-style" value="solid" id="conn-style-solid" checked>
+          <span class="prop-radio-icon">——</span><span>Plein</span>
+        </label>
+        <label class="prop-radio-card">
+          <input type="radio" name="conn-style" value="dashed" id="conn-style-dashed">
+          <span class="prop-radio-icon">- - -</span><span>Tirets</span>
+        </label>
+      </div>
+    </div>
+    <div class="prop-group">
+      <label class="prop-label">Tracé</label>
+      <div class="prop-radio-row">
+        <label class="prop-radio-card">
+          <input type="radio" name="conn-routing" value="smooth" id="conn-routing-smooth" checked>
+          <span class="prop-radio-icon"><i class="fa-solid fa-bezier-curve"></i></span><span>Courbe</span>
+        </label>
+        <label class="prop-radio-card">
+          <input type="radio" name="conn-routing" value="orthogonal" id="conn-routing-ortho">
+          <span class="prop-radio-icon"><i class="fa-solid fa-turn-up"></i></span><span>Orthogonal</span>
+        </label>
+      </div>
+    </div>
+    <div class="prop-group">
+      <label class="prop-label">Couleur</label>
+      <input type="color" id="conn-color" class="prop-color" value="#555555">
+    </div>
+    <div class="prop-group">
+      <label class="prop-label">Label</label>
+      <input type="text" id="conn-label" class="prop-input" placeholder="Optionnel…">
+    </div>
+    <div class="prop-group">
+      <label class="prop-label">Superposition</label>
+      <div class="conn-zorder-row">
+        <button class="conn-zorder-btn" id="btn-conn-forward"><i class="fa-solid fa-layer-group"></i> Avancer</button>
+        <button class="conn-zorder-btn" id="btn-conn-backward"><i class="fa-solid fa-layer-group fa-flip-vertical"></i> Reculer</button>
+      </div>
+    </div>
+    <button class="prop-delete-btn" id="prop-delete-conn">
+      <i class="fa-solid fa-trash"></i> Supprimer la flèche
+    </button>
+  </div>
+
+  <div id="prop-group" style="display:none">
+    <div class="prop-group">
+      <label class="prop-label">Nom du groupe</label>
+      <input type="text" id="group-label-input" class="prop-input" placeholder="Groupe…">
+    </div>
+    <div class="prop-group">
+      <label class="prop-label">Couleur</label>
+      <input type="color" id="group-color-input" class="prop-color" value="#b3a0ff">
+    </div>
+    <div class="prop-group">
+      <label class="prop-label">Activités du groupe</label>
+      <div id="group-shapes-list" class="group-shapes-list"></div>
+    </div>
+    <button class="prop-delete-btn" id="prop-delete-group">
+      <i class="fa-solid fa-trash"></i> Supprimer le groupe
+    </button>
+  </div>
+</aside>
+
+<!-- ══════════════ FLOATING LABEL EDITOR ══════════════ -->
+<textarea id="label-editor" autocomplete="off" spellcheck="false"></textarea>
+
+<!-- ══════════════ MODAL MIGRATION VSDX ══════════════ -->
+{% if has_vsdx and not has_optiqcarto %}
+<div id="vsdx-migrate-modal" class="modal-overlay hidden">
+  <div class="modal-card" style="max-width:460px">
+    <div class="modal-header" style="border-top:3px solid var(--pink-dark)">
+      <h2><i class="fa-solid fa-wand-magic-sparkles" style="color:var(--green);margin-right:8px"></i>Importer votre cartographie</h2>
+    </div>
+    <div class="modal-body">
+      <p style="font-size:13px;line-height:1.7;color:var(--text-muted);margin:0 0 16px">
+        Vous avez une cartographie <strong>Visio</strong> existante pour l'entité
+        <strong>{{ entity_name }}</strong>.<br>
+        Voulez-vous l'importer automatiquement dans OptiqCarto ?
+      </p>
+      <p style="font-size:11.5px;color:var(--text-muted);opacity:.7;margin:0">
+        Les formes et connexions seront reconstruites depuis votre fichier VSDX.
+      </p>
+    </div>
+    <div class="modal-footer" style="gap:8px;display:flex;justify-content:flex-end">
+      <button id="migrate-skip" class="btn-ok" style="background:rgba(100,100,100,0.15);color:var(--text-muted)">
+        Partir de zéro
+      </button>
+      <button id="migrate-confirm" class="btn-ok">
+        <i class="fa-solid fa-file-import"></i> Importer le Visio
+      </button>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<!-- ══════════════ VSDX IMPORT MODAL ══════════════ -->
+<div id="vsdx-dialog" class="modal-overlay hidden">
+  <div class="modal-card" style="max-width:460px">
+    <div class="modal-header">
+      <h2><i class="fa-solid fa-file-import" style="color:var(--green);margin-right:8px"></i>Importer depuis Visio</h2>
+      <button id="vsdx-dialog-close" class="modal-close"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="modal-body">
+      <div id="vsdx-dropzone" class="vsdx-dropzone">
+        <i class="fa-solid fa-file-arrow-up vsdx-drop-icon"></i>
+        <p class="vsdx-drop-text">Déposez votre fichier <strong>.vsdx</strong> ici</p>
+        <p class="vsdx-drop-hint">ou</p>
+        <label class="vsdx-browse-btn">
+          <input type="file" id="vsdx-file-input" accept=".vsdx" style="display:none">
+          Parcourir…
+        </label>
+      </div>
+      <div id="vsdx-loading" style="display:none">
+        <div class="vsdx-spinner-ring">
+          <span class="vsdx-spinner-icon"><i class="fa-solid fa-wand-magic-sparkles"></i></span>
+        </div>
+        <div id="vsdx-loading-msg">Analyse du fichier…</div>
+      </div>
+      <div id="vsdx-status" class="vsdx-status" style="display:none"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════ BANDS DIALOG ══════════════ -->
+<div id="bands-dialog" class="modal-overlay hidden">
+  <div class="modal-card">
+    <div class="modal-header">
+      <h2>Configuration des bandes</h2>
+      <button id="bands-dialog-close" class="modal-close"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="modal-body">
+      <p class="modal-hint">Les bandes structurent votre cartographie en zones horizontales.</p>
+      <div id="bands-list"></div>
+      <button id="btn-add-band" class="btn-add-band">
+        <i class="fa-solid fa-plus"></i> Ajouter une bande
+      </button>
+    </div>
+    <div class="modal-footer">
+      <button id="bands-dialog-ok" class="btn-ok">Fermer</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════ LOAD DIALOG ══════════════ -->
+<div id="load-dialog" class="modal-overlay hidden">
+  <div class="modal-card" style="max-width:400px">
+    <div class="modal-header">
+      <h2>Charger une cartographie</h2>
+      <button id="load-dialog-close" class="modal-close"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="modal-body">
+      <div id="load-list" class="load-list"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════ NEW CARTO CONFIRM MODAL ══════════════ -->
+<div id="new-carto-dialog" class="modal-overlay hidden">
+  <div class="modal-card" style="max-width:420px">
+    <div class="modal-header">
+      <h2><i class="fa-solid fa-file-circle-plus" style="color:var(--green);margin-right:8px"></i>Nouvelle cartographie</h2>
+      <button id="new-carto-dialog-close" class="modal-close"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="modal-body">
+      <p class="modal-hint" style="font-size:13px;line-height:1.6">La cartographie en cours sera perdue si elle n'est pas sauvegardée.</p>
+    </div>
+    <div class="modal-footer" style="gap:8px;display:flex;justify-content:flex-end">
+      <button id="new-carto-save" class="btn-ok" style="background:var(--green)">
+        <i class="fa-solid fa-floppy-disk"></i> Sauvegarder d'abord
+      </button>
+      <button id="new-carto-confirm" class="btn-ok" style="background:rgba(239,68,68,0.8)">
+        <i class="fa-solid fa-trash"></i> Ignorer et continuer
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════ WELCOME MODAL ══════════════ -->
+<div id="welcome-modal" class="welcome-overlay">
+  <div class="welcome-card">
+    <div class="welcome-glow"></div>
+    <div class="welcome-logo">
+      <span class="welcome-mark">◉</span>
+      <span class="welcome-name">OptiqCarto</span>
+    </div>
+    <p class="welcome-tagline">Éditeur de cartographies de processus</p>
+    <div class="welcome-screenshot">
+      <img src="{{ url_for('static', filename='img/optiqcarto_setting.png') }}" alt="Aperçu" class="welcome-screenshot-img">
+    </div>
+    <button id="btn-welcome-start" class="welcome-btn">
+      <i class="fa-solid fa-play"></i>
+      {% if has_optiqcarto %}Reprendre la cartographie{% elif has_vsdx %}Importer la cartographie Visio{% else %}Créer une cartographie{% endif %}
+    </button>
+    <p class="welcome-version">{{ entity_name or 'AFDEC' }} · OptiqCarto</p>
+  </div>
+</div>
+
+<!-- ══════════════ TOAST ══════════════ -->
+<div id="toast"></div>
+
+<!-- ══════════════ DOCK ══════════════ -->
+<div id="dock-wrap">
+  <div id="dock-panel">
+    <button class="dock-item" id="dock-left-panel" title="Panneau gauche">
+      <i class="fa-solid fa-table-columns"></i>
+      <span class="dock-item-label">Panneau gauche</span>
+    </button>
+    <button class="dock-item" id="dock-props" title="Propriétés">
+      <i class="fa-solid fa-sliders"></i>
+      <span class="dock-item-label">Propriétés</span>
+    </button>
+    <a href="/activities/map" class="dock-item" id="dock-close" title="Retour à l'application">
+      <i class="fa-solid fa-arrow-left"></i>
+      <span class="dock-item-label">Retour</span>
+    </a>
+  </div>
+</div>
+
+<script src="{{ url_for('static', filename='optiqcarto/editor.js') }}"></script>
+
+<!-- Migration VSDX auto depuis l'API -->
+{% if has_vsdx and not has_optiqcarto %}
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const confirmBtn = document.getElementById('migrate-confirm');
+  const skipBtn    = document.getElementById('migrate-skip');
+  const modal      = document.getElementById('vsdx-migrate-modal');
+
+  if (confirmBtn) {
+    confirmBtn.addEventListener('click', async () => {
+      modal.classList.add('hidden');
+      // Télécharge le VSDX depuis l'API et lance l'import OptiqCarto
+      try {
+        const res  = await fetch('/cartography/api/vsdx');
+        if (!res.ok) { alert('Impossible de récupérer le fichier VSDX.'); return; }
+        const blob = await res.blob();
+        const file = new File([blob], 'connections.vsdx', { type: 'application/octet-stream' });
+        // Ouvre la dialog VSDX et déclenche l'import
+        document.getElementById('vsdx-dialog').classList.remove('hidden');
+        // Simule le choix du fichier pour déclencher l'import
+        const dt = new DataTransfer();
+        dt.items.add(file);
+        const input = document.getElementById('vsdx-file-input');
+        input.files = dt.files;
+        input.dispatchEvent(new Event('change', { bubbles: true }));
+      } catch(e) {
+        alert('Erreur lors de l\'import : ' + e.message);
+      }
+    });
+  }
+
+  if (skipBtn) {
+    skipBtn.addEventListener('click', () => modal.classList.add('hidden'));
+  }
+});
+</script>
+{% endif %}
+
+<!-- CSS spécifique intégration DevOPTIQ -->
+<style>
+.tb-back-link {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  color: var(--text-muted);
+  text-decoration: none;
+  font-size: 13px;
+  transition: background 0.15s, color 0.15s;
+  margin-right: 4px;
+  flex-shrink: 0;
+}
+.tb-back-link:hover {
+  background: rgba(77,184,104,0.12);
+  color: var(--green);
+}
+.tb-entity-badge {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 2px 8px;
+  background: rgba(77,184,104,0.12);
+  border: 1px solid rgba(77,184,104,0.3);
+  border-radius: 10px;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--green);
+  letter-spacing: 0.3px;
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+</style>
+
+</body>
+</html>

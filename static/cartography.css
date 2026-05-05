@@ -2485,3 +2485,27 @@
 
 /* File link styles → see static/css/file-picker.css (.item-file-link, .tool-card__file-link, .tool-badge-file) */
 
+
+/* ── Bouton OptiqCarto ── */
+.btn-open-optiqcarto {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 16px;
+  background: linear-gradient(135deg, #ffd6ec, #F4B8D0);
+  border: 1.5px solid #d989a8;
+  border-radius: 10px;
+  color: #6B1A3A;
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background 0.18s, box-shadow 0.18s, transform 0.12s;
+  box-shadow: 0 2px 8px rgba(217,137,168,0.25);
+}
+.btn-open-optiqcarto:hover {
+  background: linear-gradient(135deg, #F4B8D0, #d989a8);
+  box-shadow: 0 4px 14px rgba(217,137,168,0.4);
+  transform: translateY(-1px);
+  color: #fff;
+}

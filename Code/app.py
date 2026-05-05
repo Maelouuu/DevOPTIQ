@@ -219,6 +219,9 @@ def create_app():
     from Code.routes.export import export_bp
     app.register_blueprint(export_bp)
 
+    from Code.routes.cartography_editor import cartography_editor_bp
+    app.register_blueprint(cartography_editor_bp)
+
     # Auto-migration au démarrage (nécessaire sur les serveurs cloud avec filesystem éphémère)
     # Les blueprints sont enregistrés avant pour garantir que tous les modèles sont chargés
     with app.app_context():
