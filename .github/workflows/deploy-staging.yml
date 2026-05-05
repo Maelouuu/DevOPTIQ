@@ -8,7 +8,7 @@ env:
   PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
   REGION: europe-west1                        # ← adapte si besoin
   SERVICE_STAGING: devoptiq-staging           # ← nom du service Cloud Run staging
-  IMAGE: europe-west1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/devoptiq/devoptiq-staging
+  IMAGE: europe-west1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/cloud-run-source-deploy/devoptiq/devoptiq-staging
 
 jobs:
   deploy:

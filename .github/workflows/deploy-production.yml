@@ -7,8 +7,8 @@ on:
 env:
   PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
   REGION: europe-west1                        # ← adapte si besoin
-  SERVICE_PROD: devoptiq-prod                 # ← ton nom de service Cloud Run actuel
-  IMAGE: europe-west1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/devoptiq/devoptiq-prod
+  SERVICE_PROD: devoptiq
+  IMAGE: europe-west1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/cloud-run-source-deploy/devoptiq/devoptiq
 
 jobs:
   deploy:
