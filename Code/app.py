@@ -225,6 +225,13 @@ def create_app():
     # Auto-migration au démarrage (nécessaire sur les serveurs cloud avec filesystem éphémère)
     # Les blueprints sont enregistrés avant pour garantir que tous les modèles sont chargés
     with app.app_context():
+        # Créer toutes les tables manquantes (filet de sécurité : ne touche pas les tables existantes)
+        try:
+            db.create_all()
+            print("[DB] Tables vérifiées/créées via create_all")
+        except Exception as e:
+            print(f"[DB] create_all warning: {e}")
+
         try:
             from flask_migrate import upgrade as db_upgrade
             db_upgrade()
@@ -276,10 +283,10 @@ def create_app():
         # Données de démonstration dans recent_events si la table est vide
         try:
             import json as _json_seed
-            from datetime import timedelta
+            from datetime import datetime as _datetime, timedelta
             from Code.models.models import RecentEvent as _RE
             if _RE.query.count() == 0:
-                _now = datetime.utcnow()
+                _now = _datetime.utcnow()
                 _seeds = [
                     _RE(event_type='activity_created',
                         icon='fa-solid fa-diagram-project',
