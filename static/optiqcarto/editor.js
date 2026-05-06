@@ -168,8 +168,7 @@ function screenToSVG(sx, sy) {
 
 function applyViewport() {
   rootGroup.setAttribute('transform', `translate(${vpX},${vpY}) scale(${vpScale})`);
-  // vpScale 0.5 = "100%", 1.0 = "200%" (×200 pour que le défaut 50% s'affiche 100%)
-  statusZoom.textContent = Math.round(vpScale * 200) + '%';
+  if (statusZoom) statusZoom.textContent = Math.round(vpScale * 200) + '%';
 }
 
 /* ══════════════════════════════════════════════════
@@ -3136,6 +3135,16 @@ async function importVSDX(file) {
       containerGroupData.push({ id, label, abs }); // id = Visio ID du container
     }
 
+    // Retourne la couleur de la bande à une position Y écran donnée
+    function getBandColorForScreenY(y) {
+      let bandTop = 0;
+      for (const band of newBands) {
+        if (y >= bandTop && y < bandTop + band.height) return band.color;
+        bandTop += band.height;
+      }
+      return newBands.length > 0 ? newBands[newBands.length - 1].color : '#22c55e';
+    }
+
     // ── Activités ─────────────────────────────────────────────
     setStatus('Import des activités…');
     const newShapes  = [];
@@ -3175,10 +3184,10 @@ async function importVSDX(file) {
       const oid = nextOid++;
       shapeIdMap[id] = oid;
 
-      // Couleur Visio par forme (FillForegnd)
+      // Couleur : priorité à la couleur Visio explicite, fallback sur la couleur de la bande
       const rawFill = vCell(s, 'FillForegnd');
       const vsdxColor = rawFill && rawFill.startsWith('#') && !isWashedOut(rawFill) ? rawFill : null;
-      const shapeColor = shapeType === 'decision' ? '#9ca3af' : (vsdxColor || '#22c55e');
+      const shapeColor = shapeType === 'decision' ? '#9ca3af' : (vsdxColor || getBandColorForScreenY(screenY));
 
       newShapes.push({
         id: oid, type: shapeType, subtype: 'normal',
@@ -4891,7 +4900,9 @@ async function _autoLoadCarto() {
     if (!state.groups) state.groups = [];
     clearSelection();
     history = [JSON.stringify(state)]; histIndex = 0;
-    render(); updateProps(); fitView();
+    render(); updateProps();
+    // Double rAF : attend que l'iframe soit layoutée avant de calculer fitView
+    requestAnimationFrame(() => requestAnimationFrame(fitView));
   } catch (e) { /* silencieux */ }
 }
 
