@@ -17,12 +17,11 @@ depends_on = None
 
 
 def upgrade():
-    with op.batch_alter_table('entities', schema=None) as batch_op:
-        batch_op.add_column(sa.Column('svg_content', sa.Text(), nullable=True))
-        batch_op.add_column(sa.Column('vsdx_filename', sa.String(length=255), nullable=True))
+    # op.add_column = ALTER TABLE ADD COLUMN : instantané sur PostgreSQL (pas de rebuild table)
+    op.add_column('entities', sa.Column('svg_content', sa.Text(), nullable=True))
+    op.add_column('entities', sa.Column('vsdx_filename', sa.String(length=255), nullable=True))
 
 
 def downgrade():
-    with op.batch_alter_table('entities', schema=None) as batch_op:
-        batch_op.drop_column('svg_content')
-        batch_op.drop_column('vsdx_filename')
+    op.drop_column('entities', 'svg_content')
+    op.drop_column('entities', 'vsdx_filename')

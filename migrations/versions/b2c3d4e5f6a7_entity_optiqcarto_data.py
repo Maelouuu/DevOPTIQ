@@ -16,10 +16,8 @@ depends_on = None
 
 
 def upgrade():
-    with op.batch_alter_table('entities', schema=None) as batch_op:
-        batch_op.add_column(sa.Column('optiqcarto_data', sa.Text(), nullable=True))
+    op.add_column('entities', sa.Column('optiqcarto_data', sa.Text(), nullable=True))
 
 
 def downgrade():
-    with op.batch_alter_table('entities', schema=None) as batch_op:
-        batch_op.drop_column('optiqcarto_data')
+    op.drop_column('entities', 'optiqcarto_data')
