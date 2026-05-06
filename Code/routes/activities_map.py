@@ -254,8 +254,8 @@ def activities_map_page():
             "is_active": True
         }
     
-    # Carto OptiqCarto — persistée en base, pas sur disque
-    has_optiqcarto = bool(active_entity and active_entity.optiqcarto_data)
+    # Carto OptiqCarto — persistée en base (colonne ajoutée en migration)
+    has_optiqcarto = bool(active_entity and getattr(active_entity, 'optiqcarto_data', None))
 
     return render_template(
         "activities_map.html",

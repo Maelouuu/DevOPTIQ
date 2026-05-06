@@ -245,6 +245,18 @@ def create_app():
         except Exception as e:
             print(f"[DB] file_path migration check: {e}")
 
+        # Ajout sécurisé colonne optiqcarto_data (carto OptiqCarto persistée en base)
+        try:
+            from sqlalchemy import text as _text
+            try:
+                db.session.execute(_text("ALTER TABLE entities ADD COLUMN optiqcarto_data TEXT"))
+                db.session.commit()
+                print("[DB] Colonne entities.optiqcarto_data ajoutée")
+            except Exception:
+                db.session.rollback()  # déjà présente
+        except Exception as e:
+            print(f"[DB] optiqcarto_data check: {e}")
+
         # Création table file_blobs (stockage binaire des fichiers liés — persistant)
         try:
             from Code.models.models import FileBlob
