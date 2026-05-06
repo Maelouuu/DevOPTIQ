@@ -254,6 +254,14 @@ def activities_map_page():
             "is_active": True
         }
     
+    # Carto OptiqCarto
+    _ent_base = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'static', 'entities')
+    has_optiqcarto = bool(
+        active_entity and os.path.exists(
+            os.path.join(_ent_base, f'entity_{active_entity.id}', 'optiqcarto.json')
+        )
+    )
+
     return render_template(
         "activities_map.html",
         svg_exists=svg_exists,
@@ -263,7 +271,8 @@ def activities_map_page():
         shape_activity_map=shape_activity_map,
         activities=activities,
         active_entity=active_entity_dict,
-        all_entities=all_entities
+        all_entities=all_entities,
+        has_optiqcarto=has_optiqcarto,
     )
 
 

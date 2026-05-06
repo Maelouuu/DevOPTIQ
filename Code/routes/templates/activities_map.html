@@ -433,12 +433,54 @@
   <!-- CONTENU PRINCIPAL -->
   <div class="carto-container">
     <div class="carto-left">
+      {% if has_optiqcarto %}
+      <!-- Viewer OptiqCarto actif -->
       <div class="carto-viewer-wrap">
         <iframe id="carto-viewer-frame" src="/cartography/viewer" frameborder="0"></iframe>
         <a href="/cartography/editor" class="btn-open-editor" title="Ouvrir dans l'éditeur">
           <i class="fa-solid fa-pen-ruler"></i> Ouvrir l'éditeur
         </a>
       </div>
+      {% elif active_entity %}
+      <!-- Pas encore de carto pour cette entité -->
+      <div class="carto-no-carto-wrap">
+        <div class="carto-no-carto-card">
+          <div class="carto-no-carto-icon"><i class="fa-solid fa-diagram-project"></i></div>
+          <h3 class="carto-no-carto-title">Aucune cartographie créée</h3>
+          <p class="carto-no-carto-sub">Entité active : <strong>{{ active_entity.name }}</strong></p>
+          <p class="carto-no-carto-hint">
+            {% if vsdx_exists %}
+              Un fichier Visio est disponible — importez-le pour recréer automatiquement votre cartographie.
+            {% else %}
+              Créez votre première cartographie directement dans l'éditeur OptiqCarto.
+            {% endif %}
+          </p>
+          <div class="carto-no-carto-actions">
+            {% if vsdx_exists %}
+            <a href="/cartography/editor" class="btn-carto-primary">
+              <i class="fa-solid fa-file-import"></i> Importer depuis Visio
+            </a>
+            <a href="/cartography/editor" class="btn-carto-secondary">
+              <i class="fa-solid fa-plus"></i> Créer vierge
+            </a>
+            {% else %}
+            <a href="/cartography/editor" class="btn-carto-primary">
+              <i class="fa-solid fa-plus"></i> Créer la cartographie
+            </a>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+      {% else %}
+      <!-- Aucune entité active -->
+      <div class="carto-no-carto-wrap">
+        <div class="carto-no-carto-card carto-no-entity">
+          <div class="carto-no-carto-icon"><i class="fa-solid fa-building"></i></div>
+          <h3 class="carto-no-carto-title">Aucune entité active</h3>
+          <p class="carto-no-carto-hint">Activez une entité via "Gérer la cartographie" pour visualiser sa cartographie.</p>
+        </div>
+      </div>
+      {% endif %}
     </div>
     <div class="carto-right">
       <h2>Liste des activités</h2>

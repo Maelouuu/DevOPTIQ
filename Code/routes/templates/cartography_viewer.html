@@ -43,10 +43,29 @@
       gap: 14px;
       color: #9ca3af;
       font-family: 'Inter', sans-serif;
-      pointer-events: none;
+      pointer-events: none; /* le bouton #vp-go-editor réactive pointer-events */
     }
     #viewer-placeholder i { font-size: 42px; opacity: 0.35; }
     #viewer-placeholder p { font-size: 13px; margin: 0; opacity: 0.6; }
+    #vp-go-editor {
+      margin-top: 4px;
+      padding: 10px 20px;
+      background: linear-gradient(135deg, #22c55e, #16a34a);
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      opacity: 1;
+      pointer-events: all;
+      box-shadow: 0 4px 12px rgba(22,163,74,0.35);
+      transition: transform 0.15s;
+    }
+    #vp-go-editor:hover { transform: translateY(-2px); }
   </style>
 </head>
 <body>
@@ -88,7 +107,12 @@
 {% if not has_optiqcarto %}
 <div id="viewer-placeholder">
   <i class="fa-solid fa-diagram-project"></i>
-  <p>Aucune cartographie créée — maintenez le clic 3 secondes pour ouvrir l'éditeur</p>
+  <p>Aucune cartographie pour cette entité</p>
+  <button id="vp-go-editor" onclick="(window.parent !== window ? window.parent : window).location.href='/cartography/editor'">
+    {% if has_vsdx %}<i class="fa-solid fa-file-import"></i> Importer depuis Visio
+    {% else %}<i class="fa-solid fa-plus"></i> Créer une cartographie
+    {% endif %}
+  </button>
 </div>
 {% endif %}
 

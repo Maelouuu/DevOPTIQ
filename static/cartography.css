@@ -1719,6 +1719,117 @@
   color: #fff;
 }
 
+/* ================================================
+   CARD "PAS DE CARTO" (quand l'entité n'a pas encore de carto OptiqCarto)
+================================================ */
+.carto-no-carto-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: calc(100vh - 260px);
+  min-height: 420px;
+}
+
+.carto-no-carto-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: 48px 56px;
+  background: #ffffff;
+  border-radius: 24px;
+  border: 1.5px dashed #d1d5db;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.06);
+  text-align: center;
+  max-width: 480px;
+}
+
+.carto-no-carto-icon {
+  width: 72px; height: 72px;
+  border-radius: 20px;
+  background: linear-gradient(135deg, #f0fdf4, #dcfce7);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 28px; color: #16a34a;
+  margin-bottom: 4px;
+}
+
+.carto-no-entity .carto-no-carto-icon {
+  background: linear-gradient(135deg, #f5f3ff, #ede9fe);
+  color: #7c3aed;
+}
+
+.carto-no-carto-title {
+  margin: 0;
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: #111827;
+}
+
+.carto-no-carto-sub {
+  margin: 0;
+  font-size: 0.9rem;
+  color: #6b7280;
+}
+
+.carto-no-carto-hint {
+  margin: 0;
+  font-size: 0.85rem;
+  color: #9ca3af;
+  line-height: 1.5;
+  max-width: 340px;
+}
+
+.carto-no-carto-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin-top: 6px;
+}
+
+.btn-carto-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 22px;
+  background: linear-gradient(135deg, #22c55e, #16a34a);
+  color: #fff;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 700;
+  text-decoration: none;
+  box-shadow: 0 4px 14px rgba(34,197,94,0.35);
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+
+.btn-carto-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(34,197,94,0.5);
+  color: #fff;
+}
+
+.btn-carto-secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 18px;
+  background: #f3f4f6;
+  color: #374151;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+  border: 1.5px solid #e5e7eb;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.btn-carto-secondary:hover {
+  background: #e5e7eb;
+  border-color: #d1d5db;
+  color: #111827;
+}
+
+/* ── Placeholder SVG (résiduel) ── */
 .svg-placeholder,
 .svg-error {
   display: flex;

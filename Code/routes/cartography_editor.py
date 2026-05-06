@@ -76,13 +76,15 @@ def viewer():
     if not _require_auth():
         return ("", 403)
     entity = _get_active_entity()
-    has_optiqcarto = entity and os.path.exists(_carto_path(entity.id))
+    has_optiqcarto = bool(entity and os.path.exists(_carto_path(entity.id)))
+    has_vsdx = bool(entity and _vsdx_path(entity))
     entity_name = entity.name if entity else ""
     return render_template(
         "cartography_viewer.html",
         entity_name=entity_name,
         entity_id=entity.id if entity else None,
         has_optiqcarto=has_optiqcarto,
+        has_vsdx=has_vsdx,
     )
 
 
