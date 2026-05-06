@@ -57,6 +57,8 @@ class Entity(db.Model):
     svg_content = db.Column(db.Text, nullable=True)
     # Nom original du fichier VSDX uploadé (pour affichage dans popup)
     vsdx_filename = db.Column(db.String(255), nullable=True)
+    # Cartographie OptiqCarto sérialisée en JSON (survit aux redémarrages cloud)
+    optiqcarto_data = db.Column(db.Text, nullable=True)
 
     # DEPRECATED: is_active n'est plus utilisé, l'entité active est dans la session
     is_active = db.Column(db.Boolean, default=False, nullable=False)

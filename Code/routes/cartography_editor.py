@@ -1,11 +1,11 @@
 """Blueprint OptiqCarto — éditeur de cartographie intégré à DevOPTIQ.
 
-Chaque entité active a sa propre carto JSON stockée dans :
-  Code/static/entities/entity_{id}/optiqcarto.json
+La carto JSON de chaque entité est stockée en base de données (colonne
+Entity.optiqcarto_data) pour survivre aux redémarrages Cloud Run.
+Le fichier VSDX reste sur disque (upload ponctuel, non critique).
 """
 import json
 import os
-import re
 
 from flask import (
     Blueprint,
@@ -23,7 +23,7 @@ from Code.models.models import Entity
 
 cartography_editor_bp = Blueprint("cartography_editor", __name__, url_prefix="/cartography")
 
-# Répertoire de base des entités (même endroit que les VSDX existants)
+# Répertoire de base des entités (pour les fichiers VSDX uploadés)
 _ENTITIES_DIR = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
     "Code", "static", "entities"
@@ -46,10 +46,9 @@ def _get_active_entity():
     return Entity.query.filter_by(owner_id=user_id).order_by(Entity.id.desc()).first()
 
 
-def _carto_path(entity_id):
-    folder = os.path.join(_ENTITIES_DIR, f"entity_{entity_id}")
-    os.makedirs(folder, exist_ok=True)
-    return os.path.join(folder, "optiqcarto.json")
+def _has_carto(entity) -> bool:
+    """Retourne True si l'entité a une carto OptiqCarto enregistrée en base."""
+    return bool(entity and entity.optiqcarto_data)
 
 
 def _vsdx_path(entity):
@@ -68,7 +67,7 @@ def _vsdx_path(entity):
 
 
 # ─────────────────────────────────────────────
-# PAGE ÉDITEUR
+# PAGES
 # ─────────────────────────────────────────────
 
 @cartography_editor_bp.route("/viewer")
@@ -76,7 +75,7 @@ def viewer():
     if not _require_auth():
         return ("", 403)
     entity = _get_active_entity()
-    has_optiqcarto = bool(entity and os.path.exists(_carto_path(entity.id)))
+    has_optiqcarto = _has_carto(entity)
     has_vsdx = bool(entity and _vsdx_path(entity))
     entity_name = entity.name if entity else ""
     return render_template(
@@ -103,7 +102,7 @@ def editor():
         entity_id = entity.id
         entity_name = entity.name or ""
         has_vsdx = bool(_vsdx_path(entity))
-        has_optiqcarto = os.path.exists(_carto_path(entity.id))
+        has_optiqcarto = _has_carto(entity)
 
     return render_template(
         "cartography_editor.html",
@@ -130,9 +129,9 @@ def api_save():
     data = request.get_json(force=True)
     diagram = data.get("diagram", data)  # accepte {diagram: ...} ou le state direct
 
-    path = _carto_path(entity.id)
-    with open(path, "w", encoding="utf-8") as f:
-        json.dump(diagram, f, ensure_ascii=False, indent=2)
+    # Stockage en base (persistant entre redémarrages Cloud Run)
+    entity.optiqcarto_data = json.dumps(diagram, ensure_ascii=False)
+    db.session.commit()
 
     return jsonify({"ok": True, "name": entity.name or f"entity_{entity.id}"})
 
@@ -146,12 +145,10 @@ def api_load(name):
     if not entity:
         return jsonify({"error": "Aucune entité active"}), 400
 
-    path = _carto_path(entity.id)
-    if not os.path.exists(path):
+    if not entity.optiqcarto_data:
         return jsonify({"error": "Introuvable"}), 404
 
-    with open(path, encoding="utf-8") as f:
-        return jsonify(json.load(f))
+    return jsonify(json.loads(entity.optiqcarto_data))
 
 
 @cartography_editor_bp.route("/api/list")
@@ -163,10 +160,8 @@ def api_list():
     if not entity:
         return jsonify([])
 
-    path = _carto_path(entity.id)
-    name = entity.name or f"entity_{entity.id}"
-    if os.path.exists(path):
-        return jsonify([name])
+    if entity.optiqcarto_data:
+        return jsonify([entity.name or f"entity_{entity.id}"])
     return jsonify([])
 
 
@@ -179,9 +174,8 @@ def api_delete(name):
     if not entity:
         return jsonify({"error": "Aucune entité active"}), 400
 
-    path = _carto_path(entity.id)
-    if os.path.exists(path):
-        os.remove(path)
+    entity.optiqcarto_data = None
+    db.session.commit()
 
     return jsonify({"ok": True})
 

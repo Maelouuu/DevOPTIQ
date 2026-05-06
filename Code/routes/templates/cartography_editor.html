@@ -682,15 +682,9 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   if (skipBtn) {
-    skipBtn.addEventListener('click', async () => {
-      modal.classList.add('hidden');
-      // Sauvegarde une carto vide pour ne plus afficher la popup à la prochaine ouverture
-      await fetch('/cartography/api/save', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ diagram: {} }),
-      }).catch(() => {});
-    });
+    // Skip : ferme juste le modal pour cette session.
+    // La popup réapparaîtra tant qu'aucune carto n'est enregistrée pour l'entité.
+    skipBtn.addEventListener('click', () => modal.classList.add('hidden'));
   }
 });
 </script>
