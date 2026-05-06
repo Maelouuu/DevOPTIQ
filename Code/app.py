@@ -238,31 +238,30 @@ def create_app():
             print("[DB] Migrations appliquées avec succès")
         except Exception as e:
             print(f"[DB] Avertissement migration (ignoré): {e}")
+        finally:
+            db.session.remove()  # Nettoyage session post-migration (évite état PostgreSQL aborted)
 
-        # Ajout sécurisé des colonnes file_path (compatible SQLite et PostgreSQL)
-        try:
-            from sqlalchemy import text as _text
-            for _tbl, _col in [("tools", "file_path"), ("constraints", "file_path")]:
-                try:
-                    db.session.execute(_text(f"ALTER TABLE {_tbl} ADD COLUMN {_col} VARCHAR(512)"))
-                    db.session.commit()
-                    print(f"[DB] Colonne {_tbl}.{_col} ajoutée")
-                except Exception:
-                    db.session.rollback()  # colonne déjà présente
-        except Exception as e:
-            print(f"[DB] file_path migration check: {e}")
+        # Ajout sécurisé des colonnes manquantes — connexion directe engine (évite état session corrompu)
+        from sqlalchemy import text as _text
 
-        # Ajout sécurisé colonne optiqcarto_data (carto OptiqCarto persistée en base)
-        try:
-            from sqlalchemy import text as _text
+        def _safe_add_column(table, col, col_type):
+            """Ajoute une colonne si absente. Compatible SQLite + PostgreSQL/Neon."""
             try:
-                db.session.execute(_text("ALTER TABLE entities ADD COLUMN optiqcarto_data TEXT"))
-                db.session.commit()
-                print("[DB] Colonne entities.optiqcarto_data ajoutée")
+                with db.engine.connect() as _conn:
+                    _conn.execute(_text(f"ALTER TABLE {table} ADD COLUMN {col} {col_type}"))
+                    _conn.commit()
+                    print(f"[DB] Colonne {table}.{col} ajoutée")
             except Exception:
-                db.session.rollback()  # déjà présente
-        except Exception as e:
-            print(f"[DB] optiqcarto_data check: {e}")
+                pass  # colonne déjà présente — normal
+
+        # Colonnes tools / constraints
+        _safe_add_column("tools", "file_path", "VARCHAR(512)")
+        _safe_add_column("constraints", "file_path", "VARCHAR(512)")
+
+        # Colonnes entities (toutes celles ajoutées après la migration initiale)
+        _safe_add_column("entities", "svg_content", "TEXT")
+        _safe_add_column("entities", "vsdx_filename", "VARCHAR(255)")
+        _safe_add_column("entities", "optiqcarto_data", "TEXT")
 
         # Création table file_blobs (stockage binaire des fichiers liés — persistant)
         try:
@@ -330,17 +329,8 @@ def create_app():
             print(f"[DB] Seed recent_events: {e}")
 
         # Ajout colonnes detail + user_id sur recent_events si absentes
-        try:
-            from sqlalchemy import text as _text
-            for _col, _type in [("detail", "TEXT"), ("user_id", "INTEGER")]:
-                try:
-                    db.session.execute(_text(f"ALTER TABLE recent_events ADD COLUMN {_col} {_type}"))
-                    db.session.commit()
-                    print(f"[DB] Colonne recent_events.{_col} ajoutée")
-                except Exception:
-                    db.session.rollback()  # déjà présente
-        except Exception as e:
-            print(f"[DB] recent_events columns check: {e}")
+        _safe_add_column("recent_events", "detail", "TEXT")
+        _safe_add_column("recent_events", "user_id", "INTEGER")
 
     # secret key
     app.secret_key = os.getenv("SECRET_KEY", "devoptiq-secret")
