@@ -2986,10 +2986,21 @@ async function importVSDX(file) {
     const SCALE = 130 / 0.9449;
     const FALLBACK_COLORS = ['#22c55e','#3b82f6','#f59e0b','#e85d4a','#8b5cf6',
                              '#06b6d4','#ec4899','#f43f5e','#14b8a6','#a855f7'];
+    // Convertit une valeur couleur Visio (hex, RGB(...), THEMEGUARD(RGB(...))...) en #RRGGBB
+    function parseVisioColor(raw) {
+      if (!raw) return null;
+      if (raw.startsWith('#') && raw.length >= 7) return raw.slice(0, 7).toLowerCase();
+      // Extrait RGB(r,g,b) même à l'intérieur de formules THEMEGUARD/SHADE/TINT
+      const m = raw.match(/RGB\s*\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)/i);
+      if (m) return '#' + [m[1],m[2],m[3]].map(v => parseInt(v).toString(16).padStart(2,'0')).join('');
+      return null;
+    }
+
     function isWashedOut(hex) {
       if (!hex || !hex.startsWith('#') || hex.length < 7) return true;
       const r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);
-      return (r*299+g*587+b*114)/1000 > 210;
+      // Seuil 242 : rejette uniquement blanc/gris très clair (ancienne valeur 210 trop agressive)
+      return (r*299+g*587+b*114)/1000 > 242;
     }
 
     // ── Bandes depuis les lanes ───────────────────────────────
@@ -3074,14 +3085,14 @@ async function importVSDX(file) {
           }
         }
 
-        let fill = vCell(s, 'FillForegnd');
+        let fill = parseVisioColor(vCell(s, 'FillForegnd'));
         if (isWashedOut(fill)) {
           const childEl = vEl(s, 'Shapes');
           if (childEl) {
             for (const child of vAll(childEl, 'Shape')) {
               if (child.getAttribute('Type') === 'Group') continue;
-              const cf = vCell(child, 'FillForegnd');
-              if (cf && cf.startsWith('#') && !isWashedOut(cf)) { fill = cf; break; }
+              const cf = parseVisioColor(vCell(child, 'FillForegnd'));
+              if (cf && !isWashedOut(cf)) { fill = cf; break; }
             }
           }
         }
@@ -3185,8 +3196,8 @@ async function importVSDX(file) {
       shapeIdMap[id] = oid;
 
       // Couleur : priorité à la couleur Visio explicite, fallback sur la couleur de la bande
-      const rawFill = vCell(s, 'FillForegnd');
-      const vsdxColor = rawFill && rawFill.startsWith('#') && !isWashedOut(rawFill) ? rawFill : null;
+      const parsedFill = parseVisioColor(vCell(s, 'FillForegnd'));
+      const vsdxColor = parsedFill && !isWashedOut(parsedFill) ? parsedFill : null;
       const shapeColor = shapeType === 'decision' ? '#9ca3af' : (vsdxColor || getBandColorForScreenY(screenY));
 
       newShapes.push({
@@ -4759,8 +4770,8 @@ function init() {
   });
 
   // Panel collapse
-  document.getElementById('btn-close-left-panel').addEventListener('click', () => setLeftPanelOpen(false));
-  document.getElementById('btn-close-props').addEventListener('click', () => setPropsOpen(false));
+  document.getElementById('btn-close-left-panel')?.addEventListener('click', () => setLeftPanelOpen(false));
+  document.getElementById('btn-close-props')?.addEventListener('click', () => setPropsOpen(false));
   document.getElementById('btn-left-panel-open').addEventListener('click', () => setLeftPanelOpen(!leftPanelOpen));
 
   // Grouper
