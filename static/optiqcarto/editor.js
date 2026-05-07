@@ -2810,15 +2810,21 @@ function detectVSDXShapeType(masterName, visioType, isEllipse, isDiamond, isSubp
 
 /* ══════════════════════════════════════════════════
    POST-PROCESSING : routage flèches après import VSDX
-   Phase unique : éviter que le segment principal traverse une forme intermédiaire.
-   On ajuste seulement bendOffset.dy (±20/40/60px max) pour H→H connections.
-   Les flèches parallèles sont déjà séparées par bundleOffset au rendu.
+   Algo en 2 phases (inspiré de l'algo de validation externe) :
+   Phase 1 — Shape avoidance : contourner les formes traversées par le
+             segment médian horizontal (H→H routing uniquement).
+             Les swimlanes (bands) ne sont PAS dans shapes → déjà exclus.
+   Phase 2 — Parallel separation : sweep-line trié par Y pour garantir
+             SEP_MIN px entre flèches parallèles se chevauchant en X.
    ══════════════════════════════════════════════════ */
 function reroutePostProcess(shapes, connections) {
   const OPP = { right:'left', left:'right', top:'bottom', bottom:'top' };
-  const PAD = 16; // marge de détection autour des formes
+  const PAD_DETECT = 10; // marge détection collision forme
+  const PAD_CLEAR  = 18; // marge dégagement lors du contournement
+  const SEP_MIN    = 18; // séparation minimale entre flèches parallèles
 
-  function simplePortPt(s, dir) {
+  // ── Utilitaires ────────────────────────────────────────────────
+  function portPt(s, dir) {
     const cx = s.x + s.w / 2, cy = s.y + s.h / 2;
     switch (dir) {
       case 'right':  return { x: s.x + s.w, y: cy, dir: 'right'  };
@@ -2837,48 +2843,95 @@ function reroutePostProcess(shapes, connections) {
     const dy = (to.y + to.h / 2) - (from.y + from.h / 2);
     const fdir = conn.fromPortDir || (Math.abs(dx) >= Math.abs(dy) ? (dx >= 0 ? 'right' : 'left') : (dy >= 0 ? 'bottom' : 'top'));
     const tdir = conn.toPortDir || OPP[fdir];
-    return { fp: simplePortPt(from, fdir), tp: simplePortPt(to, tdir) };
+    return { fp: portPt(from, fdir), tp: portPt(to, tdir), from, to };
   }
 
-  // Vérifie si le segment horizontal du milieu (pour H→H) traverse une forme
-  function midSegHitsShape(pts, fromId, toId) {
-    // Pour H→H : 6 points — le segment du milieu est pts[2]→pts[3]
-    if (pts.length < 6) return false;
+  // Retourne les infos du segment médian horizontal (H→H) ou null
+  function midSeg(fp, tp, off) {
+    const pts = orthogonalPts(fp, tp, 0, off);
+    if (pts.length < 6) return null;
     const p = pts[2], q = pts[3];
-    // Vérifier seulement si c'est un segment horizontal
-    if (Math.abs(p.y - q.y) > 2) return false;
-    const y = p.y, minX = Math.min(p.x, q.x), maxX = Math.max(p.x, q.x);
-    for (const s of shapes) {
-      if (s.id === fromId || s.id === toId) continue;
-      if (y > s.y - PAD && y < s.y + s.h + PAD && maxX > s.x + PAD && minX < s.x + s.w - PAD) {
-        return true;
-      }
-    }
-    return false;
+    if (Math.abs(p.y - q.y) > 2) return null; // pas H→H
+    return { y: p.y, x1: Math.min(p.x, q.x), x2: Math.max(p.x, q.x) };
   }
 
-  // Essayer de déplacer le midY pour éviter les formes (offsets conservateurs ±20/40/60px)
-  const DY_TRY = [-20, 20, -40, 40, -60, 60];
+  // Formes qui bloquent un segment médian donné
+  function blockingShapes(mid, fromId, toId) {
+    if (!mid) return [];
+    return shapes.filter(s => {
+      if (s.id === fromId || s.id === toId) return false;
+      return mid.y > s.y - PAD_DETECT && mid.y < s.y + s.h + PAD_DETECT &&
+             mid.x2 > s.x + PAD_DETECT && mid.x1 < s.x + s.w - PAD_DETECT;
+    });
+  }
 
+  // ── Phase 1 : évitement des formes ───────────────────────────
+  // Pour chaque connexion H→H dont le segment médian traverse une forme,
+  // on calcule les dy cibles (passer juste au-dessus ou juste en-dessous
+  // de chaque forme bloquante) et on choisit le meilleur.
   for (const conn of connections) {
     if (conn.routing !== 'orthogonal') continue;
     const ports = getPorts(conn);
     if (!ports) continue;
     const { fp, tp } = ports;
     const cur = conn.bendOffset || { dx: 0, dy: 0 };
-    const pts0 = orthogonalPts(fp, tp, 0, cur);
-    if (!midSegHitsShape(pts0, conn.fromId, conn.toId)) continue;
+    const mid0 = midSeg(fp, tp, cur);
+    if (!mid0) continue;
 
-    // Trouver le meilleur offset dy qui évite la collision
-    for (const dy of DY_TRY) {
-      const off = { dx: cur.dx, dy: cur.dy + dy };
-      const pts = orthogonalPts(fp, tp, 0, off);
-      if (!midSegHitsShape(pts, conn.fromId, conn.toId)) {
-        conn.bendOffset = off;
-        break;
-      }
+    const blocked = blockingShapes(mid0, conn.fromId, conn.toId);
+    if (blocked.length === 0) continue;
+
+    // Candidats : passer au-dessus ou en-dessous de chaque forme bloquante
+    const candidates = [];
+    for (const s of blocked) {
+      candidates.push({ dx: 0, dy: cur.dy + (s.y - PAD_CLEAR - mid0.y) });       // au-dessus
+      candidates.push({ dx: 0, dy: cur.dy + (s.y + s.h + PAD_CLEAR - mid0.y) }); // en-dessous
     }
-    // Si aucun offset ne résout, on laisse la connexion telle quelle (mieux que déformer)
+
+    let best = cur, bestCount = blocked.length;
+    for (const off of candidates) {
+      const m = midSeg(fp, tp, off);
+      const cnt = blockingShapes(m || mid0, conn.fromId, conn.toId).length;
+      if (cnt < bestCount) { bestCount = cnt; best = off; if (cnt === 0) break; }
+    }
+    if (best !== cur) conn.bendOffset = best;
+  }
+
+  // ── Phase 2 : séparation des flèches parallèles (sweep-line) ─
+  // Collecter le segment médian final de chaque connexion H→H
+  const infos = [];
+  for (const conn of connections) {
+    if (conn.routing !== 'orthogonal') continue;
+    const ports = getPorts(conn);
+    if (!ports) continue;
+    const m = midSeg(ports.fp, ports.tp, conn.bendOffset || { dx: 0, dy: 0 });
+    if (m) infos.push({ conn, ports, m });
+  }
+
+  // Trier par Y croissant → on ne pousse qu'en bas, sans oscillation
+  infos.sort((a, b) => a.m.y - b.m.y);
+
+  for (let i = 1; i < infos.length; i++) {
+    const cur = infos[i];
+    let targetY = cur.m.y;
+
+    // Trouver la Y minimale requise par rapport aux précédents
+    for (let j = 0; j < i; j++) {
+      const prev = infos[j];
+      if (cur.m.x2 <= prev.m.x1 || cur.m.x1 >= prev.m.x2) continue; // pas de chevauchement X
+      if (Math.abs(prev.m.y - cur.m.y) >= SEP_MIN) continue;         // déjà assez séparés
+      targetY = Math.max(targetY, prev.m.y + SEP_MIN);
+    }
+
+    if (targetY <= cur.m.y) continue; // pas de changement nécessaire
+
+    const dy = targetY - cur.m.y;
+    const curOff = cur.conn.bendOffset || { dx: 0, dy: 0 };
+    const newOff = { dx: curOff.dx, dy: curOff.dy + dy };
+    cur.conn.bendOffset = newOff;
+    // Mettre à jour m pour les comparaisons suivantes
+    const m2 = midSeg(cur.ports.fp, cur.ports.tp, newOff);
+    if (m2) cur.m = m2;
   }
 }
 
