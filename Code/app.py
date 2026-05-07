@@ -219,28 +219,20 @@ def create_app():
     from Code.routes.export import export_bp
     app.register_blueprint(export_bp)
 
-    # Auto-migration au démarrage (nécessaire sur les serveurs cloud avec filesystem éphémère)
-    # Les blueprints sont enregistrés avant pour garantir que tous les modèles sont chargés
     with app.app_context():
-        try:
-            from flask_migrate import upgrade as db_upgrade
-            db_upgrade()
-            print("[DB] Migrations appliquées avec succès")
-        except Exception as e:
-            print(f"[DB] Avertissement migration (ignoré): {e}")
+        from sqlalchemy import text as _text
 
-        # Ajout sécurisé des colonnes file_path (compatible SQLite et PostgreSQL)
-        try:
-            from sqlalchemy import text as _text
-            for _tbl, _col in [("tools", "file_path"), ("constraints", "file_path")]:
-                try:
-                    db.session.execute(_text(f"ALTER TABLE {_tbl} ADD COLUMN {_col} VARCHAR(512)"))
-                    db.session.commit()
-                    print(f"[DB] Colonne {_tbl}.{_col} ajoutée")
-                except Exception:
-                    db.session.rollback()  # colonne déjà présente
-        except Exception as e:
-            print(f"[DB] file_path migration check: {e}")
+        def _safe_add_column(table, col, col_type):
+            try:
+                with db.engine.connect() as _conn:
+                    _conn.execute(_text(f"ALTER TABLE {table} ADD COLUMN {col} {col_type}"))
+                    _conn.commit()
+                    print(f"[DB] Colonne {table}.{col} ajoutée")
+            except Exception:
+                pass
+
+        _safe_add_column("tools", "file_path", "VARCHAR(512)")
+        _safe_add_column("constraints", "file_path", "VARCHAR(512)")
 
         # Création table file_blobs (stockage binaire des fichiers liés — persistant)
         try:
@@ -307,18 +299,25 @@ def create_app():
             db.session.rollback()
             print(f"[DB] Seed recent_events: {e}")
 
-        # Ajout colonnes detail + user_id sur recent_events si absentes
+        _safe_add_column("recent_events", "detail", "TEXT")
+        _safe_add_column("recent_events", "user_id", "INTEGER")
+
+        # Marquer les migrations comme appliquées (évite db_upgrade() qui peut
+        # bloquer 10+ min sur un verrou PostgreSQL si la colonne existe déjà)
         try:
-            from sqlalchemy import text as _text
-            for _col, _type in [("detail", "TEXT"), ("user_id", "INTEGER")]:
-                try:
-                    db.session.execute(_text(f"ALTER TABLE recent_events ADD COLUMN {_col} {_type}"))
-                    db.session.commit()
-                    print(f"[DB] Colonne recent_events.{_col} ajoutée")
-                except Exception:
-                    db.session.rollback()  # déjà présente
+            with db.engine.connect() as _conn:
+                _conn.execute(_text("DELETE FROM alembic_version"))
+                _conn.execute(_text(
+                    "INSERT INTO alembic_version (version_num) VALUES ('b2c3d4e5f6a7')"
+                ))
+                _conn.commit()
+                print("[DB] alembic_version → b2c3d4e5f6a7")
         except Exception as e:
-            print(f"[DB] recent_events columns check: {e}")
+            print(f"[DB] alembic_version: {e}")
+
+        db.session.remove()
+        db.engine.dispose()
+        print("[DB] Pool connexions réinitialisé")
 
     # secret key
     app.secret_key = os.getenv("SECRET_KEY", "devoptiq-secret")
