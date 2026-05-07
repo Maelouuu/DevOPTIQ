@@ -4,8 +4,6 @@
    OptiqCarto — Éditeur SVG
    ══════════════════════════════════════════════════ */
 
-const _API = (typeof window !== 'undefined' && window.OPTIQCARTO_API_BASE) || '';
-
 /* ══════════════════════════════════════════════════
    COLOR UTILITIES
    ══════════════════════════════════════════════════ */
@@ -45,7 +43,6 @@ function bandMutedColor(hex) {
 
 function updateShapeColor(s) {
   if (s.type === 'decision') { s.color = '#9ca3af'; return; }
-  if (s._colorFixed) return; // couleur importée depuis Visio — ne pas écraser
   const band = getBandForY(s.y + s.h / 2);
   if (!band) return;
   s.color = s.colorVariant === 1 ? bandMutedColor(band.color) : band.color;
@@ -132,6 +129,7 @@ let spaceDown = false;
 let labelEditing = null;        // { shapeId }
 let portDrag = null;            // { fromShapeId, fromPort:{x,y,dir} } — drag depuis un port
 let connEndDrag = null;     // { connId, which:'from'|'to', curX, curY, snapShapeId, snapDir }
+let bendDrag = null;        // { connId, startX, startY, startOffset:{dx,dy} }
 let markerIds = new Map();      // "color-style" → markerId
 const hatchIds = new Set();     // pattern IDs déjà créés dans les defs
 let leftPanelOpen = false;
@@ -168,7 +166,8 @@ function screenToSVG(sx, sy) {
 
 function applyViewport() {
   rootGroup.setAttribute('transform', `translate(${vpX},${vpY}) scale(${vpScale})`);
-  if (statusZoom) statusZoom.textContent = Math.round(vpScale * 200) + '%';
+  // vpScale 0.5 = "100%", 1.0 = "200%" (×200 pour que le défaut 50% s'affiche 100%)
+  statusZoom.textContent = Math.round(vpScale * 200) + '%';
 }
 
 /* ══════════════════════════════════════════════════
@@ -274,6 +273,20 @@ function getGroupBounds(grp) {
   return { x: gx, y: gy, w: gw, h: gh };
 }
 
+// Returns true if fromId→toId would be a "backwards" arrow (target is left of source)
+function wouldBeBackwards(fromId, toId) {
+  function getCX(id) {
+    const s = state.shapes.find(s => s.id === id);
+    if (s) return s.x + s.w / 2;
+    const g = state.groups && state.groups.find(g => g.id === id);
+    if (g) { const b = getGroupBounds(g); return b ? b.x + b.w / 2 : null; }
+    return null;
+  }
+  const fx = getCX(fromId), tx = getCX(toId);
+  if (fx === null || tx === null) return false;
+  return tx < fx - 10; // 10px threshold
+}
+
 function getGroupPorts(grp) {
   const b = getGroupBounds(grp);
   if (!b) return null;
@@ -377,7 +390,7 @@ function polylineToPath(pts, R) {
 
 // Calcule les waypoints orthogonaux (réutilisé par arrow + label fitting)
 // bundleOffset : décalage perpendiculaire pour séparer les flèches parallèles du même bundle
-function orthogonalPts(fp, tp, bundleOffset = 0) {
+function orthogonalPts(fp, tp, bundleOffset = 0, userOffset = { dx: 0, dy: 0 }) {
   const STEP = 38;
   const DV = { right:[1,0], left:[-1,0], bottom:[0,1], top:[0,-1] };
   const isH = d => d === 'right' || d === 'left';
@@ -400,16 +413,16 @@ function orthogonalPts(fp, tp, bundleOffset = 0) {
   if (Math.abs(dx12) < 2 && Math.abs(dy12) < 2) {
     return [fp, p1, p2, tp];
   } else if (isH(fdir) && !isH(tdir)) {
-    return [fp, p1, { x: p2.x, y: p1.y }, p2, tp];
+    return [fp, p1, { x: p2.x + (userOffset.dx || 0), y: p1.y + (userOffset.dy || 0) }, p2, tp];
   } else if (!isH(fdir) && isH(tdir)) {
-    return [fp, p1, { x: p1.x, y: p2.y }, p2, tp];
+    return [fp, p1, { x: p1.x + (userOffset.dx || 0), y: p2.y + (userOffset.dy || 0) }, p2, tp];
   } else if (isH(fdir)) {
     // H→H : décaler le segment horizontal du milieu pour séparer les bundles parallèles
     if (Math.abs(dy12) < 2) return [fp, p1, p2, tp];
     const SAFE = 52;
     const rawMid = (p1.y + p2.y) / 2;
     const safeMid = Math.abs(rawMid - fp.y) < SAFE ? fp.y + Math.sign(dy12 || 1) * SAFE : rawMid;
-    const midY = safeMid + bundleOffset;
+    const midY = safeMid + bundleOffset + (userOffset.dy || 0);
     return [fp, p1, { x: p1.x, y: midY }, { x: p2.x, y: midY }, p2, tp];
   } else {
     // V→V : décaler le segment vertical du milieu pour séparer les bundles parallèles
@@ -417,7 +430,7 @@ function orthogonalPts(fp, tp, bundleOffset = 0) {
     const SAFE = 52;
     const rawMid = (p1.x + p2.x) / 2;
     const safeMid = Math.abs(rawMid - fp.x) < SAFE ? fp.x + Math.sign(dx12 || 1) * SAFE : rawMid;
-    const midX = safeMid + bundleOffset;
+    const midX = safeMid + bundleOffset + (userOffset.dx || 0);
     return [fp, p1, { x: midX, y: p1.y }, { x: midX, y: p2.y }, p2, tp];
   }
 }
@@ -637,6 +650,7 @@ function renderConnections() {
     }
   }
 
+  const placedLabels = []; // bounding boxes des labels déjà placés
   for (const c of state.connections) {
     const from = _resolveEp(c.fromId);
     const to   = _resolveEp(c.toId);
@@ -658,7 +672,8 @@ function renderConnections() {
     const tensionFactor = fN2 > 1 ? 0.7 + 0.6 * (fIdx2 / (fN2 - 1)) : 1;
     // Décaler le segment du milieu pour éviter la superposition des flèches parallèles
     const bundleOffset = fN2 > 1 ? (fIdx2 - (fN2 - 1) / 2) * 14 : 0;
-    const orthopts = orthogonalPts(fp, tp, bundleOffset);
+    const userOffset = c.bendOffset || { dx: 0, dy: 0 };
+    const orthopts = orthogonalPts(fp, tp, bundleOffset, userOffset);
     const d  = routing === 'orthogonal' ? polylineToPath(orthopts, 8) : bezierArrow(fp, tp, tensionFactor);
     const isSel = selectedConn === c.id;
     const color = isSel ? '#1f7a54' : c.color;
@@ -738,6 +753,25 @@ function renderConnections() {
         lx += (pushX / pushLen) * 20;
         ly += (pushY / pushLen) * 20;
       }
+      // Pousser aussi loin des labels déjà placés sur ce rendu
+      for (let attempt2 = 0; attempt2 < 8; attempt2++) {
+        const lleft = lx - hw - MARGIN, lright = lx + hw + MARGIN;
+        const ltop  = ly - hh - MARGIN, lbot   = ly + hh + MARGIN;
+        let hit2 = null;
+        for (const pl of placedLabels) {
+          if (lright < pl.lx - pl.hw - MARGIN) continue;
+          if (lleft  > pl.lx + pl.hw + MARGIN) continue;
+          if (lbot   < pl.ly - pl.hh - MARGIN) continue;
+          if (ltop   > pl.ly + pl.hh + MARGIN) continue;
+          hit2 = pl; break;
+        }
+        if (!hit2) break;
+        const pushX2 = lx - hit2.lx, pushY2 = ly - hit2.ly;
+        const pushLen2 = Math.hypot(pushX2, pushY2) || 1;
+        lx += (pushX2 / pushLen2) * 22;
+        ly += (pushY2 / pushLen2) * 22;
+      }
+      placedLabels.push({ lx, ly, hw, hh });
       const lg = document.createElementNS('http://www.w3.org/2000/svg', 'g');
       lg.setAttribute('transform', `translate(${lx},${ly}) rotate(${angle})`);
       lg.setAttribute('pointer-events', 'none');
@@ -762,6 +796,20 @@ function renderConnections() {
           fill: '#1f7a54', stroke: '#ffffff', 'stroke-width': '2.5',
           cursor: 'grab',
           'data-conn-id': String(c.id), 'data-conn-end': which,
+          style: 'pointer-events:all',
+        }, gConns);
+      }
+      // Poignée de coude (ajustement manuel du tracé orthogonal)
+      if (routing === 'orthogonal' && orthopts.length >= 4) {
+        const midPtIdx = Math.floor((orthopts.length - 1) / 2);
+        const bpa = orthopts[midPtIdx], bpb = orthopts[midPtIdx + 1];
+        const bpx = (bpa.x + bpb.x) / 2, bpy = (bpa.y + bpb.y) / 2;
+        const isHorizSeg = Math.abs(bpb.y - bpa.y) < Math.abs(bpb.x - bpa.x);
+        el('circle', {
+          cx: String(bpx), cy: String(bpy), r: '6',
+          fill: '#ffffff', stroke: '#1f7a54', 'stroke-width': '2',
+          cursor: isHorizSeg ? 'ns-resize' : 'ew-resize',
+          'data-conn-bend': String(c.id),
           style: 'pointer-events:all',
         }, gConns);
       }
@@ -1471,6 +1519,18 @@ function onDown(e) {
 
   /* ── Select tool ── */
   if (tool === 'select') {
+    // Drag d'un coude de connexion (ajustement du tracé)
+    const bendEl = e.target.closest('[data-conn-bend]');
+    if (bendEl) {
+      const cid = parseInt(bendEl.getAttribute('data-conn-bend'));
+      const { x, y } = screenToSVG(e.clientX, e.clientY);
+      const conn = state.connections.find(c => c.id === cid);
+      const startOffset = conn && conn.bendOffset ? { ...conn.bendOffset } : { dx: 0, dy: 0 };
+      bendDrag = { connId: cid, startX: x, startY: y, startOffset };
+      canvas.style.cursor = 'grabbing';
+      return;
+    }
+
     // Drag d'une extrémité de connexion
     const connEndEl = e.target.closest('[data-conn-end]');
     if (connEndEl) {
@@ -1539,17 +1599,21 @@ function onDown(e) {
     } else if (connecting.fromId !== sid) {
       const exists = state.connections.some(c => c.fromId === connecting.fromId && c.toId === sid);
       if (!exists) {
-        const fromShape = state.shapes.find(s => s.id === connecting.fromId);
-        state.connections.push({
-          id: state.nextId++,
-          fromId: connecting.fromId,
-          toId: sid,
-          style: 'solid',
-          routing: state.defaultRouting || 'smooth',
-          color: fromShape ? fromShape.color : '#9ca3af',
-          label: '',
-        });
-        snapshot();
+        if (wouldBeBackwards(connecting.fromId, sid)) {
+          showToast('⛔ Une flèche ne peut pas revenir en arrière (flèche → droite seulement)');
+        } else {
+          const fromShape = state.shapes.find(s => s.id === connecting.fromId);
+          state.connections.push({
+            id: state.nextId++,
+            fromId: connecting.fromId,
+            toId: sid,
+            style: 'solid',
+            routing: state.defaultRouting || 'smooth',
+            color: fromShape ? fromShape.color : '#9ca3af',
+            label: '',
+          });
+          snapshot();
+        }
       }
       connecting = null;
       render();
@@ -1606,6 +1670,20 @@ function onMove(e) {
       'stroke-dasharray': `${Math.max(4, 7 / vpScale)},${Math.max(3, 5 / vpScale)}`,
       'pointer-events': 'none',
     }, gOverlay);
+    return;
+  }
+
+  /* ── Drag d'un coude de connexion ── */
+  if (bendDrag) {
+    const { x, y } = screenToSVG(e.clientX, e.clientY);
+    const conn = state.connections.find(c => c.id === bendDrag.connId);
+    if (conn) {
+      conn.bendOffset = {
+        dx: bendDrag.startOffset.dx + (x - bendDrag.startX),
+        dy: bendDrag.startOffset.dy + (y - bendDrag.startY),
+      };
+      render();
+    }
     return;
   }
 
@@ -1680,6 +1758,15 @@ function onMove(e) {
 }
 
 function onUp(e) {
+  /* ── Fin du drag d'un coude ── */
+  if (bendDrag) {
+    bendDrag = null;
+    canvas.style.cursor = spaceDown ? 'grab' : '';
+    snapshot();
+    render();
+    return;
+  }
+
   /* ── Fin du drag d'extrémité de connexion ── */
   if (connEndDrag) {
     const { connId, which, snapShapeId, snapDir, snapT } = connEndDrag;
@@ -1688,20 +1775,24 @@ function onUp(e) {
     if (snapShapeId && snapDir) {
       const conn = state.connections.find(c => c.id === connId);
       if (conn) {
-        if (which === 'from') {
-          // Modifie uniquement l'extrémité source — sans toucher à toPortDir
-          conn.fromId      = snapShapeId;
-          conn.fromPortDir = snapDir;
-          conn.fromPortT   = snapT;
-          const src = state.shapes.find(s => s.id === snapShapeId);
-          if (src) conn.color = src.color;
+        const newFromId = which === 'from' ? snapShapeId : conn.fromId;
+        const newToId   = which === 'to'   ? snapShapeId : conn.toId;
+        if (wouldBeBackwards(newFromId, newToId)) {
+          showToast('⛔ Une flèche ne peut pas revenir en arrière (flèche → droite seulement)');
         } else {
-          // Modifie uniquement l'extrémité cible — sans toucher à fromPortDir/fromId
-          conn.toId      = snapShapeId;
-          conn.toPortDir = snapDir;   // direction indépendante du côté source
-          conn.toPortT   = snapT;
+          if (which === 'from') {
+            conn.fromId      = snapShapeId;
+            conn.fromPortDir = snapDir;
+            conn.fromPortT   = snapT;
+            const src = state.shapes.find(s => s.id === snapShapeId);
+            if (src) conn.color = src.color;
+          } else {
+            conn.toId      = snapShapeId;
+            conn.toPortDir = snapDir;
+            conn.toPortT   = snapT;
+          }
+          snapshot();
         }
-        snapshot();
       }
     }
     render();
@@ -1741,6 +1832,9 @@ function onUp(e) {
              c.fromPortDir === fp.dir
       );
       if (!exists) {
+        if (wouldBeBackwards(portDrag.fromShapeId, target.id)) {
+          showToast('⛔ Une flèche ne peut pas revenir en arrière (flèche → droite seulement)');
+        } else {
         const fromShape = state.shapes.find(s => s.id === portDrag.fromShapeId);
         state.connections.push({
           id: state.nextId++,
@@ -1753,6 +1847,7 @@ function onUp(e) {
           label: '',
         });
         snapshot();
+        }
       }
     }
     portDrag = null;
@@ -2419,10 +2514,9 @@ function _doNewCarto() {
    ══════════════════════════════════════════════════ */
 
 async function saveJSON() {
-  const name = window.OPTIQCARTO_DEFAULT_NAME
-    || prompt('Nom de la cartographie :', 'ma-carto');
+  const name = prompt('Nom de la cartographie :', 'ma-carto');
   if (!name) return;
-  const res = await fetch(`${_API}/api/save`, {
+  const res = await fetch('/api/save', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ name, diagram: state }),
@@ -2437,7 +2531,7 @@ async function openLoadDialog() {
   const list   = document.getElementById('load-list');
   dialog.classList.remove('hidden');
 
-  const files = await fetch(`${_API}/api/list`).then(r => r.json());
+  const files = await fetch('/api/list').then(r => r.json());
   list.innerHTML = '';
 
   if (files.length === 0) {
@@ -2451,7 +2545,7 @@ async function openLoadDialog() {
     item.innerHTML = `<i class="fa-solid fa-diagram-project"></i><span>${name}</span><button class="load-delete" title="Supprimer"><i class="fa-solid fa-trash"></i></button>`;
 
     item.querySelector('span').addEventListener('click', async () => {
-      const data = await fetch(`${_API}/api/load/${encodeURIComponent(name)}`).then(r => r.json());
+      const data = await fetch(`/api/load/${encodeURIComponent(name)}`).then(r => r.json());
       if (data.error) { showToast('Erreur : ' + data.error); return; }
       state = data;
       // Migration : champs manquants sur anciens fichiers
@@ -2480,7 +2574,7 @@ async function openLoadDialog() {
     item.querySelector('.load-delete').addEventListener('click', async e => {
       e.stopPropagation();
       if (!confirm(`Supprimer "${name}" ?`)) return;
-      await fetch(`${_API}/api/delete/${encodeURIComponent(name)}`, { method: 'DELETE' });
+      await fetch(`/api/delete/${encodeURIComponent(name)}`, { method: 'DELETE' });
       item.remove();
       if (!list.querySelector('.load-item')) openLoadDialog();
     });
@@ -2986,21 +3080,10 @@ async function importVSDX(file) {
     const SCALE = 130 / 0.9449;
     const FALLBACK_COLORS = ['#22c55e','#3b82f6','#f59e0b','#e85d4a','#8b5cf6',
                              '#06b6d4','#ec4899','#f43f5e','#14b8a6','#a855f7'];
-    // Convertit une valeur couleur Visio (hex, RGB(...), THEMEGUARD(RGB(...))...) en #RRGGBB
-    function parseVisioColor(raw) {
-      if (!raw) return null;
-      if (raw.startsWith('#') && raw.length >= 7) return raw.slice(0, 7).toLowerCase();
-      // Extrait RGB(r,g,b) même à l'intérieur de formules THEMEGUARD/SHADE/TINT
-      const m = raw.match(/RGB\s*\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)/i);
-      if (m) return '#' + [m[1],m[2],m[3]].map(v => parseInt(v).toString(16).padStart(2,'0')).join('');
-      return null;
-    }
-
     function isWashedOut(hex) {
       if (!hex || !hex.startsWith('#') || hex.length < 7) return true;
       const r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);
-      // Seuil 242 : rejette uniquement blanc/gris très clair (ancienne valeur 210 trop agressive)
-      return (r*299+g*587+b*114)/1000 > 242;
+      return (r*299+g*587+b*114)/1000 > 210;
     }
 
     // ── Bandes depuis les lanes ───────────────────────────────
@@ -3085,14 +3168,14 @@ async function importVSDX(file) {
           }
         }
 
-        let fill = parseVisioColor(vCell(s, 'FillForegnd'));
+        let fill = vCell(s, 'FillForegnd');
         if (isWashedOut(fill)) {
           const childEl = vEl(s, 'Shapes');
           if (childEl) {
             for (const child of vAll(childEl, 'Shape')) {
               if (child.getAttribute('Type') === 'Group') continue;
-              const cf = parseVisioColor(vCell(child, 'FillForegnd'));
-              if (cf && !isWashedOut(cf)) { fill = cf; break; }
+              const cf = vCell(child, 'FillForegnd');
+              if (cf && cf.startsWith('#') && !isWashedOut(cf)) { fill = cf; break; }
             }
           }
         }
@@ -3146,16 +3229,6 @@ async function importVSDX(file) {
       containerGroupData.push({ id, label, abs }); // id = Visio ID du container
     }
 
-    // Retourne la couleur de la bande à une position Y écran donnée
-    function getBandColorForScreenY(y) {
-      let bandTop = 0;
-      for (const band of newBands) {
-        if (y >= bandTop && y < bandTop + band.height) return band.color;
-        bandTop += band.height;
-      }
-      return newBands.length > 0 ? newBands[newBands.length - 1].color : '#22c55e';
-    }
-
     // ── Activités ─────────────────────────────────────────────
     setStatus('Import des activités…');
     const newShapes  = [];
@@ -3194,18 +3267,11 @@ async function importVSDX(file) {
       const shapeType = detectVSDXShapeType(masterIdToName[mid], vType, mInfoForType.isEllipse, mInfoForType.isDiamond, mInfoForType.isSubprocess);
       const oid = nextOid++;
       shapeIdMap[id] = oid;
-
-      // Couleur : priorité à la couleur Visio explicite, fallback sur la couleur de la bande
-      const parsedFill = parseVisioColor(vCell(s, 'FillForegnd'));
-      const vsdxColor = parsedFill && !isWashedOut(parsedFill) ? parsedFill : null;
-      const shapeColor = shapeType === 'decision' ? '#9ca3af' : (vsdxColor || getBandColorForScreenY(screenY));
-
       newShapes.push({
         id: oid, type: shapeType, subtype: 'normal',
         x: screenX, y: screenY, w: screenW, h: screenH,
         label:          vText(s),
-        color:          shapeColor,
-        _colorFixed:    shapeType !== 'decision' && !!vsdxColor, // préserve la couleur Visio
+        color:          shapeType === 'decision' ? '#9ca3af' : '#22c55e',
         textColor:      '#ffffff',
         strokeColor:    '',
         fontSize:       18,
@@ -4770,8 +4836,8 @@ function init() {
   });
 
   // Panel collapse
-  document.getElementById('btn-close-left-panel')?.addEventListener('click', () => setLeftPanelOpen(false));
-  document.getElementById('btn-close-props')?.addEventListener('click', () => setPropsOpen(false));
+  document.getElementById('btn-close-left-panel').addEventListener('click', () => setLeftPanelOpen(false));
+  document.getElementById('btn-close-props').addEventListener('click', () => setPropsOpen(false));
   document.getElementById('btn-left-panel-open').addEventListener('click', () => setLeftPanelOpen(!leftPanelOpen));
 
   // Grouper
@@ -4886,35 +4952,8 @@ function initWelcome() {
   if (!overlay) return;
   document.getElementById('btn-welcome-start').addEventListener('click', () => {
     overlay.classList.add('hidden');
-    setTimeout(() => {
-      overlay.remove();
-      _maybeShowMigrationModal();
-    }, 400);
+    setTimeout(() => overlay.remove(), 400);
   });
-}
-
-async function _maybeShowMigrationModal() {
-  if (!window.OPTIQCARTO_HAS_VSDX || window.OPTIQCARTO_HAS_CARTO) return;
-  const modal = document.getElementById('vsdx-migrate-modal');
-  if (modal) modal.classList.remove('hidden');
-}
-
-async function _autoLoadCarto() {
-  if (!window.OPTIQCARTO_DEFAULT_NAME || !window.OPTIQCARTO_HAS_CARTO) return;
-  try {
-    const r = await fetch(`${_API}/api/load/${encodeURIComponent(window.OPTIQCARTO_DEFAULT_NAME)}`);
-    if (!r.ok) return;
-    const data = await r.json();
-    if (data.error) return;
-    state = data;
-    if (!state.bandWidth) state.bandWidth = 1600;
-    if (!state.groups) state.groups = [];
-    clearSelection();
-    history = [JSON.stringify(state)]; histIndex = 0;
-    render(); updateProps();
-    // Double rAF : attend que l'iframe soit layoutée avant de calculer fitView
-    requestAnimationFrame(() => requestAnimationFrame(fitView));
-  } catch (e) { /* silencieux */ }
 }
 
 /* ══════════════════════════════════════════════════
@@ -4995,7 +5034,4 @@ function initDock() {
 }
 
 
-document.addEventListener('DOMContentLoaded', () => {
-  init();
-  _autoLoadCarto();
-});
+document.addEventListener('DOMContentLoaded', init);
