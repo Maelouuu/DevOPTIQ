@@ -3504,6 +3504,42 @@ async function importVSDX(file) {
     }
 
     // ── Connections ───────────────────────────────────────
+    const OPP_DIR_C = { right:'left', left:'right', top:'bottom', bottom:'top' };
+
+    // Helper : closest edge of a shape (Visio coords, Y-up)
+    function portDirFromPt(px, py, abs) {
+      const dR = Math.abs(px - (abs.pinX + abs.w/2));
+      const dL = Math.abs(px - (abs.pinX - abs.w/2));
+      const dT = Math.abs(py - (abs.pinY + abs.h/2)); // Visio: high Y = screen top
+      const dB = Math.abs(py - (abs.pinY - abs.h/2));
+      const m = Math.min(dR, dL, dT, dB);
+      return m === dR ? 'right' : m === dL ? 'left' : m === dT ? 'top' : 'bottom';
+    }
+
+    // Helper : read geometry waypoints from a connector element (page-absolute coords)
+    function readGeomWaypoints(el) {
+      const pts = [];
+      for (const child of Array.from(el.childNodes)) {
+        if (child.nodeType !== 1 || child.localName !== 'Section') continue;
+        if (child.getAttribute('N') !== 'Geometry') continue;
+        for (const row of Array.from(child.childNodes)) {
+          if (row.nodeType !== 1 || row.localName !== 'Row') continue;
+          const T = row.getAttribute('T');
+          if (T !== 'MoveTo' && T !== 'LineTo') continue;
+          let rx = null, ry = null;
+          for (const cell of Array.from(row.childNodes)) {
+            if (cell.nodeType !== 1 || cell.localName !== 'Cell') continue;
+            const N = cell.getAttribute('N');
+            if (N === 'X') rx = parseFloat(cell.getAttribute('V') || '0');
+            if (N === 'Y') ry = parseFloat(cell.getAttribute('V') || '0');
+          }
+          if (rx !== null && ry !== null) pts.push({ x: rx, y: ry });
+        }
+        break;
+      }
+      return pts;
+    }
+
     const newConns = [];
     for (const [connId, ends] of Object.entries(connMap)) {
       const { source: sv, target: tv } = ends;
@@ -3523,17 +3559,64 @@ async function importVSDX(file) {
       const masterLp = connMid ? (await getMasterInfo(connMid)).linePattern : 1;
       const linePatternStr = connItem ? (vCellDeep(connItem.el, 'LinePattern') || String(masterLp)) : '1';
       const isDashed = parseInt(linePatternStr) > 1;
-      newConns.push({
-        id:       nextOid++,
+
+      // ── Port direction depuis la géométrie Visio exacte ─────────
+      const isSynthetic = connId.startsWith('__sp');
+      const sAbs = shapePinAbs[sv];
+      const tAbs = shapePinAbs[tv];
+      let fromPortDir = 'right', toPortDir = 'left';
+      let bendOffset = undefined;
+
+      if (!isSynthetic && connItem && sAbs && tAbs) {
+        const ce = connItem.el;
+        const bx = parseFloat(vCell(ce, 'BeginX') || '0');
+        const by = parseFloat(vCell(ce, 'BeginY') || '0');
+        const ex = parseFloat(vCell(ce, 'EndX')   || '0');
+        const ey = parseFloat(vCell(ce, 'EndY')   || '0');
+
+        if (bx || by) fromPortDir = portDirFromPt(bx, by, sAbs);
+        if (ex || ey) toPortDir   = portDirFromPt(ex, ey, tAbs);
+
+        // Lire les waypoints pour bendOffset
+        const geomPts = readGeomWaypoints(ce);
+        // Orthogonal H-shape : [begin, bend1, bend2, end] → mid segment Y = geomPts[1].y
+        if (geomPts.length >= 3 && (fromPortDir === 'right' || fromPortDir === 'left')) {
+          // midY en screen coords (Visio Y-up → flip)
+          const visioMidY = geomPts[1].y;
+          const screenMidY = (topOfDiagram - visioMidY) * SCALE;
+          // safeMid approximé : milieu entre les centres Y des deux formes
+          const srcCY = (topOfDiagram - sAbs.pinY) * SCALE;
+          const tgtCY = (topOfDiagram - tAbs.pinY) * SCALE;
+          const approxMid = (srcCY + tgtCY) / 2;
+          const dy = screenMidY - approxMid;
+          // N'appliquer que si l'écart est significatif (> 5px) et raisonnable (< 300px)
+          if (Math.abs(dy) > 5 && Math.abs(dy) < 300) {
+            bendOffset = { dx: 0, dy };
+          }
+        }
+      } else if (sAbs && tAbs) {
+        // Fallback géométrique pour les connexions synthétiques
+        const dx = tAbs.pinX - sAbs.pinX;
+        const dy = tAbs.pinY - sAbs.pinY; // Visio Y-up: dy>0 = cible au-dessus
+        fromPortDir = Math.abs(dx) >= Math.abs(dy)
+          ? (dx >= 0 ? 'right' : 'left')
+          : (dy >= 0 ? 'top' : 'bottom');
+        toPortDir = OPP_DIR_C[fromPortDir];
+      }
+
+      const connObj = {
+        id:          nextOid++,
         fromId,
         toId,
-        fromPort: 'right',
-        toPort:   'left',
-        color:    srcShape ? srcShape.color : '#567460',
-        label:    connLabel,
-        style:    isDashed ? 'dashed' : 'solid',
-        routing:  'orthogonal',
-      });
+        fromPortDir,
+        toPortDir,
+        color:       srcShape ? srcShape.color : '#567460',
+        label:       connLabel,
+        style:       isDashed ? 'dashed' : 'solid',
+        routing:     'orthogonal',
+      };
+      if (bendOffset) connObj.bendOffset = bendOffset;
+      newConns.push(connObj);
     }
 
     // ── Supprimer les bandes séparateurs vides (label = chiffre seul) ──
@@ -3866,10 +3949,9 @@ async function importVSDX(file) {
       for (const s of newShapes) { if (s.x < INDEX_W_SVG + 4) s.x = INDEX_W_SVG + 4; }
     }
 
-    // ── Assignation des ports (alignement → flèche droite) ───────
-    setStatus('Assignation des points de connexion…');
-    await new Promise(r => setTimeout(r, 0));
-    {
+    // ── [port assignment supprimé — ports lus directement depuis VSDX] ──
+
+    if (false) {
       const OPP_DIR = { right:'left', left:'right', top:'bottom', bottom:'top' };
       const PREFER  = {
         right:  ['right','bottom','top','left'],
@@ -4019,7 +4101,7 @@ async function importVSDX(file) {
           }
         }
       }
-    }
+    } // end if(false) — port assignment bloc désactivé
 
     // ── Filtrer les flèches qui reviennent en arrière ─────
     const removedBack = [];
@@ -4055,10 +4137,6 @@ async function importVSDX(file) {
       const from = state.shapes.find(s => s.id === c.fromId);
       if (from) c.color = from.color;
     });
-
-    // Post-processing : évitement formes + séparation parallèles (ports exacts)
-    setStatus('Optimisation du routage…');
-    reroutePostProcess(state.shapes, state.connections);
 
     history = [JSON.stringify(state)]; histIndex = 0;
     render(); fitView(); updateProps();
