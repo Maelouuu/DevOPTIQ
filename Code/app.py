@@ -223,27 +223,9 @@ def create_app():
     app.register_blueprint(cartography_editor_bp)
 
     with app.app_context():
-        # Créer toutes les tables manquantes (filet de sécurité : ne touche pas les tables existantes)
-        try:
-            db.create_all()
-            print("[DB] Tables vérifiées/créées via create_all")
-        except Exception as e:
-            print(f"[DB] create_all warning: {e}")
-
-        try:
-            from flask_migrate import upgrade as db_upgrade
-            db_upgrade()
-            print("[DB] Migrations appliquées avec succès")
-        except Exception as e:
-            print(f"[DB] Avertissement migration (ignoré): {e}")
-        finally:
-            db.session.remove()  # Nettoyage session post-migration (évite état PostgreSQL aborted)
-
-        # Ajout sécurisé des colonnes manquantes — connexion directe engine (évite état session corrompu)
         from sqlalchemy import text as _text
 
         def _safe_add_column(table, col, col_type):
-            """Ajoute une colonne si absente. Compatible SQLite + PostgreSQL/Neon."""
             try:
                 with db.engine.connect() as _conn:
                     _conn.execute(_text(f"ALTER TABLE {table} ADD COLUMN {col} {col_type}"))
@@ -252,16 +234,23 @@ def create_app():
             except Exception:
                 pass  # colonne déjà présente — normal
 
-        # Colonnes tools / constraints
+        # 1. Créer les tables manquantes (idempotent, pas de verrou DDL)
+        try:
+            db.create_all()
+            print("[DB] Tables vérifiées/créées via create_all")
+        except Exception as e:
+            print(f"[DB] create_all warning: {e}")
+
+        # 2. Colonnes manquantes — ALTER TABLE instantané, ignore si déjà présente
         _safe_add_column("tools", "file_path", "VARCHAR(512)")
         _safe_add_column("constraints", "file_path", "VARCHAR(512)")
-
-        # Colonnes entities (toutes celles ajoutées après la migration initiale)
         _safe_add_column("entities", "svg_content", "TEXT")
         _safe_add_column("entities", "vsdx_filename", "VARCHAR(255)")
         _safe_add_column("entities", "optiqcarto_data", "TEXT")
+        _safe_add_column("recent_events", "detail", "TEXT")
+        _safe_add_column("recent_events", "user_id", "INTEGER")
 
-        # Création table file_blobs (stockage binaire des fichiers liés — persistant)
+        # 3. Tables supplémentaires
         try:
             from Code.models.models import FileBlob
             FileBlob.__table__.create(db.engine, checkfirst=True)
@@ -269,7 +258,6 @@ def create_app():
         except Exception as e:
             print(f"[DB] file_blobs check: {e}")
 
-        # Création table recent_events (journal d'activité pour la popup d'accueil)
         try:
             from Code.models.models import RecentEvent
             RecentEvent.__table__.create(db.engine, checkfirst=True)
@@ -277,7 +265,21 @@ def create_app():
         except Exception as e:
             print(f"[DB] recent_events check: {e}")
 
-        # Données de démonstration dans recent_events si la table est vide
+        # 4. Marquer les migrations Alembic comme appliquées (sans les exécuter)
+        # db_upgrade() est intentionnellement absent : il attend un verrou PostgreSQL
+        # pendant 10+ minutes si la colonne existe déjà → worker timeout → crash infini.
+        try:
+            with db.engine.connect() as _conn:
+                _conn.execute(_text("DELETE FROM alembic_version"))
+                _conn.execute(_text(
+                    "INSERT INTO alembic_version (version_num) VALUES ('b2c3d4e5f6a7')"
+                ))
+                _conn.commit()
+                print("[DB] alembic_version → b2c3d4e5f6a7")
+        except Exception as e:
+            print(f"[DB] alembic_version: {e}")
+
+        # 5. Seed données de démonstration recent_events
         try:
             import json as _json_seed
             from datetime import datetime as _datetime, timedelta
@@ -325,10 +327,13 @@ def create_app():
         except Exception as e:
             db.session.rollback()
             print(f"[DB] Seed recent_events: {e}")
+        finally:
+            db.session.remove()
 
-        # Ajout colonnes detail + user_id sur recent_events si absentes
-        _safe_add_column("recent_events", "detail", "TEXT")
-        _safe_add_column("recent_events", "user_id", "INTEGER")
+        # 6. Réinitialiser le pool — toutes les connexions du startup sont fermées
+        # avant que le worker commence à traiter les requêtes HTTP
+        db.engine.dispose()
+        print("[DB] Pool connexions réinitialisé")
 
     # secret key
     app.secret_key = os.getenv("SECRET_KEY", "devoptiq-secret")
