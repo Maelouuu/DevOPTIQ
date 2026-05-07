@@ -696,81 +696,61 @@ function renderConnections() {
       'pointer-events': 'none',
     }, gConns);
 
-    // Label : placé sur le segment le plus long où le texte tient en entier
+    // Label : placement optimal parmi des dizaines de candidats
     if (c.label) {
       const lw = c.label.length * 6;
       const lh = 13;
-      let lx, ly, angle;
-      // Utiliser les pts déjà calculés (routing orthogonal) ou les calculer pour bezier
+      let lx, ly, angle = 0;
+
       const labelPts = routing === 'orthogonal' ? orthopts : orthogonalPts(fp, tp, bundleOffset);
-      const segments = [];
+
+      // Générer des candidats : positions le long de chaque segment × offsets perpendiculaires
+      const CANDS = [];
       for (let i = 0; i < labelPts.length - 1; i++) {
-        const a = labelPts[i], b = labelPts[i + 1];
-        const dx = b.x - a.x, dy = b.y - a.y;
-        const len = Math.hypot(dx, dy);
-        const isHoriz = Math.abs(dy) < Math.abs(dx);
-        segments.push({ mx: (a.x + b.x) / 2, my: (a.y + b.y) / 2, len, isHoriz });
+        const pa = labelPts[i], pb = labelPts[i + 1];
+        const sdx = pb.x - pa.x, sdy = pb.y - pa.y;
+        const slen = Math.hypot(sdx, sdy);
+        if (slen < 8) continue;
+        const isH = Math.abs(sdy) < Math.abs(sdx);
+        const nx = -sdy / slen, ny = sdx / slen; // vecteur normal perpendiculaire
+        for (let t = 0.08; t <= 0.93; t += 0.10) {
+          const bx = pa.x + sdx * t, by = pa.y + sdy * t;
+          for (const perp of [0, -20, 20, -40, 40]) {
+            CANDS.push({ x: bx + nx * perp, y: by + ny * perp, isH, perp });
+          }
+        }
       }
-      // Sélection du meilleur segment :
-      // 1. Le segment doit être assez long pour que la flèche continue 5px de chaque côté du texte
-      // 2. Parmi les segments valides, préférer celui avec le moins de formes autour (moins chargé)
-      // 3. En cas d'égalité de clutter, préférer le plus long
-      const SEG_MARGIN = 5;
-      const fitting = segments.filter(s => s.len >= lw + SEG_MARGIN * 2);
-      const candidates = fitting.length > 0 ? fitting : segments;
-      function clutterScore(seg) {
-        const RADIUS = 50;
-        return state.shapes.filter(s =>
-          Math.abs(s.x + s.w/2 - seg.mx) < s.w/2 + RADIUS &&
-          Math.abs(s.y + s.h/2 - seg.my) < s.h/2 + RADIUS
-        ).length;
+      if (CANDS.length === 0) CANDS.push({ x: (fp.x + tp.x) / 2, y: (fp.y + tp.y) / 2, isH: true, perp: 0 });
+
+      // Score = aire de chevauchement avec formes + labels × 3 (0 = position parfaite)
+      function labelScore(cx, cy, isH) {
+        const hw2 = isH ? lw / 2 : lh / 2;
+        const hh2 = isH ? lh / 2 : lw / 2;
+        const M = 6;
+        let s = 0;
+        for (const sh of state.shapes) {
+          const ox = Math.max(0, Math.min(cx + hw2 + M, sh.x + sh.w) - Math.max(cx - hw2 - M, sh.x));
+          const oy = Math.max(0, Math.min(cy + hh2 + M, sh.y + sh.h) - Math.max(cy - hh2 - M, sh.y));
+          s += ox * oy;
+        }
+        for (const pl of placedLabels) {
+          const ox = Math.max(0, Math.min(cx + hw2 + M, pl.lx + pl.hw) - Math.max(cx - hw2 - M, pl.lx - pl.hw));
+          const oy = Math.max(0, Math.min(cy + hh2 + M, pl.ly + pl.hh) - Math.max(cy - hh2 - M, pl.ly - pl.hh));
+          s += ox * oy * 3;
+        }
+        return s;
       }
-      const best = candidates.reduce((a, b) => {
-        const sa = clutterScore(a) * 10000 - a.len;
-        const sb = clutterScore(b) * 10000 - b.len;
-        return sb < sa ? b : a;
-      });
-      lx = best.mx; ly = best.my;
-      angle = best.isHoriz ? 0 : -90;
-      // Ajustement si le label chevauche une forme → on décale légèrement
+
+      let bestCand = CANDS[0], bestScore = Infinity;
+      for (const cand of CANDS) {
+        const score = labelScore(cand.x, cand.y, cand.isH) + Math.abs(cand.perp) * 0.4;
+        if (score < bestScore) { bestScore = score; bestCand = cand; }
+      }
+
+      lx = bestCand.x; ly = bestCand.y;
+      angle = bestCand.isH ? 0 : -90;
       const hw = angle !== 0 ? lh / 2 : lw / 2;
       const hh = angle !== 0 ? lw / 2 : lh / 2;
-      const MARGIN = 6;
-      for (let attempt = 0; attempt < 6; attempt++) {
-        const lleft = lx - hw - MARGIN, lright = lx + hw + MARGIN;
-        const ltop  = ly - hh - MARGIN, lbot   = ly + hh + MARGIN;
-        let hit = null;
-        for (const s of state.shapes) {
-          if (lright < s.x || lleft > s.x + s.w) continue;
-          if (lbot   < s.y || ltop  > s.y + s.h) continue;
-          hit = s; break;
-        }
-        if (!hit) break;
-        // Pousser dans la direction opposée au centre de la forme qui chevauche
-        const scx = hit.x + hit.w / 2, scy = hit.y + hit.h / 2;
-        const pushX = lx - scx, pushY = ly - scy;
-        const pushLen = Math.hypot(pushX, pushY) || 1;
-        lx += (pushX / pushLen) * 20;
-        ly += (pushY / pushLen) * 20;
-      }
-      // Pousser aussi loin des labels déjà placés sur ce rendu
-      for (let attempt2 = 0; attempt2 < 8; attempt2++) {
-        const lleft = lx - hw - MARGIN, lright = lx + hw + MARGIN;
-        const ltop  = ly - hh - MARGIN, lbot   = ly + hh + MARGIN;
-        let hit2 = null;
-        for (const pl of placedLabels) {
-          if (lright < pl.lx - pl.hw - MARGIN) continue;
-          if (lleft  > pl.lx + pl.hw + MARGIN) continue;
-          if (lbot   < pl.ly - pl.hh - MARGIN) continue;
-          if (ltop   > pl.ly + pl.hh + MARGIN) continue;
-          hit2 = pl; break;
-        }
-        if (!hit2) break;
-        const pushX2 = lx - hit2.lx, pushY2 = ly - hit2.ly;
-        const pushLen2 = Math.hypot(pushX2, pushY2) || 1;
-        lx += (pushX2 / pushLen2) * 22;
-        ly += (pushY2 / pushLen2) * 22;
-      }
       placedLabels.push({ lx, ly, hw, hh });
       const lg = document.createElementNS('http://www.w3.org/2000/svg', 'g');
       lg.setAttribute('transform', `translate(${lx},${ly}) rotate(${angle})`);
@@ -2548,6 +2528,15 @@ async function openLoadDialog() {
       const data = await fetch(`/api/load/${encodeURIComponent(name)}`).then(r => r.json());
       if (data.error) { showToast('Erreur : ' + data.error); return; }
       state = data;
+      // Filtrer les connexions qui reviendraient en arrière (depuis anciens fichiers)
+      if (state.connections && state.shapes) {
+        state.connections = state.connections.filter(c => {
+          const from = state.shapes.find(s => s.id === c.fromId);
+          const to   = state.shapes.find(s => s.id === c.toId);
+          if (!from || !to) return true;
+          return (to.x + to.w / 2) >= (from.x + from.w / 2) - 10;
+        });
+      }
       // Migration : champs manquants sur anciens fichiers
       if (!state.bandWidth) state.bandWidth = 1600;
       if (!state.groups) state.groups = [];
@@ -3874,10 +3863,30 @@ async function importVSDX(file) {
       }
     }
 
+    // ── Filtrer les flèches qui reviennent en arrière ─────
+    const removedBack = [];
+    const filteredConns = newConns.filter(c => {
+      function getCX(id) {
+        const s = newShapes.find(s => s.id === id);
+        if (s) return s.x + s.w / 2;
+        const g = newGroups && newGroups.find(g => g.id === id);
+        if (g && g.shapeIds) {
+          const gs = newShapes.filter(s => g.shapeIds.includes(s.id));
+          if (gs.length) return (Math.min(...gs.map(s => s.x)) + Math.max(...gs.map(s => s.x + s.w))) / 2;
+        }
+        return null;
+      }
+      const fx = getCX(c.fromId), tx = getCX(c.toId);
+      if (fx === null || tx === null) return true;
+      if (tx < fx - 10) { removedBack.push(c); return false; }
+      return true;
+    });
+    if (removedBack.length) showToast(`⚠ ${removedBack.length} flèche(s) retirée(s) : sens interdit (droite→gauche)`);
+
     // ── Apply to state ────────────────────────────────────
     clearSelection();
     state.shapes      = newShapes;
-    state.connections = newConns;
+    state.connections = filteredConns;
     state.groups      = newGroups;
     state.bands       = newBands;
     state.bandWidth   = Math.max(1400, Math.round(newShapes.reduce((m, s) => Math.max(m, s.x + s.w), 0) + 300));
