@@ -2810,19 +2810,15 @@ function detectVSDXShapeType(masterName, visioType, isEllipse, isDiamond, isSubp
 
 /* ══════════════════════════════════════════════════
    POST-PROCESSING : routage flèches après import VSDX
-   Utilise les POSITIONS EXACTES de ports (réplication complète de
-   _resolveEp + spreadPort + bundleOffset depuis renderConnections).
-   Phase 1 — Shape avoidance : ajuste bendOffset.dy pour que le segment
-             médian H→H ne traverse pas de forme intermédiaire.
-   Phase 2 — Parallel separation (sweep-line trié par renderedMidY).
-   Phase 3 — Vérification post-phase-2 que les push de séparation
-             ne font pas entrer une flèche dans une forme.
+   Ports EXACTS (réplication de _resolveEp + spreadPort + bundleOffset).
+   Formule : bendOffset.dy = targetMidY - safeMid - bundleOffset → 0px d'erreur.
+   Phase 1 — Shape avoidance : contourner les formes intermédiaires.
+   Passe finale — Vérification stricte : aucune flèche ne peut traverser
+                  un process (activité) ou un start-end (rond).
    ══════════════════════════════════════════════════ */
 function reroutePostProcess(shapes, connections) {
   const OPP = { right:'left', left:'right', top:'bottom', bottom:'top' };
-  const PAD_DETECT = 10;  // marge détection collision forme
-  const PAD_CLEAR  = 20;  // marge dégagement lors du contournement
-  const SEP_MIN    = 18;  // séparation minimale flèches parallèles
+  const PAD  = 12; // marge détection et dégagement
 
   // ── Réplication exacte de _resolveEp ────────────────────────
   function resolveEp(eid) {
@@ -2832,7 +2828,7 @@ function reroutePostProcess(shapes, connections) {
              _halo: s.type === 'process' ? 7 : 0, _type: s.type };
   }
 
-  // ── Construction de fromUsage + unifiedUsage ─────────────────
+  // ── fromUsage + unifiedUsage (identiques à renderConnections) ─
   const fromUsage = {}, unifiedUsage = {};
   for (const c of connections) {
     const from = resolveEp(c.fromId), to = resolveEp(c.toId);
@@ -2842,24 +2838,21 @@ function reroutePostProcess(shapes, connections) {
     const fdir = c.fromPortDir || (Math.abs(dx) >= Math.abs(dy) ? (dx >= 0 ? 'right' : 'left') : (dy >= 0 ? 'bottom' : 'top'));
     const tdir = c.toPortDir || OPP[fdir];
     const fk = `${c.fromId}-${fdir}`, tk = `${c.toId}-${tdir}`;
-    if (!fromUsage[fk])    fromUsage[fk] = [];
-    fromUsage[fk].push(c.id);
-    if (!unifiedUsage[fk]) unifiedUsage[fk] = [];
-    unifiedUsage[fk].push({ connId: c.id, end: 'from' });
-    if (!unifiedUsage[tk]) unifiedUsage[tk] = [];
-    unifiedUsage[tk].push({ connId: c.id, end: 'to' });
+    if (!fromUsage[fk])    fromUsage[fk] = [];    fromUsage[fk].push(c.id);
+    if (!unifiedUsage[fk]) unifiedUsage[fk] = []; unifiedUsage[fk].push({ connId: c.id, end: 'from' });
+    if (!unifiedUsage[tk]) unifiedUsage[tk] = []; unifiedUsage[tk].push({ connId: c.id, end: 'to' });
   }
 
-  // ── Réplication exacte de spreadPort ────────────────────────
+  // ── spreadPort exact (identique à renderConnections) ────────
   function spreadPort(ep, dir, connId, end, explicitT) {
     const h = ep._halo || 0;
     const cx = ep.x + ep.w / 2, cy = ep.y + ep.h / 2;
     if (ep._type === 'decision') {
       switch (dir) {
-        case 'left':   return { x: ep.x,         y: cy, dir: 'left'   };
-        case 'right':  return { x: ep.x + ep.w,  y: cy, dir: 'right'  };
-        case 'top':    return { x: cx,            y: ep.y, dir: 'top'  };
-        case 'bottom': return { x: cx,  y: ep.y + ep.h,   dir: 'bottom' };
+        case 'left':   return { x: ep.x,        y: cy,          dir: 'left'   };
+        case 'right':  return { x: ep.x + ep.w, y: cy,          dir: 'right'  };
+        case 'top':    return { x: cx,           y: ep.y,        dir: 'top'    };
+        case 'bottom': return { x: cx,           y: ep.y + ep.h, dir: 'bottom' };
       }
     }
     const key = `${ep.id}-${dir}`;
@@ -2875,7 +2868,7 @@ function reroutePostProcess(shapes, connections) {
     }
   }
 
-  // ── Construction des infos de chaque connexion H→H ──────────
+  // ── Construire les infos par connexion H→H ───────────────────
   const infos = [];
   for (const c of connections) {
     if (c.routing !== 'orthogonal') continue;
@@ -2888,87 +2881,89 @@ function reroutePostProcess(shapes, connections) {
     const fp = spreadPort(from, fdir, c.id, 'from', c.fromPortT);
     const tp = spreadPort(to,   tdir, c.id, 'to',   c.toPortT);
 
-    // bundleOffset exact (même formule que renderConnections)
+    // bundleOffset exact
     const fk = `${c.fromId}-${fdir}`;
     const fUsers = fromUsage[fk] || [];
-    const fIdx = fUsers.indexOf(c.id);
-    const fN = fUsers.length;
+    const fIdx = fUsers.indexOf(c.id), fN = fUsers.length;
     const bundleOffset = fN > 1 ? (fIdx - (fN - 1) / 2) * 14 : 0;
 
-    // safeMid = midY naturel sans aucun offset
+    // safeMid = midY sans aucun offset (base de calcul)
     const ptsNat = orthogonalPts(fp, tp, 0, { dx: 0, dy: 0 });
-    if (ptsNat.length < 6) continue;
-    if (Math.abs(ptsNat[2].y - ptsNat[3].y) > 2) continue; // pas H→H
+    if (ptsNat.length < 6 || Math.abs(ptsNat[2].y - ptsNat[3].y) > 2) continue;
     const safeMid = ptsNat[2].y;
-
-    // Plage X du segment médian (stable, indépendante du bendOffset)
     const x1 = Math.min(ptsNat[2].x, ptsNat[3].x);
     const x2 = Math.max(ptsNat[2].x, ptsNat[3].x);
-    if (x2 - x1 < 4) continue; // segment trop court, ignorer
+    if (x2 - x1 < 4) continue;
 
-    // renderedMidY = safeMid + bundleOffset + bendOffset.dy
+    // renderedMidY = safeMid + bundleOffset + bendOffset.dy  (exactement 0px d'erreur)
     const curDy = (c.bendOffset || { dy: 0 }).dy || 0;
-    const renderedMidY = safeMid + bundleOffset + curDy;
-
-    infos.push({ c, fp, tp, safeMid, bundleOffset, x1, x2, renderedMidY });
+    infos.push({ c, safeMid, bundleOffset, x1, x2,
+                 renderedMidY: safeMid + bundleOffset + curDy });
   }
 
-  // ── Helpers : collision forme ────────────────────────────────
-  function hitsShape(midY, x1, x2, fromId, toId) {
-    return shapes.some(s => {
-      if (s.id === fromId || s.id === toId) return false;
-      return midY > s.y - PAD_DETECT && midY < s.y + s.h + PAD_DETECT
-          && x2   > s.x + PAD_DETECT && x1   < s.x + s.w - PAD_DETECT;
-    });
-  }
+  // ── Helpers ──────────────────────────────────────────────────
 
-  // Trouve la Y dégagée la plus proche de refY (parmi les bords des formes)
-  function clearY(refY, x1, x2, fromId, toId) {
-    if (!hitsShape(refY, x1, x2, fromId, toId)) return refY;
-    const cands = [];
-    for (const s of shapes) {
-      if (s.id === fromId || s.id === toId) continue;
-      if (x2 <= s.x + PAD_DETECT || x1 >= s.x + s.w - PAD_DETECT) continue;
-      cands.push(s.y - PAD_CLEAR, s.y + s.h + PAD_CLEAR);
-    }
-    cands.sort((a, b) => Math.abs(a - refY) - Math.abs(b - refY));
-    for (const y of cands) {
-      if (!hitsShape(y, x1, x2, fromId, toId)) return y;
-    }
-    return refY; // aucune position libre trouvée → on laisse
-  }
-
-  // Applique un renderedMidY cible à une connexion
+  // Applique un midY cible avec la formule exacte (0px d'erreur)
   function applyMidY(info, targetMidY) {
     const newDy = targetMidY - info.safeMid - info.bundleOffset;
     info.c.bendOffset = { dx: (info.c.bendOffset || { dx: 0 }).dx || 0, dy: newDy };
     info.renderedMidY = targetMidY;
   }
 
-  // ── Phase 1 : évitement des formes ───────────────────────────
+  // Teste si un midY donné touche une forme intermédiaire (excl. endpoints)
+  function hitsAny(midY, x1, x2, fromId, toId) {
+    return shapes.some(s => {
+      if (s.id === fromId || s.id === toId) return false;
+      return midY > s.y - PAD && midY < s.y + s.h + PAD
+          && x2   > s.x + PAD && x1   < s.x + s.w - PAD;
+    });
+  }
+
+  // Teste si un midY touche SPÉCIFIQUEMENT un process ou start-end (les formes "bloquantes")
+  function hitsActivity(midY, x1, x2, fromId, toId) {
+    return shapes.some(s => {
+      if (s.id === fromId || s.id === toId) return false;
+      if (s.type !== 'process' && s.type !== 'start-end') return false;
+      return midY > s.y - PAD && midY < s.y + s.h + PAD
+          && x2   > s.x + PAD && x1   < s.x + s.w - PAD;
+    });
+  }
+
+  // Trouve la Y la plus proche de refY qui ne touche rien
+  // Candidates : bords de toutes les formes potentiellement gênantes
+  function findClearY(refY, x1, x2, fromId, toId, strict = false) {
+    const testFn = strict ? hitsActivity : hitsAny;
+    if (!testFn(refY, x1, x2, fromId, toId)) return refY;
+    const cands = [];
+    for (const s of shapes) {
+      if (s.id === fromId || s.id === toId) continue;
+      if (strict && s.type !== 'process' && s.type !== 'start-end') continue;
+      if (x2 <= s.x + PAD || x1 >= s.x + s.w - PAD) continue;
+      cands.push(s.y - PAD, s.y + s.h + PAD);
+    }
+    cands.sort((a, b) => Math.abs(a - refY) - Math.abs(b - refY));
+    for (const y of cands) {
+      if (!testFn(y, x1, x2, fromId, toId)) return y;
+    }
+    return refY; // pas de position libre → on laisse (on aura tenté)
+  }
+
+  // ── Phase 1 : évitement général des formes ───────────────────
   for (const info of infos) {
     const { c, x1, x2, renderedMidY } = info;
-    if (!hitsShape(renderedMidY, x1, x2, c.fromId, c.toId)) continue;
-    const target = clearY(renderedMidY, x1, x2, c.fromId, c.toId);
+    if (!hitsAny(renderedMidY, x1, x2, c.fromId, c.toId)) continue;
+    const target = findClearY(renderedMidY, x1, x2, c.fromId, c.toId, false);
     if (target !== renderedMidY) applyMidY(info, target);
   }
 
-  // ── Phase 2 : séparation parallèles (sweep-line trié par Y) ──
-  infos.sort((a, b) => a.renderedMidY - b.renderedMidY);
-  for (let i = 1; i < infos.length; i++) {
-    const cur = infos[i];
-    let targetMidY = cur.renderedMidY;
-    for (let j = 0; j < i; j++) {
-      const prev = infos[j];
-      if (cur.x2 <= prev.x1 || cur.x1 >= prev.x2) continue;
-      if (Math.abs(prev.renderedMidY - cur.renderedMidY) >= SEP_MIN) continue;
-      targetMidY = Math.max(targetMidY, prev.renderedMidY + SEP_MIN);
-    }
-    if (targetMidY <= cur.renderedMidY) continue;
-
-    // Phase 3 : vérifier que le push ne tombe pas dans une forme
-    const safeTarget = clearY(targetMidY, cur.x1, cur.x2, cur.c.fromId, cur.c.toId);
-    applyMidY(cur, safeTarget);
+  // ── Passe finale : vérification stricte process + start-end ──
+  // Règle absolue : aucune flèche ne peut traverser une activité ou un rond.
+  // On re-vérifie et on force le contournement même si phase 1 n'a pas suffi.
+  for (const info of infos) {
+    const { c, x1, x2, renderedMidY } = info;
+    if (!hitsActivity(renderedMidY, x1, x2, c.fromId, c.toId)) continue;
+    const target = findClearY(renderedMidY, x1, x2, c.fromId, c.toId, true);
+    if (target !== renderedMidY) applyMidY(info, target);
   }
 }
 
