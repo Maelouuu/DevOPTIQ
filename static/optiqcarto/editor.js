@@ -167,7 +167,7 @@ function screenToSVG(sx, sy) {
 function applyViewport() {
   rootGroup.setAttribute('transform', `translate(${vpX},${vpY}) scale(${vpScale})`);
   // vpScale 0.5 = "100%", 1.0 = "200%" (×200 pour que le défaut 50% s'affiche 100%)
-  statusZoom.textContent = Math.round(vpScale * 200) + '%';
+  if (statusZoom) statusZoom.textContent = Math.round(vpScale * 200) + '%';
 }
 
 /* ══════════════════════════════════════════════════
@@ -2810,15 +2810,13 @@ function detectVSDXShapeType(masterName, visioType, isEllipse, isDiamond, isSubp
 
 /* ══════════════════════════════════════════════════
    POST-PROCESSING : routage flèches après import VSDX
-   Règles : ① pas de flèche traversant une forme intermédiaire
-             ② pas de flèches parallèles se touchant
-             ③ croisements perpendiculaires interdits dans les zones de label
+   Phase unique : éviter que le segment principal traverse une forme intermédiaire.
+   On ajuste seulement bendOffset.dy (±20/40/60px max) pour H→H connections.
+   Les flèches parallèles sont déjà séparées par bundleOffset au rendu.
    ══════════════════════════════════════════════════ */
 function reroutePostProcess(shapes, connections) {
   const OPP = { right:'left', left:'right', top:'bottom', bottom:'top' };
-  const PAD_SHAPE = 12;  // marge autour des formes
-  const SEP = 18;        // écart minimal entre flèches parallèles
-  const TOL = 10;        // tolérance superposition parallèle
+  const PAD = 16; // marge de détection autour des formes
 
   function simplePortPt(s, dir) {
     const cx = s.x + s.w / 2, cy = s.y + s.h / 2;
@@ -2839,127 +2837,48 @@ function reroutePostProcess(shapes, connections) {
     const dy = (to.y + to.h / 2) - (from.y + from.h / 2);
     const fdir = conn.fromPortDir || (Math.abs(dx) >= Math.abs(dy) ? (dx >= 0 ? 'right' : 'left') : (dy >= 0 ? 'bottom' : 'top'));
     const tdir = conn.toPortDir || OPP[fdir];
-    return { fp: simplePortPt(from, fdir), tp: simplePortPt(to, tdir), from, to };
+    return { fp: simplePortPt(from, fdir), tp: simplePortPt(to, tdir) };
   }
 
-  // Vérifie si un segment (non-endpoint) traverse une forme intermédiaire
-  function shapeHitCount(pts, fromId, toId) {
-    let count = 0;
-    // On saute les 2 premiers et 2 derniers segments (stubs de connexion proches des formes)
-    for (let i = 2; i < pts.length - 3; i++) {
-      const p = pts[i], q = pts[i + 1];
-      const isVert = Math.abs(p.x - q.x) < 1;
-      for (const s of shapes) {
-        if (s.id === fromId || s.id === toId) continue;
-        if (isVert) {
-          const minY = Math.min(p.y, q.y), maxY = Math.max(p.y, q.y);
-          if (p.x > s.x - PAD_SHAPE && p.x < s.x + s.w + PAD_SHAPE &&
-              maxY > s.y - PAD_SHAPE && minY < s.y + s.h + PAD_SHAPE) count++;
-        } else {
-          const minX = Math.min(p.x, q.x), maxX = Math.max(p.x, q.x);
-          if (p.y > s.y - PAD_SHAPE && p.y < s.y + s.h + PAD_SHAPE &&
-              maxX > s.x - PAD_SHAPE && minX < s.x + s.w + PAD_SHAPE) count++;
-        }
+  // Vérifie si le segment horizontal du milieu (pour H→H) traverse une forme
+  function midSegHitsShape(pts, fromId, toId) {
+    // Pour H→H : 6 points — le segment du milieu est pts[2]→pts[3]
+    if (pts.length < 6) return false;
+    const p = pts[2], q = pts[3];
+    // Vérifier seulement si c'est un segment horizontal
+    if (Math.abs(p.y - q.y) > 2) return false;
+    const y = p.y, minX = Math.min(p.x, q.x), maxX = Math.max(p.x, q.x);
+    for (const s of shapes) {
+      if (s.id === fromId || s.id === toId) continue;
+      if (y > s.y - PAD && y < s.y + s.h + PAD && maxX > s.x + PAD && minX < s.x + s.w - PAD) {
+        return true;
       }
     }
-    return count;
+    return false;
   }
 
-  // ── Phase 1 : évitement des formes intermédiaires ─────────────────
-  const DY_TRY = [0, -40, 40, -80, 80, -120, 120, -20, 20, -60, 60, -160, 160, -200, 200];
-  const DX_TRY = [0, -40, 40, -80, 80];
+  // Essayer de déplacer le midY pour éviter les formes (offsets conservateurs ±20/40/60px)
+  const DY_TRY = [-20, 20, -40, 40, -60, 60];
 
   for (const conn of connections) {
+    if (conn.routing !== 'orthogonal') continue;
     const ports = getPorts(conn);
     if (!ports) continue;
     const { fp, tp } = ports;
     const cur = conn.bendOffset || { dx: 0, dy: 0 };
-    if (shapeHitCount(orthogonalPts(fp, tp, 0, cur), conn.fromId, conn.toId) === 0) continue;
+    const pts0 = orthogonalPts(fp, tp, 0, cur);
+    if (!midSegHitsShape(pts0, conn.fromId, conn.toId)) continue;
 
-    let best = cur, bestHits = Infinity;
-    outer1: for (const dy of DY_TRY) {
-      for (const dx of DX_TRY) {
-        const off = { dx: cur.dx + dx, dy: cur.dy + dy };
-        const hits = shapeHitCount(orthogonalPts(fp, tp, 0, off), conn.fromId, conn.toId);
-        if (hits < bestHits) { bestHits = hits; best = off; if (hits === 0) break outer1; }
+    // Trouver le meilleur offset dy qui évite la collision
+    for (const dy of DY_TRY) {
+      const off = { dx: cur.dx, dy: cur.dy + dy };
+      const pts = orthogonalPts(fp, tp, 0, off);
+      if (!midSegHitsShape(pts, conn.fromId, conn.toId)) {
+        conn.bendOffset = off;
+        break;
       }
     }
-    conn.bendOffset = best;
-  }
-
-  // ── Retourne le segment principal (le plus long) d'une connexion ──
-  function getMainSeg(conn) {
-    const ports = getPorts(conn);
-    if (!ports) return null;
-    const pts = orthogonalPts(ports.fp, ports.tp, 0, conn.bendOffset || { dx: 0, dy: 0 });
-    let longest = null, maxLen = 0;
-    for (let i = 0; i < pts.length - 1; i++) {
-      const len = Math.abs(pts[i].x - pts[i + 1].x) + Math.abs(pts[i].y - pts[i + 1].y);
-      if (len > maxLen) { maxLen = len; longest = { p1: pts[i], p2: pts[i + 1] }; }
-    }
-    return longest;
-  }
-
-  // ── Phase 2 : séparation des flèches parallèles qui se touchent ───
-  for (let iter = 0; iter < 10; iter++) {
-    let anyChange = false;
-    for (let i = 0; i < connections.length; i++) {
-      for (let j = i + 1; j < connections.length; j++) {
-        const si = getMainSeg(connections[i]);
-        const sj = getMainSeg(connections[j]);
-        if (!si || !sj) continue;
-
-        const iH = Math.abs(si.p1.y - si.p2.y) < 1;
-        const jH = Math.abs(sj.p1.y - sj.p2.y) < 1;
-        if (iH !== jH) {
-          // ── Phase 3 : croisement perpendiculaire dans une zone de label ──
-          // Détecter le point de croisement
-          const hSeg = iH ? si : sj;
-          const vSeg = iH ? sj : si;
-          const crossX = vSeg.p1.x, crossY = hSeg.p1.y;
-          // Vérifier si cross est dans la zone de texte de l'une ou l'autre flèche
-          function isInLabelZone(seg, cx, cy, conn) {
-            const midX = (seg.p1.x + seg.p2.x) / 2, midY = (seg.p1.y + seg.p2.y) / 2;
-            const lbl = (conn.label || '');
-            const lw = Math.max(40, lbl.length * 7), lh = 22;
-            return cx > midX - lw / 2 && cx < midX + lw / 2 && cy > midY - lh / 2 && cy < midY + lh / 2;
-          }
-          const cI = connections[i], cJ = connections[j];
-          if (isInLabelZone(iH ? si : sj, crossX, crossY, cI) ||
-              isInLabelZone(iH ? sj : si, crossX, crossY, cJ)) {
-            // Décaler la flèche horizontale vers le bas pour sortir de la zone
-            const offending = iH ? cI : cJ;
-            const offSeg   = iH ? si : sj;
-            const curOff = offending.bendOffset || { dx: 0, dy: 0 };
-            offending.bendOffset = { ...curOff, dy: curOff.dy + SEP };
-            anyChange = true;
-          }
-          continue;
-        }
-
-        // Deux segments parallèles
-        if (iH) { // tous les deux horizontaux
-          if (Math.abs(si.p1.y - sj.p1.y) > TOL) continue;
-          const minI = Math.min(si.p1.x, si.p2.x), maxI = Math.max(si.p1.x, si.p2.x);
-          const minJ = Math.min(sj.p1.x, sj.p2.x), maxJ = Math.max(sj.p1.x, sj.p2.x);
-          if (maxI <= minJ || maxJ <= minI) continue;
-          // Chevauchement → décaler j vers le bas
-          const off = connections[j].bendOffset || { dx: 0, dy: 0 };
-          connections[j].bendOffset = { ...off, dy: off.dy + SEP };
-          anyChange = true;
-        } else { // tous les deux verticaux
-          if (Math.abs(si.p1.x - sj.p1.x) > TOL) continue;
-          const minI = Math.min(si.p1.y, si.p2.y), maxI = Math.max(si.p1.y, si.p2.y);
-          const minJ = Math.min(sj.p1.y, sj.p2.y), maxJ = Math.max(sj.p1.y, sj.p2.y);
-          if (maxI <= minJ || maxJ <= minI) continue;
-          // Chevauchement → décaler j vers la droite
-          const off = connections[j].bendOffset || { dx: 0, dy: 0 };
-          connections[j].bendOffset = { ...off, dx: off.dx + SEP };
-          anyChange = true;
-        }
-      }
-    }
-    if (!anyChange) break;
+    // Si aucun offset ne résout, on laisse la connexion telle quelle (mieux que déformer)
   }
 }
 

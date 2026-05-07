@@ -119,6 +119,8 @@
 <!-- Éléments fantômes requis par editor.js mais cachés par CSS -->
 <textarea id="label-editor" autocomplete="off" spellcheck="false"></textarea>
 <div id="toast"></div>
+<span id="status-zoom" style="display:none"></span>
+<div id="vsdx-migrate-modal" class="modal-overlay hidden" style="display:none!important"></div>
 <div id="dock-wrap"><div id="dock-panel">
   <button id="dock-left-panel"></button>
   <button id="dock-props"></button>
@@ -128,12 +130,14 @@
   <div class="panel-prelayer panel-prelayer--1"></div>
   <div class="panel-prelayer panel-prelayer--2"></div>
 </div>
+<button id="btn-close-left-panel" style="display:none"></button>
 <div id="canvas-map-scroll"><div id="canvas-map-list"></div></div>
 </aside>
 <aside id="properties"><div class="panel-prelayers" aria-hidden="true">
   <div class="panel-prelayer panel-prelayer--1"></div>
   <div class="panel-prelayer panel-prelayer--2"></div>
 </div>
+<button id="btn-close-props" style="display:none"></button>
 <div id="prop-nothing"></div>
 <div id="prop-align" style="display:none"><span id="prop-align-count"></span></div>
 <div id="prop-shape" style="display:none">
