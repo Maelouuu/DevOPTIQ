@@ -2810,15 +2810,166 @@ function detectVSDXShapeType(masterName, visioType, isEllipse, isDiamond, isSubp
 
 /* ══════════════════════════════════════════════════
    POST-PROCESSING : routage flèches après import VSDX
-   NOTE : Le post-processing de routage par bendOffset est désactivé.
-   Raison : les positions de ports approchées (centre d'arête) divergent
-   des positions réelles calculées par spreadPort() au rendu, ce qui
-   cause des artefacts visuels ("flèches déconnectées").
-   Une vraie implémentation nécessiterait un pathfinding A* sur grille
-   avec accès aux positions exactes des ports après spread.
+   Utilise les POSITIONS EXACTES de ports (réplication complète de
+   _resolveEp + spreadPort + bundleOffset depuis renderConnections).
+   Phase 1 — Shape avoidance : ajuste bendOffset.dy pour que le segment
+             médian H→H ne traverse pas de forme intermédiaire.
+   Phase 2 — Parallel separation (sweep-line trié par renderedMidY).
+   Phase 3 — Vérification post-phase-2 que les push de séparation
+             ne font pas entrer une flèche dans une forme.
    ══════════════════════════════════════════════════ */
 function reroutePostProcess(shapes, connections) {
-  // no-op intentionnel — voir note ci-dessus
+  const OPP = { right:'left', left:'right', top:'bottom', bottom:'top' };
+  const PAD_DETECT = 10;  // marge détection collision forme
+  const PAD_CLEAR  = 20;  // marge dégagement lors du contournement
+  const SEP_MIN    = 18;  // séparation minimale flèches parallèles
+
+  // ── Réplication exacte de _resolveEp ────────────────────────
+  function resolveEp(eid) {
+    const s = shapes.find(s => s.id === eid);
+    if (!s) return null;
+    return { id: s.id, x: s.x, y: s.y, w: s.w, h: s.h,
+             _halo: s.type === 'process' ? 7 : 0, _type: s.type };
+  }
+
+  // ── Construction de fromUsage + unifiedUsage ─────────────────
+  const fromUsage = {}, unifiedUsage = {};
+  for (const c of connections) {
+    const from = resolveEp(c.fromId), to = resolveEp(c.toId);
+    if (!from || !to) continue;
+    const dx = (to.x + to.w/2) - (from.x + from.w/2);
+    const dy = (to.y + to.h/2) - (from.y + from.h/2);
+    const fdir = c.fromPortDir || (Math.abs(dx) >= Math.abs(dy) ? (dx >= 0 ? 'right' : 'left') : (dy >= 0 ? 'bottom' : 'top'));
+    const tdir = c.toPortDir || OPP[fdir];
+    const fk = `${c.fromId}-${fdir}`, tk = `${c.toId}-${tdir}`;
+    if (!fromUsage[fk])    fromUsage[fk] = [];
+    fromUsage[fk].push(c.id);
+    if (!unifiedUsage[fk]) unifiedUsage[fk] = [];
+    unifiedUsage[fk].push({ connId: c.id, end: 'from' });
+    if (!unifiedUsage[tk]) unifiedUsage[tk] = [];
+    unifiedUsage[tk].push({ connId: c.id, end: 'to' });
+  }
+
+  // ── Réplication exacte de spreadPort ────────────────────────
+  function spreadPort(ep, dir, connId, end, explicitT) {
+    const h = ep._halo || 0;
+    const cx = ep.x + ep.w / 2, cy = ep.y + ep.h / 2;
+    if (ep._type === 'decision') {
+      switch (dir) {
+        case 'left':   return { x: ep.x,         y: cy, dir: 'left'   };
+        case 'right':  return { x: ep.x + ep.w,  y: cy, dir: 'right'  };
+        case 'top':    return { x: cx,            y: ep.y, dir: 'top'  };
+        case 'bottom': return { x: cx,  y: ep.y + ep.h,   dir: 'bottom' };
+      }
+    }
+    const key = `${ep.id}-${dir}`;
+    const users = unifiedUsage[key] || [];
+    const idx = users.findIndex(u => u.connId === connId && u.end === end);
+    const n = users.length;
+    const t = explicitT !== undefined ? explicitT : (n <= 1 ? 0.5 : (idx + 1) / (n + 1));
+    switch (dir) {
+      case 'left':   return { x: ep.x - h,           y: ep.y + ep.h * t, dir: 'left'   };
+      case 'right':  return { x: ep.x + ep.w + h,    y: ep.y + ep.h * t, dir: 'right'  };
+      case 'top':    return { x: ep.x + ep.w * t,    y: ep.y - h,        dir: 'top'    };
+      case 'bottom': return { x: ep.x + ep.w * t,    y: ep.y + ep.h + h, dir: 'bottom' };
+    }
+  }
+
+  // ── Construction des infos de chaque connexion H→H ──────────
+  const infos = [];
+  for (const c of connections) {
+    if (c.routing !== 'orthogonal') continue;
+    const from = resolveEp(c.fromId), to = resolveEp(c.toId);
+    if (!from || !to) continue;
+    const dx = (to.x + to.w/2) - (from.x + from.w/2);
+    const dy = (to.y + to.h/2) - (from.y + from.h/2);
+    const fdir = c.fromPortDir || (Math.abs(dx) >= Math.abs(dy) ? (dx >= 0 ? 'right' : 'left') : (dy >= 0 ? 'bottom' : 'top'));
+    const tdir = c.toPortDir || OPP[fdir];
+    const fp = spreadPort(from, fdir, c.id, 'from', c.fromPortT);
+    const tp = spreadPort(to,   tdir, c.id, 'to',   c.toPortT);
+
+    // bundleOffset exact (même formule que renderConnections)
+    const fk = `${c.fromId}-${fdir}`;
+    const fUsers = fromUsage[fk] || [];
+    const fIdx = fUsers.indexOf(c.id);
+    const fN = fUsers.length;
+    const bundleOffset = fN > 1 ? (fIdx - (fN - 1) / 2) * 14 : 0;
+
+    // safeMid = midY naturel sans aucun offset
+    const ptsNat = orthogonalPts(fp, tp, 0, { dx: 0, dy: 0 });
+    if (ptsNat.length < 6) continue;
+    if (Math.abs(ptsNat[2].y - ptsNat[3].y) > 2) continue; // pas H→H
+    const safeMid = ptsNat[2].y;
+
+    // Plage X du segment médian (stable, indépendante du bendOffset)
+    const x1 = Math.min(ptsNat[2].x, ptsNat[3].x);
+    const x2 = Math.max(ptsNat[2].x, ptsNat[3].x);
+    if (x2 - x1 < 4) continue; // segment trop court, ignorer
+
+    // renderedMidY = safeMid + bundleOffset + bendOffset.dy
+    const curDy = (c.bendOffset || { dy: 0 }).dy || 0;
+    const renderedMidY = safeMid + bundleOffset + curDy;
+
+    infos.push({ c, fp, tp, safeMid, bundleOffset, x1, x2, renderedMidY });
+  }
+
+  // ── Helpers : collision forme ────────────────────────────────
+  function hitsShape(midY, x1, x2, fromId, toId) {
+    return shapes.some(s => {
+      if (s.id === fromId || s.id === toId) return false;
+      return midY > s.y - PAD_DETECT && midY < s.y + s.h + PAD_DETECT
+          && x2   > s.x + PAD_DETECT && x1   < s.x + s.w - PAD_DETECT;
+    });
+  }
+
+  // Trouve la Y dégagée la plus proche de refY (parmi les bords des formes)
+  function clearY(refY, x1, x2, fromId, toId) {
+    if (!hitsShape(refY, x1, x2, fromId, toId)) return refY;
+    const cands = [];
+    for (const s of shapes) {
+      if (s.id === fromId || s.id === toId) continue;
+      if (x2 <= s.x + PAD_DETECT || x1 >= s.x + s.w - PAD_DETECT) continue;
+      cands.push(s.y - PAD_CLEAR, s.y + s.h + PAD_CLEAR);
+    }
+    cands.sort((a, b) => Math.abs(a - refY) - Math.abs(b - refY));
+    for (const y of cands) {
+      if (!hitsShape(y, x1, x2, fromId, toId)) return y;
+    }
+    return refY; // aucune position libre trouvée → on laisse
+  }
+
+  // Applique un renderedMidY cible à une connexion
+  function applyMidY(info, targetMidY) {
+    const newDy = targetMidY - info.safeMid - info.bundleOffset;
+    info.c.bendOffset = { dx: (info.c.bendOffset || { dx: 0 }).dx || 0, dy: newDy };
+    info.renderedMidY = targetMidY;
+  }
+
+  // ── Phase 1 : évitement des formes ───────────────────────────
+  for (const info of infos) {
+    const { c, x1, x2, renderedMidY } = info;
+    if (!hitsShape(renderedMidY, x1, x2, c.fromId, c.toId)) continue;
+    const target = clearY(renderedMidY, x1, x2, c.fromId, c.toId);
+    if (target !== renderedMidY) applyMidY(info, target);
+  }
+
+  // ── Phase 2 : séparation parallèles (sweep-line trié par Y) ──
+  infos.sort((a, b) => a.renderedMidY - b.renderedMidY);
+  for (let i = 1; i < infos.length; i++) {
+    const cur = infos[i];
+    let targetMidY = cur.renderedMidY;
+    for (let j = 0; j < i; j++) {
+      const prev = infos[j];
+      if (cur.x2 <= prev.x1 || cur.x1 >= prev.x2) continue;
+      if (Math.abs(prev.renderedMidY - cur.renderedMidY) >= SEP_MIN) continue;
+      targetMidY = Math.max(targetMidY, prev.renderedMidY + SEP_MIN);
+    }
+    if (targetMidY <= cur.renderedMidY) continue;
+
+    // Phase 3 : vérifier que le push ne tombe pas dans une forme
+    const safeTarget = clearY(targetMidY, cur.x1, cur.x2, cur.c.fromId, cur.c.toId);
+    applyMidY(cur, safeTarget);
+  }
 }
 
 async function importVSDX(file) {
@@ -3909,6 +4060,10 @@ async function importVSDX(file) {
       const from = state.shapes.find(s => s.id === c.fromId);
       if (from) c.color = from.color;
     });
+
+    // Post-processing : évitement formes + séparation parallèles (ports exacts)
+    setStatus('Optimisation du routage…');
+    reroutePostProcess(state.shapes, state.connections);
 
     history = [JSON.stringify(state)]; histIndex = 0;
     render(); fitView(); updateProps();
