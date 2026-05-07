@@ -2,7 +2,7 @@ name: Deploy → Production
 
 on:
   push:
-    branches: [main]
+    branches: [prod-stable]
 
 env:
   PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
