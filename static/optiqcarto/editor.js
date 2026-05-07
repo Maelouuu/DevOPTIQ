@@ -2494,16 +2494,14 @@ function _doNewCarto() {
    ══════════════════════════════════════════════════ */
 
 async function saveJSON() {
-  const name = prompt('Nom de la cartographie :', 'ma-carto');
-  if (!name) return;
-  const res = await fetch('/api/save', {
+  const res = await fetch('/cartography/api/save', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name, diagram: state }),
+    body: JSON.stringify({ diagram: state }),
   });
   const data = await res.json();
-  if (data.ok) showToast('Sauvegardé ✓');
-  else showToast('Erreur : ' + data.error);
+  if (data.ok) showToast('Cartographie sauvegardée ✓');
+  else showToast('Erreur : ' + (data.error || 'inconnue'));
 }
 
 async function openLoadDialog() {
@@ -2511,7 +2509,8 @@ async function openLoadDialog() {
   const list   = document.getElementById('load-list');
   dialog.classList.remove('hidden');
 
-  const files = await fetch('/api/list').then(r => r.json());
+  const apiBase = window.OPTIQCARTO_API_BASE || '/cartography';
+  const files = await fetch(apiBase + '/api/list').then(r => r.json());
   list.innerHTML = '';
 
   if (files.length === 0) {
@@ -2525,7 +2524,7 @@ async function openLoadDialog() {
     item.innerHTML = `<i class="fa-solid fa-diagram-project"></i><span>${name}</span><button class="load-delete" title="Supprimer"><i class="fa-solid fa-trash"></i></button>`;
 
     item.querySelector('span').addEventListener('click', async () => {
-      const data = await fetch(`/api/load/${encodeURIComponent(name)}`).then(r => r.json());
+      const data = await fetch(`${apiBase}/api/load/${encodeURIComponent(name)}`).then(r => r.json());
       if (data.error) { showToast('Erreur : ' + data.error); return; }
       state = data;
       // Filtrer les connexions qui reviendraient en arrière (depuis anciens fichiers)
@@ -2563,7 +2562,7 @@ async function openLoadDialog() {
     item.querySelector('.load-delete').addEventListener('click', async e => {
       e.stopPropagation();
       if (!confirm(`Supprimer "${name}" ?`)) return;
-      await fetch(`/api/delete/${encodeURIComponent(name)}`, { method: 'DELETE' });
+      await fetch(`${apiBase}/api/delete/${encodeURIComponent(name)}`, { method: 'DELETE' });
       item.remove();
       if (!list.querySelector('.load-item')) openLoadDialog();
     });
@@ -2807,6 +2806,161 @@ function detectVSDXShapeType(masterName, visioType, isEllipse, isDiamond, isSubp
   // Visio Group that is not a swimlane → show as subprocess style
   if (visioType === 'Group') return 'special';
   return 'process';
+}
+
+/* ══════════════════════════════════════════════════
+   POST-PROCESSING : routage flèches après import VSDX
+   Règles : ① pas de flèche traversant une forme intermédiaire
+             ② pas de flèches parallèles se touchant
+             ③ croisements perpendiculaires interdits dans les zones de label
+   ══════════════════════════════════════════════════ */
+function reroutePostProcess(shapes, connections) {
+  const OPP = { right:'left', left:'right', top:'bottom', bottom:'top' };
+  const PAD_SHAPE = 12;  // marge autour des formes
+  const SEP = 18;        // écart minimal entre flèches parallèles
+  const TOL = 10;        // tolérance superposition parallèle
+
+  function simplePortPt(s, dir) {
+    const cx = s.x + s.w / 2, cy = s.y + s.h / 2;
+    switch (dir) {
+      case 'right':  return { x: s.x + s.w, y: cy, dir: 'right'  };
+      case 'left':   return { x: s.x,        y: cy, dir: 'left'   };
+      case 'bottom': return { x: cx, y: s.y + s.h,  dir: 'bottom' };
+      case 'top':    return { x: cx, y: s.y,          dir: 'top'   };
+    }
+    return { x: s.x + s.w, y: cy, dir: 'right' };
+  }
+
+  function getPorts(conn) {
+    const from = shapes.find(s => s.id === conn.fromId);
+    const to   = shapes.find(s => s.id === conn.toId);
+    if (!from || !to) return null;
+    const dx = (to.x + to.w / 2) - (from.x + from.w / 2);
+    const dy = (to.y + to.h / 2) - (from.y + from.h / 2);
+    const fdir = conn.fromPortDir || (Math.abs(dx) >= Math.abs(dy) ? (dx >= 0 ? 'right' : 'left') : (dy >= 0 ? 'bottom' : 'top'));
+    const tdir = conn.toPortDir || OPP[fdir];
+    return { fp: simplePortPt(from, fdir), tp: simplePortPt(to, tdir), from, to };
+  }
+
+  // Vérifie si un segment (non-endpoint) traverse une forme intermédiaire
+  function shapeHitCount(pts, fromId, toId) {
+    let count = 0;
+    // On saute les 2 premiers et 2 derniers segments (stubs de connexion proches des formes)
+    for (let i = 2; i < pts.length - 3; i++) {
+      const p = pts[i], q = pts[i + 1];
+      const isVert = Math.abs(p.x - q.x) < 1;
+      for (const s of shapes) {
+        if (s.id === fromId || s.id === toId) continue;
+        if (isVert) {
+          const minY = Math.min(p.y, q.y), maxY = Math.max(p.y, q.y);
+          if (p.x > s.x - PAD_SHAPE && p.x < s.x + s.w + PAD_SHAPE &&
+              maxY > s.y - PAD_SHAPE && minY < s.y + s.h + PAD_SHAPE) count++;
+        } else {
+          const minX = Math.min(p.x, q.x), maxX = Math.max(p.x, q.x);
+          if (p.y > s.y - PAD_SHAPE && p.y < s.y + s.h + PAD_SHAPE &&
+              maxX > s.x - PAD_SHAPE && minX < s.x + s.w + PAD_SHAPE) count++;
+        }
+      }
+    }
+    return count;
+  }
+
+  // ── Phase 1 : évitement des formes intermédiaires ─────────────────
+  const DY_TRY = [0, -40, 40, -80, 80, -120, 120, -20, 20, -60, 60, -160, 160, -200, 200];
+  const DX_TRY = [0, -40, 40, -80, 80];
+
+  for (const conn of connections) {
+    const ports = getPorts(conn);
+    if (!ports) continue;
+    const { fp, tp } = ports;
+    const cur = conn.bendOffset || { dx: 0, dy: 0 };
+    if (shapeHitCount(orthogonalPts(fp, tp, 0, cur), conn.fromId, conn.toId) === 0) continue;
+
+    let best = cur, bestHits = Infinity;
+    outer1: for (const dy of DY_TRY) {
+      for (const dx of DX_TRY) {
+        const off = { dx: cur.dx + dx, dy: cur.dy + dy };
+        const hits = shapeHitCount(orthogonalPts(fp, tp, 0, off), conn.fromId, conn.toId);
+        if (hits < bestHits) { bestHits = hits; best = off; if (hits === 0) break outer1; }
+      }
+    }
+    conn.bendOffset = best;
+  }
+
+  // ── Retourne le segment principal (le plus long) d'une connexion ──
+  function getMainSeg(conn) {
+    const ports = getPorts(conn);
+    if (!ports) return null;
+    const pts = orthogonalPts(ports.fp, ports.tp, 0, conn.bendOffset || { dx: 0, dy: 0 });
+    let longest = null, maxLen = 0;
+    for (let i = 0; i < pts.length - 1; i++) {
+      const len = Math.abs(pts[i].x - pts[i + 1].x) + Math.abs(pts[i].y - pts[i + 1].y);
+      if (len > maxLen) { maxLen = len; longest = { p1: pts[i], p2: pts[i + 1] }; }
+    }
+    return longest;
+  }
+
+  // ── Phase 2 : séparation des flèches parallèles qui se touchent ───
+  for (let iter = 0; iter < 10; iter++) {
+    let anyChange = false;
+    for (let i = 0; i < connections.length; i++) {
+      for (let j = i + 1; j < connections.length; j++) {
+        const si = getMainSeg(connections[i]);
+        const sj = getMainSeg(connections[j]);
+        if (!si || !sj) continue;
+
+        const iH = Math.abs(si.p1.y - si.p2.y) < 1;
+        const jH = Math.abs(sj.p1.y - sj.p2.y) < 1;
+        if (iH !== jH) {
+          // ── Phase 3 : croisement perpendiculaire dans une zone de label ──
+          // Détecter le point de croisement
+          const hSeg = iH ? si : sj;
+          const vSeg = iH ? sj : si;
+          const crossX = vSeg.p1.x, crossY = hSeg.p1.y;
+          // Vérifier si cross est dans la zone de texte de l'une ou l'autre flèche
+          function isInLabelZone(seg, cx, cy, conn) {
+            const midX = (seg.p1.x + seg.p2.x) / 2, midY = (seg.p1.y + seg.p2.y) / 2;
+            const lbl = (conn.label || '');
+            const lw = Math.max(40, lbl.length * 7), lh = 22;
+            return cx > midX - lw / 2 && cx < midX + lw / 2 && cy > midY - lh / 2 && cy < midY + lh / 2;
+          }
+          const cI = connections[i], cJ = connections[j];
+          if (isInLabelZone(iH ? si : sj, crossX, crossY, cI) ||
+              isInLabelZone(iH ? sj : si, crossX, crossY, cJ)) {
+            // Décaler la flèche horizontale vers le bas pour sortir de la zone
+            const offending = iH ? cI : cJ;
+            const offSeg   = iH ? si : sj;
+            const curOff = offending.bendOffset || { dx: 0, dy: 0 };
+            offending.bendOffset = { ...curOff, dy: curOff.dy + SEP };
+            anyChange = true;
+          }
+          continue;
+        }
+
+        // Deux segments parallèles
+        if (iH) { // tous les deux horizontaux
+          if (Math.abs(si.p1.y - sj.p1.y) > TOL) continue;
+          const minI = Math.min(si.p1.x, si.p2.x), maxI = Math.max(si.p1.x, si.p2.x);
+          const minJ = Math.min(sj.p1.x, sj.p2.x), maxJ = Math.max(sj.p1.x, sj.p2.x);
+          if (maxI <= minJ || maxJ <= minI) continue;
+          // Chevauchement → décaler j vers le bas
+          const off = connections[j].bendOffset || { dx: 0, dy: 0 };
+          connections[j].bendOffset = { ...off, dy: off.dy + SEP };
+          anyChange = true;
+        } else { // tous les deux verticaux
+          if (Math.abs(si.p1.x - sj.p1.x) > TOL) continue;
+          const minI = Math.min(si.p1.y, si.p2.y), maxI = Math.max(si.p1.y, si.p2.y);
+          const minJ = Math.min(sj.p1.y, sj.p2.y), maxJ = Math.max(sj.p1.y, sj.p2.y);
+          if (maxI <= minJ || maxJ <= minI) continue;
+          // Chevauchement → décaler j vers la droite
+          const off = connections[j].bendOffset || { dx: 0, dy: 0 };
+          connections[j].bendOffset = { ...off, dx: off.dx + SEP };
+          anyChange = true;
+        }
+      }
+    }
+    if (!anyChange) break;
+  }
 }
 
 async function importVSDX(file) {
@@ -3898,6 +4052,10 @@ async function importVSDX(file) {
       if (from) c.color = from.color;
     });
 
+    // ── Post-processing : routage flèches (évitement formes + parallèles + labels)
+    setStatus('Optimisation du routage des flèches…');
+    reroutePostProcess(state.shapes, state.connections);
+
     history = [JSON.stringify(state)]; histIndex = 0;
     render(); fitView(); updateProps();
 
@@ -4952,6 +5110,31 @@ function init() {
   document.getElementById('canvas-wrap').classList.add('props-collapsed');
   _updatePanelBtn();
 
+  // Auto-load cartography from DB if one exists
+  if (window.OPTIQCARTO_HAS_CARTO && window.OPTIQCARTO_DEFAULT_NAME) {
+    const apiBase = window.OPTIQCARTO_API_BASE || '/cartography';
+    fetch(`${apiBase}/api/load/${encodeURIComponent(window.OPTIQCARTO_DEFAULT_NAME)}`)
+      .then(r => r.json())
+      .then(data => {
+        if (data && !data.error) {
+          state = data;
+          if (!state.bandWidth) state.bandWidth = 1600;
+          if (!state.groups) state.groups = [];
+          if (state.connections && state.shapes) {
+            state.connections = state.connections.filter(c => {
+              const from = state.shapes.find(s => s.id === c.fromId);
+              const to   = state.shapes.find(s => s.id === c.toId);
+              if (!from || !to) return true;
+              return (to.x + to.w / 2) >= (from.x + from.w / 2) - 10;
+            });
+          }
+          history = [JSON.stringify(state)]; histIndex = 0;
+          render(); updateProps(); fitView();
+        }
+      })
+      .catch(() => {});
+  }
+
   // Welcome modal
   initWelcome();
 }
@@ -4962,6 +5145,11 @@ function initWelcome() {
   document.getElementById('btn-welcome-start').addEventListener('click', () => {
     overlay.classList.add('hidden');
     setTimeout(() => overlay.remove(), 400);
+    // Si un VSDX est disponible et pas encore de carto → ouvrir le modal d'import
+    if (window.OPTIQCARTO_HAS_VSDX && !window.OPTIQCARTO_HAS_CARTO) {
+      const migrateModal = document.getElementById('vsdx-migrate-modal');
+      if (migrateModal) migrateModal.classList.remove('hidden');
+    }
   });
 }
 

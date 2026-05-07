@@ -497,7 +497,7 @@
 <textarea id="label-editor" autocomplete="off" spellcheck="false"></textarea>
 
 <!-- ══════════════ MODAL MIGRATION VSDX ══════════════ -->
-{% if has_vsdx and not has_optiqcarto %}
+{% if has_vsdx %}
 <div id="vsdx-migrate-modal" class="modal-overlay hidden">
   <div class="modal-card" style="max-width:460px">
     <div class="modal-header" style="border-top:3px solid var(--pink-dark)">
@@ -651,7 +651,7 @@
 <script src="{{ url_for('static', filename='optiqcarto/editor.js') }}"></script>
 
 <!-- Migration VSDX auto depuis l'API -->
-{% if has_vsdx and not has_optiqcarto %}
+{% if has_vsdx %}
 <script>
 document.addEventListener('DOMContentLoaded', () => {
   const confirmBtn = document.getElementById('migrate-confirm');
