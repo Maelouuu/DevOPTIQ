@@ -222,8 +222,11 @@ def create_app():
     from Code.routes.cartography_editor import cartography_editor_bp
     app.register_blueprint(cartography_editor_bp)
 
-    # Auto-migration au démarrage (nécessaire sur les serveurs cloud avec filesystem éphémère)
-    # Les blueprints sont enregistrés avant pour garantir que tous les modèles sont chargés
+    # Setup DB : migrations + colonnes manquantes.
+    # SKIP_DB_SETUP=1 → ignoré (gunicorn workers héritent cette var du startup.sh)
+    if os.getenv("SKIP_DB_SETUP") == "1":
+        return app
+
     with app.app_context():
         # Créer toutes les tables manquantes (filet de sécurité : ne touche pas les tables existantes)
         try:

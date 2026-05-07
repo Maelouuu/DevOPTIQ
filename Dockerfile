@@ -48,4 +48,5 @@ ENV PORT=8080
 # ==========================================================
 # 6) Lancement Gunicorn (production)
 # ==========================================================
-CMD ["gunicorn", "-w", "2", "-b", "0.0.0.0:8080", "--timeout", "120", "Code.app:app"]
+RUN chmod +x startup.sh
+CMD ["/bin/sh", "startup.sh"]
