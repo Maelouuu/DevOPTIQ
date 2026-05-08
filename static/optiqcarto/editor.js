@@ -3628,12 +3628,22 @@ async function importVSDX(file) {
         }
 
         // Lire le chemin géométrique complet pour customPath
-        const geomVis = readConnGeom(ce, bx, by, ex, ey);
-        if (geomVis.length >= 2) {
-          // Valider : premier point ≈ BeginX/Y, dernier ≈ EndX/Y
-          const errStart = Math.hypot(geomVis[0].x - bx, geomVis[0].y - by);
-          const errEnd   = Math.hypot(geomVis[geomVis.length-1].x - ex, geomVis[geomVis.length-1].y - ey);
-          if (errStart < 0.5 && errEnd < 0.5) {
+        // Essaie relatif (bx+px, by+py) puis absolu ; valide que début≈BeginX/Y et fin≈EndX/Y
+        const rawGeom = readConnGeom(ce, bx, by, ex, ey);
+        if (rawGeom.length >= 2) {
+          const THRESH = 1.0; // tolérance 1 inch Visio
+          // Tentative 1 : interprétation relative (origine = BeginX/Y)
+          let geomVis = rawGeom.map(p => ({ x: bx + p.x, y: by + p.y }));
+          let errStart = Math.hypot(geomVis[0].x - bx, geomVis[0].y - by);
+          let errEnd   = Math.hypot(geomVis[geomVis.length-1].x - ex, geomVis[geomVis.length-1].y - ey);
+          // Tentative 2 : coordonnées absolues
+          if (errStart > THRESH || errEnd > THRESH) {
+            const geomAbs = rawGeom;
+            const es2 = Math.hypot(geomAbs[0].x - bx, geomAbs[0].y - by);
+            const ee2 = Math.hypot(geomAbs[geomAbs.length-1].x - ex, geomAbs[geomAbs.length-1].y - ey);
+            if (es2 < errStart || ee2 < errEnd) { geomVis = geomAbs; errStart = es2; errEnd = ee2; }
+          }
+          if (errStart < THRESH && errEnd < THRESH) {
             customPath = geomVis.map(p => visioToScreen(p.x, p.y));
           }
         }
@@ -3764,9 +3774,8 @@ async function importVSDX(file) {
     }
 
     // ── Vérification itérative : sans chevauchement, bandes adaptées ──
-    setStatus('Vérification finale (résolution des chevauchements)…');
-    await new Promise(r => setTimeout(r, 0));
-    {
+    // [désactivé — on fait confiance aux positions Visio exactes]
+    if (false) {
       const PAD = 12;
       let bandRanges = [];
 
@@ -3860,13 +3869,10 @@ async function importVSDX(file) {
         // Laisser le navigateur respirer entre les rounds lourds
         await new Promise(r => setTimeout(r, 0));
       }
-    }
+    } // end anti-overlap if(false)
 
-    // ── Dénouage des bandes denses (minimisation croisements + virages) ──
-    // Algo : warm-up barycentre (10 passes) + recuit simulé sur l'ordre X des formes
-    setStatus('Analyse des zones denses…');
-    await new Promise(r => setTimeout(r, 0));
-    {
+    // ── Dénouage des bandes denses (désactivé — positions Visio conservées) ──
+    if (false) {
       // Recalculer les plages Y après vérification
       const bRangesU = [];
       { let y0 = 0; for (const b of newBands) { bRangesU.push({ y0, y1: y0+b.height }); y0 += b.height; } }
@@ -3992,7 +3998,7 @@ async function importVSDX(file) {
 
       // Clamp X minimal après réordonnancement
       for (const s of newShapes) { if (s.x < INDEX_W_SVG + 4) s.x = INDEX_W_SVG + 4; }
-    }
+    } // end simulated annealing if(false)
 
     // ── [port assignment supprimé — ports lus directement depuis VSDX] ──
 
@@ -4148,25 +4154,21 @@ async function importVSDX(file) {
       }
     } // end if(false) — port assignment bloc désactivé
 
-    // ── Filtrer les flèches qui reviennent en arrière ─────
-    const removedBack = [];
-    const filteredConns = newConns.filter(c => {
-      function getCX(id) {
-        const s = newShapes.find(s => s.id === id);
-        if (s) return s.x + s.w / 2;
-        const g = newGroups && newGroups.find(g => g.id === id);
-        if (g && g.shapeIds) {
-          const gs = newShapes.filter(s => g.shapeIds.includes(s.id));
-          if (gs.length) return (Math.min(...gs.map(s => s.x)) + Math.max(...gs.map(s => s.x + s.w))) / 2;
-        }
-        return null;
+    // [filtre backward supprimé — on garde toutes les connexions Visio]
+    const filteredConns = newConns;
+
+    // ── Stretch des bandes pour contenir toutes les formes ────────────
+    // (l'anti-overlap est désactivé — on fait juste un stretch final)
+    {
+      let y0 = 0;
+      for (const band of newBands) {
+        const bot = newShapes
+          .filter(s => { const m = s.y + s.h/2; return m >= y0 && m < y0 + band.height; })
+          .reduce((m, s) => Math.max(m, s.y + s.h), 0);
+        if (bot + 20 > y0 + band.height) band.height = Math.round(bot + 20 - y0);
+        y0 += band.height;
       }
-      const fx = getCX(c.fromId), tx = getCX(c.toId);
-      if (fx === null || tx === null) return true;
-      if (tx < fx - 10) { removedBack.push(c); return false; }
-      return true;
-    });
-    if (removedBack.length) showToast(`⚠ ${removedBack.length} flèche(s) retirée(s) : sens interdit (droite→gauche)`);
+    }
 
     // ── Apply to state ────────────────────────────────────
     clearSelection();
@@ -4188,7 +4190,9 @@ async function importVSDX(file) {
 
     document.getElementById('vsdx-dialog').classList.add('hidden');
     setStatus('');
-    showToast(`Import réussi — ${newShapes.length} activités · ${newConns.length} connexions · ${newBands.length} bandes${newGroups.length ? ` · ${newGroups.length} groupe${newGroups.length>1?'s':''}` : ''}`);
+    const nCustom = filteredConns.filter(c => c.customPath).length;
+    console.log(`[VSDX] ${newShapes.length} formes, ${filteredConns.length} connexions, ${nCustom} avec chemin Visio exact, ${filteredConns.length - nCustom} avec routage auto`);
+    showToast(`Import réussi — ${newShapes.length} activités · ${filteredConns.length} connexions (${nCustom} chemins Visio exacts) · ${newBands.length} bandes`);
 
   } catch(err) {
     console.error('VSDX import error:', err);
