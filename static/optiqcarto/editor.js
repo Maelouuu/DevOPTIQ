@@ -668,9 +668,13 @@ function renderConnections() {
     // Connexions importées depuis Visio : chemin exact stocké dans customPath
     let orthopts, d, _usedFp = fp, _usedTp = tp;
     if (c.customPath && c.customPath.length >= 2) {
-      orthopts = c.customPath;
-      _usedFp  = { x: orthopts[0].x,                        y: orthopts[0].y };
-      _usedTp  = { x: orthopts[orthopts.length-1].x,        y: orthopts[orthopts.length-1].y };
+      // Snap les extrémités exactement sur le bord de la forme (corrige les décalages sub-pixel)
+      const pts = c.customPath.map(p => ({ ...p }));
+      pts[0] = { x: fp.x, y: fp.y };
+      pts[pts.length - 1] = { x: tp.x, y: tp.y };
+      orthopts = pts;
+      _usedFp  = fp;
+      _usedTp  = tp;
       d = polylineToPath(orthopts, 6);
     } else {
       // Varier la tension selon l'index dans le bundle pour séparer les courbes parallèles
@@ -712,9 +716,18 @@ function renderConnections() {
       const lh = 13;
       let lx, ly, angle = 0;
 
-      const labelPts = routing === 'orthogonal' ? orthopts : orthogonalPts(fp, tp, bundleOffset);
+      const labelPts = (c.customPath && c.customPath.length >= 2) ? orthopts
+                     : routing === 'orthogonal' ? orthopts
+                     : orthogonalPts(fp, tp, bundleOffset);
 
       // Générer des candidats : positions le long de chaque segment × offsets perpendiculaires
+      // Trouver le segment le plus long pour le label par défaut
+      let longestSeg = 0, longestLen = 0;
+      for (let i = 0; i < labelPts.length - 1; i++) {
+        const l = Math.hypot(labelPts[i+1].x - labelPts[i].x, labelPts[i+1].y - labelPts[i].y);
+        if (l > longestLen) { longestLen = l; longestSeg = i; }
+      }
+
       const CANDS = [];
       for (let i = 0; i < labelPts.length - 1; i++) {
         const pa = labelPts[i], pb = labelPts[i + 1];
@@ -723,9 +736,13 @@ function renderConnections() {
         if (slen < 8) continue;
         const isH = Math.abs(sdy) < Math.abs(sdx);
         const nx = -sdy / slen, ny = sdx / slen; // vecteur normal perpendiculaire
-        for (let t = 0.08; t <= 0.93; t += 0.10) {
+        // Pour les segments verticaux : offset obligatoire (label ne peut pas être sur la ligne)
+        const offsets = isH ? [0, -20, 20, -40, 40] : [-18, 18, -36, 36];
+        // Densité de candidats plus haute sur le segment le plus long
+        const step = (i === longestSeg) ? 0.07 : 0.15;
+        for (let t = step; t <= 1 - step; t += step) {
           const bx = pa.x + sdx * t, by = pa.y + sdy * t;
-          for (const perp of [0, -20, 20, -40, 40]) {
+          for (const perp of offsets) {
             CANDS.push({ x: bx + nx * perp, y: by + ny * perp, isH, perp });
           }
         }
@@ -3582,6 +3599,19 @@ async function importVSDX(file) {
       return { x: (vx - leftEdge) * SCALE, y: (topOfDiagram - vy) * SCALE };
     }
 
+    // Point exact sur le bord d'une forme importée (en screen coords)
+    function snapToEdge(s, dir, t, halo) {
+      const h = halo || 0;
+      const T = t !== undefined ? t : 0.5;
+      switch (dir) {
+        case 'right':  return { x: s.x + s.w + h,    y: s.y + s.h * T };
+        case 'left':   return { x: s.x - h,           y: s.y + s.h * T };
+        case 'top':    return { x: s.x + s.w * T,     y: s.y - h };
+        case 'bottom': return { x: s.x + s.w * T,     y: s.y + s.h + h };
+        default:       return { x: s.x + s.w / 2,     y: s.y + s.h / 2 };
+      }
+    }
+
     const newConns = [];
     for (const [connId, ends] of Object.entries(connMap)) {
       const { source: sv, target: tv } = ends;
@@ -3628,23 +3658,38 @@ async function importVSDX(file) {
         }
 
         // Lire le chemin géométrique complet pour customPath
-        // Essaie relatif (bx+px, by+py) puis absolu ; valide que début≈BeginX/Y et fin≈EndX/Y
+        // Essaie relatif (bx+px, by+py) ET absolu ; garde le meilleur
         const rawGeom = readConnGeom(ce, bx, by, ex, ey);
         if (rawGeom.length >= 2) {
-          const THRESH = 1.0; // tolérance 1 inch Visio
-          // Tentative 1 : interprétation relative (origine = BeginX/Y)
-          let geomVis = rawGeom.map(p => ({ x: bx + p.x, y: by + p.y }));
-          let errStart = Math.hypot(geomVis[0].x - bx, geomVis[0].y - by);
-          let errEnd   = Math.hypot(geomVis[geomVis.length-1].x - ex, geomVis[geomVis.length-1].y - ey);
-          // Tentative 2 : coordonnées absolues
-          if (errStart > THRESH || errEnd > THRESH) {
-            const geomAbs = rawGeom;
-            const es2 = Math.hypot(geomAbs[0].x - bx, geomAbs[0].y - by);
-            const ee2 = Math.hypot(geomAbs[geomAbs.length-1].x - ex, geomAbs[geomAbs.length-1].y - ey);
-            if (es2 < errStart || ee2 < errEnd) { geomVis = geomAbs; errStart = es2; errEnd = ee2; }
-          }
-          if (errStart < THRESH && errEnd < THRESH) {
-            customPath = geomVis.map(p => visioToScreen(p.x, p.y));
+          const THRESH = 1.5; // tolérance 1.5 inch Visio
+          const geomRel = rawGeom.map(p => ({ x: bx + p.x, y: by + p.y }));
+          const geomAbs = rawGeom;
+          const errRelS = Math.hypot(geomRel[0].x - bx, geomRel[0].y - by);
+          const errRelE = Math.hypot(geomRel[geomRel.length-1].x - ex, geomRel[geomRel.length-1].y - ey);
+          const errAbsS = Math.hypot(geomAbs[0].x - bx, geomAbs[0].y - by);
+          const errAbsE = Math.hypot(geomAbs[geomAbs.length-1].x - ex, geomAbs[geomAbs.length-1].y - ey);
+          const useRel  = (errRelS + errRelE) <= (errAbsS + errAbsE);
+          const geomVis = useRel ? geomRel : geomAbs;
+          const errS    = useRel ? errRelS : errAbsS;
+          const errE    = useRel ? errRelE : errAbsE;
+          if (errS < THRESH && errE < THRESH) {
+            // Convertir en screen, puis forcer les extrémités sur les bords des formes
+            const srcShape = newShapes.find(s => s.id === (shapeIdMap[sv] || groupIdMap[sv]));
+            const tgtShape = newShapes.find(s => s.id === (shapeIdMap[tv] || groupIdMap[tv]));
+            const raw2screen = geomVis.map(p => visioToScreen(p.x, p.y));
+            // Snap start → bord exact de la forme source
+            if (srcShape && fromPortT !== undefined) {
+              const h = srcShape.type === 'process' ? 7 : 0;
+              const snapped = snapToEdge(srcShape, fromPortDir, fromPortT, h);
+              raw2screen[0] = snapped;
+            }
+            // Snap end → bord exact de la forme cible
+            if (tgtShape && toPortT !== undefined) {
+              const h = tgtShape.type === 'process' ? 7 : 0;
+              const snapped = snapToEdge(tgtShape, toPortDir, toPortT, h);
+              raw2screen[raw2screen.length - 1] = snapped;
+            }
+            customPath = raw2screen;
           }
         }
       } else if (sAbs && tAbs) {
@@ -4157,8 +4202,37 @@ async function importVSDX(file) {
     // [filtre backward supprimé — on garde toutes les connexions Visio]
     const filteredConns = newConns;
 
+    // ── Anti-overlap léger : résoudre les collisions réelles sans déplacer loin ──
+    {
+      const PAD = 6;
+      for (let iter = 0; iter < 30; iter++) {
+        let moved = false;
+        for (let i = 0; i < newShapes.length; i++) {
+          for (let j = i + 1; j < newShapes.length; j++) {
+            const a = newShapes[i], b = newShapes[j];
+            const ovX = Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x) + PAD;
+            const ovY = Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y) + PAD;
+            if (ovX <= 0 || ovY <= 0) continue;
+            // Pousser dans la direction de moindre overlap
+            if (ovX <= ovY) {
+              const half = ovX / 2;
+              if (a.x + a.w / 2 <= b.x + b.w / 2) { a.x -= half; b.x += half; }
+              else { a.x += half; b.x -= half; }
+            } else {
+              const half = ovY / 2;
+              if (a.y + a.h / 2 <= b.y + b.h / 2) { a.y -= half; b.y += half; }
+              else { a.y += half; b.y -= half; }
+            }
+            a.x = Math.max(INDEX_W_SVG + 4, a.x);
+            b.x = Math.max(INDEX_W_SVG + 4, b.x);
+            moved = true;
+          }
+        }
+        if (!moved) break;
+      }
+    }
+
     // ── Stretch des bandes pour contenir toutes les formes ────────────
-    // (l'anti-overlap est désactivé — on fait juste un stretch final)
     {
       let y0 = 0;
       for (const band of newBands) {
