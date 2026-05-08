@@ -664,17 +664,27 @@ function renderConnections() {
     const fp = spreadPort(from, fdir, c.id, 'from', c.fromPortT);
     const tp = spreadPort(to,   tdir, c.id, 'to',   c.toPortT);
     const routing = c.routing || 'smooth';
-    // Varier la tension selon l'index dans le bundle pour séparer les courbes parallèles
-    const fk2 = `${c.fromId}-${fdir}`;
-    const fUsers2 = fromUsage[fk2] || [];
-    const fIdx2 = fUsers2.indexOf(c.id);
-    const fN2 = fUsers2.length;
-    const tensionFactor = fN2 > 1 ? 0.7 + 0.6 * (fIdx2 / (fN2 - 1)) : 1;
-    // Décaler le segment du milieu pour éviter la superposition des flèches parallèles
-    const bundleOffset = fN2 > 1 ? (fIdx2 - (fN2 - 1) / 2) * 14 : 0;
-    const userOffset = c.bendOffset || { dx: 0, dy: 0 };
-    const orthopts = orthogonalPts(fp, tp, bundleOffset, userOffset);
-    const d  = routing === 'orthogonal' ? polylineToPath(orthopts, 8) : bezierArrow(fp, tp, tensionFactor);
+
+    // Connexions importées depuis Visio : chemin exact stocké dans customPath
+    let orthopts, d, _usedFp = fp, _usedTp = tp;
+    if (c.customPath && c.customPath.length >= 2) {
+      orthopts = c.customPath;
+      _usedFp  = { x: orthopts[0].x,                        y: orthopts[0].y };
+      _usedTp  = { x: orthopts[orthopts.length-1].x,        y: orthopts[orthopts.length-1].y };
+      d = polylineToPath(orthopts, 6);
+    } else {
+      // Varier la tension selon l'index dans le bundle pour séparer les courbes parallèles
+      const fk2 = `${c.fromId}-${fdir}`;
+      const fUsers2 = fromUsage[fk2] || [];
+      const fIdx2 = fUsers2.indexOf(c.id);
+      const fN2 = fUsers2.length;
+      const tensionFactor = fN2 > 1 ? 0.7 + 0.6 * (fIdx2 / (fN2 - 1)) : 1;
+      // Décaler le segment du milieu pour éviter la superposition des flèches parallèles
+      const bundleOffset = fN2 > 1 ? (fIdx2 - (fN2 - 1) / 2) * 14 : 0;
+      const userOffset = c.bendOffset || { dx: 0, dy: 0 };
+      orthopts = orthogonalPts(fp, tp, bundleOffset, userOffset);
+      d = routing === 'orthogonal' ? polylineToPath(orthopts, 8) : bezierArrow(fp, tp, tensionFactor);
+    }
     const isSel = selectedConn === c.id;
     const color = isSel ? '#1f7a54' : c.color;
     const mId = ensureMarker(color);
@@ -770,7 +780,7 @@ function renderConnections() {
 
     // Poignées d'extrémité (visibles quand la connexion est sélectionnée)
     if (isSel) {
-      for (const [pt, which] of [[fp, 'from'], [tp, 'to']]) {
+      for (const [pt, which] of [[_usedFp, 'from'], [_usedTp, 'to']]) {
         el('circle', {
           cx: String(pt.x), cy: String(pt.y), r: '8',
           fill: '#1f7a54', stroke: '#ffffff', 'stroke-width': '2.5',
@@ -3506,19 +3516,35 @@ async function importVSDX(file) {
     // ── Connections ───────────────────────────────────────
     const OPP_DIR_C = { right:'left', left:'right', top:'bottom', bottom:'top' };
 
-    // Helper : closest edge of a shape (Visio coords, Y-up)
+    // Helper : quel côté d'une forme (Visio Y-up) un point touche-t-il ?
     function portDirFromPt(px, py, abs) {
       const dR = Math.abs(px - (abs.pinX + abs.w/2));
       const dL = Math.abs(px - (abs.pinX - abs.w/2));
-      const dT = Math.abs(py - (abs.pinY + abs.h/2)); // Visio: high Y = screen top
+      const dT = Math.abs(py - (abs.pinY + abs.h/2)); // Visio: haute Y = haut écran
       const dB = Math.abs(py - (abs.pinY - abs.h/2));
       const m = Math.min(dR, dL, dT, dB);
       return m === dR ? 'right' : m === dL ? 'left' : m === dT ? 'top' : 'bottom';
     }
 
-    // Helper : read geometry waypoints from a connector element (page-absolute coords)
-    function readGeomWaypoints(el) {
-      const pts = [];
+    // Helper : t (0..1) le long d'un côté en coords écran (Y-bas)
+    function computePortT(vx, vy, abs, dir) {
+      // Shape screen coords: left top = (pinX-w/2-leftEdge)*SCALE, (topOfDiagram-(pinY+h/2))*SCALE
+      const sL  = (abs.pinX - abs.w/2 - leftEdge) * SCALE;
+      const sT  = (topOfDiagram - (abs.pinY + abs.h/2)) * SCALE;
+      const sW  = abs.w * SCALE;
+      const sH  = abs.h * SCALE;
+      const sx  = (vx - leftEdge) * SCALE;
+      const sy  = (topOfDiagram - vy) * SCALE;
+      const t   = (dir === 'left' || dir === 'right')
+                  ? (sy - sT) / sH        // position verticale le long du côté
+                  : (sx - sL) / sW;       // position horizontale
+      return Math.min(0.95, Math.max(0.05, t));
+    }
+
+    // Helper : lire les waypoints geometry d'un élément connecteur
+    // Retourne un tableau de points Visio {x,y} ou [] si indisponible
+    function readConnGeom(el, bx, by, ex, ey) {
+      const raw = [];
       for (const child of Array.from(el.childNodes)) {
         if (child.nodeType !== 1 || child.localName !== 'Section') continue;
         if (child.getAttribute('N') !== 'Geometry') continue;
@@ -3533,11 +3559,27 @@ async function importVSDX(file) {
             if (N === 'X') rx = parseFloat(cell.getAttribute('V') || '0');
             if (N === 'Y') ry = parseFloat(cell.getAttribute('V') || '0');
           }
-          if (rx !== null && ry !== null) pts.push({ x: rx, y: ry });
+          if (rx !== null && ry !== null) raw.push({ x: rx, y: ry });
         }
         break;
       }
-      return pts;
+      if (raw.length < 2) return [];
+
+      // Détecter si les coords sont absolues (page) ou relatives à BeginX/Y
+      // → le premier point devrait être near (bx,by) si absolues, near (0,0) si relatives
+      const distAbs = Math.hypot(raw[0].x - bx, raw[0].y - by);
+      const distRel = Math.hypot(raw[0].x, raw[0].y);
+      const isRelative = distRel < distAbs;
+
+      return raw.map(p => ({
+        x: isRelative ? bx + p.x : p.x,
+        y: isRelative ? by + p.y : p.y,
+      }));
+    }
+
+    // Convertir un point Visio (page coords) en point écran
+    function visioToScreen(vx, vy) {
+      return { x: (vx - leftEdge) * SCALE, y: (topOfDiagram - vy) * SCALE };
     }
 
     const newConns = [];
@@ -3560,12 +3602,13 @@ async function importVSDX(file) {
       const linePatternStr = connItem ? (vCellDeep(connItem.el, 'LinePattern') || String(masterLp)) : '1';
       const isDashed = parseInt(linePatternStr) > 1;
 
-      // ── Port direction depuis la géométrie Visio exacte ─────────
+      // ── Ports et chemin depuis la géométrie Visio exacte ────────
       const isSynthetic = connId.startsWith('__sp');
       const sAbs = shapePinAbs[sv];
       const tAbs = shapePinAbs[tv];
       let fromPortDir = 'right', toPortDir = 'left';
-      let bendOffset = undefined;
+      let fromPortT, toPortT;
+      let customPath;
 
       if (!isSynthetic && connItem && sAbs && tAbs) {
         const ce = connItem.el;
@@ -3574,24 +3617,24 @@ async function importVSDX(file) {
         const ex = parseFloat(vCell(ce, 'EndX')   || '0');
         const ey = parseFloat(vCell(ce, 'EndY')   || '0');
 
-        if (bx || by) fromPortDir = portDirFromPt(bx, by, sAbs);
-        if (ex || ey) toPortDir   = portDirFromPt(ex, ey, tAbs);
+        // Port direction + position exacte le long du bord
+        if (bx || by) {
+          fromPortDir = portDirFromPt(bx, by, sAbs);
+          fromPortT   = computePortT(bx, by, sAbs, fromPortDir);
+        }
+        if (ex || ey) {
+          toPortDir = portDirFromPt(ex, ey, tAbs);
+          toPortT   = computePortT(ex, ey, tAbs, toPortDir);
+        }
 
-        // Lire les waypoints pour bendOffset
-        const geomPts = readGeomWaypoints(ce);
-        // Orthogonal H-shape : [begin, bend1, bend2, end] → mid segment Y = geomPts[1].y
-        if (geomPts.length >= 3 && (fromPortDir === 'right' || fromPortDir === 'left')) {
-          // midY en screen coords (Visio Y-up → flip)
-          const visioMidY = geomPts[1].y;
-          const screenMidY = (topOfDiagram - visioMidY) * SCALE;
-          // safeMid approximé : milieu entre les centres Y des deux formes
-          const srcCY = (topOfDiagram - sAbs.pinY) * SCALE;
-          const tgtCY = (topOfDiagram - tAbs.pinY) * SCALE;
-          const approxMid = (srcCY + tgtCY) / 2;
-          const dy = screenMidY - approxMid;
-          // N'appliquer que si l'écart est significatif (> 5px) et raisonnable (< 300px)
-          if (Math.abs(dy) > 5 && Math.abs(dy) < 300) {
-            bendOffset = { dx: 0, dy };
+        // Lire le chemin géométrique complet pour customPath
+        const geomVis = readConnGeom(ce, bx, by, ex, ey);
+        if (geomVis.length >= 2) {
+          // Valider : premier point ≈ BeginX/Y, dernier ≈ EndX/Y
+          const errStart = Math.hypot(geomVis[0].x - bx, geomVis[0].y - by);
+          const errEnd   = Math.hypot(geomVis[geomVis.length-1].x - ex, geomVis[geomVis.length-1].y - ey);
+          if (errStart < 0.5 && errEnd < 0.5) {
+            customPath = geomVis.map(p => visioToScreen(p.x, p.y));
           }
         }
       } else if (sAbs && tAbs) {
@@ -3615,7 +3658,9 @@ async function importVSDX(file) {
         style:       isDashed ? 'dashed' : 'solid',
         routing:     'orthogonal',
       };
-      if (bendOffset) connObj.bendOffset = bendOffset;
+      if (fromPortT !== undefined) connObj.fromPortT = fromPortT;
+      if (toPortT   !== undefined) connObj.toPortT   = toPortT;
+      if (customPath)              connObj.customPath = customPath;
       newConns.push(connObj);
     }
 
