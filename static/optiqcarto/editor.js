@@ -435,6 +435,48 @@ function orthogonalPts(fp, tp, bundleOffset = 0, userOffset = { dx: 0, dy: 0 }) 
   }
 }
 
+// Évite les formes : reroute les segments qui traversent une shape (4 passes max)
+function avoidShapes(pts, shapes, fromId, toId) {
+  if (!shapes || shapes.length === 0) return pts;
+  const PAD = 22;
+  let result = pts.map(p => ({ ...p }));
+  for (let iter = 0; iter < 4; iter++) {
+    let changed = false;
+    const next = [result[0]];
+    for (let i = 0; i + 1 < result.length; i++) {
+      const p1 = result[i], p2 = result[i + 1];
+      let blocker = null;
+      for (const s of shapes) {
+        if (s.id === fromId || s.id === toId) continue;
+        const sx1 = s.x - PAD, sy1 = s.y - PAD;
+        const sx2 = s.x + s.w + PAD, sy2 = s.y + s.h + PAD;
+        if (Math.abs(p1.y - p2.y) < 2) { // horizontal
+          const y = p1.y, x1 = Math.min(p1.x, p2.x), x2 = Math.max(p1.x, p2.x);
+          if (y > sy1 && y < sy2 && x1 < sx2 && x2 > sx1) { blocker = s; break; }
+        } else if (Math.abs(p1.x - p2.x) < 2) { // vertical
+          const x = p1.x, y1 = Math.min(p1.y, p2.y), y2 = Math.max(p1.y, p2.y);
+          if (x > sx1 && x < sx2 && y1 < sy2 && y2 > sy1) { blocker = s; break; }
+        }
+      }
+      if (!blocker) { next.push(p2); continue; }
+      changed = true;
+      const R = PAD + 8;
+      if (Math.abs(p1.y - p2.y) < 2) { // → détour haut ou bas
+        const aboveY = blocker.y - R, belowY = blocker.y + blocker.h + R;
+        const ry = Math.abs(p1.y - aboveY) <= Math.abs(p1.y - belowY) ? aboveY : belowY;
+        next.push({ x: p1.x, y: ry }, { x: p2.x, y: ry }, p2);
+      } else { // → détour gauche ou droite
+        const leftX = blocker.x - R, rightX = blocker.x + blocker.w + R;
+        const rx = Math.abs(p1.x - leftX) <= Math.abs(p1.x - rightX) ? leftX : rightX;
+        next.push({ x: rx, y: p1.y }, { x: rx, y: p2.y }, p2);
+      }
+    }
+    result = next;
+    if (!changed) break;
+  }
+  return result;
+}
+
 // Flèche orthogonale (angles droits, style Visio)
 function orthogonalArrow(fp, tp) {
   return polylineToPath(orthogonalPts(fp, tp), 8);
@@ -665,29 +707,18 @@ function renderConnections() {
     const tp = spreadPort(to,   tdir, c.id, 'to',   c.toPortT);
     const routing = c.routing || 'smooth';
 
-    // Connexions importées depuis Visio : chemin exact stocké dans customPath
+    // Routing orthogonal pur avec évitement des formes (toutes connexions, y compris importées)
     let orthopts, d, _usedFp = fp, _usedTp = tp;
-    if (c.customPath && c.customPath.length >= 2) {
-      // Snap les extrémités exactement sur le bord de la forme (corrige les décalages sub-pixel)
-      const pts = c.customPath.map(p => ({ ...p }));
-      pts[0] = { x: fp.x, y: fp.y };
-      pts[pts.length - 1] = { x: tp.x, y: tp.y };
-      orthopts = pts;
-      _usedFp  = fp;
-      _usedTp  = tp;
-      d = polylineToPath(orthopts, 20);
-    } else {
-      // Varier la tension selon l'index dans le bundle pour séparer les courbes parallèles
+    {
       const fk2 = `${c.fromId}-${fdir}`;
       const fUsers2 = fromUsage[fk2] || [];
       const fIdx2 = fUsers2.indexOf(c.id);
       const fN2 = fUsers2.length;
-      const tensionFactor = fN2 > 1 ? 0.7 + 0.6 * (fIdx2 / (fN2 - 1)) : 1;
-      // Décaler le segment du milieu pour éviter la superposition des flèches parallèles
       const bundleOffset = fN2 > 1 ? (fIdx2 - (fN2 - 1) / 2) * 14 : 0;
       const userOffset = c.bendOffset || { dx: 0, dy: 0 };
       orthopts = orthogonalPts(fp, tp, bundleOffset, userOffset);
-      d = routing === 'orthogonal' ? polylineToPath(orthopts, 8) : bezierArrow(fp, tp, tensionFactor);
+      orthopts = avoidShapes(orthopts, state.shapes, c.fromId, c.toId);
+      d = polylineToPath(orthopts, 12);
     }
     const isSel = selectedConn === c.id;
     const color = isSel ? '#1f7a54' : c.color;
@@ -716,61 +747,68 @@ function renderConnections() {
       const lh = 13;
       let lx, ly, angle = 0;
 
-      const labelPts = (c.customPath && c.customPath.length >= 2) ? orthopts
-                     : routing === 'orthogonal' ? orthopts
-                     : orthogonalPts(fp, tp, bundleOffset);
-
-      // Générer des candidats : positions le long de chaque segment × offsets perpendiculaires
-      // Trouver le segment le plus long pour le label par défaut
+      // Trouver le segment horizontal le plus long pour positionner le label
+      let longestHSeg = -1, longestHLen = 0;
       let longestSeg = 0, longestLen = 0;
-      for (let i = 0; i < labelPts.length - 1; i++) {
-        const l = Math.hypot(labelPts[i+1].x - labelPts[i].x, labelPts[i+1].y - labelPts[i].y);
+      for (let i = 0; i < orthopts.length - 1; i++) {
+        const pa = orthopts[i], pb = orthopts[i + 1];
+        const l = Math.hypot(pb.x - pa.x, pb.y - pa.y);
+        const isHoriz = Math.abs(pb.y - pa.y) < 2;
         if (l > longestLen) { longestLen = l; longestSeg = i; }
+        if (isHoriz && l > longestHLen) { longestHLen = l; longestHSeg = i; }
       }
+      const preferSeg = longestHSeg >= 0 ? longestHSeg : longestSeg;
 
       const CANDS = [];
-      for (let i = 0; i < labelPts.length - 1; i++) {
-        const pa = labelPts[i], pb = labelPts[i + 1];
+      for (let i = 0; i < orthopts.length - 1; i++) {
+        const pa = orthopts[i], pb = orthopts[i + 1];
         const sdx = pb.x - pa.x, sdy = pb.y - pa.y;
         const slen = Math.hypot(sdx, sdy);
-        if (slen < 8) continue;
+        if (slen < 10) continue;
         const isH = Math.abs(sdy) < Math.abs(sdx);
-        const nx = -sdy / slen, ny = sdx / slen; // vecteur normal perpendiculaire
-        // Pour les segments verticaux : offset obligatoire (label ne peut pas être sur la ligne)
-        const offsets = isH ? [0, -20, 20, -40, 40] : [-18, 18, -36, 36];
-        // Densité de candidats plus haute sur le segment le plus long
-        const step = (i === longestSeg) ? 0.07 : 0.15;
+        const nx = -sdy / slen, ny = sdx / slen;
+        const offsets = isH ? [0, -16, 16, -32, 32] : [-20, 20, -40, 40];
+        const step = (i === preferSeg) ? 0.06 : 0.2;
         for (let t = step; t <= 1 - step; t += step) {
           const bx = pa.x + sdx * t, by = pa.y + sdy * t;
           for (const perp of offsets) {
-            CANDS.push({ x: bx + nx * perp, y: by + ny * perp, isH, perp });
+            CANDS.push({ x: bx + nx * perp, y: by + ny * perp, isH, perp, onPref: i === preferSeg });
           }
         }
       }
-      if (CANDS.length === 0) CANDS.push({ x: (fp.x + tp.x) / 2, y: (fp.y + tp.y) / 2, isH: true, perp: 0 });
+      if (CANDS.length === 0) CANDS.push({ x: (fp.x + tp.x) / 2, y: (fp.y + tp.y) / 2, isH: true, perp: 0, onPref: true });
 
-      // Score = aire de chevauchement avec formes + labels × 3 (0 = position parfaite)
-      function labelScore(cx, cy, isH) {
+      // Score = chevauchement formes × labels (0 = parfait)
+      // Bonus fort si le label est sur le segment préféré (horizontal le + long)
+      function labelScore(cx, cy, isH, onPref) {
         const hw2 = isH ? lw / 2 : lh / 2;
         const hh2 = isH ? lh / 2 : lw / 2;
-        const M = 6;
-        let s = 0;
+        const M = 8;
+        let s = onPref ? 0 : 8000; // forte pénalité si pas sur le segment préféré
+        if (!isH) s += 4000;       // forte pénalité si label vertical
         for (const sh of state.shapes) {
           const ox = Math.max(0, Math.min(cx + hw2 + M, sh.x + sh.w) - Math.max(cx - hw2 - M, sh.x));
           const oy = Math.max(0, Math.min(cy + hh2 + M, sh.y + sh.h) - Math.max(cy - hh2 - M, sh.y));
-          s += ox * oy;
+          s += ox * oy * 20;
+        }
+        // Pénaliser la proximité des bordures de groupes
+        for (const gr of state.groups) {
+          const borders = [gr.y, gr.y + gr.h];
+          for (const by of borders) {
+            if (Math.abs(cy - by) < hh2 + 12) s += 2000;
+          }
         }
         for (const pl of placedLabels) {
           const ox = Math.max(0, Math.min(cx + hw2 + M, pl.lx + pl.hw) - Math.max(cx - hw2 - M, pl.lx - pl.hw));
           const oy = Math.max(0, Math.min(cy + hh2 + M, pl.ly + pl.hh) - Math.max(cy - hh2 - M, pl.ly - pl.hh));
-          s += ox * oy * 3;
+          s += ox * oy * 40;
         }
         return s;
       }
 
       let bestCand = CANDS[0], bestScore = Infinity;
       for (const cand of CANDS) {
-        const score = labelScore(cand.x, cand.y, cand.isH) + Math.abs(cand.perp) * 0.4;
+        const score = labelScore(cand.x, cand.y, cand.isH, cand.onPref) + Math.abs(cand.perp) * 0.3;
         if (score < bestScore) { bestScore = score; bestCand = cand; }
       }
 
