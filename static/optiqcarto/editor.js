@@ -435,39 +435,70 @@ function orthogonalPts(fp, tp, bundleOffset = 0, userOffset = { dx: 0, dy: 0 }) 
   }
 }
 
-// Évite les formes : reroute les segments qui traversent une shape (4 passes max)
+// Évite les formes : reroute les segments qui traversent une shape (6 passes max)
+// Choisit intelligemment le côté de détour en testant lequel est le plus dégagé
 function avoidShapes(pts, shapes, fromId, toId) {
   if (!shapes || shapes.length === 0) return pts;
-  const PAD = 22;
+  const PAD = 20;
+  const R   = PAD + 10;
+
+  function firstBlocker(p1, p2) {
+    if (Math.abs(p1.y - p2.y) < 2) {
+      const y = p1.y, x1 = Math.min(p1.x, p2.x), x2 = Math.max(p1.x, p2.x);
+      for (const s of shapes) {
+        if (s.id === fromId || s.id === toId) continue;
+        if (y > s.y - PAD && y < s.y + s.h + PAD && x1 < s.x + s.w + PAD && x2 > s.x - PAD) return s;
+      }
+    } else if (Math.abs(p1.x - p2.x) < 2) {
+      const x = p1.x, y1 = Math.min(p1.y, p2.y), y2 = Math.max(p1.y, p2.y);
+      for (const s of shapes) {
+        if (s.id === fromId || s.id === toId) continue;
+        if (x > s.x - PAD && x < s.x + s.w + PAD && y1 < s.y + s.h + PAD && y2 > s.y - PAD) return s;
+      }
+    }
+    return null;
+  }
+
+  function isClear(coord, isHoriz, rangeA, rangeB, blocker) {
+    for (const s of shapes) {
+      if (s.id === fromId || s.id === toId || s.id === blocker.id) continue;
+      if (isHoriz) { // coord = Y du détour, range = [x1, x2]
+        if (coord > s.y - PAD && coord < s.y + s.h + PAD && rangeA < s.x + s.w + PAD && rangeB > s.x - PAD) return false;
+      } else { // coord = X du détour, range = [y1, y2]
+        if (coord > s.x - PAD && coord < s.x + s.w + PAD && rangeA < s.y + s.h + PAD && rangeB > s.y - PAD) return false;
+      }
+    }
+    return true;
+  }
+
   let result = pts.map(p => ({ ...p }));
-  for (let iter = 0; iter < 4; iter++) {
+  for (let iter = 0; iter < 6; iter++) {
     let changed = false;
     const next = [result[0]];
     for (let i = 0; i + 1 < result.length; i++) {
       const p1 = result[i], p2 = result[i + 1];
-      let blocker = null;
-      for (const s of shapes) {
-        if (s.id === fromId || s.id === toId) continue;
-        const sx1 = s.x - PAD, sy1 = s.y - PAD;
-        const sx2 = s.x + s.w + PAD, sy2 = s.y + s.h + PAD;
-        if (Math.abs(p1.y - p2.y) < 2) { // horizontal
-          const y = p1.y, x1 = Math.min(p1.x, p2.x), x2 = Math.max(p1.x, p2.x);
-          if (y > sy1 && y < sy2 && x1 < sx2 && x2 > sx1) { blocker = s; break; }
-        } else if (Math.abs(p1.x - p2.x) < 2) { // vertical
-          const x = p1.x, y1 = Math.min(p1.y, p2.y), y2 = Math.max(p1.y, p2.y);
-          if (x > sx1 && x < sx2 && y1 < sy2 && y2 > sy1) { blocker = s; break; }
-        }
-      }
+      const blocker = firstBlocker(p1, p2);
       if (!blocker) { next.push(p2); continue; }
       changed = true;
-      const R = PAD + 8;
-      if (Math.abs(p1.y - p2.y) < 2) { // → détour haut ou bas
+      if (Math.abs(p1.y - p2.y) < 2) { // horizontal → détour haut ou bas
         const aboveY = blocker.y - R, belowY = blocker.y + blocker.h + R;
-        const ry = Math.abs(p1.y - aboveY) <= Math.abs(p1.y - belowY) ? aboveY : belowY;
+        const xa = Math.min(p1.x, p2.x), xb = Math.max(p1.x, p2.x);
+        const clearA = isClear(aboveY, true, xa, xb, blocker);
+        const clearB = isClear(belowY, true, xa, xb, blocker);
+        let ry;
+        if (clearA && !clearB) ry = aboveY;
+        else if (!clearA && clearB) ry = belowY;
+        else ry = Math.abs(p1.y - aboveY) <= Math.abs(p1.y - belowY) ? aboveY : belowY;
         next.push({ x: p1.x, y: ry }, { x: p2.x, y: ry }, p2);
-      } else { // → détour gauche ou droite
+      } else { // vertical → détour gauche ou droite
         const leftX = blocker.x - R, rightX = blocker.x + blocker.w + R;
-        const rx = Math.abs(p1.x - leftX) <= Math.abs(p1.x - rightX) ? leftX : rightX;
+        const ya = Math.min(p1.y, p2.y), yb = Math.max(p1.y, p2.y);
+        const clearL = isClear(leftX, false, ya, yb, blocker);
+        const clearR = isClear(rightX, false, ya, yb, blocker);
+        let rx;
+        if (clearL && !clearR) rx = leftX;
+        else if (!clearL && clearR) rx = rightX;
+        else rx = Math.abs(p1.x - leftX) <= Math.abs(p1.x - rightX) ? leftX : rightX;
         next.push({ x: rx, y: p1.y }, { x: rx, y: p2.y }, p2);
       }
     }
@@ -747,18 +778,26 @@ function renderConnections() {
       const lh = 13;
       let lx, ly, angle = 0;
 
-      // Trouver le segment horizontal le plus long pour positionner le label
-      let longestHSeg = -1, longestHLen = 0;
-      let longestSeg = 0, longestLen = 0;
+      // Déterminer si la flèche est majoritairement horizontale ou verticale
+      let totalH = 0, totalV = 0;
+      for (let i = 0; i < orthopts.length - 1; i++) {
+        totalH += Math.abs(orthopts[i+1].x - orthopts[i].x);
+        totalV += Math.abs(orthopts[i+1].y - orthopts[i].y);
+      }
+      const arrowMajorH = totalH >= totalV; // >50% horizontal → label forcément sur segment H
+
+      // Trouver le plus long segment de l'orientation dominante (et le plus long tout court)
+      let longestSeg = 0, longestLen = 0, longestForcedSeg = -1, longestForcedLen = 0;
       for (let i = 0; i < orthopts.length - 1; i++) {
         const pa = orthopts[i], pb = orthopts[i + 1];
         const l = Math.hypot(pb.x - pa.x, pb.y - pa.y);
-        const isHoriz = Math.abs(pb.y - pa.y) < 2;
+        const segH = Math.abs(pb.y - pa.y) < 2;
         if (l > longestLen) { longestLen = l; longestSeg = i; }
-        if (isHoriz && l > longestHLen) { longestHLen = l; longestHSeg = i; }
+        if (segH === arrowMajorH && l > longestForcedLen) { longestForcedLen = l; longestForcedSeg = i; }
       }
-      const preferSeg = longestHSeg >= 0 ? longestHSeg : longestSeg;
+      const preferSeg = longestForcedSeg >= 0 ? longestForcedSeg : longestSeg;
 
+      // Générer les candidats uniquement sur les segments de l'orientation dominante
       const CANDS = [];
       for (let i = 0; i < orthopts.length - 1; i++) {
         const pa = orthopts[i], pb = orthopts[i + 1];
@@ -766,9 +805,10 @@ function renderConnections() {
         const slen = Math.hypot(sdx, sdy);
         if (slen < 10) continue;
         const isH = Math.abs(sdy) < Math.abs(sdx);
+        if (isH !== arrowMajorH) continue; // skip segments de mauvaise orientation
         const nx = -sdy / slen, ny = sdx / slen;
         const offsets = isH ? [0, -16, 16, -32, 32] : [-20, 20, -40, 40];
-        const step = (i === preferSeg) ? 0.06 : 0.2;
+        const step = (i === preferSeg) ? 0.06 : 0.18;
         for (let t = step; t <= 1 - step; t += step) {
           const bx = pa.x + sdx * t, by = pa.y + sdy * t;
           for (const perp of offsets) {
@@ -776,26 +816,37 @@ function renderConnections() {
           }
         }
       }
-      if (CANDS.length === 0) CANDS.push({ x: (fp.x + tp.x) / 2, y: (fp.y + tp.y) / 2, isH: true, perp: 0, onPref: true });
+      // Fallback si aucun candidat (cas dégénéré)
+      if (CANDS.length === 0) {
+        for (let i = 0; i < orthopts.length - 1; i++) {
+          const pa = orthopts[i], pb = orthopts[i + 1];
+          const sdx = pb.x - pa.x, sdy = pb.y - pa.y;
+          const slen = Math.hypot(sdx, sdy);
+          if (slen < 4) continue;
+          const isH = Math.abs(sdy) < Math.abs(sdx);
+          const nx = -sdy / slen, ny = sdx / slen;
+          for (const perp of [0, -16, 16]) {
+            CANDS.push({ x: pa.x + sdx * 0.5 + nx * perp, y: pa.y + sdy * 0.5 + ny * perp, isH, perp, onPref: false });
+          }
+        }
+      }
+      if (CANDS.length === 0) CANDS.push({ x: (fp.x + tp.x) / 2, y: (fp.y + tp.y) / 2, isH: arrowMajorH, perp: 0, onPref: true });
 
-      // Score = chevauchement formes × labels (0 = parfait)
-      // Bonus fort si le label est sur le segment préféré (horizontal le + long)
+      // Score = chevauchement avec formes + labels + proximité borders groupes
       function labelScore(cx, cy, isH, onPref) {
         const hw2 = isH ? lw / 2 : lh / 2;
         const hh2 = isH ? lh / 2 : lw / 2;
         const M = 8;
-        let s = onPref ? 0 : 8000; // forte pénalité si pas sur le segment préféré
-        if (!isH) s += 4000;       // forte pénalité si label vertical
+        let s = onPref ? 0 : 6000;
         for (const sh of state.shapes) {
           const ox = Math.max(0, Math.min(cx + hw2 + M, sh.x + sh.w) - Math.max(cx - hw2 - M, sh.x));
           const oy = Math.max(0, Math.min(cy + hh2 + M, sh.y + sh.h) - Math.max(cy - hh2 - M, sh.y));
           s += ox * oy * 20;
         }
-        // Pénaliser la proximité des bordures de groupes
         for (const gr of state.groups) {
           const borders = [gr.y, gr.y + gr.h];
-          for (const by of borders) {
-            if (Math.abs(cy - by) < hh2 + 12) s += 2000;
+          for (const by2 of borders) {
+            if (Math.abs(cy - by2) < hh2 + 12) s += 2000;
           }
         }
         for (const pl of placedLabels) {
