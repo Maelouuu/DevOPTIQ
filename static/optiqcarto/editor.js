@@ -675,7 +675,7 @@ function renderConnections() {
       orthopts = pts;
       _usedFp  = fp;
       _usedTp  = tp;
-      d = polylineToPath(orthopts, 6);
+      d = polylineToPath(orthopts, 20);
     } else {
       // Varier la tension selon l'index dans le bundle pour séparer les courbes parallèles
       const fk2 = `${c.fromId}-${fdir}`;
