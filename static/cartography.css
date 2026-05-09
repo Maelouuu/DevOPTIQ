@@ -2571,3 +2571,153 @@
 
 
 /* ── Placeholder SVG (styles résiduels conservés pour compatibilité) ── */
+
+/* ════════════════════════════════════════════════════════
+   VISIONNEUR : badge lecture seule + highlight activité
+════════════════════════════════════════════════════════ */
+.viewer-readonly-badge {
+  position: absolute;
+  top: 12px; left: 14px;
+  background: rgba(0,0,0,0.55);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 20px;
+  display: flex; align-items: center; gap: 5px;
+  pointer-events: none;
+  z-index: 5;
+  backdrop-filter: blur(4px);
+}
+
+.activity-highlighted {
+  background: #ecfdf5 !important;
+  border-color: #22c55e !important;
+  box-shadow: 0 0 0 3px rgba(34,197,94,0.25) !important;
+  transform: scale(1.02);
+}
+
+/* ════════════════════════════════════════════════════════
+   SECTION ANALYSE PROCESSUS
+════════════════════════════════════════════════════════ */
+.process-insights {
+  margin-top: 28px;
+  background: #ffffff;
+  border-radius: 20px;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.06);
+  padding: 28px;
+}
+
+.insights-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 24px;
+}
+.insights-header-left { display: flex; align-items: center; gap: 12px; }
+.insights-header h2 {
+  margin: 0; font-size: 1.15rem; font-weight: 700; color: #111827;
+  display: flex; align-items: center; gap: 8px;
+}
+.insights-header h2 i { color: #6366f1; }
+.insights-entity-badge {
+  background: #ede9fe; color: #7c3aed;
+  font-size: 11px; font-weight: 700; padding: 3px 10px;
+  border-radius: 20px; letter-spacing: 0.3px;
+}
+.insights-loading-badge {
+  font-size: 12px; color: #9ca3af;
+  display: flex; align-items: center; gap: 6px;
+}
+
+/* KPI cards */
+.insights-kpis {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px;
+  margin-bottom: 24px;
+}
+@media (max-width: 1200px) { .insights-kpis { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 640px)  { .insights-kpis { grid-template-columns: 1fr; } }
+
+.insights-kpi-card {
+  display: flex; align-items: center; gap: 14px;
+  background: #f9fafb; border: 1px solid #f3f4f6;
+  border-radius: 14px; padding: 16px 18px;
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+.insights-kpi-card:hover { transform: translateY(-2px); box-shadow: 0 6px 18px rgba(0,0,0,0.07); }
+
+.kpi-icon {
+  width: 42px; height: 42px; border-radius: 12px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px; flex-shrink: 0;
+}
+.kpi-purple { background: #ede9fe; color: #7c3aed; }
+.kpi-blue   { background: #dbeafe; color: #2563eb; }
+.kpi-green  { background: #dcfce7; color: #16a34a; }
+.kpi-orange { background: #ffedd5; color: #ea580c; }
+
+.kpi-body { flex: 1; min-width: 0; }
+.kpi-value { font-size: 1.6rem; font-weight: 800; color: #111827; line-height: 1; }
+.kpi-label { font-size: 11px; color: #6b7280; margin-top: 3px; font-weight: 500; }
+
+/* Charts grid */
+.insights-charts {
+  display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px;
+}
+@media (max-width: 1200px) { .insights-charts { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 768px)  { .insights-charts { grid-template-columns: 1fr; } }
+
+.insights-card {
+  background: #f9fafb; border: 1px solid #f0f0f0;
+  border-radius: 16px; padding: 18px;
+}
+.insights-card h3 {
+  font-size: 13px; font-weight: 700; color: #374151;
+  margin: 0 0 4px; display: flex; align-items: center; gap: 7px;
+}
+.insights-card h3 i { color: #6366f1; }
+.insights-sub { font-size: 11px; color: #9ca3af; margin: 0 0 14px; }
+
+/* Bars par bande */
+.bands-chart { display: flex; flex-direction: column; gap: 9px; margin-top: 12px; }
+.band-bar-row { display: flex; align-items: center; gap: 8px; }
+.band-bar-label {
+  width: 90px; flex-shrink: 0;
+  font-size: 11px; color: #4b5563; font-weight: 500;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.band-bar-track { flex: 1; background: #e5e7eb; border-radius: 99px; height: 8px; overflow: hidden; }
+.band-bar-fill { height: 100%; border-radius: 99px; transition: width 0.5s ease; min-width: 4px; }
+.band-bar-count { font-size: 11px; color: #374151; font-weight: 700; width: 22px; text-align: right; }
+
+/* Hub activities */
+.hubs-list { display: flex; flex-direction: column; gap: 10px; margin-top: 12px; }
+.hub-item { display: flex; align-items: center; gap: 10px; }
+.hub-rank {
+  width: 22px; height: 22px; border-radius: 50%;
+  background: #ede9fe; color: #7c3aed;
+  font-size: 11px; font-weight: 800;
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+.hub-body { flex: 1; min-width: 0; }
+.hub-name { font-size: 11.5px; font-weight: 600; color: #111827; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 3px; }
+.hub-bar-track { background: #e5e7eb; border-radius: 99px; height: 5px; overflow: hidden; }
+.hub-bar-fill { height: 100%; background: linear-gradient(90deg, #7c3aed, #a78bfa); border-radius: 99px; transition: width 0.5s ease; min-width: 4px; }
+.hub-stats { display: flex; gap: 6px; flex-shrink: 0; }
+.hub-stat { font-size: 10.5px; font-weight: 700; display: flex; align-items: center; gap: 3px; }
+.hub-stat.out { color: #059669; }
+.hub-stat.in  { color: #2563eb; }
+
+/* Flow donut */
+.flow-types-chart { display: flex; align-items: center; gap: 20px; margin-top: 12px; flex-wrap: wrap; }
+.flow-donut-wrap { position: relative; width: 90px; height: 90px; flex-shrink: 0; }
+.flow-donut { width: 90px; height: 90px; }
+.flow-donut-center {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  font-size: 11px; color: #374151; text-align: center;
+}
+.flow-donut-center strong { font-size: 15px; font-weight: 800; color: #111827; }
+.flow-legend { display: flex; flex-direction: column; gap: 8px; }
+.flow-legend-item { display: flex; align-items: center; gap: 8px; font-size: 12px; color: #4b5563; }
+.flow-dot { width: 10px; height: 10px; border-radius: 3px; flex-shrink: 0; }
+.flow-dot.dashed { background: #e5e7eb; border: 2px dashed #9ca3af; }

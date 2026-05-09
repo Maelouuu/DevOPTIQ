@@ -436,7 +436,9 @@
       {% if has_optiqcarto %}
       <!-- Viewer OptiqCarto actif -->
       <div class="carto-viewer-wrap">
-        <iframe id="carto-viewer-frame" src="/cartography/viewer" frameborder="0"></iframe>
+        <iframe id="carto-viewer-frame" src="/cartography/viewer" frameborder="0" allowfullscreen></iframe>
+        <!-- Badge lecture seule -->
+        <div class="viewer-readonly-badge"><i class="fa-solid fa-eye"></i> Lecture seule</div>
         <a href="/cartography/editor" class="btn-open-editor" title="Ouvrir dans l'éditeur">
           <i class="fa-solid fa-pen-ruler"></i> Ouvrir l'éditeur
         </a>
@@ -485,9 +487,9 @@
     <div class="carto-right">
       <h2>Liste des activités</h2>
       {% if activities %}
-        <ul class="activities-list">
+        <ul class="activities-list" id="activities-list">
           {% for a in activities %}
-            <li class="activity-item" data-id="{{ a.id }}">
+            <li class="activity-item" data-id="{{ a.id }}" data-name="{{ a.name | lower }}">
               <span class="num">{{ loop.index }}</span>
               <span class="label">{{ a.name }}</span>
             </li>
@@ -501,6 +503,61 @@
       {% endif %}
     </div>
   </div>
+
+  <!-- ════════════════════════════════════════════════════════
+       SECTION ANALYSE PROCESSUS
+  ════════════════════════════════════════════════════════ -->
+  {% if has_optiqcarto %}
+  <div class="process-insights" id="process-insights">
+    <div class="insights-header">
+      <div class="insights-header-left">
+        <h2><i class="fa-solid fa-chart-bar"></i> Analyse du processus</h2>
+        <span class="insights-entity-badge" id="insights-entity-badge"></span>
+      </div>
+      <span class="insights-loading-badge" id="insights-loading-badge"><i class="fa-solid fa-circle-notch fa-spin"></i> Chargement…</span>
+    </div>
+
+    <!-- KPIs -->
+    <div class="insights-kpis">
+      <div class="insights-kpi-card">
+        <div class="kpi-icon kpi-purple"><i class="fa-solid fa-shapes"></i></div>
+        <div class="kpi-body"><div class="kpi-value" id="kpi-activities">—</div><div class="kpi-label">Activités</div></div>
+      </div>
+      <div class="insights-kpi-card">
+        <div class="kpi-icon kpi-blue"><i class="fa-solid fa-arrow-right-arrow-left"></i></div>
+        <div class="kpi-body"><div class="kpi-value" id="kpi-connections">—</div><div class="kpi-label">Connexions</div></div>
+      </div>
+      <div class="insights-kpi-card">
+        <div class="kpi-icon kpi-green"><i class="fa-solid fa-layer-group"></i></div>
+        <div class="kpi-body"><div class="kpi-value" id="kpi-bands">—</div><div class="kpi-label">Niveaux</div></div>
+      </div>
+      <div class="insights-kpi-card">
+        <div class="kpi-icon kpi-orange"><i class="fa-solid fa-link"></i></div>
+        <div class="kpi-body"><div class="kpi-value" id="kpi-density">—</div><div class="kpi-label">Connexions / activité</div></div>
+      </div>
+    </div>
+
+    <!-- Graphiques -->
+    <div class="insights-charts">
+      <!-- Répartition par bande -->
+      <div class="insights-card insights-bands-card">
+        <h3><i class="fa-solid fa-bars-staggered"></i> Activités par niveau</h3>
+        <div id="bands-chart" class="bands-chart"></div>
+      </div>
+      <!-- Activités pivots (les plus connectées) -->
+      <div class="insights-card insights-hubs-card">
+        <h3><i class="fa-solid fa-star"></i> Activités pivots</h3>
+        <p class="insights-sub">Les activités avec le plus de connexions entrantes et sortantes</p>
+        <div id="hubs-list" class="hubs-list"></div>
+      </div>
+      <!-- Répartition des types de flux -->
+      <div class="insights-card insights-flow-card">
+        <h3><i class="fa-solid fa-arrow-trend-up"></i> Types de connexions</h3>
+        <div id="flow-types-chart" class="flow-types-chart"></div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
 
 </div>
 
@@ -644,3 +701,157 @@
 })();
 </script>
 
+<!-- ── Visionneur : PostMessage listener + highlights activités ── -->
+<script>
+(function() {
+  // Écoute les clics sur les formes dans l'iframe viewer
+  window.addEventListener('message', (e) => {
+    if (!e.data || e.data.t !== 'shape-click') return;
+    const label = (e.data.label || '').toLowerCase().trim();
+    if (!label) return;
+    highlightActivity(label);
+  });
+
+  function highlightActivity(label) {
+    const items = document.querySelectorAll('#activities-list .activity-item');
+    let found = null;
+    // Recherche exacte d'abord, puis partielle
+    for (const item of items) {
+      const name = (item.dataset.name || '').trim();
+      if (name === label) { found = item; break; }
+    }
+    if (!found) {
+      for (const item of items) {
+        const name = (item.dataset.name || '').trim();
+        if (name.includes(label) || label.includes(name)) { found = item; break; }
+      }
+    }
+    if (!found) return;
+    // Supprimer highlight précédent
+    items.forEach(i => i.classList.remove('activity-highlighted'));
+    found.classList.add('activity-highlighted');
+    found.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    // Retirer le highlight après 3s
+    setTimeout(() => found.classList.remove('activity-highlighted'), 3000);
+  }
+})();
+</script>
+
+<!-- ── Section Analyse : chargement et rendu des stats ── -->
+<script>
+(function() {
+  const entity = window.ACTIVE_ENTITY;
+  if (!entity || !entity.name) return;
+  const badge = document.getElementById('insights-entity-badge');
+  const loading = document.getElementById('insights-loading-badge');
+  if (badge) badge.textContent = entity.name;
+
+  fetch(`/cartography/api/load/${encodeURIComponent(entity.name)}`)
+    .then(r => r.ok ? r.json() : null)
+    .then(data => {
+      if (loading) loading.style.display = 'none';
+      if (!data) return;
+      renderInsights(data);
+    })
+    .catch(() => { if (loading) loading.style.display = 'none'; });
+
+  function renderInsights(data) {
+    const shapes = (data.shapes || []).filter(s => s.type === 'process' || s.type === 'start-end' || s.type === 'special' || s.type === 'decision');
+    const conns  = data.connections || [];
+    const bands  = data.bands || [];
+
+    // KPIs
+    const totalAct = shapes.length;
+    const totalConn = conns.length;
+    const totalBands = bands.length;
+    const density = totalAct > 0 ? (totalConn / totalAct).toFixed(1) : '0';
+
+    setText('kpi-activities', totalAct);
+    setText('kpi-connections', totalConn);
+    setText('kpi-bands', totalBands);
+    setText('kpi-density', density);
+
+    // Répartition par bande
+    const bandsChart = document.getElementById('bands-chart');
+    if (bandsChart && bands.length > 0) {
+      let cumY = 0;
+      const bRanges = bands.map(b => { const y0 = cumY; cumY += b.height; return { ...b, y0, y1: cumY }; });
+      const counts = bRanges.map(br => ({
+        label: br.label,
+        color: br.color,
+        count: shapes.filter(s => {
+          const cy = s.y + s.h / 2;
+          return cy >= br.y0 && cy < br.y1;
+        }).length,
+      }));
+      const maxCount = Math.max(...counts.map(c => c.count), 1);
+      bandsChart.innerHTML = counts.map(c => `
+        <div class="band-bar-row">
+          <div class="band-bar-label" title="${esc(c.label)}">${esc(c.label)}</div>
+          <div class="band-bar-track">
+            <div class="band-bar-fill" style="width:${Math.round(c.count/maxCount*100)}%;background:${esc(c.color)}"></div>
+          </div>
+          <div class="band-bar-count">${c.count}</div>
+        </div>`).join('');
+    }
+
+    // Hub activities (top 5 par nombre total de connexions)
+    const hubsList = document.getElementById('hubs-list');
+    if (hubsList && shapes.length > 0) {
+      const connCount = {};
+      for (const c of conns) {
+        connCount[c.fromId] = (connCount[c.fromId] || 0) + 1;
+        connCount[c.toId]   = (connCount[c.toId]   || 0) + 1;
+      }
+      const sorted = shapes
+        .map(s => ({ label: s.label, total: connCount[s.id] || 0,
+          out: conns.filter(c => c.fromId === s.id).length,
+          in:  conns.filter(c => c.toId   === s.id).length }))
+        .sort((a, b) => b.total - a.total)
+        .slice(0, 5);
+      const maxHub = Math.max(sorted[0]?.total || 1, 1);
+      hubsList.innerHTML = sorted.map((h, idx) => `
+        <div class="hub-item">
+          <div class="hub-rank">${idx + 1}</div>
+          <div class="hub-body">
+            <div class="hub-name" title="${esc(h.label)}">${esc(h.label)}</div>
+            <div class="hub-bar-track"><div class="hub-bar-fill" style="width:${Math.round(h.total/maxHub*100)}%"></div></div>
+          </div>
+          <div class="hub-stats">
+            <span class="hub-stat out" title="Sorties"><i class="fa-solid fa-arrow-right"></i>${h.out}</span>
+            <span class="hub-stat in"  title="Entrées"><i class="fa-solid fa-arrow-left"></i>${h.in}</span>
+          </div>
+        </div>`).join('');
+    }
+
+    // Types de connexions (solid vs dashed)
+    const flowChart = document.getElementById('flow-types-chart');
+    if (flowChart) {
+      const solid  = conns.filter(c => c.style !== 'dashed').length;
+      const dashed = conns.filter(c => c.style === 'dashed').length;
+      const total  = solid + dashed || 1;
+      flowChart.innerHTML = `
+        <div class="flow-donut-wrap">
+          <svg viewBox="0 0 36 36" class="flow-donut">
+            <circle cx="18" cy="18" r="14" fill="none" stroke="#e5e7eb" stroke-width="4"/>
+            <circle cx="18" cy="18" r="14" fill="none" stroke="#6366f1" stroke-width="4"
+              stroke-dasharray="${solid/total*87.96} 87.96" stroke-dashoffset="21.99" transform="rotate(-90 18 18)"/>
+          </svg>
+          <div class="flow-donut-center"><strong>${Math.round(solid/total*100)}%</strong><span>flux directs</span></div>
+        </div>
+        <div class="flow-legend">
+          <div class="flow-legend-item"><span class="flow-dot" style="background:#6366f1"></span> Flux directs <strong>${solid}</strong></div>
+          <div class="flow-legend-item"><span class="flow-dot dashed"></span> Flux conditionnels <strong>${dashed}</strong></div>
+        </div>`;
+    }
+  }
+
+  function setText(id, val) {
+    const el = document.getElementById(id);
+    if (el) el.textContent = val;
+  }
+  function esc(s) {
+    return (s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+})();
+</script>

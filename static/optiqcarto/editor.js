@@ -508,6 +508,54 @@ function avoidShapes(pts, shapes, fromId, toId) {
   return result;
 }
 
+// Simplifie un chemin orthogonal : merge colinéaires, supprime mini U-shapes (boucles)
+function simplifyPath(pts) {
+  if (pts.length < 3) return pts;
+  // Supprime les doublons
+  let r = [pts[0]];
+  for (let i = 1; i < pts.length; i++) {
+    const p = pts[i], q = r[r.length - 1];
+    if (Math.abs(p.x - q.x) > 0.5 || Math.abs(p.y - q.y) > 0.5) r.push({ ...p });
+  }
+  // Merge segments colinéaires (même axe, même sens)
+  let changed = true;
+  while (changed && r.length > 2) {
+    changed = false;
+    const nxt = [r[0]];
+    for (let i = 1; i < r.length - 1; i++) {
+      const a = nxt[nxt.length - 1], b = r[i], c = r[i + 1];
+      if ((Math.abs(a.y - b.y) < 1 && Math.abs(b.y - c.y) < 1) ||
+          (Math.abs(a.x - b.x) < 1 && Math.abs(b.x - c.x) < 1)) { changed = true; continue; }
+      nxt.push(b);
+    }
+    nxt.push(r[r.length - 1]);
+    r = nxt;
+  }
+  // Supprime les mini U-shapes : segment A→B → bump court → segment C→D même axe
+  changed = true;
+  while (changed && r.length > 3) {
+    changed = false;
+    const nxt = [r[0]]; let i = 1;
+    while (i < r.length) {
+      const a = nxt[nxt.length - 1];
+      if (i + 2 < r.length) {
+        const b = r[i], c = r[i + 1], d = r[i + 2];
+        const bumpLen = Math.hypot(c.x - b.x, c.y - b.y);
+        const legH = Math.abs(b.y - a.y) < 1 && Math.abs(d.y - c.y) < 1;
+        const legV = Math.abs(b.x - a.x) < 1 && Math.abs(d.x - c.x) < 1;
+        if (bumpLen < 22 && (legH || legV)) {
+          // Remplace a→b→c→d par un coude simple vers d
+          nxt.push(legH ? { x: d.x, y: a.y } : { x: a.x, y: d.y });
+          nxt.push(d); i += 3; changed = true; continue;
+        }
+      }
+      nxt.push(r[i]); i++;
+    }
+    r = nxt;
+  }
+  return r;
+}
+
 // Flèche orthogonale (angles droits, style Visio)
 function orthogonalArrow(fp, tp) {
   return polylineToPath(orthogonalPts(fp, tp), 8);
@@ -749,6 +797,7 @@ function renderConnections() {
       const userOffset = c.bendOffset || { dx: 0, dy: 0 };
       orthopts = orthogonalPts(fp, tp, bundleOffset, userOffset);
       orthopts = avoidShapes(orthopts, state.shapes, c.fromId, c.toId);
+      orthopts = simplifyPath(orthopts);
       d = polylineToPath(orthopts, 12);
     }
     const isSel = selectedConn === c.id;
@@ -1652,6 +1701,14 @@ function onDown(e) {
     const shapeTarget = e.target.closest('[data-type="shape"]');
     if (shapeTarget) {
       const sid = parseInt(shapeTarget.getAttribute('data-id'));
+      // En mode lecture seule : notifier le parent puis stopper
+      if (window.OPTIQCARTO_READONLY) {
+        const s = state.shapes.find(s => s.id === sid);
+        if (s) {
+          try { window.parent.postMessage({ t: 'shape-click', label: s.label }, '*'); } catch(_) {}
+        }
+        return;
+      }
       selectShape(sid, e.shiftKey, true);
       if (!propsOpen) setPropsOpen(true);
 
@@ -3547,6 +3604,21 @@ async function importVSDX(file) {
     if (newShapes.length === 0) {
       setStatus('Aucune activité trouvée dans ce fichier.', true);
       return;
+    }
+
+    // ── Clamp shapes dans leur bande (évite les chevauchements bande/bande) ──
+    {
+      const PAD_BAND = 6;
+      let cumY = 0;
+      const bRanges = newBands.map(b => { const y0 = cumY; cumY += b.height; return { y0, y1: cumY }; });
+      for (const s of newShapes) {
+        const cy = s.y + s.h / 2;
+        const br = bRanges.find(r => cy >= r.y0 && cy < r.y1) || bRanges[bRanges.length - 1];
+        if (!br) continue;
+        // Clampe Y pour que la shape soit entièrement dans la bande
+        if (s.y < br.y0 + PAD_BAND) s.y = br.y0 + PAD_BAND;
+        if (s.y + s.h > br.y1 - PAD_BAND) s.y = Math.max(br.y0 + PAD_BAND, br.y1 - PAD_BAND - s.h);
+      }
     }
 
     // ── Groups from Visio Containers ──────────────────────────
