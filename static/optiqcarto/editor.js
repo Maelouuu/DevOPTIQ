@@ -3591,6 +3591,7 @@ async function importVSDX(file) {
       if (containerIds.has(id))      continue;
       if (containerGroupIds.has(id)) continue; // transparent container → becomes a group, not an activity
       if (isInLegend(id))            continue; // skip shapes inside legend lane (spatial filter)
+      if (vCell(s, 'LayerMember') === '6') continue; // layer 6 = drapeaux retour (return flags), excluded like Python parser
 
       const mid   = s.getAttribute('Master');
       const vType = s.getAttribute('Type');
@@ -3604,7 +3605,7 @@ async function importVSDX(file) {
       const vW  = abs.w || 0;
       const vH  = abs.h || 0;
       if (vW < 0.2 || vH < 0.1) continue;
-      if (vW > 6   || vH > 4  ) continue;
+      if (vW > 8   || vH > 4  ) continue; // raised from 6→8 to include shapes like Installation (w≈6.36)
 
       const screenX = Math.round((abs.pinX - vW/2 - leftEdge) * SCALE);
       const screenY = Math.max(0, Math.round((topOfDiagram - abs.pinY - vH/2) * SCALE));
