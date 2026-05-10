@@ -559,6 +559,95 @@
   </div>
   {% endif %}
 
+  <!-- ════════════════════════════════════════════════════════
+       SECTION DONNÉES BRUTES DE LA CARTO
+  ════════════════════════════════════════════════════════ -->
+  {% if has_optiqcarto %}
+  <div class="carto-data-section" id="carto-data-section">
+    <div class="cds-header">
+      <div class="cds-header-left">
+        <div class="cds-header-icon"><i class="fa-solid fa-database"></i></div>
+        <div>
+          <h2>Données de la cartographie</h2>
+          <p class="cds-sub">Toutes les données extraites de la carto — activités, connexions, groupes</p>
+        </div>
+      </div>
+      <span class="cds-loading" id="cds-loading"><i class="fa-solid fa-circle-notch fa-spin"></i> Chargement…</span>
+    </div>
+
+    <!-- Tabs -->
+    <div class="cds-tabs">
+      <button class="cds-tab active" data-tab="activities"><i class="fa-solid fa-shapes"></i> Activités <span class="cds-tab-count" id="tab-count-activities">0</span></button>
+      <button class="cds-tab" data-tab="decisions"><i class="fa-solid fa-diamond"></i> Décisions <span class="cds-tab-count" id="tab-count-decisions">0</span></button>
+      <button class="cds-tab" data-tab="connections"><i class="fa-solid fa-arrow-right-arrow-left"></i> Connexions <span class="cds-tab-count" id="tab-count-connections">0</span></button>
+      <button class="cds-tab" data-tab="groups"><i class="fa-solid fa-object-group"></i> Groupes <span class="cds-tab-count" id="tab-count-groups">0</span></button>
+    </div>
+
+    <!-- Panneau Activités -->
+    <div class="cds-panel active" id="cds-panel-activities">
+      <div class="cds-toolbar">
+        <div class="cds-filter-group">
+          <button class="cds-filter active" data-filter="all">Toutes</button>
+          <button class="cds-filter" data-filter="process"><i class="fa-solid fa-square"></i> Process</button>
+          <button class="cds-filter" data-filter="start-end"><i class="fa-solid fa-circle"></i> Cercles</button>
+          <button class="cds-filter" data-filter="special"><i class="fa-solid fa-wave-square"></i> Sous-activités</button>
+        </div>
+        <input class="cds-search" id="search-activities" placeholder="Rechercher…" type="text">
+      </div>
+      <div class="cds-table-wrap">
+        <table class="cds-table" id="table-activities">
+          <thead><tr><th>#</th><th>Nom</th><th>Type</th><th>Niveau</th><th>Entrants</th><th>Sortants</th></tr></thead>
+          <tbody id="tbody-activities"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Panneau Décisions -->
+    <div class="cds-panel" id="cds-panel-decisions">
+      <div class="cds-toolbar">
+        <input class="cds-search" id="search-decisions" placeholder="Rechercher…" type="text">
+      </div>
+      <div class="cds-table-wrap">
+        <table class="cds-table" id="table-decisions">
+          <thead><tr><th>#</th><th>Label</th><th>Niveau</th><th>Entrants</th><th>Sortants</th></tr></thead>
+          <tbody id="tbody-decisions"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Panneau Connexions -->
+    <div class="cds-panel" id="cds-panel-connections">
+      <div class="cds-toolbar">
+        <div class="cds-filter-group">
+          <button class="cds-filter active" data-filter="all">Toutes</button>
+          <button class="cds-filter" data-filter="solid">Directes</button>
+          <button class="cds-filter" data-filter="dashed">Conditionnelles</button>
+        </div>
+        <input class="cds-search" id="search-connections" placeholder="Rechercher…" type="text">
+      </div>
+      <div class="cds-table-wrap">
+        <table class="cds-table" id="table-connections">
+          <thead><tr><th>#</th><th>De</th><th>Vers</th><th>Label</th><th>Type</th></tr></thead>
+          <tbody id="tbody-connections"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Panneau Groupes -->
+    <div class="cds-panel" id="cds-panel-groups">
+      <div class="cds-toolbar">
+        <input class="cds-search" id="search-groups" placeholder="Rechercher…" type="text">
+      </div>
+      <div class="cds-table-wrap">
+        <table class="cds-table" id="table-groups">
+          <thead><tr><th>#</th><th>Nom</th><th>Couleur</th><th>Membres</th></tr></thead>
+          <tbody id="tbody-groups"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
 </div>
 
 <!-- ── Modal EXPORT ── -->
@@ -852,6 +941,173 @@
   }
   function esc(s) {
     return (s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+})();
+</script>
+
+<!-- ── Section données brutes de la carto ── -->
+<script>
+(function() {
+  const entity = window.ACTIVE_ENTITY;
+  if (!entity || !entity.name) return;
+
+  // Tabs
+  document.querySelectorAll('.cds-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.cds-tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.cds-panel').forEach(p => p.classList.remove('active'));
+      tab.classList.add('active');
+      document.getElementById('cds-panel-' + tab.dataset.tab)?.classList.add('active');
+    });
+  });
+
+  // Filtres activités
+  let activeActFilter = 'all';
+  document.querySelectorAll('#cds-panel-activities .cds-filter').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('#cds-panel-activities .cds-filter').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      activeActFilter = btn.dataset.filter;
+      applyActFilter();
+    });
+  });
+
+  // Filtres connexions
+  let activeConnFilter = 'all';
+  document.querySelectorAll('#cds-panel-connections .cds-filter').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('#cds-panel-connections .cds-filter').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      activeConnFilter = btn.dataset.filter;
+      applyConnFilter();
+    });
+  });
+
+  // Recherche
+  ['activities','decisions','connections','groups'].forEach(key => {
+    document.getElementById('search-' + key)?.addEventListener('input', e => {
+      const q = e.target.value.toLowerCase();
+      document.querySelectorAll(`#tbody-${key} tr`).forEach(tr => {
+        tr.style.display = tr.textContent.toLowerCase().includes(q) ? '' : 'none';
+      });
+    });
+  });
+
+  function applyActFilter() {
+    document.querySelectorAll('#tbody-activities tr').forEach(tr => {
+      const type = tr.dataset.type || '';
+      tr.style.display = (activeActFilter === 'all' || type === activeActFilter) ? '' : 'none';
+    });
+  }
+  function applyConnFilter() {
+    document.querySelectorAll('#tbody-connections tr').forEach(tr => {
+      const style = tr.dataset.style || '';
+      tr.style.display = (activeConnFilter === 'all' || style === activeConnFilter) ? '' : 'none';
+    });
+  }
+
+  fetch(`/cartography/api/load/${encodeURIComponent(entity.name)}`)
+    .then(r => r.ok ? r.json() : null)
+    .then(data => {
+      document.getElementById('cds-loading')?.remove();
+      if (!data) return;
+      buildTables(data);
+    })
+    .catch(() => document.getElementById('cds-loading')?.remove());
+
+  function esc(s) {
+    return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  function shapeLabel(shapes, id) {
+    const s = shapes.find(s => s.id === id);
+    return s ? (s.label || '—') : '(inconnu)';
+  }
+
+  function bandName(bands, shapes, shapeId) {
+    const s = shapes.find(s => s.id === shapeId);
+    if (!s) return '—';
+    let cumY = 0;
+    for (const b of bands) {
+      const cy = s.y + s.h / 2;
+      if (cy >= cumY && cy < cumY + b.height) return b.label || '—';
+      cumY += b.height;
+    }
+    return '—';
+  }
+
+  function buildTables(data) {
+    const shapes = data.shapes || [];
+    const conns  = data.connections || [];
+    const groups = data.groups || [];
+    const bands  = data.bands || [];
+
+    const activities = shapes.filter(s => s.type !== 'decision');
+    const decisions  = shapes.filter(s => s.type === 'decision');
+
+    // Compteurs tabs
+    document.getElementById('tab-count-activities').textContent  = activities.length;
+    document.getElementById('tab-count-decisions').textContent   = decisions.length;
+    document.getElementById('tab-count-connections').textContent = conns.length;
+    document.getElementById('tab-count-groups').textContent      = groups.length;
+
+    // ── Activités ──
+    const tbodyAct = document.getElementById('tbody-activities');
+    const typeLabel = { process: 'Process', 'start-end': 'Cercle', special: 'Sous-activité' };
+    const typeIcon  = { process: 'fa-square', 'start-end': 'fa-circle', special: 'fa-wave-square' };
+    tbodyAct.innerHTML = activities.map((s, i) => {
+      const inCount  = conns.filter(c => c.toId   === s.id).length;
+      const outCount = conns.filter(c => c.fromId === s.id).length;
+      return `<tr data-type="${esc(s.type)}">
+        <td class="cds-num">${i+1}</td>
+        <td class="cds-name"><span class="cds-type-dot" style="background:${esc(s.color||'#22c55e')}"></span>${esc(s.label||'—')}</td>
+        <td><span class="cds-badge type-${esc(s.type)}"><i class="fa-solid ${typeIcon[s.type]||'fa-square'}"></i> ${typeLabel[s.type]||s.type}</span></td>
+        <td class="cds-muted">${esc(bandName(bands,shapes,s.id))}</td>
+        <td class="cds-num cds-in">${inCount}</td>
+        <td class="cds-num cds-out">${outCount}</td>
+      </tr>`;
+    }).join('');
+
+    // ── Décisions ──
+    const tbodyDec = document.getElementById('tbody-decisions');
+    tbodyDec.innerHTML = decisions.map((s, i) => {
+      const inCount  = conns.filter(c => c.toId   === s.id).length;
+      const outCount = conns.filter(c => c.fromId === s.id).length;
+      return `<tr>
+        <td class="cds-num">${i+1}</td>
+        <td class="cds-name"><span class="cds-diamond-icon">◇</span>${esc(s.label||'—')}</td>
+        <td class="cds-muted">${esc(bandName(bands,shapes,s.id))}</td>
+        <td class="cds-num cds-in">${inCount}</td>
+        <td class="cds-num cds-out">${outCount}</td>
+      </tr>`;
+    }).join('');
+
+    // ── Connexions ──
+    const tbodyConn = document.getElementById('tbody-connections');
+    tbodyConn.innerHTML = conns.map((c, i) => {
+      const fromLabel = esc(shapeLabel(shapes, c.fromId));
+      const toLabel   = esc(shapeLabel(shapes, c.toId));
+      const isDashed  = c.style === 'dashed';
+      return `<tr data-style="${esc(c.style||'solid')}">
+        <td class="cds-num">${i+1}</td>
+        <td class="cds-name">${fromLabel}</td>
+        <td class="cds-name">${toLabel}</td>
+        <td class="cds-muted">${esc(c.label||'')}</td>
+        <td><span class="cds-badge ${isDashed?'type-dashed':'type-solid'}">${isDashed?'Conditionnelle':'Directe'}</span></td>
+      </tr>`;
+    }).join('');
+
+    // ── Groupes ──
+    const tbodyGrp = document.getElementById('tbody-groups');
+    tbodyGrp.innerHTML = groups.map((g, i) => {
+      const members = (g.shapeIds||[]).map(id => esc(shapeLabel(shapes, id))).join(', ');
+      return `<tr>
+        <td class="cds-num">${i+1}</td>
+        <td class="cds-name">${esc(g.label||'—')}</td>
+        <td><span class="cds-color-swatch" style="background:${esc(g.color||'#b3a0ff')}"></span></td>
+        <td class="cds-members">${members||'—'}</td>
+      </tr>`;
+    }).join('');
   }
 })();
 </script>

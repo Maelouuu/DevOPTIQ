@@ -1610,6 +1610,20 @@ function onDown(e) {
   }
   if (e.button !== 0) return;
 
+  // ── Mode lecture seule : pan + shape-click → postMessage uniquement ──
+  if (window.OPTIQCARTO_READONLY) {
+    const shapeTarget = e.target.closest('[data-type="shape"]');
+    if (shapeTarget) {
+      const sid = parseInt(shapeTarget.getAttribute('data-id'));
+      const s = state.shapes.find(s => s.id === sid);
+      if (s) try { window.parent.postMessage({ t: 'shape-click', label: s.label }, '*'); } catch(_) {}
+      return;
+    }
+    isPanning = true;
+    panStart = { sx: e.clientX, sy: e.clientY, vpX, vpY, moved: false };
+    return;
+  }
+
   const { x, y } = screenToSVG(e.clientX, e.clientY);
 
   // ── Drag depuis une poignée de port (toujours actif) ─────
@@ -1701,14 +1715,6 @@ function onDown(e) {
     const shapeTarget = e.target.closest('[data-type="shape"]');
     if (shapeTarget) {
       const sid = parseInt(shapeTarget.getAttribute('data-id'));
-      // En mode lecture seule : notifier le parent puis stopper
-      if (window.OPTIQCARTO_READONLY) {
-        const s = state.shapes.find(s => s.id === sid);
-        if (s) {
-          try { window.parent.postMessage({ t: 'shape-click', label: s.label }, '*'); } catch(_) {}
-        }
-        return;
-      }
       selectShape(sid, e.shiftKey, true);
       if (!propsOpen) setPropsOpen(true);
 
@@ -2030,6 +2036,7 @@ function onUp(e) {
 }
 
 function onDbl(e) {
+  if (window.OPTIQCARTO_READONLY) return;
   const st = e.target.closest('[data-type="shape"]');
   if (st) {
     const sid = parseInt(st.getAttribute('data-id'));
@@ -3615,9 +3622,31 @@ async function importVSDX(file) {
         const cy = s.y + s.h / 2;
         const br = bRanges.find(r => cy >= r.y0 && cy < r.y1) || bRanges[bRanges.length - 1];
         if (!br) continue;
-        // Clampe Y pour que la shape soit entièrement dans la bande
         if (s.y < br.y0 + PAD_BAND) s.y = br.y0 + PAD_BAND;
         if (s.y + s.h > br.y1 - PAD_BAND) s.y = Math.max(br.y0 + PAD_BAND, br.y1 - PAD_BAND - s.h);
+      }
+    }
+
+    // ── Nudge des losanges (décision) pour améliorer le routage des flèches ──
+    // Décale chaque losange de quelques px vers le centre de masse de ses connexions
+    {
+      const NUDGE = 18; // décalage max en px
+      for (const s of newShapes) {
+        if (s.type !== 'decision') continue;
+        // Aucun changement de bande : seulement un nudge dans l'axe X
+        // On déplace le losange vers le centroïde horizontal de ses voisins
+        const neighbors = newShapes.filter(o => o.id !== s.id && o.type !== 'decision');
+        if (neighbors.length === 0) continue;
+        const nearX = neighbors
+          .map(o => ({ dx: Math.abs((o.x + o.w/2) - (s.x + s.w/2)), cx: o.x + o.w/2 }))
+          .filter(o => o.dx < 200)
+          .sort((a, b) => a.dx - b.dx)
+          .slice(0, 4);
+        if (nearX.length === 0) continue;
+        const avgX = nearX.reduce((sum, o) => sum + o.cx, 0) / nearX.length;
+        const diff = avgX - (s.x + s.w/2);
+        const shift = Math.max(-NUDGE, Math.min(NUDGE, diff * 0.3));
+        if (Math.abs(shift) > 3) s.x = Math.round(s.x + shift);
       }
     }
 
