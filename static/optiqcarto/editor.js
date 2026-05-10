@@ -471,12 +471,20 @@ function avoidShapes(pts, shapes, fromId, toId) {
     return true;
   }
 
+  // Direction globale de la connexion (pour éviter les détours rétrogrades)
+  const netDx = pts[pts.length - 1].x - pts[0].x;
+  const netDy = pts[pts.length - 1].y - pts[0].y;
+
   let result = pts.map(p => ({ ...p }));
-  for (let iter = 0; iter < 6; iter++) {
+  for (let iter = 0; iter < 4; iter++) {
     let changed = false;
     const next = [result[0]];
+    const last = result.length - 1;
     for (let i = 0; i + 1 < result.length; i++) {
       const p1 = result[i], p2 = result[i + 1];
+      const segLen = Math.hypot(p2.x - p1.x, p2.y - p1.y);
+      // Ne pas détourer les segments très courts ni le dernier segment (évite les crochets terminaux)
+      if (segLen < 35 || i === last - 1) { next.push(p2); continue; }
       const blocker = firstBlocker(p1, p2);
       if (!blocker) { next.push(p2); continue; }
       changed = true;
@@ -485,10 +493,15 @@ function avoidShapes(pts, shapes, fromId, toId) {
         const xa = Math.min(p1.x, p2.x), xb = Math.max(p1.x, p2.x);
         const clearA = isClear(aboveY, true, xa, xb, blocker);
         const clearB = isClear(belowY, true, xa, xb, blocker);
+        // Préférer le côté qui s'éloigne le moins de la direction générale
         let ry;
         if (clearA && !clearB) ry = aboveY;
         else if (!clearA && clearB) ry = belowY;
-        else ry = Math.abs(p1.y - aboveY) <= Math.abs(p1.y - belowY) ? aboveY : belowY;
+        else {
+          // Biais vers le côté dans le sens du flux vertical
+          const biasAbove = netDy < 0 ? -200 : 200; // favoriser la direction globale
+          ry = (Math.abs(p1.y - aboveY) + biasAbove) <= (Math.abs(p1.y - belowY)) ? aboveY : belowY;
+        }
         next.push({ x: p1.x, y: ry }, { x: p2.x, y: ry }, p2);
       } else { // vertical → détour gauche ou droite
         const leftX = blocker.x - R, rightX = blocker.x + blocker.w + R;
@@ -498,7 +511,10 @@ function avoidShapes(pts, shapes, fromId, toId) {
         let rx;
         if (clearL && !clearR) rx = leftX;
         else if (!clearL && clearR) rx = rightX;
-        else rx = Math.abs(p1.x - leftX) <= Math.abs(p1.x - rightX) ? leftX : rightX;
+        else {
+          const biasLeft = netDx < 0 ? -200 : 200;
+          rx = (Math.abs(p1.x - leftX) + biasLeft) <= (Math.abs(p1.x - rightX)) ? leftX : rightX;
+        }
         next.push({ x: rx, y: p1.y }, { x: rx, y: p2.y }, p2);
       }
     }
@@ -975,7 +991,7 @@ function renderShapes() {
     const g = el('g', {
       'data-id': s.id, 'data-type': 'shape',
       class: 'shape-group',
-      cursor: tool === 'connect' ? 'crosshair' : 'pointer',
+      cursor: window.OPTIQCARTO_READONLY ? 'pointer' : (tool === 'connect' ? 'crosshair' : 'pointer'),
     }, gShapes);
 
     // Shadow filter
@@ -1117,8 +1133,8 @@ function renderShapes() {
       }, g);
     }
 
-    // ── Port handles (carrés interactifs, visibles au survol dans tous les modes) ──
-    if (isHover && !portDrag) {
+    // ── Port handles (masqués en lecture seule) ──
+    if (isHover && !portDrag && !window.OPTIQCARTO_READONLY) {
       // Taille en SVG inversement proportionnelle au zoom pour rester lisible
       const ps = Math.max(10, Math.round(12 / vpScale));
       const sw = Math.max(1, Math.round(1.5 / vpScale));
