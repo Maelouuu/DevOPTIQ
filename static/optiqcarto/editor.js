@@ -3559,10 +3559,16 @@ async function importVSDX(file) {
     // ── Detect Visio Containers (transparent group boxes) ─────
     // These are semi-transparent labeled shapes that visually wrap activities
     // but are NOT XML parents — membership is determined by bounding-box overlap
+    // Shapes that are connection endpoints are activities, not containers.
+    const connEndpoints = new Set(
+      Object.values(connMap).flatMap(e => [e.source, e.target]).filter(Boolean)
+    );
+
     const containerGroupIds  = new Set();
     const containerGroupData = []; // { id, label, abs }
     for (const { el: s, id } of allShapes) {
       if (connectorIds.has(id) || containerIds.has(id)) continue;
+      if (connEndpoints.has(id)) continue; // connection endpoint → activity, not a container
       // Losanges et ellipses ne sont jamais des conteneurs de groupe
       const mid_cg = s.getAttribute('Master');
       const mInfo_cg = masterInfoCache[mid_cg] || {};
@@ -3714,6 +3720,7 @@ async function importVSDX(file) {
         if (connSrcSet.has(visioId) || connTgtSet.has(visioId)) continue; // déjà connecté
         const abs = shapePinAbs[visioId];
         if (!abs) continue;
+        if (abs.w < 0.7 || abs.h < 0.7) continue; // trop petit → indicateur visuel, pas un vrai nœud décision
         decisionsToPatch.push({ visioId, pinX: abs.pinX, pinY: abs.pinY });
       }
 
