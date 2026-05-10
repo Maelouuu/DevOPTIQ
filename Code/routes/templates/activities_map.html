@@ -1282,16 +1282,35 @@
     document.getElementById('vcm-ring-pct').textContent  = pct + '%';
     document.getElementById('vcm-pct-act').textContent   = (c.activities ?? 0) + '%';
     document.getElementById('vcm-pct-conn').textContent  = (c.connections ?? 0) + '%';
+    const byType = counts.carto_shapes_by_type || {};
+    const circleCount = byType['start-end'] || 0;
+    const totalCartoShapes = Object.values(byType).reduce((a,b)=>a+b,0);
+    const noteHtml = counts.carto_activities !== counts.vsdx_activities
+      ? `<div class="vcm-note"><i class="fa-solid fa-circle-info"></i>
+           Notre carto : <strong>${counts.carto_activities}</strong> étiquettes uniques
+           (${totalCartoShapes} formes dont ${circleCount} cercles de référence) —
+           VSDX : <strong>${counts.vsdx_activities}</strong> activités connectées.
+           L'écart provient des formes isolées ou des cercles visuels sans connexion dans le VSDX.
+         </div>` : '';
     document.getElementById('vcm-counts').innerHTML = `
       <div class="vcm-count-item"><i class="fa-solid fa-shapes"></i> ${counts.matched_activities}/${counts.vsdx_activities} activités retrouvées</div>
-      <div class="vcm-count-item"><i class="fa-solid fa-arrow-right-arrow-left"></i> ${counts.matched_connections}/${counts.vsdx_connections} connexions retrouvées</div>`;
+      <div class="vcm-count-item"><i class="fa-solid fa-arrow-right-arrow-left"></i> ${counts.matched_connections}/${counts.vsdx_connections} connexions retrouvées</div>
+      ${noteHtml}`;
 
     const diffSec = document.getElementById('vcm-diff-section');
+    const typeIcon  = { process: 'fa-square', 'start-end': 'fa-circle', special: 'fa-wave-square' };
+    const typeLabel = { process: 'Process', 'start-end': 'Cercle', special: 'Sous-activité' };
     function renderDiffBlock(title, icon, color, items, isConn) {
       if (!items || items.length === 0) return '';
-      const rows = isConn
-        ? items.map(([a, b]) => `<li><span class="vcm-conn-from">${esc(a)}</span><i class="fa-solid fa-arrow-right"></i><span class="vcm-conn-to">${esc(b)}</span></li>`).join('')
-        : items.map(x => `<li>${esc(x)}</li>`).join('');
+      let rows;
+      if (isConn) {
+        rows = items.map(([a, b]) => `<li><span class="vcm-conn-from">${esc(a)}</span><i class="fa-solid fa-arrow-right"></i><span class="vcm-conn-to">${esc(b)}</span></li>`).join('');
+      } else if (items.length > 0 && typeof items[0] === 'object') {
+        // Format {label, type}
+        rows = items.map(x => `<li><i class="fa-solid ${typeIcon[x.type]||'fa-square'} vcm-type-icon"></i>${esc(x.label)}</li>`).join('');
+      } else {
+        rows = items.map(x => `<li>${esc(x)}</li>`).join('');
+      }
       return `<div class="vcm-diff-block">
         <div class="vcm-diff-title" style="color:${color}"><i class="fa-solid ${icon}"></i> ${title} <span class="vcm-diff-count">${items.length}</span></div>
         <ul class="vcm-diff-list">${rows}</ul>

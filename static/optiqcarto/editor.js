@@ -442,17 +442,24 @@ function avoidShapes(pts, shapes, fromId, toId) {
   const PAD = 20;
   const R   = PAD + 10;
 
+  // Les décisions (losanges) sont des nœuds de routage : leur bounding-box
+  // dépasse leur silhouette visuelle, ce qui génère de faux blocages et des
+  // chemins complexes. On les exclut des obstacles pour les deux fonctions.
+  function isObstacle(s) {
+    return s.id !== fromId && s.id !== toId && s.type !== 'decision';
+  }
+
   function firstBlocker(p1, p2) {
     if (Math.abs(p1.y - p2.y) < 2) {
       const y = p1.y, x1 = Math.min(p1.x, p2.x), x2 = Math.max(p1.x, p2.x);
       for (const s of shapes) {
-        if (s.id === fromId || s.id === toId) continue;
+        if (!isObstacle(s)) continue;
         if (y > s.y - PAD && y < s.y + s.h + PAD && x1 < s.x + s.w + PAD && x2 > s.x - PAD) return s;
       }
     } else if (Math.abs(p1.x - p2.x) < 2) {
       const x = p1.x, y1 = Math.min(p1.y, p2.y), y2 = Math.max(p1.y, p2.y);
       for (const s of shapes) {
-        if (s.id === fromId || s.id === toId) continue;
+        if (!isObstacle(s)) continue;
         if (x > s.x - PAD && x < s.x + s.w + PAD && y1 < s.y + s.h + PAD && y2 > s.y - PAD) return s;
       }
     }
@@ -461,10 +468,10 @@ function avoidShapes(pts, shapes, fromId, toId) {
 
   function isClear(coord, isHoriz, rangeA, rangeB, blocker) {
     for (const s of shapes) {
-      if (s.id === fromId || s.id === toId || s.id === blocker.id) continue;
-      if (isHoriz) { // coord = Y du détour, range = [x1, x2]
+      if (!isObstacle(s) || s.id === blocker.id) continue;
+      if (isHoriz) {
         if (coord > s.y - PAD && coord < s.y + s.h + PAD && rangeA < s.x + s.w + PAD && rangeB > s.x - PAD) return false;
-      } else { // coord = X du détour, range = [y1, y2]
+      } else {
         if (coord > s.x - PAD && coord < s.x + s.w + PAD && rangeA < s.y + s.h + PAD && rangeB > s.y - PAD) return false;
       }
     }

@@ -249,11 +249,17 @@ def api_vsdx_compare():
 
         shape_labels = {s["id"]: (s.get("label") or "").strip() for s in carto_shapes}
 
-        carto_activities = set(
-            normalize_activity_name(s.get("label", ""))
-            for s in carto_shapes
-            if s.get("type") != "decision" and (s.get("label") or "").strip()
-        )
+        # Map norm_label → type pour les activités (pour diagnostic des écarts)
+        norm_to_type = {}
+        for s in carto_shapes:
+            if s.get("type") != "decision" and (s.get("label") or "").strip():
+                norm = normalize_activity_name(s.get("label", ""))
+                # Si la même étiquette existe en process et start-end, on garde process
+                existing = norm_to_type.get(norm)
+                if not existing or s.get("type") == "process":
+                    norm_to_type[norm] = s.get("type", "process")
+
+        carto_activities = set(norm_to_type.keys())
 
         carto_connections = set()
         for c in carto_conns:
@@ -265,6 +271,12 @@ def api_vsdx_compare():
         matched_act = carto_activities & vsdx_activities
         only_carto_act = sorted(carto_activities - vsdx_activities)
         only_vsdx_act = sorted(vsdx_activities - carto_activities)
+
+        # Comptage par type des shapes de notre carto pour expliquer l'écart avec le VSDX
+        type_counts = {}
+        for s in carto_shapes:
+            t = s.get("type", "process")
+            type_counts[t] = type_counts.get(t, 0) + 1
 
         matched_conn = carto_connections & vsdx_connections
         only_carto_conn = sorted(carto_connections - vsdx_connections)
@@ -293,9 +305,14 @@ def api_vsdx_compare():
                 "vsdx_connections": len(vsdx_connections),
                 "carto_connections": len(carto_connections),
                 "matched_connections": len(matched_conn),
+                # Détail par type des shapes dans notre carto (aide à expliquer l'écart)
+                "carto_shapes_by_type": type_counts,
             },
             "differences": {
-                "activities_only_in_carto": only_carto_act,
+                "activities_only_in_carto": [
+                    {"label": lbl, "type": norm_to_type.get(lbl, "process")}
+                    for lbl in only_carto_act
+                ],
                 "activities_only_in_vsdx": only_vsdx_act,
                 "connections_only_in_carto": [[a, b] for a, b in only_carto_conn],
                 "connections_only_in_vsdx": [[a, b] for a, b in only_vsdx_conn],
