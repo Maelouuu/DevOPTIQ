@@ -572,7 +572,12 @@
           <p class="cds-sub">Toutes les données extraites de la carto — activités, connexions, groupes</p>
         </div>
       </div>
-      <span class="cds-loading" id="cds-loading"><i class="fa-solid fa-circle-notch fa-spin"></i> Chargement…</span>
+      <div class="cds-header-right">
+        <button class="cds-compare-btn" id="btn-vsdx-compare" title="Comparer avec un fichier Visio">
+          <i class="fa-solid fa-code-compare"></i> Correspondance
+        </button>
+        <span class="cds-loading" id="cds-loading"><i class="fa-solid fa-circle-notch fa-spin"></i> Chargement…</span>
+      </div>
     </div>
 
     <!-- Tabs -->
@@ -648,6 +653,78 @@
   </div>
   {% endif %}
 
+</div>
+
+<!-- ── Modal CORRESPONDANCE VSDX ── -->
+<div id="vsdx-compare-modal" class="vcm-overlay hidden" role="dialog" aria-modal="true">
+  <div class="vcm-card">
+    <div class="vcm-header">
+      <div class="vcm-header-icon"><i class="fa-solid fa-code-compare"></i></div>
+      <div>
+        <h2>Correspondance VSDX</h2>
+        <p class="vcm-sub">Comparez votre cartographie sauvegardée avec un fichier Visio</p>
+      </div>
+      <button class="vcm-close" id="vcm-close"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+
+    <!-- Zone de dépôt -->
+    <div class="vcm-body" id="vcm-body-upload">
+      <div class="vcm-dropzone" id="vcm-dropzone">
+        <input type="file" id="vcm-file-input" accept=".vsdx" style="display:none">
+        <i class="fa-solid fa-file-arrow-up vcm-drop-icon"></i>
+        <p class="vcm-drop-text">Glissez votre fichier <strong>.vsdx</strong> ici</p>
+        <p class="vcm-drop-or">ou</p>
+        <button class="vcm-browse-btn" id="vcm-browse-btn">Parcourir…</button>
+      </div>
+      <div class="vcm-file-preview hidden" id="vcm-file-preview">
+        <i class="fa-solid fa-file-lines vcm-fp-icon"></i>
+        <span class="vcm-fp-name" id="vcm-fp-name"></span>
+        <button class="vcm-fp-remove" id="vcm-fp-remove"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="vcm-actions">
+        <button class="vcm-btn-compare" id="vcm-btn-compare" disabled>
+          <i class="fa-solid fa-magnifying-glass-chart"></i> Analyser
+        </button>
+      </div>
+    </div>
+
+    <!-- Résultats -->
+    <div class="vcm-body vcm-results hidden" id="vcm-body-results">
+      <div class="vcm-compat-ring-row">
+        <div class="vcm-compat-ring-wrap">
+          <svg class="vcm-ring" viewBox="0 0 36 36">
+            <circle cx="18" cy="18" r="14" fill="none" stroke="#e5e7eb" stroke-width="3.5"/>
+            <circle cx="18" cy="18" r="14" fill="none" stroke="#6366f1" stroke-width="3.5"
+              id="vcm-ring-circle"
+              stroke-dasharray="0 87.96" stroke-dashoffset="21.99" transform="rotate(-90 18 18)"/>
+          </svg>
+          <div class="vcm-ring-center" id="vcm-ring-pct">—</div>
+        </div>
+        <div class="vcm-compat-detail">
+          <div class="vcm-compat-row"><span>Activités</span><strong id="vcm-pct-act">—</strong></div>
+          <div class="vcm-compat-row"><span>Connexions</span><strong id="vcm-pct-conn">—</strong></div>
+          <div class="vcm-compat-counts" id="vcm-counts"></div>
+        </div>
+      </div>
+
+      <div class="vcm-diff-section" id="vcm-diff-section"></div>
+
+      <div class="vcm-parse-errors hidden" id="vcm-parse-errors">
+        <i class="fa-solid fa-triangle-exclamation"></i>
+        <span id="vcm-parse-errors-text"></span>
+      </div>
+
+      <button class="vcm-btn-reset" id="vcm-btn-reset">
+        <i class="fa-solid fa-rotate-left"></i> Comparer un autre fichier
+      </button>
+    </div>
+
+    <!-- Chargement -->
+    <div class="vcm-body vcm-loading hidden" id="vcm-body-loading">
+      <i class="fa-solid fa-circle-notch fa-spin vcm-spin-icon"></i>
+      <p>Analyse en cours…</p>
+    </div>
+  </div>
 </div>
 
 <!-- ── Modal EXPORT ── -->
@@ -845,7 +922,9 @@
     .catch(() => { if (loading) loading.style.display = 'none'; });
 
   function renderInsights(data) {
-    const shapes = (data.shapes || []).filter(s => s.type === 'process' || s.type === 'start-end' || s.type === 'special' || s.type === 'decision');
+    // Activités = formes hors décisions (cohérent avec l'onglet Données)
+    const shapes    = (data.shapes || []).filter(s => s.type === 'process' || s.type === 'start-end' || s.type === 'special');
+    const allShapes = (data.shapes || []).filter(s => s.type === 'process' || s.type === 'start-end' || s.type === 'special' || s.type === 'decision');
     const conns  = data.connections || [];
     const bands  = data.bands || [];
 
@@ -868,7 +947,7 @@
       const counts = bRanges.map(br => ({
         label: br.label,
         color: br.color,
-        count: shapes.filter(s => {
+        count: allShapes.filter(s => {
           const cy = s.y + s.h / 2;
           return cy >= br.y0 && cy < br.y1;
         }).length,
@@ -886,13 +965,13 @@
 
     // Hub activities (top 5 par nombre total de connexions)
     const hubsList = document.getElementById('hubs-list');
-    if (hubsList && shapes.length > 0) {
+    if (hubsList && allShapes.length > 0) {
       const connCount = {};
       for (const c of conns) {
         connCount[c.fromId] = (connCount[c.fromId] || 0) + 1;
         connCount[c.toId]   = (connCount[c.toId]   || 0) + 1;
       }
-      const sorted = shapes
+      const sorted = allShapes
         .map(s => ({ label: s.label, total: connCount[s.id] || 0,
           out: conns.filter(c => c.fromId === s.id).length,
           in:  conns.filter(c => c.toId   === s.id).length }))
@@ -1108,6 +1187,135 @@
         <td class="cds-members">${members||'—'}</td>
       </tr>`;
     }).join('');
+  }
+})();
+</script>
+
+<!-- ── Modal Correspondance VSDX ── -->
+<script>
+(function() {
+  const modal   = document.getElementById('vsdx-compare-modal');
+  const btnOpen = document.getElementById('btn-vsdx-compare');
+  const btnClose= document.getElementById('vcm-close');
+  const dropzone= document.getElementById('vcm-dropzone');
+  const fileInput= document.getElementById('vcm-file-input');
+  const browseBtn= document.getElementById('vcm-browse-btn');
+  const preview = document.getElementById('vcm-file-preview');
+  const previewName= document.getElementById('vcm-fp-name');
+  const removeBtn= document.getElementById('vcm-fp-remove');
+  const compareBtn= document.getElementById('vcm-btn-compare');
+  const resetBtn= document.getElementById('vcm-btn-reset');
+  const bodyUpload= document.getElementById('vcm-body-upload');
+  const bodyResults= document.getElementById('vcm-body-results');
+  const bodyLoading= document.getElementById('vcm-body-loading');
+
+  let selectedFile = null;
+
+  function openModal() { modal.classList.remove('hidden'); document.body.style.overflow = 'hidden'; }
+  function closeModal() { modal.classList.add('hidden'); document.body.style.overflow = ''; }
+  function showBody(name) {
+    bodyUpload.classList.add('hidden');
+    bodyResults.classList.add('hidden');
+    bodyLoading.classList.add('hidden');
+    document.getElementById('vcm-body-' + name).classList.remove('hidden');
+  }
+
+  btnOpen?.addEventListener('click', openModal);
+  btnClose?.addEventListener('click', closeModal);
+  modal?.addEventListener('click', e => { if (e.target === modal) closeModal(); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && !modal.classList.contains('hidden')) closeModal(); });
+
+  browseBtn?.addEventListener('click', () => fileInput.click());
+  fileInput?.addEventListener('change', () => setFile(fileInput.files[0]));
+
+  dropzone?.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('drag-over'); });
+  dropzone?.addEventListener('dragleave', () => dropzone.classList.remove('drag-over'));
+  dropzone?.addEventListener('drop', e => {
+    e.preventDefault();
+    dropzone.classList.remove('drag-over');
+    const f = e.dataTransfer.files[0];
+    if (f && f.name.toLowerCase().endsWith('.vsdx')) setFile(f);
+  });
+
+  removeBtn?.addEventListener('click', () => setFile(null));
+
+  function setFile(f) {
+    selectedFile = f;
+    if (f) {
+      previewName.textContent = f.name;
+      dropzone.classList.add('hidden');
+      preview.classList.remove('hidden');
+      compareBtn.disabled = false;
+    } else {
+      fileInput.value = '';
+      dropzone.classList.remove('hidden');
+      preview.classList.add('hidden');
+      compareBtn.disabled = true;
+    }
+  }
+
+  compareBtn?.addEventListener('click', () => {
+    if (!selectedFile) return;
+    showBody('loading');
+    const fd = new FormData();
+    fd.append('file', selectedFile);
+    fetch('/cartography/api/vsdx-compare', { method: 'POST', body: fd })
+      .then(r => r.json())
+      .then(data => {
+        if (data.error) { alert(data.error); showBody('upload'); return; }
+        renderResults(data);
+      })
+      .catch(() => { alert('Erreur lors de l\'analyse.'); showBody('upload'); });
+  });
+
+  resetBtn?.addEventListener('click', () => { setFile(null); showBody('upload'); });
+
+  function renderResults(data) {
+    const c = data.compatibility || {};
+    const counts = data.counts || {};
+    const diff = data.differences || {};
+
+    const pct = c.global ?? 0;
+    const circle = document.getElementById('vcm-ring-circle');
+    circle.setAttribute('stroke-dasharray', `${(pct / 100 * 87.96).toFixed(2)} 87.96`);
+    circle.setAttribute('stroke', pct >= 80 ? '#22c55e' : pct >= 50 ? '#f59e0b' : '#ef4444');
+    document.getElementById('vcm-ring-pct').textContent  = pct + '%';
+    document.getElementById('vcm-pct-act').textContent   = (c.activities ?? 0) + '%';
+    document.getElementById('vcm-pct-conn').textContent  = (c.connections ?? 0) + '%';
+    document.getElementById('vcm-counts').innerHTML = `
+      <div class="vcm-count-item"><i class="fa-solid fa-shapes"></i> ${counts.matched_activities}/${counts.vsdx_activities} activités retrouvées</div>
+      <div class="vcm-count-item"><i class="fa-solid fa-arrow-right-arrow-left"></i> ${counts.matched_connections}/${counts.vsdx_connections} connexions retrouvées</div>`;
+
+    const diffSec = document.getElementById('vcm-diff-section');
+    function renderDiffBlock(title, icon, color, items, isConn) {
+      if (!items || items.length === 0) return '';
+      const rows = isConn
+        ? items.map(([a, b]) => `<li><span class="vcm-conn-from">${esc(a)}</span><i class="fa-solid fa-arrow-right"></i><span class="vcm-conn-to">${esc(b)}</span></li>`).join('')
+        : items.map(x => `<li>${esc(x)}</li>`).join('');
+      return `<div class="vcm-diff-block">
+        <div class="vcm-diff-title" style="color:${color}"><i class="fa-solid ${icon}"></i> ${title} <span class="vcm-diff-count">${items.length}</span></div>
+        <ul class="vcm-diff-list">${rows}</ul>
+      </div>`;
+    }
+    diffSec.innerHTML = [
+      renderDiffBlock('Dans notre carto, absent du VSDX', 'fa-circle-plus', '#6366f1', diff.activities_only_in_carto, false),
+      renderDiffBlock('Dans le VSDX, absent de notre carto', 'fa-circle-minus', '#ef4444', diff.activities_only_in_vsdx, false),
+      renderDiffBlock('Connexions extra dans notre carto', 'fa-link', '#f59e0b', diff.connections_only_in_carto, true),
+      renderDiffBlock('Connexions manquantes vs VSDX', 'fa-link-slash', '#ef4444', diff.connections_only_in_vsdx, true),
+    ].filter(Boolean).join('') || '<p class="vcm-perfect"><i class="fa-solid fa-circle-check"></i> Correspondance parfaite !</p>';
+
+    const errWrap = document.getElementById('vcm-parse-errors');
+    if (data.parse_errors && data.parse_errors.length > 0) {
+      document.getElementById('vcm-parse-errors-text').textContent = data.parse_errors.join(' · ');
+      errWrap.classList.remove('hidden');
+    } else {
+      errWrap.classList.add('hidden');
+    }
+    showBody('results');
+  }
+
+  function esc(s) {
+    return (s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   }
 })();
 </script>

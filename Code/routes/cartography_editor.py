@@ -6,6 +6,7 @@ Le fichier VSDX reste sur disque (upload ponctuel, non critique).
 """
 import json
 import os
+import tempfile
 
 from flask import (
     Blueprint,
@@ -199,3 +200,110 @@ def api_vsdx():
 
     return send_file(path, mimetype="application/octet-stream",
                      download_name="connections.vsdx")
+
+
+@cartography_editor_bp.route("/api/vsdx-compare", methods=["POST"])
+def api_vsdx_compare():
+    """Compare un fichier VSDX uploadé avec la carto sauvegardée dans notre outil."""
+    if not _require_auth():
+        return jsonify({"error": "Non autorisé"}), 403
+
+    entity = _get_active_entity()
+    if not entity:
+        return jsonify({"error": "Aucune entité active"}), 400
+
+    if not entity.optiqcarto_data:
+        return jsonify({"error": "Aucune cartographie sauvegardée pour cette entité"}), 404
+
+    if "file" not in request.files:
+        return jsonify({"error": "Aucun fichier fourni"}), 400
+
+    f = request.files["file"]
+    if not f.filename.lower().endswith(".vsdx"):
+        return jsonify({"error": "Format invalide (attendu .vsdx)"}), 400
+
+    tmp = tempfile.NamedTemporaryFile(suffix=".vsdx", delete=False)
+    try:
+        f.save(tmp.name)
+        tmp.close()
+
+        from Code.routes.vsdx_conection_parser import (
+            VsdxConnectionParser,
+            normalize_activity_name,
+        )
+
+        parser = VsdxConnectionParser(tmp.name)
+        connections, errors = parser.parse()
+
+        vsdx_activities = set(
+            normalize_activity_name(a) for a in parser.get_unique_activities()
+        )
+        vsdx_connections = set(
+            (normalize_activity_name(c["source_name"]), normalize_activity_name(c["target_name"]))
+            for c in connections
+        )
+
+        carto = json.loads(entity.optiqcarto_data)
+        carto_shapes = carto.get("shapes", [])
+        carto_conns = carto.get("connections", [])
+
+        shape_labels = {s["id"]: (s.get("label") or "").strip() for s in carto_shapes}
+
+        carto_activities = set(
+            normalize_activity_name(s.get("label", ""))
+            for s in carto_shapes
+            if s.get("type") != "decision" and (s.get("label") or "").strip()
+        )
+
+        carto_connections = set()
+        for c in carto_conns:
+            fl = shape_labels.get(c.get("fromId"), "")
+            tl = shape_labels.get(c.get("toId"), "")
+            if fl and tl:
+                carto_connections.add((normalize_activity_name(fl), normalize_activity_name(tl)))
+
+        matched_act = carto_activities & vsdx_activities
+        only_carto_act = sorted(carto_activities - vsdx_activities)
+        only_vsdx_act = sorted(vsdx_activities - carto_activities)
+
+        matched_conn = carto_connections & vsdx_connections
+        only_carto_conn = sorted(carto_connections - vsdx_connections)
+        only_vsdx_conn = sorted(vsdx_connections - carto_connections)
+
+        ref_act = max(len(vsdx_activities), 1)
+        ref_conn = max(len(vsdx_connections), 1)
+        compat_act = round(len(matched_act) / ref_act * 100)
+        compat_conn = round(len(matched_conn) / ref_conn * 100)
+        compat_global = round(
+            (len(matched_act) + len(matched_conn))
+            / max(len(vsdx_activities) + len(vsdx_connections), 1)
+            * 100
+        )
+
+        return jsonify({
+            "compatibility": {
+                "global": compat_global,
+                "activities": compat_act,
+                "connections": compat_conn,
+            },
+            "counts": {
+                "vsdx_activities": len(vsdx_activities),
+                "carto_activities": len(carto_activities),
+                "matched_activities": len(matched_act),
+                "vsdx_connections": len(vsdx_connections),
+                "carto_connections": len(carto_connections),
+                "matched_connections": len(matched_conn),
+            },
+            "differences": {
+                "activities_only_in_carto": only_carto_act,
+                "activities_only_in_vsdx": only_vsdx_act,
+                "connections_only_in_carto": [[a, b] for a, b in only_carto_conn],
+                "connections_only_in_vsdx": [[a, b] for a, b in only_vsdx_conn],
+            },
+            "parse_errors": errors,
+        })
+    finally:
+        try:
+            os.unlink(tmp.name)
+        except OSError:
+            pass
