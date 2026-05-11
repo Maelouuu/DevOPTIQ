@@ -20,7 +20,7 @@ from flask import (
 )
 
 from Code.extensions import db
-from Code.models.models import Entity
+from Code.models.models import Activity, Entity, Link, Role, activity_roles
 
 cartography_editor_bp = Blueprint("cartography_editor", __name__, url_prefix="/cartography")
 
@@ -115,6 +115,148 @@ def editor():
 
 
 # ─────────────────────────────────────────────
+# CARTO → DB SYNC HELPERS
+# ─────────────────────────────────────────────
+
+_ACTIVITY_TYPES = {'process', 'start-end', 'special'}
+_BANDS_START_Y  = -200  # matches editor.js getBandForY()
+
+
+def _get_band_for_y(bands, mid_y):
+    """Return the band dict that contains mid_y, or None."""
+    y = _BANDS_START_Y
+    for band in bands:
+        h = band.get('height', 180)
+        if y <= mid_y < y + h:
+            return band
+        y += h
+    return None
+
+
+def _compute_removals(entity, new_diagram):
+    """Dry-run: return names that would be deleted if new_diagram is saved."""
+    new_shapes = new_diagram.get('shapes', [])
+    new_bands  = new_diagram.get('bands',  [])
+
+    new_shape_ids  = {str(s['id']) for s in new_shapes if s.get('type') in _ACTIVITY_TYPES}
+    new_band_names = {(b.get('label') or '').strip() for b in new_bands}
+
+    existing_acts  = Activity.query.filter_by(entity_id=entity.id).filter(
+        Activity.shape_id.isnot(None)
+    ).all()
+    existing_roles = Role.query.filter_by(entity_id=entity.id).all()
+
+    removed_activities = [a.name for a in existing_acts  if str(a.shape_id) not in new_shape_ids]
+    removed_roles      = [r.name for r in existing_roles if r.name not in new_band_names]
+    return {'removed_activities': removed_activities, 'removed_roles': removed_roles}
+
+
+def _sync_carto_to_db(entity, diagram):
+    """Full re-extraction: upsert activities, roles, links from the carto diagram."""
+    shapes      = diagram.get('shapes',      [])
+    bands       = diagram.get('bands',       [])
+    connections = diagram.get('connections', [])
+
+    act_shapes = [s for s in shapes if s.get('type') in _ACTIVITY_TYPES]
+
+    # ── Activities ────────────────────────────────────────────────────────────
+    existing_acts = {a.shape_id: a for a in
+                     Activity.query.filter_by(entity_id=entity.id).filter(
+                         Activity.shape_id.isnot(None)).all()}
+
+    new_shape_ids  = {str(s['id']) for s in act_shapes}
+    shape_to_act   = {}  # str(shape_id) → Activity
+
+    for s in act_shapes:
+        sid   = str(s['id'])
+        label = (s.get('label') or '').strip()
+        is_result = s.get('type') == 'special'
+
+        if sid in existing_acts:
+            act = existing_acts[sid]
+            act.name      = label
+            act.is_result = is_result
+        else:
+            act = Activity(entity_id=entity.id, shape_id=sid,
+                           name=label, is_result=is_result)
+            db.session.add(act)
+        shape_to_act[sid] = act
+
+    for sid, act in existing_acts.items():
+        if sid not in new_shape_ids:
+            db.session.delete(act)
+
+    db.session.flush()  # assign IDs to new activities
+
+    # ── Roles (bands) ─────────────────────────────────────────────────────────
+    existing_roles = {r.name: r for r in Role.query.filter_by(entity_id=entity.id).all()}
+    new_band_names = {(b.get('label') or '').strip() for b in bands}
+    band_to_role   = {}  # band id → Role
+
+    for band in bands:
+        name = (band.get('label') or '').strip()
+        if name in existing_roles:
+            role = existing_roles[name]
+        else:
+            role = Role(entity_id=entity.id, name=name)
+            db.session.add(role)
+        band_to_role[band['id']] = role
+
+    for name, role in existing_roles.items():
+        if name not in new_band_names:
+            db.session.delete(role)
+
+    db.session.flush()
+
+    # ── Activity-Role associations ────────────────────────────────────────────
+    act_ids = [a.id for a in shape_to_act.values() if a.id]
+    if act_ids:
+        db.session.execute(
+            activity_roles.delete().where(activity_roles.c.activity_id.in_(act_ids))
+        )
+
+    for s in act_shapes:
+        sid = str(s['id'])
+        act = shape_to_act.get(sid)
+        if not act or not act.id:
+            continue
+        mid_y = s.get('y', 0) + s.get('h', 0) / 2
+        band  = _get_band_for_y(bands, mid_y)
+        if not band:
+            continue
+        role = band_to_role.get(band['id'])
+        if role and role.id:
+            db.session.execute(activity_roles.insert().values(
+                activity_id=act.id, role_id=role.id, status='garant'
+            ))
+
+    # ── Links (connections) ───────────────────────────────────────────────────
+    # Delete all carto-derived links for this entity, then re-insert
+    Link.query.filter_by(entity_id=entity.id).filter(
+        Link.source_activity_id.isnot(None),
+        Link.target_activity_id.isnot(None),
+    ).delete()
+
+    for conn in connections:
+        from_sid = str(conn.get('fromId', ''))
+        to_sid   = str(conn.get('toId',   ''))
+        from_act = shape_to_act.get(from_sid)
+        to_act   = shape_to_act.get(to_sid)
+        if not from_act or not to_act or not from_act.id or not to_act.id:
+            continue
+        label = (conn.get('label') or '').strip()
+        db.session.add(Link(
+            entity_id=entity.id,
+            source_activity_id=from_act.id,
+            target_activity_id=to_act.id,
+            type=label or 'flux',
+            description=label or None,
+        ))
+
+    db.session.commit()
+
+
+# ─────────────────────────────────────────────
 # API SAVE / LOAD / LIST / DELETE
 # ─────────────────────────────────────────────
 
@@ -127,14 +269,39 @@ def api_save():
     if not entity:
         return jsonify({"error": "Aucune entité active"}), 400
 
-    data = request.get_json(force=True)
+    data    = request.get_json(force=True)
     diagram = data.get("diagram", data)  # accepte {diagram: ...} ou le state direct
 
-    # Stockage en base (persistant entre redémarrages Cloud Run)
     entity.optiqcarto_data = json.dumps(diagram, ensure_ascii=False)
     db.session.commit()
 
+    # Re-extract activities / roles / links from the saved diagram
+    try:
+        _sync_carto_to_db(entity, diagram)
+    except Exception as exc:
+        # Non-blocking: the carto is saved; sync failure is logged only
+        import traceback
+        traceback.print_exc()
+
     return jsonify({"ok": True, "name": entity.name or f"entity_{entity.id}"})
+
+
+@cartography_editor_bp.route("/api/save-diff", methods=["POST"])
+def api_save_diff():
+    """Return what would be removed if the given diagram is saved (no commit)."""
+    if not _require_auth():
+        return jsonify({"error": "Non autorisé"}), 403
+
+    entity = _get_active_entity()
+    if not entity:
+        return jsonify({"error": "Aucune entité active"}), 400
+
+    if not entity.optiqcarto_data:
+        return jsonify({"removed_activities": [], "removed_roles": []})
+
+    data    = request.get_json(force=True)
+    diagram = data.get("diagram", data)
+    return jsonify(_compute_removals(entity, diagram))
 
 
 @cartography_editor_bp.route("/api/load/<name>")

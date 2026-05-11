@@ -1639,7 +1639,7 @@ function onDown(e) {
     if (shapeTarget) {
       const sid = parseInt(shapeTarget.getAttribute('data-id'));
       const s = state.shapes.find(s => s.id === sid);
-      if (s) try { window.parent.postMessage({ t: 'shape-click', label: s.label }, '*'); } catch(_) {}
+      if (s) try { window.parent.postMessage({ t: 'shape-click', label: s.label, shapeId: s.id, shapeType: s.type }, '*'); } catch(_) {}
       return;
     }
     isPanning = true;
@@ -2696,11 +2696,63 @@ function _doNewCarto() {
    SAVE / LOAD JSON
    ══════════════════════════════════════════════════ */
 
+function _showSaveWarningModal(diff) {
+  return new Promise(resolve => {
+    const modal    = document.getElementById('save-warning-modal');
+    const listEl   = document.getElementById('swm-removed-list');
+    const confirmBtn = document.getElementById('swm-confirm');
+    const cancelBtn  = document.getElementById('swm-cancel');
+    if (!modal) { resolve(true); return; }
+
+    listEl.innerHTML = '';
+    const all = [
+      ...(diff.removed_activities || []).map(n => ({ label: n, icon: 'fa-square-check', cat: 'Activité' })),
+      ...(diff.removed_roles      || []).map(n => ({ label: n, icon: 'fa-layer-group',   cat: 'Rôle'   })),
+    ];
+    all.forEach(({ label, icon, cat }) => {
+      const li = document.createElement('li');
+      li.innerHTML = `<i class="fa-solid ${icon}"></i><span class="swm-cat">${cat}</span>${label}`;
+      listEl.appendChild(li);
+    });
+
+    modal.classList.remove('hidden');
+
+    const cleanup = () => {
+      modal.classList.add('hidden');
+      confirmBtn.removeEventListener('click', onConfirm);
+      cancelBtn.removeEventListener('click',  onCancel);
+    };
+    const onConfirm = () => { cleanup(); resolve(true);  };
+    const onCancel  = () => { cleanup(); resolve(false); };
+    confirmBtn.addEventListener('click', onConfirm);
+    cancelBtn.addEventListener('click',  onCancel);
+  });
+}
+
 async function saveJSON() {
-  const res = await fetch('/cartography/api/save', {
-    method: 'POST',
+  const apiBase = window.OPTIQCARTO_API_BASE || '/cartography';
+
+  // Check what would be removed (only when there's an existing carto in DB)
+  try {
+    const diffRes = await fetch(`${apiBase}/api/save-diff`, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ diagram: state }),
+    });
+    if (diffRes.ok) {
+      const diff = await diffRes.json();
+      const hasRemovals = (diff.removed_activities?.length || diff.removed_roles?.length);
+      if (hasRemovals) {
+        const confirmed = await _showSaveWarningModal(diff);
+        if (!confirmed) return;
+      }
+    }
+  } catch (_) { /* offline or no diff endpoint — proceed */ }
+
+  const res  = await fetch(`${apiBase}/api/save`, {
+    method:  'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ diagram: state }),
+    body:    JSON.stringify({ diagram: state }),
   });
   const data = await res.json();
   if (data.ok) showToast('Cartographie sauvegardée ✓');
