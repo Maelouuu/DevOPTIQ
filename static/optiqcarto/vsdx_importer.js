@@ -501,7 +501,7 @@ class VsdxImporter {
       const rawH = Math.round(vH * SCALE);
       const screenW = Math.min(MAX_ACT_W, rawW);
       const screenH = Math.min(MAX_ACT_H, rawH);
-      const screenX = Math.round((abs.pinX - leftEdge) * SCALE) - Math.round(screenW / 2);
+      const screenX = Math.max(144, Math.round((abs.pinX - leftEdge) * SCALE) - Math.round(screenW / 2));
       const screenY = Math.max(0, Math.round((topOfDiagram - abs.pinY) * SCALE) - Math.round(screenH / 2));
       if (screenY > totalBandH + 100) continue; // outside diagram
 

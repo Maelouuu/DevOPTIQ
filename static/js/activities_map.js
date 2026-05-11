@@ -965,6 +965,325 @@ async function navigateToLinkedCarto(entityId, entityName, activityName) {
 }
 
 /* ============================================================
+   SHAPE COMPARISON SECTION (SCS)
+============================================================ */
+
+function initShapeComparison() {
+  const TYPES_INTERESTED = ['process', 'start-end', 'special'];
+  const TYPE_LABELS = { process: 'Act.', 'start-end': 'Cer.', special: 'S-Act.' };
+
+  let cartoItems = [];   // { label, type }
+  let vsdxItems  = [];   // { label, type }
+  let activeType = 'all';
+
+  // ── DOM refs ──────────────────────────────────────────────────────────────
+  const listCarto   = document.getElementById('scs-list-carto');
+  const listVsdx    = document.getElementById('scs-list-vsdx');
+  const countCarto  = document.getElementById('scs-count-carto');
+  const countVsdx   = document.getElementById('scs-count-vsdx');
+  const searchCarto = document.getElementById('scs-search-carto');
+  const searchVsdx  = document.getElementById('scs-search-vsdx');
+  const dropzone    = document.getElementById('scs-dropzone');
+  const fileInput   = document.getElementById('scs-file-input');
+  const browseBtn   = document.getElementById('scs-browse-btn');
+  const statusEl    = document.getElementById('scs-vsdx-status');
+  const resetBtn    = document.getElementById('scs-reset-vsdx');
+  const entityBadge = document.getElementById('scs-entity-badge');
+  const filterBtns  = document.querySelectorAll('#scs-type-filters .scs-filter');
+
+  if (!listCarto) return;  // section absent (no carto)
+
+  const entity = window.ACTIVE_ENTITY;
+  if (entityBadge && entity) entityBadge.textContent = entity;
+
+  // ── Render helpers ────────────────────────────────────────────────────────
+  function renderList(el, items, searchVal) {
+    const q = (searchVal || '').toLowerCase().trim();
+    let visible = 0;
+    el.innerHTML = '';
+    for (const it of items) {
+      if (activeType !== 'all' && it.type !== activeType) continue;
+      const hidden = q && !it.label.toLowerCase().includes(q);
+      const div = document.createElement('div');
+      div.className = 'scs-item' + (hidden ? ' hidden' : '');
+      div.innerHTML = `<span class="scs-type-badge ${it.type}">${TYPE_LABELS[it.type] || it.type}</span>
+        <span class="scs-item-label" title="${it.label.replace(/"/g, '&quot;')}">${it.label}</span>`;
+      el.appendChild(div);
+      if (!hidden) visible++;
+    }
+    if (el.children.length === 0) {
+      el.innerHTML = '<div class="scs-empty">Aucun élément</div>';
+    }
+    return visible;
+  }
+
+  function updateCount(el, items) {
+    const count = activeType === 'all'
+      ? items.filter(i => TYPES_INTERESTED.includes(i.type)).length
+      : items.filter(i => i.type === activeType).length;
+    if (el) el.textContent = count;
+  }
+
+  function refresh() {
+    const vc = renderList(listCarto, cartoItems, searchCarto ? searchCarto.value : '');
+    const vv = renderList(listVsdx,  vsdxItems,  searchVsdx  ? searchVsdx.value  : '');
+    updateCount(countCarto, cartoItems);
+    updateCount(countVsdx,  vsdxItems);
+  }
+
+  // ── Load carto data ───────────────────────────────────────────────────────
+  async function loadCartoItems() {
+    if (!entity) {
+      listCarto.innerHTML = '<div class="scs-empty">Entité inconnue</div>';
+      return;
+    }
+    try {
+      const res = await fetch(`/cartography/api/load/${encodeURIComponent(entity)}`);
+      if (!res.ok) throw new Error(res.status);
+      const data = await res.json();
+      cartoItems = (data.shapes || [])
+        .filter(s => TYPES_INTERESTED.includes(s.type))
+        .map(s => ({ label: (s.label || '').trim(), type: s.type }))
+        .sort((a, b) => a.label.localeCompare(b.label, 'fr'));
+      refresh();
+    } catch (e) {
+      listCarto.innerHTML = '<div class="scs-empty">Erreur de chargement</div>';
+      console.error('SCS carto load error:', e);
+    }
+  }
+
+  // ── VSDX parsing ──────────────────────────────────────────────────────────
+  async function parseVsdx(file) {
+    if (typeof vsdxParse !== 'function') {
+      statusEl.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> Parser VSDX non disponible';
+      return;
+    }
+    dropzone.classList.add('hidden');
+    statusEl.classList.remove('hidden');
+    statusEl.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Analyse du VSDX…';
+
+    try {
+      const result = await vsdxParse(file, () => {}, () => {});
+      vsdxItems = (result.shapes || [])
+        .filter(s => TYPES_INTERESTED.includes(s.type))
+        .map(s => ({ label: (s.label || '').trim(), type: s.type }))
+        .sort((a, b) => a.label.localeCompare(b.label, 'fr'));
+
+      statusEl.classList.add('hidden');
+      listVsdx.classList.remove('hidden');
+      if (searchVsdx) searchVsdx.classList.remove('hidden');
+      resetBtn.classList.remove('hidden');
+      refresh();
+    } catch (e) {
+      console.error('SCS vsdx parse error:', e);
+      statusEl.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> Erreur lors de l\'analyse';
+    }
+  }
+
+  function resetVsdx() {
+    vsdxItems = [];
+    listVsdx.classList.add('hidden');
+    if (searchVsdx) { searchVsdx.classList.add('hidden'); searchVsdx.value = ''; }
+    resetBtn.classList.add('hidden');
+    dropzone.classList.remove('hidden');
+    if (countVsdx) countVsdx.textContent = '—';
+    if (fileInput) fileInput.value = '';
+  }
+
+  // ── Filter buttons ────────────────────────────────────────────────────────
+  filterBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      filterBtns.forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      activeType = btn.dataset.type || 'all';
+      refresh();
+    });
+  });
+
+  // ── Search ────────────────────────────────────────────────────────────────
+  if (searchCarto) searchCarto.addEventListener('input', refresh);
+  if (searchVsdx)  searchVsdx.addEventListener('input', refresh);
+
+  // ── File input / drop ─────────────────────────────────────────────────────
+  if (browseBtn) browseBtn.addEventListener('click', () => fileInput && fileInput.click());
+  if (fileInput) fileInput.addEventListener('change', () => {
+    if (fileInput.files[0]) parseVsdx(fileInput.files[0]);
+  });
+  if (dropzone) {
+    dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('drag-over'); });
+    dropzone.addEventListener('dragleave', () => dropzone.classList.remove('drag-over'));
+    dropzone.addEventListener('drop', e => {
+      e.preventDefault();
+      dropzone.classList.remove('drag-over');
+      const f = e.dataTransfer.files[0];
+      if (f && f.name.toLowerCase().endsWith('.vsdx')) parseVsdx(f);
+    });
+  }
+  if (resetBtn) resetBtn.addEventListener('click', resetVsdx);
+
+  // ── Bootstrap ─────────────────────────────────────────────────────────────
+  loadCartoItems();
+}
+
+/* ============================================================
+   VCM MODAL (Correspondance VSDX)
+============================================================ */
+
+function initVsdxCompareModal() {
+  const overlay    = document.getElementById('vsdx-compare-modal');
+  const closeBtn   = document.getElementById('vcm-close');
+  const browseBtn  = document.getElementById('vcm-browse-btn');
+  const fileInput  = document.getElementById('vcm-file-input');
+  const fpRemove   = document.getElementById('vcm-fp-remove');
+  const fpName     = document.getElementById('vcm-fp-name');
+  const fpPreview  = document.getElementById('vcm-file-preview');
+  const dropzone   = document.getElementById('vcm-dropzone');
+  const compareBtn = document.getElementById('vcm-btn-compare');
+  const bodyUpload = document.getElementById('vcm-body-upload');
+  const bodyResult = document.getElementById('vcm-body-results');
+  const bodyLoad   = document.getElementById('vcm-body-loading');
+  const parseErrs  = document.getElementById('vcm-parse-errors');
+  const parseErrsT = document.getElementById('vcm-parse-errors-text');
+  const resetBtn   = document.getElementById('vcm-btn-reset');
+  const ringCircle = document.getElementById('vcm-ring-circle');
+  const ringPct    = document.getElementById('vcm-ring-pct');
+  const pctAct     = document.getElementById('vcm-pct-act');
+  const pctConn    = document.getElementById('vcm-pct-conn');
+  const vcmCounts  = document.getElementById('vcm-counts');
+  const diffSect   = document.getElementById('vcm-diff-section');
+
+  if (!overlay) return;
+
+  let selectedFile = null;
+
+  function openModal() { overlay.classList.remove('hidden'); }
+  function closeModal() { overlay.classList.add('hidden'); resetUpload(); }
+
+  function setFile(f) {
+    selectedFile = f;
+    if (fpName) fpName.textContent = f.name;
+    if (fpPreview) fpPreview.classList.remove('hidden');
+    if (dropzone) dropzone.classList.add('hidden');
+    if (compareBtn) compareBtn.disabled = false;
+  }
+
+  function resetUpload() {
+    selectedFile = null;
+    if (fpPreview) fpPreview.classList.add('hidden');
+    if (dropzone) dropzone.classList.remove('hidden');
+    if (compareBtn) compareBtn.disabled = true;
+    if (parseErrs) parseErrs.classList.add('hidden');
+    if (fileInput) fileInput.value = '';
+    if (bodyResult) bodyResult.classList.add('hidden');
+    if (bodyUpload) bodyUpload.classList.remove('hidden');
+    if (bodyLoad)   bodyLoad.classList.add('hidden');
+  }
+
+  function renderRing(pct) {
+    const CIRC = 100.53;  // 2π×16
+    const dash = (pct / 100) * CIRC;
+    if (ringCircle) {
+      ringCircle.style.strokeDasharray = `${dash} ${CIRC}`;
+      const hue = Math.round(pct * 1.2);
+      ringCircle.style.stroke = `hsl(${hue},78%,48%)`;
+    }
+    if (ringPct) ringPct.textContent = Math.round(pct) + '%';
+  }
+
+  async function runCompare() {
+    if (!selectedFile) return;
+    if (bodyUpload) bodyUpload.classList.add('hidden');
+    if (bodyLoad)   bodyLoad.classList.remove('hidden');
+    if (bodyResult) bodyResult.classList.add('hidden');
+
+    try {
+      const fd = new FormData();
+      fd.append('file', selectedFile);
+      const res = await fetch('/cartography/api/vsdx-compare', { method: 'POST', body: fd });
+      const data = await res.json();
+      if (bodyLoad) bodyLoad.classList.add('hidden');
+
+      if (data.error) {
+        if (bodyUpload) bodyUpload.classList.remove('hidden');
+        if (parseErrs)  parseErrs.classList.remove('hidden');
+        if (parseErrsT) parseErrsT.textContent = data.error;
+        return;
+      }
+
+      // Ring
+      const overallPct = data.overall_score ?? data.activity_score ?? 0;
+      renderRing(overallPct);
+
+      // Per-type scores
+      if (pctAct  && data.activity_score  != null) pctAct.textContent  = Math.round(data.activity_score) + '%';
+      if (pctConn && data.connection_score != null) pctConn.textContent = Math.round(data.connection_score) + '%';
+
+      // Counts
+      if (vcmCounts && data.counts) {
+        vcmCounts.innerHTML = Object.entries(data.counts)
+          .map(([k, v]) => `<span>${k} : <strong>${v}</strong></span>`)
+          .join('');
+      }
+
+      // Diff section
+      if (diffSect && data.diff) {
+        diffSect.innerHTML = '';
+        for (const [title, items] of Object.entries(data.diff)) {
+          if (!items || !items.length) continue;
+          const sec = document.createElement('div');
+          sec.className = 'vcm-diff-subsection';
+          sec.innerHTML = `<div class="vcm-diff-title">${title} <span class="vcm-diff-count">${items.length}</span></div>
+            <ul class="vcm-diff-list">${items.map(i => `<li><i class="fa-solid fa-minus"></i>${i}</li>`).join('')}</ul>`;
+          diffSect.appendChild(sec);
+        }
+        if (!diffSect.children.length) {
+          diffSect.innerHTML = '<div class="vcm-perfect"><i class="fa-solid fa-check-circle"></i> Correspondance parfaite !</div>';
+        }
+      }
+
+      if (bodyResult) bodyResult.classList.remove('hidden');
+
+      // Parse warnings
+      if (parseErrs && data.errors && data.errors.length) {
+        parseErrs.classList.remove('hidden');
+        if (parseErrsT) parseErrsT.textContent = data.errors.join(' — ');
+      }
+    } catch (e) {
+      console.error('VCM compare error:', e);
+      if (bodyLoad)   bodyLoad.classList.add('hidden');
+      if (bodyUpload) bodyUpload.classList.remove('hidden');
+    }
+  }
+
+  // ── Wiring ────────────────────────────────────────────────────────────────
+  if (closeBtn) closeBtn.addEventListener('click', closeModal);
+  overlay.addEventListener('click', e => { if (e.target === overlay) closeModal(); });
+  if (browseBtn) browseBtn.addEventListener('click', () => fileInput && fileInput.click());
+  if (fileInput) fileInput.addEventListener('change', () => {
+    if (fileInput.files[0]) setFile(fileInput.files[0]);
+  });
+  if (fpRemove) fpRemove.addEventListener('click', resetUpload);
+  if (compareBtn) compareBtn.addEventListener('click', runCompare);
+  if (resetBtn) resetBtn.addEventListener('click', () => {
+    if (bodyResult) bodyResult.classList.add('hidden');
+    if (bodyUpload) bodyUpload.classList.remove('hidden');
+  });
+  if (dropzone) {
+    dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('drag-over'); });
+    dropzone.addEventListener('dragleave', () => dropzone.classList.remove('drag-over'));
+    dropzone.addEventListener('drop', e => {
+      e.preventDefault();
+      dropzone.classList.remove('drag-over');
+      const f = e.dataTransfer.files[0];
+      if (f && f.name.toLowerCase().endsWith('.vsdx')) setFile(f);
+    });
+  }
+
+  // Expose opener so other parts of the page can open the modal
+  window.openVcmModal = openModal;
+}
+
+/* ============================================================
    INIT
 ============================================================ */
 document.addEventListener("DOMContentLoaded", async () => {
@@ -976,6 +1295,8 @@ document.addEventListener("DOMContentLoaded", async () => {
   initWizard();
   initPan();
   initCrossCartoMode();
+  initShapeComparison();
+  initVsdxCompareModal();
   await loadSvgInline();
 
   // Touche Echap pour fermer le popup entité (si ouvert)

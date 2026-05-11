@@ -12,6 +12,8 @@
   window.ALL_ENTITIES = {{ all_entities | tojson | safe }};
 </script>
 
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+<script defer src="{{ url_for('static', filename='optiqcarto/vsdx_importer.js') }}"></script>
 <script defer src="{{ url_for('static', filename='js/activities_map.js') }}"></script>
 
 <div class="carto-page">
@@ -505,149 +507,58 @@
   </div>
 
   <!-- ════════════════════════════════════════════════════════
-       SECTION ANALYSE PROCESSUS
+       SECTION COMPARAISON ÉLÉMENTS CARTO / VSDX
   ════════════════════════════════════════════════════════ -->
   {% if has_optiqcarto %}
-  <div class="process-insights" id="process-insights">
-    <div class="insights-header">
-      <div class="insights-header-left">
-        <h2><i class="fa-solid fa-chart-bar"></i> Analyse du processus</h2>
-        <span class="insights-entity-badge" id="insights-entity-badge"></span>
+  <div class="scs-section" id="scs-section">
+    <div class="scs-header">
+      <div class="scs-header-left">
+        <h2><i class="fa-solid fa-code-compare"></i> Comparaison des éléments</h2>
+        <span class="scs-entity-badge" id="scs-entity-badge"></span>
       </div>
-      <span class="insights-loading-badge" id="insights-loading-badge"><i class="fa-solid fa-circle-notch fa-spin"></i> Chargement…</span>
-    </div>
-
-    <!-- KPIs -->
-    <div class="insights-kpis">
-      <div class="insights-kpi-card">
-        <div class="kpi-icon kpi-purple"><i class="fa-solid fa-shapes"></i></div>
-        <div class="kpi-body"><div class="kpi-value" id="kpi-activities">—</div><div class="kpi-label">Activités</div></div>
-      </div>
-      <div class="insights-kpi-card">
-        <div class="kpi-icon kpi-blue"><i class="fa-solid fa-arrow-right-arrow-left"></i></div>
-        <div class="kpi-body"><div class="kpi-value" id="kpi-connections">—</div><div class="kpi-label">Connexions</div></div>
-      </div>
-      <div class="insights-kpi-card">
-        <div class="kpi-icon kpi-green"><i class="fa-solid fa-layer-group"></i></div>
-        <div class="kpi-body"><div class="kpi-value" id="kpi-bands">—</div><div class="kpi-label">Niveaux</div></div>
-      </div>
-      <div class="insights-kpi-card">
-        <div class="kpi-icon kpi-orange"><i class="fa-solid fa-link"></i></div>
-        <div class="kpi-body"><div class="kpi-value" id="kpi-density">—</div><div class="kpi-label">Connexions / activité</div></div>
+      <div class="scs-type-filters" id="scs-type-filters">
+        <button class="scs-filter active" data-type="all">Tous</button>
+        <button class="scs-filter" data-type="process"><i class="fa-solid fa-square"></i> Activités</button>
+        <button class="scs-filter" data-type="start-end"><i class="fa-solid fa-circle"></i> Cercles</button>
+        <button class="scs-filter" data-type="special"><i class="fa-solid fa-wave-square"></i> Sous-activités</button>
       </div>
     </div>
 
-    <!-- Graphiques -->
-    <div class="insights-charts">
-      <!-- Répartition par bande -->
-      <div class="insights-card insights-bands-card">
-        <h3><i class="fa-solid fa-bars-staggered"></i> Activités par niveau</h3>
-        <div id="bands-chart" class="bands-chart"></div>
-      </div>
-      <!-- Activités pivots (les plus connectées) -->
-      <div class="insights-card insights-hubs-card">
-        <h3><i class="fa-solid fa-star"></i> Activités pivots</h3>
-        <p class="insights-sub">Les activités avec le plus de connexions entrantes et sortantes</p>
-        <div id="hubs-list" class="hubs-list"></div>
-      </div>
-      <!-- Répartition des types de flux -->
-      <div class="insights-card insights-flow-card">
-        <h3><i class="fa-solid fa-arrow-trend-up"></i> Types de connexions</h3>
-        <div id="flow-types-chart" class="flow-types-chart"></div>
-      </div>
-    </div>
-  </div>
-  {% endif %}
-
-  <!-- ════════════════════════════════════════════════════════
-       SECTION DONNÉES BRUTES DE LA CARTO
-  ════════════════════════════════════════════════════════ -->
-  {% if has_optiqcarto %}
-  <div class="carto-data-section" id="carto-data-section">
-    <div class="cds-header">
-      <div class="cds-header-left">
-        <div class="cds-header-icon"><i class="fa-solid fa-database"></i></div>
-        <div>
-          <h2>Données de la cartographie</h2>
-          <p class="cds-sub">Toutes les données extraites de la carto — activités, connexions, groupes</p>
+    <div class="scs-columns">
+      <!-- Colonne Carto OptiqCarto -->
+      <div class="scs-col" id="scs-col-carto">
+        <div class="scs-col-header">
+          <div class="scs-col-title"><i class="fa-solid fa-diagram-project"></i> Cartographie</div>
+          <span class="scs-col-count" id="scs-count-carto">—</span>
+        </div>
+        <input class="scs-search" id="scs-search-carto" placeholder="Rechercher…" type="text">
+        <div class="scs-list" id="scs-list-carto">
+          <div class="scs-loading"><i class="fa-solid fa-circle-notch fa-spin"></i> Chargement…</div>
         </div>
       </div>
-      <div class="cds-header-right">
-        <button class="cds-compare-btn" id="btn-vsdx-compare" title="Comparer avec un fichier Visio">
-          <i class="fa-solid fa-code-compare"></i> Correspondance
+
+      <div class="scs-divider"></div>
+
+      <!-- Colonne VSDX -->
+      <div class="scs-col" id="scs-col-vsdx">
+        <div class="scs-col-header">
+          <div class="scs-col-title"><i class="fa-solid fa-file-import"></i> Fichier VSDX</div>
+          <span class="scs-col-count" id="scs-count-vsdx">—</span>
+        </div>
+        <input class="scs-search hidden" id="scs-search-vsdx" placeholder="Rechercher…" type="text">
+        <div class="scs-dropzone" id="scs-dropzone">
+          <input type="file" id="scs-file-input" accept=".vsdx" style="display:none">
+          <i class="fa-solid fa-file-arrow-up scs-drop-icon"></i>
+          <p>Glissez un fichier <strong>.vsdx</strong> ici</p>
+          <button class="scs-browse-btn" id="scs-browse-btn">Parcourir…</button>
+        </div>
+        <div class="scs-vsdx-status hidden" id="scs-vsdx-status">
+          <i class="fa-solid fa-circle-notch fa-spin"></i> Analyse du VSDX…
+        </div>
+        <div class="scs-list hidden" id="scs-list-vsdx"></div>
+        <button class="scs-reset-btn hidden" id="scs-reset-vsdx">
+          <i class="fa-solid fa-rotate-left"></i> Changer de fichier
         </button>
-        <span class="cds-loading" id="cds-loading"><i class="fa-solid fa-circle-notch fa-spin"></i> Chargement…</span>
-      </div>
-    </div>
-
-    <!-- Tabs -->
-    <div class="cds-tabs">
-      <button class="cds-tab active" data-tab="activities"><i class="fa-solid fa-shapes"></i> Activités <span class="cds-tab-count" id="tab-count-activities">0</span></button>
-      <button class="cds-tab" data-tab="decisions"><i class="fa-solid fa-diamond"></i> Décisions <span class="cds-tab-count" id="tab-count-decisions">0</span></button>
-      <button class="cds-tab" data-tab="connections"><i class="fa-solid fa-arrow-right-arrow-left"></i> Connexions <span class="cds-tab-count" id="tab-count-connections">0</span></button>
-      <button class="cds-tab" data-tab="groups"><i class="fa-solid fa-object-group"></i> Groupes <span class="cds-tab-count" id="tab-count-groups">0</span></button>
-    </div>
-
-    <!-- Panneau Activités -->
-    <div class="cds-panel active" id="cds-panel-activities">
-      <div class="cds-toolbar">
-        <div class="cds-filter-group">
-          <button class="cds-filter active" data-filter="all">Toutes</button>
-          <button class="cds-filter" data-filter="process"><i class="fa-solid fa-square"></i> Process</button>
-          <button class="cds-filter" data-filter="start-end"><i class="fa-solid fa-circle"></i> Cercles</button>
-          <button class="cds-filter" data-filter="special"><i class="fa-solid fa-wave-square"></i> Sous-activités</button>
-        </div>
-        <input class="cds-search" id="search-activities" placeholder="Rechercher…" type="text">
-      </div>
-      <div class="cds-table-wrap">
-        <table class="cds-table" id="table-activities">
-          <thead><tr><th>#</th><th>Nom</th><th>Type</th><th>Niveau</th><th>Entrants</th><th>Sortants</th></tr></thead>
-          <tbody id="tbody-activities"></tbody>
-        </table>
-      </div>
-    </div>
-
-    <!-- Panneau Décisions -->
-    <div class="cds-panel" id="cds-panel-decisions">
-      <div class="cds-toolbar">
-        <input class="cds-search" id="search-decisions" placeholder="Rechercher…" type="text">
-      </div>
-      <div class="cds-table-wrap">
-        <table class="cds-table" id="table-decisions">
-          <thead><tr><th>#</th><th>Label</th><th>Niveau</th><th>Entrants</th><th>Sortants</th></tr></thead>
-          <tbody id="tbody-decisions"></tbody>
-        </table>
-      </div>
-    </div>
-
-    <!-- Panneau Connexions -->
-    <div class="cds-panel" id="cds-panel-connections">
-      <div class="cds-toolbar">
-        <div class="cds-filter-group">
-          <button class="cds-filter active" data-filter="all">Toutes</button>
-          <button class="cds-filter" data-filter="solid">Directes</button>
-          <button class="cds-filter" data-filter="dashed">Conditionnelles</button>
-        </div>
-        <input class="cds-search" id="search-connections" placeholder="Rechercher…" type="text">
-      </div>
-      <div class="cds-table-wrap">
-        <table class="cds-table" id="table-connections">
-          <thead><tr><th>#</th><th>De</th><th>Vers</th><th>Label</th><th>Type</th></tr></thead>
-          <tbody id="tbody-connections"></tbody>
-        </table>
-      </div>
-    </div>
-
-    <!-- Panneau Groupes -->
-    <div class="cds-panel" id="cds-panel-groups">
-      <div class="cds-toolbar">
-        <input class="cds-search" id="search-groups" placeholder="Rechercher…" type="text">
-      </div>
-      <div class="cds-table-wrap">
-        <table class="cds-table" id="table-groups">
-          <thead><tr><th>#</th><th>Nom</th><th>Couleur</th><th>Membres</th></tr></thead>
-          <tbody id="tbody-groups"></tbody>
-        </table>
       </div>
     </div>
   </div>
@@ -903,450 +814,3 @@
 })();
 </script>
 
-<!-- ── Section Analyse : chargement et rendu des stats ── -->
-<script>
-(function() {
-  const entity = window.ACTIVE_ENTITY;
-  if (!entity || !entity.name) return;
-  const badge = document.getElementById('insights-entity-badge');
-  const loading = document.getElementById('insights-loading-badge');
-  if (badge) badge.textContent = entity.name;
-
-  fetch(`/cartography/api/load/${encodeURIComponent(entity.name)}`)
-    .then(r => r.ok ? r.json() : null)
-    .then(data => {
-      if (loading) loading.style.display = 'none';
-      if (!data) return;
-      renderInsights(data);
-    })
-    .catch(() => { if (loading) loading.style.display = 'none'; });
-
-  function renderInsights(data) {
-    // Activités = formes hors décisions (cohérent avec l'onglet Données)
-    const shapes    = (data.shapes || []).filter(s => s.type === 'process' || s.type === 'start-end' || s.type === 'special');
-    const allShapes = (data.shapes || []).filter(s => s.type === 'process' || s.type === 'start-end' || s.type === 'special' || s.type === 'decision');
-    const conns  = data.connections || [];
-    const bands  = data.bands || [];
-
-    // KPIs
-    const totalAct = shapes.length;
-    const totalConn = conns.length;
-    const totalBands = bands.length;
-    const density = totalAct > 0 ? (totalConn / totalAct).toFixed(1) : '0';
-
-    setText('kpi-activities', totalAct);
-    setText('kpi-connections', totalConn);
-    setText('kpi-bands', totalBands);
-    setText('kpi-density', density);
-
-    // Répartition par bande
-    const bandsChart = document.getElementById('bands-chart');
-    if (bandsChart && bands.length > 0) {
-      let cumY = 0;
-      const bRanges = bands.map(b => { const y0 = cumY; cumY += b.height; return { ...b, y0, y1: cumY }; });
-      const counts = bRanges.map(br => ({
-        label: br.label,
-        color: br.color,
-        count: allShapes.filter(s => {
-          const cy = s.y + s.h / 2;
-          return cy >= br.y0 && cy < br.y1;
-        }).length,
-      }));
-      const maxCount = Math.max(...counts.map(c => c.count), 1);
-      bandsChart.innerHTML = counts.map(c => `
-        <div class="band-bar-row">
-          <div class="band-bar-label" title="${esc(c.label)}">${esc(c.label)}</div>
-          <div class="band-bar-track">
-            <div class="band-bar-fill" style="width:${Math.round(c.count/maxCount*100)}%;background:${esc(c.color)}"></div>
-          </div>
-          <div class="band-bar-count">${c.count}</div>
-        </div>`).join('');
-    }
-
-    // Hub activities (top 5 par nombre total de connexions)
-    const hubsList = document.getElementById('hubs-list');
-    if (hubsList && allShapes.length > 0) {
-      const connCount = {};
-      for (const c of conns) {
-        connCount[c.fromId] = (connCount[c.fromId] || 0) + 1;
-        connCount[c.toId]   = (connCount[c.toId]   || 0) + 1;
-      }
-      const sorted = allShapes
-        .map(s => ({ label: s.label, total: connCount[s.id] || 0,
-          out: conns.filter(c => c.fromId === s.id).length,
-          in:  conns.filter(c => c.toId   === s.id).length }))
-        .sort((a, b) => b.total - a.total)
-        .slice(0, 5);
-      const maxHub = Math.max(sorted[0]?.total || 1, 1);
-      hubsList.innerHTML = sorted.map((h, idx) => `
-        <div class="hub-item">
-          <div class="hub-rank">${idx + 1}</div>
-          <div class="hub-body">
-            <div class="hub-name" title="${esc(h.label)}">${esc(h.label)}</div>
-            <div class="hub-bar-track"><div class="hub-bar-fill" style="width:${Math.round(h.total/maxHub*100)}%"></div></div>
-          </div>
-          <div class="hub-stats">
-            <span class="hub-stat out" title="Sorties"><i class="fa-solid fa-arrow-right"></i>${h.out}</span>
-            <span class="hub-stat in"  title="Entrées"><i class="fa-solid fa-arrow-left"></i>${h.in}</span>
-          </div>
-        </div>`).join('');
-    }
-
-    // Types de connexions (solid vs dashed)
-    const flowChart = document.getElementById('flow-types-chart');
-    if (flowChart) {
-      const solid  = conns.filter(c => c.style !== 'dashed').length;
-      const dashed = conns.filter(c => c.style === 'dashed').length;
-      const total  = solid + dashed || 1;
-      flowChart.innerHTML = `
-        <div class="flow-donut-wrap">
-          <svg viewBox="0 0 36 36" class="flow-donut">
-            <circle cx="18" cy="18" r="14" fill="none" stroke="#e5e7eb" stroke-width="4"/>
-            <circle cx="18" cy="18" r="14" fill="none" stroke="#6366f1" stroke-width="4"
-              stroke-dasharray="${solid/total*87.96} 87.96" stroke-dashoffset="21.99" transform="rotate(-90 18 18)"/>
-          </svg>
-          <div class="flow-donut-center"><strong>${Math.round(solid/total*100)}%</strong><span>flux directs</span></div>
-        </div>
-        <div class="flow-legend">
-          <div class="flow-legend-item"><span class="flow-dot" style="background:#6366f1"></span> Flux directs <strong>${solid}</strong></div>
-          <div class="flow-legend-item"><span class="flow-dot dashed"></span> Flux conditionnels <strong>${dashed}</strong></div>
-        </div>`;
-    }
-  }
-
-  function setText(id, val) {
-    const el = document.getElementById(id);
-    if (el) el.textContent = val;
-  }
-  function esc(s) {
-    return (s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-  }
-})();
-</script>
-
-<!-- ── Section données brutes de la carto ── -->
-<script>
-(function() {
-  const entity = window.ACTIVE_ENTITY;
-  if (!entity || !entity.name) return;
-
-  // Tabs
-  document.querySelectorAll('.cds-tab').forEach(tab => {
-    tab.addEventListener('click', () => {
-      document.querySelectorAll('.cds-tab').forEach(t => t.classList.remove('active'));
-      document.querySelectorAll('.cds-panel').forEach(p => p.classList.remove('active'));
-      tab.classList.add('active');
-      document.getElementById('cds-panel-' + tab.dataset.tab)?.classList.add('active');
-    });
-  });
-
-  // Filtres activités
-  let activeActFilter = 'all';
-  document.querySelectorAll('#cds-panel-activities .cds-filter').forEach(btn => {
-    btn.addEventListener('click', () => {
-      document.querySelectorAll('#cds-panel-activities .cds-filter').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      activeActFilter = btn.dataset.filter;
-      applyActFilter();
-    });
-  });
-
-  // Filtres connexions
-  let activeConnFilter = 'all';
-  document.querySelectorAll('#cds-panel-connections .cds-filter').forEach(btn => {
-    btn.addEventListener('click', () => {
-      document.querySelectorAll('#cds-panel-connections .cds-filter').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      activeConnFilter = btn.dataset.filter;
-      applyConnFilter();
-    });
-  });
-
-  // Recherche
-  ['activities','decisions','connections','groups'].forEach(key => {
-    document.getElementById('search-' + key)?.addEventListener('input', e => {
-      const q = e.target.value.toLowerCase();
-      document.querySelectorAll(`#tbody-${key} tr`).forEach(tr => {
-        tr.style.display = tr.textContent.toLowerCase().includes(q) ? '' : 'none';
-      });
-    });
-  });
-
-  function applyActFilter() {
-    document.querySelectorAll('#tbody-activities tr').forEach(tr => {
-      const type = tr.dataset.type || '';
-      tr.style.display = (activeActFilter === 'all' || type === activeActFilter) ? '' : 'none';
-    });
-  }
-  function applyConnFilter() {
-    document.querySelectorAll('#tbody-connections tr').forEach(tr => {
-      const style = tr.dataset.style || '';
-      tr.style.display = (activeConnFilter === 'all' || style === activeConnFilter) ? '' : 'none';
-    });
-  }
-
-  fetch(`/cartography/api/load/${encodeURIComponent(entity.name)}`)
-    .then(r => r.ok ? r.json() : null)
-    .then(data => {
-      document.getElementById('cds-loading')?.remove();
-      if (!data) return;
-      buildTables(data);
-    })
-    .catch(() => document.getElementById('cds-loading')?.remove());
-
-  function esc(s) {
-    return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-  }
-
-  function shapeLabel(shapes, id) {
-    const s = shapes.find(s => s.id === id);
-    return s ? (s.label || '—') : '(inconnu)';
-  }
-
-  function bandName(bands, shapes, shapeId) {
-    const s = shapes.find(s => s.id === shapeId);
-    if (!s) return '—';
-    let cumY = 0;
-    for (const b of bands) {
-      const cy = s.y + s.h / 2;
-      if (cy >= cumY && cy < cumY + b.height) return b.label || '—';
-      cumY += b.height;
-    }
-    return '—';
-  }
-
-  function buildTables(data) {
-    const shapes = data.shapes || [];
-    const conns  = data.connections || [];
-    const groups = data.groups || [];
-    const bands  = data.bands || [];
-
-    const activities = shapes.filter(s => s.type !== 'decision');
-    const decisions  = shapes.filter(s => s.type === 'decision');
-
-    // Compteurs tabs
-    document.getElementById('tab-count-activities').textContent  = activities.length;
-    document.getElementById('tab-count-decisions').textContent   = decisions.length;
-    document.getElementById('tab-count-connections').textContent = conns.length;
-    document.getElementById('tab-count-groups').textContent      = groups.length;
-
-    // ── Activités ──
-    const tbodyAct = document.getElementById('tbody-activities');
-    const typeLabel = { process: 'Process', 'start-end': 'Cercle', special: 'Sous-activité' };
-    const typeIcon  = { process: 'fa-square', 'start-end': 'fa-circle', special: 'fa-wave-square' };
-    tbodyAct.innerHTML = activities.map((s, i) => {
-      const inCount  = conns.filter(c => c.toId   === s.id).length;
-      const outCount = conns.filter(c => c.fromId === s.id).length;
-      return `<tr data-type="${esc(s.type)}">
-        <td class="cds-num">${i+1}</td>
-        <td class="cds-name"><span class="cds-type-dot" style="background:${esc(s.color||'#22c55e')}"></span>${esc(s.label||'—')}</td>
-        <td><span class="cds-badge type-${esc(s.type)}"><i class="fa-solid ${typeIcon[s.type]||'fa-square'}"></i> ${typeLabel[s.type]||s.type}</span></td>
-        <td class="cds-muted">${esc(bandName(bands,shapes,s.id))}</td>
-        <td class="cds-num cds-in">${inCount}</td>
-        <td class="cds-num cds-out">${outCount}</td>
-      </tr>`;
-    }).join('');
-
-    // ── Décisions ──
-    const tbodyDec = document.getElementById('tbody-decisions');
-    tbodyDec.innerHTML = decisions.map((s, i) => {
-      const inCount  = conns.filter(c => c.toId   === s.id).length;
-      const outCount = conns.filter(c => c.fromId === s.id).length;
-      return `<tr>
-        <td class="cds-num">${i+1}</td>
-        <td class="cds-name"><span class="cds-diamond-icon">◇</span>${esc(s.label||'—')}</td>
-        <td class="cds-muted">${esc(bandName(bands,shapes,s.id))}</td>
-        <td class="cds-num cds-in">${inCount}</td>
-        <td class="cds-num cds-out">${outCount}</td>
-      </tr>`;
-    }).join('');
-
-    // ── Connexions ──
-    const tbodyConn = document.getElementById('tbody-connections');
-    tbodyConn.innerHTML = conns.map((c, i) => {
-      const fromLabel = esc(shapeLabel(shapes, c.fromId));
-      const toLabel   = esc(shapeLabel(shapes, c.toId));
-      const isDashed  = c.style === 'dashed';
-      return `<tr data-style="${esc(c.style||'solid')}">
-        <td class="cds-num">${i+1}</td>
-        <td class="cds-name">${fromLabel}</td>
-        <td class="cds-name">${toLabel}</td>
-        <td class="cds-muted">${esc(c.label||'')}</td>
-        <td><span class="cds-badge ${isDashed?'type-dashed':'type-solid'}">${isDashed?'Conditionnelle':'Directe'}</span></td>
-      </tr>`;
-    }).join('');
-
-    // ── Groupes ──
-    const tbodyGrp = document.getElementById('tbody-groups');
-    tbodyGrp.innerHTML = groups.map((g, i) => {
-      const members = (g.shapeIds||[]).map(id => esc(shapeLabel(shapes, id))).join(', ');
-      return `<tr>
-        <td class="cds-num">${i+1}</td>
-        <td class="cds-name">${esc(g.label||'—')}</td>
-        <td><span class="cds-color-swatch" style="background:${esc(g.color||'#b3a0ff')}"></span></td>
-        <td class="cds-members">${members||'—'}</td>
-      </tr>`;
-    }).join('');
-  }
-})();
-</script>
-
-<!-- ── Modal Correspondance VSDX ── -->
-<script>
-(function() {
-  const modal   = document.getElementById('vsdx-compare-modal');
-  const btnOpen = document.getElementById('btn-vsdx-compare');
-  const btnClose= document.getElementById('vcm-close');
-  const dropzone= document.getElementById('vcm-dropzone');
-  const fileInput= document.getElementById('vcm-file-input');
-  const browseBtn= document.getElementById('vcm-browse-btn');
-  const preview = document.getElementById('vcm-file-preview');
-  const previewName= document.getElementById('vcm-fp-name');
-  const removeBtn= document.getElementById('vcm-fp-remove');
-  const compareBtn= document.getElementById('vcm-btn-compare');
-  const resetBtn= document.getElementById('vcm-btn-reset');
-  const bodyUpload= document.getElementById('vcm-body-upload');
-  const bodyResults= document.getElementById('vcm-body-results');
-  const bodyLoading= document.getElementById('vcm-body-loading');
-
-  let selectedFile = null;
-
-  function openModal() { modal.classList.remove('hidden'); document.body.style.overflow = 'hidden'; }
-  function closeModal() { modal.classList.add('hidden'); document.body.style.overflow = ''; }
-  function showBody(name) {
-    bodyUpload.classList.add('hidden');
-    bodyResults.classList.add('hidden');
-    bodyLoading.classList.add('hidden');
-    document.getElementById('vcm-body-' + name).classList.remove('hidden');
-  }
-
-  btnOpen?.addEventListener('click', openModal);
-  btnClose?.addEventListener('click', closeModal);
-  modal?.addEventListener('click', e => { if (e.target === modal) closeModal(); });
-  document.addEventListener('keydown', e => { if (e.key === 'Escape' && !modal.classList.contains('hidden')) closeModal(); });
-
-  browseBtn?.addEventListener('click', () => fileInput.click());
-  fileInput?.addEventListener('change', () => setFile(fileInput.files[0]));
-
-  dropzone?.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('drag-over'); });
-  dropzone?.addEventListener('dragleave', () => dropzone.classList.remove('drag-over'));
-  dropzone?.addEventListener('drop', e => {
-    e.preventDefault();
-    dropzone.classList.remove('drag-over');
-    const f = e.dataTransfer.files[0];
-    if (f && f.name.toLowerCase().endsWith('.vsdx')) setFile(f);
-  });
-
-  removeBtn?.addEventListener('click', () => setFile(null));
-
-  function setFile(f) {
-    selectedFile = f;
-    if (f) {
-      previewName.textContent = f.name;
-      dropzone.classList.add('hidden');
-      preview.classList.remove('hidden');
-      compareBtn.disabled = false;
-    } else {
-      fileInput.value = '';
-      dropzone.classList.remove('hidden');
-      preview.classList.add('hidden');
-      compareBtn.disabled = true;
-    }
-  }
-
-  compareBtn?.addEventListener('click', () => {
-    if (!selectedFile) return;
-    showBody('loading');
-    const fd = new FormData();
-    fd.append('file', selectedFile);
-    fetch('/cartography/api/vsdx-compare', { method: 'POST', body: fd })
-      .then(r => r.json())
-      .then(data => {
-        if (data.error) { alert(data.error); showBody('upload'); return; }
-        renderResults(data);
-      })
-      .catch(() => { alert('Erreur lors de l\'analyse.'); showBody('upload'); });
-  });
-
-  resetBtn?.addEventListener('click', () => { setFile(null); showBody('upload'); });
-
-  function renderResults(data) {
-    const c = data.compatibility || {};
-    const counts = data.counts || {};
-    const diff = data.differences || {};
-
-    const pct = c.global ?? 0;
-    const circle = document.getElementById('vcm-ring-circle');
-    circle.setAttribute('stroke-dasharray', `${(pct / 100 * 87.96).toFixed(2)} 87.96`);
-    circle.setAttribute('stroke', pct >= 80 ? '#22c55e' : pct >= 50 ? '#f59e0b' : '#ef4444');
-    document.getElementById('vcm-ring-pct').textContent  = pct + '%';
-    document.getElementById('vcm-pct-act').textContent   = (c.activities ?? 0) + '%';
-    document.getElementById('vcm-pct-conn').textContent  = (c.connections ?? 0) + '%';
-    const byType = counts.carto_shapes_by_type || {};
-    const specialCount = byType['special'] || 0;
-    const processCount = byType['process'] || 0;
-    const circleCount  = byType['start-end'] || 0;
-    const refAct  = Math.max(counts.vsdx_activities, counts.carto_activities);
-    const refConn = Math.max(counts.vsdx_connections, counts.carto_connections);
-    const extraActNote  = counts.extra_activities  > 0 ? ` · <span style="color:#f59e0b">${counts.extra_activities} en trop dans notre carto</span>` : '';
-    const missingActNote = counts.missing_activities > 0 ? ` · <span style="color:#ef4444">${counts.missing_activities} manquantes</span>` : '';
-    const extraConnNote  = counts.extra_connections  > 0 ? ` · <span style="color:#f59e0b">${counts.extra_connections} en trop</span>` : '';
-    const missingConnNote = counts.missing_connections > 0 ? ` · <span style="color:#ef4444">${counts.missing_connections} manquantes</span>` : '';
-    // Note toujours visible : explique le détail des comptes et la différence avec l'onglet "Données de la carto"
-    // L'onglet Données de la carto = TOUTES les formes (décisions + doublons + sans label)
-    // Le comparateur = labels uniques non-décision (la même notion que le VSDX)
-    const totalCartoShapes = Object.values(byType).reduce((s, n) => s + n, 0);
-    const decisionCount = byType['decision'] || 0;
-    const noteHtml = `<div class="vcm-note"><i class="fa-solid fa-circle-info"></i>
-         Notre carto : <strong>${counts.carto_activities}</strong> labels uniques comparés
-         (${processCount} process · ${specialCount} sous-activités · ${circleCount} cercles) —
-         VSDX : <strong>${counts.vsdx_activities}</strong> activités connectées.
-         <span style="opacity:0.65;font-size:11px">L'onglet <em>Données de la carto</em> affiche ${totalCartoShapes} formes au total
-         (dont ${decisionCount} décisions non comparées). La différence avec ce test est normale.</span>
-       </div>`;
-    document.getElementById('vcm-counts').innerHTML = `
-      <div class="vcm-count-item"><i class="fa-solid fa-shapes"></i> ${counts.matched_activities}/${refAct} activités${extraActNote}${missingActNote}</div>
-      <div class="vcm-count-item"><i class="fa-solid fa-arrow-right-arrow-left"></i> ${counts.matched_connections}/${refConn} connexions${extraConnNote}${missingConnNote}</div>
-      ${noteHtml}`;
-
-    const diffSec = document.getElementById('vcm-diff-section');
-    const typeIcon  = { process: 'fa-square', 'start-end': 'fa-circle', special: 'fa-wave-square' };
-    const typeLabel = { process: 'Process', 'start-end': 'Cercle', special: 'Sous-activité' };
-    function renderDiffBlock(title, icon, color, items, isConn) {
-      if (!items || items.length === 0) return '';
-      let rows;
-      if (isConn) {
-        rows = items.map(([a, b]) => `<li><span class="vcm-conn-from">${esc(a)}</span><i class="fa-solid fa-arrow-right"></i><span class="vcm-conn-to">${esc(b)}</span></li>`).join('');
-      } else if (items.length > 0 && typeof items[0] === 'object') {
-        // Format {label, type}
-        rows = items.map(x => `<li><i class="fa-solid ${typeIcon[x.type]||'fa-square'} vcm-type-icon"></i>${esc(x.label)}</li>`).join('');
-      } else {
-        rows = items.map(x => `<li>${esc(x)}</li>`).join('');
-      }
-      return `<div class="vcm-diff-block">
-        <div class="vcm-diff-title" style="color:${color}"><i class="fa-solid ${icon}"></i> ${title} <span class="vcm-diff-count">${items.length}</span></div>
-        <ul class="vcm-diff-list">${rows}</ul>
-      </div>`;
-    }
-    diffSec.innerHTML = [
-      renderDiffBlock('Dans notre carto, absent du VSDX', 'fa-circle-plus', '#6366f1', diff.activities_only_in_carto, false),
-      renderDiffBlock('Dans le VSDX, absent de notre carto', 'fa-circle-minus', '#ef4444', diff.activities_only_in_vsdx, false),
-      renderDiffBlock('Connexions extra dans notre carto', 'fa-link', '#f59e0b', diff.connections_only_in_carto, true),
-      renderDiffBlock('Connexions manquantes vs VSDX', 'fa-link-slash', '#ef4444', diff.connections_only_in_vsdx, true),
-    ].filter(Boolean).join('') || '<p class="vcm-perfect"><i class="fa-solid fa-circle-check"></i> Correspondance parfaite !</p>';
-
-    const errWrap = document.getElementById('vcm-parse-errors');
-    if (data.parse_errors && data.parse_errors.length > 0) {
-      document.getElementById('vcm-parse-errors-text').textContent = data.parse_errors.join(' · ');
-      errWrap.classList.remove('hidden');
-    } else {
-      errWrap.classList.add('hidden');
-    }
-    showBody('results');
-  }
-
-  function esc(s) {
-    return (s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-  }
-})();
-</script>
