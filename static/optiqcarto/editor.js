@@ -3322,16 +3322,20 @@ async function importVSDX(file) {
         }
         // moveTos >= 3 = au moins 3 sous-chemins (rect + 2 marques) → subprocess
         const isSubprocess = (geomSectCount >= 2 || moveTos >= 3) && !isEllipse && !isDiamond;
+        let fillColor = null;
         for (const s of doc.getElementsByTagName('Shape')) {
           const w = vCell(s, 'Width'), h = vCell(s, 'Height');
           if (w) bw = parseFloat(w);
           if (h) bh = parseFloat(h);
           const lv = vCellDeep(s, 'LinePattern');
           if (lv) lp = parseInt(lv) || 1;
+          // Lire la couleur de remplissage par défaut du master
+          const fc = vCell(s, 'FillForegnd');
+          if (fc && fc.startsWith('#') && !fillColor) fillColor = fc;
           if (bw && bh) break;
         }
-        return masterInfoCache[mid] = { w: bw || 0.9449, h: bh || 0.7087, linePattern: lp, isEllipse, isDiamond, isSubprocess };
-      } catch(e) { return masterInfoCache[mid] = { w: 0.9449, h: 0.7087, linePattern: 1, isEllipse: false, isDiamond: false, isSubprocess: false }; }
+        return masterInfoCache[mid] = { w: bw || 0.9449, h: bh || 0.7087, linePattern: lp, isEllipse, isDiamond, isSubprocess, fillColor };
+      } catch(e) { return masterInfoCache[mid] = { w: 0.9449, h: 0.7087, linePattern: 1, isEllipse: false, isDiamond: false, isSubprocess: false, fillColor: null }; }
     }
     // Compat alias
     async function getMasterSize(mid) { const i = await getMasterInfo(mid); return i; }
@@ -3433,7 +3437,12 @@ async function importVSDX(file) {
     function isWashedOut(hex) {
       if (!hex || !hex.startsWith('#') || hex.length < 7) return true;
       const r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);
-      return (r*299+g*587+b*114)/1000 > 210;
+      const lum = (r*299+g*587+b*114)/1000;
+      if (lum > 240) return true; // quasi-blanc → toujours lavé
+      // Couleurs saturées claires (jaune, or, orange clair) : valides même avec luminosité élevée
+      const max = Math.max(r,g,b), min = Math.min(r,g,b);
+      const sat = max === 0 ? 0 : (max - min) / max; // 0=gris, 1=couleur pure
+      return lum > 210 && sat < 0.25; // lavé seulement si peu saturé ET très clair
     }
 
     // ── Bandes depuis les lanes ───────────────────────────────
@@ -3556,10 +3565,13 @@ async function importVSDX(file) {
       return false;
     }
 
-    // ── Detect Visio Containers (transparent group boxes) ─────
-    // These are semi-transparent labeled shapes that visually wrap activities
-    // but are NOT XML parents — membership is determined by bounding-box overlap
-    // Shapes that are connection endpoints are activities, not containers.
+    // ── Detect Visio Containers (group boxes wrapping activities) ────
+    // Two cases:
+    //   A) Type='Group' with XML child shapes — opaque Visio containers (e.g. Installation)
+    //      These wrap sub-activities; they become app groups regardless of transparency or
+    //      connection endpoint status. Membership is determined by XML parent-child.
+    //   B) Semi-transparent labeled shapes NOT in the XML hierarchy — membership by bounding-box.
+    // Shapes that are plain activity endpoints (not Group type) are never containers.
     const connEndpoints = new Set(
       Object.values(connMap).flatMap(e => [e.source, e.target]).filter(Boolean)
     );
@@ -3570,14 +3582,26 @@ async function importVSDX(file) {
     const containerGroupData = []; // { id, label, abs }
     for (const { el: s, id } of allShapes) {
       if (connectorIds.has(id) || containerIds.has(id)) continue;
-      if (connEndpoints.has(id)) continue; // connection endpoint → activity, not a container
       // Losanges et ellipses ne sont jamais des conteneurs de groupe
       const mid_cg = s.getAttribute('Master');
       const mInfo_cg = masterInfoCache[mid_cg] || {};
       if (mInfo_cg.isDiamond || mInfo_cg.isEllipse) continue;
-      const ft = parseFloat(vCell(s, 'FillForegndTrans') || '0');
-      const bt = parseFloat(vCell(s, 'FillBkgndTrans')   || '0');
-      if (Math.max(ft, bt) < 0.4) continue; // not transparent enough
+
+      const vType_cg   = s.getAttribute('Type');
+      const childEl_cg = vEl(s, 'Shapes');
+      const hasXmlChildren = childEl_cg !== null && vAll(childEl_cg, 'Shape').length > 0;
+
+      // Case A: Visio Group with XML children → always a container (opaque or not, endpoint or not)
+      const isOpaqueGroupContainer = vType_cg === 'Group' && hasXmlChildren;
+
+      if (!isOpaqueGroupContainer) {
+        // Case B: transparent non-group container
+        if (connEndpoints.has(id)) continue; // plain activity endpoint → not a container
+        const ft = parseFloat(vCell(s, 'FillForegndTrans') || '0');
+        const bt = parseFloat(vCell(s, 'FillBkgndTrans')   || '0');
+        if (Math.max(ft, bt) < 0.4) continue; // not transparent enough
+      }
+
       const abs = shapePinAbs[id] || {};
       if (!abs.w || !abs.h || abs.w < 1 || abs.h < 0.5) continue;
       if (abs.w > pageMaxW * 0.9) continue; // full-page wide → lane, not a group container
@@ -3597,13 +3621,18 @@ async function importVSDX(file) {
     for (const { el: s, id } of allShapes) {
       if (connectorIds.has(id))      continue;
       if (containerIds.has(id))      continue;
-      if (containerGroupIds.has(id)) continue; // transparent container → becomes a group, not an activity
+      if (containerGroupIds.has(id)) continue; // container group → becomes an app group, not an activity
       if (isInLegend(id))            continue; // skip shapes inside legend lane (spatial filter)
       if (vCell(s, 'LayerMember') === '6') continue; // layer 6 = drapeaux retour (return flags), excluded like Python parser
 
       const mid   = s.getAttribute('Master');
       const vType = s.getAttribute('Type');
-      if (!mid && vType !== 'Group') continue;
+      // Formes sans master : inclure si elles ont un label (peuvent être des sous-activités
+      // dessinées directement sans template Visio). Les formes décoratives sans texte
+      // seront éliminées plus tard par la détection d'orphelins.
+      if (!mid && vType !== 'Group') {
+        if (!vText(s).trim()) continue; // sans texte = décoratif, exclure
+      }
 
       const mn = (masterIdToName[mid] || '').toLowerCase();
       if (/\b(connector|dynamic connector|line|arrow)\b/.test(mn)) continue;
@@ -3613,7 +3642,7 @@ async function importVSDX(file) {
       const vW  = abs.w || 0;
       const vH  = abs.h || 0;
       if (vW < 0.2 || vH < 0.1) continue;
-      if (vW > 8   || vH > 4  ) continue; // raised from 6→8 to include shapes like Installation (w≈6.36)
+      if (vW > 8   || vH > 4  ) continue; // exclut les formes excessivement grandes (pools, cadres)
 
       // Cap oversized activities (large group boxes that are also connection endpoints)
       const MAX_ACT_W = 260, MAX_ACT_H = 150;
@@ -3629,15 +3658,22 @@ async function importVSDX(file) {
       const mInfoForType = masterInfoCache[mid] || {};
       const shapeType = detectVSDXShapeType(masterIdToName[mid], vType, mInfoForType.isEllipse, mInfoForType.isDiamond, mInfoForType.isSubprocess);
 
-      // Read original VSDX fill color; fall back to band color then default green
+      // Couleur : priorité forme > master > bande > défaut vert
+      // La couleur originelle du VSDX prime toujours sur la couleur de bande
+      // (une activité peut être d'une couleur différente de sa bande dans Visio)
       let shapeColor = '#22c55e';
       if (shapeType === 'decision') {
         shapeColor = '#9ca3af';
       } else {
         const vsdxFill = vCell(s, 'FillForegnd');
         if (vsdxFill && !isWashedOut(vsdxFill)) {
+          // Couleur explicite sur la forme (priorité maximale)
           shapeColor = vsdxFill;
+        } else if (mInfoForType.fillColor && !isWashedOut(mInfoForType.fillColor)) {
+          // Couleur héritée du master (deuxième priorité)
+          shapeColor = mInfoForType.fillColor;
         } else {
+          // Fallback : couleur de la bande dans laquelle se trouve la forme
           let cumY = 0;
           for (const b of newBands) {
             if (screenY + screenH / 2 >= cumY && screenY + screenH / 2 < cumY + b.height) {
