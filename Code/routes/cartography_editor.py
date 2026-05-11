@@ -20,7 +20,7 @@ from flask import (
 )
 
 from Code.extensions import db
-from Code.models.models import Activity, Entity, Link, Role, activity_roles
+from Code.models.models import Activities, Entity, Link, Role, activity_roles
 
 cartography_editor_bp = Blueprint("cartography_editor", __name__, url_prefix="/cartography")
 
@@ -141,8 +141,8 @@ def _compute_removals(entity, new_diagram):
     new_shape_ids  = {str(s['id']) for s in new_shapes if s.get('type') in _ACTIVITY_TYPES}
     new_band_names = {(b.get('label') or '').strip() for b in new_bands}
 
-    existing_acts  = Activity.query.filter_by(entity_id=entity.id).filter(
-        Activity.shape_id.isnot(None)
+    existing_acts  = Activities.query.filter_by(entity_id=entity.id).filter(
+        Activities.shape_id.isnot(None)
     ).all()
     existing_roles = Role.query.filter_by(entity_id=entity.id).all()
 
@@ -161,11 +161,11 @@ def _sync_carto_to_db(entity, diagram):
 
     # ── Activities ────────────────────────────────────────────────────────────
     existing_acts = {a.shape_id: a for a in
-                     Activity.query.filter_by(entity_id=entity.id).filter(
-                         Activity.shape_id.isnot(None)).all()}
+                     Activities.query.filter_by(entity_id=entity.id).filter(
+                         Activities.shape_id.isnot(None)).all()}
 
     new_shape_ids  = {str(s['id']) for s in act_shapes}
-    shape_to_act   = {}  # str(shape_id) → Activity
+    shape_to_act   = {}  # str(shape_id) → Activities
 
     for s in act_shapes:
         sid   = str(s['id'])
@@ -177,7 +177,7 @@ def _sync_carto_to_db(entity, diagram):
             act.name      = label
             act.is_result = is_result
         else:
-            act = Activity(entity_id=entity.id, shape_id=sid,
+            act = Activities(entity_id=entity.id, shape_id=sid,
                            name=label, is_result=is_result)
             db.session.add(act)
         shape_to_act[sid] = act
@@ -208,7 +208,7 @@ def _sync_carto_to_db(entity, diagram):
 
     db.session.flush()
 
-    # ── Activity-Role associations ────────────────────────────────────────────
+    # ── Activities-Role associations ────────────────────────────────────────────
     act_ids = [a.id for a in shape_to_act.values() if a.id]
     if act_ids:
         db.session.execute(
