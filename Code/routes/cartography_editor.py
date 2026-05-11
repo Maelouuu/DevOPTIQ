@@ -282,13 +282,14 @@ def api_vsdx_compare():
         only_carto_conn = sorted(carto_connections - vsdx_connections)
         only_vsdx_conn = sorted(vsdx_connections - carto_connections)
 
-        ref_act = max(len(vsdx_activities), 1)
-        ref_conn = max(len(vsdx_connections), 1)
+        # Bidirectional: extra activities/connections in carto also reduce compatibility
+        ref_act = max(len(vsdx_activities), len(carto_activities), 1)
+        ref_conn = max(len(vsdx_connections), len(carto_connections), 1)
         compat_act = round(len(matched_act) / ref_act * 100)
         compat_conn = round(len(matched_conn) / ref_conn * 100)
         compat_global = round(
             (len(matched_act) + len(matched_conn))
-            / max(len(vsdx_activities) + len(vsdx_connections), 1)
+            / max(ref_act + ref_conn, 1)
             * 100
         )
 
@@ -302,9 +303,13 @@ def api_vsdx_compare():
                 "vsdx_activities": len(vsdx_activities),
                 "carto_activities": len(carto_activities),
                 "matched_activities": len(matched_act),
+                "extra_activities": len(only_carto_act),   # in carto but not in VSDX
+                "missing_activities": len(only_vsdx_act),  # in VSDX but not in carto
                 "vsdx_connections": len(vsdx_connections),
                 "carto_connections": len(carto_connections),
                 "matched_connections": len(matched_conn),
+                "extra_connections": len(only_carto_conn),
+                "missing_connections": len(only_vsdx_conn),
                 # Détail par type des shapes dans notre carto (aide à expliquer l'écart)
                 "carto_shapes_by_type": type_counts,
             },

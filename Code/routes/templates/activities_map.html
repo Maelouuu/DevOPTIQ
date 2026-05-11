@@ -1283,18 +1283,24 @@
     document.getElementById('vcm-pct-act').textContent   = (c.activities ?? 0) + '%';
     document.getElementById('vcm-pct-conn').textContent  = (c.connections ?? 0) + '%';
     const byType = counts.carto_shapes_by_type || {};
-    const circleCount = byType['start-end'] || 0;
-    const totalCartoShapes = Object.values(byType).reduce((a,b)=>a+b,0);
+    const specialCount = byType['special'] || 0;
+    const processCount = byType['process'] || 0;
+    const circleCount  = byType['start-end'] || 0;
+    const refAct  = Math.max(counts.vsdx_activities, counts.carto_activities);
+    const refConn = Math.max(counts.vsdx_connections, counts.carto_connections);
+    const extraActNote  = counts.extra_activities  > 0 ? ` · <span style="color:#f59e0b">${counts.extra_activities} en trop dans notre carto</span>` : '';
+    const missingActNote = counts.missing_activities > 0 ? ` · <span style="color:#ef4444">${counts.missing_activities} manquantes</span>` : '';
+    const extraConnNote  = counts.extra_connections  > 0 ? ` · <span style="color:#f59e0b">${counts.extra_connections} en trop</span>` : '';
+    const missingConnNote = counts.missing_connections > 0 ? ` · <span style="color:#ef4444">${counts.missing_connections} manquantes</span>` : '';
     const noteHtml = counts.carto_activities !== counts.vsdx_activities
       ? `<div class="vcm-note"><i class="fa-solid fa-circle-info"></i>
-           Notre carto : <strong>${counts.carto_activities}</strong> étiquettes uniques
-           (${totalCartoShapes} formes dont ${circleCount} cercles de référence) —
+           Carto : <strong>${counts.carto_activities}</strong> labels uniques (${processCount} activités, ${specialCount} sous-activités, ${circleCount} cercles) —
            VSDX : <strong>${counts.vsdx_activities}</strong> activités connectées.
-           L'écart provient des formes isolées ou des cercles visuels sans connexion dans le VSDX.
+           L'onglet <em>Données de la carto</em> affiche tous les éléments, y compris décisions et formes sans label.
          </div>` : '';
     document.getElementById('vcm-counts').innerHTML = `
-      <div class="vcm-count-item"><i class="fa-solid fa-shapes"></i> ${counts.matched_activities}/${counts.vsdx_activities} activités retrouvées</div>
-      <div class="vcm-count-item"><i class="fa-solid fa-arrow-right-arrow-left"></i> ${counts.matched_connections}/${counts.vsdx_connections} connexions retrouvées</div>
+      <div class="vcm-count-item"><i class="fa-solid fa-shapes"></i> ${counts.matched_activities}/${refAct} activités${extraActNote}${missingActNote}</div>
+      <div class="vcm-count-item"><i class="fa-solid fa-arrow-right-arrow-left"></i> ${counts.matched_connections}/${refConn} connexions${extraConnNote}${missingConnNote}</div>
       ${noteHtml}`;
 
     const diffSec = document.getElementById('vcm-diff-section');

@@ -3563,6 +3563,8 @@ async function importVSDX(file) {
     const connEndpoints = new Set(
       Object.values(connMap).flatMap(e => [e.source, e.target]).filter(Boolean)
     );
+    // Quick element lookup by Visio ID (used by splice mechanism to check LayerMember)
+    const shapeElById = new Map(allShapes.map(({el, id}) => [id, el]));
 
     const containerGroupIds  = new Set();
     const containerGroupData = []; // { id, label, abs }
@@ -3613,22 +3615,46 @@ async function importVSDX(file) {
       if (vW < 0.2 || vH < 0.1) continue;
       if (vW > 8   || vH > 4  ) continue; // raised from 6→8 to include shapes like Installation (w≈6.36)
 
-      const screenX = Math.round((abs.pinX - vW/2 - leftEdge) * SCALE);
-      const screenY = Math.max(0, Math.round((topOfDiagram - abs.pinY - vH/2) * SCALE));
+      // Cap oversized activities (large group boxes that are also connection endpoints)
+      const MAX_ACT_W = 260, MAX_ACT_H = 150;
+      const rawScreenW = Math.round(vW * SCALE);
+      const rawScreenH = Math.round(vH * SCALE);
+      const screenW = Math.min(MAX_ACT_W, rawScreenW);
+      const screenH = Math.min(MAX_ACT_H, rawScreenH);
+      // Compute top-left from center so capping doesn't shift position
+      const screenX = Math.round((abs.pinX - leftEdge) * SCALE) - Math.round(screenW / 2);
+      const screenY = Math.max(0, Math.round((topOfDiagram - abs.pinY) * SCALE) - Math.round(screenH / 2));
       if (screenY > totalBandH + 100) continue; // hors du diagramme
-
-      const screenW = Math.round(vW * SCALE);
-      const screenH = Math.round(vH * SCALE);
 
       const mInfoForType = masterInfoCache[mid] || {};
       const shapeType = detectVSDXShapeType(masterIdToName[mid], vType, mInfoForType.isEllipse, mInfoForType.isDiamond, mInfoForType.isSubprocess);
+
+      // Read original VSDX fill color; fall back to band color then default green
+      let shapeColor = '#22c55e';
+      if (shapeType === 'decision') {
+        shapeColor = '#9ca3af';
+      } else {
+        const vsdxFill = vCell(s, 'FillForegnd');
+        if (vsdxFill && !isWashedOut(vsdxFill)) {
+          shapeColor = vsdxFill;
+        } else {
+          let cumY = 0;
+          for (const b of newBands) {
+            if (screenY + screenH / 2 >= cumY && screenY + screenH / 2 < cumY + b.height) {
+              shapeColor = b.color; break;
+            }
+            cumY += b.height;
+          }
+        }
+      }
+
       const oid = nextOid++;
       shapeIdMap[id] = oid;
       newShapes.push({
         id: oid, type: shapeType, subtype: 'normal',
         x: screenX, y: screenY, w: screenW, h: screenH,
         label:          vText(s),
-        color:          shapeType === 'decision' ? '#9ca3af' : '#22c55e',
+        color:          shapeColor,
         textColor:      '#ffffff',
         strokeColor:    '',
         fontSize:       18,
@@ -3720,7 +3746,9 @@ async function importVSDX(file) {
         if (connSrcSet.has(visioId) || connTgtSet.has(visioId)) continue; // déjà connecté
         const abs = shapePinAbs[visioId];
         if (!abs) continue;
-        if (abs.w < 0.7 || abs.h < 0.7) continue; // trop petit → indicateur visuel, pas un vrai nœud décision
+        const sEl = shapeElById.get(visioId);
+        if (sEl && vCell(sEl, 'LayerMember') === '3') continue; // Layer 3 = "Si petit" visual decorators, not real nodes
+        if (abs.w < 0.4 || abs.h < 0.4) continue; // exclude micro-shapes
         decisionsToPatch.push({ visioId, pinX: abs.pinX, pinY: abs.pinY });
       }
 
