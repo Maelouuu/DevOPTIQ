@@ -2982,35 +2982,6 @@ function openVSDXDialog() {
   dz.style.display = '';
 }
 
-function detectVSDXShapeType(masterName, visioType, isEllipse, isDiamond, isSubprocess) {
-  // Normalize: lowercase + strip accents (NFD + remove combining marks U+0300–U+036F)
-  const mn = (masterName || '')
-    .toLowerCase()
-    .normalize('NFD').replace(/[̀-ͯ]/g, '')
-    .replace(/[-_/]/g, ' ')
-    .replace(/\s+/g, ' ').trim();
-
-  // Decision / diamond — by name first (most specific)
-  if (/\b(decision|diamond|gateway|exclusive|parallel|condition|conditional|losange|branchement|rhombus|si grand|si petit|big if|small if)\b/.test(mn)
-      || mn === 'conditional' || mn === 'decision') return 'decision';
-  // Diamond by geometry: EllipticalArcTo intercalated (Si grand/Si petit pattern)
-  if (isDiamond) return 'decision';
-  // Off-page connectors (Goto / Ext Ret shapes) → special
-  if (/\bgot[ot]+\b|\bext\.?\s*ret\b|\bext\.?\s*return\b|\baller\s+[aà]\b|\bautre\s+carte\b/.test(mn)) return 'special';
-  // Start/end / terminator / oval / round shapes (by name or master geometry)
-  if (/\b(terminator|oval|ellipse|circle|event|rond|cercle|ronde|circulaire)\b/.test(mn)
-      || mn === 'start' || mn === 'end'
-      || mn.includes('start end') || mn.includes('debut fin') || mn.includes('start/end')
-      || isEllipse) return 'start-end';
-  // Sous-activité / subprocess — par géométrie (plusieurs sections = marqueurs internes type Predefined Process)
-  if (isSubprocess) return 'special';
-  // Subprocess / sous-activité — par nom (FR + EN)
-  if (/\b(subprocess|sub process|predefined|processus predefini|activite partielle|sous activite|sous processus|sous tache|tache multiple|multi instance|callout|offpage|off page)\b/.test(mn)) return 'special';
-  // Visio Group that is not a swimlane → show as subprocess style
-  if (visioType === 'Group') return 'special';
-  return 'process';
-}
-
 /* ══════════════════════════════════════════════════
    POST-PROCESSING : routage flèches après import VSDX
    Ports EXACTS (réplication de _resolveEp + spreadPort + bundleOffset).

@@ -146,29 +146,49 @@ class VsdxImporter {
     try {
       const xml = await this.zip.file(fpath).async('text');
       const doc = this.parseXml(xml);
-      let bw, bh, lp = 1, isEllipse = false, isDiamond = false, fillColor = null;
+      let bw, bh, lp = 1, isDiamond = false, fillColor = null;
 
       const geomRows = doc.getElementsByTagName('Row');
       const geomSeq = [];
       let moveTos = 0;
       for (let ri = 0; ri < geomRows.length; ri++) {
         const t = geomRows[ri].getAttribute('T');
-        if (t === 'EllipticalArcTo' || t === 'Ellipse') isEllipse = true;
         if (t === 'LineTo'  || t === 'EllipticalArcTo') geomSeq.push(t);
         if (t === 'MoveTo') moveTos++;
       }
-      // Diamond: EllipticalArcTo intercalated with LineTo after the last arc
-      if (isEllipse) {
+
+      const arcCount  = geomSeq.filter(t => t === 'EllipticalArcTo').length;
+      const lineCount = geomSeq.filter(t => t === 'LineTo').length;
+
+      // Pure ellipse: geometry is predominantly arcs with few/no straight edges.
+      // arcCount > lineCount*2 catches ovals (4 arcs, 0 lines) and stadiums (4 arcs, 1 line).
+      const isEllipse = arcCount > 0 && arcCount > lineCount * 2;
+
+      // Diamond: EllipticalArcTo intercalated with LineTo (Si grand/Si petit pattern).
+      // Requires at least some arcs, AND a LineTo after the last arc.
+      if (arcCount > 0) {
         const lastArcIdx = geomSeq.lastIndexOf('EllipticalArcTo');
         if (lastArcIdx !== -1 && lastArcIdx < geomSeq.length - 1)
           isDiamond = geomSeq.slice(lastArcIdx + 1).includes('LineTo');
       }
-      // Sub-process (predefined process): multiple geometry sections or ≥3 MoveTo paths
+
+      // Wavy-bottom subprocess: mixed arcs+lines with CONSECUTIVE arcs (wave).
+      // Rounded rectangles have arcs alternating with lines (never consecutive).
+      let hasConsecutiveArcs = false;
+      for (let i = 0; i < geomSeq.length - 1; i++) {
+        if (geomSeq[i] === 'EllipticalArcTo' && geomSeq[i+1] === 'EllipticalArcTo') {
+          hasConsecutiveArcs = true; break;
+        }
+      }
+      const isWavyBottom = hasConsecutiveArcs && !isEllipse && !isDiamond;
+
+      // Sub-process (predefined process): multiple geometry sections (= internal markers),
+      // ≥3 MoveTo sub-paths, OR a wavy bottom edge.
       let geomSectCount = 0;
       const allSects = doc.getElementsByTagName('Section');
       for (let si = 0; si < allSects.length; si++)
         if (allSects[si].getAttribute('N') === 'Geometry') geomSectCount++;
-      const isSubprocess = (geomSectCount >= 2 || moveTos >= 3) && !isEllipse && !isDiamond;
+      const isSubprocess = (geomSectCount >= 2 || moveTos >= 3 || isWavyBottom) && !isEllipse && !isDiamond;
 
       for (const s of doc.getElementsByTagName('Shape')) {
         const w = this.vCell(s, 'Width'), h = this.vCell(s, 'Height');
@@ -407,9 +427,20 @@ class VsdxImporter {
     const containerGroupIds  = new Set();
     const containerGroupData = [];
 
+    const MAX_ACT_W = 260, MAX_ACT_H = 150; // same cap as importActivities
+
     for (const { el: s, id } of this.allShapes) {
       if (this.connectorIds.has(id) || this.containerIds.has(id)) continue;
-      if (connEndpoints.has(id)) continue; // connection endpoint → activity, not a container
+      // Connection endpoints are normally activities, NOT container groups.
+      // Exception: if the shape would be way oversized as an activity (e.g. Installation
+      // w=6.36"), it is a visual container even if it participates in some connections.
+      if (connEndpoints.has(id)) {
+        const abs_ep = this.shapePinAbs[id] || {};
+        const wouldBeCapped = (abs_ep.w || 0) * this.SCALE > MAX_ACT_W
+                           || (abs_ep.h || 0) * this.SCALE > MAX_ACT_H;
+        if (!wouldBeCapped) continue; // normal-sized endpoint → treat as activity
+        // oversized endpoint → fall through and evaluate as potential container group
+      }
       const mid_cg = s.getAttribute('Master');
       const mInfo_cg = this.masterInfoCache[mid_cg] || {};
       if (mInfo_cg.isDiamond || mInfo_cg.isEllipse) continue;
@@ -476,7 +507,7 @@ class VsdxImporter {
       if (screenY > totalBandH + 100) continue; // outside diagram
 
       const mInfoForType = masterInfoCache[mid] || {};
-      const shapeType = detectVSDXShapeType(masterIdToName[mid], vType,
+      const shapeType = detectShapeType(masterIdToName[mid], vType,
                           mInfoForType.isEllipse, mInfoForType.isDiamond, mInfoForType.isSubprocess);
 
       // ── Color: VSDX shape fill → master fill → band color ──
@@ -889,6 +920,44 @@ class VsdxImporter {
       nextOid:     this.nextOid,
     };
   }
+}
+
+// ── Shape type detection (extracted from editor.js for modularity) ───────────
+// Maps a Visio master name + geometry flags to our OptiqCarto shape types:
+// 'process' | 'start-end' | 'special' | 'decision'
+// Check order: decision → subprocess → ellipse → default process
+// Subprocess is checked BEFORE ellipse so wavy-bottom shapes are not captured
+// by the isEllipse guard (which is now "pure arc shape" only).
+function detectShapeType(masterName, visioType, isEllipse, isDiamond, isSubprocess) {
+  const mn = (masterName || '')
+    .toLowerCase()
+    .normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .replace(/[-_/]/g, ' ')
+    .replace(/\s+/g, ' ').trim();
+
+  // 1. Decision / diamond
+  if (/\b(decision|diamond|gateway|exclusive|parallel|condition|conditional|losange|branchement|rhombus|si grand|si petit|big if|small if)\b/.test(mn)
+      || mn === 'conditional' || mn === 'decision') return 'decision';
+  if (isDiamond) return 'decision';
+
+  // 2. Off-page connectors → subprocess style
+  if (/\bgot[ot]+\b|\bext\.?\s*ret\b|\bext\.?\s*return\b|\baller\s+[aà]\b|\bautre\s+carte\b/.test(mn)) return 'special';
+
+  // 3. Subprocess — by geometry (wavy bottom, multiple sections, multiple paths)
+  //    Checked BEFORE ellipse so wavy shapes are not swallowed by the isEllipse guard.
+  if (isSubprocess) return 'special';
+  if (/\b(subprocess|sub process|predefined|processus predefini|activite partielle|sous activite|sous processus|sous tache|tache multiple|multi instance|callout|offpage|off page)\b/.test(mn)) return 'special';
+
+  // 4. Start/end — oval/circle shapes (isEllipse now means "pure arc shape")
+  if (/\b(terminator|oval|ellipse|circle|event|rond|cercle|ronde|circulaire)\b/.test(mn)
+      || mn === 'start' || mn === 'end'
+      || mn.includes('start end') || mn.includes('debut fin') || mn.includes('start/end')
+      || isEllipse) return 'start-end';
+
+  // 5. Visio Group that is not a swimlane → subprocess style
+  if (visioType === 'Group') return 'special';
+
+  return 'process';
 }
 
 // ── Public entry point ────────────────────────────────────────────
