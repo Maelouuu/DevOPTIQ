@@ -1292,12 +1292,18 @@
     const missingActNote = counts.missing_activities > 0 ? ` · <span style="color:#ef4444">${counts.missing_activities} manquantes</span>` : '';
     const extraConnNote  = counts.extra_connections  > 0 ? ` · <span style="color:#f59e0b">${counts.extra_connections} en trop</span>` : '';
     const missingConnNote = counts.missing_connections > 0 ? ` · <span style="color:#ef4444">${counts.missing_connections} manquantes</span>` : '';
-    const noteHtml = counts.carto_activities !== counts.vsdx_activities
-      ? `<div class="vcm-note"><i class="fa-solid fa-circle-info"></i>
-           Carto : <strong>${counts.carto_activities}</strong> labels uniques (${processCount} activités, ${specialCount} sous-activités, ${circleCount} cercles) —
-           VSDX : <strong>${counts.vsdx_activities}</strong> activités connectées.
-           L'onglet <em>Données de la carto</em> affiche tous les éléments, y compris décisions et formes sans label.
-         </div>` : '';
+    // Note toujours visible : explique le détail des comptes et la différence avec l'onglet "Données de la carto"
+    // L'onglet Données de la carto = TOUTES les formes (décisions + doublons + sans label)
+    // Le comparateur = labels uniques non-décision (la même notion que le VSDX)
+    const totalCartoShapes = Object.values(byType).reduce((s, n) => s + n, 0);
+    const decisionCount = byType['decision'] || 0;
+    const noteHtml = `<div class="vcm-note"><i class="fa-solid fa-circle-info"></i>
+         Notre carto : <strong>${counts.carto_activities}</strong> labels uniques comparés
+         (${processCount} process · ${specialCount} sous-activités · ${circleCount} cercles) —
+         VSDX : <strong>${counts.vsdx_activities}</strong> activités connectées.
+         <span style="opacity:0.65;font-size:11px">L'onglet <em>Données de la carto</em> affiche ${totalCartoShapes} formes au total
+         (dont ${decisionCount} décisions non comparées). La différence avec ce test est normale.</span>
+       </div>`;
     document.getElementById('vcm-counts').innerHTML = `
       <div class="vcm-count-item"><i class="fa-solid fa-shapes"></i> ${counts.matched_activities}/${refAct} activités${extraActNote}${missingActNote}</div>
       <div class="vcm-count-item"><i class="fa-solid fa-arrow-right-arrow-left"></i> ${counts.matched_connections}/${refConn} connexions${extraConnNote}${missingConnNote}</div>
