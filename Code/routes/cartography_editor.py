@@ -153,6 +153,14 @@ def _compute_removals(entity, new_diagram):
 
 def _sync_carto_to_db(entity, diagram):
     """Full re-extraction: upsert activities, roles, links from the carto diagram."""
+    try:
+        _do_sync(entity, diagram)
+    except Exception:
+        db.session.rollback()
+        raise
+
+
+def _do_sync(entity, diagram):
     shapes      = diagram.get('shapes',      [])
     bands       = diagram.get('bands',       [])
     connections = diagram.get('connections', [])
@@ -164,37 +172,40 @@ def _sync_carto_to_db(entity, diagram):
                      Activities.query.filter_by(entity_id=entity.id).filter(
                          Activities.shape_id.isnot(None)).all()}
 
-    new_shape_ids  = {str(s['id']) for s in act_shapes}
-    shape_to_act   = {}  # str(shape_id) → Activities
+    new_shape_ids = {str(s['id']) for s in act_shapes}
+    shape_to_act  = {}
 
     for s in act_shapes:
-        sid   = str(s['id'])
-        label = (s.get('label') or '').strip()
+        sid       = str(s['id'])
+        label     = (s.get('label') or '').strip() or f"Activité {sid}"
         is_result = s.get('type') == 'special'
 
         if sid in existing_acts:
-            act = existing_acts[sid]
+            act           = existing_acts[sid]
             act.name      = label
             act.is_result = is_result
         else:
             act = Activities(entity_id=entity.id, shape_id=sid,
-                           name=label, is_result=is_result)
+                             name=label, is_result=is_result)
             db.session.add(act)
         shape_to_act[sid] = act
 
+    # Delete activities removed from the carto
     for sid, act in existing_acts.items():
         if sid not in new_shape_ids:
             db.session.delete(act)
 
-    db.session.flush()  # assign IDs to new activities
+    db.session.flush()
 
     # ── Roles (bands) ─────────────────────────────────────────────────────────
     existing_roles = {r.name: r for r in Role.query.filter_by(entity_id=entity.id).all()}
     new_band_names = {(b.get('label') or '').strip() for b in bands}
-    band_to_role   = {}  # band id → Role
+    band_to_role   = {}
 
     for band in bands:
         name = (band.get('label') or '').strip()
+        if not name:
+            continue
         if name in existing_roles:
             role = existing_roles[name]
         else:
@@ -208,12 +219,13 @@ def _sync_carto_to_db(entity, diagram):
 
     db.session.flush()
 
-    # ── Activities-Role associations ────────────────────────────────────────────
+    # ── Activity-Role associations ────────────────────────────────────────────
     act_ids = [a.id for a in shape_to_act.values() if a.id]
     if act_ids:
         db.session.execute(
             activity_roles.delete().where(activity_roles.c.activity_id.in_(act_ids))
         )
+        db.session.flush()
 
     for s in act_shapes:
         sid = str(s['id'])
@@ -231,11 +243,10 @@ def _sync_carto_to_db(entity, diagram):
             ))
 
     # ── Links (connections) ───────────────────────────────────────────────────
-    # Delete all carto-derived links for this entity, then re-insert
     Link.query.filter_by(entity_id=entity.id).filter(
         Link.source_activity_id.isnot(None),
         Link.target_activity_id.isnot(None),
-    ).delete()
+    ).delete(synchronize_session=False)
 
     for conn in connections:
         from_sid = str(conn.get('fromId', ''))
@@ -276,14 +287,18 @@ def api_save():
     db.session.commit()
 
     # Re-extract activities / roles / links from the saved diagram
+    sync_error = None
     try:
         _sync_carto_to_db(entity, diagram)
     except Exception as exc:
-        # Non-blocking: the carto is saved; sync failure is logged only
         import traceback
+        sync_error = str(exc)
         traceback.print_exc()
 
-    return jsonify({"ok": True, "name": entity.name or f"entity_{entity.id}"})
+    resp = {"ok": True, "name": entity.name or f"entity_{entity.id}"}
+    if sync_error:
+        resp["sync_warning"] = sync_error
+    return jsonify(resp)
 
 
 @cartography_editor_bp.route("/api/save-diff", methods=["POST"])

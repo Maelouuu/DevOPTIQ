@@ -39,7 +39,7 @@
         <span id="cross-carto-label">Connexions</span>
         <span class="cross-carto-dot"></span>
       </button>
-      <button id="carto-wizard-btn" class="carto-wizard-btn"><i class="fa-solid fa-layer-group"></i> Gérer la cartographie</button>
+      <button id="carto-wizard-btn" class="carto-wizard-btn"><i class="fa-solid fa-building-columns"></i> Gestion des entités</button>
     </div>
   </div>
 
@@ -92,314 +92,76 @@
     </div>
   </div>
 
-  <!-- WIZARD UNIFIÉ -->
-  <div id="carto-wizard-popup" class="popup hidden" >
+  <!-- GESTION DES ENTITÉS -->
+  <div id="carto-wizard-popup" class="popup hidden">
     <div class="wizard-overlay"></div>
-    <div class="wizard-container">
-      
-      <div class="wizard-header">
-        <h2 id="wizard-title"><i class="fa-solid fa-layer-group" style="color:#8b5cf6;margin-right:8px"></i>Gestion de la cartographie</h2>
-        <button id="close-wizard" class="btn-close"><i class="fa-solid fa-xmark"></i></button>
-      </div>
+    <div class="em-container">
 
-      <div class="wizard-progress hidden" id="wizard-progress">
-        <div class="progress-step" data-step="1">
-          <div class="step-circle">1</div>
-          <span class="step-label">Connexions</span>
-        </div>
-        <div class="progress-line" data-line="1"></div>
-        <div class="progress-step" data-step="2">
-          <div class="step-circle">2</div>
-          <span class="step-label">Cartographie</span>
-        </div>
-        <div class="progress-line" data-line="2"></div>
-        <div class="progress-step" data-step="3">
-          <div class="step-circle">3</div>
-          <span class="step-label">Récapitulatif</span>
-        </div>
+      <div class="em-header">
+        <div class="em-header-icon"><i class="fa-solid fa-building-columns"></i></div>
+        <h2>Gestion des entités</h2>
+        <button id="close-wizard" class="em-close-btn"><i class="fa-solid fa-xmark"></i></button>
       </div>
 
       <div class="wizard-content">
 
-        <!-- ÉCRAN 0 : SÉLECTION ENTITÉ -->
+        <!-- ÉCRAN 0 : LISTE DES ENTITÉS -->
         <div id="wizard-screen-entities" class="wizard-screen active">
-          <div class="entities-screen">
-            <div class="entities-header">
-              <h3><i class="fa-solid fa-building" style="color:#7c3aed;margin-right:6px"></i>Sélectionnez une entité</h3>
-              <p>Choisissez l'entité dont vous souhaitez gérer la cartographie</p>
-            </div>
-            <div class="new-entity-inline">
-              <input type="text" id="wizard-new-entity-name" placeholder="Nom de la nouvelle entité..." />
-              <button id="wizard-create-entity-btn" class="btn-create-entity">+ Créer</button>
-            </div>
-            <div class="entities-grid" id="wizard-entities-list"></div>
-            <div class="wizard-entities-empty hidden" id="wizard-entities-empty">
-              <div class="empty-icon">🏢</div>
-              <p>Aucune entité créée</p>
-              <p class="hint">Créez votre première entité pour commencer</p>
-            </div>
+          <div class="em-new-row">
+            <input type="text" id="wizard-new-entity-name" class="em-new-input" placeholder="Nom de la nouvelle entité…">
+            <button id="wizard-create-entity-btn" class="em-btn-create">
+              <i class="fa-solid fa-plus"></i> Créer
+            </button>
+          </div>
+          <div class="entities-grid" id="wizard-entities-list"></div>
+          <div class="wizard-entities-empty hidden" id="wizard-entities-empty">
+            <i class="fa-solid fa-building" style="font-size:32px;opacity:0.25;color:#ec4899"></i>
+            <p>Aucune entité créée</p>
+            <p class="em-empty-hint">Utilisez le champ ci-dessus pour commencer</p>
           </div>
         </div>
 
-        <!-- ÉCRAN 1 : CHOIX ACTION -->
+        <!-- ÉCRAN 1 : DÉTAIL ENTITÉ -->
         <div id="wizard-screen-action" class="wizard-screen">
-          <div class="action-screen">
-            <div class="selected-entity-card">
-              <div class="entity-card-header">
-                <div class="entity-card-icon"><i class="fa-solid fa-building"></i></div>
-                <div class="entity-card-info">
-                  <h3 id="selected-entity-name">Nom de l'entité</h3>
-                  <div class="entity-card-stats">
-                    <span class="stat"><strong id="selected-entity-activities">0</strong> activités</span>
-                    <span class="stat-separator">•</span>
-                    <span class="stat"><strong id="selected-entity-connections">0</strong> connexions</span>
-                  </div>
-                </div>
-                <span id="selected-entity-active-badge" class="active-badge hidden">Active</span>
-              </div>
-              <div class="entity-files-status">
-                <div class="file-status-item">
-                  <span class="file-icon"><i class="fa-solid fa-image" style="color:#8b5cf6"></i></span>
-                  <span class="file-label">SVG</span>
-                  <span class="file-value" id="selected-entity-svg-value">-</span>
-                </div>
-                <div class="file-status-item">
-                  <span class="file-icon"><i class="fa-solid fa-file-lines" style="color:#7c3aed"></i></span>
-                  <span class="file-label">VSDX</span>
-                  <span class="file-value" id="selected-entity-vsdx-value">-</span>
+          <div class="em-detail">
+            <div class="em-detail-card">
+              <div class="em-detail-icon"><i class="fa-solid fa-building"></i></div>
+              <div class="em-detail-info">
+                <h3 id="selected-entity-name">Entité</h3>
+                <div class="em-detail-meta">
+                  <span><strong id="selected-entity-activities">0</strong> activités</span>
+                  <span id="em-carto-badge" class="em-carto-badge hidden">
+                    <i class="fa-solid fa-diagram-project"></i> Cartographie disponible
+                  </span>
                 </div>
               </div>
+              <span id="selected-entity-active-badge" class="em-active-badge hidden">
+                <i class="fa-solid fa-check-circle"></i> Active
+              </span>
             </div>
 
-            <div class="action-section-title"><h4>Actions cartographie</h4></div>
-            <div class="wizard-actions-grid">
-              <button id="wizard-new-btn" class="wizard-action-card">
-                <div class="action-card-icon"><i class="fa-solid fa-wand-magic-sparkles"></i></div>
-                <div class="action-card-content">
-                  <strong>Nouvelle cartographie</strong>
-                  <span>Remplacer tous les fichiers</span>
-                </div>
+            <div class="em-action-grid">
+              <button id="wizard-activate-btn" class="em-action-btn em-action-activate">
+                <i class="fa-solid fa-check-circle"></i>
+                <span>Activer</span>
               </button>
-              <button id="wizard-update-btn" class="wizard-action-card" disabled>
-                <div class="action-card-icon"><i class="fa-solid fa-arrows-rotate"></i></div>
-                <div class="action-card-content">
-                  <strong>Modifier l'existante</strong>
-                  <span>Mettre à jour les fichiers</span>
-                </div>
+              <a href="/cartography/editor" class="em-action-btn em-action-editor">
+                <i class="fa-solid fa-pen-ruler"></i>
+                <span>Ouvrir l'éditeur</span>
+              </a>
+              <button id="wizard-rename-btn" class="em-action-btn em-action-rename">
+                <i class="fa-solid fa-pen"></i>
+                <span>Renommer</span>
+              </button>
+              <button id="wizard-delete-btn" class="em-action-btn em-action-delete">
+                <i class="fa-solid fa-trash"></i>
+                <span>Supprimer</span>
               </button>
             </div>
 
-            <div class="action-section-title"><h4>Actions entité</h4></div>
-            <div class="entity-actions-row">
-              <button id="wizard-activate-btn" class="btn-action activate"><i class="fa-solid fa-check"></i> Activer</button>
-              <button id="wizard-rename-btn" class="btn-action rename"><i class="fa-solid fa-pen"></i> Renommer</button>
-              <button id="wizard-delete-btn" class="btn-action delete"><i class="fa-solid fa-trash"></i> Supprimer</button>
-            </div>
-
-            <div class="wizard-nav">
-              <button id="action-back" class="wizard-btn-secondary">← Retour aux entités</button>
-            </div>
-          </div>
-        </div>
-
-        <!-- ÉTAPE 1 : VSDX -->
-        <div id="wizard-screen-step1" class="wizard-screen">
-          <div class="wizard-step-header">
-            <div class="step-icon vsdx"><i class="fa-solid fa-file-lines"></i></div>
-            <div class="step-info">
-              <h3>Étape 1 : Fichier de connexions</h3>
-              <p>Importez votre fichier Visio (.vsdx) contenant les connexions</p>
-            </div>
-          </div>
-          <div id="keep-vsdx-option" class="keep-current-option hidden">
-            <label class="keep-checkbox">
-              <input type="checkbox" id="keep-vsdx-checkbox">
-              <span class="checkmark"></span>
-              <span class="keep-label">
-                <strong>Conserver le fichier actuel</strong>
-                <span class="keep-filename" id="current-vsdx-name"></span>
-              </span>
-            </label>
-          </div>
-          <div id="vsdx-dropzone-wrapper">
-            <div id="vsdx-dropzone" class="wizard-dropzone">
-              <div class="dropzone-content">
-                <div class="dropzone-icon"><i class="fa-solid fa-folder-open"></i></div>
-                <p class="dropzone-text">Glissez votre fichier .vsdx ici</p>
-                <p class="dropzone-hint">ou cliquez pour sélectionner</p>
-              </div>
-              <input type="file" id="vsdx-file-input" accept=".vsdx" hidden>
-            </div>
-            <div id="vsdx-preview" class="file-preview hidden">
-              <div class="preview-icon"><i class="fa-solid fa-file-lines"></i></div>
-              <div class="preview-info">
-                <span class="preview-name" id="vsdx-filename"></span>
-                <span class="preview-size" id="vsdx-filesize"></span>
-              </div>
-              <button class="preview-remove" id="vsdx-remove">✕</button>
-            </div>
-          </div>
-          <div class="step-hint">
-            <span class="info-icon">💡</span>
-            <span class="info-text">Ce fichier contient les connexions entre les activités (optionnel).</span>
-          </div>
-          <div class="wizard-nav">
-            <button id="step1-back" class="wizard-btn-secondary">← Retour</button>
-            <button id="step1-next" class="wizard-btn-primary">Continuer →</button>
-          </div>
-        </div>
-
-        <!-- ÉTAPE 2 : SVG -->
-        <div id="wizard-screen-step2" class="wizard-screen">
-          <div class="wizard-step-header">
-            <div class="step-icon svg"><i class="fa-solid fa-image"></i></div>
-            <div class="step-info">
-              <h3>Étape 2 : Fichier cartographie</h3>
-              <p>Importez votre fichier SVG exporté depuis Visio</p>
-            </div>
-          </div>
-          <div id="keep-svg-option" class="keep-current-option hidden">
-            <label class="keep-checkbox">
-              <input type="checkbox" id="keep-svg-checkbox">
-              <span class="checkmark"></span>
-              <span class="keep-label">
-                <strong>Conserver le fichier actuel</strong>
-                <span class="keep-filename" id="current-svg-name"></span>
-              </span>
-            </label>
-          </div>
-          <div id="svg-dropzone-wrapper">
-            <div id="svg-dropzone" class="wizard-dropzone">
-              <div class="dropzone-content">
-                <div class="dropzone-icon"><i class="fa-solid fa-folder-open"></i></div>
-                <p class="dropzone-text">Glissez votre fichier .svg ici</p>
-                <p class="dropzone-hint">ou cliquez pour sélectionner</p>
-              </div>
-              <input type="file" id="svg-file-input" accept=".svg" hidden>
-            </div>
-            <div id="svg-preview" class="file-preview hidden">
-              <div class="preview-icon"><i class="fa-solid fa-image"></i></div>
-              <div class="preview-info">
-                <span class="preview-name" id="svg-filename"></span>
-                <span class="preview-size" id="svg-filesize"></span>
-              </div>
-              <button class="preview-remove" id="svg-remove">✕</button>
-            </div>
-          </div>
-          <div class="step-hint">
-            <span class="info-icon">💡</span>
-            <span class="info-text">Exportez depuis Visio via <strong>Fichier → Exporter → SVG</strong>.</span>
-          </div>
-          <div class="wizard-nav">
-            <button id="step2-back" class="wizard-btn-secondary">← Retour</button>
-            <button id="step2-next" class="wizard-btn-primary">Continuer →</button>
-          </div>
-        </div>
-
-        <!-- ÉTAPE 3 : RÉCAPITULATIF -->
-        <div id="wizard-screen-step3" class="wizard-screen">
-          <div class="wizard-step-header">
-            <div class="step-icon recap"><i class="fa-solid fa-clipboard-check"></i></div>
-            <div class="step-info">
-              <h3>Étape 3 : Récapitulatif</h3>
-              <p>Vérifiez les informations avant de valider</p>
-            </div>
-          </div>
-          <div class="recap-entity">
-            <span class="recap-entity-label">Entité :</span>
-            <span class="recap-entity-name" id="recap-entity-name">-</span>
-          </div>
-          <div class="recap-files">
-            <div class="recap-file-card" id="recap-vsdx">
-              <div class="recap-file-icon vsdx"><i class="fa-solid fa-file-lines"></i></div>
-              <div class="recap-file-info">
-                <span class="recap-file-type">Fichier VSDX</span>
-                <span class="recap-file-name" id="recap-vsdx-name">-</span>
-              </div>
-              <div class="recap-file-status" id="recap-vsdx-status"></div>
-            </div>
-            <div class="recap-file-card" id="recap-svg">
-              <div class="recap-file-icon svg"><i class="fa-solid fa-image"></i></div>
-              <div class="recap-file-info">
-                <span class="recap-file-type">Fichier SVG</span>
-                <span class="recap-file-name" id="recap-svg-name">-</span>
-              </div>
-              <div class="recap-file-status" id="recap-svg-status"></div>
-            </div>
-          </div>
-          <div id="connections-preview-section" class="connections-preview-section hidden">
-            <h4>Aperçu des connexions</h4>
-            
-            <!-- Message info pour mode création -->
-            <div id="new-mode-info" class="new-mode-info hidden">
-              <span class="info-icon">ℹ️</span>
-              <p>Les activités seront automatiquement créées à partir du fichier SVG lors de l'import.</p>
-            </div>
-            
-            <div class="connections-stats" id="wizard-connections-stats"></div>
-            <div id="wizard-missing-warning" class="warning-box hidden">
-              <strong>⚠️ Activités non trouvées :</strong>
-              <ul id="wizard-missing-list"></ul>
-            </div>
-            <div class="connections-table-wrapper">
-              <table class="connections-table" id="wizard-connections-table">
-                <thead><tr><th>Source</th><th>→</th><th>Cible</th><th>Donnée</th><th>Type</th><th>Statut</th></tr></thead>
-                <tbody id="wizard-connections-tbody"></tbody>
-              </table>
-            </div>
-            <div class="import-option">
-              <label class="import-checkbox">
-                <input type="checkbox" id="clear-connections-checkbox">
-                <span class="checkmark"></span>
-                <span>Supprimer les connexions existantes avant import</span>
-              </label>
-            </div>
-          </div>
-          <div id="no-vsdx-message" class="no-vsdx-message hidden">
-            <span class="info-icon">ℹ️</span>
-            <p>Aucun fichier VSDX — les connexions existantes seront conservées.</p>
-          </div>
-          <div class="wizard-nav">
-            <button id="step3-back" class="wizard-btn-secondary">← Retour</button>
-            <button id="step3-submit" class="wizard-btn-success">✓ Valider et importer</button>
-          </div>
-        </div>
-
-        <!-- ÉCRAN TRAITEMENT -->
-        <div id="wizard-screen-processing" class="wizard-screen">
-          <div class="processing-content">
-            <div class="processing-spinner"></div>
-            <h3>Traitement en cours...</h3>
-            <p>Veuillez patienter</p>
-            <div class="processing-steps">
-              <div class="processing-step" id="proc-step-svg"><span class="proc-icon"><i class="fa-solid fa-image"></i></span> Importation cartographie</div>
-              <div class="processing-step" id="proc-step-vsdx"><span class="proc-icon"><i class="fa-solid fa-diagram-project"></i></span> Analyse connexions</div>
-              <div class="processing-step" id="proc-step-save"><span class="proc-icon"><i class="fa-solid fa-floppy-disk"></i></span> Enregistrement</div>
-            </div>
-          </div>
-        </div>
-
-        <!-- ÉCRAN SUCCÈS -->
-        <div id="wizard-screen-success" class="wizard-screen">
-          <div class="success-content">
-            <div class="success-icon"><i class="fa-solid fa-check"></i></div>
-            <h3>Importation réussie !</h3>
-            <p id="success-message">Cartographie mise à jour avec succès.</p>
-            <div class="success-stats" id="success-stats"></div>
-            <button id="success-close" class="wizard-btn-primary">Fermer et actualiser</button>
-          </div>
-        </div>
-
-        <!-- ÉCRAN ERREUR -->
-        <div id="wizard-screen-error" class="wizard-screen">
-          <div class="error-content">
-            <div class="error-icon"><i class="fa-solid fa-xmark"></i></div>
-            <h3>Une erreur s'est produite</h3>
-            <p id="error-message">Impossible de terminer l'importation.</p>
-            <div class="error-actions">
-              <button id="error-retry" class="wizard-btn-secondary">Réessayer</button>
-              <button id="error-close" class="wizard-btn-primary">Fermer</button>
-            </div>
+            <button class="em-back-btn" id="action-back">
+              <i class="fa-solid fa-chevron-left"></i> Retour aux entités
+            </button>
           </div>
         </div>
 
@@ -437,13 +199,25 @@
     <div class="carto-left">
       {% if has_optiqcarto %}
       <!-- Viewer OptiqCarto actif -->
-      <div class="carto-viewer-wrap">
-        <iframe id="carto-viewer-frame" src="/cartography/viewer" frameborder="0" allowfullscreen></iframe>
-        <!-- Badge lecture seule -->
-        <div class="viewer-readonly-badge"><i class="fa-solid fa-eye"></i> Lecture seule</div>
-        <a href="/cartography/editor" class="btn-open-editor" title="Ouvrir dans l'éditeur">
-          <i class="fa-solid fa-pen-ruler"></i> Ouvrir l'éditeur
-        </a>
+      <div class="carto-viewer-card">
+        <div class="carto-viewer-cardheader">
+          <div class="carto-viewer-cardheader-left">
+            <div class="carto-viewer-cardicon"><i class="fa-solid fa-diagram-project"></i></div>
+            <div>
+              <h3 class="carto-viewer-cardtitle">Cartographie</h3>
+              {% if active_entity %}<span class="carto-viewer-cardentity">{{ active_entity.name }}</span>{% endif %}
+            </div>
+          </div>
+          <div class="carto-viewer-cardheader-right">
+            <span class="viewer-readonly-badge-inline"><i class="fa-solid fa-eye"></i> Lecture seule</span>
+            <a href="/cartography/editor" class="btn-open-editor-inline">
+              <i class="fa-solid fa-pen-ruler"></i> Ouvrir l'éditeur
+            </a>
+          </div>
+        </div>
+        <div class="carto-viewer-wrap">
+          <iframe id="carto-viewer-frame" src="/cartography/viewer" frameborder="0" allowfullscreen></iframe>
+        </div>
       </div>
       {% elif active_entity %}
       <!-- Pas encore de carto pour cette entité -->
@@ -452,26 +226,11 @@
           <div class="carto-no-carto-icon"><i class="fa-solid fa-diagram-project"></i></div>
           <h3 class="carto-no-carto-title">Aucune cartographie créée</h3>
           <p class="carto-no-carto-sub">Entité active : <strong>{{ active_entity.name }}</strong></p>
-          <p class="carto-no-carto-hint">
-            {% if vsdx_exists %}
-              Un fichier Visio est disponible — importez-le pour recréer automatiquement votre cartographie.
-            {% else %}
-              Créez votre première cartographie directement dans l'éditeur OptiqCarto.
-            {% endif %}
-          </p>
+          <p class="carto-no-carto-hint">Créez votre première cartographie directement dans l'éditeur OptiqCarto.</p>
           <div class="carto-no-carto-actions">
-            {% if vsdx_exists %}
-            <a href="/cartography/editor" class="btn-carto-primary">
-              <i class="fa-solid fa-file-import"></i> Importer depuis Visio
-            </a>
-            <a href="/cartography/editor" class="btn-carto-secondary">
-              <i class="fa-solid fa-plus"></i> Créer vierge
-            </a>
-            {% else %}
             <a href="/cartography/editor" class="btn-carto-primary">
               <i class="fa-solid fa-plus"></i> Créer la cartographie
             </a>
-            {% endif %}
           </div>
         </div>
       </div>
@@ -481,13 +240,19 @@
         <div class="carto-no-carto-card carto-no-entity">
           <div class="carto-no-carto-icon"><i class="fa-solid fa-building"></i></div>
           <h3 class="carto-no-carto-title">Aucune entité active</h3>
-          <p class="carto-no-carto-hint">Activez une entité via "Gérer la cartographie" pour visualiser sa cartographie.</p>
+          <p class="carto-no-carto-hint">Activez une entité via "Gestion des entités" pour visualiser sa cartographie.</p>
         </div>
       </div>
       {% endif %}
     </div>
     <div class="carto-right">
-      <h2>Liste des activités</h2>
+      <div class="activities-panel-header">
+        <div class="activities-panel-icon"><i class="fa-solid fa-list-check"></i></div>
+        <div>
+          <h3 class="activities-panel-title">Activités</h3>
+          <span class="activities-panel-count">{{ activities|length }} activité{{ 's' if activities|length != 1 else '' }}</span>
+        </div>
+      </div>
       {% if activities %}
         <ul class="activities-list" id="activities-list">
           {% for a in activities %}
@@ -500,7 +265,7 @@
       {% else %}
         <div class="no-activities">
           <p>Aucune activité pour cette entité.</p>
-          <p class="hint">Utilisez le bouton "📦 Gérer la cartographie" pour importer.</p>
+          <p class="hint">Enregistrez une cartographie dans l'éditeur pour importer les activités.</p>
         </div>
       {% endif %}
     </div>

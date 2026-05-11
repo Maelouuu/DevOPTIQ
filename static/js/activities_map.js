@@ -334,34 +334,11 @@ function initWizard() {
 
   // Navigation
   $("#action-back")?.addEventListener("click", () => goToScreen("entities"));
-  $("#wizard-new-btn")?.addEventListener("click", () => startSteps("new"));
-  $("#wizard-update-btn")?.addEventListener("click", () => startSteps("update"));
 
   // Actions entité
   $("#wizard-activate-btn")?.addEventListener("click", activateEntity);
   $("#wizard-rename-btn")?.addEventListener("click", () => showModal("rename-modal"));
   $("#wizard-delete-btn")?.addEventListener("click", () => showModal("confirm-delete-modal"));
-
-  // Étapes
-  $("#step1-back")?.addEventListener("click", () => goToScreen("action"));
-  $("#step1-next")?.addEventListener("click", () => goToStep(2));
-  $("#step2-back")?.addEventListener("click", () => goToStep(1));
-  $("#step2-next")?.addEventListener("click", () => goToStep(3));
-  $("#step3-back")?.addEventListener("click", () => goToStep(2));
-  $("#step3-submit")?.addEventListener("click", submitWizard);
-
-  // Écrans finaux
-  $("#success-close")?.addEventListener("click", () => window.location.reload());
-  $("#error-retry")?.addEventListener("click", () => goToStep(3));
-  $("#error-close")?.addEventListener("click", () => hideModal("carto-wizard-popup"));
-
-  // Checkboxes
-  $("#keep-vsdx-checkbox")?.addEventListener("change", (e) => { wizardState.keepVsdx = e.target.checked; toggleDropzone("vsdx"); });
-  $("#keep-svg-checkbox")?.addEventListener("change", (e) => { wizardState.keepSvg = e.target.checked; toggleDropzone("svg"); });
-
-  // Dropzones
-  initDropzone("vsdx");
-  initDropzone("svg");
 
   // Modals
   $("#cancel-delete-btn")?.addEventListener("click", () => hideModal("confirm-delete-modal"));
@@ -374,18 +351,7 @@ function initWizard() {
 
 function resetWizard() {
   Object.assign(wizardState, { selectedEntity: null, mode: null, vsdxFile: null, svgFile: null, keepVsdx: false, keepSvg: false, connectionsPreview: null });
-  const kv = $("#keep-vsdx-checkbox"), ks = $("#keep-svg-checkbox");
-  if (kv) kv.checked = false;
-  if (ks) ks.checked = false;
-  $("#vsdx-preview")?.classList.add("hidden");
-  $("#svg-preview")?.classList.add("hidden");
-  $("#vsdx-dropzone")?.classList.remove("hidden", "disabled");
-  $("#svg-dropzone")?.classList.remove("hidden", "disabled");
-  const vi = $("#vsdx-file-input"), si = $("#svg-file-input");
-  if (vi) vi.value = "";
-  if (si) si.value = "";
   goToScreen("entities");
-  $("#wizard-progress")?.classList.add("hidden");
 }
 
 /* Entités */
@@ -410,7 +376,7 @@ async function loadEntitiesList() {
           <span class="entity-grid-stats">${e.activities_count || 0} activités</span>
         </div>
         ${e.is_active ? '<span class="entity-grid-badge">Active</span>' : ''}
-        ${e.svg_exists ? '<span class="entity-grid-svg"><i class="fa-solid fa-image"></i></span>' : ''}
+        ${e.optiqcarto_exists ? '<span class="entity-grid-carto"><i class="fa-solid fa-diagram-project"></i></span>' : ''}
       </div>
     `).join("");
 
@@ -445,44 +411,19 @@ async function selectEntity(id) {
   const entity = wizardState.entitiesCache.find(e => e.id === id);
   if (!entity) return;
 
-  let connCount = 0;
-  try {
-    const res = await fetch(`/activities/api/entities/${id}/details`);
-    if (res.ok) {
-      const d = await res.json();
-      connCount = d.connections_count || 0;
-      entity.svg_exists = d.svg_exists;
-      entity.vsdx_exists = d.vsdx_exists;
-      entity.current_svg = d.current_svg;
-      entity.current_vsdx = d.current_vsdx;
-    }
-  } catch (e) {}
-
   wizardState.selectedEntity = entity;
 
   $("#selected-entity-name").textContent = entity.name;
   $("#selected-entity-activities").textContent = entity.activities_count || 0;
-  $("#selected-entity-connections").textContent = connCount;
-  
+
   const badge = $("#selected-entity-active-badge");
   if (badge) badge.classList.toggle("hidden", !entity.is_active);
-  
+
+  const cartoBadge = $("#em-carto-badge");
+  if (cartoBadge) cartoBadge.classList.toggle("hidden", !entity.optiqcarto_exists);
+
   const actBtn = $("#wizard-activate-btn");
   if (actBtn) actBtn.style.display = entity.is_active ? "none" : "";
-
-  const svgVal = $("#selected-entity-svg-value");
-  const vsdxVal = $("#selected-entity-vsdx-value");
-  if (svgVal) {
-    svgVal.textContent = entity.svg_exists ? "✓ Présent" : "—";
-    svgVal.className = "file-value " + (entity.svg_exists ? "present" : "");
-  }
-  if (vsdxVal) {
-    vsdxVal.textContent = entity.vsdx_exists ? "✓ Présent" : "—";
-    vsdxVal.className = "file-value " + (entity.vsdx_exists ? "present" : "");
-  }
-
-  const updateBtn = $("#wizard-update-btn");
-  if (updateBtn) updateBtn.disabled = !(entity.svg_exists || entity.vsdx_exists);
 
   goToScreen("action");
 }

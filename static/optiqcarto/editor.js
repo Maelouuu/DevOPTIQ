@@ -2755,8 +2755,10 @@ async function saveJSON() {
     body:    JSON.stringify({ diagram: state }),
   });
   const data = await res.json();
-  if (data.ok) showToast('Cartographie sauvegardée ✓');
-  else showToast('Erreur : ' + (data.error || 'inconnue'));
+  if (data.ok) {
+    if (data.sync_warning) showToast('Sauvegardé — erreur sync : ' + data.sync_warning, 'warn');
+    else showToast('Cartographie sauvegardée ✓');
+  } else showToast('Erreur : ' + (data.error || 'inconnue'));
 }
 
 async function openLoadDialog() {
