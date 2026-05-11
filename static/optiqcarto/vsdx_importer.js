@@ -481,7 +481,6 @@ class VsdxImporter {
       if (containerIds.has(id))       continue;
       if (_containerGroupIds.has(id)) continue;
       if (this.isInLegend(id))        continue;
-      if (this.vCell(s, 'LayerMember') === '6') continue; // layer 6 = return flags
 
       const mid   = s.getAttribute('Master');
       const vType = s.getAttribute('Type');
