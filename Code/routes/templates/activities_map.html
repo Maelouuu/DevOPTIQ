@@ -30,12 +30,12 @@
     </div>
     <div class="carto-header-right">
       <button id="btn-import-full" class="btn-import-full">
-        <i class="fa-solid fa-wand-magic-sparkles"></i>
-        Import global IA
+        <img src="{{ url_for('static', filename='img/artificial-intelligence.png') }}" alt="IA" class="btn-icon-img">
+        Import IA
       </button>
       <!-- Mode connexions inter-cartos -->
       <button id="cross-carto-btn" class="cross-carto-btn" title="Visualiser les connexions inter-cartos">
-        <i class="fa-solid fa-diagram-project cross-carto-icon"></i>
+        <img src="{{ url_for('static', filename='img/connexion.png') }}" alt="" class="btn-icon-img cross-carto-icon">
         <span id="cross-carto-label">Connexions</span>
         <span class="cross-carto-dot"></span>
       </button>
