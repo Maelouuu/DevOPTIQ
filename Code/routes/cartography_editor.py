@@ -260,7 +260,7 @@ def _do_sync(entity, diagram):
             entity_id=entity.id,
             source_activity_id=from_act.id,
             target_activity_id=to_act.id,
-            type=label or 'flux',
+            type='flux',
             description=label or None,
         ))
 
