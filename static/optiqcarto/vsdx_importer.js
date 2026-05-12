@@ -138,7 +138,7 @@ class VsdxImporter {
   }
 
   async getMasterInfo(mid) {
-    const DEFAULTS = { w: 0.9449, h: 0.7087, linePattern: 1, isEllipse: false, isDiamond: false, isSubprocess: false, fillColor: null };
+    const DEFAULTS = { w: 0.9449, h: 0.7087, linePattern: 1, fillPattern: 1, isEllipse: false, isDiamond: false, isSubprocess: false, fillColor: null };
     if (!mid) return DEFAULTS;
     if (this.masterInfoCache[mid]) return this.masterInfoCache[mid];
     const fpath = this.masterIdToFile[mid];
@@ -146,7 +146,7 @@ class VsdxImporter {
     try {
       const xml = await this.zip.file(fpath).async('text');
       const doc = this.parseXml(xml);
-      let bw, bh, lp = 1, isDiamond = false, fillColor = null;
+      let bw, bh, lp = 1, fp = 1, isDiamond = false, fillColor = null;
 
       const geomRows = doc.getElementsByTagName('Row');
       const geomSeq = [];
@@ -196,13 +196,15 @@ class VsdxImporter {
         if (h) bh = parseFloat(h);
         const lv = this.vCellDeep(s, 'LinePattern');
         if (lv) lp = parseInt(lv) || 1;
+        const fpv = this.vCellDeep(s, 'FillPattern');
+        if (fpv) fp = parseInt(fpv) || 1;
         const fc = this.vCell(s, 'FillForegnd');
         if (fc && fc.startsWith('#') && !fillColor) fillColor = fc;
         if (bw && bh) break;
       }
-      return this.masterInfoCache[mid] = { w: bw || 0.9449, h: bh || 0.7087, linePattern: lp, isEllipse, isDiamond, isSubprocess, fillColor };
+      return this.masterInfoCache[mid] = { w: bw || 0.9449, h: bh || 0.7087, linePattern: lp, fillPattern: fp, isEllipse, isDiamond, isSubprocess, fillColor };
     } catch(e) {
-      return this.masterInfoCache[mid] = { w: 0.9449, h: 0.7087, linePattern: 1, isEllipse: false, isDiamond: false, isSubprocess: false, fillColor: null };
+      return this.masterInfoCache[mid] = { w: 0.9449, h: 0.7087, linePattern: 1, fillPattern: 1, isEllipse: false, isDiamond: false, isSubprocess: false, fillColor: null };
     }
   }
 
@@ -509,6 +511,10 @@ class VsdxImporter {
       const shapeType = detectShapeType(masterIdToName[mid], vType,
                           mInfoForType.isEllipse, mInfoForType.isDiamond, mInfoForType.isSubprocess);
 
+      // ── Hatch detection: FillPattern ≥ 22 = hatched/crosshatched in Visio ──
+      const shapeFillPattern = parseInt(this.vCellDeep(s, 'FillPattern') || '0') || (mInfoForType.fillPattern || 1);
+      const subtype = (shapeFillPattern >= 22 && shapeType === 'process') ? 'extco' : 'normal';
+
       // ── Color: VSDX shape fill → master fill → band color ──
       // Preserves original Visio colors (e.g. yellow logistics, blue ops shapes).
       // Only falls back to band color when the shape has no explicit fill.
@@ -517,7 +523,7 @@ class VsdxImporter {
       const oid = this.nextOid++;
       shapeIdMap[id] = oid;
       newShapes.push({
-        id: oid, type: shapeType, subtype: 'normal',
+        id: oid, type: shapeType, subtype,
         x: screenX, y: screenY, w: screenW, h: screenH,
         label:          this.vText(s),
         color:          shapeColor,
