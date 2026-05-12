@@ -519,11 +519,12 @@ class VsdxImporter {
       const shapeType = detectShapeType(masterIdToName[mid], vType,
                           mInfoForType.isEllipse, mInfoForType.isDiamond, mInfoForType.isSubprocess);
 
-      // ── Hatch detection: FillPattern ≥ 14 = line-based hatch in Visio ──
-      // (2-13 = dot density patterns; 14+ = lines/diagonals/cross-hatches)
+      // ── Hatch detection: FillPattern ≥ 2 = any non-solid fill in Visio ──
+      // Visio FillPattern: 1=solid, 2-7=density, 8=horizontal, 9=vertical,
+      // 10=fwd-diag, 11=bwd-diag, 12=cross, 13=diag-cross, 14+=other patterns
       const shapeFillPattern = parseInt(this.vCellDeep(s, 'FillPattern') || '0') || (mInfoForType.fillPattern || 1);
       if (shapeFillPattern > 1) console.debug('[VSDX hatch]', this.vText(s) || id, 'FillPattern=', shapeFillPattern, 'master=', masterIdToName[mid]);
-      const subtype = (shapeFillPattern >= 14 && shapeType === 'process') ? 'extco' : 'normal';
+      const subtype = (shapeFillPattern >= 2 && shapeType === 'process') ? 'extco' : 'normal';
 
       // ── Color: VSDX shape fill → master fill → band color ──
       // Preserves original Visio colors (e.g. yellow logistics, blue ops shapes).
