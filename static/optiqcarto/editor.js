@@ -1011,7 +1011,7 @@ function renderShapes() {
       const isExternal = s.subtype === 'external';
       const isExtCo    = s.subtype === 'extco';
       const haloGap = 7;
-      const shapeRx = (isExternal || isExtCo) ? s.h / 2 : 16;
+      const shapeRx = isExternal ? s.h / 2 : 16;
       // Auréole
       el('rect', {
         x: s.x - haloGap, y: s.y - haloGap,

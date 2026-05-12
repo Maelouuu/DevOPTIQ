@@ -190,6 +190,7 @@ class VsdxImporter {
         if (allSects[si].getAttribute('N') === 'Geometry') geomSectCount++;
       const isSubprocess = (geomSectCount >= 2 || moveTos >= 3 || isWavyBottom) && !isEllipse && !isDiamond;
 
+      // First pass: outer shape dimensions (break early to avoid sub-shape dimensions)
       for (const s of doc.getElementsByTagName('Shape')) {
         const w = this.vCell(s, 'Width'), h = this.vCell(s, 'Height');
         if (w) bw = parseFloat(w);
@@ -201,6 +202,13 @@ class VsdxImporter {
         const fc = this.vCell(s, 'FillForegnd');
         if (fc && fc.startsWith('#') && !fillColor) fillColor = fc;
         if (bw && bh) break;
+      }
+      // Second pass: scan all sub-shapes for FillPattern if still default (may be nested)
+      if (fp === 1) {
+        for (const s of doc.getElementsByTagName('Shape')) {
+          const fpv = this.vCellDeep(s, 'FillPattern');
+          if (fpv) { const n = parseInt(fpv) || 1; if (n !== 1) { fp = n; break; } }
+        }
       }
       return this.masterInfoCache[mid] = { w: bw || 0.9449, h: bh || 0.7087, linePattern: lp, fillPattern: fp, isEllipse, isDiamond, isSubprocess, fillColor };
     } catch(e) {
@@ -511,9 +519,11 @@ class VsdxImporter {
       const shapeType = detectShapeType(masterIdToName[mid], vType,
                           mInfoForType.isEllipse, mInfoForType.isDiamond, mInfoForType.isSubprocess);
 
-      // ── Hatch detection: FillPattern ≥ 22 = hatched/crosshatched in Visio ──
+      // ── Hatch detection: FillPattern ≥ 14 = line-based hatch in Visio ──
+      // (2-13 = dot density patterns; 14+ = lines/diagonals/cross-hatches)
       const shapeFillPattern = parseInt(this.vCellDeep(s, 'FillPattern') || '0') || (mInfoForType.fillPattern || 1);
-      const subtype = (shapeFillPattern >= 22 && shapeType === 'process') ? 'extco' : 'normal';
+      if (shapeFillPattern > 1) console.debug('[VSDX hatch]', this.vText(s) || id, 'FillPattern=', shapeFillPattern, 'master=', masterIdToName[mid]);
+      const subtype = (shapeFillPattern >= 14 && shapeType === 'process') ? 'extco' : 'normal';
 
       // ── Color: VSDX shape fill → master fill → band color ──
       // Preserves original Visio colors (e.g. yellow logistics, blue ops shapes).
