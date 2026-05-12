@@ -13,28 +13,8 @@
   window.EXTCO_ACTIVITY_IDS = {{ extco_activity_ids | tojson | safe }};
 </script>
 
-<style>
-  /* Mode "mise en évidence des activités externes/hachurées" — cf. highlight-extco-map.js */
-  svg.extco-highlight-active .carto-activity {
-    filter: grayscale(1) brightness(0.95);
-    opacity: 0.32;
-    transition: filter 0.25s ease, opacity 0.25s ease;
-  }
-  svg.extco-highlight-active .carto-activity.extco-keep {
-    filter: drop-shadow(0 0 8px rgba(236, 72, 153, 0.55)) drop-shadow(0 0 18px rgba(236, 72, 153, 0.35)) !important;
-    opacity: 1 !important;
-  }
-  /* Grise aussi les autres éléments du SVG Visio (bandes, légendes, connecteurs) */
-  svg.extco-highlight-active > *:not(defs) {
-    filter: grayscale(0.9);
-    opacity: 0.55;
-    transition: filter 0.25s ease, opacity 0.25s ease;
-  }
-  svg.extco-highlight-active .carto-activity,
-  svg.extco-highlight-active .carto-activity * {
-    filter: revert;
-  }
-</style>
+<!-- Le mode "mise en évidence" est entièrement piloté en JS (highlight-extco-map.js)
+     pour éviter les filtres CSS hérités par le rendu SVG. -->
 
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 <script defer src="{{ url_for('static', filename='optiqcarto/vsdx_importer.js') }}"></script>
@@ -58,10 +38,10 @@
         <img src="{{ url_for('static', filename='img/artificial-intelligence.png') }}" alt="IA" class="btn-icon-img">
         Import IA
       </button>
-      <!-- Toggle "mise en évidence des activités externes/hachurées" -->
-      <button id="cross-carto-btn" class="cross-carto-btn" title="Mettre en évidence les activités externes (hachurées / forme stade)">
+      <!-- Bouton "Connexions" — toggle mise en évidence des activités externes/hachurées -->
+      <button id="cross-carto-btn" class="cross-carto-btn" title="Mettre en évidence les activités externes (hachurées)">
         <img src="{{ url_for('static', filename='img/connexion.png') }}" alt="" class="btn-icon-img cross-carto-icon">
-        <span id="cross-carto-label">Externes</span>
+        <span id="cross-carto-label">Connexions</span>
         <span class="cross-carto-dot"></span>
       </button>
       <button id="carto-wizard-btn" class="carto-wizard-btn"><i class="fa-solid fa-building-columns"></i> Gestion des entités</button>

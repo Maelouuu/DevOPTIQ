@@ -191,10 +191,12 @@ class VsdxImporter {
       const isSubprocess = (geomSectCount >= 2 || moveTos >= 3 || isWavyBottom) && !isEllipse && !isDiamond;
 
       // Stadium / capsule (external process): arcs only at the 2 short sides, 2 straight sides.
-      // Pattern: alternating arc-line-arc-line (or 4 quarter-arcs + 2 lines for halved semicircles).
-      // Distinct from rounded-rectangle (4 arcs + 4 lines) and ellipse (only arcs).
-      const isStadium = !hasConsecutiveArcs && !isEllipse && !isDiamond && !isSubprocess
-                        && lineCount === 2 && (arcCount === 2 || arcCount === 4);
+      // Visio peut représenter chaque demi-cercle en UN seul arc (arcCount=2)
+      // ou en DEUX quarts d'arc consécutifs (arcCount=4 avec arcs consécutifs).
+      // Le différenciateur fiable d'un stade vs rounded-rect : lineCount === 2.
+      // Un rounded-rect a 4 arcs + 4 lignes, un stade en a toujours 2.
+      const isStadium = !isEllipse && !isDiamond && !isSubprocess
+                        && lineCount === 2 && arcCount >= 2;
 
       // First pass: outer shape dimensions (break early to avoid sub-shape dimensions)
       for (const s of doc.getElementsByTagName('Shape')) {
@@ -522,24 +524,30 @@ class VsdxImporter {
       if (screenY > totalBandH + 100) continue; // outside diagram
 
       const mInfoForType = masterInfoCache[mid] || {};
-      const shapeType = detectShapeType(masterIdToName[mid], vType,
+      const masterName  = masterIdToName[mid] || '';
+      // Fallback nom : couvre les masters Visio "External Process", "Activité
+      // externe", "Sous-traitance", etc. — utile quand la géométrie ne suffit
+      // pas (ex: shape custom redessinée mais qui garde le nom du stencil).
+      const isExternalByName = /\b(external|externe|outsourc\w*|sous.?trait\w*)\b/i.test(masterName);
+
+      const shapeType = detectShapeType(masterName, vType,
                           mInfoForType.isEllipse, mInfoForType.isDiamond,
-                          mInfoForType.isSubprocess, mInfoForType.isStadium);
+                          mInfoForType.isSubprocess,
+                          mInfoForType.isStadium || isExternalByName);
 
       // ── Subtype detection (only for 'process' shapes) ─────────────────
-      //   Stadium geometry (rounded short sides)  → 'external'
+      //   Stadium geometry ou nom 'external'        → 'external'
       //   Non-solid fill (FillPattern ≥ 2 = hachures) → 'extco'
       // Visio FillPattern: 1=solid, 2-7=density, 8=horizontal, 9=vertical,
       // 10=fwd-diag, 11=bwd-diag, 12=cross, 13=diag-cross, 14+=other patterns.
-      // Stadium takes priority over fill: the shape outline is more discriminating
-      // than the fill style for "external" activities.
       const shapeFillPattern = parseInt(this.vCellDeep(s, 'FillPattern') || '0') || (mInfoForType.fillPattern || 1);
-      if (shapeFillPattern > 1) console.debug('[VSDX hatch]', this.vText(s) || id, 'FillPattern=', shapeFillPattern, 'master=', masterIdToName[mid]);
-      if (mInfoForType.isStadium) console.debug('[VSDX stadium]', this.vText(s) || id, 'master=', masterIdToName[mid]);
+      if (shapeFillPattern > 1) console.debug('[VSDX hatch]', this.vText(s) || id, 'FillPattern=', shapeFillPattern, 'master=', masterName);
+      if (mInfoForType.isStadium || isExternalByName)
+        console.debug('[VSDX external]', this.vText(s) || id, 'master=', masterName, 'stadium=', !!mInfoForType.isStadium, 'byName=', isExternalByName);
       let subtype = 'normal';
       if (shapeType === 'process') {
-        if (mInfoForType.isStadium)       subtype = 'external';
-        else if (shapeFillPattern >= 2)   subtype = 'extco';
+        if (mInfoForType.isStadium || isExternalByName) subtype = 'external';
+        else if (shapeFillPattern >= 2)                 subtype = 'extco';
       }
 
       // ── Color: VSDX shape fill → master fill → band color ──
