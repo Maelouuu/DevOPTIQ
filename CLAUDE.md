@@ -5,6 +5,29 @@ Toujours le mettre à jour après chaque travail significatif.
 
 ---
 
+## ⚠️ INSTRUCTION CRITIQUE — À exécuter en PREMIER à chaque session
+
+**Avant toute autre action**, bascule sur la branche `staging` et récupère les derniers changements :
+
+```bash
+git fetch origin staging
+git checkout staging
+git pull origin staging
+```
+
+Toutes les modifications (docs/index.html, CLAUDE.md) doivent être committées et pushées sur `staging`. Ne jamais travailler sur la branche de session par défaut.
+
+**Séquence de fin de session obligatoire :**
+```bash
+git add docs/index.html CLAUDE.md
+git commit -m "Docs: <description de ce qui a été documenté>"
+git push -u origin staging
+```
+
+Si le push échoue, réessayer jusqu'à 4 fois (attendre 2s, 4s, 8s, 16s entre chaque tentative).
+
+---
+
 ## Présentation du projet
 
 **DevOPTIQ** est une application web de gestion des compétences et activités d'une organisation.
