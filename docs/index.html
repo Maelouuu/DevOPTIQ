@@ -165,6 +165,19 @@
     .cover-meta-item { font-size: 0.82rem; color: var(--gray); }
     .cover-meta-item strong { color: var(--text); display: block; font-size: 0.9rem; }
 
+    /* ── ERD / Relation diagram ── */
+    .erd-box {
+      display: inline-block; background: #fff; border: 2px solid var(--border);
+      border-radius: 8px; padding: 8px 14px; font-size: 0.78rem;
+      font-family: 'Cascadia Code', monospace; text-align: left;
+    }
+    .erd-box .erd-title {
+      font-weight: 800; color: var(--pink-dk); border-bottom: 1px solid var(--border);
+      padding-bottom: 4px; margin-bottom: 6px; font-size: 0.82rem;
+    }
+    .erd-box .erd-pk { color: #f59e0b; }
+    .erd-box .erd-fk { color: #3b82f6; }
+
     /* ── Print ── */
     @media print {
       nav#sidebar { display: none; }
@@ -191,9 +204,9 @@
 
   <div class="nav-section">Général</div>
   <a href="#cover">Présentation</a>
-  <a href="#architecture">Architecture</a>
-  <a href="#stack">Stack technique</a>
-  <a href="#modeles">Modèles de données</a>
+  <a href="#architecture" class="done">Architecture</a>
+  <a href="#stack" class="done">Stack technique</a>
+  <a href="#modeles" class="done">Modèles de données</a>
 
   <div class="nav-section">Pages & Fonctionnalités</div>
   <a href="#cartographie">Cartographie (OptiqCarto)</a>
@@ -219,7 +232,7 @@
 
   <!-- COVER -->
   <div id="cover">
-    <div class="cover-tag">📄 Documentation interne — AFDEC</div>
+    <div class="cover-tag">Documentation interne — AFDEC</div>
     <h1>Dev<span>OPTIQ</span></h1>
     <p>Manuel complet de l'application de gestion des compétences, activités et performance organisationnelle. À destination des développeurs et des utilisateurs avancés.</p>
     <div class="cover-meta">
@@ -245,51 +258,303 @@
 
   <!-- ARCHITECTURE -->
   <section id="architecture">
-    <h2 class="section-title">Architecture <span class="badge badge-todo">À documenter</span></h2>
+    <h2 class="section-title">Architecture <span class="badge badge-done">Documenté</span></h2>
+
+    <p>DevOPTIQ est une application web monolithique Flask déployée sur Google Cloud Run. Toute la logique métier est côté serveur ; le frontend est rendu par Jinja2 et enrichi par du JavaScript vanilla sans framework.</p>
+
+    <h3>Vue d'ensemble</h3>
     <div class="diagram">
-      <p>[ Diagramme d'architecture à insérer ]</p>
-      <p style="font-size:0.78rem;margin-top:8px">Cloud Run · Flask app · PostgreSQL · Anthropic API · OptiqCarto</p>
+      <svg width="780" height="320" viewBox="0 0 780 320" xmlns="http://www.w3.org/2000/svg" font-family="'Segoe UI', system-ui, sans-serif" font-size="13">
+
+        <!-- Navigateur -->
+        <rect x="20" y="120" width="110" height="60" rx="10" fill="#fdf2f8" stroke="#fbcfe8" stroke-width="1.5"/>
+        <text x="75" y="145" text-anchor="middle" font-weight="700" fill="#be185d">Navigateur</text>
+        <text x="75" y="163" text-anchor="middle" fill="#6b7280" font-size="11">HTML/JS/CSS</text>
+
+        <!-- Flèche navigateur → Cloud Run -->
+        <line x1="130" y1="150" x2="195" y2="150" stroke="#d1d5db" stroke-width="1.5" marker-end="url(#arr)"/>
+        <text x="162" y="143" text-anchor="middle" fill="#9ca3af" font-size="10">HTTPS</text>
+
+        <!-- Cloud Run -->
+        <rect x="195" y="80" width="200" height="140" rx="12" fill="#fff" stroke="#ec4899" stroke-width="2"/>
+        <text x="295" y="105" text-anchor="middle" font-weight="800" fill="#ec4899">Google Cloud Run</text>
+        <rect x="215" y="115" width="160" height="36" rx="7" fill="#fdf2f8" stroke="#fbcfe8"/>
+        <text x="295" y="130" text-anchor="middle" font-weight="700" fill="#be185d" font-size="12">Flask (Python 3)</text>
+        <text x="295" y="145" text-anchor="middle" fill="#6b7280" font-size="10">app.py · blueprints</text>
+        <rect x="215" y="160" width="160" height="28" rx="7" fill="#f0fdf4" stroke="#bbf7d0"/>
+        <text x="295" y="178" text-anchor="middle" fill="#15803d" font-size="11">Jinja2 · SQLAlchemy</text>
+        <text x="295" y="215" text-anchor="middle" fill="#6b7280" font-size="10">Docker image · PORT 8080</text>
+
+        <!-- Flèche Cloud Run → PostgreSQL -->
+        <line x1="395" y1="140" x2="465" y2="140" stroke="#d1d5db" stroke-width="1.5" marker-end="url(#arr)"/>
+        <text x="430" y="133" text-anchor="middle" fill="#9ca3af" font-size="10">SQLAlchemy</text>
+
+        <!-- PostgreSQL (Neon) -->
+        <rect x="465" y="105" width="140" height="70" rx="10" fill="#eff6ff" stroke="#93c5fd" stroke-width="1.5"/>
+        <text x="535" y="130" text-anchor="middle" font-weight="700" fill="#1d4ed8">PostgreSQL</text>
+        <text x="535" y="148" text-anchor="middle" fill="#6b7280" font-size="10">Neon (prod)</text>
+        <text x="535" y="163" text-anchor="middle" fill="#6b7280" font-size="10">SQLite (local)</text>
+
+        <!-- Flèche Cloud Run → Anthropic -->
+        <line x1="295" y1="220" x2="295" y2="265" stroke="#d1d5db" stroke-width="1.5" marker-end="url(#arr)"/>
+
+        <!-- Anthropic API -->
+        <rect x="195" y="265" width="200" height="40" rx="10" fill="#fef3c7" stroke="#fcd34d" stroke-width="1.5"/>
+        <text x="295" y="283" text-anchor="middle" font-weight="700" fill="#92400e">Anthropic Claude API</text>
+        <text x="295" y="297" text-anchor="middle" fill="#6b7280" font-size="10">Chatbot · Import IA · Propositions</text>
+
+        <!-- OptiqCarto (static) -->
+        <rect x="465" y="200" width="140" height="60" rx="10" fill="#fdf4ff" stroke="#e9d5ff" stroke-width="1.5"/>
+        <text x="535" y="222" text-anchor="middle" font-weight="700" fill="#7c3aed">OptiqCarto</text>
+        <text x="535" y="238" text-anchor="middle" fill="#6b7280" font-size="10">editor.js · style.css</text>
+        <text x="535" y="252" text-anchor="middle" fill="#6b7280" font-size="10">Éditeur SVG maison</text>
+
+        <!-- Flèche Cloud Run → OptiqCarto -->
+        <line x1="395" y1="195" x2="465" y2="220" stroke="#d1d5db" stroke-width="1.5" marker-end="url(#arr)"/>
+
+        <!-- SMTP / Mail -->
+        <rect x="640" y="105" width="120" height="50" rx="10" fill="#f0fdf4" stroke="#bbf7d0" stroke-width="1.5"/>
+        <text x="700" y="128" text-anchor="middle" font-weight="700" fill="#15803d">SMTP Mail</text>
+        <text x="700" y="144" text-anchor="middle" fill="#6b7280" font-size="10">Gmail / Flask-Mail</text>
+        <line x1="605" y1="130" x2="640" y2="130" stroke="#d1d5db" stroke-width="1.5" marker-end="url(#arr)"/>
+
+        <!-- Marker flèche -->
+        <defs>
+          <marker id="arr" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+            <path d="M0,0 L0,6 L8,3 z" fill="#d1d5db"/>
+          </marker>
+        </defs>
+
+        <!-- Légende -->
+        <rect x="20" y="265" width="150" height="44" rx="8" fill="#f9fafb" stroke="#e5e7eb"/>
+        <text x="30" y="282" fill="#6b7280" font-size="10" font-weight="700">LÉGENDE</text>
+        <rect x="30" y="289" width="10" height="10" rx="2" fill="#fdf2f8" stroke="#fbcfe8"/>
+        <text x="45" y="298" fill="#6b7280" font-size="10">Composant Flask</text>
+        <rect x="100" y="289" width="10" height="10" rx="2" fill="#eff6ff" stroke="#93c5fd"/>
+        <text x="115" y="298" fill="#6b7280" font-size="10">Base de données</text>
+      </svg>
     </div>
-    <p>À compléter : description de l'infrastructure, flux de données, composants externes.</p>
+
+    <h3>Flux de données d'une requête HTTP</h3>
+    <ol>
+      <li>Le navigateur envoie une requête HTTPS vers Cloud Run.</li>
+      <li>Flask route la requête vers le blueprint correspondant (ex: <code>activities_map_bp</code>).</li>
+      <li>Le blueprint interroge la base via SQLAlchemy, filtre par entité active (<code>Entity.get_active()</code>).</li>
+      <li>Jinja2 rend le template HTML avec les données, renvoyé au navigateur.</li>
+      <li>Pour les appels API (JS fetch), la réponse est du JSON.</li>
+    </ol>
+
+    <h3>Multi-entités et isolation des données</h3>
+    <p>Chaque utilisateur possède une ou plusieurs <strong>entités</strong> (organisations). L'entité active est stockée dans la session Flask (<code>session['active_entity_id']</code>). Tous les modèles principaux exposent une méthode de classe <code>for_active_entity()</code> qui filtre automatiquement les données.</p>
+
+    <div class="callout callout-warn">
+      <span><strong>Cloud Run stateless :</strong> le filesystem est éphémère. Les SVG de cartographie et les fichiers uploadés sont stockés à la fois sur disque (cache court-terme) et en base de données (<code>svg_content</code>, <code>optiqcarto_data</code>, <code>file_blobs</code>) pour survivre aux redémarrages.</span>
+    </div>
+
+    <h3>Structure des répertoires</h3>
+    <pre>DevOPTIQ/
+├── Code/
+│   ├── app.py              # Fabrique Flask (create_app), blueprints, init DB
+│   ├── extensions.py       # db = SQLAlchemy(), mail = CustomMail()
+│   ├── models/
+│   │   └── models.py       # Tous les modèles SQLAlchemy + event listeners
+│   └── routes/
+│       ├── templates/      # Templates Jinja2
+│       └── *.py            # ~45 blueprints (1 fichier = 1 domaine)
+├── static/
+│   ├── optiqcarto/         # Éditeur SVG (editor.js, style.css, vsdx_importer.js)
+│   ├── js/                 # JS par fonctionnalité
+│   └── *.css               # CSS par page
+└── docs/
+    └── index.html          # Ce fichier</pre>
   </section>
 
   <!-- STACK -->
   <section id="stack">
-    <h2 class="section-title">Stack technique <span class="badge badge-todo">À documenter</span></h2>
+    <h2 class="section-title">Stack technique <span class="badge badge-done">Documenté</span></h2>
+
     <table>
       <tr><th>Couche</th><th>Technologie</th><th>Rôle</th></tr>
-      <tr><td>Backend</td><td><code>Python 3 · Flask</code></td><td>À compléter</td></tr>
-      <tr><td>Base de données</td><td><code>PostgreSQL</code> (prod) / <code>SQLite</code> (local)</td><td>À compléter</td></tr>
-      <tr><td>ORM</td><td><code>SQLAlchemy</code></td><td>À compléter</td></tr>
-      <tr><td>Frontend</td><td>HTML Jinja2 · CSS vanilla · JS vanilla</td><td>À compléter</td></tr>
-      <tr><td>IA</td><td>Anthropic Claude API</td><td>À compléter</td></tr>
-      <tr><td>Cartographie</td><td>OptiqCarto (outil maison)</td><td>À compléter</td></tr>
-      <tr><td>Déploiement</td><td>Google Cloud Run · Docker</td><td>À compléter</td></tr>
+      <tr>
+        <td>Backend</td>
+        <td><code>Python 3 · Flask</code></td>
+        <td>Serveur web, routing, logique métier. Application factory pattern (<code>create_app()</code>). ~45 blueprints enregistrés au démarrage.</td>
+      </tr>
+      <tr>
+        <td>Base de données</td>
+        <td><code>PostgreSQL</code> (prod) / <code>SQLite</code> (local)</td>
+        <td>PostgreSQL via Neon en production (pool limité à 2+3 connexions pour le free tier). SQLite avec WAL mode en développement local (<code>Code/instance/optiq.db</code>).</td>
+      </tr>
+      <tr>
+        <td>ORM</td>
+        <td><code>SQLAlchemy</code> via <code>Flask-SQLAlchemy</code></td>
+        <td>Mapping objet-relationnel. Migrations gérées par <code>Flask-Migrate</code> (Alembic), mais les colonnes manquantes sont ajoutées via <code>ALTER TABLE</code> au démarrage pour éviter les timeouts Cloud Run.</td>
+      </tr>
+      <tr>
+        <td>Frontend</td>
+        <td>HTML Jinja2 · CSS vanilla · JS vanilla</td>
+        <td>Pas de framework JS (React, Vue…). <code>$()</code> est un alias local de <code>document.querySelector</code>. CSS par domaine fonctionnel + <code>optiq.css</code> global.</td>
+      </tr>
+      <tr>
+        <td>IA</td>
+        <td>Anthropic Claude API</td>
+        <td>Utilisée pour 3 cas : chatbot contextuel, import IA (extraction de données depuis texte libre), propositions automatiques de compétences/savoirs/softskills.</td>
+      </tr>
+      <tr>
+        <td>Cartographie</td>
+        <td>OptiqCarto (outil maison SVG)</td>
+        <td>Éditeur SVG interactif développé en JS vanilla (<code>editor.js</code>). Importe des fichiers Visio (.vsdx). Synchronisé vers les modèles DB à chaque sauvegarde.</td>
+      </tr>
+      <tr>
+        <td>Mail</td>
+        <td><code>Flask-Mail</code> · Gmail SMTP</td>
+        <td>Envoi d'emails pour reset de mot de passe et notifications. <code>CustomMail</code> corrige le <code>local_hostname</code> SMTP.</td>
+      </tr>
+      <tr>
+        <td>Auth</td>
+        <td>Sessions Flask · <code>bcrypt</code></td>
+        <td>Authentification par email/mot de passe. Pas de JWT. L'utilisateur connecté est stocké dans <code>session['user_id']</code>.</td>
+      </tr>
+      <tr>
+        <td>Déploiement</td>
+        <td>Google Cloud Run · Docker</td>
+        <td>Image Docker construite et déployée sur Cloud Run. Variables sensibles (DB_URL, ANTHROPIC_KEY, SECRET_KEY…) injectées via l'interface Cloud Run.</td>
+      </tr>
     </table>
+
+    <h3>Démarrage de l'application</h3>
+    <p><code>create_app()</code> dans <code>app.py</code> exécute ces étapes dans l'ordre :</p>
+    <ol>
+      <li>Charge les variables d'environnement (<code>dotenv</code>).</li>
+      <li>Configure SQLAlchemy (PostgreSQL prod vs SQLite local, pool de connexions).</li>
+      <li>Configure Flask-Mail (SMTP Gmail).</li>
+      <li>Enregistre les ~45 blueprints.</li>
+      <li>Dans le contexte applicatif : <code>db.create_all()</code> (idempotent), puis <code>ALTER TABLE</code> pour les colonnes manquantes, puis seed des données de démonstration si vide.</li>
+      <li>Dispose le pool de connexions pour repartir proprement avant les requêtes HTTP.</li>
+    </ol>
+
+    <div class="callout callout-info">
+      <span><strong>Filtre Jinja2 personnalisé :</strong> <code>extract_numeric_level</code> extrait le premier chiffre d'une chaîne de niveau (ex: "Niveau 2" → "2"). <code>escapejs</code> échappe une chaîne pour injection sécurisée dans du JS inline.</span>
+    </div>
   </section>
 
   <!-- MODÈLES -->
   <section id="modeles">
-    <h2 class="section-title">Modèles de données <span class="badge badge-todo">À documenter</span></h2>
+    <h2 class="section-title">Modèles de données <span class="badge badge-done">Documenté</span></h2>
     <p>Fichier source : <code>Code/models/models.py</code></p>
+
+    <div class="callout callout-tip">
+      <span><strong>Convention multi-entités :</strong> presque tous les modèles sont scoped à une entité via <code>entity_id</code>. La méthode <code>for_active_entity()</code> retourne une query pré-filtrée sur l'entité active en session. Ne jamais requêter sans ce filtre côté routes utilisateur.</span>
+    </div>
+
+    <h3>Tables d'association (many-to-many)</h3>
     <table>
-      <tr><th>Modèle</th><th>Table</th><th>Description</th></tr>
-      <tr><td><code>Entity</code></td><td><code>entities</code></td><td>Entité organisationnelle (département, service…)</td></tr>
-      <tr><td><code>Activities</code></td><td><code>activities</code></td><td>Activité métier issue de la cartographie</td></tr>
-      <tr><td><code>Role</code></td><td><code>roles</code></td><td>Rôle/bande de la cartographie</td></tr>
-      <tr><td><code>Link</code></td><td><code>links</code></td><td>Lien entre deux activités</td></tr>
-      <tr><td><code>Task</code></td><td><code>tasks</code></td><td>Tâche associée à une activité</td></tr>
-      <tr><td><code>Tool</code></td><td><code>tools</code></td><td>Outil utilisé dans une activité</td></tr>
-      <tr><td><code>Competency</code></td><td><code>competencies</code></td><td>Compétence</td></tr>
-      <tr><td><code>Softskill</code></td><td><code>softskills</code></td><td>Soft skill comportemental</td></tr>
-      <tr><td><code>Savoir</code></td><td><code>savoirs</code></td><td>Connaissance théorique</td></tr>
-      <tr><td><code>SavoirFaire</code></td><td><code>savoir_faires</code></td><td>Savoir-faire pratique</td></tr>
-      <tr><td><code>User</code></td><td><code>users</code></td><td>Utilisateur de l'application</td></tr>
-      <tr><td><code>Performance</code></td><td><code>performances</code></td><td>Indicateur de performance</td></tr>
-      <tr><td><code>TimeAnalysis</code></td><td><code>time_analysis</code></td><td>Analyse des temps par activité</td></tr>
-      <tr><td><code>activity_roles</code></td><td><code>activity_roles</code></td><td>Association activité ↔ rôle (many-to-many)</td></tr>
+      <tr><th>Table</th><th>Relie</th><th>Colonnes extra</th></tr>
+      <tr><td><code>activity_roles</code></td><td><code>activities</code> ↔ <code>roles</code></td><td><code>status</code> (string) — niveau de responsabilité</td></tr>
+      <tr><td><code>task_roles</code></td><td><code>tasks</code> ↔ <code>roles</code></td><td><code>status</code> (string)</td></tr>
+      <tr><td><code>task_tools</code></td><td><code>tasks</code> ↔ <code>tools</code></td><td>—</td></tr>
     </table>
-    <p>À compléter : schéma entité-relation, description détaillée de chaque modèle et ses relations.</p>
+
+    <h3>Modèles principaux</h3>
+
+    <h4>Entity — <code>entities</code></h4>
+    <p>Représente une organisation (entreprise, département). C'est le pivot de l'isolation des données. Chaque entité a son propre jeu d'activités, rôles, outils et cartographie.</p>
+    <table>
+      <tr><th>Colonne</th><th>Type</th><th>Rôle</th></tr>
+      <tr><td><code>id</code></td><td>Integer PK</td><td>Identifiant</td></tr>
+      <tr><td><code>name</code></td><td>String(200)</td><td>Nom de l'organisation</td></tr>
+      <tr><td><code>owner_id</code></td><td>FK → users.id</td><td>Utilisateur propriétaire</td></tr>
+      <tr><td><code>svg_content</code></td><td>Text</td><td>SVG de cartographie sérialisé en base (persistance cloud)</td></tr>
+      <tr><td><code>optiqcarto_data</code></td><td>Text (JSON)</td><td>État complet de l'éditeur OptiqCarto (formes, connexions…)</td></tr>
+      <tr><td><code>vsdx_filename</code></td><td>String(255)</td><td>Nom du dernier fichier Visio importé</td></tr>
+    </table>
+    <p><strong>Méthodes de classe clés :</strong> <code>get_active(user_id)</code> — entité active depuis la session ; <code>set_active(entity_id)</code> — change l'entité courante ; <code>for_user(user_id)</code> — toutes les entités d'un utilisateur.</p>
+
+    <h4>Activities — <code>activities</code></h4>
+    <p>Activité métier extraite de la cartographie. Centrale dans l'application : toutes les compétences, tâches, outils et indicateurs lui sont rattachés.</p>
+    <table>
+      <tr><th>Colonne</th><th>Type</th><th>Rôle</th></tr>
+      <tr><td><code>entity_id</code></td><td>FK → entities.id</td><td>Entité propriétaire</td></tr>
+      <tr><td><code>shape_id</code></td><td>String(50)</td><td>Identifiant de la forme SVG d'origine (unique par entité)</td></tr>
+      <tr><td><code>name</code></td><td>String(200)</td><td>Nom de l'activité</td></tr>
+      <tr><td><code>is_result</code></td><td>Boolean</td><td>L'activité est un résultat (type particulier dans la carto)</td></tr>
+      <tr><td><code>duration_minutes</code></td><td>Float</td><td>Durée standard en minutes</td></tr>
+      <tr><td><code>delay_minutes</code></td><td>Float</td><td>Délai standard en minutes</td></tr>
+    </table>
+    <p><strong>Relations :</strong> <code>tasks</code>, <code>competencies</code>, <code>softskills</code>, <code>savoirs</code>, <code>savoir_faires</code>, <code>aptitudes</code>, <code>constraints</code> — toutes en cascade delete.</p>
+
+    <h4>Task — <code>tasks</code></h4>
+    <p>Tâche élémentaire d'une activité. Ordonnée (<code>order</code>). Reliée aux outils via many-to-many (<code>task_tools</code>) et aux rôles (<code>task_roles</code>).</p>
+
+    <h4>Role — <code>roles</code></h4>
+    <p>Rôle/bande de la cartographie (ex: "Responsable", "Opérateur"). Peut avoir un plan d'onboarding (<code>onboarding_plan</code>). Relié aux activités via <code>activity_roles</code> (avec statut).</p>
+
+    <h4>Tool — <code>tools</code></h4>
+    <p>Outil utilisé dans les activités/tâches. Peut avoir un fichier attaché (<code>file_path</code> → <code>file_blobs</code>). Unique par nom dans une entité.</p>
+
+    <h4>Link — <code>links</code></h4>
+    <p>Connexion entre deux nœuds de la cartographie. Un lien relie soit deux activités, soit une activité et une donnée (<code>Data</code>). Les propriétés <code>source_id</code>/<code>target_id</code> abstraient cette dualité.</p>
+
+    <h4>Performance — <code>performances</code></h4>
+    <p>Indicateur de performance attaché à un lien spécifique de la cartographie (unique par lien). Modèle léger : juste un nom et une description.</p>
+
+    <h4>PerformancePersonnalisee — <code>performance_personnalisee</code></h4>
+    <p>Évaluation personnalisée d'un utilisateur sur une activité. Contient un champ <code>content</code> libre (JSON ou texte) et un statut de validation.</p>
+
+    <h4>CompetencyEvaluation — <code>competency_evaluation</code></h4>
+    <p>Note d'un utilisateur sur un item de compétence d'une activité. L'item peut être n'importe quel type (<code>item_type</code> : competency, softskill, savoir, savoir_faire, aptitude). Supporte plusieurs sessions d'évaluation (<code>eval_number</code>).</p>
+
+    <h4>TimeAnalysis — <code>time_analysis</code></h4>
+    <p>Saisie de temps pour une activité, tâche, rôle ou utilisateur. La récurrence (<code>journalier</code>, <code>hebdo</code>, <code>mensuel</code>, <code>annuel</code>) est utilisée pour calculer le temps annuel via <code>annual_time</code>.</p>
+    <p><strong>Propriétés calculées :</strong> <code>recurrence_factor</code> (220j/42sem/10.5m/1an), <code>annual_time</code> = durée × facteur × fréquence × nb_people, <code>delay_gap</code> et <code>delay_ratio</code> pour l'analyse des écarts.</p>
+
+    <h4>FileBlob — <code>file_blobs</code></h4>
+    <p>Stockage binaire des fichiers attachés aux outils et contraintes. Utilise <code>LargeBinary</code> (BYTEA en PostgreSQL, BLOB en SQLite) pour la persistance cloud.</p>
+
+    <h4>RecentEvent — <code>recent_events</code></h4>
+    <p>Journal d'activité automatique alimenté par des <strong>SQLAlchemy event listeners</strong> sur les modèles Activities, Task, Role et Tool. Chaque création/modification/suppression insère un événement avec un label, une icône Font Awesome et un détail JSON (avant/après).</p>
+
+    <h4>TaskLinkAssignment — <code>task_link_assignments</code></h4>
+    <p>Associe un lien de cartographie à une tâche avec une direction (<code>incoming</code> ou <code>outgoing</code>). Permet de savoir quels flux entrent/sortent d'une tâche précise.</p>
+
+    <h3>Modèles temps avancés</h3>
+    <table>
+      <tr><th>Modèle</th><th>Table</th><th>Rôle</th></tr>
+      <tr><td><code>TimeProject</code></td><td><code>time_project</code></td><td>Projet d'analyse de temps (regroupement de lignes)</td></tr>
+      <tr><td><code>TimeProjectLine</code></td><td><code>time_project_line</code></td><td>Ligne d'un projet : activité + durée + délai + nb_people</td></tr>
+      <tr><td><code>TimeRoleAnalysis</code></td><td><code>time_role_analysis</code></td><td>Analyse de la charge d'un rôle</td></tr>
+      <tr><td><code>TimeRoleLine</code></td><td><code>time_role_line</code></td><td>Ligne de charge : activité + récurrence + durée</td></tr>
+      <tr><td><code>TimeWeakness</code></td><td><code>time_weakness</code></td><td>Point de faiblesse temporelle : écart durée réelle vs standard, charge supplémentaire probabiliste</td></tr>
+    </table>
+
+    <h3>Schéma des relations principales</h3>
+    <pre>Entity (1)
+ ├── Activities (N)
+ │    ├── Task (N) ──── tool_tools ──── Tool (N)
+ │    │         └── task_roles ──── Role
+ │    ├── Competency (N)
+ │    ├── Softskill (N)
+ │    ├── Savoir (N)
+ │    ├── SavoirFaire (N)
+ │    ├── Aptitude (N)
+ │    ├── Constraint (N)
+ │    └── activity_roles ──── Role (N)
+ ├── Role (N)
+ │    └── UserRole (N) ──── User
+ ├── Tool (N)
+ ├── Link (N)  [source/target → Activity ou Data]
+ │    └── Performance (1)
+ └── Data (N)  [objets non-activité de la carto]
+
+User (1)
+ ├── Entity (N)  [via owner_id]
+ ├── CompetencyEvaluation (N)
+ ├── PerformancePersonnalisee (N)
+ └── TimeAnalysis (N)</pre>
+
+    <h3>Journal d'activité automatique</h3>
+    <p>Le fichier <code>models.py</code> déclare des <strong>SQLAlchemy event listeners</strong> sur les modèles principaux. Ces listeners s'exécutent dans la même transaction que l'opération déclenchante et insèrent une ligne dans <code>recent_events</code> sans lever d'exception (les erreurs sont ignorées silencieusement pour ne pas bloquer les transactions métier).</p>
+    <p>Le pattern <code>before_update</code> + <code>after_update</code> est utilisé pour capturer le diff avant/après via <code>sqlalchemy.inspect(target).attrs[field].history</code>.</p>
   </section>
 
   <!-- CARTOGRAPHIE -->

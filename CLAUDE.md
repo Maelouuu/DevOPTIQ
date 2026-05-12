@@ -127,23 +127,26 @@ Fonctionnement :
 > Mis à jour par la routine de documentation. Indiquer ici ce qui a été documenté.
 
 ### Complété
-- *(rien encore — première session)*
+- **Architecture** : diagramme SVG inline (Cloud Run · Flask · PostgreSQL · Anthropic · OptiqCarto), flux requête HTTP, multi-entités, structure répertoires
+- **Stack technique** : tableau complet (Python/Flask, SQLAlchemy, Jinja2, JS vanilla, Anthropic API, OptiqCarto, Flask-Mail, Auth sessions), séquence de démarrage `create_app()`
+- **Modèles de données** (`models.py`) : tous les modèles documentés (Entity, Activities, Task, Tool, Role, Link, Performance, CompetencyEvaluation, TimeAnalysis, FileBlob, RecentEvent, TaskLinkAssignment + modèles temps avancés), tables d'association, schéma relations, journal automatique SQLAlchemy events
 
 ### En cours
 - *(rien)*
 
 ### À faire (par priorité)
-1. Vue d'ensemble architecture + infrastructure
-2. Modèles de données (`models.py`)
-3. Page cartographie (`activities_map.py` + `activities_map.html`)
-4. Éditeur OptiqCarto (`editor.js`)
-5. Système d'import IA (`import_full.py` + `import_full.js`)
-6. Fiche activité (toutes les routes `activities_*.py`)
-7. Gestion RH (`gestion_rh.py`)
-8. Performances (`performance.py`)
-9. Chatbot (`chatbot.py`)
-10. Auth et gestion compte (`connexion_routes.py`, `gestion_compte.py`)
-11. Tous les autres blueprints
+1. Page cartographie (`activities_map.py` + `activities_map.html`)
+2. Éditeur OptiqCarto (`editor.js`)
+3. Système d'import IA (`import_full.py` + `import_full.js`)
+4. Fiche activité (toutes les routes `activities_*.py`)
+5. Gestion RH (`gestion_rh.py`)
+6. Performances (`performance.py`)
+7. Chatbot (`chatbot.py`)
+8. Auth et gestion compte (`connexion_routes.py`, `gestion_compte.py`)
+9. Conventions de développement + workflow git
+10. Déploiement (Docker, Cloud Run, variables env)
+11. Référence APIs (endpoints)
+12. Tous les autres blueprints
 
 ---
 
