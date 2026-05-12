@@ -337,18 +337,13 @@ def list_entities():
     
     result = []
     for e in entities:
-        svg_exists, _ = check_svg_exists(e.id)
-        vsdx_exists, _ = check_vsdx_exists(e.id)
         result.append({
             "id": e.id,
             "name": e.name,
             "description": e.description,
-            "svg_filename": e.svg_filename,
-            "vsdx_filename": e.vsdx_filename,
             "is_active": (e.id == active_entity_id),
             "activities_count": Activities.query.filter_by(entity_id=e.id).count(),
-            "svg_exists": svg_exists,
-            "vsdx_exists": vsdx_exists
+            "optiqcarto_exists": bool(e.optiqcarto_data),
         })
     
     return jsonify(result)

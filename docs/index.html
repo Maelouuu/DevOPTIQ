@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Documentation DevOPTIQ</title>
+  <style>
+    /* ── Reset & base ── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --pink:    #ec4899;
+      --pink-dk: #be185d;
+      --green:   #22c55e;
+      --green-dk:#15803d;
+      --gray:    #6b7280;
+      --light:   #f9fafb;
+      --border:  #e5e7eb;
+      --text:    #111827;
+      --sidebar-w: 260px;
+    }
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      color: var(--text);
+      background: #fff;
+      display: flex;
+      min-height: 100vh;
+    }
+
+    /* ── Sidebar ── */
+    nav#sidebar {
+      width: var(--sidebar-w);
+      flex-shrink: 0;
+      background: var(--light);
+      border-right: 1.5px solid var(--border);
+      padding: 24px 0;
+      position: fixed;
+      top: 0; left: 0; bottom: 0;
+      overflow-y: auto;
+    }
+    .nav-logo {
+      display: flex; align-items: center; gap: 10px;
+      padding: 0 20px 20px;
+      border-bottom: 1.5px solid var(--border);
+      margin-bottom: 16px;
+    }
+    .nav-logo-dot {
+      width: 32px; height: 32px; border-radius: 9px;
+      background: linear-gradient(135deg, var(--pink), var(--pink-dk));
+      flex-shrink: 0;
+    }
+    .nav-logo h1 { font-size: 1rem; font-weight: 800; color: var(--text); }
+    .nav-logo span { font-size: 0.72rem; color: var(--gray); }
+
+    .nav-section { padding: 6px 20px 4px; font-size: 0.68rem; font-weight: 800;
+      letter-spacing: 1.4px; text-transform: uppercase; color: var(--pink); }
+    nav a {
+      display: block; padding: 7px 20px; font-size: 0.88rem; color: var(--gray);
+      text-decoration: none; border-left: 2.5px solid transparent;
+      transition: all 0.12s;
+    }
+    nav a:hover { color: var(--text); background: #f3f4f6; }
+    nav a.active { color: var(--pink-dk); border-left-color: var(--pink); background: #fdf2f8; font-weight: 600; }
+    nav a.done::after { content: " ✓"; color: var(--green); font-size: 0.75rem; }
+    nav a.wip::after  { content: " …"; color: #f59e0b; font-size: 0.75rem; }
+
+    /* ── Main content ── */
+    main {
+      margin-left: var(--sidebar-w);
+      flex: 1;
+      padding: 48px 56px;
+      max-width: 960px;
+    }
+
+    /* ── Sections ── */
+    section { margin-bottom: 64px; }
+    section:target { scroll-margin-top: 24px; }
+
+    h2.section-title {
+      font-size: 1.7rem; font-weight: 800; color: var(--text);
+      border-bottom: 3px solid var(--pink);
+      padding-bottom: 10px; margin-bottom: 28px;
+      display: flex; align-items: center; gap: 12px;
+    }
+    h2.section-title .badge {
+      font-size: 0.65rem; padding: 3px 10px; border-radius: 20px;
+      font-weight: 700; letter-spacing: 0.5px;
+    }
+    .badge-wip  { background: #fef3c7; color: #92400e; }
+    .badge-done { background: #f0fdf4; color: #15803d; }
+    .badge-todo { background: #f9fafb; color: #6b7280; border: 1px solid #e5e7eb; }
+
+    h3 { font-size: 1.1rem; font-weight: 700; margin: 28px 0 12px; color: #1f2937; }
+    h4 { font-size: 0.95rem; font-weight: 600; margin: 20px 0 8px; color: #374151; }
+    p  { line-height: 1.7; color: #374151; margin-bottom: 12px; }
+    ul, ol { padding-left: 20px; margin-bottom: 12px; }
+    li { line-height: 1.7; color: #374151; margin-bottom: 4px; }
+
+    /* ── Cards ── */
+    .card {
+      background: var(--light); border: 1.5px solid var(--border);
+      border-radius: 14px; padding: 20px 24px; margin-bottom: 16px;
+    }
+    .card-pink { border-color: #fbcfe8; background: #fdf2f8; }
+    .card-green { border-color: #bbf7d0; background: #f0fdf4; }
+
+    /* ── Table ── */
+    table { width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 0.88rem; }
+    th { background: var(--light); border: 1px solid var(--border); padding: 10px 14px;
+      text-align: left; font-weight: 700; color: #374151; }
+    td { border: 1px solid var(--border); padding: 9px 14px; color: #374151; vertical-align: top; }
+    tr:hover td { background: #f9fafb; }
+    td code, th code { font-family: 'Cascadia Code', 'Consolas', monospace; font-size: 0.82rem;
+      background: #f3f4f6; padding: 1px 5px; border-radius: 4px; }
+
+    /* ── Code blocks ── */
+    pre {
+      background: #1e293b; color: #e2e8f0; border-radius: 12px;
+      padding: 20px 24px; overflow-x: auto; margin-bottom: 20px;
+      font-family: 'Cascadia Code', 'Consolas', monospace; font-size: 0.82rem; line-height: 1.6;
+    }
+    code { font-family: 'Cascadia Code', 'Consolas', monospace; font-size: 0.85rem;
+      background: #f3f4f6; padding: 2px 6px; border-radius: 4px; }
+
+    /* ── Diagram (SVG inline placeholder) ── */
+    .diagram {
+      background: var(--light); border: 1.5px dashed var(--border);
+      border-radius: 14px; padding: 32px; text-align: center;
+      color: var(--gray); font-size: 0.88rem; margin-bottom: 20px;
+    }
+    .diagram svg { display: block; margin: 0 auto; }
+
+    /* ── Callout ── */
+    .callout {
+      display: flex; gap: 12px; padding: 14px 18px;
+      border-radius: 10px; margin-bottom: 16px; font-size: 0.88rem; line-height: 1.6;
+    }
+    .callout-info  { background: #eff6ff; border-left: 3px solid #3b82f6; color: #1e40af; }
+    .callout-warn  { background: #fffbeb; border-left: 3px solid #f59e0b; color: #92400e; }
+    .callout-tip   { background: #f0fdf4; border-left: 3px solid var(--green); color: #14532d; }
+
+    /* ── Progress bar ── */
+    .progress-wrap { margin-bottom: 32px; }
+    .progress-label { display: flex; justify-content: space-between; font-size: 0.82rem;
+      color: var(--gray); margin-bottom: 6px; }
+    .progress-bar { height: 8px; background: var(--border); border-radius: 99px; overflow: hidden; }
+    .progress-fill { height: 100%; background: linear-gradient(90deg, var(--green), #16a34a);
+      border-radius: 99px; transition: width 0.4s; }
+
+    /* ── Cover ── */
+    #cover {
+      background: linear-gradient(135deg, #fdf2f8 0%, #fff 50%, #f0fdf4 100%);
+      border-radius: 20px; padding: 56px 48px; margin-bottom: 64px;
+      border: 1.5px solid #fbcfe8;
+    }
+    #cover .cover-tag {
+      display: inline-flex; align-items: center; gap: 6px;
+      background: #fce7f3; color: var(--pink-dk);
+      padding: 4px 12px; border-radius: 20px; font-size: 0.78rem; font-weight: 700;
+      margin-bottom: 16px;
+    }
+    #cover h1 { font-size: 2.8rem; font-weight: 900; color: var(--text); line-height: 1.15; margin-bottom: 12px; }
+    #cover h1 span { color: var(--pink); }
+    #cover p { font-size: 1.05rem; color: var(--gray); max-width: 520px; line-height: 1.7; margin-bottom: 24px; }
+    .cover-meta { display: flex; gap: 24px; flex-wrap: wrap; }
+    .cover-meta-item { font-size: 0.82rem; color: var(--gray); }
+    .cover-meta-item strong { color: var(--text); display: block; font-size: 0.9rem; }
+
+    /* ── Print ── */
+    @media print {
+      nav#sidebar { display: none; }
+      main { margin-left: 0; padding: 24px; max-width: 100%; }
+      pre { white-space: pre-wrap; }
+      a { color: inherit; text-decoration: none; }
+      section { page-break-inside: avoid; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════
+     SIDEBAR NAVIGATION
+══════════════════════════════════════════ -->
+<nav id="sidebar">
+  <div class="nav-logo">
+    <div class="nav-logo-dot"></div>
+    <div>
+      <h1>DevOPTIQ</h1>
+      <span>Documentation technique</span>
+    </div>
+  </div>
+
+  <div class="nav-section">Général</div>
+  <a href="#cover">Présentation</a>
+  <a href="#architecture">Architecture</a>
+  <a href="#stack">Stack technique</a>
+  <a href="#modeles">Modèles de données</a>
+
+  <div class="nav-section">Pages & Fonctionnalités</div>
+  <a href="#cartographie">Cartographie (OptiqCarto)</a>
+  <a href="#activites">Activités</a>
+  <a href="#import-ia">Import IA</a>
+  <a href="#competences">Compétences & Skills</a>
+  <a href="#performance">Performance</a>
+  <a href="#rh">Gestion RH</a>
+  <a href="#chatbot">Chatbot IA</a>
+  <a href="#auth">Authentification</a>
+  <a href="#temps">Gestion du temps</a>
+
+  <div class="nav-section">Référence</div>
+  <a href="#api">APIs</a>
+  <a href="#deploiement">Déploiement</a>
+  <a href="#conventions">Conventions</a>
+</nav>
+
+<!-- ══════════════════════════════════════════
+     MAIN CONTENT
+══════════════════════════════════════════ -->
+<main>
+
+  <!-- COVER -->
+  <div id="cover">
+    <div class="cover-tag">📄 Documentation interne — AFDEC</div>
+    <h1>Dev<span>OPTIQ</span></h1>
+    <p>Manuel complet de l'application de gestion des compétences, activités et performance organisationnelle. À destination des développeurs et des utilisateurs avancés.</p>
+    <div class="cover-meta">
+      <div class="cover-meta-item"><strong>Organisation</strong>AFDEC</div>
+      <div class="cover-meta-item"><strong>Auteur</strong>Mael Girardin</div>
+      <div class="cover-meta-item"><strong>Stack</strong>Python Flask · PostgreSQL · JS Vanilla</div>
+      <div class="cover-meta-item"><strong>Déploiement</strong>Google Cloud Run</div>
+      <div class="cover-meta-item"><strong>Dernière mise à jour</strong><span id="last-update">—</span></div>
+    </div>
+  </div>
+
+  <!-- AVANCEMENT -->
+  <section>
+    <h2 class="section-title">Avancement de la documentation</h2>
+    <div class="progress-wrap">
+      <div class="progress-label"><span>Progression globale</span><span id="pct">0%</span></div>
+      <div class="progress-bar"><div class="progress-fill" id="progress-fill" style="width:0%"></div></div>
+    </div>
+    <div class="callout callout-info">
+      Cette documentation est générée progressivement par une routine automatique. Chaque section sera complétée au fil des sessions. Les sections marquées <strong>À documenter</strong> sont en attente.
+    </div>
+  </section>
+
+  <!-- ARCHITECTURE -->
+  <section id="architecture">
+    <h2 class="section-title">Architecture <span class="badge badge-todo">À documenter</span></h2>
+    <div class="diagram">
+      <p>[ Diagramme d'architecture à insérer ]</p>
+      <p style="font-size:0.78rem;margin-top:8px">Cloud Run · Flask app · PostgreSQL · Anthropic API · OptiqCarto</p>
+    </div>
+    <p>À compléter : description de l'infrastructure, flux de données, composants externes.</p>
+  </section>
+
+  <!-- STACK -->
+  <section id="stack">
+    <h2 class="section-title">Stack technique <span class="badge badge-todo">À documenter</span></h2>
+    <table>
+      <tr><th>Couche</th><th>Technologie</th><th>Rôle</th></tr>
+      <tr><td>Backend</td><td><code>Python 3 · Flask</code></td><td>À compléter</td></tr>
+      <tr><td>Base de données</td><td><code>PostgreSQL</code> (prod) / <code>SQLite</code> (local)</td><td>À compléter</td></tr>
+      <tr><td>ORM</td><td><code>SQLAlchemy</code></td><td>À compléter</td></tr>
+      <tr><td>Frontend</td><td>HTML Jinja2 · CSS vanilla · JS vanilla</td><td>À compléter</td></tr>
+      <tr><td>IA</td><td>Anthropic Claude API</td><td>À compléter</td></tr>
+      <tr><td>Cartographie</td><td>OptiqCarto (outil maison)</td><td>À compléter</td></tr>
+      <tr><td>Déploiement</td><td>Google Cloud Run · Docker</td><td>À compléter</td></tr>
+    </table>
+  </section>
+
+  <!-- MODÈLES -->
+  <section id="modeles">
+    <h2 class="section-title">Modèles de données <span class="badge badge-todo">À documenter</span></h2>
+    <p>Fichier source : <code>Code/models/models.py</code></p>
+    <table>
+      <tr><th>Modèle</th><th>Table</th><th>Description</th></tr>
+      <tr><td><code>Entity</code></td><td><code>entities</code></td><td>Entité organisationnelle (département, service…)</td></tr>
+      <tr><td><code>Activities</code></td><td><code>activities</code></td><td>Activité métier issue de la cartographie</td></tr>
+      <tr><td><code>Role</code></td><td><code>roles</code></td><td>Rôle/bande de la cartographie</td></tr>
+      <tr><td><code>Link</code></td><td><code>links</code></td><td>Lien entre deux activités</td></tr>
+      <tr><td><code>Task</code></td><td><code>tasks</code></td><td>Tâche associée à une activité</td></tr>
+      <tr><td><code>Tool</code></td><td><code>tools</code></td><td>Outil utilisé dans une activité</td></tr>
+      <tr><td><code>Competency</code></td><td><code>competencies</code></td><td>Compétence</td></tr>
+      <tr><td><code>Softskill</code></td><td><code>softskills</code></td><td>Soft skill comportemental</td></tr>
+      <tr><td><code>Savoir</code></td><td><code>savoirs</code></td><td>Connaissance théorique</td></tr>
+      <tr><td><code>SavoirFaire</code></td><td><code>savoir_faires</code></td><td>Savoir-faire pratique</td></tr>
+      <tr><td><code>User</code></td><td><code>users</code></td><td>Utilisateur de l'application</td></tr>
+      <tr><td><code>Performance</code></td><td><code>performances</code></td><td>Indicateur de performance</td></tr>
+      <tr><td><code>TimeAnalysis</code></td><td><code>time_analysis</code></td><td>Analyse des temps par activité</td></tr>
+      <tr><td><code>activity_roles</code></td><td><code>activity_roles</code></td><td>Association activité ↔ rôle (many-to-many)</td></tr>
+    </table>
+    <p>À compléter : schéma entité-relation, description détaillée de chaque modèle et ses relations.</p>
+  </section>
+
+  <!-- CARTOGRAPHIE -->
+  <section id="cartographie">
+    <h2 class="section-title">Cartographie — OptiqCarto <span class="badge badge-todo">À documenter</span></h2>
+    <div class="callout callout-tip">
+      OptiqCarto est un outil de cartographie SVG développé en interne. Il existe en deux versions synchronisées : intégré dans DevOPTIQ (<code>static/optiqcarto/</code>) et standalone dans le repo <code>OptiqCarto/</code>.
+    </div>
+    <p>À compléter : fonctionnement de l'éditeur, format JSON de sauvegarde, synchronisation DB, import VSDX, viewer lecture seule.</p>
+  </section>
+
+  <!-- ACTIVITÉS -->
+  <section id="activites">
+    <h2 class="section-title">Activités <span class="badge badge-todo">À documenter</span></h2>
+    <p>À compléter : liste des activités, fiche activité, onglets (tâches, outils, compétences, temps, performance…), routes associées.</p>
+  </section>
+
+  <!-- IMPORT IA -->
+  <section id="import-ia">
+    <h2 class="section-title">Import IA <span class="badge badge-todo">À documenter</span></h2>
+    <p>À compléter : fonctionnement de l'import global IA, interaction avec l'API Claude, extraction et mapping des données.</p>
+  </section>
+
+  <!-- COMPÉTENCES -->
+  <section id="competences">
+    <h2 class="section-title">Compétences & Skills <span class="badge badge-todo">À documenter</span></h2>
+    <p>À compléter : gestion des compétences, savoirs, savoir-faires, softskills, aptitudes. Système de proposition IA.</p>
+  </section>
+
+  <!-- PERFORMANCE -->
+  <section id="performance">
+    <h2 class="section-title">Performance <span class="badge badge-todo">À documenter</span></h2>
+    <p>À compléter : indicateurs de performance, tableaux de bord, performance personnalisée, projections.</p>
+  </section>
+
+  <!-- RH -->
+  <section id="rh">
+    <h2 class="section-title">Gestion RH <span class="badge badge-todo">À documenter</span></h2>
+    <p>À compléter : gestion des collaborateurs, rôles, affectations, plans de formation.</p>
+  </section>
+
+  <!-- CHATBOT -->
+  <section id="chatbot">
+    <h2 class="section-title">Chatbot IA <span class="badge badge-todo">À documenter</span></h2>
+    <p>À compléter : fonctionnement du chatbot, intégration Claude API, contexte injecté.</p>
+  </section>
+
+  <!-- AUTH -->
+  <section id="auth">
+    <h2 class="section-title">Authentification <span class="badge badge-todo">À documenter</span></h2>
+    <p>À compléter : système de login, gestion des sessions Flask, rôles utilisateurs, reset password.</p>
+  </section>
+
+  <!-- TEMPS -->
+  <section id="temps">
+    <h2 class="section-title">Gestion du temps <span class="badge badge-todo">À documenter</span></h2>
+    <p>À compléter : saisie des temps, analyse, projections, tableaux de bord temps.</p>
+  </section>
+
+  <!-- API -->
+  <section id="api">
+    <h2 class="section-title">Référence APIs <span class="badge badge-todo">À documenter</span></h2>
+    <p>À compléter : liste de tous les endpoints API (méthode, URL, paramètres, réponse).</p>
+  </section>
+
+  <!-- DÉPLOIEMENT -->
+  <section id="deploiement">
+    <h2 class="section-title">Déploiement <span class="badge badge-todo">À documenter</span></h2>
+    <p>À compléter : processus de build Docker, déploiement Cloud Run, variables d'environnement, base de données de production.</p>
+  </section>
+
+  <!-- CONVENTIONS -->
+  <section id="conventions">
+    <h2 class="section-title">Conventions de développement <span class="badge badge-todo">À documenter</span></h2>
+    <div class="callout callout-warn">
+      Règle critique : toujours synchroniser <code>DevOPTIQ/static/optiqcarto/</code> et <code>OptiqCarto/static/</code> après chaque modification de l'outil cartographie.
+    </div>
+    <p>À compléter : conventions de nommage, structure des commits, workflow git (staging → main), conventions CSS/JS.</p>
+  </section>
+
+</main>
+
+<script>
+  // Date de dernière mise à jour
+  document.getElementById('last-update').textContent = new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
+
+  // Navigation active au scroll
+  const sections = document.querySelectorAll('section[id], div[id]');
+  const navLinks = document.querySelectorAll('nav a');
+  const observer = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        navLinks.forEach(a => a.classList.remove('active'));
+        const link = document.querySelector(`nav a[href="#${e.target.id}"]`);
+        if (link) link.classList.add('active');
+      }
+    });
+  }, { threshold: 0.3 });
+  sections.forEach(s => observer.observe(s));
+
+  // Calcul de la progression (sections avec badge-done)
+  function updateProgress() {
+    const total = document.querySelectorAll('.badge').length;
+    const done  = document.querySelectorAll('.badge-done').length;
+    const pct   = total ? Math.round(done / total * 100) : 0;
+    document.getElementById('pct').textContent = pct + '%';
+    document.getElementById('progress-fill').style.width = pct + '%';
+  }
+  updateProgress();
+</script>
+
+</body>
+</html>

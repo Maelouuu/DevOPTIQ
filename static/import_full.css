@@ -1033,7 +1033,7 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  background: linear-gradient(135deg, #8b5cf6 0%, #6d28d9 60%, #4f46e5 100%);
+  background: linear-gradient(135deg, #ec4899 0%, #be185d 100%);
   color: #fff;
   border: none;
   border-radius: 12px;
@@ -1041,16 +1041,27 @@
   font-size: 1rem;
   font-weight: 700;
   cursor: pointer;
-  box-shadow: 0 4px 14px rgba(124, 58, 237, 0.38);
+  box-shadow: 0 4px 14px rgba(236, 72, 153, 0.38);
   transition: all 0.18s;
   letter-spacing: 0.01em;
 }
 .btn-import-full:hover {
   opacity: 0.92;
   transform: translateY(-2px);
-  box-shadow: 0 6px 22px rgba(124, 58, 237, 0.48);
+  box-shadow: 0 6px 22px rgba(236, 72, 153, 0.50);
 }
 .btn-import-full i { font-size: 1.1em; }
+.btn-icon-img {
+  width: 18px;
+  height: 18px;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+/* Sur fond coloré plein → icône blanche */
+.btn-import-full .btn-icon-img {
+  filter: brightness(0) invert(1);
+}
 
 /* ── Responsive ─────────────────────────────────────────────── */
 @media (max-width: 640px) {

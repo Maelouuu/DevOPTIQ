@@ -497,7 +497,7 @@
 <textarea id="label-editor" autocomplete="off" spellcheck="false"></textarea>
 
 <!-- ══════════════ MODAL MIGRATION VSDX ══════════════ -->
-{% if has_vsdx and not has_optiqcarto %}
+{% if has_vsdx %}
 <div id="vsdx-migrate-modal" class="modal-overlay hidden">
   <div class="modal-card" style="max-width:460px">
     <div class="modal-header" style="border-top:3px solid var(--pink-dark)">
@@ -627,6 +627,30 @@
   </div>
 </div>
 
+<!-- ══════════════ SAVE WARNING MODAL ══════════════ -->
+<div id="save-warning-modal" class="modal-overlay hidden">
+  <div class="modal-card swm-card">
+    <div class="modal-header" style="border-top:3px solid #f59e0b">
+      <h2><i class="fa-solid fa-triangle-exclamation" style="color:#f59e0b;margin-right:8px"></i>Éléments supprimés</h2>
+    </div>
+    <div class="modal-body">
+      <p class="modal-hint" style="font-size:13px;line-height:1.6;margin-bottom:12px">
+        Les éléments suivants existent dans l'application mais ne sont plus dans la cartographie.
+        Ils seront <strong>supprimés</strong> si vous continuez.
+      </p>
+      <ul class="swm-removed-list" id="swm-removed-list"></ul>
+    </div>
+    <div class="modal-footer" style="gap:8px;display:flex;justify-content:flex-end">
+      <button id="swm-cancel" class="btn-ok" style="background:rgba(100,100,100,0.15);color:var(--text-muted)">
+        Annuler
+      </button>
+      <button id="swm-confirm" class="btn-ok" style="background:#f59e0b">
+        <i class="fa-solid fa-floppy-disk"></i> Sauvegarder quand même
+      </button>
+    </div>
+  </div>
+</div>
+
 <!-- ══════════════ TOAST ══════════════ -->
 <div id="toast"></div>
 
@@ -648,10 +672,11 @@
   </div>
 </div>
 
+<script src="{{ url_for('static', filename='optiqcarto/vsdx_importer.js') }}"></script>
 <script src="{{ url_for('static', filename='optiqcarto/editor.js') }}"></script>
 
 <!-- Migration VSDX auto depuis l'API -->
-{% if has_vsdx and not has_optiqcarto %}
+{% if has_vsdx %}
 <script>
 document.addEventListener('DOMContentLoaded', () => {
   const confirmBtn = document.getElementById('migrate-confirm');

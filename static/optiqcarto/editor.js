@@ -4,8 +4,6 @@
    OptiqCarto — Éditeur SVG
    ══════════════════════════════════════════════════ */
 
-const _API = (typeof window !== 'undefined' && window.OPTIQCARTO_API_BASE) || '';
-
 /* ══════════════════════════════════════════════════
    COLOR UTILITIES
    ══════════════════════════════════════════════════ */
@@ -45,7 +43,6 @@ function bandMutedColor(hex) {
 
 function updateShapeColor(s) {
   if (s.type === 'decision') { s.color = '#9ca3af'; return; }
-  if (s._colorFixed) return; // couleur importée depuis Visio — ne pas écraser
   const band = getBandForY(s.y + s.h / 2);
   if (!band) return;
   s.color = s.colorVariant === 1 ? bandMutedColor(band.color) : band.color;
@@ -132,6 +129,7 @@ let spaceDown = false;
 let labelEditing = null;        // { shapeId }
 let portDrag = null;            // { fromShapeId, fromPort:{x,y,dir} } — drag depuis un port
 let connEndDrag = null;     // { connId, which:'from'|'to', curX, curY, snapShapeId, snapDir }
+let bendDrag = null;        // { connId, startX, startY, startOffset:{dx,dy} }
 let markerIds = new Map();      // "color-style" → markerId
 const hatchIds = new Set();     // pattern IDs déjà créés dans les defs
 let leftPanelOpen = false;
@@ -168,6 +166,7 @@ function screenToSVG(sx, sy) {
 
 function applyViewport() {
   rootGroup.setAttribute('transform', `translate(${vpX},${vpY}) scale(${vpScale})`);
+  // vpScale 0.5 = "100%", 1.0 = "200%" (×200 pour que le défaut 50% s'affiche 100%)
   if (statusZoom) statusZoom.textContent = Math.round(vpScale * 200) + '%';
 }
 
@@ -274,6 +273,20 @@ function getGroupBounds(grp) {
   return { x: gx, y: gy, w: gw, h: gh };
 }
 
+// Returns true if fromId→toId would be a "backwards" arrow (target is left of source)
+function wouldBeBackwards(fromId, toId) {
+  function getCX(id) {
+    const s = state.shapes.find(s => s.id === id);
+    if (s) return s.x + s.w / 2;
+    const g = state.groups && state.groups.find(g => g.id === id);
+    if (g) { const b = getGroupBounds(g); return b ? b.x + b.w / 2 : null; }
+    return null;
+  }
+  const fx = getCX(fromId), tx = getCX(toId);
+  if (fx === null || tx === null) return false;
+  return tx < fx - 10; // 10px threshold
+}
+
 function getGroupPorts(grp) {
   const b = getGroupBounds(grp);
   if (!b) return null;
@@ -377,7 +390,7 @@ function polylineToPath(pts, R) {
 
 // Calcule les waypoints orthogonaux (réutilisé par arrow + label fitting)
 // bundleOffset : décalage perpendiculaire pour séparer les flèches parallèles du même bundle
-function orthogonalPts(fp, tp, bundleOffset = 0) {
+function orthogonalPts(fp, tp, bundleOffset = 0, userOffset = { dx: 0, dy: 0 }) {
   const STEP = 38;
   const DV = { right:[1,0], left:[-1,0], bottom:[0,1], top:[0,-1] };
   const isH = d => d === 'right' || d === 'left';
@@ -400,16 +413,16 @@ function orthogonalPts(fp, tp, bundleOffset = 0) {
   if (Math.abs(dx12) < 2 && Math.abs(dy12) < 2) {
     return [fp, p1, p2, tp];
   } else if (isH(fdir) && !isH(tdir)) {
-    return [fp, p1, { x: p2.x, y: p1.y }, p2, tp];
+    return [fp, p1, { x: p2.x + (userOffset.dx || 0), y: p1.y + (userOffset.dy || 0) }, p2, tp];
   } else if (!isH(fdir) && isH(tdir)) {
-    return [fp, p1, { x: p1.x, y: p2.y }, p2, tp];
+    return [fp, p1, { x: p1.x + (userOffset.dx || 0), y: p2.y + (userOffset.dy || 0) }, p2, tp];
   } else if (isH(fdir)) {
     // H→H : décaler le segment horizontal du milieu pour séparer les bundles parallèles
     if (Math.abs(dy12) < 2) return [fp, p1, p2, tp];
     const SAFE = 52;
     const rawMid = (p1.y + p2.y) / 2;
     const safeMid = Math.abs(rawMid - fp.y) < SAFE ? fp.y + Math.sign(dy12 || 1) * SAFE : rawMid;
-    const midY = safeMid + bundleOffset;
+    const midY = safeMid + bundleOffset + (userOffset.dy || 0);
     return [fp, p1, { x: p1.x, y: midY }, { x: p2.x, y: midY }, p2, tp];
   } else {
     // V→V : décaler le segment vertical du milieu pour séparer les bundles parallèles
@@ -417,9 +430,153 @@ function orthogonalPts(fp, tp, bundleOffset = 0) {
     const SAFE = 52;
     const rawMid = (p1.x + p2.x) / 2;
     const safeMid = Math.abs(rawMid - fp.x) < SAFE ? fp.x + Math.sign(dx12 || 1) * SAFE : rawMid;
-    const midX = safeMid + bundleOffset;
+    const midX = safeMid + bundleOffset + (userOffset.dx || 0);
     return [fp, p1, { x: midX, y: p1.y }, { x: midX, y: p2.y }, p2, tp];
   }
+}
+
+// Évite les formes : reroute les segments qui traversent une shape (6 passes max)
+// Choisit intelligemment le côté de détour en testant lequel est le plus dégagé
+function avoidShapes(pts, shapes, fromId, toId) {
+  if (!shapes || shapes.length === 0) return pts;
+  const PAD = 20;
+  const R   = PAD + 10;
+
+  // Les décisions (losanges) sont des nœuds de routage : leur bounding-box
+  // dépasse leur silhouette visuelle, ce qui génère de faux blocages et des
+  // chemins complexes. On les exclut des obstacles pour les deux fonctions.
+  function isObstacle(s) {
+    return s.id !== fromId && s.id !== toId && s.type !== 'decision';
+  }
+
+  function firstBlocker(p1, p2) {
+    if (Math.abs(p1.y - p2.y) < 2) {
+      const y = p1.y, x1 = Math.min(p1.x, p2.x), x2 = Math.max(p1.x, p2.x);
+      for (const s of shapes) {
+        if (!isObstacle(s)) continue;
+        if (y > s.y - PAD && y < s.y + s.h + PAD && x1 < s.x + s.w + PAD && x2 > s.x - PAD) return s;
+      }
+    } else if (Math.abs(p1.x - p2.x) < 2) {
+      const x = p1.x, y1 = Math.min(p1.y, p2.y), y2 = Math.max(p1.y, p2.y);
+      for (const s of shapes) {
+        if (!isObstacle(s)) continue;
+        if (x > s.x - PAD && x < s.x + s.w + PAD && y1 < s.y + s.h + PAD && y2 > s.y - PAD) return s;
+      }
+    }
+    return null;
+  }
+
+  function isClear(coord, isHoriz, rangeA, rangeB, blocker) {
+    for (const s of shapes) {
+      if (!isObstacle(s) || s.id === blocker.id) continue;
+      if (isHoriz) {
+        if (coord > s.y - PAD && coord < s.y + s.h + PAD && rangeA < s.x + s.w + PAD && rangeB > s.x - PAD) return false;
+      } else {
+        if (coord > s.x - PAD && coord < s.x + s.w + PAD && rangeA < s.y + s.h + PAD && rangeB > s.y - PAD) return false;
+      }
+    }
+    return true;
+  }
+
+  // Direction globale de la connexion (pour éviter les détours rétrogrades)
+  const netDx = pts[pts.length - 1].x - pts[0].x;
+  const netDy = pts[pts.length - 1].y - pts[0].y;
+
+  let result = pts.map(p => ({ ...p }));
+  for (let iter = 0; iter < 4; iter++) {
+    let changed = false;
+    const next = [result[0]];
+    const last = result.length - 1;
+    for (let i = 0; i + 1 < result.length; i++) {
+      const p1 = result[i], p2 = result[i + 1];
+      const segLen = Math.hypot(p2.x - p1.x, p2.y - p1.y);
+      // Ne pas détourer les segments très courts ni le dernier segment (évite les crochets terminaux)
+      if (segLen < 35 || i === last - 1) { next.push(p2); continue; }
+      const blocker = firstBlocker(p1, p2);
+      if (!blocker) { next.push(p2); continue; }
+      changed = true;
+      if (Math.abs(p1.y - p2.y) < 2) { // horizontal → détour haut ou bas
+        const aboveY = blocker.y - R, belowY = blocker.y + blocker.h + R;
+        const xa = Math.min(p1.x, p2.x), xb = Math.max(p1.x, p2.x);
+        const clearA = isClear(aboveY, true, xa, xb, blocker);
+        const clearB = isClear(belowY, true, xa, xb, blocker);
+        // Préférer le côté qui s'éloigne le moins de la direction générale
+        let ry;
+        if (clearA && !clearB) ry = aboveY;
+        else if (!clearA && clearB) ry = belowY;
+        else {
+          // Biais vers le côté dans le sens du flux vertical
+          const biasAbove = netDy < 0 ? -200 : 200; // favoriser la direction globale
+          ry = (Math.abs(p1.y - aboveY) + biasAbove) <= (Math.abs(p1.y - belowY)) ? aboveY : belowY;
+        }
+        next.push({ x: p1.x, y: ry }, { x: p2.x, y: ry }, p2);
+      } else { // vertical → détour gauche ou droite
+        const leftX = blocker.x - R, rightX = blocker.x + blocker.w + R;
+        const ya = Math.min(p1.y, p2.y), yb = Math.max(p1.y, p2.y);
+        const clearL = isClear(leftX, false, ya, yb, blocker);
+        const clearR = isClear(rightX, false, ya, yb, blocker);
+        let rx;
+        if (clearL && !clearR) rx = leftX;
+        else if (!clearL && clearR) rx = rightX;
+        else {
+          const biasLeft = netDx < 0 ? -200 : 200;
+          rx = (Math.abs(p1.x - leftX) + biasLeft) <= (Math.abs(p1.x - rightX)) ? leftX : rightX;
+        }
+        next.push({ x: rx, y: p1.y }, { x: rx, y: p2.y }, p2);
+      }
+    }
+    result = next;
+    if (!changed) break;
+  }
+  return result;
+}
+
+// Simplifie un chemin orthogonal : merge colinéaires, supprime mini U-shapes (boucles)
+function simplifyPath(pts) {
+  if (pts.length < 3) return pts;
+  // Supprime les doublons
+  let r = [pts[0]];
+  for (let i = 1; i < pts.length; i++) {
+    const p = pts[i], q = r[r.length - 1];
+    if (Math.abs(p.x - q.x) > 0.5 || Math.abs(p.y - q.y) > 0.5) r.push({ ...p });
+  }
+  // Merge segments colinéaires (même axe, même sens)
+  let changed = true;
+  while (changed && r.length > 2) {
+    changed = false;
+    const nxt = [r[0]];
+    for (let i = 1; i < r.length - 1; i++) {
+      const a = nxt[nxt.length - 1], b = r[i], c = r[i + 1];
+      if ((Math.abs(a.y - b.y) < 1 && Math.abs(b.y - c.y) < 1) ||
+          (Math.abs(a.x - b.x) < 1 && Math.abs(b.x - c.x) < 1)) { changed = true; continue; }
+      nxt.push(b);
+    }
+    nxt.push(r[r.length - 1]);
+    r = nxt;
+  }
+  // Supprime les mini U-shapes : segment A→B → bump court → segment C→D même axe
+  changed = true;
+  while (changed && r.length > 3) {
+    changed = false;
+    const nxt = [r[0]]; let i = 1;
+    while (i < r.length) {
+      const a = nxt[nxt.length - 1];
+      if (i + 2 < r.length) {
+        const b = r[i], c = r[i + 1], d = r[i + 2];
+        const bumpLen = Math.hypot(c.x - b.x, c.y - b.y);
+        const legH = Math.abs(b.y - a.y) < 1 && Math.abs(d.y - c.y) < 1;
+        const legV = Math.abs(b.x - a.x) < 1 && Math.abs(d.x - c.x) < 1;
+        if (bumpLen < 22 && (legH || legV)) {
+          // Remplace a→b→c→d par un coude simple vers d
+          nxt.push(legH ? { x: d.x, y: a.y } : { x: a.x, y: d.y });
+          nxt.push(d); i += 3; changed = true; continue;
+        }
+      }
+      nxt.push(r[i]); i++;
+    }
+    r = nxt;
+  }
+  return r;
 }
 
 // Flèche orthogonale (angles droits, style Visio)
@@ -637,6 +794,7 @@ function renderConnections() {
     }
   }
 
+  const placedLabels = []; // bounding boxes des labels déjà placés
   for (const c of state.connections) {
     const from = _resolveEp(c.fromId);
     const to   = _resolveEp(c.toId);
@@ -650,16 +808,21 @@ function renderConnections() {
     const fp = spreadPort(from, fdir, c.id, 'from', c.fromPortT);
     const tp = spreadPort(to,   tdir, c.id, 'to',   c.toPortT);
     const routing = c.routing || 'smooth';
-    // Varier la tension selon l'index dans le bundle pour séparer les courbes parallèles
-    const fk2 = `${c.fromId}-${fdir}`;
-    const fUsers2 = fromUsage[fk2] || [];
-    const fIdx2 = fUsers2.indexOf(c.id);
-    const fN2 = fUsers2.length;
-    const tensionFactor = fN2 > 1 ? 0.7 + 0.6 * (fIdx2 / (fN2 - 1)) : 1;
-    // Décaler le segment du milieu pour éviter la superposition des flèches parallèles
-    const bundleOffset = fN2 > 1 ? (fIdx2 - (fN2 - 1) / 2) * 14 : 0;
-    const orthopts = orthogonalPts(fp, tp, bundleOffset);
-    const d  = routing === 'orthogonal' ? polylineToPath(orthopts, 8) : bezierArrow(fp, tp, tensionFactor);
+
+    // Routing orthogonal pur avec évitement des formes (toutes connexions, y compris importées)
+    let orthopts, d, _usedFp = fp, _usedTp = tp;
+    {
+      const fk2 = `${c.fromId}-${fdir}`;
+      const fUsers2 = fromUsage[fk2] || [];
+      const fIdx2 = fUsers2.indexOf(c.id);
+      const fN2 = fUsers2.length;
+      const bundleOffset = fN2 > 1 ? (fIdx2 - (fN2 - 1) / 2) * 14 : 0;
+      const userOffset = c.bendOffset || { dx: 0, dy: 0 };
+      orthopts = orthogonalPts(fp, tp, bundleOffset, userOffset);
+      orthopts = avoidShapes(orthopts, state.shapes, c.fromId, c.toId);
+      orthopts = simplifyPath(orthopts);
+      d = polylineToPath(orthopts, 12);
+    }
     const isSel = selectedConn === c.id;
     const color = isSel ? '#1f7a54' : c.color;
     const mId = ensureMarker(color);
@@ -681,63 +844,102 @@ function renderConnections() {
       'pointer-events': 'none',
     }, gConns);
 
-    // Label : placé sur le segment le plus long où le texte tient en entier
+    // Label : placement optimal parmi des dizaines de candidats
     if (c.label) {
       const lw = c.label.length * 6;
       const lh = 13;
-      let lx, ly, angle;
-      // Utiliser les pts déjà calculés (routing orthogonal) ou les calculer pour bezier
-      const labelPts = routing === 'orthogonal' ? orthopts : orthogonalPts(fp, tp, bundleOffset);
-      const segments = [];
-      for (let i = 0; i < labelPts.length - 1; i++) {
-        const a = labelPts[i], b = labelPts[i + 1];
-        const dx = b.x - a.x, dy = b.y - a.y;
-        const len = Math.hypot(dx, dy);
-        const isHoriz = Math.abs(dy) < Math.abs(dx);
-        segments.push({ mx: (a.x + b.x) / 2, my: (a.y + b.y) / 2, len, isHoriz });
+      let lx, ly, angle = 0;
+
+      // Déterminer si la flèche est majoritairement horizontale ou verticale
+      let totalH = 0, totalV = 0;
+      for (let i = 0; i < orthopts.length - 1; i++) {
+        totalH += Math.abs(orthopts[i+1].x - orthopts[i].x);
+        totalV += Math.abs(orthopts[i+1].y - orthopts[i].y);
       }
-      // Sélection du meilleur segment :
-      // 1. Le segment doit être assez long pour que la flèche continue 5px de chaque côté du texte
-      // 2. Parmi les segments valides, préférer celui avec le moins de formes autour (moins chargé)
-      // 3. En cas d'égalité de clutter, préférer le plus long
-      const SEG_MARGIN = 5;
-      const fitting = segments.filter(s => s.len >= lw + SEG_MARGIN * 2);
-      const candidates = fitting.length > 0 ? fitting : segments;
-      function clutterScore(seg) {
-        const RADIUS = 50;
-        return state.shapes.filter(s =>
-          Math.abs(s.x + s.w/2 - seg.mx) < s.w/2 + RADIUS &&
-          Math.abs(s.y + s.h/2 - seg.my) < s.h/2 + RADIUS
-        ).length;
+      const arrowMajorH = totalH >= totalV; // >50% horizontal → label forcément sur segment H
+
+      // Trouver le plus long segment de l'orientation dominante (et le plus long tout court)
+      let longestSeg = 0, longestLen = 0, longestForcedSeg = -1, longestForcedLen = 0;
+      for (let i = 0; i < orthopts.length - 1; i++) {
+        const pa = orthopts[i], pb = orthopts[i + 1];
+        const l = Math.hypot(pb.x - pa.x, pb.y - pa.y);
+        const segH = Math.abs(pb.y - pa.y) < 2;
+        if (l > longestLen) { longestLen = l; longestSeg = i; }
+        if (segH === arrowMajorH && l > longestForcedLen) { longestForcedLen = l; longestForcedSeg = i; }
       }
-      const best = candidates.reduce((a, b) => {
-        const sa = clutterScore(a) * 10000 - a.len;
-        const sb = clutterScore(b) * 10000 - b.len;
-        return sb < sa ? b : a;
-      });
-      lx = best.mx; ly = best.my;
-      angle = best.isHoriz ? 0 : -90;
-      // Ajustement si le label chevauche une forme → on décale légèrement
+      const preferSeg = longestForcedSeg >= 0 ? longestForcedSeg : longestSeg;
+
+      // Générer les candidats uniquement sur les segments de l'orientation dominante
+      const CANDS = [];
+      for (let i = 0; i < orthopts.length - 1; i++) {
+        const pa = orthopts[i], pb = orthopts[i + 1];
+        const sdx = pb.x - pa.x, sdy = pb.y - pa.y;
+        const slen = Math.hypot(sdx, sdy);
+        if (slen < 10) continue;
+        const isH = Math.abs(sdy) < Math.abs(sdx);
+        if (isH !== arrowMajorH) continue; // skip segments de mauvaise orientation
+        const nx = -sdy / slen, ny = sdx / slen;
+        const offsets = isH ? [0, -16, 16, -32, 32] : [-20, 20, -40, 40];
+        const step = (i === preferSeg) ? 0.06 : 0.18;
+        for (let t = step; t <= 1 - step; t += step) {
+          const bx = pa.x + sdx * t, by = pa.y + sdy * t;
+          for (const perp of offsets) {
+            CANDS.push({ x: bx + nx * perp, y: by + ny * perp, isH, perp, onPref: i === preferSeg });
+          }
+        }
+      }
+      // Fallback si aucun candidat (cas dégénéré)
+      if (CANDS.length === 0) {
+        for (let i = 0; i < orthopts.length - 1; i++) {
+          const pa = orthopts[i], pb = orthopts[i + 1];
+          const sdx = pb.x - pa.x, sdy = pb.y - pa.y;
+          const slen = Math.hypot(sdx, sdy);
+          if (slen < 4) continue;
+          const isH = Math.abs(sdy) < Math.abs(sdx);
+          const nx = -sdy / slen, ny = sdx / slen;
+          for (const perp of [0, -16, 16]) {
+            CANDS.push({ x: pa.x + sdx * 0.5 + nx * perp, y: pa.y + sdy * 0.5 + ny * perp, isH, perp, onPref: false });
+          }
+        }
+      }
+      if (CANDS.length === 0) CANDS.push({ x: (fp.x + tp.x) / 2, y: (fp.y + tp.y) / 2, isH: arrowMajorH, perp: 0, onPref: true });
+
+      // Score = chevauchement avec formes + labels + proximité borders groupes
+      function labelScore(cx, cy, isH, onPref) {
+        const hw2 = isH ? lw / 2 : lh / 2;
+        const hh2 = isH ? lh / 2 : lw / 2;
+        const M = 8;
+        let s = onPref ? 0 : 6000;
+        for (const sh of state.shapes) {
+          const ox = Math.max(0, Math.min(cx + hw2 + M, sh.x + sh.w) - Math.max(cx - hw2 - M, sh.x));
+          const oy = Math.max(0, Math.min(cy + hh2 + M, sh.y + sh.h) - Math.max(cy - hh2 - M, sh.y));
+          s += ox * oy * 20;
+        }
+        for (const gr of state.groups) {
+          const borders = [gr.y, gr.y + gr.h];
+          for (const by2 of borders) {
+            if (Math.abs(cy - by2) < hh2 + 12) s += 2000;
+          }
+        }
+        for (const pl of placedLabels) {
+          const ox = Math.max(0, Math.min(cx + hw2 + M, pl.lx + pl.hw) - Math.max(cx - hw2 - M, pl.lx - pl.hw));
+          const oy = Math.max(0, Math.min(cy + hh2 + M, pl.ly + pl.hh) - Math.max(cy - hh2 - M, pl.ly - pl.hh));
+          s += ox * oy * 40;
+        }
+        return s;
+      }
+
+      let bestCand = CANDS[0], bestScore = Infinity;
+      for (const cand of CANDS) {
+        const score = labelScore(cand.x, cand.y, cand.isH, cand.onPref) + Math.abs(cand.perp) * 0.3;
+        if (score < bestScore) { bestScore = score; bestCand = cand; }
+      }
+
+      lx = bestCand.x; ly = bestCand.y;
+      angle = bestCand.isH ? 0 : -90;
       const hw = angle !== 0 ? lh / 2 : lw / 2;
       const hh = angle !== 0 ? lw / 2 : lh / 2;
-      const MARGIN = 6;
-      for (let attempt = 0; attempt < 6; attempt++) {
-        const lleft = lx - hw - MARGIN, lright = lx + hw + MARGIN;
-        const ltop  = ly - hh - MARGIN, lbot   = ly + hh + MARGIN;
-        let hit = null;
-        for (const s of state.shapes) {
-          if (lright < s.x || lleft > s.x + s.w) continue;
-          if (lbot   < s.y || ltop  > s.y + s.h) continue;
-          hit = s; break;
-        }
-        if (!hit) break;
-        // Pousser dans la direction opposée au centre de la forme qui chevauche
-        const scx = hit.x + hit.w / 2, scy = hit.y + hit.h / 2;
-        const pushX = lx - scx, pushY = ly - scy;
-        const pushLen = Math.hypot(pushX, pushY) || 1;
-        lx += (pushX / pushLen) * 20;
-        ly += (pushY / pushLen) * 20;
-      }
+      placedLabels.push({ lx, ly, hw, hh });
       const lg = document.createElementNS('http://www.w3.org/2000/svg', 'g');
       lg.setAttribute('transform', `translate(${lx},${ly}) rotate(${angle})`);
       lg.setAttribute('pointer-events', 'none');
@@ -756,12 +958,26 @@ function renderConnections() {
 
     // Poignées d'extrémité (visibles quand la connexion est sélectionnée)
     if (isSel) {
-      for (const [pt, which] of [[fp, 'from'], [tp, 'to']]) {
+      for (const [pt, which] of [[_usedFp, 'from'], [_usedTp, 'to']]) {
         el('circle', {
           cx: String(pt.x), cy: String(pt.y), r: '8',
           fill: '#1f7a54', stroke: '#ffffff', 'stroke-width': '2.5',
           cursor: 'grab',
           'data-conn-id': String(c.id), 'data-conn-end': which,
+          style: 'pointer-events:all',
+        }, gConns);
+      }
+      // Poignée de coude (ajustement manuel du tracé orthogonal)
+      if (routing === 'orthogonal' && orthopts.length >= 4) {
+        const midPtIdx = Math.floor((orthopts.length - 1) / 2);
+        const bpa = orthopts[midPtIdx], bpb = orthopts[midPtIdx + 1];
+        const bpx = (bpa.x + bpb.x) / 2, bpy = (bpa.y + bpb.y) / 2;
+        const isHorizSeg = Math.abs(bpb.y - bpa.y) < Math.abs(bpb.x - bpa.x);
+        el('circle', {
+          cx: String(bpx), cy: String(bpy), r: '6',
+          fill: '#ffffff', stroke: '#1f7a54', 'stroke-width': '2',
+          cursor: isHorizSeg ? 'ns-resize' : 'ew-resize',
+          'data-conn-bend': String(c.id),
           style: 'pointer-events:all',
         }, gConns);
       }
@@ -782,7 +998,7 @@ function renderShapes() {
     const g = el('g', {
       'data-id': s.id, 'data-type': 'shape',
       class: 'shape-group',
-      cursor: tool === 'connect' ? 'crosshair' : 'pointer',
+      cursor: window.OPTIQCARTO_READONLY ? 'pointer' : (tool === 'connect' ? 'crosshair' : 'pointer'),
     }, gShapes);
 
     // Shadow filter
@@ -924,8 +1140,8 @@ function renderShapes() {
       }, g);
     }
 
-    // ── Port handles (carrés interactifs, visibles au survol dans tous les modes) ──
-    if (isHover && !portDrag) {
+    // ── Port handles (masqués en lecture seule) ──
+    if (isHover && !portDrag && !window.OPTIQCARTO_READONLY) {
       // Taille en SVG inversement proportionnelle au zoom pour rester lisible
       const ps = Math.max(10, Math.round(12 / vpScale));
       const sw = Math.max(1, Math.round(1.5 / vpScale));
@@ -1417,6 +1633,20 @@ function onDown(e) {
   }
   if (e.button !== 0) return;
 
+  // ── Mode lecture seule : pan + shape-click → postMessage uniquement ──
+  if (window.OPTIQCARTO_READONLY) {
+    const shapeTarget = e.target.closest('[data-type="shape"]');
+    if (shapeTarget) {
+      const sid = parseInt(shapeTarget.getAttribute('data-id'));
+      const s = state.shapes.find(s => s.id === sid);
+      if (s) try { window.parent.postMessage({ t: 'shape-click', label: s.label, shapeId: s.id, shapeType: s.type }, '*'); } catch(_) {}
+      return;
+    }
+    isPanning = true;
+    panStart = { sx: e.clientX, sy: e.clientY, vpX, vpY, moved: false };
+    return;
+  }
+
   const { x, y } = screenToSVG(e.clientX, e.clientY);
 
   // ── Drag depuis une poignée de port (toujours actif) ─────
@@ -1471,6 +1701,18 @@ function onDown(e) {
 
   /* ── Select tool ── */
   if (tool === 'select') {
+    // Drag d'un coude de connexion (ajustement du tracé)
+    const bendEl = e.target.closest('[data-conn-bend]');
+    if (bendEl) {
+      const cid = parseInt(bendEl.getAttribute('data-conn-bend'));
+      const { x, y } = screenToSVG(e.clientX, e.clientY);
+      const conn = state.connections.find(c => c.id === cid);
+      const startOffset = conn && conn.bendOffset ? { ...conn.bendOffset } : { dx: 0, dy: 0 };
+      bendDrag = { connId: cid, startX: x, startY: y, startOffset };
+      canvas.style.cursor = 'grabbing';
+      return;
+    }
+
     // Drag d'une extrémité de connexion
     const connEndEl = e.target.closest('[data-conn-end]');
     if (connEndEl) {
@@ -1539,17 +1781,21 @@ function onDown(e) {
     } else if (connecting.fromId !== sid) {
       const exists = state.connections.some(c => c.fromId === connecting.fromId && c.toId === sid);
       if (!exists) {
-        const fromShape = state.shapes.find(s => s.id === connecting.fromId);
-        state.connections.push({
-          id: state.nextId++,
-          fromId: connecting.fromId,
-          toId: sid,
-          style: 'solid',
-          routing: state.defaultRouting || 'smooth',
-          color: fromShape ? fromShape.color : '#9ca3af',
-          label: '',
-        });
-        snapshot();
+        if (wouldBeBackwards(connecting.fromId, sid)) {
+          showToast('⛔ Une flèche ne peut pas revenir en arrière (flèche → droite seulement)');
+        } else {
+          const fromShape = state.shapes.find(s => s.id === connecting.fromId);
+          state.connections.push({
+            id: state.nextId++,
+            fromId: connecting.fromId,
+            toId: sid,
+            style: 'solid',
+            routing: state.defaultRouting || 'smooth',
+            color: fromShape ? fromShape.color : '#9ca3af',
+            label: '',
+          });
+          snapshot();
+        }
       }
       connecting = null;
       render();
@@ -1606,6 +1852,20 @@ function onMove(e) {
       'stroke-dasharray': `${Math.max(4, 7 / vpScale)},${Math.max(3, 5 / vpScale)}`,
       'pointer-events': 'none',
     }, gOverlay);
+    return;
+  }
+
+  /* ── Drag d'un coude de connexion ── */
+  if (bendDrag) {
+    const { x, y } = screenToSVG(e.clientX, e.clientY);
+    const conn = state.connections.find(c => c.id === bendDrag.connId);
+    if (conn) {
+      conn.bendOffset = {
+        dx: bendDrag.startOffset.dx + (x - bendDrag.startX),
+        dy: bendDrag.startOffset.dy + (y - bendDrag.startY),
+      };
+      render();
+    }
     return;
   }
 
@@ -1680,6 +1940,15 @@ function onMove(e) {
 }
 
 function onUp(e) {
+  /* ── Fin du drag d'un coude ── */
+  if (bendDrag) {
+    bendDrag = null;
+    canvas.style.cursor = spaceDown ? 'grab' : '';
+    snapshot();
+    render();
+    return;
+  }
+
   /* ── Fin du drag d'extrémité de connexion ── */
   if (connEndDrag) {
     const { connId, which, snapShapeId, snapDir, snapT } = connEndDrag;
@@ -1688,20 +1957,24 @@ function onUp(e) {
     if (snapShapeId && snapDir) {
       const conn = state.connections.find(c => c.id === connId);
       if (conn) {
-        if (which === 'from') {
-          // Modifie uniquement l'extrémité source — sans toucher à toPortDir
-          conn.fromId      = snapShapeId;
-          conn.fromPortDir = snapDir;
-          conn.fromPortT   = snapT;
-          const src = state.shapes.find(s => s.id === snapShapeId);
-          if (src) conn.color = src.color;
+        const newFromId = which === 'from' ? snapShapeId : conn.fromId;
+        const newToId   = which === 'to'   ? snapShapeId : conn.toId;
+        if (wouldBeBackwards(newFromId, newToId)) {
+          showToast('⛔ Une flèche ne peut pas revenir en arrière (flèche → droite seulement)');
         } else {
-          // Modifie uniquement l'extrémité cible — sans toucher à fromPortDir/fromId
-          conn.toId      = snapShapeId;
-          conn.toPortDir = snapDir;   // direction indépendante du côté source
-          conn.toPortT   = snapT;
+          if (which === 'from') {
+            conn.fromId      = snapShapeId;
+            conn.fromPortDir = snapDir;
+            conn.fromPortT   = snapT;
+            const src = state.shapes.find(s => s.id === snapShapeId);
+            if (src) conn.color = src.color;
+          } else {
+            conn.toId      = snapShapeId;
+            conn.toPortDir = snapDir;
+            conn.toPortT   = snapT;
+          }
+          snapshot();
         }
-        snapshot();
       }
     }
     render();
@@ -1741,6 +2014,9 @@ function onUp(e) {
              c.fromPortDir === fp.dir
       );
       if (!exists) {
+        if (wouldBeBackwards(portDrag.fromShapeId, target.id)) {
+          showToast('⛔ Une flèche ne peut pas revenir en arrière (flèche → droite seulement)');
+        } else {
         const fromShape = state.shapes.find(s => s.id === portDrag.fromShapeId);
         state.connections.push({
           id: state.nextId++,
@@ -1753,6 +2029,7 @@ function onUp(e) {
           label: '',
         });
         snapshot();
+        }
       }
     }
     portDrag = null;
@@ -1782,6 +2059,7 @@ function onUp(e) {
 }
 
 function onDbl(e) {
+  if (window.OPTIQCARTO_READONLY) return;
   const st = e.target.closest('[data-type="shape"]');
   if (st) {
     const sid = parseInt(st.getAttribute('data-id'));
@@ -2418,18 +2696,69 @@ function _doNewCarto() {
    SAVE / LOAD JSON
    ══════════════════════════════════════════════════ */
 
+function _showSaveWarningModal(diff) {
+  return new Promise(resolve => {
+    const modal    = document.getElementById('save-warning-modal');
+    const listEl   = document.getElementById('swm-removed-list');
+    const confirmBtn = document.getElementById('swm-confirm');
+    const cancelBtn  = document.getElementById('swm-cancel');
+    if (!modal) { resolve(true); return; }
+
+    listEl.innerHTML = '';
+    const all = [
+      ...(diff.removed_activities || []).map(n => ({ label: n, icon: 'fa-square-check', cat: 'Activité' })),
+      ...(diff.removed_roles      || []).map(n => ({ label: n, icon: 'fa-layer-group',   cat: 'Rôle'   })),
+    ];
+    all.forEach(({ label, icon, cat }) => {
+      const li = document.createElement('li');
+      li.innerHTML = `<i class="fa-solid ${icon}"></i><span class="swm-cat">${cat}</span>${label}`;
+      listEl.appendChild(li);
+    });
+
+    modal.classList.remove('hidden');
+
+    const cleanup = () => {
+      modal.classList.add('hidden');
+      confirmBtn.removeEventListener('click', onConfirm);
+      cancelBtn.removeEventListener('click',  onCancel);
+    };
+    const onConfirm = () => { cleanup(); resolve(true);  };
+    const onCancel  = () => { cleanup(); resolve(false); };
+    confirmBtn.addEventListener('click', onConfirm);
+    cancelBtn.addEventListener('click',  onCancel);
+  });
+}
+
 async function saveJSON() {
-  const name = window.OPTIQCARTO_DEFAULT_NAME
-    || prompt('Nom de la cartographie :', 'ma-carto');
-  if (!name) return;
-  const res = await fetch(`${_API}/api/save`, {
-    method: 'POST',
+  const apiBase = window.OPTIQCARTO_API_BASE || '/cartography';
+
+  // Check what would be removed (only when there's an existing carto in DB)
+  try {
+    const diffRes = await fetch(`${apiBase}/api/save-diff`, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ diagram: state }),
+    });
+    if (diffRes.ok) {
+      const diff = await diffRes.json();
+      const hasRemovals = (diff.removed_activities?.length || diff.removed_roles?.length);
+      if (hasRemovals) {
+        const confirmed = await _showSaveWarningModal(diff);
+        if (!confirmed) return;
+      }
+    }
+  } catch (_) { /* offline or no diff endpoint — proceed */ }
+
+  const res  = await fetch(`${apiBase}/api/save`, {
+    method:  'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name, diagram: state }),
+    body:    JSON.stringify({ diagram: state }),
   });
   const data = await res.json();
-  if (data.ok) showToast('Sauvegardé ✓');
-  else showToast('Erreur : ' + data.error);
+  if (data.ok) {
+    if (data.sync_warning) showToast('Sauvegardé — erreur sync : ' + data.sync_warning, 'warn');
+    else showToast('Cartographie sauvegardée ✓');
+  } else showToast('Erreur : ' + (data.error || 'inconnue'));
 }
 
 async function openLoadDialog() {
@@ -2437,7 +2766,8 @@ async function openLoadDialog() {
   const list   = document.getElementById('load-list');
   dialog.classList.remove('hidden');
 
-  const files = await fetch(`${_API}/api/list`).then(r => r.json());
+  const apiBase = window.OPTIQCARTO_API_BASE || '/cartography';
+  const files = await fetch(apiBase + '/api/list').then(r => r.json());
   list.innerHTML = '';
 
   if (files.length === 0) {
@@ -2451,9 +2781,18 @@ async function openLoadDialog() {
     item.innerHTML = `<i class="fa-solid fa-diagram-project"></i><span>${name}</span><button class="load-delete" title="Supprimer"><i class="fa-solid fa-trash"></i></button>`;
 
     item.querySelector('span').addEventListener('click', async () => {
-      const data = await fetch(`${_API}/api/load/${encodeURIComponent(name)}`).then(r => r.json());
+      const data = await fetch(`${apiBase}/api/load/${encodeURIComponent(name)}`).then(r => r.json());
       if (data.error) { showToast('Erreur : ' + data.error); return; }
       state = data;
+      // Filtrer les connexions qui reviendraient en arrière (depuis anciens fichiers)
+      if (state.connections && state.shapes) {
+        state.connections = state.connections.filter(c => {
+          const from = state.shapes.find(s => s.id === c.fromId);
+          const to   = state.shapes.find(s => s.id === c.toId);
+          if (!from || !to) return true;
+          return (to.x + to.w / 2) >= (from.x + from.w / 2) - 10;
+        });
+      }
       // Migration : champs manquants sur anciens fichiers
       if (!state.bandWidth) state.bandWidth = 1600;
       if (!state.groups) state.groups = [];
@@ -2480,7 +2819,7 @@ async function openLoadDialog() {
     item.querySelector('.load-delete').addEventListener('click', async e => {
       e.stopPropagation();
       if (!confirm(`Supprimer "${name}" ?`)) return;
-      await fetch(`${_API}/api/delete/${encodeURIComponent(name)}`, { method: 'DELETE' });
+      await fetch(`${apiBase}/api/delete/${encodeURIComponent(name)}`, { method: 'DELETE' });
       item.remove();
       if (!list.querySelector('.load-item')) openLoadDialog();
     });
@@ -2697,33 +3036,163 @@ function openVSDXDialog() {
   dz.style.display = '';
 }
 
-function detectVSDXShapeType(masterName, visioType, isEllipse, isDiamond, isSubprocess) {
-  // Normalize: lowercase + strip accents (NFD + remove combining marks U+0300–U+036F)
-  const mn = (masterName || '')
-    .toLowerCase()
-    .normalize('NFD').replace(/[̀-ͯ]/g, '')
-    .replace(/[-_/]/g, ' ')
-    .replace(/\s+/g, ' ').trim();
+/* ══════════════════════════════════════════════════
+   POST-PROCESSING : routage flèches après import VSDX
+   Ports EXACTS (réplication de _resolveEp + spreadPort + bundleOffset).
+   Formule : bendOffset.dy = targetMidY - safeMid - bundleOffset → 0px d'erreur.
+   Phase 1 — Shape avoidance : contourner les formes intermédiaires.
+   Passe finale — Vérification stricte : aucune flèche ne peut traverser
+                  un process (activité) ou un start-end (rond).
+   ══════════════════════════════════════════════════ */
+function reroutePostProcess(shapes, connections) {
+  const OPP = { right:'left', left:'right', top:'bottom', bottom:'top' };
+  const PAD  = 12; // marge détection et dégagement
 
-  // Decision / diamond — by name first (most specific)
-  if (/\b(decision|diamond|gateway|exclusive|parallel|condition|conditional|losange|branchement|rhombus|si grand|si petit|big if|small if)\b/.test(mn)
-      || mn === 'conditional' || mn === 'decision') return 'decision';
-  // Diamond by geometry: EllipticalArcTo intercalated (Si grand/Si petit pattern)
-  if (isDiamond) return 'decision';
-  // Off-page connectors (Goto / Ext Ret shapes) → special
-  if (/\bgot[ot]+\b|\bext\.?\s*ret\b|\bext\.?\s*return\b|\baller\s+[aà]\b|\bautre\s+carte\b/.test(mn)) return 'special';
-  // Start/end / terminator / oval / round shapes (by name or master geometry)
-  if (/\b(terminator|oval|ellipse|circle|event|rond|cercle|ronde|circulaire)\b/.test(mn)
-      || mn === 'start' || mn === 'end'
-      || mn.includes('start end') || mn.includes('debut fin') || mn.includes('start/end')
-      || isEllipse) return 'start-end';
-  // Sous-activité / subprocess — par géométrie (plusieurs sections = marqueurs internes type Predefined Process)
-  if (isSubprocess) return 'special';
-  // Subprocess / sous-activité — par nom (FR + EN)
-  if (/\b(subprocess|sub process|predefined|processus predefini|activite partielle|sous activite|sous processus|sous tache|tache multiple|multi instance|callout|offpage|off page)\b/.test(mn)) return 'special';
-  // Visio Group that is not a swimlane → show as subprocess style
-  if (visioType === 'Group') return 'special';
-  return 'process';
+  // ── Réplication exacte de _resolveEp ────────────────────────
+  function resolveEp(eid) {
+    const s = shapes.find(s => s.id === eid);
+    if (!s) return null;
+    return { id: s.id, x: s.x, y: s.y, w: s.w, h: s.h,
+             _halo: s.type === 'process' ? 7 : 0, _type: s.type };
+  }
+
+  // ── fromUsage + unifiedUsage (identiques à renderConnections) ─
+  const fromUsage = {}, unifiedUsage = {};
+  for (const c of connections) {
+    const from = resolveEp(c.fromId), to = resolveEp(c.toId);
+    if (!from || !to) continue;
+    const dx = (to.x + to.w/2) - (from.x + from.w/2);
+    const dy = (to.y + to.h/2) - (from.y + from.h/2);
+    const fdir = c.fromPortDir || (Math.abs(dx) >= Math.abs(dy) ? (dx >= 0 ? 'right' : 'left') : (dy >= 0 ? 'bottom' : 'top'));
+    const tdir = c.toPortDir || OPP[fdir];
+    const fk = `${c.fromId}-${fdir}`, tk = `${c.toId}-${tdir}`;
+    if (!fromUsage[fk])    fromUsage[fk] = [];    fromUsage[fk].push(c.id);
+    if (!unifiedUsage[fk]) unifiedUsage[fk] = []; unifiedUsage[fk].push({ connId: c.id, end: 'from' });
+    if (!unifiedUsage[tk]) unifiedUsage[tk] = []; unifiedUsage[tk].push({ connId: c.id, end: 'to' });
+  }
+
+  // ── spreadPort exact (identique à renderConnections) ────────
+  function spreadPort(ep, dir, connId, end, explicitT) {
+    const h = ep._halo || 0;
+    const cx = ep.x + ep.w / 2, cy = ep.y + ep.h / 2;
+    if (ep._type === 'decision') {
+      switch (dir) {
+        case 'left':   return { x: ep.x,        y: cy,          dir: 'left'   };
+        case 'right':  return { x: ep.x + ep.w, y: cy,          dir: 'right'  };
+        case 'top':    return { x: cx,           y: ep.y,        dir: 'top'    };
+        case 'bottom': return { x: cx,           y: ep.y + ep.h, dir: 'bottom' };
+      }
+    }
+    const key = `${ep.id}-${dir}`;
+    const users = unifiedUsage[key] || [];
+    const idx = users.findIndex(u => u.connId === connId && u.end === end);
+    const n = users.length;
+    const t = explicitT !== undefined ? explicitT : (n <= 1 ? 0.5 : (idx + 1) / (n + 1));
+    switch (dir) {
+      case 'left':   return { x: ep.x - h,           y: ep.y + ep.h * t, dir: 'left'   };
+      case 'right':  return { x: ep.x + ep.w + h,    y: ep.y + ep.h * t, dir: 'right'  };
+      case 'top':    return { x: ep.x + ep.w * t,    y: ep.y - h,        dir: 'top'    };
+      case 'bottom': return { x: ep.x + ep.w * t,    y: ep.y + ep.h + h, dir: 'bottom' };
+    }
+  }
+
+  // ── Construire les infos par connexion H→H ───────────────────
+  const infos = [];
+  for (const c of connections) {
+    if (c.routing !== 'orthogonal') continue;
+    const from = resolveEp(c.fromId), to = resolveEp(c.toId);
+    if (!from || !to) continue;
+    const dx = (to.x + to.w/2) - (from.x + from.w/2);
+    const dy = (to.y + to.h/2) - (from.y + from.h/2);
+    const fdir = c.fromPortDir || (Math.abs(dx) >= Math.abs(dy) ? (dx >= 0 ? 'right' : 'left') : (dy >= 0 ? 'bottom' : 'top'));
+    const tdir = c.toPortDir || OPP[fdir];
+    const fp = spreadPort(from, fdir, c.id, 'from', c.fromPortT);
+    const tp = spreadPort(to,   tdir, c.id, 'to',   c.toPortT);
+
+    // bundleOffset exact
+    const fk = `${c.fromId}-${fdir}`;
+    const fUsers = fromUsage[fk] || [];
+    const fIdx = fUsers.indexOf(c.id), fN = fUsers.length;
+    const bundleOffset = fN > 1 ? (fIdx - (fN - 1) / 2) * 14 : 0;
+
+    // safeMid = midY sans aucun offset (base de calcul)
+    const ptsNat = orthogonalPts(fp, tp, 0, { dx: 0, dy: 0 });
+    if (ptsNat.length < 6 || Math.abs(ptsNat[2].y - ptsNat[3].y) > 2) continue;
+    const safeMid = ptsNat[2].y;
+    const x1 = Math.min(ptsNat[2].x, ptsNat[3].x);
+    const x2 = Math.max(ptsNat[2].x, ptsNat[3].x);
+    if (x2 - x1 < 4) continue;
+
+    // renderedMidY = safeMid + bundleOffset + bendOffset.dy  (exactement 0px d'erreur)
+    const curDy = (c.bendOffset || { dy: 0 }).dy || 0;
+    infos.push({ c, safeMid, bundleOffset, x1, x2,
+                 renderedMidY: safeMid + bundleOffset + curDy });
+  }
+
+  // ── Helpers ──────────────────────────────────────────────────
+
+  // Applique un midY cible avec la formule exacte (0px d'erreur)
+  function applyMidY(info, targetMidY) {
+    const newDy = targetMidY - info.safeMid - info.bundleOffset;
+    info.c.bendOffset = { dx: (info.c.bendOffset || { dx: 0 }).dx || 0, dy: newDy };
+    info.renderedMidY = targetMidY;
+  }
+
+  // Teste si un midY donné touche une forme intermédiaire (excl. endpoints)
+  function hitsAny(midY, x1, x2, fromId, toId) {
+    return shapes.some(s => {
+      if (s.id === fromId || s.id === toId) return false;
+      return midY > s.y - PAD && midY < s.y + s.h + PAD
+          && x2   > s.x + PAD && x1   < s.x + s.w - PAD;
+    });
+  }
+
+  // Teste si un midY touche SPÉCIFIQUEMENT un process ou start-end (les formes "bloquantes")
+  function hitsActivity(midY, x1, x2, fromId, toId) {
+    return shapes.some(s => {
+      if (s.id === fromId || s.id === toId) return false;
+      if (s.type !== 'process' && s.type !== 'start-end') return false;
+      return midY > s.y - PAD && midY < s.y + s.h + PAD
+          && x2   > s.x + PAD && x1   < s.x + s.w - PAD;
+    });
+  }
+
+  // Trouve la Y la plus proche de refY qui ne touche rien
+  // Candidates : bords de toutes les formes potentiellement gênantes
+  function findClearY(refY, x1, x2, fromId, toId, strict = false) {
+    const testFn = strict ? hitsActivity : hitsAny;
+    if (!testFn(refY, x1, x2, fromId, toId)) return refY;
+    const cands = [];
+    for (const s of shapes) {
+      if (s.id === fromId || s.id === toId) continue;
+      if (strict && s.type !== 'process' && s.type !== 'start-end') continue;
+      if (x2 <= s.x + PAD || x1 >= s.x + s.w - PAD) continue;
+      cands.push(s.y - PAD, s.y + s.h + PAD);
+    }
+    cands.sort((a, b) => Math.abs(a - refY) - Math.abs(b - refY));
+    for (const y of cands) {
+      if (!testFn(y, x1, x2, fromId, toId)) return y;
+    }
+    return refY; // pas de position libre → on laisse (on aura tenté)
+  }
+
+  // ── Phase 1 : évitement général des formes ───────────────────
+  for (const info of infos) {
+    const { c, x1, x2, renderedMidY } = info;
+    if (!hitsAny(renderedMidY, x1, x2, c.fromId, c.toId)) continue;
+    const target = findClearY(renderedMidY, x1, x2, c.fromId, c.toId, false);
+    if (target !== renderedMidY) applyMidY(info, target);
+  }
+
+  // ── Passe finale : vérification stricte process + start-end ──
+  // Règle absolue : aucune flèche ne peut traverser une activité ou un rond.
+  // On re-vérifie et on force le contournement même si phase 1 n'a pas suffi.
+  for (const info of infos) {
+    const { c, x1, x2, renderedMidY } = info;
+    if (!hitsActivity(renderedMidY, x1, x2, c.fromId, c.toId)) continue;
+    const target = findClearY(renderedMidY, x1, x2, c.fromId, c.toId, true);
+    if (target !== renderedMidY) applyMidY(info, target);
+  }
 }
 
 async function importVSDX(file) {
@@ -2736,1088 +3205,94 @@ async function importVSDX(file) {
 
   function setStatus(msg, isError) {
     if (isError) {
-      // Error: show in status bar, restore dropzone, hide spinner
       loadingEl.style.display = 'none';
       dropzone.style.display = '';
       statusEl.style.display = '';
       statusEl.className = 'vsdx-status error';
       statusEl.textContent = msg;
     } else if (msg) {
-      // Progress: update spinner text
       if (loadingMsg) loadingMsg.textContent = msg;
     } else {
-      // Done/cleared
       statusEl.style.display = 'none';
       loadingEl.style.display = 'none';
     }
   }
 
-  // Switch dropzone → loading spinner
   dropzone.style.display = 'none';
   statusEl.style.display = 'none';
   loadingEl.style.display = '';
-  if (loadingMsg) loadingMsg.textContent = 'Lecture du fichier…';
+  if (loadingMsg) loadingMsg.textContent = 'Lecture du fichier\u2026';
+
+  // Orphan dialog: runs inside vsdxParse before final layout
+  async function onOrphans(orphans) {
+    setStatus(`\u26a0 ${orphans.length} forme(s) vide(s) non connect\u00e9e(s) d\u00e9tect\u00e9e(s).`);
+    await new Promise(r => setTimeout(r, 0));
+    return new Promise(resolve => {
+      const ov = document.createElement('div');
+      ov.className = 'modal-overlay';
+      ov.style.zIndex = '10000';
+      const types = [...new Set(orphans.map(s =>
+        s.type === 'decision' ? 'losange' : s.type === 'start-end' ? 'ellipse' : 'activit\u00e9'
+      ))].join(', ');
+      ov.innerHTML = `
+        <div class="modal-card" style="max-width:430px;border-top:3px solid var(--pink)">
+          <div class="modal-header">
+            <h2 style="color:var(--pink)">
+              <i class="fa-solid fa-triangle-exclamation" style="margin-right:8px;opacity:0.9"></i>Fichier incomplet
+            </h2>
+          </div>
+          <div class="modal-body" style="display:flex;flex-direction:column;gap:14px">
+            <p style="font-size:13px;color:var(--text-muted);margin:0;line-height:1.6">
+              Ce fichier contient <strong style="color:var(--green-lt)">${orphans.length} forme(s)</strong>
+              sans texte et sans connexion (${types}).<br>
+              <span style="font-size:12px;color:rgba(255,255,255,0.35)">Ces \u00e9l\u00e9ments sont probablement des artefacts Visio sans contenu.</span>
+            </p>
+            <p style="font-size:12px;color:rgba(255,255,255,0.38);margin:0">
+              Voulez-vous nettoyer ces \u00e9l\u00e9ments ou fournir un fichier corrig\u00e9&nbsp;?
+            </p>
+            <div style="display:flex;flex-direction:column;gap:7px">
+              <button id="_orph-clean" class="btn-ok" style="width:100%;text-align:left;display:flex;align-items:center;gap:9px;padding:11px 14px;border-radius:10px">
+                <i class="fa-solid fa-broom"></i> Nettoyer et continuer l\u2019import
+              </button>
+              <button id="_orph-keep" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:var(--text-muted);border-radius:10px;padding:10px 14px;font-size:12px;font-weight:600;cursor:pointer;text-align:left;display:flex;align-items:center;gap:9px;font-family:inherit;width:100%">
+                <i class="fa-solid fa-forward"></i> Continuer sans nettoyer
+              </button>
+              <button id="_orph-cancel" style="background:transparent;border:none;color:rgba(244,184,208,0.5);padding:8px 14px;font-size:11px;cursor:pointer;text-align:left;display:flex;align-items:center;gap:9px;font-family:inherit;width:100%">
+                <i class="fa-solid fa-xmark"></i> Annuler \u2014 je vais corriger mon fichier
+              </button>
+            </div>
+          </div>
+        </div>`;
+      document.body.appendChild(ov);
+      ov.querySelector('#_orph-clean').onclick  = () => { ov.remove(); resolve('clean'); };
+      ov.querySelector('#_orph-keep').onclick   = () => { ov.remove(); resolve('keep'); };
+      ov.querySelector('#_orph-cancel').onclick = () => { ov.remove(); resolve('cancel'); };
+    });
+  }
 
   try {
-
-    const zip = await JSZip.loadAsync(file);
-    const parser = new DOMParser();
-    const parseXml = text => parser.parseFromString(text, 'application/xml');
-
-    // DOM helpers (namespace-agnostic via localName)
-    function vEl(el, name) {
-      for (const c of el.childNodes)
-        if (c.nodeType === 1 && c.localName === name) return c;
-      return null;
-    }
-    function vAll(el, name) {
-      return Array.from(el.childNodes).filter(c => c.nodeType === 1 && c.localName === name);
-    }
-    function vDeep(el, name) {
-      const q = [el];
-      while (q.length) {
-        const curr = q.shift();
-        if (curr.nodeType !== 1) continue;
-        if (curr.localName === name) return curr;
-        for (const c of curr.childNodes) if (c.nodeType === 1) q.push(c);
-      }
-      return null;
-    }
-    function vCell(el, name) {
-      for (const c of el.childNodes)
-        if (c.nodeType === 1 && c.localName === 'Cell' && c.getAttribute('N') === name)
-          return c.getAttribute('V');
-      return null;
-    }
-    // Recherche aussi dans Section > Row > Cell (format Visio étendu)
-    function vCellDeep(el, name) {
-      const direct = vCell(el, name);
-      if (direct !== null) return direct;
-      for (const sec of el.childNodes) {
-        if (sec.nodeType !== 1 || sec.localName !== 'Section') continue;
-        for (const row of sec.childNodes) {
-          if (row.nodeType !== 1 || row.localName !== 'Row') continue;
-          for (const cell of row.childNodes)
-            if (cell.nodeType === 1 && cell.localName === 'Cell' && cell.getAttribute('N') === name)
-              return cell.getAttribute('V');
-        }
-      }
-      return null;
-    }
-    function vText(el) {
-      const t = vDeep(el, 'Text');
-      return t ? t.textContent.trim() : '';
-    }
-
-    // ── Masters ──────────────────────────────────────────
-    setStatus('Analyse des masters…');
-    const masterIdToName = {};
-    const masterIdToFile = {};
-    const masterSizeCache = {};
-
-    try {
-      const mastersXml  = await zip.file('visio/masters/masters.xml').async('text');
-      const mastersRels = await zip.file('visio/masters/_rels/masters.xml.rels').async('text');
-      const mDoc  = parseXml(mastersXml);
-      const rDoc  = parseXml(mastersRels);
-
-      const ridToFile = {};
-      for (const rel of rDoc.getElementsByTagName('Relationship'))
-        ridToFile[rel.getAttribute('Id')] = rel.getAttribute('Target');
-
-      for (const m of mDoc.getElementsByTagName('Master')) {
-        const mid = m.getAttribute('ID');
-        // NameU = Universal (English), Name = localized. On garde les deux pour la détection.
-        const nameU = m.getAttribute('NameU') || '';
-        const nameL = m.getAttribute('Name') || '';
-        masterIdToName[mid] = nameU || nameL; // prefer English universal name
-        const relEl = vDeep(m, 'Rel');
-        if (relEl) {
-          let rid = null;
-          for (const attr of relEl.attributes)
-            if (attr.localName === 'id') { rid = attr.value; break; }
-          if (rid && ridToFile[rid])
-            masterIdToFile[mid] = 'visio/masters/' + ridToFile[rid];
-        }
-      }
-    } catch(e) { console.warn('Masters:', e); }
-
-    const masterInfoCache = {};
-    async function getMasterInfo(mid) {
-      if (!mid) return { w: 0.9449, h: 0.7087, linePattern: 1 };
-      if (masterInfoCache[mid]) return masterInfoCache[mid];
-      const fpath = masterIdToFile[mid];
-      if (!fpath) return masterInfoCache[mid] = { w: 0.9449, h: 0.7087, linePattern: 1 };
-      try {
-        const xml = await zip.file(fpath).async('text');
-        const doc = parseXml(xml);
-        let bw, bh, lp = 1, isEllipse = false, isDiamond = false;
-        // Visio geometry: <Row T='LineTo'|'EllipticalArcTo'|'Ellipse'> — NOT element names
-        const geomRows = doc.getElementsByTagName('Row');
-        const geomSeq = []; // sequence of geometry row types (excluding MoveTo)
-        let moveTos = 0;
-        for (let ri = 0; ri < geomRows.length; ri++) {
-          const t = geomRows[ri].getAttribute('T');
-          if (t === 'EllipticalArcTo' || t === 'Ellipse') isEllipse = true;
-          if (t === 'LineTo' || t === 'EllipticalArcTo') geomSeq.push(t);
-          if (t === 'MoveTo') moveTos++;
-        }
-        // Diamond: EllipticalArcTo intercalated with LineTo (LineTo follows the last arc)
-        // Pattern [L,E,L,L,E,L] = Si petit/Si grand; vs [L,L,L,E,E] = stadium (Résultat X)
-        if (isEllipse) {
-          const lastArcIdx = geomSeq.lastIndexOf('EllipticalArcTo');
-          if (lastArcIdx !== -1 && lastArcIdx < geomSeq.length - 1)
-            isDiamond = geomSeq.slice(lastArcIdx + 1).includes('LineTo');
-        }
-        // Sous-activité (Predefined Process) : plusieurs sections géométriques
-        // = forme principale + traits internes (marqueurs latéraux ou fond double)
-        let geomSectCount = 0;
-        const allSects = doc.getElementsByTagName('Section');
-        for (let si = 0; si < allSects.length; si++) {
-          if (allSects[si].getAttribute('N') === 'Geometry') geomSectCount++;
-        }
-        // moveTos >= 3 = au moins 3 sous-chemins (rect + 2 marques) → subprocess
-        const isSubprocess = (geomSectCount >= 2 || moveTos >= 3) && !isEllipse && !isDiamond;
-        for (const s of doc.getElementsByTagName('Shape')) {
-          const w = vCell(s, 'Width'), h = vCell(s, 'Height');
-          if (w) bw = parseFloat(w);
-          if (h) bh = parseFloat(h);
-          const lv = vCellDeep(s, 'LinePattern');
-          if (lv) lp = parseInt(lv) || 1;
-          if (bw && bh) break;
-        }
-        return masterInfoCache[mid] = { w: bw || 0.9449, h: bh || 0.7087, linePattern: lp, isEllipse, isDiamond, isSubprocess };
-      } catch(e) { return masterInfoCache[mid] = { w: 0.9449, h: 0.7087, linePattern: 1, isEllipse: false, isDiamond: false, isSubprocess: false }; }
-    }
-    // Compat alias
-    async function getMasterSize(mid) { const i = await getMasterInfo(mid); return i; }
-
-    // ── Page XML ─────────────────────────────────────────
-    setStatus('Lecture de la page…');
-    const pageXml = await zip.file('visio/pages/page1.xml').async('text');
-    const pageDoc = parseXml(pageXml);
-
-    // Collect all shapes recursively
-    function collectShapes(shapesEl, depth, parentId, acc) {
-      for (const s of vAll(shapesEl, 'Shape')) {
-        acc.push({ el: s, id: s.getAttribute('ID'), depth, parentId });
-        const child = vEl(s, 'Shapes');
-        if (child) collectShapes(child, depth + 1, s.getAttribute('ID'), acc);
-      }
-    }
-    const allShapes = [];
-    const rootShapesEl = vEl(pageDoc.documentElement, 'Shapes');
-    if (rootShapesEl) collectShapes(rootShapesEl, 0, null, allShapes);
-
-    const shapeMap = {};
-    for (const item of allShapes) shapeMap[item.id] = item;
-
-    // ── Pre-fetch master info pour toutes les formes ─────────
-    setStatus('Analyse des masters…');
-    {
-      const ids = [...new Set(allShapes.map(({el}) => el.getAttribute('Master')).filter(Boolean))];
-      for (const mid of ids) await getMasterInfo(mid);
-    }
-
-    // ── Coordonnées absolues (cascade depth 0→N) ─────────────
-    // PinX/PinY est relatif au coin bas-gauche du parent pour depth>0.
-    // Si le parent n'a pas de Width/Height explicite, on utilise le master.
-    const shapePinAbs = {};
-    for (const { el: s, id, depth, parentId } of allShapes) {
-      const mid   = s.getAttribute('Master');
-      const mInfo = masterInfoCache[mid] || { w: 0, h: 0 };
-      const px = parseFloat(vCell(s, 'PinX')   || '0');
-      const py = parseFloat(vCell(s, 'PinY')   || '0');
-      const sw = parseFloat(vCell(s, 'Width')  || '0') || mInfo.w;
-      const sh = parseFloat(vCell(s, 'Height') || '0') || mInfo.h;
-      if (depth === 0 || !parentId || !shapePinAbs[parentId]) {
-        shapePinAbs[id] = { pinX: px, pinY: py, w: sw, h: sh };
-      } else {
-        const par = shapePinAbs[parentId];
-        shapePinAbs[id] = {
-          pinX: (par.pinX - par.w / 2) + px,
-          pinY: (par.pinY - par.h / 2) + py,
-          w: sw, h: sh,
-        };
-      }
-    }
-
-    // ── Connects (scan récursif tout le doc) ─────────────────
-    const connectorIds = new Set();
-    const connMap = {};
-    (function scanConnects(el) {
-      for (const c of el.childNodes) {
-        if (c.nodeType !== 1) continue;
-        if (c.localName === 'Connect') {
-          const from = c.getAttribute('FromSheet');
-          const to   = c.getAttribute('ToSheet');
-          const cell = c.getAttribute('FromCell');
-          if (from) {
-            connectorIds.add(from);
-            if (!connMap[from]) connMap[from] = {};
-            if (cell === 'BeginX') connMap[from].source = to;
-            else if (cell === 'EndX') connMap[from].target = to;
-          }
-        } else { scanConnects(c); }
-      }
-    })(pageDoc.documentElement);
-
-    // ── Identifier les conteneurs (pool/lane/swimlane) ────────
-    // = groupes dont le nom contient lane/pool OU largeur > 40% de la page
-    const LANE_RE = /\b(lane|swimlane|couloir)\b/;
-    const POOL_RE = /\b(pool|cross.?functional)\b/;
-
-    let pageMaxW = 0;
-    for (const { id } of allShapes) {
-      const abs = shapePinAbs[id];
-      if (abs) pageMaxW = Math.max(pageMaxW, abs.w);
-    }
-
-    const containerIds = new Set();
-    for (const { el: s, id } of allShapes) {
-      if (s.getAttribute('Type') !== 'Group') continue;
-      const mn  = (masterIdToName[s.getAttribute('Master')] || '').toLowerCase();
-      const abs = shapePinAbs[id] || {};
-      if (LANE_RE.test(mn) || POOL_RE.test(mn) || (abs.w > pageMaxW * 0.4 && vEl(s, 'Shapes')))
-        containerIds.add(id);
-    }
-
-    // ── Scale ─────────────────────────────────────────────────
-    const SCALE = 130 / 0.9449;
-    const FALLBACK_COLORS = ['#22c55e','#3b82f6','#f59e0b','#e85d4a','#8b5cf6',
-                             '#06b6d4','#ec4899','#f43f5e','#14b8a6','#a855f7'];
-    // Convertit une valeur couleur Visio (hex, RGB(...), THEMEGUARD(RGB(...))...) en #RRGGBB
-    function parseVisioColor(raw) {
-      if (!raw) return null;
-      if (raw.startsWith('#') && raw.length >= 7) return raw.slice(0, 7).toLowerCase();
-      // Extrait RGB(r,g,b) même à l'intérieur de formules THEMEGUARD/SHADE/TINT
-      const m = raw.match(/RGB\s*\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)/i);
-      if (m) return '#' + [m[1],m[2],m[3]].map(v => parseInt(v).toString(16).padStart(2,'0')).join('');
-      return null;
-    }
-
-    function isWashedOut(hex) {
-      if (!hex || !hex.startsWith('#') || hex.length < 7) return true;
-      const r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);
-      // Seuil 242 : rejette uniquement blanc/gris très clair (ancienne valeur 210 trop agressive)
-      return (r*299+g*587+b*114)/1000 > 242;
-    }
-
-    // ── Bandes depuis les lanes ───────────────────────────────
-    setStatus('Construction des bandes…');
-    // Lanes = conteneurs avec hauteur raisonnable ET largeur > 30% page
-    const laneList = [];
-    for (const { el: s, id } of allShapes) {
-      if (!containerIds.has(id)) continue;
-      const abs = shapePinAbs[id] || {};
-      if (!abs.h || abs.h < 0.3 || abs.h > 25) continue; // pas un sliver ni un pool géant
-      if (!abs.w || abs.w < pageMaxW * 0.3)    continue; // doit s'étendre sur la page
-      laneList.push({ el: s, id, abs });
-    }
-    laneList.sort((a, b) => b.abs.pinY - a.abs.pinY); // haut en premier
-
-    // Dédupliquer les lanes trop proches (separators, headers)
-    const lanes = [];
-    for (const ln of laneList) {
-      const prev = lanes[lanes.length - 1];
-      if (prev && Math.abs(ln.abs.pinY - prev.abs.pinY) < 0.15) continue;
-      lanes.push(ln);
-    }
-
-    // topOfDiagram = bord supérieur de la première lane
-    let topOfDiagram;
-    let leftEdge = 0;
-    if (lanes.length > 0) {
-      topOfDiagram = lanes[0].abs.pinY + lanes[0].abs.h / 2;
-      leftEdge     = Math.min(...lanes.map(l => l.abs.pinX - l.abs.w / 2));
-    } else {
-      let maxY = 0;
-      for (const { id } of allShapes) {
-        const abs = shapePinAbs[id];
-        if (abs && abs.pinY + abs.h/2 > maxY) maxY = abs.pinY + abs.h/2;
-      }
-      topOfDiagram = maxY || 42;
-    }
-
-    const newBands = [];
-    const legendBounds = []; // bounding boxes (absolute Visio coords) of legend lanes
-    if (lanes.length > 0) {
-      for (let i = 0; i < lanes.length; i++) {
-        const { el: s, abs, id: laneId } = lanes[i];
-        const bandH = Math.round(Math.max(80, abs.h * SCALE));
-
-        let label = '';
-        for (const c of s.childNodes)
-          if (c.nodeType === 1 && c.localName === 'Text') { label = c.textContent.trim(); break; }
-        // Visio CFF swimlanes store heading in User.visHeadingText cell value (not <Text>)
-        if (!label) {
-          const userSect = vEl(s, 'Section');
-          if (userSect && userSect.getAttribute('N') === 'User') {
-            for (const row of vAll(userSect, 'Row')) {
-              if (row.getAttribute('N') === 'visHeadingText') {
-                const cell = vEl(row, 'Cell');
-                if (cell && cell.getAttribute('N') === 'Value') { label = cell.getAttribute('V') || ''; break; }
-              }
-            }
-          }
-        }
-        // Fallback: check User section anywhere in shape children
-        if (!label) {
-          for (const sect of s.getElementsByTagName('Section')) {
-            if (sect.getAttribute('N') !== 'User') continue;
-            for (const row of vAll(sect, 'Row')) {
-              if (row.getAttribute('N') === 'visHeadingText') {
-                const cell = vEl(row, 'Cell');
-                if (cell && cell.getAttribute('N') === 'Value') { label = cell.getAttribute('V') || ''; break; }
-              }
-            }
-            if (label) break;
-          }
-        }
-        if (!label) {
-          const childEl = vEl(s, 'Shapes');
-          if (childEl) {
-            for (const child of vAll(childEl, 'Shape')) {
-              if (child.getAttribute('Type') === 'Group') continue;
-              const t = vText(child);
-              if (t && t.length > 0 && t.length < 100) { label = t; break; }
-            }
-          }
-        }
-
-        let fill = parseVisioColor(vCell(s, 'FillForegnd'));
-        if (isWashedOut(fill)) {
-          const childEl = vEl(s, 'Shapes');
-          if (childEl) {
-            for (const child of vAll(childEl, 'Shape')) {
-              if (child.getAttribute('Type') === 'Group') continue;
-              const cf = parseVisioColor(vCell(child, 'FillForegnd'));
-              if (cf && !isWashedOut(cf)) { fill = cf; break; }
-            }
-          }
-        }
-        // Skip legend swimlanes — store their bounding box for spatial filtering
-        if (/l[eé]gende?|legend/i.test(label)) {
-          legendBounds.push({
-            xMin: abs.pinX - abs.w/2, xMax: abs.pinX + abs.w/2,
-            yMin: abs.pinY - abs.h/2, yMax: abs.pinY + abs.h/2,
-          });
-          continue;
-        }
-        const bandIdx = newBands.length + 1;
-        const color = !isWashedOut(fill) ? fill : FALLBACK_COLORS[bandIdx % FALLBACK_COLORS.length];
-        newBands.push({ id: bandIdx, label: label || `Bande ${bandIdx}`, color, fontSize: 22, height: bandH });
-      }
-    } else {
-      newBands.push({ id: 1, label: 'Activités', color: '#22c55e', fontSize: 22, height: 500 });
-    }
-
-    // Spatial legend filter: skip shapes whose center falls within a legend lane's bounding box
-    function isInLegend(id) {
-      if (legendBounds.length === 0) return false;
-      const a = shapePinAbs[id];
-      if (!a) return false;
-      for (const b of legendBounds) {
-        if (a.pinX > b.xMin && a.pinX < b.xMax && a.pinY > b.yMin && a.pinY < b.yMax) return true;
-      }
-      return false;
-    }
-
-    // ── Detect Visio Containers (transparent group boxes) ─────
-    // These are semi-transparent labeled shapes that visually wrap activities
-    // but are NOT XML parents — membership is determined by bounding-box overlap
-    const containerGroupIds  = new Set();
-    const containerGroupData = []; // { id, label, abs }
-    for (const { el: s, id } of allShapes) {
-      if (connectorIds.has(id) || containerIds.has(id)) continue;
-      // Losanges et ellipses ne sont jamais des conteneurs de groupe
-      const mid_cg = s.getAttribute('Master');
-      const mInfo_cg = masterInfoCache[mid_cg] || {};
-      if (mInfo_cg.isDiamond || mInfo_cg.isEllipse) continue;
-      const ft = parseFloat(vCell(s, 'FillForegndTrans') || '0');
-      const bt = parseFloat(vCell(s, 'FillBkgndTrans')   || '0');
-      if (Math.max(ft, bt) < 0.4) continue; // not transparent enough
-      const abs = shapePinAbs[id] || {};
-      if (!abs.w || !abs.h || abs.w < 1 || abs.h < 0.5) continue;
-      if (abs.w > pageMaxW * 0.9) continue; // full-page wide → lane, not a group container
-      const label = vText(s);
-      if (!label || label.length > 80) continue;
-      containerGroupIds.add(id);
-      containerGroupData.push({ id, label, abs }); // id = Visio ID du container
-    }
-
-    // Retourne la couleur de la bande à une position Y écran donnée
-    function getBandColorForScreenY(y) {
-      let bandTop = 0;
-      for (const band of newBands) {
-        if (y >= bandTop && y < bandTop + band.height) return band.color;
-        bandTop += band.height;
-      }
-      return newBands.length > 0 ? newBands[newBands.length - 1].color : '#22c55e';
-    }
-
-    // ── Activités ─────────────────────────────────────────────
-    setStatus('Import des activités…');
-    const newShapes  = [];
-    const shapeIdMap = {};
-    let nextOid      = (Date.now() % 1e7) | 0;
-    const totalBandH = newBands.reduce((s, b) => s + b.height, 0);
-
-    for (const { el: s, id } of allShapes) {
-      if (connectorIds.has(id))      continue;
-      if (containerIds.has(id))      continue;
-      if (containerGroupIds.has(id)) continue; // transparent container → becomes a group, not an activity
-      if (isInLegend(id))            continue; // skip shapes inside legend lane (spatial filter)
-
-      const mid   = s.getAttribute('Master');
-      const vType = s.getAttribute('Type');
-      if (!mid && vType !== 'Group') continue;
-
-      const mn = (masterIdToName[mid] || '').toLowerCase();
-      if (/\b(connector|dynamic connector|line|arrow)\b/.test(mn)) continue;
-      if (/^(title|text|annotation|callout|note|border|background|frame)$/.test(mn)) continue;
-
-      const abs = shapePinAbs[id] || {};
-      const vW  = abs.w || 0;
-      const vH  = abs.h || 0;
-      if (vW < 0.2 || vH < 0.1) continue;
-      if (vW > 6   || vH > 4  ) continue;
-
-      const screenX = Math.round((abs.pinX - vW/2 - leftEdge) * SCALE);
-      const screenY = Math.max(0, Math.round((topOfDiagram - abs.pinY - vH/2) * SCALE));
-      if (screenY > totalBandH + 100) continue; // hors du diagramme
-
-      const screenW = Math.round(vW * SCALE);
-      const screenH = Math.round(vH * SCALE);
-
-      const mInfoForType = masterInfoCache[mid] || {};
-      const shapeType = detectVSDXShapeType(masterIdToName[mid], vType, mInfoForType.isEllipse, mInfoForType.isDiamond, mInfoForType.isSubprocess);
-      const oid = nextOid++;
-      shapeIdMap[id] = oid;
-
-      // Couleur : priorité à la couleur Visio explicite, fallback sur la couleur de la bande
-      const parsedFill = parseVisioColor(vCell(s, 'FillForegnd'));
-      const vsdxColor = parsedFill && !isWashedOut(parsedFill) ? parsedFill : null;
-      const shapeColor = shapeType === 'decision' ? '#9ca3af' : (vsdxColor || getBandColorForScreenY(screenY));
-
-      newShapes.push({
-        id: oid, type: shapeType, subtype: 'normal',
-        x: screenX, y: screenY, w: screenW, h: screenH,
-        label:          vText(s),
-        color:          shapeColor,
-        _colorFixed:    shapeType !== 'decision' && !!vsdxColor, // préserve la couleur Visio
-        textColor:      '#ffffff',
-        strokeColor:    '',
-        fontSize:       18,
-        validationBadge: false,
-        validationColor: '#4DB868',
-        colorVariant:   0,
-      });
-    }
-
-    if (newShapes.length === 0) {
-      setStatus('Aucune activité trouvée dans ce fichier.', true);
+    const result = await vsdxParse(file, setStatus, onOrphans);
+    if (!result) {
+      setStatus('Import annul\u00e9. Vous pouvez d\u00e9poser un fichier corrig\u00e9.', true);
       return;
     }
 
-    // ── Groups from Visio Containers ──────────────────────────
-    const newGroups   = [];
-    const groupIdMap  = {}; // Visio container ID → app group ID
-    for (const { id: visioContId, label, abs } of containerGroupData) {
-      // Convert container bounds to screen coordinates
-      const cLeft   = (abs.pinX - abs.w/2 - leftEdge) * SCALE;
-      const cRight  = (abs.pinX + abs.w/2 - leftEdge) * SCALE;
-      const cTop    = Math.max(0, (topOfDiagram - (abs.pinY + abs.h/2)) * SCALE);
-      const cBottom = Math.max(0, (topOfDiagram - (abs.pinY - abs.h/2)) * SCALE);
-      // Find activities whose center falls inside this container
-      const memberIds = newShapes
-        .filter(s => {
-          const cx = s.x + s.w / 2, cy = s.y + s.h / 2;
-          return cx > cLeft && cx < cRight && cy > cTop && cy < cBottom;
-        })
-        .map(s => s.id);
-      if (memberIds.length < 2) continue;
-      const gid = nextOid++;
-      groupIdMap[visioContId] = gid; // permet de retrouver l'app-ID depuis le Visio-ID
-      newGroups.push({ id: gid, label, shapeIds: memberIds, color: '#b3a0ff' });
+    const { bands, shapes, connections, groups, nextOid } = result;
+    if (shapes.length === 0) {
+      setStatus('Aucune activit\u00e9 trouv\u00e9e dans ce fichier.', true);
+      return;
     }
 
-    // ── Épissage spatial des losanges décorateurs ──────────────
-    // Certains losanges Visio n'ont aucun <Connect> et sont posés visuellement
-    // sur un connecteur. Pour chaque tel losange D, on cherche les connecteurs
-    // A→B dont la droite passe à moins de 0.6 inch du centre de D, puis on
-    // remplace A→B par A→D + D→B (avec t ∈ [0.05, 0.95] pour éviter les extrémités).
-    {
-      const SPLICE_THRESH = 0.6; // inches Visio
-
-      const connSrcSet = new Set(Object.values(connMap).map(e => e.source).filter(Boolean));
-      const connTgtSet = new Set(Object.values(connMap).map(e => e.target).filter(Boolean));
-
-      const decisionsToPatch = [];
-      for (const [visioId, appId] of Object.entries(shapeIdMap)) {
-        const appShape = newShapes.find(s => s.id === appId);
-        if (!appShape || appShape.type !== 'decision') continue;
-        if (connSrcSet.has(visioId) || connTgtSet.has(visioId)) continue; // déjà connecté
-        const abs = shapePinAbs[visioId];
-        if (!abs) continue;
-        decisionsToPatch.push({ visioId, pinX: abs.pinX, pinY: abs.pinY });
-      }
-
-      let synCtr = 0;
-      for (const dec of decisionsToPatch) {
-        const Dx = dec.pinX, Dy = dec.pinY;
-        // Snapshot des entrées réelles (pas les synthétiques déjà créées ce tour)
-        const realEntries = Object.entries(connMap).filter(([, e]) => !e._origConnId);
-        for (const [connId, ends] of realEntries) {
-          const sv = ends.source, tv = ends.target;
-          if (!sv || !tv || sv === dec.visioId || tv === dec.visioId) continue;
-          const sAbs = shapePinAbs[sv], tAbs = shapePinAbs[tv];
-          if (!sAbs || !tAbs) continue;
-          const Ax = sAbs.pinX, Ay = sAbs.pinY;
-          const Bx = tAbs.pinX, By = tAbs.pinY;
-          const ABx = Bx - Ax, ABy = By - Ay;
-          const len2 = ABx*ABx + ABy*ABy;
-          if (len2 < 1e-9) continue;
-          const t = ((Dx - Ax)*ABx + (Dy - Ay)*ABy) / len2;
-          if (t < 0.05 || t > 0.95) continue;
-          const px = Ax + t*ABx, py = Ay + t*ABy;
-          if (Math.hypot(Dx - px, Dy - py) >= SPLICE_THRESH) continue;
-          // Épisser : A→B devient A→D puis D→B
-          delete connMap[connId];
-          connMap[`__sp${synCtr++}`] = { source: sv,          target: dec.visioId };
-          connMap[`__sp${synCtr++}`] = { source: dec.visioId, target: tv, _origConnId: connId };
-        }
-      }
-    }
-
-    // ── Connections ───────────────────────────────────────
-    const newConns = [];
-    for (const [connId, ends] of Object.entries(connMap)) {
-      const { source: sv, target: tv } = ends;
-      if (!sv || !tv) continue;
-      // Résoudre source et cible : forme ordinaire OU groupe Visio container
-      const fromId = shapeIdMap[sv] || groupIdMap[sv];
-      const toId   = shapeIdMap[tv] || groupIdMap[tv];
-      if (!fromId || !toId) continue;
-      const srcShape = newShapes.find(s => s.id === fromId)
-                    || newGroups.find(g => g.id === fromId);
-      // Pour les connecteurs synthétiques (épissage losange), _origConnId pointe
-      // vers l'élément Visio original afin de récupérer label + style.
-      const connItem = shapeMap[ends._origConnId || connId];
-      const connLabel = connItem ? (vText(connItem.el) || '') : '';
-      // LinePattern 1=solid, >1 = dashed (cherche dans l'élément puis dans le master)
-      const connMid = connItem ? connItem.el.getAttribute('Master') : null;
-      const masterLp = connMid ? (await getMasterInfo(connMid)).linePattern : 1;
-      const linePatternStr = connItem ? (vCellDeep(connItem.el, 'LinePattern') || String(masterLp)) : '1';
-      const isDashed = parseInt(linePatternStr) > 1;
-      newConns.push({
-        id:       nextOid++,
-        fromId,
-        toId,
-        fromPort: 'right',
-        toPort:   'left',
-        color:    srcShape ? srcShape.color : '#567460',
-        label:    connLabel,
-        style:    isDashed ? 'dashed' : 'solid',
-        routing:  'orthogonal',
-      });
-    }
-
-    // ── Supprimer les bandes séparateurs vides (label = chiffre seul) ──
-    setStatus('Nettoyage des bandes séparateurs…');
-    {
-      // Construire les plages Y initiales
-      const bRanges = [];
-      { let y0 = 0; for (const b of newBands) { bRanges.push({ y0, y1: y0+b.height, band: b }); y0 += b.height; } }
-      // Séparateur = label de type "1", "3", "Bande 1", "BANDE 3", "Band 2"…
-      // On filtre uniquement par label (des formes peuvent y atterrir par arrondi Visio
-      // mais elles seront recadrées par la passe de vérification qui suit)
-      const SEP_RE = /^(bands?\s+|band[ae]s?\s+|bande?s?\s+)?\d+\s*$/i;
-      const toRemove = bRanges.filter(({ band }) => SEP_RE.test(band.label.trim()));
-      // Traitement de bas en haut pour éviter les décalages en cascade
-      toRemove.sort((a, b) => b.y0 - a.y0);
-      for (const { band, y0: bandStart } of toRemove) {
-        const h = band.height;
-        newBands.splice(newBands.indexOf(band), 1);
-        // Remonter les formes dont le centre est sous cette bande
-        for (const s of newShapes) {
-          if (s.y + s.h/2 >= bandStart + h) s.y -= h;
-        }
-      }
-      newBands.forEach((b, i) => { b.id = i + 1; });
-      // Clamp minimal : aucune forme ne peut avoir Y < 0 après décalage
-      for (const s of newShapes) { if (s.y < 0) s.y = 0; }
-    }
-
-    // ── Détection des formes orphelines (vides + non connectées) ──────
-    {
-      const connectedIds = new Set([
-        ...newConns.map(c => c.fromId),
-        ...newConns.map(c => c.toId),
-      ]);
-      const orphans = newShapes.filter(s =>
-        (!s.label || !s.label.trim()) && !connectedIds.has(s.id)
-      );
-
-      if (orphans.length > 0) {
-        setStatus(`⚠ ${orphans.length} forme(s) vide(s) non connectée(s) détectée(s).`);
-        await new Promise(r => setTimeout(r, 0));
-
-        const choice = await new Promise(resolve => {
-          const ov = document.createElement('div');
-          ov.className = 'modal-overlay';
-          ov.style.zIndex = '10000';
-          const types = [...new Set(orphans.map(s =>
-            s.type === 'decision' ? 'losange' : s.type === 'start-end' ? 'ellipse' : 'activité'
-          ))].join(', ');
-          ov.innerHTML = `
-            <div class="modal-card" style="max-width:430px;border-top:3px solid var(--pink)">
-              <div class="modal-header">
-                <h2 style="color:var(--pink)">
-                  <i class="fa-solid fa-triangle-exclamation" style="margin-right:8px;opacity:0.9"></i>Fichier incomplet
-                </h2>
-              </div>
-              <div class="modal-body" style="display:flex;flex-direction:column;gap:14px">
-                <p style="font-size:13px;color:var(--text-muted);margin:0;line-height:1.6">
-                  Ce fichier contient <strong style="color:var(--green-lt)">${orphans.length} forme(s)</strong>
-                  sans texte et sans connexion (${types}).<br>
-                  <span style="font-size:12px;color:rgba(255,255,255,0.35)">Ces éléments sont probablement des artefacts Visio sans contenu.</span>
-                </p>
-                <p style="font-size:12px;color:rgba(255,255,255,0.38);margin:0">
-                  Voulez-vous nettoyer ces éléments ou fournir un fichier corrigé&nbsp;?
-                </p>
-                <div style="display:flex;flex-direction:column;gap:7px">
-                  <button id="_orph-clean" class="btn-ok" style="width:100%;text-align:left;display:flex;align-items:center;gap:9px;padding:11px 14px;border-radius:10px">
-                    <i class="fa-solid fa-broom"></i> Nettoyer et continuer l'import
-                  </button>
-                  <button id="_orph-keep" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:var(--text-muted);border-radius:10px;padding:10px 14px;font-size:12px;font-weight:600;cursor:pointer;text-align:left;display:flex;align-items:center;gap:9px;font-family:inherit;width:100%">
-                    <i class="fa-solid fa-forward"></i> Continuer sans nettoyer
-                  </button>
-                  <button id="_orph-cancel" style="background:transparent;border:none;color:rgba(244,184,208,0.5);padding:8px 14px;font-size:11px;cursor:pointer;text-align:left;display:flex;align-items:center;gap:9px;font-family:inherit;width:100%">
-                    <i class="fa-solid fa-xmark"></i> Annuler — je vais corriger mon fichier
-                  </button>
-                </div>
-              </div>
-            </div>`;
-          document.body.appendChild(ov);
-          ov.querySelector('#_orph-clean').onclick  = () => { ov.remove(); resolve('clean'); };
-          ov.querySelector('#_orph-keep').onclick   = () => { ov.remove(); resolve('keep'); };
-          ov.querySelector('#_orph-cancel').onclick = () => { ov.remove(); resolve('cancel'); };
-        });
-
-        if (choice === 'cancel') {
-          setStatus('Import annulé. Vous pouvez déposer un fichier corrigé.', true);
-          return;
-        }
-        if (choice === 'clean') {
-          const orphanIds = new Set(orphans.map(s => s.id));
-          orphans.forEach(s => newShapes.splice(newShapes.indexOf(s), 1));
-          // Retirer aussi ces formes des groupes
-          for (const g of newGroups) {
-            if (g.shapeIds) g.shapeIds = g.shapeIds.filter(id => !orphanIds.has(id));
-          }
-          setStatus(`${orphans.length} forme(s) nettoyée(s). Poursuite de l'import…`);
-          await new Promise(r => setTimeout(r, 0));
-        }
-      }
-    }
-
-    // ── Vérification itérative : sans chevauchement, bandes adaptées ──
-    setStatus('Vérification finale (résolution des chevauchements)…');
-    await new Promise(r => setTimeout(r, 0));
-    {
-      const PAD = 12;
-      let bandRanges = [];
-
-      function _rebuildRanges() {
-        bandRanges = [];
-        let y0 = 0;
-        for (const band of newBands) { bandRanges.push({ y0, y1: y0+band.height }); y0 += band.height; }
-      }
-      function _getBandIdx(s) {
-        const mid = s.y + s.h/2;
-        for (let i = 0; i < bandRanges.length; i++)
-          if (mid >= bandRanges[i].y0 && mid < bandRanges[i].y1) return i;
-        return -1;
-      }
-      function _clamp() {
-        let y0 = 0;
-        for (const band of newBands) {
-          for (const s of newShapes) {
-            const m = s.y + s.h/2;
-            if (m >= y0 && m < y0+band.height) {
-              if (s.y < y0+8) s.y = y0+8;
-              if (s.y+s.h > y0+band.height-8) s.y = Math.max(y0+8, y0+band.height-8-s.h);
-            }
-          }
-          y0 += band.height;
-        }
-      }
-      function _stretch() {
-        let grew = false;
-        let y0 = 0;
-        for (const band of newBands) {
-          const bot = newShapes
-            .filter(s => { const m = s.y+s.h/2; return m >= y0 && m < y0+band.height; })
-            .reduce((m, s) => Math.max(m, s.y+s.h), 0);
-          if (bot + 20 > y0 + band.height) { band.height = Math.round(bot + 20 - y0); grew = true; }
-          y0 += band.height;
-        }
-        return grew;
-      }
-      function _hasOverlap() {
-        for (let i = 0; i < newShapes.length; i++) {
-          for (let j = i+1; j < newShapes.length; j++) {
-            const a = newShapes[i], b = newShapes[j];
-            const ovX = Math.min(a.x+a.w, b.x+b.w) - Math.max(a.x, b.x) + PAD;
-            const ovY = Math.min(a.y+a.h, b.y+b.h) - Math.max(a.y, b.y) + PAD;
-            if (ovX > 0 && ovY > 0) return true;
-          }
-        }
-        return false;
-      }
-
-      _rebuildRanges();
-
-      for (let round = 0; round < 8; round++) {
-        // Passe anti-chevauchement (jusqu'à 200 itérations ou stabilité)
-        for (let iter = 0; iter < 200; iter++) {
-          let moved = false;
-          for (let i = 0; i < newShapes.length; i++) {
-            for (let j = i+1; j < newShapes.length; j++) {
-              const a = newShapes[i], b = newShapes[j];
-              const ovX = Math.min(a.x+a.w, b.x+b.w) - Math.max(a.x, b.x) + PAD;
-              const ovY = Math.min(a.y+a.h, b.y+b.h) - Math.max(a.y, b.y) + PAD;
-              if (ovX <= 0 || ovY <= 0) continue;
-              const bandA = _getBandIdx(a), bandB = _getBandIdx(b);
-              const sameBand = bandA === bandB && bandA !== -1;
-              if (sameBand || ovX <= ovY) {
-                const half = ovX / 2;
-                if (a.x + a.w/2 <= b.x + b.w/2) { a.x -= half; b.x += half; }
-                else { a.x += half; b.x -= half; }
-              } else {
-                const half = ovY / 2;
-                if (a.y + a.h/2 <= b.y + b.h/2) { a.y -= half; b.y += half; }
-                else { a.y += half; b.y -= half; }
-              }
-              a.x = Math.max(INDEX_W_SVG + 4, a.x);
-              b.x = Math.max(INDEX_W_SVG + 4, b.x);
-              moved = true;
-            }
-          }
-          _clamp();
-          if (!moved) break;
-        }
-
-        const grew = _stretch();
-        _clamp();
-        _rebuildRanges();
-
-        // Stable et propre → terminé
-        if (!grew && !_hasOverlap()) break;
-
-        // Laisser le navigateur respirer entre les rounds lourds
-        await new Promise(r => setTimeout(r, 0));
-      }
-    }
-
-    // ── Dénouage des bandes denses (minimisation croisements + virages) ──
-    // Algo : warm-up barycentre (10 passes) + recuit simulé sur l'ordre X des formes
-    setStatus('Analyse des zones denses…');
-    await new Promise(r => setTimeout(r, 0));
-    {
-      // Recalculer les plages Y après vérification
-      const bRangesU = [];
-      { let y0 = 0; for (const b of newBands) { bRangesU.push({ y0, y1: y0+b.height }); y0 += b.height; } }
-
-      const shapeByIdU = {};
-      for (const s of newShapes) shapeByIdU[s.id] = s;
-
-      // X effectif d'un endpoint (forme ou groupe)
-      function epX(id) {
-        const s = shapeByIdU[id]; if (s) return s.x + s.w/2;
-        const g = newGroups && newGroups.find(g => g.id === id);
-        if (g) {
-          const mem = newShapes.filter(s => g.shapeIds && g.shapeIds.includes(s.id));
-          if (mem.length) return mem.reduce((a, t) => a + t.x + t.w/2, 0) / mem.length;
-        }
-        return null;
-      }
-
-      const bandShapesU = newBands.map((b, i) =>
-        newShapes.filter(s => { const m = s.y + s.h/2; return m >= bRangesU[i].y0 && m < bRangesU[i].y1; })
-      );
-      const avgU = newShapes.length / Math.max(newBands.length, 1);
-      // Seuil "bande dense" : au-dessus de la moyenne (au moins 3 formes)
-      const HEAVY_U = Math.max(3, Math.ceil(avgU));
-      const bandWU = Math.max(1400, newShapes.reduce((m, s) => Math.max(m, s.x + s.w), 0) + 300);
-
-      for (let bi = 0; bi < newBands.length; bi++) {
-        const inBand = bandShapesU[bi];
-        if (inBand.length < HEAVY_U) continue;
-
-        const bandIdsU = new Set(inBand.map(s => s.id));
-        // Connexions impliquant au moins une forme de cette bande (les deux extrémités doivent exister)
-        const relC = newConns.filter(c =>
-          (bandIdsU.has(c.fromId) || bandIdsU.has(c.toId)) &&
-          shapeByIdU[c.fromId] && shapeByIdU[c.toId]
-        );
-        if (relC.length < 2) continue;
-
-        setStatus(`Dénouage "${newBands[bi].label}" — ${inBand.length} formes, ${relC.length} connexions…`);
-        await new Promise(r => setTimeout(r, 0));
-
-        // Calcul de la largeur disponible et espacement entre formes
-        const PAD_U = INDEX_W_SVG + 20;
-        const totalWU = inBand.reduce((a, s) => a + s.w, 0);
-        const gapU = Math.max(16, (bandWU - PAD_U - 20 - totalWU) / (inBand.length + 1));
-
-        // Appliquer un ordre (tableau d'indices dans inBand) → met à jour s.x
-        function applyOrdU(ord) {
-          let cx = PAD_U + gapU;
-          for (const idx of ord) { inBand[idx].x = Math.round(cx); cx += inBand[idx].w + gapU; }
-        }
-
-        // Coût : croisements (×500) + déplacement horizontal
-        function costU() {
-          const xs = {};
-          for (const c of relC) {
-            if (xs[c.fromId] === undefined) xs[c.fromId] = epX(c.fromId);
-            if (xs[c.toId]   === undefined) xs[c.toId]   = epX(c.toId);
-          }
-          let cost = 0;
-          for (const c of relC) {
-            const fx = xs[c.fromId], tx = xs[c.toId];
-            if (fx != null && tx != null) cost += Math.abs(fx - tx);
-          }
-          for (let i = 0; i < relC.length; i++) {
-            for (let j = i + 1; j < relC.length; j++) {
-              const fi = xs[relC[i].fromId], ti = xs[relC[i].toId];
-              const fj = xs[relC[j].fromId], tj = xs[relC[j].toId];
-              if (fi == null || ti == null || fj == null || tj == null) continue;
-              if (Math.abs(fi - fj) < 1 || Math.abs(ti - tj) < 1) continue;
-              if ((fi < fj) !== (ti < tj)) cost += 500; // pénalité croisement
-            }
-          }
-          return cost;
-        }
-
-        // Ordre initial : tri par X courant
-        let ordU = inBand.map((_, i) => i).sort((a, b) => inBand[a].x - inBand[b].x);
-        applyOrdU(ordU);
-
-        // === Warm-up : barycentre (10 passes) ===
-        for (let iter = 0; iter < 10; iter++) {
-          const gravs = inBand.map((s, i) => {
-            let sum = 0, w = 0;
-            for (const c of relC) {
-              let othId = null, wt = 1;
-              if (c.fromId === s.id) { othId = c.toId;   wt = bandIdsU.has(othId) ? 0.5 : 2; }
-              else if (c.toId === s.id) { othId = c.fromId; wt = bandIdsU.has(othId) ? 0.5 : 2; }
-              if (othId != null) { const ox = epX(othId); if (ox != null) { sum += ox * wt; w += wt; } }
-            }
-            return [i, w > 0 ? sum / w : s.x + s.w/2];
-          });
-          gravs.sort((a, b) => a[1] - b[1]);
-          ordU = gravs.map(g => g[0]);
-          applyOrdU(ordU);
-        }
-
-        // === Recuit simulé : minimise croisements ===
-        let curCostU = costU();
-        let T = 3000, TMIN = 0.5, COOL = 0.9994;
-        const NU = inBand.length;
-
-        while (T > TMIN) {
-          const i = (Math.random() * NU) | 0;
-          const j = (Math.random() * NU) | 0;
-          if (i === j) { T *= COOL; continue; }
-          // Échanger les positions dans l'ordre
-          [ordU[i], ordU[j]] = [ordU[j], ordU[i]];
-          applyOrdU(ordU);
-          const nc = costU();
-          const delta = nc - curCostU;
-          if (delta <= 0 || Math.random() < Math.exp(-delta / T)) {
-            curCostU = nc;
-          } else {
-            [ordU[i], ordU[j]] = [ordU[j], ordU[i]]; // annuler
-            applyOrdU(ordU);
-          }
-          T *= COOL;
-        }
-
-        await new Promise(r => setTimeout(r, 0));
-      }
-
-      // Clamp X minimal après réordonnancement
-      for (const s of newShapes) { if (s.x < INDEX_W_SVG + 4) s.x = INDEX_W_SVG + 4; }
-    }
-
-    // ── Assignation des ports (alignement → flèche droite) ───────
-    setStatus('Assignation des points de connexion…');
-    await new Promise(r => setTimeout(r, 0));
-    {
-      const OPP_DIR = { right:'left', left:'right', top:'bottom', bottom:'top' };
-      const PREFER  = {
-        right:  ['right','bottom','top','left'],
-        left:   ['left','top','bottom','right'],
-        bottom: ['bottom','right','left','top'],
-        top:    ['top','left','right','bottom'],
-      };
-      const ALIGN_PX = 18; // seuil d'alignement pour flèche droite
-
-      const sideUsed = new Map();
-      function shapeUsage(id) {
-        if (!sideUsed.has(id)) sideUsed.set(id, { right:0, left:0, top:0, bottom:0 });
-        return sideUsed.get(id);
-      }
-
-      // Mémorise la direction assignée pour chaque paire (A↔B) → même bundle si connexions multiples
-      const pairUsed = new Map();
-
-      function resolvePortShape(id) {
-        const s = newShapes.find(s => s.id === id);
-        if (s) return s;
-        const g = newGroups.find(g => g.id === id);
-        if (!g) return null;
-        const members = newShapes.filter(s => g.shapeIds.includes(s.id));
-        if (!members.length) return null;
-        const xs = members.flatMap(s => [s.x, s.x+s.w]);
-        const ys = members.flatMap(s => [s.y, s.y+s.h]);
-        const GPAD = 22, GLBL = 24;
-        return { x: Math.min(...xs)-GPAD, y: Math.min(...ys)-GPAD-GLBL,
-                 w: Math.max(...xs)-Math.min(...xs)+GPAD*2,
-                 h: Math.max(...ys)-Math.min(...ys)+GPAD*2+GLBL, type:'group' };
-      }
-
-      function assignPort(conn) {
-        const fs = resolvePortShape(conn.fromId);
-        const ts = resolvePortShape(conn.toId);
-        if (!fs || !ts) return;
-        const fcx = fs.x + fs.w/2, fcy = fs.y + fs.h/2;
-        const tcx = ts.x + ts.w/2, tcy = ts.y + ts.h/2;
-        const dx = tcx - fcx, dy = tcy - fcy;
-        const fu = shapeUsage(conn.fromId);
-        const tu = shapeUsage(conn.toId);
-
-        // ── Détection d'alignement → flèche droite sans coude ──
-        // Alignement horizontal : mêmes centres Y → ports droite/gauche → ligne horizontale
-        if (Math.abs(dy) < ALIGN_PX && Math.abs(dx) > 1) {
-          const dir = dx >= 0 ? 'right' : 'left';
-          fu[dir]++;
-          tu[OPP_DIR[dir]]++;
-          conn.fromPortDir = dir;
-          conn.toPortDir   = OPP_DIR[dir];
-          return;
-        }
-        // Alignement vertical : mêmes centres X → ports haut/bas → ligne verticale
-        if (Math.abs(dx) < ALIGN_PX && Math.abs(dy) > 1) {
-          const dir = dy >= 0 ? 'bottom' : 'top';
-          fu[dir]++;
-          tu[OPP_DIR[dir]]++;
-          conn.fromPortDir = dir;
-          conn.toPortDir   = OPP_DIR[dir];
-          return;
-        }
-
-        // ── Même paire (A↔B) : forcer le même côté pour bundler les connexions parallèles ──
-        // Évite qu'une 2ᵉ connexion entre A et B parte dans la direction inverse (chemin complexe)
-        const pairKey = conn.fromId < conn.toId
-          ? `${conn.fromId}↔${conn.toId}`
-          : `${conn.toId}↔${conn.fromId}`;
-        if (pairUsed.has(pairKey)) {
-          const prev = pairUsed.get(pairKey);
-          // Adapter la direction selon quel bout on traite (from ou to de la connexion mémorisée)
-          const dir = prev.firstFromId === conn.fromId ? prev.dir : OPP_DIR[prev.dir];
-          fu[dir]++;
-          tu[OPP_DIR[dir]]++;
-          conn.fromPortDir = dir;
-          conn.toPortDir   = OPP_DIR[dir];
-          return;
-        }
-
-        // ── Cas général : direction naturelle + forte pénalité pour direction inverse ──
-        const nat = Math.abs(dx) >= Math.abs(dy)
-          ? (dx >= 0 ? 'right' : 'left')
-          : (dy >= 0 ? 'bottom' : 'top');
-        const backward = OPP_DIR[nat]; // pointe à l'opposé de la cible → à éviter fortement
-        const candidates = (fs.type === 'decision' || ts.type === 'decision')
-          ? ['right','bottom','left','top'] : PREFER[nat];
-        let bestDir = nat, bestScore = Infinity;
-        for (const dir of candidates) {
-          let score = fu[dir] + tu[OPP_DIR[dir]];
-          if (dir === backward) score += 8; // pénalité : direction inverse = dernier recours
-          if (score < bestScore) { bestScore = score; bestDir = dir; if (score === 0) break; }
-        }
-        fu[bestDir]++;
-        tu[OPP_DIR[bestDir]]++;
-        conn.fromPortDir = bestDir;
-        conn.toPortDir   = OPP_DIR[bestDir];
-
-        // Mémoriser pour cohérence si d'autres connexions relient la même paire
-        pairUsed.set(pairKey, { dir: bestDir, firstFromId: conn.fromId });
-      }
-
-      newConns.filter(c => c.style !== 'dashed').forEach(assignPort);
-      newConns.filter(c => c.style === 'dashed').forEach(assignPort);
-
-      // ── Vérification surcharge : côté avec > 3 connexions → redistribuer ──
-      // On recompte les connexions par (shapeId, direction) et on réassigne
-      // les connexions en excès vers le côté adjacent le moins chargé
-      const SIDE_MAX = 3;
-      const OPP2 = OPP_DIR;
-      const ALL_DIRS = ['right', 'left', 'bottom', 'top'];
-      // Compter par (shapeId, dir) pour fromPortDir
-      const fromCount = new Map(); // "shapeId-dir" → [conn, ...]
-      for (const c of newConns) {
-        if (!c.fromPortDir) continue;
-        const key = `${c.fromId}-${c.fromPortDir}`;
-        if (!fromCount.has(key)) fromCount.set(key, []);
-        fromCount.get(key).push(c);
-      }
-      for (const [key, group] of fromCount) {
-        if (group.length <= SIDE_MAX) continue;
-        const dashIdx = key.lastIndexOf('-');
-        const shapeIdNum = parseInt(key.slice(0, dashIdx));
-        const dir = key.slice(dashIdx + 1);
-        const fs = resolvePortShape(shapeIdNum);
-        if (!fs) continue;
-        // Excédent = conns au-delà du max → on essaie de les déplacer sur un autre côté
-        const excess = group.slice(SIDE_MAX);
-        for (const c of excess) {
-          const ts = resolvePortShape(c.toId);
-          if (!ts) continue;
-          // Choisir le côté le moins utilisé parmi les alternatives (hors côté actuel)
-          const altDirs = ALL_DIRS.filter(d => d !== dir && d !== OPP2[dir]);
-          let bestAlt = null, bestCnt = Infinity;
-          for (const d of altDirs) {
-            const cnt = (fromCount.get(`${shapeIdNum}-${d}`) || []).length;
-            if (cnt < bestCnt) { bestCnt = cnt; bestAlt = d; }
-          }
-          if (bestAlt && bestCnt < group.length) {
-            // Mettre à jour les maps
-            const oldArr = fromCount.get(key);
-            oldArr.splice(oldArr.indexOf(c), 1);
-            const newKey = `${shapeIdNum}-${bestAlt}`;
-            if (!fromCount.has(newKey)) fromCount.set(newKey, []);
-            fromCount.get(newKey).push(c);
-            c.fromPortDir = bestAlt;
-            c.toPortDir   = OPP2[bestAlt];
-          }
-        }
-      }
-    }
-
-    // ── Apply to state ────────────────────────────────────
+    // Apply to state — do NOT call updateShapeColor: importer already set correct colors
     clearSelection();
-    state.shapes      = newShapes;
-    state.connections = newConns;
-    state.groups      = newGroups;
-    state.bands       = newBands;
-    state.bandWidth   = Math.max(1400, Math.round(newShapes.reduce((m, s) => Math.max(m, s.x + s.w), 0) + 300));
+    state.shapes      = shapes;
+    state.connections = connections;
+    state.groups      = groups;
+    state.bands       = bands;
+    state.bandWidth   = Math.max(1400, Math.round(shapes.reduce((m, s) => Math.max(m, s.x + s.w), 0) + 300));
     state.nextId      = nextOid + 1;
 
-    state.shapes.forEach(s => updateShapeColor(s));
+    // Propagate shape colors to outgoing connections
     state.connections.forEach(c => {
       const from = state.shapes.find(s => s.id === c.fromId);
       if (from) c.color = from.color;
@@ -3828,13 +3303,16 @@ async function importVSDX(file) {
 
     document.getElementById('vsdx-dialog').classList.add('hidden');
     setStatus('');
-    showToast(`Import réussi — ${newShapes.length} activités · ${newConns.length} connexions · ${newBands.length} bandes${newGroups.length ? ` · ${newGroups.length} groupe${newGroups.length>1?'s':''}` : ''}`);
+    const nCustom = connections.filter(c => c.customPath).length;
+    console.log(`[VSDX] ${shapes.length} formes, ${connections.length} connexions, ${nCustom} chemins Visio exacts, ${groups.length} groupes`);
+    showToast(`Import r\u00e9ussi \u2014 ${shapes.length} activit\u00e9s \u00b7 ${connections.length} connexions (${nCustom} chemins Visio exacts) \u00b7 ${bands.length} bandes`);
 
   } catch(err) {
     console.error('VSDX import error:', err);
     setStatus('Erreur : ' + err.message, true);
   }
 }
+
 
 /* ══════════════════════════════════════════════════
    BANDS DIALOG
@@ -4770,8 +4248,8 @@ function init() {
   });
 
   // Panel collapse
-  document.getElementById('btn-close-left-panel')?.addEventListener('click', () => setLeftPanelOpen(false));
-  document.getElementById('btn-close-props')?.addEventListener('click', () => setPropsOpen(false));
+  document.getElementById('btn-close-left-panel').addEventListener('click', () => setLeftPanelOpen(false));
+  document.getElementById('btn-close-props').addEventListener('click', () => setPropsOpen(false));
   document.getElementById('btn-left-panel-open').addEventListener('click', () => setLeftPanelOpen(!leftPanelOpen));
 
   // Grouper
@@ -4877,6 +4355,31 @@ function init() {
   document.getElementById('canvas-wrap').classList.add('props-collapsed');
   _updatePanelBtn();
 
+  // Auto-load cartography from DB if one exists
+  if (window.OPTIQCARTO_HAS_CARTO && window.OPTIQCARTO_DEFAULT_NAME) {
+    const apiBase = window.OPTIQCARTO_API_BASE || '/cartography';
+    fetch(`${apiBase}/api/load/${encodeURIComponent(window.OPTIQCARTO_DEFAULT_NAME)}`)
+      .then(r => r.json())
+      .then(data => {
+        if (data && !data.error) {
+          state = data;
+          if (!state.bandWidth) state.bandWidth = 1600;
+          if (!state.groups) state.groups = [];
+          if (state.connections && state.shapes) {
+            state.connections = state.connections.filter(c => {
+              const from = state.shapes.find(s => s.id === c.fromId);
+              const to   = state.shapes.find(s => s.id === c.toId);
+              if (!from || !to) return true;
+              return (to.x + to.w / 2) >= (from.x + from.w / 2) - 10;
+            });
+          }
+          history = [JSON.stringify(state)]; histIndex = 0;
+          render(); updateProps(); fitView();
+        }
+      })
+      .catch(() => {});
+  }
+
   // Welcome modal
   initWelcome();
 }
@@ -4886,35 +4389,13 @@ function initWelcome() {
   if (!overlay) return;
   document.getElementById('btn-welcome-start').addEventListener('click', () => {
     overlay.classList.add('hidden');
-    setTimeout(() => {
-      overlay.remove();
-      _maybeShowMigrationModal();
-    }, 400);
+    setTimeout(() => overlay.remove(), 400);
+    // Si un VSDX est disponible et pas encore de carto → ouvrir le modal d'import
+    if (window.OPTIQCARTO_HAS_VSDX && !window.OPTIQCARTO_HAS_CARTO) {
+      const migrateModal = document.getElementById('vsdx-migrate-modal');
+      if (migrateModal) migrateModal.classList.remove('hidden');
+    }
   });
-}
-
-async function _maybeShowMigrationModal() {
-  if (!window.OPTIQCARTO_HAS_VSDX || window.OPTIQCARTO_HAS_CARTO) return;
-  const modal = document.getElementById('vsdx-migrate-modal');
-  if (modal) modal.classList.remove('hidden');
-}
-
-async function _autoLoadCarto() {
-  if (!window.OPTIQCARTO_DEFAULT_NAME || !window.OPTIQCARTO_HAS_CARTO) return;
-  try {
-    const r = await fetch(`${_API}/api/load/${encodeURIComponent(window.OPTIQCARTO_DEFAULT_NAME)}`);
-    if (!r.ok) return;
-    const data = await r.json();
-    if (data.error) return;
-    state = data;
-    if (!state.bandWidth) state.bandWidth = 1600;
-    if (!state.groups) state.groups = [];
-    clearSelection();
-    history = [JSON.stringify(state)]; histIndex = 0;
-    render(); updateProps();
-    // Double rAF : attend que l'iframe soit layoutée avant de calculer fitView
-    requestAnimationFrame(() => requestAnimationFrame(fitView));
-  } catch (e) { /* silencieux */ }
 }
 
 /* ══════════════════════════════════════════════════
@@ -4995,7 +4476,4 @@ function initDock() {
 }
 
 
-document.addEventListener('DOMContentLoaded', () => {
-  init();
-  _autoLoadCarto();
-});
+document.addEventListener('DOMContentLoaded', init);
