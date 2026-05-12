@@ -127,23 +127,26 @@ Fonctionnement :
 > Mis à jour par la routine de documentation. Indiquer ici ce qui a été documenté.
 
 ### Complété
-- *(rien encore — première session)*
+- **Architecture + infrastructure** : diagramme SVG inline, flux de requête, structure fichiers, isolation multi-tenant par entité, variables d'environnement
+- **Stack technique** : détail de chaque couche (Python 3.12, Flask, Gunicorn, SQLAlchemy, PostgreSQL/SQLite, Flask-Mail, Anthropic API via SDK openai, LibreOffice, vsdx, openpyxl), tableau des variables d'environnement
+- **Modèles de données** (`Code/models/models.py`) : toutes les tables avec colonnes clés, associations many-to-many, pattern `for_active_entity()`, journal d'audit SQLAlchemy event listeners
 
 ### En cours
 - *(rien)*
 
 ### À faire (par priorité)
-1. Vue d'ensemble architecture + infrastructure
-2. Modèles de données (`models.py`)
-3. Page cartographie (`activities_map.py` + `activities_map.html`)
-4. Éditeur OptiqCarto (`editor.js`)
-5. Système d'import IA (`import_full.py` + `import_full.js`)
-6. Fiche activité (toutes les routes `activities_*.py`)
-7. Gestion RH (`gestion_rh.py`)
-8. Performances (`performance.py`)
-9. Chatbot (`chatbot.py`)
-10. Auth et gestion compte (`connexion_routes.py`, `gestion_compte.py`)
-11. Tous les autres blueprints
+1. Page cartographie (`activities_map.py` + `activities_map.html`)
+2. Éditeur OptiqCarto (`editor.js`)
+3. Système d'import IA (`import_full.py` + `import_full.js`)
+4. Fiche activité (toutes les routes `activities_*.py`)
+5. Gestion RH (`gestion_rh.py`)
+6. Performances (`performance.py`)
+7. Chatbot (`chatbot.py`)
+8. Auth et gestion compte (`connexion_routes.py`, `gestion_compte.py`)
+9. Conventions de développement (section déjà initialisée)
+10. Déploiement (Dockerfile, startup.sh, Cloud Run)
+11. API Reference (tous les endpoints)
+12. Tous les autres blueprints
 
 ---
 
