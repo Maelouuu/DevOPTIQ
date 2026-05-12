@@ -121,13 +121,14 @@
     code { font-family: 'Cascadia Code', 'Consolas', monospace; font-size: 0.85rem;
       background: #f3f4f6; padding: 2px 6px; border-radius: 4px; }
 
-    /* ── Diagram (SVG inline placeholder) ── */
+    /* ── Diagram ── */
     .diagram {
-      background: var(--light); border: 1.5px dashed var(--border);
-      border-radius: 14px; padding: 32px; text-align: center;
-      color: var(--gray); font-size: 0.88rem; margin-bottom: 20px;
+      background: var(--light); border: 1.5px solid var(--border);
+      border-radius: 14px; padding: 24px; text-align: center;
+      margin-bottom: 20px; overflow-x: auto;
     }
     .diagram svg { display: block; margin: 0 auto; }
+    .diagram-caption { font-size: 0.78rem; color: var(--gray); margin-top: 10px; }
 
     /* ── Callout ── */
     .callout {
@@ -177,9 +178,6 @@
 </head>
 <body>
 
-<!-- ══════════════════════════════════════════
-     SIDEBAR NAVIGATION
-══════════════════════════════════════════ -->
 <nav id="sidebar">
   <div class="nav-logo">
     <div class="nav-logo-dot"></div>
@@ -191,37 +189,33 @@
 
   <div class="nav-section">Général</div>
   <a href="#cover">Présentation</a>
-  <a href="#architecture">Architecture</a>
-  <a href="#stack">Stack technique</a>
-  <a href="#modeles">Modèles de données</a>
+  <a href="#architecture" class="done">Architecture</a>
+  <a href="#stack" class="done">Stack technique</a>
+  <a href="#modeles" class="done">Modèles de données</a>
 
   <div class="nav-section">Pages & Fonctionnalités</div>
-  <a href="#cartographie">Cartographie (OptiqCarto)</a>
+  <a href="#cartographie" class="done">Cartographie (OptiqCarto)</a>
   <a href="#activites">Activités</a>
   <a href="#import-ia">Import IA</a>
   <a href="#competences">Compétences & Skills</a>
   <a href="#performance">Performance</a>
   <a href="#rh">Gestion RH</a>
   <a href="#chatbot">Chatbot IA</a>
-  <a href="#auth">Authentification</a>
+  <a href="#auth" class="done">Authentification</a>
   <a href="#temps">Gestion du temps</a>
 
   <div class="nav-section">Référence</div>
-  <a href="#api">APIs</a>
-  <a href="#deploiement">Déploiement</a>
-  <a href="#conventions">Conventions</a>
+  <a href="#api" class="done">APIs — Cartographie</a>
+  <a href="#deploiement" class="done">Déploiement</a>
+  <a href="#conventions" class="done">Conventions</a>
 </nav>
 
-<!-- ══════════════════════════════════════════
-     MAIN CONTENT
-══════════════════════════════════════════ -->
 <main>
 
-  <!-- COVER -->
   <div id="cover">
     <div class="cover-tag">📄 Documentation interne — AFDEC</div>
     <h1>Dev<span>OPTIQ</span></h1>
-    <p>Manuel complet de l'application de gestion des compétences, activités et performance organisationnelle. À destination des développeurs et des utilisateurs avancés.</p>
+    <p>Manuel complet de l'application de gestion des compétences, activités et performance organisationnelle.</p>
     <div class="cover-meta">
       <div class="cover-meta-item"><strong>Organisation</strong>AFDEC</div>
       <div class="cover-meta-item"><strong>Auteur</strong>Mael Girardin</div>
@@ -231,7 +225,6 @@
     </div>
   </div>
 
-  <!-- AVANCEMENT -->
   <section>
     <h2 class="section-title">Avancement de la documentation</h2>
     <div class="progress-wrap">
@@ -239,144 +232,437 @@
       <div class="progress-bar"><div class="progress-fill" id="progress-fill" style="width:0%"></div></div>
     </div>
     <div class="callout callout-info">
-      Cette documentation est générée progressivement par une routine automatique. Chaque section sera complétée au fil des sessions. Les sections marquées <strong>À documenter</strong> sont en attente.
+      Cette documentation est générée progressivement par une routine automatique. Les sections marquées <strong>À documenter</strong> sont en attente.
     </div>
   </section>
 
-  <!-- ARCHITECTURE -->
   <section id="architecture">
-    <h2 class="section-title">Architecture <span class="badge badge-todo">À documenter</span></h2>
+    <h2 class="section-title">Architecture <span class="badge badge-done">Documenté</span></h2>
+    <p>DevOPTIQ est une application web Flask déployée sur Google Cloud Run. Elle suit le pattern <strong>Application Factory</strong> : la fonction <code>create_app()</code> dans <code>Code/app.py</code> configure l'ensemble de l'application puis enregistre tous les blueprints. Chaque domaine fonctionnel est isolé dans son propre blueprint.</p>
+
     <div class="diagram">
-      <p>[ Diagramme d'architecture à insérer ]</p>
-      <p style="font-size:0.78rem;margin-top:8px">Cloud Run · Flask app · PostgreSQL · Anthropic API · OptiqCarto</p>
+      <svg width="820" height="380" viewBox="0 0 820 380" xmlns="http://www.w3.org/2000/svg" font-family="'Segoe UI', sans-serif" font-size="12">
+        <rect x="10" y="10" width="800" height="360" rx="16" fill="#f9fafb" stroke="#e5e7eb" stroke-width="1.5"/>
+        <rect x="30" y="30" width="500" height="320" rx="12" fill="#fdf2f8" stroke="#fbcfe8" stroke-width="1.5"/>
+        <text x="50" y="55" font-size="11" font-weight="700" fill="#be185d">Google Cloud Run</text>
+        <rect x="60" y="70" width="200" height="240" rx="10" fill="#fff" stroke="#ec4899" stroke-width="2"/>
+        <text x="160" y="92" text-anchor="middle" font-weight="700" fill="#ec4899">Flask App</text>
+        <text x="160" y="110" text-anchor="middle" font-size="10" fill="#6b7280">create_app() · app.py</text>
+        <rect x="75" y="120" width="170" height="18" rx="4" fill="#fce7f3"/>
+        <text x="160" y="133" text-anchor="middle" font-size="10" fill="#be185d">activities_map_bp</text>
+        <rect x="75" y="143" width="170" height="18" rx="4" fill="#fce7f3"/>
+        <text x="160" y="156" text-anchor="middle" font-size="10" fill="#be185d">cartography_editor</text>
+        <rect x="75" y="166" width="170" height="18" rx="4" fill="#fce7f3"/>
+        <text x="160" y="179" text-anchor="middle" font-size="10" fill="#be185d">import_full_bp · chatbot_bp</text>
+        <rect x="75" y="189" width="170" height="18" rx="4" fill="#fce7f3"/>
+        <text x="160" y="202" text-anchor="middle" font-size="10" fill="#be185d">auth_bp · gestion_rh_bp</text>
+        <rect x="75" y="212" width="170" height="18" rx="4" fill="#fce7f3"/>
+        <text x="160" y="225" text-anchor="middle" font-size="10" fill="#be185d">performance_bp · tasks_bp</text>
+        <rect x="75" y="235" width="170" height="18" rx="4" fill="#fce7f3"/>
+        <text x="160" y="248" text-anchor="middle" font-size="10" fill="#be185d">competences_bp · tools_bp</text>
+        <text x="160" y="268" text-anchor="middle" font-size="10" fill="#9ca3af">+ 25 autres blueprints</text>
+        <rect x="300" y="90" width="180" height="50" rx="8" fill="#fff" stroke="#6b7280" stroke-width="1.5"/>
+        <text x="390" y="111" text-anchor="middle" font-weight="700" fill="#374151">SQLAlchemy ORM</text>
+        <text x="390" y="128" text-anchor="middle" font-size="10" fill="#6b7280">models/models.py</text>
+        <rect x="300" y="175" width="180" height="60" rx="8" fill="#fff" stroke="#6b7280" stroke-width="1.5"/>
+        <text x="390" y="200" text-anchor="middle" font-weight="700" fill="#374151">PostgreSQL</text>
+        <text x="390" y="217" text-anchor="middle" font-size="10" fill="#6b7280">Prod : Neon</text>
+        <text x="390" y="232" text-anchor="middle" font-size="10" fill="#6b7280">Local : SQLite</text>
+        <rect x="300" y="268" width="180" height="50" rx="8" fill="#fff" stroke="#6b7280" stroke-width="1.5"/>
+        <text x="390" y="289" text-anchor="middle" font-weight="700" fill="#374151">Static Assets</text>
+        <text x="390" y="306" text-anchor="middle" font-size="10" fill="#6b7280">CSS · JS · OptiqCarto</text>
+        <line x1="260" y1="160" x2="300" y2="115" stroke="#9ca3af" stroke-width="1.5" marker-end="url(#arr)"/>
+        <line x1="390" y1="140" x2="390" y2="175" stroke="#9ca3af" stroke-width="1.5" marker-end="url(#arr)"/>
+        <rect x="560" y="30" width="230" height="320" rx="12" fill="#f0fdf4" stroke="#bbf7d0" stroke-width="1.5"/>
+        <text x="580" y="55" font-size="11" font-weight="700" fill="#15803d">Services externes</text>
+        <rect x="580" y="70" width="190" height="60" rx="8" fill="#fff" stroke="#22c55e" stroke-width="1.5"/>
+        <text x="675" y="96" text-anchor="middle" font-weight="700" fill="#15803d">Anthropic Claude API</text>
+        <text x="675" y="113" text-anchor="middle" font-size="10" fill="#6b7280">Chatbot · Import IA · Propose</text>
+        <rect x="580" y="165" width="190" height="60" rx="8" fill="#fff" stroke="#22c55e" stroke-width="1.5"/>
+        <text x="675" y="191" text-anchor="middle" font-weight="700" fill="#15803d">Navigateur</text>
+        <text x="675" y="208" text-anchor="middle" font-size="10" fill="#6b7280">HTML Jinja2 · JS Vanilla</text>
+        <rect x="580" y="258" width="190" height="60" rx="8" fill="#fff" stroke="#22c55e" stroke-width="1.5"/>
+        <text x="675" y="284" text-anchor="middle" font-weight="700" fill="#15803d">SMTP (Gmail)</text>
+        <text x="675" y="301" text-anchor="middle" font-size="10" fill="#6b7280">Flask-Mail · reset password</text>
+        <line x1="530" y1="165" x2="580" y2="100" stroke="#9ca3af" stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#arr)"/>
+        <line x1="580" y1="195" x2="530" y2="195" stroke="#9ca3af" stroke-width="1.5" marker-end="url(#arr)"/>
+        <line x1="530" y1="280" x2="580" y2="280" stroke="#9ca3af" stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#arr)"/>
+        <defs><marker id="arr" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#9ca3af"/></marker></defs>
+      </svg>
+      <p class="diagram-caption">Vue d'ensemble de l'infrastructure DevOPTIQ</p>
     </div>
-    <p>À compléter : description de l'infrastructure, flux de données, composants externes.</p>
+
+    <h3>Flux de démarrage</h3>
+    <p>Au démarrage du conteneur Cloud Run, <code>create_app()</code> exécute dans l'ordre :</p>
+    <ol>
+      <li>Configuration DB (PostgreSQL si <code>DATABASE_URL</code> présent, sinon SQLite local)</li>
+      <li>Configuration Flask-Mail (SMTP Gmail)</li>
+      <li>Enregistrement des 31 blueprints</li>
+      <li><code>db.create_all()</code> + ajout colonnes manquantes via <code>ALTER TABLE</code> + marquage Alembic</li>
+      <li>Réinitialisation du pool de connexions DB avant d'accepter les requêtes HTTP</li>
+    </ol>
+
+    <h3>Gestion des fichiers sur Cloud Run</h3>
+    <div class="callout callout-warn">
+      Cloud Run utilise un filesystem éphémère. DevOPTIQ contourne ce problème en persistant les données critiques en base : <code>Entity.svg_content</code> (SVG cartographie), <code>Entity.optiqcarto_data</code> (état JSON éditeur), <code>FileBlob</code> (pièces jointes).
+    </div>
+
+    <h3>Organisation des fichiers</h3>
+    <pre>DevOPTIQ/
+├── Code/
+│   ├── app.py              ← create_app(), blueprints
+│   ├── extensions.py       ← db, mail, pragmas SQLite WAL
+│   ├── models/models.py    ← Tous les modèles + event listeners
+│   └── routes/
+│       ├── templates/      ← Templates Jinja2
+│       └── *.py            ← 31 blueprints
+├── static/
+│   ├── *.css               ← CSS par domaine
+│   ├── js/                 ← JS vanilla par domaine
+│   └── optiqcarto/         ← editor.js, vsdx_importer.js
+└── docs/index.html         ← Ce fichier</pre>
   </section>
 
-  <!-- STACK -->
   <section id="stack">
-    <h2 class="section-title">Stack technique <span class="badge badge-todo">À documenter</span></h2>
+    <h2 class="section-title">Stack technique <span class="badge badge-done">Documenté</span></h2>
     <table>
       <tr><th>Couche</th><th>Technologie</th><th>Rôle</th></tr>
-      <tr><td>Backend</td><td><code>Python 3 · Flask</code></td><td>À compléter</td></tr>
-      <tr><td>Base de données</td><td><code>PostgreSQL</code> (prod) / <code>SQLite</code> (local)</td><td>À compléter</td></tr>
-      <tr><td>ORM</td><td><code>SQLAlchemy</code></td><td>À compléter</td></tr>
-      <tr><td>Frontend</td><td>HTML Jinja2 · CSS vanilla · JS vanilla</td><td>À compléter</td></tr>
-      <tr><td>IA</td><td>Anthropic Claude API</td><td>À compléter</td></tr>
-      <tr><td>Cartographie</td><td>OptiqCarto (outil maison)</td><td>À compléter</td></tr>
-      <tr><td>Déploiement</td><td>Google Cloud Run · Docker</td><td>À compléter</td></tr>
+      <tr><td>Backend</td><td><code>Python 3 · Flask</code></td><td>Application factory pattern. Routage via blueprints. Templates Jinja2. Sessions Flask pour l'auth.</td></tr>
+      <tr><td>Base de données</td><td><code>PostgreSQL</code> (prod) / <code>SQLite</code> (local)</td><td>PostgreSQL avec pool limité (pool_size=2, max_overflow=3) pour Neon free tier. SQLite avec WAL et busy_timeout=5s.</td></tr>
+      <tr><td>ORM</td><td><code>SQLAlchemy</code> via Flask-SQLAlchemy</td><td>Tous les modèles dans <code>models/models.py</code>. Colonnes post-déploiement ajoutées via <code>ALTER TABLE</code> direct.</td></tr>
+      <tr><td>Frontend</td><td>HTML Jinja2 · CSS vanilla · JS vanilla</td><td>Pas de framework JS. <code>$()</code> = alias <code>document.querySelector()</code>. Un fichier CSS par domaine.</td></tr>
+      <tr><td>Auth</td><td>Sessions Flask · <code>werkzeug.security</code></td><td>Hash mots de passe pbkdf2:sha256. Entité active dans <code>session['active_entity_id']</code>.</td></tr>
+      <tr><td>IA</td><td>Anthropic Claude API</td><td>Chatbot intégré, import IA global, proposition compétences/savoirs/softskills, traduction.</td></tr>
+      <tr><td>Cartographie</td><td>OptiqCarto (outil maison)</td><td>Éditeur SVG JS vanilla. État JSON dans <code>Entity.optiqcarto_data</code>. Sync Activities/Roles/Links à chaque save.</td></tr>
+      <tr><td>Email</td><td>Flask-Mail · Gmail SMTP</td><td>Reset de mot de passe.</td></tr>
+      <tr><td>Déploiement</td><td>Google Cloud Run · Docker</td><td>Image Docker, port 8080, variables via Cloud Run.</td></tr>
     </table>
+    <h3>Dépendances Python clés</h3>
+    <pre>Flask, Flask-SQLAlchemy, Flask-Migrate, Flask-Mail
+werkzeug, python-dotenv, anthropic, gunicorn</pre>
   </section>
 
-  <!-- MODÈLES -->
   <section id="modeles">
-    <h2 class="section-title">Modèles de données <span class="badge badge-todo">À documenter</span></h2>
+    <h2 class="section-title">Modèles de données <span class="badge badge-done">Documenté</span></h2>
     <p>Fichier source : <code>Code/models/models.py</code></p>
+    <div class="callout callout-info">
+      Tous les modèles disposent d'un filtre <code>for_active_entity()</code> retournant une query filtrée sur l'entité active de la session. Cela garantit l'isolation des données entre organisations.
+    </div>
+
+    <h3>Diagramme entité-relation (simplifié)</h3>
+    <div class="diagram">
+      <svg width="760" height="480" viewBox="0 0 760 480" xmlns="http://www.w3.org/2000/svg" font-family="'Segoe UI', sans-serif" font-size="11">
+        <rect x="290" y="20" width="180" height="90" rx="8" fill="#fdf2f8" stroke="#ec4899" stroke-width="2"/>
+        <text x="380" y="42" text-anchor="middle" font-weight="700" fill="#be185d">Entity</text>
+        <text x="380" y="58" text-anchor="middle" font-size="9.5" fill="#6b7280">id, name, description</text>
+        <text x="380" y="73" text-anchor="middle" font-size="9.5" fill="#6b7280">owner_id → User</text>
+        <text x="380" y="88" text-anchor="middle" font-size="9.5" fill="#6b7280">optiqcarto_data (JSON), svg_content</text>
+        <text x="380" y="103" text-anchor="middle" font-size="9.5" fill="#6b7280">vsdx_filename, svg_filename</text>
+        <rect x="50" y="170" width="180" height="90" rx="8" fill="#fdf2f8" stroke="#ec4899" stroke-width="2"/>
+        <text x="140" y="192" text-anchor="middle" font-weight="700" fill="#be185d">Activities</text>
+        <text x="140" y="208" text-anchor="middle" font-size="9.5" fill="#6b7280">id, name, description</text>
+        <text x="140" y="223" text-anchor="middle" font-size="9.5" fill="#6b7280">entity_id, shape_id, is_result</text>
+        <text x="140" y="238" text-anchor="middle" font-size="9.5" fill="#6b7280">duration_minutes, delay_minutes</text>
+        <rect x="530" y="170" width="180" height="70" rx="8" fill="#fdf2f8" stroke="#ec4899" stroke-width="2"/>
+        <text x="620" y="192" text-anchor="middle" font-weight="700" fill="#be185d">Role</text>
+        <text x="620" y="208" text-anchor="middle" font-size="9.5" fill="#6b7280">id, name, entity_id</text>
+        <text x="620" y="223" text-anchor="middle" font-size="9.5" fill="#6b7280">onboarding_plan</text>
+        <rect x="310" y="170" width="140" height="50" rx="6" fill="#f9fafb" stroke="#9ca3af" stroke-width="1.5"/>
+        <text x="380" y="192" text-anchor="middle" font-weight="700" fill="#374151">activity_roles</text>
+        <text x="380" y="208" text-anchor="middle" font-size="9.5" fill="#6b7280">activity_id, role_id, status</text>
+        <rect x="50" y="330" width="180" height="80" rx="8" fill="#f0fdf4" stroke="#22c55e" stroke-width="1.5"/>
+        <text x="140" y="352" text-anchor="middle" font-weight="700" fill="#15803d">Task</text>
+        <text x="140" y="368" text-anchor="middle" font-size="9.5" fill="#6b7280">id, name, activity_id, order</text>
+        <text x="140" y="383" text-anchor="middle" font-size="9.5" fill="#6b7280">duration_minutes, delay_minutes</text>
+        <rect x="290" y="330" width="180" height="70" rx="8" fill="#f0fdf4" stroke="#22c55e" stroke-width="1.5"/>
+        <text x="380" y="352" text-anchor="middle" font-weight="700" fill="#15803d">Tool</text>
+        <text x="380" y="368" text-anchor="middle" font-size="9.5" fill="#6b7280">id, name, entity_id, file_path</text>
+        <text x="380" y="383" text-anchor="middle" font-size="9.5" fill="#6b7280">(many-to-many ↔ Task)</text>
+        <rect x="530" y="330" width="180" height="80" rx="8" fill="#f0fdf4" stroke="#22c55e" stroke-width="1.5"/>
+        <text x="620" y="352" text-anchor="middle" font-weight="700" fill="#15803d">Link</text>
+        <text x="620" y="368" text-anchor="middle" font-size="9.5" fill="#6b7280">id, entity_id, type</text>
+        <text x="620" y="383" text-anchor="middle" font-size="9.5" fill="#6b7280">source/target_activity_id</text>
+        <rect x="530" y="440" width="180" height="30" rx="6" fill="#f9fafb" stroke="#9ca3af" stroke-width="1.5"/>
+        <text x="620" y="460" text-anchor="middle" font-weight="700" fill="#374151">User · UserRole · CompetencyEvaluation</text>
+        <rect x="50" y="440" width="390" height="30" rx="6" fill="#f9fafb" stroke="#9ca3af" stroke-width="1.5"/>
+        <text x="245" y="460" text-anchor="middle" font-weight="700" fill="#374151">Competency · Softskill · Savoir · SavoirFaire · Aptitude</text>
+        <line x1="290" y1="80" x2="140" y2="170" stroke="#ec4899" stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#arr2)"/>
+        <line x1="470" y1="80" x2="620" y2="170" stroke="#ec4899" stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#arr2)"/>
+        <line x1="230" y1="210" x2="310" y2="200" stroke="#9ca3af" stroke-width="1.2" marker-end="url(#arr2)"/>
+        <line x1="530" y1="200" x2="450" y2="200" stroke="#9ca3af" stroke-width="1.2" marker-end="url(#arr2)"/>
+        <line x1="140" y1="260" x2="140" y2="330" stroke="#22c55e" stroke-width="1.5" marker-end="url(#arr2)"/>
+        <line x1="140" y1="260" x2="245" y2="440" stroke="#9ca3af" stroke-width="1" stroke-dasharray="4,3" marker-end="url(#arr2)"/>
+        <line x1="230" y1="215" x2="530" y2="360" stroke="#22c55e" stroke-width="1" stroke-dasharray="4,3" marker-end="url(#arr2)"/>
+        <line x1="230" y1="370" x2="290" y2="370" stroke="#22c55e" stroke-width="1.2" marker-end="url(#arr2)"/>
+        <defs><marker id="arr2" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#9ca3af"/></marker></defs>
+      </svg>
+      <p class="diagram-caption">Schéma entité-relation principal. Toutes les données appartiennent à une <code>Entity</code>.</p>
+    </div>
+
+    <h3>Description détaillée</h3>
+
+    <h4>Entity — <code>entities</code></h4>
+    <p>Tenant root de l'application. Toutes les données (activités, rôles, outils…) lui appartiennent via <code>entity_id</code>. L'entité active est stockée dans <code>session['active_entity_id']</code> (pas en base).</p>
+    <table>
+      <tr><th>Champ</th><th>Type</th><th>Description</th></tr>
+      <tr><td><code>owner_id</code></td><td>FK → users</td><td>Utilisateur propriétaire</td></tr>
+      <tr><td><code>optiqcarto_data</code></td><td>Text (JSON)</td><td>État complet de l'éditeur OptiqCarto. Persiste entre redémarrages.</td></tr>
+      <tr><td><code>svg_content</code></td><td>Text</td><td>Contenu SVG brut. Fallback si filesystem éphémère vidé.</td></tr>
+      <tr><td><code>svg_filename</code></td><td>String(255)</td><td>Nom original du SVG uploadé</td></tr>
+      <tr><td><code>vsdx_filename</code></td><td>String(255)</td><td>Nom original du VSDX uploadé</td></tr>
+    </table>
+    <p>Méthodes de classe : <code>get_active()</code>, <code>get_active_id()</code>, <code>set_active()</code>, <code>for_user()</code>.</p>
+
+    <h4>Activities — <code>activities</code></h4>
+    <p>Activité métier. <code>shape_id</code> la relie à une forme SVG dans OptiqCarto. Contrainte unique <code>(entity_id, shape_id)</code>. Possède Tasks, Competencies, Softskills, Savoirs, SavoirFaires, Aptitudes, Constraints.</p>
+
+    <h4>Role — <code>roles</code></h4>
+    <p>Correspond aux bandes horizontales de l'éditeur OptiqCarto. Unique par nom dans l'entité. <code>onboarding_plan</code> stocke la fiche de poste.</p>
+
+    <h4>Link — <code>links</code></h4>
+    <p>Connexion directionnelle entre deux activités. Types : <code>déclenchante</code> (T-link) et <code>nourrissante</code> (N-link). Propriétés calculées <code>source_id</code> / <code>target_id</code>.</p>
+
+    <h4>Task — <code>tasks</code></h4>
+    <p>Tâche ordonnée d'une activité. Reliée aux <code>Tool</code> via <code>task_tools</code> (many-to-many).</p>
+
+    <h4>Compétences et connaissances</h4>
     <table>
       <tr><th>Modèle</th><th>Table</th><th>Description</th></tr>
-      <tr><td><code>Entity</code></td><td><code>entities</code></td><td>Entité organisationnelle (département, service…)</td></tr>
-      <tr><td><code>Activities</code></td><td><code>activities</code></td><td>Activité métier issue de la cartographie</td></tr>
-      <tr><td><code>Role</code></td><td><code>roles</code></td><td>Rôle/bande de la cartographie</td></tr>
-      <tr><td><code>Link</code></td><td><code>links</code></td><td>Lien entre deux activités</td></tr>
-      <tr><td><code>Task</code></td><td><code>tasks</code></td><td>Tâche associée à une activité</td></tr>
-      <tr><td><code>Tool</code></td><td><code>tools</code></td><td>Outil utilisé dans une activité</td></tr>
-      <tr><td><code>Competency</code></td><td><code>competencies</code></td><td>Compétence</td></tr>
-      <tr><td><code>Softskill</code></td><td><code>softskills</code></td><td>Soft skill comportemental</td></tr>
+      <tr><td><code>Competency</code></td><td><code>competencies</code></td><td>Compétence générale</td></tr>
+      <tr><td><code>Softskill</code></td><td><code>softskills</code></td><td>Compétence comportementale avec niveau (1-5) et justification</td></tr>
       <tr><td><code>Savoir</code></td><td><code>savoirs</code></td><td>Connaissance théorique</td></tr>
       <tr><td><code>SavoirFaire</code></td><td><code>savoir_faires</code></td><td>Savoir-faire pratique</td></tr>
-      <tr><td><code>User</code></td><td><code>users</code></td><td>Utilisateur de l'application</td></tr>
-      <tr><td><code>Performance</code></td><td><code>performances</code></td><td>Indicateur de performance</td></tr>
-      <tr><td><code>TimeAnalysis</code></td><td><code>time_analysis</code></td><td>Analyse des temps par activité</td></tr>
-      <tr><td><code>activity_roles</code></td><td><code>activity_roles</code></td><td>Association activité ↔ rôle (many-to-many)</td></tr>
+      <tr><td><code>Aptitude</code></td><td><code>aptitudes</code></td><td>Aptitude physique ou cognitive</td></tr>
     </table>
-    <p>À compléter : schéma entité-relation, description détaillée de chaque modèle et ses relations.</p>
+
+    <h4>User — <code>users</code></h4>
+    <p>Champs : email (unique), password (hashé), first_name, last_name, status, manager_id (auto-référence hiérarchie). Relié aux rôles via <code>UserRole</code> et évaluations via <code>CompetencyEvaluation</code>.</p>
+
+    <h4>TimeAnalysis — <code>time_analysis</code></h4>
+    <p>Calcule <code>annual_time = duration × recurrence_factor × frequency × nb_people</code>. Facteurs : journalier=220, hebdo=42, mensuel=10.5, annuel=1.</p>
+
+    <h4>Modèles système</h4>
+    <table>
+      <tr><th>Modèle</th><th>Table</th><th>Rôle</th></tr>
+      <tr><td><code>FileBlob</code></td><td><code>file_blobs</code></td><td>Fichiers binaires en base (BYTEA/BLOB)</td></tr>
+      <tr><td><code>RecentEvent</code></td><td><code>recent_events</code></td><td>Journal auto créations/modifications/suppressions</td></tr>
+      <tr><td><code>TaskLinkAssignment</code></td><td><code>task_link_assignments</code></td><td>Associe un Link à une Task (direction incoming/outgoing)</td></tr>
+      <tr><td><code>Performance</code></td><td><code>performances</code></td><td>Indicateur de performance attaché à un Link</td></tr>
+    </table>
+
+    <h3>Journal d'activité automatique</h3>
+    <p>SQLAlchemy event listeners enregistrent automatiquement dans <code>recent_events</code> toute création/modification/suppression des modèles <code>Activities</code>, <code>Task</code>, <code>Role</code>, <code>Tool</code>. <code>_capture_changes()</code> compare l'historique SQLAlchemy avant/après pour ne logger que les champs modifiés.</p>
   </section>
 
-  <!-- CARTOGRAPHIE -->
   <section id="cartographie">
-    <h2 class="section-title">Cartographie — OptiqCarto <span class="badge badge-todo">À documenter</span></h2>
+    <h2 class="section-title">Cartographie — OptiqCarto <span class="badge badge-done">Documenté</span></h2>
     <div class="callout callout-tip">
-      OptiqCarto est un outil de cartographie SVG développé en interne. Il existe en deux versions synchronisées : intégré dans DevOPTIQ (<code>static/optiqcarto/</code>) et standalone dans le repo <code>OptiqCarto/</code>.
+      Éditeur SVG interactif JS vanilla. Deux repos synchronisés : <code>DevOPTIQ/static/optiqcarto/</code> et standalone <code>OptiqCarto/</code>. Toujours synchroniser les deux après modification.
     </div>
-    <p>À compléter : fonctionnement de l'éditeur, format JSON de sauvegarde, synchronisation DB, import VSDX, viewer lecture seule.</p>
+
+    <h3>Deux composants</h3>
+    <ul>
+      <li><strong>Éditeur OptiqCarto</strong> (<code>/cartography/editor</code>) — création formes/bandes/connexions, import VSDX, sauvegarde en base.</li>
+      <li><strong>Carte des Activités</strong> (<code>/activities/map</code>) — gestion multi-entités, affichage SVG statique, wizard upload SVG+VSDX.</li>
+    </ul>
+
+    <h3>Format JSON (optiqcarto_data)</h3>
+    <pre>{
+  "shapes": [
+    { "id": "s1", "type": "process", "label": "Facturation",
+      "x": 120, "y": 50, "w": 160, "h": 60 }
+  ],
+  "bands": [
+    { "id": "b1", "label": "Direction", "height": 180 }
+  ],
+  "connections": [
+    { "id": "c1", "fromId": "s1", "toId": "s2", "label": "Bon de commande" }
+  ]
+}</pre>
+    <p>Types de shapes : <code>process</code> (activité normale), <code>start-end</code> (début/fin), <code>special</code> (résultat, <code>is_result=True</code>), <code>decision</code> (ignoré pour la sync DB).</p>
+
+    <h3>Synchronisation carto → base (<code>_sync_carto_to_db</code>)</h3>
+    <p>Appelée à chaque <code>POST /cartography/api/save</code> :</p>
+    <ol>
+      <li><strong>Activités</strong> : upsert de chaque shape vers <code>Activities</code>. Shapes supprimées → suppression cascade.</li>
+      <li><strong>Rôles</strong> : upsert de chaque bande vers <code>Role</code>. Bandes disparues → suppression.</li>
+      <li><strong>Associations</strong> : recalcule l'appartenance activité-rôle par position Y de la shape dans les bandes.</li>
+      <li><strong>Liens</strong> : supprime les links activity→activity existants, recrée depuis les connexions du diagramme.</li>
+    </ol>
+
+    <h3>Persistance SVG</h3>
+    <p>Double stockage pour gérer le filesystem éphémère Cloud Run :</p>
+    <ul>
+      <li>Disque : <code>static/entities/entity_{id}/carto.svg</code></li>
+      <li>Base : <code>Entity.svg_content</code> (texte complet). <code>check_svg_exists()</code> restaure depuis la DB si le disque est vide.</li>
+    </ul>
+
+    <h3>Gestion multi-entités</h3>
+    <p>L'entité active est dans <code>session['active_entity_id']</code>. <code>get_active_entity()</code> : session → <code>is_active=True</code> DB → dernière entité du user.</p>
+    <p><code>GET /activities/api/cross_carto_matches</code> — activités partagées entre l'entité active et les autres entités du même utilisateur.</p>
   </section>
 
-  <!-- ACTIVITÉS -->
   <section id="activites">
     <h2 class="section-title">Activités <span class="badge badge-todo">À documenter</span></h2>
-    <p>À compléter : liste des activités, fiche activité, onglets (tâches, outils, compétences, temps, performance…), routes associées.</p>
+    <p>À compléter : liste des activités, fiche activité, onglets (tâches, outils, compétences, temps, performance…).</p>
   </section>
 
-  <!-- IMPORT IA -->
   <section id="import-ia">
     <h2 class="section-title">Import IA <span class="badge badge-todo">À documenter</span></h2>
-    <p>À compléter : fonctionnement de l'import global IA, interaction avec l'API Claude, extraction et mapping des données.</p>
+    <p>À compléter : import global IA, interaction Claude API, extraction et mapping des données.</p>
   </section>
 
-  <!-- COMPÉTENCES -->
   <section id="competences">
     <h2 class="section-title">Compétences & Skills <span class="badge badge-todo">À documenter</span></h2>
-    <p>À compléter : gestion des compétences, savoirs, savoir-faires, softskills, aptitudes. Système de proposition IA.</p>
+    <p>À compléter : gestion compétences/savoirs/softskills/aptitudes, propositions IA.</p>
   </section>
 
-  <!-- PERFORMANCE -->
   <section id="performance">
     <h2 class="section-title">Performance <span class="badge badge-todo">À documenter</span></h2>
-    <p>À compléter : indicateurs de performance, tableaux de bord, performance personnalisée, projections.</p>
+    <p>À compléter : indicateurs, tableaux de bord, performance personnalisée, projections.</p>
   </section>
 
-  <!-- RH -->
   <section id="rh">
     <h2 class="section-title">Gestion RH <span class="badge badge-todo">À documenter</span></h2>
-    <p>À compléter : gestion des collaborateurs, rôles, affectations, plans de formation.</p>
+    <p>À compléter : collaborateurs, rôles, affectations, plans de formation.</p>
   </section>
 
-  <!-- CHATBOT -->
   <section id="chatbot">
     <h2 class="section-title">Chatbot IA <span class="badge badge-todo">À documenter</span></h2>
-    <p>À compléter : fonctionnement du chatbot, intégration Claude API, contexte injecté.</p>
+    <p>À compléter : fonctionnement chatbot, intégration Claude API, contexte injecté.</p>
   </section>
 
-  <!-- AUTH -->
   <section id="auth">
-    <h2 class="section-title">Authentification <span class="badge badge-todo">À documenter</span></h2>
-    <p>À compléter : système de login, gestion des sessions Flask, rôles utilisateurs, reset password.</p>
+    <h2 class="section-title">Authentification <span class="badge badge-done">Documenté</span></h2>
+    <p>Blueprint : <code>auth_bp</code> — fichier : <code>Code/routes/connexion_routes.py</code></p>
+    <p>Authentification email/mot de passe, sessions Flask côté serveur uniquement (pas de JWT).</p>
+
+    <h3>Flux de connexion</h3>
+    <ol>
+      <li><code>POST /login</code> — vérifie l'email, valide le hash avec <code>check_password_hash()</code></li>
+      <li>Si valide : stocke <code>session['user_email']</code> et <code>session['user_id']</code>, redirige vers <code>/activities/map</code></li>
+      <li>Si invalide : <code>flash()</code> d'erreur, retour au formulaire</li>
+    </ol>
+
+    <table>
+      <tr><th>Route</th><th>Méthode</th><th>Description</th></tr>
+      <tr><td><code>/login</code></td><td>GET, POST</td><td>Formulaire de connexion</td></tr>
+      <tr><td><code>/logout</code></td><td>GET</td><td>Efface user_email, user_id, active_entity_id de la session</td></tr>
+      <tr><td><code>/auth/current_user_info</code></td><td>GET</td><td>Infos utilisateur connecté en JSON (id, prénom, nom, rôles, manager)</td></tr>
+    </table>
+
+    <h3>Sécurité</h3>
+    <ul>
+      <li>Mots de passe : <code>werkzeug.security.generate_password_hash</code> (pbkdf2:sha256)</li>
+      <li>Clé session : variable d'environnement <code>SECRET_KEY</code></li>
+      <li>Reset password : blueprint <code>auth_password_bp</code> (<code>routes_password.py</code>)</li>
+    </ul>
+
+    <h3>Patterns de contrôle d'accès</h3>
+    <pre># Pattern 1 — vérification user_id
+user_id = session.get('user_id')
+if not user_id:
+    return redirect(url_for('auth.login'))
+
+# Pattern 2 — vérification email (cartography_editor)
+def _require_auth():
+    return bool(session.get("user_email"))</pre>
+    <div class="callout callout-warn">
+      Pas de décorateur <code>@login_required</code> centralisé — chaque blueprint vérifie la session indépendamment.
+    </div>
   </section>
 
-  <!-- TEMPS -->
   <section id="temps">
     <h2 class="section-title">Gestion du temps <span class="badge badge-todo">À documenter</span></h2>
-    <p>À compléter : saisie des temps, analyse, projections, tableaux de bord temps.</p>
+    <p>À compléter : saisie des temps, analyse, projections. Modèles : <code>TimeAnalysis</code>, <code>TimeProject</code>, <code>TimeProjectLine</code>, <code>TimeRoleAnalysis</code>, <code>TimeWeakness</code>.</p>
   </section>
 
-  <!-- API -->
   <section id="api">
-    <h2 class="section-title">Référence APIs <span class="badge badge-todo">À documenter</span></h2>
-    <p>À compléter : liste de tous les endpoints API (méthode, URL, paramètres, réponse).</p>
+    <h2 class="section-title">Référence APIs — Cartographie <span class="badge badge-done">Documenté</span></h2>
+
+    <h3><code>activities_map_bp</code> — préfixe <code>/activities</code></h3>
+    <table>
+      <tr><th>Méthode</th><th>URL</th><th>Description</th></tr>
+      <tr><td>GET</td><td><code>/activities/map</code></td><td>Page principale cartographie</td></tr>
+      <tr><td>GET</td><td><code>/activities/svg</code></td><td>Sert le SVG de l'entité active (disque ou DB)</td></tr>
+      <tr><td>GET</td><td><code>/activities/api/svg/&lt;entity_id&gt;</code></td><td>SVG d'une entité sans changer la session</td></tr>
+      <tr><td>GET</td><td><code>/activities/api/entities</code></td><td>Liste les entités du user</td></tr>
+      <tr><td>POST</td><td><code>/activities/api/entities</code></td><td>Crée une entité. Body: <code>{name, description}</code></td></tr>
+      <tr><td>GET</td><td><code>/activities/api/entities/&lt;id&gt;/details</code></td><td>Détails d'une entité</td></tr>
+      <tr><td>POST</td><td><code>/activities/api/entities/&lt;id&gt;/activate</code></td><td>Active une entité</td></tr>
+      <tr><td>PATCH</td><td><code>/activities/api/entities/&lt;id&gt;</code></td><td>Modifie nom/description</td></tr>
+      <tr><td>DELETE</td><td><code>/activities/api/entities/&lt;id&gt;</code></td><td>Supprime une entité (cascade)</td></tr>
+      <tr><td>POST</td><td><code>/activities/upload-cartography</code></td><td>Upload SVG et/ou VSDX</td></tr>
+      <tr><td>POST</td><td><code>/activities/preview-connections</code></td><td>Aperçu connexions VSDX sans import</td></tr>
+      <tr><td>GET</td><td><code>/activities/list-connections</code></td><td>Liste les connexions de l'entité active</td></tr>
+      <tr><td>DELETE</td><td><code>/activities/delete-connection/&lt;id&gt;</code></td><td>Supprime une connexion</td></tr>
+      <tr><td>DELETE</td><td><code>/activities/clear-connections</code></td><td>Supprime toutes les connexions</td></tr>
+      <tr><td>POST</td><td><code>/activities/resync</code></td><td>Re-sync activités depuis SVG disque</td></tr>
+      <tr><td>GET</td><td><code>/activities/api/cross_carto_matches</code></td><td>Activités partagées entre entités du user</td></tr>
+      <tr><td>GET</td><td><code>/activities/debug/files</code></td><td>Debug état fichiers SVG/VSDX</td></tr>
+    </table>
+
+    <h3><code>cartography_editor_bp</code> — préfixe <code>/cartography</code></h3>
+    <table>
+      <tr><th>Méthode</th><th>URL</th><th>Description</th></tr>
+      <tr><td>GET</td><td><code>/cartography/editor</code></td><td>Page éditeur OptiqCarto</td></tr>
+      <tr><td>GET</td><td><code>/cartography/viewer</code></td><td>Viewer lecture seule</td></tr>
+      <tr><td>POST</td><td><code>/cartography/api/save</code></td><td>Sauvegarde diagramme JSON + sync DB</td></tr>
+      <tr><td>POST</td><td><code>/cartography/api/save-diff</code></td><td>Dry-run : activités/rôles supprimés</td></tr>
+      <tr><td>GET</td><td><code>/cartography/api/load/&lt;name&gt;</code></td><td>Charge le diagramme JSON</td></tr>
+      <tr><td>GET</td><td><code>/cartography/api/list</code></td><td>Liste les cartos disponibles</td></tr>
+      <tr><td>DELETE</td><td><code>/cartography/api/delete/&lt;name&gt;</code></td><td>Supprime la carto</td></tr>
+      <tr><td>GET</td><td><code>/cartography/api/vsdx</code></td><td>Télécharge le VSDX existant</td></tr>
+      <tr><td>POST</td><td><code>/cartography/api/vsdx-compare</code></td><td>Compare VSDX uploadé avec carto sauvegardée</td></tr>
+    </table>
   </section>
 
-  <!-- DÉPLOIEMENT -->
   <section id="deploiement">
-    <h2 class="section-title">Déploiement <span class="badge badge-todo">À documenter</span></h2>
-    <p>À compléter : processus de build Docker, déploiement Cloud Run, variables d'environnement, base de données de production.</p>
+    <h2 class="section-title">Déploiement <span class="badge badge-done">Documenté</span></h2>
+    <p>Application déployée sur <strong>Google Cloud Run</strong> via image Docker. Serveur WSGI : <code>gunicorn</code>.</p>
+
+    <h3>Variables d'environnement (Cloud Run)</h3>
+    <table>
+      <tr><th>Variable</th><th>Rôle</th></tr>
+      <tr><td><code>DATABASE_URL</code></td><td>URL PostgreSQL prod. Absent = SQLite local.</td></tr>
+      <tr><td><code>SECRET_KEY</code></td><td>Clé secrète Flask pour les sessions</td></tr>
+      <tr><td><code>ANTHROPIC_KEY</code></td><td>Clé API Claude (chatbot, import IA)</td></tr>
+      <tr><td><code>MAIL_SERVER / MAIL_PORT / MAIL_USERNAME / MAIL_PASSWORD</code></td><td>Config SMTP Gmail</td></tr>
+      <tr><td><code>PORT</code></td><td>Port d'écoute (8080, injecté par Cloud Run)</td></tr>
+    </table>
+
+    <h3>Stratégie migrations DB</h3>
+    <div class="callout callout-warn">
+      <code>flask db upgrade</code> n'est PAS exécuté au démarrage (risque de verrou PostgreSQL 10min+). À la place : <code>db.create_all()</code> + <code>_safe_add_column()</code> qui ignore l'erreur si la colonne existe.
+    </div>
+
+    <h3>Branches</h3>
+    <ul>
+      <li><code>staging</code> — développement principal</li>
+      <li><code>main</code> — production stable (merger uniquement les versions validées)</li>
+    </ul>
   </section>
 
-  <!-- CONVENTIONS -->
   <section id="conventions">
-    <h2 class="section-title">Conventions de développement <span class="badge badge-todo">À documenter</span></h2>
+    <h2 class="section-title">Conventions de développement <span class="badge badge-done">Documenté</span></h2>
     <div class="callout callout-warn">
-      Règle critique : toujours synchroniser <code>DevOPTIQ/static/optiqcarto/</code> et <code>OptiqCarto/static/</code> après chaque modification de l'outil cartographie.
+      Règle critique : toujours synchroniser <code>DevOPTIQ/static/optiqcarto/</code> et <code>OptiqCarto/static/</code> après modification de l'outil cartographie.
     </div>
-    <p>À compléter : conventions de nommage, structure des commits, workflow git (staging → main), conventions CSS/JS.</p>
+    <ul>
+      <li><strong>JS</strong> : vanilla uniquement. <code>$()</code> = <code>document.querySelector()</code>. Un fichier par domaine dans <code>static/js/</code>.</li>
+      <li><strong>CSS</strong> : un fichier par domaine. <code>optiq.css</code> = global. Couleurs : rose <code>#ec4899</code>/<code>#be185d</code>, vert <code>#22c55e</code>.</li>
+      <li><strong>Templates</strong> : dans <code>Code/routes/templates/</code>. Composition par <code>{% include %}</code>.</li>
+      <li><strong>Blueprints</strong> : 1 fichier = 1 domaine. Nommage <code>[domaine]_bp</code>. Tous enregistrés dans <code>create_app()</code>.</li>
+      <li><strong>Commentaires</strong> : uniquement si le WHY est non-évident. Jamais de commentaires décrivant ce que fait le code.</li>
+      <li><strong>Commits</strong> : types <code>Feat:</code>, <code>Fix:</code>, <code>Docs:</code>, <code>Refactor:</code>, <code>Style:</code>.</li>
+    </ul>
   </section>
 
 </main>
 
 <script>
-  // Date de dernière mise à jour
   document.getElementById('last-update').textContent = new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
 
-  // Navigation active au scroll
   const sections = document.querySelectorAll('section[id], div[id]');
   const navLinks = document.querySelectorAll('nav a');
   const observer = new IntersectionObserver(entries => {
@@ -390,7 +676,6 @@
   }, { threshold: 0.3 });
   sections.forEach(s => observer.observe(s));
 
-  // Calcul de la progression (sections avec badge-done)
   function updateProgress() {
     const total = document.querySelectorAll('.badge').length;
     const done  = document.querySelectorAll('.badge-done').length;

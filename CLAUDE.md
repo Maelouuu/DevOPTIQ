@@ -149,24 +149,30 @@ Fonctionnement :
 
 > Mis à jour par la routine de documentation. Indiquer ici ce qui a été documenté.
 
-### Complété
-- *(rien encore — première session)*
+### Complété (session 1 — 2026-05-12)
+- **Architecture** : diagramme SVG infrastructure, flux de démarrage `create_app()`, gestion fichiers éphémères Cloud Run, arborescence des fichiers
+- **Stack technique** : description complète de chaque couche (Flask, SQLAlchemy, JS vanilla, Claude API, OptiqCarto, Docker/Cloud Run)
+- **Modèles de données** : diagramme ER SVG, description détaillée de tous les modèles (`Entity`, `Activities`, `Role`, `Link`, `Task`, `Tool`, compétences x5, `User`, `TimeAnalysis`, `FileBlob`, `RecentEvent`, `TaskLinkAssignment`), event listeners SQLAlchemy
+- **Cartographie OptiqCarto** : éditeur et viewer, format JSON `optiqcarto_data`, logique `_sync_carto_to_db()`, gestion SVG multi-entités, import VSDX, API cross-carto
+- **Authentification** : flux login/logout, patterns de contrôle d'accès, variables de session, reset password
+- **APIs** : référence complète des endpoints cartographie (30+ routes documentées)
+- **Déploiement** : variables d'environnement Cloud Run, workflow docker/gcloud, stratégie migrations DB (pas d'Alembic en prod)
+- **Conventions** : JS vanilla, CSS, Blueprints, commentaires, workflow Git
 
 ### En cours
 - *(rien)*
 
 ### À faire (par priorité)
-1. Vue d'ensemble architecture + infrastructure
-2. Modèles de données (`models.py`)
-3. Page cartographie (`activities_map.py` + `activities_map.html`)
-4. Éditeur OptiqCarto (`editor.js`)
-5. Système d'import IA (`import_full.py` + `import_full.js`)
-6. Fiche activité (toutes les routes `activities_*.py`)
-7. Gestion RH (`gestion_rh.py`)
-8. Performances (`performance.py`)
-9. Chatbot (`chatbot.py`)
-10. Auth et gestion compte (`connexion_routes.py`, `gestion_compte.py`)
-11. Tous les autres blueprints
+1. Fiche activité (toutes les routes `activities_*.py` : `activities.py`, `activities_view.py`, `activities_bp.py`, etc.)
+2. Système d'import IA (`import_full.py` + `import_full.js`)
+3. Gestion RH (`gestion_rh.py`)
+4. Performances (`performance.py`, `performance_personnalisee.py`)
+5. Chatbot (`chatbot.py`)
+6. Gestion du temps (`time_view.py`, `time_extra.py`)
+7. Compétences & Skills (`competences.py`, `propose_*.py`, `softskills.py`, etc.)
+8. Gestion compte + onboarding (`gestion_compte.py`, `onboarding.py`)
+9. Éditeur OptiqCarto côté JS (`static/optiqcarto/editor.js`)
+10. Tous les autres blueprints (export, changelog, projection_metier, etc.)
 
 ---
 
