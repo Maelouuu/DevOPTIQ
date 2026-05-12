@@ -42,9 +42,9 @@
       <span>Sélection</span>
     </button>
     <div class="shape-dropdown-wrap" id="connect-tool-wrap">
-      <button class="tool-btn-top" data-tool="connect" id="btn-connect-tool" title="Connecter (C)">
-        <i class="fa-solid fa-bezier-curve"></i>
-        <span>Connecter</span>
+      <button class="tool-btn-top" data-tool="connect" id="btn-connect-tool" title="Mettre en évidence les activités hachurées — raccourci C : mode connexion">
+        <i class="fa-solid fa-highlighter"></i>
+        <span>Externes</span>
       </button>
       <div class="shape-sub-dropdown connect-routing-dropdown">
         <button class="shape-sub-btn conn-routing-btn active" data-routing="smooth">
@@ -674,6 +674,7 @@
 
 <script src="{{ url_for('static', filename='optiqcarto/color-utils.js') }}"></script>
 <script src="{{ url_for('static', filename='optiqcarto/geometry.js') }}"></script>
+<script src="{{ url_for('static', filename='optiqcarto/highlight-mode.js') }}"></script>
 <script src="{{ url_for('static', filename='optiqcarto/vsdx_importer.js') }}"></script>
 <script src="{{ url_for('static', filename='optiqcarto/editor.js') }}"></script>
 

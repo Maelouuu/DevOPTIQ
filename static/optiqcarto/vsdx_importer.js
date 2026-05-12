@@ -138,7 +138,7 @@ class VsdxImporter {
   }
 
   async getMasterInfo(mid) {
-    const DEFAULTS = { w: 0.9449, h: 0.7087, linePattern: 1, fillPattern: 1, isEllipse: false, isDiamond: false, isSubprocess: false, fillColor: null };
+    const DEFAULTS = { w: 0.9449, h: 0.7087, linePattern: 1, fillPattern: 1, isEllipse: false, isDiamond: false, isSubprocess: false, isStadium: false, fillColor: null };
     if (!mid) return DEFAULTS;
     if (this.masterInfoCache[mid]) return this.masterInfoCache[mid];
     const fpath = this.masterIdToFile[mid];
@@ -190,6 +190,12 @@ class VsdxImporter {
         if (allSects[si].getAttribute('N') === 'Geometry') geomSectCount++;
       const isSubprocess = (geomSectCount >= 2 || moveTos >= 3 || isWavyBottom) && !isEllipse && !isDiamond;
 
+      // Stadium / capsule (external process): arcs only at the 2 short sides, 2 straight sides.
+      // Pattern: alternating arc-line-arc-line (or 4 quarter-arcs + 2 lines for halved semicircles).
+      // Distinct from rounded-rectangle (4 arcs + 4 lines) and ellipse (only arcs).
+      const isStadium = !hasConsecutiveArcs && !isEllipse && !isDiamond && !isSubprocess
+                        && lineCount === 2 && (arcCount === 2 || arcCount === 4);
+
       // First pass: outer shape dimensions (break early to avoid sub-shape dimensions)
       for (const s of doc.getElementsByTagName('Shape')) {
         const w = this.vCell(s, 'Width'), h = this.vCell(s, 'Height');
@@ -210,9 +216,9 @@ class VsdxImporter {
           if (fpv) { const n = parseInt(fpv) || 1; if (n !== 1) { fp = n; break; } }
         }
       }
-      return this.masterInfoCache[mid] = { w: bw || 0.9449, h: bh || 0.7087, linePattern: lp, fillPattern: fp, isEllipse, isDiamond, isSubprocess, fillColor };
+      return this.masterInfoCache[mid] = { w: bw || 0.9449, h: bh || 0.7087, linePattern: lp, fillPattern: fp, isEllipse, isDiamond, isSubprocess, isStadium, fillColor };
     } catch(e) {
-      return this.masterInfoCache[mid] = { w: 0.9449, h: 0.7087, linePattern: 1, fillPattern: 1, isEllipse: false, isDiamond: false, isSubprocess: false, fillColor: null };
+      return this.masterInfoCache[mid] = { w: 0.9449, h: 0.7087, linePattern: 1, fillPattern: 1, isEllipse: false, isDiamond: false, isSubprocess: false, isStadium: false, fillColor: null };
     }
   }
 
@@ -517,14 +523,24 @@ class VsdxImporter {
 
       const mInfoForType = masterInfoCache[mid] || {};
       const shapeType = detectShapeType(masterIdToName[mid], vType,
-                          mInfoForType.isEllipse, mInfoForType.isDiamond, mInfoForType.isSubprocess);
+                          mInfoForType.isEllipse, mInfoForType.isDiamond,
+                          mInfoForType.isSubprocess, mInfoForType.isStadium);
 
-      // ── Hatch detection: FillPattern ≥ 2 = any non-solid fill in Visio ──
+      // ── Subtype detection (only for 'process' shapes) ─────────────────
+      //   Stadium geometry (rounded short sides)  → 'external'
+      //   Non-solid fill (FillPattern ≥ 2 = hachures) → 'extco'
       // Visio FillPattern: 1=solid, 2-7=density, 8=horizontal, 9=vertical,
-      // 10=fwd-diag, 11=bwd-diag, 12=cross, 13=diag-cross, 14+=other patterns
+      // 10=fwd-diag, 11=bwd-diag, 12=cross, 13=diag-cross, 14+=other patterns.
+      // Stadium takes priority over fill: the shape outline is more discriminating
+      // than the fill style for "external" activities.
       const shapeFillPattern = parseInt(this.vCellDeep(s, 'FillPattern') || '0') || (mInfoForType.fillPattern || 1);
       if (shapeFillPattern > 1) console.debug('[VSDX hatch]', this.vText(s) || id, 'FillPattern=', shapeFillPattern, 'master=', masterIdToName[mid]);
-      const subtype = (shapeFillPattern >= 2 && shapeType === 'process') ? 'extco' : 'normal';
+      if (mInfoForType.isStadium) console.debug('[VSDX stadium]', this.vText(s) || id, 'master=', masterIdToName[mid]);
+      let subtype = 'normal';
+      if (shapeType === 'process') {
+        if (mInfoForType.isStadium)       subtype = 'external';
+        else if (shapeFillPattern >= 2)   subtype = 'extco';
+      }
 
       // ── Color: VSDX shape fill → master fill → band color ──
       // Preserves original Visio colors (e.g. yellow logistics, blue ops shapes).
@@ -842,14 +858,38 @@ class VsdxImporter {
   }
 
   // ─── Phase 15: Stretch bands to contain all shapes ───────────────
+  // When a band must grow to fit its shapes, we also shift down every
+  // shape and customPath point sitting BELOW it by the same delta — otherwise
+  // shapes from lower bands end up visually inside the stretched band
+  // (e.g. "Definition of Strategic Priorities" landing in Maintenance instead
+  // of Piloting because Logistic was stretched above).
 
   stretchBands() {
     let y0 = 0;
-    for (const band of this.newBands) {
-      const bot = this.newShapes
-        .filter(s => { const m = s.y + s.h/2; return m >= y0 && m < y0 + band.height; })
-        .reduce((m, s) => Math.max(m, s.y + s.h), 0);
-      if (bot + 20 > y0 + band.height) band.height = Math.round(bot + 20 - y0);
+    for (let i = 0; i < this.newBands.length; i++) {
+      const band = this.newBands[i];
+      const bandTop = y0;
+      const bandBottom = y0 + band.height;
+      const inBand = this.newShapes.filter(s => {
+        const m = s.y + s.h/2;
+        return m >= bandTop && m < bandBottom;
+      });
+      const bot = inBand.reduce((m, s) => Math.max(m, s.y + s.h), 0);
+      const needed = bot + 20 - bandTop;
+      if (needed > band.height) {
+        const delta = needed - band.height;
+        // Push everything that lives below the band's CURRENT bottom edge down by delta
+        for (const s of this.newShapes) {
+          if (s.y + s.h/2 >= bandBottom) s.y += delta;
+        }
+        for (const c of this.newConns) {
+          if (!c.customPath) continue;
+          for (const pt of c.customPath) {
+            if (pt.y >= bandBottom) pt.y += delta;
+          }
+        }
+        band.height = needed;
+      }
       y0 += band.height;
     }
   }
@@ -941,10 +981,10 @@ class VsdxImporter {
 // ── Shape type detection (extracted from editor.js for modularity) ───────────
 // Maps a Visio master name + geometry flags to our OptiqCarto shape types:
 // 'process' | 'start-end' | 'special' | 'decision'
-// Check order: decision → subprocess → ellipse → default process
-// Subprocess is checked BEFORE ellipse so wavy-bottom shapes are not captured
-// by the isEllipse guard (which is now "pure arc shape" only).
-function detectShapeType(masterName, visioType, isEllipse, isDiamond, isSubprocess) {
+// Check order: decision → subprocess → stadium → ellipse → default process
+// Stadium is checked BEFORE ellipse-by-name so master names like "External
+// process oval" map to 'process' (with subtype 'external'), not to start-end.
+function detectShapeType(masterName, visioType, isEllipse, isDiamond, isSubprocess, isStadium) {
   const mn = (masterName || '')
     .toLowerCase()
     .normalize('NFD').replace(/[̀-ͯ]/g, '')
@@ -964,13 +1004,18 @@ function detectShapeType(masterName, visioType, isEllipse, isDiamond, isSubproce
   if (isSubprocess) return 'special';
   if (/\b(subprocess|sub process|predefined|processus predefini|activite partielle|sous activite|sous processus|sous tache|tache multiple|multi instance|callout|offpage|off page)\b/.test(mn)) return 'special';
 
-  // 4. Start/end — oval/circle shapes (isEllipse now means "pure arc shape")
+  // 4. Stadium / capsule (external process) — 'process' so the caller can set subtype='external'.
+  //    Checked BEFORE the ellipse name regex below to avoid mis-classification
+  //    when master names contain "oval" / "external process oval".
+  if (isStadium) return 'process';
+
+  // 5. Start/end — oval/circle shapes (isEllipse now means "pure arc shape")
   if (/\b(terminator|oval|ellipse|circle|event|rond|cercle|ronde|circulaire)\b/.test(mn)
       || mn === 'start' || mn === 'end'
       || mn.includes('start end') || mn.includes('debut fin') || mn.includes('start/end')
       || isEllipse) return 'start-end';
 
-  // 5. Visio Group that is not a swimlane → subprocess style
+  // 6. Visio Group that is not a swimlane → subprocess style
   if (visioType === 'Group') return 'special';
 
   return 'process';

@@ -2300,6 +2300,7 @@ function createGroup() {
 
 function _doNewCarto() {
   clearSelection();
+  if (typeof resetHighlightExtco === 'function') resetHighlightExtco();
   state.shapes = [];
   state.connections = [];
   state.groups = [];
@@ -2413,6 +2414,7 @@ async function openLoadDialog() {
       const data = await fetch(`${apiBase}/api/load/${encodeURIComponent(name)}`).then(r => r.json());
       if (data.error) { showToast('Erreur : ' + data.error); return; }
       state = data;
+      if (typeof resetHighlightExtco === 'function') resetHighlightExtco();
       // Filtrer les connexions qui reviendraient en arrière (depuis anciens fichiers)
       if (state.connections && state.shapes) {
         state.connections = state.connections.filter(c => {
@@ -2914,6 +2916,7 @@ async function importVSDX(file) {
 
     // Apply to state — do NOT call updateShapeColor: importer already set correct colors
     clearSelection();
+    if (typeof resetHighlightExtco === 'function') resetHighlightExtco();
     state.shapes      = shapes;
     state.connections = connections;
     state.groups      = groups;
@@ -3782,6 +3785,13 @@ function init() {
         e.dataTransfer.setData('text/shape-subtype', 'normal');
       });
       btn.addEventListener('click', () => showToast('Glissez cette forme sur le canevas'));
+    } else if (btn.dataset.tool === 'connect') {
+      // Le bouton Connecter est désormais un toggle "mise en évidence des
+      // activités hachurées" (cf. highlight-mode.js). Le mode connexion
+      // reste accessible via le raccourci clavier C.
+      btn.addEventListener('click', () => {
+        if (typeof toggleHighlightExtco === 'function') toggleHighlightExtco();
+      });
     } else if (btn.dataset.tool) {
       btn.addEventListener('click', () => setTool(btn.dataset.tool));
     }
@@ -3992,6 +4002,7 @@ function init() {
       .then(data => {
         if (data && !data.error) {
           state = data;
+          if (typeof resetHighlightExtco === 'function') resetHighlightExtco();
           if (!state.bandWidth) state.bandWidth = 1600;
           if (!state.groups) state.groups = [];
           if (state.connections && state.shapes) {
