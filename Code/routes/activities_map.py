@@ -257,6 +257,29 @@ def activities_map_page():
     # Carto OptiqCarto — persistée en base (colonne ajoutée en migration)
     has_optiqcarto = bool(active_entity and getattr(active_entity, 'optiqcarto_data', None))
 
+    # IDs des activités hachurées (subtype 'extco') ou en forme stade (subtype
+    # 'external') — utilisées par le bouton "Externes" pour griser le reste de
+    # la carto. On reconstruit la liste depuis le JSON OptiqCarto pour ne pas
+    # dépendre d'un champ SQL supplémentaire sur Activities.
+    extco_activity_ids = []
+    if active_entity and getattr(active_entity, 'optiqcarto_data', None):
+        try:
+            import json as _json
+            carto = _json.loads(active_entity.optiqcarto_data)
+            extco_labels = {
+                (s.get('label') or '').strip()
+                for s in carto.get('shapes', [])
+                if s.get('subtype') in ('extco', 'external')
+            }
+            extco_labels.discard('')
+            if extco_labels:
+                extco_activity_ids = [
+                    act.id for act in activities
+                    if (act.name or '').strip() in extco_labels
+                ]
+        except Exception as _e:
+            print(f"[CARTO] extco extract error: {_e}")
+
     return render_template(
         "activities_map.html",
         svg_exists=svg_exists,
@@ -268,6 +291,7 @@ def activities_map_page():
         active_entity=active_entity_dict,
         all_entities=all_entities,
         has_optiqcarto=has_optiqcarto,
+        extco_activity_ids=extco_activity_ids,
     )
 
 

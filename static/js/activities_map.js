@@ -217,11 +217,13 @@ function activateSvgClicks() {
 
     el.addEventListener("mouseenter", () => {
       if (crossCartoMode) return;
+      if (typeof isExtcoMapHighlightActive === 'function' && isExtcoMapHighlightActive()) return;
       el.style.filter = "drop-shadow(0 0 6px #22c55e)";
       el.style.opacity = "0.9";
     });
     el.addEventListener("mouseleave", () => {
       if (crossCartoMode) return;
+      if (typeof isExtcoMapHighlightActive === 'function' && isExtcoMapHighlightActive()) return;
       el.style.filter = "";
       el.style.opacity = "1";
     });
@@ -766,23 +768,28 @@ function showError(msg) {
 ============================================================ */
 
 function initCrossCartoMode() {
+  // Le bouton "Connexions" devient un toggle "mise en évidence des activités
+  // externes/hachurées" — cf. highlight-extco-map.js. L'ancien mode connexions
+  // inter-cartos n'est plus exposé via ce bouton (fonctions conservées plus
+  // bas pour réutilisation éventuelle ailleurs).
   const btn = document.getElementById("cross-carto-btn");
   if (!btn) return;
 
-  btn.addEventListener("click", async () => {
-    crossCartoMode = !crossCartoMode;
-    btn.classList.toggle("active", crossCartoMode);
+  // Pré-remplir le badge avec le nombre d'activités extco trouvées côté serveur.
+  const countEl = document.getElementById("cross-carto-count");
+  if (countEl && typeof extcoMapCount === 'function') {
+    countEl.textContent = String(extcoMapCount());
+  }
+
+  btn.addEventListener("click", () => {
+    if (typeof toggleExtcoMapHighlight !== 'function' || !svgElement) return;
+    const active = toggleExtcoMapHighlight(svgElement);
+    btn.classList.toggle("active", active);
 
     const infoDefault = document.getElementById("carto-info-default");
     const infoCross   = document.getElementById("carto-info-cross");
-    if (infoDefault) infoDefault.classList.toggle("hidden", crossCartoMode);
-    if (infoCross)   infoCross.classList.toggle("hidden", !crossCartoMode);
-
-    if (crossCartoMode) {
-      await applyCrossCartoMode();
-    } else {
-      clearCrossCartoMode();
-    }
+    if (infoDefault) infoDefault.classList.toggle("hidden", active);
+    if (infoCross)   infoCross.classList.toggle("hidden", !active);
   });
 }
 
