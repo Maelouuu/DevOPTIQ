@@ -193,11 +193,11 @@
   <a href="#stack" class="done">Stack technique</a>
   <a href="#modeles" class="done">Modèles de données</a>
 
-  <div class="nav-section">Pages & Fonctionnalités</div>
+  <div class="nav-section">Pages &amp; Fonctionnalités</div>
   <a href="#cartographie" class="done">Cartographie (OptiqCarto)</a>
   <a href="#activites" class="done">Activités</a>
   <a href="#import-ia" class="done">Import IA</a>
-  <a href="#competences">Compétences & Skills</a>
+  <a href="#competences">Compétences &amp; Skills</a>
   <a href="#performance">Performance</a>
   <a href="#rh">Gestion RH</a>
   <a href="#chatbot">Chatbot IA</a>
@@ -503,7 +503,7 @@ werkzeug, python-dotenv, anthropic, gunicorn</pre>
   </section>
 
   <section id="competences">
-    <h2 class="section-title">Compétences & Skills <span class="badge badge-todo">À documenter</span></h2>
+    <h2 class="section-title">Compétences &amp; Skills <span class="badge badge-todo">À documenter</span></h2>
     <p>À compléter : gestion compétences/savoirs/softskills/aptitudes, propositions IA.</p>
   </section>
 
@@ -616,42 +616,30 @@ def _require_auth():
     <h3>Architecture modulaire</h3>
     <div class="diagram">
       <svg width="780" height="260" viewBox="0 0 780 260" xmlns="http://www.w3.org/2000/svg" font-family="'Segoe UI',sans-serif" font-size="11">
-        <!-- aggregator -->
         <rect x="10" y="100" width="150" height="58" rx="8" fill="#fdf2f8" stroke="#ec4899" stroke-width="2"/>
         <text x="85" y="124" text-anchor="middle" font-weight="700" fill="#be185d">activities.py</text>
         <text x="85" y="142" text-anchor="middle" font-size="9.5" fill="#6b7280">Agrégateur — importe</text>
         <text x="85" y="155" text-anchor="middle" font-size="9.5" fill="#6b7280">tous les sous-modules</text>
-        <!-- bp -->
         <rect x="195" y="10" width="148" height="38" rx="6" fill="#f9fafb" stroke="#e5e7eb" stroke-width="1.5"/>
         <text x="269" y="33" text-anchor="middle" font-weight="600" fill="#374151">activities_bp.py</text>
-        <!-- view -->
         <rect x="195" y="60" width="148" height="38" rx="6" fill="#f9fafb" stroke="#e5e7eb" stroke-width="1.5"/>
         <text x="269" y="84" text-anchor="middle" font-weight="600" fill="#374151">activities_view.py</text>
-        <!-- form -->
         <rect x="195" y="110" width="148" height="38" rx="6" fill="#f9fafb" stroke="#e5e7eb" stroke-width="1.5"/>
         <text x="269" y="134" text-anchor="middle" font-weight="600" fill="#374151">activities_form.py</text>
-        <!-- constraints -->
         <rect x="195" y="160" width="148" height="38" rx="6" fill="#f9fafb" stroke="#e5e7eb" stroke-width="1.5"/>
         <text x="269" y="184" text-anchor="middle" font-weight="600" fill="#374151">activities_constraints.py</text>
-        <!-- performance -->
         <rect x="195" y="210" width="148" height="38" rx="6" fill="#f9fafb" stroke="#e5e7eb" stroke-width="1.5"/>
         <text x="269" y="234" text-anchor="middle" font-weight="600" fill="#374151">activities_performance.py</text>
-        <!-- data -->
         <rect x="380" y="10" width="148" height="38" rx="6" fill="#f9fafb" stroke="#e5e7eb" stroke-width="1.5"/>
         <text x="454" y="33" text-anchor="middle" font-weight="600" fill="#374151">activities_data.py</text>
-        <!-- render -->
         <rect x="380" y="60" width="148" height="38" rx="6" fill="#f9fafb" stroke="#e5e7eb" stroke-width="1.5"/>
         <text x="454" y="84" text-anchor="middle" font-weight="600" fill="#374151">activities_render.py</text>
-        <!-- cartography -->
         <rect x="380" y="110" width="148" height="38" rx="6" fill="#f9fafb" stroke="#e5e7eb" stroke-width="1.5"/>
         <text x="454" y="134" text-anchor="middle" font-weight="600" fill="#374151">activities_cartography.py</text>
-        <!-- map -->
         <rect x="380" y="160" width="148" height="38" rx="6" fill="#fdf2f8" stroke="#fbcfe8" stroke-width="1.5"/>
         <text x="454" y="184" text-anchor="middle" font-weight="600" fill="#be185d">activities_map.py</text>
-        <!-- items api -->
         <rect x="565" y="10" width="200" height="38" rx="6" fill="#f0fdf4" stroke="#bbf7d0" stroke-width="1.5"/>
         <text x="665" y="33" text-anchor="middle" font-weight="600" fill="#15803d">activity_items_api.py</text>
-        <!-- arrows from aggregator -->
         <line x1="160" y1="120" x2="195" y2="29" stroke="#ec4899" stroke-width="1.2" marker-end="url(#arrA)"/>
         <line x1="160" y1="122" x2="195" y2="79" stroke="#ec4899" stroke-width="1.2" marker-end="url(#arrA)"/>
         <line x1="160" y1="129" x2="195" y2="129" stroke="#ec4899" stroke-width="1.2" marker-end="url(#arrA)"/>
@@ -693,10 +681,10 @@ def _require_auth():
     <pre>{
   "id": 42,
   "name": "Contrôle qualité",
-  "title": "Contrôle qualité",          // alias de name (compatibilité JS)
+  "title": "Contrôle qualité",
   "description": "...",
   "tasks": ["Vérifier le lot", ...],
-  "tools": ["SAP", "Excel"],             // agrégés depuis les tâches, dédupliqués
+  "tools": ["SAP", "Excel"],
   "constraints": [{"description": "..."}],
   "competencies": [{"description": "..."}],
   "input_data": ["Bon de livraison"],
@@ -709,7 +697,7 @@ def _require_auth():
 }</pre>
 
     <h3>API items activité — <code>GET /your_api/activity_items/&lt;id&gt;</code></h3>
-    <p>Défini dans <code>activity_items_api.py</code> (blueprint séparé <code>activity_items_api_bp</code>). Retourne les savoirs, savoir-faires et softskills via SQL brut (sans passer par l'ORM) pour compatibilité avec des schémas historiques. Les softskills sont formatés <code>"Habilete (Niveau)"</code>.</p>
+    <p>Défini dans <code>activity_items_api.py</code> (blueprint séparé <code>activity_items_api_bp</code>). Retourne les savoirs, savoir-faires et softskills via SQL brut pour compatibilité avec des schémas historiques. Les softskills sont formatés <code>"Habilete (Niveau)"</code>.</p>
     <pre>{ "savoirs": [...], "savoir_faire": [...], "hsc": [...] }</pre>
 
     <h3>Performance des connexions</h3>
@@ -732,7 +720,6 @@ def _require_auth():
     </table>
 
     <h3>Fonctions utilitaires de résolution (<code>activities_view.py</code>)</h3>
-    <p>Quatre fonctions privées résolvent les identifiants de liens en noms lisibles en interrogeant les tables <code>activities</code> et <code>data</code> :</p>
     <ul>
       <li><code>resolve_data_name(link, incoming)</code> — nom de la donnée portée par le lien</li>
       <li><code>resolve_source_name(link)</code> — nom de l'activité ou de la donnée source</li>
@@ -775,7 +762,7 @@ def _require_auth():
     </div>
 
     <h3>Format Excel attendu</h3>
-    <p>Le parseur détecte automatiquement la feuille principale (feuille contenant les mots-clés <em>activity</em>, <em>task</em>, <em>department</em>, <em>semi finish</em>, etc.) et identifie les colonnes par leurs en-têtes. Les cellules fusionnées (<em>merged cells</em>) sont propagées vers le bas pour reconstituer les groupes.</p>
+    <p>Le parseur détecte automatiquement la feuille principale et identifie les colonnes par leurs en-têtes. Les cellules fusionnées sont propagées vers le bas pour reconstituer les groupes.</p>
     <table>
       <tr><th>Colonne détectée</th><th>Mots-clés reconnus</th><th>Rôle</th></tr>
       <tr><td><code>activity</code></td><td><em>semi finish, semi-finish, activity</em></td><td>Nom de l'activité (groupement)</td></tr>
@@ -790,7 +777,6 @@ def _require_auth():
     </table>
 
     <h3>Algorithme de matching (<code>_algorithmic_match()</code>)</h3>
-    <p>Le matching compare chaque nom d'activité Excel avec les activités de la base pour l'entité active. Trois passes successives :</p>
     <ol>
       <li><strong>Correspondance exacte</strong> (casse ignorée) — score 1.0</li>
       <li><strong>Inclusion</strong> — l'un contient l'autre — score 0.88</li>
@@ -804,21 +790,16 @@ def _require_auth():
     </div>
 
     <h3>Enrichissement OpenAI (optionnel)</h3>
-    <p>Si <code>OPENAI_API_KEY</code> est défini dans l'environnement et qu'il reste des groupes non-matchés, <code>_try_openai_enrich()</code> appelle GPT (modèle configurable via <code>OPENAI_CHATBOT_MODEL</code>, défaut <code>gpt-4o-mini</code>) pour tenter une résolution sémantique (synonymes, traductions FR/EN). Les suggestions IA sont intégrées dans la liste "À résoudre" si la confiance IA est <code>medium</code> ou <code>low</code>, et directement dans "Mappée" si <code>high</code>.</p>
-    <div class="callout callout-warn">
-      L'enrichissement OpenAI est silencieux : toute erreur (quota, réseau, JSON malformé) est ignorée et le résultat algorithmique seul est retourné.
-    </div>
+    <p>Si <code>OPENAI_API_KEY</code> est défini et qu'il reste des groupes non-matchés, <code>_try_openai_enrich()</code> appelle GPT (défaut <code>gpt-4o-mini</code>) pour tenter une résolution sémantique. Toute erreur (quota, réseau, JSON malformé) est ignorée silencieusement.</p>
 
     <h3>Injection en base (<code>POST /api/import-full/inject</code>)</h3>
-    <p>L'utilisateur valide et corrige les correspondances dans l'interface, puis déclenche l'injection. Pour chaque groupe :</p>
     <ul>
-      <li><strong>Garant</strong> : recherché (insensible à la casse) ou créé dans <code>roles</code>, puis lié à l'activité avec statut <code>'garant'</code> dans <code>activity_roles</code>.</li>
-      <li><strong>Tâches</strong> : créées seulement si leur nom n'existe pas déjà pour l'activité (déduplication insensible à la casse). L'ordre est conservé (<code>Task.order</code> = max existant + incrément).</li>
-      <li><strong>Outils</strong> : recherchés ou créés dans <code>tools</code> (scope entité), liés aux tâches.</li>
-      <li><strong>Doer / Approbateur</strong> : rôles créés ou retrouvés, liés à la tâche via <code>task_roles</code> avec statut <code>'executant'</code> / <code>'approbateur'</code>.</li>
+      <li><strong>Garant</strong> : recherché ou créé dans <code>roles</code>, lié à l'activité avec statut <code>'garant'</code>.</li>
+      <li><strong>Tâches</strong> : créées seulement si leur nom n'existe pas déjà (déduplication insensible à la casse).</li>
+      <li><strong>Outils</strong> : get-or-create dans <code>tools</code> (scope entité), liés aux tâches.</li>
+      <li><strong>Doer / Approbateur</strong> : rôles créés ou retrouvés, liés via <code>task_roles</code>.</li>
       <li><strong>Compétences</strong> : ajoutées à l'activité si la description n'existe pas encore.</li>
     </ul>
-    <p>En cas d'erreur, un <code>db.session.rollback()</code> est effectué et l'erreur est renvoyée en JSON.</p>
 
     <h3>Référence API — Import IA</h3>
     <table>
@@ -826,35 +807,6 @@ def _require_auth():
       <tr><td>POST</td><td><code>/api/import-full/analyze</code></td><td>Analyse le fichier Excel (<code>multipart/form-data</code>, champ <code>file</code>). Retourne <code>{analysis, stats, db_activities}</code>.</td></tr>
       <tr><td>POST</td><td><code>/api/import-full/inject</code></td><td>Injecte les groupes validés (<code>application/json</code>, champ <code>groups</code>). Retourne <code>{status, stats}</code>.</td></tr>
     </table>
-
-    <h4>Exemple de réponse <code>/analyze</code></h4>
-    <pre>{
-  "status": "ok",
-  "stats": {
-    "total_groups_excel": 12,
-    "matched_activities": 9,
-    "unmatched_activities": 3,
-    "total_tasks": 48,
-    "matched_tasks": 40,
-    "unmatched_tasks": 8
-  },
-  "analysis": {
-    "matched_groups": [
-      {
-        "activity_name_excel": "Contrôle qualité",
-        "activity_id": 42,
-        "activity_name_db": "Contrôle qualité produit",
-        "confidence": "high",
-        "match_reason": "Correspondance approximative (93%)",
-        "guarantor": "Responsable QC",
-        "tasks": [...]
-      }
-    ],
-    "unmatched_groups": [...],
-    "analysis_notes": "Analyse terminée : 9 activité(s) mappée(s), 3 à résoudre manuellement."
-  },
-  "db_activities": [{"id": 42, "name": "Contrôle qualité produit"}, ...]
-}</pre>
   </section>
 
   <!-- ═══════════════════════════════════════════════════════════════ -->
