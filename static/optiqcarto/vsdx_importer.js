@@ -151,10 +151,17 @@ class VsdxImporter {
       const geomRows = doc.getElementsByTagName('Row');
       const geomSeq = [];
       let moveTos = 0;
+      // On normalise toutes les variantes de Row T= en deux familles LineTo / ArcTo.
+      // Sans ça, les masters Visio qui utilisent RelLineTo / RelEllipticalArcTo /
+      // ArcTo / PolylineTo échappent au comptage et la détection stadium rate.
+      const LINE_TYPES = new Set(['LineTo', 'RelLineTo', 'PolylineTo']);
+      const ARC_TYPES  = new Set(['EllipticalArcTo', 'RelEllipticalArcTo', 'ArcTo', 'RelArcTo']);
+      const MOVE_TYPES = new Set(['MoveTo', 'RelMoveTo']);
       for (let ri = 0; ri < geomRows.length; ri++) {
         const t = geomRows[ri].getAttribute('T');
-        if (t === 'LineTo'  || t === 'EllipticalArcTo') geomSeq.push(t);
-        if (t === 'MoveTo') moveTos++;
+        if (LINE_TYPES.has(t)) geomSeq.push('LineTo');
+        else if (ARC_TYPES.has(t)) geomSeq.push('EllipticalArcTo');
+        if (MOVE_TYPES.has(t)) moveTos++;
       }
 
       const arcCount  = geomSeq.filter(t => t === 'EllipticalArcTo').length;
@@ -190,15 +197,9 @@ class VsdxImporter {
         if (allSects[si].getAttribute('N') === 'Geometry') geomSectCount++;
       const isSubprocess = (geomSectCount >= 2 || moveTos >= 3 || isWavyBottom) && !isEllipse && !isDiamond;
 
-      // Stadium / capsule (external process): arcs only at the 2 short sides, 2 straight sides.
-      // Visio peut représenter chaque demi-cercle en UN seul arc (arcCount=2)
-      // ou en DEUX quarts d'arc consécutifs (arcCount=4 avec arcs consécutifs).
-      // Le différenciateur fiable d'un stade vs rounded-rect : lineCount === 2.
-      // Un rounded-rect a 4 arcs + 4 lignes, un stade en a toujours 2.
-      const isStadium = !isEllipse && !isDiamond && !isSubprocess
-                        && lineCount === 2 && arcCount >= 2;
-
       // First pass: outer shape dimensions (break early to avoid sub-shape dimensions)
+      // — Déplacé AVANT le test stadium pour qu'on puisse utiliser le ratio
+      // largeur/hauteur dans le fallback aspectStadium.
       for (const s of doc.getElementsByTagName('Shape')) {
         const w = this.vCell(s, 'Width'), h = this.vCell(s, 'Height');
         if (w) bw = parseFloat(w);
@@ -211,6 +212,23 @@ class VsdxImporter {
         if (fc && fc.startsWith('#') && !fillColor) fillColor = fc;
         if (bw && bh) break;
       }
+
+      // Stadium / capsule (external process). 3 chemins de détection :
+      //  (a) "Canonique" : 2 lignes droites + ≥ 2 arcs (arcs aux 2 extrémités).
+      //  (b) "Quart d'arcs sans côtés droits" : 4 arcs et 0/1 ligne — quand
+      //      Visio découpe entièrement le contour en arcs.
+      //  (c) "Aspect ratio" fallback : forme nettement plus large que haute
+      //      (ou inversement) avec au moins 1 arc, qui n'est ni un losange
+      //      ni un ellipse pur ni un subprocess. Couvre les masters customs
+      //      qui ne tombent pas exactement sur le pattern canonique.
+      const aspect = (bw && bh) ? Math.max(bw, bh) / Math.min(bw, bh) : 1;
+      const isStadiumCanon  = lineCount === 2 && arcCount >= 2;
+      const isStadiumAllArc = lineCount <= 1 && arcCount >= 4;
+      // Pour le fallback ratio on EXCLUT les rounded-rect (4 arcs + 4 lignes)
+      // en exigeant lineCount <= 2 : un stade a 2 lignes max, un rect-arrondi en a 4.
+      const isStadiumByRatio = arcCount >= 1 && aspect >= 1.5 && lineCount <= 2;
+      const isStadium = !isEllipse && !isDiamond && !isSubprocess
+                        && (isStadiumCanon || isStadiumAllArc || isStadiumByRatio);
       // Second pass: scan all sub-shapes for FillPattern if still default (may be nested)
       if (fp === 1) {
         for (const s of doc.getElementsByTagName('Shape')) {
@@ -369,10 +387,24 @@ class VsdxImporter {
     const newBands    = this.newBands;
     const legendBounds = this.legendBounds;
 
+    // Map qui relie le Y "naturel" (positions VSDX × SCALE, sans contrainte
+    // de hauteur min) au Y de la carto telle qu'elle sera rendue (avec min 80).
+    // Pour chaque bande on enregistre :
+    //   naturalTop / naturalBottom — bornes en Y naturel
+    //   shift                       — décalage à appliquer aux shapes naturellement
+    //                                 dans cette bande pour qu'elles restent dedans
+    //                                 après l'inflation au minimum 80 px.
+    // Utilisé en aval par importActivities pour ne PLUS faire planter les
+    // shapes dans la bande au-dessus quand min 80 inflate une bande étroite.
+    this.bandShifts = [];
+
     if (lanes.length > 0) {
+      let naturalCum = 0;
+      let ourCum = 0;
       for (let i = 0; i < lanes.length; i++) {
         const { el: s, abs } = lanes[i];
-        const bandH = Math.round(Math.max(80, abs.h * SCALE));
+        const naturalH = abs.h * SCALE;
+        const bandH = Math.round(Math.max(80, naturalH));
 
         // Lane label: look for text in direct children (skip nested groups)
         let label = '';
@@ -412,6 +444,14 @@ class VsdxImporter {
           continue;
         }
 
+        this.bandShifts.push({
+          naturalTop:    naturalCum,
+          naturalBottom: naturalCum + naturalH,
+          shift:         ourCum - naturalCum,
+        });
+        naturalCum += naturalH;
+        ourCum     += bandH;
+
         const bandIdx = newBands.length + 1;
         const color = !this.isWashedOut(fill) ? fill : FALLBACK_COLORS[bandIdx % FALLBACK_COLORS.length];
         newBands.push({ id: bandIdx, label: label || `Bande ${bandIdx}`, color, fontSize: 22, height: bandH });
@@ -419,6 +459,24 @@ class VsdxImporter {
     } else {
       newBands.push({ id: 1, label: 'Activités', color: '#22c55e', fontSize: 22, height: 500 });
     }
+  }
+
+  // Détermine le shift Y à appliquer à un point dont le Y naturel (sans
+  // contrainte de hauteur min) est donné, en se basant sur la bandShiftMap.
+  // Sans cette correction, une bande étroite inflée au min 80 décale
+  // visuellement toutes les bandes en dessous, et les shapes (placées
+  // d'après leurs coords VSDX naturelles) finissent dans la mauvaise bande.
+  _bandShiftFor(naturalY) {
+    const map = this.bandShifts;
+    if (!map || map.length === 0) return 0;
+    for (const bs of map) {
+      if (naturalY >= bs.naturalTop && naturalY < bs.naturalBottom) return bs.shift;
+    }
+    // Au-dessus de la première bande → shift de la première bande.
+    // En dessous de la dernière → shift de la dernière (mêmes proportions
+    // qu'à l'intérieur de la dernière).
+    if (naturalY < map[0].naturalTop)         return map[0].shift;
+    return map[map.length - 1].shift;
   }
 
   // Returns true if a shape's center falls inside a legend lane
@@ -520,7 +578,15 @@ class VsdxImporter {
       const screenW = Math.min(MAX_ACT_W, rawW);
       const screenH = Math.min(MAX_ACT_H, rawH);
       const screenX = Math.max(144, Math.round((abs.pinX - leftEdge) * SCALE) - Math.round(screenW / 2));
-      const screenY = Math.max(0, Math.round((topOfDiagram - abs.pinY) * SCALE) - Math.round(screenH / 2));
+      // Y "naturel" : position basée sur les coords VSDX brutes × SCALE,
+      // SANS prendre en compte le minimum 80 px sur la hauteur des bandes.
+      const naturalScreenY = Math.round((topOfDiagram - abs.pinY) * SCALE) - Math.round(screenH / 2);
+      const naturalCenterY = naturalScreenY + screenH / 2;
+      // bandShift corrige le décalage cumulatif quand une bande étroite a
+      // été inflée au min 80 px : on ramène le shape dans la bande à laquelle
+      // il appartient naturellement, même si nos bandes sont plus hautes.
+      const bandShift = this._bandShiftFor(naturalCenterY);
+      const screenY = Math.max(0, naturalScreenY + bandShift);
       if (screenY > totalBandH + 100) continue; // outside diagram
 
       const mInfoForType = masterInfoCache[mid] || {};
@@ -761,8 +827,14 @@ class VsdxImporter {
       return raw.map(p => ({ x: isRel ? bx + p.x : p.x, y: isRel ? by + p.y : p.y }));
     }
 
+    // Wrap visioToScreen pour appliquer le bandShift sur Y (cohérent avec
+    // l'ajustement appliqué dans importActivities — sinon les customPath
+    // des connecteurs partent du milieu d'une bande quand les shapes ont
+    // été décalés vers le bas par l'inflation min 80).
+    const self = this;
     function visioToScreen(vx, vy) {
-      return { x: (vx - leftEdge) * SCALE, y: (topOfDiagram - vy) * SCALE };
+      const ny = (topOfDiagram - vy) * SCALE;
+      return { x: (vx - leftEdge) * SCALE, y: ny + self._bandShiftFor(ny) };
     }
 
     function snapToEdge(s, dir, t, halo) {
