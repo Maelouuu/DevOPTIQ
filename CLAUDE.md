@@ -159,20 +159,22 @@ Fonctionnement :
 - **Déploiement** : variables d'environnement Cloud Run, workflow docker/gcloud, stratégie migrations DB (pas d'Alembic en prod)
 - **Conventions** : JS vanilla, CSS, Blueprints, commentaires, workflow Git
 
+### Complété (session 2 — 2026-05-13)
+- **Activités — Fiche & Liste** : architecture modulaire (diagramme SVG des 8 sous-modules), page liste `GET /activities/view` (données rassemblées par activité : tâches, connexions, garant, task_conn_map, compétences), API détail `GET /activities/<id>/details` (JSON pour modales "Proposer…"), API items `GET /your_api/activity_items/<id>`, CRUD Performance sur les connexions, endpoints contraintes/data/reorder/update-cartography, fonctions utilitaires de résolution de liens
+- **Import IA — Excel → DB** : flux en deux étapes (analyze → inject), format Excel attendu (colonnes auto-détectées, merged cells propagées), algorithme de matching 3 passes (exact/inclusion/fuzzy, seuils 0.60/0.75/0.90), enrichissement OpenAI optionnel (silencieux si indisponible), injection en base (déduplication tâches, get-or-create outils/rôles, compétences), référence complète API avec exemple de réponse JSON
+
 ### En cours
 - *(rien)*
 
 ### À faire (par priorité)
-1. Fiche activité (toutes les routes `activities_*.py` : `activities.py`, `activities_view.py`, `activities_bp.py`, etc.)
-2. Système d'import IA (`import_full.py` + `import_full.js`)
-3. Gestion RH (`gestion_rh.py`)
-4. Performances (`performance.py`, `performance_personnalisee.py`)
-5. Chatbot (`chatbot.py`)
-6. Gestion du temps (`time_view.py`, `time_extra.py`)
-7. Compétences & Skills (`competences.py`, `propose_*.py`, `softskills.py`, etc.)
-8. Gestion compte + onboarding (`gestion_compte.py`, `onboarding.py`)
-9. Éditeur OptiqCarto côté JS (`static/optiqcarto/editor.js`)
-10. Tous les autres blueprints (export, changelog, projection_metier, etc.)
+1. Gestion RH (`gestion_rh.py`)
+2. Performances (`performance.py`, `performance_personnalisee.py`)
+3. Chatbot (`chatbot.py`)
+4. Gestion du temps (`time_view.py`, `time_extra.py`)
+5. Compétences & Skills (`competences.py`, `propose_*.py`, `softskills.py`, etc.)
+6. Gestion compte + onboarding (`gestion_compte.py`, `onboarding.py`)
+7. Éditeur OptiqCarto côté JS (`static/optiqcarto/editor.js`)
+8. Tous les autres blueprints (export, changelog, projection_metier, etc.)
 
 ---
 
