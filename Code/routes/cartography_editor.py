@@ -190,10 +190,17 @@ def _do_sync(entity, diagram):
             db.session.add(act)
         shape_to_act[sid] = act
 
-    # Delete activities removed from the carto
-    for sid, act in existing_acts.items():
-        if sid not in new_shape_ids:
-            db.session.delete(act)
+    # Delete activities removed from the carto — activity_roles FK must be
+    # cleaned up FIRST to avoid ForeignKeyViolation on flush.
+    acts_to_remove = [act for sid, act in existing_acts.items() if sid not in new_shape_ids]
+    if acts_to_remove:
+        remove_ids = [a.id for a in acts_to_remove if a.id]
+        if remove_ids:
+            db.session.execute(
+                activity_roles.delete().where(activity_roles.c.activity_id.in_(remove_ids))
+            )
+    for act in acts_to_remove:
+        db.session.delete(act)
 
     db.session.flush()
 

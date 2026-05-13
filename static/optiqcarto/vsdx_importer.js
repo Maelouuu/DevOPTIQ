@@ -137,8 +137,101 @@ class VsdxImporter {
     } catch(e) { console.warn('[VsdxImporter] Masters:', e); }
   }
 
+  // ── Static helper: analyse géométrique du master XML ──────────────────────
+  // Scopée au shape primaire (premier enfant direct de <Shapes>) pour éviter
+  // que les sous-shapes imbriqués (placeholder texte, etc.) n'inflatent les compteurs.
+  // Retourne les flags de classification + logs console pour le debug.
+  static _parseGeometry(doc, masterName) {
+    // 1. Trouver le shape primaire
+    const shapesRoot = doc.getElementsByTagName('Shapes')[0];
+    let primaryShape = null;
+    if (shapesRoot) {
+      for (let ci = 0; ci < shapesRoot.childNodes.length; ci++) {
+        const n = shapesRoot.childNodes[ci];
+        if (n.nodeType === 1 && n.tagName === 'Shape') { primaryShape = n; break; }
+      }
+    }
+    if (!primaryShape) primaryShape = doc.getElementsByTagName('Shape')[0] || null;
+
+    // 2. Sections Geometry enfants DIRECTS du shape primaire seulement
+    const geomSects = [];
+    if (primaryShape) {
+      for (let ci = 0; ci < primaryShape.childNodes.length; ci++) {
+        const n = primaryShape.childNodes[ci];
+        if (n.nodeType === 1 && n.tagName === 'Section' && n.getAttribute('N') === 'Geometry')
+          geomSects.push(n);
+      }
+    }
+
+    // 3. Compter les types de Row
+    const LINE_TYPES = new Set(['LineTo', 'RelLineTo', 'PolylineTo']);
+    const ARC_TYPES  = new Set(['EllipticalArcTo', 'RelEllipticalArcTo', 'ArcTo', 'RelArcTo',
+                                'NURBSTo', 'SplineTo', 'RelSplineTo']);
+    const MOVE_TYPES = new Set(['MoveTo', 'RelMoveTo']);
+    const geomSeq = []; // 'L' | 'A'
+    const unknownTypes = new Set();
+    let moveTos = 0, totalRows = 0;
+
+    for (const sect of geomSects) {
+      const rows = sect.getElementsByTagName('Row');
+      for (let ri = 0; ri < rows.length; ri++) {
+        const t = rows[ri].getAttribute('T') || '';
+        totalRows++;
+        if (LINE_TYPES.has(t))      geomSeq.push('L');
+        else if (ARC_TYPES.has(t))  geomSeq.push('A');
+        else if (!MOVE_TYPES.has(t) && t) unknownTypes.add(t);
+        if (MOVE_TYPES.has(t)) moveTos++;
+      }
+    }
+
+    const arcCount     = geomSeq.filter(v => v === 'A').length;
+    const lineCount    = geomSeq.filter(v => v === 'L').length;
+    const geomSectCount = geomSects.length;
+
+    // 4. Classifications
+    const isEllipse = arcCount > 0 && arcCount > lineCount * 2;
+    let isDiamond = false;
+    if (arcCount > 0) {
+      const lastA = geomSeq.lastIndexOf('A');
+      if (lastA < geomSeq.length - 1) isDiamond = geomSeq.slice(lastA + 1).includes('L');
+    }
+    let hasConsecArcs = false;
+    for (let i = 0; i < geomSeq.length - 1; i++)
+      if (geomSeq[i] === 'A' && geomSeq[i+1] === 'A') { hasConsecArcs = true; break; }
+    const isWavyBottom = hasConsecArcs && !isEllipse && !isDiamond;
+    const isSubprocess = (geomSectCount >= 2 || moveTos >= 3 || isWavyBottom) && !isEllipse && !isDiamond;
+
+    // 5. Stadium — 4 chemins de détection
+    const isStadiumCanon   = lineCount === 2 && arcCount >= 2;
+    const isStadiumAllArc  = lineCount <= 1 && arcCount >= 4;
+    const isStadiumByRatio = arcCount >= 1 && lineCount <= 2; // aspect checked by caller
+    // Fallback: sections trouvées mais tous les types de Row sont inconnus (ex: format VSDX exotique)
+    // → si le ratio est élongé et pas de vague, c'est probablement un stadium.
+    const isStadiumUnknown = geomSectCount > 0 && totalRows > 0 && arcCount === 0 && lineCount === 0;
+
+    // Log détaillé dans la console navigateur — ouvrir DevTools lors de l'import pour voir
+    console.debug(
+      '[VSDX geom]', (masterName || '?').padEnd(30),
+      '| sects:', geomSectCount, '| rows:', totalRows,
+      '| arcs:', arcCount, '| lines:', lineCount, '| moveTos:', moveTos,
+      '| seq:', geomSeq.join('') || '(vide)',
+      unknownTypes.size ? '| unknownRowTypes: ' + [...unknownTypes].join(',') : '',
+      '| isStadiumCanon:', isStadiumCanon, '| byRatio(no-asp):', isStadiumByRatio,
+      '| isStadiumUnknown:', isStadiumUnknown,
+      '| isWavy:', isWavyBottom, '| isSubprocess:', isSubprocess,
+      '| isEllipse:', isEllipse, '| isDiamond:', isDiamond
+    );
+
+    return { arcCount, lineCount, moveTos, geomSectCount, totalRows, geomSeq,
+             isEllipse, isDiamond: isDiamond, isWavyBottom, isSubprocess,
+             isStadiumCanon, isStadiumByRatio, isStadiumAllArc, isStadiumUnknown,
+             unknownTypes };
+  }
+
   async getMasterInfo(mid) {
-    const DEFAULTS = { w: 0.9449, h: 0.7087, linePattern: 1, fillPattern: 1, isEllipse: false, isDiamond: false, isSubprocess: false, isStadium: false, fillColor: null };
+    const DEFAULTS = { w: 0.9449, h: 0.7087, linePattern: 1, fillPattern: 1,
+                       isEllipse: false, isDiamond: false, isSubprocess: false,
+                       isStadium: false, isWavyBottom: false, aspect: 1, fillColor: null };
     if (!mid) return DEFAULTS;
     if (this.masterInfoCache[mid]) return this.masterInfoCache[mid];
     const fpath = this.masterIdToFile[mid];
@@ -146,85 +239,9 @@ class VsdxImporter {
     try {
       const xml = await this.zip.file(fpath).async('text');
       const doc = this.parseXml(xml);
-      let bw, bh, lp = 1, fp = 1, isDiamond = false, fillColor = null;
 
-      // ── Scope geometry reading to the PRIMARY shape only ──────────────────────
-      // doc.getElementsByTagName('Row') reads ALL rows from the entire master XML,
-      // including nested sub-shapes (e.g. a label placeholder sub-shape). This
-      // inflates lineCount/arcCount and makes stadium detection fail for shapes like
-      // "External Process" that embed a text sub-shape with its own geometry.
-      // Fix: find the first direct-child Shape of the root Shapes element and read
-      // only its direct Section[N="Geometry"] children.
-      const _shapesRoot = doc.getElementsByTagName('Shapes')[0];
-      let _primaryShape = null;
-      if (_shapesRoot) {
-        for (let _ci = 0; _ci < _shapesRoot.childNodes.length; _ci++) {
-          const _n = _shapesRoot.childNodes[_ci];
-          if (_n.nodeType === 1 && _n.tagName === 'Shape') { _primaryShape = _n; break; }
-        }
-      }
-      // Fallback: first Shape anywhere in the doc
-      if (!_primaryShape) _primaryShape = doc.getElementsByTagName('Shape')[0] || null;
-
-      // Collect Geometry sections that are DIRECT children of the primary shape.
-      // Sub-shapes live inside a nested <Shapes> child — they are skipped.
-      const primGeomSects = [];
-      if (_primaryShape) {
-        for (let _ci = 0; _ci < _primaryShape.childNodes.length; _ci++) {
-          const _n = _primaryShape.childNodes[_ci];
-          if (_n.nodeType === 1 && _n.tagName === 'Section' && _n.getAttribute('N') === 'Geometry') {
-            primGeomSects.push(_n);
-          }
-        }
-      }
-
-      const geomSeq = [];
-      let moveTos = 0;
-      const LINE_TYPES = new Set(['LineTo', 'RelLineTo', 'PolylineTo']);
-      // NURBSTo/SplineTo are smooth curves used by Visio for stadium (capsule) ends.
-      const ARC_TYPES  = new Set(['EllipticalArcTo', 'RelEllipticalArcTo', 'ArcTo', 'RelArcTo',
-                                   'NURBSTo', 'SplineTo', 'RelSplineTo']);
-      const MOVE_TYPES = new Set(['MoveTo', 'RelMoveTo']);
-      for (const _sect of primGeomSects) {
-        const _rows = _sect.getElementsByTagName('Row');
-        for (let ri = 0; ri < _rows.length; ri++) {
-          const t = _rows[ri].getAttribute('T');
-          if (LINE_TYPES.has(t)) geomSeq.push('LineTo');
-          else if (ARC_TYPES.has(t)) geomSeq.push('EllipticalArcTo');
-          if (MOVE_TYPES.has(t)) moveTos++;
-        }
-      }
-
-      const arcCount     = geomSeq.filter(t => t === 'EllipticalArcTo').length;
-      const lineCount    = geomSeq.filter(t => t === 'LineTo').length;
-      const geomSectCount = primGeomSects.length;
-
-      // Pure ellipse: predominantly arcs with few/no straight edges.
-      const isEllipse = arcCount > 0 && arcCount > lineCount * 2;
-
-      // Diamond: arc(s) followed by a LineTo after the last arc.
-      if (arcCount > 0) {
-        const lastArcIdx = geomSeq.lastIndexOf('EllipticalArcTo');
-        if (lastArcIdx !== -1 && lastArcIdx < geomSeq.length - 1)
-          isDiamond = geomSeq.slice(lastArcIdx + 1).includes('LineTo');
-      }
-
-      // Wavy-bottom subprocess: consecutive arcs (the wave). Stadiums alternate
-      // line-arc-line-arc so they never have consecutive arcs.
-      let hasConsecutiveArcs = false;
-      for (let i = 0; i < geomSeq.length - 1; i++) {
-        if (geomSeq[i] === 'EllipticalArcTo' && geomSeq[i+1] === 'EllipticalArcTo') {
-          hasConsecutiveArcs = true; break;
-        }
-      }
-      const isWavyBottom = hasConsecutiveArcs && !isEllipse && !isDiamond;
-
-      // Subprocess: multiple geometry sections (internal markers), ≥3 MoveTos, or wavy bottom.
-      const isSubprocess = (geomSectCount >= 2 || moveTos >= 3 || isWavyBottom) && !isEllipse && !isDiamond;
-
-      // First pass: outer shape dimensions (break early to avoid sub-shape dimensions)
-      // — Déplacé AVANT le test stadium pour qu'on puisse utiliser le ratio
-      // largeur/hauteur dans le fallback aspectStadium.
+      // ── Dimensions + style du shape primaire ──
+      let bw, bh, lp = 1, fp = 1, fillColor = null;
       for (const s of doc.getElementsByTagName('Shape')) {
         const w = this.vCell(s, 'Width'), h = this.vCell(s, 'Height');
         if (w) bw = parseFloat(w);
@@ -237,38 +254,44 @@ class VsdxImporter {
         if (fc && fc.startsWith('#') && !fillColor) fillColor = fc;
         if (bw && bh) break;
       }
-
-      // Stadium / capsule (external process). 3 chemins de détection :
-      //  (a) "Canonique" : 2 lignes droites + ≥ 2 arcs (arcs aux 2 extrémités).
-      //  (b) "Quart d'arcs sans côtés droits" : 4 arcs et 0/1 ligne — quand
-      //      Visio découpe entièrement le contour en arcs.
-      //  (c) "Aspect ratio" fallback : forme nettement plus large que haute
-      //      (ou inversement) avec au moins 1 arc, qui n'est ni un losange
-      //      ni un ellipse pur ni un subprocess. Couvre les masters customs
-      //      qui ne tombent pas exactement sur le pattern canonique.
-      const aspect = (bw && bh) ? Math.max(bw, bh) / Math.min(bw, bh) : 1;
-      const isStadiumCanon  = lineCount === 2 && arcCount >= 2;
-      const isStadiumAllArc = lineCount <= 1 && arcCount >= 4;
-      // Pour le fallback ratio on EXCLUT les rounded-rect (4 arcs + 4 lignes)
-      // en exigeant lineCount <= 2 : un stade a 2 lignes max, un rect-arrondi en a 4.
-      const isStadiumByRatio = arcCount >= 1 && aspect >= 1.5 && lineCount <= 2;
-      // Guard only against wavy-bottom shapes (true subprocess marker).
-      // NOT against isSubprocess in general — Visio sometimes splits a stadium
-      // into 2 geometry sections (one per rounded end), which wrongly triggers
-      // the isSubprocess heuristic. Using !isWavyBottom keeps real subprocess
-      // shapes out while letting stadiums through.
-      const isStadium = !isEllipse && !isDiamond && !isWavyBottom
-                        && (isStadiumCanon || isStadiumAllArc || isStadiumByRatio);
-      // Second pass: scan all sub-shapes for FillPattern if still default (may be nested)
+      // Second pass FillPattern (sous-shapes)
       if (fp === 1) {
         for (const s of doc.getElementsByTagName('Shape')) {
           const fpv = this.vCellDeep(s, 'FillPattern');
           if (fpv) { const n = parseInt(fpv) || 1; if (n !== 1) { fp = n; break; } }
         }
       }
-      return this.masterInfoCache[mid] = { w: bw || 0.9449, h: bh || 0.7087, linePattern: lp, fillPattern: fp, isEllipse, isDiamond, isSubprocess, isStadium, fillColor };
+
+      const aspect = (bw && bh) ? Math.max(bw, bh) / Math.min(bw, bh) : 1;
+      const masterName = Object.entries(this.masterIdToName || {}).find(([k]) => k === mid)?.[1] || '';
+
+      // ── Analyse géométrique (scopée au shape primaire) ──
+      const g = VsdxImporter._parseGeometry(doc, masterName);
+
+      // Stadium : aspect ratio vérifié ici (pas dans _parseGeometry)
+      const isStadium = !g.isEllipse && !g.isDiamond && !g.isWavyBottom && (
+        g.isStadiumCanon ||
+        g.isStadiumAllArc ||
+        (g.isStadiumByRatio && aspect >= 1.5) ||
+        (g.isStadiumUnknown && aspect >= 1.5)  // fallback types inconnus
+      );
+
+      console.debug(
+        '[VSDX master]', (masterName || '?').padEnd(30),
+        '| aspect:', aspect.toFixed(2), '| isStadium:', isStadium,
+        '| isSubprocess:', g.isSubprocess, '| fp:', fp, '| fillColor:', fillColor || '-'
+      );
+
+      return this.masterInfoCache[mid] = {
+        w: bw || 0.9449, h: bh || 0.7087,
+        linePattern: lp, fillPattern: fp, fillColor,
+        isEllipse: g.isEllipse, isDiamond: g.isDiamond,
+        isSubprocess: g.isSubprocess, isWavyBottom: g.isWavyBottom,
+        isStadium, aspect,
+      };
     } catch(e) {
-      return this.masterInfoCache[mid] = { w: 0.9449, h: 0.7087, linePattern: 1, fillPattern: 1, isEllipse: false, isDiamond: false, isSubprocess: false, isStadium: false, fillColor: null };
+      console.warn('[VSDX getMasterInfo] mid=', mid, e);
+      return this.masterInfoCache[mid] = { ...DEFAULTS };
     }
   }
 
@@ -626,26 +649,40 @@ class VsdxImporter {
       // pas (ex: shape custom redessinée mais qui garde le nom du stencil).
       const isExternalByName = /\b(external|externe|outsourc\w*|sous.?trait\w*)\b/i.test(masterName);
 
+      // isStadiumByAspect : forme élongée non-vague mal classée par la géométrie
+      // → dernier recours si isStadium=false mais aspect >= 1.5 et pas de vague
+      const isStadiumByAspect = !mInfoForType.isWavyBottom
+                                && (mInfoForType.aspect || 1) >= 1.5
+                                && !mInfoForType.isEllipse && !mInfoForType.isDiamond;
+
       let shapeType = detectShapeType(masterName, vType,
                           mInfoForType.isEllipse, mInfoForType.isDiamond,
                           mInfoForType.isSubprocess,
                           mInfoForType.isStadium || isExternalByName);
-      // Safety net: if the name marks this as external but geometry mis-classified
-      // it as subprocess (special), override to process so subtype='external' applies.
-      if (isExternalByName && shapeType === 'special') shapeType = 'process';
+
+      // Safety nets — overrides quand la géométrie ou le nom n'ont pas suffi
+      if (shapeType === 'special') {
+        if (isExternalByName) {
+          // Nom explicitement "external / externe" → process externe
+          shapeType = 'process';
+        } else if (isStadiumByAspect && vType !== 'Group') {
+          // Forme élongée non-vague sans master Group → probablement externe
+          shapeType = 'process';
+        }
+        // Note: vType === 'Group' elongated est ambigu (peut être un container),
+        // on le laisse en 'special' si ni name ni géométrie n'ont confirmé.
+      }
 
       // ── Subtype detection (only for 'process' shapes) ─────────────────
-      //   Stadium geometry ou nom 'external'        → 'external'
-      //   Non-solid fill (FillPattern ≥ 2 = hachures) → 'extco'
-      // Visio FillPattern: 1=solid, 2+=patterns (density, lines, diagonales…).
-      // On traite tout pattern ≥ 2 comme hachures (extco) : c'est la convention
-      // établie pour hard.vsdx où les activités extco utilisent FillPattern 2-13.
       const shapeFillPattern = parseInt(this.vCellDeep(s, 'FillPattern') || '0') || (mInfoForType.fillPattern || 1);
       let subtype = 'normal';
       if (shapeType === 'process') {
-        if (mInfoForType.isStadium || isExternalByName) {
+        if (mInfoForType.isStadium || isExternalByName || isStadiumByAspect) {
           subtype = 'external';
-          console.debug('[VSDX external]', this.vText(s) || id, 'master=', masterName, 'stadium=', !!mInfoForType.isStadium, 'byName=', isExternalByName);
+          console.debug('[VSDX external]', this.vText(s) || id,
+            'master=', masterName, 'stadium=', !!mInfoForType.isStadium,
+            'byName=', isExternalByName, 'byAspect=', isStadiumByAspect,
+            'aspect=', (mInfoForType.aspect || 1).toFixed(2));
         } else if (shapeFillPattern >= 2) {
           subtype = 'extco';
           console.debug('[VSDX hatch]', this.vText(s) || id, 'FillPattern=', shapeFillPattern, 'master=', masterName);
