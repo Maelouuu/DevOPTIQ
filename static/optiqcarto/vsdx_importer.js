@@ -604,20 +604,18 @@ class VsdxImporter {
       // ── Subtype detection (only for 'process' shapes) ─────────────────
       //   Stadium geometry ou nom 'external'        → 'external'
       //   Non-solid fill (FillPattern ≥ 2 = hachures) → 'extco'
-      // Visio FillPattern: 1=solid, 2-7=density, 8=horizontal, 9=vertical,
-      // 10=fwd-diag, 11=bwd-diag, 12=cross, 13=diag-cross, 14+=other patterns.
+      // Visio FillPattern: 1=solid, 2+=patterns (density, lines, diagonales…).
+      // On traite tout pattern ≥ 2 comme hachures (extco) : c'est la convention
+      // établie pour hard.vsdx où les activités extco utilisent FillPattern 2-13.
       const shapeFillPattern = parseInt(this.vCellDeep(s, 'FillPattern') || '0') || (mInfoForType.fillPattern || 1);
       let subtype = 'normal';
       if (shapeType === 'process') {
         if (mInfoForType.isStadium || isExternalByName) {
           subtype = 'external';
           console.debug('[VSDX external]', this.vText(s) || id, 'master=', masterName, 'stadium=', !!mInfoForType.isStadium, 'byName=', isExternalByName);
-        } else if (shapeFillPattern >= 14) {
+        } else if (shapeFillPattern >= 2) {
           subtype = 'extco';
           console.debug('[VSDX hatch]', this.vText(s) || id, 'FillPattern=', shapeFillPattern, 'master=', masterName);
-        } else if (shapeFillPattern > 1) {
-          // FillPattern 2-13 = density/dot patterns, not line hatches → log only, not extco
-          console.debug('[VSDX fill-pattern]', this.vText(s) || id, 'FillPattern=', shapeFillPattern, '(density, not hatch)');
         }
       }
 
@@ -785,6 +783,20 @@ class VsdxImporter {
     }
   }
 
+  // Wrap a connection label to 2 lines if it's longer than MAX_CHARS.
+  // Splits at the space nearest to the midpoint so both halves are balanced.
+  static _wrapConnLabel(label, maxChars = 26) {
+    if (!label || label.length <= maxChars) return label;
+    const mid = Math.floor(label.length / 2);
+    let splitAt = -1;
+    for (let i = 0; i <= mid; i++) {
+      if (label[mid - i] === ' ') { splitAt = mid - i; break; }
+      if (mid + i < label.length && label[mid + i] === ' ') { splitAt = mid + i; break; }
+    }
+    if (splitAt === -1) return label; // no space — leave as-is
+    return label.slice(0, splitAt) + '\n' + label.slice(splitAt + 1);
+  }
+
   // ─── Phase 13: Build connections ────────────────────────────────
 
   async buildConnections() {
@@ -918,7 +930,7 @@ class VsdxImporter {
       const connObj = {
         id: this.nextOid++, fromId, toId, fromPortDir, toPortDir,
         color: srcShape ? srcShape.color : '#567460',
-        label: connLabel, style: isDashed ? 'dashed' : 'solid', routing: 'orthogonal',
+        label: VsdxImporter._wrapConnLabel(connLabel), style: isDashed ? 'dashed' : 'solid', routing: 'orthogonal',
       };
       if (fromPortT !== undefined) connObj.fromPortT = fromPortT;
       if (toPortT   !== undefined) connObj.toPortT   = toPortT;

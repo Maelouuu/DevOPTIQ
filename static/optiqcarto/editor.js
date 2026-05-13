@@ -89,6 +89,7 @@ let labelEditing = null;        // { shapeId }
 let portDrag = null;            // { fromShapeId, fromPort:{x,y,dir} } — drag depuis un port
 let connEndDrag = null;     // { connId, which:'from'|'to', curX, curY, snapShapeId, snapDir }
 let bendDrag = null;        // { connId, startX, startY, startOffset:{dx,dy} }
+let labelDrag = null;       // { connId, startLx, startLy, startX, startY }
 let markerIds = new Map();      // "color-style" → markerId
 const hatchIds = new Set();     // pattern IDs déjà créés dans les defs
 let leftPanelOpen = false;
@@ -475,8 +476,11 @@ function renderConnections() {
 
     // Label : placement optimal parmi des dizaines de candidats
     if (c.label) {
-      const lw = c.label.length * 6;
-      const lh = 13;
+      const labelLines = c.label.split('\n');
+      const maxLineLen = Math.max(...labelLines.map(l => l.length));
+      const lw = Math.max(20, maxLineLen * 6);
+      const lineH = 13;
+      const lh = lineH * labelLines.length + (labelLines.length > 1 ? 3 : 0);
       let lx, ly, angle = 0;
 
       // Déterminer si la flèche est majoritairement horizontale ou verticale
@@ -485,103 +489,126 @@ function renderConnections() {
         totalH += Math.abs(orthopts[i+1].x - orthopts[i].x);
         totalV += Math.abs(orthopts[i+1].y - orthopts[i].y);
       }
-      const arrowMajorH = totalH >= totalV; // >50% horizontal → label forcément sur segment H
+      const arrowMajorH = totalH >= totalV;
 
-      // Trouver le plus long segment de l'orientation dominante (et le plus long tout court)
-      let longestSeg = 0, longestLen = 0, longestForcedSeg = -1, longestForcedLen = 0;
-      for (let i = 0; i < orthopts.length - 1; i++) {
-        const pa = orthopts[i], pb = orthopts[i + 1];
-        const l = Math.hypot(pb.x - pa.x, pb.y - pa.y);
-        const segH = Math.abs(pb.y - pa.y) < 2;
-        if (l > longestLen) { longestLen = l; longestSeg = i; }
-        if (segH === arrowMajorH && l > longestForcedLen) { longestForcedLen = l; longestForcedSeg = i; }
-      }
-      const preferSeg = longestForcedSeg >= 0 ? longestForcedSeg : longestSeg;
-
-      // Générer les candidats uniquement sur les segments de l'orientation dominante
-      const CANDS = [];
-      for (let i = 0; i < orthopts.length - 1; i++) {
-        const pa = orthopts[i], pb = orthopts[i + 1];
-        const sdx = pb.x - pa.x, sdy = pb.y - pa.y;
-        const slen = Math.hypot(sdx, sdy);
-        if (slen < 10) continue;
-        const isH = Math.abs(sdy) < Math.abs(sdx);
-        if (isH !== arrowMajorH) continue; // skip segments de mauvaise orientation
-        const nx = -sdy / slen, ny = sdx / slen;
-        const offsets = isH ? [0, -16, 16, -32, 32] : [-20, 20, -40, 40];
-        const step = (i === preferSeg) ? 0.06 : 0.18;
-        for (let t = step; t <= 1 - step; t += step) {
-          const bx = pa.x + sdx * t, by = pa.y + sdy * t;
-          for (const perp of offsets) {
-            CANDS.push({ x: bx + nx * perp, y: by + ny * perp, isH, perp, onPref: i === preferSeg });
-          }
+      if (c.labelOffset) {
+        // Position fixée par l'utilisateur via drag
+        lx = c.labelOffset.x;
+        ly = c.labelOffset.y;
+        angle = arrowMajorH ? 0 : -90;
+      } else {
+        // Trouver le plus long segment de l'orientation dominante
+        let longestSeg = 0, longestLen = 0, longestForcedSeg = -1, longestForcedLen = 0;
+        for (let i = 0; i < orthopts.length - 1; i++) {
+          const pa = orthopts[i], pb = orthopts[i + 1];
+          const l = Math.hypot(pb.x - pa.x, pb.y - pa.y);
+          const segH = Math.abs(pb.y - pa.y) < 2;
+          if (l > longestLen) { longestLen = l; longestSeg = i; }
+          if (segH === arrowMajorH && l > longestForcedLen) { longestForcedLen = l; longestForcedSeg = i; }
         }
-      }
-      // Fallback si aucun candidat (cas dégénéré)
-      if (CANDS.length === 0) {
+        const preferSeg = longestForcedSeg >= 0 ? longestForcedSeg : longestSeg;
+
+        // Générer les candidats sur les segments de l'orientation dominante
+        const CANDS = [];
         for (let i = 0; i < orthopts.length - 1; i++) {
           const pa = orthopts[i], pb = orthopts[i + 1];
           const sdx = pb.x - pa.x, sdy = pb.y - pa.y;
           const slen = Math.hypot(sdx, sdy);
-          if (slen < 4) continue;
+          if (slen < 10) continue;
           const isH = Math.abs(sdy) < Math.abs(sdx);
+          if (isH !== arrowMajorH) continue;
           const nx = -sdy / slen, ny = sdx / slen;
-          for (const perp of [0, -16, 16]) {
-            CANDS.push({ x: pa.x + sdx * 0.5 + nx * perp, y: pa.y + sdy * 0.5 + ny * perp, isH, perp, onPref: false });
+          const offsets = [0, -16, 16, -32, 32];
+          const step = (i === preferSeg) ? 0.06 : 0.18;
+          for (let t = step; t <= 1 - step; t += step) {
+            const bx = pa.x + sdx * t, by = pa.y + sdy * t;
+            for (const perp of offsets) {
+              CANDS.push({ x: bx + nx * perp, y: by + ny * perp, isH, perp, onPref: i === preferSeg });
+            }
           }
         }
-      }
-      if (CANDS.length === 0) CANDS.push({ x: (fp.x + tp.x) / 2, y: (fp.y + tp.y) / 2, isH: arrowMajorH, perp: 0, onPref: true });
-
-      // Score = chevauchement avec formes + labels + proximité borders groupes
-      function labelScore(cx, cy, isH, onPref) {
-        const hw2 = isH ? lw / 2 : lh / 2;
-        const hh2 = isH ? lh / 2 : lw / 2;
-        const M = 8;
-        let s = onPref ? 0 : 6000;
-        for (const sh of state.shapes) {
-          const ox = Math.max(0, Math.min(cx + hw2 + M, sh.x + sh.w) - Math.max(cx - hw2 - M, sh.x));
-          const oy = Math.max(0, Math.min(cy + hh2 + M, sh.y + sh.h) - Math.max(cy - hh2 - M, sh.y));
-          s += ox * oy * 20;
-        }
-        for (const gr of state.groups) {
-          const borders = [gr.y, gr.y + gr.h];
-          for (const by2 of borders) {
-            if (Math.abs(cy - by2) < hh2 + 12) s += 2000;
+        if (CANDS.length === 0) {
+          for (let i = 0; i < orthopts.length - 1; i++) {
+            const pa = orthopts[i], pb = orthopts[i + 1];
+            const sdx = pb.x - pa.x, sdy = pb.y - pa.y;
+            const slen = Math.hypot(sdx, sdy);
+            if (slen < 4) continue;
+            const isH = Math.abs(sdy) < Math.abs(sdx);
+            const nx = -sdy / slen, ny = sdx / slen;
+            for (const perp of [0, -16, 16]) {
+              CANDS.push({ x: pa.x + sdx * 0.5 + nx * perp, y: pa.y + sdy * 0.5 + ny * perp, isH, perp, onPref: false });
+            }
           }
         }
-        for (const pl of placedLabels) {
-          const ox = Math.max(0, Math.min(cx + hw2 + M, pl.lx + pl.hw) - Math.max(cx - hw2 - M, pl.lx - pl.hw));
-          const oy = Math.max(0, Math.min(cy + hh2 + M, pl.ly + pl.hh) - Math.max(cy - hh2 - M, pl.ly - pl.hh));
-          s += ox * oy * 40;
+        if (CANDS.length === 0) CANDS.push({ x: (fp.x + tp.x) / 2, y: (fp.y + tp.y) / 2, isH: arrowMajorH, perp: 0, onPref: true });
+
+        function labelScore(cx, cy, isH, onPref) {
+          const hw2 = isH ? lw / 2 : lh / 2;
+          const hh2 = isH ? lh / 2 : lw / 2;
+          const M = 8;
+          let s = onPref ? 0 : 6000;
+          for (const sh of state.shapes) {
+            const ox = Math.max(0, Math.min(cx + hw2 + M, sh.x + sh.w) - Math.max(cx - hw2 - M, sh.x));
+            const oy = Math.max(0, Math.min(cy + hh2 + M, sh.y + sh.h) - Math.max(cy - hh2 - M, sh.y));
+            s += ox * oy * 20;
+          }
+          for (const gr of state.groups) {
+            const borders = [gr.y, gr.y + gr.h];
+            for (const by2 of borders) {
+              if (Math.abs(cy - by2) < hh2 + 12) s += 2000;
+            }
+          }
+          for (const pl of placedLabels) {
+            const ox = Math.max(0, Math.min(cx + hw2 + M, pl.lx + pl.hw) - Math.max(cx - hw2 - M, pl.lx - pl.hw));
+            const oy = Math.max(0, Math.min(cy + hh2 + M, pl.ly + pl.hh) - Math.max(cy - hh2 - M, pl.ly - pl.hh));
+            s += ox * oy * 40;
+          }
+          return s;
         }
-        return s;
+
+        let bestCand = CANDS[0], bestScore = Infinity;
+        for (const cand of CANDS) {
+          const score = labelScore(cand.x, cand.y, cand.isH, cand.onPref) + Math.abs(cand.perp) * 0.3;
+          if (score < bestScore) { bestScore = score; bestCand = cand; }
+        }
+
+        lx = bestCand.x; ly = bestCand.y;
+        angle = bestCand.isH ? 0 : -90;
       }
 
-      let bestCand = CANDS[0], bestScore = Infinity;
-      for (const cand of CANDS) {
-        const score = labelScore(cand.x, cand.y, cand.isH, cand.onPref) + Math.abs(cand.perp) * 0.3;
-        if (score < bestScore) { bestScore = score; bestCand = cand; }
-      }
-
-      lx = bestCand.x; ly = bestCand.y;
-      angle = bestCand.isH ? 0 : -90;
       const hw = angle !== 0 ? lh / 2 : lw / 2;
       const hh = angle !== 0 ? lw / 2 : lh / 2;
       placedLabels.push({ lx, ly, hw, hh });
+
       const lg = document.createElementNS('http://www.w3.org/2000/svg', 'g');
       lg.setAttribute('transform', `translate(${lx},${ly}) rotate(${angle})`);
-      lg.setAttribute('pointer-events', 'none');
+      lg.setAttribute('data-conn-label-id', String(c.id));
+      lg.style.cursor = 'grab';
       el('rect', {
-        x: -lw/2, y: -lh/2, width: lw, height: lh,
-        rx: '0', fill: 'rgba(255,255,255,0.96)',
+        x: String(-lw / 2), y: String(-lh / 2), width: String(lw), height: String(lh),
+        rx: '3', fill: 'rgba(255,255,255,0.96)',
       }, lg);
-      txt(c.label, {
-        x: 0, y: 0,
-        'text-anchor': 'middle', 'dominant-baseline': 'middle',
-        fill: color, 'font-size': '11', 'font-family': 'Segoe UI, sans-serif',
-        'font-weight': '600',
-      }, lg);
+
+      if (labelLines.length === 1) {
+        txt(c.label, {
+          x: '0', y: '0',
+          'text-anchor': 'middle', 'dominant-baseline': 'middle',
+          fill: color, 'font-size': '11', 'font-family': 'Segoe UI, sans-serif', 'font-weight': '600',
+        }, lg);
+      } else {
+        const textEl = el('text', {
+          'text-anchor': 'middle',
+          fill: color, 'font-size': '11', 'font-family': 'Segoe UI, sans-serif', 'font-weight': '600',
+        }, lg);
+        labelLines.forEach((line, i) => {
+          const ts = document.createElementNS('http://www.w3.org/2000/svg', 'tspan');
+          ts.setAttribute('x', '0');
+          ts.setAttribute('y', String((i - (labelLines.length - 1) / 2) * lineH));
+          ts.setAttribute('dominant-baseline', 'middle');
+          ts.textContent = line;
+          textEl.appendChild(ts);
+        });
+      }
       gConns.appendChild(lg);
     }
 
@@ -1330,6 +1357,20 @@ function onDown(e) {
 
   /* ── Select tool ── */
   if (tool === 'select') {
+    // Drag du label d'une connexion
+    const labelEl = e.target.closest('[data-conn-label-id]');
+    if (labelEl) {
+      const cid = parseInt(labelEl.getAttribute('data-conn-label-id'));
+      const conn = state.connections.find(c => c.id === cid);
+      if (conn) {
+        const startLx = conn.labelOffset ? conn.labelOffset.x : parseFloat(labelEl.getAttribute('transform').match(/translate\(([^,]+)/)?.[1] || '0');
+        const startLy = conn.labelOffset ? conn.labelOffset.y : parseFloat(labelEl.getAttribute('transform').match(/,([^)]+)/)?.[1] || '0');
+        labelDrag = { connId: cid, startLx, startLy, startX: x, startY: y };
+        canvas.style.cursor = 'grabbing';
+      }
+      return;
+    }
+
     // Drag d'un coude de connexion (ajustement du tracé)
     const bendEl = e.target.closest('[data-conn-bend]');
     if (bendEl) {
@@ -1484,6 +1525,20 @@ function onMove(e) {
     return;
   }
 
+  /* ── Drag d'un label de connexion ── */
+  if (labelDrag) {
+    const { x, y } = screenToSVG(e.clientX, e.clientY);
+    const conn = state.connections.find(c => c.id === labelDrag.connId);
+    if (conn) {
+      conn.labelOffset = {
+        x: labelDrag.startLx + (x - labelDrag.startX),
+        y: labelDrag.startLy + (y - labelDrag.startY),
+      };
+      render();
+    }
+    return;
+  }
+
   /* ── Drag d'un coude de connexion ── */
   if (bendDrag) {
     const { x, y } = screenToSVG(e.clientX, e.clientY);
@@ -1569,6 +1624,15 @@ function onMove(e) {
 }
 
 function onUp(e) {
+  /* ── Fin du drag d'un label ── */
+  if (labelDrag) {
+    labelDrag = null;
+    canvas.style.cursor = spaceDown ? 'grab' : '';
+    snapshot();
+    render();
+    return;
+  }
+
   /* ── Fin du drag d'un coude ── */
   if (bendDrag) {
     bendDrag = null;
