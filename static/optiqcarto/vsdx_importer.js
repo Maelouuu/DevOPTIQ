@@ -241,7 +241,7 @@ class VsdxImporter {
       const doc = this.parseXml(xml);
 
       // ── Dimensions + style du shape primaire ──
-      let bw, bh, lp = 1, fp = 1, fillColor = null;
+      let bw, bh, lp = 1, fp = 1, fillColor = null, rounding = 0;
       for (const s of doc.getElementsByTagName('Shape')) {
         const w = this.vCell(s, 'Width'), h = this.vCell(s, 'Height');
         if (w) bw = parseFloat(w);
@@ -252,6 +252,11 @@ class VsdxImporter {
         if (fpv) fp = parseInt(fpv) || 1;
         const fc = this.vCell(s, 'FillForegnd');
         if (fc && fc.startsWith('#') && !fillColor) fillColor = fc;
+        // Cellule Rounding : Visio arrondit les coins via propriété de style (pas des arcs
+        // dans la géométrie). Une valeur élevée (≥ 30 % de la petite dim.) crée l'aspect
+        // "activité externe" (côtés en parenthèses) sans aucun EllipticalArcTo dans la geom.
+        const rv = this.vCell(s, 'Rounding');
+        if (rv) rounding = Math.max(rounding, parseFloat(rv) || 0);
         if (bw && bh) break;
       }
       // Second pass FillPattern (sous-shapes)
@@ -268,17 +273,26 @@ class VsdxImporter {
       // ── Analyse géométrique (scopée au shape primaire) ──
       const g = VsdxImporter._parseGeometry(doc, masterName);
 
+      // Certaines formes Visio (ex: "Processus arrondi" / "Rounded process") encodent
+      // leur aspect arrondi via la cellule Rounding (propriété de style), sans aucun arc
+      // dans la section Geometry. Si le rayon ≥ 30 % de la petite dimension, la forme
+      // est visuellement un stade → traiter comme activité externe.
+      const minDim = (bw && bh) ? Math.min(bw, bh) : 0;
+      const isRoundedAsStadium = rounding > 0 && minDim > 0 && (rounding / minDim) >= 0.3;
+
       // Stadium : aspect ratio vérifié ici (pas dans _parseGeometry)
       const isStadium = !g.isEllipse && !g.isDiamond && !g.isWavyBottom && (
         g.isStadiumCanon ||
         g.isStadiumAllArc ||
         (g.isStadiumByRatio && aspect >= 1.5) ||
-        (g.isStadiumUnknown && aspect >= 1.5)  // fallback types inconnus
+        (g.isStadiumUnknown && aspect >= 1.5) ||  // fallback types inconnus
+        isRoundedAsStadium                         // rounding cellule élevé → côtés arrondis
       );
 
       console.debug(
         '[VSDX master]', (masterName || '?').padEnd(30),
         '| aspect:', aspect.toFixed(2), '| isStadium:', isStadium,
+        '| rounding:', rounding.toFixed(3), '| isRoundedAsStadium:', isRoundedAsStadium,
         '| isSubprocess:', g.isSubprocess, '| fp:', fp, '| fillColor:', fillColor || '-'
       );
 
