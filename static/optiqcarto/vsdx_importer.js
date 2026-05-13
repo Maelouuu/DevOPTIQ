@@ -227,8 +227,12 @@ class VsdxImporter {
       // Pour le fallback ratio on EXCLUT les rounded-rect (4 arcs + 4 lignes)
       // en exigeant lineCount <= 2 : un stade a 2 lignes max, un rect-arrondi en a 4.
       const isStadiumByRatio = arcCount >= 1 && aspect >= 1.5 && lineCount <= 2;
-      const isStadium = !isEllipse && !isDiamond && !isSubprocess
-                        && (isStadiumCanon || isStadiumAllArc || isStadiumByRatio);
+      // Canonical stadiums (2 lines + ≥2 arcs) are always stadiums, even when
+      // isSubprocess is true (Visio sometimes stores rounded ends as separate
+      // geometry sections, which triggers the subprocess heuristic wrongly).
+      const isStadium = !isEllipse && !isDiamond
+                        && (isStadiumCanon
+                           || (!isSubprocess && (isStadiumAllArc || isStadiumByRatio)));
       // Second pass: scan all sub-shapes for FillPattern if still default (may be nested)
       if (fp === 1) {
         for (const s of doc.getElementsByTagName('Shape')) {
@@ -596,10 +600,13 @@ class VsdxImporter {
       // pas (ex: shape custom redessinée mais qui garde le nom du stencil).
       const isExternalByName = /\b(external|externe|outsourc\w*|sous.?trait\w*)\b/i.test(masterName);
 
-      const shapeType = detectShapeType(masterName, vType,
+      let shapeType = detectShapeType(masterName, vType,
                           mInfoForType.isEllipse, mInfoForType.isDiamond,
                           mInfoForType.isSubprocess,
                           mInfoForType.isStadium || isExternalByName);
+      // Safety net: if the name marks this as external but geometry mis-classified
+      // it as subprocess (special), override to process so subtype='external' applies.
+      if (isExternalByName && shapeType === 'special') shapeType = 'process';
 
       // ── Subtype detection (only for 'process' shapes) ─────────────────
       //   Stadium geometry ou nom 'external'        → 'external'
@@ -1102,15 +1109,13 @@ function detectShapeType(masterName, visioType, isEllipse, isDiamond, isSubproce
   // 2. Off-page connectors → subprocess style
   if (/\bgot[ot]+\b|\bext\.?\s*ret\b|\bext\.?\s*return\b|\baller\s+[aà]\b|\bautre\s+carte\b/.test(mn)) return 'special';
 
-  // 3. Subprocess — by geometry (wavy bottom, multiple sections, multiple paths)
-  //    Checked BEFORE ellipse so wavy shapes are not swallowed by the isEllipse guard.
+  // 3. Stadium / capsule — checked BEFORE subprocess so external-capsule shapes
+  //    are not mis-classified when they have multiple geometry sections.
+  if (isStadium) return 'process';
+
+  // 4. Subprocess — by geometry (wavy bottom, multiple sections, multiple paths)
   if (isSubprocess) return 'special';
   if (/\b(subprocess|sub process|predefined|processus predefini|activite partielle|sous activite|sous processus|sous tache|tache multiple|multi instance|callout|offpage|off page)\b/.test(mn)) return 'special';
-
-  // 4. Stadium / capsule (external process) — 'process' so the caller can set subtype='external'.
-  //    Checked BEFORE the ellipse name regex below to avoid mis-classification
-  //    when master names contain "oval" / "external process oval".
-  if (isStadium) return 'process';
 
   // 5. Start/end — oval/circle shapes (isEllipse now means "pure arc shape")
   if (/\b(terminator|oval|ellipse|circle|event|rond|cercle|ronde|circulaire)\b/.test(mn)

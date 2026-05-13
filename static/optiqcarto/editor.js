@@ -359,6 +359,30 @@ function renderLegend() {
    RENDER — CONNECTIONS
    ══════════════════════════════════════════════════ */
 
+// Snap a point (px,py) to the nearest point on a polyline, with max perpendicular offset.
+function snapToPolyline(pts, px, py, maxPerp = 45) {
+  let bestDist = Infinity, bestOnSeg = null, bestSegIdx = -1;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const pa = pts[i], pb = pts[i + 1];
+    const dx = pb.x - pa.x, dy = pb.y - pa.y;
+    const len2 = dx * dx + dy * dy;
+    if (len2 < 1) continue;
+    const t = Math.max(0.05, Math.min(0.95, ((px - pa.x) * dx + (py - pa.y) * dy) / len2));
+    const ox = pa.x + t * dx, oy = pa.y + t * dy;
+    const d = Math.hypot(px - ox, py - oy);
+    if (d < bestDist) { bestDist = d; bestOnSeg = { x: ox, y: oy, i }; bestSegIdx = i; }
+  }
+  if (!bestOnSeg) return { x: px, y: py };
+  const pa = pts[bestSegIdx], pb = pts[bestSegIdx + 1];
+  const dx = pb.x - pa.x, dy = pb.y - pa.y;
+  const slen = Math.hypot(dx, dy);
+  if (slen < 1) return bestOnSeg;
+  const nx = -dy / slen, ny = dx / slen;
+  const perp = (px - bestOnSeg.x) * nx + (py - bestOnSeg.y) * ny;
+  const clampedPerp = Math.max(-maxPerp, Math.min(maxPerp, perp));
+  return { x: bestOnSeg.x + nx * clampedPerp, y: bestOnSeg.y + ny * clampedPerp };
+}
+
 function renderConnections() {
   gConns.innerHTML = '';
 
@@ -451,6 +475,7 @@ function renderConnections() {
       orthopts = orthogonalPts(fp, tp, bundleOffset, userOffset);
       orthopts = avoidShapes(orthopts, state.shapes, c.fromId, c.toId);
       orthopts = simplifyPath(orthopts);
+      c._computedOrthopts = orthopts; // used for label drag constraint
       d = polylineToPath(orthopts, 12);
     }
     const isSel = selectedConn === c.id;
@@ -562,6 +587,12 @@ function renderConnections() {
             const ox = Math.max(0, Math.min(cx + hw2 + M, pl.lx + pl.hw) - Math.max(cx - hw2 - M, pl.lx - pl.hw));
             const oy = Math.max(0, Math.min(cy + hh2 + M, pl.ly + pl.hh) - Math.max(cy - hh2 - M, pl.ly - pl.hh));
             s += ox * oy * 40;
+          }
+          // Heavy penalty when the label would sit on a bend/corner of the polyline
+          for (let k = 1; k < orthopts.length - 1; k++) {
+            const cp = orthopts[k];
+            const dc = Math.hypot(cx - cp.x, cy - cp.y);
+            if (dc < 40) s += (40 - dc) * 350;
           }
           return s;
         }
@@ -1361,11 +1392,8 @@ function onDown(e) {
     const labelEl = e.target.closest('[data-conn-label-id]');
     if (labelEl) {
       const cid = parseInt(labelEl.getAttribute('data-conn-label-id'));
-      const conn = state.connections.find(c => c.id === cid);
-      if (conn) {
-        const startLx = conn.labelOffset ? conn.labelOffset.x : parseFloat(labelEl.getAttribute('transform').match(/translate\(([^,]+)/)?.[1] || '0');
-        const startLy = conn.labelOffset ? conn.labelOffset.y : parseFloat(labelEl.getAttribute('transform').match(/,([^)]+)/)?.[1] || '0');
-        labelDrag = { connId: cid, startLx, startLy, startX: x, startY: y };
+      if (state.connections.find(c => c.id === cid)) {
+        labelDrag = { connId: cid };
         canvas.style.cursor = 'grabbing';
       }
       return;
@@ -1525,15 +1553,16 @@ function onMove(e) {
     return;
   }
 
-  /* ── Drag d'un label de connexion ── */
+  /* ── Drag d'un label de connexion (contraint au polyline) ── */
   if (labelDrag) {
     const { x, y } = screenToSVG(e.clientX, e.clientY);
     const conn = state.connections.find(c => c.id === labelDrag.connId);
     if (conn) {
-      conn.labelOffset = {
-        x: labelDrag.startLx + (x - labelDrag.startX),
-        y: labelDrag.startLy + (y - labelDrag.startY),
-      };
+      if (conn._computedOrthopts && conn._computedOrthopts.length >= 2) {
+        conn.labelOffset = snapToPolyline(conn._computedOrthopts, x, y);
+      } else {
+        conn.labelOffset = { x, y };
+      }
       render();
     }
     return;
