@@ -148,42 +148,69 @@ class VsdxImporter {
       const doc = this.parseXml(xml);
       let bw, bh, lp = 1, fp = 1, isDiamond = false, fillColor = null;
 
-      const geomRows = doc.getElementsByTagName('Row');
-      const geomSeq = [];
-      let moveTos = 0;
-      // On normalise toutes les variantes de Row T= en deux familles LineTo / ArcTo.
-      // Sans ça, les masters Visio qui utilisent RelLineTo / RelEllipticalArcTo /
-      // ArcTo / PolylineTo échappent au comptage et la détection stadium rate.
-      const LINE_TYPES   = new Set(['LineTo', 'RelLineTo', 'PolylineTo']);
-      // NURBSTo / SplineTo are smooth curves used by Visio for stadium (capsule) ends —
-      // treat them like arcs so the stadium heuristics can fire.
-      const ARC_TYPES    = new Set(['EllipticalArcTo', 'RelEllipticalArcTo', 'ArcTo', 'RelArcTo',
-                                    'NURBSTo', 'SplineTo', 'RelSplineTo', 'InfiniteLine']);
-      const MOVE_TYPES   = new Set(['MoveTo', 'RelMoveTo']);
-      for (let ri = 0; ri < geomRows.length; ri++) {
-        const t = geomRows[ri].getAttribute('T');
-        if (LINE_TYPES.has(t)) geomSeq.push('LineTo');
-        else if (ARC_TYPES.has(t)) geomSeq.push('EllipticalArcTo');
-        if (MOVE_TYPES.has(t)) moveTos++;
+      // ── Scope geometry reading to the PRIMARY shape only ──────────────────────
+      // doc.getElementsByTagName('Row') reads ALL rows from the entire master XML,
+      // including nested sub-shapes (e.g. a label placeholder sub-shape). This
+      // inflates lineCount/arcCount and makes stadium detection fail for shapes like
+      // "External Process" that embed a text sub-shape with its own geometry.
+      // Fix: find the first direct-child Shape of the root Shapes element and read
+      // only its direct Section[N="Geometry"] children.
+      const _shapesRoot = doc.getElementsByTagName('Shapes')[0];
+      let _primaryShape = null;
+      if (_shapesRoot) {
+        for (let _ci = 0; _ci < _shapesRoot.childNodes.length; _ci++) {
+          const _n = _shapesRoot.childNodes[_ci];
+          if (_n.nodeType === 1 && _n.tagName === 'Shape') { _primaryShape = _n; break; }
+        }
+      }
+      // Fallback: first Shape anywhere in the doc
+      if (!_primaryShape) _primaryShape = doc.getElementsByTagName('Shape')[0] || null;
+
+      // Collect Geometry sections that are DIRECT children of the primary shape.
+      // Sub-shapes live inside a nested <Shapes> child — they are skipped.
+      const primGeomSects = [];
+      if (_primaryShape) {
+        for (let _ci = 0; _ci < _primaryShape.childNodes.length; _ci++) {
+          const _n = _primaryShape.childNodes[_ci];
+          if (_n.nodeType === 1 && _n.tagName === 'Section' && _n.getAttribute('N') === 'Geometry') {
+            primGeomSects.push(_n);
+          }
+        }
       }
 
-      const arcCount  = geomSeq.filter(t => t === 'EllipticalArcTo').length;
-      const lineCount = geomSeq.filter(t => t === 'LineTo').length;
+      const geomSeq = [];
+      let moveTos = 0;
+      const LINE_TYPES = new Set(['LineTo', 'RelLineTo', 'PolylineTo']);
+      // NURBSTo/SplineTo are smooth curves used by Visio for stadium (capsule) ends.
+      const ARC_TYPES  = new Set(['EllipticalArcTo', 'RelEllipticalArcTo', 'ArcTo', 'RelArcTo',
+                                   'NURBSTo', 'SplineTo', 'RelSplineTo']);
+      const MOVE_TYPES = new Set(['MoveTo', 'RelMoveTo']);
+      for (const _sect of primGeomSects) {
+        const _rows = _sect.getElementsByTagName('Row');
+        for (let ri = 0; ri < _rows.length; ri++) {
+          const t = _rows[ri].getAttribute('T');
+          if (LINE_TYPES.has(t)) geomSeq.push('LineTo');
+          else if (ARC_TYPES.has(t)) geomSeq.push('EllipticalArcTo');
+          if (MOVE_TYPES.has(t)) moveTos++;
+        }
+      }
 
-      // Pure ellipse: geometry is predominantly arcs with few/no straight edges.
-      // arcCount > lineCount*2 catches ovals (4 arcs, 0 lines) and stadiums (4 arcs, 1 line).
+      const arcCount     = geomSeq.filter(t => t === 'EllipticalArcTo').length;
+      const lineCount    = geomSeq.filter(t => t === 'LineTo').length;
+      const geomSectCount = primGeomSects.length;
+
+      // Pure ellipse: predominantly arcs with few/no straight edges.
       const isEllipse = arcCount > 0 && arcCount > lineCount * 2;
 
-      // Diamond: EllipticalArcTo intercalated with LineTo (Si grand/Si petit pattern).
-      // Requires at least some arcs, AND a LineTo after the last arc.
+      // Diamond: arc(s) followed by a LineTo after the last arc.
       if (arcCount > 0) {
         const lastArcIdx = geomSeq.lastIndexOf('EllipticalArcTo');
         if (lastArcIdx !== -1 && lastArcIdx < geomSeq.length - 1)
           isDiamond = geomSeq.slice(lastArcIdx + 1).includes('LineTo');
       }
 
-      // Wavy-bottom subprocess: mixed arcs+lines with CONSECUTIVE arcs (wave).
-      // Rounded rectangles have arcs alternating with lines (never consecutive).
+      // Wavy-bottom subprocess: consecutive arcs (the wave). Stadiums alternate
+      // line-arc-line-arc so they never have consecutive arcs.
       let hasConsecutiveArcs = false;
       for (let i = 0; i < geomSeq.length - 1; i++) {
         if (geomSeq[i] === 'EllipticalArcTo' && geomSeq[i+1] === 'EllipticalArcTo') {
@@ -192,12 +219,7 @@ class VsdxImporter {
       }
       const isWavyBottom = hasConsecutiveArcs && !isEllipse && !isDiamond;
 
-      // Sub-process (predefined process): multiple geometry sections (= internal markers),
-      // ≥3 MoveTo sub-paths, OR a wavy bottom edge.
-      let geomSectCount = 0;
-      const allSects = doc.getElementsByTagName('Section');
-      for (let si = 0; si < allSects.length; si++)
-        if (allSects[si].getAttribute('N') === 'Geometry') geomSectCount++;
+      // Subprocess: multiple geometry sections (internal markers), ≥3 MoveTos, or wavy bottom.
       const isSubprocess = (geomSectCount >= 2 || moveTos >= 3 || isWavyBottom) && !isEllipse && !isDiamond;
 
       // First pass: outer shape dimensions (break early to avoid sub-shape dimensions)
