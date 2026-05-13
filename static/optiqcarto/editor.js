@@ -4117,3 +4117,16 @@ function initDock() {
 
 
 document.addEventListener('DOMContentLoaded', init);
+
+// Écoute les messages postMessage depuis la page parente (activities_map).
+// Permet d'activer le mode "mise en évidence des activités externes" depuis l'extérieur de l'iframe.
+window.addEventListener('message', function(e) {
+  if (!e.data || typeof e.data !== 'object') return;
+  if (e.data.type === 'toggle-extco') {
+    if (typeof toggleHighlightExtco === 'function') toggleHighlightExtco();
+    try { e.source.postMessage({ type: 'extco-state', active: typeof isHighlightExtcoActive === 'function' ? isHighlightExtcoActive() : false }, e.origin || '*'); } catch(_) {}
+  }
+  if (e.data.type === 'get-extco-state') {
+    try { e.source.postMessage({ type: 'extco-state', active: typeof isHighlightExtcoActive === 'function' ? isHighlightExtcoActive() : false }, e.origin || '*'); } catch(_) {}
+  }
+});

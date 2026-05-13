@@ -768,28 +768,36 @@ function showError(msg) {
 ============================================================ */
 
 function initCrossCartoMode() {
-  // Le bouton "Connexions" devient un toggle "mise en évidence des activités
-  // externes/hachurées" — cf. highlight-extco-map.js. L'ancien mode connexions
-  // inter-cartos n'est plus exposé via ce bouton (fonctions conservées plus
-  // bas pour réutilisation éventuelle ailleurs).
-  const btn = document.getElementById("cross-carto-btn");
+  const btn     = document.getElementById("cross-carto-btn");
+  const countEl = document.getElementById("cross-carto-count");
   if (!btn) return;
 
-  // Pré-remplir le badge avec le nombre d'activités extco trouvées côté serveur.
-  const countEl = document.getElementById("cross-carto-count");
-  if (countEl && typeof extcoMapCount === 'function') {
-    countEl.textContent = String(extcoMapCount());
-  }
+  // Nombre d'activités externes côté serveur (badge)
+  const extcoCount = (window.EXTCO_ACTIVITY_IDS || []).length;
+  if (countEl) countEl.textContent = String(extcoCount);
 
-  btn.addEventListener("click", () => {
-    if (typeof toggleExtcoMapHighlight !== 'function' || !svgElement) return;
-    const active = toggleExtcoMapHighlight(svgElement);
-    btn.classList.toggle("active", active);
+  let _active = false;
 
+  function _setActive(val) {
+    _active = val;
+    btn.classList.toggle("active", _active);
     const infoDefault = document.getElementById("carto-info-default");
     const infoCross   = document.getElementById("carto-info-cross");
-    if (infoDefault) infoDefault.classList.toggle("hidden", active);
-    if (infoCross)   infoCross.classList.toggle("hidden", !active);
+    if (infoDefault) infoDefault.classList.toggle("hidden", _active);
+    if (infoCross)   infoCross.classList.toggle("hidden", !_active);
+  }
+
+  // Réception de la réponse d'état depuis l'iframe viewer
+  window.addEventListener("message", function(e) {
+    if (e.data && e.data.type === "extco-state") _setActive(!!e.data.active);
+  });
+
+  btn.addEventListener("click", () => {
+    const frame = document.getElementById("carto-viewer-frame");
+    if (!frame || !frame.contentWindow) return;
+    frame.contentWindow.postMessage({ type: "toggle-extco" }, "*");
+    // Optimistic toggle — sera confirmé par la réponse extco-state de l'iframe
+    _setActive(!_active);
   });
 }
 

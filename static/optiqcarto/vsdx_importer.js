@@ -607,13 +607,18 @@ class VsdxImporter {
       // Visio FillPattern: 1=solid, 2-7=density, 8=horizontal, 9=vertical,
       // 10=fwd-diag, 11=bwd-diag, 12=cross, 13=diag-cross, 14+=other patterns.
       const shapeFillPattern = parseInt(this.vCellDeep(s, 'FillPattern') || '0') || (mInfoForType.fillPattern || 1);
-      if (shapeFillPattern > 1) console.debug('[VSDX hatch]', this.vText(s) || id, 'FillPattern=', shapeFillPattern, 'master=', masterName);
-      if (mInfoForType.isStadium || isExternalByName)
-        console.debug('[VSDX external]', this.vText(s) || id, 'master=', masterName, 'stadium=', !!mInfoForType.isStadium, 'byName=', isExternalByName);
       let subtype = 'normal';
       if (shapeType === 'process') {
-        if (mInfoForType.isStadium || isExternalByName) subtype = 'external';
-        else if (shapeFillPattern >= 2)                 subtype = 'extco';
+        if (mInfoForType.isStadium || isExternalByName) {
+          subtype = 'external';
+          console.debug('[VSDX external]', this.vText(s) || id, 'master=', masterName, 'stadium=', !!mInfoForType.isStadium, 'byName=', isExternalByName);
+        } else if (shapeFillPattern >= 14) {
+          subtype = 'extco';
+          console.debug('[VSDX hatch]', this.vText(s) || id, 'FillPattern=', shapeFillPattern, 'master=', masterName);
+        } else if (shapeFillPattern > 1) {
+          // FillPattern 2-13 = density/dot patterns, not line hatches → log only, not extco
+          console.debug('[VSDX fill-pattern]', this.vText(s) || id, 'FillPattern=', shapeFillPattern, '(density, not hatch)');
+        }
       }
 
       // ── Color: VSDX shape fill → master fill → band color ──
@@ -636,6 +641,12 @@ class VsdxImporter {
         colorVariant:   0,
       });
     }
+
+    const nExt   = newShapes.filter(s => s.subtype === 'external').length;
+    const nExtco = newShapes.filter(s => s.subtype === 'extco').length;
+    if (nExt   > 0) this.log(`✓ ${nExt} activité(s) externe(s) (forme stade) détectée(s)`);
+    if (nExtco > 0) this.log(`✓ ${nExtco} activité(s) hachurée(s) détectée(s)`);
+    if (nExt === 0 && nExtco === 0) this.log('ℹ Aucune activité externe ou hachurée détectée (voir console pour détails)');
   }
 
   // Resolve the best color for a shape:
