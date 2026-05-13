@@ -1559,7 +1559,7 @@ function onMove(e) {
     const conn = state.connections.find(c => c.id === labelDrag.connId);
     if (conn) {
       if (conn._computedOrthopts && conn._computedOrthopts.length >= 2) {
-        conn.labelOffset = snapToPolyline(conn._computedOrthopts, x, y);
+        conn.labelOffset = snapToPolyline(conn._computedOrthopts, x, y, 0);
       } else {
         conn.labelOffset = { x, y };
       }

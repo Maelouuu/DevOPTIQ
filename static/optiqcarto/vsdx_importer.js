@@ -154,9 +154,12 @@ class VsdxImporter {
       // On normalise toutes les variantes de Row T= en deux familles LineTo / ArcTo.
       // Sans ça, les masters Visio qui utilisent RelLineTo / RelEllipticalArcTo /
       // ArcTo / PolylineTo échappent au comptage et la détection stadium rate.
-      const LINE_TYPES = new Set(['LineTo', 'RelLineTo', 'PolylineTo']);
-      const ARC_TYPES  = new Set(['EllipticalArcTo', 'RelEllipticalArcTo', 'ArcTo', 'RelArcTo']);
-      const MOVE_TYPES = new Set(['MoveTo', 'RelMoveTo']);
+      const LINE_TYPES   = new Set(['LineTo', 'RelLineTo', 'PolylineTo']);
+      // NURBSTo / SplineTo are smooth curves used by Visio for stadium (capsule) ends —
+      // treat them like arcs so the stadium heuristics can fire.
+      const ARC_TYPES    = new Set(['EllipticalArcTo', 'RelEllipticalArcTo', 'ArcTo', 'RelArcTo',
+                                    'NURBSTo', 'SplineTo', 'RelSplineTo', 'InfiniteLine']);
+      const MOVE_TYPES   = new Set(['MoveTo', 'RelMoveTo']);
       for (let ri = 0; ri < geomRows.length; ri++) {
         const t = geomRows[ri].getAttribute('T');
         if (LINE_TYPES.has(t)) geomSeq.push('LineTo');
@@ -227,12 +230,13 @@ class VsdxImporter {
       // Pour le fallback ratio on EXCLUT les rounded-rect (4 arcs + 4 lignes)
       // en exigeant lineCount <= 2 : un stade a 2 lignes max, un rect-arrondi en a 4.
       const isStadiumByRatio = arcCount >= 1 && aspect >= 1.5 && lineCount <= 2;
-      // Canonical stadiums (2 lines + ≥2 arcs) are always stadiums, even when
-      // isSubprocess is true (Visio sometimes stores rounded ends as separate
-      // geometry sections, which triggers the subprocess heuristic wrongly).
-      const isStadium = !isEllipse && !isDiamond
-                        && (isStadiumCanon
-                           || (!isSubprocess && (isStadiumAllArc || isStadiumByRatio)));
+      // Guard only against wavy-bottom shapes (true subprocess marker).
+      // NOT against isSubprocess in general — Visio sometimes splits a stadium
+      // into 2 geometry sections (one per rounded end), which wrongly triggers
+      // the isSubprocess heuristic. Using !isWavyBottom keeps real subprocess
+      // shapes out while letting stadiums through.
+      const isStadium = !isEllipse && !isDiamond && !isWavyBottom
+                        && (isStadiumCanon || isStadiumAllArc || isStadiumByRatio);
       // Second pass: scan all sub-shapes for FillPattern if still default (may be nested)
       if (fp === 1) {
         for (const s of doc.getElementsByTagName('Shape')) {
