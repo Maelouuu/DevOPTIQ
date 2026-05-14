@@ -44,27 +44,25 @@
     </button>
   </div>
 
-  <script>
-    function filterActivities(query) {
-      const q = query.trim().toLowerCase();
-      const cards = document.querySelectorAll('.activity-container');
-      let visible = 0;
-      cards.forEach(card => {
-        const name = (card.querySelector('h2') || {}).textContent || '';
-        const match = !q || name.toLowerCase().includes(q);
-        card.style.display = match ? '' : 'none';
-        if (match) visible++;
-      });
-      const countEl = document.getElementById('activity-search-count');
-      if (countEl) {
-        countEl.textContent = q ? `${visible} résultat${visible > 1 ? 's' : ''}` : '';
-      }
-    }
-  </script>
+  <!-- Section spéciale : activité mise en avant depuis la carto -->
+  <div id="special-activity-section" style="display:none; margin-bottom:18px;">
+    <div class="special-activity-header">
+      <span class="special-activity-label">
+        <i class="fa-solid fa-location-dot"></i> Activité sélectionnée depuis la cartographie
+      </span>
+      <button id="btn-close-special" class="special-activity-close" title="Fermer">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+    </div>
+    <div id="special-activity-inner"></div>
+  </div>
 
-  {% for item in activity_data %}
-    {% include "activity_card_new.html" %}
-  {% endfor %}
+  <!-- Liste principale -->
+  <div id="main-activities-list">
+    {% for item in activity_data %}
+      {% include "activity_card_new.html" %}
+    {% endfor %}
+  </div>
 
   {% if not activity_data or activity_data|length == 0 %}
     <div class="empty-message" style="margin-top: 60px;">
@@ -72,6 +70,14 @@
       <p>Aucune activité à afficher</p>
     </div>
   {% endif %}
+
+  <!-- Bouton charger plus -->
+  <div id="load-more-wrapper" style="display:none; text-align:center; margin: 24px 0 40px;">
+    <button id="btn-load-more" class="btn-load-more">
+      <i class="fa-solid fa-chevron-down"></i>
+      <span id="load-more-label">Charger plus</span>
+    </button>
+  </div>
 
   {% include "modals_and_spinner.html" %}
 
@@ -88,6 +94,132 @@
   <script defer src="{{ url_for('static', filename='js/activity_highlight.js') }}"></script>
   <script defer src="{{ url_for('static', filename='js/chatbot.js') }}"></script>
   <script defer src="{{ url_for('static', filename='js/import_tasks.js') }}"></script>
+
+  <script>
+  (function() {
+    const PAGE_SIZE    = 20;
+    const SPECIAL_SIZE = 10;
+
+    const url      = new URL(window.location.href);
+    const targetId = url.searchParams.get('activity_id');
+
+    const mainList      = document.getElementById('main-activities-list');
+    const specialSec    = document.getElementById('special-activity-section');
+    const specialInner  = document.getElementById('special-activity-inner');
+    const loadMoreWrap  = document.getElementById('load-more-wrapper');
+    const loadMoreBtn   = document.getElementById('btn-load-more');
+    const loadMoreLabel = document.getElementById('load-more-label');
+    const closeBtn      = document.getElementById('btn-close-special');
+
+    let allCards      = Array.from(mainList.querySelectorAll('.activity-container'));
+    let pagedCards    = allCards;  // subset that pagination applies to
+    let loaded        = 0;
+    let isSearchActive = false;
+
+    // ── Section spéciale si activity_id dans l'URL ──────────────────────────
+    function initSpecialSection() {
+      if (!targetId || !specialSec) return;
+      const targetCard = allCards.find(c => c.dataset.activityId === targetId);
+      if (!targetCard) return;
+
+      // Déplacer la carte dans la section spéciale
+      specialInner.appendChild(targetCard);
+      specialSec.style.display = '';
+
+      // Ouvrir la carte (après que activities_tabs.js soit chargé)
+      window.addEventListener('load', () => {
+        if (typeof toggleActivity === 'function') toggleActivity(targetId);
+        // Scroll vers la section spéciale
+        specialSec.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      });
+
+      // Recalculer la liste principale sans cette carte
+      pagedCards = allCards.filter(c => c.dataset.activityId !== targetId);
+      showPage(SPECIAL_SIZE);
+    }
+
+    // ── Pagination ───────────────────────────────────────────────────────────
+    function showPage(count) {
+      loaded = Math.min(count, pagedCards.length);
+      pagedCards.forEach((c, i) => {
+        c.style.display = i < loaded ? '' : 'none';
+      });
+      updateLoadMore();
+    }
+
+    function updateLoadMore() {
+      if (!loadMoreWrap) return;
+      const remaining = pagedCards.filter(c => c.style.display === 'none').length;
+      loadMoreWrap.style.display = (!isSearchActive && remaining > 0) ? '' : 'none';
+      if (loadMoreLabel) {
+        const next = Math.min(20, remaining);
+        loadMoreLabel.textContent = `Charger ${next} de plus (${remaining} restante${remaining > 1 ? 's' : ''})`;
+      }
+    }
+
+    if (loadMoreBtn) {
+      loadMoreBtn.addEventListener('click', () => {
+        const nextBatch = pagedCards.filter(c => c.style.display === 'none').slice(0, 20);
+        nextBatch.forEach(c => c.style.display = '');
+        loaded += nextBatch.length;
+        updateLoadMore();
+      });
+    }
+
+    // ── Fermer la section spéciale ───────────────────────────────────────────
+    if (closeBtn) {
+      closeBtn.addEventListener('click', () => {
+        // Remettre la carte dans la liste principale
+        const movedCard = specialInner.querySelector('.activity-container');
+        if (movedCard) mainList.prepend(movedCard);
+        specialSec.style.display = 'none';
+        // Réinitialiser pagination complète
+        pagedCards = allCards = Array.from(mainList.querySelectorAll('.activity-container'));
+        isSearchActive = false;
+        document.getElementById('activity-search').value = '';
+        document.getElementById('activity-search-count').textContent = '';
+        showPage(PAGE_SIZE);
+      });
+    }
+
+    // ── Recherche (remplace la fonction inline) ──────────────────────────────
+    window.filterActivities = function(query) {
+      const q = query.trim().toLowerCase();
+      isSearchActive = !!q;
+
+      if (isSearchActive) {
+        let visible = 0;
+        // Cartes dans la liste principale
+        pagedCards.forEach(card => {
+          const name = (card.querySelector('h2') || {}).textContent || '';
+          const match = name.toLowerCase().includes(q);
+          card.style.display = match ? '' : 'none';
+          if (match) visible++;
+        });
+        // Carte spéciale
+        if (specialInner) {
+          const sc = specialInner.querySelector('.activity-container');
+          if (sc) {
+            const name = (sc.querySelector('h2') || {}).textContent || '';
+            const match = name.toLowerCase().includes(q);
+            sc.style.display = match ? '' : 'none';
+            if (match) visible++;
+          }
+        }
+        if (loadMoreWrap) loadMoreWrap.style.display = 'none';
+        const countEl = document.getElementById('activity-search-count');
+        if (countEl) countEl.textContent = `${visible} résultat${visible !== 1 ? 's' : ''}`;
+      } else {
+        document.getElementById('activity-search-count').textContent = '';
+        showPage(loaded || (targetId ? SPECIAL_SIZE : PAGE_SIZE));
+      }
+    };
+
+    // ── Init ─────────────────────────────────────────────────────────────────
+    initSpecialSection();
+    if (!targetId) showPage(PAGE_SIZE);
+  })();
+  </script>
 
 </body>
 </html>

@@ -2472,16 +2472,42 @@ async function saveJSON() {
     }
   } catch (_) { /* offline or no diff endpoint — proceed */ }
 
-  const res  = await fetch(`${apiBase}/api/save`, {
-    method:  'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body:    JSON.stringify({ diagram: state }),
-  });
-  const data = await res.json();
-  if (data.ok) {
-    if (data.sync_warning) showToast('Sauvegardé — erreur sync : ' + data.sync_warning, 'warn');
-    else showToast('Cartographie sauvegardée ✓');
-  } else showToast('Erreur : ' + (data.error || 'inconnue'));
+  _showSavePopup('saving');
+
+  try {
+    const res  = await fetch(`${apiBase}/api/save`, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ diagram: state }),
+    });
+    const data = await res.json();
+    if (data.ok) {
+      _showSavePopup('done');
+      if (data.sync_warning) setTimeout(() => showToast('Erreur sync : ' + data.sync_warning, 'warn'), 1600);
+    } else {
+      _hideSavePopup();
+      showToast('Erreur : ' + (data.error || 'inconnue'));
+    }
+  } catch (err) {
+    _hideSavePopup();
+    showToast('Erreur réseau lors de la sauvegarde');
+  }
+}
+
+function _showSavePopup(state) {
+  const overlay = document.getElementById('save-progress-popup');
+  if (!overlay) return;
+  overlay.style.display = 'flex';
+  const saving = document.getElementById('save-popup-saving');
+  const done   = document.getElementById('save-popup-done');
+  if (saving) saving.style.display = state === 'saving' ? 'flex' : 'none';
+  if (done)   done.style.display   = state === 'done'   ? 'flex' : 'none';
+  if (state === 'done') setTimeout(_hideSavePopup, 1600);
+}
+
+function _hideSavePopup() {
+  const overlay = document.getElementById('save-progress-popup');
+  if (overlay) overlay.style.display = 'none';
 }
 
 async function openLoadDialog() {
@@ -4113,22 +4139,6 @@ function init() {
       .catch(() => {});
   }
 
-  // Welcome modal
-  initWelcome();
-}
-
-function initWelcome() {
-  const overlay = document.getElementById('welcome-modal');
-  if (!overlay) return;
-  document.getElementById('btn-welcome-start').addEventListener('click', () => {
-    overlay.classList.add('hidden');
-    setTimeout(() => overlay.remove(), 400);
-    // Si un VSDX est disponible et pas encore de carto → ouvrir le modal d'import
-    if (window.OPTIQCARTO_HAS_VSDX && !window.OPTIQCARTO_HAS_CARTO) {
-      const migrateModal = document.getElementById('vsdx-migrate-modal');
-      if (migrateModal) migrateModal.classList.remove('hidden');
-    }
-  });
 }
 
 /* ══════════════════════════════════════════════════

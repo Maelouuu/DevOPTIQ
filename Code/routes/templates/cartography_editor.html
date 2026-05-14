@@ -607,23 +607,17 @@
   </div>
 </div>
 
-<!-- ══════════════ WELCOME MODAL ══════════════ -->
-<div id="welcome-modal" class="welcome-overlay">
-  <div class="welcome-card">
-    <div class="welcome-glow"></div>
-    <div class="welcome-logo">
-      <span class="welcome-mark">◉</span>
-      <span class="welcome-name">OptiqCarto</span>
+<!-- ══════════════ SAVE PROGRESS POPUP ══════════════ -->
+<div id="save-progress-popup" class="save-popup-overlay" style="display:none">
+  <div class="save-popup-card">
+    <div id="save-popup-saving" class="save-popup-state">
+      <div class="save-popup-spinner"></div>
+      <p class="save-popup-msg">Ne pas quitter<br><strong>Enregistrement en cours…</strong></p>
     </div>
-    <p class="welcome-tagline">Éditeur de cartographies de processus</p>
-    <div class="welcome-screenshot">
-      <img src="{{ url_for('static', filename='img/optiqcarto_setting.png') }}" alt="Aperçu" class="welcome-screenshot-img">
+    <div id="save-popup-done" class="save-popup-state" style="display:none">
+      <div class="save-popup-check"><i class="fa-solid fa-circle-check"></i></div>
+      <p class="save-popup-msg save-popup-msg--done">Enregistrement validé</p>
     </div>
-    <button id="btn-welcome-start" class="welcome-btn">
-      <i class="fa-solid fa-play"></i>
-      {% if has_optiqcarto %}Reprendre la cartographie{% elif has_vsdx %}Importer la cartographie Visio{% else %}Créer une cartographie{% endif %}
-    </button>
-    <p class="welcome-version">{{ entity_name or 'AFDEC' }} · OptiqCarto</p>
   </div>
 </div>
 

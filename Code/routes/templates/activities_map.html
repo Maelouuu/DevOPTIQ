@@ -548,24 +548,17 @@
 })();
 </script>
 
-<!-- ── Visionneur : PostMessage listener + highlights activités ── -->
+<!-- ── Visionneur : PostMessage listener → navigation directe ── -->
 <script>
 (function() {
-  // Écoute les clics sur les formes dans l'iframe viewer
   window.addEventListener('message', (e) => {
     if (!e.data || e.data.t !== 'shape-click') return;
     const label = (e.data.label || '').toLowerCase().trim();
     if (!label) return;
-    highlightActivity(label);
-  });
-
-  function highlightActivity(label) {
     const items = document.querySelectorAll('#activities-list .activity-item');
     let found = null;
-    // Recherche exacte d'abord, puis partielle
     for (const item of items) {
-      const name = (item.dataset.name || '').trim();
-      if (name === label) { found = item; break; }
+      if ((item.dataset.name || '').trim() === label) { found = item; break; }
     }
     if (!found) {
       for (const item of items) {
@@ -573,14 +566,9 @@
         if (name.includes(label) || label.includes(name)) { found = item; break; }
       }
     }
-    if (!found) return;
-    // Supprimer highlight précédent
-    items.forEach(i => i.classList.remove('activity-highlighted'));
-    found.classList.add('activity-highlighted');
-    found.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    // Retirer le highlight après 3s
-    setTimeout(() => found.classList.remove('activity-highlighted'), 3000);
-  }
+    if (!found || !found.dataset.id) return;
+    window.location.href = `/activities/view?activity_id=${found.dataset.id}`;
+  });
 })();
 </script>
 
