@@ -1183,12 +1183,13 @@ function detectShapeType(masterName, visioType, isEllipse, isDiamond, isSubproce
       || mn === 'conditional' || mn === 'decision') return 'decision';
   if (isDiamond) return 'decision';
 
-  // 2. Off-page connectors → subprocess style
-  if (/\bgot[ot]+\b|\bext\.?\s*ret\b|\bext\.?\s*return\b|\baller\s+[aà]\b|\bautre\s+carte\b/.test(mn)) return 'special';
-
-  // 3. Stadium / capsule — checked BEFORE subprocess so external-capsule shapes
-  //    are not mis-classified when they have multiple geometry sections.
+  // 2. Stadium / capsule — checked BEFORE name-based off-page check so that
+  //    "Goto X" masters that have capsule geometry (2L+2A) are correctly
+  //    classified as external process, not as off-page subprocess.
   if (isStadium) return 'process';
+
+  // 3. Off-page connectors → subprocess style (only if not a stadium)
+  if (/\bgot[ot]+\b|\bext\.?\s*ret\b|\bext\.?\s*return\b|\baller\s+[aà]\b|\bautre\s+carte\b/.test(mn)) return 'special';
 
   // 4. Subprocess — by geometry (wavy bottom, multiple sections, multiple paths)
   if (isSubprocess) return 'special';
