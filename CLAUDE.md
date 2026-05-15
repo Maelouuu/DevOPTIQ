@@ -169,15 +169,17 @@ Fonctionnement :
 - **Gestion RH** (`gestion_rh.py`) : rôles (CRUD + import CSV), affectation collaborateurs, managers global/par-rôle, paramètres temps de travail entité, migration `ALTER TABLE` idempotente au démarrage, 17 endpoints documentés
 - **Chatbot IA** (`chatbot.py`) : assistant OPTIQ propulsé par **OpenAI GPT** (`gpt-4o-mini`), 2 modes (créer/améliorer), règles OPTIQ dans le prompt système (5-8 tâches, protocole "Ça dépend"), conversation stateless (historique côté client), injection `Task`+`Tool`+`Data`+`Link` en base, schéma JSON de réponse documenté
 
+### Complété (session 4 — 2026-05-15)
+- **Gestion du temps** (`time_view.py`, `time_extra.py`) : 4 sous-modules (Projet/Activité/Rôle/Faiblesse), 6 modèles SQLAlchemy (`TimeProject`, `TimeProjectLine`, `TimeAnalysis`, `TimeRoleAnalysis`, `TimeRoleLine`, `TimeWeakness`), helpers `to_minutes()`/`get_calendar_params()`/`ensure_time_role_schema()`, calcul de charge rôle par récurrence (journalier/hebdo/mensuel/annuel), formules de la faiblesse (variables O→AA avec probabilités), 18 endpoints documentés
+- **Propositions IA** (`propose_common.py`, `propose_savoir_faires.py`, `propose_savoirs.py`, `propose_softskills.py`, `propose_aptitudes.py`) : module commun `build_activity_context()`/`openai_client_or_none()`/`dummy_from_context()`, 4 types GPT-4o-mini (savoir-faires verbes d'action, savoirs nominaux, HSC norme X50-766 avec niveau 1-4 et justification, scoring inclusion 5 catégories + faisabilité ICF), fallback 200 systématique sans clé OpenAI, 5 endpoints documentés
+
 ### En cours
 - *(rien)*
 
 ### À faire (par priorité)
-1. Gestion du temps (`time_view.py`, `time_extra.py`)
-2. Propositions IA (`propose_*.py`, `softskills.py`, `savoirs.py`, `savoir_faires.py`, `aptitudes.py`)
-3. Gestion compte + onboarding (`gestion_compte.py`, `onboarding.py`)
-4. Éditeur OptiqCarto côté JS (`static/optiqcarto/editor.js`)
-5. Tous les autres blueprints (export, changelog, projection_metier, roles_view, skills, etc.)
+1. Gestion compte + onboarding (`gestion_compte.py`, `onboarding.py`)
+2. Éditeur OptiqCarto côté JS (`static/optiqcarto/editor.js`)
+3. Tous les autres blueprints (export, changelog, projection_metier, roles_view, skills, softskills.py, savoirs.py, savoir_faires.py, aptitudes.py, etc.)
 
 ---
 

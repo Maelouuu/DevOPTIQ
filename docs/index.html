@@ -202,7 +202,8 @@
   <a href="#rh">Gestion RH</a>
   <a href="#chatbot">Chatbot IA</a>
   <a href="#auth" class="done">Authentification</a>
-  <a href="#temps">Gestion du temps</a>
+  <a href="#temps" class="done">Gestion du temps</a>
+  <a href="#propositions-ia" class="done">Propositions IA</a>
 
   <div class="nav-section">Référence</div>
   <a href="#api" class="done">APIs — Cartographie</a>
@@ -747,9 +748,235 @@ def _require_auth():
     </div>
   </section>
 
+  <!-- ═══════════════════════════════════════════════════════════════ -->
   <section id="temps">
-    <h2 class="section-title">Gestion du temps <span class="badge badge-todo">À documenter</span></h2>
-    <p>À compléter : saisie des temps, analyse, projections. Modèles : <code>TimeAnalysis</code>, <code>TimeProject</code>, <code>TimeProjectLine</code>, <code>TimeRoleAnalysis</code>, <code>TimeWeakness</code>.</p>
+    <h2 class="section-title">Gestion du temps <span class="badge badge-done">Documenté</span></h2>
+
+    <p>Le module <strong>Gestion du temps</strong> (blueprint <code>time_bp</code>, préfixe <code>/temps</code>, fichier <code>time_view.py</code>) permet d'analyser la charge de travail sous quatre angles complémentaires. Les modèles SQLAlchemy correspondants sont définis dans <code>time_extra.py</code> (importé dans <code>models.py</code>).</p>
+
+    <h3>Les quatre modes d'analyse</h3>
+    <div class="diagram">
+      <svg width="780" height="100" viewBox="0 0 780 100" xmlns="http://www.w3.org/2000/svg" font-family="'Segoe UI',sans-serif" font-size="11">
+        <rect x="10"  y="15" width="170" height="70" rx="10" fill="#f5f3ff" stroke="#8b5cf6" stroke-width="1.8"/>
+        <text x="95"  y="44" text-anchor="middle" font-weight="700" fill="#6d28d9">Projet</text>
+        <text x="95"  y="62" text-anchor="middle" font-size="9.5" fill="#7c3aed">N activités × nb personnes</text>
+        <text x="95"  y="76" text-anchor="middle" font-size="9.5" fill="#7c3aed">Charge globale projet</text>
+        <rect x="200" y="15" width="170" height="70" rx="10" fill="#fdf2f8" stroke="#ec4899" stroke-width="1.8"/>
+        <text x="285" y="44" text-anchor="middle" font-weight="700" fill="#be185d">Activité</text>
+        <text x="285" y="62" text-anchor="middle" font-size="9.5" fill="#be185d">Durée + délai unitaires</text>
+        <text x="285" y="76" text-anchor="middle" font-size="9.5" fill="#be185d">Mode global ou par tâches</text>
+        <rect x="390" y="15" width="170" height="70" rx="10" fill="#f0fdf4" stroke="#22c55e" stroke-width="1.8"/>
+        <text x="475" y="44" text-anchor="middle" font-weight="700" fill="#15803d">Rôle</text>
+        <text x="475" y="62" text-anchor="middle" font-size="9.5" fill="#15803d">Activités × récurrence</text>
+        <text x="475" y="76" text-anchor="middle" font-size="9.5" fill="#15803d">Estimation mensuelle / annuelle</text>
+        <rect x="580" y="15" width="190" height="70" rx="10" fill="#fff7ed" stroke="#f97316" stroke-width="1.8"/>
+        <text x="675" y="44" text-anchor="middle" font-weight="700" fill="#c2410c">Faiblesse</text>
+        <text x="675" y="62" text-anchor="middle" font-size="9.5" fill="#c2410c">Impact probabiliste d'un défaut</text>
+        <text x="675" y="76" text-anchor="middle" font-size="9.5" fill="#c2410c">Coût annuel / mensuel estimé</text>
+      </svg>
+      <p class="diagram-caption">Les quatre sous-onglets de <code>/temps</code> — chaque mode a son propre ensemble de modèles et d'APIs.</p>
+    </div>
+
+    <h3>Modèles de données (<code>time_extra.py</code>)</h3>
+    <table>
+      <tr><th>Modèle</th><th>Table</th><th>Rôle</th></tr>
+      <tr><td><code>TimeProject</code></td><td><code>time_project</code></td><td>Projet nommé (lié à une entité via <code>entity_id</code>)</td></tr>
+      <tr><td><code>TimeProjectLine</code></td><td><code>time_project_line</code></td><td>Ligne d'un projet : activité, durée, délai, nb personnes</td></tr>
+      <tr><td><code>TimeAnalysis</code></td><td><code>time_analysis</code></td><td>Analyse ponctuelle d'une activité ou tâche (durée, récurrence, fréquence)</td></tr>
+      <tr><td><code>TimeRoleAnalysis</code></td><td><code>time_role_analysis</code></td><td>Analyse de charge pour un rôle donné</td></tr>
+      <tr><td><code>TimeRoleLine</code></td><td><code>time_role_line</code></td><td>Ligne d'une analyse rôle : activité × récurrence × fréquence</td></tr>
+      <tr><td><code>TimeWeakness</code></td><td><code>time_weakness</code></td><td>Faiblesse enregistrée avec ses paramètres probabilistes</td></tr>
+    </table>
+
+    <h3>Fonctions helpers clés</h3>
+    <table>
+      <tr><th>Fonction</th><th>Rôle</th></tr>
+      <tr><td><code>to_minutes(qty, unit)</code></td><td>Convertit une quantité + unité ('minutes'/'heures'/'jours') en nombre de minutes</td></tr>
+      <tr><td><code>get_company_params()</code></td><td>Lit les paramètres de l'entreprise (<code>Js</code> jours/semaine, <code>Sa</code> semaines/an, <code>Ja</code> jours/an) — fallback double table puis valeurs par défaut</td></tr>
+      <tr><td><code>get_calendar_params()</code></td><td>Lit <code>enterprise_settings</code> (heures/jour, jours/semaine, semaines/an), se rabat sur <code>get_company_params()</code></td></tr>
+      <tr><td><code>ensure_time_role_schema()</code></td><td>Auto-migration SQLite : ajoute les colonnes <code>name</code>/<code>created_at</code>/<code>duration_minutes</code> manquantes si la table existe déjà sans elles</td></tr>
+      <tr><td><code>_line_duration(line)</code></td><td>Retourne la durée d'une ligne rôle : <code>duration_minutes</code> si renseignée, sinon <code>activity.duration_minutes</code></td></tr>
+      <tr><td><code>_role_summary(R)</code></td><td>Agrège les lignes d'une analyse rôle par récurrence et calcule estimation mensuelle et annuelle</td></tr>
+    </table>
+
+    <h3>Module Projet — charge de travail multi-activités</h3>
+    <p>Un <code>TimeProject</code> agrège des lignes (<code>TimeProjectLine</code>), chacune associant une activité à une durée, un délai et un nombre de personnes. La <strong>charge</strong> d'une ligne = <code>duration_minutes × nb_people</code>. La suppression de la dernière ligne d'un projet supprime automatiquement le projet lui-même.</p>
+
+    <h3>Module Activité — saisie durée/délai</h3>
+    <p>Deux modes de saisie pour l'endpoint <code>POST /temps/api/activity_time/&lt;id&gt;</code> :</p>
+    <ul>
+      <li><strong>Mode <code>activity</code></strong> (défaut) : durée et délai saisis directement sur l'activité.</li>
+      <li><strong>Mode <code>tasks</code></strong> : durée et délai saisis tâche par tâche — la somme des durées tâches écrase <code>activity.duration_minutes</code>.</li>
+    </ul>
+    <p>La méthode <code>DELETE</code> sur le même endpoint remet toutes les durées à zéro (activité + tâches).</p>
+
+    <h3>Module Rôle — estimation par récurrence</h3>
+    <p>Chaque <code>TimeRoleLine</code> porte une activité, une récurrence (<code>journalier / hebdomadaire / mensuel / annuel</code>) et une fréquence. <code>_role_summary()</code> calcule :</p>
+    <pre>annual  = Σ(daily × freq)  × Js × Sa
+          + Σ(weekly × freq) × Sa
+          + Σ(monthly× freq) × 12
+          + Σ(yearly × freq)
+monthly = annual / 12</pre>
+    <p>où <code>Js</code> = jours/semaine et <code>Sa</code> = semaines/an issus de <code>get_calendar_params()</code>.</p>
+
+    <h3>Module Faiblesse — impact probabiliste</h3>
+    <p>Le calcul s'appuie sur un ensemble de variables alphabétiques. Les paramètres d'entrée saisis par l'utilisateur :</p>
+    <table>
+      <tr><th>Variable</th><th>Signification</th></tr>
+      <tr><td><code>B</code></td><td>Durée standard de l'activité (sans faiblesse), en minutes</td></tr>
+      <tr><td><code>C</code></td><td>Délai standard de production, en minutes</td></tr>
+      <tr><td><code>K</code></td><td>Description textuelle de la faiblesse</td></tr>
+      <tr><td><code>L</code></td><td>Surcroît de travail par occurrence (minutes)</td></tr>
+      <tr><td><code>M</code></td><td>Temps d'attente/retard par occurrence (minutes)</td></tr>
+      <tr><td><code>N</code></td><td>Dénominateur de probabilité (la faiblesse survient 1 fois sur N)</td></tr>
+    </table>
+    <p>Valeurs calculées :</p>
+    <table>
+      <tr><th>Variable</th><th>Formule</th><th>Interprétation</th></tr>
+      <tr><td><code>H</code></td><td>Occurrences de l'activité par an selon récurrence × fréquence</td><td>Nombre d'exécutions annuelles</td></tr>
+      <tr><td><code>O</code></td><td><code>1 / N</code></td><td>Probabilité d'apparition de la faiblesse</td></tr>
+      <tr><td><code>P</code></td><td><code>H × O</code></td><td>Occurrences annuelles de la faiblesse</td></tr>
+      <tr><td><code>Q</code></td><td><code>L × O</code></td><td>Surcroît de travail moyen par exécution</td></tr>
+      <tr><td><code>R</code></td><td><code>(L + M) × O</code></td><td>Retard moyen par exécution</td></tr>
+      <tr><td><code>S</code></td><td><code>B + Q</code></td><td>Durée moyenne corrigée par exécution</td></tr>
+      <tr><td><code>T</code></td><td><code>C + R</code></td><td>Délai moyen corrigé par exécution</td></tr>
+      <tr><td><code>U</code></td><td><code>L × P</code></td><td>Surcroît de travail total / an</td></tr>
+      <tr><td><code>V</code></td><td><code>(L + M) × P</code></td><td>Retard cumulé total / an</td></tr>
+      <tr><td><code>W</code></td><td><code>U / (Sa / 4.345)</code></td><td>Surcroît de travail moyen / mois</td></tr>
+      <tr><td><code>X</code></td><td><code>V / (Sa / 4.345)</code></td><td>Retard total moyen / mois</td></tr>
+      <tr><td><code>Y</code></td><td><code>C + M</code></td><td>Délai total en cas dégradé (faiblesse réalisée)</td></tr>
+      <tr><td><code>Z</code></td><td><code>M</code></td><td>Retard pur par occurrence dégradée</td></tr>
+      <tr><td><code>AA</code></td><td><code>P</code></td><td>Occurrences / an (alias affiché en KPI)</td></tr>
+    </table>
+    <div class="callout callout-tip">
+      Le paramètre <code>save</code> dans le corps de la requête contrôle si la faiblesse est persistée en base (<code>TimeWeakness</code>). Le calcul s'effectue toujours, même sans sauvegarde — ce qui permet un mode "simulation" côté UI.
+    </div>
+
+    <h3>Référence API — Gestion du temps</h3>
+    <table>
+      <tr><th>Méthode</th><th>URL</th><th>Description</th></tr>
+      <tr><td>GET</td><td><code>/temps/</code></td><td>Page tableau de bord (rendu <code>time_dashboard.html</code>)</td></tr>
+      <tr><td>GET</td><td><code>/temps/api/calendar_params</code></td><td>Paramètres calendrier de l'entreprise (heures/jour, jours/sem, sem/an)</td></tr>
+      <tr><td>GET</td><td><code>/temps/api/activities</code></td><td>Liste des activités de l'entité active (id, name, duration_minutes, delay_minutes)</td></tr>
+      <tr><td>GET</td><td><code>/temps/api/activity_defaults/&lt;id&gt;</code></td><td>Durée/délai de l'activité + liste de ses tâches avec leurs durées</td></tr>
+      <tr><td>GET/POST/DELETE</td><td><code>/temps/api/activity_time/&lt;id&gt;</code></td><td>Lire / sauvegarder / réinitialiser durée et délai d'une activité</td></tr>
+      <tr><td>POST</td><td><code>/temps/api/time_analysis</code></td><td>Crée un enregistrement <code>TimeAnalysis</code> (mode activity ou tasks)</td></tr>
+      <tr><td>GET</td><td><code>/temps/api/time_analyses</code></td><td>Liste les analyses (<code>?activity_id=</code> pour filtrer)</td></tr>
+      <tr><td>DELETE</td><td><code>/temps/api/time_analysis/&lt;id&gt;</code></td><td>Supprime une analyse</td></tr>
+      <tr><td>POST</td><td><code>/temps/api/project</code></td><td>Crée un projet avec ses lignes</td></tr>
+      <tr><td>GET</td><td><code>/temps/api/project/&lt;id&gt;</code></td><td>Détail d'un projet (lignes + totaux charge)</td></tr>
+      <tr><td>GET</td><td><code>/temps/api/projects</code></td><td>Liste tous les projets de l'entité active</td></tr>
+      <tr><td>DELETE</td><td><code>/temps/api/project/&lt;id&gt;</code></td><td>Supprime un projet</td></tr>
+      <tr><td>DELETE</td><td><code>/temps/api/project_line/&lt;id&gt;</code></td><td>Supprime une ligne (supprime le projet si plus aucune ligne)</td></tr>
+      <tr><td>POST</td><td><code>/temps/api/role_analysis</code></td><td>Crée une analyse rôle avec ses lignes</td></tr>
+      <tr><td>GET/PATCH/DELETE</td><td><code>/temps/api/role_analysis/&lt;id&gt;</code></td><td>Lire / renommer / supprimer une analyse rôle</td></tr>
+      <tr><td>GET</td><td><code>/temps/api/role_analyses</code></td><td>Liste toutes les analyses rôle avec leur résumé</td></tr>
+      <tr><td>DELETE</td><td><code>/temps/api/role_line/&lt;id&gt;</code></td><td>Supprime une ligne rôle (supprime l'analyse si plus aucune ligne)</td></tr>
+      <tr><td>POST</td><td><code>/temps/api/weakness</code></td><td>Calcule l'impact d'une faiblesse (et l'enregistre si <code>save=true</code>)</td></tr>
+    </table>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <section id="propositions-ia">
+    <h2 class="section-title">Propositions IA (compétences) <span class="badge badge-done">Documenté</span></h2>
+
+    <p>Quatre blueprints Flask permettent de générer automatiquement des propositions de compétences pour une activité via <strong>OpenAI GPT-4o-mini</strong>. Ils sont regroupés autour d'un module commun <code>propose_common.py</code> et appellés depuis la fiche activité (boutons "Proposer…").</p>
+
+    <h3>Module commun — <code>propose_common.py</code></h3>
+    <table>
+      <tr><th>Fonction</th><th>Rôle</th></tr>
+      <tr><td><code>build_activity_context(activity_json)</code></td><td>Formate un texte structuré (titre, description, entrées/sorties, outils, contraintes, tâches) à partir du JSON d'activité renvoyé par <code>/activities/&lt;id&gt;/details</code></td></tr>
+      <tr><td><code>openai_client_or_none()</code></td><td>Instancie le client OpenAI depuis <code>OPENAI_API_KEY</code>. Retourne <code>(None, "raison")</code> si la clé est absente ou invalide, permettant un fallback transparent.</td></tr>
+      <tr><td><code>dummy_from_context(ctx, kind)</code></td><td>Fallback déterministe : génère 3 items génériques à partir du titre de l'activité, sans appel IA. Évite tout plantage front en production si la clé est absente.</td></tr>
+    </table>
+    <div class="callout callout-info">
+      Toutes les routes propositions retournent <strong>HTTP 200</strong> même en cas d'erreur, avec un fallback dans le champ <code>proposals</code>. L'UI n'affiche jamais d'erreur bloquante.
+    </div>
+
+    <h3>Savoir-faire — <code>POST /propose_savoir_faires/propose</code></h3>
+    <p>Blueprint <code>bp_propose_sf</code> dans <code>propose_savoir_faires.py</code>. Demande à GPT des savoir-faire <em>opérationnels</em> formulés par verbes d'action (Utiliser, Maîtriser, Vérifier…), spécifiques au contexte de l'activité.</p>
+    <div class="card">
+      <strong>Règles du prompt :</strong> 3 à 7 items max, verbe d'action obligatoire, préciser l'objet (procédure/outil/donnée), pas de répétition textuelle des tâches. Température : 0.2.
+    </div>
+    <pre>POST /propose_savoir_faires/propose
+Body: { ...activity_json }
+→ { "proposals": ["Utiliser SAP pour...", "Vérifier la conformité..."] }</pre>
+
+    <h3>Savoirs — <code>POST /propose_savoirs/propose</code></h3>
+    <p>Blueprint <code>bp_propose_savoirs</code> dans <code>propose_savoirs.py</code>. Propose des <em>connaissances théoriques</em> (formulation nominale, sans verbe d'action) nécessaires pour tenir l'activité. Le payload peut inclure les savoir-faire déjà renseignés pour enrichir le contexte.</p>
+    <div class="card">
+      <strong>Règles du prompt :</strong> 3 à 8 items max, formulation nominale (normes, procédures, référentiels), savoirs transverses bienvenus (SST, RGPD, qualité). Température : 0.2.
+    </div>
+    <pre>POST /propose_savoirs/propose
+Body: { ...activity_json, "savoir_faires": ["item1", ...] }
+→ { "proposals": ["ISO 9001 — procédure de contrôle", "Règles RGPD..."] }</pre>
+
+    <h3>Habiletés sociocognitives (HSC) — <code>POST /propose_softskills/propose</code></h3>
+    <p>Blueprint <code>bp_propose_softskills</code> dans <code>propose_softskills.py</code>. Propose une <strong>combinatoire de 4 à 6 HSC</strong> issues exclusivement de la norme <strong>X50-766</strong> (16 habiletés), avec niveau et justification.</p>
+    <div class="card card-pink">
+      <h4>Norme X50-766 — 16 habiletés reconnues</h4>
+      <p>Auto-évaluation · Auto-régulation · Auto-organisation · Auto-mobilisation · Sensibilité sociale · Adaptation relationnelle · Coopération · Raisonnement logique · Planification · Arbitrage · Traitement de l'information · Synthèse · Conceptualisation · Flexibilité mentale · Projection · Approche globale</p>
+    </div>
+    <p>Niveaux : <code>1 (Aptitude)</code> → <code>4 (Excellence)</code>. Le prompt impose un <strong>raisonnement en 5 étapes</strong> : identification des résultats majeurs R1..Rk, sélection par essentiel, règle anti-évidence (Planification seulement si complexité réelle), attribution du niveau, test de couverture finale.</p>
+    <pre>POST /propose_softskills/propose
+Body: { "name": "...", "tasks": [...], "constraints": [...], "outgoing": [...] }
+→ {
+  "proposals": [{
+    "habilete": "Raisonnement logique",
+    "niveau": "3 (Maîtrise)",
+    "justification": "Sollicitation: 2. Nécessaire pour T1 et C2..."
+  }, ...]
+}</pre>
+
+    <h3>Aptitudes / Inclusion — <code>POST /propose_aptitudes/propose</code></h3>
+    <p>Blueprint <code>bp_propose_aptitudes</code> dans <code>propose_aptitudes.py</code>. Produit un <strong>scoring d'accessibilité</strong> de l'activité en 5 catégories, puis peut évaluer la <strong>faisabilité</strong> pour un profil fonctionnel donné (approche ICF/CIF).</p>
+
+    <h4>Endpoint 1 — Scoring inclusion</h4>
+    <table>
+      <tr><th>Catégorie</th><th>Ce qu'elle évalue</th></tr>
+      <tr><td>Vision</td><td>Exigences visuelles, accessibilité numérique, outils</td></tr>
+      <tr><td>Auditif</td><td>Communication orale, alertes sonores, réunions</td></tr>
+      <tr><td>Physique</td><td>Haut du corps / bas du corps / fatigabilité</td></tr>
+      <tr><td>Environnemental</td><td>Bruit, interruptions, exigences de communication</td></tr>
+      <tr><td>Exposition / Risque</td><td>Machines, hauteur, chimique, isolement (0 si rien d'explicite)</td></tr>
+    </table>
+    <p>Chaque catégorie retourne un niveau (<code>0 Aucune</code> à <code>3 Élevée</code>), un risque court et 1 à 2 leviers d'adaptation inclusive. Maximum 2 profils valorisables conditionnés par "si exigences métier acquises".</p>
+    <pre>POST /propose_aptitudes/propose
+Body: { ...activity_json, "competences_text": "...", "hsc_context": "..." }
+→ { "proposals": { "vision": {...}, "auditif": {...}, "physique": {...},
+    "environnemental": {...}, "exposition_risque": {...},
+    "profils_valorisables": [...] } }</pre>
+
+    <h4>Endpoint 2 — Faisabilité ICF</h4>
+    <p>Évalue si un <strong>profil fonctionnel</strong> (limitations visuelles, auditives, motrices, endurance, sensibilité env.) est compatible avec les exigences de l'activité, en tenant compte des aides déjà en place.</p>
+    <pre>POST /propose_aptitudes/feasibility
+Body: {
+  "activity_name": "...",
+  "inclusion_scoring_json": { ...résultat scoring... },
+  "profil_fonctionnel": { "vision": "réduite", "audition": "normale", ... },
+  "assistive_products": ["Logiciel de zoom", ...]
+}
+→ { "result": {
+    "statut": "OK avec adaptations",
+    "mesures_deja_en_place": [...],
+    "ajouts_recommandes": [...],
+    "a_ajuster": [...],
+    "risque_residuel": "...",
+    "commentaire": "..."
+  } }</pre>
+
+    <h3>Référence API — Propositions IA</h3>
+    <table>
+      <tr><th>Méthode</th><th>URL</th><th>Fichier</th><th>Description</th></tr>
+      <tr><td>POST</td><td><code>/propose_savoir_faires/propose</code></td><td><code>propose_savoir_faires.py</code></td><td>Génère 3–7 savoir-faire opérationnels (verbes d'action)</td></tr>
+      <tr><td>POST</td><td><code>/propose_savoirs/propose</code></td><td><code>propose_savoirs.py</code></td><td>Génère 3–8 savoirs théoriques (formulation nominale)</td></tr>
+      <tr><td>POST</td><td><code>/propose_softskills/propose</code></td><td><code>propose_softskills.py</code></td><td>Génère 4–6 HSC X50-766 avec niveau et justification</td></tr>
+      <tr><td>POST</td><td><code>/propose_aptitudes/propose</code></td><td><code>propose_aptitudes.py</code></td><td>Scoring inclusion 5 catégories + profils valorisables</td></tr>
+      <tr><td>POST</td><td><code>/propose_aptitudes/feasibility</code></td><td><code>propose_aptitudes.py</code></td><td>Faisabilité ICF pour un profil fonctionnel donné</td></tr>
+    </table>
+    <div class="callout callout-warn">
+      Tous ces endpoints nécessitent la variable d'environnement <code>OPENAI_API_KEY</code>. En son absence, <code>openai_client_or_none()</code> retourne <code>(None, "raison")</code> et chaque route renvoie un fallback déterministe via <code>dummy_from_context()</code> — aucune erreur 500 n'est propagée au client.
+    </div>
   </section>
 
   <section id="api">
