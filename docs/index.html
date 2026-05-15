@@ -502,24 +502,209 @@ werkzeug, python-dotenv, anthropic, gunicorn</pre>
     <p><code>GET /activities/api/cross_carto_matches</code> — activités partagées entre l'entité active et les autres entités du même utilisateur.</p>
   </section>
 
+  <!-- ═══════════════════════════════════════════════════════════════ -->
   <section id="competences">
-    <h2 class="section-title">Compétences &amp; Skills <span class="badge badge-todo">À documenter</span></h2>
-    <p>À compléter : gestion compétences/savoirs/softskills/aptitudes, propositions IA.</p>
+    <h2 class="section-title">Compétences &amp; Évaluations <span class="badge badge-done">Documenté</span></h2>
+    <p>Blueprint : <code>competences_bp</code> — fichier : <code>Code/routes/competences.py</code>, préfixe <code>/competences</code>.</p>
+    <p>Gère l'évaluation multi-évaluateurs des compétences des collaborateurs. Chaque activité porte des savoirs, savoir-faires et softskills ; chaque item peut être évalué indépendamment par trois profils.</p>
+
+    <h3>Modèle d'évaluation</h3>
+    <p>Table centrale : <code>CompetencyEvaluation</code>.</p>
+    <table>
+      <tr><th>Champ</th><th>Type</th><th>Description</th></tr>
+      <tr><td><code>user_id</code></td><td>Integer FK</td><td>Collaborateur évalué</td></tr>
+      <tr><td><code>activity_id</code></td><td>Integer FK</td><td>Activité de rattachement</td></tr>
+      <tr><td><code>item_id</code></td><td>Integer</td><td>ID du savoir / savoir-faire / softskill</td></tr>
+      <tr><td><code>item_type</code></td><td>String</td><td><code>savoirs</code> | <code>savoir_faires</code> | <code>softskills</code> | <code>activities</code></td></tr>
+      <tr><td><code>eval_number</code></td><td>String</td><td><code>'1'</code> Garant · <code>'2'</code> Manager · <code>'3'</code> RH</td></tr>
+      <tr><td><code>note</code></td><td>String</td><td>Classe CSS colorée (<em>vert / orange / rouge…</em>) ou <code>'empty'</code> = suppression</td></tr>
+    </table>
+    <div class="callout callout-info">
+      La sauvegarde (<code>POST /competences/save_user_evaluations</code>) utilise un <strong>delete + insert</strong> robuste plutôt qu'un UPSERT standard, afin de contourner les anomalies de séquence PostgreSQL.
+    </div>
+
+    <h3>Hiérarchie managériale</h3>
+    <ul>
+      <li><code>User.manager_id</code> — manager global du collaborateur</li>
+      <li><code>UserRole.manager_id</code> — manager spécifique à un rôle (peut différer)</li>
+      <li><code>GET /competences/managers</code> — liste tous les managers de l'entité active</li>
+      <li><code>GET /competences/collaborators/&lt;manager_id&gt;</code> — collaborateurs sous un manager</li>
+    </ul>
+
+    <h3>Référence API</h3>
+    <table>
+      <tr><th>Méthode</th><th>URL</th><th>Description</th></tr>
+      <tr><td>GET</td><td><code>/competences/view</code></td><td>Page principale évaluation compétences</td></tr>
+      <tr><td>GET</td><td><code>/competences/managers</code></td><td>Managers de l'entité active (JSON)</td></tr>
+      <tr><td>GET</td><td><code>/competences/collaborators/&lt;manager_id&gt;</code></td><td>Collaborateurs d'un manager</td></tr>
+      <tr><td>GET</td><td><code>/competences/get_user_roles/&lt;user_id&gt;</code></td><td>Rôles affectés à un user</td></tr>
+      <tr><td>POST</td><td><code>/competences/save_user_evaluations</code></td><td>Sauvegarde / mise à jour des évaluations (UPSERT)</td></tr>
+      <tr><td>GET</td><td><code>/competences/get_user_evaluations_by_user/&lt;user_id&gt;</code></td><td>Toutes les évaluations d'un collaborateur</td></tr>
+      <tr><td>GET</td><td><code>/competences/role_structure/&lt;user_id&gt;/&lt;role_id&gt;</code></td><td>Structure détaillée rôle + compétences + évaluations existantes</td></tr>
+      <tr><td>GET</td><td><code>/competences/global_summary/&lt;user_id&gt;</code></td><td>Tableau HTML récapitulatif toutes activités (par évaluateur)</td></tr>
+      <tr><td>GET</td><td><code>/competences/global_flat_summary/&lt;user_id&gt;</code></td><td>Tableau HTML à plat avec lignes manager</td></tr>
+      <tr><td>GET</td><td><code>/competences/users/global_summary</code></td><td>Dashboard tous les collaborateurs × rôles × évaluations manager</td></tr>
+    </table>
   </section>
 
+  <!-- ═══════════════════════════════════════════════════════════════ -->
   <section id="performance">
-    <h2 class="section-title">Performance <span class="badge badge-todo">À documenter</span></h2>
-    <p>À compléter : indicateurs, tableaux de bord, performance personnalisée, projections.</p>
+    <h2 class="section-title">Performance <span class="badge badge-done">Documenté</span></h2>
+    <p>Blueprint : <code>performance_bp</code> — fichier : <code>Code/routes/performance.py</code>, préfixe <code>/performance</code>.</p>
+    <p>Gère les <strong>indicateurs de performance</strong> attachés aux connexions entre activités (<code>Link</code>). Un indicateur porte un nom et une description ; il qualifie la valeur produite par une activité vers la suivante.</p>
+
+    <h3>Modèle de donnée</h3>
+    <p><code>Performance</code> → <code>link_id</code> (FK vers <code>Link</code>) — un lien peut avoir zéro ou plusieurs performances.</p>
+
+    <h3>Rendu fragmentaire (server-side HTML)</h3>
+    <p>Chaque endpoint retourne un fragment HTML autonome rechargé par AJAX dans la fiche activité. La fonction <code>_render_fragment(link_id)</code> construit ce fragment : s'il n'existe aucune performance pour le lien, il affiche un message "Aucune performance générale" avec un bouton d'ajout.</p>
+
+    <h3>Référence API</h3>
+    <table>
+      <tr><th>Méthode</th><th>URL</th><th>Description</th></tr>
+      <tr><td>GET</td><td><code>/performance/render/&lt;link_id&gt;</code></td><td>Fragment HTML des performances d'un lien</td></tr>
+      <tr><td>GET</td><td><code>/performance/render_activity/&lt;activity_id&gt;</code></td><td>Fallback : retrouve le lien via l'activité, puis rend le fragment</td></tr>
+      <tr><td>POST</td><td><code>/performance/add</code></td><td>Crée un indicateur. Body : <code>{link_id, name}</code></td></tr>
+      <tr><td>PUT</td><td><code>/performance/&lt;perf_id&gt;</code></td><td>Met à jour nom et/ou description</td></tr>
+      <tr><td>DELETE</td><td><code>/performance/&lt;perf_id&gt;</code></td><td>Supprime l'indicateur</td></tr>
+    </table>
   </section>
 
+  <!-- ═══════════════════════════════════════════════════════════════ -->
   <section id="rh">
-    <h2 class="section-title">Gestion RH <span class="badge badge-todo">À documenter</span></h2>
-    <p>À compléter : collaborateurs, rôles, affectations, plans de formation.</p>
+    <h2 class="section-title">Gestion RH <span class="badge badge-done">Documenté</span></h2>
+    <p>Blueprint : <code>gestion_rh_bp</code> — fichier : <code>Code/routes/gestion_rh.py</code>, préfixe <code>/gestion_rh</code>.</p>
+    <p>Module complet de gestion des collaborateurs : création de rôles, affectation aux utilisateurs, définition des managers, et paramétrage des temps de travail de l'entité.</p>
+
+    <h3>Concepts clés</h3>
+    <div class="card">
+      <table>
+        <tr><th>Concept</th><th>Table</th><th>Description</th></tr>
+        <tr><td>Rôle</td><td><code>roles</code></td><td>Poste ou bande (ex : "Technicien N2") scopé à une entité</td></tr>
+        <tr><td>Affectation</td><td><code>user_roles</code></td><td>Association user ↔ rôle avec manager optionnel par rôle</td></tr>
+        <tr><td>Manager global</td><td><code>users.manager_id</code></td><td>Responsable hiérarchique unique pour tous les rôles</td></tr>
+        <tr><td>Manager par rôle</td><td><code>user_roles.manager_id</code></td><td>Responsable spécifique à un rôle (surcharge le global)</td></tr>
+        <tr><td>Paramètres travail</td><td><code>entreprise_settings</code></td><td>Heures/jour, jours/semaine, semaines/an — utilisés dans les analyses de temps</td></tr>
+      </table>
+    </div>
+
+    <h3>Import CSV de rôles</h3>
+    <p><code>POST /gestion_rh/import_roles</code> — lit un fichier CSV uploadé, insère les rôles manquants pour l'entité active, ignore les doublons via <code>IntegrityError</code>.</p>
+
+    <div class="callout callout-warn">
+      Au démarrage de l'app, <code>gestion_rh.py</code> exécute un <code>ALTER TABLE user_roles ADD COLUMN manager_id</code> idempotent pour les bases sans migration complète.
+    </div>
+
+    <h3>Affectation des managers</h3>
+    <p>Deux modes via <code>POST /gestion_rh/assign_manager_simple</code> :</p>
+    <ul>
+      <li><strong>Global</strong> : écrit <code>User.manager_id</code> + tous les <code>UserRole.manager_id</code> du collaborateur.</li>
+      <li><strong>Par rôle</strong> : écrit uniquement le <code>UserRole.manager_id</code> du rôle ciblé.</li>
+    </ul>
+
+    <h3>Référence API</h3>
+    <table>
+      <tr><th>Méthode</th><th>URL</th><th>Description</th></tr>
+      <tr><td>GET</td><td><code>/gestion_rh/</code></td><td>Page d'accueil RH (paramètres + rôles + collaborateurs)</td></tr>
+      <tr><td>POST</td><td><code>/gestion_rh/update_settings</code></td><td>Mise à jour paramètres temps de travail de l'entité</td></tr>
+      <tr><td>POST</td><td><code>/gestion_rh/update_single_setting</code></td><td>AJAX — met à jour un seul champ des paramètres</td></tr>
+      <tr><td>POST</td><td><code>/gestion_rh/role</code></td><td>Créer ou mettre à jour un rôle</td></tr>
+      <tr><td>POST</td><td><code>/gestion_rh/delete_role/&lt;role_id&gt;</code></td><td>Supprimer un rôle</td></tr>
+      <tr><td>POST</td><td><code>/gestion_rh/import_roles</code></td><td>Import CSV de rôles</td></tr>
+      <tr><td>POST</td><td><code>/gestion_rh/assign_roles</code></td><td>Affecter des rôles à un utilisateur (remplace les existants)</td></tr>
+      <tr><td>GET</td><td><code>/gestion_rh/collaborateurs</code></td><td>Recherche collaborateurs par nom ou rôle</td></tr>
+      <tr><td>POST</td><td><code>/gestion_rh/collaborateur_roles</code></td><td>Modifier les rôles d'un collaborateur via formulaire</td></tr>
+      <tr><td>POST</td><td><code>/gestion_rh/update_collaborator_name</code></td><td>AJAX — renommer un collaborateur (parse "Prénom Nom")</td></tr>
+      <tr><td>POST</td><td><code>/gestion_rh/assign_manager</code></td><td>Batch — affecter un manager à plusieurs users pour un rôle</td></tr>
+      <tr><td>POST</td><td><code>/gestion_rh/assign_manager_simple</code></td><td>Affecter un manager (global ou par rôle)</td></tr>
+      <tr><td>GET</td><td><code>/gestion_rh/roles</code></td><td>Liste tous les rôles de l'entité active (JSON)</td></tr>
+      <tr><td>GET</td><td><code>/gestion_rh/users_by_roles</code></td><td>Users ayant des rôle IDs spécifiques (JSON)</td></tr>
+      <tr><td>GET</td><td><code>/gestion_rh/users_with_roles</code></td><td>Users avec leurs rôles affectés (JSON)</td></tr>
+      <tr><td>GET</td><td><code>/gestion_rh/all_collaborators_with_manager</code></td><td>Roster complet : rôles + managers par rôle (JSON)</td></tr>
+    </table>
   </section>
 
+  <!-- ═══════════════════════════════════════════════════════════════ -->
   <section id="chatbot">
-    <h2 class="section-title">Chatbot IA <span class="badge badge-todo">À documenter</span></h2>
-    <p>À compléter : fonctionnement chatbot, intégration Claude API, contexte injecté.</p>
+    <h2 class="section-title">Chatbot IA — Assistant OPTIQ <span class="badge badge-done">Documenté</span></h2>
+    <p>Blueprint : <code>chatbot_bp</code> — fichier : <code>Code/routes/chatbot.py</code>, préfixe <code>/api/chatbot</code>.</p>
+    <p>Interface conversationnelle propulsée par <strong>OpenAI GPT</strong> (<code>gpt-4o-mini</code> par défaut, configurable via <code>OPENAI_CHATBOT_MODEL</code>). Elle guide l'utilisateur dans la définition ou la révision des tâches d'une activité en appliquant la <strong>méthodologie OPTIQ</strong>.</p>
+
+    <h3>Deux modes</h3>
+    <table>
+      <tr><th>Mode</th><th>Déclencheur</th><th>Comportement</th></tr>
+      <tr><td><code>creer</code></td><td>Activité sans tâches</td><td>Découverte ouverte : une question à la fois, construction itérative de la liste</td></tr>
+      <tr><td><code>ameliorer</code></td><td>Activité avec tâches existantes</td><td>Analyse critique : identifie surdétail, hors-périmètre, tâches manquantes</td></tr>
+    </table>
+
+    <h3>Règles OPTIQ injectées dans le prompt système</h3>
+    <ul>
+      <li>5–8 tâches maximum (3–4 pour activités simples) — regroupement si excès</li>
+      <li>Pas de procédure ("cliquer sur…") — reformuler en tâche ("Saisir la demande")</li>
+      <li>Un verbe par tâche ; chaîne logique entrée → tâche → sortie</li>
+      <li>Protocole "Ça dépend" : condition + tronc principal + ≤ 2 branches (≤ 3 tâches chacune)</li>
+    </ul>
+
+    <h3>Contexte injecté par activité</h3>
+    <p><code>GET /api/chatbot/activity/&lt;activity_id&gt;/context</code> retourne un JSON complet envoyé au modèle à chaque tour de conversation :</p>
+    <pre>{
+  "activity": { "id": 42, "name": "...", "description": "..." },
+  "tasks": [...],
+  "incoming_links": [...],
+  "outgoing_links": [...],
+  "constraints": [...],
+  "competencies": [...],
+  "savoirs": [...],
+  "savoir_faires": [...],
+  "softskills": [...],
+  "aptitudes": [...],
+  "tools": [...]
+}</pre>
+
+    <h3>Schéma de réponse JSON du modèle</h3>
+    <pre>{
+  "assistant_message": "texte conversationnel",
+  "status": "need_more_info | ready_for_validation | validated",
+  "tasks": [
+    {
+      "label": "Verbe + objet",
+      "tools": ["nom outil"],
+      "flags": {
+        "too_detailed": false,
+        "contains_how": false,
+        "contains_two_tasks": false,
+        "out_of_scope": false
+      },
+      "rewrite_suggestion": "",
+      "outgoing_link": {
+        "data_name": "nom de la donnée produite",
+        "data_type": "nourrissante | descendante | remontante",
+        "target_activity_name": ""
+      }
+    }
+  ],
+  "next_questions": ["Oui, c'est correct", "Non, à reformuler"],
+  "branches": [{ "condition": "Si...", "impact": "...", "task_variants": [] }]
+}</pre>
+
+    <h3>Injection en base (<code>POST /api/chatbot/inject</code>)</h3>
+    <p>Une fois les tâches validées par l'utilisateur dans l'UI, l'endpoint crée :</p>
+    <ul>
+      <li><code>Task</code> avec ordre et <code>activity_id</code></li>
+      <li><code>Tool</code> get-or-create (scope entité, insensible à la casse)</li>
+      <li><code>Data</code> + <code>Link</code> si un <code>outgoing_link</code> est défini</li>
+    </ul>
+    <div class="callout callout-info">
+      La conversation est <strong>stateless côté serveur</strong> : l'historique complet (messages user + assistant) est renvoyé par le client à chaque appel à <code>POST /api/chatbot/chat</code>.
+    </div>
+
+    <h3>Référence API</h3>
+    <table>
+      <tr><th>Méthode</th><th>URL</th><th>Description</th></tr>
+      <tr><td>GET</td><td><code>/api/chatbot/activity/&lt;activity_id&gt;/context</code></td><td>Contexte complet d'une activité pour le chatbot</td></tr>
+      <tr><td>POST</td><td><code>/api/chatbot/chat</code></td><td>Tour de conversation. Body : <code>{activity_id, message, history, mode}</code></td></tr>
+      <tr><td>POST</td><td><code>/api/chatbot/inject</code></td><td>Persiste les tâches validées en base</td></tr>
+    </table>
   </section>
 
   <section id="auth">

@@ -163,18 +163,21 @@ Fonctionnement :
 - **Activités — Fiche & Liste** : architecture modulaire (diagramme SVG des 8 sous-modules), page liste `GET /activities/view` (données rassemblées par activité : tâches, connexions, garant, task_conn_map, compétences), API détail `GET /activities/<id>/details` (JSON pour modales "Proposer…"), API items `GET /your_api/activity_items/<id>`, CRUD Performance sur les connexions, endpoints contraintes/data/reorder/update-cartography, fonctions utilitaires de résolution de liens
 - **Import IA — Excel → DB** : flux en deux étapes (analyze → inject), format Excel attendu (colonnes auto-détectées, merged cells propagées), algorithme de matching 3 passes (exact/inclusion/fuzzy, seuils 0.60/0.75/0.90), enrichissement OpenAI optionnel (silencieux si indisponible), injection en base (déduplication tâches, get-or-create outils/rôles, compétences), référence complète API avec exemple de réponse JSON
 
+### Complété (session 3 — 2026-05-15)
+- **Compétences & Évaluations** (`competences.py`) : modèle `CompetencyEvaluation` (user/activité/item/type/eval_number/note), système multi-évaluateurs Garant/Manager/RH, hiérarchie manager global + manager par rôle, UPSERT delete+insert robuste PostgreSQL, 11 endpoints documentés (view, save_evaluations, role_structure, global_summary, etc.)
+- **Performance** (`performance.py`) : indicateurs sur connexions `Link`, CRUD complet (add/update/delete), rendu fragment HTML server-side, fallback via activity_id, 5 endpoints documentés
+- **Gestion RH** (`gestion_rh.py`) : rôles (CRUD + import CSV), affectation collaborateurs, managers global/par-rôle, paramètres temps de travail entité, migration `ALTER TABLE` idempotente au démarrage, 17 endpoints documentés
+- **Chatbot IA** (`chatbot.py`) : assistant OPTIQ propulsé par **OpenAI GPT** (`gpt-4o-mini`), 2 modes (créer/améliorer), règles OPTIQ dans le prompt système (5-8 tâches, protocole "Ça dépend"), conversation stateless (historique côté client), injection `Task`+`Tool`+`Data`+`Link` en base, schéma JSON de réponse documenté
+
 ### En cours
 - *(rien)*
 
 ### À faire (par priorité)
-1. Gestion RH (`gestion_rh.py`)
-2. Performances (`performance.py`, `performance_personnalisee.py`)
-3. Chatbot (`chatbot.py`)
-4. Gestion du temps (`time_view.py`, `time_extra.py`)
-5. Compétences & Skills (`competences.py`, `propose_*.py`, `softskills.py`, etc.)
-6. Gestion compte + onboarding (`gestion_compte.py`, `onboarding.py`)
-7. Éditeur OptiqCarto côté JS (`static/optiqcarto/editor.js`)
-8. Tous les autres blueprints (export, changelog, projection_metier, etc.)
+1. Gestion du temps (`time_view.py`, `time_extra.py`)
+2. Propositions IA (`propose_*.py`, `softskills.py`, `savoirs.py`, `savoir_faires.py`, `aptitudes.py`)
+3. Gestion compte + onboarding (`gestion_compte.py`, `onboarding.py`)
+4. Éditeur OptiqCarto côté JS (`static/optiqcarto/editor.js`)
+5. Tous les autres blueprints (export, changelog, projection_metier, roles_view, skills, etc.)
 
 ---
 
