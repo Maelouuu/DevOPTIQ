@@ -41,21 +41,20 @@ function _updateRenvoiColor(s) {
   else        { s.color = '#ffffff';   s.textColor = '#000000'; }
 }
 
-// Quand on connecte un Renvoi (start-end) à une activité B :
+// Quand une activité B se connecte à un Renvoi R1 (flèche entrante dans R1) :
 // → crée automatiquement un second Renvoi coloré comme B, positionné près de
-//   l'activité A (celle que le premier Renvoi référence via son label), et
-//   le connecte à A.
+//   l'activité A (celle que R1 référence via son label), et le connecte à A.
 function _checkRenvoiAutoLink(fromShapeId, toShapeId) {
-  const renvoi = state.shapes.find(s => s.id === fromShapeId);
-  const actB   = state.shapes.find(s => s.id === toShapeId);
-  if (!renvoi || !actB) return;
-  if (renvoi.type !== 'start-end' || actB.type !== 'process') return;
+  const actB   = state.shapes.find(s => s.id === fromShapeId); // source = activité
+  const renvoi = state.shapes.find(s => s.id === toShapeId);   // cible  = renvoi
+  if (!actB || !renvoi) return;
+  if (actB.type !== 'process' || renvoi.type !== 'start-end') return;
 
   const renvoiLabel = (renvoi.label || '').trim().toLowerCase();
   if (!renvoiLabel) return;
 
   const actA = state.shapes.find(
-    s => s.type === 'process' && s.id !== toShapeId &&
+    s => s.type === 'process' && s.id !== fromShapeId &&
          (s.label || '').trim().toLowerCase() === renvoiLabel
   );
   if (!actA) return;
@@ -135,6 +134,8 @@ let histIndex = 0;
 // ── Viewport ──────────────────────────────────────
 // vpScale=0.5 → affichage "100%" (×200 dans la status bar)
 let vpX = 0, vpY = 280, vpScale = 0.5;
+// Sensibilité zoom (% par cran de molette) — persistée en localStorage
+let _zoomSens = Math.max(3, Math.min(30, parseFloat(localStorage.getItem('optiqcarto-zoom-sens') || '12')));
 
 // ── Interaction ───────────────────────────────────
 let tool = 'select';
@@ -1176,7 +1177,7 @@ function renderCanvasMap() {
           sub.className = 'cmap-group-subitem';
           sub.innerHTML = `<span class="cmap-color-swatch" style="background:${s.color}"></span><span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${s.label || '(sans label)'}</span>`;
           sub.addEventListener('click', () => {
-            selectShape(s.id, false, true);
+            selectShape(s.id, false, false);
             if (!propsOpen) setPropsOpen(true);
             render(); updateProps();
           });
@@ -1504,7 +1505,7 @@ function onDown(e) {
     const shapeTarget = e.target.closest('[data-type="shape"]');
     if (shapeTarget) {
       const sid = parseInt(shapeTarget.getAttribute('data-id'));
-      selectShape(sid, e.shiftKey, true);
+      selectShape(sid, e.shiftKey, false);
       if (!propsOpen) setPropsOpen(true);
 
       // Prepare drag
@@ -1871,7 +1872,8 @@ function onDbl(e) {
 
 function onWheel(e) {
   e.preventDefault();
-  const factor = e.deltaY < 0 ? 1.12 : 0.9;
+  const step   = _zoomSens / 100;
+  const factor = e.deltaY < 0 ? (1 + step) : (1 / (1 + step));
   const r = canvas.getBoundingClientRect();
   const cx = e.clientX - r.left;
   const cy = e.clientY - r.top;
@@ -4091,6 +4093,35 @@ function init() {
 
   // Grouper
   document.getElementById('btn-group-create').addEventListener('click', createGroup);
+
+  // ── Popup sensibilité zoom ────────────────────────────────────────────────
+  (function() {
+    const pill    = document.getElementById('zoom-pill');
+    const popup   = document.getElementById('zoom-sensitivity-popup');
+    const slider  = document.getElementById('zsens-slider');
+    const numInput = document.getElementById('zsens-value');
+    if (!pill || !popup || !slider || !numInput) return;
+
+    function _setZoomSens(v) {
+      v = Math.max(3, Math.min(30, Math.round(v)));
+      _zoomSens = v;
+      slider.value  = v;
+      numInput.value = v;
+      localStorage.setItem('optiqcarto-zoom-sens', String(v));
+    }
+    _setZoomSens(_zoomSens); // initialise avec la valeur restaurée
+
+    pill.addEventListener('click', e => {
+      e.stopPropagation();
+      popup.classList.toggle('open');
+    });
+    slider.addEventListener('input', () => _setZoomSens(slider.value));
+    numInput.addEventListener('input', () => _setZoomSens(numInput.value));
+    numInput.addEventListener('change', () => _setZoomSens(numInput.value));
+    document.addEventListener('click', e => {
+      if (!popup.contains(e.target) && e.target !== pill) popup.classList.remove('open');
+    });
+  })();
 
   document.getElementById('btn-new-carto').addEventListener('click', newCarto);
   document.getElementById('btn-architect').addEventListener('click', architectLayout);

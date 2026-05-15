@@ -274,9 +274,18 @@
       <g id="g-overlay"></g>
     </g>
   </svg>
-  <div id="zoom-pill">
+  <div id="zoom-pill" title="Cliquer pour régler la sensibilité du zoom">
     <i class="fa-solid fa-magnifying-glass"></i>
     <span id="status-zoom">100%</span>
+  </div>
+  <div id="zoom-sensitivity-popup">
+    <div class="zsens-title"><i class="fa-solid fa-gauge-high"></i> Sensibilité du zoom</div>
+    <div class="zsens-row">
+      <input type="range" id="zsens-slider" min="3" max="30" step="1" value="12">
+      <input type="number" id="zsens-value" min="3" max="30" step="1" value="12">
+      <span style="font-size:11px;color:var(--text-muted);white-space:nowrap">% / cran</span>
+    </div>
+    <div class="zsens-hint">Plus la valeur est élevée, plus le zoom est rapide. La valeur est enregistrée automatiquement.</div>
   </div>
 </main>
 

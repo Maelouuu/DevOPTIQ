@@ -152,8 +152,45 @@ html, body {
   letter-spacing: 0.3px;
   user-select: none;
 }
+#zoom-pill { cursor: pointer; transition: background 0.15s; }
+#zoom-pill:hover { background: rgba(77,184,104,0.12); }
 #zoom-pill i { font-size: 9px; color: var(--green); opacity: 0.85; }
 #status-zoom { line-height: 1; }
+
+#zoom-sensitivity-popup {
+  position: absolute;
+  bottom: calc(14px + 36px + 8px);
+  right: 14px;
+  background: #1A231D;
+  border: 1px solid var(--green-border);
+  border-radius: 14px;
+  padding: 14px 16px 12px;
+  min-width: 220px;
+  box-shadow: 0 8px 28px rgba(0,0,0,0.55), 0 0 0 1px rgba(77,184,104,0.1);
+  z-index: 200;
+  display: none;
+}
+#zoom-sensitivity-popup.open { display: block; }
+.zsens-title {
+  font-size: 11px; font-weight: 700; letter-spacing: 0.4px;
+  color: var(--green-lt); margin-bottom: 10px; text-transform: uppercase;
+}
+.zsens-row {
+  display: flex; align-items: center; gap: 10px;
+}
+#zsens-slider {
+  flex: 1; accent-color: var(--green);
+  height: 4px; cursor: pointer;
+}
+#zsens-value {
+  width: 44px; background: rgba(255,255,255,0.06); border: 1px solid var(--border);
+  border-radius: 7px; padding: 4px 6px; font-size: 12px; font-weight: 700;
+  color: var(--green-lt); text-align: center; font-family: inherit;
+}
+#zsens-value:focus { outline: none; border-color: var(--green-border); }
+.zsens-hint {
+  font-size: 10px; color: var(--text-muted); margin-top: 8px; line-height: 1.4;
+}
 
 /* ══════════════ TOOLBAR (horizontal top) ══════════════ */
 
@@ -855,7 +892,8 @@ html, body {
 .shape-dropdown-wrap.open .shape-sub-dropdown {
   pointer-events: auto;
   opacity: 1;
-  max-height: 140px;
+  max-height: 320px;
+  overflow-y: auto;
 }
 
 .shape-sub-btn {
