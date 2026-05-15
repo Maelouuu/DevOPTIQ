@@ -174,15 +174,18 @@
     </div>
   </div>
 
-  <!-- MODAL SUPPRESSION - Style inline de sécurité -->
-  <div id="confirm-delete-modal" class="modal hidden" >
-    <div class="modal-content modal-danger">
-      <h3><i class="fa-solid fa-triangle-exclamation" style="color:#ef4444;margin-right:6px"></i>Confirmer la suppression</h3>
-      <p>Cette action supprimera définitivement l'entité et toutes ses données.</p>
-      <p class="delete-warning-final">Cette action est <strong>IRRÉVERSIBLE</strong>.</p>
-      <div class="modal-actions">
-        <button id="cancel-delete-btn" class="btn-gray">Annuler</button>
-        <button id="confirm-delete-btn" class="btn-red"><i class="fa-solid fa-trash"></i> Supprimer</button>
+  <!-- MODAL SUPPRESSION -->
+  <div id="confirm-delete-modal" class="modal hidden">
+    <div class="modal-content modal-danger-v2">
+      <div class="modal-danger-icon">
+        <i class="fa-solid fa-triangle-exclamation"></i>
+      </div>
+      <h3 class="modal-danger-title">Supprimer l'entité</h3>
+      <p class="modal-danger-entity-name" id="delete-entity-name-display"></p>
+      <p class="modal-danger-desc">Toutes les données associées (activités, connexions, cartographie) seront <strong>définitivement supprimées</strong>. Cette action est irréversible.</p>
+      <div class="modal-danger-actions">
+        <button id="cancel-delete-btn" class="modal-btn-cancel">Annuler</button>
+        <button id="confirm-delete-btn" class="modal-btn-delete"><i class="fa-solid fa-trash"></i> Supprimer</button>
       </div>
     </div>
   </div>

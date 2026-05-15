@@ -19,7 +19,7 @@ from flask import (
 )
 
 from Code.extensions import db
-from Code.models.models import Activities, Entity, Link, Data
+from Code.models.models import Activities, Entity, Link, Data, Task, activity_roles, task_roles, task_tools
 
 from Code.routes.vsdx_conection_parser import (
     parse_vsdx_connections,
@@ -411,26 +411,32 @@ def create_entity():
     
     user_id = session.get('user_id')
     
+    # Désactiver les autres entités avant de créer la nouvelle
+    Entity.query.filter_by(owner_id=user_id).update({'is_active': False})
+
     entity = Entity(
         name=data["name"],
         description=data.get("description", ""),
         owner_id=user_id,
-        is_active=False
+        is_active=True
     )
     db.session.add(entity)
     db.session.commit()
-    
+
+    session['active_entity_id'] = entity.id
+
     # Créer le dossier immédiatement
     entity_dir = ensure_entity_dir(entity.id)
-    print(f"[CARTO] Nouvelle entité créée: {entity.id} -> {entity_dir}")
-    
+    print(f"[CARTO] Nouvelle entité créée et activée: {entity.id} -> {entity_dir}")
+
     return jsonify({
         "status": "ok",
+        "redirect_url": "/cartography/editor",
         "entity": {
             "id": entity.id,
             "name": entity.name,
             "description": entity.description,
-            "is_active": False
+            "is_active": True
         }
     })
 
@@ -488,8 +494,17 @@ def delete_entity(entity_id):
     if os.path.exists(entity_dir):
         shutil.rmtree(entity_dir)
         print(f"[CARTO] Dossier supprimé: {entity_dir}")
-    
+
     try:
+        # Nettoyer les tables de jointure avant la suppression en cascade
+        act_ids = [a.id for a in Activities.query.filter_by(entity_id=entity_id).with_entities(Activities.id).all()]
+        if act_ids:
+            task_ids = [t.id for t in Task.query.filter(Task.activity_id.in_(act_ids)).with_entities(Task.id).all()]
+            if task_ids:
+                db.session.execute(task_tools.delete().where(task_tools.c.task_id.in_(task_ids)))
+                db.session.execute(task_roles.delete().where(task_roles.c.task_id.in_(task_ids)))
+            db.session.execute(activity_roles.delete().where(activity_roles.c.activity_id.in_(act_ids)))
+
         db.session.delete(entity)
         db.session.commit()
         

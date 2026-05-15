@@ -1215,14 +1215,17 @@ function renderCanvasMap() {
     sl.innerHTML = '<i class="fa-solid fa-shapes"></i> Formes';
     list.appendChild(sl);
 
-    const typeIcons = { process: 'fa-square', 'start-end': 'fa-circle', special: 'fa-wave-square', decision: 'fa-diamond' };
-    state.shapes.forEach(s => {
+    const sorted = [...state.shapes].sort((a, b) =>
+      (a.label || '').localeCompare(b.label || '', 'fr', { sensitivity: 'base' })
+    );
+    sorted.forEach(s => {
       const isSel = selectedShapes.has(s.id);
       const item = document.createElement('div');
       item.className = 'cmap-item' + (isSel ? ' selected' : '');
       item.innerHTML = `<span class="cmap-color-swatch" style="background:${s.color}"></span><span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${s.label || '(sans label)'}</span>`;
       item.addEventListener('click', () => {
-        selectShape(s.id, false, true);
+        selectShape(s.id, false, false);
+        focusOnShape(s, true);
         if (!propsOpen) setPropsOpen(true);
         render(); updateProps();
       });
@@ -1237,7 +1240,12 @@ function renderCanvasMap() {
     cl.innerHTML = '<i class="fa-solid fa-bezier-curve"></i> Connexions';
     list.appendChild(cl);
 
-    state.connections.forEach(c => {
+    const connSorted = [...state.connections].sort((a, b) => {
+      const la = a.label || (state.shapes.find(s => s.id === a.fromId)?.label || '') + ' → ' + (state.shapes.find(s => s.id === a.toId)?.label || '');
+      const lb = b.label || (state.shapes.find(s => s.id === b.fromId)?.label || '') + ' → ' + (state.shapes.find(s => s.id === b.toId)?.label || '');
+      return la.localeCompare(lb, 'fr', { sensitivity: 'base' });
+    });
+    connSorted.forEach(c => {
       const isSel = selectedConn === c.id;
       const from = state.shapes.find(s => s.id === c.fromId);
       const to   = state.shapes.find(s => s.id === c.toId);

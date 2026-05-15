@@ -340,7 +340,11 @@ function initWizard() {
   // Actions entité
   $("#wizard-activate-btn")?.addEventListener("click", activateEntity);
   $("#wizard-rename-btn")?.addEventListener("click", () => showModal("rename-modal"));
-  $("#wizard-delete-btn")?.addEventListener("click", () => showModal("confirm-delete-modal"));
+  $("#wizard-delete-btn")?.addEventListener("click", () => {
+    const nameEl = document.getElementById("delete-entity-name-display");
+    if (nameEl && wizardState.selectedEntity) nameEl.textContent = wizardState.selectedEntity.name;
+    showModal("confirm-delete-modal");
+  });
 
   // Modals
   $("#cancel-delete-btn")?.addEventListener("click", () => hideModal("confirm-delete-modal"));
@@ -403,6 +407,7 @@ async function createEntity() {
     });
     const data = await res.json();
     if (data.error) { alert(data.error); return; }
+    if (data.redirect_url) { window.location.href = data.redirect_url; return; }
     input.value = "";
     await loadEntitiesList();
     setTimeout(() => selectEntity(data.entity.id), 50);
