@@ -907,6 +907,22 @@ html, body {
     rgba(220,255,230,0.85) 8px
   );
 }
+.shape-sub-preview--renvoi {
+  width: 16px; height: 16px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.9);
+  border: 2px solid rgba(77,184,104,0.6);
+}
+.shape-sub-preview--special {
+  border-radius: 3px;
+  background: rgba(245,158,11,0.55);
+}
+.shape-sub-preview--decision {
+  width: 14px; height: 14px;
+  border-radius: 2px;
+  background: rgba(156,163,175,0.55);
+  transform: rotate(45deg);
+}
 .connect-routing-dropdown { min-width: 130px; }
 .conn-routing-btn.active {
   background: var(--green-dim);

@@ -19,6 +19,7 @@ function getBandForY(midY) {
 
 function updateShapeColor(s) {
   if (s.type === 'decision') { s.color = '#9ca3af'; return; }
+  if (s.type === 'start-end') return; // Renvoi : couleur gérée par _updateRenvoiColor
   const band = getBandForY(s.y + s.h / 2);
   if (!band) return;
   s.color = s.colorVariant === 1 ? bandMutedColor(band.color) : band.color;
@@ -28,10 +29,77 @@ function updateShapeColor(s) {
   state.connections.forEach(c => { if (c.fromId === s.id) c.color = s.color; });
 }
 
+// Renvoi : colorier le cercle selon le nom de l'activité correspondante
+function _updateRenvoiColor(s) {
+  const label = (s.label || '').trim().toLowerCase();
+  if (!label) { s.color = '#ffffff'; s.textColor = '#000000'; return; }
+  const match = state.shapes.find(
+    o => o.id !== s.id && o.type === 'process' &&
+         (o.label || '').trim().toLowerCase() === label
+  );
+  if (match) { s.color = match.color; s.textColor = '#ffffff'; }
+  else        { s.color = '#ffffff';   s.textColor = '#000000'; }
+}
+
+// Quand on connecte un Renvoi (start-end) à une activité B :
+// → crée automatiquement un second Renvoi coloré comme B, positionné près de
+//   l'activité A (celle que le premier Renvoi référence via son label), et
+//   le connecte à A.
+function _checkRenvoiAutoLink(fromShapeId, toShapeId) {
+  const renvoi = state.shapes.find(s => s.id === fromShapeId);
+  const actB   = state.shapes.find(s => s.id === toShapeId);
+  if (!renvoi || !actB) return;
+  if (renvoi.type !== 'start-end' || actB.type !== 'process') return;
+
+  const renvoiLabel = (renvoi.label || '').trim().toLowerCase();
+  if (!renvoiLabel) return;
+
+  const actA = state.shapes.find(
+    s => s.type === 'process' && s.id !== toShapeId &&
+         (s.label || '').trim().toLowerCase() === renvoiLabel
+  );
+  if (!actA) return;
+
+  // Créer R2 à gauche de A (même centre vertical)
+  const R2W = SHAPE_DEFAULTS['start-end'].w;
+  const R2H = SHAPE_DEFAULTS['start-end'].h;
+  const r2x = Math.max(0, Math.round(actA.x - R2W - 24));
+  const r2y = Math.round(actA.y + actA.h / 2 - R2H / 2);
+  const r2 = {
+    id: state.nextId++,
+    type: 'start-end',
+    x: r2x, y: r2y, w: R2W, h: R2H,
+    label:          actB.label || '',
+    color:          actB.color,
+    textColor:      '#ffffff',
+    strokeColor:    '',
+    validationBadge: false,
+    validationColor: '#4DB868',
+    fontSize:       SHAPE_DEFAULTS['start-end'].fontSize,
+    colorVariant:   0,
+    subtype:        'normal',
+  };
+  state.shapes.push(r2);
+
+  // Connexion R2 → A
+  if (!wouldBeBackwards(r2.id, actA.id) &&
+      !state.connections.some(c => c.fromId === r2.id && c.toId === actA.id)) {
+    state.connections.push({
+      id:       state.nextId++,
+      fromId:   r2.id,
+      toId:     actA.id,
+      style:    'solid',
+      routing:  state.defaultRouting || 'smooth',
+      color:    actB.color,
+      label:    '',
+    });
+  }
+}
+
 // ── Défauts par type de forme ─────────────────────
 const SHAPE_DEFAULTS = {
   process:   { label: 'Activité',      color: '#22c55e', textColor: '#ffffff', validationBadge: false, validationColor: '#4DB868', w: 130, h: 90,  fontSize: 18, subtype: 'normal' },
-  'start-end': { label: 'Début / Fin', color: '#3b82f6', textColor: '#ffffff', validationBadge: false, validationColor: '#4DB868', w: 130, h: 64,  fontSize: 14, subtype: 'normal' },
+  'start-end': { label: 'Renvoi',      color: '#ffffff', textColor: '#000000', validationBadge: false, validationColor: '#4DB868', w: 90,  h: 90,  fontSize: 13, subtype: 'normal' },
   special:   { label: 'Sous-activité', color: '#f59e0b', textColor: '#ffffff', validationBadge: false, validationColor: '#4DB868', w: 170, h: 76,  fontSize: 13, subtype: 'normal' },
   decision:  { label: 'Décision',      color: '#9ca3af', textColor: '#ffffff', validationBadge: false, validationColor: '#4DB868', w: 100, h: 100, fontSize: 13, subtype: 'normal' },
 };
@@ -40,7 +108,7 @@ const HINTS = {
   select:    'Clic = sélectionner · Glisser = déplacer · Double-clic = éditer texte · Suppr = supprimer',
   connect:   'Cliquez sur la forme source, puis sur la forme destination · Échap = annuler',
   process:   'Cliquez sur le canevas pour placer l\'activité',
-  'start-end': 'Cliquez sur le canevas pour placer l\'ellipse',
+  'start-end': 'Cliquez sur le canevas pour placer un renvoi',
   special:   'Cliquez sur le canevas pour placer la sous-activité',
 };
 
@@ -624,12 +692,12 @@ function renderConnections() {
         txt(c.label, {
           x: '0', y: '0',
           'text-anchor': 'middle', 'dominant-baseline': 'middle',
-          fill: color, 'font-size': '11', 'font-family': 'Segoe UI, sans-serif', 'font-weight': '600',
+          fill: color, 'font-size': '14', 'font-family': 'Segoe UI, sans-serif', 'font-weight': '600',
         }, lg);
       } else {
         const textEl = el('text', {
           'text-anchor': 'middle',
-          fill: color, 'font-size': '11', 'font-family': 'Segoe UI, sans-serif', 'font-weight': '600',
+          fill: color, 'font-size': '14', 'font-family': 'Segoe UI, sans-serif', 'font-weight': '600',
         }, lg);
         labelLines.forEach((line, i) => {
           const ts = document.createElementNS('http://www.w3.org/2000/svg', 'tspan');
@@ -1492,6 +1560,7 @@ function onDown(e) {
             color: fromShape ? fromShape.color : '#9ca3af',
             label: '',
           });
+          _checkRenvoiAutoLink(connecting.fromId, sid);
           snapshot();
         }
       }
@@ -1750,6 +1819,7 @@ function onUp(e) {
           color: fromShape ? fromShape.color : '#9ca3af',
           label: '',
         });
+        _checkRenvoiAutoLink(portDrag.fromShapeId, target.id);
         snapshot();
         }
       }
@@ -1888,7 +1958,11 @@ function startLabelEdit(s) {
 function commitLabel() {
   if (!labelEditing) return;
   const s = state.shapes.find(s => s.id === labelEditing.shapeId);
-  if (s) { s.label = labelEd.value.trim(); snapshot(); render(); }
+  if (s) {
+    s.label = labelEd.value.trim();
+    if (s.type === 'start-end') _updateRenvoiColor(s);
+    snapshot(); render();
+  }
   labelEditing = null;
   labelEd.style.display = 'none';
   labelEd.onblur = null;
@@ -2094,7 +2168,12 @@ function bindProps() {
   };
 
   prop('prop-label', v => {
-    for (const id of selectedShapes) { const s = state.shapes.find(s => s.id === id); if (s) s.label = v; }
+    for (const id of selectedShapes) {
+      const s = state.shapes.find(s => s.id === id);
+      if (!s) continue;
+      s.label = v;
+      if (s.type === 'start-end') _updateRenvoiColor(s);
+    }
   });
   // Bloquer les retours à la ligne au-delà de 4 lignes
   document.getElementById('prop-label')?.addEventListener('keydown', e => {
@@ -2596,7 +2675,7 @@ function _unused_vsdxAutoLayout(shapes, conns, bands, groups) {
 
   const SZ = {
     process:     { w: 150, h: 80 },
-    'start-end': { w: 130, h: 64 },
+    'start-end': { w: 90,  h: 90  },
     special:     { w: 170, h: 76 },
     decision:    { w: 100, h: 100 },
   };

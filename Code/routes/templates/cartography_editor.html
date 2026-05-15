@@ -69,14 +69,29 @@
   <!-- ── Formes ── -->
   <div class="tb-group-top">
     <div class="shape-dropdown-wrap" id="process-shape-wrap">
-      <button class="shape-btn-top" data-tool="process" title="Activité — glissez sur le canevas">
-        <i class="fa-solid fa-square-check"></i>
-        <span>Activité</span>
+      <button class="shape-btn-top" data-tool="process" title="Formes — glissez sur le canevas">
+        <i class="fa-solid fa-shapes"></i>
+        <span>Formes</span>
       </button>
       <div class="shape-sub-dropdown">
         <button class="shape-sub-btn" data-shape-type="process" data-shape-subtype="normal">
           <span class="shape-sub-preview shape-sub-preview--normal"></span>
-          <span>Normale</span>
+          <span>Activité</span>
+        </button>
+        <div class="shape-sub-sep"></div>
+        <button class="shape-sub-btn" data-shape-type="special" data-shape-subtype="normal">
+          <span class="shape-sub-preview shape-sub-preview--special"></span>
+          <span>Sous-activité</span>
+        </button>
+        <div class="shape-sub-sep"></div>
+        <button class="shape-sub-btn" data-shape-type="start-end" data-shape-subtype="normal">
+          <span class="shape-sub-preview shape-sub-preview--renvoi"></span>
+          <span>Renvoi</span>
+        </button>
+        <div class="shape-sub-sep"></div>
+        <button class="shape-sub-btn" data-shape-type="decision" data-shape-subtype="normal">
+          <span class="shape-sub-preview shape-sub-preview--decision"></span>
+          <span>Décision</span>
         </button>
         <div class="shape-sub-sep"></div>
         <button class="shape-sub-btn" data-shape-type="process" data-shape-subtype="external">
@@ -90,18 +105,6 @@
         </button>
       </div>
     </div>
-    <button class="shape-btn-top" data-tool="start-end" title="Début/Fin">
-      <i class="fa-solid fa-circle-dot"></i>
-      <span>Début/Fin</span>
-    </button>
-    <button class="shape-btn-top" data-tool="special" title="Sous-activité">
-      <i class="fa-solid fa-puzzle-piece"></i>
-      <span>Sous-act.</span>
-    </button>
-    <button class="shape-btn-top" data-tool="decision" title="Décision">
-      <i class="fa-solid fa-gem"></i>
-      <span>Décision</span>
-    </button>
   </div>
 
   <div class="tb-divider-v"></div>
