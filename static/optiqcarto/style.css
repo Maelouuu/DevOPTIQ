@@ -192,6 +192,138 @@ html, body {
   font-size: 10px; color: var(--text-muted); margin-top: 8px; line-height: 1.4;
 }
 
+/* ══════════════ BANDS CATALOG POPUP ══════════════ */
+
+#bands-catalog-popup {
+  position: fixed;
+  top: calc(var(--toolbar-h) + 18px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 900;
+  background: #1A231D;
+  border: 1px solid var(--green-border);
+  border-radius: 16px;
+  padding: 0;
+  min-width: 340px;
+  max-width: 440px;
+  width: calc(100vw - 40px);
+  box-shadow: 0 12px 40px rgba(0,0,0,0.55), 0 0 0 1px rgba(77,184,104,0.08);
+  display: none;
+  overflow: hidden;
+}
+#bands-catalog-popup.open { display: block; }
+
+.bcat-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px 10px;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+.bcat-header-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: var(--green-lt);
+}
+.bcat-header-left i { font-size: 11px; color: var(--green); }
+
+.bcat-close {
+  background: rgba(255,255,255,0.06);
+  border: none;
+  border-radius: 7px;
+  width: 26px; height: 26px;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 12px;
+  transition: background 0.15s, color 0.15s;
+}
+.bcat-close:hover { background: rgba(255,255,255,0.12); color: var(--text); }
+
+.bcat-desc {
+  font-size: 10.5px;
+  color: var(--text-muted);
+  line-height: 1.45;
+  padding: 8px 16px 10px;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+
+#bcat-list {
+  max-height: 320px;
+  overflow-y: auto;
+  padding: 6px 0;
+}
+
+.bcat-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 16px;
+  transition: background 0.12s;
+}
+.bcat-row:hover { background: rgba(255,255,255,0.04); }
+
+.bcat-swatch {
+  width: 12px; height: 12px;
+  border-radius: 3px;
+  flex-shrink: 0;
+  border: 1px solid rgba(255,255,255,0.15);
+}
+.bcat-label {
+  flex: 1;
+  font-size: 11.5px;
+  color: var(--text);
+  line-height: 1.3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.bcat-count {
+  font-size: 10px;
+  font-weight: 700;
+  color: #f59e0b;
+  background: rgba(245,158,11,0.15);
+  border-radius: 6px;
+  padding: 1px 6px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.bcat-toggle {
+  position: relative;
+  display: inline-block;
+  width: 34px; height: 18px;
+  flex-shrink: 0;
+}
+.bcat-toggle input { opacity: 0; width: 0; height: 0; }
+.bcat-slider {
+  position: absolute;
+  cursor: pointer;
+  inset: 0;
+  background: rgba(255,255,255,0.12);
+  border-radius: 18px;
+  transition: background 0.2s;
+}
+.bcat-slider::before {
+  content: '';
+  position: absolute;
+  height: 12px; width: 12px;
+  left: 3px; bottom: 3px;
+  background: rgba(255,255,255,0.5);
+  border-radius: 50%;
+  transition: transform 0.2s, background 0.2s;
+}
+.bcat-toggle input:checked + .bcat-slider { background: var(--green); }
+.bcat-toggle input:checked + .bcat-slider::before {
+  transform: translateX(16px);
+  background: #ffffff;
+}
+
 /* ══════════════ TOOLBAR (horizontal top) ══════════════ */
 
 .tb-logo {

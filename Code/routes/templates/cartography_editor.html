@@ -135,6 +135,10 @@
       <i class="fa-solid fa-trash"></i>
       <span>Supprimer</span>
     </button>
+    <button class="tool-btn-top" id="btn-bands-catalog" title="Gérer les bandes optionnelles">
+      <i class="fa-solid fa-layer-group"></i>
+      <span>Bandes</span>
+    </button>
   </div>
 
   <div class="tb-divider-v"></div>
@@ -181,6 +185,19 @@
   </button>
 
 </header>
+
+<!-- ══════════════ BANDS CATALOG POPUP ══════════════ -->
+<div id="bands-catalog-popup">
+  <div class="bcat-header">
+    <div class="bcat-header-left">
+      <i class="fa-solid fa-layer-group"></i>
+      <span>Bandes optionnelles</span>
+    </div>
+    <button class="bcat-close" id="btn-close-bcat"><i class="fa-solid fa-xmark"></i></button>
+  </div>
+  <p class="bcat-desc">Activez ou désactivez les bandes secondaires. La suppression d'une bande non vide entraîne la suppression des formes qu'elle contient.</p>
+  <div id="bcat-list"></div>
+</div>
 
 <!-- ══════════════ LEFT PANEL ══════════════ -->
 <aside id="left-panel">
