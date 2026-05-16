@@ -197,13 +197,20 @@
   <a href="#cartographie" class="done">Cartographie (OptiqCarto)</a>
   <a href="#activites" class="done">Activités</a>
   <a href="#import-ia" class="done">Import IA</a>
-  <a href="#competences">Compétences &amp; Skills</a>
-  <a href="#performance">Performance</a>
-  <a href="#rh">Gestion RH</a>
-  <a href="#chatbot">Chatbot IA</a>
+  <a href="#competences" class="done">Compétences &amp; Skills</a>
+  <a href="#performance" class="done">Performance</a>
+  <a href="#rh" class="done">Gestion RH</a>
+  <a href="#chatbot" class="done">Chatbot IA</a>
   <a href="#auth" class="done">Authentification</a>
   <a href="#temps" class="done">Gestion du temps</a>
   <a href="#propositions-ia" class="done">Propositions IA</a>
+  <a href="#gestion-compte" class="done">Gestion des comptes</a>
+  <a href="#onboarding" class="done">Onboarding IA</a>
+  <a href="#export" class="done">Export</a>
+  <a href="#changelog" class="done">Changelog</a>
+  <a href="#roles-view" class="done">Vue des rôles</a>
+  <a href="#crud-connaissances" class="done">CRUD Connaissances</a>
+  <a href="#projection-metier" class="done">Projection métier</a>
 
   <div class="nav-section">Référence</div>
   <a href="#api" class="done">APIs — Cartographie</a>
@@ -1246,6 +1253,286 @@ Body: {
       <li><code>staging</code> — développement principal</li>
       <li><code>main</code> — production stable (merger uniquement les versions validées)</li>
     </ul>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <section id="gestion-compte">
+    <h2 class="section-title">Gestion des comptes <span class="badge badge-done">Documenté</span></h2>
+    <p>Blueprint <code>gestion_compte_bp</code> — préfixe <code>/comptes</code>. Gère le CRUD des utilisateurs, l'assignation des managers et l'import en masse via JSON (Excel parsé côté client).</p>
+
+    <div class="callout callout-info">
+      Tous les utilisateurs et rôles sont filtrés par <strong>entité active</strong> (<code>Entity.get_active_id()</code>). Un utilisateur créé ou importé est automatiquement associé à cette entité.
+    </div>
+
+    <h3>Fonctionnements clés</h3>
+    <ul>
+      <li><strong>Mise à jour mot de passe</strong> : <code>flag_modified(user, 'password')</code> force SQLAlchemy à inclure le champ dans l'UPDATE même si la valeur hashée semble inchangée à l'ORM.</li>
+      <li><strong>Hiérarchie manager</strong> : le champ <code>User.manager_id</code> crée l'arbre de subordination. L'assignation supporte le mode multi (<code>user_ids[]</code>) ou unitaire.</li>
+      <li><strong>Import Excel</strong> : le client envoie un tableau JSON <code>[{prenom, nom, email, age, mot_de_passe, role, statut}]</code> (parsé côté JS depuis un XLSX). Le serveur déduplique par email, résout le rôle par nom dans l'entité active, crée les utilisateurs avec <code>flush()</code> pour obtenir l'ID avant le commit global.</li>
+    </ul>
+
+    <h3>Référence API — Gestion des comptes</h3>
+    <table>
+      <tr><th>Méthode</th><th>URL</th><th>Description</th></tr>
+      <tr><td>GET</td><td><code>/comptes/</code></td><td>Liste utilisateurs + rôles + managers de l'entité active → <code>gestion_compte_new.html</code></td></tr>
+      <tr><td>POST</td><td><code>/comptes/create</code></td><td>Crée un utilisateur (form : <code>first_name, last_name, email, password, role_id, status, age</code>).</td></tr>
+      <tr><td>POST</td><td><code>/comptes/delete/&lt;id&gt;</code></td><td>Supprime l'utilisateur et ses <code>UserRole</code>. Rollback automatique en cas d'erreur.</td></tr>
+      <tr><td>GET/POST</td><td><code>/comptes/update/&lt;id&gt;</code></td><td>GET → formulaire. POST → mise à jour champs + rôle + mdp optionnel.</td></tr>
+      <tr><td>GET</td><td><code>/comptes/managers</code></td><td>JSON des managers avec leurs subordonnés (<code>User.subordinates.any()</code>).</td></tr>
+      <tr><td>POST</td><td><code>/comptes/assign_manager</code></td><td>Assigne un manager (mode unitaire ou lot via <code>multi_select=1</code>).</td></tr>
+      <tr><td>POST</td><td><code>/comptes/remove_collaborator/&lt;id&gt;</code></td><td>Retire l'utilisateur de son manager (<code>manager_id = None</code>).</td></tr>
+      <tr><td>GET</td><td><code>/comptes/users</code></td><td>Liste JSON <code>[{id, name}]</code> de tous les utilisateurs de l'entité.</td></tr>
+      <tr><td>GET</td><td><code>/comptes/manager/&lt;id&gt;/subordinates</code></td><td>Subordonnés d'un manager donné.</td></tr>
+      <tr><td>POST</td><td><code>/comptes/import_excel</code></td><td>Import en masse. Body JSON : <code>{users: [{prenom, nom, email, age, mot_de_passe, role, statut}]}</code>. Retourne <code>{success, imported, errors, message}</code>.</td></tr>
+    </table>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <section id="onboarding">
+    <h2 class="section-title">Onboarding IA <span class="badge badge-done">Documenté</span></h2>
+    <p>Blueprint <code>onboarding_bp</code> — préfixe <code>/roles</code>. Génère un plan d'onboarding structuré en 4 modules, exclusivement axé sur les HSC (habiletés sociocognitives) du rôle, via GPT-4. Le plan est stocké dans <code>role.onboarding_plan</code> (colonne TEXT).</p>
+
+    <h3>Structure du plan d'onboarding (4 modules)</h3>
+    <ol>
+      <li><strong>Module Formation/Entraînement</strong> — formations courtes (0,5–2j, total ≤ 3j), avec objectifs, méthode et critères d'évaluation mesurables immédiatement et dans les semaines suivantes.</li>
+      <li><strong>REX (Retour d'Expérience)</strong> — session d'analyse des situations vécues pour renforcer les HSC ciblées.</li>
+      <li><strong>Coaching d'Équipe</strong> — stratégies de coopération, auto-organisation et adaptation en lien avec les HSC.</li>
+      <li><strong>Parcours d'Apprentissage Autonome</strong> — micro-formations en ligne, exercices pratiques, quiz spécifiques aux HSC listées.</li>
+    </ol>
+
+    <div class="callout callout-warn">
+      Nécessite <code>OPENAI_API_KEY</code>. Utilise <strong>GPT-4</strong> (non <code>gpt-4o-mini</code>). La liste des HSC est transmise par le client depuis la DB — le serveur ne la recalcule pas.
+    </div>
+
+    <h3>Référence API — Onboarding</h3>
+    <table>
+      <tr><th>Méthode</th><th>URL</th><th>Description</th></tr>
+      <tr><td>POST</td><td><code>/roles/&lt;role_id&gt;/onboarding/generate</code></td><td>Génère et sauvegarde le plan. Body JSON : <code>{hsc_list: ["HSC1", ...]}</code>. Retourne <code>{message, onboarding_plan}</code>.</td></tr>
+      <tr><td>GET</td><td><code>/roles/&lt;role_id&gt;/onboarding</code></td><td>Retourne le plan existant. 404 si non encore généré.</td></tr>
+    </table>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <section id="export">
+    <h2 class="section-title">Export <span class="badge badge-done">Documenté</span></h2>
+    <p>Blueprint <code>export_bp</code> — sans préfixe. Exporte les données d'une entité en <strong>Excel</strong> (.xlsx, 6 feuilles) ou <strong>HTML</strong> (fichier standalone autonome imprimable). Gère aussi le stockage de fichiers persistant en base de données.</p>
+
+    <h3>Stockage de fichiers — <code>FileBlob</code></h3>
+    <div class="callout callout-tip">
+      Sur Cloud Run, le filesystem est éphémère. Les fichiers uploadés sont stockés via le modèle <code>FileBlob</code> (colonne <code>LargeBinary</code>). L'URL renvoyée est toujours <code>/utils/file/&lt;id&gt;</code> — jamais un chemin local.
+    </div>
+
+    <h3>Export Excel — 6 feuilles (thème violet OPTIQ)</h3>
+    <table>
+      <tr><th>Feuille</th><th>Contenu</th></tr>
+      <tr><td>Résumé</td><td>Entité, date, rôle/mission, statistiques (nb activités, savoirs, SF, HSC, compétences)</td></tr>
+      <tr><td>Activités</td><td># + nom de l'activité</td></tr>
+      <tr><td>Savoirs</td><td>Activité → Savoir</td></tr>
+      <tr><td>Savoir-faires</td><td>Activité → Savoir-faire</td></tr>
+      <tr><td>HSC - Aptitudes</td><td>Activité → Aptitude/HSC</td></tr>
+      <tr><td>Compétences</td><td>Activité → Compétence</td></tr>
+    </table>
+
+    <h3>Collecte des données — <code>_collect_entity_data()</code></h3>
+    <ul>
+      <li><strong>Avec <code>role_id</code></strong> : activités où <code>activity_roles.status = 'Garant'</code> pour ce rôle uniquement.</li>
+      <li><strong>Sans <code>role_id</code></strong> : toutes les activités de l'entité.</li>
+      <li>Agrège ensuite savoirs, savoir-faires, aptitudes, compétences de toutes les activités sélectionnées.</li>
+    </ul>
+
+    <h3>Référence API — Export</h3>
+    <table>
+      <tr><th>Méthode</th><th>URL</th><th>Paramètres / Body</th><th>Description</th></tr>
+      <tr><td>GET</td><td><code>/export/entity</code></td><td><code>entity_id</code> (requis), <code>role_id</code>, <code>format=excel|html</code></td><td>Télécharge le fichier export.</td></tr>
+      <tr><td>POST</td><td><code>/utils/upload-file</code></td><td><code>multipart/form-data</code>, champ <code>file</code></td><td>Stocke un fichier en DB. Retourne <code>{path, original_name}</code>.</td></tr>
+      <tr><td>GET</td><td><code>/utils/file/&lt;id&gt;</code></td><td>—</td><td>Sert un fichier depuis <code>FileBlob</code>.</td></tr>
+      <tr><td>GET</td><td><code>/utils/serve-file?path=</code></td><td><code>path=</code></td><td>Dispatcher universel (DB si <code>/utils/file/…</code>, sinon filesystem local dev).</td></tr>
+    </table>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <section id="changelog">
+    <h2 class="section-title">Changelog &amp; Activité récente <span class="badge badge-done">Documenté</span></h2>
+    <p>Blueprint <code>changelog_bp</code> — sans préfixe. Fournit deux flux : les <strong>notes de version</strong> (orientées utilisateur) et le <strong>journal d'activité</strong> (événements enregistrés en base).</p>
+
+    <h3>Logique du changelog — 3 niveaux de priorité</h3>
+    <div class="card">
+      <ol>
+        <li><strong>Fichier curé</strong> <code>static/changelog_user.json</code> — priorité absolue. Tableau JSON <code>[{icon, title, desc}]</code> rédigé manuellement. Permet aux admins de maîtriser les notes de version.</li>
+        <li><strong>Cache mémoire</strong> <code>_changelog_cache</code> — indexé par hash du commit HEAD, TTL 1h. Évite des appels OpenAI répétés à chaque requête.</li>
+        <li><strong>Génération OpenAI</strong> — <code>gpt-4o-mini</code> transforme les 30 derniers commits git (sans merges) en 3–5 annonces positives en français, format JSON strict.</li>
+      </ol>
+      <p style="margin-top:8px;"><strong>Fallback</strong> : si OpenAI est indisponible ou sans clé, 3 items génériques sont retournés.</p>
+    </div>
+
+    <h3>Journal d'activité récente — <code>RecentEvent</code></h3>
+    <p>Lit les 20 derniers <code>RecentEvent</code> (peuplé par les event listeners SQLAlchemy sur les modèles). Enrichissement de chaque event :</p>
+    <table>
+      <tr><th>Champ ajouté</th><th>Valeur</th></tr>
+      <tr><td><code>event_label</code></td><td>"Ajout", "Modification", "Suppression", "Association"</td></tr>
+      <tr><td><code>color</code></td><td><code>green</code> (created), <code>orange</code> (updated), <code>red</code> (deleted), <code>blue</code> (linked)</td></tr>
+      <tr><td><code>time</code></td><td>Relatif : "à l'instant", "il y a 3 min", "il y a 2h", "il y a 5j"</td></tr>
+      <tr><td><code>date</code></td><td>Formaté FR : "15 mai à 14:30"</td></tr>
+      <tr><td><code>user</code></td><td>Prénom + Nom (depuis cache <code>user_cache</code> construit en une passe)</td></tr>
+    </table>
+
+    <h3>Référence API — Changelog</h3>
+    <table>
+      <tr><th>Méthode</th><th>URL</th><th>Description</th></tr>
+      <tr><td>GET</td><td><code>/api/changelog</code></td><td>Notes de version. Retourne <code>{ok, items: [{icon, title, desc}]}</code>.</td></tr>
+      <tr><td>GET</td><td><code>/api/recent-activity</code></td><td>20 derniers événements. Retourne <code>{ok, items, empty}</code>.</td></tr>
+    </table>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <section id="roles-view">
+    <h2 class="section-title">Vue des rôles <span class="badge badge-done">Documenté</span></h2>
+    <p>Blueprint <code>roles_view_bp</code> — préfixe <code>/roles_view</code>. Affiche une vue complète de chaque rôle de l'entité active avec 5 blocs de données agrégés, et permet de modifier la mission générale du rôle.</p>
+
+    <h3>Données construites par rôle (5 blocs)</h3>
+    <table>
+      <tr><th>Bloc</th><th>Contenu</th><th>Source SQL</th></tr>
+      <tr><td>Block 1</td><td>Activités dont ce rôle est <strong>Garant</strong></td><td><code>activity_roles.status = 'Garant'</code></td></tr>
+      <tr><td>Block 2</td><td>Tâches où le rôle intervient (non-Garant) + statut</td><td><code>task_roles</code> JOIN <code>tasks</code> JOIN <code>activities</code></td></tr>
+      <tr><td>Block 3</td><td>Compétences (<code>Competency</code>) des activités Garant</td><td><code>competencies</code> filtrées par activités Garant</td></tr>
+      <tr><td>Block 4</td><td>Savoirs, SF, Aptitudes, Softskills des activités Garant</td><td>4 requêtes <code>IN (activity_ids)</code>, dédupliquées par ID</td></tr>
+      <tr><td>Block 5 (holders)</td><td>Titulaires du rôle (utilisateurs affectés)</td><td><code>user_roles</code> JOIN <code>users</code></td></tr>
+    </table>
+
+    <h3>Points techniques</h3>
+    <ul>
+      <li><strong><code>_get_role_mission()</code></strong> : SQL brut car <code>mission_generale</code> est une colonne ajoutée dynamiquement via <code>_safe_add_column()</code> et peut être absente du modèle SQLAlchemy si le code a été mis à jour sans redémarrage.</li>
+      <li><strong><code>_get_validation_level()</code></strong> : introspection via <code>PRAGMA table_info()</code> pour détecter la table et ses colonnes réelles — défense contre des schémas variables selon les migrations passées.</li>
+      <li><strong><code>bindparam(..., expanding=True)</code></strong> : permet les requêtes <code>WHERE id IN (:act_ids)</code> avec une liste dynamique d'IDs.</li>
+      <li><strong>UPDATE mission direct</strong> : <code>UPDATE roles SET mission_generale = … WHERE id = …</code> évite toute dépendance au modèle pour les colonnes ajoutées après la création du modèle.</li>
+    </ul>
+
+    <h3>Référence API — Vue des rôles</h3>
+    <table>
+      <tr><th>Méthode</th><th>URL</th><th>Description</th></tr>
+      <tr><td>GET</td><td><code>/roles_view/</code></td><td>Page HTML avec tous les rôles de l'entité active et leurs 5 blocs de données.</td></tr>
+      <tr><td>PUT</td><td><code>/roles_view/&lt;role_id&gt;/mission</code></td><td>Met à jour <code>mission_generale</code>. Body : <code>{mission_generale: "..."}</code>. Retourne <code>{ok, role_id, mission_generale}</code>.</td></tr>
+      <tr><td>GET</td><td><code>/roles_view/validation_level/&lt;user_id&gt;/&lt;role_id&gt;</code></td><td>Niveau de validation pour un couple utilisateur/rôle. Retourne <code>{level: null|valeur}</code>.</td></tr>
+    </table>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <section id="crud-connaissances">
+    <h2 class="section-title">CRUD Connaissances <span class="badge badge-done">Documenté</span></h2>
+    <p>5 blueprints symétriques gérant les types de connaissances attachés aux activités. Chacun suit le pattern <strong>add / update / delete / render</strong>.</p>
+
+    <h3>Blueprints et modèles</h3>
+    <table>
+      <tr><th>Blueprint</th><th>Préfixe</th><th>Modèle</th><th>Champs clés</th></tr>
+      <tr><td><code>savoirs_bp</code></td><td><code>/savoirs</code></td><td><code>Savoir</code></td><td><code>description</code>, <code>activity_id</code></td></tr>
+      <tr><td><code>savoir_faires_bp</code></td><td><code>/savoir_faires</code></td><td><code>SavoirFaire</code></td><td><code>description</code>, <code>activity_id</code></td></tr>
+      <tr><td><code>aptitudes_bp</code></td><td><code>/aptitudes</code></td><td><code>Aptitude</code></td><td><code>description</code>, <code>activity_id</code></td></tr>
+      <tr><td><code>softskills_crud_bp</code></td><td><code>/softskills</code></td><td><code>Softskill</code></td><td><code>habilete</code>, <code>niveau</code>, <code>justification</code>, <code>activity_id</code></td></tr>
+      <tr><td><code>skills_bp</code></td><td><code>/skills</code></td><td><code>Competency</code></td><td><code>description</code>, <code>activity_id</code></td></tr>
+    </table>
+
+    <h3>Pattern commun des URLs</h3>
+    <table>
+      <tr><th>Méthode</th><th>URL</th><th>Description</th></tr>
+      <tr><td>POST</td><td><code>/&lt;prefix&gt;/add</code></td><td>Crée un élément. Body JSON <code>{activity_id, description}</code>. Retourne <code>{id, description}</code> HTTP 201.</td></tr>
+      <tr><td>PUT</td><td><code>/&lt;prefix&gt;/&lt;activity_id&gt;/&lt;item_id&gt;</code></td><td>Met à jour la description. Vérifie que <code>activity_id</code> correspond (évite modifications croisées).</td></tr>
+      <tr><td>DELETE</td><td><code>/&lt;prefix&gt;/&lt;activity_id&gt;/&lt;item_id&gt;</code></td><td>Supprime l'élément. Même vérification de cohérence sur <code>activity_id</code>.</td></tr>
+      <tr><td>GET</td><td><code>/&lt;prefix&gt;/&lt;activity_id&gt;/render</code></td><td>Fragment HTML Jinja2 pour rafraîchissement dynamique de la liste sans rechargement de page.</td></tr>
+    </table>
+
+    <h3>Comportements spéciaux</h3>
+    <ul>
+      <li><strong>SavoirFaire — ajout en lot</strong> : <code>POST /savoir_faires/add</code> accepte <code>{"savoir_faires": ["SF1", "SF2"]}</code> en plus du mode unitaire. Utilisé par la modale de propositions IA (inject all at once).</li>
+      <li><strong>Softskill — UPSERT</strong> : <code>POST /softskills/add</code> cherche d'abord une HSC existante avec le même nom (insensible à la casse, même activité). Si trouvée, met à jour ; sinon crée. Évite les doublons lors des rechargements de propositions.</li>
+      <li><strong>Skills — Propositions IA</strong> : <code>POST /skills/propose</code> génère exactement 3 compétences via GPT-4o-mini selon la norme NF X50-124, à partir du contexte de l'activité (tâches, outils, connexions sortantes, entrées/sorties). Fallback regex (split sur ". ") si la réponse arrive sur une seule ligne.</li>
+      <li><strong>Skills — update sans activity_id</strong> : contrairement aux autres blueprints, <code>PUT /skills/&lt;competency_id&gt;</code> ne vérifie pas l'<code>activity_id</code> dans l'URL (la compétence est identifiée uniquement par son ID).</li>
+    </ul>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <section id="projection-metier">
+    <h2 class="section-title">Projection métier (ROME) <span class="badge badge-done">Documenté</span></h2>
+    <p>Blueprint <code>projection_metier_bp</code> — préfixe <code>/projection_metier</code>. Analyse le profil de compétences d'un utilisateur et le met en regard des fiches métiers de l'<strong>API ROME 4.0 de France Travail</strong> pour identifier les métiers maîtrisables (100% couverts) et envisageables (partiellement couverts).</p>
+
+    <h3>Authentification OAuth2 — France Travail</h3>
+    <div class="card">
+      <p>Token <code>client_credentials</code> mis en cache mémoire (TTL = <code>expires_in − 30s</code>). Deux tentatives en cascade :</p>
+      <ol>
+        <li><strong>Basic Auth</strong> : credentials encodés Base64 dans <code>Authorization: Basic …</code> + scope dans le body.</li>
+        <li><strong>Body mode</strong> : credentials + scope directement en POST body (fallback si l'endpoint n'accepte pas Basic).</li>
+      </ol>
+    </div>
+
+    <table>
+      <tr><th>Variable d'env.</th><th>Défaut</th><th>Description</th></tr>
+      <tr><td><code>ROME_CLIENT_ID</code></td><td>—</td><td>Client ID de l'app France Travail Partenaires</td></tr>
+      <tr><td><code>ROME_CLIENT_SECRET</code></td><td>—</td><td>Client Secret</td></tr>
+      <tr><td><code>ROME_SCOPE</code></td><td><code>api_rome-fiches-metiersv1</code></td><td>Scope OAuth2 — critique, doit correspondre exactement</td></tr>
+      <tr><td><code>ROME_BASE_URL</code></td><td>URL API France Travail</td><td>Ne pas terminer par un point "." (nettoyage auto)</td></tr>
+      <tr><td><code>ROME_TIMEOUT</code></td><td><code>10</code>s</td><td>Timeout des appels HTTP</td></tr>
+    </table>
+
+    <h3>Algorithme de matching</h3>
+    <div class="diagram">
+<pre style="text-align:left; background:transparent; color:#1e293b; padding:0; font-size:0.79rem; line-height:1.6;">
+Utilisateur
+ └─ Rôles → Activités Garant
+      ├─ Competency.description
+      ├─ Savoir.description
+      ├─ SavoirFaire.description
+      ├─ Softskill.habilete
+      └─ Aptitude.description
+                │
+                ▼ Pour chaque compétence : mots-clés &gt;3 chars (max 3)
+      GET /v1/fiches-rome/metier/recherche?libelle=…
+                │
+                ▼ Pool de codes ROME uniques (déduplication)
+      GET /v1/fiches-rome/fiche-metier?code=…
+                │
+                ▼ groupesCompetencesMobilisees[].competences[].libelle
+      Pour chaque compétence ROME :
+        → early exit si aucun token commun
+        → ratio SequenceMatcher ≥ 0.82
+           OU Jaccard (tokens) ≥ 0.60
+        → "couverte" | "manquante"
+                │
+                ▼ score = owned / total × 100
+      fully_matching (score=100%) | partially_matching (&gt;0%)
+      Tri décroissant + pagination</pre>
+      <div class="diagram-caption">Flux de la projection métier — de l'utilisateur aux métriques ROME</div>
+    </div>
+
+    <h3>Normalisation de texte</h3>
+    <ul>
+      <li><strong><code>_normalize()</code></strong> : minuscules → décomposition NFKD (strip accents) → remplacer <code>'/`"_/-</code> par espaces → supprimer non-alphanum → squeezer espaces.</li>
+      <li><strong><code>_tokenize()</code></strong> : normalise + filtre ~40 stopwords FR ("de", "du", "les", "pour"…).</li>
+      <li><strong><code>_jaccard_similarity(A,B)</code></strong> : <code>|A∩B| / |A∪B|</code> sur les sets de tokens.</li>
+    </ul>
+
+    <h3>Référence API — Projection métier</h3>
+    <table>
+      <tr><th>Méthode</th><th>URL</th><th>Description</th></tr>
+      <tr><td>GET</td><td><code>/projection_metier/</code></td><td>Page HTML avec liste des utilisateurs de l'entité active.</td></tr>
+      <tr><td>GET</td><td><code>/projection_metier/analyze/&lt;uid&gt;</code></td><td>Analyse un utilisateur. Params : <code>full_offset</code>, <code>full_limit</code> (déf. 30), <code>partial_offset</code>, <code>partial_limit</code>. Retourne <code>{full, partial, page, info}</code>.</td></tr>
+    </table>
+
+    <h3>Structure de réponse</h3>
+    <pre>{
+  "full": [{                          // Métiers 100% maîtrisés
+    "code": "M1805",
+    "label": "Études et développement informatique",
+    "score": 100.0,
+    "owned": ["Algorithmie", ...],
+    "missing": [],
+    "owned_count": 12, "missing_count": 0, "total": 12
+  }],
+  "partial": [...],                   // Métiers partiellement couverts
+  "page": {
+    "full":    {"offset":0, "limit":30, "total":3,  "has_more":false},
+    "partial": {"offset":0, "limit":30, "total":47, "has_more":true}
+  },
+  "info": {"user": 42}
+}</pre>
   </section>
 
   <section id="conventions">
