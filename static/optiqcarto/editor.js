@@ -151,11 +151,7 @@ let state = {
   shapes: [],
   connections: [],
   groups: [],   // { id, label, shapeIds:[], color:'#b3a0ff' }
-  bands: [
-    { id: 1, label: 'Niveau 1', color: '#22c55e', fontSize: 22, height: 180 },
-    { id: 2, label: 'Niveau 2', color: '#3b82f6', fontSize: 22, height: 180 },
-    { id: 3, label: 'Niveau 3', color: '#f59e0b', fontSize: 22, height: 180 },
-  ],
+  bands: _defaultBands(),
   showBands: true,
   showLegend: false,
   nextId: 100,
@@ -435,20 +431,6 @@ function renderBands() {
     el('circle', { cx: bw, cy: midY + dy, r: '2.5', fill: 'rgba(59,130,246,0.55)', 'pointer-events': 'none' }, rg);
   });
 
-  // Bouton "Ajouter une bande" (bas) — toute la largeur de la bande
-  const ag = el('g', { 'data-type': 'add-band', cursor: 'pointer' }, gUI);
-  el('rect', {
-    x: 0, y: y + 10, width: bw, height: 36, rx: '6', ry: '6',
-    fill: 'rgba(0,0,0,0.04)',
-    stroke: 'rgba(0,0,0,0.18)', 'stroke-width': '1.5', 'stroke-dasharray': '6,4',
-  }, ag);
-  txt('＋  Ajouter une bande', {
-    x: bw / 2,
-    y: y + 10 + 18,
-    'text-anchor': 'middle', 'dominant-baseline': 'middle',
-    fill: 'rgba(0,0,0,0.35)', 'font-size': '14',
-    'font-family': 'Segoe UI, sans-serif', 'font-weight': '600', 'pointer-events': 'none',
-  }, ag);
 }
 
 
@@ -1221,7 +1203,7 @@ function _activateBand(key) {
     if ((bc ? bc.order : 999) > cat.order) { insertIdx = i; break; }
   }
   state.bands.splice(insertIdx, 0, newBand);
-  saveHistory(); render(); renderCanvasMap(); renderBandsCatalogPopup();
+  snapshot(); render(); renderCanvasMap(); renderBandsCatalogPopup();
   showToast(`Bande "${cat.label}" activée`);
 }
 
@@ -1237,7 +1219,7 @@ function _deactivateBand(key, checkbox) {
     clearSelection();
   }
   state.bands = state.bands.filter(b => b.catalogKey !== key);
-  saveHistory(); render(); renderCanvasMap(); renderBandsCatalogPopup();
+  snapshot(); render(); renderCanvasMap(); renderBandsCatalogPopup();
   if (band) showToast(`Bande "${band.label}" désactivée`);
 }
 
@@ -1573,14 +1555,6 @@ function onDown(e) {
     canvas.style.cursor = 'ns-resize';
     return;
   }
-  const addBandTarget = e.target.closest('[data-type="add-band"]');
-  if (addBandTarget) {
-    state.bands.push({ id: state.nextId++, label: '', color: '#22c55e', fontSize: 22, height: 150 });
-    snapshot(); render();
-    showToast('Bande ajoutée');
-    return;
-  }
-
   /* ── Select tool ── */
   if (tool === 'select') {
     // Drag du label d'une connexion

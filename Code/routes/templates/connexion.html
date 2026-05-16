@@ -9,79 +9,66 @@
 </head>
 <body>
 
-  <!-- ── Fond décoratif SVG ── -->
+  <!-- ── Fond décoratif ── -->
   <div class="login-bg" aria-hidden="true">
-    <svg class="bg-art" viewBox="0 0 1440 900" preserveAspectRatio="xMidYMid slice" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <svg class="bg-svg" viewBox="0 0 1440 900" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
       <defs>
-        <radialGradient id="rg-pink" cx="50%" cy="50%" r="50%">
-          <stop offset="0%" stop-color="#ec4899" stop-opacity="1"/>
-          <stop offset="100%" stop-color="#ec4899" stop-opacity="0"/>
-        </radialGradient>
-        <radialGradient id="rg-green" cx="50%" cy="50%" r="50%">
-          <stop offset="0%" stop-color="#22c55e" stop-opacity="1"/>
-          <stop offset="100%" stop-color="#22c55e" stop-opacity="0"/>
-        </radialGradient>
-        <radialGradient id="rg-rose" cx="50%" cy="50%" r="50%">
-          <stop offset="0%" stop-color="#f9a8d4" stop-opacity="1"/>
-          <stop offset="100%" stop-color="#f9a8d4" stop-opacity="0"/>
-        </radialGradient>
+        <linearGradient id="bg-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%"   stop-color="#9d174d"/>
+          <stop offset="45%"  stop-color="#ec4899"/>
+          <stop offset="100%" stop-color="#15803d"/>
+        </linearGradient>
       </defs>
+      <rect width="1440" height="900" fill="url(#bg-grad)"/>
 
-      <!-- Grandes auréoles de couleur -->
-      <circle cx="120" cy="160" r="340" fill="url(#rg-pink)" opacity="0.09"/>
-      <circle cx="1320" cy="740" r="380" fill="url(#rg-green)" opacity="0.08"/>
-      <circle cx="1100" cy="120" r="260" fill="url(#rg-rose)" opacity="0.10"/>
-      <circle cx="260" cy="800" r="200" fill="url(#rg-green)" opacity="0.07"/>
+      <!-- Grands cercles blancs semi-transparents -->
+      <circle cx="160"  cy="120"  r="320" fill="rgba(255,255,255,0.06)"/>
+      <circle cx="1300" cy="780"  r="380" fill="rgba(255,255,255,0.05)"/>
+      <circle cx="1100" cy="80"   r="200" fill="rgba(255,255,255,0.07)"/>
+      <circle cx="80"   cy="820"  r="180" fill="rgba(255,255,255,0.05)"/>
 
-      <!-- Arcs décoratifs roses -->
-      <circle cx="80" cy="80" r="180" stroke="#ec4899" stroke-width="1.5" opacity="0.12" fill="none"/>
-      <circle cx="80" cy="80" r="280" stroke="#ec4899" stroke-width="1" opacity="0.07" fill="none"/>
-      <circle cx="1380" cy="820" r="200" stroke="#22c55e" stroke-width="1.5" opacity="0.10" fill="none"/>
-      <circle cx="1380" cy="820" r="300" stroke="#22c55e" stroke-width="1" opacity="0.06" fill="none"/>
+      <!-- Anneaux contour -->
+      <circle cx="160"  cy="120"  r="420" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="2"/>
+      <circle cx="160"  cy="120"  r="520" fill="none" stroke="rgba(255,255,255,0.05)" stroke-width="1"/>
+      <circle cx="1300" cy="780"  r="480" fill="none" stroke="rgba(255,255,255,0.07)" stroke-width="2"/>
 
-      <!-- Lignes de flux courbes -->
-      <path d="M-40,350 C 200,200 400,420 680,380 S 980,260 1200,340 S 1380,440 1480,380" stroke="#ec4899" stroke-width="1.5" opacity="0.10" fill="none"/>
-      <path d="M-40,500 C 180,420 380,560 660,520 S 960,400 1200,480 S 1400,560 1480,510" stroke="#22c55e" stroke-width="1.5" opacity="0.09" fill="none"/>
-      <path d="M-40,620 C 220,560 480,680 720,640 S 1020,520 1280,600 S 1420,660 1480,640" stroke="#ec4899" stroke-width="1" opacity="0.07" fill="none"/>
+      <!-- Formes géométriques accent -->
+      <polygon points="0,0 220,0 0,200"      fill="rgba(255,255,255,0.06)"/>
+      <polygon points="1440,900 1220,900 1440,700" fill="rgba(255,255,255,0.06)"/>
+      <polygon points="1440,0 1340,0 1440,120" fill="rgba(0,0,0,0.08)"/>
+      <polygon points="0,900 120,900 0,780"    fill="rgba(0,0,0,0.08)"/>
 
-      <!-- Grille de points subtile (côté gauche) -->
-      <g opacity="0.16" fill="#ec4899">
-        <circle cx="40" cy="120" r="2"/><circle cx="100" cy="120" r="2"/><circle cx="160" cy="120" r="2"/><circle cx="220" cy="120" r="2"/>
-        <circle cx="40" cy="200" r="2"/><circle cx="100" cy="200" r="2"/><circle cx="160" cy="200" r="2"/><circle cx="220" cy="200" r="2"/>
-        <circle cx="40" cy="280" r="2"/><circle cx="100" cy="280" r="2"/><circle cx="160" cy="280" r="2"/><circle cx="220" cy="280" r="2"/>
-        <circle cx="40" cy="360" r="2"/><circle cx="100" cy="360" r="2"/><circle cx="160" cy="360" r="2"/><circle cx="220" cy="360" r="2"/>
-        <circle cx="40" cy="440" r="2"/><circle cx="100" cy="440" r="2"/><circle cx="160" cy="440" r="2"/><circle cx="220" cy="440" r="2"/>
-        <circle cx="40" cy="520" r="2"/><circle cx="100" cy="520" r="2"/><circle cx="160" cy="520" r="2"/><circle cx="220" cy="520" r="2"/>
-        <circle cx="40" cy="600" r="2"/><circle cx="100" cy="600" r="2"/><circle cx="160" cy="600" r="2"/><circle cx="220" cy="600" r="2"/>
-        <circle cx="40" cy="680" r="2"/><circle cx="100" cy="680" r="2"/><circle cx="160" cy="680" r="2"/><circle cx="220" cy="680" r="2"/>
+      <!-- Lignes de flux -->
+      <path d="M-100,320 Q320,180 640,340 T1200,300 T1600,360"
+            fill="none" stroke="rgba(255,255,255,0.10)" stroke-width="2"/>
+      <path d="M-100,550 Q300,430 620,520 T1180,480 T1600,540"
+            fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="1.5"/>
+
+      <!-- Losange décoratif -->
+      <path d="M720,40 L760,80 L720,120 L680,80 Z"
+            fill="none" stroke="rgba(255,255,255,0.25)" stroke-width="2"/>
+      <path d="M1360,400 L1390,430 L1360,460 L1330,430 Z"
+            fill="none" stroke="rgba(255,255,255,0.18)" stroke-width="1.5"/>
+      <path d="M80,440 L108,468 L80,496 L52,468 Z"
+            fill="none" stroke="rgba(255,255,255,0.18)" stroke-width="1.5"/>
+
+      <!-- Points de grille subtils -->
+      <g fill="rgba(255,255,255,0.20)">
+        <circle cx="520" cy="60"  r="3"/><circle cx="580" cy="60"  r="3"/><circle cx="640" cy="60"  r="3"/>
+        <circle cx="520" cy="120" r="3"/><circle cx="580" cy="120" r="3"/><circle cx="640" cy="120" r="3"/>
+        <circle cx="520" cy="180" r="3"/><circle cx="580" cy="180" r="3"/><circle cx="640" cy="180" r="3"/>
       </g>
-      <!-- Grille de points subtile (côté droit) -->
-      <g opacity="0.13" fill="#22c55e">
-        <circle cx="1160" cy="120" r="2"/><circle cx="1220" cy="120" r="2"/><circle cx="1280" cy="120" r="2"/><circle cx="1340" cy="120" r="2"/>
-        <circle cx="1160" cy="200" r="2"/><circle cx="1220" cy="200" r="2"/><circle cx="1280" cy="200" r="2"/><circle cx="1340" cy="200" r="2"/>
-        <circle cx="1160" cy="280" r="2"/><circle cx="1220" cy="280" r="2"/><circle cx="1280" cy="280" r="2"/><circle cx="1340" cy="280" r="2"/>
-        <circle cx="1160" cy="360" r="2"/><circle cx="1220" cy="360" r="2"/><circle cx="1280" cy="360" r="2"/><circle cx="1340" cy="360" r="2"/>
-        <circle cx="1160" cy="440" r="2"/><circle cx="1220" cy="440" r="2"/><circle cx="1280" cy="440" r="2"/><circle cx="1340" cy="440" r="2"/>
-        <circle cx="1160" cy="520" r="2"/><circle cx="1220" cy="520" r="2"/><circle cx="1280" cy="520" r="2"/><circle cx="1340" cy="520" r="2"/>
-        <circle cx="1160" cy="600" r="2"/><circle cx="1220" cy="600" r="2"/><circle cx="1280" cy="600" r="2"/><circle cx="1340" cy="600" r="2"/>
-        <circle cx="1160" cy="680" r="2"/><circle cx="1220" cy="680" r="2"/><circle cx="1280" cy="680" r="2"/><circle cx="1340" cy="680" r="2"/>
+      <g fill="rgba(255,255,255,0.15)">
+        <circle cx="800" cy="720" r="3"/><circle cx="860" cy="720" r="3"/><circle cx="920" cy="720" r="3"/>
+        <circle cx="800" cy="780" r="3"/><circle cx="860" cy="780" r="3"/><circle cx="920" cy="780" r="3"/>
+        <circle cx="800" cy="840" r="3"/><circle cx="860" cy="840" r="3"/><circle cx="920" cy="840" r="3"/>
       </g>
 
-      <!-- Triangles angulaires de coin -->
-      <polygon points="0,0 160,0 0,140" fill="#ec4899" opacity="0.04"/>
-      <polygon points="1440,900 1280,900 1440,760" fill="#22c55e" opacity="0.04"/>
-      <polygon points="1440,0 1340,0 1440,100" fill="#ec4899" opacity="0.05"/>
-      <polygon points="0,900 100,900 0,800" fill="#22c55e" opacity="0.05"/>
-
-      <!-- Petits accents géométriques -->
-      <rect x="220" y="60" width="20" height="20" rx="4" fill="#ec4899" opacity="0.12" transform="rotate(20,230,70)"/>
-      <rect x="1180" y="60" width="16" height="16" rx="3" fill="#22c55e" opacity="0.14" transform="rotate(-15,1188,68)"/>
-      <rect x="140" y="780" width="14" height="14" rx="3" fill="#22c55e" opacity="0.12" transform="rotate(30,147,787)"/>
-      <rect x="1280" y="180" width="18" height="18" rx="4" fill="#ec4899" opacity="0.10" transform="rotate(10,1289,189)"/>
-
-      <!-- Hexagones stylisés -->
-      <path d="M380,80 l14,-8 l14,8 l0,16 l-14,8 l-14,-8 Z" stroke="#ec4899" stroke-width="1.2" opacity="0.16" fill="none"/>
-      <path d="M1060,820 l12,-7 l12,7 l0,14 l-12,7 l-12,-7 Z" stroke="#22c55e" stroke-width="1.2" opacity="0.16" fill="none"/>
+      <!-- Petits carrés tournés -->
+      <rect x="348" y="72"  width="18" height="18" rx="3" fill="rgba(255,255,255,0.18)" transform="rotate(20,357,81)"/>
+      <rect x="1040" y="820" width="16" height="16" rx="3" fill="rgba(255,255,255,0.15)" transform="rotate(-15,1048,828)"/>
+      <rect x="1360" y="160" width="14" height="14" rx="3" fill="rgba(255,255,255,0.18)" transform="rotate(30,1367,167)"/>
+      <rect x="60"  y="340" width="12" height="12" rx="2" fill="rgba(255,255,255,0.15)" transform="rotate(10,66,346)"/>
     </svg>
   </div>
 
@@ -91,17 +78,18 @@
 
       <!-- Logo -->
       <div class="login-logo">
-        <div class="logo-mark">
+        <div class="logo-icon">
           <i class="fa-solid fa-diagram-project"></i>
         </div>
-        <div class="logo-text">
-          <span class="logo-devoptiq">DevOPTIQ</span>
-          <span class="logo-sub">Gestion des compétences & activités</span>
+        <div>
+          <div class="logo-name">DevOPTIQ</div>
+          <div class="logo-tagline">Gestion des compétences & activités</div>
         </div>
       </div>
 
-      <h1 class="login-title">Bienvenue</h1>
-      <p class="login-subtitle">Connectez-vous à votre espace de travail</p>
+      <div class="login-divider-top"></div>
+
+      <h1 class="login-title">Connexion</h1>
 
       <!-- Messages flash -->
       {% with messages = get_flashed_messages(with_categories=True) %}
@@ -119,35 +107,23 @@
       <form method="POST" action="{{ url_for('auth.login') }}" class="login-form" novalidate>
 
         <div class="field-group">
-          <label class="field-label" for="login-email">
-            <i class="fa-solid fa-envelope"></i> Adresse email
-          </label>
-          <input
-            type="email"
-            id="login-email"
-            name="email"
-            class="field-input"
-            placeholder="nom@exemple.fr"
-            required
-            autocomplete="email"
-          >
+          <label class="field-label" for="login-email">Email</label>
+          <div class="field-wrap">
+            <i class="fa-solid fa-envelope field-icon"></i>
+            <input type="email" id="login-email" name="email"
+              class="field-input" placeholder="nom@exemple.fr"
+              required autocomplete="email">
+          </div>
         </div>
 
         <div class="field-group">
-          <label class="field-label" for="login-password">
-            <i class="fa-solid fa-lock"></i> Mot de passe
-          </label>
-          <div class="field-input-wrap">
-            <input
-              type="password"
-              id="login-password"
-              name="password"
-              class="field-input"
-              placeholder="••••••••"
-              required
-              autocomplete="current-password"
-            >
-            <button type="button" class="field-eye" id="toggle-pwd" tabindex="-1" aria-label="Afficher/masquer le mot de passe">
+          <label class="field-label" for="login-password">Mot de passe</label>
+          <div class="field-wrap">
+            <i class="fa-solid fa-lock field-icon"></i>
+            <input type="password" id="login-password" name="password"
+              class="field-input" placeholder="••••••••"
+              required autocomplete="current-password">
+            <button type="button" class="field-eye" id="toggle-pwd" tabindex="-1">
               <i class="fa-solid fa-eye" id="eye-icon"></i>
             </button>
           </div>
@@ -164,27 +140,23 @@
         <a href="#" id="forgot-password-link" class="forgot-link">Mot de passe oublié ?</a>
       </p>
 
-      <div class="login-divider">
-        <span>DevOPTIQ by AFDEC</span>
-      </div>
-
     </div>
   </div>
 
-  <!-- ── Modal mot de passe oublié ── -->
-  <div id="forgot-password-modal" class="fpwd-overlay" style="display:none;" role="dialog" aria-modal="true">
+  <!-- ── Modal réinitialisation ── -->
+  <div id="forgot-password-modal" class="fpwd-overlay" style="display:none;">
     <div class="fpwd-card">
-      <button class="fpwd-close" id="close-modal" aria-label="Fermer">
-        <i class="fa-solid fa-xmark"></i>
-      </button>
-      <div class="fpwd-icon">
-        <i class="fa-solid fa-key"></i>
-      </div>
-      <h2 class="fpwd-title">Mot de passe oublié</h2>
-      <p class="fpwd-desc">Entrez votre adresse email. Nous vous enverrons un lien de réinitialisation.</p>
+      <button class="fpwd-close" id="close-modal"><i class="fa-solid fa-xmark"></i></button>
+      <div class="fpwd-icon"><i class="fa-solid fa-key"></i></div>
+      <h2 class="fpwd-title">Réinitialiser le mot de passe</h2>
+      <p class="fpwd-desc">Entrez votre adresse email pour recevoir un lien de réinitialisation.</p>
       <form id="forgot-password-form" method="POST" action="{{ url_for('auth_password.forgot_password') }}">
-        <input type="email" id="forgot-email" name="email" class="field-input" placeholder="nom@exemple.fr" required>
-        <button type="submit" class="btn-login" style="margin-top:14px">
+        <div class="field-wrap" style="margin-bottom:14px">
+          <i class="fa-solid fa-envelope field-icon"></i>
+          <input type="email" id="forgot-email" name="email"
+            class="field-input" placeholder="nom@exemple.fr" required>
+        </div>
+        <button type="submit" class="btn-login">
           <i class="fa-solid fa-paper-plane"></i> Envoyer le lien
         </button>
       </form>
@@ -193,12 +165,12 @@
 
   <script>
   (function() {
-    const forgotLink  = document.getElementById('forgot-password-link');
-    const modal       = document.getElementById('forgot-password-modal');
-    const closeBtn    = document.getElementById('close-modal');
-    const togglePwd   = document.getElementById('toggle-pwd');
-    const pwdInput    = document.getElementById('login-password');
-    const eyeIcon     = document.getElementById('eye-icon');
+    const forgotLink = document.getElementById('forgot-password-link');
+    const modal      = document.getElementById('forgot-password-modal');
+    const closeBtn   = document.getElementById('close-modal');
+    const togglePwd  = document.getElementById('toggle-pwd');
+    const pwdInput   = document.getElementById('login-password');
+    const eyeIcon    = document.getElementById('eye-icon');
 
     forgotLink.addEventListener('click', e => { e.preventDefault(); modal.style.display = 'flex'; });
     closeBtn.addEventListener('click', () => { modal.style.display = 'none'; });
@@ -206,9 +178,9 @@
     document.addEventListener('keydown', e => { if (e.key === 'Escape') modal.style.display = 'none'; });
 
     togglePwd.addEventListener('click', () => {
-      const isHidden = pwdInput.type === 'password';
-      pwdInput.type = isHidden ? 'text' : 'password';
-      eyeIcon.className = isHidden ? 'fa-solid fa-eye-slash' : 'fa-solid fa-eye';
+      const show = pwdInput.type === 'password';
+      pwdInput.type   = show ? 'text' : 'password';
+      eyeIcon.className = show ? 'fa-solid fa-eye-slash' : 'fa-solid fa-eye';
     });
   })();
   </script>
