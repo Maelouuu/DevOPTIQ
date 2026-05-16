@@ -9,66 +9,80 @@
 </head>
 <body>
 
-  <!-- ── Fond décoratif ── -->
+  <!-- ── Art organique fluide ── -->
   <div class="login-bg" aria-hidden="true">
-    <svg class="bg-svg" viewBox="0 0 1440 900" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
-      <defs>
-        <linearGradient id="bg-grad" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%"   stop-color="#9d174d"/>
-          <stop offset="45%"  stop-color="#ec4899"/>
-          <stop offset="100%" stop-color="#15803d"/>
-        </linearGradient>
-      </defs>
-      <rect width="1440" height="900" fill="url(#bg-grad)"/>
+    <svg class="bg-svg" viewBox="0 0 1000 700" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
 
-      <!-- Grands cercles blancs semi-transparents -->
-      <circle cx="160"  cy="120"  r="320" fill="rgba(255,255,255,0.06)"/>
-      <circle cx="1300" cy="780"  r="380" fill="rgba(255,255,255,0.05)"/>
-      <circle cx="1100" cy="80"   r="200" fill="rgba(255,255,255,0.07)"/>
-      <circle cx="80"   cy="820"  r="180" fill="rgba(255,255,255,0.05)"/>
+      <!-- Fond blanc cassé -->
+      <rect width="1000" height="700" fill="#fafaf8"/>
 
-      <!-- Anneaux contour -->
-      <circle cx="160"  cy="120"  r="420" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="2"/>
-      <circle cx="160"  cy="120"  r="520" fill="none" stroke="rgba(255,255,255,0.05)" stroke-width="1"/>
-      <circle cx="1300" cy="780"  r="480" fill="none" stroke="rgba(255,255,255,0.07)" stroke-width="2"/>
+      <!-- ─── FORME ROSE principale (grande, bas-gauche, organique) ─── -->
+      <path fill="#ec4899" d="
+        M -10,700
+        L -10,420
+        C 30,360 90,310 150,330
+        C 210,350 240,410 300,440
+        C 360,470 430,460 480,420
+        C 530,380 550,320 600,290
+        C 650,260 710,270 750,310
+        C 790,350 800,420 780,490
+        C 760,560 720,610 730,680
+        L -10,700 Z
+      "/>
 
-      <!-- Formes géométriques accent -->
-      <polygon points="0,0 220,0 0,200"      fill="rgba(255,255,255,0.06)"/>
-      <polygon points="1440,900 1220,900 1440,700" fill="rgba(255,255,255,0.06)"/>
-      <polygon points="1440,0 1340,0 1440,120" fill="rgba(0,0,0,0.08)"/>
-      <polygon points="0,900 120,900 0,780"    fill="rgba(0,0,0,0.08)"/>
+      <!-- ─── FORME VERTE principale (haut-droite) ─── -->
+      <path fill="#22c55e" d="
+        M 1010,-10
+        L 620,-10
+        C 640,30 670,80 720,100
+        C 770,120 830,100 880,120
+        C 930,140 970,190 1010,240
+        Z
+      "/>
 
-      <!-- Lignes de flux -->
-      <path d="M-100,320 Q320,180 640,340 T1200,300 T1600,360"
-            fill="none" stroke="rgba(255,255,255,0.10)" stroke-width="2"/>
-      <path d="M-100,550 Q300,430 620,520 T1180,480 T1600,540"
-            fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="1.5"/>
+      <!-- ─── RENFLEMENT rose secondaire (haut, comme un lobe) ─── -->
+      <path fill="#ec4899" d="
+        M 240,-10
+        C 290,-10 350,20 380,70
+        C 410,120 400,180 360,210
+        C 320,240 270,230 240,190
+        C 210,150 200,90 220,40
+        C 228,16 234,-10 240,-10 Z
+      " opacity="0.85"/>
 
-      <!-- Losange décoratif -->
-      <path d="M720,40 L760,80 L720,120 L680,80 Z"
-            fill="none" stroke="rgba(255,255,255,0.25)" stroke-width="2"/>
-      <path d="M1360,400 L1390,430 L1360,460 L1330,430 Z"
-            fill="none" stroke="rgba(255,255,255,0.18)" stroke-width="1.5"/>
-      <path d="M80,440 L108,468 L80,496 L52,468 Z"
-            fill="none" stroke="rgba(255,255,255,0.18)" stroke-width="1.5"/>
+      <!-- ─── BLOB vert secondaire (milieu droit, ovale) ─── -->
+      <path fill="#22c55e" d="
+        M 870,340
+        C 900,300 950,300 975,340
+        C 1000,380 990,440 960,470
+        C 930,500 890,495 870,460
+        C 850,425 840,380 870,340 Z
+      " opacity="0.90"/>
 
-      <!-- Points de grille subtils -->
-      <g fill="rgba(255,255,255,0.20)">
-        <circle cx="520" cy="60"  r="3"/><circle cx="580" cy="60"  r="3"/><circle cx="640" cy="60"  r="3"/>
-        <circle cx="520" cy="120" r="3"/><circle cx="580" cy="120" r="3"/><circle cx="640" cy="120" r="3"/>
-        <circle cx="520" cy="180" r="3"/><circle cx="580" cy="180" r="3"/><circle cx="640" cy="180" r="3"/>
-      </g>
-      <g fill="rgba(255,255,255,0.15)">
-        <circle cx="800" cy="720" r="3"/><circle cx="860" cy="720" r="3"/><circle cx="920" cy="720" r="3"/>
-        <circle cx="800" cy="780" r="3"/><circle cx="860" cy="780" r="3"/><circle cx="920" cy="780" r="3"/>
-        <circle cx="800" cy="840" r="3"/><circle cx="860" cy="840" r="3"/><circle cx="920" cy="840" r="3"/>
-      </g>
+      <!-- ─── Petite bulle blanche dans le rose (accent négatif) ─── -->
+      <circle cx="520" cy="590" r="58" fill="#fafaf8"/>
 
-      <!-- Petits carrés tournés -->
-      <rect x="348" y="72"  width="18" height="18" rx="3" fill="rgba(255,255,255,0.18)" transform="rotate(20,357,81)"/>
-      <rect x="1040" y="820" width="16" height="16" rx="3" fill="rgba(255,255,255,0.15)" transform="rotate(-15,1048,828)"/>
-      <rect x="1360" y="160" width="14" height="14" rx="3" fill="rgba(255,255,255,0.18)" transform="rotate(30,1367,167)"/>
-      <rect x="60"  y="340" width="12" height="12" rx="2" fill="rgba(255,255,255,0.15)" transform="rotate(10,66,346)"/>
+      <!-- ─── Petite bulle rose dans le blanc (accent positif) ─── -->
+      <circle cx="820" cy="160" r="36" fill="#ec4899" opacity="0.30"/>
+
+      <!-- ─── Goutte verte (bas droit, petite) ─── -->
+      <path fill="#22c55e" d="
+        M 920,660
+        C 940,630 975,632 988,660
+        C 1001,688 990,718 968,725
+        C 946,732 920,718 912,694
+        C 906,676 910,674 920,660 Z
+      " opacity="0.75"/>
+
+      <!-- ─── Lobe blanc découpé dans le rose (espace négatif haut-gauche) ─── -->
+      <path fill="#fafaf8" d="
+        M -10,300
+        C 20,240 70,220 110,250
+        C 150,280 155,340 130,380
+        C 105,420 60,430 20,410
+        C -10,394 -10,350 -10,300 Z
+      "/>
+
     </svg>
   </div>
 
@@ -83,11 +97,11 @@
         </div>
         <div>
           <div class="logo-name">DevOPTIQ</div>
-          <div class="logo-tagline">Gestion des compétences & activités</div>
+          <div class="logo-tagline">Gestion des compétences &amp; activités</div>
         </div>
       </div>
 
-      <div class="login-divider-top"></div>
+      <div class="login-stripe"></div>
 
       <h1 class="login-title">Connexion</h1>
 
@@ -173,13 +187,13 @@
     const eyeIcon    = document.getElementById('eye-icon');
 
     forgotLink.addEventListener('click', e => { e.preventDefault(); modal.style.display = 'flex'; });
-    closeBtn.addEventListener('click', () => { modal.style.display = 'none'; });
+    closeBtn.addEventListener('click',   () => { modal.style.display = 'none'; });
     modal.addEventListener('click', e => { if (e.target === modal) modal.style.display = 'none'; });
     document.addEventListener('keydown', e => { if (e.key === 'Escape') modal.style.display = 'none'; });
 
     togglePwd.addEventListener('click', () => {
       const show = pwdInput.type === 'password';
-      pwdInput.type   = show ? 'text' : 'password';
+      pwdInput.type     = show ? 'text' : 'password';
       eyeIcon.className = show ? 'fa-solid fa-eye-slash' : 'fa-solid fa-eye';
     });
   })();
