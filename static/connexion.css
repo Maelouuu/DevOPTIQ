@@ -19,7 +19,7 @@ body {
   justify-content: center;
   overflow: hidden;
   position: relative;
-  background: #fafaf8;
+  background: linear-gradient(90deg, #fdf2f8 0%, #f9feff 50%, #f0fdf4 100%);
 }
 
 /* ── Fond organique ── */

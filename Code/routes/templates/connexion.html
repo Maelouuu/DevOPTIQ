@@ -9,78 +9,107 @@
 </head>
 <body>
 
-  <!-- ── Art organique fluide ── -->
+  <!-- ── Bandes ondulées bicolores ── -->
   <div class="login-bg" aria-hidden="true">
     <svg class="bg-svg" viewBox="0 0 1000 700" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <!-- Fond dégradé rose pâle → blanc → vert pâle -->
+        <linearGradient id="g-bg" x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%"   stop-color="#fdf2f8"/>
+          <stop offset="32%"  stop-color="#fef8fb"/>
+          <stop offset="50%"  stop-color="#f9feff"/>
+          <stop offset="68%"  stop-color="#f4fdf8"/>
+          <stop offset="100%" stop-color="#f0fdf4"/>
+        </linearGradient>
+        <!-- Bande profonde — couleurs vives aux bords, transparent au centre -->
+        <linearGradient id="g-vivid" x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%"   stop-color="#f472b6" stop-opacity="0.72"/>
+          <stop offset="26%"  stop-color="#f9a8d4" stop-opacity="0.90"/>
+          <stop offset="44%"  stop-color="#fce7f3" stop-opacity="0.32"/>
+          <stop offset="50%"  stop-color="#ffffff"  stop-opacity="0"/>
+          <stop offset="56%"  stop-color="#dcfce7"  stop-opacity="0.32"/>
+          <stop offset="74%"  stop-color="#86efac"  stop-opacity="0.90"/>
+          <stop offset="100%" stop-color="#4ade80"  stop-opacity="0.72"/>
+        </linearGradient>
+        <!-- Bande medium -->
+        <linearGradient id="g-deep" x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%"   stop-color="#f9a8d4"/>
+          <stop offset="28%"  stop-color="#fbcfe8"/>
+          <stop offset="46%"  stop-color="#fce7f3" stop-opacity="0.52"/>
+          <stop offset="50%"  stop-color="#ffffff"  stop-opacity="0.08"/>
+          <stop offset="54%"  stop-color="#dcfce7"  stop-opacity="0.52"/>
+          <stop offset="72%"  stop-color="#bbf7d0"/>
+          <stop offset="100%" stop-color="#86efac"/>
+        </linearGradient>
+        <!-- Bande douce (bords) -->
+        <linearGradient id="g-soft" x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%"   stop-color="#fce7f3" stop-opacity="0.78"/>
+          <stop offset="36%"  stop-color="#fce7f3" stop-opacity="0.25"/>
+          <stop offset="50%"  stop-color="#ffffff"  stop-opacity="0"/>
+          <stop offset="64%"  stop-color="#dcfce7"  stop-opacity="0.25"/>
+          <stop offset="100%" stop-color="#dcfce7"  stop-opacity="0.78"/>
+        </linearGradient>
+      </defs>
 
-      <!-- Fond blanc cassé -->
-      <rect width="1000" height="700" fill="#fafaf8"/>
+      <!-- Fond bicolore dégradé -->
+      <rect width="1000" height="700" fill="url(#g-bg)"/>
 
-      <!-- ─── FORME ROSE principale (grande, bas-gauche, organique) ─── -->
-      <path fill="#ec4899" d="
-        M -10,700
-        L -10,420
-        C 30,360 90,310 150,330
-        C 210,350 240,410 300,440
-        C 360,470 430,460 480,420
-        C 530,380 550,320 600,290
-        C 650,260 710,270 750,310
-        C 790,350 800,420 780,490
-        C 760,560 720,610 730,680
-        L -10,700 Z
+      <!-- Lueurs ambiantes (renforcement couleur par côté) -->
+      <ellipse cx="220" cy="350" rx="300" ry="400" fill="#f9a8d4" opacity="0.12"/>
+      <ellipse cx="780" cy="350" rx="300" ry="400" fill="#86efac"  opacity="0.12"/>
+
+      <!-- ── Bande 1 (haut — vive) ── -->
+      <path fill="url(#g-vivid)" d="
+        M -10,-10 L 1010,-10
+        L 1010,64
+        C 900,57  790,74  648,69
+        C 506,64  378,80  228,72
+        C 128,66   48,74  -10,68 Z
       "/>
 
-      <!-- ─── FORME VERTE principale (haut-droite) ─── -->
-      <path fill="#22c55e" d="
-        M 1010,-10
-        L 620,-10
-        C 640,30 670,80 720,100
-        C 770,120 830,100 880,120
-        C 930,140 970,190 1010,240
-        Z
+      <!-- ── Bande 2 ── -->
+      <path fill="url(#g-deep)" d="
+        M -10,140
+        C 82,133  202,148  354,155
+        C 492,162  614,149  762,157
+        C 862,163  952,155 1010,149
+        L 1010,240
+        C 952,246  862,252  762,244
+        C 614,236  492,248  354,240
+        C 202,232   82,239  -10,233 Z
       "/>
 
-      <!-- ─── RENFLEMENT rose secondaire (haut, comme un lobe) ─── -->
-      <path fill="#ec4899" d="
-        M 240,-10
-        C 290,-10 350,20 380,70
-        C 410,120 400,180 360,210
-        C 320,240 270,230 240,190
-        C 210,150 200,90 220,40
-        C 228,16 234,-10 240,-10 Z
-      " opacity="0.85"/>
+      <!-- ── Bande 3 (large — centrale) ── -->
+      <path fill="url(#g-vivid)" d="
+        M -10,293
+        C 102,286  234,301  392,309
+        C 532,317  654,304  804,312
+        C 902,318  962,311 1010,305
+        L 1010,416
+        C 962,422  902,428  804,420
+        C 654,412  532,424  392,416
+        C 234,408  102,415  -10,409 Z
+      "/>
 
-      <!-- ─── BLOB vert secondaire (milieu droit, ovale) ─── -->
-      <path fill="#22c55e" d="
-        M 870,340
-        C 900,300 950,300 975,340
-        C 1000,380 990,440 960,470
-        C 930,500 890,495 870,460
-        C 850,425 840,380 870,340 Z
-      " opacity="0.90"/>
+      <!-- ── Bande 4 ── -->
+      <path fill="url(#g-deep)" d="
+        M -10,460
+        C 92,454  214,467  372,474
+        C 512,481  634,469  782,476
+        C 882,482  962,475 1010,469
+        L 1010,553
+        C 962,559  882,565  782,557
+        C 634,549  512,561  372,553
+        C 214,545   92,552  -10,546 Z
+      "/>
 
-      <!-- ─── Petite bulle blanche dans le rose (accent négatif) ─── -->
-      <circle cx="520" cy="590" r="58" fill="#fafaf8"/>
-
-      <!-- ─── Petite bulle rose dans le blanc (accent positif) ─── -->
-      <circle cx="820" cy="160" r="36" fill="#ec4899" opacity="0.30"/>
-
-      <!-- ─── Goutte verte (bas droit, petite) ─── -->
-      <path fill="#22c55e" d="
-        M 920,660
-        C 940,630 975,632 988,660
-        C 1001,688 990,718 968,725
-        C 946,732 920,718 912,694
-        C 906,676 910,674 920,660 Z
-      " opacity="0.75"/>
-
-      <!-- ─── Lobe blanc découpé dans le rose (espace négatif haut-gauche) ─── -->
-      <path fill="#fafaf8" d="
-        M -10,300
-        C 20,240 70,220 110,250
-        C 150,280 155,340 130,380
-        C 105,420 60,430 20,410
-        C -10,394 -10,350 -10,300 Z
+      <!-- ── Bande 5 (bas — douce) ── -->
+      <path fill="url(#g-soft)" d="
+        M -10,610
+        C 102,604  232,615  392,621
+        C 542,627  664,615  824,621
+        C 922,626  972,619 1010,613
+        L 1010,710 L -10,710 Z
       "/>
 
     </svg>
