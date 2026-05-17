@@ -21,8 +21,9 @@ def app():
 
     # create_app() appelle db.init_app() + db.create_all() en interne sur la DB
     # fichier/postgres, puis db.engine.dispose(). L'engine reste dans le cache
-    # Flask-SQLAlchemy (_app_engines). On met à jour la config, puis on évince
-    # ce cache pour forcer la création d'un nouvel engine sur sqlite:///:memory:.
+    # Flask-SQLAlchemy 3.x : _app_engines est un WeakKeyDictionary
+    # app -> {bind_key -> engine}. On supprime l'entrée pour forcer FSA à
+    # recréer un engine neuf avec la nouvelle URI sqlite:///:memory:.
     test_app.config.update({
         "TESTING": True,
         "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:",
@@ -36,17 +37,13 @@ def app():
         },
     })
 
-    # Évince le cache engine de Flask-SQLAlchemy 3.x (_app_engines est un
-    # WeakKeyDictionary app → engine). Sans ça, FSA réutilise l'engine de la
-    # DB fichier même après changement de l'URI dans la config.
-    engine_cache = getattr(_db, "_app_engines", {})
-    old_engine = engine_cache.pop(test_app, None)
-    if old_engine is not None:
-        old_engine.dispose()
+    # Supprime l'entrée du cache sans appeler dispose() — la valeur est un
+    # dict {bind_key -> engine}, pas un engine directement (FSA 3.x).
+    getattr(_db, "_app_engines", {}).pop(test_app, None)
 
     with test_app.app_context():
-        _db.drop_all()    # Repart de zéro (au cas où des tables existent)
-        _db.create_all()  # Crée toutes les tables depuis les modèles actuels
+        _db.drop_all()
+        _db.create_all()
         _seed_db(_db)
         yield test_app
         _db.session.remove()
