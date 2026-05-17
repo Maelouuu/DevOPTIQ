@@ -44,27 +44,25 @@
     </button>
   </div>
 
-  <script>
-    function filterActivities(query) {
-      const q = query.trim().toLowerCase();
-      const cards = document.querySelectorAll('.activity-container');
-      let visible = 0;
-      cards.forEach(card => {
-        const name = (card.querySelector('h2') || {}).textContent || '';
-        const match = !q || name.toLowerCase().includes(q);
-        card.style.display = match ? '' : 'none';
-        if (match) visible++;
-      });
-      const countEl = document.getElementById('activity-search-count');
-      if (countEl) {
-        countEl.textContent = q ? `${visible} résultat${visible > 1 ? 's' : ''}` : '';
-      }
-    }
-  </script>
+  <!-- Section spéciale : activité mise en avant depuis la carto -->
+  <div id="special-activity-section" style="display:none; margin-bottom:18px;">
+    <div class="special-activity-header">
+      <span class="special-activity-label">
+        <i class="fa-solid fa-location-dot"></i> Activité sélectionnée depuis la cartographie
+      </span>
+      <button id="btn-close-special" class="special-activity-close" title="Fermer">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+    </div>
+    <div id="special-activity-inner"></div>
+  </div>
 
-  {% for item in activity_data %}
-    {% include "activity_card_new.html" %}
-  {% endfor %}
+  <!-- Liste principale -->
+  <div id="main-activities-list">
+    {% for item in activity_data %}
+      {% include "activity_card_new.html" %}
+    {% endfor %}
+  </div>
 
   {% if not activity_data or activity_data|length == 0 %}
     <div class="empty-message" style="margin-top: 60px;">
@@ -72,6 +70,14 @@
       <p>Aucune activité à afficher</p>
     </div>
   {% endif %}
+
+  <!-- Bouton charger plus -->
+  <div id="load-more-wrapper" style="display:none; text-align:center; margin: 24px 0 40px;">
+    <button id="btn-load-more" class="btn-load-more">
+      <i class="fa-solid fa-chevron-down"></i>
+      <span id="load-more-label">Charger plus</span>
+    </button>
+  </div>
 
   {% include "modals_and_spinner.html" %}
 
@@ -88,6 +94,120 @@
   <script defer src="{{ url_for('static', filename='js/activity_highlight.js') }}"></script>
   <script defer src="{{ url_for('static', filename='js/chatbot.js') }}"></script>
   <script defer src="{{ url_for('static', filename='js/import_tasks.js') }}"></script>
+
+  <script>
+  (function() {
+    const url      = new URL(window.location.href);
+    const targetId = url.searchParams.get('activity_id');
+
+    const mainList      = document.getElementById('main-activities-list');
+    const specialSec    = document.getElementById('special-activity-section');
+    const specialInner  = document.getElementById('special-activity-inner');
+    const loadMoreWrap  = document.getElementById('load-more-wrapper');
+    const loadMoreBtn   = document.getElementById('btn-load-more');
+    const loadMoreLabel = document.getElementById('load-more-label');
+    const closeBtn      = document.getElementById('btn-close-special');
+
+    // État injecté par le serveur
+    let nextOffset  = {{ next_offset }};
+    let hasMore     = {{ 'true' if has_more else 'false' }};
+    const excludeId = {{ pinned_activity_id or 'null' }};
+    let isSearchActive = false;
+
+    // ── Bouton "Charger plus" ────────────────────────────────────────────────
+    function updateLoadMoreBtn() {
+      if (!loadMoreWrap) return;
+      loadMoreWrap.style.display = (!isSearchActive && hasMore) ? '' : 'none';
+    }
+
+    // ── AJAX : charger le lot suivant ────────────────────────────────────────
+    if (loadMoreBtn) {
+      loadMoreBtn.addEventListener('click', async () => {
+        loadMoreBtn.disabled = true;
+        if (loadMoreLabel) loadMoreLabel.textContent = 'Chargement…';
+        try {
+          let fetchUrl = `/activities/view/more?offset=${nextOffset}`;
+          if (excludeId) fetchUrl += `&exclude_id=${excludeId}`;
+          const resp = await fetch(fetchUrl);
+          const data = await resp.json();
+          if (data.html) {
+            mainList.insertAdjacentHTML('beforeend', data.html);
+            // Appliquer le filtre actif aux nouvelles cartes
+            if (isSearchActive) {
+              const q = document.getElementById('activity-search').value.trim().toLowerCase();
+              mainList.querySelectorAll('.activity-container').forEach(card => {
+                const name = (card.querySelector('h2') || {}).textContent || '';
+                card.style.display = name.toLowerCase().includes(q) ? '' : 'none';
+              });
+            }
+          }
+          nextOffset = data.next_offset;
+          hasMore    = data.has_more;
+        } catch(e) {
+          console.error('[load-more]', e);
+        } finally {
+          loadMoreBtn.disabled = false;
+          if (loadMoreLabel) loadMoreLabel.textContent = 'Charger plus';
+          updateLoadMoreBtn();
+        }
+      });
+    }
+
+    // ── Section spéciale ─────────────────────────────────────────────────────
+    function initSpecialSection() {
+      if (!targetId || !specialSec) return;
+      const allCards   = Array.from(mainList.querySelectorAll('.activity-container'));
+      const targetCard = allCards.find(c => c.dataset.activityId === targetId);
+      if (!targetCard) return;
+      specialInner.appendChild(targetCard);
+      specialSec.style.display = '';
+      // activity_highlight.js (defer) ouvre la carte via DOMContentLoaded
+    }
+
+    if (closeBtn) {
+      closeBtn.addEventListener('click', () => {
+        // Retour à la liste propre (évite les doublons dans la pagination AJAX)
+        window.location.href = '/activities/view';
+      });
+    }
+
+    // ── Recherche ────────────────────────────────────────────────────────────
+    window.filterActivities = function(query) {
+      const q = query.trim().toLowerCase();
+      isSearchActive = !!q;
+
+      if (isSearchActive) {
+        let visible = 0;
+        mainList.querySelectorAll('.activity-container').forEach(card => {
+          const name = (card.querySelector('h2') || {}).textContent || '';
+          const match = name.toLowerCase().includes(q);
+          card.style.display = match ? '' : 'none';
+          if (match) visible++;
+        });
+        if (specialInner) {
+          const sc = specialInner.querySelector('.activity-container');
+          if (sc) {
+            const name = (sc.querySelector('h2') || {}).textContent || '';
+            const match = name.toLowerCase().includes(q);
+            sc.style.display = match ? '' : 'none';
+            if (match) visible++;
+          }
+        }
+        if (loadMoreWrap) loadMoreWrap.style.display = 'none';
+        const countEl = document.getElementById('activity-search-count');
+        if (countEl) countEl.textContent = `${visible} résultat${visible !== 1 ? 's' : ''}`;
+      } else {
+        document.getElementById('activity-search-count').textContent = '';
+        mainList.querySelectorAll('.activity-container').forEach(c => c.style.display = '');
+        updateLoadMoreBtn();
+      }
+    };
+
+    // ── Init ─────────────────────────────────────────────────────────────────
+    initSpecialSection();
+    updateLoadMoreBtn();
+  })();
+  </script>
 
 </body>
 </html>

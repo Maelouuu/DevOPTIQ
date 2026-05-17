@@ -2,30 +2,12 @@
 
 /* ══════════════════════════════════════════════════
    OptiqCarto — Éditeur SVG
+   Dépendances chargées avant ce fichier :
+     color-utils.js  — utilitaires couleur purs
+     geometry.js     — géométrie & chemins SVG purs
+     vsdx_importer.js
    ══════════════════════════════════════════════════ */
 
-/* ══════════════════════════════════════════════════
-   COLOR UTILITIES
-   ══════════════════════════════════════════════════ */
-
-function hexToRgb(hex) {
-  return [parseInt(hex.slice(1,3),16), parseInt(hex.slice(3,5),16), parseInt(hex.slice(5,7),16)];
-}
-function bandPastel(hex) {
-  const [r,g,b] = hexToRgb(hex);
-  return '#' + [r*0.25+255*0.75, g*0.25+255*0.75, b*0.25+255*0.75]
-    .map(c => Math.round(c).toString(16).padStart(2,'0')).join('');
-}
-function bandBgColor(hex) {
-  const [r,g,b] = hexToRgb(hex);
-  return '#' + [r*0.07+255*0.93, g*0.07+255*0.93, b*0.07+255*0.93]
-    .map(c => Math.round(c).toString(16).padStart(2,'0')).join('');
-}
-function darkenColor(hex, factor = 0.72) {
-  const [r,g,b] = hexToRgb(hex);
-  return '#' + [r*factor, g*factor, b*factor]
-    .map(c => Math.round(c).toString(16).padStart(2,'0')).join('');
-}
 function getBandForY(midY) {
   let y = -200;
   for (const band of state.bands) {
@@ -34,15 +16,10 @@ function getBandForY(midY) {
   }
   return null;
 }
-// Teinte atténuée (55% vivid + 45% blanc) — variante "moins fidèle" d'une bande
-function bandMutedColor(hex) {
-  const [r,g,b] = hexToRgb(hex);
-  return '#' + [r*0.55+255*0.45, g*0.55+255*0.45, b*0.55+255*0.45]
-    .map(c => Math.round(c).toString(16).padStart(2,'0')).join('');
-}
 
 function updateShapeColor(s) {
   if (s.type === 'decision') { s.color = '#9ca3af'; return; }
+  if (s.type === 'start-end') return; // Renvoi : couleur gérée par _updateRenvoiColor
   const band = getBandForY(s.y + s.h / 2);
   if (!band) return;
   s.color = s.colorVariant === 1 ? bandMutedColor(band.color) : band.color;
@@ -52,36 +29,120 @@ function updateShapeColor(s) {
   state.connections.forEach(c => { if (c.fromId === s.id) c.color = s.color; });
 }
 
+// Renvoi : colorier le cercle selon le nom de l'activité correspondante
+function _updateRenvoiColor(s) {
+  const label = (s.label || '').trim().toLowerCase();
+  if (!label) { s.color = '#ffffff'; s.textColor = '#000000'; return; }
+  const match = state.shapes.find(
+    o => o.id !== s.id && o.type === 'process' &&
+         (o.label || '').trim().toLowerCase() === label
+  );
+  if (match) { s.color = match.color; s.textColor = '#ffffff'; }
+  else        { s.color = '#ffffff';   s.textColor = '#000000'; }
+}
+
+// Quand une activité B se connecte à un Renvoi R1 (flèche entrante dans R1) :
+// → crée automatiquement un second Renvoi coloré comme B, positionné près de
+//   l'activité A (celle que R1 référence via son label), et le connecte à A.
+function _checkRenvoiAutoLink(fromShapeId, toShapeId) {
+  const actB   = state.shapes.find(s => s.id === fromShapeId); // source = activité
+  const renvoi = state.shapes.find(s => s.id === toShapeId);   // cible  = renvoi
+  if (!actB || !renvoi) return;
+  if (actB.type !== 'process' || renvoi.type !== 'start-end') return;
+
+  const renvoiLabel = (renvoi.label || '').trim().toLowerCase();
+  if (!renvoiLabel) return;
+
+  const actA = state.shapes.find(
+    s => s.type === 'process' && s.id !== fromShapeId &&
+         (s.label || '').trim().toLowerCase() === renvoiLabel
+  );
+  if (!actA) return;
+
+  // Créer R2 à gauche de A (même centre vertical)
+  const R2W = SHAPE_DEFAULTS['start-end'].w;
+  const R2H = SHAPE_DEFAULTS['start-end'].h;
+  const r2x = Math.max(0, Math.round(actA.x - R2W - 24));
+  const r2y = Math.round(actA.y + actA.h / 2 - R2H / 2);
+  const r2 = {
+    id: state.nextId++,
+    type: 'start-end',
+    x: r2x, y: r2y, w: R2W, h: R2H,
+    label:          actB.label || '',
+    color:          actB.color,
+    textColor:      '#ffffff',
+    strokeColor:    '',
+    validationBadge: false,
+    validationColor: '#4DB868',
+    fontSize:       SHAPE_DEFAULTS['start-end'].fontSize,
+    colorVariant:   0,
+    subtype:        'normal',
+  };
+  state.shapes.push(r2);
+
+  // Connexion R2 → A
+  if (!wouldBeBackwards(r2.id, actA.id) &&
+      !state.connections.some(c => c.fromId === r2.id && c.toId === actA.id)) {
+    state.connections.push({
+      id:       state.nextId++,
+      fromId:   r2.id,
+      toId:     actA.id,
+      style:    'solid',
+      routing:  state.defaultRouting || 'smooth',
+      color:    actB.color,
+      label:    '',
+    });
+  }
+}
+
 // ── Défauts par type de forme ─────────────────────
+/* ══════════════════════════════════════════════════
+   CATALOGUE DES BANDES
+   ══════════════════════════════════════════════════ */
+const BAND_CATALOG = [
+  { key: 'client',      label: 'Client',                                                      color: '#f1f5f9', mandatory: true,  order: 0  },
+  { key: 'marche',      label: 'Analyse de Marché & Communication',                           color: '#dc2626', mandatory: true,  order: 1  },
+  { key: 'vente',       label: 'Vente & Suivi commercial',                                    color: '#b91c1c', mandatory: true,  order: 2  },
+  { key: 'admin',       label: 'Gestion Administrative & Financière',                         color: '#166534', mandatory: true,  order: 3  },
+  { key: 'nego',        label: 'Négociation & Relations Fournisseurs',                        color: '#3f6212', mandatory: false, order: 4  },
+  { key: 'coord',       label: 'Coordination & Suivi de Projet',                              color: '#475569', mandatory: true,  order: 5  },
+  { key: 'conception',  label: 'Conception Produit & Ingénierie',                             color: '#1e3a8a', mandatory: true,  order: 6  },
+  { key: 'orgind',      label: 'Organisation Industrielle & Méthodes (hors production directe)', color: '#1e40af', mandatory: false, order: 7  },
+  { key: 'satcli',      label: 'Satisfaction Client & Amélioration Continue',                 color: '#ca8a04', mandatory: false, order: 8  },
+  { key: 'qualite',     label: 'Controle qualité & Mesure (Métrologie)',                      color: '#6d28d9', mandatory: false, order: 9  },
+  { key: 'fab',         label: 'Fabrication & Réalisation Produit (opérations directes)',    color: '#c2410c', mandatory: true,  order: 10 },
+  { key: 'orgtrav',     label: 'Organisation & Planification du Travail',                     color: '#d97706', mandatory: true,  order: 11 },
+  { key: 'analtech',    label: 'Analyse Technique & Résolution de Problèmes',                 color: '#7c2d12', mandatory: false, order: 12 },
+  { key: 'logistique',  label: 'Logistique & Gestion des Flux Physiques',                     color: '#0f766e', mandatory: true,  order: 13 },
+  { key: 'pilotage',    label: 'Pilotage Stratégique & Opérationnel (macro)',                 color: '#1d4ed8', mandatory: true,  order: 14 },
+  { key: 'competences', label: 'Gestion des Compétences & des Talents',                      color: '#15803d', mandatory: false, order: 15 },
+  { key: 'fournisseur', label: 'Fournisseur',                                                 color: '#f1f5f9', mandatory: true,  order: 16 },
+];
+
+function _defaultBands() {
+  let nextId = 1;
+  return BAND_CATALOG.filter(c => c.mandatory).map(c => ({
+    id:         nextId++,
+    label:      c.label,
+    color:      c.color,
+    fontSize:   (c.key === 'client' || c.key === 'fournisseur') ? 18 : 22,
+    height:     (c.key === 'client' || c.key === 'fournisseur') ? 120 : 180,
+    catalogKey: c.key,
+  }));
+}
+
 const SHAPE_DEFAULTS = {
   process:   { label: 'Activité',      color: '#22c55e', textColor: '#ffffff', validationBadge: false, validationColor: '#4DB868', w: 130, h: 90,  fontSize: 18, subtype: 'normal' },
-  'start-end': { label: 'Début / Fin', color: '#3b82f6', textColor: '#ffffff', validationBadge: false, validationColor: '#4DB868', w: 130, h: 64,  fontSize: 14, subtype: 'normal' },
+  'start-end': { label: 'Renvoi',      color: '#ffffff', textColor: '#000000', validationBadge: false, validationColor: '#4DB868', w: 90,  h: 90,  fontSize: 13, subtype: 'normal' },
   special:   { label: 'Sous-activité', color: '#f59e0b', textColor: '#ffffff', validationBadge: false, validationColor: '#4DB868', w: 170, h: 76,  fontSize: 13, subtype: 'normal' },
   decision:  { label: 'Décision',      color: '#9ca3af', textColor: '#ffffff', validationBadge: false, validationColor: '#4DB868', w: 100, h: 100, fontSize: 13, subtype: 'normal' },
 };
-
-// Losange arrondi (pour la forme Décision)
-function roundedDiamond(x, y, w, h, r) {
-  const cx = x + w/2, cy = y + h/2;
-  const len = Math.hypot(w/2, h/2);
-  const rx = r * (w/2) / len;
-  const ry = r * (h/2) / len;
-  return `M ${cx-rx},${y+ry}` +
-    ` Q ${cx},${y} ${cx+rx},${y+ry}` +
-    ` L ${x+w-rx},${cy-ry}` +
-    ` Q ${x+w},${cy} ${x+w-rx},${cy+ry}` +
-    ` L ${cx+rx},${y+h-ry}` +
-    ` Q ${cx},${y+h} ${cx-rx},${y+h-ry}` +
-    ` L ${x+rx},${cy+ry}` +
-    ` Q ${x},${cy} ${x+rx},${cy-ry}` +
-    ` Z`;
-}
 
 const HINTS = {
   select:    'Clic = sélectionner · Glisser = déplacer · Double-clic = éditer texte · Suppr = supprimer',
   connect:   'Cliquez sur la forme source, puis sur la forme destination · Échap = annuler',
   process:   'Cliquez sur le canevas pour placer l\'activité',
-  'start-end': 'Cliquez sur le canevas pour placer l\'ellipse',
+  'start-end': 'Cliquez sur le canevas pour placer un renvoi',
   special:   'Cliquez sur le canevas pour placer la sous-activité',
 };
 
@@ -90,11 +151,7 @@ let state = {
   shapes: [],
   connections: [],
   groups: [],   // { id, label, shapeIds:[], color:'#b3a0ff' }
-  bands: [
-    { id: 1, label: 'Niveau 1', color: '#22c55e', fontSize: 22, height: 180 },
-    { id: 2, label: 'Niveau 2', color: '#3b82f6', fontSize: 22, height: 180 },
-    { id: 3, label: 'Niveau 3', color: '#f59e0b', fontSize: 22, height: 180 },
-  ],
+  bands: _defaultBands(),
   showBands: true,
   showLegend: false,
   nextId: 100,
@@ -108,6 +165,8 @@ let histIndex = 0;
 // ── Viewport ──────────────────────────────────────
 // vpScale=0.5 → affichage "100%" (×200 dans la status bar)
 let vpX = 0, vpY = 280, vpScale = 0.5;
+// Sensibilité zoom (% par cran de molette) — persistée en localStorage
+let _zoomSens = Math.max(3, Math.min(30, parseFloat(localStorage.getItem('optiqcarto-zoom-sens') || '12')));
 
 // ── Interaction ───────────────────────────────────
 let tool = 'select';
@@ -130,6 +189,7 @@ let labelEditing = null;        // { shapeId }
 let portDrag = null;            // { fromShapeId, fromPort:{x,y,dir} } — drag depuis un port
 let connEndDrag = null;     // { connId, which:'from'|'to', curX, curY, snapShapeId, snapDir }
 let bendDrag = null;        // { connId, startX, startY, startOffset:{dx,dy} }
+let labelDrag = null;       // { connId, startLx, startLy, startX, startY }
 let markerIds = new Map();      // "color-style" → markerId
 const hatchIds = new Set();     // pattern IDs déjà créés dans les defs
 let leftPanelOpen = false;
@@ -227,38 +287,9 @@ function ensureHatchPattern(vividHex) {
 }
 
 /* ══════════════════════════════════════════════════
-   SHAPE GEOMETRY & PATHS
+   SHAPE GEOMETRY (state-dependent)
+   Fonctions pures (getPorts, hitShape, etc.) → geometry.js
    ══════════════════════════════════════════════════ */
-
-function getPorts(s) {
-  const cx = s.x + s.w / 2, cy = s.y + s.h / 2;
-  // Les process ont une auréole de 7px → les flèches s'arrêtent au bord de l'auréole
-  const h = s.type === 'process' ? 7 : 0;
-  return {
-    top:    { x: cx,            y: s.y - h,         dir: 'top'    },
-    bottom: { x: cx,            y: s.y + s.h + h,   dir: 'bottom' },
-    left:   { x: s.x - h,       y: cy,               dir: 'left'   },
-    right:  { x: s.x + s.w + h, y: cy,               dir: 'right'  },
-  };
-}
-
-// 10 ports répartis sur le contour — utilisés pour le snap lors du drag d'extrémité
-function getDetailedPorts(s) {
-  const h = s.type === 'process' ? 7 : 0;
-  const { x, y, w, h: sh } = s;
-  return [
-    { x: x + w*0.25, y: y - h,      dir: 'top',    t: 0.25 },
-    { x: x + w*0.50, y: y - h,      dir: 'top',    t: 0.50 },
-    { x: x + w*0.75, y: y - h,      dir: 'top',    t: 0.75 },
-    { x: x + w + h,  y: y + sh*0.33, dir: 'right',  t: 0.33 },
-    { x: x + w + h,  y: y + sh*0.67, dir: 'right',  t: 0.67 },
-    { x: x + w*0.75, y: y + sh + h, dir: 'bottom', t: 0.75 },
-    { x: x + w*0.50, y: y + sh + h, dir: 'bottom', t: 0.50 },
-    { x: x + w*0.25, y: y + sh + h, dir: 'bottom', t: 0.25 },
-    { x: x - h,      y: y + sh*0.67, dir: 'left',   t: 0.67 },
-    { x: x - h,      y: y + sh*0.33, dir: 'left',   t: 0.33 },
-  ];
-}
 
 function getGroupBounds(grp) {
   const PAD = 22, LABEL_H = 24;
@@ -299,23 +330,6 @@ function getGroupPorts(grp) {
   };
 }
 
-function bestExitPort(from, to) {
-  const dx = (to.x + to.w / 2) - (from.x + from.w / 2);
-  const dy = (to.y + to.h / 2) - (from.y + from.h / 2);
-  const p = getPorts(from);
-  if (Math.abs(dx) >= Math.abs(dy)) return dx >= 0 ? p.right : p.left;
-  return dy >= 0 ? p.bottom : p.top;
-}
-
-function bestEntryPort(shape, fromPort) {
-  const opp = { top: 'bottom', bottom: 'top', left: 'right', right: 'left' };
-  return getPorts(shape)[opp[fromPort.dir]];
-}
-
-function hitShape(s, px, py) {
-  return px >= s.x && px <= s.x + s.w && py >= s.y && py <= s.y + s.h;
-}
-
 function shapeAtPoint(px, py) {
   // Iterate reverse to hit top-most first
   for (let i = state.shapes.length - 1; i >= 0; i--) {
@@ -324,291 +338,7 @@ function shapeAtPoint(px, py) {
   return null;
 }
 
-function wavyPath(x, y, w, h, rx = 12, amp = 9) {
-  // Rounded top, straight sides, wavy bottom
-  return [
-    `M ${x + rx},${y}`,
-    `H ${x + w - rx}`,
-    `Q ${x + w},${y} ${x + w},${y + rx}`,
-    `V ${y + h}`,
-    `C ${x + w * 0.85},${y + h + amp} ${x + w * 0.65},${y + h + amp} ${x + w * 0.5},${y + h}`,
-    `C ${x + w * 0.35},${y + h - amp} ${x + w * 0.15},${y + h - amp} ${x},${y + h}`,
-    `V ${y + rx}`,
-    `Q ${x},${y} ${x + rx},${y}`,
-    'Z',
-  ].join(' ');
-}
-
-function cpFromPort(port, tension) {
-  switch (port.dir) {
-    case 'right':  return [port.x + tension, port.y];
-    case 'left':   return [port.x - tension, port.y];
-    case 'bottom': return [port.x, port.y + tension];
-    case 'top':    return [port.x, port.y - tension];
-    default:       return [port.x, port.y];
-  }
-}
-
-function bezierArrow(fp, tp, tensionFactor = 1) {
-  const len = Math.hypot(tp.x - fp.x, tp.y - fp.y);
-  const t = Math.min(len * 0.45, 180) * tensionFactor;
-  const [c1x, c1y] = cpFromPort(fp, t);
-  const [c2x, c2y] = cpFromPort(tp, t);
-  return `M ${fp.x},${fp.y} C ${c1x},${c1y} ${c2x},${c2y} ${tp.x},${tp.y}`;
-}
-
-// Point exact à t=0.5 sur la courbe de bézier cubique
-function bezierMidpoint(fp, tp) {
-  const len = Math.hypot(tp.x - fp.x, tp.y - fp.y);
-  const tension = Math.min(len * 0.45, 180);
-  const [c1x, c1y] = cpFromPort(fp, tension);
-  const [c2x, c2y] = cpFromPort(tp, tension);
-  return {
-    x: 0.125*fp.x + 0.375*c1x + 0.375*c2x + 0.125*tp.x,
-    y: 0.125*fp.y + 0.375*c1y + 0.375*c2y + 0.125*tp.y,
-  };
-}
-
-function polylineToPath(pts, R) {
-  if (pts.length < 2) return '';
-  let d = `M ${pts[0].x},${pts[0].y}`;
-  for (let i = 1; i < pts.length - 1; i++) {
-    const p = pts[i - 1], c = pts[i], n = pts[i + 1];
-    const d1 = Math.hypot(c.x - p.x, c.y - p.y);
-    const d2 = Math.hypot(n.x - c.x, n.y - c.y);
-    const r  = Math.min(R, d1 / 2, d2 / 2);
-    if (r < 0.5) { d += ` L ${c.x},${c.y}`; continue; }
-    const v1x = (c.x - p.x) / d1, v1y = (c.y - p.y) / d1;
-    const v2x = (n.x - c.x) / d2, v2y = (n.y - c.y) / d2;
-    d += ` L ${c.x - v1x * r},${c.y - v1y * r}`;
-    d += ` Q ${c.x},${c.y} ${c.x + v2x * r},${c.y + v2y * r}`;
-  }
-  const last = pts[pts.length - 1];
-  d += ` L ${last.x},${last.y}`;
-  return d;
-}
-
-// Calcule les waypoints orthogonaux (réutilisé par arrow + label fitting)
-// bundleOffset : décalage perpendiculaire pour séparer les flèches parallèles du même bundle
-function orthogonalPts(fp, tp, bundleOffset = 0, userOffset = { dx: 0, dy: 0 }) {
-  const STEP = 38;
-  const DV = { right:[1,0], left:[-1,0], bottom:[0,1], top:[0,-1] };
-  const isH = d => d === 'right' || d === 'left';
-  const fdir = fp.dir, tdir = tp.dir;
-
-  // ── Ligne droite si les ports sont déjà alignés ──────────────
-  // Horizontal : même Y ± 4px, deux directions horizontales opposées
-  if (isH(fdir) && isH(tdir) && Math.abs(fp.y - tp.y) <= 4) {
-    return [fp, tp];
-  }
-  // Vertical : même X ± 4px, deux directions verticales opposées
-  if (!isH(fdir) && !isH(tdir) && Math.abs(fp.x - tp.x) <= 4) {
-    return [fp, tp];
-  }
-
-  const fv = DV[fdir], tv = DV[tdir];
-  const p1 = { x: fp.x + fv[0]*STEP, y: fp.y + fv[1]*STEP };
-  const p2 = { x: tp.x + tv[0]*STEP, y: tp.y + tv[1]*STEP };
-  const dx12 = p2.x - p1.x, dy12 = p2.y - p1.y;
-  if (Math.abs(dx12) < 2 && Math.abs(dy12) < 2) {
-    return [fp, p1, p2, tp];
-  } else if (isH(fdir) && !isH(tdir)) {
-    return [fp, p1, { x: p2.x + (userOffset.dx || 0), y: p1.y + (userOffset.dy || 0) }, p2, tp];
-  } else if (!isH(fdir) && isH(tdir)) {
-    return [fp, p1, { x: p1.x + (userOffset.dx || 0), y: p2.y + (userOffset.dy || 0) }, p2, tp];
-  } else if (isH(fdir)) {
-    // H→H : décaler le segment horizontal du milieu pour séparer les bundles parallèles
-    if (Math.abs(dy12) < 2) return [fp, p1, p2, tp];
-    const SAFE = 52;
-    const rawMid = (p1.y + p2.y) / 2;
-    const safeMid = Math.abs(rawMid - fp.y) < SAFE ? fp.y + Math.sign(dy12 || 1) * SAFE : rawMid;
-    const midY = safeMid + bundleOffset + (userOffset.dy || 0);
-    return [fp, p1, { x: p1.x, y: midY }, { x: p2.x, y: midY }, p2, tp];
-  } else {
-    // V→V : décaler le segment vertical du milieu pour séparer les bundles parallèles
-    if (Math.abs(dx12) < 2) return [fp, p1, p2, tp];
-    const SAFE = 52;
-    const rawMid = (p1.x + p2.x) / 2;
-    const safeMid = Math.abs(rawMid - fp.x) < SAFE ? fp.x + Math.sign(dx12 || 1) * SAFE : rawMid;
-    const midX = safeMid + bundleOffset + (userOffset.dx || 0);
-    return [fp, p1, { x: midX, y: p1.y }, { x: midX, y: p2.y }, p2, tp];
-  }
-}
-
-// Évite les formes : reroute les segments qui traversent une shape (6 passes max)
-// Choisit intelligemment le côté de détour en testant lequel est le plus dégagé
-function avoidShapes(pts, shapes, fromId, toId) {
-  if (!shapes || shapes.length === 0) return pts;
-  const PAD = 20;
-  const R   = PAD + 10;
-
-  // Les décisions (losanges) sont des nœuds de routage : leur bounding-box
-  // dépasse leur silhouette visuelle, ce qui génère de faux blocages et des
-  // chemins complexes. On les exclut des obstacles pour les deux fonctions.
-  function isObstacle(s) {
-    return s.id !== fromId && s.id !== toId && s.type !== 'decision';
-  }
-
-  function firstBlocker(p1, p2) {
-    if (Math.abs(p1.y - p2.y) < 2) {
-      const y = p1.y, x1 = Math.min(p1.x, p2.x), x2 = Math.max(p1.x, p2.x);
-      for (const s of shapes) {
-        if (!isObstacle(s)) continue;
-        if (y > s.y - PAD && y < s.y + s.h + PAD && x1 < s.x + s.w + PAD && x2 > s.x - PAD) return s;
-      }
-    } else if (Math.abs(p1.x - p2.x) < 2) {
-      const x = p1.x, y1 = Math.min(p1.y, p2.y), y2 = Math.max(p1.y, p2.y);
-      for (const s of shapes) {
-        if (!isObstacle(s)) continue;
-        if (x > s.x - PAD && x < s.x + s.w + PAD && y1 < s.y + s.h + PAD && y2 > s.y - PAD) return s;
-      }
-    }
-    return null;
-  }
-
-  function isClear(coord, isHoriz, rangeA, rangeB, blocker) {
-    for (const s of shapes) {
-      if (!isObstacle(s) || s.id === blocker.id) continue;
-      if (isHoriz) {
-        if (coord > s.y - PAD && coord < s.y + s.h + PAD && rangeA < s.x + s.w + PAD && rangeB > s.x - PAD) return false;
-      } else {
-        if (coord > s.x - PAD && coord < s.x + s.w + PAD && rangeA < s.y + s.h + PAD && rangeB > s.y - PAD) return false;
-      }
-    }
-    return true;
-  }
-
-  // Direction globale de la connexion (pour éviter les détours rétrogrades)
-  const netDx = pts[pts.length - 1].x - pts[0].x;
-  const netDy = pts[pts.length - 1].y - pts[0].y;
-
-  let result = pts.map(p => ({ ...p }));
-  for (let iter = 0; iter < 4; iter++) {
-    let changed = false;
-    const next = [result[0]];
-    const last = result.length - 1;
-    for (let i = 0; i + 1 < result.length; i++) {
-      const p1 = result[i], p2 = result[i + 1];
-      const segLen = Math.hypot(p2.x - p1.x, p2.y - p1.y);
-      // Ne pas détourer les segments très courts ni le dernier segment (évite les crochets terminaux)
-      if (segLen < 35 || i === last - 1) { next.push(p2); continue; }
-      const blocker = firstBlocker(p1, p2);
-      if (!blocker) { next.push(p2); continue; }
-      changed = true;
-      if (Math.abs(p1.y - p2.y) < 2) { // horizontal → détour haut ou bas
-        const aboveY = blocker.y - R, belowY = blocker.y + blocker.h + R;
-        const xa = Math.min(p1.x, p2.x), xb = Math.max(p1.x, p2.x);
-        const clearA = isClear(aboveY, true, xa, xb, blocker);
-        const clearB = isClear(belowY, true, xa, xb, blocker);
-        // Préférer le côté qui s'éloigne le moins de la direction générale
-        let ry;
-        if (clearA && !clearB) ry = aboveY;
-        else if (!clearA && clearB) ry = belowY;
-        else {
-          // Biais vers le côté dans le sens du flux vertical
-          const biasAbove = netDy < 0 ? -200 : 200; // favoriser la direction globale
-          ry = (Math.abs(p1.y - aboveY) + biasAbove) <= (Math.abs(p1.y - belowY)) ? aboveY : belowY;
-        }
-        next.push({ x: p1.x, y: ry }, { x: p2.x, y: ry }, p2);
-      } else { // vertical → détour gauche ou droite
-        const leftX = blocker.x - R, rightX = blocker.x + blocker.w + R;
-        const ya = Math.min(p1.y, p2.y), yb = Math.max(p1.y, p2.y);
-        const clearL = isClear(leftX, false, ya, yb, blocker);
-        const clearR = isClear(rightX, false, ya, yb, blocker);
-        let rx;
-        if (clearL && !clearR) rx = leftX;
-        else if (!clearL && clearR) rx = rightX;
-        else {
-          const biasLeft = netDx < 0 ? -200 : 200;
-          rx = (Math.abs(p1.x - leftX) + biasLeft) <= (Math.abs(p1.x - rightX)) ? leftX : rightX;
-        }
-        next.push({ x: rx, y: p1.y }, { x: rx, y: p2.y }, p2);
-      }
-    }
-    result = next;
-    if (!changed) break;
-  }
-  return result;
-}
-
-// Simplifie un chemin orthogonal : merge colinéaires, supprime mini U-shapes (boucles)
-function simplifyPath(pts) {
-  if (pts.length < 3) return pts;
-  // Supprime les doublons
-  let r = [pts[0]];
-  for (let i = 1; i < pts.length; i++) {
-    const p = pts[i], q = r[r.length - 1];
-    if (Math.abs(p.x - q.x) > 0.5 || Math.abs(p.y - q.y) > 0.5) r.push({ ...p });
-  }
-  // Merge segments colinéaires (même axe, même sens)
-  let changed = true;
-  while (changed && r.length > 2) {
-    changed = false;
-    const nxt = [r[0]];
-    for (let i = 1; i < r.length - 1; i++) {
-      const a = nxt[nxt.length - 1], b = r[i], c = r[i + 1];
-      if ((Math.abs(a.y - b.y) < 1 && Math.abs(b.y - c.y) < 1) ||
-          (Math.abs(a.x - b.x) < 1 && Math.abs(b.x - c.x) < 1)) { changed = true; continue; }
-      nxt.push(b);
-    }
-    nxt.push(r[r.length - 1]);
-    r = nxt;
-  }
-  // Supprime les mini U-shapes : segment A→B → bump court → segment C→D même axe
-  changed = true;
-  while (changed && r.length > 3) {
-    changed = false;
-    const nxt = [r[0]]; let i = 1;
-    while (i < r.length) {
-      const a = nxt[nxt.length - 1];
-      if (i + 2 < r.length) {
-        const b = r[i], c = r[i + 1], d = r[i + 2];
-        const bumpLen = Math.hypot(c.x - b.x, c.y - b.y);
-        const legH = Math.abs(b.y - a.y) < 1 && Math.abs(d.y - c.y) < 1;
-        const legV = Math.abs(b.x - a.x) < 1 && Math.abs(d.x - c.x) < 1;
-        if (bumpLen < 22 && (legH || legV)) {
-          // Remplace a→b→c→d par un coude simple vers d
-          nxt.push(legH ? { x: d.x, y: a.y } : { x: a.x, y: d.y });
-          nxt.push(d); i += 3; changed = true; continue;
-        }
-      }
-      nxt.push(r[i]); i++;
-    }
-    r = nxt;
-  }
-  return r;
-}
-
-// Flèche orthogonale (angles droits, style Visio)
-function orthogonalArrow(fp, tp) {
-  return polylineToPath(orthogonalPts(fp, tp), 8);
-}
-
 // ── Les lignes croisées se superposent librement (pas de bridges) ──
-
-/* ══════════════════════════════════════════════════
-   TEXT WRAP
-   ══════════════════════════════════════════════════ */
-
-function wrapText(text, maxChars, maxLines = 4) {
-  if (!text) return [];
-  const result = [];
-  const hardLines = text.split('\n');
-  for (const hard of hardLines) {
-    if (result.length >= maxLines) break;
-    if (hard === '') { result.push(''); continue; }
-    const words = hard.split(' ');
-    let cur = '';
-    for (const w of words) {
-      if (result.length >= maxLines) break;
-      const candidate = cur ? cur + ' ' + w : w;
-      if (candidate.length > maxChars && cur) { result.push(cur); cur = w; }
-      else cur = candidate;
-    }
-    if (cur && result.length < maxLines) result.push(cur);
-  }
-  return result.slice(0, maxLines);
-}
 
 /* ══════════════════════════════════════════════════
    RENDER — BANDS
@@ -635,9 +365,10 @@ function renderBands() {
     el('rect', { x: 0, y, width: bw, height: band.height, fill: bgColor }, g);
 
     // ── Zone index (gauche, vivid) ────
+    const idxColor = bandIndexColor(band.color);
     el('rect', {
       x: 0, y, width: INDEX_W_SVG, height: band.height,
-      fill: isSel ? darkenColor(band.color, 0.78) : band.color,
+      fill: isSel ? darkenColor(idxColor, 0.78) : idxColor,
       'data-band-index': band.id,
       cursor: 'pointer',
     }, g);
@@ -645,18 +376,18 @@ function renderBands() {
     // Séparateur droit de la zone index
     el('line', {
       x1: INDEX_W_SVG, y1: y, x2: INDEX_W_SVG, y2: y + band.height,
-      stroke: band.color,
+      stroke: bandBorderColor(band.color),
       'stroke-width': '3',
       'pointer-events': 'none',
     }, g);
 
-    // Label de la bande dans la zone index — vertical, toujours blanc sur vivid
+    // Label de la bande dans la zone index — vertical, couleur adaptée au fond
     txt((band.label || '').toUpperCase(), {
       x: INDEX_W_SVG / 2,
       y: y + band.height / 2,
       'text-anchor': 'middle',
       'dominant-baseline': 'middle',
-      fill: '#ffffff',
+      fill: bandTextColor(idxColor),
       'font-size': Math.min(band.fontSize || 22, INDEX_W_SVG * 0.55),
       'font-family': 'Segoe UI, sans-serif',
       'font-weight': '700',
@@ -665,10 +396,10 @@ function renderBands() {
       transform: `rotate(-90, ${INDEX_W_SVG / 2}, ${y + band.height / 2})`,
     }, g);
 
-    // Bordure basse → vivid (la bande colorée visible)
+    // Bordure basse → couleur adaptée
     el('line', {
       x1: 0, y1: y + band.height, x2: bw, y2: y + band.height,
-      stroke: band.color, 'stroke-width': '3', 'pointer-events': 'none',
+      stroke: bandBorderColor(band.color), 'stroke-width': '3', 'pointer-events': 'none',
     }, g);
 
     // Poignée invisible de resize hauteur (sur/autour du trait bas)
@@ -700,20 +431,6 @@ function renderBands() {
     el('circle', { cx: bw, cy: midY + dy, r: '2.5', fill: 'rgba(59,130,246,0.55)', 'pointer-events': 'none' }, rg);
   });
 
-  // Bouton "Ajouter une bande" (bas) — toute la largeur de la bande
-  const ag = el('g', { 'data-type': 'add-band', cursor: 'pointer' }, gUI);
-  el('rect', {
-    x: 0, y: y + 10, width: bw, height: 36, rx: '6', ry: '6',
-    fill: 'rgba(0,0,0,0.04)',
-    stroke: 'rgba(0,0,0,0.18)', 'stroke-width': '1.5', 'stroke-dasharray': '6,4',
-  }, ag);
-  txt('＋  Ajouter une bande', {
-    x: bw / 2,
-    y: y + 10 + 18,
-    'text-anchor': 'middle', 'dominant-baseline': 'middle',
-    fill: 'rgba(0,0,0,0.35)', 'font-size': '14',
-    'font-family': 'Segoe UI, sans-serif', 'font-weight': '600', 'pointer-events': 'none',
-  }, ag);
 }
 
 
@@ -728,6 +445,30 @@ function renderLegend() {
 /* ══════════════════════════════════════════════════
    RENDER — CONNECTIONS
    ══════════════════════════════════════════════════ */
+
+// Snap a point (px,py) to the nearest point on a polyline, with max perpendicular offset.
+function snapToPolyline(pts, px, py, maxPerp = 45) {
+  let bestDist = Infinity, bestOnSeg = null, bestSegIdx = -1;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const pa = pts[i], pb = pts[i + 1];
+    const dx = pb.x - pa.x, dy = pb.y - pa.y;
+    const len2 = dx * dx + dy * dy;
+    if (len2 < 1) continue;
+    const t = Math.max(0.05, Math.min(0.95, ((px - pa.x) * dx + (py - pa.y) * dy) / len2));
+    const ox = pa.x + t * dx, oy = pa.y + t * dy;
+    const d = Math.hypot(px - ox, py - oy);
+    if (d < bestDist) { bestDist = d; bestOnSeg = { x: ox, y: oy, i }; bestSegIdx = i; }
+  }
+  if (!bestOnSeg) return { x: px, y: py };
+  const pa = pts[bestSegIdx], pb = pts[bestSegIdx + 1];
+  const dx = pb.x - pa.x, dy = pb.y - pa.y;
+  const slen = Math.hypot(dx, dy);
+  if (slen < 1) return bestOnSeg;
+  const nx = -dy / slen, ny = dx / slen;
+  const perp = (px - bestOnSeg.x) * nx + (py - bestOnSeg.y) * ny;
+  const clampedPerp = Math.max(-maxPerp, Math.min(maxPerp, perp));
+  return { x: bestOnSeg.x + nx * clampedPerp, y: bestOnSeg.y + ny * clampedPerp };
+}
 
 function renderConnections() {
   gConns.innerHTML = '';
@@ -821,6 +562,7 @@ function renderConnections() {
       orthopts = orthogonalPts(fp, tp, bundleOffset, userOffset);
       orthopts = avoidShapes(orthopts, state.shapes, c.fromId, c.toId);
       orthopts = simplifyPath(orthopts);
+      c._computedOrthopts = orthopts; // used for label drag constraint
       d = polylineToPath(orthopts, 12);
     }
     const isSel = selectedConn === c.id;
@@ -846,8 +588,11 @@ function renderConnections() {
 
     // Label : placement optimal parmi des dizaines de candidats
     if (c.label) {
-      const lw = c.label.length * 6;
-      const lh = 13;
+      const labelLines = c.label.split('\n');
+      const maxLineLen = Math.max(...labelLines.map(l => l.length));
+      const lw = Math.max(20, maxLineLen * 6);
+      const lineH = 13;
+      const lh = lineH * labelLines.length + (labelLines.length > 1 ? 3 : 0);
       let lx, ly, angle = 0;
 
       // Déterminer si la flèche est majoritairement horizontale ou verticale
@@ -856,103 +601,132 @@ function renderConnections() {
         totalH += Math.abs(orthopts[i+1].x - orthopts[i].x);
         totalV += Math.abs(orthopts[i+1].y - orthopts[i].y);
       }
-      const arrowMajorH = totalH >= totalV; // >50% horizontal → label forcément sur segment H
+      const arrowMajorH = totalH >= totalV;
 
-      // Trouver le plus long segment de l'orientation dominante (et le plus long tout court)
-      let longestSeg = 0, longestLen = 0, longestForcedSeg = -1, longestForcedLen = 0;
-      for (let i = 0; i < orthopts.length - 1; i++) {
-        const pa = orthopts[i], pb = orthopts[i + 1];
-        const l = Math.hypot(pb.x - pa.x, pb.y - pa.y);
-        const segH = Math.abs(pb.y - pa.y) < 2;
-        if (l > longestLen) { longestLen = l; longestSeg = i; }
-        if (segH === arrowMajorH && l > longestForcedLen) { longestForcedLen = l; longestForcedSeg = i; }
-      }
-      const preferSeg = longestForcedSeg >= 0 ? longestForcedSeg : longestSeg;
-
-      // Générer les candidats uniquement sur les segments de l'orientation dominante
-      const CANDS = [];
-      for (let i = 0; i < orthopts.length - 1; i++) {
-        const pa = orthopts[i], pb = orthopts[i + 1];
-        const sdx = pb.x - pa.x, sdy = pb.y - pa.y;
-        const slen = Math.hypot(sdx, sdy);
-        if (slen < 10) continue;
-        const isH = Math.abs(sdy) < Math.abs(sdx);
-        if (isH !== arrowMajorH) continue; // skip segments de mauvaise orientation
-        const nx = -sdy / slen, ny = sdx / slen;
-        const offsets = isH ? [0, -16, 16, -32, 32] : [-20, 20, -40, 40];
-        const step = (i === preferSeg) ? 0.06 : 0.18;
-        for (let t = step; t <= 1 - step; t += step) {
-          const bx = pa.x + sdx * t, by = pa.y + sdy * t;
-          for (const perp of offsets) {
-            CANDS.push({ x: bx + nx * perp, y: by + ny * perp, isH, perp, onPref: i === preferSeg });
-          }
+      if (c.labelOffset) {
+        // Position fixée par l'utilisateur via drag
+        lx = c.labelOffset.x;
+        ly = c.labelOffset.y;
+        angle = arrowMajorH ? 0 : -90;
+      } else {
+        // Trouver le plus long segment de l'orientation dominante
+        let longestSeg = 0, longestLen = 0, longestForcedSeg = -1, longestForcedLen = 0;
+        for (let i = 0; i < orthopts.length - 1; i++) {
+          const pa = orthopts[i], pb = orthopts[i + 1];
+          const l = Math.hypot(pb.x - pa.x, pb.y - pa.y);
+          const segH = Math.abs(pb.y - pa.y) < 2;
+          if (l > longestLen) { longestLen = l; longestSeg = i; }
+          if (segH === arrowMajorH && l > longestForcedLen) { longestForcedLen = l; longestForcedSeg = i; }
         }
-      }
-      // Fallback si aucun candidat (cas dégénéré)
-      if (CANDS.length === 0) {
+        const preferSeg = longestForcedSeg >= 0 ? longestForcedSeg : longestSeg;
+
+        // Générer les candidats sur les segments de l'orientation dominante
+        const CANDS = [];
         for (let i = 0; i < orthopts.length - 1; i++) {
           const pa = orthopts[i], pb = orthopts[i + 1];
           const sdx = pb.x - pa.x, sdy = pb.y - pa.y;
           const slen = Math.hypot(sdx, sdy);
-          if (slen < 4) continue;
+          if (slen < 10) continue;
           const isH = Math.abs(sdy) < Math.abs(sdx);
+          if (isH !== arrowMajorH) continue;
           const nx = -sdy / slen, ny = sdx / slen;
-          for (const perp of [0, -16, 16]) {
-            CANDS.push({ x: pa.x + sdx * 0.5 + nx * perp, y: pa.y + sdy * 0.5 + ny * perp, isH, perp, onPref: false });
+          const offsets = [0, -16, 16, -32, 32];
+          const step = (i === preferSeg) ? 0.06 : 0.18;
+          for (let t = step; t <= 1 - step; t += step) {
+            const bx = pa.x + sdx * t, by = pa.y + sdy * t;
+            for (const perp of offsets) {
+              CANDS.push({ x: bx + nx * perp, y: by + ny * perp, isH, perp, onPref: i === preferSeg });
+            }
           }
         }
-      }
-      if (CANDS.length === 0) CANDS.push({ x: (fp.x + tp.x) / 2, y: (fp.y + tp.y) / 2, isH: arrowMajorH, perp: 0, onPref: true });
-
-      // Score = chevauchement avec formes + labels + proximité borders groupes
-      function labelScore(cx, cy, isH, onPref) {
-        const hw2 = isH ? lw / 2 : lh / 2;
-        const hh2 = isH ? lh / 2 : lw / 2;
-        const M = 8;
-        let s = onPref ? 0 : 6000;
-        for (const sh of state.shapes) {
-          const ox = Math.max(0, Math.min(cx + hw2 + M, sh.x + sh.w) - Math.max(cx - hw2 - M, sh.x));
-          const oy = Math.max(0, Math.min(cy + hh2 + M, sh.y + sh.h) - Math.max(cy - hh2 - M, sh.y));
-          s += ox * oy * 20;
-        }
-        for (const gr of state.groups) {
-          const borders = [gr.y, gr.y + gr.h];
-          for (const by2 of borders) {
-            if (Math.abs(cy - by2) < hh2 + 12) s += 2000;
+        if (CANDS.length === 0) {
+          for (let i = 0; i < orthopts.length - 1; i++) {
+            const pa = orthopts[i], pb = orthopts[i + 1];
+            const sdx = pb.x - pa.x, sdy = pb.y - pa.y;
+            const slen = Math.hypot(sdx, sdy);
+            if (slen < 4) continue;
+            const isH = Math.abs(sdy) < Math.abs(sdx);
+            const nx = -sdy / slen, ny = sdx / slen;
+            for (const perp of [0, -16, 16]) {
+              CANDS.push({ x: pa.x + sdx * 0.5 + nx * perp, y: pa.y + sdy * 0.5 + ny * perp, isH, perp, onPref: false });
+            }
           }
         }
-        for (const pl of placedLabels) {
-          const ox = Math.max(0, Math.min(cx + hw2 + M, pl.lx + pl.hw) - Math.max(cx - hw2 - M, pl.lx - pl.hw));
-          const oy = Math.max(0, Math.min(cy + hh2 + M, pl.ly + pl.hh) - Math.max(cy - hh2 - M, pl.ly - pl.hh));
-          s += ox * oy * 40;
+        if (CANDS.length === 0) CANDS.push({ x: (fp.x + tp.x) / 2, y: (fp.y + tp.y) / 2, isH: arrowMajorH, perp: 0, onPref: true });
+
+        function labelScore(cx, cy, isH, onPref) {
+          const hw2 = isH ? lw / 2 : lh / 2;
+          const hh2 = isH ? lh / 2 : lw / 2;
+          const M = 8;
+          let s = onPref ? 0 : 6000;
+          for (const sh of state.shapes) {
+            const ox = Math.max(0, Math.min(cx + hw2 + M, sh.x + sh.w) - Math.max(cx - hw2 - M, sh.x));
+            const oy = Math.max(0, Math.min(cy + hh2 + M, sh.y + sh.h) - Math.max(cy - hh2 - M, sh.y));
+            s += ox * oy * 20;
+          }
+          for (const gr of state.groups) {
+            const borders = [gr.y, gr.y + gr.h];
+            for (const by2 of borders) {
+              if (Math.abs(cy - by2) < hh2 + 12) s += 2000;
+            }
+          }
+          for (const pl of placedLabels) {
+            const ox = Math.max(0, Math.min(cx + hw2 + M, pl.lx + pl.hw) - Math.max(cx - hw2 - M, pl.lx - pl.hw));
+            const oy = Math.max(0, Math.min(cy + hh2 + M, pl.ly + pl.hh) - Math.max(cy - hh2 - M, pl.ly - pl.hh));
+            s += ox * oy * 40;
+          }
+          // Heavy penalty when the label would sit on a bend/corner of the polyline
+          for (let k = 1; k < orthopts.length - 1; k++) {
+            const cp = orthopts[k];
+            const dc = Math.hypot(cx - cp.x, cy - cp.y);
+            if (dc < 40) s += (40 - dc) * 350;
+          }
+          return s;
         }
-        return s;
+
+        let bestCand = CANDS[0], bestScore = Infinity;
+        for (const cand of CANDS) {
+          const score = labelScore(cand.x, cand.y, cand.isH, cand.onPref) + Math.abs(cand.perp) * 0.3;
+          if (score < bestScore) { bestScore = score; bestCand = cand; }
+        }
+
+        lx = bestCand.x; ly = bestCand.y;
+        angle = bestCand.isH ? 0 : -90;
       }
 
-      let bestCand = CANDS[0], bestScore = Infinity;
-      for (const cand of CANDS) {
-        const score = labelScore(cand.x, cand.y, cand.isH, cand.onPref) + Math.abs(cand.perp) * 0.3;
-        if (score < bestScore) { bestScore = score; bestCand = cand; }
-      }
-
-      lx = bestCand.x; ly = bestCand.y;
-      angle = bestCand.isH ? 0 : -90;
       const hw = angle !== 0 ? lh / 2 : lw / 2;
       const hh = angle !== 0 ? lw / 2 : lh / 2;
       placedLabels.push({ lx, ly, hw, hh });
+
       const lg = document.createElementNS('http://www.w3.org/2000/svg', 'g');
       lg.setAttribute('transform', `translate(${lx},${ly}) rotate(${angle})`);
-      lg.setAttribute('pointer-events', 'none');
+      lg.setAttribute('data-conn-label-id', String(c.id));
+      lg.style.cursor = 'grab';
       el('rect', {
-        x: -lw/2, y: -lh/2, width: lw, height: lh,
-        rx: '0', fill: 'rgba(255,255,255,0.96)',
+        x: String(-lw / 2), y: String(-lh / 2), width: String(lw), height: String(lh),
+        rx: '3', fill: 'rgba(255,255,255,0.96)',
       }, lg);
-      txt(c.label, {
-        x: 0, y: 0,
-        'text-anchor': 'middle', 'dominant-baseline': 'middle',
-        fill: color, 'font-size': '11', 'font-family': 'Segoe UI, sans-serif',
-        'font-weight': '600',
-      }, lg);
+
+      if (labelLines.length === 1) {
+        txt(c.label, {
+          x: '0', y: '0',
+          'text-anchor': 'middle', 'dominant-baseline': 'middle',
+          fill: color, 'font-size': '14', 'font-family': 'Segoe UI, sans-serif', 'font-weight': '600',
+        }, lg);
+      } else {
+        const textEl = el('text', {
+          'text-anchor': 'middle',
+          fill: color, 'font-size': '14', 'font-family': 'Segoe UI, sans-serif', 'font-weight': '600',
+        }, lg);
+        labelLines.forEach((line, i) => {
+          const ts = document.createElementNS('http://www.w3.org/2000/svg', 'tspan');
+          ts.setAttribute('x', '0');
+          ts.setAttribute('y', String((i - (labelLines.length - 1) / 2) * lineH));
+          ts.setAttribute('dominant-baseline', 'middle');
+          ts.textContent = line;
+          textEl.appendChild(ts);
+        });
+      }
       gConns.appendChild(lg);
     }
 
@@ -1011,7 +785,7 @@ function renderShapes() {
       const isExternal = s.subtype === 'external';
       const isExtCo    = s.subtype === 'extco';
       const haloGap = 7;
-      const shapeRx = (isExternal || isExtCo) ? s.h / 2 : 16;
+      const shapeRx = isExternal ? s.h / 2 : 16;
       // Auréole
       el('rect', {
         x: s.x - haloGap, y: s.y - haloGap,
@@ -1368,6 +1142,88 @@ function render() {
 }
 
 /* ══════════════════════════════════════════════════
+   BANDES OPTIONNELLES — popup catalogue
+   ══════════════════════════════════════════════════ */
+
+function openBandsCatalogPopup() {
+  const pop = document.getElementById('bands-catalog-popup');
+  if (!pop) return;
+  renderBandsCatalogPopup();
+  pop.classList.toggle('open');
+}
+
+function renderBandsCatalogPopup() {
+  const list = document.getElementById('bcat-list');
+  if (!list) return;
+  list.innerHTML = '';
+  BAND_CATALOG.filter(c => !c.mandatory).forEach(cat => {
+    const isActive = state.bands.some(b => b.catalogKey === cat.key);
+    const shapes   = isActive ? _shapesInBand(cat.key) : [];
+    const row = document.createElement('div');
+    row.className = 'bcat-row';
+    row.innerHTML = `
+      <span class="bcat-swatch" style="background:${cat.color}"></span>
+      <span class="bcat-label">${cat.label}</span>
+      ${shapes.length > 0 ? `<span class="bcat-count">${shapes.length} forme${shapes.length > 1 ? 's' : ''}</span>` : ''}
+      <label class="bcat-toggle">
+        <input type="checkbox" ${isActive ? 'checked' : ''}>
+        <span class="bcat-slider"></span>
+      </label>`;
+    row.querySelector('input').addEventListener('change', e => {
+      e.target.checked ? _activateBand(cat.key) : _deactivateBand(cat.key, e.target);
+    });
+    list.appendChild(row);
+  });
+}
+
+function _shapesInBand(catalogKey) {
+  const band = state.bands.find(b => b.catalogKey === catalogKey);
+  if (!band) return [];
+  let bandY = -200;
+  for (const b of state.bands) {
+    if (b === band) break;
+    bandY += b.height;
+  }
+  return state.shapes.filter(s => {
+    const midY = s.y + s.h / 2;
+    return midY >= bandY && midY < bandY + band.height;
+  });
+}
+
+function _activateBand(key) {
+  const cat = BAND_CATALOG.find(c => c.key === key);
+  if (!cat) return;
+  const newBand = {
+    id: state.nextId++, label: cat.label, color: cat.color,
+    fontSize: 22, height: 180, catalogKey: cat.key,
+  };
+  let insertIdx = state.bands.length;
+  for (let i = 0; i < state.bands.length; i++) {
+    const bc = BAND_CATALOG.find(c => c.key === state.bands[i].catalogKey);
+    if ((bc ? bc.order : 999) > cat.order) { insertIdx = i; break; }
+  }
+  state.bands.splice(insertIdx, 0, newBand);
+  snapshot(); render(); renderCanvasMap(); renderBandsCatalogPopup();
+  showToast(`Bande "${cat.label}" activée`);
+}
+
+function _deactivateBand(key, checkbox) {
+  const shapes = _shapesInBand(key);
+  const band   = state.bands.find(b => b.catalogKey === key);
+  if (shapes.length > 0) {
+    const ok = confirm(`Cette bande contient ${shapes.length} forme${shapes.length > 1 ? 's' : ''}. Elles seront supprimées avec la bande. Continuer ?`);
+    if (!ok) { checkbox.checked = true; return; }
+    const ids = new Set(shapes.map(s => s.id));
+    state.shapes      = state.shapes.filter(s => !ids.has(s.id));
+    state.connections = state.connections.filter(c => !ids.has(c.fromId) && !ids.has(c.toId));
+    clearSelection();
+  }
+  state.bands = state.bands.filter(b => b.catalogKey !== key);
+  snapshot(); render(); renderCanvasMap(); renderBandsCatalogPopup();
+  if (band) showToast(`Bande "${band.label}" désactivée`);
+}
+
+/* ══════════════════════════════════════════════════
    RENDER — CANVAS MAP (left panel live list)
    ══════════════════════════════════════════════════ */
 
@@ -1421,7 +1277,7 @@ function renderCanvasMap() {
           sub.className = 'cmap-group-subitem';
           sub.innerHTML = `<span class="cmap-color-swatch" style="background:${s.color}"></span><span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${s.label || '(sans label)'}</span>`;
           sub.addEventListener('click', () => {
-            selectShape(s.id, false, true);
+            selectShape(s.id, false, false);
             if (!propsOpen) setPropsOpen(true);
             render(); updateProps();
           });
@@ -1459,14 +1315,17 @@ function renderCanvasMap() {
     sl.innerHTML = '<i class="fa-solid fa-shapes"></i> Formes';
     list.appendChild(sl);
 
-    const typeIcons = { process: 'fa-square', 'start-end': 'fa-circle', special: 'fa-wave-square', decision: 'fa-diamond' };
-    state.shapes.forEach(s => {
+    const sorted = [...state.shapes].sort((a, b) =>
+      (a.label || '').localeCompare(b.label || '', 'fr', { sensitivity: 'base' })
+    );
+    sorted.forEach(s => {
       const isSel = selectedShapes.has(s.id);
       const item = document.createElement('div');
       item.className = 'cmap-item' + (isSel ? ' selected' : '');
       item.innerHTML = `<span class="cmap-color-swatch" style="background:${s.color}"></span><span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${s.label || '(sans label)'}</span>`;
       item.addEventListener('click', () => {
-        selectShape(s.id, false, true);
+        selectShape(s.id, false, false);
+        focusOnShape(s, true);
         if (!propsOpen) setPropsOpen(true);
         render(); updateProps();
       });
@@ -1481,7 +1340,12 @@ function renderCanvasMap() {
     cl.innerHTML = '<i class="fa-solid fa-bezier-curve"></i> Connexions';
     list.appendChild(cl);
 
-    state.connections.forEach(c => {
+    const connSorted = [...state.connections].sort((a, b) => {
+      const la = a.label || (state.shapes.find(s => s.id === a.fromId)?.label || '') + ' → ' + (state.shapes.find(s => s.id === a.toId)?.label || '');
+      const lb = b.label || (state.shapes.find(s => s.id === b.fromId)?.label || '') + ' → ' + (state.shapes.find(s => s.id === b.toId)?.label || '');
+      return la.localeCompare(lb, 'fr', { sensitivity: 'base' });
+    });
+    connSorted.forEach(c => {
       const isSel = selectedConn === c.id;
       const from = state.shapes.find(s => s.id === c.fromId);
       const to   = state.shapes.find(s => s.id === c.toId);
@@ -1691,16 +1555,19 @@ function onDown(e) {
     canvas.style.cursor = 'ns-resize';
     return;
   }
-  const addBandTarget = e.target.closest('[data-type="add-band"]');
-  if (addBandTarget) {
-    state.bands.push({ id: state.nextId++, label: '', color: '#22c55e', fontSize: 22, height: 150 });
-    snapshot(); render();
-    showToast('Bande ajoutée');
-    return;
-  }
-
   /* ── Select tool ── */
   if (tool === 'select') {
+    // Drag du label d'une connexion
+    const labelEl = e.target.closest('[data-conn-label-id]');
+    if (labelEl) {
+      const cid = parseInt(labelEl.getAttribute('data-conn-label-id'));
+      if (state.connections.find(c => c.id === cid)) {
+        labelDrag = { connId: cid };
+        canvas.style.cursor = 'grabbing';
+      }
+      return;
+    }
+
     // Drag d'un coude de connexion (ajustement du tracé)
     const bendEl = e.target.closest('[data-conn-bend]');
     if (bendEl) {
@@ -1738,7 +1605,7 @@ function onDown(e) {
     const shapeTarget = e.target.closest('[data-type="shape"]');
     if (shapeTarget) {
       const sid = parseInt(shapeTarget.getAttribute('data-id'));
-      selectShape(sid, e.shiftKey, true);
+      selectShape(sid, e.shiftKey, false);
       if (!propsOpen) setPropsOpen(true);
 
       // Prepare drag
@@ -1794,6 +1661,7 @@ function onDown(e) {
             color: fromShape ? fromShape.color : '#9ca3af',
             label: '',
           });
+          _checkRenvoiAutoLink(connecting.fromId, sid);
           snapshot();
         }
       }
@@ -1852,6 +1720,21 @@ function onMove(e) {
       'stroke-dasharray': `${Math.max(4, 7 / vpScale)},${Math.max(3, 5 / vpScale)}`,
       'pointer-events': 'none',
     }, gOverlay);
+    return;
+  }
+
+  /* ── Drag d'un label de connexion (contraint au polyline) ── */
+  if (labelDrag) {
+    const { x, y } = screenToSVG(e.clientX, e.clientY);
+    const conn = state.connections.find(c => c.id === labelDrag.connId);
+    if (conn) {
+      if (conn._computedOrthopts && conn._computedOrthopts.length >= 2) {
+        conn.labelOffset = snapToPolyline(conn._computedOrthopts, x, y, 0);
+      } else {
+        conn.labelOffset = { x, y };
+      }
+      render();
+    }
     return;
   }
 
@@ -1940,6 +1823,15 @@ function onMove(e) {
 }
 
 function onUp(e) {
+  /* ── Fin du drag d'un label ── */
+  if (labelDrag) {
+    labelDrag = null;
+    canvas.style.cursor = spaceDown ? 'grab' : '';
+    snapshot();
+    render();
+    return;
+  }
+
   /* ── Fin du drag d'un coude ── */
   if (bendDrag) {
     bendDrag = null;
@@ -2028,6 +1920,7 @@ function onUp(e) {
           color: fromShape ? fromShape.color : '#9ca3af',
           label: '',
         });
+        _checkRenvoiAutoLink(portDrag.fromShapeId, target.id);
         snapshot();
         }
       }
@@ -2079,7 +1972,8 @@ function onDbl(e) {
 
 function onWheel(e) {
   e.preventDefault();
-  const factor = e.deltaY < 0 ? 1.12 : 0.9;
+  const step   = _zoomSens / 100;
+  const factor = e.deltaY < 0 ? (1 + step) : (1 / (1 + step));
   const r = canvas.getBoundingClientRect();
   const cx = e.clientX - r.left;
   const cy = e.clientY - r.top;
@@ -2166,7 +2060,11 @@ function startLabelEdit(s) {
 function commitLabel() {
   if (!labelEditing) return;
   const s = state.shapes.find(s => s.id === labelEditing.shapeId);
-  if (s) { s.label = labelEd.value.trim(); snapshot(); render(); }
+  if (s) {
+    s.label = labelEd.value.trim();
+    if (s.type === 'start-end') _updateRenvoiColor(s);
+    snapshot(); render();
+  }
   labelEditing = null;
   labelEd.style.display = 'none';
   labelEd.onblur = null;
@@ -2372,7 +2270,12 @@ function bindProps() {
   };
 
   prop('prop-label', v => {
-    for (const id of selectedShapes) { const s = state.shapes.find(s => s.id === id); if (s) s.label = v; }
+    for (const id of selectedShapes) {
+      const s = state.shapes.find(s => s.id === id);
+      if (!s) continue;
+      s.label = v;
+      if (s.type === 'start-end') _updateRenvoiColor(s);
+    }
   });
   // Bloquer les retours à la ligne au-delà de 4 lignes
   document.getElementById('prop-label')?.addEventListener('keydown', e => {
@@ -2671,14 +2574,11 @@ function createGroup() {
 
 function _doNewCarto() {
   clearSelection();
+  if (typeof resetHighlightExtco === 'function') resetHighlightExtco();
   state.shapes = [];
   state.connections = [];
   state.groups = [];
-  state.bands = [
-    { id: 1, label: 'Niveau 1', color: '#22c55e', fontSize: 22, height: 180 },
-    { id: 2, label: 'Niveau 2', color: '#3b82f6', fontSize: 22, height: 180 },
-    { id: 3, label: 'Niveau 3', color: '#f59e0b', fontSize: 22, height: 180 },
-  ];
+  state.bands = _defaultBands();
   state.nextId = 100;
   state.showLegend = false;
   groupHighlightId = null;
@@ -2749,16 +2649,42 @@ async function saveJSON() {
     }
   } catch (_) { /* offline or no diff endpoint — proceed */ }
 
-  const res  = await fetch(`${apiBase}/api/save`, {
-    method:  'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body:    JSON.stringify({ diagram: state }),
-  });
-  const data = await res.json();
-  if (data.ok) {
-    if (data.sync_warning) showToast('Sauvegardé — erreur sync : ' + data.sync_warning, 'warn');
-    else showToast('Cartographie sauvegardée ✓');
-  } else showToast('Erreur : ' + (data.error || 'inconnue'));
+  _showSavePopup('saving');
+
+  try {
+    const res  = await fetch(`${apiBase}/api/save`, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ diagram: state }),
+    });
+    const data = await res.json();
+    if (data.ok) {
+      _showSavePopup('done');
+      if (data.sync_warning) setTimeout(() => showToast('Erreur sync : ' + data.sync_warning, 'warn'), 1600);
+    } else {
+      _hideSavePopup();
+      showToast('Erreur : ' + (data.error || 'inconnue'));
+    }
+  } catch (err) {
+    _hideSavePopup();
+    showToast('Erreur réseau lors de la sauvegarde');
+  }
+}
+
+function _showSavePopup(state) {
+  const overlay = document.getElementById('save-progress-popup');
+  if (!overlay) return;
+  overlay.style.display = 'flex';
+  const saving = document.getElementById('save-popup-saving');
+  const done   = document.getElementById('save-popup-done');
+  if (saving) saving.style.display = state === 'saving' ? 'flex' : 'none';
+  if (done)   done.style.display   = state === 'done'   ? 'flex' : 'none';
+  if (state === 'done') setTimeout(_hideSavePopup, 1600);
+}
+
+function _hideSavePopup() {
+  const overlay = document.getElementById('save-progress-popup');
+  if (overlay) overlay.style.display = 'none';
 }
 
 async function openLoadDialog() {
@@ -2784,6 +2710,7 @@ async function openLoadDialog() {
       const data = await fetch(`${apiBase}/api/load/${encodeURIComponent(name)}`).then(r => r.json());
       if (data.error) { showToast('Erreur : ' + data.error); return; }
       state = data;
+      if (typeof resetHighlightExtco === 'function') resetHighlightExtco();
       // Filtrer les connexions qui reviendraient en arrière (depuis anciens fichiers)
       if (state.connections && state.shapes) {
         state.connections = state.connections.filter(c => {
@@ -2846,7 +2773,7 @@ function _unused_vsdxAutoLayout(shapes, conns, bands, groups) {
 
   const SZ = {
     process:     { w: 150, h: 80 },
-    'start-end': { w: 130, h: 64 },
+    'start-end': { w: 90,  h: 90  },
     special:     { w: 170, h: 76 },
     decision:    { w: 100, h: 100 },
   };
@@ -3285,6 +3212,7 @@ async function importVSDX(file) {
 
     // Apply to state — do NOT call updateShapeColor: importer already set correct colors
     clearSelection();
+    if (typeof resetHighlightExtco === 'function') resetHighlightExtco();
     state.shapes      = shapes;
     state.connections = connections;
     state.groups      = groups;
@@ -4153,6 +4081,13 @@ function init() {
         e.dataTransfer.setData('text/shape-subtype', 'normal');
       });
       btn.addEventListener('click', () => showToast('Glissez cette forme sur le canevas'));
+    } else if (btn.dataset.tool === 'connect') {
+      // Le bouton Connecter est désormais un toggle "mise en évidence des
+      // activités hachurées" (cf. highlight-mode.js). Le mode connexion
+      // reste accessible via le raccourci clavier C.
+      btn.addEventListener('click', () => {
+        if (typeof toggleHighlightExtco === 'function') toggleHighlightExtco();
+      });
     } else if (btn.dataset.tool) {
       btn.addEventListener('click', () => setTool(btn.dataset.tool));
     }
@@ -4254,6 +4189,45 @@ function init() {
 
   // Grouper
   document.getElementById('btn-group-create').addEventListener('click', createGroup);
+
+  // ── Popup sensibilité zoom ────────────────────────────────────────────────
+  (function() {
+    const pill    = document.getElementById('zoom-pill');
+    const popup   = document.getElementById('zoom-sensitivity-popup');
+    const slider  = document.getElementById('zsens-slider');
+    const numInput = document.getElementById('zsens-value');
+    if (!pill || !popup || !slider || !numInput) return;
+
+    function _setZoomSens(v) {
+      v = Math.max(3, Math.min(30, Math.round(v)));
+      _zoomSens = v;
+      slider.value  = v;
+      numInput.value = v;
+      localStorage.setItem('optiqcarto-zoom-sens', String(v));
+    }
+    _setZoomSens(_zoomSens); // initialise avec la valeur restaurée
+
+    pill.addEventListener('click', e => {
+      e.stopPropagation();
+      popup.classList.toggle('open');
+    });
+    slider.addEventListener('input', () => _setZoomSens(slider.value));
+    numInput.addEventListener('input', () => _setZoomSens(numInput.value));
+    numInput.addEventListener('change', () => _setZoomSens(numInput.value));
+    document.addEventListener('click', e => {
+      if (!popup.contains(e.target) && e.target !== pill) popup.classList.remove('open');
+    });
+  })();
+
+  document.getElementById('btn-bands-catalog').addEventListener('click', openBandsCatalogPopup);
+  document.getElementById('btn-close-bcat')?.addEventListener('click', () => {
+    document.getElementById('bands-catalog-popup').classList.remove('open');
+  });
+  document.addEventListener('click', e => {
+    const pop = document.getElementById('bands-catalog-popup');
+    const btn = document.getElementById('btn-bands-catalog');
+    if (pop && pop.classList.contains('open') && !pop.contains(e.target) && !btn.contains(e.target)) pop.classList.remove('open');
+  });
 
   document.getElementById('btn-new-carto').addEventListener('click', newCarto);
   document.getElementById('btn-architect').addEventListener('click', architectLayout);
@@ -4363,6 +4337,7 @@ function init() {
       .then(data => {
         if (data && !data.error) {
           state = data;
+          if (typeof resetHighlightExtco === 'function') resetHighlightExtco();
           if (!state.bandWidth) state.bandWidth = 1600;
           if (!state.groups) state.groups = [];
           if (state.connections && state.shapes) {
@@ -4380,22 +4355,6 @@ function init() {
       .catch(() => {});
   }
 
-  // Welcome modal
-  initWelcome();
-}
-
-function initWelcome() {
-  const overlay = document.getElementById('welcome-modal');
-  if (!overlay) return;
-  document.getElementById('btn-welcome-start').addEventListener('click', () => {
-    overlay.classList.add('hidden');
-    setTimeout(() => overlay.remove(), 400);
-    // Si un VSDX est disponible et pas encore de carto → ouvrir le modal d'import
-    if (window.OPTIQCARTO_HAS_VSDX && !window.OPTIQCARTO_HAS_CARTO) {
-      const migrateModal = document.getElementById('vsdx-migrate-modal');
-      if (migrateModal) migrateModal.classList.remove('hidden');
-    }
-  });
 }
 
 /* ══════════════════════════════════════════════════
@@ -4477,3 +4436,16 @@ function initDock() {
 
 
 document.addEventListener('DOMContentLoaded', init);
+
+// Écoute les messages postMessage depuis la page parente (activities_map).
+// Permet d'activer le mode "mise en évidence des activités externes" depuis l'extérieur de l'iframe.
+window.addEventListener('message', function(e) {
+  if (!e.data || typeof e.data !== 'object') return;
+  if (e.data.type === 'toggle-extco') {
+    if (typeof toggleHighlightExtco === 'function') toggleHighlightExtco();
+    try { e.source.postMessage({ type: 'extco-state', active: typeof isHighlightExtcoActive === 'function' ? isHighlightExtcoActive() : false }, e.origin || '*'); } catch(_) {}
+  }
+  if (e.data.type === 'get-extco-state') {
+    try { e.source.postMessage({ type: 'extco-state', active: typeof isHighlightExtcoActive === 'function' ? isHighlightExtcoActive() : false }, e.origin || '*'); } catch(_) {}
+  }
+});

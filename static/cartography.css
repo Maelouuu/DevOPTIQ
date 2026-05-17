@@ -3698,3 +3698,86 @@
   .em-container { width: 100%; border-radius: 20px 20px 0 0; margin-top: auto; }
   .carto-viewer-card { min-height: 320px; }
 }
+
+/* ================================================
+   MODAL SUPPRESSION V2
+================================================ */
+.modal-content.modal-danger-v2 {
+  text-align: center;
+  padding: 36px 32px 28px;
+  border-radius: 20px;
+  max-width: 380px;
+}
+
+.modal-danger-icon {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: #fef2f2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 20px;
+  font-size: 28px;
+  color: #ef4444;
+}
+
+.modal-danger-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #111827;
+  margin: 0 0 10px;
+}
+
+.modal-danger-entity-name {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #ef4444;
+  background: #fef2f2;
+  border-radius: 8px;
+  padding: 8px 14px;
+  margin: 0 0 16px;
+  word-break: break-word;
+}
+
+.modal-danger-desc {
+  font-size: 0.88rem;
+  color: #6b7280;
+  line-height: 1.5;
+  margin: 0 0 24px;
+}
+
+.modal-danger-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+}
+
+.modal-btn-cancel {
+  background: #f3f4f6;
+  color: #374151;
+  border: 1px solid #d1d5db;
+  padding: 10px 22px;
+  border-radius: 10px;
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.modal-btn-cancel:hover { background: #e5e7eb; }
+
+.modal-btn-delete {
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+  color: white;
+  border: none;
+  padding: 10px 22px;
+  border-radius: 10px;
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: background 0.15s;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.modal-btn-delete:hover { background: linear-gradient(135deg, #dc2626, #b91c1c); }

@@ -121,13 +121,14 @@
     code { font-family: 'Cascadia Code', 'Consolas', monospace; font-size: 0.85rem;
       background: #f3f4f6; padding: 2px 6px; border-radius: 4px; }
 
-    /* ── Diagram (SVG inline placeholder) ── */
+    /* ── Diagram ── */
     .diagram {
-      background: var(--light); border: 1.5px dashed var(--border);
-      border-radius: 14px; padding: 32px; text-align: center;
-      color: var(--gray); font-size: 0.88rem; margin-bottom: 20px;
+      background: var(--light); border: 1.5px solid var(--border);
+      border-radius: 14px; padding: 24px; text-align: center;
+      margin-bottom: 20px; overflow-x: auto;
     }
     .diagram svg { display: block; margin: 0 auto; }
+    .diagram-caption { font-size: 0.78rem; color: var(--gray); margin-top: 10px; }
 
     /* ── Callout ── */
     .callout {
@@ -177,9 +178,6 @@
 </head>
 <body>
 
-<!-- ══════════════════════════════════════════
-     SIDEBAR NAVIGATION
-══════════════════════════════════════════ -->
 <nav id="sidebar">
   <div class="nav-logo">
     <div class="nav-logo-dot"></div>
@@ -191,37 +189,48 @@
 
   <div class="nav-section">Général</div>
   <a href="#cover">Présentation</a>
-  <a href="#architecture">Architecture</a>
-  <a href="#stack">Stack technique</a>
-  <a href="#modeles">Modèles de données</a>
+  <a href="#architecture" class="done">Architecture</a>
+  <a href="#stack" class="done">Stack technique</a>
+  <a href="#modeles" class="done">Modèles de données</a>
 
-  <div class="nav-section">Pages & Fonctionnalités</div>
-  <a href="#cartographie">Cartographie (OptiqCarto)</a>
-  <a href="#activites">Activités</a>
-  <a href="#import-ia">Import IA</a>
-  <a href="#competences">Compétences & Skills</a>
-  <a href="#performance">Performance</a>
-  <a href="#rh">Gestion RH</a>
-  <a href="#chatbot">Chatbot IA</a>
-  <a href="#auth">Authentification</a>
-  <a href="#temps">Gestion du temps</a>
+  <div class="nav-section">Pages &amp; Fonctionnalités</div>
+  <a href="#cartographie" class="done">Cartographie (OptiqCarto)</a>
+  <a href="#activites" class="done">Activités</a>
+  <a href="#import-ia" class="done">Import IA</a>
+  <a href="#competences" class="done">Compétences &amp; Skills</a>
+  <a href="#performance" class="done">Performance</a>
+  <a href="#rh" class="done">Gestion RH</a>
+  <a href="#chatbot" class="done">Chatbot IA</a>
+  <a href="#auth" class="done">Authentification</a>
+  <a href="#temps" class="done">Gestion du temps</a>
+  <a href="#propositions-ia" class="done">Propositions IA</a>
+  <a href="#gestion-compte" class="done">Gestion des comptes</a>
+  <a href="#onboarding" class="done">Onboarding IA</a>
+  <a href="#export" class="done">Export</a>
+  <a href="#changelog" class="done">Changelog</a>
+  <a href="#roles-view" class="done">Vue des rôles</a>
+  <a href="#crud-connaissances" class="done">CRUD Connaissances</a>
+  <a href="#projection-metier" class="done">Projection métier</a>
+  <a href="#competences-plan" class="done">Plan de compétences IA</a>
+  <a href="#performance-perso" class="done">Performance personnalisée</a>
+  <a href="#roles-mgmt" class="done">Gestion des rôles</a>
+  <a href="#translate-softskills" class="done">Traduction HSC</a>
+  <a href="#task-link-assignments" class="done">Liens tâches</a>
+  <a href="#constraints" class="done">Contraintes</a>
+  <a href="#gestion-outils" class="done">Gestion des outils</a>
 
   <div class="nav-section">Référence</div>
-  <a href="#api">APIs</a>
-  <a href="#deploiement">Déploiement</a>
-  <a href="#conventions">Conventions</a>
+  <a href="#api" class="done">APIs — Cartographie</a>
+  <a href="#deploiement" class="done">Déploiement</a>
+  <a href="#conventions" class="done">Conventions</a>
 </nav>
 
-<!-- ══════════════════════════════════════════
-     MAIN CONTENT
-══════════════════════════════════════════ -->
 <main>
 
-  <!-- COVER -->
   <div id="cover">
     <div class="cover-tag">📄 Documentation interne — AFDEC</div>
     <h1>Dev<span>OPTIQ</span></h1>
-    <p>Manuel complet de l'application de gestion des compétences, activités et performance organisationnelle. À destination des développeurs et des utilisateurs avancés.</p>
+    <p>Manuel complet de l'application de gestion des compétences, activités et performance organisationnelle.</p>
     <div class="cover-meta">
       <div class="cover-meta-item"><strong>Organisation</strong>AFDEC</div>
       <div class="cover-meta-item"><strong>Auteur</strong>Mael Girardin</div>
@@ -231,7 +240,6 @@
     </div>
   </div>
 
-  <!-- AVANCEMENT -->
   <section>
     <h2 class="section-title">Avancement de la documentation</h2>
     <div class="progress-wrap">
@@ -239,144 +247,1548 @@
       <div class="progress-bar"><div class="progress-fill" id="progress-fill" style="width:0%"></div></div>
     </div>
     <div class="callout callout-info">
-      Cette documentation est générée progressivement par une routine automatique. Chaque section sera complétée au fil des sessions. Les sections marquées <strong>À documenter</strong> sont en attente.
+      Cette documentation est générée progressivement par une routine automatique. Les sections marquées <strong>À documenter</strong> sont en attente.
     </div>
   </section>
 
-  <!-- ARCHITECTURE -->
   <section id="architecture">
-    <h2 class="section-title">Architecture <span class="badge badge-todo">À documenter</span></h2>
+    <h2 class="section-title">Architecture <span class="badge badge-done">Documenté</span></h2>
+    <p>DevOPTIQ est une application web Flask déployée sur Google Cloud Run. Elle suit le pattern <strong>Application Factory</strong> : la fonction <code>create_app()</code> dans <code>Code/app.py</code> configure l'ensemble de l'application puis enregistre tous les blueprints. Chaque domaine fonctionnel est isolé dans son propre blueprint.</p>
+
     <div class="diagram">
-      <p>[ Diagramme d'architecture à insérer ]</p>
-      <p style="font-size:0.78rem;margin-top:8px">Cloud Run · Flask app · PostgreSQL · Anthropic API · OptiqCarto</p>
+      <svg width="820" height="380" viewBox="0 0 820 380" xmlns="http://www.w3.org/2000/svg" font-family="'Segoe UI', sans-serif" font-size="12">
+        <rect x="10" y="10" width="800" height="360" rx="16" fill="#f9fafb" stroke="#e5e7eb" stroke-width="1.5"/>
+        <rect x="30" y="30" width="500" height="320" rx="12" fill="#fdf2f8" stroke="#fbcfe8" stroke-width="1.5"/>
+        <text x="50" y="55" font-size="11" font-weight="700" fill="#be185d">Google Cloud Run</text>
+        <rect x="60" y="70" width="200" height="240" rx="10" fill="#fff" stroke="#ec4899" stroke-width="2"/>
+        <text x="160" y="92" text-anchor="middle" font-weight="700" fill="#ec4899">Flask App</text>
+        <text x="160" y="110" text-anchor="middle" font-size="10" fill="#6b7280">create_app() · app.py</text>
+        <rect x="75" y="120" width="170" height="18" rx="4" fill="#fce7f3"/>
+        <text x="160" y="133" text-anchor="middle" font-size="10" fill="#be185d">activities_map_bp</text>
+        <rect x="75" y="143" width="170" height="18" rx="4" fill="#fce7f3"/>
+        <text x="160" y="156" text-anchor="middle" font-size="10" fill="#be185d">cartography_editor</text>
+        <rect x="75" y="166" width="170" height="18" rx="4" fill="#fce7f3"/>
+        <text x="160" y="179" text-anchor="middle" font-size="10" fill="#be185d">import_full_bp · chatbot_bp</text>
+        <rect x="75" y="189" width="170" height="18" rx="4" fill="#fce7f3"/>
+        <text x="160" y="202" text-anchor="middle" font-size="10" fill="#be185d">auth_bp · gestion_rh_bp</text>
+        <rect x="75" y="212" width="170" height="18" rx="4" fill="#fce7f3"/>
+        <text x="160" y="225" text-anchor="middle" font-size="10" fill="#be185d">performance_bp · tasks_bp</text>
+        <rect x="75" y="235" width="170" height="18" rx="4" fill="#fce7f3"/>
+        <text x="160" y="248" text-anchor="middle" font-size="10" fill="#be185d">competences_bp · tools_bp</text>
+        <text x="160" y="268" text-anchor="middle" font-size="10" fill="#9ca3af">+ 25 autres blueprints</text>
+        <rect x="300" y="90" width="180" height="50" rx="8" fill="#fff" stroke="#6b7280" stroke-width="1.5"/>
+        <text x="390" y="111" text-anchor="middle" font-weight="700" fill="#374151">SQLAlchemy ORM</text>
+        <text x="390" y="128" text-anchor="middle" font-size="10" fill="#6b7280">models/models.py</text>
+        <rect x="300" y="175" width="180" height="60" rx="8" fill="#fff" stroke="#6b7280" stroke-width="1.5"/>
+        <text x="390" y="200" text-anchor="middle" font-weight="700" fill="#374151">PostgreSQL</text>
+        <text x="390" y="217" text-anchor="middle" font-size="10" fill="#6b7280">Prod : Neon</text>
+        <text x="390" y="232" text-anchor="middle" font-size="10" fill="#6b7280">Local : SQLite</text>
+        <rect x="300" y="268" width="180" height="50" rx="8" fill="#fff" stroke="#6b7280" stroke-width="1.5"/>
+        <text x="390" y="289" text-anchor="middle" font-weight="700" fill="#374151">Static Assets</text>
+        <text x="390" y="306" text-anchor="middle" font-size="10" fill="#6b7280">CSS · JS · OptiqCarto</text>
+        <line x1="260" y1="160" x2="300" y2="115" stroke="#9ca3af" stroke-width="1.5" marker-end="url(#arr)"/>
+        <line x1="390" y1="140" x2="390" y2="175" stroke="#9ca3af" stroke-width="1.5" marker-end="url(#arr)"/>
+        <rect x="560" y="30" width="230" height="320" rx="12" fill="#f0fdf4" stroke="#bbf7d0" stroke-width="1.5"/>
+        <text x="580" y="55" font-size="11" font-weight="700" fill="#15803d">Services externes</text>
+        <rect x="580" y="70" width="190" height="60" rx="8" fill="#fff" stroke="#22c55e" stroke-width="1.5"/>
+        <text x="675" y="96" text-anchor="middle" font-weight="700" fill="#15803d">Anthropic Claude API</text>
+        <text x="675" y="113" text-anchor="middle" font-size="10" fill="#6b7280">Chatbot · Import IA · Propose</text>
+        <rect x="580" y="165" width="190" height="60" rx="8" fill="#fff" stroke="#22c55e" stroke-width="1.5"/>
+        <text x="675" y="191" text-anchor="middle" font-weight="700" fill="#15803d">Navigateur</text>
+        <text x="675" y="208" text-anchor="middle" font-size="10" fill="#6b7280">HTML Jinja2 · JS Vanilla</text>
+        <rect x="580" y="258" width="190" height="60" rx="8" fill="#fff" stroke="#22c55e" stroke-width="1.5"/>
+        <text x="675" y="284" text-anchor="middle" font-weight="700" fill="#15803d">SMTP (Gmail)</text>
+        <text x="675" y="301" text-anchor="middle" font-size="10" fill="#6b7280">Flask-Mail · reset password</text>
+        <line x1="530" y1="165" x2="580" y2="100" stroke="#9ca3af" stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#arr)"/>
+        <line x1="580" y1="195" x2="530" y2="195" stroke="#9ca3af" stroke-width="1.5" marker-end="url(#arr)"/>
+        <line x1="530" y1="280" x2="580" y2="280" stroke="#9ca3af" stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#arr)"/>
+        <defs><marker id="arr" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#9ca3af"/></marker></defs>
+      </svg>
+      <p class="diagram-caption">Vue d'ensemble de l'infrastructure DevOPTIQ</p>
     </div>
-    <p>À compléter : description de l'infrastructure, flux de données, composants externes.</p>
+
+    <h3>Flux de démarrage</h3>
+    <p>Au démarrage du conteneur Cloud Run, <code>create_app()</code> exécute dans l'ordre :</p>
+    <ol>
+      <li>Configuration DB (PostgreSQL si <code>DATABASE_URL</code> présent, sinon SQLite local)</li>
+      <li>Configuration Flask-Mail (SMTP Gmail)</li>
+      <li>Enregistrement des 31 blueprints</li>
+      <li><code>db.create_all()</code> + ajout colonnes manquantes via <code>ALTER TABLE</code> + marquage Alembic</li>
+      <li>Réinitialisation du pool de connexions DB avant d'accepter les requêtes HTTP</li>
+    </ol>
+
+    <h3>Gestion des fichiers sur Cloud Run</h3>
+    <div class="callout callout-warn">
+      Cloud Run utilise un filesystem éphémère. DevOPTIQ contourne ce problème en persistant les données critiques en base : <code>Entity.svg_content</code> (SVG cartographie), <code>Entity.optiqcarto_data</code> (état JSON éditeur), <code>FileBlob</code> (pièces jointes).
+    </div>
+
+    <h3>Organisation des fichiers</h3>
+    <pre>DevOPTIQ/
+├── Code/
+│   ├── app.py              ← create_app(), blueprints
+│   ├── extensions.py       ← db, mail, pragmas SQLite WAL
+│   ├── models/models.py    ← Tous les modèles + event listeners
+│   └── routes/
+│       ├── templates/      ← Templates Jinja2
+│       └── *.py            ← 31 blueprints
+├── static/
+│   ├── *.css               ← CSS par domaine
+│   ├── js/                 ← JS vanilla par domaine
+│   └── optiqcarto/         ← editor.js, vsdx_importer.js
+└── docs/index.html         ← Ce fichier</pre>
   </section>
 
-  <!-- STACK -->
   <section id="stack">
-    <h2 class="section-title">Stack technique <span class="badge badge-todo">À documenter</span></h2>
+    <h2 class="section-title">Stack technique <span class="badge badge-done">Documenté</span></h2>
     <table>
       <tr><th>Couche</th><th>Technologie</th><th>Rôle</th></tr>
-      <tr><td>Backend</td><td><code>Python 3 · Flask</code></td><td>À compléter</td></tr>
-      <tr><td>Base de données</td><td><code>PostgreSQL</code> (prod) / <code>SQLite</code> (local)</td><td>À compléter</td></tr>
-      <tr><td>ORM</td><td><code>SQLAlchemy</code></td><td>À compléter</td></tr>
-      <tr><td>Frontend</td><td>HTML Jinja2 · CSS vanilla · JS vanilla</td><td>À compléter</td></tr>
-      <tr><td>IA</td><td>Anthropic Claude API</td><td>À compléter</td></tr>
-      <tr><td>Cartographie</td><td>OptiqCarto (outil maison)</td><td>À compléter</td></tr>
-      <tr><td>Déploiement</td><td>Google Cloud Run · Docker</td><td>À compléter</td></tr>
+      <tr><td>Backend</td><td><code>Python 3 · Flask</code></td><td>Application factory pattern. Routage via blueprints. Templates Jinja2. Sessions Flask pour l'auth.</td></tr>
+      <tr><td>Base de données</td><td><code>PostgreSQL</code> (prod) / <code>SQLite</code> (local)</td><td>PostgreSQL avec pool limité (pool_size=2, max_overflow=3) pour Neon free tier. SQLite avec WAL et busy_timeout=5s.</td></tr>
+      <tr><td>ORM</td><td><code>SQLAlchemy</code> via Flask-SQLAlchemy</td><td>Tous les modèles dans <code>models/models.py</code>. Colonnes post-déploiement ajoutées via <code>ALTER TABLE</code> direct.</td></tr>
+      <tr><td>Frontend</td><td>HTML Jinja2 · CSS vanilla · JS vanilla</td><td>Pas de framework JS. <code>$()</code> = alias <code>document.querySelector()</code>. Un fichier CSS par domaine.</td></tr>
+      <tr><td>Auth</td><td>Sessions Flask · <code>werkzeug.security</code></td><td>Hash mots de passe pbkdf2:sha256. Entité active dans <code>session['active_entity_id']</code>.</td></tr>
+      <tr><td>IA</td><td>Anthropic Claude API</td><td>Chatbot intégré, import IA global, proposition compétences/savoirs/softskills, traduction.</td></tr>
+      <tr><td>Cartographie</td><td>OptiqCarto (outil maison)</td><td>Éditeur SVG JS vanilla. État JSON dans <code>Entity.optiqcarto_data</code>. Sync Activities/Roles/Links à chaque save.</td></tr>
+      <tr><td>Email</td><td>Flask-Mail · Gmail SMTP</td><td>Reset de mot de passe.</td></tr>
+      <tr><td>Déploiement</td><td>Google Cloud Run · Docker</td><td>Image Docker, port 8080, variables via Cloud Run.</td></tr>
     </table>
+    <h3>Dépendances Python clés</h3>
+    <pre>Flask, Flask-SQLAlchemy, Flask-Migrate, Flask-Mail
+werkzeug, python-dotenv, anthropic, gunicorn</pre>
   </section>
 
-  <!-- MODÈLES -->
   <section id="modeles">
-    <h2 class="section-title">Modèles de données <span class="badge badge-todo">À documenter</span></h2>
+    <h2 class="section-title">Modèles de données <span class="badge badge-done">Documenté</span></h2>
     <p>Fichier source : <code>Code/models/models.py</code></p>
+    <div class="callout callout-info">
+      Tous les modèles disposent d'un filtre <code>for_active_entity()</code> retournant une query filtrée sur l'entité active de la session. Cela garantit l'isolation des données entre organisations.
+    </div>
+
+    <h3>Diagramme entité-relation (simplifié)</h3>
+    <div class="diagram">
+      <svg width="760" height="480" viewBox="0 0 760 480" xmlns="http://www.w3.org/2000/svg" font-family="'Segoe UI', sans-serif" font-size="11">
+        <rect x="290" y="20" width="180" height="90" rx="8" fill="#fdf2f8" stroke="#ec4899" stroke-width="2"/>
+        <text x="380" y="42" text-anchor="middle" font-weight="700" fill="#be185d">Entity</text>
+        <text x="380" y="58" text-anchor="middle" font-size="9.5" fill="#6b7280">id, name, description</text>
+        <text x="380" y="73" text-anchor="middle" font-size="9.5" fill="#6b7280">owner_id → User</text>
+        <text x="380" y="88" text-anchor="middle" font-size="9.5" fill="#6b7280">optiqcarto_data (JSON), svg_content</text>
+        <text x="380" y="103" text-anchor="middle" font-size="9.5" fill="#6b7280">vsdx_filename, svg_filename</text>
+        <rect x="50" y="170" width="180" height="90" rx="8" fill="#fdf2f8" stroke="#ec4899" stroke-width="2"/>
+        <text x="140" y="192" text-anchor="middle" font-weight="700" fill="#be185d">Activities</text>
+        <text x="140" y="208" text-anchor="middle" font-size="9.5" fill="#6b7280">id, name, description</text>
+        <text x="140" y="223" text-anchor="middle" font-size="9.5" fill="#6b7280">entity_id, shape_id, is_result</text>
+        <text x="140" y="238" text-anchor="middle" font-size="9.5" fill="#6b7280">duration_minutes, delay_minutes</text>
+        <rect x="530" y="170" width="180" height="70" rx="8" fill="#fdf2f8" stroke="#ec4899" stroke-width="2"/>
+        <text x="620" y="192" text-anchor="middle" font-weight="700" fill="#be185d">Role</text>
+        <text x="620" y="208" text-anchor="middle" font-size="9.5" fill="#6b7280">id, name, entity_id</text>
+        <text x="620" y="223" text-anchor="middle" font-size="9.5" fill="#6b7280">onboarding_plan</text>
+        <rect x="310" y="170" width="140" height="50" rx="6" fill="#f9fafb" stroke="#9ca3af" stroke-width="1.5"/>
+        <text x="380" y="192" text-anchor="middle" font-weight="700" fill="#374151">activity_roles</text>
+        <text x="380" y="208" text-anchor="middle" font-size="9.5" fill="#6b7280">activity_id, role_id, status</text>
+        <rect x="50" y="330" width="180" height="80" rx="8" fill="#f0fdf4" stroke="#22c55e" stroke-width="1.5"/>
+        <text x="140" y="352" text-anchor="middle" font-weight="700" fill="#15803d">Task</text>
+        <text x="140" y="368" text-anchor="middle" font-size="9.5" fill="#6b7280">id, name, activity_id, order</text>
+        <text x="140" y="383" text-anchor="middle" font-size="9.5" fill="#6b7280">duration_minutes, delay_minutes</text>
+        <rect x="290" y="330" width="180" height="70" rx="8" fill="#f0fdf4" stroke="#22c55e" stroke-width="1.5"/>
+        <text x="380" y="352" text-anchor="middle" font-weight="700" fill="#15803d">Tool</text>
+        <text x="380" y="368" text-anchor="middle" font-size="9.5" fill="#6b7280">id, name, entity_id, file_path</text>
+        <text x="380" y="383" text-anchor="middle" font-size="9.5" fill="#6b7280">(many-to-many ↔ Task)</text>
+        <rect x="530" y="330" width="180" height="80" rx="8" fill="#f0fdf4" stroke="#22c55e" stroke-width="1.5"/>
+        <text x="620" y="352" text-anchor="middle" font-weight="700" fill="#15803d">Link</text>
+        <text x="620" y="368" text-anchor="middle" font-size="9.5" fill="#6b7280">id, entity_id, type</text>
+        <text x="620" y="383" text-anchor="middle" font-size="9.5" fill="#6b7280">source/target_activity_id</text>
+        <rect x="530" y="440" width="180" height="30" rx="6" fill="#f9fafb" stroke="#9ca3af" stroke-width="1.5"/>
+        <text x="620" y="460" text-anchor="middle" font-weight="700" fill="#374151">User · UserRole · CompetencyEvaluation</text>
+        <rect x="50" y="440" width="390" height="30" rx="6" fill="#f9fafb" stroke="#9ca3af" stroke-width="1.5"/>
+        <text x="245" y="460" text-anchor="middle" font-weight="700" fill="#374151">Competency · Softskill · Savoir · SavoirFaire · Aptitude</text>
+        <line x1="290" y1="80" x2="140" y2="170" stroke="#ec4899" stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#arr2)"/>
+        <line x1="470" y1="80" x2="620" y2="170" stroke="#ec4899" stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#arr2)"/>
+        <line x1="230" y1="210" x2="310" y2="200" stroke="#9ca3af" stroke-width="1.2" marker-end="url(#arr2)"/>
+        <line x1="530" y1="200" x2="450" y2="200" stroke="#9ca3af" stroke-width="1.2" marker-end="url(#arr2)"/>
+        <line x1="140" y1="260" x2="140" y2="330" stroke="#22c55e" stroke-width="1.5" marker-end="url(#arr2)"/>
+        <line x1="140" y1="260" x2="245" y2="440" stroke="#9ca3af" stroke-width="1" stroke-dasharray="4,3" marker-end="url(#arr2)"/>
+        <line x1="230" y1="215" x2="530" y2="360" stroke="#22c55e" stroke-width="1" stroke-dasharray="4,3" marker-end="url(#arr2)"/>
+        <line x1="230" y1="370" x2="290" y2="370" stroke="#22c55e" stroke-width="1.2" marker-end="url(#arr2)"/>
+        <defs><marker id="arr2" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#9ca3af"/></marker></defs>
+      </svg>
+      <p class="diagram-caption">Schéma entité-relation principal. Toutes les données appartiennent à une <code>Entity</code>.</p>
+    </div>
+
+    <h3>Description détaillée</h3>
+
+    <h4>Entity — <code>entities</code></h4>
+    <p>Tenant root de l'application. Toutes les données (activités, rôles, outils…) lui appartiennent via <code>entity_id</code>. L'entité active est stockée dans <code>session['active_entity_id']</code> (pas en base).</p>
+    <table>
+      <tr><th>Champ</th><th>Type</th><th>Description</th></tr>
+      <tr><td><code>owner_id</code></td><td>FK → users</td><td>Utilisateur propriétaire</td></tr>
+      <tr><td><code>optiqcarto_data</code></td><td>Text (JSON)</td><td>État complet de l'éditeur OptiqCarto. Persiste entre redémarrages.</td></tr>
+      <tr><td><code>svg_content</code></td><td>Text</td><td>Contenu SVG brut. Fallback si filesystem éphémère vidé.</td></tr>
+      <tr><td><code>svg_filename</code></td><td>String(255)</td><td>Nom original du SVG uploadé</td></tr>
+      <tr><td><code>vsdx_filename</code></td><td>String(255)</td><td>Nom original du VSDX uploadé</td></tr>
+    </table>
+    <p>Méthodes de classe : <code>get_active()</code>, <code>get_active_id()</code>, <code>set_active()</code>, <code>for_user()</code>.</p>
+
+    <h4>Activities — <code>activities</code></h4>
+    <p>Activité métier. <code>shape_id</code> la relie à une forme SVG dans OptiqCarto. Contrainte unique <code>(entity_id, shape_id)</code>. Possède Tasks, Competencies, Softskills, Savoirs, SavoirFaires, Aptitudes, Constraints.</p>
+
+    <h4>Role — <code>roles</code></h4>
+    <p>Correspond aux bandes horizontales de l'éditeur OptiqCarto. Unique par nom dans l'entité. <code>onboarding_plan</code> stocke la fiche de poste.</p>
+
+    <h4>Link — <code>links</code></h4>
+    <p>Connexion directionnelle entre deux activités. Types : <code>déclenchante</code> (T-link) et <code>nourrissante</code> (N-link). Propriétés calculées <code>source_id</code> / <code>target_id</code>.</p>
+
+    <h4>Task — <code>tasks</code></h4>
+    <p>Tâche ordonnée d'une activité. Reliée aux <code>Tool</code> via <code>task_tools</code> (many-to-many).</p>
+
+    <h4>Compétences et connaissances</h4>
     <table>
       <tr><th>Modèle</th><th>Table</th><th>Description</th></tr>
-      <tr><td><code>Entity</code></td><td><code>entities</code></td><td>Entité organisationnelle (département, service…)</td></tr>
-      <tr><td><code>Activities</code></td><td><code>activities</code></td><td>Activité métier issue de la cartographie</td></tr>
-      <tr><td><code>Role</code></td><td><code>roles</code></td><td>Rôle/bande de la cartographie</td></tr>
-      <tr><td><code>Link</code></td><td><code>links</code></td><td>Lien entre deux activités</td></tr>
-      <tr><td><code>Task</code></td><td><code>tasks</code></td><td>Tâche associée à une activité</td></tr>
-      <tr><td><code>Tool</code></td><td><code>tools</code></td><td>Outil utilisé dans une activité</td></tr>
-      <tr><td><code>Competency</code></td><td><code>competencies</code></td><td>Compétence</td></tr>
-      <tr><td><code>Softskill</code></td><td><code>softskills</code></td><td>Soft skill comportemental</td></tr>
+      <tr><td><code>Competency</code></td><td><code>competencies</code></td><td>Compétence générale</td></tr>
+      <tr><td><code>Softskill</code></td><td><code>softskills</code></td><td>Compétence comportementale avec niveau (1-5) et justification</td></tr>
       <tr><td><code>Savoir</code></td><td><code>savoirs</code></td><td>Connaissance théorique</td></tr>
       <tr><td><code>SavoirFaire</code></td><td><code>savoir_faires</code></td><td>Savoir-faire pratique</td></tr>
-      <tr><td><code>User</code></td><td><code>users</code></td><td>Utilisateur de l'application</td></tr>
-      <tr><td><code>Performance</code></td><td><code>performances</code></td><td>Indicateur de performance</td></tr>
-      <tr><td><code>TimeAnalysis</code></td><td><code>time_analysis</code></td><td>Analyse des temps par activité</td></tr>
-      <tr><td><code>activity_roles</code></td><td><code>activity_roles</code></td><td>Association activité ↔ rôle (many-to-many)</td></tr>
+      <tr><td><code>Aptitude</code></td><td><code>aptitudes</code></td><td>Aptitude physique ou cognitive</td></tr>
     </table>
-    <p>À compléter : schéma entité-relation, description détaillée de chaque modèle et ses relations.</p>
+
+    <h4>User — <code>users</code></h4>
+    <p>Champs : email (unique), password (hashé), first_name, last_name, status, manager_id (auto-référence hiérarchie). Relié aux rôles via <code>UserRole</code> et évaluations via <code>CompetencyEvaluation</code>.</p>
+
+    <h4>TimeAnalysis — <code>time_analysis</code></h4>
+    <p>Calcule <code>annual_time = duration × recurrence_factor × frequency × nb_people</code>. Facteurs : journalier=220, hebdo=42, mensuel=10.5, annuel=1.</p>
+
+    <h4>Modèles système</h4>
+    <table>
+      <tr><th>Modèle</th><th>Table</th><th>Rôle</th></tr>
+      <tr><td><code>FileBlob</code></td><td><code>file_blobs</code></td><td>Fichiers binaires en base (BYTEA/BLOB)</td></tr>
+      <tr><td><code>RecentEvent</code></td><td><code>recent_events</code></td><td>Journal auto créations/modifications/suppressions</td></tr>
+      <tr><td><code>TaskLinkAssignment</code></td><td><code>task_link_assignments</code></td><td>Associe un Link à une Task (direction incoming/outgoing)</td></tr>
+      <tr><td><code>Performance</code></td><td><code>performances</code></td><td>Indicateur de performance attaché à un Link</td></tr>
+    </table>
+
+    <h3>Journal d'activité automatique</h3>
+    <p>SQLAlchemy event listeners enregistrent automatiquement dans <code>recent_events</code> toute création/modification/suppression des modèles <code>Activities</code>, <code>Task</code>, <code>Role</code>, <code>Tool</code>. <code>_capture_changes()</code> compare l'historique SQLAlchemy avant/après pour ne logger que les champs modifiés.</p>
   </section>
 
-  <!-- CARTOGRAPHIE -->
   <section id="cartographie">
-    <h2 class="section-title">Cartographie — OptiqCarto <span class="badge badge-todo">À documenter</span></h2>
+    <h2 class="section-title">Cartographie — OptiqCarto <span class="badge badge-done">Documenté</span></h2>
     <div class="callout callout-tip">
-      OptiqCarto est un outil de cartographie SVG développé en interne. Il existe en deux versions synchronisées : intégré dans DevOPTIQ (<code>static/optiqcarto/</code>) et standalone dans le repo <code>OptiqCarto/</code>.
+      Éditeur SVG interactif JS vanilla. Deux repos synchronisés : <code>DevOPTIQ/static/optiqcarto/</code> et standalone <code>OptiqCarto/</code>. Toujours synchroniser les deux après modification.
     </div>
-    <p>À compléter : fonctionnement de l'éditeur, format JSON de sauvegarde, synchronisation DB, import VSDX, viewer lecture seule.</p>
+
+    <h3>Deux composants</h3>
+    <ul>
+      <li><strong>Éditeur OptiqCarto</strong> (<code>/cartography/editor</code>) — création formes/bandes/connexions, import VSDX, sauvegarde en base.</li>
+      <li><strong>Carte des Activités</strong> (<code>/activities/map</code>) — gestion multi-entités, affichage SVG statique, wizard upload SVG+VSDX.</li>
+    </ul>
+
+    <h3>Format JSON (optiqcarto_data)</h3>
+    <pre>{
+  "shapes": [
+    { "id": "s1", "type": "process", "label": "Facturation",
+      "x": 120, "y": 50, "w": 160, "h": 60 }
+  ],
+  "bands": [
+    { "id": "b1", "label": "Direction", "height": 180 }
+  ],
+  "connections": [
+    { "id": "c1", "fromId": "s1", "toId": "s2", "label": "Bon de commande" }
+  ]
+}</pre>
+    <p>Types de shapes : <code>process</code> (activité normale), <code>start-end</code> (début/fin), <code>special</code> (résultat, <code>is_result=True</code>), <code>decision</code> (ignoré pour la sync DB).</p>
+
+    <h3>Synchronisation carto → base (<code>_sync_carto_to_db</code>)</h3>
+    <p>Appelée à chaque <code>POST /cartography/api/save</code> :</p>
+    <ol>
+      <li><strong>Activités</strong> : upsert de chaque shape vers <code>Activities</code>. Shapes supprimées → suppression cascade.</li>
+      <li><strong>Rôles</strong> : upsert de chaque bande vers <code>Role</code>. Bandes disparues → suppression.</li>
+      <li><strong>Associations</strong> : recalcule l'appartenance activité-rôle par position Y de la shape dans les bandes.</li>
+      <li><strong>Liens</strong> : supprime les links activity→activity existants, recrée depuis les connexions du diagramme.</li>
+    </ol>
+
+    <h3>Persistance SVG</h3>
+    <p>Double stockage pour gérer le filesystem éphémère Cloud Run :</p>
+    <ul>
+      <li>Disque : <code>static/entities/entity_{id}/carto.svg</code></li>
+      <li>Base : <code>Entity.svg_content</code> (texte complet). <code>check_svg_exists()</code> restaure depuis la DB si le disque est vide.</li>
+    </ul>
+
+    <h3>Gestion multi-entités</h3>
+    <p>L'entité active est dans <code>session['active_entity_id']</code>. <code>get_active_entity()</code> : session → <code>is_active=True</code> DB → dernière entité du user.</p>
+    <p><code>GET /activities/api/cross_carto_matches</code> — activités partagées entre l'entité active et les autres entités du même utilisateur.</p>
   </section>
 
-  <!-- ACTIVITÉS -->
-  <section id="activites">
-    <h2 class="section-title">Activités <span class="badge badge-todo">À documenter</span></h2>
-    <p>À compléter : liste des activités, fiche activité, onglets (tâches, outils, compétences, temps, performance…), routes associées.</p>
-  </section>
-
-  <!-- IMPORT IA -->
-  <section id="import-ia">
-    <h2 class="section-title">Import IA <span class="badge badge-todo">À documenter</span></h2>
-    <p>À compléter : fonctionnement de l'import global IA, interaction avec l'API Claude, extraction et mapping des données.</p>
-  </section>
-
-  <!-- COMPÉTENCES -->
+  <!-- ═══════════════════════════════════════════════════════════════ -->
   <section id="competences">
-    <h2 class="section-title">Compétences & Skills <span class="badge badge-todo">À documenter</span></h2>
-    <p>À compléter : gestion des compétences, savoirs, savoir-faires, softskills, aptitudes. Système de proposition IA.</p>
-  </section>
+    <h2 class="section-title">Compétences &amp; Évaluations <span class="badge badge-done">Documenté</span></h2>
+    <p>Blueprint : <code>competences_bp</code> — fichier : <code>Code/routes/competences.py</code>, préfixe <code>/competences</code>.</p>
+    <p>Gère l'évaluation multi-évaluateurs des compétences des collaborateurs. Chaque activité porte des savoirs, savoir-faires et softskills ; chaque item peut être évalué indépendamment par trois profils.</p>
 
-  <!-- PERFORMANCE -->
-  <section id="performance">
-    <h2 class="section-title">Performance <span class="badge badge-todo">À documenter</span></h2>
-    <p>À compléter : indicateurs de performance, tableaux de bord, performance personnalisée, projections.</p>
-  </section>
-
-  <!-- RH -->
-  <section id="rh">
-    <h2 class="section-title">Gestion RH <span class="badge badge-todo">À documenter</span></h2>
-    <p>À compléter : gestion des collaborateurs, rôles, affectations, plans de formation.</p>
-  </section>
-
-  <!-- CHATBOT -->
-  <section id="chatbot">
-    <h2 class="section-title">Chatbot IA <span class="badge badge-todo">À documenter</span></h2>
-    <p>À compléter : fonctionnement du chatbot, intégration Claude API, contexte injecté.</p>
-  </section>
-
-  <!-- AUTH -->
-  <section id="auth">
-    <h2 class="section-title">Authentification <span class="badge badge-todo">À documenter</span></h2>
-    <p>À compléter : système de login, gestion des sessions Flask, rôles utilisateurs, reset password.</p>
-  </section>
-
-  <!-- TEMPS -->
-  <section id="temps">
-    <h2 class="section-title">Gestion du temps <span class="badge badge-todo">À documenter</span></h2>
-    <p>À compléter : saisie des temps, analyse, projections, tableaux de bord temps.</p>
-  </section>
-
-  <!-- API -->
-  <section id="api">
-    <h2 class="section-title">Référence APIs <span class="badge badge-todo">À documenter</span></h2>
-    <p>À compléter : liste de tous les endpoints API (méthode, URL, paramètres, réponse).</p>
-  </section>
-
-  <!-- DÉPLOIEMENT -->
-  <section id="deploiement">
-    <h2 class="section-title">Déploiement <span class="badge badge-todo">À documenter</span></h2>
-    <p>À compléter : processus de build Docker, déploiement Cloud Run, variables d'environnement, base de données de production.</p>
-  </section>
-
-  <!-- CONVENTIONS -->
-  <section id="conventions">
-    <h2 class="section-title">Conventions de développement <span class="badge badge-todo">À documenter</span></h2>
-    <div class="callout callout-warn">
-      Règle critique : toujours synchroniser <code>DevOPTIQ/static/optiqcarto/</code> et <code>OptiqCarto/static/</code> après chaque modification de l'outil cartographie.
+    <h3>Modèle d'évaluation</h3>
+    <p>Table centrale : <code>CompetencyEvaluation</code>.</p>
+    <table>
+      <tr><th>Champ</th><th>Type</th><th>Description</th></tr>
+      <tr><td><code>user_id</code></td><td>Integer FK</td><td>Collaborateur évalué</td></tr>
+      <tr><td><code>activity_id</code></td><td>Integer FK</td><td>Activité de rattachement</td></tr>
+      <tr><td><code>item_id</code></td><td>Integer</td><td>ID du savoir / savoir-faire / softskill</td></tr>
+      <tr><td><code>item_type</code></td><td>String</td><td><code>savoirs</code> | <code>savoir_faires</code> | <code>softskills</code> | <code>activities</code></td></tr>
+      <tr><td><code>eval_number</code></td><td>String</td><td><code>'1'</code> Garant · <code>'2'</code> Manager · <code>'3'</code> RH</td></tr>
+      <tr><td><code>note</code></td><td>String</td><td>Classe CSS colorée (<em>vert / orange / rouge…</em>) ou <code>'empty'</code> = suppression</td></tr>
+    </table>
+    <div class="callout callout-info">
+      La sauvegarde (<code>POST /competences/save_user_evaluations</code>) utilise un <strong>delete + insert</strong> robuste plutôt qu'un UPSERT standard, afin de contourner les anomalies de séquence PostgreSQL.
     </div>
-    <p>À compléter : conventions de nommage, structure des commits, workflow git (staging → main), conventions CSS/JS.</p>
+
+    <h3>Hiérarchie managériale</h3>
+    <ul>
+      <li><code>User.manager_id</code> — manager global du collaborateur</li>
+      <li><code>UserRole.manager_id</code> — manager spécifique à un rôle (peut différer)</li>
+      <li><code>GET /competences/managers</code> — liste tous les managers de l'entité active</li>
+      <li><code>GET /competences/collaborators/&lt;manager_id&gt;</code> — collaborateurs sous un manager</li>
+    </ul>
+
+    <h3>Référence API</h3>
+    <table>
+      <tr><th>Méthode</th><th>URL</th><th>Description</th></tr>
+      <tr><td>GET</td><td><code>/competences/view</code></td><td>Page principale évaluation compétences</td></tr>
+      <tr><td>GET</td><td><code>/competences/managers</code></td><td>Managers de l'entité active (JSON)</td></tr>
+      <tr><td>GET</td><td><code>/competences/collaborators/&lt;manager_id&gt;</code></td><td>Collaborateurs d'un manager</td></tr>
+      <tr><td>GET</td><td><code>/competences/get_user_roles/&lt;user_id&gt;</code></td><td>Rôles affectés à un user</td></tr>
+      <tr><td>POST</td><td><code>/competences/save_user_evaluations</code></td><td>Sauvegarde / mise à jour des évaluations (UPSERT)</td></tr>
+      <tr><td>GET</td><td><code>/competences/get_user_evaluations_by_user/&lt;user_id&gt;</code></td><td>Toutes les évaluations d'un collaborateur</td></tr>
+      <tr><td>GET</td><td><code>/competences/role_structure/&lt;user_id&gt;/&lt;role_id&gt;</code></td><td>Structure détaillée rôle + compétences + évaluations existantes</td></tr>
+      <tr><td>GET</td><td><code>/competences/global_summary/&lt;user_id&gt;</code></td><td>Tableau HTML récapitulatif toutes activités (par évaluateur)</td></tr>
+      <tr><td>GET</td><td><code>/competences/global_flat_summary/&lt;user_id&gt;</code></td><td>Tableau HTML à plat avec lignes manager</td></tr>
+      <tr><td>GET</td><td><code>/competences/users/global_summary</code></td><td>Dashboard tous les collaborateurs × rôles × évaluations manager</td></tr>
+    </table>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <section id="performance">
+    <h2 class="section-title">Performance <span class="badge badge-done">Documenté</span></h2>
+    <p>Blueprint : <code>performance_bp</code> — fichier : <code>Code/routes/performance.py</code>, préfixe <code>/performance</code>.</p>
+    <p>Gère les <strong>indicateurs de performance</strong> attachés aux connexions entre activités (<code>Link</code>). Un indicateur porte un nom et une description ; il qualifie la valeur produite par une activité vers la suivante.</p>
+
+    <h3>Modèle de donnée</h3>
+    <p><code>Performance</code> → <code>link_id</code> (FK vers <code>Link</code>) — un lien peut avoir zéro ou plusieurs performances.</p>
+
+    <h3>Rendu fragmentaire (server-side HTML)</h3>
+    <p>Chaque endpoint retourne un fragment HTML autonome rechargé par AJAX dans la fiche activité. La fonction <code>_render_fragment(link_id)</code> construit ce fragment : s'il n'existe aucune performance pour le lien, il affiche un message "Aucune performance générale" avec un bouton d'ajout.</p>
+
+    <h3>Référence API</h3>
+    <table>
+      <tr><th>Méthode</th><th>URL</th><th>Description</th></tr>
+      <tr><td>GET</td><td><code>/performance/render/&lt;link_id&gt;</code></td><td>Fragment HTML des performances d'un lien</td></tr>
+      <tr><td>GET</td><td><code>/performance/render_activity/&lt;activity_id&gt;</code></td><td>Fallback : retrouve le lien via l'activité, puis rend le fragment</td></tr>
+      <tr><td>POST</td><td><code>/performance/add</code></td><td>Crée un indicateur. Body : <code>{link_id, name}</code></td></tr>
+      <tr><td>PUT</td><td><code>/performance/&lt;perf_id&gt;</code></td><td>Met à jour nom et/ou description</td></tr>
+      <tr><td>DELETE</td><td><code>/performance/&lt;perf_id&gt;</code></td><td>Supprime l'indicateur</td></tr>
+    </table>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <section id="rh">
+    <h2 class="section-title">Gestion RH <span class="badge badge-done">Documenté</span></h2>
+    <p>Blueprint : <code>gestion_rh_bp</code> — fichier : <code>Code/routes/gestion_rh.py</code>, préfixe <code>/gestion_rh</code>.</p>
+    <p>Module complet de gestion des collaborateurs : création de rôles, affectation aux utilisateurs, définition des managers, et paramétrage des temps de travail de l'entité.</p>
+
+    <h3>Concepts clés</h3>
+    <div class="card">
+      <table>
+        <tr><th>Concept</th><th>Table</th><th>Description</th></tr>
+        <tr><td>Rôle</td><td><code>roles</code></td><td>Poste ou bande (ex : "Technicien N2") scopé à une entité</td></tr>
+        <tr><td>Affectation</td><td><code>user_roles</code></td><td>Association user ↔ rôle avec manager optionnel par rôle</td></tr>
+        <tr><td>Manager global</td><td><code>users.manager_id</code></td><td>Responsable hiérarchique unique pour tous les rôles</td></tr>
+        <tr><td>Manager par rôle</td><td><code>user_roles.manager_id</code></td><td>Responsable spécifique à un rôle (surcharge le global)</td></tr>
+        <tr><td>Paramètres travail</td><td><code>entreprise_settings</code></td><td>Heures/jour, jours/semaine, semaines/an — utilisés dans les analyses de temps</td></tr>
+      </table>
+    </div>
+
+    <h3>Import CSV de rôles</h3>
+    <p><code>POST /gestion_rh/import_roles</code> — lit un fichier CSV uploadé, insère les rôles manquants pour l'entité active, ignore les doublons via <code>IntegrityError</code>.</p>
+
+    <div class="callout callout-warn">
+      Au démarrage de l'app, <code>gestion_rh.py</code> exécute un <code>ALTER TABLE user_roles ADD COLUMN manager_id</code> idempotent pour les bases sans migration complète.
+    </div>
+
+    <h3>Affectation des managers</h3>
+    <p>Deux modes via <code>POST /gestion_rh/assign_manager_simple</code> :</p>
+    <ul>
+      <li><strong>Global</strong> : écrit <code>User.manager_id</code> + tous les <code>UserRole.manager_id</code> du collaborateur.</li>
+      <li><strong>Par rôle</strong> : écrit uniquement le <code>UserRole.manager_id</code> du rôle ciblé.</li>
+    </ul>
+
+    <h3>Référence API</h3>
+    <table>
+      <tr><th>Méthode</th><th>URL</th><th>Description</th></tr>
+      <tr><td>GET</td><td><code>/gestion_rh/</code></td><td>Page d'accueil RH (paramètres + rôles + collaborateurs)</td></tr>
+      <tr><td>POST</td><td><code>/gestion_rh/update_settings</code></td><td>Mise à jour paramètres temps de travail de l'entité</td></tr>
+      <tr><td>POST</td><td><code>/gestion_rh/update_single_setting</code></td><td>AJAX — met à jour un seul champ des paramètres</td></tr>
+      <tr><td>POST</td><td><code>/gestion_rh/role</code></td><td>Créer ou mettre à jour un rôle</td></tr>
+      <tr><td>POST</td><td><code>/gestion_rh/delete_role/&lt;role_id&gt;</code></td><td>Supprimer un rôle</td></tr>
+      <tr><td>POST</td><td><code>/gestion_rh/import_roles</code></td><td>Import CSV de rôles</td></tr>
+      <tr><td>POST</td><td><code>/gestion_rh/assign_roles</code></td><td>Affecter des rôles à un utilisateur (remplace les existants)</td></tr>
+      <tr><td>GET</td><td><code>/gestion_rh/collaborateurs</code></td><td>Recherche collaborateurs par nom ou rôle</td></tr>
+      <tr><td>POST</td><td><code>/gestion_rh/collaborateur_roles</code></td><td>Modifier les rôles d'un collaborateur via formulaire</td></tr>
+      <tr><td>POST</td><td><code>/gestion_rh/update_collaborator_name</code></td><td>AJAX — renommer un collaborateur (parse "Prénom Nom")</td></tr>
+      <tr><td>POST</td><td><code>/gestion_rh/assign_manager</code></td><td>Batch — affecter un manager à plusieurs users pour un rôle</td></tr>
+      <tr><td>POST</td><td><code>/gestion_rh/assign_manager_simple</code></td><td>Affecter un manager (global ou par rôle)</td></tr>
+      <tr><td>GET</td><td><code>/gestion_rh/roles</code></td><td>Liste tous les rôles de l'entité active (JSON)</td></tr>
+      <tr><td>GET</td><td><code>/gestion_rh/users_by_roles</code></td><td>Users ayant des rôle IDs spécifiques (JSON)</td></tr>
+      <tr><td>GET</td><td><code>/gestion_rh/users_with_roles</code></td><td>Users avec leurs rôles affectés (JSON)</td></tr>
+      <tr><td>GET</td><td><code>/gestion_rh/all_collaborators_with_manager</code></td><td>Roster complet : rôles + managers par rôle (JSON)</td></tr>
+    </table>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <section id="chatbot">
+    <h2 class="section-title">Chatbot IA — Assistant OPTIQ <span class="badge badge-done">Documenté</span></h2>
+    <p>Blueprint : <code>chatbot_bp</code> — fichier : <code>Code/routes/chatbot.py</code>, préfixe <code>/api/chatbot</code>.</p>
+    <p>Interface conversationnelle propulsée par <strong>OpenAI GPT</strong> (<code>gpt-4o-mini</code> par défaut, configurable via <code>OPENAI_CHATBOT_MODEL</code>). Elle guide l'utilisateur dans la définition ou la révision des tâches d'une activité en appliquant la <strong>méthodologie OPTIQ</strong>.</p>
+
+    <h3>Deux modes</h3>
+    <table>
+      <tr><th>Mode</th><th>Déclencheur</th><th>Comportement</th></tr>
+      <tr><td><code>creer</code></td><td>Activité sans tâches</td><td>Découverte ouverte : une question à la fois, construction itérative de la liste</td></tr>
+      <tr><td><code>ameliorer</code></td><td>Activité avec tâches existantes</td><td>Analyse critique : identifie surdétail, hors-périmètre, tâches manquantes</td></tr>
+    </table>
+
+    <h3>Règles OPTIQ injectées dans le prompt système</h3>
+    <ul>
+      <li>5–8 tâches maximum (3–4 pour activités simples) — regroupement si excès</li>
+      <li>Pas de procédure ("cliquer sur…") — reformuler en tâche ("Saisir la demande")</li>
+      <li>Un verbe par tâche ; chaîne logique entrée → tâche → sortie</li>
+      <li>Protocole "Ça dépend" : condition + tronc principal + ≤ 2 branches (≤ 3 tâches chacune)</li>
+    </ul>
+
+    <h3>Contexte injecté par activité</h3>
+    <p><code>GET /api/chatbot/activity/&lt;activity_id&gt;/context</code> retourne un JSON complet envoyé au modèle à chaque tour de conversation :</p>
+    <pre>{
+  "activity": { "id": 42, "name": "...", "description": "..." },
+  "tasks": [...],
+  "incoming_links": [...],
+  "outgoing_links": [...],
+  "constraints": [...],
+  "competencies": [...],
+  "savoirs": [...],
+  "savoir_faires": [...],
+  "softskills": [...],
+  "aptitudes": [...],
+  "tools": [...]
+}</pre>
+
+    <h3>Schéma de réponse JSON du modèle</h3>
+    <pre>{
+  "assistant_message": "texte conversationnel",
+  "status": "need_more_info | ready_for_validation | validated",
+  "tasks": [
+    {
+      "label": "Verbe + objet",
+      "tools": ["nom outil"],
+      "flags": {
+        "too_detailed": false,
+        "contains_how": false,
+        "contains_two_tasks": false,
+        "out_of_scope": false
+      },
+      "rewrite_suggestion": "",
+      "outgoing_link": {
+        "data_name": "nom de la donnée produite",
+        "data_type": "nourrissante | descendante | remontante",
+        "target_activity_name": ""
+      }
+    }
+  ],
+  "next_questions": ["Oui, c'est correct", "Non, à reformuler"],
+  "branches": [{ "condition": "Si...", "impact": "...", "task_variants": [] }]
+}</pre>
+
+    <h3>Injection en base (<code>POST /api/chatbot/inject</code>)</h3>
+    <p>Une fois les tâches validées par l'utilisateur dans l'UI, l'endpoint crée :</p>
+    <ul>
+      <li><code>Task</code> avec ordre et <code>activity_id</code></li>
+      <li><code>Tool</code> get-or-create (scope entité, insensible à la casse)</li>
+      <li><code>Data</code> + <code>Link</code> si un <code>outgoing_link</code> est défini</li>
+    </ul>
+    <div class="callout callout-info">
+      La conversation est <strong>stateless côté serveur</strong> : l'historique complet (messages user + assistant) est renvoyé par le client à chaque appel à <code>POST /api/chatbot/chat</code>.
+    </div>
+
+    <h3>Référence API</h3>
+    <table>
+      <tr><th>Méthode</th><th>URL</th><th>Description</th></tr>
+      <tr><td>GET</td><td><code>/api/chatbot/activity/&lt;activity_id&gt;/context</code></td><td>Contexte complet d'une activité pour le chatbot</td></tr>
+      <tr><td>POST</td><td><code>/api/chatbot/chat</code></td><td>Tour de conversation. Body : <code>{activity_id, message, history, mode}</code></td></tr>
+      <tr><td>POST</td><td><code>/api/chatbot/inject</code></td><td>Persiste les tâches validées en base</td></tr>
+    </table>
+  </section>
+
+  <section id="auth">
+    <h2 class="section-title">Authentification <span class="badge badge-done">Documenté</span></h2>
+    <p>Blueprint : <code>auth_bp</code> — fichier : <code>Code/routes/connexion_routes.py</code></p>
+    <p>Authentification email/mot de passe, sessions Flask côté serveur uniquement (pas de JWT).</p>
+
+    <h3>Flux de connexion</h3>
+    <ol>
+      <li><code>POST /login</code> — vérifie l'email, valide le hash avec <code>check_password_hash()</code></li>
+      <li>Si valide : stocke <code>session['user_email']</code> et <code>session['user_id']</code>, redirige vers <code>/activities/map</code></li>
+      <li>Si invalide : <code>flash()</code> d'erreur, retour au formulaire</li>
+    </ol>
+
+    <table>
+      <tr><th>Route</th><th>Méthode</th><th>Description</th></tr>
+      <tr><td><code>/login</code></td><td>GET, POST</td><td>Formulaire de connexion</td></tr>
+      <tr><td><code>/logout</code></td><td>GET</td><td>Efface user_email, user_id, active_entity_id de la session</td></tr>
+      <tr><td><code>/auth/current_user_info</code></td><td>GET</td><td>Infos utilisateur connecté en JSON (id, prénom, nom, rôles, manager)</td></tr>
+    </table>
+
+    <h3>Sécurité</h3>
+    <ul>
+      <li>Mots de passe : <code>werkzeug.security.generate_password_hash</code> (pbkdf2:sha256)</li>
+      <li>Clé session : variable d'environnement <code>SECRET_KEY</code></li>
+      <li>Reset password : blueprint <code>auth_password_bp</code> (<code>routes_password.py</code>)</li>
+    </ul>
+
+    <h3>Patterns de contrôle d'accès</h3>
+    <pre># Pattern 1 — vérification user_id
+user_id = session.get('user_id')
+if not user_id:
+    return redirect(url_for('auth.login'))
+
+# Pattern 2 — vérification email (cartography_editor)
+def _require_auth():
+    return bool(session.get("user_email"))</pre>
+    <div class="callout callout-warn">
+      Pas de décorateur <code>@login_required</code> centralisé — chaque blueprint vérifie la session indépendamment.
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <section id="temps">
+    <h2 class="section-title">Gestion du temps <span class="badge badge-done">Documenté</span></h2>
+
+    <p>Le module <strong>Gestion du temps</strong> (blueprint <code>time_bp</code>, préfixe <code>/temps</code>, fichier <code>time_view.py</code>) permet d'analyser la charge de travail sous quatre angles complémentaires. Les modèles SQLAlchemy correspondants sont définis dans <code>time_extra.py</code> (importé dans <code>models.py</code>).</p>
+
+    <h3>Les quatre modes d'analyse</h3>
+    <div class="diagram">
+      <svg width="780" height="100" viewBox="0 0 780 100" xmlns="http://www.w3.org/2000/svg" font-family="'Segoe UI',sans-serif" font-size="11">
+        <rect x="10"  y="15" width="170" height="70" rx="10" fill="#f5f3ff" stroke="#8b5cf6" stroke-width="1.8"/>
+        <text x="95"  y="44" text-anchor="middle" font-weight="700" fill="#6d28d9">Projet</text>
+        <text x="95"  y="62" text-anchor="middle" font-size="9.5" fill="#7c3aed">N activités × nb personnes</text>
+        <text x="95"  y="76" text-anchor="middle" font-size="9.5" fill="#7c3aed">Charge globale projet</text>
+        <rect x="200" y="15" width="170" height="70" rx="10" fill="#fdf2f8" stroke="#ec4899" stroke-width="1.8"/>
+        <text x="285" y="44" text-anchor="middle" font-weight="700" fill="#be185d">Activité</text>
+        <text x="285" y="62" text-anchor="middle" font-size="9.5" fill="#be185d">Durée + délai unitaires</text>
+        <text x="285" y="76" text-anchor="middle" font-size="9.5" fill="#be185d">Mode global ou par tâches</text>
+        <rect x="390" y="15" width="170" height="70" rx="10" fill="#f0fdf4" stroke="#22c55e" stroke-width="1.8"/>
+        <text x="475" y="44" text-anchor="middle" font-weight="700" fill="#15803d">Rôle</text>
+        <text x="475" y="62" text-anchor="middle" font-size="9.5" fill="#15803d">Activités × récurrence</text>
+        <text x="475" y="76" text-anchor="middle" font-size="9.5" fill="#15803d">Estimation mensuelle / annuelle</text>
+        <rect x="580" y="15" width="190" height="70" rx="10" fill="#fff7ed" stroke="#f97316" stroke-width="1.8"/>
+        <text x="675" y="44" text-anchor="middle" font-weight="700" fill="#c2410c">Faiblesse</text>
+        <text x="675" y="62" text-anchor="middle" font-size="9.5" fill="#c2410c">Impact probabiliste d'un défaut</text>
+        <text x="675" y="76" text-anchor="middle" font-size="9.5" fill="#c2410c">Coût annuel / mensuel estimé</text>
+      </svg>
+      <p class="diagram-caption">Les quatre sous-onglets de <code>/temps</code> — chaque mode a son propre ensemble de modèles et d'APIs.</p>
+    </div>
+
+    <h3>Modèles de données (<code>time_extra.py</code>)</h3>
+    <table>
+      <tr><th>Modèle</th><th>Table</th><th>Rôle</th></tr>
+      <tr><td><code>TimeProject</code></td><td><code>time_project</code></td><td>Projet nommé (lié à une entité via <code>entity_id</code>)</td></tr>
+      <tr><td><code>TimeProjectLine</code></td><td><code>time_project_line</code></td><td>Ligne d'un projet : activité, durée, délai, nb personnes</td></tr>
+      <tr><td><code>TimeAnalysis</code></td><td><code>time_analysis</code></td><td>Analyse ponctuelle d'une activité ou tâche (durée, récurrence, fréquence)</td></tr>
+      <tr><td><code>TimeRoleAnalysis</code></td><td><code>time_role_analysis</code></td><td>Analyse de charge pour un rôle donné</td></tr>
+      <tr><td><code>TimeRoleLine</code></td><td><code>time_role_line</code></td><td>Ligne d'une analyse rôle : activité × récurrence × fréquence</td></tr>
+      <tr><td><code>TimeWeakness</code></td><td><code>time_weakness</code></td><td>Faiblesse enregistrée avec ses paramètres probabilistes</td></tr>
+    </table>
+
+    <h3>Fonctions helpers clés</h3>
+    <table>
+      <tr><th>Fonction</th><th>Rôle</th></tr>
+      <tr><td><code>to_minutes(qty, unit)</code></td><td>Convertit une quantité + unité ('minutes'/'heures'/'jours') en nombre de minutes</td></tr>
+      <tr><td><code>get_company_params()</code></td><td>Lit les paramètres de l'entreprise (<code>Js</code> jours/semaine, <code>Sa</code> semaines/an, <code>Ja</code> jours/an) — fallback double table puis valeurs par défaut</td></tr>
+      <tr><td><code>get_calendar_params()</code></td><td>Lit <code>enterprise_settings</code> (heures/jour, jours/semaine, semaines/an), se rabat sur <code>get_company_params()</code></td></tr>
+      <tr><td><code>ensure_time_role_schema()</code></td><td>Auto-migration SQLite : ajoute les colonnes <code>name</code>/<code>created_at</code>/<code>duration_minutes</code> manquantes si la table existe déjà sans elles</td></tr>
+      <tr><td><code>_line_duration(line)</code></td><td>Retourne la durée d'une ligne rôle : <code>duration_minutes</code> si renseignée, sinon <code>activity.duration_minutes</code></td></tr>
+      <tr><td><code>_role_summary(R)</code></td><td>Agrège les lignes d'une analyse rôle par récurrence et calcule estimation mensuelle et annuelle</td></tr>
+    </table>
+
+    <h3>Module Projet — charge de travail multi-activités</h3>
+    <p>Un <code>TimeProject</code> agrège des lignes (<code>TimeProjectLine</code>), chacune associant une activité à une durée, un délai et un nombre de personnes. La <strong>charge</strong> d'une ligne = <code>duration_minutes × nb_people</code>. La suppression de la dernière ligne d'un projet supprime automatiquement le projet lui-même.</p>
+
+    <h3>Module Activité — saisie durée/délai</h3>
+    <p>Deux modes de saisie pour l'endpoint <code>POST /temps/api/activity_time/&lt;id&gt;</code> :</p>
+    <ul>
+      <li><strong>Mode <code>activity</code></strong> (défaut) : durée et délai saisis directement sur l'activité.</li>
+      <li><strong>Mode <code>tasks</code></strong> : durée et délai saisis tâche par tâche — la somme des durées tâches écrase <code>activity.duration_minutes</code>.</li>
+    </ul>
+    <p>La méthode <code>DELETE</code> sur le même endpoint remet toutes les durées à zéro (activité + tâches).</p>
+
+    <h3>Module Rôle — estimation par récurrence</h3>
+    <p>Chaque <code>TimeRoleLine</code> porte une activité, une récurrence (<code>journalier / hebdomadaire / mensuel / annuel</code>) et une fréquence. <code>_role_summary()</code> calcule :</p>
+    <pre>annual  = Σ(daily × freq)  × Js × Sa
+          + Σ(weekly × freq) × Sa
+          + Σ(monthly× freq) × 12
+          + Σ(yearly × freq)
+monthly = annual / 12</pre>
+    <p>où <code>Js</code> = jours/semaine et <code>Sa</code> = semaines/an issus de <code>get_calendar_params()</code>.</p>
+
+    <h3>Module Faiblesse — impact probabiliste</h3>
+    <p>Le calcul s'appuie sur un ensemble de variables alphabétiques. Les paramètres d'entrée saisis par l'utilisateur :</p>
+    <table>
+      <tr><th>Variable</th><th>Signification</th></tr>
+      <tr><td><code>B</code></td><td>Durée standard de l'activité (sans faiblesse), en minutes</td></tr>
+      <tr><td><code>C</code></td><td>Délai standard de production, en minutes</td></tr>
+      <tr><td><code>K</code></td><td>Description textuelle de la faiblesse</td></tr>
+      <tr><td><code>L</code></td><td>Surcroît de travail par occurrence (minutes)</td></tr>
+      <tr><td><code>M</code></td><td>Temps d'attente/retard par occurrence (minutes)</td></tr>
+      <tr><td><code>N</code></td><td>Dénominateur de probabilité (la faiblesse survient 1 fois sur N)</td></tr>
+    </table>
+    <p>Valeurs calculées :</p>
+    <table>
+      <tr><th>Variable</th><th>Formule</th><th>Interprétation</th></tr>
+      <tr><td><code>H</code></td><td>Occurrences de l'activité par an selon récurrence × fréquence</td><td>Nombre d'exécutions annuelles</td></tr>
+      <tr><td><code>O</code></td><td><code>1 / N</code></td><td>Probabilité d'apparition de la faiblesse</td></tr>
+      <tr><td><code>P</code></td><td><code>H × O</code></td><td>Occurrences annuelles de la faiblesse</td></tr>
+      <tr><td><code>Q</code></td><td><code>L × O</code></td><td>Surcroît de travail moyen par exécution</td></tr>
+      <tr><td><code>R</code></td><td><code>(L + M) × O</code></td><td>Retard moyen par exécution</td></tr>
+      <tr><td><code>S</code></td><td><code>B + Q</code></td><td>Durée moyenne corrigée par exécution</td></tr>
+      <tr><td><code>T</code></td><td><code>C + R</code></td><td>Délai moyen corrigé par exécution</td></tr>
+      <tr><td><code>U</code></td><td><code>L × P</code></td><td>Surcroît de travail total / an</td></tr>
+      <tr><td><code>V</code></td><td><code>(L + M) × P</code></td><td>Retard cumulé total / an</td></tr>
+      <tr><td><code>W</code></td><td><code>U / (Sa / 4.345)</code></td><td>Surcroît de travail moyen / mois</td></tr>
+      <tr><td><code>X</code></td><td><code>V / (Sa / 4.345)</code></td><td>Retard total moyen / mois</td></tr>
+      <tr><td><code>Y</code></td><td><code>C + M</code></td><td>Délai total en cas dégradé (faiblesse réalisée)</td></tr>
+      <tr><td><code>Z</code></td><td><code>M</code></td><td>Retard pur par occurrence dégradée</td></tr>
+      <tr><td><code>AA</code></td><td><code>P</code></td><td>Occurrences / an (alias affiché en KPI)</td></tr>
+    </table>
+    <div class="callout callout-tip">
+      Le paramètre <code>save</code> dans le corps de la requête contrôle si la faiblesse est persistée en base (<code>TimeWeakness</code>). Le calcul s'effectue toujours, même sans sauvegarde — ce qui permet un mode "simulation" côté UI.
+    </div>
+
+    <h3>Référence API — Gestion du temps</h3>
+    <table>
+      <tr><th>Méthode</th><th>URL</th><th>Description</th></tr>
+      <tr><td>GET</td><td><code>/temps/</code></td><td>Page tableau de bord (rendu <code>time_dashboard.html</code>)</td></tr>
+      <tr><td>GET</td><td><code>/temps/api/calendar_params</code></td><td>Paramètres calendrier de l'entreprise (heures/jour, jours/sem, sem/an)</td></tr>
+      <tr><td>GET</td><td><code>/temps/api/activities</code></td><td>Liste des activités de l'entité active (id, name, duration_minutes, delay_minutes)</td></tr>
+      <tr><td>GET</td><td><code>/temps/api/activity_defaults/&lt;id&gt;</code></td><td>Durée/délai de l'activité + liste de ses tâches avec leurs durées</td></tr>
+      <tr><td>GET/POST/DELETE</td><td><code>/temps/api/activity_time/&lt;id&gt;</code></td><td>Lire / sauvegarder / réinitialiser durée et délai d'une activité</td></tr>
+      <tr><td>POST</td><td><code>/temps/api/time_analysis</code></td><td>Crée un enregistrement <code>TimeAnalysis</code> (mode activity ou tasks)</td></tr>
+      <tr><td>GET</td><td><code>/temps/api/time_analyses</code></td><td>Liste les analyses (<code>?activity_id=</code> pour filtrer)</td></tr>
+      <tr><td>DELETE</td><td><code>/temps/api/time_analysis/&lt;id&gt;</code></td><td>Supprime une analyse</td></tr>
+      <tr><td>POST</td><td><code>/temps/api/project</code></td><td>Crée un projet avec ses lignes</td></tr>
+      <tr><td>GET</td><td><code>/temps/api/project/&lt;id&gt;</code></td><td>Détail d'un projet (lignes + totaux charge)</td></tr>
+      <tr><td>GET</td><td><code>/temps/api/projects</code></td><td>Liste tous les projets de l'entité active</td></tr>
+      <tr><td>DELETE</td><td><code>/temps/api/project/&lt;id&gt;</code></td><td>Supprime un projet</td></tr>
+      <tr><td>DELETE</td><td><code>/temps/api/project_line/&lt;id&gt;</code></td><td>Supprime une ligne (supprime le projet si plus aucune ligne)</td></tr>
+      <tr><td>POST</td><td><code>/temps/api/role_analysis</code></td><td>Crée une analyse rôle avec ses lignes</td></tr>
+      <tr><td>GET/PATCH/DELETE</td><td><code>/temps/api/role_analysis/&lt;id&gt;</code></td><td>Lire / renommer / supprimer une analyse rôle</td></tr>
+      <tr><td>GET</td><td><code>/temps/api/role_analyses</code></td><td>Liste toutes les analyses rôle avec leur résumé</td></tr>
+      <tr><td>DELETE</td><td><code>/temps/api/role_line/&lt;id&gt;</code></td><td>Supprime une ligne rôle (supprime l'analyse si plus aucune ligne)</td></tr>
+      <tr><td>POST</td><td><code>/temps/api/weakness</code></td><td>Calcule l'impact d'une faiblesse (et l'enregistre si <code>save=true</code>)</td></tr>
+    </table>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <section id="propositions-ia">
+    <h2 class="section-title">Propositions IA (compétences) <span class="badge badge-done">Documenté</span></h2>
+
+    <p>Quatre blueprints Flask permettent de générer automatiquement des propositions de compétences pour une activité via <strong>OpenAI GPT-4o-mini</strong>. Ils sont regroupés autour d'un module commun <code>propose_common.py</code> et appellés depuis la fiche activité (boutons "Proposer…").</p>
+
+    <h3>Module commun — <code>propose_common.py</code></h3>
+    <table>
+      <tr><th>Fonction</th><th>Rôle</th></tr>
+      <tr><td><code>build_activity_context(activity_json)</code></td><td>Formate un texte structuré (titre, description, entrées/sorties, outils, contraintes, tâches) à partir du JSON d'activité renvoyé par <code>/activities/&lt;id&gt;/details</code></td></tr>
+      <tr><td><code>openai_client_or_none()</code></td><td>Instancie le client OpenAI depuis <code>OPENAI_API_KEY</code>. Retourne <code>(None, "raison")</code> si la clé est absente ou invalide, permettant un fallback transparent.</td></tr>
+      <tr><td><code>dummy_from_context(ctx, kind)</code></td><td>Fallback déterministe : génère 3 items génériques à partir du titre de l'activité, sans appel IA. Évite tout plantage front en production si la clé est absente.</td></tr>
+    </table>
+    <div class="callout callout-info">
+      Toutes les routes propositions retournent <strong>HTTP 200</strong> même en cas d'erreur, avec un fallback dans le champ <code>proposals</code>. L'UI n'affiche jamais d'erreur bloquante.
+    </div>
+
+    <h3>Savoir-faire — <code>POST /propose_savoir_faires/propose</code></h3>
+    <p>Blueprint <code>bp_propose_sf</code> dans <code>propose_savoir_faires.py</code>. Demande à GPT des savoir-faire <em>opérationnels</em> formulés par verbes d'action (Utiliser, Maîtriser, Vérifier…), spécifiques au contexte de l'activité.</p>
+    <div class="card">
+      <strong>Règles du prompt :</strong> 3 à 7 items max, verbe d'action obligatoire, préciser l'objet (procédure/outil/donnée), pas de répétition textuelle des tâches. Température : 0.2.
+    </div>
+    <pre>POST /propose_savoir_faires/propose
+Body: { ...activity_json }
+→ { "proposals": ["Utiliser SAP pour...", "Vérifier la conformité..."] }</pre>
+
+    <h3>Savoirs — <code>POST /propose_savoirs/propose</code></h3>
+    <p>Blueprint <code>bp_propose_savoirs</code> dans <code>propose_savoirs.py</code>. Propose des <em>connaissances théoriques</em> (formulation nominale, sans verbe d'action) nécessaires pour tenir l'activité. Le payload peut inclure les savoir-faire déjà renseignés pour enrichir le contexte.</p>
+    <div class="card">
+      <strong>Règles du prompt :</strong> 3 à 8 items max, formulation nominale (normes, procédures, référentiels), savoirs transverses bienvenus (SST, RGPD, qualité). Température : 0.2.
+    </div>
+    <pre>POST /propose_savoirs/propose
+Body: { ...activity_json, "savoir_faires": ["item1", ...] }
+→ { "proposals": ["ISO 9001 — procédure de contrôle", "Règles RGPD..."] }</pre>
+
+    <h3>Habiletés sociocognitives (HSC) — <code>POST /propose_softskills/propose</code></h3>
+    <p>Blueprint <code>bp_propose_softskills</code> dans <code>propose_softskills.py</code>. Propose une <strong>combinatoire de 4 à 6 HSC</strong> issues exclusivement de la norme <strong>X50-766</strong> (16 habiletés), avec niveau et justification.</p>
+    <div class="card card-pink">
+      <h4>Norme X50-766 — 16 habiletés reconnues</h4>
+      <p>Auto-évaluation · Auto-régulation · Auto-organisation · Auto-mobilisation · Sensibilité sociale · Adaptation relationnelle · Coopération · Raisonnement logique · Planification · Arbitrage · Traitement de l'information · Synthèse · Conceptualisation · Flexibilité mentale · Projection · Approche globale</p>
+    </div>
+    <p>Niveaux : <code>1 (Aptitude)</code> → <code>4 (Excellence)</code>. Le prompt impose un <strong>raisonnement en 5 étapes</strong> : identification des résultats majeurs R1..Rk, sélection par essentiel, règle anti-évidence (Planification seulement si complexité réelle), attribution du niveau, test de couverture finale.</p>
+    <pre>POST /propose_softskills/propose
+Body: { "name": "...", "tasks": [...], "constraints": [...], "outgoing": [...] }
+→ {
+  "proposals": [{
+    "habilete": "Raisonnement logique",
+    "niveau": "3 (Maîtrise)",
+    "justification": "Sollicitation: 2. Nécessaire pour T1 et C2..."
+  }, ...]
+}</pre>
+
+    <h3>Aptitudes / Inclusion — <code>POST /propose_aptitudes/propose</code></h3>
+    <p>Blueprint <code>bp_propose_aptitudes</code> dans <code>propose_aptitudes.py</code>. Produit un <strong>scoring d'accessibilité</strong> de l'activité en 5 catégories, puis peut évaluer la <strong>faisabilité</strong> pour un profil fonctionnel donné (approche ICF/CIF).</p>
+
+    <h4>Endpoint 1 — Scoring inclusion</h4>
+    <table>
+      <tr><th>Catégorie</th><th>Ce qu'elle évalue</th></tr>
+      <tr><td>Vision</td><td>Exigences visuelles, accessibilité numérique, outils</td></tr>
+      <tr><td>Auditif</td><td>Communication orale, alertes sonores, réunions</td></tr>
+      <tr><td>Physique</td><td>Haut du corps / bas du corps / fatigabilité</td></tr>
+      <tr><td>Environnemental</td><td>Bruit, interruptions, exigences de communication</td></tr>
+      <tr><td>Exposition / Risque</td><td>Machines, hauteur, chimique, isolement (0 si rien d'explicite)</td></tr>
+    </table>
+    <p>Chaque catégorie retourne un niveau (<code>0 Aucune</code> à <code>3 Élevée</code>), un risque court et 1 à 2 leviers d'adaptation inclusive. Maximum 2 profils valorisables conditionnés par "si exigences métier acquises".</p>
+    <pre>POST /propose_aptitudes/propose
+Body: { ...activity_json, "competences_text": "...", "hsc_context": "..." }
+→ { "proposals": { "vision": {...}, "auditif": {...}, "physique": {...},
+    "environnemental": {...}, "exposition_risque": {...},
+    "profils_valorisables": [...] } }</pre>
+
+    <h4>Endpoint 2 — Faisabilité ICF</h4>
+    <p>Évalue si un <strong>profil fonctionnel</strong> (limitations visuelles, auditives, motrices, endurance, sensibilité env.) est compatible avec les exigences de l'activité, en tenant compte des aides déjà en place.</p>
+    <pre>POST /propose_aptitudes/feasibility
+Body: {
+  "activity_name": "...",
+  "inclusion_scoring_json": { ...résultat scoring... },
+  "profil_fonctionnel": { "vision": "réduite", "audition": "normale", ... },
+  "assistive_products": ["Logiciel de zoom", ...]
+}
+→ { "result": {
+    "statut": "OK avec adaptations",
+    "mesures_deja_en_place": [...],
+    "ajouts_recommandes": [...],
+    "a_ajuster": [...],
+    "risque_residuel": "...",
+    "commentaire": "..."
+  } }</pre>
+
+    <h3>Référence API — Propositions IA</h3>
+    <table>
+      <tr><th>Méthode</th><th>URL</th><th>Fichier</th><th>Description</th></tr>
+      <tr><td>POST</td><td><code>/propose_savoir_faires/propose</code></td><td><code>propose_savoir_faires.py</code></td><td>Génère 3–7 savoir-faire opérationnels (verbes d'action)</td></tr>
+      <tr><td>POST</td><td><code>/propose_savoirs/propose</code></td><td><code>propose_savoirs.py</code></td><td>Génère 3–8 savoirs théoriques (formulation nominale)</td></tr>
+      <tr><td>POST</td><td><code>/propose_softskills/propose</code></td><td><code>propose_softskills.py</code></td><td>Génère 4–6 HSC X50-766 avec niveau et justification</td></tr>
+      <tr><td>POST</td><td><code>/propose_aptitudes/propose</code></td><td><code>propose_aptitudes.py</code></td><td>Scoring inclusion 5 catégories + profils valorisables</td></tr>
+      <tr><td>POST</td><td><code>/propose_aptitudes/feasibility</code></td><td><code>propose_aptitudes.py</code></td><td>Faisabilité ICF pour un profil fonctionnel donné</td></tr>
+    </table>
+    <div class="callout callout-warn">
+      Tous ces endpoints nécessitent la variable d'environnement <code>OPENAI_API_KEY</code>. En son absence, <code>openai_client_or_none()</code> retourne <code>(None, "raison")</code> et chaque route renvoie un fallback déterministe via <code>dummy_from_context()</code> — aucune erreur 500 n'est propagée au client.
+    </div>
+  </section>
+
+  <section id="api">
+    <h2 class="section-title">Référence APIs — Cartographie <span class="badge badge-done">Documenté</span></h2>
+
+    <h3><code>activities_map_bp</code> — préfixe <code>/activities</code></h3>
+    <table>
+      <tr><th>Méthode</th><th>URL</th><th>Description</th></tr>
+      <tr><td>GET</td><td><code>/activities/map</code></td><td>Page principale cartographie</td></tr>
+      <tr><td>GET</td><td><code>/activities/svg</code></td><td>Sert le SVG de l'entité active (disque ou DB)</td></tr>
+      <tr><td>GET</td><td><code>/activities/api/svg/&lt;entity_id&gt;</code></td><td>SVG d'une entité sans changer la session</td></tr>
+      <tr><td>GET</td><td><code>/activities/api/entities</code></td><td>Liste les entités du user</td></tr>
+      <tr><td>POST</td><td><code>/activities/api/entities</code></td><td>Crée une entité. Body: <code>{name, description}</code></td></tr>
+      <tr><td>GET</td><td><code>/activities/api/entities/&lt;id&gt;/details</code></td><td>Détails d'une entité</td></tr>
+      <tr><td>POST</td><td><code>/activities/api/entities/&lt;id&gt;/activate</code></td><td>Active une entité</td></tr>
+      <tr><td>PATCH</td><td><code>/activities/api/entities/&lt;id&gt;</code></td><td>Modifie nom/description</td></tr>
+      <tr><td>DELETE</td><td><code>/activities/api/entities/&lt;id&gt;</code></td><td>Supprime une entité (cascade)</td></tr>
+      <tr><td>POST</td><td><code>/activities/upload-cartography</code></td><td>Upload SVG et/ou VSDX</td></tr>
+      <tr><td>POST</td><td><code>/activities/preview-connections</code></td><td>Aperçu connexions VSDX sans import</td></tr>
+      <tr><td>GET</td><td><code>/activities/list-connections</code></td><td>Liste les connexions de l'entité active</td></tr>
+      <tr><td>DELETE</td><td><code>/activities/delete-connection/&lt;id&gt;</code></td><td>Supprime une connexion</td></tr>
+      <tr><td>DELETE</td><td><code>/activities/clear-connections</code></td><td>Supprime toutes les connexions</td></tr>
+      <tr><td>POST</td><td><code>/activities/resync</code></td><td>Re-sync activités depuis SVG disque</td></tr>
+      <tr><td>GET</td><td><code>/activities/api/cross_carto_matches</code></td><td>Activités partagées entre entités du user</td></tr>
+      <tr><td>GET</td><td><code>/activities/debug/files</code></td><td>Debug état fichiers SVG/VSDX</td></tr>
+    </table>
+
+    <h3><code>cartography_editor_bp</code> — préfixe <code>/cartography</code></h3>
+    <table>
+      <tr><th>Méthode</th><th>URL</th><th>Description</th></tr>
+      <tr><td>GET</td><td><code>/cartography/editor</code></td><td>Page éditeur OptiqCarto</td></tr>
+      <tr><td>GET</td><td><code>/cartography/viewer</code></td><td>Viewer lecture seule</td></tr>
+      <tr><td>POST</td><td><code>/cartography/api/save</code></td><td>Sauvegarde diagramme JSON + sync DB</td></tr>
+      <tr><td>POST</td><td><code>/cartography/api/save-diff</code></td><td>Dry-run : activités/rôles supprimés</td></tr>
+      <tr><td>GET</td><td><code>/cartography/api/load/&lt;name&gt;</code></td><td>Charge le diagramme JSON</td></tr>
+      <tr><td>GET</td><td><code>/cartography/api/list</code></td><td>Liste les cartos disponibles</td></tr>
+      <tr><td>DELETE</td><td><code>/cartography/api/delete/&lt;name&gt;</code></td><td>Supprime la carto</td></tr>
+      <tr><td>GET</td><td><code>/cartography/api/vsdx</code></td><td>Télécharge le VSDX existant</td></tr>
+      <tr><td>POST</td><td><code>/cartography/api/vsdx-compare</code></td><td>Compare VSDX uploadé avec carto sauvegardée</td></tr>
+    </table>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <section id="activites">
+    <h2 class="section-title">Activités — Fiche &amp; Liste <span class="badge badge-done">Documenté</span></h2>
+
+    <p>Le module <strong>Activités</strong> est la pièce centrale de DevOPTIQ. Il représente chaque processus métier de l'entité active, avec ses tâches, connexions entrantes/sortantes, rôles, compétences et indicateurs. Le code est découpé en plusieurs fichiers spécialisés qui s'agrègent dans un seul blueprint.</p>
+
+    <h3>Architecture modulaire</h3>
+    <div class="diagram">
+      <svg width="780" height="260" viewBox="0 0 780 260" xmlns="http://www.w3.org/2000/svg" font-family="'Segoe UI',sans-serif" font-size="11">
+        <rect x="10" y="100" width="150" height="58" rx="8" fill="#fdf2f8" stroke="#ec4899" stroke-width="2"/>
+        <text x="85" y="124" text-anchor="middle" font-weight="700" fill="#be185d">activities.py</text>
+        <text x="85" y="142" text-anchor="middle" font-size="9.5" fill="#6b7280">Agrégateur — importe</text>
+        <text x="85" y="155" text-anchor="middle" font-size="9.5" fill="#6b7280">tous les sous-modules</text>
+        <rect x="195" y="10" width="148" height="38" rx="6" fill="#f9fafb" stroke="#e5e7eb" stroke-width="1.5"/>
+        <text x="269" y="33" text-anchor="middle" font-weight="600" fill="#374151">activities_bp.py</text>
+        <rect x="195" y="60" width="148" height="38" rx="6" fill="#f9fafb" stroke="#e5e7eb" stroke-width="1.5"/>
+        <text x="269" y="84" text-anchor="middle" font-weight="600" fill="#374151">activities_view.py</text>
+        <rect x="195" y="110" width="148" height="38" rx="6" fill="#f9fafb" stroke="#e5e7eb" stroke-width="1.5"/>
+        <text x="269" y="134" text-anchor="middle" font-weight="600" fill="#374151">activities_form.py</text>
+        <rect x="195" y="160" width="148" height="38" rx="6" fill="#f9fafb" stroke="#e5e7eb" stroke-width="1.5"/>
+        <text x="269" y="184" text-anchor="middle" font-weight="600" fill="#374151">activities_constraints.py</text>
+        <rect x="195" y="210" width="148" height="38" rx="6" fill="#f9fafb" stroke="#e5e7eb" stroke-width="1.5"/>
+        <text x="269" y="234" text-anchor="middle" font-weight="600" fill="#374151">activities_performance.py</text>
+        <rect x="380" y="10" width="148" height="38" rx="6" fill="#f9fafb" stroke="#e5e7eb" stroke-width="1.5"/>
+        <text x="454" y="33" text-anchor="middle" font-weight="600" fill="#374151">activities_data.py</text>
+        <rect x="380" y="60" width="148" height="38" rx="6" fill="#f9fafb" stroke="#e5e7eb" stroke-width="1.5"/>
+        <text x="454" y="84" text-anchor="middle" font-weight="600" fill="#374151">activities_render.py</text>
+        <rect x="380" y="110" width="148" height="38" rx="6" fill="#f9fafb" stroke="#e5e7eb" stroke-width="1.5"/>
+        <text x="454" y="134" text-anchor="middle" font-weight="600" fill="#374151">activities_cartography.py</text>
+        <rect x="380" y="160" width="148" height="38" rx="6" fill="#fdf2f8" stroke="#fbcfe8" stroke-width="1.5"/>
+        <text x="454" y="184" text-anchor="middle" font-weight="600" fill="#be185d">activities_map.py</text>
+        <rect x="565" y="10" width="200" height="38" rx="6" fill="#f0fdf4" stroke="#bbf7d0" stroke-width="1.5"/>
+        <text x="665" y="33" text-anchor="middle" font-weight="600" fill="#15803d">activity_items_api.py</text>
+        <line x1="160" y1="120" x2="195" y2="29" stroke="#ec4899" stroke-width="1.2" marker-end="url(#arrA)"/>
+        <line x1="160" y1="122" x2="195" y2="79" stroke="#ec4899" stroke-width="1.2" marker-end="url(#arrA)"/>
+        <line x1="160" y1="129" x2="195" y2="129" stroke="#ec4899" stroke-width="1.2" marker-end="url(#arrA)"/>
+        <line x1="160" y1="139" x2="195" y2="179" stroke="#ec4899" stroke-width="1.2" marker-end="url(#arrA)"/>
+        <line x1="160" y1="149" x2="195" y2="229" stroke="#ec4899" stroke-width="1.2" marker-end="url(#arrA)"/>
+        <line x1="160" y1="120" x2="380" y2="29" stroke="#ec4899" stroke-width="1.2" marker-end="url(#arrA)"/>
+        <line x1="160" y1="124" x2="380" y2="79" stroke="#ec4899" stroke-width="1.2" marker-end="url(#arrA)"/>
+        <line x1="160" y1="129" x2="380" y2="129" stroke="#ec4899" stroke-width="1.2" marker-end="url(#arrA)"/>
+        <line x1="160" y1="134" x2="380" y2="179" stroke="#ec4899" stroke-width="1.2" marker-end="url(#arrA)"/>
+        <defs><marker id="arrA" markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto"><path d="M0,0 L0,6 L7,3 z" fill="#ec4899"/></marker></defs>
+      </svg>
+      <p class="diagram-caption">Le fichier <code>activities.py</code> est un agrégateur pur : il n'expose aucune route directement, il importe les sous-modules pour les enregistrer sur le blueprint commun <code>activities_bp</code>.</p>
+    </div>
+
+    <h3>Page liste — <code>GET /activities/view</code></h3>
+    <p>Défini dans <code>activities_view.py</code>. Charge toutes les activités de l'<strong>entité active</strong> (<code>Activities.for_active_entity()</code>) et construit pour chacune un dictionnaire riche transmis au template <code>display_list.html</code>.</p>
+    <div class="card">
+      <h4>Données rassemblées par activité</h4>
+      <table>
+        <tr><th>Clé</th><th>Contenu</th><th>Source</th></tr>
+        <tr><td><code>tasks</code></td><td>Tâches triées par <code>Task.order</code></td><td>Table <code>tasks</code></td></tr>
+        <tr><td><code>incoming</code></td><td>Connexions entrantes — nom de la donnée, nom de la source, type</td><td>Table <code>links</code></td></tr>
+        <tr><td><code>outgoing</code></td><td>Connexions sortantes — nom de la cible, performance associée</td><td>Tables <code>links</code> + <code>performances</code></td></tr>
+        <tr><td><code>garant</code></td><td>Rôle avec statut <code>'Garant'</code> dans <code>activity_roles</code></td><td>Table <code>roles</code> (via jointure)</td></tr>
+        <tr><td><code>task_conn_map</code></td><td>Lien tâche ↔ connexion — quelle connexion alimente/produit quelle tâche</td><td>Table <code>task_link_assignments</code></td></tr>
+        <tr><td><code>constraints / competencies / softskills / savoirs / savoir_faires / aptitudes</code></td><td>Toutes les listes compétences liées</td><td>Tables de même nom</td></tr>
+      </table>
+    </div>
+    <div class="callout callout-info">
+      La table <code>task_link_assignments</code> est créée à la demande (<code>ensure_table()</code>) si elle n'existe pas encore, afin de tolérer les bases sans migration complète.
+    </div>
+
+    <h3>API détail activité — <code>GET /activities/&lt;id&gt;/details</code></h3>
+    <p>Défini dans <code>activities_data.py</code>. Retourne un JSON complet utilisé par :</p>
+    <ul>
+      <li>Les modales "Proposer…" (savoirs, savoir-faires, softskills, aptitudes) pour alimenter le contexte envoyé à Claude.</li>
+      <li>Le rafraîchissement AJAX des sections éditables après un CRUD.</li>
+    </ul>
+    <pre>{
+  "id": 42,
+  "name": "Contrôle qualité",
+  "title": "Contrôle qualité",
+  "description": "...",
+  "tasks": ["Vérifier le lot", ...],
+  "tools": ["SAP", "Excel"],
+  "constraints": [{"description": "..."}],
+  "competencies": [{"description": "..."}],
+  "input_data": ["Bon de livraison"],
+  "output_data": ["Rapport CQ"],
+  "outgoing": [{"performance": {"id": 1, "name": "Taux OK", "description": "..."}}],
+  "savoirs": [{"id": 3, "name": null, "description": "ISO 9001"}],
+  "savoir_faires": [...],
+  "softskills": [{"id": 7, "name": "Rigueur", "description": "Rigueur"}],
+  "aptitudes": [...]
+}</pre>
+
+    <h3>API items activité — <code>GET /your_api/activity_items/&lt;id&gt;</code></h3>
+    <p>Défini dans <code>activity_items_api.py</code> (blueprint séparé <code>activity_items_api_bp</code>). Retourne les savoirs, savoir-faires et softskills via SQL brut pour compatibilité avec des schémas historiques. Les softskills sont formatés <code>"Habilete (Niveau)"</code>.</p>
+    <pre>{ "savoirs": [...], "savoir_faire": [...], "hsc": [...] }</pre>
+
+    <h3>Performance des connexions</h3>
+    <p>Chaque lien (<code>Link</code>) peut porter un indicateur de performance (<code>Performance</code>). Les trois fonctions utilitaires de <code>activities_performance.py</code> sont exposées via <code>activities_form.py</code> :</p>
+    <table>
+      <tr><th>Méthode</th><th>URL</th><th>Description</th></tr>
+      <tr><td>POST</td><td><code>/activities/performance/add</code></td><td>Crée (ou met à jour si existant) la performance d'un lien</td></tr>
+      <tr><td>PUT</td><td><code>/activities/performance/&lt;id&gt;</code></td><td>Met à jour nom + description</td></tr>
+      <tr><td>DELETE</td><td><code>/activities/performance/&lt;id&gt;</code></td><td>Supprime la performance</td></tr>
+      <tr><td>GET</td><td><code>/activities/performance/render/&lt;link_id&gt;</code></td><td>Liste les performances d'un lien (rechargement partiel)</td></tr>
+    </table>
+
+    <h3>Autres endpoints du module</h3>
+    <table>
+      <tr><th>Méthode</th><th>URL</th><th>Module</th><th>Description</th></tr>
+      <tr><td>POST</td><td><code>/activities/constraints/add</code></td><td><code>activities_constraints.py</code></td><td>Ajoute une contrainte à une activité</td></tr>
+      <tr><td>POST</td><td><code>/activities/data/add</code></td><td><code>activities_constraints.py</code></td><td>Ajoute un objet Data (flux)</td></tr>
+      <tr><td>POST</td><td><code>/activities/&lt;id&gt;/tasks/reorder</code></td><td><code>activities_form.py</code></td><td>Drag&amp;drop — met à jour <code>Task.order</code> en masse</td></tr>
+      <tr><td>GET</td><td><code>/activities/update-cartography</code></td><td><code>activities_cartography.py</code></td><td>Re-traite le fichier VSDX de l'entité active via <code>process_visio_file()</code></td></tr>
+    </table>
+
+    <h3>Fonctions utilitaires de résolution (<code>activities_view.py</code>)</h3>
+    <ul>
+      <li><code>resolve_data_name(link, incoming)</code> — nom de la donnée portée par le lien</li>
+      <li><code>resolve_source_name(link)</code> — nom de l'activité ou de la donnée source</li>
+      <li><code>resolve_target_name(link)</code> — nom de la cible</li>
+      <li><code>resolve_data_type(link, incoming)</code> — type de la donnée (<code>Data.type</code>)</li>
+    </ul>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <section id="import-ia">
+    <h2 class="section-title">Import IA — Excel vers DB <span class="badge badge-done">Documenté</span></h2>
+
+    <p>Le module <code>import_full.py</code> (blueprint <code>import_full_bp</code>, préfixe <code>/api/import-full</code>) permet d'importer en masse les activités, tâches, outils, rôles et compétences depuis un fichier Excel fourni par le client. Le processus se déroule en deux étapes : <strong>analyse</strong> puis <strong>injection</strong>.</p>
+
+    <h3>Flux global</h3>
+    <div class="diagram">
+      <svg width="740" height="120" viewBox="0 0 740 120" xmlns="http://www.w3.org/2000/svg" font-family="'Segoe UI',sans-serif" font-size="11">
+        <rect x="10"  y="30" width="130" height="58" rx="8" fill="#f9fafb" stroke="#e5e7eb" stroke-width="1.5"/>
+        <text x="75"  y="55" text-anchor="middle" font-weight="700" fill="#374151">Fichier Excel</text>
+        <text x="75"  y="72" text-anchor="middle" font-size="10" fill="#6b7280">.xlsx / .xls / .xlsm</text>
+        <text x="75"  y="87" text-anchor="middle" font-size="10" fill="#6b7280">Upload navigateur</text>
+        <line x1="140" y1="59" x2="170" y2="59" stroke="#9ca3af" stroke-width="1.5" marker-end="url(#arrB)"/>
+        <rect x="170" y="30" width="150" height="58" rx="8" fill="#fdf2f8" stroke="#ec4899" stroke-width="1.5"/>
+        <text x="245" y="55" text-anchor="middle" font-weight="700" fill="#be185d">_parse_excel_bytes()</text>
+        <text x="245" y="72" text-anchor="middle" font-size="10" fill="#6b7280">Propagation merged cells</text>
+        <text x="245" y="87" text-anchor="middle" font-size="10" fill="#6b7280">Groupes activité + tâches</text>
+        <line x1="320" y1="59" x2="350" y2="59" stroke="#9ca3af" stroke-width="1.5" marker-end="url(#arrB)"/>
+        <rect x="350" y="30" width="170" height="58" rx="8" fill="#fdf2f8" stroke="#ec4899" stroke-width="1.5"/>
+        <text x="435" y="52" text-anchor="middle" font-weight="700" fill="#be185d">_algorithmic_match()</text>
+        <text x="435" y="68" text-anchor="middle" font-size="10" fill="#6b7280">Exact → Inclusion → Fuzzy</text>
+        <text x="435" y="84" text-anchor="middle" font-size="10" fill="#6b7280">+ enrichissement OpenAI opt.</text>
+        <line x1="520" y1="59" x2="550" y2="59" stroke="#9ca3af" stroke-width="1.5" marker-end="url(#arrB)"/>
+        <rect x="550" y="30" width="170" height="58" rx="8" fill="#f0fdf4" stroke="#22c55e" stroke-width="1.5"/>
+        <text x="635" y="52" text-anchor="middle" font-weight="700" fill="#15803d">inject_full()</text>
+        <text x="635" y="68" text-anchor="middle" font-size="10" fill="#6b7280">Validation manuelle user</text>
+        <text x="635" y="84" text-anchor="middle" font-size="10" fill="#6b7280">→ écriture en base</text>
+        <defs><marker id="arrB" markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto"><path d="M0,0 L0,6 L7,3 z" fill="#9ca3af"/></marker></defs>
+      </svg>
+      <p class="diagram-caption">Étape 1 (<code>/analyze</code>) : parsing + matching, retourne JSON. Étape 2 (<code>/inject</code>) : l'utilisateur valide les correspondances dans l'UI, puis déclenche l'écriture en base.</p>
+    </div>
+
+    <h3>Format Excel attendu</h3>
+    <p>Le parseur détecte automatiquement la feuille principale et identifie les colonnes par leurs en-têtes. Les cellules fusionnées sont propagées vers le bas pour reconstituer les groupes.</p>
+    <table>
+      <tr><th>Colonne détectée</th><th>Mots-clés reconnus</th><th>Rôle</th></tr>
+      <tr><td><code>activity</code></td><td><em>semi finish, semi-finish, activity</em></td><td>Nom de l'activité (groupement)</td></tr>
+      <tr><td><code>department</code></td><td><em>department, dept</em></td><td>Département / entité</td></tr>
+      <tr><td><code>guarantor</code></td><td><em>guarantor, garant</em></td><td>Rôle garant de l'activité</td></tr>
+      <tr><td><code>task</code></td><td><em>task, tâche</em></td><td>Tâche à créer</td></tr>
+      <tr><td><code>tool</code></td><td><em>tool, outil</em></td><td>Outil(s) séparés par virgule ou point-virgule</td></tr>
+      <tr><td><code>doer</code></td><td><em>doer, executor</em></td><td>Rôle exécutant (lié à la tâche)</td></tr>
+      <tr><td><code>approver</code></td><td><em>approver, checker</em></td><td>Rôle approbateur (lié à la tâche)</td></tr>
+      <tr><td><code>skills</code></td><td><em>skills, knowledge, competenc, savoir</em></td><td>Compétences séparées par virgule</td></tr>
+      <tr><td><code>commentary</code></td><td><em>comment, commentaire, note</em></td><td>Description de la tâche</td></tr>
+    </table>
+
+    <h3>Algorithme de matching (<code>_algorithmic_match()</code>)</h3>
+    <ol>
+      <li><strong>Correspondance exacte</strong> (casse ignorée) — score 1.0</li>
+      <li><strong>Inclusion</strong> — l'un contient l'autre — score 0.88</li>
+      <li><strong>Fuzzy</strong> via <code>difflib.SequenceMatcher</code> — score entre 0 et 1</li>
+    </ol>
+    <div class="card card-green">
+      <strong>Seuil 0.90 :</strong> activité placée dans "Mappée" (confiance haute, import direct).<br>
+      <strong>0.75–0.89 :</strong> placée dans "À résoudre" avec raison <em>"Probable"</em>.<br>
+      <strong>0.60–0.74 :</strong> placée dans "À résoudre" avec raison <em>"Incertaine"</em>.<br>
+      <strong>&lt; 0.60 :</strong> aucune correspondance fiable — 3 suggestions triées par score sont proposées.
+    </div>
+
+    <h3>Enrichissement OpenAI (optionnel)</h3>
+    <p>Si <code>OPENAI_API_KEY</code> est défini et qu'il reste des groupes non-matchés, <code>_try_openai_enrich()</code> appelle GPT (défaut <code>gpt-4o-mini</code>) pour tenter une résolution sémantique. Toute erreur (quota, réseau, JSON malformé) est ignorée silencieusement.</p>
+
+    <h3>Injection en base (<code>POST /api/import-full/inject</code>)</h3>
+    <ul>
+      <li><strong>Garant</strong> : recherché ou créé dans <code>roles</code>, lié à l'activité avec statut <code>'garant'</code>.</li>
+      <li><strong>Tâches</strong> : créées seulement si leur nom n'existe pas déjà (déduplication insensible à la casse).</li>
+      <li><strong>Outils</strong> : get-or-create dans <code>tools</code> (scope entité), liés aux tâches.</li>
+      <li><strong>Doer / Approbateur</strong> : rôles créés ou retrouvés, liés via <code>task_roles</code>.</li>
+      <li><strong>Compétences</strong> : ajoutées à l'activité si la description n'existe pas encore.</li>
+    </ul>
+
+    <h3>Référence API — Import IA</h3>
+    <table>
+      <tr><th>Méthode</th><th>URL</th><th>Description</th></tr>
+      <tr><td>POST</td><td><code>/api/import-full/analyze</code></td><td>Analyse le fichier Excel (<code>multipart/form-data</code>, champ <code>file</code>). Retourne <code>{analysis, stats, db_activities}</code>.</td></tr>
+      <tr><td>POST</td><td><code>/api/import-full/inject</code></td><td>Injecte les groupes validés (<code>application/json</code>, champ <code>groups</code>). Retourne <code>{status, stats}</code>.</td></tr>
+    </table>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <section id="deploiement">
+    <h2 class="section-title">Déploiement <span class="badge badge-done">Documenté</span></h2>
+    <p>Application déployée sur <strong>Google Cloud Run</strong> via image Docker. Serveur WSGI : <code>gunicorn</code>.</p>
+
+    <h3>Variables d'environnement (Cloud Run)</h3>
+    <table>
+      <tr><th>Variable</th><th>Rôle</th></tr>
+      <tr><td><code>DATABASE_URL</code></td><td>URL PostgreSQL prod. Absent = SQLite local.</td></tr>
+      <tr><td><code>SECRET_KEY</code></td><td>Clé secrète Flask pour les sessions</td></tr>
+      <tr><td><code>ANTHROPIC_KEY</code></td><td>Clé API Claude (chatbot, import IA)</td></tr>
+      <tr><td><code>MAIL_SERVER / MAIL_PORT / MAIL_USERNAME / MAIL_PASSWORD</code></td><td>Config SMTP Gmail</td></tr>
+      <tr><td><code>PORT</code></td><td>Port d'écoute (8080, injecté par Cloud Run)</td></tr>
+    </table>
+
+    <h3>Stratégie migrations DB</h3>
+    <div class="callout callout-warn">
+      <code>flask db upgrade</code> n'est PAS exécuté au démarrage (risque de verrou PostgreSQL 10min+). À la place : <code>db.create_all()</code> + <code>_safe_add_column()</code> qui ignore l'erreur si la colonne existe.
+    </div>
+
+    <h3>Branches</h3>
+    <ul>
+      <li><code>staging</code> — développement principal</li>
+      <li><code>main</code> — production stable (merger uniquement les versions validées)</li>
+    </ul>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <section id="gestion-compte">
+    <h2 class="section-title">Gestion des comptes <span class="badge badge-done">Documenté</span></h2>
+    <p>Blueprint <code>gestion_compte_bp</code> — préfixe <code>/comptes</code>. Gère le CRUD des utilisateurs, l'assignation des managers et l'import en masse via JSON (Excel parsé côté client).</p>
+
+    <div class="callout callout-info">
+      Tous les utilisateurs et rôles sont filtrés par <strong>entité active</strong> (<code>Entity.get_active_id()</code>). Un utilisateur créé ou importé est automatiquement associé à cette entité.
+    </div>
+
+    <h3>Fonctionnements clés</h3>
+    <ul>
+      <li><strong>Mise à jour mot de passe</strong> : <code>flag_modified(user, 'password')</code> force SQLAlchemy à inclure le champ dans l'UPDATE même si la valeur hashée semble inchangée à l'ORM.</li>
+      <li><strong>Hiérarchie manager</strong> : le champ <code>User.manager_id</code> crée l'arbre de subordination. L'assignation supporte le mode multi (<code>user_ids[]</code>) ou unitaire.</li>
+      <li><strong>Import Excel</strong> : le client envoie un tableau JSON <code>[{prenom, nom, email, age, mot_de_passe, role, statut}]</code> (parsé côté JS depuis un XLSX). Le serveur déduplique par email, résout le rôle par nom dans l'entité active, crée les utilisateurs avec <code>flush()</code> pour obtenir l'ID avant le commit global.</li>
+    </ul>
+
+    <h3>Référence API — Gestion des comptes</h3>
+    <table>
+      <tr><th>Méthode</th><th>URL</th><th>Description</th></tr>
+      <tr><td>GET</td><td><code>/comptes/</code></td><td>Liste utilisateurs + rôles + managers de l'entité active → <code>gestion_compte_new.html</code></td></tr>
+      <tr><td>POST</td><td><code>/comptes/create</code></td><td>Crée un utilisateur (form : <code>first_name, last_name, email, password, role_id, status, age</code>).</td></tr>
+      <tr><td>POST</td><td><code>/comptes/delete/&lt;id&gt;</code></td><td>Supprime l'utilisateur et ses <code>UserRole</code>. Rollback automatique en cas d'erreur.</td></tr>
+      <tr><td>GET/POST</td><td><code>/comptes/update/&lt;id&gt;</code></td><td>GET → formulaire. POST → mise à jour champs + rôle + mdp optionnel.</td></tr>
+      <tr><td>GET</td><td><code>/comptes/managers</code></td><td>JSON des managers avec leurs subordonnés (<code>User.subordinates.any()</code>).</td></tr>
+      <tr><td>POST</td><td><code>/comptes/assign_manager</code></td><td>Assigne un manager (mode unitaire ou lot via <code>multi_select=1</code>).</td></tr>
+      <tr><td>POST</td><td><code>/comptes/remove_collaborator/&lt;id&gt;</code></td><td>Retire l'utilisateur de son manager (<code>manager_id = None</code>).</td></tr>
+      <tr><td>GET</td><td><code>/comptes/users</code></td><td>Liste JSON <code>[{id, name}]</code> de tous les utilisateurs de l'entité.</td></tr>
+      <tr><td>GET</td><td><code>/comptes/manager/&lt;id&gt;/subordinates</code></td><td>Subordonnés d'un manager donné.</td></tr>
+      <tr><td>POST</td><td><code>/comptes/import_excel</code></td><td>Import en masse. Body JSON : <code>{users: [{prenom, nom, email, age, mot_de_passe, role, statut}]}</code>. Retourne <code>{success, imported, errors, message}</code>.</td></tr>
+    </table>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <section id="onboarding">
+    <h2 class="section-title">Onboarding IA <span class="badge badge-done">Documenté</span></h2>
+    <p>Blueprint <code>onboarding_bp</code> — préfixe <code>/roles</code>. Génère un plan d'onboarding structuré en 4 modules, exclusivement axé sur les HSC (habiletés sociocognitives) du rôle, via GPT-4. Le plan est stocké dans <code>role.onboarding_plan</code> (colonne TEXT).</p>
+
+    <h3>Structure du plan d'onboarding (4 modules)</h3>
+    <ol>
+      <li><strong>Module Formation/Entraînement</strong> — formations courtes (0,5–2j, total ≤ 3j), avec objectifs, méthode et critères d'évaluation mesurables immédiatement et dans les semaines suivantes.</li>
+      <li><strong>REX (Retour d'Expérience)</strong> — session d'analyse des situations vécues pour renforcer les HSC ciblées.</li>
+      <li><strong>Coaching d'Équipe</strong> — stratégies de coopération, auto-organisation et adaptation en lien avec les HSC.</li>
+      <li><strong>Parcours d'Apprentissage Autonome</strong> — micro-formations en ligne, exercices pratiques, quiz spécifiques aux HSC listées.</li>
+    </ol>
+
+    <div class="callout callout-warn">
+      Nécessite <code>OPENAI_API_KEY</code>. Utilise <strong>GPT-4</strong> (non <code>gpt-4o-mini</code>). La liste des HSC est transmise par le client depuis la DB — le serveur ne la recalcule pas.
+    </div>
+
+    <h3>Référence API — Onboarding</h3>
+    <table>
+      <tr><th>Méthode</th><th>URL</th><th>Description</th></tr>
+      <tr><td>POST</td><td><code>/roles/&lt;role_id&gt;/onboarding/generate</code></td><td>Génère et sauvegarde le plan. Body JSON : <code>{hsc_list: ["HSC1", ...]}</code>. Retourne <code>{message, onboarding_plan}</code>.</td></tr>
+      <tr><td>GET</td><td><code>/roles/&lt;role_id&gt;/onboarding</code></td><td>Retourne le plan existant. 404 si non encore généré.</td></tr>
+    </table>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <section id="export">
+    <h2 class="section-title">Export <span class="badge badge-done">Documenté</span></h2>
+    <p>Blueprint <code>export_bp</code> — sans préfixe. Exporte les données d'une entité en <strong>Excel</strong> (.xlsx, 6 feuilles) ou <strong>HTML</strong> (fichier standalone autonome imprimable). Gère aussi le stockage de fichiers persistant en base de données.</p>
+
+    <h3>Stockage de fichiers — <code>FileBlob</code></h3>
+    <div class="callout callout-tip">
+      Sur Cloud Run, le filesystem est éphémère. Les fichiers uploadés sont stockés via le modèle <code>FileBlob</code> (colonne <code>LargeBinary</code>). L'URL renvoyée est toujours <code>/utils/file/&lt;id&gt;</code> — jamais un chemin local.
+    </div>
+
+    <h3>Export Excel — 6 feuilles (thème violet OPTIQ)</h3>
+    <table>
+      <tr><th>Feuille</th><th>Contenu</th></tr>
+      <tr><td>Résumé</td><td>Entité, date, rôle/mission, statistiques (nb activités, savoirs, SF, HSC, compétences)</td></tr>
+      <tr><td>Activités</td><td># + nom de l'activité</td></tr>
+      <tr><td>Savoirs</td><td>Activité → Savoir</td></tr>
+      <tr><td>Savoir-faires</td><td>Activité → Savoir-faire</td></tr>
+      <tr><td>HSC - Aptitudes</td><td>Activité → Aptitude/HSC</td></tr>
+      <tr><td>Compétences</td><td>Activité → Compétence</td></tr>
+    </table>
+
+    <h3>Collecte des données — <code>_collect_entity_data()</code></h3>
+    <ul>
+      <li><strong>Avec <code>role_id</code></strong> : activités où <code>activity_roles.status = 'Garant'</code> pour ce rôle uniquement.</li>
+      <li><strong>Sans <code>role_id</code></strong> : toutes les activités de l'entité.</li>
+      <li>Agrège ensuite savoirs, savoir-faires, aptitudes, compétences de toutes les activités sélectionnées.</li>
+    </ul>
+
+    <h3>Référence API — Export</h3>
+    <table>
+      <tr><th>Méthode</th><th>URL</th><th>Paramètres / Body</th><th>Description</th></tr>
+      <tr><td>GET</td><td><code>/export/entity</code></td><td><code>entity_id</code> (requis), <code>role_id</code>, <code>format=excel|html</code></td><td>Télécharge le fichier export.</td></tr>
+      <tr><td>POST</td><td><code>/utils/upload-file</code></td><td><code>multipart/form-data</code>, champ <code>file</code></td><td>Stocke un fichier en DB. Retourne <code>{path, original_name}</code>.</td></tr>
+      <tr><td>GET</td><td><code>/utils/file/&lt;id&gt;</code></td><td>—</td><td>Sert un fichier depuis <code>FileBlob</code>.</td></tr>
+      <tr><td>GET</td><td><code>/utils/serve-file?path=</code></td><td><code>path=</code></td><td>Dispatcher universel (DB si <code>/utils/file/…</code>, sinon filesystem local dev).</td></tr>
+    </table>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <section id="changelog">
+    <h2 class="section-title">Changelog &amp; Activité récente <span class="badge badge-done">Documenté</span></h2>
+    <p>Blueprint <code>changelog_bp</code> — sans préfixe. Fournit deux flux : les <strong>notes de version</strong> (orientées utilisateur) et le <strong>journal d'activité</strong> (événements enregistrés en base).</p>
+
+    <h3>Logique du changelog — 3 niveaux de priorité</h3>
+    <div class="card">
+      <ol>
+        <li><strong>Fichier curé</strong> <code>static/changelog_user.json</code> — priorité absolue. Tableau JSON <code>[{icon, title, desc}]</code> rédigé manuellement. Permet aux admins de maîtriser les notes de version.</li>
+        <li><strong>Cache mémoire</strong> <code>_changelog_cache</code> — indexé par hash du commit HEAD, TTL 1h. Évite des appels OpenAI répétés à chaque requête.</li>
+        <li><strong>Génération OpenAI</strong> — <code>gpt-4o-mini</code> transforme les 30 derniers commits git (sans merges) en 3–5 annonces positives en français, format JSON strict.</li>
+      </ol>
+      <p style="margin-top:8px;"><strong>Fallback</strong> : si OpenAI est indisponible ou sans clé, 3 items génériques sont retournés.</p>
+    </div>
+
+    <h3>Journal d'activité récente — <code>RecentEvent</code></h3>
+    <p>Lit les 20 derniers <code>RecentEvent</code> (peuplé par les event listeners SQLAlchemy sur les modèles). Enrichissement de chaque event :</p>
+    <table>
+      <tr><th>Champ ajouté</th><th>Valeur</th></tr>
+      <tr><td><code>event_label</code></td><td>"Ajout", "Modification", "Suppression", "Association"</td></tr>
+      <tr><td><code>color</code></td><td><code>green</code> (created), <code>orange</code> (updated), <code>red</code> (deleted), <code>blue</code> (linked)</td></tr>
+      <tr><td><code>time</code></td><td>Relatif : "à l'instant", "il y a 3 min", "il y a 2h", "il y a 5j"</td></tr>
+      <tr><td><code>date</code></td><td>Formaté FR : "15 mai à 14:30"</td></tr>
+      <tr><td><code>user</code></td><td>Prénom + Nom (depuis cache <code>user_cache</code> construit en une passe)</td></tr>
+    </table>
+
+    <h3>Référence API — Changelog</h3>
+    <table>
+      <tr><th>Méthode</th><th>URL</th><th>Description</th></tr>
+      <tr><td>GET</td><td><code>/api/changelog</code></td><td>Notes de version. Retourne <code>{ok, items: [{icon, title, desc}]}</code>.</td></tr>
+      <tr><td>GET</td><td><code>/api/recent-activity</code></td><td>20 derniers événements. Retourne <code>{ok, items, empty}</code>.</td></tr>
+    </table>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <section id="roles-view">
+    <h2 class="section-title">Vue des rôles <span class="badge badge-done">Documenté</span></h2>
+    <p>Blueprint <code>roles_view_bp</code> — préfixe <code>/roles_view</code>. Affiche une vue complète de chaque rôle de l'entité active avec 5 blocs de données agrégés, et permet de modifier la mission générale du rôle.</p>
+
+    <h3>Données construites par rôle (5 blocs)</h3>
+    <table>
+      <tr><th>Bloc</th><th>Contenu</th><th>Source SQL</th></tr>
+      <tr><td>Block 1</td><td>Activités dont ce rôle est <strong>Garant</strong></td><td><code>activity_roles.status = 'Garant'</code></td></tr>
+      <tr><td>Block 2</td><td>Tâches où le rôle intervient (non-Garant) + statut</td><td><code>task_roles</code> JOIN <code>tasks</code> JOIN <code>activities</code></td></tr>
+      <tr><td>Block 3</td><td>Compétences (<code>Competency</code>) des activités Garant</td><td><code>competencies</code> filtrées par activités Garant</td></tr>
+      <tr><td>Block 4</td><td>Savoirs, SF, Aptitudes, Softskills des activités Garant</td><td>4 requêtes <code>IN (activity_ids)</code>, dédupliquées par ID</td></tr>
+      <tr><td>Block 5 (holders)</td><td>Titulaires du rôle (utilisateurs affectés)</td><td><code>user_roles</code> JOIN <code>users</code></td></tr>
+    </table>
+
+    <h3>Points techniques</h3>
+    <ul>
+      <li><strong><code>_get_role_mission()</code></strong> : SQL brut car <code>mission_generale</code> est une colonne ajoutée dynamiquement via <code>_safe_add_column()</code> et peut être absente du modèle SQLAlchemy si le code a été mis à jour sans redémarrage.</li>
+      <li><strong><code>_get_validation_level()</code></strong> : introspection via <code>PRAGMA table_info()</code> pour détecter la table et ses colonnes réelles — défense contre des schémas variables selon les migrations passées.</li>
+      <li><strong><code>bindparam(..., expanding=True)</code></strong> : permet les requêtes <code>WHERE id IN (:act_ids)</code> avec une liste dynamique d'IDs.</li>
+      <li><strong>UPDATE mission direct</strong> : <code>UPDATE roles SET mission_generale = … WHERE id = …</code> évite toute dépendance au modèle pour les colonnes ajoutées après la création du modèle.</li>
+    </ul>
+
+    <h3>Référence API — Vue des rôles</h3>
+    <table>
+      <tr><th>Méthode</th><th>URL</th><th>Description</th></tr>
+      <tr><td>GET</td><td><code>/roles_view/</code></td><td>Page HTML avec tous les rôles de l'entité active et leurs 5 blocs de données.</td></tr>
+      <tr><td>PUT</td><td><code>/roles_view/&lt;role_id&gt;/mission</code></td><td>Met à jour <code>mission_generale</code>. Body : <code>{mission_generale: "..."}</code>. Retourne <code>{ok, role_id, mission_generale}</code>.</td></tr>
+      <tr><td>GET</td><td><code>/roles_view/validation_level/&lt;user_id&gt;/&lt;role_id&gt;</code></td><td>Niveau de validation pour un couple utilisateur/rôle. Retourne <code>{level: null|valeur}</code>.</td></tr>
+    </table>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <section id="crud-connaissances">
+    <h2 class="section-title">CRUD Connaissances <span class="badge badge-done">Documenté</span></h2>
+    <p>5 blueprints symétriques gérant les types de connaissances attachés aux activités. Chacun suit le pattern <strong>add / update / delete / render</strong>.</p>
+
+    <h3>Blueprints et modèles</h3>
+    <table>
+      <tr><th>Blueprint</th><th>Préfixe</th><th>Modèle</th><th>Champs clés</th></tr>
+      <tr><td><code>savoirs_bp</code></td><td><code>/savoirs</code></td><td><code>Savoir</code></td><td><code>description</code>, <code>activity_id</code></td></tr>
+      <tr><td><code>savoir_faires_bp</code></td><td><code>/savoir_faires</code></td><td><code>SavoirFaire</code></td><td><code>description</code>, <code>activity_id</code></td></tr>
+      <tr><td><code>aptitudes_bp</code></td><td><code>/aptitudes</code></td><td><code>Aptitude</code></td><td><code>description</code>, <code>activity_id</code></td></tr>
+      <tr><td><code>softskills_crud_bp</code></td><td><code>/softskills</code></td><td><code>Softskill</code></td><td><code>habilete</code>, <code>niveau</code>, <code>justification</code>, <code>activity_id</code></td></tr>
+      <tr><td><code>skills_bp</code></td><td><code>/skills</code></td><td><code>Competency</code></td><td><code>description</code>, <code>activity_id</code></td></tr>
+    </table>
+
+    <h3>Pattern commun des URLs</h3>
+    <table>
+      <tr><th>Méthode</th><th>URL</th><th>Description</th></tr>
+      <tr><td>POST</td><td><code>/&lt;prefix&gt;/add</code></td><td>Crée un élément. Body JSON <code>{activity_id, description}</code>. Retourne <code>{id, description}</code> HTTP 201.</td></tr>
+      <tr><td>PUT</td><td><code>/&lt;prefix&gt;/&lt;activity_id&gt;/&lt;item_id&gt;</code></td><td>Met à jour la description. Vérifie que <code>activity_id</code> correspond (évite modifications croisées).</td></tr>
+      <tr><td>DELETE</td><td><code>/&lt;prefix&gt;/&lt;activity_id&gt;/&lt;item_id&gt;</code></td><td>Supprime l'élément. Même vérification de cohérence sur <code>activity_id</code>.</td></tr>
+      <tr><td>GET</td><td><code>/&lt;prefix&gt;/&lt;activity_id&gt;/render</code></td><td>Fragment HTML Jinja2 pour rafraîchissement dynamique de la liste sans rechargement de page.</td></tr>
+    </table>
+
+    <h3>Comportements spéciaux</h3>
+    <ul>
+      <li><strong>SavoirFaire — ajout en lot</strong> : <code>POST /savoir_faires/add</code> accepte <code>{"savoir_faires": ["SF1", "SF2"]}</code> en plus du mode unitaire. Utilisé par la modale de propositions IA (inject all at once).</li>
+      <li><strong>Softskill — UPSERT</strong> : <code>POST /softskills/add</code> cherche d'abord une HSC existante avec le même nom (insensible à la casse, même activité). Si trouvée, met à jour ; sinon crée. Évite les doublons lors des rechargements de propositions.</li>
+      <li><strong>Skills — Propositions IA</strong> : <code>POST /skills/propose</code> génère exactement 3 compétences via GPT-4o-mini selon la norme NF X50-124, à partir du contexte de l'activité (tâches, outils, connexions sortantes, entrées/sorties). Fallback regex (split sur ". ") si la réponse arrive sur une seule ligne.</li>
+      <li><strong>Skills — update sans activity_id</strong> : contrairement aux autres blueprints, <code>PUT /skills/&lt;competency_id&gt;</code> ne vérifie pas l'<code>activity_id</code> dans l'URL (la compétence est identifiée uniquement par son ID).</li>
+    </ul>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <section id="projection-metier">
+    <h2 class="section-title">Projection métier (ROME) <span class="badge badge-done">Documenté</span></h2>
+    <p>Blueprint <code>projection_metier_bp</code> — préfixe <code>/projection_metier</code>. Analyse le profil de compétences d'un utilisateur et le met en regard des fiches métiers de l'<strong>API ROME 4.0 de France Travail</strong> pour identifier les métiers maîtrisables (100% couverts) et envisageables (partiellement couverts).</p>
+
+    <h3>Authentification OAuth2 — France Travail</h3>
+    <div class="card">
+      <p>Token <code>client_credentials</code> mis en cache mémoire (TTL = <code>expires_in − 30s</code>). Deux tentatives en cascade :</p>
+      <ol>
+        <li><strong>Basic Auth</strong> : credentials encodés Base64 dans <code>Authorization: Basic …</code> + scope dans le body.</li>
+        <li><strong>Body mode</strong> : credentials + scope directement en POST body (fallback si l'endpoint n'accepte pas Basic).</li>
+      </ol>
+    </div>
+
+    <table>
+      <tr><th>Variable d'env.</th><th>Défaut</th><th>Description</th></tr>
+      <tr><td><code>ROME_CLIENT_ID</code></td><td>—</td><td>Client ID de l'app France Travail Partenaires</td></tr>
+      <tr><td><code>ROME_CLIENT_SECRET</code></td><td>—</td><td>Client Secret</td></tr>
+      <tr><td><code>ROME_SCOPE</code></td><td><code>api_rome-fiches-metiersv1</code></td><td>Scope OAuth2 — critique, doit correspondre exactement</td></tr>
+      <tr><td><code>ROME_BASE_URL</code></td><td>URL API France Travail</td><td>Ne pas terminer par un point "." (nettoyage auto)</td></tr>
+      <tr><td><code>ROME_TIMEOUT</code></td><td><code>10</code>s</td><td>Timeout des appels HTTP</td></tr>
+    </table>
+
+    <h3>Algorithme de matching</h3>
+    <div class="diagram">
+<pre style="text-align:left; background:transparent; color:#1e293b; padding:0; font-size:0.79rem; line-height:1.6;">
+Utilisateur
+ └─ Rôles → Activités Garant
+      ├─ Competency.description
+      ├─ Savoir.description
+      ├─ SavoirFaire.description
+      ├─ Softskill.habilete
+      └─ Aptitude.description
+                │
+                ▼ Pour chaque compétence : mots-clés &gt;3 chars (max 3)
+      GET /v1/fiches-rome/metier/recherche?libelle=…
+                │
+                ▼ Pool de codes ROME uniques (déduplication)
+      GET /v1/fiches-rome/fiche-metier?code=…
+                │
+                ▼ groupesCompetencesMobilisees[].competences[].libelle
+      Pour chaque compétence ROME :
+        → early exit si aucun token commun
+        → ratio SequenceMatcher ≥ 0.82
+           OU Jaccard (tokens) ≥ 0.60
+        → "couverte" | "manquante"
+                │
+                ▼ score = owned / total × 100
+      fully_matching (score=100%) | partially_matching (&gt;0%)
+      Tri décroissant + pagination</pre>
+      <div class="diagram-caption">Flux de la projection métier — de l'utilisateur aux métriques ROME</div>
+    </div>
+
+    <h3>Normalisation de texte</h3>
+    <ul>
+      <li><strong><code>_normalize()</code></strong> : minuscules → décomposition NFKD (strip accents) → remplacer <code>'/`"_/-</code> par espaces → supprimer non-alphanum → squeezer espaces.</li>
+      <li><strong><code>_tokenize()</code></strong> : normalise + filtre ~40 stopwords FR ("de", "du", "les", "pour"…).</li>
+      <li><strong><code>_jaccard_similarity(A,B)</code></strong> : <code>|A∩B| / |A∪B|</code> sur les sets de tokens.</li>
+    </ul>
+
+    <h3>Référence API — Projection métier</h3>
+    <table>
+      <tr><th>Méthode</th><th>URL</th><th>Description</th></tr>
+      <tr><td>GET</td><td><code>/projection_metier/</code></td><td>Page HTML avec liste des utilisateurs de l'entité active.</td></tr>
+      <tr><td>GET</td><td><code>/projection_metier/analyze/&lt;uid&gt;</code></td><td>Analyse un utilisateur. Params : <code>full_offset</code>, <code>full_limit</code> (déf. 30), <code>partial_offset</code>, <code>partial_limit</code>. Retourne <code>{full, partial, page, info}</code>.</td></tr>
+    </table>
+
+    <h3>Structure de réponse</h3>
+    <pre>{
+  "full": [{                          // Métiers 100% maîtrisés
+    "code": "M1805",
+    "label": "Études et développement informatique",
+    "score": 100.0,
+    "owned": ["Algorithmie", ...],
+    "missing": [],
+    "owned_count": 12, "missing_count": 0, "total": 12
+  }],
+  "partial": [...],                   // Métiers partiellement couverts
+  "page": {
+    "full":    {"offset":0, "limit":30, "total":3,  "has_more":false},
+    "partial": {"offset":0, "limit":30, "total":47, "has_more":true}
+  },
+  "info": {"user": 42}
+}</pre>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <section id="competences-plan">
+    <h2 class="section-title">Plan de compétences IA <span class="badge badge-done">Documenté</span></h2>
+    <p>Deux blueprints complémentaires partagent le préfixe <code>/competences_plan</code> : <strong><code>competences_plan.py</code></strong> (génération IA) et <strong><code>plan_storage.py</code></strong> (persistance). Ensemble, ils permettent de générer un plan de formation personnalisé depuis Claude/GPT et de le stocker côté serveur.</p>
+
+    <h3>Génération du plan (<code>competences_plan.py</code>)</h3>
+    <div class="card">
+      <p>L'endpoint <code>POST /competences_plan/generate_plan</code> interroge <strong>GPT-4o-mini</strong> avec le contexte complet : rôle, activité, évaluations par item. Il retourne un objet JSON structuré dont le <code>plan_type</code> est l'un des trois cas :</p>
+      <ul>
+        <li><strong>PLAN_DE_FORMATION</strong> — formation requise (lacunes importantes)</li>
+        <li><strong>PLAN_D_ACCOMPAGNEMENT_COMPETENCE</strong> — montée en compétence progressive</li>
+        <li><strong>FEEDBACK_DE_MAINTIEN</strong> — maintien du niveau acquis</li>
+      </ul>
+      <p>Fallback systématique si la clé OpenAI est absente ou si le parsing JSON échoue — retourne un plan générique sans erreur 500.</p>
+    </div>
+
+    <h3>Tables utilisées</h3>
+    <table>
+      <tr><th>Table</th><th>Colonnes clés</th><th>Usage</th></tr>
+      <tr><td><code>training_plan</code></td><td><code>user_id, role_id, activity_id, plan_type, plan_json, created_at</code></td><td>Stockage du plan généré (persistance)</td></tr>
+      <tr><td><code>prerequis_comment</code></td><td><code>user_id, activity_id, item_type, item_id, comment, updated_at</code></td><td>Commentaires prérequis par item (UPSERT delete+insert)</td></tr>
+      <tr><td><code>user_activity_plans</code></td><td><code>user_id, activity_id, role_id, content (JSON), created_at, updated_at</code></td><td>Plan complet sérialisé en JSON (via <code>plan_storage.py</code>)</td></tr>
+    </table>
+
+    <h3>Persistance et gestion des conflits (<code>plan_storage.py</code>)</h3>
+    <ul>
+      <li><code>POST /competences_plan/save_plan</code> — si un plan existe déjà et que <code>force=false</code>, retourne <strong>409 Conflict</strong>. Avec <code>force=true</code>, écrase l'existant.</li>
+      <li><code>GET /competences_plan/get_plan/&lt;user_id&gt;/&lt;activity_id&gt;</code> — retourne <code>{role_id, content, created_at, updated_at}</code> ou <code>null</code>.</li>
+    </ul>
+
+    <h3>Référence API — Plan de compétences</h3>
+    <table>
+      <tr><th>Méthode</th><th>URL</th><th>Description</th></tr>
+      <tr><td>POST</td><td><code>/competences_plan/save_prerequis</code></td><td>Sauvegarde les commentaires prérequis pour un couple user/activité. Body : <code>{user_id, activity_id, comments: [{item_type, item_id, comment}]}</code>.</td></tr>
+      <tr><td>GET</td><td><code>/competences_plan/get_prerequis/&lt;user_id&gt;/&lt;activity_id&gt;</code></td><td>Récupère les commentaires prérequis. Retourne <code>{comments: [...]}</code>.</td></tr>
+      <tr><td>POST</td><td><code>/competences_plan/generate_plan</code></td><td>Génère un plan de formation via GPT-4o-mini. Body : <code>{user_id, role_id, activity_id, evaluations}</code>. Retourne <code>{plan_type, plan_json}</code>.</td></tr>
+      <tr><td>POST</td><td><code>/competences_plan/save_plan</code></td><td>Persiste un plan. Body : <code>{user_id, activity_id, role_id, content, force}</code>. Retourne 409 si conflit sans <code>force=true</code>.</td></tr>
+      <tr><td>GET</td><td><code>/competences_plan/get_plan/&lt;user_id&gt;/&lt;activity_id&gt;</code></td><td>Récupère le plan stocké. Retourne <code>{role_id, content, created_at, updated_at}</code> ou <code>{plan: null}</code>.</td></tr>
+    </table>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <section id="performance-perso">
+    <h2 class="section-title">Performance personnalisée <span class="badge badge-done">Documenté</span></h2>
+    <p>Blueprint <code>performance_perso</code> — préfixe <code>/performance_perso</code> (<code>performance_personnalisee.py</code>). Gère des indicateurs de performance personnalisés attachés à un utilisateur et une activité, avec un système complet de <strong>soft delete</strong> et <strong>audit trail</strong>.</p>
+
+    <h3>Modèle de données</h3>
+    <table>
+      <tr><th>Champ</th><th>Type</th><th>Description</th></tr>
+      <tr><td><code>id</code></td><td>INT PK</td><td>Identifiant</td></tr>
+      <tr><td><code>user_id</code></td><td>INT</td><td>Utilisateur concerné</td></tr>
+      <tr><td><code>activity_id</code></td><td>INT</td><td>Activité associée</td></tr>
+      <tr><td><code>content</code></td><td>TEXT</td><td>Contenu de l'indicateur</td></tr>
+      <tr><td><code>validation_status</code></td><td>TEXT</td><td><code>validee</code> | <code>non-validee</code> | <code>en-cours</code></td></tr>
+      <tr><td><code>validation_date</code></td><td>DATE</td><td>Auto-remplie si statut change sans date fournie</td></tr>
+      <tr><td><code>deleted</code></td><td>BOOL</td><td>Soft delete — filtrés dans les listings</td></tr>
+    </table>
+
+    <h3>Points techniques</h3>
+    <ul>
+      <li><strong>Normalisation du statut</strong> : "validée", "true", "1", "oui" → <code>validee</code> ; "non-validée", "false", "0" → <code>non-validee</code>. Garantit la cohérence quelle que soit la source front.</li>
+      <li><strong>Audit trail</strong> : chaque création, modification ou suppression insère un snapshot dans <code>performance_personnalisee_historique</code> avec le type d'événement (<code>create</code>, <code>update</code>, <code>delete</code>). La détection de changement évite les doublons inutiles.</li>
+      <li><strong>Rétrocompatibilité historique</strong> : la table historique contient à la fois <code>content</code> et <code>contenu</code> pour absorber d'anciennes versions du schéma.</li>
+    </ul>
+
+    <h3>Référence API — Performance personnalisée</h3>
+    <table>
+      <tr><th>Méthode</th><th>URL</th><th>Description</th></tr>
+      <tr><td>GET</td><td><code>/performance_perso/list</code></td><td>Liste les performances actives. Params : <code>user_id</code>, <code>activity_id</code>.</td></tr>
+      <tr><td>POST</td><td><code>/performance_perso/create</code></td><td>Crée un indicateur. Body : <code>{user_id, activity_id, content, validation_status, validation_date}</code>.</td></tr>
+      <tr><td>PUT</td><td><code>/performance_perso/update/&lt;perf_id&gt;</code></td><td>Met à jour contenu, statut ou date.</td></tr>
+      <tr><td>DELETE</td><td><code>/performance_perso/delete/&lt;perf_id&gt;</code></td><td>Soft delete (<code>deleted=True</code>). Journalise dans l'historique.</td></tr>
+      <tr><td>GET</td><td><code>/performance_perso/history</code></td><td>Audit trail pour un couple <code>user_id</code>/<code>activity_id</code>.</td></tr>
+      <tr><td>GET</td><td><code>/performance_perso/history/&lt;perf_id&gt;</code></td><td>Audit trail pour un indicateur spécifique.</td></tr>
+      <tr><td>DELETE</td><td><code>/performance_perso/history/&lt;perf_id&gt;</code></td><td>Purge définitive de l'historique d'un indicateur.</td></tr>
+    </table>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <section id="roles-mgmt">
+    <h2 class="section-title">Gestion des rôles <span class="badge badge-done">Documenté</span></h2>
+    <p>Blueprint <code>roles</code> — préfixe <code>/roles</code> (<code>roles.py</code>). CRUD des rôles organisationnels de l'entité active, avec gestion des associations activités/tâches et génération HTML de l'onboarding.</p>
+
+    <div class="callout callout-info">
+      À ne pas confondre avec <code>roles_view.py</code> (vue lecture seule) : ce blueprint gère les opérations d'écriture (création, renommage, suppression, assignation Garant).
+    </div>
+
+    <h3>Logique métier</h3>
+    <ul>
+      <li><strong>Scope entité</strong> : <code>Role.for_active_entity()</code> filtre systématiquement par l'entité active — le même nom peut exister dans deux entités différentes.</li>
+      <li><strong>Assignation Garant</strong> : <code>POST /roles/garant/activity/&lt;id&gt;</code> crée le rôle s'il n'existe pas, puis remplace tout Garant existant (DELETE + INSERT dans <code>activity_roles</code>).</li>
+      <li><strong>Suppression en cascade</strong> : avant de supprimer un rôle, toutes les entrées <code>activity_roles</code> et <code>task_roles</code> associées sont supprimées pour maintenir l'intégrité référentielle.</li>
+      <li><strong>Onboarding HTML</strong> : <code>GET /roles/onboarding/&lt;role_id&gt;</code> retourne un fragment HTML du plan d'onboarding stocké dans <code>role.onboarding_plan</code> (généré par <code>onboarding.py</code>).</li>
+    </ul>
+
+    <h3>Référence API — Gestion des rôles</h3>
+    <table>
+      <tr><th>Méthode</th><th>URL</th><th>Description</th></tr>
+      <tr><td>GET</td><td><code>/roles/list</code></td><td>Liste tous les rôles de l'entité active, triés alphabétiquement (insensible à la casse).</td></tr>
+      <tr><td>POST</td><td><code>/roles/garant/activity/&lt;activity_id&gt;</code></td><td>Assigne un rôle Garant à une activité. Body : <code>{role_name}</code>. Crée le rôle si inexistant.</td></tr>
+      <tr><td>PUT</td><td><code>/roles/&lt;role_id&gt;</code></td><td>Renomme un rôle. Body : <code>{name}</code>.</td></tr>
+      <tr><td>DELETE</td><td><code>/roles/&lt;role_id&gt;</code></td><td>Supprime le rôle et toutes ses associations (activity_roles, task_roles).</td></tr>
+      <tr><td>GET</td><td><code>/roles/onboarding/&lt;role_id&gt;</code></td><td>Fragment HTML du plan d'onboarding du rôle.</td></tr>
+    </table>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <section id="translate-softskills">
+    <h2 class="section-title">Traduction HSC <span class="badge badge-done">Documenté</span></h2>
+    <p>Blueprint <code>translate_softskills_bp</code> — préfixe <code>/translate_softskills</code> (<code>translate_softskills.py</code>). Traduit une description textuelle libre de savoir-être en <strong>Habiletés Socio-Cognitives (HSC) normalisées X50-766</strong> via GPT-4o-mini.</p>
+
+    <h3>Fonctionnement</h3>
+    <div class="card card-pink">
+      <p>L'endpoint reçoit le texte de l'utilisateur + le contexte de l'activité (nom, tâches, contraintes, résultats attendus) et demande au modèle de sélectionner <strong>4 à 6 HSC</strong> — jamais une correspondance 1:1.</p>
+      <p>Les règles du prompt empêchent les sélections génériques : par exemple, "Planification" n'est sélectionnée que si l'activité implique une complexité de planification réelle. Chaque HSC doit être justifiée en lien avec des tâches, contraintes ou performances spécifiques.</p>
+    </div>
+
+    <h3>Post-traitement de la réponse</h3>
+    <ul>
+      <li>Nettoyage des balises markdown (<code>```json … ```</code>) avant parsing.</li>
+      <li>Mapping des niveaux numériques vers les libellés officiels : <code>1 → "1 (Aptitude)"</code>, <code>2 → "2 (Acquisition)"</code>, <code>3 → "3 (Maîtrise)"</code>, <code>4 → "4 (Expertise)"</code>.</li>
+      <li>Retourne un tableau <code>[{habilete, niveau, justification}]</code>.</li>
+    </ul>
+
+    <h3>Référence API — Traduction HSC</h3>
+    <table>
+      <tr><th>Méthode</th><th>URL</th><th>Description</th></tr>
+      <tr><td>POST</td><td><code>/translate_softskills/translate</code></td><td>Body : <code>{text, activity_id}</code>. Retourne <code>{hsc: [{habilete, niveau, justification}]}</code>.</td></tr>
+    </table>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <section id="task-link-assignments">
+    <h2 class="section-title">Liens tâches — Assignations <span class="badge badge-done">Documenté</span></h2>
+    <p>Blueprint <code>task_links</code> — préfixe <code>/task-links</code> (<code>task_link_assignments.py</code>). Gère les assignations directionnelles entre tâches et connexions (<code>Link</code>). Permet de modéliser les dépendances et directions de flux au niveau des tâches.</p>
+
+    <h3>Modèle <code>TaskLinkAssignment</code></h3>
+    <table>
+      <tr><th>Champ</th><th>Description</th></tr>
+      <tr><td><code>link_id</code></td><td>ID du lien cartographie (<code>Link</code>)</td></tr>
+      <tr><td><code>task_id</code></td><td>ID de la tâche concernée</td></tr>
+      <tr><td><code>direction</code></td><td>Direction du flux : <code>"before"</code>, <code>"after"</code>, <code>"depends_on"</code>, etc.</td></tr>
+    </table>
+
+    <h3>Points techniques</h3>
+    <ul>
+      <li><strong>Table auto-créée</strong> : <code>TaskLinkAssignment.__table__.create(checkfirst=True)</code> à chaque premier appel — aucune migration manuelle nécessaire.</li>
+      <li><strong>Upsert par delete+insert</strong> : garantit l'idempotence de l'assignation.</li>
+      <li><strong>Jointure implicite</strong> : le GET par activité fait <code>task_link_assignments → tasks → activities</code> pour filtrer sans exposer les IDs de tâches directement.</li>
+      <li><strong>Erreur silencieuse</strong> : le GET retourne <code>[]</code> en cas d'exception plutôt qu'un 500 — prévu pour les intégrations frontend tolérantes aux erreurs.</li>
+    </ul>
+
+    <h3>Référence API — Liens tâches</h3>
+    <table>
+      <tr><th>Méthode</th><th>URL</th><th>Description</th></tr>
+      <tr><td>POST</td><td><code>/task-links/assign</code></td><td>Crée ou met à jour une assignation. Body : <code>{link_id, task_id, direction}</code>.</td></tr>
+      <tr><td>DELETE</td><td><code>/task-links/&lt;link_id&gt;/&lt;direction&gt;</code></td><td>Supprime une assignation par lien + direction.</td></tr>
+      <tr><td>GET</td><td><code>/task-links/activity/&lt;activity_id&gt;</code></td><td>Liste toutes les assignations pour une activité. Retourne <code>[{link_id, task_id, direction}]</code>.</td></tr>
+    </table>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <section id="constraints">
+    <h2 class="section-title">Contraintes <span class="badge badge-done">Documenté</span></h2>
+    <p>Blueprint <code>constraints</code> — préfixe <code>/constraints</code> (<code>constraints.py</code>). CRUD simple des contraintes attachées à une activité. Une contrainte est une règle, norme ou limite qui s'applique à l'activité.</p>
+
+    <h3>Modèle <code>Constraint</code></h3>
+    <table>
+      <tr><th>Champ</th><th>Description</th></tr>
+      <tr><td><code>id</code></td><td>Identifiant</td></tr>
+      <tr><td><code>description</code></td><td>Texte de la contrainte</td></tr>
+      <tr><td><code>activity_id</code></td><td>Activité parente</td></tr>
+      <tr><td><code>file_path</code></td><td>Lien optionnel vers un document de référence</td></tr>
+    </table>
+
+    <h3>Points techniques</h3>
+    <ul>
+      <li><strong>Validation de l'activité</strong> : <code>POST /constraints/&lt;activity_id&gt;/add</code> vérifie que l'activité existe avant d'insérer — évite les orphelins.</li>
+      <li><strong>Double clé</strong> : les endpoints PUT et DELETE filtrent sur <em>à la fois</em> <code>activity_id</code> et <code>constraint_id</code>, empêchant toute modification croisée d'activité.</li>
+      <li><strong>Fragment HTML</strong> : <code>GET /constraints/&lt;activity_id&gt;/render</code> retourne un partial Jinja2 pour le rechargement dynamique de la liste sans navigation.</li>
+    </ul>
+
+    <h3>Référence API — Contraintes</h3>
+    <table>
+      <tr><th>Méthode</th><th>URL</th><th>Description</th></tr>
+      <tr><td>POST</td><td><code>/constraints/&lt;activity_id&gt;/add</code></td><td>Crée une contrainte. Body : <code>{description, file_path?}</code>. Retourne <code>{id, description, activity_id, file_path}</code>.</td></tr>
+      <tr><td>PUT</td><td><code>/constraints/&lt;activity_id&gt;/&lt;constraint_id&gt;</code></td><td>Met à jour description et/ou file_path.</td></tr>
+      <tr><td>DELETE</td><td><code>/constraints/&lt;activity_id&gt;/&lt;constraint_id&gt;</code></td><td>Supprime la contrainte.</td></tr>
+      <tr><td>GET</td><td><code>/constraints/&lt;activity_id&gt;/render</code></td><td>Fragment HTML de la liste des contraintes de l'activité.</td></tr>
+    </table>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <section id="gestion-outils">
+    <h2 class="section-title">Gestion des outils <span class="badge badge-done">Documenté</span></h2>
+    <p>Blueprint <code>gestion_outils</code> — préfixe <code>/gestion_outils</code> (<code>gestion_outils.py</code>). Interface de gestion centralisée des outils de l'entité : création, renommage, remplacement entre tâches, et suppression sécurisée avec gestion des usages.</p>
+
+    <h3>Stratégies de suppression</h3>
+    <div class="card card-pink">
+      <p>La suppression d'un outil est conditionnelle à ses usages :</p>
+      <ul>
+        <li><strong>Pas d'usage</strong> : suppression directe.</li>
+        <li><strong>Usages + <code>force_detach=true</code></strong> : toutes les associations <code>task_tools</code> sont retirées, puis l'outil est supprimé.</li>
+        <li><strong>Usages partiels fournis</strong> : seules les tâches spécifiées sont détachées ; si l'outil n'est plus utilisé nulle part, il est supprimé automatiquement.</li>
+        <li><strong>Usages restants sans <code>force_detach</code></strong> : retourne <strong>409 Conflict</strong> avec la liste des usages pour informer le frontend.</li>
+      </ul>
+    </div>
+
+    <h3>Remplacement d'outil</h3>
+    <p><code>POST /gestion_outils/api/tools/&lt;tool_id&gt;/replace</code> réassigne atomiquement un ensemble de tâches depuis l'outil source vers un outil cible. Si une tâche est déjà assignée à l'outil cible, l'opération est silencieusement ignorée (idempotence). Retourne le nombre de tâches effectivement remplacées.</p>
+
+    <h3>Performance — évitement N+1</h3>
+    <p>Le listing <code>GET /gestion_outils/api/tools</code> pré-charge en une seule requête les associations outil → tâches → activités pour éviter les requêtes N+1 lors de l'affichage des compteurs d'usage.</p>
+
+    <h3>Référence API — Gestion des outils</h3>
+    <table>
+      <tr><th>Méthode</th><th>URL</th><th>Description</th></tr>
+      <tr><td>GET</td><td><code>/gestion_outils/</code></td><td>Page HTML de gestion des outils.</td></tr>
+      <tr><td>GET</td><td><code>/gestion_outils/api/tools</code></td><td>Liste tous les outils avec compteurs d'usage (entité active).</td></tr>
+      <tr><td>POST</td><td><code>/gestion_outils/api/tools</code></td><td>Crée un outil. Body : <code>{name, description?, file_path?}</code>. Vérifie l'unicité insensible à la casse.</td></tr>
+      <tr><td>PUT</td><td><code>/gestion_outils/api/tools/&lt;tool_id&gt;</code></td><td>Met à jour nom, description ou file_path. Vérifie l'unicité (s'exclut lui-même).</td></tr>
+      <tr><td>GET</td><td><code>/gestion_outils/api/tools/&lt;tool_id&gt;/usages</code></td><td>Retourne toutes les tâches utilisant cet outil, avec leur activité parente.</td></tr>
+      <tr><td>POST</td><td><code>/gestion_outils/api/tools/&lt;tool_id&gt;/replace</code></td><td>Remplace l'outil sur une sélection de tâches. Body : <code>{target_tool_id, task_ids[]}</code>.</td></tr>
+      <tr><td>DELETE</td><td><code>/gestion_outils/api/tools/&lt;tool_id&gt;</code></td><td>Supprime l'outil. Params : <code>force_detach</code>, <code>task_ids[]</code>. Retourne 409 si en usage sans force.</td></tr>
+    </table>
+  </section>
+
+  <section id="conventions">
+    <h2 class="section-title">Conventions de développement <span class="badge badge-done">Documenté</span></h2>
+    <div class="callout callout-warn">
+      Règle critique : toujours synchroniser <code>DevOPTIQ/static/optiqcarto/</code> et <code>OptiqCarto/static/</code> après modification de l'outil cartographie.
+    </div>
+    <ul>
+      <li><strong>JS</strong> : vanilla uniquement. <code>$()</code> = <code>document.querySelector()</code>. Un fichier par domaine dans <code>static/js/</code>.</li>
+      <li><strong>CSS</strong> : un fichier par domaine. <code>optiq.css</code> = global. Couleurs : rose <code>#ec4899</code>/<code>#be185d</code>, vert <code>#22c55e</code>.</li>
+      <li><strong>Templates</strong> : dans <code>Code/routes/templates/</code>. Composition par <code>{% include %}</code>.</li>
+      <li><strong>Blueprints</strong> : 1 fichier = 1 domaine. Nommage <code>[domaine]_bp</code>. Tous enregistrés dans <code>create_app()</code>.</li>
+      <li><strong>Commentaires</strong> : uniquement si le WHY est non-évident. Jamais de commentaires décrivant ce que fait le code.</li>
+      <li><strong>Commits</strong> : types <code>Feat:</code>, <code>Fix:</code>, <code>Docs:</code>, <code>Refactor:</code>, <code>Style:</code>.</li>
+    </ul>
   </section>
 
 </main>
 
 <script>
-  // Date de dernière mise à jour
   document.getElementById('last-update').textContent = new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
 
-  // Navigation active au scroll
   const sections = document.querySelectorAll('section[id], div[id]');
   const navLinks = document.querySelectorAll('nav a');
   const observer = new IntersectionObserver(entries => {
@@ -390,7 +1802,6 @@
   }, { threshold: 0.3 });
   sections.forEach(s => observer.observe(s));
 
-  // Calcul de la progression (sections avec badge-done)
   function updateProgress() {
     const total = document.querySelectorAll('.badge').length;
     const done  = document.querySelectorAll('.badge-done').length;

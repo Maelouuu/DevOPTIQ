@@ -29,7 +29,7 @@ class CustomMail(Mail):
         return connection
 
 
-def create_app():
+def create_app(test_config=None):
     static_folder = os.path.join(parent_dir, "static")
     app = Flask(__name__, static_folder=static_folder)
 
@@ -221,6 +221,12 @@ def create_app():
 
     from Code.routes.cartography_editor import cartography_editor_bp
     app.register_blueprint(cartography_editor_bp)
+
+    # En mode test, on saute l'init DB — le conftest gère create_all/seed.
+    if test_config is not None:
+        app.config.update(test_config)
+        app.secret_key = test_config.get("SECRET_KEY", "test-secret")
+        return app
 
     with app.app_context():
         from sqlalchemy import text as _text

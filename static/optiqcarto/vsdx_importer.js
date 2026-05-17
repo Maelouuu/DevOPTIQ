@@ -137,8 +137,101 @@ class VsdxImporter {
     } catch(e) { console.warn('[VsdxImporter] Masters:', e); }
   }
 
+  // ── Static helper: analyse géométrique du master XML ──────────────────────
+  // Scopée au shape primaire (premier enfant direct de <Shapes>) pour éviter
+  // que les sous-shapes imbriqués (placeholder texte, etc.) n'inflatent les compteurs.
+  // Retourne les flags de classification + logs console pour le debug.
+  static _parseGeometry(doc, masterName) {
+    // 1. Trouver le shape primaire
+    const shapesRoot = doc.getElementsByTagName('Shapes')[0];
+    let primaryShape = null;
+    if (shapesRoot) {
+      for (let ci = 0; ci < shapesRoot.childNodes.length; ci++) {
+        const n = shapesRoot.childNodes[ci];
+        if (n.nodeType === 1 && n.tagName === 'Shape') { primaryShape = n; break; }
+      }
+    }
+    if (!primaryShape) primaryShape = doc.getElementsByTagName('Shape')[0] || null;
+
+    // 2. Sections Geometry enfants DIRECTS du shape primaire seulement
+    const geomSects = [];
+    if (primaryShape) {
+      for (let ci = 0; ci < primaryShape.childNodes.length; ci++) {
+        const n = primaryShape.childNodes[ci];
+        if (n.nodeType === 1 && n.tagName === 'Section' && n.getAttribute('N') === 'Geometry')
+          geomSects.push(n);
+      }
+    }
+
+    // 3. Compter les types de Row
+    const LINE_TYPES = new Set(['LineTo', 'RelLineTo', 'PolylineTo']);
+    const ARC_TYPES  = new Set(['EllipticalArcTo', 'RelEllipticalArcTo', 'ArcTo', 'RelArcTo',
+                                'NURBSTo', 'SplineTo', 'RelSplineTo']);
+    const MOVE_TYPES = new Set(['MoveTo', 'RelMoveTo']);
+    const geomSeq = []; // 'L' | 'A'
+    const unknownTypes = new Set();
+    let moveTos = 0, totalRows = 0;
+
+    for (const sect of geomSects) {
+      const rows = sect.getElementsByTagName('Row');
+      for (let ri = 0; ri < rows.length; ri++) {
+        const t = rows[ri].getAttribute('T') || '';
+        totalRows++;
+        if (LINE_TYPES.has(t))      geomSeq.push('L');
+        else if (ARC_TYPES.has(t))  geomSeq.push('A');
+        else if (!MOVE_TYPES.has(t) && t) unknownTypes.add(t);
+        if (MOVE_TYPES.has(t)) moveTos++;
+      }
+    }
+
+    const arcCount     = geomSeq.filter(v => v === 'A').length;
+    const lineCount    = geomSeq.filter(v => v === 'L').length;
+    const geomSectCount = geomSects.length;
+
+    // 4. Classifications
+    const isEllipse = arcCount > 0 && arcCount > lineCount * 2;
+    let isDiamond = false;
+    if (arcCount > 0) {
+      const lastA = geomSeq.lastIndexOf('A');
+      if (lastA < geomSeq.length - 1) isDiamond = geomSeq.slice(lastA + 1).includes('L');
+    }
+    let hasConsecArcs = false;
+    for (let i = 0; i < geomSeq.length - 1; i++)
+      if (geomSeq[i] === 'A' && geomSeq[i+1] === 'A') { hasConsecArcs = true; break; }
+    const isWavyBottom = hasConsecArcs && !isEllipse && !isDiamond;
+    const isSubprocess = (geomSectCount >= 2 || moveTos >= 3 || isWavyBottom) && !isEllipse && !isDiamond;
+
+    // 5. Stadium — 4 chemins de détection
+    const isStadiumCanon   = lineCount === 2 && arcCount >= 2;
+    const isStadiumAllArc  = lineCount <= 1 && arcCount >= 4;
+    const isStadiumByRatio = arcCount >= 1 && lineCount <= 2; // aspect checked by caller
+    // Fallback: sections trouvées mais tous les types de Row sont inconnus (ex: format VSDX exotique)
+    // → si le ratio est élongé et pas de vague, c'est probablement un stadium.
+    const isStadiumUnknown = geomSectCount > 0 && totalRows > 0 && arcCount === 0 && lineCount === 0;
+
+    // Log détaillé dans la console navigateur — ouvrir DevTools lors de l'import pour voir
+    console.debug(
+      '[VSDX geom]', (masterName || '?').padEnd(30),
+      '| sects:', geomSectCount, '| rows:', totalRows,
+      '| arcs:', arcCount, '| lines:', lineCount, '| moveTos:', moveTos,
+      '| seq:', geomSeq.join('') || '(vide)',
+      unknownTypes.size ? '| unknownRowTypes: ' + [...unknownTypes].join(',') : '',
+      '| isStadiumCanon:', isStadiumCanon, '| byRatio(no-asp):', isStadiumByRatio,
+      '| isStadiumUnknown:', isStadiumUnknown,
+      '| isWavy:', isWavyBottom, '| isSubprocess:', isSubprocess,
+      '| isEllipse:', isEllipse, '| isDiamond:', isDiamond
+    );
+
+    return { arcCount, lineCount, moveTos, geomSectCount, totalRows, geomSeq,
+             isEllipse, isDiamond: isDiamond, isWavyBottom, isSubprocess,
+             isStadiumCanon, isStadiumByRatio, isStadiumAllArc, isStadiumUnknown,
+             unknownTypes };
+  }
+
   async getMasterInfo(mid) {
-    const DEFAULTS = { w: 0.9449, h: 0.7087, linePattern: 1, isEllipse: false, isDiamond: false, isSubprocess: false, fillColor: null };
+    const DEFAULTS = { w: 0.9449, h: 0.7087, linePattern: 1, fillPattern: 1,
+                       isEllipse: false, isDiamond: false, isSubprocess: false,
+                       isStadium: false, isWavyBottom: false, aspect: 1, fillColor: null };
     if (!mid) return DEFAULTS;
     if (this.masterInfoCache[mid]) return this.masterInfoCache[mid];
     const fpath = this.masterIdToFile[mid];
@@ -146,63 +239,73 @@ class VsdxImporter {
     try {
       const xml = await this.zip.file(fpath).async('text');
       const doc = this.parseXml(xml);
-      let bw, bh, lp = 1, isDiamond = false, fillColor = null;
 
-      const geomRows = doc.getElementsByTagName('Row');
-      const geomSeq = [];
-      let moveTos = 0;
-      for (let ri = 0; ri < geomRows.length; ri++) {
-        const t = geomRows[ri].getAttribute('T');
-        if (t === 'LineTo'  || t === 'EllipticalArcTo') geomSeq.push(t);
-        if (t === 'MoveTo') moveTos++;
-      }
-
-      const arcCount  = geomSeq.filter(t => t === 'EllipticalArcTo').length;
-      const lineCount = geomSeq.filter(t => t === 'LineTo').length;
-
-      // Pure ellipse: geometry is predominantly arcs with few/no straight edges.
-      // arcCount > lineCount*2 catches ovals (4 arcs, 0 lines) and stadiums (4 arcs, 1 line).
-      const isEllipse = arcCount > 0 && arcCount > lineCount * 2;
-
-      // Diamond: EllipticalArcTo intercalated with LineTo (Si grand/Si petit pattern).
-      // Requires at least some arcs, AND a LineTo after the last arc.
-      if (arcCount > 0) {
-        const lastArcIdx = geomSeq.lastIndexOf('EllipticalArcTo');
-        if (lastArcIdx !== -1 && lastArcIdx < geomSeq.length - 1)
-          isDiamond = geomSeq.slice(lastArcIdx + 1).includes('LineTo');
-      }
-
-      // Wavy-bottom subprocess: mixed arcs+lines with CONSECUTIVE arcs (wave).
-      // Rounded rectangles have arcs alternating with lines (never consecutive).
-      let hasConsecutiveArcs = false;
-      for (let i = 0; i < geomSeq.length - 1; i++) {
-        if (geomSeq[i] === 'EllipticalArcTo' && geomSeq[i+1] === 'EllipticalArcTo') {
-          hasConsecutiveArcs = true; break;
-        }
-      }
-      const isWavyBottom = hasConsecutiveArcs && !isEllipse && !isDiamond;
-
-      // Sub-process (predefined process): multiple geometry sections (= internal markers),
-      // ≥3 MoveTo sub-paths, OR a wavy bottom edge.
-      let geomSectCount = 0;
-      const allSects = doc.getElementsByTagName('Section');
-      for (let si = 0; si < allSects.length; si++)
-        if (allSects[si].getAttribute('N') === 'Geometry') geomSectCount++;
-      const isSubprocess = (geomSectCount >= 2 || moveTos >= 3 || isWavyBottom) && !isEllipse && !isDiamond;
-
+      // ── Dimensions + style du shape primaire ──
+      let bw, bh, lp = 1, fp = 1, fillColor = null, rounding = 0;
       for (const s of doc.getElementsByTagName('Shape')) {
         const w = this.vCell(s, 'Width'), h = this.vCell(s, 'Height');
         if (w) bw = parseFloat(w);
         if (h) bh = parseFloat(h);
         const lv = this.vCellDeep(s, 'LinePattern');
         if (lv) lp = parseInt(lv) || 1;
+        const fpv = this.vCellDeep(s, 'FillPattern');
+        if (fpv) fp = parseInt(fpv) || 1;
         const fc = this.vCell(s, 'FillForegnd');
         if (fc && fc.startsWith('#') && !fillColor) fillColor = fc;
+        // Cellule Rounding : Visio arrondit les coins via propriété de style (pas des arcs
+        // dans la géométrie). Une valeur élevée (≥ 30 % de la petite dim.) crée l'aspect
+        // "activité externe" (côtés en parenthèses) sans aucun EllipticalArcTo dans la geom.
+        const rv = this.vCell(s, 'Rounding');
+        if (rv) rounding = Math.max(rounding, parseFloat(rv) || 0);
         if (bw && bh) break;
       }
-      return this.masterInfoCache[mid] = { w: bw || 0.9449, h: bh || 0.7087, linePattern: lp, isEllipse, isDiamond, isSubprocess, fillColor };
+      // Second pass FillPattern (sous-shapes)
+      if (fp === 1) {
+        for (const s of doc.getElementsByTagName('Shape')) {
+          const fpv = this.vCellDeep(s, 'FillPattern');
+          if (fpv) { const n = parseInt(fpv) || 1; if (n !== 1) { fp = n; break; } }
+        }
+      }
+
+      const aspect = (bw && bh) ? Math.max(bw, bh) / Math.min(bw, bh) : 1;
+      const masterName = Object.entries(this.masterIdToName || {}).find(([k]) => k === mid)?.[1] || '';
+
+      // ── Analyse géométrique (scopée au shape primaire) ──
+      const g = VsdxImporter._parseGeometry(doc, masterName);
+
+      // Certaines formes Visio (ex: "Processus arrondi" / "Rounded process") encodent
+      // leur aspect arrondi via la cellule Rounding (propriété de style), sans aucun arc
+      // dans la section Geometry. Si le rayon ≥ 30 % de la petite dimension, la forme
+      // est visuellement un stade → traiter comme activité externe.
+      const minDim = (bw && bh) ? Math.min(bw, bh) : 0;
+      const isRoundedAsStadium = rounding > 0 && minDim > 0 && (rounding / minDim) >= 0.3;
+
+      // Stadium : aspect ratio vérifié ici (pas dans _parseGeometry)
+      const isStadium = !g.isEllipse && !g.isDiamond && !g.isWavyBottom && (
+        g.isStadiumCanon ||
+        g.isStadiumAllArc ||
+        (g.isStadiumByRatio && aspect >= 1.5) ||
+        (g.isStadiumUnknown && aspect >= 1.5) ||  // fallback types inconnus
+        isRoundedAsStadium                         // rounding cellule élevé → côtés arrondis
+      );
+
+      console.debug(
+        '[VSDX master]', (masterName || '?').padEnd(30),
+        '| aspect:', aspect.toFixed(2), '| isStadium:', isStadium,
+        '| rounding:', rounding.toFixed(3), '| isRoundedAsStadium:', isRoundedAsStadium,
+        '| isSubprocess:', g.isSubprocess, '| fp:', fp, '| fillColor:', fillColor || '-'
+      );
+
+      return this.masterInfoCache[mid] = {
+        w: bw || 0.9449, h: bh || 0.7087,
+        linePattern: lp, fillPattern: fp, fillColor,
+        isEllipse: g.isEllipse, isDiamond: g.isDiamond,
+        isSubprocess: g.isSubprocess, isWavyBottom: g.isWavyBottom,
+        isStadium, aspect,
+      };
     } catch(e) {
-      return this.masterInfoCache[mid] = { w: 0.9449, h: 0.7087, linePattern: 1, isEllipse: false, isDiamond: false, isSubprocess: false, fillColor: null };
+      console.warn('[VSDX getMasterInfo] mid=', mid, e);
+      return this.masterInfoCache[mid] = { ...DEFAULTS };
     }
   }
 
@@ -351,10 +454,24 @@ class VsdxImporter {
     const newBands    = this.newBands;
     const legendBounds = this.legendBounds;
 
+    // Map qui relie le Y "naturel" (positions VSDX × SCALE, sans contrainte
+    // de hauteur min) au Y de la carto telle qu'elle sera rendue (avec min 80).
+    // Pour chaque bande on enregistre :
+    //   naturalTop / naturalBottom — bornes en Y naturel
+    //   shift                       — décalage à appliquer aux shapes naturellement
+    //                                 dans cette bande pour qu'elles restent dedans
+    //                                 après l'inflation au minimum 80 px.
+    // Utilisé en aval par importActivities pour ne PLUS faire planter les
+    // shapes dans la bande au-dessus quand min 80 inflate une bande étroite.
+    this.bandShifts = [];
+
     if (lanes.length > 0) {
+      let naturalCum = 0;
+      let ourCum = 0;
       for (let i = 0; i < lanes.length; i++) {
         const { el: s, abs } = lanes[i];
-        const bandH = Math.round(Math.max(80, abs.h * SCALE));
+        const naturalH = abs.h * SCALE;
+        const bandH = Math.round(Math.max(80, naturalH));
 
         // Lane label: look for text in direct children (skip nested groups)
         let label = '';
@@ -394,6 +511,14 @@ class VsdxImporter {
           continue;
         }
 
+        this.bandShifts.push({
+          naturalTop:    naturalCum,
+          naturalBottom: naturalCum + naturalH,
+          shift:         ourCum - naturalCum,
+        });
+        naturalCum += naturalH;
+        ourCum     += bandH;
+
         const bandIdx = newBands.length + 1;
         const color = !this.isWashedOut(fill) ? fill : FALLBACK_COLORS[bandIdx % FALLBACK_COLORS.length];
         newBands.push({ id: bandIdx, label: label || `Bande ${bandIdx}`, color, fontSize: 22, height: bandH });
@@ -401,6 +526,24 @@ class VsdxImporter {
     } else {
       newBands.push({ id: 1, label: 'Activités', color: '#22c55e', fontSize: 22, height: 500 });
     }
+  }
+
+  // Détermine le shift Y à appliquer à un point dont le Y naturel (sans
+  // contrainte de hauteur min) est donné, en se basant sur la bandShiftMap.
+  // Sans cette correction, une bande étroite inflée au min 80 décale
+  // visuellement toutes les bandes en dessous, et les shapes (placées
+  // d'après leurs coords VSDX naturelles) finissent dans la mauvaise bande.
+  _bandShiftFor(naturalY) {
+    const map = this.bandShifts;
+    if (!map || map.length === 0) return 0;
+    for (const bs of map) {
+      if (naturalY >= bs.naturalTop && naturalY < bs.naturalBottom) return bs.shift;
+    }
+    // Au-dessus de la première bande → shift de la première bande.
+    // En dessous de la dernière → shift de la dernière (mêmes proportions
+    // qu'à l'intérieur de la dernière).
+    if (naturalY < map[0].naturalTop)         return map[0].shift;
+    return map[map.length - 1].shift;
   }
 
   // Returns true if a shape's center falls inside a legend lane
@@ -502,12 +645,63 @@ class VsdxImporter {
       const screenW = Math.min(MAX_ACT_W, rawW);
       const screenH = Math.min(MAX_ACT_H, rawH);
       const screenX = Math.max(144, Math.round((abs.pinX - leftEdge) * SCALE) - Math.round(screenW / 2));
-      const screenY = Math.max(0, Math.round((topOfDiagram - abs.pinY) * SCALE) - Math.round(screenH / 2));
+      // Y "naturel" : position basée sur les coords VSDX brutes × SCALE,
+      // SANS prendre en compte le minimum 80 px sur la hauteur des bandes.
+      const naturalScreenY = Math.round((topOfDiagram - abs.pinY) * SCALE) - Math.round(screenH / 2);
+      const naturalCenterY = naturalScreenY + screenH / 2;
+      // bandShift corrige le décalage cumulatif quand une bande étroite a
+      // été inflée au min 80 px : on ramène le shape dans la bande à laquelle
+      // il appartient naturellement, même si nos bandes sont plus hautes.
+      const bandShift = this._bandShiftFor(naturalCenterY);
+      const screenY = Math.max(0, naturalScreenY + bandShift);
       if (screenY > totalBandH + 100) continue; // outside diagram
 
       const mInfoForType = masterInfoCache[mid] || {};
-      const shapeType = detectShapeType(masterIdToName[mid], vType,
-                          mInfoForType.isEllipse, mInfoForType.isDiamond, mInfoForType.isSubprocess);
+      const masterName  = masterIdToName[mid] || '';
+      // Fallback nom : couvre les masters Visio "External Process", "Activité
+      // externe", "Sous-traitance", etc. — utile quand la géométrie ne suffit
+      // pas (ex: shape custom redessinée mais qui garde le nom du stencil).
+      const isExternalByName = /\b(external|externe|outsourc\w*|sous.?trait\w*)\b/i.test(masterName);
+
+      // isStadiumByAspect : forme élongée non-vague mal classée par la géométrie
+      // → dernier recours si isStadium=false mais aspect >= 1.5 et pas de vague
+      const isStadiumByAspect = !mInfoForType.isWavyBottom
+                                && (mInfoForType.aspect || 1) >= 1.5
+                                && !mInfoForType.isEllipse && !mInfoForType.isDiamond;
+
+      let shapeType = detectShapeType(masterName, vType,
+                          mInfoForType.isEllipse, mInfoForType.isDiamond,
+                          mInfoForType.isSubprocess,
+                          mInfoForType.isStadium || isExternalByName);
+
+      // Safety nets — overrides quand la géométrie ou le nom n'ont pas suffi
+      if (shapeType === 'special') {
+        if (isExternalByName) {
+          // Nom explicitement "external / externe" → process externe
+          shapeType = 'process';
+        } else if (isStadiumByAspect && vType !== 'Group') {
+          // Forme élongée non-vague sans master Group → probablement externe
+          shapeType = 'process';
+        }
+        // Note: vType === 'Group' elongated est ambigu (peut être un container),
+        // on le laisse en 'special' si ni name ni géométrie n'ont confirmé.
+      }
+
+      // ── Subtype detection (only for 'process' shapes) ─────────────────
+      const shapeFillPattern = parseInt(this.vCellDeep(s, 'FillPattern') || '0') || (mInfoForType.fillPattern || 1);
+      let subtype = 'normal';
+      if (shapeType === 'process') {
+        if (mInfoForType.isStadium || isExternalByName || isStadiumByAspect) {
+          subtype = 'external';
+          console.debug('[VSDX external]', this.vText(s) || id,
+            'master=', masterName, 'stadium=', !!mInfoForType.isStadium,
+            'byName=', isExternalByName, 'byAspect=', isStadiumByAspect,
+            'aspect=', (mInfoForType.aspect || 1).toFixed(2));
+        } else if (shapeFillPattern >= 2) {
+          subtype = 'extco';
+          console.debug('[VSDX hatch]', this.vText(s) || id, 'FillPattern=', shapeFillPattern, 'master=', masterName);
+        }
+      }
 
       // ── Color: VSDX shape fill → master fill → band color ──
       // Preserves original Visio colors (e.g. yellow logistics, blue ops shapes).
@@ -517,7 +711,7 @@ class VsdxImporter {
       const oid = this.nextOid++;
       shapeIdMap[id] = oid;
       newShapes.push({
-        id: oid, type: shapeType, subtype: 'normal',
+        id: oid, type: shapeType, subtype,
         x: screenX, y: screenY, w: screenW, h: screenH,
         label:          this.vText(s),
         color:          shapeColor,
@@ -529,6 +723,12 @@ class VsdxImporter {
         colorVariant:   0,
       });
     }
+
+    const nExt   = newShapes.filter(s => s.subtype === 'external').length;
+    const nExtco = newShapes.filter(s => s.subtype === 'extco').length;
+    if (nExt   > 0) this.log(`✓ ${nExt} activité(s) externe(s) (forme stade) détectée(s)`);
+    if (nExtco > 0) this.log(`✓ ${nExtco} activité(s) hachurée(s) détectée(s)`);
+    if (nExt === 0 && nExtco === 0) this.log('ℹ Aucune activité externe ou hachurée détectée (voir console pour détails)');
   }
 
   // Resolve the best color for a shape:
@@ -667,6 +867,20 @@ class VsdxImporter {
     }
   }
 
+  // Wrap a connection label to 2 lines if it's longer than MAX_CHARS.
+  // Splits at the space nearest to the midpoint so both halves are balanced.
+  static _wrapConnLabel(label, maxChars = 26) {
+    if (!label || label.length <= maxChars) return label;
+    const mid = Math.floor(label.length / 2);
+    let splitAt = -1;
+    for (let i = 0; i <= mid; i++) {
+      if (label[mid - i] === ' ') { splitAt = mid - i; break; }
+      if (mid + i < label.length && label[mid + i] === ' ') { splitAt = mid + i; break; }
+    }
+    if (splitAt === -1) return label; // no space — leave as-is
+    return label.slice(0, splitAt) + '\n' + label.slice(splitAt + 1);
+  }
+
   // ─── Phase 13: Build connections ────────────────────────────────
 
   async buildConnections() {
@@ -720,8 +934,14 @@ class VsdxImporter {
       return raw.map(p => ({ x: isRel ? bx + p.x : p.x, y: isRel ? by + p.y : p.y }));
     }
 
+    // Wrap visioToScreen pour appliquer le bandShift sur Y (cohérent avec
+    // l'ajustement appliqué dans importActivities — sinon les customPath
+    // des connecteurs partent du milieu d'une bande quand les shapes ont
+    // été décalés vers le bas par l'inflation min 80).
+    const self = this;
     function visioToScreen(vx, vy) {
-      return { x: (vx - leftEdge) * SCALE, y: (topOfDiagram - vy) * SCALE };
+      const ny = (topOfDiagram - vy) * SCALE;
+      return { x: (vx - leftEdge) * SCALE, y: ny + self._bandShiftFor(ny) };
     }
 
     function snapToEdge(s, dir, t, halo) {
@@ -794,7 +1014,7 @@ class VsdxImporter {
       const connObj = {
         id: this.nextOid++, fromId, toId, fromPortDir, toPortDir,
         color: srcShape ? srcShape.color : '#567460',
-        label: connLabel, style: isDashed ? 'dashed' : 'solid', routing: 'orthogonal',
+        label: VsdxImporter._wrapConnLabel(connLabel), style: isDashed ? 'dashed' : 'solid', routing: 'orthogonal',
       };
       if (fromPortT !== undefined) connObj.fromPortT = fromPortT;
       if (toPortT   !== undefined) connObj.toPortT   = toPortT;
@@ -825,14 +1045,38 @@ class VsdxImporter {
   }
 
   // ─── Phase 15: Stretch bands to contain all shapes ───────────────
+  // When a band must grow to fit its shapes, we also shift down every
+  // shape and customPath point sitting BELOW it by the same delta — otherwise
+  // shapes from lower bands end up visually inside the stretched band
+  // (e.g. "Definition of Strategic Priorities" landing in Maintenance instead
+  // of Piloting because Logistic was stretched above).
 
   stretchBands() {
     let y0 = 0;
-    for (const band of this.newBands) {
-      const bot = this.newShapes
-        .filter(s => { const m = s.y + s.h/2; return m >= y0 && m < y0 + band.height; })
-        .reduce((m, s) => Math.max(m, s.y + s.h), 0);
-      if (bot + 20 > y0 + band.height) band.height = Math.round(bot + 20 - y0);
+    for (let i = 0; i < this.newBands.length; i++) {
+      const band = this.newBands[i];
+      const bandTop = y0;
+      const bandBottom = y0 + band.height;
+      const inBand = this.newShapes.filter(s => {
+        const m = s.y + s.h/2;
+        return m >= bandTop && m < bandBottom;
+      });
+      const bot = inBand.reduce((m, s) => Math.max(m, s.y + s.h), 0);
+      const needed = bot + 20 - bandTop;
+      if (needed > band.height) {
+        const delta = needed - band.height;
+        // Push everything that lives below the band's CURRENT bottom edge down by delta
+        for (const s of this.newShapes) {
+          if (s.y + s.h/2 >= bandBottom) s.y += delta;
+        }
+        for (const c of this.newConns) {
+          if (!c.customPath) continue;
+          for (const pt of c.customPath) {
+            if (pt.y >= bandBottom) pt.y += delta;
+          }
+        }
+        band.height = needed;
+      }
       y0 += band.height;
     }
   }
@@ -924,10 +1168,10 @@ class VsdxImporter {
 // ── Shape type detection (extracted from editor.js for modularity) ───────────
 // Maps a Visio master name + geometry flags to our OptiqCarto shape types:
 // 'process' | 'start-end' | 'special' | 'decision'
-// Check order: decision → subprocess → ellipse → default process
-// Subprocess is checked BEFORE ellipse so wavy-bottom shapes are not captured
-// by the isEllipse guard (which is now "pure arc shape" only).
-function detectShapeType(masterName, visioType, isEllipse, isDiamond, isSubprocess) {
+// Check order: decision → subprocess → stadium → ellipse → default process
+// Stadium is checked BEFORE ellipse-by-name so master names like "External
+// process oval" map to 'process' (with subtype 'external'), not to start-end.
+function detectShapeType(masterName, visioType, isEllipse, isDiamond, isSubprocess, isStadium) {
   const mn = (masterName || '')
     .toLowerCase()
     .normalize('NFD').replace(/[̀-ͯ]/g, '')
@@ -939,21 +1183,25 @@ function detectShapeType(masterName, visioType, isEllipse, isDiamond, isSubproce
       || mn === 'conditional' || mn === 'decision') return 'decision';
   if (isDiamond) return 'decision';
 
-  // 2. Off-page connectors → subprocess style
+  // 2. Stadium / capsule — checked BEFORE name-based off-page check so that
+  //    "Goto X" masters that have capsule geometry (2L+2A) are correctly
+  //    classified as external process, not as off-page subprocess.
+  if (isStadium) return 'process';
+
+  // 3. Off-page connectors → subprocess style (only if not a stadium)
   if (/\bgot[ot]+\b|\bext\.?\s*ret\b|\bext\.?\s*return\b|\baller\s+[aà]\b|\bautre\s+carte\b/.test(mn)) return 'special';
 
-  // 3. Subprocess — by geometry (wavy bottom, multiple sections, multiple paths)
-  //    Checked BEFORE ellipse so wavy shapes are not swallowed by the isEllipse guard.
+  // 4. Subprocess — by geometry (wavy bottom, multiple sections, multiple paths)
   if (isSubprocess) return 'special';
   if (/\b(subprocess|sub process|predefined|processus predefini|activite partielle|sous activite|sous processus|sous tache|tache multiple|multi instance|callout|offpage|off page)\b/.test(mn)) return 'special';
 
-  // 4. Start/end — oval/circle shapes (isEllipse now means "pure arc shape")
+  // 5. Start/end — oval/circle shapes (isEllipse now means "pure arc shape")
   if (/\b(terminator|oval|ellipse|circle|event|rond|cercle|ronde|circulaire)\b/.test(mn)
       || mn === 'start' || mn === 'end'
       || mn.includes('start end') || mn.includes('debut fin') || mn.includes('start/end')
       || isEllipse) return 'start-end';
 
-  // 5. Visio Group that is not a swimlane → subprocess style
+  // 6. Visio Group that is not a swimlane → subprocess style
   if (visioType === 'Group') return 'special';
 
   return 'process';

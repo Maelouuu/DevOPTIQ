@@ -1,114 +1,312 @@
-/* Global Styles */
+/* ══════════════════════════════════════════════════
+   DevOPTIQ — Page de connexion (style organic blobs)
+   ══════════════════════════════════════════════════ */
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --pink:      #ec4899;
+  --pink-deep: #be185d;
+  --green:     #22c55e;
+  --green-dk:  #15803d;
+}
+
 body {
-    font-family: Arial, sans-serif;
-    background-color: #f4f4f4;
-    margin: 0;
-    padding: 0;
-    /* Augmenter la taille de police globale du corps */
-    font-size: 1.1em; /* 1.1 fois la taille par défaut */
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  position: relative;
+  background: linear-gradient(90deg, #fdf2f8 0%, #f9feff 50%, #f0fdf4 100%);
 }
 
-h1 {
-    text-align: center;
-    color: #333;
-    /* Augmenter la marge inférieure */
-    margin-bottom: 30px;
-    /* Augmenter la taille de police du titre */
-    font-size: 2em; /* 2 fois la taille par défaut */
+/* ── Fond organique ── */
+.login-bg {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+}
+.bg-svg {
+  width: 100%;
+  height: 100%;
+  display: block;
 }
 
-form {
-    background: #fff;
-    margin: 30px auto; /* Augmenter la marge autour du formulaire */
-    padding: 30px; /* Augmenter le rembourrage intérieur du formulaire */
-    max-width: 450px; /* Augmenter légèrement la largeur maximale du formulaire */
-    border-radius: 8px; /* Arrondir davantage les coins */
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15); /* Ombre plus prononcée */
+/* ── Wrapper ── */
+.login-wrap {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 100vh;
+  padding: 32px 20px;
 }
 
-label {
-    display: block;
-    /* Augmenter la marge autour des labels */
-    margin: 15px 0 8px;
-    color: #555;
-    /* Augmenter la taille de police des labels */
-    font-size: 1.1em;
+/* ── Carte principale ── */
+.login-card {
+  background: #ffffff;
+  border-radius: 28px;
+  padding: 40px 44px 36px;
+  width: 100%;
+  max-width: 420px;
+  box-shadow:
+    0 0 0 1px rgba(0,0,0,0.05),
+    0 4px 16px rgba(0,0,0,0.07),
+    0 24px 64px rgba(0,0,0,0.16);
 }
 
-input[type="text"],
-input[type="email"],
-input[type="password"],
-input[type="number"],
-select {
-    width: 100%;
-    /* Augmenter le rembourrage intérieur des champs de saisie */
-    padding: 12px;
-    border: 1px solid #ccc;
-    border-radius: 5px; /* Arrondir davantage les coins des champs */
-    /* Augmenter la marge inférieure des champs */
-    margin-bottom: 20px;
-    /* Augmenter la taille de police dans les champs */
-    font-size: 1.1em;
+/* ── Logo ── */
+.login-logo {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 22px;
 }
 
-input[type="submit"],
-button {
-    background-color: #5cb85c;
-    color: white;
-    border: none;
-    /* Augmenter le rembourrage intérieur des boutons */
-    padding: 12px 20px;
-    border-radius: 5px; /* Arrondir davantage les coins des boutons */
-    cursor: pointer;
-    width: 100%;
-    /* Augmenter la taille de police des boutons */
-    font-size: 1.2em;
-    /* Ajouter un peu de marge supérieure pour les boutons */
-    margin-top: 10px;
+.logo-icon {
+  width: 50px;
+  height: 50px;
+  border-radius: 16px;
+  background: linear-gradient(145deg, var(--pink) 0%, var(--pink-deep) 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 22px;
+  flex-shrink: 0;
+  box-shadow: 0 4px 14px rgba(236,72,153,0.38);
 }
 
-input[type="submit"]:hover,
-button:hover {
-    background-color: #4cae4c;
+.logo-name {
+  font-size: 1.4rem;
+  font-weight: 800;
+  color: #0f172a;
+  letter-spacing: -0.4px;
+  line-height: 1.1;
 }
 
-/* Error Messages */
-.error {
-    color: red;
-    font-weight: bold;
-    text-align: center;
-    /* Augmenter la taille de police des messages d'erreur */
-    font-size: 1.1em;
-    /* Ajouter un peu de marge */
-    margin-bottom: 15px;
+.logo-tagline {
+  font-size: 0.72rem;
+  color: #94a3b8;
+  margin-top: 3px;
 }
 
-.success {
-    color: green;
-    font-weight: bold;
-    text-align: center;
-    /* Augmenter la taille de police des messages de succès */
-    font-size: 1.1em;
-    /* Ajouter un peu de marge */
-    margin-bottom: 15px;
+/* ── Bande colorée décorative ── */
+.login-stripe {
+  height: 3px;
+  border-radius: 3px;
+  background: linear-gradient(90deg, var(--pink) 0%, var(--pink-deep) 40%, var(--green) 100%);
+  margin-bottom: 22px;
+  opacity: 0.75;
 }
 
-/* Links */
-p {
-    text-align: center;
-    /* Augmenter la marge autour des paragraphes */
-    margin-top: 20px;
-    /* Augmenter la taille de police des paragraphes */
-    font-size: 1.1em;
+/* ── Titre ── */
+.login-title {
+  font-size: 1.65rem;
+  font-weight: 800;
+  color: #0f172a;
+  letter-spacing: -0.5px;
+  margin-bottom: 22px;
 }
 
-a {
-    color: #5cb85c;
-    text-decoration: none;
-    /* Augmenter la taille de police des liens */
-    font-size: 1em; /* Conserver une taille similaire au paragraphe */
+/* ── Flash messages ── */
+.flash-msg {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  margin-bottom: 18px;
+}
+.flash-error   { background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; }
+.flash-success { background: #f0fdf4; color: #16a34a; border: 1px solid #bbf7d0; }
+
+/* ── Formulaire ── */
+.login-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 }
 
-a:hover {
-    text-decoration: underline;
+.field-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.field-label {
+  font-size: 0.79rem;
+  font-weight: 700;
+  color: #374151;
+  text-transform: uppercase;
+  letter-spacing: 0.7px;
+}
+
+.field-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.field-icon {
+  position: absolute;
+  left: 14px;
+  color: #9ca3af;
+  font-size: 0.82rem;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.field-input {
+  width: 100%;
+  padding: 12px 14px 12px 40px;
+  border: 1.5px solid #e5e7eb;
+  border-radius: 11px;
+  font-size: 0.94rem;
+  color: #111827;
+  background: #f9fafb;
+  transition: border-color 0.18s, box-shadow 0.18s, background 0.18s;
+  outline: none;
+  font-family: inherit;
+}
+.field-input:focus {
+  border-color: var(--pink);
+  background: #fff;
+  box-shadow: 0 0 0 3px rgba(236,72,153,0.13);
+}
+.field-input::placeholder { color: #d1d5db; }
+
+.field-eye {
+  position: absolute;
+  right: 12px;
+  background: none;
+  border: none;
+  color: #b0b7c3;
+  cursor: pointer;
+  padding: 6px;
+  font-size: 0.88rem;
+  line-height: 1;
+  transition: color 0.15s;
+}
+.field-eye:hover { color: var(--pink); }
+
+/* ── Bouton connexion ── */
+.btn-login {
+  width: 100%;
+  margin-top: 8px;
+  padding: 13px 20px;
+  border: none;
+  border-radius: 12px;
+  background: linear-gradient(135deg, var(--green) 0%, var(--green-dk) 100%);
+  color: #fff;
+  font-size: 0.96rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  box-shadow: 0 4px 18px rgba(34,197,94,0.30);
+  transition: all 0.18s;
+  font-family: inherit;
+  letter-spacing: 0.1px;
+}
+.btn-login:hover {
+  background: linear-gradient(135deg, #16a34a 0%, #166534 100%);
+  box-shadow: 0 6px 24px rgba(34,197,94,0.40);
+  transform: translateY(-1px);
+}
+.btn-login:active { transform: translateY(0); }
+
+/* ── Lien mot de passe oublié ── */
+.forgot-wrap {
+  text-align: center;
+  margin-top: 16px;
+}
+.forgot-link {
+  font-size: 0.84rem;
+  color: var(--pink);
+  text-decoration: none;
+  font-weight: 600;
+  opacity: 0.85;
+  transition: opacity 0.15s;
+}
+.forgot-link:hover { opacity: 1; text-decoration: underline; }
+
+/* ══════════════════════════════════════════════════
+   Modal réinitialisation
+   ══════════════════════════════════════════════════ */
+
+.fpwd-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.40);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  padding: 20px;
+}
+
+.fpwd-card {
+  background: #fff;
+  border-radius: 22px;
+  padding: 40px 36px 36px;
+  max-width: 380px;
+  width: 100%;
+  position: relative;
+  box-shadow: 0 24px 80px rgba(0,0,0,0.25);
+  text-align: center;
+}
+
+.fpwd-close {
+  position: absolute;
+  top: 14px; right: 14px;
+  background: #f3f4f6;
+  border: none;
+  border-radius: 8px;
+  width: 32px; height: 32px;
+  display: flex; align-items: center; justify-content: center;
+  color: #6b7280;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: background 0.15s;
+}
+.fpwd-close:hover { background: #e5e7eb; }
+
+.fpwd-icon {
+  width: 58px; height: 58px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #fce7f3, #fbcfe8);
+  display: flex; align-items: center; justify-content: center;
+  margin: 0 auto 18px;
+  color: var(--pink);
+  font-size: 22px;
+}
+
+.fpwd-title {
+  font-size: 1.2rem;
+  font-weight: 800;
+  color: #0f172a;
+  margin-bottom: 10px;
+}
+
+.fpwd-desc {
+  font-size: 0.875rem;
+  color: #6b7280;
+  line-height: 1.55;
+  margin-bottom: 22px;
+}
+
+/* ── Responsive ── */
+@media (max-width: 480px) {
+  .login-card { padding: 32px 22px 28px; border-radius: 22px; }
+  .fpwd-card  { padding: 32px 20px 28px; }
 }

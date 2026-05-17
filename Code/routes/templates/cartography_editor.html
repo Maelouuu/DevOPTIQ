@@ -42,9 +42,9 @@
       <span>Sélection</span>
     </button>
     <div class="shape-dropdown-wrap" id="connect-tool-wrap">
-      <button class="tool-btn-top" data-tool="connect" id="btn-connect-tool" title="Connecter (C)">
-        <i class="fa-solid fa-bezier-curve"></i>
-        <span>Connecter</span>
+      <button class="tool-btn-top" data-tool="connect" id="btn-connect-tool" title="Mettre en évidence les activités hachurées — raccourci C : mode connexion">
+        <i class="fa-solid fa-highlighter"></i>
+        <span>Externes</span>
       </button>
       <div class="shape-sub-dropdown connect-routing-dropdown">
         <button class="shape-sub-btn conn-routing-btn active" data-routing="smooth">
@@ -69,14 +69,29 @@
   <!-- ── Formes ── -->
   <div class="tb-group-top">
     <div class="shape-dropdown-wrap" id="process-shape-wrap">
-      <button class="shape-btn-top" data-tool="process" title="Activité — glissez sur le canevas">
-        <i class="fa-solid fa-square-check"></i>
-        <span>Activité</span>
+      <button class="shape-btn-top" data-tool="process" title="Formes — glissez sur le canevas">
+        <i class="fa-solid fa-shapes"></i>
+        <span>Formes</span>
       </button>
       <div class="shape-sub-dropdown">
         <button class="shape-sub-btn" data-shape-type="process" data-shape-subtype="normal">
           <span class="shape-sub-preview shape-sub-preview--normal"></span>
-          <span>Normale</span>
+          <span>Activité</span>
+        </button>
+        <div class="shape-sub-sep"></div>
+        <button class="shape-sub-btn" data-shape-type="special" data-shape-subtype="normal">
+          <span class="shape-sub-preview shape-sub-preview--special"></span>
+          <span>Sous-activité</span>
+        </button>
+        <div class="shape-sub-sep"></div>
+        <button class="shape-sub-btn" data-shape-type="start-end" data-shape-subtype="normal">
+          <span class="shape-sub-preview shape-sub-preview--renvoi"></span>
+          <span>Renvoi</span>
+        </button>
+        <div class="shape-sub-sep"></div>
+        <button class="shape-sub-btn" data-shape-type="decision" data-shape-subtype="normal">
+          <span class="shape-sub-preview shape-sub-preview--decision"></span>
+          <span>Décision</span>
         </button>
         <div class="shape-sub-sep"></div>
         <button class="shape-sub-btn" data-shape-type="process" data-shape-subtype="external">
@@ -90,18 +105,6 @@
         </button>
       </div>
     </div>
-    <button class="shape-btn-top" data-tool="start-end" title="Début/Fin">
-      <i class="fa-solid fa-circle-dot"></i>
-      <span>Début/Fin</span>
-    </button>
-    <button class="shape-btn-top" data-tool="special" title="Sous-activité">
-      <i class="fa-solid fa-puzzle-piece"></i>
-      <span>Sous-act.</span>
-    </button>
-    <button class="shape-btn-top" data-tool="decision" title="Décision">
-      <i class="fa-solid fa-gem"></i>
-      <span>Décision</span>
-    </button>
   </div>
 
   <div class="tb-divider-v"></div>
@@ -132,6 +135,10 @@
       <i class="fa-solid fa-trash"></i>
       <span>Supprimer</span>
     </button>
+    <button class="tool-btn-top" id="btn-bands-catalog" title="Gérer les bandes optionnelles">
+      <i class="fa-solid fa-layer-group"></i>
+      <span>Bandes</span>
+    </button>
   </div>
 
   <div class="tb-divider-v"></div>
@@ -156,7 +163,7 @@
         <i class="fa-solid fa-folder-open"></i>
         <span>Charger</span>
       </button>
-      <button class="folder-action-btn accent" id="btn-export-svg" title="Exporter SVG (Ctrl+E)">
+      <button class="folder-action-btn" id="btn-export-svg" title="Exporter SVG (Ctrl+E)">
         <i class="fa-solid fa-file-export"></i>
         <span>Export SVG</span>
       </button>
@@ -178,6 +185,19 @@
   </button>
 
 </header>
+
+<!-- ══════════════ BANDS CATALOG POPUP ══════════════ -->
+<div id="bands-catalog-popup">
+  <div class="bcat-header">
+    <div class="bcat-header-left">
+      <i class="fa-solid fa-layer-group"></i>
+      <span>Bandes optionnelles</span>
+    </div>
+    <button class="bcat-close" id="btn-close-bcat"><i class="fa-solid fa-xmark"></i></button>
+  </div>
+  <p class="bcat-desc">Activez ou désactivez les bandes secondaires. La suppression d'une bande non vide entraîne la suppression des formes qu'elle contient.</p>
+  <div id="bcat-list"></div>
+</div>
 
 <!-- ══════════════ LEFT PANEL ══════════════ -->
 <aside id="left-panel">
@@ -271,9 +291,18 @@
       <g id="g-overlay"></g>
     </g>
   </svg>
-  <div id="zoom-pill">
+  <div id="zoom-pill" title="Cliquer pour régler la sensibilité du zoom">
     <i class="fa-solid fa-magnifying-glass"></i>
     <span id="status-zoom">100%</span>
+  </div>
+  <div id="zoom-sensitivity-popup">
+    <div class="zsens-title"><i class="fa-solid fa-gauge-high"></i> Sensibilité du zoom</div>
+    <div class="zsens-row">
+      <input type="range" id="zsens-slider" min="3" max="30" step="1" value="12">
+      <input type="number" id="zsens-value" min="3" max="30" step="1" value="12">
+      <span style="font-size:11px;color:var(--text-muted);white-space:nowrap">% / cran</span>
+    </div>
+    <div class="zsens-hint">Plus la valeur est élevée, plus le zoom est rapide. La valeur est enregistrée automatiquement.</div>
   </div>
 </main>
 
@@ -563,9 +592,6 @@
     <div class="modal-body">
       <p class="modal-hint">Les bandes structurent votre cartographie en zones horizontales.</p>
       <div id="bands-list"></div>
-      <button id="btn-add-band" class="btn-add-band">
-        <i class="fa-solid fa-plus"></i> Ajouter une bande
-      </button>
     </div>
     <div class="modal-footer">
       <button id="bands-dialog-ok" class="btn-ok">Fermer</button>
@@ -607,23 +633,17 @@
   </div>
 </div>
 
-<!-- ══════════════ WELCOME MODAL ══════════════ -->
-<div id="welcome-modal" class="welcome-overlay">
-  <div class="welcome-card">
-    <div class="welcome-glow"></div>
-    <div class="welcome-logo">
-      <span class="welcome-mark">◉</span>
-      <span class="welcome-name">OptiqCarto</span>
+<!-- ══════════════ SAVE PROGRESS POPUP ══════════════ -->
+<div id="save-progress-popup" class="save-popup-overlay" style="display:none">
+  <div class="save-popup-card">
+    <div id="save-popup-saving" class="save-popup-state">
+      <div class="save-popup-spinner"></div>
+      <p class="save-popup-msg">Ne pas quitter<br><strong>Enregistrement en cours…</strong></p>
     </div>
-    <p class="welcome-tagline">Éditeur de cartographies de processus</p>
-    <div class="welcome-screenshot">
-      <img src="{{ url_for('static', filename='img/optiqcarto_setting.png') }}" alt="Aperçu" class="welcome-screenshot-img">
+    <div id="save-popup-done" class="save-popup-state" style="display:none">
+      <div class="save-popup-check"><i class="fa-solid fa-circle-check"></i></div>
+      <p class="save-popup-msg save-popup-msg--done">Enregistrement validé</p>
     </div>
-    <button id="btn-welcome-start" class="welcome-btn">
-      <i class="fa-solid fa-play"></i>
-      {% if has_optiqcarto %}Reprendre la cartographie{% elif has_vsdx %}Importer la cartographie Visio{% else %}Créer une cartographie{% endif %}
-    </button>
-    <p class="welcome-version">{{ entity_name or 'AFDEC' }} · OptiqCarto</p>
   </div>
 </div>
 
@@ -672,6 +692,9 @@
   </div>
 </div>
 
+<script src="{{ url_for('static', filename='optiqcarto/color-utils.js') }}"></script>
+<script src="{{ url_for('static', filename='optiqcarto/geometry.js') }}"></script>
+<script src="{{ url_for('static', filename='optiqcarto/highlight-mode.js') }}"></script>
 <script src="{{ url_for('static', filename='optiqcarto/vsdx_importer.js') }}"></script>
 <script src="{{ url_for('static', filename='optiqcarto/editor.js') }}"></script>
 

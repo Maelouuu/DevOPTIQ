@@ -217,11 +217,13 @@ function activateSvgClicks() {
 
     el.addEventListener("mouseenter", () => {
       if (crossCartoMode) return;
+      if (typeof isExtcoMapHighlightActive === 'function' && isExtcoMapHighlightActive()) return;
       el.style.filter = "drop-shadow(0 0 6px #22c55e)";
       el.style.opacity = "0.9";
     });
     el.addEventListener("mouseleave", () => {
       if (crossCartoMode) return;
+      if (typeof isExtcoMapHighlightActive === 'function' && isExtcoMapHighlightActive()) return;
       el.style.filter = "";
       el.style.opacity = "1";
     });
@@ -338,7 +340,11 @@ function initWizard() {
   // Actions entité
   $("#wizard-activate-btn")?.addEventListener("click", activateEntity);
   $("#wizard-rename-btn")?.addEventListener("click", () => showModal("rename-modal"));
-  $("#wizard-delete-btn")?.addEventListener("click", () => showModal("confirm-delete-modal"));
+  $("#wizard-delete-btn")?.addEventListener("click", () => {
+    const nameEl = document.getElementById("delete-entity-name-display");
+    if (nameEl && wizardState.selectedEntity) nameEl.textContent = wizardState.selectedEntity.name;
+    showModal("confirm-delete-modal");
+  });
 
   // Modals
   $("#cancel-delete-btn")?.addEventListener("click", () => hideModal("confirm-delete-modal"));
@@ -401,6 +407,7 @@ async function createEntity() {
     });
     const data = await res.json();
     if (data.error) { alert(data.error); return; }
+    if (data.redirect_url) { window.location.href = data.redirect_url; return; }
     input.value = "";
     await loadEntitiesList();
     setTimeout(() => selectEntity(data.entity.id), 50);
@@ -766,23 +773,36 @@ function showError(msg) {
 ============================================================ */
 
 function initCrossCartoMode() {
-  const btn = document.getElementById("cross-carto-btn");
+  const btn     = document.getElementById("cross-carto-btn");
+  const countEl = document.getElementById("cross-carto-count");
   if (!btn) return;
 
-  btn.addEventListener("click", async () => {
-    crossCartoMode = !crossCartoMode;
-    btn.classList.toggle("active", crossCartoMode);
+  // Nombre d'activités externes côté serveur (badge)
+  const extcoCount = (window.EXTCO_ACTIVITY_IDS || []).length;
+  if (countEl) countEl.textContent = String(extcoCount);
 
+  let _active = false;
+
+  function _setActive(val) {
+    _active = val;
+    btn.classList.toggle("active", _active);
     const infoDefault = document.getElementById("carto-info-default");
     const infoCross   = document.getElementById("carto-info-cross");
-    if (infoDefault) infoDefault.classList.toggle("hidden", crossCartoMode);
-    if (infoCross)   infoCross.classList.toggle("hidden", !crossCartoMode);
+    if (infoDefault) infoDefault.classList.toggle("hidden", _active);
+    if (infoCross)   infoCross.classList.toggle("hidden", !_active);
+  }
 
-    if (crossCartoMode) {
-      await applyCrossCartoMode();
-    } else {
-      clearCrossCartoMode();
-    }
+  // Réception de la réponse d'état depuis l'iframe viewer
+  window.addEventListener("message", function(e) {
+    if (e.data && e.data.type === "extco-state") _setActive(!!e.data.active);
+  });
+
+  btn.addEventListener("click", () => {
+    const frame = document.getElementById("carto-viewer-frame");
+    if (!frame || !frame.contentWindow) return;
+    frame.contentWindow.postMessage({ type: "toggle-extco" }, "*");
+    // Optimistic toggle — sera confirmé par la réponse extco-state de l'iframe
+    _setActive(!_active);
   });
 }
 

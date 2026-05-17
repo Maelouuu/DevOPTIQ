@@ -167,7 +167,7 @@ def _do_sync(entity, diagram):
 
     act_shapes = [s for s in shapes if s.get('type') in _ACTIVITY_TYPES]
 
-    # ── Activities ────────────────────────────────────────────────────────────
+    # ── Activities — upsert uniquement les changements ────────────────────────
     existing_acts = {a.shape_id: a for a in
                      Activities.query.filter_by(entity_id=entity.id).filter(
                          Activities.shape_id.isnot(None)).all()}
@@ -181,23 +181,29 @@ def _do_sync(entity, diagram):
         is_result = s.get('type') == 'special'
 
         if sid in existing_acts:
-            act           = existing_acts[sid]
-            act.name      = label
-            act.is_result = is_result
+            act = existing_acts[sid]
+            if act.name != label:     act.name      = label
+            if act.is_result != is_result: act.is_result = is_result
         else:
             act = Activities(entity_id=entity.id, shape_id=sid,
                              name=label, is_result=is_result)
             db.session.add(act)
         shape_to_act[sid] = act
 
-    # Delete activities removed from the carto
-    for sid, act in existing_acts.items():
-        if sid not in new_shape_ids:
-            db.session.delete(act)
+    # Supprimer les activités retirées de la carto (activity_roles FK en premier)
+    acts_to_remove = [act for sid, act in existing_acts.items() if sid not in new_shape_ids]
+    if acts_to_remove:
+        remove_ids = [a.id for a in acts_to_remove if a.id]
+        if remove_ids:
+            db.session.execute(
+                activity_roles.delete().where(activity_roles.c.activity_id.in_(remove_ids))
+            )
+    for act in acts_to_remove:
+        db.session.delete(act)
 
-    db.session.flush()
+    db.session.flush()  # obtenir les IDs des nouvelles activités
 
-    # ── Roles (bands) ─────────────────────────────────────────────────────────
+    # ── Roles (bands) — upsert ───────────────────────────────────────────────
     existing_roles = {r.name: r for r in Role.query.filter_by(entity_id=entity.id).all()}
     new_band_names = {(b.get('label') or '').strip() for b in bands}
     band_to_role   = {}
@@ -219,14 +225,19 @@ def _do_sync(entity, diagram):
 
     db.session.flush()
 
-    # ── Activity-Role associations ────────────────────────────────────────────
+    # ── Activity-Role associations — diff (pas de delete-all + insert-all) ───
     act_ids = [a.id for a in shape_to_act.values() if a.id]
+    # Lire l'état actuel une seule fois
+    cur_ar = {}
     if act_ids:
-        db.session.execute(
-            activity_roles.delete().where(activity_roles.c.activity_id.in_(act_ids))
-        )
-        db.session.flush()
+        rows = db.session.execute(
+            activity_roles.select().where(activity_roles.c.activity_id.in_(act_ids))
+        ).fetchall()
+        for row in rows:
+            cur_ar[row.activity_id] = row.role_id
 
+    # Calculer le nouvel état
+    new_ar = {}
     for s in act_shapes:
         sid = str(s['id'])
         act = shape_to_act.get(sid)
@@ -238,31 +249,55 @@ def _do_sync(entity, diagram):
             continue
         role = band_to_role.get(band['id'])
         if role and role.id:
-            db.session.execute(activity_roles.insert().values(
-                activity_id=act.id, role_id=role.id, status='garant'
-            ))
+            new_ar[act.id] = role.id
 
-    # ── Links (connections) ───────────────────────────────────────────────────
-    Link.query.filter_by(entity_id=entity.id).filter(
-        Link.source_activity_id.isnot(None),
-        Link.target_activity_id.isnot(None),
-    ).delete(synchronize_session=False)
+    # Supprimer uniquement les associations supprimées ou modifiées
+    to_delete_ar = [aid for aid, rid in cur_ar.items()
+                    if aid not in new_ar or new_ar[aid] != rid]
+    if to_delete_ar:
+        db.session.execute(
+            activity_roles.delete().where(activity_roles.c.activity_id.in_(to_delete_ar))
+        )
+    # Insérer uniquement les nouvelles associations ou celles qui ont changé
+    for aid, rid in new_ar.items():
+        if aid not in cur_ar or cur_ar[aid] != rid:
+            db.session.execute(
+                activity_roles.insert().values(activity_id=aid, role_id=rid, status='garant')
+            )
 
+    # ── Links — diff (pas de delete-all + insert-all) ────────────────────────
+    existing_links = {
+        (lk.source_activity_id, lk.target_activity_id): lk
+        for lk in Link.query.filter_by(entity_id=entity.id).filter(
+            Link.source_activity_id.isnot(None),
+            Link.target_activity_id.isnot(None),
+        ).all()
+    }
+
+    new_links = {}
     for conn in connections:
-        from_sid = str(conn.get('fromId', ''))
-        to_sid   = str(conn.get('toId',   ''))
-        from_act = shape_to_act.get(from_sid)
-        to_act   = shape_to_act.get(to_sid)
+        from_act = shape_to_act.get(str(conn.get('fromId', '')))
+        to_act   = shape_to_act.get(str(conn.get('toId',   '')))
         if not from_act or not to_act or not from_act.id or not to_act.id:
             continue
-        label = (conn.get('label') or '').strip()
-        db.session.add(Link(
-            entity_id=entity.id,
-            source_activity_id=from_act.id,
-            target_activity_id=to_act.id,
-            type='flux',
-            description=label or None,
-        ))
+        label = (conn.get('label') or '').strip() or None
+        new_links[(from_act.id, to_act.id)] = label
+
+    for key, lk in existing_links.items():
+        if key not in new_links:
+            db.session.delete(lk)
+        elif lk.description != new_links[key]:
+            lk.description = new_links[key]
+
+    for key, label in new_links.items():
+        if key not in existing_links:
+            db.session.add(Link(
+                entity_id=entity.id,
+                source_activity_id=key[0],
+                target_activity_id=key[1],
+                type='flux',
+                description=label,
+            ))
 
     db.session.commit()
 

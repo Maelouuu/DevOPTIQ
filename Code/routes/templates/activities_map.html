@@ -10,10 +10,15 @@
   window.CURRENT_VSDX = {{ current_vsdx | tojson | safe }};
   window.ACTIVE_ENTITY = {{ active_entity | tojson | safe }};
   window.ALL_ENTITIES = {{ all_entities | tojson | safe }};
+  window.EXTCO_ACTIVITY_IDS = {{ extco_activity_ids | tojson | safe }};
 </script>
+
+<!-- Le mode "mise en évidence" est entièrement piloté en JS (highlight-extco-map.js)
+     pour éviter les filtres CSS hérités par le rendu SVG. -->
 
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 <script defer src="{{ url_for('static', filename='optiqcarto/vsdx_importer.js') }}"></script>
+<script defer src="{{ url_for('static', filename='js/highlight-extco-map.js') }}"></script>
 <script defer src="{{ url_for('static', filename='js/activities_map.js') }}"></script>
 
 <div class="carto-page">
@@ -33,8 +38,8 @@
         <img src="{{ url_for('static', filename='img/artificial-intelligence.png') }}" alt="IA" class="btn-icon-img">
         Import IA
       </button>
-      <!-- Mode connexions inter-cartos -->
-      <button id="cross-carto-btn" class="cross-carto-btn" title="Visualiser les connexions inter-cartos">
+      <!-- Bouton "Connexions" — toggle mise en évidence des activités externes/hachurées -->
+      <button id="cross-carto-btn" class="cross-carto-btn" title="Mettre en évidence les activités externes (hachurées)">
         <img src="{{ url_for('static', filename='img/connexion.png') }}" alt="" class="btn-icon-img cross-carto-icon">
         <span id="cross-carto-label">Connexions</span>
         <span class="cross-carto-dot"></span>
@@ -49,10 +54,10 @@
     Clic gauche maintenu pour se déplacer • Molette pour zoomer • Clic sur une activité pour y accéder
   </div>
   <div class="carto-info-message carto-info-cross hidden" id="carto-info-cross">
-    <i class="fa-solid fa-diagram-project"></i>
-    <strong>Mode connexions :</strong>
-    Les activités <span class="cross-highlight-label">surlignées</span> existent dans d'autres cartos — cliquez pour y accéder.
-    <span id="cross-carto-count" class="cross-count-badge">0</span> connexion(s) trouvée(s)
+    <i class="fa-solid fa-highlighter"></i>
+    <strong>Activités externes :</strong>
+    Les activités <span class="cross-highlight-label">en couleur</span> sont marquées comme externes (hachurées ou forme stade) dans l'éditeur OptiqCarto.
+    <span id="cross-carto-count" class="cross-count-badge">0</span> activité(s) externe(s)
   </div>
 
   <!-- Popup entité choice (cross-carto click with multiple matches) -->
@@ -169,15 +174,18 @@
     </div>
   </div>
 
-  <!-- MODAL SUPPRESSION - Style inline de sécurité -->
-  <div id="confirm-delete-modal" class="modal hidden" >
-    <div class="modal-content modal-danger">
-      <h3><i class="fa-solid fa-triangle-exclamation" style="color:#ef4444;margin-right:6px"></i>Confirmer la suppression</h3>
-      <p>Cette action supprimera définitivement l'entité et toutes ses données.</p>
-      <p class="delete-warning-final">Cette action est <strong>IRRÉVERSIBLE</strong>.</p>
-      <div class="modal-actions">
-        <button id="cancel-delete-btn" class="btn-gray">Annuler</button>
-        <button id="confirm-delete-btn" class="btn-red"><i class="fa-solid fa-trash"></i> Supprimer</button>
+  <!-- MODAL SUPPRESSION -->
+  <div id="confirm-delete-modal" class="modal hidden">
+    <div class="modal-content modal-danger-v2">
+      <div class="modal-danger-icon">
+        <i class="fa-solid fa-triangle-exclamation"></i>
+      </div>
+      <h3 class="modal-danger-title">Supprimer l'entité</h3>
+      <p class="modal-danger-entity-name" id="delete-entity-name-display"></p>
+      <p class="modal-danger-desc">Toutes les données associées (activités, connexions, cartographie) seront <strong>définitivement supprimées</strong>. Cette action est irréversible.</p>
+      <div class="modal-danger-actions">
+        <button id="cancel-delete-btn" class="modal-btn-cancel">Annuler</button>
+        <button id="confirm-delete-btn" class="modal-btn-delete"><i class="fa-solid fa-trash"></i> Supprimer</button>
       </div>
     </div>
   </div>
@@ -543,24 +551,17 @@
 })();
 </script>
 
-<!-- ── Visionneur : PostMessage listener + highlights activités ── -->
+<!-- ── Visionneur : PostMessage listener → navigation directe ── -->
 <script>
 (function() {
-  // Écoute les clics sur les formes dans l'iframe viewer
   window.addEventListener('message', (e) => {
     if (!e.data || e.data.t !== 'shape-click') return;
     const label = (e.data.label || '').toLowerCase().trim();
     if (!label) return;
-    highlightActivity(label);
-  });
-
-  function highlightActivity(label) {
     const items = document.querySelectorAll('#activities-list .activity-item');
     let found = null;
-    // Recherche exacte d'abord, puis partielle
     for (const item of items) {
-      const name = (item.dataset.name || '').trim();
-      if (name === label) { found = item; break; }
+      if ((item.dataset.name || '').trim() === label) { found = item; break; }
     }
     if (!found) {
       for (const item of items) {
@@ -568,14 +569,9 @@
         if (name.includes(label) || label.includes(name)) { found = item; break; }
       }
     }
-    if (!found) return;
-    // Supprimer highlight précédent
-    items.forEach(i => i.classList.remove('activity-highlighted'));
-    found.classList.add('activity-highlighted');
-    found.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    // Retirer le highlight après 3s
-    setTimeout(() => found.classList.remove('activity-highlighted'), 3000);
-  }
+    if (!found || !found.dataset.id) return;
+    window.location.href = `/activities/view?activity_id=${found.dataset.id}`;
+  });
 })();
 </script>
 
