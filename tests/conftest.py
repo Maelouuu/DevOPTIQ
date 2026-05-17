@@ -19,8 +19,10 @@ def app():
 
     test_app = create_app()
 
-    # create_app() appelle db.create_all() en interne sur la DB fichier/postgres.
-    # On surcharge TOUT avant que Flask-SQLAlchemy crée un nouvel engine.
+    # create_app() appelle db.init_app() + db.create_all() en interne sur la DB
+    # fichier/postgres, puis db.engine.dispose(). L'engine reste dans le cache
+    # Flask-SQLAlchemy (_app_engines). On met à jour la config, puis on évince
+    # ce cache pour forcer la création d'un nouvel engine sur sqlite:///:memory:.
     test_app.config.update({
         "TESTING": True,
         "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:",
@@ -34,11 +36,16 @@ def app():
         },
     })
 
-    # Force Flask-SQLAlchemy à recréer l'engine avec la nouvelle URI in-memory.
-    _db.init_app(test_app)
+    # Évince le cache engine de Flask-SQLAlchemy 3.x (_app_engines est un
+    # WeakKeyDictionary app → engine). Sans ça, FSA réutilise l'engine de la
+    # DB fichier même après changement de l'URI dans la config.
+    engine_cache = getattr(_db, "_app_engines", {})
+    old_engine = engine_cache.pop(test_app, None)
+    if old_engine is not None:
+        old_engine.dispose()
 
     with test_app.app_context():
-        _db.drop_all()    # Repart de zéro (ignore l'état du create_all interne)
+        _db.drop_all()    # Repart de zéro (au cas où des tables existent)
         _db.create_all()  # Crée toutes les tables depuis les modèles actuels
         _seed_db(_db)
         yield test_app
@@ -81,7 +88,6 @@ def _seed_db(db):
     )
     db.session.add(task)
 
-    # Donnée et lien pour les tests DnD
     data_obj = Data(entity_id=entity.id, name="Donnée Test", type="nourrissante")
     db.session.add(data_obj)
     db.session.flush()
