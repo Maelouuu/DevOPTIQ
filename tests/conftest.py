@@ -17,16 +17,16 @@ def app():
     from Code.app import create_app
     from Code.extensions import db as _db
 
-    test_app = create_app()
-    # StaticPool garantit que toutes les connexions partagent la MÊME base
-    # SQLite en mémoire (sinon chaque connexion du pool = DB vide).
-    test_app.config.update({
+    # test_config saute le bloc with app.app_context() dans create_app(),
+    # ce qui évite tout conflit d'engine avec la DB fichier/postgres.
+    # FSA crée l'engine in-memory au premier accès dans le contexte ci-dessous.
+    test_app = create_app(test_config={
         "TESTING": True,
         "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:",
         "SECRET_KEY": "test-secret-key",
         "WTF_CSRF_ENABLED": False,
         "MAIL_SUPPRESS_SEND": True,
-        "PROPAGATE_EXCEPTIONS": False,   # Retourner 500 au lieu de propager
+        "PROPAGATE_EXCEPTIONS": False,
         "SQLALCHEMY_ENGINE_OPTIONS": {
             "connect_args": {"check_same_thread": False},
             "poolclass": StaticPool,
