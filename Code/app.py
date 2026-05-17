@@ -226,6 +226,19 @@ def create_app(test_config=None):
     if test_config is not None:
         app.config.update(test_config)
         app.secret_key = test_config.get("SECRET_KEY", "test-secret")
+
+        @app.route("/healthz")
+        def healthz():
+            return "ok", 200
+
+        @app.route("/")
+        def home():
+            return redirect(url_for("auth.login"))
+
+        @app.teardown_appcontext
+        def shutdown_session(exception=None):
+            db.session.remove()
+
         return app
 
     with app.app_context():

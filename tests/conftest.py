@@ -4,41 +4,44 @@ Fixtures partagées pour la suite de tests DevOPTIQ.
 Crée une application Flask de test avec une base SQLite en mémoire.
 """
 import pytest
+import tempfile
+import os
 from werkzeug.security import generate_password_hash
-from sqlalchemy.pool import StaticPool
 
-import sys, os
+import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
 
 @pytest.fixture(scope="session")
 def app():
-    """Instance Flask configurée pour les tests (SQLite en mémoire)."""
+    """Instance Flask configurée pour les tests (SQLite fichier temporaire)."""
     from Code.app import create_app
     from Code.extensions import db as _db
 
-    # test_config saute le bloc with app.app_context() dans create_app(),
-    # ce qui évite tout conflit d'engine avec la DB fichier/postgres.
-    # FSA crée l'engine in-memory au premier accès dans le contexte ci-dessous.
+    db_fd, db_path = tempfile.mkstemp(suffix=".db")
+    os.close(db_fd)
+
     test_app = create_app(test_config={
         "TESTING": True,
-        "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:",
+        "SQLALCHEMY_DATABASE_URI": f"sqlite:///{db_path}",
         "SECRET_KEY": "test-secret-key",
         "WTF_CSRF_ENABLED": False,
         "MAIL_SUPPRESS_SEND": True,
         "PROPAGATE_EXCEPTIONS": False,
         "SQLALCHEMY_ENGINE_OPTIONS": {
             "connect_args": {"check_same_thread": False},
-            "poolclass": StaticPool,
         },
     })
 
     with test_app.app_context():
+        _db.drop_all()
         _db.create_all()
         _seed_db(_db)
         yield test_app
         _db.session.remove()
         _db.drop_all()
+
+    os.unlink(db_path)
 
 
 def _seed_db(db):
