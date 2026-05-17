@@ -22,6 +22,7 @@ PAGE_LABELS = {
     "test_08_task_links":  "Drag & Drop Connexions→Tâches",
     "test_09_time":        "Gestion du Temps",
     "test_10_roles":       "Rôles",
+    "test_11_tools":       "Gestion des Outils",
 }
 
 

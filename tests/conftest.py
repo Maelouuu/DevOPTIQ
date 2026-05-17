@@ -60,6 +60,11 @@ def _seed_db(db):
     db.session.add(user)
     db.session.flush()
 
+    # Entity.get_active_id() vérifie owner_id == user_id — requis pour les
+    # fonctionnalités scoped par entité (tools, roles, activités…)
+    entity.owner_id = user.id
+    db.session.flush()
+
     activity = Activities(
         entity_id=entity.id,
         name="Activité Test",
