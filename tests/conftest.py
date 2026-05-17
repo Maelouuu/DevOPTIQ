@@ -18,23 +18,28 @@ def app():
     from Code.extensions import db as _db
 
     test_app = create_app()
-    # StaticPool garantit que toutes les connexions partagent la MÊME base
-    # SQLite en mémoire (sinon chaque connexion du pool = DB vide).
+
+    # create_app() appelle db.create_all() en interne sur la DB fichier/postgres.
+    # On surcharge TOUT avant que Flask-SQLAlchemy crée un nouvel engine.
     test_app.config.update({
         "TESTING": True,
         "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:",
         "SECRET_KEY": "test-secret-key",
         "WTF_CSRF_ENABLED": False,
         "MAIL_SUPPRESS_SEND": True,
-        "PROPAGATE_EXCEPTIONS": False,   # Retourner 500 au lieu de propager
+        "PROPAGATE_EXCEPTIONS": False,
         "SQLALCHEMY_ENGINE_OPTIONS": {
             "connect_args": {"check_same_thread": False},
             "poolclass": StaticPool,
         },
     })
 
+    # Force Flask-SQLAlchemy à recréer l'engine avec la nouvelle URI in-memory.
+    _db.init_app(test_app)
+
     with test_app.app_context():
-        _db.create_all()
+        _db.drop_all()    # Repart de zéro (ignore l'état du create_all interne)
+        _db.create_all()  # Crée toutes les tables depuis les modèles actuels
         _seed_db(_db)
         yield test_app
         _db.session.remove()
@@ -58,11 +63,6 @@ def _seed_db(db):
         status="admin",
     )
     db.session.add(user)
-    db.session.flush()
-
-    # Entity.get_active_id() vérifie owner_id == user_id — requis pour les
-    # fonctionnalités scoped par entité (tools, roles, activités…)
-    entity.owner_id = user.id
     db.session.flush()
 
     activity = Activities(
