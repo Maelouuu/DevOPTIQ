@@ -17,14 +17,10 @@ def app():
     from Code.app import create_app
     from Code.extensions import db as _db
 
-    test_app = create_app()
-
-    # create_app() appelle db.init_app() + db.create_all() sur la DB fichier.
-    # Dans FSA 3.x, _app_engines est un WeakKeyDictionary app -> {bind_key -> engine}.
-    # Il sert à la fois de registre (app présente = enregistrée) et de cache engine.
-    # On vide le dict interne à {} : l'app reste enregistrée mais FSA recrée
-    # l'engine au prochain accès en lisant la config mise à jour.
-    test_app.config.update({
+    # test_config saute le bloc with app.app_context() dans create_app(),
+    # ce qui évite tout conflit d'engine avec la DB fichier/postgres.
+    # FSA crée l'engine in-memory au premier accès dans le contexte ci-dessous.
+    test_app = create_app(test_config={
         "TESTING": True,
         "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:",
         "SECRET_KEY": "test-secret-key",
@@ -37,12 +33,7 @@ def app():
         },
     })
 
-    engine_cache = getattr(_db, "_app_engines", {})
-    if test_app in engine_cache:
-        engine_cache[test_app] = {}  # vide sans supprimer — app reste enregistrée
-
     with test_app.app_context():
-        _db.drop_all()
         _db.create_all()
         _seed_db(_db)
         yield test_app
