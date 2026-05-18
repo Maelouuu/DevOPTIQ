@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DevOPTIQ — {{ page.title }}</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="/static/test_panel.css">
+</head>
+<body>
+
+<div class="tp-layout">
+
+  <!-- ── Sidebar ── -->
+  <aside class="tp-sidebar">
+    <div class="tp-sidebar-logo">
+      <a href="/testpanel/">
+        <div class="logo-dot"><i class="fa-solid fa-flask-vial"></i></div>
+        Test Panel
+      </a>
+    </div>
+    <nav class="tp-sidebar-nav">
+      <div class="tp-nav-label">Vue globale</div>
+      <a href="/testpanel/" class="tp-nav-item">
+        <div class="dot dot-grey"></div>
+        Tous les tests
+      </a>
+      <div class="tp-nav-label" style="margin-top:12px;">Par page</div>
+      {% set all_pages = page.query.order_by(page.__class__.file_name).all() if false else [] %}
+      <a href="/testpanel/page/{{ page.slug }}" class="tp-nav-item active">
+        <div class="dot dot-pink"></div>
+        <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:120px;">{{ page.title }}</span>
+      </a>
+      <div class="tp-nav-label" style="margin-top:12px;">App</div>
+      <a href="/" class="tp-nav-item">
+        <i class="fa-solid fa-arrow-left" style="font-size:11px;color:var(--muted)"></i>
+        Retour à l'app
+      </a>
+    </nav>
+  </aside>
+
+  <!-- ── Main ── -->
+  <main class="tp-main">
+
+    <!-- Breadcrumb -->
+    <div class="tp-breadcrumb">
+      <a href="/testpanel/">Test Panel</a>
+      <span class="sep">/</span>
+      <span>{{ page.title }}</span>
+    </div>
+
+    <!-- Page hero -->
+    {% set cases_list = [] %}
+    {% for cls_cases in classes.values() %}{% for c in cls_cases %}{% if cases_list.append(c) %}{% endif %}{% endfor %}{% endfor %}
+    {% set total   = cases_list|length %}
+    {% set passed  = cases_list|selectattr('last_status','eq','passed')|list|length %}
+    {% set failed  = cases_list|selectattr('last_status','in',['failed','error'])|list|length %}
+    {% set cur_pct = ((passed / total * 100)|round|int) if total else 0 %}
+    {% set col = '#22c55e' if cur_pct >= 95 else ('#f59e0b' if cur_pct >= 75 else '#ec4899') %}
+
+    <div class="tp-page-hero">
+      <div class="tp-page-hero-left">
+        <div class="tp-page-hero-title">{{ page.title }}</div>
+        {% if page.description %}
+        <div class="tp-page-hero-desc">{{ page.description|replace('\n', ' ')|truncate(300) }}</div>
+        {% endif %}
+        <div class="tp-page-hero-stats">
+          <div class="tp-stat">
+            <div class="tp-stat-val" style="color:{{ col }}">{{ cur_pct }}%</div>
+            <div class="tp-stat-lbl">Taux de réussite</div>
+          </div>
+          <div class="tp-stat">
+            <div class="tp-stat-val">{{ total }}</div>
+            <div class="tp-stat-lbl">Tests</div>
+          </div>
+          <div class="tp-stat">
+            <div class="tp-stat-val" style="color:var(--green)">{{ passed }}</div>
+            <div class="tp-stat-lbl">Passés</div>
+          </div>
+          <div class="tp-stat">
+            <div class="tp-stat-val" style="color:var(--pink)">{{ failed }}</div>
+            <div class="tp-stat-lbl">Échoués</div>
+          </div>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:8px;align-items:flex-end;">
+        <button class="btn btn-pink" id="btn-run-page" onclick="runPage('{{ page.slug }}')">
+          <i class="fa-solid fa-play"></i> Lancer la page
+        </button>
+        <a href="/testpanel/" class="btn btn-ghost">
+          <i class="fa-solid fa-table-cells"></i> Vue globale
+        </a>
+      </div>
+    </div>
+
+    <!-- Run bar -->
+    <div class="tp-run-bar" id="run-bar" style="display:none">
+      <i class="fa-solid fa-circle-notch spinner"></i>
+      <span id="run-bar-text">Exécution en cours…</span>
+      <span id="run-bar-pct" class="ml-auto fw-600" style="color:var(--pink)"></span>
+    </div>
+
+    <!-- Terminal -->
+    <div id="terminal-wrap" style="display:none;margin-bottom:16px;">
+      <div class="tp-terminal" id="terminal"></div>
+    </div>
+
+    <!-- Percentage history chart -->
+    {% if run_history %}
+    <div class="pct-chart-container">
+      <div class="pct-chart-title">Historique — % de tests passés par run</div>
+      <canvas class="pct-chart-canvas" id="pct-chart" height="80"></canvas>
+    </div>
+    {% endif %}
+
+    <!-- Test cases by class -->
+    {% for class_name, cases in classes.items() %}
+    <div class="tp-class-group">
+      <div class="tp-class-title">
+        <i class="fa-solid fa-layer-group" style="margin-right:5px;opacity:.6"></i>
+        {{ class_name }}
+      </div>
+
+      {% for c in cases %}
+      {% set hist = case_history.get(c.id, []) %}
+      {% set status_cls = 'sd-pass' if c.last_status == 'passed' else ('sd-fail' if c.last_status in ['failed','error'] else 'sd-unknown') %}
+      <a href="/testpanel/case/{{ c.id }}" class="tp-case-row">
+        <div class="status-dot {{ status_cls }}"></div>
+        <div>
+          <div class="tp-case-name">{{ c.display_name }}</div>
+          <div class="tp-case-class">{{ c.name }}</div>
+        </div>
+        {% if c.last_status %}
+        <span class="badge {% if c.last_status == 'passed' %}badge-green{% elif c.last_status in ['failed','error'] %}badge-pink{% else %}badge-grey{% endif %}">
+          {{ c.last_status }}
+        </span>
+        {% else %}
+        <span class="badge badge-grey">non testé</span>
+        {% endif %}
+        <!-- Bougie sparkline -->
+        <div class="tp-case-spark">
+          <div class="spark-wrap">
+            {% for h in hist[-16:] %}
+            <div class="spark-bar {% if h.status == 'passed' %}top pass{% elif h.status in ['failed','error'] %}bottom fail{% else %}none{% endif %}"
+                 title="{{ h.status }}"></div>
+            {% endfor %}
+            {% if not hist %}
+            <div class="spark-bar none"></div>
+            {% endif %}
+          </div>
+        </div>
+        <i class="fa-solid fa-chevron-right" style="font-size:11px;color:var(--muted);margin-left:4px;"></i>
+      </a>
+      {% endfor %}
+    </div>
+    {% endfor %}
+
+  </main>
+</div>
+
+<script>
+const runHistory = {{ run_history | tojson }};
+
+// Draw percentage chart
+(function() {
+  if (!runHistory.length) return;
+  const canvas = document.getElementById('pct-chart');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const W = canvas.parentElement.clientWidth - 40;
+  const H = 80;
+  canvas.width  = W;
+  canvas.height = H;
+
+  const pcts = runHistory.map(r => r.pct);
+  const labels = runHistory.map(r => r.at);
+  const n = pcts.length;
+  const pad = 12;
+  const xStep = n > 1 ? (W - pad*2) / (n - 1) : 0;
+
+  // Grid
+  ctx.strokeStyle = '#e5e7eb';
+  ctx.lineWidth = 1;
+  [0, 50, 100].forEach(v => {
+    const y = pad + (1 - v/100) * (H - pad*2);
+    ctx.beginPath(); ctx.moveTo(pad, y); ctx.lineTo(W - pad, y); ctx.stroke();
+    ctx.fillStyle = '#9ca3af'; ctx.font = '9px sans-serif';
+    ctx.fillText(v + '%', 0, y + 3);
+  });
+
+  // Line
+  ctx.beginPath();
+  pcts.forEach((p, i) => {
+    const x = pad + i * xStep;
+    const y = pad + (1 - p/100) * (H - pad*2);
+    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+  });
+  ctx.strokeStyle = pcts[pcts.length-1] >= 95 ? '#22c55e' : (pcts[pcts.length-1] >= 75 ? '#f59e0b' : '#ec4899');
+  ctx.lineWidth = 2;
+  ctx.lineJoin = 'round';
+  ctx.stroke();
+
+  // Dots
+  pcts.forEach((p, i) => {
+    const x = pad + i * xStep;
+    const y = pad + (1 - p/100) * (H - pad*2);
+    ctx.beginPath(); ctx.arc(x, y, 3, 0, Math.PI*2);
+    ctx.fillStyle = p >= 95 ? '#22c55e' : (p >= 75 ? '#f59e0b' : '#ec4899');
+    ctx.fill();
+  });
+})();
+
+// Run page tests
+function runPage(slug) {
+  const btn = document.getElementById('btn-run-page');
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> En cours…';
+  fetch('/testpanel/run/page/' + slug, {method:'POST'})
+    .then(r => r.json())
+    .then(d => startStream(d.run_id));
+}
+
+function startStream(runId) {
+  document.getElementById('run-bar').style.display = 'flex';
+  document.getElementById('terminal-wrap').style.display = 'block';
+  const terminal = document.getElementById('terminal');
+  terminal.innerHTML = '';
+  const evtSource = new EventSource('/testpanel/stream/' + runId);
+  evtSource.onmessage = function(e) {
+    const line = JSON.parse(e.data);
+    if (line === '[DONE]') {
+      evtSource.close();
+      fetch('/testpanel/run/' + runId + '/status')
+        .then(r => r.json())
+        .then(d => {
+          document.getElementById('run-bar-text').textContent = 'Terminé.';
+          document.getElementById('run-bar-pct').textContent = d.pct + '% — ' + d.passed + '/' + d.total;
+          const btn = document.getElementById('btn-run-page');
+          btn.disabled = false;
+          btn.innerHTML = '<i class="fa-solid fa-play"></i> Relancer la page';
+          setTimeout(() => location.reload(), 1500);
+        });
+      return;
+    }
+    const div = document.createElement('div');
+    div.className = 'line-' + (line.includes('PASSED') ? 'pass' : line.includes('FAILED') || line.includes('ERROR') ? 'fail' : line.startsWith('$') ? 'dim' : '');
+    div.textContent = line;
+    terminal.appendChild(div);
+    terminal.scrollTop = terminal.scrollHeight;
+  };
+}
+
+{% if active_run %}
+startStream({{ active_run.id }});
+{% endif %}
+</script>
+
+</body>
+</html>

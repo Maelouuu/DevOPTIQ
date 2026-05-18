@@ -222,6 +222,9 @@ def create_app(test_config=None):
     from Code.routes.cartography_editor import cartography_editor_bp
     app.register_blueprint(cartography_editor_bp)
 
+    from Code.routes.test_panel import test_panel_bp
+    app.register_blueprint(test_panel_bp)
+
     # En mode test, on saute l'init DB — le conftest gère create_all/seed.
     if test_config is not None:
         app.config.update(test_config)
@@ -276,6 +279,14 @@ def create_app(test_config=None):
             print("[DB] Table file_blobs prête")
         except Exception as e:
             print(f"[DB] file_blobs check: {e}")
+
+        try:
+            from Code.models.test_models import TestPage, TestCase, TestRun, TestResult
+            for model in (TestPage, TestCase, TestRun, TestResult):
+                model.__table__.create(db.engine, checkfirst=True)
+            print("[DB] Tables test panel prêtes")
+        except Exception as e:
+            print(f"[DB] test panel tables: {e}")
 
         try:
             from Code.models.models import RecentEvent

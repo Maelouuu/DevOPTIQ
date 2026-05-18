@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DevOPTIQ — {{ case.display_name }}</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="/static/test_panel.css">
+</head>
+<body>
+
+<div class="tp-layout">
+
+  <!-- ── Sidebar ── -->
+  <aside class="tp-sidebar">
+    <div class="tp-sidebar-logo">
+      <a href="/testpanel/">
+        <div class="logo-dot"><i class="fa-solid fa-flask-vial"></i></div>
+        Test Panel
+      </a>
+    </div>
+    <nav class="tp-sidebar-nav">
+      <div class="tp-nav-label">Navigation</div>
+      <a href="/testpanel/" class="tp-nav-item">
+        <i class="fa-solid fa-table-cells" style="font-size:11px;color:var(--muted)"></i>
+        Vue globale
+      </a>
+      <a href="/testpanel/page/{{ case.page.slug }}" class="tp-nav-item">
+        <div class="dot dot-pink"></div>
+        {{ case.page.title }}
+      </a>
+      <div class="tp-nav-label" style="margin-top:12px;">App</div>
+      <a href="/" class="tp-nav-item">
+        <i class="fa-solid fa-arrow-left" style="font-size:11px;color:var(--muted)"></i>
+        Retour à l'app
+      </a>
+    </nav>
+  </aside>
+
+  <!-- ── Main ── -->
+  <main class="tp-main">
+
+    <!-- Breadcrumb -->
+    <div class="tp-breadcrumb">
+      <a href="/testpanel/">Test Panel</a>
+      <span class="sep">/</span>
+      <a href="/testpanel/page/{{ case.page.slug }}">{{ case.page.title }}</a>
+      <span class="sep">/</span>
+      <span>{{ case.display_name }}</span>
+    </div>
+
+    <!-- Case hero -->
+    <div class="tp-case-hero">
+      <div class="tp-case-hero-top">
+        {% if case.last_status == 'passed' %}
+        <span class="status-badge sb-pass"><i class="fa-solid fa-check"></i> Passé</span>
+        {% elif case.last_status in ['failed', 'error'] %}
+        <span class="status-badge sb-fail"><i class="fa-solid fa-xmark"></i> Échoué</span>
+        {% else %}
+        <span class="status-badge sb-none"><i class="fa-solid fa-minus"></i> Non testé</span>
+        {% endif %}
+        {% if last_result and last_result.duration %}
+        <span class="text-muted"><i class="fa-regular fa-clock" style="margin-right:3px"></i>{{ "%.3f"|format(last_result.duration) }}s</span>
+        {% endif %}
+        {% if case.last_ran_at %}
+        <span class="text-muted">Dernier run : {{ case.last_ran_at.strftime('%d/%m/%Y %H:%M') }}</span>
+        {% endif %}
+      </div>
+
+      <h2>{{ case.display_name }}</h2>
+      <div class="text-muted mt-4" style="font-family:monospace;font-size:12px;">
+        {{ case.node_id }}
+      </div>
+      {% if case.description %}
+      <div class="tp-case-desc">{{ case.description }}</div>
+      {% endif %}
+    </div>
+
+    <!-- Actions -->
+    <div class="flex gap-8 items-center mb-8">
+      <button class="btn btn-pink" id="btn-run" onclick="runCase({{ case.id }})">
+        <i class="fa-solid fa-play"></i> Lancer ce test
+      </button>
+      <a href="/testpanel/page/{{ case.page.slug }}" class="btn btn-ghost">
+        <i class="fa-solid fa-arrow-left"></i> Retour à la page
+      </a>
+    </div>
+
+    <!-- Run bar -->
+    <div class="tp-run-bar" id="run-bar" style="display:none">
+      <i class="fa-solid fa-circle-notch spinner"></i>
+      <span id="run-bar-text">Exécution en cours…</span>
+    </div>
+
+    <!-- Terminal -->
+    <div id="terminal-wrap" style="margin-bottom:20px;display:none">
+      <div class="tp-terminal" id="terminal"></div>
+    </div>
+
+    <!-- Bougie chart -->
+    <div style="background:#fff;border:1px solid var(--border);border-radius:var(--radius);padding:16px 20px;margin-bottom:20px;">
+      <div class="pct-chart-title" style="margin-bottom:10px;">
+        Historique des runs
+        <span class="text-muted" style="font-weight:400;margin-left:8px;">
+          (↑ vert = passé · ↓ rose = échoué)
+        </span>
+      </div>
+      <div class="bougie-wrap" id="bougie">
+        {% for h in history %}
+        <div class="bougie-col" title="{{ h.status }} — {{ h.at }} ({{ h.duration }}s)">
+          <div class="bougie-tick {% if h.status == 'passed' %}top pass{% elif h.status in ['failed','error'] %}bottom fail{% else %}none{% endif %}"></div>
+        </div>
+        {% endfor %}
+        {% if not history %}
+        <span class="text-muted">Aucun historique</span>
+        {% endif %}
+      </div>
+      {% if history %}
+      <div class="text-muted mt-4" style="font-size:11px;">
+        {{ history|length }} run{{ 's' if history|length > 1 else '' }} enregistré{{ 's' if history|length > 1 else '' }}
+        · Dernier : {{ history[-1].at if history else '—' }}
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- Last failure message -->
+    {% if last_result and last_result.status in ['failed', 'error'] and last_result.message %}
+    <div style="background:#fff;border:1px solid #fecdd3;border-radius:var(--radius);padding:16px 20px;margin-bottom:20px;">
+      <div style="font-size:12px;font-weight:600;color:var(--pink-d);margin-bottom:8px;">
+        <i class="fa-solid fa-triangle-exclamation"></i> Détail de l'échec
+      </div>
+      <pre class="tp-last-output">{{ last_result.message }}</pre>
+    </div>
+    {% endif %}
+
+    <!-- Run table -->
+    {% if history %}
+    <div style="background:#fff;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;">
+      <table style="width:100%;border-collapse:collapse;font-size:13px;">
+        <thead>
+          <tr style="background:var(--bg);border-bottom:1px solid var(--border);">
+            <th style="padding:10px 14px;text-align:left;font-weight:600;color:var(--muted);font-size:11px;">Run</th>
+            <th style="padding:10px 14px;text-align:left;font-weight:600;color:var(--muted);font-size:11px;">Statut</th>
+            <th style="padding:10px 14px;text-align:left;font-weight:600;color:var(--muted);font-size:11px;">Date</th>
+            <th style="padding:10px 14px;text-align:right;font-weight:600;color:var(--muted);font-size:11px;">Durée</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for h in history|reverse %}
+          <tr style="border-bottom:1px solid var(--border);">
+            <td style="padding:8px 14px;color:var(--muted)">#{{ h.run_id }}</td>
+            <td style="padding:8px 14px;">
+              <span class="badge {% if h.status == 'passed' %}badge-green{% elif h.status in ['failed','error'] %}badge-pink{% else %}badge-grey{% endif %}">
+                {{ h.status }}
+              </span>
+            </td>
+            <td style="padding:8px 14px;color:var(--muted)">{{ h.at }}</td>
+            <td style="padding:8px 14px;text-align:right;font-family:monospace">{{ h.duration }}s</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% endif %}
+
+  </main>
+</div>
+
+<script>
+function runCase(caseId) {
+  const btn = document.getElementById('btn-run');
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> En cours…';
+  fetch('/testpanel/run/case/' + caseId, {method:'POST'})
+    .then(r => r.json())
+    .then(d => startStream(d.run_id));
+}
+
+function startStream(runId) {
+  document.getElementById('run-bar').style.display = 'flex';
+  document.getElementById('terminal-wrap').style.display = 'block';
+  const terminal = document.getElementById('terminal');
+  terminal.innerHTML = '';
+  const evtSource = new EventSource('/testpanel/stream/' + runId);
+  evtSource.onmessage = function(e) {
+    const line = JSON.parse(e.data);
+    if (line === '[DONE]') {
+      evtSource.close();
+      document.getElementById('run-bar-text').textContent = 'Terminé — rechargement…';
+      const btn = document.getElementById('btn-run');
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fa-solid fa-play"></i> Relancer ce test';
+      setTimeout(() => location.reload(), 1000);
+      return;
+    }
+    const div = document.createElement('div');
+    div.className = 'line-' + (
+      line.includes('PASSED') ? 'pass' :
+      line.includes('FAILED') || line.includes('ERROR') ? 'fail' :
+      line.startsWith('$') ? 'dim' : ''
+    );
+    div.textContent = line;
+    terminal.appendChild(div);
+    terminal.scrollTop = terminal.scrollHeight;
+  };
+}
+</script>
+
+</body>
+</html>

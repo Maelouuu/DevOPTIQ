@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DevOPTIQ — Test Panel</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="/static/test_panel.css">
+</head>
+<body>
+
+<div class="tp-layout">
+
+  <!-- ── Sidebar ── -->
+  <aside class="tp-sidebar">
+    <div class="tp-sidebar-logo">
+      <a href="/testpanel/">
+        <div class="logo-dot"><i class="fa-solid fa-flask-vial"></i></div>
+        Test Panel
+      </a>
+    </div>
+    <nav class="tp-sidebar-nav">
+      <div class="tp-nav-label">Vue globale</div>
+      <a href="/testpanel/" class="tp-nav-item active">
+        <div class="dot {% if global_pct >= 95 %}dot-green{% elif global_pct >= 75 %}dot-amber{% else %}dot-pink{% endif %}"></div>
+        Tous les tests
+        <span class="nav-pct">{{ global_pct }}%</span>
+      </a>
+
+      <div class="tp-nav-label" style="margin-top:12px;">Par page</div>
+      {% for s in page_stats %}
+      {% set col = 'dot-green' if s.cur_pct >= 95 else ('dot-amber' if s.cur_pct >= 75 else 'dot-pink') %}
+      <a href="/testpanel/page/{{ s.page.slug }}" class="tp-nav-item">
+        <div class="dot {{ col }}"></div>
+        <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:110px;" title="{{ s.page.title }}">{{ s.page.title }}</span>
+        <span class="nav-pct">{{ s.cur_pct }}%</span>
+      </a>
+      {% endfor %}
+
+      <div class="tp-nav-label" style="margin-top:12px;">App</div>
+      <a href="/" class="tp-nav-item">
+        <i class="fa-solid fa-arrow-left" style="font-size:11px;color:var(--muted)"></i>
+        Retour à l'app
+      </a>
+    </nav>
+  </aside>
+
+  <!-- ── Main ── -->
+  <main class="tp-main">
+
+    <!-- Hero -->
+    <div class="tp-hero" id="hero-card">
+      <div class="tp-hero-score">{{ global_pct }}<span>%</span></div>
+      <div class="tp-hero-meta">
+        <h1>Test Panel — DevOPTIQ</h1>
+        <p>{{ passed_all }} / {{ total_all }} tests passent &nbsp;·&nbsp; {{ page_stats|length }} pages couvertes</p>
+        {% if active_run %}
+        <p style="margin-top:6px;opacity:.9;font-size:13px;">
+          <i class="fa-solid fa-spinner fa-spin"></i>
+          Exécution en cours (run #{{ active_run.id }})…
+        </p>
+        {% endif %}
+      </div>
+      <div class="tp-hero-actions">
+        <button class="btn btn-white" id="btn-run-all" onclick="runAll()">
+          <i class="fa-solid fa-play"></i> Lancer tous les tests
+        </button>
+      </div>
+    </div>
+
+    <!-- Run bar (hidden unless active) -->
+    <div class="tp-run-bar" id="run-bar" style="display:none">
+      <i class="fa-solid fa-circle-notch spinner"></i>
+      <span id="run-bar-text">Exécution en cours…</span>
+      <span id="run-bar-pct" class="ml-auto fw-600" style="color:var(--pink)"></span>
+    </div>
+
+    <!-- Terminal (hidden unless active) -->
+    <div id="terminal-wrap" style="display:none; margin-bottom:16px;">
+      <div class="tp-terminal" id="terminal"></div>
+    </div>
+
+    <!-- Page cards -->
+    <div class="tp-section-title">Pages de test</div>
+    <div class="tp-page-grid">
+      {% for s in page_stats %}
+      {% set col   = 'green' if s.cur_pct >= 95 else ('amber' if s.cur_pct >= 75 else 'pink') %}
+      {% set icon  = 'fa-check' if s.cur_pct >= 95 else ('fa-triangle-exclamation' if s.cur_pct < 75 else 'fa-minus') %}
+      <div class="tp-page-card" onclick="location.href='/testpanel/page/{{ s.page.slug }}'">
+        <div class="tp-card-header">
+          <div class="tp-card-icon {{ col }}"><i class="fa-solid {{ icon }}"></i></div>
+          <div>
+            <div class="tp-card-title">{{ s.page.title }}</div>
+            <div class="tp-card-sub">{{ s.total }} test{{ 's' if s.total > 1 else '' }}</div>
+          </div>
+          <div class="tp-card-pct" style="color:{{ '#22c55e' if col=='green' else ('#f59e0b' if col=='amber' else '#ec4899') }}">
+            {{ s.cur_pct }}%
+          </div>
+        </div>
+
+        <!-- Progress bar -->
+        <div class="tp-progress-bar">
+          <div class="tp-progress-bar-fill"
+               style="width:{{ s.cur_pct }}%;background:{{ '#22c55e' if col=='green' else ('#f59e0b' if col=='amber' else '#ec4899') }}">
+          </div>
+        </div>
+
+        <div class="tp-card-footer">
+          <div class="tp-card-counts">
+            <span class="ok">{{ s.passed }} OK</span>
+            {% if s.failed %}&nbsp;· <span class="ko">{{ s.failed }} KO</span>{% endif %}
+            {% if s.untested %}&nbsp;· {{ s.untested }} non testés{% endif %}
+          </div>
+          <!-- Sparkline history -->
+          <div class="spark-wrap">
+            {% for r in s.run_history[-20:] %}
+            {% if r.pct >= 95 %}
+            <div class="spark-bar top pass" title="{{ r.pct }}% — {{ r.at }}"></div>
+            {% elif r.pct >= 75 %}
+            <div class="spark-bar top pass" style="background:var(--amber)" title="{{ r.pct }}% — {{ r.at }}"></div>
+            {% else %}
+            <div class="spark-bar bottom fail" title="{{ r.pct }}% — {{ r.at }}"></div>
+            {% endif %}
+            {% endfor %}
+            {% if not s.run_history %}
+            <span style="font-size:11px;color:var(--muted)">Aucun run</span>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+
+  </main>
+</div>
+
+<script>
+let activeRunId = null;
+let evtSource   = null;
+
+function runAll() {
+  const btn = document.getElementById('btn-run-all');
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> En cours…';
+
+  fetch('/testpanel/run/all', {method:'POST'})
+    .then(r => r.json())
+    .then(d => startStream(d.run_id));
+}
+
+function startStream(runId) {
+  activeRunId = runId;
+  document.getElementById('run-bar').style.display = 'flex';
+  document.getElementById('terminal-wrap').style.display = 'block';
+  const terminal = document.getElementById('terminal');
+  terminal.innerHTML = '';
+
+  if (evtSource) evtSource.close();
+  evtSource = new EventSource('/testpanel/stream/' + runId);
+
+  evtSource.onmessage = function(e) {
+    const line = JSON.parse(e.data);
+    if (line === '[DONE]') {
+      evtSource.close();
+      onRunDone(runId);
+      return;
+    }
+    appendLine(terminal, line);
+    terminal.scrollTop = terminal.scrollHeight;
+  };
+}
+
+function appendLine(el, text) {
+  const div = document.createElement('div');
+  div.className = 'line-' + (
+    text.includes('PASSED') ? 'pass' :
+    text.includes('FAILED') || text.includes('ERROR') ? 'fail' :
+    text.startsWith('[DONE]') ? 'done' :
+    text.startsWith('$') ? 'dim' : ''
+  );
+  div.textContent = text;
+  el.appendChild(div);
+}
+
+function onRunDone(runId) {
+  document.getElementById('run-bar-text').textContent = 'Terminé.';
+  fetch('/testpanel/run/' + runId + '/status')
+    .then(r => r.json())
+    .then(d => {
+      document.getElementById('run-bar-pct').textContent = d.pct + '% — ' + d.passed + '/' + d.total;
+      document.querySelector('.tp-hero-score').innerHTML = d.pct + '<span>%</span>';
+      const btn = document.getElementById('btn-run-all');
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fa-solid fa-play"></i> Relancer tous les tests';
+      // Reload page to update cards
+      setTimeout(() => location.reload(), 1500);
+    });
+}
+
+// Resume active run on load
+{% if active_run %}
+startStream({{ active_run.id }});
+{% endif %}
+</script>
+
+</body>
+</html>
