@@ -157,24 +157,25 @@ def _parse_xml(xml_path: str, run_id: int):
 
 
 def _run_thread(run_id: int, scope: str, app):
+    def emit(line: str):
+        with _runs_lock:
+            if run_id in _runs:
+                _runs[run_id]['lines'].append(line)
+
     with app.app_context():
         fd, xml_path = tempfile.mkstemp(suffix='.xml', prefix=f'trun_{run_id}_')
         os.close(fd)
         args = _build_args(scope, xml_path)
-
-        with _runs_lock:
-            _runs[run_id] = {'lines': [f"$ pytest {' '.join(args[3:])}\n"], 'done': False}
+        emit(f"$ pytest {' '.join(args[3:])}\n")
 
         try:
             proc = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                                     cwd=str(_PROJECT_ROOT), text=True, bufsize=1)
             for line in proc.stdout:
-                with _runs_lock:
-                    _runs[run_id]['lines'].append(line)
+                emit(line)
             proc.wait()
         except Exception as e:
-            with _runs_lock:
-                _runs[run_id]['lines'].append(f'\n[ERROR] {e}\n')
+            emit(f'\n[ERROR lors du lancement] {e}\n')
 
         run = db.session.get(TestRun, run_id)
         if run:
@@ -185,18 +186,23 @@ def _run_thread(run_id: int, scope: str, app):
                 os.unlink(xml_path)
             db.session.commit()
 
+        # Marquer done en dernier — le SSE generator détecte ce flag
         with _runs_lock:
-            _runs[run_id]['done'] = True
-            _runs[run_id]['lines'].append('\n[DONE]\n')
+            if run_id in _runs:
+                _runs[run_id]['done'] = True
 
 
 def _start_run(scope: str) -> int:
     run = TestRun(scope=scope, status='running')
     db.session.add(run)
     db.session.commit()
+    run_id = run.id
+    # Initialiser AVANT de démarrer le thread pour éviter la race condition SSE
+    with _runs_lock:
+        _runs[run_id] = {'lines': [], 'done': False}
     app = current_app._get_current_object()
-    threading.Thread(target=_run_thread, args=(run.id, scope, app), daemon=True).start()
-    return run.id
+    threading.Thread(target=_run_thread, args=(run_id, scope, app), daemon=True).start()
+    return run_id
 
 
 # ── Routes ────────────────────────────────────────────────────────────────────
@@ -326,14 +332,16 @@ def stream_output(run_id):
             with _runs_lock:
                 data = _runs.get(run_id)
             if data is None:
-                yield f"data: {_json.dumps('[NOT FOUND]')}\n\n"
-                return
-            lines = data['lines']
-            done  = data['done']
+                # Thread pas encore initialisé — attendre
+                time.sleep(0.1)
+                continue
+            with _runs_lock:
+                lines = list(data['lines'])
+                done  = data['done']
             while sent < len(lines):
                 yield f"data: {_json.dumps(lines[sent].rstrip(chr(10)))}\n\n"
                 sent += 1
-            if done:
+            if done and sent >= len(lines):
                 yield f"data: {_json.dumps('[DONE]')}\n\n"
                 return
             time.sleep(0.1)
