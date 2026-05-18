@@ -197,9 +197,20 @@ function onRunDone(runId) {
     });
 }
 
-// Resume active run on load
+// Resume active run on load — only if still truly running
 {% if active_run %}
-startStream({{ active_run.id }});
+(function() {
+  const runId = {{ active_run.id }};
+  fetch('/testpanel/run/' + runId + '/status')
+    .then(r => r.json())
+    .then(d => {
+      if (d.status === 'running') {
+        startStream(runId);
+      }
+      // If done, the stale-run expiry already handled it — just don't reconnect
+    })
+    .catch(() => {}); // network error: ignore
+})();
 {% endif %}
 </script>
 

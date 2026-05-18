@@ -251,7 +251,13 @@ function startStream(runId) {
 }
 
 {% if active_run %}
-startStream({{ active_run.id }});
+(function() {
+  const runId = {{ active_run.id }};
+  fetch('/testpanel/run/' + runId + '/status')
+    .then(r => r.json())
+    .then(d => { if (d.status === 'running') startStream(runId); })
+    .catch(() => {});
+})();
 {% endif %}
 </script>
 

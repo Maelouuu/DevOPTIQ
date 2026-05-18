@@ -5,7 +5,7 @@ import sys
 import tempfile
 import threading
 import xml.etree.ElementTree as ET
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 
 from flask import (Blueprint, Response, jsonify, render_template, request,
@@ -119,6 +119,13 @@ def _build_args(scope: str, xml_path: str) -> list[str]:
 
 
 def _parse_xml(xml_path: str, run_id: int):
+    """Legacy: uses Flask's scoped session (kept for compatibility)."""
+    _parse_xml_session(xml_path, run_id, db.session)
+    db.session.flush()
+
+
+def _parse_xml_session(xml_path: str, run_id: int, session):
+    """Parse JUnit XML and write results using the provided SQLAlchemy session."""
     try:
         root = ET.parse(xml_path).getroot()
     except ET.ParseError:
@@ -132,7 +139,7 @@ def _parse_xml(xml_path: str, run_id: int):
         file_mod  = next((p for p in parts if p.startswith('test_')), '')
         class_nm  = parts[-1] if len(parts) > 1 else ''
         node_id   = f"tests/{file_mod}.py::{class_nm}::{name}" if file_mod else ''
-        case      = TestCase.query.filter_by(node_id=node_id).first() if node_id else None
+        case      = session.query(TestCase).filter_by(node_id=node_id).first() if node_id else None
 
         failure = tc.find('failure')
         error   = tc.find('error')
@@ -148,15 +155,16 @@ def _parse_xml(xml_path: str, run_id: int):
 
         duration = float(tc.get('time', 0) or 0)
         if case:
-            db.session.add(TestResult(run_id=run_id, case_id=case.id,
-                                      status=status, duration=duration,
-                                      message=message, ran_at=now))
+            session.add(TestResult(run_id=run_id, case_id=case.id,
+                                   status=status, duration=duration,
+                                   message=message, ran_at=now))
             case.last_status = status
             case.last_ran_at = now
-    db.session.flush()
 
 
 def _run_thread(run_id: int, scope: str, app):
+    import traceback
+
     def emit(line: str):
         with _runs_lock:
             if run_id in _runs:
@@ -177,19 +185,45 @@ def _run_thread(run_id: int, scope: str, app):
         except Exception as e:
             emit(f'\n[ERROR lors du lancement] {e}\n')
 
-        run = db.session.get(TestRun, run_id)
-        if run:
-            run.finished_at = datetime.utcnow()
-            run.status = 'done'
-            if os.path.exists(xml_path):
-                _parse_xml(xml_path, run_id)
-                os.unlink(xml_path)
-            db.session.commit()
+        # Use a fresh session isolated from the request-scoped session pool
+        from sqlalchemy.orm import Session as _Session
+        with _Session(db.engine) as session:
+            try:
+                run = session.get(TestRun, run_id)
+                if run:
+                    run.finished_at = datetime.utcnow()
+                    run.status = 'done'
+                    if os.path.exists(xml_path):
+                        _parse_xml_session(xml_path, run_id, session)
+                        try:
+                            os.unlink(xml_path)
+                        except OSError:
+                            pass
+                    session.commit()
+                    emit(f'\n[OK] Résultats sauvegardés en base (run #{run_id})\n')
+            except Exception:
+                session.rollback()
+                tb = traceback.format_exc()
+                emit(f'\n[DB ERROR] {tb}\n')
+                print(f'[test_panel] DB error in run {run_id}:\n{tb}', file=sys.stderr)
 
         # Marquer done en dernier — le SSE generator détecte ce flag
         with _runs_lock:
             if run_id in _runs:
                 _runs[run_id]['done'] = True
+
+
+def _expire_stale_runs():
+    """Mark runs still 'running' after 15 min as done (crash/restart recovery)."""
+    cutoff = datetime.utcnow() - timedelta(minutes=15)
+    stale = TestRun.query.filter(
+        TestRun.status == 'running',
+        TestRun.started_at < cutoff
+    ).all()
+    for r in stale:
+        r.status = 'done'
+    if stale:
+        db.session.commit()
 
 
 def _start_run(scope: str) -> int:
@@ -251,6 +285,7 @@ def panel():
     total_all  = len(all_cases)
     passed_all = sum(1 for c in all_cases if c.last_status == 'passed')
     global_pct = round(100 * passed_all / total_all) if total_all else 0
+    _expire_stale_runs()
     active_run = TestRun.query.filter_by(status='running').order_by(TestRun.started_at.desc()).first()
 
     return render_template('test_panel/panel.html',
@@ -287,6 +322,7 @@ def page_detail(slug):
     for c in cases:
         classes.setdefault(c.class_name or 'Tests', []).append(c)
 
+    _expire_stale_runs()
     active_run = TestRun.query.filter_by(status='running').order_by(TestRun.started_at.desc()).first()
     return render_template('test_panel/page.html', page=page, classes=classes,
                            run_history=run_history, case_history=case_history,
@@ -351,6 +387,16 @@ def stream_output(run_id):
 
     return Response(stream_with_context(_gen()), mimetype='text/event-stream',
                     headers={'Cache-Control': 'no-cache', 'X-Accel-Buffering': 'no'})
+
+
+@test_panel_bp.route('/admin/reset-stale', methods=['POST'])
+def reset_stale():
+    """Force-expire all stale 'running' runs. Useful after a crash."""
+    stale = TestRun.query.filter_by(status='running').all()
+    for r in stale:
+        r.status = 'done'
+    db.session.commit()
+    return jsonify({'expired': len(stale)})
 
 
 @test_panel_bp.route('/run/<int:run_id>/status')
