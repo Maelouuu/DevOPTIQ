@@ -165,12 +165,14 @@ def _save_results(db_url: str, run_id: int, xml_path: str, emit):
         # Extraire le chemin du fichier depuis l'URL (strip sqlite:/// et ?params)
         raw_path = db_url[len('sqlite:///'):]
         raw_path = raw_path.split('?')[0]
+        print(f'[test_panel] Sauvegarde run #{run_id} → {raw_path}', flush=True)
         try:
             conn = _sqlite3.connect(raw_path, timeout=30)
             conn.row_factory = _sqlite3.Row
             cur = conn.cursor()
             cur.execute("UPDATE test_runs SET status='done', finished_at=? WHERE id=?",
                         (now_str, run_id))
+            saved = 0
             for node_id, status, duration, message in results:
                 row = cur.execute(
                     "SELECT id FROM test_cases WHERE node_id=?", (node_id,)
@@ -187,11 +189,16 @@ def _save_results(db_url: str, run_id: int, xml_path: str, emit):
                     "UPDATE test_cases SET last_status=?, last_ran_at=? WHERE id=?",
                     (status, now_str, case_id)
                 )
+                saved += 1
             conn.commit()
             conn.close()
-            emit(f'\n[OK] {len(results)} résultats sauvegardés (run #{run_id})\n')
+            msg = f'\n[OK] {saved}/{len(results)} résultats sauvegardés (run #{run_id})\n'
+            emit(msg)
+            print(f'[test_panel] {msg.strip()}', flush=True)
         except Exception:
-            emit(f'\n[DB ERROR sqlite3]\n{traceback.format_exc()}\n')
+            tb = traceback.format_exc()
+            emit(f'\n[DB ERROR sqlite3]\n{tb}\n')
+            print(f'[test_panel] DB ERROR run #{run_id}:\n{tb}', flush=True)
 
     else:
         # ── PostgreSQL : SQLAlchemy avec engine propre ────────────────────────
@@ -300,10 +307,15 @@ def _start_run(scope: str) -> int:
 
 # ── Routes ────────────────────────────────────────────────────────────────────
 
+_VIEW_ENDPOINTS = {'test_panel.panel', 'test_panel.page_detail', 'test_panel.case_detail'}
+
 @test_panel_bp.before_request
 def _auto_sync():
+    # Ne synchroniser les fichiers de test que sur les pages visuelles,
+    # pas sur les routes API (run_status, stream, run_all…).
+    if request.endpoint not in _VIEW_ENDPOINTS:
+        return
     try:
-        # Recrée les tables si elles ont disparu (SQLite local, subprocess pytest, etc.)
         for model in (TestPage, TestCase, TestRun, TestResult):
             model.__table__.create(db.engine, checkfirst=True)
         sync_tests_to_db()
@@ -460,16 +472,47 @@ def reset_stale():
 
 @test_panel_bp.route('/run/<int:run_id>/status')
 def run_status(run_id):
-    run     = db.session.get(TestRun, run_id)
-    if not run:
-        return jsonify({'status': 'unknown'}), 404
-    results = list(run.results)
-    total   = len(results)
-    passed  = sum(1 for r in results if r.status == 'passed')
-    return jsonify({
-        'status':      run.status,
-        'total':       total,
-        'passed':      passed,
-        'pct':         round(100 * passed / total) if total else 0,
-        'finished_at': run.finished_at.isoformat() if run.finished_at else None,
-    })
+    # Lecture directe sqlite3 — évite tout problème de cache de session SQLAlchemy
+    db_url = current_app.config['SQLALCHEMY_DATABASE_URI']
+    if db_url.startswith('sqlite'):
+        import sqlite3 as _sq
+        raw = db_url[len('sqlite:///'):].split('?')[0]
+        try:
+            conn = _sq.connect(raw, timeout=10)
+            run_row = conn.execute(
+                "SELECT status, finished_at FROM test_runs WHERE id=?", (run_id,)
+            ).fetchone()
+            if not run_row:
+                conn.close()
+                return jsonify({'status': 'unknown'}), 404
+            total  = conn.execute(
+                "SELECT COUNT(*) FROM test_results WHERE run_id=?", (run_id,)
+            ).fetchone()[0]
+            passed = conn.execute(
+                "SELECT COUNT(*) FROM test_results WHERE run_id=? AND status='passed'", (run_id,)
+            ).fetchone()[0]
+            conn.close()
+            return jsonify({
+                'status':      run_row[0],
+                'total':       total,
+                'passed':      passed,
+                'pct':         round(100 * passed / total) if total else 0,
+                'finished_at': run_row[1],
+            })
+        except Exception as e:
+            return jsonify({'status': 'error', 'detail': str(e)}), 500
+    else:
+        # PostgreSQL — SQLAlchemy normal
+        run = db.session.get(TestRun, run_id)
+        if not run:
+            return jsonify({'status': 'unknown'}), 404
+        results = list(run.results)
+        total   = len(results)
+        passed  = sum(1 for r in results if r.status == 'passed')
+        return jsonify({
+            'status':      run.status,
+            'total':       total,
+            'passed':      passed,
+            'pct':         round(100 * passed / total) if total else 0,
+            'finished_at': run.finished_at.isoformat() if run.finished_at else None,
+        })
