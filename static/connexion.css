@@ -19,19 +19,22 @@ body {
   justify-content: center;
   overflow: hidden;
   position: relative;
-  background: linear-gradient(90deg, #fdf2f8 0%, #f9feff 50%, #f0fdf4 100%);
+  background: #1a2e1a;
 }
 
-/* ── Fond organique ── */
+/* ── Fond image ── */
 .login-bg {
   position: fixed;
   inset: 0;
   z-index: 0;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
 }
-.bg-svg {
-  width: 100%;
-  height: 100%;
-  display: block;
+.login-bg-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.30);
 }
 
 /* ── Wrapper ── */
@@ -54,9 +57,9 @@ body {
   width: 100%;
   max-width: 420px;
   box-shadow:
-    0 0 0 1px rgba(0,0,0,0.05),
-    0 4px 16px rgba(0,0,0,0.07),
-    0 24px 64px rgba(0,0,0,0.16);
+    0 0 0 1px rgba(0,0,0,0.06),
+    0 4px 20px rgba(0,0,0,0.18),
+    0 24px 72px rgba(0,0,0,0.36);
 }
 
 /* ── Logo ── */
@@ -99,9 +102,9 @@ body {
 .login-stripe {
   height: 3px;
   border-radius: 3px;
-  background: linear-gradient(90deg, var(--pink) 0%, var(--pink-deep) 40%, var(--green) 100%);
+  background: linear-gradient(90deg, var(--pink-deep) 0%, var(--pink) 60%, #f9a8d4 100%);
   margin-bottom: 22px;
-  opacity: 0.75;
+  opacity: 0.80;
 }
 
 /* ── Titre ── */
@@ -203,7 +206,7 @@ body {
   padding: 13px 20px;
   border: none;
   border-radius: 12px;
-  background: linear-gradient(135deg, var(--green) 0%, var(--green-dk) 100%);
+  background: linear-gradient(135deg, var(--pink) 0%, var(--pink-deep) 100%);
   color: #fff;
   font-size: 0.96rem;
   font-weight: 700;
@@ -212,14 +215,14 @@ body {
   align-items: center;
   justify-content: center;
   gap: 8px;
-  box-shadow: 0 4px 18px rgba(34,197,94,0.30);
+  box-shadow: 0 4px 18px rgba(236,72,153,0.32);
   transition: all 0.18s;
   font-family: inherit;
   letter-spacing: 0.1px;
 }
 .btn-login:hover {
-  background: linear-gradient(135deg, #16a34a 0%, #166534 100%);
-  box-shadow: 0 6px 24px rgba(34,197,94,0.40);
+  background: linear-gradient(135deg, #db2777 0%, #9d174d 100%);
+  box-shadow: 0 6px 24px rgba(236,72,153,0.44);
   transform: translateY(-1px);
 }
 .btn-login:active { transform: translateY(0); }
