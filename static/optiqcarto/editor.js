@@ -508,7 +508,9 @@ function renderConnections() {
     unifiedUsage[tk].push({ connId: c.id, end: 'to' });
   }
 
-  // spreadPort utilise unifiedUsage → un point de connexion = une seule flèche (in OU out)
+  // spreadPort: attache une connexion au bord d'une forme.
+  // Si explicitT est fourni (depuis VSDX ou drag manuel), l'utilise directement
+  // pour une précision pixel-perfect. Sinon, auto-spread équidistant via fromUsage.
   function spreadPort(ep, dir, connId, end, explicitT) {
     const h = ep._halo || 0;
     const cx = ep.x + ep.w / 2, cy = ep.y + ep.h / 2;
@@ -521,22 +523,36 @@ function renderConnections() {
         case 'bottom': return { x: cx,            y: ep.y + ep.h, dir: 'bottom' };
       }
     }
+    // Explicit T: use it directly (VSDX import or user-set position)
+    if (explicitT !== undefined) {
+      const t = explicitT;
+      switch (dir) {
+        case 'left':   return { x: ep.x - h,           y: ep.y + ep.h * t, dir: 'left'   };
+        case 'right':  return { x: ep.x + ep.w + h,    y: ep.y + ep.h * t, dir: 'right'  };
+        case 'top':    return { x: ep.x + ep.w * t,    y: ep.y - h,        dir: 'top'    };
+        case 'bottom': return { x: ep.x + ep.w * t,    y: ep.y + ep.h + h, dir: 'bottom' };
+      }
+    }
+    // Auto-spread: distribute evenly among outgoing connections on this edge
     const key = `${ep.id}-${dir}`;
-    const users = unifiedUsage[key] || [];
-    const idx = users.findIndex(u => u.connId === connId && u.end === end);
-    const n = users.length;
-    // Utilise le t explicite (port choisi manuellement) sinon auto-spread
-    const t = explicitT !== undefined ? explicitT : (n <= 1 ? 0.5 : (idx + 1) / (n + 1));
+    const users = fromUsage[key] || [];
+    const idx = users.indexOf(connId);
+    const n   = users.length;
+    const t   = n <= 1 ? 0.5 : (idx + 1) / (n + 1);
     switch (dir) {
       case 'left':   return { x: ep.x - h,           y: ep.y + ep.h * t, dir: 'left'   };
       case 'right':  return { x: ep.x + ep.w + h,    y: ep.y + ep.h * t, dir: 'right'  };
       case 'top':    return { x: ep.x + ep.w * t,    y: ep.y - h,        dir: 'top'    };
       case 'bottom': return { x: ep.x + ep.w * t,    y: ep.y + ep.h + h, dir: 'bottom' };
+      default:       return { x: cx, y: cy, dir };
     }
   }
 
   const placedLabels = []; // bounding boxes des labels déjà placés
   const placedPaths  = []; // segments des connexions déjà rendues (évite labels aux croisements)
+  const labelQueue   = []; // labels collectés en passe 1, rendus en passe 2 (toujours au-dessus)
+
+  // ── Passe 1 : chemins de toutes les connexions ────────────────────────────
   for (const c of state.connections) {
     const from = _resolveEp(c.fromId);
     const to   = _resolveEp(c.toId);
@@ -590,7 +606,7 @@ function renderConnections() {
       'pointer-events': 'none',
     }, gConns);
 
-    // Label : placement optimal parmi des dizaines de candidats
+    // Label : calcul de position optimal (rendu différé en passe 2)
     if (c.label) {
       const labelLines = c.label.split('\n');
       const maxLineLen = Math.max(...labelLines.map(l => l.length));
@@ -599,7 +615,6 @@ function renderConnections() {
       const lh = lineH * labelLines.length + (labelLines.length > 1 ? 3 : 0);
       let lx, ly, angle = 0;
 
-      // Déterminer si la flèche est majoritairement horizontale ou verticale
       let totalH = 0, totalV = 0;
       for (let i = 0; i < orthopts.length - 1; i++) {
         totalH += Math.abs(orthopts[i+1].x - orthopts[i].x);
@@ -608,12 +623,10 @@ function renderConnections() {
       const arrowMajorH = totalH >= totalV;
 
       if (c.labelOffset) {
-        // Position fixée par l'utilisateur via drag
         lx = c.labelOffset.x;
         ly = c.labelOffset.y;
         angle = arrowMajorH ? 0 : -90;
       } else {
-        // Trouver le plus long segment de l'orientation dominante
         let longestSeg = 0, longestLen = 0, longestForcedSeg = -1, longestForcedLen = 0;
         for (let i = 0; i < orthopts.length - 1; i++) {
           const pa = orthopts[i], pb = orthopts[i + 1];
@@ -624,7 +637,6 @@ function renderConnections() {
         }
         const preferSeg = longestForcedSeg >= 0 ? longestForcedSeg : longestSeg;
 
-        // Générer les candidats sur les segments de l'orientation dominante
         const CANDS = [];
         for (let i = 0; i < orthopts.length - 1; i++) {
           const pa = orthopts[i], pb = orthopts[i + 1];
@@ -679,14 +691,13 @@ function renderConnections() {
             const oy = Math.max(0, Math.min(cy + hh2 + M, pl.ly + pl.hh) - Math.max(cy - hh2 - M, pl.ly - pl.hh));
             s += ox * oy * 40;
           }
-          // Heavy penalty when the label would sit on a bend/corner of the polyline
+          // Heavy penalty on bend/corner of this polyline
           for (let k = 1; k < orthopts.length - 1; k++) {
             const cp = orthopts[k];
             const dc = Math.hypot(cx - cp.x, cy - cp.y);
             if (dc < 40) s += (40 - dc) * 350;
           }
-          // Penalty for proximity to segments of already-rendered connections
-          // (évite que les labels atterrissent aux points de croisement des flèches)
+          // Penalty for proximity to already-rendered connection segments (crossing points)
           for (const seg of placedPaths) {
             const abx = seg.bx - seg.ax, aby = seg.by - seg.ay;
             const segLen2 = abx*abx + aby*aby;
@@ -703,7 +714,6 @@ function renderConnections() {
           const score = labelScore(cand.x, cand.y, cand.isH, cand.onPref) + Math.abs(cand.perp) * 0.3;
           if (score < bestScore) { bestScore = score; bestCand = cand; }
         }
-
         lx = bestCand.x; ly = bestCand.y;
         angle = bestCand.isH ? 0 : -90;
       }
@@ -711,37 +721,8 @@ function renderConnections() {
       const hw = angle !== 0 ? lh / 2 : lw / 2;
       const hh = angle !== 0 ? lw / 2 : lh / 2;
       placedLabels.push({ lx, ly, hw, hh });
-
-      const lg = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-      lg.setAttribute('transform', `translate(${lx},${ly}) rotate(${angle})`);
-      lg.setAttribute('data-conn-label-id', String(c.id));
-      lg.style.cursor = 'grab';
-      el('rect', {
-        x: String(-lw / 2), y: String(-lh / 2), width: String(lw), height: String(lh),
-        rx: '3', fill: 'rgba(255,255,255,0.96)',
-      }, lg);
-
-      if (labelLines.length === 1) {
-        txt(c.label, {
-          x: '0', y: '0',
-          'text-anchor': 'middle', 'dominant-baseline': 'middle',
-          fill: color, 'font-size': '14', 'font-family': 'Segoe UI, sans-serif', 'font-weight': '600',
-        }, lg);
-      } else {
-        const textEl = el('text', {
-          'text-anchor': 'middle',
-          fill: color, 'font-size': '14', 'font-family': 'Segoe UI, sans-serif', 'font-weight': '600',
-        }, lg);
-        labelLines.forEach((line, i) => {
-          const ts = document.createElementNS('http://www.w3.org/2000/svg', 'tspan');
-          ts.setAttribute('x', '0');
-          ts.setAttribute('y', String((i - (labelLines.length - 1) / 2) * lineH));
-          ts.setAttribute('dominant-baseline', 'middle');
-          ts.textContent = line;
-          textEl.appendChild(ts);
-        });
-      }
-      gConns.appendChild(lg);
+      // Enqueue for pass 2 rendering (drawn on top of ALL connection paths)
+      labelQueue.push({ c, lx, ly, angle, lw, lh, lineH, labelLines, color });
     }
 
     // Poignées d'extrémité (visibles quand la connexion est sélectionnée)
@@ -770,6 +751,36 @@ function renderConnections() {
         }, gConns);
       }
     }
+  }
+
+  // ── Passe 2 : labels par-dessus tous les chemins ─────────────────────────
+  for (const { c, lx, ly, angle, lw, lh, lineH, labelLines, color } of labelQueue) {
+    const lg = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+    lg.setAttribute('transform', `translate(${lx},${ly}) rotate(${angle})`);
+    lg.setAttribute('data-conn-label-id', String(c.id));
+    lg.style.cursor = 'grab';
+    el('rect', {
+      x: String(-lw / 2), y: String(-lh / 2), width: String(lw), height: String(lh),
+      rx: '3', fill: 'rgba(255,255,255,0.96)',
+    }, lg);
+    if (labelLines.length === 1) {
+      txt(c.label, {
+        x: '0', y: '0',
+        'text-anchor': 'middle', 'dominant-baseline': 'middle',
+        fill: color, 'font-size': '14', 'font-family': 'Segoe UI, sans-serif', 'font-weight': '600',
+      }, lg);
+    } else {
+      const textEl = el('text', { 'text-anchor': 'middle', fill: color, 'font-size': '14', 'font-family': 'Segoe UI, sans-serif', 'font-weight': '600' }, lg);
+      labelLines.forEach((line, i) => {
+        const ts = document.createElementNS('http://www.w3.org/2000/svg', 'tspan');
+        ts.setAttribute('x', '0');
+        ts.setAttribute('y', String((i - (labelLines.length - 1) / 2) * lineH));
+        ts.setAttribute('dominant-baseline', 'middle');
+        ts.textContent = line;
+        textEl.appendChild(ts);
+      });
+    }
+    gConns.appendChild(lg);
   }
 }
 

@@ -422,8 +422,9 @@ class VsdxImporter {
     // Compute diagram boundaries from lanes or all shapes
     let topOfDiagram, leftEdge = 0;
     if (lanes.length > 0) {
-      topOfDiagram = lanes[0].abs.pinY + lanes[0].abs.h / 2;
-      leftEdge     = Math.min(...lanes.map(l => l.abs.pinX - l.abs.w / 2));
+      topOfDiagram  = lanes[0].abs.pinY + lanes[0].abs.h / 2;
+      leftEdge      = Math.min(...lanes.map(l => l.abs.pinX - l.abs.w / 2));
+      this.rightEdge = Math.max(...lanes.map(l => l.abs.pinX + l.abs.w / 2));
     } else {
       let maxY = 0;
       for (const { id } of allShapes) {
@@ -661,6 +662,13 @@ class VsdxImporter {
       if (vW < 0.2 || vH < 0.25) continue; // <0.25" height = thin nav arrow, not an activity
       if (vW > 8   || vH > 4   ) continue;
 
+      // Exclude shapes outside the diagram's horizontal bounds
+      // (e.g. legend shapes, return indicators far outside the CFF container)
+      const MARGIN_X = 1.5; // inches tolerance beyond band edges
+      if (this.rightEdge && (abs.pinX < leftEdge - MARGIN_X || abs.pinX > this.rightEdge + MARGIN_X)) continue;
+      // Exclude shapes above the diagram top (they would pile up at y=0)
+      if (abs.pinY > topOfDiagram + 1.0) continue;
+
       // Compute screen position from center (so capping doesn't shift center point)
       const rawW = Math.round(vW * SCALE);
       const rawH = Math.round(vH * SCALE);
@@ -893,6 +901,35 @@ class VsdxImporter {
     }
   }
 
+  // Nudge portT values that are too close on the same endpoint+direction pair.
+  // Preserves exact Visio positions and only separates near-duplicates (< MIN_GAP apart).
+  _nudgePortConflicts(conns) {
+    const MIN_GAP = 0.05;
+    const byKey = {};
+    for (const c of conns) {
+      for (const [idKey, dirKey, tKey] of [
+        [c.fromId, c.fromPortDir, 'fromPortT'],
+        [c.toId,   c.toPortDir,   'toPortT'],
+      ]) {
+        if (c[tKey] === undefined) continue;
+        const k = `${idKey}:${dirKey}`;
+        if (!byKey[k]) byKey[k] = [];
+        byKey[k].push({ c, tKey });
+      }
+    }
+    for (const entries of Object.values(byKey)) {
+      if (entries.length <= 1) continue;
+      entries.sort((a, b) => a.c[a.tKey] - b.c[b.tKey]);
+      for (let i = 1; i < entries.length; i++) {
+        const prev = entries[i-1].c[entries[i-1].tKey];
+        const cur  = entries[i].c[entries[i].tKey];
+        if (cur - prev < MIN_GAP) {
+          entries[i].c[entries[i].tKey] = Math.min(0.95, prev + MIN_GAP);
+        }
+      }
+    }
+  }
+
   // Wrap a connection label to 2 lines if it's longer than MAX_CHARS.
   // Splits at the space nearest to the midpoint so both halves are balanced.
   static _wrapConnLabel(label, maxChars = 26) {
@@ -1048,20 +1085,10 @@ class VsdxImporter {
       newConns.push(connObj);
     }
 
-    // Post-process : supprimer fromPortT/toPortT quand plusieurs connexions
-    // partagent la même direction sur le même endpoint.
-    // spreadPort() les répartira automatiquement au lieu de les superposer.
-    const dirCount = {};
-    for (const c of newConns) {
-      const fk = `${c.fromId}:${c.fromPortDir}`;
-      const tk = `${c.toId}:${c.toPortDir}`;
-      dirCount[fk] = (dirCount[fk] || 0) + 1;
-      dirCount[tk] = (dirCount[tk] || 0) + 1;
-    }
-    for (const c of newConns) {
-      if ((dirCount[`${c.fromId}:${c.fromPortDir}`] || 0) > 1) delete c.fromPortT;
-      if ((dirCount[`${c.toId}:${c.toPortDir}`]   || 0) > 1) delete c.toPortT;
-    }
+    // Post-process: nudge portT values that are too close on the same endpoint+direction.
+    // We KEEP the exact Visio positions (pixel-perfect) and only separate near-duplicates.
+    // Deleting portT entirely would lose Visio precision and cause connections to overlap.
+    this._nudgePortConflicts(newConns);
   }
 
   // ─── Phase 14: Remove separator bands ────────────────────────────
