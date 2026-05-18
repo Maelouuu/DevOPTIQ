@@ -411,32 +411,16 @@ class VsdxImporter {
 
   // ─── Phase 7: Build swim-lane bands ──────────────────────────────
   // Extracts lane elements as bands, computes topOfDiagram/leftEdge.
-  // Populates this.newBands and this.legendBounds.
+  // Populates this.newBands, this.legendBounds and this.bandShifts.
 
   buildBands() {
     this.log('Construction des bandes…');
     const { allShapes, containerIds, shapePinAbs, pageMaxW, SCALE, FALLBACK_COLORS } = this;
 
-    const laneList = [];
-    for (const { el: s, id } of allShapes) {
-      if (!containerIds.has(id)) continue;
-      const abs = shapePinAbs[id] || {};
-      if (!abs.h || abs.h < 0.3 || abs.h > 25) continue;
-      if (!abs.w || abs.w < pageMaxW * 0.3)    continue;
-      laneList.push({ el: s, id, abs });
-    }
-    laneList.sort((a, b) => b.abs.pinY - a.abs.pinY); // top-first (Visio Y-up)
+    const lanes = this._collectLanes(allShapes, containerIds, shapePinAbs, pageMaxW);
 
-    // Deduplicate lanes that are too close (separator slivers)
-    const lanes = [];
-    for (const ln of laneList) {
-      const prev = lanes[lanes.length - 1];
-      if (prev && Math.abs(ln.abs.pinY - prev.abs.pinY) < 0.15) continue;
-      lanes.push(ln);
-    }
-
-    let topOfDiagram;
-    let leftEdge = 0;
+    // Compute diagram boundaries from lanes or all shapes
+    let topOfDiagram, leftEdge = 0;
     if (lanes.length > 0) {
       topOfDiagram = lanes[0].abs.pinY + lanes[0].abs.h / 2;
       leftEdge     = Math.min(...lanes.map(l => l.abs.pinX - l.abs.w / 2));
@@ -444,7 +428,7 @@ class VsdxImporter {
       let maxY = 0;
       for (const { id } of allShapes) {
         const abs = shapePinAbs[id];
-        if (abs && abs.pinY + abs.h/2 > maxY) maxY = abs.pinY + abs.h/2;
+        if (abs && abs.pinY + abs.h / 2 > maxY) maxY = abs.pinY + abs.h / 2;
       }
       topOfDiagram = maxY || 42;
     }
@@ -454,78 +438,107 @@ class VsdxImporter {
     const newBands    = this.newBands;
     const legendBounds = this.legendBounds;
 
-    // Map qui relie le Y "naturel" (positions VSDX × SCALE, sans contrainte
-    // de hauteur min) au Y de la carto telle qu'elle sera rendue (avec min 80).
-    // Pour chaque bande on enregistre :
-    //   naturalTop / naturalBottom — bornes en Y naturel
-    //   shift                       — décalage à appliquer aux shapes naturellement
-    //                                 dans cette bande pour qu'elles restent dedans
-    //                                 après l'inflation au minimum 80 px.
-    // Utilisé en aval par importActivities pour ne PLUS faire planter les
-    // shapes dans la bande au-dessus quand min 80 inflate une bande étroite.
+    // bandShifts: maps natural canvas Y positions (derived directly from Visio
+    // coordinates) to rendered Y positions (with per-band min-height inflation).
+    //
+    // CRITICAL: naturalTop/naturalBottom are computed from ACTUAL Visio coords,
+    // NOT from a running sum of processed band heights. A running sum ignores
+    // inter-band gaps (e.g. "Prescriber" H=0 band leaves a ~700px gap between
+    // adjacent bands), causing all subsequent band shifts to be wrong.
     this.bandShifts = [];
 
-    if (lanes.length > 0) {
-      let naturalCum = 0;
-      let ourCum = 0;
-      for (let i = 0; i < lanes.length; i++) {
-        const { el: s, abs } = lanes[i];
-        const naturalH = abs.h * SCALE;
-        const bandH = Math.round(Math.max(80, naturalH));
-
-        // Lane label: look for text in direct children (skip nested groups)
-        let label = '';
-        for (const c of s.childNodes)
-          if (c.nodeType !== 1 || c.localName !== 'Shapes') {
-            const t = this.vDeep(c, 'Text');
-            if (t && t.textContent.trim()) { label = t.textContent.trim(); break; }
-          }
-        if (!label) {
-          const nested = this.vEl(s, 'Shapes');
-          if (nested) {
-            for (const child of this.vAll(nested, 'Shape')) {
-              const t = this.vText(child);
-              if (t && t.length > 0 && t.length < 100) { label = t; break; }
-            }
-          }
-        }
-
-        let fill = this.vCell(s, 'FillForegnd');
-        if (this.isWashedOut(fill)) {
-          const childEl = this.vEl(s, 'Shapes');
-          if (childEl) {
-            for (const child of this.vAll(childEl, 'Shape')) {
-              if (child.getAttribute('Type') === 'Group') continue;
-              const cf = this.vCell(child, 'FillForegnd');
-              if (cf && cf.startsWith('#') && !this.isWashedOut(cf)) { fill = cf; break; }
-            }
-          }
-        }
-
-        // Legend lane: store its bounds for spatial filtering
-        if (/l[eé]gende?|legend/i.test(label)) {
-          legendBounds.push({
-            xMin: abs.pinX - abs.w/2, xMax: abs.pinX + abs.w/2,
-            yMin: abs.pinY - abs.h/2, yMax: abs.pinY + abs.h/2,
-          });
-          continue;
-        }
-
-        this.bandShifts.push({
-          naturalTop:    naturalCum,
-          naturalBottom: naturalCum + naturalH,
-          shift:         ourCum - naturalCum,
-        });
-        naturalCum += naturalH;
-        ourCum     += bandH;
-
-        const bandIdx = newBands.length + 1;
-        const color = !this.isWashedOut(fill) ? fill : FALLBACK_COLORS[bandIdx % FALLBACK_COLORS.length];
-        newBands.push({ id: bandIdx, label: label || `Bande ${bandIdx}`, color, fontSize: 22, height: bandH });
-      }
-    } else {
+    if (lanes.length === 0) {
       newBands.push({ id: 1, label: 'Activités', color: '#22c55e', fontSize: 22, height: 500 });
+      return;
     }
+
+    let ourCum = 0;
+    for (const { el: s, abs } of lanes) {
+      // Natural canvas Y of this band's top and bottom edges,
+      // measured directly from Visio coords (Y-up → Y-down conversion).
+      const naturalTop    = Math.round((topOfDiagram - (abs.pinY + abs.h / 2)) * SCALE);
+      const naturalBottom = Math.round((topOfDiagram - (abs.pinY - abs.h / 2)) * SCALE);
+      const naturalH      = naturalBottom - naturalTop;
+      const bandH         = Math.round(Math.max(80, naturalH));
+
+      const label = this._extractLaneLabel(s);
+      const fill  = this._extractLaneFill(s);
+
+      if (/l[eé]gende?|legend/i.test(label)) {
+        legendBounds.push({
+          xMin: abs.pinX - abs.w / 2, xMax: abs.pinX + abs.w / 2,
+          yMin: abs.pinY - abs.h / 2, yMax: abs.pinY + abs.h / 2,
+        });
+        continue;
+      }
+
+      // shift = ourCum - naturalTop maps from natural canvas Y to rendered Y.
+      // For a shape with naturalCenterY inside [naturalTop, naturalBottom]:
+      //   renderedY = naturalCenterY + shift = naturalCenterY + ourCum - naturalTop
+      // which correctly maps the band's top (naturalTop) to ourCum.
+      this.bandShifts.push({ naturalTop, naturalBottom, shift: ourCum - naturalTop });
+      ourCum += bandH;
+
+      const bandIdx = newBands.length + 1;
+      const color = !this.isWashedOut(fill) ? fill : FALLBACK_COLORS[bandIdx % FALLBACK_COLORS.length];
+      newBands.push({ id: bandIdx, label: label || `Bande ${bandIdx}`, color, fontSize: 22, height: bandH });
+    }
+  }
+
+  // Collect and sort swimlane elements (large container groups, top→bottom).
+  // Deduplicates separator slivers that are too close together.
+  _collectLanes(allShapes, containerIds, shapePinAbs, pageMaxW) {
+    const laneList = [];
+    for (const { el: s, id } of allShapes) {
+      if (!containerIds.has(id)) continue;
+      const abs = shapePinAbs[id] || {};
+      if (!abs.h || abs.h < 0.3 || abs.h > 25) continue;
+      if (!abs.w || abs.w < pageMaxW * 0.3)    continue;
+      laneList.push({ el: s, id, abs });
+    }
+    laneList.sort((a, b) => b.abs.pinY - a.abs.pinY); // highest Y first (Visio Y-up = top of diagram)
+
+    const lanes = [];
+    for (const ln of laneList) {
+      const prev = lanes[lanes.length - 1];
+      if (prev && Math.abs(ln.abs.pinY - prev.abs.pinY) < 0.15) continue; // deduplicate slivers
+      lanes.push(ln);
+    }
+    return lanes;
+  }
+
+  // Extract the visible text label from a swimlane element.
+  // Looks in direct non-Shapes children first, then in nested child shapes.
+  _extractLaneLabel(el) {
+    for (const c of el.childNodes) {
+      if (c.nodeType !== 1 || c.localName === 'Shapes') continue;
+      const t = this.vDeep(c, 'Text');
+      if (t && t.textContent.trim()) return t.textContent.trim();
+    }
+    const nested = this.vEl(el, 'Shapes');
+    if (nested) {
+      for (const child of this.vAll(nested, 'Shape')) {
+        const t = this.vText(child);
+        if (t && t.length > 0 && t.length < 100) return t;
+      }
+    }
+    return '';
+  }
+
+  // Extract the fill color of a swimlane.
+  // Falls back to first non-washed-out child fill when the lane itself is transparent.
+  _extractLaneFill(el) {
+    const fill = this.vCell(el, 'FillForegnd');
+    if (!this.isWashedOut(fill)) return fill;
+    const childEl = this.vEl(el, 'Shapes');
+    if (childEl) {
+      for (const child of this.vAll(childEl, 'Shape')) {
+        if (child.getAttribute('Type') === 'Group') continue;
+        const cf = this.vCell(child, 'FillForegnd');
+        if (cf && cf.startsWith('#') && !this.isWashedOut(cf)) return cf;
+      }
+    }
+    return fill;
   }
 
   // Détermine le shift Y à appliquer à un point dont le Y naturel (sans
@@ -540,11 +553,11 @@ class VsdxImporter {
       if (naturalY >= bs.naturalTop && naturalY < bs.naturalBottom) return bs.shift;
     }
     // Hors de toutes les bandes (ex: bande Prescriber H=0 filtrée) →
-    // utiliser le shift de la bande dont le centre est le plus proche.
+    // utiliser le shift de la bande dont l'ARÊTE la plus proche est la plus
+    // près (edge-based, plus précis que la distance au centre pour les gaps).
     let nearest = map[0], nearestDist = Infinity;
     for (const bs of map) {
-      const mid = (bs.naturalTop + bs.naturalBottom) / 2;
-      const d = Math.abs(naturalY - mid);
+      const d = Math.min(Math.abs(naturalY - bs.naturalTop), Math.abs(naturalY - bs.naturalBottom));
       if (d < nearestDist) { nearestDist = d; nearest = bs; }
     }
     return nearest.shift;
@@ -636,6 +649,8 @@ class VsdxImporter {
       const mn = (masterIdToName[mid] || '').toLowerCase();
       if (/\b(connector|dynamic connector|line|arrow)\b/.test(mn)) continue;
       if (/^(title|text|annotation|callout|note|border|background|frame)$/.test(mn)) continue;
+      // "N-"/"D-"/"T-" prefix = CFF navigation cross-reference arrows (not activities)
+      if (/^[ndt]\s*[-–]/.test(mn)) continue;
 
       // LayerMember=3 = "Si petit"/"Si grand" visual decorators — exclude entirely
       if (this.vCell(s, 'LayerMember') === '3') continue;
@@ -643,8 +658,8 @@ class VsdxImporter {
       const abs = shapePinAbs[id] || {};
       const vW  = abs.w || 0;
       const vH  = abs.h || 0;
-      if (vW < 0.2 || vH < 0.1) continue;
-      if (vW > 8   || vH > 4  ) continue;
+      if (vW < 0.2 || vH < 0.25) continue; // <0.25" height = thin nav arrow, not an activity
+      if (vW > 8   || vH > 4   ) continue;
 
       // Compute screen position from center (so capping doesn't shift center point)
       const rawW = Math.round(vW * SCALE);
