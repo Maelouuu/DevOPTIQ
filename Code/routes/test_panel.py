@@ -118,59 +118,121 @@ def _build_args(scope: str, xml_path: str) -> list[str]:
     return base
 
 
-def _parse_xml(xml_path: str, run_id: int):
-    """Legacy: uses Flask's scoped session (kept for compatibility)."""
-    _parse_xml_session(xml_path, run_id, db.session)
-    db.session.flush()
+def _save_results(db_url: str, run_id: int, xml_path: str, emit):
+    """
+    Parse le XML JUnit et persiste les résultats.
+    SQLite → sqlite3 brut (évite tout problème de session/URL SQLAlchemy).
+    PostgreSQL → SQLAlchemy avec engine dédié.
+    """
+    import traceback
 
-
-def _parse_xml_session(xml_path: str, run_id: int, session):
-    """Parse JUnit XML and write results using the provided SQLAlchemy session."""
     try:
         root = ET.parse(xml_path).getroot()
     except ET.ParseError:
+        emit('\n[WARN] XML JUnit invalide ou vide\n')
         return
-    now = datetime.utcnow()
+
+    now_str = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S.%f')
+
+    # Construire la liste de résultats à partir du XML
+    results = []
     for tc in root.findall('.//testcase'):
         classname = tc.get('classname', '')
         name      = tc.get('name', '')
         parts     = classname.split('.')
-        # reconstruct node_id: tests/test_01_auth.py::TestClass::test_name
         file_mod  = next((p for p in parts if p.startswith('test_')), '')
         class_nm  = parts[-1] if len(parts) > 1 else ''
         node_id   = f"tests/{file_mod}.py::{class_nm}::{name}" if file_mod else ''
-        case      = session.query(TestCase).filter_by(node_id=node_id).first() if node_id else None
-
+        if not node_id:
+            continue
         failure = tc.find('failure')
         error   = tc.find('error')
         if failure is not None:
             status  = 'failed'
-            message = (failure.get('message', '') + '\n' + (failure.text or ''))[:3000]
+            message = ((failure.get('message') or '') + '\n' + (failure.text or ''))[:3000]
         elif error is not None:
             status  = 'error'
-            message = (error.get('message', '') + '\n' + (error.text or ''))[:3000]
+            message = ((error.get('message') or '') + '\n' + (error.text or ''))[:3000]
         else:
             status  = 'passed'
             message = ''
-
         duration = float(tc.get('time', 0) or 0)
-        if case:
-            session.add(TestResult(run_id=run_id, case_id=case.id,
-                                   status=status, duration=duration,
-                                   message=message, ran_at=now))
-            case.last_status = status
-            case.last_ran_at = now
+        results.append((node_id, status, duration, message))
+
+    if db_url.startswith('sqlite'):
+        # ── SQLite : accès direct via sqlite3, pas d'ambiguïté de chemin ────────
+        import sqlite3 as _sqlite3
+        # Extraire le chemin du fichier depuis l'URL (strip sqlite:/// et ?params)
+        raw_path = db_url[len('sqlite:///'):]
+        raw_path = raw_path.split('?')[0]
+        try:
+            conn = _sqlite3.connect(raw_path, timeout=30)
+            conn.row_factory = _sqlite3.Row
+            cur = conn.cursor()
+            cur.execute("UPDATE test_runs SET status='done', finished_at=? WHERE id=?",
+                        (now_str, run_id))
+            for node_id, status, duration, message in results:
+                row = cur.execute(
+                    "SELECT id FROM test_cases WHERE node_id=?", (node_id,)
+                ).fetchone()
+                if not row:
+                    continue
+                case_id = row[0]
+                cur.execute(
+                    "INSERT INTO test_results (run_id, case_id, status, duration, message, ran_at)"
+                    " VALUES (?,?,?,?,?,?)",
+                    (run_id, case_id, status, duration, message, now_str)
+                )
+                cur.execute(
+                    "UPDATE test_cases SET last_status=?, last_ran_at=? WHERE id=?",
+                    (status, now_str, case_id)
+                )
+            conn.commit()
+            conn.close()
+            emit(f'\n[OK] {len(results)} résultats sauvegardés (run #{run_id})\n')
+        except Exception:
+            emit(f'\n[DB ERROR sqlite3]\n{traceback.format_exc()}\n')
+
+    else:
+        # ── PostgreSQL : SQLAlchemy avec engine propre ────────────────────────
+        from sqlalchemy import create_engine as _ce, text as _text
+        _engine = _ce(db_url, pool_pre_ping=True, pool_size=1, max_overflow=0)
+        try:
+            with _engine.connect() as conn:
+                conn.execute(_text(
+                    "UPDATE test_runs SET status='done', finished_at=:ts WHERE id=:rid"
+                ), {'ts': now_str, 'rid': run_id})
+                for node_id, status, duration, message in results:
+                    row = conn.execute(_text(
+                        "SELECT id FROM test_cases WHERE node_id=:nid"
+                    ), {'nid': node_id}).fetchone()
+                    if not row:
+                        continue
+                    case_id = row[0]
+                    conn.execute(_text(
+                        "INSERT INTO test_results (run_id,case_id,status,duration,message,ran_at)"
+                        " VALUES (:r,:c,:s,:d,:m,:ts)"
+                    ), {'r': run_id, 'c': case_id, 's': status, 'd': duration,
+                        'm': message, 'ts': now_str})
+                    conn.execute(_text(
+                        "UPDATE test_cases SET last_status=:s, last_ran_at=:ts WHERE id=:c"
+                    ), {'s': status, 'ts': now_str, 'c': case_id})
+                conn.commit()
+            emit(f'\n[OK] {len(results)} résultats sauvegardés (run #{run_id})\n')
+        except Exception:
+            emit(f'\n[DB ERROR postgresql]\n{traceback.format_exc()}\n')
+        finally:
+            _engine.dispose()
 
 
 def _run_thread(run_id: int, scope: str, app):
-    import traceback
-
     def emit(line: str):
         with _runs_lock:
             if run_id in _runs:
                 _runs[run_id]['lines'].append(line)
 
     with app.app_context():
+        db_url = app.config['SQLALCHEMY_DATABASE_URI']
         fd, xml_path = tempfile.mkstemp(suffix='.xml', prefix=f'trun_{run_id}_')
         os.close(fd)
         args = _build_args(scope, xml_path)
@@ -185,41 +247,24 @@ def _run_thread(run_id: int, scope: str, app):
         except Exception as e:
             emit(f'\n[ERROR lors du lancement] {e}\n')
 
-        # Créer un engine dédié au thread, indépendant du pool Flask-SQLAlchemy
-        from sqlalchemy import create_engine as _create_engine
-        from sqlalchemy.orm import Session as _Session
-
-        db_url = app.config['SQLALCHEMY_DATABASE_URI']
-        connect_args = {}
-        if db_url.startswith('sqlite'):
-            connect_args = {'timeout': 30, 'check_same_thread': False}
-        _engine = _create_engine(db_url, connect_args=connect_args)
-
-        try:
-            # S'assurer que les tables existent dans cette connexion
-            from Code.models.test_models import TestPage as _TP, TestCase as _TC, TestRun as _TR, TestResult as _TRs
-            for _m in (_TP, _TC, _TR, _TRs):
-                _m.__table__.create(_engine, checkfirst=True)
-
-            with _Session(_engine) as session:
-                run = session.get(TestRun, run_id)
-                if run:
-                    run.finished_at = datetime.utcnow()
-                    run.status = 'done'
-                    if os.path.exists(xml_path):
-                        _parse_xml_session(xml_path, run_id, session)
-                        try:
-                            os.unlink(xml_path)
-                        except OSError:
-                            pass
-                    session.commit()
-                    emit(f'\n[OK] Résultats sauvegardés en base (run #{run_id})\n')
-        except Exception:
-            tb = traceback.format_exc()
-            emit(f'\n[DB ERROR] {tb}\n')
-            print(f'[test_panel] DB error in run {run_id}:\n{tb}', file=sys.stderr)
-        finally:
-            _engine.dispose()
+        if os.path.exists(xml_path):
+            _save_results(db_url, run_id, xml_path, emit)
+            try:
+                os.unlink(xml_path)
+            except OSError:
+                pass
+        else:
+            # Pas de XML : marquer quand même le run comme terminé
+            import sqlite3 as _sq3
+            if db_url.startswith('sqlite'):
+                raw = db_url[len('sqlite:///'):].split('?')[0]
+                try:
+                    c = _sq3.connect(raw, timeout=30)
+                    c.execute("UPDATE test_runs SET status='done', finished_at=? WHERE id=?",
+                              (datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S.%f'), run_id))
+                    c.commit(); c.close()
+                except Exception:
+                    pass
 
         # Marquer done en dernier — le SSE generator détecte ce flag
         with _runs_lock:
