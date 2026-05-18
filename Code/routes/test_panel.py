@@ -243,40 +243,43 @@ def _run_thread(run_id: int, scope: str, app):
         fd, xml_path = tempfile.mkstemp(suffix='.xml', prefix=f'trun_{run_id}_')
         os.close(fd)
         args = _build_args(scope, xml_path)
-        emit(f"$ pytest {' '.join(args[3:])}\n")
+        # Fermer la session SQLAlchemy AVANT de lancer le subprocess
+        # pour éviter que le lock SQLite bloque _save_results
+        db.session.remove()
 
+    emit(f"$ pytest {' '.join(args[3:])}\n")
+
+    try:
+        proc = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                                cwd=str(_PROJECT_ROOT), text=True, bufsize=1)
+        for line in proc.stdout:
+            emit(line)
+        proc.wait()
+    except Exception as e:
+        emit(f'\n[ERROR lors du lancement] {e}\n')
+
+    if os.path.exists(xml_path):
+        _save_results(db_url, run_id, xml_path, emit)
         try:
-            proc = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                                    cwd=str(_PROJECT_ROOT), text=True, bufsize=1)
-            for line in proc.stdout:
-                emit(line)
-            proc.wait()
-        except Exception as e:
-            emit(f'\n[ERROR lors du lancement] {e}\n')
-
-        if os.path.exists(xml_path):
-            _save_results(db_url, run_id, xml_path, emit)
+            os.unlink(xml_path)
+        except OSError:
+            pass
+    else:
+        import sqlite3 as _sq3
+        if db_url.startswith('sqlite'):
+            raw = db_url[len('sqlite:///'):].split('?')[0]
             try:
-                os.unlink(xml_path)
-            except OSError:
+                c = _sq3.connect(raw, timeout=30)
+                c.execute("UPDATE test_runs SET status='done', finished_at=? WHERE id=?",
+                          (datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S.%f'), run_id))
+                c.commit(); c.close()
+            except Exception:
                 pass
-        else:
-            # Pas de XML : marquer quand même le run comme terminé
-            import sqlite3 as _sq3
-            if db_url.startswith('sqlite'):
-                raw = db_url[len('sqlite:///'):].split('?')[0]
-                try:
-                    c = _sq3.connect(raw, timeout=30)
-                    c.execute("UPDATE test_runs SET status='done', finished_at=? WHERE id=?",
-                              (datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S.%f'), run_id))
-                    c.commit(); c.close()
-                except Exception:
-                    pass
 
-        # Marquer done en dernier — le SSE generator détecte ce flag
-        with _runs_lock:
-            if run_id in _runs:
-                _runs[run_id]['done'] = True
+    # Marquer done en dernier — le SSE generator détecte ce flag
+    with _runs_lock:
+        if run_id in _runs:
+            _runs[run_id]['done'] = True
 
 
 def _expire_stale_runs():

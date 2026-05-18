@@ -81,6 +81,10 @@ def create_app(test_config=None):
     app.config["MAIL_USERNAME"] = os.getenv("MAIL_USERNAME", "afdec.enterprise.services@gmail.com")
     app.config["MAIL_PASSWORD"] = os.getenv("MAIL_PASSWORD", "awdkerghqvuwjhel")
 
+    # Appliquer la config de test APRÈS les defaults (override complet)
+    if test_config:
+        app.config.update(test_config)
+
     mail.init_app(app)
     db.init_app(app)
 
