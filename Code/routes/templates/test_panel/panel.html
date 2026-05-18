@@ -187,12 +187,19 @@ function onRunDone(runId) {
   fetch('/testpanel/run/' + runId + '/status')
     .then(r => r.json())
     .then(d => {
-      document.getElementById('run-bar-pct').textContent = d.pct + '% — ' + d.passed + '/' + d.total;
-      document.querySelector('.tp-hero-score').innerHTML = d.pct + '<span>%</span>';
+      const pct   = (d.pct   != null) ? d.pct   : '?';
+      const pass_ = (d.passed != null) ? d.passed : '?';
+      const tot   = (d.total  != null) ? d.total  : '?';
+      document.getElementById('run-bar-pct').textContent = pct + '% — ' + pass_ + '/' + tot;
+      if (d.pct != null) document.querySelector('.tp-hero-score').innerHTML = d.pct + '<span>%</span>';
       const btn = document.getElementById('btn-run-all');
       btn.disabled = false;
       btn.innerHTML = '<i class="fa-solid fa-play"></i> Relancer tous les tests';
-      // Reload page to update cards
+      setTimeout(() => location.reload(), 1500);
+    })
+    .catch(() => {
+      document.getElementById('btn-run-all').disabled = false;
+      document.getElementById('btn-run-all').innerHTML = '<i class="fa-solid fa-play"></i> Relancer tous les tests';
       setTimeout(() => location.reload(), 1500);
     });
 }

@@ -185,10 +185,23 @@ def _run_thread(run_id: int, scope: str, app):
         except Exception as e:
             emit(f'\n[ERROR lors du lancement] {e}\n')
 
-        # Use a fresh session isolated from the request-scoped session pool
+        # Créer un engine dédié au thread, indépendant du pool Flask-SQLAlchemy
+        from sqlalchemy import create_engine as _create_engine
         from sqlalchemy.orm import Session as _Session
-        with _Session(db.engine) as session:
-            try:
+
+        db_url = app.config['SQLALCHEMY_DATABASE_URI']
+        connect_args = {}
+        if db_url.startswith('sqlite'):
+            connect_args = {'timeout': 30, 'check_same_thread': False}
+        _engine = _create_engine(db_url, connect_args=connect_args)
+
+        try:
+            # S'assurer que les tables existent dans cette connexion
+            from Code.models.test_models import TestPage as _TP, TestCase as _TC, TestRun as _TR, TestResult as _TRs
+            for _m in (_TP, _TC, _TR, _TRs):
+                _m.__table__.create(_engine, checkfirst=True)
+
+            with _Session(_engine) as session:
                 run = session.get(TestRun, run_id)
                 if run:
                     run.finished_at = datetime.utcnow()
@@ -201,11 +214,12 @@ def _run_thread(run_id: int, scope: str, app):
                             pass
                     session.commit()
                     emit(f'\n[OK] Résultats sauvegardés en base (run #{run_id})\n')
-            except Exception:
-                session.rollback()
-                tb = traceback.format_exc()
-                emit(f'\n[DB ERROR] {tb}\n')
-                print(f'[test_panel] DB error in run {run_id}:\n{tb}', file=sys.stderr)
+        except Exception:
+            tb = traceback.format_exc()
+            emit(f'\n[DB ERROR] {tb}\n')
+            print(f'[test_panel] DB error in run {run_id}:\n{tb}', file=sys.stderr)
+        finally:
+            _engine.dispose()
 
         # Marquer done en dernier — le SSE generator détecte ce flag
         with _runs_lock:
