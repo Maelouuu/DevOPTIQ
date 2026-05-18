@@ -24,6 +24,7 @@ PAGE_LABELS = {
     "test_10_roles":            "Rôles",
     "test_11_tools":            "Gestion des Outils",
     "test_12_gestion_rh":       "Gestion RH",
+    "test_13_competences":      "Compétences & Évaluations",
 }
 
 
