@@ -210,6 +210,9 @@ def _start_run(scope: str) -> int:
 @test_panel_bp.before_request
 def _auto_sync():
     try:
+        # Recrée les tables si elles ont disparu (SQLite local, subprocess pytest, etc.)
+        for model in (TestPage, TestCase, TestRun, TestResult):
+            model.__table__.create(db.engine, checkfirst=True)
         sync_tests_to_db()
     except Exception:
         pass

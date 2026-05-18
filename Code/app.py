@@ -84,6 +84,9 @@ def create_app(test_config=None):
     mail.init_app(app)
     db.init_app(app)
 
+    # Importer les modèles test panel ici pour que db.create_all() les connaisse
+    from Code.models import test_models  # noqa: F401
+
     migrate = Migrate(app, db)
 
     # --------- filtres jinja ----------
