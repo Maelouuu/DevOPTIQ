@@ -536,6 +536,7 @@ function renderConnections() {
   }
 
   const placedLabels = []; // bounding boxes des labels déjà placés
+  const placedPaths  = []; // segments des connexions déjà rendues (évite labels aux croisements)
   for (const c of state.connections) {
     const from = _resolveEp(c.fromId);
     const to   = _resolveEp(c.toId);
@@ -563,6 +564,9 @@ function renderConnections() {
       orthopts = avoidShapes(orthopts, state.shapes, c.fromId, c.toId);
       orthopts = simplifyPath(orthopts);
       c._computedOrthopts = orthopts; // used for label drag constraint
+      // Enregistrer les segments pour pénaliser les labels des connexions suivantes
+      for (let _pi = 0; _pi < orthopts.length - 1; _pi++)
+        placedPaths.push({ ax: orthopts[_pi].x, ay: orthopts[_pi].y, bx: orthopts[_pi+1].x, by: orthopts[_pi+1].y });
       d = polylineToPath(orthopts, 12);
     }
     const isSel = selectedConn === c.id;
@@ -680,6 +684,16 @@ function renderConnections() {
             const cp = orthopts[k];
             const dc = Math.hypot(cx - cp.x, cy - cp.y);
             if (dc < 40) s += (40 - dc) * 350;
+          }
+          // Penalty for proximity to segments of already-rendered connections
+          // (évite que les labels atterrissent aux points de croisement des flèches)
+          for (const seg of placedPaths) {
+            const abx = seg.bx - seg.ax, aby = seg.by - seg.ay;
+            const segLen2 = abx*abx + aby*aby;
+            if (segLen2 < 1) continue;
+            const t2 = Math.max(0, Math.min(1, ((cx - seg.ax)*abx + (cy - seg.ay)*aby) / segLen2));
+            const d2 = Math.hypot(cx - (seg.ax + t2*abx), cy - (seg.ay + t2*aby));
+            if (d2 < 50) s += (50 - d2) * 60;
           }
           return s;
         }

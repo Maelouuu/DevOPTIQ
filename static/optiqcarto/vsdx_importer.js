@@ -539,11 +539,15 @@ class VsdxImporter {
     for (const bs of map) {
       if (naturalY >= bs.naturalTop && naturalY < bs.naturalBottom) return bs.shift;
     }
-    // Au-dessus de la première bande → shift de la première bande.
-    // En dessous de la dernière → shift de la dernière (mêmes proportions
-    // qu'à l'intérieur de la dernière).
-    if (naturalY < map[0].naturalTop)         return map[0].shift;
-    return map[map.length - 1].shift;
+    // Hors de toutes les bandes (ex: bande Prescriber H=0 filtrée) →
+    // utiliser le shift de la bande dont le centre est le plus proche.
+    let nearest = map[0], nearestDist = Infinity;
+    for (const bs of map) {
+      const mid = (bs.naturalTop + bs.naturalBottom) / 2;
+      const d = Math.abs(naturalY - mid);
+      if (d < nearestDist) { nearestDist = d; nearest = bs; }
+    }
+    return nearest.shift;
   }
 
   // Returns true if a shape's center falls inside a legend lane
@@ -632,6 +636,9 @@ class VsdxImporter {
       const mn = (masterIdToName[mid] || '').toLowerCase();
       if (/\b(connector|dynamic connector|line|arrow)\b/.test(mn)) continue;
       if (/^(title|text|annotation|callout|note|border|background|frame)$/.test(mn)) continue;
+
+      // LayerMember=3 = "Si petit"/"Si grand" visual decorators — exclude entirely
+      if (this.vCell(s, 'LayerMember') === '3') continue;
 
       const abs = shapePinAbs[id] || {};
       const vW  = abs.w || 0;
@@ -767,7 +774,11 @@ class VsdxImporter {
     const bRanges = newBands.map(b => { const y0 = cumY; cumY += b.height; return { y0, y1: cumY }; });
     for (const s of newShapes) {
       const cy = s.y + s.h / 2;
-      const br = bRanges.find(r => cy >= r.y0 && cy < r.y1) || bRanges[bRanges.length - 1];
+      const br = bRanges.find(r => cy >= r.y0 && cy < r.y1) ||
+        bRanges.reduce((best, r) => {
+          const dm = Math.abs(cy - (r.y0 + r.y1) / 2);
+          return dm < Math.abs(cy - (best.y0 + best.y1) / 2) ? r : best;
+        }, bRanges[bRanges.length - 1]);
       if (!br) continue;
       if (s.y < br.y0 + PAD_BAND) s.y = br.y0 + PAD_BAND;
       if (s.y + s.h > br.y1 - PAD_BAND) s.y = Math.max(br.y0 + PAD_BAND, br.y1 - PAD_BAND - s.h);
@@ -1021,6 +1032,21 @@ class VsdxImporter {
       if (customPath)              connObj.customPath = customPath;
       newConns.push(connObj);
     }
+
+    // Post-process : supprimer fromPortT/toPortT quand plusieurs connexions
+    // partagent la même direction sur le même endpoint.
+    // spreadPort() les répartira automatiquement au lieu de les superposer.
+    const dirCount = {};
+    for (const c of newConns) {
+      const fk = `${c.fromId}:${c.fromPortDir}`;
+      const tk = `${c.toId}:${c.toPortDir}`;
+      dirCount[fk] = (dirCount[fk] || 0) + 1;
+      dirCount[tk] = (dirCount[tk] || 0) + 1;
+    }
+    for (const c of newConns) {
+      if ((dirCount[`${c.fromId}:${c.fromPortDir}`] || 0) > 1) delete c.fromPortT;
+      if ((dirCount[`${c.toId}:${c.toPortDir}`]   || 0) > 1) delete c.toPortT;
+    }
   }
 
   // ─── Phase 14: Remove separator bands ────────────────────────────
@@ -1091,8 +1117,13 @@ class VsdxImporter {
       for (let i = 0; i < newShapes.length; i++) {
         for (let j = i+1; j < newShapes.length; j++) {
           const a = newShapes[i], b = newShapes[j];
-          const ovX = Math.min(a.x+a.w, b.x+b.w) - Math.max(a.x, b.x);
-          const ovY = Math.min(a.y+a.h, b.y+b.h) - Math.max(a.y, b.y);
+          // Inclure le halo visuel des shapes "process" (7 px de chaque côté)
+          // pour éviter que les auréoles se chevauchent visuellement.
+          const haloA = a.type === 'process' ? 7 : 0;
+          const haloB = b.type === 'process' ? 7 : 0;
+          const gap   = haloA + haloB + 2; // +2 px de respiration
+          const ovX = Math.min(a.x+a.w, b.x+b.w) + gap - Math.max(a.x, b.x);
+          const ovY = Math.min(a.y+a.h, b.y+b.h) + gap - Math.max(a.y, b.y);
           if (ovX <= 0 || ovY <= 0) continue;
           if (ovX <= ovY) {
             const half = ovX / 2;
@@ -1152,8 +1183,8 @@ class VsdxImporter {
       }
     }
 
-    this.stretchBands();
-    this.antiOverlap();
+    this.antiOverlap();   // résoudre les chevauchements avant d'étirer les bandes
+    this.stretchBands();  // étirer les bandes pour contenir les shapes repositionnés
 
     return {
       bands:       this.newBands,
