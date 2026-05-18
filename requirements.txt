@@ -12,4 +12,6 @@ gunicorn
 psycopg2-binary
 requests
 openpyxl
+pytest
+werkzeug
 
