@@ -620,23 +620,20 @@ function renderConnections() {
         lx = c.labelOffset.x;
         ly = c.labelOffset.y;
       } else {
-        let totalLen = 0;
-        for (let i = 0; i < orthopts.length - 1; i++)
-          totalLen += Math.hypot(orthopts[i+1].x - orthopts[i].x, orthopts[i+1].y - orthopts[i].y);
-        const half = totalLen / 2;
-        let cumLen = 0, found = false;
-        for (let i = 0; i < orthopts.length - 1 && !found; i++) {
-          const dx = orthopts[i+1].x - orthopts[i].x, dy = orthopts[i+1].y - orthopts[i].y;
-          const segLen = Math.hypot(dx, dy);
-          if (cumLen + segLen >= half) {
-            const t = (half - cumLen) / segLen;
-            lx = orthopts[i].x + dx * t;
-            ly = orthopts[i].y + dy * t;
-            found = true;
-          }
-          cumLen += segLen;
+        // Place label at midpoint of the longest segment so it lands on the
+        // main visual line, not at a corner or short jog.
+        let bestLen = -1, bestIdx = -1;
+        for (let i = 0; i < orthopts.length - 1; i++) {
+          const segLen = Math.hypot(orthopts[i+1].x - orthopts[i].x, orthopts[i+1].y - orthopts[i].y);
+          if (segLen > bestLen) { bestLen = segLen; bestIdx = i; }
         }
-        if (!found) { lx = (fp.x + tp.x) / 2; ly = (fp.y + tp.y) / 2; }
+        if (bestIdx >= 0) {
+          lx = (orthopts[bestIdx].x + orthopts[bestIdx + 1].x) / 2;
+          ly = (orthopts[bestIdx].y + orthopts[bestIdx + 1].y) / 2;
+        } else {
+          lx = (fp.x + tp.x) / 2;
+          ly = (fp.y + tp.y) / 2;
+        }
       }
 
       placedLabels.push({ lx, ly, hw: lw / 2, hh: lh / 2 });

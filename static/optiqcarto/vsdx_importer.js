@@ -11,9 +11,10 @@ class VsdxImporter {
     this._p   = new DOMParser();
 
     // Master lookups
-    this.masterIdToName  = {};
-    this.masterIdToFile  = {};
-    this.masterInfoCache = {};
+    this.masterIdToName     = {};
+    this.masterIdToFile     = {};
+    this.masterInfoCache    = {};
+    this.masterSubShapeFills = {}; // masterId → { subShapeId → fillColor }
 
     // Page data
     this.allShapes   = [];
@@ -296,6 +297,17 @@ class VsdxImporter {
         '| isSubprocess:', g.isSubprocess, '| fp:', fp, '| fillColor:', fillColor || '-'
       );
 
+      // Collect all sub-shape fills (indexed by shape ID) for _extractLaneFill fallback.
+      // Needed when a lane child has no explicit page-level FillForegnd and inherits
+      // its color from the master stencil (e.g. 'couloir color' master=8 in hard.vsdx).
+      const subFills = {};
+      for (const s of doc.getElementsByTagName('Shape')) {
+        const sid = s.getAttribute('ID');
+        const fc  = this.vCell(s, 'FillForegnd');
+        if (sid && fc && fc.startsWith('#')) subFills[sid] = fc;
+      }
+      this.masterSubShapeFills[mid] = subFills;
+
       return this.masterInfoCache[mid] = {
         w: bw || 0.9449, h: bh || 0.7087,
         linePattern: lp, fillPattern: fp, fillColor,
@@ -516,6 +528,9 @@ class VsdxImporter {
     for (const { el: s, id } of allShapes) {
       if (!containerIds.has(id)) continue;
       if (poolIds.has(id))       continue; // outer CFF pool — not a swimlane
+      // 'Swimlane' (master=2) = layout header/separator, not a real content band
+      const mn = (this.masterIdToName[s.getAttribute('Master')] || '').trim();
+      if (/^swimlane(\s+for\s+separation)?$/i.test(mn)) continue;
       const abs = shapePinAbs[id] || {};
       if (!abs.h || abs.h < 0.3 || abs.h > 25) continue;
       if (!abs.w || abs.w < pageMaxW * 0.3)    continue;
@@ -551,16 +566,27 @@ class VsdxImporter {
   }
 
   // Extract the fill color of a swimlane.
-  // Falls back to first non-washed-out child fill when the lane itself is transparent.
+  // Priority: lane element FillForegnd → child page fill → child master fill.
+  // The third level is critical for 'couloir color' bands (master=8) in CFF diagrams
+  // where child shapes carry no explicit page fill but inherit from the master stencil.
   _extractLaneFill(el) {
     const fill = this.vCell(el, 'FillForegnd');
     if (!this.isWashedOut(fill)) return fill;
+
+    const laneMid  = el.getAttribute('Master');
+    const subFills = laneMid ? (this.masterSubShapeFills[laneMid] || {}) : {};
+
     const childEl = this.vEl(el, 'Shapes');
     if (childEl) {
       for (const child of this.vAll(childEl, 'Shape')) {
         if (child.getAttribute('Type') === 'Group') continue;
+        // 1. Explicit fill on the page-level child
         const cf = this.vCell(child, 'FillForegnd');
         if (cf && cf.startsWith('#') && !this.isWashedOut(cf)) return cf;
+        // 2. Fill inherited from the master stencil sub-shape
+        const msId = child.getAttribute('MasterShape');
+        const mf   = msId ? subFills[msId] : null;
+        if (mf && !this.isWashedOut(mf)) return mf;
       }
     }
     return fill;
