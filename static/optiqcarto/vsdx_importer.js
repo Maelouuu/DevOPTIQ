@@ -463,7 +463,7 @@ class VsdxImporter {
       const bandH         = Math.round(Math.max(80, naturalH));
 
       const label = this._extractLaneLabel(s);
-      const fill  = this._extractLaneFill(s);
+      const fill  = this._extractLaneFill(s, abs);
 
       if (/l[eé]gende?|legend/i.test(label)) {
         legendBounds.push({
@@ -538,26 +538,20 @@ class VsdxImporter {
   }
 
   // Extract the fill color of a swimlane.
-  // Searches the lane's own fill, then all descendant shapes (BFS, 2 levels deep).
-  // Does NOT read the master stencil: all lanes share the same Swimlane master,
-  // so the master color is the same for every lane and useless for discrimination.
-  _extractLaneFill(el) {
-    // 1. Lane's own explicit fill in the page XML
+  // 1. Lane's own FillForegnd (set when user explicitly colors the lane in Visio).
+  // 2. Direct structural sub-shapes whose height ≥ 50 % of the lane height (= header
+  //    strip or background rectangle, NOT activity boxes which are much smaller).
+  //    The Group exclusion is kept: group sub-shapes are containers, not color areas.
+  _extractLaneFill(el, laneAbs) {
     const fill = this.vCell(el, 'FillForegnd');
     if (!this.isWashedOut(fill)) return fill;
 
-    // 2. BFS over child shapes (including groups) up to 2 levels deep
     const childEl = this.vEl(el, 'Shapes');
-    if (childEl) {
-      const queue = this.vAll(childEl, 'Shape');
-      const next  = [];
-      for (const child of queue) {
-        const cf = this.vCell(child, 'FillForegnd');
-        if (cf && cf.startsWith('#') && !this.isWashedOut(cf)) return cf;
-        const nested = this.vEl(child, 'Shapes');
-        if (nested) next.push(...this.vAll(nested, 'Shape'));
-      }
-      for (const child of next) {
+    if (childEl && laneAbs && laneAbs.h > 0) {
+      for (const child of this.vAll(childEl, 'Shape')) {
+        if (child.getAttribute('Type') === 'Group') continue;
+        const cabs = this.shapePinAbs[child.getAttribute('ID')];
+        if (cabs && cabs.h < laneAbs.h * 0.5) continue; // skip activities (smaller than lane)
         const cf = this.vCell(child, 'FillForegnd');
         if (cf && cf.startsWith('#') && !this.isWashedOut(cf)) return cf;
       }
@@ -643,122 +637,100 @@ class VsdxImporter {
     this._containerGroupData = containerGroupData;
   }
 
+  // ─── Phase 9 helpers ─────────────────────────────────────────────
+
+  // Returns true if a shape should be excluded from activity import.
+  _shouldIncludeShape(s, id, mn) {
+    if (this.connectorIds.has(id))        return false;
+    if (this.containerIds.has(id))        return false;
+    if (this._containerGroupIds.has(id))  return false;
+    if (this.isInLegend(id))              return false;
+    const mid   = s.getAttribute('Master');
+    const vType = s.getAttribute('Type');
+    if (!mid && vType !== 'Group')        return false;
+    if (/\b(connector|dynamic connector|line|arrow)\b/.test(mn))           return false;
+    if (/^(title|text|annotation|callout|note|border|background|frame)$/.test(mn)) return false;
+    if (/^[ndt]\s*[-–]/.test(mn))        return false; // CFF cross-reference nav arrows
+    if (this.vCell(s, 'LayerMember') === '3') return false; // "Si petit/grand" decorators
+    return true;
+  }
+
+  // Returns {screenX, screenY, screenW, screenH} or null if shape is outside diagram.
+  _computeShapeScreen(abs, totalBandH) {
+    const { SCALE, topOfDiagram, leftEdge } = this;
+    const MAX_ACT_W = 260, MAX_ACT_H = 150;
+    const MARGIN_X  = 1.5;
+    const vW = abs.w || 0, vH = abs.h || 0;
+    if (vW < 0.2 || vH < 0.25) return null;
+    if (vW > 8   || vH > 4   ) return null;
+    if (this.rightEdge && (abs.pinX < leftEdge - MARGIN_X || abs.pinX > this.rightEdge + MARGIN_X)) return null;
+    if (abs.pinY > topOfDiagram + 1.0) return null;
+    const screenW = Math.min(MAX_ACT_W, Math.round(vW * SCALE));
+    const screenH = Math.min(MAX_ACT_H, Math.round(vH * SCALE));
+    const screenX = Math.max(144, Math.round((abs.pinX - leftEdge) * SCALE) - Math.round(screenW / 2));
+    const naturalScreenY = Math.round((topOfDiagram - abs.pinY) * SCALE) - Math.round(screenH / 2);
+    const naturalCenterY = naturalScreenY + screenH / 2;
+    const screenY = Math.max(0, naturalScreenY + this._bandShiftFor(naturalCenterY));
+    if (screenY > totalBandH + 100) return null;
+    return { screenX, screenY, screenW, screenH };
+  }
+
+  // Returns {shapeType, subtype} for an activity shape.
+  _detectTypeSubtype(s, id, mid, vType, mInfo, masterName) {
+    const isExternalByName = /\b(external|externe|outsourc\w*|sous.?trait\w*)\b/i.test(masterName);
+    const isStadiumByAspect = !mInfo.isWavyBottom
+                              && (mInfo.aspect || 1) >= 1.5
+                              && !mInfo.isEllipse && !mInfo.isDiamond;
+
+    let shapeType = detectShapeType(masterName, vType,
+                        mInfo.isEllipse, mInfo.isDiamond,
+                        mInfo.isSubprocess,
+                        mInfo.isStadium || isExternalByName);
+
+    if (shapeType === 'special') {
+      if (isExternalByName)                              shapeType = 'process';
+      else if (isStadiumByAspect && vType !== 'Group')   shapeType = 'process';
+    }
+
+    const fillPattern = parseInt(this.vCellDeep(s, 'FillPattern') || '0') || (mInfo.fillPattern || 1);
+    let subtype = 'normal';
+    if (shapeType === 'process') {
+      if (mInfo.isStadium || isExternalByName || isStadiumByAspect) {
+        subtype = 'external';
+        console.debug('[VSDX external]', this.vText(s) || id, 'master=', masterName,
+          'stadium=', !!mInfo.isStadium, 'byName=', isExternalByName,
+          'byAspect=', isStadiumByAspect, 'aspect=', (mInfo.aspect || 1).toFixed(2));
+      } else if (fillPattern >= 2) {
+        subtype = 'extco';
+        console.debug('[VSDX hatch]', this.vText(s) || id, 'FillPattern=', fillPattern, 'master=', masterName);
+      }
+    }
+    return { shapeType, subtype };
+  }
+
   // ─── Phase 9: Import activities as shapes ────────────────────────
-  // Key fixes:
-  //   - Cap oversized shapes (group boxes that are also connection endpoints)
-  //   - Read VSDX FillForegnd → master fillColor → band color (in priority order)
-  //   - Respect LayerMember=6 exclusion (drapeaux retour)
 
   importActivities() {
     this.log('Import des activités…');
-    const { allShapes, connectorIds, containerIds, shapePinAbs, masterInfoCache,
-            masterIdToName, SCALE, newBands, topOfDiagram, leftEdge,
-            _containerGroupIds } = this;
-
+    const { allShapes, masterInfoCache, masterIdToName, newBands } = this;
     const newShapes  = this.newShapes;
     const shapeIdMap = this._shapeIdMap = {};
     const totalBandH = newBands.reduce((s, b) => s + b.height, 0);
-    const MAX_ACT_W = 260, MAX_ACT_H = 150; // cap for oversized group-box shapes
 
     for (const { el: s, id } of allShapes) {
-      if (connectorIds.has(id))       continue;
-      if (containerIds.has(id))       continue;
-      if (_containerGroupIds.has(id)) continue;
-      if (this.isInLegend(id))        continue;
+      const mid = s.getAttribute('Master');
+      const mn  = (masterIdToName[mid] || '').toLowerCase();
+      if (!this._shouldIncludeShape(s, id, mn)) continue;
 
-      const mid   = s.getAttribute('Master');
-      const vType = s.getAttribute('Type');
-      if (!mid && vType !== 'Group') continue;
+      const abs    = this.shapePinAbs[id] || {};
+      const screen = this._computeShapeScreen(abs, totalBandH);
+      if (!screen) continue;
+      const { screenX, screenY, screenW, screenH } = screen;
 
-      const mn = (masterIdToName[mid] || '').toLowerCase();
-      if (/\b(connector|dynamic connector|line|arrow)\b/.test(mn)) continue;
-      if (/^(title|text|annotation|callout|note|border|background|frame)$/.test(mn)) continue;
-      // "N-"/"D-"/"T-" prefix = CFF navigation cross-reference arrows (not activities)
-      if (/^[ndt]\s*[-–]/.test(mn)) continue;
-
-      // LayerMember=3 = "Si petit"/"Si grand" visual decorators — exclude entirely
-      if (this.vCell(s, 'LayerMember') === '3') continue;
-
-      const abs = shapePinAbs[id] || {};
-      const vW  = abs.w || 0;
-      const vH  = abs.h || 0;
-      if (vW < 0.2 || vH < 0.25) continue; // <0.25" height = thin nav arrow, not an activity
-      if (vW > 8   || vH > 4   ) continue;
-
-      // Exclude shapes outside the diagram's horizontal bounds
-      // (e.g. legend shapes, return indicators far outside the CFF container)
-      const MARGIN_X = 1.5; // inches tolerance beyond band edges
-      if (this.rightEdge && (abs.pinX < leftEdge - MARGIN_X || abs.pinX > this.rightEdge + MARGIN_X)) continue;
-      // Exclude shapes above the diagram top (they would pile up at y=0)
-      if (abs.pinY > topOfDiagram + 1.0) continue;
-
-      // Compute screen position from center (so capping doesn't shift center point)
-      const rawW = Math.round(vW * SCALE);
-      const rawH = Math.round(vH * SCALE);
-      const screenW = Math.min(MAX_ACT_W, rawW);
-      const screenH = Math.min(MAX_ACT_H, rawH);
-      const screenX = Math.max(144, Math.round((abs.pinX - leftEdge) * SCALE) - Math.round(screenW / 2));
-      // Y "naturel" : position basée sur les coords VSDX brutes × SCALE,
-      // SANS prendre en compte le minimum 80 px sur la hauteur des bandes.
-      const naturalScreenY = Math.round((topOfDiagram - abs.pinY) * SCALE) - Math.round(screenH / 2);
-      const naturalCenterY = naturalScreenY + screenH / 2;
-      // bandShift corrige le décalage cumulatif quand une bande étroite a
-      // été inflée au min 80 px : on ramène le shape dans la bande à laquelle
-      // il appartient naturellement, même si nos bandes sont plus hautes.
-      const bandShift = this._bandShiftFor(naturalCenterY);
-      const screenY = Math.max(0, naturalScreenY + bandShift);
-      if (screenY > totalBandH + 100) continue; // outside diagram
-
-      const mInfoForType = masterInfoCache[mid] || {};
-      const masterName  = masterIdToName[mid] || '';
-      // Fallback nom : couvre les masters Visio "External Process", "Activité
-      // externe", "Sous-traitance", etc. — utile quand la géométrie ne suffit
-      // pas (ex: shape custom redessinée mais qui garde le nom du stencil).
-      const isExternalByName = /\b(external|externe|outsourc\w*|sous.?trait\w*)\b/i.test(masterName);
-
-      // isStadiumByAspect : forme élongée non-vague mal classée par la géométrie
-      // → dernier recours si isStadium=false mais aspect >= 1.5 et pas de vague
-      const isStadiumByAspect = !mInfoForType.isWavyBottom
-                                && (mInfoForType.aspect || 1) >= 1.5
-                                && !mInfoForType.isEllipse && !mInfoForType.isDiamond;
-
-      let shapeType = detectShapeType(masterName, vType,
-                          mInfoForType.isEllipse, mInfoForType.isDiamond,
-                          mInfoForType.isSubprocess,
-                          mInfoForType.isStadium || isExternalByName);
-
-      // Safety nets — overrides quand la géométrie ou le nom n'ont pas suffi
-      if (shapeType === 'special') {
-        if (isExternalByName) {
-          // Nom explicitement "external / externe" → process externe
-          shapeType = 'process';
-        } else if (isStadiumByAspect && vType !== 'Group') {
-          // Forme élongée non-vague sans master Group → probablement externe
-          shapeType = 'process';
-        }
-        // Note: vType === 'Group' elongated est ambigu (peut être un container),
-        // on le laisse en 'special' si ni name ni géométrie n'ont confirmé.
-      }
-
-      // ── Subtype detection (only for 'process' shapes) ─────────────────
-      const shapeFillPattern = parseInt(this.vCellDeep(s, 'FillPattern') || '0') || (mInfoForType.fillPattern || 1);
-      let subtype = 'normal';
-      if (shapeType === 'process') {
-        if (mInfoForType.isStadium || isExternalByName || isStadiumByAspect) {
-          subtype = 'external';
-          console.debug('[VSDX external]', this.vText(s) || id,
-            'master=', masterName, 'stadium=', !!mInfoForType.isStadium,
-            'byName=', isExternalByName, 'byAspect=', isStadiumByAspect,
-            'aspect=', (mInfoForType.aspect || 1).toFixed(2));
-        } else if (shapeFillPattern >= 2) {
-          subtype = 'extco';
-          console.debug('[VSDX hatch]', this.vText(s) || id, 'FillPattern=', shapeFillPattern, 'master=', masterName);
-        }
-      }
-
-      // ── Color: VSDX shape fill → master fill → band color ──
-      // Preserves original Visio colors (e.g. yellow logistics, blue ops shapes).
-      // Only falls back to band color when the shape has no explicit fill.
+      const mInfo     = masterInfoCache[mid] || {};
+      const masterName = masterIdToName[mid] || '';
+      const vType      = s.getAttribute('Type');
+      const { shapeType, subtype } = this._detectTypeSubtype(s, id, mid, vType, mInfo, masterName);
       const shapeColor = this._resolveShapeColor(s, mid, shapeType, screenY, screenH);
 
       const oid = this.nextOid++;
@@ -766,14 +738,14 @@ class VsdxImporter {
       newShapes.push({
         id: oid, type: shapeType, subtype,
         x: screenX, y: screenY, w: screenW, h: screenH,
-        label:          this.vText(s),
-        color:          shapeColor,
-        textColor:      '#ffffff',
-        strokeColor:    '',
-        fontSize:       18,
+        label:           this.vText(s),
+        color:           shapeColor,
+        textColor:       '#ffffff',
+        strokeColor:     '',
+        fontSize:        18,
         validationBadge: false,
         validationColor: '#4DB868',
-        colorVariant:   0,
+        colorVariant:    0,
       });
     }
 
@@ -1214,6 +1186,32 @@ class VsdxImporter {
     }
   }
 
+  // ─── Final clamp: ensure no shape lies outside the band area ────
+  // antiOverlap() can push shapes past band boundaries. stretchBands() handles
+  // the last band, but this pass guarantees every shape is within [0, totalH].
+  _clampShapesToBands() {
+    const { newShapes, newBands } = this;
+    if (!newBands.length) return;
+    let cumY = 0;
+    const bRanges = newBands.map(b => { const y0 = cumY; cumY += b.height; return { y0, y1: cumY }; });
+    const totalH = cumY;
+    const INDEX_W = 144;
+    const maxX = this.rightEdge
+      ? INDEX_W + Math.round((this.rightEdge - this.leftEdge) * this.SCALE)
+      : INDEX_W + 4000;
+    for (const s of newShapes) {
+      // Clamp Y: find owning band, ensure shape fits inside it
+      const cy = s.y + s.h / 2;
+      const br = bRanges.find(r => cy >= r.y0 && cy < r.y1)
+              || bRanges[bRanges.length - 1];
+      if (s.y < br.y0)          s.y = br.y0;
+      if (s.y + s.h > br.y1)   s.y = Math.max(br.y0, br.y1 - s.h);
+      if (s.y < 0)              s.y = 0;
+      // Clamp X: never go past right edge of diagram
+      if (s.x + s.w > maxX)    s.x = Math.max(INDEX_W, maxX - s.w);
+    }
+  }
+
   // ─── Orchestrator ────────────────────────────────────────────────
   // Runs all phases in order. Returns data ready to apply to state.
   // onOrphans(orphans) is an optional async callback that receives the
@@ -1256,6 +1254,7 @@ class VsdxImporter {
 
     this.antiOverlap();   // résoudre les chevauchements avant d'étirer les bandes
     this.stretchBands();  // étirer les bandes pour contenir les shapes repositionnés
+    this._clampShapesToBands(); // garantie finale : aucune forme hors bandes
 
     return {
       bands:       this.newBands,
