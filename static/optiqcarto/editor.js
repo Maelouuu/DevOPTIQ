@@ -606,38 +606,113 @@ function renderConnections() {
       'pointer-events': 'none',
     }, gConns);
 
-    // Label : midpoint du tracé (par longueur d'arc), rendu différé en passe 2.
-    // Reproduit le comportement Visio par défaut : label centré sur la flèche.
+    // Label : placement par score — évite les coins, les formes, et les croisements.
+    // Toujours SUR la flèche (perp=0), aligné sur la direction dominante (H ou V).
     if (c.label) {
       const labelLines = c.label.split('\n');
       const maxLineLen = Math.max(...labelLines.map(l => l.length));
       const lw = Math.max(20, maxLineLen * 6);
       const lineH = 13;
       const lh = lineH * labelLines.length + (labelLines.length > 1 ? 3 : 0);
-      let lx, ly;
+      let lx, ly, angle = 0;
+
+      // Déterminer la direction dominante de la flèche (H ou V)
+      let totalH = 0, totalV = 0;
+      for (let i = 0; i < orthopts.length - 1; i++) {
+        totalH += Math.abs(orthopts[i+1].x - orthopts[i].x);
+        totalV += Math.abs(orthopts[i+1].y - orthopts[i].y);
+      }
+      const arrowMajorH = totalH >= totalV;
 
       if (c.labelOffset) {
         lx = c.labelOffset.x;
         ly = c.labelOffset.y;
+        angle = arrowMajorH ? 0 : -90;
       } else {
-        // Place label at midpoint of the longest segment so it lands on the
-        // main visual line, not at a corner or short jog.
-        let bestLen = -1, bestIdx = -1;
+        // Trouver le segment préféré : le plus long dans la direction dominante
+        let longestSeg = 0, longestLen = 0, longestForcedSeg = -1, longestForcedLen = 0;
         for (let i = 0; i < orthopts.length - 1; i++) {
-          const segLen = Math.hypot(orthopts[i+1].x - orthopts[i].x, orthopts[i+1].y - orthopts[i].y);
-          if (segLen > bestLen) { bestLen = segLen; bestIdx = i; }
+          const pa = orthopts[i], pb = orthopts[i + 1];
+          const l = Math.hypot(pb.x - pa.x, pb.y - pa.y);
+          const segH = Math.abs(pb.y - pa.y) < 2;
+          if (l > longestLen) { longestLen = l; longestSeg = i; }
+          if (segH === arrowMajorH && l > longestForcedLen) { longestForcedLen = l; longestForcedSeg = i; }
         }
-        if (bestIdx >= 0) {
-          lx = (orthopts[bestIdx].x + orthopts[bestIdx + 1].x) / 2;
-          ly = (orthopts[bestIdx].y + orthopts[bestIdx + 1].y) / 2;
-        } else {
-          lx = (fp.x + tp.x) / 2;
-          ly = (fp.y + tp.y) / 2;
+        const preferSeg = longestForcedSeg >= 0 ? longestForcedSeg : longestSeg;
+
+        // Générer des candidats le long des segments dans la direction dominante.
+        // perp=0 UNIQUEMENT : le label est toujours sur la flèche, jamais à côté.
+        const CANDS = [];
+        for (let i = 0; i < orthopts.length - 1; i++) {
+          const pa = orthopts[i], pb = orthopts[i + 1];
+          const sdx = pb.x - pa.x, sdy = pb.y - pa.y;
+          const slen = Math.hypot(sdx, sdy);
+          if (slen < 10) continue;
+          const isH = Math.abs(sdy) < Math.abs(sdx);
+          if (isH !== arrowMajorH) continue;
+          const step = (i === preferSeg) ? 0.06 : 0.18;
+          for (let t = step; t <= 1 - step; t += step) {
+            CANDS.push({ x: pa.x + sdx * t, y: pa.y + sdy * t, isH, onPref: i === preferSeg });
+          }
         }
+        // Fallback : tous les segments si aucun dans la direction dominante
+        if (CANDS.length === 0) {
+          for (let i = 0; i < orthopts.length - 1; i++) {
+            const pa = orthopts[i], pb = orthopts[i + 1];
+            const sdx = pb.x - pa.x, sdy = pb.y - pa.y;
+            if (Math.hypot(sdx, sdy) < 4) continue;
+            const isH = Math.abs(sdy) < Math.abs(sdx);
+            CANDS.push({ x: pa.x + sdx * 0.5, y: pa.y + sdy * 0.5, isH, onPref: false });
+          }
+        }
+        if (CANDS.length === 0) CANDS.push({ x: (fp.x + tp.x) / 2, y: (fp.y + tp.y) / 2, isH: arrowMajorH, onPref: true });
+
+        function labelScore(cx, cy, isH, onPref) {
+          const hw2 = isH ? lw / 2 : lh / 2;
+          const hh2 = isH ? lh / 2 : lw / 2;
+          const M = 8;
+          let s = onPref ? 0 : 6000;
+          for (const sh of state.shapes) {
+            const ox = Math.max(0, Math.min(cx + hw2 + M, sh.x + sh.w) - Math.max(cx - hw2 - M, sh.x));
+            const oy = Math.max(0, Math.min(cy + hh2 + M, sh.y + sh.h) - Math.max(cy - hh2 - M, sh.y));
+            s += ox * oy * 20;
+          }
+          for (const pl of placedLabels) {
+            const ox = Math.max(0, Math.min(cx + hw2 + M, pl.lx + pl.hw) - Math.max(cx - hw2 - M, pl.lx - pl.hw));
+            const oy = Math.max(0, Math.min(cy + hh2 + M, pl.ly + pl.hh) - Math.max(cy - hh2 - M, pl.ly - pl.hh));
+            s += ox * oy * 40;
+          }
+          // Forte pénalité sur les coins/virages du tracé
+          for (let k = 1; k < orthopts.length - 1; k++) {
+            const cp = orthopts[k];
+            const dc = Math.hypot(cx - cp.x, cy - cp.y);
+            if (dc < 40) s += (40 - dc) * 350;
+          }
+          // Pénalité pour proximité avec les segments d'autres flèches (croisements)
+          for (const seg of placedPaths) {
+            const abx = seg.bx - seg.ax, aby = seg.by - seg.ay;
+            const segLen2 = abx*abx + aby*aby;
+            if (segLen2 < 1) continue;
+            const t2 = Math.max(0, Math.min(1, ((cx - seg.ax)*abx + (cy - seg.ay)*aby) / segLen2));
+            const d2 = Math.hypot(cx - (seg.ax + t2*abx), cy - (seg.ay + t2*aby));
+            if (d2 < 50) s += (50 - d2) * 60;
+          }
+          return s;
+        }
+
+        let bestCand = CANDS[0], bestScore = Infinity;
+        for (const cand of CANDS) {
+          const score = labelScore(cand.x, cand.y, cand.isH, cand.onPref);
+          if (score < bestScore) { bestScore = score; bestCand = cand; }
+        }
+        lx = bestCand.x; ly = bestCand.y;
+        angle = bestCand.isH ? 0 : -90;
       }
 
-      placedLabels.push({ lx, ly, hw: lw / 2, hh: lh / 2 });
-      labelQueue.push({ c, lx, ly, angle: 0, lw, lh, lineH, labelLines, color });
+      const hw = angle !== 0 ? lh / 2 : lw / 2;
+      const hh = angle !== 0 ? lw / 2 : lh / 2;
+      placedLabels.push({ lx, ly, hw, hh });
+      labelQueue.push({ c, lx, ly, angle, lw, lh, lineH, labelLines, color });
     }
 
     // Poignées d'extrémité (visibles quand la connexion est sélectionnée)

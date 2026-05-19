@@ -11,13 +11,9 @@ class VsdxImporter {
     this._p   = new DOMParser();
 
     // Master lookups
-    this.masterIdToName      = {};
-    this.masterIdToFile      = {};
-    this.masterInfoCache     = {};
-    this.masterSubShapeFills = {}; // masterId → { subShapeId → fillColor }
-
-    // Debug report (null unless debugMode=true in vsdxParse)
-    this.debug = null;
+    this.masterIdToName  = {};
+    this.masterIdToFile  = {};
+    this.masterInfoCache = {};
 
     // Page data
     this.allShapes   = [];
@@ -45,9 +41,6 @@ class VsdxImporter {
     this.FALLBACK_COLORS = ['#22c55e','#3b82f6','#f59e0b','#e85d4a','#8b5cf6',
                             '#06b6d4','#ec4899','#f43f5e','#14b8a6','#a855f7'];
   }
-
-  // ─── Debug helper ────────────────────────────────────────────────
-  _dlog(level, msg) { if (this.debug) this.debug[level](msg); }
 
   // ─── XML Helpers ─────────────────────────────────────────────────
 
@@ -303,17 +296,6 @@ class VsdxImporter {
         '| isSubprocess:', g.isSubprocess, '| fp:', fp, '| fillColor:', fillColor || '-'
       );
 
-      // Collect all sub-shape fills (indexed by shape ID) for _extractLaneFill fallback.
-      // Needed when a lane child has no explicit page-level FillForegnd and inherits
-      // its color from the master stencil (e.g. 'couloir color' master=8 in hard.vsdx).
-      const subFills = {};
-      for (const s of doc.getElementsByTagName('Shape')) {
-        const sid = s.getAttribute('ID');
-        const fc  = this.vCell(s, 'FillForegnd');
-        if (sid && fc && fc.startsWith('#')) subFills[sid] = fc;
-      }
-      this.masterSubShapeFills[mid] = subFills;
-
       return this.masterInfoCache[mid] = {
         w: bw || 0.9449, h: bh || 0.7087,
         linePattern: lp, fillPattern: fp, fillColor,
@@ -464,8 +446,7 @@ class VsdxImporter {
     // NOT from a running sum of processed band heights. A running sum ignores
     // inter-band gaps (e.g. "Prescriber" H=0 band leaves a ~700px gap between
     // adjacent bands), causing all subsequent band shifts to be wrong.
-    this.bandShifts     = [];
-    this.laneIdToBandInfo = {}; // lane_xml_id → { bandIdx (0-based), abs, bandH }
+    this.bandShifts = [];
 
     if (lanes.length === 0) {
       newBands.push({ id: 1, label: 'Activités', color: '#22c55e', fontSize: 22, height: 500 });
@@ -473,7 +454,9 @@ class VsdxImporter {
     }
 
     let ourCum = 0;
-    for (const { el: s, abs, id: laneId } of lanes) {
+    for (const { el: s, abs } of lanes) {
+      // Natural canvas Y of this band's top and bottom edges,
+      // measured directly from Visio coords (Y-up → Y-down conversion).
       const naturalTop    = Math.round((topOfDiagram - (abs.pinY + abs.h / 2)) * SCALE);
       const naturalBottom = Math.round((topOfDiagram - (abs.pinY - abs.h / 2)) * SCALE);
       const naturalH      = naturalBottom - naturalTop;
@@ -487,79 +470,31 @@ class VsdxImporter {
           xMin: abs.pinX - abs.w / 2, xMax: abs.pinX + abs.w / 2,
           yMin: abs.pinY - abs.h / 2, yMax: abs.pinY + abs.h / 2,
         });
-        this._dlog('info', `Lane ID=${laneId} "${label}" ignorée (légende)`);
         continue;
       }
 
-      // laneIdToBandInfo: used by importActivities to place shapes via XML parent chain
-      // instead of coordinate arithmetic (100% reliable band assignment).
-      this.laneIdToBandInfo[laneId] = { bandIdx: newBands.length, abs, bandH };
+      // shift = ourCum - naturalTop maps from natural canvas Y to rendered Y.
+      // For a shape with naturalCenterY inside [naturalTop, naturalBottom]:
+      //   renderedY = naturalCenterY + shift = naturalCenterY + ourCum - naturalTop
+      // which correctly maps the band's top (naturalTop) to ourCum.
       this.bandShifts.push({ naturalTop, naturalBottom, shift: ourCum - naturalTop });
       ourCum += bandH;
 
-      const bandDisplayIdx = newBands.length + 1;
-      const usedFallback   = this.isWashedOut(fill);
-      const color = usedFallback ? FALLBACK_COLORS[bandDisplayIdx % FALLBACK_COLORS.length] : fill;
-      const displayLabel   = label || `Bande ${bandDisplayIdx}`;
-      newBands.push({ id: bandDisplayIdx, label: displayLabel, color, fontSize: 22, height: bandH });
-
-      if (usedFallback) this._dlog('warn', `"${displayLabel}" [${color}] h=${bandH}px — couleur Visio absente, fallback appliqué`);
-      else              this._dlog('ok',   `"${displayLabel}" [${color}] h=${bandH}px`);
-    }
-
-    if (this.debug) this._dlog('info', `${newBands.length} bandes créées — pageMaxW=${this.pageMaxW.toFixed(2)}"`);
-  }
-
-  // Build nearestLaneOf[shapeId] = laneXmlId — walks the parent chain of every
-  // shape to find its closest swimlane ancestor. Used in importActivities to
-  // assign shapes to bands via the XML hierarchy (avoids coordinate arithmetic).
-  buildNearestLaneMap() {
-    const parentOf = {};
-    for (const { id, parentId } of this.allShapes) parentOf[id] = parentId;
-
-    this.nearestLaneOf = {};
-    for (const { id } of this.allShapes) {
-      let cur = parentOf[id];
-      while (cur) {
-        if (this.laneIdToBandInfo[cur]) { this.nearestLaneOf[id] = cur; break; }
-        cur = parentOf[cur];
-      }
+      const bandIdx = newBands.length + 1;
+      const color = !this.isWashedOut(fill) ? fill : FALLBACK_COLORS[bandIdx % FALLBACK_COLORS.length];
+      newBands.push({ id: bandIdx, label: label || `Bande ${bandIdx}`, color, fontSize: 22, height: bandH });
     }
   }
 
   // Collect and sort swimlane elements (large container groups, top→bottom).
-  // Excludes the outer Pool/CFF container (parent of swimlanes) which would otherwise
-  // be inserted between real lanes (its pinY = diagram center) and corrupt band shifts.
   // Deduplicates separator slivers that are too close together.
   _collectLanes(allShapes, containerIds, shapePinAbs, pageMaxW) {
-    // Containers that are direct parents of other containers = Pool/outer frame, not lanes.
-    const poolIds = new Set();
-    for (const { id, parentId } of allShapes)
-      if (containerIds.has(id) && parentId && containerIds.has(parentId))
-        poolIds.add(parentId);
-
     const laneList = [];
     for (const { el: s, id } of allShapes) {
       if (!containerIds.has(id)) continue;
-      if (poolIds.has(id)) {
-        this._dlog('info', `Lane ID=${id} exclu : conteneur Pool/CFF (parent d'autres swimlanes)`);
-        continue;
-      }
-      // 'Swimlane' (master=2) = layout header/separator, not a real content band
-      const mn = (this.masterIdToName[s.getAttribute('Master')] || '').trim();
-      if (/^swimlane(\s+for\s+separation)?$/i.test(mn)) {
-        this._dlog('info', `Lane ID=${id} exclu : master="${mn}" = élément de layout CFF, pas une bande`);
-        continue;
-      }
       const abs = shapePinAbs[id] || {};
-      if (!abs.h || abs.h < 0.3 || abs.h > 25) {
-        this._dlog('info', `Lane ID=${id} exclu : hauteur hors limites (h=${(abs.h||0).toFixed(2)}")`);
-        continue;
-      }
-      if (!abs.w || abs.w < pageMaxW * 0.3) {
-        this._dlog('info', `Lane ID=${id} exclu : largeur trop petite (w=${(abs.w||0).toFixed(2)}" < ${(pageMaxW*0.3).toFixed(2)}")`);
-        continue;
-      }
+      if (!abs.h || abs.h < 0.3 || abs.h > 25) continue;
+      if (!abs.w || abs.w < pageMaxW * 0.3)    continue;
       laneList.push({ el: s, id, abs });
     }
     laneList.sort((a, b) => b.abs.pinY - a.abs.pinY); // highest Y first (Visio Y-up = top of diagram)
@@ -592,27 +527,16 @@ class VsdxImporter {
   }
 
   // Extract the fill color of a swimlane.
-  // Priority: lane element FillForegnd → child page fill → child master fill.
-  // The third level is critical for 'couloir color' bands (master=8) in CFF diagrams
-  // where child shapes carry no explicit page fill but inherit from the master stencil.
+  // Falls back to first non-washed-out child fill when the lane itself is transparent.
   _extractLaneFill(el) {
     const fill = this.vCell(el, 'FillForegnd');
     if (!this.isWashedOut(fill)) return fill;
-
-    const laneMid  = el.getAttribute('Master');
-    const subFills = laneMid ? (this.masterSubShapeFills[laneMid] || {}) : {};
-
     const childEl = this.vEl(el, 'Shapes');
     if (childEl) {
       for (const child of this.vAll(childEl, 'Shape')) {
         if (child.getAttribute('Type') === 'Group') continue;
-        // 1. Explicit fill on the page-level child
         const cf = this.vCell(child, 'FillForegnd');
         if (cf && cf.startsWith('#') && !this.isWashedOut(cf)) return cf;
-        // 2. Fill inherited from the master stencil sub-shape
-        const msId = child.getAttribute('MasterShape');
-        const mf   = msId ? subFills[msId] : null;
-        if (mf && !this.isWashedOut(mf)) return mf;
       }
     }
     return fill;
@@ -725,15 +649,9 @@ class VsdxImporter {
 
       const mn = (masterIdToName[mid] || '').toLowerCase();
       if (/\b(connector|dynamic connector|line|arrow)\b/.test(mn)) continue;
-      if (/^(title|text|annotation|callout|note|border|background|frame)$/.test(mn)) {
-        this._dlog('info', `Forme ID=${id} exclue : master="${mn}" (titre/texte/décoration)`);
-        continue;
-      }
+      if (/^(title|text|annotation|callout|note|border|background|frame)$/.test(mn)) continue;
       // "N-"/"D-"/"T-" prefix = CFF navigation cross-reference arrows (not activities)
-      if (/^[ndt]\s*[-–]/.test(mn)) {
-        this._dlog('info', `Forme ID=${id} exclue : master="${mn}" (flèche de navigation CFF)`);
-        continue;
-      }
+      if (/^[ndt]\s*[-–]/.test(mn)) continue;
 
       // LayerMember=3 = "Si petit"/"Si grand" visual decorators — exclude entirely
       if (this.vCell(s, 'LayerMember') === '3') continue;
@@ -741,26 +659,15 @@ class VsdxImporter {
       const abs = shapePinAbs[id] || {};
       const vW  = abs.w || 0;
       const vH  = abs.h || 0;
-      if (vW < 0.2 || vH < 0.25) {
-        this._dlog('info', `Forme ID=${id} exclue : trop petite (${vW.toFixed(2)}"×${vH.toFixed(2)}")`);
-        continue;
-      }
-      if (vW > 8   || vH > 4   ) {
-        this._dlog('info', `Forme ID=${id} exclue : trop grande (${vW.toFixed(2)}"×${vH.toFixed(2)}")`);
-        continue;
-      }
+      if (vW < 0.2 || vH < 0.25) continue; // <0.25" height = thin nav arrow, not an activity
+      if (vW > 8   || vH > 4   ) continue;
 
       // Exclude shapes outside the diagram's horizontal bounds
-      const MARGIN_X = 1.5;
-      if (this.rightEdge && (abs.pinX < leftEdge - MARGIN_X || abs.pinX > this.rightEdge + MARGIN_X)) {
-        this._dlog('warn', `Forme ID=${id} "${this.vText(s)}" exclue : hors limites horizontales (pinX=${abs.pinX.toFixed(2)}")`);
-        continue;
-      }
+      // (e.g. legend shapes, return indicators far outside the CFF container)
+      const MARGIN_X = 1.5; // inches tolerance beyond band edges
+      if (this.rightEdge && (abs.pinX < leftEdge - MARGIN_X || abs.pinX > this.rightEdge + MARGIN_X)) continue;
       // Exclude shapes above the diagram top (they would pile up at y=0)
-      if (abs.pinY > topOfDiagram + 1.0) {
-        this._dlog('warn', `Forme ID=${id} "${this.vText(s)}" exclue : au-dessus du diagramme (pinY=${abs.pinY.toFixed(2)}" > top=${topOfDiagram.toFixed(2)}")`);
-        continue;
-      }
+      if (abs.pinY > topOfDiagram + 1.0) continue;
 
       // Compute screen position from center (so capping doesn't shift center point)
       const rawW = Math.round(vW * SCALE);
@@ -768,29 +675,15 @@ class VsdxImporter {
       const screenW = Math.min(MAX_ACT_W, rawW);
       const screenH = Math.min(MAX_ACT_H, rawH);
       const screenX = Math.max(144, Math.round((abs.pinX - leftEdge) * SCALE) - Math.round(screenW / 2));
-
-      // ── Y position: XML parent-chain approach (100% reliable band assignment) ──
-      // Each shape in a CFF diagram is a direct/indirect child of a swimlane.
-      // We use that relationship to place the shape in the correct band, then
-      // compute its Y offset relative to the lane's top using Visio coordinates.
-      // Fallback (coordinate-based bandShift) only for floating shapes with no lane ancestor.
-      let screenY;
-      const laneId   = this.nearestLaneOf && this.nearestLaneOf[id];
-      const laneInfo = laneId ? this.laneIdToBandInfo[laneId] : null;
-      if (laneInfo) {
-        const { bandIdx, abs: la, bandH: bH } = laneInfo;
-        // Distance from lane top in canvas pixels (Y-down).
-        // la.pinY + la.h/2 = Visio Y of lane top edge; abs.pinY = Visio Y of shape center.
-        const distFromTop = (la.pinY + la.h / 2 - abs.pinY) * SCALE;
-        const bandStartY  = newBands.slice(0, bandIdx).reduce((s, b) => s + b.height, 0);
-        const PAD = 5;
-        screenY = Math.round(Math.max(bandStartY + PAD,
-                    Math.min(bandStartY + bH - screenH - PAD, bandStartY + distFromTop - screenH / 2)));
-      } else {
-        const naturalScreenY = Math.round((topOfDiagram - abs.pinY) * SCALE) - Math.round(screenH / 2);
-        const naturalCenterY = naturalScreenY + screenH / 2;
-        screenY = Math.max(0, naturalScreenY + this._bandShiftFor(naturalCenterY));
-      }
+      // Y "naturel" : position basée sur les coords VSDX brutes × SCALE,
+      // SANS prendre en compte le minimum 80 px sur la hauteur des bandes.
+      const naturalScreenY = Math.round((topOfDiagram - abs.pinY) * SCALE) - Math.round(screenH / 2);
+      const naturalCenterY = naturalScreenY + screenH / 2;
+      // bandShift corrige le décalage cumulatif quand une bande étroite a
+      // été inflée au min 80 px : on ramène le shape dans la bande à laquelle
+      // il appartient naturellement, même si nos bandes sont plus hautes.
+      const bandShift = this._bandShiftFor(naturalCenterY);
+      const screenY = Math.max(0, naturalScreenY + bandShift);
       if (screenY > totalBandH + 100) continue; // outside diagram
 
       const mInfoForType = masterInfoCache[mid] || {};
@@ -847,11 +740,10 @@ class VsdxImporter {
 
       const oid = this.nextOid++;
       shapeIdMap[id] = oid;
-      const shapeLabel = this.vText(s);
       newShapes.push({
         id: oid, type: shapeType, subtype,
         x: screenX, y: screenY, w: screenW, h: screenH,
-        label:          shapeLabel,
+        label:          this.vText(s),
         color:          shapeColor,
         textColor:      '#ffffff',
         strokeColor:    '',
@@ -860,23 +752,13 @@ class VsdxImporter {
         validationColor: '#4DB868',
         colorVariant:   0,
       });
-
-      if (this.debug) {
-        let cumYdbg = 0, bandIdxDbg = -1;
-        for (let bi = 0; bi < newBands.length; bi++) {
-          if (screenY + screenH / 2 >= cumYdbg && screenY + screenH / 2 < cumYdbg + newBands[bi].height) { bandIdxDbg = bi; break; }
-          cumYdbg += newBands[bi].height;
-        }
-        const via = laneInfo ? 'ancêtre XML' : 'coords Visio';
-        this._dlog('ok', `"${shapeLabel || '(sans label)'}" [${shapeType}${subtype !== 'normal' ? '/'+subtype : ''}] → bande ${bandIdxDbg + 1} y=${screenY}px (${via})`);
-      }
     }
 
     const nExt   = newShapes.filter(s => s.subtype === 'external').length;
     const nExtco = newShapes.filter(s => s.subtype === 'extco').length;
     if (nExt   > 0) this.log(`✓ ${nExt} activité(s) externe(s) (forme stade) détectée(s)`);
     if (nExtco > 0) this.log(`✓ ${nExtco} activité(s) hachurée(s) détectée(s)`);
-    this._dlog('info', `${newShapes.length} formes importées${nExt ? `, ${nExt} externes` : ''}${nExtco ? `, ${nExtco} hachurées` : ''}`);
+    if (nExt === 0 && nExtco === 0) this.log('ℹ Aucune activité externe ou hachurée détectée (voir console pour détails)');
   }
 
   // Resolve the best color for a shape:
@@ -1142,10 +1024,7 @@ class VsdxImporter {
       if (!sv || !tv) continue;
       const fromId = _shapeIdMap[sv] || _groupIdMap[sv];
       const toId   = _shapeIdMap[tv] || _groupIdMap[tv];
-      if (!fromId || !toId) {
-        this._dlog('warn', `Connexion ${connId} ignorée : endpoint non trouvé (src=${sv} → tgt=${tv})`);
-        continue;
-      }
+      if (!fromId || !toId) continue;
       const srcShape = newShapes.find(s => s.id === fromId) || newGroups.find(g => g.id === fromId);
 
       const connItem = shapeMap[ends._origConnId || connId];
@@ -1204,20 +1083,7 @@ class VsdxImporter {
       if (toPortT   !== undefined) connObj.toPortT   = toPortT;
       if (customPath)              connObj.customPath = customPath;
       newConns.push(connObj);
-
-      if (this.debug) {
-        const fLbl = (newShapes.find(s => s.id === fromId) || {}).label || String(fromId);
-        const tLbl = (newShapes.find(s => s.id === toId)   || {}).label || String(toId);
-        const extras = [
-          isDashed ? 'pointillée' : '',
-          customPath ? `+chemin Visio (${customPath.length} pts)` : '',
-          connObj.label ? `label:"${connObj.label.replace(/\n/g,' ')}"` : '',
-        ].filter(Boolean).join(', ');
-        this._dlog('ok', `"${fLbl}" → "${tLbl}"${extras ? '  ['+extras+']' : ''}`);
-      }
     }
-
-    this._dlog('info', `${newConns.length} connexions créées`);
 
     // Post-process: nudge portT values that are too close on the same endpoint+direction.
     // We KEEP the exact Visio positions (pixel-perfect) and only separate near-duplicates.
@@ -1332,25 +1198,13 @@ class VsdxImporter {
     this.buildConnMap();
     this.identifyContainers();
     this.buildBands();
-    this.buildNearestLaneMap();
-
-    // ── Capture étape 1 : bandes ──────────────────────────────────
-    if (this.debug) this.debug.capture(1, 'Étape 1 — Bandes (swimlanes)', this.newBands, [], []);
-
     this.detectContainerGroups();
     this.importActivities();
     this.applyLayoutCorrections();
-
-    // ── Capture étape 2 : formes ──────────────────────────────────
-    if (this.debug) this.debug.capture(2, 'Étape 2 — Formes', this.newBands, this.newShapes, []);
-
     this.buildGroups();
     this.spliceDecisions();
     await this.buildConnections();
     this.cleanupBands();
-
-    // ── Capture étape 3 : connexions ─────────────────────────────
-    if (this.debug) this.debug.capture(3, 'Étape 3 — Connexions', this.newBands, this.newShapes, this.newConns);
 
     // ── Orphan handling (empty + unconnected shapes) ──
     if (onOrphans) {
@@ -1361,26 +1215,18 @@ class VsdxImporter {
       const orphans = this.newShapes.filter(s => (!s.label || !s.label.trim()) && !connectedIds.has(s.id));
       if (orphans.length > 0) {
         const choice = await onOrphans(orphans);
-        if (choice === 'cancel') return null;
+        if (choice === 'cancel') return null; // caller handles UI
         if (choice === 'clean') {
           const orphanIds = new Set(orphans.map(s => s.id));
           orphans.forEach(s => this.newShapes.splice(this.newShapes.indexOf(s), 1));
           for (const g of this.newGroups)
             if (g.shapeIds) g.shapeIds = g.shapeIds.filter(id => !orphanIds.has(id));
-          this._dlog('info', `${orphanIds.size} forme(s) orpheline(s) supprimées`);
         }
       }
     }
 
-    this.antiOverlap();
-    this.stretchBands();
-
-    // ── Capture étape 4 : modèle final avec labels ────────────────
-    if (this.debug) {
-      const nLabels = this.newConns.filter(c => c.label).length;
-      this._dlog('info', `${nLabels} label(s) sur connexions — placement sur le segment le plus long`);
-      this.debug.capture(4, 'Étape 4 — Modèle final (labels + layout)', this.newBands, this.newShapes, this.newConns);
-    }
+    this.antiOverlap();   // résoudre les chevauchements avant d'étirer les bandes
+    this.stretchBands();  // étirer les bandes pour contenir les shapes repositionnés
 
     return {
       bands:       this.newBands,
@@ -1389,213 +1235,6 @@ class VsdxImporter {
       groups:      this.newGroups,
       nextOid:     this.nextOid,
     };
-  }
-}
-
-// ── Debug report builder ──────────────────────────────────────────────────────
-// Created only when debugMode=true in vsdxParse. Collects per-step logs and
-// SVG snapshots, then generates a self-contained HTML diagnostic report.
-
-class VsdxDebugReport {
-  constructor() {
-    this.steps = [];
-    this._logs = [];
-  }
-
-  ok(msg)   { this._logs.push({ level: 'ok',   msg }); }
-  warn(msg) { this._logs.push({ level: 'warn', msg }); }
-  err(msg)  { this._logs.push({ level: 'err',  msg }); }
-  info(msg) { this._logs.push({ level: 'info', msg }); }
-
-  capture(idx, title, bands, shapes, conns) {
-    const svg  = this._renderSvg([...bands], [...shapes], [...conns], idx);
-    const logs = this._logs.splice(0); // drain and clear
-    this.steps.push({ idx, title, svg, logs });
-  }
-
-  static _pastel(hex) {
-    if (!hex || hex.length < 7) return '#1e2436';
-    const r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
-    return '#' + [r*.15+255*.85, g*.15+255*.85, b*.15+255*.85]
-      .map(c => Math.round(Math.min(255,c)).toString(16).padStart(2,'0')).join('');
-  }
-
-  static _esc(s) {
-    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-  }
-
-  _renderSvg(bands, shapes, conns, stepIdx) {
-    const INDEX_W  = 140;
-    const totalBandH = bands.reduce((s, b) => s + b.height, 0);
-    if (!totalBandH) return `<svg width="900" height="50"><rect width="900" height="50" fill="#0d1117"/><text x="10" y="30" fill="#7d8590" font-family="sans-serif">Aucune bande</text></svg>`;
-
-    const rawW  = shapes.length
-      ? Math.max(1200, shapes.reduce((m, s) => Math.max(m, s.x + s.w + 80), INDEX_W + 160))
-      : 1400;
-    const scale = Math.min(1, 900 / rawW);
-    const svgW  = Math.round(rawW * scale);
-    const svgH  = Math.max(40, Math.round(totalBandH * scale));
-    const iW    = Math.round(INDEX_W * scale);
-    const e     = VsdxDebugReport._esc;
-
-    const lines = [
-      `<svg xmlns="http://www.w3.org/2000/svg" width="${svgW}" height="${svgH}" viewBox="0 0 ${svgW} ${svgH}" style="background:#0d1117;border-radius:6px;display:block">`,
-      '<defs><marker id="dbgarr" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto"><path d="M0,0.5 L0,5.5 L6,3 z" fill="#94a3b8"/></marker></defs>',
-    ];
-
-    // Bands
-    let yB = 0;
-    for (const band of bands) {
-      const bH  = Math.max(2, Math.round(band.height * scale));
-      const pas = VsdxDebugReport._pastel(band.color);
-      lines.push(`<rect x="0" y="${yB}" width="${iW}" height="${bH}" fill="${e(band.color)}"/>`);
-      lines.push(`<rect x="${iW}" y="${yB}" width="${svgW-iW}" height="${bH}" fill="${e(pas)}"/>`);
-      lines.push(`<line x1="0" y1="${yB+bH}" x2="${svgW}" y2="${yB+bH}" stroke="${e(band.color)}" stroke-width="1.5"/>`);
-      if (bH > 16) {
-        const fs  = Math.max(7, Math.min(12, Math.round(bH * 0.24)));
-        const lx  = iW / 2, ly = yB + bH / 2;
-        const lbl = band.label.length > 22 ? band.label.slice(0,21)+'…' : band.label;
-        lines.push(`<text x="${lx}" y="${ly}" text-anchor="middle" dominant-baseline="middle" fill="white" font-family="Segoe UI,sans-serif" font-weight="700" font-size="${fs}" transform="rotate(-90,${lx},${ly})">${e(lbl)}</text>`);
-      }
-      yB += bH;
-    }
-
-    // Shapes (step ≥ 2)
-    if (stepIdx >= 2) {
-      for (const s of shapes) {
-        const sx = Math.round(s.x * scale), sy = Math.round(s.y * scale);
-        const sw = Math.max(3, Math.round(s.w * scale)), sh = Math.max(2, Math.round(s.h * scale));
-        const col = e(s.color || '#22c55e');
-        if (s.type === 'decision') {
-          const cx = sx+sw/2, cy = sy+sh/2;
-          lines.push(`<polygon points="${cx},${sy} ${sx+sw},${cy} ${cx},${sy+sh} ${sx},${cy}" fill="${col}"/>`);
-        } else if (s.type === 'start-end') {
-          lines.push(`<ellipse cx="${sx+sw/2}" cy="${sy+sh/2}" rx="${sw/2}" ry="${sh/2}" fill="${col}"/>`);
-        } else {
-          lines.push(`<rect x="${sx}" y="${sy}" width="${sw}" height="${sh}" rx="${Math.min(4,Math.round(sh/4))}" fill="${col}"/>`);
-        }
-        if (s.label && sw > 12 && sh > 7) {
-          const fs2 = Math.max(5, Math.min(9, Math.round(sh * 0.38)));
-          const lbl2 = s.label.length > 16 ? s.label.slice(0,15)+'…' : s.label;
-          lines.push(`<text x="${sx+sw/2}" y="${sy+sh/2}" text-anchor="middle" dominant-baseline="middle" fill="white" font-family="Segoe UI,sans-serif" font-size="${fs2}">${e(lbl2)}</text>`);
-        }
-      }
-    }
-
-    // Connections (step ≥ 3): straight lines between shape centers
-    if (stepIdx >= 3 && conns.length) {
-      const byId = {};
-      for (const s of shapes) byId[s.id] = s;
-      for (const c of conns) {
-        const from = byId[c.fromId], to = byId[c.toId];
-        if (!from || !to) continue;
-        const fx = Math.round((from.x+from.w/2)*scale), fy = Math.round((from.y+from.h/2)*scale);
-        const tx = Math.round((to.x  +to.w/2  )*scale), ty = Math.round((to.y  +to.h/2  )*scale);
-        lines.push(`<line x1="${fx}" y1="${fy}" x2="${tx}" y2="${ty}" stroke="${e(c.color||'#567460')}" stroke-width="1" marker-end="url(#dbgarr)" opacity="0.65"/>`);
-      }
-    }
-
-    // Labels (step ≥ 4)
-    if (stepIdx >= 4) {
-      const byId = {};
-      for (const s of shapes) byId[s.id] = s;
-      for (const c of conns) {
-        if (!c.label) continue;
-        const from = byId[c.fromId], to = byId[c.toId];
-        if (!from || !to) continue;
-        const lx  = Math.round(((from.x+from.w/2 + to.x+to.w/2)/2)*scale);
-        const ly  = Math.round(((from.y+from.h/2 + to.y+to.h/2)/2)*scale);
-        const lbl3 = c.label.replace(/\n/g,' ');
-        const fw  = Math.max(20, Math.min(lbl3.length*4+10, 120));
-        lines.push(`<rect x="${lx-fw/2}" y="${ly-6}" width="${fw}" height="12" rx="2" fill="rgba(255,255,255,0.93)"/>`);
-        lines.push(`<text x="${lx}" y="${ly}" text-anchor="middle" dominant-baseline="middle" fill="#0d1117" font-family="Segoe UI,sans-serif" font-size="6.5" font-weight="600">${e(lbl3.length>20?lbl3.slice(0,19)+'…':lbl3)}</text>`);
-      }
-    }
-
-    lines.push('</svg>');
-    return lines.join('');
-  }
-
-  generateHtml(filename) {
-    const fname = filename || 'import.vsdx';
-    const now   = new Date().toLocaleString('fr-FR');
-    const e     = VsdxDebugReport._esc;
-
-    const stepsHtml = this.steps.map(step => {
-      const n = { ok: 0, warn: 0, err: 0 };
-      for (const l of step.logs) if (n[l.level] !== undefined) n[l.level]++;
-      const badges = [
-        n.ok   ? `<span class="badge ok">${n.ok} ✓</span>`    : '',
-        n.warn ? `<span class="badge warn">${n.warn} ⚠</span>` : '',
-        n.err  ? `<span class="badge err">${n.err} ✗</span>`   : '',
-      ].filter(Boolean).join('') || '<span class="badge info">0 événement</span>';
-
-      const rows = step.logs.map(l => {
-        const icon = { ok:'✓', warn:'⚠', err:'✗', info:'·' }[l.level] || '·';
-        return `<tr class="l-${l.level}"><td class="icon">${icon}</td><td>${e(l.msg)}</td></tr>`;
-      }).join('');
-
-      return `
-<section class="step" id="step${step.idx}">
-  <div class="sh">
-    <span class="snum">${step.idx}</span>
-    <h2>${e(step.title)}</h2>
-    <div class="badges">${badges}</div>
-  </div>
-  <div class="sb">
-    <div class="sv">${step.svg}</div>
-    <div class="sl">
-      <table>
-        <thead><tr><th style="width:22px"></th><th>Événement</th></tr></thead>
-        <tbody>${rows || '<tr><td colspan="2" class="empty">Aucun événement</td></tr>'}</tbody>
-      </table>
-    </div>
-  </div>
-</section>`;
-    }).join('\n');
-
-    return `<!DOCTYPE html>
-<html lang="fr">
-<head>
-<meta charset="UTF-8">
-<title>Debug VSDX — ${e(fname)}</title>
-<style>
-*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-body{font-family:'Segoe UI',sans-serif;background:#0d1117;color:#cdd6f4;font-size:13px;line-height:1.5}
-header{background:#161b22;border-bottom:2px solid #22c55e;padding:16px 24px}
-header h1{font-size:17px;font-weight:700;color:#e6edf3}
-header p{font-size:11px;color:#7d8590;margin-top:3px}
-.step{margin:18px 20px;border:1px solid #21262d;border-radius:10px;overflow:hidden;background:#161b22}
-.sh{display:flex;align-items:center;gap:10px;padding:11px 16px;background:#1c2128;border-bottom:1px solid #21262d}
-.snum{background:#22c55e;color:#0d1117;font-weight:800;font-size:12px;border-radius:5px;padding:1px 8px;flex-shrink:0}
-.sh h2{font-size:13.5px;font-weight:600;color:#e6edf3;flex:1}
-.badges{display:flex;gap:5px;flex-shrink:0}
-.badge{padding:1px 8px;border-radius:20px;font-size:10px;font-weight:700}
-.badge.ok{background:rgba(34,197,94,.12);color:#22c55e;border:1px solid rgba(34,197,94,.25)}
-.badge.warn{background:rgba(245,158,11,.12);color:#f59e0b;border:1px solid rgba(245,158,11,.25)}
-.badge.err{background:rgba(239,68,68,.12);color:#ef4444;border:1px solid rgba(239,68,68,.25)}
-.badge.info{background:rgba(99,102,241,.1);color:#818cf8;border:1px solid rgba(99,102,241,.2)}
-.sb{display:flex;min-height:180px}
-.sv{flex-shrink:0;overflow-x:auto;background:#0a0d14;padding:8px;border-right:1px solid #21262d}
-.sl{flex:1;overflow-y:auto;max-height:420px;min-width:220px;background:#0f1319}
-.sl table{width:100%;border-collapse:collapse}
-.sl thead th{padding:6px 9px;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#7d8590;background:#161b22;border-bottom:1px solid #21262d;position:sticky;top:0;z-index:1}
-.sl td{padding:3px 8px;font-size:11px;border-bottom:1px solid rgba(255,255,255,0.03);vertical-align:top;word-break:break-word}
-.l-ok td{color:#d1fae5}.l-ok .icon{color:#22c55e;font-weight:700}
-.l-warn td{color:#fef3c7}.l-warn .icon{color:#f59e0b;font-weight:700}
-.l-err td{color:#fee2e2}.l-err .icon{color:#ef4444;font-weight:700}
-.l-info td{color:#a0aec0}.l-info .icon{color:#718096}
-.empty{color:#7d8590;font-style:italic;padding:10px 9px!important}
-</style>
-</head>
-<body>
-<header>
-  <h1>Rapport d'import VSDX</h1>
-  <p>Fichier&nbsp;: <strong>${e(fname)}</strong> &nbsp;·&nbsp; ${e(now)}</p>
-</header>
-${stepsHtml}
-</body>
-</html>`;
   }
 }
 
@@ -1642,13 +1281,9 @@ function detectShapeType(masterName, visioType, isEllipse, isDiamond, isSubproce
 }
 
 // ── Public entry point ────────────────────────────────────────────
-// Usage: const result = await vsdxParse(file, setStatus, onOrphans, debugMode)
-// When debugMode=true, result.debugHtml contains a self-contained HTML report.
-async function vsdxParse(file, onProgress, onOrphans, debugMode = false) {
+// Usage: const result = await vsdxParse(file, setStatus, onOrphans)
+async function vsdxParse(file, onProgress, onOrphans) {
   const zip = await JSZip.loadAsync(file);
   const importer = new VsdxImporter(zip, onProgress);
-  if (debugMode) importer.debug = new VsdxDebugReport();
-  const result = await importer.parse(onOrphans);
-  if (result && importer.debug) result.debugHtml = importer.debug.generateHtml(file.name);
-  return result;
+  return await importer.parse(onOrphans);
 }
