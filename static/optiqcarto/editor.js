@@ -2633,10 +2633,7 @@ async function openLoadDialog() {
       groupHighlightId = null; selectedGroup = null; expandedGroups.clear();
       state.bands.forEach(b => {
         delete b.textColor; // supprimé — couleur texte toujours blanc
-        if (!b.color || b.color.startsWith('#f') || b.color.startsWith('#e')) {
-          // ancienne valeur pastel → remplacer par couleur vivid par défaut
-          if (!b._colorMigrated) b.color = '#22c55e';
-        }
+        if (!b.color) b.color = '#22c55e'; // couleur absente seulement
         if (!b.fontSize || b.fontSize < 18) b.fontSize = Math.round((b.fontSize || 11) * 2);
       });
       state.shapes.forEach(s => {

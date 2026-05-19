@@ -33,18 +33,26 @@ function bandTextColor(hex) {
   return lum > 0.55 ? '#374151' : '#ffffff';
 }
 
-// Couleur de la zone index : gris ardoise pour les bandes très claires (blanc/near-white)
+// Couleur de la zone index.
+// - lum ≤ 0.7  : couleur assez foncée → utiliser telle quelle
+// - lum > 0.93 : quasi-blanc → gris ardoise (fallback lisible)
+// - entre les deux : pastel intentionnel (ex: #9dc3e6 bleu pâle, #fdd2cc saumon)
+//   → assombrir à 55 % pour obtenir une teinte vivid lisible
 function bandIndexColor(hex) {
   const [r,g,b] = hexToRgb(hex);
   const lum = (0.299*r + 0.587*g + 0.114*b) / 255;
-  return lum > 0.7 ? '#94a3b8' : hex;
+  if (lum <= 0.7)  return hex;
+  if (lum > 0.93)  return '#94a3b8'; // near-white → gris ardoise
+  return darkenColor(hex, 0.55);      // pastel → assombrir
 }
 
-// Couleur de bordure : gris clair pour les bandes très claires
+// Couleur de bordure : même logique que bandIndexColor
 function bandBorderColor(hex) {
   const [r,g,b] = hexToRgb(hex);
   const lum = (0.299*r + 0.587*g + 0.114*b) / 255;
-  return lum > 0.7 ? '#cbd5e1' : hex;
+  if (lum <= 0.7)  return hex;
+  if (lum > 0.93)  return '#cbd5e1'; // near-white → gris clair
+  return darkenColor(hex, 0.55);
 }
 
 // Teinte atténuée (55% vivid + 45% blanc) — variante "moins fidèle" d'une bande

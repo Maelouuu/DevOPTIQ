@@ -359,7 +359,12 @@ class VsdxImporter {
       const px = parseFloat(this.vCell(s, 'PinX')   || '0');
       const py = parseFloat(this.vCell(s, 'PinY')   || '0');
       const sw = parseFloat(this.vCell(s, 'Width')  || '0') || mInfo.w;
-      const sh = parseFloat(this.vCell(s, 'Height') || '0') || mInfo.h;
+      // Respecter explicitement H=0 dans le XML de page (séparateurs visuels Visio).
+      // parseFloat('0') = 0 est falsy → l'ancienne logique `|| mInfo.h` substituait
+      // la hauteur du master (0.7087") pour des formes volontairement à zéro,
+      // les faisant passer le filtre 0.3" et apparaître comme de fausses bandes.
+      const rawH = this.vCell(s, 'Height');
+      const sh = rawH !== null ? parseFloat(rawH) : mInfo.h;
       if (depth === 0 || !parentId || !this.shapePinAbs[parentId]) {
         this.shapePinAbs[id] = { pinX: px, pinY: py, w: sw, h: sh };
       } else {
@@ -509,12 +514,11 @@ class VsdxImporter {
       const abs = shapePinAbs[id] || {};
       if (!abs.h || abs.h < 0.3 || abs.h > 25) continue;
       if (!abs.w || abs.w < pageMaxW * 0.3)    continue;
-      // Exclure les séparateurs visuels (master "Swimlane for separation" etc.).
-      // Leur page XML a H=0 mais computeAbsCoords() prend la hauteur du master
-      // (≈0.39") qui dépasse le seuil 0.3 → ils apparaissent comme de fausses
-      // bandes et perturbent tout le système de bandShifts.
+      // Exclure les séparateurs visuels ("Couloir séparation", "Separator"…).
+      // Protection complémentaire à la correction computeAbsCoords (H=0 explicite).
+      // Regex avec [eé] pour couvrir les noms accentués en français ("séparation").
       const sepMN = (this.masterIdToName[s.getAttribute('Master')] || '').toLowerCase();
-      if (/\bsep[ae]rat/.test(sepMN)) continue;
+      if (/s[eé]par[ae]t/.test(sepMN)) continue;
       laneList.push({ el: s, id, abs, parentId });
     }
 
