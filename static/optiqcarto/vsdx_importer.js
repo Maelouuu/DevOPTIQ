@@ -487,20 +487,31 @@ class VsdxImporter {
   }
 
   // Collect and sort swimlane elements (large container groups, top→bottom).
-  // Deduplicates separator slivers that are too close together.
+  // Excludes the top-level POOL (the container wrapping all lanes): it shares
+  // the same width as the lanes but is much taller (= sum of all lane heights).
+  // If all containers have a container parent (pool→lane structure), keep only
+  // those whose parent is also a container (= the lanes). Fallback: keep all.
   _collectLanes(allShapes, containerIds, shapePinAbs, pageMaxW) {
     const laneList = [];
-    for (const { el: s, id } of allShapes) {
+    for (const { el: s, id, parentId } of allShapes) {
       if (!containerIds.has(id)) continue;
       const abs = shapePinAbs[id] || {};
       if (!abs.h || abs.h < 0.3 || abs.h > 25) continue;
       if (!abs.w || abs.w < pageMaxW * 0.3)    continue;
-      laneList.push({ el: s, id, abs });
+      laneList.push({ el: s, id, abs, parentId });
     }
-    laneList.sort((a, b) => b.abs.pinY - a.abs.pinY); // highest Y first (Visio Y-up = top of diagram)
+
+    // If any candidate has a container as parent, keep only those (= lanes inside the pool).
+    // Otherwise keep all (= flat layout with no pool wrapper).
+    const hasNestedLanes = laneList.some(l => l.parentId && containerIds.has(l.parentId));
+    const filtered = hasNestedLanes
+      ? laneList.filter(l => l.parentId && containerIds.has(l.parentId))
+      : laneList;
+
+    filtered.sort((a, b) => b.abs.pinY - a.abs.pinY); // highest Y first (Visio Y-up = top of diagram)
 
     const lanes = [];
-    for (const ln of laneList) {
+    for (const ln of filtered) {
       const prev = lanes[lanes.length - 1];
       if (prev && Math.abs(ln.abs.pinY - prev.abs.pinY) < 0.15) continue; // deduplicate slivers
       lanes.push(ln);
@@ -527,31 +538,28 @@ class VsdxImporter {
   }
 
   // Extract the fill color of a swimlane.
-  // Priority: lane own fill → master stencil fill → child shape fill → child master fill.
+  // Searches the lane's own fill, then all descendant shapes (BFS, 2 levels deep).
+  // Does NOT read the master stencil: all lanes share the same Swimlane master,
+  // so the master color is the same for every lane and useless for discrimination.
   _extractLaneFill(el) {
     // 1. Lane's own explicit fill in the page XML
     const fill = this.vCell(el, 'FillForegnd');
     if (!this.isWashedOut(fill)) return fill;
 
-    // 2. Master stencil fill (already cached by prefetchMasters)
-    const mid = el.getAttribute('Master');
-    if (mid) {
-      const mFill = (this.masterInfoCache[mid] || {}).fillColor;
-      if (mFill && !this.isWashedOut(mFill)) return mFill;
-    }
-
-    // 3. Non-group child shapes in the page XML (and their masters)
+    // 2. BFS over child shapes (including groups) up to 2 levels deep
     const childEl = this.vEl(el, 'Shapes');
     if (childEl) {
-      for (const child of this.vAll(childEl, 'Shape')) {
-        if (child.getAttribute('Type') === 'Group') continue;
+      const queue = this.vAll(childEl, 'Shape');
+      const next  = [];
+      for (const child of queue) {
         const cf = this.vCell(child, 'FillForegnd');
         if (cf && cf.startsWith('#') && !this.isWashedOut(cf)) return cf;
-        const cmid = child.getAttribute('Master');
-        if (cmid) {
-          const cmFill = (this.masterInfoCache[cmid] || {}).fillColor;
-          if (cmFill && !this.isWashedOut(cmFill)) return cmFill;
-        }
+        const nested = this.vEl(child, 'Shapes');
+        if (nested) next.push(...this.vAll(nested, 'Shape'));
+      }
+      for (const child of next) {
+        const cf = this.vCell(child, 'FillForegnd');
+        if (cf && cf.startsWith('#') && !this.isWashedOut(cf)) return cf;
       }
     }
     return fill;
