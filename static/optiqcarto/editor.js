@@ -3137,8 +3137,10 @@ async function importVSDX(file) {
     });
   }
 
+  const debugMode = document.getElementById('vsdx-debug-mode')?.checked || false;
+
   try {
-    const result = await vsdxParse(file, setStatus, onOrphans);
+    const result = await vsdxParse(file, setStatus, onOrphans, debugMode);
     if (!result) {
       setStatus('Import annul\u00e9. Vous pouvez d\u00e9poser un fichier corrig\u00e9.', true);
       return;
@@ -3173,7 +3175,21 @@ async function importVSDX(file) {
     setStatus('');
     const nCustom = connections.filter(c => c.customPath).length;
     console.log(`[VSDX] ${shapes.length} formes, ${connections.length} connexions, ${nCustom} chemins Visio exacts, ${groups.length} groupes`);
-    showToast(`Import r\u00e9ussi \u2014 ${shapes.length} activit\u00e9s \u00b7 ${connections.length} connexions (${nCustom} chemins Visio exacts) \u00b7 ${bands.length} bandes`);
+    showToast(`Import r\u00e9ussi \u2014 ${shapes.length} activit\u00e9s \u00b7 ${connections.length} connexions \u00b7 ${bands.length} bandes`);
+
+    // Debug report download
+    if (result.debugHtml) {
+      const blob = new Blob([result.debugHtml], { type: 'text/html;charset=utf-8' });
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement('a');
+      a.href     = url;
+      a.download = (file.name || 'import').replace(/\.vsdx$/i, '') + '_debug.html';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      showToast('Rapport de d\u00e9bogage t\u00e9l\u00e9charg\u00e9');
+    }
 
   } catch(err) {
     console.error('VSDX import error:', err);
