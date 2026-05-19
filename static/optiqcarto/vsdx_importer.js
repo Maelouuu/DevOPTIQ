@@ -527,16 +527,31 @@ class VsdxImporter {
   }
 
   // Extract the fill color of a swimlane.
-  // Falls back to first non-washed-out child fill when the lane itself is transparent.
+  // Priority: lane own fill → master stencil fill → child shape fill → child master fill.
   _extractLaneFill(el) {
+    // 1. Lane's own explicit fill in the page XML
     const fill = this.vCell(el, 'FillForegnd');
     if (!this.isWashedOut(fill)) return fill;
+
+    // 2. Master stencil fill (already cached by prefetchMasters)
+    const mid = el.getAttribute('Master');
+    if (mid) {
+      const mFill = (this.masterInfoCache[mid] || {}).fillColor;
+      if (mFill && !this.isWashedOut(mFill)) return mFill;
+    }
+
+    // 3. Non-group child shapes in the page XML (and their masters)
     const childEl = this.vEl(el, 'Shapes');
     if (childEl) {
       for (const child of this.vAll(childEl, 'Shape')) {
         if (child.getAttribute('Type') === 'Group') continue;
         const cf = this.vCell(child, 'FillForegnd');
         if (cf && cf.startsWith('#') && !this.isWashedOut(cf)) return cf;
+        const cmid = child.getAttribute('Master');
+        if (cmid) {
+          const cmFill = (this.masterInfoCache[cmid] || {}).fillColor;
+          if (cmFill && !this.isWashedOut(cmFill)) return cmFill;
+        }
       }
     }
     return fill;
@@ -1125,9 +1140,11 @@ class VsdxImporter {
       const band = this.newBands[i];
       const bandTop = y0;
       const bandBottom = y0 + band.height;
+      const isLast = i === this.newBands.length - 1;
       const inBand = this.newShapes.filter(s => {
         const m = s.y + s.h/2;
-        return m >= bandTop && m < bandBottom;
+        // Last band catches everything below (antiOverlap can push shapes past bandBottom)
+        return m >= bandTop && (isLast || m < bandBottom);
       });
       const bot = inBand.reduce((m, s) => Math.max(m, s.y + s.h), 0);
       const needed = bot + 20 - bandTop;
@@ -1154,6 +1171,10 @@ class VsdxImporter {
   antiOverlap() {
     const { newShapes } = this;
     const INDEX_W_SVG = 140;
+    const pageW = this.rightEdge
+      ? Math.round((this.rightEdge - this.leftEdge) * this.SCALE)
+      : 4000;
+    const maxX = INDEX_W_SVG + pageW;
     for (let iter = 0; iter < 80; iter++) {
       let moved = false;
       for (let i = 0; i < newShapes.length; i++) {
@@ -1176,8 +1197,8 @@ class VsdxImporter {
             if (a.y + a.h/2 <= b.y + b.h/2) { a.y -= half; b.y += half; }
             else { a.y += half; b.y -= half; }
           }
-          a.x = Math.max(INDEX_W_SVG + 4, a.x);
-          b.x = Math.max(INDEX_W_SVG + 4, b.x);
+          a.x = Math.max(INDEX_W_SVG + 4, Math.min(maxX - a.w, a.x));
+          b.x = Math.max(INDEX_W_SVG + 4, Math.min(maxX - b.w, b.x));
           moved = true;
         }
       }
