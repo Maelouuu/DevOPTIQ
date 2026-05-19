@@ -96,39 +96,12 @@ function _checkRenvoiAutoLink(fromShapeId, toShapeId) {
 }
 
 // ── Défauts par type de forme ─────────────────────
-/* ══════════════════════════════════════════════════
-   CATALOGUE DES BANDES
-   ══════════════════════════════════════════════════ */
-const BAND_CATALOG = [
-  { key: 'client',      label: 'Client',                                                      color: '#f1f5f9', mandatory: true,  order: 0  },
-  { key: 'marche',      label: 'Analyse de Marché & Communication',                           color: '#dc2626', mandatory: true,  order: 1  },
-  { key: 'vente',       label: 'Vente & Suivi commercial',                                    color: '#b91c1c', mandatory: true,  order: 2  },
-  { key: 'admin',       label: 'Gestion Administrative & Financière',                         color: '#166534', mandatory: true,  order: 3  },
-  { key: 'nego',        label: 'Négociation & Relations Fournisseurs',                        color: '#3f6212', mandatory: false, order: 4  },
-  { key: 'coord',       label: 'Coordination & Suivi de Projet',                              color: '#475569', mandatory: true,  order: 5  },
-  { key: 'conception',  label: 'Conception Produit & Ingénierie',                             color: '#1e3a8a', mandatory: true,  order: 6  },
-  { key: 'orgind',      label: 'Organisation Industrielle & Méthodes (hors production directe)', color: '#1e40af', mandatory: false, order: 7  },
-  { key: 'satcli',      label: 'Satisfaction Client & Amélioration Continue',                 color: '#ca8a04', mandatory: false, order: 8  },
-  { key: 'qualite',     label: 'Controle qualité & Mesure (Métrologie)',                      color: '#6d28d9', mandatory: false, order: 9  },
-  { key: 'fab',         label: 'Fabrication & Réalisation Produit (opérations directes)',    color: '#c2410c', mandatory: true,  order: 10 },
-  { key: 'orgtrav',     label: 'Organisation & Planification du Travail',                     color: '#d97706', mandatory: true,  order: 11 },
-  { key: 'analtech',    label: 'Analyse Technique & Résolution de Problèmes',                 color: '#7c2d12', mandatory: false, order: 12 },
-  { key: 'logistique',  label: 'Logistique & Gestion des Flux Physiques',                     color: '#0f766e', mandatory: true,  order: 13 },
-  { key: 'pilotage',    label: 'Pilotage Stratégique & Opérationnel (macro)',                 color: '#1d4ed8', mandatory: true,  order: 14 },
-  { key: 'competences', label: 'Gestion des Compétences & des Talents',                      color: '#15803d', mandatory: false, order: 15 },
-  { key: 'fournisseur', label: 'Fournisseur',                                                 color: '#f1f5f9', mandatory: true,  order: 16 },
-];
-
 function _defaultBands() {
-  let nextId = 1;
-  return BAND_CATALOG.filter(c => c.mandatory).map(c => ({
-    id:         nextId++,
-    label:      c.label,
-    color:      c.color,
-    fontSize:   (c.key === 'client' || c.key === 'fournisseur') ? 18 : 22,
-    height:     (c.key === 'client' || c.key === 'fournisseur') ? 120 : 180,
-    catalogKey: c.key,
-  }));
+  return [
+    { id: 1, label: 'Niveau 1', color: '#22c55e', fontSize: 22, height: 180 },
+    { id: 2, label: 'Niveau 2', color: '#3b82f6', fontSize: 22, height: 180 },
+    { id: 3, label: 'Niveau 3', color: '#f59e0b', fontSize: 22, height: 180 },
+  ];
 }
 
 const SHAPE_DEFAULTS = {
@@ -1156,87 +1129,6 @@ function render() {
   applyGroupHighlight();
 }
 
-/* ══════════════════════════════════════════════════
-   BANDES OPTIONNELLES — popup catalogue
-   ══════════════════════════════════════════════════ */
-
-function openBandsCatalogPopup() {
-  const pop = document.getElementById('bands-catalog-popup');
-  if (!pop) return;
-  renderBandsCatalogPopup();
-  pop.classList.toggle('open');
-}
-
-function renderBandsCatalogPopup() {
-  const list = document.getElementById('bcat-list');
-  if (!list) return;
-  list.innerHTML = '';
-  BAND_CATALOG.filter(c => !c.mandatory).forEach(cat => {
-    const isActive = state.bands.some(b => b.catalogKey === cat.key);
-    const shapes   = isActive ? _shapesInBand(cat.key) : [];
-    const row = document.createElement('div');
-    row.className = 'bcat-row';
-    row.innerHTML = `
-      <span class="bcat-swatch" style="background:${cat.color}"></span>
-      <span class="bcat-label">${cat.label}</span>
-      ${shapes.length > 0 ? `<span class="bcat-count">${shapes.length} forme${shapes.length > 1 ? 's' : ''}</span>` : ''}
-      <label class="bcat-toggle">
-        <input type="checkbox" ${isActive ? 'checked' : ''}>
-        <span class="bcat-slider"></span>
-      </label>`;
-    row.querySelector('input').addEventListener('change', e => {
-      e.target.checked ? _activateBand(cat.key) : _deactivateBand(cat.key, e.target);
-    });
-    list.appendChild(row);
-  });
-}
-
-function _shapesInBand(catalogKey) {
-  const band = state.bands.find(b => b.catalogKey === catalogKey);
-  if (!band) return [];
-  let bandY = -200;
-  for (const b of state.bands) {
-    if (b === band) break;
-    bandY += b.height;
-  }
-  return state.shapes.filter(s => {
-    const midY = s.y + s.h / 2;
-    return midY >= bandY && midY < bandY + band.height;
-  });
-}
-
-function _activateBand(key) {
-  const cat = BAND_CATALOG.find(c => c.key === key);
-  if (!cat) return;
-  const newBand = {
-    id: state.nextId++, label: cat.label, color: cat.color,
-    fontSize: 22, height: 180, catalogKey: cat.key,
-  };
-  let insertIdx = state.bands.length;
-  for (let i = 0; i < state.bands.length; i++) {
-    const bc = BAND_CATALOG.find(c => c.key === state.bands[i].catalogKey);
-    if ((bc ? bc.order : 999) > cat.order) { insertIdx = i; break; }
-  }
-  state.bands.splice(insertIdx, 0, newBand);
-  snapshot(); render(); renderCanvasMap(); renderBandsCatalogPopup();
-  showToast(`Bande "${cat.label}" activée`);
-}
-
-function _deactivateBand(key, checkbox) {
-  const shapes = _shapesInBand(key);
-  const band   = state.bands.find(b => b.catalogKey === key);
-  if (shapes.length > 0) {
-    const ok = confirm(`Cette bande contient ${shapes.length} forme${shapes.length > 1 ? 's' : ''}. Elles seront supprimées avec la bande. Continuer ?`);
-    if (!ok) { checkbox.checked = true; return; }
-    const ids = new Set(shapes.map(s => s.id));
-    state.shapes      = state.shapes.filter(s => !ids.has(s.id));
-    state.connections = state.connections.filter(c => !ids.has(c.fromId) && !ids.has(c.toId));
-    clearSelection();
-  }
-  state.bands = state.bands.filter(b => b.catalogKey !== key);
-  snapshot(); render(); renderCanvasMap(); renderBandsCatalogPopup();
-  if (band) showToast(`Bande "${band.label}" désactivée`);
-}
 
 /* ══════════════════════════════════════════════════
    RENDER — CANVAS MAP (left panel live list)
@@ -4249,16 +4141,6 @@ function init() {
       if (!popup.contains(e.target) && e.target !== pill) popup.classList.remove('open');
     });
   })();
-
-  document.getElementById('btn-bands-catalog').addEventListener('click', openBandsCatalogPopup);
-  document.getElementById('btn-close-bcat')?.addEventListener('click', () => {
-    document.getElementById('bands-catalog-popup').classList.remove('open');
-  });
-  document.addEventListener('click', e => {
-    const pop = document.getElementById('bands-catalog-popup');
-    const btn = document.getElementById('btn-bands-catalog');
-    if (pop && pop.classList.contains('open') && !pop.contains(e.target) && !btn.contains(e.target)) pop.classList.remove('open');
-  });
 
   document.getElementById('btn-new-carto').addEventListener('click', newCarto);
   document.getElementById('btn-architect').addEventListener('click', architectLayout);
