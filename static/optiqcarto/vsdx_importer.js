@@ -487,11 +487,20 @@ class VsdxImporter {
   }
 
   // Collect and sort swimlane elements (large container groups, top→bottom).
+  // Excludes the outer Pool/CFF container (parent of swimlanes) which would otherwise
+  // be inserted between real lanes (its pinY = diagram center) and corrupt band shifts.
   // Deduplicates separator slivers that are too close together.
   _collectLanes(allShapes, containerIds, shapePinAbs, pageMaxW) {
+    // Containers that are direct parents of other containers = Pool/outer frame, not lanes.
+    const poolIds = new Set();
+    for (const { id, parentId } of allShapes)
+      if (containerIds.has(id) && parentId && containerIds.has(parentId))
+        poolIds.add(parentId);
+
     const laneList = [];
     for (const { el: s, id } of allShapes) {
       if (!containerIds.has(id)) continue;
+      if (poolIds.has(id))       continue; // outer CFF pool — not a swimlane
       const abs = shapePinAbs[id] || {};
       if (!abs.h || abs.h < 0.3 || abs.h > 25) continue;
       if (!abs.w || abs.w < pageMaxW * 0.3)    continue;
