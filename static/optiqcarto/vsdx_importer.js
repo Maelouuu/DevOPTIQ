@@ -688,7 +688,7 @@ class VsdxImporter {
     const naturalScreenY = Math.round((topOfDiagram - abs.pinY) * SCALE) - Math.round(screenH / 2);
     const naturalCenterY = naturalScreenY + screenH / 2;
     const screenY = Math.max(0, naturalScreenY + this._bandShiftFor(naturalCenterY));
-    if (screenY > totalBandH + 100) return null;
+    if (screenY + screenH / 2 > totalBandH + 5) return null;
     return { screenX, screenY, screenW, screenH };
   }
 
