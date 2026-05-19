@@ -446,7 +446,8 @@ class VsdxImporter {
     // NOT from a running sum of processed band heights. A running sum ignores
     // inter-band gaps (e.g. "Prescriber" H=0 band leaves a ~700px gap between
     // adjacent bands), causing all subsequent band shifts to be wrong.
-    this.bandShifts = [];
+    this.bandShifts     = [];
+    this.laneIdToBandInfo = {}; // lane_xml_id → { bandIdx (0-based), abs, bandH }
 
     if (lanes.length === 0) {
       newBands.push({ id: 1, label: 'Activités', color: '#22c55e', fontSize: 22, height: 500 });
@@ -454,9 +455,7 @@ class VsdxImporter {
     }
 
     let ourCum = 0;
-    for (const { el: s, abs } of lanes) {
-      // Natural canvas Y of this band's top and bottom edges,
-      // measured directly from Visio coords (Y-up → Y-down conversion).
+    for (const { el: s, abs, id: laneId } of lanes) {
       const naturalTop    = Math.round((topOfDiagram - (abs.pinY + abs.h / 2)) * SCALE);
       const naturalBottom = Math.round((topOfDiagram - (abs.pinY - abs.h / 2)) * SCALE);
       const naturalH      = naturalBottom - naturalTop;
@@ -473,16 +472,32 @@ class VsdxImporter {
         continue;
       }
 
-      // shift = ourCum - naturalTop maps from natural canvas Y to rendered Y.
-      // For a shape with naturalCenterY inside [naturalTop, naturalBottom]:
-      //   renderedY = naturalCenterY + shift = naturalCenterY + ourCum - naturalTop
-      // which correctly maps the band's top (naturalTop) to ourCum.
+      // laneIdToBandInfo: used by importActivities to place shapes via XML parent chain
+      // instead of coordinate arithmetic (100% reliable band assignment).
+      this.laneIdToBandInfo[laneId] = { bandIdx: newBands.length, abs, bandH };
       this.bandShifts.push({ naturalTop, naturalBottom, shift: ourCum - naturalTop });
       ourCum += bandH;
 
-      const bandIdx = newBands.length + 1;
-      const color = !this.isWashedOut(fill) ? fill : FALLBACK_COLORS[bandIdx % FALLBACK_COLORS.length];
-      newBands.push({ id: bandIdx, label: label || `Bande ${bandIdx}`, color, fontSize: 22, height: bandH });
+      const bandDisplayIdx = newBands.length + 1;
+      const color = !this.isWashedOut(fill) ? fill : FALLBACK_COLORS[bandDisplayIdx % FALLBACK_COLORS.length];
+      newBands.push({ id: bandDisplayIdx, label: label || `Bande ${bandDisplayIdx}`, color, fontSize: 22, height: bandH });
+    }
+  }
+
+  // Build nearestLaneOf[shapeId] = laneXmlId — walks the parent chain of every
+  // shape to find its closest swimlane ancestor. Used in importActivities to
+  // assign shapes to bands via the XML hierarchy (avoids coordinate arithmetic).
+  buildNearestLaneMap() {
+    const parentOf = {};
+    for (const { id, parentId } of this.allShapes) parentOf[id] = parentId;
+
+    this.nearestLaneOf = {};
+    for (const { id } of this.allShapes) {
+      let cur = parentOf[id];
+      while (cur) {
+        if (this.laneIdToBandInfo[cur]) { this.nearestLaneOf[id] = cur; break; }
+        cur = parentOf[cur];
+      }
     }
   }
 
@@ -684,15 +699,29 @@ class VsdxImporter {
       const screenW = Math.min(MAX_ACT_W, rawW);
       const screenH = Math.min(MAX_ACT_H, rawH);
       const screenX = Math.max(144, Math.round((abs.pinX - leftEdge) * SCALE) - Math.round(screenW / 2));
-      // Y "naturel" : position basée sur les coords VSDX brutes × SCALE,
-      // SANS prendre en compte le minimum 80 px sur la hauteur des bandes.
-      const naturalScreenY = Math.round((topOfDiagram - abs.pinY) * SCALE) - Math.round(screenH / 2);
-      const naturalCenterY = naturalScreenY + screenH / 2;
-      // bandShift corrige le décalage cumulatif quand une bande étroite a
-      // été inflée au min 80 px : on ramène le shape dans la bande à laquelle
-      // il appartient naturellement, même si nos bandes sont plus hautes.
-      const bandShift = this._bandShiftFor(naturalCenterY);
-      const screenY = Math.max(0, naturalScreenY + bandShift);
+
+      // ── Y position: XML parent-chain approach (100% reliable band assignment) ──
+      // Each shape in a CFF diagram is a direct/indirect child of a swimlane.
+      // We use that relationship to place the shape in the correct band, then
+      // compute its Y offset relative to the lane's top using Visio coordinates.
+      // Fallback (coordinate-based bandShift) only for floating shapes with no lane ancestor.
+      let screenY;
+      const laneId   = this.nearestLaneOf && this.nearestLaneOf[id];
+      const laneInfo = laneId ? this.laneIdToBandInfo[laneId] : null;
+      if (laneInfo) {
+        const { bandIdx, abs: la, bandH: bH } = laneInfo;
+        // Distance from lane top in canvas pixels (Y-down).
+        // la.pinY + la.h/2 = Visio Y of lane top edge; abs.pinY = Visio Y of shape center.
+        const distFromTop = (la.pinY + la.h / 2 - abs.pinY) * SCALE;
+        const bandStartY  = newBands.slice(0, bandIdx).reduce((s, b) => s + b.height, 0);
+        const PAD = 5;
+        screenY = Math.round(Math.max(bandStartY + PAD,
+                    Math.min(bandStartY + bH - screenH - PAD, bandStartY + distFromTop - screenH / 2)));
+      } else {
+        const naturalScreenY = Math.round((topOfDiagram - abs.pinY) * SCALE) - Math.round(screenH / 2);
+        const naturalCenterY = naturalScreenY + screenH / 2;
+        screenY = Math.max(0, naturalScreenY + this._bandShiftFor(naturalCenterY));
+      }
       if (screenY > totalBandH + 100) continue; // outside diagram
 
       const mInfoForType = masterInfoCache[mid] || {};
@@ -1207,6 +1236,7 @@ class VsdxImporter {
     this.buildConnMap();
     this.identifyContainers();
     this.buildBands();
+    this.buildNearestLaneMap(); // maps every shape to its nearest swimlane ancestor
     this.detectContainerGroups();
     this.importActivities();
     this.applyLayoutCorrections();

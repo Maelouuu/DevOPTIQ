@@ -606,7 +606,8 @@ function renderConnections() {
       'pointer-events': 'none',
     }, gConns);
 
-    // Label : position optimale sur le tracé de la flèche (rendu différé en passe 2)
+    // Label : midpoint du tracé (par longueur d'arc), rendu différé en passe 2.
+    // Reproduit le comportement Visio par défaut : label centré sur la flèche.
     if (c.label) {
       const labelLines = c.label.split('\n');
       const maxLineLen = Math.max(...labelLines.map(l => l.length));
@@ -619,70 +620,26 @@ function renderConnections() {
         lx = c.labelOffset.x;
         ly = c.labelOffset.y;
       } else {
-        // Segment le plus long → position préférée
-        let preferSeg = 0, preferLen = 0;
-        for (let i = 0; i < orthopts.length - 1; i++) {
-          const l = Math.hypot(orthopts[i+1].x - orthopts[i].x, orthopts[i+1].y - orthopts[i].y);
-          if (l > preferLen) { preferLen = l; preferSeg = i; }
+        let totalLen = 0;
+        for (let i = 0; i < orthopts.length - 1; i++)
+          totalLen += Math.hypot(orthopts[i+1].x - orthopts[i].x, orthopts[i+1].y - orthopts[i].y);
+        const half = totalLen / 2;
+        let cumLen = 0, found = false;
+        for (let i = 0; i < orthopts.length - 1 && !found; i++) {
+          const dx = orthopts[i+1].x - orthopts[i].x, dy = orthopts[i+1].y - orthopts[i].y;
+          const segLen = Math.hypot(dx, dy);
+          if (cumLen + segLen >= half) {
+            const t = (half - cumLen) / segLen;
+            lx = orthopts[i].x + dx * t;
+            ly = orthopts[i].y + dy * t;
+            found = true;
+          }
+          cumLen += segLen;
         }
-
-        // Candidats UNIQUEMENT sur le tracé de la flèche (offset perpendiculaire = 0)
-        // — le label doit toujours être posé sur la flèche, jamais à côté.
-        const CANDS = [];
-        for (let i = 0; i < orthopts.length - 1; i++) {
-          const pa = orthopts[i], pb = orthopts[i + 1];
-          const sdx = pb.x - pa.x, sdy = pb.y - pa.y;
-          const slen = Math.hypot(sdx, sdy);
-          if (slen < 10) continue;
-          const step = (i === preferSeg) ? 0.06 : 0.18;
-          for (let t = step; t <= 1 - step; t += step)
-            CANDS.push({ x: pa.x + sdx * t, y: pa.y + sdy * t, onPref: i === preferSeg });
-        }
-        if (CANDS.length === 0)
-          CANDS.push({ x: (fp.x + tp.x) / 2, y: (fp.y + tp.y) / 2, onPref: true });
-
-        function labelScore(cx, cy, onPref) {
-          const hw2 = lw / 2, hh2 = lh / 2, M = 8;
-          let s = onPref ? 0 : 6000;
-          for (const sh of state.shapes) {
-            const ox = Math.max(0, Math.min(cx + hw2 + M, sh.x + sh.w) - Math.max(cx - hw2 - M, sh.x));
-            const oy = Math.max(0, Math.min(cy + hh2 + M, sh.y + sh.h) - Math.max(cy - hh2 - M, sh.y));
-            s += ox * oy * 20;
-          }
-          for (const gr of state.groups) {
-            for (const by2 of [gr.y, gr.y + gr.h])
-              if (Math.abs(cy - by2) < hh2 + 12) s += 2000;
-          }
-          for (const pl of placedLabels) {
-            const ox = Math.max(0, Math.min(cx + hw2 + M, pl.lx + pl.hw) - Math.max(cx - hw2 - M, pl.lx - pl.hw));
-            const oy = Math.max(0, Math.min(cy + hh2 + M, pl.ly + pl.hh) - Math.max(cy - hh2 - M, pl.ly - pl.hh));
-            s += ox * oy * 40;
-          }
-          for (let k = 1; k < orthopts.length - 1; k++) {
-            const dc = Math.hypot(cx - orthopts[k].x, cy - orthopts[k].y);
-            if (dc < 40) s += (40 - dc) * 350;
-          }
-          for (const seg of placedPaths) {
-            const abx = seg.bx - seg.ax, aby = seg.by - seg.ay;
-            const segLen2 = abx*abx + aby*aby;
-            if (segLen2 < 1) continue;
-            const t2 = Math.max(0, Math.min(1, ((cx - seg.ax)*abx + (cy - seg.ay)*aby) / segLen2));
-            const d2 = Math.hypot(cx - (seg.ax + t2*abx), cy - (seg.ay + t2*aby));
-            if (d2 < 50) s += (50 - d2) * 60;
-          }
-          return s;
-        }
-
-        let bestCand = CANDS[0], bestScore = Infinity;
-        for (const cand of CANDS) {
-          const score = labelScore(cand.x, cand.y, cand.onPref);
-          if (score < bestScore) { bestScore = score; bestCand = cand; }
-        }
-        lx = bestCand.x; ly = bestCand.y;
+        if (!found) { lx = (fp.x + tp.x) / 2; ly = (fp.y + tp.y) / 2; }
       }
 
       placedLabels.push({ lx, ly, hw: lw / 2, hh: lh / 2 });
-      // Enqueue for pass 2 rendering (drawn on top of ALL connection paths)
       labelQueue.push({ c, lx, ly, angle: 0, lw, lh, lineH, labelLines, color });
     }
 
