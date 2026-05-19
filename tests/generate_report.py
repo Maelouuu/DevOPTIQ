@@ -25,6 +25,7 @@ PAGE_LABELS = {
     "test_11_tools":            "Gestion des Outils",
     "test_12_gestion_rh":       "Gestion RH",
     "test_13_competences":      "Compétences & Évaluations",
+    "test_14_cartography_editor": "Éditeur OptiqCarto",
 }
 
 
