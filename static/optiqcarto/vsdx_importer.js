@@ -106,6 +106,17 @@ class VsdxImporter {
     return lum > 210 && sat < 0.25; // washed only if unsaturated AND very light
   }
 
+  // Version permissive pour les couleurs de bandes : seules les quasi-blanches
+  // sont rejetées (lum > 245). Les pastels intentionnels (#fdd2cc, #e2efd9…)
+  // sont conservés — contrairement à isWashedOut qui rejette lum>210 + sat<0.25.
+  _isBandColorWeak(hex) {
+    if (!hex || !hex.startsWith('#') || hex.length < 7) return true;
+    const r = parseInt(hex.slice(1,3), 16);
+    const g = parseInt(hex.slice(3,5), 16);
+    const b = parseInt(hex.slice(5,7), 16);
+    return (r*299 + g*587 + b*114) / 1000 > 245;
+  }
+
   // ─── Phase 1: Parse Masters ──────────────────────────────────────
 
   async parseMasters() {
@@ -481,7 +492,7 @@ class VsdxImporter {
       ourCum += bandH;
 
       const bandIdx = newBands.length + 1;
-      const color = !this.isWashedOut(fill) ? fill : FALLBACK_COLORS[bandIdx % FALLBACK_COLORS.length];
+      const color = !this._isBandColorWeak(fill) ? fill : FALLBACK_COLORS[bandIdx % FALLBACK_COLORS.length];
       newBands.push({ id: bandIdx, label: label || `Bande ${bandIdx}`, color, fontSize: 22, height: bandH });
     }
   }
@@ -498,6 +509,12 @@ class VsdxImporter {
       const abs = shapePinAbs[id] || {};
       if (!abs.h || abs.h < 0.3 || abs.h > 25) continue;
       if (!abs.w || abs.w < pageMaxW * 0.3)    continue;
+      // Exclure les séparateurs visuels (master "Swimlane for separation" etc.).
+      // Leur page XML a H=0 mais computeAbsCoords() prend la hauteur du master
+      // (≈0.39") qui dépasse le seuil 0.3 → ils apparaissent comme de fausses
+      // bandes et perturbent tout le système de bandShifts.
+      const sepMN = (this.masterIdToName[s.getAttribute('Master')] || '').toLowerCase();
+      if (/\bsep[ae]rat/.test(sepMN)) continue;
       laneList.push({ el: s, id, abs, parentId });
     }
 
@@ -539,22 +556,18 @@ class VsdxImporter {
 
   // Extract the fill color of a swimlane.
   // 1. Lane's own FillForegnd (set when user explicitly colors the lane in Visio).
-  // 2. Direct structural sub-shapes whose height ≥ 50 % of the lane height (= header
-  //    strip or background rectangle, NOT activity boxes which are much smaller).
-  //    The Group exclusion is kept: group sub-shapes are containers, not color areas.
+  // 2. ALL descendant shapes (not just direct children), because Visio stores the
+  //    color in a structural sub-shape (MasterShape=6), not on the group itself.
+  //    Fallback to LineColor when FillForegnd is absent (theme-dependent bands).
+  //    Uses _isBandColorWeak() instead of isWashedOut() to keep intentional pastels.
   _extractLaneFill(el, laneAbs) {
     const fill = this.vCell(el, 'FillForegnd');
-    if (!this.isWashedOut(fill)) return fill;
+    if (!this._isBandColorWeak(fill)) return fill;
 
-    const childEl = this.vEl(el, 'Shapes');
-    if (childEl && laneAbs && laneAbs.h > 0) {
-      for (const child of this.vAll(childEl, 'Shape')) {
-        if (child.getAttribute('Type') === 'Group') continue;
-        const cabs = this.shapePinAbs[child.getAttribute('ID')];
-        if (cabs && cabs.h < laneAbs.h * 0.5) continue; // skip activities (smaller than lane)
-        const cf = this.vCell(child, 'FillForegnd');
-        if (cf && cf.startsWith('#') && !this.isWashedOut(cf)) return cf;
-      }
+    for (const child of Array.from(el.getElementsByTagName('Shape'))) {
+      if (child === el || child.getAttribute('Type') === 'Group') continue;
+      const cf = this.vCell(child, 'FillForegnd') || this.vCell(child, 'LineColor');
+      if (cf && cf.startsWith('#') && !this._isBandColorWeak(cf)) return cf;
     }
     return fill;
   }
