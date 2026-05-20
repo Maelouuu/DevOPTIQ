@@ -107,28 +107,12 @@ class VsdxImporter {
     return lum > 210 && sat < 0.25;
   }
 
-  // Only reject near-white (lum > 245). Used for child-shape band color search.
+  // Permissive check for band index-strip colors: only reject near-white (lum > 245).
+  // Intentional pastels (#d4f4dd, #fdd2cc…) are kept — they are valid band colors.
   _isNearWhite(hex) {
     if (!hex || !hex.startsWith('#') || hex.length < 7) return true;
     const r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
     return (r*299 + g*587 + b*114) / 1000 > 245;
-  }
-
-  // Returns true for grey-ish mid-tone colors (decisions, neutral shapes).
-  // These are NOT band colors — skip them when searching for the index strip.
-  _isGreyish(hex) {
-    const r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
-    const lum = (r*299 + g*587 + b*114) / 1000;
-    const max = Math.max(r,g,b), min = Math.min(r,g,b);
-    const sat = max === 0 ? 0 : (max - min) / max;
-    return sat < 0.15 && lum < 200; // grey-ish mid-tone (not near-white, just unsaturated)
-  }
-
-  // Mix color with white (30 % vivid + 70 % white) → pastel version.
-  _toPastel(hex) {
-    const r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
-    return '#' + [r*0.3+255*0.7, g*0.3+255*0.7, b*0.3+255*0.7]
-      .map(v => Math.round(v).toString(16).padStart(2,'0')).join('');
   }
 
   // ─── Phase 1: Parse Masters ──────────────────────────────────────
@@ -551,26 +535,40 @@ class VsdxImporter {
     return '';
   }
 
+  // Mix color 30 % vivid + 70 % white → pastel version.
+  _toPastel(hex) {
+    const r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
+    return '#' + [r*0.3+255*0.7, g*0.3+255*0.7, b*0.3+255*0.7]
+      .map(v => Math.round(v).toString(16).padStart(2,'0')).join('');
+  }
+
   // Extract the fill color of a swimlane.
-  // Falls back to first non-washed-out child fill when the lane itself is transparent.
+  // Priority:
+  //   1. Lane's own FillForegnd (already at correct saturation — use as-is).
+  //   2. Group children FIRST (index strip is a Group in Visio CFF templates).
+  //      Checking Groups before non-Groups avoids picking up non-Group activity
+  //      shapes (e.g. grey decision diamonds) that may appear before the index strip.
+  //   3. Non-Group children as last resort.
+  //   → Colors found in children are pastelified (index strip is vivid, band should be pastel).
   _extractLaneFill(el) {
-    // 1. Lane's own fill — already at correct saturation for Visio, use as-is.
     const fill = this.vCell(el, 'FillForegnd');
     if (!this.isWashedOut(fill)) return fill;
 
-    // 2. Index strip child (sometimes Type="Group").
-    //    - Skip near-white (transparent/default fills).
-    //    - Skip grey-ish mid-tones (decisions, neutral shapes that are not the index strip).
-    //    - Return pastelled version: index strip is vivid, Visio band background is pastel.
     const childEl = this.vEl(el, 'Shapes');
-    if (childEl) {
-      for (const child of this.vAll(childEl, 'Shape')) {
-        const cf = this.vCell(child, 'FillForegnd');
-        if (!cf || !cf.startsWith('#')) continue;
-        if (this._isNearWhite(cf)) continue;
-        if (this._isGreyish(cf))   continue;
-        return this._toPastel(cf);
-      }
+    if (!childEl) return null;
+    const children = this.vAll(childEl, 'Shape');
+
+    // Pass 1: Group children (index strip)
+    for (const child of children) {
+      if (child.getAttribute('Type') !== 'Group') continue;
+      const cf = this.vCell(child, 'FillForegnd');
+      if (cf && cf.startsWith('#') && !this._isNearWhite(cf)) return this._toPastel(cf);
+    }
+    // Pass 2: non-Group children (fallback)
+    for (const child of children) {
+      if (child.getAttribute('Type') === 'Group') continue;
+      const cf = this.vCell(child, 'FillForegnd');
+      if (cf && cf.startsWith('#') && !this._isNearWhite(cf)) return this._toPastel(cf);
     }
     return null;
   }
