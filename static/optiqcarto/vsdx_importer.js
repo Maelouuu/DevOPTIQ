@@ -549,18 +549,12 @@ class VsdxImporter {
   //   child[1] = index strip (the colored sidebar with the lane label)
   //
   // Strategy:
-  //   1. Lane's own FillForegnd — use as-is if vivid (not washed out).
-  //   2. Last non-near-white child = index strip.
-  //      If that color is already a pastel (isWashedOut=true but lum<245):
-  //        → use as-is (some bands store their pastel color directly on the strip)
-  //      If that color is vivid (isWashedOut=false):
-  //        → pastelify it (30% vivid + 70% white)
-  //
-  // This handles two failure modes from earlier approaches:
-  //   a) Applying _toPastel to already-pastel colors (#e2efd9 → near-white).
-  //   b) Stakeholder of the Order: its label is a Visio formula (no text node),
-  //      so label-matching fails; taking the LAST child (not first) skips the
-  //      grey background shape (#d8d8d8) and lands on the correct green strip (#e2f0d9).
+  //   1. Lane's own FillForegnd — use as-is if not washed out.
+  //   2. Last non-near-white child = index strip — use as-is regardless of saturation.
+  //      No pastelification: vivid colors stay vivid, pastels stay pastel.
+  //      (Stakeholder of the Order has no text node on its label — its label is a
+  //      Visio formula — so the LAST child approach is needed to skip the grey
+  //      background shape and land on the correct colored index strip.)
   _extractLaneFill(el) {
     const fill = this.vCell(el, 'FillForegnd');
     if (!this.isWashedOut(fill)) return fill;
@@ -568,16 +562,13 @@ class VsdxImporter {
     const childEl = this.vEl(el, 'Shapes');
     if (!childEl) return null;
 
-    // Scan all children; keep the last one that is not near-white.
+    // Scan all children; keep the last one that is not near-white (= index strip).
     let best = null;
     for (const child of this.vAll(childEl, 'Shape')) {
       const cf = this.vCell(child, 'FillForegnd');
       if (cf && cf.startsWith('#') && !this._isNearWhite(cf)) best = cf;
     }
-    if (!best) return null;
-
-    // Already-pastel colors must not be pastelified again.
-    return this.isWashedOut(best) ? best : this._toPastel(best);
+    return best;
   }
 
   // Détermine le shift Y à appliquer à un point dont le Y naturel (sans
