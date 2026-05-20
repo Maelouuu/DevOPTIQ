@@ -107,12 +107,28 @@ class VsdxImporter {
     return lum > 210 && sat < 0.25;
   }
 
-  // Permissive check for band index-strip colors: only reject near-white (lum > 245).
-  // Intentional pastels (#d4f4dd, #fdd2cc…) are kept — they are valid band colors.
+  // Only reject near-white (lum > 245). Used for child-shape band color search.
   _isNearWhite(hex) {
     if (!hex || !hex.startsWith('#') || hex.length < 7) return true;
     const r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
     return (r*299 + g*587 + b*114) / 1000 > 245;
+  }
+
+  // Returns true for grey-ish mid-tone colors (decisions, neutral shapes).
+  // These are NOT band colors — skip them when searching for the index strip.
+  _isGreyish(hex) {
+    const r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
+    const lum = (r*299 + g*587 + b*114) / 1000;
+    const max = Math.max(r,g,b), min = Math.min(r,g,b);
+    const sat = max === 0 ? 0 : (max - min) / max;
+    return sat < 0.15 && lum < 200; // grey-ish mid-tone (not near-white, just unsaturated)
+  }
+
+  // Mix color with white (30 % vivid + 70 % white) → pastel version.
+  _toPastel(hex) {
+    const r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
+    return '#' + [r*0.3+255*0.7, g*0.3+255*0.7, b*0.3+255*0.7]
+      .map(v => Math.round(v).toString(16).padStart(2,'0')).join('');
   }
 
   // ─── Phase 1: Parse Masters ──────────────────────────────────────
@@ -538,20 +554,25 @@ class VsdxImporter {
   // Extract the fill color of a swimlane.
   // Falls back to first non-washed-out child fill when the lane itself is transparent.
   _extractLaneFill(el) {
-    // 1. Lane's own fill — reject light/desaturated backgrounds (isWashedOut)
+    // 1. Lane's own fill — already at correct saturation for Visio, use as-is.
     const fill = this.vCell(el, 'FillForegnd');
     if (!this.isWashedOut(fill)) return fill;
 
-    // 2. Index strip (labeled sidebar, sometimes Type="Group") — permissive filter:
-    //    accept intentional pastels, only reject near-white (lum > 245).
+    // 2. Index strip child (sometimes Type="Group").
+    //    - Skip near-white (transparent/default fills).
+    //    - Skip grey-ish mid-tones (decisions, neutral shapes that are not the index strip).
+    //    - Return pastelled version: index strip is vivid, Visio band background is pastel.
     const childEl = this.vEl(el, 'Shapes');
     if (childEl) {
       for (const child of this.vAll(childEl, 'Shape')) {
         const cf = this.vCell(child, 'FillForegnd');
-        if (cf && cf.startsWith('#') && !this._isNearWhite(cf)) return cf;
+        if (!cf || !cf.startsWith('#')) continue;
+        if (this._isNearWhite(cf)) continue;
+        if (this._isGreyish(cf))   continue;
+        return this._toPastel(cf);
       }
     }
-    return null; // nothing usable found
+    return null;
   }
 
   // Détermine le shift Y à appliquer à un point dont le Y naturel (sans
