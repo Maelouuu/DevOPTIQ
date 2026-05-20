@@ -4278,12 +4278,11 @@ function init() {
           if (!state.bandWidth) state.bandWidth = 1600;
           if (!state.groups) state.groups = [];
           if (state.connections && state.shapes) {
-            state.connections = state.connections.filter(c => {
-              const from = state.shapes.find(s => s.id === c.fromId);
-              const to   = state.shapes.find(s => s.id === c.toId);
-              if (!from || !to) return true;
-              return (to.x + to.w / 2) >= (from.x + from.w / 2) - 10;
-            });
+            const validIds = new Set([
+              ...state.shapes.map(s => s.id),
+              ...(state.groups || []).map(g => g.id),
+            ]);
+            state.connections = state.connections.filter(c => validIds.has(c.fromId) && validIds.has(c.toId));
           }
           history = [JSON.stringify(state)]; histIndex = 0;
           render(); updateProps(); fitView();
