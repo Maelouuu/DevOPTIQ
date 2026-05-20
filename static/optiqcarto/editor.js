@@ -2612,8 +2612,11 @@ async function openLoadDialog() {
       if (typeof resetHighlightExtco === 'function') resetHighlightExtco();
       // Supprimer uniquement les connexions dont une extrémité n'existe plus
       if (state.connections && state.shapes) {
-        const shapeIds = new Set(state.shapes.map(s => s.id));
-        state.connections = state.connections.filter(c => shapeIds.has(c.fromId) && shapeIds.has(c.toId));
+        const validIds = new Set([
+          ...state.shapes.map(s => s.id),
+          ...(state.groups || []).map(g => g.id),
+        ]);
+        state.connections = state.connections.filter(c => validIds.has(c.fromId) && validIds.has(c.toId));
       }
       // Migration : champs manquants sur anciens fichiers
       if (!state.bandWidth) state.bandWidth = 1600;
