@@ -331,14 +331,15 @@ function renderBands() {
   for (const band of state.bands) {
     const isSel = selectedBand === band.id;
     const g = el('g', {}, gBands);
-    const pastel = bandPastel(band.color);
     const bgColor = bandBgColor(band.color);
 
     // Fond de la bande → très pâle pour faire ressortir les formes
     el('rect', { x: 0, y, width: bw, height: band.height, fill: bgColor }, g);
 
-    // ── Zone index (gauche, vivid) ────
-    const idxColor = bandIndexColor(band.color);
+    // ── Zone index (gauche) ────
+    // On utilise band.color directement — pas de conversion via bandIndexColor
+    // pour éviter que pastelToVivid() produise du gris sur les couleurs peu saturées.
+    const idxColor = band.color || '#9ca3af';
     el('rect', {
       x: 0, y, width: INDEX_W_SVG, height: band.height,
       fill: isSel ? darkenColor(idxColor, 0.78) : idxColor,
@@ -349,7 +350,7 @@ function renderBands() {
     // Séparateur droit de la zone index
     el('line', {
       x1: INDEX_W_SVG, y1: y, x2: INDEX_W_SVG, y2: y + band.height,
-      stroke: bandBorderColor(band.color),
+      stroke: darkenColor(idxColor, 0.72),
       'stroke-width': '3',
       'pointer-events': 'none',
     }, g);
@@ -369,10 +370,10 @@ function renderBands() {
       transform: `rotate(-90, ${INDEX_W_SVG / 2}, ${y + band.height / 2})`,
     }, g);
 
-    // Bordure basse → couleur adaptée
+    // Bordure basse
     el('line', {
       x1: 0, y1: y + band.height, x2: bw, y2: y + band.height,
-      stroke: bandBorderColor(band.color), 'stroke-width': '3', 'pointer-events': 'none',
+      stroke: darkenColor(idxColor, 0.72), 'stroke-width': '3', 'pointer-events': 'none',
     }, g);
 
     // Poignée invisible de resize hauteur (sur/autour du trait bas)
