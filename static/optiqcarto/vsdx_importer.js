@@ -1233,7 +1233,8 @@ class VsdxImporter {
     this.importActivities();
     this.applyLayoutCorrections();
     this.buildGroups();
-    this.spliceDecisions();
+    // spliceDecisions intentionally not called: decision diamonds are placed
+    // visually on top of arrows without modifying connection topology.
     await this.buildConnections();
     this.cleanupBands();
 
@@ -1243,7 +1244,8 @@ class VsdxImporter {
         ...this.newConns.map(c => c.fromId),
         ...this.newConns.map(c => c.toId),
       ]);
-      const orphans = this.newShapes.filter(s => (!s.label || !s.label.trim()) && !connectedIds.has(s.id));
+      // Decision shapes are intentionally unconnected (placed visually on arrows).
+      const orphans = this.newShapes.filter(s => (!s.label || !s.label.trim()) && !connectedIds.has(s.id) && s.type !== 'decision');
       if (orphans.length > 0) {
         const choice = await onOrphans(orphans);
         if (choice === 'cancel') return null; // caller handles UI

@@ -556,7 +556,7 @@ function renderConnections() {
       c._computedOrthopts = orthopts; // used for label drag constraint
       // Enregistrer les segments pour pénaliser les labels des connexions suivantes
       for (let _pi = 0; _pi < orthopts.length - 1; _pi++)
-        placedPaths.push({ ax: orthopts[_pi].x, ay: orthopts[_pi].y, bx: orthopts[_pi+1].x, by: orthopts[_pi+1].y });
+        placedPaths.push({ ax: orthopts[_pi].x, ay: orthopts[_pi].y, bx: orthopts[_pi+1].x, by: orthopts[_pi+1].y, connId: c.id });
       d = polylineToPath(orthopts, 12);
     }
     const isSel = selectedConn === c.id;
@@ -662,14 +662,22 @@ function renderConnections() {
             const dc = Math.hypot(cx - cp.x, cy - cp.y);
             if (dc < 40) s += (40 - dc) * 350;
           }
-          // Pénalité pour proximité avec les segments d'autres flèches (croisements)
+          // Pénalité boîte-segment : interdit si la boîte du label chevauche une autre flèche.
+          // Utilise la distance du BORD de la boîte au segment (pas du centre), ce qui
+          // garantit qu'aucun label ne s'affiche visuellement sur une autre flèche.
           for (const seg of placedPaths) {
+            if (seg.connId === c.id) continue; // propre connexion → on peut s'y poser
             const abx = seg.bx - seg.ax, aby = seg.by - seg.ay;
             const segLen2 = abx*abx + aby*aby;
             if (segLen2 < 1) continue;
             const t2 = Math.max(0, Math.min(1, ((cx - seg.ax)*abx + (cy - seg.ay)*aby) / segLen2));
-            const d2 = Math.hypot(cx - (seg.ax + t2*abx), cy - (seg.ay + t2*aby));
-            if (d2 < 50) s += (50 - d2) * 60;
+            const px = seg.ax + t2*abx, py = seg.ay + t2*aby;
+            // Distance du bord de la boîte au point le plus proche du segment
+            const bdx = Math.max(0, Math.abs(cx - px) - hw2);
+            const bdy = Math.max(0, Math.abs(cy - py) - hh2);
+            const boxDist = Math.hypot(bdx, bdy);
+            if (boxDist < 1) s += 800000;           // chevauchement réel → position interdite
+            else if (boxDist < 55) s += (55 - boxDist) * 150;
           }
           return s;
         }
