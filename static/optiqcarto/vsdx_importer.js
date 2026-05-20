@@ -531,10 +531,11 @@ class VsdxImporter {
   _extractLaneFill(el) {
     const fill = this.vCell(el, 'FillForegnd');
     if (!this.isWashedOut(fill)) return fill;
+    // The index strip (labeled sidebar) carries the lane's representative color.
+    // In some Visio templates it is Type="Group", so we must NOT skip Group children.
     const childEl = this.vEl(el, 'Shapes');
     if (childEl) {
       for (const child of this.vAll(childEl, 'Shape')) {
-        if (child.getAttribute('Type') === 'Group') continue;
         const cf = this.vCell(child, 'FillForegnd');
         if (cf && cf.startsWith('#') && !this.isWashedOut(cf)) return cf;
       }
