@@ -682,8 +682,11 @@ class VsdxImporter {
       // "N-"/"D-"/"T-" prefix = CFF navigation cross-reference arrows (not activities)
       if (/^[ndt]\s*[-–]/.test(mn)) continue;
 
-      // LayerMember=3 = "Si petit"/"Si grand" visual decorators — exclude entirely
-      if (this.vCell(s, 'LayerMember') === '3') continue;
+      // LayerMember=3 marks the "Si petit"/"Si grand" layer.
+      // In Visio CFF diagrams these shapes ARE the actual decision diamonds (isDiamond=true).
+      // Only exclude non-diamond LayerMember=3 shapes (genuine decorators/annotations).
+      const mInfoLayer = masterInfoCache[mid] || {};
+      if (this.vCell(s, 'LayerMember') === '3' && !mInfoLayer.isDiamond) continue;
 
       const abs = shapePinAbs[id] || {};
       const vW  = abs.w || 0;
@@ -801,9 +804,11 @@ class VsdxImporter {
     const shapeFill = this.vCell(el, 'FillForegnd');
     if (shapeFill && !this.isWashedOut(shapeFill)) return shapeFill;
 
-    // 2. Master's default fill (shape inherits from stencil)
+    // 2. Master's default fill (shape inherits from stencil).
+    // Use _isNearWhite (not isWashedOut) — intentional greys like #d8d8d8 are valid
+    // stencil colors and must not be discarded as "washed out".
     const masterFill = (this.masterInfoCache[mid] || {}).fillColor;
-    if (masterFill && !this.isWashedOut(masterFill)) return masterFill;
+    if (masterFill && !this._isNearWhite(masterFill)) return masterFill;
 
     // 3. Band color
     let cumY = 0;
@@ -897,9 +902,6 @@ class VsdxImporter {
       if (connSrcSet.has(visioId) || connTgtSet.has(visioId)) continue; // already connected
       const abs = shapePinAbs[visioId];
       if (!abs) continue;
-      // Layer 3 = "Si petit" visual-only indicators → skip
-      const sEl = _shapeElById.get(visioId);
-      if (sEl && this.vCell(sEl, 'LayerMember') === '3') continue;
       if (abs.w < 0.4 || abs.h < 0.4) continue; // micro-shapes → skip
       toPatch.push({ visioId, pinX: abs.pinX, pinY: abs.pinY });
     }
