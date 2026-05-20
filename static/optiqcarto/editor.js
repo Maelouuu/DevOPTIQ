@@ -2548,23 +2548,6 @@ function _showSaveWarningModal(diff) {
 async function saveJSON() {
   const apiBase = window.OPTIQCARTO_API_BASE || '/cartography';
 
-  // Check what would be removed (only when there's an existing carto in DB)
-  try {
-    const diffRes = await fetch(`${apiBase}/api/save-diff`, {
-      method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ diagram: state }),
-    });
-    if (diffRes.ok) {
-      const diff = await diffRes.json();
-      const hasRemovals = (diff.removed_activities?.length || diff.removed_roles?.length);
-      if (hasRemovals) {
-        const confirmed = await _showSaveWarningModal(diff);
-        if (!confirmed) return;
-      }
-    }
-  } catch (_) { /* offline or no diff endpoint — proceed */ }
-
   _showSavePopup('saving');
 
   try {
@@ -2627,14 +2610,10 @@ async function openLoadDialog() {
       if (data.error) { showToast('Erreur : ' + data.error); return; }
       state = data;
       if (typeof resetHighlightExtco === 'function') resetHighlightExtco();
-      // Filtrer les connexions qui reviendraient en arrière (depuis anciens fichiers)
+      // Supprimer uniquement les connexions dont une extrémité n'existe plus
       if (state.connections && state.shapes) {
-        state.connections = state.connections.filter(c => {
-          const from = state.shapes.find(s => s.id === c.fromId);
-          const to   = state.shapes.find(s => s.id === c.toId);
-          if (!from || !to) return true;
-          return (to.x + to.w / 2) >= (from.x + from.w / 2) - 10;
-        });
+        const shapeIds = new Set(state.shapes.map(s => s.id));
+        state.connections = state.connections.filter(c => shapeIds.has(c.fromId) && shapeIds.has(c.toId));
       }
       // Migration : champs manquants sur anciens fichiers
       if (!state.bandWidth) state.bandWidth = 1600;

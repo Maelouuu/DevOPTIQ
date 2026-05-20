@@ -138,7 +138,9 @@ def _compute_removals(entity, new_diagram):
     new_shapes = new_diagram.get('shapes', [])
     new_bands  = new_diagram.get('bands',  [])
 
-    new_shape_ids  = {str(s['id']) for s in new_shapes if s.get('type') in _ACTIVITY_TYPES}
+    act_shapes = [s for s in new_shapes if s.get('type') in _ACTIVITY_TYPES]
+    new_shape_ids = {str(s['id']) for s in act_shapes}
+    new_labels    = {(s.get('label') or '').strip() or f"Activité {s['id']}" for s in act_shapes}
     new_band_names = {(b.get('label') or '').strip() for b in new_bands}
 
     existing_acts  = Activities.query.filter_by(entity_id=entity.id).filter(
@@ -146,7 +148,10 @@ def _compute_removals(entity, new_diagram):
     ).all()
     existing_roles = Role.query.filter_by(entity_id=entity.id).all()
 
-    removed_activities = [a.name for a in existing_acts  if str(a.shape_id) not in new_shape_ids]
+    # Cohérent avec _do_sync : une activité est supprimée seulement si
+    # ni son shape_id ni son nom ne sont dans la nouvelle carto.
+    removed_activities = [a.name for a in existing_acts
+                          if a.shape_id not in new_shape_ids and a.name not in new_labels]
     removed_roles      = [r.name for r in existing_roles if r.name not in new_band_names]
     return {'removed_activities': removed_activities, 'removed_roles': removed_roles}
 
@@ -167,31 +172,48 @@ def _do_sync(entity, diagram):
 
     act_shapes = [s for s in shapes if s.get('type') in _ACTIVITY_TYPES]
 
-    # ── Activities — upsert uniquement les changements ────────────────────────
-    existing_acts = {a.shape_id: a for a in
-                     Activities.query.filter_by(entity_id=entity.id).filter(
-                         Activities.shape_id.isnot(None)).all()}
+    # ── Activities — préservation des données par correspondance nom+shape_id ──
+    # Stratégie : shape_id en priorité (même shape modifiée), puis nom (ré-import
+    # VSDX avec nouveaux IDs). Les activités matchées gardent toutes leurs données
+    # liées (compétences, savoirs, HSC, évaluations…) car on ne détruit pas la
+    # ligne DB — on met juste à jour shape_id et/ou name si besoin.
+    existing_carto = Activities.query.filter_by(entity_id=entity.id).filter(
+        Activities.shape_id.isnot(None)
+    ).all()
+    existing_by_sid  = {a.shape_id: a for a in existing_carto}
+    existing_by_name = {a.name: a    for a in existing_carto}
 
     new_shape_ids = {str(s['id']) for s in act_shapes}
+    new_labels    = set()
     shape_to_act  = {}
 
     for s in act_shapes:
         sid       = str(s['id'])
         label     = (s.get('label') or '').strip() or f"Activité {sid}"
         is_result = s.get('type') == 'special'
+        new_labels.add(label)
 
-        if sid in existing_acts:
-            act = existing_acts[sid]
-            if act.name != label:     act.name      = label
-            if act.is_result != is_result: act.is_result = is_result
+        if sid in existing_by_sid:
+            # Même shape_id → même activité (label ou type peut avoir changé)
+            act = existing_by_sid[sid]
+            if act.name != label:              act.name      = label
+            if act.is_result != is_result:     act.is_result = is_result
+        elif label in existing_by_name:
+            # Même nom → même activité avec un nouveau shape_id (ré-import VSDX)
+            # On met à jour shape_id pour que les saves suivants matchent par sid.
+            act = existing_by_name[label]
+            act.shape_id = sid
+            if act.is_result != is_result:     act.is_result = is_result
         else:
+            # Vraiment nouvelle activité
             act = Activities(entity_id=entity.id, shape_id=sid,
                              name=label, is_result=is_result)
             db.session.add(act)
         shape_to_act[sid] = act
 
-    # Supprimer les activités retirées de la carto (activity_roles FK en premier)
-    acts_to_remove = [act for sid, act in existing_acts.items() if sid not in new_shape_ids]
+    # Supprimer uniquement les activités absentes à la fois du shape_id ET du nom
+    acts_to_remove = [a for a in existing_carto
+                      if a.shape_id not in new_shape_ids and a.name not in new_labels]
     if acts_to_remove:
         remove_ids = [a.id for a in acts_to_remove if a.id]
         if remove_ids:
