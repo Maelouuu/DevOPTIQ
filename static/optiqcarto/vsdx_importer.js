@@ -544,12 +544,11 @@ class VsdxImporter {
 
   // Extract the fill color of a swimlane.
   // Priority:
-  //   1. Lane's own FillForegnd (already at correct saturation — use as-is).
-  //   2. Group children FIRST (index strip is a Group in Visio CFF templates).
-  //      Checking Groups before non-Groups avoids picking up non-Group activity
-  //      shapes (e.g. grey decision diamonds) that may appear before the index strip.
-  //   3. Non-Group children as last resort.
-  //   → Colors found in children are pastelified (index strip is vivid, band should be pastel).
+  //   1. Lane's own FillForegnd — use as-is if not washed out (most bands).
+  //   2. Find index strip by label text match: the child Shape whose text equals the
+  //      lane label is definitively the index strip (not an activity shape).
+  //      Read its fill (or its nested sub-shapes) and pastelify.
+  //   3. Fallback: first non-near-white child — same as fadc403 baseline, pastelified.
   _extractLaneFill(el) {
     const fill = this.vCell(el, 'FillForegnd');
     if (!this.isWashedOut(fill)) return fill;
@@ -558,15 +557,27 @@ class VsdxImporter {
     if (!childEl) return null;
     const children = this.vAll(childEl, 'Shape');
 
-    // Pass 1: Group children (index strip)
-    for (const child of children) {
-      if (child.getAttribute('Type') !== 'Group') continue;
-      const cf = this.vCell(child, 'FillForegnd');
-      if (cf && cf.startsWith('#') && !this._isNearWhite(cf)) return this._toPastel(cf);
+    // Pass 1: index strip identified by its label text
+    const laneLabel = this._extractLaneLabel(el).toLowerCase().trim();
+    if (laneLabel) {
+      for (const child of children) {
+        if (this.vText(child).toLowerCase().trim() !== laneLabel) continue;
+        // Found the index strip — try its own fill first
+        const cf = this.vCell(child, 'FillForegnd');
+        if (cf && cf.startsWith('#') && !this._isNearWhite(cf)) return this._toPastel(cf);
+        // Try nested sub-shapes (Group with colored inner rect)
+        const nested = this.vEl(child, 'Shapes');
+        if (nested) {
+          for (const gc of this.vAll(nested, 'Shape')) {
+            const gcf = this.vCell(gc, 'FillForegnd');
+            if (gcf && gcf.startsWith('#') && !this._isNearWhite(gcf)) return this._toPastel(gcf);
+          }
+        }
+      }
     }
-    // Pass 2: non-Group children (fallback)
+
+    // Pass 2: fallback — first non-near-white child (pastelified)
     for (const child of children) {
-      if (child.getAttribute('Type') === 'Group') continue;
       const cf = this.vCell(child, 'FillForegnd');
       if (cf && cf.startsWith('#') && !this._isNearWhite(cf)) return this._toPastel(cf);
     }
