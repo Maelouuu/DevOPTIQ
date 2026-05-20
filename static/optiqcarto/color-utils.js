@@ -79,14 +79,14 @@ function bandTextColor(hex) {
 }
 
 // Couleur de la zone index.
-// - lum ≤ 0.7  : couleur assez foncée → utiliser telle quelle
-// - lum > 0.93 : quasi-blanc → gris ardoise (fallback lisible)
-// - entre les deux : pastel intentionnel → convertir en vivid via HSL
+// - lum ≤ 0.7 : couleur assez foncée → utiliser telle quelle
+// - lum > 0.7 : pastel ou quasi-blanc → convertir en vivid via HSL
+//   (l'ancien fallback gris #94a3b8 pour lum > 0.93 est supprimé :
+//    il produisait du gris sur les bandes très claires comme Project #d8ffff)
 function bandIndexColor(hex) {
   const [r,g,b] = hexToRgb(hex);
   const lum = (0.299*r + 0.587*g + 0.114*b) / 255;
-  if (lum <= 0.7)  return hex;
-  if (lum > 0.93)  return '#94a3b8'; // near-white → gris ardoise
+  if (lum <= 0.7) return hex;
   return pastelToVivid(hex);
 }
 
@@ -94,8 +94,7 @@ function bandIndexColor(hex) {
 function bandBorderColor(hex) {
   const [r,g,b] = hexToRgb(hex);
   const lum = (0.299*r + 0.587*g + 0.114*b) / 255;
-  if (lum <= 0.7)  return hex;
-  if (lum > 0.93)  return '#cbd5e1'; // near-white → gris clair
+  if (lum <= 0.7) return hex;
   return pastelToVivid(hex);
 }
 
