@@ -95,15 +95,24 @@ class VsdxImporter {
     return t ? t.textContent.trim() : '';
   }
 
-  // A color is "washed out" if it's near-white or desaturated light gray
+  // A color is "washed out" if it's near-white or desaturated light gray.
+  // Used for shape fills and level-1 lane fill (reject transparent/default backgrounds).
   isWashedOut(hex) {
     if (!hex || !hex.startsWith('#') || hex.length < 7) return true;
     const r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
     const lum = (r*299 + g*587 + b*114) / 1000;
-    if (lum > 240) return true; // near-white → always washed
+    if (lum > 240) return true;
     const max = Math.max(r,g,b), min = Math.min(r,g,b);
     const sat = max === 0 ? 0 : (max - min) / max;
-    return lum > 210 && sat < 0.25; // washed only if unsaturated AND very light
+    return lum > 210 && sat < 0.25;
+  }
+
+  // Permissive check for band index-strip colors: only reject near-white (lum > 245).
+  // Intentional pastels (#d4f4dd, #fdd2cc…) are kept — they are valid band colors.
+  _isNearWhite(hex) {
+    if (!hex || !hex.startsWith('#') || hex.length < 7) return true;
+    const r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
+    return (r*299 + g*587 + b*114) / 1000 > 245;
   }
 
   // ─── Phase 1: Parse Masters ──────────────────────────────────────
@@ -481,7 +490,7 @@ class VsdxImporter {
       ourCum += bandH;
 
       const bandIdx = newBands.length + 1;
-      const color = !this.isWashedOut(fill) ? fill : FALLBACK_COLORS[bandIdx % FALLBACK_COLORS.length];
+      const color = fill || FALLBACK_COLORS[bandIdx % FALLBACK_COLORS.length];
       newBands.push({ id: bandIdx, label: label || `Bande ${bandIdx}`, color, fontSize: 22, height: bandH });
     }
   }
@@ -529,18 +538,20 @@ class VsdxImporter {
   // Extract the fill color of a swimlane.
   // Falls back to first non-washed-out child fill when the lane itself is transparent.
   _extractLaneFill(el) {
+    // 1. Lane's own fill — reject light/desaturated backgrounds (isWashedOut)
     const fill = this.vCell(el, 'FillForegnd');
     if (!this.isWashedOut(fill)) return fill;
-    // The index strip (labeled sidebar) carries the lane's representative color.
-    // In some Visio templates it is Type="Group", so we must NOT skip Group children.
+
+    // 2. Index strip (labeled sidebar, sometimes Type="Group") — permissive filter:
+    //    accept intentional pastels, only reject near-white (lum > 245).
     const childEl = this.vEl(el, 'Shapes');
     if (childEl) {
       for (const child of this.vAll(childEl, 'Shape')) {
         const cf = this.vCell(child, 'FillForegnd');
-        if (cf && cf.startsWith('#') && !this.isWashedOut(cf)) return cf;
+        if (cf && cf.startsWith('#') && !this._isNearWhite(cf)) return cf;
       }
     }
-    return fill;
+    return null; // nothing usable found
   }
 
   // Détermine le shift Y à appliquer à un point dont le Y naturel (sans
