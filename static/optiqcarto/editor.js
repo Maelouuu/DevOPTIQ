@@ -2864,6 +2864,40 @@ function _unused_vsdxAutoLayout(shapes, conns, bands, groups) {
    VSDX IMPORT
    ══════════════════════════════════════════════════ */
 
+// After render(), snap each decision diamond's center to the nearest point
+// on any rendered connection path (uses _computedOrthopts set by renderConnections).
+// Called once after VSDX import so diamonds align pixel-perfectly with arrows
+// even when orthogonal routing deviates from the original Visio connector path.
+function snapDecisionsToArrows() {
+  const THRESH = 130; // px — max distance to consider an arrow "matching"
+  let moved = false;
+  for (const s of state.shapes) {
+    if (s.type !== 'decision') continue;
+    const cx = s.x + s.w / 2, cy = s.y + s.h / 2;
+    let bestDist = THRESH, bestPx = cx, bestPy = cy;
+    for (const c of state.connections) {
+      const pts = c._computedOrthopts;
+      if (!pts || pts.length < 2) continue;
+      for (let i = 0; i < pts.length - 1; i++) {
+        const ax = pts[i].x, ay = pts[i].y, bx = pts[i+1].x, by = pts[i+1].y;
+        const abx = bx - ax, aby = by - ay;
+        const len2 = abx*abx + aby*aby;
+        if (len2 < 4) continue;
+        const t = Math.max(0, Math.min(1, ((cx - ax)*abx + (cy - ay)*aby) / len2));
+        const px = ax + t*abx, py = ay + t*aby;
+        const d = Math.hypot(cx - px, cy - py);
+        if (d < bestDist) { bestDist = d; bestPx = px; bestPy = py; }
+      }
+    }
+    if (bestDist < THRESH) {
+      s.x = Math.round(bestPx - s.w / 2);
+      s.y = Math.round(bestPy - s.h / 2);
+      moved = true;
+    }
+  }
+  if (moved) renderShapes();
+}
+
 function openVSDXDialog() {
   const dlg = document.getElementById('vsdx-dialog');
   dlg.classList.remove('hidden');
@@ -3142,7 +3176,9 @@ async function importVSDX(file) {
     });
 
     history = [JSON.stringify(state)]; histIndex = 0;
-    render(); fitView(); updateProps();
+    render();
+    snapDecisionsToArrows(); // centre les losanges sur la flèche la plus proche
+    fitView(); updateProps();
 
     document.getElementById('vsdx-dialog').classList.add('hidden');
     setStatus('');
