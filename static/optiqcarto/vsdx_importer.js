@@ -1257,6 +1257,16 @@ class VsdxImporter {
     this.antiOverlap();   // résoudre les chevauchements avant d'étirer les bandes
     this.stretchBands();  // étirer les bandes pour contenir les shapes repositionnés
 
+    // Shift from importer space (y=0 at top of first band) to editor space
+    // (y=-200 at top of first band, matching BAND_Y_START in renderBands/getBandForY).
+    // All internal layout passes use y=0 as reference; this is the only place
+    // the offset needs to be applied.
+    const BAND_Y_START = -200;
+    for (const s of this.newShapes) s.y += BAND_Y_START;
+    for (const c of this.newConns) {
+      if (c.customPath) for (const pt of c.customPath) pt.y += BAND_Y_START;
+    }
+
     return {
       bands:       this.newBands,
       shapes:      this.newShapes,
