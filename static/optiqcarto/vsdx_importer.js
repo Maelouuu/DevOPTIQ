@@ -543,45 +543,41 @@ class VsdxImporter {
   }
 
   // Extract the fill color of a swimlane.
-  // Priority:
-  //   1. Lane's own FillForegnd — use as-is if not washed out (most bands).
-  //   2. Find index strip by label text match: the child Shape whose text equals the
-  //      lane label is definitively the index strip (not an activity shape).
-  //      Read its fill (or its nested sub-shapes) and pastelify.
-  //   3. Fallback: first non-near-white child — same as fadc403 baseline, pastelified.
+  //
+  // Visio CFF swimlane structure (always 2 children):
+  //   child[0] = background rect (may be grey or transparent — NOT the band color)
+  //   child[1] = index strip (the colored sidebar with the lane label)
+  //
+  // Strategy:
+  //   1. Lane's own FillForegnd — use as-is if vivid (not washed out).
+  //   2. Last non-near-white child = index strip.
+  //      If that color is already a pastel (isWashedOut=true but lum<245):
+  //        → use as-is (some bands store their pastel color directly on the strip)
+  //      If that color is vivid (isWashedOut=false):
+  //        → pastelify it (30% vivid + 70% white)
+  //
+  // This handles two failure modes from earlier approaches:
+  //   a) Applying _toPastel to already-pastel colors (#e2efd9 → near-white).
+  //   b) Stakeholder of the Order: its label is a Visio formula (no text node),
+  //      so label-matching fails; taking the LAST child (not first) skips the
+  //      grey background shape (#d8d8d8) and lands on the correct green strip (#e2f0d9).
   _extractLaneFill(el) {
     const fill = this.vCell(el, 'FillForegnd');
     if (!this.isWashedOut(fill)) return fill;
 
     const childEl = this.vEl(el, 'Shapes');
     if (!childEl) return null;
-    const children = this.vAll(childEl, 'Shape');
 
-    // Pass 1: index strip identified by its label text
-    const laneLabel = this._extractLaneLabel(el).toLowerCase().trim();
-    if (laneLabel) {
-      for (const child of children) {
-        if (this.vText(child).toLowerCase().trim() !== laneLabel) continue;
-        // Found the index strip — try its own fill first
-        const cf = this.vCell(child, 'FillForegnd');
-        if (cf && cf.startsWith('#') && !this._isNearWhite(cf)) return this._toPastel(cf);
-        // Try nested sub-shapes (Group with colored inner rect)
-        const nested = this.vEl(child, 'Shapes');
-        if (nested) {
-          for (const gc of this.vAll(nested, 'Shape')) {
-            const gcf = this.vCell(gc, 'FillForegnd');
-            if (gcf && gcf.startsWith('#') && !this._isNearWhite(gcf)) return this._toPastel(gcf);
-          }
-        }
-      }
-    }
-
-    // Pass 2: fallback — first non-near-white child (pastelified)
-    for (const child of children) {
+    // Scan all children; keep the last one that is not near-white.
+    let best = null;
+    for (const child of this.vAll(childEl, 'Shape')) {
       const cf = this.vCell(child, 'FillForegnd');
-      if (cf && cf.startsWith('#') && !this._isNearWhite(cf)) return this._toPastel(cf);
+      if (cf && cf.startsWith('#') && !this._isNearWhite(cf)) best = cf;
     }
-    return null;
+    if (!best) return null;
+
+    // Already-pastel colors must not be pastelified again.
+    return this.isWashedOut(best) ? best : this._toPastel(best);
   }
 
   // Détermine le shift Y à appliquer à un point dont le Y naturel (sans
