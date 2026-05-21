@@ -98,9 +98,21 @@ function _checkRenvoiAutoLink(fromShapeId, toShapeId) {
 // ── Défauts par type de forme ─────────────────────
 function _defaultBands() {
   return [
-    { id: 1, label: 'Niveau 1', color: '#22c55e', fontSize: 22, height: 180 },
-    { id: 2, label: 'Niveau 2', color: '#3b82f6', fontSize: 22, height: 180 },
-    { id: 3, label: 'Niveau 3', color: '#f59e0b', fontSize: 22, height: 180 },
+    { id:  1, label: 'Analyse de Marché & Communication',                           color: '#FF0000', fontSize: 11, height: 220 },
+    { id:  2, label: 'Vente & Suivi commercial',                                    color: '#C00000', fontSize: 11, height: 220 },
+    { id:  3, label: 'Gestion Administrative & Financière',                         color: '#00B050', fontSize: 11, height: 220 },
+    { id:  4, label: 'Négociation & Relations Fournisseurs',                         color: '#808000', fontSize: 11, height: 220 },
+    { id:  5, label: 'Coordination & Suivi de Projet',                              color: '#5B9BD5', fontSize: 11, height: 220 },
+    { id:  6, label: 'Conception Produit & Ingénierie',                             color: '#2E74B5', fontSize: 11, height: 220 },
+    { id:  7, label: 'Organisation Industrielle & Méthodes (hors production directe)', color: '#1F3864', fontSize: 11, height: 220 },
+    { id:  8, label: 'Satisfaction Client & Amélioration Continue',                 color: '#FFFF00', fontSize: 11, height: 220 },
+    { id:  9, label: 'Contrôle qualité & Mesure (Métrologie)',                      color: '#7030A0', fontSize: 11, height: 220 },
+    { id: 10, label: 'Fabrication & Réalisation Produit (opérations directes)',     color: '#4472C4', fontSize: 11, height: 220 },
+    { id: 11, label: 'Organisation & Planification du Travail',                     color: '#ED7D31', fontSize: 11, height: 220 },
+    { id: 12, label: 'Analyse Technique & Résolution de Problèmes',                 color: '#843C00', fontSize: 11, height: 220 },
+    { id: 13, label: 'Logistique & Gestion des Flux Physiques',                     color: '#375623', fontSize: 11, height: 220 },
+    { id: 14, label: 'Pilotage Stratégique & Opérationnel (macro)',                 color: '#D9D9D9', fontSize: 11, height: 220 },
+    { id: 15, label: 'Gestion des Compétences & des Talents',                       color: '#92D050', fontSize: 11, height: 220 },
   ];
 }
 
@@ -355,20 +367,34 @@ function renderBands() {
       'pointer-events': 'none',
     }, g);
 
-    // Label de la bande dans la zone index — vertical, couleur adaptée au fond
-    txt((band.label || '').toUpperCase(), {
-      x: INDEX_W_SVG / 2,
-      y: y + band.height / 2,
-      'text-anchor': 'middle',
-      'dominant-baseline': 'middle',
-      fill: bandTextColor(idxColor),
-      'font-size': Math.min(band.fontSize || 22, INDEX_W_SVG * 0.55),
-      'font-family': 'Segoe UI, sans-serif',
-      'font-weight': '700',
-      'letter-spacing': '2',
-      'pointer-events': 'none',
-      transform: `rotate(-90, ${INDEX_W_SVG / 2}, ${y + band.height / 2})`,
-    }, g);
+    // Label multi-ligne de la bande — vertical (rotation -90°)
+    {
+      const cx = INDEX_W_SVG / 2, cy = y + band.height / 2;
+      const fs = Math.min(band.fontSize || 11, 14);
+      const charW = fs * 0.65;
+      const charsPerLine = Math.max(5, Math.floor((band.height - 24) / charW));
+      const lineH = fs * 1.4;
+      const words = (band.label || '').split(' ');
+      const lines = [];
+      let cur = '';
+      for (const w of words) {
+        const test = cur ? cur + ' ' + w : w;
+        if (test.length <= charsPerLine || !cur) { cur = test; }
+        else { lines.push(cur); cur = w; }
+      }
+      if (cur) lines.push(cur);
+      const tg = el('g', { transform: `rotate(-90, ${cx}, ${cy})`, 'pointer-events': 'none' }, g);
+      const fill = bandTextColor(idxColor);
+      lines.forEach((ln, li) => {
+        const oy = (li - (lines.length - 1) / 2) * lineH;
+        txt(ln.toUpperCase(), {
+          x: cx, y: cy + oy,
+          'text-anchor': 'middle', 'dominant-baseline': 'middle',
+          fill, 'font-size': fs, 'font-family': 'Segoe UI, sans-serif',
+          'font-weight': '700', 'letter-spacing': '0.8',
+        }, tg);
+      });
+    }
 
     // Bordure basse
     el('line', {
@@ -3225,8 +3251,36 @@ function renderBandsList() {
     state.bands[ev.target.dataset.i].height = parseInt(ev.target.value) || 150; renderBands();
   }));
   list.querySelectorAll('.band-delete').forEach(e => e.addEventListener('click', ev => {
-    state.bands.splice(parseInt(ev.target.dataset.i), 1);
-    renderBandsList(); renderBands();
+    const idx = parseInt(ev.target.dataset.i);
+    const band = state.bands[idx];
+    if (!band) return;
+
+    // Calcule les bornes Y de la bande
+    let bandY = -200;
+    for (let j = 0; j < idx; j++) bandY += state.bands[j].height;
+    const bandYEnd = bandY + band.height;
+
+    // Formes dont le centre vertical est dans la bande
+    const shapesInBand = state.shapes.filter(s => {
+      const midY = s.y + s.h / 2;
+      return midY >= bandY && midY < bandYEnd;
+    });
+
+    if (shapesInBand.length > 0) {
+      const names = shapesInBand.map(s => `• ${s.label || 'Forme sans nom'}`).join('\n');
+      const ok = confirm(
+        `Êtes-vous sûr de vouloir supprimer la bande « ${band.label} » ?\n\nCela supprimera aussi :\n${names}`
+      );
+      if (!ok) return;
+      const ids = new Set(shapesInBand.map(s => s.id));
+      state.shapes = state.shapes.filter(s => !ids.has(s.id));
+      state.connections = state.connections.filter(c => !ids.has(c.fromId) && !ids.has(c.toId));
+    }
+
+    state.bands.splice(idx, 1);
+    snapshot();
+    renderBandsList();
+    render();
   }));
 }
 
