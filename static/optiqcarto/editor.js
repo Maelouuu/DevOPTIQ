@@ -3203,7 +3203,7 @@ async function importVSDX(file) {
     state.shapes      = shapes;
     state.connections = connections;
     state.groups      = groups;
-    _syncBandsAfterVsdx(bands);  // merge importés avec les 15 bandes par défaut
+    state.bands       = bands;   // bandes telles qu'importées depuis le VSDX, rien d'autre
     state.bandWidth   = Math.max(3200, Math.round(shapes.reduce((m, s) => Math.max(m, s.x + s.w), 0) + 300));
     state.nextId      = nextOid + 1;
 
@@ -3220,11 +3220,10 @@ async function importVSDX(file) {
 
     document.getElementById('vsdx-dialog').classList.add('hidden');
     setStatus('');
-    renderBandsTbList();  // mettre \u00e0 jour le dropdown bandes apr\u00e8s sync
+    renderBandsTbList();  // rafra\u00eechir le dropdown avec les bandes import\u00e9es
     const nCustom = connections.filter(c => c.customPath).length;
-    const activeBands = state.bands.filter(b => !b.deleted).length;
     console.log(`[VSDX] ${shapes.length} formes, ${connections.length} connexions, ${nCustom} chemins Visio exacts, ${groups.length} groupes`);
-    showToast(`Import r\u00e9ussi \u2014 ${shapes.length} activit\u00e9s \u00b7 ${connections.length} connexions \u00b7 ${activeBands} bandes actives`);
+    showToast(`Import r\u00e9ussi \u2014 ${shapes.length} activit\u00e9s \u00b7 ${connections.length} connexions \u00b7 ${bands.length} bandes`);
 
     // Debug report download
     if (result.debugHtml) {
@@ -3251,44 +3250,6 @@ async function importVSDX(file) {
    BANDS DIALOG
    ══════════════════════════════════════════════════ */
 
-/* Compare deux couleurs hex — retourne true si identiques (ignore la casse) */
-function _colorMatch(a, b) {
-  return (a || '').toLowerCase().trim() === (b || '').toLowerCase().trim();
-}
-
-/* Après import VSDX : synchronise les bandes par défaut avec les bandes importées.
-   Le matching se fait par COULEUR (pas par label, car les titres peuvent différer).
-   - Bande importée dont la couleur = couleur d'une bande par défaut → active (màj label/height)
-   - Bande par défaut sans correspondance → soft-deleted
-   - Chaque bande par défaut ne peut être associée qu'à une seule bande importée (1:1)
-   - Bandes importées sans correspondance dans les defaults → ajoutées comme actives */
-function _syncBandsAfterVsdx(importedBands) {
-  const defaults = _defaultBands();
-  const matchedDefaultIds = new Set();  // évite les doublons
-
-  // Reconstruire à partir des defaults
-  const merged = defaults.map(def => {
-    if (matchedDefaultIds.has(def.id)) {
-      return { ...def, deleted: true };
-    }
-    const match = importedBands.find(imp => _colorMatch(imp.color, def.color));
-    if (match) {
-      matchedDefaultIds.add(def.id);
-      return { ...def, label: match.label, height: match.height, deleted: false };
-    }
-    return { ...def, deleted: true };
-  });
-
-  // Ajouter les bandes importées sans correspondance par couleur
-  importedBands.forEach(imp => {
-    const alreadyIn = merged.some(d => _colorMatch(d.color, imp.color) && !d.deleted);
-    if (!alreadyIn) {
-      merged.push({ ...imp, deleted: false });
-    }
-  });
-
-  state.bands = merged;
-}
 
 function openBandsDialog() {
   document.getElementById('bands-dialog').classList.remove('hidden');
