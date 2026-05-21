@@ -12,16 +12,24 @@ from datetime import datetime
 from pathlib import Path
 
 PAGE_LABELS = {
-    "test_01_auth":        "Authentification",
-    "test_02_activities":  "Liste des Activités",
-    "test_03_tasks":       "Tâches",
-    "test_04_constraints": "Contraintes",
-    "test_05_aptitudes":   "Aptitudes",
-    "test_06_softskills":  "HSC / Habiletés Socio-Cognitives",
-    "test_07_performance": "Performance / Connexions",
-    "test_08_task_links":  "Drag & Drop Connexions→Tâches",
-    "test_09_time":        "Gestion du Temps",
-    "test_10_roles":       "Rôles",
+    "test_01_auth":               "Authentification",
+    "test_02_activities":         "Liste des Activités",
+    "test_03_tasks":              "Tâches",
+    "test_04_activity_features":  "Fonctionnalités Activité",
+    "test_04_constraints":        "Contraintes",
+    "test_05_aptitudes":          "Aptitudes",
+    "test_06_softskills":         "HSC / Habiletés Socio-Cognitives",
+    "test_07_performance":        "Performance / Connexions",
+    "test_08_task_links":         "Drag & Drop Connexions→Tâches",
+    "test_09_time":               "Gestion du Temps",
+    "test_10_roles":              "Rôles",
+    "test_11_tools":              "Gestion des Outils",
+    "test_12_gestion_rh":         "Gestion RH",
+    "test_13_competences":        "Compétences & Évaluations",
+    "test_14_cartography_editor": "Éditeur OptiqCarto",
+    "test_15_activities_map":     "Cartographie des Activités",
+    "test_16_import_full":        "Import IA depuis Excel",
+    "test_17_chatbot":            "Chatbot IA OPTIQ",
 }
 
 
