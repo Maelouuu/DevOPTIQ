@@ -3224,6 +3224,53 @@ function openBandsDialog() {
   renderBandsList();
 }
 
+function _deleteBand(idx) {
+  const band = state.bands[idx];
+  if (!band) return false;
+  let bandY = -200;
+  for (let j = 0; j < idx; j++) bandY += state.bands[j].height;
+  const bandYEnd = bandY + band.height;
+  const shapesInBand = state.shapes.filter(s => {
+    const midY = s.y + s.h / 2;
+    return midY >= bandY && midY < bandYEnd;
+  });
+  if (shapesInBand.length > 0) {
+    const names = shapesInBand.map(s => `• ${s.label || 'Forme sans nom'}`).join('\n');
+    if (!confirm(`Êtes-vous sûr de vouloir supprimer la bande « ${band.label} » ?\n\nCela supprimera aussi :\n${names}`)) return false;
+    const ids = new Set(shapesInBand.map(s => s.id));
+    state.shapes = state.shapes.filter(s => !ids.has(s.id));
+    state.connections = state.connections.filter(c => !ids.has(c.fromId) && !ids.has(c.toId));
+  }
+  state.bands.splice(idx, 1);
+  snapshot();
+  render();
+  return true;
+}
+
+function renderBandsTbList() {
+  const list = document.getElementById('bands-tb-list');
+  if (!list) return;
+  list.innerHTML = '';
+  state.bands.forEach((band, i) => {
+    const row = document.createElement('div');
+    row.className = 'bands-tb-row';
+    row.innerHTML = `
+      <div class="bands-tb-swatch" style="background:${band.color}"></div>
+      <span class="bands-tb-row-label">${band.label || 'Bande ' + (i + 1)}</span>
+      <button class="bands-tb-del" data-i="${i}" title="Supprimer">×</button>`;
+    list.appendChild(row);
+  });
+  list.querySelectorAll('.bands-tb-del').forEach(btn => {
+    btn.addEventListener('click', ev => {
+      ev.stopPropagation();
+      if (_deleteBand(parseInt(ev.target.dataset.i))) {
+        renderBandsTbList();
+        renderBandsList();
+      }
+    });
+  });
+}
+
 function renderBandsList() {
   const list = document.getElementById('bands-list');
   list.innerHTML = '';
@@ -3251,36 +3298,10 @@ function renderBandsList() {
     state.bands[ev.target.dataset.i].height = parseInt(ev.target.value) || 150; renderBands();
   }));
   list.querySelectorAll('.band-delete').forEach(e => e.addEventListener('click', ev => {
-    const idx = parseInt(ev.target.dataset.i);
-    const band = state.bands[idx];
-    if (!band) return;
-
-    // Calcule les bornes Y de la bande
-    let bandY = -200;
-    for (let j = 0; j < idx; j++) bandY += state.bands[j].height;
-    const bandYEnd = bandY + band.height;
-
-    // Formes dont le centre vertical est dans la bande
-    const shapesInBand = state.shapes.filter(s => {
-      const midY = s.y + s.h / 2;
-      return midY >= bandY && midY < bandYEnd;
-    });
-
-    if (shapesInBand.length > 0) {
-      const names = shapesInBand.map(s => `• ${s.label || 'Forme sans nom'}`).join('\n');
-      const ok = confirm(
-        `Êtes-vous sûr de vouloir supprimer la bande « ${band.label} » ?\n\nCela supprimera aussi :\n${names}`
-      );
-      if (!ok) return;
-      const ids = new Set(shapesInBand.map(s => s.id));
-      state.shapes = state.shapes.filter(s => !ids.has(s.id));
-      state.connections = state.connections.filter(c => !ids.has(c.fromId) && !ids.has(c.toId));
+    if (_deleteBand(parseInt(ev.target.dataset.i))) {
+      renderBandsList();
+      renderBandsTbList();
     }
-
-    state.bands.splice(idx, 1);
-    snapshot();
-    renderBandsList();
-    render();
   }));
 }
 
@@ -4050,6 +4071,37 @@ async function architectLayout() {
     });
     state.bandWidth = Math.max(1400, Math.round(shapes.reduce((m, s) => Math.max(m, s.x + s.w), 0) + 300));
 
+    // ── 6. Snap quasi-alignements (formes reliées par une flèche) ──
+    archStatus('Alignement des connexions…', 97);
+    await new Promise(r => setTimeout(r, 0));
+    {
+      const THRESH_H = 22; // snap cy (alignement horizontal)
+      const THRESH_V = 28; // snap cx (alignement vertical)
+      for (const c of state.connections) {
+        const from = state.shapes.find(s => s.id === c.fromId);
+        const to   = state.shapes.find(s => s.id === c.toId);
+        if (!from || !to) continue;
+        const fromCx = from.x + from.w / 2, fromCy = from.y + from.h / 2;
+        const toCx   = to.x   + to.w   / 2, toCy   = to.y   + to.h   / 2;
+        const dCy = Math.abs(fromCy - toCy), dCx = Math.abs(fromCx - toCx);
+        // Snap cy — seulement si les deux formes sont dans la même bande
+        if (dCy > 0.5 && dCy <= THRESH_H) {
+          const avgCy = Math.round((fromCy + toCy) / 2);
+          const getBand = s => { let y = -200; for (const b of state.bands) { if (s.y + s.h / 2 >= y && s.y + s.h / 2 < y + b.height) return b; y += b.height; } return null; };
+          if (getBand(from) === getBand(to)) {
+            from.y = avgCy - Math.round(from.h / 2);
+            to.y   = avgCy - Math.round(to.h   / 2);
+          }
+        }
+        // Snap cx — alignement vertical, toutes bandes
+        if (dCx > 0.5 && dCx <= THRESH_V) {
+          const avgCx = Math.round((fromCx + toCx) / 2);
+          from.x = Math.max(INDEX_W_SVG + 4, avgCx - Math.round(from.w / 2));
+          to.x   = Math.max(INDEX_W_SVG + 4, avgCx - Math.round(to.w   / 2));
+        }
+      }
+    }
+
     archStatus('Terminé !', 100);
     await new Promise(r => setTimeout(r, 280));
 
@@ -4264,6 +4316,21 @@ function init() {
       st.textContent = 'Fichier invalide — seul le format .vsdx est accepté.';
     }
   });
+
+  // Bands toolbar dropdown
+  const bandsTbSection = document.getElementById('bands-tb-section');
+  const btnBandsCatalog = document.getElementById('btn-bands-catalog');
+  if (bandsTbSection && btnBandsCatalog) {
+    btnBandsCatalog.addEventListener('click', e => {
+      e.stopPropagation();
+      const opening = !bandsTbSection.classList.contains('open');
+      if (opening) renderBandsTbList();
+      bandsTbSection.classList.toggle('open');
+    });
+    document.addEventListener('click', e => {
+      if (!bandsTbSection.contains(e.target)) bandsTbSection.classList.remove('open');
+    });
+  }
 
   // Folder component
   initFolder();
