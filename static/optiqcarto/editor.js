@@ -59,10 +59,13 @@ function _checkRenvoiAutoLink(fromShapeId, toShapeId) {
   );
   if (!actA) return;
 
-  // Créer R2 à gauche de A (même centre vertical)
+  // Connexion originale actB → renvoi (vient d'être créée juste avant l'appel)
+  const origConn = state.connections.find(c => c.fromId === fromShapeId && c.toId === toShapeId);
+
+  // Créer R2 à gauche de A avec un écart suffisant
   const R2W = SHAPE_DEFAULTS['start-end'].w;
   const R2H = SHAPE_DEFAULTS['start-end'].h;
-  const r2x = Math.max(0, Math.round(actA.x - R2W - 24));
+  const r2x = Math.max(INDEX_W_SVG + 4, Math.round(actA.x - R2W - 80));
   const r2y = Math.round(actA.y + actA.h / 2 - R2H / 2);
   const r2 = {
     id: state.nextId++,
@@ -80,18 +83,21 @@ function _checkRenvoiAutoLink(fromShapeId, toShapeId) {
   };
   state.shapes.push(r2);
 
-  // Connexion R2 → A
+  // Connexion R2 → A — même style et label que la connexion originale
   if (!wouldBeBackwards(r2.id, actA.id) &&
       !state.connections.some(c => c.fromId === r2.id && c.toId === actA.id)) {
-    state.connections.push({
+    const mirrorConn = {
       id:       state.nextId++,
       fromId:   r2.id,
       toId:     actA.id,
-      style:    'solid',
+      style:    origConn ? origConn.style  : 'solid',
       routing:  state.defaultRouting || 'smooth',
       color:    actB.color,
-      label:    '',
-    });
+      label:    origConn ? origConn.label  : '',
+      mirrorConnId: origConn ? origConn.id : null,
+    };
+    if (origConn) origConn.mirrorConnId = mirrorConn.id;
+    state.connections.push(mirrorConn);
   }
 }
 
@@ -2287,11 +2293,15 @@ function bindProps() {
     });
   });
 
-  // Connection — style trait
+  // Connection — style trait (propagé au miroir renvoi si présent)
   document.querySelectorAll('input[name="conn-style"]').forEach(r => {
     r.addEventListener('change', e => {
       const c = state.connections.find(c => c.id === selectedConn);
-      if (c) { c.style = e.target.value; snapshot(); render(); }
+      if (!c) return;
+      c.style = e.target.value;
+      const mirror = c.mirrorConnId != null && state.connections.find(m => m.id === c.mirrorConnId);
+      if (mirror) mirror.style = c.style;
+      snapshot(); render();
     });
   });
   // Connection — routing
@@ -2329,7 +2339,10 @@ function bindProps() {
   });
   cprop('conn-label', v => {
     const c = state.connections.find(c => c.id === selectedConn);
-    if (c) c.label = v;
+    if (!c) return;
+    c.label = v;
+    const mirror = c.mirrorConnId != null && state.connections.find(m => m.id === c.mirrorConnId);
+    if (mirror) mirror.label = v;
   });
   document.getElementById('prop-delete-conn').addEventListener('click', deleteSelected);
 
@@ -3609,7 +3622,7 @@ async function architectLayout() {
   overlay.innerHTML = `
     <div style="background:#1a2030;border:1px solid rgba(255,255,255,0.09);border-radius:20px;padding:30px 36px;min-width:360px;max-width:500px;text-align:center;box-shadow:0 32px 80px rgba(0,0,0,0.6)">
       <div style="font-size:16px;font-weight:700;color:#e2e8f0;margin-bottom:8px">
-        <i class="fa-solid fa-wand-magic-sparkles" style="color:#4db868;margin-right:9px"></i>Optimisation en cours…
+        <i class="fa-solid fa-wand-magic-sparkles" style="color:#4db868;margin-right:9px"></i>Architecte IA en cours…
       </div>
       <div id="arch-status-msg" style="font-size:12px;color:#64748b;margin-bottom:22px;min-height:16px;transition:color 0.2s"></div>
       <div style="background:rgba(255,255,255,0.06);border-radius:8px;height:6px;overflow:hidden">
@@ -3628,485 +3641,81 @@ async function architectLayout() {
   await new Promise(r => setTimeout(r, 0));
   snapshot();
 
-  const BAND_Y0 = -200;
-  const bands  = state.bands;
-  const shapes = state.shapes;
-  const conns  = state.connections;
-  const groups = state.groups || [];
-
   try {
-    // ── 1. Anti-chevauchement itératif ────────────────────────
-    archStatus('Résolution des chevauchements…', 8);
+    archStatus('Analyse de la cartographie…', 15);
     await new Promise(r => setTimeout(r, 0));
-    {
-      const PAD = 12;
-      let bandRanges = [];
 
-      function _rebuildRanges() {
-        bandRanges = [];
-        let y0 = BAND_Y0;
-        for (const band of bands) { bandRanges.push({ y0, y1: y0 + band.height }); y0 += band.height; }
-      }
-      function _getBandIdx(s) {
-        const mid = s.y + s.h / 2;
-        for (let i = 0; i < bandRanges.length; i++)
-          if (mid >= bandRanges[i].y0 && mid < bandRanges[i].y1) return i;
-        return -1;
-      }
-      function _clamp() {
-        let y0 = BAND_Y0;
-        for (const band of bands) {
-          for (const s of shapes) {
-            const m = s.y + s.h / 2;
-            if (m >= y0 && m < y0 + band.height) {
-              if (s.y < y0 + 8) s.y = y0 + 8;
-              if (s.y + s.h > y0 + band.height - 8) s.y = Math.max(y0 + 8, y0 + band.height - 8 - s.h);
-            }
-          }
-          y0 += band.height;
-        }
-      }
-      function _stretch() {
-        let grew = false;
-        let y0 = BAND_Y0;
-        for (const band of bands) {
-          const bot = shapes
-            .filter(s => { const m = s.y + s.h / 2; return m >= y0 && m < y0 + band.height; })
-            .reduce((m, s) => Math.max(m, s.y + s.h), 0);
-          if (bot + 20 > y0 + band.height) { band.height = Math.round(bot + 20 - y0); grew = true; }
-          y0 += band.height;
-        }
-        return grew;
-      }
-      function _hasOverlap() {
-        for (let i = 0; i < shapes.length; i++) {
-          for (let j = i + 1; j < shapes.length; j++) {
-            const a = shapes[i], b = shapes[j];
-            const ovX = Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x) + PAD;
-            const ovY = Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y) + PAD;
-            if (ovX > 0 && ovY > 0) return true;
-          }
-        }
-        return false;
-      }
+    const apiBase = window.OPTIQCARTO_API_BASE || '/cartography';
+    archStatus("Transmission à l'IA…", 30);
 
-      _rebuildRanges();
-      for (let round = 0; round < 8; round++) {
-        for (let iter = 0; iter < 200; iter++) {
-          let moved = false;
-          for (let i = 0; i < shapes.length; i++) {
-            for (let j = i + 1; j < shapes.length; j++) {
-              const a = shapes[i], b = shapes[j];
-              const ovX = Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x) + PAD;
-              const ovY = Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y) + PAD;
-              if (ovX <= 0 || ovY <= 0) continue;
-              const bandA = _getBandIdx(a), bandB = _getBandIdx(b);
-              const sameBand = bandA === bandB && bandA !== -1;
-              if (sameBand || ovX <= ovY) {
-                const half = ovX / 2;
-                if (a.x + a.w / 2 <= b.x + b.w / 2) { a.x -= half; b.x += half; }
-                else { a.x += half; b.x -= half; }
-              } else {
-                const half = ovY / 2;
-                if (a.y + a.h / 2 <= b.y + b.h / 2) { a.y -= half; b.y += half; }
-                else { a.y += half; b.y -= half; }
-              }
-              a.x = Math.max(INDEX_W_SVG + 4, a.x);
-              b.x = Math.max(INDEX_W_SVG + 4, b.x);
-              moved = true;
-            }
-          }
-          _clamp();
-          if (!moved) break;
-        }
-        const grew = _stretch();
-        _clamp();
-        _rebuildRanges();
-        if (!grew && !_hasOverlap()) break;
-        await new Promise(r => setTimeout(r, 0));
-      }
+    const res = await fetch(`${apiBase}/api/architect`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ state }),
+    });
+
+    archStatus('Traitement IA…', 60);
+    const data = await res.json();
+
+    if (data.error) {
+      showToast('Architecte IA : ' + data.error);
+      return;
     }
 
-    // ── 2. Dénouage bandes denses (barycenter + recuit simulé) ─
-    archStatus('Analyse des zones denses…', 38);
+    archStatus('Application du layout…', 85);
     await new Promise(r => setTimeout(r, 0));
-    {
-      const bRangesU = [];
-      { let y0 = BAND_Y0; for (const b of bands) { bRangesU.push({ y0, y1: y0 + b.height }); y0 += b.height; } }
 
-      const shapeByIdU = {};
-      for (const s of shapes) shapeByIdU[s.id] = s;
-
-      function epX(id) {
-        const s = shapeByIdU[id]; if (s) return s.x + s.w / 2;
-        const g = groups.find(g => g.id === id);
-        if (g) {
-          const mem = shapes.filter(s => g.shapeIds && g.shapeIds.includes(s.id));
-          if (mem.length) return mem.reduce((a, t) => a + t.x + t.w / 2, 0) / mem.length;
-        }
-        return null;
-      }
-
-      const bandShapesU = bands.map((b, i) =>
-        shapes.filter(s => { const m = s.y + s.h / 2; return m >= bRangesU[i].y0 && m < bRangesU[i].y1; })
-      );
-      const avgU = shapes.length / Math.max(bands.length, 1);
-      const HEAVY_U = Math.max(3, Math.ceil(avgU));
-      const bandWU = Math.max(1400, shapes.reduce((m, s) => Math.max(m, s.x + s.w), 0) + 300);
-
-      for (let bi = 0; bi < bands.length; bi++) {
-        const inBand = bandShapesU[bi];
-        if (inBand.length < HEAVY_U) continue;
-
-        const bandIdsU = new Set(inBand.map(s => s.id));
-        const relC = conns.filter(c =>
-          (bandIdsU.has(c.fromId) || bandIdsU.has(c.toId)) &&
-          shapeByIdU[c.fromId] && shapeByIdU[c.toId]
-        );
-        if (relC.length < 2) continue;
-
-        archStatus(`Dénouage "${bands[bi].label}" — ${inBand.length} formes…`, 38 + (bi / bands.length) * 28);
-        await new Promise(r => setTimeout(r, 0));
-
-        const PAD_U = INDEX_W_SVG + 20;
-        const totalWU = inBand.reduce((a, s) => a + s.w, 0);
-        const gapU = Math.max(16, (bandWU - PAD_U - 20 - totalWU) / (inBand.length + 1));
-
-        function applyOrdU(ord) {
-          let cx = PAD_U + gapU;
-          for (const idx of ord) { inBand[idx].x = Math.round(cx); cx += inBand[idx].w + gapU; }
-        }
-        function costU() {
-          const xs = {};
-          for (const c of relC) {
-            if (xs[c.fromId] === undefined) xs[c.fromId] = epX(c.fromId);
-            if (xs[c.toId]   === undefined) xs[c.toId]   = epX(c.toId);
-          }
-          let cost = 0;
-          for (const c of relC) {
-            const fx = xs[c.fromId], tx = xs[c.toId];
-            if (fx != null && tx != null) cost += Math.abs(fx - tx);
-          }
-          for (let i = 0; i < relC.length; i++) {
-            for (let j = i + 1; j < relC.length; j++) {
-              const fi = xs[relC[i].fromId], ti = xs[relC[i].toId];
-              const fj = xs[relC[j].fromId], tj = xs[relC[j].toId];
-              if (fi == null || ti == null || fj == null || tj == null) continue;
-              if (Math.abs(fi - fj) < 1 || Math.abs(ti - tj) < 1) continue;
-              if ((fi < fj) !== (ti < tj)) cost += 500;
-            }
-          }
-          return cost;
-        }
-
-        let ordU = inBand.map((_, i) => i).sort((a, b) => inBand[a].x - inBand[b].x);
-        applyOrdU(ordU);
-
-        for (let iter = 0; iter < 10; iter++) {
-          const gravs = inBand.map((s, i) => {
-            let sum = 0, w = 0;
-            for (const c of relC) {
-              let othId = null, wt = 1;
-              if (c.fromId === s.id) { othId = c.toId;   wt = bandIdsU.has(othId) ? 0.5 : 2; }
-              else if (c.toId === s.id) { othId = c.fromId; wt = bandIdsU.has(othId) ? 0.5 : 2; }
-              if (othId != null) { const ox = epX(othId); if (ox != null) { sum += ox * wt; w += wt; } }
-            }
-            return [i, w > 0 ? sum / w : s.x + s.w / 2];
-          });
-          gravs.sort((a, b) => a[1] - b[1]);
-          ordU = gravs.map(g => g[0]);
-          applyOrdU(ordU);
-        }
-
-        let curCostU = costU();
-        let T = 3000, TMIN = 0.5, COOL = 0.9994;
-        const NU = inBand.length;
-        while (T > TMIN) {
-          const i = (Math.random() * NU) | 0;
-          const j = (Math.random() * NU) | 0;
-          if (i === j) { T *= COOL; continue; }
-          [ordU[i], ordU[j]] = [ordU[j], ordU[i]];
-          applyOrdU(ordU);
-          const nc = costU();
-          const delta = nc - curCostU;
-          if (delta <= 0 || Math.random() < Math.exp(-delta / T)) {
-            curCostU = nc;
-          } else {
-            [ordU[i], ordU[j]] = [ordU[j], ordU[i]];
-            applyOrdU(ordU);
-          }
-          T *= COOL;
-        }
-        await new Promise(r => setTimeout(r, 0));
-      }
-      for (const s of shapes) { if (s.x < INDEX_W_SVG + 4) s.x = INDEX_W_SVG + 4; }
+    for (const pos of (data.positions || [])) {
+      const s = state.shapes.find(s => s.id === pos.id);
+      if (s) { s.x = Math.round(pos.x); s.y = Math.round(pos.y); }
     }
-
-    // ── 3. Assignation des ports ──────────────────────────────
-    archStatus('Assignation des points de connexion…', 75);
-    await new Promise(r => setTimeout(r, 0));
-    {
-      const OPP_DIR = { right: 'left', left: 'right', top: 'bottom', bottom: 'top' };
-      const PREFER = {
-        right:  ['right', 'bottom', 'top', 'left'],
-        left:   ['left', 'top', 'bottom', 'right'],
-        bottom: ['bottom', 'right', 'left', 'top'],
-        top:    ['top', 'left', 'right', 'bottom'],
-      };
-      const ALIGN_PX = 18;
-      const sideUsed = new Map();
-      function shapeUsage(id) {
-        if (!sideUsed.has(id)) sideUsed.set(id, { right: 0, left: 0, top: 0, bottom: 0 });
-        return sideUsed.get(id);
-      }
-      const pairUsed = new Map();
-      const shapeById = {};
-      for (const s of shapes) shapeById[s.id] = s;
-
-      function resolvePortShape(id) {
-        const s = shapeById[id]; if (s) return s;
-        const g = groups.find(g => g.id === id);
-        if (!g) return null;
-        const members = shapes.filter(s => g.shapeIds.includes(s.id));
-        if (!members.length) return null;
-        const xs = members.flatMap(s => [s.x, s.x + s.w]);
-        const ys = members.flatMap(s => [s.y, s.y + s.h]);
-        const GPAD = 22, GLBL = 24;
-        return { x: Math.min(...xs) - GPAD, y: Math.min(...ys) - GPAD - GLBL,
-                 w: Math.max(...xs) - Math.min(...xs) + GPAD * 2,
-                 h: Math.max(...ys) - Math.min(...ys) + GPAD * 2 + GLBL, type: 'group' };
-      }
-
-      function assignPort(conn) {
-        const fs = resolvePortShape(conn.fromId);
-        const ts = resolvePortShape(conn.toId);
-        if (!fs || !ts) return;
-        const fcx = fs.x + fs.w / 2, fcy = fs.y + fs.h / 2;
-        const tcx = ts.x + ts.w / 2, tcy = ts.y + ts.h / 2;
-        const dx = tcx - fcx, dy = tcy - fcy;
-        const fu = shapeUsage(conn.fromId);
-        const tu = shapeUsage(conn.toId);
-        if (Math.abs(dy) < ALIGN_PX && Math.abs(dx) > 1) {
-          const dir = dx >= 0 ? 'right' : 'left';
-          fu[dir]++; tu[OPP_DIR[dir]]++;
-          conn.fromPortDir = dir; conn.toPortDir = OPP_DIR[dir]; return;
-        }
-        if (Math.abs(dx) < ALIGN_PX && Math.abs(dy) > 1) {
-          const dir = dy >= 0 ? 'bottom' : 'top';
-          fu[dir]++; tu[OPP_DIR[dir]]++;
-          conn.fromPortDir = dir; conn.toPortDir = OPP_DIR[dir]; return;
-        }
-        const pairKey = conn.fromId < conn.toId ? `${conn.fromId}↔${conn.toId}` : `${conn.toId}↔${conn.fromId}`;
-        if (pairUsed.has(pairKey)) {
-          const prev = pairUsed.get(pairKey);
-          const dir = prev.firstFromId === conn.fromId ? prev.dir : OPP_DIR[prev.dir];
-          fu[dir]++; tu[OPP_DIR[dir]]++;
-          conn.fromPortDir = dir; conn.toPortDir = OPP_DIR[dir]; return;
-        }
-        const nat = Math.abs(dx) >= Math.abs(dy) ? (dx >= 0 ? 'right' : 'left') : (dy >= 0 ? 'bottom' : 'top');
-        const backward = OPP_DIR[nat];
-        const candidates = (fs.type === 'decision' || ts.type === 'decision')
-          ? ['right', 'bottom', 'left', 'top'] : PREFER[nat];
-        let bestDir = nat, bestScore = Infinity;
-        for (const dir of candidates) {
-          let score = fu[dir] + tu[OPP_DIR[dir]];
-          if (dir === backward) score += 8;
-          if (score < bestScore) { bestScore = score; bestDir = dir; if (score === 0) break; }
-        }
-        fu[bestDir]++; tu[OPP_DIR[bestDir]]++;
-        conn.fromPortDir = bestDir; conn.toPortDir = OPP_DIR[bestDir];
-        pairUsed.set(pairKey, { dir: bestDir, firstFromId: conn.fromId });
-      }
-
-      conns.filter(c => c.style !== 'dashed').forEach(assignPort);
-      conns.filter(c => c.style === 'dashed').forEach(assignPort);
-
-      // Redistribution surcharge (> 3 connexions sur un même côté)
-      const SIDE_MAX = 3;
-      const OPP2 = OPP_DIR;
-      const ALL_DIRS = ['right', 'left', 'bottom', 'top'];
-      const fromCount = new Map();
-      for (const c of conns) {
-        if (!c.fromPortDir) continue;
-        const key = `${c.fromId}-${c.fromPortDir}`;
-        if (!fromCount.has(key)) fromCount.set(key, []);
-        fromCount.get(key).push(c);
-      }
-      for (const [key, group] of fromCount) {
-        if (group.length <= SIDE_MAX) continue;
-        const dashIdx = key.lastIndexOf('-');
-        const shapeIdNum = parseInt(key.slice(0, dashIdx));
-        const dir = key.slice(dashIdx + 1);
-        const fs = resolvePortShape(shapeIdNum);
-        if (!fs) continue;
-        const excess = group.slice(SIDE_MAX);
-        for (const c of excess) {
-          const altDirs = ALL_DIRS.filter(d => d !== dir && d !== OPP2[dir]);
-          let bestAlt = null, bestCnt = Infinity;
-          for (const d of altDirs) {
-            const cnt = (fromCount.get(`${shapeIdNum}-${d}`) || []).length;
-            if (cnt < bestCnt) { bestCnt = cnt; bestAlt = d; }
-          }
-          if (bestAlt && bestCnt < group.length) {
-            const oldArr = fromCount.get(key);
-            oldArr.splice(oldArr.indexOf(c), 1);
-            const newKey = `${shapeIdNum}-${bestAlt}`;
-            if (!fromCount.has(newKey)) fromCount.set(newKey, []);
-            fromCount.get(newKey).push(c);
-            c.fromPortDir = bestAlt;
-            c.toPortDir   = OPP2[bestAlt];
-          }
-        }
-      }
-    }
-
-    // ── 4. Espace pour les étiquettes de flèches ─────────────
-    archStatus('Espace pour les étiquettes…', 82);
-    await new Promise(r => setTimeout(r, 0));
-    {
-      // Pour chaque connexion avec une étiquette, s'assurer que le segment
-      // principal est assez long pour afficher le texte.
-      // Si le gap est insuffisant, on écarte légèrement les deux formes.
-      const shapeById2 = {};
-      for (const s of shapes) shapeById2[s.id] = s;
-
-      let adjusted = false;
-      for (const c of conns) {
-        if (!c.label || !c.label.trim() || !c.fromPortDir) continue;
-        const fs = shapeById2[c.fromId];
-        const ts = shapeById2[c.toId];
-        if (!fs || !ts) continue;
-
-        const minLen = c.label.length * 6 + 24; // même heuristique que le rendu
-
-        const dir = c.fromPortDir;
-        if (dir === 'right') {
-          const gap = ts.x - (fs.x + fs.w);
-          if (gap < minLen) {
-            const push = Math.ceil((minLen - gap + 4) / 2);
-            ts.x = Math.round(ts.x + push);
-            fs.x = Math.max(INDEX_W_SVG + 4, Math.round(fs.x - push));
-            adjusted = true;
-          }
-        } else if (dir === 'left') {
-          const gap = fs.x - (ts.x + ts.w);
-          if (gap < minLen) {
-            const push = Math.ceil((minLen - gap + 4) / 2);
-            fs.x = Math.round(fs.x + push);
-            ts.x = Math.max(INDEX_W_SVG + 4, Math.round(ts.x - push));
-            adjusted = true;
-          }
-        } else if (dir === 'bottom') {
-          const gap = ts.y - (fs.y + fs.h);
-          if (gap < minLen) {
-            const push = Math.ceil((minLen - gap + 4) / 2);
-            ts.y = Math.round(ts.y + push);
-            fs.y = Math.round(fs.y - push);
-            adjusted = true;
-          }
-        } else if (dir === 'top') {
-          const gap = fs.y - (ts.y + ts.h);
-          if (gap < minLen) {
-            const push = Math.ceil((minLen - gap + 4) / 2);
-            fs.y = Math.round(fs.y + push);
-            ts.y = Math.round(ts.y - push);
-            adjusted = true;
-          }
-        }
-      }
-
-      if (adjusted) {
-        // Passe rapide anti-chevauchement pour corriger les nouveaux conflits
-        const PAD2 = 12;
-        let bRanges2 = [];
-        { let y0 = BAND_Y0; for (const b of bands) { bRanges2.push({ y0, y1: y0 + b.height }); y0 += b.height; } }
-
-        for (let iter = 0; iter < 120; iter++) {
-          let moved = false;
-          for (let i = 0; i < shapes.length; i++) {
-            for (let j = i + 1; j < shapes.length; j++) {
-              const a = shapes[i], b = shapes[j];
-              const ovX = Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x) + PAD2;
-              const ovY = Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y) + PAD2;
-              if (ovX <= 0 || ovY <= 0) continue;
-              if (ovX <= ovY) {
-                const half = ovX / 2;
-                if (a.x + a.w / 2 <= b.x + b.w / 2) { a.x -= half; b.x += half; }
-                else { a.x += half; b.x -= half; }
-              } else {
-                const half = ovY / 2;
-                if (a.y + a.h / 2 <= b.y + b.h / 2) { a.y -= half; b.y += half; }
-                else { a.y += half; b.y -= half; }
-              }
-              a.x = Math.max(INDEX_W_SVG + 4, a.x);
-              b.x = Math.max(INDEX_W_SVG + 4, b.x);
-              moved = true;
-            }
-          }
-          // Clamp dans les bandes
-          let y0c = BAND_Y0;
-          for (const band of bands) {
-            for (const s of shapes) {
-              const m = s.y + s.h / 2;
-              if (m >= y0c && m < y0c + band.height) {
-                if (s.y < y0c + 8) s.y = y0c + 8;
-                if (s.y + s.h > y0c + band.height - 8) s.y = Math.max(y0c + 8, y0c + band.height - 8 - s.h);
-              }
-            }
-            y0c += band.height;
-          }
-          if (!moved) break;
-        }
-      }
-    }
-
-    // ── 5. Couleurs + bandWidth ───────────────────────────────
-    archStatus('Finalisation…', 94);
-    await new Promise(r => setTimeout(r, 0));
 
     state.shapes.forEach(s => updateShapeColor(s));
     state.connections.forEach(c => {
       const from = state.shapes.find(s => s.id === c.fromId);
       if (from) c.color = from.color;
     });
-    state.bandWidth = Math.max(1400, Math.round(shapes.reduce((m, s) => Math.max(m, s.x + s.w), 0) + 300));
+    state.bandWidth = Math.max(1400, Math.round(
+      state.shapes.reduce((m, s) => Math.max(m, s.x + s.w), 0) + 300
+    ));
 
-    // ── 6. Snap quasi-alignements (formes reliées par une flèche) ──
-    archStatus('Alignement des connexions…', 97);
+    // ── Snap quasi-alignements (post-IA) ──────────────────────
+    archStatus('Alignement final…', 97);
     await new Promise(r => setTimeout(r, 0));
     {
-      const THRESH_H = 22; // snap cy (alignement horizontal)
-      const THRESH_V = 28; // snap cx (alignement vertical)
+      const THRESH_H = 22, THRESH_V = 28;
       for (const c of state.connections) {
         const from = state.shapes.find(s => s.id === c.fromId);
         const to   = state.shapes.find(s => s.id === c.toId);
         if (!from || !to) continue;
         const fromCx = from.x + from.w / 2, fromCy = from.y + from.h / 2;
         const toCx   = to.x   + to.w   / 2, toCy   = to.y   + to.h   / 2;
-        const dCy = Math.abs(fromCy - toCy), dCx = Math.abs(fromCx - toCx);
-        // Snap cy — seulement si les deux formes sont dans la même bande
-        if (dCy > 0.5 && dCy <= THRESH_H) {
-          const avgCy = Math.round((fromCy + toCy) / 2);
-          const getBand = s => { let y = -200; for (const b of state.bands) { if (s.y + s.h / 2 >= y && s.y + s.h / 2 < y + b.height) return b; y += b.height; } return null; };
-          if (getBand(from) === getBand(to)) {
-            from.y = avgCy - Math.round(from.h / 2);
-            to.y   = avgCy - Math.round(to.h   / 2);
+        if (Math.abs(fromCy - toCy) > 0.5 && Math.abs(fromCy - toCy) <= THRESH_H) {
+          const gB = s2 => { let y = -200; for (const b of state.bands) { if (s2.y + s2.h / 2 >= y && s2.y + s2.h / 2 < y + b.height) return b; y += b.height; } return null; };
+          if (gB(from) === gB(to)) {
+            const avg = Math.round((fromCy + toCy) / 2);
+            from.y = avg - Math.round(from.h / 2);
+            to.y   = avg - Math.round(to.h   / 2);
           }
         }
-        // Snap cx — alignement vertical, toutes bandes
-        if (dCx > 0.5 && dCx <= THRESH_V) {
-          const avgCx = Math.round((fromCx + toCx) / 2);
-          from.x = Math.max(INDEX_W_SVG + 4, avgCx - Math.round(from.w / 2));
-          to.x   = Math.max(INDEX_W_SVG + 4, avgCx - Math.round(to.w   / 2));
+        if (Math.abs(fromCx - toCx) > 0.5 && Math.abs(fromCx - toCx) <= THRESH_V) {
+          const avg = Math.round((fromCx + toCx) / 2);
+          from.x = Math.max(INDEX_W_SVG + 4, avg - Math.round(from.w / 2));
+          to.x   = Math.max(INDEX_W_SVG + 4, avg - Math.round(to.w   / 2));
         }
       }
     }
 
-    archStatus('Terminé !', 100);
+    archStatus("C'est bon !", 100);
     await new Promise(r => setTimeout(r, 280));
 
   } catch (err) {
     console.error('architectLayout error:', err);
+    showToast('Erreur architecte IA : ' + err.message);
+    clearSelection();
+    render();
+    updateProps();
+    return;
   } finally {
     overlay.remove();
   }
@@ -4114,8 +3723,9 @@ async function architectLayout() {
   clearSelection();
   render();
   updateProps();
-  showToast('Optimisation terminée');
+  showToast('Optimisation IA terminée');
 }
+
 
 /* ══════════════════════════════════════════════════
    INIT

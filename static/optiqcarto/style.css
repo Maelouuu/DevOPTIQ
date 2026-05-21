@@ -2064,10 +2064,11 @@ html, body {
   margin-bottom: 4px;
 }
 #prop-align .align-btn {
-  background: linear-gradient(160deg, var(--green) 0%, var(--green-dark) 100%);
-  border: 2px solid var(--green-dark);
+  background: #4DB868 !important;
+  background: linear-gradient(160deg, #4DB868 0%, #389E52 100%) !important;
+  border: 2px solid #389E52 !important;
   border-radius: 12px;
-  color: #ffffff;
+  color: #ffffff !important;
   padding: 14px 10px 12px;
   cursor: pointer;
   font-size: 11.5px;
@@ -2084,8 +2085,8 @@ html, body {
   box-shadow: 0 3px 10px rgba(77,184,104,0.35), inset 0 1px 0 rgba(255,255,255,0.18);
 }
 #prop-align .align-btn:hover {
-  filter: brightness(1.08);
-  box-shadow: 0 5px 16px rgba(77,184,104,0.45), inset 0 1px 0 rgba(255,255,255,0.18);
+  filter: brightness(1.12);
+  box-shadow: 0 5px 16px rgba(77,184,104,0.5), inset 0 1px 0 rgba(255,255,255,0.18);
 }
 #prop-align .align-btn:active {
   transform: scale(0.96);

@@ -568,3 +568,104 @@ def api_vsdx_compare():
             os.unlink(tmp.name)
         except OSError:
             pass
+
+
+@cartography_editor_bp.route("/api/architect", methods=["POST"])
+def api_architect():
+    """Réorganise les formes via IA (OpenAI GPT-4o) et retourne les nouvelles positions."""
+    try:
+        from openai import OpenAI
+    except ImportError:
+        return jsonify({"error": "openai package not installed"}), 500
+
+    api_key = os.environ.get("OPENAI_API_KEY")
+    if not api_key:
+        return jsonify({"error": "OPENAI_API_KEY non configurée"}), 500
+
+    data = request.get_json(silent=True) or {}
+    state = data.get("state", {})
+    shapes = state.get("shapes", [])
+    bands = state.get("bands", [])
+    connections = state.get("connections", [])
+
+    if not shapes:
+        return jsonify({"error": "Aucune forme à organiser"}), 400
+
+    # Construire un résumé compact pour le prompt
+    band_summary = [
+        {"id": b.get("id"), "label": b.get("label", ""), "height": b.get("height", 220)}
+        for b in bands
+    ]
+    shape_summary = [
+        {
+            "id": s.get("id"),
+            "label": s.get("label", ""),
+            "type": s.get("type", "process"),
+            "w": s.get("w", 170),
+            "h": s.get("h", 70),
+            "band_label": next(
+                (b["label"] for b in band_summary if b["id"] == _get_band_for_y(bands, s.get("y", 0) + s.get("h", 70) / 2)),
+                "?"
+            ),
+        }
+        for s in shapes
+    ]
+    conn_summary = [
+        {
+            "from": next((s["label"] for s in shape_summary if s["id"] == c.get("fromId")), "?"),
+            "to":   next((s["label"] for s in shape_summary if s["id"] == c.get("toId")),   "?"),
+        }
+        for c in connections
+    ]
+
+    # Calculer les limites de chaque bande (y0 croissant à partir de -200)
+    BAND_Y0 = -200
+    INDEX_W = 140
+    band_y_info = []
+    y = BAND_Y0
+    for b in bands:
+        band_y_info.append({"label": b.get("label", ""), "y_start": y, "y_end": y + b.get("height", 220)})
+        y += b.get("height", 220)
+
+    system_prompt = (
+        "Tu es un expert en architecture de processus métier. "
+        "Tu dois repositionner les formes d'un diagramme de flux pour maximiser la lisibilité : "
+        "pas de chevauchement, connexions courtes, alignement logique gauche→droite dans chaque bande. "
+        "Réponds UNIQUEMENT avec un JSON valide : {\"positions\": [{\"id\": <int>, \"x\": <int>, \"y\": <int>}, ...]}. "
+        "Aucun texte avant ou après le JSON."
+    )
+
+    user_prompt = (
+        f"Bandes (horizontal swimlanes, y croissant) :\n{json.dumps(band_y_info, ensure_ascii=False)}\n\n"
+        f"Contraintes : x minimum = {INDEX_W + 4} (réservé à l'index), "
+        f"x maximum indicatif = 2000. Les formes doivent rester dans leur bande (y_start..y_end). "
+        f"Laisse au moins 20px de marge avec les bords de la bande verticalement.\n\n"
+        f"Formes à positionner :\n{json.dumps(shape_summary, ensure_ascii=False)}\n\n"
+        f"Connexions (pour guider le flux gauche→droite) :\n{json.dumps(conn_summary, ensure_ascii=False)}\n\n"
+        "Retourne les nouvelles coordonnées (x, y) pour chaque forme. "
+        "Utilise les id numériques du tableau formes."
+    )
+
+    client = OpenAI(api_key=api_key)
+    try:
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user",   "content": user_prompt},
+            ],
+            temperature=0.2,
+            max_tokens=2000,
+        )
+        raw = response.choices[0].message.content.strip()
+        # Extraire le JSON même si enrobé de backticks
+        if raw.startswith("```"):
+            raw = raw.split("```")[1]
+            if raw.startswith("json"):
+                raw = raw[4:]
+        result = json.loads(raw)
+        return jsonify(result)
+    except json.JSONDecodeError as e:
+        return jsonify({"error": f"Réponse IA invalide : {e}"}), 500
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
