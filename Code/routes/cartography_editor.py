@@ -572,16 +572,7 @@ def api_vsdx_compare():
 
 @cartography_editor_bp.route("/api/architect", methods=["POST"])
 def api_architect():
-    """Réorganise les formes via IA (OpenAI GPT-4o) et retourne les nouvelles positions."""
-    try:
-        from openai import OpenAI
-    except ImportError:
-        return jsonify({"error": "openai package not installed"}), 500
-
-    api_key = os.environ.get("OPENAI_API_KEY")
-    if not api_key:
-        return jsonify({"error": "OPENAI_API_KEY non configurée"}), 500
-
+    """Réorganise les formes via IA (OpenAI ou Anthropic Claude) et retourne les nouvelles positions."""
     data = request.get_json(silent=True) or {}
     state = data.get("state", {})
     shapes = state.get("shapes", [])
@@ -618,7 +609,6 @@ def api_architect():
         for c in connections
     ]
 
-    # Calculer les limites de chaque bande (y0 croissant à partir de -200)
     BAND_Y0 = -200
     INDEX_W = 140
     band_y_info = []
@@ -638,7 +628,7 @@ def api_architect():
     user_prompt = (
         f"Bandes (horizontal swimlanes, y croissant) :\n{json.dumps(band_y_info, ensure_ascii=False)}\n\n"
         f"Contraintes : x minimum = {INDEX_W + 4} (réservé à l'index), "
-        f"x maximum indicatif = 2000. Les formes doivent rester dans leur bande (y_start..y_end). "
+        f"x maximum indicatif = 3000. Les formes doivent rester dans leur bande (y_start..y_end). "
         f"Laisse au moins 20px de marge avec les bords de la bande verticalement.\n\n"
         f"Formes à positionner :\n{json.dumps(shape_summary, ensure_ascii=False)}\n\n"
         f"Connexions (pour guider le flux gauche→droite) :\n{json.dumps(conn_summary, ensure_ascii=False)}\n\n"
@@ -646,26 +636,47 @@ def api_architect():
         "Utilise les id numériques du tableau formes."
     )
 
-    client = OpenAI(api_key=api_key)
-    try:
-        response = client.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user",   "content": user_prompt},
-            ],
-            temperature=0.2,
-            max_tokens=2000,
-        )
-        raw = response.choices[0].message.content.strip()
-        # Extraire le JSON même si enrobé de backticks
+    def _extract_json(raw):
+        raw = raw.strip()
         if raw.startswith("```"):
             raw = raw.split("```")[1]
             if raw.startswith("json"):
                 raw = raw[4:]
-        result = json.loads(raw)
-        return jsonify(result)
-    except json.JSONDecodeError as e:
-        return jsonify({"error": f"Réponse IA invalide : {e}"}), 500
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return json.loads(raw.strip())
+
+    # Essai 1 : OpenAI
+    openai_key = os.environ.get("OPENAI_API_KEY")
+    if openai_key:
+        try:
+            from openai import OpenAI as _OAI
+            client = _OAI(api_key=openai_key)
+            response = client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user",   "content": user_prompt},
+                ],
+                temperature=0.2,
+                max_tokens=2000,
+            )
+            return jsonify(_extract_json(response.choices[0].message.content))
+        except Exception as e:
+            pass  # fallback to Anthropic
+
+    # Essai 2 : Anthropic Claude
+    anthropic_key = os.environ.get("ANTHROPIC_API_KEY")
+    if anthropic_key:
+        try:
+            import anthropic as _ant
+            client = _ant.Anthropic(api_key=anthropic_key)
+            msg = client.messages.create(
+                model="claude-haiku-4-5-20251001",
+                max_tokens=2000,
+                system=system_prompt,
+                messages=[{"role": "user", "content": user_prompt}],
+            )
+            return jsonify(_extract_json(msg.content[0].text))
+        except Exception as e:
+            return jsonify({"error": f"Erreur IA : {e}"}), 500
+
+    return jsonify({"error": "Aucune clé IA configurée (OPENAI_API_KEY ou ANTHROPIC_API_KEY)"}), 500

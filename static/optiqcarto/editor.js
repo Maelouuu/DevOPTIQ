@@ -146,7 +146,7 @@ let state = {
   showBands: true,
   showLegend: false,
   nextId: 100,
-  bandWidth: 1600,
+  bandWidth: 3200,
   defaultRouting: 'orthogonal',
 };
 
@@ -2123,6 +2123,9 @@ function updateProps() {
       alignSec.style.display = selectedShapes.size >= 2 ? '' : 'none';
       const countEl = document.getElementById('prop-align-count');
       if (countEl) countEl.textContent = selectedShapes.size;
+      alignSec.querySelectorAll('.align-btn').forEach(btn => {
+        btn.style.cssText = 'background:linear-gradient(160deg,#4DB868 0%,#389E52 100%)!important;border:2px solid #389E52!important;color:#fff!important;';
+      });
     }
     const id = [...selectedShapes][0];
     const s = state.shapes.find(s => s.id === id);
@@ -2658,7 +2661,7 @@ async function openLoadDialog() {
         state.connections = state.connections.filter(c => validIds.has(c.fromId) && validIds.has(c.toId));
       }
       // Migration : champs manquants sur anciens fichiers
-      if (!state.bandWidth) state.bandWidth = 1600;
+      if (!state.bandWidth) state.bandWidth = 3200;
       if (!state.groups) state.groups = [];
       groupHighlightId = null; selectedGroup = null; expandedGroups.clear();
       state.bands.forEach(b => {
@@ -4006,7 +4009,7 @@ function init() {
         if (data && !data.error) {
           state = data;
           if (typeof resetHighlightExtco === 'function') resetHighlightExtco();
-          if (!state.bandWidth) state.bandWidth = 1600;
+          if (!state.bandWidth) state.bandWidth = 3200;
           if (!state.groups) state.groups = [];
           if (state.connections && state.shapes) {
             const validIds = new Set([

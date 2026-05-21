@@ -442,11 +442,11 @@ html, body {
   top: calc(100% + 8px);
   left: 0;
   min-width: 270px;
-  background: var(--bg-panel);
-  border: 1px solid var(--green-border);
+  background: #111814;
+  border: 1px solid rgba(77,184,104,0.28);
   border-radius: 14px;
   padding: 6px 0;
-  box-shadow: 0 8px 32px rgba(0,0,0,0.35);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.55);
   z-index: 500;
 }
 .bands-tb-section.open .bands-tb-dropdown { display: block; }
@@ -457,7 +457,7 @@ html, body {
   gap: 9px;
   padding: 6px 14px;
   font-size: 12px;
-  color: var(--text);
+  color: #4DB868;
   transition: background 0.12s;
 }
 .bands-tb-row:hover { background: rgba(77,184,104,0.07); }
@@ -472,16 +472,16 @@ html, body {
 .bands-tb-del {
   background: transparent;
   border: none;
-  color: var(--text-muted);
+  color: #F4B8D0;
   cursor: pointer;
   font-size: 16px;
   line-height: 1;
   padding: 0 2px;
-  opacity: 0.5;
-  transition: opacity 0.15s, color 0.15s;
+  opacity: 0.75;
+  transition: opacity 0.15s;
   flex-shrink: 0;
 }
-.bands-tb-del:hover { opacity: 1; color: var(--pink); }
+.bands-tb-del:hover { opacity: 1; }
 
 .tool-btn-top.danger { color: var(--pink); }
 .tool-btn-top.danger i { color: var(--pink); }
@@ -2064,6 +2064,8 @@ html, body {
   margin-bottom: 4px;
 }
 #prop-align .align-btn {
+  -webkit-appearance: none !important;
+  appearance: none !important;
   background: #4DB868 !important;
   background: linear-gradient(160deg, #4DB868 0%, #389E52 100%) !important;
   border: 2px solid #389E52 !important;

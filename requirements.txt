@@ -2,6 +2,7 @@ Flask
 flask_sqlalchemy
 flask_migrate
 openai
+anthropic
 vsdx
 python-docx
 pydotplus
