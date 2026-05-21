@@ -1559,7 +1559,7 @@ function onDown(e) {
 
       // Prepare drag
       dragData = {
-        mx: x, my: y,
+        mx: x, my: y, moved: false,
         shapes: [...selectedShapes].map(id => {
           const s = state.shapes.find(s => s.id === id);
           return { id, ox: s.x, oy: s.y };
@@ -1732,6 +1732,7 @@ function onMove(e) {
     const { x, y } = screenToSVG(e.clientX, e.clientY);
     const dx = x - dragData.mx;
     const dy = y - dragData.my;
+    if (Math.abs(dx) > 1 || Math.abs(dy) > 1) dragData.moved = true;
     for (const { id, ox, oy } of dragData.shapes) {
       const s = state.shapes.find(s => s.id === id);
       if (s) { s.x = ox + dx; s.y = oy + dy; }
@@ -1889,12 +1890,15 @@ function onUp(e) {
   if (isDragging) {
     isDragging = false;
     if (dragData) {
-      for (const { id } of dragData.shapes) {
-        const s = state.shapes.find(s => s.id === id);
-        if (s) updateShapeColor(s);
+      if (dragData.moved) {
+        // Seulement si mouvement réel : recalculer la couleur de bande
+        for (const { id } of dragData.shapes) {
+          const s = state.shapes.find(s => s.id === id);
+          if (s) updateShapeColor(s);
+        }
+        snapshot();
+        render();
       }
-      snapshot();
-      render();
       dragData = null;
     }
   }
@@ -3247,27 +3251,38 @@ async function importVSDX(file) {
    BANDS DIALOG
    ══════════════════════════════════════════════════ */
 
+/* Compare deux couleurs hex — retourne true si identiques (ignore la casse) */
+function _colorMatch(a, b) {
+  return (a || '').toLowerCase().trim() === (b || '').toLowerCase().trim();
+}
+
 /* Après import VSDX : synchronise les bandes par défaut avec les bandes importées.
-   Les bandes importées qui correspondent à une bande par défaut → active.
-   Les bandes par défaut sans correspondance → soft-deleted.
-   Les bandes importées sans correspondance → ajoutées comme actives. */
+   Le matching se fait par COULEUR (pas par label, car les titres peuvent différer).
+   - Bande importée dont la couleur = couleur d'une bande par défaut → active (màj label/height)
+   - Bande par défaut sans correspondance → soft-deleted
+   - Chaque bande par défaut ne peut être associée qu'à une seule bande importée (1:1)
+   - Bandes importées sans correspondance dans les defaults → ajoutées comme actives */
 function _syncBandsAfterVsdx(importedBands) {
   const defaults = _defaultBands();
-  const normalize = s => (s || '').toLowerCase().trim();
-  const used = new Set(importedBands.map(b => normalize(b.label)));
+  const matchedDefaultIds = new Set();  // évite les doublons
 
-  // Reconstruire state.bands : defaults en premier, marqués deleted si absent
+  // Reconstruire à partir des defaults
   const merged = defaults.map(def => {
-    const match = importedBands.find(b => normalize(b.label) === normalize(def.label));
+    if (matchedDefaultIds.has(def.id)) {
+      return { ...def, deleted: true };
+    }
+    const match = importedBands.find(imp => _colorMatch(imp.color, def.color));
     if (match) {
-      return { ...def, color: match.color, height: match.height, deleted: false };
+      matchedDefaultIds.add(def.id);
+      return { ...def, label: match.label, height: match.height, deleted: false };
     }
     return { ...def, deleted: true };
   });
 
-  // Ajouter les bandes importées qui ne correspondent à aucun défaut
+  // Ajouter les bandes importées sans correspondance par couleur
   importedBands.forEach(imp => {
-    if (!defaults.some(d => normalize(d.label) === normalize(imp.label))) {
+    const alreadyIn = merged.some(d => _colorMatch(d.color, imp.color) && !d.deleted);
+    if (!alreadyIn) {
       merged.push({ ...imp, deleted: false });
     }
   });
