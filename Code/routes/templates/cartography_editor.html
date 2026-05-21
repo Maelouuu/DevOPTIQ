@@ -21,175 +21,189 @@
 <!-- ══════════════ TOOLBAR ══════════════ -->
 <header id="toolbar">
 
-  <!-- Logo + Retour -->
-  <div class="tb-logo">
-    <a href="/activities/map" class="tb-back-link" title="Retour à l'application">
-      <i class="fa-solid fa-chevron-left"></i>
-    </a>
-    <span class="tb-logo-mark">◉</span>
-    <span class="tb-logo-name">OptiqCarto</span>
-    {% if entity_name %}
-      <span class="tb-entity-badge">{{ entity_name }}</span>
-    {% endif %}
-  </div>
-
-  <div class="tb-divider-v"></div>
-
-  <!-- ── Outils ── -->
-  <div class="tb-group-top">
-    <button class="tool-btn-top active" data-tool="select" title="Sélection (V)">
-      <i class="fa-solid fa-arrow-pointer"></i>
-      <span>Sélection</span>
-    </button>
-    <div class="shape-dropdown-wrap" id="connect-tool-wrap">
-      <button class="tool-btn-top" data-tool="connect" id="btn-connect-tool" title="Mettre en évidence les activités hachurées — raccourci C : mode connexion">
-        <i class="fa-solid fa-highlighter"></i>
-        <span>Externes</span>
-      </button>
-      <div class="shape-sub-dropdown connect-routing-dropdown">
-        <button class="shape-sub-btn conn-routing-btn active" data-routing="smooth">
-          <i class="fa-solid fa-bezier-curve" style="font-size:13px;margin-right:6px"></i>
-          <span>Courbe</span>
-        </button>
-        <div class="shape-sub-sep"></div>
-        <button class="shape-sub-btn conn-routing-btn" data-routing="orthogonal">
-          <i class="fa-solid fa-turn-up" style="font-size:13px;margin-right:6px"></i>
-          <span>Orthogonale</span>
-        </button>
-      </div>
-    </div>
-    <button class="tool-btn-top" id="btn-group-create" title="Grouper (G)">
-      <i class="fa-solid fa-object-group"></i>
-      <span>Grouper</span>
-    </button>
-  </div>
-
-  <div class="tb-divider-v"></div>
-
-  <!-- ── Formes ── -->
-  <div class="tb-group-top">
-    <div class="shape-dropdown-wrap" id="process-shape-wrap">
-      <button class="shape-btn-top" data-tool="process" title="Formes — glissez sur le canevas">
-        <i class="fa-solid fa-shapes"></i>
-        <span>Formes</span>
-      </button>
-      <div class="shape-sub-dropdown">
-        <button class="shape-sub-btn" data-shape-type="process" data-shape-subtype="normal">
-          <span class="shape-sub-preview shape-sub-preview--normal"></span>
-          <span>Activité</span>
-        </button>
-        <div class="shape-sub-sep"></div>
-        <button class="shape-sub-btn" data-shape-type="special" data-shape-subtype="normal">
-          <span class="shape-sub-preview shape-sub-preview--special"></span>
-          <span>Sous-activité</span>
-        </button>
-        <div class="shape-sub-sep"></div>
-        <button class="shape-sub-btn" data-shape-type="start-end" data-shape-subtype="normal">
-          <span class="shape-sub-preview shape-sub-preview--renvoi"></span>
-          <span>Renvoi</span>
-        </button>
-        <div class="shape-sub-sep"></div>
-        <button class="shape-sub-btn" data-shape-type="decision" data-shape-subtype="normal">
-          <span class="shape-sub-preview shape-sub-preview--decision"></span>
-          <span>Décision</span>
-        </button>
-        <div class="shape-sub-sep"></div>
-        <button class="shape-sub-btn" data-shape-type="process" data-shape-subtype="external">
-          <span class="shape-sub-preview shape-sub-preview--external"></span>
-          <span>Externe</span>
-        </button>
-        <div class="shape-sub-sep"></div>
-        <button class="shape-sub-btn" data-shape-type="process" data-shape-subtype="extco">
-          <span class="shape-sub-preview shape-sub-preview--extco"></span>
-          <span>Ext. entreprise</span>
-        </button>
-      </div>
-    </div>
-  </div>
-
-  <div class="tb-divider-v"></div>
-
-  <!-- ── Actions ── -->
-  <div class="tb-group-top">
-    <button class="tool-btn-top new-carto-btn" id="btn-new-carto" title="Nouvelle cartographie">
-      <i class="fa-solid fa-file-circle-plus"></i>
-      <span>Nouveau</span>
-    </button>
-    <button class="tool-btn-top accent" id="btn-architect" title="Organiser automatiquement">
-      <i class="fa-solid fa-wand-magic-sparkles"></i>
-      <span>Architecte</span>
-    </button>
-    <button class="tool-btn-top" id="btn-undo" title="Annuler (Ctrl+Z)">
-      <i class="fa-solid fa-rotate-left"></i>
-      <span>Annuler</span>
-    </button>
-    <button class="tool-btn-top" id="btn-redo" title="Rétablir (Ctrl+Y)">
-      <i class="fa-solid fa-rotate-right"></i>
-      <span>Rétablir</span>
-    </button>
-    <button class="tool-btn-top" id="btn-fit" title="Ajuster la vue (F)">
-      <i class="fa-solid fa-expand"></i>
-      <span>Centrer</span>
-    </button>
-    <button class="tool-btn-top danger" id="btn-delete" title="Supprimer (Suppr)">
-      <i class="fa-solid fa-trash"></i>
-      <span>Supprimer</span>
-    </button>
-    <div class="bands-tb-section" id="bands-tb-section">
-      <button class="tool-btn-top" id="btn-bands-catalog" title="Gérer les bandes">
-        <i class="fa-solid fa-layer-group"></i>
-        <span>Bandes</span>
-      </button>
-      <div class="bands-tb-dropdown" id="bands-tb-dropdown">
-        <div class="bands-tb-list" id="bands-tb-list"></div>
-      </div>
-    </div>
-  </div>
-
-  <div class="tb-divider-v"></div>
-
-  <!-- ── Fichier ── -->
-  <div class="file-folder-section" id="file-folder-section">
-    <div class="folder-3d-wrap" id="btn-folder-toggle" role="button" tabindex="0" title="Fichier">
-      <div class="folder__back">
-        <div class="folder__paper"></div>
-        <div class="folder__paper"></div>
-        <div class="folder__paper"></div>
-        <div class="folder__front"></div>
-      </div>
-      <span class="folder-label">Fichier</span>
-    </div>
-    <div class="folder-dropdown">
-      <button class="folder-action-btn" id="btn-save" title="Sauvegarder (Ctrl+S)">
-        <i class="fa-solid fa-floppy-disk"></i>
-        <span>Sauvegarder</span>
-      </button>
-      <button class="folder-action-btn" id="btn-load" title="Charger" style="display:none">
-        <i class="fa-solid fa-folder-open"></i>
-        <span>Charger</span>
-      </button>
-      <button class="folder-action-btn" id="btn-export-svg" title="Exporter SVG (Ctrl+E)">
-        <i class="fa-solid fa-file-export"></i>
-        <span>Export SVG</span>
-      </button>
-      <button class="folder-action-btn" id="btn-export-pdf" title="Exporter PDF">
-        <i class="fa-solid fa-file-pdf"></i>
-        <span>Export PDF</span>
-      </button>
-      <button class="folder-action-btn" id="btn-import-vsdx" title="Importer depuis Visio (.vsdx)">
-        <i class="fa-solid fa-file-import"></i>
-        <span>Import Visio</span>
-      </button>
-    </div>
-  </div>
-
-  <!-- ── Panneau gauche toggle ── -->
-  <button class="tool-btn-top panel-toggle-btn" id="btn-left-panel-open" title="Panneau gauche">
+  <!-- ── Bouton panneau GAUCHE (côté gauche, vert) ── -->
+  <button class="tb-panel-btn tb-panel-btn--left" id="btn-left-panel-open" title="Panneau gauche">
     <i class="fa-solid fa-table-columns"></i>
     <span>Panneau</span>
   </button>
 
+  <!-- ── Contenu centré ── -->
+  <div class="tb-center">
+
+    <!-- Logo -->
+    <div class="tb-logo">
+      <span class="tb-logo-mark">◉</span>
+      <span class="tb-logo-name">OptiqCarto</span>
+      {% if entity_name %}
+        <span class="tb-entity-badge">{{ entity_name }}</span>
+      {% endif %}
+    </div>
+
+    <div class="tb-divider-v"></div>
+
+    <!-- ── Outils ── -->
+    <div class="tb-group-top">
+      <button class="tool-btn-top active" data-tool="select" title="Sélection (V)">
+        <i class="fa-solid fa-arrow-pointer"></i>
+        <span>Sélection</span>
+      </button>
+      <div class="shape-dropdown-wrap" id="connect-tool-wrap">
+        <button class="tool-btn-top" data-tool="connect" id="btn-connect-tool" title="Mettre en évidence les activités hachurées — raccourci C : mode connexion">
+          <i class="fa-solid fa-highlighter"></i>
+          <span>Externes</span>
+        </button>
+        <div class="shape-sub-dropdown connect-routing-dropdown">
+          <button class="shape-sub-btn conn-routing-btn active" data-routing="smooth">
+            <i class="fa-solid fa-bezier-curve" style="font-size:13px;margin-right:6px"></i>
+            <span>Courbe</span>
+          </button>
+          <div class="shape-sub-sep"></div>
+          <button class="shape-sub-btn conn-routing-btn" data-routing="orthogonal">
+            <i class="fa-solid fa-turn-up" style="font-size:13px;margin-right:6px"></i>
+            <span>Orthogonale</span>
+          </button>
+        </div>
+      </div>
+      <button class="tool-btn-top" id="btn-group-create" title="Grouper (G)">
+        <i class="fa-solid fa-object-group"></i>
+        <span>Grouper</span>
+      </button>
+    </div>
+
+    <div class="tb-divider-v"></div>
+
+    <!-- ── Formes ── -->
+    <div class="tb-group-top">
+      <div class="shape-dropdown-wrap" id="process-shape-wrap">
+        <button class="shape-btn-top" data-tool="process" title="Formes — glissez sur le canevas">
+          <i class="fa-solid fa-shapes"></i>
+          <span>Formes</span>
+        </button>
+        <div class="shape-sub-dropdown">
+          <button class="shape-sub-btn" data-shape-type="process" data-shape-subtype="normal">
+            <span class="shape-sub-preview shape-sub-preview--normal"></span>
+            <span>Activité</span>
+          </button>
+          <div class="shape-sub-sep"></div>
+          <button class="shape-sub-btn" data-shape-type="special" data-shape-subtype="normal">
+            <span class="shape-sub-preview shape-sub-preview--special"></span>
+            <span>Sous-activité</span>
+          </button>
+          <div class="shape-sub-sep"></div>
+          <button class="shape-sub-btn" data-shape-type="start-end" data-shape-subtype="normal">
+            <span class="shape-sub-preview shape-sub-preview--renvoi"></span>
+            <span>Renvoi</span>
+          </button>
+          <div class="shape-sub-sep"></div>
+          <button class="shape-sub-btn" data-shape-type="decision" data-shape-subtype="normal">
+            <span class="shape-sub-preview shape-sub-preview--decision"></span>
+            <span>Décision</span>
+          </button>
+          <div class="shape-sub-sep"></div>
+          <button class="shape-sub-btn" data-shape-type="process" data-shape-subtype="external">
+            <span class="shape-sub-preview shape-sub-preview--external"></span>
+            <span>Externe</span>
+          </button>
+          <div class="shape-sub-sep"></div>
+          <button class="shape-sub-btn" data-shape-type="process" data-shape-subtype="extco">
+            <span class="shape-sub-preview shape-sub-preview--extco"></span>
+            <span>Ext. entreprise</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="tb-divider-v"></div>
+
+    <!-- ── Actions ── -->
+    <div class="tb-group-top">
+      <button class="tool-btn-top new-carto-btn" id="btn-new-carto" title="Nouvelle cartographie">
+        <i class="fa-solid fa-file-circle-plus"></i>
+        <span>Nouveau</span>
+      </button>
+      <button class="tool-btn-top accent" id="btn-architect" title="Organiser automatiquement">
+        <i class="fa-solid fa-wand-magic-sparkles"></i>
+        <span>Architecte</span>
+      </button>
+      <button class="tool-btn-top" id="btn-undo" title="Annuler (Ctrl+Z)">
+        <i class="fa-solid fa-rotate-left"></i>
+        <span>Annuler</span>
+      </button>
+      <button class="tool-btn-top" id="btn-redo" title="Rétablir (Ctrl+Y)">
+        <i class="fa-solid fa-rotate-right"></i>
+        <span>Rétablir</span>
+      </button>
+      <button class="tool-btn-top" id="btn-fit" title="Ajuster la vue (F)">
+        <i class="fa-solid fa-expand"></i>
+        <span>Centrer</span>
+      </button>
+      <button class="tool-btn-top danger" id="btn-delete" title="Supprimer (Suppr)">
+        <i class="fa-solid fa-trash"></i>
+        <span>Supprimer</span>
+      </button>
+      <div class="bands-tb-section" id="bands-tb-section">
+        <button class="tool-btn-top" id="btn-bands-catalog" title="Gérer les bandes">
+          <i class="fa-solid fa-layer-group"></i>
+          <span>Bandes</span>
+        </button>
+        <div class="bands-tb-dropdown" id="bands-tb-dropdown">
+          <div class="bands-tb-list" id="bands-tb-list"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="tb-divider-v"></div>
+
+    <!-- ── Fichier ── -->
+    <div class="file-folder-section" id="file-folder-section">
+      <div class="folder-3d-wrap" id="btn-folder-toggle" role="button" tabindex="0" title="Fichier">
+        <div class="folder__back">
+          <div class="folder__paper"></div>
+          <div class="folder__paper"></div>
+          <div class="folder__paper"></div>
+          <div class="folder__front"></div>
+        </div>
+        <span class="folder-label">Fichier</span>
+      </div>
+      <div class="folder-dropdown">
+        <button class="folder-action-btn" id="btn-save" title="Sauvegarder (Ctrl+S)">
+          <i class="fa-solid fa-floppy-disk"></i>
+          <span>Sauvegarder</span>
+        </button>
+        <button class="folder-action-btn" id="btn-load" title="Charger" style="display:none">
+          <i class="fa-solid fa-folder-open"></i>
+          <span>Charger</span>
+        </button>
+        <button class="folder-action-btn" id="btn-export-svg" title="Exporter SVG (Ctrl+E)">
+          <i class="fa-solid fa-file-export"></i>
+          <span>Export SVG</span>
+        </button>
+        <button class="folder-action-btn" id="btn-export-pdf" title="Exporter PDF">
+          <i class="fa-solid fa-file-pdf"></i>
+          <span>Export PDF</span>
+        </button>
+        <button class="folder-action-btn" id="btn-import-vsdx" title="Importer depuis Visio (.vsdx)">
+          <i class="fa-solid fa-file-import"></i>
+          <span>Import Visio</span>
+        </button>
+      </div>
+    </div>
+
+  </div><!-- /.tb-center -->
+
+  <!-- ── Bouton panneau DROIT (côté droit, rose) ── -->
+  <button class="tb-panel-btn tb-panel-btn--right" id="btn-right-panel-open" title="Panneau propriétés">
+    <i class="fa-solid fa-sliders"></i>
+    <span>Propriétés</span>
+  </button>
+
 </header>
+
+<!-- ── Bouton retour flottant bas-gauche ── -->
+<a href="/activities/map" id="btn-back-floating" title="Retour à l'application">
+  <i class="fa-solid fa-chevron-left"></i>
+  <span>Retour</span>
+</a>
 
 <!-- ══════════════ BANDS CATALOG POPUP ══════════════ -->
 <div id="bands-catalog-popup">
@@ -683,23 +697,6 @@
 <!-- ══════════════ TOAST ══════════════ -->
 <div id="toast"></div>
 
-<!-- ══════════════ DOCK ══════════════ -->
-<div id="dock-wrap">
-  <div id="dock-panel">
-    <button class="dock-item" id="dock-left-panel" title="Panneau gauche">
-      <i class="fa-solid fa-table-columns"></i>
-      <span class="dock-item-label">Panneau gauche</span>
-    </button>
-    <button class="dock-item" id="dock-props" title="Propriétés">
-      <i class="fa-solid fa-sliders"></i>
-      <span class="dock-item-label">Propriétés</span>
-    </button>
-    <a href="/activities/map" class="dock-item" id="dock-close" title="Retour à l'application">
-      <i class="fa-solid fa-arrow-left"></i>
-      <span class="dock-item-label">Retour</span>
-    </a>
-  </div>
-</div>
 
 <script src="{{ url_for('static', filename='optiqcarto/color-utils.js') }}"></script>
 <script src="{{ url_for('static', filename='optiqcarto/geometry.js') }}"></script>

@@ -3541,10 +3541,8 @@ function setLeftPanelOpen(open) {
   leftPanelOpen = open;
   const lp = document.getElementById('left-panel');
   document.getElementById('canvas-wrap').classList.toggle('left-collapsed', !open);
-  // Marquer le bouton panneau comme actif
-  const panelBtn = document.getElementById('btn-left-panel-open');
-  if (panelBtn) panelBtn.classList.toggle('active', open);
-  _updatePanelBtn();
+  const btn = document.getElementById('btn-left-panel-open');
+  if (btn) btn.classList.toggle('active', open);
   if (open) {
     lp.classList.remove('collapsed');
     _animatePanelOpen('left-panel');
@@ -3558,7 +3556,8 @@ function setPropsOpen(open) {
   propsOpen = open;
   const pr = document.getElementById('properties');
   document.getElementById('canvas-wrap').classList.toggle('props-collapsed', !open);
-  _updatePanelBtn();
+  const btn = document.getElementById('btn-right-panel-open');
+  if (btn) btn.classList.toggle('active', open);
   if (open) {
     pr.classList.remove('collapsed');
     _animatePanelOpen('properties');
@@ -3573,10 +3572,7 @@ function openAllPanels() {
   setPropsOpen(true);
 }
 
-function _updatePanelBtn() {
-  const allClosed = !leftPanelOpen && !propsOpen;
-  document.getElementById('dock-wrap').style.display = allClosed ? 'flex' : 'none';
-}
+function _updatePanelBtn() { /* dock supprimé — no-op */ }
 
 /* ══════════════════════════════════════════════════
    ARCHITECT — auto-layout avec animation
@@ -3897,6 +3893,7 @@ function init() {
   document.getElementById('btn-close-left-panel').addEventListener('click', () => setLeftPanelOpen(false));
   document.getElementById('btn-close-props').addEventListener('click', () => setPropsOpen(false));
   document.getElementById('btn-left-panel-open').addEventListener('click', () => setLeftPanelOpen(!leftPanelOpen));
+  document.getElementById('btn-right-panel-open').addEventListener('click', () => setPropsOpen(!propsOpen));
 
   // Grouper
   document.getElementById('btn-group-create').addEventListener('click', createGroup);
@@ -4101,53 +4098,7 @@ function initFolder() {
   });
 }
 
-/* ══════════════════════════════════════════════════
-   DOCK COMPONENT
-   ══════════════════════════════════════════════════ */
-
-function initDock() {
-  const dockPanel = document.getElementById('dock-panel');
-  if (!dockPanel) return;
-
-  const items = Array.from(dockPanel.querySelectorAll('.dock-item'));
-  const BASE_SIZE  = 48;
-  const MAX_SIZE   = 72;
-  const RANGE      = 90; // px distance from center to start scaling
-
-  function updateMagnification(mouseX, mouseY) {
-    const panelRect = dockPanel.getBoundingClientRect();
-    items.forEach(item => {
-      const itemRect = item.getBoundingClientRect();
-      const itemCenterX = itemRect.left + itemRect.width / 2;
-      const itemCenterY = itemRect.top  + itemRect.height / 2;
-      const dist = Math.hypot(mouseX - itemCenterX, mouseY - itemCenterY);
-      const ratio = Math.max(0, 1 - dist / RANGE);
-      const size = BASE_SIZE + (MAX_SIZE - BASE_SIZE) * ratio;
-      item.style.width  = size + 'px';
-      item.style.height = size + 'px';
-      item.style.fontSize = Math.round(16 + 8 * ratio) + 'px';
-    });
-  }
-
-  function resetMagnification() {
-    items.forEach(item => {
-      item.style.width  = BASE_SIZE + 'px';
-      item.style.height = BASE_SIZE + 'px';
-      item.style.fontSize = '16px';
-    });
-  }
-
-  dockPanel.addEventListener('mousemove', e => updateMagnification(e.clientX, e.clientY));
-  dockPanel.addEventListener('mouseleave', resetMagnification);
-
-  document.getElementById('dock-left-panel').addEventListener('click', () => setLeftPanelOpen(true));
-  document.getElementById('dock-props').addEventListener('click', () => setPropsOpen(true));
-  document.getElementById('dock-close').addEventListener('click', () => {
-    if (confirm('Fermer OptiqCarto ?')) window.close();
-  });
-
-  resetMagnification();
-}
+function initDock() { /* dock supprimé */ }
 
 
 document.addEventListener('DOMContentLoaded', init);

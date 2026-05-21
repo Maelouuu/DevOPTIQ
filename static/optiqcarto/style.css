@@ -76,12 +76,98 @@ html, body {
   display: flex;
   flex-direction: row;
   align-items: center;
-  padding: 0 14px;
+  padding: 0 10px;
   gap: 0;
   z-index: 100;
   overflow: visible;
   box-shadow: 0 8px 32px rgba(0,0,0,0.35);
 }
+
+/* Contenu centré — prend tout l'espace entre les deux boutons panneau */
+.tb-center {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: visible;
+  min-width: 0;
+}
+
+/* Boutons panneau gauche/droit dans la toolbar */
+.tb-panel-btn {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  width: 64px;
+  height: 48px;
+  border-radius: 12px;
+  border: 1.5px solid;
+  cursor: pointer;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  font-family: inherit;
+  transition: background 0.18s, filter 0.15s;
+}
+.tb-panel-btn i { font-size: 15px; }
+
+/* Bouton gauche — vert (couleur du panneau gauche) */
+.tb-panel-btn--left {
+  background: rgba(77,184,104,0.12);
+  border-color: rgba(77,184,104,0.35);
+  color: #4DB868;
+}
+.tb-panel-btn--left:hover { background: rgba(77,184,104,0.22); border-color: rgba(77,184,104,0.55); }
+.tb-panel-btn--left.active {
+  background: rgba(77,184,104,0.28);
+  border-color: #4DB868;
+  box-shadow: 0 0 0 2px rgba(77,184,104,0.2);
+}
+
+/* Bouton droit — rose (couleur du panneau propriétés) */
+.tb-panel-btn--right {
+  background: rgba(244,184,208,0.08);
+  border-color: rgba(244,184,208,0.28);
+  color: #F4B8D0;
+}
+.tb-panel-btn--right:hover { background: rgba(244,184,208,0.16); border-color: rgba(244,184,208,0.5); }
+.tb-panel-btn--right.active {
+  background: rgba(244,184,208,0.22);
+  border-color: #F4B8D0;
+  box-shadow: 0 0 0 2px rgba(244,184,208,0.18);
+}
+
+/* Bouton retour flottant bas-gauche */
+#btn-back-floating {
+  position: fixed;
+  bottom: 14px;
+  left: 14px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  background: rgba(17,24,20,0.92);
+  border: 1px solid var(--green-border);
+  border-radius: 24px;
+  padding: 9px 18px 9px 14px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-main);
+  text-decoration: none;
+  letter-spacing: 0.2px;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  z-index: 200;
+  box-shadow: 0 2px 14px rgba(0,0,0,0.35), 0 0 0 1px rgba(77,184,104,0.08);
+  transition: background 0.15s, border-color 0.15s;
+}
+#btn-back-floating:hover {
+  background: rgba(77,184,104,0.1);
+  border-color: rgba(77,184,104,0.4);
+}
+#btn-back-floating i { font-size: 12px; color: var(--green); }
 
 #canvas-wrap {
   position: fixed;
@@ -559,28 +645,6 @@ html, body {
 .shape-btn-top[data-tool="decision"]::after { background: #9ca3af; }
 
 /* Open left panel button (right side of toolbar) */
-.panel-toggle-btn {
-  margin-left: auto;
-  border: 1px solid rgba(244,184,208,0.28) !important;
-  background: rgba(244,184,208,0.07) !important;
-  color: var(--pink) !important;
-  flex-shrink: 0;
-}
-.panel-toggle-btn .panel-toggle-icon {
-  width: 15px;
-  height: 15px;
-  display: block;
-  filter: brightness(0) saturate(100%) invert(73%) sepia(30%) saturate(400%) hue-rotate(300deg);
-  opacity: 0.85;
-}
-.panel-toggle-btn:hover {
-  background: rgba(244,184,208,0.14) !important;
-  border-color: rgba(244,184,208,0.5) !important;
-}
-.panel-toggle-btn.active {
-  background: rgba(244,184,208,0.18) !important;
-  border-color: rgba(244,184,208,0.55) !important;
-}
 
 /* ══════════════ LEFT PANEL ══════════════ */
 
