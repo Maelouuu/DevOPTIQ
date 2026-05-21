@@ -644,14 +644,14 @@ def api_architect():
                 raw = raw[4:]
         return json.loads(raw.strip())
 
-    # Essai 1 : OpenAI
+    # Essai 1 : OpenAI (utilise OPENAI_API_KEY depuis l'environnement, comme chatbot.py)
     openai_key = os.environ.get("OPENAI_API_KEY")
     if openai_key:
         try:
             from openai import OpenAI as _OAI
-            client = _OAI(api_key=openai_key)
+            client = _OAI()  # lit OPENAI_API_KEY automatiquement
             response = client.chat.completions.create(
-                model="gpt-4o-mini",
+                model=os.environ.get("OPENAI_CHATBOT_MODEL", "gpt-4o-mini"),
                 messages=[
                     {"role": "system", "content": system_prompt},
                     {"role": "user",   "content": user_prompt},
@@ -661,10 +661,10 @@ def api_architect():
             )
             return jsonify(_extract_json(response.choices[0].message.content))
         except Exception as e:
-            pass  # fallback to Anthropic
+            return jsonify({"error": f"Erreur OpenAI : {e}"}), 500
 
-    # Essai 2 : Anthropic Claude
-    anthropic_key = os.environ.get("ANTHROPIC_API_KEY")
+    # Essai 2 : Anthropic Claude (ANTHROPIC_API_KEY ou ANTHROPIC_KEY)
+    anthropic_key = os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("ANTHROPIC_KEY")
     if anthropic_key:
         try:
             import anthropic as _ant
@@ -677,6 +677,6 @@ def api_architect():
             )
             return jsonify(_extract_json(msg.content[0].text))
         except Exception as e:
-            return jsonify({"error": f"Erreur IA : {e}"}), 500
+            return jsonify({"error": f"Erreur Anthropic : {e}"}), 500
 
-    return jsonify({"error": "Aucune clé IA configurée (OPENAI_API_KEY ou ANTHROPIC_API_KEY)"}), 500
+    return jsonify({"error": "Aucune clé IA configurée (OPENAI_API_KEY ou ANTHROPIC_KEY)"}), 500

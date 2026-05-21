@@ -482,6 +482,23 @@ html, body {
   flex-shrink: 0;
 }
 .bands-tb-del:hover { opacity: 1; }
+.bands-tb-row.deleted { opacity: 0.45; }
+.bands-tb-row.deleted .bands-tb-swatch { filter: grayscale(1); }
+.bands-tb-row.deleted .bands-tb-row-label { color: #567460; text-decoration: line-through; }
+.bands-tb-restore {
+  background: transparent;
+  border: 1px solid #4DB868;
+  color: #4DB868;
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 1;
+  padding: 1px 5px;
+  border-radius: 4px;
+  opacity: 0.75;
+  transition: opacity 0.15s;
+  flex-shrink: 0;
+}
+.bands-tb-restore:hover { opacity: 1; }
 
 .tool-btn-top.danger { color: var(--pink); }
 .tool-btn-top.danger i { color: var(--pink); }

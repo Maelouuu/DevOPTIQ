@@ -347,6 +347,7 @@ function renderBands() {
   const bw = state.bandWidth;
 
   for (const band of state.bands) {
+    if (band.deleted) continue;
     const isSel = selectedBand === band.id;
     const g = el('g', {}, gBands);
     const bgColor = bandBgColor(band.color);
@@ -2120,12 +2121,21 @@ function updateProps() {
     shapeSec.style.display = '';
     // Alignment panel — visible only when 2+ shapes selected
     if (alignSec) {
-      alignSec.style.display = selectedShapes.size >= 2 ? '' : 'none';
-      const countEl = document.getElementById('prop-align-count');
-      if (countEl) countEl.textContent = selectedShapes.size;
-      alignSec.querySelectorAll('.align-btn').forEach(btn => {
-        btn.style.cssText = 'background:linear-gradient(160deg,#4DB868 0%,#389E52 100%)!important;border:2px solid #389E52!important;color:#fff!important;';
-      });
+      if (selectedShapes.size >= 2) {
+        alignSec.style.display = '';
+        alignSec.style.opacity = '';
+        alignSec.style.transform = '';
+        alignSec.style.transition = '';
+        const countEl = document.getElementById('prop-align-count');
+        if (countEl) countEl.textContent = selectedShapes.size;
+        alignSec.querySelectorAll('.align-btn').forEach(btn => {
+          btn.style.background = 'linear-gradient(160deg,#4DB868 0%,#389E52 100%)';
+          btn.style.border = '2px solid #389E52';
+          btn.style.color = '#fff';
+        });
+      } else {
+        alignSec.style.display = 'none';
+      }
     }
     const id = [...selectedShapes][0];
     const s = state.shapes.find(s => s.id === id);
@@ -3189,8 +3199,8 @@ async function importVSDX(file) {
     state.shapes      = shapes;
     state.connections = connections;
     state.groups      = groups;
-    state.bands       = bands;
-    state.bandWidth   = Math.max(1400, Math.round(shapes.reduce((m, s) => Math.max(m, s.x + s.w), 0) + 300));
+    _syncBandsAfterVsdx(bands);  // merge importés avec les 15 bandes par défaut
+    state.bandWidth   = Math.max(3200, Math.round(shapes.reduce((m, s) => Math.max(m, s.x + s.w), 0) + 300));
     state.nextId      = nextOid + 1;
 
     // Propagate shape colors to outgoing connections
@@ -3206,9 +3216,11 @@ async function importVSDX(file) {
 
     document.getElementById('vsdx-dialog').classList.add('hidden');
     setStatus('');
+    renderBandsTbList();  // mettre \u00e0 jour le dropdown bandes apr\u00e8s sync
     const nCustom = connections.filter(c => c.customPath).length;
+    const activeBands = state.bands.filter(b => !b.deleted).length;
     console.log(`[VSDX] ${shapes.length} formes, ${connections.length} connexions, ${nCustom} chemins Visio exacts, ${groups.length} groupes`);
-    showToast(`Import r\u00e9ussi \u2014 ${shapes.length} activit\u00e9s \u00b7 ${connections.length} connexions \u00b7 ${bands.length} bandes`);
+    showToast(`Import r\u00e9ussi \u2014 ${shapes.length} activit\u00e9s \u00b7 ${connections.length} connexions \u00b7 ${activeBands} bandes actives`);
 
     // Debug report download
     if (result.debugHtml) {
@@ -3235,6 +3247,34 @@ async function importVSDX(file) {
    BANDS DIALOG
    ══════════════════════════════════════════════════ */
 
+/* Après import VSDX : synchronise les bandes par défaut avec les bandes importées.
+   Les bandes importées qui correspondent à une bande par défaut → active.
+   Les bandes par défaut sans correspondance → soft-deleted.
+   Les bandes importées sans correspondance → ajoutées comme actives. */
+function _syncBandsAfterVsdx(importedBands) {
+  const defaults = _defaultBands();
+  const normalize = s => (s || '').toLowerCase().trim();
+  const used = new Set(importedBands.map(b => normalize(b.label)));
+
+  // Reconstruire state.bands : defaults en premier, marqués deleted si absent
+  const merged = defaults.map(def => {
+    const match = importedBands.find(b => normalize(b.label) === normalize(def.label));
+    if (match) {
+      return { ...def, color: match.color, height: match.height, deleted: false };
+    }
+    return { ...def, deleted: true };
+  });
+
+  // Ajouter les bandes importées qui ne correspondent à aucun défaut
+  importedBands.forEach(imp => {
+    if (!defaults.some(d => normalize(d.label) === normalize(imp.label))) {
+      merged.push({ ...imp, deleted: false });
+    }
+  });
+
+  state.bands = merged;
+}
+
 function openBandsDialog() {
   document.getElementById('bands-dialog').classList.remove('hidden');
   renderBandsList();
@@ -3242,9 +3282,12 @@ function openBandsDialog() {
 
 function _deleteBand(idx) {
   const band = state.bands[idx];
-  if (!band) return false;
+  if (!band || band.deleted) return false;
+  // Compute y range of this band (skip deleted bands above it)
   let bandY = -200;
-  for (let j = 0; j < idx; j++) bandY += state.bands[j].height;
+  for (let j = 0; j < idx; j++) {
+    if (!state.bands[j].deleted) bandY += state.bands[j].height;
+  }
   const bandYEnd = bandY + band.height;
   const shapesInBand = state.shapes.filter(s => {
     const midY = s.y + s.h / 2;
@@ -3252,15 +3295,24 @@ function _deleteBand(idx) {
   });
   if (shapesInBand.length > 0) {
     const names = shapesInBand.map(s => `• ${s.label || 'Forme sans nom'}`).join('\n');
-    if (!confirm(`Êtes-vous sûr de vouloir supprimer la bande « ${band.label} » ?\n\nCela supprimera aussi :\n${names}`)) return false;
+    if (!confirm(`Supprimer la bande « ${band.label} » ?\n\nCela supprimera aussi :\n${names}`)) return false;
     const ids = new Set(shapesInBand.map(s => s.id));
     state.shapes = state.shapes.filter(s => !ids.has(s.id));
     state.connections = state.connections.filter(c => !ids.has(c.fromId) && !ids.has(c.toId));
   }
-  state.bands.splice(idx, 1);
+  // Soft-delete : la bande reste dans state.bands mais n'est plus rendue
+  band.deleted = true;
   snapshot();
   render();
   return true;
+}
+
+function _restoreBand(idx) {
+  const band = state.bands[idx];
+  if (!band || !band.deleted) return;
+  band.deleted = false;
+  snapshot();
+  render();
 }
 
 function renderBandsTbList() {
@@ -3269,11 +3321,18 @@ function renderBandsTbList() {
   list.innerHTML = '';
   state.bands.forEach((band, i) => {
     const row = document.createElement('div');
-    row.className = 'bands-tb-row';
-    row.innerHTML = `
-      <div class="bands-tb-swatch" style="background:${band.color}"></div>
-      <span class="bands-tb-row-label">${band.label || 'Bande ' + (i + 1)}</span>
-      <button class="bands-tb-del" data-i="${i}" title="Supprimer">×</button>`;
+    row.className = 'bands-tb-row' + (band.deleted ? ' deleted' : '');
+    if (band.deleted) {
+      row.innerHTML = `
+        <div class="bands-tb-swatch" style="background:${band.color}"></div>
+        <span class="bands-tb-row-label">${band.label || 'Bande ' + (i + 1)}</span>
+        <button class="bands-tb-restore" data-i="${i}" title="Restaurer">+</button>`;
+    } else {
+      row.innerHTML = `
+        <div class="bands-tb-swatch" style="background:${band.color}"></div>
+        <span class="bands-tb-row-label">${band.label || 'Bande ' + (i + 1)}</span>
+        <button class="bands-tb-del" data-i="${i}" title="Masquer">×</button>`;
+    }
     list.appendChild(row);
   });
   list.querySelectorAll('.bands-tb-del').forEach(btn => {
@@ -3283,6 +3342,14 @@ function renderBandsTbList() {
         renderBandsTbList();
         renderBandsList();
       }
+    });
+  });
+  list.querySelectorAll('.bands-tb-restore').forEach(btn => {
+    btn.addEventListener('click', ev => {
+      ev.stopPropagation();
+      _restoreBand(parseInt(ev.target.dataset.i));
+      renderBandsTbList();
+      renderBandsList();
     });
   });
 }
@@ -3466,8 +3533,10 @@ function _animatePanelClose(panelId) {
   _panelAnimCancels[panelId] = [];
 
   // Items : glissent vers le bas + rotation (stagger rapide)
+  // On exclut les éléments display:none (ils n'ont pas d'animation d'entrée et
+  // garderaient des styles de fermeture quand ils redeviendraient visibles)
   const items = Array.from(panel.children).filter(
-    el => !el.classList.contains('panel-prelayers')
+    el => !el.classList.contains('panel-prelayers') && getComputedStyle(el).display !== 'none'
   );
   items.forEach((el, i) => {
     const d = i * 28;
