@@ -2677,6 +2677,10 @@ async function openLoadDialog() {
       // Migration : champs manquants sur anciens fichiers
       if (!state.bandWidth) state.bandWidth = 3200;
       if (!state.groups) state.groups = [];
+      // Migration: reset deleted flag si toutes les bandes sont marquées supprimées
+      if (state.bands && state.bands.length > 0 && state.bands.every(b => b.deleted)) {
+        state.bands.forEach(b => { b.deleted = false; });
+      }
       groupHighlightId = null; selectedGroup = null; expandedGroups.clear();
       state.bands.forEach(b => {
         delete b.textColor; // supprimé — couleur texte toujours blanc
@@ -4053,6 +4057,10 @@ function init() {
           if (typeof resetHighlightExtco === 'function') resetHighlightExtco();
           if (!state.bandWidth) state.bandWidth = 3200;
           if (!state.groups) state.groups = [];
+          // Migration: reset deleted flag if all bands are marked deleted (artefact d'un bug antérieur)
+          if (state.bands && state.bands.length > 0 && state.bands.every(b => b.deleted)) {
+            state.bands.forEach(b => { b.deleted = false; });
+          }
           if (state.connections && state.shapes) {
             const validIds = new Set([
               ...state.shapes.map(s => s.id),
