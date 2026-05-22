@@ -27,6 +27,9 @@ PAGE_LABELS = {
     "test_13_competences":      "Compétences & Évaluations",
     "test_14_cartography_editor": "Éditeur OptiqCarto",
     "test_15_activities_map":    "Cartographie des Activités",
+    "test_16_import_full":       "Import Global IA (Excel)",
+    "test_17_chatbot":           "Chatbot Assistant OPTIQ",
+    "test_18_gestion_compte":    "Gestion des Comptes",
 }
 
 
