@@ -2794,9 +2794,8 @@ function _showCalDiffWarning(diffPct) {
 async function _loadCalqueList() {
   const apiBase = window.OPTIQCARTO_API_BASE || '/cartography';
   try {
-    const res  = await fetch(`${apiBase}/api/calques`);
-    const data = await res.json();
-    _calqueList = data.calques || [];
+    const data  = await fetch(`${apiBase}/api/calques`).then(r => r.json());
+    _calqueList = Array.isArray(data) ? data : (data.calques || []);
   } catch (_) { _calqueList = []; }
   renderCalqueListUI();
 }
