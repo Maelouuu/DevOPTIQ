@@ -205,6 +205,30 @@
   <span>Retour</span>
 </a>
 
+<!-- ── Modal modifications non enregistrées ── -->
+<div id="unsaved-modal" style="display:none">
+  <div class="unsaved-card">
+    <div class="unsaved-icon"><i class="fa-solid fa-triangle-exclamation"></i></div>
+    <h3 class="unsaved-title">Modifications non enregistrées</h3>
+    <p class="unsaved-desc">Vous avez des modifications non enregistrées. Voulez-vous les sauvegarder avant de quitter ?</p>
+    <div class="unsaved-actions">
+      <button id="unsaved-btn-discard" class="unsaved-btn unsaved-btn--discard">Quitter sans enregistrer</button>
+      <button id="unsaved-btn-cancel" class="unsaved-btn unsaved-btn--cancel">Annuler</button>
+      <button id="unsaved-btn-save" class="unsaved-btn unsaved-btn--save">
+        <i class="fa-solid fa-floppy-disk"></i> Enregistrer <kbd>Ctrl+S</kbd>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Toast auto-sauvegarde (10 min) ── -->
+<div id="autosave-toast" style="display:none">
+  <i class="fa-solid fa-cloud-arrow-up autosave-icon"></i>
+  <span class="autosave-text">Sauvegarde auto dans <strong id="autosave-secs">30</strong>s</span>
+  <button id="autosave-btn-skip" class="autosave-btn autosave-btn--skip">Passer</button>
+  <button id="autosave-btn-now" class="autosave-btn autosave-btn--now">Maintenant</button>
+</div>
+
 <!-- ══════════════ BANDS CATALOG POPUP ══════════════ -->
 <div id="bands-catalog-popup">
   <div class="bcat-header">

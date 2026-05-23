@@ -185,6 +185,9 @@ let markerIds = new Map();      // "color-style" → markerId
 const hatchIds = new Set();     // pattern IDs déjà créés dans les defs
 let leftPanelOpen = false;
 let propsOpen = false;
+let isDirty = false;
+let _autoSaveTimerId = null;
+let _autoSaveToastInterval = null;
 let selectedGroup = null;
 let groupHighlightId = null;
 let expandedGroups = new Set();
@@ -1320,6 +1323,10 @@ function snapshot() {
   history = history.slice(0, histIndex + 1);
   history.push(JSON.stringify(state));
   histIndex = history.length - 1;
+  if (!isDirty) {
+    isDirty = true;
+    _scheduleAutoSave();
+  }
 }
 
 function undo() {
@@ -2614,15 +2621,20 @@ async function saveJSON() {
     });
     const data = await res.json();
     if (data.ok) {
+      isDirty = false;
+      clearTimeout(_autoSaveTimerId);
       _showSavePopup('done');
       if (data.sync_warning) setTimeout(() => showToast('Erreur sync : ' + data.sync_warning, 'warn'), 1600);
+      return true;
     } else {
       _hideSavePopup();
       showToast('Erreur : ' + (data.error || 'inconnue'));
+      return false;
     }
   } catch (err) {
     _hideSavePopup();
     showToast('Erreur réseau lors de la sauvegarde');
+    return false;
   }
 }
 
@@ -2640,6 +2652,73 @@ function _showSavePopup(state) {
 function _hideSavePopup() {
   const overlay = document.getElementById('save-progress-popup');
   if (overlay) overlay.style.display = 'none';
+}
+
+/* ── Auto-save & unsaved-changes guard ──────────────── */
+
+function _scheduleAutoSave() {
+  if (window.OPTIQCARTO_READONLY) return;
+  clearTimeout(_autoSaveTimerId);
+  _autoSaveTimerId = setTimeout(_triggerAutoSave, 10 * 60 * 1000);
+}
+
+function _triggerAutoSave() {
+  if (!isDirty || window.OPTIQCARTO_READONLY) return;
+  _showAutoSaveToast();
+}
+
+function _showAutoSaveToast() {
+  const toast = document.getElementById('autosave-toast');
+  const secsEl = document.getElementById('autosave-secs');
+  if (!toast) return;
+  let remaining = 30;
+  if (secsEl) secsEl.textContent = remaining;
+  toast.style.display = 'flex';
+
+  function done(save) {
+    clearInterval(_autoSaveToastInterval);
+    _autoSaveToastInterval = null;
+    toast.style.display = 'none';
+    if (save && isDirty) saveJSON().then(() => {});
+    else _scheduleAutoSave();
+  }
+
+  clearInterval(_autoSaveToastInterval);
+  _autoSaveToastInterval = setInterval(() => {
+    remaining--;
+    if (secsEl) secsEl.textContent = remaining;
+    if (remaining <= 0) done(true);
+  }, 1000);
+
+  const skipBtn = document.getElementById('autosave-btn-skip');
+  const nowBtn  = document.getElementById('autosave-btn-now');
+  if (skipBtn) skipBtn.onclick = () => done(false);
+  if (nowBtn)  nowBtn.onclick  = () => done(true);
+}
+
+function _showUnsavedModal() {
+  return new Promise(resolve => {
+    const modal = document.getElementById('unsaved-modal');
+    if (!modal) { resolve('discard'); return; }
+    modal.style.display = 'flex';
+
+    function cleanup(result) {
+      modal.style.display = 'none';
+      document.removeEventListener('keydown', onKey);
+      resolve(result);
+    }
+    function onKey(e) {
+      if ((e.key === 's' || e.key === 'S') && (e.ctrlKey || e.metaKey)) {
+        e.preventDefault(); e.stopPropagation(); cleanup('save');
+      }
+      if (e.key === 'Escape') cleanup('cancel');
+    }
+    document.addEventListener('keydown', onKey);
+    document.getElementById('unsaved-btn-save').onclick    = () => cleanup('save');
+    document.getElementById('unsaved-btn-discard').onclick = () => cleanup('discard');
+    document.getElementById('unsaved-btn-cancel').onclick  = () => cleanup('cancel');
+    modal.onclick = e => { if (e.target === modal) cleanup('cancel'); };
+  });
 }
 
 async function openLoadDialog() {
@@ -4046,6 +4125,29 @@ function init() {
   document.getElementById('canvas-wrap').classList.add('props-collapsed');
   _updatePanelBtn();
 
+  // Avertissement modification non enregistrées (navigation browser)
+  if (!window.OPTIQCARTO_READONLY) {
+    window.addEventListener('beforeunload', e => {
+      if (isDirty) { e.preventDefault(); e.returnValue = ''; }
+    });
+    const backBtn = document.getElementById('btn-back-floating');
+    if (backBtn) {
+      backBtn.addEventListener('click', async e => {
+        if (!isDirty) return;
+        e.preventDefault();
+        const href = backBtn.getAttribute('href') || '/activities/map';
+        const result = await _showUnsavedModal();
+        if (result === 'save') {
+          const ok = await saveJSON();
+          if (ok) window.location.href = href;
+        } else if (result === 'discard') {
+          isDirty = false;
+          window.location.href = href;
+        }
+      });
+    }
+  }
+
   // Auto-load cartography from DB if one exists
   if (window.OPTIQCARTO_HAS_CARTO && window.OPTIQCARTO_DEFAULT_NAME) {
     const apiBase = window.OPTIQCARTO_API_BASE || '/cartography';
@@ -4069,6 +4171,7 @@ function init() {
             state.connections = state.connections.filter(c => validIds.has(c.fromId) && validIds.has(c.toId));
           }
           history = [JSON.stringify(state)]; histIndex = 0;
+          isDirty = false;
           render(); updateProps(); fitView();
         }
       })
