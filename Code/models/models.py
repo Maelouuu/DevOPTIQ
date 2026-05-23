@@ -579,6 +579,19 @@ class TimeWeakness(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 
+class CartoCalque(db.Model):
+    """Calque d'une cartographie — déclinaison indépendante de la carto de base d'une entité."""
+    __tablename__ = 'carto_calques'
+
+    id         = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    entity_id  = db.Column(db.Integer, db.ForeignKey('entities.id', ondelete='CASCADE'), nullable=False)
+    name       = db.Column(db.String(200), nullable=False)
+    state_json = db.Column(db.Text, nullable=False)   # état complet (bands/shapes/connections/…)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    entity = db.relationship('Entity', backref=db.backref('calques', cascade='all, delete-orphan', lazy='dynamic'))
+
+
 class FileBlob(db.Model):
     """Stocke le contenu binaire des fichiers liés aux outils et contraintes.
     Persistant en base (PostgreSQL BYTEA / SQLite BLOB) — survit aux redémarrages cloud."""

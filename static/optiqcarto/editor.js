@@ -188,6 +188,10 @@ let propsOpen = false;
 let isDirty = false;
 let _autoSaveTimerId = null;
 let _autoSaveToastInterval = null;
+let activeCalqueId = null;
+let _calqueIsNew = false;
+let _baseStateForDiff = null;
+let _calqueList = [];
 let selectedGroup = null;
 let groupHighlightId = null;
 let expandedGroups = new Set();
@@ -2611,6 +2615,8 @@ function _showSaveWarningModal(diff) {
 async function saveJSON() {
   const apiBase = window.OPTIQCARTO_API_BASE || '/cartography';
 
+  if (activeCalqueId) return _saveCalque(apiBase);
+
   _showSavePopup('saving');
 
   try {
@@ -2718,6 +2724,297 @@ function _showUnsavedModal() {
     document.getElementById('unsaved-btn-discard').onclick = () => cleanup('discard');
     document.getElementById('unsaved-btn-cancel').onclick  = () => cleanup('cancel');
     modal.onclick = e => { if (e.target === modal) cleanup('cancel'); };
+  });
+}
+
+/* ── Calques ──────────────────────────────────────── */
+
+async function _transitionState(newState) {
+  const canvasWrap = document.getElementById('canvas-wrap');
+  if (canvasWrap) {
+    canvasWrap.style.transition = 'opacity 0.3s ease';
+    canvasWrap.style.opacity = '0';
+    await new Promise(r => setTimeout(r, 300));
+  }
+  state = JSON.parse(JSON.stringify(newState));
+  if (!state.bandWidth) state.bandWidth = 3200;
+  if (!state.groups) state.groups = [];
+  if (state.connections && state.shapes) {
+    const validIds = new Set([
+      ...state.shapes.map(s => s.id),
+      ...(state.groups || []).map(g => g.id),
+    ]);
+    state.connections = state.connections.filter(c => validIds.has(c.fromId) && validIds.has(c.toId));
+  }
+  history = [JSON.stringify(state)]; histIndex = 0;
+  render(); updateProps();
+  if (canvasWrap) {
+    await new Promise(r => setTimeout(r, 20));
+    canvasWrap.style.opacity = '1';
+  }
+}
+
+function _calcDiffPercent(baseState, calState) {
+  function getElements(s) {
+    const elems = {};
+    (s.bands || []).forEach(b => { if (!b.deleted) elems['band_' + b.id] = JSON.stringify(b); });
+    (s.shapes || []).forEach(sh => { elems['shape_' + sh.id] = JSON.stringify(sh); });
+    (s.connections || []).forEach(c => { elems['conn_' + c.id] = JSON.stringify(c); });
+    (s.groups || []).forEach(g => { elems['group_' + g.id] = JSON.stringify(g); });
+    return elems;
+  }
+  const baseElems = getElements(baseState);
+  const calElems  = getElements(calState);
+  const allKeys = new Set([...Object.keys(baseElems), ...Object.keys(calElems)]);
+  if (allKeys.size === 0) return 0;
+  let diff = 0;
+  for (const k of allKeys) {
+    if (!baseElems[k] || !calElems[k] || baseElems[k] !== calElems[k]) diff++;
+  }
+  return diff / allKeys.size;
+}
+
+function _showCalDiffWarning(diffPct) {
+  return new Promise(resolve => {
+    const modal = document.getElementById('cal-diff-modal');
+    const desc  = document.getElementById('cal-diff-desc');
+    if (!modal) { resolve(true); return; }
+    if (desc) desc.textContent = `${Math.round(diffPct * 100)} % des éléments de la carto classique sont modifiés ou absents dans ce calque. Êtes-vous sûr ? Si la divergence est trop importante, il peut être plus judicieux de créer une nouvelle entité avec une nouvelle cartographie.`;
+    modal.style.display = 'flex';
+    function cleanup(result) {
+      modal.style.display = 'none';
+      resolve(result);
+    }
+    document.getElementById('cal-diff-confirm').onclick = () => cleanup(true);
+    document.getElementById('cal-diff-cancel').onclick  = () => cleanup(false);
+    modal.onclick = e => { if (e.target === modal) cleanup(false); };
+  });
+}
+
+async function _loadCalqueList() {
+  const apiBase = window.OPTIQCARTO_API_BASE || '/cartography';
+  try {
+    const res  = await fetch(`${apiBase}/api/calques`);
+    const data = await res.json();
+    _calqueList = data.calques || [];
+  } catch (_) { _calqueList = []; }
+  renderCalqueListUI();
+}
+
+function renderCalqueListUI() {
+  const list  = document.getElementById('cal-list');
+  const empty = document.getElementById('cal-empty');
+  if (!list) return;
+  list.innerHTML = '';
+  if (_calqueList.length === 0) {
+    if (empty) empty.style.display = 'block';
+    return;
+  }
+  if (empty) empty.style.display = 'none';
+  _calqueList.forEach(cal => {
+    const item = document.createElement('div');
+    item.className = 'cal-item' + (activeCalqueId === cal.id ? ' active' : '');
+    item.dataset.id = cal.id;
+    item.innerHTML = `<span class="cal-item-name">${cal.name}</span><button class="cal-item-del" title="Supprimer ce calque"><i class="fa-solid fa-trash"></i></button>`;
+    item.querySelector('.cal-item-name').addEventListener('click', async () => {
+      const section = document.getElementById('cal-section');
+      if (section) section.classList.remove('open');
+      await _switchCalque(cal.id);
+    });
+    item.querySelector('.cal-item-del').addEventListener('click', async e => {
+      e.stopPropagation();
+      if (!confirm(`Supprimer le calque "${cal.name}" ?`)) return;
+      const apiBase = window.OPTIQCARTO_API_BASE || '/cartography';
+      await fetch(`${apiBase}/api/calques/${cal.id}`, { method: 'DELETE' });
+      if (activeCalqueId === cal.id) await _deactivateCalque();
+      else await _loadCalqueList();
+    });
+    list.appendChild(item);
+  });
+}
+
+function _updateCalqueBadge(name) {
+  const badge     = document.getElementById('calque-badge');
+  const badgeName = document.getElementById('calque-badge-name');
+  if (!badge) return;
+  if (name) {
+    if (badgeName) badgeName.textContent = name;
+    badge.style.display = 'flex';
+  } else {
+    badge.style.display = 'none';
+  }
+}
+
+async function _switchCalque(calqueId) {
+  if (calqueId === activeCalqueId) {
+    await _deactivateCalque();
+    return;
+  }
+  if (isDirty) {
+    const result = await _showUnsavedModal();
+    if (result === 'save') {
+      const ok = await saveJSON();
+      if (!ok) return;
+    } else if (result === 'cancel') {
+      return;
+    } else {
+      isDirty = false;
+    }
+  }
+  await _activateCalque(calqueId);
+}
+
+async function _activateCalque(calqueId) {
+  const apiBase = window.OPTIQCARTO_API_BASE || '/cartography';
+  try {
+    const res  = await fetch(`${apiBase}/api/calques/${calqueId}`);
+    const data = await res.json();
+    if (data.error) { showToast('Erreur chargement calque : ' + data.error); return; }
+    activeCalqueId = calqueId;
+    _calqueIsNew   = false;
+    await _transitionState(data.state);
+    isDirty = false;
+    const cal = _calqueList.find(c => c.id === calqueId);
+    _updateCalqueBadge(cal ? cal.name : 'Calque');
+    renderCalqueListUI();
+  } catch (_) {
+    showToast('Erreur réseau chargement calque');
+  }
+}
+
+async function _deactivateCalque() {
+  if (isDirty) {
+    const result = await _showUnsavedModal();
+    if (result === 'save') {
+      const ok = await saveJSON();
+      if (!ok) return;
+    } else if (result === 'cancel') {
+      return;
+    } else {
+      isDirty = false;
+    }
+  }
+  activeCalqueId    = null;
+  _calqueIsNew      = false;
+  _baseStateForDiff = null;
+  _updateCalqueBadge(null);
+  renderCalqueListUI();
+  const apiBase = window.OPTIQCARTO_API_BASE || '/cartography';
+  if (window.OPTIQCARTO_HAS_CARTO && window.OPTIQCARTO_DEFAULT_NAME) {
+    try {
+      const res  = await fetch(`${apiBase}/api/load/${encodeURIComponent(window.OPTIQCARTO_DEFAULT_NAME)}`);
+      const data = await res.json();
+      if (data && !data.error) {
+        await _transitionState(data);
+        isDirty = false;
+      }
+    } catch (_) {}
+  }
+}
+
+async function _createCalque(name) {
+  _baseStateForDiff = JSON.parse(JSON.stringify(state));
+  _calqueIsNew      = true;
+  const apiBase = window.OPTIQCARTO_API_BASE || '/cartography';
+  try {
+    const res  = await fetch(`${apiBase}/api/calques`, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ name, state }),
+    });
+    const data = await res.json();
+    if (data.error) { showToast('Erreur création calque : ' + data.error); return; }
+    activeCalqueId = data.id;
+    await _loadCalqueList();
+    _updateCalqueBadge(name);
+    showToast(`Calque "${name}" créé — modifiez la carto puis sauvegardez`);
+  } catch (_) {
+    showToast('Erreur réseau création calque');
+  }
+}
+
+async function _saveCalque(apiBase) {
+  if (!activeCalqueId) return false;
+  if (_calqueIsNew && _baseStateForDiff) {
+    const diffPct = _calcDiffPercent(_baseStateForDiff, state);
+    if (diffPct > 0.5) {
+      const confirmed = await _showCalDiffWarning(diffPct);
+      if (!confirmed) return false;
+    }
+    _calqueIsNew      = false;
+    _baseStateForDiff = null;
+  }
+  _showSavePopup('saving');
+  try {
+    const res  = await fetch(`${apiBase}/api/calques/${activeCalqueId}`, {
+      method:  'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ state }),
+    });
+    const data = await res.json();
+    if (data.ok) {
+      isDirty = false;
+      clearTimeout(_autoSaveTimerId);
+      _showSavePopup('done');
+      return true;
+    } else {
+      _hideSavePopup();
+      showToast('Erreur : ' + (data.error || 'inconnue'));
+      return false;
+    }
+  } catch (_) {
+    _hideSavePopup();
+    showToast('Erreur réseau lors de la sauvegarde');
+    return false;
+  }
+}
+
+function initCalqueSection() {
+  const section = document.getElementById('cal-section');
+  const trigger = document.getElementById('btn-cal-toggle');
+  if (!section || !trigger) return;
+
+  trigger.addEventListener('click', e => {
+    e.stopPropagation();
+    const wasOpen = section.classList.contains('open');
+    section.classList.toggle('open');
+    if (!wasOpen) _loadCalqueList();
+  });
+
+  document.addEventListener('click', e => {
+    if (!section.contains(e.target)) section.classList.remove('open');
+  });
+
+  const btnNew    = document.getElementById('btn-cal-new');
+  const newRow    = document.getElementById('cal-new-row');
+  const newInput  = document.getElementById('cal-new-input');
+  const newConfirm = document.getElementById('cal-new-confirm');
+  const newCancel = document.getElementById('cal-new-cancel');
+
+  if (btnNew) btnNew.addEventListener('click', e => {
+    e.stopPropagation();
+    if (newRow) { newRow.style.display = 'flex'; if (newInput) { newInput.value = ''; newInput.focus(); } }
+  });
+  if (newCancel) newCancel.addEventListener('click', e => {
+    e.stopPropagation();
+    if (newRow) newRow.style.display = 'none';
+  });
+  if (newConfirm) newConfirm.addEventListener('click', async e => {
+    e.stopPropagation();
+    const name = newInput ? newInput.value.trim() : '';
+    if (!name) { showToast('Donnez un nom au calque'); return; }
+    if (newRow) newRow.style.display = 'none';
+    section.classList.remove('open');
+    await _createCalque(name);
+  });
+  if (newInput) newInput.addEventListener('keydown', e => {
+    if (e.key === 'Enter') newConfirm && newConfirm.click();
+    if (e.key === 'Escape') newCancel && newCancel.click();
+  });
+
+  const badgeDeact = document.getElementById('calque-badge-deactivate');
+  if (badgeDeact) badgeDeact.addEventListener('click', async () => {
+    await _deactivateCalque();
   });
 }
 
@@ -4075,6 +4372,9 @@ function init() {
 
   // Dock
   initDock();
+
+  // Calques
+  initCalqueSection();
 
   // New carto dialog
   document.getElementById('new-carto-dialog-close').addEventListener('click', () => {

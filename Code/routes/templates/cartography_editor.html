@@ -154,6 +154,31 @@
 
     <div class="tb-divider-v"></div>
 
+    <!-- ── Calques ── -->
+    <div class="cal-section" id="cal-section">
+      <button class="tool-btn-top" id="btn-cal-toggle" title="Calques de la carto">
+        <i class="fa-solid fa-copy"></i>
+        <span>Calques</span>
+      </button>
+      <div class="cal-dropdown" id="cal-dropdown">
+        <div class="cal-dropdown-header">
+          <span class="cal-dropdown-title">Calques</span>
+          <button class="cal-new-btn" id="btn-cal-new" title="Nouveau calque">
+            <i class="fa-solid fa-plus"></i>
+          </button>
+        </div>
+        <div class="cal-new-row" id="cal-new-row" style="display:none">
+          <input type="text" id="cal-new-input" class="cal-new-input" placeholder="Nom du calque…" maxlength="80">
+          <button class="cal-confirm-btn" id="cal-new-confirm" title="Créer"><i class="fa-solid fa-check"></i></button>
+          <button class="cal-cancel-btn" id="cal-new-cancel" title="Annuler"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="cal-list" id="cal-list"></div>
+        <div class="cal-empty" id="cal-empty">Aucun calque</div>
+      </div>
+    </div>
+
+    <div class="tb-divider-v"></div>
+
     <!-- ── Fichier ── -->
     <div class="file-folder-section" id="file-folder-section">
       <div class="folder-3d-wrap" id="btn-folder-toggle" role="button" tabindex="0" title="Fichier">
@@ -227,6 +252,28 @@
   <span class="autosave-text">Sauvegarde auto dans <strong id="autosave-secs">30</strong>s</span>
   <button id="autosave-btn-skip" class="autosave-btn autosave-btn--skip">Passer</button>
   <button id="autosave-btn-now" class="autosave-btn autosave-btn--now">Maintenant</button>
+</div>
+
+<!-- ── Badge calque actif (affiché sur le canvas) ── -->
+<div id="calque-badge" style="display:none">
+  <i class="fa-solid fa-copy"></i>
+  <span id="calque-badge-name">Calque</span>
+  <button id="calque-badge-deactivate" title="Revenir à la carto de base">
+    <i class="fa-solid fa-xmark"></i> Désactiver
+  </button>
+</div>
+
+<!-- ── Modal avertissement diff calque > 50% ── -->
+<div id="cal-diff-modal" style="display:none">
+  <div class="unsaved-card">
+    <div class="unsaved-icon" style="color:#f59e0b"><i class="fa-solid fa-triangle-exclamation"></i></div>
+    <h3 class="unsaved-title">Calque très divergent</h3>
+    <p class="unsaved-desc" id="cal-diff-desc"></p>
+    <div class="unsaved-actions">
+      <button id="cal-diff-cancel" class="unsaved-btn unsaved-btn--cancel">Annuler</button>
+      <button id="cal-diff-confirm" class="unsaved-btn unsaved-btn--save">Enregistrer quand même</button>
+    </div>
+  </div>
 </div>
 
 <!-- ══════════════ BANDS CATALOG POPUP ══════════════ -->

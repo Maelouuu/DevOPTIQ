@@ -20,7 +20,7 @@ from flask import (
 )
 
 from Code.extensions import db
-from Code.models.models import Activities, Entity, Link, Role, activity_roles
+from Code.models.models import Activities, CartoCalque, Entity, Link, Role, activity_roles
 
 cartography_editor_bp = Blueprint("cartography_editor", __name__, url_prefix="/cartography")
 
@@ -389,6 +389,88 @@ def api_load(name):
         return jsonify({"error": "Introuvable"}), 404
 
     return jsonify(json.loads(entity.optiqcarto_data))
+
+
+# ─────────────────────────────────────────────
+# CALQUES
+# ─────────────────────────────────────────────
+
+@cartography_editor_bp.route("/api/calques")
+def api_calques_list():
+    if not _require_auth():
+        return jsonify({"error": "Non autorisé"}), 403
+    entity = _get_active_entity()
+    if not entity:
+        return jsonify([])
+    calques = CartoCalque.query.filter_by(entity_id=entity.id).order_by(CartoCalque.created_at).all()
+    return jsonify([{"id": c.id, "name": c.name} for c in calques])
+
+
+@cartography_editor_bp.route("/api/calques", methods=["POST"])
+def api_calques_create():
+    if not _require_auth():
+        return jsonify({"error": "Non autorisé"}), 403
+    entity = _get_active_entity()
+    if not entity:
+        return jsonify({"error": "Aucune entité active"}), 400
+    data = request.get_json(force=True)
+    name = (data.get("name") or "").strip()
+    if not name:
+        return jsonify({"error": "Nom requis"}), 400
+    state = data.get("state")
+    if not state:
+        return jsonify({"error": "État requis"}), 400
+    cal = CartoCalque(entity_id=entity.id, name=name, state_json=json.dumps(state, ensure_ascii=False))
+    db.session.add(cal)
+    db.session.commit()
+    return jsonify({"ok": True, "id": cal.id, "name": cal.name})
+
+
+@cartography_editor_bp.route("/api/calques/<int:cal_id>")
+def api_calques_load(cal_id):
+    if not _require_auth():
+        return jsonify({"error": "Non autorisé"}), 403
+    entity = _get_active_entity()
+    if not entity:
+        return jsonify({"error": "Non autorisé"}), 403
+    cal = CartoCalque.query.filter_by(id=cal_id, entity_id=entity.id).first()
+    if not cal:
+        return jsonify({"error": "Introuvable"}), 404
+    return jsonify(json.loads(cal.state_json))
+
+
+@cartography_editor_bp.route("/api/calques/<int:cal_id>", methods=["PUT"])
+def api_calques_update(cal_id):
+    if not _require_auth():
+        return jsonify({"error": "Non autorisé"}), 403
+    entity = _get_active_entity()
+    if not entity:
+        return jsonify({"error": "Aucune entité active"}), 400
+    cal = CartoCalque.query.filter_by(id=cal_id, entity_id=entity.id).first()
+    if not cal:
+        return jsonify({"error": "Introuvable"}), 404
+    data = request.get_json(force=True)
+    if "name" in data and data["name"].strip():
+        cal.name = data["name"].strip()
+    if "state" in data:
+        cal.state_json = json.dumps(data["state"], ensure_ascii=False)
+    db.session.commit()
+    return jsonify({"ok": True})
+
+
+@cartography_editor_bp.route("/api/calques/<int:cal_id>", methods=["DELETE"])
+def api_calques_delete(cal_id):
+    if not _require_auth():
+        return jsonify({"error": "Non autorisé"}), 403
+    entity = _get_active_entity()
+    if not entity:
+        return jsonify({"error": "Non autorisé"}), 403
+    cal = CartoCalque.query.filter_by(id=cal_id, entity_id=entity.id).first()
+    if not cal:
+        return jsonify({"error": "Introuvable"}), 404
+    db.session.delete(cal)
+    db.session.commit()
+    return jsonify({"ok": True})
 
 
 @cartography_editor_bp.route("/api/list")
