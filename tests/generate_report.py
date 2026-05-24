@@ -30,6 +30,8 @@ PAGE_LABELS = {
     "test_16_import_full":       "Import Global IA (Excel)",
     "test_17_chatbot":           "Chatbot Assistant OPTIQ",
     "test_18_gestion_compte":    "Gestion des Comptes",
+    "test_19_savoirs":           "Savoirs Théoriques",
+    "test_20_savoir_faires":     "Savoir-Faires Pratiques",
 }
 
 
