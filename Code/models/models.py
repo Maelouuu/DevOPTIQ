@@ -298,6 +298,7 @@ class Role(db.Model):
     entity_id = db.Column(db.Integer, db.ForeignKey('entities.id'), nullable=True, index=True)
     name = db.Column(db.String(100), nullable=False)
     onboarding_plan = db.Column(db.Text, nullable=True)
+    mission_generale = db.Column(db.Text, nullable=True)
 
     __table_args__ = (
         db.UniqueConstraint('entity_id', 'name', name='uq_entity_role_name'),
