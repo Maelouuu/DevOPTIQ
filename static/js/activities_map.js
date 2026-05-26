@@ -827,9 +827,13 @@ function initCrossCartoMode() {
       crossCartoMatches = [];
     }
     // Build map: activity_id → { name, matched_entities }
+    // On ne conserve que les activités hachurées (présentes dans EXTCO_ACTIVITY_IDS)
+    const extcoSet = new Set((window.EXTCO_ACTIVITY_IDS || []).map(String));
     activityMatchMap = {};
     crossCartoMatches.forEach(m => {
-      if (m.activity_id) activityMatchMap[String(m.activity_id)] = { name: m.activity_name, matched_entities: m.matched_entities };
+      if (m.activity_id && extcoSet.has(String(m.activity_id))) {
+        activityMatchMap[String(m.activity_id)] = { name: m.activity_name, matched_entities: m.matched_entities };
+      }
     });
     // Update count badge
     const countEl = document.getElementById("cross-carto-count");
@@ -872,11 +876,15 @@ function initCrossCartoMode() {
   // Messages entrants depuis le viewer iframe
   window.addEventListener("message", function(e) {
     if (!e.data) return;
-    // Confirmation état extco (highlight visuel dans l'iframe)
-    if (e.data.type === "extco-state") _setActive(!!e.data.active);
-    // Clic sur une forme hachurée dans le viewer
+    // NE PAS utiliser extco-state pour piloter le mode connexion :
+    // le viewer renvoie toujours extco-state:false (isHighlightExtcoActive non défini
+    // dans le viewer), ce qui réinitialiserait crossCartoMode par erreur.
     if (e.data.type === "connexion-shape-click") {
       _handleHachuredClick(e.data.activityName || "");
+    }
+    // Iframe prête (rechargement) → re-synchroniser le mode connexion
+    if (e.data.type === "viewer-ready" && _active) {
+      _sendToFrame({ type: "connexion-mode", active: true });
     }
   });
 
@@ -891,6 +899,8 @@ function initCrossCartoMode() {
 
   btn.addEventListener("click", () => {
     const newVal = !_active;
+    // toggle-extco pour le highlight visuel dans le viewer (peut être ignoré si
+    // isHighlightExtcoActive n'est pas défini, mais sans conséquence)
     _sendToFrame({ type: "toggle-extco" });
     _sendToFrame({ type: "connexion-mode", active: newVal });
     _setActive(newVal);

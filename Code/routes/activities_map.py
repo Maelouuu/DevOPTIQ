@@ -1159,20 +1159,23 @@ def liaison_matches():
         Entity.id != active_id
     ).all()
 
-    hachured_subtypes = {'external', 'extco'}
     matches = []
     for entity in other_entities:
+        # Activité du même nom qui n'est PAS hachurée (subtype normal, NULL, ou autre)
         acts = Activities.query.filter(
             Activities.entity_id == entity.id,
             db.func.lower(Activities.name) == name,
+            db.or_(
+                Activities.shape_subtype.is_(None),
+                Activities.shape_subtype.notin_(['external', 'extco']),
+            )
         ).all()
         for act in acts:
-            if (act.shape_subtype or 'normal') not in hachured_subtypes:
-                matches.append({
-                    "entity_id":     entity.id,
-                    "entity_name":   entity.name,
-                    "activity_id":   act.id,
-                    "activity_name": act.name,
-                })
+            matches.append({
+                "entity_id":     entity.id,
+                "entity_name":   entity.name,
+                "activity_id":   act.id,
+                "activity_name": act.name,
+            })
 
     return jsonify({"matches": matches, "total": len(matches)}), 200

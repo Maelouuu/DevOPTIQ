@@ -298,6 +298,15 @@ window.addEventListener('message', (e) => {
   if (e.data.type === 'connexion-mode') {
     _connexionMode = !!e.data.active;
   }
+  // Répondre à la demande d'état courant
+  if (e.data.type === 'get-connexion-state') {
+    try { e.source.postMessage({ type: 'connexion-state', active: _connexionMode }, '*'); } catch(_) {}
+  }
+});
+
+// Signaler au parent que l'iframe est prête
+window.addEventListener('load', () => {
+  try { window.parent.postMessage({ type: 'viewer-ready' }, '*'); } catch(_) {}
 });
 
 // Capture phase : intercepte AVANT les handlers d'editor.js
