@@ -33,6 +33,7 @@ PAGE_LABELS = {
     "test_19_savoirs":           "Savoirs Théoriques",
     "test_20_savoir_faires":     "Savoir-Faires Pratiques",
     "test_21_export":            "Export & Fichiers",
+    "test_22_propose_ia":        "Propositions IA & Compétences API",
 }
 
 
