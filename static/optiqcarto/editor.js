@@ -4474,6 +4474,7 @@ function init() {
       history = [JSON.stringify(state)]; histIndex = 0;
       isDirty = false;
       render(); updateProps(); fitView();
+      try { window.parent.postMessage({ type: 'carto-state-ready' }, '*'); } catch(_) {}
     }
 
     if (window.OPTIQCARTO_ACTIVE_CALQUE) {

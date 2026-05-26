@@ -914,12 +914,16 @@ function initCrossCartoMode() {
       }
     }
 
-    // Iframe prête (rechargement) → re-synchroniser le mode connexion + grisement
+    // Iframe prête (rechargement) → re-synchroniser le mode connexion
+    // Ne pas envoyer connexion-highlight ici : state n'est pas encore chargé
+    // (le fetch est async), on attend carto-state-ready pour ça.
     if (e.data.type === "viewer-ready" && _active) {
       _sendToFrame({ type: "connexion-mode", active: true });
-      if (_matchedShapeIds.length > 0) {
-        _sendToFrame({ type: "connexion-highlight", matchedShapeIds: _matchedShapeIds });
-      }
+    }
+
+    // Carto chargée en mémoire → re-appliquer le grisement si connexion mode actif
+    if (e.data.type === "carto-state-ready" && _active && _matchedShapeIds.length > 0) {
+      _sendToFrame({ type: "connexion-highlight", matchedShapeIds: _matchedShapeIds });
     }
   });
 

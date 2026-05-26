@@ -357,7 +357,7 @@ document.addEventListener('mousedown', (e) => {
   e.preventDefault();
 
   const shapeId = shapeTarget.getAttribute('data-id');
-  const shapes  = (window.state && window.state.shapes) || [];
+  const shapes  = (typeof state !== 'undefined' && state.shapes) || [];
   const shape   = shapes.find(s => String(s.id) === String(shapeId));
   if (!shape) return;
 
