@@ -103,9 +103,11 @@
   gap: 10px;
 }
 
-.carto-info-message::before {
-  content: "💡";
-  font-size: 1.2rem;
+.carto-nav-icon {
+  width: 22px;
+  height: 22px;
+  object-fit: contain;
+  flex-shrink: 0;
 }
 
 /* ================================================
@@ -2300,11 +2302,20 @@
   display: block;
 }
 
-/* Note readonly overlay */
-.carto-preview-readonly-badge {
+/* Footer bar: readonly badge + activate button */
+.carto-preview-footer {
   position: absolute;
   bottom: 12px;
+  left: 14px;
   right: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  pointer-events: none;
+}
+
+.carto-preview-readonly-badge {
   background: rgba(17,17,17,0.72);
   color: #e2e8f0;
   font-size: 0.73rem;
@@ -2312,7 +2323,27 @@
   padding: 4px 10px;
   border-radius: 20px;
   letter-spacing: 0.04em;
-  pointer-events: none;
+}
+
+.carto-preview-activate-btn {
+  pointer-events: all;
+  background: linear-gradient(135deg, #ec4899, #be185d);
+  color: #fff;
+  border: none;
+  border-radius: 20px;
+  padding: 6px 16px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  box-shadow: 0 3px 12px rgba(236,72,153,0.4);
+  transition: transform .14s, box-shadow .14s;
+}
+.carto-preview-activate-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 5px 18px rgba(236,72,153,0.5);
 }
 
 /* ================================================
@@ -3682,8 +3713,9 @@
   border-radius: 16px;
   box-shadow: 0 4px 20px rgba(236,72,153,0.08);
   border: 1.5px solid #fce7f3;
-  max-height: calc(100vh - 250px);
+  height: calc(100vh - 250px);
   overflow-y: auto;
+  align-self: stretch;
 }
 
 .activity-item.highlighted {

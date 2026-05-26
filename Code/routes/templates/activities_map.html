@@ -50,6 +50,7 @@
 
   <!-- INFO NAVIGATION -->
   <div class="carto-info-message" id="carto-info-default">
+    <img src="{{ url_for('static', filename='img/navigation.png') }}" alt="" class="carto-nav-icon">
     <strong>Navigation :</strong>
     Clic gauche maintenu pour se déplacer • Molette pour zoomer • Clic sur une activité pour y accéder
   </div>
@@ -90,8 +91,13 @@
           <i class="fa-solid fa-circle-notch fa-spin"></i> Chargement de la cartographie…
         </div>
         <div id="carto-preview-svg-wrap" class="carto-preview-svg-wrap"></div>
-        <div class="carto-preview-readonly-badge">
-          <i class="fa-solid fa-eye"></i> Lecture seule — entité active inchangée
+        <div class="carto-preview-footer">
+          <span class="carto-preview-readonly-badge">
+            <i class="fa-solid fa-eye"></i> Lecture seule
+          </span>
+          <button id="carto-preview-activate-btn" class="carto-preview-activate-btn">
+            <i class="fa-solid fa-bolt"></i> Rendre la carto active
+          </button>
         </div>
       </div>
     </div>

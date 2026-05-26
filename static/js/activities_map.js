@@ -447,13 +447,25 @@ async function activateEntity() {
 
 async function deleteEntity() {
   if (!wizardState.selectedEntity) return;
+  const btn = document.getElementById("confirm-delete-btn");
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Suppression…';
+  }
   try {
-    const res = await fetch(`/activities/api/entities/${wizardState.selectedEntity.id}`, { method: "DELETE" });
+    const res  = await fetch(`/activities/api/entities/${wizardState.selectedEntity.id}`, { method: "DELETE" });
     const data = await res.json();
-    if (data.error) { alert(data.error); return; }
+    if (data.error) {
+      alert(data.error);
+      if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-trash"></i> Supprimer'; }
+      return;
+    }
     hideModal("confirm-delete-modal");
     window.location.reload();
-  } catch (e) { alert("Erreur réseau"); }
+  } catch (e) {
+    alert("Erreur réseau");
+    if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-trash"></i> Supprimer'; }
+  }
 }
 
 async function renameEntity() {
@@ -888,12 +900,6 @@ function clearCrossCartoMode() {
 function handleCrossCartoClick(activityName, entities) {
   if (!entities || entities.length === 0) return;
 
-  if (entities.length === 1) {
-    navigateToLinkedCarto(entities[0].id, entities[0].name, activityName);
-    return;
-  }
-
-  // Multiple matches → show entity selection popup
   const popup  = document.getElementById("cross-entity-popup");
   const nameEl = document.getElementById("cross-entity-activity-name");
   const listEl = document.getElementById("cross-entity-list");
@@ -908,12 +914,142 @@ function handleCrossCartoClick(activityName, entities) {
     item.innerHTML = `<i class="fa-solid fa-building"></i> ${entity.name}`;
     item.addEventListener("click", () => {
       popup.classList.add("hidden");
-      navigateToLinkedCarto(entity.id, entity.name, activityName);
+      showCartoPreview(entity.id, entity.name);
     });
     listEl.appendChild(item);
   });
 
   popup.classList.remove("hidden");
+}
+
+let _previewEntityId = null;
+let _previewCleanup  = null;
+
+async function showCartoPreview(entityId, entityName) {
+  _previewEntityId = entityId;
+
+  const previewPopup = document.getElementById("carto-preview-popup");
+  const titleEl      = document.getElementById("carto-preview-title");
+  const loadingEl    = document.getElementById("carto-preview-loading");
+  const svgWrap      = document.getElementById("carto-preview-svg-wrap");
+  if (!previewPopup) return;
+
+  if (titleEl)    titleEl.textContent = entityName;
+  if (loadingEl)  { loadingEl.style.display = "flex"; }
+  if (svgWrap)    svgWrap.innerHTML = "";
+  if (_previewCleanup) { _previewCleanup(); _previewCleanup = null; }
+  previewPopup.classList.remove("hidden");
+
+  try {
+    const res = await fetch(`/activities/api/svg/${entityId}?t=${Date.now()}`);
+    if (!res.ok) throw new Error("SVG non trouvé");
+    const svgText = await res.text();
+    if (!svgWrap) return;
+    svgWrap.innerHTML = svgText;
+    // Remove interactive elements from preview SVG
+    svgWrap.querySelectorAll("a, [onclick]").forEach(el => {
+      el.removeAttribute("onclick");
+      el.removeAttribute("href");
+    });
+    if (loadingEl) loadingEl.style.display = "none";
+    _previewCleanup = _initPreviewPanZoom(svgWrap);
+  } catch (e) {
+    if (loadingEl) loadingEl.innerHTML = `<span style="color:#ef4444"><i class="fa-solid fa-circle-exclamation"></i> Erreur chargement cartographie</span>`;
+  }
+}
+
+function _initPreviewPanZoom(wrap) {
+  const svg = wrap.querySelector("svg");
+  if (!svg) return null;
+
+  const vb  = svg.viewBox?.baseVal;
+  const svgW = (vb?.width > 0 ? vb.width : parseFloat(svg.getAttribute("width"))) || 1000;
+  const svgH = (vb?.height > 0 ? vb.height : parseFloat(svg.getAttribute("height"))) || 800;
+
+  svg.style.transformOrigin = "0 0";
+  svg.style.display = "block";
+  svg.style.width   = svgW + "px";
+  svg.style.height  = svgH + "px";
+
+  const rect = wrap.getBoundingClientRect();
+  let scale  = Math.min((rect.width - 20) / svgW, (rect.height - 20) / svgH) * 0.92;
+  let panX   = (rect.width  - svgW * scale) / 2;
+  let panY   = (rect.height - svgH * scale) / 2;
+
+  function applyTransform() {
+    svg.style.transform = `translate(${panX}px, ${panY}px) scale(${scale})`;
+  }
+  applyTransform();
+
+  let dragging = false, startX = 0, startY = 0;
+
+  function onMouseDown(e) {
+    dragging = true; startX = e.clientX - panX; startY = e.clientY - panY;
+    wrap.style.cursor = "grabbing";
+    e.preventDefault();
+  }
+  function onMouseMove(e) {
+    if (!dragging) return;
+    panX = e.clientX - startX; panY = e.clientY - startY;
+    applyTransform();
+  }
+  function onMouseUp()  { dragging = false; wrap.style.cursor = "grab"; }
+  function onWheel(e) {
+    e.preventDefault();
+    const factor = e.deltaY < 0 ? 1.12 : 0.89;
+    const newScale = Math.max(0.05, Math.min(scale * factor, 8));
+    const rect = wrap.getBoundingClientRect();
+    const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+    panX = mx - (mx - panX) * (newScale / scale);
+    panY = my - (my - panY) * (newScale / scale);
+    scale = newScale;
+    applyTransform();
+  }
+
+  wrap.style.cursor = "grab";
+  wrap.addEventListener("mousedown", onMouseDown);
+  window.addEventListener("mousemove", onMouseMove);
+  window.addEventListener("mouseup",   onMouseUp);
+  wrap.addEventListener("wheel", onWheel, { passive: false });
+
+  return function cleanup() {
+    wrap.removeEventListener("mousedown", onMouseDown);
+    window.removeEventListener("mousemove", onMouseMove);
+    window.removeEventListener("mouseup",   onMouseUp);
+    wrap.removeEventListener("wheel", onWheel);
+  };
+}
+
+function initCartoPreview() {
+  const closeBtn    = document.getElementById("carto-preview-close");
+  const backdrop    = document.getElementById("carto-preview-backdrop");
+  const activateBtn = document.getElementById("carto-preview-activate-btn");
+  const popup       = document.getElementById("carto-preview-popup");
+
+  function closePreview() {
+    if (popup) popup.classList.add("hidden");
+    if (_previewCleanup) { _previewCleanup(); _previewCleanup = null; }
+    const svgWrap = document.getElementById("carto-preview-svg-wrap");
+    if (svgWrap) svgWrap.innerHTML = "";
+  }
+
+  if (closeBtn)  closeBtn.addEventListener("click",  closePreview);
+  if (backdrop)  backdrop.addEventListener("click",  closePreview);
+
+  if (activateBtn) {
+    activateBtn.addEventListener("click", async () => {
+      if (!_previewEntityId) return;
+      activateBtn.disabled = true;
+      activateBtn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Activation…';
+      try {
+        await fetch(`/activities/api/entities/${_previewEntityId}/activate`, { method: "POST" });
+        window.location.reload();
+      } catch (e) {
+        activateBtn.disabled = false;
+        activateBtn.innerHTML = '<i class="fa-solid fa-bolt"></i> Rendre la carto active';
+      }
+    });
+  }
 }
 
 async function navigateToLinkedCarto(entityId, entityName, activityName) {
@@ -1258,6 +1394,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   initCrossCartoMode();
   initShapeComparison();
   initVsdxCompareModal();
+  initCartoPreview();
   await loadSvgInline();
 
   // Touche Echap pour fermer le popup entité (si ouvert)

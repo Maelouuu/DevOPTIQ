@@ -496,16 +496,24 @@ def delete_entity(entity_id):
         print(f"[CARTO] Dossier supprimé: {entity_dir}")
 
     try:
-        # Nettoyer les tables de jointure avant la suppression en cascade
-        act_ids = [a.id for a in Activities.query.filter_by(entity_id=entity_id).with_entities(Activities.id).all()]
+        # Bulk deletes explicites pour éviter le chargement ORM en cascade (perf)
+        act_ids = db.session.execute(
+            db.select(Activities.id).where(Activities.entity_id == entity_id)
+        ).scalars().all()
+
         if act_ids:
-            task_ids = [t.id for t in Task.query.filter(Task.activity_id.in_(act_ids)).with_entities(Task.id).all()]
+            task_ids = db.session.execute(
+                db.select(Task.id).where(Task.activity_id.in_(act_ids))
+            ).scalars().all()
             if task_ids:
                 db.session.execute(task_tools.delete().where(task_tools.c.task_id.in_(task_ids)))
                 db.session.execute(task_roles.delete().where(task_roles.c.task_id.in_(task_ids)))
+                Task.query.filter(Task.activity_id.in_(act_ids)).delete(synchronize_session=False)
             db.session.execute(activity_roles.delete().where(activity_roles.c.activity_id.in_(act_ids)))
 
-        db.session.delete(entity)
+        Link.query.filter_by(entity_id=entity_id).delete(synchronize_session=False)
+        Activities.query.filter_by(entity_id=entity_id).delete(synchronize_session=False)
+        Entity.query.filter_by(id=entity_id).delete(synchronize_session=False)
         db.session.commit()
         
         if session.get('active_entity_id') == entity_id:

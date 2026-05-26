@@ -2871,7 +2871,7 @@ async function _activateCalque(calqueId) {
     if (data.error) { showToast('Erreur chargement calque : ' + data.error); return; }
     activeCalqueId = calqueId;
     _calqueIsNew   = false;
-    await _transitionState(data.state);
+    await _transitionState(data);
     isDirty = false;
     const cal = _calqueList.find(c => c.id === calqueId);
     _updateCalqueBadge(cal ? cal.name : 'Calque');
