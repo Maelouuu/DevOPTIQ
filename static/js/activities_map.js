@@ -820,12 +820,16 @@ function initCrossCartoMode() {
   }
 
   async function _applyConnectionsToList() {
+    const _popup = document.getElementById("cx-search-popup");
+    if (_popup) _popup.style.display = "flex";
     try {
       const res = await fetch("/activities/api/cross_carto_matches");
       const data = await res.json();
       crossCartoMatches = data.matches || [];
     } catch (_) {
       crossCartoMatches = [];
+    } finally {
+      if (_popup) _popup.style.display = "none";
     }
     // Seules les activités hachurées (EXTCO_ACTIVITY_IDS) avec une liaison sont colorées
     const extcoSet = new Set((window.EXTCO_ACTIVITY_IDS || []).map(String));
@@ -985,27 +989,21 @@ async function showCartoPreview(entityId, entityName) {
   const svgWrap      = document.getElementById("carto-preview-svg-wrap");
   if (!previewPopup) return;
 
-  if (titleEl)    titleEl.textContent = entityName;
-  if (loadingEl)  { loadingEl.style.display = "flex"; }
-  if (svgWrap)    svgWrap.innerHTML = "";
+  if (titleEl)   titleEl.textContent = entityName;
+  if (loadingEl) loadingEl.style.display = "flex";
+  if (svgWrap)   svgWrap.innerHTML = "";
   if (_previewCleanup) { _previewCleanup(); _previewCleanup = null; }
   previewPopup.classList.remove("hidden");
 
-  try {
-    const res = await fetch(`/activities/api/svg/${entityId}?t=${Date.now()}`);
-    if (!res.ok) throw new Error("SVG non trouvé");
-    const svgText = await res.text();
-    if (!svgWrap) return;
-    svgWrap.innerHTML = svgText;
-    // Remove interactive elements from preview SVG
-    svgWrap.querySelectorAll("a, [onclick]").forEach(el => {
-      el.removeAttribute("onclick");
-      el.removeAttribute("href");
+  // Utilise le viewer OptiqCarto (iframe) — fonctionne pour toutes les entités
+  if (svgWrap) {
+    const iframe = document.createElement("iframe");
+    iframe.src = `/cartography/viewer?entity_id=${entityId}`;
+    iframe.style.cssText = "width:100%;height:100%;border:none;border-radius:0 0 8px 8px;display:block";
+    iframe.addEventListener("load", () => {
+      if (loadingEl) loadingEl.style.display = "none";
     });
-    if (loadingEl) loadingEl.style.display = "none";
-    _previewCleanup = _initPreviewPanZoom(svgWrap);
-  } catch (e) {
-    if (loadingEl) loadingEl.innerHTML = `<span style="color:#ef4444"><i class="fa-solid fa-circle-exclamation"></i> Erreur chargement cartographie</span>`;
+    svgWrap.appendChild(iframe);
   }
 }
 

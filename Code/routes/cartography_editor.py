@@ -75,18 +75,29 @@ def _vsdx_path(entity):
 def viewer():
     if not _require_auth():
         return ("", 403)
-    entity = _get_active_entity()
+
+    # Paramètre optionnel pour prévisualiser la carto d'une autre entité
+    preview_entity_id = request.args.get('entity_id', type=int)
+    if preview_entity_id:
+        entity = Entity.query.get(preview_entity_id)
+    else:
+        entity = _get_active_entity()
+
     has_optiqcarto = _has_carto(entity)
     has_vsdx = bool(entity and _vsdx_path(entity))
     entity_name = entity.name if entity else ""
-    active_calque_id   = session.get('active_calque_id')
-    active_calque_name = session.get('active_calque_name', '')
-    # Vérifier que le calque actif appartient bien à l'entité courante
-    if active_calque_id and entity:
-        cal = CartoCalque.query.filter_by(id=active_calque_id, entity_id=entity.id).first()
-        if not cal:
-            active_calque_id = None
-            active_calque_name = ''
+
+    active_calque_id   = None
+    active_calque_name = ''
+    if not preview_entity_id:
+        active_calque_id   = session.get('active_calque_id')
+        active_calque_name = session.get('active_calque_name', '')
+        if active_calque_id and entity:
+            cal = CartoCalque.query.filter_by(id=active_calque_id, entity_id=entity.id).first()
+            if not cal:
+                active_calque_id = None
+                active_calque_name = ''
+
     return render_template(
         "cartography_viewer.html",
         entity_name=entity_name,

@@ -75,11 +75,13 @@ def create_app(test_config=None):
     # -----------------------------
     # 2) Mail
     # -----------------------------
-    app.config["MAIL_SERVER"] = os.getenv("MAIL_SERVER", "smtp.gmail.com")
-    app.config["MAIL_PORT"] = int(os.getenv("MAIL_PORT", 587))
-    app.config["MAIL_USE_TLS"] = True
-    app.config["MAIL_USERNAME"] = os.getenv("MAIL_USERNAME", "afdec.enterprise.services@gmail.com")
-    app.config["MAIL_PASSWORD"] = os.getenv("MAIL_PASSWORD", "awdkerghqvuwjhel")
+    _mail_user = os.getenv("MAIL_USERNAME", "afdec.enterprise.services@gmail.com")
+    app.config["MAIL_SERVER"]         = os.getenv("MAIL_SERVER", "smtp.gmail.com")
+    app.config["MAIL_PORT"]           = int(os.getenv("MAIL_PORT", 587))
+    app.config["MAIL_USE_TLS"]        = True
+    app.config["MAIL_USERNAME"]       = _mail_user
+    app.config["MAIL_PASSWORD"]       = os.getenv("MAIL_PASSWORD", "awdkerghqvuwjhel")
+    app.config["MAIL_DEFAULT_SENDER"] = os.getenv("MAIL_DEFAULT_SENDER", _mail_user)
 
     # Appliquer la config de test APRÈS les defaults (override complet)
     if test_config:
