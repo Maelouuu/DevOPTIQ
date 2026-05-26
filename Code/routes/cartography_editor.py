@@ -147,7 +147,7 @@ def editor():
 # CARTO → DB SYNC HELPERS
 # ─────────────────────────────────────────────
 
-_ACTIVITY_TYPES = {'process', 'start-end', 'special'}
+_ACTIVITY_TYPES = {'process', 'special'}  # 'start-end' (renvois) = cercles visuels, pas des activités
 _BANDS_START_Y  = -200  # matches editor.js getBandForY()
 
 
@@ -168,6 +168,7 @@ def _compute_removals(entity, new_diagram):
     new_bands  = new_diagram.get('bands',  [])
 
     act_shapes = [s for s in new_shapes if s.get('type') in _ACTIVITY_TYPES]
+    renvoi_sids_cr = {str(s['id']) for s in new_shapes if s.get('type') == 'start-end'}
     new_shape_ids = {str(s['id']) for s in act_shapes}
     new_labels    = {(s.get('label') or '').strip() or f"Activité {s['id']}" for s in act_shapes}
     new_band_names = {(b.get('label') or '').strip() for b in new_bands}
@@ -178,9 +179,11 @@ def _compute_removals(entity, new_diagram):
     existing_roles = Role.query.filter_by(entity_id=entity.id).all()
 
     # Cohérent avec _do_sync : une activité est supprimée seulement si
-    # ni son shape_id ni son nom ne sont dans la nouvelle carto.
+    # ni son shape_id ni son nom ne sont dans la nouvelle carto, ou si
+    # elle était classée comme renvoi et une vraie activité du même nom existe.
     removed_activities = [a.name for a in existing_acts
-                          if a.shape_id not in new_shape_ids and a.name not in new_labels]
+                          if (a.shape_id not in new_shape_ids and a.name not in new_labels)
+                          or (a.shape_id in renvoi_sids_cr and a.name in new_labels)]
     removed_roles      = [r.name for r in existing_roles if r.name not in new_band_names]
     return {'removed_activities': removed_activities, 'removed_roles': removed_roles}
 
@@ -199,7 +202,13 @@ def _do_sync(entity, diagram):
     bands       = diagram.get('bands',       [])
     connections = diagram.get('connections', [])
 
-    act_shapes = [s for s in shapes if s.get('type') in _ACTIVITY_TYPES]
+    # Renvois (circles, type 'start-end') are NOT activities — they are visual
+    # redirects that reference an existing activity by name to avoid back-arrows.
+    act_shapes    = [s for s in shapes if s.get('type') in _ACTIVITY_TYPES]
+    renvoi_shapes = [s for s in shapes if s.get('type') == 'start-end']
+    renvoi_sids   = {str(s['id']) for s in renvoi_shapes}
+    # Labels of real activities (used to safely clean up mis-classified renvois)
+    proper_labels = {(s.get('label') or '').strip() for s in act_shapes if s.get('label')}
 
     # ── Activities — préservation des données par correspondance nom+shape_id ──
     # Stratégie : shape_id en priorité (même shape modifiée), puis nom (ré-import
@@ -209,8 +218,13 @@ def _do_sync(entity, diagram):
     existing_carto = Activities.query.filter_by(entity_id=entity.id).filter(
         Activities.shape_id.isnot(None)
     ).all()
+    # Prefer real (non-renvoi) activities when multiple entries share the same name
     existing_by_sid  = {a.shape_id: a for a in existing_carto}
-    existing_by_name = {a.name: a    for a in existing_carto}
+    existing_by_name = {}
+    for a in existing_carto:
+        name = a.name or ''
+        if name not in existing_by_name or a.shape_id not in renvoi_sids:
+            existing_by_name[name] = a
 
     new_shape_ids = {str(s['id']) for s in act_shapes}
     new_labels    = set()
@@ -239,9 +253,11 @@ def _do_sync(entity, diagram):
             db.session.add(act)
         shape_to_act[sid] = act
 
-    # Supprimer uniquement les activités absentes à la fois du shape_id ET du nom
+    # Supprimer : absentes du shape_id ET du nom, OU anciennement classées comme renvoi
+    # (shape_id correspond à un renvoi mais une vraie activité du même nom existe)
     acts_to_remove = [a for a in existing_carto
-                      if a.shape_id not in new_shape_ids and a.name not in new_labels]
+                      if (a.shape_id not in new_shape_ids and a.name not in new_labels)
+                      or (a.shape_id in renvoi_sids and (a.name or '').strip() in proper_labels)]
     if acts_to_remove:
         remove_ids = [a.id for a in acts_to_remove if a.id]
         if remove_ids:
@@ -321,14 +337,31 @@ def _do_sync(entity, diagram):
         for lk in Link.query.filter_by(entity_id=entity.id).filter(
             Link.source_activity_id.isnot(None),
             Link.target_activity_id.isnot(None),
+            Link.cross_carto_liaison_id.is_(None),
         ).all()
     }
 
+    # Résolution renvoi → activité réelle (par correspondance de label)
+    # Un renvoi partage exactement le même nom que l'activité qu'il référence.
+    renvoi_to_act = {}
+    for s in renvoi_shapes:
+        label = (s.get('label') or '').strip()
+        if label:
+            real_act = next((act for act in shape_to_act.values() if act.name == label), None)
+            if real_act:
+                renvoi_to_act[str(s['id'])] = real_act
+
+    # Lookup combiné : shape_id → activité (inclut la résolution des renvois)
+    sid_to_act = {**shape_to_act, **renvoi_to_act}
+
     new_links = {}
     for conn in connections:
-        from_act = shape_to_act.get(str(conn.get('fromId', '')))
-        to_act   = shape_to_act.get(str(conn.get('toId',   '')))
+        from_act = sid_to_act.get(str(conn.get('fromId', '')))
+        to_act   = sid_to_act.get(str(conn.get('toId',   '')))
         if not from_act or not to_act or not from_act.id or not to_act.id:
+            continue
+        # Ignorer les self-loops (connexion renvoi ↔ son activité réelle)
+        if from_act.id == to_act.id:
             continue
         label = (conn.get('label') or '').strip() or None
         new_links[(from_act.id, to_act.id)] = label
