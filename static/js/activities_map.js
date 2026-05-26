@@ -876,12 +876,36 @@ function initCrossCartoMode() {
   // Messages entrants depuis le viewer iframe
   window.addEventListener("message", function(e) {
     if (!e.data) return;
-    // NE PAS utiliser extco-state pour piloter le mode connexion :
-    // le viewer renvoie toujours extco-state:false (isHighlightExtcoActive non défini
-    // dans le viewer), ce qui réinitialiserait crossCartoMode par erreur.
-    if (e.data.type === "connexion-shape-click") {
-      _handleHachuredClick(e.data.activityName || "");
+
+    // shape-click : envoyé par editor.js (mousedown sur forme en readonly)
+    // C'est ici que se décide navigation OU popup connexion
+    if (e.data.t === "shape-click") {
+      const subtype    = e.data.subtype || 'normal';
+      const isHachured = subtype === 'external' || subtype === 'extco';
+      if (_active) {
+        // Mode connexion actif : popup si hachurée, rien sinon (jamais de navigation)
+        if (isHachured) _handleHachuredClick((e.data.label || '').trim());
+      } else {
+        // Mode normal : navigation vers la fiche activité
+        const label = (e.data.label || '').toLowerCase().trim();
+        if (!label) return;
+        const items = document.querySelectorAll('#activities-list .activity-item');
+        let found = null;
+        for (const item of items) {
+          if ((item.dataset.name || '').trim() === label) { found = item; break; }
+        }
+        if (!found) {
+          for (const item of items) {
+            const name = (item.dataset.name || '').trim();
+            if (name.includes(label) || label.includes(name)) { found = item; break; }
+          }
+        }
+        if (found && found.dataset.id) {
+          window.location.href = `/activities/view?activity_id=${found.dataset.id}`;
+        }
+      }
     }
+
     // Iframe prête (rechargement) → re-synchroniser le mode connexion
     if (e.data.type === "viewer-ready" && _active) {
       _sendToFrame({ type: "connexion-mode", active: true });

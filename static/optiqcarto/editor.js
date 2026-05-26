@@ -1463,7 +1463,7 @@ function onDown(e) {
     if (shapeTarget) {
       const sid = parseInt(shapeTarget.getAttribute('data-id'));
       const s = state.shapes.find(s => s.id === sid);
-      if (s) try { window.parent.postMessage({ t: 'shape-click', label: s.label, shapeId: s.id, shapeType: s.type }, '*'); } catch(_) {}
+      if (s) try { window.parent.postMessage({ t: 'shape-click', label: s.label, shapeId: s.id, shapeType: s.type, subtype: s.subtype || 'normal' }, '*'); } catch(_) {}
       return;
     }
     isPanning = true;
