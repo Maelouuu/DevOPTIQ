@@ -797,6 +797,7 @@ function initCrossCartoMode() {
 
   function _setActive(val) {
     _active = val;
+    crossCartoMode = val;  // sync global utilisé par les click handlers SVG
     btn.classList.toggle("active", _active);
     const infoDefault = document.getElementById("carto-info-default");
     const infoCross   = document.getElementById("carto-info-cross");

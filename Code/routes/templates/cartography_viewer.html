@@ -9,10 +9,11 @@
   <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 
   <script>
-    window.OPTIQCARTO_API_BASE    = '/cartography';
-    window.OPTIQCARTO_DEFAULT_NAME = {{ (entity_name or '')|tojson }};
-    window.OPTIQCARTO_HAS_CARTO   = {{ has_optiqcarto|tojson }};
-    window.OPTIQCARTO_READONLY    = true;
+    window.OPTIQCARTO_API_BASE      = '/cartography';
+    window.OPTIQCARTO_DEFAULT_NAME  = {{ (entity_name or '')|tojson }};
+    window.OPTIQCARTO_HAS_CARTO     = {{ has_optiqcarto|tojson }};
+    window.OPTIQCARTO_READONLY      = true;
+    window.OPTIQCARTO_ACTIVE_CALQUE = {{ (active_calque_id or 'null')|safe }};
   </script>
 
   <style>

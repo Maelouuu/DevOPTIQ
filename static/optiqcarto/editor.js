@@ -2876,6 +2876,8 @@ async function _activateCalque(calqueId) {
     const cal = _calqueList.find(c => c.id === calqueId);
     _updateCalqueBadge(cal ? cal.name : 'Calque');
     renderCalqueListUI();
+    // Sync DB + session with calque state
+    fetch(`${apiBase}/api/calques/${calqueId}/apply`, { method: 'POST' }).catch(() => {});
   } catch (_) {
     showToast('Erreur réseau chargement calque');
   }
@@ -2899,6 +2901,8 @@ async function _deactivateCalque() {
   _updateCalqueBadge(null);
   renderCalqueListUI();
   const apiBase = window.OPTIQCARTO_API_BASE || '/cartography';
+  // Restore DB to base carto state
+  fetch(`${apiBase}/api/calques/deactivate`, { method: 'POST' }).catch(() => {});
   if (window.OPTIQCARTO_HAS_CARTO && window.OPTIQCARTO_DEFAULT_NAME) {
     try {
       const res  = await fetch(`${apiBase}/api/load/${encodeURIComponent(window.OPTIQCARTO_DEFAULT_NAME)}`);
@@ -4450,31 +4454,58 @@ function init() {
   // Auto-load cartography from DB if one exists
   if (window.OPTIQCARTO_HAS_CARTO && window.OPTIQCARTO_DEFAULT_NAME) {
     const apiBase = window.OPTIQCARTO_API_BASE || '/cartography';
-    fetch(`${apiBase}/api/load/${encodeURIComponent(window.OPTIQCARTO_DEFAULT_NAME)}`)
-      .then(r => r.json())
-      .then(data => {
-        if (data && !data.error) {
-          state = data;
-          if (typeof resetHighlightExtco === 'function') resetHighlightExtco();
-          if (!state.bandWidth) state.bandWidth = 3200;
-          if (!state.groups) state.groups = [];
-          // Migration: reset deleted flag if all bands are marked deleted (artefact d'un bug antérieur)
-          if (state.bands && state.bands.length > 0 && state.bands.every(b => b.deleted)) {
-            state.bands.forEach(b => { b.deleted = false; });
+
+    function _applyLoadedState(data) {
+      if (!data || data.error) return;
+      state = data;
+      if (typeof resetHighlightExtco === 'function') resetHighlightExtco();
+      if (!state.bandWidth) state.bandWidth = 3200;
+      if (!state.groups) state.groups = [];
+      if (state.bands && state.bands.length > 0 && state.bands.every(b => b.deleted)) {
+        state.bands.forEach(b => { b.deleted = false; });
+      }
+      if (state.connections && state.shapes) {
+        const validIds = new Set([
+          ...state.shapes.map(s => s.id),
+          ...(state.groups || []).map(g => g.id),
+        ]);
+        state.connections = state.connections.filter(c => validIds.has(c.fromId) && validIds.has(c.toId));
+      }
+      history = [JSON.stringify(state)]; histIndex = 0;
+      isDirty = false;
+      render(); updateProps(); fitView();
+    }
+
+    if (window.OPTIQCARTO_ACTIVE_CALQUE) {
+      // Restore active calque state
+      fetch(`${apiBase}/api/calques/${window.OPTIQCARTO_ACTIVE_CALQUE}`)
+        .then(r => r.json())
+        .then(data => {
+          if (data && !data.error) {
+            activeCalqueId = window.OPTIQCARTO_ACTIVE_CALQUE;
+            _calqueIsNew   = false;
+            _applyLoadedState(data);
+            _loadCalqueList().then(() => {
+              const cal = _calqueList.find(c => c.id === activeCalqueId);
+              _updateCalqueBadge(cal ? cal.name : 'Calque');
+              renderCalqueListUI();
+            });
+          } else {
+            // Fallback to base carto if calque not found
+            fetch(`${apiBase}/api/load/${encodeURIComponent(window.OPTIQCARTO_DEFAULT_NAME)}`)
+              .then(r => r.json()).then(_applyLoadedState).catch(() => {});
           }
-          if (state.connections && state.shapes) {
-            const validIds = new Set([
-              ...state.shapes.map(s => s.id),
-              ...(state.groups || []).map(g => g.id),
-            ]);
-            state.connections = state.connections.filter(c => validIds.has(c.fromId) && validIds.has(c.toId));
-          }
-          history = [JSON.stringify(state)]; histIndex = 0;
-          isDirty = false;
-          render(); updateProps(); fitView();
-        }
-      })
-      .catch(() => {});
+        })
+        .catch(() => {
+          fetch(`${apiBase}/api/load/${encodeURIComponent(window.OPTIQCARTO_DEFAULT_NAME)}`)
+            .then(r => r.json()).then(_applyLoadedState).catch(() => {});
+        });
+    } else {
+      fetch(`${apiBase}/api/load/${encodeURIComponent(window.OPTIQCARTO_DEFAULT_NAME)}`)
+        .then(r => r.json())
+        .then(_applyLoadedState)
+        .catch(() => {});
+    }
   }
 
 }

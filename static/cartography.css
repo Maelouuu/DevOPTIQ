@@ -1655,6 +1655,8 @@
 .carto-left {
   flex: 1;
   min-width: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 /* .carto-right defined at bottom of file in em-* section */
@@ -3587,7 +3589,7 @@
 .carto-viewer-card {
   display: flex;
   flex-direction: column;
-  height: calc(100vh - 250px);
+  flex: 1;
   min-height: 440px;
   border-radius: 18px;
   overflow: hidden;
@@ -3713,7 +3715,6 @@
   border-radius: 16px;
   box-shadow: 0 4px 20px rgba(236,72,153,0.08);
   border: 1.5px solid #fce7f3;
-  height: calc(100vh - 250px);
   overflow-y: auto;
   align-self: stretch;
 }

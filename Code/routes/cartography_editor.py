@@ -79,12 +79,22 @@ def viewer():
     has_optiqcarto = _has_carto(entity)
     has_vsdx = bool(entity and _vsdx_path(entity))
     entity_name = entity.name if entity else ""
+    active_calque_id   = session.get('active_calque_id')
+    active_calque_name = session.get('active_calque_name', '')
+    # Vérifier que le calque actif appartient bien à l'entité courante
+    if active_calque_id and entity:
+        cal = CartoCalque.query.filter_by(id=active_calque_id, entity_id=entity.id).first()
+        if not cal:
+            active_calque_id = None
+            active_calque_name = ''
     return render_template(
         "cartography_viewer.html",
         entity_name=entity_name,
         entity_id=entity.id if entity else None,
         has_optiqcarto=has_optiqcarto,
         has_vsdx=has_vsdx,
+        active_calque_id=active_calque_id,
+        active_calque_name=active_calque_name,
     )
 
 
@@ -470,6 +480,46 @@ def api_calques_delete(cal_id):
         return jsonify({"error": "Introuvable"}), 404
     db.session.delete(cal)
     db.session.commit()
+    return jsonify({"ok": True})
+
+
+@cartography_editor_bp.route("/api/calques/<int:cal_id>/apply", methods=["POST"])
+def api_calques_apply(cal_id):
+    """Active un calque : sync DB avec l'état du calque + stocke en session."""
+    if not _require_auth():
+        return jsonify({"error": "Non autorisé"}), 403
+    entity = _get_active_entity()
+    if not entity:
+        return jsonify({"error": "Non autorisé"}), 403
+    cal = CartoCalque.query.filter_by(id=cal_id, entity_id=entity.id).first()
+    if not cal:
+        return jsonify({"error": "Introuvable"}), 404
+    try:
+        diagram = json.loads(cal.state_json)
+        _sync_carto_to_db(entity, diagram)
+    except Exception as exc:
+        return jsonify({"error": str(exc)}), 500
+    session['active_calque_id']   = cal.id
+    session['active_calque_name'] = cal.name
+    return jsonify({"ok": True})
+
+
+@cartography_editor_bp.route("/api/calques/deactivate", methods=["POST"])
+def api_calques_deactivate():
+    """Désactive le calque actif : resync DB avec la carto de base."""
+    if not _require_auth():
+        return jsonify({"error": "Non autorisé"}), 403
+    entity = _get_active_entity()
+    if not entity:
+        return jsonify({"error": "Non autorisé"}), 403
+    session.pop('active_calque_id',   None)
+    session.pop('active_calque_name', None)
+    if entity.optiqcarto_data:
+        try:
+            diagram = json.loads(entity.optiqcarto_data)
+            _sync_carto_to_db(entity, diagram)
+        except Exception as exc:
+            return jsonify({"error": str(exc)}), 500
     return jsonify({"ok": True})
 
 
