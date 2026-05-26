@@ -877,32 +877,34 @@ function initCrossCartoMode() {
   window.addEventListener("message", function(e) {
     if (!e.data) return;
 
-    // shape-click : envoyé par editor.js (mousedown sur forme en readonly)
-    // C'est ici que se décide navigation OU popup connexion
+    // connexion-shape-click : envoyé par le viewer quand connexion mode est actif
+    // et que l'utilisateur clique sur une forme hachurée.
+    // editor.js ne peut PAS envoyer shape-click dans ce cas (stopImmediatePropagation)
+    if (e.data.type === "connexion-shape-click") {
+      if (_active) _handleHachuredClick((e.data.activityName || '').trim());
+      return;
+    }
+
+    // shape-click : envoyé par editor.js en mode normal (connexion inactif)
+    // Grâce à l'interception mousedown dans le viewer, ce message n'arrive
+    // JAMAIS quand _active est vrai.
     if (e.data.t === "shape-click") {
-      const subtype    = e.data.subtype || 'normal';
-      const isHachured = subtype === 'external' || subtype === 'extco';
-      if (_active) {
-        // Mode connexion actif : popup si hachurée, rien sinon (jamais de navigation)
-        if (isHachured) _handleHachuredClick((e.data.label || '').trim());
-      } else {
-        // Mode normal : navigation vers la fiche activité
-        const label = (e.data.label || '').toLowerCase().trim();
-        if (!label) return;
-        const items = document.querySelectorAll('#activities-list .activity-item');
-        let found = null;
+      if (_active) return; // sécurité supplémentaire, ne devrait pas arriver
+      const label = (e.data.label || '').toLowerCase().trim();
+      if (!label) return;
+      const items = document.querySelectorAll('#activities-list .activity-item');
+      let found = null;
+      for (const item of items) {
+        if ((item.dataset.name || '').toLowerCase().trim() === label) { found = item; break; }
+      }
+      if (!found) {
         for (const item of items) {
-          if ((item.dataset.name || '').trim() === label) { found = item; break; }
+          const name = (item.dataset.name || '').toLowerCase().trim();
+          if (name.includes(label) || label.includes(name)) { found = item; break; }
         }
-        if (!found) {
-          for (const item of items) {
-            const name = (item.dataset.name || '').trim();
-            if (name.includes(label) || label.includes(name)) { found = item; break; }
-          }
-        }
-        if (found && found.dataset.id) {
-          window.location.href = `/activities/view?activity_id=${found.dataset.id}`;
-        }
+      }
+      if (found && found.dataset.id) {
+        window.location.href = `/activities/view?activity_id=${found.dataset.id}`;
       }
     }
 
@@ -923,9 +925,6 @@ function initCrossCartoMode() {
 
   btn.addEventListener("click", () => {
     const newVal = !_active;
-    // toggle-extco pour le highlight visuel dans le viewer (peut être ignoré si
-    // isHighlightExtcoActive n'est pas défini, mais sans conséquence)
-    _sendToFrame({ type: "toggle-extco" });
     _sendToFrame({ type: "connexion-mode", active: newVal });
     _setActive(newVal);
   });
