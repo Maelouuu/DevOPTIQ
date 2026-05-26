@@ -466,6 +466,27 @@ def api_save():
     return jsonify(resp)
 
 
+@cartography_editor_bp.route("/api/resync/<int:entity_id>", methods=["POST"])
+def api_resync(entity_id):
+    """Force re-sync d'une entité depuis sa carto stockée (nettoyage doublons, renvois…)."""
+    if not _require_auth():
+        return jsonify({"error": "Non autorisé"}), 403
+    user_id = session.get("user_id")
+    entity = Entity.query.filter_by(id=entity_id, owner_id=user_id).first()
+    if not entity:
+        return jsonify({"error": "Entité introuvable"}), 404
+    if not entity.optiqcarto_data:
+        return jsonify({"error": "Aucune cartographie stockée pour cette entité"}), 400
+    try:
+        diagram = json.loads(entity.optiqcarto_data)
+        _sync_carto_to_db(entity, diagram)
+        return jsonify({"ok": True, "entity": entity.name})
+    except Exception as exc:
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": str(exc)}), 500
+
+
 @cartography_editor_bp.route("/api/save-diff", methods=["POST"])
 def api_save_diff():
     """Return what would be removed if the given diagram is saved (no commit)."""

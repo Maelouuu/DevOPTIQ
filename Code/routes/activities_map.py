@@ -513,6 +513,25 @@ def delete_entity(entity_id):
                 Task.query.filter(Task.activity_id.in_(act_ids)).delete(synchronize_session=False)
             db.session.execute(activity_roles.delete().where(activity_roles.c.activity_id.in_(act_ids)))
 
+        # CrossCartoLiaison : nettoyer les liaisons où cette entité est extco OU origine
+        # Puis supprimer les liens propagés dans les AUTRES entités (cross_carto_liaison_id)
+        liaison_ids_to_del = db.session.execute(
+            db.select(CrossCartoLiaison.id).where(
+                or_(
+                    CrossCartoLiaison.extco_entity_id == entity_id,
+                    CrossCartoLiaison.origin_entity_id == entity_id
+                )
+            )
+        ).scalars().all()
+        if liaison_ids_to_del:
+            # Supprimer les liens propagés dans les entités tierces
+            Link.query.filter(
+                Link.cross_carto_liaison_id.in_(liaison_ids_to_del)
+            ).delete(synchronize_session=False)
+            CrossCartoLiaison.query.filter(
+                CrossCartoLiaison.id.in_(liaison_ids_to_del)
+            ).delete(synchronize_session=False)
+
         Link.query.filter_by(entity_id=entity_id).delete(synchronize_session=False)
         Activities.query.filter_by(entity_id=entity_id).delete(synchronize_session=False)
         # Supprimer les activity_roles référençant les rôles de cette entité, puis les rôles
