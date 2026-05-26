@@ -3,6 +3,7 @@ from flask_mail import Message
 from werkzeug.security import generate_password_hash
 from itsdangerous import URLSafeTimedSerializer, SignatureExpired, BadSignature
 from flask import current_app
+from sqlalchemy.orm.attributes import flag_modified
 from Code.models.models import User
 from Code.extensions import mail, db
 
@@ -70,6 +71,7 @@ def reset_password(token):
             user = User.query.filter_by(email=email).first()
             if user:
                 user.password = generate_password_hash(new_password)
+                flag_modified(user, "password")
                 db.session.commit()
                 flash("Mot de passe modifie avec succes. Vous pouvez vous connecter.", "success")
                 return redirect(url_for("auth.login"))
