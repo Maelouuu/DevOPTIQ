@@ -278,6 +278,7 @@ def create_app(test_config=None):
         _safe_add_column("entities", "optiqcarto_data", "TEXT")
         _safe_add_column("recent_events", "detail", "TEXT")
         _safe_add_column("recent_events", "user_id", "INTEGER")
+        _safe_add_column("activities", "shape_subtype", "VARCHAR(50)")
 
         # 3. Tables supplémentaires
         try:

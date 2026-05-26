@@ -2176,6 +2176,28 @@
 }
 
 .cross-entity-item i { font-size: 0.9rem; }
+.cross-entity-item strong { font-weight: 700; }
+.cross-entity-act-name {
+  font-size: 0.78rem;
+  color: #0284c7;
+  font-weight: 400;
+  margin-left: auto;
+  font-style: italic;
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cross-entity-empty {
+  padding: 14px;
+  font-size: 0.84rem;
+  color: #6b7280;
+  text-align: center;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  justify-content: center;
+}
 
 /* ── Pulsing animation for matched shapes (class added to SVG element wrappers) ── */
 @keyframes cross-pulse-svg {

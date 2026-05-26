@@ -862,26 +862,43 @@ function initCrossCartoMode() {
     if (countEl) countEl.textContent = "0";
   }
 
-  // Réception de la réponse d'état depuis l'iframe viewer (highlight extco dans iframe)
+  function _sendToFrame(msg) {
+    const frame = document.getElementById("carto-viewer-frame");
+    if (frame && frame.contentWindow) {
+      try { frame.contentWindow.postMessage(msg, "*"); } catch (_) {}
+    }
+  }
+
+  // Messages entrants depuis le viewer iframe
   window.addEventListener("message", function(e) {
-    if (e.data && e.data.type === "extco-state") _setActive(!!e.data.active);
+    if (!e.data) return;
+    // Confirmation état extco (highlight visuel dans l'iframe)
+    if (e.data.type === "extco-state") _setActive(!!e.data.active);
+    // Clic sur une forme hachurée dans le viewer
+    if (e.data.type === "connexion-shape-click") {
+      _handleHachuredClick(e.data.activityName || "");
+    }
   });
+
+  async function _handleHachuredClick(activityName) {
+    if (!activityName) return;
+    try {
+      const res = await fetch(`/activities/api/liaison_matches?name=${encodeURIComponent(activityName)}`);
+      const data = await res.json();
+      handleCrossCartoClick(activityName, data.matches || []);
+    } catch (_) {}
+  }
 
   btn.addEventListener("click", () => {
     const newVal = !_active;
-    // Envoyer au viewer iframe pour le highlight visuel des formes hachurées
-    const frame = document.getElementById("carto-viewer-frame");
-    if (frame && frame.contentWindow) {
-      frame.contentWindow.postMessage({ type: "toggle-extco" }, "*");
-    }
+    _sendToFrame({ type: "toggle-extco" });
+    _sendToFrame({ type: "connexion-mode", active: newVal });
     _setActive(newVal);
   });
 }
 
 
-function handleCrossCartoClick(activityName, entities) {
-  if (!entities || entities.length === 0) return;
-
+function handleCrossCartoClick(activityName, matches) {
   const popup  = document.getElementById("cross-entity-popup");
   const nameEl = document.getElementById("cross-entity-activity-name");
   const listEl = document.getElementById("cross-entity-list");
@@ -890,13 +907,19 @@ function handleCrossCartoClick(activityName, entities) {
   if (nameEl) nameEl.textContent = `"${activityName}"`;
   listEl.innerHTML = "";
 
-  entities.forEach(entity => {
+  if (!matches || matches.length === 0) {
+    listEl.innerHTML = '<div class="cross-entity-empty"><i class="fa-solid fa-circle-info"></i> Aucune liaison trouvée dans les autres cartographies.</div>';
+    popup.classList.remove("hidden");
+    return;
+  }
+
+  matches.forEach(m => {
     const item = document.createElement("div");
     item.className = "cross-entity-item";
-    item.innerHTML = `<i class="fa-solid fa-building"></i> ${entity.name}`;
+    item.innerHTML = `<i class="fa-solid fa-building"></i> <strong>${m.entity_name}</strong><span class="cross-entity-act-name">${m.activity_name}</span>`;
     item.addEventListener("click", () => {
       popup.classList.add("hidden");
-      showCartoPreview(entity.id, entity.name);
+      showCartoPreview(m.entity_id, m.entity_name);
     });
     listEl.appendChild(item);
   });

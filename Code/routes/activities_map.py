@@ -1131,3 +1131,41 @@ def cross_carto_matches():
         "active_entity_id": active_entity_id,
         "total": len(matches)
     }), 200
+
+
+@activities_map_bp.route("/api/liaison_matches", methods=["GET"])
+def liaison_matches():
+    """
+    Pour une activité hachurée (donnée par son nom), trouve dans toutes les autres
+    cartos de l'user les activités avec le même nom qui NE SONT PAS hachurées.
+    Retourne : [{ entity_id, entity_name, activity_id, activity_name }]
+    """
+    name      = (request.args.get('name') or '').strip().lower()
+    user_id   = session.get('user_id')
+    active_id = get_active_entity_id()
+
+    if not name or not user_id:
+        return jsonify({"matches": []}), 200
+
+    other_entities = Entity.query.filter(
+        Entity.owner_id == user_id,
+        Entity.id != active_id
+    ).all()
+
+    hachured_subtypes = {'external', 'extco'}
+    matches = []
+    for entity in other_entities:
+        acts = Activities.query.filter(
+            Activities.entity_id == entity.id,
+            db.func.lower(Activities.name) == name,
+        ).all()
+        for act in acts:
+            if (act.shape_subtype or 'normal') not in hachured_subtypes:
+                matches.append({
+                    "entity_id":     entity.id,
+                    "entity_name":   entity.name,
+                    "activity_id":   act.id,
+                    "activity_name": act.name,
+                })
+
+    return jsonify({"matches": matches, "total": len(matches)}), 200

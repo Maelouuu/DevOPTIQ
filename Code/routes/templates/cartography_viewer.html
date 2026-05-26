@@ -283,13 +283,63 @@ document.addEventListener('mouseup', () => {
 
 // ── Désactiver la création de formes (readonly) ─────────────────────
 document.addEventListener('DOMContentLoaded', () => {
-  // Empêcher le drop de formes
   const canvasEl = document.getElementById('canvas-wrap');
   if (canvasEl) {
     canvasEl.addEventListener('dragover', e => e.preventDefault(), true);
     canvasEl.addEventListener('drop', e => e.preventDefault(), true);
   }
 });
+
+// ── Mode connexion : interception des clics sur les formes hachurées ──
+let _connexionMode = false;
+
+window.addEventListener('message', (e) => {
+  if (!e.data) return;
+  if (e.data.type === 'connexion-mode') {
+    _connexionMode = !!e.data.active;
+  }
+});
+
+// Capture phase : intercepte AVANT les handlers d'editor.js
+document.addEventListener('click', (e) => {
+  if (!_connexionMode) return;
+
+  // Cherche l'élément de forme le plus proche (data-id + data-type=shape)
+  let el = e.target;
+  let shapeId = null;
+  while (el && el !== document.body) {
+    if (el.getAttribute && el.getAttribute('data-type') === 'shape') {
+      shapeId = el.getAttribute('data-id');
+      break;
+    }
+    el = el.parentElement;
+  }
+
+  // Dans tous les cas en mode connexion : stopper la navigation
+  e.stopPropagation();
+  e.preventDefault();
+
+  if (!shapeId) return;
+
+  // Trouver la shape dans le state d'editor.js
+  const shapes = (window.state && window.state.shapes) || [];
+  const shape  = shapes.find(s => String(s.id) === String(shapeId));
+  if (!shape) return;
+
+  const subtype    = shape.subtype || 'normal';
+  const isHachured = subtype === 'external' || subtype === 'extco';
+
+  if (isHachured) {
+    try {
+      window.parent.postMessage({
+        type: 'connexion-shape-click',
+        activityName: (shape.label || '').trim(),
+        shapeId: String(shapeId),
+        subtype,
+      }, '*');
+    } catch (_) {}
+  }
+}, true); // capture = true → avant les handlers internes
 </script>
 </body>
 </html>

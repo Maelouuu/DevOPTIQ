@@ -168,6 +168,7 @@ class Activities(db.Model):
     name = db.Column(db.String(200), nullable=False)
     description = db.Column(db.Text, nullable=True)
     is_result = db.Column(db.Boolean, nullable=False, default=False)
+    shape_subtype = db.Column(db.String(50), nullable=True)  # 'normal', 'external', 'extco', 'special'
 
     # Durée/délai (défaut / préremplissage des autres pages)
     duration_minutes = db.Column(db.Float, default=0)

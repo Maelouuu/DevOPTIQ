@@ -209,23 +209,22 @@ def _do_sync(entity, diagram):
         sid       = str(s['id'])
         label     = (s.get('label') or '').strip() or f"Activité {sid}"
         is_result = s.get('type') == 'special'
+        subtype   = s.get('subtype') or 'normal'
         new_labels.add(label)
 
         if sid in existing_by_sid:
-            # Même shape_id → même activité (label ou type peut avoir changé)
             act = existing_by_sid[sid]
-            if act.name != label:              act.name      = label
-            if act.is_result != is_result:     act.is_result = is_result
+            if act.name != label:                  act.name          = label
+            if act.is_result != is_result:         act.is_result     = is_result
+            if act.shape_subtype != subtype:       act.shape_subtype = subtype
         elif label in existing_by_name:
-            # Même nom → même activité avec un nouveau shape_id (ré-import VSDX)
-            # On met à jour shape_id pour que les saves suivants matchent par sid.
             act = existing_by_name[label]
-            act.shape_id = sid
-            if act.is_result != is_result:     act.is_result = is_result
+            act.shape_id     = sid
+            act.shape_subtype = subtype
+            if act.is_result != is_result:         act.is_result     = is_result
         else:
-            # Vraiment nouvelle activité
             act = Activities(entity_id=entity.id, shape_id=sid,
-                             name=label, is_result=is_result)
+                             name=label, is_result=is_result, shape_subtype=subtype)
             db.session.add(act)
         shape_to_act[sid] = act
 
