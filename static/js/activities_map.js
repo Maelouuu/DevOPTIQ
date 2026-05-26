@@ -801,6 +801,7 @@ function initCrossCartoMode() {
   if (countEl) countEl.textContent = String(extcoCount);
 
   let _active = false;
+  let _matchedShapeIds = []; // shape_ids avec liaisons (pour re-sync si iframe rechargée)
 
   function _setActive(val) {
     _active = val;
@@ -826,19 +827,22 @@ function initCrossCartoMode() {
     } catch (_) {
       crossCartoMatches = [];
     }
-    // Build map: activity_id → { name, matched_entities }
-    // On ne conserve que les activités hachurées (présentes dans EXTCO_ACTIVITY_IDS)
+    // Seules les activités hachurées (EXTCO_ACTIVITY_IDS) avec une liaison sont colorées
     const extcoSet = new Set((window.EXTCO_ACTIVITY_IDS || []).map(String));
     activityMatchMap = {};
+    _matchedShapeIds = [];
     crossCartoMatches.forEach(m => {
       if (m.activity_id && extcoSet.has(String(m.activity_id))) {
         activityMatchMap[String(m.activity_id)] = { name: m.activity_name, matched_entities: m.matched_entities };
+        if (m.shape_id) _matchedShapeIds.push(String(m.shape_id));
       }
     });
-    // Update count badge
+    // Envoyer au viewer : griser tout sauf les shapes avec liaisons
+    _sendToFrame({ type: "connexion-highlight", matchedShapeIds: _matchedShapeIds });
+    // Badge
     const countEl = document.getElementById("cross-carto-count");
-    if (countEl) countEl.textContent = String(crossCartoMatches.length);
-    // Highlight matching items in the list
+    if (countEl) countEl.textContent = String(Object.keys(activityMatchMap).length);
+    // Highlight liste droite
     $$(".activity-item").forEach(li => {
       const id = li.dataset.id;
       if (id && activityMatchMap[id]) {
@@ -857,6 +861,8 @@ function initCrossCartoMode() {
   function _clearConnectionsFromList() {
     activityMatchMap = {};
     crossCartoMatches = [];
+    _matchedShapeIds = [];
+    _sendToFrame({ type: "connexion-reset" });
     $$(".activity-item").forEach(li => {
       li.classList.remove("connexion-match");
       const icon = li.querySelector(".connexion-chain-icon");
@@ -908,9 +914,12 @@ function initCrossCartoMode() {
       }
     }
 
-    // Iframe prête (rechargement) → re-synchroniser le mode connexion
+    // Iframe prête (rechargement) → re-synchroniser le mode connexion + grisement
     if (e.data.type === "viewer-ready" && _active) {
       _sendToFrame({ type: "connexion-mode", active: true });
+      if (_matchedShapeIds.length > 0) {
+        _sendToFrame({ type: "connexion-highlight", matchedShapeIds: _matchedShapeIds });
+      }
     }
   });
 

@@ -298,6 +298,46 @@ window.addEventListener('message', (e) => {
   if (e.data.type === 'connexion-mode') {
     _connexionMode = !!e.data.active;
   }
+
+  // Grisement sélectif : toute la carto grisée sauf les shapes dont l'id est dans matchedShapeIds
+  if (e.data.type === 'connexion-highlight') {
+    const matched = new Set((e.data.matchedShapeIds || []).map(String));
+    if (typeof state !== 'undefined') {
+      for (const s of state.shapes || []) {
+        if (matched.has(String(s.id))) {
+          if (s._cxOrig !== undefined) { s.color = s._cxOrig; s.strokeColor = s._cxOrigStroke; delete s._cxOrig; delete s._cxOrigStroke; }
+        } else {
+          if (s._cxOrig === undefined) { s._cxOrig = s.color; s._cxOrigStroke = s.strokeColor; }
+          s.color = '#cbd5e1'; s.strokeColor = '#94a3b8';
+        }
+      }
+      for (const b of state.bands || []) {
+        if (b._cxOrig === undefined) b._cxOrig = b.color;
+        b.color = '#cbd5e1';
+      }
+      for (const c of state.connections || []) {
+        if (c._cxOrig === undefined) c._cxOrig = c.color;
+        c.color = '#94a3b8';
+      }
+      if (typeof render === 'function') render();
+    }
+  }
+
+  // Restauration des couleurs originales
+  if (e.data.type === 'connexion-reset') {
+    if (typeof state !== 'undefined') {
+      for (const s of state.shapes || []) {
+        if (s._cxOrig !== undefined) { s.color = s._cxOrig; s.strokeColor = s._cxOrigStroke; delete s._cxOrig; delete s._cxOrigStroke; }
+      }
+      for (const b of state.bands || []) {
+        if (b._cxOrig !== undefined) { b.color = b._cxOrig; delete b._cxOrig; }
+      }
+      for (const c of state.connections || []) {
+        if (c._cxOrig !== undefined) { c.color = c._cxOrig; delete c._cxOrig; }
+      }
+      if (typeof render === 'function') render();
+    }
+  }
 });
 
 // Signaler au parent que l'iframe est prête

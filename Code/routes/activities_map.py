@@ -1112,11 +1112,15 @@ def cross_carto_matches():
     if not other_entities:
         return jsonify({"matches": []}), 200
 
+    # Déduplique par nom : les renvois (cercles) partagent le même nom que
+    # l'activité référencée — on ne traite chaque nom qu'une seule fois.
+    seen_names = set()
     matches = []
     for act in active_acts:
         name_lower = (act.name or "").strip().lower()
-        if not name_lower:
+        if not name_lower or name_lower in seen_names:
             continue
+        seen_names.add(name_lower)
         matched_entities = []
         for entity in other_entities:
             hit = Activities.query.filter(
@@ -1159,18 +1163,19 @@ def liaison_matches():
         Entity.id != active_id
     ).all()
 
+    # Une seule entrée par entité même si plusieurs activités du même nom
+    # existent (renvoi + activité réelle partagent le même nom dans la carto).
     matches = []
     for entity in other_entities:
-        # Activité du même nom qui n'est PAS hachurée (subtype normal, NULL, ou autre)
-        acts = Activities.query.filter(
+        act = Activities.query.filter(
             Activities.entity_id == entity.id,
             db.func.lower(Activities.name) == name,
             db.or_(
                 Activities.shape_subtype.is_(None),
                 Activities.shape_subtype.notin_(['external', 'extco']),
             )
-        ).all()
-        for act in acts:
+        ).first()
+        if act:
             matches.append({
                 "entity_id":     entity.id,
                 "entity_name":   entity.name,
