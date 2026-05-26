@@ -3,6 +3,7 @@ name: Deploy → Staging
 on:
   push:
     branches: [staging]
+  workflow_dispatch:
 
 env:
   PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
