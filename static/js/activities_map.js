@@ -346,6 +346,18 @@ function initWizard() {
 
   // Actions entité
   $("#wizard-activate-btn")?.addEventListener("click", activateEntity);
+
+  $("#wizard-open-editor-btn")?.addEventListener("click", async () => {
+    if (!wizardState.selectedEntity) { window.location.href = "/cartography/editor"; return; }
+    const entity = wizardState.selectedEntity;
+    if (!entity.is_active) {
+      try {
+        await fetch(`/activities/api/entities/${entity.id}/activate`, { method: "POST" });
+      } catch (_) {}
+    }
+    window.location.href = "/cartography/editor";
+  });
+
   $("#wizard-rename-btn")?.addEventListener("click", () => showModal("rename-modal"));
   $("#wizard-delete-btn")?.addEventListener("click", () => {
     const nameEl = document.getElementById("delete-entity-name-display");
@@ -954,6 +966,15 @@ function handleCrossCartoClick(activityName, matches) {
   const listEl = document.getElementById("cross-entity-list");
   if (!popup || !listEl) return;
 
+  // Retrouver l'ID de l'activité hachurée depuis activityMatchMap (module-level)
+  let extcoActivityId = null;
+  for (const [aid, info] of Object.entries(activityMatchMap)) {
+    if ((info.name || "").trim().toLowerCase() === activityName.trim().toLowerCase()) {
+      extcoActivityId = parseInt(aid);
+      break;
+    }
+  }
+
   if (nameEl) nameEl.textContent = `"${activityName}"`;
   listEl.innerHTML = "";
 
@@ -966,15 +987,68 @@ function handleCrossCartoClick(activityName, matches) {
   matches.forEach(m => {
     const item = document.createElement("div");
     item.className = "cross-entity-item";
-    item.innerHTML = `<i class="fa-solid fa-building"></i> <strong>${m.entity_name}</strong><span class="cross-entity-act-name">${m.activity_name}</span>`;
-    item.addEventListener("click", () => {
+    item.innerHTML = `
+      <div class="cross-entity-item-info">
+        <i class="fa-solid fa-building"></i>
+        <strong>${m.entity_name}</strong>
+        <span class="cross-entity-act-name">${m.activity_name}</span>
+      </div>
+      <div class="cross-entity-item-actions">
+        <button class="cross-entity-btn-preview" title="Voir la cartographie">
+          <i class="fa-solid fa-eye"></i>
+        </button>
+        <button class="cross-entity-btn-officialize" title="Officialiser cette liaison">
+          <i class="fa-solid fa-link"></i> Officialiser
+        </button>
+      </div>`;
+
+    item.querySelector(".cross-entity-btn-preview").addEventListener("click", (e) => {
+      e.stopPropagation();
       popup.classList.add("hidden");
       showCartoPreview(m.entity_id, m.entity_name);
     });
+
+    item.querySelector(".cross-entity-btn-officialize").addEventListener("click", async (e) => {
+      e.stopPropagation();
+      const btn = e.currentTarget;
+      if (!extcoActivityId) {
+        alert("Impossible d'identifier l'activité hachurée.");
+        return;
+      }
+      await officializeLiaison(extcoActivityId, m.entity_id, m.activity_id, m.entity_name, btn);
+    });
+
     listEl.appendChild(item);
   });
 
   popup.classList.remove("hidden");
+}
+
+async function officializeLiaison(extcoActivityId, originEntityId, originActivityId, originEntityName, btn) {
+  if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i>'; }
+  try {
+    const res = await fetch("/activities/api/officialize_liaison", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        extco_activity_id: extcoActivityId,
+        origin_entity_id:  originEntityId,
+        origin_activity_id: originActivityId
+      })
+    });
+    const data = await res.json();
+    if (data.error) {
+      alert(data.error);
+      if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-link"></i> Officialiser'; }
+    } else {
+      if (btn) {
+        btn.innerHTML = '<i class="fa-solid fa-check"></i> Officialisée';
+        btn.style.background = "#22c55e";
+      }
+    }
+  } catch (_) {
+    if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-link"></i> Officialiser'; }
+  }
 }
 
 let _previewEntityId = null;

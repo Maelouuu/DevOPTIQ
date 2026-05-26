@@ -18,8 +18,10 @@ from flask import (
     session
 )
 
+from sqlalchemy import or_
+
 from Code.extensions import db
-from Code.models.models import Activities, Entity, Link, Data, Task, Role, activity_roles, task_roles, task_tools
+from Code.models.models import Activities, Entity, Link, Data, Task, Role, CrossCartoLiaison, activity_roles, task_roles, task_tools
 
 from Code.routes.vsdx_conection_parser import (
     parse_vsdx_connections,
@@ -1184,3 +1186,106 @@ def liaison_matches():
             })
 
     return jsonify({"matches": matches, "total": len(matches)}), 200
+
+
+@activities_map_bp.route("/api/officialize_liaison", methods=["POST"])
+def officialize_liaison():
+    """Officialise une liaison entre une activité hachurée (extco) et son original.
+    Propage les connexions de l'extco vers l'activité d'origine."""
+    user_id = session.get("user_id")
+    active_entity_id = get_active_entity_id()
+    if not user_id or not active_entity_id:
+        return jsonify({"error": "Non autorisé"}), 403
+
+    data = request.get_json(force=True) or {}
+    extco_activity_id = data.get("extco_activity_id")
+    origin_entity_id = data.get("origin_entity_id")
+    origin_activity_id = data.get("origin_activity_id")
+
+    if not extco_activity_id or not origin_entity_id or not origin_activity_id:
+        return jsonify({"error": "Paramètres manquants"}), 400
+
+    extco_act = Activities.query.filter_by(id=extco_activity_id, entity_id=active_entity_id).first()
+    if not extco_act:
+        return jsonify({"error": "Activité hachurée introuvable"}), 404
+
+    origin_entity = Entity.query.filter_by(id=origin_entity_id, owner_id=user_id).first()
+    if not origin_entity:
+        return jsonify({"error": "Entité d'origine introuvable"}), 404
+
+    origin_act = Activities.query.filter_by(id=origin_activity_id, entity_id=origin_entity_id).first()
+    if not origin_act:
+        return jsonify({"error": "Activité d'origine introuvable"}), 404
+
+    existing = CrossCartoLiaison.query.filter_by(
+        extco_entity_id=active_entity_id,
+        extco_activity_id=extco_activity_id,
+        origin_entity_id=origin_entity_id,
+        origin_activity_id=origin_activity_id,
+        is_active=True
+    ).first()
+    if existing:
+        return jsonify({"ok": True, "message": "Liaison déjà officialisée", "already_exists": True}), 200
+
+    liaison = CrossCartoLiaison(
+        extco_entity_id=active_entity_id,
+        extco_activity_id=extco_activity_id,
+        origin_entity_id=origin_entity_id,
+        origin_activity_id=origin_activity_id,
+        is_active=True
+    )
+    db.session.add(liaison)
+    db.session.flush()
+
+    active_entity = Entity.query.get(active_entity_id)
+    active_entity_name = active_entity.name if active_entity else "Entité liée"
+
+    extco_links = Link.query.filter(
+        Link.entity_id == active_entity_id,
+        or_(
+            Link.source_activity_id == extco_activity_id,
+            Link.target_activity_id == extco_activity_id
+        ),
+        Link.cross_carto_liaison_id.is_(None)
+    ).all()
+
+    act_ids = set()
+    for lk in extco_links:
+        if lk.source_activity_id and lk.source_activity_id != extco_activity_id:
+            act_ids.add(lk.source_activity_id)
+        if lk.target_activity_id and lk.target_activity_id != extco_activity_id:
+            act_ids.add(lk.target_activity_id)
+
+    act_names = {}
+    if act_ids:
+        for a in Activities.query.filter(Activities.id.in_(list(act_ids))).all():
+            act_names[a.id] = a.name
+
+    created = 0
+    for lk in extco_links:
+        if lk.source_activity_id == extco_activity_id:
+            other_name = act_names.get(lk.target_activity_id, lk.description or "?")
+            db.session.add(Link(
+                entity_id=origin_entity_id,
+                source_activity_id=origin_activity_id,
+                target_activity_id=None,
+                type=lk.type,
+                description=other_name,
+                cross_carto_liaison_id=liaison.id,
+                cross_carto_label=active_entity_name
+            ))
+        else:
+            other_name = act_names.get(lk.source_activity_id, lk.description or "?")
+            db.session.add(Link(
+                entity_id=origin_entity_id,
+                source_activity_id=None,
+                target_activity_id=origin_activity_id,
+                type=lk.type,
+                description=other_name,
+                cross_carto_liaison_id=liaison.id,
+                cross_carto_label=active_entity_name
+            ))
+        created += 1
+
+    db.session.commit()
+    return jsonify({"ok": True, "links_created": created}), 200

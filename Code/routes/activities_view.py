@@ -175,11 +175,15 @@ def _build_activity_data(activities):
     def _resolve_source(lk):
         if lk.source_activity_id: return _act_name(lk.source_activity_id)
         if lk.source_data_id:     return _data_name(lk.source_data_id)
+        lbl = getattr(lk, 'cross_carto_label', None)
+        if lbl: return f"[{lbl}] {lk.description or ''}"
         return '[Source ?]'
 
     def _resolve_target(lk):
         if lk.target_activity_id: return _act_name(lk.target_activity_id)
         if lk.target_data_id:     return _data_name(lk.target_data_id)
+        lbl = getattr(lk, 'cross_carto_label', None)
+        if lbl: return f"[{lbl}] {lk.description or ''}"
         return '[Cible ?]'
 
     def _resolve_data_name(lk):
@@ -187,6 +191,8 @@ def _build_activity_data(activities):
         if did:
             d = ref_data.get(did)
             return d.name if d else (lk.description or '[Data sans nom]')
+        if getattr(lk, 'cross_carto_label', None):
+            return 'Flux externe'
         return lk.description or '[Data inconnue]'
 
     # Assemblage
@@ -197,20 +203,22 @@ def _build_activity_data(activities):
         incoming_list = []
         for lk in incoming_by_act.get(aid, []):
             incoming_list.append({
-                'type':        resolve_data_type(lk, incoming=True),
-                'data_name':   _resolve_data_name(lk),
-                'source_name': _resolve_source(lk),
-                'link_id':     lk.id,
+                'type':               resolve_data_type(lk, incoming=True),
+                'data_name':          _resolve_data_name(lk),
+                'source_name':        _resolve_source(lk),
+                'link_id':            lk.id,
+                'cross_carto_label':  getattr(lk, 'cross_carto_label', None),
             })
 
         outgoing_list = []
         for lk in outgoing_by_act.get(aid, []):
             perf_obj = lk.performance
             outgoing_list.append({
-                'type':        resolve_data_type(lk, incoming=False),
-                'data_name':   _resolve_data_name(lk),
-                'target_name': _resolve_target(lk),
-                'link_id':     lk.id,
+                'type':               resolve_data_type(lk, incoming=False),
+                'data_name':          _resolve_data_name(lk),
+                'target_name':        _resolve_target(lk),
+                'link_id':            lk.id,
+                'cross_carto_label':  getattr(lk, 'cross_carto_label', None),
                 'performance': {
                     'id': perf_obj.id, 'name': perf_obj.name,
                     'description': perf_obj.description

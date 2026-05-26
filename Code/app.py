@@ -281,6 +281,8 @@ def create_app(test_config=None):
         _safe_add_column("recent_events", "detail", "TEXT")
         _safe_add_column("recent_events", "user_id", "INTEGER")
         _safe_add_column("activities", "shape_subtype", "VARCHAR(50)")
+        _safe_add_column("links", "cross_carto_liaison_id", "INTEGER")
+        _safe_add_column("links", "cross_carto_label", "VARCHAR(200)")
 
         # 3. Tables supplémentaires
         try:
@@ -304,6 +306,13 @@ def create_app(test_config=None):
             print("[DB] Table recent_events prête")
         except Exception as e:
             print(f"[DB] recent_events check: {e}")
+
+        try:
+            from Code.models.models import CrossCartoLiaison
+            CrossCartoLiaison.__table__.create(db.engine, checkfirst=True)
+            print("[DB] Table cross_carto_liaisons prête")
+        except Exception as e:
+            print(f"[DB] cross_carto_liaisons check: {e}")
 
         # 4. Marquer les migrations Alembic comme appliquées (sans les exécuter)
         # db_upgrade() est intentionnellement absent : il attend un verrou PostgreSQL

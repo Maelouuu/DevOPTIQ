@@ -324,6 +324,8 @@ class Link(db.Model):
     target_data_id = db.Column(db.Integer, db.ForeignKey('data.id'), nullable=True)
     type = db.Column(db.String(50), nullable=False)
     description = db.Column(db.Text, nullable=True)
+    cross_carto_liaison_id = db.Column(db.Integer, nullable=True)
+    cross_carto_label = db.Column(db.String(200), nullable=True)
 
     @property
     def source_id(self):
@@ -796,3 +798,15 @@ def _on_tool_delete(mapper, connection, target):
     detail = {"name": target.name, "description": target.description or ""}
     _log_recent(connection, 'tool_deleted', 'fa-solid fa-trash',
                 f'Outil supprimé : {target.name}', target.entity_id, detail=detail)
+
+class CrossCartoLiaison(db.Model):
+    """Liaison officialisée entre une activité hachurée (extco) et son original."""
+    __tablename__ = 'cross_carto_liaisons'
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    extco_entity_id = db.Column(db.Integer, db.ForeignKey('entities.id'), nullable=False)
+    extco_activity_id = db.Column(db.Integer, db.ForeignKey('activities.id'), nullable=False)
+    origin_entity_id = db.Column(db.Integer, db.ForeignKey('entities.id'), nullable=False)
+    origin_activity_id = db.Column(db.Integer, db.ForeignKey('activities.id'), nullable=False)
+    is_active = db.Column(db.Boolean, default=True, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)

@@ -19,7 +19,7 @@
                 {{ conn.data_name }}
               {% endif %}
             </td>
-            <td>{{ conn.source_name }}</td>
+            <td>{{ conn.source_name }}{% if conn.cross_carto_label %}<span class="cross-carto-badge" title="Connexion via liaison inter-entités"><i class="fa-solid fa-link"></i> {{ conn.cross_carto_label }}</span>{% endif %}</td>
           </tr>
         {% endfor %}
       </table>
@@ -48,7 +48,7 @@
                 {{ conn.data_name }}
               {% endif %}
             </td>
-            <td>{{ conn.target_name }}</td>
+            <td>{{ conn.target_name }}{% if conn.cross_carto_label %}<span class="cross-carto-badge" title="Connexion via liaison inter-entités"><i class="fa-solid fa-link"></i> {{ conn.cross_carto_label }}</span>{% endif %}</td>
             <td>
               <!-- On attribue un id = "perf-cell-<link_id>" et data-linkid = <link_id> -->
               <div 

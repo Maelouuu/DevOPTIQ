@@ -20,7 +20,7 @@ from flask import (
 )
 
 from Code.extensions import db
-from Code.models.models import Activities, CartoCalque, Entity, Link, Role, activity_roles
+from Code.models.models import Activities, CartoCalque, CrossCartoLiaison, Entity, Link, Role, activity_roles
 
 cartography_editor_bp = Blueprint("cartography_editor", __name__, url_prefix="/cartography")
 
@@ -348,6 +348,53 @@ def _do_sync(entity, diagram):
                 type='flux',
                 description=label,
             ))
+
+    # ── Cross-carto liaison propagation ──────────────────────────────────────
+    # Pour chaque activité hachurée (extco) ayant une liaison officialisée,
+    # on reporte ses connexions vers l'activité d'origine dans l'autre entité.
+    extco_act_ids = {a.id for a in shape_to_act.values()
+                     if a.shape_subtype == 'extco' and a.id}
+    if extco_act_ids:
+        liaisons = CrossCartoLiaison.query.filter(
+            CrossCartoLiaison.extco_activity_id.in_(list(extco_act_ids)),
+            CrossCartoLiaison.extco_entity_id == entity.id,
+            CrossCartoLiaison.is_active.is_(True)
+        ).all()
+        if liaisons:
+            db.session.flush()  # ensure new links are in DB before propagation
+            act_id_to_name = {a.id: a.name for a in shape_to_act.values() if a.id}
+            active_entity_name = entity.name or "Entité liée"
+            for liaison in liaisons:
+                # Delete previously propagated links for this liaison
+                Link.query.filter_by(
+                    entity_id=liaison.origin_entity_id,
+                    cross_carto_liaison_id=liaison.id
+                ).delete()
+                # Re-create from current carto state
+                extco_id = liaison.extco_activity_id
+                for (src_id, tgt_id), label in new_links.items():
+                    if src_id == extco_id:
+                        other_name = act_id_to_name.get(tgt_id, label or "?")
+                        db.session.add(Link(
+                            entity_id=liaison.origin_entity_id,
+                            source_activity_id=liaison.origin_activity_id,
+                            target_activity_id=None,
+                            type='flux',
+                            description=other_name,
+                            cross_carto_liaison_id=liaison.id,
+                            cross_carto_label=active_entity_name
+                        ))
+                    elif tgt_id == extco_id:
+                        other_name = act_id_to_name.get(src_id, label or "?")
+                        db.session.add(Link(
+                            entity_id=liaison.origin_entity_id,
+                            source_activity_id=None,
+                            target_activity_id=liaison.origin_activity_id,
+                            type='flux',
+                            description=other_name,
+                            cross_carto_liaison_id=liaison.id,
+                            cross_carto_label=active_entity_name
+                        ))
 
     db.session.commit()
 

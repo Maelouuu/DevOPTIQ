@@ -70,8 +70,9 @@ def reset_password(token):
         else:
             user = User.query.filter_by(email=email).first()
             if user:
-                user.password = generate_password_hash(new_password)
+                user.password = generate_password_hash(new_password, method="pbkdf2:sha256")
                 flag_modified(user, "password")
+                db.session.add(user)
                 db.session.commit()
                 flash("Mot de passe modifie avec succes. Vous pouvez vous connecter.", "success")
                 return redirect(url_for("auth.login"))
