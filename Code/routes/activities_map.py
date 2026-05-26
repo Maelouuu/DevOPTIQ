@@ -19,7 +19,7 @@ from flask import (
 )
 
 from Code.extensions import db
-from Code.models.models import Activities, Entity, Link, Data, Task, activity_roles, task_roles, task_tools
+from Code.models.models import Activities, Entity, Link, Data, Task, Role, activity_roles, task_roles, task_tools
 
 from Code.routes.vsdx_conection_parser import (
     parse_vsdx_connections,
@@ -513,6 +513,13 @@ def delete_entity(entity_id):
 
         Link.query.filter_by(entity_id=entity_id).delete(synchronize_session=False)
         Activities.query.filter_by(entity_id=entity_id).delete(synchronize_session=False)
+        # Supprimer les activity_roles référençant les rôles de cette entité, puis les rôles
+        role_ids = db.session.execute(
+            db.select(Role.id).where(Role.entity_id == entity_id)
+        ).scalars().all()
+        if role_ids:
+            db.session.execute(activity_roles.delete().where(activity_roles.c.role_id.in_(role_ids)))
+            Role.query.filter(Role.id.in_(role_ids)).delete(synchronize_session=False)
         Entity.query.filter_by(id=entity_id).delete(synchronize_session=False)
         db.session.commit()
         
