@@ -115,12 +115,20 @@ def editor():
         has_vsdx = bool(_vsdx_path(entity))
         has_optiqcarto = _has_carto(entity)
 
+    active_calque_id = session.get('active_calque_id')
+    if active_calque_id and entity:
+        from Code.models.models import CartoCalque
+        cal = CartoCalque.query.filter_by(id=active_calque_id, entity_id=entity.id).first()
+        if not cal:
+            active_calque_id = None
+
     return render_template(
         "cartography_editor.html",
         entity_name=entity_name,
         entity_id=entity_id,
         has_vsdx=has_vsdx,
         has_optiqcarto=has_optiqcarto,
+        active_calque_id=active_calque_id,
     )
 
 

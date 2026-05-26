@@ -1120,6 +1120,7 @@ def cross_carto_matches():
                 matched_entities.append({"id": entity.id, "name": entity.name})
         if matched_entities:
             matches.append({
+                "activity_id": act.id,
                 "shape_id": str(act.shape_id),
                 "activity_name": act.name,
                 "matched_entities": matched_entities

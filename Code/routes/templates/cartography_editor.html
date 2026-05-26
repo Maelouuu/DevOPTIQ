@@ -10,10 +10,11 @@
 
   <!-- Configuration DevOPTIQ injectée avant editor.js -->
   <script>
-    window.OPTIQCARTO_API_BASE    = '/cartography';
-    window.OPTIQCARTO_DEFAULT_NAME = {{ (entity_name or '')|tojson }};
-    window.OPTIQCARTO_HAS_VSDX   = {{ has_vsdx|tojson }};
-    window.OPTIQCARTO_HAS_CARTO  = {{ has_optiqcarto|tojson }};
+    window.OPTIQCARTO_API_BASE      = '/cartography';
+    window.OPTIQCARTO_DEFAULT_NAME  = {{ (entity_name or '')|tojson }};
+    window.OPTIQCARTO_HAS_VSDX      = {{ has_vsdx|tojson }};
+    window.OPTIQCARTO_HAS_CARTO     = {{ has_optiqcarto|tojson }};
+    window.OPTIQCARTO_ACTIVE_CALQUE = {{ (active_calque_id or 'null')|safe }};
   </script>
 </head>
 <body>

@@ -21,6 +21,7 @@ let svgWidth = 0, svgHeight = 0;
 /* État mode connexions inter-cartos */
 let crossCartoMode = false;
 let crossCartoMatches = [];
+let activityMatchMap = {}; // activity_id → { name, matched_entities }
 
 const ZOOM_MIN = 0.1, ZOOM_MAX = 10;
 
@@ -249,7 +250,13 @@ function initListClicks() {
   $$(".activity-item").forEach((li) => {
     li.addEventListener("click", () => {
       const id = li.dataset.id;
-      if (id) window.location.href = `/activities/view?activity_id=${id}`;
+      if (!id) return;
+      if (crossCartoMode && activityMatchMap[id]) {
+        const m = activityMatchMap[id];
+        handleCrossCartoClick(m.name, m.matched_entities);
+      } else if (!crossCartoMode) {
+        window.location.href = `/activities/view?activity_id=${id}`;
+      }
     });
   });
 }
@@ -797,106 +804,80 @@ function initCrossCartoMode() {
 
   function _setActive(val) {
     _active = val;
-    crossCartoMode = val;  // sync global utilisé par les click handlers SVG
+    crossCartoMode = val;
     btn.classList.toggle("active", _active);
+    document.body.classList.toggle("connexion-mode-active", _active);
     const infoDefault = document.getElementById("carto-info-default");
     const infoCross   = document.getElementById("carto-info-cross");
     if (infoDefault) infoDefault.classList.toggle("hidden", _active);
     if (infoCross)   infoCross.classList.toggle("hidden", !_active);
+    if (_active) {
+      _applyConnectionsToList();
+    } else {
+      _clearConnectionsFromList();
+    }
   }
 
-  // Réception de la réponse d'état depuis l'iframe viewer
+  async function _applyConnectionsToList() {
+    try {
+      const res = await fetch("/activities/api/cross_carto_matches");
+      const data = await res.json();
+      crossCartoMatches = data.matches || [];
+    } catch (_) {
+      crossCartoMatches = [];
+    }
+    // Build map: activity_id → { name, matched_entities }
+    activityMatchMap = {};
+    crossCartoMatches.forEach(m => {
+      if (m.activity_id) activityMatchMap[String(m.activity_id)] = { name: m.activity_name, matched_entities: m.matched_entities };
+    });
+    // Update count badge
+    const countEl = document.getElementById("cross-carto-count");
+    if (countEl) countEl.textContent = String(crossCartoMatches.length);
+    // Highlight matching items in the list
+    $$(".activity-item").forEach(li => {
+      const id = li.dataset.id;
+      if (id && activityMatchMap[id]) {
+        li.classList.add("connexion-match");
+        if (!li.querySelector(".connexion-chain-icon")) {
+          const icon = document.createElement("i");
+          icon.className = "fa-solid fa-link connexion-chain-icon";
+          li.appendChild(icon);
+        }
+      } else {
+        li.classList.remove("connexion-match");
+      }
+    });
+  }
+
+  function _clearConnectionsFromList() {
+    activityMatchMap = {};
+    crossCartoMatches = [];
+    $$(".activity-item").forEach(li => {
+      li.classList.remove("connexion-match");
+      const icon = li.querySelector(".connexion-chain-icon");
+      if (icon) icon.remove();
+    });
+    const countEl = document.getElementById("cross-carto-count");
+    if (countEl) countEl.textContent = "0";
+  }
+
+  // Réception de la réponse d'état depuis l'iframe viewer (highlight extco dans iframe)
   window.addEventListener("message", function(e) {
     if (e.data && e.data.type === "extco-state") _setActive(!!e.data.active);
   });
 
   btn.addEventListener("click", () => {
+    const newVal = !_active;
+    // Envoyer au viewer iframe pour le highlight visuel des formes hachurées
     const frame = document.getElementById("carto-viewer-frame");
-    if (!frame || !frame.contentWindow) return;
-    frame.contentWindow.postMessage({ type: "toggle-extco" }, "*");
-    // Optimistic toggle — sera confirmé par la réponse extco-state de l'iframe
-    _setActive(!_active);
-  });
-}
-
-async function applyCrossCartoMode() {
-  if (!svgElement) return;
-
-  // Fetch matches from API
-  let data;
-  try {
-    const res = await fetch("/activities/api/cross_carto_matches");
-    data = await res.json();
-  } catch (e) {
-    console.error("cross_carto_matches fetch error:", e);
-    data = { matches: [] };
-  }
-  crossCartoMatches = data.matches || [];
-
-  // Build a lookup: shape_id → match info
-  const matchMap = {};
-  crossCartoMatches.forEach(m => { matchMap[m.shape_id] = m; });
-
-  // Update count badge
-  const countEl = document.getElementById("cross-carto-count");
-  if (countEl) countEl.textContent = crossCartoMatches.length;
-
-  // Apply visual effects to all carto-activity elements
-  svgElement.querySelectorAll(".carto-activity").forEach(el => {
-    // Find shape_id: iterate SHAPE_ACTIVITY_MAP entries to find which shape maps to this el
-    let shapeId = null;
-    // el.dataset.activityId was set in initShapeHandlers
-    // We need shape_id for the match. Let's store it directly.
-    // Actually we need reverse: actId → shapeId
-    // Use el.dataset.shapeId if set, otherwise we scan all keys
-    if (el.dataset.shapeId) {
-      shapeId = el.dataset.shapeId;
-    } else {
-      const actId = el.dataset.activityId;
-      if (actId) {
-        for (const [sid, aid] of Object.entries(SHAPE_ACTIVITY_MAP)) {
-          if (String(aid) === String(actId)) { shapeId = sid; break; }
-        }
-        el.dataset.shapeId = shapeId || "";
-      }
+    if (frame && frame.contentWindow) {
+      frame.contentWindow.postMessage({ type: "toggle-extco" }, "*");
     }
-
-    const match = shapeId ? matchMap[shapeId] : null;
-
-    if (match) {
-      // Highlight matched shape
-      el.dataset.crossEntities = JSON.stringify(match.matched_entities);
-      el.dataset.crossActivity  = match.activity_name;
-      el.style.opacity = "1";
-      el.style.filter  = "drop-shadow(0 0 6px #0ea5e9) drop-shadow(0 0 14px #38bdf8)";
-      el.style.cursor  = "pointer";
-      el.style.animation = "cross-pulse-svg 1.8s ease-in-out infinite";
-    } else {
-      // Dim non-matched shape
-      el.dataset.crossEntities = "";
-      el.style.opacity   = "0.12";
-      el.style.filter    = "grayscale(1)";
-      el.style.cursor    = "default";
-      el.style.animation = "none";
-    }
+    _setActive(newVal);
   });
 }
 
-function clearCrossCartoMode() {
-  crossCartoMatches = [];
-  if (!svgElement) return;
-
-  svgElement.querySelectorAll(".carto-activity").forEach(el => {
-    el.style.opacity   = "1";
-    el.style.filter    = "";
-    el.style.cursor    = "pointer";
-    el.style.animation = "";
-    el.dataset.crossEntities = "";
-  });
-
-  const countEl = document.getElementById("cross-carto-count");
-  if (countEl) countEl.textContent = "0";
-}
 
 function handleCrossCartoClick(activityName, entities) {
   if (!entities || entities.length === 0) return;
