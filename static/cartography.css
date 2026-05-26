@@ -2293,14 +2293,14 @@
   position: relative;
   z-index: 1;
   background: #fff;
-  border: 3px solid #111;
-  border-radius: 12px;
+  border: 1.5px solid #f9a8d4;
+  border-radius: 16px;
   width: min(90vw, 1100px);
   height: min(84vh, 780px);
   display: flex;
   flex-direction: column;
-  box-shadow: 0 24px 60px rgba(0,0,0,0.45);
-  animation: previewPopIn .22s cubic-bezier(0.34,1.4,0.64,1);
+  box-shadow: 0 20px 56px rgba(190,24,93,0.18), 0 4px 16px rgba(0,0,0,0.1);
+  animation: previewPopIn .25s cubic-bezier(0.34,1.4,0.64,1);
   overflow: hidden;
 }
 
@@ -2313,12 +2313,11 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 14px 18px 13px;
-  border-bottom: 2px solid #111;
-  background: #111;
+  padding: 14px 18px;
+  background: linear-gradient(135deg, #ec4899 0%, #be185d 100%);
   color: #fff;
   flex-shrink: 0;
-  border-radius: 9px 9px 0 0;
+  border-radius: 14px 14px 0 0;
 }
 
 .carto-preview-header-left {
@@ -2332,18 +2331,18 @@
 
 .carto-preview-header-left i {
   font-size: 1rem;
-  color: #38bdf8;
+  color: rgba(255,255,255,0.85);
 }
 
 .carto-preview-close {
-  background: rgba(255,255,255,0.1);
-  border: 1px solid rgba(255,255,255,0.2);
+  background: rgba(255,255,255,0.18);
+  border: 1px solid rgba(255,255,255,0.3);
   color: #fff;
   cursor: pointer;
-  font-size: 1rem;
+  font-size: 0.9rem;
   width: 30px;
   height: 30px;
-  border-radius: 7px;
+  border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2352,14 +2351,14 @@
 }
 
 .carto-preview-close:hover {
-  background: rgba(255,255,255,0.22);
+  background: rgba(255,255,255,0.32);
 }
 
 .carto-preview-body {
   flex: 1;
   overflow: hidden;
   position: relative;
-  background: #f8fafc;
+  background: #fdf2f8;
 }
 
 .carto-preview-loading {
@@ -2369,9 +2368,10 @@
   align-items: center;
   justify-content: center;
   gap: 10px;
-  font-size: 0.9rem;
-  color: #64748b;
+  font-size: 0.88rem;
+  color: #be185d;
   font-weight: 500;
+  background: #fdf2f8;
 }
 
 .carto-preview-svg-wrap {
@@ -2410,13 +2410,16 @@
 }
 
 .carto-preview-readonly-badge {
-  background: rgba(17,17,17,0.72);
-  color: #e2e8f0;
+  background: rgba(190,24,93,0.82);
+  color: #fff;
   font-size: 0.73rem;
   font-weight: 600;
   padding: 4px 10px;
   border-radius: 20px;
   letter-spacing: 0.04em;
+  display: flex;
+  align-items: center;
+  gap: 5px;
 }
 
 .carto-preview-activate-btn {

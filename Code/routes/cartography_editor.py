@@ -409,7 +409,14 @@ def api_load(name):
     if not _require_auth():
         return jsonify({"error": "Non autorisé"}), 403
 
-    entity = _get_active_entity()
+    # Chercher l'entité par nom d'abord (permet le preview inter-entités),
+    # puis fallback sur l'entité active de la session.
+    user_id = session.get("user_id")
+    entity = None
+    if user_id and name:
+        entity = Entity.query.filter_by(name=name, owner_id=user_id).first()
+    if not entity:
+        entity = _get_active_entity()
     if not entity:
         return jsonify({"error": "Aucune entité active"}), 400
 
