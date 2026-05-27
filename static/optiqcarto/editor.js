@@ -4052,10 +4052,10 @@ function _showCheckPanel(issues) {
   document.getElementById('_carto-check-panel')?.remove();
 
   const iconByType = {
-    isolated:  { icon: 'fa-circle-nodes',             color: '#f59e0b' },
-    renvoi:    { icon: 'fa-circle-dot',                color: '#ec4899' },
-    outofband: { icon: 'fa-up-right-from-square',      color: '#a855f7' },
-    duplicate: { icon: 'fa-copy',                      color: '#3b82f6' },
+    isolated:  { icon: 'fa-circle-nodes',        color: '#f59e0b' },
+    renvoi:    { icon: 'fa-circle-dot',           color: '#F4B8D0' },
+    outofband: { icon: 'fa-up-right-from-square', color: '#6DD98A' },
+    duplicate: { icon: 'fa-copy',                 color: '#4DB868' },
   };
 
   const panel = document.createElement('div');
@@ -4063,38 +4063,38 @@ function _showCheckPanel(issues) {
   panel.style.cssText = [
     'position:fixed;top:72px;right:12px;width:340px',
     'max-height:calc(100vh - 84px)',
-    'background:#1a2030;border:1px solid rgba(255,255,255,0.09)',
-    'border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,0.55)',
+    'background:#1A231D;border:1px solid rgba(77,184,104,0.22)',
+    'border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,0.6)',
     'z-index:5000;display:flex;flex-direction:column;overflow:hidden',
   ].join(';');
 
   const hdr = `
-    <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid rgba(255,255,255,0.07);flex-shrink:0">
-      <span style="font-size:13.5px;font-weight:700;color:#e2e8f0;display:flex;align-items:center;gap:8px">
-        <i class="fa-solid fa-magnifying-glass-chart" style="color:#22c55e"></i> Diagnostic carto
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid rgba(77,184,104,0.12);flex-shrink:0">
+      <span style="font-size:13.5px;font-weight:700;color:#D6EDD9;display:flex;align-items:center;gap:8px">
+        <i class="fa-solid fa-magnifying-glass-chart" style="color:#4DB868"></i> Diagnostic carto
       </span>
-      <button id="_ccp-close" style="background:none;border:none;color:#64748b;font-size:20px;cursor:pointer;line-height:1;padding:0 4px" title="Fermer">×</button>
+      <button id="_ccp-close" style="background:none;border:none;color:#567460;font-size:20px;cursor:pointer;line-height:1;padding:0 4px" title="Fermer">×</button>
     </div>`;
 
   let body;
   if (issues.length === 0) {
     body = `<div style="padding:28px 18px;text-align:center">
-      <i class="fa-solid fa-circle-check" style="font-size:30px;color:#22c55e;display:block;margin-bottom:12px"></i>
-      <div style="font-size:13px;font-weight:600;color:#e2e8f0">Aucun problème détecté</div>
-      <div style="font-size:11.5px;color:#64748b;margin-top:6px">La cartographie est cohérente</div>
+      <i class="fa-solid fa-circle-check" style="font-size:30px;color:#4DB868;display:block;margin-bottom:12px"></i>
+      <div style="font-size:13px;font-weight:600;color:#D6EDD9">Aucun problème détecté</div>
+      <div style="font-size:11.5px;color:#567460;margin-top:6px">La cartographie est cohérente</div>
     </div>`;
   } else {
     const rows = issues.map((issue, i) => {
       const ic = iconByType[issue.type] || { icon: 'fa-exclamation-circle', color: '#f59e0b' };
-      return `<div style="display:flex;align-items:center;gap:10px;padding:9px 14px;border-bottom:1px solid rgba(255,255,255,0.04)">
+      return `<div style="display:flex;align-items:center;gap:10px;padding:9px 14px;border-bottom:1px solid rgba(77,184,104,0.06)">
         <i class="fa-solid ${ic.icon}" style="color:${ic.color};font-size:13px;flex-shrink:0"></i>
-        <span style="flex:1;font-size:11.5px;color:#cbd5e1;line-height:1.4">${issue.msg}</span>
-        <button class="_ccp-goto" data-i="${i}" style="padding:4px 10px;border-radius:6px;border:1px solid rgba(255,255,255,0.1);background:transparent;color:#94a3b8;font-size:11px;cursor:pointer;white-space:nowrap;flex-shrink:0">Voir →</button>
+        <span style="flex:1;font-size:11.5px;color:#D6EDD9;line-height:1.4">${issue.msg}</span>
+        <button class="_ccp-goto" data-i="${i}" style="padding:4px 10px;border-radius:6px;border:1px solid rgba(77,184,104,0.22);background:transparent;color:#4DB868;font-size:11px;cursor:pointer;white-space:nowrap;flex-shrink:0">Voir →</button>
       </div>`;
     }).join('');
 
     body = `<div style="overflow-y:auto;flex:1">
-      <div style="padding:10px 14px 4px;font-size:10.5px;color:#64748b;font-weight:600;text-transform:uppercase;letter-spacing:0.05em">${issues.length} problème(s) trouvé(s)</div>
+      <div style="padding:10px 14px 4px;font-size:10.5px;color:#567460;font-weight:600;text-transform:uppercase;letter-spacing:0.05em">${issues.length} problème(s) trouvé(s)</div>
       ${rows}
     </div>`;
   }
@@ -4182,6 +4182,217 @@ function runCartoCheck() {
 
 
 /* ══════════════════════════════════════════════════
+   CRÉATION PLURIELLE — ajout de N formes par bande
+   ══════════════════════════════════════════════════ */
+
+function _showBulkPanel(shapeType, shapeSubtype, wrap) {
+  document.getElementById('_bulk-side-panel')?.remove();
+  const dropdown = wrap.querySelector('.shape-sub-dropdown');
+  if (!dropdown) return;
+  const rect = dropdown.getBoundingClientRect();
+
+  const previewClassMap = { process: 'normal', special: 'special', 'start-end': 'renvoi', decision: 'decision' };
+  const subtypeClass    = shapeSubtype === 'external' ? 'external' : shapeSubtype === 'extco' ? 'extco' : (previewClassMap[shapeType] || 'normal');
+  const labelMap = { process: 'Activité', special: 'Sous-activité', 'start-end': 'Renvoi', decision: 'Décision' };
+  const shapeName = (shapeSubtype === 'external' ? 'Activité externe' : shapeSubtype === 'extco' ? 'Ext. entreprise' : labelMap[shapeType]) || shapeType;
+
+  const panel = document.createElement('div');
+  panel.id = '_bulk-side-panel';
+  panel.style.cssText = [
+    `position:fixed;top:${rect.top}px;left:${rect.right + 6}px`,
+    'background:#1A231D;border:1px solid rgba(77,184,104,0.22)',
+    'border-radius:14px;padding:6px;min-width:152px',
+    'box-shadow:0 8px 24px rgba(0,0,0,0.5);z-index:500',
+  ].join(';');
+
+  panel.innerHTML = `
+    <div style="padding:6px 10px 8px;font-size:10px;color:#567460;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;display:flex;align-items:center;gap:6px">
+      <span class="shape-sub-preview shape-sub-preview--${subtypeClass}"></span>${shapeName}
+    </div>
+    <div style="height:1px;background:rgba(77,184,104,0.12);margin:0 4px 4px"></div>
+    <button id="_bulk-open-modal" style="display:flex;align-items:center;gap:8px;width:100%;padding:7px 10px;border-radius:9px;border:1px solid transparent;background:transparent;color:rgba(214,237,217,0.85);cursor:pointer;font-size:11px;font-family:inherit;white-space:nowrap;text-align:left;transition:background 0.15s,border-color 0.15s,color 0.15s">
+      <i class="fa-solid fa-layer-group" style="font-size:12px;color:#4DB868;flex-shrink:0"></i>
+      <span>Création plurielle</span>
+    </button>`;
+
+  document.body.appendChild(panel);
+
+  const openBtn = panel.querySelector('#_bulk-open-modal');
+  openBtn.addEventListener('mouseenter', () => {
+    openBtn.style.background = 'rgba(77,184,104,0.15)';
+    openBtn.style.borderColor = 'rgba(77,184,104,0.22)';
+    openBtn.style.color = '#6DD98A';
+  });
+  openBtn.addEventListener('mouseleave', () => {
+    openBtn.style.background = 'transparent';
+    openBtn.style.borderColor = 'transparent';
+    openBtn.style.color = 'rgba(214,237,217,0.85)';
+  });
+
+  openBtn.addEventListener('click', () => {
+    panel.remove();
+    wrap.classList.remove('open');
+    _openBulkModal(shapeType, shapeSubtype, shapeName, subtypeClass);
+  });
+
+  panel.addEventListener('mouseleave', e => {
+    const to = e.relatedTarget;
+    if (to && wrap.contains(to)) return;
+    panel.remove();
+    setTimeout(() => wrap.classList.remove('open'), 180);
+  });
+}
+
+function _openBulkModal(shapeType, shapeSubtype, shapeName, previewClass) {
+  document.getElementById('_bulk-modal')?.remove();
+  const activeBands = state.bands.filter(b => !b.deleted);
+  if (activeBands.length === 0) { showToast('Aucune bande disponible'); return; }
+
+  const bandRows = activeBands.map(band => {
+    const realIdx = state.bands.indexOf(band);
+    return `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid rgba(77,184,104,0.07)">
+      <span style="width:12px;height:12px;border-radius:2px;background:${band.color};flex-shrink:0;display:inline-block"></span>
+      <span style="flex:1;font-size:12px;color:#D6EDD9;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${band.label || ''}">${band.label || '(sans nom)'}</span>
+      <input type="number" min="0" max="30" value="1" class="_bulk-count" data-bi="${realIdx}"
+        style="width:52px;background:rgba(77,184,104,0.08);border:1px solid rgba(77,184,104,0.22);border-radius:7px;color:#D6EDD9;font-size:12px;font-family:inherit;padding:4px 6px;text-align:center;outline:none">
+    </div>`;
+  }).join('');
+
+  const overlay = document.createElement('div');
+  overlay.id = '_bulk-modal';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.55);display:flex;align-items:center;justify-content:center;z-index:9000;backdrop-filter:blur(2px)';
+  overlay.innerHTML = `
+    <div style="background:#1A231D;border:1px solid rgba(77,184,104,0.22);border-radius:20px;padding:28px 32px;min-width:400px;max-width:480px;box-shadow:0 32px 80px rgba(0,0,0,0.6)">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px">
+        <span class="shape-sub-preview shape-sub-preview--${previewClass}" style="flex-shrink:0;transform:scale(1.3);transform-origin:left center"></span>
+        <div>
+          <div style="font-size:15px;font-weight:700;color:#D6EDD9">Création plurielle — ${shapeName}</div>
+          <div style="font-size:11.5px;color:#567460;margin-top:3px">Nombre de formes à créer par bande</div>
+        </div>
+      </div>
+      <div style="max-height:260px;overflow-y:auto;margin-bottom:22px;padding-right:4px">
+        ${bandRows}
+      </div>
+      <div style="display:flex;gap:10px;justify-content:flex-end">
+        <button id="_bulk-cancel" style="padding:9px 22px;border-radius:10px;border:1px solid rgba(77,184,104,0.22);background:transparent;color:#567460;font-size:13px;cursor:pointer;font-family:inherit">Annuler</button>
+        <button id="_bulk-ok" style="padding:9px 22px;border-radius:10px;border:none;background:#4DB868;color:#0E1610;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">Créer les formes</button>
+      </div>
+    </div>`;
+
+  document.body.appendChild(overlay);
+  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+  overlay.querySelector('#_bulk-cancel').onclick = () => overlay.remove();
+
+  // Focus style on number inputs
+  overlay.querySelectorAll('._bulk-count').forEach(inp => {
+    inp.addEventListener('focus', () => { inp.style.borderColor = '#4DB868'; inp.style.background = 'rgba(77,184,104,0.15)'; });
+    inp.addEventListener('blur',  () => { inp.style.borderColor = 'rgba(77,184,104,0.22)'; inp.style.background = 'rgba(77,184,104,0.08)'; });
+  });
+
+  overlay.querySelector('#_bulk-ok').onclick = () => {
+    const counts = [];
+    overlay.querySelectorAll('._bulk-count').forEach(inp => {
+      const count = Math.max(0, Math.min(30, parseInt(inp.value) || 0));
+      if (count > 0) counts.push({ bandIdx: parseInt(inp.dataset.bi), count });
+    });
+    overlay.remove();
+    if (counts.length > 0) _createBulkShapes(shapeType, shapeSubtype, counts);
+    else showToast('Aucune forme à créer');
+  };
+}
+
+function _createBulkShapes(shapeType, shapeSubtype, counts) {
+  const def = SHAPE_DEFAULTS[shapeType];
+  if (!def) return;
+
+  const SW  = def.w, SH = def.h;
+  const GAP = 18;
+  const X0  = INDEX_W_SVG + 24;
+
+  let totalCreated = 0, totalFailed = 0;
+
+  for (const { bandIdx, count } of counts) {
+    const band = state.bands[bandIdx];
+    if (!band || band.deleted) continue;
+
+    // Band Y range
+    let bandY = -200;
+    for (let j = 0; j < bandIdx; j++) {
+      if (!state.bands[j].deleted) bandY += state.bands[j].height;
+    }
+    const bandYEnd = bandY + band.height;
+
+    // Existing shapes in this band (used for collision)
+    const placed = state.shapes.filter(s => {
+      const midY = s.y + s.h / 2;
+      return midY >= bandY && midY < bandYEnd;
+    });
+
+    // Build candidate Y rows: distribute vertically in band
+    const usableH = band.height - GAP * 2;
+    const maxRows  = Math.max(1, Math.floor(usableH / (SH + GAP)));
+    const rows = [];
+    for (let r = 0; r < maxRows; r++) {
+      const y = Math.round(bandY + GAP + r * (SH + GAP));
+      if (y + SH <= bandYEnd - 4) rows.push(y);
+    }
+    if (rows.length === 0) rows.push(Math.round(bandY + (band.height - SH) / 2));
+
+    // Scan grid left → right, cycling rows
+    function overlaps(x, y) {
+      for (const s of placed) {
+        if (x < s.x + s.w + GAP / 2 && x + SW + GAP / 2 > s.x &&
+            y < s.y + s.h + GAP / 2 && y + SH + GAP / 2 > s.y) return true;
+      }
+      return false;
+    }
+
+    const maxX     = (state.bandWidth || 3200) - SW - GAP;
+    const xStep    = SW + GAP;
+    let created    = 0;
+
+    outer:
+    for (let xi = 0; X0 + xi * xStep <= maxX; xi++) {
+      const x = X0 + xi * xStep;
+      for (const y of rows) {
+        if (created >= count) break outer;
+        if (!overlaps(x, y)) {
+          const s = {
+            id: state.nextId++,
+            type: shapeType,
+            x, y, w: SW, h: SH,
+            label: '',
+            color: band.color,
+            textColor: def.textColor,
+            strokeColor: '',
+            validationBadge: false,
+            validationColor: def.validationColor || '#4DB868',
+            fontSize: def.fontSize || 14,
+            colorVariant: 0,
+            subtype: shapeSubtype || def.subtype || 'normal',
+          };
+          state.shapes.push(s);
+          updateShapeColor(s);
+          placed.push(s);
+          created++;
+          totalCreated++;
+        }
+      }
+    }
+
+    totalFailed += count - created;
+  }
+
+  if (totalCreated > 0) { snapshot(); render(); }
+
+  if (totalFailed > 0)
+    showToast(`${totalCreated} forme(s) créée(s) · ${totalFailed} non placée(s) (espace insuffisant)`);
+  else
+    showToast(`${totalCreated} forme(s) créée(s)`);
+}
+
+
+/* ══════════════════════════════════════════════════
    INIT
    ══════════════════════════════════════════════════ */
 
@@ -4220,16 +4431,43 @@ function init() {
     });
   });
 
-  // Hover dropdown sur le bouton Activité (immédiat)
+  // Hover dropdown sur le bouton Activité (immédiat) + panneau Création plurielle (1s)
   const processWrap = document.getElementById('process-shape-wrap');
   if (processWrap) {
-    let hideTimer = null;
+    let hideTimer   = null;
+    let bulkTimer   = null;
+
+    function closeBulk() {
+      clearTimeout(bulkTimer);
+      document.getElementById('_bulk-side-panel')?.remove();
+    }
+
     processWrap.addEventListener('mouseenter', () => {
       clearTimeout(hideTimer);
       processWrap.classList.add('open');
     });
-    processWrap.addEventListener('mouseleave', () => {
-      hideTimer = setTimeout(() => processWrap.classList.remove('open'), 180);
+    processWrap.addEventListener('mouseleave', e => {
+      const to = e.relatedTarget;
+      const bulkPanel = document.getElementById('_bulk-side-panel');
+      if (bulkPanel && to && bulkPanel.contains(to)) return; // mouse going to bulk panel — keep dropdown open
+      clearTimeout(bulkTimer);
+      hideTimer = setTimeout(() => {
+        processWrap.classList.remove('open');
+        document.getElementById('_bulk-side-panel')?.remove();
+      }, 180);
+    });
+
+    // 1-second hover on individual shape items → show bulk panel
+    processWrap.querySelectorAll('.shape-sub-btn').forEach(btn => {
+      btn.addEventListener('mouseenter', () => {
+        clearTimeout(bulkTimer);
+        bulkTimer = setTimeout(() => {
+          _showBulkPanel(btn.dataset.shapeType, btn.dataset.shapeSubtype, processWrap);
+        }, 1000);
+      });
+      btn.addEventListener('mouseleave', () => {
+        clearTimeout(bulkTimer);
+      });
     });
   }
 
