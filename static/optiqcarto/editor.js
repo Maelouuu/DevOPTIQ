@@ -4185,11 +4185,14 @@ function runCartoCheck() {
    CRÉATION PLURIELLE — ajout de N formes par bande
    ══════════════════════════════════════════════════ */
 
-function _showBulkPanel(shapeType, shapeSubtype, wrap) {
+let _bulkPanelHovered = false;
+
+function _showBulkPanel(shapeType, shapeSubtype, wrap, anchorBtn) {
   document.getElementById('_bulk-side-panel')?.remove();
   const dropdown = wrap.querySelector('.shape-sub-dropdown');
   if (!dropdown) return;
-  const rect = dropdown.getBoundingClientRect();
+  const dropRect = dropdown.getBoundingClientRect();
+  const btnRect  = anchorBtn.getBoundingClientRect();
 
   const previewClassMap = { process: 'normal', special: 'special', 'start-end': 'renvoi', decision: 'decision' };
   const subtypeClass    = shapeSubtype === 'external' ? 'external' : shapeSubtype === 'extco' ? 'extco' : (previewClassMap[shapeType] || 'normal');
@@ -4198,10 +4201,11 @@ function _showBulkPanel(shapeType, shapeSubtype, wrap) {
 
   const panel = document.createElement('div');
   panel.id = '_bulk-side-panel';
+  // Align top with the hovered button, flush against the dropdown (no gap)
   panel.style.cssText = [
-    `position:fixed;top:${rect.top}px;left:${rect.right + 6}px`,
+    `position:fixed;top:${btnRect.top}px;left:${dropRect.right + 1}px`,
     'background:#1A231D;border:1px solid rgba(77,184,104,0.22)',
-    'border-radius:14px;padding:6px;min-width:152px',
+    'border-radius:14px;padding:6px;min-width:160px',
     'box-shadow:0 8px 24px rgba(0,0,0,0.5);z-index:500',
   ].join(';');
 
@@ -4231,11 +4235,14 @@ function _showBulkPanel(shapeType, shapeSubtype, wrap) {
 
   openBtn.addEventListener('click', () => {
     panel.remove();
+    _bulkPanelHovered = false;
     wrap.classList.remove('open');
     _openBulkModal(shapeType, shapeSubtype, shapeName, subtypeClass);
   });
 
+  panel.addEventListener('mouseenter', () => { _bulkPanelHovered = true; });
   panel.addEventListener('mouseleave', e => {
+    _bulkPanelHovered = false;
     const to = e.relatedTarget;
     if (to && wrap.contains(to)) return;
     panel.remove();
@@ -4245,16 +4252,35 @@ function _showBulkPanel(shapeType, shapeSubtype, wrap) {
 
 function _openBulkModal(shapeType, shapeSubtype, shapeName, previewClass) {
   document.getElementById('_bulk-modal')?.remove();
+
+  // Inject custom scrollbar styles once
+  if (!document.getElementById('_bulk-modal-styles')) {
+    const st = document.createElement('style');
+    st.id = '_bulk-modal-styles';
+    st.textContent = `
+      ._bulk-band-list::-webkit-scrollbar { width: 3px; }
+      ._bulk-band-list::-webkit-scrollbar-track { background: transparent; }
+      ._bulk-band-list::-webkit-scrollbar-thumb { background: rgba(77,184,104,0.3); border-radius: 3px; }
+      ._bulk-band-list::-webkit-scrollbar-thumb:hover { background: rgba(77,184,104,0.55); }
+      ._bs-btn { display:flex;align-items:center;justify-content:center;width:30px;height:30px;border:none;background:transparent;color:#4DB868;font-size:18px;cursor:pointer;font-family:inherit;line-height:1;transition:background 0.12s,color 0.12s;border-radius:6px;flex-shrink:0; }
+      ._bs-btn:hover { background:rgba(77,184,104,0.15);color:#6DD98A; }
+    `;
+    document.head.appendChild(st);
+  }
+
   const activeBands = state.bands.filter(b => !b.deleted);
   if (activeBands.length === 0) { showToast('Aucune bande disponible'); return; }
 
   const bandRows = activeBands.map(band => {
     const realIdx = state.bands.indexOf(band);
-    return `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid rgba(77,184,104,0.07)">
-      <span style="width:12px;height:12px;border-radius:2px;background:${band.color};flex-shrink:0;display:inline-block"></span>
+    return `<div style="display:flex;align-items:center;gap:10px;padding:10px 2px;border-bottom:1px solid rgba(77,184,104,0.07)">
+      <span style="width:18px;height:18px;border-radius:4px;background:${band.color};flex-shrink:0;display:inline-block;box-shadow:0 1px 4px rgba(0,0,0,0.3)"></span>
       <span style="flex:1;font-size:12px;color:#D6EDD9;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${band.label || ''}">${band.label || '(sans nom)'}</span>
-      <input type="number" min="0" max="30" value="1" class="_bulk-count" data-bi="${realIdx}"
-        style="width:52px;background:rgba(77,184,104,0.08);border:1px solid rgba(77,184,104,0.22);border-radius:7px;color:#D6EDD9;font-size:12px;font-family:inherit;padding:4px 6px;text-align:center;outline:none">
+      <div style="display:flex;align-items:center;gap:0;border:1px solid rgba(77,184,104,0.22);border-radius:8px;overflow:hidden;background:rgba(77,184,104,0.06);flex-shrink:0">
+        <button class="_bs-btn _bs-dec" data-bi="${realIdx}">−</button>
+        <span class="_bulk-val" data-bi="${realIdx}" style="min-width:26px;text-align:center;font-size:13px;color:#D6EDD9;font-weight:600;user-select:none;padding:0 2px">1</span>
+        <button class="_bs-btn _bs-inc" data-bi="${realIdx}">+</button>
+      </div>
     </div>`;
   }).join('');
 
@@ -4262,39 +4288,53 @@ function _openBulkModal(shapeType, shapeSubtype, shapeName, previewClass) {
   overlay.id = '_bulk-modal';
   overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.55);display:flex;align-items:center;justify-content:center;z-index:9000;backdrop-filter:blur(2px)';
   overlay.innerHTML = `
-    <div style="background:#1A231D;border:1px solid rgba(77,184,104,0.22);border-radius:20px;padding:28px 32px;min-width:400px;max-width:480px;box-shadow:0 32px 80px rgba(0,0,0,0.6)">
-      <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px">
-        <span class="shape-sub-preview shape-sub-preview--${previewClass}" style="flex-shrink:0;transform:scale(1.3);transform-origin:left center"></span>
+    <div style="background:#1A231D;border:1px solid rgba(77,184,104,0.22);border-radius:20px;padding:28px 32px;min-width:420px;max-width:500px;box-shadow:0 32px 80px rgba(0,0,0,0.6)">
+      <div style="display:flex;align-items:center;gap:14px;margin-bottom:22px">
+        <span class="shape-sub-preview shape-sub-preview--${previewClass}" style="flex-shrink:0;transform:scale(1.5);transform-origin:left center"></span>
         <div>
           <div style="font-size:15px;font-weight:700;color:#D6EDD9">Création plurielle — ${shapeName}</div>
           <div style="font-size:11.5px;color:#567460;margin-top:3px">Nombre de formes à créer par bande</div>
         </div>
       </div>
-      <div style="max-height:260px;overflow-y:auto;margin-bottom:22px;padding-right:4px">
+      <div class="_bulk-band-list" style="max-height:280px;overflow-y:auto;margin-bottom:24px;scrollbar-width:thin;scrollbar-color:rgba(77,184,104,0.3) transparent">
         ${bandRows}
       </div>
       <div style="display:flex;gap:10px;justify-content:flex-end">
-        <button id="_bulk-cancel" style="padding:9px 22px;border-radius:10px;border:1px solid rgba(77,184,104,0.22);background:transparent;color:#567460;font-size:13px;cursor:pointer;font-family:inherit">Annuler</button>
-        <button id="_bulk-ok" style="padding:9px 22px;border-radius:10px;border:none;background:#4DB868;color:#0E1610;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">Créer les formes</button>
+        <button id="_bulk-cancel" style="padding:10px 24px;border-radius:11px;border:1px solid rgba(77,184,104,0.22);background:transparent;color:#567460;font-size:13px;cursor:pointer;font-family:inherit;transition:background 0.15s,color 0.15s">Annuler</button>
+        <button id="_bulk-ok" style="padding:10px 24px;border-radius:11px;border:none;background:#4DB868;color:#0E1610;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;transition:filter 0.15s">Créer les formes</button>
       </div>
     </div>`;
 
   document.body.appendChild(overlay);
   overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
   overlay.querySelector('#_bulk-cancel').onclick = () => overlay.remove();
+  overlay.querySelector('#_bulk-ok').addEventListener('mouseenter', e => { e.target.style.filter = 'brightness(1.12)'; });
+  overlay.querySelector('#_bulk-ok').addEventListener('mouseleave', e => { e.target.style.filter = ''; });
 
-  // Focus style on number inputs
-  overlay.querySelectorAll('._bulk-count').forEach(inp => {
-    inp.addEventListener('focus', () => { inp.style.borderColor = '#4DB868'; inp.style.background = 'rgba(77,184,104,0.15)'; });
-    inp.addEventListener('blur',  () => { inp.style.borderColor = 'rgba(77,184,104,0.22)'; inp.style.background = 'rgba(77,184,104,0.08)'; });
+  // Stepper +/- logic
+  const vals = {}; // bandIdx → current value
+  activeBands.forEach(band => { vals[state.bands.indexOf(band)] = 1; });
+
+  overlay.querySelectorAll('._bs-dec').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const bi = parseInt(btn.dataset.bi);
+      vals[bi] = Math.max(0, (vals[bi] || 0) - 1);
+      overlay.querySelector(`._bulk-val[data-bi="${bi}"]`).textContent = vals[bi];
+    });
+  });
+  overlay.querySelectorAll('._bs-inc').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const bi = parseInt(btn.dataset.bi);
+      vals[bi] = Math.min(30, (vals[bi] || 0) + 1);
+      overlay.querySelector(`._bulk-val[data-bi="${bi}"]`).textContent = vals[bi];
+    });
   });
 
   overlay.querySelector('#_bulk-ok').onclick = () => {
     const counts = [];
-    overlay.querySelectorAll('._bulk-count').forEach(inp => {
-      const count = Math.max(0, Math.min(30, parseInt(inp.value) || 0));
-      if (count > 0) counts.push({ bandIdx: parseInt(inp.dataset.bi), count });
-    });
+    for (const [bi, count] of Object.entries(vals)) {
+      if (count > 0) counts.push({ bandIdx: parseInt(bi), count });
+    }
     overlay.remove();
     if (counts.length > 0) _createBulkShapes(shapeType, shapeSubtype, counts);
     else showToast('Aucune forme à créer');
@@ -4434,35 +4474,36 @@ function init() {
   // Hover dropdown sur le bouton Activité (immédiat) + panneau Création plurielle (1s)
   const processWrap = document.getElementById('process-shape-wrap');
   if (processWrap) {
-    let hideTimer   = null;
-    let bulkTimer   = null;
-
-    function closeBulk() {
-      clearTimeout(bulkTimer);
-      document.getElementById('_bulk-side-panel')?.remove();
-    }
+    let hideTimer = null;
+    let bulkTimer = null;
 
     processWrap.addEventListener('mouseenter', () => {
       clearTimeout(hideTimer);
       processWrap.classList.add('open');
     });
     processWrap.addEventListener('mouseleave', e => {
+      // Stay open if mouse moved into the bulk side panel
+      if (_bulkPanelHovered) return;
       const to = e.relatedTarget;
       const bulkPanel = document.getElementById('_bulk-side-panel');
-      if (bulkPanel && to && bulkPanel.contains(to)) return; // mouse going to bulk panel — keep dropdown open
+      if (bulkPanel && to && bulkPanel.contains(to)) return;
       clearTimeout(bulkTimer);
       hideTimer = setTimeout(() => {
         processWrap.classList.remove('open');
         document.getElementById('_bulk-side-panel')?.remove();
+        _bulkPanelHovered = false;
       }, 180);
     });
 
-    // 1-second hover on individual shape items → show bulk panel
+    // 1-second hover on individual shape buttons → show bulk panel aligned to hovered button
     processWrap.querySelectorAll('.shape-sub-btn').forEach(btn => {
       btn.addEventListener('mouseenter', () => {
         clearTimeout(bulkTimer);
+        // Close any existing bulk panel when moving to a different button
+        document.getElementById('_bulk-side-panel')?.remove();
+        _bulkPanelHovered = false;
         bulkTimer = setTimeout(() => {
-          _showBulkPanel(btn.dataset.shapeType, btn.dataset.shapeSubtype, processWrap);
+          _showBulkPanel(btn.dataset.shapeType, btn.dataset.shapeSubtype, processWrap, btn);
         }, 1000);
       });
       btn.addEventListener('mouseleave', () => {
