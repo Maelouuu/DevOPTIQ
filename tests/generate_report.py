@@ -34,6 +34,7 @@ PAGE_LABELS = {
     "test_20_savoir_faires":     "Savoir-Faires Pratiques",
     "test_21_export":            "Export & Fichiers",
     "test_22_propose_ia":        "Propositions IA & Compétences API",
+    "test_23_performance_perso": "Performance Personnalisée",
 }
 
 
