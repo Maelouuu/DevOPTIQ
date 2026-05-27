@@ -1,307 +1,281 @@
-:root{
-  /* largeur & hauteurs */
-  --nav-w: clamp(760px, 70vw, 1100px);
-  --nav-h: 50px;
-  --nav-h-open: 180px;  /* Réduit car plus de sidebar */
-  --topbar-h: 28px;
+/* ═══════════════════════════════════════════════════════
+   OPTIQ — Navigation (Liquid Glass Edition)
+   ═══════════════════════════════════════════════════════ */
 
-  --radius-lg: 16px;
-  --shadow: 0 6px 18px rgba(0,0,0,.07);
-  --ink: #142021;
+:root {
+  --nav-h:         52px;
+  --nav-h-open:   162px;
+  --topbar-h:      36px;
+  --card-w:       104px;
+  --card-h:        98px;
+  --glass-bg:      rgba(255,255,255,0.72);
+  --glass-border:  rgba(255,255,255,0.60);
+  --glass-shadow:
+    0 10px 40px rgba(0,0,0,0.10),
+    0  2px  8px rgba(0,0,0,0.06),
+    inset 0 1px 0 rgba(255,255,255,0.88);
+  --radius-nav:    18px;
+  --radius-card:   14px;
+  --ink:           #1a2820;
 }
 
-/* Sécurité */
-.card-nav, .card-nav *{ box-sizing: border-box; }
+/* ── Reset ─────────────────────────────────────────── */
+.card-nav, .card-nav * { box-sizing: border-box; }
 
-/* ============================
-   Conteneur transparent
-   ============================ */
-.card-nav-container{
+/* ── Conteneur sticky ──────────────────────────────── */
+.card-nav-container {
   position: sticky; top: 0; z-index: 1000;
-  background: transparent;
-  border: 0;
-  backdrop-filter: none;
-  padding: 6px 16px;
-  width: 100%;
-  display: flex; 
+  display: flex;
   justify-content: center;
   align-items: flex-start;
-  gap: 16px;
-  overflow-x: hidden;
+  padding: 8px 20px;
+  pointer-events: none;       /* laisse passer les clics hors nav */
 }
 
-/* ============================
-   BOUTON DÉCONNEXION (rond → rectangle au hover)
-   ============================ */
-.logout-btn {
-  position: absolute;
-  right: 40px;  /* Marge depuis le bord droit */
-  top: 10px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0;
-  
-  /* État par défaut : rond */
-  width: 42px;
-  height: 42px;
-  padding: 0;
-  
-  background: linear-gradient(135deg, #ff6b6b, #ee5a5a);
-  color: #fff;
-  text-decoration: none;
-  border-radius: 50%;  /* Rond */
-  font-size: 0.88rem;
-  font-weight: 600;
-  box-shadow: 0 4px 12px rgba(238, 90, 90, 0.35);
+/* ── Panneau principal ─────────────────────────────── */
+.card-nav {
+  pointer-events: all;
+  width: clamp(680px, 68vw, 1080px);
+  background: var(--glass-bg);
+  backdrop-filter: blur(28px) saturate(1.8) brightness(1.04);
+  -webkit-backdrop-filter: blur(28px) saturate(1.8) brightness(1.04);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-nav);
+  box-shadow: var(--glass-shadow);
+  height: var(--nav-h);
   overflow: hidden;
-  
-  /* Transition fluide */
-  transition: 
-    width 0.35s cubic-bezier(0.4, 0, 0.2, 1),
-    border-radius 0.35s cubic-bezier(0.4, 0, 0.2, 1),
-    gap 0.25s ease,
-    padding 0.3s ease,
-    background 0.2s ease,
-    box-shadow 0.2s ease,
-    transform 0.2s ease;
-  
-  z-index: 1001;
+  transition: height .28s cubic-bezier(.4,0,.2,1),
+              box-shadow .2s ease;
+}
+.card-nav.open {
+  height: var(--nav-h-open);
+  box-shadow:
+    0 20px 60px rgba(0,0,0,0.14),
+    0  4px 12px rgba(0,0,0,0.07),
+    inset 0 1px 0 rgba(255,255,255,0.88);
 }
 
-/* État hover : rectangle avec texte */
-.logout-btn:hover {
-  width: 145px;
-  border-radius: 12px;
-  gap: 8px;
-  padding: 0 18px;
-  background: linear-gradient(135deg, #ff5252, #e04545);
-  box-shadow: 0 6px 18px rgba(238, 90, 90, 0.45);
-  transform: translateY(-2px);
+/* ── Topbar ────────────────────────────────────────── */
+.card-nav-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  height: var(--topbar-h);
+  padding: 0 14px 0 12px;
+}
+
+/* Logo */
+.logo-container {
+  display: flex; align-items: center; gap: 9px;
+  text-decoration: none; color: var(--ink);
+  user-select: none;
+}
+.logo-badge {
+  width: 28px; height: 28px;
+  border-radius: 9px;
+  background: linear-gradient(135deg, #4ade9c 0%, #22c55e 55%, #16a34a 100%);
+  box-shadow: 0 3px 10px rgba(34,197,94,0.38), inset 0 1px 0 rgba(255,255,255,0.35);
+  display: grid; place-items: center;
+  font-size: 14px; color: #fff;
+  letter-spacing: -0.5px;
+}
+.logo-text {
+  font-weight: 800; font-size: 15px; letter-spacing: 0.04em;
+  background: linear-gradient(135deg, #0f5c32, #16a34a);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Hamburger */
+.hamburger-menu {
+  display: flex; flex-direction: column; gap: 5px;
+  cursor: pointer; padding: 6px 7px; border-radius: 10px;
+  transition: background .18s;
+}
+.hamburger-menu:hover { background: rgba(34,197,94,0.10); }
+.hamburger-line {
+  width: 22px; height: 2px;
+  background: var(--ink); border-radius: 2px;
+  transition: transform .28s cubic-bezier(.4,0,.2,1),
+              opacity .2s,
+              background .18s;
+}
+.hamburger-menu.open .hamburger-line:first-child {
+  transform: translateY(7px) rotate(45deg);
+  background: #16a34a;
+}
+.hamburger-menu.open .hamburger-line:last-child {
+  transform: translateY(-7px) rotate(-45deg);
+  background: #16a34a;
+}
+
+/* ── Zone déroulante ───────────────────────────────── */
+.card-nav-content {
+  position: absolute; inset-inline: 0;
+  top: var(--topbar-h);
+  padding: 10px 14px 14px;
+  opacity: 0; pointer-events: none;
+  transform: translateY(-8px) scale(0.99);
+  transition: opacity .22s ease, transform .22s cubic-bezier(.4,0,.2,1);
+}
+.card-nav.open .card-nav-content {
+  opacity: 1; pointer-events: auto;
+  transform: translateY(0) scale(1);
+}
+
+/* ── Rail scroll ───────────────────────────────────── */
+.card-scroll {
+  display: flex; gap: 10px; align-items: stretch;
+  overflow-x: auto; overflow-y: hidden;
+  scroll-snap-type: x mandatory;
+  scroll-behavior: smooth;
+  padding-bottom: 4px;
+  height: var(--card-h);
+}
+.card-scroll::-webkit-scrollbar { height: 4px; }
+.card-scroll::-webkit-scrollbar-track { background: transparent; }
+.card-scroll::-webkit-scrollbar-thumb {
+  background: rgba(34,197,94,0.28); border-radius: 4px;
+}
+.card-scroll { scrollbar-width: thin; scrollbar-color: rgba(34,197,94,0.28) transparent; }
+
+/* ── Cartes nav ────────────────────────────────────── */
+.nav-card {
+  flex: 0 0 var(--card-w);
+  height: var(--card-h);
+  border-radius: var(--radius-card);
+  text-decoration: none;
+  scroll-snap-align: start;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 7px; padding: 10px 6px;
+  position: relative; overflow: hidden;
+
+  /* Glass teinté avec la couleur de la carte */
+  background:
+    linear-gradient(160deg,
+      rgba(255,255,255,0.82) 0%,
+      var(--card-tint, rgba(255,255,255,0.6)) 100%);
+  border: 1px solid rgba(255,255,255,0.72);
+  border-bottom-color: rgba(0,0,0,0.04);
+  box-shadow:
+    0 4px 14px rgba(0,0,0,0.08),
+    inset 0 1px 0 rgba(255,255,255,0.90);
+
+  transition:
+    transform .18s cubic-bezier(.34,1.56,.64,1),
+    box-shadow .18s ease,
+    filter .15s ease;
+}
+
+/* Reflet supérieur */
+.nav-card::before {
+  content: '';
+  position: absolute; inset: 0;
+  background: linear-gradient(
+    to bottom,
+    rgba(255,255,255,0.40) 0%,
+    rgba(255,255,255,0) 55%
+  );
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+.nav-card:hover {
+  transform: translateY(-5px) scale(1.03);
+  box-shadow:
+    0 12px 28px rgba(0,0,0,0.13),
+    inset 0 1px 0 rgba(255,255,255,0.90);
+  filter: saturate(1.15) brightness(1.03);
+  z-index: 2;
+}
+.nav-card:active {
+  transform: translateY(-2px) scale(1.01);
+  box-shadow: 0 6px 16px rgba(0,0,0,0.10);
 }
 
 /* Icône */
-.logout-btn i {
-  font-size: 1.1rem;
+.nav-card-icon {
+  width: 38px; height: 38px;
+  border-radius: 11px;
+  display: grid; place-items: center;
+  background: var(--card-icon-bg, rgba(255,255,255,0.55));
+  box-shadow: 0 2px 8px rgba(0,0,0,0.10), inset 0 1px 0 rgba(255,255,255,0.80);
+  font-size: 16px;
+  color: var(--card-fg, #1a2820);
   flex-shrink: 0;
-  transition: transform 0.2s ease;
+  transition: transform .18s cubic-bezier(.34,1.56,.64,1);
+}
+.nav-card:hover .nav-card-icon {
+  transform: scale(1.12);
 }
 
-.logout-btn:hover i {
-  transform: scale(0.95);
-}
-
-/* Texte masqué par défaut */
-.logout-btn span {
+/* Label */
+.nav-card-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--card-fg, #1a2820);
+  text-align: center;
+  line-height: 1.25;
   white-space: nowrap;
-  opacity: 0;
-  max-width: 0;
+}
+
+/* ── Bouton déconnexion ─────────────────────────────── */
+.logout-btn {
+  position: fixed;
+  right: 28px; top: 10px;
+  pointer-events: all;
+  display: inline-flex; align-items: center; justify-content: center; gap: 0;
+  width: 40px; height: 40px; padding: 0;
+  background: linear-gradient(135deg, rgba(255,255,255,0.85), rgba(255,220,220,0.75));
+  backdrop-filter: blur(20px) saturate(1.5);
+  -webkit-backdrop-filter: blur(20px) saturate(1.5);
+  border: 1px solid rgba(255,255,255,0.60);
+  border-radius: 50%;
+  color: #c0392b;
+  font-size: 0.9rem; font-weight: 700;
+  box-shadow: 0 4px 14px rgba(220,50,50,0.18), inset 0 1px 0 rgba(255,255,255,0.90);
   overflow: hidden;
-  transition: 
-    opacity 0.2s ease 0.15s,
-    max-width 0.35s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-/* Texte visible au hover */
-.logout-btn:hover span {
-  opacity: 1;
-  max-width: 100px;
-}
-
-/* ============================
-   NAV visible (fond blanc)
-   ============================ */
-.card-nav{
-  width: clamp(760px, 70vw, 1100px) !important;
-  max-width: clamp(760px, 70vw, 1100px) !important;
-  margin: 0 auto !important;
-
-  background: #fff;
-  border: 1px solid rgba(0,0,0,.04);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow);
-  height: var(--nav-h);
-  overflow: hidden;
-  position: relative;
-  transition: height .25s ease;
-}
-.card-nav.open{
-  height: var(--nav-h-open);
-}
-
-/* ============================
-   Barre du haut
-   ============================ */
-.card-nav-top{
-  display: flex; justify-content: space-between; align-items: center;
-  height: var(--topbar-h);
-  padding: 0 12px;
-}
-.logo-container{ display:flex; align-items:center; gap:8px; color:var(--ink); text-decoration:none; }
-.logo-badge{
-  display:grid; place-items:center; width:26px; height:26px; border-radius:8px;
-  background: radial-gradient(circle at 30% 30%, #7fe3c2 0%, #33d299 100%);
-  box-shadow:0 3px 6px rgba(0,0,0,.1);
-}
-.logo-text{ font-weight:700; font-size:1rem; }
-
-.hamburger-menu{ display:flex; flex-direction:column; gap:7px; cursor:pointer; padding:8px; }
-.hamburger-line{ width:30px; height:3px; background:var(--ink); border-radius:2px; transition:transform .3s ease; }
-.hamburger-menu.open .hamburger-line:first-child{ transform: translateY(5px) rotate(45deg); }
-.hamburger-menu.open .hamburger-line:last-child{  transform: translateY(-5px) rotate(-45deg); }
-
-/* ============================
-   Contenu déroulant (cartes uniquement)
-   ============================ */
-.card-nav-content{
-  position: absolute;
-  inset-inline: 0;
-  top: var(--topbar-h);
-  height: calc(var(--nav-h) - var(--topbar-h));
-  padding: 12px 14px 16px;
-  background: transparent;
-  opacity: 0; pointer-events: none; transform: translateY(-6px);
-  transition: opacity .22s ease, transform .22s ease, height .25s ease;
-  display: flex; 
-  align-items: stretch;
-}
-.card-nav.open .card-nav-content{
-  height: calc(var(--nav-h-open) - var(--topbar-h));
-  opacity: 1; pointer-events: auto; transform: translateY(0);
-}
-
-/* ============================
-   Rail des cartes (pleine largeur)
-   ============================ */
-.card-scroll{
-  flex: 1 1 auto;
-  display: flex; 
-  gap: 14px; 
-  align-items: center;
-  height: 100%;
-  overflow-x: auto; 
-  overflow-y: hidden;
-  scroll-snap-type: x mandatory;
-  padding: 8px 4px 14px;  /* Plus de padding en bas pour la scrollbar */
-  scroll-behavior: smooth;
-}
-
-/* Scrollbar agrandie et stylée */
-.card-scroll::-webkit-scrollbar { 
-  height: 12px;  /* Agrandi de 6px à 12px */
-}
-.card-scroll::-webkit-scrollbar-track {
-  background: #f0f0f0;
-  border-radius: 10px;
-  margin: 0 8px;
-}
-.card-scroll::-webkit-scrollbar-thumb {
-  background: linear-gradient(135deg, #33d299, #7fe3c2);
-  border-radius: 10px;
-  border: 2px solid #f0f0f0;
-}
-.card-scroll::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(135deg, #2bb886, #5fd9ac);
-}
-
-/* Firefox */
-.card-scroll {
-  scrollbar-width: auto;  /* Changé de 'thin' à 'auto' pour plus de visibilité */
-  scrollbar-color: #33d299 #f0f0f0;
-}
-
-/* ============================
-   Cartes
-   ============================ */
-.nav-card{
-  flex: 0 0 160px;
-  height: 80px;  /* Légèrement plus grandes */
-  border-radius: 14px;
+  transition:
+    width .32s cubic-bezier(.4,0,.2,1),
+    border-radius .32s cubic-bezier(.4,0,.2,1),
+    gap .22s ease,
+    padding .28s ease,
+    box-shadow .2s ease,
+    transform .18s ease;
+  z-index: 1002;
   text-decoration: none;
-  color: var(--card-fg, var(--ink));
-  background: var(--card-bg, #f7f7f7);
-  box-shadow: 0 4px 10px rgba(0,0,0,.08);
-  display: inline-flex; 
-  align-items: center; 
-  justify-content: center;
-  padding: 12px;
-  font-weight: 700; 
-  font-size: .9rem;
-  scroll-snap-align: start;
-  transition: transform .18s ease, filter .15s ease, box-shadow .18s ease;
-  white-space: nowrap;
 }
-.nav-card i{ margin-right: 8px; }
-.nav-card:hover{ 
-  transform: translateY(-3px); 
-  filter: saturate(1.1); 
-  box-shadow: 0 8px 20px rgba(0,0,0,.12);
+.logout-btn:hover {
+  width: 140px; border-radius: 12px;
+  gap: 8px; padding: 0 16px;
+  box-shadow: 0 8px 22px rgba(220,50,50,0.26), inset 0 1px 0 rgba(255,255,255,0.90);
+  transform: translateY(-2px);
 }
+.logout-btn i { font-size: 1rem; flex-shrink: 0; }
+.logout-btn span {
+  white-space: nowrap; opacity: 0; max-width: 0; overflow: hidden;
+  font-size: 0.82rem;
+  transition: opacity .18s ease .14s, max-width .32s cubic-bezier(.4,0,.2,1);
+}
+.logout-btn:hover span { opacity: 1; max-width: 100px; }
 
-/* ============================
-   Responsive
-   ============================ */
-@media (max-width: 900px){
-  :root{
-    --nav-w: 96vw;
-    --nav-h: 104px;
-    --nav-h-open: 220px;
-    --topbar-h: 46px;
+/* ── Responsive ─────────────────────────────────────── */
+@media (max-width: 900px) {
+  :root {
+    --nav-h: 50px;
+    --nav-h-open: 172px;
+    --card-w: 90px;
+    --card-h: 90px;
   }
-  .card-nav{ 
-    width: var(--nav-w) !important; 
-    max-width: var(--nav-w) !important; 
-  }
-  
-  .card-nav-container {
-    padding: 6px 10px;
-  }
-  
-  .logout-btn {
-    right: 30px;
-    width: 38px;
-    height: 38px;
-  }
-  
-  .logout-btn:hover {
-    width: 135px;
-  }
-  
-  .logout-btn i {
-    font-size: 1rem;
-  }
-  
-  .nav-card {
-    flex: 0 0 140px;
-    height: 70px;
-    font-size: .85rem;
-  }
-  
-  .card-scroll::-webkit-scrollbar {
-    height: 10px;
-  }
+  .card-nav { width: 94vw; }
+  .card-nav-icon { width: 32px; height: 32px; font-size: 14px; }
+  .nav-card-label { font-size: 9px; }
+  .logout-btn { right: 16px; width: 36px; height: 36px; font-size: 0.82rem; }
+  .logout-btn:hover { width: 128px; }
 }
-
 @media (max-width: 500px) {
-  .logout-btn {
-    right: 20px;
-    width: 36px;
-    height: 36px;
-  }
-  
-  .logout-btn:hover {
-    width: 125px;
-  }
-
-  .nav-card {
-    flex: 0 0 120px;
-    height: 65px;
-    font-size: .8rem;
-    padding: 10px;
-  }
-  
-  .nav-card i {
-    margin-right: 6px;
-    font-size: 0.9rem;
-  }
+  :root { --card-w: 78px; --card-h: 84px; }
+  .nav-card-label { font-size: 8.5px; }
 }

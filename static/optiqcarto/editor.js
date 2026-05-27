@@ -181,7 +181,8 @@ let spaceDown = false;
 let labelEditing = null;        // { shapeId }
 let portDrag = null;            // { fromShapeId, fromPort:{x,y,dir} } — drag depuis un port
 let connEndDrag = null;     // { connId, which:'from'|'to', curX, curY, snapShapeId, snapDir }
-let bendDrag = null;        // { connId, startX, startY, startOffset:{dx,dy} }
+let bendDrag = null;        // legacy — kept for undo compat
+let segDrag  = null;        // { connId, segIdx, isHoriz, startX, startY, startPts }
 let labelDrag = null;       // { connId, startLx, startLy, startX, startY }
 let markerIds = new Map();      // "color-style" → markerId
 const hatchIds = new Set();     // pattern IDs déjà créés dans les defs
@@ -591,11 +592,18 @@ function renderConnections() {
       const fIdx2 = fUsers2.indexOf(c.id);
       const fN2 = fUsers2.length;
       const bundleOffset = fN2 > 1 ? (fIdx2 - (fN2 - 1) / 2) * 14 : 0;
-      const userOffset = c.bendOffset || { dx: 0, dy: 0 };
-      orthopts = orthogonalPts(fp, tp, bundleOffset, userOffset);
-      orthopts = avoidShapes(orthopts, state.shapes, c.fromId, c.toId);
-      orthopts = simplifyPath(orthopts);
-      c._computedOrthopts = orthopts; // used for label drag constraint
+      if (c.userPts && c.userPts.length >= 2) {
+        orthopts = [fp, ...c.userPts, tp];
+      } else {
+        const userOffset = c.bendOffset || { dx: 0, dy: 0 };
+        orthopts = orthogonalPts(fp, tp, bundleOffset, userOffset);
+        // Skip obstacle avoidance while dragging a segment (expensive + causes jitter)
+        if (!segDrag || segDrag.connId !== c.id) {
+          orthopts = avoidShapes(orthopts, state.shapes, c.fromId, c.toId);
+          orthopts = simplifyPath(orthopts);
+        }
+      }
+      c._computedOrthopts = orthopts;
       // Enregistrer les segments pour pénaliser les labels des connexions suivantes
       for (let _pi = 0; _pi < orthopts.length - 1; _pi++)
         placedPaths.push({ ax: orthopts[_pi].x, ay: orthopts[_pi].y, bx: orthopts[_pi+1].x, by: orthopts[_pi+1].y, connId: c.id });
@@ -750,19 +758,20 @@ function renderConnections() {
           style: 'pointer-events:all',
         }, gConns);
       }
-      // Poignée de coude (ajustement manuel du tracé orthogonal)
+      // Poignées de segment — une par segment intermédiaire (skip premier et dernier)
       if (routing === 'orthogonal' && orthopts.length >= 4) {
-        const midPtIdx = Math.floor((orthopts.length - 1) / 2);
-        const bpa = orthopts[midPtIdx], bpb = orthopts[midPtIdx + 1];
-        const bpx = (bpa.x + bpb.x) / 2, bpy = (bpa.y + bpb.y) / 2;
-        const isHorizSeg = Math.abs(bpb.y - bpa.y) < Math.abs(bpb.x - bpa.x);
-        el('circle', {
-          cx: String(bpx), cy: String(bpy), r: '6',
-          fill: '#ffffff', stroke: '#1f7a54', 'stroke-width': '2',
-          cursor: isHorizSeg ? 'ns-resize' : 'ew-resize',
-          'data-conn-bend': String(c.id),
-          style: 'pointer-events:all',
-        }, gConns);
+        for (let si = 1; si <= orthopts.length - 3; si++) {
+          const pa = orthopts[si], pb = orthopts[si + 1];
+          const mx = (pa.x + pb.x) / 2, my = (pa.y + pb.y) / 2;
+          const isH = Math.abs(pb.y - pa.y) < Math.abs(pb.x - pa.x);
+          el('circle', {
+            cx: String(mx), cy: String(my), r: '7',
+            fill: '#ffffff', stroke: '#1f7a54', 'stroke-width': '2.5',
+            cursor: isH ? 'ns-resize' : 'ew-resize',
+            'data-conn-seg': String(c.id), 'data-seg-idx': String(si),
+            style: 'pointer-events:all',
+          }, gConns);
+        }
       }
     }
   }
@@ -1530,15 +1539,26 @@ function onDown(e) {
       return;
     }
 
-    // Drag d'un coude de connexion (ajustement du tracé)
-    const bendEl = e.target.closest('[data-conn-bend]');
-    if (bendEl) {
-      const cid = parseInt(bendEl.getAttribute('data-conn-bend'));
+    // Drag d'un segment de connexion (ajustement précis du tracé)
+    const segEl = e.target.closest('[data-conn-seg]');
+    if (segEl) {
+      const cid    = parseInt(segEl.getAttribute('data-conn-seg'));
+      const segIdx = parseInt(segEl.getAttribute('data-seg-idx'));
       const { x, y } = screenToSVG(e.clientX, e.clientY);
       const conn = state.connections.find(c => c.id === cid);
-      const startOffset = conn && conn.bendOffset ? { ...conn.bendOffset } : { dx: 0, dy: 0 };
-      bendDrag = { connId: cid, startX: x, startY: y, startOffset };
-      canvas.style.cursor = 'grabbing';
+      if (!conn) return;
+      const pts = conn._computedOrthopts || [];
+      if (pts.length < 2 || segIdx >= pts.length - 1) return;
+      const pa = pts[segIdx], pb = pts[segIdx + 1];
+      const isH = Math.abs(pb.y - pa.y) < Math.abs(pb.x - pa.x);
+      // Geler le tracé auto en waypoints manuels si pas déjà fait
+      if (!conn.userPts) conn.userPts = pts.slice(1, -1).map(p => ({ x: p.x, y: p.y }));
+      segDrag = {
+        connId: cid, segIdx, isHoriz: isH,
+        startX: x, startY: y,
+        startPts: pts.map(p => ({ x: p.x, y: p.y })),
+      };
+      canvas.style.cursor = isH ? 'ns-resize' : 'ew-resize';
       return;
     }
 
@@ -1700,17 +1720,24 @@ function onMove(e) {
     return;
   }
 
-  /* ── Drag d'un coude de connexion ── */
-  if (bendDrag) {
+  /* ── Drag d'un segment de connexion ── */
+  if (segDrag) {
     const { x, y } = screenToSVG(e.clientX, e.clientY);
-    const conn = state.connections.find(c => c.id === bendDrag.connId);
-    if (conn) {
-      conn.bendOffset = {
-        dx: bendDrag.startOffset.dx + (x - bendDrag.startX),
-        dy: bendDrag.startOffset.dy + (y - bendDrag.startY),
-      };
-      render();
+    const conn = state.connections.find(c => c.id === segDrag.connId);
+    if (!conn || !conn.userPts) return;
+    const dx = x - segDrag.startX, dy = y - segDrag.startY;
+    const sp = segDrag.startPts;
+    const i  = segDrag.segIdx;
+    if (segDrag.isHoriz) {
+      const ny = sp[i].y + dy;
+      conn.userPts[i - 1] = { x: sp[i].x,     y: ny };
+      conn.userPts[i]     = { x: sp[i + 1].x, y: ny };
+    } else {
+      const nx = sp[i].x + dx;
+      conn.userPts[i - 1] = { x: nx, y: sp[i].y     };
+      conn.userPts[i]     = { x: nx, y: sp[i + 1].y };
     }
+    render();
     return;
   }
 
@@ -1795,9 +1822,9 @@ function onUp(e) {
     return;
   }
 
-  /* ── Fin du drag d'un coude ── */
-  if (bendDrag) {
-    bendDrag = null;
+  /* ── Fin du drag d'un segment ── */
+  if (segDrag) {
+    segDrag = null;
     canvas.style.cursor = spaceDown ? 'grab' : '';
     snapshot();
     render();
@@ -1904,10 +1931,13 @@ function onUp(e) {
     isDragging = false;
     if (dragData) {
       if (dragData.moved) {
-        // Seulement si mouvement réel : recalculer la couleur de bande
         for (const { id } of dragData.shapes) {
           const s = state.shapes.find(s => s.id === id);
           if (s) updateShapeColor(s);
+          // Les tracés manuels deviennent incohérents quand la shape source/cible bouge
+          for (const conn of state.connections) {
+            if (conn.fromId === id || conn.toId === id) conn.userPts = null;
+          }
         }
         snapshot();
         render();
@@ -1931,8 +1961,15 @@ function onDbl(e) {
     const cid = parseInt(ct.getAttribute('data-id'));
     const c = state.connections.find(c => c.id === cid);
     if (!c) return;
-    const v = prompt('Label de la flèche :', c.label || '');
-    if (v !== null) { c.label = v.trim(); snapshot(); render(); }
+    if (c.userPts) {
+      // Double-clic sur connexion avec tracé manuel → réinitialise le tracé
+      c.userPts = null;
+      snapshot(); render();
+      showToast('Tracé réinitialisé');
+    } else {
+      const v = prompt('Label de la flèche :', c.label || '');
+      if (v !== null) { c.label = v.trim(); snapshot(); render(); }
+    }
   }
 }
 

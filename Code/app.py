@@ -114,6 +114,15 @@ def create_app(test_config=None):
 
     app.jinja_env.filters["escapejs"] = escapejs_filter
 
+    # ── Contexte de traduction (injecte t() et lang dans tous les templates) ──
+    from Code.translations import t as _t
+
+    @app.context_processor
+    def inject_translation():
+        from flask import session as _sess
+        lang = _sess.get('lang', 'fr') if _sess else 'fr'
+        return {'t': _t, 'lang': lang}
+
     # -----------------------------
     # Blueprints
     # -----------------------------
@@ -230,6 +239,9 @@ def create_app(test_config=None):
 
     from Code.routes.cartography_editor import cartography_editor_bp
     app.register_blueprint(cartography_editor_bp)
+
+    from Code.routes.settings import settings_bp
+    app.register_blueprint(settings_bp)
 
     from Code.routes.test_panel import test_panel_bp
     app.register_blueprint(test_panel_bp)
