@@ -5,92 +5,94 @@
 <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
 
 <div class="card-nav-container">
-
-  <a href="/logout" class="logout-btn" title="{{ t('nav.logout') }}">
-    <i class="fa-solid fa-right-from-bracket"></i>
-    <span>{{ t('nav.logout') }}</span>
-  </a>
-
   <nav id="card-nav" class="card-nav" aria-label="Navigation principale">
 
-    <!-- Topbar -->
-    <div class="card-nav-top">
-      <a class="logo-container" href="/activities/map">
-        <span class="logo-badge">◉</span>
-        <span class="logo-text">OPTIQ</span>
-      </a>
-      <div id="hamburger" class="hamburger-menu" role="button" aria-label="Ouvrir le menu" tabindex="0">
-        <div class="hamburger-line"></div>
-        <div class="hamburger-line"></div>
-      </div>
+    <!-- Logo -->
+    <a class="logo-container" href="/activities/map">
+      <span class="logo-badge">◉</span>
+      <span class="logo-text">OPTIQ</span>
+    </a>
+
+    <!-- Hamburger (mobile uniquement) -->
+    <div id="hamburger" class="hamburger-menu" role="button"
+         aria-label="Ouvrir le menu" tabindex="0">
+      <div class="hamburger-line"></div>
+      <div class="hamburger-line"></div>
     </div>
 
-    <!-- Cartes -->
-    <div class="card-nav-content" aria-hidden="true">
+    <!-- Items de navigation -->
+    <div class="card-nav-content" aria-hidden="false">
       <div class="card-scroll">
 
         <a class="nav-card" href="/activities/view"
-           style="--card-tint:rgba(192,160,255,0.45);--card-fg:#2a1057;--card-icon-bg:rgba(192,160,255,0.35)">
-          <div class="nav-card-icon"><i class="fa-solid fa-list-check"></i></div>
-          <div class="nav-card-label">{{ t('nav.activities') }}</div>
+           style="--ic: linear-gradient(135deg,#7c3aed,#5b21b6)">
+          <span class="nav-card-icon"><i class="fa-solid fa-list-check"></i></span>
+          <span class="nav-card-label">{{ t('nav.activities') }}</span>
         </a>
 
         <a class="nav-card" href="/roles_view"
-           style="--card-tint:rgba(100,230,170,0.40);--card-fg:#08321F;--card-icon-bg:rgba(100,230,170,0.30)">
-          <div class="nav-card-icon"><i class="fa-solid fa-users-rectangle"></i></div>
-          <div class="nav-card-label">{{ t('nav.roles') }}</div>
+           style="--ic: linear-gradient(135deg,#059669,#047857)">
+          <span class="nav-card-icon"><i class="fa-solid fa-users-rectangle"></i></span>
+          <span class="nav-card-label">{{ t('nav.roles') }}</span>
         </a>
 
         <a class="nav-card" href="/competences/view"
-           style="--card-tint:rgba(130,190,255,0.40);--card-fg:#0E2B5A;--card-icon-bg:rgba(130,190,255,0.30)">
-          <div class="nav-card-icon"><i class="fa-solid fa-layer-group"></i></div>
-          <div class="nav-card-label">{{ t('nav.competences') }}</div>
+           style="--ic: linear-gradient(135deg,#2563eb,#1d4ed8)">
+          <span class="nav-card-icon"><i class="fa-solid fa-layer-group"></i></span>
+          <span class="nav-card-label">{{ t('nav.competences') }}</span>
         </a>
 
         <a class="nav-card" href="/temps"
-           style="--card-tint:rgba(255,200,100,0.40);--card-fg:#3A1C00;--card-icon-bg:rgba(255,200,100,0.30)">
-          <div class="nav-card-icon"><i class="fa-solid fa-clock"></i></div>
-          <div class="nav-card-label">{{ t('nav.time') }}</div>
+           style="--ic: linear-gradient(135deg,#d97706,#b45309)">
+          <span class="nav-card-icon"><i class="fa-solid fa-clock"></i></span>
+          <span class="nav-card-label">{{ t('nav.time') }}</span>
         </a>
 
         <a class="nav-card" href="/comptes"
-           style="--card-tint:rgba(255,160,180,0.40);--card-fg:#5A0016;--card-icon-bg:rgba(255,160,180,0.30)">
-          <div class="nav-card-icon"><i class="fa-solid fa-users-gear"></i></div>
-          <div class="nav-card-label">{{ t('nav.accounts') }}</div>
+           style="--ic: linear-gradient(135deg,#e11d48,#be123c)">
+          <span class="nav-card-icon"><i class="fa-solid fa-users-gear"></i></span>
+          <span class="nav-card-label">{{ t('nav.accounts') }}</span>
         </a>
 
         <a class="nav-card" href="/gestion_rh"
-           style="--card-tint:rgba(140,240,130,0.38);--card-fg:#10350A;--card-icon-bg:rgba(140,240,130,0.28)">
-          <div class="nav-card-icon"><i class="fa-solid fa-building-user"></i></div>
-          <div class="nav-card-label">{{ t('nav.hr') }}</div>
+           style="--ic: linear-gradient(135deg,#16a34a,#15803d)">
+          <span class="nav-card-icon"><i class="fa-solid fa-building-user"></i></span>
+          <span class="nav-card-label">{{ t('nav.hr') }}</span>
         </a>
 
         <a class="nav-card" href="/projection_metier"
-           style="--card-tint:rgba(100,210,255,0.38);--card-fg:#0A2E4A;--card-icon-bg:rgba(100,210,255,0.28)">
-          <div class="nav-card-icon"><i class="fa-solid fa-briefcase"></i></div>
-          <div class="nav-card-label">{{ t('nav.career') }}</div>
+           style="--ic: linear-gradient(135deg,#0891b2,#0e7490)">
+          <span class="nav-card-icon"><i class="fa-solid fa-briefcase"></i></span>
+          <span class="nav-card-label">{{ t('nav.career') }}</span>
         </a>
 
         <a class="nav-card" href="/gestion_outils"
-           style="--card-tint:rgba(255,178,100,0.38);--card-fg:#431407;--card-icon-bg:rgba(255,178,100,0.28)">
-          <div class="nav-card-icon"><i class="fa-solid fa-screwdriver-wrench"></i></div>
-          <div class="nav-card-label">{{ t('nav.tools') }}</div>
+           style="--ic: linear-gradient(135deg,#ea580c,#c2410c)">
+          <span class="nav-card-icon"><i class="fa-solid fa-screwdriver-wrench"></i></span>
+          <span class="nav-card-label">{{ t('nav.tools') }}</span>
         </a>
 
         <a class="nav-card" href="/activities/map"
-           style="--card-tint:rgba(80,240,220,0.36);--card-fg:#0A4A45;--card-icon-bg:rgba(80,240,220,0.26)">
-          <div class="nav-card-icon"><i class="fa-solid fa-diagram-project"></i></div>
-          <div class="nav-card-label">{{ t('nav.carto') }}</div>
+           style="--ic: linear-gradient(135deg,#0d9488,#0f766e)">
+          <span class="nav-card-icon"><i class="fa-solid fa-diagram-project"></i></span>
+          <span class="nav-card-label">{{ t('nav.carto') }}</span>
         </a>
 
         <a class="nav-card" href="/parametres"
-           style="--card-tint:rgba(200,200,220,0.36);--card-fg:#1e1e2e;--card-icon-bg:rgba(200,200,220,0.26)">
-          <div class="nav-card-icon"><i class="fa-solid fa-gear"></i></div>
-          <div class="nav-card-label">{{ t('nav.settings') }}</div>
+           style="--ic: linear-gradient(135deg,#6366f1,#4f46e5)">
+          <span class="nav-card-icon"><i class="fa-solid fa-gear"></i></span>
+          <span class="nav-card-label">{{ t('nav.settings') }}</span>
         </a>
 
       </div>
     </div>
+
+    <!-- Déconnexion (intégré à droite de la barre) -->
+    <a href="/logout" class="logout-btn" title="{{ t('nav.logout') }}">
+      <i class="fa-solid fa-right-from-bracket"></i>
+      <span>{{ t('nav.logout') }}</span>
+    </a>
+
   </nav>
 </div>
 
