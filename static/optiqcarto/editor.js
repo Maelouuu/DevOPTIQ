@@ -104,21 +104,23 @@ function _checkRenvoiAutoLink(fromShapeId, toShapeId) {
 // ── Défauts par type de forme ─────────────────────
 function _defaultBands() {
   return [
-    { id:  1, label: 'Analyse de Marché & Communication',                           color: '#FF0000', fontSize: 11, height: 220 },
-    { id:  2, label: 'Vente & Suivi commercial',                                    color: '#C00000', fontSize: 11, height: 220 },
-    { id:  3, label: 'Gestion Administrative & Financière',                         color: '#00B050', fontSize: 11, height: 220 },
-    { id:  4, label: 'Négociation & Relations Fournisseurs',                         color: '#808000', fontSize: 11, height: 220 },
-    { id:  5, label: 'Coordination & Suivi de Projet',                              color: '#5B9BD5', fontSize: 11, height: 220 },
-    { id:  6, label: 'Conception Produit & Ingénierie',                             color: '#2E74B5', fontSize: 11, height: 220 },
-    { id:  7, label: 'Organisation Industrielle & Méthodes (hors production directe)', color: '#1F3864', fontSize: 11, height: 220 },
-    { id:  8, label: 'Satisfaction Client & Amélioration Continue',                 color: '#FFFF00', fontSize: 11, height: 220 },
-    { id:  9, label: 'Contrôle qualité & Mesure (Métrologie)',                      color: '#7030A0', fontSize: 11, height: 220 },
-    { id: 10, label: 'Fabrication & Réalisation Produit (opérations directes)',     color: '#4472C4', fontSize: 11, height: 220 },
-    { id: 11, label: 'Organisation & Planification du Travail',                     color: '#ED7D31', fontSize: 11, height: 220 },
-    { id: 12, label: 'Analyse Technique & Résolution de Problèmes',                 color: '#843C00', fontSize: 11, height: 220 },
-    { id: 13, label: 'Logistique & Gestion des Flux Physiques',                     color: '#375623', fontSize: 11, height: 220 },
-    { id: 14, label: 'Pilotage Stratégique & Opérationnel (macro)',                 color: '#D9D9D9', fontSize: 11, height: 220 },
-    { id: 15, label: 'Gestion des Compétences & des Talents',                       color: '#92D050', fontSize: 11, height: 220 },
+    { id:  0, label: 'Client',                                                               color: '#FFFFFF', fontSize: 11, height: 100 },
+    { id:  1, label: 'Analyse de Marché & Communication',                                    color: '#C00000', fontSize: 11, height: 220, deleted: true },
+    { id:  2, label: 'Vente & Suivi commercial',                                             color: '#FF0000', fontSize: 11, height: 220 },
+    { id:  3, label: 'Gestion Administrative & Financière',                                  color: '#92D050', fontSize: 11, height: 220 },
+    { id:  4, label: 'Négociation & Relations Fournisseurs',                                 color: '#4F6228', fontSize: 11, height: 220, deleted: true },
+    { id:  5, label: 'Coordination & Suivi de Projet',                                      color: '#95B3D7', fontSize: 11, height: 220 },
+    { id:  6, label: 'Conception Produit & Ingénierie',                                     color: '#548DD4', fontSize: 11, height: 220 },
+    { id:  7, label: 'Organisation Industrielle & Méthodes (hors production directe)',       color: '#365F91', fontSize: 11, height: 220, deleted: true },
+    { id:  8, label: 'Satisfaction Client & Amélioration Continue',                          color: '#FFFF00', fontSize: 11, height: 220, deleted: true },
+    { id:  9, label: 'Contrôle qualité & Mesure (Métrologie)',                              color: '#5F497A', fontSize: 11, height: 220, deleted: true },
+    { id: 10, label: 'Fabrication & Réalisation Produit (opérations directes)',              color: '#0070C0', fontSize: 11, height: 220 },
+    { id: 11, label: 'Organisation & Planification du Travail',                              color: '#FF9900', fontSize: 11, height: 220 },
+    { id: 12, label: 'Analyse Technique & Résolution de Problèmes',                          color: '#984806', fontSize: 11, height: 220 },
+    { id: 13, label: 'Logistique & Gestion des Flux Physiques',                              color: '#CC9900', fontSize: 11, height: 220 },
+    { id: 14, label: 'Pilotage Stratégique & Opérationnel (macro)',                          color: '#D9D9D9', fontSize: 11, height: 220 },
+    { id: 15, label: 'Gestion des Compétences & des Talents',                                color: '#92D050', fontSize: 11, height: 220, deleted: true },
+    { id: 16, label: 'Fournisseur',                                                          color: '#FFFFFF', fontSize: 11, height: 100 },
   ];
 }
 
@@ -4289,14 +4291,23 @@ function _openBulkModal(shapeType, shapeSubtype, shapeName, previewClass) {
   overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.55);display:flex;align-items:center;justify-content:center;z-index:9000;backdrop-filter:blur(2px)';
   overlay.innerHTML = `
     <div style="background:#1A231D;border:1px solid rgba(77,184,104,0.22);border-radius:20px;padding:28px 32px;min-width:420px;max-width:500px;box-shadow:0 32px 80px rgba(0,0,0,0.6)">
-      <div style="display:flex;align-items:center;gap:14px;margin-bottom:22px">
+      <div style="display:flex;align-items:center;gap:14px;margin-bottom:20px">
         <span class="shape-sub-preview shape-sub-preview--${previewClass}" style="flex-shrink:0;transform:scale(1.5);transform-origin:left center"></span>
         <div>
           <div style="font-size:15px;font-weight:700;color:#D6EDD9">Création plurielle — ${shapeName}</div>
           <div style="font-size:11.5px;color:#567460;margin-top:3px">Nombre de formes à créer par bande</div>
         </div>
       </div>
-      <div class="_bulk-band-list" style="max-height:280px;overflow-y:auto;margin-bottom:24px;scrollbar-width:thin;scrollbar-color:rgba(77,184,104,0.3) transparent">
+      <div style="margin-bottom:16px;padding-bottom:14px;border-bottom:1px solid rgba(77,184,104,0.1)">
+        <div style="font-size:10.5px;color:#567460;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:7px">Texte des formes</div>
+        <input id="_bulk-name-input" type="text" placeholder="Laisser vide = sans nom"
+          style="width:100%;box-sizing:border-box;background:rgba(77,184,104,0.08);border:1px solid rgba(77,184,104,0.22);border-radius:8px;color:#D6EDD9;font-size:12.5px;font-family:inherit;padding:8px 12px;outline:none;transition:border-color 0.15s,background 0.15s">
+        <label style="display:flex;align-items:center;gap:7px;margin-top:8px;cursor:pointer;font-size:11.5px;color:#567460;user-select:none">
+          <input type="checkbox" id="_bulk-autonumber" style="accent-color:#4DB868;width:13px;height:13px">
+          Numéroter automatiquement — Activité 1, Activité 2…
+        </label>
+      </div>
+      <div class="_bulk-band-list" style="max-height:240px;overflow-y:auto;margin-bottom:24px;scrollbar-width:thin;scrollbar-color:rgba(77,184,104,0.3) transparent">
         ${bandRows}
       </div>
       <div style="display:flex;gap:10px;justify-content:flex-end">
@@ -4310,6 +4321,10 @@ function _openBulkModal(shapeType, shapeSubtype, shapeName, previewClass) {
   overlay.querySelector('#_bulk-cancel').onclick = () => overlay.remove();
   overlay.querySelector('#_bulk-ok').addEventListener('mouseenter', e => { e.target.style.filter = 'brightness(1.12)'; });
   overlay.querySelector('#_bulk-ok').addEventListener('mouseleave', e => { e.target.style.filter = ''; });
+
+  const nameInput = overlay.querySelector('#_bulk-name-input');
+  nameInput.addEventListener('focus', () => { nameInput.style.borderColor = '#4DB868'; nameInput.style.background = 'rgba(77,184,104,0.15)'; });
+  nameInput.addEventListener('blur',  () => { nameInput.style.borderColor = 'rgba(77,184,104,0.22)'; nameInput.style.background = 'rgba(77,184,104,0.08)'; });
 
   // Stepper +/- logic
   const vals = {}; // bandIdx → current value
@@ -4331,17 +4346,19 @@ function _openBulkModal(shapeType, shapeSubtype, shapeName, previewClass) {
   });
 
   overlay.querySelector('#_bulk-ok').onclick = () => {
+    const baseName   = nameInput.value.trim();
+    const autoNumber = overlay.querySelector('#_bulk-autonumber').checked;
     const counts = [];
     for (const [bi, count] of Object.entries(vals)) {
       if (count > 0) counts.push({ bandIdx: parseInt(bi), count });
     }
     overlay.remove();
-    if (counts.length > 0) _createBulkShapes(shapeType, shapeSubtype, counts);
+    if (counts.length > 0) _createBulkShapes(shapeType, shapeSubtype, counts, baseName, autoNumber);
     else showToast('Aucune forme à créer');
   };
 }
 
-function _createBulkShapes(shapeType, shapeSubtype, counts) {
+function _createBulkShapes(shapeType, shapeSubtype, counts, baseName = '', autoNumber = true) {
   const def = SHAPE_DEFAULTS[shapeType];
   if (!def) return;
 
@@ -4349,7 +4366,7 @@ function _createBulkShapes(shapeType, shapeSubtype, counts) {
   const GAP = 18;
   const X0  = INDEX_W_SVG + 24;
 
-  let totalCreated = 0, totalFailed = 0;
+  let totalCreated = 0, totalFailed = 0, globalIdx = 1;
 
   for (const { bandIdx, count } of counts) {
     const band = state.bands[bandIdx];
@@ -4387,9 +4404,9 @@ function _createBulkShapes(shapeType, shapeSubtype, counts) {
       return false;
     }
 
-    const maxX     = (state.bandWidth || 3200) - SW - GAP;
-    const xStep    = SW + GAP;
-    let created    = 0;
+    const maxX  = (state.bandWidth || 3200) - SW - GAP;
+    const xStep = SW + GAP;
+    let created = 0;
 
     outer:
     for (let xi = 0; X0 + xi * xStep <= maxX; xi++) {
@@ -4397,11 +4414,14 @@ function _createBulkShapes(shapeType, shapeSubtype, counts) {
       for (const y of rows) {
         if (created >= count) break outer;
         if (!overlaps(x, y)) {
+          const label = baseName
+            ? (autoNumber ? `${baseName} ${globalIdx}` : baseName)
+            : '';
           const s = {
             id: state.nextId++,
             type: shapeType,
             x, y, w: SW, h: SH,
-            label: '',
+            label,
             color: band.color,
             textColor: def.textColor,
             strokeColor: '',
@@ -4416,6 +4436,7 @@ function _createBulkShapes(shapeType, shapeSubtype, counts) {
           placed.push(s);
           created++;
           totalCreated++;
+          globalIdx++;
         }
       }
     }
