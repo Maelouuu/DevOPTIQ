@@ -3565,10 +3565,8 @@ async function importVSDX(file) {
     });
   }
 
-  const debugMode = document.getElementById('vsdx-debug-mode')?.checked || false;
-
   try {
-    const result = await vsdxParse(file, setStatus, onOrphans, debugMode);
+    const result = await vsdxParse(file, setStatus, onOrphans, false);
     if (!result) {
       setStatus('Import annul\u00e9. Vous pouvez d\u00e9poser un fichier corrig\u00e9.', true);
       return;
@@ -3608,20 +3606,6 @@ async function importVSDX(file) {
     console.log(`[VSDX] ${shapes.length} formes, ${connections.length} connexions, ${nCustom} chemins Visio exacts, ${groups.length} groupes`);
     showToast(`Import r\u00e9ussi \u2014 ${shapes.length} activit\u00e9s \u00b7 ${connections.length} connexions \u00b7 ${bands.length} bandes`);
 
-    // Debug report download
-    if (result.debugHtml) {
-      const blob = new Blob([result.debugHtml], { type: 'text/html;charset=utf-8' });
-      const url  = URL.createObjectURL(blob);
-      const a    = document.createElement('a');
-      a.href     = url;
-      a.download = (file.name || 'import').replace(/\.vsdx$/i, '') + '_debug.html';
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-      showToast('Rapport de d\u00e9bogage t\u00e9l\u00e9charg\u00e9');
-    }
-
   } catch(err) {
     console.error('VSDX import error:', err);
     setStatus('Erreur : ' + err.message, true);
@@ -3639,7 +3623,31 @@ function openBandsDialog() {
   renderBandsList();
 }
 
-function _deleteBand(idx) {
+function _confirmBandDelete(band, shapes) {
+  return new Promise(resolve => {
+    const list = shapes.map(s => `<span style="display:block;padding:1px 0">• ${s.label || 'Forme sans nom'}</span>`).join('');
+    const ov = document.createElement('div');
+    ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.55);display:flex;align-items:center;justify-content:center;z-index:9500;backdrop-filter:blur(2px)';
+    ov.innerHTML = `
+      <div style="background:#1a2030;border:1px solid rgba(255,255,255,0.09);border-radius:20px;padding:28px 32px;min-width:340px;max-width:460px;box-shadow:0 32px 80px rgba(0,0,0,0.6)">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+          <i class="fa-solid fa-triangle-exclamation" style="color:#f59e0b;font-size:18px"></i>
+          <span style="font-size:15px;font-weight:700;color:#e2e8f0">Supprimer « ${band.label || 'Bande'} » ?</span>
+        </div>
+        <p style="font-size:12.5px;color:#94a3b8;margin:0 0 12px">Cette bande contient <strong style="color:#e2e8f0">${shapes.length} forme(s)</strong> qui seront également supprimées :</p>
+        <div style="background:rgba(255,255,255,0.04);border-radius:8px;padding:10px 14px;max-height:150px;overflow-y:auto;margin-bottom:20px;font-size:11.5px;color:#cbd5e1;line-height:1.7">${list}</div>
+        <div style="display:flex;gap:10px;justify-content:flex-end">
+          <button id="_bdc-cancel" style="padding:8px 20px;border-radius:10px;border:1px solid rgba(255,255,255,0.12);background:transparent;color:#94a3b8;font-size:13px;cursor:pointer">Annuler</button>
+          <button id="_bdc-confirm" style="padding:8px 20px;border-radius:10px;border:none;background:#ec4899;color:#fff;font-size:13px;font-weight:600;cursor:pointer">Supprimer quand même</button>
+        </div>
+      </div>`;
+    document.body.appendChild(ov);
+    ov.querySelector('#_bdc-cancel').onclick  = () => { ov.remove(); resolve(false); };
+    ov.querySelector('#_bdc-confirm').onclick = () => { ov.remove(); resolve(true); };
+  });
+}
+
+async function _deleteBand(idx) {
   const band = state.bands[idx];
   if (!band || band.deleted) return false;
   // Compute y range of this band (skip deleted bands above it)
@@ -3653,8 +3661,8 @@ function _deleteBand(idx) {
     return midY >= bandY && midY < bandYEnd;
   });
   if (shapesInBand.length > 0) {
-    const names = shapesInBand.map(s => `• ${s.label || 'Forme sans nom'}`).join('\n');
-    if (!confirm(`Supprimer la bande « ${band.label} » ?\n\nCela supprimera aussi :\n${names}`)) return false;
+    const confirmed = await _confirmBandDelete(band, shapesInBand);
+    if (!confirmed) return false;
     const ids = new Set(shapesInBand.map(s => s.id));
     state.shapes = state.shapes.filter(s => !ids.has(s.id));
     state.connections = state.connections.filter(c => !ids.has(c.fromId) && !ids.has(c.toId));
@@ -3695,9 +3703,9 @@ function renderBandsTbList() {
     list.appendChild(row);
   });
   list.querySelectorAll('.bands-tb-del').forEach(btn => {
-    btn.addEventListener('click', ev => {
+    btn.addEventListener('click', async ev => {
       ev.stopPropagation();
-      if (_deleteBand(parseInt(ev.target.dataset.i))) {
+      if (await _deleteBand(parseInt(ev.target.dataset.i))) {
         renderBandsTbList();
         renderBandsList();
       }
@@ -3739,8 +3747,8 @@ function renderBandsList() {
   list.querySelectorAll('.bh').forEach(e => e.addEventListener('input', ev => {
     state.bands[ev.target.dataset.i].height = parseInt(ev.target.value) || 150; renderBands();
   }));
-  list.querySelectorAll('.band-delete').forEach(e => e.addEventListener('click', ev => {
-    if (_deleteBand(parseInt(ev.target.dataset.i))) {
+  list.querySelectorAll('.band-delete').forEach(e => e.addEventListener('click', async ev => {
+    if (await _deleteBand(parseInt(ev.target.dataset.i))) {
       renderBandsList();
       renderBandsTbList();
     }
@@ -4037,120 +4045,139 @@ function alignSelectedShapes(mode) {
 }
 
 /* ══════════════════════════════════════════════════
-   ARCHITECT LAYOUT — optimisation complète async
+   CARTO DIAGNOSTICIAN — vérification de cohérence
    ══════════════════════════════════════════════════ */
 
-async function architectLayout() {
-  if (state.shapes.length === 0) { showToast('Aucune forme à organiser'); return; }
+function _showCheckPanel(issues) {
+  document.getElementById('_carto-check-panel')?.remove();
 
-  // ── Modal de progression ──────────────────────────────────
-  const overlay = document.createElement('div');
-  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.55);display:flex;align-items:center;justify-content:center;z-index:9000;backdrop-filter:blur(2px)';
-  overlay.innerHTML = `
-    <div style="background:#1a2030;border:1px solid rgba(255,255,255,0.09);border-radius:20px;padding:30px 36px;min-width:360px;max-width:500px;text-align:center;box-shadow:0 32px 80px rgba(0,0,0,0.6)">
-      <div style="font-size:16px;font-weight:700;color:#e2e8f0;margin-bottom:8px">
-        <i class="fa-solid fa-wand-magic-sparkles" style="color:#4db868;margin-right:9px"></i>Architecte IA en cours…
-      </div>
-      <div id="arch-status-msg" style="font-size:12px;color:#64748b;margin-bottom:22px;min-height:16px;transition:color 0.2s"></div>
-      <div style="background:rgba(255,255,255,0.06);border-radius:8px;height:6px;overflow:hidden">
-        <div id="arch-bar" style="height:100%;border-radius:8px;background:linear-gradient(90deg,#22c55e,#4db868);width:0%;transition:width 0.5s ease"></div>
-      </div>
-    </div>`;
-  document.body.appendChild(overlay);
-
-  const archStatus = (msg, pct) => {
-    const el = document.getElementById('arch-status-msg');
-    const bar = document.getElementById('arch-bar');
-    if (el) el.textContent = msg;
-    if (bar) bar.style.width = pct + '%';
+  const iconByType = {
+    isolated:  { icon: 'fa-circle-nodes',             color: '#f59e0b' },
+    renvoi:    { icon: 'fa-circle-dot',                color: '#ec4899' },
+    outofband: { icon: 'fa-up-right-from-square',      color: '#a855f7' },
+    duplicate: { icon: 'fa-copy',                      color: '#3b82f6' },
   };
 
-  await new Promise(r => setTimeout(r, 0));
-  snapshot();
+  const panel = document.createElement('div');
+  panel.id = '_carto-check-panel';
+  panel.style.cssText = [
+    'position:fixed;top:72px;right:12px;width:340px',
+    'max-height:calc(100vh - 84px)',
+    'background:#1a2030;border:1px solid rgba(255,255,255,0.09)',
+    'border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,0.55)',
+    'z-index:5000;display:flex;flex-direction:column;overflow:hidden',
+  ].join(';');
 
-  try {
-    archStatus('Analyse de la cartographie…', 15);
-    await new Promise(r => setTimeout(r, 0));
+  const hdr = `
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid rgba(255,255,255,0.07);flex-shrink:0">
+      <span style="font-size:13.5px;font-weight:700;color:#e2e8f0;display:flex;align-items:center;gap:8px">
+        <i class="fa-solid fa-magnifying-glass-chart" style="color:#22c55e"></i> Diagnostic carto
+      </span>
+      <button id="_ccp-close" style="background:none;border:none;color:#64748b;font-size:20px;cursor:pointer;line-height:1;padding:0 4px" title="Fermer">×</button>
+    </div>`;
 
-    const apiBase = window.OPTIQCARTO_API_BASE || '/cartography';
-    archStatus("Transmission à l'IA…", 30);
+  let body;
+  if (issues.length === 0) {
+    body = `<div style="padding:28px 18px;text-align:center">
+      <i class="fa-solid fa-circle-check" style="font-size:30px;color:#22c55e;display:block;margin-bottom:12px"></i>
+      <div style="font-size:13px;font-weight:600;color:#e2e8f0">Aucun problème détecté</div>
+      <div style="font-size:11.5px;color:#64748b;margin-top:6px">La cartographie est cohérente</div>
+    </div>`;
+  } else {
+    const rows = issues.map((issue, i) => {
+      const ic = iconByType[issue.type] || { icon: 'fa-exclamation-circle', color: '#f59e0b' };
+      return `<div style="display:flex;align-items:center;gap:10px;padding:9px 14px;border-bottom:1px solid rgba(255,255,255,0.04)">
+        <i class="fa-solid ${ic.icon}" style="color:${ic.color};font-size:13px;flex-shrink:0"></i>
+        <span style="flex:1;font-size:11.5px;color:#cbd5e1;line-height:1.4">${issue.msg}</span>
+        <button class="_ccp-goto" data-i="${i}" style="padding:4px 10px;border-radius:6px;border:1px solid rgba(255,255,255,0.1);background:transparent;color:#94a3b8;font-size:11px;cursor:pointer;white-space:nowrap;flex-shrink:0">Voir →</button>
+      </div>`;
+    }).join('');
 
-    const res = await fetch(`${apiBase}/api/architect`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ state }),
-    });
-
-    archStatus('Traitement IA…', 60);
-    const data = await res.json();
-
-    if (data.error) {
-      showToast('Architecte IA : ' + data.error);
-      return;
-    }
-
-    archStatus('Application du layout…', 85);
-    await new Promise(r => setTimeout(r, 0));
-
-    for (const pos of (data.positions || [])) {
-      const s = state.shapes.find(s => s.id === pos.id);
-      if (s) { s.x = Math.round(pos.x); s.y = Math.round(pos.y); }
-    }
-
-    state.shapes.forEach(s => updateShapeColor(s));
-    state.connections.forEach(c => {
-      const from = state.shapes.find(s => s.id === c.fromId);
-      if (from) c.color = from.color;
-    });
-    state.bandWidth = Math.max(1400, Math.round(
-      state.shapes.reduce((m, s) => Math.max(m, s.x + s.w), 0) + 300
-    ));
-
-    // ── Snap quasi-alignements (post-IA) ──────────────────────
-    archStatus('Alignement final…', 97);
-    await new Promise(r => setTimeout(r, 0));
-    {
-      const THRESH_H = 22, THRESH_V = 28;
-      for (const c of state.connections) {
-        const from = state.shapes.find(s => s.id === c.fromId);
-        const to   = state.shapes.find(s => s.id === c.toId);
-        if (!from || !to) continue;
-        const fromCx = from.x + from.w / 2, fromCy = from.y + from.h / 2;
-        const toCx   = to.x   + to.w   / 2, toCy   = to.y   + to.h   / 2;
-        if (Math.abs(fromCy - toCy) > 0.5 && Math.abs(fromCy - toCy) <= THRESH_H) {
-          const gB = s2 => { let y = -200; for (const b of state.bands) { if (s2.y + s2.h / 2 >= y && s2.y + s2.h / 2 < y + b.height) return b; y += b.height; } return null; };
-          if (gB(from) === gB(to)) {
-            const avg = Math.round((fromCy + toCy) / 2);
-            from.y = avg - Math.round(from.h / 2);
-            to.y   = avg - Math.round(to.h   / 2);
-          }
-        }
-        if (Math.abs(fromCx - toCx) > 0.5 && Math.abs(fromCx - toCx) <= THRESH_V) {
-          const avg = Math.round((fromCx + toCx) / 2);
-          from.x = Math.max(INDEX_W_SVG + 4, avg - Math.round(from.w / 2));
-          to.x   = Math.max(INDEX_W_SVG + 4, avg - Math.round(to.w   / 2));
-        }
-      }
-    }
-
-    archStatus("C'est bon !", 100);
-    await new Promise(r => setTimeout(r, 280));
-
-  } catch (err) {
-    console.error('architectLayout error:', err);
-    showToast('Erreur architecte IA : ' + err.message);
-    clearSelection();
-    render();
-    updateProps();
-    return;
-  } finally {
-    overlay.remove();
+    body = `<div style="overflow-y:auto;flex:1">
+      <div style="padding:10px 14px 4px;font-size:10.5px;color:#64748b;font-weight:600;text-transform:uppercase;letter-spacing:0.05em">${issues.length} problème(s) trouvé(s)</div>
+      ${rows}
+    </div>`;
   }
 
-  clearSelection();
-  render();
-  updateProps();
-  showToast('Optimisation IA terminée');
+  panel.innerHTML = hdr + body;
+  document.body.appendChild(panel);
+
+  panel.querySelector('#_ccp-close').onclick = () => panel.remove();
+
+  panel.querySelectorAll('._ccp-goto').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const issue = issues[parseInt(btn.dataset.i)];
+      if (issue?.shape) focusOnShape(issue.shape);
+    });
+  });
+}
+
+function runCartoCheck() {
+  if (state.shapes.length === 0) { showToast('Aucune forme à analyser'); return; }
+
+  const issues = [];
+
+  const connectedIds = new Set();
+  state.connections.forEach(c => { connectedIds.add(c.fromId); connectedIds.add(c.toId); });
+
+  const activityShapes = state.shapes.filter(s => s.type === 'process' || s.type === 'special');
+  const activityLabelsLower = new Set(
+    activityShapes.map(s => (s.label || '').trim().toLowerCase()).filter(Boolean)
+  );
+
+  // Band Y ranges (bands start at y = -200)
+  const bandRanges = [];
+  if (state.bands && state.bands.length > 0) {
+    let bandY = -200;
+    for (const band of state.bands) {
+      if (!band.deleted) {
+        bandRanges.push({ y: bandY, yEnd: bandY + band.height });
+        bandY += band.height;
+      }
+    }
+  }
+
+  // 1. Activités sans connexion
+  for (const s of activityShapes) {
+    if (!connectedIds.has(s.id)) {
+      issues.push({ type: 'isolated', shape: s, msg: `« ${s.label || 'Sans nom'} » n'a aucune connexion` });
+    }
+  }
+
+  // 2. Renvois sans activité correspondante
+  for (const s of state.shapes.filter(s => s.type === 'start-end')) {
+    const label = (s.label || '').trim();
+    if (!label || !activityLabelsLower.has(label.toLowerCase())) {
+      issues.push({ type: 'renvoi', shape: s, msg: `Renvoi « ${label || 'Sans nom'} » sans activité correspondante` });
+    }
+  }
+
+  // 3. Activités hors bande
+  if (bandRanges.length > 0) {
+    for (const s of activityShapes) {
+      const midY = s.y + s.h / 2;
+      if (!bandRanges.some(b => midY >= b.y && midY < b.yEnd)) {
+        issues.push({ type: 'outofband', shape: s, msg: `« ${s.label || 'Sans nom'} » est hors de toute bande` });
+      }
+    }
+  }
+
+  // 4. Noms en double
+  const labelGroups = {};
+  for (const s of activityShapes) {
+    const label = (s.label || '').trim();
+    if (label) {
+      if (!labelGroups[label]) labelGroups[label] = [];
+      labelGroups[label].push(s);
+    }
+  }
+  for (const [label, shapes] of Object.entries(labelGroups)) {
+    if (shapes.length > 1) {
+      shapes.forEach(s => issues.push({ type: 'duplicate', shape: s, msg: `Nom en doublon : « ${label} »` }));
+    }
+  }
+
+  _showCheckPanel(issues);
 }
 
 
@@ -4311,7 +4338,7 @@ function init() {
   })();
 
   document.getElementById('btn-new-carto').addEventListener('click', newCarto);
-  document.getElementById('btn-architect').addEventListener('click', architectLayout);
+  document.getElementById('btn-architect').addEventListener('click', runCartoCheck);
   document.getElementById('btn-undo').addEventListener('click', undo);
   document.getElementById('btn-redo').addEventListener('click', redo);
   document.getElementById('btn-fit').addEventListener('click', fitView);
