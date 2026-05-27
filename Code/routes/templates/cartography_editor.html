@@ -448,30 +448,30 @@
 
   <div id="prop-shape" style="display:none">
     <div class="prop-group">
-      <label class="prop-label">Texte</label>
-      <textarea id="prop-label" class="prop-textarea" rows="3" placeholder="Texte de la forme…"></textarea>
+      <label class="prop-label">{{ t('editor.prop_text') }}</label>
+      <textarea id="prop-label" class="prop-textarea" rows="3" placeholder="{{ t('editor.prop_text') }}…"></textarea>
     </div>
     <div class="prop-row">
       <div class="prop-group half">
-        <label class="prop-label">Remplissage</label>
+        <label class="prop-label">{{ t('editor.prop_fill') }}</label>
         <input type="color" id="prop-color" class="prop-color">
       </div>
       <div class="prop-group half">
-        <label class="prop-label">Texte</label>
+        <label class="prop-label">{{ t('editor.prop_text_color') }}</label>
         <input type="color" id="prop-text-color" class="prop-color">
       </div>
     </div>
     <div class="prop-group" id="prop-stroke-group" style="display:none">
-      <label class="prop-label">Couleur auréole</label>
+      <label class="prop-label">{{ t('editor.prop_stroke_color') }}</label>
       <input type="color" id="prop-stroke-color" class="prop-color">
     </div>
     <div class="prop-group">
-      <label class="prop-label">Badge validation</label>
+      <label class="prop-label">{{ t('editor.prop_validation') }}</label>
       <div class="prop-validation-row">
         <label class="prop-stroke-toggle">
           <input type="checkbox" id="prop-validation-enabled">
           <span class="prop-stroke-switch prop-stroke-switch--validation"></span>
-          <span class="prop-stroke-label">Activer</span>
+          <span class="prop-stroke-label">{{ t('editor.prop_validation_on') }}</span>
         </label>
         <input type="color" id="prop-validation-color" class="prop-color prop-validation-color-swatch" value="#4DB868" disabled>
       </div>
@@ -482,135 +482,135 @@
     </div>
     <div class="prop-row">
       <div class="prop-group half">
-        <label class="prop-label">Largeur</label>
+        <label class="prop-label">{{ t('editor.prop_width') }}</label>
         <input type="number" id="prop-width" class="prop-input" min="60" max="500" step="10">
       </div>
       <div class="prop-group half">
-        <label class="prop-label">Hauteur</label>
+        <label class="prop-label">{{ t('editor.prop_height') }}</label>
         <input type="number" id="prop-height" class="prop-input" min="40" max="300" step="10">
       </div>
     </div>
     <div class="prop-group">
-      <label class="prop-label">Taille police</label>
+      <label class="prop-label">{{ t('editor.prop_font_size') }}</label>
       <input type="number" id="prop-font-size" class="prop-input" min="8" max="36" step="1">
     </div>
     <div class="prop-group" id="prop-subtype-row" style="display:none">
-      <label class="prop-label">Type d'activité</label>
+      <label class="prop-label">{{ t('editor.prop_activity_type') }}</label>
       <div class="variant-btns-row">
         <button class="variant-btn" id="subtype-btn-normal">
-          <span class="subtype-icon-preview subtype-icon-normal"></span><span>Normale</span>
+          <span class="subtype-icon-preview subtype-icon-normal"></span><span>{{ t('editor.subtype_normal') }}</span>
         </button>
         <button class="variant-btn" id="subtype-btn-external">
-          <span class="subtype-icon-preview subtype-icon-external"></span><span>Externe</span>
+          <span class="subtype-icon-preview subtype-icon-external"></span><span>{{ t('editor.subtype_external') }}</span>
         </button>
         <button class="variant-btn" id="subtype-btn-extco">
-          <span class="subtype-icon-preview subtype-icon-extco"></span><span>Ext. entreprise</span>
+          <span class="subtype-icon-preview subtype-icon-extco"></span><span>{{ t('editor.subtype_extco') }}</span>
         </button>
       </div>
     </div>
     <div class="prop-group" id="prop-variant-row">
-      <label class="prop-label">Catégorisation de correspondance</label>
+      <label class="prop-label">{{ t('editor.prop_match_cat') }}</label>
       <div class="variant-btns-row">
         <button class="variant-btn" id="variant-btn-0">
-          <span class="variant-swatch"></span><span>Fidèle</span>
+          <span class="variant-swatch"></span><span>{{ t('editor.variant_faithful') }}</span>
         </button>
         <button class="variant-btn" id="variant-btn-1">
-          <span class="variant-swatch"></span><span>Atténuée</span>
+          <span class="variant-swatch"></span><span>{{ t('editor.variant_attenuated') }}</span>
         </button>
       </div>
     </div>
     <button class="prop-delete-btn" id="prop-delete-shape">
-      <i class="fa-solid fa-trash"></i> Supprimer la forme
+      <i class="fa-solid fa-trash"></i> {{ t('editor.prop_delete_shape') }}
     </button>
   </div>
 
   <div id="prop-band" style="display:none">
     <div class="prop-group">
-      <label class="prop-label">Nom de la bande</label>
+      <label class="prop-label">{{ t('editor.prop_band_name') }}</label>
       <input type="text" id="band-label" class="prop-input" placeholder="Nom…">
     </div>
     <div class="prop-group">
-      <label class="prop-label">Couleur bande (vivid)</label>
+      <label class="prop-label">{{ t('editor.prop_band_color') }}</label>
       <input type="color" id="band-color" class="prop-color">
       <div id="band-pastel-preview" title="Dérivé pastel automatique"></div>
     </div>
     <div class="prop-row">
       <div class="prop-group half">
-        <label class="prop-label">Police (px)</label>
+        <label class="prop-label">{{ t('editor.prop_band_font') }}</label>
         <input type="number" id="band-font-size" class="prop-input" min="8" max="24" step="1">
       </div>
       <div class="prop-group half">
-        <label class="prop-label">Hauteur (px)</label>
+        <label class="prop-label">{{ t('editor.prop_band_height') }}</label>
         <input type="number" id="band-height" class="prop-input" min="60" max="600" step="20">
       </div>
     </div>
     <button class="prop-delete-btn" id="prop-delete-band">
-      <i class="fa-solid fa-trash"></i> Supprimer la bande
+      <i class="fa-solid fa-trash"></i> {{ t('editor.prop_delete_band') }}
     </button>
   </div>
 
   <div id="prop-connection" style="display:none">
     <div class="prop-group">
-      <label class="prop-label">Label</label>
-      <input type="text" id="conn-label" class="prop-input" placeholder="Optionnel…">
+      <label class="prop-label">{{ t('editor.prop_conn_label') }}</label>
+      <input type="text" id="conn-label" class="prop-input" placeholder="{{ t('common.optional') }}…">
     </div>
     <div class="prop-group">
-      <label class="prop-label">Style trait</label>
+      <label class="prop-label">{{ t('editor.prop_conn_style') }}</label>
       <div class="prop-radio-row">
         <label class="prop-radio-card">
           <input type="radio" name="conn-style" value="solid" id="conn-style-solid" checked>
-          <span class="prop-radio-icon">——</span><span>Plein</span>
+          <span class="prop-radio-icon">——</span><span>{{ t('editor.conn_solid') }}</span>
         </label>
         <label class="prop-radio-card">
           <input type="radio" name="conn-style" value="dashed" id="conn-style-dashed">
-          <span class="prop-radio-icon">- - -</span><span>Tirets</span>
+          <span class="prop-radio-icon">- - -</span><span>{{ t('editor.conn_dashed') }}</span>
         </label>
       </div>
     </div>
     <div class="prop-group">
-      <label class="prop-label">Tracé</label>
+      <label class="prop-label">{{ t('editor.prop_conn_routing') }}</label>
       <div class="prop-radio-row">
         <label class="prop-radio-card">
           <input type="radio" name="conn-routing" value="smooth" id="conn-routing-smooth" checked>
-          <span class="prop-radio-icon"><i class="fa-solid fa-bezier-curve"></i></span><span>Courbe</span>
+          <span class="prop-radio-icon"><i class="fa-solid fa-bezier-curve"></i></span><span>{{ t('editor.conn_routing_curve') }}</span>
         </label>
         <label class="prop-radio-card">
           <input type="radio" name="conn-routing" value="orthogonal" id="conn-routing-ortho">
-          <span class="prop-radio-icon"><i class="fa-solid fa-turn-up"></i></span><span>Orthogonal</span>
+          <span class="prop-radio-icon"><i class="fa-solid fa-turn-up"></i></span><span>{{ t('editor.conn_routing_ortho') }}</span>
         </label>
       </div>
     </div>
     <div class="prop-group">
-      <label class="prop-label">Couleur</label>
+      <label class="prop-label">{{ t('editor.prop_conn_color') }}</label>
       <input type="color" id="conn-color" class="prop-color" value="#555555">
     </div>
     <div class="prop-group">
-      <label class="prop-label">Superposition</label>
+      <label class="prop-label">{{ t('editor.prop_conn_zorder') }}</label>
       <div class="conn-zorder-row">
-        <button class="conn-zorder-btn" id="btn-conn-forward"><i class="fa-solid fa-layer-group"></i> Avancer</button>
-        <button class="conn-zorder-btn" id="btn-conn-backward"><i class="fa-solid fa-layer-group fa-flip-vertical"></i> Reculer</button>
+        <button class="conn-zorder-btn" id="btn-conn-forward"><i class="fa-solid fa-layer-group"></i> {{ t('editor.btn_conn_forward') }}</button>
+        <button class="conn-zorder-btn" id="btn-conn-backward"><i class="fa-solid fa-layer-group fa-flip-vertical"></i> {{ t('editor.btn_conn_backward') }}</button>
       </div>
     </div>
     <button class="prop-delete-btn" id="prop-delete-conn">
-      <i class="fa-solid fa-trash"></i> Supprimer la flèche
+      <i class="fa-solid fa-trash"></i> {{ t('editor.prop_delete_conn') }}
     </button>
   </div>
 
   <div id="prop-group" style="display:none">
     <div class="prop-group">
-      <label class="prop-label">Nom du groupe</label>
+      <label class="prop-label">{{ t('editor.prop_group_name') }}</label>
       <input type="text" id="group-label-input" class="prop-input" placeholder="Groupe…">
     </div>
     <div class="prop-group">
-      <label class="prop-label">Couleur</label>
+      <label class="prop-label">{{ t('editor.prop_group_color') }}</label>
       <input type="color" id="group-color-input" class="prop-color" value="#b3a0ff">
     </div>
     <div class="prop-group">
-      <label class="prop-label">Activités du groupe</label>
+      <label class="prop-label">{{ t('editor.prop_group_activities') }}</label>
       <div id="group-shapes-list" class="group-shapes-list"></div>
     </div>
     <button class="prop-delete-btn" id="prop-delete-group">
-      <i class="fa-solid fa-trash"></i> Supprimer le groupe
+      <i class="fa-solid fa-trash"></i> {{ t('editor.prop_delete_group') }}
     </button>
   </div>
 </aside>
@@ -623,7 +623,7 @@
 <div id="vsdx-migrate-modal" class="modal-overlay hidden">
   <div class="modal-card" style="max-width:460px">
     <div class="modal-header" style="border-top:3px solid var(--pink-dark)">
-      <h2><i class="fa-solid fa-wand-magic-sparkles" style="color:var(--green);margin-right:8px"></i>Importer votre cartographie</h2>
+      <h2><i class="fa-solid fa-wand-magic-sparkles" style="color:var(--green);margin-right:8px"></i>{{ t('editor.vsdx_migrate_title') }}</h2>
     </div>
     <div class="modal-body">
       <p style="font-size:13px;line-height:1.7;color:var(--text-muted);margin:0 0 16px">
@@ -637,10 +637,10 @@
     </div>
     <div class="modal-footer" style="gap:8px;display:flex;justify-content:flex-end">
       <button id="migrate-skip" class="btn-ok" style="background:rgba(100,100,100,0.15);color:var(--text-muted)">
-        Partir de zéro
+        {{ t('editor.vsdx_migrate_skip') }}
       </button>
       <button id="migrate-confirm" class="btn-ok">
-        <i class="fa-solid fa-file-import"></i> Importer le Visio
+        <i class="fa-solid fa-file-import"></i> {{ t('editor.vsdx_migrate_confirm') }}
       </button>
     </div>
   </div>
@@ -651,24 +651,24 @@
 <div id="vsdx-dialog" class="modal-overlay hidden">
   <div class="modal-card" style="max-width:460px">
     <div class="modal-header">
-      <h2><i class="fa-solid fa-file-import" style="color:var(--green);margin-right:8px"></i>Importer depuis Visio</h2>
+      <h2><i class="fa-solid fa-file-import" style="color:var(--green);margin-right:8px"></i>{{ t('editor.vsdx_import_title') }}</h2>
       <button id="vsdx-dialog-close" class="modal-close"><i class="fa-solid fa-xmark"></i></button>
     </div>
     <div class="modal-body">
       <div id="vsdx-dropzone" class="vsdx-dropzone">
         <i class="fa-solid fa-file-arrow-up vsdx-drop-icon"></i>
-        <p class="vsdx-drop-text">Déposez votre fichier <strong>.vsdx</strong> ici</p>
-        <p class="vsdx-drop-hint">ou</p>
+        <p class="vsdx-drop-text">{{ t('editor.vsdx_drop_text') | safe }}</p>
+        <p class="vsdx-drop-hint">{{ t('editor.vsdx_drop_or') }}</p>
         <label class="vsdx-browse-btn">
           <input type="file" id="vsdx-file-input" accept=".vsdx" style="display:none">
-          Parcourir…
+          {{ t('editor.vsdx_browse') }}
         </label>
       </div>
       <div id="vsdx-loading" style="display:none">
         <div class="vsdx-spinner-ring">
           <span class="vsdx-spinner-icon"><i class="fa-solid fa-wand-magic-sparkles"></i></span>
         </div>
-        <div id="vsdx-loading-msg">Analyse du fichier…</div>
+        <div id="vsdx-loading-msg">{{ t('editor.vsdx_analysing') }}</div>
       </div>
       <div id="vsdx-status" class="vsdx-status" style="display:none"></div>
     </div>
@@ -679,15 +679,15 @@
 <div id="bands-dialog" class="modal-overlay hidden">
   <div class="modal-card">
     <div class="modal-header">
-      <h2>Configuration des bandes</h2>
+      <h2>{{ t('editor.bands_config_title') }}</h2>
       <button id="bands-dialog-close" class="modal-close"><i class="fa-solid fa-xmark"></i></button>
     </div>
     <div class="modal-body">
-      <p class="modal-hint">Les bandes structurent votre cartographie en zones horizontales.</p>
+      <p class="modal-hint">{{ t('editor.bands_hint') }}</p>
       <div id="bands-list"></div>
     </div>
     <div class="modal-footer">
-      <button id="bands-dialog-ok" class="btn-ok">Fermer</button>
+      <button id="bands-dialog-ok" class="btn-ok">{{ t('btn.close') }}</button>
     </div>
   </div>
 </div>
@@ -696,7 +696,7 @@
 <div id="load-dialog" class="modal-overlay hidden">
   <div class="modal-card" style="max-width:400px">
     <div class="modal-header">
-      <h2>Charger une cartographie</h2>
+      <h2>{{ t('editor.load_title') }}</h2>
       <button id="load-dialog-close" class="modal-close"><i class="fa-solid fa-xmark"></i></button>
     </div>
     <div class="modal-body">
@@ -709,18 +709,18 @@
 <div id="new-carto-dialog" class="modal-overlay hidden">
   <div class="modal-card" style="max-width:420px">
     <div class="modal-header">
-      <h2><i class="fa-solid fa-file-circle-plus" style="color:var(--green);margin-right:8px"></i>Nouvelle cartographie</h2>
+      <h2><i class="fa-solid fa-file-circle-plus" style="color:var(--green);margin-right:8px"></i>{{ t('editor.new_carto_title') }}</h2>
       <button id="new-carto-dialog-close" class="modal-close"><i class="fa-solid fa-xmark"></i></button>
     </div>
     <div class="modal-body">
-      <p class="modal-hint" style="font-size:13px;line-height:1.6">La cartographie en cours sera perdue si elle n'est pas sauvegardée.</p>
+      <p class="modal-hint" style="font-size:13px;line-height:1.6">{{ t('editor.new_carto_hint') }}</p>
     </div>
     <div class="modal-footer" style="gap:8px;display:flex;justify-content:flex-end">
       <button id="new-carto-save" class="btn-ok" style="background:var(--green)">
-        <i class="fa-solid fa-floppy-disk"></i> Sauvegarder d'abord
+        <i class="fa-solid fa-floppy-disk"></i> {{ t('editor.btn_save_first') }}
       </button>
       <button id="new-carto-confirm" class="btn-ok" style="background:rgba(239,68,68,0.8)">
-        <i class="fa-solid fa-trash"></i> Ignorer et continuer
+        <i class="fa-solid fa-trash"></i> {{ t('editor.btn_ignore_continue') }}
       </button>
     </div>
   </div>
@@ -731,11 +731,11 @@
   <div class="save-popup-card">
     <div id="save-popup-saving" class="save-popup-state">
       <div class="save-popup-spinner"></div>
-      <p class="save-popup-msg">Ne pas quitter<br><strong>Enregistrement en cours…</strong></p>
+      <p class="save-popup-msg">{{ t('editor.saving_msg') }}<br><strong>{{ t('editor.saving_in_progress') }}</strong></p>
     </div>
     <div id="save-popup-done" class="save-popup-state" style="display:none">
       <div class="save-popup-check"><i class="fa-solid fa-circle-check"></i></div>
-      <p class="save-popup-msg save-popup-msg--done">Enregistrement validé</p>
+      <p class="save-popup-msg save-popup-msg--done">{{ t('editor.save_done') }}</p>
     </div>
   </div>
 </div>
@@ -744,21 +744,20 @@
 <div id="save-warning-modal" class="modal-overlay hidden">
   <div class="modal-card swm-card">
     <div class="modal-header" style="border-top:3px solid #f59e0b">
-      <h2><i class="fa-solid fa-triangle-exclamation" style="color:#f59e0b;margin-right:8px"></i>Éléments supprimés</h2>
+      <h2><i class="fa-solid fa-triangle-exclamation" style="color:#f59e0b;margin-right:8px"></i>{{ t('editor.save_warning_title') }}</h2>
     </div>
     <div class="modal-body">
       <p class="modal-hint" style="font-size:13px;line-height:1.6;margin-bottom:12px">
-        Les éléments suivants existent dans l'application mais ne sont plus dans la cartographie.
-        Ils seront <strong>supprimés</strong> si vous continuez.
+        {{ t('editor.save_warning_desc') | safe }}
       </p>
       <ul class="swm-removed-list" id="swm-removed-list"></ul>
     </div>
     <div class="modal-footer" style="gap:8px;display:flex;justify-content:flex-end">
       <button id="swm-cancel" class="btn-ok" style="background:rgba(100,100,100,0.15);color:var(--text-muted)">
-        Annuler
+        {{ t('btn.cancel') }}
       </button>
       <button id="swm-confirm" class="btn-ok" style="background:#f59e0b">
-        <i class="fa-solid fa-floppy-disk"></i> Sauvegarder quand même
+        <i class="fa-solid fa-floppy-disk"></i> {{ t('editor.btn_save_anyway') }}
       </button>
     </div>
   </div>
