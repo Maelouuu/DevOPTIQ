@@ -2,60 +2,60 @@
 <link rel="stylesheet" href="./../../../static/gestion_compte.css">
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
 
-<h1>Gestion des comptes utilisateurs</h1>
+<h1>{{ t('account.page_title') }}</h1>
 
 <!-- SECTION 1 & 2 : Création + Filtrage -->
 <div class="form-filter-container">
   <!-- Formulaire de création -->
   <div class="box half-box">
-    <h2>Créer un nouvel utilisateur</h2>
+    <h2>{{ t('account.create_title') }}</h2>
     <form action="{{ url_for('gestion_compte.create_user') }}" method="POST" class="create-form">
-      <label>Prénom :</label><input type="text" name="first_name" required>
-      <label>Nom :</label><input type="text" name="last_name" required>
-      <label>Âge :</label><input type="number" name="age">
-      <label>Email :</label><input type="email" name="email" required>
-      <label>Mot de passe :</label><input type="password" name="password" required>
+      <label>{{ t('account.field_firstname') }}</label><input type="text" name="first_name" required>
+      <label>{{ t('account.field_lastname') }}</label><input type="text" name="last_name" required>
+      <label>{{ t('account.field_age') }}</label><input type="number" name="age">
+      <label>{{ t('account.field_email') }}</label><input type="email" name="email" required>
+      <label>{{ t('account.field_password') }}</label><input type="password" name="password" required>
 
-      <label>Rôle :</label>
+      <label>{{ t('account.field_role') }}</label>
       <select name="role_id">
         {% for role in roles %}
           <option value="{{ role.id }}">{{ role.name }}</option>
         {% endfor %}
       </select>
 
-      <label>Statut :</label>
+      <label>{{ t('account.field_status') }}</label>
       <select name="status">
-        <option value="user">Utilisateur</option>
-        <option value="rh">RH</option>
-        <option value="administrateur">Administrateur</option>
+        <option value="user">{{ t('account.status_user') }}</option>
+        <option value="rh">{{ t('account.status_rh') }}</option>
+        <option value="administrateur">{{ t('account.status_admin') }}</option>
       </select>
 
-      <button type="submit">Créer</button>
+      <button type="submit">{{ t('btn.create') }}</button>
     </form>
   </div>
 
   <!-- Filtres -->
   <div class="box half-box">
-    <h2>Filtrer les utilisateurs</h2>
+    <h2>{{ t('account.filter_title') }}</h2>
     <form id="filterForm" onsubmit="event.preventDefault(); applyFilters();">
-      <input type="text" id="searchInput" placeholder="Rechercher par nom ou prénom...">
+      <input type="text" id="searchInput" placeholder="{{ t('account.search_placeholder') }}">
       <select id="statusFilter">
-        <option value="">Tous les statuts</option>
-        <option value="user">Utilisateur</option>
-        <option value="rh">RH</option>
-        <option value="administrateur">Administrateur</option>
+        <option value="">{{ t('account.filter_all_statuses') }}</option>
+        <option value="user">{{ t('account.status_user') }}</option>
+        <option value="rh">{{ t('account.status_rh') }}</option>
+        <option value="administrateur">{{ t('account.status_admin') }}</option>
       </select>
       <select id="roleFilter">
-        <option value="">Tous les rôles</option>
+        <option value="">{{ t('account.filter_all_roles') }}</option>
         {% for role in roles %}
           <option value="{{ role.name }}">{{ role.name }}</option>
         {% endfor %}
       </select>
-      <button type="submit">Rechercher</button>
+      <button type="submit">{{ t('common.search') }}</button>
     </form>
 
     <!-- Liste filtrée brute -->
-    <h2>Résultats du filtre</h2>
+    <h2>{{ t('account.results_title') }}</h2>
     <div class="scrollable-list">
       <ul id="filteredList" style="margin:0; padding:0; list-style:none;">
         {% for role_name, users in role_users.items() %}
@@ -66,9 +66,9 @@
               data-role="{{ role_name }}"
               style="padding:8px; border-bottom:1px solid #ddd;">
             {{ user.first_name }} {{ user.last_name }} – {{ user.age or 'N/A' }} ans – Statut : {{ user.status }} – Rôle : {{ role_name }}
-            <a href="{{ url_for('gestion_compte.update_user', user_id=user.id) }}" class="edit-btn">Modifier</a>
+            <a href="{{ url_for('gestion_compte.update_user', user_id=user.id) }}" class="edit-btn">{{ t('btn.edit') }}</a>
             <form method="POST" action="{{ url_for('gestion_compte.delete_user', user_id=user.id) }}" style="display:inline;">
-              <button type="submit" class="delete-btn">Supprimer</button>
+              <button type="submit" class="delete-btn">{{ t('btn.delete') }}</button>
             </form>
           </li>
           {% endfor %}
@@ -80,7 +80,7 @@
 
 <!-- SECTION 3 : Managers et collaborateurs -->
 <div class="box full-width" style="margin-top: 50px;">
-  <h2>Managers et leurs collaborateurs</h2>
+  <h2>{{ t('account.managers_title') }}</h2>
   <div id="managerContainer">
     {% for manager in managers %}
       <div class="manager-section">
@@ -94,23 +94,23 @@
               <li>
                 {{ user.first_name }} {{ user.last_name }}
                 <form method="POST" action="{{ url_for('gestion_compte.remove_collaborator', user_id=user.id) }}" style="display:inline;">
-                  <button type="submit" class="delete-btn">Supprimer</button>
+                  <button type="submit" class="delete-btn">{{ t('btn.delete') }}</button>
                 </form>
               </li>
               {% endfor %}
             </ul>
           {% else %}
-            <p>Aucun collaborateur.</p>
+            <p>{{ t('account.no_collab') }}</p>
           {% endif %}
 
-          <button class="add-collab-btn" data-manager-id="{{ manager.id }}">Ajouter un collaborateur</button>
+          <button class="add-collab-btn" data-manager-id="{{ manager.id }}">{{ t('account.add_collab_btn') }}</button>
 
           <!-- Modal pour ajout collaborateur -->
           <!-- Après -->
           <div class="collab-modal" id="modal-{{ manager.id }}" style="display: none;">
             <div class="modal-content">
               <span class="close-modal">×</span>
-              <h3>Ajouter des collaborateurs à {{ manager.first_name }}</h3>
+              <h3>{{ t('account.modal_add_to') }} {{ manager.first_name }}</h3>
               <!-- Zone de recherche -->
               <div style="margin-bottom:10px; display:flex; align-items:center; gap:10px;">
                 <!-- Toggle switch pour selection multiple -->
@@ -118,10 +118,10 @@
                   <input type="checkbox" class="toggle-multi-switch" data-target="select-{{ manager.id }}">
                   <span class="slider round"></span>
                 </label>
-                <span style="margin-right:15px;">Sélection Multiple</span>
+                <span style="margin-right:15px;">{{ t('account.multi_select') }}</span>
 
                 <!-- Zone de recherche -->
-                <input type="text" class="collab-search" placeholder="Rechercher un collaborateur..." data-target="collab-select-{{ manager.id }}">
+                <input type="text" class="collab-search" placeholder="{{ t('account.search_collab_ph') }}" data-target="collab-select-{{ manager.id }}">
                 <button type="button" class="search-btn" data-target="collab-select-{{ manager.id }}">🔍</button>
                 <input type="checkbox" class="toggle-multi-switch" data-target="collab-select-{{ manager.id }}">
 
@@ -137,7 +137,7 @@
                     <option value="{{ user.id }}">{{ user.first_name }} {{ user.last_name }}</option>
                   {% endfor %}
                 </select>
-                <button type="submit">Ajouter</button>
+                <button type="submit">{{ t('btn.add') }}</button>
               </form>
 
             </div>

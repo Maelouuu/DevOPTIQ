@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
   <meta charset="UTF-8" />
-  <title>Vue des Rôles</title>
+  <title>{{ t('roles.page_title') }}</title>
   <link rel="stylesheet" href="/static/optiq.css" />
   <link rel="stylesheet" href="/static/spinner.css" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
@@ -368,17 +368,17 @@
   {% include "header_buttons.html" %}
 
   <div class="page-container">
-    <h1>Vue des Rôles</h1>
+    <h1>{{ t('roles.page_title') }}</h1>
 
     <div class="role-search-wrapper">
       <div class="role-search-box">
         <i class="fa-solid fa-magnifying-glass role-search-icon"></i>
         <input type="search" id="roleSearchInput" class="role-search-input"
-               placeholder="Rechercher un rôle…" autocomplete="off">
+               placeholder="{{ t('roles.search_placeholder') }}" autocomplete="off">
       </div>
       <span class="role-search-count" id="roleSearchCount"></span>
       <button id="btn-export-roles" class="btn-export-roles">
-        <i class="fa-solid fa-file-export"></i> Exporter
+        <i class="fa-solid fa-file-export"></i> {{ t('roles.btn_export') }}
       </button>
     </div>
 
@@ -387,7 +387,7 @@
         <!-- En-tête -->
         <div class="role-header" onclick="toggleRoleContainer('role-body-{{ item.role.id }}', event)">
           <span class="toggle-icon" id="role-icon-{{ item.role.id }}">▶</span>
-          Rôle : <span id="role-name-{{ item.role.id }}">{{ item.role.name }}</span>
+          {{ t('roles.role_prefix') }} <span id="role-name-{{ item.role.id }}">{{ item.role.name }}</span>
           <div class="actions">
             <i class="fas fa-pencil-alt" title="Renommer le rôle" onclick="editRole(event, {{ item.role.id }})"></i>
             <i class="fas fa-trash" title="Supprimer le rôle" onclick="deleteRole(event, {{ item.role.id }})"></i>
@@ -399,14 +399,14 @@
           <div class="role-block">
             <div class="block-header" onclick="toggleBlock('mission-{{ item.role.id }}', event)">
               <span class="toggle-icon" id="mission-icon-{{ item.role.id }}">▼</span>
-              Mission Générale
+              {{ t('roles.block_mission') }}
             </div>
             <div id="mission-{{ item.role.id }}" class="block-content" style="display:block;">
               <textarea id="mission-text-{{ item.role.id }}" class="mission-area"
-                        placeholder="Décrire ici la mission générale du rôle…">{{ item.mission_generale }}</textarea>
+                        placeholder="{{ t('roles.mission_placeholder') }}">{{ item.mission_generale }}</textarea>
               <div class="mission-footer">
-                <button class="btn-secondary" onclick="resetMission({{ item.role.id }})">Annuler</button>
-                <button class="btn-primary" onclick="saveMission({{ item.role.id }})">Enregistrer</button>
+                <button class="btn-secondary" onclick="resetMission({{ item.role.id }})">{{ t('btn.cancel') }}</button>
+                <button class="btn-primary" onclick="saveMission({{ item.role.id }})">{{ t('btn.save') }}</button>
               </div>
             </div>
           </div>
@@ -415,7 +415,7 @@
           <div class="role-block">
             <div class="block-header" onclick="toggleBlock('block1-{{ item.role.id }}', event)">
               <span class="toggle-icon" id="block1-icon-{{ item.role.id }}">▶</span>
-              Activités où ce rôle est Garant
+              {{ t('roles.block1_title') }}
             </div>
             <div id="block1-{{ item.role.id }}" class="block-content">
               {% if item.block1 %}
@@ -432,7 +432,7 @@
                   {% endfor %}
                 </ul>
               {% else %}
-                <p>Aucune activité trouvée.</p>
+                <p>{{ t('roles.no_activity') }}</p>
               {% endif %}
             </div>
           </div>
@@ -441,34 +441,34 @@
           <div class="role-block">
             <div class="block-header" onclick="toggleBlock('block2-{{ item.role.id }}', event)">
               <span class="toggle-icon" id="block2-icon-{{ item.role.id }}">▶</span>
-              Activités/Tâches où ce rôle intervient (non Garant)
+              {{ t('roles.block2_title') }}
             </div>
             <div id="block2-{{ item.role.id }}" class="block-content">
               {% if item.block2 %}
                 <table class="simple">
                   <thead>
                     <tr>
-                      <th>Activité</th>
-                      <th>Tâche</th>
-                      <th>Statut</th>
+                      <th>{{ t('roles.th_activity') }}</th>
+                      <th>{{ t('roles.th_task') }}</th>
+                      <th>{{ t('roles.th_status') }}</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {% for t in item.block2 %}
+                    {% for row in item.block2 %}
                       <tr>
                         <td>
-                          <a href="/activities/view?activity_id={{ t.activity_id }}" class="activity-link">
-                            {{ t.activity_name }}
+                          <a href="/activities/view?activity_id={{ row.activity_id }}" class="activity-link">
+                            {{ row.activity_name }}
                           </a>
                         </td>
-                        <td>{{ t.task_name }}</td>
-                        <td>{{ t.status }}</td>
+                        <td>{{ row.task_name }}</td>
+                        <td>{{ row.status }}</td>
                       </tr>
                     {% endfor %}
                   </tbody>
                 </table>
               {% else %}
-                <p>Aucune tâche trouvée.</p>
+                <p>{{ t('roles.no_task') }}</p>
               {% endif %}
             </div>
           </div>
@@ -477,7 +477,7 @@
           <div class="role-block">
             <div class="block-header" onclick="toggleBlock('block3-{{ item.role.id }}', event)">
               <span class="toggle-icon" id="block3-icon-{{ item.role.id }}">▶</span>
-              Compétences associées aux activités Garant
+              {{ t('roles.block3_title') }}
             </div>
             <div id="block3-{{ item.role.id }}" class="block-content">
               {% if item.block3 %}
@@ -487,7 +487,7 @@
                   {% endfor %}
                 </ul>
               {% else %}
-                <p>Aucune compétence trouvée.</p>
+                <p>{{ t('roles.no_competence') }}</p>
               {% endif %}
             </div>
           </div>
@@ -496,45 +496,45 @@
           <div class="role-block">
             <div class="block-header" onclick="toggleBlock('block4-{{ item.role.id }}', event)">
               <span class="toggle-icon" id="block4-icon-{{ item.role.id }}">▶</span>
-              Savoirs, Savoir-faire, Aptitudes et HSC
+              {{ t('roles.block4_title') }}
             </div>
             <div id="block4-{{ item.role.id }}" class="block-content">
-              <h3>Savoirs</h3>
+              <h3>{{ t('roles.block4_savoirs') }}</h3>
               <ul>
                 {% for entry in item.block4 if entry.type == 'savoir' %}
                   <li>{{ entry.value }}</li>
                 {% endfor %}
               </ul>
 
-              <h3>Savoir-faire</h3>
+              <h3>{{ t('roles.block4_sf') }}</h3>
               <ul>
                 {% for entry in item.block4 if entry.type == 'savoir-faire' %}
                   <li>{{ entry.value }}</li>
                 {% endfor %}
               </ul>
 
-              <h3>Aptitudes</h3>
+              <h3>{{ t('roles.block4_aptitudes') }}</h3>
               <ul>
                 {% for entry in item.block4 if entry.type == 'aptitude' %}
                   <li>{{ entry.value }}</li>
                 {% endfor %}
               </ul>
 
-              <h3>HSC (Habiletés Socio-Cognitives)</h3>
+              <h3>{{ t('roles.block4_hsc') }}</h3>
               {% set hsc_entries = item.block4 | selectattr("type", "equalto", "softskill") | list %}
               {% if hsc_entries %}
                 <ul>
                   {% for hsc in hsc_entries %}
                     <li>
-                      <strong>{{ hsc.value }}</strong> (Niveau: {{ hsc.niveau }})
+                      <strong>{{ hsc.value }}</strong> ({{ t('roles.hsc_level_prefix') }} {{ hsc.niveau }})
                       {% if hsc.justification and hsc.justification != 'Pas de justification' %}
-                        — Justification: {{ hsc.justification }}
+                        {{ t('roles.hsc_justif_prefix') }} {{ hsc.justification }}
                       {% endif %}
                     </li>
                   {% endfor %}
                 </ul>
               {% else %}
-                <p>Aucune HSC trouvée.</p>
+                <p>{{ t('roles.no_hsc') }}</p>
               {% endif %}
             </div>
           </div>
@@ -543,7 +543,7 @@
           <div class="role-block">
             <div class="block-header" onclick="toggleBlock('holders-{{ item.role.id }}', event)">
               <span class="toggle-icon" id="holders-icon-{{ item.role.id }}">▼</span>
-              Titulaire du rôle
+              {{ t('roles.block5_title') }}
             </div>
             <div id="holders-{{ item.role.id }}" class="block-content" style="display:block;">
               {% if item.holders and item.holders|length > 0 %}
@@ -556,7 +556,7 @@
                   {% endfor %}
                 </div>
               {% else %}
-                <p>Aucun titulaire pour ce rôle.</p>
+                <p>{{ t('roles.no_holder') }}</p>
               {% endif %}
             </div>
           </div>
@@ -575,27 +575,27 @@
             <i class="fa-solid fa-file-export"></i>
           </div>
           <div>
-            <h2 id="exportModalTitle" class="export-modal-title">Exporter les données</h2>
-            <p class="export-modal-subtitle" id="exportModalSubtitle">Chargement de l'entité…</p>
+            <h2 id="exportModalTitle" class="export-modal-title">{{ t('roles.export_title') }}</h2>
+            <p class="export-modal-subtitle" id="exportModalSubtitle">{{ t('roles.export_loading') }}</p>
           </div>
         </div>
-        <button class="export-modal-close" id="exportModalClose" aria-label="Fermer">
+        <button class="export-modal-close" id="exportModalClose" aria-label="{{ t('btn.close') }}">
           <i class="fa-solid fa-xmark"></i>
         </button>
       </div>
       <div class="export-modal-body">
         <div class="export-field">
           <label class="export-label">
-            <i class="fa-solid fa-user-tag"></i> Filtrer par rôle <span class="export-optional">(optionnel)</span>
+            <i class="fa-solid fa-user-tag"></i> {{ t('roles.export_filter_role') }} <span class="export-optional">{{ t('roles.export_optional') }}</span>
           </label>
           <div class="export-select-wrap">
             <select id="exportRoleSelect" class="export-select">
-              <option value="">— Toute l'entité —</option>
+              <option value="">{{ t('roles.export_all_entity') }}</option>
             </select>
           </div>
         </div>
         <div class="export-field">
-          <label class="export-label"><i class="fa-solid fa-file"></i> Format</label>
+          <label class="export-label"><i class="fa-solid fa-file"></i> {{ t('roles.export_format') }}</label>
           <div class="export-format-row">
             <label class="export-format-card" id="fmt-excel-card">
               <input type="radio" name="exportFormat" value="excel" checked>
@@ -606,16 +606,16 @@
             <label class="export-format-card" id="fmt-html-card">
               <input type="radio" name="exportFormat" value="html">
               <span class="export-format-icon"><i class="fa-solid fa-globe"></i></span>
-              <span class="export-format-name">Rapport HTML</span>
+              <span class="export-format-name">{{ t('roles.export_html_label') }}</span>
               <span class="export-format-ext">.html</span>
             </label>
           </div>
         </div>
       </div>
       <div class="export-modal-footer">
-        <button class="export-btn-cancel" id="exportModalCancel">Annuler</button>
+        <button class="export-btn-cancel" id="exportModalCancel">{{ t('btn.cancel') }}</button>
         <button class="export-btn-dl" id="exportModalDownload">
-          <i class="fa-solid fa-download"></i> Télécharger
+          <i class="fa-solid fa-download"></i> {{ t('btn.download') }}
         </button>
       </div>
     </div>

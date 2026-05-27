@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Gestion RH</title>
+  <title>{{ t('rh.page_title') }}</title>
 
   <!-- Google Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -25,8 +25,8 @@
        PAGE HEADER
   ═══════════════════════════════════════════════════════════════ -->
   <div class="grh-page-header">
-    <h1>Gestion RH</h1>
-    <p>Paramètres, rôles et collaborateurs</p>
+    <h1>{{ t('rh.page_title') }}</h1>
+    <p>{{ t('rh.page_subtitle') }}</p>
   </div>
 
   <div class="grh-container">
@@ -37,7 +37,7 @@
     <div class="grh-card">
       <div class="grh-card-header">
         <i class="fa-solid fa-gear"></i>
-        Paramètres de l'entreprise
+        {{ t('rh.section_params') }}
       </div>
       <div class="grh-card-body">
         {% set keys = {
@@ -65,17 +65,17 @@
     ═══════════════════════════════════════════════════════════════ -->
     <div class="grh-card">
       <div class="grh-card-header secondary">
-        <span><i class="fa-solid fa-tags"></i> Gestion des rôles</span>
+        <span><i class="fa-solid fa-tags"></i> {{ t('rh.section_roles') }}</span>
         <button class="btn btn-sm btn-outline" id="show-create-role" style="color:#0f172a;">
-          <i class="fa-solid fa-plus"></i> Nouveau rôle
+          <i class="fa-solid fa-plus"></i> {{ t('rh.btn_new_role') }}
         </button>
       </div>
       <div class="grh-card-body">
         <!-- Formulaire création rôle (caché par défaut) -->
         <div id="create-role-form" class="grh-create-form hidden">
-          <input type="text" id="new-role-name" placeholder="Nom du rôle" required>
-          <button class="btn btn-sm btn-primary" id="submit-create-role">Créer</button>
-          <button class="btn btn-sm btn-outline" id="cancel-create-role">Annuler</button>
+          <input type="text" id="new-role-name" placeholder="{{ t('rh.role_name_placeholder') }}" required>
+          <button class="btn btn-sm btn-primary" id="submit-create-role">{{ t('btn.create') }}</button>
+          <button class="btn btn-sm btn-outline" id="cancel-create-role">{{ t('btn.cancel') }}</button>
         </div>
 
         <!-- Liste des rôles -->
@@ -103,7 +103,7 @@
           <i class="fa-solid fa-file-csv"></i>
           <form method="POST" action="{{ url_for('gestion_rh.import_roles') }}" enctype="multipart/form-data" style="display:flex; gap:12px; align-items:center; flex:1;">
             <input type="file" name="role_file" accept=".csv" required>
-            <button type="submit" class="btn btn-sm btn-outline">Importer</button>
+            <button type="submit" class="btn btn-sm btn-outline">{{ t('btn.import') }}</button>
           </form>
         </div>
       </div>
@@ -115,19 +115,19 @@
     <div class="grh-card">
       <div class="grh-card-header">
         <i class="fa-solid fa-users"></i>
-        Collaborateurs
+        {{ t('rh.section_collabs') }}
       </div>
       <div class="grh-card-body">
         <div class="grh-search-bar">
-          <input type="text" id="search-collab" placeholder="Rechercher un collaborateur...">
+          <input type="text" id="search-collab" placeholder="{{ t('rh.search_placeholder') }}">
           <select id="filter-role">
-            <option value="">Tous les rôles</option>
+            <option value="">{{ t('rh.filter_all_roles') }}</option>
           </select>
         </div>
         <div id="collaborateur-list" class="grh-collab-list grh-scroll-section"></div>
         <button id="toggle-collab-view" class="grh-toggle-btn">
           <i class="fa-solid fa-chevron-down"></i>
-          Afficher tous les collaborateurs
+          {{ t('rh.toggle_show_all') }}
         </button>
       </div>
     </div>
@@ -137,11 +137,11 @@
     ═══════════════════════════════════════════════════════════════ -->
     <div class="grh-card">
       <div class="grh-card-header secondary">
-        <span><i class="fa-solid fa-sitemap"></i> Affectation des collaborateurs</span>
+        <span><i class="fa-solid fa-sitemap"></i> {{ t('rh.section_assign') }}</span>
         <div class="grh-manager-select">
-          <label>Manager :</label>
+          <label>{{ t('rh.manager_label') }}</label>
           <select id="manager-select">
-            <option value="">— Choisir un manager —</option>
+            <option value="">{{ t('rh.manager_choose') }}</option>
           </select>
         </div>
       </div>
@@ -150,7 +150,7 @@
           <!-- Badges injectés par JS -->
         </div>
         <div class="grh-assign-list grh-scroll-section" id="manager-assignment-container">
-          <div class="grh-no-results">Sélectionnez un manager pour voir les collaborateurs</div>
+          <div class="grh-no-results">{{ t('rh.select_manager_msg') }}</div>
         </div>
       </div>
     </div>
@@ -161,10 +161,10 @@
     <div class="grh-card">
       <div class="grh-card-header">
         <i class="fa-solid fa-table-cells"></i>
-        Aperçu global des utilisateurs
+        {{ t('rh.section_global') }}
       </div>
       <div class="grh-card-body" id="global-users-container">
-        <div class="grh-no-results">Chargement...</div>
+        <div class="grh-no-results">{{ t('rh.loading') }}</div>
       </div>
     </div>
 
@@ -206,7 +206,7 @@
         document.getElementById("global-users-container").innerHTML = html;
       })
       .catch(err => {
-        document.getElementById("global-users-container").innerHTML = "<p class='grh-no-results'>Erreur de chargement.</p>";
+        document.getElementById("global-users-container").innerHTML = "<p class='grh-no-results'>{{ t('rh.load_error') }}</p>";
         console.error(err);
       });
   </script>

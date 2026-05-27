@@ -8,6 +8,12 @@
      vsdx_importer.js
    ══════════════════════════════════════════════════ */
 
+// Localisation : lit window.OPTIQ_I18N injecté par Flask, fallback = clé brute
+const _L = (key, ...subs) => {
+  const s = (window.OPTIQ_I18N && window.OPTIQ_I18N[key]) || key;
+  return subs.length ? s.replace(/\{(\d+)\}/g, (_, i) => subs[i] ?? '') : s;
+};
+
 function getBandForY(midY) {
   let y = -200;
   for (const band of state.bands) {
@@ -1351,7 +1357,7 @@ function undo() {
   clearSelection();
   render();
   updateProps();
-  showToast('Annulé');
+  showToast(_L('editor.toast.undo'));
 }
 
 function redo() {
@@ -1361,7 +1367,7 @@ function redo() {
   clearSelection();
   render();
   updateProps();
-  showToast('Rétabli');
+  showToast(_L('editor.toast.redo'));
 }
 
 /* ══════════════════════════════════════════════════
@@ -1631,7 +1637,7 @@ function onDown(e) {
       const exists = state.connections.some(c => c.fromId === connecting.fromId && c.toId === sid);
       if (!exists) {
         if (wouldBeBackwards(connecting.fromId, sid)) {
-          showToast('⛔ Une flèche ne peut pas revenir en arrière (flèche → droite seulement)');
+          showToast(_L('editor.toast.backward_arrow'));
         } else {
           const fromShape = state.shapes.find(s => s.id === connecting.fromId);
           state.connections.push({
@@ -1842,7 +1848,7 @@ function onUp(e) {
         const newFromId = which === 'from' ? snapShapeId : conn.fromId;
         const newToId   = which === 'to'   ? snapShapeId : conn.toId;
         if (wouldBeBackwards(newFromId, newToId)) {
-          showToast('⛔ Une flèche ne peut pas revenir en arrière (flèche → droite seulement)');
+          showToast(_L('editor.toast.backward_arrow'));
         } else {
           if (which === 'from') {
             conn.fromId      = snapShapeId;
@@ -1897,7 +1903,7 @@ function onUp(e) {
       );
       if (!exists) {
         if (wouldBeBackwards(portDrag.fromShapeId, target.id)) {
-          showToast('⛔ Une flèche ne peut pas revenir en arrière (flèche → droite seulement)');
+          showToast(_L('editor.toast.backward_arrow'));
         } else {
         const fromShape = state.shapes.find(s => s.id === portDrag.fromShapeId);
         state.connections.push({
@@ -1965,9 +1971,9 @@ function onDbl(e) {
       // Double-clic sur connexion avec tracé manuel → réinitialise le tracé
       c.userPts = null;
       snapshot(); render();
-      showToast('Tracé réinitialisé');
+      showToast(_L('editor.toast.path_reset'));
     } else {
-      const v = prompt('Label de la flèche :', c.label || '');
+      const v = prompt(_L('editor.prompt.conn_label'), c.label || '');
       if (v !== null) { c.label = v.trim(); snapshot(); render(); }
     }
   }
@@ -2464,7 +2470,7 @@ function fitView() {
    ══════════════════════════════════════════════════ */
 
 function exportSVG() {
-  if (state.shapes.length === 0) { showToast('Aucune forme à exporter'); return; }
+  if (state.shapes.length === 0) { showToast(_L('editor.toast.no_shapes_export')); return; }
 
   let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
   for (const s of state.shapes) {
@@ -2501,11 +2507,11 @@ function exportSVG() {
   a.href = url; a.download = 'carto_optiq.svg';
   a.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
-  showToast('SVG exporté ✓');
+  showToast(_L('editor.toast.svg_done'));
 }
 
 function exportPDF() {
-  if (state.shapes.length === 0) { showToast('Aucune forme à exporter'); return; }
+  if (state.shapes.length === 0) { showToast(_L('editor.toast.no_shapes_export')); return; }
 
   let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
   for (const s of state.shapes) {
@@ -2534,7 +2540,7 @@ function exportPDF() {
   const svgStr = new XMLSerializer().serializeToString(exportEl);
   const encoded = encodeURIComponent(svgStr);
   const win = window.open('', '_blank');
-  if (!win) { showToast('Popup bloquée — autorisez les popups pour ce site'); return; }
+  if (!win) { showToast(_L('editor.toast.popup_blocked')); return; }
   win.document.write(`<!DOCTYPE html><html><head><title>OptiqCarto — Export PDF</title>
 <style>
   * { margin:0; padding:0; box-sizing:border-box; }
@@ -2556,7 +2562,7 @@ function exportPDF() {
 </script>
 </body></html>`);
   win.document.close();
-  showToast('Fenêtre PDF ouverte — utilisez Ctrl+P pour sauvegarder en PDF');
+  showToast(_L('editor.toast.pdf_done'));
 }
 
 /* ══════════════════════════════════════════════════
@@ -2577,7 +2583,7 @@ function newCarto() {
 
 function createGroup() {
   if (selectedShapes.size < 2) {
-    showToast('Sélectionnez au moins 2 formes pour créer un groupe');
+    showToast(_L('editor.toast.group_min'));
     return;
   }
   if (!state.groups) state.groups = [];
@@ -2591,7 +2597,7 @@ function createGroup() {
   clearSelection();
   selectedGroup = id;
   snapshot(); render();
-  showToast('Groupe créé — double-cliquez pour renommer');
+  showToast(_L('editor.toast.group_created'));
 }
 
 function _doNewCarto() {
@@ -2611,7 +2617,7 @@ function _doNewCarto() {
   history = [JSON.stringify(state)]; histIndex = 0;
   render();
   updateProps();
-  showToast('Nouvelle cartographie créée');
+  showToast(_L('editor.toast.new_carto'));
 }
 
 /* ══════════════════════════════════════════════════
@@ -2669,16 +2675,16 @@ async function saveJSON() {
       isDirty = false;
       clearTimeout(_autoSaveTimerId);
       _showSavePopup('done');
-      if (data.sync_warning) setTimeout(() => showToast('Erreur sync : ' + data.sync_warning, 'warn'), 1600);
+      if (data.sync_warning) setTimeout(() => showToast(_L('editor.toast.sync_error') + data.sync_warning, 'warn'), 1600);
       return true;
     } else {
       _hideSavePopup();
-      showToast('Erreur : ' + (data.error || 'inconnue'));
+      showToast(_L('editor.toast.error_prefix') + (data.error || _L('editor.toast.error_unknown')));
       return false;
     }
   } catch (err) {
     _hideSavePopup();
-    showToast('Erreur réseau lors de la sauvegarde');
+    showToast(_L('editor.toast.save_network_error'));
     return false;
   }
 }
@@ -2861,7 +2867,7 @@ function renderCalqueListUI() {
     });
     item.querySelector('.cal-item-del').addEventListener('click', async e => {
       e.stopPropagation();
-      if (!confirm(`Supprimer le calque "${cal.name}" ?`)) return;
+      if (!confirm(_L('editor.confirm.delete_layer').replace('{name}', cal.name))) return;
       const apiBase = window.OPTIQCARTO_API_BASE || '/cartography';
       await fetch(`${apiBase}/api/calques/${cal.id}`, { method: 'DELETE' });
       if (activeCalqueId === cal.id) await _deactivateCalque();
@@ -2907,7 +2913,7 @@ async function _activateCalque(calqueId) {
   try {
     const res  = await fetch(`${apiBase}/api/calques/${calqueId}`);
     const data = await res.json();
-    if (data.error) { showToast('Erreur chargement calque : ' + data.error); return; }
+    if (data.error) { showToast(_L('editor.toast.layer_load_error') + data.error); return; }
     activeCalqueId = calqueId;
     _calqueIsNew   = false;
     await _transitionState(data);
@@ -2918,7 +2924,7 @@ async function _activateCalque(calqueId) {
     // Sync DB + session with calque state
     fetch(`${apiBase}/api/calques/${calqueId}/apply`, { method: 'POST' }).catch(() => {});
   } catch (_) {
-    showToast('Erreur réseau chargement calque');
+    showToast(_L('editor.toast.layer_network_error'));
   }
 }
 
@@ -2965,13 +2971,13 @@ async function _createCalque(name) {
       body:    JSON.stringify({ name, state }),
     });
     const data = await res.json();
-    if (data.error) { showToast('Erreur création calque : ' + data.error); return; }
+    if (data.error) { showToast(_L('editor.toast.layer_create_error') + data.error); return; }
     activeCalqueId = data.id;
     await _loadCalqueList();
     _updateCalqueBadge(name);
-    showToast(`Calque "${name}" créé — modifiez la carto puis sauvegardez`);
+    showToast(_L('editor.toast.layer_created').replace('{name}', name));
   } catch (_) {
-    showToast('Erreur réseau création calque');
+    showToast(_L('editor.toast.layer_create_net_error'));
   }
 }
 
@@ -3001,12 +3007,12 @@ async function _saveCalque(apiBase) {
       return true;
     } else {
       _hideSavePopup();
-      showToast('Erreur : ' + (data.error || 'inconnue'));
+      showToast(_L('editor.toast.error_prefix') + (data.error || _L('editor.toast.error_unknown')));
       return false;
     }
   } catch (_) {
     _hideSavePopup();
-    showToast('Erreur réseau lors de la sauvegarde');
+    showToast(_L('editor.toast.save_network_error'));
     return false;
   }
 }
@@ -3044,7 +3050,7 @@ function initCalqueSection() {
   if (newConfirm) newConfirm.addEventListener('click', async e => {
     e.stopPropagation();
     const name = newInput ? newInput.value.trim() : '';
-    if (!name) { showToast('Donnez un nom au calque'); return; }
+    if (!name) { showToast(_L('editor.toast.layer_name_required')); return; }
     if (newRow) newRow.style.display = 'none';
     section.classList.remove('open');
     await _createCalque(name);
@@ -3081,7 +3087,7 @@ async function openLoadDialog() {
 
     item.querySelector('span').addEventListener('click', async () => {
       const data = await fetch(`${apiBase}/api/load/${encodeURIComponent(name)}`).then(r => r.json());
-      if (data.error) { showToast('Erreur : ' + data.error); return; }
+      if (data.error) { showToast(_L('editor.toast.error_prefix') + data.error); return; }
       state = data;
       if (typeof resetHighlightExtco === 'function') resetHighlightExtco();
       // Supprimer uniquement les connexions dont une extrémité n'existe plus
@@ -3113,12 +3119,12 @@ async function openLoadDialog() {
       history = [JSON.stringify(state)]; histIndex = 0;
       render(); updateProps(); fitView();
       dialog.classList.add('hidden');
-      showToast('Chargé : ' + name);
+      showToast(_L('editor.toast.loaded_prefix') + name);
     });
 
     item.querySelector('.load-delete').addEventListener('click', async e => {
       e.stopPropagation();
-      if (!confirm(`Supprimer "${name}" ?`)) return;
+      if (!confirm(_L('editor.confirm.delete_carto').replace('{name}', name))) return;
       await fetch(`${apiBase}/api/delete/${encodeURIComponent(name)}`, { method: 'DELETE' });
       item.remove();
       if (!list.querySelector('.load-item')) openLoadDialog();
@@ -3530,7 +3536,7 @@ function reroutePostProcess(shapes, connections) {
 }
 
 async function importVSDX(file) {
-  if (!window.JSZip) { showToast('JSZip non disponible'); return; }
+  if (!window.JSZip) { showToast(_L('editor.toast.jszip_error')); return; }
 
   const statusEl  = document.getElementById('vsdx-status');
   const loadingEl = document.getElementById('vsdx-loading');
@@ -3643,7 +3649,7 @@ async function importVSDX(file) {
     renderBandsTbList();  // rafra\u00eechir le dropdown avec les bandes import\u00e9es
     const nCustom = connections.filter(c => c.customPath).length;
     console.log(`[VSDX] ${shapes.length} formes, ${connections.length} connexions, ${nCustom} chemins Visio exacts, ${groups.length} groupes`);
-    showToast(`Import r\u00e9ussi \u2014 ${shapes.length} activit\u00e9s \u00b7 ${connections.length} connexions \u00b7 ${bands.length} bandes`);
+    showToast(_L('editor.toast.vsdx_done').replace('{shapes}', shapes.length).replace('{conns}', connections.length).replace('{bands}', bands.length));
 
   } catch(err) {
     console.error('VSDX import error:', err);
@@ -3838,7 +3844,7 @@ function bindBandProps() {
     state.bands = state.bands.filter(b => b.id !== selectedBand);
     selectedBand = null;
     snapshot(); render(); updateProps();
-    showToast('Bande supprimée');
+    showToast(_L('editor.toast.band_deleted'));
   });
 }
 
@@ -4152,7 +4158,7 @@ function _showCheckPanel(issues) {
 }
 
 function runCartoCheck() {
-  if (state.shapes.length === 0) { showToast('Aucune forme à analyser'); return; }
+  if (state.shapes.length === 0) { showToast(_L('editor.toast.no_shapes_check')); return; }
 
   const issues = [];
 
@@ -4308,7 +4314,7 @@ function _openBulkModal(shapeType, shapeSubtype, shapeName, previewClass) {
   }
 
   const activeBands = state.bands.filter(b => !b.deleted);
-  if (activeBands.length === 0) { showToast('Aucune bande disponible'); return; }
+  if (activeBands.length === 0) { showToast(_L('editor.toast.no_bands')); return; }
 
   const bandRows = activeBands.map(band => {
     const realIdx = state.bands.indexOf(band);
@@ -4331,25 +4337,25 @@ function _openBulkModal(shapeType, shapeSubtype, shapeName, previewClass) {
       <div style="display:flex;align-items:center;gap:14px;margin-bottom:20px">
         <span class="shape-sub-preview shape-sub-preview--${previewClass}" style="flex-shrink:0;transform:scale(1.5);transform-origin:left center"></span>
         <div>
-          <div style="font-size:15px;font-weight:700;color:#D6EDD9">Création plurielle — ${shapeName}</div>
-          <div style="font-size:11.5px;color:#567460;margin-top:3px">Nombre de formes à créer par bande</div>
+          <div style="font-size:15px;font-weight:700;color:#D6EDD9">${_L('editor.bulk.title_prefix')}${shapeName}</div>
+          <div style="font-size:11.5px;color:#567460;margin-top:3px">${_L('editor.bulk.count_hint')}</div>
         </div>
       </div>
       <div style="margin-bottom:16px;padding-bottom:14px;border-bottom:1px solid rgba(77,184,104,0.1)">
-        <div style="font-size:10.5px;color:#567460;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:7px">Texte des formes</div>
-        <input id="_bulk-name-input" type="text" placeholder="Laisser vide = sans nom"
+        <div style="font-size:10.5px;color:#567460;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:7px">${_L('editor.bulk.text_section')}</div>
+        <input id="_bulk-name-input" type="text" placeholder="${_L('editor.bulk.name_placeholder')}"
           style="width:100%;box-sizing:border-box;background:rgba(77,184,104,0.08);border:1px solid rgba(77,184,104,0.22);border-radius:8px;color:#D6EDD9;font-size:12.5px;font-family:inherit;padding:8px 12px;outline:none;transition:border-color 0.15s,background 0.15s">
         <label style="display:flex;align-items:center;gap:7px;margin-top:8px;cursor:pointer;font-size:11.5px;color:#567460;user-select:none">
           <input type="checkbox" id="_bulk-autonumber" style="accent-color:#4DB868;width:13px;height:13px">
-          Numéroter automatiquement — Activité 1, Activité 2…
+          ${_L('editor.bulk.autonumber')}
         </label>
       </div>
       <div class="_bulk-band-list" style="max-height:240px;overflow-y:auto;margin-bottom:24px;scrollbar-width:thin;scrollbar-color:rgba(77,184,104,0.3) transparent">
         ${bandRows}
       </div>
       <div style="display:flex;gap:10px;justify-content:flex-end">
-        <button id="_bulk-cancel" style="padding:10px 24px;border-radius:11px;border:1px solid rgba(77,184,104,0.22);background:transparent;color:#567460;font-size:13px;cursor:pointer;font-family:inherit;transition:background 0.15s,color 0.15s">Annuler</button>
-        <button id="_bulk-ok" style="padding:10px 24px;border-radius:11px;border:none;background:#4DB868;color:#0E1610;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;transition:filter 0.15s">Créer les formes</button>
+        <button id="_bulk-cancel" style="padding:10px 24px;border-radius:11px;border:1px solid rgba(77,184,104,0.22);background:transparent;color:#567460;font-size:13px;cursor:pointer;font-family:inherit;transition:background 0.15s,color 0.15s">${_L('btn.cancel')}</button>
+        <button id="_bulk-ok" style="padding:10px 24px;border-radius:11px;border:none;background:#4DB868;color:#0E1610;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;transition:filter 0.15s">${_L('editor.bulk.btn_create')}</button>
       </div>
     </div>`;
 
@@ -4391,7 +4397,7 @@ function _openBulkModal(shapeType, shapeSubtype, shapeName, previewClass) {
     }
     overlay.remove();
     if (counts.length > 0) _createBulkShapes(shapeType, shapeSubtype, counts, baseName, autoNumber);
-    else showToast('Aucune forme à créer');
+    else showToast(_L('editor.toast.no_shapes_create'));
   };
 }
 
@@ -4484,9 +4490,9 @@ function _createBulkShapes(shapeType, shapeSubtype, counts, baseName = '', autoN
   if (totalCreated > 0) { snapshot(); render(); }
 
   if (totalFailed > 0)
-    showToast(`${totalCreated} forme(s) créée(s) · ${totalFailed} non placée(s) (espace insuffisant)`);
+    showToast(_L('editor.toast.bulk_partial').replace('{count}', totalCreated).replace('{failed}', totalFailed));
   else
-    showToast(`${totalCreated} forme(s) créée(s)`);
+    showToast(_L('editor.toast.bulk_created').replace('{count}', totalCreated));
 }
 
 
@@ -4506,7 +4512,7 @@ function init() {
         // subtype par défaut = normal pour le bouton principal
         e.dataTransfer.setData('text/shape-subtype', 'normal');
       });
-      btn.addEventListener('click', () => showToast('Glissez cette forme sur le canevas'));
+      btn.addEventListener('click', () => showToast(_L('editor.toast.drag_to_canvas')));
     } else if (btn.dataset.tool === 'connect') {
       // Le bouton Connecter est désormais un toggle "mise en évidence des
       // activités hachurées" (cf. highlight-mode.js). Le mode connexion
@@ -4598,7 +4604,7 @@ function init() {
         clearTimeout(showTimer);
         snapshot();
         render();
-        showToast(`Tracé : ${routing === 'smooth' ? 'courbe' : 'orthogonal'} — toutes les flèches mises à jour`);
+        showToast(_L('editor.toast.routing_updated').replace('{routing}', routing === 'smooth' ? _L('editor.conn_curve') : _L('editor.conn_orthogonal')));
       });
     });
     updateRoutingBtns();
@@ -4633,7 +4639,7 @@ function init() {
     updateShapeColor(s);
     selectShape(s.id, false, false);
     snapshot(); render(); updateProps();
-    showToast('Forme ajoutée');
+    showToast(_L('editor.toast.shape_added'));
   });
 
   // Panel collapse

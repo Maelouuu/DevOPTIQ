@@ -15,6 +15,8 @@
     window.OPTIQCARTO_HAS_VSDX      = {{ has_vsdx|tojson }};
     window.OPTIQCARTO_HAS_CARTO     = {{ has_optiqcarto|tojson }};
     window.OPTIQCARTO_ACTIVE_CALQUE = {{ (active_calque_id or 'null')|safe }};
+    /* Traductions injectées depuis Flask */
+    window.OPTIQ_I18N = {{ i18n_data | tojson | safe }};
   </script>
 </head>
 <body>
@@ -23,9 +25,9 @@
 <header id="toolbar">
 
   <!-- ── Bouton panneau GAUCHE (côté gauche, vert) ── -->
-  <button class="tb-panel-btn tb-panel-btn--left" id="btn-left-panel-open" title="Panneau gauche">
+  <button class="tb-panel-btn tb-panel-btn--left" id="btn-left-panel-open" title="{{ t('editor.btn_left_panel') }}">
     <i class="fa-solid fa-table-columns"></i>
-    <span>Panneau</span>
+    <span>{{ t('editor.btn_left_panel') }}</span>
   </button>
 
   <!-- ── Contenu centré ── -->
@@ -44,30 +46,30 @@
 
     <!-- ── Outils ── -->
     <div class="tb-group-top">
-      <button class="tool-btn-top active" data-tool="select" title="Sélection (V)">
+      <button class="tool-btn-top active" data-tool="select" title="{{ t('editor.tool_select') }} (V)">
         <i class="fa-solid fa-arrow-pointer"></i>
-        <span>Sélection</span>
+        <span>{{ t('editor.tool_select') }}</span>
       </button>
       <div class="shape-dropdown-wrap" id="connect-tool-wrap">
-        <button class="tool-btn-top" data-tool="connect" id="btn-connect-tool" title="Mettre en évidence les activités hachurées — raccourci C : mode connexion">
+        <button class="tool-btn-top" data-tool="connect" id="btn-connect-tool" title="{{ t('editor.tool_external') }} (C)">
           <i class="fa-solid fa-highlighter"></i>
-          <span>Externes</span>
+          <span>{{ t('editor.tool_external') }}</span>
         </button>
         <div class="shape-sub-dropdown connect-routing-dropdown">
           <button class="shape-sub-btn conn-routing-btn active" data-routing="smooth">
             <i class="fa-solid fa-bezier-curve" style="font-size:13px;margin-right:6px"></i>
-            <span>Courbe</span>
+            <span>{{ t('editor.conn_curve') }}</span>
           </button>
           <div class="shape-sub-sep"></div>
           <button class="shape-sub-btn conn-routing-btn" data-routing="orthogonal">
             <i class="fa-solid fa-turn-up" style="font-size:13px;margin-right:6px"></i>
-            <span>Orthogonale</span>
+            <span>{{ t('editor.conn_orthogonal') }}</span>
           </button>
         </div>
       </div>
-      <button class="tool-btn-top" id="btn-group-create" title="Grouper (G)">
+      <button class="tool-btn-top" id="btn-group-create" title="{{ t('editor.tool_group') }} (G)">
         <i class="fa-solid fa-object-group"></i>
-        <span>Grouper</span>
+        <span>{{ t('editor.tool_group') }}</span>
       </button>
     </div>
 
@@ -76,39 +78,39 @@
     <!-- ── Formes ── -->
     <div class="tb-group-top">
       <div class="shape-dropdown-wrap" id="process-shape-wrap">
-        <button class="shape-btn-top" data-tool="process" title="Formes — glissez sur le canevas">
+        <button class="shape-btn-top" data-tool="process" title="{{ t('editor.shapes_btn') }}">
           <i class="fa-solid fa-shapes"></i>
-          <span>Formes</span>
+          <span>{{ t('editor.shapes_btn') }}</span>
         </button>
         <div class="shape-sub-dropdown">
           <button class="shape-sub-btn" data-shape-type="process" data-shape-subtype="normal">
             <span class="shape-sub-preview shape-sub-preview--normal"></span>
-            <span>Activité</span>
+            <span>{{ t('editor.shape_activity') }}</span>
           </button>
           <div class="shape-sub-sep"></div>
           <button class="shape-sub-btn" data-shape-type="special" data-shape-subtype="normal">
             <span class="shape-sub-preview shape-sub-preview--special"></span>
-            <span>Sous-activité</span>
+            <span>{{ t('editor.shape_subactivity') }}</span>
           </button>
           <div class="shape-sub-sep"></div>
           <button class="shape-sub-btn" data-shape-type="start-end" data-shape-subtype="normal">
             <span class="shape-sub-preview shape-sub-preview--renvoi"></span>
-            <span>Renvoi</span>
+            <span>{{ t('editor.shape_renvoi') }}</span>
           </button>
           <div class="shape-sub-sep"></div>
           <button class="shape-sub-btn" data-shape-type="decision" data-shape-subtype="normal">
             <span class="shape-sub-preview shape-sub-preview--decision"></span>
-            <span>Décision</span>
+            <span>{{ t('editor.shape_decision') }}</span>
           </button>
           <div class="shape-sub-sep"></div>
           <button class="shape-sub-btn" data-shape-type="process" data-shape-subtype="external">
             <span class="shape-sub-preview shape-sub-preview--external"></span>
-            <span>Externe</span>
+            <span>{{ t('editor.shape_external') }}</span>
           </button>
           <div class="shape-sub-sep"></div>
           <button class="shape-sub-btn" data-shape-type="process" data-shape-subtype="extco">
             <span class="shape-sub-preview shape-sub-preview--extco"></span>
-            <span>Ext. entreprise</span>
+            <span>{{ t('editor.shape_extco') }}</span>
           </button>
         </div>
       </div>
@@ -118,34 +120,34 @@
 
     <!-- ── Actions ── -->
     <div class="tb-group-top">
-      <button class="tool-btn-top new-carto-btn" id="btn-new-carto" title="Nouvelle cartographie">
+      <button class="tool-btn-top new-carto-btn" id="btn-new-carto" title="{{ t('editor.btn_new') }}">
         <i class="fa-solid fa-file-circle-plus"></i>
-        <span>Nouveau</span>
+        <span>{{ t('editor.btn_new') }}</span>
       </button>
-      <button class="tool-btn-top accent" id="btn-architect" title="Diagnostiquer la cartographie">
+      <button class="tool-btn-top accent" id="btn-architect" title="{{ t('editor.btn_verify') }}">
         <i class="fa-solid fa-magnifying-glass-chart"></i>
-        <span>Vérifier</span>
+        <span>{{ t('editor.btn_verify') }}</span>
       </button>
-      <button class="tool-btn-top" id="btn-undo" title="Annuler (Ctrl+Z)">
+      <button class="tool-btn-top" id="btn-undo" title="{{ t('editor.btn_undo') }} (Ctrl+Z)">
         <i class="fa-solid fa-rotate-left"></i>
-        <span>Annuler</span>
+        <span>{{ t('editor.btn_undo') }}</span>
       </button>
-      <button class="tool-btn-top" id="btn-redo" title="Rétablir (Ctrl+Y)">
+      <button class="tool-btn-top" id="btn-redo" title="{{ t('editor.btn_redo') }} (Ctrl+Y)">
         <i class="fa-solid fa-rotate-right"></i>
-        <span>Rétablir</span>
+        <span>{{ t('editor.btn_redo') }}</span>
       </button>
-      <button class="tool-btn-top" id="btn-fit" title="Ajuster la vue (F)">
+      <button class="tool-btn-top" id="btn-fit" title="{{ t('editor.btn_fit') }} (F)">
         <i class="fa-solid fa-expand"></i>
-        <span>Centrer</span>
+        <span>{{ t('editor.btn_fit') }}</span>
       </button>
-      <button class="tool-btn-top danger" id="btn-delete" title="Supprimer (Suppr)">
+      <button class="tool-btn-top danger" id="btn-delete" title="{{ t('editor.btn_delete') }} (Suppr)">
         <i class="fa-solid fa-trash"></i>
-        <span>Supprimer</span>
+        <span>{{ t('editor.btn_delete') }}</span>
       </button>
       <div class="bands-tb-section" id="bands-tb-section">
-        <button class="tool-btn-top" id="btn-bands-catalog" title="Gérer les bandes">
+        <button class="tool-btn-top" id="btn-bands-catalog" title="{{ t('editor.btn_bands') }}">
           <i class="fa-solid fa-layer-group"></i>
-          <span>Bandes</span>
+          <span>{{ t('editor.btn_bands') }}</span>
         </button>
         <div class="bands-tb-dropdown" id="bands-tb-dropdown">
           <div class="bands-tb-list" id="bands-tb-list"></div>
@@ -157,24 +159,24 @@
 
     <!-- ── Calques ── -->
     <div class="cal-section" id="cal-section">
-      <button class="tool-btn-top" id="btn-cal-toggle" title="Calques de la carto">
+      <button class="tool-btn-top" id="btn-cal-toggle" title="{{ t('editor.btn_layers') }}">
         <i class="fa-solid fa-copy"></i>
-        <span>Calques</span>
+        <span>{{ t('editor.btn_layers') }}</span>
       </button>
       <div class="cal-dropdown" id="cal-dropdown">
         <div class="cal-dropdown-header">
-          <span class="cal-dropdown-title">Calques</span>
-          <button class="cal-new-btn" id="btn-cal-new" title="Nouveau calque">
+          <span class="cal-dropdown-title">{{ t('editor.btn_layers') }}</span>
+          <button class="cal-new-btn" id="btn-cal-new" title="{{ t('editor.no_layer') }}">
             <i class="fa-solid fa-plus"></i>
           </button>
         </div>
         <div class="cal-new-row" id="cal-new-row" style="display:none">
-          <input type="text" id="cal-new-input" class="cal-new-input" placeholder="Nom du calque…" maxlength="80">
-          <button class="cal-confirm-btn" id="cal-new-confirm" title="Créer"><i class="fa-solid fa-check"></i></button>
-          <button class="cal-cancel-btn" id="cal-new-cancel" title="Annuler"><i class="fa-solid fa-xmark"></i></button>
+          <input type="text" id="cal-new-input" class="cal-new-input" placeholder="{{ t('editor.layer_placeholder') }}" maxlength="80">
+          <button class="cal-confirm-btn" id="cal-new-confirm" title="{{ t('btn.validate') }}"><i class="fa-solid fa-check"></i></button>
+          <button class="cal-cancel-btn" id="cal-new-cancel" title="{{ t('btn.cancel') }}"><i class="fa-solid fa-xmark"></i></button>
         </div>
         <div class="cal-list" id="cal-list"></div>
-        <div class="cal-empty" id="cal-empty">Aucun calque</div>
+        <div class="cal-empty" id="cal-empty">{{ t('editor.no_layer') }}</div>
       </div>
     </div>
 
@@ -182,35 +184,35 @@
 
     <!-- ── Fichier ── -->
     <div class="file-folder-section" id="file-folder-section">
-      <div class="folder-3d-wrap" id="btn-folder-toggle" role="button" tabindex="0" title="Fichier">
+      <div class="folder-3d-wrap" id="btn-folder-toggle" role="button" tabindex="0" title="{{ t('editor.btn_file') }}">
         <div class="folder__back">
           <div class="folder__paper"></div>
           <div class="folder__paper"></div>
           <div class="folder__paper"></div>
           <div class="folder__front"></div>
         </div>
-        <span class="folder-label">Fichier</span>
+        <span class="folder-label">{{ t('editor.btn_file') }}</span>
       </div>
       <div class="folder-dropdown">
-        <button class="folder-action-btn" id="btn-save" title="Sauvegarder (Ctrl+S)">
+        <button class="folder-action-btn" id="btn-save" title="{{ t('editor.btn_save') }} (Ctrl+S)">
           <i class="fa-solid fa-floppy-disk"></i>
-          <span>Sauvegarder</span>
+          <span>{{ t('editor.btn_save') }}</span>
         </button>
-        <button class="folder-action-btn" id="btn-load" title="Charger" style="display:none">
+        <button class="folder-action-btn" id="btn-load" title="{{ t('editor.btn_load') }}" style="display:none">
           <i class="fa-solid fa-folder-open"></i>
-          <span>Charger</span>
+          <span>{{ t('editor.btn_load') }}</span>
         </button>
-        <button class="folder-action-btn" id="btn-export-svg" title="Exporter SVG (Ctrl+E)">
+        <button class="folder-action-btn" id="btn-export-svg" title="{{ t('editor.btn_export_svg') }} (Ctrl+E)">
           <i class="fa-solid fa-file-export"></i>
-          <span>Export SVG</span>
+          <span>{{ t('editor.btn_export_svg') }}</span>
         </button>
-        <button class="folder-action-btn" id="btn-export-pdf" title="Exporter PDF">
+        <button class="folder-action-btn" id="btn-export-pdf" title="{{ t('editor.btn_export_pdf') }}">
           <i class="fa-solid fa-file-pdf"></i>
-          <span>Export PDF</span>
+          <span>{{ t('editor.btn_export_pdf') }}</span>
         </button>
-        <button class="folder-action-btn" id="btn-import-vsdx" title="Importer depuis Visio (.vsdx)">
+        <button class="folder-action-btn" id="btn-import-vsdx" title="{{ t('editor.btn_import_visio') }}">
           <i class="fa-solid fa-file-import"></i>
-          <span>Import Visio</span>
+          <span>{{ t('editor.btn_import_visio') }}</span>
         </button>
       </div>
     </div>
@@ -218,30 +220,30 @@
   </div><!-- /.tb-center -->
 
   <!-- ── Bouton panneau DROIT (côté droit, rose) ── -->
-  <button class="tb-panel-btn tb-panel-btn--right" id="btn-right-panel-open" title="Panneau propriétés">
+  <button class="tb-panel-btn tb-panel-btn--right" id="btn-right-panel-open" title="{{ t('editor.btn_properties') }}">
     <i class="fa-solid fa-sliders"></i>
-    <span>Propriétés</span>
+    <span>{{ t('editor.btn_properties') }}</span>
   </button>
 
 </header>
 
 <!-- ── Bouton retour flottant bas-gauche ── -->
-<a href="/activities/map" id="btn-back-floating" title="Retour à l'application">
+<a href="/activities/map" id="btn-back-floating" title="{{ t('editor.btn_back') }}">
   <i class="fa-solid fa-chevron-left"></i>
-  <span>Retour</span>
+  <span>{{ t('editor.btn_back') }}</span>
 </a>
 
 <!-- ── Modal modifications non enregistrées ── -->
 <div id="unsaved-modal" style="display:none">
   <div class="unsaved-card">
     <div class="unsaved-icon"><i class="fa-solid fa-triangle-exclamation"></i></div>
-    <h3 class="unsaved-title">Modifications non enregistrées</h3>
-    <p class="unsaved-desc">Vous avez des modifications non enregistrées. Voulez-vous les sauvegarder avant de quitter ?</p>
+    <h3 class="unsaved-title">{{ t('editor.unsaved_title') }}</h3>
+    <p class="unsaved-desc">{{ t('editor.unsaved_desc') }}</p>
     <div class="unsaved-actions">
-      <button id="unsaved-btn-discard" class="unsaved-btn unsaved-btn--discard">Quitter sans enregistrer</button>
-      <button id="unsaved-btn-cancel" class="unsaved-btn unsaved-btn--cancel">Annuler</button>
+      <button id="unsaved-btn-discard" class="unsaved-btn unsaved-btn--discard">{{ t('editor.btn_discard') }}</button>
+      <button id="unsaved-btn-cancel" class="unsaved-btn unsaved-btn--cancel">{{ t('btn.cancel') }}</button>
       <button id="unsaved-btn-save" class="unsaved-btn unsaved-btn--save">
-        <i class="fa-solid fa-floppy-disk"></i> Enregistrer <kbd>Ctrl+S</kbd>
+        <i class="fa-solid fa-floppy-disk"></i> {{ t('editor.btn_save') }} <kbd>Ctrl+S</kbd>
       </button>
     </div>
   </div>
@@ -250,9 +252,9 @@
 <!-- ── Toast auto-sauvegarde (10 min) ── -->
 <div id="autosave-toast" style="display:none">
   <i class="fa-solid fa-cloud-arrow-up autosave-icon"></i>
-  <span class="autosave-text">Sauvegarde auto dans <strong id="autosave-secs">30</strong>s</span>
-  <button id="autosave-btn-skip" class="autosave-btn autosave-btn--skip">Passer</button>
-  <button id="autosave-btn-now" class="autosave-btn autosave-btn--now">Maintenant</button>
+  <span class="autosave-text">{{ t('editor.autosave_text') }} <strong id="autosave-secs">30</strong>{{ t('editor.autosave_suffix') }}</span>
+  <button id="autosave-btn-skip" class="autosave-btn autosave-btn--skip">{{ t('editor.btn_autosave_skip') }}</button>
+  <button id="autosave-btn-now" class="autosave-btn autosave-btn--now">{{ t('editor.btn_autosave_now') }}</button>
 </div>
 
 <!-- ── Badge calque actif (affiché sur le canvas) ── -->
@@ -260,7 +262,7 @@
   <i class="fa-solid fa-copy"></i>
   <span id="calque-badge-name">Calque</span>
   <button id="calque-badge-deactivate" title="Revenir à la carto de base">
-    <i class="fa-solid fa-xmark"></i> Désactiver
+    <i class="fa-solid fa-xmark"></i> {{ t('editor.calque_deactivate') }}
   </button>
 </div>
 
@@ -268,11 +270,11 @@
 <div id="cal-diff-modal" style="display:none">
   <div class="unsaved-card">
     <div class="unsaved-icon" style="color:#f59e0b"><i class="fa-solid fa-triangle-exclamation"></i></div>
-    <h3 class="unsaved-title">Calque très divergent</h3>
+    <h3 class="unsaved-title">{{ t('editor.cal_diff_title') }}</h3>
     <p class="unsaved-desc" id="cal-diff-desc"></p>
     <div class="unsaved-actions">
-      <button id="cal-diff-cancel" class="unsaved-btn unsaved-btn--cancel">Annuler</button>
-      <button id="cal-diff-confirm" class="unsaved-btn unsaved-btn--save">Enregistrer quand même</button>
+      <button id="cal-diff-cancel" class="unsaved-btn unsaved-btn--cancel">{{ t('btn.cancel') }}</button>
+      <button id="cal-diff-confirm" class="unsaved-btn unsaved-btn--save">{{ t('editor.cal_diff_confirm') }}</button>
     </div>
   </div>
 </div>
@@ -282,11 +284,11 @@
   <div class="bcat-header">
     <div class="bcat-header-left">
       <i class="fa-solid fa-layer-group"></i>
-      <span>Bandes optionnelles</span>
+      <span>{{ t('editor.bands_optional') }}</span>
     </div>
     <button class="bcat-close" id="btn-close-bcat"><i class="fa-solid fa-xmark"></i></button>
   </div>
-  <p class="bcat-desc">Activez ou désactivez les bandes secondaires. La suppression d'une bande non vide entraîne la suppression des formes qu'elle contient.</p>
+  <p class="bcat-desc">{{ t('editor.bands_desc') }}</p>
   <div id="bcat-list"></div>
 </div>
 
@@ -297,52 +299,52 @@
     <div class="panel-prelayer panel-prelayer--2"></div>
   </div>
   <div class="left-panel-header">
-    <span>Panneau</span>
-    <button class="panel-close-btn" id="btn-close-left-panel" title="Fermer">
+    <span>{{ t('editor.btn_left_panel') }}</span>
+    <button class="panel-close-btn" id="btn-close-left-panel" title="{{ t('btn.close') }}">
       <i class="fa-solid fa-chevron-left"></i>
     </button>
   </div>
 
   <div class="left-category-label">
     <span class="lcat-icon"><i class="fa-solid fa-bookmark"></i></span>
-    Légende
+    {{ t('editor.legend_title') }}
   </div>
   <div class="left-category-sep"></div>
 
   <div class="left-legend-item">
     <svg width="30" height="16" viewBox="0 0 30 16" style="flex-shrink:0"><rect x="1" y="1" width="28" height="14" rx="4" fill="#22c55e"/></svg>
-    <span>Activité</span>
+    <span>{{ t('editor.legend_activity') }}</span>
   </div>
   <div class="left-legend-item">
     <svg width="30" height="16" viewBox="0 0 30 16" style="flex-shrink:0"><ellipse cx="15" cy="8" rx="14" ry="7" fill="#3b82f6"/></svg>
-    <span>Début / Fin</span>
+    <span>{{ t('editor.legend_start_end') }}</span>
   </div>
   <div class="left-legend-item">
     <svg width="30" height="16" viewBox="0 0 30 16" style="flex-shrink:0"><path d="M3,1 H27 Q30,1 30,4 V12 C25,12 23,15 19,13 C15,11 13,14 10,13 C7,12 1,15 0,12 V4 Q0,1 3,1 Z" fill="#f59e0b"/></svg>
-    <span>Sous-activité</span>
+    <span>{{ t('editor.legend_subactivity') }}</span>
   </div>
   <div class="left-legend-item">
     <svg width="30" height="16" viewBox="0 0 30 16" style="flex-shrink:0"><path d="M15,1 L29,8 L15,15 L1,8 Z" fill="#9ca3af"/></svg>
-    <span>Décision</span>
+    <span>{{ t('editor.legend_decision') }}</span>
   </div>
   <div class="left-legend-item">
     <svg width="30" height="16" viewBox="0 0 30 16" style="flex-shrink:0">
       <line x1="1" y1="8" x2="22" y2="8" stroke="#567460" stroke-width="2"/>
       <polygon points="20,4 29,8 20,12" fill="#567460"/>
     </svg>
-    <span>Flux continu</span>
+    <span>{{ t('editor.legend_continuous') }}</span>
   </div>
   <div class="left-legend-item">
     <svg width="30" height="16" viewBox="0 0 30 16" style="flex-shrink:0">
       <line x1="1" y1="8" x2="22" y2="8" stroke="#567460" stroke-width="2" stroke-dasharray="4,3"/>
       <polygon points="20,4 29,8 20,12" fill="#567460"/>
     </svg>
-    <span>Flux optionnel</span>
+    <span>{{ t('editor.legend_optional') }}</span>
   </div>
 
   <div class="left-category-label" style="padding-top:18px">
     <span class="lcat-icon"><i class="fa-solid fa-layer-group"></i></span>
-    Canvas (éléments)
+    {{ t('editor.canvas_elements') }}
   </div>
   <div class="left-category-sep"></div>
   <div id="canvas-map-scroll">
@@ -382,18 +384,18 @@
       <g id="g-overlay"></g>
     </g>
   </svg>
-  <div id="zoom-pill" title="Cliquer pour régler la sensibilité du zoom">
+  <div id="zoom-pill" title="{{ t('editor.zoom_sensitivity') }}">
     <i class="fa-solid fa-magnifying-glass"></i>
     <span id="status-zoom">100%</span>
   </div>
   <div id="zoom-sensitivity-popup">
-    <div class="zsens-title"><i class="fa-solid fa-gauge-high"></i> Sensibilité du zoom</div>
+    <div class="zsens-title"><i class="fa-solid fa-gauge-high"></i> {{ t('editor.sensitivity_title') }}</div>
     <div class="zsens-row">
       <input type="range" id="zsens-slider" min="3" max="30" step="1" value="12">
       <input type="number" id="zsens-value" min="3" max="30" step="1" value="12">
-      <span style="font-size:11px;color:var(--text-muted);white-space:nowrap">% / cran</span>
+      <span style="font-size:11px;color:var(--text-muted);white-space:nowrap">{{ t('editor.zoom_percent_cran') }}</span>
     </div>
-    <div class="zsens-hint">Plus la valeur est élevée, plus le zoom est rapide. La valeur est enregistrée automatiquement.</div>
+    <div class="zsens-hint">{{ t('editor.zoom_hint') }}</div>
   </div>
 </main>
 
@@ -404,15 +406,15 @@
     <div class="panel-prelayer panel-prelayer--2"></div>
   </div>
   <div class="prop-header">
-    <span>Propriétés</span>
-    <button class="panel-close-btn" id="btn-close-props" title="Fermer">
+    <span>{{ t('editor.btn_properties') }}</span>
+    <button class="panel-close-btn" id="btn-close-props" title="{{ t('btn.close') }}">
       <i class="fa-solid fa-chevron-right"></i>
     </button>
   </div>
 
   <div id="prop-nothing" class="prop-empty">
     <i class="fa-solid fa-arrow-pointer"></i>
-    <p>Sélectionnez un élément pour modifier ses propriétés.</p>
+    <p>{{ t('editor.select_nothing') }}</p>
   </div>
 
   <div id="prop-align" style="display:none">
@@ -421,24 +423,24 @@
         <svg width="11" height="11" viewBox="0 0 11 11" fill="currentColor"><circle cx="3" cy="3" r="2.2"/><circle cx="8" cy="3" r="2.2"/><circle cx="3" cy="8" r="2.2"/></svg>
         <span id="prop-align-count">2</span>
       </span>
-      <span class="prop-align-title">Sélection multiple</span>
+      <span class="prop-align-title">{{ t('editor.multi_select') }}</span>
     </div>
     <div class="prop-align-btns">
-      <button class="align-btn" data-align="cy" title="Aligner sur axe horizontal">
+      <button class="align-btn" data-align="cy" title="{{ t('editor.align_horizontal') }}">
         <svg class="align-icon" viewBox="0 0 36 24" fill="none">
           <rect x="1" y="4" width="14" height="16" rx="3" stroke="currentColor" stroke-width="1.8" opacity="0.7"/>
           <rect x="21" y="7" width="14" height="10" rx="3" stroke="currentColor" stroke-width="1.8" opacity="0.7"/>
           <line x1="0" y1="12" x2="36" y2="12" stroke="currentColor" stroke-width="1.5" stroke-dasharray="2.5 2"/>
         </svg>
-        <span>Axe horizontal</span>
+        <span>{{ t('editor.align_horizontal') }}</span>
       </button>
-      <button class="align-btn" data-align="cx" title="Aligner sur axe vertical">
+      <button class="align-btn" data-align="cx" title="{{ t('editor.align_vertical') }}">
         <svg class="align-icon" viewBox="0 0 24 36" fill="none">
           <rect x="4" y="1" width="16" height="14" rx="3" stroke="currentColor" stroke-width="1.8" opacity="0.7"/>
           <rect x="7" y="21" width="10" height="14" rx="3" stroke="currentColor" stroke-width="1.8" opacity="0.7"/>
           <line x1="12" y1="0" x2="12" y2="36" stroke="currentColor" stroke-width="1.5" stroke-dasharray="2.5 2"/>
         </svg>
-        <span>Axe vertical</span>
+        <span>{{ t('editor.align_vertical') }}</span>
       </button>
     </div>
     <div class="prop-align-foot"></div>

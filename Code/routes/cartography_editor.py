@@ -133,6 +133,10 @@ def editor():
         if not cal:
             active_calque_id = None
 
+    from Code.translations import TRANSLATIONS
+    lang = session.get('lang', 'fr')
+    i18n_data = TRANSLATIONS.get(lang, TRANSLATIONS['fr'])
+
     return render_template(
         "cartography_editor.html",
         entity_name=entity_name,
@@ -140,6 +144,7 @@ def editor():
         has_vsdx=has_vsdx,
         has_optiqcarto=has_optiqcarto,
         active_calque_id=active_calque_id,
+        i18n_data=i18n_data,
     )
 
 

@@ -26,39 +26,39 @@
   <!-- HEADER -->
   <div class="carto-header">
     <div class="carto-header-left">
-      <h1>Cartographie des activités</h1>
+      <h1>{{ t('map.title') }}</h1>
       {% if active_entity %}
         <span class="entity-badge active"><i class="fa-solid fa-building"></i> {{ active_entity.name }}</span>
       {% else %}
-        <span class="entity-badge inactive"><i class="fa-solid fa-triangle-exclamation"></i> Aucune entité active</span>
+        <span class="entity-badge inactive"><i class="fa-solid fa-triangle-exclamation"></i> {{ t('map.no_entity') }}</span>
       {% endif %}
     </div>
     <div class="carto-header-right">
       <button id="btn-import-full" class="btn-import-full">
         <img src="{{ url_for('static', filename='img/artificial-intelligence.png') }}" alt="IA" class="btn-icon-img">
-        Import IA
+        {{ t('map.btn_import_ia') }}
       </button>
       <!-- Bouton "Connexions" — toggle mise en évidence des activités externes/hachurées -->
       <button id="cross-carto-btn" class="cross-carto-btn" title="Mettre en évidence les activités externes (hachurées)">
         <img src="{{ url_for('static', filename='img/connexion.png') }}" alt="" class="btn-icon-img cross-carto-icon">
-        <span id="cross-carto-label">Connexions</span>
+        <span id="cross-carto-label">{{ t('map.btn_connections') }}</span>
         <span class="cross-carto-dot"></span>
       </button>
-      <button id="carto-wizard-btn" class="carto-wizard-btn"><i class="fa-solid fa-building-columns"></i> Gestion des entités</button>
+      <button id="carto-wizard-btn" class="carto-wizard-btn"><i class="fa-solid fa-building-columns"></i> {{ t('map.btn_entities') }}</button>
     </div>
   </div>
 
   <!-- INFO NAVIGATION -->
   <div class="carto-info-message" id="carto-info-default">
     <img src="{{ url_for('static', filename='img/navigation.png') }}" alt="" class="carto-nav-icon">
-    <strong>Navigation :</strong>
-    Clic gauche maintenu pour se déplacer • Molette pour zoomer • Clic sur une activité pour y accéder
+    <strong>{{ t('map.nav_hint') }}</strong>
+    {{ t('map.nav_detail') }}
   </div>
   <div class="carto-info-message carto-info-cross hidden" id="carto-info-cross">
     <i class="fa-solid fa-highlighter"></i>
-    <strong>Activités externes :</strong>
-    Les activités <span class="cross-highlight-label">en couleur</span> sont marquées comme externes (hachurées ou forme stade) dans l'éditeur OptiqCarto.
-    <span id="cross-carto-count" class="cross-count-badge">0</span> activité(s) externe(s)
+    <strong>{{ t('map.external_label') }}</strong>
+    {{ t('map.external_detail') | safe }}
+    <span id="cross-carto-count" class="cross-count-badge">0</span> {{ t('map.external_count_suffix') }}
   </div>
 
   <!-- Popup entité choice (cross-carto click with multiple matches) -->
@@ -68,7 +68,7 @@
         <strong id="cross-entity-activity-name"></strong>
         <button onclick="document.getElementById('cross-entity-popup').classList.add('hidden')" class="cross-entity-close"><i class="fa-solid fa-xmark"></i></button>
       </div>
-      <p class="cross-entity-popup-sub">Cette activité existe dans les cartos suivantes :</p>
+      <p class="cross-entity-popup-sub">{{ t('map.entity_popup_sub') }}</p>
       <div id="cross-entity-list" class="cross-entity-list"></div>
     </div>
   </div>
@@ -88,15 +88,15 @@
       </div>
       <div class="carto-preview-body" id="carto-preview-body">
         <div class="carto-preview-loading" id="carto-preview-loading">
-          <i class="fa-solid fa-circle-notch fa-spin"></i> Chargement de la cartographie…
+          <i class="fa-solid fa-circle-notch fa-spin"></i> {{ t('map.preview_loading') }}
         </div>
         <div id="carto-preview-svg-wrap" class="carto-preview-svg-wrap"></div>
         <div class="carto-preview-footer">
           <span class="carto-preview-readonly-badge">
-            <i class="fa-solid fa-eye"></i> Lecture seule
+            <i class="fa-solid fa-eye"></i> {{ t('map.preview_readonly') }}
           </span>
           <button id="carto-preview-activate-btn" class="carto-preview-activate-btn">
-            <i class="fa-solid fa-bolt"></i> Rendre la carto active
+            <i class="fa-solid fa-bolt"></i> {{ t('map.preview_activate') }}
           </button>
         </div>
       </div>
@@ -110,7 +110,7 @@
 
       <div class="em-header">
         <div class="em-header-icon"><i class="fa-solid fa-building-columns"></i></div>
-        <h2>Gestion des entités</h2>
+        <h2>{{ t('map.entity_mgmt_title') }}</h2>
         <button id="close-wizard" class="em-close-btn"><i class="fa-solid fa-xmark"></i></button>
       </div>
 
@@ -119,16 +119,16 @@
         <!-- ÉCRAN 0 : LISTE DES ENTITÉS -->
         <div id="wizard-screen-entities" class="wizard-screen active">
           <div class="em-new-row">
-            <input type="text" id="wizard-new-entity-name" class="em-new-input" placeholder="Nom de la nouvelle entité…">
+            <input type="text" id="wizard-new-entity-name" class="em-new-input" placeholder="{{ t('map.new_entity_placeholder') }}">
             <button id="wizard-create-entity-btn" class="em-btn-create">
-              <i class="fa-solid fa-plus"></i> Créer
+              <i class="fa-solid fa-plus"></i> {{ t('map.entity_create_btn') }}
             </button>
           </div>
           <div class="entities-grid" id="wizard-entities-list"></div>
           <div class="wizard-entities-empty hidden" id="wizard-entities-empty">
             <i class="fa-solid fa-building" style="font-size:32px;opacity:0.25;color:#ec4899"></i>
-            <p>Aucune entité créée</p>
-            <p class="em-empty-hint">Utilisez le champ ci-dessus pour commencer</p>
+            <p>{{ t('map.entity_no_entities') }}</p>
+            <p class="em-empty-hint">{{ t('map.entity_no_entities_hint') }}</p>
           </div>
         </div>
 
@@ -140,38 +140,38 @@
               <div class="em-detail-info">
                 <h3 id="selected-entity-name">Entité</h3>
                 <div class="em-detail-meta">
-                  <span><strong id="selected-entity-activities">0</strong> activités</span>
+                  <span><strong id="selected-entity-activities">0</strong> {{ t('map.entity_activities_badge') }}</span>
                   <span id="em-carto-badge" class="em-carto-badge hidden">
-                    <i class="fa-solid fa-diagram-project"></i> Cartographie disponible
+                    <i class="fa-solid fa-diagram-project"></i> {{ t('map.entity_carto_badge') }}
                   </span>
                 </div>
               </div>
               <span id="selected-entity-active-badge" class="em-active-badge hidden">
-                <i class="fa-solid fa-check-circle"></i> Active
+                <i class="fa-solid fa-check-circle"></i> {{ t('map.entity_active_badge') }}
               </span>
             </div>
 
             <div class="em-action-grid">
               <button id="wizard-activate-btn" class="em-action-btn em-action-activate">
                 <i class="fa-solid fa-check-circle"></i>
-                <span>Activer</span>
+                <span>{{ t('map.entity_btn_activate') }}</span>
               </button>
               <button id="wizard-open-editor-btn" class="em-action-btn em-action-editor">
                 <i class="fa-solid fa-pen-ruler"></i>
-                <span>Ouvrir l'éditeur</span>
+                <span>{{ t('map.entity_btn_editor') }}</span>
               </button>
               <button id="wizard-rename-btn" class="em-action-btn em-action-rename">
                 <i class="fa-solid fa-pen"></i>
-                <span>Renommer</span>
+                <span>{{ t('map.entity_btn_rename') }}</span>
               </button>
               <button id="wizard-delete-btn" class="em-action-btn em-action-delete">
                 <i class="fa-solid fa-trash"></i>
-                <span>Supprimer</span>
+                <span>{{ t('map.entity_btn_delete') }}</span>
               </button>
             </div>
 
             <button class="em-back-btn" id="action-back">
-              <i class="fa-solid fa-chevron-left"></i> Retour aux entités
+              <i class="fa-solid fa-chevron-left"></i> {{ t('map.entity_back') }}
             </button>
           </div>
         </div>
@@ -186,12 +186,12 @@
       <div class="modal-danger-icon">
         <i class="fa-solid fa-triangle-exclamation"></i>
       </div>
-      <h3 class="modal-danger-title">Supprimer l'entité</h3>
+      <h3 class="modal-danger-title">{{ t('map.delete_modal_title') }}</h3>
       <p class="modal-danger-entity-name" id="delete-entity-name-display"></p>
-      <p class="modal-danger-desc">Toutes les données associées (activités, connexions, cartographie) seront <strong>définitivement supprimées</strong>. Cette action est irréversible.</p>
+      <p class="modal-danger-desc">{{ t('map.delete_modal_desc') | safe }}</p>
       <div class="modal-danger-actions">
-        <button id="cancel-delete-btn" class="modal-btn-cancel">Annuler</button>
-        <button id="confirm-delete-btn" class="modal-btn-delete"><i class="fa-solid fa-trash"></i> Supprimer</button>
+        <button id="cancel-delete-btn" class="modal-btn-cancel">{{ t('btn.cancel') }}</button>
+        <button id="confirm-delete-btn" class="modal-btn-delete"><i class="fa-solid fa-trash"></i> {{ t('btn.delete') }}</button>
       </div>
     </div>
   </div>
@@ -199,11 +199,11 @@
   <!-- MODAL RENOMMAGE - Style inline de sécurité -->
   <div id="rename-modal" class="modal hidden" >
     <div class="modal-content">
-      <h3><i class="fa-solid fa-pen" style="color:#7c3aed;margin-right:6px"></i>Renommer l'entité</h3>
-      <input type="text" id="rename-input" placeholder="Nouveau nom" />
+      <h3><i class="fa-solid fa-pen" style="color:#7c3aed;margin-right:6px"></i>{{ t('map.rename_modal_title') }}</h3>
+      <input type="text" id="rename-input" placeholder="{{ t('map.rename_placeholder') }}" />
       <div class="modal-actions">
-        <button id="cancel-rename-btn" class="btn-gray">Annuler</button>
-        <button id="confirm-rename-btn" class="btn-blue">Renommer</button>
+        <button id="cancel-rename-btn" class="btn-gray">{{ t('btn.cancel') }}</button>
+        <button id="confirm-rename-btn" class="btn-blue">{{ t('map.rename_btn') }}</button>
       </div>
     </div>
   </div>
@@ -223,9 +223,9 @@
             </div>
           </div>
           <div class="carto-viewer-cardheader-right">
-            <span class="viewer-readonly-badge-inline"><i class="fa-solid fa-eye"></i> Lecture seule</span>
+            <span class="viewer-readonly-badge-inline"><i class="fa-solid fa-eye"></i> {{ t('map.viewer_readonly') }}</span>
             <a href="/cartography/editor" class="btn-open-editor-inline">
-              <i class="fa-solid fa-pen-ruler"></i> Ouvrir l'éditeur
+              <i class="fa-solid fa-pen-ruler"></i> {{ t('map.viewer_open_editor') }}
             </a>
           </div>
         </div>
@@ -238,12 +238,12 @@
       <div class="carto-no-carto-wrap">
         <div class="carto-no-carto-card">
           <div class="carto-no-carto-icon"><i class="fa-solid fa-diagram-project"></i></div>
-          <h3 class="carto-no-carto-title">Aucune cartographie créée</h3>
+          <h3 class="carto-no-carto-title">{{ t('map.no_carto_title') }}</h3>
           <p class="carto-no-carto-sub">Entité active : <strong>{{ active_entity.name }}</strong></p>
-          <p class="carto-no-carto-hint">Créez votre première cartographie directement dans l'éditeur OptiqCarto.</p>
+          <p class="carto-no-carto-hint">{{ t('map.no_carto_hint') }}</p>
           <div class="carto-no-carto-actions">
             <a href="/cartography/editor" class="btn-carto-primary">
-              <i class="fa-solid fa-plus"></i> Créer la cartographie
+              <i class="fa-solid fa-plus"></i> {{ t('map.no_carto_btn') }}
             </a>
           </div>
         </div>
@@ -253,8 +253,8 @@
       <div class="carto-no-carto-wrap">
         <div class="carto-no-carto-card carto-no-entity">
           <div class="carto-no-carto-icon"><i class="fa-solid fa-building"></i></div>
-          <h3 class="carto-no-carto-title">Aucune entité active</h3>
-          <p class="carto-no-carto-hint">Activez une entité via "Gestion des entités" pour visualiser sa cartographie.</p>
+          <h3 class="carto-no-carto-title">{{ t('map.no_entity_title') }}</h3>
+          <p class="carto-no-carto-hint">{{ t('map.no_entity_hint') }}</p>
         </div>
       </div>
       {% endif %}
@@ -263,7 +263,7 @@
       <div class="activities-panel-header">
         <div class="activities-panel-icon"><i class="fa-solid fa-list-check"></i></div>
         <div>
-          <h3 class="activities-panel-title">Activités</h3>
+          <h3 class="activities-panel-title">{{ t('map.panel_title') }}</h3>
           <span class="activities-panel-count">{{ activities|length }} activité{{ 's' if activities|length != 1 else '' }}</span>
         </div>
       </div>
@@ -278,8 +278,8 @@
         </ul>
       {% else %}
         <div class="no-activities">
-          <p>Aucune activité pour cette entité.</p>
-          <p class="hint">Enregistrez une cartographie dans l'éditeur pour importer les activités.</p>
+          <p>{{ t('map.no_activities') }}</p>
+          <p class="hint">{{ t('map.no_activities_hint') }}</p>
         </div>
       {% endif %}
     </div>
@@ -293,8 +293,8 @@
   <div class="cx-search-card">
     <div class="cx-search-spinner"></div>
     <p class="cx-search-msg">
-      <strong>Recherche de liaisons…</strong><br>
-      <span>Analyse des cartographies liées</span>
+      <strong>{{ t('map.cx_searching') }}</strong><br>
+      <span>{{ t('map.cx_analysing') }}</span>
     </p>
   </div>
 </div>
@@ -311,11 +311,11 @@
           <i class="fa-solid fa-file-export"></i>
         </div>
         <div>
-          <h2 id="exportModalTitle" class="export-modal-title">Exporter les données</h2>
-          <p class="export-modal-subtitle" id="exportModalSubtitle">Chargement de l'entité…</p>
+          <h2 id="exportModalTitle" class="export-modal-title">{{ t('map.export_title') }}</h2>
+          <p class="export-modal-subtitle" id="exportModalSubtitle">{{ t('map.export_loading') }}</p>
         </div>
       </div>
-      <button class="export-modal-close" id="exportModalClose" aria-label="Fermer">
+      <button class="export-modal-close" id="exportModalClose" aria-label="{{ t('btn.close') }}">
         <i class="fa-solid fa-xmark"></i>
       </button>
     </div>
@@ -326,18 +326,18 @@
       <!-- Filtre rôle -->
       <div class="export-field">
         <label class="export-label">
-          <i class="fa-solid fa-user-tag"></i> Filtrer par rôle <span class="export-optional">(optionnel)</span>
+          <i class="fa-solid fa-user-tag"></i> {{ t('map.export_filter_role') }} <span class="export-optional">{{ t('map.export_optional') }}</span>
         </label>
         <div class="export-select-wrap">
           <select id="exportRoleSelect" class="export-select">
-            <option value="">— Toute l'entité —</option>
+            <option value="">{{ t('map.export_all_entity') }}</option>
           </select>
         </div>
       </div>
 
       <!-- Format -->
       <div class="export-field">
-        <label class="export-label"><i class="fa-solid fa-file"></i> Format</label>
+        <label class="export-label"><i class="fa-solid fa-file"></i> {{ t('map.export_format') }}</label>
         <div class="export-format-row">
           <label class="export-format-card" id="fmt-excel-card">
             <input type="radio" name="exportFormat" value="excel" checked>
@@ -348,7 +348,7 @@
           <label class="export-format-card" id="fmt-html-card">
             <input type="radio" name="exportFormat" value="html">
             <span class="export-format-icon"><i class="fa-solid fa-globe"></i></span>
-            <span class="export-format-name">Rapport HTML</span>
+            <span class="export-format-name">{{ t('map.export_html_label') }}</span>
             <span class="export-format-ext">.html</span>
           </label>
         </div>
@@ -358,9 +358,9 @@
 
     <!-- Footer -->
     <div class="export-modal-footer">
-      <button class="export-btn-cancel" id="exportModalCancel">Annuler</button>
+      <button class="export-btn-cancel" id="exportModalCancel">{{ t('btn.cancel') }}</button>
       <button class="export-btn-dl" id="exportModalDownload">
-        <i class="fa-solid fa-download"></i> Télécharger
+        <i class="fa-solid fa-download"></i> {{ t('btn.download') }}
       </button>
     </div>
 
