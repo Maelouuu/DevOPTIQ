@@ -1,5 +1,14 @@
 // cardnav.js — hamburger mobile only; desktop always shows items
 (function () {
+  // Mark active nav item based on current URL
+  const currentPath = window.location.pathname;
+  document.querySelectorAll('.nav-card').forEach(card => {
+    const href = card.getAttribute('href');
+    if (href && (currentPath === href || currentPath.startsWith(href + '/') || currentPath.startsWith(href + '?'))) {
+      card.classList.add('active');
+    }
+  });
+
   const nav       = document.getElementById('card-nav');
   const hamburger = document.getElementById('hamburger');
   const content   = nav?.querySelector('.card-nav-content');

@@ -188,7 +188,8 @@ let labelEditing = null;        // { shapeId }
 let portDrag = null;            // { fromShapeId, fromPort:{x,y,dir} } — drag depuis un port
 let connEndDrag = null;     // { connId, which:'from'|'to', curX, curY, snapShapeId, snapDir }
 let bendDrag = null;        // legacy — kept for undo compat
-let segDrag  = null;        // { connId, segIdx, isHoriz, startX, startY, startPts }
+let segDrag  = null;        // legacy — kept for undo compat
+let cornerDrag = null;     // { connId, ptIdx, startX, startY, startPts }
 let labelDrag = null;       // { connId, startLx, startLy, startX, startY }
 let markerIds = new Map();      // "color-style" → markerId
 const hatchIds = new Set();     // pattern IDs déjà créés dans les defs
@@ -603,8 +604,8 @@ function renderConnections() {
       } else {
         const userOffset = c.bendOffset || { dx: 0, dy: 0 };
         orthopts = orthogonalPts(fp, tp, bundleOffset, userOffset);
-        // Skip obstacle avoidance while dragging a segment (expensive + causes jitter)
-        if (!segDrag || segDrag.connId !== c.id) {
+        // Skip obstacle avoidance while dragging a corner (expensive + causes jitter)
+        if (!cornerDrag || cornerDrag.connId !== c.id) {
           orthopts = avoidShapes(orthopts, state.shapes, c.fromId, c.toId);
           orthopts = simplifyPath(orthopts);
         }
@@ -764,17 +765,19 @@ function renderConnections() {
           style: 'pointer-events:all',
         }, gConns);
       }
-      // Poignées de segment — une par segment intermédiaire (skip premier et dernier)
-      if (routing === 'orthogonal' && orthopts.length >= 4) {
-        for (let si = 1; si <= orthopts.length - 3; si++) {
-          const pa = orthopts[si], pb = orthopts[si + 1];
-          const mx = (pa.x + pb.x) / 2, my = (pa.y + pb.y) / 2;
-          const isH = Math.abs(pb.y - pa.y) < Math.abs(pb.x - pa.x);
-          el('circle', {
-            cx: String(mx), cy: String(my), r: '7',
+      // Poignées de coin — une par vertex intermédiaire, déplaçable librement en X et Y
+      if (routing === 'orthogonal' && orthopts.length >= 3) {
+        for (let ci = 1; ci <= orthopts.length - 2; ci++) {
+          const pt = orthopts[ci];
+          const hs = 6; // demi-taille du losange
+          el('rect', {
+            x: String(pt.x - hs), y: String(pt.y - hs),
+            width: String(hs * 2), height: String(hs * 2),
+            rx: '2',
             fill: '#ffffff', stroke: '#1f7a54', 'stroke-width': '2.5',
-            cursor: isH ? 'ns-resize' : 'ew-resize',
-            'data-conn-seg': String(c.id), 'data-seg-idx': String(si),
+            transform: `rotate(45,${pt.x},${pt.y})`,
+            cursor: 'move',
+            'data-conn-corner': String(c.id), 'data-pt-idx': String(ci),
             style: 'pointer-events:all',
           }, gConns);
         }
@@ -1545,26 +1548,23 @@ function onDown(e) {
       return;
     }
 
-    // Drag d'un segment de connexion (ajustement précis du tracé)
-    const segEl = e.target.closest('[data-conn-seg]');
-    if (segEl) {
-      const cid    = parseInt(segEl.getAttribute('data-conn-seg'));
-      const segIdx = parseInt(segEl.getAttribute('data-seg-idx'));
+    // Drag d'un coin de connexion — déplacement libre en X et Y
+    const cornerEl = e.target.closest('[data-conn-corner]');
+    if (cornerEl) {
+      const cid   = parseInt(cornerEl.getAttribute('data-conn-corner'));
+      const ptIdx = parseInt(cornerEl.getAttribute('data-pt-idx'));
       const { x, y } = screenToSVG(e.clientX, e.clientY);
       const conn = state.connections.find(c => c.id === cid);
       if (!conn) return;
       const pts = conn._computedOrthopts || [];
-      if (pts.length < 2 || segIdx >= pts.length - 1) return;
-      const pa = pts[segIdx], pb = pts[segIdx + 1];
-      const isH = Math.abs(pb.y - pa.y) < Math.abs(pb.x - pa.x);
-      // Geler le tracé auto en waypoints manuels si pas déjà fait
+      if (ptIdx < 1 || ptIdx >= pts.length - 1) return;
       if (!conn.userPts) conn.userPts = pts.slice(1, -1).map(p => ({ x: p.x, y: p.y }));
-      segDrag = {
-        connId: cid, segIdx, isHoriz: isH,
+      cornerDrag = {
+        connId: cid, ptIdx,
         startX: x, startY: y,
         startPts: pts.map(p => ({ x: p.x, y: p.y })),
       };
-      canvas.style.cursor = isH ? 'ns-resize' : 'ew-resize';
+      canvas.style.cursor = 'move';
       return;
     }
 
@@ -1726,23 +1726,46 @@ function onMove(e) {
     return;
   }
 
-  /* ── Drag d'un segment de connexion ── */
-  if (segDrag) {
+  /* ── Drag d'un coin de connexion (X et Y libres) ── */
+  if (cornerDrag) {
     const { x, y } = screenToSVG(e.clientX, e.clientY);
-    const conn = state.connections.find(c => c.id === segDrag.connId);
+    const conn = state.connections.find(c => c.id === cornerDrag.connId);
     if (!conn || !conn.userPts) return;
-    const dx = x - segDrag.startX, dy = y - segDrag.startY;
-    const sp = segDrag.startPts;
-    const i  = segDrag.segIdx;
-    if (segDrag.isHoriz) {
-      const ny = sp[i].y + dy;
-      conn.userPts[i - 1] = { x: sp[i].x,     y: ny };
-      conn.userPts[i]     = { x: sp[i + 1].x, y: ny };
-    } else {
-      const nx = sp[i].x + dx;
-      conn.userPts[i - 1] = { x: nx, y: sp[i].y     };
-      conn.userPts[i]     = { x: nx, y: sp[i + 1].y };
+    const dx   = x - cornerDrag.startX;
+    const dy   = y - cornerDrag.startY;
+    const sp   = cornerDrag.startPts; // snapshot des orthopts au début du drag
+    const i    = cornerDrag.ptIdx;    // index dans orthopts (1..N-2)
+    const N    = sp.length;
+
+    const newX = sp[i].x + dx;
+    const newY = sp[i].y + dy;
+
+    // Déplacer le coin draggé (userPts[i-1])
+    conn.userPts[i - 1] = { x: newX, y: newY };
+
+    // Propagation aux coins adjacents pour maintenir l'orthogonalité
+    const prevIsH = i > 0 &&
+      Math.abs(sp[i - 1].x - sp[i].x) > Math.abs(sp[i - 1].y - sp[i].y);
+    const nextIsH = i < N - 1 &&
+      Math.abs(sp[i + 1].x - sp[i].x) > Math.abs(sp[i + 1].y - sp[i].y);
+
+    // Segment précédent horizontal → propager Y au coin précédent
+    if (prevIsH && i - 2 >= 0) {
+      conn.userPts[i - 2] = { x: sp[i - 1].x, y: newY };
     }
+    // Segment précédent vertical → propager X au coin précédent
+    if (!prevIsH && i - 2 >= 0) {
+      conn.userPts[i - 2] = { x: newX, y: sp[i - 1].y };
+    }
+    // Segment suivant horizontal → propager Y au coin suivant
+    if (nextIsH && i < N - 2) {
+      conn.userPts[i] = { x: sp[i + 1].x, y: newY };
+    }
+    // Segment suivant vertical → propager X au coin suivant
+    if (!nextIsH && i < N - 2) {
+      conn.userPts[i] = { x: newX, y: sp[i + 1].y };
+    }
+
     render();
     return;
   }
@@ -1828,9 +1851,9 @@ function onUp(e) {
     return;
   }
 
-  /* ── Fin du drag d'un segment ── */
-  if (segDrag) {
-    segDrag = null;
+  /* ── Fin du drag d'un coin ── */
+  if (cornerDrag) {
+    cornerDrag = null;
     canvas.style.cursor = spaceDown ? 'grab' : '';
     snapshot();
     render();

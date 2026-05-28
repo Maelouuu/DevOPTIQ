@@ -9,8 +9,13 @@
 
     <!-- Logo -->
     <a class="logo-container" href="/activities/map">
-      <span class="logo-badge">◉</span>
-      <span class="logo-text">OPTIQ</span>
+      <div class="logo-mark">
+        <div class="logo-gem"></div>
+      </div>
+      <div class="logo-text-group">
+        <span class="logo-name">OPTIQ</span>
+        <span class="logo-by">by AFDEC</span>
+      </div>
     </a>
 
     <!-- Hamburger (mobile uniquement) -->
@@ -25,61 +30,61 @@
       <div class="card-scroll">
 
         <a class="nav-card" href="/activities/view"
-           style="--ic: linear-gradient(135deg,#7c3aed,#5b21b6)">
+           style="--ic: linear-gradient(135deg,#7c3aed,#5b21b6); --glow: rgba(124,58,237,0.5)">
           <span class="nav-card-icon"><i class="fa-solid fa-list-check"></i></span>
           <span class="nav-card-label">{{ t('nav.activities') }}</span>
         </a>
 
         <a class="nav-card" href="/roles_view"
-           style="--ic: linear-gradient(135deg,#059669,#047857)">
+           style="--ic: linear-gradient(135deg,#059669,#047857); --glow: rgba(5,150,105,0.5)">
           <span class="nav-card-icon"><i class="fa-solid fa-users-rectangle"></i></span>
           <span class="nav-card-label">{{ t('nav.roles') }}</span>
         </a>
 
         <a class="nav-card" href="/competences/view"
-           style="--ic: linear-gradient(135deg,#2563eb,#1d4ed8)">
+           style="--ic: linear-gradient(135deg,#2563eb,#1d4ed8); --glow: rgba(37,99,235,0.5)">
           <span class="nav-card-icon"><i class="fa-solid fa-layer-group"></i></span>
           <span class="nav-card-label">{{ t('nav.competences') }}</span>
         </a>
 
         <a class="nav-card" href="/temps"
-           style="--ic: linear-gradient(135deg,#d97706,#b45309)">
+           style="--ic: linear-gradient(135deg,#d97706,#b45309); --glow: rgba(217,119,6,0.5)">
           <span class="nav-card-icon"><i class="fa-solid fa-clock"></i></span>
           <span class="nav-card-label">{{ t('nav.time') }}</span>
         </a>
 
         <a class="nav-card" href="/comptes"
-           style="--ic: linear-gradient(135deg,#e11d48,#be123c)">
+           style="--ic: linear-gradient(135deg,#e11d48,#be123c); --glow: rgba(225,29,72,0.5)">
           <span class="nav-card-icon"><i class="fa-solid fa-users-gear"></i></span>
           <span class="nav-card-label">{{ t('nav.accounts') }}</span>
         </a>
 
         <a class="nav-card" href="/gestion_rh"
-           style="--ic: linear-gradient(135deg,#16a34a,#15803d)">
+           style="--ic: linear-gradient(135deg,#16a34a,#15803d); --glow: rgba(22,163,74,0.5)">
           <span class="nav-card-icon"><i class="fa-solid fa-building-user"></i></span>
           <span class="nav-card-label">{{ t('nav.hr') }}</span>
         </a>
 
         <a class="nav-card" href="/projection_metier"
-           style="--ic: linear-gradient(135deg,#0891b2,#0e7490)">
+           style="--ic: linear-gradient(135deg,#0891b2,#0e7490); --glow: rgba(8,145,178,0.5)">
           <span class="nav-card-icon"><i class="fa-solid fa-briefcase"></i></span>
           <span class="nav-card-label">{{ t('nav.career') }}</span>
         </a>
 
         <a class="nav-card" href="/gestion_outils"
-           style="--ic: linear-gradient(135deg,#ea580c,#c2410c)">
+           style="--ic: linear-gradient(135deg,#ea580c,#c2410c); --glow: rgba(234,88,12,0.5)">
           <span class="nav-card-icon"><i class="fa-solid fa-screwdriver-wrench"></i></span>
           <span class="nav-card-label">{{ t('nav.tools') }}</span>
         </a>
 
         <a class="nav-card" href="/activities/map"
-           style="--ic: linear-gradient(135deg,#0d9488,#0f766e)">
+           style="--ic: linear-gradient(135deg,#0d9488,#0f766e); --glow: rgba(13,148,136,0.5)">
           <span class="nav-card-icon"><i class="fa-solid fa-diagram-project"></i></span>
           <span class="nav-card-label">{{ t('nav.carto') }}</span>
         </a>
 
         <a class="nav-card" href="/parametres"
-           style="--ic: linear-gradient(135deg,#6366f1,#4f46e5)">
+           style="--ic: linear-gradient(135deg,#6366f1,#4f46e5); --glow: rgba(99,102,241,0.5)">
           <span class="nav-card-icon"><i class="fa-solid fa-gear"></i></span>
           <span class="nav-card-label">{{ t('nav.settings') }}</span>
         </a>
@@ -87,7 +92,7 @@
       </div>
     </div>
 
-    <!-- Déconnexion (intégré à droite de la barre) -->
+    <!-- Déconnexion -->
     <a href="/logout" class="logout-btn" title="{{ t('nav.logout') }}">
       <i class="fa-solid fa-right-from-bracket"></i>
       <span>{{ t('nav.logout') }}</span>
