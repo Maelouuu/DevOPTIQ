@@ -8,6 +8,12 @@
      vsdx_importer.js
    ══════════════════════════════════════════════════ */
 
+// Localisation : lit window.OPTIQ_I18N injecté par Flask, fallback = clé brute
+const _L = (key, ...subs) => {
+  const s = (window.OPTIQ_I18N && window.OPTIQ_I18N[key]) || key;
+  return subs.length ? s.replace(/\{(\d+)\}/g, (_, i) => subs[i] ?? '') : s;
+};
+
 function getBandForY(midY) {
   let y = -200;
   for (const band of state.bands) {
@@ -104,21 +110,23 @@ function _checkRenvoiAutoLink(fromShapeId, toShapeId) {
 // ── Défauts par type de forme ─────────────────────
 function _defaultBands() {
   return [
-    { id:  1, label: 'Analyse de Marché & Communication',                           color: '#FF0000', fontSize: 11, height: 220 },
-    { id:  2, label: 'Vente & Suivi commercial',                                    color: '#C00000', fontSize: 11, height: 220 },
-    { id:  3, label: 'Gestion Administrative & Financière',                         color: '#00B050', fontSize: 11, height: 220 },
-    { id:  4, label: 'Négociation & Relations Fournisseurs',                         color: '#808000', fontSize: 11, height: 220 },
-    { id:  5, label: 'Coordination & Suivi de Projet',                              color: '#5B9BD5', fontSize: 11, height: 220 },
-    { id:  6, label: 'Conception Produit & Ingénierie',                             color: '#2E74B5', fontSize: 11, height: 220 },
-    { id:  7, label: 'Organisation Industrielle & Méthodes (hors production directe)', color: '#1F3864', fontSize: 11, height: 220 },
-    { id:  8, label: 'Satisfaction Client & Amélioration Continue',                 color: '#FFFF00', fontSize: 11, height: 220 },
-    { id:  9, label: 'Contrôle qualité & Mesure (Métrologie)',                      color: '#7030A0', fontSize: 11, height: 220 },
-    { id: 10, label: 'Fabrication & Réalisation Produit (opérations directes)',     color: '#4472C4', fontSize: 11, height: 220 },
-    { id: 11, label: 'Organisation & Planification du Travail',                     color: '#ED7D31', fontSize: 11, height: 220 },
-    { id: 12, label: 'Analyse Technique & Résolution de Problèmes',                 color: '#843C00', fontSize: 11, height: 220 },
-    { id: 13, label: 'Logistique & Gestion des Flux Physiques',                     color: '#375623', fontSize: 11, height: 220 },
-    { id: 14, label: 'Pilotage Stratégique & Opérationnel (macro)',                 color: '#D9D9D9', fontSize: 11, height: 220 },
-    { id: 15, label: 'Gestion des Compétences & des Talents',                       color: '#92D050', fontSize: 11, height: 220 },
+    { id:  0, label: 'Client',                                                               color: '#FFFFFF', fontSize: 11, height: 100 },
+    { id:  1, label: 'Analyse de Marché & Communication',                                    color: '#C00000', fontSize: 11, height: 220, deleted: true },
+    { id:  2, label: 'Vente & Suivi commercial',                                             color: '#FF0000', fontSize: 11, height: 220 },
+    { id:  3, label: 'Gestion Administrative & Financière',                                  color: '#92D050', fontSize: 11, height: 220 },
+    { id:  4, label: 'Négociation & Relations Fournisseurs',                                 color: '#4F6228', fontSize: 11, height: 220, deleted: true },
+    { id:  5, label: 'Coordination & Suivi de Projet',                                      color: '#95B3D7', fontSize: 11, height: 220 },
+    { id:  6, label: 'Conception Produit & Ingénierie',                                     color: '#548DD4', fontSize: 11, height: 220 },
+    { id:  7, label: 'Organisation Industrielle & Méthodes (hors production directe)',       color: '#365F91', fontSize: 11, height: 220, deleted: true },
+    { id:  8, label: 'Satisfaction Client & Amélioration Continue',                          color: '#FFFF00', fontSize: 11, height: 220, deleted: true },
+    { id:  9, label: 'Contrôle qualité & Mesure (Métrologie)',                              color: '#5F497A', fontSize: 11, height: 220, deleted: true },
+    { id: 10, label: 'Fabrication & Réalisation Produit (opérations directes)',              color: '#0070C0', fontSize: 11, height: 220 },
+    { id: 11, label: 'Organisation & Planification du Travail',                              color: '#FF9900', fontSize: 11, height: 220 },
+    { id: 12, label: 'Analyse Technique & Résolution de Problèmes',                          color: '#984806', fontSize: 11, height: 220 },
+    { id: 13, label: 'Logistique & Gestion des Flux Physiques',                              color: '#CC9900', fontSize: 11, height: 220 },
+    { id: 14, label: 'Pilotage Stratégique & Opérationnel (macro)',                          color: '#D9D9D9', fontSize: 11, height: 220 },
+    { id: 15, label: 'Gestion des Compétences & des Talents',                                color: '#92D050', fontSize: 11, height: 220, deleted: true },
+    { id: 16, label: 'Fournisseur',                                                          color: '#FFFFFF', fontSize: 11, height: 100 },
   ];
 }
 
@@ -179,7 +187,12 @@ let spaceDown = false;
 let labelEditing = null;        // { shapeId }
 let portDrag = null;            // { fromShapeId, fromPort:{x,y,dir} } — drag depuis un port
 let connEndDrag = null;     // { connId, which:'from'|'to', curX, curY, snapShapeId, snapDir }
-let bendDrag = null;        // { connId, startX, startY, startOffset:{dx,dy} }
+let bendDrag = null;        // legacy — kept for undo compat
+let segDrag  = null;        // legacy — kept for undo compat
+let cornerDrag = null;     // { connId, ptIdx, startX, startY, startPts }
+let cornerSnapPreview = false; // true quand l'angle du coin draggé ≈ 180° (177–183°)
+let addCornerMode = false;
+let addCornerConnId = null;
 let labelDrag = null;       // { connId, startLx, startLy, startX, startY }
 let markerIds = new Map();      // "color-style" → markerId
 const hatchIds = new Set();     // pattern IDs déjà créés dans les defs
@@ -589,15 +602,29 @@ function renderConnections() {
       const fIdx2 = fUsers2.indexOf(c.id);
       const fN2 = fUsers2.length;
       const bundleOffset = fN2 > 1 ? (fIdx2 - (fN2 - 1) / 2) * 14 : 0;
-      const userOffset = c.bendOffset || { dx: 0, dy: 0 };
-      orthopts = orthogonalPts(fp, tp, bundleOffset, userOffset);
-      orthopts = avoidShapes(orthopts, state.shapes, c.fromId, c.toId);
-      orthopts = simplifyPath(orthopts);
-      c._computedOrthopts = orthopts; // used for label drag constraint
+      if (c.userPts && c.userPts.length >= 1) {
+        orthopts = [fp, ...c.userPts, tp];
+      } else {
+        const userOffset = c.bendOffset || { dx: 0, dy: 0 };
+        orthopts = orthogonalPts(fp, tp, bundleOffset, userOffset);
+        // Skip obstacle avoidance while dragging a corner (expensive + causes jitter)
+        if (!cornerDrag || cornerDrag.connId !== c.id) {
+          orthopts = avoidShapes(orthopts, state.shapes, c.fromId, c.toId);
+          orthopts = simplifyPath(orthopts);
+        }
+      }
+      c._computedOrthopts = orthopts;
       // Enregistrer les segments pour pénaliser les labels des connexions suivantes
       for (let _pi = 0; _pi < orthopts.length - 1; _pi++)
         placedPaths.push({ ax: orthopts[_pi].x, ay: orthopts[_pi].y, bx: orthopts[_pi+1].x, by: orthopts[_pi+1].y, connId: c.id });
-      d = polylineToPath(orthopts, 12);
+      // Snap-to-straight preview : dessiner le tracé SANS le coin en cours de suppression
+      let displayOrthopts = orthopts;
+      if (cornerSnapPreview && cornerDrag && cornerDrag.connId === c.id) {
+        const si = cornerDrag.ptIdx;
+        displayOrthopts = orthopts.filter((_, idx) => idx !== si);
+        if (displayOrthopts.length < 2) displayOrthopts = orthopts;
+      }
+      d = polylineToPath(displayOrthopts, 12);
     }
     const isSel = selectedConn === c.id;
     const color = isSel ? '#1f7a54' : c.color;
@@ -748,19 +775,27 @@ function renderConnections() {
           style: 'pointer-events:all',
         }, gConns);
       }
-      // Poignée de coude (ajustement manuel du tracé orthogonal)
-      if (routing === 'orthogonal' && orthopts.length >= 4) {
-        const midPtIdx = Math.floor((orthopts.length - 1) / 2);
-        const bpa = orthopts[midPtIdx], bpb = orthopts[midPtIdx + 1];
-        const bpx = (bpa.x + bpb.x) / 2, bpy = (bpa.y + bpb.y) / 2;
-        const isHorizSeg = Math.abs(bpb.y - bpa.y) < Math.abs(bpb.x - bpa.x);
-        el('circle', {
-          cx: String(bpx), cy: String(bpy), r: '6',
-          fill: '#ffffff', stroke: '#1f7a54', 'stroke-width': '2',
-          cursor: isHorizSeg ? 'ns-resize' : 'ew-resize',
-          'data-conn-bend': String(c.id),
-          style: 'pointer-events:all',
-        }, gConns);
+      // Poignées de coin — une par vertex intermédiaire, déplaçable librement en X et Y
+      if (routing === 'orthogonal' && orthopts.length >= 3) {
+        for (let ci = 1; ci <= orthopts.length - 2; ci++) {
+          const pt = orthopts[ci];
+          const hs = 6; // demi-taille du losange
+          const isSnapping = cornerSnapPreview && cornerDrag &&
+                             cornerDrag.connId === c.id && cornerDrag.ptIdx === ci;
+          el('rect', {
+            x: String(pt.x - hs), y: String(pt.y - hs),
+            width: String(hs * 2), height: String(hs * 2),
+            rx: '2',
+            fill: isSnapping ? 'rgba(239,68,68,0.12)' : '#ffffff',
+            stroke: isSnapping ? '#ef4444' : '#1f7a54',
+            'stroke-width': '2.5',
+            'stroke-dasharray': isSnapping ? '3,2' : 'none',
+            transform: `rotate(45,${pt.x},${pt.y})`,
+            cursor: 'move',
+            'data-conn-corner': String(c.id), 'data-pt-idx': String(ci),
+            style: 'pointer-events:all',
+          }, gConns);
+        }
       }
     }
   }
@@ -992,6 +1027,54 @@ function renderShapes() {
 /* ══════════════════════════════════════════════════
    RENDER — HANDLES (selection)
    ══════════════════════════════════════════════════ */
+
+function cornerAngleDeg(prev, corner, next) {
+  const ax = prev.x - corner.x, ay = prev.y - corner.y;
+  const bx = next.x - corner.x, by = next.y - corner.y;
+  const la = Math.hypot(ax, ay), lb = Math.hypot(bx, by);
+  if (la < 0.001 || lb < 0.001) return 0;
+  const dot = Math.max(-1, Math.min(1, (ax * bx + ay * by) / (la * lb)));
+  return Math.acos(dot) * 180 / Math.PI;
+}
+
+function closestPointOnSegment(a, b, p) {
+  const dx = b.x - a.x, dy = b.y - a.y;
+  const len2 = dx * dx + dy * dy;
+  if (len2 < 0.001) return { x: a.x, y: a.y };
+  const t = Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / len2));
+  return { x: a.x + t * dx, y: a.y + t * dy };
+}
+
+function insertCornerOnConn(conn, cx, cy) {
+  const pts = conn._computedOrthopts || [];
+  if (pts.length < 2) return;
+  let bestSeg = -1, bestDist = Infinity, bestPt = null;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const cp = closestPointOnSegment(pts[i], pts[i + 1], { x: cx, y: cy });
+    const d = Math.hypot(cp.x - cx, cp.y - cy);
+    if (d < bestDist) { bestDist = d; bestSeg = i; bestPt = cp; }
+  }
+  if (bestSeg < 0) return;
+  if (!conn.userPts) conn.userPts = pts.slice(1, -1).map(p => ({ x: p.x, y: p.y }));
+  conn.userPts.splice(bestSeg, 0, { x: bestPt.x, y: bestPt.y });
+}
+
+function mergeOverlappingCorners(conn) {
+  if (!conn.userPts || conn.userPts.length < 2) return;
+  const THRESH = 14;
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (let i = 0; i < conn.userPts.length - 1; i++) {
+      const a = conn.userPts[i], b = conn.userPts[i + 1];
+      if (Math.hypot(a.x - b.x, a.y - b.y) < THRESH) {
+        conn.userPts.splice(i, 2, { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
+        changed = true; break;
+      }
+    }
+  }
+  if (conn.userPts.length === 0) conn.userPts = null;
+}
 
 function renderHandles() {
   gHandles.innerHTML = '';
@@ -1340,7 +1423,7 @@ function undo() {
   clearSelection();
   render();
   updateProps();
-  showToast('Annulé');
+  showToast(_L('editor.toast.undo'));
 }
 
 function redo() {
@@ -1350,7 +1433,7 @@ function redo() {
   clearSelection();
   render();
   updateProps();
-  showToast('Rétabli');
+  showToast(_L('editor.toast.redo'));
 }
 
 /* ══════════════════════════════════════════════════
@@ -1528,15 +1611,78 @@ function onDown(e) {
       return;
     }
 
-    // Drag d'un coude de connexion (ajustement du tracé)
-    const bendEl = e.target.closest('[data-conn-bend]');
-    if (bendEl) {
-      const cid = parseInt(bendEl.getAttribute('data-conn-bend'));
+    // Mode ajout d'angle — clic sur la flèche pour insérer un corner
+    if (addCornerMode) {
+      addCornerMode = false;
+      canvas.style.cursor = '';
+      document.getElementById('btn-add-corner')?.classList.remove('active');
+      const connHit = e.target.closest('[data-type="conn"]');
+      if (connHit) {
+        const cid = parseInt(connHit.getAttribute('data-id'));
+        if (cid === addCornerConnId) {
+          const conn = state.connections.find(c => c.id === cid);
+          if (conn) {
+            const { x, y } = screenToSVG(e.clientX, e.clientY);
+            insertCornerOnConn(conn, x, y);
+            snapshot(); render(); updateProps();
+          }
+        }
+      }
+      addCornerConnId = null;
+      return;
+    }
+
+    // Drag d'un coin de connexion — déplacement libre en X et Y
+    const cornerEl = e.target.closest('[data-conn-corner]');
+    if (cornerEl) {
+      const cid   = parseInt(cornerEl.getAttribute('data-conn-corner'));
+      let   ptIdx = parseInt(cornerEl.getAttribute('data-pt-idx'));
       const { x, y } = screenToSVG(e.clientX, e.clientY);
       const conn = state.connections.find(c => c.id === cid);
-      const startOffset = conn && conn.bendOffset ? { ...conn.bendOffset } : { dx: 0, dy: 0 };
-      bendDrag = { connId: cid, startX: x, startY: y, startOffset };
-      canvas.style.cursor = 'grabbing';
+      if (!conn) return;
+      const pts = conn._computedOrthopts || [];
+      if (ptIdx < 1 || ptIdx >= pts.length - 1) return;
+      if (!conn.userPts) conn.userPts = pts.slice(1, -1).map(p => ({ x: p.x, y: p.y }));
+
+      // Pre-expand: insert helper corners when dragged corner is adjacent to src or dst.
+      // This guarantees all angles stay at 90° during drag.
+      const N = pts.length;
+      const needPrevHelper = ptIdx === 1;
+      const needNextHelper = ptIdx === N - 2;
+
+      let srcToCornerIsH = false, cornerToDstIsH = false;
+      if (needPrevHelper || needNextHelper) {
+        srcToCornerIsH = Math.abs(pts[1].x - pts[0].x) > Math.abs(pts[1].y - pts[0].y);
+        cornerToDstIsH = Math.abs(pts[N-1].x - pts[N-2].x) > Math.abs(pts[N-1].y - pts[N-2].y);
+        if (needPrevHelper) {
+          const A = srcToCornerIsH
+            ? { x: pts[ptIdx].x, y: pts[0].y }
+            : { x: pts[0].x,     y: pts[ptIdx].y };
+          conn.userPts.splice(ptIdx - 1, 0, A);
+          ptIdx++; // dragged corner shifted right
+        }
+        if (needNextHelper) {
+          const origCorner = pts[needPrevHelper ? ptIdx - 1 : N - 2];
+          const B = cornerToDstIsH
+            ? { x: origCorner.x, y: pts[N-1].y }
+            : { x: pts[N-1].x,   y: origCorner.y };
+          conn.userPts.splice(ptIdx, 0, B);
+        }
+      }
+
+      // Rebuild startPts from expanded userPts
+      const newStartPts = [pts[0], ...conn.userPts.map(p => ({ x: p.x, y: p.y })), pts[N-1]];
+
+      cornerSnapPreview = false;
+      cornerDrag = {
+        connId: cid, ptIdx,
+        startX: x, startY: y,
+        startPts: newStartPts,
+        needPrevHelper, needNextHelper,
+        srcToCornerIsH, cornerToDstIsH,
+        noSnap: needPrevHelper || needNextHelper,
+      };
+      canvas.style.cursor = 'move';
       return;
     }
 
@@ -1609,7 +1755,7 @@ function onDown(e) {
       const exists = state.connections.some(c => c.fromId === connecting.fromId && c.toId === sid);
       if (!exists) {
         if (wouldBeBackwards(connecting.fromId, sid)) {
-          showToast('⛔ Une flèche ne peut pas revenir en arrière (flèche → droite seulement)');
+          showToast(_L('editor.toast.backward_arrow'));
         } else {
           const fromShape = state.shapes.find(s => s.id === connecting.fromId);
           state.connections.push({
@@ -1698,17 +1844,72 @@ function onMove(e) {
     return;
   }
 
-  /* ── Drag d'un coude de connexion ── */
-  if (bendDrag) {
+  /* ── Drag d'un coin de connexion (X et Y libres) ── */
+  if (cornerDrag) {
     const { x, y } = screenToSVG(e.clientX, e.clientY);
-    const conn = state.connections.find(c => c.id === bendDrag.connId);
-    if (conn) {
-      conn.bendOffset = {
-        dx: bendDrag.startOffset.dx + (x - bendDrag.startX),
-        dy: bendDrag.startOffset.dy + (y - bendDrag.startY),
-      };
-      render();
+    const conn = state.connections.find(c => c.id === cornerDrag.connId);
+    if (!conn || !conn.userPts) return;
+    const dx   = x - cornerDrag.startX;
+    const dy   = y - cornerDrag.startY;
+    const sp   = cornerDrag.startPts; // snapshot des orthopts au début du drag
+    const i    = cornerDrag.ptIdx;    // index dans orthopts (1..N-2)
+    const N    = sp.length;
+
+    const newX = sp[i].x + dx;
+    const newY = sp[i].y + dy;
+
+    // Déplacer le coin draggé (userPts[i-1])
+    conn.userPts[i - 1] = { x: newX, y: newY };
+
+    // Propagation aux coins adjacents pour maintenir l'orthogonalité
+    const prevIsH = i > 0 &&
+      Math.abs(sp[i - 1].x - sp[i].x) > Math.abs(sp[i - 1].y - sp[i].y);
+    const nextIsH = i < N - 1 &&
+      Math.abs(sp[i + 1].x - sp[i].x) > Math.abs(sp[i + 1].y - sp[i].y);
+
+    // Segment précédent horizontal → propager Y au coin précédent
+    if (prevIsH && i - 2 >= 0) {
+      conn.userPts[i - 2] = { x: sp[i - 1].x, y: newY };
     }
+    // Segment précédent vertical → propager X au coin précédent
+    if (!prevIsH && i - 2 >= 0) {
+      conn.userPts[i - 2] = { x: newX, y: sp[i - 1].y };
+    }
+    // Segment suivant horizontal → propager Y au coin suivant
+    if (nextIsH && i < N - 2) {
+      conn.userPts[i] = { x: sp[i + 1].x, y: newY };
+    }
+    // Segment suivant vertical → propager X au coin suivant
+    if (!nextIsH && i < N - 2) {
+      conn.userPts[i] = { x: newX, y: sp[i + 1].y };
+    }
+
+    // Analytically override helper positions to guarantee right angles even when
+    // the direction detection above is ambiguous (degenerate initial positions).
+    if (cornerDrag.needPrevHelper) {
+      // A is at userPts[i-2]; fp is sp[0]
+      conn.userPts[i - 2] = cornerDrag.srcToCornerIsH
+        ? { x: newX,      y: sp[0].y }
+        : { x: sp[0].x,   y: newY    };
+    }
+    if (cornerDrag.needNextHelper) {
+      // B is at userPts[i]; tp is sp[N-1]
+      conn.userPts[i] = cornerDrag.cornerToDstIsH
+        ? { x: newX,      y: sp[N - 1].y }
+        : { x: sp[N - 1].x, y: newY      };
+    }
+
+    // Snap-to-straight : angle ≈ 180° (177–183°) → preview suppression
+    // Disabled when helpers were auto-inserted (noSnap) to avoid false positives.
+    if (!cornerDrag.noSnap) {
+      const up = conn.userPts;
+      const prevPt = (i - 2 >= 0 && up[i - 2]) ? up[i - 2] : sp[0];
+      const nextPt = (i <= up.length - 1 && up[i])  ? up[i]  : sp[N - 1];
+      const angle  = cornerAngleDeg(prevPt, { x: newX, y: newY }, nextPt);
+      cornerSnapPreview = angle >= 177 && angle <= 183;
+    }
+
+    render();
     return;
   }
 
@@ -1793,9 +1994,26 @@ function onUp(e) {
     return;
   }
 
-  /* ── Fin du drag d'un coude ── */
-  if (bendDrag) {
-    bendDrag = null;
+  /* ── Fin du drag d'un coin ── */
+  if (cornerDrag) {
+    const conn = state.connections.find(c => c.id === cornerDrag.connId);
+    if (conn) {
+      if (cornerSnapPreview) {
+        // Remove dragged corner + any auto-inserted helpers around it
+        const nPrev = cornerDrag.needPrevHelper ? 1 : 0;
+        const nNext = cornerDrag.needNextHelper ? 1 : 0;
+        const removeStart = cornerDrag.ptIdx - 1 - nPrev;
+        const removeCount = 1 + nPrev + nNext;
+        if (conn.userPts && removeStart >= 0 && removeStart < conn.userPts.length) {
+          conn.userPts.splice(removeStart, removeCount);
+          if (conn.userPts.length === 0) conn.userPts = null;
+        }
+      } else {
+        mergeOverlappingCorners(conn);
+      }
+    }
+    cornerSnapPreview = false;
+    cornerDrag = null;
     canvas.style.cursor = spaceDown ? 'grab' : '';
     snapshot();
     render();
@@ -1813,7 +2031,7 @@ function onUp(e) {
         const newFromId = which === 'from' ? snapShapeId : conn.fromId;
         const newToId   = which === 'to'   ? snapShapeId : conn.toId;
         if (wouldBeBackwards(newFromId, newToId)) {
-          showToast('⛔ Une flèche ne peut pas revenir en arrière (flèche → droite seulement)');
+          showToast(_L('editor.toast.backward_arrow'));
         } else {
           if (which === 'from') {
             conn.fromId      = snapShapeId;
@@ -1868,7 +2086,7 @@ function onUp(e) {
       );
       if (!exists) {
         if (wouldBeBackwards(portDrag.fromShapeId, target.id)) {
-          showToast('⛔ Une flèche ne peut pas revenir en arrière (flèche → droite seulement)');
+          showToast(_L('editor.toast.backward_arrow'));
         } else {
         const fromShape = state.shapes.find(s => s.id === portDrag.fromShapeId);
         state.connections.push({
@@ -1902,10 +2120,13 @@ function onUp(e) {
     isDragging = false;
     if (dragData) {
       if (dragData.moved) {
-        // Seulement si mouvement réel : recalculer la couleur de bande
         for (const { id } of dragData.shapes) {
           const s = state.shapes.find(s => s.id === id);
           if (s) updateShapeColor(s);
+          // Les tracés manuels deviennent incohérents quand la shape source/cible bouge
+          for (const conn of state.connections) {
+            if (conn.fromId === id || conn.toId === id) conn.userPts = null;
+          }
         }
         snapshot();
         render();
@@ -1929,8 +2150,15 @@ function onDbl(e) {
     const cid = parseInt(ct.getAttribute('data-id'));
     const c = state.connections.find(c => c.id === cid);
     if (!c) return;
-    const v = prompt('Label de la flèche :', c.label || '');
-    if (v !== null) { c.label = v.trim(); snapshot(); render(); }
+    if (c.userPts) {
+      // Double-clic sur connexion avec tracé manuel → réinitialise le tracé
+      c.userPts = null;
+      snapshot(); render();
+      showToast(_L('editor.toast.path_reset'));
+    } else {
+      const v = prompt(_L('editor.prompt.conn_label'), c.label || '');
+      if (v !== null) { c.label = v.trim(); snapshot(); render(); }
+    }
   }
 }
 
@@ -2212,6 +2440,8 @@ function updateProps() {
     document.getElementById('conn-routing-ortho').checked     = c.routing === 'orthogonal';
     document.getElementById('conn-color').value = c.color;
     document.getElementById('conn-label').value = c.label || '';
+    const addCornerGroup = document.getElementById('add-corner-group');
+    if (addCornerGroup) addCornerGroup.style.display = c.routing === 'orthogonal' ? '' : 'none';
   }
 }
 
@@ -2238,6 +2468,18 @@ function _renderGroupShapesList(grp) {
 }
 
 function bindProps() {
+  // Bouton "Ajouter un angle"
+  document.getElementById('btn-add-corner')?.addEventListener('click', () => {
+    const c = state.connections.find(c => c.id === selectedConn);
+    if (!c || c.routing !== 'orthogonal') return;
+    addCornerMode = !addCornerMode;
+    addCornerConnId = addCornerMode ? selectedConn : null;
+    canvas.style.cursor = addCornerMode
+      ? 'url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'20\' height=\'20\'%3E%3Crect x=\'7\' y=\'7\' width=\'6\' height=\'6\' fill=\'%23111827\' transform=\'rotate(45 10 10)\'/%3E%3C/svg%3E") 10 10, crosshair'
+      : '';
+    document.getElementById('btn-add-corner')?.classList.toggle('active', addCornerMode);
+  });
+
   // Shape
   const prop = (id, fn) => {
     const el = document.getElementById(id);
@@ -2425,7 +2667,7 @@ function fitView() {
    ══════════════════════════════════════════════════ */
 
 function exportSVG() {
-  if (state.shapes.length === 0) { showToast('Aucune forme à exporter'); return; }
+  if (state.shapes.length === 0) { showToast(_L('editor.toast.no_shapes_export')); return; }
 
   let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
   for (const s of state.shapes) {
@@ -2462,11 +2704,11 @@ function exportSVG() {
   a.href = url; a.download = 'carto_optiq.svg';
   a.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
-  showToast('SVG exporté ✓');
+  showToast(_L('editor.toast.svg_done'));
 }
 
 function exportPDF() {
-  if (state.shapes.length === 0) { showToast('Aucune forme à exporter'); return; }
+  if (state.shapes.length === 0) { showToast(_L('editor.toast.no_shapes_export')); return; }
 
   let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
   for (const s of state.shapes) {
@@ -2495,7 +2737,7 @@ function exportPDF() {
   const svgStr = new XMLSerializer().serializeToString(exportEl);
   const encoded = encodeURIComponent(svgStr);
   const win = window.open('', '_blank');
-  if (!win) { showToast('Popup bloquée — autorisez les popups pour ce site'); return; }
+  if (!win) { showToast(_L('editor.toast.popup_blocked')); return; }
   win.document.write(`<!DOCTYPE html><html><head><title>OptiqCarto — Export PDF</title>
 <style>
   * { margin:0; padding:0; box-sizing:border-box; }
@@ -2517,7 +2759,7 @@ function exportPDF() {
 </script>
 </body></html>`);
   win.document.close();
-  showToast('Fenêtre PDF ouverte — utilisez Ctrl+P pour sauvegarder en PDF');
+  showToast(_L('editor.toast.pdf_done'));
 }
 
 /* ══════════════════════════════════════════════════
@@ -2538,7 +2780,7 @@ function newCarto() {
 
 function createGroup() {
   if (selectedShapes.size < 2) {
-    showToast('Sélectionnez au moins 2 formes pour créer un groupe');
+    showToast(_L('editor.toast.group_min'));
     return;
   }
   if (!state.groups) state.groups = [];
@@ -2552,7 +2794,7 @@ function createGroup() {
   clearSelection();
   selectedGroup = id;
   snapshot(); render();
-  showToast('Groupe créé — double-cliquez pour renommer');
+  showToast(_L('editor.toast.group_created'));
 }
 
 function _doNewCarto() {
@@ -2572,7 +2814,7 @@ function _doNewCarto() {
   history = [JSON.stringify(state)]; histIndex = 0;
   render();
   updateProps();
-  showToast('Nouvelle cartographie créée');
+  showToast(_L('editor.toast.new_carto'));
 }
 
 /* ══════════════════════════════════════════════════
@@ -2630,16 +2872,16 @@ async function saveJSON() {
       isDirty = false;
       clearTimeout(_autoSaveTimerId);
       _showSavePopup('done');
-      if (data.sync_warning) setTimeout(() => showToast('Erreur sync : ' + data.sync_warning, 'warn'), 1600);
+      if (data.sync_warning) setTimeout(() => showToast(_L('editor.toast.sync_error') + data.sync_warning, 'warn'), 1600);
       return true;
     } else {
       _hideSavePopup();
-      showToast('Erreur : ' + (data.error || 'inconnue'));
+      showToast(_L('editor.toast.error_prefix') + (data.error || _L('editor.toast.error_unknown')));
       return false;
     }
   } catch (err) {
     _hideSavePopup();
-    showToast('Erreur réseau lors de la sauvegarde');
+    showToast(_L('editor.toast.save_network_error'));
     return false;
   }
 }
@@ -2822,7 +3064,7 @@ function renderCalqueListUI() {
     });
     item.querySelector('.cal-item-del').addEventListener('click', async e => {
       e.stopPropagation();
-      if (!confirm(`Supprimer le calque "${cal.name}" ?`)) return;
+      if (!confirm(_L('editor.confirm.delete_layer').replace('{name}', cal.name))) return;
       const apiBase = window.OPTIQCARTO_API_BASE || '/cartography';
       await fetch(`${apiBase}/api/calques/${cal.id}`, { method: 'DELETE' });
       if (activeCalqueId === cal.id) await _deactivateCalque();
@@ -2868,7 +3110,7 @@ async function _activateCalque(calqueId) {
   try {
     const res  = await fetch(`${apiBase}/api/calques/${calqueId}`);
     const data = await res.json();
-    if (data.error) { showToast('Erreur chargement calque : ' + data.error); return; }
+    if (data.error) { showToast(_L('editor.toast.layer_load_error') + data.error); return; }
     activeCalqueId = calqueId;
     _calqueIsNew   = false;
     await _transitionState(data);
@@ -2879,7 +3121,7 @@ async function _activateCalque(calqueId) {
     // Sync DB + session with calque state
     fetch(`${apiBase}/api/calques/${calqueId}/apply`, { method: 'POST' }).catch(() => {});
   } catch (_) {
-    showToast('Erreur réseau chargement calque');
+    showToast(_L('editor.toast.layer_network_error'));
   }
 }
 
@@ -2926,13 +3168,13 @@ async function _createCalque(name) {
       body:    JSON.stringify({ name, state }),
     });
     const data = await res.json();
-    if (data.error) { showToast('Erreur création calque : ' + data.error); return; }
+    if (data.error) { showToast(_L('editor.toast.layer_create_error') + data.error); return; }
     activeCalqueId = data.id;
     await _loadCalqueList();
     _updateCalqueBadge(name);
-    showToast(`Calque "${name}" créé — modifiez la carto puis sauvegardez`);
+    showToast(_L('editor.toast.layer_created').replace('{name}', name));
   } catch (_) {
-    showToast('Erreur réseau création calque');
+    showToast(_L('editor.toast.layer_create_net_error'));
   }
 }
 
@@ -2962,12 +3204,12 @@ async function _saveCalque(apiBase) {
       return true;
     } else {
       _hideSavePopup();
-      showToast('Erreur : ' + (data.error || 'inconnue'));
+      showToast(_L('editor.toast.error_prefix') + (data.error || _L('editor.toast.error_unknown')));
       return false;
     }
   } catch (_) {
     _hideSavePopup();
-    showToast('Erreur réseau lors de la sauvegarde');
+    showToast(_L('editor.toast.save_network_error'));
     return false;
   }
 }
@@ -3005,7 +3247,7 @@ function initCalqueSection() {
   if (newConfirm) newConfirm.addEventListener('click', async e => {
     e.stopPropagation();
     const name = newInput ? newInput.value.trim() : '';
-    if (!name) { showToast('Donnez un nom au calque'); return; }
+    if (!name) { showToast(_L('editor.toast.layer_name_required')); return; }
     if (newRow) newRow.style.display = 'none';
     section.classList.remove('open');
     await _createCalque(name);
@@ -3042,7 +3284,7 @@ async function openLoadDialog() {
 
     item.querySelector('span').addEventListener('click', async () => {
       const data = await fetch(`${apiBase}/api/load/${encodeURIComponent(name)}`).then(r => r.json());
-      if (data.error) { showToast('Erreur : ' + data.error); return; }
+      if (data.error) { showToast(_L('editor.toast.error_prefix') + data.error); return; }
       state = data;
       if (typeof resetHighlightExtco === 'function') resetHighlightExtco();
       // Supprimer uniquement les connexions dont une extrémité n'existe plus
@@ -3074,12 +3316,12 @@ async function openLoadDialog() {
       history = [JSON.stringify(state)]; histIndex = 0;
       render(); updateProps(); fitView();
       dialog.classList.add('hidden');
-      showToast('Chargé : ' + name);
+      showToast(_L('editor.toast.loaded_prefix') + name);
     });
 
     item.querySelector('.load-delete').addEventListener('click', async e => {
       e.stopPropagation();
-      if (!confirm(`Supprimer "${name}" ?`)) return;
+      if (!confirm(_L('editor.confirm.delete_carto').replace('{name}', name))) return;
       await fetch(`${apiBase}/api/delete/${encodeURIComponent(name)}`, { method: 'DELETE' });
       item.remove();
       if (!list.querySelector('.load-item')) openLoadDialog();
@@ -3491,7 +3733,7 @@ function reroutePostProcess(shapes, connections) {
 }
 
 async function importVSDX(file) {
-  if (!window.JSZip) { showToast('JSZip non disponible'); return; }
+  if (!window.JSZip) { showToast(_L('editor.toast.jszip_error')); return; }
 
   const statusEl  = document.getElementById('vsdx-status');
   const loadingEl = document.getElementById('vsdx-loading');
@@ -3565,10 +3807,8 @@ async function importVSDX(file) {
     });
   }
 
-  const debugMode = document.getElementById('vsdx-debug-mode')?.checked || false;
-
   try {
-    const result = await vsdxParse(file, setStatus, onOrphans, debugMode);
+    const result = await vsdxParse(file, setStatus, onOrphans, false);
     if (!result) {
       setStatus('Import annul\u00e9. Vous pouvez d\u00e9poser un fichier corrig\u00e9.', true);
       return;
@@ -3606,21 +3846,7 @@ async function importVSDX(file) {
     renderBandsTbList();  // rafra\u00eechir le dropdown avec les bandes import\u00e9es
     const nCustom = connections.filter(c => c.customPath).length;
     console.log(`[VSDX] ${shapes.length} formes, ${connections.length} connexions, ${nCustom} chemins Visio exacts, ${groups.length} groupes`);
-    showToast(`Import r\u00e9ussi \u2014 ${shapes.length} activit\u00e9s \u00b7 ${connections.length} connexions \u00b7 ${bands.length} bandes`);
-
-    // Debug report download
-    if (result.debugHtml) {
-      const blob = new Blob([result.debugHtml], { type: 'text/html;charset=utf-8' });
-      const url  = URL.createObjectURL(blob);
-      const a    = document.createElement('a');
-      a.href     = url;
-      a.download = (file.name || 'import').replace(/\.vsdx$/i, '') + '_debug.html';
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-      showToast('Rapport de d\u00e9bogage t\u00e9l\u00e9charg\u00e9');
-    }
+    showToast(_L('editor.toast.vsdx_done').replace('{shapes}', shapes.length).replace('{conns}', connections.length).replace('{bands}', bands.length));
 
   } catch(err) {
     console.error('VSDX import error:', err);
@@ -3639,7 +3865,31 @@ function openBandsDialog() {
   renderBandsList();
 }
 
-function _deleteBand(idx) {
+function _confirmBandDelete(band, shapes) {
+  return new Promise(resolve => {
+    const list = shapes.map(s => `<span style="display:block;padding:1px 0">• ${s.label || 'Forme sans nom'}</span>`).join('');
+    const ov = document.createElement('div');
+    ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.55);display:flex;align-items:center;justify-content:center;z-index:9500;backdrop-filter:blur(2px)';
+    ov.innerHTML = `
+      <div style="background:#1a2030;border:1px solid rgba(255,255,255,0.09);border-radius:20px;padding:28px 32px;min-width:340px;max-width:460px;box-shadow:0 32px 80px rgba(0,0,0,0.6)">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+          <i class="fa-solid fa-triangle-exclamation" style="color:#f59e0b;font-size:18px"></i>
+          <span style="font-size:15px;font-weight:700;color:#e2e8f0">Supprimer « ${band.label || 'Bande'} » ?</span>
+        </div>
+        <p style="font-size:12.5px;color:#94a3b8;margin:0 0 12px">Cette bande contient <strong style="color:#e2e8f0">${shapes.length} forme(s)</strong> qui seront également supprimées :</p>
+        <div style="background:rgba(255,255,255,0.04);border-radius:8px;padding:10px 14px;max-height:150px;overflow-y:auto;margin-bottom:20px;font-size:11.5px;color:#cbd5e1;line-height:1.7">${list}</div>
+        <div style="display:flex;gap:10px;justify-content:flex-end">
+          <button id="_bdc-cancel" style="padding:8px 20px;border-radius:10px;border:1px solid rgba(255,255,255,0.12);background:transparent;color:#94a3b8;font-size:13px;cursor:pointer">Annuler</button>
+          <button id="_bdc-confirm" style="padding:8px 20px;border-radius:10px;border:none;background:#ec4899;color:#fff;font-size:13px;font-weight:600;cursor:pointer">Supprimer quand même</button>
+        </div>
+      </div>`;
+    document.body.appendChild(ov);
+    ov.querySelector('#_bdc-cancel').onclick  = () => { ov.remove(); resolve(false); };
+    ov.querySelector('#_bdc-confirm').onclick = () => { ov.remove(); resolve(true); };
+  });
+}
+
+async function _deleteBand(idx) {
   const band = state.bands[idx];
   if (!band || band.deleted) return false;
   // Compute y range of this band (skip deleted bands above it)
@@ -3653,8 +3903,8 @@ function _deleteBand(idx) {
     return midY >= bandY && midY < bandYEnd;
   });
   if (shapesInBand.length > 0) {
-    const names = shapesInBand.map(s => `• ${s.label || 'Forme sans nom'}`).join('\n');
-    if (!confirm(`Supprimer la bande « ${band.label} » ?\n\nCela supprimera aussi :\n${names}`)) return false;
+    const confirmed = await _confirmBandDelete(band, shapesInBand);
+    if (!confirmed) return false;
     const ids = new Set(shapesInBand.map(s => s.id));
     state.shapes = state.shapes.filter(s => !ids.has(s.id));
     state.connections = state.connections.filter(c => !ids.has(c.fromId) && !ids.has(c.toId));
@@ -3695,9 +3945,9 @@ function renderBandsTbList() {
     list.appendChild(row);
   });
   list.querySelectorAll('.bands-tb-del').forEach(btn => {
-    btn.addEventListener('click', ev => {
+    btn.addEventListener('click', async ev => {
       ev.stopPropagation();
-      if (_deleteBand(parseInt(ev.target.dataset.i))) {
+      if (await _deleteBand(parseInt(ev.target.dataset.i))) {
         renderBandsTbList();
         renderBandsList();
       }
@@ -3739,8 +3989,8 @@ function renderBandsList() {
   list.querySelectorAll('.bh').forEach(e => e.addEventListener('input', ev => {
     state.bands[ev.target.dataset.i].height = parseInt(ev.target.value) || 150; renderBands();
   }));
-  list.querySelectorAll('.band-delete').forEach(e => e.addEventListener('click', ev => {
-    if (_deleteBand(parseInt(ev.target.dataset.i))) {
+  list.querySelectorAll('.band-delete').forEach(e => e.addEventListener('click', async ev => {
+    if (await _deleteBand(parseInt(ev.target.dataset.i))) {
       renderBandsList();
       renderBandsTbList();
     }
@@ -3791,7 +4041,7 @@ function bindBandProps() {
     state.bands = state.bands.filter(b => b.id !== selectedBand);
     selectedBand = null;
     snapshot(); render(); updateProps();
-    showToast('Bande supprimée');
+    showToast(_L('editor.toast.band_deleted'));
   });
 }
 
@@ -4037,120 +4287,492 @@ function alignSelectedShapes(mode) {
 }
 
 /* ══════════════════════════════════════════════════
-   ARCHITECT LAYOUT — optimisation complète async
+   CARTO DIAGNOSTICIAN — vérification de cohérence
    ══════════════════════════════════════════════════ */
 
-async function architectLayout() {
-  if (state.shapes.length === 0) { showToast('Aucune forme à organiser'); return; }
+function _showCheckPanel(issues) {
+  document.getElementById('_carto-check-panel')?.remove();
 
-  // ── Modal de progression ──────────────────────────────────
-  const overlay = document.createElement('div');
-  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.55);display:flex;align-items:center;justify-content:center;z-index:9000;backdrop-filter:blur(2px)';
-  overlay.innerHTML = `
-    <div style="background:#1a2030;border:1px solid rgba(255,255,255,0.09);border-radius:20px;padding:30px 36px;min-width:360px;max-width:500px;text-align:center;box-shadow:0 32px 80px rgba(0,0,0,0.6)">
-      <div style="font-size:16px;font-weight:700;color:#e2e8f0;margin-bottom:8px">
-        <i class="fa-solid fa-wand-magic-sparkles" style="color:#4db868;margin-right:9px"></i>Architecte IA en cours…
-      </div>
-      <div id="arch-status-msg" style="font-size:12px;color:#64748b;margin-bottom:22px;min-height:16px;transition:color 0.2s"></div>
-      <div style="background:rgba(255,255,255,0.06);border-radius:8px;height:6px;overflow:hidden">
-        <div id="arch-bar" style="height:100%;border-radius:8px;background:linear-gradient(90deg,#22c55e,#4db868);width:0%;transition:width 0.5s ease"></div>
-      </div>
-    </div>`;
-  document.body.appendChild(overlay);
-
-  const archStatus = (msg, pct) => {
-    const el = document.getElementById('arch-status-msg');
-    const bar = document.getElementById('arch-bar');
-    if (el) el.textContent = msg;
-    if (bar) bar.style.width = pct + '%';
+  const iconByType = {
+    isolated:  { icon: 'fa-circle-nodes',        color: '#f59e0b' },
+    renvoi:    { icon: 'fa-circle-dot',           color: '#F4B8D0' },
+    outofband: { icon: 'fa-up-right-from-square', color: '#6DD98A' },
+    duplicate: { icon: 'fa-copy',                 color: '#4DB868' },
   };
 
-  await new Promise(r => setTimeout(r, 0));
-  snapshot();
+  const panel = document.createElement('div');
+  panel.id = '_carto-check-panel';
+  panel.style.cssText = [
+    'position:fixed;top:72px;right:12px;width:340px',
+    'max-height:calc(100vh - 84px)',
+    'background:#1A231D;border:1px solid rgba(77,184,104,0.22)',
+    'border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,0.6)',
+    'z-index:5000;display:flex;flex-direction:column;overflow:hidden',
+  ].join(';');
 
-  try {
-    archStatus('Analyse de la cartographie…', 15);
-    await new Promise(r => setTimeout(r, 0));
+  const hdr = `
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid rgba(77,184,104,0.12);flex-shrink:0">
+      <span style="font-size:13.5px;font-weight:700;color:#D6EDD9;display:flex;align-items:center;gap:8px">
+        <i class="fa-solid fa-magnifying-glass-chart" style="color:#4DB868"></i> Diagnostic carto
+      </span>
+      <button id="_ccp-close" style="background:none;border:none;color:#567460;font-size:20px;cursor:pointer;line-height:1;padding:0 4px" title="Fermer">×</button>
+    </div>`;
 
-    const apiBase = window.OPTIQCARTO_API_BASE || '/cartography';
-    archStatus("Transmission à l'IA…", 30);
+  let body;
+  if (issues.length === 0) {
+    body = `<div style="padding:28px 18px;text-align:center">
+      <i class="fa-solid fa-circle-check" style="font-size:30px;color:#4DB868;display:block;margin-bottom:12px"></i>
+      <div style="font-size:13px;font-weight:600;color:#D6EDD9">Aucun problème détecté</div>
+      <div style="font-size:11.5px;color:#567460;margin-top:6px">La cartographie est cohérente</div>
+    </div>`;
+  } else {
+    const rows = issues.map((issue, i) => {
+      const ic = iconByType[issue.type] || { icon: 'fa-exclamation-circle', color: '#f59e0b' };
+      return `<div style="display:flex;align-items:center;gap:10px;padding:9px 14px;border-bottom:1px solid rgba(77,184,104,0.06)">
+        <i class="fa-solid ${ic.icon}" style="color:${ic.color};font-size:13px;flex-shrink:0"></i>
+        <span style="flex:1;font-size:11.5px;color:#D6EDD9;line-height:1.4">${issue.msg}</span>
+        <button class="_ccp-goto" data-i="${i}" style="padding:4px 10px;border-radius:6px;border:1px solid rgba(77,184,104,0.22);background:transparent;color:#4DB868;font-size:11px;cursor:pointer;white-space:nowrap;flex-shrink:0">Voir →</button>
+      </div>`;
+    }).join('');
 
-    const res = await fetch(`${apiBase}/api/architect`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ state }),
+    body = `<div style="overflow-y:auto;flex:1">
+      <div style="padding:10px 14px 4px;font-size:10.5px;color:#567460;font-weight:600;text-transform:uppercase;letter-spacing:0.05em">${issues.length} problème(s) trouvé(s)</div>
+      ${rows}
+    </div>`;
+  }
+
+  panel.innerHTML = hdr + body;
+  document.body.appendChild(panel);
+
+  panel.querySelector('#_ccp-close').onclick = () => panel.remove();
+
+  panel.querySelectorAll('._ccp-goto').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const issue = issues[parseInt(btn.dataset.i)];
+      if (issue?.shape) focusOnShape(issue.shape);
+    });
+  });
+}
+
+function runCartoCheck() {
+  if (state.shapes.length === 0) { showToast(_L('editor.toast.no_shapes_check')); return; }
+
+  const issues = [];
+
+  const connectedIds = new Set();
+  state.connections.forEach(c => { connectedIds.add(c.fromId); connectedIds.add(c.toId); });
+
+  const activityShapes = state.shapes.filter(s => s.type === 'process' || s.type === 'special');
+  const activityLabelsLower = new Set(
+    activityShapes.map(s => (s.label || '').trim().toLowerCase()).filter(Boolean)
+  );
+
+  // Band Y ranges (bands start at y = -200)
+  const bandRanges = [];
+  if (state.bands && state.bands.length > 0) {
+    let bandY = -200;
+    for (const band of state.bands) {
+      if (!band.deleted) {
+        bandRanges.push({ y: bandY, yEnd: bandY + band.height });
+        bandY += band.height;
+      }
+    }
+  }
+
+  // 1. Activités sans connexion
+  for (const s of activityShapes) {
+    if (!connectedIds.has(s.id)) {
+      issues.push({ type: 'isolated', shape: s, msg: `« ${s.label || 'Sans nom'} » n'a aucune connexion` });
+    }
+  }
+
+  // 2. Renvois sans activité correspondante
+  for (const s of state.shapes.filter(s => s.type === 'start-end')) {
+    const label = (s.label || '').trim();
+    if (!label || !activityLabelsLower.has(label.toLowerCase())) {
+      issues.push({ type: 'renvoi', shape: s, msg: `Renvoi « ${label || 'Sans nom'} » sans activité correspondante` });
+    }
+  }
+
+  // 3. Activités hors bande
+  if (bandRanges.length > 0) {
+    for (const s of activityShapes) {
+      const midY = s.y + s.h / 2;
+      if (!bandRanges.some(b => midY >= b.y && midY < b.yEnd)) {
+        issues.push({ type: 'outofband', shape: s, msg: `« ${s.label || 'Sans nom'} » est hors de toute bande` });
+      }
+    }
+  }
+
+  // 4. Noms en double
+  const labelGroups = {};
+  for (const s of activityShapes) {
+    const label = (s.label || '').trim();
+    if (label) {
+      if (!labelGroups[label]) labelGroups[label] = [];
+      labelGroups[label].push(s);
+    }
+  }
+  for (const [label, shapes] of Object.entries(labelGroups)) {
+    if (shapes.length > 1) {
+      shapes.forEach(s => issues.push({ type: 'duplicate', shape: s, msg: `Nom en doublon : « ${label} »` }));
+    }
+  }
+
+  _showCheckPanel(issues);
+}
+
+
+/* ══════════════════════════════════════════════════
+   ARCHITECTE — placement automatique des labels de flèches
+   ══════════════════════════════════════════════════ */
+
+function architectLabels() {
+  // Place each connection label at t=0.90 along the arrow (near the arrowhead).
+  // Steps back 2 % at a time if the candidate position overlaps a shape or a
+  // previously-placed label.  Placed labels are themselves obstacles.
+  const INIT_T     = 0.90;
+  const STEP_T     = 0.02;
+  const SHAPE_M    = 10;
+  const LABEL_M    = 6;
+  const EST_LW     = 72;  // conservative label width estimate
+  const EST_LH     = 14;  // conservative label height estimate
+
+  const placedBoxes = [];
+  let changed = false;
+
+  function ptAtT(pts, t) {
+    let total = 0;
+    for (let i = 0; i < pts.length - 1; i++)
+      total += Math.hypot(pts[i+1].x - pts[i].x, pts[i+1].y - pts[i].y);
+    if (total < 1) return pts[pts.length - 1];
+    const target = total * Math.max(0, Math.min(1, t));
+    let acc = 0;
+    for (let i = 0; i < pts.length - 1; i++) {
+      const seg = Math.hypot(pts[i+1].x - pts[i].x, pts[i+1].y - pts[i].y);
+      if (acc + seg >= target) {
+        const u = (target - acc) / seg;
+        return { x: pts[i].x + u * (pts[i+1].x - pts[i].x),
+                 y: pts[i].y + u * (pts[i+1].y - pts[i].y) };
+      }
+      acc += seg;
+    }
+    return pts[pts.length - 1];
+  }
+
+  function overlapsShapes(cx, cy) {
+    for (const sh of state.shapes) {
+      if (cx + EST_LW/2 > sh.x - SHAPE_M && cx - EST_LW/2 < sh.x + sh.w + SHAPE_M &&
+          cy + EST_LH/2 > sh.y - SHAPE_M && cy - EST_LH/2 < sh.y + sh.h + SHAPE_M)
+        return true;
+    }
+    return false;
+  }
+
+  function overlapsPlaced(cx, cy) {
+    for (const b of placedBoxes) {
+      if (cx + EST_LW/2 > b.x - LABEL_M && cx - EST_LW/2 < b.x + EST_LW + LABEL_M &&
+          cy + EST_LH/2 > b.y - LABEL_M && cy - EST_LH/2 < b.y + EST_LH + LABEL_M)
+        return true;
+    }
+    return false;
+  }
+
+  for (const c of state.connections) {
+    if (!(c.label || '').trim()) continue;
+    const pts = c._computedOrthopts;
+    if (!pts || pts.length < 2) continue;
+
+    let placed = false;
+    for (let t = INIT_T; t >= 0.05; t -= STEP_T) {
+      const pos = ptAtT(pts, t);
+      if (overlapsShapes(pos.x, pos.y) || overlapsPlaced(pos.x, pos.y)) continue;
+      c.labelOffset = { x: pos.x, y: pos.y };
+      placedBoxes.push({ x: pos.x - EST_LW/2, y: pos.y - EST_LH/2 });
+      changed = true;
+      placed = true;
+      break;
+    }
+    // If no free position found, fall back to t=0.90 without further shifting
+    if (!placed) {
+      const pos = ptAtT(pts, INIT_T);
+      c.labelOffset = { x: pos.x, y: pos.y };
+      placedBoxes.push({ x: pos.x - EST_LW/2, y: pos.y - EST_LH/2 });
+      changed = true;
+    }
+  }
+
+  if (changed) { snapshot(); render(); }
+}
+
+
+/* ══════════════════════════════════════════════════
+   CRÉATION PLURIELLE — ajout de N formes par bande
+   ══════════════════════════════════════════════════ */
+
+let _bulkPanelHovered = false;
+
+function _showBulkPanel(shapeType, shapeSubtype, wrap, anchorBtn) {
+  document.getElementById('_bulk-side-panel')?.remove();
+  const dropdown = wrap.querySelector('.shape-sub-dropdown');
+  if (!dropdown) return;
+  const dropRect = dropdown.getBoundingClientRect();
+  const btnRect  = anchorBtn.getBoundingClientRect();
+
+  const previewClassMap = { process: 'normal', special: 'special', 'start-end': 'renvoi', decision: 'decision' };
+  const subtypeClass    = shapeSubtype === 'external' ? 'external' : shapeSubtype === 'extco' ? 'extco' : (previewClassMap[shapeType] || 'normal');
+  const labelMap = { process: 'Activité', special: 'Sous-activité', 'start-end': 'Renvoi', decision: 'Décision' };
+  const shapeName = (shapeSubtype === 'external' ? 'Activité externe' : shapeSubtype === 'extco' ? 'Ext. entreprise' : labelMap[shapeType]) || shapeType;
+
+  const panel = document.createElement('div');
+  panel.id = '_bulk-side-panel';
+  // Align top with the hovered button, flush against the dropdown (no gap)
+  panel.style.cssText = [
+    `position:fixed;top:${btnRect.top}px;left:${dropRect.right + 1}px`,
+    'background:#1A231D;border:1px solid rgba(77,184,104,0.22)',
+    'border-radius:14px;padding:6px;min-width:160px',
+    'box-shadow:0 8px 24px rgba(0,0,0,0.5);z-index:500',
+  ].join(';');
+
+  panel.innerHTML = `
+    <div style="padding:6px 10px 8px;font-size:10px;color:#567460;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;display:flex;align-items:center;gap:6px">
+      <span class="shape-sub-preview shape-sub-preview--${subtypeClass}"></span>${shapeName}
+    </div>
+    <div style="height:1px;background:rgba(77,184,104,0.12);margin:0 4px 4px"></div>
+    <button id="_bulk-open-modal" style="display:flex;align-items:center;gap:8px;width:100%;padding:7px 10px;border-radius:9px;border:1px solid transparent;background:transparent;color:rgba(214,237,217,0.85);cursor:pointer;font-size:11px;font-family:inherit;white-space:nowrap;text-align:left;transition:background 0.15s,border-color 0.15s,color 0.15s">
+      <i class="fa-solid fa-layer-group" style="font-size:12px;color:#4DB868;flex-shrink:0"></i>
+      <span>Création plurielle</span>
+    </button>`;
+
+  document.body.appendChild(panel);
+
+  const openBtn = panel.querySelector('#_bulk-open-modal');
+  openBtn.addEventListener('mouseenter', () => {
+    openBtn.style.background = 'rgba(77,184,104,0.15)';
+    openBtn.style.borderColor = 'rgba(77,184,104,0.22)';
+    openBtn.style.color = '#6DD98A';
+  });
+  openBtn.addEventListener('mouseleave', () => {
+    openBtn.style.background = 'transparent';
+    openBtn.style.borderColor = 'transparent';
+    openBtn.style.color = 'rgba(214,237,217,0.85)';
+  });
+
+  openBtn.addEventListener('click', () => {
+    panel.remove();
+    _bulkPanelHovered = false;
+    wrap.classList.remove('open');
+    _openBulkModal(shapeType, shapeSubtype, shapeName, subtypeClass);
+  });
+
+  panel.addEventListener('mouseenter', () => { _bulkPanelHovered = true; });
+  panel.addEventListener('mouseleave', e => {
+    _bulkPanelHovered = false;
+    const to = e.relatedTarget;
+    if (to && wrap.contains(to)) return;
+    panel.remove();
+    setTimeout(() => wrap.classList.remove('open'), 180);
+  });
+}
+
+function _openBulkModal(shapeType, shapeSubtype, shapeName, previewClass) {
+  document.getElementById('_bulk-modal')?.remove();
+
+  // Inject custom scrollbar styles once
+  if (!document.getElementById('_bulk-modal-styles')) {
+    const st = document.createElement('style');
+    st.id = '_bulk-modal-styles';
+    st.textContent = `
+      ._bulk-band-list::-webkit-scrollbar { width: 3px; }
+      ._bulk-band-list::-webkit-scrollbar-track { background: transparent; }
+      ._bulk-band-list::-webkit-scrollbar-thumb { background: rgba(77,184,104,0.3); border-radius: 3px; }
+      ._bulk-band-list::-webkit-scrollbar-thumb:hover { background: rgba(77,184,104,0.55); }
+      ._bs-btn { display:flex;align-items:center;justify-content:center;width:30px;height:30px;border:none;background:transparent;color:#4DB868;font-size:18px;cursor:pointer;font-family:inherit;line-height:1;transition:background 0.12s,color 0.12s;border-radius:6px;flex-shrink:0; }
+      ._bs-btn:hover { background:rgba(77,184,104,0.15);color:#6DD98A; }
+    `;
+    document.head.appendChild(st);
+  }
+
+  const activeBands = state.bands.filter(b => !b.deleted);
+  if (activeBands.length === 0) { showToast(_L('editor.toast.no_bands')); return; }
+
+  const bandRows = activeBands.map(band => {
+    const realIdx = state.bands.indexOf(band);
+    return `<div style="display:flex;align-items:center;gap:10px;padding:10px 2px;border-bottom:1px solid rgba(77,184,104,0.07)">
+      <span style="width:18px;height:18px;border-radius:4px;background:${band.color};flex-shrink:0;display:inline-block;box-shadow:0 1px 4px rgba(0,0,0,0.3)"></span>
+      <span style="flex:1;font-size:12px;color:#D6EDD9;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${band.label || ''}">${band.label || '(sans nom)'}</span>
+      <div style="display:flex;align-items:center;gap:0;border:1px solid rgba(77,184,104,0.22);border-radius:8px;overflow:hidden;background:rgba(77,184,104,0.06);flex-shrink:0">
+        <button class="_bs-btn _bs-dec" data-bi="${realIdx}">−</button>
+        <span class="_bulk-val" data-bi="${realIdx}" style="min-width:26px;text-align:center;font-size:13px;color:#D6EDD9;font-weight:600;user-select:none;padding:0 2px">1</span>
+        <button class="_bs-btn _bs-inc" data-bi="${realIdx}">+</button>
+      </div>
+    </div>`;
+  }).join('');
+
+  const overlay = document.createElement('div');
+  overlay.id = '_bulk-modal';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.55);display:flex;align-items:center;justify-content:center;z-index:9000;backdrop-filter:blur(2px)';
+  overlay.innerHTML = `
+    <div style="background:#1A231D;border:1px solid rgba(77,184,104,0.22);border-radius:20px;padding:28px 32px;min-width:420px;max-width:500px;box-shadow:0 32px 80px rgba(0,0,0,0.6)">
+      <div style="display:flex;align-items:center;gap:14px;margin-bottom:20px">
+        <span class="shape-sub-preview shape-sub-preview--${previewClass}" style="flex-shrink:0;transform:scale(1.5);transform-origin:left center"></span>
+        <div>
+          <div style="font-size:15px;font-weight:700;color:#D6EDD9">${_L('editor.bulk.title_prefix')}${shapeName}</div>
+          <div style="font-size:11.5px;color:#567460;margin-top:3px">${_L('editor.bulk.count_hint')}</div>
+        </div>
+      </div>
+      <div style="margin-bottom:16px;padding-bottom:14px;border-bottom:1px solid rgba(77,184,104,0.1)">
+        <div style="font-size:10.5px;color:#567460;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:7px">${_L('editor.bulk.text_section')}</div>
+        <input id="_bulk-name-input" type="text" placeholder="${_L('editor.bulk.name_placeholder')}"
+          style="width:100%;box-sizing:border-box;background:rgba(77,184,104,0.08);border:1px solid rgba(77,184,104,0.22);border-radius:8px;color:#D6EDD9;font-size:12.5px;font-family:inherit;padding:8px 12px;outline:none;transition:border-color 0.15s,background 0.15s">
+        <label style="display:flex;align-items:center;gap:7px;margin-top:8px;cursor:pointer;font-size:11.5px;color:#567460;user-select:none">
+          <input type="checkbox" id="_bulk-autonumber" style="accent-color:#4DB868;width:13px;height:13px">
+          ${_L('editor.bulk.autonumber')}
+        </label>
+      </div>
+      <div class="_bulk-band-list" style="max-height:240px;overflow-y:auto;margin-bottom:24px;scrollbar-width:thin;scrollbar-color:rgba(77,184,104,0.3) transparent">
+        ${bandRows}
+      </div>
+      <div style="display:flex;gap:10px;justify-content:flex-end">
+        <button id="_bulk-cancel" style="padding:10px 24px;border-radius:11px;border:1px solid rgba(77,184,104,0.22);background:transparent;color:#567460;font-size:13px;cursor:pointer;font-family:inherit;transition:background 0.15s,color 0.15s">${_L('btn.cancel')}</button>
+        <button id="_bulk-ok" style="padding:10px 24px;border-radius:11px;border:none;background:#4DB868;color:#0E1610;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;transition:filter 0.15s">${_L('editor.bulk.btn_create')}</button>
+      </div>
+    </div>`;
+
+  document.body.appendChild(overlay);
+  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+  overlay.querySelector('#_bulk-cancel').onclick = () => overlay.remove();
+  overlay.querySelector('#_bulk-ok').addEventListener('mouseenter', e => { e.target.style.filter = 'brightness(1.12)'; });
+  overlay.querySelector('#_bulk-ok').addEventListener('mouseleave', e => { e.target.style.filter = ''; });
+
+  const nameInput = overlay.querySelector('#_bulk-name-input');
+  nameInput.addEventListener('focus', () => { nameInput.style.borderColor = '#4DB868'; nameInput.style.background = 'rgba(77,184,104,0.15)'; });
+  nameInput.addEventListener('blur',  () => { nameInput.style.borderColor = 'rgba(77,184,104,0.22)'; nameInput.style.background = 'rgba(77,184,104,0.08)'; });
+
+  // Stepper +/- logic
+  const vals = {}; // bandIdx → current value
+  activeBands.forEach(band => { vals[state.bands.indexOf(band)] = 1; });
+
+  overlay.querySelectorAll('._bs-dec').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const bi = parseInt(btn.dataset.bi);
+      vals[bi] = Math.max(0, (vals[bi] || 0) - 1);
+      overlay.querySelector(`._bulk-val[data-bi="${bi}"]`).textContent = vals[bi];
+    });
+  });
+  overlay.querySelectorAll('._bs-inc').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const bi = parseInt(btn.dataset.bi);
+      vals[bi] = Math.min(30, (vals[bi] || 0) + 1);
+      overlay.querySelector(`._bulk-val[data-bi="${bi}"]`).textContent = vals[bi];
+    });
+  });
+
+  overlay.querySelector('#_bulk-ok').onclick = () => {
+    const baseName   = nameInput.value.trim();
+    const autoNumber = overlay.querySelector('#_bulk-autonumber').checked;
+    const counts = [];
+    for (const [bi, count] of Object.entries(vals)) {
+      if (count > 0) counts.push({ bandIdx: parseInt(bi), count });
+    }
+    overlay.remove();
+    if (counts.length > 0) _createBulkShapes(shapeType, shapeSubtype, counts, baseName, autoNumber);
+    else showToast(_L('editor.toast.no_shapes_create'));
+  };
+}
+
+function _createBulkShapes(shapeType, shapeSubtype, counts, baseName = '', autoNumber = true) {
+  const def = SHAPE_DEFAULTS[shapeType];
+  if (!def) return;
+
+  const SW  = def.w, SH = def.h;
+  const GAP = 18;
+  const X0  = INDEX_W_SVG + 24;
+
+  let totalCreated = 0, totalFailed = 0, globalIdx = 1;
+
+  for (const { bandIdx, count } of counts) {
+    const band = state.bands[bandIdx];
+    if (!band || band.deleted) continue;
+
+    // Band Y range
+    let bandY = -200;
+    for (let j = 0; j < bandIdx; j++) {
+      if (!state.bands[j].deleted) bandY += state.bands[j].height;
+    }
+    const bandYEnd = bandY + band.height;
+
+    // Existing shapes in this band (used for collision)
+    const placed = state.shapes.filter(s => {
+      const midY = s.y + s.h / 2;
+      return midY >= bandY && midY < bandYEnd;
     });
 
-    archStatus('Traitement IA…', 60);
-    const data = await res.json();
+    // Build candidate Y rows: distribute vertically in band
+    const usableH = band.height - GAP * 2;
+    const maxRows  = Math.max(1, Math.floor(usableH / (SH + GAP)));
+    const rows = [];
+    for (let r = 0; r < maxRows; r++) {
+      const y = Math.round(bandY + GAP + r * (SH + GAP));
+      if (y + SH <= bandYEnd - 4) rows.push(y);
+    }
+    if (rows.length === 0) rows.push(Math.round(bandY + (band.height - SH) / 2));
 
-    if (data.error) {
-      showToast('Architecte IA : ' + data.error);
-      return;
+    // Scan grid left → right, cycling rows
+    function overlaps(x, y) {
+      for (const s of placed) {
+        if (x < s.x + s.w + GAP / 2 && x + SW + GAP / 2 > s.x &&
+            y < s.y + s.h + GAP / 2 && y + SH + GAP / 2 > s.y) return true;
+      }
+      return false;
     }
 
-    archStatus('Application du layout…', 85);
-    await new Promise(r => setTimeout(r, 0));
+    const maxX  = (state.bandWidth || 3200) - SW - GAP;
+    const xStep = SW + GAP;
+    let created = 0;
 
-    for (const pos of (data.positions || [])) {
-      const s = state.shapes.find(s => s.id === pos.id);
-      if (s) { s.x = Math.round(pos.x); s.y = Math.round(pos.y); }
-    }
-
-    state.shapes.forEach(s => updateShapeColor(s));
-    state.connections.forEach(c => {
-      const from = state.shapes.find(s => s.id === c.fromId);
-      if (from) c.color = from.color;
-    });
-    state.bandWidth = Math.max(1400, Math.round(
-      state.shapes.reduce((m, s) => Math.max(m, s.x + s.w), 0) + 300
-    ));
-
-    // ── Snap quasi-alignements (post-IA) ──────────────────────
-    archStatus('Alignement final…', 97);
-    await new Promise(r => setTimeout(r, 0));
-    {
-      const THRESH_H = 22, THRESH_V = 28;
-      for (const c of state.connections) {
-        const from = state.shapes.find(s => s.id === c.fromId);
-        const to   = state.shapes.find(s => s.id === c.toId);
-        if (!from || !to) continue;
-        const fromCx = from.x + from.w / 2, fromCy = from.y + from.h / 2;
-        const toCx   = to.x   + to.w   / 2, toCy   = to.y   + to.h   / 2;
-        if (Math.abs(fromCy - toCy) > 0.5 && Math.abs(fromCy - toCy) <= THRESH_H) {
-          const gB = s2 => { let y = -200; for (const b of state.bands) { if (s2.y + s2.h / 2 >= y && s2.y + s2.h / 2 < y + b.height) return b; y += b.height; } return null; };
-          if (gB(from) === gB(to)) {
-            const avg = Math.round((fromCy + toCy) / 2);
-            from.y = avg - Math.round(from.h / 2);
-            to.y   = avg - Math.round(to.h   / 2);
-          }
-        }
-        if (Math.abs(fromCx - toCx) > 0.5 && Math.abs(fromCx - toCx) <= THRESH_V) {
-          const avg = Math.round((fromCx + toCx) / 2);
-          from.x = Math.max(INDEX_W_SVG + 4, avg - Math.round(from.w / 2));
-          to.x   = Math.max(INDEX_W_SVG + 4, avg - Math.round(to.w   / 2));
+    outer:
+    for (let xi = 0; X0 + xi * xStep <= maxX; xi++) {
+      const x = X0 + xi * xStep;
+      for (const y of rows) {
+        if (created >= count) break outer;
+        if (!overlaps(x, y)) {
+          const label = baseName
+            ? (autoNumber ? `${baseName} ${globalIdx}` : baseName)
+            : '';
+          const s = {
+            id: state.nextId++,
+            type: shapeType,
+            x, y, w: SW, h: SH,
+            label,
+            color: band.color,
+            textColor: def.textColor,
+            strokeColor: '',
+            validationBadge: false,
+            validationColor: def.validationColor || '#4DB868',
+            fontSize: def.fontSize || 14,
+            colorVariant: 0,
+            subtype: shapeSubtype || def.subtype || 'normal',
+          };
+          state.shapes.push(s);
+          updateShapeColor(s);
+          placed.push(s);
+          created++;
+          totalCreated++;
+          globalIdx++;
         }
       }
     }
 
-    archStatus("C'est bon !", 100);
-    await new Promise(r => setTimeout(r, 280));
-
-  } catch (err) {
-    console.error('architectLayout error:', err);
-    showToast('Erreur architecte IA : ' + err.message);
-    clearSelection();
-    render();
-    updateProps();
-    return;
-  } finally {
-    overlay.remove();
+    totalFailed += count - created;
   }
 
-  clearSelection();
-  render();
-  updateProps();
-  showToast('Optimisation IA terminée');
+  if (totalCreated > 0) { snapshot(); render(); }
+
+  if (totalFailed > 0)
+    showToast(_L('editor.toast.bulk_partial').replace('{count}', totalCreated).replace('{failed}', totalFailed));
+  else
+    showToast(_L('editor.toast.bulk_created').replace('{count}', totalCreated));
 }
 
 
@@ -4170,7 +4792,7 @@ function init() {
         // subtype par défaut = normal pour le bouton principal
         e.dataTransfer.setData('text/shape-subtype', 'normal');
       });
-      btn.addEventListener('click', () => showToast('Glissez cette forme sur le canevas'));
+      btn.addEventListener('click', () => showToast(_L('editor.toast.drag_to_canvas')));
     } else if (btn.dataset.tool === 'connect') {
       // Le bouton Connecter est désormais un toggle "mise en évidence des
       // activités hachurées" (cf. highlight-mode.js). Le mode connexion
@@ -4193,16 +4815,44 @@ function init() {
     });
   });
 
-  // Hover dropdown sur le bouton Activité (immédiat)
+  // Hover dropdown sur le bouton Activité (immédiat) + panneau Création plurielle (1s)
   const processWrap = document.getElementById('process-shape-wrap');
   if (processWrap) {
     let hideTimer = null;
+    let bulkTimer = null;
+
     processWrap.addEventListener('mouseenter', () => {
       clearTimeout(hideTimer);
       processWrap.classList.add('open');
     });
-    processWrap.addEventListener('mouseleave', () => {
-      hideTimer = setTimeout(() => processWrap.classList.remove('open'), 180);
+    processWrap.addEventListener('mouseleave', e => {
+      // Stay open if mouse moved into the bulk side panel
+      if (_bulkPanelHovered) return;
+      const to = e.relatedTarget;
+      const bulkPanel = document.getElementById('_bulk-side-panel');
+      if (bulkPanel && to && bulkPanel.contains(to)) return;
+      clearTimeout(bulkTimer);
+      hideTimer = setTimeout(() => {
+        processWrap.classList.remove('open');
+        document.getElementById('_bulk-side-panel')?.remove();
+        _bulkPanelHovered = false;
+      }, 180);
+    });
+
+    // 1-second hover on individual shape buttons → show bulk panel aligned to hovered button
+    processWrap.querySelectorAll('.shape-sub-btn').forEach(btn => {
+      btn.addEventListener('mouseenter', () => {
+        clearTimeout(bulkTimer);
+        // Close any existing bulk panel when moving to a different button
+        document.getElementById('_bulk-side-panel')?.remove();
+        _bulkPanelHovered = false;
+        bulkTimer = setTimeout(() => {
+          _showBulkPanel(btn.dataset.shapeType, btn.dataset.shapeSubtype, processWrap, btn);
+        }, 1000);
+      });
+      btn.addEventListener('mouseleave', () => {
+        clearTimeout(bulkTimer);
+      });
     });
   }
 
@@ -4234,7 +4884,7 @@ function init() {
         clearTimeout(showTimer);
         snapshot();
         render();
-        showToast(`Tracé : ${routing === 'smooth' ? 'courbe' : 'orthogonal'} — toutes les flèches mises à jour`);
+        showToast(_L('editor.toast.routing_updated').replace('{routing}', routing === 'smooth' ? _L('editor.conn_curve') : _L('editor.conn_orthogonal')));
       });
     });
     updateRoutingBtns();
@@ -4269,7 +4919,7 @@ function init() {
     updateShapeColor(s);
     selectShape(s.id, false, false);
     snapshot(); render(); updateProps();
-    showToast('Forme ajoutée');
+    showToast(_L('editor.toast.shape_added'));
   });
 
   // Panel collapse
@@ -4311,7 +4961,8 @@ function init() {
   })();
 
   document.getElementById('btn-new-carto').addEventListener('click', newCarto);
-  document.getElementById('btn-architect').addEventListener('click', architectLayout);
+  document.getElementById('btn-architect').addEventListener('click', runCartoCheck);
+  document.getElementById('btn-place-labels').addEventListener('click', architectLabels);
   document.getElementById('btn-undo').addEventListener('click', undo);
   document.getElementById('btn-redo').addEventListener('click', redo);
   document.getElementById('btn-fit').addEventListener('click', fitView);
@@ -4474,6 +5125,7 @@ function init() {
       history = [JSON.stringify(state)]; histIndex = 0;
       isDirty = false;
       render(); updateProps(); fitView();
+      try { window.parent.postMessage({ type: 'carto-state-ready' }, '*'); } catch(_) {}
     }
 
     if (window.OPTIQCARTO_ACTIVE_CALQUE) {
