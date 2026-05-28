@@ -17,12 +17,12 @@
   pointer-events: all;
   width: clamp(640px, 82vw, 1300px);
 
-  /* Glass presque transparent — contour vert foncé */
-  background: rgba(4, 14, 8, 0.55);
+  /* Glass presque transparent — contour vert menthe/rose */
+  background: rgba(101, 101, 101, 0.55);
   backdrop-filter: blur(28px) saturate(1.8) brightness(1.05);
   -webkit-backdrop-filter: blur(28px) saturate(1.8) brightness(1.05);
-  border: 1.5px solid #064e2f;
-  border-top-color: #0a6b40;
+  border: 1.5px solid #49e8a4;
+  border-top-color: #ffc2e3;
   border-radius: 32px;
   box-shadow:
     0 0 0 1px rgba(0,0,0,0.3),
@@ -39,7 +39,8 @@
   transition: box-shadow .25s ease, border-color .25s ease;
 }
 .card-nav:hover {
-  border-color: #0d7a4a;
+  border-color: #5fffc0;
+  border-top-color: #ffcfed;
 }
 
 /* ── Logo cercle ────────────────────────────── */
@@ -127,7 +128,7 @@
   height: auto; min-height: 52px;
   border-radius: 20px;
   text-decoration: none;
-  color: rgba(255, 255, 255, 0.52);
+  color: rgba(255, 255, 255, 0.88);
   font-size: 12px; font-weight: 600;
   letter-spacing: 0.01em;
   scroll-snap-align: start;
@@ -259,7 +260,7 @@
     background: rgba(4, 14, 8, 0.96);
     backdrop-filter: blur(24px);
     border-radius: 0 0 18px 18px;
-    border: 1.5px solid #064e2f;
+    border: 1.5px solid #49e8a4;
     border-top: none;
     overflow: hidden;
     max-height: 0;

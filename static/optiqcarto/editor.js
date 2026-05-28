@@ -190,6 +190,7 @@ let connEndDrag = null;     // { connId, which:'from'|'to', curX, curY, snapShap
 let bendDrag = null;        // legacy — kept for undo compat
 let segDrag  = null;        // legacy — kept for undo compat
 let cornerDrag = null;     // { connId, ptIdx, startX, startY, startPts }
+let cornerSnapPreview = false; // true quand l'angle du coin draggé ≈ 180° (177–183°)
 let addCornerMode = false;
 let addCornerConnId = null;
 let labelDrag = null;       // { connId, startLx, startLy, startX, startY }
@@ -616,7 +617,14 @@ function renderConnections() {
       // Enregistrer les segments pour pénaliser les labels des connexions suivantes
       for (let _pi = 0; _pi < orthopts.length - 1; _pi++)
         placedPaths.push({ ax: orthopts[_pi].x, ay: orthopts[_pi].y, bx: orthopts[_pi+1].x, by: orthopts[_pi+1].y, connId: c.id });
-      d = polylineToPath(orthopts, 12);
+      // Snap-to-straight preview : dessiner le tracé SANS le coin en cours de suppression
+      let displayOrthopts = orthopts;
+      if (cornerSnapPreview && cornerDrag && cornerDrag.connId === c.id) {
+        const si = cornerDrag.ptIdx;
+        displayOrthopts = orthopts.filter((_, idx) => idx !== si);
+        if (displayOrthopts.length < 2) displayOrthopts = orthopts;
+      }
+      d = polylineToPath(displayOrthopts, 12);
     }
     const isSel = selectedConn === c.id;
     const color = isSel ? '#1f7a54' : c.color;
@@ -772,11 +780,16 @@ function renderConnections() {
         for (let ci = 1; ci <= orthopts.length - 2; ci++) {
           const pt = orthopts[ci];
           const hs = 6; // demi-taille du losange
+          const isSnapping = cornerSnapPreview && cornerDrag &&
+                             cornerDrag.connId === c.id && cornerDrag.ptIdx === ci;
           el('rect', {
             x: String(pt.x - hs), y: String(pt.y - hs),
             width: String(hs * 2), height: String(hs * 2),
             rx: '2',
-            fill: '#ffffff', stroke: '#1f7a54', 'stroke-width': '2.5',
+            fill: isSnapping ? 'rgba(239,68,68,0.12)' : '#ffffff',
+            stroke: isSnapping ? '#ef4444' : '#1f7a54',
+            'stroke-width': '2.5',
+            'stroke-dasharray': isSnapping ? '3,2' : 'none',
             transform: `rotate(45,${pt.x},${pt.y})`,
             cursor: 'move',
             'data-conn-corner': String(c.id), 'data-pt-idx': String(ci),
@@ -1014,6 +1027,15 @@ function renderShapes() {
 /* ══════════════════════════════════════════════════
    RENDER — HANDLES (selection)
    ══════════════════════════════════════════════════ */
+
+function cornerAngleDeg(prev, corner, next) {
+  const ax = prev.x - corner.x, ay = prev.y - corner.y;
+  const bx = next.x - corner.x, by = next.y - corner.y;
+  const la = Math.hypot(ax, ay), lb = Math.hypot(bx, by);
+  if (la < 0.001 || lb < 0.001) return 0;
+  const dot = Math.max(-1, Math.min(1, (ax * bx + ay * by) / (la * lb)));
+  return Math.acos(dot) * 180 / Math.PI;
+}
 
 function closestPointOnSegment(a, b, p) {
   const dx = b.x - a.x, dy = b.y - a.y;
@@ -1621,6 +1643,7 @@ function onDown(e) {
       const pts = conn._computedOrthopts || [];
       if (ptIdx < 1 || ptIdx >= pts.length - 1) return;
       if (!conn.userPts) conn.userPts = pts.slice(1, -1).map(p => ({ x: p.x, y: p.y }));
+      cornerSnapPreview = false;
       cornerDrag = {
         connId: cid, ptIdx,
         startX: x, startY: y,
@@ -1828,6 +1851,15 @@ function onMove(e) {
       conn.userPts[i] = { x: newX, y: sp[i + 1].y };
     }
 
+    // Snap-to-straight : angle ≈ 180° (177–183°) → preview suppression
+    {
+      const up = conn.userPts;
+      const prevPt = (i - 2 >= 0 && up[i - 2]) ? up[i - 2] : sp[0];
+      const nextPt = (i <= up.length - 1 && up[i])  ? up[i]  : sp[N - 1];
+      const angle  = cornerAngleDeg(prevPt, { x: newX, y: newY }, nextPt);
+      cornerSnapPreview = angle >= 177 && angle <= 183;
+    }
+
     render();
     return;
   }
@@ -1916,7 +1948,19 @@ function onUp(e) {
   /* ── Fin du drag d'un coin ── */
   if (cornerDrag) {
     const conn = state.connections.find(c => c.id === cornerDrag.connId);
-    if (conn) mergeOverlappingCorners(conn);
+    if (conn) {
+      if (cornerSnapPreview) {
+        // Supprimer le coin : il était à ~180° (ligne quasi-droite)
+        const removeIdx = cornerDrag.ptIdx - 1;
+        if (conn.userPts && removeIdx >= 0 && removeIdx < conn.userPts.length) {
+          conn.userPts.splice(removeIdx, 1);
+          if (conn.userPts.length === 0) conn.userPts = null;
+        }
+      } else {
+        mergeOverlappingCorners(conn);
+      }
+    }
+    cornerSnapPreview = false;
     cornerDrag = null;
     canvas.style.cursor = spaceDown ? 'grab' : '';
     snapshot();
