@@ -41,10 +41,10 @@
       </div>
       <div class="grh-card-body">
         {% set keys = {
-          "work_hours_per_day": "Heures / jour",
-          "work_days_per_week": "Jours / semaine",
-          "work_weeks_per_year": "Semaines / an",
-          "work_days_per_year": "Jours / an"
+          "work_hours_per_day": t('rh.hours_per_day'),
+          "work_days_per_week": t('rh.days_per_week'),
+          "work_weeks_per_year": t('rh.weeks_per_year'),
+          "work_days_per_year": t('rh.days_per_year')
         } %}
         {% for key, label in keys.items() %}
         <div class="grh-param-row" data-key="{{ key }}">

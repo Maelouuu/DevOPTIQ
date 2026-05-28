@@ -3,21 +3,21 @@
 <script defer src="{{ url_for('static', filename='js/time.js') }}"></script>
 
 <div id="page-temps" class="container">
-  <h1><i class="fa-solid fa-clock" style="color:#8b5cf6;font-size:.85em;"></i> Analyse des temps</h1>
+  <h1><i class="fa-solid fa-clock" style="color:#8b5cf6;font-size:.85em;"></i> {{ t('page.time') }}</h1>
 
   <section id="tab-charges" class="tab-panel active">
     <div class="subtabs">
       <button class="subtab active" data-subtab="projet">
-        <i class="fa-solid fa-diagram-project"></i> Projet
+        <i class="fa-solid fa-diagram-project"></i> {{ t('time.tab_project') }}
       </button>
       <button class="subtab" data-subtab="activite">
-        <i class="fa-solid fa-bolt"></i> Activité
+        <i class="fa-solid fa-bolt"></i> {{ t('time.tab_activity') }}
       </button>
       <button class="subtab" data-subtab="role">
-        <i class="fa-solid fa-user-tie"></i> Rôle
+        <i class="fa-solid fa-user-tie"></i> {{ t('time.tab_role') }}
       </button>
       <button class="subtab" data-subtab="faiblesse">
-        <i class="fa-solid fa-triangle-exclamation"></i> Faiblesse
+        <i class="fa-solid fa-triangle-exclamation"></i> {{ t('time.tab_weakness') }}
       </button>
     </div>
 
@@ -25,9 +25,9 @@
     <div id="subtab-projet" class="subtab-panel active">
       <div class="card">
         <div class="card-head">
-          <h2 class="title-xl">Charge de travail — Projet</h2>
+          <h2 class="title-xl">{{ t('time.workload_title') }} — {{ t('time.tab_project') }}</h2>
           <div class="spacer" style="flex:1"></div>
-          <input id="project-name" class="input" placeholder="Nom du projet" style="max-width:280px"/>
+          <input id="project-name" class="input" placeholder="{{ t('time.project_name_ph') }}" style="max-width:280px"/>
         </div>
         <div class="table-wrap">
           <table class="grid">
@@ -41,12 +41,12 @@
             </colgroup>
             <thead>
               <tr>
-                <th>Activité</th>
-                <th>Durée</th><th>Unité</th>
-                <th>Délai</th><th>Unité</th>
-                <th>Nb</th>
-                <th>Charge (h)</th>
-                <th>Actions</th>
+                <th>{{ t('time.col_activity') }}</th>
+                <th>{{ t('time.col_duration') }}</th><th>{{ t('time.col_unit') }}</th>
+                <th>{{ t('time.col_delay') }}</th><th>{{ t('time.col_unit') }}</th>
+                <th>{{ t('time.col_count') }}</th>
+                <th>{{ t('time.col_charge') }}</th>
+                <th>{{ t('time.col_actions') }}</th>
               </tr>
             </thead>
             <tbody id="project-rows"></tbody>
@@ -54,24 +54,24 @@
         </div>
 
         <div class="kpis" style="grid-template-columns:repeat(4,minmax(0,1fr));margin-top:14px;">
-          <div class="kpi"><div class="label">Nb activités</div><div class="value" id="kpi-proj-nb">0</div></div>
-          <div class="kpi"><div class="label">Durée totale</div><div class="value" id="kpi-proj-dur">0h</div></div>
-          <div class="kpi"><div class="label">Délai moyen</div><div class="value" id="kpi-proj-del">0h</div></div>
-          <div class="kpi"><div class="label">Charge globale</div><div class="value" id="kpi-proj-charge">0h</div></div>
+          <div class="kpi"><div class="label">{{ t('time.kpi_activities') }}</div><div class="value" id="kpi-proj-nb">0</div></div>
+          <div class="kpi"><div class="label">{{ t('time.kpi_total_duration') }}</div><div class="value" id="kpi-proj-dur">0h</div></div>
+          <div class="kpi"><div class="label">{{ t('time.kpi_avg_delay') }}</div><div class="value" id="kpi-proj-del">0h</div></div>
+          <div class="kpi"><div class="label">{{ t('time.kpi_total_charge') }}</div><div class="value" id="kpi-proj-charge">0h</div></div>
         </div>
 
         <div class="row-actions">
           <button id="btn-add-line" class="btn">
-            <i class="fa-solid fa-plus"></i> Ajouter une ligne
+            <i class="fa-solid fa-plus"></i> {{ t('time.add_row') }}
           </button>
           <button id="btn-save-project" class="btn success">
-            <i class="fa-solid fa-save"></i> Enregistrer le projet
+            <i class="fa-solid fa-save"></i> {{ t('time.save_project') }}
           </button>
         </div>
       </div>
 
       <div class="card">
-        <h3><i class="fa-solid fa-folder-open" style="color:#8b5cf6;margin-right:6px;"></i>Projets enregistrés</h3>
+        <h3><i class="fa-solid fa-folder-open" style="color:#8b5cf6;margin-right:6px;"></i>{{ t('time.saved_projects') }}</h3>
         <div id="project-list" class="accordion"></div>
       </div>
     </div>
@@ -80,54 +80,54 @@
     <div id="subtab-activite" class="subtab-panel">
       <div class="card">
         <div class="card-head">
-          <h2 class="title-xl">Charge de travail — Activité</h2>
-          <div id="act-editing" class="chip hidden">Mode édition</div>
+          <h2 class="title-xl">{{ t('time.workload_title') }} — {{ t('time.tab_activity') }}</h2>
+          <div id="act-editing" class="chip hidden">{{ t('time.edit_mode') }}</div>
         </div>
 
         <div class="form-grid">
-          <label>Activité</label>
+          <label>{{ t('time.form_activity') }}</label>
           <select id="act-activity" class="input">
             {% for a in activities %}
               <option value="{{ a.id }}">{{ a.name }}</option>
             {% endfor %}
           </select>
 
-          <label>Durée</label>
+          <label>{{ t('time.form_duration') }}</label>
           <div class="inline">
             <input id="act-duration" type="number" min="0" step="0.1" class="input" />
             <select id="act-duration-unit" class="input">
-              <option>minutes</option><option>heures</option><option>jours</option>
+              <option>{{ t('time.unit_minutes') }}</option><option>{{ t('time.unit_hours') }}</option><option>{{ t('time.unit_days') }}</option>
             </select>
           </div>
 
-          <label>Récurrence</label>
+          <label>{{ t('time.form_recurrence') }}</label>
           <select id="act-recurrence" class="input">
-            <option value="journalier">Journalier</option>
-            <option value="hebdomadaire">Hebdomadaire</option>
-            <option value="mensuel">Mensuel</option>
-            <option value="annuel">Annuel</option>
+            <option value="journalier">{{ t('time.rec_daily') }}</option>
+            <option value="hebdomadaire">{{ t('time.rec_weekly') }}</option>
+            <option value="mensuel">{{ t('time.rec_monthly') }}</option>
+            <option value="annuel">{{ t('time.rec_yearly') }}</option>
           </select>
 
-          <label>Fréquence</label>
+          <label>{{ t('time.form_frequency') }}</label>
           <input id="act-frequency" type="number" min="1" step="1" value="1" class="input" />
 
-          <label>Nb personnes</label>
+          <label>{{ t('time.form_people') }}</label>
           <input id="act-people" type="number" min="1" step="1" value="1" class="input" />
         </div>
 
         <div class="summary-pill">
-          Total estimé : <b><span id="act-total">0h</span></b>
+          {{ t('time.total_estimated_lbl') }} <b><span id="act-total">0h</span></b>
         </div>
 
         <div class="row-actions">
           <button id="btn-act-save" class="btn success">
-            <i class="fa-solid fa-save"></i> Enregistrer
+            <i class="fa-solid fa-save"></i> {{ t('time.btn_save') }}
           </button>
         </div>
       </div>
 
       <div class="card">
-        <h3><i class="fa-solid fa-folder-open" style="color:#8b5cf6;margin-right:6px;"></i>Analyses activité enregistrées</h3>
+        <h3><i class="fa-solid fa-folder-open" style="color:#8b5cf6;margin-right:6px;"></i>{{ t('time.saved_activity') }}</h3>
         <div id="activity-list" class="accordion"></div>
       </div>
     </div>
@@ -136,14 +136,14 @@
     <div id="subtab-role" class="subtab-panel">
       <div class="card">
         <div class="card-head">
-          <h2 class="title-xl">Charge de travail — Rôle</h2>
+          <h2 class="title-xl">{{ t('time.workload_title') }} — {{ t('time.tab_role') }}</h2>
           <div style="flex:1"></div>
           <select id="role-select" class="input" style="max-width:320px">
             {% for r in roles %}
               <option value="{{ r.id }}">{{ r.name }}</option>
             {% endfor %}
           </select>
-          <input id="role-name" class="input" placeholder="Nom de l'analyse (optionnel)" style="max-width:260px" />
+          <input id="role-name" class="input" placeholder="{{ t('time.role_analysis_ph') }}" style="max-width:260px" />
         </div>
 
         <div class="table-wrap">
@@ -158,12 +158,12 @@
             </colgroup>
             <thead>
               <tr>
-                <th>Activité</th>
-                <th>Durée (h)</th>
-                <th>Récurrence</th>
-                <th>Fréq.</th>
-                <th>Pesée (h)</th>
-                <th>Actions</th>
+                <th>{{ t('time.col_activity') }}</th>
+                <th>{{ t('time.col_duration_h') }}</th>
+                <th>{{ t('time.col_recurrence') }}</th>
+                <th>{{ t('time.col_freq') }}</th>
+                <th>{{ t('time.col_weight') }}</th>
+                <th>{{ t('time.col_actions') }}</th>
               </tr>
             </thead>
             <tbody id="role-rows"></tbody>
@@ -171,28 +171,28 @@
         </div>
 
         <div class="kpis" style="grid-template-columns:repeat(4,minmax(0,1fr));margin-top:14px;">
-          <div class="kpi"><div class="label">Somme Jour</div><div class="value" id="kpi-role-d">0h</div></div>
-          <div class="kpi"><div class="label">Somme Hebdo</div><div class="value" id="kpi-role-w">0h</div></div>
-          <div class="kpi"><div class="label">Somme Mensuelle</div><div class="value" id="kpi-role-m">0h</div></div>
-          <div class="kpi"><div class="label">Somme Annuelle</div><div class="value" id="kpi-role-a">0h</div></div>
+          <div class="kpi"><div class="label">{{ t('time.kpi_sum_day') }}</div><div class="value" id="kpi-role-d">0h</div></div>
+          <div class="kpi"><div class="label">{{ t('time.kpi_sum_week') }}</div><div class="value" id="kpi-role-w">0h</div></div>
+          <div class="kpi"><div class="label">{{ t('time.kpi_sum_month') }}</div><div class="value" id="kpi-role-m">0h</div></div>
+          <div class="kpi"><div class="label">{{ t('time.kpi_sum_year') }}</div><div class="value" id="kpi-role-a">0h</div></div>
         </div>
         <div class="kpis kpis-emerald-strong" style="grid-template-columns:repeat(2,minmax(0,1fr));margin-top:6px;">
-          <div class="kpi"><div class="label">Estimation Mensuelle</div><div class="value" id="kpi-role-monthly">0h</div></div>
-          <div class="kpi"><div class="label">Estimation Annuelle</div><div class="value" id="kpi-role-annual">0h</div></div>
+          <div class="kpi"><div class="label">{{ t('time.kpi_est_month') }}</div><div class="value" id="kpi-role-monthly">0h</div></div>
+          <div class="kpi"><div class="label">{{ t('time.kpi_est_year') }}</div><div class="value" id="kpi-role-annual">0h</div></div>
         </div>
 
         <div class="row-actions">
           <button id="btn-role-add-line" class="btn">
-            <i class="fa-solid fa-plus"></i> Ajouter une ligne
+            <i class="fa-solid fa-plus"></i> {{ t('time.add_row') }}
           </button>
           <button id="btn-role-save" class="btn success">
-            <i class="fa-solid fa-save"></i> Enregistrer l'analyse
+            <i class="fa-solid fa-save"></i> {{ t('time.save_analysis') }}
           </button>
         </div>
       </div>
 
       <div class="card">
-        <h3><i class="fa-solid fa-folder-open" style="color:#8b5cf6;margin-right:6px;"></i>Analyses rôle enregistrées</h3>
+        <h3><i class="fa-solid fa-folder-open" style="color:#8b5cf6;margin-right:6px;"></i>{{ t('time.saved_role') }}</h3>
         <div id="role-list" class="accordion"></div>
       </div>
     </div>
@@ -203,14 +203,14 @@
         <div class="card-head">
           <h2 class="title-xl">
             <i class="fa-solid fa-triangle-exclamation" style="color:#e51f95;margin-right:8px;"></i>
-            Impact d'une faiblesse sur une activité
+            {{ t('time.fw_title') }}
           </h2>
         </div>
 
         <!-- Contexte : activité, récurrence, mode -->
         <div class="form-grid fg-2cols" style="grid-template-columns:1fr 1fr;gap:10px 20px;">
           <div>
-            <label>Activité concernée</label>
+            <label>{{ t('time.fw_activity_label') }}</label>
             <select id="fw-activity" class="input">
               {% for a in activities %}
                 <option value="{{ a.id }}">{{ a.name }}</option>
@@ -219,61 +219,61 @@
           </div>
 
           <div>
-            <label>Mode d'analyse</label>
+            <label>{{ t('time.fw_mode_label') }}</label>
             <div class="inline" style="flex-wrap:wrap;gap:12px;margin-top:4px;">
-              <label class="chk"><input type="radio" name="fw-mode" value="activity" checked> Durée globale</label>
-              <label class="chk"><input type="radio" name="fw-mode" value="tasks"> Par tâches</label>
+              <label class="chk"><input type="radio" name="fw-mode" value="activity" checked> {{ t('time.fw_mode_global') }}</label>
+              <label class="chk"><input type="radio" name="fw-mode" value="tasks"> {{ t('time.fw_mode_tasks') }}</label>
             </div>
-            <div class="field-hint">En "Par tâches", la somme des durées alimente automatiquement la durée de l'activité.</div>
+            <div class="field-hint">{{ t('time.fw_hint_mode') }}</div>
           </div>
 
           <div>
-            <label>Récurrence de l'activité</label>
+            <label>{{ t('time.fw_recurrence_label') }}</label>
             <select id="fw-rec" class="input">
-              <option value="journalier">Journalier</option>
-              <option value="hebdomadaire">Hebdomadaire</option>
-              <option value="mensuel">Mensuel</option>
-              <option value="annuel">Annuel</option>
+              <option value="journalier">{{ t('time.rec_daily') }}</option>
+              <option value="hebdomadaire">{{ t('time.rec_weekly') }}</option>
+              <option value="mensuel">{{ t('time.rec_monthly') }}</option>
+              <option value="annuel">{{ t('time.rec_yearly') }}</option>
             </select>
           </div>
 
           <div>
-            <label>Fréquence</label>
+            <label>{{ t('time.form_frequency') }}</label>
             <input id="fw-freq" type="number" min="1" value="1" class="input" />
-            <div class="field-hint">Nombre d'exécutions par période (ex. 3 fois par semaine).</div>
+            <div class="field-hint">{{ t('time.fw_hint_freq') }}</div>
           </div>
         </div>
 
         <!-- Durées standard (sans faiblesse) -->
         <div id="fw-global" class="subcard subcard-grid equal">
-          <h3><i class="fa-solid fa-gauge" style="color:#8b5cf6;margin-right:6px;"></i>Durées standard (sans faiblesse)</h3>
+          <h3><i class="fa-solid fa-gauge" style="color:#8b5cf6;margin-right:6px;"></i>{{ t('time.fw_standard_title') }}</h3>
 
           <div class="sc-field">
-            <label>Durée standard de l'activité</label>
+            <label>{{ t('time.fw_std_duration') }}</label>
             <div class="inline">
               <input id="fw-dur" type="number" step="0.1" class="input" />
               <select id="fw-dur-unit" class="input">
-                <option>minutes</option><option>heures</option><option>jours</option>
+                <option>{{ t('time.unit_minutes') }}</option><option>{{ t('time.unit_hours') }}</option><option>{{ t('time.unit_days') }}</option>
               </select>
             </div>
-            <div class="field-hint">Temps de travail normal pour réaliser l'activité, hors problème.</div>
+            <div class="field-hint">{{ t('time.fw_hint_std_dur') }}</div>
           </div>
 
           <div class="sc-field">
-            <label>Délai standard de production</label>
+            <label>{{ t('time.fw_std_delay') }}</label>
             <div class="inline">
               <input id="fw-del" type="number" step="0.1" class="input" />
               <select id="fw-del-unit" class="input">
-                <option>minutes</option><option>heures</option><option>jours</option>
+                <option>{{ t('time.unit_minutes') }}</option><option>{{ t('time.unit_hours') }}</option><option>{{ t('time.unit_days') }}</option>
               </select>
             </div>
-            <div class="field-hint">Temps total pour produire le résultat (travail + éventuelles attentes normales).</div>
+            <div class="field-hint">{{ t('time.fw_hint_std_del') }}</div>
           </div>
         </div>
 
         <!-- Par tâches -->
         <div id="fw-tasks" class="subcard hidden">
-          <h3><i class="fa-solid fa-list-check" style="color:#8b5cf6;margin-right:6px;"></i>Durées par tâches</h3>
+          <h3><i class="fa-solid fa-list-check" style="color:#8b5cf6;margin-right:6px;"></i>{{ t('time.fw_tasks_title') }}</h3>
           <div class="table-wrap">
             <table class="grid grid-compact">
               <colgroup>
@@ -283,66 +283,64 @@
               </colgroup>
               <thead>
                 <tr>
-                  <th>Tâche</th>
-                  <th>Durée</th><th>Unité</th>
-                  <th>Délai</th><th>Unité</th>
+                  <th>{{ t('time.col_task') }}</th>
+                  <th>{{ t('time.col_duration') }}</th><th>{{ t('time.col_unit') }}</th>
+                  <th>{{ t('time.col_delay') }}</th><th>{{ t('time.col_unit') }}</th>
                 </tr>
               </thead>
               <tbody id="fw-task-rows"></tbody>
             </table>
           </div>
           <div class="summary-pill" style="margin-top:8px;">
-            <strong>Somme durées tâches → Durée activité :</strong>
+            <strong>{{ t('time.fw_task_sum_label') }}</strong>
             <span id="fw-task-sum">0h</span>
           </div>
         </div>
 
         <!-- Paramètres de la faiblesse -->
         <div class="subcard subcard-grid equal">
-          <h3><i class="fa-solid fa-bug" style="color:#e51f95;margin-right:6px;"></i>Paramètres de la faiblesse</h3>
+          <h3><i class="fa-solid fa-bug" style="color:#e51f95;margin-right:6px;"></i>{{ t('time.fw_params_title') }}</h3>
 
           <div class="sc-field">
-            <label>Description de la faiblesse</label>
-            <input id="fw-k" class="input" placeholder="Ex. : révision manuelle due à données manquantes" />
-            <div class="field-hint">Quelques mots suffisent pour caractériser le problème.</div>
+            <label>{{ t('time.fw_desc_label') }}</label>
+            <input id="fw-k" class="input" placeholder="{{ t('time.fw_ph_desc') }}" />
+            <div class="field-hint">{{ t('time.fw_hint_desc') }}</div>
           </div>
 
           <div class="sc-field">
-            <label>Probabilité d'apparition</label>
+            <label>{{ t('time.fw_prob_label') }}</label>
             <input id="fw-n" type="number" value="1" min="1" class="input" />
-            <div class="field-hint">
-              <strong>1 sur N</strong> — ex. "5" signifie : la faiblesse survient 1 fois sur 5 exécutions.
-            </div>
+            <div class="field-hint">{{ t('time.fw_hint_prob') }}</div>
           </div>
 
           <div class="sc-field">
-            <label>Surcroît de <strong>travail</strong> par occurrence</label>
+            <label>{{ t('time.fw_extra_work') }}</label>
             <div class="inline">
               <input id="fw-l" type="number" step="0.1" class="input" />
               <select id="fw-l-unit" class="input">
-                <option>minutes</option><option>heures</option><option>jours</option>
+                <option>{{ t('time.unit_minutes') }}</option><option>{{ t('time.unit_hours') }}</option><option>{{ t('time.unit_days') }}</option>
               </select>
             </div>
-            <div class="field-hint">Temps supplémentaire <em>réellement travaillé</em> quand le problème survient.</div>
+            <div class="field-hint">{{ t('time.fw_hint_extra') }}</div>
           </div>
 
           <div class="sc-field">
-            <label>Attente / retard par occurrence</label>
+            <label>{{ t('time.fw_delay_label') }}</label>
             <div class="inline">
               <input id="fw-m" type="number" step="0.1" class="input" />
               <select id="fw-m-unit" class="input">
-                <option>minutes</option><option>heures</option><option>jours</option>
+                <option>{{ t('time.unit_minutes') }}</option><option>{{ t('time.unit_hours') }}</option><option>{{ t('time.unit_days') }}</option>
               </select>
             </div>
-            <div class="field-hint">Temps perdu <em>sans travail</em> (ex. attente d'un retour, d'une validation…)</div>
+            <div class="field-hint">{{ t('time.fw_hint_delay') }}</div>
           </div>
 
           <div class="row-actions">
             <button id="btn-fw-calc" class="btn">
-              <i class="fa-solid fa-calculator"></i> Calculer
+              <i class="fa-solid fa-calculator"></i> {{ t('time.fw_btn_calc') }}
             </button>
             <button id="btn-fw-save" class="btn success">
-              <i class="fa-solid fa-save"></i> Enregistrer
+              <i class="fa-solid fa-save"></i> {{ t('time.fw_btn_save') }}
             </button>
           </div>
           <div id="fw-feedback" class="time-inline-feedback"></div>
@@ -355,22 +353,18 @@
           <div class="fw-result-group fw-group-execution">
             <div class="fw-group-header">
               <i class="fa-solid fa-repeat"></i>
-              Impact par exécution de l'activité
+              {{ t('time.fw_execution_header') }}
             </div>
             <div class="fw-group-body" style="grid-template-columns:1fr 1fr;">
               <div class="fw-kpi-card fw-accent-pink">
-                <div class="fw-kpi-label">Durée moyenne corrigée</div>
+                <div class="fw-kpi-label">{{ t('time.fw_kpi_avg_dur') }}</div>
                 <div class="fw-kpi-value"><span id="S">—</span><span class="fw-kpi-unit">h</span></div>
-                <div class="fw-kpi-desc">
-                  Durée standard + surcroît moyen dû à la faiblesse (pondéré par sa probabilité d'apparition).
-                </div>
+                <div class="fw-kpi-desc">{{ t('time.fw_desc_avg_dur') }}</div>
               </div>
               <div class="fw-kpi-card fw-accent-pink">
-                <div class="fw-kpi-label">Délai moyen corrigé</div>
+                <div class="fw-kpi-label">{{ t('time.fw_kpi_avg_del') }}</div>
                 <div class="fw-kpi-value"><span id="T">—</span><span class="fw-kpi-unit">h</span></div>
-                <div class="fw-kpi-desc">
-                  Délai standard + retard moyen (travail + attente), pondéré par la probabilité de la faiblesse.
-                </div>
+                <div class="fw-kpi-desc">{{ t('time.fw_desc_avg_del') }}</div>
               </div>
             </div>
           </div>
@@ -379,29 +373,23 @@
           <div class="fw-result-group fw-group-degraded">
             <div class="fw-group-header">
               <i class="fa-solid fa-circle-exclamation"></i>
-              Cas dégradé — quand la faiblesse survient réellement
+              {{ t('time.fw_degraded_header') }}
             </div>
             <div class="fw-group-body" style="grid-template-columns:1fr 1fr 1fr;">
               <div class="fw-kpi-card fw-accent-orange">
-                <div class="fw-kpi-label">Délai total en cas dégradé</div>
+                <div class="fw-kpi-label">{{ t('time.fw_kpi_deg_delay') }}</div>
                 <div class="fw-kpi-value"><span id="Y">—</span><span class="fw-kpi-unit">h</span></div>
-                <div class="fw-kpi-desc">
-                  Délai standard + attente complète (M) : ce que subissent les parties prenantes quand ça rate.
-                </div>
+                <div class="fw-kpi-desc">{{ t('time.fw_desc_deg_delay') }}</div>
               </div>
               <div class="fw-kpi-card fw-accent-orange">
-                <div class="fw-kpi-label">Retard par occurrence</div>
+                <div class="fw-kpi-label">{{ t('time.fw_kpi_delay_occ') }}</div>
                 <div class="fw-kpi-value"><span id="Z">—</span><span class="fw-kpi-unit">h</span></div>
-                <div class="fw-kpi-desc">
-                  Temps d'attente ou de blocage généré à chaque apparition de la faiblesse.
-                </div>
+                <div class="fw-kpi-desc">{{ t('time.fw_desc_delay_occ') }}</div>
               </div>
               <div class="fw-kpi-card fw-kpi-occurrences">
-                <div class="fw-kpi-label">Occurrences / an</div>
-                <div class="fw-kpi-value"><span id="AA">—</span><span class="fw-kpi-unit">fois</span></div>
-                <div class="fw-kpi-desc">
-                  Nombre estimé de fois où la faiblesse se produira dans l'année.
-                </div>
+                <div class="fw-kpi-label">{{ t('time.fw_kpi_occurrences') }}</div>
+                <div class="fw-kpi-value"><span id="AA">—</span><span class="fw-kpi-unit">{{ t('time.fw_unit_times') }}</span></div>
+                <div class="fw-kpi-desc">{{ t('time.fw_desc_occurrences') }}</div>
               </div>
             </div>
           </div>
@@ -410,22 +398,18 @@
           <div class="fw-result-group fw-group-annual">
             <div class="fw-group-header">
               <i class="fa-solid fa-chart-line"></i>
-              Coût annuel de la faiblesse
+              {{ t('time.fw_annual_header') }}
             </div>
             <div class="fw-group-body" style="grid-template-columns:1fr 1fr;">
               <div class="fw-kpi-card fw-accent-red">
-                <div class="fw-kpi-label">Surcroît de travail / an</div>
+                <div class="fw-kpi-label">{{ t('time.fw_kpi_extra_annual') }}</div>
                 <div class="fw-kpi-value"><span id="U">—</span><span class="fw-kpi-unit">h</span></div>
-                <div class="fw-kpi-desc">
-                  Total des minutes de <em>travail supplémentaire</em> que génère cette faiblesse sur une année entière.
-                </div>
+                <div class="fw-kpi-desc">{{ t('time.fw_desc_extra_annual') }}</div>
               </div>
               <div class="fw-kpi-card fw-accent-red">
-                <div class="fw-kpi-label">Retard cumulé / an</div>
+                <div class="fw-kpi-label">{{ t('time.fw_kpi_delay_annual') }}</div>
                 <div class="fw-kpi-value"><span id="V">—</span><span class="fw-kpi-unit">h</span></div>
-                <div class="fw-kpi-desc">
-                  Total du temps perdu (travail + attente) sur l'année — l'impact réel sur les délais de livraison.
-                </div>
+                <div class="fw-kpi-desc">{{ t('time.fw_desc_delay_annual') }}</div>
               </div>
             </div>
           </div>
@@ -434,22 +418,18 @@
           <div class="fw-result-group fw-group-monthly">
             <div class="fw-group-header">
               <i class="fa-solid fa-calendar-days"></i>
-              Coût mensuel moyen
+              {{ t('time.fw_monthly_header') }}
             </div>
             <div class="fw-group-body" style="grid-template-columns:1fr 1fr;">
               <div class="fw-kpi-card fw-accent-violet">
-                <div class="fw-kpi-label">Surcroît de travail / mois</div>
+                <div class="fw-kpi-label">{{ t('time.fw_kpi_extra_monthly') }}</div>
                 <div class="fw-kpi-value"><span id="W">—</span><span class="fw-kpi-unit">h</span></div>
-                <div class="fw-kpi-desc">
-                  Minutes de travail supplémentaire par mois, en moyenne sur l'année.
-                </div>
+                <div class="fw-kpi-desc">{{ t('time.fw_desc_extra_month') }}</div>
               </div>
               <div class="fw-kpi-card fw-accent-violet">
-                <div class="fw-kpi-label">Retard total / mois</div>
+                <div class="fw-kpi-label">{{ t('time.fw_kpi_delay_monthly') }}</div>
                 <div class="fw-kpi-value"><span id="X">—</span><span class="fw-kpi-unit">h</span></div>
-                <div class="fw-kpi-desc">
-                  Temps total perdu (travail + attente) par mois, en moyenne sur l'année.
-                </div>
+                <div class="fw-kpi-desc">{{ t('time.fw_desc_delay_month') }}</div>
               </div>
             </div>
           </div>

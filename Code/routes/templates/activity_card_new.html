@@ -18,13 +18,13 @@
 
             <div class="activity-garant">
                 <button onclick="openGarantModal({{ item.activity.id }})">
-                    <i class="fa-solid fa-user"></i> Garant
+                    <i class="fa-solid fa-user"></i> {{ t('activity.garant') }}
                 </button>
                 <span id="activity-garant-{{ item.activity.id }}">
                     {% if item.garant %}
                         {{ item.garant.name }}
                     {% else %}
-                        Aucun garant assigné
+                        {{ t('activity.no_garant') }}
                     {% endif %}
                 </span>
             </div>
@@ -34,38 +34,38 @@
         <div class="tabs-container">
             <button class="tab-button active" draggable="true"
                     data-tab-id="overview-{{ item.activity.id }}"
-                    data-tab-label="Vue d'ensemble"
+                    data-tab-label="{{ t('activity.overview') }}"
                     data-activity-id="{{ item.activity.id }}"
                     onclick="openTab(event, 'overview-{{ item.activity.id }}', '{{ item.activity.id }}')">
-                <i class="fa-solid fa-home"></i> Vue d'ensemble
+                <i class="fa-solid fa-home"></i> {{ t('activity.overview') }}
             </button>
             <button class="tab-button" draggable="true"
                     data-tab-id="competencies-{{ item.activity.id }}"
-                    data-tab-label="Compétences"
+                    data-tab-label="{{ t('activity.competences') }}"
                     data-activity-id="{{ item.activity.id }}"
                     onclick="openTab(event, 'competencies-{{ item.activity.id }}', '{{ item.activity.id }}')">
-                <i class="fa-solid fa-star"></i> Compétences
+                <i class="fa-solid fa-star"></i> {{ t('activity.competences') }}
             </button>
             <button class="tab-button" draggable="true"
                     data-tab-id="skills-{{ item.activity.id }}"
-                    data-tab-label="Savoirs & SF"
+                    data-tab-label="{{ t('activity.savoirs_sf') }}"
                     data-activity-id="{{ item.activity.id }}"
                     onclick="openTab(event, 'skills-{{ item.activity.id }}', '{{ item.activity.id }}')">
-                <i class="fa-solid fa-brain"></i> Savoirs & SF
+                <i class="fa-solid fa-brain"></i> {{ t('activity.savoirs_sf') }}
             </button>
             <button class="tab-button" draggable="true"
                     data-tab-id="softskills-{{ item.activity.id }}"
-                    data-tab-label="HSC"
+                    data-tab-label="{{ t('activity.hsc') }}"
                     data-activity-id="{{ item.activity.id }}"
                     onclick="openTab(event, 'softskills-{{ item.activity.id }}', '{{ item.activity.id }}')">
-                <i class="fa-solid fa-heart"></i> HSC
+                <i class="fa-solid fa-heart"></i> {{ t('activity.hsc') }}
             </button>
             <button class="tab-button" draggable="true"
                     data-tab-id="time-{{ item.activity.id }}"
-                    data-tab-label="Temps"
+                    data-tab-label="{{ t('activity.time_tab') }}"
                     data-activity-id="{{ item.activity.id }}"
                     onclick="openTab(event, 'time-{{ item.activity.id }}', '{{ item.activity.id }}')">
-                <i class="fa-solid fa-clock"></i> Temps
+                <i class="fa-solid fa-clock"></i> {{ t('activity.time_tab') }}
             </button>
         </div>
 
@@ -73,7 +73,7 @@
         <div class="split-drop-zone" id="split-drop-zone-{{ item.activity.id }}" style="display:none;">
             <div class="split-drop-indicator">
                 <i class="fa-solid fa-columns"></i>
-                <span>Déposer ici pour afficher côte à côte</span>
+                <span>{{ t('activity.drop_hint') }}</span>
             </div>
         </div>
 
@@ -83,13 +83,13 @@
         <div id="overview-{{ item.activity.id }}" class="tab-content active">
             <h3 class="section-title">
                 <i class="fa-solid fa-info-circle"></i>
-                Informations générales
+                {{ t('activity.general_info') }}
             </h3>
 
             <!-- Temps -->
             {% if item.activity.time_value or item.activity.time_unit %}
                 <div class="time-info">
-                    <p><strong><i class="fa-solid fa-clock"></i> Temps estimé:</strong>
+                    <p><strong><i class="fa-solid fa-clock"></i> {{ t('activity.estimated_time') }}</strong>
                         {{ item.activity.time_value or 'N/A' }} {{ item.activity.time_unit or '' }}
                     </p>
                 </div>
@@ -100,18 +100,18 @@
                 <!-- Connexions -->
                 <div class="overview-section">
                     <h4 class="overview-section-title">
-                        <i class="fa-solid fa-link"></i> Connexions
+                        <i class="fa-solid fa-link"></i> {{ t('activity.links') }}
                     </h4>
                     <div class="connections-grid">
                         <!-- Connexions entrantes -->
                         <div class="connection-section-compact">
-                            <h5><i class="fa-solid fa-arrow-down"></i> Entrantes</h5>
+                            <h5><i class="fa-solid fa-arrow-down"></i> {{ t('activity.incoming') }}</h5>
                             {% if item.incoming and item.incoming|length > 0 %}
                                 <table class="data-table">
                                     <thead>
                                         <tr>
-                                            <th>Donnée</th>
-                                            <th>Provenance</th>
+                                            <th>{{ t('activity.data') }}</th>
+                                            <th>{{ t('activity.source') }}</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -140,21 +140,21 @@
                             {% else %}
                                 <div class="empty-message-compact">
                                     <i class="fa-solid fa-inbox"></i>
-                                    <p>Aucune connexion entrante</p>
+                                    <p>{{ t('activity.no_incoming') }}</p>
                                 </div>
                             {% endif %}
                         </div>
 
                         <!-- Connexions sortantes -->
                         <div class="connection-section-compact">
-                            <h5><i class="fa-solid fa-arrow-up"></i> Sortantes</h5>
+                            <h5><i class="fa-solid fa-arrow-up"></i> {{ t('activity.outgoing') }}</h5>
                             {% if item.outgoing and item.outgoing|length > 0 %}
                                 <table class="data-table">
                                     <thead>
                                         <tr>
-                                            <th>Donnée</th>
-                                            <th>Destination</th>
-                                            <th>Performance</th>
+                                            <th>{{ t('activity.data') }}</th>
+                                            <th>{{ t('activity.destination') }}</th>
+                                            <th>{{ t('activity.performance') }}</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -195,17 +195,17 @@
                                                             </div>
                                                             <div id="perf-edit-form-{{ conn.performance.id }}" style="display:none; margin-top:8px;">
                                                                 <input type="text" id="perf-edit-input-{{ conn.performance.id }}" style="width:250px;" />
-                                                                <button class="action-btn" onclick="submitEditPerf('{{ conn.performance.id }}')">Enregistrer</button>
-                                                                <button class="action-btn secondary" onclick="hideEditPerfForm('{{ conn.performance.id }}')">Annuler</button>
+                                                                <button class="action-btn" onclick="submitEditPerf('{{ conn.performance.id }}')">{{ t('btn.save') }}</button>
+                                                                <button class="action-btn secondary" onclick="hideEditPerfForm('{{ conn.performance.id }}')">{{ t('btn.cancel') }}</button>
                                                             </div>
                                                         {% else %}
                                                             <button class="action-btn" onclick="showAddPerfForm('{{ conn.link_id }}')">
-                                                                <i class="fa-solid fa-plus"></i> Performance
+                                                                <i class="fa-solid fa-plus"></i> {{ t('activity.performance') }}
                                                             </button>
                                                             <div id="perf-add-form-{{ conn.link_id }}" style="display:none; margin-top:8px;">
                                                                 <input type="text" id="perf-add-input-{{ conn.link_id }}" style="width:250px;" />
-                                                                <button class="action-btn" onclick="submitAddPerf('{{ conn.link_id }}')">Enregistrer</button>
-                                                                <button class="action-btn secondary" onclick="hideAddPerfForm('{{ conn.link_id }}')">Annuler</button>
+                                                                <button class="action-btn" onclick="submitAddPerf('{{ conn.link_id }}')">{{ t('btn.save') }}</button>
+                                                                <button class="action-btn secondary" onclick="hideAddPerfForm('{{ conn.link_id }}')">{{ t('btn.cancel') }}</button>
                                                             </div>
                                                         {% endif %}
                                                     </div>
@@ -217,7 +217,7 @@
                             {% else %}
                                 <div class="empty-message-compact">
                                     <i class="fa-solid fa-inbox"></i>
-                                    <p>Aucune connexion sortante</p>
+                                    <p>{{ t('activity.no_outgoing') }}</p>
                                 </div>
                             {% endif %}
                         </div>
@@ -227,7 +227,7 @@
                 <!-- Contraintes -->
                 <div class="overview-section">
                     <h4 class="overview-section-title">
-                        <i class="fa-solid fa-exclamation-triangle"></i> Contraintes
+                        <i class="fa-solid fa-exclamation-triangle"></i> {{ t('activity.constraints') }}
                     </h4>
                     {% include "activity_constraints.html" %}
                 </div>
@@ -236,7 +236,7 @@
             <!-- Tâches (pleine largeur) -->
             <div style="margin-top: 32px;">
                 <h4 class="overview-section-title">
-                    <i class="fa-solid fa-tasks"></i> Tâches associées
+                    <i class="fa-solid fa-tasks"></i> {{ t('activity.associated_tasks') }}
                 </h4>
                 <div id="tasks-section-{{ item.activity.id }}">
                     {% set activity = item.activity %}
@@ -250,7 +250,7 @@
         <div id="competencies-{{ item.activity.id }}" class="tab-content">
             <h3 class="section-title">
                 <i class="fa-solid fa-star"></i>
-                Compétences requises
+                {{ t('activity.required_competences') }}
             </h3>
             {% include "activity_competencies.html" %}
         </div>
@@ -262,7 +262,7 @@
                 <div>
                     <h3 class="section-title">
                         <i class="fa-solid fa-book"></i>
-                        Savoirs & Savoir-faire
+                        {{ t('activity.knowledge_knowhow') }}
                     </h3>
                     {% include "activity_savoirs_faires.html" %}
                 </div>
@@ -271,7 +271,7 @@
                 <div>
                     <h3 class="section-title">
                         <i class="fa-solid fa-lightbulb"></i>
-                        Aptitudes
+                        {{ t('competence.aptitude') }}
                     </h3>
                     {% include "activity_aptitudes.html" %}
                 </div>
@@ -282,7 +282,7 @@
         <div id="softskills-{{ item.activity.id }}" class="tab-content">
             <h3 class="section-title">
                 <i class="fa-solid fa-heart"></i>
-                Habiletés Socio-Cognitives
+                {{ t('competence.softskill') }}
             </h3>
             {% include "activity_softskills.html" %}
         </div>
@@ -291,7 +291,7 @@
         <div id="time-{{ item.activity.id }}" class="tab-content">
             <h3 class="section-title">
                 <i class="fa-solid fa-clock"></i>
-                Gestion du temps
+                {{ t('page.time') }}
             </h3>
             {% set activity = item.activity %}
             {% set tasks = item.tasks %}

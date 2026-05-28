@@ -12,12 +12,12 @@
       <i class="fa-solid fa-screwdriver-wrench"></i>
     </div>
     <div class="page-banner__text">
-      <h1 class="page-banner__title">Gestion des outils</h1>
-      <p class="page-banner__sub">Gérez, renommez, remplacez et supprimez les outils de vos activités</p>
+      <h1 class="page-banner__title">{{ t('page.tools') }}</h1>
+      <p class="page-banner__sub">{{ t('tools.subtitle') }}</p>
     </div>
     <div class="page-banner__stat" id="toolsCount">
       <span class="stat-val">—</span>
-      <span class="stat-lbl">outils</span>
+      <span class="stat-lbl">{{ t('tools.count_label') }}</span>
     </div>
   </div>
 
@@ -27,7 +27,7 @@
     <!-- Bouton visible quand replié -->
     <button id="create-toggle-btn" class="create-toggle-btn">
       <i class="fa-solid fa-plus-circle"></i>
-      Ajouter un outil
+      {{ t('tools.add_tool') }}
     </button>
 
     <!-- Formulaire animé (caché par défaut) -->
@@ -36,11 +36,11 @@
         <div class="section-card__head-left">
           <span class="section-icon"><i class="fa-solid fa-plus"></i></span>
           <div>
-            <h2 id="create-title" class="section-card__title">Ajouter un outil</h2>
-            <p class="section-card__subtitle">Créez un outil avec un nom et une description optionnelle</p>
+            <h2 id="create-title" class="section-card__title">{{ t('tools.add_tool') }}</h2>
+            <p class="section-card__subtitle">{{ t('tools.create_hint') }}</p>
           </div>
         </div>
-        <button id="create-collapse-btn" class="btn-icon-collapse" title="Replier" aria-label="Replier le formulaire">
+        <button id="create-collapse-btn" class="btn-icon-collapse" title="{{ t('tools.collapse_form') }}" aria-label="{{ t('tools.collapse_form') }}">
           <i class="fa-solid fa-chevron-up"></i>
         </button>
       </div>
@@ -48,28 +48,28 @@
         <div class="field">
           <div class="search-style-wrap">
             <i class="fa-solid fa-tag search-style-icon"></i>
-            <input id="newToolName" class="search-style-input" type="text" placeholder="Nom de l'outil *" autocomplete="off">
+            <input id="newToolName" class="search-style-input" type="text" placeholder="{{ t('tools.name_label') }}" autocomplete="off">
           </div>
         </div>
         <div class="field">
           <div class="search-style-wrap">
             <i class="fa-solid fa-align-left search-style-icon"></i>
-            <input id="newToolDesc" class="search-style-input" type="text" placeholder="Description (optionnelle)" autocomplete="off">
+            <input id="newToolDesc" class="search-style-input" type="text" placeholder="{{ t('tools.description_label') }}" autocomplete="off">
           </div>
         </div>
         <div class="field field--full">
-          <label class="create-field-label"><i class="fa-solid fa-paperclip"></i> Fichier lié (optionnel)</label>
+          <label class="create-field-label"><i class="fa-solid fa-paperclip"></i> {{ t('tools.linked_file_optional_label') }}</label>
           <div class="fp-wrap" id="newToolPicker">
             <div class="fp-zone">
               <span class="fp-spinner" style="display:none"><i class="fa-solid fa-spinner fa-spin"></i></span>
               <i class="fa-solid fa-cloud-arrow-up fp-icon"></i>
-              <p class="fp-text">Glisser un fichier ou <span class="fp-browse">parcourir</span></p>
-              <p class="fp-hint">PDF, Word, Excel, Visio, JSON… (optionnel)</p>
+              <p class="fp-text">{{ t('tools.fp_drop_text') }} <span class="fp-browse">{{ t('tools.fp_browse') }}</span></p>
+              <p class="fp-hint">PDF, Word, Excel, Visio, JSON… ({{ t('common.optional') | lower }})</p>
             </div>
             <div class="fp-selected hidden">
               <i class="fa-solid fa-file-circle-check fp-ok-icon"></i>
               <span class="fp-fname"></span>
-              <button type="button" class="fp-clear" title="Retirer"><i class="fa-solid fa-xmark"></i></button>
+              <button type="button" class="fp-clear" title="{{ t('tools.fp_remove') }}"><i class="fa-solid fa-xmark"></i></button>
             </div>
             <input type="file" class="fp-input">
             <input type="hidden" class="fp-path" id="newToolFilePath">
@@ -77,7 +77,7 @@
         </div>
         <div class="field-btn">
           <button id="createToolBtn" class="btn btn-brown create-submit-btn">
-            <i class="fa-solid fa-plus"></i> Ajouter
+            <i class="fa-solid fa-plus"></i> {{ t('btn.add') }}
           </button>
         </div>
       </div>
@@ -91,8 +91,8 @@
       <div class="section-card__head-left">
         <span class="section-icon section-icon--muted"><i class="fa-solid fa-toolbox"></i></span>
         <div>
-          <h2 id="list-title" class="section-card__title">Liste des outils</h2>
-          <p class="section-card__subtitle">Cliquez sur <i class="fa-solid fa-pencil" style="font-size:11px;"></i> pour modifier · Cliquez sur le badge d'usages pour voir le détail</p>
+          <h2 id="list-title" class="section-card__title">{{ t('tools.list_title') }}</h2>
+          <p class="section-card__subtitle">{{ t('tools.list_hint') }}</p>
         </div>
       </div>
     </div>
@@ -101,8 +101,8 @@
     <div class="search-row">
       <div class="search-wrap">
         <i class="fa-solid fa-magnifying-glass search-icon"></i>
-        <input type="search" id="toolSearch" class="search-input" placeholder="Rechercher un outil par nom ou description…" autocomplete="off">
-        <button class="search-clear hidden" id="searchClear" title="Effacer">
+        <input type="search" id="toolSearch" class="search-input" placeholder="{{ t('tools.search_placeholder') }}" autocomplete="off">
+        <button class="search-clear hidden" id="searchClear" title="{{ t('tools.search_clear') }}">
           <i class="fa-solid fa-xmark"></i>
         </button>
       </div>
@@ -120,27 +120,27 @@
 <div id="editModal" class="modal hidden" aria-hidden="true" role="dialog" aria-labelledby="editModalTitle">
   <div class="modal-card">
     <div class="modal-header">
-      <h3 id="editModalTitle" class="modal-title"><i class="fa-solid fa-pencil"></i> Modifier</h3>
-      <button class="modal-close" id="cancelEditBtn" aria-label="Fermer"><i class="fa-solid fa-xmark"></i></button>
+      <h3 id="editModalTitle" class="modal-title"><i class="fa-solid fa-pencil"></i> {{ t('btn.edit') }}</h3>
+      <button class="modal-close" id="cancelEditBtn" aria-label="{{ t('btn.close') }}"><i class="fa-solid fa-xmark"></i></button>
     </div>
     <div class="modal-body">
       <div class="field">
-        <label for="editInput" class="label" id="editLabel">Valeur</label>
+        <label for="editInput" class="label" id="editLabel">{{ t('tools.edit_value_label') }}</label>
         <input id="editInput" class="input input--full" type="text" />
       </div>
       <div id="editFilePathField" style="display:none; margin-top:14px;">
-        <label class="label"><i class="fa-solid fa-paperclip"></i> Fichier lié</label>
+        <label class="label"><i class="fa-solid fa-paperclip"></i> {{ t('tools.linked_file_label') }}</label>
         <div class="fp-wrap" id="editToolPicker">
           <div class="fp-zone">
             <span class="fp-spinner" style="display:none"><i class="fa-solid fa-spinner fa-spin"></i></span>
             <i class="fa-solid fa-cloud-arrow-up fp-icon"></i>
-            <p class="fp-text">Glisser un fichier ou <span class="fp-browse">parcourir</span></p>
-            <p class="fp-hint">Remplace le fichier actuel si sélectionné</p>
+            <p class="fp-text">{{ t('tools.fp_drop_text') }} <span class="fp-browse">{{ t('tools.fp_browse') }}</span></p>
+            <p class="fp-hint">{{ t('tools.fp_replace_hint') }}</p>
           </div>
           <div class="fp-selected hidden">
             <i class="fa-solid fa-file-circle-check fp-ok-icon"></i>
             <span class="fp-fname"></span>
-            <button type="button" class="fp-clear" title="Retirer"><i class="fa-solid fa-xmark"></i></button>
+            <button type="button" class="fp-clear" title="{{ t('tools.fp_remove') }}"><i class="fa-solid fa-xmark"></i></button>
           </div>
           <input type="file" class="fp-input">
           <input type="hidden" class="fp-path" id="editFilePathInput">
@@ -148,8 +148,8 @@
       </div>
     </div>
     <div class="modal-footer">
-      <button id="saveEditBtn" class="btn btn-brown"><i class="fa-solid fa-check"></i> Enregistrer</button>
-      <button id="cancelEditBtn2" class="btn btn-ghost">Annuler</button>
+      <button id="saveEditBtn" class="btn btn-brown"><i class="fa-solid fa-check"></i> {{ t('btn.save') }}</button>
+      <button id="cancelEditBtn2" class="btn btn-ghost">{{ t('btn.cancel') }}</button>
     </div>
   </div>
 </div>
@@ -158,14 +158,14 @@
 <div id="usageModal" class="modal hidden" aria-hidden="true" role="dialog" aria-labelledby="usageModalTitle">
   <div class="modal-card">
     <div class="modal-header">
-      <h3 id="usageModalTitle" class="modal-title"><i class="fa-solid fa-eye"></i> Usages</h3>
-      <button class="modal-close" id="closeUsageModal" aria-label="Fermer"><i class="fa-solid fa-xmark"></i></button>
+      <h3 id="usageModalTitle" class="modal-title"><i class="fa-solid fa-eye"></i> {{ t('tools.modal_usages_title') }}</h3>
+      <button class="modal-close" id="closeUsageModal" aria-label="{{ t('btn.close') }}"><i class="fa-solid fa-xmark"></i></button>
     </div>
     <div class="modal-body">
       <div id="usageModalBody" class="usage-list"></div>
     </div>
     <div class="modal-footer">
-      <button id="closeUsageModal2" class="btn btn-ghost">Fermer</button>
+      <button id="closeUsageModal2" class="btn btn-ghost">{{ t('btn.close') }}</button>
     </div>
   </div>
 </div>
@@ -175,7 +175,7 @@
   <div class="modal-card modal-card--wide">
     <div class="modal-header modal-header--warning">
       <h3 id="manageModalTitle" class="modal-title"></h3>
-      <button class="modal-close modal-close--dark" id="closeManageModal" aria-label="Fermer"><i class="fa-solid fa-xmark"></i></button>
+      <button class="modal-close modal-close--dark" id="closeManageModal" aria-label="{{ t('btn.close') }}"><i class="fa-solid fa-xmark"></i></button>
     </div>
     <div id="manageModalBody" class="modal-body"></div>
     <div id="manageModalFooter" class="modal-footer"></div>

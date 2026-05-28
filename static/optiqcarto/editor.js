@@ -4428,51 +4428,39 @@ function runCartoCheck() {
    ══════════════════════════════════════════════════ */
 
 function architectLabels() {
-  // Place each connection label at t=0.90 along the arrow (near the arrowhead).
-  // Steps back 2 % at a time if the candidate position overlaps a shape or a
-  // previously-placed label.  Placed labels are themselves obstacles.
-  const INIT_T     = 0.90;
-  const STEP_T     = 0.02;
-  const SHAPE_M    = 10;
-  const LABEL_M    = 6;
-  const EST_LW     = 72;  // conservative label width estimate
-  const EST_LH     = 14;  // conservative label height estimate
+  // Rules:
+  // 1. Label orientation MUST match the segment it sits on (no mismatched rotation)
+  // 2. The full label box must fit within the segment with clearance from both ends
+  // 3. Minimum clearance from arrowhead, corners, and source/dest shapes
+  // 4. Multi-line labels use actual height
+  // 5. Already-placed labels are obstacles for subsequent ones
 
-  const placedBoxes = [];
-  let changed = false;
+  const CORNER_M  = 30;  // clearance from each segment endpoint (corners + arrowhead)
+  const SHAPE_M   = 14;  // extra margin when checking shape overlap
+  const LABEL_GAP = 8;   // minimum gap between two placed labels
+  const CHAR_W    = 6.5; // estimated px per character (~11px font)
+  const LINE_H    = 13;
+  const STEP_PX   = 8;   // sampling step along segment (px)
 
-  function ptAtT(pts, t) {
-    let total = 0;
-    for (let i = 0; i < pts.length - 1; i++)
-      total += Math.hypot(pts[i+1].x - pts[i].x, pts[i+1].y - pts[i].y);
-    if (total < 1) return pts[pts.length - 1];
-    const target = total * Math.max(0, Math.min(1, t));
-    let acc = 0;
-    for (let i = 0; i < pts.length - 1; i++) {
-      const seg = Math.hypot(pts[i+1].x - pts[i].x, pts[i+1].y - pts[i].y);
-      if (acc + seg >= target) {
-        const u = (target - acc) / seg;
-        return { x: pts[i].x + u * (pts[i+1].x - pts[i].x),
-                 y: pts[i].y + u * (pts[i+1].y - pts[i].y) };
-      }
-      acc += seg;
-    }
-    return pts[pts.length - 1];
+  const placed = [];     // { cx, cy, bw, bh } of already-placed labels
+
+  function labelSize(c) {
+    const lines = (c.label || '').split('\n');
+    const lw = Math.max(24, Math.max(...lines.map(l => l.length)) * CHAR_W + 10);
+    const lh = LINE_H * lines.length + (lines.length > 1 ? 4 : 0);
+    return { lw, lh };
   }
 
-  function overlapsShapes(cx, cy) {
+  function hits(cx, cy, bw, bh) {
+    const hw = bw / 2, hh = bh / 2;
     for (const sh of state.shapes) {
-      if (cx + EST_LW/2 > sh.x - SHAPE_M && cx - EST_LW/2 < sh.x + sh.w + SHAPE_M &&
-          cy + EST_LH/2 > sh.y - SHAPE_M && cy - EST_LH/2 < sh.y + sh.h + SHAPE_M)
+      if (cx + hw > sh.x - SHAPE_M && cx - hw < sh.x + sh.w + SHAPE_M &&
+          cy + hh > sh.y - SHAPE_M && cy - hh < sh.y + sh.h + SHAPE_M)
         return true;
     }
-    return false;
-  }
-
-  function overlapsPlaced(cx, cy) {
-    for (const b of placedBoxes) {
-      if (cx + EST_LW/2 > b.x - LABEL_M && cx - EST_LW/2 < b.x + EST_LW + LABEL_M &&
-          cy + EST_LH/2 > b.y - LABEL_M && cy - EST_LH/2 < b.y + EST_LH + LABEL_M)
+    for (const p of placed) {
+      if (cx + hw > p.cx - p.hw - LABEL_GAP && cx - hw < p.cx + p.hw + LABEL_GAP &&
+          cy + hh > p.cy - p.hh - LABEL_GAP && cy - hh < p.cy + p.hh + LABEL_GAP)
         return true;
     }
     return false;
@@ -4483,26 +4471,60 @@ function architectLabels() {
     const pts = c._computedOrthopts;
     if (!pts || pts.length < 2) continue;
 
-    let placed = false;
-    for (let t = INIT_T; t >= 0.05; t -= STEP_T) {
-      const pos = ptAtT(pts, t);
-      if (overlapsShapes(pos.x, pos.y) || overlapsPlaced(pos.x, pos.y)) continue;
-      c.labelOffset = { x: pos.x, y: pos.y };
-      placedBoxes.push({ x: pos.x - EST_LW/2, y: pos.y - EST_LH/2 });
-      changed = true;
-      placed = true;
-      break;
+    const { lw, lh } = labelSize(c);
+
+    // Overall arrow direction determines rendering angle (horizontal=0, vertical=-90)
+    let totalH = 0, totalV = 0;
+    for (let i = 0; i < pts.length - 1; i++) {
+      totalH += Math.abs(pts[i+1].x - pts[i].x);
+      totalV += Math.abs(pts[i+1].y - pts[i].y);
     }
-    // If no free position found, fall back to t=0.90 without further shifting
-    if (!placed) {
-      const pos = ptAtT(pts, INIT_T);
-      c.labelOffset = { x: pos.x, y: pos.y };
-      placedBoxes.push({ x: pos.x - EST_LW/2, y: pos.y - EST_LH/2 });
-      changed = true;
+    const majorH = totalH >= totalV;
+    // Box dimensions as rendered: horizontal → lw×lh; vertical (rotated -90°) → lh×lw
+    const bw = majorH ? lw : lh;
+    const bh = majorH ? lh : lw;
+    const halfAlong = bw / 2;      // half of the label size along the segment axis
+    const needLen   = bw + 2 * CORNER_M; // minimum segment length to fit label
+
+    // Iterate segments from the arrowhead end (pts[N-1]) to the source end,
+    // considering only segments whose direction matches the arrow's major direction.
+    let ok = false;
+    for (let pass = 0; pass < 2 && !ok; pass++) {
+      for (let i = pts.length - 2; i >= 0 && !ok; i--) {
+        const pa = pts[i], pb = pts[i + 1];
+        const dx = pb.x - pa.x, dy = pb.y - pa.y;
+        const segLen = Math.hypot(dx, dy);
+        if (segLen < 1) continue;
+        const segIsH = Math.abs(dy) < Math.abs(dx);
+        // Pass 0: only segments matching major direction (ensures correct rotation)
+        // Pass 1: any long-enough segment as fallback
+        if (pass === 0 && segIsH !== majorH) continue;
+        if (segLen < needLen) continue;
+
+        // Valid range for the label center along the segment (in t ∈ [0,1])
+        const tMin = (halfAlong + CORNER_M) / segLen;
+        const tMax = 1 - (halfAlong + CORNER_M) / segLen;
+        if (tMax < tMin) continue;
+
+        // Sample from pb end (near arrowhead) toward pa end
+        for (let t = tMax; t >= tMin - 1e-6; t -= STEP_PX / segLen) {
+          const cx = pa.x + dx * t;
+          const cy = pa.y + dy * t;
+          if (!hits(cx, cy, bw, bh)) {
+            c.labelOffset = { x: cx, y: cy };
+            placed.push({ cx, cy, hw: bw / 2, hh: bh / 2 });
+            ok = true;
+            break;
+          }
+        }
+      }
     }
+
+    // Last resort: delete labelOffset so the auto-placement takes over
+    if (!ok) delete c.labelOffset;
   }
 
-  if (changed) { snapshot(); render(); }
+  snapshot(); render();
 }
 
 

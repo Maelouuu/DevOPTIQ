@@ -11,24 +11,24 @@
     </div>
     <div class="page-banner__text">
       <h1 class="page-banner__title">Gestion des comptes</h1>
-      <p class="page-banner__sub">Créez, importez et gérez les utilisateurs de votre organisation</p>
+      <p class="page-banner__sub">{{ t('account.subtitle') }}</p>
     </div>
     <div class="page-banner__stat" id="usersCount">
       <span class="stat-val">{{ users|length }}</span>
-      <span class="stat-lbl">utilisateurs</span>
+      <span class="stat-lbl">{{ t('account.users_count') }}</span>
     </div>
   </div>
 
   <!-- ── Tabs ── -->
   <div class="tabs-row" role="tablist">
     <button class="tab-btn active" role="tab" aria-selected="true"  data-tab="create-tab">
-      <i class="fa-solid fa-user-plus"></i> Créer
+      <i class="fa-solid fa-user-plus"></i> {{ t('account.tab_create') }}
     </button>
     <button class="tab-btn" role="tab" aria-selected="false" data-tab="import-tab">
-      <i class="fa-solid fa-file-excel"></i> Import Excel
+      <i class="fa-solid fa-file-excel"></i> {{ t('account.tab_import') }}
     </button>
     <button class="tab-btn" role="tab" aria-selected="false" data-tab="list-tab">
-      <i class="fa-solid fa-list"></i> Utilisateurs
+      <i class="fa-solid fa-list"></i> {{ t('account.users_tab') }}
     </button>
   </div>
 
@@ -39,8 +39,8 @@
         <div class="section-card__head-left">
           <span class="section-icon"><i class="fa-solid fa-user-plus"></i></span>
           <div>
-            <h2 id="create-title" class="section-card__title">Nouvel utilisateur</h2>
-            <p class="section-card__subtitle">Remplissez les informations pour créer un compte</p>
+            <h2 id="create-title" class="section-card__title">{{ t('account.new_user_title') }}</h2>
+            <p class="section-card__subtitle">{{ t('account.fill_info') }}</p>
           </div>
         </div>
       </div>
@@ -50,13 +50,13 @@
           <div class="field">
             <div class="search-style-wrap">
               <i class="fa-solid fa-user search-style-icon"></i>
-              <input type="text" name="first_name" class="search-style-input" placeholder="Prénom *" required autocomplete="off">
+              <input type="text" name="first_name" class="search-style-input" placeholder="{{ t('account.field_firstname') }} *" required autocomplete="off">
             </div>
           </div>
           <div class="field">
             <div class="search-style-wrap">
               <i class="fa-solid fa-user search-style-icon"></i>
-              <input type="text" name="last_name" class="search-style-input" placeholder="Nom *" required autocomplete="off">
+              <input type="text" name="last_name" class="search-style-input" placeholder="{{ t('account.field_lastname') }} *" required autocomplete="off">
             </div>
           </div>
           <div class="field">
@@ -68,20 +68,20 @@
           <div class="field">
             <div class="search-style-wrap">
               <i class="fa-solid fa-calendar search-style-icon"></i>
-              <input type="number" name="age" class="search-style-input" placeholder="Âge" min="18" max="100" autocomplete="off">
+              <input type="number" name="age" class="search-style-input" placeholder="{{ t('account.field_age') }}" min="18" max="100" autocomplete="off">
             </div>
           </div>
           <div class="field">
             <div class="search-style-wrap">
               <i class="fa-solid fa-lock search-style-icon"></i>
-              <input type="password" name="password" class="search-style-input search-style-input--pass" placeholder="Mot de passe *" required minlength="6">
+              <input type="password" name="password" class="search-style-input search-style-input--pass" placeholder="{{ t('account.field_password') }} *" required minlength="6">
             </div>
           </div>
           <div class="field">
             <div class="search-style-wrap search-style-wrap--select">
               <i class="fa-solid fa-briefcase search-style-icon"></i>
               <select name="role_id" class="search-style-input" required>
-                <option value="">-- Rôle *</option>
+                <option value="">{{ t('account.role_placeholder') }}</option>
                 {% for role in roles %}
                   <option value="{{ role.id }}">{{ role.name }}</option>
                 {% endfor %}
@@ -92,15 +92,15 @@
             <div class="search-style-wrap search-style-wrap--select">
               <i class="fa-solid fa-shield search-style-icon"></i>
               <select name="status" class="search-style-input" required>
-                <option value="user">Utilisateur</option>
-                <option value="rh">RH</option>
-                <option value="administrateur">Administrateur</option>
+                <option value="user">{{ t('account.status_user') }}</option>
+                <option value="rh">{{ t('account.status_rh') }}</option>
+                <option value="administrateur">{{ t('account.status_admin') }}</option>
               </select>
             </div>
           </div>
           <div class="field-btn">
             <button type="submit" class="btn btn-pink create-submit-btn">
-              <i class="fa-solid fa-check"></i> Créer l'utilisateur
+              <i class="fa-solid fa-check"></i> {{ t('account.btn_create_user') }}
             </button>
           </div>
         </div>
@@ -115,35 +115,35 @@
         <div class="section-card__head-left">
           <span class="section-icon"><i class="fa-solid fa-file-excel"></i></span>
           <div>
-            <h2 id="import-title" class="section-card__title">Importer via Excel</h2>
-            <p class="section-card__subtitle">Importez plusieurs utilisateurs depuis un fichier Excel</p>
+            <h2 id="import-title" class="section-card__title">{{ t('account.import_title') }}</h2>
+            <p class="section-card__subtitle">{{ t('account.import_subtitle') }}</p>
           </div>
         </div>
       </div>
 
       <div class="drag-drop-zone" id="dropZone">
         <i class="fa-solid fa-cloud-arrow-up"></i>
-        <p>Glissez-déposez votre fichier Excel ici</p>
-        <p class="dz-sub">ou cliquez pour sélectionner un fichier</p>
+        <p>{{ t('account.drag_drop') }}</p>
+        <p class="dz-sub">{{ t('account.drag_drop_or') }}</p>
         <input type="file" id="excelFileInput" accept=".xlsx,.xls,.csv" style="display:none;">
       </div>
 
       <div class="info-strip">
         <i class="fa-solid fa-lightbulb"></i>
-        <span>Colonnes attendues : <strong>prenom, nom, email, age, mot_de_passe, role, statut</strong>
-          <button class="link-btn" onclick="showFormatModal()"><i class="fa-solid fa-circle-info"></i> Voir le format</button>
+        <span>{{ t('account.expected_columns') }} <strong>prenom, nom, email, age, mot_de_passe, role, statut</strong>
+          <button class="link-btn" onclick="showFormatModal()"><i class="fa-solid fa-circle-info"></i> {{ t('account.see_format') }}</button>
         </span>
       </div>
 
       <div id="previewZone" class="preview-zone" style="display:none;">
-        <h3 class="preview-title"><i class="fa-solid fa-eye"></i> Prévisualisation</h3>
+        <h3 class="preview-title"><i class="fa-solid fa-eye"></i> {{ t('account.preview') }}</h3>
         <div id="previewTable"></div>
         <div class="preview-actions">
           <button class="btn btn-pink" onclick="confirmImport()">
-            <i class="fa-solid fa-check"></i> Confirmer l'import
+            <i class="fa-solid fa-check"></i> {{ t('account.confirm_import') }}
           </button>
           <button class="btn btn-ghost" onclick="cancelImport()">
-            <i class="fa-solid fa-times"></i> Annuler
+            <i class="fa-solid fa-times"></i> {{ t('btn.cancel') }}
           </button>
         </div>
       </div>
@@ -157,8 +157,8 @@
         <div class="section-card__head-left">
           <span class="section-icon section-icon--muted"><i class="fa-solid fa-users"></i></span>
           <div>
-            <h2 id="list-title" class="section-card__title">Liste des utilisateurs</h2>
-            <p class="section-card__subtitle">Recherchez, modifiez ou supprimez des comptes</p>
+            <h2 id="list-title" class="section-card__title">{{ t('account.list_title') }}</h2>
+            <p class="section-card__subtitle">{{ t('account.list_subtitle') }}</p>
           </div>
         </div>
       </div>
@@ -166,21 +166,21 @@
       <div class="filter-row">
         <div class="search-wrap">
           <i class="fa-solid fa-magnifying-glass search-icon"></i>
-          <input type="search" id="searchInput" class="search-input" placeholder="Rechercher par nom ou prénom…" autocomplete="off" onkeyup="filterUsers()">
+          <input type="search" id="searchInput" class="search-input" placeholder="{{ t('account.search_by_name') }}" autocomplete="off" onkeyup="filterUsers()">
         </div>
         <div class="search-style-wrap search-style-wrap--select filter-sel">
           <i class="fa-solid fa-shield search-style-icon"></i>
           <select id="statusFilter" class="search-style-input" onchange="filterUsers()">
-            <option value="">Tous les statuts</option>
-            <option value="user">Utilisateur</option>
-            <option value="rh">RH</option>
-            <option value="administrateur">Administrateur</option>
+            <option value="">{{ t('account.all_statuses') }}</option>
+            <option value="user">{{ t('account.status_user') }}</option>
+            <option value="rh">{{ t('account.status_rh') }}</option>
+            <option value="administrateur">{{ t('account.status_admin') }}</option>
           </select>
         </div>
         <div class="search-style-wrap search-style-wrap--select filter-sel">
           <i class="fa-solid fa-briefcase search-style-icon"></i>
           <select id="roleFilter" class="search-style-input" onchange="filterUsers()">
-            <option value="">Tous les rôles</option>
+            <option value="">{{ t('account.all_roles') }}</option>
             {% for role in roles %}
               <option value="{{ role.name }}">{{ role.name }}</option>
             {% endfor %}
@@ -192,12 +192,12 @@
         <table class="users-table">
           <thead>
             <tr>
-              <th>Nom complet</th>
-              <th>Email</th>
-              <th>Âge</th>
-              <th>Rôle</th>
-              <th>Statut</th>
-              <th>Actions</th>
+              <th>{{ t('account.th_fullname') }}</th>
+              <th>{{ t('account.th_email') }}</th>
+              <th>{{ t('account.th_age') }}</th>
+              <th>{{ t('account.th_role') }}</th>
+              <th>{{ t('account.th_status') }}</th>
+              <th>{{ t('account.th_actions') }}</th>
             </tr>
           </thead>
           <tbody id="usersTableBody">
@@ -228,16 +228,16 @@
                     {% elif user.status == 'rh' %}
                       <span class="badge badge-rh">RH</span>
                     {% else %}
-                      <span class="badge badge-user">Utilisateur</span>
+                      <span class="badge badge-user">{{ t('account.status_user') }}</span>
                     {% endif %}
                   </td>
                   <td class="td-actions">
                     <a href="{{ url_for('gestion_compte.update_user', user_id=user.id) }}" class="btn btn-sm btn-outline">
-                      <i class="fa-solid fa-pencil"></i> Modifier
+                      <i class="fa-solid fa-pencil"></i> {{ t('account.btn_modify') }}
                     </a>
                     <button type="button" class="btn btn-sm btn-danger"
                             onclick="confirmDelete('{{ user.id }}', '{{ user.first_name }} {{ user.last_name }}')">
-                      <i class="fa-solid fa-trash"></i> Supprimer
+                      <i class="fa-solid fa-trash"></i> {{ t('account.btn_delete') }}
                     </button>
                   </td>
                 </tr>
@@ -246,7 +246,7 @@
               <tr>
                 <td colspan="6" class="td-empty">
                   <i class="fa-solid fa-inbox"></i>
-                  <p>Aucun utilisateur trouvé</p>
+                  <p>{{ t('account.no_users_found') }}</p>
                 </td>
               </tr>
             {% endif %}
@@ -263,26 +263,26 @@
 <div class="modal hidden" id="formatModal" aria-hidden="true">
   <div class="modal-card">
     <div class="modal-header">
-      <h3 class="modal-title"><i class="fa-solid fa-circle-info"></i> Format Excel requis</h3>
+      <h3 class="modal-title"><i class="fa-solid fa-circle-info"></i> {{ t('account.modal_format_title') }}</h3>
       <button class="modal-close" onclick="closeFormatModal()" aria-label="Fermer"><i class="fa-solid fa-xmark"></i></button>
     </div>
     <div class="modal-body">
-      <p class="mb-12">Votre fichier doit contenir les colonnes suivantes :</p>
+      <p class="mb-12">{{ t('account.modal_format_cols') }}</p>
       <div class="format-example">
-        <strong>En-têtes :</strong>
+        <strong>{{ t('account.modal_format_headers') }}</strong>
         <code>prenom | nom | email | age | mot_de_passe | role | statut</code>
       </div>
       <div class="format-example">
-        <strong>Exemple :</strong>
+        <strong>{{ t('account.modal_format_example') }}</strong>
         <code>Jean | Dupont | jean@mail.com | 30 | pass123 | Développeur | user</code>
       </div>
       <div class="info-strip info-strip--warn" style="margin-top:12px;">
         <i class="fa-solid fa-triangle-exclamation"></i>
-        <span>Statuts valides : <code>user</code>, <code>rh</code>, <code>administrateur</code></span>
+        <span>{{ t('account.modal_format_warning') }} <code>user</code>, <code>rh</code>, <code>administrateur</code></span>
       </div>
     </div>
     <div class="modal-footer">
-      <button class="btn btn-pink" onclick="closeFormatModal()"><i class="fa-solid fa-check"></i> J'ai compris</button>
+      <button class="btn btn-pink" onclick="closeFormatModal()"><i class="fa-solid fa-check"></i> {{ t('account.modal_understood') }}</button>
     </div>
   </div>
 </div>
@@ -291,16 +291,16 @@
 <div class="modal hidden" id="deleteConfirmModal" aria-hidden="true">
   <div class="modal-card">
     <div class="modal-header modal-header--danger">
-      <h3 class="modal-title"><i class="fa-solid fa-triangle-exclamation"></i> Confirmer la suppression</h3>
+      <h3 class="modal-title"><i class="fa-solid fa-triangle-exclamation"></i> {{ t('account.delete_title') }}</h3>
       <button class="modal-close modal-close--dark" onclick="closeDeleteModal()" aria-label="Fermer"><i class="fa-solid fa-xmark"></i></button>
     </div>
     <div class="modal-body">
-      <p>Supprimer <strong id="deleteUserName"></strong> ?</p>
-      <p class="danger-note">Cette action est irréversible.</p>
+      <p>{{ t('account.delete_question') }} <strong id="deleteUserName"></strong> ?</p>
+      <p class="danger-note">{{ t('account.delete_irreversible') }}</p>
     </div>
     <div class="modal-footer">
-      <button class="btn btn-pink-danger" onclick="executeDelete()"><i class="fa-solid fa-trash"></i> Supprimer</button>
-      <button class="btn btn-ghost" onclick="closeDeleteModal()">Annuler</button>
+      <button class="btn btn-pink-danger" onclick="executeDelete()"><i class="fa-solid fa-trash"></i> {{ t('account.btn_delete') }}</button>
+      <button class="btn btn-ghost" onclick="closeDeleteModal()">{{ t('btn.cancel') }}</button>
     </div>
   </div>
 </div>
