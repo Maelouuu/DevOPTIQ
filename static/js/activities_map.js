@@ -1015,7 +1015,10 @@ function handleCrossCartoClick(activityName, matches) {
         alert("Impossible d'identifier l'activité hachurée.");
         return;
       }
-      await officializeLiaison(extcoActivityId, m.entity_id, m.activity_id, m.entity_name, btn);
+      // Ask user for a display label (pre-fill with origin entity name)
+      const label = await _promptLiaisonLabel(m.entity_name);
+      if (label === null) return; // user cancelled
+      await officializeLiaison(extcoActivityId, m.entity_id, m.activity_id, m.entity_name, btn, label);
     });
 
     listEl.appendChild(item);
@@ -1024,7 +1027,41 @@ function handleCrossCartoClick(activityName, matches) {
   popup.classList.remove("hidden");
 }
 
-async function officializeLiaison(extcoActivityId, originEntityId, originActivityId, originEntityName, btn) {
+function _promptLiaisonLabel(defaultLabel) {
+  return new Promise(resolve => {
+    const overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:9999;display:flex;align-items:center;justify-content:center';
+    overlay.innerHTML = `
+      <div style="background:#fff;border-radius:12px;padding:24px;min-width:320px;max-width:420px;box-shadow:0 8px 32px rgba(0,0,0,0.2)">
+        <h3 style="margin:0 0 8px;font-size:1rem;font-weight:700;color:#1e293b"><i class="fa-solid fa-tag" style="color:#ec4899;margin-right:6px"></i>Nom affiché sous l'activité</h3>
+        <p style="margin:0 0 14px;font-size:0.82rem;color:#64748b">Ce nom apparaîtra sous l'activité hachurée dans la cartographie.</p>
+        <input id="_liaison-label-input" type="text" value="${defaultLabel || ''}"
+          style="width:100%;box-sizing:border-box;padding:8px 10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:0.9rem;outline:none"
+          maxlength="100">
+        <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">
+          <button id="_liaison-cancel" style="padding:7px 16px;border:1.5px solid #e2e8f0;border-radius:8px;background:#fff;cursor:pointer;font-size:0.85rem">Annuler</button>
+          <button id="_liaison-confirm" style="padding:7px 16px;border:none;border-radius:8px;background:#ec4899;color:#fff;cursor:pointer;font-size:0.85rem;font-weight:600">Confirmer</button>
+        </div>
+      </div>`;
+    document.body.appendChild(overlay);
+    const input = overlay.querySelector('#_liaison-label-input');
+    input.focus(); input.select();
+    overlay.querySelector('#_liaison-confirm').addEventListener('click', () => {
+      document.body.removeChild(overlay);
+      resolve(input.value.trim() || null);
+    });
+    overlay.querySelector('#_liaison-cancel').addEventListener('click', () => {
+      document.body.removeChild(overlay);
+      resolve(null);
+    });
+    input.addEventListener('keydown', e => {
+      if (e.key === 'Enter') { overlay.querySelector('#_liaison-confirm').click(); }
+      if (e.key === 'Escape') { overlay.querySelector('#_liaison-cancel').click(); }
+    });
+  });
+}
+
+async function officializeLiaison(extcoActivityId, originEntityId, originActivityId, originEntityName, btn, displayLabel) {
   if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i>'; }
   try {
     const res = await fetch("/activities/api/officialize_liaison", {
@@ -1033,7 +1070,8 @@ async function officializeLiaison(extcoActivityId, originEntityId, originActivit
       body: JSON.stringify({
         extco_activity_id: extcoActivityId,
         origin_entity_id:  originEntityId,
-        origin_activity_id: originActivityId
+        origin_activity_id: originActivityId,
+        display_label: displayLabel || null,
       })
     });
     const data = await res.json();
@@ -1506,6 +1544,55 @@ function initVsdxCompareModal() {
 /* ============================================================
    INIT
 ============================================================ */
+async function initCalqueStrip() {
+  const strip = document.getElementById("calque-strip");
+  const list  = document.getElementById("calque-strip-list");
+  if (!strip || !list) return;
+
+  let calques = [];
+  try {
+    const r = await fetch("/cartography/api/calques");
+    calques = await r.json();
+  } catch (_) { return; }
+
+  if (!Array.isArray(calques) || calques.length === 0) return;
+  strip.style.display = "flex";
+
+  let activeId = "master";
+
+  function setActive(id) {
+    activeId = id;
+    list.querySelectorAll(".calque-chip").forEach(c => c.classList.toggle("active", c.dataset.id === String(id)));
+  }
+
+  async function applyCalque(id) {
+    const frame = document.getElementById("carto-viewer-frame");
+    if (!frame) return;
+    if (id === "master") {
+      await fetch("/cartography/api/calques/deactivate", { method: "POST" }).catch(() => {});
+    } else {
+      await fetch(`/cartography/api/calques/${id}/apply`, { method: "POST" }).catch(() => {});
+    }
+    // Reload iframe to reflect new state
+    frame.src = frame.src;
+    setActive(id);
+  }
+
+  // Master chip already in DOM — wire it
+  const masterChip = document.getElementById("calque-chip-master");
+  if (masterChip) masterChip.addEventListener("click", () => applyCalque("master"));
+
+  // Add calque chips
+  for (const c of calques) {
+    const chip = document.createElement("button");
+    chip.className = "calque-chip";
+    chip.dataset.id = c.id;
+    chip.textContent = c.name;
+    chip.addEventListener("click", () => applyCalque(c.id));
+    list.appendChild(chip);
+  }
+}
+
 document.addEventListener("DOMContentLoaded", async () => {
   // Cacher tous les modals immédiatement
   hideAllModals();
@@ -1519,6 +1606,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   initVsdxCompareModal();
   initCartoPreview();
   await loadSvgInline();
+  initCalqueStrip();
 
   // Touche Echap pour fermer le popup entité (si ouvert)
   document.addEventListener("keydown", (e) => {

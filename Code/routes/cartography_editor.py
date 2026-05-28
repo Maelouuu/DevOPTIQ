@@ -943,3 +943,46 @@ def api_architect():
             return jsonify({"error": f"Erreur Anthropic : {e}"}), 500
 
     return jsonify({"error": "Aucune clé IA configurée (OPENAI_API_KEY ou ANTHROPIC_KEY)"}), 500
+
+
+@cartography_editor_bp.route("/api/liaisons", methods=["GET"])
+def get_liaisons():
+    """Retourne les liaisons cross-carto actives pour l'entité courante."""
+    entity_id = session.get("active_entity_id")
+    if not entity_id:
+        return jsonify([])
+    liaisons = CrossCartoLiaison.query.filter_by(
+        extco_entity_id=entity_id, is_active=True
+    ).all()
+    result = []
+    for l in liaisons:
+        origin_entity = Entity.query.get(l.origin_entity_id)
+        extco_act = Activities.query.get(l.extco_activity_id)
+        result.append({
+            "id": l.id,
+            "extco_activity_id": l.extco_activity_id,
+            "extco_shape_id": extco_act.shape_id if extco_act else None,
+            "extco_activity_name": extco_act.name if extco_act else None,
+            "origin_entity_id": l.origin_entity_id,
+            "origin_entity_name": origin_entity.name if origin_entity else None,
+            "display_label": l.display_label,
+        })
+    return jsonify(result)
+
+
+@cartography_editor_bp.route("/api/liaisons/<int:liaison_id>", methods=["PATCH"])
+def patch_liaison(liaison_id):
+    """Met à jour le display_label d'une liaison."""
+    entity_id = session.get("active_entity_id")
+    user_id = session.get("user_id")
+    if not entity_id or not user_id:
+        return jsonify({"error": "Non autorisé"}), 403
+    liaison = CrossCartoLiaison.query.filter_by(
+        id=liaison_id, extco_entity_id=entity_id, is_active=True
+    ).first()
+    if not liaison:
+        return jsonify({"error": "Liaison introuvable"}), 404
+    data = request.get_json(force=True) or {}
+    liaison.display_label = data.get("display_label") or None
+    db.session.commit()
+    return jsonify({"ok": True, "display_label": liaison.display_label})

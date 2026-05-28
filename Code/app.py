@@ -295,6 +295,7 @@ def create_app(test_config=None):
         _safe_add_column("activities", "shape_subtype", "VARCHAR(50)")
         _safe_add_column("links", "cross_carto_liaison_id", "INTEGER")
         _safe_add_column("links", "cross_carto_label", "VARCHAR(200)")
+        _safe_add_column("cross_carto_liaisons", "display_label", "VARCHAR(200)")
 
         # 3. Tables supplémentaires
         try:

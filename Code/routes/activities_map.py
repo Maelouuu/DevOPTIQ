@@ -1220,6 +1220,7 @@ def officialize_liaison():
     extco_activity_id = data.get("extco_activity_id")
     origin_entity_id = data.get("origin_entity_id")
     origin_activity_id = data.get("origin_activity_id")
+    display_label = data.get("display_label") or None
 
     if not extco_activity_id or not origin_entity_id or not origin_activity_id:
         return jsonify({"error": "Paramètres manquants"}), 400
@@ -1251,7 +1252,8 @@ def officialize_liaison():
         extco_activity_id=extco_activity_id,
         origin_entity_id=origin_entity_id,
         origin_activity_id=origin_activity_id,
-        is_active=True
+        is_active=True,
+        display_label=display_label,
     )
     db.session.add(liaison)
     db.session.flush()

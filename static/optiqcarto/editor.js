@@ -208,6 +208,8 @@ let _calqueList = [];
 let selectedGroup = null;
 let groupHighlightId = null;
 let expandedGroups = new Set();
+// extco activity_id → { id, display_label, origin_entity_name }
+let _liaisonByActivityId = {};
 
 // ── Refs DOM ──────────────────────────────────────
 const canvas    = document.getElementById('canvas');
@@ -956,6 +958,27 @@ function renderShapes() {
           'pointer-events': 'none',
         }, g);
       });
+    }
+
+    // ── Liaison sub-label (below extco shapes) ───────────────────────────────
+    if (s.subtype === 'extco') {
+      const liaison = _liaisonByActivityId[String(s.id)];
+      const subLabelText = liaison
+        ? (liaison.display_label || liaison.origin_entity_name || '')
+        : '';
+      if (subLabelText) {
+        txt(subLabelText, {
+          x: s.x + s.w / 2,
+          y: s.y + s.h + 13,
+          'text-anchor': 'middle',
+          'dominant-baseline': 'middle',
+          fill: '#64748b',
+          'font-size': Math.max(9, Math.min(13, s.fontSize * 0.72)),
+          'font-family': 'Segoe UI, system-ui, sans-serif',
+          'font-style': 'italic',
+          'pointer-events': 'none',
+        }, g);
+      }
     }
 
     // ── Validation badge (bottom-right corner) ───
@@ -2414,6 +2437,16 @@ function updateProps() {
         document.getElementById('subtype-btn-extco')?.classList.toggle('active', sub === 'extco');
       }
     }
+    // Liaison label — visible only for extco shapes that have an active liaison
+    const liaisonRow = document.getElementById('prop-liaison-row');
+    if (liaisonRow) {
+      const liaison = s.subtype === 'extco' ? _liaisonByActivityId[String(s.id)] : null;
+      liaisonRow.style.display = liaison ? '' : 'none';
+      if (liaison) {
+        const liaisonInput = document.getElementById('prop-liaison-label');
+        if (liaisonInput) liaisonInput.value = liaison.display_label || '';
+      }
+    }
     // Variante couleur (0=fidèle, 1=moins fidèle)
     const band = getBandForY(s.y + s.h / 2);
     const v0El = document.getElementById('variant-btn-0');
@@ -2552,6 +2585,29 @@ function bindProps() {
       }
       snapshot(); render(); updateProps();
     });
+  });
+
+  // Liaison label — PATCH to API on change (debounced)
+  let _liaisonLabelTimer = null;
+  document.getElementById('prop-liaison-label')?.addEventListener('input', e => {
+    const id = [...selectedShapes][0];
+    if (!id) return;
+    const liaison = _liaisonByActivityId[String(id)];
+    if (!liaison) return;
+    // Optimistic update in-memory
+    liaison.display_label = e.target.value.trim() || null;
+    render();
+    clearTimeout(_liaisonLabelTimer);
+    _liaisonLabelTimer = setTimeout(async () => {
+      const apiBase = window.OPTIQCARTO_API_BASE || '/cartography';
+      try {
+        await fetch(`${apiBase}/api/liaisons/${liaison.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ display_label: liaison.display_label }),
+        });
+      } catch (_) {}
+    }, 600);
   });
 
   document.getElementById('prop-delete-shape').addEventListener('click', deleteSelected);
@@ -2877,6 +2933,8 @@ async function saveJSON() {
       clearTimeout(_autoSaveTimerId);
       _showSavePopup('done');
       if (data.sync_warning) setTimeout(() => showToast(_L('editor.toast.sync_error') + data.sync_warning, 'warn'), 1600);
+      // After saving Master, offer to propagate to other calques
+      _offerMasterPropagation(apiBase);
       return true;
     } else {
       _hideSavePopup();
@@ -2888,6 +2946,61 @@ async function saveJSON() {
     showToast(_L('editor.toast.save_network_error'));
     return false;
   }
+}
+
+async function _offerMasterPropagation(apiBase) {
+  let calques = [];
+  try {
+    const r = await fetch(`${apiBase}/api/calques`);
+    calques = await r.json();
+  } catch (_) { return; }
+  if (!Array.isArray(calques) || calques.length === 0) return;
+
+  // Build modal
+  const overlay = document.createElement('div');
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:9998;display:flex;align-items:center;justify-content:center';
+  const rows = calques.map(c => `
+    <label style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;cursor:pointer;hover:background:#f8fafc">
+      <input type="checkbox" class="calque-propagate-cb" data-id="${c.id}" checked
+        style="width:16px;height:16px;accent-color:#ec4899;cursor:pointer">
+      <span style="font-size:0.88rem;color:#1e293b">${c.name}</span>
+    </label>`).join('');
+  overlay.innerHTML = `
+    <div style="background:#fff;border-radius:14px;padding:24px;min-width:340px;max-width:460px;box-shadow:0 8px 32px rgba(0,0,0,0.22)">
+      <h3 style="margin:0 0 6px;font-size:1rem;font-weight:700;color:#1e293b">
+        <i class="fa-solid fa-layer-group" style="color:#ec4899;margin-right:6px"></i>
+        ${_L('editor.master_propagate_title')}
+      </h3>
+      <p style="margin:0 0 14px;font-size:0.82rem;color:#64748b">${_L('editor.master_propagate_desc')}</p>
+      <div style="border:1.5px solid #e2e8f0;border-radius:10px;padding:6px 4px;margin-bottom:16px;max-height:220px;overflow-y:auto">${rows}</div>
+      <div style="display:flex;gap:8px;justify-content:flex-end">
+        <button id="_prop-skip" style="padding:7px 16px;border:1.5px solid #e2e8f0;border-radius:8px;background:#fff;cursor:pointer;font-size:0.85rem">${_L('editor.master_propagate_skip')}</button>
+        <button id="_prop-apply" style="padding:7px 16px;border:none;border-radius:8px;background:linear-gradient(135deg,#ec4899,#be185d);color:#fff;cursor:pointer;font-size:0.85rem;font-weight:600">
+          <i class="fa-solid fa-bolt"></i> ${_L('editor.master_propagate_apply')}
+        </button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+
+  overlay.querySelector('#_prop-skip').addEventListener('click', () => document.body.removeChild(overlay));
+  overlay.querySelector('#_prop-apply').addEventListener('click', async () => {
+    const checked = [...overlay.querySelectorAll('.calque-propagate-cb:checked')].map(cb => parseInt(cb.dataset.id));
+    document.body.removeChild(overlay);
+    if (checked.length === 0) return;
+    let ok = 0, fail = 0;
+    await Promise.all(checked.map(async id => {
+      try {
+        const r = await fetch(`${apiBase}/api/calques/${id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ state }),
+        });
+        const d = await r.json();
+        if (d.ok) ok++; else fail++;
+      } catch (_) { fail++; }
+    }));
+    showToast(ok + ' ' + _L('editor.master_propagate_done') + (fail ? ` (${fail} échecs)` : ''));
+  });
 }
 
 function _showSavePopup(state) {
@@ -2975,6 +3088,20 @@ function _showUnsavedModal() {
 
 /* ── Calques ──────────────────────────────────────── */
 
+async function _loadLiaisons() {
+  if (window.OPTIQCARTO_READONLY) return;
+  const apiBase = window.OPTIQCARTO_API_BASE || '/cartography';
+  try {
+    const res = await fetch(`${apiBase}/api/liaisons`);
+    const list = await res.json();
+    _liaisonByActivityId = {};
+    for (const l of (Array.isArray(list) ? list : [])) {
+      // Key by editor shape_id (string) so render can do O(1) lookup via s.id
+      if (l.extco_shape_id != null) _liaisonByActivityId[String(l.extco_shape_id)] = l;
+    }
+  } catch (_) {}
+}
+
 async function _transitionState(newState) {
   const canvasWrap = document.getElementById('canvas-wrap');
   if (canvasWrap) {
@@ -2993,6 +3120,7 @@ async function _transitionState(newState) {
     state.connections = state.connections.filter(c => validIds.has(c.fromId) && validIds.has(c.toId));
   }
   history = [JSON.stringify(state)]; histIndex = 0;
+  await _loadLiaisons();
   render(); updateProps();
   if (canvasWrap) {
     await new Promise(r => setTimeout(r, 20));

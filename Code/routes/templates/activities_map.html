@@ -229,6 +229,13 @@
             </a>
           </div>
         </div>
+        <!-- Calque selector strip -->
+        <div id="calque-strip" class="calque-strip" style="display:none">
+          <span class="calque-strip-label"><i class="fa-solid fa-layer-group"></i> {{ t('map.calque_label') }}</span>
+          <div id="calque-strip-list" class="calque-strip-list">
+            <button class="calque-chip active" data-id="master" id="calque-chip-master">Master</button>
+          </div>
+        </div>
         <div class="carto-viewer-wrap">
           <iframe id="carto-viewer-frame" src="/cartography/viewer" frameborder="0" allowfullscreen></iframe>
         </div>

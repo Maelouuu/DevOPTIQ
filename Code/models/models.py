@@ -809,4 +809,5 @@ class CrossCartoLiaison(db.Model):
     origin_entity_id = db.Column(db.Integer, db.ForeignKey('entities.id'), nullable=False)
     origin_activity_id = db.Column(db.Integer, db.ForeignKey('activities.id'), nullable=False)
     is_active = db.Column(db.Boolean, default=True, nullable=False)
+    display_label = db.Column(db.String(200), nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
