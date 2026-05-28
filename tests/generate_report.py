@@ -35,6 +35,8 @@ PAGE_LABELS = {
     "test_21_export":            "Export & Fichiers",
     "test_22_propose_ia":        "Propositions IA & Compétences API",
     "test_23_performance_perso": "Performance Personnalisée",
+    "test_24_roles_view":        "Vues des Rôles & Items Activité",
+    "test_25_competences_plan":  "Plan de Compétences & Prérequis",
 }
 
 
