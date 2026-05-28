@@ -1636,18 +1636,51 @@ function onDown(e) {
     const cornerEl = e.target.closest('[data-conn-corner]');
     if (cornerEl) {
       const cid   = parseInt(cornerEl.getAttribute('data-conn-corner'));
-      const ptIdx = parseInt(cornerEl.getAttribute('data-pt-idx'));
+      let   ptIdx = parseInt(cornerEl.getAttribute('data-pt-idx'));
       const { x, y } = screenToSVG(e.clientX, e.clientY);
       const conn = state.connections.find(c => c.id === cid);
       if (!conn) return;
       const pts = conn._computedOrthopts || [];
       if (ptIdx < 1 || ptIdx >= pts.length - 1) return;
       if (!conn.userPts) conn.userPts = pts.slice(1, -1).map(p => ({ x: p.x, y: p.y }));
+
+      // Pre-expand: insert helper corners when dragged corner is adjacent to src or dst.
+      // This guarantees all angles stay at 90° during drag.
+      const N = pts.length;
+      const needPrevHelper = ptIdx === 1;
+      const needNextHelper = ptIdx === N - 2;
+
+      let srcToCornerIsH = false, cornerToDstIsH = false;
+      if (needPrevHelper || needNextHelper) {
+        srcToCornerIsH = Math.abs(pts[1].x - pts[0].x) > Math.abs(pts[1].y - pts[0].y);
+        cornerToDstIsH = Math.abs(pts[N-1].x - pts[N-2].x) > Math.abs(pts[N-1].y - pts[N-2].y);
+        if (needPrevHelper) {
+          const A = srcToCornerIsH
+            ? { x: pts[ptIdx].x, y: pts[0].y }
+            : { x: pts[0].x,     y: pts[ptIdx].y };
+          conn.userPts.splice(ptIdx - 1, 0, A);
+          ptIdx++; // dragged corner shifted right
+        }
+        if (needNextHelper) {
+          const origCorner = pts[needPrevHelper ? ptIdx - 1 : N - 2];
+          const B = cornerToDstIsH
+            ? { x: origCorner.x, y: pts[N-1].y }
+            : { x: pts[N-1].x,   y: origCorner.y };
+          conn.userPts.splice(ptIdx, 0, B);
+        }
+      }
+
+      // Rebuild startPts from expanded userPts
+      const newStartPts = [pts[0], ...conn.userPts.map(p => ({ x: p.x, y: p.y })), pts[N-1]];
+
       cornerSnapPreview = false;
       cornerDrag = {
         connId: cid, ptIdx,
         startX: x, startY: y,
-        startPts: pts.map(p => ({ x: p.x, y: p.y })),
+        startPts: newStartPts,
+        needPrevHelper, needNextHelper,
+        srcToCornerIsH, cornerToDstIsH,
+        noSnap: needPrevHelper || needNextHelper,
       };
       canvas.style.cursor = 'move';
       return;
@@ -1851,8 +1884,24 @@ function onMove(e) {
       conn.userPts[i] = { x: newX, y: sp[i + 1].y };
     }
 
+    // Analytically override helper positions to guarantee right angles even when
+    // the direction detection above is ambiguous (degenerate initial positions).
+    if (cornerDrag.needPrevHelper) {
+      // A is at userPts[i-2]; fp is sp[0]
+      conn.userPts[i - 2] = cornerDrag.srcToCornerIsH
+        ? { x: newX,      y: sp[0].y }
+        : { x: sp[0].x,   y: newY    };
+    }
+    if (cornerDrag.needNextHelper) {
+      // B is at userPts[i]; tp is sp[N-1]
+      conn.userPts[i] = cornerDrag.cornerToDstIsH
+        ? { x: newX,      y: sp[N - 1].y }
+        : { x: sp[N - 1].x, y: newY      };
+    }
+
     // Snap-to-straight : angle ≈ 180° (177–183°) → preview suppression
-    {
+    // Disabled when helpers were auto-inserted (noSnap) to avoid false positives.
+    if (!cornerDrag.noSnap) {
       const up = conn.userPts;
       const prevPt = (i - 2 >= 0 && up[i - 2]) ? up[i - 2] : sp[0];
       const nextPt = (i <= up.length - 1 && up[i])  ? up[i]  : sp[N - 1];
@@ -1950,10 +1999,13 @@ function onUp(e) {
     const conn = state.connections.find(c => c.id === cornerDrag.connId);
     if (conn) {
       if (cornerSnapPreview) {
-        // Supprimer le coin : il était à ~180° (ligne quasi-droite)
-        const removeIdx = cornerDrag.ptIdx - 1;
-        if (conn.userPts && removeIdx >= 0 && removeIdx < conn.userPts.length) {
-          conn.userPts.splice(removeIdx, 1);
+        // Remove dragged corner + any auto-inserted helpers around it
+        const nPrev = cornerDrag.needPrevHelper ? 1 : 0;
+        const nNext = cornerDrag.needNextHelper ? 1 : 0;
+        const removeStart = cornerDrag.ptIdx - 1 - nPrev;
+        const removeCount = 1 + nPrev + nNext;
+        if (conn.userPts && removeStart >= 0 && removeStart < conn.userPts.length) {
+          conn.userPts.splice(removeStart, removeCount);
           if (conn.userPts.length === 0) conn.userPts = null;
         }
       } else {
@@ -4372,6 +4424,89 @@ function runCartoCheck() {
 
 
 /* ══════════════════════════════════════════════════
+   ARCHITECTE — placement automatique des labels de flèches
+   ══════════════════════════════════════════════════ */
+
+function architectLabels() {
+  // Place each connection label at t=0.90 along the arrow (near the arrowhead).
+  // Steps back 2 % at a time if the candidate position overlaps a shape or a
+  // previously-placed label.  Placed labels are themselves obstacles.
+  const INIT_T     = 0.90;
+  const STEP_T     = 0.02;
+  const SHAPE_M    = 10;
+  const LABEL_M    = 6;
+  const EST_LW     = 72;  // conservative label width estimate
+  const EST_LH     = 14;  // conservative label height estimate
+
+  const placedBoxes = [];
+  let changed = false;
+
+  function ptAtT(pts, t) {
+    let total = 0;
+    for (let i = 0; i < pts.length - 1; i++)
+      total += Math.hypot(pts[i+1].x - pts[i].x, pts[i+1].y - pts[i].y);
+    if (total < 1) return pts[pts.length - 1];
+    const target = total * Math.max(0, Math.min(1, t));
+    let acc = 0;
+    for (let i = 0; i < pts.length - 1; i++) {
+      const seg = Math.hypot(pts[i+1].x - pts[i].x, pts[i+1].y - pts[i].y);
+      if (acc + seg >= target) {
+        const u = (target - acc) / seg;
+        return { x: pts[i].x + u * (pts[i+1].x - pts[i].x),
+                 y: pts[i].y + u * (pts[i+1].y - pts[i].y) };
+      }
+      acc += seg;
+    }
+    return pts[pts.length - 1];
+  }
+
+  function overlapsShapes(cx, cy) {
+    for (const sh of state.shapes) {
+      if (cx + EST_LW/2 > sh.x - SHAPE_M && cx - EST_LW/2 < sh.x + sh.w + SHAPE_M &&
+          cy + EST_LH/2 > sh.y - SHAPE_M && cy - EST_LH/2 < sh.y + sh.h + SHAPE_M)
+        return true;
+    }
+    return false;
+  }
+
+  function overlapsPlaced(cx, cy) {
+    for (const b of placedBoxes) {
+      if (cx + EST_LW/2 > b.x - LABEL_M && cx - EST_LW/2 < b.x + EST_LW + LABEL_M &&
+          cy + EST_LH/2 > b.y - LABEL_M && cy - EST_LH/2 < b.y + EST_LH + LABEL_M)
+        return true;
+    }
+    return false;
+  }
+
+  for (const c of state.connections) {
+    if (!(c.label || '').trim()) continue;
+    const pts = c._computedOrthopts;
+    if (!pts || pts.length < 2) continue;
+
+    let placed = false;
+    for (let t = INIT_T; t >= 0.05; t -= STEP_T) {
+      const pos = ptAtT(pts, t);
+      if (overlapsShapes(pos.x, pos.y) || overlapsPlaced(pos.x, pos.y)) continue;
+      c.labelOffset = { x: pos.x, y: pos.y };
+      placedBoxes.push({ x: pos.x - EST_LW/2, y: pos.y - EST_LH/2 });
+      changed = true;
+      placed = true;
+      break;
+    }
+    // If no free position found, fall back to t=0.90 without further shifting
+    if (!placed) {
+      const pos = ptAtT(pts, INIT_T);
+      c.labelOffset = { x: pos.x, y: pos.y };
+      placedBoxes.push({ x: pos.x - EST_LW/2, y: pos.y - EST_LH/2 });
+      changed = true;
+    }
+  }
+
+  if (changed) { snapshot(); render(); }
+}
+
+
+/* ══════════════════════════════════════════════════
    CRÉATION PLURIELLE — ajout de N formes par bande
    ══════════════════════════════════════════════════ */
 
@@ -4827,6 +4962,7 @@ function init() {
 
   document.getElementById('btn-new-carto').addEventListener('click', newCarto);
   document.getElementById('btn-architect').addEventListener('click', runCartoCheck);
+  document.getElementById('btn-place-labels').addEventListener('click', architectLabels);
   document.getElementById('btn-undo').addEventListener('click', undo);
   document.getElementById('btn-redo').addEventListener('click', redo);
   document.getElementById('btn-fit').addEventListener('click', fitView);
