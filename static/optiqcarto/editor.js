@@ -190,6 +190,8 @@ let connEndDrag = null;     // { connId, which:'from'|'to', curX, curY, snapShap
 let bendDrag = null;        // legacy — kept for undo compat
 let segDrag  = null;        // legacy — kept for undo compat
 let cornerDrag = null;     // { connId, ptIdx, startX, startY, startPts }
+let addCornerMode = false;
+let addCornerConnId = null;
 let labelDrag = null;       // { connId, startLx, startLy, startX, startY }
 let markerIds = new Map();      // "color-style" → markerId
 const hatchIds = new Set();     // pattern IDs déjà créés dans les defs
@@ -599,7 +601,7 @@ function renderConnections() {
       const fIdx2 = fUsers2.indexOf(c.id);
       const fN2 = fUsers2.length;
       const bundleOffset = fN2 > 1 ? (fIdx2 - (fN2 - 1) / 2) * 14 : 0;
-      if (c.userPts && c.userPts.length >= 2) {
+      if (c.userPts && c.userPts.length >= 1) {
         orthopts = [fp, ...c.userPts, tp];
       } else {
         const userOffset = c.bendOffset || { dx: 0, dy: 0 };
@@ -1012,6 +1014,45 @@ function renderShapes() {
 /* ══════════════════════════════════════════════════
    RENDER — HANDLES (selection)
    ══════════════════════════════════════════════════ */
+
+function closestPointOnSegment(a, b, p) {
+  const dx = b.x - a.x, dy = b.y - a.y;
+  const len2 = dx * dx + dy * dy;
+  if (len2 < 0.001) return { x: a.x, y: a.y };
+  const t = Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / len2));
+  return { x: a.x + t * dx, y: a.y + t * dy };
+}
+
+function insertCornerOnConn(conn, cx, cy) {
+  const pts = conn._computedOrthopts || [];
+  if (pts.length < 2) return;
+  let bestSeg = -1, bestDist = Infinity, bestPt = null;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const cp = closestPointOnSegment(pts[i], pts[i + 1], { x: cx, y: cy });
+    const d = Math.hypot(cp.x - cx, cp.y - cy);
+    if (d < bestDist) { bestDist = d; bestSeg = i; bestPt = cp; }
+  }
+  if (bestSeg < 0) return;
+  if (!conn.userPts) conn.userPts = pts.slice(1, -1).map(p => ({ x: p.x, y: p.y }));
+  conn.userPts.splice(bestSeg, 0, { x: bestPt.x, y: bestPt.y });
+}
+
+function mergeOverlappingCorners(conn) {
+  if (!conn.userPts || conn.userPts.length < 2) return;
+  const THRESH = 14;
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (let i = 0; i < conn.userPts.length - 1; i++) {
+      const a = conn.userPts[i], b = conn.userPts[i + 1];
+      if (Math.hypot(a.x - b.x, a.y - b.y) < THRESH) {
+        conn.userPts.splice(i, 2, { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
+        changed = true; break;
+      }
+    }
+  }
+  if (conn.userPts.length === 0) conn.userPts = null;
+}
 
 function renderHandles() {
   gHandles.innerHTML = '';
@@ -1548,6 +1589,27 @@ function onDown(e) {
       return;
     }
 
+    // Mode ajout d'angle — clic sur la flèche pour insérer un corner
+    if (addCornerMode) {
+      addCornerMode = false;
+      canvas.style.cursor = '';
+      document.getElementById('btn-add-corner')?.classList.remove('active');
+      const connHit = e.target.closest('[data-type="conn"]');
+      if (connHit) {
+        const cid = parseInt(connHit.getAttribute('data-id'));
+        if (cid === addCornerConnId) {
+          const conn = state.connections.find(c => c.id === cid);
+          if (conn) {
+            const { x, y } = screenToSVG(e.clientX, e.clientY);
+            insertCornerOnConn(conn, x, y);
+            snapshot(); render(); updateProps();
+          }
+        }
+      }
+      addCornerConnId = null;
+      return;
+    }
+
     // Drag d'un coin de connexion — déplacement libre en X et Y
     const cornerEl = e.target.closest('[data-conn-corner]');
     if (cornerEl) {
@@ -1853,6 +1915,8 @@ function onUp(e) {
 
   /* ── Fin du drag d'un coin ── */
   if (cornerDrag) {
+    const conn = state.connections.find(c => c.id === cornerDrag.connId);
+    if (conn) mergeOverlappingCorners(conn);
     cornerDrag = null;
     canvas.style.cursor = spaceDown ? 'grab' : '';
     snapshot();
@@ -2280,6 +2344,8 @@ function updateProps() {
     document.getElementById('conn-routing-ortho').checked     = c.routing === 'orthogonal';
     document.getElementById('conn-color').value = c.color;
     document.getElementById('conn-label').value = c.label || '';
+    const addCornerGroup = document.getElementById('add-corner-group');
+    if (addCornerGroup) addCornerGroup.style.display = c.routing === 'orthogonal' ? '' : 'none';
   }
 }
 
@@ -2306,6 +2372,18 @@ function _renderGroupShapesList(grp) {
 }
 
 function bindProps() {
+  // Bouton "Ajouter un angle"
+  document.getElementById('btn-add-corner')?.addEventListener('click', () => {
+    const c = state.connections.find(c => c.id === selectedConn);
+    if (!c || c.routing !== 'orthogonal') return;
+    addCornerMode = !addCornerMode;
+    addCornerConnId = addCornerMode ? selectedConn : null;
+    canvas.style.cursor = addCornerMode
+      ? 'url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'20\' height=\'20\'%3E%3Crect x=\'7\' y=\'7\' width=\'6\' height=\'6\' fill=\'%23111827\' transform=\'rotate(45 10 10)\'/%3E%3C/svg%3E") 10 10, crosshair'
+      : '';
+    document.getElementById('btn-add-corner')?.classList.toggle('active', addCornerMode);
+  });
+
   // Shape
   const prop = (id, fn) => {
     const el = document.getElementById(id);

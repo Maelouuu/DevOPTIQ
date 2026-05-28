@@ -7,14 +7,16 @@
 <div class="card-nav-container">
   <nav id="card-nav" class="card-nav" aria-label="Navigation principale">
 
-    <!-- Logo -->
-    <a class="logo-container" href="/activities/map">
-      <div class="logo-mark">
-        <div class="logo-gem"></div>
-      </div>
-      <div class="logo-text-group">
-        <span class="logo-name">OPTIQ</span>
-        <span class="logo-by">by AFDEC</span>
+    <!-- Logo cercle translucide -->
+    <a class="logo-container" href="/activities/map" title="OPTIQ">
+      <div class="logo-circle">
+        <svg viewBox="0 0 32 32" width="26" height="26" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="15" cy="15" r="11" stroke="#f9a8d4" stroke-width="1.8" opacity="0.95"/>
+          <circle cx="15" cy="15" r="8"  stroke="#f9a8d4" stroke-width="1.5" opacity="0.75"/>
+          <circle cx="15" cy="15" r="5"  stroke="#f9a8d4" stroke-width="1.5" opacity="0.55"/>
+          <circle cx="15" cy="15" r="2.5" stroke="#f9a8d4" stroke-width="1.5" opacity="0.4"/>
+          <line x1="22" y1="22" x2="28" y2="28" stroke="#4ade80" stroke-width="2" stroke-linecap="round"/>
+        </svg>
       </div>
     </a>
 
@@ -30,61 +32,61 @@
       <div class="card-scroll">
 
         <a class="nav-card" href="/activities/view"
-           style="--ic: linear-gradient(135deg,#7c3aed,#5b21b6); --glow: rgba(124,58,237,0.5)">
+           style="--ic-c: #7c3aed; --glow: rgba(124,58,237,0.5)">
           <span class="nav-card-icon"><i class="fa-solid fa-list-check"></i></span>
           <span class="nav-card-label">{{ t('nav.activities') }}</span>
         </a>
 
         <a class="nav-card" href="/roles_view"
-           style="--ic: linear-gradient(135deg,#059669,#047857); --glow: rgba(5,150,105,0.5)">
+           style="--ic-c: #059669; --glow: rgba(5,150,105,0.5)">
           <span class="nav-card-icon"><i class="fa-solid fa-users-rectangle"></i></span>
           <span class="nav-card-label">{{ t('nav.roles') }}</span>
         </a>
 
         <a class="nav-card" href="/competences/view"
-           style="--ic: linear-gradient(135deg,#2563eb,#1d4ed8); --glow: rgba(37,99,235,0.5)">
+           style="--ic-c: #2563eb; --glow: rgba(37,99,235,0.5)">
           <span class="nav-card-icon"><i class="fa-solid fa-layer-group"></i></span>
           <span class="nav-card-label">{{ t('nav.competences') }}</span>
         </a>
 
         <a class="nav-card" href="/temps"
-           style="--ic: linear-gradient(135deg,#d97706,#b45309); --glow: rgba(217,119,6,0.5)">
+           style="--ic-c: #d97706; --glow: rgba(217,119,6,0.5)">
           <span class="nav-card-icon"><i class="fa-solid fa-clock"></i></span>
           <span class="nav-card-label">{{ t('nav.time') }}</span>
         </a>
 
         <a class="nav-card" href="/comptes"
-           style="--ic: linear-gradient(135deg,#e11d48,#be123c); --glow: rgba(225,29,72,0.5)">
+           style="--ic-c: #e11d48; --glow: rgba(225,29,72,0.5)">
           <span class="nav-card-icon"><i class="fa-solid fa-users-gear"></i></span>
           <span class="nav-card-label">{{ t('nav.accounts') }}</span>
         </a>
 
         <a class="nav-card" href="/gestion_rh"
-           style="--ic: linear-gradient(135deg,#16a34a,#15803d); --glow: rgba(22,163,74,0.5)">
+           style="--ic-c: #16a34a; --glow: rgba(22,163,74,0.5)">
           <span class="nav-card-icon"><i class="fa-solid fa-building-user"></i></span>
           <span class="nav-card-label">{{ t('nav.hr') }}</span>
         </a>
 
         <a class="nav-card" href="/projection_metier"
-           style="--ic: linear-gradient(135deg,#0891b2,#0e7490); --glow: rgba(8,145,178,0.5)">
+           style="--ic-c: #0891b2; --glow: rgba(8,145,178,0.5)">
           <span class="nav-card-icon"><i class="fa-solid fa-briefcase"></i></span>
           <span class="nav-card-label">{{ t('nav.career') }}</span>
         </a>
 
         <a class="nav-card" href="/gestion_outils"
-           style="--ic: linear-gradient(135deg,#ea580c,#c2410c); --glow: rgba(234,88,12,0.5)">
+           style="--ic-c: #ea580c; --glow: rgba(234,88,12,0.5)">
           <span class="nav-card-icon"><i class="fa-solid fa-screwdriver-wrench"></i></span>
           <span class="nav-card-label">{{ t('nav.tools') }}</span>
         </a>
 
         <a class="nav-card" href="/activities/map"
-           style="--ic: linear-gradient(135deg,#0d9488,#0f766e); --glow: rgba(13,148,136,0.5)">
+           style="--ic-c: #0d9488; --glow: rgba(13,148,136,0.5)">
           <span class="nav-card-icon"><i class="fa-solid fa-diagram-project"></i></span>
           <span class="nav-card-label">{{ t('nav.carto') }}</span>
         </a>
 
         <a class="nav-card" href="/parametres"
-           style="--ic: linear-gradient(135deg,#6366f1,#4f46e5); --glow: rgba(99,102,241,0.5)">
+           style="--ic-c: #6366f1; --glow: rgba(99,102,241,0.5)">
           <span class="nav-card-icon"><i class="fa-solid fa-gear"></i></span>
           <span class="nav-card-label">{{ t('nav.settings') }}</span>
         </a>
