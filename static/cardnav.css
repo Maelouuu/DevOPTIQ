@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════
-   OPTIQ — Navigation v4  (glass elevated)
+   OPTIQ — Navigation v5  (outlined glass)
    ═══════════════════════════════════════════════ */
 
 *, .card-nav * { box-sizing: border-box; }
@@ -15,103 +15,61 @@
 /* ── Barre principale ───────────────────────── */
 .card-nav {
   pointer-events: all;
-  width: clamp(640px, 82vw, 1280px);
+  width: clamp(640px, 82vw, 1300px);
 
-  /* Glass vert sombre */
-  background: linear-gradient(
-    135deg,
-    rgba(4, 22, 12, 0.82) 0%,
-    rgba(6, 28, 16, 0.78) 100%
-  );
-  backdrop-filter: blur(32px) saturate(2) brightness(1.1);
-  -webkit-backdrop-filter: blur(32px) saturate(2) brightness(1.1);
-  border: 1px solid rgba(34, 197, 94, 0.13);
-  border-top-color: rgba(74, 222, 128, 0.18);
-  border-radius: 20px;
+  /* Glass presque transparent — contour vert foncé */
+  background: rgba(4, 14, 8, 0.55);
+  backdrop-filter: blur(28px) saturate(1.8) brightness(1.05);
+  -webkit-backdrop-filter: blur(28px) saturate(1.8) brightness(1.05);
+  border: 1.5px solid #064e2f;
+  border-top-color: #0a6b40;
+  border-radius: 32px;
   box-shadow:
-    0 0 0 1px rgba(0, 0, 0, 0.35),
-    0 8px 32px rgba(0, 0, 0, 0.4),
-    0 2px 8px rgba(0, 0, 0, 0.25),
-    inset 0 1px 0 rgba(74, 222, 128, 0.08),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.2);
+    0 0 0 1px rgba(0,0,0,0.3),
+    0 8px 32px rgba(0,0,0,0.35),
+    inset 0 1px 0 rgba(74,222,128,0.07);
 
-  height: 64px;
+  min-height: 68px;
+  height: auto;
   display: flex;
   align-items: center;
-  padding: 0 8px 0 6px;
+  padding: 6px 8px 6px 6px;
   gap: 0;
   overflow: hidden;
   transition: box-shadow .25s ease, border-color .25s ease;
 }
 .card-nav:hover {
-  border-color: rgba(34, 197, 94, 0.2);
-  box-shadow:
-    0 0 0 1px rgba(0, 0, 0, 0.35),
-    0 12px 40px rgba(0, 0, 0, 0.44),
-    0 2px 8px rgba(0, 0, 0, 0.25),
-    inset 0 1px 0 rgba(74, 222, 128, 0.1),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.2);
+  border-color: #0d7a4a;
 }
 
-/* ── Logo ───────────────────────────────────── */
+/* ── Logo cercle ────────────────────────────── */
 .logo-container {
-  display: flex; align-items: center; gap: 10px;
-  padding: 0 16px 0 8px;
+  display: flex; align-items: center;
+  padding: 0 14px 0 6px;
   height: 100%;
   text-decoration: none;
   flex-shrink: 0;
-  border-right: 1px solid rgba(74, 222, 128, 0.1);
+  border-right: 1px solid rgba(6,78,47,0.6);
   margin-right: 6px;
   transition: opacity .15s;
 }
-.logo-container:hover { opacity: 0.85; }
+.logo-container:hover { opacity: 0.82; }
 
-.logo-mark {
-  width: 36px; height: 36px;
-  border-radius: 11px;
-  background: linear-gradient(145deg, #4ade80 0%, #16a34a 60%, #065f46 100%);
+.logo-circle {
+  width: 46px; height: 46px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.07);
+  border: 1.5px solid rgba(255, 255, 255, 0.2);
   display: grid; place-items: center;
   flex-shrink: 0;
+  transition: background .18s, border-color .18s;
   box-shadow:
-    0 2px 12px rgba(34, 197, 94, 0.5),
-    0 0 0 1px rgba(74, 222, 128, 0.25),
-    inset 0 1px 0 rgba(255, 255, 255, 0.25);
-  position: relative;
-  overflow: hidden;
+    0 0 0 1px rgba(249, 168, 212, 0.12),
+    0 2px 12px rgba(0,0,0,0.25);
 }
-.logo-mark::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(135deg, rgba(255,255,255,0.18) 0%, transparent 60%);
-  border-radius: inherit;
-}
-.logo-gem {
-  width: 15px; height: 15px;
-  background: rgba(255,255,255,0.92);
-  border-radius: 3px;
-  transform: rotate(45deg);
-  box-shadow: 0 1px 4px rgba(0,0,0,0.25);
-  position: relative;
-  z-index: 1;
-}
-
-.logo-text-group {
-  display: flex; flex-direction: column;
-  gap: 1px;
-}
-.logo-name {
-  font-size: 13.5px; font-weight: 800;
-  letter-spacing: 0.1em;
-  color: rgba(255, 255, 255, 0.95);
-  line-height: 1;
-  font-family: inherit;
-}
-.logo-by {
-  font-size: 9px; font-weight: 500;
-  letter-spacing: 0.06em;
-  color: rgba(74, 222, 128, 0.72);
-  line-height: 1;
+.logo-container:hover .logo-circle {
+  background: rgba(255,255,255,0.12);
+  border-color: rgba(255,255,255,0.3);
 }
 
 /* ── Hamburger (mobile only) ─────────────────── */
@@ -156,7 +114,7 @@
   overflow-x: auto; overflow-y: hidden;
   scroll-snap-type: x mandatory;
   scroll-behavior: smooth;
-  padding: 0 4px;
+  padding: 4px;
 }
 .card-scroll::-webkit-scrollbar { display: none; }
 .card-scroll { scrollbar-width: none; }
@@ -164,15 +122,14 @@
 /* ── Items de navigation ────────────────────── */
 .nav-card {
   flex: 0 0 auto;
-  display: flex; align-items: center; gap: 9px;
-  padding: 0 14px 0 9px;
-  height: 44px;
-  border-radius: 12px;
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 12px 8px 8px;
+  height: auto; min-height: 52px;
+  border-radius: 20px;
   text-decoration: none;
-  color: rgba(255, 255, 255, 0.5);
-  font-size: 12.5px; font-weight: 600;
+  color: rgba(255, 255, 255, 0.52);
+  font-size: 12px; font-weight: 600;
   letter-spacing: 0.01em;
-  white-space: nowrap;
   scroll-snap-align: start;
   transition: background .16s ease, color .16s ease;
   position: relative;
@@ -186,21 +143,20 @@
   color: rgba(255, 255, 255, 0.95);
 }
 
-/* Icône avec aura */
+/* Icône : fond blanc, dessin coloré */
 .nav-card-icon {
   width: 28px; height: 28px;
-  border-radius: 8px;
+  border-radius: 9px;
   display: grid; place-items: center;
-  font-size: 12px; color: #fff;
-  background: var(--ic, rgba(255,255,255,0.15));
+  font-size: 12px;
+  background: #ffffff;
+  color: var(--ic-c, #6366f1);
   flex-shrink: 0;
   position: relative;
   transition:
     transform .2s cubic-bezier(.34,1.56,.64,1),
     box-shadow .2s ease;
-  box-shadow:
-    0 2px 6px rgba(0,0,0,0.35),
-    0 0 0 1px rgba(255,255,255,0.06);
+  box-shadow: 0 1px 4px rgba(0,0,0,0.18);
 }
 
 /* Aura glow au survol */
@@ -208,15 +164,14 @@
   transform: scale(1.13) translateY(-1px);
   box-shadow:
     0 4px 14px var(--glow, rgba(255,255,255,0.2)),
-    0 0 22px var(--glow, rgba(255,255,255,0.12)),
-    0 0 0 1px rgba(255,255,255,0.1);
+    0 0 20px var(--glow, rgba(255,255,255,0.1)),
+    0 1px 4px rgba(0,0,0,0.18);
 }
 .nav-card.active .nav-card-icon {
   transform: scale(1.08) translateY(-1px);
   box-shadow:
     0 3px 10px var(--glow, rgba(255,255,255,0.18)),
-    0 0 16px var(--glow, rgba(255,255,255,0.1)),
-    0 0 0 1px rgba(255,255,255,0.08);
+    0 1px 4px rgba(0,0,0,0.18);
 }
 
 /* Halo coloré derrière la card au survol */
@@ -232,14 +187,17 @@
   pointer-events: none;
   z-index: -1;
 }
-.nav-card:hover::before { opacity: 0.18; }
-.nav-card.active::before { opacity: 0.12; }
+.nav-card:hover::before { opacity: 0.15; }
+.nav-card.active::before { opacity: 0.1; }
 
-/* Label */
+/* Label — autorise 2 lignes pour les noms longs */
 .nav-card-label {
   color: inherit;
   font-size: inherit;
   font-weight: inherit;
+  white-space: pre-line;
+  line-height: 1.25;
+  text-align: left;
 }
 
 /* ── Bouton déconnexion ──────────────────────── */
@@ -247,15 +205,15 @@
   flex-shrink: 0;
   display: flex; align-items: center; gap: 7px;
   padding: 0 14px;
-  height: 40px;
-  border-radius: 11px;
-  border-left: 1px solid rgba(249, 168, 212, 0.1);
+  height: 42px;
+  border-radius: 18px;
+  border: 1.5px solid rgba(249, 168, 212, 0.4);
   margin-left: 6px;
   text-decoration: none;
-  color: rgba(249, 168, 212, 0.65);
-  font-size: 12.5px; font-weight: 600;
+  color: rgba(249, 168, 212, 0.72);
+  font-size: 12px; font-weight: 600;
   white-space: nowrap;
-  transition: background .14s, color .14s;
+  transition: background .14s, color .14s, border-color .14s;
   position: static;
   width: auto;
   background: transparent;
@@ -264,8 +222,9 @@
 .logout-btn:hover {
   background: rgba(249, 168, 212, 0.1);
   color: #f9a8d4;
+  border-color: rgba(249, 168, 212, 0.65);
 }
-.logout-btn i { font-size: 12.5px; }
+.logout-btn i { font-size: 12px; }
 .logout-btn span {
   opacity: 1; max-width: none; overflow: visible;
   transition: none;
@@ -279,10 +238,11 @@
 
   .card-nav {
     width: 100%;
-    height: 54px;
+    min-height: 54px;
+    height: auto;
     position: relative;
     overflow: visible;
-    border-radius: 16px;
+    border-radius: 22px;
     flex-wrap: wrap;
     align-content: flex-start;
     padding: 0 8px;
@@ -296,10 +256,10 @@
     display: flex; align-items: center;
     position: absolute;
     top: calc(100% + 5px); left: 0; right: 0;
-    background: rgba(4, 22, 12, 0.96);
+    background: rgba(4, 14, 8, 0.96);
     backdrop-filter: blur(24px);
-    border-radius: 0 0 16px 16px;
-    border: 1px solid rgba(34, 197, 94, 0.12);
+    border-radius: 0 0 18px 18px;
+    border: 1.5px solid #064e2f;
     border-top: none;
     overflow: hidden;
     max-height: 0;
@@ -309,7 +269,7 @@
                 opacity .22s ease;
   }
   .card-nav.open .card-nav-content {
-    max-height: 72px;
+    max-height: 80px;
     opacity: 1;
     pointer-events: auto;
     padding: 8px 10px;

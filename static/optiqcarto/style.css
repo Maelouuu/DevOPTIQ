@@ -2011,7 +2011,7 @@ html, body {
   justify-content: center;
 }
 .unsaved-card {
-  background: var(--surface);
+  background: #0f1a12;
   border: 1px solid var(--border);
   border-radius: 20px;
   padding: 32px 36px;
@@ -2025,7 +2025,7 @@ html, body {
   animation: savePopupIn 0.25s cubic-bezier(0.34,1.56,0.64,1) both;
 }
 .unsaved-icon { font-size: 36px; color: #f59e0b; }
-.unsaved-title { margin: 0; font-size: 17px; font-weight: 700; color: var(--text); }
+.unsaved-title { margin: 0; font-size: 17px; font-weight: 700; color: #D6EDD9; }
 .unsaved-desc { margin: 0; font-size: 13px; color: var(--text-muted); line-height: 1.55; }
 .unsaved-actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin-top: 6px; }
 .unsaved-btn {
@@ -2040,6 +2040,25 @@ html, body {
 .unsaved-btn--save kbd {
   background: rgba(255,255,255,0.2); border-radius: 5px;
   padding: 1px 6px; font-size: 11px; font-family: inherit; margin-left: 6px;
+}
+
+.conn-add-corner-btn {
+  width: 100%;
+  padding: 8px 12px;
+  border-radius: 9px;
+  font-size: 12px; font-weight: 600;
+  background: rgba(77,184,104,0.1);
+  color: var(--green);
+  border: 1px solid var(--green-border);
+  cursor: pointer;
+  transition: background .14s;
+  display: flex; align-items: center; justify-content: center;
+}
+.conn-add-corner-btn:hover { background: rgba(77,184,104,0.18); }
+.conn-add-corner-btn.active {
+  background: var(--green-dim);
+  border-color: var(--green);
+  color: var(--green-lt);
 }
 
 /* ══════════════ AUTO-SAVE TOAST ══════════════ */
