@@ -58,9 +58,9 @@
 
 <div class="filter-controls">
   <label>
-    Filtrer par rôle :
+    {{ t('comp.filter_role') }}
     <select id="global-role-filter" onchange="filterGlobalTable()">
-      <option value="">Tous les rôles</option>
+      <option value="">{{ t('comp.all_roles') }}</option>
       {% for role in roles %}
         <option value="{{ role.name }}">{{ role.name }}</option>
       {% endfor %}
@@ -68,7 +68,7 @@
   </label>
   <label>
     <input type="checkbox" id="filter-with-notes" onchange="filterGlobalTable()">
-    Uniquement avec notation
+    {{ t('comp.only_with_rating') }}
   </label>
 </div>
 
@@ -100,7 +100,7 @@
       {% else %}
         <tr>
           <td colspan="{{ roles|length + 1 }}" style="text-align: center; padding: 20px; color: #666;">
-            Aucun utilisateur trouvé.
+            {{ t('comp.no_users') }}
           </td>
         </tr>
       {% endfor %}

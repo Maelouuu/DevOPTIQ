@@ -25,13 +25,13 @@
         </div>
         <div>
           <div class="logo-name">DevOPTIQ</div>
-          <div class="logo-tagline">Gestion des compétences &amp; activités</div>
+          <div class="logo-tagline">{{ t('login.tagline') }}</div>
         </div>
       </div>
 
       <div class="login-stripe"></div>
 
-      <h1 class="login-title">Connexion</h1>
+      <h1 class="login-title">{{ t('login.heading') }}</h1>
 
       <!-- Messages flash -->
       {% with messages = get_flashed_messages(with_categories=True) %}
@@ -59,7 +59,7 @@
         </div>
 
         <div class="field-group">
-          <label class="field-label" for="login-password">Mot de passe</label>
+          <label class="field-label" for="login-password">{{ t('login.label_password') }}</label>
           <div class="field-wrap">
             <i class="fa-solid fa-lock field-icon"></i>
             <input type="password" id="login-password" name="password"
@@ -73,13 +73,13 @@
 
         <button type="submit" class="btn-login">
           <i class="fa-solid fa-arrow-right-to-bracket"></i>
-          Se connecter
+          {{ t('login.submit') }}
         </button>
 
       </form>
 
       <p class="forgot-wrap">
-        <a href="#" id="forgot-password-link" class="forgot-link">Mot de passe oublié ?</a>
+        <a href="#" id="forgot-password-link" class="forgot-link">{{ t('login.forgot_link') }}</a>
       </p>
 
     </div>
@@ -90,8 +90,8 @@
     <div class="fpwd-card">
       <button class="fpwd-close" id="close-modal"><i class="fa-solid fa-xmark"></i></button>
       <div class="fpwd-icon"><i class="fa-solid fa-key"></i></div>
-      <h2 class="fpwd-title">Réinitialiser le mot de passe</h2>
-      <p class="fpwd-desc">Entrez votre adresse email pour recevoir un lien de réinitialisation.</p>
+      <h2 class="fpwd-title">{{ t('login.reset_title') }}</h2>
+      <p class="fpwd-desc">{{ t('login.reset_desc') }}</p>
       <form id="forgot-password-form" method="POST" action="{{ url_for('auth_password.forgot_password') }}">
         <div class="field-wrap" style="margin-bottom:14px">
           <i class="fa-solid fa-envelope field-icon"></i>
@@ -99,7 +99,7 @@
             class="field-input" placeholder="nom@exemple.fr" required>
         </div>
         <button type="submit" class="btn-login">
-          <i class="fa-solid fa-paper-plane"></i> Envoyer le lien
+          <i class="fa-solid fa-paper-plane"></i> {{ t('login.reset_send') }}
         </button>
       </form>
     </div>

@@ -664,6 +664,42 @@ TRANSLATIONS = {
         'editor.toast.bulk_created':            '{count} forme(s) créée(s)',
         'editor.toast.bulk_partial':            '{count} forme(s) créée(s) · {failed} non placée(s) (espace insuffisant)',
         'editor.toast.vsdx_done':               'Import réussi — {shapes} activités · {conns} connexions · {bands} bandes',
+
+        # ── Page Connexion ────────────────────────────────────────────────────
+        'login.tagline':                'Gestion des compétences & activités',
+        'login.heading':                'Connexion',
+        'login.label_password':         'Mot de passe',
+        'login.submit':                 'Se connecter',
+        'login.forgot_link':            'Mot de passe oublié ?',
+        'login.reset_title':            'Réinitialiser le mot de passe',
+        'login.reset_desc':             'Entrez votre adresse email pour recevoir un lien de réinitialisation.',
+        'login.reset_send':             'Envoyer le lien',
+
+        # ── Page Réinitialisation mot de passe ─────────────────────────────
+        'reset_pwd.page_title':         'Nouveau mot de passe',
+        'reset_pwd.heading':            'Nouveau mot de passe',
+        'reset_pwd.label_new':          'Nouveau mot de passe',
+        'reset_pwd.label_confirm':      'Confirmer le mot de passe',
+        'reset_pwd.submit':             'Enregistrer le nouveau mot de passe',
+        'reset_pwd.rule_min':           'Au moins 6 caractères',
+        'reset_pwd.back':               'Retour à la connexion',
+        'reset_pwd.err_too_short':      'Le mot de passe doit contenir au moins 6 caractères.',
+        'reset_pwd.err_mismatch':       'Les mots de passe ne correspondent pas.',
+
+        # ── Page Liste des activités (display_list) ───────────────────────
+        'act_list.title':               'Liste des activités',
+        'act_list.search_placeholder':  'Rechercher une activité...',
+        'act_list.import_tasks':        'Importer des tâches',
+        'act_list.import_title':        'Importer des tâches depuis un fichier CSV, JSON ou Excel',
+        'act_list.empty':               'Aucune activité à afficher',
+        'act_list.load_more':           'Charger plus',
+        'act_list.loading':             'Chargement…',
+
+        # ── Compétences — filtres globaux ────────────────────────────────
+        'comp.filter_role':             'Filtrer par rôle :',
+        'comp.all_roles':               'Tous les rôles',
+        'comp.only_with_rating':        'Uniquement avec notation',
+        'comp.no_users':                'Aucun utilisateur trouvé.',
     },
 
     'en': {
@@ -1323,6 +1359,42 @@ TRANSLATIONS = {
         'editor.toast.bulk_created':            '{count} shape(s) created',
         'editor.toast.bulk_partial':            '{count} shape(s) created · {failed} not placed (insufficient space)',
         'editor.toast.vsdx_done':               'Import successful — {shapes} activities · {conns} connections · {bands} bands',
+
+        # ── Login page ────────────────────────────────────────────────────────
+        'login.tagline':                'Skills & activities management',
+        'login.heading':                'Sign in',
+        'login.label_password':         'Password',
+        'login.submit':                 'Sign in',
+        'login.forgot_link':            'Forgot your password?',
+        'login.reset_title':            'Reset password',
+        'login.reset_desc':             'Enter your email address to receive a reset link.',
+        'login.reset_send':             'Send link',
+
+        # ── Reset password page ───────────────────────────────────────────────
+        'reset_pwd.page_title':         'New password',
+        'reset_pwd.heading':            'New password',
+        'reset_pwd.label_new':          'New password',
+        'reset_pwd.label_confirm':      'Confirm password',
+        'reset_pwd.submit':             'Save new password',
+        'reset_pwd.rule_min':           'At least 6 characters',
+        'reset_pwd.back':               'Back to login',
+        'reset_pwd.err_too_short':      'Password must be at least 6 characters.',
+        'reset_pwd.err_mismatch':       'Passwords do not match.',
+
+        # ── Activities list page (display_list) ───────────────────────────────
+        'act_list.title':               'Activities list',
+        'act_list.search_placeholder':  'Search for an activity...',
+        'act_list.import_tasks':        'Import tasks',
+        'act_list.import_title':        'Import tasks from a CSV, JSON or Excel file',
+        'act_list.empty':               'No activities to display',
+        'act_list.load_more':           'Load more',
+        'act_list.loading':             'Loading…',
+
+        # ── Competencies — global filters ─────────────────────────────────────
+        'comp.filter_role':             'Filter by role:',
+        'comp.all_roles':               'All roles',
+        'comp.only_with_rating':        'With rating only',
+        'comp.no_users':                'No users found.',
     },
 }
 

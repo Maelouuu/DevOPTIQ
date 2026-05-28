@@ -859,7 +859,6 @@ html, body { background: var(--bg); color: var(--text); }
 /* ── Toggle section créer ──────────────────────────────────── */
 .section-card--create {
   border-left: 4px solid var(--brown);
-  overflow: hidden;
   padding: 16px 20px;
   transition: padding .3s ease;
 }
@@ -902,9 +901,10 @@ html, body { background: var(--bg); color: var(--text); }
   margin-top: 0;
 }
 .section-card--create.expanded .create-form-wrap {
-  max-height: 240px;
+  max-height: 600px;
   opacity: 1;
   margin-top: 0;
+  overflow: visible;
 }
 
 /* Bouton replier (chevron) */

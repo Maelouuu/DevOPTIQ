@@ -1728,10 +1728,7 @@ function onDown(e) {
       return;
     }
 
-    // Click sur zone vide → fermer le panneau props + déselectionner tout
-    const hadSelection = selectedBand !== null || selectedGroup !== null || selectedShapes.size > 0 || selectedConn !== null;
-    clearSelection();
-    if (hadSelection) { if (propsOpen) setPropsOpen(false); render(); updateProps(); }
+    // Start panning; deselect only on mouseup if the mouse didn't actually move
     isPanning = true;
     panStart = { sx: e.clientX, sy: e.clientY, vpX, vpY, moved: false };
     return;
@@ -2113,8 +2110,15 @@ function onUp(e) {
 
   if (isPanning) {
     isPanning = false;
+    const panDidMove = panStart && panStart.moved;
     panStart = null;
     canvas.style.cursor = spaceDown ? 'grab' : '';
+    // Click on empty area (no pan movement) → deselect
+    if (!panDidMove) {
+      const hadSelection = selectedBand !== null || selectedGroup !== null || selectedShapes.size > 0 || selectedConn !== null;
+      clearSelection();
+      if (hadSelection) { if (propsOpen) setPropsOpen(false); render(); updateProps(); }
+    }
   }
   if (isDragging) {
     isDragging = false;
@@ -4435,7 +4439,7 @@ function architectLabels() {
   // 4. Multi-line labels use actual height
   // 5. Already-placed labels are obstacles for subsequent ones
 
-  const CORNER_M  = 30;  // clearance from each segment endpoint (corners + arrowhead)
+  const CORNER_M  = 60;  // clearance from each segment endpoint (corners + arrowhead)
   const SHAPE_M   = 14;  // extra margin when checking shape overlap
   const LABEL_GAP = 8;   // minimum gap between two placed labels
   const CHAR_W    = 6.5; // estimated px per character (~11px font)
