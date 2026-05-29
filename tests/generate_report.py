@@ -37,6 +37,7 @@ PAGE_LABELS = {
     "test_23_performance_perso": "Performance Personnalisée",
     "test_24_roles_view":        "Vues des Rôles & Items Activité",
     "test_25_competences_plan":  "Plan de Compétences & Prérequis",
+    "test_26_import_tasks":      "Import de Tâches CSV/JSON",
 }
 
 
