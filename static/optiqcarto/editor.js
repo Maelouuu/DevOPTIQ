@@ -3179,11 +3179,21 @@ function renderCalqueListUI() {
   const empty = document.getElementById('cal-empty');
   if (!list) return;
   list.innerHTML = '';
-  if (_calqueList.length === 0) {
-    if (empty) empty.style.display = 'block';
-    return;
-  }
   if (empty) empty.style.display = 'none';
+
+  // Always show Master as first entry
+  const masterItem = document.createElement('div');
+  masterItem.className = 'cal-item cal-item-master' + (activeCalqueId === null ? ' active' : '');
+  masterItem.innerHTML = `<i class="fa-solid fa-star" style="font-size:10px;opacity:0.7;flex-shrink:0"></i><span class="cal-item-name">Master</span>`;
+  masterItem.addEventListener('click', async () => {
+    const section = document.getElementById('cal-section');
+    if (section) section.classList.remove('open');
+    if (activeCalqueId !== null) await _deactivateCalque();
+  });
+  list.appendChild(masterItem);
+
+  if (_calqueList.length === 0) return;
+
   _calqueList.forEach(cal => {
     const item = document.createElement('div');
     item.className = 'cal-item' + (activeCalqueId === cal.id ? ' active' : '');
@@ -4560,21 +4570,21 @@ function runCartoCheck() {
    ══════════════════════════════════════════════════ */
 
 function architectLabels() {
-  // Rules:
-  // 1. Label orientation MUST match the segment it sits on (no mismatched rotation)
-  // 2. The full label box must fit within the segment with clearance from both ends
-  // 3. Minimum clearance from arrowhead, corners, and source/dest shapes
-  // 4. Multi-line labels use actual height
-  // 5. Already-placed labels are obstacles for subsequent ones
+  // 1. Label orientation MUST match the segment direction
+  // 2. Label box must fit within segment with clearance from both ends
+  // 3. Adaptive corner clearance — reduces for longer labels so they can still be placed
+  // 4. Three passes: (a) matching direction from arrowhead, (b) all directions from arrowhead,
+  //    (c) all segments longest-first with minimum clearance (last resort)
 
-  const CORNER_M  = 60;  // clearance from each segment endpoint (corners + arrowhead)
-  const SHAPE_M   = 14;  // extra margin when checking shape overlap
-  const LABEL_GAP = 8;   // minimum gap between two placed labels
-  const CHAR_W    = 6.5; // estimated px per character (~11px font)
+  const CORNER_BASE = 42;  // base clearance from label edge to segment endpoint
+  const CORNER_MIN  = 12;  // minimum clearance (for very long labels)
+  const SHAPE_M   = 14;
+  const LABEL_GAP = 8;
+  const CHAR_W    = 6.5;
   const LINE_H    = 13;
-  const STEP_PX   = 8;   // sampling step along segment (px)
+  const STEP_PX   = 6;
 
-  const placed = [];     // { cx, cy, bw, bh } of already-placed labels
+  const placed = [];
 
   function labelSize(c) {
     const lines = (c.label || '').split('\n');
@@ -4598,6 +4608,11 @@ function architectLabels() {
     return false;
   }
 
+  // Adaptive corner margin: shorter for wider labels
+  function cornerM(lw) {
+    return Math.max(CORNER_MIN, CORNER_BASE - Math.max(0, lw - 80) * 0.18);
+  }
+
   for (const c of state.connections) {
     if (!(c.label || '').trim()) continue;
     const pts = c._computedOrthopts;
@@ -4605,40 +4620,52 @@ function architectLabels() {
 
     const { lw, lh } = labelSize(c);
 
-    // Overall arrow direction determines rendering angle (horizontal=0, vertical=-90)
     let totalH = 0, totalV = 0;
     for (let i = 0; i < pts.length - 1; i++) {
       totalH += Math.abs(pts[i+1].x - pts[i].x);
       totalV += Math.abs(pts[i+1].y - pts[i].y);
     }
     const majorH = totalH >= totalV;
-    // Box dimensions as rendered: horizontal → lw×lh; vertical (rotated -90°) → lh×lw
-    const bw = majorH ? lw : lh;
-    const bh = majorH ? lh : lw;
-    const halfAlong = bw / 2;      // half of the label size along the segment axis
-    const needLen   = bw + 2 * CORNER_M; // minimum segment length to fit label
 
-    // Iterate segments from the arrowhead end (pts[N-1]) to the source end,
-    // considering only segments whose direction matches the arrow's major direction.
+    // Build segment list with metadata
+    const segs = [];
+    for (let i = 0; i < pts.length - 1; i++) {
+      const pa = pts[i], pb = pts[i+1];
+      const dx = pb.x - pa.x, dy = pb.y - pa.y;
+      const len = Math.hypot(dx, dy);
+      if (len < 1) continue;
+      const isH = Math.abs(dy) < Math.abs(dx);
+      segs.push({ i, pa, pb, dx, dy, len, isH });
+    }
+
     let ok = false;
-    for (let pass = 0; pass < 2 && !ok; pass++) {
-      for (let i = pts.length - 2; i >= 0 && !ok; i--) {
-        const pa = pts[i], pb = pts[i + 1];
-        const dx = pb.x - pa.x, dy = pb.y - pa.y;
-        const segLen = Math.hypot(dx, dy);
-        if (segLen < 1) continue;
-        const segIsH = Math.abs(dy) < Math.abs(dx);
-        // Pass 0: only segments matching major direction (ensures correct rotation)
-        // Pass 1: any long-enough segment as fallback
-        if (pass === 0 && segIsH !== majorH) continue;
+
+    // Pass 0: matching direction, from arrowhead end
+    // Pass 1: any direction, from arrowhead end
+    // Pass 2: any direction, longest-first (minimum corner margin)
+    for (let pass = 0; pass < 3 && !ok; pass++) {
+      let cands;
+      if (pass < 2) {
+        cands = [...segs].reverse();
+        if (pass === 0) cands = cands.filter(s => s.isH === majorH);
+      } else {
+        cands = [...segs].sort((a, b) => b.len - a.len);
+      }
+
+      for (const seg of cands) {
+        if (ok) break;
+        const { pa, pb, dx, dy, len: segLen, isH } = seg;
+        const bw = isH ? lw : lh;
+        const bh = isH ? lh : lw;
+        const halfAlong = bw / 2;
+        const cm = pass < 2 ? cornerM(lw) : CORNER_MIN;
+        const needLen = halfAlong * 2 + cm * 2;
         if (segLen < needLen) continue;
 
-        // Valid range for the label center along the segment (in t ∈ [0,1])
-        const tMin = (halfAlong + CORNER_M) / segLen;
-        const tMax = 1 - (halfAlong + CORNER_M) / segLen;
+        const tMin = (halfAlong + cm) / segLen;
+        const tMax = 1 - (halfAlong + cm) / segLen;
         if (tMax < tMin) continue;
 
-        // Sample from pb end (near arrowhead) toward pa end
         for (let t = tMax; t >= tMin - 1e-6; t -= STEP_PX / segLen) {
           const cx = pa.x + dx * t;
           const cy = pa.y + dy * t;
@@ -4652,10 +4679,135 @@ function architectLabels() {
       }
     }
 
-    // Last resort: delete labelOffset so the auto-placement takes over
     if (!ok) delete c.labelOffset;
   }
 
+  snapshot(); render();
+}
+
+function _labelOnSeg(conn, seg) {
+  if (!(conn.label || '').trim() || !conn.labelOffset) return false;
+  const { pa, pb } = seg;
+  const { x, y } = conn.labelOffset;
+  return x >= Math.min(pa.x, pb.x) - 35 && x <= Math.max(pa.x, pb.x) + 35 &&
+         y >= Math.min(pa.y, pb.y) - 35 && y <= Math.max(pa.y, pb.y) + 35;
+}
+
+function architectArrows() {
+  // Fix overlapping arrow segments by inserting a small perpendicular detour
+  // into one of the two overlapping connections.
+  const CLOSE       = 9;   // two segs are "overlapping" if perpendicular distance < CLOSE px
+  const MIN_OVERLAP = 18;  // ignore tiny overlaps below this length (px)
+  const GAP         = 13;  // margin before/after overlap for detour corners
+  const OFFSET      = 22;  // perpendicular detour depth (px)
+
+  // Need fresh _computedOrthopts — render() must have run already (it has)
+  const allSegs = [];
+  for (const c of state.connections) {
+    const pts = c._computedOrthopts;
+    if (!pts || pts.length < 2) continue;
+    for (let i = 0; i < pts.length - 1; i++) {
+      const pa = pts[i], pb = pts[i + 1];
+      const len = Math.hypot(pb.x - pa.x, pb.y - pa.y);
+      if (len < 1) continue;
+      const isH = Math.abs(pb.y - pa.y) < Math.abs(pb.x - pa.x);
+      allSegs.push({ connId: c.id, segIdx: i, pa, pb, len, isH, fullPts: pts });
+    }
+  }
+
+  const toFix = [];
+  const fixed = new Set();
+
+  for (let i = 0; i < allSegs.length; i++) {
+    for (let j = i + 1; j < allSegs.length; j++) {
+      const sa = allSegs[i], sb = allSegs[j];
+      if (sa.connId === sb.connId) continue;
+      if (sa.isH !== sb.isH) continue;
+
+      let oStart, oEnd, perpPos;
+      if (sa.isH) {
+        if (Math.abs(sa.pa.y - sb.pa.y) > CLOSE) continue;
+        const aMin = Math.min(sa.pa.x, sa.pb.x), aMax = Math.max(sa.pa.x, sa.pb.x);
+        const bMin = Math.min(sb.pa.x, sb.pb.x), bMax = Math.max(sb.pa.x, sb.pb.x);
+        oStart = Math.max(aMin, bMin); oEnd = Math.min(aMax, bMax);
+        if (oEnd - oStart < MIN_OVERLAP) continue;
+        perpPos = (sa.pa.y + sb.pa.y) / 2;
+      } else {
+        if (Math.abs(sa.pa.x - sb.pa.x) > CLOSE) continue;
+        const aMin = Math.min(sa.pa.y, sa.pb.y), aMax = Math.max(sa.pa.y, sa.pb.y);
+        const bMin = Math.min(sb.pa.y, sb.pb.y), bMax = Math.max(sb.pa.y, sb.pb.y);
+        oStart = Math.max(aMin, bMin); oEnd = Math.min(aMax, bMax);
+        if (oEnd - oStart < MIN_OVERLAP) continue;
+        perpPos = (sa.pa.x + sb.pa.x) / 2;
+      }
+
+      // Choose which to detour
+      if (fixed.has(sa.connId) && fixed.has(sb.connId)) continue;
+      let chosen, chosenSeg;
+      if (fixed.has(sa.connId)) { chosen = state.connections.find(c => c.id === sb.connId); chosenSeg = sb; }
+      else if (fixed.has(sb.connId)) { chosen = state.connections.find(c => c.id === sa.connId); chosenSeg = sa; }
+      else {
+        const connA = state.connections.find(c => c.id === sa.connId);
+        const connB = state.connections.find(c => c.id === sb.connId);
+        if (!connA || !connB) continue;
+        const hasA = _labelOnSeg(connA, sa), hasB = _labelOnSeg(connB, sb);
+        if (hasA && !hasB) { chosen = connB; chosenSeg = sb; }
+        else if (hasB && !hasA) { chosen = connA; chosenSeg = sa; }
+        else {
+          const la = (connA.label || '').length, lb = (connB.label || '').length;
+          if (la <= lb) { chosen = connA; chosenSeg = sa; } else { chosen = connB; chosenSeg = sb; }
+        }
+      }
+      if (!chosen) continue;
+      fixed.add(chosen.id);
+      toFix.push({ conn: chosen, seg: chosenSeg, oStart, oEnd, perpPos });
+    }
+  }
+
+  if (toFix.length === 0) { showToast(_L('editor.toast.no_arrow_overlap') || 'Aucune superposition détectée'); return; }
+
+  for (const { conn, seg, oStart, oEnd, perpPos } of toFix) {
+    const { segIdx, fullPts, isH } = seg;
+    const pa = fullPts[segIdx], pb = fullPts[segIdx + 1];
+
+    // Clip detour start/end to segment range
+    const segMin = isH ? Math.min(pa.x, pb.x) : Math.min(pa.y, pb.y);
+    const segMax = isH ? Math.max(pa.x, pb.x) : Math.max(pa.y, pb.y);
+    const os = Math.max(segMin + 4, oStart - GAP);
+    const oe = Math.min(segMax - 4, oEnd   + GAP);
+    if (os >= oe) continue;
+
+    const newPts = [];
+    for (let k = 0; k < fullPts.length; k++) {
+      newPts.push({ x: fullPts[k].x, y: fullPts[k].y });
+      if (k === segIdx) {
+        if (isH) {
+          const dy = -OFFSET; // detour upward
+          newPts.push({ x: os, y: perpPos });
+          newPts.push({ x: os, y: perpPos + dy });
+          newPts.push({ x: oe, y: perpPos + dy });
+          newPts.push({ x: oe, y: perpPos });
+        } else {
+          const dx = -OFFSET; // detour leftward
+          newPts.push({ x: perpPos,      y: os });
+          newPts.push({ x: perpPos + dx, y: os });
+          newPts.push({ x: perpPos + dx, y: oe });
+          newPts.push({ x: perpPos,      y: oe });
+        }
+      }
+    }
+    conn.userPts = newPts.slice(1, -1);
+
+    // Reposition label to the middle of the detour segment
+    if ((conn.label || '').trim()) {
+      if (isH)
+        conn.labelOffset = { x: (os + oe) / 2, y: perpPos - OFFSET };
+      else
+        conn.labelOffset = { x: perpPos - OFFSET, y: (os + oe) / 2 };
+    }
+  }
+
+  showToast(toFix.length + ' ' + (_L('editor.toast.arrows_fixed') || 'flèche(s) décalée(s)'));
   snapshot(); render();
 }
 
@@ -5116,7 +5268,66 @@ function init() {
 
   document.getElementById('btn-new-carto').addEventListener('click', newCarto);
   document.getElementById('btn-architect').addEventListener('click', runCartoCheck);
-  document.getElementById('btn-place-labels').addEventListener('click', architectLabels);
+  // btn-place-labels: click → architectLabels immediately; hover 1s → dropdown
+  (function() {
+    if (window.OPTIQCARTO_READONLY) return;
+    const btn = document.getElementById('btn-place-labels');
+    if (!btn) return;
+    btn.addEventListener('click', architectLabels);
+
+    const drop = document.createElement('div');
+    drop.id = 'architect-dropdown';
+    drop.style.cssText = [
+      'position:absolute;top:100%;left:50%;transform:translateX(-50%)',
+      'margin-top:4px;background:#fff;border:1.5px solid #e2e8f0',
+      'border-radius:10px;box-shadow:0 6px 20px rgba(0,0,0,0.15)',
+      'z-index:9000;min-width:200px;overflow:hidden;display:none',
+      'flex-direction:column',
+    ].join(';');
+    drop.innerHTML = `
+      <button id="arch-btn-labels" style="padding:10px 16px;border:none;background:none;text-align:left;cursor:pointer;font-size:0.83rem;color:#1e293b;display:flex;align-items:center;gap:8px;width:100%">
+        <i class="fa-solid fa-tag" style="color:#ec4899;width:14px"></i>
+        <span data-key="editor.arch_drop_labels">Architecter les labels</span>
+      </button>
+      <button id="arch-btn-arrows" style="padding:10px 16px;border:none;background:none;text-align:left;cursor:pointer;font-size:0.83rem;color:#1e293b;display:flex;align-items:center;gap:8px;width:100%;border-top:1px solid #f1f5f9">
+        <i class="fa-solid fa-arrows-split-up-and-left" style="color:#3b82f6;width:14px"></i>
+        <span data-key="editor.arch_drop_arrows">Architecter les flèches</span>
+      </button>`;
+    drop.querySelector('#arch-btn-labels').onmouseenter = e => e.currentTarget.style.background = '#f8fafc';
+    drop.querySelector('#arch-btn-labels').onmouseleave = e => e.currentTarget.style.background = '';
+    drop.querySelector('#arch-btn-arrows').onmouseenter = e => e.currentTarget.style.background = '#f8fafc';
+    drop.querySelector('#arch-btn-arrows').onmouseleave = e => e.currentTarget.style.background = '';
+    drop.querySelector('#arch-btn-labels').addEventListener('click', e => { e.stopPropagation(); hideDrop(); architectLabels(); });
+    drop.querySelector('#arch-btn-arrows').addEventListener('click', e => { e.stopPropagation(); hideDrop(); architectArrows(); });
+
+    // Apply i18n to dropdown labels
+    drop.querySelectorAll('[data-key]').forEach(el => {
+      const t = _L(el.dataset.key);
+      if (t && t !== el.dataset.key) el.textContent = t;
+    });
+
+    // Position relative — btn must have position:relative
+    btn.style.position = 'relative';
+    btn.appendChild(drop);
+
+    let _hoverTimer = null;
+    function showDrop() { drop.style.display = 'flex'; }
+    function hideDrop() { drop.style.display = 'none'; clearTimeout(_hoverTimer); }
+
+    btn.addEventListener('mouseenter', () => {
+      _hoverTimer = setTimeout(showDrop, 1000);
+    });
+    btn.addEventListener('mouseleave', e => {
+      clearTimeout(_hoverTimer);
+      if (!drop.contains(e.relatedTarget)) hideDrop();
+    });
+    drop.addEventListener('mouseleave', e => {
+      if (!btn.contains(e.relatedTarget)) hideDrop();
+    });
+    document.addEventListener('click', e => {
+      if (!btn.contains(e.target)) hideDrop();
+    }, true);
+  })();
   document.getElementById('btn-undo').addEventListener('click', undo);
   document.getElementById('btn-redo').addEventListener('click', redo);
   document.getElementById('btn-fit').addEventListener('click', fitView);

@@ -236,7 +236,11 @@
             <button class="calque-chip active" data-id="master" id="calque-chip-master">Master</button>
           </div>
         </div>
-        <div class="carto-viewer-wrap">
+        <div class="carto-viewer-wrap" style="position:relative">
+          <div id="calque-loading-overlay" style="display:none;position:absolute;inset:0;background:rgba(255,255,255,0.82);z-index:10;align-items:center;justify-content:center;flex-direction:column;gap:10px">
+            <div style="width:36px;height:36px;border:3px solid #f1f5f9;border-top-color:#ec4899;border-radius:50%;animation:spin .7s linear infinite"></div>
+            <span style="font-size:0.82rem;color:#64748b;font-weight:600">Chargement…</span>
+          </div>
           <iframe id="carto-viewer-frame" src="/cartography/viewer" frameborder="0" allowfullscreen></iframe>
         </div>
       </div>

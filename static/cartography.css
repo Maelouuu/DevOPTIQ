@@ -4036,3 +4036,4 @@ body.connexion-mode-active .activity-item:not(.connexion-match) {
   background: linear-gradient(135deg, #fdf2f8, #fce7f3);
   color: #be185d;
 }
+@keyframes spin { to { transform: rotate(360deg); } }

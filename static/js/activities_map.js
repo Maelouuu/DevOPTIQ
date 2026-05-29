@@ -1566,14 +1566,23 @@ async function initCalqueStrip() {
   }
 
   async function applyCalque(id) {
-    const frame = document.getElementById("carto-viewer-frame");
+    const frame   = document.getElementById("carto-viewer-frame");
+    const overlay = document.getElementById("calque-loading-overlay");
     if (!frame) return;
+
+    // Show loading overlay
+    if (overlay) overlay.style.display = 'flex';
+
     if (id === "master") {
       await fetch("/cartography/api/calques/deactivate", { method: "POST" }).catch(() => {});
     } else {
       await fetch(`/cartography/api/calques/${id}/apply`, { method: "POST" }).catch(() => {});
     }
-    // Reload iframe to reflect new state
+
+    // Reload iframe and hide overlay once loaded
+    frame.addEventListener("load", () => {
+      if (overlay) overlay.style.display = 'none';
+    }, { once: true });
     frame.src = frame.src;
     setActive(id);
   }
