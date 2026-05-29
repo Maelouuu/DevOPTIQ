@@ -1005,7 +1005,7 @@ function handleCrossCartoClick(activityName, matches) {
     item.querySelector(".cross-entity-btn-preview").addEventListener("click", (e) => {
       e.stopPropagation();
       popup.classList.add("hidden");
-      showCartoPreview(m.entity_id, m.entity_name);
+      showCartoPreview(m.entity_id, m.entity_name, m.activity_name);
     });
 
     item.querySelector(".cross-entity-btn-officialize").addEventListener("click", async (e) => {
@@ -1092,7 +1092,7 @@ async function officializeLiaison(extcoActivityId, originEntityId, originActivit
 let _previewEntityId = null;
 let _previewCleanup  = null;
 
-async function showCartoPreview(entityId, entityName) {
+async function showCartoPreview(entityId, entityName, originActivityName = null) {
   _previewEntityId = entityId;
 
   const previewPopup = document.getElementById("carto-preview-popup");
@@ -1114,6 +1114,13 @@ async function showCartoPreview(entityId, entityName) {
     iframe.style.cssText = "width:100%;height:100%;border:none;border-radius:0 0 8px 8px;display:block";
     iframe.addEventListener("load", () => {
       if (loadingEl) loadingEl.style.display = "none";
+      if (originActivityName) {
+        setTimeout(() => {
+          try {
+            iframe.contentWindow.postMessage({ type: 'zoom-to-activity', activityName: originActivityName }, '*');
+          } catch (_) {}
+        }, 400);
+      }
     });
     svgWrap.appendChild(iframe);
   }

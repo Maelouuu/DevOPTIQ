@@ -210,6 +210,8 @@ let groupHighlightId = null;
 let expandedGroups = new Set();
 // extco activity_id → { id, display_label, origin_entity_name }
 let _liaisonByActivityId = {};
+// ID de la forme à mettre en évidence (zoom-to-activity) — null = aucune
+let _haloShapeId = null;
 
 // ── Refs DOM ──────────────────────────────────────
 const canvas    = document.getElementById('canvas');
@@ -837,8 +839,73 @@ function renderConnections() {
    RENDER — SHAPES
    ══════════════════════════════════════════════════ */
 
+function _drawHaloForShape(shape, parent) {
+  const pad = 18;
+  const cx = shape.x + shape.w / 2;
+  const cy = shape.y + shape.h / 2;
+  const rx0 = shape.w / 2 + pad;
+  const ry0 = shape.h / 2 + pad;
+  // Ensure blur filter exists in defs
+  const defs = canvas.querySelector('defs');
+  if (defs && !document.getElementById('_halo-glow-filter')) {
+    const flt = document.createElementNS('http://www.w3.org/2000/svg', 'filter');
+    flt.setAttribute('id', '_halo-glow-filter');
+    flt.setAttribute('x', '-60%'); flt.setAttribute('y', '-60%');
+    flt.setAttribute('width', '220%'); flt.setAttribute('height', '220%');
+    const blur = document.createElementNS('http://www.w3.org/2000/svg', 'feGaussianBlur');
+    blur.setAttribute('stdDeviation', '6'); blur.setAttribute('result', 'blur');
+    const merge = document.createElementNS('http://www.w3.org/2000/svg', 'feMerge');
+    const n1 = document.createElementNS('http://www.w3.org/2000/svg', 'feMergeNode');
+    n1.setAttribute('in', 'blur');
+    const n2 = document.createElementNS('http://www.w3.org/2000/svg', 'feMergeNode');
+    n2.setAttribute('in', 'SourceGraphic');
+    merge.appendChild(n1); merge.appendChild(n2);
+    flt.appendChild(blur); flt.appendChild(merge);
+    defs.appendChild(flt);
+  }
+  function mkAnim(attr, vals, dur) {
+    const a = document.createElementNS('http://www.w3.org/2000/svg', 'animate');
+    a.setAttribute('attributeName', attr);
+    a.setAttribute('values', vals);
+    a.setAttribute('dur', dur + 's');
+    a.setAttribute('repeatCount', 'indefinite');
+    return a;
+  }
+  // Outer glow ring
+  const outer = document.createElementNS('http://www.w3.org/2000/svg', 'ellipse');
+  outer.setAttribute('cx', cx); outer.setAttribute('cy', cy);
+  outer.setAttribute('rx', rx0 + 5); outer.setAttribute('ry', ry0 + 5);
+  outer.setAttribute('fill', 'none');
+  outer.setAttribute('stroke', '#ec4899');
+  outer.setAttribute('stroke-width', '10');
+  outer.setAttribute('pointer-events', 'none');
+  outer.setAttribute('filter', 'url(#_halo-glow-filter)');
+  outer.appendChild(mkAnim('stroke-opacity', '0.7;0.1;0.7', 1.6));
+  outer.appendChild(mkAnim('rx', `${rx0+5};${rx0+13};${rx0+5}`, 1.6));
+  outer.appendChild(mkAnim('ry', `${ry0+5};${ry0+13};${ry0+5}`, 1.6));
+  parent.appendChild(outer);
+  // Sharp inner ring
+  const inner = document.createElementNS('http://www.w3.org/2000/svg', 'ellipse');
+  inner.setAttribute('cx', cx); inner.setAttribute('cy', cy);
+  inner.setAttribute('rx', rx0); inner.setAttribute('ry', ry0);
+  inner.setAttribute('fill', 'none');
+  inner.setAttribute('stroke', '#ec4899');
+  inner.setAttribute('stroke-width', '3');
+  inner.setAttribute('pointer-events', 'none');
+  inner.appendChild(mkAnim('stroke-opacity', '1;0.4;1', 1.6));
+  inner.appendChild(mkAnim('rx', `${rx0};${rx0+8};${rx0}`, 1.6));
+  inner.appendChild(mkAnim('ry', `${ry0};${ry0+8};${ry0}`, 1.6));
+  parent.appendChild(inner);
+}
+
 function renderShapes() {
   gShapes.innerHTML = '';
+
+  // Halo de mise en évidence (zoom-to-activity depuis le parent)
+  if (_haloShapeId !== null) {
+    const hs = state.shapes.find(s => s.id === _haloShapeId);
+    if (hs) _drawHaloForShape(hs, gShapes);
+  }
 
   for (const s of state.shapes) {
     const isSel   = selectedShapes.has(s.id);
@@ -4693,15 +4760,44 @@ function _labelOnSeg(conn, seg) {
          y >= Math.min(pa.y, pb.y) - 35 && y <= Math.max(pa.y, pb.y) + 35;
 }
 
-function architectArrows() {
-  // Fix overlapping arrow segments by inserting a small perpendicular detour
-  // into one of the two overlapping connections.
-  const CLOSE       = 9;   // two segs are "overlapping" if perpendicular distance < CLOSE px
-  const MIN_OVERLAP = 18;  // ignore tiny overlaps below this length (px)
-  const GAP         = 13;  // margin before/after overlap for detour corners
-  const OFFSET      = 22;  // perpendicular detour depth (px)
+// Choisit la direction du détour (-1 = haut/gauche, +1 = bas/droite) en fonction
+// de l'espace disponible (moins de formes = meilleur côté).
+function _chooseDetourDir(isH, segPos, os, oe, offset) {
+  const PAD = 8;
+  function countHits(sign) {
+    let n = 0;
+    const d = sign * offset;
+    if (isH) {
+      const yMin = Math.min(segPos, segPos + d) - PAD;
+      const yMax = Math.max(segPos, segPos + d) + PAD;
+      for (const s of state.shapes) {
+        if (s.x < oe + PAD && s.x + s.w > os - PAD && s.y < yMax && s.y + s.h > yMin) n++;
+      }
+    } else {
+      const xMin = Math.min(segPos, segPos + d) - PAD;
+      const xMax = Math.max(segPos, segPos + d) + PAD;
+      for (const s of state.shapes) {
+        if (s.y < oe + PAD && s.y + s.h > os - PAD && s.x < xMax && s.x + s.w > xMin) n++;
+      }
+    }
+    return n;
+  }
+  return countHits(-1) <= countHits(+1) ? -1 : +1;
+}
 
-  // Need fresh _computedOrthopts — render() must have run already (it has)
+function architectArrows() {
+  const CLOSE       = 9;   // distance perpendiculaire max pour considérer deux segments superposés
+  const MIN_OVERLAP = 20;  // longueur minimale de chevauchement à corriger (px)
+  const GAP         = 14;  // marge avant/après la zone de détour
+  const OFFSET      = 30;  // profondeur du détour perpendiculaire (px)
+
+  // Réinitialiser les détours précédents (appel frais = résultat reproductible)
+  for (const c of state.connections) {
+    if (c._archDetoured) { delete c.userPts; delete c._archDetoured; }
+  }
+  // Re-render pour obtenir des _computedOrthopts propres AVANT l'analyse
+  render();
+
   const allSegs = [];
   for (const c of state.connections) {
     const pts = c._computedOrthopts;
@@ -4724,29 +4820,28 @@ function architectArrows() {
       if (sa.connId === sb.connId) continue;
       if (sa.isH !== sb.isH) continue;
 
-      let oStart, oEnd, perpPos;
+      let oStart, oEnd;
       if (sa.isH) {
         if (Math.abs(sa.pa.y - sb.pa.y) > CLOSE) continue;
         const aMin = Math.min(sa.pa.x, sa.pb.x), aMax = Math.max(sa.pa.x, sa.pb.x);
         const bMin = Math.min(sb.pa.x, sb.pb.x), bMax = Math.max(sb.pa.x, sb.pb.x);
         oStart = Math.max(aMin, bMin); oEnd = Math.min(aMax, bMax);
         if (oEnd - oStart < MIN_OVERLAP) continue;
-        perpPos = (sa.pa.y + sb.pa.y) / 2;
       } else {
         if (Math.abs(sa.pa.x - sb.pa.x) > CLOSE) continue;
         const aMin = Math.min(sa.pa.y, sa.pb.y), aMax = Math.max(sa.pa.y, sa.pb.y);
         const bMin = Math.min(sb.pa.y, sb.pb.y), bMax = Math.max(sb.pa.y, sb.pb.y);
         oStart = Math.max(aMin, bMin); oEnd = Math.min(aMax, bMax);
         if (oEnd - oStart < MIN_OVERLAP) continue;
-        perpPos = (sa.pa.x + sb.pa.x) / 2;
       }
 
-      // Choose which to detour
       if (fixed.has(sa.connId) && fixed.has(sb.connId)) continue;
       let chosen, chosenSeg;
-      if (fixed.has(sa.connId)) { chosen = state.connections.find(c => c.id === sb.connId); chosenSeg = sb; }
-      else if (fixed.has(sb.connId)) { chosen = state.connections.find(c => c.id === sa.connId); chosenSeg = sa; }
-      else {
+      if (fixed.has(sa.connId)) {
+        chosen = state.connections.find(c => c.id === sb.connId); chosenSeg = sb;
+      } else if (fixed.has(sb.connId)) {
+        chosen = state.connections.find(c => c.id === sa.connId); chosenSeg = sa;
+      } else {
         const connA = state.connections.find(c => c.id === sa.connId);
         const connB = state.connections.find(c => c.id === sb.connId);
         if (!connA || !connB) continue;
@@ -4760,50 +4855,60 @@ function architectArrows() {
       }
       if (!chosen) continue;
       fixed.add(chosen.id);
-      toFix.push({ conn: chosen, seg: chosenSeg, oStart, oEnd, perpPos });
+      toFix.push({ conn: chosen, seg: chosenSeg, oStart, oEnd });
     }
   }
 
-  if (toFix.length === 0) { showToast(_L('editor.toast.no_arrow_overlap') || 'Aucune superposition détectée'); return; }
+  if (toFix.length === 0) {
+    showToast(_L('editor.toast.no_arrow_overlap') || 'Aucune superposition détectée');
+    return;
+  }
 
-  for (const { conn, seg, oStart, oEnd, perpPos } of toFix) {
+  for (const { conn, seg, oStart, oEnd } of toFix) {
     const { segIdx, fullPts, isH } = seg;
     const pa = fullPts[segIdx], pb = fullPts[segIdx + 1];
 
-    // Clip detour start/end to segment range
+    // Coordonnée du segment à dévier (Y pour horizontal, X pour vertical)
+    // CRITIQUE : utiliser la position réelle du segment choisi, pas une moyenne
+    const segPos = isH ? pa.y : pa.x;
+
+    // Délimiter la zone de détour à l'intérieur du segment
     const segMin = isH ? Math.min(pa.x, pb.x) : Math.min(pa.y, pb.y);
     const segMax = isH ? Math.max(pa.x, pb.x) : Math.max(pa.y, pb.y);
-    const os = Math.max(segMin + 4, oStart - GAP);
-    const oe = Math.min(segMax - 4, oEnd   + GAP);
+    const os = Math.max(segMin + 6, oStart - GAP);
+    const oe = Math.min(segMax - 6, oEnd + GAP);
     if (os >= oe) continue;
 
+    // Choisir le meilleur côté pour le détour (éviter les formes)
+    const sign = _chooseDetourDir(isH, segPos, os, oe, OFFSET);
+
+    // Construire le chemin complet avec 4 points de détour insérés
     const newPts = [];
     for (let k = 0; k < fullPts.length; k++) {
       newPts.push({ x: fullPts[k].x, y: fullPts[k].y });
       if (k === segIdx) {
         if (isH) {
-          const dy = -OFFSET; // detour upward
-          newPts.push({ x: os, y: perpPos });
-          newPts.push({ x: os, y: perpPos + dy });
-          newPts.push({ x: oe, y: perpPos + dy });
-          newPts.push({ x: oe, y: perpPos });
+          newPts.push({ x: os, y: segPos });
+          newPts.push({ x: os, y: segPos + sign * OFFSET });
+          newPts.push({ x: oe, y: segPos + sign * OFFSET });
+          newPts.push({ x: oe, y: segPos });
         } else {
-          const dx = -OFFSET; // detour leftward
-          newPts.push({ x: perpPos,      y: os });
-          newPts.push({ x: perpPos + dx, y: os });
-          newPts.push({ x: perpPos + dx, y: oe });
-          newPts.push({ x: perpPos,      y: oe });
+          newPts.push({ x: segPos,                y: os });
+          newPts.push({ x: segPos + sign * OFFSET, y: os });
+          newPts.push({ x: segPos + sign * OFFSET, y: oe });
+          newPts.push({ x: segPos,                y: oe });
         }
       }
     }
     conn.userPts = newPts.slice(1, -1);
+    conn._archDetoured = true; // marqueur pour réinitialisation au prochain appel
 
-    // Reposition label to the middle of the detour segment
+    // Déplacer le label au milieu du segment de détour
     if ((conn.label || '').trim()) {
       if (isH)
-        conn.labelOffset = { x: (os + oe) / 2, y: perpPos - OFFSET };
+        conn.labelOffset = { x: (os + oe) / 2, y: segPos + sign * OFFSET };
       else
-        conn.labelOffset = { x: perpPos - OFFSET, y: (os + oe) / 2 };
+        conn.labelOffset = { x: segPos + sign * OFFSET, y: (os + oe) / 2 };
     }
   }
 
@@ -5562,14 +5667,38 @@ function initDock() { /* dock supprimé */ }
 document.addEventListener('DOMContentLoaded', init);
 
 // Écoute les messages postMessage depuis la page parente (activities_map).
-// Permet d'activer le mode "mise en évidence des activités externes" depuis l'extérieur de l'iframe.
 window.addEventListener('message', function(e) {
   if (!e.data || typeof e.data !== 'object') return;
+
   if (e.data.type === 'toggle-extco') {
     if (typeof toggleHighlightExtco === 'function') toggleHighlightExtco();
     try { e.source.postMessage({ type: 'extco-state', active: typeof isHighlightExtcoActive === 'function' ? isHighlightExtcoActive() : false }, e.origin || '*'); } catch(_) {}
   }
   if (e.data.type === 'get-extco-state') {
     try { e.source.postMessage({ type: 'extco-state', active: typeof isHighlightExtcoActive === 'function' ? isHighlightExtcoActive() : false }, e.origin || '*'); } catch(_) {}
+  }
+
+  // Zoom sur une activité + halo lumineux (depuis la prévisualisation cross-carto)
+  if (e.data.type === 'zoom-to-activity') {
+    const name = (e.data.activityName || '').trim().toLowerCase();
+    if (!name) return;
+    _haloShapeId = null;
+    // Chercher forme par label exact puis par inclusion
+    let target = state.shapes.find(s => (s.label || '').trim().toLowerCase() === name);
+    if (!target) target = state.shapes.find(s => {
+      const sl = (s.label || '').trim().toLowerCase();
+      return sl.includes(name) || name.includes(sl);
+    });
+    if (!target) return;
+    _haloShapeId = target.id;
+    // Centrer et zoomer sur la forme
+    const cx = target.x + target.w / 2;
+    const cy = target.y + target.h / 2;
+    const cvs = canvas.getBoundingClientRect();
+    vpScale = Math.max(0.6, vpScale); // au moins 120% affiché
+    vpX = cvs.width  / 2 - cx * vpScale;
+    vpY = cvs.height / 2 - cy * vpScale;
+    applyViewport();
+    render();
   }
 });
