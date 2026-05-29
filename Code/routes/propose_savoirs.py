@@ -1,5 +1,5 @@
 # Code/routes/propose_savoirs.py
-from flask import Blueprint, request, jsonify, current_app
+from flask import Blueprint, request, jsonify, current_app, session
 from .propose_common import build_activity_context, openai_client_or_none, dummy_from_context
 
 bp_propose_savoirs = Blueprint("propose_savoirs", __name__)
@@ -41,10 +41,12 @@ def propose_savoirs():
 === SAVOIR-FAIRE ASSOCIÉS ===
 {sf_block}
 """
+        lang = session.get('lang', 'fr')
+        lang_instr = "Respond in English." if lang == 'en' else "Réponds en français."
         resp = client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
-                {"role": "system", "content": "Tu es un assistant RH/formation, précis et concis."},
+                {"role": "system", "content": f"Tu es un assistant RH/formation, précis et concis. {lang_instr}"},
                 {"role": "user", "content": prompt},
             ],
             temperature=0.2,

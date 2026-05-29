@@ -758,6 +758,21 @@ TRANSLATIONS = {
         'propose.savoir_faire_section':     'Savoir-Faire',
         'propose.savoir_section':           'Savoirs',
         'propose.openai_generic_note':      "(Si vous voyez des propositions « génériques », c'est que la clé OpenAI n'est pas définie côté serveur.)",
+        'propose.err_fetch_details':        "Impossible de récupérer les détails de l'activité (voir console).",
+        'propose.err_no_proposals':         "Aucune proposition retournée.",
+        'propose.err_fetch_competencies':   "Impossible d'obtenir des propositions de compétences (voir console).",
+        'propose.err_add_competency':       "Impossible d'ajouter la compétence (voir console).",
+        'propose.label_description':        "Description :",
+        'propose.confirm_delete_competency':"Supprimer cette compétence ?",
+
+        # ── Page Activités — Savoirs ─────────────────────────────────────────
+        'savoirs.title':    'Savoirs',
+        'savoirs.add_btn':  '+ Ajouter un Savoir',
+
+        # ── Page Liste Activités — UI généraux ──────────────────────────────
+        'act_list.selected_from_carto': 'Activité sélectionnée depuis la cartographie',
+        'act_list.result_singular':     'résultat',
+        'act_list.result_plural':       'résultats',
     },
 
     'en': {
@@ -1511,6 +1526,21 @@ TRANSLATIONS = {
         'propose.savoir_faire_section':     'Know-how',
         'propose.savoir_section':           'Knowledge',
         'propose.openai_generic_note':      '(If you see "generic" proposals, the OpenAI key is not set server-side.)',
+        'propose.err_fetch_details':        'Unable to fetch activity details (see console).',
+        'propose.err_no_proposals':         'No proposals returned.',
+        'propose.err_fetch_competencies':   'Unable to get competency proposals (see console).',
+        'propose.err_add_competency':       'Unable to add competency (see console).',
+        'propose.label_description':        'Description:',
+        'propose.confirm_delete_competency':'Delete this competency?',
+
+        # ── Activities page — Knowledge (savoirs) ─────────────────────────────
+        'savoirs.title':    'Knowledge',
+        'savoirs.add_btn':  '+ Add Knowledge',
+
+        # ── Activities list — general UI ─────────────────────────────────────
+        'act_list.selected_from_carto': 'Activity selected from cartography',
+        'act_list.result_singular':     'result',
+        'act_list.result_plural':       'results',
     },
 }
 

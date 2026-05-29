@@ -1,6 +1,6 @@
 # Code/routes/skills.py
 
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, session
 import os
 import openai
 import re
@@ -61,12 +61,15 @@ def propose_skills():
     tools_str = ", ".join(tools_list) if tools_list else "Aucun outil"
 
     # --- PROMPT ---
+    lang = session.get('lang', 'fr')
+    lang_instr = "Write the 3 competency proposals in English." if lang == 'en' else "Rédigez les 3 propositions en français."
     prompt = f"""
 Vous êtes un expert en gestion des compétences selon la norme NF X50-124.
-Rédigez exactement 3 propositions de compétences, 
-chacune sur une nouvelle ligne distincte, 
-sans puce ni numérotation, 
+Rédigez exactement 3 propositions de compétences,
+chacune sur une nouvelle ligne distincte,
+sans puce ni numérotation,
 en commençant par un verbe d'action.
+{lang_instr}
 
 Activité : {activity_name}
 Entrées : {input_data_value}

@@ -48,9 +48,9 @@
   <div id="special-activity-section" style="display:none; margin-bottom:18px;">
     <div class="special-activity-header">
       <span class="special-activity-label">
-        <i class="fa-solid fa-location-dot"></i> Activité sélectionnée depuis la cartographie
+        <i class="fa-solid fa-location-dot"></i> {{ t('act_list.selected_from_carto') }}
       </span>
-      <button id="btn-close-special" class="special-activity-close" title="Fermer">
+      <button id="btn-close-special" class="special-activity-close" title="{{ t('btn.close') }}">
         <i class="fa-solid fa-xmark"></i>
       </button>
     </div>
@@ -111,11 +111,19 @@
     hsc_level:              "{{ t('propose.hsc_level') }}",
     hsc_justification:      "{{ t('propose.hsc_justification') }}",
     hsc_none:               "{{ t('propose.hsc_none') }}",
-    err_no_selection:       "{{ t('propose.err_no_selection') }}",
-    err_saving:             "{{ t('propose.err_saving') }}",
-    savoir_faire_section:   "{{ t('propose.savoir_faire_section') }}",
-    savoir_section:         "{{ t('propose.savoir_section') }}",
-    openai_generic_note:    "{{ t('propose.openai_generic_note') }}",
+    err_no_selection:           "{{ t('propose.err_no_selection') }}",
+    err_saving:                 "{{ t('propose.err_saving') }}",
+    savoir_faire_section:       "{{ t('propose.savoir_faire_section') }}",
+    savoir_section:             "{{ t('propose.savoir_section') }}",
+    openai_generic_note:        "{{ t('propose.openai_generic_note') }}",
+    err_fetch_details:          "{{ t('propose.err_fetch_details') }}",
+    err_no_proposals:           "{{ t('propose.err_no_proposals') }}",
+    err_fetch_competencies:     "{{ t('propose.err_fetch_competencies') }}",
+    err_add_competency:         "{{ t('propose.err_add_competency') }}",
+    label_description:          "{{ t('propose.label_description') }}",
+    confirm_delete_competency:  "{{ t('propose.confirm_delete_competency') }}",
+    result_singular:            "{{ t('act_list.result_singular') }}",
+    result_plural:              "{{ t('act_list.result_plural') }}",
   };
   </script>
 
@@ -227,7 +235,11 @@
         }
         if (loadMoreWrap) loadMoreWrap.style.display = 'none';
         const countEl = document.getElementById('activity-search-count');
-        if (countEl) countEl.textContent = `${visible} résultat${visible !== 1 ? 's' : ''}`;
+        if (countEl) {
+          const singular = (window.PROPOSE_I18N || {}).result_singular || 'résultat';
+          const plural   = (window.PROPOSE_I18N || {}).result_plural   || 'résultats';
+          countEl.textContent = `${visible} ${visible !== 1 ? plural : singular}`;
+        }
       } else {
         document.getElementById('activity-search-count').textContent = '';
         mainList.querySelectorAll('.activity-container').forEach(c => c.style.display = '');

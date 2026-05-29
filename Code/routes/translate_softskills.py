@@ -2,7 +2,7 @@
 import os
 import json
 import re
-from flask import Blueprint, request, jsonify, current_app
+from flask import Blueprint, request, jsonify, current_app, session
 
 translate_softskills_bp = Blueprint('translate_softskills_bp', __name__, url_prefix='/translate_softskills')
 
@@ -182,10 +182,12 @@ def translate_softskills():
         return jsonify({"error": err}), 500
 
     try:
+        lang = session.get('lang', 'fr')
+        lang_instr = "Respond in English (justification field)." if lang == 'en' else "Réponds en français (champ justification)."
         response = client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
-                {"role": "system", "content": "Tu es un assistant spécialisé en habiletés socio-cognitives X50-766. Tu réponds UNIQUEMENT en JSON valide, sans markdown ni texte supplémentaire."},
+                {"role": "system", "content": f"Tu es un assistant spécialisé en habiletés socio-cognitives X50-766. Tu réponds UNIQUEMENT en JSON valide, sans markdown ni texte supplémentaire. {lang_instr}"},
                 {"role": "user", "content": prompt}
             ],
             temperature=0.4,

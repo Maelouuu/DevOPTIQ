@@ -1,16 +1,14 @@
 // Code/static/js/competencies.js
+const _PI_COMP = window.PROPOSE_I18N || {};
+function _piComp(k, fb) { return _PI_COMP[k] || fb; }
 
-/**
- * Récupère les détails d'une activité (via /activities/<id>/details),
- * puis enchaîne sur la proposition de compétences IA
- */
 function fetchActivityDetailsForSkills(activityId) {
   showSpinner();
   fetch(`/activities/${activityId}/details`)
     .then(response => {
       if (!response.ok) {
         hideSpinner();
-        throw new Error("Erreur lors de la récupération des détails de l'activité");
+        throw new Error("fetch failed");
       }
       return response.json();
     })
@@ -21,7 +19,7 @@ function fetchActivityDetailsForSkills(activityId) {
     .catch(error => {
       hideSpinner();
       console.error("Erreur fetchActivityDetailsForSkills:", error);
-      alert("Impossible de récupérer les détails de l'activité (voir console).");
+      alert(_piComp('err_fetch_details', "Impossible de récupérer les détails de l'activité (voir console)."));
     });
 }
 
@@ -48,22 +46,19 @@ function proposeSkills(activityData) {
     hideSpinner();
     if (data.error) {
       console.error("Erreur IA /skills/propose:", data.error);
-      alert("Erreur IA : " + data.error);
       return;
     }
-    // On récupère le tableau de propositions
     const lines = data.proposals;
     if (!lines || !Array.isArray(lines) || lines.length === 0) {
-      alert("Aucune proposition retournée.");
+      alert(_piComp('err_no_proposals', "Aucune proposition retournée."));
       return;
     }
-    // Affiche le modal avec cases à cocher
     showProposalsModal(lines, activityData.id);
   })
   .catch(err => {
     hideSpinner();
     console.error("Erreur lors de la proposition de compétences:", err);
-    alert("Impossible d'obtenir des propositions de compétences (voir console).");
+    alert(_piComp('err_fetch_competencies', "Impossible d'obtenir des propositions de compétences (voir console)."));
   });
 }
 
@@ -81,7 +76,6 @@ function addCompetency(activityId, description) {
     hideSpinner();
     if (data.error) {
       console.error("Erreur addCompetency:", data.error);
-      alert("Erreur en ajoutant la compétence : " + data.error);
     } else {
       addCompetencyItemToDOM(activityId, data.id, data.description);
     }
@@ -89,7 +83,7 @@ function addCompetency(activityId, description) {
   .catch(error => {
     hideSpinner();
     console.error("Erreur /skills/add:", error);
-    alert("Impossible d'ajouter la compétence (voir console).");
+    alert(_piComp('err_add_competency', "Impossible d'ajouter la compétence (voir console)."));
   });
 }
 
@@ -130,10 +124,10 @@ function addCompetencyItemToDOM(activityId, compId, desc) {
   editForm.style.display = "none";
   editForm.style.marginTop = "5px";
   editForm.innerHTML = `
-    <label>Description :</label>
+    <label>${_piComp('label_description', 'Description :')}</label>
     <input type="text" id="edit-competency-desc-${compId}" value="${desc}" />
-    <button onclick="submitEditCompetency('${compId}')">Enregistrer</button>
-    <button onclick="hideEditCompetencyForm('${compId}')">Annuler</button>
+    <button onclick="submitEditCompetency('${compId}')">${_piComp('save', 'Enregistrer')}</button>
+    <button onclick="hideEditCompetencyForm('${compId}')">${_piComp('cancel', 'Annuler')}</button>
   `;
 
   li.appendChild(span);
@@ -175,7 +169,7 @@ function submitEditCompetency(compId) {
   if (!inputEl) return;
   const newDesc = inputEl.value.trim();
   if (!newDesc) {
-    alert("Veuillez saisir la description de la compétence");
+    alert(_piComp('select_one', "Veuillez saisir la description de la compétence"));
     return;
   }
   showSpinner();
@@ -210,7 +204,7 @@ function submitEditCompetency(compId) {
  * Supprimer la compétence
  */
 function deleteCompetency(buttonElem, compId) {
-  if (!confirm("Supprimer cette compétence ?")) return;
+  if (!confirm(_piComp('confirm_delete_competency', "Supprimer cette compétence ?"))) return;
   showSpinner();
   fetch(`/skills/${compId}`, { method: "DELETE" })
   .then(resp => resp.json())

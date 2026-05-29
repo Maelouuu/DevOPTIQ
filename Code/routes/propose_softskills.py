@@ -1,7 +1,7 @@
 # Code/routes/propose_softskills.py
 import json
 import re
-from flask import Blueprint, request, jsonify, current_app
+from flask import Blueprint, request, jsonify, current_app, session
 from .propose_common import (
     openai_client_or_none,
     dummy_from_context,
@@ -187,6 +187,8 @@ def propose_softskills():
             x50_766_hsc=X50_766_HSC,
         )
 
+        lang = session.get('lang', 'fr')
+        lang_instr = "Respond in English (justification field)." if lang == 'en' else "Réponds en français (champ justification)."
         resp = client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
@@ -195,7 +197,7 @@ def propose_softskills():
                     "content": (
                         "Tu es un assistant RH expert en habiletés sociocognitives X50-766. "
                         "Tu DOIS répondre uniquement en JSON valide. "
-                        "Jamais de texte extérieur, jamais de markdown."
+                        f"Jamais de texte extérieur, jamais de markdown. {lang_instr}"
                     )
                 },
                 {"role": "user", "content": prompt},
