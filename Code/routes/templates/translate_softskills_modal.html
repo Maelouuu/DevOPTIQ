@@ -4,7 +4,7 @@
 <div id="translateSoftskillsOverlay" class="modal-overlay-propose" style="display:none;">
   <div class="modal-content-propose modal-wide" id="translateSoftskillsModal">
     <div class="modal-header-propose">
-      <h3><i class="fa-solid fa-language"></i> Traduire vos soft skills en HSC</h3>
+      <h3><i class="fa-solid fa-language"></i> {{ t('propose.translate_title') }}</h3>
       <button class="modal-close-btn-propose" onclick="closeTranslateSoftskillsModal()">
         <i class="fa-solid fa-xmark"></i>
       </button>
@@ -13,14 +13,14 @@
       <!-- Vue saisie -->
       <div id="translateInputView">
         <p style="font-size:0.9rem; color:#475569; margin-bottom:12px;">
-          Décrivez les soft skills que vous associez à cette activité. L'IA les traduira en habiletés socio-cognitives (HSC) selon la norme X50-766.
+          {{ t('propose.translate_desc') }}
         </p>
         <div class="translate-input-container">
           <textarea id="translateSoftskillsInput"
-                    placeholder="Ex: capacité d'écoute, esprit d'équipe, rigueur, gestion du stress..."></textarea>
+                    placeholder="{{ t('propose.translate_placeholder') }}"></textarea>
           <p class="translate-input-hint">
             <i class="fa-solid fa-circle-info"></i>
-            Saisissez librement, l'IA identifiera les HSC les plus pertinentes.
+            {{ t('propose.translate_hint') }}
           </p>
         </div>
       </div>
@@ -29,10 +29,10 @@
     </div>
     <div class="modal-footer-propose" id="translateModalFooter">
       <button class="btn-modal-secondary-propose" onclick="closeTranslateSoftskillsModal()">
-        <i class="fa-solid fa-xmark"></i> Annuler
+        <i class="fa-solid fa-xmark"></i> {{ t('propose.cancel') }}
       </button>
       <button class="btn-modal-primary-propose" id="translateSubmitBtn" onclick="submitSoftskillsTranslation()">
-        <i class="fa-solid fa-wand-magic-sparkles"></i> Traduire
+        <i class="fa-solid fa-wand-magic-sparkles"></i> {{ t('propose.translate_btn') }}
       </button>
     </div>
   </div>

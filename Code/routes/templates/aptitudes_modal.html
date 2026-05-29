@@ -2,7 +2,7 @@
 <div id="AptitudeModalOverlay" class="modal-overlay-propose" style="display:none;" onclick="if(event.target === this) document.getElementById('cancelAptitudesBtn').click()">
   <div id="AptittudeModal" class="modal-content-propose">
     <div class="modal-header-propose">
-      <h3><i class="fa-solid fa-sparkles"></i> Propositions d'aptitudes</h3>
+      <h3><i class="fa-solid fa-sparkles"></i> {{ t('propose.title_aptitudes') }}</h3>
       <button class="modal-close-btn-propose" onclick="document.getElementById('cancelAptitudesBtn').click()">
         <i class="fa-solid fa-xmark"></i>
       </button>
@@ -12,10 +12,10 @@
     </div>
     <div class="modal-footer-propose">
       <button class="btn-modal-secondary-propose" id="cancelAptitudesBtn">
-        <i class="fa-solid fa-xmark"></i> Annuler
+        <i class="fa-solid fa-xmark"></i> {{ t('propose.cancel') }}
       </button>
       <button class="btn-modal-primary-propose" id="validateAptitudesBtn">
-        <i class="fa-solid fa-check"></i> Valider les aptitudes
+        <i class="fa-solid fa-check"></i> {{ t('propose.validate_aptitudes') }}
       </button>
     </div>
   </div>

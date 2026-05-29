@@ -89,6 +89,36 @@
   <!-- Modal import de tâches -->
   {% include "import_tasks_modal.html" %}
 
+  <!-- Translations for dynamically-built proposal modals -->
+  <script>
+  window.PROPOSE_I18N = {
+    title_competencies:     "{{ t('propose.title_competencies') }}",
+    title_savoirs:          "{{ t('propose.title_savoirs') }}",
+    title_savoir_faires:    "{{ t('propose.title_savoir_faires') }}",
+    title_aptitudes:        "{{ t('propose.title_aptitudes') }}",
+    title_hsc:              "{{ t('propose.title_hsc') }}",
+    cancel:                 "{{ t('propose.cancel') }}",
+    validate_competencies:  "{{ t('propose.validate_competencies') }}",
+    validate_savoirs:       "{{ t('propose.validate_savoirs') }}",
+    validate_savoir_faires: "{{ t('propose.validate_savoir_faires') }}",
+    validate_aptitudes:     "{{ t('propose.validate_aptitudes') }}",
+    save_selection:         "{{ t('propose.save_selection') }}",
+    save:                   "{{ t('propose.save') }}",
+    select_one:             "{{ t('propose.select_one') }}",
+    saved_competencies:     "{{ t('propose.saved_competencies') }}",
+    select_one_hsc:         "{{ t('propose.select_one_hsc') }}",
+    hsc_skill:              "{{ t('propose.hsc_skill') }}",
+    hsc_level:              "{{ t('propose.hsc_level') }}",
+    hsc_justification:      "{{ t('propose.hsc_justification') }}",
+    hsc_none:               "{{ t('propose.hsc_none') }}",
+    err_no_selection:       "{{ t('propose.err_no_selection') }}",
+    err_saving:             "{{ t('propose.err_saving') }}",
+    savoir_faire_section:   "{{ t('propose.savoir_faire_section') }}",
+    savoir_section:         "{{ t('propose.savoir_section') }}",
+    openai_generic_note:    "{{ t('propose.openai_generic_note') }}",
+  };
+  </script>
+
   {% include "script_loader.html" %}
   <!-- Scripts spécifiques à la page -->
   <script defer src="{{ url_for('static', filename='js/activities_tabs.js') }}"></script>

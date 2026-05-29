@@ -282,6 +282,9 @@ def activities_map_page():
         except Exception as _e:
             print(f"[CARTO] extco extract error: {_e}")
 
+    # Active calque from session (set by cartography editor)
+    active_calque_id = session.get('active_calque_id')
+
     return render_template(
         "activities_map.html",
         svg_exists=svg_exists,
@@ -294,7 +297,19 @@ def activities_map_page():
         all_entities=all_entities,
         has_optiqcarto=has_optiqcarto,
         extco_activity_ids=extco_activity_ids,
+        active_calque_id=active_calque_id,
     )
+
+
+
+@activities_map_bp.route("/map/api/activities")
+def map_api_activities():
+    """Returns the activities list for the active entity (used to refresh after calque switch)."""
+    entity = get_active_entity()
+    if not entity:
+        return jsonify([])
+    acts = Activities.query.filter_by(entity_id=entity.id).order_by(Activities.id).all()
+    return jsonify([{"id": a.id, "name": a.name or ""} for a in acts])
 
 
 # ============================================================

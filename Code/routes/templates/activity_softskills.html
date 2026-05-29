@@ -5,10 +5,10 @@
     <!-- Boutons proposer en premier -->
     <div class="section-actions-top hsc-actions-row">
         <button class="btn-modal-primary-propose" onclick="fetchActivityDetailsForPropose('{{ item.activity.id }}')">
-            <i class="fa-solid fa-sparkles"></i> Proposer HSC
+            <i class="fa-solid fa-sparkles"></i> {{ t('propose.btn_propose_hsc') }}
         </button>
         <button class="btn-modal-primary-propose" onclick="openTranslateSoftskillsModal('{{ item.activity.id }}')">
-            <i class="fa-solid fa-language"></i> Traduire Softskills
+            <i class="fa-solid fa-language"></i> {{ t('propose.btn_translate_softskills') }}
         </button>
     </div>
 
@@ -21,17 +21,17 @@
     <!-- Section ajouter HSC -->
     <div class="add-item-section">
         <button class="btn-modal-primary-propose" onclick="showAddSoftskillForm('{{ item.activity.id }}')">
-            <i class="fa-solid fa-plus"></i> Ajouter une HSC
+            <i class="fa-solid fa-plus"></i> {{ t('propose.btn_add_hsc') }}
         </button>
 
         <!-- Formulaire d'ajout manuel (caché par défaut) -->
         <div id="add-softskill-form-{{ item.activity.id }}" class="hsc-add-form" style="display:none;">
             <div class="form-row">
-                <label for="new-softskill-name-{{ item.activity.id }}">Habileté :</label>
-                <input type="text" class="task-input" id="new-softskill-name-{{ item.activity.id }}" placeholder="Ex: Analyse critique" />
+                <label for="new-softskill-name-{{ item.activity.id }}">{{ t('propose.hsc_name_label') }}</label>
+                <input type="text" class="task-input" id="new-softskill-name-{{ item.activity.id }}" placeholder="{{ t('propose.hsc_name_placeholder') }}" />
             </div>
             <div class="form-row">
-                <label for="new-softskill-level-{{ item.activity.id }}">Niveau :</label>
+                <label for="new-softskill-level-{{ item.activity.id }}">{{ t('propose.hsc_level_label') }}</label>
                 <select id="new-softskill-level-{{ item.activity.id }}" class="task-select-single">
                     <option value="1 (Aptitude)">1 (Aptitude)</option>
                     <option value="2 (Acquisition)" selected>2 (Acquisition)</option>
@@ -40,15 +40,15 @@
                 </select>
             </div>
             <div class="form-row">
-                <label for="new-softskill-justif-{{ item.activity.id }}">Justification (optionnel) :</label>
-                <textarea id="new-softskill-justif-{{ item.activity.id }}" class="task-input hsc-textarea" rows="2" placeholder="Pourquoi cette habileté est requise..."></textarea>
+                <label for="new-softskill-justif-{{ item.activity.id }}">{{ t('propose.hsc_justif_label') }}</label>
+                <textarea id="new-softskill-justif-{{ item.activity.id }}" class="task-input hsc-textarea" rows="2" placeholder="{{ t('propose.hsc_justif_placeholder') }}"></textarea>
             </div>
             <div class="task-form-actions">
                 <button class="btn-action-primary btn-sm" onclick="submitAddSoftskill('{{ item.activity.id }}')">
-                    <i class="fa-solid fa-check"></i> Enregistrer
+                    <i class="fa-solid fa-check"></i> {{ t('propose.save') }}
                 </button>
                 <button class="btn-action-secondary btn-sm" onclick="hideAddSoftskillForm('{{ item.activity.id }}')">
-                    <i class="fa-solid fa-xmark"></i> Annuler
+                    <i class="fa-solid fa-xmark"></i> {{ t('propose.cancel') }}
                 </button>
             </div>
         </div>

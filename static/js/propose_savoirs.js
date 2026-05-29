@@ -1,4 +1,6 @@
 // Code/static/js/propose_savoirs.js
+const _PI_SAV = window.PROPOSE_I18N || {};
+function _piSav(k, fb) { return _PI_SAV[k] || fb; }
 
 /**
  * Analyse l'activité, appelle /propose_savoir/propose (non fourni ici)
@@ -90,7 +92,7 @@ function fetchActivityDetailsForSavoirs(activityId) {
     const modal = overlay.querySelector('#proposeSavoirsModal');
     modal.innerHTML = `
       <div class="modal-header-propose">
-        <h3><i class="fa-solid fa-sparkles"></i> Propositions de savoirs</h3>
+        <h3><i class="fa-solid fa-sparkles"></i> ${_piSav('title_savoirs', 'Propositions de savoirs')}</h3>
         <button class="modal-close-btn-propose" id="closeSavoirsModalBtn">
           <i class="fa-solid fa-xmark"></i>
         </button>
@@ -100,10 +102,10 @@ function fetchActivityDetailsForSavoirs(activityId) {
       </div>
       <div class="modal-footer-propose">
         <button class="btn-modal-secondary-propose" id="cancelProposedSavoirsBtn">
-          <i class="fa-solid fa-xmark"></i> Annuler
+          <i class="fa-solid fa-xmark"></i> ${_piSav('cancel', 'Annuler')}
         </button>
         <button class="btn-modal-primary-propose" id="validateProposedSavoirsBtn">
-          <i class="fa-solid fa-check"></i> Enregistrer
+          <i class="fa-solid fa-check"></i> ${_piSav('save', 'Enregistrer')}
         </button>
       </div>
     `;
@@ -138,7 +140,7 @@ function fetchActivityDetailsForSavoirs(activityId) {
     modal.querySelector('#validateProposedSavoirsBtn').onclick = () => {
         const selected = listEl.querySelectorAll('input[type="checkbox"]:checked');
         if (!selected.length) {
-            alert("Aucun savoir sélectionné.");
+            alert(_piSav('select_one', 'Veuillez sélectionner au moins une proposition.'));
             return;
         }
         showSpinner();

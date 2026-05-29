@@ -1,4 +1,6 @@
 // Code/static/js/propose_softskills.js
+const _PI_HSC = window.PROPOSE_I18N || {};
+function _piHsc(k, fb) { return _PI_HSC[k] || fb; }
 
 function fetchActivityDetailsForPropose(activityId) {
   showSpinner();
@@ -92,7 +94,7 @@ function showProposedSoftskills(hscProposals, activityId) {
 
   modal.innerHTML = `
     <div class="modal-header-propose">
-      <h3><i class="fa-solid fa-brain"></i> Propositions de HSC</h3>
+      <h3><i class="fa-solid fa-brain"></i> ${_piHsc('title_hsc', 'Propositions de HSC')}</h3>
       <button class="modal-close-btn-propose" id="closeHSCModalBtn">
         <i class="fa-solid fa-xmark"></i>
       </button>
@@ -102,9 +104,9 @@ function showProposedSoftskills(hscProposals, activityId) {
         <thead>
           <tr>
             <th class="col-check"><input type="checkbox" id="hsc-select-all" checked></th>
-            <th class="col-habilete">Habileté</th>
-            <th class="col-niveau">Niveau</th>
-            <th class="col-justification">Justification</th>
+            <th class="col-habilete">${_piHsc('hsc_skill', 'Habileté')}</th>
+            <th class="col-niveau">${_piHsc('hsc_level', 'Niveau')}</th>
+            <th class="col-justification">${_piHsc('hsc_justification', 'Justification')}</th>
           </tr>
         </thead>
         <tbody id="hscProposalsBody"></tbody>
@@ -112,10 +114,10 @@ function showProposedSoftskills(hscProposals, activityId) {
     </div>
     <div class="modal-footer-propose">
       <button class="btn-modal-secondary-propose" id="cancelHSCBtn">
-        <i class="fa-solid fa-xmark"></i> Annuler
+        <i class="fa-solid fa-xmark"></i> ${_piHsc('cancel', 'Annuler')}
       </button>
       <button class="btn-modal-primary-propose" id="validateHSCBtn">
-        <i class="fa-solid fa-check"></i> Enregistrer la sélection
+        <i class="fa-solid fa-check"></i> ${_piHsc('save_selection', 'Enregistrer la sélection')}
       </button>
     </div>
   `;
@@ -171,7 +173,7 @@ function showProposedSoftskills(hscProposals, activityId) {
   modal.querySelector('#validateHSCBtn').onclick = () => {
     const selected = modal.querySelectorAll('#hscProposalsBody input[type="checkbox"]:checked');
     if (!selected.length) {
-      alert("Veuillez sélectionner au moins une HSC.");
+      alert(_piHsc('select_one_hsc', 'Veuillez sélectionner au moins une HSC.'));
       return;
     }
 

@@ -2,7 +2,7 @@
 <div id="competencyModalOverlay" class="modal-overlay-propose" style="display:none;" onclick="if(event.target === this) closeCompetencyModal()">
   <div id="competencyModal" class="modal-content-propose">
     <div class="modal-header-propose">
-      <h3><i class="fa-solid fa-sparkles"></i> Propositions de compétences</h3>
+      <h3><i class="fa-solid fa-sparkles"></i> {{ t('propose.title_competencies') }}</h3>
       <button class="modal-close-btn-propose" onclick="closeCompetencyModal()">
         <i class="fa-solid fa-xmark"></i>
       </button>
@@ -12,10 +12,10 @@
     </div>
     <div class="modal-footer-propose">
       <button class="btn-modal-secondary-propose" onclick="closeCompetencyModal()">
-        <i class="fa-solid fa-xmark"></i> Annuler
+        <i class="fa-solid fa-xmark"></i> {{ t('propose.cancel') }}
       </button>
       <button class="btn-modal-primary-propose" onclick="validateAllSelectedProposals()">
-        <i class="fa-solid fa-check"></i> Valider les compétences
+        <i class="fa-solid fa-check"></i> {{ t('propose.validate_competencies') }}
       </button>
     </div>
   </div>
@@ -24,6 +24,10 @@
 <script>
 let proposalsGlobal = [];
 let currentActivityId = null;
+const _compModalI18n = {
+  select_one:        "{{ t('propose.select_one') }}",
+  saved:             "{{ t('propose.saved_competencies') }}",
+};
 
 function showProposalsModal(proposals, activityId) {
   proposalsGlobal = proposals;
@@ -31,7 +35,7 @@ function showProposalsModal(proposals, activityId) {
   const proposalsList = document.getElementById('proposalsList');
   proposalsList.innerHTML = "";
 
-  proposals.forEach((proposal, index) => {
+  proposals.forEach((proposal) => {
     const li = document.createElement('li');
     const escaped = proposal.replace(/'/g, "\\'");
     li.innerHTML = `
@@ -50,7 +54,7 @@ function validateAllSelectedProposals() {
   const proposalsList = document.getElementById('proposalsList');
   const checkboxes = proposalsList.querySelectorAll('input[type="checkbox"]:checked');
   if (checkboxes.length === 0) {
-    alert("Veuillez sélectionner au moins une proposition.");
+    alert(_compModalI18n.select_one);
     return;
   }
 
@@ -81,7 +85,7 @@ function validateAllSelectedProposals() {
 
   Promise.all(addPromises).then(() => {
     closeCompetencyModal();
-    alert("Compétences sauvegardées en base.");
+    alert(_compModalI18n.saved);
   });
 }
 

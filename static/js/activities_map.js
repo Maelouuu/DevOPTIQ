@@ -1558,11 +1558,32 @@ async function initCalqueStrip() {
   if (!Array.isArray(calques) || calques.length === 0) return;
   strip.style.display = "flex";
 
-  let activeId = "master";
+  // Read active calque from session (set by editor or previous calque switch)
+  const sessionCalqueId = window.ACTIVE_CALQUE_ID ? String(window.ACTIVE_CALQUE_ID) : null;
+  let activeId = sessionCalqueId || "master";
 
   function setActive(id) {
-    activeId = id;
-    list.querySelectorAll(".calque-chip").forEach(c => c.classList.toggle("active", c.dataset.id === String(id)));
+    activeId = String(id);
+    list.querySelectorAll(".calque-chip").forEach(c => c.classList.toggle("active", c.dataset.id === activeId));
+  }
+
+  async function _refreshActivitiesList() {
+    try {
+      const r = await fetch("/activities/map/api/activities");
+      const acts = await r.json();
+      const ul = document.getElementById("activities-list");
+      if (!ul) return;
+      ul.innerHTML = acts.map((a, i) =>
+        `<li class="activity-item" data-id="${a.id}" data-name="${(a.name || '').toLowerCase()}">
+           <span class="num">${i + 1}</span>
+           <span class="label">${a.name}</span>
+         </li>`
+      ).join("");
+      const countEl = document.querySelector(".activities-panel-count");
+      if (countEl) countEl.textContent = acts.length + " activité" + (acts.length !== 1 ? "s" : "");
+      // Re-wire click handlers on new items
+      initListClicks();
+    } catch (_) {}
   }
 
   async function applyCalque(id) {
@@ -1579,9 +1600,10 @@ async function initCalqueStrip() {
       await fetch(`/cartography/api/calques/${id}/apply`, { method: "POST" }).catch(() => {});
     }
 
-    // Reload iframe and hide overlay once loaded
+    // Reload iframe; hide overlay and refresh activities list once loaded
     frame.addEventListener("load", () => {
       if (overlay) overlay.style.display = 'none';
+      _refreshActivitiesList();
     }, { once: true });
     frame.src = frame.src;
     setActive(id);
@@ -1600,6 +1622,9 @@ async function initCalqueStrip() {
     chip.addEventListener("click", () => applyCalque(c.id));
     list.appendChild(chip);
   }
+
+  // Set initial active state from session
+  setActive(activeId);
 }
 
 document.addEventListener("DOMContentLoaded", async () => {

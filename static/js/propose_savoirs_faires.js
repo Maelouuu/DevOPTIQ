@@ -1,5 +1,7 @@
 // static/js/propose_savoirs_faires.js
 (function () {
+  const _PI_SF = window.PROPOSE_I18N || {};
+  function _piSF(k, fb) { return _PI_SF[k] || fb; }
   const safeShowSpinner = () => (typeof showSpinner === "function" ? showSpinner() : void 0);
   const safeHideSpinner  = () => (typeof hideSpinner === "function" ? hideSpinner()  : void 0);
 
@@ -90,30 +92,30 @@
 
     modal.innerHTML = `
       <div class="modal-header-propose">
-        <h3><i class="fa-solid fa-sparkles"></i> Propositions Savoir-Faire & Savoirs</h3>
+        <h3><i class="fa-solid fa-sparkles"></i> ${_piSF('title_savoir_faires', 'Propositions Savoir-Faire & Savoirs')}</h3>
         <button class="modal-close-btn-propose" id="closeSFModalBtn">
           <i class="fa-solid fa-xmark"></i>
         </button>
       </div>
       <div class="modal-body-propose">
-        <p style="color:#888;font-size:0.85rem; margin-bottom:16px;">(Si vous voyez des propositions "génériques", c'est que la clé OpenAI n'est pas définie côté serveur.)</p>
+        <p style="color:#888;font-size:0.85rem; margin-bottom:16px;">${_piSF('openai_generic_note', "(Si vous voyez des propositions « génériques », c'est que la clé OpenAI n'est pas définie côté serveur.)")}</p>
         <div style="display:flex; gap:30px; align-items:flex-start; flex-wrap:wrap;">
           <div style="flex:1; min-width:280px;">
-            <h4 style="margin:6px 0 10px;">Savoir-Faire</h4>
+            <h4 style="margin:6px 0 10px;">${_piSF('savoir_faire_section', 'Savoir-Faire')}</h4>
             <ul id="sfList" class="proposals-list-propose"></ul>
           </div>
           <div style="flex:1; min-width:280px;">
-            <h4 style="margin:6px 0 10px;">Savoirs</h4>
+            <h4 style="margin:6px 0 10px;">${_piSF('savoir_section', 'Savoirs')}</h4>
             <ul id="sList" class="proposals-list-propose"></ul>
           </div>
         </div>
       </div>
       <div class="modal-footer-propose">
         <button id="cancelBtn" class="btn-modal-secondary-propose">
-          <i class="fa-solid fa-xmark"></i> Annuler
+          <i class="fa-solid fa-xmark"></i> ${_piSF('cancel', 'Annuler')}
         </button>
         <button id="validateBtn" class="btn-modal-primary-propose">
-          <i class="fa-solid fa-check"></i> Enregistrer
+          <i class="fa-solid fa-check"></i> ${_piSF('save', 'Enregistrer')}
         </button>
       </div>
     `;
@@ -123,7 +125,7 @@
 
     const fill = (container, items, type) => {
       if (!items || !items.length) {
-        container.innerHTML = `<li style="color:#999;">Aucune proposition</li>`;
+        container.innerHTML = `<li style="color:#999;">${_piSF('hsc_none', 'Aucune proposition')}</li>`;
         return;
       }
       container.innerHTML = items.map(desc => `
@@ -149,7 +151,7 @@
     modal.querySelector("#validateBtn").onclick = async () => {
       const checked = modal.querySelectorAll('input[type="checkbox"]:checked');
       if (!checked.length) {
-        alert("Aucun élément sélectionné.");
+        alert(_piSF('err_no_selection', 'Aucun élément sélectionné.'));
         return;
       }
 
@@ -200,7 +202,7 @@
         overlay.style.display = "none";
       } catch (err) {
         console.error("Erreur d'enregistrement:", err);
-        alert("Erreur lors de l'enregistrement des propositions (voir console).");
+        alert(_piSF('err_saving', "Erreur lors de l'enregistrement des propositions (voir console)."));
       } finally {
         safeHideSpinner();
       }

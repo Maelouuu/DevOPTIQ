@@ -5,7 +5,7 @@
       <!-- Bouton proposer aptitudes en premier -->
       <div class="section-actions-top">
         <button class="btn-modal-primary-propose" onclick="showProposedAptitudes('{{ activity.id }}')">
-          <i class="fa-solid fa-sparkles"></i> Proposer Aptitudes
+          <i class="fa-solid fa-sparkles"></i> {{ t('propose.btn_propose_aptitudes') }}
         </button>
       </div>
 
@@ -42,15 +42,15 @@
           {% endfor %}
         </ul>
       {% else %}
-        <p class="empty-text">Aucune aptitude enregistrée.</p>
+        <p class="empty-text">{{ t('propose.none_aptitude') }}</p>
       {% endif %}
 
       <div class="add-item-section">
         <button class="btn-modal-primary-propose" onclick="showAddAptitudeForm('{{ activity.id }}')">
-          <i class="fa-solid fa-plus"></i> Ajouter une Aptitude
+          <i class="fa-solid fa-plus"></i> {{ t('propose.btn_add_aptitude') }}
         </button>
         <div id="add-aptitude-form-{{ activity.id }}" class="inline-add-form" style="display:none;">
-          <input type="text" class="sf-input" id="add-aptitude-input-{{ activity.id }}" placeholder="Description de l'aptitude" />
+          <input type="text" class="sf-input" id="add-aptitude-input-{{ activity.id }}" placeholder="{{ t('propose.aptitude_placeholder') }}" />
           <button class="icon-btn icon-btn-success" onclick="submitAddAptitude('{{ activity.id }}')">
             <i class="fa-solid fa-check"></i>
           </button>
