@@ -473,6 +473,99 @@ def reset_stale():
     return jsonify({'expired': len(stale)})
 
 
+@test_panel_bp.route('/global/stats')
+def global_stats():
+    from collections import Counter
+    period = request.args.get('period', 'day')
+    now = datetime.utcnow()
+    if period == 'hour':
+        since = now - timedelta(hours=1)
+        time_fmt = '%H:%M'
+    elif period == 'month':
+        since = now - timedelta(days=30)
+        time_fmt = '%d/%m'
+    else:
+        since = now - timedelta(hours=24)
+        time_fmt = '%H:%M'
+
+    # Chart points: runs finished in the selected period
+    period_runs = (TestRun.query
+                   .filter(TestRun.status == 'done', TestRun.finished_at >= since)
+                   .order_by(TestRun.finished_at.asc()).all())
+    chart_points = []
+    for r in period_runs:
+        res_list = list(r.results)
+        total = len(res_list)
+        if not total:
+            continue
+        passed = sum(1 for x in res_list if x.status == 'passed')
+        chart_points.append({
+            't':      r.finished_at.strftime(time_fmt),
+            'pct':    round(100 * passed / total),
+            'run_id': r.id,
+            'passed': passed,
+            'total':  total,
+        })
+
+    # Recent runs (last 20, all time)
+    recent_q = (TestRun.query.filter(TestRun.status == 'done')
+                .order_by(TestRun.finished_at.desc()).limit(20).all())
+    recent_runs = []
+    for r in recent_q:
+        res_list = list(r.results)
+        total  = len(res_list)
+        passed = sum(1 for x in res_list if x.status == 'passed')
+        dur = None
+        if r.started_at and r.finished_at:
+            dur = round((r.finished_at - r.started_at).total_seconds(), 1)
+        recent_runs.append({
+            'id':         r.id,
+            'at':         r.finished_at.strftime('%d/%m/%y %H:%M') if r.finished_at else '—',
+            'scope':      r.scope or 'all',
+            'passed':     passed,
+            'total':      total,
+            'pct':        round(100 * passed / total) if total else 0,
+            'duration_s': dur,
+        })
+
+    # Global summary stats
+    total_runs  = TestRun.query.filter(TestRun.status == 'done').count()
+    all_res     = TestResult.query.all()
+    total_res   = len(all_res)
+    passed_res  = sum(1 for x in all_res if x.status == 'passed')
+    overall_pct = round(100 * passed_res / total_res) if total_res else 0
+
+    dur_runs = TestRun.query.filter(
+        TestRun.status == 'done',
+        TestRun.started_at.isnot(None),
+        TestRun.finished_at.isnot(None)
+    ).all()
+    durs    = [(r.finished_at - r.started_at).total_seconds() for r in dur_runs]
+    avg_dur = round(sum(durs) / len(durs), 1) if durs else None
+
+    fail_counts = Counter(
+        x.case_id for x in TestResult.query.filter(TestResult.status.in_(['failed', 'error'])).all()
+    )
+    most_failing = None
+    if fail_counts:
+        top_cid, top_cnt = fail_counts.most_common(1)[0]
+        tc = db.session.get(TestCase, top_cid)
+        if tc:
+            most_failing = {'name': tc.display_name or tc.name, 'fail_count': top_cnt}
+
+    return jsonify({
+        'period':       period,
+        'chart_points': chart_points,
+        'recent_runs':  recent_runs,
+        'summary': {
+            'total_runs':     total_runs,
+            'overall_pct':    overall_pct,
+            'avg_duration_s': avg_dur,
+            'most_failing':   most_failing,
+        },
+    })
+
+
 @test_panel_bp.route('/run/<int:run_id>/status')
 def run_status(run_id):
     # Lecture directe sqlite3 — évite tout problème de cache de session SQLAlchemy

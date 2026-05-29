@@ -134,6 +134,63 @@
   </main>
 </div>
 
+<!-- ── Global Stats Modal ── -->
+<div class="gs-overlay" id="gs-overlay">
+  <div class="gs-modal">
+    <div class="gs-modal-header">
+      <div class="gs-modal-title"><i class="fa-solid fa-chart-line"></i> Tableau de bord global</div>
+      <button class="gs-close-btn" id="gs-close-btn" aria-label="Fermer">×</button>
+    </div>
+    <div class="gs-modal-body">
+
+      <!-- Summary stats -->
+      <div class="gs-summary-row">
+        <div class="gs-stat-card">
+          <div class="gs-stat-val" id="gs-total-runs">—</div>
+          <div class="gs-stat-lbl">Runs exécutés</div>
+        </div>
+        <div class="gs-stat-card gs-stat-card--accent">
+          <div class="gs-stat-val" id="gs-overall-pct">—</div>
+          <div class="gs-stat-lbl">Taux de réussite</div>
+        </div>
+        <div class="gs-stat-card">
+          <div class="gs-stat-val" id="gs-avg-dur">—</div>
+          <div class="gs-stat-lbl">Durée moy. run</div>
+        </div>
+        <div class="gs-stat-card gs-stat-card--wide">
+          <div class="gs-stat-val gs-stat-val--sm" id="gs-most-failing">—</div>
+          <div class="gs-stat-lbl">Test le plus instable</div>
+        </div>
+      </div>
+
+      <!-- Chart section -->
+      <div class="gs-section">
+        <div class="gs-section-header">
+          <div class="gs-section-title">Évolution du taux de réussite</div>
+          <div class="gs-tabs" id="gs-period-tabs">
+            <button class="gs-tab" data-period="hour">Dernière heure</button>
+            <button class="gs-tab active" data-period="day">Dernière journée</button>
+            <button class="gs-tab" data-period="month">Dernier mois</button>
+          </div>
+        </div>
+        <div class="gs-chart-wrap" id="gs-chart-wrap">
+          <div class="gs-loading-state"><i class="fa-solid fa-circle-notch fa-spin"></i> Chargement…</div>
+        </div>
+      </div>
+
+      <!-- Recent runs list -->
+      <div class="gs-section">
+        <div class="gs-section-header">
+          <div class="gs-section-title">Historique des runs</div>
+          <div class="text-muted" id="gs-runs-count"></div>
+        </div>
+        <div id="gs-runs-list" class="gs-runs-list"></div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
 <script>
 let activeRunId = null;
 let evtSource   = null;
@@ -219,6 +276,165 @@ function onRunDone(runId) {
     .catch(() => {}); // network error: ignore
 })();
 {% endif %}
+</script>
+
+<!-- ── Global Stats Logic ── -->
+<script>
+(function() {
+  const overlay   = document.getElementById('gs-overlay');
+  const chartWrap = document.getElementById('gs-chart-wrap');
+  const runsList  = document.getElementById('gs-runs-list');
+  let currentPeriod = 'day';
+
+  // Click on hero card (but NOT the run button) opens the modal
+  document.getElementById('hero-card').style.cursor = 'pointer';
+  document.getElementById('hero-card').addEventListener('click', function(e) {
+    if (e.target.closest('#btn-run-all')) return;
+    openModal();
+  });
+  document.getElementById('btn-run-all').addEventListener('click', function(e) {
+    e.stopPropagation();
+  });
+
+  document.getElementById('gs-close-btn').addEventListener('click', closeModal);
+  overlay.addEventListener('click', function(e) { if (e.target === overlay) closeModal(); });
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape' && overlay.style.display !== 'none') closeModal();
+  });
+
+  document.querySelectorAll('.gs-tab').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      document.querySelectorAll('.gs-tab').forEach(function(b) { b.classList.remove('active'); });
+      this.classList.add('active');
+      currentPeriod = this.dataset.period;
+      loadStats(currentPeriod);
+    });
+  });
+
+  function openModal() {
+    overlay.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+    loadStats(currentPeriod);
+  }
+
+  function closeModal() {
+    overlay.style.display = 'none';
+    document.body.style.overflow = '';
+  }
+
+  function loadStats(period) {
+    chartWrap.innerHTML = '<div class="gs-loading-state"><i class="fa-solid fa-circle-notch fa-spin"></i>&nbsp;Chargement…</div>';
+    fetch('/testpanel/global/stats?period=' + period)
+      .then(function(r) { return r.json(); })
+      .then(renderStats)
+      .catch(function() {
+        chartWrap.innerHTML = '<div class="gs-loading-state gs-loading-state--err"><i class="fa-solid fa-circle-exclamation"></i>&nbsp;Erreur de chargement</div>';
+      });
+  }
+
+  function renderStats(data) {
+    const s = data.summary;
+    document.getElementById('gs-total-runs').textContent  = s.total_runs  != null ? s.total_runs  : '0';
+    document.getElementById('gs-overall-pct').textContent = s.overall_pct != null ? s.overall_pct + '%' : '—';
+    document.getElementById('gs-avg-dur').textContent     = s.avg_duration_s != null ? s.avg_duration_s + 's' : '—';
+    const mfEl = document.getElementById('gs-most-failing');
+    if (s.most_failing) {
+      mfEl.textContent = s.most_failing.name;
+      mfEl.title       = s.most_failing.fail_count + ' échec(s)';
+    } else {
+      mfEl.textContent = 'Aucun échec 🎉';
+    }
+    renderChart(data.chart_points);
+    renderRuns(data.recent_runs);
+    const cnt = document.getElementById('gs-runs-count');
+    if (cnt) cnt.textContent = data.recent_runs.length + ' dernier(s) run(s)';
+  }
+
+  function renderChart(points) {
+    if (!points.length) {
+      chartWrap.innerHTML = '<div class="gs-no-data">Aucun run sur cette période</div>';
+      return;
+    }
+    const W   = Math.max(320, chartWrap.clientWidth || 700);
+    const H   = 200;
+    const PAD = { top: 20, right: 64, bottom: 34, left: 44 };
+    const cw  = W - PAD.left - PAD.right;
+    const ch  = H - PAD.top  - PAD.bottom;
+    const n   = points.length;
+
+    const xs = points.map(function(_, i) { return PAD.left + (n === 1 ? cw / 2 : i * cw / (n - 1)); });
+    const ys = points.map(function(p)    { return PAD.top  + ch - (p.pct / 100) * ch; });
+
+    const linePath = xs.map(function(x, i) {
+      return (i === 0 ? 'M' : 'L') + x.toFixed(1) + ',' + ys[i].toFixed(1);
+    }).join(' ');
+    const fillPath = linePath
+      + ' L' + xs[n-1].toFixed(1) + ',' + (PAD.top + ch)
+      + ' L' + PAD.left           + ',' + (PAD.top + ch) + ' Z';
+
+    const grids = [0, 25, 50, 75, 100].map(function(pct) {
+      const y = (PAD.top + ch - (pct / 100) * ch).toFixed(1);
+      return '<line x1="' + PAD.left + '" y1="' + y + '" x2="' + (PAD.left + cw) + '" y2="' + y
+           + '" stroke="#f3f4f6" stroke-width="1"/>'
+           + '<text x="' + (PAD.left - 6) + '" y="' + (parseFloat(y) + 4)
+           + '" text-anchor="end" font-size="10" fill="#9ca3af">' + pct + '%</text>';
+    }).join('');
+
+    const step   = Math.max(1, Math.ceil(n / 8));
+    const xLabel = points.map(function(p, i) {
+      if (i % step !== 0 && i !== n - 1) return '';
+      return '<text x="' + xs[i].toFixed(1) + '" y="' + (H - 6)
+           + '" text-anchor="middle" font-size="10" fill="#9ca3af">' + p.t + '</text>';
+    }).join('');
+
+    const avgPct = Math.round(points.reduce(function(s, p) { return s + p.pct; }, 0) / n);
+    const ay     = (PAD.top + ch - (avgPct / 100) * ch).toFixed(1);
+    const avgLine = '<line x1="' + PAD.left + '" y1="' + ay + '" x2="' + (PAD.left + cw) + '" y2="' + ay
+                  + '" stroke="#ec4899" stroke-width="1" stroke-dasharray="4,3" opacity="0.4"/>'
+                  + '<text x="' + (PAD.left + cw + 4) + '" y="' + (parseFloat(ay) + 4)
+                  + '" font-size="10" fill="#ec4899" opacity="0.8">moy ' + avgPct + '%</text>';
+
+    const dots = points.map(function(p, i) {
+      const col = p.pct >= 95 ? '#22c55e' : p.pct >= 75 ? '#f59e0b' : '#ec4899';
+      return '<circle cx="' + xs[i].toFixed(1) + '" cy="' + ys[i].toFixed(1)
+           + '" r="4.5" fill="' + col + '" stroke="#fff" stroke-width="2">'
+           + '<title>' + p.t + ' — ' + p.pct + '% (' + p.passed + '/' + p.total + ')</title></circle>';
+    }).join('');
+
+    chartWrap.innerHTML = '<svg width="' + W + '" height="' + H
+      + '" xmlns="http://www.w3.org/2000/svg" style="overflow:visible;display:block">'
+      + grids + avgLine
+      + '<path d="' + fillPath + '" fill="rgba(236,72,153,.07)"/>'
+      + '<path d="' + linePath + '" fill="none" stroke="#ec4899" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>'
+      + dots + xLabel
+      + '</svg>';
+  }
+
+  function renderRuns(runs) {
+    if (!runs.length) {
+      runsList.innerHTML = '<div class="gs-no-data">Aucun run terminé</div>';
+      return;
+    }
+    runsList.innerHTML = runs.map(function(r) {
+      const col   = r.pct >= 95 ? 'green' : r.pct >= 75 ? 'amber' : 'pink';
+      const scope = r.scope === 'all'
+        ? 'Tous les tests'
+        : r.scope.startsWith('page:') ? 'Page&nbsp;: ' + r.scope.slice(5)
+        : 'Cas #' + r.scope.slice(5);
+      const ko  = r.total - r.passed;
+      const dur = r.duration_s != null ? '<span class="gs-run-dur">' + r.duration_s + 's</span>' : '<span></span>';
+      return '<div class="gs-run-row">'
+        + '<div class="gs-run-id">#' + r.id + '</div>'
+        + '<div class="gs-run-at">'  + r.at  + '</div>'
+        + '<div class="gs-run-scope">' + scope + '</div>'
+        + '<div class="gs-run-counts"><span class="ok">' + r.passed + '&nbsp;OK</span>'
+        + (ko > 0 ? '&nbsp;·&nbsp;<span class="ko">' + ko + '&nbsp;KO</span>' : '') + '</div>'
+        + dur
+        + '<div class="badge badge-' + col + '">' + r.pct + '%</div>'
+        + '</div>';
+    }).join('');
+  }
+})();
 </script>
 
 </body>
