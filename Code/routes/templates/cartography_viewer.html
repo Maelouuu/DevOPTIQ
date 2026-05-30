@@ -386,8 +386,16 @@ document.addEventListener('mousedown', (e) => {
         subtype,
       }, '*');
     } catch (_) {}
+  } else {
+    // Activité non-hachurée (origine verte) → déclenche le lookup _reverseOriginMap côté parent
+    try {
+      window.parent.postMessage({
+        t:       'shape-click',
+        label:   (shape.label || '').trim(),
+        shapeId: String(shapeId),
+      }, '*');
+    } catch (_) {}
   }
-  // shape non hachurée en mode connexion → rien (pas de navigation)
 }, true); // capture = true → AVANT tous les handlers bubble (dont editor.js)
 </script>
 </body>

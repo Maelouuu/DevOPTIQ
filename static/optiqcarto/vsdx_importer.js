@@ -881,7 +881,111 @@ class VsdxImporter {
     }
   }
 
-  // ─── Phase 12: Splice unconnected decision nodes ─────────────────
+  // ─── Phase 12: Visual Oui/Non labelling for floating decision diamonds ───
+  // Decision diamonds with no explicit <Connect> entries are placed visually
+  // on top of connector lines. After buildConnections() has assigned screen
+  // coordinates we detect which connections pass near each such diamond, then
+  // label them Oui (straight continuation) or Non (90° branch).
+
+  _labelDiamondConnections() {
+    const { newShapes, newConns } = this;
+
+    const connectedIds = new Set([
+      ...newConns.map(c => c.fromId),
+      ...newConns.map(c => c.toId),
+    ]);
+
+    const floatingDiamonds = newShapes.filter(
+      s => s.type === 'decision' && !connectedIds.has(s.id)
+    );
+    if (floatingDiamonds.length === 0) return;
+
+    // Overall diagram flow direction (horizontal vs vertical)
+    let totalH = 0, totalV = 0;
+    for (const c of newConns) {
+      const from = newShapes.find(s => s.id === c.fromId);
+      const to   = newShapes.find(s => s.id === c.toId);
+      if (from && to) {
+        totalH += Math.abs((to.x + to.w / 2) - (from.x + from.w / 2));
+        totalV += Math.abs((to.y + to.h / 2) - (from.y + from.h / 2));
+      }
+    }
+    const mainFlowHorizontal = totalH >= totalV;
+
+    for (const diamond of floatingDiamonds) {
+      const dcx = diamond.x + diamond.w / 2;
+      const dcy = diamond.y + diamond.h / 2;
+      const thresh = Math.max(diamond.w, diamond.h) * 0.65;
+
+      const passing = [];
+      for (const conn of newConns) {
+        if (conn.diamondId) continue;
+        const pts = this._getConnPath(conn);
+        if (!pts || pts.length < 2) continue;
+
+        let minDist = Infinity;
+        for (let i = 0; i < pts.length - 1; i++) {
+          const d = this._pointToSegmentDist(dcx, dcy, pts[i].x, pts[i].y, pts[i+1].x, pts[i+1].y);
+          if (d < minDist) minDist = d;
+        }
+        if (minDist <= thresh) {
+          const dx = pts[pts.length - 1].x - pts[0].x;
+          const dy = pts[pts.length - 1].y - pts[0].y;
+          passing.push({ conn, dx, dy });
+        }
+      }
+
+      if (passing.length < 2) continue;
+
+      let ouiConn = null, nonConn = null;
+
+      if (mainFlowHorizontal) {
+        // Flow left→right: Oui = rightward horizontal, Non = downward
+        const rightward = passing.filter(p => Math.abs(p.dx) > Math.abs(p.dy) && p.dx > 0);
+        const downward  = passing.filter(p => Math.abs(p.dy) >= Math.abs(p.dx) && p.dy > 0);
+        if (rightward.length > 0) ouiConn = rightward[0].conn;
+        if (downward.length  > 0) nonConn = downward[0].conn;
+      } else {
+        // Flow top→bottom: Oui = downward, Non = rightward
+        const downward  = passing.filter(p => Math.abs(p.dy) > Math.abs(p.dx) && p.dy > 0);
+        const rightward = passing.filter(p => Math.abs(p.dx) >= Math.abs(p.dy) && p.dx > 0);
+        if (downward.length  > 0) ouiConn = downward[0].conn;
+        if (rightward.length > 0) nonConn = rightward[0].conn;
+      }
+
+      if (ouiConn && ouiConn !== nonConn) {
+        ouiConn.choiceLabel = 'Oui';
+        ouiConn.diamondId   = diamond.id;
+      }
+      if (nonConn && nonConn !== ouiConn) {
+        nonConn.choiceLabel = 'Non';
+        nonConn.diamondId   = diamond.id;
+      }
+    }
+  }
+
+  // Get the screen-coordinate path of a connection (custom path or centroid line).
+  _getConnPath(conn) {
+    if (conn.customPath && conn.customPath.length >= 2) return conn.customPath;
+    const from = this.newShapes.find(s => s.id === conn.fromId);
+    const to   = this.newShapes.find(s => s.id === conn.toId);
+    if (!from || !to) return null;
+    return [
+      { x: from.x + from.w / 2, y: from.y + from.h / 2 },
+      { x: to.x   + to.w   / 2, y: to.y   + to.h   / 2 },
+    ];
+  }
+
+  // Minimum distance from point P to segment AB.
+  _pointToSegmentDist(px, py, ax, ay, bx, by) {
+    const abx = bx - ax, aby = by - ay;
+    const len2 = abx * abx + aby * aby;
+    if (len2 === 0) return Math.hypot(px - ax, py - ay);
+    const t = Math.max(0, Math.min(1, ((px - ax) * abx + (py - ay) * aby) / len2));
+    return Math.hypot(px - (ax + t * abx), py - (ay + t * aby));
+  }
+
+  // ─── Phase 12b: Splice unconnected decision nodes (legacy, not called) ────
   // Some Visio decision diamonds have no <Connect> elements — they are
   // placed visually on a connector line. For each such diamond D, we find
   // connector A→B whose line passes within SPLICE_THRESH of D's center,
@@ -1234,8 +1338,8 @@ class VsdxImporter {
     this.importActivities();
     this.applyLayoutCorrections();
     this.buildGroups();
-    this.spliceDecisions();
     await this.buildConnections();
+    this._labelDiamondConnections();
     this.cleanupBands();
 
     // ── Orphan handling (empty + unconnected shapes) ──

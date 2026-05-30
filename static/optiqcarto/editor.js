@@ -718,16 +718,42 @@ function renderConnections() {
       'pointer-events': 'none',
     }, gConns);
 
-    // Badge Oui/Non pour les connexions issues d'un losange décisionnel
+    // Badge Oui/Non — connexion directement issue d'un losange OU passant à travers (diamondId)
     if (c.choiceLabel && orthopts.length >= 2) {
-      const srcShape = state.shapes.find(s => s.id === c.fromId && s.type === 'decision');
-      if (srcShape) {
-        const p0 = orthopts[0], p1 = orthopts[1];
-        const segDx = p1.x - p0.x, segDy = p1.y - p0.y;
-        const segLen = Math.hypot(segDx, segDy) || 1;
-        const DIST = Math.min(22, segLen * 0.38);
-        const bx = p0.x + (segDx / segLen) * DIST;
-        const by = p0.y + (segDy / segLen) * DIST;
+      const srcShape    = state.shapes.find(s => s.id === c.fromId   && s.type === 'decision');
+      const diamondShape = !srcShape && c.diamondId
+        ? state.shapes.find(s => s.id === c.diamondId && s.type === 'decision')
+        : null;
+      const refShape = srcShape || diamondShape;
+      if (refShape) {
+        let bx, by;
+        if (srcShape) {
+          // Connexion directe depuis le losange : badge près du départ
+          const p0 = orthopts[0], p1 = orthopts[1];
+          const segDx = p1.x - p0.x, segDy = p1.y - p0.y;
+          const segLen = Math.hypot(segDx, segDy) || 1;
+          const DIST = Math.min(22, segLen * 0.38);
+          bx = p0.x + (segDx / segLen) * DIST;
+          by = p0.y + (segDy / segLen) * DIST;
+        } else {
+          // Connexion passant par le losange : badge au point du tracé le plus proche du centre
+          const dcx = refShape.x + refShape.w / 2;
+          const dcy = refShape.y + refShape.h / 2;
+          let minDist = Infinity;
+          bx = orthopts[0].x; by = orthopts[0].y;
+          for (let pi = 0; pi < orthopts.length - 1; pi++) {
+            const ax = orthopts[pi].x, ay = orthopts[pi].y;
+            const bpx = orthopts[pi + 1].x, bpy = orthopts[pi + 1].y;
+            const abx = bpx - ax, aby = bpy - ay;
+            const len2 = abx * abx + aby * aby;
+            if (len2 === 0) continue;
+            const t = Math.max(0, Math.min(1, ((dcx - ax) * abx + (dcy - ay) * aby) / len2));
+            const nx = ax + t * abx, ny = ay + t * aby;
+            const d = Math.hypot(dcx - nx, dcy - ny);
+            if (d < minDist) { minDist = d; bx = nx; by = ny; }
+          }
+          bx += 8; by -= 14;
+        }
         const badgeColor = c.choiceLabel === 'Oui' ? '#22c55e' : '#f97316';
         const bw = c.choiceLabel.length * 5.5 + 10;
         el('rect', { x: bx - bw / 2, y: by - 7, width: bw, height: 14, rx: 3, fill: badgeColor, 'pointer-events': 'none' }, gConns);
