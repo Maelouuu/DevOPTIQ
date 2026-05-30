@@ -208,6 +208,7 @@ def _build_activity_data(activities):
                 'source_name':        _resolve_source(lk),
                 'link_id':            lk.id,
                 'cross_carto_label':  getattr(lk, 'cross_carto_label', None),
+                'choice_label':       getattr(lk, 'choice_label', None),
             })
 
         outgoing_list = []
@@ -219,6 +220,7 @@ def _build_activity_data(activities):
                 'target_name':        _resolve_target(lk),
                 'link_id':            lk.id,
                 'cross_carto_label':  getattr(lk, 'cross_carto_label', None),
+                'choice_label':       getattr(lk, 'choice_label', None),
                 'performance': {
                     'id': perf_obj.id, 'name': perf_obj.name,
                     'description': perf_obj.description

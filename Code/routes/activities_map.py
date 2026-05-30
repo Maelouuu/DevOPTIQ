@@ -1222,6 +1222,95 @@ def liaison_matches():
     return jsonify({"matches": matches, "total": len(matches)}), 200
 
 
+@activities_map_bp.route("/api/reverse_liaisons_map", methods=["GET"])
+def reverse_liaisons_map():
+    """Retourne toutes les activités de l'entité active qui sont des origines dans des liaisons.
+    Format: {origins: [{origin_activity_name, liaisons: [{entity_id, entity_name, activity_name, extco_shape_id}]}]}"""
+    user_id   = session.get('user_id')
+    active_id = get_active_entity_id()
+
+    if not user_id or not active_id:
+        return jsonify({"origins": []}), 200
+
+    # Find all liaisons where the active entity is the origin
+    liaisons = CrossCartoLiaison.query.filter_by(
+        origin_entity_id=active_id,
+        is_active=True
+    ).all()
+
+    if not liaisons:
+        return jsonify({"origins": []}), 200
+
+    # Group by origin activity
+    from collections import defaultdict
+    by_origin = defaultdict(list)
+    for liaison in liaisons:
+        extco_entity = Entity.query.filter_by(id=liaison.extco_entity_id, owner_id=user_id).first()
+        extco_act    = Activities.query.get(liaison.extco_activity_id)
+        origin_act   = Activities.query.get(liaison.origin_activity_id)
+        if extco_entity and extco_act and origin_act:
+            by_origin[origin_act.name].append({
+                "entity_id":      extco_entity.id,
+                "entity_name":    extco_entity.name,
+                "activity_name":  extco_act.name,
+                "extco_shape_id": extco_act.shape_id,
+                "liaison_id":     liaison.id,
+            })
+
+    origins = [
+        {"origin_activity_name": name, "liaisons": liaisons_list}
+        for name, liaisons_list in by_origin.items()
+    ]
+
+    return jsonify({"origins": origins}), 200
+
+
+@activities_map_bp.route("/api/reverse_liaisons", methods=["GET"])
+def reverse_liaisons():
+    """Pour une activité d'origine (par nom), retourne les liaisons inverses
+    où cette activité est l'origine référencée par une activité hachurée d'une autre carto."""
+    name      = (request.args.get('name') or '').strip().lower()
+    user_id   = session.get('user_id')
+    active_id = get_active_entity_id()
+
+    if not name or not user_id or not active_id:
+        return jsonify({"matches": []}), 200
+
+    origin_act = Activities.query.filter(
+        Activities.entity_id == active_id,
+        db.func.lower(Activities.name) == name,
+        db.or_(
+            Activities.shape_subtype.is_(None),
+            Activities.shape_subtype.notin_(['external', 'extco'])
+        )
+    ).first()
+
+    if not origin_act:
+        return jsonify({"matches": []}), 200
+
+    liaisons = CrossCartoLiaison.query.filter_by(
+        origin_activity_id=origin_act.id,
+        is_active=True
+    ).all()
+
+    matches = []
+    for liaison in liaisons:
+        extco_entity = Entity.query.filter_by(id=liaison.extco_entity_id, owner_id=user_id).first()
+        extco_act    = Activities.query.get(liaison.extco_activity_id)
+        if extco_entity and extco_act:
+            matches.append({
+                "entity_id":       extco_entity.id,
+                "entity_name":     extco_entity.name,
+                "activity_id":     extco_act.id,
+                "activity_name":   extco_act.name,
+                "extco_shape_id":  extco_act.shape_id,
+                "liaison_id":      liaison.id,
+                "display_label":   liaison.display_label,
+            })
+
+    return jsonify({"matches": matches}), 200
+
+
 @activities_map_bp.route("/api/officialize_liaison", methods=["POST"])
 def officialize_liaison():
     """Officialise une liaison entre une activité hachurée (extco) et son original.

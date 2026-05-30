@@ -14,6 +14,7 @@
     window.OPTIQCARTO_HAS_CARTO     = {{ has_optiqcarto|tojson }};
     window.OPTIQCARTO_READONLY      = true;
     window.OPTIQCARTO_ACTIVE_CALQUE = {{ (active_calque_id or 'null')|safe }};
+    window.OPTIQCARTO_VIEWER_ENTITY_ID = {{ (entity_id or 'null')|safe }};
   </script>
 
   <style>

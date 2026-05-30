@@ -124,6 +124,7 @@
                                                 data-conn-type="{{ conn.type }}">
                                                 <td>
                                                     <i class="fa-solid fa-grip-vertical conn-drag-icon" title="Glisser vers une tâche"></i>
+                                                    {% if conn.choice_label %}<span class="choice-badge choice-badge--{{ conn.choice_label|lower }}">⬦ {{ conn.choice_label }}</span> {% endif %}
                                                     {% if conn.type|lower == 'déclenchante' %}
                                                         <span class="declenchante">{{ conn.data_name }}</span>
                                                     {% elif conn.type|lower == 'nourrissante' %}
@@ -167,6 +168,7 @@
                                                 data-conn-type="{{ conn.type }}">
                                                 <td>
                                                     <i class="fa-solid fa-grip-vertical conn-drag-icon" title="Glisser vers une tâche"></i>
+                                                    {% if conn.choice_label %}<span class="choice-badge choice-badge--{{ conn.choice_label|lower }}">⬦ {{ conn.choice_label }}</span> {% endif %}
                                                     {% if conn.type|lower == 'déclenchante' %}
                                                         <span class="declenchante">{{ conn.data_name }}</span>
                                                     {% elif conn.type|lower == 'nourrissante' %}

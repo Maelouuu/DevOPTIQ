@@ -814,6 +814,7 @@ function initCrossCartoMode() {
 
   let _active = false;
   let _matchedShapeIds = []; // shape_ids avec liaisons (pour re-sync si iframe rechargée)
+  let _reverseOriginMap = {}; // activity_name.toLowerCase() → [{entity_id, entity_name, activity_name, extco_shape_id}]
 
   function _setActive(val) {
     _active = val;
@@ -853,23 +854,42 @@ function initCrossCartoMode() {
         if (m.shape_id) _matchedShapeIds.push(String(m.shape_id));
       }
     });
+    // Charger les liaisons inverses (activités de la carto courante référencées comme extco ailleurs)
+    _reverseOriginMap = {};
+    try {
+      const revRes = await fetch("/activities/api/reverse_liaisons_map");
+      const revData = await revRes.json();
+      for (const entry of (revData.origins || [])) {
+        const key = (entry.origin_activity_name || '').trim().toLowerCase();
+        if (key) _reverseOriginMap[key] = entry.liaisons || [];
+      }
+    } catch (_) {}
+
     // Envoyer au viewer : griser tout sauf les shapes avec liaisons
     _sendToFrame({ type: "connexion-highlight", matchedShapeIds: _matchedShapeIds });
     // Badge
     const countEl = document.getElementById("cross-carto-count");
     if (countEl) countEl.textContent = String(Object.keys(activityMatchMap).length);
-    // Highlight liste droite
+    // Highlight liste droite — extco en vert, origins en bleu
     $$(".activity-item").forEach(li => {
-      const id = li.dataset.id;
-      if (id && activityMatchMap[id]) {
-        li.classList.add("connexion-match");
-        if (!li.querySelector(".connexion-chain-icon")) {
-          const icon = document.createElement("i");
-          icon.className = "fa-solid fa-link connexion-chain-icon";
-          li.appendChild(icon);
-        }
-      } else {
-        li.classList.remove("connexion-match");
+      const id   = li.dataset.id;
+      const name = (li.dataset.name || '').trim().toLowerCase();
+      const isExtco  = id && activityMatchMap[id];
+      const isOrigin = name && _reverseOriginMap[name];
+      li.classList.toggle("connexion-match",  !!isExtco);
+      li.classList.toggle("connexion-origin", !!isOrigin && !isExtco);
+      if (isExtco && !li.querySelector(".connexion-chain-icon")) {
+        const icon = document.createElement("i");
+        icon.className = "fa-solid fa-link connexion-chain-icon";
+        li.appendChild(icon);
+      }
+      if (isOrigin && !isExtco && !li.querySelector(".connexion-origin-icon")) {
+        const icon = document.createElement("i");
+        icon.className = "fa-solid fa-arrow-up-right-from-square connexion-origin-icon";
+        li.appendChild(icon);
+      }
+      if (!isOrigin || isExtco) {
+        li.querySelector(".connexion-origin-icon")?.remove();
       }
     });
   }
@@ -878,11 +898,12 @@ function initCrossCartoMode() {
     activityMatchMap = {};
     crossCartoMatches = [];
     _matchedShapeIds = [];
+    _reverseOriginMap = {};
     _sendToFrame({ type: "connexion-reset" });
     $$(".activity-item").forEach(li => {
-      li.classList.remove("connexion-match");
-      const icon = li.querySelector(".connexion-chain-icon");
-      if (icon) icon.remove();
+      li.classList.remove("connexion-match", "connexion-origin");
+      li.querySelector(".connexion-chain-icon")?.remove();
+      li.querySelector(".connexion-origin-icon")?.remove();
     });
     const countEl = document.getElementById("cross-carto-count");
     if (countEl) countEl.textContent = "0";
@@ -908,10 +929,15 @@ function initCrossCartoMode() {
     }
 
     // shape-click : envoyé par editor.js en mode normal (connexion inactif)
-    // Grâce à l'interception mousedown dans le viewer, ce message n'arrive
-    // JAMAIS quand _active est vrai.
+    // En mode connexion, on l'utilise pour les activités d'ORIGINE (reverse liaison)
     if (e.data.t === "shape-click") {
-      if (_active) return; // sécurité supplémentaire, ne devrait pas arriver
+      if (_active) {
+        const name = (e.data.label || '').trim().toLowerCase();
+        if (name && _reverseOriginMap[name]) {
+          _handleOriginClick(e.data.label.trim(), _reverseOriginMap[name]);
+        }
+        return;
+      }
       const label = (e.data.label || '').toLowerCase().trim();
       if (!label) return;
       const items = document.querySelectorAll('#activities-list .activity-item');
@@ -1019,6 +1045,48 @@ function handleCrossCartoClick(activityName, matches) {
       const label = await _promptLiaisonLabel(m.entity_name);
       if (label === null) return; // user cancelled
       await officializeLiaison(extcoActivityId, m.entity_id, m.activity_id, m.entity_name, btn, label);
+    });
+
+    listEl.appendChild(item);
+  });
+
+  popup.classList.remove("hidden");
+}
+
+function _handleOriginClick(activityName, liaisons) {
+  const popup  = document.getElementById("cross-entity-popup");
+  const nameEl = document.getElementById("cross-entity-activity-name");
+  const listEl = document.getElementById("cross-entity-list");
+  if (!popup || !listEl) return;
+
+  if (nameEl) nameEl.textContent = `"${activityName}"`;
+  listEl.innerHTML = "";
+
+  if (!liaisons || liaisons.length === 0) {
+    listEl.innerHTML = '<div class="cross-entity-empty"><i class="fa-solid fa-circle-info"></i> Aucune référence trouvée.</div>';
+    popup.classList.remove("hidden");
+    return;
+  }
+
+  liaisons.forEach(m => {
+    const item = document.createElement("div");
+    item.className = "cross-entity-item";
+    item.innerHTML = `
+      <div class="cross-entity-item-info">
+        <span class="cross-entity-label" style="color:#3b82f6"><i class="fa-solid fa-arrow-up-right-from-square" style="margin-right:4px"></i>${m.entity_name}</span>
+        <span class="cross-entity-act-name" style="font-style:italic">${m.activity_name}</span>
+      </div>
+      <div class="cross-entity-item-actions">
+        <button class="cross-entity-btn-preview" title="Voir la cartographie">
+          <i class="fa-solid fa-eye"></i>
+        </button>
+      </div>`;
+
+    item.querySelector(".cross-entity-btn-preview").addEventListener("click", (e) => {
+      e.stopPropagation();
+      popup.classList.add("hidden");
+      // Zoom to the extco shape (the hatched representation of this activity) in the other carto
+      showCartoPreview(m.entity_id, m.entity_name, m.activity_name);
     });
 
     listEl.appendChild(item);

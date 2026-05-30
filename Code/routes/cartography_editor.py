@@ -359,25 +359,67 @@ def _do_sync(entity, diagram):
     # Lookup combiné : shape_id → activité (inclut la résolution des renvois)
     sid_to_act = {**shape_to_act, **renvoi_to_act}
 
+    # Map decision shape_id → upstream activity (for diamond Oui/Non routing)
+    shape_by_sid = {str(s['id']): s for s in shapes}
+    decision_upstream = {}
+    for conn in connections:
+        to_sid = str(conn.get('toId', ''))
+        to_shape = shape_by_sid.get(to_sid)
+        if to_shape and to_shape.get('type') == 'decision':
+            from_act = sid_to_act.get(str(conn.get('fromId', '')))
+            if from_act and from_act.id:
+                decision_upstream[to_sid] = from_act
+
+    # new_links maps (src_id, tgt_id) → (description, choice_label)
     new_links = {}
     for conn in connections:
-        from_act = sid_to_act.get(str(conn.get('fromId', '')))
-        to_act   = sid_to_act.get(str(conn.get('toId',   '')))
+        from_sid = str(conn.get('fromId', ''))
+        to_sid   = str(conn.get('toId',   ''))
+        from_shape = shape_by_sid.get(from_sid)
+        to_shape   = shape_by_sid.get(to_sid)
+
+        if from_shape and from_shape.get('type') == 'decision':
+            # Outgoing from decision diamond → trace back to upstream activity
+            from_act = decision_upstream.get(from_sid)
+            to_act   = sid_to_act.get(to_sid)
+        elif to_shape and to_shape.get('type') == 'decision':
+            # Incoming to decision diamond → handled via outgoing, skip here
+            continue
+        else:
+            from_act = sid_to_act.get(from_sid)
+            to_act   = sid_to_act.get(to_sid)
+
         if not from_act or not to_act or not from_act.id or not to_act.id:
             continue
-        # Ignorer les self-loops (connexion renvoi ↔ son activité réelle)
         if from_act.id == to_act.id:
             continue
-        label = (conn.get('label') or '').strip() or None
-        new_links[(from_act.id, to_act.id)] = label
+
+        label       = (conn.get('label') or '').strip() or None
+        choice_raw  = conn.get('choiceLabel') or None
+        # Normalise VSDX labels ('Oui'/'Non'/'Yes'/'No') into canonical form
+        _CHOICE_MAP = {'oui': 'Oui', 'non': 'Non', 'yes': 'Oui', 'no': 'Non'}
+        if choice_raw:
+            choice_label = _CHOICE_MAP.get(choice_raw.strip().lower(), choice_raw)
+        elif from_shape and from_shape.get('type') == 'decision' and label:
+            choice_label = _CHOICE_MAP.get(label.strip().lower())
+            if choice_label:
+                label = None  # absorbed into choice_label
+        else:
+            choice_label = None
+
+        new_links[(from_act.id, to_act.id)] = (label, choice_label)
 
     for key, lk in existing_links.items():
         if key not in new_links:
             db.session.delete(lk)
-        elif lk.description != new_links[key]:
-            lk.description = new_links[key]
+        else:
+            label, choice_label = new_links[key]
+            if lk.description != label:
+                lk.description = label
+            if getattr(lk, 'choice_label', None) != choice_label:
+                lk.choice_label = choice_label
 
-    for key, label in new_links.items():
+    for key, (label, choice_label) in new_links.items():
         if key not in existing_links:
             db.session.add(Link(
                 entity_id=entity.id,
@@ -385,6 +427,7 @@ def _do_sync(entity, diagram):
                 target_activity_id=key[1],
                 type='flux',
                 description=label,
+                choice_label=choice_label,
             ))
 
     # ── Cross-carto liaison propagation ──────────────────────────────────────
@@ -410,7 +453,7 @@ def _do_sync(entity, diagram):
                 ).delete()
                 # Re-create from current carto state
                 extco_id = liaison.extco_activity_id
-                for (src_id, tgt_id), label in new_links.items():
+                for (src_id, tgt_id), (label, _cl) in new_links.items():
                     if src_id == extco_id:
                         other_name = act_id_to_name.get(tgt_id, label or "?")
                         db.session.add(Link(
@@ -947,9 +990,14 @@ def api_architect():
 
 @cartography_editor_bp.route("/api/liaisons", methods=["GET"])
 def get_liaisons():
-    """Retourne les liaisons cross-carto actives pour l'entité courante."""
-    entity_id = session.get("active_entity_id")
-    if not entity_id:
+    """Retourne les liaisons cross-carto actives pour l'entité courante.
+    Accepte ?entity_id=X pour le viewer en lecture seule."""
+    user_id = session.get("user_id")
+    entity_id = request.args.get("entity_id", type=int) or session.get("active_entity_id")
+    if not entity_id or not user_id:
+        return jsonify([])
+    # Auth: entity must belong to current user
+    if not Entity.query.filter_by(id=entity_id, owner_id=user_id).first():
         return jsonify([])
     liaisons = CrossCartoLiaison.query.filter_by(
         extco_entity_id=entity_id, is_active=True

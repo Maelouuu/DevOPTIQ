@@ -326,6 +326,7 @@ class Link(db.Model):
     description = db.Column(db.Text, nullable=True)
     cross_carto_liaison_id = db.Column(db.Integer, nullable=True)
     cross_carto_label = db.Column(db.String(200), nullable=True)
+    choice_label = db.Column(db.String(10), nullable=True)  # 'Oui'/'Non' when source is a decision diamond
 
     @property
     def source_id(self):

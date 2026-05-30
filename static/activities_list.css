@@ -297,6 +297,21 @@ body .toggle-icon,
     color: #222;
 }
 
+.choice-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    margin-right: 4px;
+    vertical-align: middle;
+    color: #fff;
+}
+.choice-badge--oui { background: #22c55e; }
+.choice-badge--non { background: #f97316; }
+
 /* ========================================
    GRILLE CONNEXIONS
    ======================================== */

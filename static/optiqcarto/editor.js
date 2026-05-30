@@ -501,8 +501,64 @@ function snapToPolyline(pts, px, py, maxPerp = 45) {
   return { x: bestOnSeg.x + nx * clampedPerp, y: bestOnSeg.y + ny * clampedPerp };
 }
 
+function _updateDecisionChoiceLabels() {
+  const OPP = { left:'right', right:'left', top:'bottom', bottom:'top' };
+  const LABEL_MAP = { oui:'Oui', non:'Non', yes:'Oui', no:'Non', true:'Oui', false:'Non' };
+  for (const s of state.shapes) {
+    if (s.type !== 'decision') continue;
+    const outgoing = state.connections.filter(c => c.fromId === s.id);
+    if (outgoing.length !== 2) {
+      outgoing.forEach(c => { delete c.choiceLabel; });
+      continue;
+    }
+    if (outgoing.every(c => c.choiceLabel)) continue; // already labelled
+
+    // Transfer from connection label if it is Oui/Non (VSDX import)
+    for (const c of outgoing) {
+      if (!c.choiceLabel && c.label) {
+        const mapped = LABEL_MAP[c.label.trim().toLowerCase()];
+        if (mapped) { c.choiceLabel = mapped; c.label = ''; }
+      }
+    }
+    if (outgoing.every(c => c.choiceLabel)) continue;
+
+    // Compute from geometry: find entry direction, straight-through = Oui
+    const incoming = state.connections.filter(c => c.toId === s.id);
+    let entryPortDir = null;
+    if (incoming.length > 0) {
+      const inc = incoming[0];
+      entryPortDir = inc.toPortDir;
+      if (!entryPortDir) {
+        const from = state.shapes.find(sh => sh.id === inc.fromId);
+        if (from) {
+          const dx = (s.x + s.w / 2) - (from.x + from.w / 2);
+          const dy = (s.y + s.h / 2) - (from.y + from.h / 2);
+          entryPortDir = Math.abs(dx) >= Math.abs(dy) ? (dx >= 0 ? 'left' : 'right') : (dy >= 0 ? 'top' : 'bottom');
+        }
+      }
+    }
+    if (!entryPortDir) { outgoing[0].choiceLabel = 'Oui'; outgoing[1].choiceLabel = 'Non'; continue; }
+
+    const straightDir = OPP[entryPortDir];
+    for (const c of outgoing) {
+      if (c.choiceLabel) continue;
+      let exitDir = c.fromPortDir;
+      if (!exitDir) {
+        const to = state.shapes.find(sh => sh.id === c.toId);
+        if (to) {
+          const dx = (to.x + to.w / 2) - (s.x + s.w / 2);
+          const dy = (to.y + to.h / 2) - (s.y + s.h / 2);
+          exitDir = Math.abs(dx) >= Math.abs(dy) ? (dx >= 0 ? 'right' : 'left') : (dy >= 0 ? 'bottom' : 'top');
+        }
+      }
+      c.choiceLabel = exitDir === straightDir ? 'Oui' : 'Non';
+    }
+  }
+}
+
 function renderConnections() {
   gConns.innerHTML = '';
+  _updateDecisionChoiceLabels();
 
   // Pré-calcul du port spread (répartition des connexions sur chaque côté)
   const OPP = { right:'left', left:'right', top:'bottom', bottom:'top' };
@@ -650,6 +706,23 @@ function renderConnections() {
       'data-id': c.id, 'data-type': 'conn', cursor: 'pointer',
       'pointer-events': 'none',
     }, gConns);
+
+    // Badge Oui/Non pour les connexions issues d'un losange décisionnel
+    if (c.choiceLabel && orthopts.length >= 2) {
+      const srcShape = state.shapes.find(s => s.id === c.fromId && s.type === 'decision');
+      if (srcShape) {
+        const p0 = orthopts[0], p1 = orthopts[1];
+        const segDx = p1.x - p0.x, segDy = p1.y - p0.y;
+        const segLen = Math.hypot(segDx, segDy) || 1;
+        const DIST = Math.min(22, segLen * 0.38);
+        const bx = p0.x + (segDx / segLen) * DIST;
+        const by = p0.y + (segDy / segLen) * DIST;
+        const badgeColor = c.choiceLabel === 'Oui' ? '#22c55e' : '#f97316';
+        const bw = c.choiceLabel.length * 5.5 + 10;
+        el('rect', { x: bx - bw / 2, y: by - 7, width: bw, height: 14, rx: 3, fill: badgeColor, 'pointer-events': 'none' }, gConns);
+        el('text', { x: bx, y: by + 0.5, 'text-anchor': 'middle', 'dominant-baseline': 'middle', fill: '#fff', 'font-size': '8', 'font-weight': '700', 'font-family': 'Segoe UI, sans-serif', 'pointer-events': 'none' }, gConns).textContent = c.choiceLabel;
+      }
+    }
 
     // Label : placement par score — évite les coins, les formes, et les croisements.
     // Toujours SUR la flèche (perp=0), aligné sur la direction dominante (H ou V).
@@ -1034,17 +1107,23 @@ function renderShapes() {
         ? (liaison.display_label || liaison.origin_entity_name || '')
         : '';
       if (subLabelText) {
-        txt(subLabelText, {
+        const editable = !window.OPTIQCARTO_READONLY;
+        const subEl = txt(subLabelText, {
           x: s.x + s.w / 2,
           y: s.y + s.h + 13,
           'text-anchor': 'middle',
           'dominant-baseline': 'middle',
-          fill: '#64748b',
+          fill: editable ? '#3b82f6' : '#64748b',
           'font-size': Math.max(9, Math.min(13, s.fontSize * 0.72)),
           'font-family': 'Segoe UI, system-ui, sans-serif',
           'font-style': 'italic',
-          'pointer-events': 'none',
+          'pointer-events': editable ? 'all' : 'none',
+          cursor: editable ? 'text' : 'default',
         }, g);
+        if (editable) {
+          subEl.setAttribute('data-type', 'liaison-sublabel');
+          subEl.setAttribute('data-shape-id', String(s.id));
+        }
       }
     }
 
@@ -1641,6 +1720,16 @@ function onDown(e) {
     }
     isPanning = true;
     panStart = { sx: e.clientX, sy: e.clientY, vpX, vpY, moved: false };
+    return;
+  }
+
+  // ── Clic sur sous-label liaison (édition inline, éditeur seulement) ──────
+  const liaisonLabelEl = e.target.closest('[data-type="liaison-sublabel"]');
+  if (liaisonLabelEl) {
+    const shapeId = liaisonLabelEl.getAttribute('data-shape-id');
+    if (typeof window._editLiaisonLabelInline === 'function') {
+      window._editLiaisonLabelInline(shapeId, liaisonLabelEl);
+    }
     return;
   }
 
@@ -2656,6 +2745,47 @@ function bindProps() {
 
   // Liaison label — PATCH to API on change (debounced)
   let _liaisonLabelTimer = null;
+
+  // Inline edit of liaison sub-label by clicking on it in the canvas
+  window._editLiaisonLabelInline = function(shapeId, textEl) {
+    const liaison = _liaisonByActivityId[String(shapeId)];
+    if (!liaison) return;
+    const bbox  = textEl.getBoundingClientRect();
+    const input = document.createElement('input');
+    input.type  = 'text';
+    input.value = liaison.display_label || liaison.origin_entity_name || '';
+    Object.assign(input.style, {
+      position: 'fixed',
+      left:     bbox.left + 'px',
+      top:      (bbox.top - 2) + 'px',
+      width:    Math.max(bbox.width + 20, 90) + 'px',
+      height:   (bbox.height + 4) + 'px',
+      fontSize: '12px', fontStyle: 'italic', color: '#1e40af',
+      border: '1.5px solid #3b82f6', borderRadius: '3px',
+      padding: '0 4px', background: '#eff6ff', zIndex: '9999',
+      boxShadow: '0 2px 8px rgba(59,130,246,0.25)',
+    });
+    document.body.appendChild(input);
+    input.focus(); input.select();
+    const apiBase2 = window.OPTIQCARTO_API_BASE || '/cartography';
+    async function _saveLiaisonInline() {
+      const newLabel = input.value.trim() || null;
+      liaison.display_label = newLabel;
+      input.remove();
+      render();
+      try {
+        await fetch(`${apiBase2}/api/liaisons/${liaison.id}`, {
+          method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ display_label: newLabel }),
+        });
+      } catch (_) {}
+    }
+    input.addEventListener('blur', _saveLiaisonInline);
+    input.addEventListener('keydown', ke => {
+      if (ke.key === 'Enter')  { ke.preventDefault(); _saveLiaisonInline(); }
+      if (ke.key === 'Escape') { input.removeEventListener('blur', _saveLiaisonInline); input.remove(); }
+    });
+  };
   document.getElementById('prop-liaison-label')?.addEventListener('input', e => {
     const id = [...selectedShapes][0];
     if (!id) return;
@@ -3156,14 +3286,14 @@ function _showUnsavedModal() {
 /* ── Calques ──────────────────────────────────────── */
 
 async function _loadLiaisons() {
-  if (window.OPTIQCARTO_READONLY) return;
   const apiBase = window.OPTIQCARTO_API_BASE || '/cartography';
   try {
-    const res = await fetch(`${apiBase}/api/liaisons`);
+    const entityParam = window.OPTIQCARTO_VIEWER_ENTITY_ID
+      ? `?entity_id=${window.OPTIQCARTO_VIEWER_ENTITY_ID}` : '';
+    const res = await fetch(`${apiBase}/api/liaisons${entityParam}`);
     const list = await res.json();
     _liaisonByActivityId = {};
     for (const l of (Array.isArray(list) ? list : [])) {
-      // Key by editor shape_id (string) so render can do O(1) lookup via s.id
       if (l.extco_shape_id != null) _liaisonByActivityId[String(l.extco_shape_id)] = l;
     }
   } catch (_) {}
