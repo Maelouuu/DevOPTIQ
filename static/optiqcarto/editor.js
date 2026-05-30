@@ -4102,11 +4102,79 @@ function _unused_vsdxAutoLayout(shapes, conns, bands, groups) {
    VSDX IMPORT
    ══════════════════════════════════════════════════ */
 
-// After snapDecisionsToArrows(), assign choiceLabel:'Oui'|'Non' and diamondId
-// to the connections that visually pass through each floating decision diamond.
-// Uses _computedOrthopts (the actually rendered path) for accurate detection.
+/* ══════════════════════════════════════════════════
+   DECISION DIAMOND — post-import labelling
+   Primary path: spliceDecisions() in importer wires arrows to diamonds;
+   _updateDecisionChoiceLabels() (called in renderConnections) handles Oui/Non
+   via fromId/toId.  labelDecisionConnections() is a FALLBACK for any diamonds
+   the importer could not wire (e.g. heavily routed connectors with waypoints).
+   ══════════════════════════════════════════════════ */
+
+// Shared geometry helper used here and in snapDecisionsToArrows.
+function _ptSegDistPx(px, py, ax, ay, bx, by) {
+  const dx = bx - ax, dy = by - ay, len2 = dx*dx + dy*dy;
+  if (len2 === 0) return Math.hypot(px - ax, py - ay);
+  const t = Math.max(0, Math.min(1, ((px - ax)*dx + (py - ay)*dy) / len2));
+  return Math.hypot(px - (ax + t*dx), py - (ay + t*dy));
+}
+
+// Determine the overall horizontal/vertical bias of the diagram.
+function _diagramFlowIsHorizontal() {
+  let h = 0, v = 0;
+  for (const c of state.connections) {
+    const from = state.shapes.find(s => s.id === c.fromId);
+    const to   = state.shapes.find(s => s.id === c.toId);
+    if (from && to) {
+      h += Math.abs((to.x + to.w / 2) - (from.x + from.w / 2));
+      v += Math.abs((to.y + to.h / 2) - (from.y + from.h / 2));
+    }
+  }
+  return h >= v;
+}
+
+// Get the rendered path of a connection (preferred) or fall back to centroid.
+function _connPath(conn) {
+  if (conn._computedOrthopts && conn._computedOrthopts.length >= 2)
+    return conn._computedOrthopts;
+  const from = state.shapes.find(s => s.id === conn.fromId);
+  const to   = state.shapes.find(s => s.id === conn.toId);
+  if (!from || !to) return null;
+  return [{ x: from.x + from.w / 2, y: from.y + from.h / 2 },
+          { x: to.x   + to.w   / 2, y: to.y   + to.h   / 2 }];
+}
+
+// Min distance from diamond centre to all segments of a rendered path.
+function _distPathToDiamond(pts, dcx, dcy) {
+  let min = Infinity;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const d = _ptSegDistPx(dcx, dcy, pts[i].x, pts[i].y, pts[i+1].x, pts[i+1].y);
+    if (d < min) min = d;
+  }
+  return min;
+}
+
+// Classify Oui/Non among connections that pass near the diamond.
+// mainH = true → flow is left→right; false → flow is top→bottom.
+function _classifyDecisionConnections(passing, mainH) {
+  let ouiConn = null, nonConn = null;
+  if (mainH) {
+    const r = passing.filter(p => Math.abs(p.dx) > Math.abs(p.dy) && p.dx > 0);
+    const d = passing.filter(p => Math.abs(p.dy) >= Math.abs(p.dx) && p.dy > 0);
+    if (r.length) ouiConn = r[0].conn;
+    if (d.length) nonConn = d[0].conn;
+  } else {
+    const d = passing.filter(p => Math.abs(p.dy) > Math.abs(p.dx) && p.dy > 0);
+    const r = passing.filter(p => Math.abs(p.dx) >= Math.abs(p.dy) && p.dx > 0);
+    if (d.length) ouiConn = d[0].conn;
+    if (r.length) nonConn = r[0].conn;
+  }
+  return { ouiConn, nonConn };
+}
+
+// Fallback labeller: handles diamonds NOT wired by the importer (floating).
+// Runs after render()+snapDecisionsToArrows() so positions and rendered paths
+// are final.  Wired diamonds are handled entirely by _updateDecisionChoiceLabels().
 function labelDecisionConnections() {
-  // Only floating diamonds (not wired via fromId/toId)
   const connectedIds = new Set([
     ...state.connections.map(c => c.fromId),
     ...state.connections.map(c => c.toId),
@@ -4114,76 +4182,34 @@ function labelDecisionConnections() {
   const floatingDiamonds = state.shapes.filter(
     s => s.type === 'decision' && !connectedIds.has(s.id)
   );
-  if (floatingDiamonds.length === 0) return;
 
-  // Reset previous overlay labels
+  // Clear stale overlay labels from previous calls
   for (const c of state.connections) {
     if (c.diamondId !== undefined) { delete c.diamondId; delete c.choiceLabel; }
   }
 
-  // Determine main flow direction
-  let totalH = 0, totalV = 0;
-  for (const c of state.connections) {
-    const from = state.shapes.find(s => s.id === c.fromId);
-    const to   = state.shapes.find(s => s.id === c.toId);
-    if (from && to) {
-      totalH += Math.abs((to.x + to.w / 2) - (from.x + from.w / 2));
-      totalV += Math.abs((to.y + to.h / 2) - (from.y + from.h / 2));
-    }
-  }
-  const mainH = totalH >= totalV;
+  if (floatingDiamonds.length === 0) return;
 
-  function ptSegDist(px, py, ax, ay, bx, by) {
-    const abx = bx - ax, aby = by - ay, len2 = abx * abx + aby * aby;
-    if (len2 === 0) return Math.hypot(px - ax, py - ay);
-    const t = Math.max(0, Math.min(1, ((px - ax) * abx + (py - ay) * aby) / len2));
-    return Math.hypot(px - (ax + t * abx), py - (ay + t * aby));
-  }
+  const mainH = _diagramFlowIsHorizontal();
 
   for (const diamond of floatingDiamonds) {
     const dcx = diamond.x + diamond.w / 2;
     const dcy = diamond.y + diamond.h / 2;
-    const thresh = Math.max(diamond.w, diamond.h) * 0.65;
+    const thresh = Math.max(diamond.w, diamond.h) * 0.55; // screen-px threshold
 
     const passing = [];
     for (const conn of state.connections) {
       if (conn.diamondId !== undefined) continue;
-      // Prefer the actually rendered path; fall back to centroid line
-      const pts = conn._computedOrthopts || (() => {
-        const from = state.shapes.find(s => s.id === conn.fromId);
-        const to   = state.shapes.find(s => s.id === conn.toId);
-        if (!from || !to) return null;
-        return [{ x: from.x + from.w / 2, y: from.y + from.h / 2 },
-                { x: to.x   + to.w   / 2, y: to.y   + to.h   / 2 }];
-      })();
-      if (!pts || pts.length < 2) continue;
-
-      let minDist = Infinity;
-      for (let i = 0; i < pts.length - 1; i++) {
-        const d = ptSegDist(dcx, dcy, pts[i].x, pts[i].y, pts[i + 1].x, pts[i + 1].y);
-        if (d < minDist) minDist = d;
-      }
-      if (minDist <= thresh) {
-        const dx = pts[pts.length - 1].x - pts[0].x;
-        const dy = pts[pts.length - 1].y - pts[0].y;
-        passing.push({ conn, dx, dy });
-      }
+      const pts = _connPath(conn);
+      if (!pts) continue;
+      if (_distPathToDiamond(pts, dcx, dcy) > thresh) continue;
+      const dx = pts[pts.length - 1].x - pts[0].x;
+      const dy = pts[pts.length - 1].y - pts[0].y;
+      passing.push({ conn, dx, dy });
     }
-
     if (passing.length < 2) continue;
 
-    let ouiConn = null, nonConn = null;
-    if (mainH) {
-      const r = passing.filter(p => Math.abs(p.dx) > Math.abs(p.dy) && p.dx > 0);
-      const d = passing.filter(p => Math.abs(p.dy) >= Math.abs(p.dx) && p.dy > 0);
-      if (r.length) ouiConn = r[0].conn;
-      if (d.length) nonConn = d[0].conn;
-    } else {
-      const d = passing.filter(p => Math.abs(p.dy) > Math.abs(p.dx) && p.dy > 0);
-      const r = passing.filter(p => Math.abs(p.dx) >= Math.abs(p.dy) && p.dx > 0);
-      if (d.length) ouiConn = d[0].conn;
-      if (r.length) nonConn = r[0].conn;
-    }
+    const { ouiConn, nonConn } = _classifyDecisionConnections(passing, mainH);
     if (ouiConn && ouiConn !== nonConn) { ouiConn.choiceLabel = 'Oui'; ouiConn.diamondId = diamond.id; }
     if (nonConn && nonConn !== ouiConn) { nonConn.choiceLabel = 'Non'; nonConn.diamondId = diamond.id; }
   }
@@ -4194,24 +4220,36 @@ function labelDecisionConnections() {
 // Called once after VSDX import so diamonds align pixel-perfectly with arrows
 // even when orthogonal routing deviates from the original Visio connector path.
 function snapDecisionsToArrows() {
-  const THRESH = 130; // px — max distance to consider an arrow "matching"
+  // Wired diamonds (from spliceDecisions) are already positioned by their explicit
+  // connections — only snap floating diamonds that have no wired connections.
+  const connectedIds = new Set([
+    ...state.connections.map(c => c.fromId),
+    ...state.connections.map(c => c.toId),
+  ]);
+
+  const THRESH = 130; // px — max distance to snap a floating diamond
   let moved = false;
+
   for (const s of state.shapes) {
     if (s.type !== 'decision') continue;
+    if (connectedIds.has(s.id)) continue; // wired diamond: position is correct
+
     const cx = s.x + s.w / 2, cy = s.y + s.h / 2;
     let bestDist = THRESH, bestPx = cx, bestPy = cy;
+
     for (const c of state.connections) {
       const pts = c._computedOrthopts;
       if (!pts || pts.length < 2) continue;
       for (let i = 0; i < pts.length - 1; i++) {
-        const ax = pts[i].x, ay = pts[i].y, bx = pts[i+1].x, by = pts[i+1].y;
-        const abx = bx - ax, aby = by - ay;
-        const len2 = abx*abx + aby*aby;
-        if (len2 < 4) continue;
-        const t = Math.max(0, Math.min(1, ((cx - ax)*abx + (cy - ay)*aby) / len2));
-        const px = ax + t*abx, py = ay + t*aby;
-        const d = Math.hypot(cx - px, cy - py);
-        if (d < bestDist) { bestDist = d; bestPx = px; bestPy = py; }
+        const d = _ptSegDistPx(cx, cy, pts[i].x, pts[i].y, pts[i+1].x, pts[i+1].y);
+        if (d < bestDist) {
+          bestDist = d;
+          // Compute closest point on segment for snapping
+          const ax = pts[i].x, ay = pts[i].y, bx = pts[i+1].x, by = pts[i+1].y;
+          const dx = bx - ax, dy = by - ay, len2 = dx*dx + dy*dy;
+          const t = len2 < 4 ? 0 : Math.max(0, Math.min(1, ((cx-ax)*dx + (cy-ay)*dy) / len2));
+          bestPx = ax + t*dx; bestPy = ay + t*dy;
+        }
       }
     }
     if (bestDist < THRESH) {

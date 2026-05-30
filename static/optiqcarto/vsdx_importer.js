@@ -985,55 +985,107 @@ class VsdxImporter {
     return Math.hypot(px - (ax + t * abx), py - (ay + t * aby));
   }
 
-  // ─── Phase 12b: Splice unconnected decision nodes (legacy, not called) ────
-  // Some Visio decision diamonds have no <Connect> elements — they are
-  // placed visually on a connector line. For each such diamond D, we find
-  // connector A→B whose line passes within SPLICE_THRESH of D's center,
-  // then replace A→B with A→D + D→B.
-  // Filter: LayerMember=3 = "Si petit" visual decorators → excluded.
+  // ─── Phase 12b: Splice floating decision nodes onto connector lines ──
+  // Diamonds with no <Connect> are visual overlays on arrows.
+  // For each floating diamond D, find every connector A→B whose
+  // centre-to-centre line passes within the diamond's own half-dimensions
+  // of D's centre, then replace A→B with A→D (no arrowhead) + D→B.
+  // avoidShapes() already excludes decision shapes from routing obstacles
+  // so the new segments route transparently through D to their endpoints.
 
-  spliceDecisions() {
-    const { connMap, shapePinAbs, newShapes, _shapeIdMap, _shapeElById } = this;
-    const SPLICE_THRESH = 1.8;
+  // Helper: perpendicular distance from point P to segment AB.
+  static _ptSegDist(Px, Py, Ax, Ay, Bx, By) {
+    const dx = Bx - Ax, dy = By - Ay, len2 = dx*dx + dy*dy;
+    if (len2 < 1e-12) return Math.hypot(Px - Ax, Py - Ay);
+    const t = Math.max(0, Math.min(1, ((Px - Ax)*dx + (Py - Ay)*dy) / len2));
+    return Math.hypot(Px - (Ax + t*dx), Py - (Ay + t*dy));
+  }
 
+  // Helper: collect floating decision diamonds (no explicit <Connect>).
+  _floatingDiamonds() {
+    const { connMap, shapePinAbs, newShapes, _shapeIdMap } = this;
     const connSrcSet = new Set(Object.values(connMap).map(e => e.source).filter(Boolean));
     const connTgtSet = new Set(Object.values(connMap).map(e => e.target).filter(Boolean));
-
-    const toPatch = [];
+    const result = [];
     for (const [visioId, appId] of Object.entries(_shapeIdMap)) {
       const appShape = newShapes.find(s => s.id === appId);
       if (!appShape || appShape.type !== 'decision') continue;
-      if (connSrcSet.has(visioId) || connTgtSet.has(visioId)) continue; // already connected
+      if (connSrcSet.has(visioId) || connTgtSet.has(visioId)) continue;
       const abs = shapePinAbs[visioId];
-      if (!abs) continue;
-      if (abs.w < 0.4 || abs.h < 0.4) continue; // micro-shapes → skip
-      toPatch.push({ visioId, pinX: abs.pinX, pinY: abs.pinY });
+      if (!abs || abs.w < 0.2 || abs.h < 0.2) continue;
+      result.push({ visioId, appId, px: abs.pinX, py: abs.pinY, hw: abs.w / 2, hh: abs.h / 2 });
     }
+    return result;
+  }
+
+  // Helper: find connectors whose A→B line passes through diamond D.
+  // Returns [{connId, ends}] sorted by proximity (closest first).
+  _connectorsThrough(dec, connMap, shapePinAbs, excludeIds) {
+    // Threshold = 60 % of the diamond's shorter half-dimension.
+    // Tight enough to exclude irrelevant connectors, loose enough to
+    // tolerate slight misalignment between Visio pin and connector path.
+    const thresh = Math.max(0.22, Math.min(dec.hw, dec.hh) * 0.70);
+    const hits = [];
+    for (const [connId, ends] of Object.entries(connMap)) {
+      if (ends._spliced || ends._origConnId) continue;       // already handled
+      if (excludeIds && excludeIds.has(connId)) continue;
+      const sv = ends.source, tv = ends.target;
+      if (!sv || !tv || sv === dec.visioId || tv === dec.visioId) continue;
+      const sAbs = shapePinAbs[sv], tAbs = shapePinAbs[tv];
+      if (!sAbs || !tAbs) continue;
+      const t = (() => {
+        const dx = tAbs.pinX - sAbs.pinX, dy = tAbs.pinY - sAbs.pinY;
+        const len2 = dx*dx + dy*dy;
+        if (len2 < 1e-9) return -1;
+        return ((dec.px - sAbs.pinX)*dx + (dec.py - sAbs.pinY)*dy) / len2;
+      })();
+      if (t < 0.08 || t > 0.92) continue;        // diamond not well inside segment
+      const dist = VsdxImporter._ptSegDist(
+        dec.px, dec.py,
+        sAbs.pinX, sAbs.pinY,
+        tAbs.pinX, tAbs.pinY
+      );
+      if (dist < thresh) hits.push({ connId, ends, dist });
+    }
+    hits.sort((a, b) => a.dist - b.dist);
+    return hits;
+  }
+
+  // Helper: verify spliced connections form a coherent in→diamond→out graph.
+  // Returns a diagnostic string (empty = OK).
+  _validateSplicedDiamond(dec, connMap) {
+    let incoming = 0, outgoing = 0;
+    for (const ends of Object.values(connMap)) {
+      if (ends.target === dec.visioId) incoming++;
+      if (ends.source === dec.visioId) outgoing++;
+    }
+    if (incoming === 0 && outgoing === 0) return `diamond ${dec.visioId}: no connections after splice`;
+    if (outgoing > 2) return `diamond ${dec.visioId}: ${outgoing} outgoing (expected ≤ 2)`;
+    return '';
+  }
+
+  spliceDecisions() {
+    const { connMap, shapePinAbs } = this;
+    const diamonds = this._floatingDiamonds();
+    if (diamonds.length === 0) return;
 
     let synCtr = 0;
-    for (const dec of toPatch) {
-      const Dx = dec.pinX, Dy = dec.pinY;
-      const realEntries = Object.entries(connMap).filter(([, e]) => !e._origConnId);
-      for (const [connId, ends] of realEntries) {
-        const sv = ends.source, tv = ends.target;
-        if (!sv || !tv || sv === dec.visioId || tv === dec.visioId) continue;
-        const sAbs = shapePinAbs[sv], tAbs = shapePinAbs[tv];
-        if (!sAbs || !tAbs) continue;
-        const Ax = sAbs.pinX, Ay = sAbs.pinY;
-        const Bx = tAbs.pinX, By = tAbs.pinY;
-        const ABx = Bx - Ax, ABy = By - Ay;
-        const len2 = ABx*ABx + ABy*ABy;
-        if (len2 < 1e-9) continue;
-        const t = ((Dx - Ax)*ABx + (Dy - Ay)*ABy) / len2;
-        if (t < 0.05 || t > 0.95) continue;
-        const px = Ax + t*ABx, py = Ay + t*ABy;
-        if (Math.hypot(Dx - px, Dy - py) >= SPLICE_THRESH) continue;
-        // Splice: A→B becomes A→D then D→B
+    for (const dec of diamonds) {
+      const hits = this._connectorsThrough(dec, connMap, shapePinAbs, null);
+      for (const { connId, ends } of hits) {
+        const { source: sv, target: tv } = ends;
+        ends._spliced = true;             // prevent re-matching by another diamond
         delete connMap[connId];
-        connMap[`__sp${synCtr++}`] = { source: sv, target: dec.visioId, noEndArrow: true };
+        // A → D : no arrowhead (the arrow enters the decision)
+        connMap[`__sp${synCtr++}`] = { source: sv, target: dec.visioId, noEndArrow: true, _spliced: true };
+        // D → B : normal arrowhead (exits the decision towards outcome)
         connMap[`__sp${synCtr++}`] = { source: dec.visioId, target: tv, _origConnId: connId };
       }
+      // Post-splice sanity check (logged but non-fatal)
+      const warn = this._validateSplicedDiamond(dec, connMap);
+      if (warn) this.log(`[spliceDecisions] warning: ${warn}`);
     }
+    this.log(`[spliceDecisions] spliced ${synCtr / 2} connector(s) through ${diamonds.length} diamond(s)`);
   }
 
   // Nudge portT values that are too close on the same endpoint+direction pair.
@@ -1338,9 +1390,8 @@ class VsdxImporter {
     this.importActivities();
     this.applyLayoutCorrections();
     this.buildGroups();
+    this.spliceDecisions();   // wire floating diamonds onto connector lines
     await this.buildConnections();
-    // Note: choiceLabel/diamondId assigned in editor.js labelDecisionConnections()
-    // after render() + snapDecisionsToArrows() for accurate rendered-path detection
     this.cleanupBands();
 
     // ── Orphan handling (empty + unconnected shapes) ──
