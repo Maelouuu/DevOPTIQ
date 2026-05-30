@@ -38,6 +38,8 @@ PAGE_LABELS = {
     "test_24_roles_view":        "Vues des Rôles & Items Activité",
     "test_25_competences_plan":  "Plan de Compétences & Prérequis",
     "test_26_import_tasks":      "Import de Tâches CSV/JSON",
+    "test_27_activities_view":   "Vue Paginée des Activités",
+    "test_28_plan_storage":      "Plan Compétences & Paramètres",
 }
 
 
