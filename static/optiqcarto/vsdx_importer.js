@@ -890,7 +890,7 @@ class VsdxImporter {
 
   spliceDecisions() {
     const { connMap, shapePinAbs, newShapes, _shapeIdMap, _shapeElById } = this;
-    const SPLICE_THRESH = 0.6;
+    const SPLICE_THRESH = 1.8;
 
     const connSrcSet = new Set(Object.values(connMap).map(e => e.source).filter(Boolean));
     const connTgtSet = new Set(Object.values(connMap).map(e => e.target).filter(Boolean));
@@ -926,7 +926,7 @@ class VsdxImporter {
         if (Math.hypot(Dx - px, Dy - py) >= SPLICE_THRESH) continue;
         // Splice: A→B becomes A→D then D→B
         delete connMap[connId];
-        connMap[`__sp${synCtr++}`] = { source: sv,          target: dec.visioId };
+        connMap[`__sp${synCtr++}`] = { source: sv, target: dec.visioId, noEndArrow: true };
         connMap[`__sp${synCtr++}`] = { source: dec.visioId, target: tv, _origConnId: connId };
       }
     }
@@ -1109,6 +1109,7 @@ class VsdxImporter {
         id: this.nextOid++, fromId, toId, fromPortDir, toPortDir,
         color: srcShape ? srcShape.color : '#567460',
         label: VsdxImporter._wrapConnLabel(connLabel), style: isDashed ? 'dashed' : 'solid', routing: 'orthogonal',
+        noEndArrow: !!ends.noEndArrow,
       };
       if (fromPortT !== undefined) connObj.fromPortT = fromPortT;
       if (toPortT   !== undefined) connObj.toPortT   = toPortT;
@@ -1233,8 +1234,7 @@ class VsdxImporter {
     this.importActivities();
     this.applyLayoutCorrections();
     this.buildGroups();
-    // spliceDecisions intentionally not called: decision diamonds are placed
-    // visually on top of arrows without modifying connection topology.
+    this.spliceDecisions();
     await this.buildConnections();
     this.cleanupBands();
 

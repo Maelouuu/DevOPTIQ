@@ -22,6 +22,7 @@ let svgWidth = 0, svgHeight = 0;
 let crossCartoMode = false;
 let crossCartoMatches = [];
 let activityMatchMap = {}; // activity_id → { name, matched_entities }
+let _reverseOriginMap = {}; // populated by initCrossCartoMode, module-level for access in initListClicks
 
 const ZOOM_MIN = 0.1, ZOOM_MAX = 10;
 
@@ -254,6 +255,10 @@ function initListClicks() {
       if (crossCartoMode && activityMatchMap[id]) {
         const m = activityMatchMap[id];
         handleCrossCartoClick(m.name, m.matched_entities);
+      } else if (crossCartoMode && li.classList.contains("connexion-origin")) {
+        const name = (li.dataset.name || '').trim();
+        const liaisons = _reverseOriginMap[name.toLowerCase()];
+        if (liaisons) _handleOriginClick(name, liaisons);
       } else if (!crossCartoMode) {
         window.location.href = `/activities/view?activity_id=${id}`;
       }
@@ -822,7 +827,6 @@ function initCrossCartoMode() {
   let _active = false;
   let _matchedShapeIds = []; // shape_ids avec liaisons (pour re-sync si iframe rechargée)
   let _originShapeIds  = []; // shape_ids des activités d'origine (pour re-sync)
-  let _reverseOriginMap = {}; // activity_name.toLowerCase() → [{entity_id, entity_name, activity_name, extco_shape_id}]
 
   function _setActive(val) {
     _active = val;

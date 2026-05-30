@@ -713,7 +713,7 @@ function renderConnections() {
       stroke: color,
       'stroke-width': isSel ? '3' : '2',
       'stroke-dasharray': c.style === 'dashed' ? '9,6' : 'none',
-      'marker-end': `url(#${mId})`,
+      'marker-end': c.noEndArrow ? 'none' : `url(#${mId})`,
       'data-id': c.id, 'data-type': 'conn', cursor: 'pointer',
       'pointer-events': 'none',
     }, gConns);
@@ -1153,7 +1153,7 @@ function renderShapes() {
       });
     }
 
-    // ── Liaison sub-label (below extco shapes) ───────────────────────────────
+    // ── Liaison sub-label (styled callout below extco shapes) ───────────────
     if (s.subtype === 'extco') {
       const liaison = _liaisonByActivityId[String(s.id)];
       const subLabelText = liaison
@@ -1161,15 +1161,38 @@ function renderShapes() {
         : '';
       if (subLabelText) {
         const editable = !window.OPTIQCARTO_READONLY;
+        const fSize = Math.max(9, Math.min(12, s.fontSize * 0.68));
+        const padX = 9, padY = 4;
+        const textW = Math.max(60, subLabelText.length * fSize * 0.56 + padX * 2);
+        const textH = fSize + padY * 2;
+        const cx = s.x + s.w / 2;
+        const stemH = 7;
+        const boxTop = s.y + s.h + stemH + 2;
+        const boxLeft = cx - textW / 2;
+        const bgColor  = '#dbeafe';
+        const brdColor = '#93c5fd';
+        const txtColor = editable ? '#1d4ed8' : '#475569';
+        // Stem triangle (connects shape bottom to callout)
+        el('polygon', {
+          points: `${cx - 5},${s.y + s.h + 1} ${cx + 5},${s.y + s.h + 1} ${cx},${s.y + s.h + stemH + 2}`,
+          fill: bgColor, stroke: brdColor, 'stroke-width': '1', 'stroke-linejoin': 'round',
+          'pointer-events': 'none',
+        }, g);
+        // Background rect
+        el('rect', {
+          x: boxLeft, y: boxTop, width: textW, height: textH,
+          rx: 5, ry: 5,
+          fill: bgColor, stroke: brdColor, 'stroke-width': '1.5',
+          'pointer-events': 'none',
+        }, g);
+        // Text
         const subEl = txt(subLabelText, {
-          x: s.x + s.w / 2,
-          y: s.y + s.h + 13,
-          'text-anchor': 'middle',
-          'dominant-baseline': 'middle',
-          fill: editable ? '#3b82f6' : '#64748b',
-          'font-size': Math.max(9, Math.min(13, s.fontSize * 0.72)),
+          x: cx, y: boxTop + textH / 2,
+          'text-anchor': 'middle', 'dominant-baseline': 'middle',
+          fill: txtColor,
+          'font-size': fSize,
           'font-family': 'Segoe UI, system-ui, sans-serif',
-          'font-style': 'italic',
+          'font-style': 'italic', 'font-weight': '600',
           'pointer-events': editable ? 'all' : 'none',
           cursor: editable ? 'text' : 'default',
         }, g);
@@ -1990,7 +2013,8 @@ function onDown(e) {
         mx: x, my: y, moved: false,
         shapes: [...selectedShapes].map(id => {
           const s = state.shapes.find(s => s.id === id);
-          return { id, ox: s.x, oy: s.y };
+          const band = getBandForY(s.y + s.h / 2);
+          return { id, ox: s.x, oy: s.y, startBandId: band ? band.id : null };
         }),
       };
       isDragging = true;
@@ -2406,9 +2430,13 @@ function onUp(e) {
     isDragging = false;
     if (dragData) {
       if (dragData.moved) {
-        for (const { id } of dragData.shapes) {
+        for (const { id, startBandId } of dragData.shapes) {
           const s = state.shapes.find(s => s.id === id);
-          if (s) updateShapeColor(s);
+          if (s) {
+            const newBand = getBandForY(s.y + s.h / 2);
+            const newBandId = newBand ? newBand.id : null;
+            if (newBandId !== startBandId) updateShapeColor(s);
+          }
           // Les tracés manuels deviennent incohérents quand la shape source/cible bouge
           for (const conn of state.connections) {
             if (conn.fromId === id || conn.toId === id) conn.userPts = null;
