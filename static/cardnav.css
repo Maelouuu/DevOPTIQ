@@ -128,8 +128,8 @@
   height: auto; min-height: 52px;
   border-radius: 20px;
   text-decoration: none;
-  color: rgba(255, 255, 255, 0.88);
-  font-size: 12px; font-weight: 600;
+  color: #ffffff;
+  font-size: 14px; font-weight: 600;
   letter-spacing: 0.01em;
   scroll-snap-align: start;
   transition: background .16s ease, color .16s ease;
@@ -191,14 +191,17 @@
 .nav-card:hover::before { opacity: 0.15; }
 .nav-card.active::before { opacity: 0.1; }
 
-/* Label — autorise 2 lignes pour les noms longs */
+/* Label — toujours blanc plein, lisible sur le fond glass */
 .nav-card-label {
-  color: inherit;
+  color: #ffffff;
   font-size: inherit;
   font-weight: inherit;
   white-space: pre-line;
   line-height: 1.25;
   text-align: left;
+  text-shadow: 0 1px 4px rgba(0,0,0,0.55);
+  position: relative;
+  z-index: 1;
 }
 
 /* ── Bouton déconnexion ──────────────────────── */

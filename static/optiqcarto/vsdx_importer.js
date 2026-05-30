@@ -1339,7 +1339,8 @@ class VsdxImporter {
     this.applyLayoutCorrections();
     this.buildGroups();
     await this.buildConnections();
-    this._labelDiamondConnections();
+    // Note: choiceLabel/diamondId assigned in editor.js labelDecisionConnections()
+    // after render() + snapDecisionsToArrows() for accurate rendered-path detection
     this.cleanupBands();
 
     // ── Orphan handling (empty + unconnected shapes) ──

@@ -1607,7 +1607,7 @@ function renderCanvasMap() {
     state.bands.forEach(band => {
       const item = document.createElement('div');
       item.className = 'cmap-item' + (selectedBand === band.id ? ' selected' : '');
-      item.innerHTML = `<span class="cmap-color-swatch" style="background:${band.color}"></span><span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${band.label || '(sans nom)'}</span>`;
+      item.innerHTML = `<span class="cmap-color-swatch cmap-swatch--band" style="background:${band.color}"></span><span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${band.label || '(sans nom)'}</span>`;
       item.addEventListener('click', () => {
         selectedShapes.clear(); selectedConn = null;
         selectedBand = (selectedBand === band.id) ? null : band.id;
@@ -1632,7 +1632,11 @@ function renderCanvasMap() {
       const isSel = selectedShapes.has(s.id);
       const item = document.createElement('div');
       item.className = 'cmap-item' + (isSel ? ' selected' : '');
-      item.innerHTML = `<span class="cmap-color-swatch" style="background:${s.color}"></span><span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${s.label || '(sans label)'}</span>`;
+      const swatchCls = s.type === 'pile' ? 'cmap-swatch--pile' : 'cmap-swatch--circle';
+      const iconExtra = s.type === 'pile'
+        ? `<i class="fa-solid fa-layer-group" style="font-size:9px;color:${s.color};opacity:0.8;margin-left:2px"></i>`
+        : '';
+      item.innerHTML = `<span class="cmap-color-swatch ${swatchCls}" style="background:${s.color}"></span>${iconExtra}<span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-left:${s.type==='pile'?'2':'0'}px">${s.label || '(sans label)'}</span>`;
       item.addEventListener('click', () => {
         selectShape(s.id, false, false);
         focusOnShape(s, true);
@@ -1745,7 +1749,7 @@ function clearSelection() {
   selectedGroup = null;
 }
 
-function selectShape(id, additive = false, triggerAnimation = false) {
+function selectShape(id, additive = false, triggerAnimation = false, expandPile = true) {
   if (!additive) {
     for (const eid of selectedShapes) {
       const ep = state.shapes.find(s => s.id === eid && s.type === 'pile');
@@ -1758,7 +1762,7 @@ function selectShape(id, additive = false, triggerAnimation = false) {
   selectedBand = null;
   selectedGroup = null;
   const selShape = state.shapes.find(s => s.id === id);
-  if (selShape && selShape.type === 'pile') _expandPile(selShape);
+  if (expandPile && selShape && selShape.type === 'pile') _expandPile(selShape);
   if (triggerAnimation) {
     const s = state.shapes.find(s => s.id === id);
     if (s) {
@@ -2028,9 +2032,9 @@ function onDown(e) {
     if (shapeTarget) {
       const sid = parseInt(shapeTarget.getAttribute('data-id'));
       if (e.shiftKey) {
-        selectShape(sid, true, false);
+        selectShape(sid, true, false, false);   // shift-sélection : pas d'expand pile
       } else if (!selectedShapes.has(sid)) {
-        selectShape(sid, false, false);
+        selectShape(sid, false, false, false);  // sélection drag : pas d'expand pile
       }
       if (!propsOpen) setPropsOpen(true);
 
@@ -2470,6 +2474,14 @@ function onUp(e) {
         }
         snapshot();
         render();
+      } else {
+        // Clic sans déplacement : maintenant on expand les piles sélectionnées
+        let pileExpanded = false;
+        for (const sid of selectedShapes) {
+          const s = state.shapes.find(s => s.id === sid && s.type === 'pile');
+          if (s) { _expandPile(s); pileExpanded = true; }
+        }
+        if (pileExpanded) render();
       }
       dragData = null;
     }
@@ -3249,22 +3261,25 @@ function createPile() {
     maxX = Math.max(maxX, s.x + s.w); maxY = Math.max(maxY, s.y + s.h);
   }
   const pileX = minX - PAD, pileY = minY - PAD;
+  const pileW = maxX - minX + PAD * 2, pileH = maxY - minY + PAD * 2;
   const pileId = state.nextId++;
   for (const s of childShapes) {
     s._pileRelX = s.x - pileX;
     s._pileRelY = s.y - pileY;
     s.pileId = pileId;
   }
+  const pileBand  = getBandForY(pileY + pileH / 2);
+  const pileColor = pileBand ? pileBand.color : '#7c3aed';
   const pile = {
     id: pileId, type: 'pile',
     x: pileX, y: pileY,
     w: 160, h: 100,
-    _expandedW: maxX - minX + PAD * 2,
-    _expandedH: maxY - minY + PAD * 2,
+    _expandedW: pileW,
+    _expandedH: pileH,
     label: 'Pile',
     pileExpanded: false,
     pileChildren: childShapes.map(s => s.id),
-    color: '#7c3aed', textColor: '#ffffff', strokeColor: '',
+    color: pileColor, textColor: '#ffffff', strokeColor: '',
     fontSize: 14, subtype: 'normal', colorVariant: 0,
     validationBadge: false, validationColor: '#4DB868',
   };
@@ -4087,6 +4102,93 @@ function _unused_vsdxAutoLayout(shapes, conns, bands, groups) {
    VSDX IMPORT
    ══════════════════════════════════════════════════ */
 
+// After snapDecisionsToArrows(), assign choiceLabel:'Oui'|'Non' and diamondId
+// to the connections that visually pass through each floating decision diamond.
+// Uses _computedOrthopts (the actually rendered path) for accurate detection.
+function labelDecisionConnections() {
+  // Only floating diamonds (not wired via fromId/toId)
+  const connectedIds = new Set([
+    ...state.connections.map(c => c.fromId),
+    ...state.connections.map(c => c.toId),
+  ]);
+  const floatingDiamonds = state.shapes.filter(
+    s => s.type === 'decision' && !connectedIds.has(s.id)
+  );
+  if (floatingDiamonds.length === 0) return;
+
+  // Reset previous overlay labels
+  for (const c of state.connections) {
+    if (c.diamondId !== undefined) { delete c.diamondId; delete c.choiceLabel; }
+  }
+
+  // Determine main flow direction
+  let totalH = 0, totalV = 0;
+  for (const c of state.connections) {
+    const from = state.shapes.find(s => s.id === c.fromId);
+    const to   = state.shapes.find(s => s.id === c.toId);
+    if (from && to) {
+      totalH += Math.abs((to.x + to.w / 2) - (from.x + from.w / 2));
+      totalV += Math.abs((to.y + to.h / 2) - (from.y + from.h / 2));
+    }
+  }
+  const mainH = totalH >= totalV;
+
+  function ptSegDist(px, py, ax, ay, bx, by) {
+    const abx = bx - ax, aby = by - ay, len2 = abx * abx + aby * aby;
+    if (len2 === 0) return Math.hypot(px - ax, py - ay);
+    const t = Math.max(0, Math.min(1, ((px - ax) * abx + (py - ay) * aby) / len2));
+    return Math.hypot(px - (ax + t * abx), py - (ay + t * aby));
+  }
+
+  for (const diamond of floatingDiamonds) {
+    const dcx = diamond.x + diamond.w / 2;
+    const dcy = diamond.y + diamond.h / 2;
+    const thresh = Math.max(diamond.w, diamond.h) * 0.65;
+
+    const passing = [];
+    for (const conn of state.connections) {
+      if (conn.diamondId !== undefined) continue;
+      // Prefer the actually rendered path; fall back to centroid line
+      const pts = conn._computedOrthopts || (() => {
+        const from = state.shapes.find(s => s.id === conn.fromId);
+        const to   = state.shapes.find(s => s.id === conn.toId);
+        if (!from || !to) return null;
+        return [{ x: from.x + from.w / 2, y: from.y + from.h / 2 },
+                { x: to.x   + to.w   / 2, y: to.y   + to.h   / 2 }];
+      })();
+      if (!pts || pts.length < 2) continue;
+
+      let minDist = Infinity;
+      for (let i = 0; i < pts.length - 1; i++) {
+        const d = ptSegDist(dcx, dcy, pts[i].x, pts[i].y, pts[i + 1].x, pts[i + 1].y);
+        if (d < minDist) minDist = d;
+      }
+      if (minDist <= thresh) {
+        const dx = pts[pts.length - 1].x - pts[0].x;
+        const dy = pts[pts.length - 1].y - pts[0].y;
+        passing.push({ conn, dx, dy });
+      }
+    }
+
+    if (passing.length < 2) continue;
+
+    let ouiConn = null, nonConn = null;
+    if (mainH) {
+      const r = passing.filter(p => Math.abs(p.dx) > Math.abs(p.dy) && p.dx > 0);
+      const d = passing.filter(p => Math.abs(p.dy) >= Math.abs(p.dx) && p.dy > 0);
+      if (r.length) ouiConn = r[0].conn;
+      if (d.length) nonConn = d[0].conn;
+    } else {
+      const d = passing.filter(p => Math.abs(p.dy) > Math.abs(p.dx) && p.dy > 0);
+      const r = passing.filter(p => Math.abs(p.dx) >= Math.abs(p.dy) && p.dx > 0);
+      if (d.length) ouiConn = d[0].conn;
+      if (r.length) nonConn = r[0].conn;
+    }
+    if (ouiConn && ouiConn !== nonConn) { ouiConn.choiceLabel = 'Oui'; ouiConn.diamondId = diamond.id; }
+    if (nonConn && nonConn !== ouiConn) { nonConn.choiceLabel = 'Non'; nonConn.diamondId = diamond.id; }
+  }
+}
+
 // After render(), snap each decision diamond's center to the nearest point
 // on any rendered connection path (uses _computedOrthopts set by renderConnections).
 // Called once after VSDX import so diamonds align pixel-perfectly with arrows
@@ -4399,6 +4501,8 @@ async function importVSDX(file) {
     history = [JSON.stringify(state)]; histIndex = 0;
     render();
     snapDecisionsToArrows(); // centre les losanges sur la flèche la plus proche
+    labelDecisionConnections(); // Oui/Non sur les connexions passant par les losanges
+    render(); // re-render pour afficher les badges au bon endroit
     fitView(); updateProps();
 
     document.getElementById('vsdx-dialog').classList.add('hidden');
