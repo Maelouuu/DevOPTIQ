@@ -2298,6 +2298,36 @@
 
 .cross-entity-btn-officialize:hover { opacity: 0.85; }
 .cross-entity-btn-officialize:disabled { opacity: 0.55; cursor: not-allowed; }
+.cross-entity-btn-officialized {
+  background: #22c55e !important;
+}
+
+/* Popup color variants */
+.cross-entity-popup--blue .cross-entity-popup-inner {
+  background: #eff6ff;
+  border: 1.5px solid #bae6fd;
+}
+.cross-entity-popup--blue .cross-entity-popup-head strong {
+  color: #1e40af;
+}
+.cross-entity-popup--blue .cross-entity-popup-sub {
+  color: #3b82f6;
+}
+.cross-entity-popup--green .cross-entity-popup-inner {
+  background: #f0fdf4;
+  border: 1.5px solid #bbf7d0;
+}
+.cross-entity-popup--green .cross-entity-popup-head strong {
+  color: #15803d;
+}
+.cross-entity-popup--green .cross-entity-popup-sub {
+  color: #22c55e;
+}
+.cross-entity-popup--green .cross-entity-item {
+  background: #f0fdf4;
+  border-color: #bbf7d0;
+}
+
 .cross-entity-empty {
   padding: 14px;
   font-size: 0.84rem;

@@ -803,6 +803,13 @@ function showError(msg) {
    MODE CONNEXIONS INTER-CARTOS
 ============================================================ */
 
+function _sendToFrame(msg) {
+  const frame = document.getElementById("carto-viewer-frame");
+  if (frame && frame.contentWindow) {
+    try { frame.contentWindow.postMessage(msg, "*"); } catch (_) {}
+  }
+}
+
 function initCrossCartoMode() {
   const btn     = document.getElementById("cross-carto-btn");
   const countEl = document.getElementById("cross-carto-count");
@@ -814,6 +821,7 @@ function initCrossCartoMode() {
 
   let _active = false;
   let _matchedShapeIds = []; // shape_ids avec liaisons (pour re-sync si iframe rechargée)
+  let _originShapeIds  = []; // shape_ids des activités d'origine (pour re-sync)
   let _reverseOriginMap = {}; // activity_name.toLowerCase() → [{entity_id, entity_name, activity_name, extco_shape_id}]
 
   function _setActive(val) {
@@ -865,12 +873,27 @@ function initCrossCartoMode() {
       }
     } catch (_) {}
 
-    // Envoyer au viewer : griser tout sauf les shapes avec liaisons
-    _sendToFrame({ type: "connexion-highlight", matchedShapeIds: _matchedShapeIds });
+    // Build origin shape IDs from activity IDs (invert CARTO_SHAPE_MAP)
+    const _activityShapeMap = {}; // activity_id → shape_id
+    for (const [shapeId, actId] of Object.entries(window.CARTO_SHAPE_MAP || {})) {
+      _activityShapeMap[String(actId)] = String(shapeId);
+    }
+    _originShapeIds = [];
+    $$(".activity-item").forEach(li => {
+      const id   = li.dataset.id;
+      const name = (li.dataset.name || '').trim().toLowerCase();
+      if (name && _reverseOriginMap[name] && id) {
+        const sid = _activityShapeMap[String(id)];
+        if (sid) _originShapeIds.push(sid);
+      }
+    });
+
+    // Envoyer au viewer : extco = bleu, origines = vert, reste = gris
+    _sendToFrame({ type: "connexion-highlight", matchedShapeIds: _matchedShapeIds, originShapeIds: _originShapeIds });
     // Badge
     const countEl = document.getElementById("cross-carto-count");
     if (countEl) countEl.textContent = String(Object.keys(activityMatchMap).length);
-    // Highlight liste droite — extco en vert, origins en bleu
+    // Highlight liste droite — extco en bleu, origins en vert
     $$(".activity-item").forEach(li => {
       const id   = li.dataset.id;
       const name = (li.dataset.name || '').trim().toLowerCase();
@@ -898,6 +921,7 @@ function initCrossCartoMode() {
     activityMatchMap = {};
     crossCartoMatches = [];
     _matchedShapeIds = [];
+    _originShapeIds  = [];
     _reverseOriginMap = {};
     _sendToFrame({ type: "connexion-reset" });
     $$(".activity-item").forEach(li => {
@@ -907,13 +931,6 @@ function initCrossCartoMode() {
     });
     const countEl = document.getElementById("cross-carto-count");
     if (countEl) countEl.textContent = "0";
-  }
-
-  function _sendToFrame(msg) {
-    const frame = document.getElementById("carto-viewer-frame");
-    if (frame && frame.contentWindow) {
-      try { frame.contentWindow.postMessage(msg, "*"); } catch (_) {}
-    }
   }
 
   // Messages entrants depuis le viewer iframe
@@ -964,8 +981,8 @@ function initCrossCartoMode() {
     }
 
     // Carto chargée en mémoire → re-appliquer le grisement si connexion mode actif
-    if (e.data.type === "carto-state-ready" && _active && _matchedShapeIds.length > 0) {
-      _sendToFrame({ type: "connexion-highlight", matchedShapeIds: _matchedShapeIds });
+    if (e.data.type === "carto-state-ready" && _active && (_matchedShapeIds.length > 0 || _originShapeIds.length > 0)) {
+      _sendToFrame({ type: "connexion-highlight", matchedShapeIds: _matchedShapeIds, originShapeIds: _originShapeIds });
     }
   });
 
@@ -992,6 +1009,10 @@ function handleCrossCartoClick(activityName, matches) {
   const listEl = document.getElementById("cross-entity-list");
   if (!popup || !listEl) return;
 
+  // Blue popup for extco activities
+  popup.classList.remove("cross-entity-popup--green");
+  popup.classList.add("cross-entity-popup--blue");
+
   // Retrouver l'ID de l'activité hachurée depuis activityMatchMap (module-level)
   let extcoActivityId = null;
   for (const [aid, info] of Object.entries(activityMatchMap)) {
@@ -1013,6 +1034,13 @@ function handleCrossCartoClick(activityName, matches) {
   matches.forEach(m => {
     const item = document.createElement("div");
     item.className = "cross-entity-item";
+    const officializeHtml = m.has_active_liaison
+      ? `<button class="cross-entity-btn-officialize cross-entity-btn-officialized" disabled>
+           <i class="fa-solid fa-check"></i> Officialisée
+         </button>`
+      : `<button class="cross-entity-btn-officialize" title="Officialiser cette liaison">
+           <i class="fa-solid fa-link"></i> Officialiser
+         </button>`;
     item.innerHTML = `
       <div class="cross-entity-item-info">
         <i class="fa-solid fa-building"></i>
@@ -1023,9 +1051,7 @@ function handleCrossCartoClick(activityName, matches) {
         <button class="cross-entity-btn-preview" title="Voir la cartographie">
           <i class="fa-solid fa-eye"></i>
         </button>
-        <button class="cross-entity-btn-officialize" title="Officialiser cette liaison">
-          <i class="fa-solid fa-link"></i> Officialiser
-        </button>
+        ${officializeHtml}
       </div>`;
 
     item.querySelector(".cross-entity-btn-preview").addEventListener("click", (e) => {
@@ -1034,18 +1060,20 @@ function handleCrossCartoClick(activityName, matches) {
       showCartoPreview(m.entity_id, m.entity_name, m.activity_name);
     });
 
-    item.querySelector(".cross-entity-btn-officialize").addEventListener("click", async (e) => {
-      e.stopPropagation();
-      const btn = e.currentTarget;
-      if (!extcoActivityId) {
-        alert("Impossible d'identifier l'activité hachurée.");
-        return;
-      }
-      // Ask user for a display label (pre-fill with origin entity name)
-      const label = await _promptLiaisonLabel(m.entity_name);
-      if (label === null) return; // user cancelled
-      await officializeLiaison(extcoActivityId, m.entity_id, m.activity_id, m.entity_name, btn, label);
-    });
+    if (!m.has_active_liaison) {
+      item.querySelector(".cross-entity-btn-officialize").addEventListener("click", async (e) => {
+        e.stopPropagation();
+        const btn = e.currentTarget;
+        if (!extcoActivityId) {
+          alert("Impossible d'identifier l'activité hachurée.");
+          return;
+        }
+        const label = await _promptLiaisonLabel(m.entity_name);
+        if (label === null) return;
+        const ok = await officializeLiaison(extcoActivityId, m.entity_id, m.activity_id, m.entity_name, btn, label);
+        if (ok) _sendToFrame({ type: 'reload-liaisons' });
+      });
+    }
 
     listEl.appendChild(item);
   });
@@ -1058,6 +1086,10 @@ function _handleOriginClick(activityName, liaisons) {
   const nameEl = document.getElementById("cross-entity-activity-name");
   const listEl = document.getElementById("cross-entity-list");
   if (!popup || !listEl) return;
+
+  // Green popup for origin activities
+  popup.classList.remove("cross-entity-popup--blue");
+  popup.classList.add("cross-entity-popup--green");
 
   if (nameEl) nameEl.textContent = `"${activityName}"`;
   listEl.innerHTML = "";
@@ -1146,14 +1178,18 @@ async function officializeLiaison(extcoActivityId, originEntityId, originActivit
     if (data.error) {
       alert(data.error);
       if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-link"></i> Officialiser'; }
+      return false;
     } else {
       if (btn) {
         btn.innerHTML = '<i class="fa-solid fa-check"></i> Officialisée';
         btn.style.background = "#22c55e";
+        btn.classList.add("cross-entity-btn-officialized");
       }
+      return true;
     }
   } catch (_) {
     if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-link"></i> Officialiser'; }
+    return false;
   }
 }
 

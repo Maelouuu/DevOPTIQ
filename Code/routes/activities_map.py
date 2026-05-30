@@ -1212,11 +1212,28 @@ def liaison_matches():
             )
         ).first()
         if act:
+            # Check if liaison already officialized
+            extco_act = Activities.query.filter(
+                Activities.entity_id == active_id,
+                db.func.lower(Activities.name) == name,
+                Activities.shape_subtype == 'extco'
+            ).first()
+            existing_liaison = None
+            if extco_act:
+                existing_liaison = CrossCartoLiaison.query.filter_by(
+                    extco_entity_id=active_id,
+                    extco_activity_id=extco_act.id,
+                    origin_entity_id=entity.id,
+                    origin_activity_id=act.id,
+                    is_active=True
+                ).first()
             matches.append({
-                "entity_id":     entity.id,
-                "entity_name":   entity.name,
-                "activity_id":   act.id,
-                "activity_name": act.name,
+                "entity_id":          entity.id,
+                "entity_name":        entity.name,
+                "activity_id":        act.id,
+                "activity_name":      act.name,
+                "has_active_liaison": existing_liaison is not None,
+                "display_label":      existing_liaison.display_label if existing_liaison else None,
             })
 
     return jsonify({"matches": matches, "total": len(matches)}), 200

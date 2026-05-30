@@ -135,6 +135,7 @@ const SHAPE_DEFAULTS = {
   'start-end': { label: 'Renvoi',      color: '#ffffff', textColor: '#000000', validationBadge: false, validationColor: '#4DB868', w: 90,  h: 90,  fontSize: 13, subtype: 'normal' },
   special:   { label: 'Sous-activité', color: '#f59e0b', textColor: '#ffffff', validationBadge: false, validationColor: '#4DB868', w: 170, h: 76,  fontSize: 13, subtype: 'normal' },
   decision:  { label: 'Décision',      color: '#9ca3af', textColor: '#ffffff', validationBadge: false, validationColor: '#4DB868', w: 100, h: 100, fontSize: 13, subtype: 'normal' },
+  pile:      { label: 'Pile',          color: '#7c3aed', textColor: '#ffffff', validationBadge: false, validationColor: '#4DB868', w: 160, h: 100, fontSize: 14, subtype: 'normal' },
 };
 
 const HINTS = {
@@ -560,6 +561,14 @@ function renderConnections() {
   gConns.innerHTML = '';
   _updateDecisionChoiceLabels();
 
+  // Shapes hidden inside collapsed piles — skip their connections
+  const _pileHiddenConn = new Set();
+  for (const s of state.shapes) {
+    if (s.type === 'pile' && !s.pileExpanded) {
+      for (const cId of (s.pileChildren || [])) _pileHiddenConn.add(cId);
+    }
+  }
+
   // Pré-calcul du port spread (répartition des connexions sur chaque côté)
   const OPP = { right:'left', left:'right', top:'bottom', bottom:'top' };
   // fromUsage : connexions sortantes par (shapeId-dir) — pour bundleOffset seulement
@@ -577,6 +586,7 @@ function renderConnections() {
   }
 
   for (const c of state.connections) {
+    if (_pileHiddenConn.has(c.fromId) || _pileHiddenConn.has(c.toId)) continue;
     const from = _resolveEp(c.fromId);
     const to   = _resolveEp(c.toId);
     if (!from || !to) continue;
@@ -641,6 +651,7 @@ function renderConnections() {
 
   // ── Passe 1 : chemins de toutes les connexions ────────────────────────────
   for (const c of state.connections) {
+    if (_pileHiddenConn.has(c.fromId) || _pileHiddenConn.has(c.toId)) continue;
     const from = _resolveEp(c.fromId);
     const to   = _resolveEp(c.toId);
     if (!from || !to) continue;
@@ -926,7 +937,7 @@ function _drawHaloForShape(shape, parent) {
     flt.setAttribute('x', '-60%'); flt.setAttribute('y', '-60%');
     flt.setAttribute('width', '220%'); flt.setAttribute('height', '220%');
     const blur = document.createElementNS('http://www.w3.org/2000/svg', 'feGaussianBlur');
-    blur.setAttribute('stdDeviation', '6'); blur.setAttribute('result', 'blur');
+    blur.setAttribute('stdDeviation', '10'); blur.setAttribute('result', 'blur');
     const merge = document.createElementNS('http://www.w3.org/2000/svg', 'feMerge');
     const n1 = document.createElementNS('http://www.w3.org/2000/svg', 'feMergeNode');
     n1.setAttribute('in', 'blur');
@@ -949,38 +960,47 @@ function _drawHaloForShape(shape, parent) {
   outer.setAttribute('cx', cx); outer.setAttribute('cy', cy);
   outer.setAttribute('rx', rx0 + 5); outer.setAttribute('ry', ry0 + 5);
   outer.setAttribute('fill', 'none');
-  outer.setAttribute('stroke', '#ec4899');
-  outer.setAttribute('stroke-width', '10');
+  outer.setAttribute('stroke', '#fde68a');
+  outer.setAttribute('stroke-width', '14');
   outer.setAttribute('pointer-events', 'none');
   outer.setAttribute('filter', 'url(#_halo-glow-filter)');
-  outer.appendChild(mkAnim('stroke-opacity', '0.7;0.1;0.7', 1.6));
-  outer.appendChild(mkAnim('rx', `${rx0+5};${rx0+13};${rx0+5}`, 1.6));
-  outer.appendChild(mkAnim('ry', `${ry0+5};${ry0+13};${ry0+5}`, 1.6));
+  outer.appendChild(mkAnim('stroke-opacity', '0.8;0.15;0.8', 1.8));
+  outer.appendChild(mkAnim('rx', `${rx0+5};${rx0+15};${rx0+5}`, 1.8));
+  outer.appendChild(mkAnim('ry', `${ry0+5};${ry0+15};${ry0+5}`, 1.8));
   parent.appendChild(outer);
   // Sharp inner ring
   const inner = document.createElementNS('http://www.w3.org/2000/svg', 'ellipse');
   inner.setAttribute('cx', cx); inner.setAttribute('cy', cy);
   inner.setAttribute('rx', rx0); inner.setAttribute('ry', ry0);
   inner.setAttribute('fill', 'none');
-  inner.setAttribute('stroke', '#ec4899');
-  inner.setAttribute('stroke-width', '3');
+  inner.setAttribute('stroke', '#ffffff');
+  inner.setAttribute('stroke-width', '2.5');
   inner.setAttribute('pointer-events', 'none');
-  inner.appendChild(mkAnim('stroke-opacity', '1;0.4;1', 1.6));
-  inner.appendChild(mkAnim('rx', `${rx0};${rx0+8};${rx0}`, 1.6));
-  inner.appendChild(mkAnim('ry', `${ry0};${ry0+8};${ry0}`, 1.6));
+  inner.appendChild(mkAnim('stroke-opacity', '1;0.5;1', 1.8));
+  inner.appendChild(mkAnim('rx', `${rx0};${rx0+8};${rx0}`, 1.8));
+  inner.appendChild(mkAnim('ry', `${ry0};${ry0+8};${ry0}`, 1.8));
   parent.appendChild(inner);
 }
 
 function renderShapes() {
   gShapes.innerHTML = '';
 
+  // Build set of shapes hidden inside collapsed piles
+  const _pileHidden = new Set();
+  for (const s of state.shapes) {
+    if (s.type === 'pile' && !s.pileExpanded) {
+      for (const cId of (s.pileChildren || [])) _pileHidden.add(cId);
+    }
+  }
+
   // Halo de mise en évidence (zoom-to-activity depuis le parent)
   if (_haloShapeId !== null) {
     const hs = state.shapes.find(s => s.id === _haloShapeId);
-    if (hs) _drawHaloForShape(hs, gShapes);
+    if (hs && !_pileHidden.has(hs.id)) _drawHaloForShape(hs, gShapes);
   }
 
   for (const s of state.shapes) {
+    if (_pileHidden.has(s.id)) continue; // hidden inside collapsed pile
     const isSel   = selectedShapes.has(s.id);
     const isHover = hoverShapeId === s.id;
     const g = el('g', {
@@ -1060,6 +1080,39 @@ function renderShapes() {
         fill: 'url(#shape-shine)',
         'pointer-events': 'none',
       }, g);
+    } else if (s.type === 'pile') {
+      const count = (s.pileChildren || []).length;
+      const r = 14;
+      if (!s.pileExpanded && count > 0) {
+        // Stacked cards visual
+        for (let i = 2; i >= 1; i--) {
+          const off = i * 6;
+          el('rect', { x: s.x + off, y: s.y + off, width: s.w, height: s.h, rx: r, ry: r,
+            fill: s.color, opacity: (0.25 + i * 0.12).toFixed(2), 'pointer-events': 'none' }, g);
+        }
+      }
+      shapeEl = el('rect', {
+        x: s.x, y: s.y, width: s.w, height: s.h, rx: r, ry: r,
+        fill: s.pileExpanded ? s.color : s.color,
+        opacity: s.pileExpanded ? '0.15' : '1',
+        stroke: darkenColor(s.color, 0.6),
+        'stroke-width': s.pileExpanded ? '2' : '2',
+        'stroke-dasharray': s.pileExpanded ? '8,5' : 'none',
+        filter: filterAttr,
+        'data-shape-fill': '1',
+      }, g);
+      if (!s.pileExpanded) {
+        // Stack icon top-left
+        txt('⊞', { x: s.x + 12, y: s.y + 14, fill: s.textColor, 'font-size': 14, 'font-weight': '700', 'pointer-events': 'none' }, g);
+        // Count badge top-right
+        if (count > 0) {
+          el('circle', { cx: s.x + s.w - 13, cy: s.y + 13, r: 11, fill: '#1e1b4b', 'pointer-events': 'none' }, g);
+          txt(String(count), { x: s.x + s.w - 13, y: s.y + 13, 'text-anchor': 'middle', 'dominant-baseline': 'middle', fill: '#ffffff', 'font-size': 10, 'font-weight': '700', 'pointer-events': 'none' }, g);
+        }
+      } else {
+        // Expanded: show open icon top-left
+        txt('⊟', { x: s.x + 12, y: s.y + 14, fill: s.color, 'font-size': 14, 'font-weight': '700', 'opacity': '0.7', 'pointer-events': 'none' }, g);
+      }
     } else {
       shapeEl = el('path', {
         d: wavyPath(s.x, s.y, s.w, s.h),
@@ -1609,7 +1662,34 @@ function redo() {
    SELECTION
    ══════════════════════════════════════════════════ */
 
+function _expandPile(pile) {
+  if (pile.pileExpanded) return;
+  pile.pileExpanded = true;
+  pile._collapsedW = pile.w; pile._collapsedH = pile.h;
+  pile.w = pile._expandedW || pile.w;
+  pile.h = pile._expandedH || pile.h;
+  for (const cId of (pile.pileChildren || [])) {
+    const child = state.shapes.find(s => s.id === cId);
+    if (child) { child.x = pile.x + (child._pileRelX || 0); child.y = pile.y + (child._pileRelY || 0); }
+  }
+}
+
+function _collapsePile(pile) {
+  if (!pile.pileExpanded) return;
+  for (const cId of (pile.pileChildren || [])) {
+    const child = state.shapes.find(s => s.id === cId);
+    if (child) { child._pileRelX = child.x - pile.x; child._pileRelY = child.y - pile.y; }
+  }
+  pile.pileExpanded = false;
+  pile.w = pile._collapsedW || 160;
+  pile.h = pile._collapsedH || 100;
+}
+
 function clearSelection() {
+  for (const eid of selectedShapes) {
+    const ep = state.shapes.find(s => s.id === eid && s.type === 'pile');
+    if (ep && ep.pileExpanded) _collapsePile(ep);
+  }
   selectedShapes.clear();
   selectedConn = null;
   selectedBand = null;
@@ -1617,11 +1697,19 @@ function clearSelection() {
 }
 
 function selectShape(id, additive = false, triggerAnimation = false) {
-  if (!additive) selectedShapes.clear();
+  if (!additive) {
+    for (const eid of selectedShapes) {
+      const ep = state.shapes.find(s => s.id === eid && s.type === 'pile');
+      if (ep && ep.pileExpanded) _collapsePile(ep);
+    }
+    selectedShapes.clear();
+  }
   selectedShapes.add(id);
   selectedConn = null;
   selectedBand = null;
   selectedGroup = null;
+  const selShape = state.shapes.find(s => s.id === id);
+  if (selShape && selShape.type === 'pile') _expandPile(selShape);
   if (triggerAnimation) {
     const s = state.shapes.find(s => s.id === id);
     if (s) {
@@ -1890,7 +1978,11 @@ function onDown(e) {
     const shapeTarget = e.target.closest('[data-type="shape"]');
     if (shapeTarget) {
       const sid = parseInt(shapeTarget.getAttribute('data-id'));
-      selectShape(sid, e.shiftKey, false);
+      if (e.shiftKey) {
+        selectShape(sid, true, false);
+      } else if (!selectedShapes.has(sid)) {
+        selectShape(sid, false, false);
+      }
       if (!propsOpen) setPropsOpen(true);
 
       // Prepare drag
@@ -1924,7 +2016,18 @@ function onDown(e) {
       ? parseInt(shapeTarget.getAttribute('data-id'))
       : parseInt(groupTarget.getAttribute('data-group-id'));
 
+    // Piles cannot participate in connections
+    const targetShape = state.shapes.find(s => s.id === sid);
+    if (targetShape && targetShape.type === 'pile') {
+      showToast('Une pile ne peut pas recevoir de connexions');
+      connecting = null; render(); return;
+    }
     if (!connecting) {
+      const fromShapeCheck = state.shapes.find(s => s.id === sid);
+      if (fromShapeCheck && fromShapeCheck.type === 'pile') {
+        showToast('Une pile ne peut pas envoyer de connexions');
+        render(); return;
+      }
       connecting = { fromId: sid };
       render();
     } else if (connecting.fromId !== sid) {
@@ -2452,13 +2555,28 @@ function commitLabel() {
 function deleteSelected() {
   if (selectedShapes.size > 0) {
     const ids = [...selectedShapes];
-    state.shapes = state.shapes.filter(s => !ids.includes(s.id));
+    // Also delete children of any selected piles
+    const pileChildIds = [];
+    for (const id of ids) {
+      const s = state.shapes.find(s => s.id === id && s.type === 'pile');
+      if (s) pileChildIds.push(...(s.pileChildren || []));
+    }
+    const allDelIds = new Set([...ids, ...pileChildIds]);
+    // Free children from their pile reference if only the child is deleted (not the pile)
+    for (const id of ids) {
+      const s = state.shapes.find(s => s.id === id);
+      if (s && s.pileId && !allDelIds.has(s.pileId)) {
+        const pile = state.shapes.find(p => p.id === s.pileId);
+        if (pile) pile.pileChildren = pile.pileChildren.filter(c => c !== id);
+      }
+    }
+    state.shapes = state.shapes.filter(s => !allDelIds.has(s.id));
     state.connections = state.connections.filter(
-      c => !ids.includes(c.fromId) && !ids.includes(c.toId)
+      c => !allDelIds.has(c.fromId) && !allDelIds.has(c.toId)
     );
     // Nettoyer les groupes dont les shapes ont été supprimées
     if (state.groups) {
-      state.groups.forEach(g => { g.shapeIds = g.shapeIds.filter(id => !ids.includes(id)); });
+      state.groups.forEach(g => { g.shapeIds = g.shapeIds.filter(id => !allDelIds.has(id)); });
       state.groups = state.groups.filter(g => g.shapeIds.length > 0);
     }
     clearSelection();
@@ -3052,6 +3170,55 @@ function createGroup() {
   selectedGroup = id;
   snapshot(); render();
   showToast(_L('editor.toast.group_created'));
+}
+
+/* ══════════════════════════════════════════════════
+   PILE — conteneur visuel (pas de connexions)
+   ══════════════════════════════════════════════════ */
+
+function createPile() {
+  if (selectedShapes.size === 0) {
+    showToast('Sélectionnez des formes à empiler');
+    return;
+  }
+  const childShapes = [...selectedShapes]
+    .map(id => state.shapes.find(s => s.id === id))
+    .filter(s => s && s.type !== 'pile' && !s.pileId);
+  if (childShapes.length === 0) {
+    showToast('Aucune forme valide sélectionnée');
+    return;
+  }
+  const PAD = 28;
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  for (const s of childShapes) {
+    minX = Math.min(minX, s.x); minY = Math.min(minY, s.y);
+    maxX = Math.max(maxX, s.x + s.w); maxY = Math.max(maxY, s.y + s.h);
+  }
+  const pileX = minX - PAD, pileY = minY - PAD;
+  const pileId = state.nextId++;
+  for (const s of childShapes) {
+    s._pileRelX = s.x - pileX;
+    s._pileRelY = s.y - pileY;
+    s.pileId = pileId;
+  }
+  const pile = {
+    id: pileId, type: 'pile',
+    x: pileX, y: pileY,
+    w: 160, h: 100,
+    _expandedW: maxX - minX + PAD * 2,
+    _expandedH: maxY - minY + PAD * 2,
+    label: 'Pile',
+    pileExpanded: false,
+    pileChildren: childShapes.map(s => s.id),
+    color: '#7c3aed', textColor: '#ffffff', strokeColor: '',
+    fontSize: 14, subtype: 'normal', colorVariant: 0,
+    validationBadge: false, validationColor: '#4DB868',
+  };
+  state.shapes.push(pile);
+  clearSelection();
+  selectShape(pileId, false, false);
+  snapshot(); render();
+  showToast('Pile créée — cliquez pour l\'ouvrir');
 }
 
 function _doNewCarto() {
@@ -5472,6 +5639,9 @@ function init() {
   // Grouper
   document.getElementById('btn-group-create').addEventListener('click', createGroup);
 
+  // Pile
+  document.getElementById('btn-add-pile')?.addEventListener('click', createPile);
+
   // ── Popup sensibilité zoom ────────────────────────────────────────────────
   (function() {
     const pill    = document.getElementById('zoom-pill');
@@ -5501,7 +5671,7 @@ function init() {
     });
   })();
 
-  document.getElementById('btn-new-carto').addEventListener('click', newCarto);
+  document.getElementById('btn-new-carto')?.addEventListener('click', newCarto);
   document.getElementById('btn-architect').addEventListener('click', runCartoCheck);
   // btn-place-labels: click → architectLabels immediately; hover 1s → dropdown
   (function() {
@@ -5726,6 +5896,7 @@ function init() {
       isDirty = false;
       render(); updateProps(); fitView();
       try { window.parent.postMessage({ type: 'carto-state-ready' }, '*'); } catch(_) {}
+      _loadLiaisons().then(() => render());
     }
 
     if (window.OPTIQCARTO_ACTIVE_CALQUE) {

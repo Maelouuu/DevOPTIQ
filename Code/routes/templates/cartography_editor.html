@@ -112,6 +112,11 @@
             <span class="shape-sub-preview shape-sub-preview--extco"></span>
             <span>{{ t('editor.shape_extco') }}</span>
           </button>
+          <div class="shape-sub-sep"></div>
+          <button class="shape-sub-btn" data-shape-type="pile" data-shape-subtype="normal">
+            <span class="shape-sub-preview shape-sub-preview--pile"></span>
+            <span>Pile (conteneur)</span>
+          </button>
         </div>
       </div>
     </div>
@@ -120,7 +125,11 @@
 
     <!-- ── Actions ── -->
     <div class="tb-group-top">
-      <button class="tool-btn-top new-carto-btn" id="btn-new-carto" title="{{ t('editor.btn_new') }}">
+      <button class="tool-btn-top" id="btn-add-pile" title="Créer une pile depuis la sélection (regroupement visuel)">
+        <i class="fa-solid fa-layer-group"></i>
+        <span>Pile</span>
+      </button>
+      <button class="tool-btn-top new-carto-btn" id="btn-new-carto" title="{{ t('editor.btn_new') }}" style="display:none">
         <i class="fa-solid fa-file-circle-plus"></i>
         <span>{{ t('editor.btn_new') }}</span>
       </button>

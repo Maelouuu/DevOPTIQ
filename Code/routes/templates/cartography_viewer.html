@@ -301,16 +301,20 @@ window.addEventListener('message', (e) => {
     _connexionMode = !!e.data.active;
   }
 
-  // Grisement sélectif : toute la carto grisée sauf les shapes dont l'id est dans matchedShapeIds
+  // Grisement sélectif : toute la carto grisée ; extco bleu, origines vert
   if (e.data.type === 'connexion-highlight') {
-    const matched = new Set((e.data.matchedShapeIds || []).map(String));
+    const matched = new Set((e.data.matchedShapeIds || []).map(String)); // blue (extco)
+    const origins = new Set((e.data.originShapeIds  || []).map(String)); // green (origins)
     if (typeof state !== 'undefined') {
       for (const s of state.shapes || []) {
-        if (matched.has(String(s.id))) {
-          if (s._cxOrig !== undefined) { s.color = s._cxOrig; s.strokeColor = s._cxOrigStroke; delete s._cxOrig; delete s._cxOrigStroke; }
+        if (s._cxOrig === undefined) { s._cxOrig = s.color; s._cxOrigStroke = s.strokeColor; }
+        const sid = String(s.id);
+        if (matched.has(sid)) {
+          s.color = '#bfdbfe'; s.strokeColor = '#3b82f6'; // blue pastel
+        } else if (origins.has(sid)) {
+          s.color = '#bbf7d0'; s.strokeColor = '#22c55e'; // green pastel
         } else {
-          if (s._cxOrig === undefined) { s._cxOrig = s.color; s._cxOrigStroke = s.strokeColor; }
-          s.color = '#cbd5e1'; s.strokeColor = '#94a3b8';
+          s.color = '#cbd5e1'; s.strokeColor = '#94a3b8'; // grey
         }
       }
       for (const b of state.bands || []) {
@@ -338,6 +342,13 @@ window.addEventListener('message', (e) => {
         if (c._cxOrig !== undefined) { c.color = c._cxOrig; delete c._cxOrig; }
       }
       if (typeof render === 'function') render();
+    }
+  }
+
+  // Recharger les sous-labels de liaison (après officialisation depuis la page parente)
+  if (e.data.type === 'reload-liaisons') {
+    if (typeof _loadLiaisons === 'function') {
+      _loadLiaisons().then(() => { if (typeof render === 'function') render(); });
     }
   }
 });

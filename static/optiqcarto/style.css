@@ -1225,6 +1225,11 @@ html, body {
   background: rgba(156,163,175,0.55);
   transform: rotate(45deg);
 }
+.shape-sub-preview--pile {
+  border-radius: 4px;
+  background: rgba(124,58,237,0.55);
+  box-shadow: 4px 4px 0 rgba(124,58,237,0.25), 2px 2px 0 rgba(124,58,237,0.35);
+}
 .connect-routing-dropdown { min-width: 130px; }
 .conn-routing-btn.active {
   background: var(--green-dim);
