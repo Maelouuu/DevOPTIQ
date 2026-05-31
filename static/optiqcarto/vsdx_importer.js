@@ -922,18 +922,21 @@ class VsdxImporter {
   spliceDecisions() {
     const { newShapes, newConns } = this;
 
-    // Decision shapes already wired by explicit <Connect> are skipped.
-    const connectedIds = new Set([
-      ...newConns.map(c => c.fromId),
-      ...newConns.map(c => c.toId),
-    ]);
-    const diamonds = newShapes.filter(s => s.type === 'decision' && !connectedIds.has(s.id));
+    // Process diamonds that need connector splicing:
+    //   - Fully floating (0 outgoing) — no <Connect> elements at all
+    //   - Partially connected (1 outgoing) — one branch explicit, the other
+    //     passes through the diamond as an unconnected overlay connector
+    // Diamonds with 2+ outgoing are already fully wired — skip them.
+    const diamonds = newShapes.filter(s => {
+      if (s.type !== 'decision') return false;
+      return newConns.filter(c => c.fromId === s.id).length < 2;
+    });
 
     if (diamonds.length === 0) {
-      this.log('[spliceDecisions] no floating diamonds');
+      this.log('[spliceDecisions] all diamonds fully connected');
       return;
     }
-    this.log(`[spliceDecisions] found ${diamonds.length} floating diamond(s)`);
+    this.log(`[spliceDecisions] found ${diamonds.length} diamond(s) needing splice`);
 
     const toAdd      = [];
     const removeIdxs = new Set();

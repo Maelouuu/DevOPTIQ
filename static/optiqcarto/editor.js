@@ -604,6 +604,13 @@ function renderConnections() {
       const bundleOffset = fN2 > 1 ? (fIdx2 - (fN2 - 1) / 2) * 14 : 0;
       if (c.userPts && c.userPts.length >= 1) {
         orthopts = [fp, ...c.userPts, tp];
+      } else if (c.customPath && c.customPath.length >= 2) {
+        // Preserve Visio-original routing from VSDX import.
+        // Keep interior waypoints from the original Visio connector geometry;
+        // replace start/end with the computed spread-port positions so that
+        // multiple connections on the same shape edge spread apart correctly.
+        const interior = c.customPath.slice(1, -1);
+        orthopts = interior.length > 0 ? [fp, ...interior, tp] : [fp, tp];
       } else {
         const userOffset = c.bendOffset || { dx: 0, dy: 0 };
         orthopts = orthogonalPts(fp, tp, bundleOffset, userOffset);
@@ -2123,9 +2130,13 @@ function onUp(e) {
         for (const { id } of dragData.shapes) {
           const s = state.shapes.find(s => s.id === id);
           if (s) updateShapeColor(s);
-          // Les tracés manuels deviennent incohérents quand la shape source/cible bouge
+          // Clear manual and imported waypoints when a shape moves — stale
+          // waypoints would create kinks relative to the new shape position.
           for (const conn of state.connections) {
-            if (conn.fromId === id || conn.toId === id) conn.userPts = null;
+            if (conn.fromId === id || conn.toId === id) {
+              conn.userPts = null;
+              conn.customPath = null;
+            }
           }
         }
         snapshot();
@@ -2150,9 +2161,10 @@ function onDbl(e) {
     const cid = parseInt(ct.getAttribute('data-id'));
     const c = state.connections.find(c => c.id === cid);
     if (!c) return;
-    if (c.userPts) {
-      // Double-clic sur connexion avec tracé manuel → réinitialise le tracé
+    if (c.userPts || c.customPath) {
+      // Double-clic sur connexion avec tracé manuel/importé → réinitialise le tracé
       c.userPts = null;
+      c.customPath = null;
       snapshot(); render();
       showToast(_L('editor.toast.path_reset'));
     } else {
