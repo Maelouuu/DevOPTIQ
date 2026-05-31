@@ -809,18 +809,26 @@ function renderConnections() {
     const tp = spreadPort(to,   tdir, c.id, 'to',   c.toPortT);
     const routing = c.routing || 'smooth';
 
-    // Routing orthogonal pur avec évitement des formes (toutes connexions, y compris importées)
+    // Routing : customPath (géométrie VSDX exacte) sinon recalcul orthogonal
     let orthopts, d, _usedFp = fp, _usedTp = tp;
     {
-      const fk2 = `${c.fromId}-${fdir}`;
-      const fUsers2 = fromUsage[fk2] || [];
-      const fIdx2 = fUsers2.indexOf(c.id);
-      const fN2 = fUsers2.length;
-      const bundleOffset = fN2 > 1 ? (fIdx2 - (fN2 - 1) / 2) * 14 : 0;
-      const userOffset = c.bendOffset || { dx: 0, dy: 0 };
-      orthopts = orthogonalPts(fp, tp, bundleOffset, userOffset);
-      orthopts = avoidShapes(orthopts, state.shapes, c.fromId, c.toId);
-      orthopts = simplifyPath(orthopts);
+      if (c.customPath && c.customPath.length >= 2) {
+        // Remplace les extrémités par les points de port calculés (tip du diamant, etc.)
+        // et garde les points intermédiaires du VSDX tels quels.
+        const mid = c.customPath.slice(1, -1);
+        orthopts = mid.length > 0 ? [fp, ...mid, tp] : [fp, tp];
+        orthopts = simplifyPath(orthopts);
+      } else {
+        const fk2 = `${c.fromId}-${fdir}`;
+        const fUsers2 = fromUsage[fk2] || [];
+        const fIdx2 = fUsers2.indexOf(c.id);
+        const fN2 = fUsers2.length;
+        const bundleOffset = fN2 > 1 ? (fIdx2 - (fN2 - 1) / 2) * 14 : 0;
+        const userOffset = c.bendOffset || { dx: 0, dy: 0 };
+        orthopts = orthogonalPts(fp, tp, bundleOffset, userOffset);
+        orthopts = avoidShapes(orthopts, state.shapes, c.fromId, c.toId);
+        orthopts = simplifyPath(orthopts);
+      }
       d = polylineToPath(orthopts, 12);
     }
     const isSel = selectedConn === c.id;

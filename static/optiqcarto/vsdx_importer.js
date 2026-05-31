@@ -481,6 +481,9 @@ class VsdxImporter {
       if (containerIds.has(id))       continue;
       if (_containerGroupIds.has(id)) continue;
       if (this.isInLegend(id))        continue;
+      // Layer 3 = "Si petit" indicateurs visuels de décision → importés séparément
+      // comme labels de connexion dans promoteDecisionLabels()
+      if (this.vCell(s, 'LayerMember') === '3') continue;
 
       const mid   = s.getAttribute('Master');
       const vType = s.getAttribute('Type');
@@ -868,6 +871,57 @@ class VsdxImporter {
     }
   }
 
+  // ─── Phase: Promote Layer-3 badge labels to connection labels ────
+  // Layer 3 shapes ("Si petit", "Oui/Non" indicators) are not imported
+  // as diagram shapes. Instead, their text is assigned as labels to the
+  // nearest unlabeled connection exiting a decision diamond.
+
+  promoteDecisionLabels() {
+    const { allShapes, shapePinAbs, newShapes, newConns,
+            topOfDiagram, leftEdge, SCALE } = this;
+
+    // Collect Layer-3 shapes that have text and valid positions
+    const badges = [];
+    for (const { el: s, id } of allShapes) {
+      if (this.vCell(s, 'LayerMember') !== '3') continue;
+      const text = this.vText(s);
+      if (!text || text.length > 20) continue;
+      const abs = shapePinAbs[id];
+      if (!abs) continue;
+      const sx = (abs.pinX - leftEdge) * SCALE;
+      const sy = (topOfDiagram - abs.pinY) * SCALE;
+      badges.push({ text, sx, sy });
+    }
+    if (badges.length === 0) return;
+
+    // Build lookup: appId → screen bounds for decision diamonds
+    const decisionBounds = {};
+    for (const sh of newShapes) {
+      if (sh.type === 'decision') {
+        decisionBounds[sh.id] = { cx: sh.x + sh.w / 2, cy: sh.y + sh.h / 2 };
+      }
+    }
+
+    // For each badge, find the nearest unlabeled connection FROM a decision
+    for (const badge of badges) {
+      let bestConn = null, bestDist = Infinity;
+      for (const conn of newConns) {
+        if (conn.label) continue;
+        const src = decisionBounds[conn.fromId];
+        if (!src) continue;
+        // Use midpoint between diamond center and target shape center
+        const tgt = newShapes.find(s => s.id === conn.toId);
+        const tgcx = tgt ? tgt.x + tgt.w / 2 : src.cx;
+        const tgcy = tgt ? tgt.y + tgt.h / 2 : src.cy;
+        const midx = (src.cx + tgcx) / 2;
+        const midy = (src.cy + tgcy) / 2;
+        const dist = Math.hypot(badge.sx - midx, badge.sy - midy);
+        if (dist < bestDist) { bestDist = dist; bestConn = conn; }
+      }
+      if (bestConn && bestDist < 220) bestConn.label = badge.text;
+    }
+  }
+
   // ─── Orchestrator ────────────────────────────────────────────────
   // Runs all phases in order. Returns data ready to apply to state.
   // onOrphans(orphans) is an optional async callback that receives the
@@ -887,6 +941,7 @@ class VsdxImporter {
     this.buildGroups();
     this.spliceDecisions();
     await this.buildConnections();
+    this.promoteDecisionLabels();
     this.cleanupBands();
 
     // ── Orphan handling (empty + unconnected shapes) ──
