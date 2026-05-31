@@ -1589,29 +1589,27 @@ def _ai_extract_decisions(xml_excerpt: str, context_name: str = '') -> Dict:
         "Extrais tous les losanges et leurs connexions Oui/Non."
     )
 
-    # ── 1. OpenAI (primary — same key as rest of app) ────────────────────
-    openai_key = os.environ.get("OPENAI_API_KEY")
-    if openai_key:
-        try:
-            from openai import OpenAI as _OAI
-            client = _OAI(api_key=openai_key)
-            resp = client.chat.completions.create(
-                model=os.environ.get("OPENAI_CHATBOT_MODEL", "gpt-4o-mini"),
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user",   "content": user_prompt},
-                ],
-                temperature=0.1,
-                max_tokens=4000,
-            )
-            raw = resp.choices[0].message.content
-            m = re.search(r'\{.*\}', raw, re.DOTALL)
-            if m:
-                return {"source": "openai", "data": _json.loads(m.group(0))}
-            return {"source": "openai", "data": {"decisions": []}, "raw": raw}
-        except Exception as e:
-            # Log but continue to Anthropic fallback
-            print(f"[DEBUG-IA] OpenAI failed: {e}")
+    # ── 1. OpenAI (primary — same pattern as chatbot.py: OpenAI() sans api_key) ─
+    try:
+        from openai import OpenAI as _OAI
+        client = _OAI()   # lit OPENAI_API_KEY depuis l'env automatiquement
+        resp = client.chat.completions.create(
+            model=os.environ.get("OPENAI_CHATBOT_MODEL", "gpt-4o-mini"),
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user",   "content": user_prompt},
+            ],
+            temperature=0.1,
+            max_tokens=4000,
+        )
+        raw = resp.choices[0].message.content
+        m = re.search(r'\{.*\}', raw, re.DOTALL)
+        if m:
+            return {"source": "openai", "data": _json.loads(m.group(0))}
+        return {"source": "openai", "data": {"decisions": []}, "raw": raw}
+    except Exception as e:
+        openai_err = str(e)
+        print(f"[DEBUG-IA] OpenAI failed: {e}")
 
     # ── 2. Anthropic Claude (fallback) ───────────────────────────────────
     anthropic_key = os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("ANTHROPIC_KEY")
@@ -1635,7 +1633,7 @@ def _ai_extract_decisions(xml_excerpt: str, context_name: str = '') -> Dict:
 
     return {
         "source": "error",
-        "error": "Aucune clé IA configurée (OPENAI_API_KEY ou ANTHROPIC_KEY)",
+        "error": f"OpenAI: {openai_err} — et aucune clé Anthropic trouvée",
         "data": {"decisions": []},
     }
 
