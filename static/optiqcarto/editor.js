@@ -208,6 +208,10 @@ let _calqueList = [];
 let selectedGroup = null;
 let groupHighlightId = null;
 let expandedGroups = new Set();
+// extco activity_id → { id, display_label, origin_entity_name }
+let _liaisonByActivityId = {};
+// ID de la forme à mettre en évidence (zoom-to-activity) — null = aucune
+let _haloShapeId = null;
 
 // ── Refs DOM ──────────────────────────────────────
 const canvas    = document.getElementById('canvas');
@@ -604,24 +608,6 @@ function renderConnections() {
       const bundleOffset = fN2 > 1 ? (fIdx2 - (fN2 - 1) / 2) * 14 : 0;
       if (c.userPts && c.userPts.length >= 1) {
         orthopts = [fp, ...c.userPts, tp];
-      } else if (c.customPath && c.customPath.length >= 2) {
-        const interior = c.customPath.slice(1, -1);
-        if (interior.length > 0) {
-          // Multi-segment Visio path : waypoints exacts → on garde tel quel
-          orthopts = c.customPath;
-        } else if (c.noEndArrow || from._type === 'decision') {
-          // Connexion courte vers/depuis un diamant (spliceDecisions) : ligne droite intentionnelle
-          orthopts = [fp, tp];
-        } else {
-          // Connecteur Visio "dynamique" à 2 points : Visio le route en angles droits,
-          // on fait pareil — sinon on obtient une diagonale traversant toutes les bandes.
-          const userOffset = c.bendOffset || { dx: 0, dy: 0 };
-          orthopts = orthogonalPts(fp, tp, bundleOffset, userOffset);
-          if (!cornerDrag || cornerDrag.connId !== c.id) {
-            orthopts = avoidShapes(orthopts, state.shapes, c.fromId, c.toId);
-            orthopts = simplifyPath(orthopts);
-          }
-        }
       } else {
         const userOffset = c.bendOffset || { dx: 0, dy: 0 };
         orthopts = orthogonalPts(fp, tp, bundleOffset, userOffset);
@@ -660,29 +646,15 @@ function renderConnections() {
       stroke: color,
       'stroke-width': isSel ? '3' : '2',
       'stroke-dasharray': c.style === 'dashed' ? '9,6' : 'none',
-      'marker-end': c.noEndArrow ? 'none' : `url(#${mId})`,
+      'marker-end': `url(#${mId})`,
       'data-id': c.id, 'data-type': 'conn', cursor: 'pointer',
       'pointer-events': 'none',
     }, gConns);
 
-    // Oui/Non auto-label pour les connexions sortant d'un diamant sans label explicite.
-    // Compare la direction d'entrée (toPortDir de la connexion A→D avec noEndArrow)
-    // et la direction de sortie (fromPortDir de D→B) :
-    //   opposées  → trajet droit → "Oui"
-    //   adjacentes → virage 90°  → "Non"
-    let effectiveLabel = c.label || '';
-    if (!effectiveLabel && from._type === 'decision') {
-      const entryConn = state.connections.find(x => x.toId === c.fromId && x.noEndArrow);
-      if (entryConn && entryConn.toPortDir && c.fromPortDir) {
-        const OPP_LOCAL = { right:'left', left:'right', top:'bottom', bottom:'top' };
-        effectiveLabel = OPP_LOCAL[c.fromPortDir] === entryConn.toPortDir ? 'Oui' : 'Non';
-      }
-    }
-
     // Label : placement par score — évite les coins, les formes, et les croisements.
     // Toujours SUR la flèche (perp=0), aligné sur la direction dominante (H ou V).
-    if (effectiveLabel) {
-      const labelLines = effectiveLabel.split('\n');
+    if (c.label) {
+      const labelLines = c.label.split('\n');
       const maxLineLen = Math.max(...labelLines.map(l => l.length));
       const lw = Math.max(20, maxLineLen * 6);
       const lineH = 13;
@@ -843,7 +815,7 @@ function renderConnections() {
       rx: '3', fill: 'rgba(255,255,255,0.96)',
     }, lg);
     if (labelLines.length === 1) {
-      txt(labelLines[0], {
+      txt(c.label, {
         x: '0', y: '0',
         'text-anchor': 'middle', 'dominant-baseline': 'middle',
         fill: color, 'font-size': '14', 'font-family': 'Segoe UI, sans-serif', 'font-weight': '600',
@@ -867,8 +839,73 @@ function renderConnections() {
    RENDER — SHAPES
    ══════════════════════════════════════════════════ */
 
+function _drawHaloForShape(shape, parent) {
+  const pad = 18;
+  const cx = shape.x + shape.w / 2;
+  const cy = shape.y + shape.h / 2;
+  const rx0 = shape.w / 2 + pad;
+  const ry0 = shape.h / 2 + pad;
+  // Ensure blur filter exists in defs
+  const defs = canvas.querySelector('defs');
+  if (defs && !document.getElementById('_halo-glow-filter')) {
+    const flt = document.createElementNS('http://www.w3.org/2000/svg', 'filter');
+    flt.setAttribute('id', '_halo-glow-filter');
+    flt.setAttribute('x', '-60%'); flt.setAttribute('y', '-60%');
+    flt.setAttribute('width', '220%'); flt.setAttribute('height', '220%');
+    const blur = document.createElementNS('http://www.w3.org/2000/svg', 'feGaussianBlur');
+    blur.setAttribute('stdDeviation', '6'); blur.setAttribute('result', 'blur');
+    const merge = document.createElementNS('http://www.w3.org/2000/svg', 'feMerge');
+    const n1 = document.createElementNS('http://www.w3.org/2000/svg', 'feMergeNode');
+    n1.setAttribute('in', 'blur');
+    const n2 = document.createElementNS('http://www.w3.org/2000/svg', 'feMergeNode');
+    n2.setAttribute('in', 'SourceGraphic');
+    merge.appendChild(n1); merge.appendChild(n2);
+    flt.appendChild(blur); flt.appendChild(merge);
+    defs.appendChild(flt);
+  }
+  function mkAnim(attr, vals, dur) {
+    const a = document.createElementNS('http://www.w3.org/2000/svg', 'animate');
+    a.setAttribute('attributeName', attr);
+    a.setAttribute('values', vals);
+    a.setAttribute('dur', dur + 's');
+    a.setAttribute('repeatCount', 'indefinite');
+    return a;
+  }
+  // Outer glow ring
+  const outer = document.createElementNS('http://www.w3.org/2000/svg', 'ellipse');
+  outer.setAttribute('cx', cx); outer.setAttribute('cy', cy);
+  outer.setAttribute('rx', rx0 + 5); outer.setAttribute('ry', ry0 + 5);
+  outer.setAttribute('fill', 'none');
+  outer.setAttribute('stroke', '#ec4899');
+  outer.setAttribute('stroke-width', '10');
+  outer.setAttribute('pointer-events', 'none');
+  outer.setAttribute('filter', 'url(#_halo-glow-filter)');
+  outer.appendChild(mkAnim('stroke-opacity', '0.7;0.1;0.7', 1.6));
+  outer.appendChild(mkAnim('rx', `${rx0+5};${rx0+13};${rx0+5}`, 1.6));
+  outer.appendChild(mkAnim('ry', `${ry0+5};${ry0+13};${ry0+5}`, 1.6));
+  parent.appendChild(outer);
+  // Sharp inner ring
+  const inner = document.createElementNS('http://www.w3.org/2000/svg', 'ellipse');
+  inner.setAttribute('cx', cx); inner.setAttribute('cy', cy);
+  inner.setAttribute('rx', rx0); inner.setAttribute('ry', ry0);
+  inner.setAttribute('fill', 'none');
+  inner.setAttribute('stroke', '#ec4899');
+  inner.setAttribute('stroke-width', '3');
+  inner.setAttribute('pointer-events', 'none');
+  inner.appendChild(mkAnim('stroke-opacity', '1;0.4;1', 1.6));
+  inner.appendChild(mkAnim('rx', `${rx0};${rx0+8};${rx0}`, 1.6));
+  inner.appendChild(mkAnim('ry', `${ry0};${ry0+8};${ry0}`, 1.6));
+  parent.appendChild(inner);
+}
+
 function renderShapes() {
   gShapes.innerHTML = '';
+
+  // Halo de mise en évidence (zoom-to-activity depuis le parent)
+  if (_haloShapeId !== null) {
+    const hs = state.shapes.find(s => s.id === _haloShapeId);
+    if (hs) _drawHaloForShape(hs, gShapes);
+  }
 
   for (const s of state.shapes) {
     const isSel   = selectedShapes.has(s.id);
@@ -988,6 +1025,27 @@ function renderShapes() {
           'pointer-events': 'none',
         }, g);
       });
+    }
+
+    // ── Liaison sub-label (below extco shapes) ───────────────────────────────
+    if (s.subtype === 'extco') {
+      const liaison = _liaisonByActivityId[String(s.id)];
+      const subLabelText = liaison
+        ? (liaison.display_label || liaison.origin_entity_name || '')
+        : '';
+      if (subLabelText) {
+        txt(subLabelText, {
+          x: s.x + s.w / 2,
+          y: s.y + s.h + 13,
+          'text-anchor': 'middle',
+          'dominant-baseline': 'middle',
+          fill: '#64748b',
+          'font-size': Math.max(9, Math.min(13, s.fontSize * 0.72)),
+          'font-family': 'Segoe UI, system-ui, sans-serif',
+          'font-style': 'italic',
+          'pointer-events': 'none',
+        }, g);
+      }
     }
 
     // ── Validation badge (bottom-right corner) ───
@@ -1760,10 +1818,7 @@ function onDown(e) {
       return;
     }
 
-    // Click sur zone vide → fermer le panneau props + déselectionner tout
-    const hadSelection = selectedBand !== null || selectedGroup !== null || selectedShapes.size > 0 || selectedConn !== null;
-    clearSelection();
-    if (hadSelection) { if (propsOpen) setPropsOpen(false); render(); updateProps(); }
+    // Start panning; deselect only on mouseup if the mouse didn't actually move
     isPanning = true;
     panStart = { sx: e.clientX, sy: e.clientY, vpX, vpY, moved: false };
     return;
@@ -2145,8 +2200,15 @@ function onUp(e) {
 
   if (isPanning) {
     isPanning = false;
+    const panDidMove = panStart && panStart.moved;
     panStart = null;
     canvas.style.cursor = spaceDown ? 'grab' : '';
+    // Click on empty area (no pan movement) → deselect
+    if (!panDidMove) {
+      const hadSelection = selectedBand !== null || selectedGroup !== null || selectedShapes.size > 0 || selectedConn !== null;
+      clearSelection();
+      if (hadSelection) { if (propsOpen) setPropsOpen(false); render(); updateProps(); }
+    }
   }
   if (isDragging) {
     isDragging = false;
@@ -2155,13 +2217,9 @@ function onUp(e) {
         for (const { id } of dragData.shapes) {
           const s = state.shapes.find(s => s.id === id);
           if (s) updateShapeColor(s);
-          // Clear manual and imported waypoints when a shape moves — stale
-          // waypoints would create kinks relative to the new shape position.
+          // Les tracés manuels deviennent incohérents quand la shape source/cible bouge
           for (const conn of state.connections) {
-            if (conn.fromId === id || conn.toId === id) {
-              conn.userPts = null;
-              conn.customPath = null;
-            }
+            if (conn.fromId === id || conn.toId === id) conn.userPts = null;
           }
         }
         snapshot();
@@ -2186,10 +2244,9 @@ function onDbl(e) {
     const cid = parseInt(ct.getAttribute('data-id'));
     const c = state.connections.find(c => c.id === cid);
     if (!c) return;
-    if (c.userPts || c.customPath) {
-      // Double-clic sur connexion avec tracé manuel/importé → réinitialise le tracé
+    if (c.userPts) {
+      // Double-clic sur connexion avec tracé manuel → réinitialise le tracé
       c.userPts = null;
-      c.customPath = null;
       snapshot(); render();
       showToast(_L('editor.toast.path_reset'));
     } else {
@@ -2447,6 +2504,16 @@ function updateProps() {
         document.getElementById('subtype-btn-extco')?.classList.toggle('active', sub === 'extco');
       }
     }
+    // Liaison label — visible only for extco shapes that have an active liaison
+    const liaisonRow = document.getElementById('prop-liaison-row');
+    if (liaisonRow) {
+      const liaison = s.subtype === 'extco' ? _liaisonByActivityId[String(s.id)] : null;
+      liaisonRow.style.display = liaison ? '' : 'none';
+      if (liaison) {
+        const liaisonInput = document.getElementById('prop-liaison-label');
+        if (liaisonInput) liaisonInput.value = liaison.display_label || '';
+      }
+    }
     // Variante couleur (0=fidèle, 1=moins fidèle)
     const band = getBandForY(s.y + s.h / 2);
     const v0El = document.getElementById('variant-btn-0');
@@ -2585,6 +2652,29 @@ function bindProps() {
       }
       snapshot(); render(); updateProps();
     });
+  });
+
+  // Liaison label — PATCH to API on change (debounced)
+  let _liaisonLabelTimer = null;
+  document.getElementById('prop-liaison-label')?.addEventListener('input', e => {
+    const id = [...selectedShapes][0];
+    if (!id) return;
+    const liaison = _liaisonByActivityId[String(id)];
+    if (!liaison) return;
+    // Optimistic update in-memory
+    liaison.display_label = e.target.value.trim() || null;
+    render();
+    clearTimeout(_liaisonLabelTimer);
+    _liaisonLabelTimer = setTimeout(async () => {
+      const apiBase = window.OPTIQCARTO_API_BASE || '/cartography';
+      try {
+        await fetch(`${apiBase}/api/liaisons/${liaison.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ display_label: liaison.display_label }),
+        });
+      } catch (_) {}
+    }, 600);
   });
 
   document.getElementById('prop-delete-shape').addEventListener('click', deleteSelected);
@@ -2910,6 +3000,8 @@ async function saveJSON() {
       clearTimeout(_autoSaveTimerId);
       _showSavePopup('done');
       if (data.sync_warning) setTimeout(() => showToast(_L('editor.toast.sync_error') + data.sync_warning, 'warn'), 1600);
+      // After saving Master, offer to propagate to other calques
+      _offerMasterPropagation(apiBase);
       return true;
     } else {
       _hideSavePopup();
@@ -2921,6 +3013,61 @@ async function saveJSON() {
     showToast(_L('editor.toast.save_network_error'));
     return false;
   }
+}
+
+async function _offerMasterPropagation(apiBase) {
+  let calques = [];
+  try {
+    const r = await fetch(`${apiBase}/api/calques`);
+    calques = await r.json();
+  } catch (_) { return; }
+  if (!Array.isArray(calques) || calques.length === 0) return;
+
+  // Build modal
+  const overlay = document.createElement('div');
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:9998;display:flex;align-items:center;justify-content:center';
+  const rows = calques.map(c => `
+    <label style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;cursor:pointer;hover:background:#f8fafc">
+      <input type="checkbox" class="calque-propagate-cb" data-id="${c.id}" checked
+        style="width:16px;height:16px;accent-color:#ec4899;cursor:pointer">
+      <span style="font-size:0.88rem;color:#1e293b">${c.name}</span>
+    </label>`).join('');
+  overlay.innerHTML = `
+    <div style="background:#fff;border-radius:14px;padding:24px;min-width:340px;max-width:460px;box-shadow:0 8px 32px rgba(0,0,0,0.22)">
+      <h3 style="margin:0 0 6px;font-size:1rem;font-weight:700;color:#1e293b">
+        <i class="fa-solid fa-layer-group" style="color:#ec4899;margin-right:6px"></i>
+        ${_L('editor.master_propagate_title')}
+      </h3>
+      <p style="margin:0 0 14px;font-size:0.82rem;color:#64748b">${_L('editor.master_propagate_desc')}</p>
+      <div style="border:1.5px solid #e2e8f0;border-radius:10px;padding:6px 4px;margin-bottom:16px;max-height:220px;overflow-y:auto">${rows}</div>
+      <div style="display:flex;gap:8px;justify-content:flex-end">
+        <button id="_prop-skip" style="padding:7px 16px;border:1.5px solid #e2e8f0;border-radius:8px;background:#fff;cursor:pointer;font-size:0.85rem">${_L('editor.master_propagate_skip')}</button>
+        <button id="_prop-apply" style="padding:7px 16px;border:none;border-radius:8px;background:linear-gradient(135deg,#ec4899,#be185d);color:#fff;cursor:pointer;font-size:0.85rem;font-weight:600">
+          <i class="fa-solid fa-bolt"></i> ${_L('editor.master_propagate_apply')}
+        </button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+
+  overlay.querySelector('#_prop-skip').addEventListener('click', () => document.body.removeChild(overlay));
+  overlay.querySelector('#_prop-apply').addEventListener('click', async () => {
+    const checked = [...overlay.querySelectorAll('.calque-propagate-cb:checked')].map(cb => parseInt(cb.dataset.id));
+    document.body.removeChild(overlay);
+    if (checked.length === 0) return;
+    let ok = 0, fail = 0;
+    await Promise.all(checked.map(async id => {
+      try {
+        const r = await fetch(`${apiBase}/api/calques/${id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ state }),
+        });
+        const d = await r.json();
+        if (d.ok) ok++; else fail++;
+      } catch (_) { fail++; }
+    }));
+    showToast(ok + ' ' + _L('editor.master_propagate_done') + (fail ? ` (${fail} échecs)` : ''));
+  });
 }
 
 function _showSavePopup(state) {
@@ -3008,6 +3155,20 @@ function _showUnsavedModal() {
 
 /* ── Calques ──────────────────────────────────────── */
 
+async function _loadLiaisons() {
+  if (window.OPTIQCARTO_READONLY) return;
+  const apiBase = window.OPTIQCARTO_API_BASE || '/cartography';
+  try {
+    const res = await fetch(`${apiBase}/api/liaisons`);
+    const list = await res.json();
+    _liaisonByActivityId = {};
+    for (const l of (Array.isArray(list) ? list : [])) {
+      // Key by editor shape_id (string) so render can do O(1) lookup via s.id
+      if (l.extco_shape_id != null) _liaisonByActivityId[String(l.extco_shape_id)] = l;
+    }
+  } catch (_) {}
+}
+
 async function _transitionState(newState) {
   const canvasWrap = document.getElementById('canvas-wrap');
   if (canvasWrap) {
@@ -3026,6 +3187,7 @@ async function _transitionState(newState) {
     state.connections = state.connections.filter(c => validIds.has(c.fromId) && validIds.has(c.toId));
   }
   history = [JSON.stringify(state)]; histIndex = 0;
+  await _loadLiaisons();
   render(); updateProps();
   if (canvasWrap) {
     await new Promise(r => setTimeout(r, 20));
@@ -3084,11 +3246,21 @@ function renderCalqueListUI() {
   const empty = document.getElementById('cal-empty');
   if (!list) return;
   list.innerHTML = '';
-  if (_calqueList.length === 0) {
-    if (empty) empty.style.display = 'block';
-    return;
-  }
   if (empty) empty.style.display = 'none';
+
+  // Always show Master as first entry
+  const masterItem = document.createElement('div');
+  masterItem.className = 'cal-item cal-item-master' + (activeCalqueId === null ? ' active' : '');
+  masterItem.innerHTML = `<i class="fa-solid fa-star" style="font-size:10px;opacity:0.7;flex-shrink:0"></i><span class="cal-item-name">Master</span>`;
+  masterItem.addEventListener('click', async () => {
+    const section = document.getElementById('cal-section');
+    if (section) section.classList.remove('open');
+    if (activeCalqueId !== null) await _deactivateCalque();
+  });
+  list.appendChild(masterItem);
+
+  if (_calqueList.length === 0) return;
+
   _calqueList.forEach(cal => {
     const item = document.createElement('div');
     item.className = 'cal-item' + (activeCalqueId === cal.id ? ' active' : '');
@@ -4465,54 +4637,47 @@ function runCartoCheck() {
    ══════════════════════════════════════════════════ */
 
 function architectLabels() {
-  // Place each connection label at t=0.90 along the arrow (near the arrowhead).
-  // Steps back 2 % at a time if the candidate position overlaps a shape or a
-  // previously-placed label.  Placed labels are themselves obstacles.
-  const INIT_T     = 0.90;
-  const STEP_T     = 0.02;
-  const SHAPE_M    = 10;
-  const LABEL_M    = 6;
-  const EST_LW     = 72;  // conservative label width estimate
-  const EST_LH     = 14;  // conservative label height estimate
+  // 1. Label orientation MUST match the segment direction
+  // 2. Label box must fit within segment with clearance from both ends
+  // 3. Adaptive corner clearance — reduces for longer labels so they can still be placed
+  // 4. Three passes: (a) matching direction from arrowhead, (b) all directions from arrowhead,
+  //    (c) all segments longest-first with minimum clearance (last resort)
 
-  const placedBoxes = [];
-  let changed = false;
+  const CORNER_BASE = 42;  // base clearance from label edge to segment endpoint
+  const CORNER_MIN  = 12;  // minimum clearance (for very long labels)
+  const SHAPE_M   = 14;
+  const LABEL_GAP = 8;
+  const CHAR_W    = 6.5;
+  const LINE_H    = 13;
+  const STEP_PX   = 6;
 
-  function ptAtT(pts, t) {
-    let total = 0;
-    for (let i = 0; i < pts.length - 1; i++)
-      total += Math.hypot(pts[i+1].x - pts[i].x, pts[i+1].y - pts[i].y);
-    if (total < 1) return pts[pts.length - 1];
-    const target = total * Math.max(0, Math.min(1, t));
-    let acc = 0;
-    for (let i = 0; i < pts.length - 1; i++) {
-      const seg = Math.hypot(pts[i+1].x - pts[i].x, pts[i+1].y - pts[i].y);
-      if (acc + seg >= target) {
-        const u = (target - acc) / seg;
-        return { x: pts[i].x + u * (pts[i+1].x - pts[i].x),
-                 y: pts[i].y + u * (pts[i+1].y - pts[i].y) };
-      }
-      acc += seg;
-    }
-    return pts[pts.length - 1];
+  const placed = [];
+
+  function labelSize(c) {
+    const lines = (c.label || '').split('\n');
+    const lw = Math.max(24, Math.max(...lines.map(l => l.length)) * CHAR_W + 10);
+    const lh = LINE_H * lines.length + (lines.length > 1 ? 4 : 0);
+    return { lw, lh };
   }
 
-  function overlapsShapes(cx, cy) {
+  function hits(cx, cy, bw, bh) {
+    const hw = bw / 2, hh = bh / 2;
     for (const sh of state.shapes) {
-      if (cx + EST_LW/2 > sh.x - SHAPE_M && cx - EST_LW/2 < sh.x + sh.w + SHAPE_M &&
-          cy + EST_LH/2 > sh.y - SHAPE_M && cy - EST_LH/2 < sh.y + sh.h + SHAPE_M)
+      if (cx + hw > sh.x - SHAPE_M && cx - hw < sh.x + sh.w + SHAPE_M &&
+          cy + hh > sh.y - SHAPE_M && cy - hh < sh.y + sh.h + SHAPE_M)
+        return true;
+    }
+    for (const p of placed) {
+      if (cx + hw > p.cx - p.hw - LABEL_GAP && cx - hw < p.cx + p.hw + LABEL_GAP &&
+          cy + hh > p.cy - p.hh - LABEL_GAP && cy - hh < p.cy + p.hh + LABEL_GAP)
         return true;
     }
     return false;
   }
 
-  function overlapsPlaced(cx, cy) {
-    for (const b of placedBoxes) {
-      if (cx + EST_LW/2 > b.x - LABEL_M && cx - EST_LW/2 < b.x + EST_LW + LABEL_M &&
-          cy + EST_LH/2 > b.y - LABEL_M && cy - EST_LH/2 < b.y + EST_LH + LABEL_M)
-        return true;
-    }
-    return false;
+  // Adaptive corner margin: shorter for wider labels
+  function cornerM(lw) {
+    return Math.max(CORNER_MIN, CORNER_BASE - Math.max(0, lw - 80) * 0.18);
   }
 
   for (const c of state.connections) {
@@ -4520,26 +4685,235 @@ function architectLabels() {
     const pts = c._computedOrthopts;
     if (!pts || pts.length < 2) continue;
 
-    let placed = false;
-    for (let t = INIT_T; t >= 0.05; t -= STEP_T) {
-      const pos = ptAtT(pts, t);
-      if (overlapsShapes(pos.x, pos.y) || overlapsPlaced(pos.x, pos.y)) continue;
-      c.labelOffset = { x: pos.x, y: pos.y };
-      placedBoxes.push({ x: pos.x - EST_LW/2, y: pos.y - EST_LH/2 });
-      changed = true;
-      placed = true;
-      break;
+    const { lw, lh } = labelSize(c);
+
+    let totalH = 0, totalV = 0;
+    for (let i = 0; i < pts.length - 1; i++) {
+      totalH += Math.abs(pts[i+1].x - pts[i].x);
+      totalV += Math.abs(pts[i+1].y - pts[i].y);
     }
-    // If no free position found, fall back to t=0.90 without further shifting
-    if (!placed) {
-      const pos = ptAtT(pts, INIT_T);
-      c.labelOffset = { x: pos.x, y: pos.y };
-      placedBoxes.push({ x: pos.x - EST_LW/2, y: pos.y - EST_LH/2 });
-      changed = true;
+    const majorH = totalH >= totalV;
+
+    // Build segment list with metadata
+    const segs = [];
+    for (let i = 0; i < pts.length - 1; i++) {
+      const pa = pts[i], pb = pts[i+1];
+      const dx = pb.x - pa.x, dy = pb.y - pa.y;
+      const len = Math.hypot(dx, dy);
+      if (len < 1) continue;
+      const isH = Math.abs(dy) < Math.abs(dx);
+      segs.push({ i, pa, pb, dx, dy, len, isH });
+    }
+
+    let ok = false;
+
+    // Pass 0: matching direction, from arrowhead end
+    // Pass 1: any direction, from arrowhead end
+    // Pass 2: any direction, longest-first (minimum corner margin)
+    for (let pass = 0; pass < 3 && !ok; pass++) {
+      let cands;
+      if (pass < 2) {
+        cands = [...segs].reverse();
+        if (pass === 0) cands = cands.filter(s => s.isH === majorH);
+      } else {
+        cands = [...segs].sort((a, b) => b.len - a.len);
+      }
+
+      for (const seg of cands) {
+        if (ok) break;
+        const { pa, pb, dx, dy, len: segLen, isH } = seg;
+        const bw = isH ? lw : lh;
+        const bh = isH ? lh : lw;
+        const halfAlong = bw / 2;
+        const cm = pass < 2 ? cornerM(lw) : CORNER_MIN;
+        const needLen = halfAlong * 2 + cm * 2;
+        if (segLen < needLen) continue;
+
+        const tMin = (halfAlong + cm) / segLen;
+        const tMax = 1 - (halfAlong + cm) / segLen;
+        if (tMax < tMin) continue;
+
+        for (let t = tMax; t >= tMin - 1e-6; t -= STEP_PX / segLen) {
+          const cx = pa.x + dx * t;
+          const cy = pa.y + dy * t;
+          if (!hits(cx, cy, bw, bh)) {
+            c.labelOffset = { x: cx, y: cy };
+            placed.push({ cx, cy, hw: bw / 2, hh: bh / 2 });
+            ok = true;
+            break;
+          }
+        }
+      }
+    }
+
+    if (!ok) delete c.labelOffset;
+  }
+
+  snapshot(); render();
+}
+
+function _labelOnSeg(conn, seg) {
+  if (!(conn.label || '').trim() || !conn.labelOffset) return false;
+  const { pa, pb } = seg;
+  const { x, y } = conn.labelOffset;
+  return x >= Math.min(pa.x, pb.x) - 35 && x <= Math.max(pa.x, pb.x) + 35 &&
+         y >= Math.min(pa.y, pb.y) - 35 && y <= Math.max(pa.y, pb.y) + 35;
+}
+
+// Choisit la direction du détour (-1 = haut/gauche, +1 = bas/droite) en fonction
+// de l'espace disponible (moins de formes = meilleur côté).
+function _chooseDetourDir(isH, segPos, os, oe, offset) {
+  const PAD = 8;
+  function countHits(sign) {
+    let n = 0;
+    const d = sign * offset;
+    if (isH) {
+      const yMin = Math.min(segPos, segPos + d) - PAD;
+      const yMax = Math.max(segPos, segPos + d) + PAD;
+      for (const s of state.shapes) {
+        if (s.x < oe + PAD && s.x + s.w > os - PAD && s.y < yMax && s.y + s.h > yMin) n++;
+      }
+    } else {
+      const xMin = Math.min(segPos, segPos + d) - PAD;
+      const xMax = Math.max(segPos, segPos + d) + PAD;
+      for (const s of state.shapes) {
+        if (s.y < oe + PAD && s.y + s.h > os - PAD && s.x < xMax && s.x + s.w > xMin) n++;
+      }
+    }
+    return n;
+  }
+  return countHits(-1) <= countHits(+1) ? -1 : +1;
+}
+
+function architectArrows() {
+  const CLOSE       = 9;   // distance perpendiculaire max pour considérer deux segments superposés
+  const MIN_OVERLAP = 20;  // longueur minimale de chevauchement à corriger (px)
+  const GAP         = 14;  // marge avant/après la zone de détour
+  const OFFSET      = 30;  // profondeur du détour perpendiculaire (px)
+
+  // Réinitialiser les détours précédents (appel frais = résultat reproductible)
+  for (const c of state.connections) {
+    if (c._archDetoured) { delete c.userPts; delete c._archDetoured; }
+  }
+  // Re-render pour obtenir des _computedOrthopts propres AVANT l'analyse
+  render();
+
+  const allSegs = [];
+  for (const c of state.connections) {
+    const pts = c._computedOrthopts;
+    if (!pts || pts.length < 2) continue;
+    for (let i = 0; i < pts.length - 1; i++) {
+      const pa = pts[i], pb = pts[i + 1];
+      const len = Math.hypot(pb.x - pa.x, pb.y - pa.y);
+      if (len < 1) continue;
+      const isH = Math.abs(pb.y - pa.y) < Math.abs(pb.x - pa.x);
+      allSegs.push({ connId: c.id, segIdx: i, pa, pb, len, isH, fullPts: pts });
     }
   }
 
-  if (changed) { snapshot(); render(); }
+  const toFix = [];
+  const fixed = new Set();
+
+  for (let i = 0; i < allSegs.length; i++) {
+    for (let j = i + 1; j < allSegs.length; j++) {
+      const sa = allSegs[i], sb = allSegs[j];
+      if (sa.connId === sb.connId) continue;
+      if (sa.isH !== sb.isH) continue;
+
+      let oStart, oEnd;
+      if (sa.isH) {
+        if (Math.abs(sa.pa.y - sb.pa.y) > CLOSE) continue;
+        const aMin = Math.min(sa.pa.x, sa.pb.x), aMax = Math.max(sa.pa.x, sa.pb.x);
+        const bMin = Math.min(sb.pa.x, sb.pb.x), bMax = Math.max(sb.pa.x, sb.pb.x);
+        oStart = Math.max(aMin, bMin); oEnd = Math.min(aMax, bMax);
+        if (oEnd - oStart < MIN_OVERLAP) continue;
+      } else {
+        if (Math.abs(sa.pa.x - sb.pa.x) > CLOSE) continue;
+        const aMin = Math.min(sa.pa.y, sa.pb.y), aMax = Math.max(sa.pa.y, sa.pb.y);
+        const bMin = Math.min(sb.pa.y, sb.pb.y), bMax = Math.max(sb.pa.y, sb.pb.y);
+        oStart = Math.max(aMin, bMin); oEnd = Math.min(aMax, bMax);
+        if (oEnd - oStart < MIN_OVERLAP) continue;
+      }
+
+      if (fixed.has(sa.connId) && fixed.has(sb.connId)) continue;
+      let chosen, chosenSeg;
+      if (fixed.has(sa.connId)) {
+        chosen = state.connections.find(c => c.id === sb.connId); chosenSeg = sb;
+      } else if (fixed.has(sb.connId)) {
+        chosen = state.connections.find(c => c.id === sa.connId); chosenSeg = sa;
+      } else {
+        const connA = state.connections.find(c => c.id === sa.connId);
+        const connB = state.connections.find(c => c.id === sb.connId);
+        if (!connA || !connB) continue;
+        const hasA = _labelOnSeg(connA, sa), hasB = _labelOnSeg(connB, sb);
+        if (hasA && !hasB) { chosen = connB; chosenSeg = sb; }
+        else if (hasB && !hasA) { chosen = connA; chosenSeg = sa; }
+        else {
+          const la = (connA.label || '').length, lb = (connB.label || '').length;
+          if (la <= lb) { chosen = connA; chosenSeg = sa; } else { chosen = connB; chosenSeg = sb; }
+        }
+      }
+      if (!chosen) continue;
+      fixed.add(chosen.id);
+      toFix.push({ conn: chosen, seg: chosenSeg, oStart, oEnd });
+    }
+  }
+
+  if (toFix.length === 0) {
+    showToast(_L('editor.toast.no_arrow_overlap') || 'Aucune superposition détectée');
+    return;
+  }
+
+  for (const { conn, seg, oStart, oEnd } of toFix) {
+    const { segIdx, fullPts, isH } = seg;
+    const pa = fullPts[segIdx], pb = fullPts[segIdx + 1];
+
+    // Coordonnée du segment à dévier (Y pour horizontal, X pour vertical)
+    // CRITIQUE : utiliser la position réelle du segment choisi, pas une moyenne
+    const segPos = isH ? pa.y : pa.x;
+
+    // Délimiter la zone de détour à l'intérieur du segment
+    const segMin = isH ? Math.min(pa.x, pb.x) : Math.min(pa.y, pb.y);
+    const segMax = isH ? Math.max(pa.x, pb.x) : Math.max(pa.y, pb.y);
+    const os = Math.max(segMin + 6, oStart - GAP);
+    const oe = Math.min(segMax - 6, oEnd + GAP);
+    if (os >= oe) continue;
+
+    // Choisir le meilleur côté pour le détour (éviter les formes)
+    const sign = _chooseDetourDir(isH, segPos, os, oe, OFFSET);
+
+    // Construire le chemin complet avec 4 points de détour insérés
+    const newPts = [];
+    for (let k = 0; k < fullPts.length; k++) {
+      newPts.push({ x: fullPts[k].x, y: fullPts[k].y });
+      if (k === segIdx) {
+        if (isH) {
+          newPts.push({ x: os, y: segPos });
+          newPts.push({ x: os, y: segPos + sign * OFFSET });
+          newPts.push({ x: oe, y: segPos + sign * OFFSET });
+          newPts.push({ x: oe, y: segPos });
+        } else {
+          newPts.push({ x: segPos,                y: os });
+          newPts.push({ x: segPos + sign * OFFSET, y: os });
+          newPts.push({ x: segPos + sign * OFFSET, y: oe });
+          newPts.push({ x: segPos,                y: oe });
+        }
+      }
+    }
+    conn.userPts = newPts.slice(1, -1);
+    conn._archDetoured = true; // marqueur pour réinitialisation au prochain appel
+
+    // Déplacer le label au milieu du segment de détour
+    if ((conn.label || '').trim()) {
+      if (isH)
+        conn.labelOffset = { x: (os + oe) / 2, y: segPos + sign * OFFSET };
+      else
+        conn.labelOffset = { x: segPos + sign * OFFSET, y: (os + oe) / 2 };
+    }
+  }
+
+  showToast(toFix.length + ' ' + (_L('editor.toast.arrows_fixed') || 'flèche(s) décalée(s)'));
+  snapshot(); render();
 }
 
 
@@ -4999,7 +5373,66 @@ function init() {
 
   document.getElementById('btn-new-carto').addEventListener('click', newCarto);
   document.getElementById('btn-architect').addEventListener('click', runCartoCheck);
-  document.getElementById('btn-place-labels').addEventListener('click', architectLabels);
+  // btn-place-labels: click → architectLabels immediately; hover 1s → dropdown
+  (function() {
+    if (window.OPTIQCARTO_READONLY) return;
+    const btn = document.getElementById('btn-place-labels');
+    if (!btn) return;
+    btn.addEventListener('click', architectLabels);
+
+    const drop = document.createElement('div');
+    drop.id = 'architect-dropdown';
+    drop.style.cssText = [
+      'position:absolute;top:100%;left:50%;transform:translateX(-50%)',
+      'margin-top:4px;background:#fff;border:1.5px solid #e2e8f0',
+      'border-radius:10px;box-shadow:0 6px 20px rgba(0,0,0,0.15)',
+      'z-index:9000;min-width:200px;overflow:hidden;display:none',
+      'flex-direction:column',
+    ].join(';');
+    drop.innerHTML = `
+      <button id="arch-btn-labels" style="padding:10px 16px;border:none;background:none;text-align:left;cursor:pointer;font-size:0.83rem;color:#1e293b;display:flex;align-items:center;gap:8px;width:100%">
+        <i class="fa-solid fa-tag" style="color:#ec4899;width:14px"></i>
+        <span data-key="editor.arch_drop_labels">Architecter les labels</span>
+      </button>
+      <button id="arch-btn-arrows" style="padding:10px 16px;border:none;background:none;text-align:left;cursor:pointer;font-size:0.83rem;color:#1e293b;display:flex;align-items:center;gap:8px;width:100%;border-top:1px solid #f1f5f9">
+        <i class="fa-solid fa-arrows-split-up-and-left" style="color:#3b82f6;width:14px"></i>
+        <span data-key="editor.arch_drop_arrows">Architecter les flèches</span>
+      </button>`;
+    drop.querySelector('#arch-btn-labels').onmouseenter = e => e.currentTarget.style.background = '#f8fafc';
+    drop.querySelector('#arch-btn-labels').onmouseleave = e => e.currentTarget.style.background = '';
+    drop.querySelector('#arch-btn-arrows').onmouseenter = e => e.currentTarget.style.background = '#f8fafc';
+    drop.querySelector('#arch-btn-arrows').onmouseleave = e => e.currentTarget.style.background = '';
+    drop.querySelector('#arch-btn-labels').addEventListener('click', e => { e.stopPropagation(); hideDrop(); architectLabels(); });
+    drop.querySelector('#arch-btn-arrows').addEventListener('click', e => { e.stopPropagation(); hideDrop(); architectArrows(); });
+
+    // Apply i18n to dropdown labels
+    drop.querySelectorAll('[data-key]').forEach(el => {
+      const t = _L(el.dataset.key);
+      if (t && t !== el.dataset.key) el.textContent = t;
+    });
+
+    // Position relative — btn must have position:relative
+    btn.style.position = 'relative';
+    btn.appendChild(drop);
+
+    let _hoverTimer = null;
+    function showDrop() { drop.style.display = 'flex'; }
+    function hideDrop() { drop.style.display = 'none'; clearTimeout(_hoverTimer); }
+
+    btn.addEventListener('mouseenter', () => {
+      _hoverTimer = setTimeout(showDrop, 1000);
+    });
+    btn.addEventListener('mouseleave', e => {
+      clearTimeout(_hoverTimer);
+      if (!drop.contains(e.relatedTarget)) hideDrop();
+    });
+    drop.addEventListener('mouseleave', e => {
+      if (!btn.contains(e.relatedTarget)) hideDrop();
+    });
+    document.addEventListener('click', e => {
+      if (!btn.contains(e.target)) hideDrop();
+    }, true);
+  })();
   document.getElementById('btn-undo').addEventListener('click', undo);
   document.getElementById('btn-redo').addEventListener('click', redo);
   document.getElementById('btn-fit').addEventListener('click', fitView);
@@ -5234,14 +5667,38 @@ function initDock() { /* dock supprimé */ }
 document.addEventListener('DOMContentLoaded', init);
 
 // Écoute les messages postMessage depuis la page parente (activities_map).
-// Permet d'activer le mode "mise en évidence des activités externes" depuis l'extérieur de l'iframe.
 window.addEventListener('message', function(e) {
   if (!e.data || typeof e.data !== 'object') return;
+
   if (e.data.type === 'toggle-extco') {
     if (typeof toggleHighlightExtco === 'function') toggleHighlightExtco();
     try { e.source.postMessage({ type: 'extco-state', active: typeof isHighlightExtcoActive === 'function' ? isHighlightExtcoActive() : false }, e.origin || '*'); } catch(_) {}
   }
   if (e.data.type === 'get-extco-state') {
     try { e.source.postMessage({ type: 'extco-state', active: typeof isHighlightExtcoActive === 'function' ? isHighlightExtcoActive() : false }, e.origin || '*'); } catch(_) {}
+  }
+
+  // Zoom sur une activité + halo lumineux (depuis la prévisualisation cross-carto)
+  if (e.data.type === 'zoom-to-activity') {
+    const name = (e.data.activityName || '').trim().toLowerCase();
+    if (!name) return;
+    _haloShapeId = null;
+    // Chercher forme par label exact puis par inclusion
+    let target = state.shapes.find(s => (s.label || '').trim().toLowerCase() === name);
+    if (!target) target = state.shapes.find(s => {
+      const sl = (s.label || '').trim().toLowerCase();
+      return sl.includes(name) || name.includes(sl);
+    });
+    if (!target) return;
+    _haloShapeId = target.id;
+    // Centrer et zoomer sur la forme
+    const cx = target.x + target.w / 2;
+    const cy = target.y + target.h / 2;
+    const cvs = canvas.getBoundingClientRect();
+    vpScale = Math.max(0.6, vpScale); // au moins 120% affiché
+    vpX = cvs.width  / 2 - cx * vpScale;
+    vpY = cvs.height / 2 - cy * vpScale;
+    applyViewport();
+    render();
   }
 });
