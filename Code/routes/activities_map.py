@@ -5,9 +5,11 @@ Import des connexions depuis fichiers VSDX.
 WIZARD UNIFIÉ SVG + VSDX.
 """
 import os
+import re
 import shutil
 import xml.etree.ElementTree as ET
 import tempfile
+from typing import Dict
 
 from flask import (
     Blueprint,
@@ -27,6 +29,7 @@ from Code.routes.vsdx_conection_parser import (
     parse_vsdx_connections,
     validate_connections_against_activities
 )
+from Code.routes.vsdx_decision_extractor import extract_decisions_from_vsdx
 
 
 # ============================================================
@@ -1431,3 +1434,242 @@ def officialize_liaison():
 
     db.session.commit()
     return jsonify({"ok": True, "links_created": created}), 200
+
+
+# ============================================================
+# DEBUG DÉCISIONS — Comparaison VSDX / Outil / IA
+# ============================================================
+
+def _tool_decisions_from_entity(entity) -> Dict:
+    """
+    Extracts decision nodes + their connections from:
+    1. entity.optiqcarto_data JSON (shapes + connections)
+    2. DB Link records with choice_label
+    Returns {decisions: [...], total_shapes, total_connections}
+    """
+    import json
+
+    decisions = []
+    total_shapes = 0
+    total_connections = 0
+
+    # ── Source 1 : OptiqCarto JSON ──────────────────────────────
+    if entity.optiqcarto_data:
+        try:
+            carto = json.loads(entity.optiqcarto_data)
+        except (ValueError, TypeError):
+            carto = {}
+
+        shapes = carto.get('shapes', [])
+        connections = carto.get('connections', [])
+        total_shapes = len(shapes)
+        total_connections = len(connections)
+
+        shape_by_id = {s['id']: s for s in shapes}
+        decision_ids = {s['id'] for s in shapes if s.get('_type') == 'decision'}
+
+        for did in decision_ids:
+            shape = shape_by_id[did]
+            outgoing = []
+            incoming = []
+            for c in connections:
+                if c.get('fromId') == did:
+                    tgt = shape_by_id.get(c.get('toId'), {})
+                    outgoing.append({
+                        'conn_id': c.get('id', ''),
+                        'to_id': c.get('toId', ''),
+                        'to_label': tgt.get('label', ''),
+                        'conn_label': c.get('label', ''),
+                        'badge': c.get('label', '') or '',
+                    })
+                elif c.get('toId') == did:
+                    src = shape_by_id.get(c.get('fromId'), {})
+                    incoming.append({
+                        'conn_id': c.get('id', ''),
+                        'from_id': c.get('fromId', ''),
+                        'from_label': src.get('label', ''),
+                        'conn_label': c.get('label', ''),
+                        'badge': '',
+                    })
+            decisions.append({
+                'id': did,
+                'label': shape.get('label', ''),
+                'outgoing': outgoing,
+                'incoming': incoming,
+            })
+
+    # ── Source 2 : DB Links (choice_label) ─────────────────────
+    db_links = Link.query.filter_by(entity_id=entity.id).all()
+    acts = {a.id: a.name for a in Activities.query.filter_by(entity_id=entity.id).all()}
+
+    # Find decisions that appear in DB via choice_label
+    decision_act_ids = set()
+    for lk in db_links:
+        if lk.choice_label:
+            decision_act_ids.add(lk.source_activity_id)
+
+    for act_id in decision_act_ids:
+        act_name = acts.get(act_id, f'act#{act_id}')
+        outgoing = []
+        for lk in db_links:
+            if lk.source_activity_id == act_id and lk.choice_label:
+                tgt_name = acts.get(lk.target_activity_id, '')
+                outgoing.append({
+                    'conn_id': f'db_{lk.id}',
+                    'to_id': str(lk.target_activity_id or ''),
+                    'to_label': tgt_name,
+                    'conn_label': lk.description or '',
+                    'badge': lk.choice_label or '',
+                })
+        # Only add if not already tracked from optiqcarto_data
+        existing_labels = [d['label'] for d in decisions]
+        if act_name not in existing_labels:
+            decisions.append({
+                'id': f'db_{act_id}',
+                'label': act_name,
+                'source': 'db',
+                'outgoing': outgoing,
+                'incoming': [],
+            })
+
+    return {
+        'decisions': decisions,
+        'total_shapes': total_shapes,
+        'total_connections': total_connections,
+    }
+
+
+@activities_map_bp.route("/api/debug-decisions", methods=["GET"])
+def api_debug_decisions():
+    """
+    Returns VSDX-extracted decisions + tool-state decisions side by side.
+    Used by the comparison debug panel.
+    """
+    entity = get_active_entity()
+    if not entity:
+        return jsonify({"error": "Aucune entité active"}), 400
+
+    vsdx_data: Dict = {'decisions': [], 'total_shapes': 0, 'total_connectors': 0, 'errors': []}
+    vsdx_exists, vsdx_path = check_vsdx_exists(entity.id)
+    if vsdx_exists and os.path.exists(vsdx_path):
+        vsdx_data = extract_decisions_from_vsdx(vsdx_path)
+
+    tool_data = _tool_decisions_from_entity(entity)
+
+    return jsonify({
+        "entity_id": entity.id,
+        "entity_name": entity.name,
+        "has_vsdx": vsdx_exists and os.path.exists(vsdx_path),
+        "vsdx": vsdx_data,
+        "tool": tool_data,
+    })
+
+
+@activities_map_bp.route("/api/debug-decisions/ai", methods=["POST"])
+def api_debug_decisions_ai():
+    """
+    Sends the first page XML from the entity's VSDX to Claude/OpenAI
+    and asks it to extract all decision diamonds + Oui/Non connections.
+    """
+    import json
+    import zipfile as _zf
+
+    entity = get_active_entity()
+    if not entity:
+        return jsonify({"error": "Aucune entité active"}), 400
+
+    vsdx_exists, vsdx_path = check_vsdx_exists(entity.id)
+    if not vsdx_exists or not os.path.exists(vsdx_path):
+        return jsonify({"error": "Pas de fichier VSDX pour cette entité"}), 404
+
+    # Read first page XML (truncated to ~12 000 chars for API token limits)
+    try:
+        with _zf.ZipFile(vsdx_path, 'r') as zf:
+            page_files = sorted(
+                f for f in zf.namelist()
+                if f.startswith('visio/pages/page') and f.endswith('.xml')
+            )
+            if not page_files:
+                return jsonify({"error": "Aucune page dans le VSDX"}), 400
+            raw_xml = zf.read(page_files[0]).decode('utf-8', errors='replace')
+    except Exception as e:
+        return jsonify({"error": f"Lecture VSDX: {e}"}), 500
+
+    xml_excerpt = raw_xml[:14000]
+
+    system_prompt = (
+        "Tu es un expert en analyse de fichiers Visio (VSDX). "
+        "Je vais te fournir le XML brut d'une page Visio. "
+        "Ton rôle est d'extraire UNIQUEMENT les nœuds de décision (losanges/diamonds). "
+        "Pour chaque losange :\n"
+        "- son identifiant Visio (attribut ID)\n"
+        "- son texte/label\n"
+        "- la liste des connexions ENTRANTES (from_shape_id, from_label)\n"
+        "- la liste des connexions SORTANTES (to_shape_id, to_label, badge: 'Oui' ou 'Non' "
+        "si une forme badge est associée à ce connecteur)\n\n"
+        "Un losange est identifiable par :\n"
+        "1. Son master name contient 'decision', 'diamond', 'losange', 'conditional', "
+        "'si grand', 'si petit', 'branchement', etc.\n"
+        "2. OU sa géométrie a exactement 1 MoveTo + 4 LineTo (forme en losange)\n\n"
+        "Les badges Oui/Non sont des formes séparées avec le texte 'Oui' ou 'Non' "
+        "placées à proximité d'un connecteur sortant du losange, "
+        "ou des connecteurs dont le texte est 'Oui'/'Non'.\n\n"
+        "Réponds UNIQUEMENT avec un JSON valide de la forme :\n"
+        '{"decisions": [{"id": "...", "label": "...", '
+        '"incoming": [{"from_id": "...", "from_label": "..."}], '
+        '"outgoing": [{"to_id": "...", "to_label": "...", "badge": "Oui|Non|"}]}]}'
+    )
+
+    user_prompt = (
+        f"Voici le XML Visio à analyser (entité: {entity.name}) :\n\n"
+        f"```xml\n{xml_excerpt}\n```\n\n"
+        "Extrais tous les losanges/décisions et leurs connexions Oui/Non."
+    )
+
+    # Try Anthropic Claude first
+    anthropic_key = os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("ANTHROPIC_KEY")
+    if anthropic_key:
+        try:
+            import anthropic as _ant
+            client = _ant.Anthropic(api_key=anthropic_key)
+            msg = client.messages.create(
+                model="claude-haiku-4-5-20251001",
+                max_tokens=3000,
+                system=system_prompt,
+                messages=[{"role": "user", "content": user_prompt}],
+            )
+            raw = msg.content[0].text
+            # Extract JSON from response
+            m = re.search(r'\{.*\}', raw, re.DOTALL)
+            if m:
+                data = json.loads(m.group(0))
+                return jsonify({"source": "claude", "data": data})
+            return jsonify({"source": "claude", "data": {"decisions": []}, "raw": raw})
+        except Exception as e:
+            pass  # Fall through to OpenAI
+
+    # Fallback: OpenAI
+    openai_key = os.environ.get("OPENAI_API_KEY")
+    if openai_key:
+        try:
+            import openai as _oai
+            client = _oai.OpenAI(api_key=openai_key)
+            resp = client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt},
+                ],
+                temperature=0.1,
+                max_tokens=3000,
+            )
+            raw = resp.choices[0].message.content
+            m = re.search(r'\{.*\}', raw, re.DOTALL)
+            if m:
+                data = json.loads(m.group(0))
+                return jsonify({"source": "openai", "data": data})
+            return jsonify({"source": "openai", "data": {"decisions": []}, "raw": raw})
+        except Exception as e:
+            return jsonify({"error": f"OpenAI: {e}"}), 500
+
+    return jsonify({"error": "Aucune clé IA configurée (ANTHROPIC_KEY ou OPENAI_API_KEY)"}), 503
