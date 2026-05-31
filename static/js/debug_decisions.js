@@ -172,6 +172,8 @@
     try {
       const fd = new FormData();
       fd.append('vsdx', _file);
+      const apiKey = (_id('dd-ai-key')?.value || '').trim();
+      if (apiKey) fd.append('api_key', apiKey);
       const res  = await fetch('/activities/api/debug-decisions/analyze-file/ai', { method: 'POST', body: fd });
       const json = await res.json();
       if (json.error) throw new Error(json.error);

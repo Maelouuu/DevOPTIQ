@@ -1552,11 +1552,12 @@ def _read_vsdx_page_xml(vsdx_path: str) -> str:
         return zf.read(page_files[0]).decode('utf-8', errors='replace')
 
 
-def _ai_extract_decisions(xml_excerpt: str, context_name: str = '') -> Dict:
+def _ai_extract_decisions(xml_excerpt: str, context_name: str = '',
+                          api_key_override: str = '') -> Dict:
     """
-    Sends VSDX page XML to OpenAI (primary) or Anthropic (fallback).
-    Same key priority as the rest of the app (OPENAI_API_KEY first).
-    Returns {"source": "openai"|"claude"|"error", "data": {...}, "error"?: "..."}
+    Sends VSDX page XML to an AI model and returns structured decision JSON.
+    Priority: Anthropic (ANTHROPIC_KEY) → OpenAI (OPENAI_API_KEY).
+    An optional api_key_override can be passed directly (from request form).
     """
     import json as _json
 
@@ -1589,30 +1590,12 @@ def _ai_extract_decisions(xml_excerpt: str, context_name: str = '') -> Dict:
         "Extrais tous les losanges et leurs connexions Oui/Non."
     )
 
-    # ── 1. OpenAI (primary — same pattern as chatbot.py: OpenAI() sans api_key) ─
-    try:
-        from openai import OpenAI as _OAI
-        client = _OAI()   # lit OPENAI_API_KEY depuis l'env automatiquement
-        resp = client.chat.completions.create(
-            model=os.environ.get("OPENAI_CHATBOT_MODEL", "gpt-4o-mini"),
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user",   "content": user_prompt},
-            ],
-            temperature=0.1,
-            max_tokens=4000,
-        )
-        raw = resp.choices[0].message.content
-        m = re.search(r'\{.*\}', raw, re.DOTALL)
-        if m:
-            return {"source": "openai", "data": _json.loads(m.group(0))}
-        return {"source": "openai", "data": {"decisions": []}, "raw": raw}
-    except Exception as e:
-        openai_err = str(e)
-        print(f"[DEBUG-IA] OpenAI failed: {e}")
+    errors = []
 
-    # ── 2. Anthropic Claude (fallback) ───────────────────────────────────
-    anthropic_key = os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("ANTHROPIC_KEY")
+    # ── 1. Anthropic (primary in prod — ANTHROPIC_KEY ou ANTHROPIC_API_KEY) ──
+    anthropic_key = (api_key_override if api_key_override.startswith('sk-ant-') else None) \
+        or os.environ.get("ANTHROPIC_KEY") \
+        or os.environ.get("ANTHROPIC_API_KEY")
     if anthropic_key:
         try:
             import anthropic as _ant
@@ -1629,11 +1612,35 @@ def _ai_extract_decisions(xml_excerpt: str, context_name: str = '') -> Dict:
                 return {"source": "claude", "data": _json.loads(m.group(0))}
             return {"source": "claude", "data": {"decisions": []}, "raw": raw}
         except Exception as e:
-            return {"source": "error", "error": f"Anthropic: {e}", "data": {"decisions": []}}
+            errors.append(f"Anthropic: {e}")
+
+    # ── 2. OpenAI (fallback — OPENAI_API_KEY) ────────────────────────────
+    openai_key = (api_key_override if api_key_override.startswith('sk-') and not api_key_override.startswith('sk-ant-') else None) \
+        or os.environ.get("OPENAI_API_KEY")
+    if openai_key:
+        try:
+            from openai import OpenAI as _OAI
+            client = _OAI(api_key=openai_key)
+            resp = client.chat.completions.create(
+                model=os.environ.get("OPENAI_CHATBOT_MODEL", "gpt-4o-mini"),
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user",   "content": user_prompt},
+                ],
+                temperature=0.1,
+                max_tokens=4000,
+            )
+            raw = resp.choices[0].message.content
+            m = re.search(r'\{.*\}', raw, re.DOTALL)
+            if m:
+                return {"source": "openai", "data": _json.loads(m.group(0))}
+            return {"source": "openai", "data": {"decisions": []}, "raw": raw}
+        except Exception as e:
+            errors.append(f"OpenAI: {e}")
 
     return {
         "source": "error",
-        "error": f"OpenAI: {openai_err} — et aucune clé Anthropic trouvée",
+        "error": "; ".join(errors) if errors else "Aucune clé IA disponible — configurez ANTHROPIC_KEY ou OPENAI_API_KEY dans Cloud Run, ou saisissez une clé dans le champ IA du panneau.",
         "data": {"decisions": []},
     }
 
@@ -1696,7 +1703,8 @@ def api_debug_analyze_file_ai():
         except OSError:
             pass
 
-    result = _ai_extract_decisions(xml_content, vsdx_file.filename)
+    api_key = request.form.get('api_key', '').strip()
+    result = _ai_extract_decisions(xml_content, vsdx_file.filename, api_key_override=api_key)
     return jsonify(result)
 
 

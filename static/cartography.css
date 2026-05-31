@@ -4369,3 +4369,22 @@ body.connexion-mode-active .activity-item:not(.connexion-match):not(.connexion-o
   text-transform: uppercase;
   margin-left: 6px;
 }
+
+/* ── AI key input ─────────────────────────────────────────── */
+.dd-key-input {
+  height: 32px;
+  padding: 0 10px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  color: #374151;
+  background: #f9fafb;
+  width: 200px;
+  transition: border-color .15s;
+}
+.dd-key-input:focus {
+  outline: none;
+  border-color: #6366f1;
+  background: #fff;
+}
+.dd-key-input::placeholder { color: #9ca3af; }
