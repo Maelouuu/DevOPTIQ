@@ -605,12 +605,14 @@ function renderConnections() {
       if (c.userPts && c.userPts.length >= 1) {
         orthopts = [fp, ...c.userPts, tp];
       } else if (c.customPath && c.customPath.length >= 2) {
-        // Preserve Visio-original routing from VSDX import.
-        // Keep interior waypoints from the original Visio connector geometry;
-        // replace start/end with the computed spread-port positions so that
-        // multiple connections on the same shape edge spread apart correctly.
+        // Preserve Visio-original routing.
+        // Multi-segment paths: use the full Visio path as-is (already orthogonal
+        // and snapped to shape edges by buildConnections — applying a spread-port
+        // offset on top would create diagonal kinks).
+        // 2-point paths (split connections to/from a diamond): use computed ports
+        // so the arrow attaches to the shape edge, not the diamond center.
         const interior = c.customPath.slice(1, -1);
-        orthopts = interior.length > 0 ? [fp, ...interior, tp] : [fp, tp];
+        orthopts = interior.length > 0 ? c.customPath : [fp, tp];
       } else {
         const userOffset = c.bendOffset || { dx: 0, dy: 0 };
         orthopts = orthogonalPts(fp, tp, bundleOffset, userOffset);
