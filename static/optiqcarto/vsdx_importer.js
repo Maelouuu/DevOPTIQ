@@ -881,89 +881,6 @@ class VsdxImporter {
     }
   }
 
-  // ─── Phase 12: Visual Oui/Non labelling for floating decision diamonds ───
-  // Decision diamonds with no explicit <Connect> entries are placed visually
-  // on top of connector lines. After buildConnections() has assigned screen
-  // coordinates we detect which connections pass near each such diamond, then
-  // label them Oui (straight continuation) or Non (90° branch).
-
-  _labelDiamondConnections() {
-    const { newShapes, newConns } = this;
-
-    const connectedIds = new Set([
-      ...newConns.map(c => c.fromId),
-      ...newConns.map(c => c.toId),
-    ]);
-
-    const floatingDiamonds = newShapes.filter(
-      s => s.type === 'decision' && !connectedIds.has(s.id)
-    );
-    if (floatingDiamonds.length === 0) return;
-
-    // Overall diagram flow direction (horizontal vs vertical)
-    let totalH = 0, totalV = 0;
-    for (const c of newConns) {
-      const from = newShapes.find(s => s.id === c.fromId);
-      const to   = newShapes.find(s => s.id === c.toId);
-      if (from && to) {
-        totalH += Math.abs((to.x + to.w / 2) - (from.x + from.w / 2));
-        totalV += Math.abs((to.y + to.h / 2) - (from.y + from.h / 2));
-      }
-    }
-    const mainFlowHorizontal = totalH >= totalV;
-
-    for (const diamond of floatingDiamonds) {
-      const dcx = diamond.x + diamond.w / 2;
-      const dcy = diamond.y + diamond.h / 2;
-      const thresh = Math.max(diamond.w, diamond.h) * 0.65;
-
-      const passing = [];
-      for (const conn of newConns) {
-        if (conn.diamondId) continue;
-        const pts = this._getConnPath(conn);
-        if (!pts || pts.length < 2) continue;
-
-        let minDist = Infinity;
-        for (let i = 0; i < pts.length - 1; i++) {
-          const d = this._pointToSegmentDist(dcx, dcy, pts[i].x, pts[i].y, pts[i+1].x, pts[i+1].y);
-          if (d < minDist) minDist = d;
-        }
-        if (minDist <= thresh) {
-          const dx = pts[pts.length - 1].x - pts[0].x;
-          const dy = pts[pts.length - 1].y - pts[0].y;
-          passing.push({ conn, dx, dy });
-        }
-      }
-
-      if (passing.length < 2) continue;
-
-      let ouiConn = null, nonConn = null;
-
-      if (mainFlowHorizontal) {
-        // Flow left→right: Oui = rightward horizontal, Non = downward
-        const rightward = passing.filter(p => Math.abs(p.dx) > Math.abs(p.dy) && p.dx > 0);
-        const downward  = passing.filter(p => Math.abs(p.dy) >= Math.abs(p.dx) && p.dy > 0);
-        if (rightward.length > 0) ouiConn = rightward[0].conn;
-        if (downward.length  > 0) nonConn = downward[0].conn;
-      } else {
-        // Flow top→bottom: Oui = downward, Non = rightward
-        const downward  = passing.filter(p => Math.abs(p.dy) > Math.abs(p.dx) && p.dy > 0);
-        const rightward = passing.filter(p => Math.abs(p.dx) >= Math.abs(p.dy) && p.dx > 0);
-        if (downward.length  > 0) ouiConn = downward[0].conn;
-        if (rightward.length > 0) nonConn = rightward[0].conn;
-      }
-
-      if (ouiConn && ouiConn !== nonConn) {
-        ouiConn.choiceLabel = 'Oui';
-        ouiConn.diamondId   = diamond.id;
-      }
-      if (nonConn && nonConn !== ouiConn) {
-        nonConn.choiceLabel = 'Non';
-        nonConn.diamondId   = diamond.id;
-      }
-    }
-  }
-
   // Get the screen-coordinate path of a connection (custom path or centroid line).
   _getConnPath(conn) {
     if (conn.customPath && conn.customPath.length >= 2) return conn.customPath;
@@ -985,107 +902,170 @@ class VsdxImporter {
     return Math.hypot(px - (ax + t * abx), py - (ay + t * aby));
   }
 
-  // ─── Phase 12b: Splice floating decision nodes onto connector lines ──
-  // Diamonds with no <Connect> are visual overlays on arrows.
-  // For each floating diamond D, find every connector A→B whose
-  // centre-to-centre line passes within the diamond's own half-dimensions
-  // of D's centre, then replace A→B with A→D (no arrowhead) + D→B.
-  // avoidShapes() already excludes decision shapes from routing obstacles
-  // so the new segments route transparently through D to their endpoints.
-
-  // Helper: perpendicular distance from point P to segment AB.
-  static _ptSegDist(Px, Py, Ax, Ay, Bx, By) {
-    const dx = Bx - Ax, dy = By - Ay, len2 = dx*dx + dy*dy;
-    if (len2 < 1e-12) return Math.hypot(Px - Ax, Py - Ay);
-    const t = Math.max(0, Math.min(1, ((Px - Ax)*dx + (Py - Ay)*dy) / len2));
-    return Math.hypot(Px - (Ax + t*dx), Py - (Ay + t*dy));
-  }
-
-  // Helper: collect floating decision diamonds (no explicit <Connect>).
-  _floatingDiamonds() {
-    const { connMap, shapePinAbs, newShapes, _shapeIdMap } = this;
-    const connSrcSet = new Set(Object.values(connMap).map(e => e.source).filter(Boolean));
-    const connTgtSet = new Set(Object.values(connMap).map(e => e.target).filter(Boolean));
-    const result = [];
-    for (const [visioId, appId] of Object.entries(_shapeIdMap)) {
-      const appShape = newShapes.find(s => s.id === appId);
-      if (!appShape || appShape.type !== 'decision') continue;
-      if (connSrcSet.has(visioId) || connTgtSet.has(visioId)) continue;
-      const abs = shapePinAbs[visioId];
-      if (!abs || abs.w < 0.2 || abs.h < 0.2) continue;
-      result.push({ visioId, appId, px: abs.pinX, py: abs.pinY, hw: abs.w / 2, hh: abs.h / 2 });
-    }
-    return result;
-  }
-
-  // Helper: find connectors whose A→B line passes through diamond D.
-  // Returns [{connId, ends}] sorted by proximity (closest first).
-  _connectorsThrough(dec, connMap, shapePinAbs, excludeIds) {
-    // Threshold = 60 % of the diamond's shorter half-dimension.
-    // Tight enough to exclude irrelevant connectors, loose enough to
-    // tolerate slight misalignment between Visio pin and connector path.
-    const thresh = Math.max(0.22, Math.min(dec.hw, dec.hh) * 0.70);
-    const hits = [];
-    for (const [connId, ends] of Object.entries(connMap)) {
-      if (ends._spliced || ends._origConnId) continue;       // already handled
-      if (excludeIds && excludeIds.has(connId)) continue;
-      const sv = ends.source, tv = ends.target;
-      if (!sv || !tv || sv === dec.visioId || tv === dec.visioId) continue;
-      const sAbs = shapePinAbs[sv], tAbs = shapePinAbs[tv];
-      if (!sAbs || !tAbs) continue;
-      const t = (() => {
-        const dx = tAbs.pinX - sAbs.pinX, dy = tAbs.pinY - sAbs.pinY;
-        const len2 = dx*dx + dy*dy;
-        if (len2 < 1e-9) return -1;
-        return ((dec.px - sAbs.pinX)*dx + (dec.py - sAbs.pinY)*dy) / len2;
-      })();
-      if (t < 0.08 || t > 0.92) continue;        // diamond not well inside segment
-      const dist = VsdxImporter._ptSegDist(
-        dec.px, dec.py,
-        sAbs.pinX, sAbs.pinY,
-        tAbs.pinX, tAbs.pinY
-      );
-      if (dist < thresh) hits.push({ connId, ends, dist });
-    }
-    hits.sort((a, b) => a.dist - b.dist);
-    return hits;
-  }
-
-  // Helper: verify spliced connections form a coherent in→diamond→out graph.
-  // Returns a diagnostic string (empty = OK).
-  _validateSplicedDiamond(dec, connMap) {
-    let incoming = 0, outgoing = 0;
-    for (const ends of Object.values(connMap)) {
-      if (ends.target === dec.visioId) incoming++;
-      if (ends.source === dec.visioId) outgoing++;
-    }
-    if (incoming === 0 && outgoing === 0) return `diamond ${dec.visioId}: no connections after splice`;
-    if (outgoing > 2) return `diamond ${dec.visioId}: ${outgoing} outgoing (expected ≤ 2)`;
-    return '';
-  }
+  // ─── Phase 12b: Splice floating decision diamonds onto connector paths ─────
+  // Runs AFTER buildConnections() AND after antiOverlap/stretchBands so that
+  // positions and actual Visio waypoints (customPath) are all final.
+  //
+  // Algorithm for each floating diamond D (no connections wired to it):
+  //   1. Find connections whose path passes within D's screen-pixel hit zone.
+  //      Uses customPath (actual Visio waypoints) so Non-branch connections
+  //      that turn 90° at D are detected — they would be missed by straight
+  //      centre-to-centre lines.
+  //   2. Split each hit connection at D's centre:
+  //        Original: A → B
+  //        Result:   A → D (noEndArrow) + D → B
+  //   3. Port directions come from actual path geometry, so
+  //      _updateDecisionChoiceLabels() (renderConnections) assigns Oui/Non:
+  //        - entry → opposite side = Oui (straight through)
+  //        - entry → adjacent side = Non (90° turn)
 
   spliceDecisions() {
-    const { connMap, shapePinAbs } = this;
-    const diamonds = this._floatingDiamonds();
-    if (diamonds.length === 0) return;
+    const { newShapes, newConns } = this;
 
-    let synCtr = 0;
-    for (const dec of diamonds) {
-      const hits = this._connectorsThrough(dec, connMap, shapePinAbs, null);
-      for (const { connId, ends } of hits) {
-        const { source: sv, target: tv } = ends;
-        ends._spliced = true;             // prevent re-matching by another diamond
-        delete connMap[connId];
-        // A → D : no arrowhead (the arrow enters the decision)
-        connMap[`__sp${synCtr++}`] = { source: sv, target: dec.visioId, noEndArrow: true, _spliced: true };
-        // D → B : normal arrowhead (exits the decision towards outcome)
-        connMap[`__sp${synCtr++}`] = { source: dec.visioId, target: tv, _origConnId: connId };
-      }
-      // Post-splice sanity check (logged but non-fatal)
-      const warn = this._validateSplicedDiamond(dec, connMap);
-      if (warn) this.log(`[spliceDecisions] warning: ${warn}`);
+    // Process diamonds that need connector splicing:
+    //   - Fully floating (0 outgoing) — no <Connect> elements at all
+    //   - Partially connected (1 outgoing) — one branch explicit, the other
+    //     passes through the diamond as an unconnected overlay connector
+    // Diamonds with 2+ outgoing are already fully wired — skip them.
+    const diamonds = newShapes.filter(s => {
+      if (s.type !== 'decision') return false;
+      return newConns.filter(c => c.fromId === s.id).length < 2;
+    });
+
+    if (diamonds.length === 0) {
+      this.log('[spliceDecisions] all diamonds fully connected');
+      return;
     }
-    this.log(`[spliceDecisions] spliced ${synCtr / 2} connector(s) through ${diamonds.length} diamond(s)`);
+    this.log(`[spliceDecisions] found ${diamonds.length} diamond(s) needing splice`);
+
+    const toAdd      = [];
+    const removeIdxs = new Set();
+    let   splicedTotal = 0;
+
+    for (const diamond of diamonds) {
+      const dcx   = diamond.x + diamond.w / 2;
+      const dcy   = diamond.y + diamond.h / 2;
+      const thresh = Math.max(diamond.w, diamond.h) * 0.65; // screen-pixel hit zone
+
+      const hits = [];
+      for (let i = 0; i < newConns.length; i++) {
+        if (removeIdxs.has(i)) continue;
+        const conn = newConns[i];
+        if (conn.fromId === diamond.id || conn.toId === diamond.id) continue;
+
+        const pts = this._getConnPath(conn);
+        if (!pts || pts.length < 2) continue;
+
+        let minDist = Infinity;
+        for (let j = 0; j < pts.length - 1; j++) {
+          const d = this._pointToSegmentDist(
+            dcx, dcy, pts[j].x, pts[j].y, pts[j+1].x, pts[j+1].y
+          );
+          if (d < minDist) minDist = d;
+        }
+        if (minDist <= thresh) hits.push({ idx: i, conn, minDist });
+      }
+      hits.sort((a, b) => a.minDist - b.minDist);
+
+      if (hits.length === 0) {
+        this.log(`[spliceDecisions] diamond ${diamond.id}: no passing connections (center ${dcx.toFixed(0)},${dcy.toFixed(0)} thresh ${thresh.toFixed(0)}px)`);
+        continue;
+      }
+
+      for (const { idx, conn } of hits) {
+        removeIdxs.add(idx);
+
+        const pts = this._getConnPath(conn);
+
+        // Segment of the path closest to the diamond center
+        let bestSeg = 0, bestDist = Infinity;
+        for (let j = 0; j < pts.length - 1; j++) {
+          const d = this._pointToSegmentDist(
+            dcx, dcy, pts[j].x, pts[j].y, pts[j+1].x, pts[j+1].y
+          );
+          if (d < bestDist) { bestDist = d; bestSeg = j; }
+        }
+
+        // Split the path at the diamond center
+        const path1 = [...pts.slice(0, bestSeg + 1), { x: dcx, y: dcy }];
+        const path2 = [{ x: dcx, y: dcy }, ...pts.slice(bestSeg + 1)];
+
+        // Port directions derived from path geometry (used by _updateDecisionChoiceLabels).
+        // Pass diamond bounds so we skip any path segment that lies inside D.
+        const dL = diamond.x, dT = diamond.y, dR = diamond.x + diamond.w, dB = diamond.y + diamond.h;
+        const entryDir = this._approachDir(path1, dL, dT, dR, dB);
+        const exitDir  = this._departDir(path2,   dL, dT, dR, dB);
+
+        // A → D (no arrowhead — entering the decision diamond)
+        const c1 = {
+          id: this.nextOid++,
+          fromId: conn.fromId, toId: diamond.id,
+          fromPortDir: conn.fromPortDir, toPortDir: entryDir,
+          color: conn.color, label: '', style: conn.style, routing: 'orthogonal',
+          noEndArrow: true, customPath: path1,
+        };
+        if (conn.fromPortT !== undefined) c1.fromPortT = conn.fromPortT;
+
+        // D → B (normal arrowhead — exiting the decision toward outcome)
+        const c2 = {
+          id: this.nextOid++,
+          fromId: diamond.id, toId: conn.toId,
+          fromPortDir: exitDir, toPortDir: conn.toPortDir,
+          color: conn.color, label: conn.label, style: conn.style, routing: 'orthogonal',
+          customPath: path2,
+        };
+        if (conn.toPortT !== undefined) c2.toPortT = conn.toPortT;
+
+        toAdd.push(c1, c2);
+        splicedTotal++;
+      }
+      this.log(`[spliceDecisions] diamond ${diamond.id}: ${hits.length} connection(s) spliced`);
+    }
+
+    // Commit: remove originals, append split pairs
+    for (let i = newConns.length - 1; i >= 0; i--) {
+      if (removeIdxs.has(i)) newConns.splice(i, 1);
+    }
+    newConns.push(...toAdd);
+    this.log(`[spliceDecisions] done — ${splicedTotal} splice(s) across ${diamonds.length} diamond(s)`);
+  }
+
+  // toPortDir — which edge of diamond D the incoming path enters.
+  // Walks backwards from the end of path1 (which ends at D's center) to find
+  // the first segment whose START point is outside D's bounding box. That
+  // segment's direction gives the true entry side, even when the connector
+  // has a bend point inside D's bounding box before reaching D's center.
+  _approachDir(pts, dL, dT, dR, dB) {
+    const inside = p => p.x >= dL && p.x <= dR && p.y >= dT && p.y <= dB;
+    for (let i = pts.length - 1; i >= 1; i--) {
+      if (!inside(pts[i - 1])) {
+        const dx = pts[i].x - pts[i-1].x, dy = pts[i].y - pts[i-1].y;
+        if (Math.abs(dx) >= Math.abs(dy)) return dx > 0 ? 'left' : 'right';
+        return dy > 0 ? 'top' : 'bottom';
+      }
+    }
+    // All points inside D — use overall direction
+    const dx = pts[pts.length-1].x - pts[0].x, dy = pts[pts.length-1].y - pts[0].y;
+    if (Math.abs(dx) >= Math.abs(dy)) return dx > 0 ? 'left' : 'right';
+    return dy > 0 ? 'top' : 'bottom';
+  }
+
+  // fromPortDir — which edge of diamond D the outgoing path exits from.
+  // Walks forward from path2's start (D's center) to find the first segment
+  // whose END point is outside D's bounding box.
+  _departDir(pts, dL, dT, dR, dB) {
+    const inside = p => p.x >= dL && p.x <= dR && p.y >= dT && p.y <= dB;
+    for (let i = 0; i < pts.length - 1; i++) {
+      if (!inside(pts[i + 1])) {
+        const dx = pts[i+1].x - pts[i].x, dy = pts[i+1].y - pts[i].y;
+        if (Math.abs(dx) >= Math.abs(dy)) return dx > 0 ? 'right' : 'left';
+        return dy > 0 ? 'bottom' : 'top';
+      }
+    }
+    // All points inside D — use overall direction
+    const dx = pts[pts.length-1].x - pts[0].x, dy = pts[pts.length-1].y - pts[0].y;
+    if (Math.abs(dx) >= Math.abs(dy)) return dx > 0 ? 'right' : 'left';
+    return dy > 0 ? 'bottom' : 'top';
   }
 
   // Nudge portT values that are too close on the same endpoint+direction pair.
@@ -1347,6 +1327,8 @@ class VsdxImporter {
       for (let i = 0; i < newShapes.length; i++) {
         for (let j = i+1; j < newShapes.length; j++) {
           const a = newShapes[i], b = newShapes[j];
+          // Diamonds overlay connectors by design — keep them in place.
+          if (a.type === 'decision' || b.type === 'decision') continue;
           // Inclure le halo visuel des shapes "process" (7 px de chaque côté)
           // pour éviter que les auréoles se chevauchent visuellement.
           const haloA = a.type === 'process' ? 7 : 0;
@@ -1390,7 +1372,6 @@ class VsdxImporter {
     this.importActivities();
     this.applyLayoutCorrections();
     this.buildGroups();
-    this.spliceDecisions();   // wire floating diamonds onto connector lines
     await this.buildConnections();
     this.cleanupBands();
 
@@ -1400,7 +1381,7 @@ class VsdxImporter {
         ...this.newConns.map(c => c.fromId),
         ...this.newConns.map(c => c.toId),
       ]);
-      // Decision shapes are intentionally unconnected (placed visually on arrows).
+      // Decision shapes are wired in spliceDecisions() which runs after this check.
       const orphans = this.newShapes.filter(s => (!s.label || !s.label.trim()) && !connectedIds.has(s.id) && s.type !== 'decision');
       if (orphans.length > 0) {
         const choice = await onOrphans(orphans);
@@ -1414,8 +1395,9 @@ class VsdxImporter {
       }
     }
 
-    this.antiOverlap();   // résoudre les chevauchements avant d'étirer les bandes
-    this.stretchBands();  // étirer les bandes pour contenir les shapes repositionnés
+    this.antiOverlap();     // resolve overlaps (diamonds excluded — they overlay connectors)
+    this.stretchBands();    // stretch bands to fit repositioned shapes
+    this.spliceDecisions(); // wire floating diamonds using final positions + customPath
 
     // Shift from importer space (y=0 at top of first band) to editor space
     // (y=-200 at top of first band, matching BAND_Y_START in renderBands/getBandForY).

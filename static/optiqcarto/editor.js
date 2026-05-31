@@ -135,7 +135,6 @@ const SHAPE_DEFAULTS = {
   'start-end': { label: 'Renvoi',      color: '#ffffff', textColor: '#000000', validationBadge: false, validationColor: '#4DB868', w: 90,  h: 90,  fontSize: 13, subtype: 'normal' },
   special:   { label: 'Sous-activité', color: '#f59e0b', textColor: '#ffffff', validationBadge: false, validationColor: '#4DB868', w: 170, h: 76,  fontSize: 13, subtype: 'normal' },
   decision:  { label: 'Décision',      color: '#9ca3af', textColor: '#ffffff', validationBadge: false, validationColor: '#4DB868', w: 100, h: 100, fontSize: 13, subtype: 'normal' },
-  pile:      { label: 'Pile',          color: '#7c3aed', textColor: '#ffffff', validationBadge: false, validationColor: '#4DB868', w: 160, h: 100, fontSize: 14, subtype: 'normal' },
 };
 
 const HINTS = {
@@ -209,10 +208,6 @@ let _calqueList = [];
 let selectedGroup = null;
 let groupHighlightId = null;
 let expandedGroups = new Set();
-// extco activity_id → { id, display_label, origin_entity_name }
-let _liaisonByActivityId = {};
-// ID de la forme à mettre en évidence (zoom-to-activity) — null = aucune
-let _haloShapeId = null;
 
 // ── Refs DOM ──────────────────────────────────────
 const canvas    = document.getElementById('canvas');
@@ -502,72 +497,8 @@ function snapToPolyline(pts, px, py, maxPerp = 45) {
   return { x: bestOnSeg.x + nx * clampedPerp, y: bestOnSeg.y + ny * clampedPerp };
 }
 
-function _updateDecisionChoiceLabels() {
-  const OPP = { left:'right', right:'left', top:'bottom', bottom:'top' };
-  const LABEL_MAP = { oui:'Oui', non:'Non', yes:'Oui', no:'Non', true:'Oui', false:'Non' };
-  for (const s of state.shapes) {
-    if (s.type !== 'decision') continue;
-    const outgoing = state.connections.filter(c => c.fromId === s.id);
-    if (outgoing.length !== 2) {
-      outgoing.forEach(c => { delete c.choiceLabel; });
-      continue;
-    }
-    if (outgoing.every(c => c.choiceLabel)) continue; // already labelled
-
-    // Transfer from connection label if it is Oui/Non (VSDX import)
-    for (const c of outgoing) {
-      if (!c.choiceLabel && c.label) {
-        const mapped = LABEL_MAP[c.label.trim().toLowerCase()];
-        if (mapped) { c.choiceLabel = mapped; c.label = ''; }
-      }
-    }
-    if (outgoing.every(c => c.choiceLabel)) continue;
-
-    // Compute from geometry: find entry direction, straight-through = Oui
-    const incoming = state.connections.filter(c => c.toId === s.id);
-    let entryPortDir = null;
-    if (incoming.length > 0) {
-      const inc = incoming[0];
-      entryPortDir = inc.toPortDir;
-      if (!entryPortDir) {
-        const from = state.shapes.find(sh => sh.id === inc.fromId);
-        if (from) {
-          const dx = (s.x + s.w / 2) - (from.x + from.w / 2);
-          const dy = (s.y + s.h / 2) - (from.y + from.h / 2);
-          entryPortDir = Math.abs(dx) >= Math.abs(dy) ? (dx >= 0 ? 'left' : 'right') : (dy >= 0 ? 'top' : 'bottom');
-        }
-      }
-    }
-    if (!entryPortDir) { outgoing[0].choiceLabel = 'Oui'; outgoing[1].choiceLabel = 'Non'; continue; }
-
-    const straightDir = OPP[entryPortDir];
-    for (const c of outgoing) {
-      if (c.choiceLabel) continue;
-      let exitDir = c.fromPortDir;
-      if (!exitDir) {
-        const to = state.shapes.find(sh => sh.id === c.toId);
-        if (to) {
-          const dx = (to.x + to.w / 2) - (s.x + s.w / 2);
-          const dy = (to.y + to.h / 2) - (s.y + s.h / 2);
-          exitDir = Math.abs(dx) >= Math.abs(dy) ? (dx >= 0 ? 'right' : 'left') : (dy >= 0 ? 'bottom' : 'top');
-        }
-      }
-      c.choiceLabel = exitDir === straightDir ? 'Oui' : 'Non';
-    }
-  }
-}
-
 function renderConnections() {
   gConns.innerHTML = '';
-  _updateDecisionChoiceLabels();
-
-  // Shapes hidden inside collapsed piles — skip their connections
-  const _pileHiddenConn = new Set();
-  for (const s of state.shapes) {
-    if (s.type === 'pile' && !s.pileExpanded) {
-      for (const cId of (s.pileChildren || [])) _pileHiddenConn.add(cId);
-    }
-  }
 
   // Pré-calcul du port spread (répartition des connexions sur chaque côté)
   const OPP = { right:'left', left:'right', top:'bottom', bottom:'top' };
@@ -586,7 +517,6 @@ function renderConnections() {
   }
 
   for (const c of state.connections) {
-    if (_pileHiddenConn.has(c.fromId) || _pileHiddenConn.has(c.toId)) continue;
     const from = _resolveEp(c.fromId);
     const to   = _resolveEp(c.toId);
     if (!from || !to) continue;
@@ -651,7 +581,6 @@ function renderConnections() {
 
   // ── Passe 1 : chemins de toutes les connexions ────────────────────────────
   for (const c of state.connections) {
-    if (_pileHiddenConn.has(c.fromId) || _pileHiddenConn.has(c.toId)) continue;
     const from = _resolveEp(c.fromId);
     const to   = _resolveEp(c.toId);
     if (!from || !to) continue;
@@ -675,6 +604,13 @@ function renderConnections() {
       const bundleOffset = fN2 > 1 ? (fIdx2 - (fN2 - 1) / 2) * 14 : 0;
       if (c.userPts && c.userPts.length >= 1) {
         orthopts = [fp, ...c.userPts, tp];
+      } else if (c.customPath && c.customPath.length >= 2) {
+        // Preserve Visio-original routing from VSDX import.
+        // Keep interior waypoints from the original Visio connector geometry;
+        // replace start/end with the computed spread-port positions so that
+        // multiple connections on the same shape edge spread apart correctly.
+        const interior = c.customPath.slice(1, -1);
+        orthopts = interior.length > 0 ? [fp, ...interior, tp] : [fp, tp];
       } else {
         const userOffset = c.bendOffset || { dx: 0, dy: 0 };
         orthopts = orthogonalPts(fp, tp, bundleOffset, userOffset);
@@ -713,53 +649,10 @@ function renderConnections() {
       stroke: color,
       'stroke-width': isSel ? '3' : '2',
       'stroke-dasharray': c.style === 'dashed' ? '9,6' : 'none',
-      'marker-end': c.noEndArrow ? 'none' : `url(#${mId})`,
+      'marker-end': `url(#${mId})`,
       'data-id': c.id, 'data-type': 'conn', cursor: 'pointer',
       'pointer-events': 'none',
     }, gConns);
-
-    // Badge Oui/Non — connexion directement issue d'un losange OU passant à travers (diamondId)
-    if (c.choiceLabel && orthopts.length >= 2) {
-      const srcShape    = state.shapes.find(s => s.id === c.fromId   && s.type === 'decision');
-      const diamondShape = !srcShape && c.diamondId
-        ? state.shapes.find(s => s.id === c.diamondId && s.type === 'decision')
-        : null;
-      const refShape = srcShape || diamondShape;
-      if (refShape) {
-        let bx, by;
-        if (srcShape) {
-          // Connexion directe depuis le losange : badge près du départ
-          const p0 = orthopts[0], p1 = orthopts[1];
-          const segDx = p1.x - p0.x, segDy = p1.y - p0.y;
-          const segLen = Math.hypot(segDx, segDy) || 1;
-          const DIST = Math.min(22, segLen * 0.38);
-          bx = p0.x + (segDx / segLen) * DIST;
-          by = p0.y + (segDy / segLen) * DIST;
-        } else {
-          // Connexion passant par le losange : badge au point du tracé le plus proche du centre
-          const dcx = refShape.x + refShape.w / 2;
-          const dcy = refShape.y + refShape.h / 2;
-          let minDist = Infinity;
-          bx = orthopts[0].x; by = orthopts[0].y;
-          for (let pi = 0; pi < orthopts.length - 1; pi++) {
-            const ax = orthopts[pi].x, ay = orthopts[pi].y;
-            const bpx = orthopts[pi + 1].x, bpy = orthopts[pi + 1].y;
-            const abx = bpx - ax, aby = bpy - ay;
-            const len2 = abx * abx + aby * aby;
-            if (len2 === 0) continue;
-            const t = Math.max(0, Math.min(1, ((dcx - ax) * abx + (dcy - ay) * aby) / len2));
-            const nx = ax + t * abx, ny = ay + t * aby;
-            const d = Math.hypot(dcx - nx, dcy - ny);
-            if (d < minDist) { minDist = d; bx = nx; by = ny; }
-          }
-          bx += 8; by -= 14;
-        }
-        const badgeColor = c.choiceLabel === 'Oui' ? '#22c55e' : '#f97316';
-        const bw = c.choiceLabel.length * 5.5 + 10;
-        el('rect', { x: bx - bw / 2, y: by - 7, width: bw, height: 14, rx: 3, fill: badgeColor, 'pointer-events': 'none' }, gConns);
-        el('text', { x: bx, y: by + 0.5, 'text-anchor': 'middle', 'dominant-baseline': 'middle', fill: '#fff', 'font-size': '8', 'font-weight': '700', 'font-family': 'Segoe UI, sans-serif', 'pointer-events': 'none' }, gConns).textContent = c.choiceLabel;
-      }
-    }
 
     // Label : placement par score — évite les coins, les formes, et les croisements.
     // Toujours SUR la flèche (perp=0), aligné sur la direction dominante (H ou V).
@@ -949,84 +842,10 @@ function renderConnections() {
    RENDER — SHAPES
    ══════════════════════════════════════════════════ */
 
-function _drawHaloForShape(shape, parent) {
-  const pad = 18;
-  const cx = shape.x + shape.w / 2;
-  const cy = shape.y + shape.h / 2;
-  const rx0 = shape.w / 2 + pad;
-  const ry0 = shape.h / 2 + pad;
-  // Ensure blur filter exists in defs
-  const defs = canvas.querySelector('defs');
-  if (defs && !document.getElementById('_halo-glow-filter')) {
-    const flt = document.createElementNS('http://www.w3.org/2000/svg', 'filter');
-    flt.setAttribute('id', '_halo-glow-filter');
-    flt.setAttribute('x', '-60%'); flt.setAttribute('y', '-60%');
-    flt.setAttribute('width', '220%'); flt.setAttribute('height', '220%');
-    const blur = document.createElementNS('http://www.w3.org/2000/svg', 'feGaussianBlur');
-    blur.setAttribute('stdDeviation', '10'); blur.setAttribute('result', 'blur');
-    const merge = document.createElementNS('http://www.w3.org/2000/svg', 'feMerge');
-    const n1 = document.createElementNS('http://www.w3.org/2000/svg', 'feMergeNode');
-    n1.setAttribute('in', 'blur');
-    const n2 = document.createElementNS('http://www.w3.org/2000/svg', 'feMergeNode');
-    n2.setAttribute('in', 'SourceGraphic');
-    merge.appendChild(n1); merge.appendChild(n2);
-    flt.appendChild(blur); flt.appendChild(merge);
-    defs.appendChild(flt);
-  }
-  function mkAnim(attr, vals, dur) {
-    const a = document.createElementNS('http://www.w3.org/2000/svg', 'animate');
-    a.setAttribute('attributeName', attr);
-    a.setAttribute('values', vals);
-    a.setAttribute('dur', dur + 's');
-    a.setAttribute('repeatCount', 'indefinite');
-    return a;
-  }
-  // Outer glow ring
-  const outer = document.createElementNS('http://www.w3.org/2000/svg', 'ellipse');
-  outer.setAttribute('cx', cx); outer.setAttribute('cy', cy);
-  outer.setAttribute('rx', rx0 + 5); outer.setAttribute('ry', ry0 + 5);
-  outer.setAttribute('fill', 'none');
-  outer.setAttribute('stroke', '#fde68a');
-  outer.setAttribute('stroke-width', '14');
-  outer.setAttribute('pointer-events', 'none');
-  outer.setAttribute('filter', 'url(#_halo-glow-filter)');
-  outer.appendChild(mkAnim('stroke-opacity', '0.8;0.15;0.8', 1.8));
-  outer.appendChild(mkAnim('rx', `${rx0+5};${rx0+15};${rx0+5}`, 1.8));
-  outer.appendChild(mkAnim('ry', `${ry0+5};${ry0+15};${ry0+5}`, 1.8));
-  parent.appendChild(outer);
-  // Sharp inner ring
-  const inner = document.createElementNS('http://www.w3.org/2000/svg', 'ellipse');
-  inner.setAttribute('cx', cx); inner.setAttribute('cy', cy);
-  inner.setAttribute('rx', rx0); inner.setAttribute('ry', ry0);
-  inner.setAttribute('fill', 'none');
-  inner.setAttribute('stroke', '#ffffff');
-  inner.setAttribute('stroke-width', '2.5');
-  inner.setAttribute('pointer-events', 'none');
-  inner.appendChild(mkAnim('stroke-opacity', '1;0.5;1', 1.8));
-  inner.appendChild(mkAnim('rx', `${rx0};${rx0+8};${rx0}`, 1.8));
-  inner.appendChild(mkAnim('ry', `${ry0};${ry0+8};${ry0}`, 1.8));
-  parent.appendChild(inner);
-}
-
 function renderShapes() {
   gShapes.innerHTML = '';
 
-  // Build set of shapes hidden inside collapsed piles
-  const _pileHidden = new Set();
   for (const s of state.shapes) {
-    if (s.type === 'pile' && !s.pileExpanded) {
-      for (const cId of (s.pileChildren || [])) _pileHidden.add(cId);
-    }
-  }
-
-  // Halo de mise en évidence (zoom-to-activity depuis le parent)
-  if (_haloShapeId !== null) {
-    const hs = state.shapes.find(s => s.id === _haloShapeId);
-    if (hs && !_pileHidden.has(hs.id)) _drawHaloForShape(hs, gShapes);
-  }
-
-  for (const s of state.shapes) {
-    if (_pileHidden.has(s.id)) continue; // hidden inside collapsed pile
     const isSel   = selectedShapes.has(s.id);
     const isHover = hoverShapeId === s.id;
     const g = el('g', {
@@ -1106,39 +925,6 @@ function renderShapes() {
         fill: 'url(#shape-shine)',
         'pointer-events': 'none',
       }, g);
-    } else if (s.type === 'pile') {
-      const count = (s.pileChildren || []).length;
-      const r = 14;
-      if (!s.pileExpanded && count > 0) {
-        // Stacked cards visual
-        for (let i = 2; i >= 1; i--) {
-          const off = i * 6;
-          el('rect', { x: s.x + off, y: s.y + off, width: s.w, height: s.h, rx: r, ry: r,
-            fill: s.color, opacity: (0.25 + i * 0.12).toFixed(2), 'pointer-events': 'none' }, g);
-        }
-      }
-      shapeEl = el('rect', {
-        x: s.x, y: s.y, width: s.w, height: s.h, rx: r, ry: r,
-        fill: s.pileExpanded ? s.color : s.color,
-        opacity: s.pileExpanded ? '0.15' : '1',
-        stroke: darkenColor(s.color, 0.6),
-        'stroke-width': s.pileExpanded ? '2' : '2',
-        'stroke-dasharray': s.pileExpanded ? '8,5' : 'none',
-        filter: filterAttr,
-        'data-shape-fill': '1',
-      }, g);
-      if (!s.pileExpanded) {
-        // Stack icon top-left
-        txt('⊞', { x: s.x + 12, y: s.y + 14, fill: s.textColor, 'font-size': 14, 'font-weight': '700', 'pointer-events': 'none' }, g);
-        // Count badge top-right
-        if (count > 0) {
-          el('circle', { cx: s.x + s.w - 13, cy: s.y + 13, r: 11, fill: '#1e1b4b', 'pointer-events': 'none' }, g);
-          txt(String(count), { x: s.x + s.w - 13, y: s.y + 13, 'text-anchor': 'middle', 'dominant-baseline': 'middle', fill: '#ffffff', 'font-size': 10, 'font-weight': '700', 'pointer-events': 'none' }, g);
-        }
-      } else {
-        // Expanded: show open icon top-left
-        txt('⊟', { x: s.x + 12, y: s.y + 14, fill: s.color, 'font-size': 14, 'font-weight': '700', 'opacity': '0.7', 'pointer-events': 'none' }, g);
-      }
     } else {
       shapeEl = el('path', {
         d: wavyPath(s.x, s.y, s.w, s.h),
@@ -1177,56 +963,6 @@ function renderShapes() {
           'pointer-events': 'none',
         }, g);
       });
-    }
-
-    // ── Liaison sub-label (styled callout below extco shapes) ───────────────
-    if (s.subtype === 'extco') {
-      const liaison = _liaisonByActivityId[String(s.id)];
-      const subLabelText = liaison
-        ? (liaison.display_label || liaison.origin_entity_name || '')
-        : '';
-      if (subLabelText) {
-        const editable = !window.OPTIQCARTO_READONLY;
-        const fSize = Math.max(9, Math.min(12, s.fontSize * 0.68));
-        const padX = 9, padY = 4;
-        const textW = Math.max(60, subLabelText.length * fSize * 0.56 + padX * 2);
-        const textH = fSize + padY * 2;
-        const cx = s.x + s.w / 2;
-        const stemH = 7;
-        const boxTop = s.y + s.h + stemH + 2;
-        const boxLeft = cx - textW / 2;
-        const bgColor  = '#dbeafe';
-        const brdColor = '#93c5fd';
-        const txtColor = editable ? '#1d4ed8' : '#475569';
-        // Stem triangle (connects shape bottom to callout)
-        el('polygon', {
-          points: `${cx - 5},${s.y + s.h + 1} ${cx + 5},${s.y + s.h + 1} ${cx},${s.y + s.h + stemH + 2}`,
-          fill: bgColor, stroke: brdColor, 'stroke-width': '1', 'stroke-linejoin': 'round',
-          'pointer-events': 'none',
-        }, g);
-        // Background rect
-        el('rect', {
-          x: boxLeft, y: boxTop, width: textW, height: textH,
-          rx: 5, ry: 5,
-          fill: bgColor, stroke: brdColor, 'stroke-width': '1.5',
-          'pointer-events': 'none',
-        }, g);
-        // Text
-        const subEl = txt(subLabelText, {
-          x: cx, y: boxTop + textH / 2,
-          'text-anchor': 'middle', 'dominant-baseline': 'middle',
-          fill: txtColor,
-          'font-size': fSize,
-          'font-family': 'Segoe UI, system-ui, sans-serif',
-          'font-style': 'italic', 'font-weight': '600',
-          'pointer-events': editable ? 'all' : 'none',
-          cursor: editable ? 'text' : 'default',
-        }, g);
-        if (editable) {
-          subEl.setAttribute('data-type', 'liaison-sublabel');
-          subEl.setAttribute('data-shape-id', String(s.id));
-        }
-      }
     }
 
     // ── Validation badge (bottom-right corner) ───
@@ -1607,7 +1343,7 @@ function renderCanvasMap() {
     state.bands.forEach(band => {
       const item = document.createElement('div');
       item.className = 'cmap-item' + (selectedBand === band.id ? ' selected' : '');
-      item.innerHTML = `<span class="cmap-color-swatch cmap-swatch--band" style="background:${band.color}"></span><span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${band.label || '(sans nom)'}</span>`;
+      item.innerHTML = `<span class="cmap-color-swatch" style="background:${band.color}"></span><span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${band.label || '(sans nom)'}</span>`;
       item.addEventListener('click', () => {
         selectedShapes.clear(); selectedConn = null;
         selectedBand = (selectedBand === band.id) ? null : band.id;
@@ -1632,11 +1368,7 @@ function renderCanvasMap() {
       const isSel = selectedShapes.has(s.id);
       const item = document.createElement('div');
       item.className = 'cmap-item' + (isSel ? ' selected' : '');
-      const swatchCls = s.type === 'pile' ? 'cmap-swatch--pile' : 'cmap-swatch--circle';
-      const iconExtra = s.type === 'pile'
-        ? `<i class="fa-solid fa-layer-group" style="font-size:9px;color:${s.color};opacity:0.8;margin-left:2px"></i>`
-        : '';
-      item.innerHTML = `<span class="cmap-color-swatch ${swatchCls}" style="background:${s.color}"></span>${iconExtra}<span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-left:${s.type==='pile'?'2':'0'}px">${s.label || '(sans label)'}</span>`;
+      item.innerHTML = `<span class="cmap-color-swatch" style="background:${s.color}"></span><span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${s.label || '(sans label)'}</span>`;
       item.addEventListener('click', () => {
         selectShape(s.id, false, false);
         focusOnShape(s, true);
@@ -1715,54 +1447,19 @@ function redo() {
    SELECTION
    ══════════════════════════════════════════════════ */
 
-function _expandPile(pile) {
-  if (pile.pileExpanded) return;
-  pile.pileExpanded = true;
-  pile._collapsedW = pile.w; pile._collapsedH = pile.h;
-  pile.w = pile._expandedW || pile.w;
-  pile.h = pile._expandedH || pile.h;
-  for (const cId of (pile.pileChildren || [])) {
-    const child = state.shapes.find(s => s.id === cId);
-    if (child) { child.x = pile.x + (child._pileRelX || 0); child.y = pile.y + (child._pileRelY || 0); }
-  }
-}
-
-function _collapsePile(pile) {
-  if (!pile.pileExpanded) return;
-  for (const cId of (pile.pileChildren || [])) {
-    const child = state.shapes.find(s => s.id === cId);
-    if (child) { child._pileRelX = child.x - pile.x; child._pileRelY = child.y - pile.y; }
-  }
-  pile.pileExpanded = false;
-  pile.w = pile._collapsedW || 160;
-  pile.h = pile._collapsedH || 100;
-}
-
 function clearSelection() {
-  for (const eid of selectedShapes) {
-    const ep = state.shapes.find(s => s.id === eid && s.type === 'pile');
-    if (ep && ep.pileExpanded) _collapsePile(ep);
-  }
   selectedShapes.clear();
   selectedConn = null;
   selectedBand = null;
   selectedGroup = null;
 }
 
-function selectShape(id, additive = false, triggerAnimation = false, expandPile = true) {
-  if (!additive) {
-    for (const eid of selectedShapes) {
-      const ep = state.shapes.find(s => s.id === eid && s.type === 'pile');
-      if (ep && ep.pileExpanded) _collapsePile(ep);
-    }
-    selectedShapes.clear();
-  }
+function selectShape(id, additive = false, triggerAnimation = false) {
+  if (!additive) selectedShapes.clear();
   selectedShapes.add(id);
   selectedConn = null;
   selectedBand = null;
   selectedGroup = null;
-  const selShape = state.shapes.find(s => s.id === id);
-  if (expandPile && selShape && selShape.type === 'pile') _expandPile(selShape);
   if (triggerAnimation) {
     const s = state.shapes.find(s => s.id === id);
     if (s) {
@@ -1861,16 +1558,6 @@ function onDown(e) {
     }
     isPanning = true;
     panStart = { sx: e.clientX, sy: e.clientY, vpX, vpY, moved: false };
-    return;
-  }
-
-  // ── Clic sur sous-label liaison (édition inline, éditeur seulement) ──────
-  const liaisonLabelEl = e.target.closest('[data-type="liaison-sublabel"]');
-  if (liaisonLabelEl) {
-    const shapeId = liaisonLabelEl.getAttribute('data-shape-id');
-    if (typeof window._editLiaisonLabelInline === 'function') {
-      window._editLiaisonLabelInline(shapeId, liaisonLabelEl);
-    }
     return;
   }
 
@@ -2031,11 +1718,7 @@ function onDown(e) {
     const shapeTarget = e.target.closest('[data-type="shape"]');
     if (shapeTarget) {
       const sid = parseInt(shapeTarget.getAttribute('data-id'));
-      if (e.shiftKey) {
-        selectShape(sid, true, false, false);   // shift-sélection : pas d'expand pile
-      } else if (!selectedShapes.has(sid)) {
-        selectShape(sid, false, false, false);  // sélection drag : pas d'expand pile
-      }
+      selectShape(sid, e.shiftKey, false);
       if (!propsOpen) setPropsOpen(true);
 
       // Prepare drag
@@ -2043,8 +1726,7 @@ function onDown(e) {
         mx: x, my: y, moved: false,
         shapes: [...selectedShapes].map(id => {
           const s = state.shapes.find(s => s.id === id);
-          const band = getBandForY(s.y + s.h / 2);
-          return { id, ox: s.x, oy: s.y, startBandId: band ? band.id : null };
+          return { id, ox: s.x, oy: s.y };
         }),
       };
       isDragging = true;
@@ -2053,7 +1735,10 @@ function onDown(e) {
       return;
     }
 
-    // Start panning; deselect only on mouseup if the mouse didn't actually move
+    // Click sur zone vide → fermer le panneau props + déselectionner tout
+    const hadSelection = selectedBand !== null || selectedGroup !== null || selectedShapes.size > 0 || selectedConn !== null;
+    clearSelection();
+    if (hadSelection) { if (propsOpen) setPropsOpen(false); render(); updateProps(); }
     isPanning = true;
     panStart = { sx: e.clientX, sy: e.clientY, vpX, vpY, moved: false };
     return;
@@ -2070,18 +1755,7 @@ function onDown(e) {
       ? parseInt(shapeTarget.getAttribute('data-id'))
       : parseInt(groupTarget.getAttribute('data-group-id'));
 
-    // Piles cannot participate in connections
-    const targetShape = state.shapes.find(s => s.id === sid);
-    if (targetShape && targetShape.type === 'pile') {
-      showToast('Une pile ne peut pas recevoir de connexions');
-      connecting = null; render(); return;
-    }
     if (!connecting) {
-      const fromShapeCheck = state.shapes.find(s => s.id === sid);
-      if (fromShapeCheck && fromShapeCheck.type === 'pile') {
-        showToast('Une pile ne peut pas envoyer de connexions');
-        render(); return;
-      }
       connecting = { fromId: sid };
       render();
     } else if (connecting.fromId !== sid) {
@@ -2446,42 +2120,27 @@ function onUp(e) {
 
   if (isPanning) {
     isPanning = false;
-    const panDidMove = panStart && panStart.moved;
     panStart = null;
     canvas.style.cursor = spaceDown ? 'grab' : '';
-    // Click on empty area (no pan movement) → deselect
-    if (!panDidMove) {
-      const hadSelection = selectedBand !== null || selectedGroup !== null || selectedShapes.size > 0 || selectedConn !== null;
-      clearSelection();
-      if (hadSelection) { if (propsOpen) setPropsOpen(false); render(); updateProps(); }
-    }
   }
   if (isDragging) {
     isDragging = false;
     if (dragData) {
       if (dragData.moved) {
-        for (const { id, startBandId } of dragData.shapes) {
+        for (const { id } of dragData.shapes) {
           const s = state.shapes.find(s => s.id === id);
-          if (s) {
-            const newBand = getBandForY(s.y + s.h / 2);
-            const newBandId = newBand ? newBand.id : null;
-            if (newBandId !== startBandId) updateShapeColor(s);
-          }
-          // Les tracés manuels deviennent incohérents quand la shape source/cible bouge
+          if (s) updateShapeColor(s);
+          // Clear manual and imported waypoints when a shape moves — stale
+          // waypoints would create kinks relative to the new shape position.
           for (const conn of state.connections) {
-            if (conn.fromId === id || conn.toId === id) conn.userPts = null;
+            if (conn.fromId === id || conn.toId === id) {
+              conn.userPts = null;
+              conn.customPath = null;
+            }
           }
         }
         snapshot();
         render();
-      } else {
-        // Clic sans déplacement : maintenant on expand les piles sélectionnées
-        let pileExpanded = false;
-        for (const sid of selectedShapes) {
-          const s = state.shapes.find(s => s.id === sid && s.type === 'pile');
-          if (s) { _expandPile(s); pileExpanded = true; }
-        }
-        if (pileExpanded) render();
       }
       dragData = null;
     }
@@ -2502,9 +2161,10 @@ function onDbl(e) {
     const cid = parseInt(ct.getAttribute('data-id'));
     const c = state.connections.find(c => c.id === cid);
     if (!c) return;
-    if (c.userPts) {
-      // Double-clic sur connexion avec tracé manuel → réinitialise le tracé
+    if (c.userPts || c.customPath) {
+      // Double-clic sur connexion avec tracé manuel/importé → réinitialise le tracé
       c.userPts = null;
+      c.customPath = null;
       snapshot(); render();
       showToast(_L('editor.toast.path_reset'));
     } else {
@@ -2621,28 +2281,13 @@ function commitLabel() {
 function deleteSelected() {
   if (selectedShapes.size > 0) {
     const ids = [...selectedShapes];
-    // Also delete children of any selected piles
-    const pileChildIds = [];
-    for (const id of ids) {
-      const s = state.shapes.find(s => s.id === id && s.type === 'pile');
-      if (s) pileChildIds.push(...(s.pileChildren || []));
-    }
-    const allDelIds = new Set([...ids, ...pileChildIds]);
-    // Free children from their pile reference if only the child is deleted (not the pile)
-    for (const id of ids) {
-      const s = state.shapes.find(s => s.id === id);
-      if (s && s.pileId && !allDelIds.has(s.pileId)) {
-        const pile = state.shapes.find(p => p.id === s.pileId);
-        if (pile) pile.pileChildren = pile.pileChildren.filter(c => c !== id);
-      }
-    }
-    state.shapes = state.shapes.filter(s => !allDelIds.has(s.id));
+    state.shapes = state.shapes.filter(s => !ids.includes(s.id));
     state.connections = state.connections.filter(
-      c => !allDelIds.has(c.fromId) && !allDelIds.has(c.toId)
+      c => !ids.includes(c.fromId) && !ids.includes(c.toId)
     );
     // Nettoyer les groupes dont les shapes ont été supprimées
     if (state.groups) {
-      state.groups.forEach(g => { g.shapeIds = g.shapeIds.filter(id => !allDelIds.has(id)); });
+      state.groups.forEach(g => { g.shapeIds = g.shapeIds.filter(id => !ids.includes(id)); });
       state.groups = state.groups.filter(g => g.shapeIds.length > 0);
     }
     clearSelection();
@@ -2775,16 +2420,6 @@ function updateProps() {
         document.getElementById('subtype-btn-normal')?.classList.toggle('active', sub === 'normal');
         document.getElementById('subtype-btn-external')?.classList.toggle('active', sub === 'external');
         document.getElementById('subtype-btn-extco')?.classList.toggle('active', sub === 'extco');
-      }
-    }
-    // Liaison label — visible only for extco shapes that have an active liaison
-    const liaisonRow = document.getElementById('prop-liaison-row');
-    if (liaisonRow) {
-      const liaison = s.subtype === 'extco' ? _liaisonByActivityId[String(s.id)] : null;
-      liaisonRow.style.display = liaison ? '' : 'none';
-      if (liaison) {
-        const liaisonInput = document.getElementById('prop-liaison-label');
-        if (liaisonInput) liaisonInput.value = liaison.display_label || '';
       }
     }
     // Variante couleur (0=fidèle, 1=moins fidèle)
@@ -2925,70 +2560,6 @@ function bindProps() {
       }
       snapshot(); render(); updateProps();
     });
-  });
-
-  // Liaison label — PATCH to API on change (debounced)
-  let _liaisonLabelTimer = null;
-
-  // Inline edit of liaison sub-label by clicking on it in the canvas
-  window._editLiaisonLabelInline = function(shapeId, textEl) {
-    const liaison = _liaisonByActivityId[String(shapeId)];
-    if (!liaison) return;
-    const bbox  = textEl.getBoundingClientRect();
-    const input = document.createElement('input');
-    input.type  = 'text';
-    input.value = liaison.display_label || liaison.origin_entity_name || '';
-    Object.assign(input.style, {
-      position: 'fixed',
-      left:     bbox.left + 'px',
-      top:      (bbox.top - 2) + 'px',
-      width:    Math.max(bbox.width + 20, 90) + 'px',
-      height:   (bbox.height + 4) + 'px',
-      fontSize: '12px', fontStyle: 'italic', color: '#1e40af',
-      border: '1.5px solid #3b82f6', borderRadius: '3px',
-      padding: '0 4px', background: '#eff6ff', zIndex: '9999',
-      boxShadow: '0 2px 8px rgba(59,130,246,0.25)',
-    });
-    document.body.appendChild(input);
-    input.focus(); input.select();
-    const apiBase2 = window.OPTIQCARTO_API_BASE || '/cartography';
-    async function _saveLiaisonInline() {
-      const newLabel = input.value.trim() || null;
-      liaison.display_label = newLabel;
-      input.remove();
-      render();
-      try {
-        await fetch(`${apiBase2}/api/liaisons/${liaison.id}`, {
-          method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ display_label: newLabel }),
-        });
-      } catch (_) {}
-    }
-    input.addEventListener('blur', _saveLiaisonInline);
-    input.addEventListener('keydown', ke => {
-      if (ke.key === 'Enter')  { ke.preventDefault(); _saveLiaisonInline(); }
-      if (ke.key === 'Escape') { input.removeEventListener('blur', _saveLiaisonInline); input.remove(); }
-    });
-  };
-  document.getElementById('prop-liaison-label')?.addEventListener('input', e => {
-    const id = [...selectedShapes][0];
-    if (!id) return;
-    const liaison = _liaisonByActivityId[String(id)];
-    if (!liaison) return;
-    // Optimistic update in-memory
-    liaison.display_label = e.target.value.trim() || null;
-    render();
-    clearTimeout(_liaisonLabelTimer);
-    _liaisonLabelTimer = setTimeout(async () => {
-      const apiBase = window.OPTIQCARTO_API_BASE || '/cartography';
-      try {
-        await fetch(`${apiBase}/api/liaisons/${liaison.id}`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ display_label: liaison.display_label }),
-        });
-      } catch (_) {}
-    }, 600);
   });
 
   document.getElementById('prop-delete-shape').addEventListener('click', deleteSelected);
@@ -3238,58 +2809,6 @@ function createGroup() {
   showToast(_L('editor.toast.group_created'));
 }
 
-/* ══════════════════════════════════════════════════
-   PILE — conteneur visuel (pas de connexions)
-   ══════════════════════════════════════════════════ */
-
-function createPile() {
-  if (selectedShapes.size === 0) {
-    showToast('Sélectionnez des formes à empiler');
-    return;
-  }
-  const childShapes = [...selectedShapes]
-    .map(id => state.shapes.find(s => s.id === id))
-    .filter(s => s && s.type !== 'pile' && !s.pileId);
-  if (childShapes.length === 0) {
-    showToast('Aucune forme valide sélectionnée');
-    return;
-  }
-  const PAD = 28;
-  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-  for (const s of childShapes) {
-    minX = Math.min(minX, s.x); minY = Math.min(minY, s.y);
-    maxX = Math.max(maxX, s.x + s.w); maxY = Math.max(maxY, s.y + s.h);
-  }
-  const pileX = minX - PAD, pileY = minY - PAD;
-  const pileW = maxX - minX + PAD * 2, pileH = maxY - minY + PAD * 2;
-  const pileId = state.nextId++;
-  for (const s of childShapes) {
-    s._pileRelX = s.x - pileX;
-    s._pileRelY = s.y - pileY;
-    s.pileId = pileId;
-  }
-  const pileBand  = getBandForY(pileY + pileH / 2);
-  const pileColor = pileBand ? pileBand.color : '#7c3aed';
-  const pile = {
-    id: pileId, type: 'pile',
-    x: pileX, y: pileY,
-    w: 160, h: 100,
-    _expandedW: pileW,
-    _expandedH: pileH,
-    label: 'Pile',
-    pileExpanded: false,
-    pileChildren: childShapes.map(s => s.id),
-    color: pileColor, textColor: '#ffffff', strokeColor: '',
-    fontSize: 14, subtype: 'normal', colorVariant: 0,
-    validationBadge: false, validationColor: '#4DB868',
-  };
-  state.shapes.push(pile);
-  clearSelection();
-  selectShape(pileId, false, false);
-  snapshot(); render();
-  showToast('Pile créée — cliquez pour l\'ouvrir');
-}
-
 function _doNewCarto() {
   clearSelection();
   if (typeof resetHighlightExtco === 'function') resetHighlightExtco();
@@ -3366,8 +2885,6 @@ async function saveJSON() {
       clearTimeout(_autoSaveTimerId);
       _showSavePopup('done');
       if (data.sync_warning) setTimeout(() => showToast(_L('editor.toast.sync_error') + data.sync_warning, 'warn'), 1600);
-      // After saving Master, offer to propagate to other calques
-      _offerMasterPropagation(apiBase);
       return true;
     } else {
       _hideSavePopup();
@@ -3379,61 +2896,6 @@ async function saveJSON() {
     showToast(_L('editor.toast.save_network_error'));
     return false;
   }
-}
-
-async function _offerMasterPropagation(apiBase) {
-  let calques = [];
-  try {
-    const r = await fetch(`${apiBase}/api/calques`);
-    calques = await r.json();
-  } catch (_) { return; }
-  if (!Array.isArray(calques) || calques.length === 0) return;
-
-  // Build modal
-  const overlay = document.createElement('div');
-  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:9998;display:flex;align-items:center;justify-content:center';
-  const rows = calques.map(c => `
-    <label style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;cursor:pointer;hover:background:#f8fafc">
-      <input type="checkbox" class="calque-propagate-cb" data-id="${c.id}" checked
-        style="width:16px;height:16px;accent-color:#ec4899;cursor:pointer">
-      <span style="font-size:0.88rem;color:#1e293b">${c.name}</span>
-    </label>`).join('');
-  overlay.innerHTML = `
-    <div style="background:#fff;border-radius:14px;padding:24px;min-width:340px;max-width:460px;box-shadow:0 8px 32px rgba(0,0,0,0.22)">
-      <h3 style="margin:0 0 6px;font-size:1rem;font-weight:700;color:#1e293b">
-        <i class="fa-solid fa-layer-group" style="color:#ec4899;margin-right:6px"></i>
-        ${_L('editor.master_propagate_title')}
-      </h3>
-      <p style="margin:0 0 14px;font-size:0.82rem;color:#64748b">${_L('editor.master_propagate_desc')}</p>
-      <div style="border:1.5px solid #e2e8f0;border-radius:10px;padding:6px 4px;margin-bottom:16px;max-height:220px;overflow-y:auto">${rows}</div>
-      <div style="display:flex;gap:8px;justify-content:flex-end">
-        <button id="_prop-skip" style="padding:7px 16px;border:1.5px solid #e2e8f0;border-radius:8px;background:#fff;cursor:pointer;font-size:0.85rem">${_L('editor.master_propagate_skip')}</button>
-        <button id="_prop-apply" style="padding:7px 16px;border:none;border-radius:8px;background:linear-gradient(135deg,#ec4899,#be185d);color:#fff;cursor:pointer;font-size:0.85rem;font-weight:600">
-          <i class="fa-solid fa-bolt"></i> ${_L('editor.master_propagate_apply')}
-        </button>
-      </div>
-    </div>`;
-  document.body.appendChild(overlay);
-
-  overlay.querySelector('#_prop-skip').addEventListener('click', () => document.body.removeChild(overlay));
-  overlay.querySelector('#_prop-apply').addEventListener('click', async () => {
-    const checked = [...overlay.querySelectorAll('.calque-propagate-cb:checked')].map(cb => parseInt(cb.dataset.id));
-    document.body.removeChild(overlay);
-    if (checked.length === 0) return;
-    let ok = 0, fail = 0;
-    await Promise.all(checked.map(async id => {
-      try {
-        const r = await fetch(`${apiBase}/api/calques/${id}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ state }),
-        });
-        const d = await r.json();
-        if (d.ok) ok++; else fail++;
-      } catch (_) { fail++; }
-    }));
-    showToast(ok + ' ' + _L('editor.master_propagate_done') + (fail ? ` (${fail} échecs)` : ''));
-  });
 }
 
 function _showSavePopup(state) {
@@ -3521,20 +2983,6 @@ function _showUnsavedModal() {
 
 /* ── Calques ──────────────────────────────────────── */
 
-async function _loadLiaisons() {
-  const apiBase = window.OPTIQCARTO_API_BASE || '/cartography';
-  try {
-    const entityParam = window.OPTIQCARTO_VIEWER_ENTITY_ID
-      ? `?entity_id=${window.OPTIQCARTO_VIEWER_ENTITY_ID}` : '';
-    const res = await fetch(`${apiBase}/api/liaisons${entityParam}`);
-    const list = await res.json();
-    _liaisonByActivityId = {};
-    for (const l of (Array.isArray(list) ? list : [])) {
-      if (l.extco_shape_id != null) _liaisonByActivityId[String(l.extco_shape_id)] = l;
-    }
-  } catch (_) {}
-}
-
 async function _transitionState(newState) {
   const canvasWrap = document.getElementById('canvas-wrap');
   if (canvasWrap) {
@@ -3553,7 +3001,6 @@ async function _transitionState(newState) {
     state.connections = state.connections.filter(c => validIds.has(c.fromId) && validIds.has(c.toId));
   }
   history = [JSON.stringify(state)]; histIndex = 0;
-  await _loadLiaisons();
   render(); updateProps();
   if (canvasWrap) {
     await new Promise(r => setTimeout(r, 20));
@@ -3612,21 +3059,11 @@ function renderCalqueListUI() {
   const empty = document.getElementById('cal-empty');
   if (!list) return;
   list.innerHTML = '';
+  if (_calqueList.length === 0) {
+    if (empty) empty.style.display = 'block';
+    return;
+  }
   if (empty) empty.style.display = 'none';
-
-  // Always show Master as first entry
-  const masterItem = document.createElement('div');
-  masterItem.className = 'cal-item cal-item-master' + (activeCalqueId === null ? ' active' : '');
-  masterItem.innerHTML = `<i class="fa-solid fa-star" style="font-size:10px;opacity:0.7;flex-shrink:0"></i><span class="cal-item-name">Master</span>`;
-  masterItem.addEventListener('click', async () => {
-    const section = document.getElementById('cal-section');
-    if (section) section.classList.remove('open');
-    if (activeCalqueId !== null) await _deactivateCalque();
-  });
-  list.appendChild(masterItem);
-
-  if (_calqueList.length === 0) return;
-
   _calqueList.forEach(cal => {
     const item = document.createElement('div');
     item.className = 'cal-item' + (activeCalqueId === cal.id ? ' active' : '');
@@ -4102,154 +3539,29 @@ function _unused_vsdxAutoLayout(shapes, conns, bands, groups) {
    VSDX IMPORT
    ══════════════════════════════════════════════════ */
 
-/* ══════════════════════════════════════════════════
-   DECISION DIAMOND — post-import labelling
-   Primary path: spliceDecisions() in importer wires arrows to diamonds;
-   _updateDecisionChoiceLabels() (called in renderConnections) handles Oui/Non
-   via fromId/toId.  labelDecisionConnections() is a FALLBACK for any diamonds
-   the importer could not wire (e.g. heavily routed connectors with waypoints).
-   ══════════════════════════════════════════════════ */
-
-// Shared geometry helper used here and in snapDecisionsToArrows.
-function _ptSegDistPx(px, py, ax, ay, bx, by) {
-  const dx = bx - ax, dy = by - ay, len2 = dx*dx + dy*dy;
-  if (len2 === 0) return Math.hypot(px - ax, py - ay);
-  const t = Math.max(0, Math.min(1, ((px - ax)*dx + (py - ay)*dy) / len2));
-  return Math.hypot(px - (ax + t*dx), py - (ay + t*dy));
-}
-
-// Determine the overall horizontal/vertical bias of the diagram.
-function _diagramFlowIsHorizontal() {
-  let h = 0, v = 0;
-  for (const c of state.connections) {
-    const from = state.shapes.find(s => s.id === c.fromId);
-    const to   = state.shapes.find(s => s.id === c.toId);
-    if (from && to) {
-      h += Math.abs((to.x + to.w / 2) - (from.x + from.w / 2));
-      v += Math.abs((to.y + to.h / 2) - (from.y + from.h / 2));
-    }
-  }
-  return h >= v;
-}
-
-// Get the rendered path of a connection (preferred) or fall back to centroid.
-function _connPath(conn) {
-  if (conn._computedOrthopts && conn._computedOrthopts.length >= 2)
-    return conn._computedOrthopts;
-  const from = state.shapes.find(s => s.id === conn.fromId);
-  const to   = state.shapes.find(s => s.id === conn.toId);
-  if (!from || !to) return null;
-  return [{ x: from.x + from.w / 2, y: from.y + from.h / 2 },
-          { x: to.x   + to.w   / 2, y: to.y   + to.h   / 2 }];
-}
-
-// Min distance from diamond centre to all segments of a rendered path.
-function _distPathToDiamond(pts, dcx, dcy) {
-  let min = Infinity;
-  for (let i = 0; i < pts.length - 1; i++) {
-    const d = _ptSegDistPx(dcx, dcy, pts[i].x, pts[i].y, pts[i+1].x, pts[i+1].y);
-    if (d < min) min = d;
-  }
-  return min;
-}
-
-// Classify Oui/Non among connections that pass near the diamond.
-// mainH = true → flow is left→right; false → flow is top→bottom.
-function _classifyDecisionConnections(passing, mainH) {
-  let ouiConn = null, nonConn = null;
-  if (mainH) {
-    const r = passing.filter(p => Math.abs(p.dx) > Math.abs(p.dy) && p.dx > 0);
-    const d = passing.filter(p => Math.abs(p.dy) >= Math.abs(p.dx) && p.dy > 0);
-    if (r.length) ouiConn = r[0].conn;
-    if (d.length) nonConn = d[0].conn;
-  } else {
-    const d = passing.filter(p => Math.abs(p.dy) > Math.abs(p.dx) && p.dy > 0);
-    const r = passing.filter(p => Math.abs(p.dx) >= Math.abs(p.dy) && p.dx > 0);
-    if (d.length) ouiConn = d[0].conn;
-    if (r.length) nonConn = r[0].conn;
-  }
-  return { ouiConn, nonConn };
-}
-
-// Fallback labeller: handles diamonds NOT wired by the importer (floating).
-// Runs after render()+snapDecisionsToArrows() so positions and rendered paths
-// are final.  Wired diamonds are handled entirely by _updateDecisionChoiceLabels().
-function labelDecisionConnections() {
-  const connectedIds = new Set([
-    ...state.connections.map(c => c.fromId),
-    ...state.connections.map(c => c.toId),
-  ]);
-  const floatingDiamonds = state.shapes.filter(
-    s => s.type === 'decision' && !connectedIds.has(s.id)
-  );
-
-  // Clear stale overlay labels from previous calls
-  for (const c of state.connections) {
-    if (c.diamondId !== undefined) { delete c.diamondId; delete c.choiceLabel; }
-  }
-
-  if (floatingDiamonds.length === 0) return;
-
-  const mainH = _diagramFlowIsHorizontal();
-
-  for (const diamond of floatingDiamonds) {
-    const dcx = diamond.x + diamond.w / 2;
-    const dcy = diamond.y + diamond.h / 2;
-    const thresh = Math.max(diamond.w, diamond.h) * 0.55; // screen-px threshold
-
-    const passing = [];
-    for (const conn of state.connections) {
-      if (conn.diamondId !== undefined) continue;
-      const pts = _connPath(conn);
-      if (!pts) continue;
-      if (_distPathToDiamond(pts, dcx, dcy) > thresh) continue;
-      const dx = pts[pts.length - 1].x - pts[0].x;
-      const dy = pts[pts.length - 1].y - pts[0].y;
-      passing.push({ conn, dx, dy });
-    }
-    if (passing.length < 2) continue;
-
-    const { ouiConn, nonConn } = _classifyDecisionConnections(passing, mainH);
-    if (ouiConn && ouiConn !== nonConn) { ouiConn.choiceLabel = 'Oui'; ouiConn.diamondId = diamond.id; }
-    if (nonConn && nonConn !== ouiConn) { nonConn.choiceLabel = 'Non'; nonConn.diamondId = diamond.id; }
-  }
-}
-
 // After render(), snap each decision diamond's center to the nearest point
 // on any rendered connection path (uses _computedOrthopts set by renderConnections).
 // Called once after VSDX import so diamonds align pixel-perfectly with arrows
 // even when orthogonal routing deviates from the original Visio connector path.
 function snapDecisionsToArrows() {
-  // Wired diamonds (from spliceDecisions) are already positioned by their explicit
-  // connections — only snap floating diamonds that have no wired connections.
-  const connectedIds = new Set([
-    ...state.connections.map(c => c.fromId),
-    ...state.connections.map(c => c.toId),
-  ]);
-
-  const THRESH = 130; // px — max distance to snap a floating diamond
+  const THRESH = 130; // px — max distance to consider an arrow "matching"
   let moved = false;
-
   for (const s of state.shapes) {
     if (s.type !== 'decision') continue;
-    if (connectedIds.has(s.id)) continue; // wired diamond: position is correct
-
     const cx = s.x + s.w / 2, cy = s.y + s.h / 2;
     let bestDist = THRESH, bestPx = cx, bestPy = cy;
-
     for (const c of state.connections) {
       const pts = c._computedOrthopts;
       if (!pts || pts.length < 2) continue;
       for (let i = 0; i < pts.length - 1; i++) {
-        const d = _ptSegDistPx(cx, cy, pts[i].x, pts[i].y, pts[i+1].x, pts[i+1].y);
-        if (d < bestDist) {
-          bestDist = d;
-          // Compute closest point on segment for snapping
-          const ax = pts[i].x, ay = pts[i].y, bx = pts[i+1].x, by = pts[i+1].y;
-          const dx = bx - ax, dy = by - ay, len2 = dx*dx + dy*dy;
-          const t = len2 < 4 ? 0 : Math.max(0, Math.min(1, ((cx-ax)*dx + (cy-ay)*dy) / len2));
-          bestPx = ax + t*dx; bestPy = ay + t*dy;
-        }
+        const ax = pts[i].x, ay = pts[i].y, bx = pts[i+1].x, by = pts[i+1].y;
+        const abx = bx - ax, aby = by - ay;
+        const len2 = abx*abx + aby*aby;
+        if (len2 < 4) continue;
+        const t = Math.max(0, Math.min(1, ((cx - ax)*abx + (cy - ay)*aby) / len2));
+        const px = ax + t*abx, py = ay + t*aby;
+        const d = Math.hypot(cx - px, cy - py);
+        if (d < bestDist) { bestDist = d; bestPx = px; bestPy = py; }
       }
     }
     if (bestDist < THRESH) {
@@ -4539,8 +3851,6 @@ async function importVSDX(file) {
     history = [JSON.stringify(state)]; histIndex = 0;
     render();
     snapDecisionsToArrows(); // centre les losanges sur la flèche la plus proche
-    labelDecisionConnections(); // Oui/Non sur les connexions passant par les losanges
-    render(); // re-render pour afficher les badges au bon endroit
     fitView(); updateProps();
 
     document.getElementById('vsdx-dialog').classList.add('hidden');
@@ -5130,47 +4440,54 @@ function runCartoCheck() {
    ══════════════════════════════════════════════════ */
 
 function architectLabels() {
-  // 1. Label orientation MUST match the segment direction
-  // 2. Label box must fit within segment with clearance from both ends
-  // 3. Adaptive corner clearance — reduces for longer labels so they can still be placed
-  // 4. Three passes: (a) matching direction from arrowhead, (b) all directions from arrowhead,
-  //    (c) all segments longest-first with minimum clearance (last resort)
+  // Place each connection label at t=0.90 along the arrow (near the arrowhead).
+  // Steps back 2 % at a time if the candidate position overlaps a shape or a
+  // previously-placed label.  Placed labels are themselves obstacles.
+  const INIT_T     = 0.90;
+  const STEP_T     = 0.02;
+  const SHAPE_M    = 10;
+  const LABEL_M    = 6;
+  const EST_LW     = 72;  // conservative label width estimate
+  const EST_LH     = 14;  // conservative label height estimate
 
-  const CORNER_BASE = 42;  // base clearance from label edge to segment endpoint
-  const CORNER_MIN  = 12;  // minimum clearance (for very long labels)
-  const SHAPE_M   = 14;
-  const LABEL_GAP = 8;
-  const CHAR_W    = 6.5;
-  const LINE_H    = 13;
-  const STEP_PX   = 6;
+  const placedBoxes = [];
+  let changed = false;
 
-  const placed = [];
-
-  function labelSize(c) {
-    const lines = (c.label || '').split('\n');
-    const lw = Math.max(24, Math.max(...lines.map(l => l.length)) * CHAR_W + 10);
-    const lh = LINE_H * lines.length + (lines.length > 1 ? 4 : 0);
-    return { lw, lh };
+  function ptAtT(pts, t) {
+    let total = 0;
+    for (let i = 0; i < pts.length - 1; i++)
+      total += Math.hypot(pts[i+1].x - pts[i].x, pts[i+1].y - pts[i].y);
+    if (total < 1) return pts[pts.length - 1];
+    const target = total * Math.max(0, Math.min(1, t));
+    let acc = 0;
+    for (let i = 0; i < pts.length - 1; i++) {
+      const seg = Math.hypot(pts[i+1].x - pts[i].x, pts[i+1].y - pts[i].y);
+      if (acc + seg >= target) {
+        const u = (target - acc) / seg;
+        return { x: pts[i].x + u * (pts[i+1].x - pts[i].x),
+                 y: pts[i].y + u * (pts[i+1].y - pts[i].y) };
+      }
+      acc += seg;
+    }
+    return pts[pts.length - 1];
   }
 
-  function hits(cx, cy, bw, bh) {
-    const hw = bw / 2, hh = bh / 2;
+  function overlapsShapes(cx, cy) {
     for (const sh of state.shapes) {
-      if (cx + hw > sh.x - SHAPE_M && cx - hw < sh.x + sh.w + SHAPE_M &&
-          cy + hh > sh.y - SHAPE_M && cy - hh < sh.y + sh.h + SHAPE_M)
-        return true;
-    }
-    for (const p of placed) {
-      if (cx + hw > p.cx - p.hw - LABEL_GAP && cx - hw < p.cx + p.hw + LABEL_GAP &&
-          cy + hh > p.cy - p.hh - LABEL_GAP && cy - hh < p.cy + p.hh + LABEL_GAP)
+      if (cx + EST_LW/2 > sh.x - SHAPE_M && cx - EST_LW/2 < sh.x + sh.w + SHAPE_M &&
+          cy + EST_LH/2 > sh.y - SHAPE_M && cy - EST_LH/2 < sh.y + sh.h + SHAPE_M)
         return true;
     }
     return false;
   }
 
-  // Adaptive corner margin: shorter for wider labels
-  function cornerM(lw) {
-    return Math.max(CORNER_MIN, CORNER_BASE - Math.max(0, lw - 80) * 0.18);
+  function overlapsPlaced(cx, cy) {
+    for (const b of placedBoxes) {
+      if (cx + EST_LW/2 > b.x - LABEL_M && cx - EST_LW/2 < b.x + EST_LW + LABEL_M &&
+          cy + EST_LH/2 > b.y - LABEL_M && cy - EST_LH/2 < b.y + EST_LH + LABEL_M)
+        return true;
+    }
+    return false;
   }
 
   for (const c of state.connections) {
@@ -5178,235 +4495,26 @@ function architectLabels() {
     const pts = c._computedOrthopts;
     if (!pts || pts.length < 2) continue;
 
-    const { lw, lh } = labelSize(c);
-
-    let totalH = 0, totalV = 0;
-    for (let i = 0; i < pts.length - 1; i++) {
-      totalH += Math.abs(pts[i+1].x - pts[i].x);
-      totalV += Math.abs(pts[i+1].y - pts[i].y);
+    let placed = false;
+    for (let t = INIT_T; t >= 0.05; t -= STEP_T) {
+      const pos = ptAtT(pts, t);
+      if (overlapsShapes(pos.x, pos.y) || overlapsPlaced(pos.x, pos.y)) continue;
+      c.labelOffset = { x: pos.x, y: pos.y };
+      placedBoxes.push({ x: pos.x - EST_LW/2, y: pos.y - EST_LH/2 });
+      changed = true;
+      placed = true;
+      break;
     }
-    const majorH = totalH >= totalV;
-
-    // Build segment list with metadata
-    const segs = [];
-    for (let i = 0; i < pts.length - 1; i++) {
-      const pa = pts[i], pb = pts[i+1];
-      const dx = pb.x - pa.x, dy = pb.y - pa.y;
-      const len = Math.hypot(dx, dy);
-      if (len < 1) continue;
-      const isH = Math.abs(dy) < Math.abs(dx);
-      segs.push({ i, pa, pb, dx, dy, len, isH });
-    }
-
-    let ok = false;
-
-    // Pass 0: matching direction, from arrowhead end
-    // Pass 1: any direction, from arrowhead end
-    // Pass 2: any direction, longest-first (minimum corner margin)
-    for (let pass = 0; pass < 3 && !ok; pass++) {
-      let cands;
-      if (pass < 2) {
-        cands = [...segs].reverse();
-        if (pass === 0) cands = cands.filter(s => s.isH === majorH);
-      } else {
-        cands = [...segs].sort((a, b) => b.len - a.len);
-      }
-
-      for (const seg of cands) {
-        if (ok) break;
-        const { pa, pb, dx, dy, len: segLen, isH } = seg;
-        const bw = isH ? lw : lh;
-        const bh = isH ? lh : lw;
-        const halfAlong = bw / 2;
-        const cm = pass < 2 ? cornerM(lw) : CORNER_MIN;
-        const needLen = halfAlong * 2 + cm * 2;
-        if (segLen < needLen) continue;
-
-        const tMin = (halfAlong + cm) / segLen;
-        const tMax = 1 - (halfAlong + cm) / segLen;
-        if (tMax < tMin) continue;
-
-        for (let t = tMax; t >= tMin - 1e-6; t -= STEP_PX / segLen) {
-          const cx = pa.x + dx * t;
-          const cy = pa.y + dy * t;
-          if (!hits(cx, cy, bw, bh)) {
-            c.labelOffset = { x: cx, y: cy };
-            placed.push({ cx, cy, hw: bw / 2, hh: bh / 2 });
-            ok = true;
-            break;
-          }
-        }
-      }
-    }
-
-    if (!ok) delete c.labelOffset;
-  }
-
-  snapshot(); render();
-}
-
-function _labelOnSeg(conn, seg) {
-  if (!(conn.label || '').trim() || !conn.labelOffset) return false;
-  const { pa, pb } = seg;
-  const { x, y } = conn.labelOffset;
-  return x >= Math.min(pa.x, pb.x) - 35 && x <= Math.max(pa.x, pb.x) + 35 &&
-         y >= Math.min(pa.y, pb.y) - 35 && y <= Math.max(pa.y, pb.y) + 35;
-}
-
-// Choisit la direction du détour (-1 = haut/gauche, +1 = bas/droite) en fonction
-// de l'espace disponible (moins de formes = meilleur côté).
-function _chooseDetourDir(isH, segPos, os, oe, offset) {
-  const PAD = 8;
-  function countHits(sign) {
-    let n = 0;
-    const d = sign * offset;
-    if (isH) {
-      const yMin = Math.min(segPos, segPos + d) - PAD;
-      const yMax = Math.max(segPos, segPos + d) + PAD;
-      for (const s of state.shapes) {
-        if (s.x < oe + PAD && s.x + s.w > os - PAD && s.y < yMax && s.y + s.h > yMin) n++;
-      }
-    } else {
-      const xMin = Math.min(segPos, segPos + d) - PAD;
-      const xMax = Math.max(segPos, segPos + d) + PAD;
-      for (const s of state.shapes) {
-        if (s.y < oe + PAD && s.y + s.h > os - PAD && s.x < xMax && s.x + s.w > xMin) n++;
-      }
-    }
-    return n;
-  }
-  return countHits(-1) <= countHits(+1) ? -1 : +1;
-}
-
-function architectArrows() {
-  const CLOSE       = 9;   // distance perpendiculaire max pour considérer deux segments superposés
-  const MIN_OVERLAP = 20;  // longueur minimale de chevauchement à corriger (px)
-  const GAP         = 14;  // marge avant/après la zone de détour
-  const OFFSET      = 30;  // profondeur du détour perpendiculaire (px)
-
-  // Réinitialiser les détours précédents (appel frais = résultat reproductible)
-  for (const c of state.connections) {
-    if (c._archDetoured) { delete c.userPts; delete c._archDetoured; }
-  }
-  // Re-render pour obtenir des _computedOrthopts propres AVANT l'analyse
-  render();
-
-  const allSegs = [];
-  for (const c of state.connections) {
-    const pts = c._computedOrthopts;
-    if (!pts || pts.length < 2) continue;
-    for (let i = 0; i < pts.length - 1; i++) {
-      const pa = pts[i], pb = pts[i + 1];
-      const len = Math.hypot(pb.x - pa.x, pb.y - pa.y);
-      if (len < 1) continue;
-      const isH = Math.abs(pb.y - pa.y) < Math.abs(pb.x - pa.x);
-      allSegs.push({ connId: c.id, segIdx: i, pa, pb, len, isH, fullPts: pts });
+    // If no free position found, fall back to t=0.90 without further shifting
+    if (!placed) {
+      const pos = ptAtT(pts, INIT_T);
+      c.labelOffset = { x: pos.x, y: pos.y };
+      placedBoxes.push({ x: pos.x - EST_LW/2, y: pos.y - EST_LH/2 });
+      changed = true;
     }
   }
 
-  const toFix = [];
-  const fixed = new Set();
-
-  for (let i = 0; i < allSegs.length; i++) {
-    for (let j = i + 1; j < allSegs.length; j++) {
-      const sa = allSegs[i], sb = allSegs[j];
-      if (sa.connId === sb.connId) continue;
-      if (sa.isH !== sb.isH) continue;
-
-      let oStart, oEnd;
-      if (sa.isH) {
-        if (Math.abs(sa.pa.y - sb.pa.y) > CLOSE) continue;
-        const aMin = Math.min(sa.pa.x, sa.pb.x), aMax = Math.max(sa.pa.x, sa.pb.x);
-        const bMin = Math.min(sb.pa.x, sb.pb.x), bMax = Math.max(sb.pa.x, sb.pb.x);
-        oStart = Math.max(aMin, bMin); oEnd = Math.min(aMax, bMax);
-        if (oEnd - oStart < MIN_OVERLAP) continue;
-      } else {
-        if (Math.abs(sa.pa.x - sb.pa.x) > CLOSE) continue;
-        const aMin = Math.min(sa.pa.y, sa.pb.y), aMax = Math.max(sa.pa.y, sa.pb.y);
-        const bMin = Math.min(sb.pa.y, sb.pb.y), bMax = Math.max(sb.pa.y, sb.pb.y);
-        oStart = Math.max(aMin, bMin); oEnd = Math.min(aMax, bMax);
-        if (oEnd - oStart < MIN_OVERLAP) continue;
-      }
-
-      if (fixed.has(sa.connId) && fixed.has(sb.connId)) continue;
-      let chosen, chosenSeg;
-      if (fixed.has(sa.connId)) {
-        chosen = state.connections.find(c => c.id === sb.connId); chosenSeg = sb;
-      } else if (fixed.has(sb.connId)) {
-        chosen = state.connections.find(c => c.id === sa.connId); chosenSeg = sa;
-      } else {
-        const connA = state.connections.find(c => c.id === sa.connId);
-        const connB = state.connections.find(c => c.id === sb.connId);
-        if (!connA || !connB) continue;
-        const hasA = _labelOnSeg(connA, sa), hasB = _labelOnSeg(connB, sb);
-        if (hasA && !hasB) { chosen = connB; chosenSeg = sb; }
-        else if (hasB && !hasA) { chosen = connA; chosenSeg = sa; }
-        else {
-          const la = (connA.label || '').length, lb = (connB.label || '').length;
-          if (la <= lb) { chosen = connA; chosenSeg = sa; } else { chosen = connB; chosenSeg = sb; }
-        }
-      }
-      if (!chosen) continue;
-      fixed.add(chosen.id);
-      toFix.push({ conn: chosen, seg: chosenSeg, oStart, oEnd });
-    }
-  }
-
-  if (toFix.length === 0) {
-    showToast(_L('editor.toast.no_arrow_overlap') || 'Aucune superposition détectée');
-    return;
-  }
-
-  for (const { conn, seg, oStart, oEnd } of toFix) {
-    const { segIdx, fullPts, isH } = seg;
-    const pa = fullPts[segIdx], pb = fullPts[segIdx + 1];
-
-    // Coordonnée du segment à dévier (Y pour horizontal, X pour vertical)
-    // CRITIQUE : utiliser la position réelle du segment choisi, pas une moyenne
-    const segPos = isH ? pa.y : pa.x;
-
-    // Délimiter la zone de détour à l'intérieur du segment
-    const segMin = isH ? Math.min(pa.x, pb.x) : Math.min(pa.y, pb.y);
-    const segMax = isH ? Math.max(pa.x, pb.x) : Math.max(pa.y, pb.y);
-    const os = Math.max(segMin + 6, oStart - GAP);
-    const oe = Math.min(segMax - 6, oEnd + GAP);
-    if (os >= oe) continue;
-
-    // Choisir le meilleur côté pour le détour (éviter les formes)
-    const sign = _chooseDetourDir(isH, segPos, os, oe, OFFSET);
-
-    // Construire le chemin complet avec 4 points de détour insérés
-    const newPts = [];
-    for (let k = 0; k < fullPts.length; k++) {
-      newPts.push({ x: fullPts[k].x, y: fullPts[k].y });
-      if (k === segIdx) {
-        if (isH) {
-          newPts.push({ x: os, y: segPos });
-          newPts.push({ x: os, y: segPos + sign * OFFSET });
-          newPts.push({ x: oe, y: segPos + sign * OFFSET });
-          newPts.push({ x: oe, y: segPos });
-        } else {
-          newPts.push({ x: segPos,                y: os });
-          newPts.push({ x: segPos + sign * OFFSET, y: os });
-          newPts.push({ x: segPos + sign * OFFSET, y: oe });
-          newPts.push({ x: segPos,                y: oe });
-        }
-      }
-    }
-    conn.userPts = newPts.slice(1, -1);
-    conn._archDetoured = true; // marqueur pour réinitialisation au prochain appel
-
-    // Déplacer le label au milieu du segment de détour
-    if ((conn.label || '').trim()) {
-      if (isH)
-        conn.labelOffset = { x: (os + oe) / 2, y: segPos + sign * OFFSET };
-      else
-        conn.labelOffset = { x: segPos + sign * OFFSET, y: (os + oe) / 2 };
-    }
-  }
-
-  showToast(toFix.length + ' ' + (_L('editor.toast.arrows_fixed') || 'flèche(s) décalée(s)'));
-  snapshot(); render();
+  if (changed) { snapshot(); render(); }
 }
 
 
@@ -5835,9 +4943,6 @@ function init() {
   // Grouper
   document.getElementById('btn-group-create').addEventListener('click', createGroup);
 
-  // Pile
-  document.getElementById('btn-add-pile')?.addEventListener('click', createPile);
-
   // ── Popup sensibilité zoom ────────────────────────────────────────────────
   (function() {
     const pill    = document.getElementById('zoom-pill');
@@ -5867,68 +4972,9 @@ function init() {
     });
   })();
 
-  document.getElementById('btn-new-carto')?.addEventListener('click', newCarto);
+  document.getElementById('btn-new-carto').addEventListener('click', newCarto);
   document.getElementById('btn-architect').addEventListener('click', runCartoCheck);
-  // btn-place-labels: click → architectLabels immediately; hover 1s → dropdown
-  (function() {
-    if (window.OPTIQCARTO_READONLY) return;
-    const btn = document.getElementById('btn-place-labels');
-    if (!btn) return;
-    btn.addEventListener('click', architectLabels);
-
-    const drop = document.createElement('div');
-    drop.id = 'architect-dropdown';
-    drop.style.cssText = [
-      'position:absolute;top:100%;left:50%;transform:translateX(-50%)',
-      'margin-top:4px;background:#fff;border:1.5px solid #e2e8f0',
-      'border-radius:10px;box-shadow:0 6px 20px rgba(0,0,0,0.15)',
-      'z-index:9000;min-width:200px;overflow:hidden;display:none',
-      'flex-direction:column',
-    ].join(';');
-    drop.innerHTML = `
-      <button id="arch-btn-labels" style="padding:10px 16px;border:none;background:none;text-align:left;cursor:pointer;font-size:0.83rem;color:#1e293b;display:flex;align-items:center;gap:8px;width:100%">
-        <i class="fa-solid fa-tag" style="color:#ec4899;width:14px"></i>
-        <span data-key="editor.arch_drop_labels">Architecter les labels</span>
-      </button>
-      <button id="arch-btn-arrows" style="padding:10px 16px;border:none;background:none;text-align:left;cursor:pointer;font-size:0.83rem;color:#1e293b;display:flex;align-items:center;gap:8px;width:100%;border-top:1px solid #f1f5f9">
-        <i class="fa-solid fa-arrows-split-up-and-left" style="color:#3b82f6;width:14px"></i>
-        <span data-key="editor.arch_drop_arrows">Architecter les flèches</span>
-      </button>`;
-    drop.querySelector('#arch-btn-labels').onmouseenter = e => e.currentTarget.style.background = '#f8fafc';
-    drop.querySelector('#arch-btn-labels').onmouseleave = e => e.currentTarget.style.background = '';
-    drop.querySelector('#arch-btn-arrows').onmouseenter = e => e.currentTarget.style.background = '#f8fafc';
-    drop.querySelector('#arch-btn-arrows').onmouseleave = e => e.currentTarget.style.background = '';
-    drop.querySelector('#arch-btn-labels').addEventListener('click', e => { e.stopPropagation(); hideDrop(); architectLabels(); });
-    drop.querySelector('#arch-btn-arrows').addEventListener('click', e => { e.stopPropagation(); hideDrop(); architectArrows(); });
-
-    // Apply i18n to dropdown labels
-    drop.querySelectorAll('[data-key]').forEach(el => {
-      const t = _L(el.dataset.key);
-      if (t && t !== el.dataset.key) el.textContent = t;
-    });
-
-    // Position relative — btn must have position:relative
-    btn.style.position = 'relative';
-    btn.appendChild(drop);
-
-    let _hoverTimer = null;
-    function showDrop() { drop.style.display = 'flex'; }
-    function hideDrop() { drop.style.display = 'none'; clearTimeout(_hoverTimer); }
-
-    btn.addEventListener('mouseenter', () => {
-      _hoverTimer = setTimeout(showDrop, 1000);
-    });
-    btn.addEventListener('mouseleave', e => {
-      clearTimeout(_hoverTimer);
-      if (!drop.contains(e.relatedTarget)) hideDrop();
-    });
-    drop.addEventListener('mouseleave', e => {
-      if (!btn.contains(e.relatedTarget)) hideDrop();
-    });
-    document.addEventListener('click', e => {
-      if (!btn.contains(e.target)) hideDrop();
-    }, true);
-  })();
+  document.getElementById('btn-place-labels').addEventListener('click', architectLabels);
   document.getElementById('btn-undo').addEventListener('click', undo);
   document.getElementById('btn-redo').addEventListener('click', redo);
   document.getElementById('btn-fit').addEventListener('click', fitView);
@@ -6092,7 +5138,6 @@ function init() {
       isDirty = false;
       render(); updateProps(); fitView();
       try { window.parent.postMessage({ type: 'carto-state-ready' }, '*'); } catch(_) {}
-      _loadLiaisons().then(() => render());
     }
 
     if (window.OPTIQCARTO_ACTIVE_CALQUE) {
@@ -6164,38 +5209,14 @@ function initDock() { /* dock supprimé */ }
 document.addEventListener('DOMContentLoaded', init);
 
 // Écoute les messages postMessage depuis la page parente (activities_map).
+// Permet d'activer le mode "mise en évidence des activités externes" depuis l'extérieur de l'iframe.
 window.addEventListener('message', function(e) {
   if (!e.data || typeof e.data !== 'object') return;
-
   if (e.data.type === 'toggle-extco') {
     if (typeof toggleHighlightExtco === 'function') toggleHighlightExtco();
     try { e.source.postMessage({ type: 'extco-state', active: typeof isHighlightExtcoActive === 'function' ? isHighlightExtcoActive() : false }, e.origin || '*'); } catch(_) {}
   }
   if (e.data.type === 'get-extco-state') {
     try { e.source.postMessage({ type: 'extco-state', active: typeof isHighlightExtcoActive === 'function' ? isHighlightExtcoActive() : false }, e.origin || '*'); } catch(_) {}
-  }
-
-  // Zoom sur une activité + halo lumineux (depuis la prévisualisation cross-carto)
-  if (e.data.type === 'zoom-to-activity') {
-    const name = (e.data.activityName || '').trim().toLowerCase();
-    if (!name) return;
-    _haloShapeId = null;
-    // Chercher forme par label exact puis par inclusion
-    let target = state.shapes.find(s => (s.label || '').trim().toLowerCase() === name);
-    if (!target) target = state.shapes.find(s => {
-      const sl = (s.label || '').trim().toLowerCase();
-      return sl.includes(name) || name.includes(sl);
-    });
-    if (!target) return;
-    _haloShapeId = target.id;
-    // Centrer et zoomer sur la forme
-    const cx = target.x + target.w / 2;
-    const cy = target.y + target.h / 2;
-    const cvs = canvas.getBoundingClientRect();
-    vpScale = Math.max(0.6, vpScale); // au moins 120% affiché
-    vpX = cvs.width  / 2 - cx * vpScale;
-    vpY = cvs.height / 2 - cy * vpScale;
-    applyViewport();
-    render();
   }
 });
