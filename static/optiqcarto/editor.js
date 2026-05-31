@@ -594,7 +594,7 @@ function renderConnections() {
     const tp = spreadPort(to,   tdir, c.id, 'to',   c.toPortT);
     const routing = c.routing || 'smooth';
 
-    // Routing orthogonal pur avec évitement des formes (toutes connexions, y compris importées)
+    // Routing : customPath (géométrie VSDX exacte) sinon recalcul orthogonal
     let orthopts, d, _usedFp = fp, _usedTp = tp;
     {
       const fk2 = `${c.fromId}-${fdir}`;
