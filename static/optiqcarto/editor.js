@@ -594,7 +594,7 @@ function renderConnections() {
     const tp = spreadPort(to,   tdir, c.id, 'to',   c.toPortT);
     const routing = c.routing || 'smooth';
 
-    // Routing : customPath (géométrie VSDX exacte) sinon recalcul orthogonal
+    // Routing orthogonal pur avec évitement des formes (toutes connexions, y compris importées)
     let orthopts, d, _usedFp = fp, _usedTp = tp;
     {
       const fk2 = `${c.fromId}-${fdir}`;
@@ -651,15 +651,29 @@ function renderConnections() {
       stroke: color,
       'stroke-width': isSel ? '3' : '2',
       'stroke-dasharray': c.style === 'dashed' ? '9,6' : 'none',
-      'marker-end': `url(#${mId})`,
+      'marker-end': c.noEndArrow ? 'none' : `url(#${mId})`,
       'data-id': c.id, 'data-type': 'conn', cursor: 'pointer',
       'pointer-events': 'none',
     }, gConns);
 
+    // Oui/Non auto-label pour les connexions sortant d'un diamant sans label explicite.
+    // Compare la direction d'entrée (toPortDir de la connexion A→D avec noEndArrow)
+    // et la direction de sortie (fromPortDir de D→B) :
+    //   opposées  → trajet droit → "Oui"
+    //   adjacentes → virage 90°  → "Non"
+    let effectiveLabel = c.label || '';
+    if (!effectiveLabel && from._type === 'decision') {
+      const entryConn = state.connections.find(x => x.toId === c.fromId && x.noEndArrow);
+      if (entryConn && entryConn.toPortDir && c.fromPortDir) {
+        const OPP_LOCAL = { right:'left', left:'right', top:'bottom', bottom:'top' };
+        effectiveLabel = OPP_LOCAL[c.fromPortDir] === entryConn.toPortDir ? 'Oui' : 'Non';
+      }
+    }
+
     // Label : placement par score — évite les coins, les formes, et les croisements.
     // Toujours SUR la flèche (perp=0), aligné sur la direction dominante (H ou V).
-    if (c.label) {
-      const labelLines = c.label.split('\n');
+    if (effectiveLabel) {
+      const labelLines = effectiveLabel.split('\n');
       const maxLineLen = Math.max(...labelLines.map(l => l.length));
       const lw = Math.max(20, maxLineLen * 6);
       const lineH = 13;
@@ -820,7 +834,7 @@ function renderConnections() {
       rx: '3', fill: 'rgba(255,255,255,0.96)',
     }, lg);
     if (labelLines.length === 1) {
-      txt(c.label, {
+      txt(labelLines[0], {
         x: '0', y: '0',
         'text-anchor': 'middle', 'dominant-baseline': 'middle',
         fill: color, 'font-size': '14', 'font-family': 'Segoe UI, sans-serif', 'font-weight': '600',
