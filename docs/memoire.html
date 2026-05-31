@@ -1,387 +1,220 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>DevOPTIQ — Évolution du projet | Mémoire BUT Info 3ème année</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1/dist/chartjs-plugin-annotation.min.js"></script>
   <style>
     :root {
-      --rose:    #ec4899;
-      --rose-d:  #be185d;
-      --green:   #22c55e;
-      --green-d: #15803d;
-      --violet:  #8b5cf6;
-      --violet-d:#6d28d9;
-      --cyan:    #06b6d4;
-      --amber:   #f59e0b;
-      --bg:      #0b1120;
-      --bg2:     #111827;
-      --card:    rgba(17,24,39,0.85);
-      --border:  rgba(255,255,255,0.08);
-      --text:    #f1f5f9;
-      --muted:   #94a3b8;
-      --font:    'Segoe UI', system-ui, -apple-system, sans-serif;
+      --rose:#ec4899; --rose-d:#be185d;
+      --green:#22c55e; --green-d:#15803d;
+      --violet:#8b5cf6; --violet-d:#6d28d9;
+      --cyan:#06b6d4; --amber:#f59e0b;
+      --bg:#0b1120; --bg2:#111827;
+      --card:rgba(17,24,39,0.88);
+      --border:rgba(255,255,255,0.08);
+      --text:#f1f5f9; --muted:#94a3b8;
+      --font:'Segoe UI',system-ui,-apple-system,sans-serif;
     }
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{background:var(--bg);color:var(--text);font-family:var(--font);line-height:1.6;overflow-x:hidden}
 
-    * { margin: 0; padding: 0; box-sizing: border-box; }
+    /* HERO */
+    .hero{position:relative;min-height:360px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:3rem 2rem 4rem;overflow:hidden}
+    .hero-bg{position:absolute;inset:0;background:radial-gradient(ellipse 80% 60% at 50% 0%,rgba(139,92,246,.22),transparent 70%),radial-gradient(ellipse 50% 40% at 80% 80%,rgba(236,72,153,.15),transparent 60%),radial-gradient(ellipse 50% 40% at 20% 90%,rgba(34,197,94,.1),transparent 60%)}
+    .hero-grid{position:absolute;inset:0;background-image:linear-gradient(rgba(255,255,255,.03) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.03) 1px,transparent 1px);background-size:40px 40px}
+    .hero-content{position:relative;z-index:1;max-width:800px}
+    .hero-eyebrow{display:inline-flex;align-items:center;gap:.5rem;font-size:.75rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--violet);background:rgba(139,92,246,.12);border:1px solid rgba(139,92,246,.3);border-radius:999px;padding:.3rem .9rem;margin-bottom:1.2rem}
+    .hero h1{font-size:clamp(2rem,5vw,3.4rem);font-weight:800;line-height:1.15;background:linear-gradient(135deg,#fff 30%,var(--rose) 70%,var(--violet) 100%);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:.6rem}
+    .hero-sub{font-size:1.05rem;color:var(--muted);max-width:580px;margin:0 auto 1.6rem}
+    .hero-pills{display:flex;flex-wrap:wrap;gap:.6rem;justify-content:center}
+    .pill{font-size:.78rem;font-weight:600;padding:.3rem .8rem;border-radius:999px;border:1px solid}
+    .pill-rose{color:var(--rose);border-color:rgba(236,72,153,.4);background:rgba(236,72,153,.08)}
+    .pill-green{color:var(--green);border-color:rgba(34,197,94,.4);background:rgba(34,197,94,.08)}
+    .pill-violet{color:var(--violet);border-color:rgba(139,92,246,.4);background:rgba(139,92,246,.08)}
+    .pill-cyan{color:var(--cyan);border-color:rgba(6,182,212,.4);background:rgba(6,182,212,.08)}
+    .pill-amber{color:var(--amber);border-color:rgba(245,158,11,.4);background:rgba(245,158,11,.08)}
 
-    body {
-      background: var(--bg);
-      color: var(--text);
-      font-family: var(--font);
-      line-height: 1.6;
-      overflow-x: hidden;
-    }
+    /* STATS BAND */
+    .stats-band{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:1px;background:var(--border);border-top:1px solid var(--border);border-bottom:1px solid var(--border)}
+    .stat-item{background:var(--bg2);padding:1.4rem 1rem;text-align:center}
+    .stat-num{font-size:1.9rem;font-weight:800;line-height:1}
+    .stat-lbl{font-size:.72rem;color:var(--muted);margin-top:.3rem;text-transform:uppercase;letter-spacing:.06em}
 
-    /* ── HERO ── */
-    .hero {
-      position: relative;
-      min-height: 380px;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      text-align: center;
-      padding: 3rem 2rem 4rem;
-      overflow: hidden;
-    }
-    .hero-bg {
-      position: absolute; inset: 0;
-      background: radial-gradient(ellipse 80% 60% at 50% 0%, rgba(139,92,246,.25), transparent 70%),
-                  radial-gradient(ellipse 50% 40% at 80% 80%, rgba(236,72,153,.18), transparent 60%),
-                  radial-gradient(ellipse 50% 40% at 20% 90%, rgba(34,197,94,.12), transparent 60%);
-    }
-    .hero-grid {
-      position: absolute; inset: 0;
-      background-image:
-        linear-gradient(rgba(255,255,255,.03) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(255,255,255,.03) 1px, transparent 1px);
-      background-size: 40px 40px;
-    }
-    .hero-content { position: relative; z-index: 1; max-width: 800px; }
-    .hero-eyebrow {
-      display: inline-flex; align-items: center; gap: .5rem;
-      font-size: .75rem; font-weight: 600; letter-spacing: .1em; text-transform: uppercase;
-      color: var(--violet); background: rgba(139,92,246,.12);
-      border: 1px solid rgba(139,92,246,.3); border-radius: 999px;
-      padding: .3rem .9rem; margin-bottom: 1.2rem;
-    }
-    .hero h1 {
-      font-size: clamp(2rem, 5vw, 3.4rem);
-      font-weight: 800; line-height: 1.15;
-      background: linear-gradient(135deg, #fff 30%, var(--rose) 70%, var(--violet) 100%);
-      -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
-      margin-bottom: .6rem;
-    }
-    .hero-sub {
-      font-size: 1.05rem; color: var(--muted); max-width: 560px; margin: 0 auto 1.6rem;
-    }
-    .hero-pills {
-      display: flex; flex-wrap: wrap; gap: .6rem; justify-content: center;
-    }
-    .pill {
-      font-size: .78rem; font-weight: 600; padding: .3rem .8rem; border-radius: 999px;
-      border: 1px solid;
-    }
-    .pill-rose   { color: var(--rose);   border-color: rgba(236,72,153,.4); background: rgba(236,72,153,.08); }
-    .pill-green  { color: var(--green);  border-color: rgba(34,197,94,.4);  background: rgba(34,197,94,.08); }
-    .pill-violet { color: var(--violet); border-color: rgba(139,92,246,.4); background: rgba(139,92,246,.08); }
-    .pill-cyan   { color: var(--cyan);   border-color: rgba(6,182,212,.4);  background: rgba(6,182,212,.08); }
-    .pill-amber  { color: var(--amber);  border-color: rgba(245,158,11,.4); background: rgba(245,158,11,.08); }
+    /* SECTION */
+    .section{max-width:1200px;margin:0 auto;padding:3rem 1.5rem}
+    .section-title{display:flex;align-items:center;gap:.75rem;font-size:1.4rem;font-weight:700;margin-bottom:.4rem}
+    .section-title .dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+    .section-desc{color:var(--muted);font-size:.88rem;margin-bottom:1.8rem;max-width:680px}
+    hr.sep{border:none;border-top:1px solid var(--border);margin:0}
 
-    /* ── STATS BAND ── */
-    .stats-band {
-      display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-      gap: 1px; background: var(--border); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border);
-    }
-    .stat-item {
-      background: var(--bg2); padding: 1.4rem 1rem; text-align: center;
-    }
-    .stat-num {
-      font-size: 2rem; font-weight: 800; line-height: 1;
-    }
-    .stat-lbl { font-size: .75rem; color: var(--muted); margin-top: .3rem; text-transform: uppercase; letter-spacing: .06em; }
+    /* CARD */
+    .card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:1.5rem;backdrop-filter:blur(12px);position:relative;overflow:hidden}
+    .card::before{content:'';position:absolute;inset:0;border-radius:inherit;background:linear-gradient(135deg,rgba(255,255,255,.025),transparent);pointer-events:none}
+    .card-title{font-size:.82rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:1.1rem;display:flex;align-items:center;gap:.5rem}
 
-    /* ── SECTION ── */
-    .section {
-      max-width: 1200px; margin: 0 auto; padding: 3.5rem 1.5rem;
-    }
-    .section-title {
-      display: flex; align-items: center; gap: .75rem;
-      font-size: 1.45rem; font-weight: 700; margin-bottom: .4rem;
-    }
-    .section-title .dot {
-      width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0;
-    }
-    .section-desc {
-      color: var(--muted); font-size: .9rem; margin-bottom: 2rem; max-width: 680px;
-    }
-    hr.sep {
-      border: none; border-top: 1px solid var(--border); margin: 0;
-    }
+    .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:1.25rem}
+    .grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:1.25rem}
+    .col-span-2{grid-column:span 2}
+    @media(max-width:768px){.grid-2,.grid-3{grid-template-columns:1fr}.col-span-2{grid-column:span 1}}
 
-    /* ── CARD ── */
-    .card {
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: 16px;
-      padding: 1.5rem;
-      backdrop-filter: blur(12px);
-      position: relative; overflow: hidden;
-    }
-    .card::before {
-      content: '';
-      position: absolute; inset: 0;
-      border-radius: inherit;
-      background: linear-gradient(135deg, rgba(255,255,255,.03), transparent);
-      pointer-events: none;
-    }
-    .card-title {
-      font-size: .85rem; font-weight: 700; text-transform: uppercase;
-      letter-spacing: .08em; color: var(--muted); margin-bottom: 1.2rem;
-      display: flex; align-items: center; gap: .5rem;
-    }
-    .card-title-dot {
-      width: 8px; height: 8px; border-radius: 50;
-    }
+    /* CHART SIZES */
+    .ch{position:relative;height:280px}
+    .ch-lg{position:relative;height:360px}
+    .ch-sm{position:relative;height:210px}
+    .ch-xl{position:relative;height:420px}
 
-    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
-    .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.25rem; }
-    .col-span-2 { grid-column: span 2; }
+    /* TIMELINE */
+    .timeline{position:relative;padding:.5rem 0}
+    .timeline::before{content:'';position:absolute;left:50%;transform:translateX(-50%);top:0;bottom:0;width:2px;background:linear-gradient(to bottom,var(--violet),var(--rose) 50%,var(--green))}
+    .tl-item{position:relative;display:flex;gap:2rem;margin-bottom:2rem;align-items:flex-start}
+    .tl-item:nth-child(even){flex-direction:row-reverse}
+    .tl-item:nth-child(even) .tl-content{text-align:right}
+    .tl-item:nth-child(even) .tl-tags{justify-content:flex-end}
+    .tl-dot{position:absolute;left:50%;transform:translateX(-50%);width:14px;height:14px;border-radius:50%;top:6px;border:2px solid var(--bg);z-index:1}
+    .tl-content{width:calc(50% - 2rem);background:var(--card);border:1px solid var(--border);border-radius:12px;padding:.9rem 1.1rem}
+    .tl-date{font-size:.7rem;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.07em;margin-bottom:.25rem}
+    .tl-title{font-size:.92rem;font-weight:700;margin-bottom:.35rem}
+    .tl-body{font-size:.8rem;color:var(--muted);line-height:1.5}
+    .tl-tags{display:flex;flex-wrap:wrap;gap:.35rem;margin-top:.55rem}
+    .tl-tag{font-size:.66rem;font-weight:600;padding:.12rem .55rem;border-radius:999px;border:1px solid;letter-spacing:.04em;text-transform:uppercase}
 
-    @media(max-width: 768px) {
-      .grid-2, .grid-3 { grid-template-columns: 1fr; }
-      .col-span-2 { grid-column: span 1; }
-    }
+    /* FEATURE HEATMAP */
+    .heatmap-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+    .heatmap{border-collapse:collapse;width:100%;min-width:900px;font-size:.75rem}
+    .heatmap th{padding:.45rem .5rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;font-size:.65rem;border-bottom:1px solid var(--border);white-space:nowrap;text-align:center}
+    .heatmap th.feat-col{text-align:left;min-width:160px;color:var(--text)}
+    .heatmap td{padding:.4rem .5rem;border:1px solid rgba(255,255,255,0.04);text-align:center;font-size:.72rem;font-weight:700;border-radius:4px;white-space:nowrap}
+    .heatmap td.feat-name{text-align:left;font-weight:600;color:var(--text);background:rgba(255,255,255,0.02)!important;padding-left:.75rem;min-width:160px}
+    .heatmap tr:hover td{filter:brightness(1.15)}
+    /* heatmap cells by level */
+    .v0{background:rgba(100,116,139,0.08);color:rgba(100,116,139,0.4)}
+    .v1{background:rgba(139,92,246,0.18);color:rgba(139,92,246,0.7)}
+    .v2{background:rgba(139,92,246,0.38);color:#a78bfa}
+    .v3{background:rgba(236,72,153,0.35);color:#f472b6}
+    .v4{background:rgba(236,72,153,0.6);color:#fce7f3}
+    .v5{background:rgba(236,72,153,0.88);color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.4)}
 
-    /* ── TIMELINE ── */
-    .timeline { position: relative; padding: 1rem 0; }
-    .timeline::before {
-      content: '';
-      position: absolute; left: 50%; transform: translateX(-50%);
-      top: 0; bottom: 0; width: 2px;
-      background: linear-gradient(to bottom, var(--violet), var(--rose), var(--green));
-    }
-    .tl-item {
-      position: relative; display: flex; gap: 2rem;
-      margin-bottom: 2.5rem; align-items: flex-start;
-    }
-    .tl-item:nth-child(even) { flex-direction: row-reverse; }
-    .tl-item:nth-child(even) .tl-content { text-align: right; }
-    .tl-item:nth-child(even) .tl-content .tl-tags { justify-content: flex-end; }
-    .tl-connector {
-      position: absolute; left: 50%; transform: translateX(-50%);
-      width: 14px; height: 14px; border-radius: 50%; top: 6px;
-      border: 2px solid var(--bg); z-index: 1;
-    }
-    .tl-content {
-      width: calc(50% - 2rem); background: var(--card);
-      border: 1px solid var(--border); border-radius: 12px; padding: 1rem 1.2rem;
-    }
-    .tl-date {
-      font-size: .72rem; color: var(--muted); font-weight: 600;
-      text-transform: uppercase; letter-spacing: .07em; margin-bottom: .3rem;
-    }
-    .tl-title {
-      font-size: .95rem; font-weight: 700; margin-bottom: .4rem;
-    }
-    .tl-body { font-size: .83rem; color: var(--muted); line-height: 1.5; }
-    .tl-tags {
-      display: flex; flex-wrap: wrap; gap: .4rem; margin-top: .6rem;
-    }
-    .tl-tag {
-      font-size: .68rem; font-weight: 600; padding: .15rem .6rem; border-radius: 999px;
-      border: 1px solid; letter-spacing: .04em; text-transform: uppercase;
-    }
+    /* LEGEND */
+    .legend-row{display:flex;flex-wrap:wrap;gap:.75rem;margin-top:.8rem}
+    .legend-item{display:flex;align-items:center;gap:.4rem;font-size:.78rem;color:var(--muted)}
+    .legend-dot{width:10px;height:10px;border-radius:2px;flex-shrink:0}
 
-    /* ── CHART CONTAINER ── */
-    .chart-wrap { position: relative; height: 300px; }
-    .chart-wrap-lg { position: relative; height: 380px; }
-    .chart-wrap-sm { position: relative; height: 220px; }
-
-    /* ── FEATURE TRACK ── */
-    .feature-track {
-      display: grid; grid-template-columns: 120px 1fr; gap: 0; margin-bottom: .5rem; align-items: center;
-    }
-    .ft-label {
-      font-size: .78rem; font-weight: 600; color: var(--muted); padding-right: .75rem; text-align: right;
-      text-transform: uppercase; letter-spacing: .05em;
-    }
-    .ft-bar-outer {
-      height: 22px; background: rgba(255,255,255,.04); border-radius: 4px; overflow: hidden;
-    }
-    .ft-bar {
-      height: 100%; border-radius: 4px; position: relative;
-      display: flex; align-items: center; padding-left: .5rem;
-      font-size: .72rem; font-weight: 700; color: #fff;
-      transition: width 1s ease;
-    }
-
-    /* ── RADAR TABLE ── */
-    .radar-wrap { position: relative; height: 320px; }
-
-    /* ── FOOTER ── */
-    footer {
-      text-align: center; padding: 2.5rem 1rem;
-      border-top: 1px solid var(--border); color: var(--muted);
-      font-size: .8rem;
-    }
-    footer strong { color: var(--rose); }
-
-    /* ── LEGEND ROW ── */
-    .legend-row {
-      display: flex; flex-wrap: wrap; gap: .75rem; margin-top: .8rem;
-    }
-    .legend-item {
-      display: flex; align-items: center; gap: .4rem; font-size: .78rem; color: var(--muted);
-    }
-    .legend-dot {
-      width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0;
-    }
+    /* FOOTER */
+    footer{text-align:center;padding:2.5rem 1rem;border-top:1px solid var(--border);color:var(--muted);font-size:.8rem}
+    footer strong{color:var(--rose)}
+    .note{font-size:.72rem;color:var(--muted);margin-top:.6rem;padding:.5rem .75rem;background:rgba(245,158,11,.07);border-left:2px solid var(--amber);border-radius:0 6px 6px 0}
   </style>
 </head>
 <body>
 
-<!-- ══════════════════════  HERO  ══════════════════════ -->
+<!-- HERO -->
 <header class="hero">
   <div class="hero-bg"></div>
   <div class="hero-grid"></div>
   <div class="hero-content">
-    <div class="hero-eyebrow">
-      <span>●</span> Mémoire BUT Informatique — 3ème année — 2024 / 2026
-    </div>
+    <div class="hero-eyebrow">● Mémoire BUT Informatique — 3ème année — 2024 / 2026</div>
     <h1>DevOPTIQ</h1>
     <p class="hero-sub">
-      Retrace l'évolution complète du projet — de l'idée initiale (déc. 2024)
-      à une application cloud-native de gestion des compétences et activités.
-      <br><strong style="color: var(--text)">Auteur : Mael Girardin — AFDEC</strong>
+      Retrace l'évolution complète du projet — de l'idée initiale (déc. 2024) à une application
+      cloud-native de gestion des compétences et activités d'entreprise.
+      <br><strong style="color:var(--text)">Auteur : Mael Girardin — AFDEC</strong>
     </p>
     <div class="hero-pills">
       <span class="pill pill-violet">Flask / Python</span>
       <span class="pill pill-rose">PostgreSQL / SQLite</span>
       <span class="pill pill-green">Cloud Run Google</span>
       <span class="pill pill-cyan">OptiqCarto SVG</span>
-      <span class="pill pill-amber">API Claude / GPT-4o</span>
-      <span class="pill pill-violet">247 commits</span>
+      <span class="pill pill-amber">Claude / GPT-4o APIs</span>
+      <span class="pill pill-violet">249 commits · 5 auteurs</span>
     </div>
   </div>
 </header>
 
-<!-- ══════════════════════  STATS BAND  ══════════════════════ -->
+<!-- STATS BAND -->
 <div class="stats-band">
-  <div class="stat-item">
-    <div class="stat-num" style="color:var(--violet)">247</div>
-    <div class="stat-lbl">Commits</div>
-  </div>
-  <div class="stat-item">
-    <div class="stat-num" style="color:var(--rose)">72 500</div>
-    <div class="stat-lbl">Lignes de code</div>
-  </div>
-  <div class="stat-item">
-    <div class="stat-num" style="color:var(--green)">68</div>
-    <div class="stat-lbl">Fichiers Python</div>
-  </div>
-  <div class="stat-item">
-    <div class="stat-num" style="color:var(--cyan)">66</div>
-    <div class="stat-lbl">Templates HTML</div>
-  </div>
-  <div class="stat-item">
-    <div class="stat-num" style="color:var(--amber)">404</div>
-    <div class="stat-lbl">Tests unitaires</div>
-  </div>
-  <div class="stat-item">
-    <div class="stat-num" style="color:var(--rose)">18</div>
-    <div class="stat-lbl">Mois de dev</div>
-  </div>
-  <div class="stat-item">
-    <div class="stat-num" style="color:var(--green)">5 704</div>
-    <div class="stat-lbl">LOC OptiqCarto JS</div>
-  </div>
-  <div class="stat-item">
-    <div class="stat-num" style="color:var(--violet)">55+</div>
-    <div class="stat-lbl">Endpoints API</div>
-  </div>
+  <div class="stat-item"><div class="stat-num" style="color:var(--violet)">249</div><div class="stat-lbl">Commits totaux</div></div>
+  <div class="stat-item"><div class="stat-num" style="color:var(--rose)">72 500</div><div class="stat-lbl">Lignes de code</div></div>
+  <div class="stat-item"><div class="stat-num" style="color:var(--green)">68</div><div class="stat-lbl">Fichiers Python</div></div>
+  <div class="stat-item"><div class="stat-num" style="color:var(--cyan)">52</div><div class="stat-lbl">Fichiers JS</div></div>
+  <div class="stat-item"><div class="stat-num" style="color:var(--amber)">404</div><div class="stat-lbl">Tests unitaires</div></div>
+  <div class="stat-item"><div class="stat-num" style="color:var(--rose)">18</div><div class="stat-lbl">Mois de dev</div></div>
+  <div class="stat-item"><div class="stat-num" style="color:var(--violet)">5 704</div><div class="stat-lbl">LOC editor.js</div></div>
+  <div class="stat-item"><div class="stat-num" style="color:var(--green)">55+</div><div class="stat-lbl">Endpoints API</div></div>
 </div>
-
 <hr class="sep">
 
-<!-- ══════════════════════  SECTION 1 — TIMELINE  ══════════════════════ -->
+<!-- ══ SECTION 1 — TIMELINE ══ -->
 <section class="section">
-  <div class="section-title">
-    <span class="dot" style="background:var(--violet)"></span>
-    Chronologie du projet
-  </div>
-  <p class="section-desc">
-    Les grandes étapes de DevOPTIQ, du commit initial sur le dépôt Colmar
-    jusqu'à la version Cloud Run complète sur le dépôt maelouuu.
-  </p>
+  <div class="section-title"><span class="dot" style="background:var(--violet)"></span>Chronologie du projet</div>
+  <p class="section-desc">12 phases majeures identifiées depuis le commit initial sur le dépôt Colmar (colasmar)
+  jusqu'au déploiement Cloud Run sur maelouuu, avec les commits Claude Code CI/CD comptabilisés intégralement.</p>
 
   <div class="timeline">
 
     <div class="tl-item">
-      <div class="tl-connector" style="background:var(--violet)"></div>
+      <div class="tl-dot" style="background:var(--violet)"></div>
       <div class="tl-content">
-        <div class="tl-date">Décembre 2024</div>
-        <div class="tl-title">🚀 Initial commit — Dépôt Colmar</div>
-        <div class="tl-body">
-          Initialisation du dépôt sur le compte <em>Colmar</em>. Structure de base :
-          Flask, SQLite, première page HTML affichant des activités en volet déroulant.
-          Import Visio (.vsdx) fonctionnel en lecture. Routes avec blueprints.
-        </div>
+        <div class="tl-date">Déc. 2024 — Dépôt Colmar</div>
+        <div class="tl-title">🚀 Initial commit & Structure Flask</div>
+        <div class="tl-body">Création du dépôt sur le compte <em>colasmar</em>. Flask + SQLite + SQLAlchemy.
+        Routes blueprints, affichage activités en volet déroulant. Import Visio (.vsdx) fonctionnel
+        en lecture. Premier modèle de données <code>Activity</code>.</div>
         <div class="tl-tags">
           <span class="tl-tag" style="color:var(--violet);border-color:rgba(139,92,246,.4)">Flask</span>
           <span class="tl-tag" style="color:var(--rose);border-color:rgba(236,72,153,.4)">SQLite</span>
           <span class="tl-tag" style="color:var(--cyan);border-color:rgba(6,182,212,.4)">VSDX v1</span>
+          <span class="tl-tag" style="color:var(--muted);border-color:rgba(148,163,184,.3)">12 commits</span>
         </div>
       </div>
     </div>
 
     <div class="tl-item">
-      <div class="tl-connector" style="background:var(--rose)"></div>
+      <div class="tl-dot" style="background:var(--cyan)"></div>
       <div class="tl-content">
-        <div class="tl-date">Février 2025</div>
-        <div class="tl-title">⚙️ Itération 2 — Gestion des tâches</div>
-        <div class="tl-body">
-          Ajout du modèle <code>Task</code>, gestion des outils, glisser-déposer sur la liste d'activités.
-          Import des tâches via bouton dédié. Premières migrations Alembic locales.
-        </div>
+        <div class="tl-date">Fév. 2025 — Itération 2</div>
+        <div class="tl-title">⚙️ Gestion des tâches & glisser-déposer</div>
+        <div class="tl-body">Modèle <code>Task</code> + association activities↔tasks.
+        Import des tâches via bouton dédié. Glisser-déposer sur la liste d'activités.
+        Premières migrations Alembic locales. Correction de la gestion des flux VSDX.</div>
         <div class="tl-tags">
           <span class="tl-tag" style="color:var(--green);border-color:rgba(34,197,94,.4)">Tâches</span>
-          <span class="tl-tag" style="color:var(--amber);border-color:rgba(245,158,11,.4)">Alembic local</span>
+          <span class="tl-tag" style="color:var(--amber);border-color:rgba(245,158,11,.4)">Alembic</span>
+          <span class="tl-tag" style="color:var(--muted);border-color:rgba(148,163,184,.3)">13 commits</span>
         </div>
       </div>
     </div>
 
     <div class="tl-item">
-      <div class="tl-connector" style="background:var(--green)"></div>
+      <div class="tl-dot" style="background:var(--green)"></div>
       <div class="tl-content">
-        <div class="tl-date">Juin – Août 2025</div>
+        <div class="tl-date">Jun. – Août 2025</div>
         <div class="tl-title">🧠 Compétences, ROME 4.0 & Propositions IA</div>
-        <div class="tl-body">
-          Page de gestion des compétences (savoir, savoir-faire, aptitudes, softskills).
-          Intégration de l'API France Travail pour le matching ROME 4.0.
-          Premiers appels OpenAI GPT pour des propositions contextuelles.
-          Page gestion des outils et des rôles.
-        </div>
+        <div class="tl-body">Intégration API France Travail pour le matching ROME 4.0.
+        Module compétences complet : savoir, savoir-faire, aptitudes, softskills.
+        Premiers appels OpenAI GPT-4o-mini pour des propositions contextuelles.
+        Page gestion des outils (<code>gestion_outils.py</code>), page rôles.
+        Analyse des temps (3 tableaux).</div>
         <div class="tl-tags">
           <span class="tl-tag" style="color:var(--violet);border-color:rgba(139,92,246,.4)">OpenAI GPT</span>
           <span class="tl-tag" style="color:var(--cyan);border-color:rgba(6,182,212,.4)">ROME 4.0</span>
           <span class="tl-tag" style="color:var(--rose);border-color:rgba(236,72,153,.4)">Compétences</span>
+          <span class="tl-tag" style="color:var(--muted);border-color:rgba(148,163,184,.3)">15 commits</span>
         </div>
       </div>
     </div>
 
     <div class="tl-item">
-      <div class="tl-connector" style="background:var(--cyan)"></div>
+      <div class="tl-dot" style="background:var(--amber)"></div>
       <div class="tl-content">
-        <div class="tl-date">Octobre 2025</div>
-        <div class="tl-title">☁️ Mise en ligne — Cloud Run + PostgreSQL</div>
-        <div class="tl-body">
-          Passage sur le dépôt personnel <em>maelouuu</em> (plus simple pour le déploiement solo).
-          Dockerisation de l'application. Base de données migrée vers PostgreSQL Neon Cloud.
-          Premier déploiement Google Cloud Run.
-        </div>
+        <div class="tl-date">Oct. 2025 — Changement d'hébergement</div>
+        <div class="tl-title">☁️ Dockerisation & mise en ligne Cloud Run</div>
+        <div class="tl-body">Passage sur le dépôt personnel <em>maelouuu</em> (plus simple pour le déploiement solo).
+        Dockerfile + .dockerignore. Base de données migrée vers PostgreSQL Neon Cloud.
+        Variables d'environnement Cloud Run (<code>DATABASE_URL</code>, clés API).
+        Premier déploiement Google Cloud Run réussi.</div>
         <div class="tl-tags">
           <span class="tl-tag" style="color:var(--green);border-color:rgba(34,197,94,.4)">Docker</span>
           <span class="tl-tag" style="color:var(--cyan);border-color:rgba(6,182,212,.4)">Cloud Run</span>
@@ -392,110 +225,146 @@
     </div>
 
     <div class="tl-item">
-      <div class="tl-connector" style="background:var(--amber)"></div>
+      <div class="tl-dot" style="background:var(--rose)"></div>
       <div class="tl-content">
-        <div class="tl-date">Novembre – Décembre 2025</div>
-        <div class="tl-title">🗂️ Entités & Séparation des cartographies</div>
-        <div class="tl-body">
-          Ajout de la logique d'entités organisationnelles (département, service).
-          Chaque entité a sa propre cartographie SVG. Refonte des routes <code>propose_*</code>,
-          collaboration Colasmar via PR, fusion branches.
-        </div>
+        <div class="tl-date">Nov. – Déc. 2025</div>
+        <div class="tl-title">🏢 Logique d'entités & Séparation des cartographies</div>
+        <div class="tl-body">Ajout du modèle <code>Entity</code> (département, service…).
+        Chaque entité possède sa propre cartographie SVG indépendante.
+        Refonte des routes <code>propose_*</code> avec fallback sans clé OpenAI.
+        PR Colasmar #9 et #14 fusionnées. Page Visio dédiée.
+        21 commits dont collaboration externe.</div>
         <div class="tl-tags">
           <span class="tl-tag" style="color:var(--rose);border-color:rgba(236,72,153,.4)">Entités</span>
           <span class="tl-tag" style="color:var(--violet);border-color:rgba(139,92,246,.4)">Multi-carto</span>
           <span class="tl-tag" style="color:var(--green);border-color:rgba(34,197,94,.4)">PR Colasmar</span>
+          <span class="tl-tag" style="color:var(--muted);border-color:rgba(148,163,184,.3)">21 commits</span>
         </div>
       </div>
     </div>
 
     <div class="tl-item">
-      <div class="tl-connector" style="background:var(--rose)"></div>
+      <div class="tl-dot" style="background:var(--violet)"></div>
       <div class="tl-content">
-        <div class="tl-date">Janvier – Mars 2026</div>
-        <div class="tl-title">♻️ Refonte UI & Navigation cross-carto v1</div>
-        <div class="tl-body">
-          Refonte complète de la page activités. Ajout de la navigation inter-cartographies
-          (popup SVG preview). Gestion RH complète (managers, rôles, CSV).
-          Import IA Excel multi-passes (exact/inclusion/fuzzy).
-        </div>
+        <div class="tl-date">Jan. 2026 → Mar. 2026</div>
+        <div class="tl-title">♻️ Refonte activités & Migration complète maelouuu</div>
+        <div class="tl-body">Refonte complète de la page activités v1 (janv.)
+        Merge Colasmar→main. Import Guarantor, refonte popup carto.
+        Migration technique vers dépôt maelouuu avec ajout des colonnes
+        <code>svg_content</code> + <code>vsdx_filename</code> en DB (auto-migration cloud).
+        Stockage SVG en base pour Cloud Run (filesystem éphémère).</div>
         <div class="tl-tags">
+          <span class="tl-tag" style="color:var(--cyan);border-color:rgba(6,182,212,.4)">Auto-migration DB</span>
+          <span class="tl-tag" style="color:var(--amber);border-color:rgba(245,158,11,.4)">SVG en DB</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="tl-item">
+      <div class="tl-dot" style="background:var(--cyan)"></div>
+      <div class="tl-content">
+        <div class="tl-date">Avr. 2026 — 23 commits</div>
+        <div class="tl-title">📁 Cross-carto, Fichiers liés & Changelog IA</div>
+        <div class="tl-body">Navigation inter-cartographies (popup SVG preview + iframe).
+        Gestion fichiers liés avec drag &amp; drop — stockage FileBlob en DB (cloud-native).
+        Export Excel 6 feuilles (openpyxl) + HTML standalone imprimable.
+        Popup nouveautés Changelog généré par GPT depuis les 30 derniers commits.
+        Gestion comptes refonte rose + import JSON en masse.
+        Popup activité récente (tracking user/date).</div>
+        <div class="tl-tags">
+          <span class="tl-tag" style="color:var(--rose);border-color:rgba(236,72,153,.4)">FileBlob</span>
+          <span class="tl-tag" style="color:var(--green);border-color:rgba(34,197,94,.4)">Export</span>
           <span class="tl-tag" style="color:var(--cyan);border-color:rgba(6,182,212,.4)">Cross-carto v1</span>
-          <span class="tl-tag" style="color:var(--amber);border-color:rgba(245,158,11,.4)">Import Excel IA</span>
-          <span class="tl-tag" style="color:var(--violet);border-color:rgba(139,92,246,.4)">Gestion RH</span>
+          <span class="tl-tag" style="color:var(--muted);border-color:rgba(148,163,184,.3)">23 commits</span>
         </div>
       </div>
     </div>
 
     <div class="tl-item">
-      <div class="tl-connector" style="background:var(--violet)"></div>
+      <div class="tl-dot" style="background:var(--green)"></div>
       <div class="tl-content">
-        <div class="tl-date">Avril 2026</div>
-        <div class="tl-title">📁 Fichiers liés, Changelog IA & Cross-carto</div>
-        <div class="tl-body">
-          Stockage de fichiers en DB (FileBlob, cloud-native). Export Excel 6 feuilles + HTML standalone.
-          Popup nouveautés Changelog généré par GPT. Navigation entre cartos via iframe.
-          Page compte complète avec import JSON.
-        </div>
+        <div class="tl-date">5–12 mai 2026</div>
+        <div class="tl-title">🔧 CI/CD GitHub Actions & Sync carto→DB</div>
+        <div class="tl-body">GitHub Actions : workflows staging + production.
+        Synchronisation carto→app (<code>_sync_carto_to_db()</code>) avec warning de sauvegarde.
+        Fix import VSDX sous-activités (filtre LayerMember=6 supprimé).
+        CLAUDE.md + squelette docs/index.html. Boutons Import IA + Connexions thème rose.</div>
         <div class="tl-tags">
-          <span class="tl-tag" style="color:var(--rose);border-color:rgba(236,72,153,.4)">FileBlob DB</span>
-          <span class="tl-tag" style="color:var(--green);border-color:rgba(34,197,94,.4)">Export Excel/HTML</span>
-          <span class="tl-tag" style="color:var(--cyan);border-color:rgba(6,182,212,.4)">Cross-carto iframe</span>
+          <span class="tl-tag" style="color:var(--green);border-color:rgba(34,197,94,.4)">CI/CD</span>
+          <span class="tl-tag" style="color:var(--violet);border-color:rgba(139,92,246,.4)">CLAUDE.md</span>
         </div>
       </div>
     </div>
 
     <div class="tl-item">
-      <div class="tl-connector" style="background:var(--green)"></div>
+      <div class="tl-dot" style="background:var(--amber)"></div>
       <div class="tl-content">
-        <div class="tl-date">Mai 2026 — Semaine 1–2</div>
-        <div class="tl-title">🤖 CI/CD + VSDX Diamants + Architecte IA</div>
-        <div class="tl-body">
-          Mise en place des GitHub Actions (staging + production). VSDX : import des losanges de
-          décision (Oui/Non). Architecte IA (OpenAI) pour l'alignement automatique des formes.
-          Bandes métier par défaut (15 bandes), bulk creation.
-        </div>
+        <div class="tl-date">20–21 mai 2026</div>
+        <div class="tl-title">🔷 VSDX Diamants & Architecte IA</div>
+        <div class="tl-body">Import des losanges de décision Visio (snap sur flèche la plus proche).
+        Fix Save/Load : flèches préservées + spinner + popup.
+        15 bandes métier par défaut + label multi-ligne + suppression avec contenu.
+        Architecte IA : appel OpenAI pour alignement automatique des formes.
+        Toolbar refonte : dropdown bandes + boutons alignement.</div>
         <div class="tl-tags">
-          <span class="tl-tag" style="color:var(--violet);border-color:rgba(139,92,246,.4)">CI/CD</span>
           <span class="tl-tag" style="color:var(--cyan);border-color:rgba(6,182,212,.4)">VSDX Diamants</span>
           <span class="tl-tag" style="color:var(--amber);border-color:rgba(245,158,11,.4)">Architecte IA</span>
+          <span class="tl-tag" style="color:var(--violet);border-color:rgba(139,92,246,.4)">Bandes ×15</span>
         </div>
       </div>
     </div>
 
     <div class="tl-item">
-      <div class="tl-connector" style="background:var(--cyan)"></div>
+      <div class="tl-dot" style="background:var(--rose)"></div>
       <div class="tl-content">
-        <div class="tl-date">Mai 2026 — Semaine 3</div>
-        <div class="tl-title">🧪 Calques + 404 tests unitaires</div>
-        <div class="tl-body">
-          Système de calques (variants de cartographies) complet DB + API + JS.
-          Auto-save 10 min + avertissement modifications non enregistrées.
-          Campagne de tests : 404 tests unitaires ajoutés en 10 jours couvrant 30+ modules.
-        </div>
+        <div class="tl-date">22–26 mai 2026</div>
+        <div class="tl-title">🧪 404 Tests + Calques + Connexions cross-carto</div>
+        <div class="tl-body">Campagne tests unitaires : 404 tests en 5 jours (73+14+49+24+51+29).
+        Système de calques complet (DB + API + JS) — variants de cartographies.
+        Auto-save 10 min + avertissement modifications non enregistrées.
+        Mode connexion inter-cartos : clic iframe, grisement sélectif, popup hachurée,
+        officialisation liaisons en DB.</div>
         <div class="tl-tags">
+          <span class="tl-tag" style="color:var(--amber);border-color:rgba(245,158,11,.4)">404 tests</span>
           <span class="tl-tag" style="color:var(--green);border-color:rgba(34,197,94,.4)">Calques</span>
-          <span class="tl-tag" style="color:var(--rose);border-color:rgba(236,72,153,.4)">404 tests</span>
+          <span class="tl-tag" style="color:var(--cyan);border-color:rgba(6,182,212,.4)">Liaisons officiel.</span>
         </div>
       </div>
     </div>
 
     <div class="tl-item">
-      <div class="tl-connector" style="background:var(--rose)"></div>
+      <div class="tl-dot" style="background:var(--violet)"></div>
       <div class="tl-content">
-        <div class="tl-date">Mai 2026 — Semaine 4</div>
-        <div class="tl-title">🌐 i18n + Liaisons inter-carto complètes + VSDX finalisé</div>
-        <div class="tl-body">
-          Système d'internationalisation (i18n) couvrant toute l'app.
-          Mode connexion inter-cartographies complet : clic iframe, popup preview, officialisation DB.
-          VSDX : routage orthogonal, géométrie Visio, losanges Oui/Non finaux.
-          Navbar liquid glass. Flèches 2D avec coins éditables.
-        </div>
+        <div class="tl-date">27–29 mai 2026</div>
+        <div class="tl-title">🌐 i18n + Navbar glass + Flèches 2D + Architecte arrows</div>
+        <div class="tl-body">Système i18n complet (<code>_L()</code>) — tous les strings hardcodés FR remplacés.
+        Page settings (langue). Navbar liquid glass redesign.
+        Flèches 2D avec coins éditables drag. Snap à 180°.
+        Architect arrows avec détour géométrique + labels placés.
+        Hover dropdown + calque loading overlay + Master dans la liste.
+        +49+42+22 tests (Roles/Items/Plan/Vue paginée/Import tâches).</div>
         <div class="tl-tags">
           <span class="tl-tag" style="color:var(--violet);border-color:rgba(139,92,246,.4)">i18n</span>
-          <span class="tl-tag" style="color:var(--cyan);border-color:rgba(6,182,212,.4)">Liaisons cross-carto</span>
-          <span class="tl-tag" style="color:var(--amber);border-color:rgba(245,158,11,.4)">VSDX final</span>
-          <span class="tl-tag" style="color:var(--green);border-color:rgba(34,197,94,.4)">Flèches 2D</span>
+          <span class="tl-tag" style="color:var(--cyan);border-color:rgba(6,182,212,.4)">Flèches 2D</span>
+          <span class="tl-tag" style="color:var(--amber);border-color:rgba(245,158,11,.4)">Architect arrows</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="tl-item">
+      <div class="tl-dot" style="background:var(--green)"></div>
+      <div class="tl-content">
+        <div class="tl-date">30–31 mai 2026</div>
+        <div class="tl-title">✅ VSDX finalisé + Diagnostics + +51 tests</div>
+        <div class="tl-body">VSDX : géométrie Visio pour le routage (customPath), routage orthogonal
+        pour connecteurs 2-points, losanges Oui/Non finaux (noEndArrow + labels auto).
+        Section diagnostic losanges (comparaison VSDX / Outil / IA).
+        Multi-select drag, pile container, connexion colors, halo officialisation.
+        +51 tests (Contraintes, Skills API, Changelog).</div>
+        <div class="tl-tags">
+          <span class="tl-tag" style="color:var(--rose);border-color:rgba(236,72,153,.4)">VSDX final</span>
+          <span class="tl-tag" style="color:var(--green);border-color:rgba(34,197,94,.4)">Diagnostic</span>
+          <span class="tl-tag" style="color:var(--amber);border-color:rgba(245,158,11,.4)">+51 tests</span>
         </div>
       </div>
     </div>
@@ -504,700 +373,515 @@
 </section>
 <hr class="sep">
 
-<!-- ══════════════════════  SECTION 2 — COMMITS PAR MOIS  ══════════════════════ -->
+<!-- ══ SECTION 2 — ACTIVITÉ (insertions/suppressions) ══ -->
 <section class="section">
-  <div class="section-title">
-    <span class="dot" style="background:var(--violet)"></span>
-    Activité de développement — Commits par mois
-  </div>
+  <div class="section-title"><span class="dot" style="background:var(--rose)"></span>Activité de développement mensuelle</div>
   <p class="section-desc">
-    Histogramme de tous les commits sur 18 mois. Le pic de mai 2026 (148 commits)
-    reflète l'intensification pour la remise du mémoire : tests, features carto, i18n.
+    Lignes de code source (py/js/html/css) ajoutées ↑ et supprimées ↓ par mois — tous auteurs,
+    toutes branches confondus. Le pic de mai 2026 reflète l'ajout de 404 tests + features carto majeures.
   </p>
   <div class="card">
-    <div class="chart-wrap-lg">
+    <div class="ch-xl">
+      <canvas id="chartActivity"></canvas>
+    </div>
+    <div class="note">
+      * Mars 2026 : commit de migration technique — tous les fichiers sources sont ajoutés
+      sur la nouvelle branche maelouuu sans ancêtre commun avec Colmar (+52 k lignes comptées une seconde fois).
+      Cet artéfact est indiqué en pointillés sur le graphique.
+    </div>
+    <div class="legend-row" style="margin-top:.8rem">
+      <div class="legend-item"><div class="legend-dot" style="background:rgba(34,197,94,.7)"></div>Lignes ajoutées (+)</div>
+      <div class="legend-item"><div class="legend-dot" style="background:rgba(236,72,153,.7)"></div>Lignes supprimées (−)</div>
+      <div class="legend-item"><div class="legend-dot" style="background:rgba(245,158,11,.5);border:1px dashed rgba(245,158,11,.8)"></div>Commit migration (artéfact)</div>
+    </div>
+  </div>
+</section>
+<hr class="sep">
+
+<!-- ══ SECTION 3 — COMMITS PAR MOIS ══ -->
+<section class="section">
+  <div class="section-title"><span class="dot" style="background:var(--violet)"></span>Volume de commits — Tous auteurs, toutes branches</div>
+  <p class="section-desc">
+    249 commits : colasmar (26), Maelouuu (47), Mael Girardin (116), Claude CI/CD (58), Girardin Maël (1).
+    Tous sont comptabilisés comme travail du projet. Le pic de mai 2026 (148 commits) concentre
+    tests, features carto et i18n.
+  </p>
+  <div class="card">
+    <div class="ch-lg">
       <canvas id="chartCommits"></canvas>
     </div>
     <div class="legend-row">
-      <div class="legend-item">
-        <div class="legend-dot" style="background:rgba(139,92,246,.8)"></div>
-        Commits Colmar (dépôt initial)
-      </div>
-      <div class="legend-item">
-        <div class="legend-dot" style="background:rgba(236,72,153,.9)"></div>
-        Commits maelouuu (Cloud Run)
-      </div>
+      <div class="legend-item"><div class="legend-dot" style="background:rgba(139,92,246,.8)"></div>Phase Colmar (colasmar)</div>
+      <div class="legend-item"><div class="legend-dot" style="background:rgba(236,72,153,.85)"></div>Phase maelouuu (Mael + Claude CI/CD)</div>
     </div>
   </div>
 </section>
 <hr class="sep">
 
-<!-- ══════════════════════  SECTION 3 — TAILLE APP  ══════════════════════ -->
+<!-- ══ SECTION 4 — TAILLE APP ══ -->
 <section class="section">
-  <div class="section-title">
-    <span class="dot" style="background:var(--rose)"></span>
-    Évolution de la taille de l'application
-  </div>
-  <p class="section-desc">
-    Estimation des lignes de code source cumulées (Python + JS + HTML + CSS)
-    aux grandes phases du projet, jusqu'aux 72 500 LOC actuelles.
-  </p>
+  <div class="section-title"><span class="dot" style="background:var(--amber)"></span>Évolution de la taille de l'application</div>
+  <p class="section-desc">Estimation des lignes de code source cumulées aux grandes phases. De 200 LOC (squelette Flask) à 72 500 LOC.</p>
   <div class="grid-2">
     <div class="card col-span-2">
-      <div class="card-title">
-        <div class="legend-dot" style="background:var(--rose);width:8px;height:8px;border-radius:50%"></div>
-        Lignes de code totales (estimation)
-      </div>
-      <div class="chart-wrap-lg">
-        <canvas id="chartLOC"></canvas>
-      </div>
+      <div class="card-title">Lignes de code totales (Python + JS + HTML + CSS)</div>
+      <div class="ch-lg"><canvas id="chartLOC"></canvas></div>
     </div>
-
     <div class="card">
-      <div class="card-title">Répartition actuelle par type</div>
-      <div class="chart-wrap">
-        <canvas id="chartFileDist"></canvas>
-      </div>
+      <div class="card-title">Répartition actuelle par type (72 500 LOC)</div>
+      <div class="ch"><canvas id="chartFileDist"></canvas></div>
     </div>
-
     <div class="card">
-      <div class="card-title">Progression fichiers source</div>
-      <div class="chart-wrap">
-        <canvas id="chartFileGrowth"></canvas>
-      </div>
+      <div class="card-title">Progression du nombre de fichiers source</div>
+      <div class="ch"><canvas id="chartFileGrowth"></canvas></div>
     </div>
   </div>
 </section>
 <hr class="sep">
 
-<!-- ══════════════════════  SECTION 4 — ÉVOLUTIONS TYPÉES  ══════════════════════ -->
+<!-- ══ SECTION 5 — HEATMAP ÉVOLUTIONS TYPÉES ══ -->
 <section class="section">
-  <div class="section-title">
-    <span class="dot" style="background:var(--green)"></span>
-    Évolutions typées — Par domaine fonctionnel
-  </div>
+  <div class="section-title"><span class="dot" style="background:var(--green)"></span>Carte de maturité — Évolution par domaine fonctionnel</div>
   <p class="section-desc">
-    Suivi de la maturité de chaque domaine fonctionnel dans le temps.
-    Chaque version correspond à un saut fonctionnel significatif documenté dans les commits.
+    Chaque cellule indique le niveau de maturité d'un domaine à un instant donné (v0 = absent → v5 = complet).
+    Lecture horizontale = évolution d'un domaine dans le temps.
+    Lecture verticale = profil de l'app à une date donnée.
   </p>
+  <div class="card">
+    <div class="legend-row" style="margin-bottom:1.1rem">
+      <div class="legend-item"><div class="legend-dot v0" style="width:20px;height:14px;border-radius:3px"></div> v0 Absent</div>
+      <div class="legend-item"><div class="legend-dot v1" style="width:20px;height:14px;border-radius:3px"></div> v1 Démarré</div>
+      <div class="legend-item"><div class="legend-dot v2" style="width:20px;height:14px;border-radius:3px"></div> v2 Fonctionnel</div>
+      <div class="legend-item"><div class="legend-dot v3" style="width:20px;height:14px;border-radius:3px"></div> v3 Avancé</div>
+      <div class="legend-item"><div class="legend-dot v4" style="width:20px;height:14px;border-radius:3px"></div> v4 Mature</div>
+      <div class="legend-item"><div class="legend-dot v5" style="width:20px;height:14px;border-radius:3px"></div> v5 Complet</div>
+    </div>
+    <div class="heatmap-wrap">
+      <table class="heatmap" id="heatmapTable"></table>
+    </div>
+  </div>
+</section>
+<hr class="sep">
+
+<!-- ══ SECTION 6 — STEP CHARTS DÉTAIL ══ -->
+<section class="section">
+  <div class="section-title"><span class="dot" style="background:var(--cyan)"></span>Évolution détaillée — Step charts par domaine</div>
+  <p class="section-desc">Chaque saut vertical représente un franchissement de version. La forme en escalier est volontaire : une version ne régresse pas.</p>
 
   <div class="grid-2">
-
-    <!-- Comptes & Auth -->
     <div class="card">
       <div class="card-title" style="color:var(--rose)">👤 Comptes & Authentification</div>
-      <div class="chart-wrap-sm">
-        <canvas id="chartComptes"></canvas>
-      </div>
-      <div class="legend-row" style="margin-top:.5rem;font-size:.75rem;color:var(--muted)">
-        <span>v1 Login basique</span>→
-        <span>v2 Rôles + bcrypt</span>→
-        <span>v3 Page refonte</span>→
-        <span>v4 Import JSON</span>→
-        <span>v5 Managers + reset</span>
-      </div>
+      <div class="ch-sm"><canvas id="chartComptes"></canvas></div>
     </div>
-
-    <!-- Entités -->
     <div class="card">
-      <div class="card-title" style="color:var(--amber)">🏢 Gestion des Entités</div>
-      <div class="chart-wrap-sm">
-        <canvas id="chartEntites"></canvas>
-      </div>
-      <div class="legend-row" style="margin-top:.5rem;font-size:.75rem;color:var(--muted)">
-        <span>v0 Absentes</span>→
-        <span>v1 Modèle DB</span>→
-        <span>v2 Multi-carto</span>→
-        <span>v3 Entité active</span>→
-        <span>v4 Cascade + sync</span>
-      </div>
+      <div class="card-title" style="color:var(--amber)">🏢 Entités organisationnelles</div>
+      <div class="ch-sm"><canvas id="chartEntites"></canvas></div>
     </div>
-
-    <!-- OptiqCarto -->
     <div class="card col-span-2">
-      <div class="card-title" style="color:var(--cyan)">🗺️ OptiqCarto — Éditeur cartographique SVG</div>
-      <div class="chart-wrap">
-        <canvas id="chartCarto"></canvas>
-      </div>
-      <div class="legend-row" style="margin-top:.5rem;font-size:.75rem;color:var(--muted)">
-        <span>v0 VSDX lecture</span>→
-        <span>v1 Formes + drag</span>→
-        <span>v2 Multi-entité</span>→
-        <span>v3 Bandes + bulk</span>→
-        <span>v4 Diamants + Archi IA</span>→
-        <span>v5 i18n + arrows 2D + calques</span>
-      </div>
+      <div class="card-title" style="color:var(--cyan)">🗺️ OptiqCarto — 4 sous-systèmes en escalier</div>
+      <div class="ch"><canvas id="chartCarto"></canvas></div>
     </div>
-
-    <!-- Liaisons inter-carto -->
     <div class="card">
       <div class="card-title" style="color:var(--violet)">🔗 Liaisons inter-cartographies</div>
-      <div class="chart-wrap-sm">
-        <canvas id="chartLiaisons"></canvas>
-      </div>
-      <div class="legend-row" style="margin-top:.5rem;font-size:.75rem;color:var(--muted)">
-        <span>v0 Aucune</span>→
-        <span>v1 Popup SVG</span>→
-        <span>v2 Mode connexion</span>→
-        <span>v3 Officialisation</span>→
-        <span>v4 Calques + preview</span>
-      </div>
+      <div class="ch-sm"><canvas id="chartLiaisons"></canvas></div>
     </div>
-
-    <!-- IA Features -->
     <div class="card">
       <div class="card-title" style="color:var(--green)">🤖 Fonctionnalités IA</div>
-      <div class="chart-wrap-sm">
-        <canvas id="chartIA"></canvas>
-      </div>
-      <div class="legend-row" style="margin-top:.5rem;font-size:.75rem;color:var(--muted)">
-        <span>v1 Propositions simples</span>→
-        <span>v2 4 types + Chatbot</span>→
-        <span>v3 Architecte + Onboarding</span>→
-        <span>v4 Plan compétences + i18n</span>
-      </div>
+      <div class="ch-sm"><canvas id="chartIA"></canvas></div>
     </div>
-
   </div>
 </section>
 <hr class="sep">
 
-<!-- ══════════════════════  SECTION 5 — TESTS  ══════════════════════ -->
+<!-- ══ SECTION 7 — TESTS ══ -->
 <section class="section">
-  <div class="section-title">
-    <span class="dot" style="background:var(--amber)"></span>
-    Couverture de tests — Montée en qualité
-  </div>
-  <p class="section-desc">
-    404 tests unitaires ajoutés en 10 jours (mai 2026), couvrant 30+ modules Flask.
-    Campagne volontariste pour valider l'ensemble de la surface API avant la remise.
-  </p>
+  <div class="section-title"><span class="dot" style="background:var(--amber)"></span>Couverture de tests — Montée en qualité</div>
+  <p class="section-desc">404 tests unitaires ajoutés en 10 jours (22–31 mai 2026). Campagne volontariste couvrant 30+ modules Flask.</p>
   <div class="grid-2">
     <div class="card col-span-2">
-      <div class="card-title" style="color:var(--amber)">Cumul des tests par jour (mai 2026)</div>
-      <div class="chart-wrap">
-        <canvas id="chartTests"></canvas>
-      </div>
+      <div class="card-title" style="color:var(--amber)">Cumul des tests — mai 2026 (step chart)</div>
+      <div class="ch"><canvas id="chartTests"></canvas></div>
     </div>
     <div class="card">
       <div class="card-title">Répartition par module (404 tests)</div>
-      <div class="chart-wrap">
-        <canvas id="chartTestsModules"></canvas>
-      </div>
+      <div class="ch"><canvas id="chartTestsModules"></canvas></div>
     </div>
     <div class="card">
-      <div class="card-title" style="color:var(--rose)">Radar — Maturité des domaines</div>
-      <div class="radar-wrap">
-        <canvas id="chartRadar"></canvas>
-      </div>
+      <div class="card-title" style="color:var(--rose)">Radar — Maturité avant/après (avr. vs mai 2026)</div>
+      <div class="ch"><canvas id="chartRadar"></canvas></div>
     </div>
   </div>
 </section>
 <hr class="sep">
 
-<!-- ══════════════════════  SECTION 6 — TYPE COMMITS  ══════════════════════ -->
+<!-- ══ SECTION 8 — TYPES COMMITS ══ -->
 <section class="section">
-  <div class="section-title">
-    <span class="dot" style="background:var(--cyan)"></span>
-    Analyse qualitative des commits
-  </div>
-  <p class="section-desc">
-    Distribution des commits par nature (feat, fix, tests, UI, refonte…)
-    et évolution du ratio feat/fix dans le temps.
-  </p>
+  <div class="section-title"><span class="dot" style="background:var(--violet)"></span>Analyse qualitative des commits</div>
+  <p class="section-desc">Distribution par nature (feat/fix/tests/ui…) et évolution du profil par phase de développement.</p>
   <div class="grid-2">
     <div class="card">
       <div class="card-title">Distribution par type</div>
-      <div class="chart-wrap">
-        <canvas id="chartCommitTypes"></canvas>
-      </div>
+      <div class="ch"><canvas id="chartCommitTypes"></canvas></div>
     </div>
     <div class="card">
-      <div class="card-title">Ratio Feat / Fix / Tests par phase</div>
-      <div class="chart-wrap">
-        <canvas id="chartRatioPhases"></canvas>
-      </div>
+      <div class="card-title">Profil Feat / Fix / Tests / UI par phase</div>
+      <div class="ch"><canvas id="chartRatioPhases"></canvas></div>
     </div>
   </div>
 </section>
 
-<!-- ══════════════════════  FOOTER  ══════════════════════ -->
 <footer>
-  <strong>DevOPTIQ</strong> — Mael Girardin · AFDEC ·
-  Mémoire BUT Informatique 3ème année · 2024–2026<br>
-  <span style="opacity:.5;font-size:.72rem;margin-top:.3rem;display:block">
-    Généré depuis l'historique git · 247 commits · mai 2026
-  </span>
+  <strong>DevOPTIQ</strong> — Mael Girardin · AFDEC · Mémoire BUT Informatique 3ème année · 2024–2026
+  <br><span style="opacity:.4;font-size:.72rem;margin-top:.3rem;display:block">Généré depuis l'historique git · 249 commits · toutes branches · mai 2026</span>
 </footer>
 
-<!-- ══════════════════════  SCRIPTS  ══════════════════════ -->
 <script>
+/* ─── Global defaults ─── */
 Chart.defaults.color = '#94a3b8';
 Chart.defaults.borderColor = 'rgba(255,255,255,0.06)';
-Chart.defaults.font.family = "'Segoe UI', system-ui, sans-serif";
+Chart.defaults.font.family = "'Segoe UI',system-ui,sans-serif";
 
-const ROSE    = '#ec4899';
-const ROSE_A  = 'rgba(236,72,153,';
-const GREEN   = '#22c55e';
-const GREEN_A = 'rgba(34,197,94,';
-const VIOLET  = '#8b5cf6';
-const VIOLET_A= 'rgba(139,92,246,';
-const CYAN    = '#06b6d4';
-const CYAN_A  = 'rgba(6,182,212,';
-const AMBER   = '#f59e0b';
-const AMBER_A = 'rgba(245,158,11,';
+const R='#ec4899', RA='rgba(236,72,153,';
+const G='#22c55e', GA='rgba(34,197,94,';
+const V='#8b5cf6', VA='rgba(139,92,246,';
+const C='#06b6d4', CA='rgba(6,182,212,';
+const A='#f59e0b', AA='rgba(245,158,11,';
+const MU='rgba(100,116,139,';
 
-// ── 1. COMMITS PAR MOIS ──────────────────────────────────────────────
-new Chart(document.getElementById('chartCommits'), {
-  type: 'bar',
-  data: {
-    labels: [
-      'Déc 24','Jan 25','Fév 25','Mar 25','Avr 25','Mai 25',
-      'Jun 25','Jul 25','Aoû 25','Sep 25','Oct 25','Nov 25',
-      'Déc 25','Jan 26','Fév 26','Mar 26','Avr 26','Mai 26'
-    ],
-    datasets: [{
-      label: 'Commits Colmar',
-      data: [12, 1, 13, 0, 0, 0, 8, 0, 5, 2, 3, 8, 0, 0, 0, 0, 0, 0],
-      backgroundColor: VIOLET_A + '0.75)',
-      borderColor: VIOLET,
-      borderWidth: 1,
-      borderRadius: 4,
-    },{
-      label: 'Commits maelouuu',
-      data: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 21, 2, 0, 1, 23, 148],
-      backgroundColor: ROSE_A + '0.8)',
-      borderColor: ROSE,
-      borderWidth: 1,
-      borderRadius: 4,
-    }]
+const MONTHS=['Déc 24','Jan 25','Fév 25','Mar 25','Avr 25','Mai 25',
+              'Jun 25','Jul 25','Aoû 25','Sep 25','Oct 25','Nov 25',
+              'Déc 25','Jan 26','Fév 26','Mar 26','Avr 26','Mai 26'];
+
+/* ─── 1. ACTIVITY (insertions/deletions) ─── */
+const ins  = [990,1007,3460,0,0,0,15223,0,3135,2733,4356,1480,10030,963,0,0,7671,112414];
+const del  = [-218,-70,-671,0,0,0,-136,0,-1288,-797,-1045,-1160,-4174,-123,0,0,-3441,-8280];
+// March 2026 migration spike shown as separate dataset
+const insMig = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,52389,0,0];
+
+new Chart(document.getElementById('chartActivity'),{
+  type:'bar',
+  data:{
+    labels:MONTHS,
+    datasets:[
+      {label:'Lignes ajoutées',data:ins,
+       backgroundColor:ins.map((_,i)=>i===15?'transparent':GA+'0.65)'),
+       borderColor:ins.map((_,i)=>i===15?'transparent':G),
+       borderWidth:1,borderRadius:4,stack:'ins'},
+      {label:'Migration (artéfact)',data:insMig,
+       backgroundColor:AA+'0.35)',borderColor:A,
+       borderWidth:1,borderDash:[4,3],borderRadius:4,stack:'ins'},
+      {label:'Lignes supprimées',data:del,
+       backgroundColor:RA+'0.65)',borderColor:R,
+       borderWidth:1,borderRadius:4,stack:'del'}
+    ]
   },
-  options: {
-    responsive: true, maintainAspectRatio: false,
-    plugins: {
-      legend: { position: 'top' },
-      tooltip: {
-        callbacks: {
-          afterBody: (items) => {
-            const total = items.reduce((s, i) => s + i.raw, 0);
-            return total > 0 ? `Total: ${total} commits` : '';
+  options:{
+    responsive:true,maintainAspectRatio:false,
+    plugins:{
+      legend:{position:'top'},
+      tooltip:{
+        callbacks:{
+          label:ctx=>{
+            const v=ctx.raw;
+            if(v===0) return null;
+            return ` ${ctx.dataset.label}: ${Math.abs(v).toLocaleString('fr-FR')} lignes`;
           }
         }
       }
     },
-    scales: {
-      x: { stacked: true, grid: { color: 'rgba(255,255,255,0.04)' } },
-      y: { stacked: true, grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { stepSize: 20 } }
-    }
-  }
-});
-
-// ── 2. LIGNES DE CODE ────────────────────────────────────────────────
-new Chart(document.getElementById('chartLOC'), {
-  type: 'line',
-  data: {
-    labels: [
-      'Déc 2024','Fév 2025','Jun 2025','Aoû 2025',
-      'Oct 2025','Nov 2025','Déc 2025','Jan 2026',
-      'Mar 2026','Avr 2026','Mai 2026 (mi)','Mai 2026 (fin)'
-    ],
-    datasets: [{
-      label: 'Total LOC (Python + JS + HTML + CSS)',
-      data: [200, 2500, 6000, 9000, 10200, 12000, 16000, 18500, 21000, 30000, 42000, 72500],
-      borderColor: ROSE,
-      backgroundColor: ROSE_A + '0.12)',
-      borderWidth: 2.5,
-      fill: true,
-      tension: 0.4,
-      pointBackgroundColor: ROSE,
-      pointRadius: 5,
-      pointHoverRadius: 7,
-    },{
-      label: 'dont Tests unitaires',
-      data: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5000, 11000],
-      borderColor: AMBER,
-      backgroundColor: AMBER_A + '0.1)',
-      borderWidth: 2,
-      fill: true,
-      tension: 0.4,
-      borderDash: [6,3],
-      pointBackgroundColor: AMBER,
-      pointRadius: 4,
-    }]
-  },
-  options: {
-    responsive: true, maintainAspectRatio: false,
-    plugins: { legend: { position: 'top' } },
-    scales: {
-      x: { grid: { color: 'rgba(255,255,255,0.04)' } },
-      y: {
-        grid: { color: 'rgba(255,255,255,0.04)' },
-        ticks: {
-          callback: v => v >= 1000 ? (v/1000).toFixed(0) + 'k' : v
+    scales:{
+      x:{stacked:false,grid:{color:'rgba(255,255,255,0.04)'},ticks:{font:{size:10}}},
+      y:{
+        grid:{color:'rgba(255,255,255,0.04)'},
+        ticks:{
+          callback:v=>{
+            const abs=Math.abs(v);
+            return (v<0?'−':'')+( abs>=1000?(abs/1000).toFixed(0)+'k':abs );
+          }
         }
       }
     }
   }
 });
 
-// ── 3. RÉPARTITION FICHIERS ──────────────────────────────────────────
-new Chart(document.getElementById('chartFileDist'), {
-  type: 'doughnut',
-  data: {
-    labels: ['Python routes (68)', 'Templates HTML (66)', 'JS (52)', 'CSS (24)'],
-    datasets: [{
-      data: [13897, 20000, 27000, 7000],
-      backgroundColor: [VIOLET_A+'0.8)', CYAN_A+'0.8)', ROSE_A+'0.8)', GREEN_A+'0.8)'],
-      borderColor: ['transparent'],
-      hoverOffset: 8,
-    }]
+/* ─── 2. COMMITS PAR MOIS ─── */
+new Chart(document.getElementById('chartCommits'),{
+  type:'bar',
+  data:{
+    labels:MONTHS,
+    datasets:[
+      {label:'Phase Colmar',data:[12,1,13,0,0,0,8,0,5,2,3,8,0,0,0,0,0,0],
+       backgroundColor:VA+'0.75)',borderColor:V,borderWidth:1,borderRadius:4},
+      {label:'Phase maelouuu (Mael + Claude CI/CD)',data:[0,0,0,0,0,0,0,0,0,0,0,0,21,2,0,1,23,148],
+       backgroundColor:RA+'0.8)',borderColor:R,borderWidth:1,borderRadius:4}
+    ]
   },
-  options: {
-    responsive: true, maintainAspectRatio: false,
-    plugins: {
-      legend: { position: 'right', labels: { boxWidth: 12, padding: 14 } },
-      tooltip: {
-        callbacks: {
-          label: ctx => ` ${ctx.label}: ~${(ctx.raw/1000).toFixed(1)}k LOC`
-        }
-      }
+  options:{
+    responsive:true,maintainAspectRatio:false,
+    plugins:{
+      legend:{position:'top'},
+      tooltip:{callbacks:{afterBody:items=>{
+        const t=items.reduce((s,i)=>s+i.raw,0);
+        return t>0?`Total: ${t} commits`:'';
+      }}}
     },
-    cutout: '60%',
-  }
-});
-
-// ── 4. CROISSANCE FICHIERS ───────────────────────────────────────────
-new Chart(document.getElementById('chartFileGrowth'), {
-  type: 'bar',
-  data: {
-    labels: ['Déc 24', 'Fév 25', 'Oct 25', 'Déc 25', 'Avr 26', 'Mai 26'],
-    datasets: [{
-      label: 'Fichiers Python',
-      data: [3, 8, 14, 22, 38, 68],
-      backgroundColor: VIOLET_A+'0.8)',
-    },{
-      label: 'Templates HTML',
-      data: [2, 5, 12, 20, 38, 66],
-      backgroundColor: CYAN_A+'0.8)',
-    },{
-      label: 'Fichiers JS',
-      data: [1, 2, 8, 15, 28, 52],
-      backgroundColor: ROSE_A+'0.8)',
-    },{
-      label: 'Fichiers CSS',
-      data: [1, 2, 5, 8, 15, 24],
-      backgroundColor: GREEN_A+'0.8)',
-    }]
-  },
-  options: {
-    responsive: true, maintainAspectRatio: false,
-    plugins: { legend: { position: 'top', labels: { boxWidth: 10, padding: 10 } } },
-    scales: {
-      x: { stacked: true, grid: { color: 'rgba(255,255,255,0.04)' } },
-      y: { stacked: true, grid: { color: 'rgba(255,255,255,0.04)' } }
+    scales:{
+      x:{stacked:true,grid:{color:'rgba(255,255,255,0.04)'},ticks:{font:{size:10}}},
+      y:{stacked:true,grid:{color:'rgba(255,255,255,0.04)'},ticks:{stepSize:20}}
     }
   }
 });
 
-// helper : line chart simple
-function lineChart(id, labels, datasets, extraOpts={}) {
-  new Chart(document.getElementById(id), {
-    type: 'line',
-    data: { labels, datasets },
-    options: {
-      responsive: true, maintainAspectRatio: false,
-      plugins: { legend: { display: false } },
-      scales: {
-        x: { grid: { color: 'rgba(255,255,255,0.04)' } },
-        y: {
-          min: 0, max: 5, ticks: { stepSize: 1,
-            callback: v => ['','v1','v2','v3','v4','v5'][v] || ''
-          },
-          grid: { color: 'rgba(255,255,255,0.04)' }
-        }
-      },
-      ...extraOpts
+/* ─── 3. LOC EVOLUTION ─── */
+new Chart(document.getElementById('chartLOC'),{
+  type:'line',
+  data:{
+    labels:['Déc 2024','Fév 2025','Jun 2025','Aoû 2025','Oct 2025','Nov 2025','Déc 2025','Jan 2026','Mar 2026','Avr 2026','Mai 26 mi','Mai 26 fin'],
+    datasets:[
+      {label:'Total LOC',data:[200,2500,6000,9000,10200,12000,16000,18500,21000,30000,42000,72500],
+       borderColor:R,backgroundColor:RA+'0.1)',fill:true,tension:0.4,borderWidth:2.5,pointBackgroundColor:R,pointRadius:5},
+      {label:'dont Tests',data:[0,0,0,0,0,0,0,0,0,0,5000,11000],
+       borderColor:A,backgroundColor:AA+'0.08)',fill:true,tension:0.4,borderWidth:2,borderDash:[5,3],pointBackgroundColor:A,pointRadius:4}
+    ]
+  },
+  options:{
+    responsive:true,maintainAspectRatio:false,
+    plugins:{legend:{position:'top'}},
+    scales:{
+      x:{grid:{color:'rgba(255,255,255,0.04)'}},
+      y:{grid:{color:'rgba(255,255,255,0.04)'},ticks:{callback:v=>v>=1000?(v/1000).toFixed(0)+'k':v}}
+    }
+  }
+});
+
+/* ─── 4. FILE DIST ─── */
+new Chart(document.getElementById('chartFileDist'),{
+  type:'doughnut',
+  data:{
+    labels:['Python routes (68)','Templates HTML (66)','JS (52)','CSS (24)'],
+    datasets:[{
+      data:[13897,20000,27000,7000],
+      backgroundColor:[VA+'0.8)',CA+'0.8)',RA+'0.8)',GA+'0.8)'],
+      borderColor:'transparent',hoverOffset:8
+    }]
+  },
+  options:{
+    responsive:true,maintainAspectRatio:false,cutout:'62%',
+    plugins:{
+      legend:{position:'right',labels:{boxWidth:12,padding:12}},
+      tooltip:{callbacks:{label:ctx=>` ${ctx.label}: ~${(ctx.raw/1000).toFixed(1)}k LOC`}}
+    }
+  }
+});
+
+/* ─── 5. FILE GROWTH ─── */
+new Chart(document.getElementById('chartFileGrowth'),{
+  type:'bar',
+  data:{
+    labels:['Déc 24','Fév 25','Oct 25','Déc 25','Avr 26','Mai 26'],
+    datasets:[
+      {label:'Python',data:[3,8,14,22,38,68],backgroundColor:VA+'0.8)'},
+      {label:'HTML',data:[2,5,12,20,38,66],backgroundColor:CA+'0.8)'},
+      {label:'JS',data:[1,2,8,15,28,52],backgroundColor:RA+'0.8)'},
+      {label:'CSS',data:[1,2,5,8,15,24],backgroundColor:GA+'0.8)'}
+    ]
+  },
+  options:{
+    responsive:true,maintainAspectRatio:false,
+    plugins:{legend:{position:'top',labels:{boxWidth:10,padding:10}}},
+    scales:{
+      x:{stacked:true,grid:{color:'rgba(255,255,255,0.04)'}},
+      y:{stacked:true,grid:{color:'rgba(255,255,255,0.04)'}}
+    }
+  }
+});
+
+/* ─── 6. HEATMAP ─── */
+const HM_COLS=[
+  'Déc 24','Fév 25','Jun 25','Aoû 25','Oct 25','Nov 25',
+  'Déc 25','Jan 26','Mar 26','Avr 26','Mai W1','Mai W2','Mai W3','Mai W4'
+];
+const HM_DATA=[
+  {name:'🔐 Auth & Comptes',     ico:'rose',  v:[1,1,1,2,2,3,3,3,3,4,4,4,5,5]},
+  {name:'🏢 Entités / multi-org',ico:'amber', v:[0,0,0,0,0,0,1,1,2,3,3,3,4,4]},
+  {name:'📄 Import VSDX',        ico:'cyan',  v:[1,2,2,2,2,2,2,2,3,3,4,5,5,5]},
+  {name:'✏️ Éditeur formes',     ico:'violet',v:[0,1,1,1,1,1,2,2,2,3,4,4,5,5]},
+  {name:'➡️ Connexions / flèches',ico:'cyan', v:[0,0,0,0,0,0,1,1,1,2,3,4,5,5]},
+  {name:'🔗 Liaisons cross-carto',ico:'violet',v:[0,0,0,0,0,0,0,0,0,1,2,3,4,4]},
+  {name:'🧪 Calques carto',      ico:'green', v:[0,0,0,0,0,0,0,0,0,0,0,1,4,5]},
+  {name:'🤖 Propositions IA',    ico:'green', v:[0,0,1,2,2,3,3,3,3,3,3,4,5,5]},
+  {name:'💬 Chatbot / Onboarding',ico:'green',v:[0,0,0,0,0,1,1,1,1,2,3,3,3,4]},
+  {name:'🧰 Architecte IA',      ico:'amber', v:[0,0,0,0,0,0,0,0,0,0,0,3,4,4]},
+  {name:'📊 Compétences éval.',  ico:'rose',  v:[0,0,1,2,2,3,3,3,3,4,4,4,4,4]},
+  {name:'👥 Gestion RH',         ico:'violet',v:[0,0,0,0,0,0,0,0,0,2,3,3,3,3]},
+  {name:'🌐 i18n / Settings',    ico:'cyan',  v:[0,0,0,0,0,0,0,0,0,1,1,2,4,5]},
+  {name:'📁 Fichiers liés',      ico:'amber', v:[0,0,0,0,0,0,0,0,0,2,2,2,2,2]},
+  {name:'☁️ Déploiement cloud',  ico:'green', v:[0,0,0,0,1,1,1,1,2,3,3,4,4,4]},
+  {name:'🧪 Tests unitaires',    ico:'amber', v:[0,0,0,0,0,0,0,0,0,0,1,3,4,5]},
+];
+const VLABEL=['v0','v1','v2','v3','v4','v5'];
+const VCLS=['v0','v1','v2','v3','v4','v5'];
+const tbl=document.getElementById('heatmapTable');
+// Header
+const hdr=tbl.createTHead().insertRow();
+const th0=document.createElement('th');th0.className='feat-col';th0.textContent='Domaine fonctionnel';hdr.appendChild(th0);
+HM_COLS.forEach(c=>{const th=document.createElement('th');th.textContent=c;hdr.appendChild(th);});
+// Rows
+const tbody=tbl.createTBody();
+HM_DATA.forEach(row=>{
+  const tr=tbody.insertRow();
+  const tdName=tr.insertCell();tdName.className='feat-name';tdName.textContent=row.name;
+  row.v.forEach(v=>{
+    const td=tr.insertCell();
+    td.className=VCLS[v];
+    td.textContent=VLABEL[v];
+    td.title=`${row.name} — ${HM_COLS[row.v.indexOf(v)]} : ${VLABEL[v]}`;
+  });
+});
+
+/* ─── 7. STEP CHARTS ─── */
+function stepChart(id,labels,datasets,color){
+  new Chart(document.getElementById(id),{
+    type:'line',
+    data:{labels,datasets:datasets.map(d=>({...d,stepped:'before',fill:false,borderWidth:2.5,pointRadius:5,pointHoverRadius:7}))},
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:datasets.length>1,position:'top',labels:{boxWidth:10,padding:10}}},
+      scales:{
+        x:{grid:{color:'rgba(255,255,255,0.04)'},ticks:{font:{size:10}}},
+        y:{min:0,max:5,ticks:{stepSize:1,callback:v=>(['','v1','v2','v3','v4','v5'][v]||'')},
+           grid:{color:'rgba(255,255,255,0.04)'}}
+      }
     }
   });
 }
 
-// ── 5. COMPTES ───────────────────────────────────────────────────────
-lineChart('chartComptes',
-  ['Déc 24','Fév 25','Jun 25','Aoû 25','Oct 25','Nov 25','Déc 25','Avr 26','Mai 26'],
-  [{
-    label: 'Maturité Comptes',
-    data: [1, 1, 1, 2, 2, 3, 3, 4, 5],
-    borderColor: ROSE, backgroundColor: ROSE_A+'0.15)',
-    fill: true, tension: 0.4, borderWidth: 2.5,
-    pointBackgroundColor: ROSE, pointRadius: 5,
-  }]
-);
+const TL_FULL=['Déc 24','Fév 25','Jun 25','Aoû 25','Oct 25','Nov 25','Déc 25','Jan 26','Mar 26','Avr 26','Mai W1','Mai W2','Mai W3','Mai W4'];
 
-// ── 6. ENTITÉS ───────────────────────────────────────────────────────
-lineChart('chartEntites',
-  ['Déc 24','Fév 25','Oct 25','Nov 25','Déc 25','Mar 26','Avr 26','Mai 26'],
-  [{
-    label: 'Maturité Entités',
-    data: [0, 0, 0, 0, 1, 2, 3, 4],
-    borderColor: AMBER, backgroundColor: AMBER_A+'0.15)',
-    fill: true, tension: 0.4, borderWidth: 2.5,
-    pointBackgroundColor: AMBER, pointRadius: 5,
-  }],
-  { scales: { x: { grid: { color: 'rgba(255,255,255,0.04)' } }, y: { min:0, max:5, ticks: { stepSize:1, callback: v => ['','v1','v2','v3','v4','v5'][v]||'' }, grid: { color: 'rgba(255,255,255,0.04)' } } } }
-);
+stepChart('chartComptes',TL_FULL,[{label:'Auth & Comptes',data:[1,1,1,2,2,3,3,3,3,4,4,4,5,5],borderColor:R,pointBackgroundColor:R,backgroundColor:RA+'0.1)'}]);
 
-// ── 7. OPTIQCARTO ────────────────────────────────────────────────────
-new Chart(document.getElementById('chartCarto'), {
-  type: 'line',
-  data: {
-    labels: ['Déc 24','Fév 25','Mar 25','Oct 25','Déc 25','Mar 26','Avr 26','Mai 26 W1','Mai 26 W2','Mai 26 W3','Mai 26 W4'],
-    datasets: [{
-      label: 'VSDX Import',
-      data: [1, 2, 2, 2, 2, 3, 3, 4, 5, 5, 5],
-      borderColor: CYAN, tension: 0.4, borderWidth: 2,
-      pointBackgroundColor: CYAN, pointRadius: 4,
-      fill: false,
-    },{
-      label: 'Éditeur formes',
-      data: [0, 1, 1, 2, 2, 2, 3, 4, 4, 5, 5],
-      borderColor: VIOLET, tension: 0.4, borderWidth: 2,
-      pointBackgroundColor: VIOLET, pointRadius: 4,
-      fill: false,
-    },{
-      label: 'Connexions / Flèches',
-      data: [0, 0, 0, 1, 2, 2, 2, 3, 4, 5, 5],
-      borderColor: GREEN, tension: 0.4, borderWidth: 2,
-      pointBackgroundColor: GREEN, pointRadius: 4,
-      fill: false,
-    },{
-      label: 'Fonctions IA carto',
-      data: [0, 0, 0, 0, 0, 0, 0, 2, 3, 4, 5],
-      borderColor: ROSE, tension: 0.4, borderWidth: 2,
-      pointBackgroundColor: ROSE, pointRadius: 4,
-      fill: false,
+stepChart('chartEntites',TL_FULL,[{label:'Entités',data:[0,0,0,0,0,0,1,1,2,3,3,3,4,4],borderColor:A,pointBackgroundColor:A,backgroundColor:AA+'0.1)'}]);
+
+stepChart('chartCarto',TL_FULL,[
+  {label:'Import VSDX',data:[1,2,2,2,2,2,2,2,3,3,4,5,5,5],borderColor:C,pointBackgroundColor:C},
+  {label:'Éditeur formes',data:[0,1,1,1,1,1,2,2,2,3,4,4,5,5],borderColor:V,pointBackgroundColor:V},
+  {label:'Connexions/Flèches',data:[0,0,0,0,0,0,1,1,1,2,3,4,5,5],borderColor:G,pointBackgroundColor:G},
+  {label:'Fonctions IA carto',data:[0,0,0,0,0,0,0,0,0,0,0,3,4,4],borderColor:A,pointBackgroundColor:A}
+]);
+
+stepChart('chartLiaisons',TL_FULL,[{label:'Liaisons cross-carto',data:[0,0,0,0,0,0,0,0,0,1,2,3,4,4],borderColor:V,pointBackgroundColor:V,backgroundColor:VA+'0.1)'}]);
+
+stepChart('chartIA',TL_FULL,[
+  {label:'Propositions métier',data:[0,0,1,2,2,3,3,3,3,3,3,4,5,5],borderColor:G,pointBackgroundColor:G},
+  {label:'Chatbot / Onboarding',data:[0,0,0,0,0,1,1,1,1,2,3,3,3,4],borderColor:C,pointBackgroundColor:C},
+  {label:'Architecte & Plan',data:[0,0,0,0,0,0,0,0,0,0,0,3,4,4],borderColor:A,pointBackgroundColor:A}
+]);
+
+/* ─── 8. TESTS CUMUL (step) ─── */
+new Chart(document.getElementById('chartTests'),{
+  type:'line',
+  data:{
+    labels:['22 mai','23 mai','24 mai','25 mai','26 mai','27 mai','28 mai','29 mai','30 mai','31 mai'],
+    datasets:[{
+      label:'Tests cumulés',
+      data:[73,87,136,160,211,240,289,311,353,404],
+      borderColor:A,backgroundColor:AA+'0.12)',fill:true,
+      stepped:'before',borderWidth:2.5,
+      pointBackgroundColor:A,pointRadius:6,pointHoverRadius:8,
     }]
   },
-  options: {
-    responsive: true, maintainAspectRatio: false,
-    plugins: { legend: { position: 'top', labels: { boxWidth: 12, padding: 14 } } },
-    scales: {
-      x: { grid: { color: 'rgba(255,255,255,0.04)' } },
-      y: { min: 0, max: 5, ticks: { stepSize: 1, callback: v => ['','v1','v2','v3','v4','v5'][v]||'' }, grid: { color: 'rgba(255,255,255,0.04)' } }
-    }
-  }
-});
-
-// ── 8. LIAISONS INTER-CARTO ──────────────────────────────────────────
-new Chart(document.getElementById('chartLiaisons'), {
-  type: 'bar',
-  data: {
-    labels: ['Déc 24–Mar 26','Avr 26 (cross-carto v1)','Mai 26 W3 (mode cx)','Mai 26 W3 (officiel)','Mai 26 W4 (calques)'],
-    datasets: [{
-      label: 'Maturité liaisons inter-carto',
-      data: [0, 1, 2, 3, 4],
-      backgroundColor: [VIOLET_A+'0.3)', VIOLET_A+'0.5)', VIOLET_A+'0.65)', VIOLET_A+'0.8)', VIOLET],
-      borderColor: VIOLET,
-      borderWidth: 1,
-      borderRadius: 6,
-    }]
-  },
-  options: {
-    responsive: true, maintainAspectRatio: false,
-    plugins: { legend: { display: false } },
-    scales: {
-      x: { grid: { display: false }, ticks: { font: { size: 9 }, maxRotation: 30 } },
-      y: { min: 0, max: 5, ticks: { stepSize: 1, callback: v => ['v0','v1','v2','v3','v4','v5'][v]||'' }, grid: { color: 'rgba(255,255,255,0.04)' } }
-    }
-  }
-});
-
-// ── 9. IA FEATURES ───────────────────────────────────────────────────
-new Chart(document.getElementById('chartIA'), {
-  type: 'line',
-  data: {
-    labels: ['Jun 25','Sep 25','Nov 25','Mar 26','Avr 26','Mai 26 W2','Mai 26 W3','Mai 26 W4'],
-    datasets: [{
-      label: 'Propositions métier',
-      data: [1, 2, 3, 3, 3, 4, 4, 4],
-      borderColor: GREEN, tension: 0.4, borderWidth: 2,
-      pointBackgroundColor: GREEN, pointRadius: 4, fill: false,
-    },{
-      label: 'Chatbot / Onboarding',
-      data: [0, 0, 1, 1, 2, 3, 3, 3],
-      borderColor: CYAN, tension: 0.4, borderWidth: 2,
-      pointBackgroundColor: CYAN, pointRadius: 4, fill: false,
-    },{
-      label: 'Architecte & Plan',
-      data: [0, 0, 0, 0, 0, 2, 3, 4],
-      borderColor: VIOLET, tension: 0.4, borderWidth: 2,
-      pointBackgroundColor: VIOLET, pointRadius: 4, fill: false,
-    }]
-  },
-  options: {
-    responsive: true, maintainAspectRatio: false,
-    plugins: { legend: { position: 'top', labels: { boxWidth: 10, padding: 10, font: { size: 11 } } } },
-    scales: {
-      x: { grid: { color: 'rgba(255,255,255,0.04)' } },
-      y: { min: 0, max: 5, ticks: { stepSize: 1, callback: v => ['','v1','v2','v3','v4','v5'][v]||'' }, grid: { color: 'rgba(255,255,255,0.04)' } }
-    }
-  }
-});
-
-// ── 10. CUMUL TESTS ──────────────────────────────────────────────────
-new Chart(document.getElementById('chartTests'), {
-  type: 'line',
-  data: {
-    labels: ['22 mai','23 mai','24 mai','25 mai','26 mai','27 mai','28 mai','29 mai','30 mai','31 mai'],
-    datasets: [{
-      label: 'Tests cumulés',
-      data: [73, 87, 136, 160, 211, 240, 289, 311, 353, 404],
-      borderColor: AMBER,
-      backgroundColor: AMBER_A+'0.15)',
-      fill: true, tension: 0.4, borderWidth: 2.5,
-      pointBackgroundColor: AMBER, pointRadius: 6, pointHoverRadius: 8,
-    }]
-  },
-  options: {
-    responsive: true, maintainAspectRatio: false,
-    plugins: {
-      legend: { display: false },
-      tooltip: { callbacks: { label: ctx => ` ${ctx.raw} tests` } }
+  options:{
+    responsive:true,maintainAspectRatio:false,
+    plugins:{
+      legend:{display:false},
+      tooltip:{callbacks:{label:ctx=>` ${ctx.raw} tests (+${ctx.dataIndex===0?ctx.raw:ctx.raw-[73,87,136,160,211,240,289,311,353,404][ctx.dataIndex-1]} ce jour)`}}
     },
-    scales: {
-      x: { grid: { color: 'rgba(255,255,255,0.04)' } },
-      y: { min: 0, max: 450, ticks: { stepSize: 50 }, grid: { color: 'rgba(255,255,255,0.04)' } }
+    scales:{
+      x:{grid:{color:'rgba(255,255,255,0.04)'}},
+      y:{min:0,max:450,ticks:{stepSize:50},grid:{color:'rgba(255,255,255,0.04)'}}
     }
   }
 });
 
-// ── 11. TESTS PAR MODULE ─────────────────────────────────────────────
-new Chart(document.getElementById('chartTestsModules'), {
-  type: 'bar',
-  data: {
-    labels: [
-      'Import IA/Chatbot/Comptes','Savoirs & Savoir-Faires','Propositions IA / Compétences',
-      'Roles/Items/Plan compétences','Vue paginée / Plan','Contraintes/Skills/Changelog',
-      'Export & Fichiers','Perf perso','Import tâches'
-    ],
-    datasets: [{
-      label: 'Tests ajoutés',
-      data: [73, 49, 51, 49, 42, 51, 24, 29, 22],
-      backgroundColor: [
-        VIOLET_A+'0.8)', CYAN_A+'0.8)', ROSE_A+'0.8)',
-        GREEN_A+'0.8)', AMBER_A+'0.8)', VIOLET_A+'0.6)',
-        CYAN_A+'0.6)', ROSE_A+'0.6)', GREEN_A+'0.6)',
-      ],
-      borderRadius: 4,
+/* ─── 9. TESTS MODULES ─── */
+new Chart(document.getElementById('chartTestsModules'),{
+  type:'bar',
+  data:{
+    labels:['Import/Chatbot/Comptes','Propositions/Compétences','Roles/Items/Plan','Savoirs/Savoir-Faires','Contraintes/Skills/Log','Vue paginée/Plan','Perf perso','Import tâches','Export/Fichiers'],
+    datasets:[{
+      data:[73,51,49,49,51,42,29,22,24],
+      backgroundColor:[VA+'0.8)',RA+'0.8)',GA+'0.8)',CA+'0.8)',VA+'0.6)',RA+'0.6)',GA+'0.6)',CA+'0.6)',AA+'0.8)'],
+      borderRadius:4
     }]
   },
-  options: {
-    indexAxis: 'y',
-    responsive: true, maintainAspectRatio: false,
-    plugins: { legend: { display: false } },
-    scales: {
-      x: { grid: { color: 'rgba(255,255,255,0.04)' }, min: 0, max: 80 },
-      y: { grid: { display: false }, ticks: { font: { size: 10 } } }
+  options:{
+    indexAxis:'y',responsive:true,maintainAspectRatio:false,
+    plugins:{legend:{display:false}},
+    scales:{
+      x:{grid:{color:'rgba(255,255,255,0.04)'},min:0,max:80},
+      y:{grid:{display:false},ticks:{font:{size:10}}}
     }
   }
 });
 
-// ── 12. RADAR MATURITÉ ───────────────────────────────────────────────
-new Chart(document.getElementById('chartRadar'), {
-  type: 'radar',
-  data: {
-    labels: ['Comptes\n& Auth', 'Entités', 'OptiqCarto', 'Liaisons\ncross-carto', 'Fonctions IA', 'Tests\n& Qualité', 'Déploiement\nCloud', 'UX / i18n'],
-    datasets: [{
-      label: 'Avril 2026',
-      data: [3, 3, 3, 1, 3, 0, 4, 2],
-      borderColor: CYAN_A+'0.7)',
-      backgroundColor: CYAN_A+'0.1)',
-      borderWidth: 1.5,
-      pointBackgroundColor: CYAN,
-    },{
-      label: 'Mai 2026 (actuel)',
-      data: [5, 4, 5, 4, 5, 5, 5, 4],
-      borderColor: ROSE,
-      backgroundColor: ROSE_A+'0.15)',
-      borderWidth: 2,
-      pointBackgroundColor: ROSE,
+/* ─── 10. RADAR ─── */
+new Chart(document.getElementById('chartRadar'),{
+  type:'radar',
+  data:{
+    labels:['Comptes\n& Auth','Entités','OptiqCarto','Liaisons\ncross','Fonctions IA','Tests\n& Qualité','Cloud\nDéploiement','UX / i18n'],
+    datasets:[
+      {label:'Avril 2026',data:[3,3,3,1,3,0,4,2],borderColor:CA+'0.7)',backgroundColor:CA+'0.1)',borderWidth:1.5,pointBackgroundColor:C},
+      {label:'Mai 2026',data:[5,4,5,4,5,5,5,4],borderColor:R,backgroundColor:RA+'0.15)',borderWidth:2,pointBackgroundColor:R}
+    ]
+  },
+  options:{
+    responsive:true,maintainAspectRatio:false,
+    plugins:{legend:{position:'bottom',labels:{boxWidth:12,padding:12}}},
+    scales:{r:{min:0,max:5,ticks:{stepSize:1,backdropColor:'transparent',color:'#64748b'},grid:{color:'rgba(255,255,255,0.08)'},angleLines:{color:'rgba(255,255,255,0.08)'},pointLabels:{font:{size:11},color:'#94a3b8'}}}
+  }
+});
+
+/* ─── 11. COMMIT TYPES ─── */
+new Chart(document.getElementById('chartCommitTypes'),{
+  type:'doughnut',
+  data:{
+    labels:['Fix / Correction','Feat / Fonctionnalité','Tests unitaires','UI / Refonte','CI/CD & Docs','Autres'],
+    datasets:[{
+      data:[62,36,10,20,7,114],
+      backgroundColor:[RA+'0.8)',VA+'0.85)',AA+'0.85)',CA+'0.8)',GA+'0.8)',MU+'0.55)'],
+      borderColor:'transparent',hoverOffset:8
     }]
   },
-  options: {
-    responsive: true, maintainAspectRatio: false,
-    plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, padding: 12 } } },
-    scales: {
-      r: {
-        min: 0, max: 5, ticks: { stepSize: 1, backdropColor: 'transparent', color: '#64748b' },
-        grid: { color: 'rgba(255,255,255,0.08)' },
-        angleLines: { color: 'rgba(255,255,255,0.08)' },
-        pointLabels: { font: { size: 11 }, color: '#94a3b8' }
-      }
+  options:{
+    responsive:true,maintainAspectRatio:false,cutout:'55%',
+    plugins:{
+      legend:{position:'right',labels:{boxWidth:12,padding:12}},
+      tooltip:{callbacks:{label:ctx=>` ${ctx.label}: ${ctx.raw} (${Math.round(ctx.raw/249*100)}%)`}}
     }
   }
 });
 
-// ── 13. TYPES COMMITS ────────────────────────────────────────────────
-new Chart(document.getElementById('chartCommitTypes'), {
-  type: 'doughnut',
-  data: {
-    labels: ['Fix / Correction', 'Feat / Fonctionnalité', 'Tests', 'UI / Refonte', 'CI/CD & Docs', 'Autres'],
-    datasets: [{
-      data: [62, 36, 10, 20, 7, 112],
-      backgroundColor: [
-        ROSE_A+'0.8)', VIOLET_A+'0.85)', AMBER_A+'0.85)',
-        CYAN_A+'0.8)', GREEN_A+'0.8)', 'rgba(100,116,139,0.6)'
-      ],
-      borderColor: 'transparent',
-      hoverOffset: 8,
-    }]
+/* ─── 12. RATIO PHASES ─── */
+new Chart(document.getElementById('chartRatioPhases'),{
+  type:'bar',
+  data:{
+    labels:['Phase 1\nDéc 24–Sep 25','Phase 2\nOct–Déc 25','Phase 3\nJan–Mar 26','Phase 4\nAvr 26','Phase 5\nMai 26'],
+    datasets:[
+      {label:'Feat',data:[8,5,4,10,9],backgroundColor:VA+'0.85)'},
+      {label:'Fix',data:[10,4,3,12,33],backgroundColor:RA+'0.8)'},
+      {label:'Tests',data:[0,0,0,0,10],backgroundColor:AA+'0.85)'},
+      {label:'UI / Refonte',data:[5,3,2,4,6],backgroundColor:CA+'0.8)'}
+    ]
   },
-  options: {
-    responsive: true, maintainAspectRatio: false,
-    plugins: {
-      legend: { position: 'right', labels: { boxWidth: 12, padding: 12 } },
-      tooltip: {
-        callbacks: {
-          label: ctx => ` ${ctx.label}: ${ctx.raw} commits (${Math.round(ctx.raw/247*100)}%)`
-        }
-      }
-    },
-    cutout: '55%',
-  }
-});
-
-// ── 14. RATIO PHASES ─────────────────────────────────────────────────
-new Chart(document.getElementById('chartRatioPhases'), {
-  type: 'bar',
-  data: {
-    labels: ['Phase 1\n(Déc 24–Sep 25)', 'Phase 2\n(Oct–Déc 25)', 'Phase 3\n(Jan–Mar 26)', 'Phase 4\n(Avr 26)', 'Phase 5\n(Mai 26)'],
-    datasets: [{
-      label: 'Feat',
-      data: [8, 5, 4, 10, 9],
-      backgroundColor: VIOLET_A+'0.85)',
-    },{
-      label: 'Fix',
-      data: [10, 4, 3, 12, 33],
-      backgroundColor: ROSE_A+'0.8)',
-    },{
-      label: 'Tests',
-      data: [0, 0, 0, 0, 10],
-      backgroundColor: AMBER_A+'0.85)',
-    },{
-      label: 'UI / Refonte',
-      data: [5, 3, 2, 4, 6],
-      backgroundColor: CYAN_A+'0.8)',
-    }]
-  },
-  options: {
-    responsive: true, maintainAspectRatio: false,
-    plugins: { legend: { position: 'top', labels: { boxWidth: 10, padding: 10 } } },
-    scales: {
-      x: { stacked: true, grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { font: { size: 10 } } },
-      y: { stacked: true, grid: { color: 'rgba(255,255,255,0.04)' } }
+  options:{
+    responsive:true,maintainAspectRatio:false,
+    plugins:{legend:{position:'top',labels:{boxWidth:10,padding:10}}},
+    scales:{
+      x:{stacked:true,grid:{color:'rgba(255,255,255,0.04)'},ticks:{font:{size:10}}},
+      y:{stacked:true,grid:{color:'rgba(255,255,255,0.04)'}}
     }
   }
 });
 </script>
-
 </body>
 </html>
