@@ -1539,94 +1539,55 @@ def _tool_decisions_from_entity(entity) -> Dict:
     }
 
 
-@activities_map_bp.route("/api/debug-decisions", methods=["GET"])
-def api_debug_decisions():
-    """
-    Returns VSDX-extracted decisions + tool-state decisions side by side.
-    Used by the comparison debug panel.
-    """
-    entity = get_active_entity()
-    if not entity:
-        return jsonify({"error": "Aucune entité active"}), 400
-
-    vsdx_data: Dict = {'decisions': [], 'total_shapes': 0, 'total_connectors': 0, 'errors': []}
-    vsdx_exists, vsdx_path = check_vsdx_exists(entity.id)
-    if vsdx_exists and os.path.exists(vsdx_path):
-        vsdx_data = extract_decisions_from_vsdx(vsdx_path)
-
-    tool_data = _tool_decisions_from_entity(entity)
-
-    return jsonify({
-        "entity_id": entity.id,
-        "entity_name": entity.name,
-        "has_vsdx": vsdx_exists and os.path.exists(vsdx_path),
-        "vsdx": vsdx_data,
-        "tool": tool_data,
-    })
-
-
-@activities_map_bp.route("/api/debug-decisions/ai", methods=["POST"])
-def api_debug_decisions_ai():
-    """
-    Sends the first page XML from the entity's VSDX to Claude/OpenAI
-    and asks it to extract all decision diamonds + Oui/Non connections.
-    """
-    import json
+def _read_vsdx_page_xml(vsdx_path: str) -> str:
+    """Returns the first page XML content from a VSDX archive."""
     import zipfile as _zf
+    with _zf.ZipFile(vsdx_path, 'r') as zf:
+        page_files = sorted(
+            f for f in zf.namelist()
+            if f.startswith('visio/pages/page') and f.endswith('.xml')
+        )
+        if not page_files:
+            raise ValueError('Aucune page dans le VSDX')
+        return zf.read(page_files[0]).decode('utf-8', errors='replace')
 
-    entity = get_active_entity()
-    if not entity:
-        return jsonify({"error": "Aucune entité active"}), 400
 
-    vsdx_exists, vsdx_path = check_vsdx_exists(entity.id)
-    if not vsdx_exists or not os.path.exists(vsdx_path):
-        return jsonify({"error": "Pas de fichier VSDX pour cette entité"}), 404
-
-    # Read first page XML (truncated to ~12 000 chars for API token limits)
-    try:
-        with _zf.ZipFile(vsdx_path, 'r') as zf:
-            page_files = sorted(
-                f for f in zf.namelist()
-                if f.startswith('visio/pages/page') and f.endswith('.xml')
-            )
-            if not page_files:
-                return jsonify({"error": "Aucune page dans le VSDX"}), 400
-            raw_xml = zf.read(page_files[0]).decode('utf-8', errors='replace')
-    except Exception as e:
-        return jsonify({"error": f"Lecture VSDX: {e}"}), 500
-
-    xml_excerpt = raw_xml[:14000]
+def _ai_extract_decisions(xml_excerpt: str, context_name: str = '') -> Dict:
+    """
+    Sends VSDX page XML to Claude/OpenAI → returns parsed decision JSON.
+    Returns {"source": "claude"|"openai"|"error", "data": {...}, "error"?: "..."}
+    """
+    import json as _json
 
     system_prompt = (
         "Tu es un expert en analyse de fichiers Visio (VSDX). "
-        "Je vais te fournir le XML brut d'une page Visio. "
-        "Ton rôle est d'extraire UNIQUEMENT les nœuds de décision (losanges/diamonds). "
-        "Pour chaque losange :\n"
-        "- son identifiant Visio (attribut ID)\n"
-        "- son texte/label\n"
-        "- la liste des connexions ENTRANTES (from_shape_id, from_label)\n"
-        "- la liste des connexions SORTANTES (to_shape_id, to_label, badge: 'Oui' ou 'Non' "
-        "si une forme badge est associée à ce connecteur)\n\n"
-        "Un losange est identifiable par :\n"
-        "1. Son master name contient 'decision', 'diamond', 'losange', 'conditional', "
-        "'si grand', 'si petit', 'branchement', etc.\n"
-        "2. OU sa géométrie a exactement 1 MoveTo + 4 LineTo (forme en losange)\n\n"
-        "Les badges Oui/Non sont des formes séparées avec le texte 'Oui' ou 'Non' "
-        "placées à proximité d'un connecteur sortant du losange, "
-        "ou des connecteurs dont le texte est 'Oui'/'Non'.\n\n"
-        "Réponds UNIQUEMENT avec un JSON valide de la forme :\n"
+        "Je te donne le XML brut d'une page Visio (format CFF/flowchart). "
+        "Extrait UNIQUEMENT les nœuds de décision (losanges / diamonds).\n\n"
+        "Pour chaque losange retourne :\n"
+        "- id : attribut ID de la Shape Visio\n"
+        "- label : texte affiché dans le losange\n"
+        "- incoming : liste [{from_id, from_label}] — formes qui pointent VERS ce losange\n"
+        "- outgoing : liste [{to_id, to_label, badge}] — formes que le losange pointe,\n"
+        "  avec badge = 'Oui', 'Non' ou '' selon la présence d'une forme-badge ou label sur le connecteur\n\n"
+        "Critères d'identification d'un losange :\n"
+        "1. Master/@NameU contient : decision, diamond, gateway, conditional, losange, "
+        "branchement, rhombus, si grand, si petit, big if, small if\n"
+        "2. OU géométrie Section[@N='Geometry'] avec exactement 1 Row[@T='MoveTo'] + 4 Row[@T='LineTo'] "
+        "(et aucun arc) → taille raisonnable (Width et Height entre 0.3 et 3 pouces)\n\n"
+        "Badges Oui/Non : formes séparées dont le texte est 'Oui'/'Non'/'Yes'/'No', "
+        "associées à un connecteur via groupement parent ou proximité spatiale.\n\n"
+        "Réponds UNIQUEMENT en JSON valide, sans texte avant ni après :\n"
         '{"decisions": [{"id": "...", "label": "...", '
         '"incoming": [{"from_id": "...", "from_label": "..."}], '
-        '"outgoing": [{"to_id": "...", "to_label": "...", "badge": "Oui|Non|"}]}]}'
+        '"outgoing": [{"to_id": "...", "to_label": "...", "badge": ""}]}]}'
     )
 
     user_prompt = (
-        f"Voici le XML Visio à analyser (entité: {entity.name}) :\n\n"
-        f"```xml\n{xml_excerpt}\n```\n\n"
-        "Extrais tous les losanges/décisions et leurs connexions Oui/Non."
+        f"Fichier Visio{(' — ' + context_name) if context_name else ''} :\n\n"
+        f"```xml\n{xml_excerpt[:16000]}\n```\n\n"
+        "Extrais tous les losanges et leurs connexions Oui/Non."
     )
 
-    # Try Anthropic Claude first
     anthropic_key = os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("ANTHROPIC_KEY")
     if anthropic_key:
         try:
@@ -1634,21 +1595,18 @@ def api_debug_decisions_ai():
             client = _ant.Anthropic(api_key=anthropic_key)
             msg = client.messages.create(
                 model="claude-haiku-4-5-20251001",
-                max_tokens=3000,
+                max_tokens=4000,
                 system=system_prompt,
                 messages=[{"role": "user", "content": user_prompt}],
             )
             raw = msg.content[0].text
-            # Extract JSON from response
             m = re.search(r'\{.*\}', raw, re.DOTALL)
             if m:
-                data = json.loads(m.group(0))
-                return jsonify({"source": "claude", "data": data})
-            return jsonify({"source": "claude", "data": {"decisions": []}, "raw": raw})
-        except Exception as e:
-            pass  # Fall through to OpenAI
+                return {"source": "claude", "data": _json.loads(m.group(0))}
+            return {"source": "claude", "data": {"decisions": []}, "raw": raw}
+        except Exception:
+            pass
 
-    # Fallback: OpenAI
     openai_key = os.environ.get("OPENAI_API_KEY")
     if openai_key:
         try:
@@ -1658,18 +1616,127 @@ def api_debug_decisions_ai():
                 model="gpt-4o-mini",
                 messages=[
                     {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt},
+                    {"role": "user",   "content": user_prompt},
                 ],
                 temperature=0.1,
-                max_tokens=3000,
+                max_tokens=4000,
             )
             raw = resp.choices[0].message.content
             m = re.search(r'\{.*\}', raw, re.DOTALL)
             if m:
-                data = json.loads(m.group(0))
-                return jsonify({"source": "openai", "data": data})
-            return jsonify({"source": "openai", "data": {"decisions": []}, "raw": raw})
+                return {"source": "openai", "data": _json.loads(m.group(0))}
+            return {"source": "openai", "data": {"decisions": []}, "raw": raw}
         except Exception as e:
-            return jsonify({"error": f"OpenAI: {e}"}), 500
+            return {"source": "error", "error": str(e), "data": {"decisions": []}}
+
+    return {"source": "error", "error": "Aucune clé IA configurée", "data": {"decisions": []}}
+
+
+@activities_map_bp.route("/api/debug-decisions/analyze-file", methods=["POST"])
+def api_debug_analyze_file():
+    """
+    Accepts a VSDX file upload (multipart field 'vsdx').
+    Returns raw VSDX extraction result.
+    The 'tool' result is computed in the browser via VsdxImporter.
+    The 'ai' result is fetched separately via /analyze-file/ai.
+    """
+    vsdx_file = request.files.get('vsdx')
+    if not vsdx_file or not vsdx_file.filename:
+        return jsonify({"error": "Aucun fichier fourni"}), 400
+    if not vsdx_file.filename.lower().endswith('.vsdx'):
+        return jsonify({"error": "Le fichier doit être un .vsdx"}), 400
+
+    with tempfile.NamedTemporaryFile(suffix='.vsdx', delete=False) as tmp:
+        vsdx_file.save(tmp.name)
+        tmp_path = tmp.name
+
+    try:
+        vsdx_data = extract_decisions_from_vsdx(tmp_path)
+    finally:
+        try:
+            os.unlink(tmp_path)
+        except OSError:
+            pass
+
+    return jsonify({"vsdx": vsdx_data})
+
+
+@activities_map_bp.route("/api/debug-decisions/analyze-file/ai", methods=["POST"])
+def api_debug_analyze_file_ai():
+    """
+    Accepts a VSDX file upload (multipart field 'vsdx').
+    Sends the first page XML to Claude/OpenAI for decision extraction.
+    """
+    vsdx_file = request.files.get('vsdx')
+    if not vsdx_file or not vsdx_file.filename:
+        return jsonify({"error": "Aucun fichier fourni"}), 400
+    if not vsdx_file.filename.lower().endswith('.vsdx'):
+        return jsonify({"error": "Le fichier doit être un .vsdx"}), 400
+
+    with tempfile.NamedTemporaryFile(suffix='.vsdx', delete=False) as tmp:
+        vsdx_file.save(tmp.name)
+        tmp_path = tmp.name
+
+    try:
+        xml_content = _read_vsdx_page_xml(tmp_path)
+    except Exception as e:
+        try:
+            os.unlink(tmp_path)
+        except OSError:
+            pass
+        return jsonify({"error": str(e)}), 400
+    finally:
+        try:
+            os.unlink(tmp_path)
+        except OSError:
+            pass
+
+    result = _ai_extract_decisions(xml_content, vsdx_file.filename)
+    return jsonify(result)
+
+
+# Keep old entity-based endpoints for backward compatibility
+@activities_map_bp.route("/api/debug-decisions", methods=["GET"])
+def api_debug_decisions():
+    """Legacy: VSDX-extracted decisions from entity's stored file."""
+    entity = get_active_entity()
+    if not entity:
+        return jsonify({"error": "Aucune entité active"}), 400
+
+    vsdx_data: Dict = {'decisions': [], 'total_shapes': 0, 'total_connectors': 0, 'errors': []}
+    vsdx_exists, vsdx_path = check_vsdx_exists(entity.id)
+    if vsdx_exists and os.path.exists(vsdx_path):
+        vsdx_data = extract_decisions_from_vsdx(vsdx_path)
+
+    return jsonify({
+        "entity_id": entity.id,
+        "entity_name": entity.name,
+        "has_vsdx": vsdx_exists and os.path.exists(vsdx_path),
+        "vsdx": vsdx_data,
+    })
+
+
+@activities_map_bp.route("/api/debug-decisions/ai", methods=["POST"])
+def api_debug_decisions_ai():
+    """Legacy: AI analysis of entity's stored VSDX."""
+    import json as _json
+
+    entity = get_active_entity()
+    if not entity:
+        return jsonify({"error": "Aucune entité active"}), 400
+
+    vsdx_exists, vsdx_path = check_vsdx_exists(entity.id)
+    if not vsdx_exists or not os.path.exists(vsdx_path):
+        return jsonify({"error": "Pas de fichier VSDX pour cette entité"}), 404
+
+    try:
+        xml_content = _read_vsdx_page_xml(vsdx_path)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+    result = _ai_extract_decisions(xml_content, entity.name)
+    return jsonify(result)
+
+
 
     return jsonify({"error": "Aucune clé IA configurée (ANTHROPIC_KEY ou OPENAI_API_KEY)"}), 503

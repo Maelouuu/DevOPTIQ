@@ -4296,3 +4296,76 @@ body.connexion-mode-active .activity-item:not(.connexion-match):not(.connexion-o
   padding: 20px 0;
   text-align: center;
 }
+
+/* ── Drop zone ──────────────────────────────────────────────── */
+.dd-dropzone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 2px dashed #cbd5e1;
+  border-radius: 12px;
+  padding: 24px 20px;
+  margin-bottom: 18px;
+  cursor: pointer;
+  transition: border-color .15s, background .15s;
+  background: #f8fafc;
+  min-height: 90px;
+  text-align: center;
+}
+.dd-dropzone:hover, .dd-dz-over {
+  border-color: #ec4899;
+  background: #fdf2f8;
+}
+.dd-dz-icon { opacity: .45; margin-bottom: 4px; }
+.dd-dz-hint { font-size: 0.88rem; color: #475569; }
+.dd-dz-hint strong { color: #1e293b; }
+.dd-dz-or { font-size: 0.78rem; color: #94a3b8; }
+.dd-dz-browse { color: #ec4899; text-decoration: underline; cursor: pointer; }
+.dd-dz-loaded {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.88rem;
+  color: #166534;
+  font-weight: 600;
+}
+.dd-dz-size { font-weight: 400; color: #64748b; font-size: 0.78rem; }
+
+/* ── Extra score/table helpers ──────────────────────────────── */
+.dd-errs {
+  font-size: 0.78rem;
+  color: #dc2626;
+  margin-top: 6px;
+  padding: 4px 8px;
+  background: #fef2f2;
+  border-radius: 6px;
+  border: 1px solid #fca5a5;
+}
+.dd-row-tool-only td { background: #f0fdf4 !important; }
+.dd-tag-tool {
+  background: #dcfce7;
+  color: #166534;
+  padding: 2px 8px;
+  border-radius: 5px;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+.dd-ai-header {
+  font-size: 0.8rem;
+  color: #6366f1;
+  font-weight: 700;
+  margin-bottom: 10px;
+}
+.dd-src-badge {
+  display: inline-block;
+  padding: 1px 7px;
+  border-radius: 4px;
+  background: #e0e7ff;
+  color: #4338ca;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  margin-left: 6px;
+}
