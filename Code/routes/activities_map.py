@@ -1554,8 +1554,9 @@ def _read_vsdx_page_xml(vsdx_path: str) -> str:
 
 def _ai_extract_decisions(xml_excerpt: str, context_name: str = '') -> Dict:
     """
-    Sends VSDX page XML to Claude/OpenAI → returns parsed decision JSON.
-    Returns {"source": "claude"|"openai"|"error", "data": {...}, "error"?: "..."}
+    Sends VSDX page XML to OpenAI (primary) or Anthropic (fallback).
+    Same key priority as the rest of the app (OPENAI_API_KEY first).
+    Returns {"source": "openai"|"claude"|"error", "data": {...}, "error"?: "..."}
     """
     import json as _json
 
@@ -1588,6 +1589,31 @@ def _ai_extract_decisions(xml_excerpt: str, context_name: str = '') -> Dict:
         "Extrais tous les losanges et leurs connexions Oui/Non."
     )
 
+    # ── 1. OpenAI (primary — same key as rest of app) ────────────────────
+    openai_key = os.environ.get("OPENAI_API_KEY")
+    if openai_key:
+        try:
+            from openai import OpenAI as _OAI
+            client = _OAI(api_key=openai_key)
+            resp = client.chat.completions.create(
+                model=os.environ.get("OPENAI_CHATBOT_MODEL", "gpt-4o-mini"),
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user",   "content": user_prompt},
+                ],
+                temperature=0.1,
+                max_tokens=4000,
+            )
+            raw = resp.choices[0].message.content
+            m = re.search(r'\{.*\}', raw, re.DOTALL)
+            if m:
+                return {"source": "openai", "data": _json.loads(m.group(0))}
+            return {"source": "openai", "data": {"decisions": []}, "raw": raw}
+        except Exception as e:
+            # Log but continue to Anthropic fallback
+            print(f"[DEBUG-IA] OpenAI failed: {e}")
+
+    # ── 2. Anthropic Claude (fallback) ───────────────────────────────────
     anthropic_key = os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("ANTHROPIC_KEY")
     if anthropic_key:
         try:
@@ -1604,33 +1630,14 @@ def _ai_extract_decisions(xml_excerpt: str, context_name: str = '') -> Dict:
             if m:
                 return {"source": "claude", "data": _json.loads(m.group(0))}
             return {"source": "claude", "data": {"decisions": []}, "raw": raw}
-        except Exception:
-            pass
-
-    openai_key = os.environ.get("OPENAI_API_KEY")
-    if openai_key:
-        try:
-            import openai as _oai
-            client = _oai.OpenAI(api_key=openai_key)
-            resp = client.chat.completions.create(
-                model="gpt-4o-mini",
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user",   "content": user_prompt},
-                ],
-                temperature=0.1,
-                max_tokens=4000,
-            )
-            raw = resp.choices[0].message.content
-            m = re.search(r'\{.*\}', raw, re.DOTALL)
-            if m:
-                return {"source": "openai", "data": _json.loads(m.group(0))}
-            return {"source": "openai", "data": {"decisions": []}, "raw": raw}
         except Exception as e:
-            return {"source": "error", "error": str(e), "data": {"decisions": []}}
+            return {"source": "error", "error": f"Anthropic: {e}", "data": {"decisions": []}}
 
-    return {"source": "error", "error": "Aucune clé IA configurée", "data": {"decisions": []}}
-
+    return {
+        "source": "error",
+        "error": "Aucune clé IA configurée (OPENAI_API_KEY ou ANTHROPIC_KEY)",
+        "data": {"decisions": []},
+    }
 
 @activities_map_bp.route("/api/debug-decisions/analyze-file", methods=["POST"])
 def api_debug_analyze_file():

@@ -3,11 +3,11 @@
   'use strict';
 
   // ── State ──────────────────────────────────────────────────────────────
-  let _file       = null;   // File object currently loaded
-  let _vsdxData   = null;   // Python extractor result
-  let _toolData   = null;   // VsdxImporter (JS) result
-  let _aiData     = null;   // Claude/OpenAI result
-  let _activeTab  = 'compare';
+  let _file      = null;
+  let _vsdxData  = null;   // Python extractor
+  let _toolData  = null;   // VsdxImporter JS
+  let _aiData    = null;   // OpenAI / Claude
+  let _activeTab = 'compare';
 
   // ── Init ───────────────────────────────────────────────────────────────
   document.addEventListener('DOMContentLoaded', () => {
@@ -22,7 +22,6 @@
       if (lbl) lbl.textContent = open ? 'Fermer' : 'Ouvrir';
     });
 
-    // Tab buttons
     document.querySelectorAll('.dd-tab').forEach(btn => {
       btn.addEventListener('click', () => {
         _activeTab = btn.dataset.tab;
@@ -33,39 +32,29 @@
       });
     });
 
-    // Drop zone
     _setupDropZone();
 
-    // File input fallback
-    const fileInput = _id('dd-file-input');
-    if (fileInput) {
-      fileInput.addEventListener('change', () => {
-        if (fileInput.files.length > 0) _loadFile(fileInput.files[0]);
-      });
-    }
+    _id('dd-file-input')?.addEventListener('change', e => {
+      if (e.target.files.length > 0) _loadFile(e.target.files[0]);
+    });
 
-    // AI button
     _id('dd-ai-btn')?.addEventListener('click', _runAI);
-
-    // Reset button
     _id('dd-reset-btn')?.addEventListener('click', _resetAll);
+    _id('dd-export-json-btn')?.addEventListener('click', _exportJSON);
+    _id('dd-export-csv-btn')?.addEventListener('click', _exportCSV);
   });
 
   // ── Drop zone ──────────────────────────────────────────────────────────
   function _setupDropZone() {
     const zone = _id('dd-dropzone');
     if (!zone) return;
-
-    zone.addEventListener('dragover', e => {
-      e.preventDefault();
-      zone.classList.add('dd-dz-over');
-    });
+    zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('dd-dz-over'); });
     zone.addEventListener('dragleave', () => zone.classList.remove('dd-dz-over'));
     zone.addEventListener('drop', e => {
       e.preventDefault();
       zone.classList.remove('dd-dz-over');
-      const file = e.dataTransfer.files[0];
-      if (file) _loadFile(file);
+      const f = e.dataTransfer.files[0];
+      if (f) _loadFile(f);
     });
     zone.addEventListener('click', () => _id('dd-file-input')?.click());
   }
@@ -79,7 +68,6 @@
     _file = file;
     _vsdxData = null; _toolData = null; _aiData = null;
 
-    // Show filename in drop zone
     const dz = _id('dd-dropzone');
     if (dz) {
       dz.innerHTML = `<span class="dd-dz-loaded">
@@ -89,7 +77,6 @@
       </span>`;
     }
 
-    // Open panel if closed
     const panel = _id('dd-panel');
     const toggle = _id('dd-toggle-btn');
     if (panel && !panel.classList.contains('dd-open')) {
@@ -99,16 +86,16 @@
       if (lbl) lbl.textContent = 'Fermer';
     }
 
+    _showExportBtns(false);
     _runAllAnalyses();
   }
 
-  // ── Run all analyses ───────────────────────────────────────────────────
+  // ── Run VSDX + Tool analyses ───────────────────────────────────────────
   async function _runAllAnalyses() {
-    _setStatus('Analyse en cours…');
+    _setStatus('Analyse VSDX + Outil en cours…');
     _id('dd-score')?.replaceChildren();
     _id('dd-tab-content').innerHTML = '<p class="dd-empty">Analyse en cours…</p>';
 
-    // Run Python extractor + JS importer in parallel
     const [vsdxResult, toolResult] = await Promise.all([
       _runPythonExtractor(),
       _runJsImporter(),
@@ -120,77 +107,57 @@
     _clearStatus();
     _renderScore();
     _renderActiveTab();
+    _showExportBtns(true);
   }
 
-  // ── Python extractor (backend) ─────────────────────────────────────────
+  // ── Python extractor ───────────────────────────────────────────────────
   async function _runPythonExtractor() {
     try {
       const fd = new FormData();
       fd.append('vsdx', _file);
-      const res = await fetch('/activities/api/debug-decisions/analyze-file', {
-        method: 'POST', body: fd
-      });
+      const res = await fetch('/activities/api/debug-decisions/analyze-file', { method: 'POST', body: fd });
       if (!res.ok) throw new Error(await res.text());
       const json = await res.json();
-      return json.vsdx || { decisions: [], errors: ['Réponse inattendue'] };
+      return json.vsdx || { decisions: [], errors: ['Réponse inattendue'], total_shapes: 0 };
     } catch (e) {
       return { decisions: [], errors: [e.message], total_shapes: 0, total_connectors: 0 };
     }
   }
 
-  // ── JS importer (VsdxImporter) ─────────────────────────────────────────
+  // ── JS importer ────────────────────────────────────────────────────────
   async function _runJsImporter() {
     try {
-      if (typeof VsdxImporter === 'undefined') {
-        return { decisions: [], errors: ['VsdxImporter non disponible'], total_shapes: 0 };
-      }
+      if (typeof VsdxImporter === 'undefined')
+        return { decisions: [], errors: ['VsdxImporter non chargé'], total_shapes: 0 };
 
-      const arrayBuffer = await _file.arrayBuffer();
-      const zip = await JSZip.loadAsync(arrayBuffer);
-      const importer = new VsdxImporter(zip);
+      const ab  = await _file.arrayBuffer();
+      const zip = await JSZip.loadAsync(ab);
+      const imp = new VsdxImporter(zip);
+      const res = await imp.parse(() => Promise.resolve('keep'));
+      if (!res) return { decisions: [], errors: ['Import annulé'], total_shapes: 0 };
 
-      // parse() with a no-op orphan handler
-      const result = await importer.parse(() => Promise.resolve('keep'));
-      if (!result) return { decisions: [], errors: ['Import annulé'], total_shapes: 0 };
+      const { shapes = [], connections = [] } = res;
+      const byId = {};
+      shapes.forEach(s => { byId[s.id] = s; });
 
-      const { shapes = [], connections = [] } = result;
-      const decisionShapes = shapes.filter(s => s._type === 'decision' || s.type === 'decision');
-      const shapeById = {};
-      shapes.forEach(s => { shapeById[s.id] = s; });
-
-      const decisions = decisionShapes.map(d => {
-        const outgoing = connections
-          .filter(c => c.fromId === d.id)
-          .map(c => ({
-            conn_id: c.id || '',
-            to_id:   c.toId  || '',
-            to_label: (shapeById[c.toId] || {}).label || '',
-            conn_label: c.label || '',
-            badge: c.label || '',
-          }));
-        const incoming = connections
-          .filter(c => c.toId === d.id)
-          .map(c => ({
-            conn_id:    c.id || '',
-            from_id:    c.fromId || '',
-            from_label: (shapeById[c.fromId] || {}).label || '',
-            conn_label: c.label || '',
-            badge: '',
-          }));
-        return {
-          id:    d.id,
+      const decisions = shapes
+        .filter(s => s._type === 'decision' || s.type === 'decision')
+        .map(d => ({
+          id: d.id,
           label: d.label || '',
-          outgoing,
-          incoming,
-        };
-      });
+          outgoing: connections.filter(c => c.fromId === d.id).map(c => ({
+            conn_id: c.id || '', to_id: c.toId || '',
+            to_label: (byId[c.toId] || {}).label || '',
+            conn_label: c.label || '', badge: c.label || '',
+          })),
+          incoming: connections.filter(c => c.toId === d.id).map(c => ({
+            conn_id: c.id || '', from_id: c.fromId || '',
+            from_label: (byId[c.fromId] || {}).label || '',
+            conn_label: c.label || '', badge: '',
+          })),
+        }));
 
-      return {
-        decisions,
-        total_shapes:      shapes.length,
-        total_connections: connections.length,
-        errors: [],
-      };
+      return { decisions, total_shapes: shapes.length, total_connections: connections.length, errors: [] };
     } catch (e) {
       return { decisions: [], errors: [e.message], total_shapes: 0 };
     }
@@ -198,26 +165,23 @@
 
   // ── AI analysis ────────────────────────────────────────────────────────
   async function _runAI() {
-    if (!_file) {
-      _setStatus('Déposez d\'abord un fichier VSDX.', true);
-      return;
-    }
+    if (!_file) { _setStatus('Déposez d\'abord un fichier VSDX.', true); return; }
     const btn = _id('dd-ai-btn');
     if (btn) { btn.disabled = true; btn.textContent = 'Analyse IA…'; }
 
     try {
       const fd = new FormData();
       fd.append('vsdx', _file);
-      const res = await fetch('/activities/api/debug-decisions/analyze-file/ai', {
-        method: 'POST', body: fd
-      });
+      const res  = await fetch('/activities/api/debug-decisions/analyze-file/ai', { method: 'POST', body: fd });
       const json = await res.json();
       if (json.error) throw new Error(json.error);
       _aiData = json.data || { decisions: [] };
       _aiData._source = json.source || 'ia';
 
-      // Switch to AI tab
-      document.querySelector('.dd-tab[data-tab="ai"]')?.click();
+      // Refresh score + comparison with AI column
+      _renderScore();
+      // Switch to compare tab to show AI column immediately
+      document.querySelector('.dd-tab[data-tab="compare"]')?.click();
     } catch (e) {
       _setStatus('IA : ' + e.message, true);
     } finally {
@@ -240,26 +204,107 @@
     _id('dd-score')?.replaceChildren();
     _id('dd-tab-content').innerHTML = '<p class="dd-empty">Déposez un fichier VSDX pour démarrer l\'analyse.</p>';
     _clearStatus();
+    _showExportBtns(false);
+  }
+
+  // ── Export ─────────────────────────────────────────────────────────────
+  function _exportJSON() {
+    const payload = {
+      file: _file?.name || 'inconnu',
+      exported_at: new Date().toISOString(),
+      vsdx:  _vsdxData,
+      tool:  _toolData,
+      ai:    _aiData,
+      comparison: _buildComparisonRows(),
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    _download(blob, `diagnostic_losanges_${_slug(_file?.name)}.json`);
+  }
+
+  function _exportCSV() {
+    const rows = _buildComparisonRows();
+    const hasAI = rows.some(r => r.ai_outs !== undefined);
+
+    const headers = ['Losange VSDX', 'Losange Outil', hasAI ? 'Losange IA' : null,
+                     'Entrées VSDX', 'Sorties VSDX (badge)', 'Sorties Outil (badge)',
+                     hasAI ? 'Sorties IA (badge)' : null, 'Statut']
+                    .filter(Boolean);
+
+    const lines = [headers.map(_csvCell).join(';')];
+    for (const r of rows) {
+      const line = [
+        r.vsdx_label, r.tool_label, hasAI ? (r.ai_label || '') : null,
+        r.vsdx_ins, r.vsdx_outs, r.tool_outs,
+        hasAI ? (r.ai_outs || '') : null, r.status,
+      ].filter((_, i) => headers[i] !== undefined).map(_csvCell).join(';');
+      lines.push(line);
+    }
+    const blob = new Blob(['﻿' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8' });
+    _download(blob, `diagnostic_losanges_${_slug(_file?.name)}.csv`);
+  }
+
+  function _buildComparisonRows() {
+    const vDec = _vsdxData?.decisions || [];
+    const tDec = _toolData?.decisions || [];
+    const aDec = _aiData?.decisions   || [];
+    const norm = s => (s || '').toLowerCase().trim().replace(/\s+/g, ' ');
+
+    const tMap = {}, aMap = {};
+    tDec.forEach(d => { tMap[norm(d.label)] = d; });
+    aDec.forEach(d => { aMap[norm(d.label)] = d; });
+
+    const outStr = (list, lk) =>
+      (list || []).map(c => `${c[lk] || c.conn_id || '?'}${c.badge ? ` [${c.badge}]` : ''}`).join(' | ');
+
+    const seen = new Set();
+    const rows = vDec.map(vd => {
+      const key = norm(vd.label);
+      seen.add(key);
+      const td = tMap[key], ad = aMap[key];
+      return {
+        vsdx_label: vd.label,
+        tool_label: td?.label || '',
+        ai_label:   ad?.label || '',
+        vsdx_ins:   outStr(vd.incoming,  'from_label'),
+        vsdx_outs:  outStr(vd.outgoing,  'to_label'),
+        tool_outs:  outStr(td?.outgoing, 'to_label'),
+        ai_outs:    aDec.length ? outStr(ad?.outgoing, 'to_label') : undefined,
+        status:     td ? (ad ? 'OK×3' : 'OK×2') : 'MANQUANT',
+      };
+    });
+
+    // Tool-only
+    tDec.filter(td => !seen.has(norm(td.label))).forEach(td => {
+      const key = norm(td.label);
+      const ad = aMap[key];
+      rows.push({
+        vsdx_label: '',
+        tool_label: td.label,
+        ai_label:   ad?.label || '',
+        vsdx_ins:   '', vsdx_outs: '',
+        tool_outs:  outStr(td.outgoing, 'to_label'),
+        ai_outs:    aDec.length ? outStr(ad?.outgoing, 'to_label') : undefined,
+        status:     'OUTIL_SEUL',
+      });
+    });
+
+    return rows;
   }
 
   // ── Score ──────────────────────────────────────────────────────────────
   function _renderScore() {
     const el = _id('dd-score');
-    if (!el) return;
+    if (!el || (!_vsdxData && !_toolData)) return;
 
-    const vDec = (_vsdxData?.decisions) || [];
-    const tDec = (_toolData?.decisions) || [];
-
-    if (vDec.length === 0 && tDec.length === 0) {
-      el.innerHTML = '<span class="dd-score-grey">Aucun losange détecté dans les deux sources.</span>';
-      return;
-    }
+    const vDec = _vsdxData?.decisions || [];
+    const tDec = _toolData?.decisions || [];
+    const aDec = _aiData?.decisions   || [];
 
     const norm = s => (s || '').toLowerCase().trim().replace(/\s+/g, ' ');
-    const vLabels = new Set(vDec.map(d => norm(d.label)));
-    const tLabels = new Set(tDec.map(d => norm(d.label)));
-    const matched = [...vLabels].filter(l => tLabels.has(l)).length;
-    const total = Math.max(vDec.length, tDec.length);
+    const vSet = new Set(vDec.map(d => norm(d.label)));
+    const tSet = new Set(tDec.map(d => norm(d.label)));
+    const matched = [...vSet].filter(l => tSet.has(l)).length;
+    const total   = Math.max(vDec.length, tDec.length);
 
     let vBadged = 0, tBadged = 0;
     vDec.forEach(d => d.outgoing.forEach(c => { if (c.badge) vBadged++; }));
@@ -267,14 +312,20 @@
 
     const shapeScore = total > 0 ? Math.round(matched / total * 100) : 100;
     const badgeScore = vBadged > 0 ? Math.round(Math.min(tBadged, vBadged) / vBadged * 100) : (tBadged === 0 ? 100 : 0);
-    const globalScore = Math.round((shapeScore + badgeScore) / 2);
-    const color = globalScore === 100 ? '#22c55e' : globalScore >= 70 ? '#f59e0b' : '#ef4444';
+    const global = Math.round((shapeScore + badgeScore) / 2);
+    const col = global === 100 ? '#22c55e' : global >= 70 ? '#f59e0b' : '#ef4444';
+
+    const aiChip = aDec.length > 0
+      ? `<div class="dd-score-item">
+           <span class="dd-score-num" style="color:#6366f1">${aDec.length}</span>
+           <span class="dd-score-lbl">Losanges<br>IA <span class="dd-src-badge">${_esc(_aiData._source || 'ia')}</span></span>
+         </div>` : '';
 
     el.innerHTML = `
       <div class="dd-score-grid">
         <div class="dd-score-item">
-          <span class="dd-score-num" style="color:${color}">${globalScore}%</span>
-          <span class="dd-score-lbl">Score global<br>VSDX↔Outil</span>
+          <span class="dd-score-num" style="color:${col}">${global}%</span>
+          <span class="dd-score-lbl">Score<br>VSDX↔Outil</span>
         </div>
         <div class="dd-score-item">
           <span class="dd-score-num">${vDec.length}</span>
@@ -284,6 +335,7 @@
           <span class="dd-score-num">${tDec.length}</span>
           <span class="dd-score-lbl">Losanges<br>Outil JS</span>
         </div>
+        ${aiChip}
         <div class="dd-score-item">
           <span class="dd-score-num">${matched}/${total}</span>
           <span class="dd-score-lbl">Labels<br>reconnus</span>
@@ -292,22 +344,18 @@
           <span class="dd-score-num">${vBadged} / ${tBadged}</span>
           <span class="dd-score-lbl">Badges Oui/Non<br>VSDX / Outil</span>
         </div>
-        ${_vsdxData?.total_shapes ? `<div class="dd-score-item">
-          <span class="dd-score-num">${_vsdxData.total_shapes}</span>
-          <span class="dd-score-lbl">Formes<br>VSDX totales</span>
-        </div>` : ''}
       </div>
-      ${_vsdxData?.errors?.length ? `<p class="dd-errs">VSDX : ${_vsdxData.errors.join(', ')}</p>` : ''}
-      ${_toolData?.errors?.length ? `<p class="dd-errs">Outil : ${_toolData.errors.join(', ')}</p>` : ''}`;
+      ${(_vsdxData?.errors?.length ? `<p class="dd-errs">VSDX: ${_vsdxData.errors.join(', ')}</p>` : '')}
+      ${(_toolData?.errors?.length ? `<p class="dd-errs">Outil: ${_toolData.errors.join(', ')}</p>` : '')}`;
   }
 
   // ── Tab rendering ──────────────────────────────────────────────────────
   function _renderActiveTab() {
     switch (_activeTab) {
       case 'compare': _renderCompare(); break;
-      case 'vsdx':   _renderSource(_vsdxData?.decisions, 'VSDX brut (Python)'); break;
-      case 'tool':   _renderSource(_toolData?.decisions, 'Outil JS (VsdxImporter)'); break;
-      case 'ai':     _renderAITab(); break;
+      case 'vsdx':    _renderSource(_vsdxData?.decisions, 'VSDX brut (Python)'); break;
+      case 'tool':    _renderSource(_toolData?.decisions, 'Outil JS (VsdxImporter)'); break;
+      case 'ai':      _renderAITab(); break;
     }
   }
 
@@ -317,62 +365,49 @@
 
     const vDec = _vsdxData?.decisions || [];
     const tDec = _toolData?.decisions || [];
+    const aDec = _aiData?.decisions   || [];
+    const hasAI = aDec.length > 0;
 
     if (vDec.length === 0 && tDec.length === 0) {
-      el.innerHTML = '<p class="dd-empty">Aucun losange détecté. Essayez un fichier VSDX contenant des losanges.</p>';
+      el.innerHTML = '<p class="dd-empty">Aucun losange détecté. Essayez un VSDX contenant des losanges.</p>';
       return;
     }
 
     const norm = s => (s || '').toLowerCase().trim().replace(/\s+/g, ' ');
-    const tByLabel = {};
-    tDec.forEach(d => { tByLabel[norm(d.label)] = d; });
+    const tMap = {}, aMap = {};
+    tDec.forEach(d => { tMap[norm(d.label)] = d; });
+    aDec.forEach(d => { aMap[norm(d.label)] = d; });
 
-    // Build rows from vsdx decisions
-    const rows = vDec.map(vd => {
-      const td = tByLabel[norm(vd.label)];
-      return { vd, td, found: !!td };
-    });
-
-    // Add tool-only decisions (not in VSDX)
     const vLabels = new Set(vDec.map(d => norm(d.label)));
-    tDec.filter(td => !vLabels.has(norm(td.label))).forEach(td => {
-      rows.push({ vd: null, td, found: false, toolOnly: true });
-    });
+    const rows = vDec.map(vd => ({ vd, td: tMap[norm(vd.label)], ad: aMap[norm(vd.label)] }));
+    tDec.filter(td => !vLabels.has(norm(td.label)))
+        .forEach(td => rows.push({ vd: null, td, ad: aMap[norm(td.label)], toolOnly: true }));
 
-    let html = `<table class="dd-table">
-      <thead><tr>
-        <th>Losange VSDX</th>
-        <th>Losange Outil</th>
-        <th>Entrées VSDX</th>
-        <th>Sorties VSDX</th>
-        <th>Sorties Outil</th>
-      </tr></thead><tbody>`;
+    const aiHead = hasAI ? `<th>Sorties IA ${_aiData._source ? `<span class="dd-src-badge">${_esc(_aiData._source)}</span>` : ''}</th>` : '';
 
-    for (const { vd, td, found, toolOnly } of rows) {
-      const cls = toolOnly ? 'dd-row-tool-only' : (!found ? 'dd-row-miss' : '');
+    let html = `<table class="dd-table"><thead><tr>
+      <th>Losange VSDX</th><th>Losange Outil</th>${aiHead}
+      <th>Entrées VSDX</th><th>Sorties VSDX</th><th>Sorties Outil</th>
+    </tr></thead><tbody>`;
 
-      const vLabel = vd ? (_esc(vd.label) || '<em>sans label</em>') : '—';
-      const tLabel = td ? (_esc(td.label) || '<em>sans label</em>') : `<span class="dd-miss">Non trouvé</span>`;
-
-      const vIns = vd ? _connChips(vd.incoming, 'from_label') : '';
-      const vOuts = vd ? _connChips(vd.outgoing, 'to_label') : '';
-      const tOuts = td ? _connChips(td.outgoing, 'to_label') : '<span class="dd-miss">—</span>';
+    for (const { vd, td, ad, toolOnly } of rows) {
+      const cls = toolOnly ? 'dd-row-tool-only' : (!td ? 'dd-row-miss' : '');
+      const vL  = vd ? (_esc(vd.label) || '<em>sans label</em>') : '—';
+      const tL  = td ? (_esc(td.label) || '<em>sans label</em>') : `<span class="dd-miss">Non trouvé</span>`;
+      const vIns  = vd  ? _chips(vd.incoming, 'from_label') : '';
+      const vOuts = vd  ? _chips(vd.outgoing,  'to_label')  : '';
+      const tOuts = td  ? _chips(td.outgoing,  'to_label')  : '<span class="dd-miss">—</span>';
+      const aiTd  = hasAI ? `<td>${ad ? _chips(ad.outgoing, 'to_label') : '<span class="dd-miss">—</span>'}</td>` : '';
 
       html += `<tr class="${cls}">
-        <td>${toolOnly ? '<span class="dd-miss">—</span>' : vLabel}</td>
-        <td>${toolOnly ? `<span class="dd-tag-tool">${_esc(td.label)}</span>` : tLabel}</td>
-        <td>${vIns || '—'}</td>
-        <td>${vOuts || '—'}</td>
-        <td>${tOuts}</td>
+        <td>${toolOnly ? '<span class="dd-miss">—</span>' : vL}</td>
+        <td>${toolOnly ? `<span class="dd-tag-tool">${_esc(td?.label)}</span>` : tL}</td>
+        ${aiTd}
+        <td>${vIns || '—'}</td><td>${vOuts || '—'}</td><td>${tOuts}</td>
       </tr>`;
     }
 
     html += '</tbody></table>';
-
-    if (rows.length === 0) {
-      html = '<p class="dd-empty">Aucun losange dans les données.</p>';
-    }
-
     el.innerHTML = html;
   }
 
@@ -383,19 +418,14 @@
       el.innerHTML = `<p class="dd-empty">Aucun losange dans « ${_esc(srcName)} ».</p>`;
       return;
     }
-
-    let html = `<table class="dd-table">
-      <thead><tr>
-        <th>Losange</th><th>Entrées</th><th>Sorties</th>
-      </tr></thead><tbody>`;
-
+    let html = `<table class="dd-table"><thead><tr>
+      <th>Losange</th><th>Entrées</th><th>Sorties</th>
+    </tr></thead><tbody>`;
     for (const d of decisions) {
-      const ins  = _connChips(d.incoming, 'from_label') || '—';
-      const outs = _connChips(d.outgoing, 'to_label')   || '—';
       html += `<tr>
         <td>${_esc(d.label) || '<em>sans label</em>'}</td>
-        <td>${ins}</td>
-        <td>${outs}</td>
+        <td>${_chips(d.incoming, 'from_label') || '—'}</td>
+        <td>${_chips(d.outgoing, 'to_label')   || '—'}</td>
       </tr>`;
     }
     html += '</tbody></table>';
@@ -409,38 +439,58 @@
       el.innerHTML = `<p class="dd-empty">Cliquez sur <strong>Analyse IA</strong> après avoir chargé un fichier VSDX.</p>`;
       return;
     }
-    const src = _aiData._source ? ` <span class="dd-src-badge">${_aiData._source}</span>` : '';
-    el.innerHTML = `<p class="dd-ai-header">Résultat IA${src}</p>`;
+    const src = _aiData._source ? ` <span class="dd-src-badge">${_esc(_aiData._source)}</span>` : '';
+    const hdr = `<p class="dd-ai-header">Résultat IA${src}</p>`;
+    // renderSource overwrites innerHTML, so we prepend after
     _renderSource(_aiData.decisions, 'IA');
-    // Append after renderSource rewrites innerHTML - use append instead
-    const hdr = document.createElement('p');
-    hdr.className = 'dd-ai-header';
-    hdr.innerHTML = `Résultat IA${src}`;
-    el.prepend(hdr);
+    el.insertAdjacentHTML('afterbegin', hdr);
   }
 
   // ── Helpers ────────────────────────────────────────────────────────────
-  function _connChips(list, labelKey) {
-    if (!list || !list.length) return '';
+  function _showExportBtns(show) {
+    ['dd-export-json-btn', 'dd-export-csv-btn'].forEach(id => {
+      const el = _id(id);
+      if (el) el.style.display = show ? '' : 'none';
+    });
+  }
+
+  function _chips(list, lk) {
+    if (!list?.length) return '';
     return list.map(c => {
-      const badge = c.badge ? `<em>${_esc(c.badge)}</em>` : '';
-      return `<span class="dd-conn ${c.badge ? 'dd-badge-yes' : ''}">${_esc(c[labelKey] || c.conn_id || '?')}${badge}</span>`;
+      const badge = c.badge ? ` <em>${_esc(c.badge)}</em>` : '';
+      return `<span class="dd-conn ${c.badge ? 'dd-badge-yes' : ''}">${_esc(c[lk] || c.conn_id || '?')}${badge}</span>`;
     }).join('');
   }
 
-  function _setStatus(msg, error = false) {
+  function _setStatus(msg, err = false) {
     const el = _id('dd-status');
     if (!el) return;
     el.textContent = msg;
-    el.className = 'dd-status' + (error ? ' dd-status-err' : '');
+    el.className = 'dd-status' + (err ? ' dd-status-err' : '');
     el.style.display = '';
   }
   function _clearStatus() {
     const el = _id('dd-status');
     if (el) el.style.display = 'none';
   }
-  function _id(id) { return document.getElementById(id); }
-  function _esc(s) {
-    return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+  function _download(blob, name) {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = name;
+    document.body.appendChild(a); a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
+
+  function _slug(name) {
+    return (name || 'export').replace(/[^a-z0-9]/gi, '_').replace(/__+/g, '_').slice(0, 40);
+  }
+  function _csvCell(v) {
+    const s = String(v ?? '');
+    return s.includes(';') || s.includes('"') || s.includes('\n')
+      ? '"' + s.replace(/"/g, '""') + '"' : s;
+  }
+  function _id(id)  { return document.getElementById(id); }
+  function _esc(s)  { return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 })();
