@@ -605,14 +605,23 @@ function renderConnections() {
       if (c.userPts && c.userPts.length >= 1) {
         orthopts = [fp, ...c.userPts, tp];
       } else if (c.customPath && c.customPath.length >= 2) {
-        // Preserve Visio-original routing.
-        // Multi-segment paths: use the full Visio path as-is (already orthogonal
-        // and snapped to shape edges by buildConnections — applying a spread-port
-        // offset on top would create diagonal kinks).
-        // 2-point paths (split connections to/from a diamond): use computed ports
-        // so the arrow attaches to the shape edge, not the diamond center.
         const interior = c.customPath.slice(1, -1);
-        orthopts = interior.length > 0 ? c.customPath : [fp, tp];
+        if (interior.length > 0) {
+          // Multi-segment Visio path : waypoints exacts → on garde tel quel
+          orthopts = c.customPath;
+        } else if (c.noEndArrow || from._type === 'decision') {
+          // Connexion courte vers/depuis un diamant (spliceDecisions) : ligne droite intentionnelle
+          orthopts = [fp, tp];
+        } else {
+          // Connecteur Visio "dynamique" à 2 points : Visio le route en angles droits,
+          // on fait pareil — sinon on obtient une diagonale traversant toutes les bandes.
+          const userOffset = c.bendOffset || { dx: 0, dy: 0 };
+          orthopts = orthogonalPts(fp, tp, bundleOffset, userOffset);
+          if (!cornerDrag || cornerDrag.connId !== c.id) {
+            orthopts = avoidShapes(orthopts, state.shapes, c.fromId, c.toId);
+            orthopts = simplifyPath(orthopts);
+          }
+        }
       } else {
         const userOffset = c.bendOffset || { dx: 0, dy: 0 };
         orthopts = orthogonalPts(fp, tp, bundleOffset, userOffset);
