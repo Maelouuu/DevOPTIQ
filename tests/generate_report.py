@@ -40,6 +40,9 @@ PAGE_LABELS = {
     "test_26_import_tasks":      "Import de Tâches CSV/JSON",
     "test_27_activities_view":   "Vue Paginée des Activités",
     "test_28_plan_storage":      "Plan Compétences & Paramètres",
+    "test_29_constraints":       "API Contraintes & Données",
+    "test_30_skills_api":        "API Compétences Legacy (Skills)",
+    "test_31_changelog":         "Changelog & Activité Récente",
 }
 
 
