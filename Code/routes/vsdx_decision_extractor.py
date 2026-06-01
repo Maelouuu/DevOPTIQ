@@ -13,6 +13,7 @@ import zipfile
 import xml.etree.ElementTree as ET
 from typing import Dict, List
 import re
+import math
 
 VISIO_NS = {'v': 'http://schemas.microsoft.com/office/visio/2012/main'}
 
@@ -148,6 +149,70 @@ def extract_decisions_from_vsdx(vsdx_path: str) -> Dict:
         result['errors'].append(f'Erreur: {e}')
 
     return result
+
+
+def _infer_oui_non(decisions: List[Dict], shape_info: Dict) -> None:
+    """
+    Infer Oui/Non badges geometrically for every outgoing connection.
+
+    Algorithm (Visio coords: X right, Y up):
+      1. Compute primary incoming direction = mean unit vector (source → diamond).
+      2. For each outgoing: dot-product with that forward vector.
+         angle < 45°  → continues straight through  → inferred_badge = 'Oui'
+         angle >= 45° → branches perpendicular/side  → inferred_badge = 'Non'
+      3. If no incoming positions are available, inferred_badge = ''.
+
+    Writes `inferred_badge` on every outgoing connection dict in-place.
+    Existing explicit `badge` values are left untouched (display layer decides priority).
+    """
+    for dec in decisions:
+        did = dec['id']
+        dx = shape_info.get(did, {}).get('pin_x', 0)
+        dy = shape_info.get(did, {}).get('pin_y', 0)
+
+        # ── 1. Primary incoming direction ──────────────────────────────────
+        in_vecs = []
+        for conn in dec.get('incoming', []):
+            src = shape_info.get(conn.get('from_id', ''), {})
+            sx, sy = src.get('pin_x', 0), src.get('pin_y', 0)
+            if not sx and not sy:
+                continue
+            vx, vy = dx - sx, dy - sy
+            ln = math.hypot(vx, vy)
+            if ln > 1e-6:
+                in_vecs.append((vx / ln, vy / ln))
+
+        if not in_vecs:
+            for conn in dec.get('outgoing', []):
+                conn['inferred_badge'] = ''
+            continue
+
+        # Average & renormalize → forward unit vector
+        fx = sum(v[0] for v in in_vecs) / len(in_vecs)
+        fy = sum(v[1] for v in in_vecs) / len(in_vecs)
+        fl = math.hypot(fx, fy)
+        if fl < 1e-6:
+            for conn in dec.get('outgoing', []):
+                conn['inferred_badge'] = ''
+            continue
+        fx, fy = fx / fl, fy / fl
+
+        # ── 2. Classify each outgoing ───────────────────────────────────────
+        for conn in dec.get('outgoing', []):
+            tgt = shape_info.get(conn.get('to_id', ''), {})
+            tx, ty = tgt.get('pin_x', 0), tgt.get('pin_y', 0)
+            if not tx and not ty:
+                conn['inferred_badge'] = ''
+                continue
+            ox, oy = tx - dx, ty - dy
+            ol = math.hypot(ox, oy)
+            if ol < 1e-6:
+                conn['inferred_badge'] = ''
+                continue
+            ox, oy = ox / ol, oy / ol
+            dot = max(-1.0, min(1.0, ox * fx + oy * fy))
+            angle = math.degrees(math.acos(dot))
+            conn['inferred_badge'] = 'Oui' if angle < 45.0 else 'Non'
 
 
 def _parse_page(page_xml: bytes, masters_by_uid: Dict, result: Dict):
@@ -359,3 +424,6 @@ def _parse_page(page_xml: bytes, masters_by_uid: Dict, result: Dict):
             'outgoing': outgoing,
             'incoming': incoming,
         })
+
+    # 6 — Infer Oui/Non from geometry
+    _infer_oui_non(result['decisions'], shape_info)

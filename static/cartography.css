@@ -4301,6 +4301,20 @@ body.connexion-mode-active .activity-item:not(.connexion-match):not(.connexion-o
   background: #f0fdf4;
   border-color: #86efac;
 }
+/* Badge inféré géométriquement (Oui/Non déduit de la position) */
+.dd-badge-inf {
+  border-color: #9ca3af;
+  border-style: dashed;
+}
+.dd-b-inf {
+  font-style: normal;
+  font-size: 0.72em;
+  color: #6b7280;
+  border: 1px dashed #9ca3af;
+  border-radius: 3px;
+  padding: 0 3px;
+  margin-left: 3px;
+}
 .dd-miss { color: #94a3b8; font-style: italic; }
 .dd-empty {
   color: #94a3b8;

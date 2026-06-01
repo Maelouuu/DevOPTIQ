@@ -492,13 +492,18 @@
   function _chips(list, lk) {
     if (!list?.length) return '';
     return list.map(c => {
-      const badge = c.badge ? ` <em>${_esc(c.badge)}</em>` : '';
       const rawId = String(c.conn_id || '');
-      // Les IDs synthétiques (__spN) et les IDs Visio numériques n'ont pas de sens sémantique
       const isSynthetic = rawId.startsWith('__sp') || /^\d+$/.test(rawId);
-      const label = c[lk] || (isSynthetic ? '' : rawId) || '?';
-      return `<span class="dd-conn ${c.badge ? 'dd-badge-yes' : ''}">${_esc(label)}${badge}</span>`;
-    }).join('');
+      const label = c[lk] || (isSynthetic ? '' : rawId) || '';
+      const explicit = c.badge || '';
+      const inferred = explicit ? '' : (c.inferred_badge || '');
+      if (!label && !explicit && !inferred) return '';
+      const badgeHtml = explicit
+        ? ` <em>${_esc(explicit)}</em>`
+        : (inferred ? ` <em class="dd-b-inf">${_esc(inferred)}</em>` : '');
+      const cls = explicit ? 'dd-badge-yes' : (inferred ? 'dd-badge-inf' : '');
+      return `<span class="dd-conn ${cls}">${_esc(label || '?')}${badgeHtml}</span>`;
+    }).filter(Boolean).join('');
   }
 
   function _setStatus(msg, err = false) {
