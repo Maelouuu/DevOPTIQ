@@ -4169,6 +4169,18 @@ body.connexion-mode-active .activity-item:not(.connexion-match):not(.connexion-o
 .dd-btn-ai:hover { background: linear-gradient(135deg, #4f46e5, #6366f1); }
 .dd-btn-ai:disabled { opacity: .55; cursor: wait; }
 
+.dd-spinner {
+  display: inline-block;
+  width: 13px; height: 13px;
+  border: 2px solid rgba(255,255,255,.35);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: dd-spin .7s linear infinite;
+  vertical-align: middle;
+  margin-right: 6px;
+}
+@keyframes dd-spin { to { transform: rotate(360deg); } }
+
 /* Panel content — collapsed by default */
 .dd-panel { display: none; padding: 18px; }
 .dd-panel.dd-open { display: block; }

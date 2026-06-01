@@ -173,7 +173,10 @@
   async function _runAI() {
     if (!_file) { _setStatus('Déposez d\'abord un fichier VSDX.', true); return; }
     const btn = _id('dd-ai-btn');
-    if (btn) { btn.disabled = true; btn.textContent = 'Analyse IA…'; }
+    if (btn) {
+      btn.disabled = true;
+      btn.innerHTML = '<span class="dd-spinner"></span>Analyse IA…';
+    }
 
     try {
       const fd = new FormData();
@@ -191,7 +194,7 @@
     } catch (e) {
       _setStatus('IA : ' + e.message, true);
     } finally {
-      if (btn) { btn.disabled = false; btn.textContent = '✦ Analyse IA'; }
+      if (btn) { btn.disabled = false; btn.innerHTML = '✦ Analyse IA'; }
     }
   }
 
@@ -257,8 +260,13 @@
     const { map: vtMap, unmatched: tOnly } = _matchDecisions(vDec, tDec);
     const { map: vaMap }                   = _matchDecisions(vDec, aDec);
 
-    const outStr = (list, lk) =>
-      (list || []).map(c => `${c[lk] || c.conn_id || '?'}${c.badge ? ` [${c.badge}]` : ''}`).join(' | ');
+    const outStr = (list, lk) => {
+      const synId = id => { const s = String(id || ''); return (s.startsWith('__sp') || /^\d+$/.test(s)) ? '' : s; };
+      return (list || []).map(c => {
+        const lbl = c[lk] || synId(c.conn_id) || '';
+        return lbl ? `${lbl}${c.badge ? ` [${c.badge}]` : ''}` : '';
+      }).filter(Boolean).join(' | ');
+    };
 
     const rows = vDec.map((vd, vi) => {
       const td = vtMap.get(vi), ad = vaMap.get(vi);
@@ -485,7 +493,7 @@
     if (!list?.length) return '';
     return list.map(c => {
       const badge = c.badge ? ` <em>${_esc(c.badge)}</em>` : '';
-      const rawId = c.conn_id || '';
+      const rawId = String(c.conn_id || '');
       // Les IDs synthétiques (__spN) et les IDs Visio numériques n'ont pas de sens sémantique
       const isSynthetic = rawId.startsWith('__sp') || /^\d+$/.test(rawId);
       const label = c[lk] || (isSynthetic ? '' : rawId) || '?';
