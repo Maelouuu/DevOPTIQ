@@ -256,7 +256,14 @@
           const dAbs = outgoing.length !== 1 ? getAbs(d.id) : null;
           if (dAbs) {
             const dx = dAbs.pinX, dy = dAbs.pinY;
-            const inVecs = incoming.map(c => {
+
+            // Filter cyclic incoming: exclude sources that are also outgoing targets.
+            // Cyclic loops produce opposing vectors that cancel the true forward direction.
+            const outTargetIds = new Set(outgoing.map(c => c.to_id).filter(Boolean));
+            const nonCyclicIn = incoming.filter(c => c.from_id && !outTargetIds.has(c.from_id));
+            const incomingForDir = nonCyclicIn.length > 0 ? nonCyclicIn : incoming;
+
+            const inVecs = incomingForDir.map(c => {
               const s = getAbs(c.from_id);
               if (!s) return null;
               const vx = dx - s.pinX, vy = dy - s.pinY;

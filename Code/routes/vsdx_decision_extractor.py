@@ -156,14 +156,16 @@ def _infer_oui_non(decisions: List[Dict], shape_info: Dict) -> None:
     Infer Oui/Non badges geometrically for every outgoing connection.
 
     Algorithm (Visio coords: X right, Y up):
-      1. Compute primary incoming direction = mean unit vector (source → diamond).
-      2. For each outgoing: dot-product with that forward vector.
-         angle < 45°  → continues straight through  → inferred_badge = 'Oui'
-         angle >= 45° → branches perpendicular/side  → inferred_badge = 'Non'
-      3. If no incoming positions are available, inferred_badge = ''.
-
-    Writes `inferred_badge` on every outgoing connection dict in-place.
-    Existing explicit `badge` values are left untouched (display layer decides priority).
+      1. Forward direction = mean unit vector of NON-CYCLIC incoming (sources that are
+         not also outgoing targets). Falls back to all incoming when all are cyclic.
+      2. Outgoing direction = connector's overall BeginXY→EndXY direction when the
+         original Visio connector ID is stored (_orig_conn_id). For splice diamonds this
+         gives the flow direction of the connector that passes through the diamond,
+         which is more accurate than diamond-center → target-center.
+         Falls back to diamond-center → target-center when coords are unavailable.
+      3. angle < 45°  → continues the main flow → inferred_badge = 'Oui'
+         angle >= 45° → branches sideways         → inferred_badge = 'Non'
+      4. 90° fallback when 45° threshold produced zero Oui results.
     """
     for dec in decisions:
         # Single outgoing → always Oui (no branching possible)
@@ -175,9 +177,17 @@ def _infer_oui_non(decisions: List[Dict], shape_info: Dict) -> None:
         dx = shape_info.get(did, {}).get('pin_x', 0)
         dy = shape_info.get(did, {}).get('pin_y', 0)
 
-        # ── 1. Primary incoming direction ──────────────────────────────────
+        # ── 1. Forward direction from non-cyclic incoming ──────────────────
+        # Cyclic incoming (where the source is also an outgoing target) produce
+        # opposing vectors that cancel the true forward direction. Exclude them.
+        out_target_ids = {c.get('to_id', '') for c in dec.get('outgoing', [])}
+        all_incoming = dec.get('incoming', [])
+        non_cyclic = [c for c in all_incoming
+                      if c.get('from_id', '') not in out_target_ids]
+        incoming_for_dir = non_cyclic if non_cyclic else all_incoming
+
         in_vecs = []
-        for conn in dec.get('incoming', []):
+        for conn in incoming_for_dir:
             src = shape_info.get(conn.get('from_id', ''), {})
             sx, sy = src.get('pin_x', 0), src.get('pin_y', 0)
             if not sx and not sy:
@@ -192,7 +202,6 @@ def _infer_oui_non(decisions: List[Dict], shape_info: Dict) -> None:
                 conn['inferred_badge'] = ''
             continue
 
-        # Average & renormalize → forward unit vector
         fx = sum(v[0] for v in in_vecs) / len(in_vecs)
         fy = sum(v[1] for v in in_vecs) / len(in_vecs)
         fl = math.hypot(fx, fy)
@@ -204,12 +213,28 @@ def _infer_oui_non(decisions: List[Dict], shape_info: Dict) -> None:
 
         # ── 2. Classify each outgoing ───────────────────────────────────────
         for conn in dec.get('outgoing', []):
-            tgt = shape_info.get(conn.get('to_id', ''), {})
-            tx, ty = tgt.get('pin_x', 0), tgt.get('pin_y', 0)
-            if not tx and not ty:
-                conn['inferred_badge'] = ''
-                continue
-            ox, oy = tx - dx, ty - dy
+            # Prefer the original connector's overall direction (BeginXY → EndXY).
+            # For splice connectors this captures the true flow direction of the
+            # physical connector that was routed through the diamond.
+            orig_id = conn.get('_orig_conn_id', '')
+            orig_info = shape_info.get(orig_id, {}) if orig_id else {}
+            bx = orig_info.get('begin_x', 0.0)
+            by = orig_info.get('begin_y', 0.0)
+            ex = orig_info.get('end_x', 0.0)
+            ey = orig_info.get('end_y', 0.0)
+
+            if bx and by and ex and ey:
+                # Connector overall direction: BeginXY → EndXY
+                ox, oy = ex - bx, ey - by
+            else:
+                # Fallback: diamond center → target center
+                tgt = shape_info.get(conn.get('to_id', ''), {})
+                tx, ty = tgt.get('pin_x', 0), tgt.get('pin_y', 0)
+                if not tx and not ty:
+                    conn['inferred_badge'] = ''
+                    continue
+                ox, oy = tx - dx, ty - dy
+
             ol = math.hypot(ox, oy)
             if ol < 1e-6:
                 conn['inferred_badge'] = ''
@@ -220,17 +245,24 @@ def _infer_oui_non(decisions: List[Dict], shape_info: Dict) -> None:
             conn['inferred_badge'] = 'Oui' if angle < 45.0 else 'Non'
 
         # ── 3. Fallback: if 45° left no Oui, retry with 90° ────────────────
-        # Needed for cyclic diamonds where multiple incoming directions cancel
-        # each other out, causing the main forward path to exceed 45°.
         if not any(c.get('inferred_badge') == 'Oui' for c in dec.get('outgoing', [])):
             for conn in dec.get('outgoing', []):
                 if conn.get('inferred_badge') != 'Non':
                     continue
-                tgt = shape_info.get(conn.get('to_id', ''), {})
-                tx, ty = tgt.get('pin_x', 0), tgt.get('pin_y', 0)
-                if not tx and not ty:
-                    continue
-                ox, oy = tx - dx, ty - dy
+                orig_id = conn.get('_orig_conn_id', '')
+                orig_info = shape_info.get(orig_id, {}) if orig_id else {}
+                bx = orig_info.get('begin_x', 0.0)
+                by = orig_info.get('begin_y', 0.0)
+                ex = orig_info.get('end_x', 0.0)
+                ey = orig_info.get('end_y', 0.0)
+                if bx and by and ex and ey:
+                    ox, oy = ex - bx, ey - by
+                else:
+                    tgt = shape_info.get(conn.get('to_id', ''), {})
+                    tx, ty = tgt.get('pin_x', 0), tgt.get('pin_y', 0)
+                    if not tx and not ty:
+                        continue
+                    ox, oy = tx - dx, ty - dy
                 ol = math.hypot(ox, oy)
                 if ol < 1e-6:
                     continue
@@ -276,6 +308,11 @@ def _parse_page(page_xml: bytes, masters_by_uid: Dict, result: Dict):
             'is_decision': is_decision,
             'pin_x': pin_x,
             'pin_y': pin_y,
+            # Connector endpoint coordinates (page coords); non-zero only for connectors
+            'begin_x': _cell_float(s, 'BeginX'),
+            'begin_y': _cell_float(s, 'BeginY'),
+            'end_x':   _cell_float(s, 'EndX'),
+            'end_y':   _cell_float(s, 'EndY'),
             '_el': s,
         }
 
@@ -429,6 +466,7 @@ def _parse_page(page_xml: bytes, masters_by_uid: Dict, result: Dict):
                     'to_label': tgt_info.get('text', ''),
                     'conn_label': conn_label,
                     'badge': badge or conn_label,
+                    '_orig_conn_id': ends.get('_origConnId', ''),
                 })
             elif tgt == did:
                 src_info = shape_info.get(src, {})
