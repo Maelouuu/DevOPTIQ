@@ -105,8 +105,14 @@
     _toolData = toolResult;
 
     _clearStatus();
-    _renderScore();
-    _renderActiveTab();
+    try { _renderScore(); } catch (e) { console.error('[dd] renderScore:', e); }
+    try {
+      _renderActiveTab();
+    } catch (e) {
+      console.error('[dd] renderActiveTab:', e);
+      const el = _id('dd-tab-content');
+      if (el) el.innerHTML = `<p class="dd-empty" style="color:#f87171">Erreur d'affichage : ${_esc(e.message)}<br><small>Voir la console navigateur.</small></p>`;
+    }
     _showExportBtns(true);
   }
 
@@ -351,9 +357,9 @@
     const el = _id('dd-tab-content');
     if (!el) return;
 
-    const vDec = _vsdxData?.decisions || [];
-    const tDec = _toolData?.decisions || [];
-    const aDec = _aiData?.decisions   || [];
+    const vDec = (_vsdxData?.decisions || []).filter(d => d && typeof d === 'object');
+    const tDec = (_toolData?.decisions || []).filter(d => d && typeof d === 'object');
+    const aDec = (_aiData?.decisions   || []).filter(d => d && typeof d === 'object');
     const hasAI = aDec.length > 0;
 
     if (vDec.length === 0 && tDec.length === 0) {
