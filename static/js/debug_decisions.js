@@ -149,7 +149,7 @@
             conn_id: c.id || '', to_id: c.toId || '',
             to_label: (byId[c.toId] || {}).label || '',
             conn_label: c.label || '', badge: c.label || '',
-          })),
+          })).filter(c => c.to_label || c.badge),
           incoming: connections.filter(c => c.toId === d.id).map(c => ({
             conn_id: c.id || '', from_id: c.fromId || '',
             from_label: (byId[c.fromId] || {}).label || '',
@@ -479,7 +479,11 @@
     if (!list?.length) return '';
     return list.map(c => {
       const badge = c.badge ? ` <em>${_esc(c.badge)}</em>` : '';
-      return `<span class="dd-conn ${c.badge ? 'dd-badge-yes' : ''}">${_esc(c[lk] || c.conn_id || '?')}${badge}</span>`;
+      const rawId = c.conn_id || '';
+      // Les IDs synthétiques (__spN) et les IDs Visio numériques n'ont pas de sens sémantique
+      const isSynthetic = rawId.startsWith('__sp') || /^\d+$/.test(rawId);
+      const label = c[lk] || (isSynthetic ? '' : rawId) || '?';
+      return `<span class="dd-conn ${c.badge ? 'dd-badge-yes' : ''}">${_esc(label)}${badge}</span>`;
     }).join('');
   }
 
