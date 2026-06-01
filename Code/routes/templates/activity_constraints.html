@@ -1,7 +1,7 @@
 <!-- Code/routes/templates/activity_constraints.html -->
 
 <div class="constraints-section">
-  <h3>Contraintes et Exigences</h3>
+  <h3>{{ t('constraint.title') }}</h3>
 
   <div id="constraints-container-{{ item.activity.id }}">
     {% if item.constraints and item.constraints|length > 0 %}
@@ -11,7 +11,7 @@
             <span class="constraint-text">{{ c.description }}</span>
 
             {% if c.file_path %}
-              <a class="item-file-link" href="/utils/serve-file?path={{ c.file_path }}" target="_blank" title="Ouvrir le fichier lié">
+              <a class="item-file-link" href="/utils/serve-file?path={{ c.file_path }}" target="_blank" title="{{ t('fp.open_file') }}">
                 <i class="fa-solid fa-paperclip"></i>
               </a>
             {% endif %}
@@ -20,74 +20,74 @@
               class="icon-btn"
               data-constraint='{{ {"id": c.id, "description": c.description, "file_path": c.file_path or ""}|tojson|safe }}'
               onclick="showEditConstraintForm(this)"
-              title="Modifier"
+              title="{{ t('btn.edit') }}"
             >
               <i class="fa-solid fa-pencil"></i>
             </button>
 
-            <button class="icon-btn icon-btn-danger" onclick="deleteConstraint('{{ item.activity.id }}','{{ c.id }}')" title="Supprimer">
+            <button class="icon-btn icon-btn-danger" onclick="deleteConstraint('{{ item.activity.id }}','{{ c.id }}')" title="{{ t('btn.delete') }}">
               <i class="fa-solid fa-trash"></i>
             </button>
 
             <!-- Formulaire d'édition caché -->
             <div id="edit-constraint-form-{{ c.id }}" style="display:none; margin-top:8px;">
-              <input type="text" id="edit-constraint-input-{{ c.id }}" placeholder="Description" />
+              <input type="text" id="edit-constraint-input-{{ c.id }}" placeholder="{{ t('common.description') }}" />
               <!-- File picker édition -->
               <div style="margin-top:8px;">
                 <div class="fp-wrap" id="edit-fp-{{ c.id }}">
                   <div class="fp-zone">
                     <span class="fp-spinner" style="display:none"><i class="fa-solid fa-spinner fa-spin"></i></span>
                     <i class="fa-solid fa-cloud-arrow-up fp-icon"></i>
-                    <p class="fp-text">Glisser un fichier ou <span class="fp-browse">parcourir</span></p>
-                    <p class="fp-hint">Remplace le fichier actuel si sélectionné</p>
+                    <p class="fp-text">{{ t('fp.drag_or') }}</p>
+                    <p class="fp-hint">{{ t('fp.replace_hint') }}</p>
                   </div>
                   <div class="fp-selected hidden">
                     <i class="fa-solid fa-file-circle-check fp-ok-icon"></i>
                     <span class="fp-fname"></span>
-                    <button type="button" class="fp-clear" title="Retirer"><i class="fa-solid fa-xmark"></i></button>
+                    <button type="button" class="fp-clear" title="{{ t('fp.remove') }}"><i class="fa-solid fa-xmark"></i></button>
                   </div>
                   <input type="file" class="fp-input">
                   <input type="hidden" class="fp-path" value="{{ c.file_path or '' }}">
                 </div>
               </div>
               <div style="margin-top:6px; display:flex; gap:4px;">
-                <button class="icon-btn icon-btn-success" onclick="submitEditConstraint('{{ item.activity.id }}','{{ c.id }}')" title="Enregistrer"><i class="fa-solid fa-check"></i></button>
-                <button class="icon-btn" onclick="hideEditConstraintForm('{{ c.id }}')" title="Annuler"><i class="fa-solid fa-xmark"></i></button>
+                <button class="icon-btn icon-btn-success" onclick="submitEditConstraint('{{ item.activity.id }}','{{ c.id }}')" title="{{ t('btn.save') }}"><i class="fa-solid fa-check"></i></button>
+                <button class="icon-btn" onclick="hideEditConstraintForm('{{ c.id }}')" title="{{ t('btn.cancel') }}"><i class="fa-solid fa-xmark"></i></button>
               </div>
             </div>
           </li>
         {% endfor %}
       </ul>
     {% else %}
-      <p>Aucune contrainte enregistrée.</p>
+      <p>{{ t('constraint.none') }}</p>
     {% endif %}
   </div>
 
-  <button class="btn-modal-primary-propose" onclick="showAddConstraintForm('{{ item.activity.id }}')"><i class="fa-solid fa-plus"></i> Ajouter une contrainte</button>
+  <button class="btn-modal-primary-propose" onclick="showAddConstraintForm('{{ item.activity.id }}')"><i class="fa-solid fa-plus"></i> {{ t('constraint.add_btn') }}</button>
 
   <div id="add-constraint-form-{{ item.activity.id }}" style="display:none; margin-top:10px;">
-    <input type="text" id="add-constraint-input-{{ item.activity.id }}" placeholder="Description de la contrainte *" />
+    <input type="text" id="add-constraint-input-{{ item.activity.id }}" placeholder="{{ t('constraint.placeholder') }}" />
     <!-- File picker ajout -->
     <div style="margin-top:8px;">
       <div class="fp-wrap" id="add-fp-{{ item.activity.id }}">
         <div class="fp-zone">
           <span class="fp-spinner" style="display:none"><i class="fa-solid fa-spinner fa-spin"></i></span>
           <i class="fa-solid fa-cloud-arrow-up fp-icon"></i>
-          <p class="fp-text">Glisser un fichier ou <span class="fp-browse">parcourir</span></p>
-          <p class="fp-hint">PDF, Word, Excel, Visio… (optionnel)</p>
+          <p class="fp-text">{{ t('fp.drag_or') }}</p>
+          <p class="fp-hint">{{ t('fp.optional_hint') }}</p>
         </div>
         <div class="fp-selected hidden">
           <i class="fa-solid fa-file-circle-check fp-ok-icon"></i>
           <span class="fp-fname"></span>
-          <button type="button" class="fp-clear" title="Retirer"><i class="fa-solid fa-xmark"></i></button>
+          <button type="button" class="fp-clear" title="{{ t('fp.remove') }}"><i class="fa-solid fa-xmark"></i></button>
         </div>
         <input type="file" class="fp-input">
         <input type="hidden" class="fp-path">
       </div>
     </div>
     <div style="margin-top:6px; display:flex; gap:4px;">
-      <button class="icon-btn icon-btn-success" onclick="submitAddConstraint('{{ item.activity.id }}')" title="Enregistrer"><i class="fa-solid fa-check"></i></button>
-      <button class="icon-btn" onclick="hideAddConstraintForm('{{ item.activity.id }}')" title="Annuler"><i class="fa-solid fa-xmark"></i></button>
+      <button class="icon-btn icon-btn-success" onclick="submitAddConstraint('{{ item.activity.id }}')" title="{{ t('btn.save') }}"><i class="fa-solid fa-check"></i></button>
+      <button class="icon-btn" onclick="hideAddConstraintForm('{{ item.activity.id }}')" title="{{ t('btn.cancel') }}"><i class="fa-solid fa-xmark"></i></button>
     </div>
   </div>
 </div>

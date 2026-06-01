@@ -4,7 +4,7 @@ from .propose_common import build_activity_context, openai_client_or_none, dummy
 
 bp_propose_savoirs = Blueprint("propose_savoirs", __name__)
 
-PROMPT_HEADER_SAVOIRS = """
+PROMPT_HEADER_SAVOIRS_FR = """
 Analyse les informations de l’activité ci-dessous ainsi que la liste des savoir-faire associés.
 Propose uniquement des SAVOIRS (connaissances) nécessaires pour tenir l’activité.
 
@@ -16,7 +16,25 @@ Règles :
 - Priorise la précision et la contextualisation : cite normes/référentiels quand ils sont connus/mentionnés.
 - 3 à 8 items maximum.
 - Sortie attendue : liste à puces, 1 ligne par savoir (formulation nominale, sans verbe d’action).
+- Réponds en français.
 """
+
+PROMPT_HEADER_SAVOIRS_EN = """
+Analyse the activity information below along with the list of associated practical skills.
+Propose only the KNOWLEDGE items necessary to carry out the activity.
+
+Rules:
+- Knowledge items are things to learn (rules, standards, principles, technical fundamentals, methodologies, procedures, regulations, reference frameworks…). Do not phrase them as action verbs.
+- Distinguish from practical skills: express the underlying knowledge, not an action (e.g. "Catalogue naming rules", "Internal transfer procedure", "Technical feasibility principles").
+- Draw on activity elements (constraints, tools, data, performances, roles, environment, risks) AND the provided practical skills to derive the necessary knowledge.
+- Add TRANSVERSAL knowledge required by the context (OHS, GDPR, quality/traceability, information security, environment, etc.).
+- Prioritise precision and contextualisation: cite standards/frameworks when known or mentioned.
+- 3 to 8 items maximum.
+- Expected output: bullet list, 1 line per knowledge item (nominal phrasing, no action verb).
+- Respond in English.
+"""
+
+PROMPT_HEADER_SAVOIRS = PROMPT_HEADER_SAVOIRS_FR
 
 @bp_propose_savoirs.route("/propose_savoirs/propose", methods=["POST"])
 def propose_savoirs():
@@ -33,7 +51,19 @@ def propose_savoirs():
             # ✅ fallback sans clé
             return jsonify({"proposals": dummy_from_context(ctx, "savoir"), "source": err}), 200
 
-        prompt = f"""{PROMPT_HEADER_SAVOIRS}
+        lang = session.get('lang', 'fr')
+        header = PROMPT_HEADER_SAVOIRS_EN if lang == 'en' else PROMPT_HEADER_SAVOIRS_FR
+        if lang == 'en':
+            prompt = f"""{header}
+
+=== ACTIVITY CONTEXT ===
+{ctx}
+
+=== ASSOCIATED PRACTICAL SKILLS ===
+{sf_block}
+"""
+        else:
+            prompt = f"""{header}
 
 === CONTEXTE ACTIVITÉ ===
 {ctx}
@@ -41,12 +71,15 @@ def propose_savoirs():
 === SAVOIR-FAIRE ASSOCIÉS ===
 {sf_block}
 """
-        lang = session.get('lang', 'fr')
-        lang_instr = "Respond in English." if lang == 'en' else "Réponds en français."
+        system_msg = (
+            "You are a precise and concise HR/training assistant."
+            if lang == 'en'
+            else "Tu es un assistant RH/formation, précis et concis."
+        )
         resp = client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
-                {"role": "system", "content": f"Tu es un assistant RH/formation, précis et concis. {lang_instr}"},
+                {"role": "system", "content": system_msg},
                 {"role": "user", "content": prompt},
             ],
             temperature=0.2,
@@ -59,4 +92,6 @@ def propose_savoirs():
 
     except Exception as e:
         current_app.logger.exception(e)
-        return jsonify({"proposals": ["Savoir non déterminé (erreur serveur)"], "error": str(e)}), 200
+        lang = session.get('lang', 'fr')
+        err_msg = "Knowledge not determined (server error)" if lang == 'en' else "Savoir non déterminé (erreur serveur)"
+        return jsonify({"proposals": [err_msg], "error": str(e)}), 200

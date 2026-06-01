@@ -3,7 +3,7 @@
 
   <!-- =================== SAVOIRS =================== -->
   <div class="sf-sv-column">
-    <h4 class="sf-sv-subtitle">Savoirs</h4>
+    <h4 class="sf-sv-subtitle">{{ t('sfbody.savoirs_title') }}</h4>
 
     {% if activity.savoirs and activity.savoirs|length > 0 %}
       <ul class="items-list">
@@ -34,15 +34,15 @@
         {% endfor %}
       </ul>
     {% else %}
-      <p class="empty-text">Aucun savoir enregistré.</p>
+      <p class="empty-text">{{ t('sfbody.savoir_none') }}</p>
     {% endif %}
 
     <div class="add-item-section">
       <button class="btn-modal-primary-propose" onclick="showAddSavoirForm('{{ activity.id }}')">
-        <i class="fa-solid fa-plus"></i> Ajouter un savoir
+        <i class="fa-solid fa-plus"></i> {{ t('sfbody.savoir_add') }}
       </button>
       <div id="add-savoir-form-{{ activity.id }}" class="inline-add-form" style="display:none;">
-        <input type="text" class="sf-input" id="add-savoir-input-{{ activity.id }}" placeholder="Description du savoir" />
+        <input type="text" class="sf-input" id="add-savoir-input-{{ activity.id }}" placeholder="{{ t('sfbody.savoir_ph') }}" />
         <button class="icon-btn icon-btn-success" onclick="submitAddSavoir('{{ activity.id }}')">
           <i class="fa-solid fa-check"></i>
         </button>
@@ -55,7 +55,7 @@
 
   <!-- =================== SAVOIR-FAIRE =================== -->
   <div class="sf-sv-column">
-    <h4 class="sf-sv-subtitle">Savoir-faire</h4>
+    <h4 class="sf-sv-subtitle">{{ t('sfbody.sf_title') }}</h4>
 
     {% if activity.savoir_faires and activity.savoir_faires|length > 0 %}
       <ul class="items-list">
@@ -86,15 +86,15 @@
         {% endfor %}
       </ul>
     {% else %}
-      <p class="empty-text">Aucun savoir-faire enregistré.</p>
+      <p class="empty-text">{{ t('sfbody.sf_none') }}</p>
     {% endif %}
 
     <div class="add-item-section">
       <button class="btn-modal-primary-propose" onclick="showAddSavoirFairesForm('{{ activity.id }}')">
-        <i class="fa-solid fa-plus"></i> Ajouter un savoir-faire
+        <i class="fa-solid fa-plus"></i> {{ t('sfbody.sf_add') }}
       </button>
       <div id="add-savoir-faires-form-{{ activity.id }}" class="inline-add-form" style="display:none;">
-        <input type="text" class="sf-input" id="add-savoir-faires-input-{{ activity.id }}" placeholder="Description du savoir-faire" />
+        <input type="text" class="sf-input" id="add-savoir-faires-input-{{ activity.id }}" placeholder="{{ t('sfbody.sf_ph') }}" />
         <button class="icon-btn icon-btn-success" onclick="submitAddSavoirFaires('{{ activity.id }}')">
           <i class="fa-solid fa-check"></i>
         </button>

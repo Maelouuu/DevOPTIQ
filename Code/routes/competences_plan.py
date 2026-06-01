@@ -2,7 +2,7 @@
 import os
 import json
 from datetime import datetime
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, session
 from sqlalchemy import text
 from Code.extensions import db
 
@@ -12,7 +12,7 @@ competences_plan_bp = Blueprint(
 
 # ==================== PROMPT ====================
 
-PROMPT_HEADER_PLAN_ROLE = """
+PROMPT_HEADER_PLAN_ROLE_FR = """
 Analyse les informations du RÔLE et de l'ACTIVITÉ ci-dessous (performances standard et spécifiques, Savoirs, Savoir-faire, HSC, évaluations et commentaires du manager).
 
 Décide et produis UN SEUL livrable :
@@ -28,7 +28,29 @@ Règles :
 - Échéancier sur 8 semaines max avec jalons S2 / S4 / S8.
 - Si un commentaire précise un niveau, utilise-le pour calibrer la durée.
 - Sortie strictement JSON selon le schéma communiqué (sans texte hors JSON).
+- Réponds en français.
 """.strip()
+
+PROMPT_HEADER_PLAN_ROLE_EN = """
+Analyse the ROLE and ACTIVITY information below (standard and specific performances, Knowledge, Practical Skills, SCA, evaluations and manager comments).
+
+Decide and produce ONE SINGLE deliverable:
+
+1) If there are gaps in Knowledge / Practical Skills / SCA ⇒ TRAINING_PLAN.
+2) If Knowledge/Practical Skills/SCA are OK (green) but Competency (manager) is not green ⇒ COMPETENCY_SUPPORT_PLAN.
+3) If everything is green ⇒ MAINTENANCE_FEEDBACK.
+
+Rules:
+- Base your output on evaluations and comments, impacts on performances (delays, quality, quantity, compliance).
+- Group by themes. Use varied methods (coaching, mentoring, workshop, micro-learning, etc.).
+- Each action: objective, method, deliverables, estimated duration, sequencing, validation criteria.
+- Schedule over 8 weeks max with milestones W2 / W4 / W8.
+- If a comment specifies a level, use it to calibrate the duration.
+- Respond strictly in JSON per the provided schema (no text outside JSON).
+- Respond in English.
+""".strip()
+
+PROMPT_HEADER_PLAN_ROLE = PROMPT_HEADER_PLAN_ROLE_FR
 
 # ==================== Helpers ====================
 
@@ -282,7 +304,11 @@ def generate_plan():
         activity_id = int(data["activity_id"])
         payload = data.get("payload_contexte", {})
 
-        prompt = f"{PROMPT_HEADER_PLAN_ROLE}\n\n=== CONTEXTE STRUCTURÉ ===\n{json.dumps(payload, ensure_ascii=False, indent=2)}\n=== FIN CONTEXTE ==="
+        lang = session.get('lang', 'fr')
+        header = PROMPT_HEADER_PLAN_ROLE_EN if lang == 'en' else PROMPT_HEADER_PLAN_ROLE_FR
+        ctx_label = "STRUCTURED CONTEXT" if lang == 'en' else "CONTEXTE STRUCTURÉ"
+        end_label = "END CONTEXT" if lang == 'en' else "FIN CONTEXTE"
+        prompt = f"{header}\n\n=== {ctx_label} ===\n{json.dumps(payload, ensure_ascii=False, indent=2)}\n=== {end_label} ==="
 
         # Appel LLM (ou fallback)
         plan = _call_llm_or_dummy(prompt)

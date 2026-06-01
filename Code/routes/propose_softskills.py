@@ -9,7 +9,7 @@ from .propose_common import (
 
 bp_propose_softskills = Blueprint("propose_softskills", __name__)
 
-X50_766_HSC = """
+X50_766_HSC_FR = """
 Liste officielle X50-766 :
 - Auto-évaluation
 - Auto-régulation
@@ -29,7 +29,30 @@ Liste officielle X50-766 :
 - Approche globale
 """
 
-PROMPT_HEADER_HSC = """
+X50_766_SCA_EN = """
+Official XP X50-766 list:
+- Self-Assessment
+- Self-Regulation
+- Self-Organization
+- Self-Mobilization
+- Social Sensitivity
+- Relational Adaptation
+- Cooperation
+- Logical Reasoning
+- Planning
+- Trade-off Decision-Making
+- Information Processing
+- Synthesis
+- Conceptualization
+- Cognitive Flexibility
+- Prospective Thinking
+- Systemic Approach
+"""
+
+# Legacy alias kept for any internal reference
+X50_766_HSC = X50_766_HSC_FR
+
+PROMPT_HEADER_HSC_FR = """
 Tu es un expert en analyse du travail, en sciences cognitives et en ingénierie des compétences.
 Tu appliques une logique OPTIQ : les HSC retenues doivent expliquer la tenue réelle de l'activité au regard des RESULTATS attendus, des tâches, des contraintes et des performances (pas de généralités).
 
@@ -96,6 +119,75 @@ Contraintes rédactionnelles :
 - RÉPONDS UNIQUEMENT AVEC LE TABLEAU JSON.
 """
 
+PROMPT_HEADER_SCA_EN = """
+You are an expert in work analysis, cognitive science and competency engineering.
+You apply OPTIQ logic: SCA selected must explain how the activity is actually carried out with regard to expected RESULTS, tasks, constraints and performances (no generalities).
+
+🎯 Objective: Propose directly (without user soft skills) a COMBINATION of 4 to 6 essential SCA for the given activity.
+- 4 to 6 SCA: focused on essentials, robust to context, not a catalogue.
+- An activity may produce several results: your combination must cover all of them.
+
+Activity: {activity_name}
+
+Added value(s) / Expected result(s) / Performances:
+{perf_text}
+
+Tasks (T1..Tn):
+{tasks_text}
+
+Constraints (C1..Cn):
+{constraints_text}
+
+COMPLETE list of XP X50-766 SCA (use ONLY these exact terms):
+{x50_766_hsc}
+
+Proficiency levels (use ONLY these labels):
+1 (Basic)
+2 (Developing)
+3 (Proficient)
+4 (Highly Proficient)
+
+REASONING RULES (mandatory):
+
+1) IDENTIFY 1 to 3 MAJOR RESULTS of the activity (R1..Rk) from performances and/or tasks.
+   - The activity may have several results: your SCA combination must cover all results R1..Rk.
+
+2) SELECTION BY ESSENTIALS:
+   - Only retain an SCA if it is necessary to:
+     a) produce a result R(i), OR
+     b) comply with a constraint C(i), OR
+     c) achieve a performance P(i).
+   - Each SCA must contribute differently (avoid overlapping meanings).
+
+3) ANTI-OBVIOUS / ANTI-GENERIC RULE:
+   - Do not add an SCA "by reflex".
+   - Exclude "Planning" unless T/C/P show real planning complexity (milestones, critical dependencies, rescheduling, limited resources, multi-actor, hazards).
+   - If task sequencing is simply "normal", do not cite Planning.
+
+4) LEVEL (1 to 4):
+   - Expected level depends on the degree of variability, uncertainty, QCD stakes, multi-actor situations and formalisation required by T/C/P.
+   - Do not assign 4 (Highly Proficient) without strong justification linked to T/C/P.
+
+5) FINAL COVERAGE TEST:
+   - Before answering, verify that each major result R(i) is covered by at least one SCA.
+   - If not, adjust the selection (without exceeding 6 SCA).
+
+OUTPUT FORMAT (mandatory):
+- Respond ONLY with a raw JSON array (no text outside JSON, no backticks).
+- 4 to 6 entries. Each entry = {{
+    "habilete": <str from the XP X50-766 list>,
+    "niveau": "X (Label)",
+    "justification": "Solicitation: <NA|1|2>. 2 to 3 sentences maximum explaining how this SCA enables the activity (references to R(i), T(i), C(i), P(i) as relevant)."
+}}
+
+Wording constraints:
+- Justification must reference at least one element from T(i), C(i) or P(i) (and several if relevant).
+- Do not output additional fields: only habilete, niveau, justification.
+- RESPOND ONLY WITH THE JSON ARRAY.
+"""
+
+PROMPT_HEADER_HSC = PROMPT_HEADER_HSC_FR
+
 # --------------------------------------------------------------------
 # OUTILS : extraction JSON propre
 # --------------------------------------------------------------------
@@ -147,18 +239,21 @@ def propose_softskills():
         activity = request.get_json(force=True) or {}
 
         client, err = openai_client_or_none()
+        lang = session.get('lang', 'fr')
         if client is None:
+            default_level = "2 (Developing)" if lang == 'en' else "2 (Acquisition)"
+            default_justif = "Proposal generated without AI (OpenAI key missing)." if lang == 'en' else "Proposition générée sans IA (clé OpenAI absente)."
             proposals = [
                 {
                     "habilete": item,
-                    "niveau": "2 (Acquisition)",
-                    "justification": "Proposition générée sans IA (clé OpenAI absente).",
+                    "niveau": default_level,
+                    "justification": default_justif,
                 }
                 for item in dummy_from_context("", "hsc")
             ]
             return jsonify({"proposals": proposals, "source": err}), 200
 
-        activity_name = activity.get("name") or activity.get("title") or "Activité sans nom"
+        activity_name = activity.get("name") or activity.get("title") or ("Activity" if lang == 'en' else "Activité sans nom")
 
         tasks_list = activity.get("tasks") or []
         constraints_list = activity.get("constraints") or []
@@ -177,29 +272,40 @@ def propose_softskills():
                     desc = perf.get("description", "")
                     perf_lines.append(f"P{perf_idx}: {name} - {desc}")
                     perf_idx += 1
-        perf_text = "\n".join(perf_lines) if perf_lines else "(Aucune performance renseignée)"
-
-        prompt = PROMPT_HEADER_HSC.format(
-            activity_name=activity_name,
-            perf_text=perf_text,
-            tasks_text=tasks_text,
-            constraints_text=constraints_text,
-            x50_766_hsc=X50_766_HSC,
-        )
 
         lang = session.get('lang', 'fr')
-        lang_instr = "Respond in English (justification field)." if lang == 'en' else "Réponds en français (champ justification)."
+        if lang == 'en':
+            perf_text = "\n".join(perf_lines) if perf_lines else "(No performances recorded)"
+            prompt = PROMPT_HEADER_SCA_EN.format(
+                activity_name=activity_name,
+                perf_text=perf_text,
+                tasks_text=tasks_text,
+                constraints_text=constraints_text,
+                x50_766_hsc=X50_766_SCA_EN,
+            )
+            system_msg = (
+                "You are an HR expert in Socio-Cognitive Abilities (SCA) XP X50-766. "
+                "You MUST respond only in valid JSON. No text outside JSON, no markdown."
+            )
+        else:
+            perf_text = "\n".join(perf_lines) if perf_lines else "(Aucune performance renseignée)"
+            prompt = PROMPT_HEADER_HSC_FR.format(
+                activity_name=activity_name,
+                perf_text=perf_text,
+                tasks_text=tasks_text,
+                constraints_text=constraints_text,
+                x50_766_hsc=X50_766_HSC_FR,
+            )
+            system_msg = (
+                "Tu es un assistant RH expert en habiletés sociocognitives X50-766. "
+                "Tu DOIS répondre uniquement en JSON valide. "
+                "Jamais de texte extérieur, jamais de markdown."
+            )
+
         resp = client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
-                {
-                    "role": "system",
-                    "content": (
-                        "Tu es un assistant RH expert en habiletés sociocognitives X50-766. "
-                        "Tu DOIS répondre uniquement en JSON valide. "
-                        f"Jamais de texte extérieur, jamais de markdown. {lang_instr}"
-                    )
-                },
+                {"role": "system", "content": system_msg},
                 {"role": "user", "content": prompt},
             ],
             temperature=0.15,
@@ -216,12 +322,20 @@ def propose_softskills():
             if isinstance(data, dict):
                 data = [data]
 
-            niveau_map = {
-                "1": "1 (Aptitude)",
-                "2": "2 (Acquisition)",
-                "3": "3 (Maîtrise)",
-                "4": "4 (Excellence)"
-            }
+            if lang == 'en':
+                niveau_map = {
+                    "1": "1 (Basic)",
+                    "2": "2 (Developing)",
+                    "3": "3 (Proficient)",
+                    "4": "4 (Highly Proficient)"
+                }
+            else:
+                niveau_map = {
+                    "1": "1 (Aptitude)",
+                    "2": "2 (Acquisition)",
+                    "3": "3 (Maîtrise)",
+                    "4": "4 (Excellence)"
+                }
 
             for item in data:
                 raw_niveau = item.get("niveau", "2")
@@ -231,10 +345,11 @@ def propose_softskills():
                 elif isinstance(raw_niveau, int):
                     raw_niveau = str(raw_niveau)
 
-                level = niveau_map.get(raw_niveau, "2 (Acquisition)")
+                default_lvl = "2 (Developing)" if lang == 'en' else "2 (Acquisition)"
+                level = niveau_map.get(raw_niveau, default_lvl)
 
                 proposals.append({
-                    "habilete": item.get("habilete", "Habileté"),
+                    "habilete": item.get("habilete", "Ability" if lang == 'en' else "Habileté"),
                     "niveau": level,
                     "justification": item.get("justification", ""),
                 })
@@ -244,6 +359,7 @@ def propose_softskills():
         except Exception as e:
             current_app.logger.warning(f"[HSC JSON FAIL] {e} | TEXT={cleaned_text[:200]}")
 
+        fallback_level = "2 (Developing)" if lang == 'en' else "2 (Acquisition)"
         if not parsed_ok or not proposals:
             lines = [
                 l.strip("-•* ").strip()
@@ -254,28 +370,26 @@ def propose_softskills():
                 if len(line) > 3:
                     proposals.append({
                         "habilete": line[:100],
-                        "niveau": "2 (Acquisition)",
+                        "niveau": fallback_level,
                         "justification": "",
                     })
 
         if not proposals:
-            proposals = [
-                {
-                    "habilete": "Communication professionnelle",
-                    "niveau": "2 (Acquisition)",
-                    "justification": "Habileté de base requise pour l'activité.",
-                }
-            ]
+            if lang == 'en':
+                proposals = [{"habilete": "Professional Communication", "niveau": fallback_level, "justification": "Basic ability required for the activity."}]
+            else:
+                proposals = [{"habilete": "Communication professionnelle", "niveau": fallback_level, "justification": "Habileté de base requise pour l'activité."}]
 
         return jsonify({"proposals": proposals}), 200
 
     except Exception as e:
         current_app.logger.exception(e)
+        lang = session.get('lang', 'fr')
         return jsonify({
             "proposals": [
                 {
-                    "habilete": "Habileté non déterminée (erreur serveur).",
-                    "niveau": "2 (Acquisition)",
+                    "habilete": "Ability not determined (server error)." if lang == 'en' else "Habileté non déterminée (erreur serveur).",
+                    "niveau": "2 (Developing)" if lang == 'en' else "2 (Acquisition)",
                     "justification": "",
                 }
             ],

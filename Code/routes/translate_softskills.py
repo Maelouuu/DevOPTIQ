@@ -6,7 +6,7 @@ from flask import Blueprint, request, jsonify, current_app, session
 
 translate_softskills_bp = Blueprint('translate_softskills_bp', __name__, url_prefix='/translate_softskills')
 
-X50_766_HSC = """
+X50_766_HSC_FR = """
 Liste officielle X50-766 :
 - Auto-évaluation
 - Auto-régulation
@@ -26,7 +26,29 @@ Liste officielle X50-766 :
 - Approche globale
 """
 
-PROMPT_TRANSLATE_HSC = """
+X50_766_SCA_EN = """
+Official XP X50-766 list:
+- Self-Assessment
+- Self-Regulation
+- Self-Organization
+- Self-Mobilization
+- Social Sensitivity
+- Relational Adaptation
+- Cooperation
+- Logical Reasoning
+- Planning
+- Trade-off Decision-Making
+- Information Processing
+- Synthesis
+- Conceptualization
+- Cognitive Flexibility
+- Prospective Thinking
+- Systemic Approach
+"""
+
+X50_766_HSC = X50_766_HSC_FR
+
+PROMPT_TRANSLATE_HSC_FR = """
 Tu es un expert des habiletés socio-cognitives (HSC) selon la norme X50-766, et tu appliques une logique OPTIQ.
 Objectif : traduire les soft skills en langage naturel de l'utilisateur en une COMBINAIRE de 4 à 6 HSC, cohérente avec la tenue réelle de l'activité (résultats, tâches, contraintes, performances). Ce n'est PAS un mapping 1 soft skill -> 1 HSC.
 
@@ -101,6 +123,83 @@ Contraintes rédactionnelles :
 RÉPONDS UNIQUEMENT AVEC LE TABLEAU JSON.
 """
 
+PROMPT_TRANSLATE_SCA_EN = """
+You are an expert in Socio-Cognitive Abilities (SCA) according to standard XP X50-766, applying OPTIQ logic.
+Objective: translate the user's natural-language soft skills into a COMBINATION of 4 to 6 SCA consistent with how the activity is actually carried out (results, tasks, constraints, performances). This is NOT a 1-to-1 soft skill → SCA mapping.
+
+Soft skills entered by the user: "{user_input}"
+
+Activity: {activity_name}
+
+Tasks (T1..Tn):
+{tasks_text}
+
+Constraints (C1..Cn):
+{constraints_text}
+
+Expected performances (P1..Pn):
+{perf_text}
+
+COMPLETE list of XP X50-766 SCA (use ONLY these exact terms):
+{x50_766_hsc}
+
+Proficiency levels (use ONLY these labels):
+1 (Basic)
+2 (Developing)
+3 (Proficient)
+4 (Highly Proficient)
+
+REASONING RULES (mandatory):
+
+1) IDENTIFY 1 to 3 MAJOR RESULTS of the activity (R1..Rk) from tasks and/or performances.
+   - The activity may have several results: your SCA combination must cover all results R1..Rk.
+
+2) COMBINATION TRANSLATION (not word-for-word):
+   - Analyse all soft skills in "{user_input}" as a global intention.
+   - Select 4 to 6 SCA that together explain how to fulfil this intention in this activity.
+   - One SCA may cover several soft skills, and one soft skill may require several SCA.
+
+2bis) PRIORITY TO ACTIVITY REQUIREMENTS:
+   - Your SCA selection must first cover the activity requirements (R/T/C/P), even if "{user_input}" is incomplete or imprecise.
+   - If an SCA is indispensable for R/T/C/P but not expressed in "{user_input}", you must still retain it.
+   - Conversely, if an expressed soft skill is off-topic, link it to the closest SCA at a minimal level, but it must not replace an indispensable SCA.
+
+3) ANTI-OBVIOUS / ANTI-GENERIC RULE:
+   - Do not add an SCA "by reflex".
+   - Exclude "Planning" unless T/C/P show real planning complexity (milestones, critical dependencies, rescheduling, limited resources, multi-actor, hazards).
+   - Each retained SCA must be justified by a concrete link to R(i), T(i), C(i) or P(i).
+
+4) LOW-UTILITY SOFT SKILL:
+   - If a soft skill from "{user_input}" is of little use for this activity:
+       * link it to the closest SCA,
+       * but set "niveau" to "1 (Basic)" and "solicitation" to "NA" or "1".
+
+5) COVERAGE / NON-REDUNDANCY:
+   - 4 to 6 SCA MAX.
+   - Avoid duplicates: each SCA must contribute differently to success.
+
+6) FINAL COVERAGE TEST:
+   - Before answering, verify that each major result R(i) is covered by at least one SCA with "Solicitation: 2".
+   - If not, adjust the selection (without exceeding 6 SCA).
+
+OUTPUT FORMAT (mandatory):
+- Respond ONLY with a raw JSON array (no text outside JSON, no backticks).
+- 4 to 6 entries. Each entry = {{
+    "habilete": <str from the XP X50-766 list>,
+    "niveau": "X (Label)",
+    "justification": "Solicitation: <NA|1|2>. First: 1 to 2 sentences explaining how this SCA enables the activity (T/C/P references, and results if necessary). Then: 1 sentence ending with 'This is a component of the soft skills \\"{user_input}\\\"...' citing relevant fragments, AND indicating complementary useful SCA (even if not in the 4-6)."
+}}
+
+Wording constraints:
+- Justification must explicitly mention "{user_input}".
+- Justification must reference at least one element from T(i), C(i) or P(i).
+- Do not output additional fields: only habilete, niveau, justification.
+
+RESPOND ONLY WITH THE JSON ARRAY.
+"""
+
+PROMPT_TRANSLATE_HSC = PROMPT_TRANSLATE_HSC_FR
+
 
 def get_openai_client():
     api_key = os.getenv("OPENAI_API_KEY")
@@ -168,26 +267,37 @@ def translate_softskills():
                 perf_idx += 1
     perf_text = "\n".join(perf_lines) if perf_lines else "(Aucune performance)"
 
-    prompt = PROMPT_TRANSLATE_HSC.format(
-        user_input=user_input,
-        activity_name=activity_name,
-        tasks_text=tasks_text,
-        constraints_text=constraints_text,
-        perf_text=perf_text,
-        x50_766_hsc=X50_766_HSC,
-    )
+    lang = session.get('lang', 'fr')
+    if lang == 'en':
+        prompt = PROMPT_TRANSLATE_SCA_EN.format(
+            user_input=user_input,
+            activity_name=activity_name,
+            tasks_text=tasks_text,
+            constraints_text=constraints_text,
+            perf_text=perf_text,
+            x50_766_hsc=X50_766_SCA_EN,
+        )
+        system_msg = "You are a specialist in Socio-Cognitive Abilities (SCA) XP X50-766. You MUST respond only in valid JSON, without markdown or additional text."
+    else:
+        prompt = PROMPT_TRANSLATE_HSC_FR.format(
+            user_input=user_input,
+            activity_name=activity_name,
+            tasks_text=tasks_text,
+            constraints_text=constraints_text,
+            perf_text=perf_text,
+            x50_766_hsc=X50_766_HSC_FR,
+        )
+        system_msg = "Tu es un assistant spécialisé en habiletés socio-cognitives X50-766. Tu réponds UNIQUEMENT en JSON valide, sans markdown ni texte supplémentaire."
 
     client, err = get_openai_client()
     if client is None:
         return jsonify({"error": err}), 500
 
     try:
-        lang = session.get('lang', 'fr')
-        lang_instr = "Respond in English (justification field)." if lang == 'en' else "Réponds en français (champ justification)."
         response = client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
-                {"role": "system", "content": f"Tu es un assistant spécialisé en habiletés socio-cognitives X50-766. Tu réponds UNIQUEMENT en JSON valide, sans markdown ni texte supplémentaire. {lang_instr}"},
+                {"role": "system", "content": system_msg},
                 {"role": "user", "content": prompt}
             ],
             temperature=0.4,
@@ -208,12 +318,20 @@ def translate_softskills():
             else:
                 return jsonify({"error": "Le JSON renvoyé n'est pas un tableau d'objets."}), 400
 
-        niveau_map = {
-            "1": "1 (Aptitude)",
-            "2": "2 (Acquisition)",
-            "3": "3 (Maîtrise)",
-            "4": "4 (Excellence)"
-        }
+        if lang == 'en':
+            niveau_map = {
+                "1": "1 (Basic)",
+                "2": "2 (Developing)",
+                "3": "3 (Proficient)",
+                "4": "4 (Highly Proficient)"
+            }
+        else:
+            niveau_map = {
+                "1": "1 (Aptitude)",
+                "2": "2 (Acquisition)",
+                "3": "3 (Maîtrise)",
+                "4": "4 (Excellence)"
+            }
 
         for p in proposals:
             niveau = p.get("niveau", "2")
