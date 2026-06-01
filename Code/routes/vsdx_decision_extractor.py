@@ -264,9 +264,8 @@ def _parse_page(page_xml: bytes, masters_by_uid: Dict, result: Dict):
                 connector_badge[best_conn] = badge['text']
 
     # 4 — Splice: find "placed on line" diamonds (like spliceDecisions in JS)
-    # For diamonds NOT explicitly connected, find connectors passing close to them
+    # For diamonds NOT explicitly connected, find ALL connectors passing close to them
     SPLICE_THRESH = 0.6  # inches
-    splice_connections: Dict[str, Dict] = {}  # new virtual connectors
 
     decision_ids = {sid for sid, info in shape_info.items() if info['is_decision']}
     unconnected_decisions = decision_ids - explicitly_connected
@@ -277,8 +276,11 @@ def _parse_page(page_xml: bytes, masters_by_uid: Dict, result: Dict):
         dx, dy = dec['pin_x'], dec['pin_y']
         if not dx and not dy:
             continue
+
+        # Collect ALL connectors passing near this diamond
+        to_splice = []
         for conn_id, ends in list(connectors.items()):
-            if ends.get('_origConnId'):  # already spliced
+            if ends.get('_origConnId'):
                 continue
             sv, tv = ends.get('source'), ends.get('target')
             if not sv or not tv or sv == did or tv == did:
@@ -296,18 +298,26 @@ def _parse_page(page_xml: bytes, masters_by_uid: Dict, result: Dict):
                 continue
             px = ax + t * abx
             py = ay + t * aby
-            if ((dx - px) ** 2 + (dy - py) ** 2) ** 0.5 >= SPLICE_THRESH:
+            if ((dx - px) ** 2 + (dy - py) ** 2) ** 0.5 < SPLICE_THRESH:
+                to_splice.append(conn_id)
+
+        # Splice all nearby connectors for this diamond
+        new_conns: Dict[str, Dict] = {}
+        for conn_id in to_splice:
+            if conn_id not in connectors:
                 continue
-            # Diamond is on this connector line → splice
+            ends = connectors[conn_id]
+            sv, tv = ends['source'], ends['target']
             badge = connector_badge.get(conn_id, '')
+            conn_label = shape_info.get(conn_id, {}).get('text', '')
             k1 = f'__sp{syn_ctr}'
             k2 = f'__sp{syn_ctr+1}'
             syn_ctr += 2
-            splice_connections[k1] = {'source': sv, 'target': did, 'badge': ''}
-            splice_connections[k2] = {'source': did, 'target': tv, 'badge': badge, '_origConnId': conn_id}
+            new_conns[k1] = {'source': sv, 'target': did, 'badge': '', 'conn_label': ''}
+            new_conns[k2] = {'source': did, 'target': tv, 'badge': badge,
+                             'conn_label': conn_label, '_origConnId': conn_id}
             del connectors[conn_id]
-            connectors.update(splice_connections)
-            break  # one splice per diamond per pass
+        connectors.update(new_conns)
 
     # 5 — Build decision entries
     for did in sorted(decision_ids):
@@ -319,7 +329,7 @@ def _parse_page(page_xml: bytes, masters_by_uid: Dict, result: Dict):
         for conn_id, ends in connectors.items():
             src, tgt = ends.get('source'), ends.get('target')
             badge = connector_badge.get(conn_id, ends.get('badge', ''))
-            conn_label = shape_info.get(conn_id, {}).get('text', '')
+            conn_label = ends.get('conn_label', '') or shape_info.get(conn_id, {}).get('text', '')
 
             if src == did:
                 tgt_info = shape_info.get(tgt, {})
@@ -328,7 +338,7 @@ def _parse_page(page_xml: bytes, masters_by_uid: Dict, result: Dict):
                     'to_id': tgt,
                     'to_label': tgt_info.get('text', ''),
                     'conn_label': conn_label,
-                    'badge': badge,
+                    'badge': badge or conn_label,
                 })
             elif tgt == did:
                 src_info = shape_info.get(src, {})

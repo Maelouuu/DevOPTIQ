@@ -466,6 +466,11 @@
         usedT.add(ti);
       }
     }
+    // Fallback séquentiel : paire les restants sans score en ordre (ex: losanges vides)
+    const remS = srcDec.map((_, i) => i).filter(i => !usedS.has(i));
+    const remT = tgtDec.map((_, i) => i).filter(i => !usedT.has(i));
+    const lim = Math.min(remS.length, remT.length);
+    for (let i = 0; i < lim; i++) { map.set(remS[i], tgtDec[remT[i]]); usedT.add(remT[i]); }
     const unmatched = tgtDec.filter((_, ti) => !usedT.has(ti));
     return { map, unmatched };
   }
