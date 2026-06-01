@@ -3,48 +3,78 @@
   'use strict';
 
   // ── Ground truth (extracted manually from losange_oui_non.xlsx) ────────
-  // Key: norm(diamond_label) + '|' + norm(connection_label)
-  // "single exit → always Oui" is already handled by the algorithm
+  // Keys use the badge text on the arrow (lowercase), not the destination label.
+  // Labeled diamonds use "diamond_label|badge" to avoid collisions; unlabeled use badge alone.
   const _GROUND_TRUTH = {
-    // Standard diamond
+    // Standard (labeled)
     'standard|quotation to prepare': 'Oui',
     'standard|client specifications document': 'Non',
     'standard|customer requirements document linked to an invitation for tender': 'Non',
-    // New Customer / Quotation diamond
-    'new customer / quotation|credit status': 'Oui',
+
+    // New Customer / Quotation (labeled)
     'new customer / quotation|customer status': 'Non',
-    // Technical Study (vide / empty label — matched by empty string)
-    '|technical concept': 'Oui',
-    '|technical solution proposal': 'Non',
-    // Installation in Progress (single exit → Oui handled algorithmically)
-    'installation in progress|installation report': 'Oui',
-    // Installation Not Completed
+    'new customer / quotation|credit check': 'Non',
+    'new customer / quotation|credit status': 'Oui',
+
+    // Installation Not Completed (labeled)
     'installation not completed|report of installation not completed': 'Oui',
-    'installation not completed|installation report': 'Non',
-    'installation not completed|report of not completed delivery': 'Non',
-    // Overdue payments
-    'overdue payments|overdue payments': 'Oui',
-    'overdue payments|overdue account': 'Non',
-    'overdue payments|no overdue payments': 'Non',
-    // Counter Sales
-    'counter sales|counter customer account opening request': 'Oui',
-    'counter sales|counter sales order': 'Non',
-    // Order Registration (shape ~1178)
-    'order registration|order recorded in the erp - waiting for technical order': 'Oui',
-    'order registration|request for additional information': 'Non',
-    // Order Verification
-    'order verification|account opening request': 'Oui',
-    'order verification|order recorded in the erp - waiting for technical order': 'Non',
-    // Credit Check (single exit → Oui)
-    'credit check|credit check': 'Oui',
-    // Hot-line (single exit → Oui)
-    'hot-line|request for after-sales service intervention': 'Oui',
-    // Scheduling
-    'scheduling|parts manufacturing order': 'Oui',
-    'scheduling|purchased parts order': 'Non',
-    // Bar Feeder Inventory
-    'bar feeder inventory|bar feeder to be adapted': 'Oui',
-    'bar feeder inventory|bar feeder': 'Non',
+    'installation not completed|decision to be implemented': 'Non',
+    'installation not completed|non-conformity – dissatisfaction – issues encountered': 'Non',
+
+    // ── Unlabeled diamonds — keyed by badge text only ──────────────────────
+
+    // Technical Study diamond (id 1361)
+    'technical concept': 'Oui',
+    'technical solution proposal': 'Non',
+    'customer requirements document for bar feeder specific adaptation': 'Non',
+
+    // Installation in Progress (id 1434) — single exit, already Oui by rule
+    'availability of missing spare parts for bar feeder technician': 'Oui',
+
+    // Overdue payments (id 1343)
+    'overdue payments': 'Oui',
+    'status of the overdue payment': 'Non',
+    'payment': 'Non',
+
+    // Counter Sales (id 1442) — single exit, already Oui by rule
+    'counter customer account opening request': 'Oui',
+
+    // Order Registration — specific project (id 1178)
+    'specific project order': 'Oui',
+    'delivery lead time': 'Non',
+    'order recorded – request for additional technical information on customer\'s cnc lathe - estimated bar feeder delivery date': 'Oui',
+
+    // Order Registration — bar feeder (id 1460)
+    'request for additional information': 'Oui',
+    'additional information': 'Non',
+    'order confirmation and clarification on lead times and diamete': 'Non',
+
+    // Order Verification (id 1384)
+    'account opening request': 'Oui',
+    'status of orders': 'Oui',
+    'order approved': 'Non',
+
+    // Bar Feeder Inventory diamond (id 1164)
+    'bar feeder to be adapted': 'Oui',
+    'adaptation planning': 'Non',
+    'estimated bar feeder availability date': 'Non',
+    'bar feeder to be planned by customer': 'Non',
+
+    // Hot-line diamond (id 1481)
+    'request for after-sales service intervention': 'Oui',
+    'request for bar feeder reinstallation to be planned': 'Oui',
+
+    // Bar Feeder assembly diamond (id 1465)
+    'bar feeder availability': 'Oui',
+    'bar feeder refurbishment order': 'Oui',
+    'bar feeder to be modified': 'Oui',
+    'bar feeder adaptation order': 'Oui',
+    'bar feeder to be refurbished': 'Oui',
+    'parts manufacturing order': 'Oui',
+    'end of parts manufacturing': 'Non',
+    'manufacturing to be planned': 'Non',
+    'parts to be prepared': 'Non',
+    'accessory parts requirements': 'Non',
   };
 
   // ── State ──────────────────────────────────────────────────────────────
@@ -514,14 +544,16 @@
     const { map: vtMap } = _matchDecisions(vDec, tDec);
     const norm = s => (s || '').toLowerCase().trim().replace(/\s+/g, ' ');
 
-    // Lookup ground truth for a given diamond label + connection label
-    const getRef = (dLabel, connLabel) => {
+    // GT lookup: tries label|badge, then badge alone, then label|to_label, then to_label alone
+    const getRef = (dLabel, vo) => {
       const dk = norm(dLabel);
-      const ck = norm(connLabel);
-      const key = dk + '|' + ck;
-      if (_GROUND_TRUTH[key] !== undefined) return _GROUND_TRUTH[key];
-      // Try conn label only (for diamonds with empty labels)
-      if (_GROUND_TRUTH['|' + ck] !== undefined) return _GROUND_TRUTH['|' + ck];
+      const badge = norm(vo.badge || vo.conn_label || '');
+      const toLab = norm(vo.to_label || '');
+      for (const ck of [badge, toLab]) {
+        if (!ck) continue;
+        if (dk && _GROUND_TRUTH[dk + '|' + ck] !== undefined) return _GROUND_TRUTH[dk + '|' + ck];
+        if (_GROUND_TRUTH[ck] !== undefined) return _GROUND_TRUTH[ck];
+      }
       return null;
     };
 
@@ -559,13 +591,18 @@
       }
 
       vOuts.forEach((vo, i) => {
-        const connLabel = vo.to_label || vo.badge || '?';
+        // Display the badge (arrow label) — clearer than destination shape name
+        const connLabel = vo.badge || vo.conn_label || vo.to_label || '?';
         const vb  = vo.inferred_badge || '';
-        const ref = getRef(dLabel, connLabel);
+        const ref = getRef(dLabel, vo);
 
         let tb = '';
         if (td) {
-          const tm = (td.outgoing || []).find(o => norm(o.to_label) === norm(vo.to_label));
+          // Match Tool JS outgoing by badge or to_label
+          const tm = (td.outgoing || []).find(o =>
+            norm(o.badge || o.conn_label || '') === norm(vo.badge || vo.conn_label || '') ||
+            norm(o.to_label) === norm(vo.to_label)
+          );
           if (tm) tb = tm.inferred_badge || '';
         }
 
