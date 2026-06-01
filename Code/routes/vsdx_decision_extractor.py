@@ -219,6 +219,26 @@ def _infer_oui_non(decisions: List[Dict], shape_info: Dict) -> None:
             angle = math.degrees(math.acos(dot))
             conn['inferred_badge'] = 'Oui' if angle < 45.0 else 'Non'
 
+        # ── 3. Fallback: if 45° left no Oui, retry with 90° ────────────────
+        # Needed for cyclic diamonds where multiple incoming directions cancel
+        # each other out, causing the main forward path to exceed 45°.
+        if not any(c.get('inferred_badge') == 'Oui' for c in dec.get('outgoing', [])):
+            for conn in dec.get('outgoing', []):
+                if conn.get('inferred_badge') != 'Non':
+                    continue
+                tgt = shape_info.get(conn.get('to_id', ''), {})
+                tx, ty = tgt.get('pin_x', 0), tgt.get('pin_y', 0)
+                if not tx and not ty:
+                    continue
+                ox, oy = tx - dx, ty - dy
+                ol = math.hypot(ox, oy)
+                if ol < 1e-6:
+                    continue
+                ox_n, oy_n = ox / ol, oy / ol
+                dot2 = max(-1.0, min(1.0, ox_n * fx + oy_n * fy))
+                if math.degrees(math.acos(dot2)) < 90.0:
+                    conn['inferred_badge'] = 'Oui'
+
 
 def _parse_page(page_xml: bytes, masters_by_uid: Dict, result: Dict):
     try:

@@ -39,10 +39,15 @@
     // Counter Sales (id 1442) — single exit, already Oui by rule
     'counter customer account opening request': 'Oui',
 
+    // Unlabeled diamond with Credit/Account connections (varies by parse)
+    'credit check': 'Non',
+    'credit status': 'Oui',
+
     // Order Registration — specific project (id 1178)
     'specific project order': 'Oui',
     'delivery lead time': 'Non',
-    'order recorded – request for additional technical information on customer\'s cnc lathe - estimated bar feeder delivery date': 'Oui',
+    // Note: dash normalized to '-' by norm() to match VSDX en-dash (U+2013)
+    'order recorded - request for additional technical information on customer\'s cnc lathe - estimated bar feeder delivery date': 'Oui',
 
     // Order Registration — bar feeder (id 1460)
     'request for additional information': 'Oui',
@@ -274,6 +279,23 @@
                   const dot = Math.max(-1, Math.min(1, (ox / ol) * fx + (oy / ol) * fy));
                   c.inferred_badge = Math.acos(dot) * 180 / Math.PI < 45 ? 'Oui' : 'Non';
                 });
+
+                // Fallback: if 45° left no Oui, retry with 90° threshold.
+                // Cyclic diamonds with mixed incoming directions can cancel the
+                // forward vector, pushing the correct Oui path past 45°.
+                const ouiCount = outgoing.filter(c => c.inferred_badge === 'Oui').length;
+                if (ouiCount === 0) {
+                  outgoing.forEach(c => {
+                    if (c.inferred_badge !== 'Non') return;
+                    const t = getAbs(c.to_id);
+                    if (!t) return;
+                    const ox = t.pinX - dx, oy = t.pinY - dy;
+                    const ol = Math.hypot(ox, oy);
+                    if (ol < 1e-6) return;
+                    const dot = Math.max(-1, Math.min(1, (ox / ol) * fx + (oy / ol) * fy));
+                    if (Math.acos(dot) * 180 / Math.PI < 90) c.inferred_badge = 'Oui';
+                  });
+                }
               }
             }
           }
@@ -542,7 +564,11 @@
     }
 
     const { map: vtMap } = _matchDecisions(vDec, tDec);
-    const norm = s => (s || '').toLowerCase().trim().replace(/\s+/g, ' ');
+    // Normalize: collapse whitespace, en/em dashes → hyphen, curly quotes → straight
+    const norm = s => (s || '').toLowerCase().trim()
+      .replace(/\s+/g, ' ')
+      .replace(/[–—]/g, '-')
+      .replace(/[‘’“”]/g, "'");
 
     // GT lookup: tries label|badge, then badge alone, then label|to_label, then to_label alone
     const getRef = (dLabel, vo) => {
