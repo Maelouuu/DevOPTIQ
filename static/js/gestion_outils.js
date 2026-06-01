@@ -124,7 +124,7 @@ function onSearch() {
 
   if (searchCount) {
     if (q && cards.length) {
-      searchCount.textContent = `${visible} / ${cards.length} outil${cards.length > 1 ? "s" : ""}`;
+      searchCount.textContent = `${visible} / ${cards.length} tool${cards.length !== 1 ? "s" : ""}`;
       searchCount.classList.remove("hidden");
     } else {
       searchCount.classList.add("hidden");
@@ -137,7 +137,7 @@ async function loadTools() {
   toolsContainer.innerHTML = `
     <div class="tools-loading">
       <i class="fa-solid fa-spinner fa-spin"></i>
-      <p>Chargement des outils…</p>
+      <p>Loading tools…</p>
     </div>`;
   try {
     const res = await fetch("/gestion_outils/api/tools");
@@ -148,7 +148,7 @@ async function loadTools() {
     toolsContainer.innerHTML = `
       <div class="tools-error">
         <i class="fa-solid fa-triangle-exclamation"></i>
-        <p>Impossible de charger la liste des outils.</p>
+        <p>Could not load the tool list.</p>
       </div>`;
   }
 }
@@ -156,14 +156,14 @@ async function loadTools() {
 /* ── Rendu cartes ────────────────────────────────────────────  */
 function renderTools() {
   if (toolsCount) {
-    toolsCount.innerHTML = `<span class="stat-val">${toolsCache.length}</span><span class="stat-lbl">outil${toolsCache.length > 1 ? "s" : ""}</span>`;
+    toolsCount.innerHTML = `<span class="stat-val">${toolsCache.length}</span><span class="stat-lbl">tool${toolsCache.length !== 1 ? "s" : ""}</span>`;
   }
 
   if (!toolsCache.length) {
     toolsContainer.innerHTML = `
       <div class="tools-empty">
         <i class="fa-solid fa-box-open"></i>
-        <p>Aucun outil pour le moment. Créez votre premier outil ci-dessus.</p>
+        <p>No tools yet. Create your first tool above.</p>
       </div>`;
     return;
   }
@@ -190,41 +190,41 @@ function renderTools() {
     card.innerHTML = `
       <div class="tool-card__header">
         <span class="tool-card__name" title="${escapeHTML(tool.name)}">${escapeHTML(tool.name)}</span>
-        <button class="icon-btn" data-edit="name" title="Modifier le nom">
+        <button class="icon-btn" data-edit="name" title="Edit name">
           <i class="fa-solid fa-pencil"></i>
         </button>
       </div>
 
       <div class="tool-card__desc">
-        <span class="${desc ? "" : "placeholder"}">${desc ? escapeHTML(desc) : "Aucune description"}</span>
-        <button class="icon-btn" data-edit="description" title="Modifier la description">
+        <span class="${desc ? "" : "placeholder"}">${desc ? escapeHTML(desc) : "No description"}</span>
+        <button class="icon-btn" data-edit="description" title="Edit description">
           <i class="fa-solid fa-pencil"></i>
         </button>
       </div>
 
       ${filePath ? `<div class="tool-card__file">
         ${fileLink}
-        <button class="icon-btn" data-edit="file_path" title="Modifier le fichier lié">
+        <button class="icon-btn" data-edit="file_path" title="Edit linked file">
           <i class="fa-solid fa-pencil"></i>
         </button>
       </div>` : `<div class="tool-card__file tool-card__file--empty">
-        <button class="icon-btn tool-add-file-btn" data-edit="file_path" title="Lier un fichier">
-          <i class="fa-solid fa-paperclip"></i> <span style="font-size:.75rem;">Lier un fichier</span>
+        <button class="icon-btn tool-add-file-btn" data-edit="file_path" title="Link a file">
+          <i class="fa-solid fa-paperclip"></i> <span style="font-size:.75rem;">Link a file</span>
         </button>
       </div>`}
 
       <div class="tool-card__meta">
         <button class="badge ${count ? "badge-brown" : "badge-gray"} badge-clickable"
                 data-action="see-usage"
-                title="${count ? "Voir les activités utilisant cet outil" : "Aucun usage"}">
+                title="${count ? "View activities using this tool" : "No usage"}">
           <i class="fa-solid fa-link" style="font-size:.7rem;"></i>
-          ${count} usage${count > 1 ? "s" : ""}
+          ${count} use${count !== 1 ? "s" : ""}
         </button>
       </div>
 
       <div class="tool-card__actions">
         <button class="btn btn-danger btn-small" data-action="manage">
-          <i class="fa-solid fa-gear"></i> Gérer / Supprimer
+          <i class="fa-solid fa-gear"></i> Manage / Delete
         </button>
       </div>
     `;
@@ -271,8 +271,8 @@ function openEditModal(tool, field) {
   editContext = { toolId: tool.id, field };
   const isName     = field === "name";
   const isFilePath = field === "file_path";
-  const label      = isName ? "Nom de l'outil" : isFilePath ? "Fichier lié" : "Description";
-  const title      = isName ? "Modifier le nom" : isFilePath ? "Modifier le fichier lié" : "Modifier la description";
+  const label      = isName ? "Tool name" : isFilePath ? "Linked file" : "Description";
+  const title      = isName ? "Edit name" : isFilePath ? "Edit linked file" : "Edit description";
 
   editModalTitle.innerHTML = `<i class="fa-solid fa-pencil"></i> ${title}`;
   editLabel.textContent    = label;
@@ -310,7 +310,7 @@ async function saveEdit() {
 
   const isFilePath = field === "file_path";
   const newVal = isFilePath ? "" : editInput.value.trim();
-  if (field === "name" && !newVal) return showToast("Le nom ne peut pas être vide.", "warn");
+  if (field === "name" && !newVal) return showToast("Name cannot be empty.", "warn");
 
   // Build payload
   const payload = {};
@@ -343,14 +343,14 @@ async function updateToolPayload(id, payload) {
       body: JSON.stringify(payload),
     });
     const data = await res.json().catch(() => ({}));
-    if (!res.ok) { showToast(data.error || "Échec de la mise à jour.", "error"); return false; }
+    if (!res.ok) { showToast(data.error || "Update failed.", "error"); return false; }
     // Sync file_path from server response if available
     const tool = toolsCache.find(t => t.id === id);
     if (tool && data.file_path !== undefined) tool.file_path = data.file_path || "";
-    showToast("Modifié avec succès.");
+    showToast("Updated successfully.");
     return true;
   } catch {
-    showToast("Erreur réseau.", "error");
+    showToast("Network error.", "error");
     return false;
   }
 }
@@ -360,10 +360,10 @@ async function createTool() {
   const name     = newToolName.value.trim();
   const desc     = newToolDesc.value.trim();
   const filePath = newToolPicker ? fpGetPath(newToolPicker) : "";
-  if (!name) { showToast("Renseigne un nom d'outil.", "warn"); newToolName.focus(); return; }
+  if (!name) { showToast("Please enter a tool name.", "warn"); newToolName.focus(); return; }
 
   createToolBtn.disabled  = true;
-  createToolBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Ajout…';
+  createToolBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Adding…';
   try {
     const res  = await fetch("/gestion_outils/api/tools", {
       method: "POST",
@@ -371,18 +371,18 @@ async function createTool() {
       body: JSON.stringify({ name, description: desc, file_path: filePath || null }),
     });
     const data = await res.json();
-    if (!res.ok) { showToast(data.error || "Échec de création.", "error"); return; }
+    if (!res.ok) { showToast(data.error || "Creation failed.", "error"); return; }
     newToolName.value = "";
     newToolDesc.value = "";
     if (newToolPicker) fpReset(newToolPicker);
     document.getElementById("createSection")?.classList.remove("expanded");
-    showToast(`Outil « ${name} » ajouté.`);
+    showToast(`Tool « ${name} » added.`);
     await loadTools();
   } catch {
-    showToast("Erreur réseau.", "error");
+    showToast("Network error.", "error");
   } finally {
     createToolBtn.disabled  = false;
-    createToolBtn.innerHTML = '<i class="fa-solid fa-plus"></i> Ajouter';
+    createToolBtn.innerHTML = '<i class="fa-solid fa-plus"></i> Add';
   }
 }
 
@@ -393,7 +393,7 @@ async function createToolInModal() {
   const btn       = document.getElementById("modalCreateToolBtn");
   const name = (nameInput?.value || "").trim();
   const desc = (descInput?.value || "").trim();
-  if (!name) { showToast("Renseigne un nom d'outil.", "warn"); nameInput?.focus(); return; }
+  if (!name) { showToast("Please enter a tool name.", "warn"); nameInput?.focus(); return; }
 
   if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>'; }
   try {
@@ -403,12 +403,12 @@ async function createToolInModal() {
       body: JSON.stringify({ name, description: desc }),
     });
     const data = await res.json();
-    if (!res.ok) { showToast(data.error || "Échec de création.", "error"); return; }
+    if (!res.ok) { showToast(data.error || "Creation failed.", "error"); return; }
 
     const newTool = { id: data.id ?? data.tool_id, name, description: desc, usages: [] };
     if (newTool.id) toolsCache.push(newTool);
 
-    // Ajouter au select de remplacement s'il est visible
+    // Add to replacement select if visible
     const sel = document.getElementById("replacementSelectNew");
     if (sel && newTool.id) {
       const opt = document.createElement("option");
@@ -419,18 +419,18 @@ async function createToolInModal() {
 
     if (nameInput) nameInput.value = "";
     if (descInput) descInput.value = "";
-    showToast(`Outil « ${name} » créé.`);
+    showToast(`Tool « ${name} » created.`);
   } catch {
-    showToast("Erreur réseau.", "error");
+    showToast("Network error.", "error");
   } finally {
-    if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-plus"></i> Créer'; }
+    if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-plus"></i> Create'; }
   }
 }
 
 /* ── Modal USAGES (vue seule) ────────────────────────────── */
 function openUsage(tool) {
-  usageModalTitle.innerHTML = `<i class="fa-solid fa-eye"></i> Usages de « ${escapeHTML(tool.name)} »`;
-  usageModalBody.innerHTML  = `<div class="loading-soft"><i class="fa-solid fa-spinner fa-spin"></i> Chargement…</div>`;
+  usageModalTitle.innerHTML = `<i class="fa-solid fa-eye"></i> Usages of « ${escapeHTML(tool.name)} »`;
+  usageModalBody.innerHTML  = `<div class="loading-soft"><i class="fa-solid fa-spinner fa-spin"></i> Loading…</div>`;
   toggleModal(usageModal, true);
 
   fetch(`/gestion_outils/api/tools/${tool.id}/usages`)
@@ -438,7 +438,7 @@ function openUsage(tool) {
     .then(data => {
       const usages = data.usages || [];
       if (!usages.length) {
-        usageModalBody.innerHTML = `<div class="empty-soft">Aucun usage pour cet outil.</div>`;
+        usageModalBody.innerHTML = `<div class="empty-soft">No usage for this tool.</div>`;
       } else {
         usageModalBody.innerHTML = `<ul class="usage-ul">${
           usages.map(u => `<li><strong>${escapeHTML(u.activity_name)}</strong> → ${escapeHTML(u.task_name)}</li>`).join("")
@@ -446,17 +446,17 @@ function openUsage(tool) {
       }
     })
     .catch(() => {
-      usageModalBody.innerHTML = `<div class="error-soft">Erreur de chargement.</div>`;
+      usageModalBody.innerHTML = `<div class="error-soft">Load error.</div>`;
     });
 }
 
 /* ── Modal MANAGE ─────────────────────────────────────────── */
 async function openManage(tool) {
   manageTarget = tool;
-  manageModalTitle.innerHTML = `<i class="fa-solid fa-screwdriver-wrench"></i> Gérer « ${escapeHTML(tool.name)} »`;
+  manageModalTitle.innerHTML = `<i class="fa-solid fa-screwdriver-wrench"></i> Manage « ${escapeHTML(tool.name)} »`;
 
-  manageModalBody.innerHTML   = `<div class="loading-soft"><i class="fa-solid fa-spinner fa-spin"></i> Chargement des usages…</div>`;
-  manageModalFooter.innerHTML = `<button class="btn btn-ghost" id="cancelManageBtn0">Annuler</button>`;
+  manageModalBody.innerHTML   = `<div class="loading-soft"><i class="fa-solid fa-spinner fa-spin"></i> Loading usages…</div>`;
+  manageModalFooter.innerHTML = `<button class="btn btn-ghost" id="cancelManageBtn0">Cancel</button>`;
   document.getElementById("cancelManageBtn0")?.addEventListener("click", () => toggleModal(manageModal, false));
   toggleModal(manageModal, true);
 
@@ -466,7 +466,7 @@ async function openManage(tool) {
     manageUsages = data.usages || [];
     renderManageStep1();
   } catch {
-    manageModalBody.innerHTML = `<div class="error-soft">Impossible de charger les usages.</div>`;
+    manageModalBody.innerHTML = `<div class="error-soft">Could not load usages.</div>`;
   }
 }
 
@@ -486,7 +486,7 @@ function renderManageStep1() {
   if (noUsages) {
     usageSection = `<div class="chk-no-usage">
       <i class="fa-solid fa-circle-check"></i>
-      Cet outil n'est utilisé dans aucune tâche — suppression directe possible.
+      This tool is not used in any task — direct deletion is possible.
     </div>`;
   } else {
     const items = usages.map(u => `
@@ -504,9 +504,9 @@ function renderManageStep1() {
       <div class="usage-select-bar">
         <label class="usage-select-all">
           <input type="checkbox" id="selectAllTasks">
-          <span>Tout sélectionner</span>
+          <span>Select all</span>
         </label>
-        <span id="usageSelCount" class="usage-sel-count">0 sélectionné</span>
+        <span id="usageSelCount" class="usage-sel-count">0 selected</span>
       </div>
       <div class="usage-items-list">${items}</div>`;
   }
@@ -516,13 +516,13 @@ function renderManageStep1() {
     <div class="manage-section">
       <div class="modal-divider"></div>
       <div class="modal-section-title">
-        <i class="fa-solid fa-arrows-rotate"></i> Remplacer par
-        <span class="modal-section-hint">Sélectionnez des usages puis choisissez le nouvel outil</span>
+        <i class="fa-solid fa-arrows-rotate"></i> Replace with
+        <span class="modal-section-hint">Select usages then choose the replacement tool</span>
       </div>
       <div class="replace-select-wrap">
         <i class="fa-solid fa-screwdriver-wrench replace-sel-icon"></i>
         <select id="replacementSelectNew" class="replace-select">
-          <option value="">— Choisir l'outil de remplacement —</option>
+          <option value="">— Choose replacement tool —</option>
           ${allOpts}
         </select>
       </div>
@@ -534,20 +534,20 @@ function renderManageStep1() {
     <div class="manage-section">
       <div class="modal-divider"></div>
       <div class="modal-section-title">
-        <i class="fa-solid fa-plus-circle"></i> Créer un nouvel outil
+        <i class="fa-solid fa-plus-circle"></i> Create a new tool
       </div>
       <div class="modal-create-inline">
         <div class="modal-create-row">
           <div class="search-style-wrap">
             <i class="fa-solid fa-tag search-style-icon"></i>
-            <input type="text" id="modalNewToolName" class="search-style-input" placeholder="Nom de l'outil *" />
+            <input type="text" id="modalNewToolName" class="search-style-input" placeholder="Tool name *" />
           </div>
           <div class="search-style-wrap">
             <i class="fa-solid fa-align-left search-style-icon"></i>
-            <input type="text" id="modalNewToolDesc" class="search-style-input" placeholder="Description (optionnelle)" />
+            <input type="text" id="modalNewToolDesc" class="search-style-input" placeholder="Description (optional)" />
           </div>
           <button class="btn btn-brown btn-small" id="modalCreateToolBtn">
-            <i class="fa-solid fa-plus"></i> Créer
+            <i class="fa-solid fa-plus"></i> Create
           </button>
         </div>
       </div>
@@ -557,7 +557,7 @@ function renderManageStep1() {
     <div class="manage-section">
       <div class="modal-section-title">
         <i class="fa-solid fa-list-check"></i> Usages (${usages.length})
-        ${noUsages ? "" : `<span class="modal-section-hint">Cochez les usages à traiter</span>`}
+        ${noUsages ? "" : `<span class="modal-section-hint">Check the usages to process</span>`}
       </div>
       ${usageSection}
     </div>
@@ -568,12 +568,12 @@ function renderManageStep1() {
       ${!noUsages ? '<div class="modal-divider"></div>' : ""}
       <div class="modal-section-title modal-section-title--danger">
         <i class="fa-solid fa-trash"></i>
-        ${noUsages ? "Supprimer l'outil" : "Zone de danger"}
+        ${noUsages ? "Delete tool" : "Danger zone"}
       </div>
       <p class="modal-hint">
         ${noUsages
-          ? "Aucun usage : l'outil sera supprimé immédiatement."
-          : "Détache l'outil des usages sélectionnés, puis supprime l'outil si plus aucun usage ne reste."}
+          ? "No usages: the tool will be deleted immediately."
+          : "Detaches the tool from selected usages, then deletes the tool if no usages remain."}
       </p>
     </div>
 
@@ -582,10 +582,10 @@ function renderManageStep1() {
 
   // Footer
   manageModalFooter.innerHTML = `
-    <button class="btn btn-ghost" id="cancelManageBtn"><i class="fa-solid fa-xmark"></i> Annuler</button>
-    ${noUsages ? "" : `<button class="btn btn-brown btn-small" id="previewReplaceBtn" disabled><i class="fa-solid fa-arrows-rotate"></i> Remplacer</button>`}
+    <button class="btn btn-ghost" id="cancelManageBtn"><i class="fa-solid fa-xmark"></i> Cancel</button>
+    ${noUsages ? "" : `<button class="btn btn-brown btn-small" id="previewReplaceBtn" disabled><i class="fa-solid fa-arrows-rotate"></i> Replace</button>`}
     <button class="btn btn-danger btn-small" id="deleteSelBtn" ${noUsages ? "" : "disabled"}>
-      <i class="fa-solid fa-trash"></i> ${noUsages ? "Supprimer" : "Supprimer sélection"}
+      <i class="fa-solid fa-trash"></i> ${noUsages ? "Delete" : "Delete selection"}
     </button>
   `;
 
@@ -646,7 +646,7 @@ function updateUsageSelCount() {
   const checked = document.querySelectorAll(".task-check:checked").length;
   const total   = document.querySelectorAll(".task-check").length;
   const el      = document.getElementById("usageSelCount");
-  if (el) el.textContent = `${checked} / ${total} sélectionné${checked > 1 ? "s" : ""}`;
+  if (el) el.textContent = `${checked} / ${total} selected`;
 }
 
 function updateActionButtons() {
@@ -697,10 +697,10 @@ function getTargetTaskIds() {
 /* ── Step 2 : Confirmation remplacement ─────────────────── */
 function showReplaceConfirmation() {
   const replacementId = parseInt(document.getElementById("replacementSelectNew")?.value || "0", 10);
-  if (!replacementId) return showToast("Choisis un outil de remplacement.", "warn");
+  if (!replacementId) return showToast("Please choose a replacement tool.", "warn");
 
   const targetIds = getTargetTaskIds();
-  if (targetIds.length === 0) return showToast("Coche au moins un usage à remplacer.", "warn");
+  if (targetIds.length === 0) return showToast("Check at least one usage to replace.", "warn");
 
   const replacementTool = toolsCache.find(t => t.id === replacementId);
   const selectedUsages  = manageUsages.filter(u => targetIds.includes(u.task_id));
@@ -715,8 +715,8 @@ function showReplaceConfirmation() {
     <div class="confirm-warning">
       <i class="fa-solid fa-triangle-exclamation"></i>
       <div>
-        <p>L'outil <strong>${escapeHTML(replacementTool.name)}</strong> va remplacer
-        <strong>${escapeHTML(manageTarget.name)}</strong> pour les usages suivants :</p>
+        <p>Tool <strong>${escapeHTML(replacementTool.name)}</strong> will replace
+        <strong>${escapeHTML(manageTarget.name)}</strong> for the following usages:</p>
       </div>
     </div>
 
@@ -724,15 +724,15 @@ function showReplaceConfirmation() {
 
     <p class="modal-hint">
       ${isAll
-        ? `Tous les usages (${selectedUsages.length}) seront remplacés.`
-        : `${selectedUsages.length} usage(s) sur ${manageUsages.length} seront remplacés. Les autres resteront inchangés.`}
+        ? `All usages (${selectedUsages.length}) will be replaced.`
+        : `${selectedUsages.length} usage(s) out of ${manageUsages.length} will be replaced. The others will remain unchanged.`}
     </p>
   `;
 
   manageModalFooter.innerHTML = `
-    <button class="btn btn-ghost" id="backStep1Btn"><i class="fa-solid fa-arrow-left"></i> Retour</button>
+    <button class="btn btn-ghost" id="backStep1Btn"><i class="fa-solid fa-arrow-left"></i> Back</button>
     <button class="btn btn-brown" id="confirmReplaceBtn">
-      <i class="fa-solid fa-check"></i> Confirmer le remplacement
+      <i class="fa-solid fa-check"></i> Confirm replacement
     </button>
   `;
 
@@ -744,7 +744,7 @@ function showReplaceConfirmation() {
 /* ── Exécution remplacement ──────────────────────────────── */
 async function doReplace(srcId, dstId, taskIds) {
   const btn = document.getElementById("confirmReplaceBtn");
-  if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> En cours…'; }
+  if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Processing…'; }
 
   try {
     const res  = await fetch(`/gestion_outils/api/tools/${srcId}/replace`, {
@@ -753,12 +753,12 @@ async function doReplace(srcId, dstId, taskIds) {
       body: JSON.stringify({ replacement_id: dstId, task_ids: taskIds }),
     });
     const data = await res.json();
-    if (!res.ok) { showToast(data.error || "Échec du remplacement.", "error"); return; }
-    showToast(`Remplacement effectué (${data.replaced_count || taskIds.length} usage(s)).`);
+    if (!res.ok) { showToast(data.error || "Replacement failed.", "error"); return; }
+    showToast(`Replacement done (${data.replaced_count || taskIds.length} usage(s)).`);
     toggleModal(manageModal, false);
     await loadTools();
   } catch {
-    showToast("Erreur réseau.", "error");
+    showToast("Network error.", "error");
   }
 }
 
@@ -772,7 +772,7 @@ async function doDeleteSelection(noUsages) {
   }
 
   const targetIds = getTargetTaskIds();
-  if (targetIds.length === 0) return showToast("Coche au moins un usage à détacher.", "warn");
+  if (targetIds.length === 0) return showToast("Check at least one usage to detach.", "warn");
 
   const isAll = targetIds.length === manageUsages.length;
 
@@ -786,17 +786,17 @@ async function doDeleteSelection(noUsages) {
         body: JSON.stringify({ task_ids: targetIds }),
       });
       const data = await res.json();
-      if (!res.ok) { showToast(data.error || "Échec.", "error"); return; }
+      if (!res.ok) { showToast(data.error || "Failed.", "error"); return; }
       if (data.deleted) {
-        showToast(`Outil « ${tool.name} » détaché et supprimé.`);
+        showToast(`Tool « ${tool.name} » detached and deleted.`);
       } else {
-        showToast(`Détaché de ${targetIds.length} tâche(s). ${data.remaining} usage(s) restant(s).`);
+        showToast(`Detached from ${targetIds.length} task(s). ${data.remaining} usage(s) remaining.`);
       }
       toggleModal(manageModal, false);
       await loadTools();
     }
   } catch {
-    showToast("Erreur réseau.", "error");
+    showToast("Network error.", "error");
   }
 }
 
@@ -804,12 +804,12 @@ async function doFullDelete(tool) {
   try {
     const res  = await fetch(`/gestion_outils/api/tools/${tool.id}?force_detach=true`, { method: "DELETE" });
     const data = await res.json();
-    if (!res.ok) { showToast(data.error || "Échec suppression.", "error"); return; }
-    showToast(`Outil « ${tool.name} » supprimé.`);
+    if (!res.ok) { showToast(data.error || "Deletion failed.", "error"); return; }
+    showToast(`Tool « ${tool.name} » deleted.`);
     toggleModal(manageModal, false);
     await loadTools();
   } catch {
-    showToast("Erreur réseau.", "error");
+    showToast("Network error.", "error");
   }
 }
 

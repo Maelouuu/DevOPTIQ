@@ -573,6 +573,23 @@ html, body { background: var(--bg); color: var(--text); }
 }
 .modal-header--warning .modal-title { color: #fff; }
 
+.modal-header--edit {
+  background: linear-gradient(135deg, #3b1209 0%, #78350f 60%, #a05c1a 100%);
+  border-bottom: none;
+  padding: 20px 24px;
+}
+.modal-header--edit .modal-title {
+  color: #fff;
+  font-size: 1.05rem;
+  gap: 10px;
+}
+.modal-header--edit .modal-title i {
+  background: rgba(255,255,255,0.15);
+  border-radius: 8px;
+  padding: 6px 8px;
+  font-size: 0.95rem;
+}
+
 .modal-card--wide { width: min(740px, 96vw); }
 
 .modal-title {

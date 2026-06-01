@@ -72,11 +72,11 @@ function initParamListeners() {
 
             const saveBtn = document.createElement('button');
             saveBtn.className = 'btn btn-sm btn-primary';
-            saveBtn.textContent = 'Enregistrer';
+            saveBtn.textContent = 'Save';
 
             const cancelBtn = document.createElement('button');
             cancelBtn.className = 'btn btn-sm btn-outline';
-            cancelBtn.textContent = 'Annuler';
+            cancelBtn.textContent = 'Cancel';
 
             saveBtn.addEventListener('click', async () => {
                 const input = valueEl.querySelector('input');
@@ -89,7 +89,7 @@ function initParamListeners() {
                 editBtn.style.display = '';
                 saveBtn.remove();
                 cancelBtn.remove();
-                showToast('Paramètre mis à jour');
+                showToast('Parameter updated');
             });
 
             cancelBtn.addEventListener('click', () => {
@@ -128,7 +128,7 @@ function initRoleListeners() {
         const formData = new FormData();
         formData.append('name', name);
         await fetch('/gestion_rh/role', { method: 'POST', body: formData });
-        showToast('Rôle créé');
+        showToast('Role created');
         setTimeout(() => location.reload(), 800);
     });
 
@@ -142,11 +142,11 @@ function initRoleListeners() {
         // Delete
         deleteBtn.addEventListener('click', async (e) => {
             e.stopPropagation();
-            if (!confirm('Supprimer ce rôle ?')) return;
+            if (!confirm('Delete this role?')) return;
             const res = await fetch(`/gestion_rh/delete_role/${roleId}`, { method: 'POST' });
             if (res.ok) {
                 row.remove();
-                showToast('Rôle supprimé');
+                showToast('Role deleted');
             }
         });
 
@@ -160,11 +160,11 @@ function initRoleListeners() {
 
             const saveBtn = document.createElement('button');
             saveBtn.className = 'btn btn-sm btn-primary';
-            saveBtn.textContent = 'Enregistrer';
+            saveBtn.textContent = 'Save';
 
             const cancelBtn = document.createElement('button');
             cancelBtn.className = 'btn btn-sm btn-outline';
-            cancelBtn.textContent = 'Annuler';
+            cancelBtn.textContent = 'Cancel';
 
             saveBtn.addEventListener('click', async () => {
                 const input = nameEl.querySelector('input');
@@ -180,7 +180,7 @@ function initRoleListeners() {
                 deleteBtn.style.display = '';
                 saveBtn.remove();
                 cancelBtn.remove();
-                showToast('Rôle modifié');
+                showToast('Role updated');
             });
 
             cancelBtn.addEventListener('click', () => {
@@ -232,7 +232,7 @@ function renderCollaborateurs(showAll = false) {
 
     data.forEach(user => {
         const initials = getInitials(user.name.split(' ')[0], user.name.split(' ').slice(1).join(' '));
-        const rolesText = user.roles.length ? user.roles.map(r => capitalize(r)).join(', ') : 'Aucun rôle';
+        const rolesText = user.roles.length ? user.roles.map(r => capitalize(r)).join(', ') : 'No role';
 
         const div = document.createElement('div');
         div.className = 'grh-collab-item';
@@ -242,7 +242,7 @@ function renderCollaborateurs(showAll = false) {
                 <div class="grh-collab-info">
                     <div class="grh-collab-name">
                         ${user.name}
-                        <button class="edit-name-btn" title="Modifier le nom">
+                        <button class="edit-name-btn" title="Edit name">
                             <i class="fa-solid fa-pen"></i>
                         </button>
                     </div>
@@ -253,7 +253,7 @@ function renderCollaborateurs(showAll = false) {
             <div class="grh-collab-edit">
                 <div class="grh-role-checkboxes" id="collab-roles-${user.id}"></div>
                 <div class="grh-collab-save-row">
-                    <button class="btn btn-sm btn-secondary save-collab-roles" data-user-id="${user.id}">Enregistrer les rôles</button>
+                    <button class="btn btn-sm btn-secondary save-collab-roles" data-user-id="${user.id}">Save roles</button>
                 </div>
             </div>
         `;
@@ -305,7 +305,7 @@ function renderCollaborateurs(showAll = false) {
             formData.append('user_id', user.id);
             selectedRoles.forEach(id => formData.append('role_ids[]', id));
             await fetch('/gestion_rh/collaborateur_roles', { method: 'POST', body: formData });
-            showToast('Rôles mis à jour');
+            showToast('Roles updated');
             loadCollaborateurs();
             if (selectedManagerId) loadManagerCollabs();
         });
@@ -317,9 +317,9 @@ function renderCollaborateurs(showAll = false) {
     const toggleBtn = document.getElementById('toggle-collab-view');
     if (toggleBtn) {
         if (showAll) {
-            toggleBtn.innerHTML = '<i class="fa-solid fa-chevron-up"></i> Réduire la liste';
+            toggleBtn.innerHTML = '<i class="fa-solid fa-chevron-up"></i> Collapse list';
         } else {
-            toggleBtn.innerHTML = '<i class="fa-solid fa-chevron-down"></i> Afficher tous les collaborateurs';
+            toggleBtn.innerHTML = '<i class="fa-solid fa-chevron-down"></i> Show all collaborators';
         }
         toggleBtn.onclick = () => renderCollaborateurs(!showAll);
         toggleBtn.style.display = fullCollabData.length > 4 ? '' : 'none';
@@ -327,7 +327,7 @@ function renderCollaborateurs(showAll = false) {
 }
 
 function editCollaboratorName(userId, currentName) {
-    const newName = prompt('Modifier le nom du collaborateur :', currentName);
+    const newName = prompt('Edit collaborator name:', currentName);
     if (newName === null || newName.trim() === '' || newName.trim() === currentName) return;
 
     fetch('/gestion_rh/update_collaborator_name', {
@@ -338,13 +338,13 @@ function editCollaboratorName(userId, currentName) {
     .then(res => res.json())
     .then(data => {
         if (data.success) {
-            showToast('Nom mis à jour');
+            showToast('Name updated');
             loadCollaborateurs();
         } else {
-            showToast('Erreur lors de la mise à jour', 'error');
+            showToast('Update error', 'error');
         }
     })
-    .catch(() => showToast('Erreur réseau', 'error'));
+    .catch(() => showToast('Network error', 'error'));
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -373,7 +373,7 @@ function initManagerSection() {
             loadManagerCollabs();
         } else {
             document.getElementById('manager-assignment-container').innerHTML =
-                '<div class="grh-no-results">Sélectionnez un manager pour voir les collaborateurs</div>';
+                '<div class="grh-no-results">Select a manager to view collaborators</div>';
             document.getElementById('manager-role-filter').innerHTML = '';
         }
     });
@@ -398,8 +398,8 @@ function renderManagerRoleFilter() {
     if (!bar) return;
 
     let html = '';
-    html += `<span class="role-filter-badge ${managerActiveFilter === 'all' ? 'active' : ''}" data-filter="all">Tous</span>`;
-    html += `<span class="role-filter-badge ${managerActiveFilter === 'assigned' ? 'active' : ''}" data-filter="assigned">Affectés</span>`;
+    html += `<span class="role-filter-badge ${managerActiveFilter === 'all' ? 'active' : ''}" data-filter="all">All</span>`;
+    html += `<span class="role-filter-badge ${managerActiveFilter === 'assigned' ? 'active' : ''}" data-filter="assigned">Assigned</span>`;
     managerAllRoles.forEach(r => {
         html += `<span class="role-filter-badge ${managerActiveFilter === String(r.id) ? 'active' : ''}" data-filter="${r.id}">${capitalize(r.name)}</span>`;
     });
@@ -450,7 +450,7 @@ function renderManagerCollabList() {
     }
 
     if (filtered.length === 0) {
-        container.innerHTML = '<div class="grh-no-results">Aucun collaborateur trouvé</div>';
+        container.innerHTML = '<div class="grh-no-results">No collaborator found</div>';
         return;
     }
 
@@ -475,7 +475,7 @@ function renderManagerCollabList() {
                 return `<span class="grh-assign-role-tag ${isRoleAssigned ? 'assigned' : 'unassigned'}">${capitalize(r.name)}</span>`;
             }).join('');
         } else {
-            rolesHtml = '<span style="color:#94a3b8; font-size:11px;">Aucun rôle</span>';
+            rolesHtml = '<span style="color:#94a3b8; font-size:11px;">No role</span>';
         }
 
         let dotHtml = '';
@@ -493,7 +493,7 @@ function renderManagerCollabList() {
                     <div class="grh-assign-name">${c.first_name} ${c.last_name}</div>
                     <div class="grh-assign-roles">${rolesHtml}</div>
                 </div>
-                <button class="grh-assign-btn" title="Gérer l'affectation">
+                <button class="grh-assign-btn" title="Manage assignment">
                     <i class="fa-solid fa-link"></i>
                 </button>
             </div>
@@ -518,7 +518,7 @@ function openAssignModal(userId) {
     if (user.roles && user.roles.length > 0) {
         rolesHtml = user.roles.map(r => `<span class="grh-assign-role-badge">${capitalize(r.name)}</span>`).join('');
     } else {
-        rolesHtml = '<span style="color:#94a3b8; font-size:12px; font-style:italic;">Aucun rôle</span>';
+        rolesHtml = '<span style="color:#94a3b8; font-size:12px; font-style:italic;">No role</span>';
     }
 
     // Build role selection checkboxes
@@ -532,7 +532,7 @@ function openAssignModal(userId) {
                 <i class="fa-solid fa-list-check"></i>
                 Sélectionner les rôles à affecter
                 <button class="grh-modal-select-all" id="modal-toggle-all">
-                    ${allAssigned ? 'Tout désélectionner' : 'Tout sélectionner'}
+                    ${allAssigned ? 'Deselect all' : 'Select all'}
                 </button>
             </div>
             <div class="grh-modal-role-select" id="modal-role-select">
@@ -543,7 +543,7 @@ function openAssignModal(userId) {
                             <input type="checkbox" value="${r.id}" ${isRoleAssigned ? 'checked' : ''}>
                             <span class="role-label">${capitalize(r.name)}</span>
                             <span class="role-status ${isRoleAssigned ? 'assigned' : 'not-assigned'}">
-                                ${isRoleAssigned ? 'Affecté' : 'Non affecté'}
+                                ${isRoleAssigned ? 'Assigned' : 'Not assigned'}
                             </span>
                         </label>
                     `;
@@ -567,8 +567,8 @@ function openAssignModal(userId) {
                     <i class="fa-solid fa-link"></i>
                 </div>
                 <div class="grh-assign-action-text">
-                    <strong>Affecter les rôles sélectionnés</strong>
-                    <span>Affecter ce collaborateur à ${selectedManagerName} pour les rôles cochés</span>
+                    <strong>Assign selected roles</strong>
+                    <span>Assign this collaborator to ${selectedManagerName} for the checked roles</span>
                 </div>
             </button>
             <button class="grh-assign-action-btn danger" id="modal-unassign-btn">
@@ -576,8 +576,8 @@ function openAssignModal(userId) {
                     <i class="fa-solid fa-link-slash"></i>
                 </div>
                 <div class="grh-assign-action-text">
-                    <strong>Retirer les rôles sélectionnés</strong>
-                    <span>Retirer l'affectation pour les rôles cochés</span>
+                    <strong>Remove selected roles</strong>
+                    <span>Remove assignment for the checked roles</span>
                 </div>
             </button>
         </div>
@@ -602,7 +602,7 @@ function openAssignModal(userId) {
                 cb.checked = !allChecked;
                 cb.closest('.grh-modal-role-item').classList.toggle('selected', !allChecked);
             });
-            toggleAllBtn.textContent = allChecked ? 'Tout sélectionner' : 'Tout désélectionner';
+            toggleAllBtn.textContent = allChecked ? 'Select all' : 'Deselect all';
             updateModalButtons(userId);
         });
     }
@@ -611,7 +611,7 @@ function openAssignModal(userId) {
     body.querySelector('#modal-assign-btn').addEventListener('click', () => {
         const selectedRoleIds = getSelectedModalRoleIds();
         if (selectedRoleIds.length === 0) {
-            showToast('Sélectionnez au moins un rôle', 'error');
+            showToast('Select at least one role', 'error');
             return;
         }
         assignToManager(userId, selectedManagerId, selectedRoleIds);
@@ -621,7 +621,7 @@ function openAssignModal(userId) {
     body.querySelector('#modal-unassign-btn').addEventListener('click', () => {
         const selectedRoleIds = getSelectedModalRoleIds();
         if (selectedRoleIds.length === 0) {
-            showToast('Sélectionnez au moins un rôle', 'error');
+            showToast('Select at least one role', 'error');
             return;
         }
         unassignFromManager(userId, selectedRoleIds);
@@ -698,13 +698,13 @@ async function assignToManager(userId, managerId, roleIds) {
             closeAssignModal();
             renderManagerCollabList();
             const count = roleIds ? roleIds.length : 'tous les';
-            showToast(`${count} rôle(s) affecté(s) à ${selectedManagerName}`);
+            showToast(`${count} role(s) assigned to ${selectedManagerName}`);
         } else {
-            showToast(data.message || 'Erreur', 'error');
+            showToast(data.message || 'Error', 'error');
         }
     } catch (err) {
-        console.error('Erreur affectation:', err);
-        showToast("Erreur lors de l'affectation", 'error');
+        console.error('Assignment error:', err);
+        showToast('Assignment error', 'error');
     }
 }
 
@@ -739,13 +739,13 @@ async function unassignFromManager(userId, roleIds) {
             }
             closeAssignModal();
             renderManagerCollabList();
-            showToast('Affectation retirée');
+            showToast('Assignment removed');
         } else {
-            showToast(data.message || 'Erreur', 'error');
+            showToast(data.message || 'Error', 'error');
         }
     } catch (err) {
-        console.error('Erreur désaffectation:', err);
-        showToast('Erreur lors de la désaffectation', 'error');
+        console.error('Unassignment error:', err);
+        showToast('Unassignment error', 'error');
     }
 }
 

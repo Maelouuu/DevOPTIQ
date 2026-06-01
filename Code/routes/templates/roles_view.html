@@ -57,26 +57,39 @@
     /* Blocs internes */
     .role-block {
       margin: 10px 0;
-      border: 1px solid #e3e3e3;
-      border-radius: 6px;
+      border: 1px solid #c6e6d2;
+      border-left: 4px solid #1f7a54;
+      border-radius: 8px;
       overflow: hidden;
       background: #fff;
+      box-shadow: 0 1px 6px rgba(31,122,84,0.07);
     }
     .block-header {
       cursor: pointer;
-      font-size: 1rem;
+      font-size: 0.95rem;
       font-weight: 600;
-      padding: 8px 10px;
-      background: #f3f6f8;
-      border-bottom: 1px solid #e3e3e3;
+      padding: 11px 14px;
+      background: linear-gradient(to right, #eefbf3, #f8fffe);
+      border-bottom: 1px solid #d1f0e0;
       display: flex;
       align-items: center;
       gap: 8px;
+      color: #155e43;
+      transition: background 0.15s;
+      user-select: none;
+    }
+    .block-header:hover {
+      background: linear-gradient(to right, #e0f7ea, #eefbf3);
+    }
+    .block-header .toggle-icon {
+      color: #1f7a54;
+      font-size: 0.8rem;
     }
     .block-content {
       display: none;
-      padding: 10px;
+      padding: 14px 16px;
       color: #222;
+      background: #fcfffe;
     }
 
     /* Mission Générale */
@@ -84,16 +97,58 @@
       width: 100%;
       min-height: 100px;
       resize: vertical;
-      padding: 8px;
-      border: 1px solid #d0d7de;
-      border-radius: 6px;
+      padding: 10px 12px;
+      border: 1.5px solid #a8d5bc;
+      border-radius: 8px;
       font-family: inherit;
+      font-size: 0.93rem;
+      color: #1a3329;
+      background: #fafffe;
+      outline: none;
+      transition: border-color 0.15s, box-shadow 0.15s;
+      box-sizing: border-box;
+    }
+    .mission-area:focus {
+      border-color: #1f7a54;
+      box-shadow: 0 0 0 3px rgba(31,122,84,0.1);
     }
     .mission-footer {
       display: flex;
       justify-content: flex-end;
       gap: 8px;
-      margin-top: 8px;
+      margin-top: 10px;
+    }
+
+    /* Sous-catégories bloc 4 */
+    .block4-category {
+      font-size: 0.78rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #1f7a54;
+      margin: 14px 0 6px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding-bottom: 4px;
+      border-bottom: 1px solid #d1f0e0;
+    }
+    .block4-category:first-child { margin-top: 2px; }
+    .block4-list {
+      list-style: none;
+      padding: 0;
+      margin: 0 0 4px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .block4-list li {
+      padding: 6px 10px;
+      background: #f4fbf6;
+      border-radius: 6px;
+      font-size: 0.9rem;
+      color: #1a3329;
+      border-left: 2px solid #a8d5bc;
     }
     .btn-primary {
       padding: 8px 12px;
@@ -115,14 +170,27 @@
     table.simple {
       width: 100%;
       border-collapse: collapse;
+      border-radius: 6px;
+      overflow: hidden;
     }
     table.simple th, table.simple td {
-      border: 1px solid #e3e3e3;
-      padding: 6px 8px;
+      border: 1px solid #d1f0e0;
+      padding: 8px 10px;
       text-align: left;
+      font-size: 0.9rem;
     }
     table.simple thead {
-      background: #f3f6f8;
+      background: #e9f8ee;
+    }
+    table.simple thead th {
+      color: #1f7a54;
+      font-weight: 700;
+      font-size: 0.82rem;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+    table.simple tbody tr:hover {
+      background: #f4fbf6;
     }
 
     /* Titulaires */
@@ -130,17 +198,23 @@
       display: inline-flex;
       align-items: center;
       gap: 6px;
-      padding: 4px 8px;
-      border-radius: 16px;
-      background: #f3f6f8;
-      border: 1px solid #e3e3e3;
+      padding: 5px 10px;
+      border-radius: 20px;
+      background: #f0fdf4;
+      border: 1px solid #a8d5bc;
       margin: 4px 6px 0 0;
+      font-size: 0.87rem;
+      color: #155e43;
     }
     .holder-badge .level {
       font-weight: 700;
-      color: #222;
+      color: #1f7a54;
       min-width: 1.5rem;
       text-align: center;
+      background: #d1f0e0;
+      border-radius: 10px;
+      padding: 1px 6px;
+      font-size: 0.78rem;
     }
 
     /* Liens vers activités */
@@ -160,22 +234,31 @@
       list-style: none;
       padding: 0;
       margin: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
     }
     .activity-list li {
-      padding: 8px 12px;
-      margin: 4px 0;
-      background: #f9fafb;
-      border-radius: 6px;
+      padding: 9px 13px;
+      background: #f4fbf6;
+      border-radius: 7px;
       border-left: 3px solid #1f7a54;
-      transition: background 0.2s;
+      transition: background 0.15s, box-shadow 0.15s;
     }
     .activity-list li:hover {
-      background: #e9f8ee;
+      background: #e6f9ee;
+      box-shadow: 0 1px 4px rgba(31,122,84,0.1);
     }
     .activity-description {
-      font-size: 0.9em;
-      color: #666;
-      margin-top: 4px;
+      font-size: 0.85em;
+      color: #5a8a72;
+      margin-top: 3px;
+    }
+    .block-empty {
+      color: #7fae96;
+      font-size: 0.9rem;
+      font-style: italic;
+      padding: 6px 2px;
     }
 
     /* Spinner overlay */
@@ -432,7 +515,7 @@
                   {% endfor %}
                 </ul>
               {% else %}
-                <p>{{ t('roles.no_activity') }}</p>
+                <p class="block-empty"><i class="fa-solid fa-circle-info"></i> {{ t('roles.no_activity') }}</p>
               {% endif %}
             </div>
           </div>
@@ -468,7 +551,7 @@
                   </tbody>
                 </table>
               {% else %}
-                <p>{{ t('roles.no_task') }}</p>
+                <p class="block-empty"><i class="fa-solid fa-circle-info"></i> {{ t('roles.no_task') }}</p>
               {% endif %}
             </div>
           </div>
@@ -487,7 +570,7 @@
                   {% endfor %}
                 </ul>
               {% else %}
-                <p>{{ t('roles.no_competence') }}</p>
+                <p class="block-empty"><i class="fa-solid fa-circle-info"></i> {{ t('roles.no_competence') }}</p>
               {% endif %}
             </div>
           </div>
@@ -499,42 +582,49 @@
               {{ t('roles.block4_title') }}
             </div>
             <div id="block4-{{ item.role.id }}" class="block-content">
-              <h3>{{ t('roles.block4_savoirs') }}</h3>
-              <ul>
+              <p class="block4-category"><i class="fa-solid fa-book"></i> {{ t('roles.block4_savoirs') }}</p>
+              <ul class="block4-list">
                 {% for entry in item.block4 if entry.type == 'savoir' %}
                   <li>{{ entry.value }}</li>
+                {% else %}
+                  <li style="color:#7fae96;font-style:italic;background:none;border-left:none;">—</li>
                 {% endfor %}
               </ul>
 
-              <h3>{{ t('roles.block4_sf') }}</h3>
-              <ul>
+              <p class="block4-category"><i class="fa-solid fa-hands"></i> {{ t('roles.block4_sf') }}</p>
+              <ul class="block4-list">
                 {% for entry in item.block4 if entry.type == 'savoir-faire' %}
                   <li>{{ entry.value }}</li>
+                {% else %}
+                  <li style="color:#7fae96;font-style:italic;background:none;border-left:none;">—</li>
                 {% endfor %}
               </ul>
 
-              <h3>{{ t('roles.block4_aptitudes') }}</h3>
-              <ul>
+              <p class="block4-category"><i class="fa-solid fa-star"></i> {{ t('roles.block4_aptitudes') }}</p>
+              <ul class="block4-list">
                 {% for entry in item.block4 if entry.type == 'aptitude' %}
                   <li>{{ entry.value }}</li>
+                {% else %}
+                  <li style="color:#7fae96;font-style:italic;background:none;border-left:none;">—</li>
                 {% endfor %}
               </ul>
 
-              <h3>{{ t('roles.block4_hsc') }}</h3>
+              <p class="block4-category"><i class="fa-solid fa-person-chalkboard"></i> {{ t('roles.block4_hsc') }}</p>
               {% set hsc_entries = item.block4 | selectattr("type", "equalto", "softskill") | list %}
               {% if hsc_entries %}
-                <ul>
+                <ul class="block4-list">
                   {% for hsc in hsc_entries %}
                     <li>
-                      <strong>{{ hsc.value }}</strong> ({{ t('roles.hsc_level_prefix') }} {{ hsc.niveau }})
+                      <strong>{{ hsc.value }}</strong>
+                      <span style="color:#1f7a54;font-size:0.82rem;margin-left:6px;">({{ t('roles.hsc_level_prefix') }} {{ hsc.niveau }})</span>
                       {% if hsc.justification and hsc.justification != 'Pas de justification' %}
-                        {{ t('roles.hsc_justif_prefix') }} {{ hsc.justification }}
+                        <div style="font-size:0.83rem;color:#5a8a72;margin-top:2px;">{{ t('roles.hsc_justif_prefix') }} {{ hsc.justification }}</div>
                       {% endif %}
                     </li>
                   {% endfor %}
                 </ul>
               {% else %}
-                <p>{{ t('roles.no_hsc') }}</p>
+                <p class="block-empty"><i class="fa-solid fa-circle-info"></i> {{ t('roles.no_hsc') }}</p>
               {% endif %}
             </div>
           </div>
@@ -556,7 +646,7 @@
                   {% endfor %}
                 </div>
               {% else %}
-                <p>{{ t('roles.no_holder') }}</p>
+                <p class="block-empty"><i class="fa-solid fa-circle-info"></i> {{ t('roles.no_holder') }}</p>
               {% endif %}
             </div>
           </div>
