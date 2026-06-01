@@ -43,6 +43,7 @@ PAGE_LABELS = {
     "test_29_constraints":       "API Contraintes & Données",
     "test_30_skills_api":        "API Compétences Legacy (Skills)",
     "test_31_changelog":         "Changelog & Activité Récente",
+    "test_32_projection_metier": "Projection Métier (ROME)",
 }
 
 
