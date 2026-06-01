@@ -1553,39 +1553,45 @@ def _read_vsdx_page_xml(vsdx_path: str) -> str:
         return zf.read(page_files[0]).decode('utf-8', errors='replace')
 
 
-def _ai_extract_decisions(xml_excerpt: str, context_name: str = '') -> Dict:
+def _ai_extract_decisions(vsdx_result: Dict, context_name: str = '') -> Dict:
     """
-    Envoie le XML de la page VSDX à OpenAI (même client que les autres routes IA).
+    Envoie un résumé compact des losanges déjà extraits à OpenAI pour validation.
+    Plus fiable que le XML brut car compact et structuré.
     """
     import json as _json
 
+    decisions = vsdx_result.get('decisions', [])
+
+    # Résumé compact lisible par l'IA
+    lines = [
+        f"Fichier : {context_name}",
+        f"Total shapes : {vsdx_result.get('total_shapes', 0)}  |  "
+        f"Total connecteurs : {vsdx_result.get('total_connectors', 0)}",
+        f"Losanges détectés algorithmiquement : {len(decisions)}",
+        "",
+    ]
+    for d in decisions:
+        label = d.get('label') or '(sans label)'
+        master = d.get('master_name', '?')
+        splice = ' [splice]' if d.get('splice') else ''
+        lines.append(f'• ID {d["id"]} "{label}" [{master}]{splice}')
+        for c in d.get('incoming', []):
+            lines.append(f'    ← "{c.get("from_label", "?")}"')
+        for c in d.get('outgoing', []):
+            badge = f' [badge:{c["badge"]}]' if c.get('badge') else ''
+            lines.append(f'    → "{c.get("to_label", "?")}"{badge}')
+
+    summary = '\n'.join(lines)
+
     system_prompt = (
-        "Tu es un expert en analyse de fichiers Visio (VSDX). "
-        "Je te donne le XML brut d'une page Visio (format CFF/flowchart). "
-        "Extrait UNIQUEMENT les nœuds de décision (losanges / diamonds).\n\n"
-        "Pour chaque losange retourne :\n"
-        "- id : attribut ID de la Shape Visio\n"
-        "- label : texte affiché dans le losange\n"
-        "- incoming : liste [{from_id, from_label}] — formes qui pointent VERS ce losange\n"
-        "- outgoing : liste [{to_id, to_label, badge}] — formes que le losange pointe,\n"
-        "  avec badge = 'Oui', 'Non' ou '' selon la présence d'une forme-badge ou label sur le connecteur\n\n"
-        "Critères d'identification d'un losange :\n"
-        "1. Master/@NameU contient : decision, diamond, gateway, conditional, losange, "
-        "branchement, rhombus, si grand, si petit, big if, small if\n"
-        "2. OU géométrie Section[@N='Geometry'] avec exactement 1 Row[@T='MoveTo'] + 4 Row[@T='LineTo'] "
-        "(et aucun arc) → taille raisonnable (Width et Height entre 0.3 et 3 pouces)\n\n"
-        "Badges Oui/Non : formes séparées dont le texte est 'Oui'/'Non'/'Yes'/'No', "
-        "associées à un connecteur via groupement parent ou proximité spatiale.\n\n"
+        "Tu es un expert en analyse de diagrammes de flux Visio. "
+        "On te soumet les losanges (nœuds de décision) extraits automatiquement d'un fichier VSDX. "
+        "Ta mission : valider ces résultats, corriger les erreurs évidentes, "
+        "et ajouter les badges Oui/Non si tu peux les déduire du contexte.\n\n"
         "Réponds UNIQUEMENT en JSON valide, sans texte avant ni après :\n"
         '{"decisions": [{"id": "...", "label": "...", '
-        '"incoming": [{"from_id": "...", "from_label": "..."}], '
-        '"outgoing": [{"to_id": "...", "to_label": "...", "badge": ""}]}]}'
-    )
-
-    user_prompt = (
-        f"Fichier Visio{(' — ' + context_name) if context_name else ''} :\n\n"
-        f"```xml\n{xml_excerpt[:16000]}\n```\n\n"
-        "Extrais tous les losanges et leurs connexions Oui/Non."
+        '"incoming": [{"from_id": "", "from_label": ""}], '
+        '"outgoing": [{"to_id": "", "to_label": "", "badge": "Oui|Non|"}]}]}'
     )
 
     client, err = openai_client_or_none()
@@ -1597,7 +1603,7 @@ def _ai_extract_decisions(xml_excerpt: str, context_name: str = '') -> Dict:
             model=os.environ.get("OPENAI_CHATBOT_MODEL", "gpt-4o-mini"),
             messages=[
                 {"role": "system", "content": system_prompt},
-                {"role": "user",   "content": user_prompt},
+                {"role": "user",   "content": summary},
             ],
             temperature=0.1,
             max_tokens=4000,
@@ -1669,20 +1675,14 @@ def api_debug_analyze_file_ai():
         tmp_path = tmp.name
 
     try:
-        xml_content = _read_vsdx_page_xml(tmp_path)
-    except Exception as e:
-        try:
-            os.unlink(tmp_path)
-        except OSError:
-            pass
-        return jsonify({"error": str(e)}), 400
+        vsdx_result = extract_decisions_from_vsdx(tmp_path)
     finally:
         try:
             os.unlink(tmp_path)
         except OSError:
             pass
 
-    result = _ai_extract_decisions(xml_content, vsdx_file.filename)
+    result = _ai_extract_decisions(vsdx_result, vsdx_file.filename)
     return jsonify(result)
 
 

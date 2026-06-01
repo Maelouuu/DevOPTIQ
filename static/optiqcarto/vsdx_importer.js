@@ -1221,7 +1221,7 @@ class VsdxImporter {
   // onOrphans(orphans) is an optional async callback that receives the
   // list of unlabelled disconnected shapes and returns 'clean'|'keep'|'cancel'.
 
-  async parse(onOrphans) {
+  async parse(onOrphans, opts = {}) {
     await this.parseMasters();
     await this.parsePage();
     await this.prefetchMasters();
@@ -1233,8 +1233,9 @@ class VsdxImporter {
     this.importActivities();
     this.applyLayoutCorrections();
     this.buildGroups();
-    // spliceDecisions intentionally not called: decision diamonds are placed
-    // visually on top of arrows without modifying connection topology.
+    // spliceDecisions is opt-in: enables it for diagnostic tools without
+    // affecting the editor's connection topology.
+    if (opts.spliceDecisions) this.spliceDecisions();
     await this.buildConnections();
     this.cleanupBands();
 

@@ -133,7 +133,7 @@
       const ab  = await _file.arrayBuffer();
       const zip = await JSZip.loadAsync(ab);
       const imp = new VsdxImporter(zip);
-      const res = await imp.parse(() => Promise.resolve('keep'));
+      const res = await imp.parse(() => Promise.resolve('keep'), { spliceDecisions: true });
       if (!res) return { decisions: [], errors: ['Import annulé'], total_shapes: 0 };
 
       const { shapes = [], connections = [] } = res;
