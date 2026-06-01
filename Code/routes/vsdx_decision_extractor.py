@@ -166,6 +166,11 @@ def _infer_oui_non(decisions: List[Dict], shape_info: Dict) -> None:
     Existing explicit `badge` values are left untouched (display layer decides priority).
     """
     for dec in decisions:
+        # Single outgoing → always Oui (no branching possible)
+        if len(dec.get('outgoing', [])) == 1:
+            dec['outgoing'][0]['inferred_badge'] = 'Oui'
+            continue
+
         did = dec['id']
         dx = shape_info.get(did, {}).get('pin_x', 0)
         dy = shape_info.get(did, {}).get('pin_y', 0)

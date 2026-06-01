@@ -2,6 +2,51 @@
 (function () {
   'use strict';
 
+  // ── Ground truth (extracted manually from losange_oui_non.xlsx) ────────
+  // Key: norm(diamond_label) + '|' + norm(connection_label)
+  // "single exit → always Oui" is already handled by the algorithm
+  const _GROUND_TRUTH = {
+    // Standard diamond
+    'standard|quotation to prepare': 'Oui',
+    'standard|client specifications document': 'Non',
+    'standard|customer requirements document linked to an invitation for tender': 'Non',
+    // New Customer / Quotation diamond
+    'new customer / quotation|credit status': 'Oui',
+    'new customer / quotation|customer status': 'Non',
+    // Technical Study (vide / empty label — matched by empty string)
+    '|technical concept': 'Oui',
+    '|technical solution proposal': 'Non',
+    // Installation in Progress (single exit → Oui handled algorithmically)
+    'installation in progress|installation report': 'Oui',
+    // Installation Not Completed
+    'installation not completed|report of installation not completed': 'Oui',
+    'installation not completed|installation report': 'Non',
+    'installation not completed|report of not completed delivery': 'Non',
+    // Overdue payments
+    'overdue payments|overdue payments': 'Oui',
+    'overdue payments|overdue account': 'Non',
+    'overdue payments|no overdue payments': 'Non',
+    // Counter Sales
+    'counter sales|counter customer account opening request': 'Oui',
+    'counter sales|counter sales order': 'Non',
+    // Order Registration (shape ~1178)
+    'order registration|order recorded in the erp - waiting for technical order': 'Oui',
+    'order registration|request for additional information': 'Non',
+    // Order Verification
+    'order verification|account opening request': 'Oui',
+    'order verification|order recorded in the erp - waiting for technical order': 'Non',
+    // Credit Check (single exit → Oui)
+    'credit check|credit check': 'Oui',
+    // Hot-line (single exit → Oui)
+    'hot-line|request for after-sales service intervention': 'Oui',
+    // Scheduling
+    'scheduling|parts manufacturing order': 'Oui',
+    'scheduling|purchased parts order': 'Non',
+    // Bar Feeder Inventory
+    'bar feeder inventory|bar feeder to be adapted': 'Oui',
+    'bar feeder inventory|bar feeder': 'Non',
+  };
+
   // ── State ──────────────────────────────────────────────────────────────
   let _file      = null;
   let _vsdxData  = null;   // Python extractor
@@ -167,8 +212,13 @@
             conn_label: c.label || '', badge: '',
           }));
 
+          // Single outgoing → always Oui (no branching possible)
+          if (outgoing.length === 1) {
+            outgoing[0].inferred_badge = 'Oui';
+          }
+
           // Geometric Oui/Non inference using Visio absolute positions
-          const dAbs = getAbs(d.id);
+          const dAbs = outgoing.length !== 1 ? getAbs(d.id) : null;
           if (dAbs) {
             const dx = dAbs.pinX, dy = dAbs.pinY;
             const inVecs = incoming.map(c => {
@@ -424,7 +474,7 @@
 
     let html = `<table class="dd-table"><thead><tr>
       <th>Losange VSDX</th><th>Losange Outil</th>${aiHead}
-      <th>Entrées VSDX</th><th>Sorties VSDX</th><th>Sorties Outil</th>
+      <th>Entrées VSDX</th><th>Entrées Outil</th><th>Sorties VSDX</th><th>Sorties Outil</th>
     </tr></thead><tbody>`;
 
     for (const { vd, td, ad, toolOnly } of rows) {
@@ -432,6 +482,7 @@
       const vL  = vd ? (_esc(vd.label) || '<em>sans label</em>') : '—';
       const tL  = td ? (_esc(td.label) || '<em>sans label</em>') : `<span class="dd-miss">Non trouvé</span>`;
       const vIns  = vd  ? _chips(vd.incoming, 'from_label') : '';
+      const tIns  = td  ? _chips(td.incoming, 'from_label') : '<span class="dd-miss">—</span>';
       const vOuts = vd  ? _chips(vd.outgoing,  'to_label')  : '';
       const tOuts = td  ? _chips(td.outgoing,  'to_label')  : '<span class="dd-miss">—</span>';
       const aiTd  = hasAI ? `<td>${ad ? _chips(ad.outgoing, 'to_label') : '<span class="dd-miss">—</span>'}</td>` : '';
@@ -440,7 +491,7 @@
         <td>${toolOnly ? '<span class="dd-miss">—</span>' : vL}</td>
         <td>${toolOnly ? `<span class="dd-tag-tool">${_esc(td?.label)}</span>` : tL}</td>
         ${aiTd}
-        <td>${vIns || '—'}</td><td>${vOuts || '—'}</td><td>${tOuts}</td>
+        <td>${vIns || '—'}</td><td>${tIns}</td><td>${vOuts || '—'}</td><td>${tOuts}</td>
       </tr>`;
     }
 
@@ -463,7 +514,19 @@
     const { map: vtMap } = _matchDecisions(vDec, tDec);
     const norm = s => (s || '').toLowerCase().trim().replace(/\s+/g, ' ');
 
-    let total = 0, agreed = 0;
+    // Lookup ground truth for a given diamond label + connection label
+    const getRef = (dLabel, connLabel) => {
+      const dk = norm(dLabel);
+      const ck = norm(connLabel);
+      const key = dk + '|' + ck;
+      if (_GROUND_TRUTH[key] !== undefined) return _GROUND_TRUTH[key];
+      // Try conn label only (for diamonds with empty labels)
+      if (_GROUND_TRUTH['|' + ck] !== undefined) return _GROUND_TRUTH['|' + ck];
+      return null;
+    };
+
+    // Accord counters: vsdx↔ref and tool↔ref
+    let vTotal = 0, vOk = 0, tTotal = 0, tOk = 0;
 
     const bHtml = b => b === 'Oui'
       ? `<span class="dd-oui-non-badge dd-badge-oui">Oui</span>`
@@ -471,53 +534,63 @@
         ? `<span class="dd-oui-non-badge dd-badge-non">Non</span>`
         : '<span class="dd-miss">—</span>';
 
+    const accHtml = (algo, ref) => {
+      if (!algo || !ref) return '·';
+      return algo === ref ? '<span class="dd-accord-ok">✓</span>' : '<span class="dd-accord-ko">✗</span>';
+    };
+
     let html = `<table class="dd-table"><thead><tr>
       <th>Losange</th><th>Connexion sortante</th>
+      <th>Référence <span class="dd-src-badge">xlsx</span></th>
       <th>VSDX <span class="dd-src-badge">géo</span></th>
       <th>Outil JS <span class="dd-src-badge">géo</span></th>
-      <th>Accord</th>
+      <th>VSDX ok</th><th>Outil ok</th>
     </tr></thead><tbody>`;
 
     vDec.forEach((vd, vi) => {
       const td = vtMap.get(vi);
       const vOuts = vd.outgoing.filter(c => c.to_label || c.badge);
-      const dLabel = _esc(vd.label) || '<em class="dd-miss">sans label</em>';
+      const dLabel = vd.label || '';
+      const dLabelEsc = _esc(dLabel) || '<em class="dd-miss">sans label</em>';
 
       if (!vOuts.length) {
-        html += `<tr><td>${dLabel}</td><td colspan="4" class="dd-miss">—</td></tr>`;
+        html += `<tr><td>${dLabelEsc}</td><td colspan="6" class="dd-miss">—</td></tr>`;
         return;
       }
 
       vOuts.forEach((vo, i) => {
         const connLabel = vo.to_label || vo.badge || '?';
-        const vb = vo.inferred_badge || '';
+        const vb  = vo.inferred_badge || '';
+        const ref = getRef(dLabel, connLabel);
+
         let tb = '';
         if (td) {
           const tm = (td.outgoing || []).find(o => norm(o.to_label) === norm(vo.to_label));
           if (tm) tb = tm.inferred_badge || '';
         }
 
-        const same = vb && tb && vb === tb;
-        const diff = vb && tb && vb !== tb;
-        if (vb && tb) { total++; if (same) agreed++; }
+        if (vb && ref) { vTotal++; if (vb === ref) vOk++; }
+        if (tb && ref) { tTotal++; if (tb === ref) tOk++; }
 
-        const acc = same ? '<span class="dd-accord-ok">✓</span>'
-                  : diff ? '<span class="dd-accord-ko">✗</span>' : '·';
+        const rowErr = (vb && ref && vb !== ref) || (tb && ref && tb !== ref);
 
-        html += `<tr class="${diff ? 'dd-row-miss' : ''}">
-          ${i === 0 ? `<td rowspan="${vOuts.length}">${dLabel}</td>` : ''}
+        html += `<tr class="${rowErr ? 'dd-row-miss' : ''}">
+          ${i === 0 ? `<td rowspan="${vOuts.length}">${dLabelEsc}</td>` : ''}
           <td>${_esc(connLabel)}</td>
+          <td>${ref ? bHtml(ref) : '<span class="dd-miss">—</span>'}</td>
           <td>${bHtml(vb)}</td><td>${bHtml(tb)}</td>
-          <td>${acc}</td>
+          <td>${accHtml(vb, ref)}</td><td>${accHtml(tb, ref)}</td>
         </tr>`;
       });
     });
 
     html += '</tbody></table>';
 
-    const scoreHtml = total > 0
-      ? `<p class="dd-oui-non-score">Accord VSDX↔Outil JS : <strong>${agreed}/${total}</strong> (${Math.round(agreed / total * 100)}%)</p>`
-      : '<p class="dd-oui-non-score">Aucune connexion comparable (positions manquantes ?)</p>';
+    const pct = (ok, tot) => tot > 0 ? `<strong>${ok}/${tot}</strong> (${Math.round(ok / tot * 100)}%)` : '<em>n/a</em>';
+    const scoreHtml = `<p class="dd-oui-non-score">
+      Précision VSDX↔Référence : ${pct(vOk, vTotal)} &nbsp;|&nbsp;
+      Précision Outil JS↔Référence : ${pct(tOk, tTotal)}
+    </p>`;
 
     el.innerHTML = scoreHtml + html;
   }
