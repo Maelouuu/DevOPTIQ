@@ -146,22 +146,60 @@
       const byId = {};
       shapes.forEach(s => { byId[s.id] = s; });
 
+      // Build reverse map appId → visioId for position lookup
+      const appToVisio = {};
+      Object.entries(imp._shapeIdMap || {}).forEach(([v, a]) => { appToVisio[a] = String(v); });
+      const pinAbs = imp.shapePinAbs || {};
+      const getAbs = id => pinAbs[appToVisio[id]] || null;
+
       const decisions = shapes
         .filter(s => s._type === 'decision' || s.type === 'decision')
-        .map(d => ({
-          id: d.id,
-          label: d.label || '',
-          outgoing: connections.filter(c => c.fromId === d.id).map(c => ({
+        .map(d => {
+          const outgoing = connections.filter(c => c.fromId === d.id).map(c => ({
             conn_id: c.id || '', to_id: c.toId || '',
             to_label: (byId[c.toId] || {}).label || '',
             conn_label: c.label || '', badge: c.label || '',
-          })).filter(c => c.to_label || c.badge),
-          incoming: connections.filter(c => c.toId === d.id).map(c => ({
+          })).filter(c => c.to_label || c.badge);
+
+          const incoming = connections.filter(c => c.toId === d.id).map(c => ({
             conn_id: c.id || '', from_id: c.fromId || '',
             from_label: (byId[c.fromId] || {}).label || '',
             conn_label: c.label || '', badge: '',
-          })),
-        }));
+          }));
+
+          // Geometric Oui/Non inference using Visio absolute positions
+          const dAbs = getAbs(d.id);
+          if (dAbs) {
+            const dx = dAbs.pinX, dy = dAbs.pinY;
+            const inVecs = incoming.map(c => {
+              const s = getAbs(c.from_id);
+              if (!s) return null;
+              const vx = dx - s.pinX, vy = dy - s.pinY;
+              const ln = Math.hypot(vx, vy);
+              return ln > 1e-6 ? [vx / ln, vy / ln] : null;
+            }).filter(Boolean);
+
+            if (inVecs.length) {
+              let fx = inVecs.reduce((s, v) => s + v[0], 0) / inVecs.length;
+              let fy = inVecs.reduce((s, v) => s + v[1], 0) / inVecs.length;
+              const fl = Math.hypot(fx, fy);
+              if (fl > 1e-6) {
+                fx /= fl; fy /= fl;
+                outgoing.forEach(c => {
+                  const t = getAbs(c.to_id);
+                  if (!t) { c.inferred_badge = ''; return; }
+                  const ox = t.pinX - dx, oy = t.pinY - dy;
+                  const ol = Math.hypot(ox, oy);
+                  if (ol < 1e-6) { c.inferred_badge = ''; return; }
+                  const dot = Math.max(-1, Math.min(1, (ox / ol) * fx + (oy / ol) * fy));
+                  c.inferred_badge = Math.acos(dot) * 180 / Math.PI < 45 ? 'Oui' : 'Non';
+                });
+              }
+            }
+          }
+
+          return { id: d.id, label: d.label || '', outgoing, incoming };
+        });
 
       return { decisions, total_shapes: shapes.length, total_connections: connections.length, errors: [] };
     } catch (e) {
@@ -355,6 +393,7 @@
   function _renderActiveTab() {
     switch (_activeTab) {
       case 'compare': _renderCompare(); break;
+      case 'oui-non': _renderOuiNon(); break;
       case 'vsdx':    _renderSource(_vsdxData?.decisions, 'VSDX brut (Python)'); break;
       case 'tool':    _renderSource(_toolData?.decisions, 'Outil JS (VsdxImporter)'); break;
       case 'ai':      _renderAITab(); break;
@@ -407,6 +446,80 @@
 
     html += '</tbody></table>';
     el.innerHTML = html;
+  }
+
+  function _renderOuiNon() {
+    const el = _id('dd-tab-content');
+    if (!el) return;
+
+    const vDec = (_vsdxData?.decisions || []).filter(d => d?.outgoing);
+    const tDec = (_toolData?.decisions || []).filter(d => d?.outgoing);
+
+    if (!vDec.length) {
+      el.innerHTML = '<p class="dd-empty">Lancez d\'abord une analyse VSDX.</p>';
+      return;
+    }
+
+    const { map: vtMap } = _matchDecisions(vDec, tDec);
+    const norm = s => (s || '').toLowerCase().trim().replace(/\s+/g, ' ');
+
+    let total = 0, agreed = 0;
+
+    const bHtml = b => b === 'Oui'
+      ? `<span class="dd-oui-non-badge dd-badge-oui">Oui</span>`
+      : b === 'Non'
+        ? `<span class="dd-oui-non-badge dd-badge-non">Non</span>`
+        : '<span class="dd-miss">—</span>';
+
+    let html = `<table class="dd-table"><thead><tr>
+      <th>Losange</th><th>Connexion sortante</th>
+      <th>VSDX <span class="dd-src-badge">géo</span></th>
+      <th>Outil JS <span class="dd-src-badge">géo</span></th>
+      <th>Accord</th>
+    </tr></thead><tbody>`;
+
+    vDec.forEach((vd, vi) => {
+      const td = vtMap.get(vi);
+      const vOuts = vd.outgoing.filter(c => c.to_label || c.badge);
+      const dLabel = _esc(vd.label) || '<em class="dd-miss">sans label</em>';
+
+      if (!vOuts.length) {
+        html += `<tr><td>${dLabel}</td><td colspan="4" class="dd-miss">—</td></tr>`;
+        return;
+      }
+
+      vOuts.forEach((vo, i) => {
+        const connLabel = vo.to_label || vo.badge || '?';
+        const vb = vo.inferred_badge || '';
+        let tb = '';
+        if (td) {
+          const tm = (td.outgoing || []).find(o => norm(o.to_label) === norm(vo.to_label));
+          if (tm) tb = tm.inferred_badge || '';
+        }
+
+        const same = vb && tb && vb === tb;
+        const diff = vb && tb && vb !== tb;
+        if (vb && tb) { total++; if (same) agreed++; }
+
+        const acc = same ? '<span class="dd-accord-ok">✓</span>'
+                  : diff ? '<span class="dd-accord-ko">✗</span>' : '·';
+
+        html += `<tr class="${diff ? 'dd-row-miss' : ''}">
+          ${i === 0 ? `<td rowspan="${vOuts.length}">${dLabel}</td>` : ''}
+          <td>${_esc(connLabel)}</td>
+          <td>${bHtml(vb)}</td><td>${bHtml(tb)}</td>
+          <td>${acc}</td>
+        </tr>`;
+      });
+    });
+
+    html += '</tbody></table>';
+
+    const scoreHtml = total > 0
+      ? `<p class="dd-oui-non-score">Accord VSDX↔Outil JS : <strong>${agreed}/${total}</strong> (${Math.round(agreed / total * 100)}%)</p>`
+      : '<p class="dd-oui-non-score">Aucune connexion comparable (positions manquantes ?)</p>';
+
+    el.innerHTML = scoreHtml + html;
   }
 
   function _renderSource(decisions, srcName) {
