@@ -1585,13 +1585,18 @@ def _ai_extract_decisions(vsdx_result: Dict, context_name: str = '') -> Dict:
 
     system_prompt = (
         "Tu es un expert en analyse de diagrammes de flux Visio. "
-        "On te soumet les losanges (nœuds de décision) extraits automatiquement d'un fichier VSDX. "
-        "Ta mission : valider ces résultats, corriger les erreurs évidentes, "
-        "et ajouter les badges Oui/Non si tu peux les déduire du contexte.\n\n"
+        "On te soumet les losanges extraits automatiquement d'un fichier VSDX. "
+        "Ta mission : valider et restituer fidèlement ces données — sans rien inventer.\n\n"
+        "RÈGLES STRICTES :\n"
+        "- Conserve exactement les labels et connexions fournis, sans les modifier.\n"
+        "- Ne déduis PAS de badges Oui/Non : mets badge='' pour toutes les connexions "
+        "sauf si un badge est explicitement indiqué dans les données d'entrée (ex: [badge:Oui]).\n"
+        "- Ne crée pas de connexions absentes des données d'entrée.\n"
+        "- Si les données sont correctes, retourne-les telles quelles.\n\n"
         "Réponds UNIQUEMENT en JSON valide, sans texte avant ni après :\n"
         '{"decisions": [{"id": "...", "label": "...", '
         '"incoming": [{"from_id": "", "from_label": ""}], '
-        '"outgoing": [{"to_id": "", "to_label": "", "badge": "Oui|Non|"}]}]}'
+        '"outgoing": [{"to_id": "", "to_label": "", "badge": ""}]}]}'
     )
 
     client, err = openai_client_or_none()

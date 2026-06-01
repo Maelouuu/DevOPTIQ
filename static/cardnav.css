@@ -129,7 +129,7 @@
   border-radius: 20px;
   text-decoration: none;
   color: #ffffff;
-  font-size: 14px; font-weight: 600;
+  font-size: 16px; font-weight: 600;
   letter-spacing: 0.01em;
   scroll-snap-align: start;
   transition: background .16s ease, color .16s ease;
@@ -137,11 +137,11 @@
 }
 .nav-card:hover {
   background: rgba(255, 255, 255, 0.07);
-  color: rgba(255, 255, 255, 0.92);
+  color: #ffffff;
 }
 .nav-card.active {
   background: rgba(255, 255, 255, 0.09);
-  color: rgba(255, 255, 255, 0.95);
+  color: #ffffff;
 }
 
 /* Icône : fond blanc, dessin coloré */

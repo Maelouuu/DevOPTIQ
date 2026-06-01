@@ -247,24 +247,19 @@
     const vDec = _vsdxData?.decisions || [];
     const tDec = _toolData?.decisions || [];
     const aDec = _aiData?.decisions   || [];
-    const norm = s => (s || '').toLowerCase().trim().replace(/\s+/g, ' ');
 
-    const tMap = {}, aMap = {};
-    tDec.forEach(d => { tMap[norm(d.label)] = d; });
-    aDec.forEach(d => { aMap[norm(d.label)] = d; });
+    const { map: vtMap, unmatched: tOnly } = _matchDecisions(vDec, tDec);
+    const { map: vaMap }                   = _matchDecisions(vDec, aDec);
 
     const outStr = (list, lk) =>
       (list || []).map(c => `${c[lk] || c.conn_id || '?'}${c.badge ? ` [${c.badge}]` : ''}`).join(' | ');
 
-    const seen = new Set();
-    const rows = vDec.map(vd => {
-      const key = norm(vd.label);
-      seen.add(key);
-      const td = tMap[key], ad = aMap[key];
+    const rows = vDec.map((vd, vi) => {
+      const td = vtMap.get(vi), ad = vaMap.get(vi);
       return {
         vsdx_label: vd.label,
-        tool_label: td?.label || '',
-        ai_label:   ad?.label || '',
+        tool_label: td?.label ?? '',
+        ai_label:   ad?.label ?? '',
         vsdx_ins:   outStr(vd.incoming,  'from_label'),
         vsdx_outs:  outStr(vd.outgoing,  'to_label'),
         tool_outs:  outStr(td?.outgoing, 'to_label'),
@@ -273,20 +268,15 @@
       };
     });
 
-    // Tool-only
-    tDec.filter(td => !seen.has(norm(td.label))).forEach(td => {
-      const key = norm(td.label);
-      const ad = aMap[key];
-      rows.push({
-        vsdx_label: '',
-        tool_label: td.label,
-        ai_label:   ad?.label || '',
-        vsdx_ins:   '', vsdx_outs: '',
-        tool_outs:  outStr(td.outgoing, 'to_label'),
-        ai_outs:    aDec.length ? outStr(ad?.outgoing, 'to_label') : undefined,
-        status:     'OUTIL_SEUL',
-      });
-    });
+    tOnly.forEach(td => rows.push({
+      vsdx_label: '',
+      tool_label: td.label,
+      ai_label:   '',
+      vsdx_ins: '', vsdx_outs: '',
+      tool_outs: outStr(td.outgoing, 'to_label'),
+      ai_outs:   aDec.length ? '' : undefined,
+      status:    'OUTIL_SEUL',
+    }));
 
     return rows;
   }
@@ -300,10 +290,8 @@
     const tDec = _toolData?.decisions || [];
     const aDec = _aiData?.decisions   || [];
 
-    const norm = s => (s || '').toLowerCase().trim().replace(/\s+/g, ' ');
-    const vSet = new Set(vDec.map(d => norm(d.label)));
-    const tSet = new Set(tDec.map(d => norm(d.label)));
-    const matched = [...vSet].filter(l => tSet.has(l)).length;
+    const { map: vtMapScore } = _matchDecisions(vDec, tDec);
+    const matched = vtMapScore.size;
     const total   = Math.max(vDec.length, tDec.length);
 
     let vBadged = 0, tBadged = 0;
@@ -373,15 +361,11 @@
       return;
     }
 
-    const norm = s => (s || '').toLowerCase().trim().replace(/\s+/g, ' ');
-    const tMap = {}, aMap = {};
-    tDec.forEach(d => { tMap[norm(d.label)] = d; });
-    aDec.forEach(d => { aMap[norm(d.label)] = d; });
+    const { map: vtMap, unmatched: tOnly } = _matchDecisions(vDec, tDec);
+    const { map: vaMap } = hasAI ? _matchDecisions(vDec, aDec) : { map: new Map() };
 
-    const vLabels = new Set(vDec.map(d => norm(d.label)));
-    const rows = vDec.map(vd => ({ vd, td: tMap[norm(vd.label)], ad: aMap[norm(vd.label)] }));
-    tDec.filter(td => !vLabels.has(norm(td.label)))
-        .forEach(td => rows.push({ vd: null, td, ad: aMap[norm(td.label)], toolOnly: true }));
+    const rows = vDec.map((vd, vi) => ({ vd, td: vtMap.get(vi) || null, ad: vaMap.get(vi) || null }));
+    tOnly.forEach(td => rows.push({ vd: null, td, ad: null, toolOnly: true }));
 
     const aiHead = hasAI ? `<th>Sorties IA ${_aiData._source ? `<span class="dd-src-badge">${_esc(_aiData._source)}</span>` : ''}</th>` : '';
 
@@ -452,6 +436,38 @@
       const el = _id(id);
       if (el) el.style.display = show ? '' : 'none';
     });
+  }
+
+  // Matching bipartite glouton : score = label(20) + outgoing-target(8 chacun) + incoming-source(5 chacun)
+  function _matchDecisions(srcDec, tgtDec) {
+    const norm = s => (s || '').toLowerCase().trim().replace(/\s+/g, ' ');
+    const candidates = [];
+    srcDec.forEach((sd, si) => {
+      tgtDec.forEach((td, ti) => {
+        let score = 0;
+        const sLabel = norm(sd.label), tLabel = norm(td.label);
+        if (sLabel && sLabel === tLabel) score += 20;
+        const sOut = new Set((sd.outgoing || []).map(c => norm(c.to_label)).filter(Boolean));
+        const tOut = new Set((td.outgoing || []).map(c => norm(c.to_label)).filter(Boolean));
+        sOut.forEach(l => { if (tOut.has(l)) score += 8; });
+        const sIn  = new Set((sd.incoming || []).map(c => norm(c.from_label)).filter(Boolean));
+        const tIn  = new Set((td.incoming || []).map(c => norm(c.from_label)).filter(Boolean));
+        sIn.forEach(l => { if (tIn.has(l)) score += 5; });
+        if (score > 0) candidates.push({ si, ti, score });
+      });
+    });
+    candidates.sort((a, b) => b.score - a.score);
+    const usedS = new Set(), usedT = new Set();
+    const map = new Map();
+    for (const { si, ti } of candidates) {
+      if (!usedS.has(si) && !usedT.has(ti)) {
+        map.set(si, tgtDec[ti]);
+        usedS.add(si);
+        usedT.add(ti);
+      }
+    }
+    const unmatched = tgtDec.filter((_, ti) => !usedT.has(ti));
+    return { map, unmatched };
   }
 
   function _chips(list, lk) {
