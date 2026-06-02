@@ -29,28 +29,45 @@ function getPorts(s) {
   // Les process ont une auréole de 7px → les flèches s'arrêtent au bord de l'auréole
   const h = s.type === 'process' ? 7 : 0;
   return {
-    top:    { x: cx,            y: s.y - h,         dir: 'top'    },
-    bottom: { x: cx,            y: s.y + s.h + h,   dir: 'bottom' },
-    left:   { x: s.x - h,       y: cy,               dir: 'left'   },
-    right:  { x: s.x + s.w + h, y: cy,               dir: 'right'  },
+    top:          { x: cx,                y: s.y - h,           dir: 'top'    },
+    bottom:       { x: cx,                y: s.y + s.h + h,     dir: 'bottom' },
+    left:         { x: s.x - h,           y: cy,                 dir: 'left'   },
+    right:        { x: s.x + s.w + h,     y: cy,                 dir: 'right'  },
+    'top-left':   { x: s.x - h,           y: s.y - h,           dir: 'top'    },
+    'top-right':  { x: s.x + s.w + h,     y: s.y - h,           dir: 'top'    },
+    'bottom-left':  { x: s.x - h,         y: s.y + s.h + h,     dir: 'bottom' },
+    'bottom-right': { x: s.x + s.w + h,   y: s.y + s.h + h,     dir: 'bottom' },
+    'left-mid':   { x: s.x - h,           y: cy - s.h / 4,      dir: 'left'   },
+    'right-mid':  { x: s.x + s.w + h,     y: cy - s.h / 4,      dir: 'right'  },
   };
 }
 
-// 10 ports répartis sur le contour — utilisés pour le snap lors du drag d'extrémité
+// 16 ports répartis sur le contour — utilisés pour le snap lors du drag d'extrémité
 function getDetailedPorts(s) {
   const h = s.type === 'process' ? 7 : 0;
   const { x, y, w, h: sh } = s;
   return [
-    { x: x + w*0.25, y: y - h,      dir: 'top',    t: 0.25 },
-    { x: x + w*0.50, y: y - h,      dir: 'top',    t: 0.50 },
-    { x: x + w*0.75, y: y - h,      dir: 'top',    t: 0.75 },
+    // Top edge (3)
+    { x: x + w*0.25, y: y - h,       dir: 'top',    t: 0.25 },
+    { x: x + w*0.50, y: y - h,       dir: 'top',    t: 0.50 },
+    { x: x + w*0.75, y: y - h,       dir: 'top',    t: 0.75 },
+    // Right edge (3)
     { x: x + w + h,  y: y + sh*0.33, dir: 'right',  t: 0.33 },
+    { x: x + w + h,  y: y + sh*0.50, dir: 'right',  t: 0.50 },
     { x: x + w + h,  y: y + sh*0.67, dir: 'right',  t: 0.67 },
-    { x: x + w*0.75, y: y + sh + h, dir: 'bottom', t: 0.75 },
-    { x: x + w*0.50, y: y + sh + h, dir: 'bottom', t: 0.50 },
-    { x: x + w*0.25, y: y + sh + h, dir: 'bottom', t: 0.25 },
-    { x: x - h,      y: y + sh*0.67, dir: 'left',   t: 0.67 },
+    // Bottom edge (3)
+    { x: x + w*0.75, y: y + sh + h,  dir: 'bottom', t: 0.75 },
+    { x: x + w*0.50, y: y + sh + h,  dir: 'bottom', t: 0.50 },
+    { x: x + w*0.25, y: y + sh + h,  dir: 'bottom', t: 0.25 },
+    // Left edge (3)
     { x: x - h,      y: y + sh*0.33, dir: 'left',   t: 0.33 },
+    { x: x - h,      y: y + sh*0.50, dir: 'left',   t: 0.50 },
+    { x: x - h,      y: y + sh*0.67, dir: 'left',   t: 0.67 },
+    // 4 corners
+    { x: x - h,      y: y - h,       dir: 'top',    t: 0.00 },
+    { x: x + w + h,  y: y - h,       dir: 'top',    t: 1.00 },
+    { x: x - h,      y: y + sh + h,  dir: 'bottom', t: 0.00 },
+    { x: x + w + h,  y: y + sh + h,  dir: 'bottom', t: 1.00 },
   ];
 }
 

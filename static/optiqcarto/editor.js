@@ -1187,21 +1187,26 @@ function renderHandles() {
     }, gHandles);
   }
 
-  // Indicateurs de port (10) sur la forme survolée lors du drag d'extrémité de connexion
-  if (connEndDrag) {
-    // Afficher les 10 ports sur toutes les formes proches (rayon SHOW_R)
+  // Indicateurs de port (snap halo) lors du drag depuis un port bleu OU drag d'extrémité de connexion
+  const snapDrag = portDrag || connEndDrag;
+  if (snapDrag) {
+    const curX  = portDrag ? portDrag.curX  : connEndDrag.curX;
+    const curY  = portDrag ? portDrag.curY  : connEndDrag.curY;
+    const snapId = portDrag ? portDrag.snapShapeId : connEndDrag.snapShapeId;
+    const snapDir = portDrag ? portDrag.snapDir    : connEndDrag.snapDir;
+    const snapT   = portDrag ? portDrag.snapT      : connEndDrag.snapT;
+    const skipId  = portDrag ? portDrag.fromShapeId : null;
+
     const SHOW_R = 120;
     for (const s of state.shapes) {
-      const distToShape = Math.hypot(
-        connEndDrag.curX - (s.x + s.w/2),
-        connEndDrag.curY - (s.y + s.h/2)
-      );
+      if (skipId !== null && s.id === skipId) continue;
+      const distToShape = Math.hypot(curX - (s.x + s.w/2), curY - (s.y + s.h/2));
       if (distToShape > SHOW_R + Math.max(s.w, s.h)) continue;
       const dPorts = getDetailedPorts(s);
       for (const pt of dPorts) {
-        const isSnap = s.id === connEndDrag.snapShapeId &&
-                       pt.dir === connEndDrag.snapDir &&
-                       Math.abs(pt.t - connEndDrag.snapT) < 0.01;
+        const isSnap = s.id === snapId &&
+                       pt.dir === snapDir &&
+                       Math.abs(pt.t - snapT) < 0.01;
         el('circle', {
           cx: String(pt.x), cy: String(pt.y), r: isSnap ? '9' : '5',
           fill: isSnap ? '#22c55e' : 'rgba(34,197,94,0.45)',
@@ -1363,6 +1368,18 @@ function applyGroupHighlight() {
    RENDER ALL
    ══════════════════════════════════════════════════ */
 
+function updateMultiselectBadge() {
+  const badge = document.getElementById('multiselect-badge');
+  const countEl = document.getElementById('multiselect-count');
+  if (!badge) return;
+  if (selectedShapes.size > 1) {
+    if (countEl) countEl.textContent = String(selectedShapes.size);
+    badge.style.display = '';
+  } else {
+    badge.style.display = 'none';
+  }
+}
+
 function render() {
   renderBands();
   renderLegend();
@@ -1372,6 +1389,7 @@ function render() {
   renderHandles();
   renderCanvasMap();
   applyGroupHighlight();
+  updateMultiselectBadge();
 }
 
 
@@ -1681,6 +1699,7 @@ function _finalizeLasso() {
     }
   }
   _cancelLasso();
+  setLassoMode(false);
   if (selectedShapes.size > 0 && !propsOpen) setPropsOpen(true);
   render();
   updateProps();
@@ -1802,7 +1821,7 @@ function onDown(e) {
     const portName    = portEl.getAttribute('data-port');
     const shape = state.shapes.find(s => s.id === fromShapeId);
     if (shape) {
-      portDrag = { fromShapeId, fromPort: getPorts(shape)[portName] };
+      portDrag = { fromShapeId, fromPort: getPorts(shape)[portName], curX: 0, curY: 0, snapShapeId: null, snapDir: null, snapT: 0.5 };
       canvas.style.cursor = 'crosshair';
     }
     return;
@@ -1971,7 +1990,8 @@ function onDown(e) {
         mx: x, my: y, moved: false,
         shapes: [...selectedShapes].map(id => {
           const s = state.shapes.find(s => s.id === id);
-          return { id, ox: s.x, oy: s.y };
+          const b = getBandForY(s.y + s.h / 2);
+          return { id, ox: s.x, oy: s.y, bandId: b ? b.id : null };
         }),
       };
       isDragging = true;
@@ -2074,15 +2094,43 @@ function onMove(e) {
   /* ── Port drag — aperçu de la connexion ── */
   if (portDrag) {
     const { x, y } = screenToSVG(e.clientX, e.clientY);
+    portDrag.curX = x;
+    portDrag.curY = y;
+    portDrag.snapShapeId = null;
+    portDrag.snapDir     = null;
+    portDrag.snapT       = 0.5;
+
+    const SNAP_R = 55;
+    let bestDist = SNAP_R, bestShape = null, bestPt = null;
+    for (const s of state.shapes) {
+      if (s.id === portDrag.fromShapeId) continue;
+      for (const pt of getDetailedPorts(s)) {
+        const d = Math.hypot(x - pt.x, y - pt.y);
+        if (d < bestDist) { bestDist = d; bestShape = s; bestPt = pt; }
+      }
+    }
+    if (bestShape && bestPt) {
+      portDrag.snapShapeId = bestShape.id;
+      portDrag.snapDir     = bestPt.dir;
+      portDrag.snapT       = bestPt.t;
+    }
+
     gOverlay.innerHTML = '';
     const fp = portDrag.fromPort;
+    const tx = portDrag.snapShapeId
+      ? (() => { const s = state.shapes.find(s => s.id === portDrag.snapShapeId); const p = getDetailedPorts(s).find(p => p.dir === portDrag.snapDir && Math.abs(p.t - portDrag.snapT) < 0.01); return p ? p.x : x; })()
+      : x;
+    const ty = portDrag.snapShapeId
+      ? (() => { const s = state.shapes.find(s => s.id === portDrag.snapShapeId); const p = getDetailedPorts(s).find(p => p.dir === portDrag.snapDir && Math.abs(p.t - portDrag.snapT) < 0.01); return p ? p.y : y; })()
+      : y;
     el('path', {
-      d: `M ${fp.x},${fp.y} L ${x},${y}`,
+      d: `M ${fp.x},${fp.y} L ${tx},${ty}`,
       fill: 'none', stroke: '#3b82f6',
       'stroke-width': `${Math.max(1, 2 / vpScale)}`,
       'stroke-dasharray': `${Math.max(4, 7 / vpScale)},${Math.max(3, 5 / vpScale)}`,
       'pointer-events': 'none',
     }, gOverlay);
+    renderHandles();
     return;
   }
 
@@ -2332,15 +2380,24 @@ function onUp(e) {
   /* ── Fin du drag depuis un port ── */
   if (portDrag) {
     const { x, y } = screenToSVG(e.clientX, e.clientY);
-    const shapeHit = shapeAtPoint(x, y);
-    const groupHit = !shapeHit && state.groups && state.groups.find(g => {
-      const b = getGroupBounds(g);
-      return b && x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h;
-    });
-    const target = shapeHit || (groupHit ? { ...getGroupBounds(groupHit), id: groupHit.id } : null);
+    let target = null;
+    let toPortDir = null, toPortT = null;
+
+    if (portDrag.snapShapeId) {
+      target = state.shapes.find(s => s.id === portDrag.snapShapeId) || null;
+      toPortDir = portDrag.snapDir;
+      toPortT   = portDrag.snapT;
+    } else {
+      const shapeHit = shapeAtPoint(x, y);
+      const groupHit = !shapeHit && state.groups && state.groups.find(g => {
+        const b = getGroupBounds(g);
+        return b && x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h;
+      });
+      target = shapeHit || (groupHit ? { ...getGroupBounds(groupHit), id: groupHit.id } : null);
+    }
+
     if (target && target.id !== portDrag.fromShapeId) {
       const fp = portDrag.fromPort;
-      const tp = bestEntryPort(target, fp);
       // Autoriser plusieurs connexions entre mêmes shapes si ports différents
       const exists = state.connections.some(
         c => c.fromId === portDrag.fromShapeId &&
@@ -2351,19 +2408,21 @@ function onUp(e) {
         if (wouldBeBackwards(portDrag.fromShapeId, target.id)) {
           showToast(_L('editor.toast.backward_arrow'));
         } else {
-        const fromShape = state.shapes.find(s => s.id === portDrag.fromShapeId);
-        state.connections.push({
-          id: state.nextId++,
-          fromId: portDrag.fromShapeId,
-          toId: target.id,
-          fromPortDir: fp.dir,
-          style: 'solid',
-          routing: state.defaultRouting || 'smooth',
-          color: fromShape ? fromShape.color : '#9ca3af',
-          label: '',
-        });
-        _checkRenvoiAutoLink(portDrag.fromShapeId, target.id);
-        snapshot();
+          const fromShape = state.shapes.find(s => s.id === portDrag.fromShapeId);
+          const conn = {
+            id: state.nextId++,
+            fromId: portDrag.fromShapeId,
+            toId: target.id,
+            fromPortDir: fp.dir,
+            style: 'solid',
+            routing: state.defaultRouting || 'smooth',
+            color: fromShape ? fromShape.color : '#9ca3af',
+            label: '',
+          };
+          if (toPortDir) { conn.toPortDir = toPortDir; conn.toPortT = toPortT; }
+          state.connections.push(conn);
+          _checkRenvoiAutoLink(portDrag.fromShapeId, target.id);
+          snapshot();
         }
       }
     }
@@ -2390,9 +2449,15 @@ function onUp(e) {
     isDragging = false;
     if (dragData) {
       if (dragData.moved) {
-        for (const { id } of dragData.shapes) {
+        for (const { id, bandId: prevBandId } of dragData.shapes) {
           const s = state.shapes.find(s => s.id === id);
-          if (s) updateShapeColor(s);
+          if (s) {
+            const newBand = getBandForY(s.y + s.h / 2);
+            // Only sync band color when shape moved to a different band
+            if (prevBandId === null || !newBand || prevBandId !== newBand.id) {
+              updateShapeColor(s);
+            }
+          }
           // Les tracés manuels deviennent incohérents quand la shape source/cible bouge
           for (const conn of state.connections) {
             if (conn.fromId === id || conn.toId === id) conn.userPts = null;

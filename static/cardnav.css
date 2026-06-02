@@ -211,10 +211,10 @@
   padding: 0 14px;
   height: 42px;
   border-radius: 18px;
-  border: 1.5px solid rgba(249, 168, 212, 0.75);
+  border: 1.5px solid rgba(236, 72, 153, 0.75);
   margin-left: 6px;
   text-decoration: none;
-  color: #f9a8d4;
+  color: #ec4899;
   font-size: 12px; font-weight: 600;
   white-space: nowrap;
   transition: background .14s, color .14s, border-color .14s;
@@ -224,9 +224,9 @@
   box-shadow: none;
 }
 .logout-btn:hover {
-  background: rgba(249, 168, 212, 0.1);
-  color: #f9a8d4;
-  border-color: rgba(249, 168, 212, 0.65);
+  background: rgba(236, 72, 153, 0.1);
+  color: #ec4899;
+  border-color: rgba(236, 72, 153, 0.65);
 }
 .logout-btn i { font-size: 12px; }
 .logout-btn span {
