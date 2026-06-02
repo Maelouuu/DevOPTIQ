@@ -44,6 +44,10 @@ PAGE_LABELS = {
     "test_30_skills_api":        "API Compétences Legacy (Skills)",
     "test_31_changelog":         "Changelog & Activité Récente",
     "test_32_projection_metier": "Projection Métier (ROME)",
+    "test_33_activities_data":  "API Détails Activité & Rendu",
+    "test_34_settings":         "Paramètres & Langue",
+    "test_35_password_reset":   "Réinitialisation de Mot de Passe",
+    "test_36_onboarding":       "Onboarding Rôles & Traduction HSC",
 }
 
 
