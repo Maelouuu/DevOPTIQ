@@ -23,7 +23,7 @@
       <i class="fa-solid fa-user-pen"></i>
     </div>
     <div class="page-banner__text">
-      <h1 class="page-banner__title">Modifier l'utilisateur</h1>
+      <h1 class="page-banner__title">Edit User</h1>
       <p class="page-banner__sub">{{ user.first_name }} {{ user.last_name }}</p>
     </div>
   </div>
@@ -34,8 +34,8 @@
       <div class="section-card__head-left">
         <span class="section-icon"><i class="fa-solid fa-pencil"></i></span>
         <div>
-          <h2 class="section-card__title">Informations du compte</h2>
-          <p class="section-card__subtitle">Modifiez les champs puis enregistrez</p>
+          <h2 class="section-card__title">Account Information</h2>
+          <p class="section-card__subtitle">Update the fields and save</p>
         </div>
       </div>
     </div>
@@ -47,7 +47,7 @@
           <div class="search-style-wrap">
             <i class="fa-solid fa-user search-style-icon"></i>
             <input type="text" name="first_name" class="search-style-input"
-                   placeholder="Prénom *" value="{{ user.first_name }}" required autocomplete="off">
+                   placeholder="First name *" value="{{ user.first_name }}" required autocomplete="off">
           </div>
         </div>
 
@@ -55,7 +55,7 @@
           <div class="search-style-wrap">
             <i class="fa-solid fa-user search-style-icon"></i>
             <input type="text" name="last_name" class="search-style-input"
-                   placeholder="Nom *" value="{{ user.last_name }}" required autocomplete="off">
+                   placeholder="Last name *" value="{{ user.last_name }}" required autocomplete="off">
           </div>
         </div>
 
@@ -71,7 +71,7 @@
           <div class="search-style-wrap">
             <i class="fa-solid fa-calendar search-style-icon"></i>
             <input type="number" name="age" class="search-style-input"
-                   placeholder="Âge" value="{{ user.age or '' }}" min="18" max="100" autocomplete="off">
+                   placeholder="Age" value="{{ user.age or '' }}" min="18" max="100" autocomplete="off">
           </div>
         </div>
 
@@ -80,7 +80,7 @@
             <i class="fa-solid fa-lock search-style-icon"></i>
             <input type="password" name="password" id="new-password-field"
                    class="search-style-input search-style-input--pass"
-                   placeholder="Nouveau mot de passe (laisser vide = inchangé)"
+                   placeholder="New password (leave empty = unchanged)"
                    autocomplete="new-password" readonly>
           </div>
         </div>
@@ -100,9 +100,9 @@
           <div class="search-style-wrap search-style-wrap--select">
             <i class="fa-solid fa-shield search-style-icon"></i>
             <select name="status" class="search-style-input" required>
-              <option value="user"          {% if user.status == 'user' %}selected{% endif %}>Utilisateur</option>
-              <option value="rh"            {% if user.status == 'rh' %}selected{% endif %}>RH</option>
-              <option value="administrateur"{% if user.status == 'administrateur' %}selected{% endif %}>Administrateur</option>
+              <option value="user"          {% if user.status == 'user' %}selected{% endif %}>User</option>
+              <option value="rh"            {% if user.status == 'rh' %}selected{% endif %}>HR</option>
+              <option value="administrateur"{% if user.status == 'administrateur' %}selected{% endif %}>Administrator</option>
             </select>
           </div>
         </div>

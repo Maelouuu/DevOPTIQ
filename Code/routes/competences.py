@@ -407,12 +407,12 @@ def render_global_summary_html(user, role_data):
     html = f'''
     <div class="summary-content">
         <h2 style="font-family: 'Fraunces', serif; margin-bottom: 20px;">
-            Synthèse globale - {user.first_name} {user.last_name}
+            Overall Summary — {user.first_name} {user.last_name}
         </h2>
     '''
-    
+
     if not role_data:
-        html += '<p class="text-muted">Aucun rôle attribué à cet utilisateur.</p>'
+        html += '<p class="text-muted">No role assigned to this user.</p>'
     else:
         for role in role_data:
             html += f'''
@@ -421,27 +421,27 @@ def render_global_summary_html(user, role_data):
                     {role['name']}
                 </h3>
             '''
-            
+
             if not role['activities']:
-                html += '<p class="text-muted" style="font-size: 14px;">Aucune activité pour ce rôle.</p>'
+                html += '<p class="text-muted" style="font-size: 14px;">No activity for this role.</p>'
             else:
                 html += '''
                 <div class="table-wrapper">
                     <table class="eval-table">
                         <thead>
                             <tr>
-                                <th>Activité</th>
-                                <th class="th-eval">Garant</th>
+                                <th>Activity</th>
+                                <th class="th-eval">Guarantor</th>
                                 <th class="th-eval">Manager</th>
-                                <th class="th-eval">RH</th>
+                                <th class="th-eval">HR</th>
                             </tr>
                         </thead>
                         <tbody>
                 '''
-                
+
                 for act in role['activities']:
                     competencies_str = ', '.join(act['competencies']) if act['competencies'] else ''
-                    comp_html = f'<br><small class="text-muted">Compétences : {competencies_str}</small>' if competencies_str else ''
+                    comp_html = f'<br><small class="text-muted">Skills: {competencies_str}</small>' if competencies_str else ''
                     
                     garant_class = act['evals'].get('garant') or ''
                     manager_class = act['evals'].get('manager') or ''

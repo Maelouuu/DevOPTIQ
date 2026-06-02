@@ -170,6 +170,8 @@ let _zoomSens = Math.max(3, Math.min(30, parseFloat(localStorage.getItem('optiqc
 // ── Interaction ───────────────────────────────────
 let tool = 'select';
 let selectedShapes = new Set();
+let lassoMode  = false;
+let lassoDrag  = null; // { startSX, startSY, curSX, curSY }
 let selectedConn = null;
 let selectedBand = null;        // id de la bande sélectionnée
 let connecting = null;          // { fromId }
@@ -224,6 +226,7 @@ const gShapes   = document.getElementById('g-shapes');
 const gHandles  = document.getElementById('g-handles');
 const gUI       = document.getElementById('g-ui');
 const gOverlay  = document.getElementById('g-overlay');
+const gLasso    = document.getElementById('g-lasso');
 const statusZoom = document.getElementById('status-zoom');
 const labelEd   = document.getElementById('label-editor');
 
@@ -1249,13 +1252,33 @@ function renderGroups() {
     grpG.style.cursor = 'pointer';
     gGroups.appendChild(grpG);
 
-    el('rect', {
-      x: gx, y: gy, width: gw, height: gh, rx: 18, ry: 18,
-      fill: isHL ? 'rgba(252,205,255,0.06)' : (isSel ? 'rgba(179,160,255,0.07)' : 'rgba(179,160,255,0.03)'),
-      stroke: isHL ? '#fccdff' : color,
-      'stroke-width': isSel || isHL ? '2' : '1.5',
-      'stroke-dasharray': '8,5',
-    }, grpG);
+    if (grp.isPile) {
+      // Stacked card effect for piles
+      for (const [dx, dy] of [[8, 8], [4, 4]]) {
+        el('rect', {
+          x: gx + dx, y: gy + dy, width: gw, height: gh, rx: 14, ry: 14,
+          fill: 'rgba(124,58,237,0.04)',
+          stroke: 'rgba(124,58,237,0.3)',
+          'stroke-width': '1',
+          'pointer-events': 'none',
+        }, grpG);
+      }
+      el('rect', {
+        x: gx, y: gy, width: gw, height: gh, rx: 14, ry: 14,
+        fill: isSel ? 'rgba(124,58,237,0.1)' : (isHL ? 'rgba(124,58,237,0.08)' : 'rgba(124,58,237,0.05)'),
+        stroke: isSel || isHL ? '#9f7aea' : color,
+        'stroke-width': isSel || isHL ? '2' : '1.5',
+        'stroke-dasharray': '8,5',
+      }, grpG);
+    } else {
+      el('rect', {
+        x: gx, y: gy, width: gw, height: gh, rx: 18, ry: 18,
+        fill: isHL ? 'rgba(252,205,255,0.06)' : (isSel ? 'rgba(179,160,255,0.07)' : 'rgba(179,160,255,0.03)'),
+        stroke: isHL ? '#fccdff' : color,
+        'stroke-width': isSel || isHL ? '2' : '1.5',
+        'stroke-dasharray': '8,5',
+      }, grpG);
+    }
 
     // Badge label
     const lblW = Math.min(120, (grp.label || 'Groupe').length * 8 + 20);
@@ -1607,6 +1630,132 @@ function selectConn(id) {
 }
 
 /* ══════════════════════════════════════════════════
+   LASSO (BOX SELECT)
+   ══════════════════════════════════════════════════ */
+
+function setLassoMode(active) {
+  lassoMode = active;
+  const btn = document.getElementById('btn-lasso-select');
+  if (btn) btn.classList.toggle('active', active);
+  if (!active && lassoDrag) _cancelLasso();
+}
+
+function _cancelLasso() {
+  lassoDrag = null;
+  if (gLasso) gLasso.innerHTML = '';
+}
+
+function _updateLassoRect() {
+  if (!lassoDrag || !gLasso) return;
+  const r  = canvas.getBoundingClientRect();
+  const lx = Math.min(lassoDrag.startSX, lassoDrag.curSX) - r.left;
+  const ly = Math.min(lassoDrag.startSY, lassoDrag.curSY) - r.top;
+  const lw = Math.abs(lassoDrag.curSX - lassoDrag.startSX);
+  const lh = Math.abs(lassoDrag.curSY - lassoDrag.startSY);
+  gLasso.innerHTML = '';
+  if (lw < 3 && lh < 3) return;
+  el('rect', {
+    x: lx, y: ly, width: lw, height: lh,
+    fill: 'rgba(59,130,246,0.07)',
+    stroke: '#3b82f6',
+    'stroke-width': '1.5',
+    'stroke-dasharray': '5,4',
+    rx: '3', ry: '3',
+    'pointer-events': 'none',
+  }, gLasso);
+}
+
+function _finalizeLasso() {
+  if (!lassoDrag) return;
+  const { x: wx1, y: wy1 } = screenToSVG(
+    Math.min(lassoDrag.startSX, lassoDrag.curSX),
+    Math.min(lassoDrag.startSY, lassoDrag.curSY)
+  );
+  const { x: wx2, y: wy2 } = screenToSVG(
+    Math.max(lassoDrag.startSX, lassoDrag.curSX),
+    Math.max(lassoDrag.startSY, lassoDrag.curSY)
+  );
+  for (const s of state.shapes) {
+    if (s.x >= wx1 && s.y >= wy1 && (s.x + s.w) <= wx2 && (s.y + s.h) <= wy2) {
+      selectedShapes.add(s.id);
+    }
+  }
+  _cancelLasso();
+  if (selectedShapes.size > 0 && !propsOpen) setPropsOpen(true);
+  render();
+  updateProps();
+}
+
+/* ══════════════════════════════════════════════════
+   PILES
+   ══════════════════════════════════════════════════ */
+
+function createPile() {
+  if (selectedShapes.size < 2) {
+    showToast('Select at least 2 shapes to create a pile.');
+    return;
+  }
+  const selIds = [...selectedShapes];
+
+  // Collect connections from selected shapes to shapes OUTSIDE the selection
+  const connsToTarget = {};   // targetId → [{ fromId, label }]
+  for (const fromId of selIds) {
+    for (const conn of state.connections) {
+      if (conn.fromId === fromId && !selIds.includes(conn.toId) && conn.toId != null) {
+        if (!connsToTarget[conn.toId]) connsToTarget[conn.toId] = [];
+        connsToTarget[conn.toId].push({ fromId, label: conn.label || '' });
+      }
+    }
+  }
+
+  const targetIds = Object.keys(connsToTarget);
+
+  if (targetIds.length === 0) {
+    showToast('Pile prerequisite not met: selected shapes must all connect to a common target.');
+    return;
+  }
+  if (targetIds.length > 1) {
+    showToast(`Pile prerequisite not met: shapes connect to ${targetIds.length} different targets — they must all connect to the same shape.`);
+    return;
+  }
+
+  const targetId = parseInt(targetIds[0]);
+  const entries  = connsToTarget[targetIds[0]];
+
+  // Check every selected shape has a connection to target
+  const connectedFromIds = new Set(entries.map(e => e.fromId));
+  for (const id of selIds) {
+    if (!connectedFromIds.has(id)) {
+      showToast('Pile prerequisite not met: not all selected shapes have a connection to the common target.');
+      return;
+    }
+  }
+
+  // Check all connections share the same label
+  const uniqueLabels = [...new Set(entries.map(e => e.label))];
+  if (uniqueLabels.length > 1) {
+    showToast(`Pile prerequisite not met: connections to the target must all carry the same label (found: ${uniqueLabels.map(l => '"' + (l || '(empty)') + '"').join(', ')}).`);
+    return;
+  }
+
+  if (!state.groups) state.groups = [];
+  const id = state.nextId++;
+  state.groups.push({
+    id,
+    label: uniqueLabels[0] || 'Pile',
+    shapeIds: selIds,
+    color: '#7c3aed',
+    isPile: true,
+    pileTargetId: targetId,
+  });
+  clearSelection();
+  selectedGroup = id;
+  snapshot();
+  render();
+  showToast('Pile created.');
+}
+
+/* ══════════════════════════════════════════════════
    MOUSE EVENTS
    ══════════════════════════════════════════════════ */
 
@@ -1690,6 +1839,19 @@ function onDown(e) {
   }
   /* ── Select tool ── */
   if (tool === 'select') {
+    // ── Lasso (box select) mode ──
+    if (lassoMode) {
+      const shapeEl = e.target.closest('[data-type="shape"]');
+      if (shapeEl) {
+        // Shift-click or plain click on shape while lasso is on → add to selection
+        selectShape(parseInt(shapeEl.getAttribute('data-id')), true, false);
+        render(); updateProps();
+      } else {
+        lassoDrag = { startSX: e.clientX, startSY: e.clientY, curSX: e.clientX, curSY: e.clientY };
+      }
+      return;
+    }
+
     // Drag du label d'une connexion
     const labelEl = e.target.closest('[data-conn-label-id]');
     if (labelEl) {
@@ -1868,6 +2030,14 @@ function onDown(e) {
 }
 
 function onMove(e) {
+  /* ── Lasso drag ── */
+  if (lassoDrag) {
+    lassoDrag.curSX = e.clientX;
+    lassoDrag.curSY = e.clientY;
+    _updateLassoRect();
+    return;
+  }
+
   /* ── Band width resizing ── */
   if (isResizingBandWidth) {
     const { x } = screenToSVG(e.clientX, e.clientY);
@@ -2072,6 +2242,12 @@ function onMove(e) {
 }
 
 function onUp(e) {
+  /* ── Fin du lasso ── */
+  if (lassoDrag) {
+    _finalizeLasso();
+    return;
+  }
+
   /* ── Fin du drag d'un label ── */
   if (labelDrag) {
     labelDrag = null;
@@ -5341,6 +5517,12 @@ function init() {
 
   // Grouper
   document.getElementById('btn-group-create').addEventListener('click', createGroup);
+
+  // Pile
+  document.getElementById('btn-add-pile')?.addEventListener('click', createPile);
+
+  // Lasso (box select)
+  document.getElementById('btn-lasso-select')?.addEventListener('click', () => setLassoMode(!lassoMode));
 
   // ── Popup sensibilité zoom ────────────────────────────────────────────────
   (function() {

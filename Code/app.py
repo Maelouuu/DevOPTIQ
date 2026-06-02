@@ -198,9 +198,6 @@ def create_app(test_config=None):
     from Code.routes.gestion_rh import gestion_rh_bp
     app.register_blueprint(gestion_rh_bp)
 
-    from Code.routes.projection_metier import projection_metier_bp
-    app.register_blueprint(projection_metier_bp)
-
     from Code.routes.gestion_outils import bp_tools
     app.register_blueprint(bp_tools)
 

@@ -71,6 +71,10 @@
         <i class="fa-solid fa-object-group"></i>
         <span>{{ t('editor.tool_group') }}</span>
       </button>
+      <button class="tool-btn-top" id="btn-lasso-select" title="Box select — drag to select shapes (holds selection when off)">
+        <i class="fa-solid fa-vector-square"></i>
+        <span>Box select</span>
+      </button>
     </div>
 
     <div class="tb-divider-v"></div>
@@ -396,6 +400,7 @@
       <g id="g-ui"></g>
       <g id="g-overlay"></g>
     </g>
+    <g id="g-lasso"></g>
   </svg>
   <div id="zoom-pill" title="{{ t('editor.zoom_sensitivity') }}">
     <i class="fa-solid fa-magnifying-glass"></i>
