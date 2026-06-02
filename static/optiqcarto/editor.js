@@ -210,6 +210,7 @@ let _calqueList = [];
 let selectedGroup = null;
 let groupHighlightId = null;
 let expandedGroups = new Set();
+let collapsedPiles = new Set(); // IDs of pile groups collapsed on canvas
 // extco activity_id → { id, display_label, origin_entity_name }
 let _liaisonByActivityId = {};
 // ID de la forme à mettre en évidence (zoom-to-activity) — null = aucune
@@ -904,6 +905,14 @@ function _drawHaloForShape(shape, parent) {
 function renderShapes() {
   gShapes.innerHTML = '';
 
+  // Build set of shapes hidden by a collapsed pile
+  const hiddenByPile = new Set();
+  for (const grp of (state.groups || [])) {
+    if (grp.isPile && collapsedPiles.has(grp.id)) {
+      grp.shapeIds.forEach(id => hiddenByPile.add(id));
+    }
+  }
+
   // Halo de mise en évidence (zoom-to-activity depuis le parent)
   if (_haloShapeId !== null) {
     const hs = state.shapes.find(s => s.id === _haloShapeId);
@@ -911,6 +920,7 @@ function renderShapes() {
   }
 
   for (const s of state.shapes) {
+    if (hiddenByPile.has(s.id)) continue; // hidden inside collapsed pile
     const isSel   = selectedShapes.has(s.id);
     const isHover = hoverShapeId === s.id;
     const g = el('g', {
@@ -1081,9 +1091,9 @@ function renderShapes() {
 
     // ── Port handles (masqués en lecture seule) ──
     if (isHover && !portDrag && !window.OPTIQCARTO_READONLY) {
-      // Taille en SVG inversement proportionnelle au zoom pour rester lisible
-      const ps = Math.max(10, Math.round(12 / vpScale));
-      const sw = Math.max(1, Math.round(1.5 / vpScale));
+      // Taille fixe en pixels écran : 10px quelle que soit le zoom
+      const ps = 10 / vpScale;
+      const sw = 1.5 / vpScale;
       for (const [pName, p] of Object.entries(getPorts(s))) {
         el('rect', {
           x: p.x - ps / 2, y: p.y - ps / 2,
@@ -1258,10 +1268,20 @@ function renderGroups() {
     gGroups.appendChild(grpG);
 
     if (grp.isPile) {
+      const isCollapsed = collapsedPiles.has(grp.id);
+
+      // When collapsed: compact card stack; when expanded: full bounding box
+      let bx = gx, by = gy, bw = gw, bh = gh;
+      if (isCollapsed) {
+        bw = 140; bh = 72;
+        bx = (gx + gw / 2) - bw / 2;
+        by = (gy + gh / 2) - bh / 2;
+      }
+
       // Stacked card effect for piles
       for (const [dx, dy] of [[8, 8], [4, 4]]) {
         el('rect', {
-          x: gx + dx, y: gy + dy, width: gw, height: gh, rx: 14, ry: 14,
+          x: bx + dx, y: by + dy, width: bw, height: bh, rx: 14, ry: 14,
           fill: 'rgba(124,58,237,0.04)',
           stroke: 'rgba(124,58,237,0.3)',
           'stroke-width': '1',
@@ -1269,12 +1289,42 @@ function renderGroups() {
         }, grpG);
       }
       el('rect', {
-        x: gx, y: gy, width: gw, height: gh, rx: 14, ry: 14,
+        x: bx, y: by, width: bw, height: bh, rx: 14, ry: 14,
         fill: isSel ? 'rgba(124,58,237,0.1)' : (isHL ? 'rgba(124,58,237,0.08)' : 'rgba(124,58,237,0.05)'),
         stroke: isSel || isHL ? '#9f7aea' : color,
         'stroke-width': isSel || isHL ? '2' : '1.5',
         'stroke-dasharray': '8,5',
       }, grpG);
+
+      // Pile label badge — toggles collapse on click
+      const chevron = isCollapsed ? '▸' : '▾';
+      const pileLabel = (grp.label || 'Pile') + '  ' + chevron + '  ' + shapes.length;
+      const lblW = Math.min(160, pileLabel.length * 7.5 + 16);
+      const badgeX = bx + 10;
+      const badgeY = by - 18;
+
+      const badgeG = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+      badgeG.style.cursor = 'pointer';
+      el('rect', { x: badgeX, y: badgeY, width: lblW, height: 18, rx: 6, fill: '#7c3aed', opacity: '0.92' }, badgeG);
+      const bt = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      bt.setAttribute('x', String(badgeX + lblW / 2));
+      bt.setAttribute('y', String(badgeY + 12));
+      bt.setAttribute('text-anchor', 'middle');
+      bt.setAttribute('fill', '#ffffff');
+      bt.setAttribute('font-size', '10');
+      bt.setAttribute('font-weight', '700');
+      bt.setAttribute('font-family', 'Segoe UI, sans-serif');
+      bt.setAttribute('pointer-events', 'none');
+      bt.textContent = pileLabel;
+      badgeG.appendChild(bt);
+      grpG.appendChild(badgeG);
+
+      badgeG.addEventListener('click', e => {
+        e.stopPropagation();
+        if (collapsedPiles.has(grp.id)) collapsedPiles.delete(grp.id);
+        else collapsedPiles.add(grp.id);
+        render();
+      });
     } else {
       el('rect', {
         x: gx, y: gy, width: gw, height: gh, rx: 18, ry: 18,
@@ -1283,22 +1333,22 @@ function renderGroups() {
         'stroke-width': isSel || isHL ? '2' : '1.5',
         'stroke-dasharray': '8,5',
       }, grpG);
-    }
 
-    // Badge label
-    const lblW = Math.min(120, (grp.label || 'Groupe').length * 8 + 20);
-    el('rect', { x: gx + 12, y: gy + 5, width: lblW, height: LABEL_H - 6, rx: 7, fill: isHL ? '#fccdff' : color, opacity: '0.9' }, grpG);
-    const t = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-    t.setAttribute('x', String(gx + 12 + lblW / 2));
-    t.setAttribute('y', String(gy + 17));
-    t.setAttribute('text-anchor', 'middle');
-    t.setAttribute('fill', isHL ? '#5b0070' : '#ffffff');
-    t.setAttribute('font-size', '11');
-    t.setAttribute('font-weight', '700');
-    t.setAttribute('font-family', 'Segoe UI, sans-serif');
-    t.setAttribute('pointer-events', 'none');
-    t.textContent = grp.label || 'Groupe';
-    grpG.appendChild(t);
+      // Badge label for regular groups
+      const lblW = Math.min(120, (grp.label || 'Groupe').length * 8 + 20);
+      el('rect', { x: gx + 12, y: gy + 5, width: lblW, height: LABEL_H - 6, rx: 7, fill: isHL ? '#fccdff' : color, opacity: '0.9' }, grpG);
+      const t = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      t.setAttribute('x', String(gx + 12 + lblW / 2));
+      t.setAttribute('y', String(gy + 17));
+      t.setAttribute('text-anchor', 'middle');
+      t.setAttribute('fill', isHL ? '#5b0070' : '#ffffff');
+      t.setAttribute('font-size', '11');
+      t.setAttribute('font-weight', '700');
+      t.setAttribute('font-family', 'Segoe UI, sans-serif');
+      t.setAttribute('pointer-events', 'none');
+      t.textContent = grp.label || 'Groupe';
+      grpG.appendChild(t);
+    }
 
     grpG.addEventListener('click', e => {
       e.stopPropagation();
@@ -1374,7 +1424,7 @@ function updateMultiselectBadge() {
   if (!badge) return;
   if (selectedShapes.size > 1) {
     if (countEl) countEl.textContent = String(selectedShapes.size);
-    badge.style.display = '';
+    badge.style.display = 'flex';
   } else {
     badge.style.display = 'none';
   }
@@ -1478,14 +1528,18 @@ function renderCanvasMap() {
     });
   }
 
-  // Formes
-  if (state.shapes.length > 0) {
+  // Formes (exclude shapes that belong to pile groups — they appear under Groupes)
+  const pileShapeIds = new Set(
+    (state.groups || []).filter(g => g.isPile).flatMap(g => g.shapeIds)
+  );
+  const nonPileShapes = state.shapes.filter(s => !pileShapeIds.has(s.id));
+  if (nonPileShapes.length > 0) {
     const sl = document.createElement('div');
     sl.className = 'left-section-label';
     sl.innerHTML = '<i class="fa-solid fa-shapes"></i> Formes';
     list.appendChild(sl);
 
-    const sorted = [...state.shapes].sort((a, b) =>
+    const sorted = [...nonPileShapes].sort((a, b) =>
       (a.label || '').localeCompare(b.label || '', 'fr', { sensitivity: 'base' })
     );
     sorted.forEach(s => {
@@ -2260,7 +2314,10 @@ function onMove(e) {
 
   /* ── Hover tracking (tous les modes — port handles) ── */
   const hoverTarget = e.target.closest('[data-type="shape"]');
-  const newHover = hoverTarget ? parseInt(hoverTarget.getAttribute('data-id')) : null;
+  const portTarget  = !hoverTarget ? e.target.closest('[data-port]') : null;
+  const newHover = hoverTarget
+    ? parseInt(hoverTarget.getAttribute('data-id'))
+    : (portTarget ? parseInt(portTarget.getAttribute('data-shape-id')) : null);
   if (newHover !== hoverShapeId) {
     hoverShapeId = newHover;
     renderShapes();

@@ -26,44 +26,60 @@ function roundedDiamond(x, y, w, h, r) {
 
 function getPorts(s) {
   const cx = s.x + s.w / 2, cy = s.y + s.h / 2;
-  // Les process ont une auréole de 7px → les flèches s'arrêtent au bord de l'auréole
   const h = s.type === 'process' ? 7 : 0;
-  return {
-    top:          { x: cx,                y: s.y - h,           dir: 'top'    },
-    bottom:       { x: cx,                y: s.y + s.h + h,     dir: 'bottom' },
-    left:         { x: s.x - h,           y: cy,                 dir: 'left'   },
-    right:        { x: s.x + s.w + h,     y: cy,                 dir: 'right'  },
-    'top-left':   { x: s.x - h,           y: s.y - h,           dir: 'top'    },
-    'top-right':  { x: s.x + s.w + h,     y: s.y - h,           dir: 'top'    },
-    'bottom-left':  { x: s.x - h,         y: s.y + s.h + h,     dir: 'bottom' },
-    'bottom-right': { x: s.x + s.w + h,   y: s.y + s.h + h,     dir: 'bottom' },
-    'left-mid':   { x: s.x - h,           y: cy - s.h / 4,      dir: 'left'   },
-    'right-mid':  { x: s.x + s.w + h,     y: cy - s.h / 4,      dir: 'right'  },
+  const base = {
+    top:    { x: cx,            y: s.y - h,         dir: 'top'    },
+    bottom: { x: cx,            y: s.y + s.h + h,   dir: 'bottom' },
+    left:   { x: s.x - h,       y: cy,               dir: 'left'   },
+    right:  { x: s.x + s.w + h, y: cy,               dir: 'right'  },
   };
+  // Extra corner/mid ports for rectangular activity shapes only
+  if (s.type === 'process' || s.type === 'special') {
+    base['top-left']      = { x: s.x - h,           y: s.y - h,         dir: 'top'    };
+    base['top-right']     = { x: s.x + s.w + h,     y: s.y - h,         dir: 'top'    };
+    base['bottom-left']   = { x: s.x - h,           y: s.y + s.h + h,   dir: 'bottom' };
+    base['bottom-right']  = { x: s.x + s.w + h,     y: s.y + s.h + h,   dir: 'bottom' };
+    base['left-mid']      = { x: s.x - h,           y: cy - s.h / 4,    dir: 'left'   };
+    base['right-mid']     = { x: s.x + s.w + h,     y: cy - s.h / 4,    dir: 'right'  };
+  }
+  return base;
 }
 
-// 16 ports répartis sur le contour — utilisés pour le snap lors du drag d'extrémité
+// Snap ports for connection drag — 16 for rectangular shapes, 10 for circles
 function getDetailedPorts(s) {
   const h = s.type === 'process' ? 7 : 0;
   const { x, y, w, h: sh } = s;
+
+  // Circles (start-end / renvoi): keep original 10 ports
+  if (s.type === 'start-end') {
+    return [
+      { x: x + w*0.25, y: y - h,       dir: 'top',    t: 0.25 },
+      { x: x + w*0.50, y: y - h,       dir: 'top',    t: 0.50 },
+      { x: x + w*0.75, y: y - h,       dir: 'top',    t: 0.75 },
+      { x: x + w + h,  y: y + sh*0.33, dir: 'right',  t: 0.33 },
+      { x: x + w + h,  y: y + sh*0.67, dir: 'right',  t: 0.67 },
+      { x: x + w*0.75, y: y + sh + h,  dir: 'bottom', t: 0.75 },
+      { x: x + w*0.50, y: y + sh + h,  dir: 'bottom', t: 0.50 },
+      { x: x + w*0.25, y: y + sh + h,  dir: 'bottom', t: 0.25 },
+      { x: x - h,      y: y + sh*0.67, dir: 'left',   t: 0.67 },
+      { x: x - h,      y: y + sh*0.33, dir: 'left',   t: 0.33 },
+    ];
+  }
+
+  // Rectangular activity shapes: 16 ports (3 per edge + 4 corners)
   return [
-    // Top edge (3)
     { x: x + w*0.25, y: y - h,       dir: 'top',    t: 0.25 },
     { x: x + w*0.50, y: y - h,       dir: 'top',    t: 0.50 },
     { x: x + w*0.75, y: y - h,       dir: 'top',    t: 0.75 },
-    // Right edge (3)
     { x: x + w + h,  y: y + sh*0.33, dir: 'right',  t: 0.33 },
     { x: x + w + h,  y: y + sh*0.50, dir: 'right',  t: 0.50 },
     { x: x + w + h,  y: y + sh*0.67, dir: 'right',  t: 0.67 },
-    // Bottom edge (3)
     { x: x + w*0.75, y: y + sh + h,  dir: 'bottom', t: 0.75 },
     { x: x + w*0.50, y: y + sh + h,  dir: 'bottom', t: 0.50 },
     { x: x + w*0.25, y: y + sh + h,  dir: 'bottom', t: 0.25 },
-    // Left edge (3)
-    { x: x - h,      y: y + sh*0.33, dir: 'left',   t: 0.33 },
-    { x: x - h,      y: y + sh*0.50, dir: 'left',   t: 0.50 },
     { x: x - h,      y: y + sh*0.67, dir: 'left',   t: 0.67 },
-    // 4 corners
+    { x: x - h,      y: y + sh*0.50, dir: 'left',   t: 0.50 },
+    { x: x - h,      y: y + sh*0.33, dir: 'left',   t: 0.33 },
     { x: x - h,      y: y - h,       dir: 'top',    t: 0.00 },
     { x: x + w + h,  y: y - h,       dir: 'top',    t: 1.00 },
     { x: x - h,      y: y + sh + h,  dir: 'bottom', t: 0.00 },
