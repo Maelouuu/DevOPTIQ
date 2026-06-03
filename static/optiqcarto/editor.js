@@ -523,7 +523,12 @@ function renderConnections() {
       const parentGrp = state.groups && state.groups.find(g => g.isPile && collapsedPiles.has(g.id) && g.shapeIds.includes(s.id));
       if (parentGrp) {
         const b = getGroupBounds(parentGrp);
-        if (b) return { id: parentGrp.id, x: b.x, y: b.y, w: b.w, h: b.h, _halo: 0, _type: 'group' };
+        if (b) {
+          const bw = 140, bh = 72;
+          return { id: parentGrp.id,
+                   x: (b.x + b.w / 2) - bw / 2, y: (b.y + b.h / 2) - bh / 2,
+                   w: bw, h: bh, _halo: 0, _type: 'group' };
+        }
       }
       return { id: s.id, x: s.x, y: s.y, w: s.w, h: s.h, _halo: s.type === 'process' ? 7 : 0, _type: s.type };
     }
@@ -2056,13 +2061,18 @@ function onDown(e) {
         selectedShapes.clear(); selectedConn = null; selectedBand = null;
         dragData = {
           mx: x, my: y,
+          moved: false,
+          pileGroupId: gid,
           shapes: grp.shapeIds.map(id => {
             const s = state.shapes.find(s => s.id === id);
-            return s ? { id, ox: s.x, oy: s.y } : null;
+            const b = s ? getBandForY(s.y + s.h / 2) : null;
+            return s ? { id, ox: s.x, oy: s.y, bandId: b ? b.id : null } : null;
           }).filter(Boolean),
         };
         isDragging = true;
-        render(); updateProps();
+        // Ne pas appeler render() ici : le DOM serait reconstruit avant le click event,
+        // ce qui empêcherait le toggle de la pile par clic simple.
+        updateProps();
         if (!propsOpen) setPropsOpen(true);
         return;
       }
@@ -2559,6 +2569,12 @@ function onUp(e) {
           }
         }
         snapshot();
+        render();
+      } else if (dragData.pileGroupId != null) {
+        // Clic sans mouvement sur pile fermée → ouvre/ferme la pile
+        const gid = dragData.pileGroupId;
+        if (collapsedPiles.has(gid)) collapsedPiles.delete(gid);
+        else collapsedPiles.add(gid);
         render();
       }
       dragData = null;

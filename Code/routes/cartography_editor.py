@@ -20,7 +20,11 @@ from flask import (
 )
 
 from Code.extensions import db
-from Code.models.models import Activities, CartoCalque, CrossCartoLiaison, Entity, Link, Role, activity_roles
+from Code.models.models import (
+    Activities, CartoCalque, CompetencyEvaluation, CrossCartoLiaison,
+    Entity, Link, Role, TimeAnalysis, TimeProjectLine, TimeRoleLine,
+    TimeWeakness, activity_roles,
+)
 
 cartography_editor_bp = Blueprint("cartography_editor", __name__, url_prefix="/cartography")
 
@@ -266,9 +270,37 @@ def _do_sync(entity, diagram):
     if acts_to_remove:
         remove_ids = [a.id for a in acts_to_remove if a.id]
         if remove_ids:
+            # Supprimer les associations many-to-many
             db.session.execute(
                 activity_roles.delete().where(activity_roles.c.activity_id.in_(remove_ids))
             )
+            # Supprimer les enregistrements non couverts par le cascade ORM
+            CompetencyEvaluation.query.filter(
+                CompetencyEvaluation.activity_id.in_(remove_ids)
+            ).delete(synchronize_session=False)
+            TimeProjectLine.query.filter(
+                TimeProjectLine.activity_id.in_(remove_ids)
+            ).delete(synchronize_session=False)
+            TimeRoleLine.query.filter(
+                TimeRoleLine.activity_id.in_(remove_ids)
+            ).delete(synchronize_session=False)
+            TimeWeakness.query.filter(
+                TimeWeakness.activity_id.in_(remove_ids)
+            ).delete(synchronize_session=False)
+            CrossCartoLiaison.query.filter(
+                (CrossCartoLiaison.extco_activity_id.in_(remove_ids)) |
+                (CrossCartoLiaison.origin_activity_id.in_(remove_ids))
+            ).delete(synchronize_session=False)
+            # Nullifier les FK optionnelles
+            TimeAnalysis.query.filter(
+                TimeAnalysis.activity_id.in_(remove_ids)
+            ).update({TimeAnalysis.activity_id: None}, synchronize_session=False)
+            Link.query.filter(
+                Link.source_activity_id.in_(remove_ids)
+            ).update({Link.source_activity_id: None}, synchronize_session=False)
+            Link.query.filter(
+                Link.target_activity_id.in_(remove_ids)
+            ).update({Link.target_activity_id: None}, synchronize_session=False)
     for act in acts_to_remove:
         db.session.delete(act)
 
