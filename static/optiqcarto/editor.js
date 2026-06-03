@@ -1832,6 +1832,7 @@ function createPile() {
 
   if (!state.groups) state.groups = [];
   const id = state.nextId++;
+  collapsedPiles.add(id); // fermée par défaut
   state.groups.push({
     id,
     label: uniqueLabels[0] || 'Pile',
@@ -1877,7 +1878,15 @@ function onDown(e) {
     if (shapeTarget) {
       const sid = parseInt(shapeTarget.getAttribute('data-id'));
       const s = state.shapes.find(s => s.id === sid);
-      if (s) try { window.parent.postMessage({ t: 'shape-click', label: s.label, shapeId: s.id, shapeType: s.type, subtype: s.subtype || 'normal' }, '*'); } catch(_) {}
+      if (s) {
+        // En mode connexion, les formes bleues (extco liées) envoient connexion-shape-click
+        const origLabel = (s._cxOrig && s.label) || s.label;
+        if (_cxActive && _cxMatchedIds.has(String(s.id))) {
+          try { window.parent.postMessage({ type: 'connexion-shape-click', activityName: origLabel }, '*'); } catch(_) {}
+        } else {
+          try { window.parent.postMessage({ t: 'shape-click', label: origLabel, shapeId: s.id, shapeType: s.type, subtype: s.subtype || 'normal' }, '*'); } catch(_) {}
+        }
+      }
       return;
     }
     isPanning = true;
@@ -6024,9 +6033,89 @@ function initDock() { /* dock supprimé */ }
 
 document.addEventListener('DOMContentLoaded', init);
 
+/* ══════════════════════════════════════════════════
+   MODE CONNEXION INTER-CARTO (viewer readonly)
+   Colore en bleu les extco liées, en vert les origines
+   officialisées, grise le reste.
+   ══════════════════════════════════════════════════ */
+
+let _cxMatchedIds = new Set(); // shape IDs extco → bleu
+let _cxOriginIds  = new Set(); // shape IDs origines → vert
+let _cxActive     = false;
+
+const _CX_DIM_FILL   = '#e2e8f0';
+const _CX_DIM_STROKE = '#cbd5e1';
+const _CX_BLUE_FILL  = '#3b82f6';
+const _CX_BLUE_STR   = '#1d4ed8';
+const _CX_GREEN_FILL = '#22c55e';
+const _CX_GREEN_STR  = '#15803d';
+
+function _cxApply() {
+  for (const s of state.shapes || []) {
+    const sid = String(s.id);
+    if (s._cxOrig === undefined) s._cxOrig = { color: s.color, strokeColor: s.strokeColor };
+    if (_cxMatchedIds.has(sid)) {
+      s.color = _CX_BLUE_FILL; s.strokeColor = _CX_BLUE_STR;
+    } else if (_cxOriginIds.has(sid)) {
+      s.color = _CX_GREEN_FILL; s.strokeColor = _CX_GREEN_STR;
+    } else {
+      s.color = _CX_DIM_FILL; s.strokeColor = _CX_DIM_STROKE;
+    }
+  }
+  for (const b of state.bands || []) {
+    if (b._cxOrig === undefined) b._cxOrig = b.color;
+    b.color = _CX_DIM_FILL;
+  }
+  for (const c of state.connections || []) {
+    if (c._cxOrig === undefined) c._cxOrig = c.color;
+    c.color = _CX_DIM_FILL;
+  }
+}
+
+function _cxRestore() {
+  for (const s of state.shapes || []) {
+    if (s._cxOrig !== undefined) { s.color = s._cxOrig.color; s.strokeColor = s._cxOrig.strokeColor; delete s._cxOrig; }
+  }
+  for (const b of state.bands || []) {
+    if (b._cxOrig !== undefined) { b.color = b._cxOrig; delete b._cxOrig; }
+  }
+  for (const c of state.connections || []) {
+    if (c._cxOrig !== undefined) { c.color = c._cxOrig; delete c._cxOrig; }
+  }
+}
+
 // Écoute les messages postMessage depuis la page parente (activities_map).
 window.addEventListener('message', function(e) {
   if (!e.data || typeof e.data !== 'object') return;
+
+  if (e.data.type === 'connexion-highlight') {
+    _cxMatchedIds = new Set((e.data.matchedShapeIds || []).map(String));
+    _cxOriginIds  = new Set((e.data.originShapeIds  || []).map(String));
+    _cxActive = true;
+    _cxRestore();
+    _cxApply();
+    render();
+  }
+
+  if (e.data.type === 'connexion-mode') {
+    if (e.data.active) {
+      _cxActive = true;
+    } else {
+      _cxActive = false;
+      _cxMatchedIds.clear(); _cxOriginIds.clear();
+      _cxRestore();
+      render();
+    }
+  }
+
+  if (e.data.type === 'connexion-reset') {
+    _cxActive = false;
+    _cxMatchedIds.clear(); _cxOriginIds.clear();
+    _cxRestore();
+    render();
+  }
+
+  // Après reload-liaisons, les highlights doivent être ré-envoyés par la page parente.
 
   if (e.data.type === 'toggle-extco') {
     if (typeof toggleHighlightExtco === 'function') toggleHighlightExtco();

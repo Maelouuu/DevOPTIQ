@@ -1172,16 +1172,34 @@ def cross_carto_matches():
     matched = {}
 
     for entity in other_entities:
-        non_extco_names = set()
+        non_extco = {}  # name.lower() → {"activity_id": db_id, "activity_name": str}
 
         if entity.optiqcarto_data:
             try:
                 other_carto = json.loads(entity.optiqcarto_data)
+                other_shape_ids = []
+                other_shape_names = {}  # shape_id → label
                 for s in other_carto.get('shapes', []):
                     if s.get('subtype') != 'extco':
                         label = (s.get('label') or '').strip()
                         if label:
-                            non_extco_names.add(label.lower())
+                            sid = str(s['id'])
+                            other_shape_ids.append(sid)
+                            other_shape_names[sid] = label
+                # Lookup DB activity IDs for these shapes
+                if other_shape_ids:
+                    for act in Activities.query.filter(
+                        Activities.entity_id == entity.id,
+                        Activities.shape_id.in_(other_shape_ids)
+                    ).all():
+                        name_l = (act.name or '').strip().lower()
+                        if name_l:
+                            non_extco[name_l] = {"activity_id": act.id, "activity_name": act.name}
+                # Shapes présents dans la carto mais pas encore en DB
+                for sid, label in other_shape_names.items():
+                    name_l = label.lower()
+                    if name_l and name_l not in non_extco:
+                        non_extco[name_l] = {"activity_id": None, "activity_name": label}
             except (json.JSONDecodeError, TypeError):
                 pass
         else:
@@ -1191,19 +1209,35 @@ def cross_carto_matches():
                 Activities.shape_id.isnot(None)
             ).all():
                 if act.name:
-                    non_extco_names.add(act.name.strip().lower())
+                    name_l = act.name.strip().lower()
+                    non_extco[name_l] = {"activity_id": act.id, "activity_name": act.name}
 
         for name_lower, shape_id in extco_by_name.items():
-            if name_lower in non_extco_names:
-                matched.setdefault(shape_id, []).append({"id": entity.id, "name": entity.name})
+            if name_lower in non_extco:
+                info = non_extco[name_lower]
+                matched.setdefault(shape_id, []).append({
+                    "entity_id":    entity.id,
+                    "entity_name":  entity.name,
+                    "activity_id":  info["activity_id"],
+                    "activity_name": info["activity_name"],
+                })
+
+    # Lookup DB activity IDs pour les formes extco de la carto active
+    extco_shape_ids = [str(s['id']) for s in extco_shapes]
+    extco_acts = Activities.query.filter(
+        Activities.entity_id == active_entity_id,
+        Activities.shape_id.in_(extco_shape_ids)
+    ).all()
+    extco_activity_map = {act.shape_id: act.id for act in extco_acts}
 
     matches = []
     for s in extco_shapes:
         sid = str(s['id'])
         if sid in matched:
             matches.append({
-                "shape_id": sid,
-                "activity_name": (s.get('label') or '').strip(),
+                "shape_id":       sid,
+                "activity_id":    extco_activity_map.get(sid),   # DB ID pour officialisation
+                "activity_name":  (s.get('label') or '').strip(),
                 "matched_entities": matched[sid],
             })
 
