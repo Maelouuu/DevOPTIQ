@@ -1517,12 +1517,13 @@ def _inject_extco_shapes_in_origin_carto(
     origin_entity, origin_act, extco_links, extco_activity_id, act_names, source_label,
     active_entity=None,
 ):
-    """Recrée dans l'OptiqCarto de l'entité d'origine les formes connectées à l'extco.
-    - Formes entrantes (→ extco) : placées à GAUCHE de l'original
-    - Formes sortantes (extco →) : placées à DROITE de l'original
-    - Subtype 'extco' (hachuré) pour signifier la provenance inter-carto
-    - Style de connexion 'dashed' pour distinguer des connexions natives
-    - nextId correctement incrémenté pour éviter les collisions d'ID
+    """Injecte dans la carto d'origine les formes liées à l'activité extco officialisée.
+
+    - Choisit les côtés libres sur l'activité d'origine (évite les côtés déjà câblés)
+    - Détecte les collisions et décale les formes pour éviter tout chevauchement
+    - Copie type/couleur/taille depuis la carto source ; textColor blanc, fontSize correct
+    - Label de flèche = label original de la connexion source (pas le nom d'entité)
+    - crossCartoSource = source_label → rendu comme sous-label italique dans l'éditeur
     """
     try:
         carto_raw = origin_entity.optiqcarto_data
@@ -1530,11 +1531,11 @@ def _inject_extco_shapes_in_origin_carto(
             return
 
         carto = json.loads(carto_raw) if isinstance(carto_raw, str) else carto_raw
-        shapes      = carto.get('shapes', [])
-        connections = carto.get('connections', [])
+        shapes      = list(carto.get('shapes', []))
+        connections = list(carto.get('connections', []))
         next_id     = int(carto.get('nextId', 1000))
 
-        # Trouver la forme d'origine (comparaison str vs str pour éviter int/str mismatch)
+        # Trouver la forme d'origine
         origin_sid   = str(origin_act.shape_id) if origin_act.shape_id else None
         origin_shape = next(
             (s for s in shapes if str(s.get('id', '')) == origin_sid), None
@@ -1542,24 +1543,35 @@ def _inject_extco_shapes_in_origin_carto(
         if not origin_shape:
             return
 
-        ox = float(origin_shape.get('x', 100))
-        oy = float(origin_shape.get('y', 100))
-        ow = float(origin_shape.get('w', 160))
-        oh = float(origin_shape.get('h', 60))
-        # ID brut de la forme d'origine dans le JSON (peut être int ou str)
+        ox  = float(origin_shape.get('x', 100))
+        oy  = float(origin_shape.get('y', 100))
+        ow  = float(origin_shape.get('w', 160))
+        oh  = float(origin_shape.get('h', 60))
         origin_raw_id = origin_shape.get('id')
+        oid_str = str(origin_raw_id)
 
-        # Charger la carto source (A) pour copier type/couleur/taille des formes
+        # Charger la carto source pour copier propriétés des formes et labels connexions
         source_shapes_by_sid = {}
+        source_conn_labels   = {}   # (from_sid_str, to_sid_str) → label
+        extco_source_sid     = None
+
         if active_entity and active_entity.optiqcarto_data:
             try:
-                src_carto = json.loads(active_entity.optiqcarto_data)
-                for s in src_carto.get('shapes', []):
+                src = json.loads(active_entity.optiqcarto_data)
+                for s in src.get('shapes', []):
                     source_shapes_by_sid[str(s.get('id', ''))] = s
+                for c in src.get('connections', []):
+                    fid = str(c.get('fromId', ''))
+                    tid = str(c.get('toId', ''))
+                    source_conn_labels[(fid, tid)] = c.get('label', '') or ''
             except Exception:
                 pass
 
-        # Résoudre shape_id des activités connectées (DB activity_id → carto shape_id)
+        extco_act_obj = Activities.query.filter_by(id=extco_activity_id).first()
+        if extco_act_obj and extco_act_obj.shape_id:
+            extco_source_sid = str(extco_act_obj.shape_id)
+
+        # Map activity_id → source carto shape_id (str)
         other_ids = set()
         for lk in extco_links:
             if lk.source_activity_id and lk.source_activity_id != extco_activity_id:
@@ -1567,77 +1579,184 @@ def _inject_extco_shapes_in_origin_carto(
             if lk.target_activity_id and lk.target_activity_id != extco_activity_id:
                 other_ids.add(lk.target_activity_id)
 
-        act_shape_sid = {}  # activity_id → source carto shape_id (str)
+        act_shape_sid = {}
         if other_ids:
             for act in Activities.query.filter(Activities.id.in_(list(other_ids))).all():
                 if act.shape_id:
                     act_shape_sid[act.id] = str(act.shape_id)
 
+        # ── Déterminer les côtés déjà utilisés sur l'activité d'origine ──────
+        shapes_by_id = {str(s.get('id', '')): s for s in shapes}
+
+        def _direction_side(dx, dy):
+            """Côté de sortie sur la base du vecteur directionnel."""
+            if abs(dx) >= abs(dy):
+                return 'right' if dx >= 0 else 'left'
+            return 'bottom' if dy >= 0 else 'top'
+
+        OPP = {'left': 'right', 'right': 'left', 'top': 'bottom', 'bottom': 'top'}
+        used_in_sides  = set()   # côtés d'entrée déjà utilisés sur origin
+        used_out_sides = set()   # côtés de sortie déjà utilisés sur origin
+
+        for c in connections:
+            fid = str(c.get('fromId', '')); tid = str(c.get('toId', ''))
+            if tid == oid_str:
+                src_s = shapes_by_id.get(fid)
+                if src_s:
+                    dx = (ox+ow/2) - (float(src_s.get('x',0)) + float(src_s.get('w',0))/2)
+                    dy = (oy+oh/2) - (float(src_s.get('y',0)) + float(src_s.get('h',0))/2)
+                    used_in_sides.add(OPP[_direction_side(dx, dy)])
+            elif fid == oid_str:
+                tgt_s = shapes_by_id.get(tid)
+                if tgt_s:
+                    dx = (float(tgt_s.get('x',0)) + float(tgt_s.get('w',0))/2) - (ox+ow/2)
+                    dy = (float(tgt_s.get('y',0)) + float(tgt_s.get('h',0))/2) - (oy+oh/2)
+                    used_out_sides.add(_direction_side(dx, dy))
+
+        def _choose_side(used, priority):
+            for s in priority:
+                if s not in used:
+                    return s
+            return priority[0]
+
+        in_side  = _choose_side(used_in_sides,  ['left', 'top', 'bottom', 'right'])
+        out_side = _choose_side(used_out_sides, ['right', 'top', 'bottom', 'left'])
+        # Éviter que in_side == out_side (confusion visuelle)
+        if in_side == out_side:
+            alt_in = [s for s in ['left', 'top', 'bottom', 'right'] if s != out_side]
+            in_side = alt_in[0]
+
+        # ── Collision detection ───────────────────────────────────────────────
+        # Buffer pour les formes déjà présentes + nouvelles ajoutées au fur et à mesure
+        # On ajoute +26px de hauteur pour le sous-label italique en bas des formes extco
+        all_for_coll = [
+            {'x': s.get('x',0), 'y': s.get('y',0),
+             'w': s.get('w',0),
+             'h': float(s.get('h',0)) + (26 if s.get('subtype') == 'extco' else 0)}
+            for s in shapes
+        ]
+
+        def _overlaps(ax, ay, aw, ah, margin=14):
+            r1x2, r1y2 = ax + aw + margin, ay + ah + 26 + margin  # +26 pour sous-label
+            for s in all_for_coll:
+                if (ax - margin < float(s['x']) + float(s['w']) and
+                    r1x2 > float(s['x']) - margin and
+                    ay - margin < float(s['y']) + float(s['h']) and
+                    r1y2 > float(s['y']) - margin):
+                    return True
+            return False
+
+        def _nudge_free(base_x, base_y, sw, sh, side):
+            """Décale progressivement le long de l'axe perpendiculaire au côté."""
+            x, y = base_x, base_y
+            step = sh + 40 if side in ('left', 'right') else sw + 40
+            for attempt in range(24):
+                if not _overlaps(x, y, sw, sh):
+                    return x, y
+                delta = (attempt // 2 + 1) * step
+                sign  = 1 if attempt % 2 == 0 else -1
+                if side in ('left', 'right'):
+                    y = base_y + sign * delta
+                else:
+                    x = base_x + sign * delta
+            return base_x, base_y
+
+        MARGIN_H, MARGIN_V = 110, 80
+
+        def _base_xy(side, slot, n, sw, sh):
+            GAP = 40   # espacement entre slots (plus grand pour éviter chevauchements labels)
+            if side == 'left':
+                bx = ox - sw - MARGIN_H
+                by = oy + oh/2 - (n*(sh+GAP)-GAP)/2 + slot*(sh+GAP)
+            elif side == 'right':
+                bx = ox + ow + MARGIN_H
+                by = oy + oh/2 - (n*(sh+GAP)-GAP)/2 + slot*(sh+GAP)
+            elif side == 'top':
+                bx = ox + ow/2 - (n*(sw+GAP)-GAP)/2 + slot*(sw+GAP)
+                by = oy - sh - MARGIN_V
+            else:  # bottom
+                bx = ox + ow/2 - (n*(sw+GAP)-GAP)/2 + slot*(sw+GAP)
+                by = oy + oh + MARGIN_V
+            return bx, by
+
         existing_labels = {s.get('label', '').strip().lower() for s in shapes}
+        new_shapes_list, new_conns_list = [], []
 
-        # Séparer entrants / sortants
-        incoming = [lk for lk in extco_links
-                    if lk.target_activity_id == extco_activity_id and lk.source_activity_id]
-        outgoing = [lk for lk in extco_links
-                    if lk.source_activity_id == extco_activity_id and lk.target_activity_id]
-
-        SHAPE_W, SHAPE_H, GAP = ow, oh, 24
-
-        new_shapes, new_conns = [], []
-
-        def _build_shape(other_id, x_offset, slot):
-            other_name = act_names.get(other_id, '?')
-            if not other_name or other_name.strip().lower() in existing_labels:
-                return None, None
+        def _process_group(group_links, side, is_incoming):
             nonlocal next_id
-            sid_str = act_shape_sid.get(other_id, '')
-            src = source_shapes_by_sid.get(sid_str, {})
-            new_sid = next_id; next_id += 1
-            shape = {
-                'id':              new_sid,
-                'type':            src.get('type', 'process'),
-                'subtype':         'extco',          # hachuré = provenance externe
-                'label':           other_name,
-                'x':               x_offset,
-                'y':               oy + slot * (SHAPE_H + GAP),
-                'w':               float(src.get('w', SHAPE_W)),
-                'h':               float(src.get('h', SHAPE_H)),
-                'color':           src.get('color', '#94a3b8'),
-                'crossCartoImport': True,
-                'crossCartoSource': source_label,
-            }
-            existing_labels.add(other_name.strip().lower())
-            return new_sid, shape
+            filtered = []
+            for lk in group_links:
+                aid  = lk.source_activity_id if is_incoming else lk.target_activity_id
+                name = (act_names.get(aid) or '').strip()
+                if name and name.lower() not in existing_labels:
+                    filtered.append((lk, aid, name))
 
-        for i, lk in enumerate(incoming):
-            new_sid, shape = _build_shape(lk.source_activity_id, ox - SHAPE_W - 120, i)
-            if not shape:
-                continue
-            new_shapes.append(shape)
-            cid = next_id; next_id += 1
-            new_conns.append({
-                'id': cid, 'fromId': new_sid, 'toId': origin_raw_id,
-                'label': f'[{source_label}]', 'color': '#64748b', 'style': 'dashed',
-                'routing': 'smooth',
-            })
+            n = len(filtered)
+            for slot, (lk, aid, other_name) in enumerate(filtered):
+                sid_str = act_shape_sid.get(aid, '')
+                src_shp = source_shapes_by_sid.get(sid_str, {})
+                sw = float(src_shp.get('w', ow))
+                sh = float(src_shp.get('h', oh))
 
-        for i, lk in enumerate(outgoing):
-            new_sid, shape = _build_shape(lk.target_activity_id, ox + ow + 120, i)
-            if not shape:
-                continue
-            new_shapes.append(shape)
-            cid = next_id; next_id += 1
-            new_conns.append({
-                'id': cid, 'fromId': origin_raw_id, 'toId': new_sid,
-                'label': f'[{source_label}]', 'color': '#64748b', 'style': 'dashed',
-                'routing': 'smooth',
-            })
+                bx, by = _base_xy(side, slot, n, sw, sh)
+                fx, fy = _nudge_free(bx, by, sw, sh, side)
 
-        if not new_shapes:
+                new_sid = next_id; next_id += 1
+
+                shape = {
+                    'id':             new_sid,
+                    'type':           src_shp.get('type', 'process'),
+                    'subtype':        'extco',
+                    'label':          other_name,
+                    'x': fx, 'y': fy,
+                    'w': sw, 'h': sh,
+                    'color':          src_shp.get('color', '#94a3b8'),
+                    'textColor':      '#ffffff',
+                    'fontSize':       float(src_shp.get('fontSize', 18)),
+                    'strokeColor':    src_shp.get('strokeColor', ''),
+                    'validationBadge': False,
+                    'validationColor': '#4DB868',
+                    'colorVariant':   0,
+                    'crossCartoImport': True,
+                    'crossCartoSource': source_label,
+                }
+                existing_labels.add(other_name.lower())
+                all_for_coll.append({'x': fx, 'y': fy, 'w': sw, 'h': sh + 26})
+                new_shapes_list.append(shape)
+
+                # Label de la flèche = label original depuis la carto source
+                if is_incoming:
+                    src_key = (sid_str, extco_source_sid) if extco_source_sid else None
+                else:
+                    src_key = (extco_source_sid, sid_str) if extco_source_sid else None
+                conn_label = (source_conn_labels.get(src_key) if src_key else None) or (lk.description or None)
+
+                cid = next_id; next_id += 1
+                from_id = new_sid      if is_incoming else origin_raw_id
+                to_id   = origin_raw_id if is_incoming else new_sid
+                new_conns_list.append({
+                    'id':      cid,
+                    'fromId':  from_id,
+                    'toId':    to_id,
+                    'label':   conn_label,
+                    'color':   '#64748b',
+                    'style':   'dashed',
+                    'routing': 'smooth',
+                })
+
+        incoming_lks = [lk for lk in extco_links
+                        if lk.target_activity_id == extco_activity_id and lk.source_activity_id]
+        outgoing_lks = [lk for lk in extco_links
+                        if lk.source_activity_id == extco_activity_id and lk.target_activity_id]
+
+        _process_group(incoming_lks, in_side,  is_incoming=True)
+        _process_group(outgoing_lks, out_side, is_incoming=False)
+
+        if not new_shapes_list:
             return
 
-        carto['shapes']      = shapes + new_shapes
-        carto['connections'] = connections + new_conns
+        carto['shapes']      = shapes + new_shapes_list
+        carto['connections'] = connections + new_conns_list
         carto['nextId']      = next_id
         origin_entity.optiqcarto_data = json.dumps(carto, ensure_ascii=False)
         flag_modified(origin_entity, 'optiqcarto_data')

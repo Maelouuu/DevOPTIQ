@@ -1062,7 +1062,7 @@ function renderShapes() {
       const liaison = _liaisonByActivityId[String(s.id)];
       const subLabelText = liaison
         ? (liaison.display_label || liaison.origin_entity_name || '')
-        : '';
+        : (s.crossCartoSource || '');
       if (subLabelText) {
         txt(subLabelText, {
           x: s.x + s.w / 2,
