@@ -48,6 +48,7 @@ PAGE_LABELS = {
     "test_34_settings":         "Paramètres & Langue",
     "test_35_password_reset":   "Réinitialisation de Mot de Passe",
     "test_36_onboarding":       "Onboarding Rôles & Traduction HSC",
+    "test_37_test_panel":       "Panel de Tests Intégré (/testpanel)",
 }
 
 
