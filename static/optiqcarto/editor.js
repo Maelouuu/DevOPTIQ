@@ -1611,6 +1611,7 @@ function renderCanvasMap() {
    ══════════════════════════════════════════════════ */
 
 function snapshot() {
+  state.collapsedPileIds = [...collapsedPiles]; // persistance de l'état ouvert/fermé
   history = history.slice(0, histIndex + 1);
   history.push(JSON.stringify(state));
   histIndex = history.length - 1;
@@ -1620,10 +1621,20 @@ function snapshot() {
   }
 }
 
+function _restoreCollapsedPiles() {
+  if (state.collapsedPileIds) {
+    collapsedPiles = new Set(state.collapsedPileIds.map(Number));
+  } else {
+    // Aucune donnée sauvegardée : toutes les piles sont fermées par défaut
+    collapsedPiles = new Set((state.groups || []).filter(g => g.isPile).map(g => g.id));
+  }
+}
+
 function undo() {
   if (histIndex <= 0) return;
   histIndex--;
   state = JSON.parse(history[histIndex]);
+  _restoreCollapsedPiles();
   clearSelection();
   render();
   updateProps();
@@ -1634,6 +1645,7 @@ function redo() {
   if (histIndex >= history.length - 1) return;
   histIndex++;
   state = JSON.parse(history[histIndex]);
+  _restoreCollapsedPiles();
   clearSelection();
   render();
   updateProps();
@@ -3350,6 +3362,7 @@ async function saveJSON() {
   _showSavePopup('saving');
 
   try {
+    state.collapsedPileIds = [...collapsedPiles]; // persister l'état ouvert/fermé
     const res  = await fetch(`${apiBase}/api/save`, {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -3541,12 +3554,15 @@ async function _transitionState(newState) {
   if (!state.bandWidth) state.bandWidth = 3200;
   if (!state.groups) state.groups = [];
   if (state.connections && state.shapes) {
-    const validIds = new Set([
-      ...state.shapes.map(s => s.id),
-      ...(state.groups || []).map(g => g.id),
+    const allIds = new Set([
+      ...state.shapes.map(s => String(s.id)),
+      ...(state.groups || []).map(g => String(g.id)),
     ]);
-    state.connections = state.connections.filter(c => validIds.has(c.fromId) && validIds.has(c.toId));
+    state.connections = state.connections.filter(
+      c => allIds.has(String(c.fromId)) && allIds.has(String(c.toId))
+    );
   }
+  _restoreCollapsedPiles();
   history = [JSON.stringify(state)]; histIndex = 0;
   await _loadLiaisons();
   render(); updateProps();
@@ -5953,12 +5969,15 @@ function init() {
         state.bands.forEach(b => { b.deleted = false; });
       }
       if (state.connections && state.shapes) {
-        const validIds = new Set([
-          ...state.shapes.map(s => s.id),
-          ...(state.groups || []).map(g => g.id),
+        const allIds = new Set([
+          ...state.shapes.map(s => String(s.id)),
+          ...(state.groups || []).map(g => String(g.id)),
         ]);
-        state.connections = state.connections.filter(c => validIds.has(c.fromId) && validIds.has(c.toId));
+        state.connections = state.connections.filter(
+          c => allIds.has(String(c.fromId)) && allIds.has(String(c.toId))
+        );
       }
+      _restoreCollapsedPiles();
       history = [JSON.stringify(state)]; histIndex = 0;
       isDirty = false;
       render(); updateProps(); fitView();
