@@ -742,7 +742,15 @@ function renderConnections() {
 
   function _resolveEp(eid) {
     const s = state.shapes.find(s => s.id === eid);
-    if (s) return { id: s.id, x: s.x, y: s.y, w: s.w, h: s.h, _halo: s.type === 'process' ? 7 : 0, _type: s.type };
+    if (s) {
+      // Si la forme est dans un groupe fermé (pile), router vers les bords du groupe
+      const parentGrp = state.groups && state.groups.find(g => g.collapsed && g.shapeIds.includes(s.id));
+      if (parentGrp) {
+        const b = getGroupBounds(parentGrp);
+        if (b) return { id: parentGrp.id, x: b.x, y: b.y, w: b.w, h: b.h, _halo: 0, _type: 'group' };
+      }
+      return { id: s.id, x: s.x, y: s.y, w: s.w, h: s.h, _halo: s.type === 'process' ? 7 : 0, _type: s.type };
+    }
     const grp = state.groups && state.groups.find(g => g.id === eid);
     if (grp) { const b = getGroupBounds(grp); if (b) return { id: grp.id, x: b.x, y: b.y, w: b.w, h: b.h, _halo: 0, _type: 'group' }; }
     return null;
@@ -752,6 +760,8 @@ function renderConnections() {
     const from = _resolveEp(c.fromId);
     const to   = _resolveEp(c.toId);
     if (!from || !to) continue;
+    // Ignorer les connexions internes à une pile fermée
+    if (from._type === 'group' && to._type === 'group' && from.id === to.id) continue;
     const dx = (to.x + to.w/2) - (from.x + from.w/2);
     const dy = (to.y + to.h/2) - (from.y + from.h/2);
     const fdir = c.fromPortDir || (Math.abs(dx) >= Math.abs(dy) ? (dx >= 0 ? 'right' : 'left') : (dy >= 0 ? 'bottom' : 'top'));
@@ -799,6 +809,8 @@ function renderConnections() {
     const from = _resolveEp(c.fromId);
     const to   = _resolveEp(c.toId);
     if (!from || !to) continue;
+    // Masquer les connexions internes à un groupe fermé (les deux extrémités dans le même groupe)
+    if (from._type === 'group' && to._type === 'group' && from.id === to.id) continue;
 
     const dx = (to.x + to.w/2) - (from.x + from.w/2);
     const dy = (to.y + to.h/2) - (from.y + from.h/2);
@@ -978,6 +990,7 @@ function renderConnections() {
           fill: '#ffffff', stroke: '#1f7a54', 'stroke-width': '2',
           cursor: isHorizSeg ? 'ns-resize' : 'ew-resize',
           'data-conn-bend': String(c.id),
+          'data-bend-axis': isHorizSeg ? 'y' : 'x',
           style: 'pointer-events:all',
         }, gConns);
       }
@@ -992,7 +1005,15 @@ function renderConnections() {
 function renderShapes() {
   gShapes.innerHTML = '';
 
+  // Formes masquées parce qu'elles appartiennent à une pile fermée
+  const hiddenInCollapsed = new Set(
+    (state.groups || [])
+      .filter(g => g.collapsed)
+      .flatMap(g => g.shapeIds)
+  );
+
   for (const s of state.shapes) {
+    if (hiddenInCollapsed.has(s.id)) continue;
     const isSel   = selectedShapes.has(s.id);
     const isHover = hoverShapeId === s.id;
     const g = el('g', {
@@ -1247,6 +1268,7 @@ function renderGroups() {
     const shapes = state.shapes.filter(s => grp.shapeIds.includes(s.id));
     if (shapes.length === 0) continue;
 
+    const collapsed = grp.collapsed || false;
     const PAD = 22, LABEL_H = 24;
     const xs = shapes.flatMap(s => [s.x, s.x + s.w]);
     const ys = shapes.flatMap(s => [s.y, s.y + s.h]);
@@ -1259,19 +1281,32 @@ function renderGroups() {
     const isSel = selectedGroup === grp.id;
     const isHL  = groupHighlightId === grp.id;
 
-    const grpG = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-    grpG.setAttribute('class', 'group-container');
-    grpG.setAttribute('data-group-id', String(grp.id));
-    grpG.style.cursor = 'pointer';
-    gGroups.appendChild(grpG);
+    const grpG = el('g', {
+      class: 'group-container',
+      'data-group-id': String(grp.id),
+    }, gGroups);
+    // Quand fermée : déplaçable ; quand ouverte : simple sélection
+    grpG.style.cursor = collapsed ? 'move' : 'pointer';
 
-    el('rect', {
-      x: gx, y: gy, width: gw, height: gh, rx: 18, ry: 18,
-      fill: isHL ? 'rgba(252,205,255,0.06)' : (isSel ? 'rgba(179,160,255,0.07)' : 'rgba(179,160,255,0.03)'),
-      stroke: isHL ? '#fccdff' : color,
-      'stroke-width': isSel || isHL ? '2' : '1.5',
-      'stroke-dasharray': '8,5',
-    }, grpG);
+    if (collapsed) {
+      // Pile fermée : rectangle plein
+      el('rect', {
+        x: gx, y: gy, width: gw, height: gh, rx: 18, ry: 18,
+        fill: isSel ? color + 'cc' : color + '55',
+        stroke: isSel ? '#1f7a54' : color,
+        'stroke-width': isSel ? '2.5' : '1.5',
+        filter: 'url(#f-shadow)',
+      }, grpG);
+    } else {
+      // Pile ouverte : rectangle pointillé
+      el('rect', {
+        x: gx, y: gy, width: gw, height: gh, rx: 18, ry: 18,
+        fill: isHL ? 'rgba(252,205,255,0.06)' : (isSel ? 'rgba(179,160,255,0.07)' : 'rgba(179,160,255,0.03)'),
+        stroke: isHL ? '#fccdff' : color,
+        'stroke-width': isSel || isHL ? '2' : '1.5',
+        'stroke-dasharray': '8,5',
+      }, grpG);
+    }
 
     // Badge label
     const lblW = Math.min(120, (grp.label || 'Groupe').length * 8 + 20);
@@ -1287,6 +1322,32 @@ function renderGroups() {
     t.setAttribute('pointer-events', 'none');
     t.textContent = grp.label || 'Groupe';
     grpG.appendChild(t);
+
+    // Bouton toggle fermer/ouvrir (coin haut-droit)
+    const toggleX = gx + gw - 14;
+    const toggleY = gy + 14;
+    const toggleG = el('g', { 'data-group-toggle': String(grp.id) }, grpG);
+    toggleG.style.cursor = 'pointer';
+    el('circle', { cx: toggleX, cy: toggleY, r: '10', fill: color, opacity: '0.95', 'pointer-events': 'all' }, toggleG);
+    const tIcon = el('text', {
+      x: toggleX, y: toggleY,
+      'text-anchor': 'middle', 'dominant-baseline': 'middle',
+      fill: '#fff', 'font-size': '12', 'font-weight': '900',
+      'font-family': 'monospace', 'pointer-events': 'none',
+    }, toggleG);
+    tIcon.textContent = collapsed ? '+' : '−';
+
+    toggleG.addEventListener('click', e => {
+      e.stopPropagation();
+      grp.collapsed = !collapsed;
+      // Désélectionner les formes internes si on ferme
+      if (grp.collapsed) {
+        grp.shapeIds.forEach(id => selectedShapes.delete(id));
+      }
+      snapshot();
+      render();
+      updateProps();
+    });
 
     grpG.addEventListener('click', e => {
       e.stopPropagation();
@@ -1708,7 +1769,9 @@ function onDown(e) {
       const { x, y } = screenToSVG(e.clientX, e.clientY);
       const conn = state.connections.find(c => c.id === cid);
       const startOffset = conn && conn.bendOffset ? { ...conn.bendOffset } : { dx: 0, dy: 0 };
-      bendDrag = { connId: cid, startX: x, startY: y, startOffset };
+      // constrainAxis: 'y' pour segment horizontal (ns-resize), 'x' pour vertical (ew-resize)
+      const constrainAxis = bendEl.getAttribute('data-bend-axis') || 'y';
+      bendDrag = { connId: cid, startX: x, startY: y, startOffset, constrainAxis };
       canvas.style.cursor = 'grabbing';
       return;
     }
@@ -1732,6 +1795,28 @@ function onDown(e) {
       render();
       updateProps();
       return;
+    }
+
+    // Drag d'une pile fermée (groupe collapsed) → déplace toutes ses formes
+    const collapsedGrpTarget = e.target.closest('[data-group-id]');
+    if (collapsedGrpTarget && !e.target.closest('[data-group-toggle]')) {
+      const gid = parseInt(collapsedGrpTarget.getAttribute('data-group-id'));
+      const grp = state.groups && state.groups.find(g => g.id === gid);
+      if (grp && grp.collapsed) {
+        selectedGroup = gid;
+        selectedShapes.clear(); selectedConn = null; selectedBand = null;
+        dragData = {
+          mx: x, my: y,
+          shapes: grp.shapeIds.map(id => {
+            const s = state.shapes.find(s => s.id === id);
+            return s ? { id, ox: s.x, oy: s.y } : null;
+          }).filter(Boolean),
+        };
+        isDragging = true;
+        render(); updateProps();
+        if (!propsOpen) setPropsOpen(true);
+        return;
+      }
     }
 
     // Did we click a shape?
@@ -1860,9 +1945,11 @@ function onMove(e) {
     const { x, y } = screenToSVG(e.clientX, e.clientY);
     const conn = state.connections.find(c => c.id === bendDrag.connId);
     if (conn) {
+      const rawDx = x - bendDrag.startX;
+      const rawDy = y - bendDrag.startY;
       conn.bendOffset = {
-        dx: bendDrag.startOffset.dx + (x - bendDrag.startX),
-        dy: bendDrag.startOffset.dy + (y - bendDrag.startY),
+        dx: bendDrag.constrainAxis === 'x' ? bendDrag.startOffset.dx + rawDx : bendDrag.startOffset.dx,
+        dy: bendDrag.constrainAxis === 'y' ? bendDrag.startOffset.dy + rawDy : bendDrag.startOffset.dy,
       };
       render();
     }
@@ -1973,6 +2060,8 @@ function onUp(e) {
             conn.toPortDir = snapDir;
             conn.toPortT   = snapT;
           }
+          // Le point d'ancrage a changé : reset du coude manuel pour éviter les angles non-90°
+          conn.bendOffset = null;
           snapshot();
         }
       }
