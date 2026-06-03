@@ -6,10 +6,10 @@ WIZARD UNIFIÉ SVG + VSDX.
 """
 import os
 import re
+import json
 import shutil
 import xml.etree.ElementTree as ET
 import tempfile
-import json
 import uuid
 from typing import Dict
 
@@ -1128,8 +1128,8 @@ def debug_files():
 @activities_map_bp.route("/api/cross_carto_matches", methods=["GET"])
 def cross_carto_matches():
     """
-    Pour l'entité active, retourne les activités (avec shape_id) dont le nom
-    correspond à une activité d'une autre entité du même utilisateur.
+    Retourne les formes hachurées (extco) de la carto active dont le nom correspond
+    à une forme NON hachurée dans une autre carto de l'utilisateur (liaison inter-carto).
     """
     user_id = session.get('user_id')
     active_entity_id = get_active_entity_id()
@@ -1137,16 +1137,29 @@ def cross_carto_matches():
     if not active_entity_id or not user_id:
         return jsonify({"matches": []}), 200
 
-    # Activités de l'entité active ayant un shape_id (présentes sur la carto)
-    active_acts = Activities.query.filter(
-        Activities.entity_id == active_entity_id,
-        Activities.shape_id.isnot(None)
-    ).all()
-
-    if not active_acts:
+    active_entity = Entity.query.get(active_entity_id)
+    if not active_entity or not active_entity.optiqcarto_data:
         return jsonify({"matches": []}), 200
 
-    # Toutes les autres entités du même utilisateur
+    try:
+        active_carto = json.loads(active_entity.optiqcarto_data)
+    except (json.JSONDecodeError, TypeError):
+        return jsonify({"matches": []}), 200
+
+    # Seules les formes hachurées (extco) de la carto active sont des liaisons potentielles
+    extco_shapes = [
+        s for s in active_carto.get('shapes', [])
+        if s.get('subtype') == 'extco' and (s.get('label') or '').strip()
+    ]
+    if not extco_shapes:
+        return jsonify({"matches": []}), 200
+
+    # lookup: label.lower() → shape_id
+    extco_by_name = {
+        (s.get('label') or '').strip().lower(): str(s['id'])
+        for s in extco_shapes
+    }
+
     other_entities = Entity.query.filter(
         Entity.owner_id == user_id,
         Entity.id != active_entity_id
@@ -1155,29 +1168,43 @@ def cross_carto_matches():
     if not other_entities:
         return jsonify({"matches": []}), 200
 
-    # Déduplique par nom : les renvois (cercles) partagent le même nom que
-    # l'activité référencée — on ne traite chaque nom qu'une seule fois.
-    seen_names = set()
-    matches = []
-    for act in active_acts:
-        name_lower = (act.name or "").strip().lower()
-        if not name_lower or name_lower in seen_names:
-            continue
-        seen_names.add(name_lower)
-        matched_entities = []
-        for entity in other_entities:
-            hit = Activities.query.filter(
+    # shape_id (extco dans carto active) → liste d'entités où une activité non-hachurée porte le même nom
+    matched = {}
+
+    for entity in other_entities:
+        non_extco_names = set()
+
+        if entity.optiqcarto_data:
+            try:
+                other_carto = json.loads(entity.optiqcarto_data)
+                for s in other_carto.get('shapes', []):
+                    if s.get('subtype') != 'extco':
+                        label = (s.get('label') or '').strip()
+                        if label:
+                            non_extco_names.add(label.lower())
+            except (json.JSONDecodeError, TypeError):
+                pass
+        else:
+            # Pas de carto JSON : activités DB traitées comme non-hachurées
+            for act in Activities.query.filter(
                 Activities.entity_id == entity.id,
-                db.func.lower(Activities.name) == name_lower
-            ).first()
-            if hit:
-                matched_entities.append({"id": entity.id, "name": entity.name})
-        if matched_entities:
+                Activities.shape_id.isnot(None)
+            ).all():
+                if act.name:
+                    non_extco_names.add(act.name.strip().lower())
+
+        for name_lower, shape_id in extco_by_name.items():
+            if name_lower in non_extco_names:
+                matched.setdefault(shape_id, []).append({"id": entity.id, "name": entity.name})
+
+    matches = []
+    for s in extco_shapes:
+        sid = str(s['id'])
+        if sid in matched:
             matches.append({
-                "activity_id": act.id,
-                "shape_id": str(act.shape_id),
-                "activity_name": act.name,
-                "matched_entities": matched_entities
+                "shape_id": sid,
+                "activity_name": (s.get('label') or '').strip(),
+                "matched_entities": matched[sid],
             })
 
     return jsonify({

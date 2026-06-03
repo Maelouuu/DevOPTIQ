@@ -518,7 +518,15 @@ function renderConnections() {
 
   function _resolveEp(eid) {
     const s = state.shapes.find(s => s.id === eid);
-    if (s) return { id: s.id, x: s.x, y: s.y, w: s.w, h: s.h, _halo: s.type === 'process' ? 7 : 0, _type: s.type };
+    if (s) {
+      // Si la forme est dans un groupe fermé (pile), router vers les bords du groupe
+      const parentGrp = state.groups && state.groups.find(g => g.isPile && collapsedPiles.has(g.id) && g.shapeIds.includes(s.id));
+      if (parentGrp) {
+        const b = getGroupBounds(parentGrp);
+        if (b) return { id: parentGrp.id, x: b.x, y: b.y, w: b.w, h: b.h, _halo: 0, _type: 'group' };
+      }
+      return { id: s.id, x: s.x, y: s.y, w: s.w, h: s.h, _halo: s.type === 'process' ? 7 : 0, _type: s.type };
+    }
     const grp = state.groups && state.groups.find(g => g.id === eid);
     if (grp) { const b = getGroupBounds(grp); if (b) return { id: grp.id, x: b.x, y: b.y, w: b.w, h: b.h, _halo: 0, _type: 'group' }; }
     return null;
@@ -528,6 +536,8 @@ function renderConnections() {
     const from = _resolveEp(c.fromId);
     const to   = _resolveEp(c.toId);
     if (!from || !to) continue;
+    // Ignorer les connexions internes à une pile fermée
+    if (from._type === 'group' && to._type === 'group' && from.id === to.id) continue;
     const dx = (to.x + to.w/2) - (from.x + from.w/2);
     const dy = (to.y + to.h/2) - (from.y + from.h/2);
     const fdir = c.fromPortDir || (Math.abs(dx) >= Math.abs(dy) ? (dx >= 0 ? 'right' : 'left') : (dy >= 0 ? 'bottom' : 'top'));
@@ -592,6 +602,8 @@ function renderConnections() {
     const from = _resolveEp(c.fromId);
     const to   = _resolveEp(c.toId);
     if (!from || !to) continue;
+    // Masquer les connexions internes à un groupe fermé (les deux extrémités dans le même groupe)
+    if (from._type === 'group' && to._type === 'group' && from.id === to.id) continue;
 
     const dx = (to.x + to.w/2) - (from.x + from.w/2);
     const dy = (to.y + to.h/2) - (from.y + from.h/2);
@@ -1261,11 +1273,13 @@ function renderGroups() {
     const isSel = selectedGroup === grp.id;
     const isHL  = groupHighlightId === grp.id;
 
-    const grpG = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-    grpG.setAttribute('class', 'group-container');
-    grpG.setAttribute('data-group-id', String(grp.id));
-    grpG.style.cursor = 'pointer';
-    gGroups.appendChild(grpG);
+    const isCollapsedPile = grp.isPile && collapsedPiles.has(grp.id);
+
+    const grpG = el('g', {
+      class: 'group-container',
+      'data-group-id': String(grp.id),
+    }, gGroups);
+    grpG.style.cursor = isCollapsedPile ? 'move' : 'pointer';
 
     if (grp.isPile) {
       const isCollapsed = collapsedPiles.has(grp.id);
@@ -2032,6 +2046,28 @@ function onDown(e) {
       return;
     }
 
+    // Drag d'une pile fermée → déplace toutes ses formes ensemble
+    const collapsedGrpTarget = e.target.closest('[data-group-id]');
+    if (collapsedGrpTarget) {
+      const gid = parseInt(collapsedGrpTarget.getAttribute('data-group-id'));
+      const grp = state.groups && state.groups.find(g => g.id === gid);
+      if (grp && grp.isPile && collapsedPiles.has(gid)) {
+        selectedGroup = gid;
+        selectedShapes.clear(); selectedConn = null; selectedBand = null;
+        dragData = {
+          mx: x, my: y,
+          shapes: grp.shapeIds.map(id => {
+            const s = state.shapes.find(s => s.id === id);
+            return s ? { id, ox: s.x, oy: s.y } : null;
+          }).filter(Boolean),
+        };
+        isDragging = true;
+        render(); updateProps();
+        if (!propsOpen) setPropsOpen(true);
+        return;
+      }
+    }
+
     // Did we click a shape?
     const shapeTarget = e.target.closest('[data-type="shape"]');
     if (shapeTarget) {
@@ -2412,6 +2448,8 @@ function onUp(e) {
             conn.toPortDir = snapDir;
             conn.toPortT   = snapT;
           }
+          // Le point d'ancrage a changé : reset du coude manuel pour éviter les angles non-90°
+          conn.bendOffset = null;
           snapshot();
         }
       }
