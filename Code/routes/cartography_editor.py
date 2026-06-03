@@ -23,7 +23,7 @@ from Code.extensions import db
 from Code.models.models import (
     Activities, CartoCalque, CompetencyEvaluation, CrossCartoLiaison,
     Entity, Link, Role, TimeAnalysis, TimeProjectLine, TimeRoleLine,
-    TimeWeakness, activity_roles,
+    TimeRoleAnalysis, TimeWeakness, UserRole, activity_roles, task_roles,
 )
 
 cartography_editor_bp = Blueprint("cartography_editor", __name__, url_prefix="/cartography")
@@ -322,9 +322,27 @@ def _do_sync(entity, diagram):
             db.session.add(role)
         band_to_role[band['id']] = role
 
-    for name, role in existing_roles.items():
-        if name not in new_band_names:
-            db.session.delete(role)
+    roles_to_remove = [role for name, role in existing_roles.items() if name not in new_band_names]
+    if roles_to_remove:
+        remove_role_ids = [r.id for r in roles_to_remove if r.id]
+        if remove_role_ids:
+            db.session.execute(
+                activity_roles.delete().where(activity_roles.c.role_id.in_(remove_role_ids))
+            )
+            db.session.execute(
+                task_roles.delete().where(task_roles.c.role_id.in_(remove_role_ids))
+            )
+            UserRole.query.filter(
+                UserRole.role_id.in_(remove_role_ids)
+            ).delete(synchronize_session=False)
+            TimeRoleAnalysis.query.filter(
+                TimeRoleAnalysis.role_id.in_(remove_role_ids)
+            ).delete(synchronize_session=False)
+            TimeAnalysis.query.filter(
+                TimeAnalysis.role_id.in_(remove_role_ids)
+            ).update({TimeAnalysis.role_id: None}, synchronize_session=False)
+    for role in roles_to_remove:
+        db.session.delete(role)
 
     db.session.flush()
 
