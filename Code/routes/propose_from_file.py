@@ -27,7 +27,7 @@ from flask import Blueprint, request, jsonify, session
 from sqlalchemy.orm.attributes import flag_modified
 
 from Code.extensions import db
-from Code.models.models import Activities, FileBlob
+from Code.models.models import Activities, FileBlob, Task
 
 propose_from_file_bp = Blueprint('propose_from_file', __name__, url_prefix='/propose_from_file')
 
@@ -91,9 +91,19 @@ def _parse_stats(data: bytes) -> dict:
     return {grp: len(names) for grp, names in grp_comps.items()}
 
 
-def _propose_from_job_map(activity_name: str, job_map, groups: list, max_results: int = 12) -> list[str]:
+def _build_activity_context(act: Activities) -> str:
+    """Contexte enrichi : nom + description + noms des tâches existantes."""
+    parts = [act.name or '']
+    if act.description:
+        parts.append(act.description)
+    tasks = Task.query.filter_by(activity_id=act.id).all()
+    parts.extend(t.name for t in tasks if t.name)
+    return ' '.join(parts)
+
+
+def _propose_from_job_map(activity_context: str, job_map, groups: list, max_results: int = 12) -> list[str]:
     """Retourne les compétences les plus pertinentes pour l'activité donnée."""
-    act_tokens = _tokenize(activity_name)
+    act_tokens = _tokenize(activity_context)
 
     # Scorer chaque poste
     job_scores: list[tuple[int, list]] = []
@@ -117,17 +127,31 @@ def _propose_from_job_map(activity_name: str, job_map, groups: list, max_results
         for score, comps in job_scores[:5]:
             for c in comps:
                 comp_scores[c] += score
+        # Bonus : si le nom de la compétence contient des tokens de l'activité,
+        # on augmente son score (double signal : poste ET nom de compétence)
+        for c in list(comp_scores.keys()):
+            c_tokens = _tokenize(c)
+            overlap = len(act_tokens & c_tokens)
+            if overlap:
+                comp_scores[c] += overlap * 2
         proposals = [c for c, _ in comp_scores.most_common(max_results)]
         if proposals:
             return proposals
 
-    # Fallback : compétences les plus fréquentes tous postes confondus
+    # Fallback : score direct nom de compétence ↔ contexte activité,
+    # puis les plus fréquentes
+    direct_scores: Counter = Counter()
     all_comps: Counter = Counter()
     for grps in job_map.values():
         for g in groups:
             for c in grps.get(g, []):
                 all_comps[c] += 1
-    # Subset régulièrement espacé si trop de candidats
+                c_tokens = _tokenize(c)
+                overlap = len(act_tokens & c_tokens)
+                if overlap:
+                    direct_scores[c] += overlap
+    if direct_scores:
+        return [c for c, _ in direct_scores.most_common(max_results)]
     top = [c for c, _ in all_comps.most_common(max_results * 3)]
     step = max(1, len(top) // max_results)
     return [top[i] for i in range(0, min(len(top), max_results * step), step)][:max_results]
@@ -197,7 +221,7 @@ def propose_sf():
 
     body = request.get_json(force=True) or {}
     act = Activities.query.get(body.get('activity_id')) if body.get('activity_id') else None
-    ctx = act.name if act else (body.get('activity_name') or '')
+    ctx = _build_activity_context(act) if act else (body.get('activity_name') or '')
 
     job_map = _parse_file(data)
     proposals = _propose_from_job_map(ctx, job_map, GROUPS_SF, max_results=14)
@@ -223,7 +247,7 @@ def propose_aptitudes():
 
     body = request.get_json(force=True) or {}
     act = Activities.query.get(body.get('activity_id')) if body.get('activity_id') else None
-    ctx = act.name if act else (body.get('activity_name') or '')
+    ctx = _build_activity_context(act) if act else (body.get('activity_name') or '')
 
     job_map = _parse_file(data)
     proposals = _propose_from_job_map(ctx, job_map, GROUPS_SF, max_results=8)
@@ -243,7 +267,7 @@ def propose_hsc():
 
     body = request.get_json(force=True) or {}
     act = Activities.query.get(body.get('activity_id')) if body.get('activity_id') else None
-    ctx = act.name if act else (body.get('activity_name') or '')
+    ctx = _build_activity_context(act) if act else (body.get('activity_name') or '')
 
     job_map = _parse_file(data)
     proposals = _propose_from_job_map(ctx, job_map, GROUPS_HSC, max_results=9)

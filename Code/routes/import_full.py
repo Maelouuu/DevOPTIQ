@@ -484,7 +484,7 @@ def inject_full():
             # ── Garant ───────────────────────────────────────────────────
             if guarantor_name:
                 role = _get_or_create_role(guarantor_name, entity_id, stats)
-                _link_role_to_activity(role, activity, 'garant')
+                _link_role_to_activity(role, activity, 'Garant')
 
             # ── Tâches ───────────────────────────────────────────────────
             max_order = (
