@@ -7,6 +7,7 @@ Le fichier VSDX reste sur disque (upload ponctuel, non critique).
 import json
 import os
 import tempfile
+from types import SimpleNamespace
 
 from flask import (
     Blueprint,
@@ -27,6 +28,11 @@ from Code.models.models import (
 )
 
 cartography_editor_bp = Blueprint("cartography_editor", __name__, url_prefix="/cartography")
+
+# Import différé pour éviter les imports circulaires au démarrage
+def _get_inject_extco():
+    from Code.routes.activities_map import _inject_extco_shapes_in_origin_carto
+    return _inject_extco_shapes_in_origin_carto
 
 # Répertoire de base des entités (pour les fichiers VSDX uploadés)
 _ENTITIES_DIR = os.path.join(
@@ -526,6 +532,34 @@ def _do_sync(entity, diagram):
                             cross_carto_liaison_id=liaison.id,
                             cross_carto_label=active_entity_name
                         ))
+
+            # ── Re-sync origin carto JSON après mise à jour DB ────────────────
+            act_names_sync = {a.id: a.name for a in shape_to_act.values() if a.id and a.name}
+            _inject_fn = _get_inject_extco()
+            for liaison in liaisons:
+                origin_entity_obj = Entity.query.get(liaison.origin_entity_id)
+                origin_act_obj    = Activities.query.get(liaison.origin_activity_id)
+                if not origin_entity_obj or not origin_act_obj:
+                    continue
+                extco_id   = liaison.extco_activity_id
+                syn_links  = [
+                    SimpleNamespace(
+                        source_activity_id=src_id,
+                        target_activity_id=tgt_id,
+                        description=label
+                    )
+                    for (src_id, tgt_id), (label, _cl) in new_links.items()
+                    if src_id == extco_id or tgt_id == extco_id
+                ]
+                _inject_fn(
+                    origin_entity=origin_entity_obj,
+                    origin_act=origin_act_obj,
+                    extco_links=syn_links,
+                    extco_activity_id=extco_id,
+                    act_names=act_names_sync,
+                    source_label=active_entity_name,
+                    active_entity=entity,
+                )
 
     db.session.commit()
 

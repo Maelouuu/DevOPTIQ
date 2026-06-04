@@ -2302,6 +2302,36 @@
   background: #22c55e !important;
 }
 
+/* Ligne officialiser/dé-officialiser */
+.cross-entity-officialized-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.cross-entity-badge-ok {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: #16a34a;
+  white-space: nowrap;
+}
+.cross-entity-btn-deoffice {
+  padding: 4px 7px;
+  border-radius: 5px;
+  border: 1.5px solid #fca5a5;
+  background: #fff;
+  color: #dc2626;
+  cursor: pointer;
+  font-size: 0.7rem;
+  display: flex;
+  align-items: center;
+  transition: background .15s, color .15s;
+  line-height: 1;
+}
+.cross-entity-btn-deoffice:hover { background: #dc2626; color: #fff; }
+
 /* Popup color variants */
 .cross-entity-popup--blue .cross-entity-popup-inner {
   background: #eff6ff;

@@ -1039,9 +1039,12 @@ function handleCrossCartoClick(activityName, matches) {
     const item = document.createElement("div");
     item.className = "cross-entity-item";
     const officializeHtml = m.has_active_liaison
-      ? `<button class="cross-entity-btn-officialize cross-entity-btn-officialized" disabled>
-           <i class="fa-solid fa-check"></i> Officialisée
-         </button>`
+      ? `<div class="cross-entity-officialized-row">
+           <span class="cross-entity-badge-ok"><i class="fa-solid fa-check"></i> Officialisée</span>
+           <button class="cross-entity-btn-deoffice" data-liaison-id="${m.liaison_id}" title="Dé-officialiser">
+             <i class="fa-solid fa-link-slash"></i>
+           </button>
+         </div>`
       : `<button class="cross-entity-btn-officialize" title="Officialiser cette liaison">
            <i class="fa-solid fa-link"></i> Officialiser
          </button>`;
@@ -1076,6 +1079,21 @@ function handleCrossCartoClick(activityName, matches) {
         if (label === null) return;
         const ok = await officializeLiaison(extcoActivityId, m.entity_id, m.activity_id, m.entity_name, btn, label);
         if (ok) _sendToFrame({ type: 'reload-liaisons' });
+      });
+    } else {
+      item.querySelector(".cross-entity-btn-deoffice")?.addEventListener("click", async (e) => {
+        e.stopPropagation();
+        popup.classList.add("hidden");
+        const ok = await _confirmDeoffice(m.liaison_id, m.entity_name);
+        if (ok) {
+          _sendToFrame({ type: 'reload-liaisons' });
+          // Refresh the popup with the current extco activity
+          const nameEl = document.getElementById("cross-entity-activity-name");
+          const actName = nameEl ? nameEl.textContent.replace(/^[""]|[""]$/g, '') : '';
+          if (actName && extcoActivityId) _handleExtcoClick(actName, extcoActivityId);
+        } else {
+          popup.classList.remove("hidden");
+        }
       });
     }
 
@@ -1195,6 +1213,67 @@ async function officializeLiaison(extcoActivityId, originEntityId, originActivit
     if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-link"></i> Officialiser'; }
     return false;
   }
+}
+
+async function _confirmDeoffice(liaisonId, originEntityName) {
+  let preview = null;
+  try {
+    const res = await fetch(`/activities/api/liaison_deoffice_preview?liaison_id=${liaisonId}`);
+    preview = await res.json();
+  } catch (_) {}
+
+  return new Promise(resolve => {
+    const overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center';
+
+    const shapesHtml = preview?.shapes_to_remove?.length
+      ? `<ul style="margin:6px 0 0;padding-left:18px;font-size:0.82rem;color:#475569">${
+          preview.shapes_to_remove.map(n => `<li>${n}</li>`).join('')
+        }</ul>`
+      : '';
+    const lines = [
+      preview?.connections_to_remove ? `${preview.connections_to_remove} connexion(s) associée(s)` : null,
+      preview?.db_links_to_remove    ? `${preview.db_links_to_remove} lien(s) DB croisés`          : null,
+    ].filter(Boolean);
+
+    overlay.innerHTML = `
+      <div style="background:#fff;border-radius:12px;padding:24px;min-width:340px;max-width:460px;box-shadow:0 8px 32px rgba(0,0,0,0.25)">
+        <h3 style="margin:0 0 10px;font-size:1rem;font-weight:700;color:#dc2626">
+          <i class="fa-solid fa-triangle-exclamation" style="margin-right:6px"></i>Dé-officialiser la liaison
+        </h3>
+        <p style="margin:0 0 6px;font-size:0.85rem;color:#374151">
+          Cette action supprimera dans la cartographie <strong>${preview?.origin_entity_name || originEntityName || '?'}</strong> :
+        </p>
+        ${shapesHtml}
+        ${lines.map(l => `<p style="margin:3px 0 0;font-size:0.82rem;color:#475569">+ ${l}</p>`).join('')}
+        <p style="margin:12px 0 0;font-size:0.8rem;color:#94a3b8;font-style:italic">Cette action est irréversible.</p>
+        <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">
+          <button id="_deoffice-cancel" style="padding:7px 16px;border:1.5px solid #e2e8f0;border-radius:8px;background:#fff;cursor:pointer;font-size:0.85rem">Annuler</button>
+          <button id="_deoffice-confirm" style="padding:7px 16px;border:none;border-radius:8px;background:#dc2626;color:#fff;cursor:pointer;font-size:0.85rem;font-weight:600">
+            <i class="fa-solid fa-link-slash" style="margin-right:5px"></i>Dé-officialiser
+          </button>
+        </div>
+      </div>`;
+
+    document.body.appendChild(overlay);
+
+    overlay.querySelector('#_deoffice-cancel').onclick = () => { overlay.remove(); resolve(false); };
+    overlay.querySelector('#_deoffice-confirm').onclick = async () => {
+      const btn = overlay.querySelector('#_deoffice-confirm');
+      btn.disabled = true;
+      btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i>';
+      try {
+        const res = await fetch('/activities/api/liaison_deoffice', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ liaison_id: liaisonId }),
+        });
+        const data = await res.json();
+        overlay.remove();
+        resolve(data.ok === true);
+      } catch (_) { overlay.remove(); resolve(false); }
+    };
+  });
 }
 
 let _previewEntityId = null;

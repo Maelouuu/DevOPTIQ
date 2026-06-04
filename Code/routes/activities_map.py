@@ -1302,6 +1302,7 @@ def liaison_matches():
                 "activity_name":      act.name,
                 "has_active_liaison": existing_liaison is not None,
                 "display_label":      existing_liaison.display_label if existing_liaison else None,
+                "liaison_id":         existing_liaison.id if existing_liaison else None,
             })
 
     return jsonify({"matches": matches, "total": len(matches)}), 200
@@ -1513,6 +1514,110 @@ def officialize_liaison():
     return jsonify({"ok": True, "links_created": created}), 200
 
 
+@activities_map_bp.route("/api/liaison_deoffice_preview", methods=["GET"])
+def liaison_deoffice_preview():
+    """Aperçu de ce qui sera supprimé lors de la dé-officialisation d'une liaison."""
+    user_id    = session.get("user_id")
+    liaison_id = request.args.get("liaison_id", type=int)
+    if not user_id or not liaison_id:
+        return jsonify({"error": "Paramètres manquants"}), 400
+
+    liaison = CrossCartoLiaison.query.get(liaison_id)
+    if not liaison:
+        return jsonify({"error": "Liaison introuvable"}), 404
+
+    origin_entity = Entity.query.filter_by(id=liaison.origin_entity_id, owner_id=user_id).first()
+    extco_entity  = Entity.query.filter_by(id=liaison.extco_entity_id, owner_id=user_id).first()
+    if not origin_entity or not extco_entity:
+        return jsonify({"error": "Non autorisé"}), 403
+
+    shapes_to_remove, conns_to_remove = [], 0
+    if origin_entity.optiqcarto_data:
+        try:
+            carto = json.loads(origin_entity.optiqcarto_data)
+            source_label = extco_entity.name
+            removed_ids = {
+                s.get('id') for s in carto.get('shapes', [])
+                if s.get('crossCartoImport') and s.get('crossCartoSource') == source_label
+            }
+            for s in carto.get('shapes', []):
+                if s.get('id') in removed_ids:
+                    shapes_to_remove.append(s.get('label') or '?')
+            conns_to_remove = sum(
+                1 for c in carto.get('connections', [])
+                if c.get('fromId') in removed_ids or c.get('toId') in removed_ids
+            )
+        except Exception:
+            pass
+
+    db_links_count = Link.query.filter_by(cross_carto_liaison_id=liaison_id).count()
+
+    return jsonify({
+        "origin_entity_name":  origin_entity.name,
+        "extco_entity_name":   extco_entity.name,
+        "shapes_to_remove":    shapes_to_remove,
+        "connections_to_remove": conns_to_remove,
+        "db_links_to_remove":  db_links_count,
+    }), 200
+
+
+@activities_map_bp.route("/api/liaison_deoffice", methods=["POST"])
+def liaison_deoffice():
+    """Dé-officialise une liaison : supprime formes injectées + liens DB + enregistrement liaison."""
+    user_id = session.get("user_id")
+    data = request.get_json(force=True) or {}
+    liaison_id = data.get("liaison_id")
+    if not user_id or not liaison_id:
+        return jsonify({"error": "Paramètres manquants"}), 400
+
+    liaison = CrossCartoLiaison.query.get(liaison_id)
+    if not liaison:
+        return jsonify({"error": "Liaison introuvable"}), 404
+
+    origin_entity = Entity.query.filter_by(id=liaison.origin_entity_id, owner_id=user_id).first()
+    extco_entity  = Entity.query.filter_by(id=liaison.extco_entity_id, owner_id=user_id).first()
+    if not origin_entity or not extco_entity:
+        return jsonify({"error": "Non autorisé"}), 403
+
+    # 1. Supprimer les formes injectées dans la carto d'origine
+    if origin_entity.optiqcarto_data:
+        try:
+            carto = json.loads(origin_entity.optiqcarto_data)
+            _cleanup_extco_injections(carto, extco_entity.name)
+            origin_entity.optiqcarto_data = json.dumps(carto, ensure_ascii=False)
+            flag_modified(origin_entity, 'optiqcarto_data')
+        except Exception:
+            pass
+
+    # 2. Supprimer les liens DB propagés
+    Link.query.filter_by(cross_carto_liaison_id=liaison_id).delete(synchronize_session=False)
+
+    # 3. Supprimer l'enregistrement liaison
+    db.session.delete(liaison)
+    db.session.commit()
+
+    return jsonify({"ok": True}), 200
+
+
+def _cleanup_extco_injections(carto: dict, source_label: str) -> set:
+    """Supprime les formes injectées cross-carto (crossCartoImport=True, crossCartoSource==source_label)
+    et leurs connexions. Retourne les IDs des formes supprimées."""
+    shapes      = carto.get('shapes', [])
+    connections = carto.get('connections', [])
+    removed_ids = {
+        s.get('id')
+        for s in shapes
+        if s.get('crossCartoImport') and s.get('crossCartoSource') == source_label
+    }
+    if removed_ids:
+        carto['shapes']      = [s for s in shapes if s.get('id') not in removed_ids]
+        carto['connections'] = [
+            c for c in connections
+            if c.get('fromId') not in removed_ids and c.get('toId') not in removed_ids
+        ]
+    return removed_ids
+
+
 def _inject_extco_shapes_in_origin_carto(
     origin_entity, origin_act, extco_links, extco_activity_id, act_names, source_label,
     active_entity=None,
@@ -1531,6 +1636,7 @@ def _inject_extco_shapes_in_origin_carto(
             return
 
         carto = json.loads(carto_raw) if isinstance(carto_raw, str) else carto_raw
+        _cleanup_extco_injections(carto, source_label)   # retire les anciennes formes injectées
         shapes      = list(carto.get('shapes', []))
         connections = list(carto.get('connections', []))
         next_id     = int(carto.get('nextId', 1000))
