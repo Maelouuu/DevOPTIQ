@@ -57,6 +57,15 @@ function centerCartography() {
   applyTransform();
 }
 
+function fitViewer() {
+  const wrapper = $("#carto-pan-wrapper");
+  if (!wrapper || !svgWidth || !svgHeight) return;
+  const r = wrapper.getBoundingClientRect();
+  currentScale = Math.min((r.width - 40) / svgWidth, (r.height - 40) / svgHeight, 1);
+  currentScale = Math.max(currentScale, 0.1);
+  centerCartography();
+}
+
 function updateZoomDisplay() {
   const btn = $("#carto-zoom-reset");
   if (btn) btn.textContent = Math.round(currentScale * 100) + '%';

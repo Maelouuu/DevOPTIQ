@@ -217,7 +217,7 @@
       <div class="carto-viewer-card">
         <div class="carto-viewer-cardheader">
           <div class="carto-viewer-cardheader-left">
-            <div class="carto-viewer-cardicon" onclick="if(typeof fitView==='function')fitView()" title="{{ t('map.fit_view') }}" style="cursor:pointer"><i class="fa-solid fa-diagram-project"></i></div>
+            <div class="carto-viewer-cardicon" onclick="fitViewer()" title="{{ t('map.fit_view') }}" style="cursor:pointer"><i class="fa-solid fa-diagram-project"></i></div>
             <div>
               <h3 class="carto-viewer-cardtitle">Cartographie</h3>
               {% if active_entity %}<span class="carto-viewer-cardentity">{{ active_entity.name }}</span>{% endif %}
