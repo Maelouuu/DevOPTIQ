@@ -1836,16 +1836,6 @@ document.addEventListener("DOMContentLoaded", async () => {
   await loadSvgInline();
   initCalqueStrip();
 
-  // Logo → recenter la carto (fitView) au lieu de naviguer
-  const logoLink = document.querySelector('.logo-container');
-  if (logoLink && typeof fitView === 'function') {
-    logoLink.addEventListener('click', (e) => {
-      e.preventDefault();
-      fitView();
-    });
-    logoLink.title = 'Recentrer la cartographie';
-  }
-
   // Touche Echap pour fermer le popup entité (si ouvert)
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape") {
