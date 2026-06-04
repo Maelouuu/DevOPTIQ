@@ -1318,6 +1318,78 @@ body .toggle-icon,
     margin-bottom: 16px;
 }
 
+/* Rangée mixte IA + fichier */
+.propose-actions-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+}
+
+/* Bouton "proposer via fichier" — contour violet, fond blanc */
+.btn-propose-from-file {
+    padding: 7px 14px;
+    border-radius: 6px;
+    border: 2px solid #764ba2;
+    background: #ffffff;
+    color: #764ba2;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+.btn-propose-from-file:hover {
+    background: #f5f0ff;
+    transform: translateY(-1px);
+    box-shadow: 0 3px 10px rgba(118, 75, 162, 0.2);
+}
+.btn-propose-from-file:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+}
+
+/* Barre fichier de référence DCP */
+.ref-file-bar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 7px 12px;
+    background: #faf5ff;
+    border: 1.5px solid #e9d5ff;
+    border-radius: 8px;
+    margin-bottom: 14px;
+    font-size: 0.82rem;
+}
+.ref-file-bar-label {
+    flex: 1;
+    color: #6b21a8;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.ref-file-bar-label.has-file { color: #16a34a; }
+.ref-file-bar-label.no-file  { color: #9ca3af; }
+.ref-file-bar-btn {
+    padding: 4px 10px;
+    border-radius: 5px;
+    border: 1.5px solid #9333ea;
+    background: #ffffff;
+    color: #9333ea;
+    font-size: 0.78rem;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    transition: background .15s;
+}
+.ref-file-bar-btn:hover { background: #faf5ff; }
+
 /* Grille savoirs / savoir-faire */
 .sf-sv-grid {
     display: grid;

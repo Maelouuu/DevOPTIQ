@@ -1,9 +1,12 @@
 <!-- templates/activity_savoirs_faires.html -->
 <div class="savoirs-faires-section">
-  <!-- Bouton proposer en premier -->
-  <div class="section-actions-top">
+  <!-- Boutons proposer -->
+  <div class="section-actions-top propose-actions-row">
     <button class="btn-modal-primary-propose" onclick="fetchActivityDetailsForSavoirsFaires('{{ activity.id }}')">
       <i class="fa-solid fa-sparkles"></i> {{ t('propose.btn_propose_savoir_faires') }}
+    </button>
+    <button class="btn-propose-from-file" onclick="proposeFromFileSF('{{ activity.id }}')">
+      <i class="fa-solid fa-file-lines"></i> {{ t('propose.btn_propose_sf_from_file') }}
     </button>
   </div>
 

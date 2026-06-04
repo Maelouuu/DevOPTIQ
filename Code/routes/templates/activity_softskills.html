@@ -2,13 +2,16 @@
 
 <div class="softskills-section" data-activity-id="{{ item.activity.id }}">
 
-    <!-- Boutons proposer en premier -->
-    <div class="section-actions-top hsc-actions-row">
+    <!-- Boutons proposer HSC -->
+    <div class="section-actions-top hsc-actions-row propose-actions-row">
         <button class="btn-modal-primary-propose" onclick="fetchActivityDetailsForPropose('{{ item.activity.id }}')">
             <i class="fa-solid fa-sparkles"></i> {{ t('propose.btn_propose_hsc') }}
         </button>
         <button class="btn-modal-primary-propose" onclick="openTranslateSoftskillsModal('{{ item.activity.id }}')">
             <i class="fa-solid fa-language"></i> {{ t('propose.btn_translate_softskills') }}
+        </button>
+        <button class="btn-propose-from-file" onclick="proposeFromFileHSC('{{ item.activity.id }}')">
+            <i class="fa-solid fa-file-lines"></i> {{ t('propose.btn_propose_hsc_from_file') }}
         </button>
     </div>
 

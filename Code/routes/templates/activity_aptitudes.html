@@ -2,10 +2,13 @@
 
 <div class="aptitudes-section">
     <div id="aptitudes-container-{{ activity.id }}">
-      <!-- Bouton proposer aptitudes en premier -->
-      <div class="section-actions-top">
+      <!-- Boutons proposer aptitudes -->
+      <div class="section-actions-top propose-actions-row">
         <button class="btn-modal-primary-propose" onclick="showProposedAptitudes('{{ activity.id }}')">
           <i class="fa-solid fa-sparkles"></i> {{ t('propose.btn_propose_aptitudes') }}
+        </button>
+        <button class="btn-propose-from-file" onclick="proposeFromFileAptitudes('{{ activity.id }}')">
+          <i class="fa-solid fa-file-lines"></i> {{ t('propose.btn_propose_apt_from_file') }}
         </button>
       </div>
 

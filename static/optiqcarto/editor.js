@@ -1057,22 +1057,40 @@ function renderShapes() {
       });
     }
 
-    // ── Liaison sub-label (below extco shapes) ───────────────────────────────
+    // ── Liaison sub-label (below extco shapes) — badge fond blanc + contour couleur ──
     if (s.subtype === 'extco') {
       const liaison = _liaisonByActivityId[String(s.id)];
       const subLabelText = liaison
         ? (liaison.display_label || liaison.origin_entity_name || '')
         : (s.crossCartoSource || '');
       if (subLabelText) {
+        const fz    = Math.max(9, Math.min(12, (s.fontSize || 18) * 0.65));
+        const padX  = 7, padY = 3;
+        const approxW = subLabelText.length * fz * 0.60;
+        const bw    = Math.max(approxW + padX * 2, 40);
+        const bh    = fz + padY * 2;
+        const bx    = s.x + s.w / 2 - bw / 2;
+        const by    = s.y + s.h + 5;   // 5px gap → la flèche s'arrête avant le contour
+        const bc    = s.color || '#94a3b8';
+        // Rectangle fond blanc + contour couleur activité
+        el('rect', {
+          x: String(bx), y: String(by),
+          width: String(bw), height: String(bh),
+          rx: '3',
+          fill: '#ffffff',
+          stroke: bc,
+          'stroke-width': '1.5',
+          'pointer-events': 'none',
+        }, g);
         txt(subLabelText, {
-          x: s.x + s.w / 2,
-          y: s.y + s.h + 13,
+          x: String(s.x + s.w / 2),
+          y: String(by + bh / 2),
           'text-anchor': 'middle',
           'dominant-baseline': 'middle',
-          fill: '#64748b',
-          'font-size': Math.max(9, Math.min(13, s.fontSize * 0.72)),
+          fill: bc,
+          'font-size': String(fz),
           'font-family': 'Segoe UI, system-ui, sans-serif',
-          'font-style': 'italic',
+          'font-weight': '600',
           'pointer-events': 'none',
         }, g);
       }

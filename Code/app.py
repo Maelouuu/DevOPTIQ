@@ -186,6 +186,9 @@ def create_app(test_config=None):
     from Code.routes.propose_aptitudes import bp_propose_aptitudes
     app.register_blueprint(bp_propose_aptitudes)
 
+    from Code.routes.propose_from_file import propose_from_file_bp
+    app.register_blueprint(propose_from_file_bp)
+
     from Code.routes.time_view import time_bp
     app.register_blueprint(time_bp)
 
