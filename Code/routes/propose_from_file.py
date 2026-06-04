@@ -31,8 +31,9 @@ from Code.models.models import Activities, FileBlob, Task
 
 propose_from_file_bp = Blueprint('propose_from_file', __name__, url_prefix='/propose_from_file')
 
-GROUPS_SF    = ['Technical Skills', 'Functional Competencies']
-GROUPS_HSC   = ['Behavioural Competencies', 'Leadership Competencies']
+GROUPS_SF        = ['Technical Skills']          # → savoirs / savoir-faires
+GROUPS_APTITUDES = ['Functional Competencies']    # → aptitudes (capacités fonctionnelles à faire)
+GROUPS_HSC       = ['Behavioural Competencies', 'Leadership Competencies']
 STOP_WORDS   = {
     'the', 'de', 'du', 'des', 'le', 'la', 'les', 'et', 'of', 'and',
     'for', 'in', 'à', 'un', 'une', 'en', 'sur', 'par', 'avec', 'au',
@@ -250,7 +251,7 @@ def propose_aptitudes():
     ctx = _build_activity_context(act) if act else (body.get('activity_name') or '')
 
     job_map = _parse_file(data)
-    proposals = _propose_from_job_map(ctx, job_map, GROUPS_SF, max_results=8)
+    proposals = _propose_from_job_map(ctx, job_map, GROUPS_APTITUDES, max_results=8)
     return jsonify({"proposals": proposals, "source": "file"}), 200
 
 
