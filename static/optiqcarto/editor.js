@@ -3186,13 +3186,14 @@ function fitView() {
    EXPORT — BANDE LÉGENDE STATIQUE
    ══════════════════════════════════════════════════ */
 
-const EXPORT_LEGEND_H = 180;
+const EXPORT_LEGEND_H = 190;
 
 function _buildExportLegend(legendY, bw) {
   const g    = el('g', { id: 'g-export-legend' });
   const IDX  = INDEX_W_SVG;
   const PINK = '#ec4899';
   const DARK = '#374151';
+  const GRAY = '#6b7280';
   const ff   = 'Segoe UI, sans-serif';
 
   // Background
@@ -3208,28 +3209,47 @@ function _buildExportLegend(legendY, bw) {
     'text-anchor': 'middle', 'dominant-baseline': 'middle',
     fill: '#ffffff', 'font-size': '13', 'font-family': ff, 'font-weight': '700', 'letter-spacing': '1',
   }, tg);
-  // Bottom border
   el('line', { x1: 0, y1: legendY + EXPORT_LEGEND_H, x2: bw, y2: legendY + EXPORT_LEGEND_H,
     stroke: darkenColor(PINK, 0.72), 'stroke-width': '3' }, g);
 
-  // Content origin
-  const X0  = IDX + 28;
-  const TY  = legendY + 22;   // section title Y
-  const SY  = legendY + 42;   // shape top Y
-  const SH  = 46;             // shape height
-  const SW  = 100;            // shape width
-  const GAP = 18;             // gap between shape samples
+  // Layout constants
+  const X0  = IDX + 32;
+  const TY  = legendY + 20;    // section title
+  const SY  = legendY + 38;    // shape top
+  const SH  = 44;              // shape height
+  const SW  = 110;             // shape width
+  const GAP = 22;              // gap between samples
+  const LBY = SY + SH + 11;   // bold label below shape
+  const D1Y = LBY + 13;       // description line 1
+  const D2Y = D1Y + 12;       // description line 2
+
+  // Helper: label + description below a shape at column cx
+  function shapeCaption(cx, label, d1, d2) {
+    txt(label, {
+      x: cx + SW / 2, y: LBY, 'text-anchor': 'middle',
+      fill: DARK, 'font-size': '8.5', 'font-family': ff, 'font-weight': '700',
+    }, g);
+    txt(d1, {
+      x: cx + SW / 2, y: D1Y, 'text-anchor': 'middle',
+      fill: GRAY, 'font-size': '7.5', 'font-family': ff,
+    }, g);
+    if (d2) txt(d2, {
+      x: cx + SW / 2, y: D2Y, 'text-anchor': 'middle',
+      fill: GRAY, 'font-size': '7.5', 'font-family': ff,
+    }, g);
+  }
 
   // ── Section 1 : Types de formes ──────────────────────────────────────────
-  txt('Types de formes', { x: X0, y: TY,
-    fill: DARK, 'font-size': '10', 'font-weight': '700', 'font-family': ff }, g);
+  txt('Types de formes', {
+    x: X0, y: TY, fill: DARK, 'font-size': '10.5', 'font-weight': '700', 'font-family': ff,
+  }, g);
 
   const shapeItems = [
-    { label: 'Activité',         color: '#96afcf', draw: 'rect'         },
-    { label: 'Sous-activité',    color: '#b5c9de', draw: 'rect-variant'  },
-    { label: 'Activité externe', color: '#e2e8f0', draw: 'rect-round'   },
-    { label: 'Décision',         color: '#9ca3af', draw: 'diamond'      },
-    { label: 'Renvoi',           color: '#f4f4f5', draw: 'circle'       },
+    { label: 'Activité',       d1: 'Activité principale',     d2: 'de l\'entité',           color: '#96afcf', draw: 'rect'        },
+    { label: 'Sous-activité',  d1: 'Variante atténuée',       d2: 'd\'une activité',         color: '#b5c9de', draw: 'rect-variant' },
+    { label: 'Act. externe',   d1: 'Activité confiée à une',  d2: 'organisation externe',    color: '#e2e8f0', draw: 'rect-round'  },
+    { label: 'Décision',       d1: 'Bifurcation oui / non',   d2: null,                      color: '#9ca3af', draw: 'diamond'     },
+    { label: 'Renvoi',         d1: 'Référence vers',          d2: 'une autre activité',      color: '#f4f4f5', draw: 'circle'      },
   ];
 
   let cx = X0;
@@ -3240,14 +3260,14 @@ function _buildExportLegend(legendY, bw) {
         fill: item.color, stroke: darkenColor(item.color, 0.65), 'stroke-width': '1.5' }, g);
       txt(item.label, { x: cx + SW / 2, y: SY + SH / 2,
         'text-anchor': 'middle', 'dominant-baseline': 'middle',
-        fill: tc, 'font-size': '8.5', 'font-family': ff, 'font-weight': '600' }, g);
+        fill: tc, 'font-size': '8', 'font-family': ff, 'font-weight': '600' }, g);
     } else if (item.draw === 'rect-variant') {
       el('rect', { x: cx, y: SY, width: SW, height: SH, rx: 3,
         fill: item.color, stroke: darkenColor(item.color, 0.65),
         'stroke-width': '1.5', 'stroke-dasharray': '5,3' }, g);
       txt(item.label, { x: cx + SW / 2, y: SY + SH / 2,
         'text-anchor': 'middle', 'dominant-baseline': 'middle',
-        fill: tc, 'font-size': '8.5', 'font-family': ff, 'font-weight': '600' }, g);
+        fill: tc, 'font-size': '8', 'font-family': ff, 'font-weight': '600' }, g);
     } else if (item.draw === 'rect-round') {
       el('rect', { x: cx, y: SY, width: SW, height: SH, rx: 14,
         fill: item.color, stroke: '#94a3b8', 'stroke-width': '1.5' }, g);
@@ -3259,37 +3279,50 @@ function _buildExportLegend(legendY, bw) {
       el('polygon', {
         points: `${dcx},${SY} ${cx + SW},${dcy} ${dcx},${SY + SH} ${cx},${dcy}`,
         fill: item.color, stroke: '#6b7280', 'stroke-width': '1.5' }, g);
-      txt(item.label, { x: dcx, y: SY + SH + 12,
-        'text-anchor': 'middle', fill: DARK, 'font-size': '8.5', 'font-family': ff }, g);
     } else if (item.draw === 'circle') {
       const r = SH / 2;
       el('circle', { cx: cx + r, cy: SY + r, r,
         fill: item.color, stroke: '#9ca3af', 'stroke-width': '1.5' }, g);
-      txt(item.label, { x: cx + r, y: SY + SH + 12,
-        'text-anchor': 'middle', fill: DARK, 'font-size': '8.5', 'font-family': ff }, g);
     }
+    shapeCaption(cx, item.label, item.d1, item.d2);
     cx += SW + GAP;
   }
 
+  // Vertical separator between the two sections
+  cx += 16;
+  el('line', { x1: cx, y1: legendY + 8, x2: cx, y2: legendY + EXPORT_LEGEND_H - 8,
+    stroke: '#d1d5db', 'stroke-width': '1' }, g);
+  cx += 20;
+
   // ── Section 2 : Types de liaisons ────────────────────────────────────────
-  cx += 30;
-  txt('Types de liaisons', { x: cx, y: TY,
-    fill: DARK, 'font-size': '10', 'font-weight': '700', 'font-family': ff }, g);
+  txt('Types de liaisons', {
+    x: cx, y: TY, fill: DARK, 'font-size': '10.5', 'font-weight': '700', 'font-family': ff,
+  }, g);
 
-  const LW  = 90;
-  const LY1 = SY + 10;
-  const LY2 = SY + SH - 10;
+  const LW  = 88;  // arrow line length
+  const L1Y = SY + 8;
+  const L2Y = SY + SH - 8;
 
-  // Solid → Déclenchante (trigger)
-  el('line', { x1: cx, y1: LY1, x2: cx + LW, y2: LY1, stroke: DARK, 'stroke-width': '2' }, g);
-  el('polygon', { points: `${cx + LW},${LY1} ${cx + LW - 8},${LY1 - 4} ${cx + LW - 8},${LY1 + 4}`, fill: DARK }, g);
-  txt('Déclenchante', { x: cx + LW + 8, y: LY1 + 4, fill: DARK, 'font-size': '9', 'font-family': ff }, g);
+  // Solid → Déclenchante
+  el('line', { x1: cx, y1: L1Y, x2: cx + LW, y2: L1Y, stroke: DARK, 'stroke-width': '2' }, g);
+  el('polygon', { points: `${cx+LW},${L1Y} ${cx+LW-8},${L1Y-4} ${cx+LW-8},${L1Y+4}`, fill: DARK }, g);
+  txt('Déclenchante', {
+    x: cx + LW + 10, y: L1Y + 4, fill: DARK, 'font-size': '9', 'font-family': ff, 'font-weight': '700',
+  }, g);
+  txt('Démarre ou déclenche l\'activité cible', {
+    x: cx + LW + 10, y: L1Y + 16, fill: GRAY, 'font-size': '7.5', 'font-family': ff,
+  }, g);
 
-  // Dashed → Nourrissante (nourishing)
-  el('line', { x1: cx, y1: LY2, x2: cx + LW, y2: LY2,
+  // Dashed → Nourrissante
+  el('line', { x1: cx, y1: L2Y, x2: cx + LW, y2: L2Y,
     stroke: DARK, 'stroke-width': '2', 'stroke-dasharray': '8,4' }, g);
-  el('polygon', { points: `${cx + LW},${LY2} ${cx + LW - 8},${LY2 - 4} ${cx + LW - 8},${LY2 + 4}`, fill: DARK }, g);
-  txt('Nourrissante', { x: cx + LW + 8, y: LY2 + 4, fill: DARK, 'font-size': '9', 'font-family': ff }, g);
+  el('polygon', { points: `${cx+LW},${L2Y} ${cx+LW-8},${L2Y-4} ${cx+LW-8},${L2Y+4}`, fill: DARK }, g);
+  txt('Nourrissante', {
+    x: cx + LW + 10, y: L2Y + 4, fill: DARK, 'font-size': '9', 'font-family': ff, 'font-weight': '700',
+  }, g);
+  txt('Nourrit, complète ou peut bloquer', {
+    x: cx + LW + 10, y: L2Y + 16, fill: GRAY, 'font-size': '7.5', 'font-family': ff,
+  }, g);
 
   return g;
 }
@@ -3367,9 +3400,12 @@ function exportPDF() {
   const svgNS = 'http://www.w3.org/2000/svg';
   const exportEl = document.createElementNS(svgNS, 'svg');
   exportEl.setAttribute('xmlns', svgNS);
-  exportEl.setAttribute('width', W);
-  exportEl.setAttribute('height', H);
+  // For PDF: fixed A4 landscape dimensions in mm (297mm − 2×5mm margins = 287mm × 200mm).
+  // The viewBox scales ALL content (carto + legend) to fit exactly on one page.
+  exportEl.setAttribute('width',  '287mm');
+  exportEl.setAttribute('height', '200mm');
   exportEl.setAttribute('viewBox', `${minX} ${minY} ${W} ${H}`);
+  exportEl.setAttribute('preserveAspectRatio', 'xMinYMin meet');
 
   const defs = canvas.querySelector('defs').cloneNode(true);
   exportEl.appendChild(defs);
@@ -3385,20 +3421,18 @@ function exportPDF() {
   win.document.write(`<!DOCTYPE html><html><head><title>OptiqCarto — Export PDF</title>
 <style>
   * { margin:0; padding:0; box-sizing:border-box; }
-  html, body { width:100%; height:100%; background:#F3F5F2; }
-  img { display:block; width:100%; height:auto; }
+  html, body { width:287mm; height:200mm; overflow:hidden; background:#fff; }
+  img { display:block; width:287mm; height:200mm; }
   @media print {
-    html, body { background:#F3F5F2; }
-    img { width:100%; height:auto; page-break-inside:avoid; }
-    @page { margin:10mm; size:A4 landscape; }
+    @page { margin:5mm; size:A4 landscape; }
+    html, body { width:287mm; height:200mm; overflow:hidden; background:#fff; }
+    img { display:block; width:287mm; height:200mm; page-break-inside:avoid; }
   }
 </style></head><body>
 <img src="data:image/svg+xml;charset=utf-8,${encoded}">
 <script>
   var img = document.querySelector('img');
-  img.onload = function() {
-    setTimeout(function() { window.print(); }, 200);
-  };
+  img.onload = function() { setTimeout(function() { window.print(); }, 200); };
   img.onerror = function() { document.body.innerHTML += '<p style="color:red;padding:20px">Erreur de rendu SVG</p>'; };
 </script>
 </body></html>`);
