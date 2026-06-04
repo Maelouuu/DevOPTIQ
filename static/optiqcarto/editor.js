@@ -17,6 +17,7 @@ const _L = (key, ...subs) => {
 function getBandForY(midY) {
   let y = -200;
   for (const band of state.bands) {
+    if (band.deleted) continue; // cohérent avec renderBands qui saute aussi les bandes supprimées
     if (midY >= y && midY < y + band.height) return band;
     y += band.height;
   }
@@ -24,11 +25,12 @@ function getBandForY(midY) {
 }
 
 function updateShapeColor(s) {
-  if (s.type === 'decision') { s.color = '#9ca3af'; return; }
+  if (s.type === 'decision') { s.color = '#9ca3af'; s.textColor = bandTextColor('#9ca3af'); return; }
   if (s.type === 'start-end') return; // Renvoi : couleur gérée par _updateRenvoiColor
   const band = getBandForY(s.y + s.h / 2);
   if (!band) return;
   s.color = s.colorVariant === 1 ? bandMutedColor(band.color) : band.color;
+  s.textColor = bandTextColor(s.color); // blanc ou noir selon luminance du fond
   if (s.type === 'process' && !s.customStroke) {
     s.strokeColor = darkenColor(band.color, 0.65);
   }
@@ -2995,7 +2997,7 @@ function bindProps() {
     if (e.key === 'Enter' && e.target.value.split('\n').length >= 4) e.preventDefault();
   });
   prop('prop-color', v => {
-    for (const id of selectedShapes) { const s = state.shapes.find(s => s.id === id); if (s) s.color = v; }
+    for (const id of selectedShapes) { const s = state.shapes.find(s => s.id === id); if (s) { s.color = v; s.textColor = bandTextColor(v); } }
   });
   prop('prop-text-color', v => {
     for (const id of selectedShapes) { const s = state.shapes.find(s => s.id === id); if (s) s.textColor = v; }
@@ -3181,24 +3183,140 @@ function fitView() {
 }
 
 /* ══════════════════════════════════════════════════
+   EXPORT — BANDE LÉGENDE STATIQUE
+   ══════════════════════════════════════════════════ */
+
+const EXPORT_LEGEND_H = 180;
+
+function _buildExportLegend(legendY, bw) {
+  const g    = el('g', { id: 'g-export-legend' });
+  const IDX  = INDEX_W_SVG;
+  const PINK = '#ec4899';
+  const DARK = '#374151';
+  const ff   = 'Segoe UI, sans-serif';
+
+  // Background
+  el('rect', { x: 0, y: legendY, width: bw, height: EXPORT_LEGEND_H, fill: '#f9fafb' }, g);
+
+  // Index column (pink, same style as bands)
+  el('rect', { x: 0, y: legendY, width: IDX, height: EXPORT_LEGEND_H, fill: PINK }, g);
+  el('line', { x1: IDX, y1: legendY, x2: IDX, y2: legendY + EXPORT_LEGEND_H,
+    stroke: darkenColor(PINK, 0.72), 'stroke-width': '3' }, g);
+  const tg = el('g', { transform: `rotate(-90, ${IDX / 2}, ${legendY + EXPORT_LEGEND_H / 2})` }, g);
+  txt('LÉGENDE', {
+    x: IDX / 2, y: legendY + EXPORT_LEGEND_H / 2,
+    'text-anchor': 'middle', 'dominant-baseline': 'middle',
+    fill: '#ffffff', 'font-size': '13', 'font-family': ff, 'font-weight': '700', 'letter-spacing': '1',
+  }, tg);
+  // Bottom border
+  el('line', { x1: 0, y1: legendY + EXPORT_LEGEND_H, x2: bw, y2: legendY + EXPORT_LEGEND_H,
+    stroke: darkenColor(PINK, 0.72), 'stroke-width': '3' }, g);
+
+  // Content origin
+  const X0  = IDX + 28;
+  const TY  = legendY + 22;   // section title Y
+  const SY  = legendY + 42;   // shape top Y
+  const SH  = 46;             // shape height
+  const SW  = 100;            // shape width
+  const GAP = 18;             // gap between shape samples
+
+  // ── Section 1 : Types de formes ──────────────────────────────────────────
+  txt('Types de formes', { x: X0, y: TY,
+    fill: DARK, 'font-size': '10', 'font-weight': '700', 'font-family': ff }, g);
+
+  const shapeItems = [
+    { label: 'Activité',         color: '#96afcf', draw: 'rect'         },
+    { label: 'Sous-activité',    color: '#b5c9de', draw: 'rect-variant'  },
+    { label: 'Activité externe', color: '#e2e8f0', draw: 'rect-round'   },
+    { label: 'Décision',         color: '#9ca3af', draw: 'diamond'      },
+    { label: 'Renvoi',           color: '#f4f4f5', draw: 'circle'       },
+  ];
+
+  let cx = X0;
+  for (const item of shapeItems) {
+    const tc = bandTextColor(item.color);
+    if (item.draw === 'rect') {
+      el('rect', { x: cx, y: SY, width: SW, height: SH, rx: 3,
+        fill: item.color, stroke: darkenColor(item.color, 0.65), 'stroke-width': '1.5' }, g);
+      txt(item.label, { x: cx + SW / 2, y: SY + SH / 2,
+        'text-anchor': 'middle', 'dominant-baseline': 'middle',
+        fill: tc, 'font-size': '8.5', 'font-family': ff, 'font-weight': '600' }, g);
+    } else if (item.draw === 'rect-variant') {
+      el('rect', { x: cx, y: SY, width: SW, height: SH, rx: 3,
+        fill: item.color, stroke: darkenColor(item.color, 0.65),
+        'stroke-width': '1.5', 'stroke-dasharray': '5,3' }, g);
+      txt(item.label, { x: cx + SW / 2, y: SY + SH / 2,
+        'text-anchor': 'middle', 'dominant-baseline': 'middle',
+        fill: tc, 'font-size': '8.5', 'font-family': ff, 'font-weight': '600' }, g);
+    } else if (item.draw === 'rect-round') {
+      el('rect', { x: cx, y: SY, width: SW, height: SH, rx: 14,
+        fill: item.color, stroke: '#94a3b8', 'stroke-width': '1.5' }, g);
+      txt(item.label, { x: cx + SW / 2, y: SY + SH / 2,
+        'text-anchor': 'middle', 'dominant-baseline': 'middle',
+        fill: DARK, 'font-size': '7.5', 'font-family': ff, 'font-weight': '600' }, g);
+    } else if (item.draw === 'diamond') {
+      const dcx = cx + SW / 2, dcy = SY + SH / 2;
+      el('polygon', {
+        points: `${dcx},${SY} ${cx + SW},${dcy} ${dcx},${SY + SH} ${cx},${dcy}`,
+        fill: item.color, stroke: '#6b7280', 'stroke-width': '1.5' }, g);
+      txt(item.label, { x: dcx, y: SY + SH + 12,
+        'text-anchor': 'middle', fill: DARK, 'font-size': '8.5', 'font-family': ff }, g);
+    } else if (item.draw === 'circle') {
+      const r = SH / 2;
+      el('circle', { cx: cx + r, cy: SY + r, r,
+        fill: item.color, stroke: '#9ca3af', 'stroke-width': '1.5' }, g);
+      txt(item.label, { x: cx + r, y: SY + SH + 12,
+        'text-anchor': 'middle', fill: DARK, 'font-size': '8.5', 'font-family': ff }, g);
+    }
+    cx += SW + GAP;
+  }
+
+  // ── Section 2 : Types de liaisons ────────────────────────────────────────
+  cx += 30;
+  txt('Types de liaisons', { x: cx, y: TY,
+    fill: DARK, 'font-size': '10', 'font-weight': '700', 'font-family': ff }, g);
+
+  const LW  = 90;
+  const LY1 = SY + 10;
+  const LY2 = SY + SH - 10;
+
+  // Solid → Déclenchante (trigger)
+  el('line', { x1: cx, y1: LY1, x2: cx + LW, y2: LY1, stroke: DARK, 'stroke-width': '2' }, g);
+  el('polygon', { points: `${cx + LW},${LY1} ${cx + LW - 8},${LY1 - 4} ${cx + LW - 8},${LY1 + 4}`, fill: DARK }, g);
+  txt('Déclenchante', { x: cx + LW + 8, y: LY1 + 4, fill: DARK, 'font-size': '9', 'font-family': ff }, g);
+
+  // Dashed → Nourrissante (nourishing)
+  el('line', { x1: cx, y1: LY2, x2: cx + LW, y2: LY2,
+    stroke: DARK, 'stroke-width': '2', 'stroke-dasharray': '8,4' }, g);
+  el('polygon', { points: `${cx + LW},${LY2} ${cx + LW - 8},${LY2 - 4} ${cx + LW - 8},${LY2 + 4}`, fill: DARK }, g);
+  txt('Nourrissante', { x: cx + LW + 8, y: LY2 + 4, fill: DARK, 'font-size': '9', 'font-family': ff }, g);
+
+  return g;
+}
+
+/* ══════════════════════════════════════════════════
    EXPORT SVG
    ══════════════════════════════════════════════════ */
 
 function exportSVG() {
   if (state.shapes.length === 0) { showToast(_L('editor.toast.no_shapes_export')); return; }
 
+  const bw      = state.bandWidth || 3200;
+  const legendY = -200 - EXPORT_LEGEND_H;
+
   let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
   for (const s of state.shapes) {
     minX = Math.min(minX, s.x - 10);
     minY = Math.min(minY, s.y - 10);
     maxX = Math.max(maxX, s.x + s.w + 10);
-    maxY = Math.max(maxY, s.y + s.h + 20); // +20 for wavy bottom
+    maxY = Math.max(maxY, s.y + s.h + 20);
   }
   const pad = 50;
-  minX -= pad; minY -= pad; maxX += pad; maxY += pad;
+  minX = Math.min(minX, 0) - pad;       // ensure x=0 (band origin) is always visible
+  minY = Math.min(minY, legendY) - pad; // extend upward to include legend band
+  maxX += pad; maxY += pad;
   const W = maxX - minX, H = maxY - minY;
 
-  // Render into clean SVG
   const svgNS = 'http://www.w3.org/2000/svg';
   const exportSVGEl = document.createElementNS(svgNS, 'svg');
   exportSVGEl.setAttribute('xmlns', svgNS);
@@ -3206,11 +3324,13 @@ function exportSVG() {
   exportSVGEl.setAttribute('height', H);
   exportSVGEl.setAttribute('viewBox', `${minX} ${minY} ${W} ${H}`);
 
-  // Clone defs
   const defs = canvas.querySelector('defs').cloneNode(true);
   exportSVGEl.appendChild(defs);
 
-  // Clone content groups (bands, legend, connections, shapes only — no handles/overlay)
+  // Legend band (static, always the same, placed above the first carto band)
+  exportSVGEl.appendChild(_buildExportLegend(legendY, bw));
+
+  // Clone content groups (bands, connections, shapes — no handles/overlay)
   for (const gId of ['g-bands', 'g-legend', 'g-connections', 'g-shapes']) {
     exportSVGEl.appendChild(document.getElementById(gId).cloneNode(true));
   }
@@ -3228,6 +3348,9 @@ function exportSVG() {
 function exportPDF() {
   if (state.shapes.length === 0) { showToast(_L('editor.toast.no_shapes_export')); return; }
 
+  const bw      = state.bandWidth || 3200;
+  const legendY = -200 - EXPORT_LEGEND_H;
+
   let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
   for (const s of state.shapes) {
     minX = Math.min(minX, s.x - 10);
@@ -3236,7 +3359,9 @@ function exportPDF() {
     maxY = Math.max(maxY, s.y + s.h + 20);
   }
   const pad = 50;
-  minX -= pad; minY -= pad; maxX += pad; maxY += pad;
+  minX = Math.min(minX, 0) - pad;
+  minY = Math.min(minY, legendY) - pad;
+  maxX += pad; maxY += pad;
   const W = maxX - minX, H = maxY - minY;
 
   const svgNS = 'http://www.w3.org/2000/svg';
@@ -3248,6 +3373,7 @@ function exportPDF() {
 
   const defs = canvas.querySelector('defs').cloneNode(true);
   exportEl.appendChild(defs);
+  exportEl.appendChild(_buildExportLegend(legendY, bw));
   for (const gId of ['g-bands', 'g-legend', 'g-connections', 'g-shapes']) {
     exportEl.appendChild(document.getElementById(gId).cloneNode(true));
   }
@@ -6160,6 +6286,11 @@ window.addEventListener('message', function(e) {
   }
   if (e.data.type === 'get-extco-state') {
     try { e.source.postMessage({ type: 'extco-state', active: typeof isHighlightExtcoActive === 'function' ? isHighlightExtcoActive() : false }, e.origin || '*'); } catch(_) {}
+  }
+
+  // Recentrer la carto sur toutes les formes (depuis le bouton icône de la page map)
+  if (e.data.type === 'fit-view') {
+    fitView();
   }
 
   // Zoom sur une activité + halo lumineux (depuis la prévisualisation cross-carto)
