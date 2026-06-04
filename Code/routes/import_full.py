@@ -47,7 +47,11 @@ def _parse_excel_bytes(data: bytes) -> list:
     header_row_num = None
     for i, row in enumerate(ws.iter_rows(min_row=1, max_row=10, values_only=True), 1):
         row_s = [str(v or '').strip().lower() for v in row]
-        if any(kw in ' '.join(row_s) for kw in ('task', 'tool', 'activity', 'semi finish', 'department', 'doer')):
+        if any(kw in ' '.join(row_s) for kw in (
+            'task', 'tool', 'activity', 'semi finish', 'department', 'doer',
+            # mots-clés français
+            'activit', 'tâche', 'tache', 'outil', 'garant', 'savoir',
+        )):
             header_row = row_s
             header_row_num = i
             break
@@ -64,7 +68,7 @@ def _parse_excel_bytes(data: bytes) -> list:
         'guarantor':  ['guarantor', 'garant'],
         'task':       ['task', 'tâche'],
         'tool':       ['tool', 'outil'],
-        'doer':       ['doer', 'executor'],
+        'doer':       ['doer', 'executor', 'réalisateur', 'realisateur'],
         'approver':   ['approver', 'checker', 'approbateur'],
         'skills':     ['skills', 'knowledge', 'competenc', 'savoir'],
         'commentary': ['comment', 'commentaire', 'note'],
