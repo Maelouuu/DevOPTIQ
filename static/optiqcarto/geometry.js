@@ -32,14 +32,14 @@ function getPorts(s) {
   if (s.type === 'process' || s.type === 'special') {
     const base = {};
     for (let i = 1; i <= 7; i++) {
-      const tx = (i - 0.5) / 7;
-      base[`top-${i}`]    = { x: s.x + s.w * tx, y: s.y - h,         dir: 'top'    };
-      base[`bottom-${i}`] = { x: s.x + s.w * tx, y: s.y + s.h + h,   dir: 'bottom' };
+      const tx = (i - 1) / 6;  // 0..1 corners included
+      base[`top-${i}`]    = { x: s.x + s.w * tx, y: s.y - h,         dir: 'top',    t: tx };
+      base[`bottom-${i}`] = { x: s.x + s.w * tx, y: s.y + s.h + h,   dir: 'bottom', t: tx };
     }
     for (let i = 1; i <= 5; i++) {
-      const ty = (i - 0.5) / 5;
-      base[`left-${i}`]  = { x: s.x - h,         y: s.y + s.h * ty, dir: 'left'  };
-      base[`right-${i}`] = { x: s.x + s.w + h,   y: s.y + s.h * ty, dir: 'right' };
+      const ty = (i - 0.5) / 5;  // 10%..90% between corners
+      base[`left-${i}`]  = { x: s.x - h,         y: s.y + s.h * ty, dir: 'left',  t: ty };
+      base[`right-${i}`] = { x: s.x + s.w + h,   y: s.y + s.h * ty, dir: 'right', t: ty };
     }
     return base;
   }
@@ -72,10 +72,10 @@ function getDetailedPorts(s) {
     ];
   }
 
-  // 24 snap ports — equidistant, no corner overlap (process + special)
+  // 24 snap ports — corners included on top/bottom, between corners on sides
   const ports = [];
   for (let i = 1; i <= 7; i++) {
-    const tx = (i - 0.5) / 7;
+    const tx = (i - 1) / 6;
     ports.push({ x: x + w * tx, y: y - h,      dir: 'top',    t: tx });
     ports.push({ x: x + w * tx, y: y + sh + h, dir: 'bottom', t: tx });
   }

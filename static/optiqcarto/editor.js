@@ -906,6 +906,23 @@ function renderConnections() {
             'data-conn-corner': String(c.id), 'data-pt-idx': String(ci),
             style: 'pointer-events:all',
           }, gConns);
+          // Delete button — small × circle at top-right of diamond
+          const dr = Math.max(5, 5 / vpScale);
+          const dcx = pt.x + hs + dr * 0.8;
+          const dcy = pt.y - hs - dr * 0.8;
+          el('circle', {
+            cx: String(dcx), cy: String(dcy), r: String(dr),
+            fill: '#ef4444', stroke: '#fff', 'stroke-width': '1.5',
+            cursor: 'pointer',
+            'data-conn-del-corner': String(c.id), 'data-del-pt-idx': String(ci),
+            style: 'pointer-events:all',
+          }, gConns);
+          txt('×', {
+            x: String(dcx), y: String(dcy),
+            'text-anchor': 'middle', 'dominant-baseline': 'middle',
+            fill: '#fff', 'font-size': String(Math.max(8, 8 / vpScale)),
+            'font-weight': '700', 'pointer-events': 'none',
+          }, gConns);
         }
       }
     }
@@ -2140,6 +2157,26 @@ function onDown(e) {
       return;
     }
 
+    // Suppression d'un coin de connexion via le bouton ×
+    const delCornerEl = e.target.closest('[data-conn-del-corner]');
+    if (delCornerEl) {
+      const cid    = parseInt(delCornerEl.getAttribute('data-conn-del-corner'));
+      const ptIdx  = parseInt(delCornerEl.getAttribute('data-del-pt-idx'));
+      const conn   = state.connections.find(c => c.id === cid);
+      if (conn) {
+        if (!conn.userPts) {
+          const pts = conn._computedOrthopts || [];
+          conn.userPts = pts.slice(1, -1).map(p => ({ x: p.x, y: p.y }));
+        }
+        if (ptIdx >= 1 && ptIdx - 1 < conn.userPts.length) {
+          conn.userPts.splice(ptIdx - 1, 1);
+          if (conn.userPts.length === 0) conn.userPts = null;
+        }
+        snapshot(); render();
+      }
+      return;
+    }
+
     // Drag d'un coin de connexion — déplacement libre en X et Y
     const cornerEl = e.target.closest('[data-conn-corner]');
     if (cornerEl) {
@@ -2720,6 +2757,7 @@ function onUp(e) {
             fromId: portDrag.fromShapeId,
             toId: target.id,
             fromPortDir: fp.dir,
+            fromPortT:   fp.t !== undefined ? fp.t : undefined,
             style: 'solid',
             routing: state.defaultRouting || 'smooth',
             color: fromShape ? fromShape.color : '#9ca3af',
