@@ -277,3 +277,16 @@ def propose_hsc():
         for name in proposals
     ]
     return jsonify({"proposals": hsc_list, "source": "file"}), 200
+
+
+@propose_from_file_bp.route('/delete', methods=['DELETE'])
+def delete_ref():
+    uid = _user_id()
+    if not uid:
+        return jsonify({"error": "Non autorisé"}), 403
+    fname = _blob_name(uid)
+    blob = FileBlob.query.filter_by(filename=fname).first()
+    if blob:
+        db.session.delete(blob)
+        db.session.commit()
+    return jsonify({"ok": True}), 200

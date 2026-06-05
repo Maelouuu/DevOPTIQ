@@ -507,6 +507,96 @@ function snapToPolyline(pts, px, py, maxPerp = 45) {
   return { x: bestOnSeg.x + nx * clampedPerp, y: bestOnSeg.y + ny * clampedPerp };
 }
 
+/* ══════════════════════════════════════════════════
+   DÉCISION — badges Oui/Non sur connexions sortantes
+   ══════════════════════════════════════════════════ */
+
+function _decisionBadgePos(diamond, toShape) {
+  const dcx = diamond.x + diamond.w / 2, dcy = diamond.y + diamond.h / 2;
+  const tcx = toShape.x + toShape.w / 2, tcy = toShape.y + toShape.h / 2;
+  const dx = tcx - dcx, dy = tcy - dcy;
+  const DIST = 52;
+  let px, py;
+  if (Math.abs(dx) >= Math.abs(dy)) {
+    px = (dx > 0 ? diamond.x + diamond.w : diamond.x) + (dx > 0 ? DIST : -DIST);
+    py = dcy;
+  } else {
+    px = dcx;
+    py = (dy > 0 ? diamond.y + diamond.h : diamond.y) + (dy > 0 ? DIST : -DIST);
+  }
+  return { x: px, y: py };
+}
+
+function _decisionBranch_suggest(conn, diamond) {
+  // Returns 'yes'|'no' suggestion based on geometry, or null if unreliable.
+  const dcx = diamond.x + diamond.w / 2, dcy = diamond.y + diamond.h / 2;
+  const incoming = state.connections.filter(c => c.toId === diamond.id);
+  if (incoming.length !== 1) return null;
+  const src = state.shapes.find(s => s.id === incoming[0].fromId);
+  if (!src) return null;
+
+  const straightAngle = Math.atan2(dcy - (src.y + src.h / 2), dcx - (src.x + src.w / 2));
+  const outgoing = state.connections.filter(c => c.fromId === diamond.id);
+  if (outgoing.length !== 2) return null;
+
+  function outAngle(c) {
+    const t = state.shapes.find(s => s.id === c.toId);
+    return t ? Math.atan2(t.y + t.h / 2 - dcy, t.x + t.w / 2 - dcx) : 0;
+  }
+  function angleDiff(a, b) {
+    const d = Math.abs(a - b) % (2 * Math.PI);
+    return Math.min(d, 2 * Math.PI - d);
+  }
+
+  const other = outgoing.find(c => c.id !== conn.id);
+  if (!other) return null;
+  const thisDiff  = angleDiff(outAngle(conn),  straightAngle);
+  const otherDiff = angleDiff(outAngle(other), straightAngle);
+  if (Math.abs(thisDiff - otherDiff) < Math.PI / 4) return null; // < 45° → non fiable
+  return thisDiff < otherDiff ? 'yes' : 'no';
+}
+
+function _renderDecisionBadges() {
+  for (const c of state.connections) {
+    const fromShape = state.shapes.find(s => s.id === c.fromId);
+    if (!fromShape || fromShape.type !== 'decision') continue;
+    const toShape = state.shapes.find(s => s.id === c.toId);
+    if (!toShape) continue;
+
+    const branch     = c.decisionBranch || null;
+    const suggestion = branch === null ? _decisionBranch_suggest(c, fromShape) : null;
+    const pos        = _decisionBadgePos(fromShape, toShape);
+
+    const bgColor = branch === 'yes' ? '#22c55e' : branch === 'no' ? '#f97316' : '#ffffff';
+    const bdColor = branch === 'yes' ? '#16a34a' : branch === 'no' ? '#ea580c' : '#d1d5db';
+    const txColor = branch ? '#ffffff' : '#9ca3af';
+    const label   = branch === 'yes' ? 'O' : branch === 'no' ? 'N' : '?';
+
+    const badgeG = el('g', {
+      'data-type': 'decision-badge',
+      'data-conn-id': String(c.id),
+      cursor: 'pointer',
+    }, gConns);
+
+    if (suggestion) {
+      el('circle', {
+        cx: pos.x, cy: pos.y, r: '13',
+        fill: 'none', stroke: '#3b82f6', 'stroke-width': '1.5', 'stroke-dasharray': '3,2',
+        'pointer-events': 'none',
+      }, badgeG);
+    }
+
+    el('circle', { cx: pos.x, cy: pos.y, r: '10', fill: bgColor, stroke: bdColor, 'stroke-width': '1.5' }, badgeG);
+
+    el('text', {
+      x: String(pos.x), y: String(pos.y),
+      'text-anchor': 'middle', 'dominant-baseline': 'middle',
+      fill: txColor, 'font-size': '9', 'font-family': 'Segoe UI, sans-serif', 'font-weight': '700',
+      'pointer-events': 'none',
+    }, badgeG).textContent = label;
+  }
+}
+
 function renderConnections() {
   gConns.innerHTML = '';
 
@@ -856,6 +946,7 @@ function renderConnections() {
     }
     gConns.appendChild(lg);
   }
+  _renderDecisionBadges();
 }
 
 /* ══════════════════════════════════════════════════
@@ -2081,6 +2172,33 @@ function onDown(e) {
       return;
     }
 
+    // Decision badge click — cycle Oui/Non on connections from a diamond
+    const badgeEl = e.target.closest('[data-type="decision-badge"]');
+    if (badgeEl) {
+      const cid  = parseInt(badgeEl.getAttribute('data-conn-id'));
+      const conn = state.connections.find(c => c.id === cid);
+      if (conn) {
+        const diamond = state.shapes.find(s => s.id === conn.fromId);
+        if (diamond && diamond.type === 'decision') {
+          if (!conn.decisionBranch) {
+            // First click: apply geometry suggestion if available, else start with 'yes'
+            const sug = _decisionBranch_suggest(conn, diamond);
+            conn.decisionBranch = sug || 'yes';
+            if (sug) {
+              const other = state.connections.find(c => c.fromId === diamond.id && c.id !== conn.id);
+              if (other) other.decisionBranch = sug === 'yes' ? 'no' : 'yes';
+            }
+          } else {
+            const cycle = { 'yes': 'no', 'no': null };
+            conn.decisionBranch = cycle[conn.decisionBranch] ?? null;
+          }
+          snapshot();
+          renderConnections();
+        }
+      }
+      return;
+    }
+
     // Did we click a connection?
     const connTarget = e.target.closest('[data-type="conn"]');
     if (connTarget) {
@@ -2176,6 +2294,7 @@ function onDown(e) {
             routing: state.defaultRouting || 'smooth',
             color: fromShape ? fromShape.color : '#9ca3af',
             label: '',
+            decisionBranch: null,
           });
           _checkRenvoiAutoLink(connecting.fromId, sid);
           snapshot();

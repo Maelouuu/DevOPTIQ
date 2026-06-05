@@ -66,21 +66,42 @@
         <button class="modal-close-btn-propose" id="rfCloseBtn"><i class="fa-solid fa-xmark"></i></button>
       </div>
       <div class="modal-body-propose">
-        <p style="color:#555; margin-bottom:14px;">
-          Chargez un fichier Excel (.xlsx) contenant les compétences de référence.<br>
-          <span style="font-size:0.82rem; color:#888;">Colonnes attendues : ObjectID, JobId, JobText, GrpName, CompName, Required Score</span>
-        </p>
-        <div id="rfCurrentStatus" style="margin-bottom:14px; font-size:0.88rem; color:#764ba2;">
-          <i class="fa-solid fa-circle-notch fa-spin"></i> Chargement…
-        </div>
-        <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
-          <input type="file" id="rfFileInput" accept=".xlsx,.xls" style="display:none" />
-          <button class="btn-propose-from-file" id="rfPickBtn">
-            <i class="fa-solid fa-upload"></i> Choisir un fichier
+
+        <!-- Fichier actuel (affiché si un fichier est déjà chargé) -->
+        <div id="rfCurrentFile" style="display:none; background:#f0fdf4; border:1px solid #86efac;
+            border-radius:10px; padding:12px 16px; margin-bottom:16px;
+            display:flex; align-items:center; justify-content:space-between; gap:12px;">
+          <div>
+            <div style="font-weight:700; color:#15803d; margin-bottom:3px; font-size:0.92rem;">
+              <i class="fa-solid fa-file-check"></i> Fichier DCP chargé
+            </div>
+            <div id="rfCurrentDetail" style="font-size:0.8rem; color:#16a34a;"></div>
+          </div>
+          <button id="rfDeleteBtn" style="flex-shrink:0; background:#fff; border:1.5px solid #fca5a5;
+              color:#ef4444; border-radius:7px; padding:5px 12px; cursor:pointer; font-size:0.82rem;
+              display:flex; align-items:center; gap:5px; white-space:nowrap; transition:background 0.15s;">
+            <i class="fa-solid fa-trash-can"></i> Supprimer
           </button>
-          <span id="rfFileName" style="font-size:0.88rem; color:#555;"></span>
         </div>
-        <div id="rfFeedback" style="margin-top:12px; font-size:0.88rem;"></div>
+
+        <!-- Zone de dépôt -->
+        <div id="rfDropZone" style="border:2.5px dashed #c4b5fd; border-radius:14px; background:#faf5ff;
+            padding:30px 24px; text-align:center; cursor:pointer; transition:border-color 0.2s, background 0.2s;">
+          <i class="fa-solid fa-cloud-arrow-up" style="font-size:2.2rem; color:#a78bfa; display:block; margin-bottom:10px;"></i>
+          <p style="font-weight:700; color:#7c3aed; margin:0 0 5px; font-size:0.95rem;">
+            Glisser-déposer un fichier Excel ici
+          </p>
+          <p style="font-size:0.78rem; color:#9ca3af; margin:0 0 18px;">
+            Format .xlsx — colonnes attendues : JobText, GrpName, CompName
+          </p>
+          <button class="btn-propose-from-file" id="rfPickBtn">
+            <i class="fa-solid fa-folder-open"></i> Parcourir
+          </button>
+          <input type="file" id="rfFileInput" accept=".xlsx,.xls" style="display:none" />
+          <div id="rfSelectedFile" style="margin-top:12px; font-size:0.85rem; color:#7c3aed; font-weight:600; min-height:20px;"></div>
+        </div>
+
+        <div id="rfFeedback" style="margin-top:12px; font-size:0.88rem; min-height:20px;"></div>
       </div>
       <div class="modal-footer-propose">
         <button class="btn-modal-secondary-propose" id="rfCancelBtn">
@@ -92,36 +113,87 @@
       </div>
     `;
 
-    // Load current status
+    const fileInput   = dlg.querySelector('#rfFileInput');
+    const pickBtn     = dlg.querySelector('#rfPickBtn');
+    const selectedLbl = dlg.querySelector('#rfSelectedFile');
+    const uploadBtn   = dlg.querySelector('#rfUploadBtn');
+    const feedback    = dlg.querySelector('#rfFeedback');
+    const dropZone    = dlg.querySelector('#rfDropZone');
+    const currentDiv  = dlg.querySelector('#rfCurrentFile');
+    const currentDet  = dlg.querySelector('#rfCurrentDetail');
+    const deleteBtn   = dlg.querySelector('#rfDeleteBtn');
+
+    // Load and show current file status
     fetch('/propose_from_file/status').then(r => r.json()).then(d => {
-      const el = dlg.querySelector('#rfCurrentStatus');
       if (d.has_file) {
         const stats = d.stats || {};
         const sfC  = SF_GROUPS.reduce((n, g)  => n + (stats[g] || 0), 0);
         const hscC = HSC_GROUPS.reduce((n, g) => n + (stats[g] || 0), 0);
-        el.innerHTML = `<i class="fa-solid fa-file-check"></i> Fichier actuel : ${sfC} compétences techniques, ${hscC} comportementales`;
-      } else {
-        el.innerHTML = `<span style="color:#aaa"><i class="fa-solid fa-inbox"></i> Aucun fichier chargé</span>`;
+        currentDet.textContent = `${sfC} compétences techniques, ${hscC} comportementales`;
+        currentDiv.style.display = 'flex';
       }
-    }).catch(() => { dlg.querySelector('#rfCurrentStatus').innerHTML = ''; });
+    }).catch(() => {});
 
-    const fileInput = dlg.querySelector('#rfFileInput');
-    const pickBtn   = dlg.querySelector('#rfPickBtn');
-    const nameLbl   = dlg.querySelector('#rfFileName');
-    const uploadBtn = dlg.querySelector('#rfUploadBtn');
-    const feedback  = dlg.querySelector('#rfFeedback');
+    // Drag-and-drop on drop zone
+    dropZone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      dropZone.style.borderColor = '#7c3aed';
+      dropZone.style.background  = '#ede9fe';
+    });
+    dropZone.addEventListener('dragleave', () => {
+      dropZone.style.borderColor = '#c4b5fd';
+      dropZone.style.background  = '#faf5ff';
+    });
+    dropZone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropZone.style.borderColor = '#c4b5fd';
+      dropZone.style.background  = '#faf5ff';
+      const f = e.dataTransfer.files[0];
+      if (f && (f.name.endsWith('.xlsx') || f.name.endsWith('.xls'))) {
+        _setSelectedFile(f);
+      } else if (f) {
+        feedback.innerHTML = '<span style="color:#dc2626"><i class="fa-solid fa-triangle-exclamation"></i> Format non supporté — utilisez un fichier .xlsx</span>';
+      }
+    });
+    dropZone.addEventListener('click', (e) => {
+      if (e.target !== pickBtn && !pickBtn.contains(e.target)) fileInput.click();
+    });
 
-    pickBtn.onclick  = () => fileInput.click();
+    function _setSelectedFile(f) {
+      selectedLbl.innerHTML = `<i class="fa-solid fa-file-excel" style="color:#16a34a"></i> ${esc(f.name)}`;
+      uploadBtn.disabled = false;
+      uploadBtn._file = f;
+      feedback.innerHTML = '';
+    }
+
+    pickBtn.onclick = (e) => { e.stopPropagation(); fileInput.click(); };
+    fileInput.onchange = () => { if (fileInput.files[0]) _setSelectedFile(fileInput.files[0]); };
+
     dlg.querySelector('#rfCloseBtn').onclick  = () => { ov.style.display = 'none'; };
     dlg.querySelector('#rfCancelBtn').onclick = () => { ov.style.display = 'none'; };
 
-    fileInput.onchange = () => {
-      const f = fileInput.files[0];
-      if (f) { nameLbl.textContent = f.name; uploadBtn.disabled = false; feedback.innerHTML = ''; }
+    // Delete current file
+    deleteBtn.onclick = async () => {
+      if (!confirm('Supprimer le fichier DCP chargé ?')) return;
+      deleteBtn.disabled = true;
+      deleteBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+      try {
+        await fetch('/propose_from_file/delete', { method: 'DELETE' });
+        currentDiv.style.display = 'none';
+        selectedLbl.textContent = '';
+        uploadBtn.disabled = true;
+        feedback.innerHTML = '<span style="color:#6b7280"><i class="fa-solid fa-check"></i> Fichier supprimé.</span>';
+        initRefFileStatus();
+      } catch (_) {}
+      finally {
+        deleteBtn.disabled = false;
+        deleteBtn.innerHTML = '<i class="fa-solid fa-trash-can"></i> Supprimer';
+      }
     };
 
+    // Upload
     uploadBtn.onclick = async () => {
-      const f = fileInput.files[0];
+      const f = uploadBtn._file || fileInput.files[0];
       if (!f) return;
       uploadBtn.disabled = true;
       uploadBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Envoi…';
@@ -139,6 +211,8 @@
             <i class="fa-solid fa-check"></i> Fichier enregistré — ${sfC} compétences techniques, ${hscC} comportementales.
           </span>`;
           uploadBtn.innerHTML = '<i class="fa-solid fa-check"></i> Enregistré';
+          currentDet.textContent = `${sfC} compétences techniques, ${hscC} comportementales`;
+          currentDiv.style.display = 'flex';
           initRefFileStatus();
         } else {
           throw new Error(d.error || 'Erreur inconnue');
