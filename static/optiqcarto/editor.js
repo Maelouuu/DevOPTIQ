@@ -136,7 +136,7 @@ const SHAPE_DEFAULTS = {
   process:   { label: 'Activité',      color: '#22c55e', textColor: '#ffffff', validationBadge: false, validationColor: '#4DB868', w: 130, h: 90,  fontSize: 18, subtype: 'normal' },
   'start-end': { label: 'Renvoi',      color: '#ffffff', textColor: '#000000', validationBadge: false, validationColor: '#4DB868', w: 90,  h: 90,  fontSize: 13, subtype: 'normal' },
   special:   { label: 'Sous-activité', color: '#f59e0b', textColor: '#ffffff', validationBadge: false, validationColor: '#4DB868', w: 170, h: 76,  fontSize: 13, subtype: 'normal' },
-  decision:  { label: 'Décision',      color: '#9ca3af', textColor: '#ffffff', validationBadge: false, validationColor: '#4DB868', w: 100, h: 100, fontSize: 13, subtype: 'normal' },
+  decision:  { label: 'Décision',      color: '#9ca3af', textColor: '#ffffff', validationBadge: false, validationColor: '#4DB868', w: 100, h: 100, fontSize: 13, subtype: 'normal', decisionYesDir: null },
 };
 
 const HINTS = {
@@ -508,94 +508,10 @@ function snapToPolyline(pts, px, py, maxPerp = 45) {
 }
 
 /* ══════════════════════════════════════════════════
-   DÉCISION — badges Oui/Non sur connexions sortantes
+   DÉCISION — badges Oui/Non directionnels sur la forme
+   Les badges sont rendus inline dans renderShapes() pour
+   chaque losange, indépendamment de la topologie des connexions.
    ══════════════════════════════════════════════════ */
-
-function _decisionBadgePos(diamond, toShape) {
-  const dcx = diamond.x + diamond.w / 2, dcy = diamond.y + diamond.h / 2;
-  const tcx = toShape.x + toShape.w / 2, tcy = toShape.y + toShape.h / 2;
-  const dx = tcx - dcx, dy = tcy - dcy;
-  const DIST = 52;
-  let px, py;
-  if (Math.abs(dx) >= Math.abs(dy)) {
-    px = (dx > 0 ? diamond.x + diamond.w : diamond.x) + (dx > 0 ? DIST : -DIST);
-    py = dcy;
-  } else {
-    px = dcx;
-    py = (dy > 0 ? diamond.y + diamond.h : diamond.y) + (dy > 0 ? DIST : -DIST);
-  }
-  return { x: px, y: py };
-}
-
-function _decisionBranch_suggest(conn, diamond) {
-  // Returns 'yes'|'no' suggestion based on geometry, or null if unreliable.
-  const dcx = diamond.x + diamond.w / 2, dcy = diamond.y + diamond.h / 2;
-  const incoming = state.connections.filter(c => c.toId === diamond.id);
-  if (incoming.length !== 1) return null;
-  const src = state.shapes.find(s => s.id === incoming[0].fromId);
-  if (!src) return null;
-
-  const straightAngle = Math.atan2(dcy - (src.y + src.h / 2), dcx - (src.x + src.w / 2));
-  const outgoing = state.connections.filter(c => c.fromId === diamond.id);
-  if (outgoing.length !== 2) return null;
-
-  function outAngle(c) {
-    const t = state.shapes.find(s => s.id === c.toId);
-    return t ? Math.atan2(t.y + t.h / 2 - dcy, t.x + t.w / 2 - dcx) : 0;
-  }
-  function angleDiff(a, b) {
-    const d = Math.abs(a - b) % (2 * Math.PI);
-    return Math.min(d, 2 * Math.PI - d);
-  }
-
-  const other = outgoing.find(c => c.id !== conn.id);
-  if (!other) return null;
-  const thisDiff  = angleDiff(outAngle(conn),  straightAngle);
-  const otherDiff = angleDiff(outAngle(other), straightAngle);
-  if (Math.abs(thisDiff - otherDiff) < Math.PI / 4) return null; // < 45° → non fiable
-  return thisDiff < otherDiff ? 'yes' : 'no';
-}
-
-function _renderDecisionBadges() {
-  for (const c of state.connections) {
-    const fromShape = state.shapes.find(s => s.id === c.fromId);
-    if (!fromShape || fromShape.type !== 'decision') continue;
-    const toShape = state.shapes.find(s => s.id === c.toId);
-    if (!toShape) continue;
-
-    const branch     = c.decisionBranch || null;
-    const suggestion = branch === null ? _decisionBranch_suggest(c, fromShape) : null;
-    const pos        = _decisionBadgePos(fromShape, toShape);
-
-    const bgColor = branch === 'yes' ? '#22c55e' : branch === 'no' ? '#f97316' : '#ffffff';
-    const bdColor = branch === 'yes' ? '#16a34a' : branch === 'no' ? '#ea580c' : '#d1d5db';
-    const txColor = branch ? '#ffffff' : '#9ca3af';
-    const label   = branch === 'yes' ? 'O' : branch === 'no' ? 'N' : '?';
-
-    const badgeG = el('g', {
-      'data-type': 'decision-badge',
-      'data-conn-id': String(c.id),
-      cursor: 'pointer',
-    }, gConns);
-
-    if (suggestion) {
-      el('circle', {
-        cx: pos.x, cy: pos.y, r: '13',
-        fill: 'none', stroke: '#3b82f6', 'stroke-width': '1.5', 'stroke-dasharray': '3,2',
-        'pointer-events': 'none',
-      }, badgeG);
-    }
-
-    el('circle', { cx: pos.x, cy: pos.y, r: '10', fill: bgColor, stroke: bdColor, 'stroke-width': '1.5' }, badgeG);
-
-    el('text', {
-      x: String(pos.x), y: String(pos.y),
-      'text-anchor': 'middle', 'dominant-baseline': 'middle',
-      fill: txColor, 'font-size': '9', 'font-family': 'Segoe UI, sans-serif', 'font-weight': '700',
-      'pointer-events': 'none',
-    }, badgeG).textContent = label;
-  }
-}
 
 function renderConnections() {
   gConns.innerHTML = '';
@@ -946,7 +862,6 @@ function renderConnections() {
     }
     gConns.appendChild(lg);
   }
-  _renderDecisionBadges();
 }
 
 /* ══════════════════════════════════════════════════
@@ -1110,6 +1025,31 @@ function renderShapes() {
         fill: 'url(#shape-shine)',
         'pointer-events': 'none',
       }, g);
+
+      // Directional O/N badges — anchored to the 4 tips of the diamond
+      const TIP = {
+        right: { x: s.x + s.w + 16, y: s.y + s.h / 2 },
+        down:  { x: s.x + s.w / 2,  y: s.y + s.h + 16 },
+        left:  { x: s.x - 16,        y: s.y + s.h / 2 },
+        up:    { x: s.x + s.w / 2,   y: s.y - 16 },
+      };
+      const CW90 = { right: 'down', down: 'left', left: 'up', up: 'right' };
+      if (s.decisionYesDir) {
+        const noDir = CW90[s.decisionYesDir];
+        const yp = TIP[s.decisionYesDir];
+        const yg = el('g', { 'data-type': 'decision-dir-badge', 'data-shape-id': String(s.id), cursor: 'pointer' }, g);
+        el('circle', { cx: yp.x, cy: yp.y, r: '10', fill: '#22c55e', stroke: '#16a34a', 'stroke-width': '1.5' }, yg);
+        el('text', { x: String(yp.x), y: String(yp.y), 'text-anchor': 'middle', 'dominant-baseline': 'middle', fill: '#ffffff', 'font-size': '9', 'font-family': 'Segoe UI, sans-serif', 'font-weight': '700', 'pointer-events': 'none' }, yg).textContent = 'O';
+        const np = TIP[noDir];
+        const ng = el('g', { 'data-type': 'decision-dir-badge', 'data-shape-id': String(s.id), cursor: 'pointer' }, g);
+        el('circle', { cx: np.x, cy: np.y, r: '10', fill: '#f97316', stroke: '#ea580c', 'stroke-width': '1.5' }, ng);
+        el('text', { x: String(np.x), y: String(np.y), 'text-anchor': 'middle', 'dominant-baseline': 'middle', fill: '#ffffff', 'font-size': '9', 'font-family': 'Segoe UI, sans-serif', 'font-weight': '700', 'pointer-events': 'none' }, ng).textContent = 'N';
+      } else {
+        const hx = s.x + s.w + 10, hy = s.y - 10;
+        const hg = el('g', { 'data-type': 'decision-dir-badge', 'data-shape-id': String(s.id), 'data-export-hidden': '1', cursor: 'pointer' }, g);
+        el('circle', { cx: hx, cy: hy, r: '9', fill: '#ffffff', stroke: '#d1d5db', 'stroke-width': '1.5' }, hg);
+        el('text', { x: String(hx), y: String(hy), 'text-anchor': 'middle', 'dominant-baseline': 'middle', fill: '#9ca3af', 'font-size': '9', 'font-family': 'Segoe UI, sans-serif', 'font-weight': '700', 'pointer-events': 'none' }, hg).textContent = '?';
+      }
     } else {
       shapeEl = el('path', {
         d: wavyPath(s.x, s.y, s.w, s.h),
@@ -2172,29 +2112,18 @@ function onDown(e) {
       return;
     }
 
-    // Decision badge click — cycle Oui/Non on connections from a diamond
-    const badgeEl = e.target.closest('[data-type="decision-badge"]');
-    if (badgeEl) {
-      const cid  = parseInt(badgeEl.getAttribute('data-conn-id'));
-      const conn = state.connections.find(c => c.id === cid);
-      if (conn) {
-        const diamond = state.shapes.find(s => s.id === conn.fromId);
-        if (diamond && diamond.type === 'decision') {
-          if (!conn.decisionBranch) {
-            // First click: apply geometry suggestion if available, else start with 'yes'
-            const sug = _decisionBranch_suggest(conn, diamond);
-            conn.decisionBranch = sug || 'yes';
-            if (sug) {
-              const other = state.connections.find(c => c.fromId === diamond.id && c.id !== conn.id);
-              if (other) other.decisionBranch = sug === 'yes' ? 'no' : 'yes';
-            }
-          } else {
-            const cycle = { 'yes': 'no', 'no': null };
-            conn.decisionBranch = cycle[conn.decisionBranch] ?? null;
-          }
-          snapshot();
-          renderConnections();
-        }
+    // Decision direction badge click — cycle direction of O/N on diamond shape
+    const dirBadgeEl = e.target.closest('[data-type="decision-dir-badge"]');
+    if (dirBadgeEl) {
+      const sid = parseInt(dirBadgeEl.getAttribute('data-shape-id'));
+      const shape = state.shapes.find(s => s.id === sid);
+      if (shape && shape.type === 'decision') {
+        const dirs = [null, 'right', 'down', 'left', 'up'];
+        const cur = shape.decisionYesDir ?? null;
+        const idx = dirs.indexOf(cur);
+        shape.decisionYesDir = dirs[(idx + 1) % dirs.length];
+        snapshot();
+        render();
       }
       return;
     }
@@ -3450,6 +3379,10 @@ function _buildExportLegend(legendY, bw) {
    EXPORT SVG
    ══════════════════════════════════════════════════ */
 
+function _stripExportHidden(root) {
+  root.querySelectorAll('[data-export-hidden="1"]').forEach(el => el.remove());
+}
+
 function exportSVG() {
   if (state.shapes.length === 0) { showToast(_L('editor.toast.no_shapes_export')); return; }
 
@@ -3484,7 +3417,9 @@ function exportSVG() {
 
   // Clone content groups (bands, connections, shapes — no handles/overlay)
   for (const gId of ['g-bands', 'g-legend', 'g-connections', 'g-shapes']) {
-    exportSVGEl.appendChild(document.getElementById(gId).cloneNode(true));
+    const clone = document.getElementById(gId).cloneNode(true);
+    _stripExportHidden(clone);
+    exportSVGEl.appendChild(clone);
   }
 
   const svgStr = new XMLSerializer().serializeToString(exportSVGEl);
@@ -3530,7 +3465,9 @@ function exportPDF() {
   exportEl.appendChild(defs);
   exportEl.appendChild(_buildExportLegend(legendY, bw));
   for (const gId of ['g-bands', 'g-legend', 'g-connections', 'g-shapes']) {
-    exportEl.appendChild(document.getElementById(gId).cloneNode(true));
+    const clone = document.getElementById(gId).cloneNode(true);
+    _stripExportHidden(clone);
+    exportEl.appendChild(clone);
   }
 
   const svgStr = new XMLSerializer().serializeToString(exportEl);
