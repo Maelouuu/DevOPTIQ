@@ -173,6 +173,11 @@ select {
 .choice-badge--yes { background: #22c55e; }
 .choice-badge--no  { background: #f97316; }
 
+/* DCP status label (used in gestion_rh + activities_list) */
+.ref-file-bar-label { display:flex; align-items:center; gap:6px; color:#6b21a8; font-size:0.82rem; }
+.ref-file-bar-label.has-file { color: #16a34a; }
+.ref-file-bar-label.no-file  { color: #9ca3af; }
+
 .cross-carto-badge {
   display: inline-flex;
   align-items: center;

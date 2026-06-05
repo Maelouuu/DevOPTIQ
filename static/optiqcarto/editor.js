@@ -2548,9 +2548,22 @@ function onMove(e) {
   /* ── Hover tracking (tous les modes — port handles) ── */
   const hoverTarget = e.target.closest('[data-type="shape"]');
   const portTarget  = !hoverTarget ? e.target.closest('[data-port]') : null;
-  const newHover = hoverTarget
+  let newHover = hoverTarget
     ? parseInt(hoverTarget.getAttribute('data-id'))
     : (portTarget ? parseInt(portTarget.getAttribute('data-shape-id')) : null);
+  // Fallback: expand detection to border/stroke area so ports stay visible near edges
+  if (newHover === null && !portDrag && !isDragging) {
+    const { x: hx, y: hy } = screenToSVG(e.clientX, e.clientY);
+    const BORDER = 12;
+    for (let i = state.shapes.length - 1; i >= 0; i--) {
+      const s = state.shapes[i];
+      if (hx >= s.x - BORDER && hx <= s.x + s.w + BORDER &&
+          hy >= s.y - BORDER && hy <= s.y + s.h + BORDER) {
+        newHover = s.id;
+        break;
+      }
+    }
+  }
   if (newHover !== hoverShapeId) {
     hoverShapeId = newHover;
     renderShapes();

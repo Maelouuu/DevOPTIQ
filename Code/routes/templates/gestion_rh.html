@@ -168,6 +168,33 @@
       </div>
     </div>
 
+    <!-- ═══════════════════════════════════════════════════════════════
+         SECTION 6 : Fichier de référence DCP
+    ═══════════════════════════════════════════════════════════════ -->
+    <div class="grh-card">
+      <div class="grh-card-header">
+        <i class="fa-solid fa-file-lines"></i>
+        Fichier de référence DCP
+      </div>
+      <div class="grh-card-body">
+        <p style="font-size:0.88rem; color:#64748b; margin-bottom:16px; line-height:1.55;">
+          Ce fichier Excel est utilisé pour générer automatiquement des propositions de savoir-faire,
+          aptitudes et HSC à partir des fiches de poste.<br>
+          <span style="color:#94a3b8; font-size:0.82rem;">Format attendu : colonnes <code>JobText</code>, <code>GrpName</code>, <code>CompName</code></span>
+        </p>
+        <div id="rh-dcp-status" style="display:flex; align-items:center; gap:10px; padding:10px 14px;
+            background:#f8fafc; border-radius:9px; border:1px solid #e2e8f0; margin-bottom:16px;">
+          <span id="ref-file-label-rh" class="ref-file-bar-label">
+            <i class="fa-solid fa-circle-notch fa-spin" style="font-size:0.75rem"></i>
+          </span>
+        </div>
+        <button class="btn btn-sm btn-outline" onclick="openRefFileModal()"
+            style="display:flex; align-items:center; gap:7px; font-weight:600;">
+          <i class="fa-solid fa-folder-open"></i> Gérer le fichier DCP
+        </button>
+      </div>
+    </div>
+
   </div>
 
   <!-- ═══════════════════════════════════════════════════════════════
@@ -198,6 +225,7 @@
   ═══════════════════════════════════════════════════════════════ -->
   <script src="{{ url_for('static', filename='js/gestion_rh.js') }}" defer></script>
   <script src="{{ url_for('static', filename='js/global_users_summary.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/propose_from_file.js') }}"></script>
   <script>
     // Charge dynamiquement le tableau récap via AJAX
     fetch("/competences/users/global_summary")
