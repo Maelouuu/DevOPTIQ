@@ -32,12 +32,14 @@ function getPorts(s) {
   if (s.type === 'process' || s.type === 'special') {
     const base = {};
     for (let i = 1; i <= 7; i++) {
-      base[`top-${i}`]    = { x: s.x + s.w * i / 8, y: s.y - h,         dir: 'top'    };
-      base[`bottom-${i}`] = { x: s.x + s.w * i / 8, y: s.y + s.h + h,   dir: 'bottom' };
+      const tx = (i - 1) / 6;
+      base[`top-${i}`]    = { x: s.x + s.w * tx, y: s.y - h,         dir: 'top'    };
+      base[`bottom-${i}`] = { x: s.x + s.w * tx, y: s.y + s.h + h,   dir: 'bottom' };
     }
     for (let i = 1; i <= 5; i++) {
-      base[`left-${i}`]  = { x: s.x - h,         y: s.y + s.h * i / 6, dir: 'left'  };
-      base[`right-${i}`] = { x: s.x + s.w + h,   y: s.y + s.h * i / 6, dir: 'right' };
+      const ty = (i - 1) / 4;
+      base[`left-${i}`]  = { x: s.x - h,         y: s.y + s.h * ty, dir: 'left'  };
+      base[`right-${i}`] = { x: s.x + s.w + h,   y: s.y + s.h * ty, dir: 'right' };
     }
     return base;
   }
@@ -70,15 +72,17 @@ function getDetailedPorts(s) {
     ];
   }
 
-  // 24 snap ports matching visual grid (process + special)
+  // 24 snap ports — edge-to-edge (process + special)
   const ports = [];
   for (let i = 1; i <= 7; i++) {
-    ports.push({ x: x + w * i / 8, y: y - h,      dir: 'top',    t: i / 8 });
-    ports.push({ x: x + w * i / 8, y: y + sh + h, dir: 'bottom', t: i / 8 });
+    const tx = (i - 1) / 6;
+    ports.push({ x: x + w * tx, y: y - h,      dir: 'top',    t: tx });
+    ports.push({ x: x + w * tx, y: y + sh + h, dir: 'bottom', t: tx });
   }
   for (let i = 1; i <= 5; i++) {
-    ports.push({ x: x - h,     y: y + sh * i / 6, dir: 'left',  t: i / 6 });
-    ports.push({ x: x + w + h, y: y + sh * i / 6, dir: 'right', t: i / 6 });
+    const ty = (i - 1) / 4;
+    ports.push({ x: x - h,     y: y + sh * ty, dir: 'left',  t: ty });
+    ports.push({ x: x + w + h, y: y + sh * ty, dir: 'right', t: ty });
   }
   return ports;
 }
