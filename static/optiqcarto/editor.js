@@ -70,10 +70,12 @@ function _checkRenvoiAutoLink(fromShapeId, toShapeId) {
   // Connexion originale actB → renvoi (vient d'être créée juste avant l'appel)
   const origConn = state.connections.find(c => c.fromId === fromShapeId && c.toId === toShapeId);
 
-  // Créer R2 à gauche de A avec un écart suffisant
+  // Créer R2 à gauche de A — écart calculé pour que le label de connexion soit visible
   const R2W = SHAPE_DEFAULTS['start-end'].w;
   const R2H = SHAPE_DEFAULTS['start-end'].h;
-  const r2x = Math.max(INDEX_W_SVG + 4, Math.round(actA.x - R2W - 80));
+  const _connLabel = origConn ? (origConn.label || '') : '';
+  const _labelPx   = Math.max(80, _connLabel.length * 7 + 90); // 7px/char + corners + margin
+  const r2x = Math.max(INDEX_W_SVG + 4, Math.round(actA.x - R2W - _labelPx));
   const r2y = Math.round(actA.y + actA.h / 2 - R2H / 2);
   const r2 = {
     id: state.nextId++,
@@ -99,7 +101,7 @@ function _checkRenvoiAutoLink(fromShapeId, toShapeId) {
       fromId:   r2.id,
       toId:     actA.id,
       style:    origConn ? origConn.style  : 'solid',
-      routing:  state.defaultRouting || 'smooth',
+      routing:  'orthogonal',
       color:    actB.color,
       label:    origConn ? origConn.label  : '',
       mirrorConnId: origConn ? origConn.id : null,
@@ -703,7 +705,7 @@ function renderConnections() {
 
     const fp = spreadPort(from, fdir, c.id, 'from', c.fromPortT);
     const tp = spreadPort(to,   tdir, c.id, 'to',   c.toPortT);
-    const routing = c.routing || 'smooth';
+    const routing = 'orthogonal';
 
     // Routing orthogonal pur avec évitement des formes (toutes connexions, y compris importées)
     let orthopts, d, _usedFp = fp, _usedTp = tp;

@@ -55,17 +55,6 @@
           <i class="fa-solid fa-highlighter"></i>
           <span>{{ t('editor.tool_external') }}</span>
         </button>
-        <div class="shape-sub-dropdown connect-routing-dropdown">
-          <button class="shape-sub-btn conn-routing-btn active" data-routing="smooth">
-            <i class="fa-solid fa-bezier-curve" style="font-size:13px;margin-right:6px"></i>
-            <span>{{ t('editor.conn_curve') }}</span>
-          </button>
-          <div class="shape-sub-sep"></div>
-          <button class="shape-sub-btn conn-routing-btn" data-routing="orthogonal">
-            <i class="fa-solid fa-turn-up" style="font-size:13px;margin-right:6px"></i>
-            <span>{{ t('editor.conn_orthogonal') }}</span>
-          </button>
-        </div>
       </div>
       <button class="tool-btn-top" id="btn-lasso-select" title="Box select — drag to select shapes (holds selection when off)">
         <i class="fa-solid fa-vector-square"></i>
@@ -122,11 +111,6 @@
           <button class="shape-sub-btn" data-shape-type="decision" data-shape-subtype="normal">
             <span class="shape-sub-preview shape-sub-preview--decision"></span>
             <span>{{ t('editor.shape_decision') }}</span>
-          </button>
-          <div class="shape-sub-sep"></div>
-          <button class="shape-sub-btn" data-shape-type="process" data-shape-subtype="external">
-            <span class="shape-sub-preview shape-sub-preview--external"></span>
-            <span>{{ t('editor.shape_external') }}</span>
           </button>
           <div class="shape-sub-sep"></div>
           <button class="shape-sub-btn" data-shape-type="process" data-shape-subtype="extco">
@@ -515,9 +499,6 @@
         <button class="variant-btn" id="subtype-btn-normal">
           <span class="subtype-icon-preview subtype-icon-normal"></span><span>{{ t('editor.subtype_normal') }}</span>
         </button>
-        <button class="variant-btn" id="subtype-btn-external">
-          <span class="subtype-icon-preview subtype-icon-external"></span><span>{{ t('editor.subtype_external') }}</span>
-        </button>
         <button class="variant-btn" id="subtype-btn-extco">
           <span class="subtype-icon-preview subtype-icon-extco"></span><span>{{ t('editor.subtype_extco') }}</span>
         </button>
@@ -584,19 +565,6 @@
         <label class="prop-radio-card">
           <input type="radio" name="conn-style" value="dashed" id="conn-style-dashed">
           <span class="prop-radio-icon">- - -</span><span>{{ t('editor.conn_dashed') }}</span>
-        </label>
-      </div>
-    </div>
-    <div class="prop-group">
-      <label class="prop-label">{{ t('editor.prop_conn_routing') }}</label>
-      <div class="prop-radio-row">
-        <label class="prop-radio-card">
-          <input type="radio" name="conn-routing" value="smooth" id="conn-routing-smooth" checked>
-          <span class="prop-radio-icon"><i class="fa-solid fa-bezier-curve"></i></span><span>{{ t('editor.conn_routing_curve') }}</span>
-        </label>
-        <label class="prop-radio-card">
-          <input type="radio" name="conn-routing" value="orthogonal" id="conn-routing-ortho">
-          <span class="prop-radio-icon"><i class="fa-solid fa-turn-up"></i></span><span>{{ t('editor.conn_routing_ortho') }}</span>
         </label>
       </div>
     </div>

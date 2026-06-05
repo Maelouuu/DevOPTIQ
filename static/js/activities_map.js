@@ -267,7 +267,11 @@ function initListClicks() {
         const liaisons = _reverseOriginMap[name.toLowerCase()];
         if (liaisons) _handleOriginClick(name, liaisons);
       } else if (!crossCartoMode) {
-        window.location.href = `/activities/view?activity_id=${id}`;
+        const frame = document.getElementById('carto-viewer-frame');
+        if (frame && frame.contentWindow) {
+          const name = (li.dataset.name || '').trim();
+          frame.contentWindow.postMessage({ type: 'zoom-to-activity', activityName: name }, '*');
+        }
       }
     });
   });

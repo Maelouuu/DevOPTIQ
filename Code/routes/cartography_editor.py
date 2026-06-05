@@ -162,7 +162,7 @@ def editor():
 # CARTO → DB SYNC HELPERS
 # ─────────────────────────────────────────────
 
-_ACTIVITY_TYPES = {'process', 'special'}  # 'start-end' (renvois) = cercles visuels, pas des activités
+_ACTIVITY_TYPES = {'process'}  # 'special' = sous-activités visuelles, 'start-end' = renvois visuels
 _BANDS_START_Y  = -200  # matches editor.js getBandForY()
 
 
@@ -247,7 +247,9 @@ def _do_sync(entity, diagram):
 
     for s in act_shapes:
         sid       = str(s['id'])
-        label     = (s.get('label') or '').strip() or f"Activité {sid}"
+        label     = (s.get('label') or '').strip()
+        if not label:
+            continue   # skip unnamed shapes — don't create placeholder "Activité {id}" records
         is_result = s.get('type') == 'special'
         subtype   = s.get('subtype') or 'normal'
         new_labels.add(label)
