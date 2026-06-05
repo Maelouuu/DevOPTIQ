@@ -454,6 +454,75 @@ html, body {
   display: none; /* not used in current layout */
 }
 
+/* ── Sections de la toolbar (3 groupes colorés) ── */
+.tb-section {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px 6px;
+  border-radius: 10px;
+  position: relative;
+}
+
+/* Section 1 Navigation — vert */
+.tb-section--nav {
+  background: rgba(34, 197, 94, 0.07);
+  border: 1px solid rgba(34, 197, 94, 0.18);
+}
+.tb-section--nav .tool-btn-top:hover {
+  background: rgba(34, 197, 94, 0.15);
+  border-color: rgba(34, 197, 94, 0.4);
+  color: #4ade80;
+}
+.tb-section--nav .tool-btn-top:hover i { color: #22c55e; }
+.tb-section--nav .tool-btn-top.active {
+  background: rgba(34, 197, 94, 0.18);
+  border-color: rgba(34, 197, 94, 0.45);
+}
+
+/* Section 2 Création — rose/pink */
+.tb-section--create {
+  background: rgba(236, 72, 153, 0.07);
+  border: 1px solid rgba(236, 72, 153, 0.18);
+}
+.tb-section--create .tool-btn-top:hover,
+.tb-section--create .shape-btn-top:hover {
+  background: rgba(236, 72, 153, 0.12);
+  border-color: rgba(236, 72, 153, 0.4);
+  color: #f472b6;
+}
+.tb-section--create .tool-btn-top:hover i,
+.tb-section--create .shape-btn-top:hover i { color: #ec4899; }
+.tb-section--create .tool-btn-top.active {
+  background: rgba(236, 72, 153, 0.16);
+  border-color: rgba(236, 72, 153, 0.4);
+}
+.tb-section--create .tool-btn-top.active::after {
+  background: linear-gradient(to right, #f472b6, #ec4899);
+}
+
+/* Section 3 Fichier/Actions — violet/neutre */
+.tb-section--file {
+  background: rgba(167, 139, 250, 0.07);
+  border: 1px solid rgba(167, 139, 250, 0.18);
+}
+.tb-section--file .tool-btn-top:hover {
+  background: rgba(167, 139, 250, 0.12);
+  border-color: rgba(167, 139, 250, 0.4);
+  color: #c4b5fd;
+}
+.tb-section--file .tool-btn-top:hover i { color: #a78bfa; }
+.tb-section--file .tool-btn-top.danger:hover {
+  background: rgba(239, 68, 68, 0.12);
+  border-color: rgba(239, 68, 68, 0.35);
+  color: #fca5a5;
+}
+.tb-section--file .tool-btn-top.danger:hover i { color: #ef4444; }
+.tb-section--file .tb-check-btn:hover {
+  background: rgba(34, 197, 94, 0.12);
+  border-color: rgba(34, 197, 94, 0.35);
+}
+
 /* Individual tool button for top toolbar */
 .tool-btn-top {
   position: relative;

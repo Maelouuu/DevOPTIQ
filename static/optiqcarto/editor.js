@@ -187,6 +187,7 @@ let isResizingBandHeight = false;
 let bandHeightResizingId = null;
 let bandHeightStartY = 0;
 let bandHeightStartValue = 0;
+let bandResizeShapeStarts = []; // [{shape, startY}] for shapes below the resized band
 let spaceDown = false;
 let labelEditing = null;        // { shapeId }
 let portDrag = null;            // { fromShapeId, fromPort:{x,y,dir} } — drag depuis un port
@@ -2079,6 +2080,16 @@ function onDown(e) {
     const b = state.bands.find(b => b.id === bandHeightResizingId);
     bandHeightStartY = e.clientY;
     bandHeightStartValue = b ? b.height : 180;
+    // Compute bottom Y of the resized band at start time
+    const bandIdx = state.bands.findIndex(bi => bi.id === bandHeightResizingId);
+    let bandBottomY = -200;
+    for (let j = 0; j <= bandIdx; j++) {
+      if (!state.bands[j].deleted) bandBottomY += state.bands[j].height;
+    }
+    // Store start Y of all shapes below this band so we can shift them
+    bandResizeShapeStarts = state.shapes
+      .filter(s => !s.deleted && (s.y + s.h / 2) > bandBottomY)
+      .map(s => ({ shape: s, startY: s.y }));
     canvas.style.cursor = 'ns-resize';
     return;
   }
@@ -2342,7 +2353,12 @@ function onMove(e) {
     const dy = (e.clientY - bandHeightStartY) / vpScale;
     const b = state.bands.find(b => b.id === bandHeightResizingId);
     if (b) {
-      b.height = Math.max(60, Math.round(bandHeightStartValue + dy));
+      const newHeight = Math.max(60, Math.round(bandHeightStartValue + dy));
+      const delta = newHeight - bandHeightStartValue;
+      b.height = newHeight;
+      for (const { shape, startY } of bandResizeShapeStarts) {
+        shape.y = startY + delta;
+      }
       render();
     }
     return;
@@ -2648,6 +2664,7 @@ function onUp(e) {
   if (isResizingBandHeight) {
     isResizingBandHeight = false;
     bandHeightResizingId = null;
+    bandResizeShapeStarts = [];
     canvas.style.cursor = spaceDown ? 'grab' : '';
     snapshot();
     return;

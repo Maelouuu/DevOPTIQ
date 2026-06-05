@@ -75,6 +75,20 @@ def view_activities_more():
     })
 
 
+@activities_bp.route('/view/search', methods=['GET'])
+def search_activities():
+    q = request.args.get('q', '').strip()
+    if not q:
+        return jsonify({'html': '', 'count': 0})
+    matches = (Activities.for_active_entity()
+               .filter(Activities.name.ilike(f'%{q}%'))
+               .order_by(Activities.name)
+               .all())
+    activity_data = _build_activity_data(matches)
+    html = render_template('activity_cards_partial.html', activity_data=activity_data)
+    return jsonify({'html': html, 'count': len(matches)})
+
+
 # ─── Batch loader ─────────────────────────────────────────────────────────────
 
 def _build_activity_data(activities):

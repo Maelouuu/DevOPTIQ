@@ -214,6 +214,7 @@
           currentDet.textContent = `${sfC} compétences techniques, ${hscC} comportementales`;
           currentDiv.style.display = 'flex';
           initRefFileStatus();
+          setTimeout(() => { ov.style.display = 'none'; }, 1600);
         } else {
           throw new Error(d.error || 'Erreur inconnue');
         }

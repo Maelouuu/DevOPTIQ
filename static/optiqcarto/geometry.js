@@ -24,33 +24,37 @@ function roundedDiamond(x, y, w, h, r) {
 
 /* ── Ports ──────────────────────────────────────── */
 
+// Visual hover ports: 24 grid points for activity shapes (7 top/bottom, 5 left/right)
 function getPorts(s) {
   const cx = s.x + s.w / 2, cy = s.y + s.h / 2;
   const h = s.type === 'process' ? 7 : 0;
-  const base = {
+
+  if (s.type === 'process' || s.type === 'special') {
+    const base = {};
+    for (let i = 1; i <= 7; i++) {
+      base[`top-${i}`]    = { x: s.x + s.w * i / 8, y: s.y - h,         dir: 'top'    };
+      base[`bottom-${i}`] = { x: s.x + s.w * i / 8, y: s.y + s.h + h,   dir: 'bottom' };
+    }
+    for (let i = 1; i <= 5; i++) {
+      base[`left-${i}`]  = { x: s.x - h,         y: s.y + s.h * i / 6, dir: 'left'  };
+      base[`right-${i}`] = { x: s.x + s.w + h,   y: s.y + s.h * i / 6, dir: 'right' };
+    }
+    return base;
+  }
+
+  return {
     top:    { x: cx,            y: s.y - h,         dir: 'top'    },
     bottom: { x: cx,            y: s.y + s.h + h,   dir: 'bottom' },
     left:   { x: s.x - h,       y: cy,               dir: 'left'   },
     right:  { x: s.x + s.w + h, y: cy,               dir: 'right'  },
   };
-  // Extra corner/mid ports for rectangular activity shapes only
-  if (s.type === 'process' || s.type === 'special') {
-    base['top-left']      = { x: s.x - h,           y: s.y - h,         dir: 'top'    };
-    base['top-right']     = { x: s.x + s.w + h,     y: s.y - h,         dir: 'top'    };
-    base['bottom-left']   = { x: s.x - h,           y: s.y + s.h + h,   dir: 'bottom' };
-    base['bottom-right']  = { x: s.x + s.w + h,     y: s.y + s.h + h,   dir: 'bottom' };
-    base['left-mid']      = { x: s.x - h,           y: cy - s.h / 4,    dir: 'left'   };
-    base['right-mid']     = { x: s.x + s.w + h,     y: cy - s.h / 4,    dir: 'right'  };
-  }
-  return base;
 }
 
-// Snap ports for connection drag — 16 for rectangular shapes, 10 for circles
+// Snap ports for connection drag — matches visual grid
 function getDetailedPorts(s) {
   const h = s.type === 'process' ? 7 : 0;
   const { x, y, w, h: sh } = s;
 
-  // Circles (start-end / renvoi): keep original 10 ports
   if (s.type === 'start-end') {
     return [
       { x: x + w*0.25, y: y - h,       dir: 'top',    t: 0.25 },
@@ -66,42 +70,42 @@ function getDetailedPorts(s) {
     ];
   }
 
-  // Rectangular activity shapes: 16 ports (3 per edge + 4 corners)
-  return [
-    { x: x + w*0.25, y: y - h,       dir: 'top',    t: 0.25 },
-    { x: x + w*0.50, y: y - h,       dir: 'top',    t: 0.50 },
-    { x: x + w*0.75, y: y - h,       dir: 'top',    t: 0.75 },
-    { x: x + w + h,  y: y + sh*0.33, dir: 'right',  t: 0.33 },
-    { x: x + w + h,  y: y + sh*0.50, dir: 'right',  t: 0.50 },
-    { x: x + w + h,  y: y + sh*0.67, dir: 'right',  t: 0.67 },
-    { x: x + w*0.75, y: y + sh + h,  dir: 'bottom', t: 0.75 },
-    { x: x + w*0.50, y: y + sh + h,  dir: 'bottom', t: 0.50 },
-    { x: x + w*0.25, y: y + sh + h,  dir: 'bottom', t: 0.25 },
-    { x: x - h,      y: y + sh*0.67, dir: 'left',   t: 0.67 },
-    { x: x - h,      y: y + sh*0.50, dir: 'left',   t: 0.50 },
-    { x: x - h,      y: y + sh*0.33, dir: 'left',   t: 0.33 },
-    { x: x - h,      y: y - h,       dir: 'top',    t: 0.00 },
-    { x: x + w + h,  y: y - h,       dir: 'top',    t: 1.00 },
-    { x: x - h,      y: y + sh + h,  dir: 'bottom', t: 0.00 },
-    { x: x + w + h,  y: y + sh + h,  dir: 'bottom', t: 1.00 },
-  ];
+  // 24 snap ports matching visual grid (process + special)
+  const ports = [];
+  for (let i = 1; i <= 7; i++) {
+    ports.push({ x: x + w * i / 8, y: y - h,      dir: 'top',    t: i / 8 });
+    ports.push({ x: x + w * i / 8, y: y + sh + h, dir: 'bottom', t: i / 8 });
+  }
+  for (let i = 1; i <= 5; i++) {
+    ports.push({ x: x - h,     y: y + sh * i / 6, dir: 'left',  t: i / 6 });
+    ports.push({ x: x + w + h, y: y + sh * i / 6, dir: 'right', t: i / 6 });
+  }
+  return ports;
 }
 
 function hitShape(s, px, py) {
   return px >= s.x && px <= s.x + s.w && py >= s.y && py <= s.y + s.h;
 }
 
+function _cardinalPort(shape, dir) {
+  const h = shape.type === 'process' ? 7 : 0;
+  const cx = shape.x + shape.w / 2, cy = shape.y + shape.h / 2;
+  if (dir === 'right')  return { x: shape.x + shape.w + h, y: cy, dir: 'right' };
+  if (dir === 'left')   return { x: shape.x - h,            y: cy, dir: 'left'  };
+  if (dir === 'bottom') return { x: cx, y: shape.y + shape.h + h,  dir: 'bottom' };
+  return                       { x: cx, y: shape.y - h,             dir: 'top'   };
+}
+
 function bestExitPort(from, to) {
   const dx = (to.x + to.w / 2) - (from.x + from.w / 2);
   const dy = (to.y + to.h / 2) - (from.y + from.h / 2);
-  const p = getPorts(from);
-  if (Math.abs(dx) >= Math.abs(dy)) return dx >= 0 ? p.right : p.left;
-  return dy >= 0 ? p.bottom : p.top;
+  if (Math.abs(dx) >= Math.abs(dy)) return _cardinalPort(from, dx >= 0 ? 'right' : 'left');
+  return _cardinalPort(from, dy >= 0 ? 'bottom' : 'top');
 }
 
 function bestEntryPort(shape, fromPort) {
   const opp = { top: 'bottom', bottom: 'top', left: 'right', right: 'left' };
-  return getPorts(shape)[opp[fromPort.dir]];
+  return _cardinalPort(shape, opp[fromPort.dir]);
 }
 
 /* ── Chemins SVG ────────────────────────────────── */

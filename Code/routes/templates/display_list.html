@@ -211,40 +211,42 @@
       });
     }
 
-    // ── Recherche ────────────────────────────────────────────────────────────
+    // ── Recherche (toutes activités via API) ─────────────────────────────────
+    let _searchTimer = null;
     window.filterActivities = function(query) {
-      const q = query.trim().toLowerCase();
+      const q = query.trim();
       isSearchActive = !!q;
+      clearTimeout(_searchTimer);
 
-      if (isSearchActive) {
-        let visible = 0;
-        mainList.querySelectorAll('.activity-container').forEach(card => {
-          const name = (card.querySelector('h2') || {}).textContent || '';
-          const match = name.toLowerCase().includes(q);
-          card.style.display = match ? '' : 'none';
-          if (match) visible++;
-        });
-        if (specialInner) {
-          const sc = specialInner.querySelector('.activity-container');
-          if (sc) {
-            const name = (sc.querySelector('h2') || {}).textContent || '';
-            const match = name.toLowerCase().includes(q);
-            sc.style.display = match ? '' : 'none';
-            if (match) visible++;
-          }
-        }
-        if (loadMoreWrap) loadMoreWrap.style.display = 'none';
-        const countEl = document.getElementById('activity-search-count');
-        if (countEl) {
-          const singular = (window.PROPOSE_I18N || {}).result_singular || 'résultat';
-          const plural   = (window.PROPOSE_I18N || {}).result_plural   || 'résultats';
-          countEl.textContent = `${visible} ${visible !== 1 ? plural : singular}`;
-        }
-      } else {
+      if (!isSearchActive) {
         document.getElementById('activity-search-count').textContent = '';
         mainList.querySelectorAll('.activity-container').forEach(c => c.style.display = '');
+        if (specialInner) specialInner.querySelectorAll('.activity-container').forEach(c => c.style.display = '');
         updateLoadMoreBtn();
+        return;
       }
+
+      if (loadMoreWrap) loadMoreWrap.style.display = 'none';
+      const countEl = document.getElementById('activity-search-count');
+      if (countEl) countEl.textContent = '…';
+
+      _searchTimer = setTimeout(async () => {
+        try {
+          let url = `/activities/view/search?q=${encodeURIComponent(q)}`;
+          if (excludeId) url += `&exclude_id=${excludeId}`;
+          const resp = await fetch(url);
+          const data = await resp.json();
+          mainList.innerHTML = data.html || '';
+          if (specialInner) specialInner.querySelectorAll('.activity-container').forEach(c => c.style.display = 'none');
+          const singular = (window.PROPOSE_I18N || {}).result_singular || 'résultat';
+          const plural   = (window.PROPOSE_I18N || {}).result_plural   || 'résultats';
+          const n = data.count || 0;
+          if (countEl) countEl.textContent = `${n} ${n !== 1 ? plural : singular}`;
+        } catch(e) {
+          console.error('[search]', e);
+          if (countEl) countEl.textContent = '';
+        }
+      }, 280);
     };
 
     // ── Init ─────────────────────────────────────────────────────────────────

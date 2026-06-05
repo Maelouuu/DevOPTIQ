@@ -2,7 +2,7 @@
 
 <h3>{{ t('activity.competences') }}</h3>
 
-<ul id="competencies-list-{{ item.activity.id }}">
+<ul id="competencies-list-{{ item.activity.id }}" class="competencies-list">
   {% for comp in item.activity.competencies %}
     <li data-comp-id="{{ comp.id }}" class="sf-item">
       <!-- Mode affichage -->

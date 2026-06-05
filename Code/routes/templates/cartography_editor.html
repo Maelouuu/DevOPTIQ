@@ -44,8 +44,8 @@
 
     <div class="tb-divider-v"></div>
 
-    <!-- ── Outils ── -->
-    <div class="tb-group-top">
+    <!-- ══ Section 1 : Navigation ══ -->
+    <div class="tb-section tb-section--nav">
       <button class="tool-btn-top active" data-tool="select" title="{{ t('editor.tool_select') }} (V)">
         <i class="fa-solid fa-arrow-pointer"></i>
         <span>{{ t('editor.tool_select') }}</span>
@@ -67,20 +67,37 @@
           </button>
         </div>
       </div>
-      <button class="tool-btn-top" id="btn-group-create" title="{{ t('editor.tool_group') }} (G)">
-        <i class="fa-solid fa-object-group"></i>
-        <span>{{ t('editor.tool_group') }}</span>
-      </button>
       <button class="tool-btn-top" id="btn-lasso-select" title="Box select — drag to select shapes (holds selection when off)">
         <i class="fa-solid fa-vector-square"></i>
-        <span>Box select</span>
+        <span>Box</span>
+      </button>
+      <button class="tool-btn-top" id="btn-fit" title="{{ t('editor.btn_fit') }} (F)">
+        <i class="fa-solid fa-expand"></i>
+        <span>{{ t('editor.btn_fit') }}</span>
+      </button>
+      <button class="tool-btn-top" id="btn-undo" title="{{ t('editor.btn_undo') }} (Ctrl+Z)">
+        <i class="fa-solid fa-rotate-left"></i>
+        <span>{{ t('editor.btn_undo') }}</span>
+      </button>
+      <button class="tool-btn-top" id="btn-redo" title="{{ t('editor.btn_redo') }} (Ctrl+Y)">
+        <i class="fa-solid fa-rotate-right"></i>
+        <span>{{ t('editor.btn_redo') }}</span>
       </button>
     </div>
 
     <div class="tb-divider-v"></div>
 
-    <!-- ── Formes ── -->
-    <div class="tb-group-top">
+    <!-- ══ Section 2 : Création ══ -->
+    <div class="tb-section tb-section--create">
+      <div class="bands-tb-section" id="bands-tb-section">
+        <button class="tool-btn-top" id="btn-bands-catalog" title="{{ t('editor.btn_bands') }}">
+          <i class="fa-solid fa-layer-group"></i>
+          <span>{{ t('editor.btn_bands') }}</span>
+        </button>
+        <div class="bands-tb-dropdown" id="bands-tb-dropdown">
+          <div class="bands-tb-list" id="bands-tb-list"></div>
+        </div>
+      </div>
       <div class="shape-dropdown-wrap" id="process-shape-wrap">
         <button class="shape-btn-top" data-tool="process" title="{{ t('editor.shapes_btn') }}">
           <i class="fa-solid fa-shapes"></i>
@@ -118,12 +135,31 @@
           </button>
         </div>
       </div>
-    </div>
-
-    <div class="tb-divider-v"></div>
-
-    <!-- ── Actions ── -->
-    <div class="tb-group-top">
+      <div class="cal-section" id="cal-section">
+        <button class="tool-btn-top" id="btn-cal-toggle" title="{{ t('editor.btn_layers') }}">
+          <i class="fa-solid fa-copy"></i>
+          <span>{{ t('editor.btn_layers') }}</span>
+        </button>
+        <div class="cal-dropdown" id="cal-dropdown">
+          <div class="cal-dropdown-header">
+            <span class="cal-dropdown-title">{{ t('editor.btn_layers') }}</span>
+            <button class="cal-new-btn" id="btn-cal-new" title="{{ t('editor.no_layer') }}">
+              <i class="fa-solid fa-plus"></i>
+            </button>
+          </div>
+          <div class="cal-new-row" id="cal-new-row" style="display:none">
+            <input type="text" id="cal-new-input" class="cal-new-input" placeholder="{{ t('editor.layer_placeholder') }}" maxlength="80">
+            <button class="cal-confirm-btn" id="cal-new-confirm" title="{{ t('btn.validate') }}"><i class="fa-solid fa-check"></i></button>
+            <button class="cal-cancel-btn" id="cal-new-cancel" title="{{ t('btn.cancel') }}"><i class="fa-solid fa-xmark"></i></button>
+          </div>
+          <div class="cal-list" id="cal-list"></div>
+          <div class="cal-empty" id="cal-empty">{{ t('editor.no_layer') }}</div>
+        </div>
+      </div>
+      <button class="tool-btn-top" id="btn-group-create" title="{{ t('editor.tool_group') }} (G)">
+        <i class="fa-solid fa-object-group"></i>
+        <span>{{ t('editor.tool_group') }}</span>
+      </button>
       <button class="tool-btn-top" id="btn-add-pile" title="Créer une pile depuis la sélection (regroupement visuel)">
         <i class="fa-solid fa-layer-group"></i>
         <span>Pile</span>
@@ -132,69 +168,13 @@
         <i class="fa-solid fa-file-circle-plus"></i>
         <span>{{ t('editor.btn_new') }}</span>
       </button>
-      <button class="tool-btn-top accent" id="btn-architect" title="{{ t('editor.btn_verify') }}">
-        <i class="fa-solid fa-magnifying-glass-chart"></i>
-        <span>{{ t('editor.btn_verify') }}</span>
-      </button>
-      <button class="tool-btn-top" id="btn-place-labels" title="{{ t('editor.btn_place_labels') }}">
-        <i class="fa-solid fa-tag"></i>
-        <span>{{ t('editor.btn_place_labels') }}</span>
-      </button>
-      <button class="tool-btn-top" id="btn-undo" title="{{ t('editor.btn_undo') }} (Ctrl+Z)">
-        <i class="fa-solid fa-rotate-left"></i>
-        <span>{{ t('editor.btn_undo') }}</span>
-      </button>
-      <button class="tool-btn-top" id="btn-redo" title="{{ t('editor.btn_redo') }} (Ctrl+Y)">
-        <i class="fa-solid fa-rotate-right"></i>
-        <span>{{ t('editor.btn_redo') }}</span>
-      </button>
-      <button class="tool-btn-top" id="btn-fit" title="{{ t('editor.btn_fit') }} (F)">
-        <i class="fa-solid fa-expand"></i>
-        <span>{{ t('editor.btn_fit') }}</span>
-      </button>
-      <button class="tool-btn-top danger" id="btn-delete" title="{{ t('editor.btn_delete') }} (Suppr)">
-        <i class="fa-solid fa-trash"></i>
-        <span>{{ t('editor.btn_delete') }}</span>
-      </button>
-      <div class="bands-tb-section" id="bands-tb-section">
-        <button class="tool-btn-top" id="btn-bands-catalog" title="{{ t('editor.btn_bands') }}">
-          <i class="fa-solid fa-layer-group"></i>
-          <span>{{ t('editor.btn_bands') }}</span>
-        </button>
-        <div class="bands-tb-dropdown" id="bands-tb-dropdown">
-          <div class="bands-tb-list" id="bands-tb-list"></div>
-        </div>
-      </div>
     </div>
 
     <div class="tb-divider-v"></div>
 
-    <!-- ── Calques ── -->
-    <div class="cal-section" id="cal-section">
-      <button class="tool-btn-top" id="btn-cal-toggle" title="{{ t('editor.btn_layers') }}">
-        <i class="fa-solid fa-copy"></i>
-        <span>{{ t('editor.btn_layers') }}</span>
-      </button>
-      <div class="cal-dropdown" id="cal-dropdown">
-        <div class="cal-dropdown-header">
-          <span class="cal-dropdown-title">{{ t('editor.btn_layers') }}</span>
-          <button class="cal-new-btn" id="btn-cal-new" title="{{ t('editor.no_layer') }}">
-            <i class="fa-solid fa-plus"></i>
-          </button>
-        </div>
-        <div class="cal-new-row" id="cal-new-row" style="display:none">
-          <input type="text" id="cal-new-input" class="cal-new-input" placeholder="{{ t('editor.layer_placeholder') }}" maxlength="80">
-          <button class="cal-confirm-btn" id="cal-new-confirm" title="{{ t('btn.validate') }}"><i class="fa-solid fa-check"></i></button>
-          <button class="cal-cancel-btn" id="cal-new-cancel" title="{{ t('btn.cancel') }}"><i class="fa-solid fa-xmark"></i></button>
-        </div>
-        <div class="cal-list" id="cal-list"></div>
-        <div class="cal-empty" id="cal-empty">{{ t('editor.no_layer') }}</div>
-      </div>
-    </div>
-
-    <div class="tb-divider-v"></div>
-
-    <!-- ── Fichier ── -->
+    <!-- ══ Section 3 : Fichier / Actions ══ -->
+    <div class="tb-section tb-section--file">
+      <!-- ── Fichier ── -->
     <div class="file-folder-section" id="file-folder-section">
       <div class="folder-3d-wrap" id="btn-folder-toggle" role="button" tabindex="0" title="{{ t('editor.btn_file') }}">
         <div class="folder__back">
@@ -228,6 +208,19 @@
         </button>
       </div>
     </div>
+      <button class="tool-btn-top" id="btn-place-labels" title="{{ t('editor.btn_place_labels') }}" style="display:none">
+        <i class="fa-solid fa-tag"></i>
+        <span>{{ t('editor.btn_place_labels') }}</span>
+      </button>
+      <button class="tool-btn-top tb-check-btn" id="btn-architect" title="{{ t('editor.btn_verify') }}">
+        <i class="fa-solid fa-magnifying-glass-chart"></i>
+        <span>{{ t('editor.btn_verify') }}</span>
+      </button>
+      <button class="tool-btn-top danger" id="btn-delete" title="{{ t('editor.btn_delete') }} (Suppr)">
+        <i class="fa-solid fa-trash"></i>
+        <span>{{ t('editor.btn_delete') }}</span>
+      </button>
+    </div><!-- /.tb-section--file -->
 
   </div><!-- /.tb-center -->
 
