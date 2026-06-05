@@ -156,6 +156,23 @@ select {
   font-style: italic;
 }
 
+.choice-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: #fff;
+  margin-right: 5px;
+  vertical-align: middle;
+  flex-shrink: 0;
+}
+.choice-badge--yes { background: #22c55e; }
+.choice-badge--no  { background: #f97316; }
+
 .cross-carto-badge {
   display: inline-flex;
   align-items: center;

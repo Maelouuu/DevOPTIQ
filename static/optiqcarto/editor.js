@@ -508,10 +508,87 @@ function snapToPolyline(pts, px, py, maxPerp = 45) {
 }
 
 /* ══════════════════════════════════════════════════
-   DÉCISION — badges Oui/Non directionnels sur la forme
-   Les badges sont rendus inline dans renderShapes() pour
-   chaque losange, indépendamment de la topologie des connexions.
+   DÉCISION — logique géométrique O/N
    ══════════════════════════════════════════════════ */
+
+// Connections whose computed path passes within the diamond's circumscribed radius.
+// Requires renderConnections() to have run first (populates _computedOrthopts).
+function _nearbyConnections(diamond) {
+  const cx = diamond.x + diamond.w / 2, cy = diamond.y + diamond.h / 2;
+  const thresh = Math.hypot(diamond.w / 2, diamond.h / 2) + 8;
+  return state.connections.filter(c => {
+    const pts = c._computedOrthopts;
+    if (!pts || pts.length < 2) return false;
+    for (let i = 0; i < pts.length - 1; i++) {
+      const ax = pts[i].x, ay = pts[i].y, bx = pts[i+1].x, by = pts[i+1].y;
+      const abx = bx - ax, aby = by - ay;
+      const len2 = abx*abx + aby*aby;
+      if (len2 < 4) continue;
+      const t = Math.max(0, Math.min(1, ((cx-ax)*abx + (cy-ay)*aby) / len2));
+      if (Math.hypot(cx - (ax+t*abx), cy - (ay+t*aby)) < thresh) return true;
+    }
+    return false;
+  });
+}
+
+// After decisionYesDir changes: tag each nearby connection with choiceLabel ('Oui'/'Non')
+// so it persists in the saved JSON and syncs to Link.choice_label via _do_sync.
+function _syncChoiceLabels(diamond) {
+  const nearby = _nearbyConnections(diamond);
+  for (const c of nearby) c.choiceLabel = null;
+  if (!diamond.decisionYesDir || nearby.length === 0) return;
+  if (nearby.length === 1) { nearby[0].choiceLabel = 'Oui'; return; }
+  const CW90 = { right: 'down', down: 'left', left: 'up', up: 'right' };
+  const noDir = CW90[diamond.decisionYesDir];
+  const cx = diamond.x + diamond.w / 2, cy = diamond.y + diamond.h / 2;
+  for (const c of nearby) {
+    const pts = c._computedOrthopts;
+    if (!pts || pts.length < 2) continue;
+    let minDist = Infinity, closestIdx = 0;
+    for (let i = 0; i < pts.length; i++) {
+      const d = Math.hypot(cx - pts[i].x, cy - pts[i].y);
+      if (d < minDist) { minDist = d; closestIdx = i; }
+    }
+    const nextIdx = closestIdx + 1 < pts.length ? closestIdx + 1 : closestIdx - 1;
+    if (nextIdx < 0 || nextIdx === closestIdx) continue;
+    const dx = pts[nextIdx].x - pts[closestIdx].x, dy = pts[nextIdx].y - pts[closestIdx].y;
+    const exitDir = Math.abs(dx) >= Math.abs(dy) ? (dx >= 0 ? 'right' : 'left') : (dy >= 0 ? 'down' : 'up');
+    if (exitDir === diamond.decisionYesDir) c.choiceLabel = 'Oui';
+    else if (exitDir === noDir)             c.choiceLabel = 'Non';
+  }
+}
+
+// Small O/N badge on each connection line, at the exit point from the nearest diamond.
+function _renderChoiceBadgesOnConns() {
+  for (const conn of state.connections) {
+    if (!conn.choiceLabel) continue;
+    const pts = conn._computedOrthopts;
+    if (!pts || pts.length < 2) continue;
+    let bestDiamond = null, bestDist = Infinity;
+    for (const s of state.shapes) {
+      if (s.type !== 'decision') continue;
+      const cx = s.x + s.w / 2, cy = s.y + s.h / 2;
+      for (const p of pts) {
+        const d = Math.hypot(cx - p.x, cy - p.y);
+        if (d < bestDist) { bestDist = d; bestDiamond = s; }
+      }
+    }
+    if (!bestDiamond || bestDist > Math.hypot(bestDiamond.w/2, bestDiamond.h/2) + 20) continue;
+    const dcx = bestDiamond.x + bestDiamond.w / 2, dcy = bestDiamond.y + bestDiamond.h / 2;
+    let minDist = Infinity, closestIdx = 0;
+    for (let i = 0; i < pts.length; i++) {
+      const d = Math.hypot(dcx - pts[i].x, dcy - pts[i].y);
+      if (d < minDist) { minDist = d; closestIdx = i; }
+    }
+    const exitIdx = closestIdx + 1 < pts.length ? closestIdx + 1 : closestIdx > 0 ? closestIdx - 1 : closestIdx;
+    const bx = pts[exitIdx].x, by = pts[exitIdx].y;
+    const isYes = conn.choiceLabel === 'Oui';
+    const bg = isYes ? '#22c55e' : '#f97316', bd = isYes ? '#16a34a' : '#ea580c';
+    const badgeG = el('g', { 'pointer-events': 'none' }, gConns);
+    el('circle', { cx: bx, cy: by, r: '8', fill: bg, stroke: bd, 'stroke-width': '1.5' }, badgeG);
+    el('text', { x: String(bx), y: String(by), 'text-anchor': 'middle', 'dominant-baseline': 'middle', fill: '#ffffff', 'font-size': '8', 'font-family': 'Segoe UI, sans-serif', 'font-weight': '700' }, badgeG).textContent = isYes ? 'O' : 'N';
+  }
+}
 
 function renderConnections() {
   gConns.innerHTML = '';
@@ -862,6 +939,7 @@ function renderConnections() {
     }
     gConns.appendChild(lg);
   }
+  _renderChoiceBadgesOnConns();
 }
 
 /* ══════════════════════════════════════════════════
@@ -1036,14 +1114,17 @@ function renderShapes() {
       const CW90 = { right: 'down', down: 'left', left: 'up', up: 'right' };
       if (s.decisionYesDir) {
         const noDir = CW90[s.decisionYesDir];
+        const nearbyCount = _nearbyConnections(s).length;
         const yp = TIP[s.decisionYesDir];
         const yg = el('g', { 'data-type': 'decision-dir-badge', 'data-shape-id': String(s.id), cursor: 'pointer' }, g);
         el('circle', { cx: yp.x, cy: yp.y, r: '10', fill: '#22c55e', stroke: '#16a34a', 'stroke-width': '1.5' }, yg);
         el('text', { x: String(yp.x), y: String(yp.y), 'text-anchor': 'middle', 'dominant-baseline': 'middle', fill: '#ffffff', 'font-size': '9', 'font-family': 'Segoe UI, sans-serif', 'font-weight': '700', 'pointer-events': 'none' }, yg).textContent = 'O';
-        const np = TIP[noDir];
-        const ng = el('g', { 'data-type': 'decision-dir-badge', 'data-shape-id': String(s.id), cursor: 'pointer' }, g);
-        el('circle', { cx: np.x, cy: np.y, r: '10', fill: '#f97316', stroke: '#ea580c', 'stroke-width': '1.5' }, ng);
-        el('text', { x: String(np.x), y: String(np.y), 'text-anchor': 'middle', 'dominant-baseline': 'middle', fill: '#ffffff', 'font-size': '9', 'font-family': 'Segoe UI, sans-serif', 'font-weight': '700', 'pointer-events': 'none' }, ng).textContent = 'N';
+        if (nearbyCount !== 1) {
+          const np = TIP[noDir];
+          const ng = el('g', { 'data-type': 'decision-dir-badge', 'data-shape-id': String(s.id), cursor: 'pointer' }, g);
+          el('circle', { cx: np.x, cy: np.y, r: '10', fill: '#f97316', stroke: '#ea580c', 'stroke-width': '1.5' }, ng);
+          el('text', { x: String(np.x), y: String(np.y), 'text-anchor': 'middle', 'dominant-baseline': 'middle', fill: '#ffffff', 'font-size': '9', 'font-family': 'Segoe UI, sans-serif', 'font-weight': '700', 'pointer-events': 'none' }, ng).textContent = 'N';
+        }
       } else {
         const hx = s.x + s.w + 10, hy = s.y - 10;
         const hg = el('g', { 'data-type': 'decision-dir-badge', 'data-shape-id': String(s.id), 'data-export-hidden': '1', cursor: 'pointer' }, g);
@@ -2122,6 +2203,7 @@ function onDown(e) {
         const cur = shape.decisionYesDir ?? null;
         const idx = dirs.indexOf(cur);
         shape.decisionYesDir = dirs[(idx + 1) % dirs.length];
+        _syncChoiceLabels(shape);
         snapshot();
         render();
       }

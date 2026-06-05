@@ -11,6 +11,9 @@
         {% for conn in item.incoming %}
           <tr>
             <td>
+              {% if conn.choice_label %}
+                <span class="choice-badge choice-badge--{{ 'yes' if conn.choice_label == 'Oui' else 'no' }}">{{ conn.choice_label }}</span>
+              {% endif %}
               {% if conn.type|lower == 'déclenchante' %}
                 <span class="declenchante">{{ conn.data_name }}</span>
               {% elif conn.type|lower == 'nourrissante' %}
@@ -40,6 +43,9 @@
         {% for conn in item.outgoing %}
           <tr>
             <td>
+              {% if conn.choice_label %}
+                <span class="choice-badge choice-badge--{{ 'yes' if conn.choice_label == 'Oui' else 'no' }}">{{ conn.choice_label }}</span>
+              {% endif %}
               {% if conn.type|lower == 'déclenchante' %}
                 <span class="declenchante">{{ conn.data_name }}</span>
               {% elif conn.type|lower == 'nourrissante' %}
