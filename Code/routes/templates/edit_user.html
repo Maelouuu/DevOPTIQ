@@ -1,19 +1,5 @@
 {% include "header_buttons.html" %}
 <link rel="stylesheet" href="{{ url_for('static', filename='gestion_compte_new.css') }}">
-<script>
-  // Prévention agressive de l'autofill navigateur sur le champ nouveau mot de passe.
-  // Les navigateurs (Chrome/Firefox) n'autofillent pas les champs readonly.
-  // On retire readonly + on vide le champ après le délai d'autofill (~200ms).
-  document.addEventListener('DOMContentLoaded', () => {
-    const pw = document.getElementById('new-password-field');
-    if (!pw) return;
-    pw.value = '';
-    setTimeout(() => {
-      pw.removeAttribute('readonly');
-      pw.value = '';           // vider même si le navigateur a quand même tenté de remplir
-    }, 250);
-  });
-</script>
 
 <div class="accounts-page">
 
@@ -75,16 +61,6 @@
           </div>
         </div>
 
-        <div class="field" style="grid-column: 1 / -1;">
-          <div class="search-style-wrap">
-            <i class="fa-solid fa-lock search-style-icon"></i>
-            <input type="password" name="password" id="new-password-field"
-                   class="search-style-input search-style-input--pass"
-                   placeholder="New password (leave empty = unchanged)"
-                   autocomplete="new-password" readonly>
-          </div>
-        </div>
-
         <div class="field">
           <div class="search-style-wrap search-style-wrap--select">
             <i class="fa-solid fa-briefcase search-style-icon"></i>
@@ -119,5 +95,69 @@
       </div>
     </form>
   </section>
+
+  <!-- ── Changer le mot de passe (section séparée, sans risque d'autofill) ── -->
+  <section class="section-card" style="max-width: 680px; margin: 24px auto 0;">
+    <div class="section-card__head">
+      <div class="section-card__head-left">
+        <span class="section-icon"><i class="fa-solid fa-lock"></i></span>
+        <div>
+          <h2 class="section-card__title">Change Password</h2>
+          <p class="section-card__subtitle">Leave blank if no change needed</p>
+        </div>
+      </div>
+    </div>
+
+    <div style="display:flex; flex-direction:column; gap:12px; padding:4px 0 8px;">
+      <div class="search-style-wrap">
+        <i class="fa-solid fa-lock search-style-icon"></i>
+        <input type="password" id="chpw-new" class="search-style-input"
+               placeholder="New password (min. 6 chars)"
+               autocomplete="new-password">
+      </div>
+      <div class="search-style-wrap">
+        <i class="fa-solid fa-lock search-style-icon"></i>
+        <input type="password" id="chpw-confirm" class="search-style-input"
+               placeholder="Confirm new password"
+               autocomplete="new-password">
+      </div>
+      <div id="chpw-msg" style="font-size:0.84rem; min-height:20px;"></div>
+      <div style="display:flex; justify-content:flex-end;">
+        <button type="button" class="btn btn-pink" onclick="submitPasswordChange()">
+          <i class="fa-solid fa-key"></i> Update Password
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <script>
+  function submitPasswordChange() {
+    const newPw   = document.getElementById('chpw-new').value;
+    const confirm = document.getElementById('chpw-confirm').value;
+    const msg     = document.getElementById('chpw-msg');
+
+    if (!newPw) { msg.innerHTML = '<span style="color:#dc2626">Please enter a new password.</span>'; return; }
+    if (newPw.length < 6) { msg.innerHTML = '<span style="color:#dc2626">Minimum 6 characters.</span>'; return; }
+    if (newPw !== confirm) { msg.innerHTML = '<span style="color:#dc2626">Passwords do not match.</span>'; return; }
+
+    msg.innerHTML = '<span style="color:#6b7280"><i class="fa-solid fa-spinner fa-spin"></i> Saving…</span>';
+    fetch('/comptes/set_password/{{ user.id }}', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password: newPw })
+    })
+    .then(r => r.json())
+    .then(d => {
+      if (d.ok) {
+        msg.innerHTML = '<span style="color:#16a34a"><i class="fa-solid fa-check"></i> Password updated successfully.</span>';
+        document.getElementById('chpw-new').value = '';
+        document.getElementById('chpw-confirm').value = '';
+      } else {
+        msg.innerHTML = `<span style="color:#dc2626"><i class="fa-solid fa-triangle-exclamation"></i> ${d.error || 'Error'}</span>`;
+      }
+    })
+    .catch(() => { msg.innerHTML = '<span style="color:#dc2626">Network error.</span>'; });
+  }
+  </script>
 
 </div>

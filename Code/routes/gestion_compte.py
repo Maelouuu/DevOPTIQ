@@ -255,6 +255,24 @@ def get_subordinates(manager_id):
         ]
     })
 
+@gestion_compte_bp.route('/set_password/<int:user_id>', methods=['POST'])
+def set_password(user_id):
+    user = User.query.get_or_404(user_id)
+    data = request.get_json(silent=True) or {}
+    new_password = (data.get('password') or '').strip()
+    if len(new_password) < 6:
+        return jsonify({'ok': False, 'error': 'Le mot de passe doit contenir au moins 6 caractères.'}), 400
+    try:
+        user.password = generate_password_hash(new_password)
+        flag_modified(user, 'password')
+        db.session.add(user)
+        db.session.commit()
+        return jsonify({'ok': True})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'ok': False, 'error': str(e)}), 500
+
+
 @gestion_compte_bp.route('/import_excel', methods=['POST'])
 def import_excel():
     """

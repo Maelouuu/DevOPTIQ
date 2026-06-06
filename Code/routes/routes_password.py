@@ -61,8 +61,8 @@ def reset_password(token):
 
     error = None
     if request.method == "POST":
-        new_password = request.form.get("password", "")
-        confirm = request.form.get("confirm_password", "")
+        new_password = (request.form.get("password") or "").strip()
+        confirm      = (request.form.get("confirm_password") or "").strip()
         if len(new_password) < 6:
             error = "Le mot de passe doit contenir au moins 6 caracteres."
         elif new_password != confirm:
@@ -70,12 +70,17 @@ def reset_password(token):
         else:
             user = User.query.filter_by(email=email).first()
             if user:
-                user.password = generate_password_hash(new_password, method="pbkdf2:sha256")
-                flag_modified(user, "password")
-                db.session.add(user)
-                db.session.commit()
-                flash("Mot de passe modifie avec succes. Vous pouvez vous connecter.", "success")
-                return redirect(url_for("auth.login"))
+                try:
+                    user.password = generate_password_hash(new_password)
+                    flag_modified(user, "password")
+                    db.session.add(user)
+                    db.session.commit()
+                    flash("Mot de passe modifie avec succes. Vous pouvez vous connecter.", "success")
+                    return redirect(url_for("auth.login"))
+                except Exception as e:
+                    db.session.rollback()
+                    current_app.logger.error("[RESET_PWD] Erreur commit: %s", e)
+                    error = "Erreur serveur lors de la mise à jour. Réessayez."
             else:
                 flash("Utilisateur introuvable.", "error")
                 return redirect(url_for("auth.login"))

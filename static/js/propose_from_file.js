@@ -70,7 +70,7 @@
         <!-- Fichier actuel (affiché si un fichier est déjà chargé) -->
         <div id="rfCurrentFile" style="display:none; background:#f0fdf4; border:1px solid #86efac;
             border-radius:10px; padding:12px 16px; margin-bottom:16px;
-            display:flex; align-items:center; justify-content:space-between; gap:12px;">
+            align-items:center; justify-content:space-between; gap:12px;">
           <div>
             <div style="font-weight:700; color:#15803d; margin-bottom:3px; font-size:0.92rem;">
               <i class="fa-solid fa-file-check"></i> Fichier DCP chargé
