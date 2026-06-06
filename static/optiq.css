@@ -178,6 +178,16 @@ select {
 .ref-file-bar-label.has-file { color: #16a34a; }
 .ref-file-bar-label.no-file  { color: #9ca3af; }
 
+/* DCP mode toggle buttons (gestion_rh Section 6) */
+.dcp-mode-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 7px 14px; border-radius: 8px; font-size: 0.84rem; font-weight: 600;
+  cursor: pointer; border: 2px solid #e2e8f0; background: #f8fafc; color: #64748b;
+  transition: all 0.18s;
+}
+.dcp-mode-btn:hover:not(.dcp-mode-active) { border-color: #764ba2; color: #764ba2; background: #f5f0ff; }
+.dcp-mode-btn.dcp-mode-active { border-color: #764ba2; background: linear-gradient(135deg,#667eea,#764ba2); color: #fff; }
+
 .cross-carto-badge {
   display: inline-flex;
   align-items: center;

@@ -88,53 +88,34 @@ function addCompetency(activityId, description) {
 }
 
 
-/**
- * Ajoute une <li> dans #competencies-list-<activityId> pour la compétence
- */
 function addCompetencyItemToDOM(activityId, compId, desc) {
   const ul = document.getElementById(`competencies-list-${activityId}`);
-  if (!ul) {
-    console.warn("Impossible de trouver le UL pour activityId=", activityId);
-    return;
-  }
+  if (!ul) return;
+  const safe = desc.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+                   .replace(/"/g,'&quot;').replace(/'/g,'&#039;');
   const li = document.createElement("li");
   li.setAttribute("data-comp-id", compId);
-  li.style.marginBottom = "5px";
-
-  const span = document.createElement("span");
-  span.className = "validated-skill-text";
-  span.textContent = desc;
-
-  // Bouton éditer
-  const editBtn = document.createElement("button");
-  editBtn.style.marginLeft = "5px";
-  editBtn.innerHTML = '<i class="fa-solid fa-pencil"></i>';
-  editBtn.onclick = () => editCompetency(editBtn, compId);
-
-  // Bouton supprimer
-  const delBtn = document.createElement("button");
-  delBtn.style.marginLeft = "5px";
-  delBtn.innerHTML = '<i class="fa-solid fa-trash"></i>';
-  delBtn.onclick = () => deleteCompetency(delBtn, compId);
-
-  // Formulaire d'édition (caché)
-  const editForm = document.createElement("div");
-  editForm.className = "edit-competency-form";
-  editForm.id = `edit-competency-form-${compId}`;
-  editForm.style.display = "none";
-  editForm.style.marginTop = "5px";
-  editForm.innerHTML = `
-    <label>${_piComp('label_description', 'Description :')}</label>
-    <input type="text" id="edit-competency-desc-${compId}" value="${desc}" />
-    <button onclick="submitEditCompetency('${compId}')">${_piComp('save', 'Enregistrer')}</button>
-    <button onclick="hideEditCompetencyForm('${compId}')">${_piComp('cancel', 'Annuler')}</button>
+  li.className = "sf-item";
+  li.innerHTML = `
+    <div id="comp-display-${compId}" class="sf-display">
+      <span class="sf-text">${safe}</span>
+      <button class="icon-btn" onclick="editCompetency(this, ${compId})">
+        <i class="fa-solid fa-pencil"></i>
+      </button>
+      <button class="icon-btn" onclick="deleteCompetency(this, ${compId})">
+        <i class="fa-solid fa-trash"></i>
+      </button>
+    </div>
+    <div class="sf-edit-area" id="edit-competency-form-${compId}" style="display:none;">
+      <input type="text" class="sf-input" id="edit-competency-desc-${compId}" value="${safe}" />
+      <button class="icon-btn" onclick="submitEditCompetency('${compId}')">
+        <i class="fa-solid fa-check"></i>
+      </button>
+      <button class="icon-btn" onclick="hideEditCompetencyForm('${compId}')">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+    </div>
   `;
-
-  li.appendChild(span);
-  li.appendChild(editBtn);
-  li.appendChild(delBtn);
-  li.appendChild(editForm);
-
   ul.appendChild(li);
 }
 

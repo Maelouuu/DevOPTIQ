@@ -497,17 +497,83 @@
     ov.style.display = 'flex';
   }
 
+  // ── Mode management (Standard vs Via fichier DCP) ────────────────────────────
+
+  function getDcpMode() {
+    return localStorage.getItem('propose_mode') || 'standard';
+  }
+
+  function setDcpMode(mode) {
+    localStorage.setItem('propose_mode', mode);
+    _updateModeToggleUI(mode);
+    applyProposeModeToButtons();
+  }
+
+  function _updateModeToggleUI(mode) {
+    const btnStd  = document.getElementById('btn-mode-standard');
+    const btnFile = document.getElementById('btn-mode-file');
+    const desc    = document.getElementById('dcp-mode-desc');
+    if (btnStd)  btnStd.classList.toggle('dcp-mode-active',  mode === 'standard');
+    if (btnFile) btnFile.classList.toggle('dcp-mode-active', mode === 'file');
+    if (desc) {
+      desc.textContent = mode === 'standard'
+        ? "L'IA génère ses propositions librement en analysant le contexte de l'activité."
+        : "L'IA sélectionne les meilleures correspondances parmi les compétences du fichier DCP chargé.";
+    }
+  }
+
+  function applyProposeModeToButtons() {
+    const mode = getDcpMode();
+    document.querySelectorAll('[data-propose-type]').forEach(btn => {
+      const icon = btn.querySelector('i.fa-solid');
+      if (mode === 'file') {
+        btn.classList.remove('btn-modal-primary-propose');
+        btn.classList.add('btn-propose-from-file');
+        if (icon) icon.className = 'fa-solid fa-file-lines';
+      } else {
+        btn.classList.remove('btn-propose-from-file');
+        btn.classList.add('btn-modal-primary-propose');
+        if (icon) icon.className = 'fa-solid fa-sparkles';
+      }
+    });
+  }
+
+  function dispatchPropose(type, activityId) {
+    const mode = getDcpMode();
+    if (mode === 'file') {
+      const fileFns = { sf: proposeFromFileSF, aptitudes: proposeFromFileAptitudes, hsc: proposeFromFileHSC };
+      if (fileFns[type]) fileFns[type](activityId);
+    } else {
+      const stdFns = {
+        sf:        typeof fetchActivityDetailsForSavoirsFaires === 'function' ? fetchActivityDetailsForSavoirsFaires : null,
+        aptitudes: typeof showProposedAptitudes                === 'function' ? showProposedAptitudes                : null,
+        hsc:       typeof fetchActivityDetailsForPropose       === 'function' ? fetchActivityDetailsForPropose       : null,
+      };
+      if (stdFns[type]) stdFns[type](activityId);
+    }
+  }
+
   // ── Expose globally ───────────────────────────────────────────────────────────
   window.openRefFileModal         = openRefFileModal;
   window.initRefFileStatus        = initRefFileStatus;
   window.proposeFromFileSF        = proposeFromFileSF;
   window.proposeFromFileAptitudes = proposeFromFileAptitudes;
   window.proposeFromFileHSC       = proposeFromFileHSC;
+  window.getDcpMode               = getDcpMode;
+  window.setDcpMode               = setDcpMode;
+  window.applyProposeModeToButtons = applyProposeModeToButtons;
+  window.dispatchPropose          = dispatchPropose;
 
-  // Auto-init status bar on load
+  // Auto-init
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initRefFileStatus);
+    document.addEventListener('DOMContentLoaded', () => {
+      initRefFileStatus();
+      _updateModeToggleUI(getDcpMode());
+      applyProposeModeToButtons();
+    });
   } else {
     initRefFileStatus();
+    _updateModeToggleUI(getDcpMode());
+    applyProposeModeToButtons();
   }
 })();
