@@ -1,8 +1,9 @@
 from flask import Blueprint, render_template, request, redirect, url_for, jsonify
 from werkzeug.security import generate_password_hash
 from sqlalchemy.orm.attributes import flag_modified
+from sqlalchemy import text
 from Code.extensions import db
-from Code.models.models import User, Role, UserRole, Entity
+from Code.models.models import User, Role, UserRole, Entity, CompetencyEvaluation, TimeAnalysis
 
 gestion_compte_bp = Blueprint('gestion_compte', __name__, url_prefix='/comptes')
 
@@ -123,11 +124,25 @@ def delete_user(user_id):
 
         print(f"🗑️ Suppression de l'utilisateur: {user.first_name} {user.last_name} (ID: {user_id})")
 
-        # Supprimer d'abord les relations UserRole
-        UserRole.query.filter_by(user_id=user_id).delete()
-        print(f"   ✅ UserRole supprimés")
+        # 1. Détacher les entités dont cet user est owner
+        Entity.query.filter_by(owner_id=user_id).update({'owner_id': None})
 
-        # Supprimer l'utilisateur
+        # 2. Retirer ce user comme manager d'autres users
+        User.query.filter_by(manager_id=user_id).update({'manager_id': None})
+
+        # 3. Retirer ce user comme manager dans user_roles (manager par rôle)
+        UserRole.query.filter_by(manager_id=user_id).update({'manager_id': None})
+
+        # 4. Supprimer les évaluations de compétences liées (user_id NOT NULL)
+        CompetencyEvaluation.query.filter_by(user_id=user_id).delete()
+
+        # 5. Détacher les analyses de temps liées
+        TimeAnalysis.query.filter_by(user_id=user_id).update({'user_id': None})
+
+        # 6. Supprimer les rôles assignés
+        UserRole.query.filter_by(user_id=user_id).delete()
+
+        # 7. Supprimer l'utilisateur
         db.session.delete(user)
         db.session.commit()
         print(f"   ✅ Utilisateur supprimé")
