@@ -612,3 +612,71 @@ def run_status(run_id):
             'pct':         round(100 * passed / total) if total else 0,
             'finished_at': run.finished_at.isoformat() if run.finished_at else None,
         })
+
+
+# ── One-shot admin: transfer null-owner entities + duplicate entité de base ──
+
+@test_panel_bp.route('/admin/migrate_entities', methods=['GET', 'POST'])
+def admin_migrate_entities():
+    """
+    GET  → dry-run: shows what would happen
+    POST → executes the migration
+    """
+    from Code.models.models import Entity, User
+    from datetime import datetime
+
+    MAEL_EMAIL   = 'mael.pierre.girardin@icloud.com'
+    HUBERT_EMAIL = 'h.grandjean@afdec.fr'
+
+    mael   = User.query.filter_by(email=MAEL_EMAIL).first()
+    hubert = User.query.filter_by(email=HUBERT_EMAIL).first()
+
+    if not mael:
+        return jsonify({'error': f'User not found: {MAEL_EMAIL}'}), 404
+    if not hubert:
+        return jsonify({'error': f'User not found: {HUBERT_EMAIL}'}), 404
+
+    # Entités sans owner (anciennement "test test")
+    orphan_entities = Entity.query.filter_by(owner_id=None).all()
+
+    # Entité de base : chercher par nom
+    base_entity = (
+        Entity.query.filter(Entity.name.ilike('%entit%base%')).first()
+        or Entity.query.filter(Entity.name.ilike('%base%')).first()
+    )
+
+    report = {
+        'mael_id':        mael.id,
+        'hubert_id':      hubert.id,
+        'orphans':        [{'id': e.id, 'name': e.name} for e in orphan_entities],
+        'base_entity':    {'id': base_entity.id, 'name': base_entity.name} if base_entity else None,
+        'dry_run':        request.method == 'GET',
+    }
+
+    if request.method == 'POST':
+        # 1. Rattacher les entités orphelines à Maël
+        for e in orphan_entities:
+            e.owner_id = mael.id
+
+        # 2. Dupliquer l'entité de base pour Hubert
+        new_entity = None
+        if base_entity:
+            new_entity = Entity(
+                name            = base_entity.name + ' — Hubert',
+                description     = base_entity.description,
+                owner_id        = hubert.id,
+                svg_filename    = base_entity.svg_filename,
+                svg_content     = base_entity.svg_content,
+                vsdx_filename   = base_entity.vsdx_filename,
+                optiqcarto_data = base_entity.optiqcarto_data,
+                is_active       = False,
+                created_at      = datetime.utcnow(),
+                updated_at      = datetime.utcnow(),
+            )
+            db.session.add(new_entity)
+
+        db.session.commit()
+        report['done']       = True
+        report['new_entity_id'] = new_entity.id if new_entity else None
+
+    return jsonify(report)
