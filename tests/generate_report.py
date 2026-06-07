@@ -22,6 +22,7 @@ PAGE_LABELS = {
     "test_08_task_links":  "Drag & Drop Connexions→Tâches",
     "test_09_time":        "Gestion du Temps",
     "test_10_roles":       "Rôles",
+    "test_40_activities_perf_form": "Performance via Activities BP (Upsert, Update, Delete)",
 }
 
 
