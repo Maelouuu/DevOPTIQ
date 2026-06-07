@@ -633,6 +633,19 @@ def admin_clone_entity():
         source = Entity.query.get_or_404(source_id)
         target = Entity.query.get_or_404(target_id)
 
+        # Clean any partial data already in target (from previous failed attempts)
+        for act in Activities.query.filter_by(entity_id=target_id).all():
+            db.session.delete(act)
+        for r in Role.query.filter_by(entity_id=target_id).all():
+            db.session.delete(r)
+        for t in Tool.query.filter_by(entity_id=target_id).all():
+            db.session.delete(t)
+        for lk in Link.query.filter_by(entity_id=target_id).all():
+            db.session.delete(lk)
+        for d in Data.query.filter_by(entity_id=target_id).all():
+            db.session.delete(d)
+        db.session.flush()
+
         role_map     = {}
         tool_map     = {}
         activity_map = {}
@@ -741,8 +754,11 @@ def admin_clone_entity():
 
         # 7. Data shapes
         for d in Data.query.filter_by(entity_id=source_id).all():
-            nd = Data(entity_id=target_id, shape_id=d.shape_id, name=d.name,
-                      type=d.type, description=d.description, layer=d.layer)
+            nd = Data(
+                entity_id=target_id,
+                shape_id=f"{d.shape_id}_e{target_id}" if d.shape_id else None,
+                name=d.name, type=d.type, description=d.description, layer=d.layer,
+            )
             db.session.add(nd)
             db.session.flush()
             data_map[d.id] = nd.id
