@@ -614,6 +614,217 @@ def run_status(run_id):
         })
 
 
+# ── One-shot admin: deep clone of an entity (all related data) ───────────────
+
+@test_panel_bp.route('/admin/clone_entity', methods=['POST'])
+def admin_clone_entity():
+    """
+    POST { "source_id": 1, "target_id": <new_entity_id> }
+    Deep-clones all data from source entity into target entity (which must
+    already exist as an empty shell).
+    Returns a summary of what was copied.
+    """
+    from Code.models.models import (
+        Entity, Activities, Role, Link, Task, Tool, Competency,
+        Savoir, SavoirFaire, Aptitude, Softskill, Constraint, Data,
+        Performance, activity_roles, task_roles, task_tools
+    )
+    from sqlalchemy import insert, select
+
+    data_req = request.get_json(silent=True) or {}
+    source_id = int(data_req.get('source_id', 1))
+    target_id = int(data_req.get('target_id'))
+
+    source = Entity.query.get_or_404(source_id)
+    target = Entity.query.get_or_404(target_id)
+
+    role_map     = {}  # old_role_id  → new_role_id
+    tool_map     = {}  # old_tool_id  → new_tool_id
+    activity_map = {}  # old_act_id   → new_act_id
+    task_map     = {}  # old_task_id  → new_task_id
+    data_map     = {}  # old_data_id  → new_data_id
+    link_map     = {}  # old_link_id  → new_link_id
+
+    # ── 1. Roles ──────────────────────────────────────────────────────────────
+    for r in Role.query.filter_by(entity_id=source_id).all():
+        nr = Role(
+            entity_id=target_id,
+            name=r.name,
+            onboarding_plan=r.onboarding_plan,
+            mission_generale=r.mission_generale,
+        )
+        db.session.add(nr)
+        db.session.flush()
+        role_map[r.id] = nr.id
+
+    # ── 2. Tools (entity-level) ───────────────────────────────────────────────
+    for t in Tool.query.filter_by(entity_id=source_id).all():
+        nt = Tool(entity_id=target_id, name=t.name)
+        db.session.add(nt)
+        db.session.flush()
+        tool_map[t.id] = nt.id
+
+    # ── 3. Activities + their children ───────────────────────────────────────
+    for act in Activities.query.filter_by(entity_id=source_id).all():
+        nact = Activities(
+            entity_id=target_id,
+            shape_id=act.shape_id,
+            name=act.name,
+            description=act.description,
+            is_result=act.is_result,
+            shape_subtype=act.shape_subtype,
+            duration_minutes=act.duration_minutes,
+            delay_minutes=act.delay_minutes,
+        )
+        db.session.add(nact)
+        db.session.flush()
+        activity_map[act.id] = nact.id
+
+        # Competencies
+        for c in act.competencies:
+            db.session.add(Competency(description=c.description, activity_id=nact.id))
+        # Savoirs
+        for s in act.savoirs:
+            db.session.add(Savoir(description=s.description, activity_id=nact.id))
+        # Savoir-faires
+        for sf in act.savoir_faires:
+            db.session.add(SavoirFaire(description=sf.description, activity_id=nact.id))
+        # Aptitudes
+        for ap in act.aptitudes:
+            db.session.add(Aptitude(description=ap.description, activity_id=nact.id))
+        # Softskills
+        for sk in act.softskills:
+            db.session.add(Softskill(
+                habilete=sk.habilete,
+                niveau=sk.niveau,
+                justification=sk.justification,
+                activity_id=nact.id,
+            ))
+        # Constraints
+        for cn in act.constraints:
+            db.session.add(Constraint(description=cn.description, activity_id=nact.id))
+
+        # Tasks
+        for tk in act.tasks:
+            ntk = Task(
+                name=tk.name,
+                description=tk.description,
+                order=tk.order,
+                activity_id=nact.id,
+                duration_minutes=tk.duration_minutes,
+                delay_minutes=tk.delay_minutes,
+            )
+            db.session.add(ntk)
+            db.session.flush()
+            task_map[tk.id] = ntk.id
+
+        db.session.flush()
+
+    # ── 4. activity_roles (many-to-many) ─────────────────────────────────────
+    rows = db.session.execute(
+        select(activity_roles).where(
+            activity_roles.c.activity_id.in_(list(activity_map.keys()))
+        )
+    ).fetchall()
+    for row in rows:
+        new_act_id  = activity_map.get(row.activity_id)
+        new_role_id = role_map.get(row.role_id)
+        if new_act_id and new_role_id:
+            db.session.execute(insert(activity_roles).values(
+                activity_id=new_act_id,
+                role_id=new_role_id,
+                status=row.status,
+            ))
+
+    # ── 5. task_roles (many-to-many) ─────────────────────────────────────────
+    if task_map:
+        rows = db.session.execute(
+            select(task_roles).where(
+                task_roles.c.task_id.in_(list(task_map.keys()))
+            )
+        ).fetchall()
+        for row in rows:
+            new_task_id = task_map.get(row.task_id)
+            new_role_id = role_map.get(row.role_id)
+            if new_task_id and new_role_id:
+                db.session.execute(insert(task_roles).values(
+                    task_id=new_task_id,
+                    role_id=new_role_id,
+                    status=row.status,
+                ))
+
+    # ── 6. task_tools (many-to-many) ─────────────────────────────────────────
+    if task_map:
+        rows = db.session.execute(
+            select(task_tools).where(
+                task_tools.c.task_id.in_(list(task_map.keys()))
+            )
+        ).fetchall()
+        for row in rows:
+            new_task_id = task_map.get(row.task_id)
+            new_tool_id = tool_map.get(row.tool_id)
+            if new_task_id and new_tool_id:
+                db.session.execute(insert(task_tools).values(
+                    task_id=new_task_id,
+                    tool_id=new_tool_id,
+                ))
+
+    # ── 7. Data shapes ───────────────────────────────────────────────────────
+    from Code.models.models import Data
+    for d in Data.query.filter_by(entity_id=source_id).all():
+        nd = Data(
+            entity_id=target_id,
+            shape_id=d.shape_id,
+            name=d.name,
+            type=d.type,
+            description=d.description,
+            layer=d.layer,
+        )
+        db.session.add(nd)
+        db.session.flush()
+        data_map[d.id] = nd.id
+
+    # ── 8. Links (with remapped activity/data IDs) ────────────────────────────
+    for lk in Link.query.filter_by(entity_id=source_id).all():
+        nlk = Link(
+            entity_id=target_id,
+            source_activity_id=activity_map.get(lk.source_activity_id) if lk.source_activity_id else None,
+            source_data_id    =data_map.get(lk.source_data_id)         if lk.source_data_id     else None,
+            target_activity_id=activity_map.get(lk.target_activity_id) if lk.target_activity_id else None,
+            target_data_id    =data_map.get(lk.target_data_id)         if lk.target_data_id     else None,
+            type=lk.type,
+            description=lk.description,
+            cross_carto_liaison_id=lk.cross_carto_liaison_id,
+            cross_carto_label=lk.cross_carto_label,
+            choice_label=lk.choice_label,
+        )
+        db.session.add(nlk)
+        db.session.flush()
+        link_map[lk.id] = nlk.id
+
+        # Performance indicator on this link
+        if lk.performance:
+            db.session.add(Performance(
+                name=lk.performance.name,
+                description=lk.performance.description,
+                link_id=nlk.id,
+            ))
+
+    db.session.commit()
+
+    return jsonify({
+        'ok': True,
+        'source': source.name,
+        'target': target.name,
+        'roles':       len(role_map),
+        'tools':       len(tool_map),
+        'activities':  len(activity_map),
+        'tasks':       len(task_map),
+        'data_shapes': len(data_map),
+        'links':       len(link_map),
+    })
+
+
 # ── One-shot admin: transfer null-owner entities + duplicate entité de base ──
 
 @test_panel_bp.route('/admin/migrate_entities', methods=['GET', 'POST'])
