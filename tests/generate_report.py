@@ -51,6 +51,7 @@ PAGE_LABELS = {
     "test_37_test_panel":       "Panel de Tests Intégré (/testpanel)",
     "test_38_temps_avance":    "Gestion du Temps — Avancé (Projets, Rôles, Faiblesses)",
     "test_39_propose_from_file": "Propositions depuis Fichier Excel & Rendu Performances",
+    "test_40_cartography_translate": "Cartographie (update) & Traduction HSC (OpenAI)",
 }
 
 
