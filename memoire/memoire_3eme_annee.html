@@ -1,0 +1,1411 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mémoire de 3ème année — BUT Informatique — Maël Girardin</title>
+
+<!-- Coloration syntaxique (dégrade proprement hors-ligne) -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+
+<style>
+/* =====================================================================
+   DevOPTIQ — Mémoire 3ème année — Charte verte / rose / blanche
+   ===================================================================== */
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700;9..144,900&display=swap');
+
+:root{
+  --pink:#ec4899;  --pink-dk:#be185d;  --pink-light:#fdf2f8;  --pink-border:#fbcfe8;
+  --green:#22c55e; --green-dk:#15803d; --green-light:#f0fdf4; --green-border:#bbf7d0;
+  --ink:#111827;   --body:#374151;     --muted:#6b7280;       --line:#e5e7eb;  --light:#f9fafb;
+  --code-bg:#1e293b; --code-fg:#e2e8f0;
+  --serif:'Fraunces', Georgia, 'Times New Roman', serif;
+  --sans:'DM Sans','Segoe UI', system-ui, -apple-system, sans-serif;
+  --mono:'Cascadia Code','Consolas','SF Mono',monospace;
+}
+
+*{ box-sizing:border-box; }
+html{ -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+body{
+  font-family:var(--sans); color:var(--body); background:#e9edf2;
+  font-size:11.2pt; line-height:1.62; margin:0; padding:24px 0;
+}
+
+/* ---- Feuille A4 (marges via @page à l'impression, padding à l'écran) ---- */
+.page{
+  width:210mm; background:#fff; margin:0 auto 22px;
+  padding:18mm 17mm 20mm; position:relative; overflow:hidden;
+  box-shadow:0 8px 30px rgba(17,24,39,.14);
+}
+.page.cover{ min-height:297mm; padding:0; }
+.foot{ margin-top:30px; padding-top:10px; display:flex;
+  justify-content:space-between; font-size:8pt; color:var(--muted);
+  letter-spacing:.3px; text-transform:uppercase;
+  border-top:2px solid; border-image:linear-gradient(90deg,var(--pink),var(--green)) 1; }
+
+/* ---- Typo ---- */
+h1,h2,h3,h4{ font-family:var(--serif); color:var(--ink); line-height:1.18; font-weight:700; }
+p{ margin:0 0 11px; text-align:justify; hyphens:auto; }
+strong{ color:var(--ink); font-weight:600; }
+em{ color:var(--pink-dk); font-style:italic; }
+a{ color:var(--pink-dk); }
+ul,ol{ margin:0 0 12px; padding-left:22px; }
+li{ margin:0 0 6px; }
+
+/* ---- En-tête de partie ---- */
+.part-head{ page-break-before:always; margin:38px 0 26px; }
+.part-kicker{ font-family:var(--sans); font-weight:700; letter-spacing:3px;
+  text-transform:uppercase; font-size:9.5pt; color:var(--pink);
+  display:inline-block; padding:4px 0; border-bottom:3px solid var(--green); }
+.part-head h1{ font-size:27pt; margin:14px 0 0; font-weight:900; color:var(--pink-dk); }
+@supports ((-webkit-background-clip:text) or (background-clip:text)){
+  .part-head h1{ background:linear-gradient(120deg,var(--ink),var(--pink-dk));
+    -webkit-background-clip:text; background-clip:text; color:transparent; }
+}
+.part-head .lead{ font-size:11.5pt; color:var(--muted); margin-top:10px; max-width:88%; }
+
+h2{ font-size:16.5pt; margin:30px 0 8px; padding-left:14px;
+  border-left:5px solid var(--pink); }
+h2 .sec{ color:var(--pink); font-family:var(--sans); font-weight:700; }
+h3{ font-size:12.8pt; margin:22px 0 7px; color:#1f2937; }
+h3::before{ content:"▸ "; color:var(--green); }
+h4{ font-size:11pt; margin:16px 0 6px; color:var(--pink-dk); font-family:var(--sans);
+  font-weight:700; letter-spacing:.2px; }
+
+/* ---- Couverture ---- */
+.cover{ display:flex; flex-direction:column; justify-content:space-between;
+  padding:0; }
+.cover::after{ display:none; }
+.cover-inner{ padding:24mm 20mm; height:297mm; display:flex; flex-direction:column;
+  position:relative; z-index:2; }
+.blob{ position:absolute; border-radius:50%; filter:blur(2px); opacity:.92; z-index:0; }
+.blob.b1{ width:340px; height:340px; right:-90px; top:-70px;
+  background:radial-gradient(circle at 30% 30%,var(--pink),var(--pink-dk)); opacity:.16; }
+.blob.b2{ width:300px; height:300px; left:-110px; bottom:120px;
+  background:radial-gradient(circle at 60% 40%,var(--green),var(--green-dk)); opacity:.14; }
+.blob.b3{ width:160px; height:160px; right:60px; bottom:70px;
+  background:radial-gradient(circle at 50% 50%,var(--pink),var(--green)); opacity:.10; }
+.cover .topline{ display:flex; align-items:center; gap:14px; font-family:var(--sans);
+  font-weight:700; letter-spacing:1px; color:var(--muted); font-size:10pt; z-index:2; }
+.logo-dot{ width:42px; height:42px; border-radius:13px;
+  background:linear-gradient(135deg,var(--pink),var(--pink-dk));
+  box-shadow:0 6px 18px rgba(236,72,153,.4); display:grid; place-items:center;
+  color:#fff; font-family:var(--serif); font-weight:900; font-size:17pt; }
+.cover h1{ font-size:46pt; line-height:1.04; margin:0 0 6px; font-weight:900; color:var(--ink); }
+.cover h1 .hl{ color:var(--pink-dk); }
+@supports ((-webkit-background-clip:text) or (background-clip:text)){
+  .cover h1 .hl{ background:linear-gradient(120deg,var(--pink-dk),var(--green-dk));
+    -webkit-background-clip:text; background-clip:text; color:transparent; }
+}
+.cover .subtitle{ font-family:var(--serif); font-size:16pt; color:var(--pink-dk);
+  font-weight:600; font-style:italic; margin:2px 0 0; }
+.cover .quote{ font-family:var(--serif); font-style:italic; font-size:13pt;
+  color:var(--muted); margin:18px 0 0; }
+.cover-mid{ margin-top:auto; }
+.cover-meta{ display:grid; grid-template-columns:1fr 1fr; gap:2px 26px;
+  border-top:3px solid; border-image:linear-gradient(90deg,var(--pink),var(--green)) 1;
+  padding-top:18px; margin-top:22px; z-index:2; }
+.cover-meta .row{ padding:7px 0; border-bottom:1px solid var(--line); }
+.cover-meta .k{ font-family:var(--sans); font-size:8pt; letter-spacing:1.5px;
+  text-transform:uppercase; color:var(--pink); font-weight:700; }
+.cover-meta .v{ font-size:11pt; color:var(--ink); font-weight:500; }
+.cover-foot{ margin-top:20px; font-size:9pt; color:var(--muted); z-index:2; }
+
+/* ---- Cartes & encadrés ---- */
+.card{ border:1.5px solid var(--line); border-radius:14px; padding:16px 18px;
+  margin:16px 0; background:var(--light); }
+.card-pink{ border-color:var(--pink-border); background:var(--pink-light); }
+.card-green{ border-color:var(--green-border); background:var(--green-light); }
+.card h4{ margin-top:0; }
+.card-title{ font-family:var(--sans); font-weight:700; font-size:10.5pt;
+  display:flex; align-items:center; gap:9px; margin-bottom:8px; color:var(--ink); }
+.chip{ display:inline-block; font-family:var(--sans); font-size:8pt; font-weight:700;
+  letter-spacing:.6px; text-transform:uppercase; padding:3px 9px; border-radius:999px; }
+.chip-pink{ background:var(--pink); color:#fff; }
+.chip-green{ background:var(--green-dk); color:#fff; }
+.chip-out{ background:#fff; border:1.5px solid var(--pink-border); color:var(--pink-dk); }
+
+.callout{ display:grid; grid-template-columns:46px 1fr; gap:14px; align-items:start;
+  border-radius:14px; padding:15px 18px; margin:16px 0; }
+.callout .ic{ width:46px; height:46px; border-radius:12px; display:grid; place-items:center;
+  font-size:20pt; color:#fff; }
+.callout.why{ background:var(--pink-light); border:1.5px solid var(--pink-border); }
+.callout.why .ic{ background:linear-gradient(135deg,var(--pink),var(--pink-dk)); }
+.callout.learn{ background:var(--green-light); border:1.5px solid var(--green-border); }
+.callout.learn .ic{ background:linear-gradient(135deg,var(--green),var(--green-dk)); }
+.callout .lab{ font-family:var(--sans); font-weight:700; font-size:8.5pt; letter-spacing:1.5px;
+  text-transform:uppercase; margin-bottom:3px; }
+.callout.why .lab{ color:var(--pink-dk); }
+.callout.learn .lab{ color:var(--green-dk); }
+.callout p{ margin:0; }
+
+/* champ à compléter par l'auteur */
+.todo{ border:2px dashed var(--pink); border-radius:12px; background:repeating-linear-gradient(
+  45deg,#fff,#fff 12px,var(--pink-light) 12px,var(--pink-light) 24px);
+  padding:14px 16px; margin:16px 0; }
+.todo .lab{ font-family:var(--sans); font-weight:700; font-size:8.5pt; letter-spacing:1.2px;
+  text-transform:uppercase; color:var(--pink-dk); display:flex; align-items:center; gap:8px; }
+.todo p{ margin:6px 0 0; font-size:10pt; color:#7a5; color:var(--body); font-style:italic; }
+.todo .ph{ margin-top:8px; height:34px; border-bottom:2px dotted var(--muted); }
+
+/* visuel à insérer */
+.figure-ph{ border:2px dashed var(--green); border-radius:12px; background:var(--green-light);
+  padding:22px; margin:16px 0; text-align:center; color:var(--green-dk); }
+.figure-ph .ic{ font-size:26pt; }
+.figure-ph .lab{ font-family:var(--sans); font-weight:700; font-size:9pt; letter-spacing:1px;
+  text-transform:uppercase; margin-top:6px; }
+.figure-ph .desc{ font-size:9.5pt; color:var(--body); margin-top:6px; font-style:italic; }
+figcaption{ font-size:8.7pt; color:var(--muted); text-align:center; margin-top:7px;
+  font-family:var(--sans); }
+figcaption b{ color:var(--pink-dk); }
+
+/* ---- Comparatif de code ---- */
+.compare{ margin:18px 0; }
+.code-block{ border-radius:12px; overflow:hidden; margin:9px 0;
+  border:1px solid #0f172a; box-shadow:0 4px 14px rgba(15,23,42,.18); }
+.code-head{ display:flex; align-items:center; justify-content:space-between;
+  padding:7px 14px; font-family:var(--sans); font-size:8.5pt; font-weight:700;
+  letter-spacing:.8px; text-transform:uppercase; color:#fff; }
+.code-head.avant{ background:linear-gradient(90deg,var(--pink-dk),var(--pink)); }
+.code-head.apres{ background:linear-gradient(90deg,var(--green-dk),var(--green)); }
+.code-head .file{ font-family:var(--mono); font-weight:500; text-transform:none;
+  letter-spacing:0; opacity:.92; font-size:8pt; }
+pre{ margin:10px 0; }
+pre code, pre code.hljs{ display:block; background:var(--code-bg) !important; color:var(--code-fg);
+  font-family:var(--mono); font-size:8.3pt; line-height:1.5; padding:13px 15px;
+  white-space:pre-wrap; word-break:break-word; border-radius:10px; }
+.code-block pre code, .code-block pre code.hljs{ border-radius:0; }
+:not(pre) > code{ font-family:var(--mono); font-size:.86em; background:#f1f5f9;
+  color:var(--pink-dk); padding:1px 5px; border-radius:5px; }
+.hljs-keyword,.hljs-built_in{ color:#f472b6 !important; }
+.hljs-string,.hljs-meta-string{ color:#86efac !important; }
+.hljs-comment{ color:#7d8aa3 !important; font-style:italic; }
+.hljs-title,.hljs-title.function_,.hljs-section{ color:#fde68a !important; }
+.hljs-number,.hljs-literal{ color:#fca5a5 !important; }
+.hljs-attr,.hljs-attribute,.hljs-property{ color:#93c5fd !important; }
+.hljs-params{ color:#e2e8f0 !important; }
+
+/* ---- Tableaux ---- */
+table{ width:100%; border-collapse:collapse; margin:14px 0; font-size:9.6pt; }
+th{ background:var(--ink); color:#fff; text-align:left; padding:8px 11px;
+  font-family:var(--sans); font-weight:600; font-size:9pt; }
+th:first-child{ border-top-left-radius:8px; } th:last-child{ border-top-right-radius:8px; }
+td{ border:1px solid var(--line); padding:7px 11px; vertical-align:top; }
+tr:nth-child(even) td{ background:var(--light); }
+td code{ font-size:8.6pt; }
+
+/* ---- Métriques ---- */
+.metrics{ display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin:18px 0; }
+.metric{ border:1.5px solid var(--line); border-radius:14px; padding:14px 12px; text-align:center;
+  background:linear-gradient(180deg,#fff,var(--light)); }
+.metric .n{ font-family:var(--serif); font-weight:900; font-size:23pt; line-height:1; color:var(--pink-dk); }
+@supports ((-webkit-background-clip:text) or (background-clip:text)){
+  .metric .n{ background:linear-gradient(120deg,var(--pink-dk),var(--green-dk));
+    -webkit-background-clip:text; background-clip:text; color:transparent; }
+}
+.metric .l{ font-family:var(--sans); font-size:8.3pt; color:var(--muted); margin-top:6px;
+  text-transform:uppercase; letter-spacing:.6px; font-weight:600; }
+
+/* ---- Sommaire ---- */
+.toc{ margin-top:6px; }
+.toc h1{ font-size:24pt; margin-bottom:18px; }
+.toc-row{ display:flex; align-items:baseline; gap:10px; padding:7px 0;
+  border-bottom:1px solid var(--line); }
+.toc-row .num{ font-family:var(--serif); font-weight:900; color:var(--pink);
+  width:40px; font-size:13pt; }
+.toc-row .lbl{ flex:1; font-weight:600; color:var(--ink); }
+.toc-row .lbl small{ display:block; font-weight:400; color:var(--muted); font-size:9pt; }
+.toc-sub{ padding:4px 0 4px 54px; color:var(--body); font-size:10pt;
+  display:flex; gap:10px; }
+.toc-sub .l{ color:var(--green-dk); font-weight:700; }
+
+.pull{ font-family:var(--serif); font-style:italic; font-size:14.5pt; color:var(--pink-dk);
+  line-height:1.4; border-left:4px solid var(--green); padding:6px 0 6px 20px; margin:22px 0; }
+
+.lead-drop::first-letter{ font-family:var(--serif); font-weight:900; font-size:40pt;
+  float:left; line-height:.82; padding:4px 10px 0 0; color:var(--pink-dk); }
+
+hr.soft{ border:0; height:1px; background:var(--line); margin:22px 0; }
+.small{ font-size:9pt; color:var(--muted); }
+.center{ text-align:center; }
+.tag-list{ display:flex; flex-wrap:wrap; gap:7px; margin:10px 0; }
+.tag{ font-family:var(--mono); font-size:8.4pt; background:var(--pink-light);
+  border:1px solid var(--pink-border); color:var(--pink-dk); padding:3px 9px; border-radius:7px; }
+
+@media print{
+  body{ background:#fff; padding:0; margin:0; }
+  .page{ margin:0; box-shadow:none; width:auto; padding:0; page-break-after:always; }
+  .page:last-of-type{ page-break-after:auto; }
+  .page.cover{ min-height:auto; }
+  .part-head{ break-before:page; page-break-before:always; }
+  .code-block,.card,.callout,table,figure,.figure-ph,.todo,.metrics,
+  .pull,.cover-meta,tr,.toc-row{ break-inside:avoid; page-break-inside:avoid; }
+  h2,h3,h4{ break-after:avoid; page-break-after:avoid; }
+  a{ color:var(--pink-dk); text-decoration:none; }
+}
+@page{ size:A4; margin:17mm 16mm 18mm; }
+@page :first{ margin:0; }
+.page.cover{ page:cover; }
+@page cover{ margin:0; }
+</style>
+</head>
+<body>
+
+<!-- ============================ COUVERTURE ============================ -->
+<section class="page cover">
+  <span class="blob b1"></span><span class="blob b2"></span><span class="blob b3"></span>
+  <div class="cover-inner">
+    <div class="topline">
+      <span class="logo-dot">O</span>
+      <span>A.F.D.E.C&nbsp;&nbsp;·&nbsp;&nbsp;DÉPARTEMENT INFORMATIQUE &nbsp;·&nbsp; PROJET DevOPTIQ</span>
+    </div>
+
+    <div style="margin-top:64px; z-index:2;">
+      <div class="part-kicker" style="border-color:var(--green);">Mémoire de fin de 3<sup>e</sup> année · Section Alternance</div>
+      <h1 style="margin-top:22px;">D'une maquette<br>à un <span class="hl">produit.</span></h1>
+      <p class="subtitle">Construire, professionnaliser et assumer le pilotage<br>d'une application de management des compétences</p>
+      <p class="quote">« Comprendre pour apprendre, décider pour faire grandir. »</p>
+    </div>
+
+    <div class="cover-mid">
+      <div class="cover-meta">
+        <div class="row"><div class="k">Auteur</div><div class="v">Maël&nbsp;GIRARDIN</div></div>
+        <div class="row"><div class="k">Formation</div><div class="v">B.U.T. Informatique — 3<sup>e</sup> année</div></div>
+        <div class="row"><div class="k">Entreprise d'accueil</div><div class="v">A.F.D.E.C — Paris&nbsp;20<sup>e</sup></div></div>
+        <div class="row"><div class="k">Maître d'apprentissage</div><div class="v">Hubert&nbsp;GRANDJEAN</div></div>
+        <div class="row"><div class="k">Projet</div><div class="v">DevOPTIQ — application web SaaS</div></div>
+        <div class="row"><div class="k">Année universitaire</div><div class="v">2025 – 2026</div></div>
+      </div>
+      <p class="cover-foot">
+        IUT — Bachelor Universitaire de Technologie, parcours Informatique.<br>
+        <em>Nota :</em> ce mémoire reproduit, avec l'autorisation de l'A.F.D.E.C, des éléments de la méthode
+        OPTIQ© et du code de l'application, faisant l'objet des dépôts&nbsp;: 00060838/2017-2019,
+        OOO79220-1/2022 et 000611383-1/2025.
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- ============================ SOMMAIRE ============================ -->
+<section class="page">
+  <div class="toc">
+    <h1>Sommaire</h1>
+
+    <div class="toc-row"><span class="num">—</span><span class="lbl">Remerciements
+      <small>Celles et ceux qui ont rendu cette année possible</small></span></div>
+    <div class="toc-row"><span class="num">—</span><span class="lbl">Introduction
+      <small>D'un projet d'étude à une responsabilité d'entreprise</small></span></div>
+
+    <div class="toc-row"><span class="num">I</span><span class="lbl">De l'environnement professionnel à l'évolution d'un projet
+      <small>L'entreprise, la mission, et le basculement de la maquette vers le produit</small></span></div>
+    <div class="toc-sub"><span class="l">A.</span> Présentation de l'A.F.D.E.C et de mon rôle</div>
+    <div class="toc-sub"><span class="l">B.</span> Historique de l'entrée en apprentissage</div>
+    <div class="toc-sub"><span class="l">C.</span> Le projet initial : la méthode OPTIQ et l'objectif « maquette »</div>
+    <div class="toc-sub"><span class="l">D.</span> Le basculement : de la maquette au produit</div>
+
+    <div class="toc-row"><span class="num">II</span><span class="lbl">Développement — la traduction technique d'une ambition
+      <small>Ce qui a été construit, pourquoi, et ce que les choix racontent</small></span></div>
+    <div class="toc-sub"><span class="l">A.</span> Le développement d'une maquette poussée</div>
+    <div class="toc-sub"><span class="l">B.</span> Choix techniques et justifications — quatre cas commentés</div>
+    <div class="toc-sub"><span class="l">C.</span> La migration vers un produit : structure, tests, documentation</div>
+
+    <div class="toc-row"><span class="num">III</span><span class="lbl">Analyse critique, bénéfices et évolution
+      <small>Regard lucide sur le travail, ses limites et ce qu'il a fait grandir</small></span></div>
+    <div class="toc-sub"><span class="l">A.</span> Analyse des résultats obtenus</div>
+    <div class="toc-sub"><span class="l">B.</span> Limites, biais et points d'évolution</div>
+    <div class="toc-sub"><span class="l">C.</span> Bénéfices pour l'entreprise, pour le projet — et pour moi</div>
+
+    <div class="toc-row"><span class="num">—</span><span class="lbl">Conclusion
+      <small>Ce que l'alternance laisse derrière elle</small></span></div>
+    <div class="toc-row"><span class="num">—</span><span class="lbl">Annexes
+      <small>Glossaire, cartographie des modules, extraits de code, feuille de temps</small></span></div>
+  </div>
+  <div class="foot"><span>Maël Girardin — Mémoire 3<sup>e</sup> année</span><span>DevOPTIQ · A.F.D.E.C</span></div>
+</section>
+
+<!-- ============================ REMERCIEMENTS ============================ -->
+<section class="page">
+  <h1 style="font-size:24pt; margin-bottom:6px;">Remerciements</h1>
+  <div style="width:70px;height:5px;background:linear-gradient(90deg,var(--pink),var(--green));border-radius:3px;margin-bottom:22px;"></div>
+
+  <p class="lead-drop">Mes premiers remerciements vont à <strong>Hubert Grandjean</strong>. Il y a deux ans, il
+  m'a confié les rênes d'un projet auquel il croyait depuis longtemps&nbsp;; cette année, il a fait bien plus
+  que me renouveler sa confiance&nbsp;: il m'a associé à la réflexion, aux décisions, et finalement à l'aventure
+  elle-même. Travailler à ses côtés, ce n'est pas exécuter des consignes, c'est construire à deux. Sa
+  bienveillance, sa rigueur et cette conviction qu'<em>on fait grandir les gens en croyant en eux</em> ont
+  façonné l'alternant — et la personne — que je suis devenu cette année.</p>
+
+  <p>Je remercie chaleureusement l'ensemble de l'équipe de l'<strong>A.F.D.E.C</strong> pour son accueil, sa
+  disponibilité et sa patience avec un développeur qui, parfois, disparaissait quelques jours dans son code.
+  Une mention particulière à <strong>Véronique Decauwer</strong>, dont l'aide sur tout ce qui touche à
+  l'administratif — un terrain qui n'est pas mon point fort — m'a été précieuse.</p>
+
+  <p>Je remercie l'équipe pédagogique de l'<strong>IUT</strong> et, plus largement, le corps enseignant du
+  B.U.T. Informatique. Beaucoup de ce que j'ai mobilisé cette année — le développement web, la méthode agile,
+  la rigueur méthodologique des projets — trouve sa source dans ces trois années de formation.</p>
+
+  <div class="todo">
+    <div class="lab">◆ à compléter — remerciements personnalisés</div>
+    <p>Ajouter ici les remerciements nominatifs propres à cette 3<sup>e</sup> année&nbsp;: tuteur pédagogique
+    IUT de l'alternance, éventuels intervenants ou partenaires (présentation en Inde, investisseurs),
+    proches t'ayant soutenu sur l'année. J'ai laissé volontairement les noms ouverts car je ne les connais
+    pas avec certitude.</p>
+  </div>
+
+  <p>Enfin, je remercie celles et ceux qui, dans l'ombre, ont rendu cette année possible&nbsp;: ma famille et
+  mes proches, dont le soutien indéfectible a été le socle silencieux de tout ce travail.</p>
+
+  <div class="foot"><span>Maël Girardin — Mémoire 3<sup>e</sup> année</span><span>Remerciements</span></div>
+</section>
+
+<!-- ============================ INTRODUCTION ============================ -->
+<section class="page">
+  <div class="part-kicker" style="border-color:var(--green);">Introduction</div>
+  <h1 style="font-size:23pt;margin:14px 0 18px;">D'un projet d'étude<br>à une responsabilité d'entreprise</h1>
+
+  <p class="lead-drop">Ce mémoire retrace l'année d'alternance que j'ai effectuée au sein de l'A.F.D.E.C,
+  en troisième année de B.U.T. Informatique. Il prolonge directement une histoire commencée un an plus tôt&nbsp;:
+  celle d'un stage de deuxième année durant lequel j'avais repris le développement d'une application bâtie autour
+  d'une méthode originale, la méthode <strong>OPTIQ©</strong>. Là où le stage m'avait permis de poser des
+  fondations, l'alternance avait une ambition d'une autre nature&nbsp;: transformer ces fondations en un véritable
+  produit.</p>
+
+  <p>Un mémoire d'alternance ne se contente pas de raconter ce qui a été fait. Il doit, au-delà du factuel,
+  porter une <strong>réflexion</strong> sur les choix opérés, justifier la démarche, et faire apparaître ce que
+  cette expérience a fait grandir en moi. C'est la ligne directrice que j'ai cherché à tenir tout au long de ces
+  pages&nbsp;: ne jamais présenter une réalisation sans interroger le <em>pourquoi</em> qui la sous-tend, et ne
+  jamais décrire une décision technique sans relier ce qu'elle dit de mon évolution — comme développeur, mais
+  aussi comme collaborateur.</p>
+
+  <div class="pull">« Au départ, l'objectif était de développer la maquette d'une application future. Le projet
+  a évolué, et notre objectif avec lui&nbsp;: il fallait désormais livrer un vrai produit, commercialisable. »</div>
+
+  <p>Cette phrase résume à elle seule le basculement qui structure tout ce mémoire. Pendant le stage, je
+  construisais une <strong>maquette</strong>&nbsp;: une démonstration des idées, une preuve de concept destinée à
+  convaincre. Pendant l'alternance, l'horizon s'est déplacé. Il ne s'agissait plus de montrer ce que
+  l'application <em>pourrait</em> être, mais de la rendre solide, attrayante, fiable — bref, de la rendre
+  <strong>vendable</strong>. Ce déplacement d'objectif a tout changé&nbsp;: la manière de structurer le code, le
+  soin apporté au visuel, l'introduction d'une documentation et d'une batterie de tests, et jusqu'à la façon
+  dont l'application sépare et protège les données de chaque client.</p>
+
+  <p>J'ai organisé ce mémoire en trois temps. La <strong>première partie</strong> situe l'environnement&nbsp;:
+  l'entreprise, la méthode OPTIQ, mon rôle, et la manière dont le projet — et mes responsabilités — ont basculé
+  d'une logique de maquette à une logique de produit. La <strong>deuxième partie</strong>, plus technique, entre
+  dans le code&nbsp;: elle décrit l'ampleur de ce qui a été développé, puis met en regard quelques cas précis de
+  « code d'hier » et de « code d'aujourd'hui » pour donner à voir, concrètement, ce que la
+  professionnalisation a signifié. La <strong>troisième partie</strong>, enfin, porte un regard critique&nbsp;:
+  elle analyse les résultats, assume les limites — notamment le choix de privilégier le fonctionnel et le visuel
+  sur la sécurité dans un temps contraint — et mesure les bénéfices pour l'entreprise comme pour moi.</p>
+
+  <p>Une mention, dès l'introduction, est nécessaire. Comme lors de mon stage, l'<strong>intelligence
+  artificielle</strong> a tenu une place importante dans ce travail — à la fois comme outil de développement et
+  comme brique intégrée à l'application elle-même. Je l'aborderai sans détour, car elle fait pleinement partie de
+  l'histoire de ce projet et de ce qu'il m'a appris.</p>
+
+  <div class="foot"><span>Maël Girardin — Mémoire 3<sup>e</sup> année</span><span>Introduction</span></div>
+</section>
+
+<!-- ============================ PARTIE I ============================ -->
+<section class="page">
+  <div class="part-head">
+    <span class="part-kicker">Partie I</span>
+    <h1>De l'environnement professionnel<br>à l'évolution d'un projet</h1>
+    <p class="lead">Avant de parler de code, il faut parler de contexte. Une décision technique ne se comprend
+    qu'à la lumière de l'entreprise qui la porte, de la méthode qu'elle défend, et de la trajectoire d'un projet
+    qui, en un an, a changé de nature.</p>
+  </div>
+
+  <h2><span class="sec">A.</span> Présentation de l'A.F.D.E.C et de mon rôle</h2>
+
+  <p class="lead-drop">L'A.F.D.E.C est un laboratoire indépendant de recherche appliquée, spécialisé dans la
+  modélisation des <strong>organisations apprenantes et performantes</strong>, dans le secteur privé comme
+  public. Fondée sur des valeurs humaines fortes et une expertise pluridisciplinaire, l'association place la
+  <em>co-construction</em> des solutions au cœur de sa démarche, afin de garantir leur durabilité et leur
+  appropriation sur le terrain.</p>
+
+  <p>Concrètement, l'A.F.D.E.C intervient dans le management des compétences, l'amélioration des processus, la
+  conduite du changement, le développement RH et l'évaluation des pratiques professionnelles. Dans le cadre de
+  partenariats — en France comme à l'international — elle accompagne les organisations à chaque étape de leur
+  évolution&nbsp;: de l'analyse des besoins à la mise en œuvre, en passant par la conception d'outils et de
+  méthodes adaptés aux réalités du terrain. Elle est particulièrement reconnue pour ses solutions en
+  <strong>gestion prévisionnelle des emplois et des compétences (GPEC)</strong>, en cartographie des compétences
+  et en dispositifs d'évaluation des savoirs, savoir-faire et savoir-être.</p>
+
+  <div class="card card-green">
+    <div class="card-title"><span class="chip chip-green">Repère</span> Une recherche qui fait norme</div>
+    <p style="margin:0;">Le travail de l'A.F.D.E.C alimente des <strong>normes françaises</strong> publiées —
+    par exemple la <strong>X50-124</strong> (« piloter les compétences pour faire face aux transitions ») ou la
+    <strong>X50-766</strong> (habiletés socio-cognitives). Ce détail n'est pas anodin pour mon travail&nbsp;:
+    plusieurs modules de l'application s'appuient explicitement sur ces référentiels, ce qui imposait une
+    fidélité méthodologique au-delà de la simple prouesse technique.</p>
+  </div>
+
+  <p>C'est une organisation qui mise avant tout sur la <strong>confiance</strong> accordée au collaborateur et
+  sur le développement de ses compétences. Cette philosophie n'est pas un simple discours&nbsp;: je l'ai vécue de
+  l'intérieur, et elle explique en grande partie la façon dont mon rôle a évolué.</p>
+
+  <h4>Mon rôle, et son évolution</h4>
+
+  <p>Je suis arrivé à l'A.F.D.E.C comme <strong>stagiaire</strong>, chargé de reprendre un développement en
+  cours. Un an plus tard, j'en termine l'alternance dans une posture radicalement différente. Le glissement
+  s'est fait par paliers, presque sans que je m'en aperçoive&nbsp;: d'abord exécutant de missions confiées, je
+  suis progressivement devenu un interlocuteur avec qui l'on <em>réfléchit</em> le produit. Les échanges avec
+  Hubert ont cessé d'être des transmissions de consignes pour devenir des discussions de conception — un
+  rapport d'égal à égal, de construction commune, où mes initiatives pouvaient infléchir une idée de départ.</p>
+
+  <div class="callout learn">
+    <div class="ic">✦</div>
+    <div>
+      <div class="lab">Ce que l'alternance a fait grandir</div>
+      <p>La bascule la plus marquante n'est pas technique mais <strong>relationnelle et décisionnelle</strong>.
+      Je ne « rendais » plus un travail&nbsp;: je co-portais une vision. Prendre des initiatives, défendre un
+      choix d'architecture, accepter qu'une de mes idées soit rediscutée puis améliorée à deux — c'est cette
+      posture de <strong>co-décideur</strong> que l'année m'a permis de travailler, bien plus que n'importe
+      quelle ligne de code.</p>
+    </div>
+  </div>
+
+  <div class="todo">
+    <div class="lab">◆ à compléter — formalisation de l'association</div>
+    <p>Tu as évoqué être arrivé stagiaire et terminer « associé avec le PDG ». C'est un point fort de ton
+    évolution, mais je ne connais pas les détails exacts (statut, date, périmètre). Préciser ici en une ou deux
+    phrases la nature de cette association — c'est un excellent marqueur de la confiance accordée et de la
+    montée en responsabilité.</p>
+  </div>
+
+  <h2><span class="sec">B.</span> Historique de l'entrée en apprentissage</h2>
+
+  <p>Mon intégration en alternance s'est faite avec une aisance rare, et pour une raison simple&nbsp;:
+  c'est dans cette même structure que j'avais réalisé mon <strong>stage de fin de deuxième année</strong>.
+  Pendant douze semaines, j'avais déjà repris une application existante, analysé ses forces et ses faiblesses,
+  et développé plusieurs modules. Quand le stage s'est terminé, le travail, lui, ne s'est pas arrêté&nbsp;: nous
+  avons continué à collaborer durant l'été. L'application avait pris de l'ampleur, mais elle était loin d'être
+  achevée.</p>
+
+  <p>L'alternance de troisième année est arrivée comme une évidence. Les trois mois d'un stage n'avaient jamais
+  suffi à mener à terme un projet de cette envergure&nbsp;: il fallait du temps long, de la continuité, et la
+  possibilité de penser le produit dans la durée plutôt que dans l'urgence d'une démonstration. L'alternance
+  offrait précisément ce cadre — un fil continu sur une année entière, là où le stage n'avait été qu'une
+  parenthèse intense.</p>
+
+  <div class="card">
+    <div class="card-title"><span class="chip chip-out">Continuité</span> Du stage à l'alternance</div>
+    <table style="margin:6px 0 0;">
+      <tr><th style="width:33%">Stage — 2<sup>e</sup> année</th><th style="width:33%">Été (transition)</th><th>Alternance — 3<sup>e</sup> année</th></tr>
+      <tr>
+        <td>12 semaines. Reprendre l'existant, consolider les bases, livrer une <strong>maquette</strong> à présenter à des investisseurs.</td>
+        <td>Poursuite de la collaboration. L'idée d'un produit complet commence à mûrir.</td>
+        <td>Une année. Transformer la maquette en <strong>produit</strong>&nbsp;: structure, visuel, documentation, tests, déploiement.</td>
+      </tr>
+    </table>
+  </div>
+
+  <div class="todo">
+    <div class="lab">◆ à compléter — dates et rythme exacts</div>
+    <p>Insérer les dates précises de l'alternance (début / fin), le rythme d'alternance IUT ↔ entreprise
+    (nombre de semaines, présentiel / distanciel), et le nom du tuteur pédagogique. Je n'ai pas ces
+    informations de façon certaine.</p>
+  </div>
+
+  <h4>Le cadre de travail : agilité, autonomie et confiance</h4>
+
+  <p>La méthode de travail s'est imposée naturellement, dans la continuité du stage&nbsp;: une approche
+  <strong>agile</strong>, terrain familier pour Hubert comme pour moi — je l'avais découverte en deuxième année
+  d'IUT. Concrètement, cela m'a laissé l'espace de coder, tester et proposer des solutions, puis d'en discuter
+  pour ajuster, améliorer ou valider. Côté rythme, après une phase de présentiel pour bien m'imprégner de la
+  vision du projet, le <strong>distanciel</strong> s'est installé comme une évidence&nbsp;: plus efficace,
+  davantage d'autonomie, une organisation qui m'est propre, ponctuée de comptes rendus réguliers.</p>
+
+  <p>L'alternance a toutefois déplacé l'équilibre par rapport au stage. Là où j'étais d'abord un exécutant qui
+  rendait des modules, je suis devenu un interlocuteur avec qui l'on pense le produit. L'autonomie s'est muée en
+  <em>responsabilité partagée</em>&nbsp;: mes propositions pouvaient infléchir une orientation, et il m'a fallu
+  apprendre à les défendre, à les nuancer, parfois à y renoncer au profit d'un compromis meilleur. Cette
+  confiance — l'A.F.D.E.C en fait une valeur — a été le carburant le plus efficace de l'année.</p>
+
+  <h2><span class="sec">C.</span> Le projet initial : la méthode OPTIQ et l'objectif « maquette »</h2>
+
+  <p>Pour comprendre le projet, il faut comprendre la méthode qu'il transpose. <strong>OPTIQ©</strong> est une
+  approche d'analyse et de transformation des organisations. Elle repose sur une cartographie fine des activités
+  et des compétences au sein d'une structure, dans le but d'en optimiser la performance globale. Elle permet de
+  visualiser les connexions entre rôles, tâches et compétences clés, tout en révélant les zones de surcharge, de
+  flou ou de sous-emploi. La méthode s'appuie sur deux outils complémentaires&nbsp;:</p>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:14px 0;">
+    <div class="card card-pink" style="margin:0;">
+      <div class="card-title"><span class="chip chip-pink">Outil 1</span> CartoColor©</div>
+      <p style="margin:0;">Une représentation graphique et colorée des activités, à la manière d'une grande
+      carte routière de l'organisation. Chacun y repère ses activités, se situe dans le flux d'informations et
+      découvre son influence sur la performance collective. Le code couleur identifie immédiatement les
+      compétences clés.</p>
+    </div>
+    <div class="card card-green" style="margin:0;">
+      <div class="card-title"><span class="chip chip-green">Outil 2</span> OPTIQFluent©</div>
+      <p style="margin:0;">Le prolongement logique de CartoColor. Il travaille sur le traitement de l'information
+      de chaque activité&nbsp;: identifier et faire progresser les compétences, définir les performances, analyser
+      la charge de travail, passer des fiches de fonction aux <strong>fiches de rôle</strong>.</p>
+    </div>
+  </div>
+
+  <p>La richesse de la méthode tient à une progression. OPTIQFluent invite à passer des <strong>fiches de
+  fonction</strong> — qui décrivent un poste — aux <strong>fiches de rôle</strong>, transversales et centrées sur
+  les activités réellement exercées&nbsp;; puis à définir des <strong>statuts</strong> qui clarifient les
+  responsabilités et organisent l'autonomie de chacun. Toute la difficulté, pour le développeur, est de
+  transposer cette finesse sans la trahir&nbsp;: une base de données trop rigide écrase la méthode, une interface
+  trop verbeuse la rend illisible. Trouver ce point d'équilibre a été un fil rouge permanent.</p>
+
+  <p>L'A.F.D.E.C a souhaité transposer cette méthode dans une application, en plaçant la cartographie comme point
+  d'entrée central. L'objectif affiché était simple à énoncer&nbsp;: <strong>rendre la méthode OPTIQ accessible à
+  tous</strong>, donner à chaque collaborateur une vue claire sur ses compétences, ses rôles, les activités qui
+  lui incombent et ses connexions au sein de l'organisation.</p>
+
+  <p>Mais, comme souvent, la simplicité de l'énoncé masquait la difficulté de la réalisation. Transposer fidèlement
+  une méthode riche dans une application suppose un travail de <strong>synthèse</strong> permanent&nbsp;: tout
+  représenter sans être ni verbeux ni redondant, et concevoir une base de données relationnelle qui reflète la
+  méthode sans sacrifier la simplicité d'usage. À cela s'ajoute une contrainte que tout développeur connaît&nbsp;:
+  une application qui transpose un objet existant sera <em>sans cesse</em> sujette à de nouvelles idées, à des
+  changements de point de vue. Il fallait donc, dès le départ, une approche <strong>modulaire et
+  modulable</strong>.</p>
+
+  <p>À ce stade — celui hérité du stage — l'ambition restait celle d'une <strong>maquette</strong>&nbsp;: une
+  démonstration convaincante des idées de la méthode, suffisamment aboutie pour séduire des investisseurs, mais
+  pas encore un produit que l'on installe chez un client, avec ses comptes, ses données cloisonnées et ses
+  garanties de fiabilité.</p>
+
+  <h2><span class="sec">D.</span> Le basculement : de la maquette au produit</h2>
+
+  <p class="lead-drop">C'est ici que se joue le cœur de cette année, et la raison d'être de ce mémoire. Au fil
+  des mois, un constat s'est imposé&nbsp;: la maquette était devenue trop convaincante pour rester une maquette.
+  Ce qui n'était qu'une <em>preuve de concept</em> méritait de devenir un <strong>produit</strong>. Ce
+  basculement n'a pas été décrété un matin&nbsp;: il a infusé dans nos discussions, puis il a reconfiguré tous mes
+  objectifs de développement.</p>
+
+  <p>Passer de la maquette au produit, ce n'est pas « finir » l'application. C'est en changer la nature.
+  Concrètement, ce virage s'est traduit par quatre chantiers que toute la suite de ce mémoire va décliner&nbsp;:</p>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:16px 0;">
+    <div class="card" style="margin:0;border-left:4px solid var(--pink);">
+      <div class="card-title">① Solidifier la structure</div>
+      <p style="margin:0;font-size:10pt;">Robustesse de la base de données, migrations sûres en production,
+      gestion d'erreurs défensive&nbsp;: une maquette plante en démo, un produit ne plante pas chez le client.</p>
+    </div>
+    <div class="card" style="margin:0;border-left:4px solid var(--green);">
+      <div class="card-title">② Soigner le visuel</div>
+      <p style="margin:0;font-size:10pt;">Une véritable identité visuelle — la charte rose / vert / blanc — pour
+      passer d'un outil fonctionnel à un produit <strong>désirable</strong>, que l'on a envie d'utiliser.</p>
+    </div>
+    <div class="card" style="margin:0;border-left:4px solid var(--pink);">
+      <div class="card-title">③ Garantir la fiabilité</div>
+      <p style="margin:0;font-size:10pt;">Une <strong>documentation complète</strong> et une <strong>batterie de
+      tests</strong> couvrant l'application&nbsp;: un produit doit pouvoir rendre compte de son propre état de
+      santé.</p>
+    </div>
+    <div class="card" style="margin:0;border-left:4px solid var(--green);">
+      <div class="card-title">④ Penser le multi-client</div>
+      <p style="margin:0;font-size:10pt;">Création de comptes, système d'<strong>entités</strong> pour cloisonner
+      les données de chaque organisation&nbsp;: le marqueur le plus net du passage à une logique commerciale.</p>
+    </div>
+  </div>
+
+  <div class="callout why">
+    <div class="ic">?</div>
+    <div>
+      <div class="lab">Le pourquoi de la décision</div>
+      <p>Pourquoi basculer, alors qu'une maquette « suffisait » ? Parce qu'un produit fini <strong>change la
+      conversation</strong>. On ne présente plus une idée à financer, on présente une solution à acheter. Ce
+      déplacement engage l'entreprise vers une logique de commercialisation — et, pour moi, il a transformé un
+      exercice de développement en un véritable projet d'<em>ingénierie produit</em>.</p>
+    </div>
+  </div>
+
+  <p>Ce basculement a aussi déplacé mes propres objectifs. Pendant le stage, ma réussite se mesurait à ce que je
+  parvenais à <em>montrer</em>. En alternance, elle s'est mise à se mesurer à ce que l'application pouvait
+  <em>encaisser</em>&nbsp;: un redémarrage serveur sans perte de données, un client qui ne voit jamais celles d'un
+  autre, une fonctionnalité qui ne casse pas quand une clé d'API est absente. La partie suivante entre dans cette
+  matière concrète.</p>
+
+  <div class="foot"><span>Partie I — De l'environnement professionnel à l'évolution d'un projet</span><span>DevOPTIQ · A.F.D.E.C</span></div>
+</section>
+
+<!-- ============================ PARTIE II ============================ -->
+<section class="page">
+  <div class="part-head">
+    <span class="part-kicker">Partie II</span>
+    <h1>Développement — la traduction<br>technique d'une ambition</h1>
+    <p class="lead">Une ambition ne vaut que par ce qu'elle devient dans le code. Cette partie décrit d'abord
+    l'étendue de ce qui a été construit, puis met en regard quelques décisions techniques précises pour montrer,
+    ligne à ligne, ce que « passer de la maquette au produit » a concrètement voulu dire.</p>
+  </div>
+
+  <h2><span class="sec">A.</span> Le développement d'une maquette poussée</h2>
+
+  <p class="lead-drop">Lorsque j'ai repris l'application, elle comptait une poignée de pages réellement
+  utilisables. Aujourd'hui, DevOPTIQ est une application web complète, organisée en une trentaine de modules
+  fonctionnels couvrant l'ensemble de la méthode OPTIQ — de la cartographie des activités jusqu'à la projection
+  métier, en passant par l'évaluation des compétences, l'analyse du temps et la génération de plans de formation
+  assistés par IA.</p>
+
+  <div class="metrics">
+    <div class="metric"><div class="n">~55</div><div class="l">Blueprints Flask<br>(modules routés)</div></div>
+    <div class="metric"><div class="n">29</div><div class="l">Modèles de<br>données</div></div>
+    <div class="metric"><div class="n">63</div><div class="l">Gabarits<br>(templates)</div></div>
+    <div class="metric"><div class="n">~69k</div><div class="l">Lignes de code<br>(Python · JS · HTML)</div></div>
+  </div>
+
+  <p>Derrière chaque module se cachent des routes Python, des requêtes SQL, des interfaces construites et
+  stylisées — mais surtout des idées et des échanges. L'architecture retenue est résolument
+  <strong>modulaire</strong>&nbsp;: un blueprint Flask par domaine fonctionnel, des modèles SQLAlchemy centralisés,
+  des gabarits Jinja2 qui s'assemblent par inclusion de partials, et un front en JavaScript <em>vanilla</em>
+  (sans framework) pour garder la maîtrise totale du comportement des pages.</p>
+
+  <h4>Un aperçu des grands domaines fonctionnels</h4>
+  <table>
+    <tr><th style="width:26%">Domaine</th><th>Ce qu'il apporte</th></tr>
+    <tr><td><strong>Cartographie OptiqCarto</strong></td><td>Éditeur SVG maison (formes, bandes, connexions, import de fichiers Visio <code>.vsdx</code>) et viewer. Point d'entrée central de la méthode.</td></tr>
+    <tr><td><strong>Activités &amp; tâches</strong></td><td>Fiche et liste des activités, tâches, outils, contraintes, données d'entrée / sortie, liens inter-activités.</td></tr>
+    <tr><td><strong>Compétences</strong></td><td>Savoirs, savoir-faire, aptitudes, HSC&nbsp;; évaluations multi-évaluateurs (Garant / Manager / RH), synthèse par rôle.</td></tr>
+    <tr><td><strong>Gestion RH &amp; comptes</strong></td><td>Rôles, affectation des collaborateurs, managers, gestion des utilisateurs et des entités.</td></tr>
+    <tr><td><strong>Performance &amp; temps</strong></td><td>Indicateurs de performance, analyse de la charge de travail par activité, rôle et utilisateur.</td></tr>
+    <tr><td><strong>Briques d'IA</strong></td><td>Propositions de compétences, plan de formation, onboarding, chatbot, import assisté, projection vers les fiches métier ROME.</td></tr>
+  </table>
+
+  <div class="figure-ph">
+    <div class="ic"><svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="#15803d" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8.5" cy="9.5" r="1.6"/><path d="M4.5 17.5 9 13l3.5 3.5L16 13l3.5 3.5"/></svg></div>
+    <div class="lab">Visuel à insérer — comparatif « avant / après » des pages disponibles</div>
+    <div class="desc">Reprendre l'idée du mémoire de 2<sup>e</sup> année&nbsp;: une capture des quelques pages
+    initiales en regard du menu actuel (la trentaine de modules). C'est la manière la plus parlante de
+    matérialiser l'élargissement fonctionnel. (Captures d'écran à fournir.)</div>
+  </div>
+
+  <h4>Trois modules emblématiques</h4>
+
+  <p>Pour donner chair à cette ampleur, trois modules méritent un mot — chacun a représenté un défi
+  particulier.</p>
+
+  <p><strong>L'éditeur de cartographie OptiqCarto</strong> est, techniquement, la pièce la plus exigeante. C'est
+  un éditeur SVG entièrement maison&nbsp;: l'utilisateur y dessine des formes, des bandes (les rôles), des
+  connexions entre activités, et peut même importer un fichier Visio (<code>.vsdx</code>) existant. Chaque
+  sauvegarde extrait les données du dessin pour les synchroniser avec les modèles de la base — la carte n'est pas
+  une image, c'est une <em>structure de données vivante</em>. Les nombreuses itérations sur les ports de
+  connexion, les badges de décision ou la persistance de l'état témoignent du raffinement que demande un éditeur
+  graphique réellement utilisable.</p>
+
+  <p><strong>La synthèse des compétences</strong> est sans doute la page la plus stratégique. Elle concentre la
+  vision globale d'un collaborateur&nbsp;: ses rôles, ses activités, ses évaluations. La développer a supposé de
+  relier plusieurs couches de logique — récupération des données, affichage dynamique, édition restreinte selon
+  les droits, écriture en base, historique. C'est là que j'ai le plus ressenti l'équilibre nécessaire entre
+  structure <em>back-end</em>, interface et expérience métier&nbsp;; c'est aussi la page qui a connu le plus de
+  versions.</p>
+
+  <p><strong>L'analyse du temps</strong>, enfin, donne de la profondeur aux données en croisant durée,
+  récurrence, fréquence et délai pour en extraire des indicateurs de charge — par activité, par rôle ou par
+  collaborateur. Elle m'a appris à concevoir une interface non comme un simple écran, mais comme un véritable
+  <strong>outil d'analyse</strong> pour l'utilisateur final, capable de rester lisible malgré la richesse des
+  informations qu'elle manipule.</p>
+
+  <p>Cette ampleur n'est pas une fin en soi. Elle est le décor sur lequel se détachent les décisions qui
+  comptent vraiment. Plutôt que de survoler trente modules, j'ai choisi d'en extraire <strong>quatre
+  cas</strong> qui racontent, chacun à leur manière, le passage de la maquette au produit.</p>
+
+  <div class="foot"><span>Partie II — Développement</span><span>A. Une maquette poussée</span></div>
+</section>
+
+<section class="page">
+  <h2><span class="sec">B.</span> Choix techniques et justifications — quatre cas commentés</h2>
+
+  <p class="lead-drop">Je dois ici une honnêteté de méthode. Le temps de l'alternance, bien que long à l'échelle
+  d'un stage, restait contraint. Face à ce temps, nous avons fait un choix assumé&nbsp;: <strong>privilégier le
+  fonctionnel et le visuel</strong> — ce qu'un client voit, touche et achète — plutôt que la sécurité de pointe
+  ou l'optimisation fine. Ce n'est pas un renoncement, c'est une priorisation. Les quatre cas qui suivent ont été
+  choisis pour illustrer cette logique&nbsp;: chacun montre une décision, son <em>pourquoi</em>, et ce qu'elle
+  traduit de notre évolution.</p>
+
+  <!-- ───────── CAS 1 ───────── -->
+  <h3>Cas n°1 — L'identité visuelle : d'un style brut à un <span style="color:var(--pink-dk)">design system</span></h3>
+
+  <p>Une maquette peut se permettre d'être laide&nbsp;: elle démontre une idée. Un produit, non&nbsp;: il doit
+  donner envie. Le premier chantier visible du virage a donc été l'<strong>identité visuelle</strong>. L'état
+  initial du style était fonctionnel mais brut&nbsp;: une feuille globale qui posait des tailles énormes
+  (<code>30px</code> partout) et des couleurs nommées « en dur », sans cohérence d'ensemble.</p>
+
+  <div class="compare">
+    <div class="code-block">
+      <div class="code-head avant"><span>● Avant — maquette · couleurs « en dur », pas de système</span><span class="file">static/optiq.css</span></div>
+<pre><code class="language-css">/* Style global — tout à ~30px, couleurs littérales */
+body {
+  font-family: Arial, sans-serif;
+  font-size: 30px;
+  line-height: 1.5;
+}
+
+.update-btn {
+  background-color: green;   /* couleur nommée, non maîtrisée */
+  color: white;
+  padding: 18px 28px;
+  border: none;
+  border-radius: 5px;
+}</code></pre>
+    </div>
+
+    <div class="code-block">
+      <div class="code-head apres"><span>● Après — produit · jetons de couleur, dégradés, charte cohérente</span><span class="file">static/connexion.css · docs/*.html</span></div>
+<pre><code class="language-css">:root {
+  --pink:    #ec4899;  --pink-dk: #be185d;   /* rose : couleur principale */
+  --green:   #22c55e;  --green-dk:#15803d;   /* vert : couleur d'accent   */
+  --light:   #f9fafb;  --border:  #e5e7eb;   --text: #111827;
+}
+
+/* Le logo et les en-têtes adoptent un dégradé de marque */
+.nav-logo {
+  background: linear-gradient(135deg, var(--pink), var(--pink-dk));
+}
+/* La page de connexion : fond « organic blobs » rose/vert, identité forte */</code></pre>
+    </div>
+  </div>
+
+  <div class="callout why">
+    <div class="ic">?</div>
+    <div>
+      <div class="lab">Ce que ce choix traduit</div>
+      <p>Passer de <code>background-color: green</code> à un <strong>système de jetons</strong>
+      (<code>--pink</code>, <code>--green</code>…) n'est pas qu'une question d'esthétique. C'est un changement de
+      posture&nbsp;: on cesse de styliser page par page pour définir un <em>langage visuel</em> réutilisable, qui
+      garantit la cohérence sur toute l'application et rend les évolutions futures triviales. C'est exactement la
+      différence entre « ça marche » et « c'est un produit ».</p>
+    </div>
+  </div>
+
+  <p>Ce langage — le rose <code>#ec4899</code>, le vert <code>#22c55e</code>, le blanc — est aujourd'hui décliné
+  partout&nbsp;: navigation, cartes, badges, dégradés. Il est suffisamment installé pour que ce mémoire lui-même
+  en soit habillé. <span class="small">(La charte de ce document <em>est</em> celle de l'application.)</span></p>
+
+  <!-- ───────── CAS 2 ───────── -->
+  <h3>Cas n°2 — Le virage commercial : le système <span style="color:var(--green-dk)">multi-entités</span></h3>
+
+  <p>Voici, à mes yeux, le marqueur le plus net du passage au produit. Une maquette manipule les données d'une
+  seule organisation — celle que l'on montre. Un produit commercialisable doit accueillir <strong>plusieurs
+  clients</strong> et garantir, de façon stricte, qu'aucun ne voit les données d'un autre. Il a donc fallu
+  introduire une notion d'<strong>entité</strong> (une organisation), un système de comptes, et cloisonner
+  <em>chaque</em> requête par entité active.</p>
+
+  <div class="compare">
+    <div class="code-block">
+      <div class="code-head avant"><span>● Avant — maquette · une seule organisation, aucune notion de propriétaire</span><span class="file">routes/activities.py (représentatif)</span></div>
+<pre><code class="language-python">@activities_bp.route("/activities")
+def list_activities():
+    # Toutes les activités de la base : une seule organisation implicite
+    activities = Activities.query.all()
+    return render_template("activities.html", activities=activities)</code></pre>
+    </div>
+
+    <div class="code-block">
+      <div class="code-head apres"><span>● Après — produit · entité active en session, isolation stricte par propriétaire</span><span class="file">Code/models/models.py</span></div>
+<pre><code class="language-python">class Entity(db.Model):
+    """Une organisation et sa cartographie. Chaque entité possède ses
+    propres données et appartient à un utilisateur (owner_id)."""
+
+    @classmethod
+    def get_active(cls, user_id=None):
+        if user_id is None:
+            user_id = session.get('user_id')
+        if not user_id:
+            return None                      # pas connecté → pas d'entité
+
+        active_entity_id = session.get('active_entity_id')
+        if active_entity_id:
+            # STRICT : l'entité doit appartenir à l'utilisateur courant
+            entity = cls.query.filter(
+                cls.id == active_entity_id,
+                cls.owner_id == user_id
+            ).first()
+            if entity:
+                return entity
+        # repli : la première entité de l'utilisateur
+        return cls.query.filter_by(owner_id=user_id).first()</code></pre>
+    </div>
+  </div>
+
+  <p>À partir de là, chaque route ne lit plus « toutes » les données, mais celles de l'entité active&nbsp;:</p>
+<pre><code class="language-python">active = Entity.get_active()                          # entité du client connecté
+activities = Activities.query.filter_by(entity_id=active.id).all()</code></pre>
+
+  <div class="callout why">
+    <div class="ic">?</div>
+    <div>
+      <div class="lab">Ce que ce choix traduit — et son ampleur</div>
+      <p>Ce n'est pas une fonctionnalité parmi d'autres&nbsp;: c'est une <strong>contrainte transversale</strong>.
+      Le cloisonnement par entité irrigue aujourd'hui l'ensemble du code — on compte plus de <strong>340</strong>
+      filtres <code>entity_id</code> et <strong>230</strong> références à l'entité active à travers les modules.
+      Décider cela, c'est accepter de repenser <em>chaque</em> requête de l'application. C'est le prix — et la
+      preuve — du passage à une logique commerciale&nbsp;: la donnée d'un client est sacrée.</p>
+    </div>
+  </div>
+
+  <p>Le commentaire même du modèle est révélateur de la maturité acquise&nbsp;: <em>« l'entité active est stockée
+  dans la session utilisateur, pas en base »</em>. Ce genre de détail — où vit l'état, et pourquoi — est
+  typiquement ce à quoi on ne pense pas dans une maquette, et ce qu'on ne peut plus ignorer dans un produit
+  multi-utilisateurs.</p>
+
+  <div class="foot"><span>Partie II — B. Choix techniques (cas 1 &amp; 2)</span><span>DevOPTIQ · A.F.D.E.C</span></div>
+</section>
+
+<section class="page">
+  <!-- ───────── CAS 3 ───────── -->
+  <h3>Cas n°3 — Penser le cloud : le <span style="color:var(--pink-dk)">stockage des fichiers</span></h3>
+
+  <p>Ce cas est mon préféré, car il illustre une vérité que la maquette ignore&nbsp;: <strong>l'environnement de
+  production a ses propres lois</strong>. L'application est déployée sur Google Cloud Run, dans un conteneur dont
+  le système de fichiers est <em>éphémère</em>&nbsp;: à chaque redémarrage ou redéploiement, tout ce qui a été
+  écrit sur le disque disparaît. Une maquette qui enregistre les fichiers uploadés sur le disque local
+  fonctionne parfaitement… jusqu'au premier redémarrage, où les fichiers des clients s'évanouissent.</p>
+
+  <div class="compare">
+    <div class="code-block">
+      <div class="code-head avant"><span>● Avant — maquette · écriture sur le disque local (volatil en cloud)</span><span class="file">routes/upload.py (représentatif)</span></div>
+<pre><code class="language-python">UPLOAD_DIR = os.path.join(app.root_path, "uploads")
+
+def upload_file():
+    f = request.files["file"]
+    path = os.path.join(UPLOAD_DIR, secure_filename(f.filename))
+    f.save(path)                      # écrit sur le disque du conteneur
+    return {"path": path}             # ... perdu au prochain redémarrage</code></pre>
+    </div>
+
+    <div class="code-block">
+      <div class="code-head apres"><span>● Après — produit · contenu binaire persistant en base (survit au cloud)</span><span class="file">Code/models/models.py · routes/export.py</span></div>
+<pre><code class="language-python">class FileBlob(db.Model):
+    """Contenu binaire des fichiers. Persistant en base
+    (PostgreSQL BYTEA / SQLite BLOB) — survit aux redémarrages cloud."""
+    filename = db.Column(db.String(255), nullable=False)
+    mimetype = db.Column(db.String(128), nullable=False)
+    data     = db.Column(db.LargeBinary, nullable=False)
+
+def upload_file():
+    f = request.files.get("file")
+    blob = FileBlob(filename=secure_filename(f.filename),
+                    mimetype=f.mimetype, data=f.read())
+    db.session.add(blob); db.session.commit()
+    return {"path": f"/utils/file/{blob.id}"}     # servi depuis la base</code></pre>
+    </div>
+  </div>
+
+  <div class="callout why">
+    <div class="ic">?</div>
+    <div>
+      <div class="lab">Ce que ce choix traduit</div>
+      <p>Stocker des fichiers en base de données n'est pas une « bonne pratique » universelle — c'est une
+      <strong>décision contextuelle</strong>, justement raisonnée. Elle dit que j'ai cessé de coder « en
+      général » pour coder <em>pour mon environnement réel</em>. La même logique a été appliquée au contenu
+      des cartographies (SVG, données OptiqCarto), stockées en base plutôt que sur disque. Comprendre la
+      cible de déploiement avant d'écrire le code&nbsp;: voilà un réflexe de produit, pas de maquette.</p>
+    </div>
+  </div>
+
+  <!-- ───────── CAS 4 ───────── -->
+  <h3>Cas n°4 — Une IA tolérante aux pannes : le <span style="color:var(--green-dk)">fallback systématique</span></h3>
+
+  <p>L'IA est partout dans DevOPTIQ&nbsp;: elle propose des savoirs, des savoir-faire, des HSC à rattacher à une
+  activité, génère des plans de formation, alimente le chatbot. Mais une dépendance externe est aussi une
+  fragilité&nbsp;: que se passe-t-il si la clé d'API est absente, si le service est indisponible, si le quota est
+  épuisé&nbsp;? Dans une maquette, on suppose que « ça marche ». Dans un produit, cette supposition est
+  interdite&nbsp;: une fonctionnalité ne doit <strong>jamais</strong> faire planter l'interface du client.</p>
+
+  <div class="compare">
+    <div class="code-block">
+      <div class="code-head avant"><span>● Avant — maquette · dépendance dure, plante si l'API manque</span><span class="file">routes/propose.py (représentatif)</span></div>
+<pre><code class="language-python">from openai import OpenAI
+client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])   # KeyError si absente
+
+def propose_savoirs(activity):
+    resp = client.chat.completions.create(...)          # 500 si l'API échoue
+    return parse(resp)</code></pre>
+    </div>
+
+    <div class="code-block">
+      <div class="code-head apres"><span>● Après — produit · client optionnel + repli déterministe, jamais d'erreur 500</span><span class="file">Code/routes/propose_common.py</span></div>
+<pre><code class="language-python">def openai_client_or_none():
+    """Instancie le client OpenAI ; si la clé manque → (None, raison)."""
+    key = os.environ.get("OPENAI_API_KEY")
+    if not key:
+        return None, "Clé OpenAI manquante (OPENAI_API_KEY)."
+    try:
+        from openai import OpenAI
+        return OpenAI(api_key=key), None
+    except Exception as e:
+        return None, str(e)
+
+def dummy_from_context(ctx, kind="savoir"):
+    """Repli déterministe : fabrique des items à partir du contexte.
+    Ça évite de faire planter le front en prod."""
+    ...
+    return [f"{prefix} les procédures principales{titre_part}", ...]</code></pre>
+    </div>
+  </div>
+
+  <div class="callout why">
+    <div class="ic">?</div>
+    <div>
+      <div class="lab">Ce que ce choix traduit</div>
+      <p>Le commentaire dans le code dit tout&nbsp;: <em>« ça évite de faire planter le front en prod »</em>.
+      Cette ligne, anodine en apparence, marque le passage d'une mentalité de démo à une mentalité de service.
+      Le client absent de clé d'API obtient une proposition <em>dégradée</em> mais cohérente, et l'application
+      reste debout. On code désormais en pensant à <strong>tous les chemins d'exécution</strong>, y compris ceux
+      qui échouent — c'est la définition même de la robustesse logicielle.</p>
+    </div>
+  </div>
+
+  <div class="card card-green">
+    <div class="card-title"><span class="chip chip-green">Synthèse</span> Ce que les quatre cas ont en commun</div>
+    <p style="margin:0;">Aucun de ces choix n'ajoute une fonctionnalité visible de plus. Tous transforment la
+    <strong>nature</strong> de l'application&nbsp;: la rendre belle (cas 1), multi-client (cas 2), durable en cloud
+    (cas 3), increvable face aux pannes (cas 4). C'est précisément ce travail invisible qui sépare une maquette
+    d'un produit — et c'est là que mon regard de développeur a le plus mûri cette année.</p>
+  </div>
+
+  <div class="foot"><span>Partie II — B. Choix techniques (cas 3 &amp; 4)</span><span>DevOPTIQ · A.F.D.E.C</span></div>
+</section>
+
+<section class="page">
+  <h2><span class="sec">C.</span> La migration vers un produit : structure, tests, documentation</h2>
+
+  <p class="lead-drop">Si la partie B montrait des décisions ponctuelles, celle-ci montre un changement de
+  régime. Trois chantiers transversaux ont accompagné le passage au produit&nbsp;: fiabiliser la base de données
+  en production, se doter d'une <strong>batterie de tests</strong> qui rend compte de l'état de santé de
+  l'application, et produire une <strong>documentation</strong> digne d'un logiciel que l'on transmet.</p>
+
+  <h3>Fiabiliser la base de données en production</h3>
+
+  <p>La maquette tournait sur une base locale. Le produit tourne sur <strong>PostgreSQL</strong> dans le cloud,
+  avec une base locale <strong>SQLite</strong> pour le développement. Concilier les deux, et faire évoluer le
+  schéma sans jamais bloquer un déploiement, a demandé une stratégie de migration sur-mesure, exécutée au
+  démarrage de l'application&nbsp;:</p>
+
+<pre><code class="language-python"># Au démarrage : créer les tables manquantes, puis ajouter les colonnes
+# manquantes une à une — idempotent, sans verrou DDL bloquant.
+def _safe_add_column(table, col, col_type):
+    try:
+        with db.engine.connect() as _conn:
+            _conn.execute(_text(f"ALTER TABLE {table} ADD COLUMN {col} {col_type}"))
+            _conn.commit()
+    except Exception:
+        pass  # colonne déjà présente — normal, on ignore
+
+db.create_all()                                  # tables manquantes
+_safe_add_column("entities", "svg_content", "TEXT")
+_safe_add_column("entities", "optiqcarto_data", "TEXT")
+_safe_add_column("links", "choice_label", "VARCHAR(10)")
+# ...</code></pre>
+
+  <div class="callout why">
+    <div class="ic">?</div>
+    <div>
+      <div class="lab">Une décision née d'un incident de production</div>
+      <p>Le code porte la cicatrice d'un vrai problème. À l'origine, les migrations passaient par l'outil
+      standard (Alembic). En production, ce dernier <em>attendait un verrou PostgreSQL pendant plus de dix
+      minutes</em> lorsqu'une colonne existait déjà — provoquant un <em>timeout</em> du worker, puis un crash en
+      boucle. La décision, documentée dans le code, a été de <strong>ne plus exécuter les migrations
+      automatiques</strong> et de les remplacer par des <code>ALTER TABLE</code> idempotents et instantanés.
+      C'est un choix pragmatique — peut-être pas « académiquement pur » — mais qui a rendu les déploiements
+      fiables. Apprendre à arbitrer entre la théorie et le terrain&nbsp;: voilà une compétence d'alternance.</p>
+    </div>
+  </div>
+
+  <p>Cette même recherche de robustesse se retrouve dans des dizaines de détails&nbsp;: des écritures en base
+  conçues en <em>« supprimer puis réinsérer »</em> (UPSERT) pour résister aux particularités de PostgreSQL, ou
+  encore un <strong>journal d'activité automatique</strong> qui, grâce aux <em>event listeners</em> de
+  SQLAlchemy, enregistre seul chaque création ou modification — sans que les routes aient à y penser.</p>
+
+  <h3>Une batterie de tests qui rend compte de l'état de l'application</h3>
+
+  <p>C'est peut-être le signe le plus visible de la professionnalisation. Là où la maquette n'avait aucun test,
+  le produit en compte désormais une couverture étendue, organisée par module, exécutée sur une base SQLite
+  temporaire dédiée aux tests&nbsp;:</p>
+
+  <div class="metrics">
+    <div class="metric"><div class="n">979</div><div class="l">Tests<br>automatisés</div></div>
+    <div class="metric"><div class="n">41</div><div class="l">Fichiers de test<br>(un par domaine)</div></div>
+    <div class="metric"><div class="n">~13k</div><div class="l">Lignes de code<br>de test</div></div>
+    <div class="metric"><div class="n">/testpanel</div><div class="l">Panneau de tests<br>intégré à l'app</div></div>
+  </div>
+
+  <p>Au-delà des chiffres, ces tests changent la façon de travailler&nbsp;: ils transforment la peur de « casser
+  quelque chose » en confiance. On peut refondre un module en sachant qu'une régression sera signalée. Mieux
+  encore, l'application embarque un <strong>panneau de tests</strong> (<code>/testpanel</code>) qui permet de
+  visualiser, depuis l'interface, l'état de santé des différentes briques — une manière de rendre la fiabilité
+  <em>lisible</em>, y compris pour un non-développeur comme Hubert.</p>
+
+  <div class="figure-ph">
+    <div class="ic"><svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="#15803d" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8.5" cy="9.5" r="1.6"/><path d="M4.5 17.5 9 13l3.5 3.5L16 13l3.5 3.5"/></svg></div>
+    <div class="lab">Visuel à insérer — capture du panneau de tests <code>/testpanel</code></div>
+    <div class="desc">Une capture du panneau de tests (résultats verts / rouges par module) illustrerait
+    parfaitement cette idée de « produit qui rend compte de son propre état ». (Capture à fournir.)</div>
+  </div>
+
+  <h3>Documenter : transmettre plutôt que détenir</h3>
+
+  <p>Un produit que l'on veut commercialiser ne peut pas reposer dans la seule tête de son développeur. J'ai donc
+  rédigé deux documentations complémentaires, elles aussi habillées de la charte rose / vert / blanc&nbsp;: une
+  <strong>documentation technique</strong> (architecture, modèles de données avec diagrammes, référence des API,
+  conventions, déploiement) et un <strong>guide utilisateur</strong> destiné aux futurs clients.</p>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:14px 0;">
+    <div class="card card-pink" style="margin:0;">
+      <div class="card-title"><span class="chip chip-pink">Pour l'équipe</span> Documentation technique</div>
+      <p style="margin:0;font-size:10pt;">Diagrammes d'architecture et de données, flux de démarrage, référence
+      des modules et des endpoints, stratégie de déploiement. Le socle pour qu'un autre développeur puisse
+      reprendre le projet.</p>
+    </div>
+    <div class="card card-green" style="margin:0;">
+      <div class="card-title"><span class="chip chip-green">Pour le client</span> Guide utilisateur</div>
+      <p style="margin:0;font-size:10pt;">Une prise en main pas-à-pas des fonctionnalités, pensée pour
+      l'utilisateur final. Le signe que l'on s'adresse désormais à des <strong>clients</strong>, pas seulement à
+      des investisseurs.</p>
+    </div>
+  </div>
+
+  <div class="callout learn">
+    <div class="ic">✦</div>
+    <div>
+      <div class="lab">Ce que l'alternance m'a appris ici</div>
+      <p>Tester et documenter sont, pour un étudiant, les tâches les plus faciles à négliger&nbsp;: elles ne
+      « se voient » pas. C'est en entreprise, avec l'horizon d'un produit transmis et vendu, que j'ai compris
+      leur valeur réelle. Écrire 979 tests et deux documentations n'a rien d'héroïque&nbsp;; c'est simplement ce
+      que <em>fait</em> un professionnel qui pense à l'après. Cette discipline est sans doute l'acquis le plus
+      transférable de l'année.</p>
+    </div>
+  </div>
+
+  <div class="foot"><span>Partie II — C. La migration vers un produit</span><span>DevOPTIQ · A.F.D.E.C</span></div>
+</section>
+
+<!-- ============================ PARTIE III ============================ -->
+<section class="page">
+  <div class="part-head">
+    <span class="part-kicker">Partie III</span>
+    <h1>Analyse critique,<br>bénéfices et évolution</h1>
+    <p class="lead">Un travail sérieux se juge aussi à la lucidité de son auteur sur ses propres limites. Cette
+    partie assume les choix, expose les biais, et mesure ce que cette année a réellement apporté — à
+    l'entreprise, au projet, et à moi.</p>
+  </div>
+
+  <h2><span class="sec">A.</span> Analyse des résultats obtenus</h2>
+
+  <p class="lead-drop">Le résultat le plus tangible est qu'il existe désormais un <strong>produit</strong>, là où
+  il n'y avait qu'une maquette. Cette phrase paraît modeste&nbsp;; elle résume pourtant un déplacement profond.
+  L'application n'est plus une démonstration d'idées&nbsp;: c'est un logiciel multi-clients, déployé en
+  production sur le cloud, doté d'une identité visuelle, d'une documentation et d'une couverture de tests, et
+  capable d'accueillir l'organisation d'un client réel sans exposer ses données.</p>
+
+  <p>Sur le plan strictement fonctionnel, l'ambition de départ — transposer la méthode OPTIQ — est largement
+  tenue&nbsp;: la cartographie, le cœur de la méthode, est éditable et exploitable&nbsp;; les compétences, les
+  rôles, les performances et le temps sont gérés&nbsp;; et plusieurs briques d'IA viennent assister
+  l'utilisateur là où la méthode est la plus exigeante. Mesuré à l'aune du mémoire de deuxième année, qui
+  décrivait « huit modules » comme un aboutissement, l'élargissement est net.</p>
+
+  <div class="card">
+    <div class="card-title"><span class="chip chip-out">Bilan</span> Ce qui est atteint, ce qui reste ouvert</div>
+    <table style="margin:6px 0 0;">
+      <tr><th style="width:50%">Atteint</th><th>Encore ouvert</th></tr>
+      <tr>
+        <td>Produit déployé, multi-entités, cloisonnement strict des données.</td>
+        <td>Durcissement de la sécurité (voir B).</td>
+      </tr>
+      <tr>
+        <td>Identité visuelle cohérente sur toute l'application.</td>
+        <td>Optimisation fine des performances (requêtes, cache).</td>
+      </tr>
+      <tr>
+        <td>979 tests automatisés + documentation technique et utilisateur.</td>
+        <td>Stratégie de <strong>distribution</strong> et de commercialisation.</td>
+      </tr>
+    </table>
+  </div>
+
+  <h2><span class="sec">B.</span> Limites, biais et points d'évolution</h2>
+
+  <p>J'aborde ce point sans détour, car il est au cœur de la démarche réflexive attendue. Le choix le plus
+  structurant de l'année a été un <strong>arbitrage</strong> assumé&nbsp;: dans un temps contraint, nous avons
+  privilégié <em>ce qui se voit et ce qui sert</em> — le fonctionnel et le visuel — au détriment de la sécurité
+  de pointe et de l'optimisation. Il faut en mesurer précisément la portée, sans le minimiser ni le dramatiser.</p>
+
+  <h4>La sécurité : ce qui est protégé, ce qui ne l'est pas encore</h4>
+
+  <p>Il serait faux de dire que la sécurité a été ignorée. La sécurité <em>qui compte le plus</em> pour un
+  logiciel multi-clients — l'<strong>isolation des données</strong> entre organisations — est en place et
+  stricte&nbsp;: chaque entité est rattachée à son propriétaire, et les requêtes refusent de servir les données
+  d'autrui. Les mots de passe ne sont jamais stockés en clair&nbsp;; ils sont hachés (<em>werkzeug</em>).</p>
+
+  <p>En revanche, la <strong>couche de durcissement défensif</strong> reste à construire. Pour être lucide&nbsp;:</p>
+
+  <div class="card card-pink">
+    <ul style="margin:0;">
+      <li>Le contrôle d'accès est fait « au cas par cas » (vérification de session dans les routes) plutôt que
+      par un garde systématique (<em>décorateur</em>) appliqué uniformément.</li>
+      <li>Il n'y a pas encore de protection <strong>CSRF</strong> sur les formulaires, ni de limitation de débit
+      (<em>rate limiting</em>) contre les abus.</li>
+      <li>Les en-têtes de sécurité HTTP et la politique de contenu ne sont pas durcis (le chiffrement TLS, lui,
+      est assuré par Cloud Run en amont).</li>
+    </ul>
+  </div>
+
+  <div class="callout why">
+    <div class="ic">?</div>
+    <div>
+      <div class="lab">Pourquoi ce choix — et pourquoi il est défendable</div>
+      <p>Face à un temps limité, il fallait d'abord <strong>exister comme produit</strong>&nbsp;: démontrable,
+      désirable, vendable. Un produit magnifiquement sécurisé mais sans fonctionnalités ne convainc personne&nbsp;;
+      un produit fonctionnel et séduisant peut être <em>durci ensuite</em>, par couches. Ces manques ne sont donc
+      pas des oublis mais une <strong>dette technique consciente</strong>, identifiée et priorisée — exactement le
+      type d'arbitrage qu'impose la réalité de l'entreprise, et que la formation, centrée sur la rigueur
+      individuelle, prépare peu.</p>
+    </div>
+  </div>
+
+  <h4>L'optimisation, et la vraie limite : la distribution</h4>
+
+  <p>Dans le même esprit, l'optimisation fine (élimination des requêtes redondantes, mise en cache) a été
+  laissée pour plus tard&nbsp;: tant que les volumes restent ceux d'une jeune solution, la priorité était
+  ailleurs. Mais la limite la plus importante n'est, paradoxalement, pas technique. Nous disposons aujourd'hui
+  d'une application techniquement solide&nbsp;; le défi suivant est celui de la <strong>distribution</strong>&nbsp;:
+  comment la porter jusqu'à ses clients, l'installer, la facturer, l'accompagner. Le centre de gravité du projet
+  se déplace du développement vers le <em>go-to-market</em> — un terrain nouveau, et passionnant.</p>
+
+  <h4>Une limite vécue : le relationnel à l'international</h4>
+
+  <p>Une difficulté plus personnelle mérite d'être nommée. Le projet a une dimension internationale — des
+  échanges, notamment, avec des interlocuteurs en Inde, en anglais. J'y ai éprouvé une limite réelle&nbsp;: le
+  relationnel professionnel dans une langue qui n'est pas la mienne demande un effort que le code, lui, ne
+  réclame pas. C'est un axe de progrès clairement identifié, et un rappel utile que le métier ne se réduit pas à
+  la technique.</p>
+
+  <div class="todo">
+    <div class="lab">◆ à compléter — anecdote relationnelle / internationale</div>
+    <p>Si tu le souhaites, illustrer ce point par un exemple concret (une réunion en anglais, la présentation en
+    Inde, un échange avec des développeurs ou investisseurs indiens). Un fait précis rendra cette limite plus
+    vivante et sincère. Je n'ai pas les détails exacts pour l'écrire à ta place.</p>
+  </div>
+
+  <h4>Regards croisés : ma formation à l'épreuve du produit</h4>
+
+  <p>Une analyse critique serait incomplète sans confronter cette expérience à ma formation. Sur bien des points,
+  l'IUT m'avait <strong>bien préparé</strong>&nbsp;: la pile technique (HTML, CSS, JavaScript, SQL) m'était
+  familière depuis la deuxième année orientée développement web&nbsp;; Python, moins évident au départ, s'est
+  révélé proche des langages objet déjà maîtrisés&nbsp;; la méthode agile et la culture du compte rendu, des
+  rapports et des points réguliers venaient directement des projets collectifs de la formation. Ces
+  <em>convergences</em> ont accéléré mon travail et m'ont évité de me former en urgence.</p>
+
+  <p>Mais l'alternance a aussi révélé des <strong>divergences</strong> instructives, là où l'entreprise diffère
+  de l'école.</p>
+
+  <div class="callout learn">
+    <div class="ic">✦</div>
+    <div>
+      <div class="lab">L'IA : outil de développement et matière du produit</div>
+      <p>La formation aborde peu l'IA comme outil — c'est compréhensible dans une logique d'évaluation des
+      compétences propres de l'étudiant. En entreprise, son usage est non seulement toléré mais recommandé&nbsp;:
+      pour accélérer des tâches redondantes, comprendre vite une erreur complexe. J'ai appris à m'en saisir tout
+      en gardant un <strong>regard critique</strong> et un rôle de décisionnaire&nbsp;: l'IA n'est pas une
+      alternative au développement, c'est un outil de plus dans l'arsenal. Et, fait notable, elle n'est pas
+      seulement <em>mon</em> outil&nbsp;: elle est <strong>intégrée au produit lui-même</strong>, où elle propose
+      compétences, savoirs et HSC à partir de la structure d'une activité. Apprendre à la maîtriser des deux
+      côtés — comme développeur et comme concepteur — est l'un des apprentissages les plus actuels de l'année.</p>
+    </div>
+  </div>
+
+  <p>Deux autres divergences m'ont marqué. La <strong>responsabilité</strong>, d'abord&nbsp;: le travail que l'on
+  fournit n'est plus seulement pour soi ou pour une note, il engage le projet, l'équipe, l'entreprise — et le
+  regard que l'on porte sur son propre code en est transformé. La <strong>continuité</strong>, ensuite&nbsp;:
+  travailler chaque jour, sur le même produit, pendant une année entière, est une expérience que les projets
+  morcelés de la formation ne reproduisent pas. C'est précisément cette continuité qui rend possible le passage
+  de la maquette au produit — un basculement qui demande du temps long, et une mentalité d'<em>ingénierie
+  produit</em> que l'école, par nature, n'enseigne qu'en théorie.</p>
+
+  <div class="foot"><span>Partie III — A. Résultats · B. Limites · Regards croisés</span><span>DevOPTIQ · A.F.D.E.C</span></div>
+</section>
+
+<section class="page">
+  <h2><span class="sec">C.</span> Bénéfices pour l'entreprise, pour le projet — et pour moi</h2>
+
+  <h4>Pour l'entreprise et le projet</h4>
+
+  <p class="lead-drop">Le premier bénéfice est d'ordre stratégique. En faisant le choix d'un déploiement
+  <strong>conteneurisé (Docker) sur Cloud Run</strong>, l'application reste légère à exploiter&nbsp;: l'A.F.D.E.C
+  n'a pas à <em>sur-investir</em> dans des serveurs ou des services cloud coûteux. On paie l'usage, l'application
+  est portable d'un environnement à l'autre, et la facture reste proportionnée à une jeune solution. Pour une
+  association, cette frugalité d'infrastructure n'est pas un détail&nbsp;: c'est ce qui rend le projet
+  soutenable.</p>
+
+  <p>Le deuxième bénéfice est patrimonial. L'A.F.D.E.C dispose désormais d'un <strong>actif</strong> — un produit
+  documenté, testé, déployé — et non plus d'une simple démonstration dépendante de son auteur. La documentation
+  et les tests garantissent que ce patrimoine est <em>transmissible</em>&nbsp;: il pourra être repris, audité,
+  étendu. C'est précisément ce que l'on attend d'un logiciel destiné à être commercialisé.</p>
+
+  <div class="card card-green">
+    <div class="card-title"><span class="chip chip-green">Bénéfice clé</span> Une donnée de test pensée pour le commercial</div>
+    <p style="margin:0;">Un détail révélateur&nbsp;: la base de données embarque ses propres <strong>données de
+    test</strong> (modèles d'utilisateur, d'entité…). Ce n'est pas anecdotique&nbsp;: cela traduit la réflexion
+    derrière le virage commercial. Penser dès la conception à la création de comptes et au cloisonnement par
+    entité, c'est concevoir l'application <em>comme</em> un produit que plusieurs clients utiliseront en
+    parallèle — et non comme la vitrine d'une seule organisation.</p>
+  </div>
+
+  <h4>Pour moi : ce que l'alternance a fait grandir</h4>
+
+  <p>L'évolution personnelle est, au fond, le vrai sujet de ce mémoire. Elle s'est jouée sur plusieurs plans.</p>
+
+  <p><strong>Une montée en responsabilité.</strong> Je suis arrivé stagiaire&nbsp;; je termine bien plus engagé
+  dans le projet, jusqu'à une forme d'association avec son porteur. Ce glissement n'est pas qu'un titre&nbsp;:
+  c'est un changement de regard sur mon propre travail, qui n'est plus « rendu » mais <em>porté</em>.</p>
+
+  <p><strong>Un passage de l'exécution à la co-construction.</strong> Le rapport avec Hubert a cessé d'être une
+  transmission de missions pour devenir un échange de conception&nbsp;: je propose, il challenge, on arbitre. La
+  prise d'initiative — déjà esquissée pendant le stage — est devenue le mode normal de travail. J'ai appris à
+  défendre un choix d'architecture, mais aussi à accepter qu'il soit transformé par la discussion.</p>
+
+  <p><strong>Une maturité d'ingénieur produit.</strong> Techniquement, l'année m'a fait passer du « faire
+  marcher » au « faire tenir »&nbsp;: penser le déploiement avant le code, anticiper les pannes, cloisonner les
+  données, tester, documenter. Ce sont des réflexes que la formation aborde en théorie et que seule la
+  confrontation à un vrai produit ancre durablement.</p>
+
+  <div class="callout learn">
+    <div class="ic">✦</div>
+    <div>
+      <div class="lab">La synthèse de l'évolution</div>
+      <p>De la <strong>maquette</strong> au <strong>produit</strong>, et du <strong>stagiaire exécutant</strong>
+      au <strong>co-décideur associé</strong>&nbsp;: les deux trajectoires sont la même histoire. En apprenant à
+      faire grandir un projet, j'ai grandi avec lui. C'est ce parallèle, plus que n'importe quelle ligne de code,
+      que je retiens de cette année d'alternance.</p>
+    </div>
+  </div>
+
+  <div class="foot"><span>Partie III — C. Bénéfices et évolution</span><span>DevOPTIQ · A.F.D.E.C</span></div>
+</section>
+
+<!-- ============================ CONCLUSION ============================ -->
+<section class="page">
+  <div class="part-kicker" style="border-color:var(--green);">Conclusion</div>
+  <h1 style="font-size:23pt;margin:14px 0 18px;">Ce que l'alternance<br>laisse derrière elle</h1>
+
+  <p class="lead-drop">Au terme de cette année, il m'est difficile de séparer ce que j'ai construit de ce que je
+  suis devenu. Les deux se sont façonnés ensemble. J'avais repris une maquette&nbsp;; je laisse un produit. J'étais
+  arrivé pour exécuter&nbsp;; je repars en ayant co-décidé. Entre les deux, il y a eu des centaines d'heures de
+  code, mais aussi — et c'est l'essentiel — un changement de regard sur ce que signifie « faire du
+  logiciel ».</p>
+
+  <p>Ce mémoire a cherché à montrer que la technique n'est jamais neutre&nbsp;: derrière un système de jetons de
+  couleur, il y a la volonté de séduire un client&nbsp;; derrière un filtre <code>entity_id</code>, le respect des
+  données d'autrui&nbsp;; derrière un fichier stocké en base, la compréhension d'un environnement réel&nbsp;;
+  derrière un <em>fallback</em>, le refus de laisser tomber l'utilisateur. Chaque décision technique racontait une
+  intention, et chaque intention disait quelque chose de la <strong>maturité</strong> que l'alternance m'a permis
+  d'acquérir.</p>
+
+  <p>J'ai aussi appris à être lucide. À nommer ce qui n'est pas fini — la sécurité à durcir, l'optimisation à
+  mener, la distribution à inventer — non pas comme des échecs, mais comme la carte du chemin qui reste. Un
+  produit n'est jamais « terminé »&nbsp;; il entre dans une nouvelle phase de sa vie. Et l'A.F.D.E.C aborde cette
+  phase avec un actif solide, frugal à exploiter, documenté et testé&nbsp;: une base saine pour la suite.</p>
+
+  <div class="pull">« En apprenant à faire grandir un projet, j'ai grandi avec lui. »</div>
+
+  <p>Sur le plan humain, cette alternance a prolongé et approfondi ce que le stage avait ouvert&nbsp;: le goût des
+  petites structures où chacun compte, la valeur d'une communication régulière, et la chance — rare — de
+  travailler dans un climat de confiance et de reconnaissance mutuelle. Elle m'a aussi confronté à mes limites,
+  notamment relationnelles à l'international, et m'a donné envie de les travailler.</p>
+
+  <p>Je referme cette année comme on referme un chapitre dense&nbsp;: avec de la fatigue heureuse, beaucoup
+  d'apprentissages, et la conviction d'avoir participé à quelque chose qui me dépasse. La méthode OPTIQ avait pour
+  ambition de révéler la place et la valeur de chacun dans une organisation. En contribuant à la rendre
+  accessible, j'ai surtout découvert la mienne.</p>
+
+  <div class="foot"><span>Conclusion</span><span>Maël Girardin — DevOPTIQ · A.F.D.E.C</span></div>
+</section>
+
+<!-- ============================ ANNEXES ============================ -->
+<section class="page">
+  <div class="part-head">
+    <span class="part-kicker">Annexes</span>
+    <h1>Annexes</h1>
+    <p class="lead">Éléments de référence — non comptabilisés dans la pagination du mémoire&nbsp;: glossaire,
+    cartographie des modules, pile technique et feuille de temps.</p>
+  </div>
+
+  <h2 style="border-color:var(--green);"><span class="sec" style="color:var(--green-dk)">A1.</span> Glossaire</h2>
+  <table>
+    <tr><th style="width:24%">Terme</th><th>Définition</th></tr>
+    <tr><td><strong>Maquette</strong></td><td>Version de démonstration d'une application, destinée à prouver un concept ou à convaincre, sans les garanties d'un logiciel exploité en clientèle.</td></tr>
+    <tr><td><strong>Produit</strong></td><td>Logiciel abouti, déployé, fiable et commercialisable, conçu pour être utilisé par plusieurs clients réels.</td></tr>
+    <tr><td><strong>Savoirs</strong></td><td>Connaissances théoriques mobilisées pour comprendre, analyser ou situer une activité&nbsp;: la base cognitive.</td></tr>
+    <tr><td><strong>Savoir-faire</strong></td><td>Capacités pratiques à mettre en œuvre des savoirs dans une situation concrète&nbsp;: l'action, la technique maîtrisée.</td></tr>
+    <tr><td><strong>Aptitudes</strong></td><td>Dispositions personnelles ou cognitives permettant d'agir efficacement (concentration, rigueur…).</td></tr>
+    <tr><td><strong>HSC</strong></td><td>Habiletés Socio-Cognitives. Compétences transversales liées au comportement, à l'autonomie, à la coopération (norme X50-766).</td></tr>
+    <tr><td><strong>Rôle</strong></td><td>Ensemble structuré d'activités confiées à une personne&nbsp;; fonction transversale, indépendante du poste.</td></tr>
+    <tr><td><strong>Activité</strong></td><td>Unité de base du travail dans la méthode OPTIQ&nbsp;: un ensemble cohérent de tâches produisant un résultat concret.</td></tr>
+    <tr><td><strong>Tâche</strong></td><td>Action élémentaire réalisée dans le cadre d'une activité.</td></tr>
+    <tr><td><strong>Entité</strong></td><td>Dans DevOPTIQ, une organisation cliente avec ses propres données cloisonnées (activités, rôles, cartographie). Brique du multi-client.</td></tr>
+    <tr><td><strong>Blueprint</strong></td><td>Module Flask regroupant les routes d'un domaine fonctionnel. L'application en compte une cinquantaine.</td></tr>
+    <tr><td><strong>FileBlob</strong></td><td>Modèle stockant le contenu binaire des fichiers directement en base, pour survivre aux redémarrages du cloud.</td></tr>
+    <tr><td><strong>Fallback</strong></td><td>Comportement de repli déclenché quand un service (ex. l'IA) est indisponible, pour éviter toute panne visible.</td></tr>
+    <tr><td><strong>SaaS</strong></td><td><em>Software as a Service</em>&nbsp;: logiciel hébergé et fourni en ligne, utilisé par abonnement plutôt qu'installé.</td></tr>
+    <tr><td><strong>Cloud Run</strong></td><td>Service Google d'exécution de conteneurs Docker, facturé à l'usage, au système de fichiers éphémère.</td></tr>
+    <tr><td><strong>Commit / Push</strong></td><td>Enregistrer localement un ensemble de modifications (commit)&nbsp;; les transférer vers le dépôt distant (push).</td></tr>
+    <tr><td><strong>API</strong></td><td><em>Application Programming Interface</em>&nbsp;: interface permettant à deux services d'échanger des données.</td></tr>
+    <tr><td><strong>R.O.M.E 4.0</strong></td><td>Répertoire Opérationnel des Métiers et des Emplois de France Travail, utilisé pour la projection métier.</td></tr>
+  </table>
+
+  <div class="foot"><span>Annexes — A1. Glossaire</span><span>DevOPTIQ · A.F.D.E.C</span></div>
+</section>
+
+<section class="page">
+  <h2 style="border-color:var(--green);"><span class="sec" style="color:var(--green-dk)">A2.</span> Cartographie des modules</h2>
+  <p>Vue d'ensemble des grands domaines fonctionnels et de leurs modules (blueprints) — un aperçu de l'ampleur
+  fonctionnelle évoquée en Partie II.</p>
+  <table>
+    <tr><th style="width:26%">Domaine</th><th>Modules (extraits)</th></tr>
+    <tr><td><strong>Cartographie</strong></td><td><code>cartography_editor</code>, <code>activities_map</code>, <code>vsdx_*</code> (import Visio), synchronisation carto → base.</td></tr>
+    <tr><td><strong>Activités</strong></td><td><code>activities</code>, <code>activities_view</code>, <code>activities_render</code>, <code>activities_data</code>, <code>constraints</code>, <code>tasks</code>, <code>tools</code>, <code>task_link_assignments</code>.</td></tr>
+    <tr><td><strong>Compétences</strong></td><td><code>competences</code>, <code>competences_plan</code>, <code>savoirs</code>, <code>savoir_faires</code>, <code>aptitudes</code>, <code>softskills</code>, <code>skills</code>.</td></tr>
+    <tr><td><strong>RH &amp; comptes</strong></td><td><code>gestion_rh</code>, <code>gestion_compte</code>, <code>roles</code>, <code>roles_view</code>, <code>gestion_outils</code>.</td></tr>
+    <tr><td><strong>Performance &amp; temps</strong></td><td><code>performance</code>, <code>performance_personnalisee</code>, <code>time_view</code>, <code>time_extra</code>.</td></tr>
+    <tr><td><strong>IA</strong></td><td><code>propose_*</code> (savoirs, savoir-faire, HSC, aptitudes), <code>propose_from_file</code>, <code>onboarding</code>, <code>chatbot</code>, <code>import_full</code>, <code>translate_softskills</code>, <code>projection_metier</code>.</td></tr>
+    <tr><td><strong>Transverse</strong></td><td><code>connexion_routes</code>, <code>routes_password</code>, <code>settings</code>, <code>export</code>, <code>changelog</code>, <code>test_panel</code>.</td></tr>
+  </table>
+
+  <h2 style="border-color:var(--green);margin-top:30px;"><span class="sec" style="color:var(--green-dk)">A3.</span> Pile technique</h2>
+  <table>
+    <tr><th style="width:26%">Couche</th><th>Technologie</th></tr>
+    <tr><td>Backend</td><td>Python 3, Flask, SQLAlchemy (Flask-SQLAlchemy)</td></tr>
+    <tr><td>Base de données</td><td>PostgreSQL (production) / SQLite (développement &amp; tests)</td></tr>
+    <tr><td>Frontend</td><td>HTML Jinja2, CSS « vanilla » (charte rose/vert/blanc), JavaScript « vanilla » (sans framework)</td></tr>
+    <tr><td>Authentification</td><td>Sessions Flask, hachage des mots de passe (werkzeug)</td></tr>
+    <tr><td>Intelligence artificielle</td><td>API OpenAI (propositions, chatbot, onboarding, import assisté)</td></tr>
+    <tr><td>Cartographie</td><td>OptiqCarto — éditeur / viewer SVG maison, import VSDX</td></tr>
+    <tr><td>Tests</td><td>pytest — 979 tests, base SQLite temporaire, panneau <code>/testpanel</code></td></tr>
+    <tr><td>Déploiement</td><td>Docker → Google Cloud Run, serveur Gunicorn</td></tr>
+    <tr><td>Outils</td><td>Git / dépôt distant, communication d'équipe (visio, comptes rendus)</td></tr>
+  </table>
+
+  <h2 style="border-color:var(--green);margin-top:30px;"><span class="sec" style="color:var(--green-dk)">A4.</span> Feuille de temps</h2>
+  <div class="todo">
+    <div class="lab">◆ à compléter — feuille de temps de l'alternance</div>
+    <p>Insérer ici la feuille de temps / le carnet de bord de l'année (comme dans le mémoire de 2<sup>e</sup>
+    année). N'ayant pas ces données, je laisse l'emplacement prêt à recevoir le tableau ou le document scanné.</p>
+    <div class="ph"></div><div class="ph"></div><div class="ph"></div>
+  </div>
+
+  <div class="figure-ph">
+    <div class="ic"><svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#15803d" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5 12.5 20a5 5 0 0 1-7-7l9-9a3.4 3.4 0 0 1 4.8 4.8l-9 9a1.8 1.8 0 0 1-2.6-2.6l8.2-8.2"/></svg></div>
+    <div class="lab">Annexes complémentaires éventuelles</div>
+    <div class="desc">Captures d'écran de l'application (cartographie, fiche activité, synthèse des compétences),
+    extraits de la documentation technique ou du guide utilisateur, diagramme de la base de données
+    (<code>database_schema.png</code> existe dans le dépôt). À insérer selon les attendus de ton jury.</div>
+  </div>
+
+  <div class="foot"><span>Annexes — A2 à A4</span><span>Fin du mémoire — Maël Girardin</span></div>
+</section>
+
+<script>
+  document.addEventListener('DOMContentLoaded',function(){
+    if(window.hljs){ document.querySelectorAll('pre code').forEach(function(b){ try{ hljs.highlightElement(b); }catch(e){} }); }
+  });
+</script>
+</body>
+</html>
