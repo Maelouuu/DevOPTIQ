@@ -665,6 +665,7 @@ class VsdxImporter {
     const shapeIdMap = this._shapeIdMap = {};
     const totalBandH = newBands.reduce((s, b) => s + b.height, 0);
     const MAX_ACT_W = 260, MAX_ACT_H = 150; // cap for oversized group-box shapes
+    const validationMarkers = []; // validation badge symbols, resolved after all shapes
 
     for (const { el: s, id } of allShapes) {
       if (connectorIds.has(id))       continue;
@@ -770,6 +771,12 @@ class VsdxImporter {
       // Only falls back to band color when the shape has no explicit fill.
       const shapeColor = this._resolveShapeColor(s, mid, shapeType, screenY, screenH);
 
+      // Validation symbols → set badge on nearest activity instead of adding as sub-shape
+      if (/\bvalidation\b/i.test(masterName)) {
+        validationMarkers.push({ x: screenX, y: screenY, w: screenW, h: screenH });
+        continue;
+      }
+
       const oid = this.nextOid++;
       shapeIdMap[id] = oid;
       newShapes.push({
@@ -785,6 +792,20 @@ class VsdxImporter {
         colorVariant:   0,
       });
     }
+
+    // Apply validation badges: find nearest process shape for each validation marker
+    for (const vm of validationMarkers) {
+      const vmCX = vm.x + vm.w / 2, vmCY = vm.y + vm.h / 2;
+      let bestShape = null, bestDist = Infinity;
+      for (const s of newShapes) {
+        if (s.type !== 'process') continue;
+        const d = Math.hypot(vmCX - (s.x + s.w / 2), vmCY - (s.y + s.h / 2));
+        if (d < bestDist) { bestDist = d; bestShape = s; }
+      }
+      if (bestShape) bestShape.validationBadge = true;
+    }
+    if (validationMarkers.length > 0)
+      this.log(`✓ ${validationMarkers.length} badge(s) validation détecté(s) et appliqué(s)`);
 
     const nExt   = newShapes.filter(s => s.subtype === 'external').length;
     const nExtco = newShapes.filter(s => s.subtype === 'extco').length;

@@ -190,6 +190,8 @@ let bandHeightResizingId = null;
 let bandHeightStartY = 0;
 let bandHeightStartValue = 0;
 let bandResizeShapeStarts = []; // [{shape, startY}] for shapes below the resized band
+let edgeScrollVX = 0, edgeScrollVY = 0;
+let edgeScrollRaf = null;
 let spaceDown = false;
 let labelEditing = null;        // { shapeId }
 let portDrag = null;            // { fromShapeId, fromPort:{x,y,dir} } — drag depuis un port
@@ -753,7 +755,7 @@ function renderConnections() {
     el('path', {
       d, fill: 'none',
       stroke: color,
-      'stroke-width': isSel ? '3' : '2',
+      'stroke-width': isSel ? '4.5' : '3',
       'stroke-dasharray': c.style === 'dashed' ? '9,6' : 'none',
       'marker-end': `url(#${mId})`,
       'data-id': c.id, 'data-type': 'conn', cursor: 'pointer',
@@ -1259,7 +1261,7 @@ function renderShapes() {
     }
 
     // ── Port handles (masqués en lecture seule) ──
-    if (isHover && !portDrag && !window.OPTIQCARTO_READONLY) {
+    if (isHover && !portDrag && !window.OPTIQCARTO_READONLY && selectedConn === null) {
       // Taille fixe en pixels écran : 10px quelle que soit le zoom
       const ps = 10 / vpScale;
       const sw = 1.5 / vpScale;
@@ -2013,6 +2015,37 @@ function createPile() {
 }
 
 /* ══════════════════════════════════════════════════
+   EDGE AUTO-SCROLL
+   ══════════════════════════════════════════════════ */
+
+const EDGE_SCROLL_ZONE  = 40; // px from canvas edge
+const EDGE_SCROLL_SPEED =  6; // max px/frame at the very edge
+
+function _edgeScrollStep() {
+  if (edgeScrollVX === 0 && edgeScrollVY === 0) { edgeScrollRaf = null; return; }
+  vpX += edgeScrollVX;
+  vpY += edgeScrollVY;
+  applyViewport();
+  edgeScrollRaf = requestAnimationFrame(_edgeScrollStep);
+}
+
+function _updateEdgeScroll(clientX, clientY) {
+  if (isPanning) { edgeScrollVX = 0; edgeScrollVY = 0; return; }
+  const r = canvas.getBoundingClientRect();
+  const dL = clientX - r.left, dR = r.right  - clientX;
+  const dT = clientY - r.top,  dB = r.bottom - clientY;
+  const Z  = EDGE_SCROLL_ZONE, S = EDGE_SCROLL_SPEED;
+  edgeScrollVX = dL < Z ? +Math.round((Z - dL) / Z * S)
+               : dR < Z ? -Math.round((Z - dR) / Z * S) : 0;
+  edgeScrollVY = dT < Z ? +Math.round((Z - dT) / Z * S)
+               : dB < Z ? -Math.round((Z - dB) / Z * S) : 0;
+  if ((edgeScrollVX !== 0 || edgeScrollVY !== 0) && !edgeScrollRaf)
+    edgeScrollRaf = requestAnimationFrame(_edgeScrollStep);
+}
+
+canvas.addEventListener('mouseleave', () => { edgeScrollVX = 0; edgeScrollVY = 0; });
+
+/* ══════════════════════════════════════════════════
    MOUSE EVENTS
    ══════════════════════════════════════════════════ */
 
@@ -2371,6 +2404,8 @@ function onDown(e) {
 }
 
 function onMove(e) {
+  _updateEdgeScroll(e.clientX, e.clientY);
+
   /* ── Lasso drag ── */
   if (lassoDrag) {
     lassoDrag.curSX = e.clientX;
@@ -2632,6 +2667,8 @@ function onMove(e) {
 }
 
 function onUp(e) {
+  edgeScrollVX = 0; edgeScrollVY = 0;
+
   /* ── Fin du lasso ── */
   if (lassoDrag) {
     _finalizeLasso();
@@ -4880,6 +4917,10 @@ async function _deleteBand(idx) {
     const ids = new Set(shapesInBand.map(s => s.id));
     state.shapes = state.shapes.filter(s => !ids.has(s.id));
     state.connections = state.connections.filter(c => !ids.has(c.fromId) && !ids.has(c.toId));
+  }
+  // Shift shapes below the deleted band upward to keep them in their bands
+  for (const s of state.shapes) {
+    if (!s.deleted && (s.y + s.h / 2) > bandYEnd) s.y -= band.height;
   }
   // Soft-delete : la bande reste dans state.bands mais n'est plus rendue
   band.deleted = true;
