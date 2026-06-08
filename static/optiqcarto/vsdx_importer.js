@@ -692,6 +692,19 @@ class VsdxImporter {
       const abs = shapePinAbs[id] || {};
       const vW  = abs.w || 0;
       const vH  = abs.h || 0;
+
+      // Capture validation/approval badge symbols before the size filter (they are ~0.22" squares).
+      // Master names: "Approbation…", "Approuve…", "Approval…", "Checkmark", "Coche"
+      if (/^(approbation|approuve|approval|checkmark|coche)\b/i.test(mn) && abs.pinX) {
+        const vmW = Math.round(vW * SCALE);
+        const vmH = Math.round(vH * SCALE);
+        const vmX = Math.max(144, Math.round((abs.pinX - leftEdge) * SCALE) - Math.round(vmW / 2));
+        const vmNY = Math.round((topOfDiagram - abs.pinY) * SCALE) - Math.round(vmH / 2);
+        const vmY = Math.max(0, vmNY + this._bandShiftFor(vmNY + vmH / 2));
+        if (vmY <= totalBandH + 100) validationMarkers.push({ x: vmX, y: vmY, w: vmW, h: vmH });
+        continue;
+      }
+
       if (vW < 0.2 || vH < 0.25) continue; // <0.25" height = thin nav arrow, not an activity
       if (vW > 8   || vH > 4   ) continue;
 
@@ -771,8 +784,8 @@ class VsdxImporter {
       // Only falls back to band color when the shape has no explicit fill.
       const shapeColor = this._resolveShapeColor(s, mid, shapeType, screenY, screenH);
 
-      // Validation symbols → set badge on nearest activity instead of adding as sub-shape
-      if (/\bvalidation\b/i.test(masterName)) {
+      // Validation/approval symbols → set badge on nearest activity instead of adding as sub-shape
+      if (/\b(validation|approbation|approuve|approval|checkmark|coche)\b/i.test(masterName)) {
         validationMarkers.push({ x: screenX, y: screenY, w: screenW, h: screenH });
         continue;
       }
@@ -802,7 +815,10 @@ class VsdxImporter {
         const d = Math.hypot(vmCX - (s.x + s.w / 2), vmCY - (s.y + s.h / 2));
         if (d < bestDist) { bestDist = d; bestShape = s; }
       }
-      if (bestShape) bestShape.validationBadge = true;
+      if (bestShape) {
+        bestShape.validationBadge = true;
+        bestShape.validationColor = bestShape.color; // badge takes activity's own color
+      }
     }
     if (validationMarkers.length > 0)
       this.log(`✓ ${validationMarkers.length} badge(s) validation détecté(s) et appliqué(s)`);
