@@ -26,6 +26,9 @@ et choisis `memoire_3eme_annee.html`. Tu peux ensuite :
 - **Déplacer un bloc** : active **✋ Mode objet**, clique un bloc (titre, paragraphe, image…),
   puis `▲`/`▼` pour le réordonner, ou glisse-le pour l'ajuster, `🗑` pour le supprimer.
 - **Ajouter une page** : bouton **➕ Page** → insère une nouvelle page A4 après la page courante.
+- **Aperçu A4** : bouton **📄 Aperçu A4** → affiche le document découpé en **pages A4 identiques**
+  (pagination fidèle via Paged.js) ; bouton Imprimer/PDF depuis cet aperçu. La vue d'édition, elle,
+  reste un flux continu (plus pratique pour écrire) — les pages égales sont l'aperçu et le PDF.
 - **Enregistrer** : 💾 **écrase directement le fichier ouvert** (Chrome/Edge, via la File System
   Access API). À la 1ʳᵉ fois le navigateur demande l'autorisation d'écriture. Si l'API n'est pas
   disponible, l'éditeur propose un emplacement, puis retombe sur un téléchargement classique.

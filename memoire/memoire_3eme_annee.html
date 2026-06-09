@@ -1,6 +1,5 @@
 <!doctype html>
-<html lang="fr">
-<head>
+<html lang="fr"><head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Mémoire de 3ème année — BUT Informatique — Maël Girardin</title>
@@ -39,6 +38,13 @@ body{
   box-shadow:0 8px 30px rgba(17,24,39,.14);
 }
 .page.cover{ min-height:297mm; padding:0; }
+@media screen{ .page:not(.cover){ min-height:297mm; } }  /* cadre 'page' A4 à l'écran */
+.pas{ display:flex; gap:10px; align-items:baseline; margin:12px 0 14px; padding:8px 13px;
+  background:var(--green-light); border-left:4px solid var(--green); border-radius:0 9px 9px 0;
+  font-size:10pt; color:var(--body); }
+.pas b{ font-family:var(--sans); font-size:8pt; font-weight:700; letter-spacing:1px;
+  text-transform:uppercase; color:var(--green-dk); white-space:nowrap; }
+.pas .ar{ color:var(--pink-dk); font-weight:700; padding:0 2px; }
 .foot{ margin-top:30px; padding-top:10px; display:flex; align-items:center;
   justify-content:space-between; font-size:8pt; color:var(--muted);
   letter-spacing:.3px; text-transform:uppercase; border-top:2px solid var(--pink-border); }
@@ -248,7 +254,7 @@ hr.soft{ border:0; height:1px; background:var(--line); margin:22px 0; }
 @page cover{ margin:0; @bottom-center{ content:none; } }
 </style>
 </head>
-<body>
+<body class="">
 
 <!-- ============================ COUVERTURE ============================ -->
 <section class="page cover">
@@ -305,7 +311,7 @@ hr.soft{ border:0; height:1px; background:var(--line); margin:22px 0; }
     <div class="toc-row"><span class="num">II</span><span class="lbl">Développement — la traduction technique d'une ambition
       <small>Ce qui a été construit, pourquoi, et ce que les choix racontent</small></span></div>
     <div class="toc-sub"><span class="l">A.</span> Le développement d'une maquette poussée</div>
-    <div class="toc-sub"><span class="l">B.</span> Choix techniques et justifications — quatre cas commentés</div>
+    <div class="toc-sub"><span class="l">B.</span> Le basculement dans le code — quatre franchissements</div>
     <div class="toc-sub"><span class="l">C.</span> La migration vers un produit : structure, tests, documentation</div>
 
     <div class="toc-row"><span class="num">III</span><span class="lbl">Analyse critique, bénéfices et évolution
@@ -327,32 +333,41 @@ hr.soft{ border:0; height:1px; background:var(--line); margin:22px 0; }
   <h1 style="font-size:24pt; margin-bottom:6px;">Remerciements</h1>
   <div style="display:flex;gap:6px;margin-bottom:22px;"><span style="width:46px;height:5px;background:var(--pink);border-radius:3px;display:inline-block;"></span><span style="width:24px;height:5px;background:var(--green);border-radius:3px;display:inline-block;"></span></div>
 
-  <p class="lead-drop">Mes premiers remerciements vont à <strong>Hubert Grandjean</strong>. Il y a deux ans, il
-  m'a confié les rênes d'un projet auquel il croyait depuis longtemps&nbsp;; cette année, il a fait bien plus
-  que me renouveler sa confiance&nbsp;: il m'a associé à la réflexion, aux décisions, et finalement à l'aventure
-  elle-même. Travailler à ses côtés, ce n'est pas exécuter des consignes, c'est construire à deux. Sa
-  bienveillance, sa rigueur et cette conviction qu'<em>on fait grandir les gens en croyant en eux</em> ont
-  façonné l'alternant — et la personne — que je suis devenu cette année.</p>
+  <p class="lead-drop">Mes premiers remerciements vont à <strong>Hubert Grandjean, </strong>mon tuteur au sein de l'entreprise qui m'a accueilli. Il y a plus d'un an, il m'a accordé sa confiance en me prenant en stage dans son entreprise et en me confiant le développement d'un projet innovant et ambitieux qu'il soutenait lui même depuis plusieurs mois. Cette&nbsp;<span style="font-size: 16px;">&nbsp;<span style="font-size: 15px;"><span style="font-size: 14px;"><span style="font-size: 15px;">anné</span></span></span></span><span style="font-size: 14px;"><span style="font-size: 15px;"><span style="font-size: 16px;"><span style="font-size: 15px;"><span style="font-size: 14px;"><span style="font-size: 15px;">e, il a fait bien plus
+  que me renouveler sa confiance&nbsp;: il m'a associé&nbsp; progressivement, à la réflexion, aux décisions, et finalement à l'aventure
+  elle-même.&nbsp;</span></span></span></span><span style="color: rgb(31, 31, 31); font-family: &quot;Abadi Extra Light&quot;, sans-serif; font-size: 14px;"><span style="font-size: 15px;">Je tiens aussi à le
+remercier pour son écoute attentive, ses conseils professionnels mais aussi
+plus personnels concernant l’avenir et pour sa bienveillance tout au long de mon
+alternance.</span></span><span style="color: rgb(31, 31, 31); font-family: &quot;Abadi Extra Light&quot;, sans-serif; font-size: 16px;">&nbsp;En&nbsp;</span><span style="color: rgb(31, 31, 31); font-family: &quot;Abadi Extra Light&quot;, sans-serif; font-size: 16px;">tant que maître d'apprentissage il m’a repris, corrigé et conseillé avec
+justesse et bienveillance. C’est grâce à ce dévouement et cette implication
+pour la cause du bon que j’ai pu tirer un tel enrichissement de ce<span style="font-size: 14px;"><span style="font-size: 15px;">t alternance. Dans
+le monde professionnel, beaucoup se basent sur le savoir ou les performances
+brutes. Je crois que ce qui fait d’Hubert quelqu’un auquel j’apporte tout mon
+respect c’est qu’il croit avant tout en l’humain, il a compris que croire en
+quelqu’un et l’accompagner était la meilleure façon de le faire évoluer. Alors
+pour tout cela et cette expérience infiniment riche sur de multiples facettes,
+je le remercie.</span></span></span></span></span><span style="color: rgb(31, 31, 31); font-family: &quot;Abadi Extra Light&quot;, sans-serif; font-size: 16px;"></span></p><p class="MsoNormal"><span style="font-family: &quot;Abadi Extra Light&quot;, sans-serif; color: rgb(31, 31, 31); background-image: initial; background-position: initial; background-size: initial; background-repeat: initial; background-attachment: initial; background-origin: initial; background-clip: initial;"><o:p></o:p></span></p>
 
   <p>Je remercie chaleureusement l'ensemble de l'équipe de l'<strong>A.F.D.E.C</strong> pour son accueil, sa
-  disponibilité et sa patience avec un développeur qui, parfois, disparaissait quelques jours dans son code.
+  disponibilité.
   Une mention particulière à <strong>Véronique Decauwer</strong>, dont l'aide sur tout ce qui touche à
-  l'administratif — un terrain qui n'est pas mon point fort — m'a été précieuse.</p>
+  l'ad</p><span style="font-size: 14px;"><span style="font-size: 15px;"><p>ministratif — un terrain qui n'est pas mon point fort — m'a été très précieuse.</p>
 
-  <p>Je remercie l'équipe pédagogique de l'<strong>IUT</strong> et, plus largement, le corps enseignant du
-  B.U.T. Informatique. Beaucoup de ce que j'ai mobilisé cette année — le développement web, la méthode agile,
-  la rigueur méthodologique des projets — trouve sa source dans ces trois années de formation.</p>
+  <p class="MsoNormal"><span style="font-family: &quot;Abadi Extra Light&quot;, sans-serif; color: rgb(31, 31, 31); background-image: initial; background-position: initial; background-size: initial; background-repeat: initial; background-attachment: initial; background-origin: initial; background-clip: initial;">Un remerciement
+profond à Florent et Camille Girardin, qui m’ont mis en contact avec Hubert et
+qui m’ont permis de trouver ce stage cela n’aurait été possible sans eux. Ils
+m’ont aussi accueilli chez eux durant la période de stage et ont été d’une
+gentillesse infinie avec moi. Je ne compte les rires et les bons moments passés
+à leur côté, et je salue leurs attentions et leur intérêt à l’égard de mon
+stage et de ce que j’y entreprenais, ils ont été un soutien indéfectible et
+pour cela je les en remercie infiniment.</span></p></span></span><p class="MsoNormal"><span style="font-family: &quot;Abadi Extra Light&quot;, sans-serif; color: rgb(31, 31, 31); background-image: initial; background-position: initial; background-size: initial; background-repeat: initial; background-attachment: initial; background-origin: initial; background-clip: initial;"><o:p></o:p></span></p>
 
   <div class="todo">
-    <div class="lab">◆ à compléter — remerciements personnalisés</div>
-    <p>Ajouter ici les remerciements nominatifs propres à cette 3<sup>e</sup> année&nbsp;: tuteur pédagogique
-    IUT de l'alternance, éventuels intervenants ou partenaires (présentation en Inde, investisseurs),
-    proches t'ayant soutenu sur l'année. J'ai laissé volontairement les noms ouverts car je ne les connais
-    pas avec certitude.</p>
+    <div class="lab">◆&nbsp; — remerciements personnELs</div>
+    <p>Je tiens évidemment également a remercié, ma famille; mon Papa et mes deux sœurs qui, malgré la distance, sont un soutient inébranlable pour moi.&nbsp;</p>
   </div>
 
-  <p>Enfin, je remercie celles et ceux qui, dans l'ombre, ont rendu cette année possible&nbsp;: ma famille et
-  mes proches, dont le soutien indéfectible a été le socle silencieux de tout ce travail.</p>
+  <p><br></p>
 
   <div class="foot"><span>Maël Girardin — Mémoire 3<sup>e</sup> année</span><span>Remerciements</span></div>
 </section>
@@ -490,13 +505,13 @@ hr.soft{ border:0; height:1px; background:var(--line); margin:22px 0; }
   <div class="card">
     <div class="card-title"><span class="chip chip-out">Continuité</span> Du stage à l'alternance</div>
     <table style="margin:6px 0 0;">
-      <tr><th style="width:33%">Stage — 2<sup>e</sup> année</th><th style="width:33%">Été (transition)</th><th>Alternance — 3<sup>e</sup> année</th></tr>
+      <tbody><tr><th style="width:33%">Stage — 2<sup>e</sup> année</th><th style="width:33%">Été (transition)</th><th>Alternance — 3<sup>e</sup> année</th></tr>
       <tr>
         <td>12 semaines. Reprendre l'existant, consolider les bases, livrer une <strong>maquette</strong> à présenter à des investisseurs.</td>
         <td>Poursuite de la collaboration. L'idée d'un produit complet commence à mûrir.</td>
         <td>Une année. Transformer la maquette en <strong>produit</strong>&nbsp;: structure, visuel, documentation, tests, déploiement.</td>
       </tr>
-    </table>
+    </tbody></table>
   </div>
 
   <div class="todo">
@@ -658,17 +673,17 @@ hr.soft{ border:0; height:1px; background:var(--line); margin:22px 0; }
 
   <h4>Un aperçu des grands domaines fonctionnels</h4>
   <table>
-    <tr><th style="width:26%">Domaine</th><th>Ce qu'il apporte</th></tr>
+    <tbody><tr><th style="width:26%">Domaine</th><th>Ce qu'il apporte</th></tr>
     <tr><td><strong>Cartographie OptiqCarto</strong></td><td>Éditeur SVG maison (formes, bandes, connexions, import de fichiers Visio <code>.vsdx</code>) et viewer. Point d'entrée central de la méthode.</td></tr>
     <tr><td><strong>Activités &amp; tâches</strong></td><td>Fiche et liste des activités, tâches, outils, contraintes, données d'entrée / sortie, liens inter-activités.</td></tr>
     <tr><td><strong>Compétences</strong></td><td>Savoirs, savoir-faire, aptitudes, HSC&nbsp;; évaluations multi-évaluateurs (Garant / Manager / RH), synthèse par rôle.</td></tr>
     <tr><td><strong>Gestion RH &amp; comptes</strong></td><td>Rôles, affectation des collaborateurs, managers, gestion des utilisateurs et des entités.</td></tr>
     <tr><td><strong>Performance &amp; temps</strong></td><td>Indicateurs de performance, analyse de la charge de travail par activité, rôle et utilisateur.</td></tr>
     <tr><td><strong>Briques d'IA</strong></td><td>Propositions de compétences, plan de formation, onboarding, chatbot, import assisté, projection vers les fiches métier ROME.</td></tr>
-  </table>
+  </tbody></table>
 
   <div class="figure-ph">
-    <div class="ic"><svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="#15803d" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8.5" cy="9.5" r="1.6"/><path d="M4.5 17.5 9 13l3.5 3.5L16 13l3.5 3.5"/></svg></div>
+    <div class="ic"><svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="#15803d" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"></rect><circle cx="8.5" cy="9.5" r="1.6"></circle><path d="M4.5 17.5 9 13l3.5 3.5L16 13l3.5 3.5"></path></svg></div>
     <div class="lab">Visuel à insérer — comparatif « avant / après » des pages disponibles</div>
     <div class="desc">Reprendre l'idée du mémoire de 2<sup>e</sup> année&nbsp;: une capture des quelques pages
     initiales en regard du menu actuel (la trentaine de modules). C'est la manière la plus parlante de
@@ -701,25 +716,33 @@ hr.soft{ border:0; height:1px; background:var(--line); margin:22px 0; }
   <strong>outil d'analyse</strong> pour l'utilisateur final, capable de rester lisible malgré la richesse des
   informations qu'elle manipule.</p>
 
-  <p>Cette ampleur n'est pas une fin en soi. Elle est le décor sur lequel se détachent les décisions qui
-  comptent vraiment. Plutôt que de survoler trente modules, j'ai choisi d'en extraire <strong>quatre
-  cas</strong> qui racontent, chacun à leur manière, le passage de la maquette au produit.</p>
+  <p>Cette ampleur traduit une <strong>priorité assumée</strong>. Dans un temps contraint, nous avons d'abord
+  chassé la richesse fonctionnelle — prouver tout ce que l'application pouvait faire — en laissant délibérément
+  pour plus tard la sécurité de pointe, l'optimisation fine, les tests et la finition. Ce n'est pas un renoncement
+  mais une <em>priorisation</em>, dont la Partie III mesurera les limites.</p>
+
+  <p>Mais l'ampleur n'est pas une fin en soi&nbsp;: elle est le décor sur lequel se détachent les décisions qui
+  comptent vraiment. Plutôt que de survoler trente modules, j'en ai extrait <strong>quatre cas</strong> qui
+  montrent, chacun à leur manière, le passage de la maquette au produit.</p>
 
   <div class="foot"><span>Partie II — Développement</span><span>A. Une maquette poussée</span></div>
 </section>
 
 <section class="page">
-  <h2><span class="sec">B.</span> Choix techniques et justifications — quatre cas commentés</h2>
+  <h2><span class="sec">B.</span> Le basculement dans le code — quatre franchissements</h2>
 
-  <p class="lead-drop">Je dois ici une honnêteté de méthode. Le temps de l'alternance, bien que long à l'échelle
-  d'un stage, restait contraint. Face à ce temps, nous avons fait un choix assumé&nbsp;: <strong>privilégier le
-  fonctionnel et le visuel</strong> — ce qu'un client voit, touche et achète — plutôt que la sécurité de pointe
-  ou l'optimisation fine. Ce n'est pas un renoncement, c'est une priorisation. Les quatre cas qui suivent ont été
-  choisis pour illustrer cette logique&nbsp;: chacun montre une décision, son <em>pourquoi</em>, et ce qu'elle
-  traduit de notre évolution.</p>
+  <p class="lead-drop">La Partie&nbsp;II.A a montré que l'application avait d'abord <strong>grossi</strong> — le
+  réflexe de la maquette&nbsp;: prouver tout ce qu'on peut faire. Mais grossir n'est pas mûrir. Cette section montre
+  l'autre mouvement, celui de la <strong>nature</strong>&nbsp;: l'instant où nos décisions ont cessé de viser la
+  démonstration pour viser le produit. Pour le rendre tangible, chaque cas place côte à côte une version
+  « maquette » et une version « produit » du même choix. On y retrouvera une constante&nbsp;: devenir un produit,
+  c'est se soucier soudain de ce qu'une démo ignore — l'autonomie, l'isolation des données, la durabilité, le soin.
+  Quatre <strong>franchissements</strong>, chacun avec sa décision, son <em>pourquoi</em>, et ce qu'il révèle de
+  notre évolution.</p>
 
   <!-- ───────── CAS 1 ───────── -->
   <h3>Cas n°1 — Notre propre outil : l'éditeur de cartographie <span style="color:var(--green-dk)">OptiqCarto</span></h3>
+  <p class="pas"><b>Le pas franchi</b> Cartographie dessinée sous Visio, un outil tiers <span class="ar">→</span> éditeur intégré, autonome, au cœur du produit</p>
 
   <p>Voici le chantier le plus lourd de l'année, et sans doute le marqueur le plus spectaculaire du passage au
   produit. La cartographie — CartoColor — est le <strong>cœur</strong> de la méthode OPTIQ et le point d'entrée de
@@ -738,43 +761,43 @@ hr.soft{ border:0; height:1px; background:var(--line); margin:22px 0; }
   <figure>
     <svg viewBox="0 0 680 312" width="100%" role="img" aria-label="Comparatif d'architecture : dépendance à Visio contre éditeur intégré OptiqCarto">
       <defs>
-        <marker id="arP" markerWidth="9" markerHeight="9" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#ec4899"/></marker>
-        <marker id="arG" markerWidth="9" markerHeight="9" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#22c55e"/></marker>
+        <marker id="arP" markerWidth="9" markerHeight="9" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#ec4899"></path></marker>
+        <marker id="arG" markerWidth="9" markerHeight="9" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#22c55e"></path></marker>
       </defs>
       <!-- titres -->
-      <rect x="14" y="10" width="300" height="26" rx="13" fill="#fce7f0"/>
+      <rect x="14" y="10" width="300" height="26" rx="13" fill="#fce7f0"></rect>
       <text x="164" y="27" text-anchor="middle" font-family="DM Sans,sans-serif" font-size="12.5" font-weight="700" fill="#be185d">AVANT — dépendance à Visio</text>
-      <rect x="366" y="10" width="300" height="26" rx="13" fill="#dcfce7"/>
+      <rect x="366" y="10" width="300" height="26" rx="13" fill="#dcfce7"></rect>
       <text x="516" y="27" text-anchor="middle" font-family="DM Sans,sans-serif" font-size="12.5" font-weight="700" fill="#15803d">APRÈS — éditeur intégré</text>
-      <line x1="340" y1="20" x2="340" y2="300" stroke="#e5e7eb" stroke-width="1.5" stroke-dasharray="4 5"/>
+      <line x1="340" y1="20" x2="340" y2="300" stroke="#e5e7eb" stroke-width="1.5" stroke-dasharray="4 5"></line>
       <!-- AVANT flow -->
       <g font-family="DM Sans,sans-serif" font-size="11.5" fill="#9d174d" text-anchor="middle">
-        <rect x="44" y="50" width="240" height="40" rx="9" fill="#fff" stroke="#ec4899" stroke-width="1.6" stroke-dasharray="5 4"/>
+        <rect x="44" y="50" width="240" height="40" rx="9" fill="#fff" stroke="#ec4899" stroke-width="1.6" stroke-dasharray="5 4"></rect>
         <text x="164" y="68" font-weight="700">Microsoft Visio</text><text x="164" y="83" font-size="9.5" fill="#be185d">outil tiers, propriétaire, payant</text>
-        <rect x="44" y="116" width="240" height="34" rx="9" fill="#fdf2f8" stroke="#ec4899" stroke-width="1.6"/>
+        <rect x="44" y="116" width="240" height="34" rx="9" fill="#fdf2f8" stroke="#ec4899" stroke-width="1.6"></rect>
         <text x="164" y="138" font-weight="700">Fichier&nbsp;.vsdx exporté</text>
-        <rect x="44" y="176" width="240" height="34" rx="9" fill="#fdf2f8" stroke="#ec4899" stroke-width="1.6"/>
+        <rect x="44" y="176" width="240" height="34" rx="9" fill="#fdf2f8" stroke="#ec4899" stroke-width="1.6"></rect>
         <text x="164" y="198" font-weight="700">Parseur XML (namespace Visio)</text>
-        <rect x="44" y="236" width="240" height="34" rx="9" fill="#fdf2f8" stroke="#ec4899" stroke-width="1.6"/>
+        <rect x="44" y="236" width="240" height="34" rx="9" fill="#fdf2f8" stroke="#ec4899" stroke-width="1.6"></rect>
         <text x="164" y="258" font-weight="700">Activités · Rôles · Liens</text>
       </g>
       <g stroke="#ec4899" stroke-width="2" marker-end="url(#arP)">
-        <line x1="164" y1="90" x2="164" y2="114"/><line x1="164" y1="150" x2="164" y2="174"/><line x1="164" y1="210" x2="164" y2="234"/>
+        <line x1="164" y1="90" x2="164" y2="114"></line><line x1="164" y1="150" x2="164" y2="174"></line><line x1="164" y1="210" x2="164" y2="234"></line>
       </g>
       <text x="164" y="292" text-anchor="middle" font-family="DM Sans,sans-serif" font-size="9.5" fill="#be185d">✕ format propriétaire · parsing fragile</text>
       <!-- APRÈS flow -->
       <g font-family="DM Sans,sans-serif" font-size="11.5" fill="#15803d" text-anchor="middle">
-        <rect x="396" y="50" width="240" height="40" rx="9" fill="#f0fdf4" stroke="#22c55e" stroke-width="1.8"/>
+        <rect x="396" y="50" width="240" height="40" rx="9" fill="#f0fdf4" stroke="#22c55e" stroke-width="1.8"></rect>
         <text x="516" y="68" font-weight="700">Éditeur OptiqCarto (SVG)</text><text x="516" y="83" font-size="9.5">intégré à l'app · zéro dépendance</text>
-        <rect x="396" y="116" width="240" height="34" rx="9" fill="#f0fdf4" stroke="#22c55e" stroke-width="1.8"/>
+        <rect x="396" y="116" width="240" height="34" rx="9" fill="#f0fdf4" stroke="#22c55e" stroke-width="1.8"></rect>
         <text x="516" y="138" font-weight="700">Diagramme JSON (optiqcarto_data)</text>
-        <rect x="396" y="176" width="240" height="34" rx="9" fill="#f0fdf4" stroke="#22c55e" stroke-width="1.8"/>
+        <rect x="396" y="176" width="240" height="34" rx="9" fill="#f0fdf4" stroke="#22c55e" stroke-width="1.8"></rect>
         <text x="516" y="198" font-weight="700">_sync_carto_to_db()</text>
-        <rect x="396" y="236" width="240" height="34" rx="9" fill="#f0fdf4" stroke="#22c55e" stroke-width="1.8"/>
+        <rect x="396" y="236" width="240" height="34" rx="9" fill="#f0fdf4" stroke="#22c55e" stroke-width="1.8"></rect>
         <text x="516" y="258" font-weight="700">Activités · Rôles · Liens</text>
       </g>
       <g stroke="#22c55e" stroke-width="2" marker-end="url(#arG)">
-        <line x1="516" y1="90" x2="516" y2="114"/><line x1="516" y1="150" x2="516" y2="174"/><line x1="516" y1="210" x2="516" y2="234"/>
+        <line x1="516" y1="90" x2="516" y2="114"></line><line x1="516" y1="150" x2="516" y2="174"></line><line x1="516" y1="210" x2="516" y2="234"></line>
       </g>
       <text x="516" y="292" text-anchor="middle" font-family="DM Sans,sans-serif" font-size="9.5" fill="#15803d">✓ autonome · stocké en base · synchro directe</text>
     </svg>
@@ -785,33 +808,33 @@ hr.soft{ border:0; height:1px; background:var(--line); margin:22px 0; }
   <div class="compare">
     <div class="code-block">
       <div class="code-head avant"><span>● Avant — maquette · parser le format propriétaire de Visio</span><span class="file">routes/vsdx_conection_parser.py</span></div>
-<pre><code class="language-python">class VsdxConnectionParser:
-    """Parse les connexions d'un fichier VSDX (format Microsoft Visio)."""
-    VISIO_NS = {'v': 'http://schemas.microsoft.com/office/visio/2012/main'}
-    EXCLUDED_LAYERS = {'6'}          # hacks spécifiques au format Visio
+<pre><code class="language-python hljs" data-highlighted="yes"><span class="hljs-keyword">class</span> <span class="hljs-title class_">VsdxConnectionParser</span>:
+    <span class="hljs-string">"""Parse les connexions d'un fichier VSDX (format Microsoft Visio)."""</span>
+    VISIO_NS = {<span class="hljs-string">'v'</span>: <span class="hljs-string">'http://schemas.microsoft.com/office/visio/2012/main'</span>}
+    EXCLUDED_LAYERS = {<span class="hljs-string">'6'</span>}          <span class="hljs-comment"># hacks spécifiques au format Visio</span>
 
-    def parse(self):
-        if not self.vsdx_path.lower().endswith('.vsdx'):
-            return [], ["Le fichier doit être au format .vsdx"]
-        with zipfile.ZipFile(self.vsdx_path, 'r') as zf:
-            page_files = [f for f in zf.namelist() if 'pages/page' in f]
-            # ... parcours fragile du XML propriétaire de Visio ...</code></pre>
+    <span class="hljs-keyword">def</span> <span class="hljs-title function_">parse</span>(<span class="hljs-params">self</span>):
+        <span class="hljs-keyword">if</span> <span class="hljs-keyword">not</span> self.vsdx_path.lower().endswith(<span class="hljs-string">'.vsdx'</span>):
+            <span class="hljs-keyword">return</span> [], [<span class="hljs-string">"Le fichier doit être au format .vsdx"</span>]
+        <span class="hljs-keyword">with</span> zipfile.ZipFile(self.vsdx_path, <span class="hljs-string">'r'</span>) <span class="hljs-keyword">as</span> zf:
+            page_files = [f <span class="hljs-keyword">for</span> f <span class="hljs-keyword">in</span> zf.namelist() <span class="hljs-keyword">if</span> <span class="hljs-string">'pages/page'</span> <span class="hljs-keyword">in</span> f]
+            <span class="hljs-comment"># ... parcours fragile du XML propriétaire de Visio ...</span></code></pre>
     </div>
 
     <div class="code-block">
       <div class="code-head apres"><span>● Après — produit · l'éditeur intégré enregistre et synchronise lui-même</span><span class="file">Code/routes/cartography_editor.py</span></div>
-<pre><code class="language-python">@cartography_editor_bp.route("/api/save", methods=["POST"])
-def api_save():
+<pre><code class="language-python hljs" data-highlighted="yes"><span class="hljs-meta">@cartography_editor_bp.route(<span class="hljs-params"><span class="hljs-string">"/api/save"</span>, methods=[<span class="hljs-string">"POST"</span>]</span>)</span>
+<span class="hljs-keyword">def</span> <span class="hljs-title function_">api_save</span>():
     entity  = _get_active_entity()
-    diagram = request.get_json(force=True)     # dessiné dans l'éditeur OptiqCarto
+    diagram = request.get_json(force=<span class="hljs-literal">True</span>)     <span class="hljs-comment"># dessiné dans l'éditeur OptiqCarto</span>
 
-    # Le diagramme JSON est stocké en base → survit aux redémarrages cloud
-    entity.optiqcarto_data = json.dumps(diagram, ensure_ascii=False)
+    <span class="hljs-comment"># Le diagramme JSON est stocké en base → survit aux redémarrages cloud</span>
+    entity.optiqcarto_data = json.dumps(diagram, ensure_ascii=<span class="hljs-literal">False</span>)
     db.session.commit()
 
-    # Re-extraction directe vers les modèles : activités, rôles, liens
+    <span class="hljs-comment"># Re-extraction directe vers les modèles : activités, rôles, liens</span>
     _sync_carto_to_db(entity, diagram)
-    return jsonify({"ok": True})</code></pre>
+    <span class="hljs-keyword">return</span> jsonify({<span class="hljs-string">"ok"</span>: <span class="hljs-literal">True</span>})</code></pre>
     </div>
   </div>
 
@@ -835,45 +858,45 @@ def api_save():
 
   <!-- ───────── CAS 2 ───────── -->
   <h3>Cas n°2 — Le virage commercial : le système <span style="color:var(--green-dk)">multi-entités</span></h3>
+  <p class="pas"><b>Le pas franchi</b> Les données d'une seule organisation <span class="ar">→</span> un espace cloisonné et étanche par client</p>
 
-  <p>Voici, à mes yeux, le marqueur le plus net du passage au produit. Une maquette manipule les données d'une
-  seule organisation — celle que l'on montre. Un produit commercialisable doit accueillir <strong>plusieurs
+  <p>Voici, selon moi, le marqueur le plus net du passage au produit. Notre maquette elle manipulait les données d'une organisation unique (celle visible). Notre produit commercialisable lui peut accueillir <strong>plusieurs
   clients</strong> et garantir, de façon stricte, qu'aucun ne voit les données d'un autre. Il a donc fallu
-  introduire une notion d'<strong>entité</strong> (une organisation), un système de comptes, et cloisonner
+  introduire une notion d'<strong>entité</strong> (représentation d'une organisation, composé d'une carto et de sa structure de données attitré), un système de comptes, et cloisonner
   <em>chaque</em> requête par entité active.</p>
 
   <figure>
     <svg viewBox="0 0 680 300" width="100%" role="img" aria-label="Comparatif : données mélangées contre cloisonnement par entité">
-      <rect x="14" y="10" width="300" height="26" rx="13" fill="#fce7f0"/>
+      <rect x="14" y="10" width="300" height="26" rx="13" fill="#fce7f0"></rect>
       <text x="164" y="27" text-anchor="middle" font-family="DM Sans,sans-serif" font-size="12.5" font-weight="700" fill="#be185d">AVANT — un seul espace de données</text>
-      <rect x="366" y="10" width="300" height="26" rx="13" fill="#dcfce7"/>
+      <rect x="366" y="10" width="300" height="26" rx="13" fill="#dcfce7"></rect>
       <text x="516" y="27" text-anchor="middle" font-family="DM Sans,sans-serif" font-size="12.5" font-weight="700" fill="#15803d">APRÈS — cloisonnement par entité</text>
-      <line x1="340" y1="20" x2="340" y2="288" stroke="#e5e7eb" stroke-width="1.5" stroke-dasharray="4 5"/>
+      <line x1="340" y1="20" x2="340" y2="288" stroke="#e5e7eb" stroke-width="1.5" stroke-dasharray="4 5"></line>
       <!-- AVANT : un grand bac, données mélangées -->
-      <rect x="44" y="52" width="240" height="200" rx="12" fill="#fdf2f8" stroke="#ec4899" stroke-width="1.8"/>
+      <rect x="44" y="52" width="240" height="200" rx="12" fill="#fdf2f8" stroke="#ec4899" stroke-width="1.8"></rect>
       <text x="164" y="78" text-anchor="middle" font-family="DM Sans,sans-serif" font-size="12" font-weight="700" fill="#be185d">Base de données</text>
       <g>
-        <circle cx="90"  cy="110" r="8" fill="#ec4899"/><circle cx="150" cy="128" r="8" fill="#3b82f6"/>
-        <circle cx="220" cy="106" r="8" fill="#f59e0b"/><circle cx="110" cy="160" r="8" fill="#f59e0b"/>
-        <circle cx="190" cy="158" r="8" fill="#ec4899"/><circle cx="250" cy="150" r="8" fill="#3b82f6"/>
-        <circle cx="80"  cy="210" r="8" fill="#3b82f6"/><circle cx="150" cy="206" r="8" fill="#ec4899"/>
-        <circle cx="215" cy="214" r="8" fill="#f59e0b"/>
+        <circle cx="90" cy="110" r="8" fill="#ec4899"></circle><circle cx="150" cy="128" r="8" fill="#3b82f6"></circle>
+        <circle cx="220" cy="106" r="8" fill="#f59e0b"></circle><circle cx="110" cy="160" r="8" fill="#f59e0b"></circle>
+        <circle cx="190" cy="158" r="8" fill="#ec4899"></circle><circle cx="250" cy="150" r="8" fill="#3b82f6"></circle>
+        <circle cx="80" cy="210" r="8" fill="#3b82f6"></circle><circle cx="150" cy="206" r="8" fill="#ec4899"></circle>
+        <circle cx="215" cy="214" r="8" fill="#f59e0b"></circle>
       </g>
       <text x="164" y="278" text-anchor="middle" font-family="DM Sans,sans-serif" font-size="9.5" fill="#be185d">✕ données de tous les clients mélangées</text>
       <!-- APRÈS : session → 3 entités isolées -->
-      <rect x="396" y="50" width="240" height="28" rx="8" fill="#fff" stroke="#22c55e" stroke-width="1.6"/>
+      <rect x="396" y="50" width="240" height="28" rx="8" fill="#fff" stroke="#22c55e" stroke-width="1.6"></rect>
       <text x="516" y="69" text-anchor="middle" font-family="DM Sans,sans-serif" font-size="11" font-weight="700" fill="#15803d">Session → entité active</text>
-      <line x1="516" y1="78" x2="516" y2="92" stroke="#22c55e" stroke-width="2" marker-end="url(#arG)"/>
+      <line x1="516" y1="78" x2="516" y2="92" stroke="#22c55e" stroke-width="2" marker-end="url(#arG)"></line>
       <g font-family="DM Sans,sans-serif" font-size="11" font-weight="700" fill="#15803d">
-        <rect x="396" y="94"  width="240" height="48" rx="9" fill="#f0fdf4" stroke="#22c55e" stroke-width="1.8"/>
+        <rect x="396" y="94" width="240" height="48" rx="9" fill="#f0fdf4" stroke="#22c55e" stroke-width="1.8"></rect>
         <text x="412" y="123">Entité A · owner_id 1</text>
-        <circle cx="566" cy="118" r="6" fill="#ec4899"/><circle cx="586" cy="118" r="6" fill="#ec4899"/><circle cx="606" cy="118" r="6" fill="#ec4899"/>
-        <rect x="396" y="150" width="240" height="48" rx="9" fill="#f0fdf4" stroke="#22c55e" stroke-width="1.8"/>
+        <circle cx="566" cy="118" r="6" fill="#ec4899"></circle><circle cx="586" cy="118" r="6" fill="#ec4899"></circle><circle cx="606" cy="118" r="6" fill="#ec4899"></circle>
+        <rect x="396" y="150" width="240" height="48" rx="9" fill="#f0fdf4" stroke="#22c55e" stroke-width="1.8"></rect>
         <text x="412" y="179">Entité B · owner_id 2</text>
-        <circle cx="566" cy="174" r="6" fill="#3b82f6"/><circle cx="586" cy="174" r="6" fill="#3b82f6"/><circle cx="606" cy="174" r="6" fill="#3b82f6"/>
-        <rect x="396" y="206" width="240" height="48" rx="9" fill="#f0fdf4" stroke="#22c55e" stroke-width="1.8"/>
+        <circle cx="566" cy="174" r="6" fill="#3b82f6"></circle><circle cx="586" cy="174" r="6" fill="#3b82f6"></circle><circle cx="606" cy="174" r="6" fill="#3b82f6"></circle>
+        <rect x="396" y="206" width="240" height="48" rx="9" fill="#f0fdf4" stroke="#22c55e" stroke-width="1.8"></rect>
         <text x="412" y="235">Entité C · owner_id 3</text>
-        <circle cx="566" cy="230" r="6" fill="#f59e0b"/><circle cx="586" cy="230" r="6" fill="#f59e0b"/><circle cx="606" cy="230" r="6" fill="#f59e0b"/>
+        <circle cx="566" cy="230" r="6" fill="#f59e0b"></circle><circle cx="586" cy="230" r="6" fill="#f59e0b"></circle><circle cx="606" cy="230" r="6" fill="#f59e0b"></circle>
       </g>
       <text x="516" y="278" text-anchor="middle" font-family="DM Sans,sans-serif" font-size="9.5" fill="#15803d">✓ chaque client ne voit que ses données</text>
     </svg>
@@ -883,69 +906,68 @@ def api_save():
   <div class="compare">
     <div class="code-block">
       <div class="code-head avant"><span>● Avant — maquette · une seule organisation, aucune notion de propriétaire</span><span class="file">routes/activities.py (représentatif)</span></div>
-<pre><code class="language-python">@activities_bp.route("/activities")
-def list_activities():
-    # Toutes les activités de la base : une seule organisation implicite
-    activities = Activities.query.all()
-    return render_template("activities.html", activities=activities)</code></pre>
+<pre><code class="language-python hljs" data-highlighted="yes"><span class="hljs-meta">@activities_bp.route(<span class="hljs-params"><span class="hljs-string">"/activities"</span></span>)</span>
+<span class="hljs-keyword">def</span> <span class="hljs-title function_">list_activities</span>():
+    <span class="hljs-comment"># Toutes les activités de la base : une seule organisation implicite</span>
+    activities = Activities.query.<span class="hljs-built_in">all</span>()
+    <span class="hljs-keyword">return</span> render_template(<span class="hljs-string">"activities.html"</span>, activities=activities)</code></pre>
     </div>
 
     <div class="code-block">
       <div class="code-head apres"><span>● Après — produit · entité active en session, isolation stricte par propriétaire</span><span class="file">Code/models/models.py</span></div>
-<pre><code class="language-python">class Entity(db.Model):
-    """Une organisation et sa cartographie. Chaque entité possède ses
-    propres données et appartient à un utilisateur (owner_id)."""
+<pre><code class="language-python hljs" data-highlighted="yes"><span class="hljs-keyword">class</span> <span class="hljs-title class_">Entity</span>(db.Model):
+    <span class="hljs-string">"""Une organisation et sa cartographie. Chaque entité possède ses
+    propres données et appartient à un utilisateur (owner_id)."""</span>
 
-    @classmethod
-    def get_active(cls, user_id=None):
-        if user_id is None:
-            user_id = session.get('user_id')
-        if not user_id:
-            return None                      # pas connecté → pas d'entité
+<span class="hljs-meta">    @classmethod</span>
+    <span class="hljs-keyword">def</span> <span class="hljs-title function_">get_active</span>(<span class="hljs-params">cls, user_id=<span class="hljs-literal">None</span></span>):
+        <span class="hljs-keyword">if</span> user_id <span class="hljs-keyword">is</span> <span class="hljs-literal">None</span>:
+            user_id = session.get(<span class="hljs-string">'user_id'</span>)
+        <span class="hljs-keyword">if</span> <span class="hljs-keyword">not</span> user_id:
+            <span class="hljs-keyword">return</span> <span class="hljs-literal">None</span>                      <span class="hljs-comment"># pas connecté → pas d'entité</span>
 
-        active_entity_id = session.get('active_entity_id')
-        if active_entity_id:
-            # STRICT : l'entité doit appartenir à l'utilisateur courant
-            entity = cls.query.filter(
-                cls.id == active_entity_id,
+        active_entity_id = session.get(<span class="hljs-string">'active_entity_id'</span>)
+        <span class="hljs-keyword">if</span> active_entity_id:
+            <span class="hljs-comment"># STRICT : l'entité doit appartenir à l'utilisateur courant</span>
+            entity = cls.query.<span class="hljs-built_in">filter</span>(
+                cls.<span class="hljs-built_in">id</span> == active_entity_id,
                 cls.owner_id == user_id
             ).first()
-            if entity:
-                return entity
-        # repli : la première entité de l'utilisateur
-        return cls.query.filter_by(owner_id=user_id).first()</code></pre>
+            <span class="hljs-keyword">if</span> entity:
+                <span class="hljs-keyword">return</span> entity
+        <span class="hljs-comment"># repli : la première entité de l'utilisateur</span>
+        <span class="hljs-keyword">return</span> cls.query.filter_by(owner_id=user_id).first()</code></pre>
     </div>
   </div>
 
-  <p>À partir de là, chaque route ne lit plus « toutes » les données, mais celles de l'entité active&nbsp;:</p>
-<pre><code class="language-python">active = Entity.get_active()                          # entité du client connecté
-activities = Activities.query.filter_by(entity_id=active.id).all()</code></pre>
+  <p>À partir de là, chaque route ne lit plus « toutes » les données, mais celles de l'entité active :</p>
+<pre><code class="language-python hljs" data-highlighted="yes">active = Entity.get_active()                          <span class="hljs-comment"># entité du client connecté</span>
+activities = Activities.query.filter_by(entity_id=active.<span class="hljs-built_in">id</span>).<span class="hljs-built_in">all</span>()</code></pre>
 
   <div class="callout why">
     <div class="ic">?</div>
     <div>
       <div class="lab">Ce que ce choix traduit — et son ampleur</div>
-      <p>Ce n'est pas une fonctionnalité parmi d'autres&nbsp;: c'est une <strong>contrainte transversale</strong>.
-      Le cloisonnement par entité irrigue aujourd'hui l'ensemble du code — on compte plus de <strong>340</strong>
+      <p>&nbsp;Le cloisonnement par entité irrigue aujourd'hui l'ensemble du code — on compte plus de <strong>340</strong>
       filtres <code>entity_id</code> et <strong>230</strong> références à l'entité active à travers les modules.
-      Décider cela, c'est accepter de repenser <em>chaque</em> requête de l'application. C'est le prix — et la
-      preuve — du passage à une logique commerciale&nbsp;: la donnée d'un client est sacrée.</p>
+      Décider cela, c'est accepter de repenser <em>chaque</em> requête de l'application.&nbsp;<br>On passe donc d'une maquette modélisant une unique entité, a une application qui de par sa structure peut switcher entre diverses entités, ce qui en modifie sont contenu sans toucher à sa structure, ainsi même si la structure de l'application et l'organisation que ses données modélise sont détacher l'une de l'autre. Cela permet d'interchanger nos organisations modélisée (entités) au travers de notre infrastructure d'application. Cela fait basculer l'app dans une vrai vision modulaire du produit et des données qu'il contient.&nbsp;</p>
     </div>
   </div>
 
   <p>Le commentaire même du modèle est révélateur de la maturité acquise&nbsp;: <em>« l'entité active est stockée
   dans la session utilisateur, pas en base »</em>. Ce genre de détail — où vit l'état, et pourquoi — est
   typiquement ce à quoi on ne pense pas dans une maquette, et ce qu'on ne peut plus ignorer dans un produit
-  multi-utilisateurs.</p>
+  multi-utilisateurs à vocation professionnelle.</p>
 
-  <div class="foot"><span>Partie II — B. Choix techniques (cas 1 &amp; 2)</span><span>DevOPTIQ · A.F.D.E.C</span></div>
+  <div class="foot"><span>Partie II — B. Le basculement dans le code (cas 1 &amp; 2)</span><span>DevOPTIQ · A.F.D.E.C</span></div>
 </section>
 
 <section class="page">
   <!-- ───────── CAS 3 ───────── -->
   <h3>Cas n°3 — Penser le cloud : le <span style="color:var(--pink-dk)">stockage des fichiers</span></h3>
+  <p class="pas"><b>Le pas franchi</b> Des fichiers écrits sur le disque, volatils en cloud <span class="ar">→</span> un stockage durable, en base</p>
 
-  <p>Ce cas est mon préféré, car il illustre une vérité que la maquette ignore&nbsp;: <strong>l'environnement de
+  <p>Ce cas est intéressant, car il illustre une vérité que la maquette ignore&nbsp;: <strong>l'environnement de
   production a ses propres lois</strong>. L'application est déployée sur Google Cloud Run, dans un conteneur dont
   le système de fichiers est <em>éphémère</em>&nbsp;: à chaque redémarrage ou redéploiement, tout ce qui a été
   écrit sur le disque disparaît. Une maquette qui enregistre les fichiers uploadés sur le disque local
@@ -954,30 +976,30 @@ activities = Activities.query.filter_by(entity_id=active.id).all()</code></pre>
   <div class="compare">
     <div class="code-block">
       <div class="code-head avant"><span>● Avant — maquette · écriture sur le disque local (volatil en cloud)</span><span class="file">routes/upload.py (représentatif)</span></div>
-<pre><code class="language-python">UPLOAD_DIR = os.path.join(app.root_path, "uploads")
+<pre><code class="language-python hljs" data-highlighted="yes">UPLOAD_DIR = os.path.join(app.root_path, <span class="hljs-string">"uploads"</span>)
 
-def upload_file():
-    f = request.files["file"]
+<span class="hljs-keyword">def</span> <span class="hljs-title function_">upload_file</span>():
+    f = request.files[<span class="hljs-string">"file"</span>]
     path = os.path.join(UPLOAD_DIR, secure_filename(f.filename))
-    f.save(path)                      # écrit sur le disque du conteneur
-    return {"path": path}             # ... perdu au prochain redémarrage</code></pre>
+    f.save(path)                      <span class="hljs-comment"># écrit sur le disque du conteneur</span>
+    <span class="hljs-keyword">return</span> {<span class="hljs-string">"path"</span>: path}             <span class="hljs-comment"># ... perdu au prochain redémarrage</span></code></pre>
     </div>
 
     <div class="code-block">
       <div class="code-head apres"><span>● Après — produit · contenu binaire persistant en base (survit au cloud)</span><span class="file">Code/models/models.py · routes/export.py</span></div>
-<pre><code class="language-python">class FileBlob(db.Model):
-    """Contenu binaire des fichiers. Persistant en base
-    (PostgreSQL BYTEA / SQLite BLOB) — survit aux redémarrages cloud."""
-    filename = db.Column(db.String(255), nullable=False)
-    mimetype = db.Column(db.String(128), nullable=False)
-    data     = db.Column(db.LargeBinary, nullable=False)
+<pre><code class="language-python hljs" data-highlighted="yes"><span class="hljs-keyword">class</span> <span class="hljs-title class_">FileBlob</span>(db.Model):
+    <span class="hljs-string">"""Contenu binaire des fichiers. Persistant en base
+    (PostgreSQL BYTEA / SQLite BLOB) — survit aux redémarrages cloud."""</span>
+    filename = db.Column(db.String(<span class="hljs-number">255</span>), nullable=<span class="hljs-literal">False</span>)
+    mimetype = db.Column(db.String(<span class="hljs-number">128</span>), nullable=<span class="hljs-literal">False</span>)
+    data     = db.Column(db.LargeBinary, nullable=<span class="hljs-literal">False</span>)
 
-def upload_file():
-    f = request.files.get("file")
+<span class="hljs-keyword">def</span> <span class="hljs-title function_">upload_file</span>():
+    f = request.files.get(<span class="hljs-string">"file"</span>)
     blob = FileBlob(filename=secure_filename(f.filename),
                     mimetype=f.mimetype, data=f.read())
     db.session.add(blob); db.session.commit()
-    return {"path": f"/utils/file/{blob.id}"}     # servi depuis la base</code></pre>
+    <span class="hljs-keyword">return</span> {<span class="hljs-string">"path"</span>: <span class="hljs-string">f"/utils/file/<span class="hljs-subst">{blob.<span class="hljs-built_in">id</span>}</span>"</span>}     <span class="hljs-comment"># servi depuis la base</span></code></pre>
     </div>
   </div>
 
@@ -995,45 +1017,44 @@ def upload_file():
 
   <!-- ───────── CAS 4 ───────── -->
   <h3>Cas n°4 — Le soin du produit : <span style="color:var(--green-dk)">désirable</span> et <span style="color:var(--pink-dk)">increvable</span></h3>
+  <p class="pas"><b>Le pas franchi</b> Une démo qui peut être laide et fragile <span class="ar">→</span> un produit désirable, qui ne s'effondre jamais</p>
 
-  <p>Un produit se distingue d'une maquette par deux exigences que celle-ci ignore&nbsp;: il doit donner
-  <strong>envie</strong>, et il ne doit <strong>jamais</strong> s'effondrer devant le client. Esthétique et
-  robustesse semblent éloignées&nbsp;; elles disent pourtant la même chose — le soin porté à l'expérience de
-  l'utilisateur final. Deux finitions, longtemps reléguées au second plan dans la maquette, sont devenues des
-  priorités du produit.</p>
+  <p>Un produit se distingue d'une maquette notamment par deux exigences que celle-ci ignore&nbsp;: il doit donner
+  <strong>envie</strong>, et il ne doit <strong>jamais</strong> s'effondrer (engendrer de bug ou d'erreurs non prévue) devant le client. L'esthétique et la robustesse semblent éloignées&nbsp;; pourtant elles s'inscrivent dans la même logique : celle de faire d'une maquette un outil fini, durable et cohérent. Ainsi dans l'optique d'un produit complet, fini, ces deux<span style="font-size: 11.2pt;">&nbsp;finitions, longtemps reléguées au second plan dans la maquette, sont devenues des
+  priorités du produit, lié au nouveau statut de l'application.<br>On vas donc passer en revue 4 points qui représente ce besoin de finition d'on nécessitait notre application.&nbsp;</span></p>
 
   <h4>Facette 1 — Une identité visuelle qui donne envie</h4>
 
-  <p>Le style initial était fonctionnel mais brut&nbsp;: une feuille globale aux tailles énormes
-  (<code>30px</code> partout) et des couleurs nommées « en dur ». Le produit s'est doté d'un véritable
+  <p>Le style initial était fonctionnel mais trop brut&nbsp;: une feuille globale aux tailles énormes
+  (<code>30px</code> partout), des couleurs nommées « en dur », et une cohérence globale pas voir peu présente lié a un développement axé sur le fonctionnel et étalé dans le temps.</p><p>En réponse a ce soucis, le produit s'est doté d'un véritable
   <strong>design system</strong> — des jetons de couleur (le rose <code>#ec4899</code>, le vert
-  <code>#22c55e</code>, le blanc) déclinés sur toute l'application. <span class="small">Ce mémoire en est
+  <code>#22c55e</code>, le blanc) utilisés dans plusieurs déclinaisons, sur toute l'application. Cela nous permet donc d'avoir une continuité et un cohérence visuelle entre toutes les sections que comporte l'application. <span class="small">Ce mémoire en est
   lui-même habillé&nbsp;: sa charte <em>est</em> celle de l'application.</span></p>
 
   <div class="compare">
     <div class="code-block">
       <div class="code-head avant"><span>● Avant — maquette · couleurs « en dur », pas de système</span><span class="file">static/optiq.css</span></div>
-<pre><code class="language-css">body { font-family: Arial; font-size: 30px; }      /* tout surdimensionné */
+<pre><code class="language-css hljs" data-highlighted="yes"><span class="hljs-selector-tag">body</span> { <span class="hljs-attribute">font-family</span>: Arial; <span class="hljs-attribute">font-size</span>: <span class="hljs-number">30px</span>; }      <span class="hljs-comment">/* tout surdimensionné */</span>
 
-.update-btn {
-  background-color: green;     /* couleur nommée, non maîtrisée */
-  color: white;
+<span class="hljs-selector-class">.update-btn</span> {
+  <span class="hljs-attribute">background-color</span>: green;     <span class="hljs-comment">/* couleur nommée, non maîtrisée */</span>
+  <span class="hljs-attribute">color</span>: white;
 }</code></pre>
     </div>
     <div class="code-block">
       <div class="code-head apres"><span>● Après — produit · jetons de couleur, charte cohérente</span><span class="file">static/connexion.css · docs/*.html</span></div>
-<pre><code class="language-css">:root {
-  --pink:  #ec4899;  --pink-dk: #be185d;   /* rose : couleur principale */
-  --green: #22c55e;  --green-dk:#15803d;   /* vert : couleur d'accent   */
+<pre><code class="language-css hljs" data-highlighted="yes"><span class="hljs-selector-pseudo">:root</span> {
+  <span class="hljs-attr">--pink</span>:  <span class="hljs-number">#ec4899</span>;  <span class="hljs-attr">--pink-dk</span>: <span class="hljs-number">#be185d</span>;   <span class="hljs-comment">/* rose : couleur principale */</span>
+  <span class="hljs-attr">--green</span>: <span class="hljs-number">#22c55e</span>;  <span class="hljs-attr">--green-dk</span>:<span class="hljs-number">#15803d</span>;   <span class="hljs-comment">/* vert : couleur d'accent   */</span>
 }
-.nav-logo { background: linear-gradient(135deg, var(--pink), var(--pink-dk)); }</code></pre>
+<span class="hljs-selector-class">.nav-logo</span> { <span class="hljs-attribute">background</span>: <span class="hljs-built_in">linear-gradient</span>(<span class="hljs-number">135deg</span>, <span class="hljs-built_in">var</span>(--pink), <span class="hljs-built_in">var</span>(--pink-dk)); }</code></pre>
     </div>
   </div>
 
   <h4>Facette 2 — Une IA qui ne fait jamais planter le client</h4>
 
-  <p>L'IA est partout dans DevOPTIQ&nbsp;: elle propose des savoirs, des savoir-faire, des HSC, génère des plans
-  de formation, alimente le chatbot. Mais une dépendance externe est aussi une fragilité&nbsp;: et si la clé d'API
+  <p>L'IA est fréquemment utilisée dans DevOPTIQ&nbsp;: elle propose des savoirs, des savoir-faire, des HSC, génère des plans
+  de formation, alimente notre chatbot. Mais une dépendance externe est aussi une fragilité&nbsp;: et si la clé d'API
   est absente, le service indisponible, le quota épuisé&nbsp;? Dans une maquette, on suppose que « ça
   marche ». Dans un produit, c'est interdit&nbsp;: une fonctionnalité ne doit <strong>jamais</strong> faire
   planter l'interface du client.</p>
@@ -1041,32 +1062,32 @@ def upload_file():
   <div class="compare">
     <div class="code-block">
       <div class="code-head avant"><span>● Avant — maquette · dépendance dure, plante si l'API manque</span><span class="file">routes/propose.py (représentatif)</span></div>
-<pre><code class="language-python">from openai import OpenAI
-client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])   # KeyError si absente
+<pre><code class="language-python hljs" data-highlighted="yes"><span class="hljs-keyword">from</span> openai <span class="hljs-keyword">import</span> OpenAI
+client = OpenAI(api_key=os.environ[<span class="hljs-string">"OPENAI_API_KEY"</span>])   <span class="hljs-comment"># KeyError si absente</span>
 
-def propose_savoirs(activity):
-    resp = client.chat.completions.create(...)          # 500 si l'API échoue
-    return parse(resp)</code></pre>
+<span class="hljs-keyword">def</span> <span class="hljs-title function_">propose_savoirs</span>(<span class="hljs-params">activity</span>):
+    resp = client.chat.completions.create(...)          <span class="hljs-comment"># 500 si l'API échoue</span>
+    <span class="hljs-keyword">return</span> parse(resp)</code></pre>
     </div>
 
     <div class="code-block">
       <div class="code-head apres"><span>● Après — produit · client optionnel + repli déterministe, jamais d'erreur 500</span><span class="file">Code/routes/propose_common.py</span></div>
-<pre><code class="language-python">def openai_client_or_none():
-    """Instancie le client OpenAI ; si la clé manque → (None, raison)."""
-    key = os.environ.get("OPENAI_API_KEY")
-    if not key:
-        return None, "Clé OpenAI manquante (OPENAI_API_KEY)."
-    try:
-        from openai import OpenAI
-        return OpenAI(api_key=key), None
-    except Exception as e:
-        return None, str(e)
+<pre><code class="language-python hljs" data-highlighted="yes"><span class="hljs-keyword">def</span> <span class="hljs-title function_">openai_client_or_none</span>():
+    <span class="hljs-string">"""Instancie le client OpenAI ; si la clé manque → (None, raison)."""</span>
+    key = os.environ.get(<span class="hljs-string">"OPENAI_API_KEY"</span>)
+    <span class="hljs-keyword">if</span> <span class="hljs-keyword">not</span> key:
+        <span class="hljs-keyword">return</span> <span class="hljs-literal">None</span>, <span class="hljs-string">"Clé OpenAI manquante (OPENAI_API_KEY)."</span>
+    <span class="hljs-keyword">try</span>:
+        <span class="hljs-keyword">from</span> openai <span class="hljs-keyword">import</span> OpenAI
+        <span class="hljs-keyword">return</span> OpenAI(api_key=key), <span class="hljs-literal">None</span>
+    <span class="hljs-keyword">except</span> Exception <span class="hljs-keyword">as</span> e:
+        <span class="hljs-keyword">return</span> <span class="hljs-literal">None</span>, <span class="hljs-built_in">str</span>(e)
 
-def dummy_from_context(ctx, kind="savoir"):
-    """Repli déterministe : fabrique des items à partir du contexte.
-    Ça évite de faire planter le front en prod."""
+<span class="hljs-keyword">def</span> <span class="hljs-title function_">dummy_from_context</span>(<span class="hljs-params">ctx, kind=<span class="hljs-string">"savoir"</span></span>):
+    <span class="hljs-string">"""Repli déterministe : fabrique des items à partir du contexte.
+    Ça évite de faire planter le front en prod."""</span>
     ...
-    return [f"{prefix} les procédures principales{titre_part}", ...]</code></pre>
+    <span class="hljs-keyword">return</span> [<span class="hljs-string">f"<span class="hljs-subst">{prefix}</span> les procédures principales<span class="hljs-subst">{titre_part}</span>"</span>, ...]</code></pre>
     </div>
   </div>
 
@@ -1074,12 +1095,12 @@ def dummy_from_context(ctx, kind="savoir"):
     <div class="ic">?</div>
     <div>
       <div class="lab">Ce que ces deux finitions traduisent</div>
-      <p>D'un côté, un langage visuel cohérent fait passer l'application de « ça marche » à « on a envie de
+      <p>D'un côté, un langage visuel plus cohérent fait passer l'application d'une « c'est fonctionnel » à « on a envie de
       s'en servir ». De l'autre, le commentaire du code dit tout&nbsp;: <em>« ça évite de faire planter le front
       en prod »</em> — le client sans clé d'API obtient une proposition <em>dégradée</em> mais cohérente, et
       l'application reste debout. <strong>Séduire</strong> et <strong>ne jamais décevoir</strong>&nbsp;: ce sont
       les deux visages du même soin, celui d'un produit pensé pour son utilisateur final, et non pour une
-      démonstration.</p>
+      démonstration de ce que l'application peut faire.</p>
     </div>
   </div>
 
@@ -1092,13 +1113,19 @@ def dummy_from_context(ctx, kind="savoir"):
     — et c'est là que mon regard de développeur a le plus mûri cette année.</p>
   </div>
 
-  <div class="foot"><span>Partie II — B. Choix techniques (cas 3 &amp; 4)</span><span>DevOPTIQ · A.F.D.E.C</span></div>
+  <p>Ce dernier franchissement — le soin visuel — a quelque chose de particulier&nbsp;: ce n'est déjà plus une
+  <em>fonctionnalité</em>, mais un <strong>attribut de produit</strong>, quelque chose qu'une démonstration n'a
+  jamais à offrir. Et il en appelle d'autres, invisibles mais tout aussi décisifs&nbsp;: la fiabilité, la
+  testabilité, la transmissibilité. Franchir ces étapes une à une ne suffisait pas&nbsp;; il fallait, pour finir,
+  <strong>professionnaliser l'ensemble</strong>. C'est l'objet de la dernière section.</p>
+
+  <div class="foot"><span>Partie II — B. Le basculement dans le code (cas 3 &amp; 4)</span><span>DevOPTIQ · A.F.D.E.C</span></div>
 </section>
 
 <section class="page">
   <h2><span class="sec">C.</span> La migration vers un produit : structure, tests, documentation</h2>
 
-  <p class="lead-drop">Si la partie B montrait des décisions ponctuelles, celle-ci montre un changement de
+  <p class="lead-drop">Si la partie B montrait des franchissements pris un à un, celle-ci montre un changement de
   régime. Trois chantiers transversaux ont accompagné le passage au produit&nbsp;: fiabiliser la base de données
   en production, se doter d'une <strong>batterie de tests</strong> qui rend compte de l'état de santé de
   l'application, et produire une <strong>documentation</strong> digne d'un logiciel que l'on transmet.</p>
@@ -1110,21 +1137,21 @@ def dummy_from_context(ctx, kind="savoir"):
   schéma sans jamais bloquer un déploiement, a demandé une stratégie de migration sur-mesure, exécutée au
   démarrage de l'application&nbsp;:</p>
 
-<pre><code class="language-python"># Au démarrage : créer les tables manquantes, puis ajouter les colonnes
-# manquantes une à une — idempotent, sans verrou DDL bloquant.
-def _safe_add_column(table, col, col_type):
-    try:
-        with db.engine.connect() as _conn:
-            _conn.execute(_text(f"ALTER TABLE {table} ADD COLUMN {col} {col_type}"))
+<pre><code class="language-python hljs" data-highlighted="yes"><span class="hljs-comment"># Au démarrage : créer les tables manquantes, puis ajouter les colonnes</span>
+<span class="hljs-comment"># manquantes une à une — idempotent, sans verrou DDL bloquant.</span>
+<span class="hljs-keyword">def</span> <span class="hljs-title function_">_safe_add_column</span>(<span class="hljs-params">table, col, col_type</span>):
+    <span class="hljs-keyword">try</span>:
+        <span class="hljs-keyword">with</span> db.engine.connect() <span class="hljs-keyword">as</span> _conn:
+            _conn.execute(_text(<span class="hljs-string">f"ALTER TABLE <span class="hljs-subst">{table}</span> ADD COLUMN <span class="hljs-subst">{col}</span> <span class="hljs-subst">{col_type}</span>"</span>))
             _conn.commit()
-    except Exception:
-        pass  # colonne déjà présente — normal, on ignore
+    <span class="hljs-keyword">except</span> Exception:
+        <span class="hljs-keyword">pass</span>  <span class="hljs-comment"># colonne déjà présente — normal, on ignore</span>
 
-db.create_all()                                  # tables manquantes
-_safe_add_column("entities", "svg_content", "TEXT")
-_safe_add_column("entities", "optiqcarto_data", "TEXT")
-_safe_add_column("links", "choice_label", "VARCHAR(10)")
-# ...</code></pre>
+db.create_all()                                  <span class="hljs-comment"># tables manquantes</span>
+_safe_add_column(<span class="hljs-string">"entities"</span>, <span class="hljs-string">"svg_content"</span>, <span class="hljs-string">"TEXT"</span>)
+_safe_add_column(<span class="hljs-string">"entities"</span>, <span class="hljs-string">"optiqcarto_data"</span>, <span class="hljs-string">"TEXT"</span>)
+_safe_add_column(<span class="hljs-string">"links"</span>, <span class="hljs-string">"choice_label"</span>, <span class="hljs-string">"VARCHAR(10)"</span>)
+<span class="hljs-comment"># ...</span></code></pre>
 
   <div class="callout why">
     <div class="ic">?</div>
@@ -1165,7 +1192,7 @@ _safe_add_column("links", "choice_label", "VARCHAR(10)")
   <em>lisible</em>, y compris pour un non-développeur comme Hubert.</p>
 
   <div class="figure-ph">
-    <div class="ic"><svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="#15803d" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8.5" cy="9.5" r="1.6"/><path d="M4.5 17.5 9 13l3.5 3.5L16 13l3.5 3.5"/></svg></div>
+    <div class="ic"><svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="#15803d" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"></rect><circle cx="8.5" cy="9.5" r="1.6"></circle><path d="M4.5 17.5 9 13l3.5 3.5L16 13l3.5 3.5"></path></svg></div>
     <div class="lab">Visuel à insérer — capture du panneau de tests <code>/testpanel</code></div>
     <div class="desc">Une capture du panneau de tests (résultats verts / rouges par module) illustrerait
     parfaitement cette idée de « produit qui rend compte de son propre état ». (Capture à fournir.)</div>
@@ -1235,7 +1262,7 @@ _safe_add_column("links", "choice_label", "VARCHAR(10)")
   <div class="card">
     <div class="card-title"><span class="chip chip-out">Bilan</span> Ce qui est atteint, ce qui reste ouvert</div>
     <table style="margin:6px 0 0;">
-      <tr><th style="width:50%">Atteint</th><th>Encore ouvert</th></tr>
+      <tbody><tr><th style="width:50%">Atteint</th><th>Encore ouvert</th></tr>
       <tr>
         <td>Produit déployé, multi-entités, cloisonnement strict des données.</td>
         <td>Durcissement de la sécurité (voir B).</td>
@@ -1248,7 +1275,7 @@ _safe_add_column("links", "choice_label", "VARCHAR(10)")
         <td>979 tests automatisés + documentation technique et utilisateur.</td>
         <td>Stratégie de <strong>distribution</strong> et de commercialisation.</td>
       </tr>
-    </table>
+    </tbody></table>
   </div>
 
   <h2><span class="sec">B.</span> Limites, biais et points d'évolution</h2>
@@ -1460,7 +1487,7 @@ _safe_add_column("links", "choice_label", "VARCHAR(10)")
 
   <h2 class="green"><span class="sec" style="color:var(--green-dk)">A1.</span> Glossaire</h2>
   <table>
-    <tr><th style="width:24%">Terme</th><th>Définition</th></tr>
+    <tbody><tr><th style="width:24%">Terme</th><th>Définition</th></tr>
     <tr><td><strong>Maquette</strong></td><td>Version de démonstration d'une application, destinée à prouver un concept ou à convaincre, sans les garanties d'un logiciel exploité en clientèle.</td></tr>
     <tr><td><strong>Produit</strong></td><td>Logiciel abouti, déployé, fiable et commercialisable, conçu pour être utilisé par plusieurs clients réels.</td></tr>
     <tr><td><strong>Savoirs</strong></td><td>Connaissances théoriques mobilisées pour comprendre, analyser ou situer une activité&nbsp;: la base cognitive.</td></tr>
@@ -1479,7 +1506,7 @@ _safe_add_column("links", "choice_label", "VARCHAR(10)")
     <tr><td><strong>Commit / Push</strong></td><td>Enregistrer localement un ensemble de modifications (commit)&nbsp;; les transférer vers le dépôt distant (push).</td></tr>
     <tr><td><strong>API</strong></td><td><em>Application Programming Interface</em>&nbsp;: interface permettant à deux services d'échanger des données.</td></tr>
     <tr><td><strong>R.O.M.E 4.0</strong></td><td>Répertoire Opérationnel des Métiers et des Emplois de France Travail, utilisé pour la projection métier.</td></tr>
-  </table>
+  </tbody></table>
 
   <div class="foot"><span>Annexes — A1. Glossaire</span><span>DevOPTIQ · A.F.D.E.C</span></div>
 </section>
@@ -1489,7 +1516,7 @@ _safe_add_column("links", "choice_label", "VARCHAR(10)")
   <p>Vue d'ensemble des grands domaines fonctionnels et de leurs modules (blueprints) — un aperçu de l'ampleur
   fonctionnelle évoquée en Partie II.</p>
   <table>
-    <tr><th style="width:26%">Domaine</th><th>Modules (extraits)</th></tr>
+    <tbody><tr><th style="width:26%">Domaine</th><th>Modules (extraits)</th></tr>
     <tr><td><strong>Cartographie</strong></td><td><code>cartography_editor</code>, <code>activities_map</code>, <code>vsdx_*</code> (import Visio), synchronisation carto → base.</td></tr>
     <tr><td><strong>Activités</strong></td><td><code>activities</code>, <code>activities_view</code>, <code>activities_render</code>, <code>activities_data</code>, <code>constraints</code>, <code>tasks</code>, <code>tools</code>, <code>task_link_assignments</code>.</td></tr>
     <tr><td><strong>Compétences</strong></td><td><code>competences</code>, <code>competences_plan</code>, <code>savoirs</code>, <code>savoir_faires</code>, <code>aptitudes</code>, <code>softskills</code>, <code>skills</code>.</td></tr>
@@ -1497,11 +1524,11 @@ _safe_add_column("links", "choice_label", "VARCHAR(10)")
     <tr><td><strong>Performance &amp; temps</strong></td><td><code>performance</code>, <code>performance_personnalisee</code>, <code>time_view</code>, <code>time_extra</code>.</td></tr>
     <tr><td><strong>IA</strong></td><td><code>propose_*</code> (savoirs, savoir-faire, HSC, aptitudes), <code>propose_from_file</code>, <code>onboarding</code>, <code>chatbot</code>, <code>import_full</code>, <code>translate_softskills</code>, <code>projection_metier</code>.</td></tr>
     <tr><td><strong>Transverse</strong></td><td><code>connexion_routes</code>, <code>routes_password</code>, <code>settings</code>, <code>export</code>, <code>changelog</code>, <code>test_panel</code>.</td></tr>
-  </table>
+  </tbody></table>
 
   <h2 class="green" style="margin-top:30px;"><span class="sec" style="color:var(--green-dk)">A3.</span> Pile technique</h2>
   <table>
-    <tr><th style="width:26%">Couche</th><th>Technologie</th></tr>
+    <tbody><tr><th style="width:26%">Couche</th><th>Technologie</th></tr>
     <tr><td>Backend</td><td>Python 3, Flask, SQLAlchemy (Flask-SQLAlchemy)</td></tr>
     <tr><td>Base de données</td><td>PostgreSQL (production) / SQLite (développement &amp; tests)</td></tr>
     <tr><td>Frontend</td><td>HTML Jinja2, CSS « vanilla » (charte rose/vert/blanc), JavaScript « vanilla » (sans framework)</td></tr>
@@ -1511,7 +1538,7 @@ _safe_add_column("links", "choice_label", "VARCHAR(10)")
     <tr><td>Tests</td><td>pytest — 979 tests, base SQLite temporaire, panneau <code>/testpanel</code></td></tr>
     <tr><td>Déploiement</td><td>Docker → Google Cloud Run, serveur Gunicorn</td></tr>
     <tr><td>Outils</td><td>Git / dépôt distant, communication d'équipe (visio, comptes rendus)</td></tr>
-  </table>
+  </tbody></table>
 
   <h2 class="green" style="margin-top:30px;"><span class="sec" style="color:var(--green-dk)">A4.</span> Feuille de temps</h2>
   <div class="todo">
@@ -1522,7 +1549,7 @@ _safe_add_column("links", "choice_label", "VARCHAR(10)")
   </div>
 
   <div class="figure-ph">
-    <div class="ic"><svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#15803d" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5 12.5 20a5 5 0 0 1-7-7l9-9a3.4 3.4 0 0 1 4.8 4.8l-9 9a1.8 1.8 0 0 1-2.6-2.6l8.2-8.2"/></svg></div>
+    <div class="ic"><svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#15803d" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5 12.5 20a5 5 0 0 1-7-7l9-9a3.4 3.4 0 0 1 4.8 4.8l-9 9a1.8 1.8 0 0 1-2.6-2.6l8.2-8.2"></path></svg></div>
     <div class="lab">Annexes complémentaires éventuelles</div>
     <div class="desc">Captures d'écran de l'application (cartographie, fiche activité, synthèse des compétences),
     extraits de la documentation technique ou du guide utilisateur. À insérer selon les attendus de ton jury.</div>
@@ -1541,89 +1568,89 @@ _safe_add_column("links", "choice_label", "VARCHAR(10)")
   <figure>
     <svg viewBox="0 0 680 566" width="100%" role="img" aria-label="Schéma relationnel simplifié de la base de données">
       <defs>
-        <marker id="arGray" markerWidth="8" markerHeight="8" refX="5.5" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#94a3b8"/></marker>
+        <marker id="arGray" markerWidth="8" markerHeight="8" refX="5.5" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#94a3b8"></path></marker>
       </defs>
       <!-- légende -->
       <g font-family="DM Sans,sans-serif" font-size="9.5">
-        <rect x="14" y="6" width="13" height="13" rx="3" fill="#fdf2f8" stroke="#ec4899"/><text x="33" y="16" fill="#6b7280">Multi-locataire</text>
-        <rect x="150" y="6" width="13" height="13" rx="3" fill="#f0fdf4" stroke="#22c55e"/><text x="169" y="16" fill="#6b7280">Cartographie &amp; métier</text>
-        <rect x="330" y="6" width="13" height="13" rx="3" fill="#f9fafb" stroke="#cbd5e1"/><text x="349" y="16" fill="#6b7280">Satellites &amp; analyses</text>
+        <rect x="14" y="6" width="13" height="13" rx="3" fill="#fdf2f8" stroke="#ec4899"></rect><text x="33" y="16" fill="#6b7280">Multi-locataire</text>
+        <rect x="150" y="6" width="13" height="13" rx="3" fill="#f0fdf4" stroke="#22c55e"></rect><text x="169" y="16" fill="#6b7280">Cartographie &amp; métier</text>
+        <rect x="330" y="6" width="13" height="13" rx="3" fill="#f9fafb" stroke="#cbd5e1"></rect><text x="349" y="16" fill="#6b7280">Satellites &amp; analyses</text>
         <text x="666" y="16" text-anchor="end" fill="#94a3b8">→ clé étrangère</text>
       </g>
       <!-- connecteurs (dessinés avant les boîtes) -->
       <g stroke="#cbd5e1" stroke-width="1.5" fill="none" marker-end="url(#arGray)">
-        <line x1="111" y1="134" x2="312" y2="100"/>           <!-- users → entities -->
-        <line x1="569" y1="134" x2="372" y2="100"/>           <!-- roles → entities -->
-        <line x1="340" y1="142" x2="340" y2="100"/>           <!-- activities → entities -->
-        <line x1="111" y1="222" x2="111" y2="186"/>           <!-- user_roles → users -->
-        <line x1="186" y1="240" x2="494" y2="160"/>           <!-- user_roles → roles -->
-        <line x1="340" y1="236" x2="340" y2="200"/>           <!-- tasks → activities -->
-        <line x1="520" y1="222" x2="412" y2="176"/>           <!-- links → activities -->
-        <line x1="340" y1="314" x2="340" y2="200"/>           <!-- competences → activities -->
-        <line x1="569" y1="394" x2="569" y2="280"/>           <!-- performances → links -->
-        <line x1="320" y1="400" x2="300" y2="200"/>           <!-- comp_eval → activities -->
-        <line x1="250" y1="420" x2="170" y2="186"/>           <!-- comp_eval → users -->
-        <line x1="150" y1="394" x2="266" y2="190"/>           <!-- time → activities -->
+        <line x1="111" y1="134" x2="312" y2="100"></line>           <!-- users → entities -->
+        <line x1="569" y1="134" x2="372" y2="100"></line>           <!-- roles → entities -->
+        <line x1="340" y1="142" x2="340" y2="100"></line>           <!-- activities → entities -->
+        <line x1="111" y1="222" x2="111" y2="186"></line>           <!-- user_roles → users -->
+        <line x1="186" y1="240" x2="494" y2="160"></line>           <!-- user_roles → roles -->
+        <line x1="340" y1="236" x2="340" y2="200"></line>           <!-- tasks → activities -->
+        <line x1="520" y1="222" x2="412" y2="176"></line>           <!-- links → activities -->
+        <line x1="340" y1="314" x2="340" y2="200"></line>           <!-- competences → activities -->
+        <line x1="569" y1="394" x2="569" y2="280"></line>           <!-- performances → links -->
+        <line x1="320" y1="400" x2="300" y2="200"></line>           <!-- comp_eval → activities -->
+        <line x1="250" y1="420" x2="170" y2="186"></line>           <!-- comp_eval → users -->
+        <line x1="150" y1="394" x2="266" y2="190"></line>           <!-- time → activities -->
       </g>
       <!-- BOÎTES -->
       <!-- entities (racine) -->
       <g font-family="DM Sans,sans-serif">
-        <rect x="265" y="44" width="150" height="56" rx="9" fill="#fdf2f8" stroke="#ec4899" stroke-width="2"/>
+        <rect x="265" y="44" width="150" height="56" rx="9" fill="#fdf2f8" stroke="#ec4899" stroke-width="2"></rect>
         <text x="340" y="62" text-anchor="middle" font-size="10.5" font-weight="700" fill="#be185d">entities</text>
         <text x="340" y="77" text-anchor="middle" font-size="7.6" fill="#9d174d">id PK · owner_id → users</text>
         <text x="340" y="90" text-anchor="middle" font-size="7.6" fill="#9d174d">svg_content · optiqcarto_data</text>
       </g>
       <g font-family="DM Sans,sans-serif">
-        <rect x="36" y="134" width="150" height="52" rx="9" fill="#fdf2f8" stroke="#ec4899" stroke-width="1.6"/>
+        <rect x="36" y="134" width="150" height="52" rx="9" fill="#fdf2f8" stroke="#ec4899" stroke-width="1.6"></rect>
         <text x="111" y="152" text-anchor="middle" font-size="10" font-weight="700" fill="#be185d">users</text>
         <text x="111" y="166" text-anchor="middle" font-size="7.6" fill="#9d174d">id PK · entity_id → entities</text>
         <text x="111" y="178" text-anchor="middle" font-size="7.6" fill="#9d174d">manager_id → users</text>
-        <rect x="494" y="134" width="150" height="52" rx="9" fill="#fdf2f8" stroke="#ec4899" stroke-width="1.6"/>
+        <rect x="494" y="134" width="150" height="52" rx="9" fill="#fdf2f8" stroke="#ec4899" stroke-width="1.6"></rect>
         <text x="569" y="152" text-anchor="middle" font-size="10" font-weight="700" fill="#be185d">roles</text>
         <text x="569" y="166" text-anchor="middle" font-size="7.6" fill="#9d174d">id PK · entity_id → entities</text>
         <text x="569" y="178" text-anchor="middle" font-size="7.6" fill="#9d174d">name · mission</text>
-        <rect x="265" y="142" width="150" height="58" rx="9" fill="#f0fdf4" stroke="#22c55e" stroke-width="2.2"/>
+        <rect x="265" y="142" width="150" height="58" rx="9" fill="#f0fdf4" stroke="#22c55e" stroke-width="2.2"></rect>
         <text x="340" y="161" text-anchor="middle" font-size="10.5" font-weight="700" fill="#15803d">activities</text>
         <text x="340" y="176" text-anchor="middle" font-size="7.6" fill="#15803d">id PK · entity_id → entities</text>
         <text x="340" y="189" text-anchor="middle" font-size="7.6" fill="#15803d">shape_id · name (pivot)</text>
-        <rect x="36" y="222" width="150" height="44" rx="9" fill="#fdf2f8" stroke="#ec4899" stroke-width="1.6"/>
+        <rect x="36" y="222" width="150" height="44" rx="9" fill="#fdf2f8" stroke="#ec4899" stroke-width="1.6"></rect>
         <text x="111" y="240" text-anchor="middle" font-size="9.5" font-weight="700" fill="#be185d">user_roles (M:N)</text>
         <text x="111" y="254" text-anchor="middle" font-size="7.6" fill="#9d174d">user_id · role_id · manager_id</text>
-        <rect x="494" y="222" width="150" height="58" rx="9" fill="#f0fdf4" stroke="#22c55e" stroke-width="1.6"/>
+        <rect x="494" y="222" width="150" height="58" rx="9" fill="#f0fdf4" stroke="#22c55e" stroke-width="1.6"></rect>
         <text x="569" y="240" text-anchor="middle" font-size="10" font-weight="700" fill="#15803d">links</text>
         <text x="569" y="254" text-anchor="middle" font-size="7.6" fill="#15803d">entity_id · source/target</text>
         <text x="569" y="266" text-anchor="middle" font-size="7.6" fill="#15803d">_activity_id → activities</text>
-        <rect x="265" y="236" width="150" height="44" rx="9" fill="#f0fdf4" stroke="#22c55e" stroke-width="1.6"/>
+        <rect x="265" y="236" width="150" height="44" rx="9" fill="#f0fdf4" stroke="#22c55e" stroke-width="1.6"></rect>
         <text x="340" y="254" text-anchor="middle" font-size="10" font-weight="700" fill="#15803d">tasks</text>
         <text x="340" y="268" text-anchor="middle" font-size="7.6" fill="#15803d">id PK · activity_id → activities</text>
-        <rect x="36" y="314" width="150" height="42" rx="9" fill="#f0fdf4" stroke="#22c55e" stroke-width="1.4"/>
+        <rect x="36" y="314" width="150" height="42" rx="9" fill="#f0fdf4" stroke="#22c55e" stroke-width="1.4"></rect>
         <text x="111" y="331" text-anchor="middle" font-size="9.5" font-weight="700" fill="#15803d">tools</text>
         <text x="111" y="345" text-anchor="middle" font-size="7.6" fill="#15803d">entity_id · M:N task_tool</text>
-        <rect x="494" y="314" width="150" height="42" rx="9" fill="#f0fdf4" stroke="#22c55e" stroke-width="1.4"/>
+        <rect x="494" y="314" width="150" height="42" rx="9" fill="#f0fdf4" stroke="#22c55e" stroke-width="1.4"></rect>
         <text x="569" y="331" text-anchor="middle" font-size="9.5" font-weight="700" fill="#15803d">data</text>
         <text x="569" y="345" text-anchor="middle" font-size="7.6" fill="#15803d">entity_id → entities</text>
-        <rect x="250" y="314" width="180" height="64" rx="9" fill="#f9fafb" stroke="#cbd5e1" stroke-width="1.6"/>
+        <rect x="250" y="314" width="180" height="64" rx="9" fill="#f9fafb" stroke="#cbd5e1" stroke-width="1.6"></rect>
         <text x="340" y="331" text-anchor="middle" font-size="9.5" font-weight="700" fill="#334155">Compétences &amp; contraintes</text>
         <text x="340" y="345" text-anchor="middle" font-size="7.5" fill="#64748b">competencies · savoirs · savoir_faires</text>
         <text x="340" y="356" text-anchor="middle" font-size="7.5" fill="#64748b">aptitudes · softskills · constraints</text>
         <text x="340" y="370" text-anchor="middle" font-size="7.5" fill="#15803d">→ activity_id → activities</text>
-        <rect x="36" y="394" width="150" height="46" rx="9" fill="#f9fafb" stroke="#cbd5e1" stroke-width="1.4"/>
+        <rect x="36" y="394" width="150" height="46" rx="9" fill="#f9fafb" stroke="#cbd5e1" stroke-width="1.4"></rect>
         <text x="111" y="411" text-anchor="middle" font-size="9.5" font-weight="700" fill="#334155">time_analysis</text>
         <text x="111" y="425" text-anchor="middle" font-size="7.5" fill="#64748b">activity · task · role · user_id</text>
         <text x="111" y="436" text-anchor="middle" font-size="7.5" fill="#64748b">+ time_project · time_role_*</text>
-        <rect x="250" y="398" width="180" height="46" rx="9" fill="#f9fafb" stroke="#cbd5e1" stroke-width="1.4"/>
+        <rect x="250" y="398" width="180" height="46" rx="9" fill="#f9fafb" stroke="#cbd5e1" stroke-width="1.4"></rect>
         <text x="340" y="415" text-anchor="middle" font-size="9.5" font-weight="700" fill="#334155">competency_evaluation</text>
         <text x="340" y="430" text-anchor="middle" font-size="7.5" fill="#64748b">user_id → users · activity_id → activities</text>
-        <rect x="494" y="394" width="150" height="46" rx="9" fill="#f9fafb" stroke="#cbd5e1" stroke-width="1.4"/>
+        <rect x="494" y="394" width="150" height="46" rx="9" fill="#f9fafb" stroke="#cbd5e1" stroke-width="1.4"></rect>
         <text x="569" y="411" text-anchor="middle" font-size="9.5" font-weight="700" fill="#334155">performances</text>
         <text x="569" y="425" text-anchor="middle" font-size="7.5" fill="#64748b">link_id → links (unique)</text>
         <text x="569" y="436" text-anchor="middle" font-size="7.5" fill="#64748b">+ performance_personnalisee</text>
         <!-- bandeaux transverses -->
-        <rect x="36" y="470" width="288" height="50" rx="9" fill="#f9fafb" stroke="#cbd5e1" stroke-width="1.4" stroke-dasharray="5 4"/>
+        <rect x="36" y="470" width="288" height="50" rx="9" fill="#f9fafb" stroke="#cbd5e1" stroke-width="1.4" stroke-dasharray="5 4"></rect>
         <text x="180" y="488" text-anchor="middle" font-size="9.5" font-weight="700" fill="#334155">Tables d'association (M:N)</text>
         <text x="180" y="502" text-anchor="middle" font-size="7.6" fill="#64748b">activity_roles · task_roles · task_tool</text>
         <text x="180" y="513" text-anchor="middle" font-size="7.6" fill="#64748b">task_link_assignments</text>
-        <rect x="356" y="470" width="288" height="50" rx="9" fill="#f9fafb" stroke="#cbd5e1" stroke-width="1.4" stroke-dasharray="5 4"/>
+        <rect x="356" y="470" width="288" height="50" rx="9" fill="#f9fafb" stroke="#cbd5e1" stroke-width="1.4" stroke-dasharray="5 4"></rect>
         <text x="500" y="488" text-anchor="middle" font-size="9.5" font-weight="700" fill="#334155">Transverse</text>
         <text x="500" y="502" text-anchor="middle" font-size="7.6" fill="#64748b">file_blobs (BLOB) · recent_events (journal)</text>
         <text x="500" y="513" text-anchor="middle" font-size="7.6" fill="#64748b">cross_carto_liaisons (liens inter-cartes)</text>
@@ -1645,5 +1672,6 @@ _safe_add_column("links", "choice_label", "VARCHAR(10)")
     if(window.hljs){ document.querySelectorAll('pre code').forEach(function(b){ try{ hljs.highlightElement(b); }catch(e){} }); }
   });
 </script>
-</body>
-</html>
+
+
+</body></html>

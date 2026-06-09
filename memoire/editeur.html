@@ -64,6 +64,14 @@
     font-size:12px; color:var(--muted); display:flex; justify-content:space-between; }
   .statusbar b{ color:var(--green-dk); }
   .hidden{ display:none !important; }
+  /* ---- Aperçu pages A4 ---- */
+  .preview{ position:fixed; inset:0; z-index:50; background:#475569; display:flex; flex-direction:column; }
+  .preview-bar{ flex:0 0 auto; background:#1e293b; color:#fff; display:flex; align-items:center; gap:10px;
+    padding:8px 14px; }
+  .preview-title{ font-weight:700; }
+  .preview-title b{ color:#f9a8d4; }
+  .preview-status{ font-size:12.5px; color:#cbd5e1; margin-right:auto; }
+  #previewFrame{ flex:1 1 auto; width:100%; border:none; background:#475569; }
 </style>
 </head>
 <body>
@@ -116,6 +124,7 @@
   <div class="grp green">
     <span class="lab">Page</span>
     <button class="tool" id="btnAddPage" title="Ajouter une nouvelle page A4">➕ Page</button>
+    <button class="tool" id="btnPreview" title="Aperçu : le document découpé en pages A4 identiques">📄 Aperçu A4</button>
   </div>
 
   <div class="grp">
@@ -151,6 +160,17 @@
   <span>Éditeur mémoire · charte DevOPTIQ</span>
 </div>
 <div class="hint" id="hint"></div>
+
+<!-- ===================== APERÇU PAGES A4 ===================== -->
+<div id="preview" class="preview hidden">
+  <div class="preview-bar">
+    <span class="preview-title">Aperçu <b>pages A4</b></span>
+    <span class="preview-status" id="previewStatus"></span>
+    <button class="tool" id="previewPrint">🖨 Imprimer / PDF</button>
+    <button class="tool prim" id="previewClose">✕ Fermer</button>
+  </div>
+  <iframe id="previewFrame" title="Aperçu A4"></iframe>
+</div>
 
 <script>
 "use strict";
@@ -408,6 +428,38 @@ function addPage(){
   flash('Page ajoutée');
 }
 $('btnAddPage').onclick = addPage;
+
+/* ---------- Aperçu pages A4 (pagination fidèle via Paged.js) ---------- */
+function buildPagedHTML(){
+  const d = new DOMParser().parseFromString(serializeDoc(), 'text/html');
+  // on déballe les boîtes .page (sauf la couverture) pour laisser Paged.js paginer le flux
+  d.querySelectorAll('section.page').forEach(sec=>{
+    if(sec.classList.contains('cover')) return;
+    const p=sec.parentNode; while(sec.firstChild) p.insertBefore(sec.firstChild, sec); p.removeChild(sec);
+  });
+  d.querySelectorAll('.foot').forEach(f=> f.remove());   // Paged.js gère le pied via @page
+  const s=d.createElement('script');
+  s.src='https://unpkg.com/pagedjs/dist/paged.polyfill.js';
+  d.body.appendChild(s);
+  return '<!doctype html>\n'+d.documentElement.outerHTML;
+}
+function openPreview(){
+  if(!idoc){ flash('Ouvre d’abord un fichier'); return; }
+  deselect();
+  $('previewStatus').textContent='Pagination en cours…';
+  $('previewFrame').srcdoc = buildPagedHTML();
+  $('preview').classList.remove('hidden');
+  setTimeout(()=>{
+    try{
+      const n=$('previewFrame').contentDocument.querySelectorAll('.pagedjs_page').length;
+      $('previewStatus').textContent = n ? (n+' pages A4 identiques')
+        : 'Paged.js indisponible (hors-ligne ?) — le bouton Imprimer/PDF reste fidèle';
+    }catch(e){ $('previewStatus').textContent=''; }
+  }, 2600);
+}
+$('btnPreview').onclick   = openPreview;
+$('previewClose').onclick = ()=> $('preview').classList.add('hidden');
+$('previewPrint').onclick = ()=>{ const w=$('previewFrame').contentWindow; if(w){ w.focus(); w.print(); } };
 
 /* ---------- Imprimer / PDF (pages A4) ---------- */
 $('btnPrint').onclick = ()=>{
