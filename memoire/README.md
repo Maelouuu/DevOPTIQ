@@ -25,7 +25,10 @@ et choisis `memoire_3eme_annee.html`. Tu peux ensuite :
   puis insère : l'image remplace le cadre. Une image sélectionnée se redimensionne avec le curseur.
 - **Déplacer un bloc** : active **✋ Mode objet**, clique un bloc (titre, paragraphe, image…),
   puis `▲`/`▼` pour le réordonner, ou glisse-le pour l'ajuster, `🗑` pour le supprimer.
-- **Enregistrer** : 💾 télécharge le mémoire modifié (ré-ouvrable dans l'éditeur).
+- **Ajouter une page** : bouton **➕ Page** → insère une nouvelle page A4 après la page courante.
+- **Enregistrer** : 💾 **écrase directement le fichier ouvert** (Chrome/Edge, via la File System
+  Access API). À la 1ʳᵉ fois le navigateur demande l'autorisation d'écriture. Si l'API n'est pas
+  disponible, l'éditeur propose un emplacement, puis retombe sur un téléchargement classique.
 - **Imprimer / PDF** : 🖨 ouvre l'impression du navigateur → **pages A4 uniformes**.
 
 > L'éditeur garde toute la mise en forme HTML (charte, schémas, code) — il ne fait

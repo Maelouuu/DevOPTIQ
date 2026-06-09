@@ -113,6 +113,11 @@
     <button class="tool" id="btnImg" title="Insérer une image / capture d'écran">🖼 Insérer</button>
   </div>
 
+  <div class="grp green">
+    <span class="lab">Page</span>
+    <button class="tool" id="btnAddPage" title="Ajouter une nouvelle page A4">➕ Page</button>
+  </div>
+
   <div class="grp">
     <span class="lab">Objet</span>
     <button class="tool" id="btnObj" title="Mode objet : sélectionner, déplacer, redimensionner un bloc">✋ Mode objet</button>
@@ -157,6 +162,7 @@ let objectMode=false;         // mode objet actif ?
 let selectedEl=null;          // bloc sélectionné en mode objet
 let drag=null;                // état du glisser
 let currentName='memoire_3eme_annee.html';
+let fileHandle=null;          // poignée du fichier ouvert (écrasement en place)
 
 /* ---------- Notifications ---------- */
 let hintT=null;
@@ -195,16 +201,27 @@ frame.addEventListener('load', ()=>{
 });
 
 /* ---------- Ouvrir / fichiers ---------- */
-function openFile(){ $('fileInput').click(); }
+async function openFile(){
+  // API moderne : on récupère une « poignée » → permet d'écraser le fichier ensuite
+  if(window.showOpenFilePicker){
+    try{
+      const [h]=await window.showOpenFilePicker({
+        types:[{description:'Document HTML', accept:{'text/html':['.html','.htm']}}]});
+      fileHandle=h; const f=await h.getFile(); loadDoc(await f.text(), f.name); return;
+    }catch(e){ if(e&&e.name==='AbortError') return; /* sinon → repli */ }
+  }
+  $('fileInput').click();   // repli : input fichier classique
+}
 $('btnOpen').onclick = openFile;
 $('btnOpen2').onclick = openFile;
 $('fileInput').onchange = e=>{
   const f=e.target.files[0]; if(!f) return;
+  fileHandle=null;          // pas de poignée → le 1er enregistrement demandera l'emplacement
   const r=new FileReader();
   r.onload = ()=> loadDoc(r.result, f.name);
   r.readAsText(f, 'utf-8');
 };
-// tentative de chargement automatique du fichier voisin (si servi en http)
+// chargement automatique du fichier voisin (si servi en http)
 fetch('memoire_3eme_annee.html').then(r=>{ if(r.ok) return r.text(); throw 0; })
   .then(t=> loadDoc(t, 'memoire_3eme_annee.html')).catch(()=>{});
 
@@ -332,21 +349,65 @@ $('btnDown').onclick = ()=>{ if(selectedEl&&selectedEl.nextElementSibling) selec
 $('btnDel').onclick  = ()=>{ if(selectedEl){ const e=selectedEl; deselect(); e.remove(); flash('Bloc supprimé'); } };
 $('imgW').oninput    = e=>{ if(selectedEl && selectedEl.tagName==='IMG'){ selectedEl.style.width=e.target.value+'%'; } };
 
-/* ---------- Enregistrer ---------- */
-$('btnSave').onclick = ()=>{
-  if(!idoc){ flash('Ouvre d’abord un fichier'); return; }
-  // nettoyage : retirer les éléments propres à l'éditeur
+/* ---------- Enregistrer (écrase le fichier ouvert si possible) ---------- */
+function serializeDoc(){
   const clone = idoc.documentElement.cloneNode(true);
   const ed = clone.querySelector('#__editeur__'); if(ed) ed.remove();
   clone.querySelectorAll('.__sel__').forEach(n=> n.classList.remove('__sel__'));
   const body = clone.querySelector('body'); if(body) body.classList.remove('__objmode__');
-  const html = '<!doctype html>\n' + clone.outerHTML;
-  const blob = new Blob([html], {type:'text/html;charset=utf-8'});
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob); a.download = currentName; a.click();
-  setTimeout(()=>URL.revokeObjectURL(a.href), 4000);
-  flash('Mémoire enregistré : ' + currentName);
-};
+  return '<!doctype html>\n' + clone.outerHTML;
+}
+async function ensureRW(h){ const o={mode:'readwrite'};
+  if((await h.queryPermission(o))==='granted') return true;
+  return (await h.requestPermission(o))==='granted'; }
+async function writeHandle(h, html){ const w=await h.createWritable(); await w.write(html); await w.close(); }
+function downloadDoc(html){
+  const blob=new Blob([html],{type:'text/html;charset=utf-8'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=currentName; a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href),4000);
+}
+async function saveFile(){
+  if(!idoc){ flash('Ouvre d’abord un fichier'); return; }
+  const html=serializeDoc();
+  // 1) poignée connue → on écrase directement le même fichier
+  if(fileHandle){
+    try{ if(await ensureRW(fileHandle)){ await writeHandle(fileHandle, html); flash('Enregistré ✓ '+currentName); return; } }
+    catch(e){ /* on tentera les autres méthodes */ }
+  }
+  // 2) sinon, on demande où enregistrer (et on retient la poignée pour la suite)
+  if(window.showSaveFilePicker){
+    try{
+      const h=await window.showSaveFilePicker({suggestedName:currentName,
+        types:[{description:'Document HTML', accept:{'text/html':['.html']}}]});
+      fileHandle=h; currentName=h.name; $('fileLabel').textContent=currentName;
+      await writeHandle(h, html); flash('Enregistré ✓ '+currentName); return;
+    }catch(e){ if(e&&e.name==='AbortError') return; }
+  }
+  // 3) repli : téléchargement classique
+  downloadDoc(html); flash('Téléchargé : '+currentName);
+}
+$('btnSave').onclick = saveFile;
+
+/* ---------- Ajouter une page ---------- */
+function addPage(){
+  if(!idoc){ flash('Ouvre d’abord un fichier'); return; }
+  const sec=idoc.createElement('section');
+  sec.className='page fresh';
+  sec.innerHTML='<h2>Nouvelle page — titre</h2>'
+    +'<p>Nouveau contenu : clique ici pour écrire. Mets en forme avec les outils ci-dessus, '
+    +'ou « Insérer » pour ajouter une image.</p>';
+  // insère après la page courante (sélection / curseur), sinon en fin de document
+  let ref=null;
+  if(objectMode && selectedEl) ref=selectedEl.closest('section.page');
+  else { const r=getRange(); if(r){ let n=r.startContainer; n=(n.nodeType===1?n:n.parentElement);
+    ref = (n && n.closest) ? n.closest('section.page') : null; } }
+  const body=idoc.body;
+  if(ref && ref.parentElement===body){ ref.after(sec); }
+  else { const scr=body.querySelector('script'); scr ? body.insertBefore(sec, scr) : body.appendChild(sec); }
+  sec.scrollIntoView({behavior:'smooth', block:'center'});
+  flash('Page ajoutée');
+}
+$('btnAddPage').onclick = addPage;
 
 /* ---------- Imprimer / PDF (pages A4) ---------- */
 $('btnPrint').onclick = ()=>{
