@@ -190,6 +190,7 @@ let bandHeightResizingId = null;
 let bandHeightStartY = 0;
 let bandHeightStartValue = 0;
 let bandResizeShapeStarts = []; // [{shape, startY}] for shapes below the resized band
+let bandResizeMinHeight   = 60; // computed from band content at start of resize
 let edgeScrollVX = 0, edgeScrollVY = 0;
 let edgeScrollRaf = null;
 let spaceDown = false;
@@ -2142,6 +2143,16 @@ function onDown(e) {
     bandResizeShapeStarts = state.shapes
       .filter(s => !s.deleted && (s.y + s.h / 2) > bandBottomY)
       .map(s => ({ shape: s, startY: s.y }));
+    // Compute minimum height: must contain all shapes whose midpoint is inside this band
+    const bandTopY = bandBottomY - bandHeightStartValue;
+    let minH = 60;
+    for (const s of state.shapes) {
+      if (s.deleted) continue;
+      const midY = s.y + s.h / 2;
+      if (midY > bandTopY && midY <= bandBottomY)
+        minH = Math.max(minH, (s.y + s.h) - bandTopY + 24);
+    }
+    bandResizeMinHeight = minH;
     canvas.style.cursor = 'ns-resize';
     return;
   }
@@ -2427,7 +2438,7 @@ function onMove(e) {
     const dy = (e.clientY - bandHeightStartY) / vpScale;
     const b = state.bands.find(b => b.id === bandHeightResizingId);
     if (b) {
-      const newHeight = Math.max(60, Math.round(bandHeightStartValue + dy));
+      const newHeight = Math.max(bandResizeMinHeight, Math.round(bandHeightStartValue + dy));
       const delta = newHeight - bandHeightStartValue;
       b.height = newHeight;
       for (const { shape, startY } of bandResizeShapeStarts) {
@@ -2754,6 +2765,7 @@ function onUp(e) {
     isResizingBandHeight = false;
     bandHeightResizingId = null;
     bandResizeShapeStarts = [];
+    bandResizeMinHeight   = 60;
     canvas.style.cursor = spaceDown ? 'grab' : '';
     snapshot();
     return;
@@ -3170,9 +3182,11 @@ function updateProps() {
     if (!c) return;
     document.getElementById('conn-style-solid').checked  = c.style !== 'dashed';
     document.getElementById('conn-style-dashed').checked = c.style === 'dashed';
-    document.getElementById('conn-routing-smooth').checked    = (c.routing || 'smooth') === 'smooth';
-    document.getElementById('conn-routing-ortho').checked     = c.routing === 'orthogonal';
-    document.getElementById('conn-color').value = c.color;
+    const rSmooth = document.getElementById('conn-routing-smooth');
+    const rOrtho  = document.getElementById('conn-routing-ortho');
+    if (rSmooth) rSmooth.checked = (c.routing || 'smooth') === 'smooth';
+    if (rOrtho)  rOrtho.checked  = c.routing === 'orthogonal';
+    document.getElementById('conn-color').value = c.color || '#9ca3af';
     document.getElementById('conn-label').value = c.label || '';
     const addCornerGroup = document.getElementById('add-corner-group');
     if (addCornerGroup) addCornerGroup.style.display = c.routing === 'orthogonal' ? '' : 'none';
