@@ -231,12 +231,13 @@ hr.soft{ border:0; height:1px; background:var(--line); margin:22px 0; }
 
 @media print{
   body{ background:#fff; padding:0; margin:0; }
-  .page{ margin:0; box-shadow:none; width:auto; padding:0; page-break-after:always; }
-  .page:last-of-type{ page-break-after:auto; }
-  .page.cover{ min-height:auto; }
+  .page{ margin:0; box-shadow:none; width:auto; padding:0; }
+  .page.cover{ min-height:auto; break-after:page; page-break-after:always; }
+  .fresh{ break-before:page; page-break-before:always; }
   .part-head{ break-before:page; page-break-before:always; }
+  .foot{ display:none; }
   .code-block,.card,.callout,table,figure,.figure-ph,.todo,.metrics,
-  .pull,.cover-meta,tr,.toc-row{ break-inside:avoid; page-break-inside:avoid; }
+  .pull,.cover-meta,tr,.toc-row,.compare>*{ break-inside:avoid; page-break-inside:avoid; }
   h2,h3,h4{ break-after:avoid; page-break-after:avoid; }
   a{ color:var(--pink-dk); text-decoration:none; }
 }
@@ -285,7 +286,7 @@ hr.soft{ border:0; height:1px; background:var(--line); margin:22px 0; }
 </section>
 
 <!-- ============================ SOMMAIRE ============================ -->
-<section class="page">
+<section class="page fresh">
   <div class="toc">
     <h1>Sommaire</h1>
 
@@ -322,7 +323,7 @@ hr.soft{ border:0; height:1px; background:var(--line); margin:22px 0; }
 </section>
 
 <!-- ============================ REMERCIEMENTS ============================ -->
-<section class="page">
+<section class="page fresh">
   <h1 style="font-size:24pt; margin-bottom:6px;">Remerciements</h1>
   <div style="display:flex;gap:6px;margin-bottom:22px;"><span style="width:46px;height:5px;background:var(--pink);border-radius:3px;display:inline-block;"></span><span style="width:24px;height:5px;background:var(--green);border-radius:3px;display:inline-block;"></span></div>
 
@@ -357,7 +358,7 @@ hr.soft{ border:0; height:1px; background:var(--line); margin:22px 0; }
 </section>
 
 <!-- ============================ INTRODUCTION ============================ -->
-<section class="page">
+<section class="page fresh">
   <div class="part-kicker" style="border-color:var(--green);">Introduction</div>
   <h1 style="font-size:23pt;margin:14px 0 18px;">D'un projet d'étude<br>à une responsabilité d'entreprise</h1>
 
@@ -1411,7 +1412,7 @@ _safe_add_column("links", "choice_label", "VARCHAR(10)")
 </section>
 
 <!-- ============================ CONCLUSION ============================ -->
-<section class="page">
+<section class="page fresh">
   <div class="part-kicker" style="border-color:var(--green);">Conclusion</div>
   <h1 style="font-size:23pt;margin:14px 0 18px;">Ce que l'alternance<br>laisse derrière elle</h1>
 

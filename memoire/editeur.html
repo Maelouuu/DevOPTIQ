@@ -1,0 +1,363 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Éditeur — Mémoire DevOPTIQ</title>
+<style>
+  :root{
+    --pink:#ec4899; --pink-dk:#be185d; --pink-light:#fdf2f8;
+    --green:#22c55e; --green-dk:#15803d; --green-light:#f0fdf4;
+    --ink:#111827; --muted:#6b7280; --line:#e5e7eb; --bg:#eef1f5;
+    --sans:'Segoe UI',system-ui,-apple-system,sans-serif;
+  }
+  *{ box-sizing:border-box; }
+  html,body{ height:100%; margin:0; font-family:var(--sans); color:var(--ink); background:var(--bg); }
+  body{ display:flex; flex-direction:column; }
+
+  /* ---- Barre d'outils ---- */
+  .toolbar{ flex:0 0 auto; background:#fff; border-bottom:2px solid var(--pink);
+    display:flex; flex-wrap:wrap; align-items:center; gap:6px; padding:8px 12px;
+    box-shadow:0 2px 10px rgba(17,24,39,.06); position:relative; z-index:5; }
+  .grp{ display:flex; align-items:center; gap:5px; padding:3px 9px; border-radius:10px;
+    background:#f9fafb; border:1px solid var(--line); }
+  .grp .lab{ font-size:10px; font-weight:700; letter-spacing:.5px; text-transform:uppercase;
+    color:var(--muted); margin-right:2px; }
+  .grp.pink{ background:var(--pink-light); border-color:#fbcfe8; }
+  .grp.green{ background:var(--green-light); border-color:#bbf7d0; }
+  button.tool{ font-family:var(--sans); font-size:13px; font-weight:600; cursor:pointer;
+    border:1px solid var(--line); background:#fff; color:var(--ink); border-radius:8px;
+    padding:6px 10px; line-height:1; min-height:32px; }
+  button.tool:hover{ border-color:var(--pink); color:var(--pink-dk); }
+  button.tool:active{ transform:translateY(1px); }
+  button.tool.on{ background:var(--pink); color:#fff; border-color:var(--pink); }
+  button.prim{ background:var(--pink); color:#fff; border-color:var(--pink); }
+  button.prim:hover{ background:var(--pink-dk); color:#fff; }
+  button.gprim{ background:var(--green-dk); color:#fff; border-color:var(--green-dk); }
+  button.gprim:hover{ background:var(--green); color:#fff; }
+  .toolbar input[type=number]{ width:48px; font-size:13px; padding:5px 6px; border:1px solid var(--line);
+    border-radius:7px; text-align:center; }
+  .toolbar input[type=color]{ width:34px; height:32px; border:1px solid var(--line); border-radius:7px;
+    background:#fff; cursor:pointer; padding:2px; }
+  .toolbar input[type=range]{ width:90px; accent-color:var(--green-dk); }
+  .swatches{ display:flex; gap:3px; }
+  .sw{ width:18px; height:18px; border-radius:5px; border:1px solid rgba(0,0,0,.15); cursor:pointer; }
+
+  /* ---- Zone document ---- */
+  .stage{ flex:1 1 auto; overflow:auto; padding:22px; display:flex; justify-content:center; }
+  #frame{ width:210mm; min-height:297mm; border:none; background:#fff;
+    box-shadow:0 10px 40px rgba(17,24,39,.18); border-radius:2px; }
+  .hint{ position:fixed; left:50%; transform:translateX(-50%); bottom:14px; z-index:6;
+    background:var(--ink); color:#fff; font-size:12.5px; padding:8px 16px; border-radius:999px;
+    box-shadow:0 6px 20px rgba(0,0,0,.25); opacity:0; transition:opacity .25s; pointer-events:none; }
+  .hint.show{ opacity:.96; }
+
+  /* ---- Écran d'accueil ---- */
+  .welcome{ flex:1; display:flex; align-items:center; justify-content:center; }
+  .welcome .card{ background:#fff; border:1px solid var(--line); border-radius:18px; padding:40px 46px;
+    text-align:center; max-width:560px; box-shadow:0 12px 40px rgba(17,24,39,.10); }
+  .welcome h1{ font-size:22px; margin:0 0 6px; }
+  .welcome h1 b{ color:var(--pink-dk); }
+  .welcome p{ color:var(--muted); font-size:14px; line-height:1.6; margin:0 0 22px; }
+  .welcome .dot{ display:inline-block; width:10px; height:10px; border-radius:50%; margin:0 3px; }
+  .statusbar{ flex:0 0 auto; background:#fff; border-top:1px solid var(--line); padding:5px 14px;
+    font-size:12px; color:var(--muted); display:flex; justify-content:space-between; }
+  .statusbar b{ color:var(--green-dk); }
+  .hidden{ display:none !important; }
+</style>
+</head>
+<body>
+
+<!-- ===================== BARRE D'OUTILS ===================== -->
+<div class="toolbar" id="toolbar">
+  <div class="grp">
+    <span class="lab">Fichier</span>
+    <button class="tool prim" id="btnOpen" title="Ouvrir un fichier .html">📂 Ouvrir</button>
+    <button class="tool gprim" id="btnSave" title="Télécharger le mémoire modifié">💾 Enregistrer</button>
+    <button class="tool" id="btnPrint" title="Imprimer / exporter en PDF (pages A4)">🖨 Imprimer / PDF</button>
+    <input type="file" id="fileInput" accept=".html,text/html" class="hidden">
+    <input type="file" id="imgInput" accept="image/*" class="hidden">
+  </div>
+
+  <div class="grp pink">
+    <span class="lab">Texte</span>
+    <button class="tool" data-cmd="bold" title="Gras"><b>G</b></button>
+    <button class="tool" data-cmd="italic" title="Italique"><i>I</i></button>
+    <button class="tool" data-cmd="underline" title="Souligné"><u>S</u></button>
+    <button class="tool" data-cmd="justifyLeft" title="Aligner à gauche">◧</button>
+    <button class="tool" data-cmd="justifyCenter" title="Centrer">▣</button>
+    <button class="tool" data-cmd="justifyRight" title="Aligner à droite">◨</button>
+  </div>
+
+  <div class="grp pink">
+    <span class="lab">Taille</span>
+    <button class="tool" id="szDown" title="Réduire">A−</button>
+    <input type="number" id="szInput" value="16" min="6" max="120" step="1" title="Taille en pixels">
+    <button class="tool" id="szUp" title="Agrandir">A+</button>
+  </div>
+
+  <div class="grp green">
+    <span class="lab">Couleur</span>
+    <input type="color" id="colorInput" value="#be185d" title="Couleur du texte">
+    <button class="tool" id="btnPipette" title="Pipette — choisir une couleur à l'écran">🎨 Pipette</button>
+    <div class="swatches">
+      <span class="sw" style="background:#be185d" data-c="#be185d" title="Rose"></span>
+      <span class="sw" style="background:#15803d" data-c="#15803d" title="Vert"></span>
+      <span class="sw" style="background:#111827" data-c="#111827" title="Noir"></span>
+      <span class="sw" style="background:#6b7280" data-c="#6b7280" title="Gris"></span>
+    </div>
+  </div>
+
+  <div class="grp green">
+    <span class="lab">Image</span>
+    <button class="tool" id="btnImg" title="Insérer une image / capture d'écran">🖼 Insérer</button>
+  </div>
+
+  <div class="grp">
+    <span class="lab">Objet</span>
+    <button class="tool" id="btnObj" title="Mode objet : sélectionner, déplacer, redimensionner un bloc">✋ Mode objet</button>
+    <button class="tool" id="btnUp" title="Monter le bloc">▲</button>
+    <button class="tool" id="btnDown" title="Descendre le bloc">▼</button>
+    <button class="tool" id="btnDel" title="Supprimer le bloc sélectionné">🗑</button>
+    <input type="range" id="imgW" min="15" max="100" value="100" title="Largeur de l'image (%)" class="hidden">
+  </div>
+</div>
+
+<!-- ===================== ACCUEIL ===================== -->
+<div class="welcome" id="welcome">
+  <div class="card">
+    <h1>Éditeur du <b>mémoire</b> DevOPTIQ</h1>
+    <p>Ouvre <code>memoire_3eme_annee.html</code> pour modifier le texte (taille, couleur, déplacement),
+       insérer des captures d'écran, puis enregistrer ou imprimer en PDF (pages A4).<br>
+       <span class="dot" style="background:#ec4899"></span><span class="dot" style="background:#22c55e"></span>
+       Conseil : utilise <b>Chrome</b> ou <b>Edge</b> (pipette &amp; édition complètes).</p>
+    <button class="tool prim" id="btnOpen2" style="font-size:15px;padding:11px 22px;">📂 Ouvrir le mémoire</button>
+  </div>
+</div>
+
+<!-- ===================== DOCUMENT ===================== -->
+<div class="stage hidden" id="stage">
+  <iframe id="frame" title="Document"></iframe>
+</div>
+
+<div class="statusbar">
+  <span>Mode : <b id="modeLabel">—</b></span>
+  <span id="fileLabel">Aucun fichier ouvert</span>
+  <span>Éditeur mémoire · charte DevOPTIQ</span>
+</div>
+<div class="hint" id="hint"></div>
+
+<script>
+"use strict";
+const $ = id => document.getElementById(id);
+const frame = $('frame');
+let idoc=null, iwin=null;     // document & window de l'iframe
+let lastRange=null;           // dernière sélection texte
+let objectMode=false;         // mode objet actif ?
+let selectedEl=null;          // bloc sélectionné en mode objet
+let drag=null;                // état du glisser
+let currentName='memoire_3eme_annee.html';
+
+/* ---------- Notifications ---------- */
+let hintT=null;
+function flash(msg){ const h=$('hint'); h.textContent=msg; h.classList.add('show');
+  clearTimeout(hintT); hintT=setTimeout(()=>h.classList.remove('show'),1900); }
+
+/* ---------- Chargement du document ---------- */
+function loadDoc(html, name){
+  if(name) currentName=name;
+  $('welcome').classList.add('hidden');
+  $('stage').classList.remove('hidden');
+  $('fileLabel').textContent = currentName;
+  frame.srcdoc = html;
+}
+frame.addEventListener('load', ()=>{
+  if(!frame.srcdoc) return;
+  idoc = frame.contentDocument; iwin = frame.contentWindow;
+  // styles réservés à l'éditeur (écran uniquement → n'apparaissent pas à l'impression)
+  const st = idoc.createElement('style'); st.id='__editeur__';
+  st.textContent = '@media screen{'
+    + '.__sel__{ outline:2.5px solid #ec4899 !important; outline-offset:2px; background:rgba(236,72,153,.06)!important; }'
+    + 'body.__objmode__ *{ cursor:pointer; }'
+    + 'body.__objmode__ [contenteditable]{ cursor:pointer; }'
+    + '}';
+  idoc.head && idoc.head.appendChild(st);
+  setTextMode();
+  try{ idoc.execCommand('styleWithCSS', false, true); }catch(e){}
+  // mémoriser la sélection courante
+  idoc.addEventListener('selectionchange', ()=>{
+    const s=iwin.getSelection();
+    if(s && s.rangeCount){ const r=s.getRangeAt(0); if(!r.collapsed) lastRange=r.cloneRange(); }
+  });
+  // clic en mode objet
+  idoc.addEventListener('mousedown', onDocMouseDown, true);
+  flash('Document chargé — bonne édition !');
+});
+
+/* ---------- Ouvrir / fichiers ---------- */
+function openFile(){ $('fileInput').click(); }
+$('btnOpen').onclick = openFile;
+$('btnOpen2').onclick = openFile;
+$('fileInput').onchange = e=>{
+  const f=e.target.files[0]; if(!f) return;
+  const r=new FileReader();
+  r.onload = ()=> loadDoc(r.result, f.name);
+  r.readAsText(f, 'utf-8');
+};
+// tentative de chargement automatique du fichier voisin (si servi en http)
+fetch('memoire_3eme_annee.html').then(r=>{ if(r.ok) return r.text(); throw 0; })
+  .then(t=> loadDoc(t, 'memoire_3eme_annee.html')).catch(()=>{});
+
+/* ---------- Helpers sélection texte ---------- */
+function getRange(){
+  if(!iwin) return null;
+  const s=iwin.getSelection();
+  if(s && s.rangeCount && !s.isCollapsed) return s.getRangeAt(0);
+  return (lastRange && !lastRange.collapsed) ? lastRange : null;
+}
+function restoreRange(r){ const s=iwin.getSelection(); s.removeAllRanges(); s.addRange(r); }
+
+/* applique un style inline à la sélection (taille, couleur) */
+function styleSelection(prop, val){
+  const range=getRange();
+  if(!range){ flash('Sélectionne d’abord du texte'); return; }
+  const span=idoc.createElement('span'); span.style[prop]=val;
+  try{ range.surroundContents(span); }
+  catch(e){ const frag=range.extractContents(); span.appendChild(frag); range.insertNode(span); }
+  const s=iwin.getSelection(); s.removeAllRanges();
+  const nr=idoc.createRange(); nr.selectNodeContents(span); s.addRange(nr); lastRange=nr.cloneRange();
+}
+
+/* ---------- Commandes texte (gras, italique, alignement) ---------- */
+document.querySelectorAll('[data-cmd]').forEach(b=>{
+  b.onclick = ()=>{ if(!idoc) return;
+    const r=getRange(); if(r) restoreRange(r);
+    idoc.execCommand(b.dataset.cmd,false,null); };
+});
+
+/* ---------- Taille ---------- */
+function applySize(px){ styleSelection('fontSize', px+'px'); }
+$('szUp').onclick   = ()=>{ const v=Math.min(120,(+$('szInput').value||16)+1); $('szInput').value=v; applySize(v); };
+$('szDown').onclick = ()=>{ const v=Math.max(6,(+$('szInput').value||16)-1); $('szInput').value=v; applySize(v); };
+$('szInput').onchange = ()=> applySize(+$('szInput').value||16);
+
+/* ---------- Couleur ---------- */
+function applyColor(hex){ styleSelection('color', hex); }
+$('colorInput').oninput = e=> applyColor(e.target.value);
+document.querySelectorAll('.sw').forEach(s=>{ s.onclick=()=>{ $('colorInput').value=s.dataset.c; applyColor(s.dataset.c); }; });
+$('btnPipette').onclick = async ()=>{
+  if(!window.EyeDropper){ flash('Pipette : nécessite Chrome / Edge récent'); return; }
+  try{ const {sRGBHex}=await new EyeDropper().open(); $('colorInput').value=sRGBHex; applyColor(sRGBHex); }
+  catch(e){}
+};
+
+/* ---------- Insertion d'image ---------- */
+$('btnImg').onclick = ()=> $('imgInput').click();
+$('imgInput').onchange = e=>{
+  const f=e.target.files[0]; if(!f||!idoc) return;
+  const r=new FileReader();
+  r.onload = ()=>{
+    const url=r.result;
+    if(objectMode && selectedEl){
+      // remplace un cadre « visuel à insérer » ou une image existante
+      if(selectedEl.tagName==='IMG'){ selectedEl.src=url; }
+      else{
+        const fig=idoc.createElement('figure');
+        fig.innerHTML='<img src="'+url+'" style="max-width:100%;border-radius:10px;display:block;margin:0 auto;">'
+          +'<figcaption contenteditable="true" style="text-align:center;font-size:9pt;color:#6b7280;margin-top:7px;">Légende — clique pour éditer</figcaption>';
+        selectedEl.replaceWith(fig); selectEl(fig.querySelector('img'));
+      }
+      flash('Image insérée');
+    } else {
+      const html='<img src="'+url+'" style="max-width:100%;border-radius:10px;">';
+      const r2=getRange(); if(r2) restoreRange(r2);
+      idoc.execCommand('insertHTML', false, html);
+      flash('Image insérée au curseur');
+    }
+  };
+  r.readAsDataURL(f);
+  e.target.value='';
+};
+
+/* ---------- Mode texte / objet ---------- */
+function setTextMode(){
+  objectMode=false; if(idoc){ idoc.designMode='on'; idoc.body.classList.remove('__objmode__'); }
+  deselect(); $('btnObj').classList.remove('on'); $('modeLabel').textContent='Texte';
+  $('imgW').classList.add('hidden');
+}
+function setObjectMode(){
+  objectMode=true; if(idoc){ idoc.designMode='off'; idoc.body.classList.add('__objmode__'); }
+  $('btnObj').classList.add('on'); $('modeLabel').textContent='Objet (clique un bloc)';
+}
+$('btnObj').onclick = ()=> objectMode ? setTextMode() : setObjectMode();
+
+const BLOCK_SEL = 'p,h1,h2,h3,h4,li,figure,img,table,blockquote,pre,'
+  +'.card,.callout,.code-block,.todo,.figure-ph,.metric,.metrics,.pull,.compare,.part-head';
+function onDocMouseDown(e){
+  if(!objectMode) return;
+  const el = e.target.closest(BLOCK_SEL);
+  if(!el) return;
+  e.preventDefault();
+  selectEl(el);
+  // préparer un éventuel glisser
+  drag={ el, x:e.clientX, y:e.clientY,
+    ox: parseFloat(el.style.left)||0, oy: parseFloat(el.style.top)||0, moved:false };
+  idoc.addEventListener('mousemove', onDocMouseMove, true);
+  idoc.addEventListener('mouseup', onDocMouseUp, true);
+}
+function onDocMouseMove(e){
+  if(!drag) return;
+  const dx=e.clientX-drag.x, dy=e.clientY-drag.y;
+  if(Math.abs(dx)+Math.abs(dy)<4) return;
+  drag.moved=true;
+  drag.el.style.position='relative';
+  drag.el.style.left=(drag.ox+dx)+'px';
+  drag.el.style.top =(drag.oy+dy)+'px';
+}
+function onDocMouseUp(){
+  if(drag && drag.moved) flash('Bloc déplacé (clic ▲▼ pour réordonner, glisse pour ajuster)');
+  drag=null;
+  idoc.removeEventListener('mousemove', onDocMouseMove, true);
+  idoc.removeEventListener('mouseup', onDocMouseUp, true);
+}
+function selectEl(el){
+  deselect(); selectedEl=el; el.classList.add('__sel__');
+  const isImg = el.tagName==='IMG';
+  $('imgW').classList.toggle('hidden', !isImg);
+  if(isImg){ $('imgW').value = parseInt(el.style.width)||100; }
+}
+function deselect(){ if(selectedEl){ selectedEl.classList.remove('__sel__'); } selectedEl=null; $('imgW').classList.add('hidden'); }
+$('btnUp').onclick   = ()=>{ if(selectedEl&&selectedEl.previousElementSibling) selectedEl.previousElementSibling.before(selectedEl); };
+$('btnDown').onclick = ()=>{ if(selectedEl&&selectedEl.nextElementSibling) selectedEl.nextElementSibling.after(selectedEl); };
+$('btnDel').onclick  = ()=>{ if(selectedEl){ const e=selectedEl; deselect(); e.remove(); flash('Bloc supprimé'); } };
+$('imgW').oninput    = e=>{ if(selectedEl && selectedEl.tagName==='IMG'){ selectedEl.style.width=e.target.value+'%'; } };
+
+/* ---------- Enregistrer ---------- */
+$('btnSave').onclick = ()=>{
+  if(!idoc){ flash('Ouvre d’abord un fichier'); return; }
+  // nettoyage : retirer les éléments propres à l'éditeur
+  const clone = idoc.documentElement.cloneNode(true);
+  const ed = clone.querySelector('#__editeur__'); if(ed) ed.remove();
+  clone.querySelectorAll('.__sel__').forEach(n=> n.classList.remove('__sel__'));
+  const body = clone.querySelector('body'); if(body) body.classList.remove('__objmode__');
+  const html = '<!doctype html>\n' + clone.outerHTML;
+  const blob = new Blob([html], {type:'text/html;charset=utf-8'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = currentName; a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href), 4000);
+  flash('Mémoire enregistré : ' + currentName);
+};
+
+/* ---------- Imprimer / PDF (pages A4) ---------- */
+$('btnPrint').onclick = ()=>{
+  if(!iwin){ flash('Ouvre d’abord un fichier'); return; }
+  deselect(); iwin.focus(); iwin.print();
+};
+
+/* raccourcis clavier pratiques */
+document.addEventListener('keydown', e=>{
+  if((e.ctrlKey||e.metaKey) && e.key==='s'){ e.preventDefault(); $('btnSave').click(); }
+});
+</script>
+</body>
+</html>

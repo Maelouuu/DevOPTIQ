@@ -1,54 +1,66 @@
 # Mémoire de 3ᵉ année — BUT Informatique (Maël Girardin)
 
-Mémoire d'alternance **« D'une maquette à un produit »**, habillé de la charte
-DevOPTIQ (rose `#ec4899` / vert `#22c55e` / blanc).
+Mémoire d'alternance **« D'une maquette à un produit »**, charte DevOPTIQ
+(rose `#ec4899` / vert `#22c55e` / blanc).
 
 ## Fichiers
 
-| Fichier | Description |
+| Fichier | Rôle |
 |---|---|
-| `memoire_3eme_annee.html` | **Source** — à ouvrir dans un navigateur (Chrome de préférence). |
-| `memoire_3eme_annee.pdf` | Export PDF prêt à l'emploi (généré via WeasyPrint). |
+| `memoire_3eme_annee.html` | **La source** du mémoire (à ouvrir dans un navigateur). |
+| `editeur.html` | **Petit éditeur** pour modifier le mémoire sans toucher au HTML. |
+| `memoire_3eme_annee.pdf` | Aperçu PDF (régénéré ponctuellement). |
 
-## Obtenir le plus beau PDF
+## ✏️ L'éditeur (`editeur.html`)
 
-Le rendu **optimal** (dégradés de titres, coloration syntaxique du code) s'obtient
-depuis **Chrome / Edge** :
+Ouvre `editeur.html` dans **Chrome ou Edge**, puis clique **« Ouvrir le mémoire »**
+et choisis `memoire_3eme_annee.html`. Tu peux ensuite :
 
-1. Ouvrir `memoire_3eme_annee.html` dans le navigateur.
-2. `Ctrl + P` (ou `Cmd + P`) → **Destination : Enregistrer au format PDF**.
-3. Format **A4**, marges **par défaut**, cocher **Graphiques d'arrière-plan**.
+- **Texte** : cliquer dans le texte et écrire ; gras / italique / souligné ; alignement.
+- **Taille** : sélectionner du texte puis `A−` / `A+` ou saisir une taille en pixels.
+- **Couleur** : sélectionner du texte, choisir une couleur (ou la **Pipette 🎨** pour
+  capturer une couleur n'importe où à l'écran), ou un des pastilles rose/vert.
+- **Image / capture** : bouton **🖼 Insérer** → choisir un fichier. En **Mode objet**,
+  sélectionne d'abord un cadre vert « visuel à insérer » (ex. dans la partie comparaison)
+  puis insère : l'image remplace le cadre. Une image sélectionnée se redimensionne avec le curseur.
+- **Déplacer un bloc** : active **✋ Mode objet**, clique un bloc (titre, paragraphe, image…),
+  puis `▲`/`▼` pour le réordonner, ou glisse-le pour l'ajuster, `🗑` pour le supprimer.
+- **Enregistrer** : 💾 télécharge le mémoire modifié (ré-ouvrable dans l'éditeur).
+- **Imprimer / PDF** : 🖨 ouvre l'impression du navigateur → **pages A4 uniformes**.
 
-Le PDF fourni reste une bonne base si tu n'as pas la main sur un navigateur.
+> L'éditeur garde toute la mise en forme HTML (charte, schémas, code) — il ne fait
+> qu'ajouter une couche d'édition par-dessus.
+
+## Obtenir le PDF final
+
+Le rendu optimal s'obtient depuis **Chrome / Edge** : bouton **🖨 Imprimer / PDF**
+de l'éditeur (ou `Ctrl+P` sur le mémoire) → **Enregistrer au format PDF**, format
+**A4**, marges **par défaut**, cocher **Graphiques d'arrière-plan**.
 
 ## Longueur
 
-≈ **33 pages hors annexes** (36 au total avec les 3 pages d'annexes) — dans la
-fourchette demandée de 30 à 40 pages.
+≈ **32 pages hors annexes** (35 au total). Les pages sont désormais **toutes au format
+A4** et remplies de façon homogène (plus de pages à moitié vides).
 
 ## Plan
 
-- **Partie I** — De l'environnement professionnel à l'évolution d'un projet (A→D)
-- **Partie II** — Développement : ampleur de l'app + **4 cas de comparaison de code**
-  (identité visuelle · multi-entités · stockage cloud · IA tolérante aux pannes)
-- **Partie III** — Analyse critique : résultats, limites (dont l'arbitrage
-  fonctionnel/visuel vs sécurité), bénéfices et évolution personnelle
-- **Annexes** — glossaire, cartographie des modules, pile technique, feuille de temps
+- **Partie I** — Environnement professionnel (A.F.D.E.C, méthode OPTIQ) et basculement maquette → produit.
+- **Partie II** — Ampleur de l'app + **4 cas commentés** : ① éditeur OptiqCarto (remplace VSDX),
+  ② multi-entités, ③ stockage cloud, ④ « désirable et increvable » (visuel + IA). Schémas Figures 1 & 2.
+- **Partie III** — Analyse critique (arbitrage fonctionnel/visuel vs sécurité), bénéfices, évolution.
+- **Annexes** — glossaire, modules, pile technique, feuille de temps, **schéma BDD (Figure 3)**.
 
-## ⚠️ Champs à compléter (cherche les encadrés roses « ◆ à compléter »)
+## ⚠️ Champs à compléter (encadrés roses « ◆ à compléter »)
 
-1. **Remerciements** — noms nominatifs de la 3ᵉ année (tuteur IUT, contacts Inde/investisseurs).
-2. **I.A** — formalisation exacte du passage *stagiaire → associé* (statut, date).
-3. **I.B** — dates et rythme précis de l'alternance + nom du tuteur pédagogique.
-4. **III.B** — une anecdote concrète sur le relationnel à l'international (anglais / Inde).
-5. **Annexe A4** — feuille de temps / carnet de bord.
-6. **Encadrés verts « visuel à insérer »** — captures d'écran de l'app
-   (comparatif des pages, panneau `/testpanel`, etc. ; `database_schema.png` existe déjà au dépôt).
+1. Remerciements nominatifs (tuteur IUT, Inde/investisseurs).
+2. Formalisation du passage *stagiaire → associé*.
+3. Dates / rythme de l'alternance + tuteur pédagogique.
+4. Anecdote sur le relationnel à l'international (anglais / Inde).
+5. Feuille de temps (annexe A4).
+6. Captures d'écran (encadrés verts « visuel à insérer ») — à faire via l'éditeur.
 
-## Note d'honnêteté sur les extraits de code
+## Note d'honnêteté sur le code
 
-Le code **« APRÈS / produit »** est tiré tel quel du dépôt (réel et vérifiable).
-Le code **« AVANT / maquette »** est une **reconstitution représentative** de
-l'approche initiale (décrite dans le rapport de 2ᵉ année), l'historique Git complet
-de cette période n'étant pas présent dans ce dépôt. Tu peux le remplacer par tes
-propres anciens extraits si tu les as conservés.
+Le code **« APRÈS / produit »** est tiré du dépôt (réel). Le code **« AVANT / maquette »**
+est une reconstitution représentative de l'approche initiale (l'historique Git complet de
+cette période n'est pas dans ce dépôt). À remplacer par tes anciens extraits si tu les as.
