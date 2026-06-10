@@ -1519,13 +1519,93 @@ _safe_add_column(<span class="hljs-string">"links"</span>, <span class="hljs-str
     <tr><td>Outils</td><td>Git / dépôt distant, communication d'équipe (visio, comptes rendus)</td></tr>
   </tbody></table>
 
-  <h2 class="green" style="margin-top:30px;"><span class="sec" style="color:var(--green-dk)">A4.</span> Feuille de temps</h2>
-  <div class="todo">
-    <div class="lab">◆ à compléter — feuille de temps de l'alternance</div>
-    <p>Insérer ici la feuille de temps / le carnet de bord de l'année (comme dans le mémoire de 2<sup>e</sup>
-    année). N'ayant pas ces données, je laisse l'emplacement prêt à recevoir le tableau ou le document scanné.</p>
-    <div class="ph"></div><div class="ph"></div><div class="ph"></div>
+  <h2 class="green" style="margin-top:30px;"><span class="sec" style="color:var(--green-dk)">A4.</span> Feuille de temps — carnet de bord</h2>
+
+  <p>Une année de développement, ce sont des centaines de commits&nbsp;: les lister tous serait illisible, et
+  vain. Voici plutôt une <strong>synthèse en quatre temps</strong>, reconstituée à partir de l'historique Git
+  (dépôts <em>Colasmar</em> puis <em>Maelouuu</em>). Le stage de 2<sup>e</sup> année avait posé les fondations&nbsp;;
+  ce carnet retrace l'alternance, d'octobre 2025 à aujourd'hui.</p>
+
+  <figure>
+    <svg viewBox="0 0 680 150" width="100%" role="img" aria-label="L'alternance en quatre phases">
+      <text x="340" y="17" text-anchor="middle" font-family="Fraunces,Georgia,serif" font-size="13" font-weight="700" fill="#111827">De la maquette au produit — quatre temps</text>
+      <!-- Phase 1 -->
+      <text x="108" y="44" text-anchor="middle" font-family="DM Sans,sans-serif" font-size="7.6" fill="#be185d">menu · temps · cloud Neon</text>
+      <rect x="44" y="54" width="128" height="74" rx="12" fill="#fdf2f8" stroke="#ec4899" stroke-width="1.8"/>
+      <text x="108" y="83" text-anchor="middle" font-family="Fraunces,serif" font-size="20" font-weight="900" fill="#ec4899">1</text>
+      <text x="108" y="102" text-anchor="middle" font-family="DM Sans,sans-serif" font-size="9" font-weight="700" fill="#be185d">Reprendre &amp; étendre</text>
+      <text x="108" y="118" text-anchor="middle" font-family="DM Sans,sans-serif" font-size="8" fill="#9d174d">oct. – nov. 2025</text>
+      <!-- Phase 2 -->
+      <text x="244" y="44" text-anchor="middle" font-family="DM Sans,sans-serif" font-size="7.6" fill="#15803d">cartographie · démos</text>
+      <rect x="180" y="54" width="128" height="74" rx="12" fill="#f0fdf4" stroke="#22c55e" stroke-width="1.8"/>
+      <text x="244" y="83" text-anchor="middle" font-family="Fraunces,serif" font-size="20" font-weight="900" fill="#22c55e">2</text>
+      <text x="244" y="102" text-anchor="middle" font-family="DM Sans,sans-serif" font-size="9" font-weight="700" fill="#15803d">Densifier &amp; démontrer</text>
+      <text x="244" y="118" text-anchor="middle" font-family="DM Sans,sans-serif" font-size="8" fill="#15803d">déc. 25 – janv. 26</text>
+      <!-- Phase 3 -->
+      <text x="400" y="44" text-anchor="middle" font-family="DM Sans,sans-serif" font-size="7.6" fill="#be185d">multi-entités · refonte</text>
+      <rect x="316" y="54" width="168" height="74" rx="12" fill="#fdf2f8" stroke="#ec4899" stroke-width="1.8"/>
+      <text x="400" y="83" text-anchor="middle" font-family="Fraunces,serif" font-size="20" font-weight="900" fill="#ec4899">3</text>
+      <text x="400" y="102" text-anchor="middle" font-family="DM Sans,sans-serif" font-size="9" font-weight="700" fill="#be185d">Basculer vers le produit</text>
+      <text x="400" y="118" text-anchor="middle" font-family="DM Sans,sans-serif" font-size="8" fill="#9d174d">hiver – printemps 2026</text>
+      <!-- Phase 4 -->
+      <text x="556" y="44" text-anchor="middle" font-family="DM Sans,sans-serif" font-size="7.6" fill="#15803d">OptiqCarto · tests · doc</text>
+      <rect x="492" y="54" width="128" height="74" rx="12" fill="#f0fdf4" stroke="#22c55e" stroke-width="1.8"/>
+      <text x="556" y="83" text-anchor="middle" font-family="Fraunces,serif" font-size="20" font-weight="900" fill="#22c55e">4</text>
+      <text x="556" y="102" text-anchor="middle" font-family="DM Sans,sans-serif" font-size="9" font-weight="700" fill="#15803d">Professionnaliser</text>
+      <text x="556" y="118" text-anchor="middle" font-family="DM Sans,sans-serif" font-size="8" fill="#15803d">printemps – juin 2026</text>
+      <!-- flèches -->
+      <g font-family="DM Sans,sans-serif" font-size="15" fill="#94a3b8" text-anchor="middle">
+        <text x="176" y="97">→</text><text x="312" y="97">→</text><text x="488" y="97">→</text>
+      </g>
+      <text x="340" y="145" text-anchor="middle" font-family="DM Sans,sans-serif" font-size="8.5" fill="#6b7280">… la même application, qui change de nature au fil de l'année</text>
+    </svg>
+  </figure>
+
+  <div class="metrics">
+    <div class="metric"><div class="n">~9</div><div class="l">mois d'alternance<br>(depuis oct. 2025)</div></div>
+    <div class="metric"><div class="n">2</div><div class="l">dépôts<br>Colasmar → Maelouuu</div></div>
+    <div class="metric"><div class="n">48</div><div class="l">commits en déc. 2025<br>(pic — sprint démos)</div></div>
+    <div class="metric"><div class="n">979</div><div class="l">tests<br>à l'arrivée</div></div>
   </div>
+
+  <table>
+    <tbody>
+    <tr><th style="width:30%">Phase</th><th>Ce qui s'y est joué</th></tr>
+    <tr>
+      <td><strong>① Reprendre &amp; étendre</strong><br><span class="small">oct. – nov. 2025</span></td>
+      <td>Reprise de la maquette, nouveau menu, page d'analyse du temps, première mise en ligne — et déjà des
+      réflexes de produit&nbsp;: base de données <strong>cloud (Neon)</strong> et repli IA sans clé.</td>
+    </tr>
+    <tr>
+      <td><strong>② Densifier &amp; démontrer</strong><br><span class="small">déc. 2025 – janv. 2026</span></td>
+      <td>La période la plus intense (<strong>pic à 48 commits</strong> en décembre). Enrichissement fonctionnel,
+      travail sur la cartographie, et surtout préparation des <strong>démonstrations</strong>.</td>
+    </tr>
+    <tr>
+      <td><strong>③ Basculer vers le produit</strong><br><span class="small">hiver – printemps 2026</span></td>
+      <td>Le tournant&nbsp;: système <strong>multi-entités</strong> (cloisonnement des clients), stockage
+      cloud-native, robustesse en production, et <strong>refonte visuelle</strong> (le design system rose/vert).</td>
+    </tr>
+    <tr>
+      <td><strong>④ Professionnaliser</strong><br><span class="small">printemps – juin 2026</span></td>
+      <td>Éditeur <strong>OptiqCarto</strong> maison (fin de la dépendance à Visio), batterie de <strong>979
+      tests</strong>, documentation technique + guide utilisateur, et migration du dépôt.</td>
+    </tr>
+    </tbody>
+  </table>
+
+  <div class="callout learn">
+    <div class="ic">✦</div>
+    <div>
+      <div class="lab">Côté rythme</div>
+      <p>Un travail majoritairement en <strong>distanciel</strong>, rythmé par des comptes rendus réguliers et des
+      points avec Hubert. L'intensité a épousé les échéances&nbsp;: les pics — décembre et ses 48 commits —
+      correspondent aux <em>démonstrations</em> à présenter.</p>
+    </div>
+  </div>
+
+  <p class="small">Carnet reconstitué à partir de l'historique Git (dépôts <em>Colasmar</em> puis
+  <em>Maelouuu</em>)&nbsp;: il retient les jalons réels de l'année plutôt que le détail au jour le jour.</p>
 
   <figure>
   <div class="cmp-shots">
