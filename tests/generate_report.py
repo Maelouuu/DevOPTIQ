@@ -53,6 +53,7 @@ PAGE_LABELS = {
     "test_39_propose_from_file": "Propositions depuis Fichier Excel & Rendu Performances",
     "test_40_cartography_translate": "Cartographie (update) & Traduction HSC (OpenAI)",
     "test_41_activities_form":       "Performance Activité (CRUD via /activities)",
+    "test_42_activities_search_admin": "Recherche Activités & Admin Entités",
 }
 
 
