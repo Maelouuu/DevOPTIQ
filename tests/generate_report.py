@@ -54,6 +54,7 @@ PAGE_LABELS = {
     "test_40_cartography_translate": "Cartographie (update) & Traduction HSC (OpenAI)",
     "test_41_activities_form":       "Performance Activité (CRUD via /activities)",
     "test_42_activities_search_admin": "Recherche Activités & Admin Entités",
+    "test_43_vsdx_parsers":           "Parseurs VSDX (Connexions & Décisions)",
 }
 
 
