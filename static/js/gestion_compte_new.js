@@ -259,12 +259,18 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     const toastMessages = {
-        created: 'Utilisateur créé avec succès.',
-        updated: 'Modifications enregistrées.',
-        deleted: 'Utilisateur supprimé.'
+        created:               'Utilisateur créé avec succès.',
+        updated:               'Modifications enregistrées.',
+        deleted:               'Utilisateur supprimé.',
+        error_missing_name:    'Veuillez renseigner le prénom et le nom.',
+        error_missing_email:   'Veuillez renseigner l\'adresse email.',
+        error_missing_password:'Le mot de passe doit contenir au moins 6 caractères.',
+        error_missing_role:    'Veuillez sélectionner un rôle.',
+        error_email_exists:    'Cette adresse email est déjà utilisée.',
     };
     if (msgParam && toastMessages[msgParam]) {
-        setTimeout(() => showToast(toastMessages[msgParam], 'ok'), 80);
+        const isError = msgParam.startsWith('error_');
+        setTimeout(() => showToast(toastMessages[msgParam], isError ? 'err' : 'ok'), 80);
     }
 
     // Nettoyer l'URL pour éviter un re-toast au rafraîchissement

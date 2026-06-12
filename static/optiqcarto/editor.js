@@ -27,6 +27,7 @@ function getBandForY(midY) {
 function updateShapeColor(s) {
   if (s.type === 'decision') { s.color = '#9ca3af'; s.textColor = bandTextColor('#9ca3af'); return; }
   if (s.type === 'start-end') return; // Renvoi : couleur gérée par _updateRenvoiColor
+  if (s.subtype === 'extco') return; // Activité hachurée : couleur gérée manuellement uniquement
   const band = getBandForY(s.y + s.h / 2);
   if (!band) return;
   s.color = s.colorVariant === 1 ? bandMutedColor(band.color) : band.color;
@@ -66,6 +67,14 @@ function _checkRenvoiAutoLink(fromShapeId, toShapeId) {
          (s.label || '').trim().toLowerCase() === renvoiLabel
   );
   if (!actA) return;
+
+  // Idempotency: abort if R2 (label = actB, connected to actA) already exists
+  const actBLabel = (actB.label || '').trim().toLowerCase();
+  if (state.shapes.some(s =>
+      s.type === 'start-end' && s.id !== renvoi.id &&
+      (s.label || '').trim().toLowerCase() === actBLabel &&
+      state.connections.some(c => c.fromId === s.id && c.toId === actA.id)
+  )) return;
 
   // Connexion originale actB → renvoi (vient d'être créée juste avant l'appel)
   const origConn = state.connections.find(c => c.fromId === fromShapeId && c.toId === toShapeId);
@@ -342,7 +351,7 @@ function wouldBeBackwards(fromId, toId) {
   }
   const fx = getCX(fromId), tx = getCX(toId);
   if (fx === null || tx === null) return false;
-  return tx < fx - 10; // 10px threshold
+  return tx < fx; // block only when target is strictly left of source
 }
 
 function getGroupPorts(grp) {
@@ -1351,20 +1360,88 @@ function mergeOverlappingCorners(conn) {
   if (conn.userPts.length === 0) conn.userPts = null;
 }
 
+// Ensure all segments in conn.userPts are either purely horizontal or purely vertical.
+// Inserts an intermediate corner whenever an oblique segment is detected.
+function _orthogonalizeUserPts(conn) {
+  if (!conn.userPts || conn.userPts.length === 0) return;
+  const pts = conn.userPts;
+  let changed = true;
+  const MAX_PASS = 20;
+  let pass = 0;
+  while (changed && pass++ < MAX_PASS) {
+    changed = false;
+    for (let i = 0; i < pts.length - 1; i++) {
+      const a = pts[i], b = pts[i + 1];
+      if (Math.abs(a.x - b.x) > 1 && Math.abs(a.y - b.y) > 1) {
+        // Oblique segment: insert a corner to break it into H + V
+        pts.splice(i + 1, 0, { x: b.x, y: a.y });
+        changed = true;
+        break;
+      }
+    }
+  }
+}
+
+// Grow the majority band so the given shape is fully contained, shifting lower content.
+function _fitShapeIntoBand(s) {
+  const majorBand = getBandForY(s.y + s.h / 2);
+  if (!majorBand) return;
+
+  // Compute the top Y of majorBand in SVG coordinates
+  let bandTopY = -200;
+  for (const b of state.bands) {
+    if (b.deleted) continue;
+    if (b.id === majorBand.id) break;
+    bandTopY += b.height;
+  }
+  const bandBottomY = bandTopY + majorBand.height;
+  const shapeBottom = s.y + s.h;
+
+  if (shapeBottom <= bandBottomY) return; // Already contained, nothing to do
+
+  const delta = Math.ceil(shapeBottom - bandBottomY) + 10; // 10px padding
+  majorBand.height += delta;
+
+  // Shift all shapes whose center was below the old band bottom
+  for (const other of state.shapes) {
+    if (other.id === s.id) continue;
+    if ((other.y + other.h / 2) > bandBottomY) other.y += delta;
+  }
+
+  // Shift conn.userPts below the old band bottom
+  for (const conn of state.connections) {
+    if (!conn.userPts) continue;
+    for (const pt of conn.userPts) {
+      if (pt.y > bandBottomY) pt.y += delta;
+    }
+  }
+}
+
 function renderHandles() {
   gHandles.innerHTML = '';
 
   for (const id of selectedShapes) {
     const s = state.shapes.find(x => x.id === id);
     if (!s) continue;
+    // Outer glow ring
+    el('rect', {
+      x: s.x - 9, y: s.y - 9,
+      width: s.w + 18, height: s.h + 18,
+      rx: '17', ry: '17',
+      fill: 'none',
+      stroke: 'rgba(59,130,246,0.28)',
+      'stroke-width': '7',
+      'pointer-events': 'none',
+    }, gHandles);
+    // Inner selection rect
     el('rect', {
       x: s.x - 5, y: s.y - 5,
       width: s.w + 10, height: s.h + 10,
       rx: '14', ry: '14',
-      fill: 'none',
+      fill: 'rgba(59,130,246,0.06)',
       stroke: '#3b82f6',
-      'stroke-width': '2',
-      'stroke-dasharray': '7,4',
+      'stroke-width': '2.5',
+      'stroke-dasharray': '7,3',
       'pointer-events': 'none',
     }, gHandles);
   }
@@ -2708,6 +2785,7 @@ function onUp(e) {
         if (conn.userPts && removeStart >= 0 && removeStart < conn.userPts.length) {
           conn.userPts.splice(removeStart, removeCount);
           if (conn.userPts.length === 0) conn.userPts = null;
+          else _orthogonalizeUserPts(conn); // ensure remaining segments stay 90°
         }
       } else {
         mergeOverlappingCorners(conn);
@@ -2852,6 +2930,8 @@ function onUp(e) {
             if (prevBandId === null || !newBand || prevBandId !== newBand.id) {
               updateShapeColor(s);
             }
+            // Grow the majority band to fully contain the shape if it straddles two bands
+            _fitShapeIntoBand(s);
           }
           // Les tracés manuels deviennent incohérents quand la shape source/cible bouge
           for (const conn of state.connections) {
@@ -2990,7 +3070,13 @@ function commitLabel() {
   const s = state.shapes.find(s => s.id === labelEditing.shapeId);
   if (s) {
     s.label = labelEd.value.trim();
-    if (s.type === 'start-end') _updateRenvoiColor(s);
+    if (s.type === 'start-end') {
+      _updateRenvoiColor(s);
+      // Regression fix: auto-link wasn't created when label was set after connection
+      for (const conn of state.connections) {
+        if (conn.toId === s.id) { _checkRenvoiAutoLink(conn.fromId, s.id); break; }
+      }
+    }
     snapshot(); render();
   }
   labelEditing = null;
@@ -4936,6 +5022,13 @@ async function _deleteBand(idx) {
   for (const s of state.shapes) {
     if (!s.deleted && (s.y + s.h / 2) > bandYEnd) s.y -= band.height;
   }
+  // Also shift manual arrow corners below the deleted band
+  for (const conn of state.connections) {
+    if (!conn.userPts) continue;
+    for (const pt of conn.userPts) {
+      if (pt.y > bandYEnd) pt.y -= band.height;
+    }
+  }
   // Soft-delete : la bande reste dans state.bands mais n'est plus rendue
   band.deleted = true;
   snapshot();
@@ -5219,6 +5312,22 @@ function setPropsOpen(open) {
   const btn = document.getElementById('btn-right-panel-open');
   if (btn) btn.classList.toggle('active', open);
   if (open) {
+    // Auto-pan so the selected shape (non-arrow) remains visible when panel opens
+    if (selectedShapes.size > 0) {
+      const PANEL_W = 244;
+      const cRect = canvas.getBoundingClientRect();
+      const visibleRight = cRect.width - PANEL_W - 16;
+      for (const id of selectedShapes) {
+        const s = state.shapes.find(s => s.id === id);
+        if (!s) break;
+        const shapeRightScreen = (s.x + s.w) * vpScale + vpX;
+        if (shapeRightScreen > visibleRight) {
+          vpX -= shapeRightScreen - visibleRight;
+          applyViewport();
+        }
+        break; // Only adjust for the first selected shape
+      }
+    }
     pr.classList.remove('collapsed');
     _animatePanelOpen('properties');
   } else {

@@ -88,15 +88,33 @@ def list_users():
 
 @gestion_compte_bp.route('/create', methods=['POST'])
 def create_user():
-    first_name = request.form['first_name']
-    last_name = request.form['last_name']
-    age = request.form.get('age')
-    email = request.form['email']
-    password = request.form['password']  
-    role_id = int(request.form['role_id'])
-    status = request.form['status']
+    first_name = request.form.get('first_name', '').strip()
+    last_name  = request.form.get('last_name',  '').strip()
+    email      = request.form.get('email',      '').strip()
+    password   = request.form.get('password',   '').strip()
+    role_id_raw = request.form.get('role_id',   '').strip()
+    status     = request.form.get('status',     'user').strip()
+    age_raw    = request.form.get('age',        '').strip()
 
-    # MODIFIÉ: Associer le nouvel utilisateur à l'entité active
+    # Validation des champs obligatoires
+    if not first_name or not last_name:
+        return redirect(url_for('gestion_compte.list_users', msg='error_missing_name'))
+    if not email:
+        return redirect(url_for('gestion_compte.list_users', msg='error_missing_email'))
+    if not password or len(password) < 6:
+        return redirect(url_for('gestion_compte.list_users', msg='error_missing_password'))
+    if not role_id_raw:
+        return redirect(url_for('gestion_compte.list_users', msg='error_missing_role'))
+    if User.query.filter_by(email=email).first():
+        return redirect(url_for('gestion_compte.list_users', msg='error_email_exists'))
+
+    try:
+        role_id = int(role_id_raw)
+    except ValueError:
+        return redirect(url_for('gestion_compte.list_users', msg='error_missing_role'))
+
+    age = int(age_raw) if age_raw else None
+
     active_entity_id = Entity.get_active_id()
     user = User(
         first_name=first_name,
