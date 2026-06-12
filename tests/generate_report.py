@@ -55,6 +55,7 @@ PAGE_LABELS = {
     "test_41_activities_form":       "Performance Activité (CRUD via /activities)",
     "test_42_activities_search_admin": "Recherche Activités & Admin Entités",
     "test_43_vsdx_parsers":           "Parseurs VSDX (Connexions & Décisions)",
+    "test_44_cross_carto_liaisons":   "Liaisons Cross-Carto (Officialisation & Debug)",
 }
 
 
