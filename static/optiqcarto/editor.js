@@ -354,6 +354,17 @@ function wouldBeBackwards(fromId, toId) {
   return tx < fx; // block only when target is strictly left of source
 }
 
+// Returns the X coordinate of a specific port on a shape (falls back to center X)
+function _portX(shapeId, dir, t) {
+  const s = state.shapes.find(s => s.id === shapeId);
+  if (!s) return null;
+  if (dir) {
+    const p = getDetailedPorts(s).find(p => p.dir === dir && (t === undefined || Math.abs(p.t - t) < 0.02));
+    if (p) return p.x;
+  }
+  return s.x + s.w / 2;
+}
+
 function getGroupPorts(grp) {
   const b = getGroupBounds(grp);
   if (!b) return null;
@@ -2809,7 +2820,17 @@ function onUp(e) {
       if (conn) {
         const newFromId = which === 'from' ? snapShapeId : conn.fromId;
         const newToId   = which === 'to'   ? snapShapeId : conn.toId;
-        if (wouldBeBackwards(newFromId, newToId)) {
+        // Compare actual port X positions to avoid false positives on vertical connections
+        const _fromPx = _portX(which === 'from' ? snapShapeId : conn.fromId,
+                                which === 'from' ? snapDir     : conn.fromPortDir,
+                                which === 'from' ? snapT       : conn.fromPortT);
+        const _toPx   = _portX(which === 'to'   ? snapShapeId : conn.toId,
+                                which === 'to'   ? snapDir     : conn.toPortDir,
+                                which === 'to'   ? snapT       : conn.toPortT);
+        const _isBackwards = (_fromPx !== null && _toPx !== null)
+          ? _toPx < _fromPx
+          : wouldBeBackwards(newFromId, newToId);
+        if (_isBackwards) {
           showToast(_L('editor.toast.backward_arrow'));
         } else {
           if (which === 'from') {
@@ -2877,7 +2898,11 @@ function onUp(e) {
              c.fromPortDir === fp.dir
       );
       if (!exists) {
-        if (wouldBeBackwards(portDrag.fromShapeId, target.id)) {
+        // Compare actual port X positions rather than shape centers
+        const _toPx = portDrag.snapShapeId
+          ? (() => { const _s = state.shapes.find(s => s.id === portDrag.snapShapeId); const _p = _s && getDetailedPorts(_s).find(p => p.dir === portDrag.snapDir && Math.abs(p.t - portDrag.snapT) < 0.02); return _p ? _p.x : (_s ? _s.x + _s.w / 2 : null); })()
+          : (target.x + target.w / 2);
+        if (_toPx !== null && _toPx < portDrag.fromPort.x) {
           showToast(_L('editor.toast.backward_arrow'));
         } else {
           const fromShape = state.shapes.find(s => s.id === portDrag.fromShapeId);
@@ -4948,6 +4973,7 @@ async function importVSDX(file) {
     history = [JSON.stringify(state)]; histIndex = 0;
     render();
     snapDecisionsToArrows(); // centre les losanges sur la flèche la plus proche
+    _alignImportedShapes(state.shapes, state.connections); // snap near-aligned shapes to H/V
     fitView(); updateProps();
 
     document.getElementById('vsdx-dialog').classList.add('hidden');
@@ -4996,6 +5022,70 @@ function _confirmBandDelete(band, shapes) {
     ov.querySelector('#_bdc-cancel').onclick  = () => { ov.remove(); resolve(false); };
     ov.querySelector('#_bdc-confirm').onclick = () => { ov.remove(); resolve(true); };
   });
+}
+
+// Post-import alignment: snap nearly-aligned connected shapes to exact H/V alignment
+// and clear manual paths for straightened connections.
+function _alignImportedShapes(shapes, conns) {
+  const THRESH = 18; // px — shapes within this offset are considered "meant to align"
+
+  // Accumulate alignment votes per shape
+  const snapCxVotes = new Map(); // id → [cx values to average]
+  const snapCyVotes = new Map();
+
+  for (const c of conns) {
+    const from = shapes.find(s => s.id === c.fromId);
+    const to   = shapes.find(s => s.id === c.toId);
+    if (!from || !to) continue;
+
+    const fcx = from.x + from.w / 2, fcy = from.y + from.h / 2;
+    const tcx = to.x   + to.w   / 2, tcy = to.y   + to.h   / 2;
+    const dxAbs = Math.abs(fcx - tcx);
+    const dyAbs = Math.abs(fcy - tcy);
+
+    if (dxAbs <= THRESH && dxAbs < dyAbs) {
+      // Nearly vertical: align X centers
+      const mid = (fcx + tcx) / 2;
+      for (const id of [from.id, to.id]) {
+        if (!snapCxVotes.has(id)) snapCxVotes.set(id, []);
+        snapCxVotes.get(id).push(mid);
+      }
+    } else if (dyAbs <= THRESH && dyAbs < dxAbs) {
+      // Nearly horizontal: align Y centers
+      const mid = (fcy + tcy) / 2;
+      for (const id of [from.id, to.id]) {
+        if (!snapCyVotes.has(id)) snapCyVotes.set(id, []);
+        snapCyVotes.get(id).push(mid);
+      }
+    }
+  }
+
+  // Apply consensus snaps
+  for (const s of shapes) {
+    const vx = snapCxVotes.get(s.id);
+    if (vx && vx.length > 0) {
+      const avg = vx.reduce((a, b) => a + b, 0) / vx.length;
+      s.x = Math.round(avg - s.w / 2);
+    }
+    const vy = snapCyVotes.get(s.id);
+    if (vy && vy.length > 0) {
+      const avg = vy.reduce((a, b) => a + b, 0) / vy.length;
+      s.y = Math.round(avg - s.h / 2);
+    }
+  }
+
+  // Clear manual paths for connections that are now perfectly aligned
+  for (const c of conns) {
+    const from = shapes.find(s => s.id === c.fromId);
+    const to   = shapes.find(s => s.id === c.toId);
+    if (!from || !to) continue;
+    const dxAbs = Math.abs((from.x + from.w / 2) - (to.x + to.w / 2));
+    const dyAbs = Math.abs((from.y + from.h / 2) - (to.y + to.h / 2));
+    if (dxAbs <= 2 || dyAbs <= 2) {
+      c.userPts    = null;
+      c.customPath = null;
+    }
+  }
 }
 
 async function _deleteBand(idx) {
@@ -6255,6 +6345,7 @@ function init() {
     };
     state.shapes.push(s);
     updateShapeColor(s);
+    _fitShapeIntoBand(s); // grow band if shape overflows its bottom edge
     selectShape(s.id, false, false);
     snapshot(); render(); updateProps();
     showToast(_L('editor.toast.shape_added'));
