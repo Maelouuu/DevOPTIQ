@@ -56,6 +56,7 @@ PAGE_LABELS = {
     "test_42_activities_search_admin": "Recherche Activités & Admin Entités",
     "test_43_vsdx_parsers":           "Parseurs VSDX (Connexions & Décisions)",
     "test_44_cross_carto_liaisons":   "Liaisons Cross-Carto (Officialisation & Debug)",
+    "test_45_roles_avance":           "Rôles — CRUD Complet & Garant",
 }
 
 

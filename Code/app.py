@@ -246,6 +246,9 @@ def create_app(test_config=None):
     from Code.routes.test_panel import test_panel_bp
     app.register_blueprint(test_panel_bp)
 
+    from Code.routes.projection_metier import projection_metier_bp
+    app.register_blueprint(projection_metier_bp)
+
     # En mode test, on saute l'init DB — le conftest gère create_all/seed.
     if test_config is not None:
         app.config.update(test_config)
