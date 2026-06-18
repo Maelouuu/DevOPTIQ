@@ -57,6 +57,7 @@ PAGE_LABELS = {
     "test_43_vsdx_parsers":           "Parseurs VSDX (Connexions & Décisions)",
     "test_44_cross_carto_liaisons":   "Liaisons Cross-Carto (Officialisation & Debug)",
     "test_45_roles_avance":           "Rôles — CRUD Complet & Garant",
+    "test_46_cartography_calques":    "Cartographie — Calques & Resync",
 }
 
 
