@@ -58,6 +58,7 @@ PAGE_LABELS = {
     "test_44_cross_carto_liaisons":   "Liaisons Cross-Carto (Officialisation & Debug)",
     "test_45_roles_avance":           "Rôles — CRUD Complet & Garant",
     "test_46_cartography_calques":    "Cartographie — Calques & Resync",
+    "test_47_cartography_editor_avance": "Cartographie — Architect IA & Liaisons Editor",
 }
 
 
