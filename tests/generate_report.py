@@ -60,6 +60,7 @@ PAGE_LABELS = {
     "test_46_cartography_calques":    "Cartographie — Calques & Resync",
     "test_47_cartography_editor_avance": "Cartographie — Architect IA & Liaisons Editor",
     "test_48_set_password_admin":        "Définition de Mot de Passe Admin",
+    "test_49_tasks_avance":              "Tâches — CRUD & Rôles Avancé",
 }
 
 
