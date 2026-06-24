@@ -1,0 +1,76 @@
+name: Deploy → Staging MV
+
+# Environnement de preview dédié au collègue (branche `staging-mv`).
+# Chaque push sur `staging-mv` reconstruit l'image et redéploie le service
+# Cloud Run `devoptiq-staging-mv`, isolé de staging et de la prod.
+#
+# ⚠️ Pré-requis (à faire UNE FOIS dans GitHub → Settings → Secrets → Actions) :
+#   - STAGING_MV_DATABASE_URL  → URL de la branche Neon `staging-mv`
+#   - STAGING_MV_SECRET_KEY    → clé Flask aléatoire (voir ONBOARDING.md)
+# Tant que ces 2 secrets n'existent pas, ce workflow échoue : c'est normal.
+
+on:
+  push:
+    branches: [staging-mv]
+  workflow_dispatch:
+
+env:
+  PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+  REGION: europe-west1
+  SERVICE: devoptiq-staging-mv                # ← nom du service Cloud Run de preview
+  IMAGE: europe-west1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/cloud-run-source-deploy/devoptiq/devoptiq-staging-mv
+
+jobs:
+  deploy:
+    name: Build & Deploy (Staging MV)
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      id-token: write   # requis pour Workload Identity Federation
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
+          service_account: ${{ secrets.GCP_SA_EMAIL }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker europe-west1-docker.pkg.dev --quiet
+
+      - name: Build Docker image
+        run: |
+          docker build -t ${{ env.IMAGE }}:${{ github.sha }} -t ${{ env.IMAGE }}:latest .
+
+      - name: Push Docker image
+        run: |
+          docker push ${{ env.IMAGE }}:${{ github.sha }}
+          docker push ${{ env.IMAGE }}:latest
+
+      - name: Deploy to Cloud Run (Staging MV)
+        run: |
+          gcloud run deploy ${{ env.SERVICE }} \
+            --image ${{ env.IMAGE }}:${{ github.sha }} \
+            --region ${{ env.REGION }} \
+            --platform managed \
+            --allow-unauthenticated \
+            --set-env-vars "DATABASE_URL=${{ secrets.STAGING_MV_DATABASE_URL }}" \
+            --set-env-vars "SECRET_KEY=${{ secrets.STAGING_MV_SECRET_KEY }}" \
+            --set-env-vars "FLASK_ENV=staging-mv" \
+            --set-env-vars "GOOGLE_CLOUD_PROJECT=${{ secrets.GCP_PROJECT_ID }}" \
+            --memory 2Gi \
+            --timeout 120 \
+            --quiet
+
+      - name: Print staging-mv URL
+        run: |
+          URL=$(gcloud run services describe ${{ env.SERVICE }} \
+            --region ${{ env.REGION }} --format 'value(status.url)')
+          echo "✅ Staging MV déployé : $URL"
