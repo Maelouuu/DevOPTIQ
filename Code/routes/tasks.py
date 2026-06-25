@@ -285,7 +285,9 @@ def update_task(task_id):
     if not task:
         return jsonify({"error": "Task not found"}), 404
 
-    data = request.get_json()
+    # silent=True : sans corps JSON / mauvais Content-Type, retourne None
+    # (au lieu de lever 415) → on répond proprement 400 ci-dessous.
+    data = request.get_json(silent=True)
     if not data:
         return jsonify({"error": "No data provided"}), 400
 

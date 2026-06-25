@@ -1,4 +1,5 @@
 import ast
+import json
 import os
 import subprocess
 import sys
@@ -12,7 +13,8 @@ from flask import (Blueprint, Response, jsonify, render_template, request,
                    stream_with_context, current_app)
 
 from Code.extensions import db
-from Code.models.test_models import TestCase, TestPage, TestResult, TestRun
+from Code.models.test_models import (TestCase, TestPage, TestPatch, TestResult,
+                                     TestRun)
 
 test_panel_bp = Blueprint('test_panel', __name__, url_prefix='/testpanel')
 
@@ -98,6 +100,83 @@ def sync_tests_to_db():
             else:
                 db.session.add(TestCase(page_id=page.id, **c))
     db.session.commit()
+
+
+# ── Sync patch registry → DB ──────────────────────────────────────────────────
+
+_PATCHES_FILE = _TESTS_DIR / 'patches.json'
+
+
+def sync_patches_to_db():
+    """
+    Synchronise le registre versionné ``tests/patches.json`` vers la table
+    ``test_patches``. Upsert par ``patch_uid`` : la routine (et Claude) n'ont
+    qu'à ajouter une entrée au JSON et committer — aucun accès direct à la DB
+    de prod n'est requis pour que le patch apparaisse dans le panel.
+    """
+    if not _PATCHES_FILE.exists():
+        return
+    try:
+        entries = json.loads(_PATCHES_FILE.read_text(encoding='utf-8'))
+    except Exception:
+        return
+    if not isinstance(entries, list):
+        return
+
+    for e in entries:
+        uid = (e.get('patch_uid') or '').strip()
+        if not uid:
+            continue
+        p = TestPatch.query.filter_by(patch_uid=uid).first()
+        if not p:
+            p = TestPatch(patch_uid=uid)
+            db.session.add(p)
+        p.title           = (e.get('title') or '')[:200]
+        p.node_ids        = json.dumps(e.get('node_ids', []), ensure_ascii=False)
+        p.page_slug       = e.get('page_slug')
+        p.failure_reason  = e.get('failure_reason', '')
+        p.was_real_bug    = bool(e.get('was_real_bug', True))
+        p.root_cause      = (e.get('root_cause') or '')[:40]
+        p.error           = e.get('error', '')
+        p.fix_description = e.get('fix_description', '')
+        p.files_changed   = json.dumps(e.get('files_changed', []), ensure_ascii=False)
+        p.author          = (e.get('author') or 'routine')[:40]
+        p.commit          = (e.get('commit') or '')[:60]
+        fa = e.get('fixed_at')
+        if fa:
+            try:
+                p.fixed_at = datetime.fromisoformat(str(fa).replace('Z', ''))
+            except Exception:
+                p.fixed_at = None
+    db.session.commit()
+
+
+def _patches_for_nodes(node_ids):
+    """Retourne les patchs dont au moins un node_id corrigé est dans node_ids."""
+    wanted = set(node_ids)
+    out = []
+    for p in TestPatch.query.order_by(TestPatch.created_at.desc()).all():
+        if wanted & set(p.node_id_list):
+            out.append(p)
+    return out
+
+
+def _patch_to_dict(p):
+    return {
+        'patch_uid':       p.patch_uid,
+        'title':           p.title,
+        'node_ids':        p.node_id_list,
+        'page_slug':       p.page_slug,
+        'failure_reason':  p.failure_reason,
+        'was_real_bug':    p.was_real_bug,
+        'root_cause':      p.root_cause,
+        'error':           p.error,
+        'fix_description': p.fix_description,
+        'files_changed':   p.files_list,
+        'author':          p.author,
+        'commit':          p.commit,
+        'fixed_at':        p.fixed_at.strftime('%d/%m/%y %H:%M') if p.fixed_at else '',
+    }
 
 
 # ── Run pytest ────────────────────────────────────────────────────────────────
@@ -319,9 +398,10 @@ def _auto_sync():
     if request.endpoint not in _VIEW_ENDPOINTS:
         return
     try:
-        for model in (TestPage, TestCase, TestRun, TestResult):
+        for model in (TestPage, TestCase, TestRun, TestResult, TestPatch):
             model.__table__.create(db.engine, checkfirst=True)
         sync_tests_to_db()
+        sync_patches_to_db()
     except Exception:
         pass
 
@@ -359,12 +439,27 @@ def panel():
     total_all  = len(all_cases)
     passed_all = sum(1 for c in all_cases if c.last_status == 'passed')
     global_pct = round(100 * passed_all / total_all) if total_all else 0
+
+    # Patchs — synthèse + comptage par page
+    all_patches = TestPatch.query.order_by(TestPatch.created_at.desc()).all()
+    patches_by_slug = {}
+    for p in all_patches:
+        if p.page_slug:
+            patches_by_slug[p.page_slug] = patches_by_slug.get(p.page_slug, 0) + 1
+    for s in page_stats:
+        s['n_patches'] = patches_by_slug.get(s['page'].slug, 0)
+    patch_count    = len(all_patches)
+    real_bug_count = sum(1 for p in all_patches if p.was_real_bug)
+    recent_patches = [_patch_to_dict(p) for p in all_patches[:8]]
+
     _expire_stale_runs()
     active_run = TestRun.query.filter_by(status='running').order_by(TestRun.started_at.desc()).first()
 
     return render_template('test_panel/panel.html',
                            page_stats=page_stats, total_all=total_all,
                            passed_all=passed_all, global_pct=global_pct,
+                           patch_count=patch_count, real_bug_count=real_bug_count,
+                           recent_patches=recent_patches,
                            active_run=active_run)
 
 
@@ -396,10 +491,21 @@ def page_detail(slug):
     for c in cases:
         classes.setdefault(c.class_name or 'Tests', []).append(c)
 
+    # Patchs concernant cette page (par node_id de ses cas OU par page_slug)
+    page_node_ids = [c.node_id for c in cases]
+    patches = _patches_for_nodes(page_node_ids)
+    for p in TestPatch.query.filter_by(page_slug=slug).all():
+        if p not in patches:
+            patches.append(p)
+    patched_nodes = set()
+    for p in patches:
+        patched_nodes |= set(p.node_id_list)
+
     _expire_stale_runs()
     active_run = TestRun.query.filter_by(status='running').order_by(TestRun.started_at.desc()).first()
     return render_template('test_panel/page.html', page=page, classes=classes,
                            run_history=run_history, case_history=case_history,
+                           patches=patches, patched_nodes=patched_nodes,
                            active_run=active_run)
 
 
@@ -414,8 +520,9 @@ def case_detail(case_id):
                 'at': r.ran_at.strftime('%d/%m %H:%M') if r.ran_at else ''}
                for r in results]
     last = results[-1] if results else None
+    patches = _patches_for_nodes([case.node_id])
     return render_template('test_panel/case.html', case=case,
-                           history=history, last_result=last)
+                           history=history, last_result=last, patches=patches)
 
 
 @test_panel_bp.route('/run/all', methods=['POST'])
@@ -553,10 +660,21 @@ def global_stats():
         if tc:
             most_failing = {'name': tc.display_name or tc.name, 'fail_count': top_cnt}
 
+    # Patchs récents (traçabilité des correctifs)
+    all_patches    = TestPatch.query.order_by(TestPatch.created_at.desc()).all()
+    recent_patches = [_patch_to_dict(p) for p in all_patches[:12]]
+    patch_summary  = {
+        'total':     len(all_patches),
+        'real_bugs': sum(1 for p in all_patches if p.was_real_bug),
+        'test_only': sum(1 for p in all_patches if not p.was_real_bug),
+    }
+
     return jsonify({
-        'period':       period,
-        'chart_points': chart_points,
-        'recent_runs':  recent_runs,
+        'period':         period,
+        'chart_points':   chart_points,
+        'recent_runs':    recent_runs,
+        'recent_patches': recent_patches,
+        'patch_summary':  patch_summary,
         'summary': {
             'total_runs':     total_runs,
             'overall_pct':    overall_pct,

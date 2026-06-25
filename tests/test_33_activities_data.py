@@ -56,14 +56,32 @@ class TestActivityDetails:
         data = r.get_json()
         assert "Tâche Test" in data["tasks"]
 
-    def test_details_listes_vides_pour_items_inexistants(self, auth_client, ids):
-        """Les listes savoirs/savoir_faires/softskills/aptitudes sont vides pour l'activité seed."""
-        r = auth_client.get(f"/activities/{ids['activity_id']}/details")
-        data = r.get_json()
-        assert data["savoirs"] == []
-        assert data["savoir_faires"] == []
-        assert data["softskills"] == []
-        assert data["aptitudes"] == []
+    def test_details_listes_vides_pour_items_inexistants(self, auth_client, app, ids):
+        """Une activité SANS items renvoie des listes vides.
+
+        On utilise une activité jetable : l'activité seed peut être polluée par
+        d'autres tests qui y ajoutent des savoirs/HSC sans cleanup (ex. test_24).
+        """
+        from Code.models.models import Activities
+        from Code.extensions import db
+        with app.app_context():
+            a = Activities(entity_id=ids["entity_id"], name="Activité Vide Détails", description="")
+            db.session.add(a)
+            db.session.commit()
+            aid = a.id
+        try:
+            r = auth_client.get(f"/activities/{aid}/details")
+            data = r.get_json()
+            assert data["savoirs"] == []
+            assert data["savoir_faires"] == []
+            assert data["softskills"] == []
+            assert data["aptitudes"] == []
+        finally:
+            with app.app_context():
+                obj = db.session.get(Activities, aid)
+                if obj:
+                    db.session.delete(obj)
+                    db.session.commit()
 
     def test_details_constraints_est_liste(self, auth_client, ids):
         """'constraints' est une liste."""

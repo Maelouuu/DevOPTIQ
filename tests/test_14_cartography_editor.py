@@ -288,20 +288,30 @@ class TestCartoApiSave:
         assert act is None
 
     def test_save_special_type_marked_as_result(self, auth_client, app, ids):
+        """Contrat de _sync_carto_to_db : seules les formes 'process' deviennent
+        des activités. Une forme 'special' est une sous-activité VISUELLE
+        (cf. _ACTIVITY_TYPES = {'process'} dans cartography_editor.py) et n'est
+        donc PAS synchronisée en base, tandis qu'une 'process' l'est.
+        """
         _clear_shape_activities(app, ids)
         _set_carto(app, ids, None)
         diagram = {
-            "shapes": [{"id": "s3", "type": "special", "label": "Résultat",
-                        "x": 100, "y": 0, "w": 120, "h": 60}],
+            "shapes": [
+                {"id": "p9", "type": "process", "label": "Process Réel",
+                 "x": 0, "y": 0, "w": 120, "h": 60},
+                {"id": "s3", "type": "special", "label": "Résultat",
+                 "x": 100, "y": 0, "w": 120, "h": 60},
+            ],
             "bands": [],
             "connections": [],
         }
         auth_client.post("/cartography/api/save", json=diagram)
         with app.app_context():
             from Code.models.models import Activities
-            act = Activities.query.filter_by(entity_id=ids["entity_id"], shape_id="s3").first()
-        assert act is not None
-        assert act.is_result is True
+            process_act = Activities.query.filter_by(entity_id=ids["entity_id"], shape_id="p9").first()
+            special_act = Activities.query.filter_by(entity_id=ids["entity_id"], shape_id="s3").first()
+        assert process_act is not None          # 'process' → activité créée
+        assert special_act is None              # 'special' → visuel, pas d'activité
 
 
 # ===========================================================================

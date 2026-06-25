@@ -158,13 +158,31 @@ class TestActivitiesViewMoreOffset:
 
 class TestActivitiesViewMoreExclude:
 
-    def test_exclude_id_filters_out_activity(self, auth_client, ids):
-        """exclude_id supprime l'activité correspondante du résultat HTML."""
-        r = auth_client.get(f"/activities/view/more?offset=0&exclude_id={ids['activity_id']}")
-        assert r.status_code == 200
-        data = json.loads(r.data)
-        # L'activité "Activité Test" ne doit plus apparaître dans le HTML retourné
-        assert "Activité Test" not in data["html"]
+    def test_exclude_id_filters_out_activity(self, auth_client, app, ids):
+        """exclude_id retire l'activité correspondante du HTML.
+
+        On crée une activité au nom UNIQUE : assurer l'absence du nom « Activité
+        Test » serait fragile car d'autres tests (imports Excel de test_16)
+        créent des activités homonymes non nettoyées.
+        """
+        from Code.models.models import Activities
+        from Code.extensions import db
+        uniq = "AAA Activité Exclusion Unique"
+        with app.app_context():
+            a = Activities(entity_id=ids["entity_id"], name=uniq, description="")
+            db.session.add(a)
+            db.session.commit()
+            aid = a.id
+        try:
+            with_excl = auth_client.get(f"/activities/view/more?offset=0&exclude_id={aid}")
+            assert with_excl.status_code == 200
+            assert uniq not in json.loads(with_excl.data)["html"]
+        finally:
+            with app.app_context():
+                obj = db.session.get(Activities, aid)
+                if obj:
+                    db.session.delete(obj)
+                    db.session.commit()
 
     def test_exclude_unknown_id_does_not_crash(self, auth_client):
         """exclude_id=999999 (inexistant) ne provoque pas d'erreur."""

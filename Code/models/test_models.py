@@ -57,3 +57,47 @@ class TestResult(db.Model):
     duration = db.Column(db.Float)
     message  = db.Column(db.Text)
     ran_at   = db.Column(db.DateTime, default=datetime.utcnow)
+
+
+class TestPatch(db.Model):
+    """
+    Trace d'un correctif appliqué suite à l'échec d'un ou plusieurs tests.
+
+    Source de vérité : le fichier versionné ``tests/patches.json`` (synchronisé
+    vers cette table à chaque consultation du panel, comme ``sync_tests_to_db``).
+    Permet à Claude — et à la routine de tests — de documenter chaque fix :
+    pourquoi le test échouait, s'il y avait une vraie erreur applicative, quelle
+    était l'erreur, quand et comment elle a été corrigée.
+    """
+    __tablename__ = 'test_patches'
+    id              = db.Column(db.Integer, primary_key=True)
+    patch_uid       = db.Column(db.String(80), unique=True, nullable=False)
+    title           = db.Column(db.String(200))      # résumé court du patch
+    node_ids        = db.Column(db.Text)             # JSON : node_ids des tests corrigés
+    page_slug       = db.Column(db.String(60))       # page principale concernée
+    failure_reason  = db.Column(db.Text)             # raison de l'échec du test
+    was_real_bug    = db.Column(db.Boolean, default=True)   # y avait-il une vraie erreur ?
+    root_cause      = db.Column(db.String(40))       # app_bug | test_isolation | test_quality
+    error           = db.Column(db.Text)             # ce qu'était l'erreur (diagnostic)
+    fix_description = db.Column(db.Text)             # comment cela a été corrigé
+    files_changed   = db.Column(db.Text)             # JSON : fichiers modifiés
+    author          = db.Column(db.String(40), default='routine')  # claude | routine
+    commit          = db.Column(db.String(60))       # sha du commit (optionnel)
+    fixed_at        = db.Column(db.DateTime)         # quand cela a été corrigé
+    created_at      = db.Column(db.DateTime, default=datetime.utcnow)
+
+    @property
+    def node_id_list(self):
+        import json
+        try:
+            return json.loads(self.node_ids or '[]')
+        except Exception:
+            return []
+
+    @property
+    def files_list(self):
+        import json
+        try:
+            return json.loads(self.files_changed or '[]')
+        except Exception:
+            return []

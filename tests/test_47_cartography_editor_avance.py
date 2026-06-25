@@ -182,8 +182,19 @@ class TestGetLiaisonsAuth:
         assert isinstance(r.get_json(), list)
 
     def test_sans_liaison_retourne_vide(self, auth_client, ids, app):
-        """Sans liaison en DB → liste vide."""
+        """Sans liaison en DB → liste vide.
+
+        On purge d'abord les CrossCartoLiaison de l'entité partagée : d'autres
+        tests en créent et la base est partagée (scope=session).
+        """
         _ensure_owner(app, ids)
+        with app.app_context():
+            from Code.extensions import db
+            CrossCartoLiaison.query.filter(
+                db.or_(CrossCartoLiaison.extco_entity_id == ids["entity_id"],
+                       CrossCartoLiaison.origin_entity_id == ids["entity_id"])
+            ).delete(synchronize_session=False)
+            db.session.commit()
         r = auth_client.get("/cartography/api/liaisons")
         data = r.get_json()
         assert data == []

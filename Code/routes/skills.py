@@ -35,7 +35,9 @@ def propose_skills():
         else:
             tasks_list.append(str(t))
     tasks_list = [t.strip() for t in tasks_list if t.strip()]
-    tasks_str = ", ".join(tasks_list) if tasks_list else "(aucune tâche définie)"
+    if not tasks_list:
+        return jsonify({"error": "Au moins une tâche est requise pour proposer des compétences."}), 400
+    tasks_str = ", ".join(tasks_list)
 
     # Connexions sortantes
     outgoing_data = data.get("outgoing", [])

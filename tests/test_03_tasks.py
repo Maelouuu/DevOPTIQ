@@ -43,13 +43,34 @@ class TestTasksCRUD:
         )
         assert r.status_code in (400, 422, 404, 200)
 
-    def test_update_task(self, auth_client, ids):
-        r = auth_client.put(
-            f"/tasks/{ids['task_id']}",
-            data=json.dumps({"name": "Tâche modifiée", "description": "Nouvelle desc"}),
-            content_type="application/json",
-        )
-        assert r.status_code in (200, 204, 404)
+    def test_update_task(self, auth_client, ids, app):
+        """Met à jour une tâche DÉDIÉE (ne renomme pas la tâche seed partagée).
+
+        Renommer ids['task_id'] (« Tâche Test ») polluait la session : plusieurs
+        tests aval (test_17, test_33, test_49) vérifient la présence de cette
+        tâche seed. On crée donc une tâche jetable pour ce test.
+        """
+        from Code.models.models import Task
+        from Code.extensions import db
+        with app.app_context():
+            t = Task(name="Tâche à modifier", description="d",
+                     activity_id=ids["activity_id"], order=99)
+            db.session.add(t)
+            db.session.commit()
+            tid = t.id
+        try:
+            r = auth_client.put(
+                f"/tasks/{tid}",
+                data=json.dumps({"name": "Tâche modifiée", "description": "Nouvelle desc"}),
+                content_type="application/json",
+            )
+            assert r.status_code in (200, 204, 404)
+        finally:
+            with app.app_context():
+                obj = db.session.get(Task, tid)
+                if obj:
+                    db.session.delete(obj)
+                    db.session.commit()
 
     def test_update_task_not_found(self, auth_client):
         r = auth_client.put(

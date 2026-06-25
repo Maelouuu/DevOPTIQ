@@ -965,6 +965,8 @@ def api_vsdx_compare():
 @cartography_editor_bp.route("/api/architect", methods=["POST"])
 def api_architect():
     """Réorganise les formes via IA (OpenAI ou Anthropic Claude) et retourne les nouvelles positions."""
+    if not _require_auth():
+        return jsonify({"error": "Non autorisé"}), 403
     data = request.get_json(silent=True) or {}
     state = data.get("state", {})
     shapes = state.get("shapes", [])

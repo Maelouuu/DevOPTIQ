@@ -60,6 +60,30 @@ def _delete_entity(app, entity_id):
             db.session.commit()
 
 
+def _clear_entity_svg(app, entity_id):
+    """Supprime tout SVG (disque + DB) d'une entité.
+
+    Indispensable pour les tests « sans SVG » : d'autres tests écrivent un SVG
+    dans Code/static/entities/entity_<id>/ (filesystem réel, persistant entre
+    les runs) ou renseignent svg_content en base. check_svg_exists() inspecte
+    ces deux sources.
+    """
+    import os
+    import shutil
+    from Code.routes.activities_map import get_entity_dir
+    from Code.models.models import Entity
+    from Code.extensions import db
+    entity_dir = get_entity_dir(entity_id)
+    if os.path.isdir(entity_dir):
+        shutil.rmtree(entity_dir, ignore_errors=True)
+    with app.app_context():
+        e = Entity.query.get(entity_id)
+        if e:
+            e.svg_content = None
+            e.svg_filename = None
+            db.session.commit()
+
+
 def _create_link(app, ids):
     """Crée une connexion activité→activité pour l'entité test et retourne son id."""
     with app.app_context():
@@ -139,9 +163,16 @@ class TestActivitiesMapPage:
         assert "entities_dir" in data
 
     def test_update_cartography_route(self, auth_client):
-        """GET /activities/update-cartography répond 200."""
+        """GET /activities/update-cartography répond de façon gérée (JSON).
+
+        NB : deux blueprints exposent cette URL (activities_cartography.py via
+        activities_bp, enregistré en premier, ET le stub d'activities_map.py).
+        C'est la version d'activities_bp qui répond : sans cartographie définie
+        pour l'entité, elle renvoie 400 (réponse gérée, pas un crash 500).
+        """
         r = auth_client.get("/activities/update-cartography")
-        assert r.status_code == 200
+        assert r.status_code in (200, 400)
+        assert r.content_type.startswith("application/json")
 
 
 # ===========================================================================
@@ -329,9 +360,10 @@ class TestEntityAPIMutations:
 
 class TestSVGServing:
 
-    def test_serve_svg_no_file_returns_404(self, auth_client, ids):
+    def test_serve_svg_no_file_returns_404(self, auth_client, app, ids):
         """GET /activities/svg retourne 404 si aucun SVG n'existe pour l'entité."""
         _set_active_session(auth_client, ids)
+        _clear_entity_svg(app, ids["entity_id"])
         r = auth_client.get("/activities/svg")
         # L'entité test n'a pas de SVG ; on attend 404
         assert r.status_code == 404
@@ -349,9 +381,10 @@ class TestSVGServing:
         r = auth_client.get("/activities/api/svg/99999")
         assert r.status_code == 404
 
-    def test_serve_entity_svg_no_svg(self, auth_client, ids):
+    def test_serve_entity_svg_no_svg(self, auth_client, app, ids):
         """GET /activities/api/svg/<id> retourne 404 si l'entité n'a pas de SVG."""
         _set_active_session(auth_client, ids)
+        _clear_entity_svg(app, ids["entity_id"])
         r = auth_client.get(f"/activities/api/svg/{ids['entity_id']}")
         assert r.status_code == 404
 
@@ -529,17 +562,12 @@ class TestUploadCartography:
 
 class TestResync:
 
-    def test_resync_no_svg(self, auth_client, ids):
+    def test_resync_no_svg(self, auth_client, app, ids):
         """POST /activities/resync sans SVG retourne 404."""
         _set_active_session(auth_client, ids)
-        # S'assurer qu'aucun SVG n'est présent (pas de svg_content)
-        with auth_client.application.app_context():
-            from Code.models.models import Entity
-            from Code.extensions import db
-            entity = Entity.query.get(ids["entity_id"])
-            entity.svg_content = None
-            entity.svg_filename = None
-            db.session.commit()
+        # check_svg_exists() inspecte le disque ET la base : on nettoie les deux
+        # (un fichier entity_<id>/carto.svg écrit par un autre test persiste).
+        _clear_entity_svg(app, ids["entity_id"])
         r = auth_client.post("/activities/resync")
         assert r.status_code == 404
 

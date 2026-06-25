@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DevOPTIQ — Activités</title>
+  <link rel="stylesheet" href="/static/optiq.css">
+</head>
+<body>
+  <main class="ui-activities" style="max-width:900px;margin:24px auto;padding:0 16px;">
+    <h1>Activités</h1>
+    {% if activities %}
+    <ul class="ui-activities-list">
+      {% for a in activities %}
+      <li data-activity-id="{{ a.id }}">{{ a.name or 'Activité sans nom' }}</li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p class="ui-empty">Aucune activité pour l'entité active.</p>
+    {% endif %}
+  </main>
+</body>
+</html>

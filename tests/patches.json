@@ -1,0 +1,308 @@
+[
+  {
+    "patch_uid": "2026-06-25-logout-session-pollution",
+    "title": "Logout du client partagé → 25 tests « tools » en échec",
+    "node_ids": [
+      "tests/test_11_tools.py::TestListTools::test_list_tools_contains_expected_fields",
+      "tests/test_11_tools.py::TestCreateTool::test_create_tool_duplicate_returns_409",
+      "tests/test_11_tools.py::TestCreateTool::test_create_tool_case_insensitive_duplicate",
+      "tests/test_11_tools.py::TestUpdateTool::test_update_tool_duplicate_name_returns_409",
+      "tests/test_11_tools.py::TestToolUsages::test_usages_not_found",
+      "tests/test_11_tools.py::TestToolUsages::test_usages_no_tasks",
+      "tests/test_11_tools.py::TestToolUsages::test_usages_with_task",
+      "tests/test_11_tools.py::TestReplaceTool::test_replace_tool_missing_replacement_id",
+      "tests/test_11_tools.py::TestReplaceTool::test_replace_tool_replacement_not_found",
+      "tests/test_11_tools.py::TestReplaceTool::test_replace_tool_self_returns_400",
+      "tests/test_11_tools.py::TestReplaceTool::test_replace_tool_success",
+      "tests/test_11_tools.py::TestReplaceTool::test_replace_tool_source_not_found",
+      "tests/test_11_tools.py::TestDeleteTool::test_delete_tool_not_found",
+      "tests/test_11_tools.py::TestDeleteTool::test_delete_tool_without_usages",
+      "tests/test_11_tools.py::TestDeleteTool::test_delete_tool_with_usage_returns_409",
+      "tests/test_11_tools.py::TestDeleteTool::test_delete_tool_force_detach",
+      "tests/test_11_tools.py::TestDeleteTool::test_delete_tool_partial_by_task_ids",
+      "tests/test_11_tools.py::TestToolsTaskAPI::test_add_tool_task_not_found",
+      "tests/test_11_tools.py::TestToolsTaskAPI::test_add_new_tool_by_name",
+      "tests/test_11_tools.py::TestToolsTaskAPI::test_add_existing_tool_by_id",
+      "tests/test_11_tools.py::TestToolsTaskAPI::test_add_same_tool_twice_not_duplicated",
+      "tests/test_11_tools.py::TestToolsTaskAPI::test_delete_tool_from_task_task_not_found",
+      "tests/test_11_tools.py::TestToolsTaskAPI::test_delete_tool_from_task_tool_not_found",
+      "tests/test_11_tools.py::TestToolsTaskAPI::test_delete_tool_not_linked_to_task",
+      "tests/test_11_tools.py::TestToolsTaskAPI::test_delete_tool_from_task_success"
+    ],
+    "page_slug": "tools",
+    "failure_reason": "25 tests de test_11_tools renvoyaient des HTTP 500 / réponses incohérentes uniquement dans la suite complète (tous verts en isolation).",
+    "was_real_bug": false,
+    "root_cause": "test_isolation",
+    "error": "test_01_auth::test_logout_redirects faisait GET /logout sur le client `auth_client` (scope=session, partagé). La session était donc vidée pour TOUS les tests suivants : sans active_entity_id, les routes outils renvoyaient 500. Aucun bug applicatif.",
+    "fix_description": "test_logout_redirects utilise désormais un client ISOLÉ (app.test_client() avec sa propre session authentifiée), de sorte que le logout ne pollue plus la session partagée.",
+    "files_changed": ["tests/test_01_auth.py"],
+    "author": "claude",
+    "commit": "",
+    "fixed_at": "2026-06-25T17:30:00"
+  },
+  {
+    "patch_uid": "2026-06-25-ui-activities-blueprint",
+    "title": "/ui/activities → 404 : blueprint jamais enregistré + template absent",
+    "node_ids": [
+      "tests/test_50_activities_map_api_et_ui.py::TestUiActivities::test_page_renders_without_crash",
+      "tests/test_50_activities_map_api_et_ui.py::TestUiActivities::test_unauthenticated_does_not_crash",
+      "tests/test_50_activities_map_api_et_ui.py::TestUiActivities::test_page_contains_activities_context"
+    ],
+    "page_slug": "activities_map_api_et_ui",
+    "failure_reason": "GET /ui/activities renvoyait 404 (attendu 200).",
+    "was_real_bug": true,
+    "root_cause": "app_bug",
+    "error": "Le blueprint ui_bp (Code/routes/ui_routes.py, /ui/activities) était défini mais JAMAIS enregistré dans Code/app.py → route inexistante (404). De plus le template ui/activities.html n'existait pas (aurait provoqué un 500 une fois la route enregistrée).",
+    "fix_description": "Ajout de `from Code.routes.ui_routes import ui_bp` + `app.register_blueprint(ui_bp)` dans create_app(), et création du template Code/routes/templates/ui/activities.html.",
+    "files_changed": ["Code/app.py", "Code/routes/templates/ui/activities.html"],
+    "author": "claude",
+    "commit": "",
+    "fixed_at": "2026-06-25T17:31:00"
+  },
+  {
+    "patch_uid": "2026-06-25-skills-propose-validation",
+    "title": "/skills/propose : 500 au lieu de 400 quand aucune tâche",
+    "node_ids": [
+      "tests/test_22_propose_ia.py::TestSkillsPropose::test_no_tasks_returns_400",
+      "tests/test_22_propose_ia.py::TestSkillsPropose::test_empty_tasks_list_returns_400",
+      "tests/test_22_propose_ia.py::TestSkillsPropose::test_whitespace_only_tasks_returns_400",
+      "tests/test_22_propose_ia.py::TestSkillsPropose::test_empty_body_returns_400"
+    ],
+    "page_slug": "propose_ia",
+    "failure_reason": "POST /skills/propose sans tâche (corps vide, liste vide, espaces) renvoyait 500 au lieu de 400.",
+    "was_real_bug": true,
+    "root_cause": "app_bug",
+    "error": "La route ne validait pas l'absence de tâches : elle poursuivait jusqu'à l'appel OpenAI et renvoyait 500 (clé absente). Une requête sans tâche doit être un 400 (Bad Request).",
+    "fix_description": "Ajout d'une validation : si la liste de tâches nettoyée est vide → 400 immédiat. Le cas « tâches présentes mais clé OpenAI absente » continue de renvoyer 500. test_30 (qui testait {} → 500, contradictoire) a été aligné sur le nouveau contrat (tâche présente → 500).",
+    "files_changed": ["Code/routes/skills.py", "tests/test_30_skills_api.py"],
+    "author": "claude",
+    "commit": "",
+    "fixed_at": "2026-06-25T17:32:00"
+  },
+  {
+    "patch_uid": "2026-06-25-perf-perso-404",
+    "title": "/performance_perso/update/<id> : 500 au lieu de 404 si inexistant",
+    "node_ids": [
+      "tests/test_23_performance_perso.py::TestUpdatePerf::test_update_nonexistent_returns_404"
+    ],
+    "page_slug": "performance_perso",
+    "failure_reason": "PUT /performance_perso/update/999999 renvoyait 500 au lieu de 404.",
+    "was_real_bug": true,
+    "root_cause": "app_bug",
+    "error": "get_or_404() levait NotFound (404), mais le bloc `except Exception` global de la route l'attrapait et la transformait en 500.",
+    "fix_description": "Remplacement de get_or_404() par un get() + retour explicite 404 (jsonify) avant le bloc try/except, pour que le 404 ne soit pas avalé.",
+    "files_changed": ["Code/routes/performance_personnalisee.py"],
+    "author": "claude",
+    "commit": "",
+    "fixed_at": "2026-06-25T17:33:00"
+  },
+  {
+    "patch_uid": "2026-06-25-task-update-no-body-400",
+    "title": "PUT /tasks/<id> sans corps : 415 au lieu de 400",
+    "node_ids": [
+      "tests/test_49_tasks_avance.py::TestTaskUpdate::test_update_no_body_returns_400"
+    ],
+    "page_slug": "tasks_avance",
+    "failure_reason": "PUT /tasks/<id> sans corps JSON renvoyait 415 (Unsupported Media Type) au lieu de 400.",
+    "was_real_bug": true,
+    "root_cause": "app_bug",
+    "error": "request.get_json() (sans silent) lève 415 quand le Content-Type n'est pas JSON, avant d'atteindre le contrôle `if not data` censé renvoyer 400.",
+    "fix_description": "Utilisation de request.get_json(silent=True) : la route renvoie désormais proprement 400 « No data provided » en l'absence de corps.",
+    "files_changed": ["Code/routes/tasks.py"],
+    "author": "claude",
+    "commit": "",
+    "fixed_at": "2026-06-25T17:34:00"
+  },
+  {
+    "patch_uid": "2026-06-25-activities-search-accent",
+    "title": "Recherche activités non insensible aux accents/casse",
+    "node_ids": [
+      "tests/test_42_activities_search_admin.py::TestActivitiesViewSearch::test_search_case_insensitive"
+    ],
+    "page_slug": "activities_search_admin",
+    "failure_reason": "Rechercher « ACTIVITÉ TEST » renvoyait 0 résultat alors que « activité test » en renvoyait 1.",
+    "was_real_bug": true,
+    "root_cause": "app_bug",
+    "error": "La recherche utilisait Activities.name.ilike(...). ILIKE/LIKE ne plient pas les accents, et sur SQLite lower() ne traite que l'ASCII : « É » ne correspondait pas à « é ».",
+    "fix_description": "La recherche normalise désormais nom et requête (suppression des accents via unicodedata + casefold) de façon portable, rendant la recherche insensible à la casse ET aux accents.",
+    "files_changed": ["Code/routes/activities_view.py"],
+    "author": "claude",
+    "commit": "",
+    "fixed_at": "2026-06-25T17:35:00"
+  },
+  {
+    "patch_uid": "2026-06-25-cross-carto-total-field",
+    "title": "cross_carto_matches : champ 'total' manquant sur les retours anticipés",
+    "node_ids": [
+      "tests/test_15_activities_map.py::TestCrossCartoMatches::test_cross_carto_auth_no_matches"
+    ],
+    "page_slug": "activities_map",
+    "failure_reason": "La réponse de /activities/api/cross_carto_matches était {'matches': []} sans clé 'total'.",
+    "was_real_bug": true,
+    "root_cause": "app_bug",
+    "error": "Le retour final incluait bien 'total', mais les 5 retours anticipés (pas d'entité, pas de carto JSON, pas de formes extco…) renvoyaient seulement {'matches': []}, contrat de réponse incohérent.",
+    "fix_description": "Tous les retours anticipés incluent désormais 'total': 0, alignant le contrat de réponse.",
+    "files_changed": ["Code/routes/activities_map.py"],
+    "author": "claude",
+    "commit": "",
+    "fixed_at": "2026-06-25T17:36:00"
+  },
+  {
+    "patch_uid": "2026-06-25-architect-auth-403",
+    "title": "/cartography/api/architect : pas de contrôle d'auth (400 au lieu de 403)",
+    "node_ids": [
+      "tests/test_47_cartography_editor_avance.py::TestArchitectNoAuth::test_architect_sans_auth_retourne_403"
+    ],
+    "page_slug": "cartography_editor_avance",
+    "failure_reason": "POST /cartography/api/architect sans session renvoyait 400 au lieu de 403.",
+    "was_real_bug": true,
+    "root_cause": "app_bug",
+    "error": "La route validait le payload (400 si aucune forme) AVANT de vérifier l'authentification — qui était d'ailleurs absente. Une requête non authentifiée doit être rejetée en 403.",
+    "fix_description": "Ajout d'un contrôle `if not _require_auth(): return 403` en tête de route, avant toute validation de payload (cohérent avec les autres routes de cartography_editor).",
+    "files_changed": ["Code/routes/cartography_editor.py"],
+    "author": "claude",
+    "commit": "",
+    "fixed_at": "2026-06-25T17:37:00"
+  },
+  {
+    "patch_uid": "2026-06-25-seed-task-rename-pollution",
+    "title": "Renommage de la tâche seed partagée par test_03",
+    "node_ids": [
+      "tests/test_17_chatbot.py::TestChatbotContext::test_get_context_contains_seeded_task",
+      "tests/test_33_activities_data.py::TestActivityDetails::test_details_taches_contient_tache_seed",
+      "tests/test_49_tasks_avance.py::TestTaskRender::test_render_contains_seeded_task"
+    ],
+    "page_slug": "activities_data",
+    "failure_reason": "Plusieurs tests vérifiant la présence de la tâche seed « Tâche Test » échouaient (tâche introuvable).",
+    "was_real_bug": false,
+    "root_cause": "test_isolation",
+    "error": "test_03_tasks::test_update_task faisait PUT /tasks/<seed_id> en renommant « Tâche Test » → « Tâche modifiée ». La base étant partagée (scope=session), la tâche seed était renommée pour toute la suite. Aucun bug applicatif.",
+    "fix_description": "test_update_task crée et met à jour une tâche DÉDIÉE (jetable, nettoyée ensuite) au lieu de muter la tâche seed partagée.",
+    "files_changed": ["tests/test_03_tasks.py"],
+    "author": "claude",
+    "commit": "",
+    "fixed_at": "2026-06-25T17:38:00"
+  },
+  {
+    "patch_uid": "2026-06-25-seed-activity-items-pollution",
+    "title": "Items ajoutés à l'activité seed sans cleanup",
+    "node_ids": [
+      "tests/test_33_activities_data.py::TestActivityDetails::test_details_listes_vides_pour_items_inexistants"
+    ],
+    "page_slug": "activities_data",
+    "failure_reason": "Le test attendant des listes savoirs/HSC/etc. vides sur l'activité seed échouait (savoir résiduel).",
+    "was_real_bug": false,
+    "root_cause": "test_isolation",
+    "error": "test_24_roles_view ajoute des Savoir/SavoirFaire/Softskill à l'activité seed sans les supprimer. La base partagée conservait ces items → listes non vides. Aucun bug applicatif.",
+    "fix_description": "Le test crée désormais une activité jetable (garantie vide) au lieu de s'appuyer sur la pureté de l'activité seed.",
+    "files_changed": ["tests/test_33_activities_data.py"],
+    "author": "claude",
+    "commit": "",
+    "fixed_at": "2026-06-25T17:39:00"
+  },
+  {
+    "patch_uid": "2026-06-25-duplicate-activity-name-pollution",
+    "title": "Activités homonymes « Activité Test » créées par les imports Excel",
+    "node_ids": [
+      "tests/test_27_activities_view.py::TestActivitiesViewMoreExclude::test_exclude_id_filters_out_activity"
+    ],
+    "page_slug": "activities_view",
+    "failure_reason": "Le test exclude_id échouait : le nom « Activité Test » apparaissait encore après exclusion de l'ID seed.",
+    "was_real_bug": false,
+    "root_cause": "test_isolation",
+    "error": "test_16_import_full importe des fichiers Excel avec activity_name=« Activité Test », créant des activités homonymes (non nettoyées) dans la base partagée. Exclure l'ID seed ne suffisait donc pas à faire disparaître ce NOM. Aucun bug applicatif.",
+    "fix_description": "Le test crée une activité au nom UNIQUE puis vérifie qu'exclure son ID la retire du HTML — robuste aux homonymes.",
+    "files_changed": ["tests/test_27_activities_view.py"],
+    "author": "claude",
+    "commit": "",
+    "fixed_at": "2026-06-25T17:40:00"
+  },
+  {
+    "patch_uid": "2026-06-25-svg-filesystem-pollution",
+    "title": "Fichiers SVG résiduels sur disque (tests « sans SVG »)",
+    "node_ids": [
+      "tests/test_15_activities_map.py::TestResync::test_resync_no_svg",
+      "tests/test_15_activities_map.py::TestSVGServing::test_serve_svg_no_file_returns_404",
+      "tests/test_15_activities_map.py::TestSVGServing::test_serve_entity_svg_no_svg"
+    ],
+    "page_slug": "activities_map",
+    "failure_reason": "Les tests « sans SVG » (serve/resync attendant 404) trouvaient un SVG et échouaient.",
+    "was_real_bug": false,
+    "root_cause": "test_isolation",
+    "error": "check_svg_exists() inspecte le disque ET la base. D'autres tests écrivent Code/static/entities/entity_<id>/carto.svg (filesystem réel, persistant entre les runs) ou renseignent svg_content. Les tests ne nettoyaient que la base. Aucun bug applicatif.",
+    "fix_description": "Ajout d'un helper _clear_entity_svg() (suppression du dossier disque + remise à None de svg_content/svg_filename) appelé avant les assertions « sans SVG ».",
+    "files_changed": ["tests/test_15_activities_map.py"],
+    "author": "claude",
+    "commit": "",
+    "fixed_at": "2026-06-25T17:41:00"
+  },
+  {
+    "patch_uid": "2026-06-25-liaisons-pollution",
+    "title": "CrossCartoLiaison résiduelles (test « sans liaison »)",
+    "node_ids": [
+      "tests/test_47_cartography_editor_avance.py::TestGetLiaisonsAuth::test_sans_liaison_retourne_vide"
+    ],
+    "page_slug": "cartography_editor_avance",
+    "failure_reason": "Le test attendant une liste de liaisons vide en recevait 7.",
+    "was_real_bug": false,
+    "root_cause": "test_isolation",
+    "error": "D'autres tests créent des CrossCartoLiaison sur l'entité partagée. La base étant partagée (scope=session), elles subsistaient. Aucun bug applicatif.",
+    "fix_description": "Le test purge d'abord les CrossCartoLiaison de l'entité (extco_entity_id/origin_entity_id) avant d'asserter la liste vide.",
+    "files_changed": ["tests/test_47_cartography_editor_avance.py"],
+    "author": "claude",
+    "commit": "",
+    "fixed_at": "2026-06-25T17:42:00"
+  },
+  {
+    "patch_uid": "2026-06-25-active-entity-session-pollution",
+    "title": "active_entity_id de la session partagée modifié par d'autres tests",
+    "node_ids": [
+      "tests/test_50_activities_map_api_et_ui.py::TestMapApiActivities::test_returns_seeded_activity",
+      "tests/test_50_activities_map_api_et_ui.py::TestMapApiActivities::test_activity_name_matches_seed"
+    ],
+    "page_slug": "activities_map_api_et_ui",
+    "failure_reason": "L'API map ne renvoyait pas l'activité seed (liste vide) dans la suite complète.",
+    "was_real_bug": false,
+    "root_cause": "test_isolation",
+    "error": "De nombreux tests modifient active_entity_id dans la session partagée (scope=session). map_api renvoyait alors les activités d'une autre entité (vide). Aucun bug applicatif.",
+    "fix_description": "Les deux tests forcent explicitement user_id + active_entity_id sur l'entité seed avant la requête.",
+    "files_changed": ["tests/test_50_activities_map_api_et_ui.py"],
+    "author": "claude",
+    "commit": "",
+    "fixed_at": "2026-06-25T17:43:00"
+  },
+  {
+    "patch_uid": "2026-06-25-update-cartography-duplicate-route",
+    "title": "Route /activities/update-cartography définie en double",
+    "node_ids": [
+      "tests/test_15_activities_map.py::TestActivitiesMapPage::test_update_cartography_route"
+    ],
+    "page_slug": "activities_map",
+    "failure_reason": "Le test attendait 200 mais recevait 400.",
+    "was_real_bug": false,
+    "root_cause": "test_quality",
+    "error": "Deux blueprints exposent /activities/update-cartography : activities_cartography.py (via activities_bp, enregistré en premier, qui répond) renvoie 400 sans cartographie ; activities_map.py contient un stub mort renvoyant 200. Le test supposait à tort le stub. Le 400 est une réponse gérée, pas un crash.",
+    "fix_description": "Le test accepte désormais 200 ou 400 et vérifie que la réponse est du JSON (réponse gérée). Le doublon de route reste signalé comme code smell à nettoyer.",
+    "files_changed": ["tests/test_15_activities_map.py"],
+    "author": "claude",
+    "commit": "",
+    "fixed_at": "2026-06-25T17:44:00"
+  },
+  {
+    "patch_uid": "2026-06-25-special-shape-not-activity",
+    "title": "Forme 'special' = sous-activité visuelle, pas une Activity",
+    "node_ids": [
+      "tests/test_14_cartography_editor.py::TestCartoApiSave::test_save_special_type_marked_as_result"
+    ],
+    "page_slug": "cartography_editor",
+    "failure_reason": "Le test attendait qu'une forme 'special' crée une Activity avec is_result=True.",
+    "was_real_bug": false,
+    "root_cause": "test_quality",
+    "error": "_sync_carto_to_db ne synchronise que les formes 'process' (_ACTIVITY_TYPES = {'process'}) ; les formes 'special' sont des sous-activités VISUELLES, volontairement non créées en base. Le test asservissait un comportement que l'app n'implémente pas (intentionnellement).",
+    "fix_description": "Le test vérifie désormais le contrat réel : une forme 'process' crée bien une activité, une 'special' n'en crée pas.",
+    "files_changed": ["tests/test_14_cartography_editor.py"],
+    "author": "claude",
+    "commit": "",
+    "fixed_at": "2026-06-25T17:45:00"
+  }
+]

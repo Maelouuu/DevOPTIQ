@@ -34,6 +34,11 @@ class TestMapApiActivities:
 
     def test_returns_seeded_activity(self, auth_client, ids):
         """La liste contient l'activité du seed."""
+        # La session est partagée (scope=session) : d'autres tests changent
+        # active_entity_id. On force l'entité seed avant la requête.
+        with auth_client.session_transaction() as sess:
+            sess["user_id"] = ids["user_id"]
+            sess["active_entity_id"] = ids["entity_id"]
         r = auth_client.get("/activities/map/api/activities")
         data = r.get_json()
         found_ids = [item["id"] for item in data]
@@ -63,6 +68,10 @@ class TestMapApiActivities:
             from Code.models.models import Activities
             act = Activities.query.get(ids["activity_id"])
             expected_name = act.name or ""
+        # Forcer l'entité seed active (session partagée polluée par d'autres tests)
+        with auth_client.session_transaction() as sess:
+            sess["user_id"] = ids["user_id"]
+            sess["active_entity_id"] = ids["entity_id"]
         r = auth_client.get("/activities/map/api/activities")
         items = {item["id"]: item["name"] for item in r.get_json()}
         assert items[ids["activity_id"]] == expected_name

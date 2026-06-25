@@ -1135,16 +1135,16 @@ def cross_carto_matches():
     active_entity_id = get_active_entity_id()
 
     if not active_entity_id or not user_id:
-        return jsonify({"matches": []}), 200
+        return jsonify({"matches": [], "total": 0}), 200
 
     active_entity = Entity.query.get(active_entity_id)
     if not active_entity or not active_entity.optiqcarto_data:
-        return jsonify({"matches": []}), 200
+        return jsonify({"matches": [], "total": 0}), 200
 
     try:
         active_carto = json.loads(active_entity.optiqcarto_data)
     except (json.JSONDecodeError, TypeError):
-        return jsonify({"matches": []}), 200
+        return jsonify({"matches": [], "total": 0}), 200
 
     # Seules les formes hachurées (extco) de la carto active sont des liaisons potentielles
     extco_shapes = [
@@ -1152,7 +1152,7 @@ def cross_carto_matches():
         if s.get('subtype') == 'extco' and (s.get('label') or '').strip()
     ]
     if not extco_shapes:
-        return jsonify({"matches": []}), 200
+        return jsonify({"matches": [], "total": 0}), 200
 
     # lookup: label.lower() → shape_id
     extco_by_name = {
@@ -1166,7 +1166,7 @@ def cross_carto_matches():
     ).all()
 
     if not other_entities:
-        return jsonify({"matches": []}), 200
+        return jsonify({"matches": [], "total": 0}), 200
 
     # shape_id (extco dans carto active) → liste d'entités où une activité non-hachurée porte le même nom
     matched = {}
@@ -1260,7 +1260,7 @@ def liaison_matches():
     active_id = get_active_entity_id()
 
     if not name or not user_id:
-        return jsonify({"matches": []}), 200
+        return jsonify({"matches": [], "total": 0}), 200
 
     other_entities = Entity.query.filter(
         Entity.owner_id == user_id,
@@ -1360,7 +1360,7 @@ def reverse_liaisons():
     active_id = get_active_entity_id()
 
     if not name or not user_id or not active_id:
-        return jsonify({"matches": []}), 200
+        return jsonify({"matches": [], "total": 0}), 200
 
     origin_act = Activities.query.filter(
         Activities.entity_id == active_id,
@@ -1372,7 +1372,7 @@ def reverse_liaisons():
     ).first()
 
     if not origin_act:
-        return jsonify({"matches": []}), 200
+        return jsonify({"matches": [], "total": 0}), 200
 
     liaisons = CrossCartoLiaison.query.filter_by(
         origin_activity_id=origin_act.id,

@@ -110,6 +110,7 @@
             <span class="ok">{{ s.passed }} OK</span>
             {% if s.failed %}&nbsp;· <span class="ko">{{ s.failed }} KO</span>{% endif %}
             {% if s.untested %}&nbsp;· {{ s.untested }} non testés{% endif %}
+            {% if s.n_patches %}&nbsp;· <span class="tp-patch-tag"><i class="fa-solid fa-wrench"></i> {{ s.n_patches }}</span>{% endif %}
           </div>
           <!-- Sparkline history -->
           <div class="spark-wrap">
@@ -185,6 +186,15 @@
           <div class="text-muted" id="gs-runs-count"></div>
         </div>
         <div id="gs-runs-list" class="gs-runs-list"></div>
+      </div>
+
+      <!-- Patchs appliqués -->
+      <div class="gs-section">
+        <div class="gs-section-header">
+          <div class="gs-section-title"><i class="fa-solid fa-wrench tp-wrench"></i> Patchs appliqués</div>
+          <div class="text-muted" id="gs-patches-count"></div>
+        </div>
+        <div id="gs-patches-list" class="gs-runs-list"></div>
       </div>
 
     </div>
@@ -348,6 +358,43 @@ function onRunDone(runId) {
     renderRuns(data.recent_runs);
     const cnt = document.getElementById('gs-runs-count');
     if (cnt) cnt.textContent = data.recent_runs.length + ' dernier(s) run(s)';
+    renderPatches(data.recent_patches || [], data.patch_summary || {});
+  }
+
+  function escHtml(s) { const d = document.createElement('div'); d.textContent = (s == null ? '' : s); return d.innerHTML; }
+  function escAttr(s) { return (s == null ? '' : String(s)).replace(/"/g, '&quot;'); }
+
+  function renderPatches(patches, summary) {
+    const listEl = document.getElementById('gs-patches-list');
+    const cntEl  = document.getElementById('gs-patches-count');
+    if (cntEl) {
+      cntEl.textContent = (summary.total || 0) + ' patch(s) · '
+        + (summary.real_bugs || 0) + ' bug(s) applicatif(s) · '
+        + (summary.test_only || 0) + ' problème(s) de test';
+    }
+    if (!listEl) return;
+    if (!patches.length) {
+      listEl.innerHTML = '<div class="gs-no-data">Aucun patch enregistré</div>';
+      return;
+    }
+    listEl.innerHTML = patches.map(function(p) {
+      const badge = p.was_real_bug
+        ? '<span class="badge badge-bug">Bug applicatif</span>'
+        : '<span class="badge badge-test">Problème de test</span>';
+      const nTests = (p.node_ids || []).length;
+      const title  = p.title || p.patch_uid;
+      const tip = [
+        p.failure_reason ? 'Échec : ' + p.failure_reason : '',
+        p.error ? 'Erreur : ' + p.error : '',
+        p.fix_description ? 'Correctif : ' + p.fix_description : ''
+      ].filter(Boolean).join('\n');
+      return '<div class="gs-patch-row" title="' + escAttr(tip) + '">'
+        + '<i class="fa-solid fa-wrench tp-wrench"></i>'
+        + '<span class="gs-patch-title">' + escHtml(title) + '</span>'
+        + badge
+        + '<span class="gs-patch-when">' + escHtml(p.fixed_at || '') + ' · ' + nTests + ' test' + (nTests > 1 ? 's' : '') + '</span>'
+        + '</div>';
+    }).join('');
   }
 
   function renderChart(points) {

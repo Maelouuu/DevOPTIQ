@@ -197,12 +197,17 @@ class TestSkillsPropose:
         assert "error" in body
 
     def test_propose_minimal_payload_without_key_returns_500(self, auth_client, monkeypatch):
-        """Payload minimal sans clé → 500."""
+        """Payload AVEC tâche mais sans clé → 500.
+
+        NB : un payload vide ({}) renvoie désormais 400 (aucune tâche), cf.
+        test_22 TestSkillsPropose. Le 500 ne concerne que le cas « tâches
+        présentes mais clé OpenAI absente », d'où la tâche envoyée ici.
+        """
         import os
         monkeypatch.delitem(os.environ, "OPENAI_API_KEY", raising=False)
         r = auth_client.post(
             "/skills/propose",
-            data=json.dumps({}),
+            data=json.dumps({"name": "X", "tasks": [{"name": "Analyser"}]}),
             content_type="application/json",
         )
         assert r.status_code == 500

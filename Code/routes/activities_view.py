@@ -1,4 +1,5 @@
 # Code/routes/activities_view.py
+import unicodedata
 from flask import render_template, request, jsonify
 from sqlalchemy import or_, desc, text
 from .activities_bp import activities_bp
@@ -7,6 +8,18 @@ from Code.models.models import Activities, Task, Link, Data, Performance, Role, 
 
 PAGE_SIZE    = 20
 SPECIAL_SIZE = 10
+
+
+def _norm(s):
+    """Normalise pour une recherche insensible à la casse ET aux accents.
+
+    ILIKE/LIKE ne plient pas les accents (et sur SQLite, lower() ne traite que
+    l'ASCII) : « ACTIVITÉ » ne matchait donc pas « Activité ». On compare des
+    chaînes normalisées (accents retirés + casefold), de façon portable.
+    """
+    s = unicodedata.normalize('NFKD', s or '')
+    s = ''.join(c for c in s if not unicodedata.combining(c))
+    return s.casefold()
 
 
 @activities_bp.route('/view', methods=['GET'])
@@ -80,10 +93,9 @@ def search_activities():
     q = request.args.get('q', '').strip()
     if not q:
         return jsonify({'html': '', 'count': 0})
-    matches = (Activities.for_active_entity()
-               .filter(Activities.name.ilike(f'%{q}%'))
-               .order_by(Activities.name)
-               .all())
+    qn = _norm(q)
+    matches = [a for a in Activities.for_active_entity().order_by(Activities.name).all()
+               if qn in _norm(a.name)]
     activity_data = _build_activity_data(matches)
     html = render_template('activity_cards_partial.html', activity_data=activity_data)
     return jsonify({'html': html, 'count': len(matches)})

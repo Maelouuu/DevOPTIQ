@@ -137,6 +137,9 @@
         {% else %}
         <span class="badge badge-grey">non testé</span>
         {% endif %}
+        {% if c.node_id in patched_nodes %}
+        <span class="tp-patch-tag" title="Un patch a été enregistré pour ce test"><i class="fa-solid fa-wrench"></i> patch</span>
+        {% endif %}
         <!-- Bougie sparkline -->
         <div class="tp-case-spark">
           <div class="spark-wrap">
@@ -154,6 +157,40 @@
       {% endfor %}
     </div>
     {% endfor %}
+
+    <!-- Patchs de cette page -->
+    {% if patches %}
+    <div class="tp-class-group">
+      <div class="tp-class-title">
+        <i class="fa-solid fa-wrench tp-wrench" style="margin-right:5px;"></i>
+        Patchs appliqués ({{ patches|length }})
+      </div>
+      {% for p in patches %}
+      <div class="tp-patch">
+        <div class="tp-patch-head">
+          <span class="tp-patch-title">{{ p.title }}</span>
+          {% if p.was_real_bug %}
+          <span class="badge badge-bug">Bug applicatif</span>
+          {% else %}
+          <span class="badge badge-test">Problème de test</span>
+          {% endif %}
+          {% if p.root_cause %}<span class="badge badge-cause">{{ p.root_cause }}</span>{% endif %}
+          <span class="tp-patch-when">{{ p.fixed_at.strftime('%d/%m/%Y %H:%M') if p.fixed_at else '' }}</span>
+        </div>
+        <dl class="tp-patch-grid">
+          {% if p.failure_reason %}<dt>Raison de l'échec</dt><dd>{{ p.failure_reason }}</dd>{% endif %}
+          {% if p.error %}<dt>Erreur</dt><dd>{{ p.error }}</dd>{% endif %}
+          {% if p.fix_description %}<dt>Correctif</dt><dd>{{ p.fix_description }}</dd>{% endif %}
+          {% if p.files_list %}<dt>Fichiers</dt><dd>{% for f in p.files_list %}<code>{{ f }}</code>{{ ', ' if not loop.last else '' }}{% endfor %}</dd>{% endif %}
+        </dl>
+        <div class="tp-patch-foot">
+          Corrigé par {{ p.author }}{% if p.commit %} · commit <code>{{ p.commit[:8] }}</code>{% endif %}
+          · {{ p.node_id_list|length }} test{{ 's' if p.node_id_list|length > 1 else '' }} concerné{{ 's' if p.node_id_list|length > 1 else '' }}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
 
   </main>
 </div>

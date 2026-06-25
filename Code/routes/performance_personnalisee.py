@@ -138,7 +138,11 @@ def update_perf(perf_id):
     try:
         ensure_history_schema()
 
-        p = PerformancePersonnalisee.query.get_or_404(perf_id)
+        p = PerformancePersonnalisee.query.get(perf_id)
+        if p is None:
+            # 404 explicite : un get_or_404 lèverait NotFound, capturée plus bas
+            # par le `except Exception` et transformée à tort en 500.
+            return jsonify({"ok": False, "error": "not_found"}), 404
         data = request.get_json(force=True) or {}
 
         prev_content = p.content or ""

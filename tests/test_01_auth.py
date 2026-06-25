@@ -46,8 +46,23 @@ class TestLoginPage:
         # Doit rediriger (302) après succès
         assert r.status_code in (302, 200)
 
-    def test_logout_redirects(self, auth_client):
-        r = auth_client.get("/logout", follow_redirects=False)
+    def test_logout_redirects(self, app):
+        """Logout testé sur un client ISOLÉ.
+
+        auth_client/client sont partagés (scope=session) : faire un /logout
+        dessus viderait la session pour TOUS les tests suivants (≈25 échecs en
+        cascade côté test_11_tools). On utilise donc un client dédié.
+        """
+        from Code.models.models import User, Entity
+        with app.app_context():
+            user = User.query.filter_by(email="test@devoptiq.com").first()
+            entity = Entity.query.filter_by(name="Entité Test").first()
+        isolated = app.test_client()
+        with isolated.session_transaction() as sess:
+            sess["user_id"] = user.id
+            sess["user_email"] = user.email
+            sess["active_entity_id"] = entity.id
+        r = isolated.get("/logout", follow_redirects=False)
         assert r.status_code in (200, 302)
 
 
