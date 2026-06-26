@@ -131,11 +131,16 @@ Dans `tests/generate_report.py`, ajoute la page à `PAGE_LABELS` si absente :
 
 ## ÉTAPE 5 — Commit et push
 ```
-git add tests/ run_tests.sh
+# IMPORTANT : inclure AUSSI les correctifs applicatifs (Code/), pas seulement tests/
+git add -A
+git reset -q Code/static/entities/   # ne jamais committer les SVG générés pendant les tests
 git commit -m "Tests+Fix: <NomPage> — <N> tests, <M> patch(s)"
 git push -u origin staging
 ```
 Si le push échoue : réessayer 4 fois (attendre 2s, 4s, 8s, 16s).
+
+> ⚠️ Ne PAS utiliser `git add tests/ run_tests.sh` seul : les correctifs de bugs
+> vivent dans `Code/` (routes, modèles, app.py, templates) et seraient oubliés.
 
 ---
 
