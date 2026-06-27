@@ -1,0 +1,97 @@
+{% extends "test_panel/base.html" %}
+{% import "test_panel/_macros.html" as m %}
+{% set active_nav = 'patches' %}
+{% block title %}Patchs — Test Panel{% endblock %}
+
+{% block topbar %}
+  <div class="tp-crumb"><a href="/testpanel/">Test Panel</a><span class="sep">/</span><span class="cur">Patchs</span></div>
+  <div class="spacer"></div>
+  <button class="btn btn-pink" onclick="TP.run('all','Lancer tous les tests')">
+    <i class="fa-solid fa-play"></i> Lancer tous les tests
+  </button>
+{% endblock %}
+
+{% block content %}
+<div class="stack">
+
+  <!-- Summary -->
+  <div class="grid grid-4">
+    <div class="stat accent"><div class="lbl"><i class="fa-solid fa-screwdriver-wrench"></i> Total patchs</div><div class="val">{{ summary.total }}</div><div class="delta">correctifs tracés</div></div>
+    <div class="stat"><div class="lbl"><i class="fa-solid fa-bug" style="color:var(--red)"></i> Bugs applicatifs</div><div class="val" style="color:var(--red)">{{ summary.real_bugs }}</div><div class="delta">vraies erreurs corrigées</div></div>
+    <div class="stat"><div class="lbl"><i class="fa-solid fa-vial-circle-check" style="color:var(--indigo)"></i> Problèmes de test</div><div class="val" style="color:var(--indigo)">{{ summary.test_only }}</div><div class="delta">isolation / qualité</div></div>
+    <div class="stat"><div class="lbl"><i class="fa-solid fa-circle-check" style="color:var(--green)"></i> Tests corrigés</div><div class="val" style="color:var(--green)">{{ summary.tests_fixed }}</div><div class="delta">{{ summary.files }} fichier{{ 's' if summary.files > 1 }} touché{{ 's' if summary.files > 1 }}</div></div>
+  </div>
+
+  <!-- Filters -->
+  <div class="card card-pad">
+    <div class="filterbar">
+      <button class="chip active" data-cat="all"><i class="fa-solid fa-layer-group"></i> Tous <span class="n">{{ summary.total }}</span></button>
+      <button class="chip" data-cat="app_bug"><span class="sdot sd-fail"></span> Bug applicatif <span class="n">{{ cats.app_bug }}</span></button>
+      <button class="chip" data-cat="test_isolation"><span class="sdot" style="background:var(--indigo)"></span> Isolation <span class="n">{{ cats.test_isolation }}</span></button>
+      <button class="chip" data-cat="test_quality"><span class="sdot" style="background:var(--amber)"></span> Qualité de test <span class="n">{{ cats.test_quality }}</span></button>
+      <div class="search-box"><i class="fa-solid fa-magnifying-glass"></i><input type="text" id="tp-patch-search" placeholder="Rechercher un patch…" autocomplete="off"></div>
+    </div>
+  </div>
+
+  <!-- Patch list -->
+  <div class="stack" id="tp-patch-list">
+    {% for p in patches %}
+    <div class="patch {{ 'real' if p.was_real_bug }}" id="patch-{{ loop.index }}"
+         data-cat="{{ p.root_cause or 'other' }}"
+         data-text="{{ (p.title ~ ' ' ~ (p.error or '') ~ ' ' ~ (p.failure_reason or '') ~ ' ' ~ (p.page_title or '') ~ ' ' ~ (p.files_changed|join(' ')))|lower }}">
+      <div class="patch-head" onclick="this.parentElement.classList.toggle('open')">
+        <div class="ic {{ 'cat-app_bug' if p.was_real_bug else 'cat-test_isolation' }}"><i class="fa-solid fa-wrench"></i></div>
+        <div class="tt">
+          <b>{{ p.title }}</b>
+          <small>{{ p.page_title }} · {{ p.fixed_at }} · {{ p.author }} · {{ p.n_tests }} test{{ 's' if p.n_tests > 1 }}</small>
+        </div>
+        {{ m.catbadge(p.root_cause) }}
+        {% if not p.was_real_bug %}<span class="badge b-none">Pas de bug app</span>{% endif %}
+        <i class="fa-solid fa-chevron-right caret"></i>
+      </div>
+      <div class="patch-body">
+        <dl class="patch-grid">
+          {% if p.failure_reason %}<dt>Raison de l'échec</dt><dd>{{ p.failure_reason }}</dd>{% endif %}
+          {% if p.error %}<dt>Erreur (diagnostic)</dt><dd>{{ p.error }}</dd>{% endif %}
+          {% if p.fix_description %}<dt>Correctif</dt><dd>{{ p.fix_description }}</dd>{% endif %}
+          {% if p.was_real_bug is not none %}<dt>Vrai bug applicatif&nbsp;?</dt><dd>{{ 'Oui' if p.was_real_bug else 'Non — problème de test (pas de bug dans l’app)' }}</dd>{% endif %}
+          {% if p.files_changed %}<dt>Fichiers modifiés</dt><dd class="patch-files">{% for f in p.files_changed %}<code>{{ f }}</code>{% endfor %}</dd>{% endif %}
+          {% if p.node_ids %}<dt>Tests concernés</dt><dd class="patch-tests">{% for n in p.node_ids %}<a title="{{ n }}">{{ n.split('::')[1:]|join(' › ') if '::' in n else n }}</a>{% endfor %}</dd>{% endif %}
+          {% if p.commit %}<dt>Commit</dt><dd class="mono">{{ p.commit[:10] }}</dd>{% endif %}
+        </dl>
+        {% if p.page_slug %}<a href="/testpanel/page/{{ p.page_slug }}" class="btn btn-ghost btn-sm mt-12"><i class="fa-solid fa-arrow-up-right-from-square"></i> Voir la page « {{ p.page_title }} »</a>{% endif %}
+      </div>
+    </div>
+    {% else %}
+    <div class="card card-pad empty">Aucun patch enregistré pour le moment.</div>
+    {% endfor %}
+    <div class="card card-pad empty hidden" id="tp-patch-none">Aucun patch ne correspond à ce filtre.</div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+  let cat = 'all', q = '';
+  const cards = Array.from(document.querySelectorAll('#tp-patch-list .patch'));
+  const none = document.getElementById('tp-patch-none');
+  function apply() {
+    let shown = 0;
+    cards.forEach(c => {
+      const okCat = (cat === 'all' || c.dataset.cat === cat);
+      const okQ = (!q || (c.dataset.text || '').includes(q));
+      const show = okCat && okQ;
+      c.classList.toggle('hidden', !show);
+      if (show) shown++;
+    });
+    none.classList.toggle('hidden', shown !== 0);
+  }
+  document.querySelectorAll('.filterbar .chip').forEach(ch => ch.addEventListener('click', function () {
+    document.querySelectorAll('.filterbar .chip').forEach(x => x.classList.remove('active'));
+    this.classList.add('active'); cat = this.dataset.cat; apply();
+  }));
+  document.getElementById('tp-patch-search').addEventListener('input', function () { q = this.value.trim().toLowerCase(); apply(); });
+})();
+</script>
+{% endblock %}

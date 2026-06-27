@@ -1,488 +1,181 @@
-<!DOCTYPE html>
-<html lang="fr">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>DevOPTIQ — Test Panel</title>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <link rel="stylesheet" href="/static/test_panel.css">
-</head>
-<body>
+{% extends "test_panel/base.html" %}
+{% import "test_panel/_macros.html" as m %}
+{% set active_nav = 'dashboard' %}
+{% block title %}Vue d'ensemble — Test Panel{% endblock %}
 
-<div class="tp-layout">
+{% block topbar %}
+  <div class="tp-crumb"><span class="cur">Vue d'ensemble</span></div>
+  <div class="spacer"></div>
+  <span class="tp-pill" style="background:{{ m.pctbg(global_pct) }};color:{{ m.pctcolor(global_pct) }}">
+    <i class="fa-solid fa-circle-check ico"></i> {{ global_pct }}% de réussite
+  </span>
+  <button class="btn btn-pink" onclick="TP.run('all','Lancer tous les tests')">
+    <i class="fa-solid fa-play"></i> Lancer tous les tests
+  </button>
+{% endblock %}
 
-  <!-- ── Sidebar ── -->
-  <aside class="tp-sidebar">
-    <div class="tp-sidebar-logo">
-      <a href="/testpanel/">
-        <div class="logo-dot"><i class="fa-solid fa-flask-vial"></i></div>
-        Test Panel
-      </a>
+{% block content %}
+<div class="stack">
+
+  <!-- Hero -->
+  <div class="tp-hero">
+    <div class="tp-ring">
+      {{ m.ring(global_pct, 132, 13) }}
+      <div class="pct"><div><b style="color:{{ m.pctcolor(global_pct) }}">{{ global_pct }}%</b><br><span>réussite</span></div></div>
     </div>
-    <nav class="tp-sidebar-nav">
-      <div class="tp-nav-label">Vue globale</div>
-      <a href="/testpanel/" class="tp-nav-item active">
-        <div class="dot {% if global_pct >= 95 %}dot-green{% elif global_pct >= 75 %}dot-amber{% else %}dot-pink{% endif %}"></div>
-        Tous les tests
-        <span class="nav-pct">{{ global_pct }}%</span>
-      </a>
-
-      <div class="tp-nav-label" style="margin-top:12px;">Par page</div>
-      {% for s in page_stats %}
-      {% set col = 'dot-green' if s.cur_pct >= 95 else ('dot-amber' if s.cur_pct >= 75 else 'dot-pink') %}
-      <a href="/testpanel/page/{{ s.page.slug }}" class="tp-nav-item">
-        <div class="dot {{ col }}"></div>
-        <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:110px;" title="{{ s.page.title }}">{{ s.page.title }}</span>
-        <span class="nav-pct">{{ s.cur_pct }}%</span>
-      </a>
-      {% endfor %}
-
-      <div class="tp-nav-label" style="margin-top:12px;">App</div>
-      <a href="/" class="tp-nav-item">
-        <i class="fa-solid fa-arrow-left" style="font-size:11px;color:var(--muted)"></i>
-        Retour à l'app
-      </a>
-    </nav>
-  </aside>
-
-  <!-- ── Main ── -->
-  <main class="tp-main">
-
-    <!-- Hero -->
-    <div class="tp-hero" id="hero-card">
-      <div class="tp-hero-score">{{ global_pct }}<span>%</span></div>
-      <div class="tp-hero-meta">
-        <h1>Test Panel — DevOPTIQ</h1>
-        <p>{{ passed_all }} / {{ total_all }} tests passent &nbsp;·&nbsp; {{ page_stats|length }} pages couvertes</p>
-        {% if active_run %}
-        <p style="margin-top:6px;opacity:.9;font-size:13px;">
-          <i class="fa-solid fa-spinner fa-spin"></i>
-          Exécution en cours (run #{{ active_run.id }})…
-        </p>
-        {% endif %}
-      </div>
-      <div class="tp-hero-actions">
-        <button class="btn btn-white" id="btn-run-all" onclick="runAll()">
-          <i class="fa-solid fa-play"></i> Lancer tous les tests
-        </button>
+    <div class="tp-hero-meta">
+      <h1>Fiabilité de l'application</h1>
+      <p>{{ passed_all }} / {{ total_all }} tests passent · {{ page_stats|length }} pages couvertes
+        {% if active_run %}· <span style="color:var(--pink-d);font-weight:600"><i class="fa-solid fa-spinner fa-spin"></i> run #{{ active_run.id }} en cours</span>{% endif %}
+      </p>
+      <div class="tp-hero-chips">
+        <div class="hchip"><b>{{ total_all }}</b><small>Tests</small></div>
+        <div class="hchip"><b style="color:var(--green)">{{ passed_all }}</b><small>Passés</small></div>
+        <div class="hchip"><b style="color:var(--red)">{{ failed_all }}</b><small>Échoués</small></div>
+        <div class="hchip"><b style="color:var(--muted)">{{ untested_all }}</b><small>Non testés</small></div>
+        <div class="hchip"><b style="color:var(--amber)">{{ patch_count }}</b><small>Patchs</small></div>
       </div>
     </div>
+  </div>
 
-    <!-- Run bar (hidden unless active) -->
-    <div class="tp-run-bar" id="run-bar" style="display:none">
-      <i class="fa-solid fa-circle-notch spinner"></i>
-      <span id="run-bar-text">Exécution en cours…</span>
-      <span id="run-bar-pct" class="ml-auto fw-600" style="color:var(--pink)"></span>
+  <div class="grid col-main-side">
+    <!-- Main column -->
+    <div class="stack">
+
+      <!-- Trend chart -->
+      <div class="card">
+        <div class="card-head">
+          <h3>Évolution du taux de réussite</h3>
+          <div class="spacer"></div>
+          <div class="tabs" id="tp-period">
+            <button data-p="hour">Heure</button>
+            <button data-p="day" class="active">Jour</button>
+            <button data-p="month">Mois</button>
+          </div>
+        </div>
+        <div class="card-pad">
+          <div class="chart-wrap" id="tp-chart"><div class="empty"><i class="fa-solid fa-circle-notch fa-spin"></i> Chargement…</div></div>
+          <div class="grid grid-3 mt-12" id="tp-runstats">
+            <div class="stat" style="box-shadow:none;border-color:var(--line-2)"><div class="lbl"><i class="fa-solid fa-list-check"></i> Runs exécutés</div><div class="val" id="rs-runs">—</div></div>
+            <div class="stat" style="box-shadow:none;border-color:var(--line-2)"><div class="lbl"><i class="fa-regular fa-clock"></i> Durée moyenne</div><div class="val" id="rs-dur">—</div></div>
+            <div class="stat" style="box-shadow:none;border-color:var(--line-2)"><div class="lbl"><i class="fa-solid fa-bug"></i> Test le plus instable</div><div class="val" style="font-size:14px;line-height:1.35;margin-top:9px" id="rs-flaky">—</div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Coverage per page -->
+      <div class="card">
+        <div class="card-head">
+          <h3>Couverture par page</h3>
+          <span class="sub">classées des plus fragiles aux plus solides</span>
+          <div class="spacer"></div>
+          <span class="badge b-none">{{ page_stats|selectattr('cur_pct','equalto',100)|list|length }}/{{ page_stats|length }} à 100%</span>
+        </div>
+        <div style="padding:8px 8px 12px">
+          {% for s in page_stats|sort(attribute='cur_pct') %}
+          <a class="cov-row" href="/testpanel/page/{{ s.page.slug }}">
+            <div class="cov-name">{{ s.page.title }}<small>{{ s.total }} test{{ 's' if s.total > 1 }} · {{ s.passed }} OK · {{ s.failed }} KO</small></div>
+            <div class="bar"><span style="width:{{ s.cur_pct }}%;background:{{ m.pctcolor(s.cur_pct) }}"></span></div>
+            <div class="cov-pct" style="color:{{ m.pctcolor(s.cur_pct) }}">{{ s.cur_pct }}%</div>
+            <div>{% if s.n_patches %}<span class="cov-tag"><i class="fa-solid fa-wrench"></i> {{ s.n_patches }}</span>{% endif %}</div>
+          </a>
+          {% endfor %}
+        </div>
+      </div>
     </div>
 
-    <!-- Terminal (hidden unless active) -->
-    <div id="terminal-wrap" style="display:none; margin-bottom:16px;">
-      <div class="tp-terminal" id="terminal"></div>
-    </div>
+    <!-- Side column -->
+    <div class="stack">
 
-    <!-- Page cards -->
-    <div class="tp-section-title">Pages de test</div>
-    <div class="tp-page-grid">
-      {% for s in page_stats %}
-      {% set col   = 'green' if s.cur_pct >= 95 else ('amber' if s.cur_pct >= 75 else 'pink') %}
-      {% set icon  = 'fa-check' if s.cur_pct >= 95 else ('fa-triangle-exclamation' if s.cur_pct < 75 else 'fa-minus') %}
-      <div class="tp-page-card" onclick="location.href='/testpanel/page/{{ s.page.slug }}'">
-        <div class="tp-card-header">
-          <div class="tp-card-icon {{ col }}"><i class="fa-solid {{ icon }}"></i></div>
+      <!-- Patch summary -->
+      <div class="card card-pad">
+        <div class="flex" style="justify-content:space-between">
+          <h3 style="font-size:14.5px"><i class="fa-solid fa-screwdriver-wrench" style="color:var(--amber)"></i> Patchs tracés</h3>
+          <a href="/testpanel/patches" class="btn btn-ghost btn-sm">Tout voir <i class="fa-solid fa-arrow-right"></i></a>
+        </div>
+        <div class="flex gap-12 mt-12">
+          <div><div style="font-size:30px;font-weight:800;letter-spacing:-1px">{{ patch_count }}</div><small class="muted">correctifs</small></div>
+          <div style="margin-left:auto;text-align:right">
+            <div><span class="badge cat-app_bug">{{ real_bug_count }} bug applicatif{{ 's' if real_bug_count > 1 }}</span></div>
+            <div class="mt-6"><span class="badge b-none">{{ patch_count - real_bug_count }} problème{{ 's' if (patch_count-real_bug_count) > 1 }} de test</span></div>
+          </div>
+        </div>
+        <div class="mt-18" style="display:flex;flex-direction:column;gap:9px">
+          {% set catmap = [('app_bug','Bug applicatif'),('test_isolation','Isolation de test'),('test_quality','Qualité de test')] %}
+          {% for key, label in catmap %}
+          {% set c = patch_cats.get(key, 0) %}
           <div>
-            <div class="tp-card-title">{{ s.page.title }}</div>
-            <div class="tp-card-sub">{{ s.total }} test{{ 's' if s.total > 1 else '' }}</div>
+            <div class="flex" style="justify-content:space-between;font-size:12px;font-weight:600"><span>{{ label }}</span><span class="muted">{{ c }}</span></div>
+            <div class="bar mt-6"><span class="cat-{{ key }}" style="width:{{ (100 * c / patch_count)|round if patch_count else 0 }}%"></span></div>
           </div>
-          <div class="tp-card-pct" style="color:{{ '#22c55e' if col=='green' else ('#f59e0b' if col=='amber' else '#ec4899') }}">
-            {{ s.cur_pct }}%
-          </div>
-        </div>
-
-        <!-- Progress bar -->
-        <div class="tp-progress-bar">
-          <div class="tp-progress-bar-fill"
-               style="width:{{ s.cur_pct }}%;background:{{ '#22c55e' if col=='green' else ('#f59e0b' if col=='amber' else '#ec4899') }}">
-          </div>
-        </div>
-
-        <div class="tp-card-footer">
-          <div class="tp-card-counts">
-            <span class="ok">{{ s.passed }} OK</span>
-            {% if s.failed %}&nbsp;· <span class="ko">{{ s.failed }} KO</span>{% endif %}
-            {% if s.untested %}&nbsp;· {{ s.untested }} non testés{% endif %}
-            {% if s.n_patches %}&nbsp;· <span class="tp-patch-tag"><i class="fa-solid fa-wrench"></i> {{ s.n_patches }}</span>{% endif %}
-          </div>
-          <!-- Sparkline history -->
-          <div class="spark-wrap">
-            {% for r in s.run_history[-20:] %}
-            {% if r.pct >= 95 %}
-            <div class="spark-bar top pass" title="{{ r.pct }}% — {{ r.at }}"></div>
-            {% elif r.pct >= 75 %}
-            <div class="spark-bar top pass" style="background:var(--amber)" title="{{ r.pct }}% — {{ r.at }}"></div>
-            {% else %}
-            <div class="spark-bar bottom fail" title="{{ r.pct }}% — {{ r.at }}"></div>
-            {% endif %}
-            {% endfor %}
-            {% if not s.run_history %}
-            <span style="font-size:11px;color:var(--muted)">Aucun run</span>
-            {% endif %}
-          </div>
-        </div>
-      </div>
-      {% endfor %}
-    </div>
-
-  </main>
-</div>
-
-<!-- ── Global Stats Modal ── -->
-<div class="gs-overlay" id="gs-overlay">
-  <div class="gs-modal">
-    <div class="gs-modal-header">
-      <div class="gs-modal-title"><i class="fa-solid fa-chart-line"></i> Tableau de bord global</div>
-      <button class="gs-close-btn" id="gs-close-btn" aria-label="Fermer">×</button>
-    </div>
-    <div class="gs-modal-body">
-
-      <!-- Summary stats -->
-      <div class="gs-summary-row">
-        <div class="gs-stat-card">
-          <div class="gs-stat-val" id="gs-total-runs">—</div>
-          <div class="gs-stat-lbl">Runs exécutés</div>
-        </div>
-        <div class="gs-stat-card gs-stat-card--accent">
-          <div class="gs-stat-val" id="gs-overall-pct">—</div>
-          <div class="gs-stat-lbl">Taux de réussite</div>
-        </div>
-        <div class="gs-stat-card">
-          <div class="gs-stat-val" id="gs-avg-dur">—</div>
-          <div class="gs-stat-lbl">Durée moy. run</div>
-        </div>
-        <div class="gs-stat-card gs-stat-card--wide">
-          <div class="gs-stat-val gs-stat-val--sm" id="gs-most-failing">—</div>
-          <div class="gs-stat-lbl">Test le plus instable</div>
+          {% endfor %}
         </div>
       </div>
 
-      <!-- Chart section -->
-      <div class="gs-section">
-        <div class="gs-section-header">
-          <div class="gs-section-title">Évolution du taux de réussite</div>
-          <div class="gs-tabs" id="gs-period-tabs">
-            <button class="gs-tab" data-period="hour">Dernière heure</button>
-            <button class="gs-tab active" data-period="day">Dernière journée</button>
-            <button class="gs-tab" data-period="month">Dernier mois</button>
+      <!-- Recent patches -->
+      <div class="card">
+        <div class="card-head"><h3>Patchs récents</h3></div>
+        <div class="list" style="padding:6px">
+          {% for p in recent_patches %}
+          <div class="row-link" style="cursor:default">
+            <span class="ic" style="color:var(--amber)"><i class="fa-solid fa-wrench"></i></span>
+            <div style="flex:1;min-width:0">
+              <div style="font-weight:600;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ p.title }}</div>
+              <div class="muted-2" style="font-size:11.5px">{{ p.fixed_at }} · {{ p.node_ids|length }} test{{ 's' if p.node_ids|length > 1 }}</div>
+            </div>
+            {% if p.was_real_bug %}<span class="badge cat-app_bug">bug</span>{% else %}<span class="badge b-none">test</span>{% endif %}
           </div>
-        </div>
-        <div class="gs-chart-wrap" id="gs-chart-wrap">
-          <div class="gs-loading-state"><i class="fa-solid fa-circle-notch fa-spin"></i> Chargement…</div>
+          {% else %}
+          <div class="empty">Aucun patch enregistré</div>
+          {% endfor %}
         </div>
       </div>
 
-      <!-- Recent runs list -->
-      <div class="gs-section">
-        <div class="gs-section-header">
-          <div class="gs-section-title">Historique des runs</div>
-          <div class="text-muted" id="gs-runs-count"></div>
+      <!-- Recent runs -->
+      <div class="card">
+        <div class="card-head"><h3>Derniers runs</h3></div>
+        <div class="list">
+          {% for r in recent_runs %}
+          <div class="run-row">
+            <span class="rid">#{{ r.id }}</span>
+            <span class="muted nowrap" style="overflow:hidden;text-overflow:ellipsis">{{ r.at }}</span>
+            <span class="rcounts nowrap"><span class="ok">{{ r.passed }}</span>{% if r.failed %} · <span class="ko">{{ r.failed }}</span>{% endif %}</span>
+            <span class="rdur nowrap">{% if r.duration_s %}{{ r.duration_s }}s{% endif %}</span>
+            <span class="badge" style="background:{{ m.pctbg(r.pct) }};color:{{ m.pctcolor(r.pct) }}">{{ r.pct }}%</span>
+          </div>
+          {% else %}
+          <div class="empty">Aucun run terminé</div>
+          {% endfor %}
         </div>
-        <div id="gs-runs-list" class="gs-runs-list"></div>
       </div>
-
-      <!-- Patchs appliqués -->
-      <div class="gs-section">
-        <div class="gs-section-header">
-          <div class="gs-section-title"><i class="fa-solid fa-wrench tp-wrench"></i> Patchs appliqués</div>
-          <div class="text-muted" id="gs-patches-count"></div>
-        </div>
-        <div id="gs-patches-list" class="gs-runs-list"></div>
-      </div>
-
     </div>
   </div>
 </div>
+{% endblock %}
 
+{% block extra_js %}
 <script>
-let activeRunId = null;
-let evtSource   = null;
-
-function runAll() {
-  const btn = document.getElementById('btn-run-all');
-  btn.disabled = true;
-  btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> En cours…';
-
-  fetch('/testpanel/run/all', {method:'POST'})
-    .then(r => r.json())
-    .then(d => startStream(d.run_id));
-}
-
-function startStream(runId) {
-  activeRunId = runId;
-  document.getElementById('run-bar').style.display = 'flex';
-  document.getElementById('terminal-wrap').style.display = 'block';
-  const terminal = document.getElementById('terminal');
-  terminal.innerHTML = '';
-
-  if (evtSource) evtSource.close();
-  evtSource = new EventSource('/testpanel/stream/' + runId);
-
-  evtSource.onmessage = function(e) {
-    const line = JSON.parse(e.data);
-    if (line === '[DONE]') {
-      evtSource.close();
-      onRunDone(runId);
-      return;
-    }
-    appendLine(terminal, line);
-    terminal.scrollTop = terminal.scrollHeight;
-  };
-}
-
-function appendLine(el, text) {
-  const div = document.createElement('div');
-  div.className = 'line-' + (
-    text.includes('PASSED') ? 'pass' :
-    text.includes('FAILED') || text.includes('ERROR') ? 'fail' :
-    text.startsWith('[DONE]') ? 'done' :
-    text.startsWith('$') ? 'dim' : ''
-  );
-  div.textContent = text;
-  el.appendChild(div);
-}
-
-function onRunDone(runId) {
-  document.getElementById('run-bar-text').textContent = 'Terminé.';
-  fetch('/testpanel/run/' + runId + '/status')
-    .then(r => r.json())
-    .then(d => {
-      const pct   = (d.pct   != null) ? d.pct   : '?';
-      const pass_ = (d.passed != null) ? d.passed : '?';
-      const tot   = (d.total  != null) ? d.total  : '?';
-      document.getElementById('run-bar-pct').textContent = pct + '% — ' + pass_ + '/' + tot;
-      if (d.pct != null) document.querySelector('.tp-hero-score').innerHTML = d.pct + '<span>%</span>';
-      const btn = document.getElementById('btn-run-all');
-      btn.disabled = false;
-      btn.innerHTML = '<i class="fa-solid fa-play"></i> Relancer tous les tests';
-      setTimeout(() => location.reload(), 1500);
-    })
-    .catch(() => {
-      document.getElementById('btn-run-all').disabled = false;
-      document.getElementById('btn-run-all').innerHTML = '<i class="fa-solid fa-play"></i> Relancer tous les tests';
-      setTimeout(() => location.reload(), 1500);
-    });
-}
-
-// Resume active run on load — only if still truly running
-{% if active_run %}
-(function() {
-  const runId = {{ active_run.id }};
-  fetch('/testpanel/run/' + runId + '/status')
-    .then(r => r.json())
-    .then(d => {
-      if (d.status === 'running') {
-        startStream(runId);
-      }
-      // If done, the stale-run expiry already handled it — just don't reconnect
-    })
-    .catch(() => {}); // network error: ignore
-})();
-{% endif %}
-</script>
-
-<!-- ── Global Stats Logic ── -->
-<script>
-(function() {
-  const overlay   = document.getElementById('gs-overlay');
-  const chartWrap = document.getElementById('gs-chart-wrap');
-  const runsList  = document.getElementById('gs-runs-list');
-  let currentPeriod = 'day';
-
-  // Click on hero card (but NOT the run button) opens the modal
-  document.getElementById('hero-card').style.cursor = 'pointer';
-  document.getElementById('hero-card').addEventListener('click', function(e) {
-    if (e.target.closest('#btn-run-all')) return;
-    openModal();
-  });
-  document.getElementById('btn-run-all').addEventListener('click', function(e) {
-    e.stopPropagation();
-  });
-
-  document.getElementById('gs-close-btn').addEventListener('click', closeModal);
-  overlay.addEventListener('click', function(e) { if (e.target === overlay) closeModal(); });
-  document.addEventListener('keydown', function(e) {
-    if (e.key === 'Escape' && overlay.style.display !== 'none') closeModal();
-  });
-
-  document.querySelectorAll('.gs-tab').forEach(function(btn) {
-    btn.addEventListener('click', function() {
-      document.querySelectorAll('.gs-tab').forEach(function(b) { b.classList.remove('active'); });
-      this.classList.add('active');
-      currentPeriod = this.dataset.period;
-      loadStats(currentPeriod);
-    });
-  });
-
-  function openModal() {
-    overlay.style.display = 'flex';
-    document.body.style.overflow = 'hidden';
-    loadStats(currentPeriod);
+(function () {
+  let period = 'day', lastPoints = null;
+  const chart = document.getElementById('tp-chart');
+  function render() { if (lastPoints) TP.lineChart(chart, lastPoints, { height: 220 }); }
+  function load(p) {
+    chart.innerHTML = '<div class="empty"><i class="fa-solid fa-circle-notch fa-spin"></i> Chargement…</div>';
+    fetch('/testpanel/global/stats?period=' + p).then(r => r.json()).then(d => {
+      lastPoints = d.chart_points || [];
+      render();
+      const s = d.summary || {};
+      document.getElementById('rs-runs').textContent = s.total_runs != null ? s.total_runs : '0';
+      document.getElementById('rs-dur').textContent = s.avg_duration_s != null ? s.avg_duration_s + 's' : '—';
+      document.getElementById('rs-flaky').textContent = s.most_failing ? s.most_failing.name : 'Aucun 🎉';
+    }).catch(() => { chart.innerHTML = '<div class="empty">Erreur de chargement</div>'; });
   }
-
-  function closeModal() {
-    overlay.style.display = 'none';
-    document.body.style.overflow = '';
-  }
-
-  function loadStats(period) {
-    chartWrap.innerHTML = '<div class="gs-loading-state"><i class="fa-solid fa-circle-notch fa-spin"></i>&nbsp;Chargement…</div>';
-    fetch('/testpanel/global/stats?period=' + period)
-      .then(function(r) { return r.json(); })
-      .then(renderStats)
-      .catch(function() {
-        chartWrap.innerHTML = '<div class="gs-loading-state gs-loading-state--err"><i class="fa-solid fa-circle-exclamation"></i>&nbsp;Erreur de chargement</div>';
-      });
-  }
-
-  function renderStats(data) {
-    const s = data.summary;
-    document.getElementById('gs-total-runs').textContent  = s.total_runs  != null ? s.total_runs  : '0';
-    document.getElementById('gs-overall-pct').textContent = s.overall_pct != null ? s.overall_pct + '%' : '—';
-    document.getElementById('gs-avg-dur').textContent     = s.avg_duration_s != null ? s.avg_duration_s + 's' : '—';
-    const mfEl = document.getElementById('gs-most-failing');
-    if (s.most_failing) {
-      mfEl.textContent = s.most_failing.name;
-      mfEl.title       = s.most_failing.fail_count + ' échec(s)';
-    } else {
-      mfEl.textContent = 'Aucun échec 🎉';
-    }
-    renderChart(data.chart_points);
-    renderRuns(data.recent_runs);
-    const cnt = document.getElementById('gs-runs-count');
-    if (cnt) cnt.textContent = data.recent_runs.length + ' dernier(s) run(s)';
-    renderPatches(data.recent_patches || [], data.patch_summary || {});
-  }
-
-  function escHtml(s) { const d = document.createElement('div'); d.textContent = (s == null ? '' : s); return d.innerHTML; }
-  function escAttr(s) { return (s == null ? '' : String(s)).replace(/"/g, '&quot;'); }
-
-  function renderPatches(patches, summary) {
-    const listEl = document.getElementById('gs-patches-list');
-    const cntEl  = document.getElementById('gs-patches-count');
-    if (cntEl) {
-      cntEl.textContent = (summary.total || 0) + ' patch(s) · '
-        + (summary.real_bugs || 0) + ' bug(s) applicatif(s) · '
-        + (summary.test_only || 0) + ' problème(s) de test';
-    }
-    if (!listEl) return;
-    if (!patches.length) {
-      listEl.innerHTML = '<div class="gs-no-data">Aucun patch enregistré</div>';
-      return;
-    }
-    listEl.innerHTML = patches.map(function(p) {
-      const badge = p.was_real_bug
-        ? '<span class="badge badge-bug">Bug applicatif</span>'
-        : '<span class="badge badge-test">Problème de test</span>';
-      const nTests = (p.node_ids || []).length;
-      const title  = p.title || p.patch_uid;
-      const tip = [
-        p.failure_reason ? 'Échec : ' + p.failure_reason : '',
-        p.error ? 'Erreur : ' + p.error : '',
-        p.fix_description ? 'Correctif : ' + p.fix_description : ''
-      ].filter(Boolean).join('\n');
-      return '<div class="gs-patch-row" title="' + escAttr(tip) + '">'
-        + '<i class="fa-solid fa-wrench tp-wrench"></i>'
-        + '<span class="gs-patch-title">' + escHtml(title) + '</span>'
-        + badge
-        + '<span class="gs-patch-when">' + escHtml(p.fixed_at || '') + ' · ' + nTests + ' test' + (nTests > 1 ? 's' : '') + '</span>'
-        + '</div>';
-    }).join('');
-  }
-
-  function renderChart(points) {
-    if (!points.length) {
-      chartWrap.innerHTML = '<div class="gs-no-data">Aucun run sur cette période</div>';
-      return;
-    }
-    const W   = Math.max(320, chartWrap.clientWidth || 700);
-    const H   = 200;
-    const PAD = { top: 20, right: 64, bottom: 34, left: 44 };
-    const cw  = W - PAD.left - PAD.right;
-    const ch  = H - PAD.top  - PAD.bottom;
-    const n   = points.length;
-
-    const xs = points.map(function(_, i) { return PAD.left + (n === 1 ? cw / 2 : i * cw / (n - 1)); });
-    const ys = points.map(function(p)    { return PAD.top  + ch - (p.pct / 100) * ch; });
-
-    const linePath = xs.map(function(x, i) {
-      return (i === 0 ? 'M' : 'L') + x.toFixed(1) + ',' + ys[i].toFixed(1);
-    }).join(' ');
-    const fillPath = linePath
-      + ' L' + xs[n-1].toFixed(1) + ',' + (PAD.top + ch)
-      + ' L' + PAD.left           + ',' + (PAD.top + ch) + ' Z';
-
-    const grids = [0, 25, 50, 75, 100].map(function(pct) {
-      const y = (PAD.top + ch - (pct / 100) * ch).toFixed(1);
-      return '<line x1="' + PAD.left + '" y1="' + y + '" x2="' + (PAD.left + cw) + '" y2="' + y
-           + '" stroke="#f3f4f6" stroke-width="1"/>'
-           + '<text x="' + (PAD.left - 6) + '" y="' + (parseFloat(y) + 4)
-           + '" text-anchor="end" font-size="10" fill="#9ca3af">' + pct + '%</text>';
-    }).join('');
-
-    const step   = Math.max(1, Math.ceil(n / 8));
-    const xLabel = points.map(function(p, i) {
-      if (i % step !== 0 && i !== n - 1) return '';
-      return '<text x="' + xs[i].toFixed(1) + '" y="' + (H - 6)
-           + '" text-anchor="middle" font-size="10" fill="#9ca3af">' + p.t + '</text>';
-    }).join('');
-
-    const avgPct = Math.round(points.reduce(function(s, p) { return s + p.pct; }, 0) / n);
-    const ay     = (PAD.top + ch - (avgPct / 100) * ch).toFixed(1);
-    const avgLine = '<line x1="' + PAD.left + '" y1="' + ay + '" x2="' + (PAD.left + cw) + '" y2="' + ay
-                  + '" stroke="#ec4899" stroke-width="1" stroke-dasharray="4,3" opacity="0.4"/>'
-                  + '<text x="' + (PAD.left + cw + 4) + '" y="' + (parseFloat(ay) + 4)
-                  + '" font-size="10" fill="#ec4899" opacity="0.8">moy ' + avgPct + '%</text>';
-
-    const dots = points.map(function(p, i) {
-      const col = p.pct >= 95 ? '#22c55e' : p.pct >= 75 ? '#f59e0b' : '#ec4899';
-      return '<circle cx="' + xs[i].toFixed(1) + '" cy="' + ys[i].toFixed(1)
-           + '" r="4.5" fill="' + col + '" stroke="#fff" stroke-width="2">'
-           + '<title>' + p.t + ' — ' + p.pct + '% (' + p.passed + '/' + p.total + ')</title></circle>';
-    }).join('');
-
-    chartWrap.innerHTML = '<svg width="' + W + '" height="' + H
-      + '" xmlns="http://www.w3.org/2000/svg" style="overflow:visible;display:block">'
-      + grids + avgLine
-      + '<path d="' + fillPath + '" fill="rgba(236,72,153,.07)"/>'
-      + '<path d="' + linePath + '" fill="none" stroke="#ec4899" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>'
-      + dots + xLabel
-      + '</svg>';
-  }
-
-  function renderRuns(runs) {
-    if (!runs.length) {
-      runsList.innerHTML = '<div class="gs-no-data">Aucun run terminé</div>';
-      return;
-    }
-    runsList.innerHTML = runs.map(function(r) {
-      const col   = r.pct >= 95 ? 'green' : r.pct >= 75 ? 'amber' : 'pink';
-      const scope = r.scope === 'all'
-        ? 'Tous les tests'
-        : r.scope.startsWith('page:') ? 'Page&nbsp;: ' + r.scope.slice(5)
-        : 'Cas #' + r.scope.slice(5);
-      const ko  = r.total - r.passed;
-      const dur = r.duration_s != null ? '<span class="gs-run-dur">' + r.duration_s + 's</span>' : '<span></span>';
-      return '<div class="gs-run-row">'
-        + '<div class="gs-run-id">#' + r.id + '</div>'
-        + '<div class="gs-run-at">'  + r.at  + '</div>'
-        + '<div class="gs-run-scope">' + scope + '</div>'
-        + '<div class="gs-run-counts"><span class="ok">' + r.passed + '&nbsp;OK</span>'
-        + (ko > 0 ? '&nbsp;·&nbsp;<span class="ko">' + ko + '&nbsp;KO</span>' : '') + '</div>'
-        + dur
-        + '<div class="badge badge-' + col + '">' + r.pct + '%</div>'
-        + '</div>';
-    }).join('');
-  }
+  document.querySelectorAll('#tp-period button').forEach(b => b.addEventListener('click', function () {
+    document.querySelectorAll('#tp-period button').forEach(x => x.classList.remove('active'));
+    this.classList.add('active'); period = this.dataset.p; load(period);
+  }));
+  load(period);
+  let rt; window.addEventListener('resize', function () { clearTimeout(rt); rt = setTimeout(render, 200); });
 })();
 </script>
-
-</body>
-</html>
+{% endblock %}

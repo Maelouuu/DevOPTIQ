@@ -1,0 +1,34 @@
+{# Couleurs partagées du panel de tests #}
+{% macro pctcolor(p) -%}
+{% if p >= 95 %}#16a34a{% elif p >= 75 %}#d97706{% else %}#ec4899{% endif %}
+{%- endmacro %}
+
+{% macro pctbg(p) -%}
+{% if p >= 95 %}var(--green-l){% elif p >= 75 %}var(--amber-l){% else %}var(--pink-l){% endif %}
+{%- endmacro %}
+
+{% macro statusbadge(st) -%}
+{% if st == 'passed' %}<span class="badge b-pass">passé</span>
+{% elif st in ['failed', 'error'] %}<span class="badge b-fail">échoué</span>
+{% else %}<span class="badge b-none">non testé</span>{% endif %}
+{%- endmacro %}
+
+{% macro catbadge(cat) -%}
+{% if cat == 'app_bug' %}<span class="badge cat-app_bug">Bug applicatif</span>
+{% elif cat == 'test_isolation' %}<span class="badge cat-test_isolation">Isolation de test</span>
+{% elif cat == 'test_quality' %}<span class="badge cat-test_quality">Qualité de test</span>
+{% else %}<span class="badge cat-other">{{ cat or '—' }}</span>{% endif %}
+{%- endmacro %}
+
+{% macro ring(pct, size=132, stroke=13) -%}
+{% set r = (size / 2) - (stroke / 2) - 2 %}
+{% set circ = 2 * 3.14159 * r %}
+<svg width="{{ size }}" height="{{ size }}" viewBox="0 0 {{ size }} {{ size }}">
+  <circle cx="{{ size/2 }}" cy="{{ size/2 }}" r="{{ r }}" fill="none" stroke="#eef0f5" stroke-width="{{ stroke }}"/>
+  <circle cx="{{ size/2 }}" cy="{{ size/2 }}" r="{{ r }}" fill="none" stroke="{{ pctcolor(pct) }}"
+          stroke-width="{{ stroke }}" stroke-linecap="round"
+          stroke-dasharray="{{ circ|round(1) }}"
+          stroke-dashoffset="{{ (circ * (1 - pct/100))|round(1) }}"
+          transform="rotate(-90 {{ size/2 }} {{ size/2 }})"/>
+</svg>
+{%- endmacro %}

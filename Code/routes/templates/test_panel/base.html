@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}Test Panel — DevOPTIQ{% endblock %}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="/static/test_panel.css">
+</head>
+<body>
+{% import "test_panel/_macros.html" as m %}
+<div class="tp-app">
+
+  <!-- ── Sidebar ── -->
+  <aside class="tp-side">
+    <div class="tp-brand">
+      <div class="logo"><i class="fa-solid fa-flask-vial"></i></div>
+      <div>DevOPTIQ<small>Test Panel</small></div>
+    </div>
+
+    <nav class="tp-nav">
+      <a href="/testpanel/" class="tp-nav-item {% if active_nav == 'dashboard' %}active{% endif %}">
+        <i class="fa-solid fa-gauge-high"></i> Vue d'ensemble
+        <span class="count">{{ nav_global_pct }}%</span>
+      </a>
+      <a href="/testpanel/patches" class="tp-nav-item {% if active_nav == 'patches' %}active{% endif %}">
+        <i class="fa-solid fa-screwdriver-wrench"></i> Patchs
+      </a>
+    </nav>
+
+    <div class="tp-nav-label">Pages de test ({{ nav_pages|length }})</div>
+    <div class="tp-side-search">
+      <input type="text" id="tp-page-filter" placeholder="Filtrer les pages…" autocomplete="off">
+    </div>
+    <div class="tp-side-pages" id="tp-side-pages">
+      {% for np in nav_pages %}
+      <a href="/testpanel/page/{{ np.slug }}"
+         class="tp-page-link {% if active_slug == np.slug %}active{% endif %}"
+         data-name="{{ np.title|lower }} {{ np.slug }}">
+        <span class="dot" style="background:{{ m.pctcolor(np.pct) }}"></span>
+        <span class="nm" title="{{ np.title }}">{{ np.title }}</span>
+        <span class="pc" style="color:{{ m.pctcolor(np.pct) }}">{{ np.pct }}%</span>
+      </a>
+      {% endfor %}
+    </div>
+
+    <div class="tp-side-foot">
+      <a href="/" class="tp-nav-item"><i class="fa-solid fa-arrow-left-long"></i> Retour à l'app</a>
+    </div>
+  </aside>
+
+  <!-- ── Main ── -->
+  <div class="tp-main">
+    <header class="tp-topbar">
+      {% block topbar %}{% endblock %}
+    </header>
+    <main class="tp-content">
+      {% block content %}{% endblock %}
+    </main>
+  </div>
+</div>
+
+<script src="/static/test_panel.js"></script>
+<script>
+  // Sidebar page filter
+  (function () {
+    const f = document.getElementById('tp-page-filter');
+    if (!f) return;
+    f.addEventListener('input', function () {
+      const q = this.value.trim().toLowerCase();
+      document.querySelectorAll('#tp-side-pages .tp-page-link').forEach(function (a) {
+        a.style.display = (a.dataset.name || '').includes(q) ? '' : 'none';
+      });
+    });
+  })();
+</script>
+{% block extra_js %}{% endblock %}
+</body>
+</html>

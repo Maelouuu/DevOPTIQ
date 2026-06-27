@@ -179,6 +179,45 @@ def _patch_to_dict(p):
     }
 
 
+# Catégories de cause racine connues (pour filtres + couleurs du panel)
+PATCH_CATEGORIES = ('app_bug', 'test_isolation', 'test_quality')
+
+
+def _patch_category_counts(patches):
+    """Compte les patchs par catégorie de cause racine."""
+    counts = {c: 0 for c in PATCH_CATEGORIES}
+    counts['other'] = 0
+    for p in patches:
+        key = p.root_cause if p.root_cause in counts else 'other'
+        counts[key] += 1
+    return counts
+
+
+def _recent_runs(limit=20):
+    """Liste structurée des derniers runs terminés (pour dashboard + API)."""
+    out = []
+    q = (TestRun.query.filter(TestRun.status == 'done')
+         .order_by(TestRun.finished_at.desc()).limit(limit).all())
+    for r in q:
+        res = list(r.results)
+        total = len(res)
+        passed = sum(1 for x in res if x.status == 'passed')
+        dur = None
+        if r.started_at and r.finished_at:
+            dur = round((r.finished_at - r.started_at).total_seconds(), 1)
+        out.append({
+            'id':         r.id,
+            'at':         r.finished_at.strftime('%d/%m/%y %H:%M') if r.finished_at else '—',
+            'scope':      r.scope or 'all',
+            'passed':     passed,
+            'failed':     total - passed,
+            'total':      total,
+            'pct':        round(100 * passed / total) if total else 0,
+            'duration_s': dur,
+        })
+    return out
+
+
 # ── Run pytest ────────────────────────────────────────────────────────────────
 
 def _build_args(scope: str, xml_path: str) -> list[str]:
@@ -389,7 +428,36 @@ def _start_run(scope: str) -> int:
 
 # ── Routes ────────────────────────────────────────────────────────────────────
 
-_VIEW_ENDPOINTS = {'test_panel.panel', 'test_panel.page_detail', 'test_panel.case_detail'}
+_VIEW_ENDPOINTS = {'test_panel.panel', 'test_panel.page_detail',
+                   'test_panel.case_detail', 'test_panel.patches_page'}
+
+@test_panel_bp.app_context_processor
+def _inject_nav():
+    """Données de la barre latérale (pages + % global), pour tous les écrans du panel."""
+    if (request.blueprint or '') != 'test_panel':
+        return {}
+    try:
+        from sqlalchemy import func
+        pages = TestPage.query.order_by(TestPage.file_name).all()
+        rows = (db.session.query(TestCase.page_id, TestCase.last_status, func.count())
+                .group_by(TestCase.page_id, TestCase.last_status).all())
+        agg = {}
+        for pid, status, cnt in rows:
+            a = agg.setdefault(pid, {'total': 0, 'passed': 0})
+            a['total'] += cnt
+            if status == 'passed':
+                a['passed'] += cnt
+        nav, gp_total, gp_pass = [], 0, 0
+        for p in pages:
+            a = agg.get(p.id, {'total': 0, 'passed': 0})
+            gp_total += a['total']; gp_pass += a['passed']
+            nav.append({'slug': p.slug, 'title': p.title, 'total': a['total'],
+                        'pct': round(100 * a['passed'] / a['total']) if a['total'] else 0})
+        return {'nav_pages': nav,
+                'nav_global_pct': round(100 * gp_pass / gp_total) if gp_total else 0}
+    except Exception:
+        return {'nav_pages': [], 'nav_global_pct': 0}
+
 
 @test_panel_bp.before_request
 def _auto_sync():
@@ -436,11 +504,13 @@ def panel():
                                untested=untested, cur_pct=cur_pct, run_history=run_history))
 
     all_cases = TestCase.query.all()
-    total_all  = len(all_cases)
-    passed_all = sum(1 for c in all_cases if c.last_status == 'passed')
-    global_pct = round(100 * passed_all / total_all) if total_all else 0
+    total_all    = len(all_cases)
+    passed_all   = sum(1 for c in all_cases if c.last_status == 'passed')
+    failed_all   = sum(1 for c in all_cases if c.last_status in ('failed', 'error'))
+    untested_all = sum(1 for c in all_cases if c.last_status is None)
+    global_pct   = round(100 * passed_all / total_all) if total_all else 0
 
-    # Patchs — synthèse + comptage par page
+    # Patchs — synthèse + comptage par page + catégories
     all_patches = TestPatch.query.order_by(TestPatch.created_at.desc()).all()
     patches_by_slug = {}
     for p in all_patches:
@@ -450,16 +520,24 @@ def panel():
         s['n_patches'] = patches_by_slug.get(s['page'].slug, 0)
     patch_count    = len(all_patches)
     real_bug_count = sum(1 for p in all_patches if p.was_real_bug)
-    recent_patches = [_patch_to_dict(p) for p in all_patches[:8]]
+    patch_cats     = _patch_category_counts(all_patches)
+    recent_patches = [_patch_to_dict(p) for p in all_patches[:6]]
+
+    # Pages les plus fragiles (taux le plus bas, hors 100 %)
+    weak_pages = sorted([s for s in page_stats if s['cur_pct'] < 100 and s['total']],
+                        key=lambda s: s['cur_pct'])[:5]
 
     _expire_stale_runs()
-    active_run = TestRun.query.filter_by(status='running').order_by(TestRun.started_at.desc()).first()
+    active_run  = TestRun.query.filter_by(status='running').order_by(TestRun.started_at.desc()).first()
+    recent_runs = _recent_runs(6)
 
     return render_template('test_panel/panel.html',
                            page_stats=page_stats, total_all=total_all,
-                           passed_all=passed_all, global_pct=global_pct,
+                           passed_all=passed_all, failed_all=failed_all,
+                           untested_all=untested_all, global_pct=global_pct,
                            patch_count=patch_count, real_bug_count=real_bug_count,
-                           recent_patches=recent_patches,
+                           patch_cats=patch_cats, recent_patches=recent_patches,
+                           weak_pages=weak_pages, recent_runs=recent_runs,
                            active_run=active_run)
 
 
@@ -501,11 +579,19 @@ def page_detail(slug):
     for p in patches:
         patched_nodes |= set(p.node_id_list)
 
+    total    = len(cases)
+    passed   = sum(1 for c in cases if c.last_status == 'passed')
+    failed   = sum(1 for c in cases if c.last_status in ('failed', 'error'))
+    untested = sum(1 for c in cases if c.last_status is None)
+    cur_pct  = round(100 * passed / total) if total else 0
+
     _expire_stale_runs()
     active_run = TestRun.query.filter_by(status='running').order_by(TestRun.started_at.desc()).first()
     return render_template('test_panel/page.html', page=page, classes=classes,
                            run_history=run_history, case_history=case_history,
                            patches=patches, patched_nodes=patched_nodes,
+                           total=total, passed=passed, failed=failed,
+                           untested=untested, cur_pct=cur_pct,
                            active_run=active_run)
 
 
@@ -523,6 +609,30 @@ def case_detail(case_id):
     patches = _patches_for_nodes([case.node_id])
     return render_template('test_panel/case.html', case=case,
                            history=history, last_result=last, patches=patches)
+
+
+@test_panel_bp.route('/patches')
+def patches_page():
+    """Page dédiée à tous les patchs (correctifs tracés)."""
+    all_patches = TestPatch.query.order_by(TestPatch.fixed_at.desc(),
+                                           TestPatch.created_at.desc()).all()
+    slug_to_title = {p.slug: p.title for p in TestPage.query.all()}
+    patches = []
+    for p in all_patches:
+        d = _patch_to_dict(p)
+        d['page_title'] = slug_to_title.get(p.page_slug, p.page_slug or '—')
+        d['n_tests'] = len(p.node_id_list)
+        patches.append(d)
+    cats = _patch_category_counts(all_patches)
+    summary = {
+        'total':     len(all_patches),
+        'real_bugs': sum(1 for p in all_patches if p.was_real_bug),
+        'test_only': sum(1 for p in all_patches if not p.was_real_bug),
+        'tests_fixed': sum(len(p.node_id_list) for p in all_patches),
+        'files':     len({f for p in all_patches for f in p.files_list}),
+    }
+    return render_template('test_panel/patches.html',
+                           patches=patches, cats=cats, summary=summary)
 
 
 @test_panel_bp.route('/run/all', methods=['POST'])
@@ -615,25 +725,7 @@ def global_stats():
         })
 
     # Recent runs (last 20, all time)
-    recent_q = (TestRun.query.filter(TestRun.status == 'done')
-                .order_by(TestRun.finished_at.desc()).limit(20).all())
-    recent_runs = []
-    for r in recent_q:
-        res_list = list(r.results)
-        total  = len(res_list)
-        passed = sum(1 for x in res_list if x.status == 'passed')
-        dur = None
-        if r.started_at and r.finished_at:
-            dur = round((r.finished_at - r.started_at).total_seconds(), 1)
-        recent_runs.append({
-            'id':         r.id,
-            'at':         r.finished_at.strftime('%d/%m/%y %H:%M') if r.finished_at else '—',
-            'scope':      r.scope or 'all',
-            'passed':     passed,
-            'total':      total,
-            'pct':        round(100 * passed / total) if total else 0,
-            'duration_s': dur,
-        })
+    recent_runs = _recent_runs(20)
 
     # Global summary stats
     total_runs  = TestRun.query.filter(TestRun.status == 'done').count()
@@ -664,9 +756,10 @@ def global_stats():
     all_patches    = TestPatch.query.order_by(TestPatch.created_at.desc()).all()
     recent_patches = [_patch_to_dict(p) for p in all_patches[:12]]
     patch_summary  = {
-        'total':     len(all_patches),
-        'real_bugs': sum(1 for p in all_patches if p.was_real_bug),
-        'test_only': sum(1 for p in all_patches if not p.was_real_bug),
+        'total':      len(all_patches),
+        'real_bugs':  sum(1 for p in all_patches if p.was_real_bug),
+        'test_only':  sum(1 for p in all_patches if not p.was_real_bug),
+        'by_category': _patch_category_counts(all_patches),
     }
 
     return jsonify({
