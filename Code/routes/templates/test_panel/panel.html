@@ -49,8 +49,8 @@
           <div class="spacer"></div>
           <div class="tabs" id="tp-period">
             <button data-p="hour">Heure</button>
-            <button data-p="day" class="active">Jour</button>
-            <button data-p="month">Mois</button>
+            <button data-p="day">Jour</button>
+            <button data-p="month" class="active">Mois</button>
           </div>
         </div>
         <div class="card-pad">
@@ -156,7 +156,7 @@
 {% block extra_js %}
 <script>
 (function () {
-  let period = 'day', lastPoints = null;
+  let period = 'month', lastPoints = null;
   const chart = document.getElementById('tp-chart');
   function render() { if (lastPoints) TP.lineChart(chart, lastPoints, { height: 220 }); }
   function load(p) {
