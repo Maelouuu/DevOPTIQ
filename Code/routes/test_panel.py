@@ -635,6 +635,55 @@ def patches_page():
                            patches=patches, cats=cats, summary=summary)
 
 
+_JOURNAL_FILE = _TESTS_DIR / 'journal.json'
+
+
+def _load_journal():
+    """Lit le carnet de bord versionné (tests/journal.json)."""
+    data = {'plan': {}, 'entries': []}
+    if not _JOURNAL_FILE.exists():
+        return data
+    try:
+        loaded = json.loads(_JOURNAL_FILE.read_text(encoding='utf-8'))
+        if isinstance(loaded, dict):
+            data['plan'] = loaded.get('plan', {}) or {}
+            data['entries'] = loaded.get('entries', []) or []
+    except Exception:
+        pass
+    return data
+
+
+@test_panel_bp.route('/journal')
+def journal_page():
+    """Carnet de bord de la routine : plan en cours + journal des exécutions."""
+    data = _load_journal()
+    plan = data['plan']
+    steps = plan.get('steps', []) or []
+    for s in steps:
+        if s.get('status') == 'done':
+            s['_pct'] = 100
+        else:
+            try:
+                s['_pct'] = max(0, min(100, int(s.get('progress', 0) or 0)))
+            except (TypeError, ValueError):
+                s['_pct'] = 0
+    plan_pct  = round(sum(s['_pct'] for s in steps) / len(steps)) if steps else 0
+    steps_done = sum(1 for s in steps if s.get('status') == 'done')
+
+    # Les entrées sont stockées les plus récentes en premier (le helper les
+    # insère en tête) — on garde l'ordre du fichier.
+    entries = data['entries']
+    agg = {
+        'runs':        len(entries),
+        'new_tests':   sum(int(e.get('new_tests') or 0) for e in entries),
+        'tests_fixed': sum(int(e.get('tests_fixed') or 0) for e in entries),
+        'patches':     sum(int(e.get('patches') or 0) for e in entries),
+    }
+    return render_template('test_panel/journal.html', plan=plan, steps=steps,
+                           plan_pct=plan_pct, steps_done=steps_done,
+                           entries=entries, agg=agg)
+
+
 @test_panel_bp.route('/run/all', methods=['POST'])
 def run_all():
     return jsonify({'run_id': _start_run('all')})

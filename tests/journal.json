@@ -1,0 +1,91 @@
+{
+  "plan": {
+    "title": "Plan de couverture & fiabilisation des tests",
+    "objective": "À chaque exécution, la routine répartit sa capacité : ~70% pour étendre la couverture (nouveaux tests) et ~30% pour repérer et corriger les tests défaillants, en traçant chaque correctif.",
+    "updated_at": "27/06/2026",
+    "steps": [
+      {
+        "id": "coverage",
+        "title": "Couverture des pages Flask",
+        "status": "in_progress",
+        "progress": 92,
+        "note": "50 fichiers de test couvrent l'essentiel des pages. Reste surtout l'éditeur OptiqCarto (JS)."
+      },
+      {
+        "id": "green",
+        "title": "Maintien à 100% de réussite",
+        "status": "in_progress",
+        "progress": 98,
+        "note": "Correction continue des tests défaillants à chaque run."
+      },
+      {
+        "id": "isolation",
+        "title": "Isolation des tests (anti-pollution)",
+        "status": "in_progress",
+        "progress": 75,
+        "note": "Base et session partagées (scope=session) : rendre chaque test autonome (données dédiées + cleanup)."
+      },
+      {
+        "id": "patches",
+        "title": "Traçabilité des correctifs (patchs)",
+        "status": "done",
+        "progress": 100,
+        "note": "Système de patchs opérationnel : chaque fix est documenté et visible dans le panel."
+      },
+      {
+        "id": "pilotage",
+        "title": "Pilotage : tableau de bord & carnet",
+        "status": "done",
+        "progress": 100,
+        "note": "Vue d'ensemble, page Patchs et Carnet de bord en place."
+      },
+      {
+        "id": "optiqcarto",
+        "title": "Couverture de l'éditeur OptiqCarto (JS)",
+        "status": "todo",
+        "progress": 0,
+        "note": "Tester static/optiqcarto/editor.js : formes, bandes, connexions, import VSDX."
+      }
+    ]
+  },
+  "entries": [
+    {
+      "id": "2026-06-27-refonte-panel",
+      "at": "2026-06-27T19:30:00",
+      "date": "27/06/2026 · 19:30",
+      "author": "claude",
+      "title": "Refonte du panel & ouverture du carnet de bord",
+      "summary": "Refonte visuelle et ergonomique complète du panel de tests, et ajout de ce carnet de bord pour suivre le plan et les comptes rendus de chaque exécution.",
+      "new_tests": 0,
+      "tests_fixed": 0,
+      "patches": 0,
+      "page": "Panel",
+      "highlights": [
+        "Design system et mise en page partagés (look pro/commercial)",
+        "Page Patchs dédiée : catégories, filtres et détails",
+        "Exécution des tests en direct et structurée (fini la sortie terminal brute)",
+        "Nouvelle page Carnet de bord (plan + journal)"
+      ],
+      "next": "Brancher la routine pour qu'elle alimente automatiquement le carnet à chaque exécution."
+    },
+    {
+      "id": "2026-06-25-patchs-48-fixes",
+      "at": "2026-06-25T17:45:00",
+      "date": "25/06/2026 · 17:45",
+      "author": "claude",
+      "title": "Traçabilité des patchs & passage de la suite à 100%",
+      "summary": "Mise en place du système de patchs, puis diagnostic et correction des 48 tests en échec (en distinguant les vrais bugs applicatifs des problèmes de test).",
+      "new_tests": 0,
+      "tests_fixed": 48,
+      "patches": 16,
+      "page": "Multi-pages",
+      "highlights": [
+        "7 vrais bugs applicatifs corrigés (route non enregistrée, validations 400, 404 avalé en 500, contrôle d'auth)",
+        "9 problèmes d'isolation / qualité de test résolus",
+        "16 patchs documentés couvrant 50 tests",
+        "Suite complète : 1372 / 1372 verte"
+      ],
+      "next": "Industrialiser : la routine consacre ~30% de chaque exécution au repérage/correction et au traçage des patchs."
+    }
+  ]
+}

@@ -1,0 +1,109 @@
+{% extends "test_panel/base.html" %}
+{% import "test_panel/_macros.html" as m %}
+{% set active_nav = 'journal' %}
+{% block title %}Carnet de bord — Test Panel{% endblock %}
+
+{% block topbar %}
+  <div class="tp-crumb"><a href="/testpanel/">Test Panel</a><span class="sep">/</span><span class="cur">Carnet de bord</span></div>
+  <div class="spacer"></div>
+  <button class="btn btn-pink" onclick="TP.run('all','Lancer tous les tests')">
+    <i class="fa-solid fa-play"></i> Lancer tous les tests
+  </button>
+{% endblock %}
+
+{% block content %}
+<div class="stack">
+
+  <!-- Hero : plan + objectif -->
+  <div class="tp-hero">
+    <div class="tp-ring">
+      {{ m.ring(plan_pct, 132, 13) }}
+      <div class="pct"><div><b style="color:{{ m.pctcolor(plan_pct) }}">{{ plan_pct }}%</b><br><span>du plan</span></div></div>
+    </div>
+    <div class="tp-hero-meta">
+      <h1>{{ plan.title or "Plan de la routine de tests" }}</h1>
+      <p>{{ plan.objective or "La routine alloue chaque exécution entre couverture (nouveaux tests) et fiabilisation (correction des tests défaillants)." }}</p>
+      <div class="tp-hero-chips">
+        <div class="hchip"><b>{{ steps_done }}/{{ steps|length }}</b><small>Étapes finies</small></div>
+        <div class="hchip"><b style="color:var(--sky)">{{ agg.runs }}</b><small>Exécutions</small></div>
+        <div class="hchip"><b style="color:var(--green)">{{ agg.new_tests }}</b><small>Tests ajoutés</small></div>
+        <div class="hchip"><b style="color:var(--pink-d)">{{ agg.tests_fixed }}</b><small>Tests corrigés</small></div>
+        <div class="hchip"><b style="color:var(--amber)">{{ agg.patches }}</b><small>Patchs</small></div>
+      </div>
+      {% if plan.updated_at %}<p class="muted-2 mt-12" style="font-size:11.5px"><i class="fa-regular fa-clock"></i> Plan mis à jour le {{ plan.updated_at }}</p>{% endif %}
+    </div>
+  </div>
+
+  <div class="grid col-main-side">
+    <!-- Journal (timeline) -->
+    <div class="card">
+      <div class="card-head">
+        <h3><i class="fa-solid fa-feather-pointed" style="color:var(--pink)"></i> Journal des exécutions</h3>
+        <div class="spacer"></div>
+        <span class="sub">du plus récent au plus ancien</span>
+      </div>
+      <div class="card-pad">
+        {% if entries %}
+        <div class="tl">
+          {% for e in entries %}
+          <div class="tl-item">
+            <div class="tl-dot"><i class="fa-solid fa-flag-checkered"></i></div>
+            <div class="tl-card">
+              <div class="tl-head">
+                <b>{{ e.title or "Exécution de la routine" }}</b>
+                <span class="date">{{ e.date or e.at or '' }}{% if e.author %} · {{ e.author }}{% endif %}</span>
+              </div>
+              {% if e.summary %}<div class="tl-sum">{{ e.summary }}</div>{% endif %}
+              <div class="tl-stats">
+                {% if e.new_tests %}<span class="jchip green"><i class="fa-solid fa-plus"></i> {{ e.new_tests }} test{{ 's' if e.new_tests > 1 }} ajouté{{ 's' if e.new_tests > 1 }}</span>{% endif %}
+                {% if e.tests_fixed %}<span class="jchip pink"><i class="fa-solid fa-wrench"></i> {{ e.tests_fixed }} corrigé{{ 's' if e.tests_fixed > 1 }}</span>{% endif %}
+                {% if e.patches %}<span class="jchip amber"><i class="fa-solid fa-screwdriver-wrench"></i> {{ e.patches }} patch{{ 's' if e.patches > 1 }}</span>{% endif %}
+                {% if e.page %}<span class="jchip indigo"><i class="fa-regular fa-file-lines"></i> {{ e.page }}</span>{% endif %}
+              </div>
+              {% if e.highlights %}
+              <ul class="tl-hl">{% for h in e.highlights %}<li>{{ h }}</li>{% endfor %}</ul>
+              {% endif %}
+              {% if e.next %}<div class="tl-next"><b>Prochaine étape :</b> {{ e.next }}</div>{% endif %}
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+        {% else %}
+        <div class="empty">Aucune entrée pour l'instant. La routine ajoutera un compte rendu à chaque exécution.</div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Plan (roadmap) -->
+    <div class="card" style="align-self:start">
+      <div class="card-head"><h3><i class="fa-solid fa-list-check" style="color:var(--green)"></i> Plan en cours</h3></div>
+      <div class="card-pad">
+        {% if steps %}
+        <div class="road">
+          {% for s in steps %}
+          {% set st = s.status or 'todo' %}
+          <div class="road-step">
+            <div class="road-ic {{ st }}">
+              {% if st == 'done' %}<i class="fa-solid fa-check"></i>
+              {% elif st == 'in_progress' %}<i class="fa-solid fa-bolt"></i>
+              {% else %}<i class="fa-regular fa-circle"></i>{% endif %}
+            </div>
+            <div class="road-tt">
+              <b>{{ s.title }}</b>
+              {% if s.note %}<small>{{ s.note }}</small>{% endif %}
+            </div>
+            <div class="road-prog">
+              <div class="bar"><span style="width:{{ s._pct }}%;background:{% if st=='done' %}var(--green){% elif st=='in_progress' %}var(--pink){% else %}var(--muted-2){% endif %}"></span></div>
+              <span class="pc" style="color:{% if st=='done' %}var(--green){% elif st=='in_progress' %}var(--pink-d){% else %}var(--muted-2){% endif %}">{{ s._pct }}%</span>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+        {% else %}
+        <div class="empty">Le plan sera défini par la routine.</div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -10,10 +10,13 @@ Tu es chargé de **deux missions** sur l'application DevOPTIQ :
 1. **Compléter la couverture de tests** et maintenir le panel de rapport.
 2. **Corriger les bugs** révélés par les tests qui échouent (la où la couverture
    n'atteint pas 100 %), et **tracer chaque correctif** dans le panel.
+3. **Tenir le carnet de bord** : à chaque exécution, un bref compte rendu de ce
+   qui a avancé + la mise à jour du plan (page « Carnet de bord » du panel).
 
 **Répartition des ressources par lancement : ~70 % couverture de tests, ~30 %
 correction de bugs + traçage des patchs.** Si la suite est déjà à 100 %,
-réinvestis ces 30 % dans la couverture.
+réinvestis ces 30 % dans la couverture. **Termine TOUJOURS par une entrée de
+carnet de bord** (même brève).
 
 ---
 
@@ -26,6 +29,7 @@ Lis :
 - `tests/conftest.py` : fixtures (`app`, `client`, `auth_client`, `ids`)
 - `tests/generate_report.py` : dictionnaire `PAGE_LABELS`
 - `tests/patches.json` : patchs déjà enregistrés (ne pas dupliquer un `patch_uid`)
+- `tests/journal.json` : carnet de bord — le plan en cours et les comptes rendus passés
 - `run_tests.sh` : comment lancer les tests
 
 ---
@@ -129,7 +133,41 @@ Dans `tests/generate_report.py`, ajoute la page à `PAGE_LABELS` si absente :
 
 ---
 
-## ÉTAPE 5 — Commit et push
+## ÉTAPE 5 — Carnet de bord (OBLIGATOIRE en fin de run)
+
+Rédige un **bref compte rendu** de l'exécution et mets à jour le **plan**, via le
+helper (le panel affiche tout ça sur la page « Carnet de bord ») :
+
+```
+.venv/bin/python tests/record_journal.py --entry '{
+  "title": "Résumé court de ce qui a avancé ce run",
+  "summary": "1-2 phrases : ce qui a été fait (couverture + corrections).",
+  "new_tests": 12,
+  "tests_fixed": 2,
+  "patches": 2,
+  "page": "chatbot",
+  "highlights": ["Point clé 1", "Point clé 2", "Point clé 3"],
+  "next": "Ce qui est prévu au prochain run.",
+  "author": "routine"
+}'
+```
+
+Puis fais avancer le plan (créer/mettre à jour une étape) :
+
+```
+.venv/bin/python tests/record_journal.py --step '{"id": "coverage", "progress": 93}'
+.venv/bin/python tests/record_journal.py --step '{"id": "optiqcarto", "status": "in_progress", "progress": 20}'
+```
+
+Règles : reste **visuel et non technique** dans `summary`/`highlights` (parle
+d'avancement, pas de stack traces). `new_tests`/`tests_fixed`/`patches` doivent
+refléter ce run. Un `id` d'étape : `coverage`, `green`, `isolation`, `patches`,
+`pilotage`, `optiqcarto`… (ou un nouveau, court et stable). Statuts d'étape :
+`todo` | `in_progress` | `done`.
+
+---
+
+## ÉTAPE 6 — Commit et push
 ```
 # IMPORTANT : inclure AUSSI les correctifs applicatifs (Code/), pas seulement tests/
 git add -A
@@ -152,8 +190,10 @@ Si le push échoue : réessayer 4 fois (attendre 2s, 4s, 8s, 16s).
 - Un test = une assertion précise, pas un générique « la page répond 200 ».
 - Si une fonctionnalité nécessite un objet absent du seed, ajoute-le dans
   `conftest.py` → `_seed_db()`.
-- Le panel de tests (`/testpanel/`) affiche : taux par page, historique des runs,
-  **et les patchs** (par test, par page, et dans le tableau de bord global).
-  Chaque patch montre : raison de l'échec, s'il y avait un vrai bug, l'erreur,
-  quand et comment c'est corrigé.
+- Le panel de tests (`/testpanel/`) a 3 sections : **Vue d'ensemble** (taux par
+  page, courbe d'évolution, runs), **Patchs** (par catégorie : bug applicatif /
+  isolation / qualité de test, avec raison de l'échec, vrai bug ou non, erreur,
+  correctif), et **Carnet de bord** (plan en cours + journal des exécutions).
+- Sources de vérité versionnées (le panel les lit) : `tests/patches.json`
+  (helper `record_patch.py`) et `tests/journal.json` (helper `record_journal.py`).
 - Le rapport visuel se génère avec `./run_tests.sh` (→ `tests/report_visuel.html`).
