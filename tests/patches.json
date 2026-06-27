@@ -1,0 +1,22 @@
+[
+  {
+    "patch_uid": "2026-06-27-logout-auth-client-pollution",
+    "title": "Isoler test_logout_redirects pour éviter la déconnexion du auth_client partagé",
+    "node_ids": [
+      "tests/test_01_auth.py::TestLoginPage::test_logout_redirects",
+      "tests/test_11_tools.py::TestToolsCRUD::test_create_tool_duplicate_name"
+    ],
+    "page_slug": "auth",
+    "failure_reason": "test_create_tool_duplicate_name retournait 201 au lieu de 409 car Entity.get_active_id() renvoyait None : test_logout_redirects vidait la session du auth_client partagé via /logout, supprimant user_id et active_entity_id pour tous les tests suivants.",
+    "was_real_bug": false,
+    "root_cause": "test_isolation",
+    "error": "test_logout_redirects appelait auth_client.get(/logout) ce qui effaçait la session Flask partagée (scope=session), rendant Entity.get_active() incapable de résoudre l'entité active pour Tool.for_active_entity(). Sans entité active, le contrôle de doublon ne trouvait rien et créait le tool en double.",
+    "fix_description": "test_logout_redirects utilise désormais un client dédié (app.test_client()) qui se connecte puis se déconnecte de façon isolée, sans toucher au auth_client partagé. Ajout de owner_id sur l'entité seed dans conftest.py pour que Entity.get_active() fonctionne correctement avec le test du doublon.",
+    "files_changed": [
+      "tests/test_01_auth.py",
+      "tests/conftest.py"
+    ],
+    "author": "routine",
+    "fixed_at": "2026-06-27T22:07:42.038618+00:00"
+  }
+]

@@ -46,8 +46,15 @@ class TestLoginPage:
         # Doit rediriger (302) après succès
         assert r.status_code in (302, 200)
 
-    def test_logout_redirects(self, auth_client):
-        r = auth_client.get("/logout", follow_redirects=False)
+    def test_logout_redirects(self, app):
+        # Utilise un client dédié pour ne pas déconnecter le auth_client partagé
+        dedicated = app.test_client()
+        dedicated.post(
+            "/login",
+            data={"email": "test@devoptiq.com", "password": "TestPass123!"},
+            follow_redirects=False,
+        )
+        r = dedicated.get("/logout", follow_redirects=False)
         assert r.status_code in (200, 302)
 
 

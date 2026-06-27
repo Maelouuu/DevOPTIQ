@@ -12,16 +12,20 @@ from datetime import datetime
 from pathlib import Path
 
 PAGE_LABELS = {
-    "test_01_auth":        "Authentification",
-    "test_02_activities":  "Liste des Activités",
-    "test_03_tasks":       "Tâches",
-    "test_04_constraints": "Contraintes",
-    "test_05_aptitudes":   "Aptitudes",
-    "test_06_softskills":  "HSC / Habiletés Socio-Cognitives",
-    "test_07_performance": "Performance / Connexions",
-    "test_08_task_links":  "Drag & Drop Connexions→Tâches",
-    "test_09_time":        "Gestion du Temps",
-    "test_10_roles":       "Rôles",
+    "test_01_auth":              "Authentification",
+    "test_02_activities":        "Liste des Activités",
+    "test_03_tasks":             "Tâches",
+    "test_04_activity_features": "Fonctionnalités Activité",
+    "test_04_constraints":       "Contraintes",
+    "test_05_aptitudes":         "Aptitudes",
+    "test_06_softskills":        "HSC / Habiletés Socio-Cognitives",
+    "test_07_performance":       "Performance / Connexions",
+    "test_08_task_links":        "Drag & Drop Connexions→Tâches",
+    "test_09_time":              "Gestion du Temps",
+    "test_10_roles":             "Rôles",
+    "test_11_tools":             "Gestion des Outils",
+    "test_12_savoirs":           "Savoirs",
+    "test_13_savoir_faires":     "Savoir-Faires",
 }
 
 

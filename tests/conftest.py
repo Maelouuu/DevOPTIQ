@@ -60,6 +60,10 @@ def _seed_db(db):
     db.session.add(user)
     db.session.flush()
 
+    # owner_id requis pour que Entity.get_active() / for_active_entity() fonctionnent
+    entity.owner_id = user.id
+    db.session.flush()
+
     activity = Activities(
         entity_id=entity.id,
         name="Activité Test",
