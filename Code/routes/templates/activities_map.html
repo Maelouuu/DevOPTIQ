@@ -280,6 +280,10 @@
         </div>
       </div>
       {% if activities %}
+        <div class="carto-activity-search">
+          <i class="fa-solid fa-magnifying-glass"></i>
+          <input type="search" id="carto-activity-search" placeholder="Rechercher une activité…" autocomplete="off">
+        </div>
         <ul class="activities-list" id="activities-list">
           {% for a in activities %}
             <li class="activity-item" data-id="{{ a.id }}" data-name="{{ a.name | lower }}">
@@ -288,6 +292,7 @@
             </li>
           {% endfor %}
         </ul>
+        <div class="carto-activity-noresult" id="carto-activity-noresult" style="display:none">Aucune activité ne correspond.</div>
       {% else %}
         <div class="no-activities">
           <p>{{ t('map.no_activities') }}</p>

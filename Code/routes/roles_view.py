@@ -198,12 +198,18 @@ def view_roles():
                 ORDER BY COALESCE(u.last_name, ''), COALESCE(u.first_name, '')
             """)
             rows = db.session.execute(stmt_holders, {"rid": role.id}).fetchall()
+            # Couleur du titulaire = moyenne de ses notes (manager) sur les
+            # activités du rôle (bloc 1, où le rôle est Garant).
+            from Code.competency_color import user_competency_hex
+            role_activity_ids = [a["id"] for a in block1]
             for r in rows:
                 holders.append({
                     "id": r[0],
                     "first_name": r[1],
                     "last_name": r[2],
                     "email": r[3],
+                    "comp_color": user_competency_hex(
+                        r[0], activity_ids=role_activity_ids, evaluator='manager'),
                 })
         except Exception:
             # Si la table n'existe pas, on laisse vide.

@@ -383,6 +383,14 @@ def get_all_collaborators_with_manager():
         users = User.query.order_by(User.last_name).all()
         all_roles = Role.query.order_by(Role.name).all()
 
+    # Activités (Garant) par rôle — pour scoper la couleur de compétences au rôle
+    from Code.competency_color import user_competency_hex
+    role_acts = {}
+    for rid, aid in db.session.execute(text(
+        "SELECT role_id, activity_id FROM activity_roles WHERE status = 'Garant'"
+    )).fetchall():
+        role_acts.setdefault(rid, []).append(aid)
+
     users_data = []
     for u in users:
         roles = []
@@ -391,7 +399,11 @@ def get_all_collaborators_with_manager():
                 roles.append({
                     'id': ur.role.id,
                     'name': ur.role.name,
-                    'manager_id': ur.manager_id
+                    'manager_id': ur.manager_id,
+                    # Couleur = moyenne des notes du manager pour ce user sur les
+                    # activités du rôle (None si aucune évaluation).
+                    'comp_color': user_competency_hex(
+                        u.id, role_acts.get(ur.role.id, []), evaluator='manager'),
                 })
         users_data.append({
             'id': u.id,

@@ -278,6 +278,33 @@ function initListClicks() {
 }
 
 /* ============================================================
+   RECHERCHE DANS LA LISTE DES ACTIVITÉS (panneau droit)
+============================================================ */
+function initActivitySearch() {
+  const input = document.getElementById("carto-activity-search");
+  if (!input) return;
+  const items = Array.from(document.querySelectorAll("#activities-list .activity-item"));
+  const noRes = document.getElementById("carto-activity-noresult");
+  const countEl = document.querySelector(".activities-panel-count");
+  const total = items.length;
+  const norm = (s) => (s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+  const plural = (n) => "activité" + (n > 1 ? "s" : "");
+  input.addEventListener("input", () => {
+    const q = norm(input.value.trim());
+    let shown = 0;
+    items.forEach((li) => {
+      const match = !q || norm(li.dataset.name).includes(q);
+      li.style.display = match ? "" : "none";
+      if (match) shown++;
+    });
+    if (noRes) noRes.style.display = shown === 0 ? "" : "none";
+    if (countEl) countEl.textContent = q
+      ? `${shown} / ${total} ${plural(total)}`
+      : `${total} ${plural(total)}`;
+  });
+}
+
+/* ============================================================
    GESTION DES MODALS (SÉCURISÉE)
 ============================================================ */
 function hideAllModals() {
@@ -1838,6 +1865,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   // Initialiser
   initListClicks();
+  initActivitySearch();
   initWizard();
   initPan();
   initCrossCartoMode();

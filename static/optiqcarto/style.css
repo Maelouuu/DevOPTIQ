@@ -2645,3 +2645,29 @@ html, body {
   padding: 1px 5px;
   flex-shrink: 0;
 }
+
+/* ── Mini-carte de navigation (outil uniquement) ───────────────────────── */
+#carto-minimap {
+  position: absolute;
+  right: 18px;
+  bottom: 18px;
+  width: 200px;
+  height: 144px;
+  background: rgba(255, 255, 255, 0.96);
+  border: 1px solid #d6dbe5;
+  border-radius: 11px;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.16);
+  z-index: 40;
+  overflow: hidden;
+  cursor: grab;
+  user-select: none;
+}
+#carto-minimap.dragging { cursor: grabbing; }
+#carto-minimap svg { display: block; }
+#carto-minimap .mini-bg { fill: #eef1f6; }
+#carto-minimap .mini-frame {
+  fill: rgba(236, 72, 153, 0.14);
+  stroke: #ec4899;
+  stroke-width: 1.6;
+  pointer-events: none;
+}

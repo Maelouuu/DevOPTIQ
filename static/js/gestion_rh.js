@@ -472,7 +472,12 @@ function renderManagerCollabList() {
         if (c.roles && c.roles.length > 0) {
             rolesHtml = c.roles.map(r => {
                 const isRoleAssigned = r.manager_id === selectedManagerId;
-                return `<span class="grh-assign-role-tag ${isRoleAssigned ? 'assigned' : 'unassigned'}">${capitalize(r.name)}</span>`;
+                // Couleur = moyenne des notes du manager pour ce user sur ce rôle
+                const colStyle = r.comp_color
+                    ? ` style="border-color:${r.comp_color};color:${r.comp_color};font-weight:600;"`
+                    : '';
+                const colTitle = r.comp_color ? ' title="Compétences : moyenne des notes du manager"' : '';
+                return `<span class="grh-assign-role-tag ${isRoleAssigned ? 'assigned' : 'unassigned'}"${colStyle}${colTitle}>${capitalize(r.name)}</span>`;
             }).join('');
         } else {
             rolesHtml = '<span style="color:#94a3b8; font-size:11px;">No role</span>';
@@ -516,7 +521,10 @@ function openAssignModal(userId) {
     const body = document.getElementById('modal-assign-body');
     let rolesHtml = '';
     if (user.roles && user.roles.length > 0) {
-        rolesHtml = user.roles.map(r => `<span class="grh-assign-role-badge">${capitalize(r.name)}</span>`).join('');
+        rolesHtml = user.roles.map(r => {
+            const colStyle = r.comp_color ? ` style="border-color:${r.comp_color};color:${r.comp_color};font-weight:600;"` : '';
+            return `<span class="grh-assign-role-badge"${colStyle}>${capitalize(r.name)}</span>`;
+        }).join('');
     } else {
         rolesHtml = '<span style="color:#94a3b8; font-size:12px; font-style:italic;">No role</span>';
     }

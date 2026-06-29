@@ -264,6 +264,7 @@ function applyViewport() {
   rootGroup.setAttribute('transform', `translate(${vpX},${vpY}) scale(${vpScale})`);
   // vpScale 0.5 = "100%", 1.0 = "200%" (×200 pour que le défaut 50% s'affiche 100%)
   if (statusZoom) statusZoom.textContent = Math.round(vpScale * 200) + '%';
+  if (window.__miniReady) renderMinimap();   // mini-carte (outil) — voir bloc MINIMAP
 }
 
 /* ══════════════════════════════════════════════════
@@ -2119,7 +2120,9 @@ function _edgeScrollStep() {
 }
 
 function _updateEdgeScroll(clientX, clientY) {
-  if (isPanning) { edgeScrollVX = 0; edgeScrollVY = 0; return; }
+  // Auto-scroll au bord réservé à l'OUTIL (éditeur). En lecture seule (viewer),
+  // approcher la souris d'un bord ne doit PAS déplacer la carto.
+  if (window.OPTIQCARTO_READONLY || isPanning) { edgeScrollVX = 0; edgeScrollVY = 0; return; }
   const r = canvas.getBoundingClientRect();
   const dL = clientX - r.left, dR = r.right  - clientX;
   const dT = clientY - r.top,  dB = r.bottom - clientY;
@@ -3542,6 +3545,129 @@ function fitView() {
   vpX = (r.width  - dw * vpScale) / 2 - (minX - pad) * vpScale;
   vpY = (r.height - dh * vpScale) / 2 - (minY - pad) * vpScale;
   applyViewport();
+}
+
+/* ══════════════════════════════════════════════════
+   MINIMAP (mini-carte de navigation — OUTIL uniquement)
+   Aperçu réduit de la carto + cadre déplaçable qui pilote
+   le cadrage du canvas (drag = pan). Le cadre reflète le zoom.
+   ══════════════════════════════════════════════════ */
+const MINI_W = 200, MINI_H = 144, MINI_PAD = 8;
+let _mini = null;
+let _miniSig = '';
+window.__miniReady = true;   // applyViewport peut désormais appeler renderMinimap()
+
+function _miniBounds() {
+  if (!state.shapes.length) return null;
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  for (const s of state.shapes) {
+    minX = Math.min(minX, s.x); minY = Math.min(minY, s.y);
+    maxX = Math.max(maxX, s.x + s.w); maxY = Math.max(maxY, s.y + s.h);
+  }
+  if (state.showBands && state.bands.length > 0) minX = Math.min(minX, 0);
+  const padW = (maxX - minX) * 0.04 + 20, padH = (maxY - minY) * 0.04 + 20;
+  return { minX: minX - padW, minY: minY - padH, maxX: maxX + padW, maxY: maxY + padH };
+}
+
+function _buildMinimap() {
+  const parent = (canvas && canvas.parentElement) || document.body;
+  if (getComputedStyle(parent).position === 'static') parent.style.position = 'relative';
+  const wrap = document.createElement('div');
+  wrap.id = 'carto-minimap';
+  wrap.title = 'Mini-carte — glissez le cadre pour vous déplacer';
+  wrap.innerHTML =
+    `<svg width="${MINI_W}" height="${MINI_H}" viewBox="0 0 ${MINI_W} ${MINI_H}">
+       <rect class="mini-bg" x="0" y="0" width="${MINI_W}" height="${MINI_H}" rx="9"/>
+       <g id="mini-content"></g>
+       <rect id="mini-frame" class="mini-frame" x="0" y="0" width="10" height="10" rx="2"/>
+     </svg>`;
+  parent.appendChild(wrap);
+  _mini = {
+    wrap, svg: wrap.querySelector('svg'),
+    content: wrap.querySelector('#mini-content'),
+    frame: wrap.querySelector('#mini-frame'),
+    bbox: null, ms: 1, offX: 0, offY: 0,
+  };
+  _attachMinimapDrag();
+  window.addEventListener('resize', () => { if (_mini && _mini.bbox) _updateMinimapFrame(); });
+}
+
+function _drawMiniShapes(b) {
+  const cw = (b.maxX - b.minX) || 1, ch = (b.maxY - b.minY) || 1;
+  const availW = MINI_W - MINI_PAD * 2, availH = MINI_H - MINI_PAD * 2;
+  const ms = Math.min(availW / cw, availH / ch);
+  _mini.ms = ms;
+  _mini.offX = MINI_PAD + (availW - cw * ms) / 2;
+  _mini.offY = MINI_PAD + (availH - ch * ms) / 2;
+  _mini.bbox = b;
+  const parts = [];
+  for (const s of state.shapes) {
+    const x = _mini.offX + (s.x - b.minX) * ms;
+    const y = _mini.offY + (s.y - b.minY) * ms;
+    const w = Math.max(1.2, s.w * ms), h = Math.max(1.2, s.h * ms);
+    const fill = s.type === 'special' ? '#f9a8d4' : (s.type === 'start-end' ? '#c7d2fe' : '#94a3b8');
+    parts.push(`<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${w.toFixed(1)}" height="${h.toFixed(1)}" rx="1.5" fill="${fill}"/>`);
+  }
+  _mini.content.innerHTML = parts.join('');
+}
+
+function _updateMinimapFrame() {
+  if (!_mini || !_mini.bbox || !canvas) return;
+  const r = canvas.getBoundingClientRect();
+  const { minX, minY } = _mini.bbox, ms = _mini.ms, offX = _mini.offX, offY = _mini.offY;
+  const worldLeft = -vpX / vpScale, worldTop = -vpY / vpScale;
+  const worldW = r.width / vpScale, worldH = r.height / vpScale;
+  const fx = offX + (worldLeft - minX) * ms;
+  const fy = offY + (worldTop - minY) * ms;
+  _mini.frame.setAttribute('x', fx.toFixed(1));
+  _mini.frame.setAttribute('y', fy.toFixed(1));
+  _mini.frame.setAttribute('width',  Math.max(6, worldW * ms).toFixed(1));
+  _mini.frame.setAttribute('height', Math.max(6, worldH * ms).toFixed(1));
+}
+
+function renderMinimap() {
+  if (window.OPTIQCARTO_READONLY) return;   // mini-carte = OUTIL uniquement
+  if (!_mini) _buildMinimap();
+  const b = _miniBounds();
+  if (!b) { _mini.wrap.style.display = 'none'; _miniSig = ''; return; }
+  _mini.wrap.style.display = '';
+  const sig = state.shapes.length + '|' + b.minX.toFixed(0) + ',' + b.minY.toFixed(0)
+            + ',' + b.maxX.toFixed(0) + ',' + b.maxY.toFixed(0) + '|' + (state.showBands ? 'b' : '');
+  if (sig !== _miniSig) { _miniSig = sig; _drawMiniShapes(b); }
+  _updateMinimapFrame();
+}
+
+function _centerCanvasOnMini(mx, my) {
+  if (!_mini || !_mini.bbox) return;
+  const { minX, minY } = _mini.bbox, ms = _mini.ms, offX = _mini.offX, offY = _mini.offY;
+  const wx = (mx - offX) / ms + minX, wy = (my - offY) / ms + minY;
+  const r = canvas.getBoundingClientRect();
+  vpX = r.width / 2 - wx * vpScale;
+  vpY = r.height / 2 - wy * vpScale;
+  applyViewport();
+}
+
+function _attachMinimapDrag() {
+  let dragging = false;
+  const toLocal = (e) => {
+    const rect = _mini.svg.getBoundingClientRect();
+    return { mx: e.clientX - rect.left, my: e.clientY - rect.top };
+  };
+  _mini.svg.addEventListener('mousedown', (e) => {
+    dragging = true;
+    _mini.wrap.classList.add('dragging');
+    const { mx, my } = toLocal(e);
+    _centerCanvasOnMini(mx, my);
+    e.preventDefault(); e.stopPropagation();
+  });
+  window.addEventListener('mousemove', (e) => {
+    if (!dragging) return;
+    const { mx, my } = toLocal(e);
+    _centerCanvasOnMini(mx, my);
+  });
+  window.addEventListener('mouseup', () => {
+    if (dragging) { dragging = false; _mini.wrap.classList.remove('dragging'); }
+  });
 }
 
 /* ══════════════════════════════════════════════════

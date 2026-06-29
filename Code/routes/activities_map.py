@@ -222,9 +222,10 @@ def activities_map_page():
         # Log pour debug
         print(f"[CARTO] Entité {active_entity.id}: SVG={svg_exists} ({svg_path}), VSDX={vsdx_exists}")
         
-        activities = Activities.query.filter_by(
-            entity_id=active_entity.id
-        ).order_by(Activities.id).all()
+        activities = sorted(
+            Activities.query.filter_by(entity_id=active_entity.id).all(),
+            key=lambda a: (a.name or '').lower()
+        )
         
         shape_activity_map = {
             str(act.shape_id): act.id

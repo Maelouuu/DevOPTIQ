@@ -640,8 +640,10 @@
               {% if item.holders and item.holders|length > 0 %}
                 <div>
                   {% for u in item.holders %}
-                    <span class="holder-badge" data-user-id="{{ u.id }}" data-role-id="{{ item.role.id }}">
-                      <span>{{ u.last_name }} {{ u.first_name }}</span>
+                    <span class="holder-badge" data-user-id="{{ u.id }}" data-role-id="{{ item.role.id }}"
+                          {% if u.comp_color %}style="border-color:{{ u.comp_color }};" title="Niveau de compétences (moyenne des notes du manager)"{% endif %}>
+                      {% if u.comp_color %}<span style="width:9px;height:9px;border-radius:50%;background:{{ u.comp_color }};display:inline-block;flex-shrink:0;"></span>{% endif %}
+                      <span {% if u.comp_color %}style="color:{{ u.comp_color }};font-weight:600;"{% endif %}>{{ u.last_name }} {{ u.first_name }}</span>
                       <span class="level" id="validation-{{ u.id }}-{{ item.role.id }}">–</span>
                     </span>
                   {% endfor %}

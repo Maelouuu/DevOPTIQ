@@ -107,7 +107,7 @@
           <h4>Synthèse du rôle « <%= role_name %> »</h4>
           <table class="eval-table">
             <caption>Évaluation des activités du rôle</caption>
-            <tr><th>Activité</th><th>Garant</th><th>Manager</th><th>RH</th></tr>
+            <tr><th>Activité</th><th>Garant</th><th>Manager</th></tr>
             <% synthese.forEach(function(row) { %>
               <tr>
                 <td>
@@ -116,7 +116,7 @@
                     <small><i>Compétences : <%= row.competencies.join(", ") %></i></small>
                   <% } %>
                 </td>
-                <% ['garant','manager','rh'].forEach(function(p) { %>
+                <% ['garant','manager'].forEach(function(p) { %>
                   <td class="eval-cell <%= row.evals[p]?.note || '' %>"
                       data-id=""
                       data-type=""

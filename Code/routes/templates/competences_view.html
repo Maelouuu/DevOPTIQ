@@ -19,6 +19,9 @@
     
     <!-- Main CSS -->
     <link rel="stylesheet" type="text/css" href="./../../../static/synthese_comp.css">
+    <!-- Styles modale (plan de formation) + page-loader : sans ça, le plan
+         s'affiche en texte brut au lieu d'une popup (.modal.hidden non appliqué). -->
+    <link rel="stylesheet" type="text/css" href="/static/synth_competences_extras.css">
 </head>
 <body>
     <header>
@@ -174,7 +177,6 @@
                                     <th>{{ t('comp.th_activity') }}</th>
                                     <th class="th-eval">{{ t('eval.garant') }}</th>
                                     <th class="th-eval">{{ t('eval.manager') }}</th>
-                                    <th class="th-eval">{{ t('eval.rh') }}</th>
                                 </tr>
                             </thead>
                             <tbody id="modal-synthese-body">

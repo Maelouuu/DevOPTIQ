@@ -276,12 +276,6 @@ function renderModalRole(data) {
                     data-activity="${row.activity_id}">
                     ${row.evals.manager?.note ? formatDate(row.evals.manager?.created_at) : ''}
                 </td>
-                <td class="eval-cell ${row.evals.rh?.note || ''}"
-                    data-type="activities"
-                    data-eval="rh"
-                    data-activity="${row.activity_id}">
-                    ${row.evals.rh?.note ? formatDate(row.evals.rh?.created_at) : ''}
-                </td>
             </tr>
         `;
     }).join('');
