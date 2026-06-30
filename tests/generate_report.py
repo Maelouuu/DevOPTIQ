@@ -62,6 +62,8 @@ PAGE_LABELS = {
     "test_48_set_password_admin":        "Définition de Mot de Passe Admin",
     "test_49_tasks_avance":              "Tâches — CRUD & Rôles Avancé",
     "test_50_activities_map_api_et_ui":  "API Activités Cartographie & Interface UI",
+    "test_51_performance_avance":        "Performance — CRUD Strict & Rendu HTML",
+    "test_52_competency_color":          "Couleur de Compétence — Utilitaire & Logique",
 }
 
 
