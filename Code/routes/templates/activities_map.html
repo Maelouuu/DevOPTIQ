@@ -302,57 +302,6 @@
     </div>
   </div>
 
-  <!-- ══════════════ DEBUG DÉCISIONS ══════════════ -->
-  <div class="dd-section">
-    <div class="dd-header">
-      <div class="dd-header-left">
-        <svg width="18" height="18" viewBox="0 0 18 18" fill="none" style="flex-shrink:0">
-          <path d="M9 1 L17 9 L9 17 L1 9 Z" fill="#9ca3af" stroke="#6b7280" stroke-width="1.2"/>
-        </svg>
-        <span class="dd-header-title">Diagnostic losanges</span>
-        <span class="dd-header-sub">Déposez votre VSDX — analyse VSDX brut vs Outil vs IA</span>
-      </div>
-      <div class="dd-header-right">
-        <button id="dd-export-csv-btn" class="dd-btn dd-btn-ghost" style="display:none">⬇ CSV</button>
-        <button id="dd-export-json-btn" class="dd-btn dd-btn-ghost" style="display:none">⬇ JSON</button>
-        <button id="dd-ai-btn" class="dd-btn dd-btn-ai">✦ Analyse IA</button>
-        <button id="dd-reset-btn" class="dd-btn dd-btn-ghost">✕ Réinitialiser</button>
-        <button id="dd-toggle-btn" class="dd-btn dd-btn-toggle">
-          <span class="dd-toggle-label">Ouvrir</span>
-          <svg class="dd-chevron" width="12" height="12" viewBox="0 0 12 12"><path d="M2 4 L6 8 L10 4" stroke="currentColor" stroke-width="1.6" fill="none" stroke-linecap="round"/></svg>
-        </button>
-      </div>
-    </div>
-
-    <div id="dd-panel" class="dd-panel">
-      <p id="dd-status" class="dd-status" style="display:none"></p>
-
-      <!-- Drop zone -->
-      <div id="dd-dropzone" class="dd-dropzone">
-        <svg width="28" height="28" viewBox="0 0 28 28" fill="none" class="dd-dz-icon">
-          <path d="M14 2L26 14L14 26L2 14Z" stroke="#9ca3af" stroke-width="1.8" fill="none"/>
-        </svg>
-        <span class="dd-dz-hint">Déposez votre fichier <strong>.vsdx</strong> ici</span>
-        <span class="dd-dz-or">ou <span class="dd-dz-browse">choisissez un fichier</span></span>
-        <input type="file" id="dd-file-input" accept=".vsdx" style="display:none">
-      </div>
-
-      <!-- Score bar -->
-      <div id="dd-score" class="dd-score-wrap"></div>
-
-      <!-- Tabs -->
-      <div class="dd-tabs">
-        <button class="dd-tab dd-tab-active" data-tab="compare">Comparaison</button>
-        <button class="dd-tab" data-tab="oui-non">Oui / Non</button>
-        <button class="dd-tab" data-tab="vsdx">VSDX brut</button>
-        <button class="dd-tab" data-tab="tool">Outil JS</button>
-        <button class="dd-tab" data-tab="ai" id="dd-tab-ai">IA</button>
-      </div>
-      <div id="dd-tab-content" class="dd-tab-content">
-        <p class="dd-empty">Déposez un fichier VSDX pour démarrer l'analyse.</p>
-      </div>
-    </div>
-  </div>
 
 </div>
 
@@ -507,6 +456,5 @@
 })();
 </script>
 
-<script defer src="{{ url_for('static', filename='js/debug_decisions.js') }}"></script>
 <!-- shape-click géré dans activities_map.js (initCrossCartoMode) pour respecter le mode connexion -->
 

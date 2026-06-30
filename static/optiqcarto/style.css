@@ -2671,3 +2671,12 @@ html, body {
   stroke-width: 1.6;
   pointer-events: none;
 }
+#carto-minimap .mini-handle {
+  fill: #ec4899;
+  stroke: #fff;
+  stroke-width: 1.5;
+}
+#carto-minimap .mini-handle[data-c="nw"],
+#carto-minimap .mini-handle[data-c="se"] { cursor: nwse-resize; }
+#carto-minimap .mini-handle[data-c="ne"],
+#carto-minimap .mini-handle[data-c="sw"] { cursor: nesw-resize; }

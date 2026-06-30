@@ -202,6 +202,10 @@ let bandResizeShapeStarts = []; // [{shape, startY}] for shapes below the resize
 let bandResizeMinHeight   = 60; // computed from band content at start of resize
 let edgeScrollVX = 0, edgeScrollVY = 0;
 let edgeScrollRaf = null;
+// Délai d'immobilité avant que le défilement par les bords s'active (évite les
+// déplacements involontaires en passant la souris vers le menu du haut).
+let edgeDwellTimer = null;
+let edgePendingVX = 0, edgePendingVY = 0;
 let spaceDown = false;
 let labelEditing = null;        // { shapeId }
 let portDrag = null;            // { fromShapeId, fromPort:{x,y,dir} } — drag depuis un port
@@ -2108,8 +2112,13 @@ function createPile() {
    EDGE AUTO-SCROLL
    ══════════════════════════════════════════════════ */
 
-const EDGE_SCROLL_ZONE  = 40; // px from canvas edge
-const EDGE_SCROLL_SPEED =  6; // max px/frame at the very edge
+const EDGE_SCROLL_ZONE  = 40;   // px from canvas edge
+const EDGE_SCROLL_SPEED =  6;   // max px/frame at the very edge
+const EDGE_DWELL_MS     = 1000; // la souris doit rester immobile ~1s avant activation
+
+function _clearEdgeDwell() {
+  if (edgeDwellTimer) { clearTimeout(edgeDwellTimer); edgeDwellTimer = null; }
+}
 
 function _edgeScrollStep() {
   if (edgeScrollVX === 0 && edgeScrollVY === 0) { edgeScrollRaf = null; return; }
@@ -2122,20 +2131,37 @@ function _edgeScrollStep() {
 function _updateEdgeScroll(clientX, clientY) {
   // Auto-scroll au bord réservé à l'OUTIL (éditeur). En lecture seule (viewer),
   // approcher la souris d'un bord ne doit PAS déplacer la carto.
-  if (window.OPTIQCARTO_READONLY || isPanning) { edgeScrollVX = 0; edgeScrollVY = 0; return; }
+  if (window.OPTIQCARTO_READONLY || isPanning) {
+    edgeScrollVX = 0; edgeScrollVY = 0; _clearEdgeDwell(); return;
+  }
   const r = canvas.getBoundingClientRect();
   const dL = clientX - r.left, dR = r.right  - clientX;
   const dT = clientY - r.top,  dB = r.bottom - clientY;
   const Z  = EDGE_SCROLL_ZONE, S = EDGE_SCROLL_SPEED;
-  edgeScrollVX = dL < Z ? +Math.round((Z - dL) / Z * S)
-               : dR < Z ? -Math.round((Z - dR) / Z * S) : 0;
-  edgeScrollVY = dT < Z ? +Math.round((Z - dT) / Z * S)
-               : dB < Z ? -Math.round((Z - dB) / Z * S) : 0;
-  if ((edgeScrollVX !== 0 || edgeScrollVY !== 0) && !edgeScrollRaf)
-    edgeScrollRaf = requestAnimationFrame(_edgeScrollStep);
+  const vx = dL < Z ? +Math.round((Z - dL) / Z * S)
+           : dR < Z ? -Math.round((Z - dR) / Z * S) : 0;
+  const vy = dT < Z ? +Math.round((Z - dT) / Z * S)
+           : dB < Z ? -Math.round((Z - dB) / Z * S) : 0;
+
+  // Hors zone → on coupe tout.
+  if (vx === 0 && vy === 0) {
+    edgeScrollVX = 0; edgeScrollVY = 0; _clearEdgeDwell(); return;
+  }
+
+  // Dans la zone, mais la souris vient de bouger → on (ré)arme le délai
+  // d'immobilité. Le défilement ne démarre qu'après EDGE_DWELL_MS sans mouvement.
+  edgeScrollVX = 0; edgeScrollVY = 0;        // pause tant que ça bouge
+  edgePendingVX = vx; edgePendingVY = vy;
+  _clearEdgeDwell();
+  edgeDwellTimer = setTimeout(() => {
+    edgeDwellTimer = null;
+    edgeScrollVX = edgePendingVX; edgeScrollVY = edgePendingVY;
+    if ((edgeScrollVX !== 0 || edgeScrollVY !== 0) && !edgeScrollRaf)
+      edgeScrollRaf = requestAnimationFrame(_edgeScrollStep);
+  }, EDGE_DWELL_MS);
 }
 
-canvas.addEventListener('mouseleave', () => { edgeScrollVX = 0; edgeScrollVY = 0; });
+canvas.addEventListener('mouseleave', () => { edgeScrollVX = 0; edgeScrollVY = 0; _clearEdgeDwell(); });
 
 /* ══════════════════════════════════════════════════
    MOUSE EVENTS
@@ -3574,18 +3600,23 @@ function _buildMinimap() {
   if (getComputedStyle(parent).position === 'static') parent.style.position = 'relative';
   const wrap = document.createElement('div');
   wrap.id = 'carto-minimap';
-  wrap.title = 'Mini-carte — glissez le cadre pour vous déplacer';
+  wrap.title = 'Mini-carte — glissez le cadre pour vous déplacer, ou les coins pour zoomer';
   wrap.innerHTML =
     `<svg width="${MINI_W}" height="${MINI_H}" viewBox="0 0 ${MINI_W} ${MINI_H}">
        <rect class="mini-bg" x="0" y="0" width="${MINI_W}" height="${MINI_H}" rx="9"/>
        <g id="mini-content"></g>
        <rect id="mini-frame" class="mini-frame" x="0" y="0" width="10" height="10" rx="2"/>
+       <circle class="mini-handle" data-c="nw" r="5"/>
+       <circle class="mini-handle" data-c="ne" r="5"/>
+       <circle class="mini-handle" data-c="sw" r="5"/>
+       <circle class="mini-handle" data-c="se" r="5"/>
      </svg>`;
   parent.appendChild(wrap);
   _mini = {
     wrap, svg: wrap.querySelector('svg'),
     content: wrap.querySelector('#mini-content'),
     frame: wrap.querySelector('#mini-frame'),
+    handles: Array.from(wrap.querySelectorAll('.mini-handle')),
     bbox: null, ms: 1, offX: 0, offY: 0,
   };
   _attachMinimapDrag();
@@ -3619,10 +3650,17 @@ function _updateMinimapFrame() {
   const worldW = r.width / vpScale, worldH = r.height / vpScale;
   const fx = offX + (worldLeft - minX) * ms;
   const fy = offY + (worldTop - minY) * ms;
+  const fw = Math.max(6, worldW * ms), fh = Math.max(6, worldH * ms);
   _mini.frame.setAttribute('x', fx.toFixed(1));
   _mini.frame.setAttribute('y', fy.toFixed(1));
-  _mini.frame.setAttribute('width',  Math.max(6, worldW * ms).toFixed(1));
-  _mini.frame.setAttribute('height', Math.max(6, worldH * ms).toFixed(1));
+  _mini.frame.setAttribute('width',  fw.toFixed(1));
+  _mini.frame.setAttribute('height', fh.toFixed(1));
+  // Poignées de redimensionnement aux 4 coins du cadre
+  const corners = { nw: [fx, fy], ne: [fx + fw, fy], sw: [fx, fy + fh], se: [fx + fw, fy + fh] };
+  for (const h of (_mini.handles || [])) {
+    const c = corners[h.dataset.c];
+    if (c) { h.setAttribute('cx', c[0].toFixed(1)); h.setAttribute('cy', c[1].toFixed(1)); }
+  }
 }
 
 function renderMinimap() {
@@ -3648,25 +3686,63 @@ function _centerCanvasOnMini(mx, my) {
 }
 
 function _attachMinimapDrag() {
-  let dragging = false;
+  let mode = null;        // 'move' | 'resize'
+  let centerW = null;     // centre du cadre figé pendant un resize (coords monde)
   const toLocal = (e) => {
     const rect = _mini.svg.getBoundingClientRect();
     return { mx: e.clientX - rect.left, my: e.clientY - rect.top };
   };
+  const miniToWorld = (mx, my) => ({
+    wx: (mx - _mini.offX) / _mini.ms + _mini.bbox.minX,
+    wy: (my - _mini.offY) / _mini.ms + _mini.bbox.minY,
+  });
+
+  // Poignées de coin → redimensionnement (zoom) autour du centre du cadre
+  for (const h of _mini.handles) {
+    h.addEventListener('mousedown', (e) => {
+      if (!_mini.bbox) return;
+      mode = 'resize';
+      _mini.wrap.classList.add('dragging');
+      const r = canvas.getBoundingClientRect();
+      centerW = {
+        x: (-vpX / vpScale) + (r.width  / vpScale) / 2,
+        y: (-vpY / vpScale) + (r.height / vpScale) / 2,
+      };
+      e.preventDefault(); e.stopPropagation();
+    });
+  }
+
+  // Corps de la mini-carte → déplacement (pan)
   _mini.svg.addEventListener('mousedown', (e) => {
-    dragging = true;
+    if (e.target.classList && e.target.classList.contains('mini-handle')) return;
+    mode = 'move';
     _mini.wrap.classList.add('dragging');
     const { mx, my } = toLocal(e);
     _centerCanvasOnMini(mx, my);
     e.preventDefault(); e.stopPropagation();
   });
+
   window.addEventListener('mousemove', (e) => {
-    if (!dragging) return;
+    if (!mode || !_mini.bbox) return;
     const { mx, my } = toLocal(e);
-    _centerCanvasOnMini(mx, my);
+    if (mode === 'move') { _centerCanvasOnMini(mx, my); return; }
+    // resize : la distance coin↔centre fixe la taille du cadre → donc le zoom
+    if (!centerW) return;
+    const r = canvas.getBoundingClientRect();
+    const aspect = r.width / r.height;
+    const { wx, wy } = miniToWorld(mx, my);
+    const ax = Math.abs(wx - centerW.x), ay = Math.abs(wy - centerW.y);
+    const halfW = Math.max(40, ax, ay * aspect);   // demi-largeur visible (monde)
+    let newScale = r.width / (2 * halfW);
+    newScale = Math.max(0.05, Math.min(4, newScale));
+    vpScale = newScale;
+    vpX = r.width  / 2 - centerW.x * vpScale;
+    vpY = r.height / 2 - centerW.y * vpScale;
+    applyViewport();
   });
+
   window.addEventListener('mouseup', () => {
-    if (dragging) { dragging = false; _mini.wrap.classList.remove('dragging'); }
+    if (mode) { mode = null; centerW = null; _mini.wrap.classList.remove('dragging'); }
   });
 }
 
