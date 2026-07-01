@@ -1034,10 +1034,14 @@ def delete_connection(link_id):
     link = Link.query.get(link_id)
     if not link:
         return jsonify({"error": "Connexion non trouvée"}), 404
-    
+
+    entity = get_active_entity()
+    if not entity or link.entity_id != entity.id:
+        return jsonify({"error": "Connexion non trouvée"}), 404
+
     db.session.delete(link)
     db.session.commit()
-    
+
     return jsonify({"status": "ok"})
 
 

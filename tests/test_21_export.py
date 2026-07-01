@@ -159,6 +159,13 @@ class TestServeFile:
         r = auth_client.get("/utils/serve-file?path=/utils/file/not_an_int")
         assert r.status_code == 400
 
+    def test_serve_file_db_path_invalid_id_error_message(self, auth_client):
+        """L'erreur 400 pour un ID non-entier renvoie le message précis attendu
+        (distinct des autres 400 de la route, pour détecter une régression de branche)."""
+        r = auth_client.get("/utils/serve-file?path=/utils/file/not_an_int")
+        data = json.loads(r.data)
+        assert data["error"] == "ID de fichier invalide"
+
     def test_serve_file_db_path_missing_blob_returns_404(self, auth_client):
         """path=/utils/file/99998 avec blob inexistant → 404."""
         r = auth_client.get("/utils/serve-file?path=/utils/file/99998")
@@ -168,6 +175,15 @@ class TestServeFile:
         """Chemin local inexistant → 404."""
         r = auth_client.get("/utils/serve-file?path=/tmp/definitely_does_not_exist_xyz.txt")
         assert r.status_code == 404
+
+    def test_serve_file_local_existing_file_returns_content(self, auth_client, tmp_path):
+        """Chemin local absolu existant → 200 avec le contenu du fichier (branche
+        filesystem, distincte de la branche DB /utils/file/<id>)."""
+        local_file = tmp_path / "serve_local_test.txt"
+        local_file.write_bytes(b"contenu local de test")
+        r = auth_client.get(f"/utils/serve-file?path={local_file}")
+        assert r.status_code == 200
+        assert r.data == b"contenu local de test"
 
 
 # ===========================================================================

@@ -196,6 +196,50 @@ class TestManagersAPI:
             _delete_user(app, uid)
             _delete_role(app, rid)
 
+    def test_get_managers_no_active_entity_uses_global_role_lookup(self, app, ids):
+        """Sans entité active (pas de session utilisateur), l'API bascule sur la
+        recherche de rôle 'manager' non filtrée par entité (branche else).
+
+        Utilise un client Flask dédié (pas la fixture partagée `client`/`auth_client`)
+        pour ne pas effacer la session authentifiée partagée entre tous les tests.
+        """
+        with app.app_context():
+            from Code.models.models import Role, User, UserRole
+            from Code.extensions import db
+            from werkzeug.security import generate_password_hash
+            global_role = Role(name="manager", entity_id=None)
+            db.session.add(global_role)
+            db.session.flush()
+            global_user = User(
+                entity_id=ids["entity_id"],
+                first_name="Global",
+                last_name="Manager",
+                email="global_manager_noentity@test.com",
+                password=generate_password_hash("Pass123!"),
+                status="user",
+            )
+            db.session.add(global_user)
+            db.session.flush()
+            db.session.add(UserRole(user_id=global_user.id, role_id=global_role.id))
+            db.session.commit()
+            role_id = global_role.id
+            user_id = global_user.id
+
+        try:
+            fresh_client = app.test_client()
+            r = fresh_client.get("/competences/managers")
+            assert r.status_code == 200
+            data = json.loads(r.data)
+            assert any(m["id"] == user_id for m in data)
+        finally:
+            with app.app_context():
+                from Code.models.models import Role, User, UserRole
+                from Code.extensions import db
+                UserRole.query.filter_by(role_id=role_id).delete()
+                User.query.filter_by(id=user_id).delete()
+                Role.query.filter_by(id=role_id).delete()
+                db.session.commit()
+
     def test_get_managers_response_has_id_and_name_fields(self, auth_client, app, ids):
         """Chaque entrée dans la liste des managers contient id et name."""
         rid = _create_role(app, ids, name="manager")

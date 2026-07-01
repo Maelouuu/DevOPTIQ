@@ -490,3 +490,65 @@ class TestTestPanelRunAll:
         r1 = auth_client.post("/testpanel/run/all")
         r2 = auth_client.post("/testpanel/run/all")
         assert r1.get_json()["run_id"] != r2.get_json()["run_id"]
+
+
+# ===========================================================================
+# 9. GET /testpanel/stream/<run_id> — SSE de sortie pytest en direct
+# ===========================================================================
+
+class TestTestPanelStream:
+
+    def _run_id(self, auth_client, monkeypatch):
+        """Démarre un run (thread pytest neutralisé) et renvoie son id."""
+        import Code.routes.test_panel as _tp
+        monkeypatch.setattr(_tp, "_run_thread", lambda *a, **kw: None)
+        r = auth_client.post("/testpanel/run/all")
+        return r.get_json()["run_id"]
+
+    def test_stream_unknown_run_returns_200(self, auth_client, monkeypatch):
+        """run_id jamais démarré → la génération attend puis se termine sans erreur (200)."""
+        monkeypatch.setattr("time.sleep", lambda s: None)
+        r = auth_client.get("/testpanel/stream/999999999")
+        assert r.status_code == 200
+
+    def test_stream_unknown_run_body_is_empty(self, auth_client, monkeypatch):
+        """run_id inconnu → aucune ligne n'est jamais poussée, le flux reste vide."""
+        monkeypatch.setattr("time.sleep", lambda s: None)
+        r = auth_client.get("/testpanel/stream/999999999")
+        assert r.get_data(as_text=True) == ""
+
+    def test_stream_content_type_is_event_stream(self, auth_client, monkeypatch):
+        """Le type MIME de la réponse est text/event-stream."""
+        run_id = self._run_id(auth_client, monkeypatch)
+        import Code.routes.test_panel as _tp
+        with _tp._runs_lock:
+            _tp._runs[run_id]['done'] = True
+        r = auth_client.get(f"/testpanel/stream/{run_id}")
+        assert r.mimetype == "text/event-stream"
+
+    def test_stream_done_run_yields_done_marker(self, auth_client, monkeypatch):
+        """Un run déjà terminé (done=True) émet immédiatement le marqueur [DONE]."""
+        run_id = self._run_id(auth_client, monkeypatch)
+        import Code.routes.test_panel as _tp
+        with _tp._runs_lock:
+            _tp._runs[run_id]['done'] = True
+        r = auth_client.get(f"/testpanel/stream/{run_id}")
+        body = r.get_data(as_text=True)
+        assert '"[DONE]"' in body
+
+    def test_stream_emits_buffered_lines_in_order(self, auth_client, monkeypatch):
+        """Les lignes déjà accumulées dans _runs sont renvoyées, dans l'ordre."""
+        run_id = self._run_id(auth_client, monkeypatch)
+        import Code.routes.test_panel as _tp
+        with _tp._runs_lock:
+            _tp._runs[run_id]['lines'] = ["premiere ligne\n", "deuxieme ligne\n"]
+            _tp._runs[run_id]['done'] = True
+        r = auth_client.get(f"/testpanel/stream/{run_id}")
+        body = r.get_data(as_text=True)
+        assert body.index("premiere ligne") < body.index("deuxieme ligne")
+
+    def test_stream_no_auth_still_reachable(self, client, monkeypatch):
+        """Le panel de tests n'exige pas d'authentification (outil interne)."""
+        monkeypatch.setattr("time.sleep", lambda s: None)
+        r = client.get("/testpanel/stream/999999999")
+        assert r.status_code == 200

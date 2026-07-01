@@ -111,7 +111,7 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 @gestion_rh_bp.route('/import_roles', methods=['POST'])
 def import_roles():
-    file = request.files['role_file']
+    file = request.files.get('role_file')
     if file and file.filename.endswith('.csv'):
         filepath = os.path.join(UPLOAD_FOLDER, secure_filename(file.filename))
         file.save(filepath)

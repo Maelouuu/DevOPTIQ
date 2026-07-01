@@ -148,6 +148,137 @@ class TestCreateUser:
                     db.session.commit()
             _delete_role(app, role_id)
 
+    def test_create_user_missing_first_name_redirects_error_missing_name(self, auth_client, ids, app):
+        """Prénom manquant → redirect msg=error_missing_name, aucun User créé."""
+        role_id = _create_role(app, ids, name="Rôle Missing Name")
+        try:
+            r = auth_client.post(
+                "/comptes/create",
+                data={
+                    "last_name": "SansPrenom",
+                    "email": "sans.prenom@devoptiq.com",
+                    "password": "Pass123!",
+                    "role_id": str(role_id),
+                },
+            )
+            assert r.status_code == 302
+            assert "error_missing_name" in r.headers["Location"]
+            with app.app_context():
+                from Code.models.models import User
+                assert User.query.filter_by(email="sans.prenom@devoptiq.com").first() is None
+        finally:
+            _delete_role(app, role_id)
+
+    def test_create_user_missing_email_redirects_error_missing_email(self, auth_client, ids, app):
+        """Email manquant → redirect msg=error_missing_email."""
+        role_id = _create_role(app, ids, name="Rôle Missing Email")
+        try:
+            r = auth_client.post(
+                "/comptes/create",
+                data={
+                    "first_name": "Sans",
+                    "last_name": "Email",
+                    "password": "Pass123!",
+                    "role_id": str(role_id),
+                },
+            )
+            assert r.status_code == 302
+            assert "error_missing_email" in r.headers["Location"]
+        finally:
+            _delete_role(app, role_id)
+
+    def test_create_user_short_password_redirects_error_missing_password(self, auth_client, ids, app):
+        """Mot de passe < 6 caractères → redirect msg=error_missing_password."""
+        role_id = _create_role(app, ids, name="Rôle Short Pass")
+        try:
+            r = auth_client.post(
+                "/comptes/create",
+                data={
+                    "first_name": "Court",
+                    "last_name": "MDP",
+                    "email": "court.mdp@devoptiq.com",
+                    "password": "abc",
+                    "role_id": str(role_id),
+                },
+            )
+            assert r.status_code == 302
+            assert "error_missing_password" in r.headers["Location"]
+            with app.app_context():
+                from Code.models.models import User
+                assert User.query.filter_by(email="court.mdp@devoptiq.com").first() is None
+        finally:
+            _delete_role(app, role_id)
+
+    def test_create_user_missing_role_redirects_error_missing_role(self, auth_client, ids):
+        """role_id absent → redirect msg=error_missing_role."""
+        r = auth_client.post(
+            "/comptes/create",
+            data={
+                "first_name": "Sans",
+                "last_name": "Role",
+                "email": "sans.role@devoptiq.com",
+                "password": "Pass123!",
+            },
+        )
+        assert r.status_code == 302
+        assert "error_missing_role" in r.headers["Location"]
+
+    def test_create_user_non_integer_role_id_redirects_error_missing_role(self, auth_client, ids):
+        """role_id non numérique → même redirect que role_id absent (ValueError)."""
+        r = auth_client.post(
+            "/comptes/create",
+            data={
+                "first_name": "Role",
+                "last_name": "NonNumerique",
+                "email": "role.non.numerique@devoptiq.com",
+                "password": "Pass123!",
+                "role_id": "abc",
+            },
+        )
+        assert r.status_code == 302
+        assert "error_missing_role" in r.headers["Location"]
+
+    def test_create_user_duplicate_email_redirects_error_email_exists(self, auth_client, ids, app):
+        """Email déjà utilisé → redirect msg=error_email_exists, pas de doublon créé."""
+        role_id = _create_role(app, ids, name="Rôle Duplicate Email")
+        try:
+            r1 = auth_client.post(
+                "/comptes/create",
+                data={
+                    "first_name": "Premier",
+                    "last_name": "Compte",
+                    "email": "doublon.email@devoptiq.com",
+                    "password": "Pass123!",
+                    "role_id": str(role_id),
+                },
+            )
+            assert r1.status_code == 302
+            r2 = auth_client.post(
+                "/comptes/create",
+                data={
+                    "first_name": "Second",
+                    "last_name": "Compte",
+                    "email": "doublon.email@devoptiq.com",
+                    "password": "Pass123!",
+                    "role_id": str(role_id),
+                },
+            )
+            assert r2.status_code == 302
+            assert "error_email_exists" in r2.headers["Location"]
+            with app.app_context():
+                from Code.models.models import User
+                assert User.query.filter_by(email="doublon.email@devoptiq.com").count() == 1
+        finally:
+            with app.app_context():
+                from Code.models.models import User, UserRole
+                from Code.extensions import db
+                u = User.query.filter_by(email="doublon.email@devoptiq.com").first()
+                if u:
+                    UserRole.query.filter_by(user_id=u.id).delete()
+                    db.session.delete(u)
+                    db.session.commit()
+            _delete_role(app, role_id)
+
 
 # ===========================================================================
 # 3. GET+POST /comptes/update/<id> — modifier un utilisateur

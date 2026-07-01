@@ -632,3 +632,45 @@ class TestImportRoles:
             content_type="multipart/form-data",
         )
         assert r.status_code in (200, 302)
+
+    def test_import_roles_missing_file_field_no_crash(self, auth_client):
+        """Sans le champ role_file dans le formulaire → pas de crash (redirect),
+        même comportement que le cas extension invalide (no-op silencieux)."""
+        r = auth_client.post(
+            "/gestion_rh/import_roles",
+            data={},
+            content_type="multipart/form-data",
+        )
+        assert r.status_code == 302
+
+    def test_import_roles_duplicate_name_rolled_back_not_duplicated(self, auth_client, app, ids):
+        """Un nom de rôle déjà existant pour l'entité active lève IntegrityError,
+        rollback silencieux (ignoré) ; le nouveau nom, lui, est bien créé."""
+        with app.app_context():
+            from Code.models.models import Role
+            from Code.extensions import db
+            existing = Role(name="Rôle Déjà Existant Import", entity_id=ids["entity_id"])
+            db.session.add(existing)
+            db.session.commit()
+
+        csv_content = "Rôle Déjà Existant Import\nRôle Tout Nouveau Import\n".encode("utf-8")
+        data = {"role_file": (io.BytesIO(csv_content), "roles_dup.csv")}
+        try:
+            r = auth_client.post(
+                "/gestion_rh/import_roles",
+                data=data,
+                content_type="multipart/form-data",
+            )
+            assert r.status_code in (200, 302)
+            with app.app_context():
+                from Code.models.models import Role
+                assert Role.query.filter_by(name="Rôle Déjà Existant Import").count() == 1
+                assert Role.query.filter_by(name="Rôle Tout Nouveau Import").count() == 1
+        finally:
+            with app.app_context():
+                from Code.models.models import Role
+                from Code.extensions import db
+                Role.query.filter(Role.name.in_(
+                    ["Rôle Déjà Existant Import", "Rôle Tout Nouveau Import"]
+                )).delete(synchronize_session=False)
+                db.session.commit()

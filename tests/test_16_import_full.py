@@ -100,6 +100,18 @@ class TestImportFullAnalyze:
         )
         assert r.status_code == 400
 
+    def test_analyze_corrupted_xlsx_returns_400_with_read_error(self, auth_client):
+        """Fichier nommé .xlsx mais contenu illisible → 400 « Erreur lecture Excel »
+        (branche except du parsing, distincte du contrôle d'extension)."""
+        r = auth_client.post(
+            "/api/import-full/analyze",
+            data={"file": (io.BytesIO(b"ceci n'est pas un vrai fichier xlsx"), "broken.xlsx")},
+            content_type="multipart/form-data",
+        )
+        assert r.status_code == 400
+        data = json.loads(r.data)
+        assert "Erreur lecture Excel" in data["error"]
+
     def test_analyze_empty_excel_no_keywords_returns_400(self, auth_client):
         """Excel sans headers reconnaissables → 400 (aucune donnée trouvée)."""
         wb = openpyxl.Workbook()
@@ -397,6 +409,27 @@ class TestImportFullInject:
         assert r2.status_code == 201
         assert json.loads(r2.data)["stats"]["tasks_created"] == 0
         _cleanup_task(app, "Tâche Doublon Import Unique", ids["activity_id"])
+
+    def test_inject_malformed_task_entry_returns_500_and_rolls_back(self, auth_client, ids, app):
+        """Une entrée de tâche non-dict fait lever une exception → 500 + rollback
+        (aucune tâche partiellement créée ne doit persister)."""
+        r = auth_client.post(
+            "/api/import-full/inject",
+            data=json.dumps({
+                "groups": [{
+                    "activity_id": ids["activity_id"],
+                    "guarantor": "",
+                    "tasks": [123],
+                }]
+            }),
+            content_type="application/json",
+        )
+        assert r.status_code == 500
+        data = json.loads(r.data)
+        assert "error" in data
+        with app.app_context():
+            from Code.models.models import Task
+            assert Task.query.filter_by(activity_id=ids["activity_id"], name="123").first() is None
 
     def test_inject_response_has_status_ok(self, auth_client, ids, app):
         """La réponse contient status='ok' et les stats attendues."""

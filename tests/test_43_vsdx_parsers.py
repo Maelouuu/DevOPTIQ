@@ -11,6 +11,7 @@ Tests unitaires pour les deux parseurs VSDX (pas de Flask, pas de DB) :
 import os
 import sys
 import tempfile
+import zipfile
 import xml.etree.ElementTree as ET
 
 import pytest
@@ -491,6 +492,22 @@ class TestExtractDecisionsFromVsdx:
             path = f.name
         try:
             result = extract_decisions_from_vsdx(path)
+            assert result["decisions"] == []
+        finally:
+            os.unlink(path)
+
+    def test_valid_zip_without_pages_returns_no_page_error(self):
+        """Un zip VALIDE (donc pas de BadZipFile) mais sans aucune entrée
+        visio/pages/page*.xml doit déclencher la branche 'Aucune page trouvée
+        dans le VSDX', distincte de la branche BadZipFile."""
+        from Code.routes.vsdx_decision_extractor import extract_decisions_from_vsdx
+        fd, path = tempfile.mkstemp(suffix=".vsdx")
+        os.close(fd)
+        try:
+            with zipfile.ZipFile(path, "w") as zf:
+                zf.writestr("visio/document.xml", "<VisioDocument/>")
+            result = extract_decisions_from_vsdx(path)
+            assert result["errors"] == ["Aucune page trouvée dans le VSDX"]
             assert result["decisions"] == []
         finally:
             os.unlink(path)

@@ -457,6 +457,43 @@ class TestConnectionAPI:
         r = auth_client.delete("/activities/delete-connection/99999")
         assert r.status_code == 404
 
+    def test_delete_connection_cross_entity_returns_404(self, app, auth_client, ids):
+        """DELETE /activities/delete-connection/<id> sur une connexion appartenant à
+        une AUTRE entité doit être refusé (404), pas silencieusement supprimé."""
+        with app.app_context():
+            from Code.models.models import Entity, Activities, Link
+            from Code.extensions import db
+            other_entity = Entity(name="Entité Étrangère Connexion", description="")
+            db.session.add(other_entity)
+            db.session.flush()
+            a1 = Activities(entity_id=other_entity.id, name="Etr Act 1", description="")
+            a2 = Activities(entity_id=other_entity.id, name="Etr Act 2", description="")
+            db.session.add_all([a1, a2])
+            db.session.flush()
+            foreign_link = Link(
+                entity_id=other_entity.id,
+                source_activity_id=a1.id,
+                target_activity_id=a2.id,
+                type="nourrissante",
+            )
+            db.session.add(foreign_link)
+            db.session.commit()
+            foreign_link_id = foreign_link.id
+            other_entity_id = other_entity.id
+
+        _set_active_session(auth_client, ids)
+        r = auth_client.delete(f"/activities/delete-connection/{foreign_link_id}")
+        assert r.status_code == 404
+
+        with app.app_context():
+            from Code.models.models import Entity, Activities, Link
+            from Code.extensions import db
+            assert Link.query.get(foreign_link_id) is not None
+            Link.query.filter_by(entity_id=other_entity_id).delete()
+            Activities.query.filter_by(entity_id=other_entity_id).delete()
+            Entity.query.filter_by(id=other_entity_id).delete()
+            db.session.commit()
+
     def test_clear_connections(self, app, auth_client, ids):
         """DELETE /activities/clear-connections supprime toutes les connexions de l'entité."""
         _create_link(app, ids)

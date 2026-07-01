@@ -2,14 +2,14 @@
   "plan": {
     "title": "Plan de couverture & fiabilisation des tests",
     "objective": "À chaque exécution, la routine répartit sa capacité : ~70% pour étendre la couverture (nouveaux tests) et ~30% pour repérer et corriger les tests défaillants, en traçant chaque correctif.",
-    "updated_at": "27/06/2026",
+    "updated_at": "01/07/2026",
     "steps": [
       {
         "id": "coverage",
         "title": "Couverture des pages Flask",
         "status": "in_progress",
-        "progress": 92,
-        "note": "50 fichiers de test couvrent l'essentiel des pages. Reste surtout l'éditeur OptiqCarto (JS)."
+        "progress": 93,
+        "note": "51 fichiers de test couvrent l'essentiel des pages + branches d'erreur/agrégation ciblées. Reste surtout l'éditeur OptiqCarto (JS) et les branches nécessitant du mocking IA/ROME."
       },
       {
         "id": "green",
@@ -49,6 +49,24 @@
     ]
   },
   "entries": [
+    {
+      "at": "2026-07-01T03:21:30",
+      "date": "01/07/2026 · 03:21",
+      "author": "routine",
+      "title": "Couverture branches non testées (11 pages) + 2 vrais bugs corrigés",
+      "summary": "Audit systématique des branches non couvertes (SSE stream test panel, erreurs 400/500 import Excel, résolution de rôles/entité active, mode agrégation temps, validations création utilisateur, import CSV rôles, parseur VSDX, résolution activité cible chatbot). 25 nouveaux tests ajoutés, 2 bugs applicatifs réels découverts et corrigés en cours de route (delete-connection cross-entité, import_roles 500 sur champ manquant).",
+      "new_tests": 25,
+      "tests_fixed": 0,
+      "patches": 2,
+      "page": "Multi-pages",
+      "highlights": [
+        "SSE /testpanel/stream/<run_id> : 0 test → 6 tests",
+        "Bug corrigé : delete-connection permettait de supprimer la connexion d'une autre entité (faille cross-tenant)",
+        "Bug corrigé : import_roles plantait en 500 (KeyError) si le champ fichier était absent",
+        "Branches d'agrégation temps (mode=tasks) et validations create_user couvertes"
+      ],
+      "next": "Continuer sur cartography_editor.py / activities_map.py (branches IA architecte, cross-carto) et projection_metier.py (scoring ROME, nécessitent du mocking)."
+    },
     {
       "id": "2026-06-27-refonte-panel",
       "at": "2026-06-27T19:30:00",

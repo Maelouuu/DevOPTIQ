@@ -277,6 +277,92 @@ class TestChatbotInject:
                 db.session.delete(t)
             db.session.commit()
 
+    def test_inject_outgoing_link_with_matching_target_activity_sets_target_id(self, auth_client, ids, app):
+        """target_activity_name correspondant à une activité existante → le Link
+        créé a bien target_activity_id renseigné (résolution par nom, insensible
+        à la casse)."""
+        with app.app_context():
+            from Code.models.models import Activities
+            from Code.extensions import db
+            target = Activities(entity_id=ids["entity_id"], name="Activité Cible Chatbot Lien", description="")
+            db.session.add(target)
+            db.session.commit()
+            target_id = target.id
+
+        r = auth_client.post(
+            "/api/chatbot/inject",
+            data=json.dumps({
+                "activity_id": ids["activity_id"],
+                "tasks": [{
+                    "label": "Tâche Chatbot Lien Cible Trouvée",
+                    "tools": [],
+                    "outgoing_link": {
+                        "data_name": "Donnée Chatbot Lien Cible Trouvée",
+                        "data_type": "nourrissante",
+                        "target_activity_name": "activité cible chatbot lien",
+                    },
+                }],
+            }),
+            content_type="application/json",
+        )
+        assert r.status_code == 201
+        try:
+            with app.app_context():
+                from Code.models.models import Data, Link
+                d = Data.query.filter_by(name="Donnée Chatbot Lien Cible Trouvée", entity_id=ids["entity_id"]).first()
+                assert d is not None
+                lnk = Link.query.filter_by(source_data_id=d.id, source_activity_id=ids["activity_id"]).first()
+                assert lnk is not None
+                assert lnk.target_activity_id == target_id
+        finally:
+            with app.app_context():
+                from Code.models.models import Data, Link, Task, Activities
+                from Code.extensions import db
+                Link.query.filter_by(source_activity_id=ids["activity_id"], target_activity_id=target_id).delete()
+                Data.query.filter_by(name="Donnée Chatbot Lien Cible Trouvée", entity_id=ids["entity_id"]).delete()
+                Task.query.filter_by(name="Tâche Chatbot Lien Cible Trouvée", activity_id=ids["activity_id"]).delete()
+                Activities.query.filter_by(id=target_id).delete()
+                db.session.commit()
+
+    def test_inject_outgoing_link_with_unknown_target_activity_leaves_target_id_none(self, auth_client, ids, app):
+        """target_activity_name qui ne correspond à aucune activité → le Link est
+        créé quand même, mais target_activity_id reste None (pas d'erreur)."""
+        r = auth_client.post(
+            "/api/chatbot/inject",
+            data=json.dumps({
+                "activity_id": ids["activity_id"],
+                "tasks": [{
+                    "label": "Tâche Chatbot Lien Cible Inconnue",
+                    "tools": [],
+                    "outgoing_link": {
+                        "data_name": "Donnée Chatbot Lien Cible Inconnue",
+                        "data_type": "nourrissante",
+                        "target_activity_name": "Activité Qui N'Existe Pas Du Tout",
+                    },
+                }],
+            }),
+            content_type="application/json",
+        )
+        assert r.status_code == 201
+        try:
+            with app.app_context():
+                from Code.models.models import Data, Link
+                d = Data.query.filter_by(name="Donnée Chatbot Lien Cible Inconnue", entity_id=ids["entity_id"]).first()
+                assert d is not None
+                lnk = Link.query.filter_by(source_data_id=d.id, source_activity_id=ids["activity_id"]).first()
+                assert lnk is not None
+                assert lnk.target_activity_id is None
+        finally:
+            with app.app_context():
+                from Code.models.models import Data, Link, Task
+                from Code.extensions import db
+                Link.query.filter_by(source_activity_id=ids["activity_id"]).filter(
+                    Link.description == "Donnée Chatbot Lien Cible Inconnue"
+                ).delete()
+                Data.query.filter_by(name="Donnée Chatbot Lien Cible Inconnue", entity_id=ids["entity_id"]).delete()
+                Task.query.filter_by(name="Tâche Chatbot Lien Cible Inconnue", activity_id=ids["activity_id"]).delete()
+                db.session.commit()
+
 
 # ===========================================================================
 # 3. POST /api/chatbot/chat
