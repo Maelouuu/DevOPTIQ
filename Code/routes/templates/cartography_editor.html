@@ -761,6 +761,71 @@
 <script src="{{ url_for('static', filename='optiqcarto/vsdx_importer.js') }}"></script>
 <script src="{{ url_for('static', filename='optiqcarto/editor.js') }}"></script>
 
+<!-- ══ Plein écran automatique à l'ouverture de l'éditeur ══ -->
+<script>
+(function(){
+  if (window.OPTIQCARTO_READONLY) return; // uniquement dans l'éditeur, jamais le viewer
+  var armed = true, notifShown = false;
+  var GESTURES = ['pointerdown','keydown','wheel','mousedown','touchstart'];
+
+  function isFs(){ return !!(document.fullscreenElement || document.webkitFullscreenElement); }
+  function requestFs(){
+    var el = document.documentElement;
+    var fn = el.requestFullscreen || el.webkitRequestFullscreen;
+    if (!fn) return;
+    try { var p = fn.call(el); if (p && p.catch) p.catch(function(){}); } catch(_){}
+  }
+  function removeGestureListeners(){
+    GESTURES.forEach(function(ev){ window.removeEventListener(ev, onGesture, true); });
+  }
+  function onGesture(){
+    if (!armed) return;
+    armed = false;
+    removeGestureListeners();
+    requestFs();
+  }
+  function armFallback(){
+    GESTURES.forEach(function(ev){ window.addEventListener(ev, onGesture, true); });
+  }
+
+  function showNotif(){
+    if (notifShown) return; notifShown = true;
+    var n = document.createElement('div');
+    n.id = 'carto-fs-notif';
+    n.innerHTML =
+      '<span class="fs-notif-icon"><i class="fa-solid fa-expand"></i></span>' +
+      '<span class="fs-notif-text">Appuyez sur <kbd>Échap</kbd> pour quitter le mode plein écran</span>' +
+      '<button class="fs-notif-close" type="button" aria-label="Fermer">&times;</button>';
+    document.body.appendChild(n);
+    requestAnimationFrame(function(){ n.classList.add('show'); });
+    var timer = null;
+    function close(){
+      if (timer) { clearTimeout(timer); timer = null; }
+      n.classList.remove('show');
+      setTimeout(function(){ if (n.parentNode) n.parentNode.removeChild(n); }, 320);
+    }
+    n.querySelector('.fs-notif-close').addEventListener('click', close);
+    timer = setTimeout(close, 5000);
+  }
+
+  function onFsChange(){
+    if (isFs()) { armed = false; removeGestureListeners(); showNotif(); }
+  }
+  document.addEventListener('fullscreenchange', onFsChange);
+  document.addEventListener('webkitfullscreenchange', onFsChange);
+
+  function start(){
+    requestFs(); // tentative immédiate (souvent bloquée sans geste utilisateur)
+    setTimeout(function(){
+      if (armed && !isFs()) armFallback(); // sinon : bascule au 1er geste
+      else armed = false;
+    }, 200);
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start);
+  else start();
+})();
+</script>
+
 <!-- Migration VSDX auto depuis l'API -->
 {% if has_vsdx %}
 <script>
@@ -837,6 +902,57 @@ document.addEventListener('DOMContentLoaded', () => {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* ── Notification "plein écran" (item plein écran auto) ── */
+#carto-fs-notif {
+  position: fixed;
+  top: 74px;
+  right: 18px;
+  z-index: 99999;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: 340px;
+  padding: 11px 12px 11px 14px;
+  background: rgba(17, 24, 39, 0.94);
+  color: #f8fafc;
+  border: 1px solid rgba(148,163,184,0.25);
+  border-left: 3px solid var(--green, #22c55e);
+  border-radius: 10px;
+  box-shadow: 0 12px 34px rgba(0,0,0,0.4);
+  font-size: 13px;
+  line-height: 1.45;
+  opacity: 0;
+  transform: translateY(-8px);
+  transition: opacity .28s ease, transform .28s ease;
+  pointer-events: auto;
+}
+#carto-fs-notif.show { opacity: 1; transform: translateY(0); }
+#carto-fs-notif .fs-notif-icon { color: var(--green, #22c55e); font-size: 15px; flex-shrink: 0; }
+#carto-fs-notif .fs-notif-text { flex: 1; }
+#carto-fs-notif kbd {
+  display: inline-block;
+  padding: 1px 6px;
+  margin: 0 1px;
+  background: rgba(255,255,255,0.14);
+  border: 1px solid rgba(255,255,255,0.28);
+  border-radius: 5px;
+  font-size: 11px;
+  font-weight: 700;
+  font-family: inherit;
+}
+#carto-fs-notif .fs-notif-close {
+  background: none;
+  border: none;
+  color: rgba(248,250,252,0.7);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 2px;
+  flex-shrink: 0;
+  transition: color .15s;
+}
+#carto-fs-notif .fs-notif-close:hover { color: #fff; }
 </style>
 
 </body>

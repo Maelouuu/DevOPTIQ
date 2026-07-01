@@ -2652,17 +2652,34 @@ html, body {
   right: 18px;
   bottom: 18px;
   width: 200px;
-  height: 144px;
   background: rgba(255, 255, 255, 0.96);
   border: 1px solid #d6dbe5;
   border-radius: 11px;
   box-shadow: 0 8px 24px rgba(15, 23, 42, 0.16);
   z-index: 40;
   overflow: hidden;
-  cursor: grab;
   user-select: none;
 }
-#carto-minimap.dragging { cursor: grabbing; }
+#carto-minimap.moving { box-shadow: 0 12px 34px rgba(15, 23, 42, 0.30); }
+#carto-minimap .mini-header {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  height: 22px;
+  padding: 0 9px;
+  background: #f1f5f9;
+  border-bottom: 1px solid #e2e8f0;
+  cursor: move;
+  font: 600 11px/1 'Segoe UI', system-ui, sans-serif;
+  color: #64748b;
+}
+#carto-minimap .mini-grip {
+  width: 12px;
+  height: 8px;
+  background-image: radial-gradient(#94a3b8 1px, transparent 1px);
+  background-size: 4px 4px;
+  opacity: 0.85;
+}
 #carto-minimap svg { display: block; }
 #carto-minimap .mini-bg { fill: #eef1f6; }
 #carto-minimap .mini-frame {

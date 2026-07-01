@@ -146,7 +146,7 @@ function _defaultBands() {
 const SHAPE_DEFAULTS = {
   process:   { label: 'Activité',      color: '#22c55e', textColor: '#ffffff', validationBadge: false, validationColor: '#4DB868', w: 130, h: 90,  fontSize: 18, subtype: 'normal' },
   'start-end': { label: 'Renvoi',      color: '#ffffff', textColor: '#000000', validationBadge: false, validationColor: '#4DB868', w: 90,  h: 90,  fontSize: 13, subtype: 'normal' },
-  special:   { label: 'Sous-activité', color: '#f59e0b', textColor: '#ffffff', validationBadge: false, validationColor: '#4DB868', w: 170, h: 76,  fontSize: 13, subtype: 'normal' },
+  special:   { label: 'Sous-activité', color: '#f59e0b', textColor: '#ffffff', validationBadge: false, validationColor: '#4DB868', w: 130, h: 90,  fontSize: 13, subtype: 'normal' },
   decision:  { label: 'Décision',      color: '#9ca3af', textColor: '#ffffff', validationBadge: false, validationColor: '#4DB868', w: 100, h: 100, fontSize: 13, subtype: 'normal', decisionYesDir: null },
 };
 
@@ -380,6 +380,31 @@ function getGroupPorts(grp) {
     left:   { x: b.x,         y: cy,          dir: 'left'   },
     right:  { x: b.x + b.w,  y: cy,          dir: 'right'  },
   };
+}
+
+// Ports de connexion d'un groupe : même ÉCART que ceux d'une activité
+// (pas le même nombre). L'espacement suit SHAPE_DEFAULTS.process, la quantité
+// est proportionnelle à la taille du groupe. Coordonnées alignées sur spreadPort
+// (_halo = 0 pour un groupe), pour que le point dessiné = point d'ancrage réel.
+function getGroupDetailedPorts(grpOrBounds) {
+  const b = grpOrBounds && grpOrBounds.shapeIds ? getGroupBounds(grpOrBounds) : grpOrBounds;
+  if (!b) return [];
+  const STEP_X = SHAPE_DEFAULTS.process.w / 6; // écart top/bottom d'une activité (~21.7)
+  const STEP_Y = SHAPE_DEFAULTS.process.h / 5; // écart left/right d'une activité (18)
+  const nX = Math.max(1, Math.round(b.w / STEP_X));
+  const nY = Math.max(1, Math.round(b.h / STEP_Y));
+  const ports = [];
+  for (let i = 0; i <= nX; i++) {
+    const t = i / nX; // coins inclus (comme top/bottom d'une activité)
+    ports.push({ x: b.x + b.w * t, y: b.y,        dir: 'top',    t });
+    ports.push({ x: b.x + b.w * t, y: b.y + b.h,  dir: 'bottom', t });
+  }
+  for (let i = 1; i <= nY; i++) {
+    const t = (i - 0.5) / nY; // en retrait des coins (comme left/right d'une activité)
+    ports.push({ x: b.x,         y: b.y + b.h * t, dir: 'left',  t });
+    ports.push({ x: b.x + b.w,   y: b.y + b.h * t, dir: 'right', t });
+  }
+  return ports;
 }
 
 function shapeAtPoint(px, py) {
@@ -1498,6 +1523,33 @@ function renderHandles() {
         }
       }
     }
+    // Ports des groupes (mêmes points de branchement que les activités)
+    for (const grp of (state.groups || [])) {
+      if (skipId !== null && grp.id === skipId) continue;
+      const b = getGroupBounds(grp);
+      if (!b) continue;
+      const gcx = b.x + b.w / 2, gcy = b.y + b.h / 2;
+      if (Math.hypot(curX - gcx, curY - gcy) > SHOW_R + Math.max(b.w, b.h)) continue;
+      for (const pt of getGroupDetailedPorts(b)) {
+        const isSnap = grp.id === snapId &&
+                       pt.dir === snapDir &&
+                       Math.abs(pt.t - snapT) < 0.01;
+        el('circle', {
+          cx: String(pt.x), cy: String(pt.y), r: isSnap ? '9' : '5',
+          fill: isSnap ? '#22c55e' : 'rgba(34,197,94,0.45)',
+          stroke: '#ffffff', 'stroke-width': isSnap ? '2' : '1.5',
+          'pointer-events': 'none',
+        }, gHandles);
+        if (isSnap) {
+          el('circle', {
+            cx: String(pt.x), cy: String(pt.y), r: '16',
+            fill: 'none', stroke: '#22c55e', 'stroke-width': '1.5',
+            'stroke-dasharray': '4,3', 'pointer-events': 'none',
+            opacity: '0.7',
+          }, gHandles);
+        }
+      }
+    }
   }
 }
 
@@ -2588,30 +2640,37 @@ function onMove(e) {
     portDrag.snapShapeId = null;
     portDrag.snapDir     = null;
     portDrag.snapT       = 0.5;
+    portDrag.snapX       = null;
+    portDrag.snapY       = null;
 
     const SNAP_R = 55;
-    let bestDist = SNAP_R, bestShape = null, bestPt = null;
+    let bestDist = SNAP_R, bestId = null, bestPt = null;
     for (const s of state.shapes) {
       if (s.id === portDrag.fromShapeId) continue;
       for (const pt of getDetailedPorts(s)) {
         const d = Math.hypot(x - pt.x, y - pt.y);
-        if (d < bestDist) { bestDist = d; bestShape = s; bestPt = pt; }
+        if (d < bestDist) { bestDist = d; bestId = s.id; bestPt = pt; }
       }
     }
-    if (bestShape && bestPt) {
-      portDrag.snapShapeId = bestShape.id;
+    for (const grp of (state.groups || [])) {
+      if (grp.id === portDrag.fromShapeId) continue;
+      for (const pt of getGroupDetailedPorts(grp)) {
+        const d = Math.hypot(x - pt.x, y - pt.y);
+        if (d < bestDist) { bestDist = d; bestId = grp.id; bestPt = pt; }
+      }
+    }
+    if (bestId !== null && bestPt) {
+      portDrag.snapShapeId = bestId;
       portDrag.snapDir     = bestPt.dir;
       portDrag.snapT       = bestPt.t;
+      portDrag.snapX       = bestPt.x;
+      portDrag.snapY       = bestPt.y;
     }
 
     gOverlay.innerHTML = '';
     const fp = portDrag.fromPort;
-    const tx = portDrag.snapShapeId
-      ? (() => { const s = state.shapes.find(s => s.id === portDrag.snapShapeId); const p = getDetailedPorts(s).find(p => p.dir === portDrag.snapDir && Math.abs(p.t - portDrag.snapT) < 0.01); return p ? p.x : x; })()
-      : x;
-    const ty = portDrag.snapShapeId
-      ? (() => { const s = state.shapes.find(s => s.id === portDrag.snapShapeId); const p = getDetailedPorts(s).find(p => p.dir === portDrag.snapDir && Math.abs(p.t - portDrag.snapT) < 0.01); return p ? p.y : y; })()
-      : y;
+    const tx = (portDrag.snapShapeId !== null && portDrag.snapX != null) ? portDrag.snapX : x;
+    const ty = (portDrag.snapShapeId !== null && portDrag.snapY != null) ? portDrag.snapY : y;
     el('path', {
       d: `M ${fp.x},${fp.y} L ${tx},${ty}`,
       fill: 'none', stroke: '#3b82f6',
@@ -2717,15 +2776,21 @@ function onMove(e) {
     connEndDrag.snapT      = 0.5;
 
     const SNAP_R = 55; // rayon de snap en px SVG
-    let bestDist = SNAP_R, bestShape = null, bestPt = null;
+    let bestDist = SNAP_R, bestId = null, bestPt = null;
     for (const s of state.shapes) {
       for (const pt of getDetailedPorts(s)) {
         const d = Math.hypot(x - pt.x, y - pt.y);
-        if (d < bestDist) { bestDist = d; bestShape = s; bestPt = pt; }
+        if (d < bestDist) { bestDist = d; bestId = s.id; bestPt = pt; }
       }
     }
-    if (bestShape && bestPt) {
-      connEndDrag.snapShapeId = bestShape.id;
+    for (const grp of (state.groups || [])) {
+      for (const pt of getGroupDetailedPorts(grp)) {
+        const d = Math.hypot(x - pt.x, y - pt.y);
+        if (d < bestDist) { bestDist = d; bestId = grp.id; bestPt = pt; }
+      }
+    }
+    if (bestId !== null && bestPt) {
+      connEndDrag.snapShapeId = bestId;
       connEndDrag.snapDir    = bestPt.dir;
       connEndDrag.snapT      = bestPt.t;
     }
@@ -2905,8 +2970,15 @@ function onUp(e) {
     let target = null;
     let toPortDir = null, toPortT = null;
 
-    if (portDrag.snapShapeId) {
-      target = state.shapes.find(s => s.id === portDrag.snapShapeId) || null;
+    if (portDrag.snapShapeId !== null && portDrag.snapShapeId !== undefined) {
+      const snapShape = state.shapes.find(s => s.id === portDrag.snapShapeId);
+      if (snapShape) {
+        target = snapShape;
+      } else {
+        const snapGroup = state.groups && state.groups.find(g => g.id === portDrag.snapShapeId);
+        const gb = snapGroup && getGroupBounds(snapGroup);
+        target = gb ? { ...gb, id: snapGroup.id } : null;
+      }
       toPortDir = portDrag.snapDir;
       toPortT   = portDrag.snapT;
     } else {
@@ -3600,9 +3672,13 @@ function _buildMinimap() {
   if (getComputedStyle(parent).position === 'static') parent.style.position = 'relative';
   const wrap = document.createElement('div');
   wrap.id = 'carto-minimap';
-  wrap.title = 'Mini-carte — glissez le cadre pour vous déplacer, ou les coins pour zoomer';
+  wrap.title = '';
   wrap.innerHTML =
-    `<svg width="${MINI_W}" height="${MINI_H}" viewBox="0 0 ${MINI_W} ${MINI_H}">
+    `<div class="mini-header" title="Glissez pour déplacer la mini-carte">
+       <span class="mini-grip"></span><span class="mini-title">Mini-carte</span>
+     </div>
+     <svg width="${MINI_W}" height="${MINI_H}" viewBox="0 0 ${MINI_W} ${MINI_H}"
+          title="Glissez le cadre pour vous déplacer, ou les coins pour zoomer">
        <rect class="mini-bg" x="0" y="0" width="${MINI_W}" height="${MINI_H}" rx="9"/>
        <g id="mini-content"></g>
        <rect id="mini-frame" class="mini-frame" x="0" y="0" width="10" height="10" rx="2"/>
@@ -3617,9 +3693,11 @@ function _buildMinimap() {
     content: wrap.querySelector('#mini-content'),
     frame: wrap.querySelector('#mini-frame'),
     handles: Array.from(wrap.querySelectorAll('.mini-handle')),
+    header: wrap.querySelector('.mini-header'),
     bbox: null, ms: 1, offX: 0, offY: 0,
   };
   _attachMinimapDrag();
+  _attachMinimapReposition(_mini.header);
   window.addEventListener('resize', () => { if (_mini && _mini.bbox) _updateMinimapFrame(); });
 }
 
@@ -3743,6 +3821,42 @@ function _attachMinimapDrag() {
 
   window.addEventListener('mouseup', () => {
     if (mode) { mode = null; centerW = null; _mini.wrap.classList.remove('dragging'); }
+  });
+}
+
+// Déplacement de la mini-carte elle-même (drag sur son en-tête) — la placer
+// où l'on veut dans l'éditeur.
+function _attachMinimapReposition(header) {
+  let drag = null;
+  header.addEventListener('mousedown', (e) => {
+    const wrap = _mini.wrap;
+    const parent = wrap.offsetParent || document.body;
+    const wr = wrap.getBoundingClientRect();
+    const pr = parent.getBoundingClientRect();
+    // Bascule d'un ancrage right/bottom vers left/top pour pouvoir déplacer.
+    wrap.style.left = (wr.left - pr.left) + 'px';
+    wrap.style.top  = (wr.top  - pr.top)  + 'px';
+    wrap.style.right = 'auto';
+    wrap.style.bottom = 'auto';
+    drag = {
+      sx: e.clientX, sy: e.clientY,
+      ox: wr.left - pr.left, oy: wr.top - pr.top,
+      pw: pr.width, ph: pr.height, ww: wr.width, wh: wr.height,
+    };
+    _mini.wrap.classList.add('moving');
+    e.preventDefault(); e.stopPropagation();
+  });
+  window.addEventListener('mousemove', (e) => {
+    if (!drag) return;
+    let nl = drag.ox + (e.clientX - drag.sx);
+    let nt = drag.oy + (e.clientY - drag.sy);
+    nl = Math.max(0, Math.min(drag.pw - drag.ww, nl));
+    nt = Math.max(0, Math.min(drag.ph - drag.wh, nt));
+    _mini.wrap.style.left = nl + 'px';
+    _mini.wrap.style.top  = nt + 'px';
+  });
+  window.addEventListener('mouseup', () => {
+    if (drag) { drag = null; _mini.wrap.classList.remove('moving'); }
   });
 }
 
