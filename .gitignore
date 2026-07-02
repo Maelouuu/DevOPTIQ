@@ -13,3 +13,4 @@ Z-Dev bis/
 .venv/
 /Archives/
 export_code.docx
+.coverage
