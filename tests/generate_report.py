@@ -62,6 +62,7 @@ PAGE_LABELS = {
     "test_48_set_password_admin":        "Définition de Mot de Passe Admin",
     "test_49_tasks_avance":              "Tâches — CRUD & Rôles Avancé",
     "test_50_activities_map_api_et_ui":  "API Activités Cartographie & Interface UI",
+    "test_51_propose_ia_ai_path":        "Propositions IA — Chemin IA simulé (savoirs, savoir-faire, softskills, aptitudes)",
 }
 
 

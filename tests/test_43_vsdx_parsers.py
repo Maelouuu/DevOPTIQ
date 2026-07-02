@@ -11,6 +11,7 @@ Tests unitaires pour les deux parseurs VSDX (pas de Flask, pas de DB) :
 import os
 import sys
 import tempfile
+import zipfile
 import xml.etree.ElementTree as ET
 
 import pytest
@@ -232,6 +233,108 @@ class TestVsdxConnectionParserParse:
         conns, errors = parse_vsdx_connections("/nonexistent.vsdx")
         assert conns == []
         assert len(errors) > 0
+
+
+# =============================================================================
+# 4bis. VsdxConnectionParser.parse — pipeline complet sur un VSDX synthétique
+#
+# 4 activités reliées par 2 connecteurs valides + 2 connecteurs à exclure :
+#   - 1 -> 2 (connecteur "N- Type", texte "Donnee nourrissante")
+#   - 2 -> 4 (connecteur "T- Type2", texte "Signal demarrage")
+#   - 2 -> 6 : "6" est un drapeau (LayerMember=6) → connexion exclue
+#   - 1 -> 8 : "8" est "Résultat.Something" → connexion exclue (préfixe Résultat.)
+# =============================================================================
+
+_CONN_PAGE_XML = """<?xml version="1.0"?>
+<PageContents xmlns="http://schemas.microsoft.com/office/visio/2012/main">
+  <Shapes>
+    <Shape ID="1"><Text>Activite A</Text></Shape>
+    <Shape ID="2"><Text>Activite B</Text></Shape>
+    <Shape ID="3" Name="N- Type"><Text>Donnee nourrissante</Text></Shape>
+
+    <Shape ID="4"><Text>Activite C</Text></Shape>
+    <Shape ID="5" Name="T- Type2"><Text>Signal demarrage</Text></Shape>
+
+    <Shape ID="6"><Cell N="LayerMember" V="6"/><Text>Drapeau</Text></Shape>
+    <Shape ID="7" Name="N- Flag"><Text>Donnee vers drapeau</Text></Shape>
+
+    <Shape ID="8"><Text>Résultat.Something</Text></Shape>
+    <Shape ID="9" Name="N- Res"><Text>Donnee vers resultat</Text></Shape>
+  </Shapes>
+  <Connects>
+    <Connect FromSheet="3" FromCell="BeginX" ToSheet="1"/>
+    <Connect FromSheet="3" FromCell="EndX" ToSheet="2"/>
+
+    <Connect FromSheet="5" FromCell="BeginX" ToSheet="2"/>
+    <Connect FromSheet="5" FromCell="EndX" ToSheet="4"/>
+
+    <Connect FromSheet="7" FromCell="BeginX" ToSheet="2"/>
+    <Connect FromSheet="7" FromCell="EndX" ToSheet="6"/>
+
+    <Connect FromSheet="9" FromCell="BeginX" ToSheet="1"/>
+    <Connect FromSheet="9" FromCell="EndX" ToSheet="8"/>
+  </Connects>
+</PageContents>""".encode("utf-8")
+
+
+def _build_conn_vsdx(path):
+    with zipfile.ZipFile(path, "w") as zf:
+        zf.writestr("visio/pages/page1.xml", _CONN_PAGE_XML)
+    return str(path)
+
+
+class TestVsdxConnectionParserFullPipeline:
+
+    def _parse(self, tmp_path):
+        from Code.routes.vsdx_conection_parser import VsdxConnectionParser
+        path = _build_conn_vsdx(tmp_path / "conn_sample.vsdx")
+        p = VsdxConnectionParser(path)
+        conns, errors = p.parse()
+        assert errors == []
+        return p, conns
+
+    def test_only_valid_connections_are_kept(self, tmp_path):
+        """Drapeau (layer 6) et cible 'Résultat.*' sont exclus → seules 2 connexions valides."""
+        _, conns = self._parse(tmp_path)
+        pairs = {(c["source_name"], c["target_name"]) for c in conns}
+        assert pairs == {("Activite A", "Activite B"), ("Activite B", "Activite C")}
+
+    def test_data_type_and_name_extracted_from_connector(self, tmp_path):
+        _, conns = self._parse(tmp_path)
+        by_target = {c["target_name"]: c for c in conns}
+        assert by_target["Activite B"]["data_type"] == "nourrissante"
+        assert by_target["Activite B"]["data_name"] == "Donnee nourrissante"
+        assert by_target["Activite C"]["data_type"] == "déclenchante"
+        assert by_target["Activite C"]["data_name"] == "Signal demarrage"
+
+    def test_flagged_shape_is_excluded_from_shapes(self, tmp_path):
+        p, _ = self._parse(tmp_path)
+        excluded = p.get_excluded_shapes()
+        assert len(excluded) == 1
+        assert excluded[0]["shape_id"] == "6"
+        assert excluded[0]["text"] == "Drapeau"
+
+    def test_get_unique_activities_matches_valid_connections(self, tmp_path):
+        p, _ = self._parse(tmp_path)
+        assert p.get_unique_activities() == ["Activite A", "Activite B", "Activite C"]
+
+    def test_parse_vsdx_connections_wrapper_returns_same_result(self, tmp_path):
+        from Code.routes.vsdx_conection_parser import parse_vsdx_connections
+        path = _build_conn_vsdx(tmp_path / "conn_sample2.vsdx")
+        conns, errors = parse_vsdx_connections(path)
+        assert errors == []
+        assert len(conns) == 2
+
+    def test_validate_connections_against_activities_full_flow(self, tmp_path):
+        from Code.routes.vsdx_conection_parser import validate_connections_against_activities
+        _, conns = self._parse(tmp_path)
+        existing = {"Activite A": 101, "Activite B": 102}
+        valid, invalid, missing = validate_connections_against_activities(conns, existing)
+        assert len(valid) == 1
+        assert valid[0]["source_activity_id"] == 101
+        assert valid[0]["target_activity_id"] == 102
+        assert len(invalid) == 1
+        assert missing == ["Activite C"]
 
 
 # =============================================================================
@@ -494,3 +597,136 @@ class TestExtractDecisionsFromVsdx:
             assert result["decisions"] == []
         finally:
             os.unlink(path)
+
+
+# =============================================================================
+# 11. extract_decisions_from_vsdx — pipeline complet sur un VSDX synthétique
+#
+# Construit un vrai fichier .vsdx (zip contenant masters.xml + une page XML
+# Visio) avec 3 scénarios de décision sur la même page :
+#   - id "1"  : décision connectée explicitement (2 branches Oui/Non via texte
+#               du connecteur) → exerce la classification géométrique multi-
+#               branches de _infer_oui_non.
+#   - id "52" : décision "posée sur une ligne" (pas de <Connect> la référençant)
+#               → exerce la logique de splice (§4) et le raccourci "branche
+#               unique = Oui" de _infer_oui_non.
+#   - id "61" : décision connectée dont l'une des branches porte son badge
+#               Oui/Non via un groupement Visio (connecteur + badge shape sous
+#               un même parent) → exerce la détection de badge "par groupe" (§3a).
+# =============================================================================
+
+_MASTERS_XML = b"""<?xml version="1.0"?>
+<Masters xmlns="http://schemas.microsoft.com/office/visio/2012/main">
+  <Master ID="M1" NameU="Decision"/>
+</Masters>"""
+
+_PAGE_XML = b"""<?xml version="1.0"?>
+<PageContents xmlns="http://schemas.microsoft.com/office/visio/2012/main">
+  <Shapes>
+    <Shape ID="0"><Cell N="PinX" V="5"/><Cell N="PinY" V="2"/><Text>Reception commande</Text></Shape>
+    <Shape ID="1" Master="M1"><Cell N="PinX" V="5"/><Cell N="PinY" V="5"/><Text>Valide ?</Text></Shape>
+    <Shape ID="2"><Cell N="PinX" V="5"/><Cell N="PinY" V="8"/><Text>Traiter commande</Text></Shape>
+    <Shape ID="3"><Cell N="PinX" V="8"/><Cell N="PinY" V="5"/><Text>Rejeter commande</Text></Shape>
+    <Shape ID="10"><Cell N="BeginX" V="5"/><Cell N="BeginY" V="2"/><Cell N="EndX" V="5"/><Cell N="EndY" V="5"/></Shape>
+    <Shape ID="11"><Cell N="BeginX" V="5"/><Cell N="BeginY" V="5"/><Cell N="EndX" V="5"/><Cell N="EndY" V="8"/><Text>Oui</Text></Shape>
+    <Shape ID="12"><Cell N="BeginX" V="5"/><Cell N="BeginY" V="5"/><Cell N="EndX" V="8"/><Cell N="EndY" V="5"/><Text>Non</Text></Shape>
+
+    <Shape ID="50"><Cell N="PinX" V="0"/><Cell N="PinY" V="0"/><Text>A</Text></Shape>
+    <Shape ID="51"><Cell N="PinX" V="10"/><Cell N="PinY" V="0"/><Text>B</Text></Shape>
+    <Shape ID="52" Master="M1"><Cell N="PinX" V="5"/><Cell N="PinY" V="0.1"/><Text>Decision spliced</Text></Shape>
+    <Shape ID="53"><Cell N="BeginX" V="0"/><Cell N="BeginY" V="0"/><Cell N="EndX" V="10"/><Cell N="EndY" V="0"/><Text>Oui</Text></Shape>
+
+    <Shape ID="60"><Cell N="PinX" V="0"/><Cell N="PinY" V="-100"/><Text>F</Text></Shape>
+    <Shape ID="61" Master="M1"><Cell N="PinX" V="0"/><Cell N="PinY" V="-103"/><Text>Second choix ?</Text></Shape>
+    <Shape ID="62"><Cell N="PinX" V="0"/><Cell N="PinY" V="-106"/><Text>G</Text></Shape>
+    <Shape ID="63"><Cell N="PinX" V="3"/><Cell N="PinY" V="-103"/><Text>H</Text></Shape>
+    <Shape ID="70"><Cell N="BeginX" V="0"/><Cell N="BeginY" V="-100"/><Cell N="EndX" V="0"/><Cell N="EndY" V="-103"/></Shape>
+    <Shape ID="72">
+      <Shapes>
+        <Shape ID="71"><Cell N="BeginX" V="0"/><Cell N="BeginY" V="-103"/><Cell N="EndX" V="0"/><Cell N="EndY" V="-106"/></Shape>
+        <Shape ID="73"><Cell N="PinX" V="0"/><Cell N="PinY" V="-104.5"/><Text>Oui</Text></Shape>
+      </Shapes>
+    </Shape>
+    <Shape ID="74"><Cell N="BeginX" V="0"/><Cell N="BeginY" V="-103"/><Cell N="EndX" V="3"/><Cell N="EndY" V="-103"/></Shape>
+  </Shapes>
+  <Connects>
+    <Connect FromSheet="10" FromCell="BeginX" ToSheet="0"/>
+    <Connect FromSheet="10" FromCell="EndX" ToSheet="1"/>
+    <Connect FromSheet="11" FromCell="BeginX" ToSheet="1"/>
+    <Connect FromSheet="11" FromCell="EndX" ToSheet="2"/>
+    <Connect FromSheet="12" FromCell="BeginX" ToSheet="1"/>
+    <Connect FromSheet="12" FromCell="EndX" ToSheet="3"/>
+
+    <Connect FromSheet="53" FromCell="BeginX" ToSheet="50"/>
+    <Connect FromSheet="53" FromCell="EndX" ToSheet="51"/>
+
+    <Connect FromSheet="70" FromCell="BeginX" ToSheet="60"/>
+    <Connect FromSheet="70" FromCell="EndX" ToSheet="61"/>
+    <Connect FromSheet="71" FromCell="BeginX" ToSheet="61"/>
+    <Connect FromSheet="71" FromCell="EndX" ToSheet="62"/>
+    <Connect FromSheet="74" FromCell="BeginX" ToSheet="61"/>
+    <Connect FromSheet="74" FromCell="EndX" ToSheet="63"/>
+  </Connects>
+</PageContents>"""
+
+
+def _build_full_vsdx(path):
+    with zipfile.ZipFile(path, "w") as zf:
+        zf.writestr("visio/masters/masters.xml", _MASTERS_XML)
+        zf.writestr("visio/pages/page1.xml", _PAGE_XML)
+    return str(path)
+
+
+class TestExtractDecisionsFromVsdxFullPipeline:
+
+    def _decisions_by_id(self, tmp_path):
+        from Code.routes.vsdx_decision_extractor import extract_decisions_from_vsdx
+        path = _build_full_vsdx(tmp_path / "sample.vsdx")
+        result = extract_decisions_from_vsdx(path)
+        assert result["errors"] == []
+        return {d["id"]: d for d in result["decisions"]}, result
+
+    def test_finds_all_three_decisions(self, tmp_path):
+        decisions, result = self._decisions_by_id(tmp_path)
+        assert set(decisions.keys()) == {"1", "52", "61"}
+        assert result["total_shapes"] == 20
+        assert result["total_connectors"] == 14
+
+    def test_explicit_decision_label_and_incoming(self, tmp_path):
+        decisions, _ = self._decisions_by_id(tmp_path)
+        d1 = decisions["1"]
+        assert d1["label"] == "Valide ?"
+        assert d1["splice"] is False
+        assert len(d1["incoming"]) == 1
+        assert d1["incoming"][0]["from_label"] == "Reception commande"
+
+    def test_explicit_decision_geometry_classifies_oui_non_branches(self, tmp_path):
+        """Le connecteur 'dans l'axe' de la décision est classé Oui, celui qui bifurque Non."""
+        decisions, _ = self._decisions_by_id(tmp_path)
+        outgoing_by_target = {o["to_id"]: o for o in decisions["1"]["outgoing"]}
+        assert outgoing_by_target["2"]["badge"] == "Oui"
+        assert outgoing_by_target["2"]["inferred_badge"] == "Oui"
+        assert outgoing_by_target["3"]["badge"] == "Non"
+        assert outgoing_by_target["3"]["inferred_badge"] == "Non"
+
+    def test_spliced_decision_is_flagged_and_keeps_orig_connector(self, tmp_path):
+        """Décision posée sur une ligne (aucun <Connect> direct) → splice=True."""
+        decisions, _ = self._decisions_by_id(tmp_path)
+        d52 = decisions["52"]
+        assert d52["splice"] is True
+        assert len(d52["outgoing"]) == 1
+        assert d52["outgoing"][0]["to_id"] == "51"
+        assert d52["outgoing"][0]["_orig_conn_id"] == "53"
+        assert d52["outgoing"][0]["badge"] == "Oui"
+
+    def test_spliced_decision_single_branch_always_oui(self, tmp_path):
+        """Une décision spliced avec une seule sortie est toujours inférée 'Oui'."""
+        decisions, _ = self._decisions_by_id(tmp_path)
+        assert decisions["52"]["outgoing"][0]["inferred_badge"] == "Oui"
+
+    def test_group_membership_propagates_badge_to_connector(self, tmp_path):
+        """Un badge Oui/Non groupé (Visio) avec un connecteur lui attribue son badge."""
+        decisions, _ = self._decisions_by_id(tmp_path)
+        outgoing_by_target = {o["to_id"]: o for o in decisions["61"]["outgoing"]}
+        assert outgoing_by_target["62"]["badge"] == "Oui"
+        assert outgoing_by_target["63"]["badge"] == ""
