@@ -11,6 +11,8 @@ Sans clé OPENAI_API_KEY (environnement de test) :
   - skills CRUD (add/update/delete) → 200/201/404 sans dépendance externe
 """
 import json
+from types import SimpleNamespace
+
 import pytest
 
 pytestmark = pytest.mark.propose_ia
@@ -669,3 +671,472 @@ class TestActivityItemsAPI:
                 if sv:
                     db.session.delete(sv)
                     db.session.commit()
+
+
+# ===========================================================================
+# 8. Chemin IA "avec clé" (client OpenAI mocké, sans réseau) —
+#    propose_savoirs / propose_savoir_faires / propose_softskills /
+#    propose_aptitudes. Ces routes ont un chemin `if client is None: fallback`
+#    déjà couvert plus haut ; ici on force `openai_client_or_none()` à
+#    renvoyer un faux client pour exercer l'appel réel + parsing + erreurs.
+# ===========================================================================
+
+class _FakeCompletions:
+    def __init__(self, content=None, exc=None):
+        self._content = content
+        self._exc = exc
+
+    def create(self, **kwargs):
+        if self._exc is not None:
+            raise self._exc
+        return SimpleNamespace(
+            choices=[SimpleNamespace(message=SimpleNamespace(content=self._content))]
+        )
+
+
+class FakeOpenAIClient:
+    """Simule le client OpenAI (chat.completions.create) sans appel réseau."""
+
+    def __init__(self, content=None, exc=None):
+        self.chat = SimpleNamespace(completions=_FakeCompletions(content, exc))
+
+
+def _isolated_auth_client(app, lang=None):
+    """Client isolé (session dédiée) pour tester lang='en' sans polluer auth_client."""
+    from Code.models.models import User, Entity
+
+    with app.app_context():
+        user = User.query.filter_by(email="test@devoptiq.com").first()
+        entity = Entity.query.filter_by(name="Entité Test").first()
+    isolated = app.test_client()
+    with isolated.session_transaction() as sess:
+        sess["user_id"] = user.id
+        sess["user_email"] = user.email
+        sess["active_entity_id"] = entity.id
+        if lang:
+            sess["lang"] = lang
+    return isolated
+
+
+class TestProposeSavoirsWithAIClient:
+    """/propose_savoirs/propose avec client OpenAI mocké (succès + erreur)."""
+
+    def test_ai_success_parses_bullet_lines(self, auth_client, monkeypatch):
+        monkeypatch.setattr(
+            "Code.routes.propose_savoirs.openai_client_or_none",
+            lambda: (FakeOpenAIClient(content="- Règles de nomenclature\n- Procédure interne\n"), None),
+        )
+        r = auth_client.post(
+            "/propose_savoirs/propose",
+            data=json.dumps({"name": "Traitement des commandes"}),
+            content_type="application/json",
+        )
+        assert r.status_code == 200
+        data = json.loads(r.data)
+        assert data["proposals"] == ["Règles de nomenclature", "Procédure interne"]
+        assert "source" not in data
+
+    def test_ai_exception_returns_200_with_error_field(self, auth_client, monkeypatch):
+        monkeypatch.setattr(
+            "Code.routes.propose_savoirs.openai_client_or_none",
+            lambda: (FakeOpenAIClient(exc=RuntimeError("boom-savoirs")), None),
+        )
+        r = auth_client.post(
+            "/propose_savoirs/propose",
+            data=json.dumps({"name": "X"}),
+            content_type="application/json",
+        )
+        assert r.status_code == 200
+        data = json.loads(r.data)
+        assert "error" in data
+        assert "boom-savoirs" in data["error"]
+
+    def test_ai_success_with_english_lang(self, app, monkeypatch):
+        monkeypatch.setattr(
+            "Code.routes.propose_savoirs.openai_client_or_none",
+            lambda: (FakeOpenAIClient(content="- Catalogue naming rules\n"), None),
+        )
+        client = _isolated_auth_client(app, lang="en")
+        r = client.post(
+            "/propose_savoirs/propose",
+            data=json.dumps({"name": "Order processing"}),
+            content_type="application/json",
+        )
+        assert r.status_code == 200
+        assert json.loads(r.data)["proposals"] == ["Catalogue naming rules"]
+
+
+class TestProposeSavoirFairesWithAIClient:
+    """/propose_savoir_faires/propose avec client OpenAI mocké (succès + erreur)."""
+
+    def test_ai_success_parses_bullet_lines(self, auth_client, monkeypatch):
+        monkeypatch.setattr(
+            "Code.routes.propose_savoir_faires.openai_client_or_none",
+            lambda: (FakeOpenAIClient(content="- Utiliser le logiciel ERP\n- Vérifier les écarts\n"), None),
+        )
+        r = auth_client.post(
+            "/propose_savoir_faires/propose",
+            data=json.dumps({"name": "Gestion du stock"}),
+            content_type="application/json",
+        )
+        assert r.status_code == 200
+        data = json.loads(r.data)
+        assert data["proposals"] == ["Utiliser le logiciel ERP", "Vérifier les écarts"]
+        assert "source" not in data
+
+    def test_ai_exception_returns_200_with_error_field(self, auth_client, monkeypatch):
+        monkeypatch.setattr(
+            "Code.routes.propose_savoir_faires.openai_client_or_none",
+            lambda: (FakeOpenAIClient(exc=RuntimeError("boom-sf")), None),
+        )
+        r = auth_client.post(
+            "/propose_savoir_faires/propose",
+            data=json.dumps({"name": "X"}),
+            content_type="application/json",
+        )
+        assert r.status_code == 200
+        data = json.loads(r.data)
+        assert "error" in data
+        assert "boom-sf" in data["error"]
+
+
+class TestProposeSoftskillsWithAIClient:
+    """/propose_softskills/propose avec client OpenAI mocké — tous les embranchements
+    de parsing (JSON liste, JSON objet unique, JSON invalide, réponse vide, exception)."""
+
+    def test_ai_success_json_list(self, auth_client, monkeypatch):
+        content = json.dumps([
+            {"habilete": "Coopération", "niveau": "3", "justification": "Travail en équipe étroit."}
+        ])
+        monkeypatch.setattr(
+            "Code.routes.propose_softskills.openai_client_or_none",
+            lambda: (FakeOpenAIClient(content=content), None),
+        )
+        r = auth_client.post(
+            "/propose_softskills/propose",
+            data=json.dumps({"name": "Coordination de projet"}),
+            content_type="application/json",
+        )
+        assert r.status_code == 200
+        proposals = json.loads(r.data)["proposals"]
+        assert proposals == [{
+            "habilete": "Coopération",
+            "niveau": "3 (Maîtrise)",
+            "justification": "Travail en équipe étroit.",
+        }]
+
+    def test_ai_success_json_single_object_wrapped_in_list(self, auth_client, monkeypatch):
+        """Un objet JSON unique (pas une liste) doit être enveloppé dans une liste."""
+        content = json.dumps({"habilete": "Planification", "niveau": 2, "justification": "J"})
+        monkeypatch.setattr(
+            "Code.routes.propose_softskills.openai_client_or_none",
+            lambda: (FakeOpenAIClient(content=content), None),
+        )
+        r = auth_client.post(
+            "/propose_softskills/propose",
+            data=json.dumps({"name": "X"}),
+            content_type="application/json",
+        )
+        assert r.status_code == 200
+        proposals = json.loads(r.data)["proposals"]
+        assert len(proposals) == 1
+        assert proposals[0]["habilete"] == "Planification"
+        assert proposals[0]["niveau"] == "2 (Acquisition)"
+
+    def test_ai_invalid_json_falls_back_to_line_parsing(self, auth_client, monkeypatch):
+        """Réponse non-JSON → repli sur un parsing ligne à ligne du texte brut."""
+        monkeypatch.setattr(
+            "Code.routes.propose_softskills.openai_client_or_none",
+            lambda: (FakeOpenAIClient(content="Ceci n'est pas du JSON valide du tout."), None),
+        )
+        r = auth_client.post(
+            "/propose_softskills/propose",
+            data=json.dumps({"name": "X"}),
+            content_type="application/json",
+        )
+        assert r.status_code == 200
+        proposals = json.loads(r.data)["proposals"]
+        assert len(proposals) == 1
+        assert proposals[0]["habilete"] == "Ceci n'est pas du JSON valide du tout."
+
+    def test_ai_empty_response_falls_back_to_default_proposal(self, auth_client, monkeypatch):
+        """Réponse vide → aucun proposal parsé → item par défaut renvoyé."""
+        monkeypatch.setattr(
+            "Code.routes.propose_softskills.openai_client_or_none",
+            lambda: (FakeOpenAIClient(content=""), None),
+        )
+        r = auth_client.post(
+            "/propose_softskills/propose",
+            data=json.dumps({"name": "X"}),
+            content_type="application/json",
+        )
+        assert r.status_code == 200
+        proposals = json.loads(r.data)["proposals"]
+        assert len(proposals) == 1
+        assert proposals[0]["habilete"] == "Communication professionnelle"
+
+    def test_ai_exception_returns_200_with_error_field(self, auth_client, monkeypatch):
+        monkeypatch.setattr(
+            "Code.routes.propose_softskills.openai_client_or_none",
+            lambda: (FakeOpenAIClient(exc=RuntimeError("boom-hsc")), None),
+        )
+        r = auth_client.post(
+            "/propose_softskills/propose",
+            data=json.dumps({"name": "X"}),
+            content_type="application/json",
+        )
+        assert r.status_code == 200
+        data = json.loads(r.data)
+        assert "error" in data
+        assert "boom-hsc" in data["error"]
+        assert data["proposals"][0]["habilete"] == "Habileté non déterminée (erreur serveur)."
+
+    def test_ai_success_with_english_lang(self, app, monkeypatch):
+        content = json.dumps([{"habilete": "Cooperation", "niveau": "4", "justification": "J"}])
+        monkeypatch.setattr(
+            "Code.routes.propose_softskills.openai_client_or_none",
+            lambda: (FakeOpenAIClient(content=content), None),
+        )
+        client = _isolated_auth_client(app, lang="en")
+        r = client.post(
+            "/propose_softskills/propose",
+            data=json.dumps({"name": "Project coordination"}),
+            content_type="application/json",
+        )
+        assert r.status_code == 200
+        proposals = json.loads(r.data)["proposals"]
+        assert proposals[0]["niveau"] == "4 (Highly Proficient)"
+
+
+class TestProposeAptitudesWithAIClient:
+    """/propose_aptitudes/propose & /feasibility avec client OpenAI mocké."""
+
+    def test_propose_ai_success_returns_parsed_dict(self, auth_client, monkeypatch):
+        payload_json = json.dumps({
+            "vision": {"niveau": "1 (Faible)", "risque": "Écran prolongé", "leviers": ["Zoom logiciel"]},
+        })
+        monkeypatch.setattr(
+            "Code.routes.propose_aptitudes.openai_client_or_none",
+            lambda: (FakeOpenAIClient(content=payload_json), None),
+        )
+        r = auth_client.post(
+            "/propose_aptitudes/propose",
+            data=json.dumps({"name": "Contrôle qualité"}),
+            content_type="application/json",
+        )
+        assert r.status_code == 200
+        data = json.loads(r.data)
+        assert data["proposals"]["vision"]["niveau"] == "1 (Faible)"
+
+    def test_propose_ai_success_strips_markdown_fences(self, auth_client, monkeypatch):
+        fenced = "```json\n" + json.dumps({"vision": {"niveau": "0 (Aucune)"}}) + "\n```"
+        monkeypatch.setattr(
+            "Code.routes.propose_aptitudes.openai_client_or_none",
+            lambda: (FakeOpenAIClient(content=fenced), None),
+        )
+        r = auth_client.post(
+            "/propose_aptitudes/propose",
+            data=json.dumps({"name": "X"}),
+            content_type="application/json",
+        )
+        assert r.status_code == 200
+        assert json.loads(r.data)["proposals"]["vision"]["niveau"] == "0 (Aucune)"
+
+    def test_propose_ai_invalid_json_returns_error_field(self, auth_client, monkeypatch):
+        monkeypatch.setattr(
+            "Code.routes.propose_aptitudes.openai_client_or_none",
+            lambda: (FakeOpenAIClient(content="pas du json"), None),
+        )
+        r = auth_client.post(
+            "/propose_aptitudes/propose",
+            data=json.dumps({"name": "X"}),
+            content_type="application/json",
+        )
+        assert r.status_code == 200
+        data = json.loads(r.data)
+        assert data["proposals"] == {}
+        assert "error" in data
+
+    def test_propose_ai_exception_returns_error_field(self, auth_client, monkeypatch):
+        monkeypatch.setattr(
+            "Code.routes.propose_aptitudes.openai_client_or_none",
+            lambda: (FakeOpenAIClient(exc=RuntimeError("boom-apt")), None),
+        )
+        r = auth_client.post(
+            "/propose_aptitudes/propose",
+            data=json.dumps({"name": "X"}),
+            content_type="application/json",
+        )
+        assert r.status_code == 200
+        data = json.loads(r.data)
+        assert data["proposals"] == {}
+        assert "boom-apt" in data["error"]
+
+    def test_feasibility_ai_success_with_dict_scoring_and_string_assistive(self, auth_client, monkeypatch):
+        """inclusion_scoring_json en dict (converti en str) + assistive_products en str (non-liste)."""
+        result_json = json.dumps({
+            "statut": "OK avec adaptations",
+            "mesures_deja_en_place": [],
+            "ajouts_recommandes": ["Poste ergonomique"],
+            "a_ajuster": [],
+            "risque_residuel": "Faible",
+            "points_a_instruire": [],
+            "commentaire": "RAS",
+        })
+        monkeypatch.setattr(
+            "Code.routes.propose_aptitudes.openai_client_or_none",
+            lambda: (FakeOpenAIClient(content=result_json), None),
+        )
+        payload = {
+            "activity_name": "Saisie de données",
+            "inclusion_scoring_json": {"vision": {"niveau": "1 (Faible)"}},
+            "profil_fonctionnel": {"vision": "normale"},
+            "assistive_products": "Loupe électronique",
+        }
+        r = auth_client.post(
+            "/propose_aptitudes/feasibility",
+            data=json.dumps(payload),
+            content_type="application/json",
+        )
+        assert r.status_code == 200
+        data = json.loads(r.data)
+        assert data["result"]["statut"] == "OK avec adaptations"
+
+    def test_feasibility_ai_invalid_json_returns_error_field(self, auth_client, monkeypatch):
+        monkeypatch.setattr(
+            "Code.routes.propose_aptitudes.openai_client_or_none",
+            lambda: (FakeOpenAIClient(content="pas du json"), None),
+        )
+        r = auth_client.post(
+            "/propose_aptitudes/feasibility",
+            data=json.dumps({"activity_name": "X"}),
+            content_type="application/json",
+        )
+        assert r.status_code == 200
+        data = json.loads(r.data)
+        assert data["result"] == {}
+        assert "error" in data
+
+    def test_feasibility_ai_exception_returns_error_field(self, auth_client, monkeypatch):
+        monkeypatch.setattr(
+            "Code.routes.propose_aptitudes.openai_client_or_none",
+            lambda: (FakeOpenAIClient(exc=RuntimeError("boom-feas")), None),
+        )
+        r = auth_client.post(
+            "/propose_aptitudes/feasibility",
+            data=json.dumps({"activity_name": "X"}),
+            content_type="application/json",
+        )
+        assert r.status_code == 200
+        data = json.loads(r.data)
+        assert data["result"] == {}
+        assert "boom-feas" in data["error"]
+
+
+# ===========================================================================
+# 9. Fonctions utilitaires pures (sans Flask) — build_activity_summary,
+#    clean_json_response, make_enumeration.
+# ===========================================================================
+
+class TestProposeAptitudesHelpers:
+
+    def test_build_activity_summary_combines_all_sections(self):
+        from Code.routes.propose_aptitudes import build_activity_summary
+        activity = {
+            "description": "Contrôle qualité des pièces usinées",
+            "tools": ["Pied à coulisse", "Comparateur"],
+            "constraints": ["Cadence 200 pièces/h"],
+            "tasks": [{"description": "Mesurer les cotes"}, "Vérifier visuellement"],
+            "outgoing": [{"performance": {"name": "Taux de conformité", "description": "> 98%"}}],
+        }
+        summary = build_activity_summary(activity)
+        assert "Contrôle qualité des pièces usinées" in summary
+        assert "Outils : Pied à coulisse, Comparateur" in summary
+        assert "Contraintes : Cadence 200 pièces/h" in summary
+        assert "T1: Mesurer les cotes" in summary
+        assert "T2: Vérifier visuellement" in summary
+        assert "Performance : Taux de conformité - > 98%" in summary
+
+    def test_build_activity_summary_empty_activity_returns_default(self):
+        from Code.routes.propose_aptitudes import build_activity_summary
+        assert build_activity_summary({}) == "Non renseigné"
+
+    def test_clean_json_response_extracts_json_array(self):
+        from Code.routes.propose_aptitudes import clean_json_response
+        text = "Voici la réponse : [1, 2, 3] fin."
+        assert clean_json_response(text) == "[1, 2, 3]"
+
+    def test_clean_json_response_no_brackets_returns_text_as_is(self):
+        from Code.routes.propose_aptitudes import clean_json_response
+        assert clean_json_response("juste du texte") == "juste du texte"
+
+
+class TestProposeSoftskillsHelpers:
+
+    def test_make_enumeration_with_dict_items(self):
+        from Code.routes.propose_softskills import make_enumeration
+        items = [{"description": "Analyser les données"}, {"description": "Rédiger le rapport"}]
+        result = make_enumeration("T", items)
+        assert result == "T1: Analyser les données\nT2: Rédiger le rapport"
+
+    def test_make_enumeration_with_plain_items(self):
+        from Code.routes.propose_softskills import make_enumeration
+        assert make_enumeration("C", ["Délai serré"]) == "C1: Délai serré"
+
+    def test_make_enumeration_empty_list_returns_placeholder(self):
+        from Code.routes.propose_softskills import make_enumeration
+        assert make_enumeration("T", []) == "(Aucune T)"
+
+    def test_clean_json_response_extracts_json_array(self):
+        from Code.routes.propose_softskills import clean_json_response
+        text = "```json\n[{\"a\": 1}]\n```"
+        assert clean_json_response(text) == '[{"a": 1}]'
+
+    def test_ai_success_with_outgoing_performances_in_prompt(self, auth_client, monkeypatch):
+        """outgoing contient une performance → alimente perf_lines (branche dédiée)."""
+        captured = {}
+
+        class _CapturingCompletions(_FakeCompletions):
+            def create(self, **kwargs):
+                captured["prompt"] = kwargs["messages"][1]["content"]
+                return super().create(**kwargs)
+
+        fake = FakeOpenAIClient(content=json.dumps([
+            {"habilete": "Synthèse", "niveau": "2", "justification": "J"}
+        ]))
+        fake.chat.completions = _CapturingCompletions(
+            content=json.dumps([{"habilete": "Synthèse", "niveau": "2", "justification": "J"}])
+        )
+        monkeypatch.setattr(
+            "Code.routes.propose_softskills.openai_client_or_none",
+            lambda: (fake, None),
+        )
+        payload = {
+            "name": "Reporting mensuel",
+            "outgoing": [
+                {"performance": {"name": "Fiabilité", "description": "0 erreur"}},
+                {"no_performance_here": True},
+            ],
+        }
+        r = auth_client.post(
+            "/propose_softskills/propose",
+            data=json.dumps(payload),
+            content_type="application/json",
+        )
+        assert r.status_code == 200
+        assert "P1: Fiabilité - 0 erreur" in captured["prompt"]
+
+    def test_ai_empty_response_english_lang_falls_back_to_default(self, app, monkeypatch):
+        monkeypatch.setattr(
+            "Code.routes.propose_softskills.openai_client_or_none",
+            lambda: (FakeOpenAIClient(content=""), None),
+        )
+        client = _isolated_auth_client(app, lang="en")
+        r = client.post(
+            "/propose_softskills/propose",
+            data=json.dumps({"name": "X"}),
+            content_type="application/json",
+        )
+        assert r.status_code == 200
+        proposals = json.loads(r.data)["proposals"]
+        assert proposals[0]["habilete"] == "Professional Communication"

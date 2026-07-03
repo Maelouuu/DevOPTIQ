@@ -50,6 +50,26 @@
   },
   "entries": [
     {
+      "id": "2026-07-03-coverage-propose-ia",
+      "at": "2026-07-03T03:20:59",
+      "date": "03/07/2026 · 03:20",
+      "author": "routine",
+      "title": "Couverture IA : chemin réel client OpenAI mocké (propose_savoirs/savoir_faires/softskills/aptitudes)",
+      "summary": "Suite déjà à 100% (1372/1372) : 30 réinvestis en couverture. Les 4 endpoints de proposition IA n'étaient testés que sur le chemin de repli (sans clé OpenAI) ; ajout d'un client OpenAI mocké (sans réseau) pour exercer le vrai chemin (succès, JSON invalide, exception, lang=en) et les fonctions utilitaires pures.",
+      "new_tests": 28,
+      "tests_fixed": 0,
+      "patches": 0,
+      "page": "propose_ia",
+      "highlights": [
+        "propose_aptitudes.py : 20% -> 99% de couverture",
+        "propose_softskills.py : 21% -> 98% de couverture",
+        "propose_savoir_faires.py : 48% -> 100% de couverture",
+        "propose_savoirs.py : 52% -> 100% de couverture",
+        "Suite complète : 1400 / 1400 verte, aucune régression"
+      ],
+      "next": "Poursuivre sur les fichiers encore faiblement couverts : vsdx_decision_extractor.py (25%), activities_map.py (50%), projection_metier.py (44%), changelog.py (53%)."
+    },
+    {
       "id": "2026-06-27-refonte-panel",
       "at": "2026-06-27T19:30:00",
       "date": "27/06/2026 · 19:30",
