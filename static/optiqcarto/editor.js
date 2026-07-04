@@ -6347,12 +6347,86 @@ function autoLayoutArrows() {
   }
 
   render();                 // refléter les tracés A*
-  architectArrows(true);    // séparer les flèches parallèles restantes (silencieux)
-  render();                 // routes séparées → _computedOrthopts à jour pour les labels
+  _separateLanes();         // flèches parallèles → voies nettes espacées
+  render();                 // voies à jour → _computedOrthopts pour les labels
   architectLabels(false);   // labels près de la pointe, sans chevaucher formes/flèches/labels
 
   snapshot(); render();
   showToast((_L('editor.toast.arrows_arranged') || 'Flèches agencées automatiquement'));
+}
+
+// Sépare les flèches parallèles en VOIES nettes (au lieu de bosses) : décale les
+// segments intérieurs qui se superposent dans un même couloir, chacun sur sa
+// propre ligne espacée. Ne touche que les segments intérieurs (jamais ceux
+// collés à un port) → le tracé reste orthogonal automatiquement (seuls les coins
+// partagés bougent). Vérifie qu'aucune voie ne traverse une forme.
+function _separateLanes() {
+  const GAP = 16, CLOSE = 11, MIN_OVER = 26, SAFE_M = 6;
+
+  // Rectangles obstacles (petite marge : les voies peuvent longer une forme)
+  const rects = state.shapes
+    .filter(s => s.type !== 'decision')
+    .map(s => ({ x: s.x - SAFE_M, y: s.y - SAFE_M, w: s.w + 2 * SAFE_M, h: s.h + 2 * SAFE_M }));
+  const crossesObstacle = (isH, coord, lo, hi) => {
+    const ax = isH ? lo : coord, ay = isH ? coord : lo;
+    const bx = isH ? hi : coord, by = isH ? coord : hi;
+    for (const r of rects) if (_segCrossesRect(ax, ay, bx, by, r)) return true;
+    return false;
+  };
+
+  // Collecte des segments intérieurs (les deux extrémités sont des userPts)
+  const segs = [];
+  for (const c of state.connections) {
+    const pts = c._computedOrthopts;
+    if (!c.userPts || !pts || pts.length < 4) continue;
+    for (let i = 1; i <= pts.length - 3; i++) {
+      const a = pts[i], b = pts[i + 1];
+      const isH = Math.abs(a.y - b.y) < 1.5, isV = Math.abs(a.x - b.x) < 1.5;
+      if (!isH && !isV) continue;
+      const len = isH ? Math.abs(b.x - a.x) : Math.abs(b.y - a.y);
+      if (len < MIN_OVER) continue;
+      segs.push({
+        c, isH, coord: isH ? a.y : a.x,
+        lo: isH ? Math.min(a.x, b.x) : Math.min(a.y, b.y),
+        hi: isH ? Math.max(a.x, b.x) : Math.max(a.y, b.y),
+        uA: i - 1, uB: i,
+      });
+    }
+  }
+
+  // Regroupement en faisceaux (même axe, coord proche, plages qui se recouvrent)
+  const used = new Array(segs.length).fill(false);
+  for (let i = 0; i < segs.length; i++) {
+    if (used[i]) continue;
+    const bundle = [segs[i]]; used[i] = true;
+    for (let j = i + 1; j < segs.length; j++) {
+      if (used[j]) continue;
+      const t = segs[j];
+      if (t.isH !== segs[i].isH || Math.abs(t.coord - segs[i].coord) > CLOSE) continue;
+      if (bundle.some(m => Math.min(m.hi, t.hi) - Math.max(m.lo, t.lo) > MIN_OVER)) { bundle.push(t); used[j] = true; }
+    }
+    if (new Set(bundle.map(b => b.c.id)).size < 2) continue; // besoin de ≥2 flèches distinctes
+
+    const base = bundle.reduce((s, b) => s + b.coord, 0) / bundle.length;
+    bundle.sort((a, b) => (a.coord - b.coord) || (a.c.id - b.c.id));
+    const n = bundle.length;
+    bundle.forEach((seg, rank) => {
+      const newCoord = base + (rank - (n - 1) / 2) * GAP;
+      if (Math.abs(newCoord - seg.coord) < 0.5) return;
+      if (crossesObstacle(seg.isH, newCoord, seg.lo, seg.hi)) return; // sécurité : pas à travers une forme
+      const up = seg.c.userPts;
+      if (seg.isH) { if (up[seg.uA]) up[seg.uA].y = newCoord; if (up[seg.uB]) up[seg.uB].y = newCoord; }
+      else        { if (up[seg.uA]) up[seg.uA].x = newCoord; if (up[seg.uB]) up[seg.uB].x = newCoord; }
+    });
+  }
+
+  // Nettoyage : fusionne les points devenus colinéaires après décalage
+  for (const c of state.connections) {
+    if (!c.userPts || !c._computedOrthopts) continue;
+    const pts = c._computedOrthopts;
+    const full = simplifyPath([pts[0], ...c.userPts, pts[pts.length - 1]]);
+    c.userPts = full.length > 2 ? full.slice(1, -1) : null;
+  }
 }
 
 
