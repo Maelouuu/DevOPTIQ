@@ -374,6 +374,176 @@ function orthogonalArrow(fp, tp) {
   return polylineToPath(orthogonalPts(fp, tp), 8);
 }
 
+/* ══════════════════════════════════════════════════
+   AGENCEMENT AUTOMATIQUE DES FLÈCHES (auto-layout)
+   Objectif : reproduire, en un clic, le travail manuel minutieux d'un
+   diagramme Visio « parfait » : ports optimaux (côtés qui se font face,
+   répartis pour ne pas se croiser), routage orthogonal qui contourne les
+   formes, et séparation des flèches parallèles. Fonctions pures & testables.
+   ══════════════════════════════════════════════════ */
+
+const _OPP_DIR = { right: 'left', left: 'right', top: 'bottom', bottom: 'top' };
+
+// Avance un point d'une distance dans une direction cardinale.
+function _advancePt(p, dir, dist) {
+  if (dir === 'right')  return { x: p.x + dist, y: p.y };
+  if (dir === 'left')   return { x: p.x - dist, y: p.y };
+  if (dir === 'bottom') return { x: p.x, y: p.y + dist };
+  return { x: p.x, y: p.y - dist }; // top
+}
+
+// Un segment orthogonal A→B traverse-t-il l'INTÉRIEUR strict du rectangle R ?
+// (toucher un bord est autorisé — sinon on ne pourrait jamais longer une forme)
+function _segCrossesRect(ax, ay, bx, by, R) {
+  const rx1 = R.x, ry1 = R.y, rx2 = R.x + R.w, ry2 = R.y + R.h;
+  const E = 0.5;
+  if (Math.abs(ay - by) < 0.5) { // horizontal, y = ay
+    if (ay <= ry1 + E || ay >= ry2 - E) return false;
+    const x1 = Math.min(ax, bx), x2 = Math.max(ax, bx);
+    return x1 < rx2 - E && x2 > rx1 + E;
+  }
+  // vertical, x = ax
+  if (ax <= rx1 + E || ax >= rx2 - E) return false;
+  const y1 = Math.min(ay, by), y2 = Math.max(ay, by);
+  return y1 < ry2 - E && y2 > ry1 + E;
+}
+
+// Routage orthogonal évitant les obstacles (A* sur une grille de « lignes
+// intéressantes » façon Hightower/draw.io). Coût = longueur + pénalité de virage.
+// fp/tp = { x, y, dir }  ;  obstacles = [{x,y,w,h}] (hors formes des 2 extrémités).
+// Renvoie [fp, ...coudes, tp] parfaitement orthogonal, ou null si aucun chemin.
+function routeOrthogonalAStar(fp, tp, obstacles, opts) {
+  opts = opts || {};
+  const MARGIN = opts.margin != null ? opts.margin : 16;
+  const STUB   = opts.stub   != null ? opts.stub   : 22;
+  const BEND   = opts.bend   != null ? opts.bend   : 20;
+  const MAXNODES = 4200;
+
+  const s0 = _advancePt(fp, fp.dir, STUB);
+  const e0 = _advancePt(tp, tp.dir, STUB);
+
+  // Rectangles obstacles élargis, limités à la zone utile (bbox + marge)
+  const bx1 = Math.min(s0.x, e0.x) - 500, bx2 = Math.max(s0.x, e0.x) + 500;
+  const by1 = Math.min(s0.y, e0.y) - 500, by2 = Math.max(s0.y, e0.y) + 500;
+  const rects = [];
+  for (const o of (obstacles || [])) {
+    const r = { x: o.x - MARGIN, y: o.y - MARGIN, w: o.w + 2 * MARGIN, h: o.h + 2 * MARGIN };
+    if (r.x + r.w < bx1 || r.x > bx2 || r.y + r.h < by1 || r.y > by2) continue;
+    rects.push(r);
+  }
+
+  // Lignes de grille : bords des obstacles élargis + points d'entrée/sortie
+  const xsSet = new Set(), ysSet = new Set();
+  const q = v => Math.round(v * 2) / 2;
+  const addX = v => xsSet.add(q(v)), addY = v => ysSet.add(q(v));
+  addX(s0.x); addX(e0.x); addX(fp.x); addX(tp.x);
+  addY(s0.y); addY(e0.y); addY(fp.y); addY(tp.y);
+  for (const r of rects) { addX(r.x); addX(r.x + r.w); addY(r.y); addY(r.y + r.h); }
+  const xs = [...xsSet].sort((a, b) => a - b);
+  const ys = [...ysSet].sort((a, b) => a - b);
+  if (xs.length * ys.length > MAXNODES) return null; // trop dense → repli sur routage classique
+
+  const xi = new Map(xs.map((v, i) => [v, i]));
+  const yi = new Map(ys.map((v, i) => [v, i]));
+  const sX = xi.get(q(s0.x)), sY = yi.get(q(s0.y));
+  const gX = xi.get(q(e0.x)), gY = yi.get(q(e0.y));
+  if (sX == null || sY == null || gX == null || gY == null) return null;
+
+  function ptInside(x, y) {
+    for (const r of rects)
+      if (x > r.x + 0.5 && x < r.x + r.w - 0.5 && y > r.y + 0.5 && y < r.y + r.h - 0.5) return true;
+    return false;
+  }
+  function edgeClear(ax, ay, bx, by) {
+    for (const r of rects) if (_segCrossesRect(ax, ay, bx, by, r)) return false;
+    return true;
+  }
+
+  const goalKey = gX + ',' + gY;
+  const H = (ix, iy) => Math.abs(xs[ix] - xs[gX]) + Math.abs(ys[iy] - ys[gY]);
+  const open = new Map();
+  const gScore = new Map();
+  const closed = new Set();
+  const startKey = sX + ',' + sY;
+  open.set(startKey, { xi: sX, yi: sY, g: 0, f: H(sX, sY), dir: fp.dir, prev: null });
+  gScore.set(startKey, 0);
+
+  let goal = null, guard = 0;
+  const MAXITER = 30000;
+  while (open.size && guard++ < MAXITER) {
+    let bestKey = null, best = null;
+    for (const [k, n] of open) if (!best || n.f < best.f) { best = n; bestKey = k; }
+    open.delete(bestKey);
+    if (bestKey === goalKey) { goal = best; break; }
+    closed.add(bestKey);
+    const cx = xs[best.xi], cy = ys[best.yi];
+    const neigh = [];
+    if (best.xi + 1 < xs.length) neigh.push([best.xi + 1, best.yi, 'right']);
+    if (best.xi - 1 >= 0)        neigh.push([best.xi - 1, best.yi, 'left']);
+    if (best.yi + 1 < ys.length) neigh.push([best.xi, best.yi + 1, 'bottom']);
+    if (best.yi - 1 >= 0)        neigh.push([best.xi, best.yi - 1, 'top']);
+    for (const [nx, ny, ndir] of neigh) {
+      const k = nx + ',' + ny;
+      if (closed.has(k)) continue;
+      const px = xs[nx], py = ys[ny];
+      if ((nx !== gX || ny !== gY) && ptInside(px, py)) continue;
+      if (!edgeClear(cx, cy, px, py)) continue;
+      const g = best.g + Math.abs(px - cx) + Math.abs(py - cy) + (best.dir && best.dir !== ndir ? BEND : 0);
+      if (gScore.has(k) && g >= gScore.get(k)) continue;
+      gScore.set(k, g);
+      open.set(k, { xi: nx, yi: ny, g, f: g + H(nx, ny), dir: ndir, prev: best });
+    }
+  }
+  if (!goal) return null;
+
+  const grid = [];
+  for (let n = goal; n; n = n.prev) grid.unshift({ x: xs[n.xi], y: ys[n.yi] });
+  return simplifyPath([{ x: fp.x, y: fp.y }, ...grid, { x: tp.x, y: tp.y }]);
+}
+
+// Attribue à chaque connexion les côtés (ports) optimaux + leur position (t)
+// répartie le long du côté pour minimiser les croisements.
+// nodesById[id] = {x,y,w,h}  ;  connections = [{id, fromId, toId}]
+// Renvoie [{connId, fromDir, fromT, toDir, toT}] (aligné sur connections).
+function autoAssignPorts(nodesById, connections) {
+  const pushG = (map, key, val) => { let a = map.get(key); if (!a) { a = []; map.set(key, a); } a.push(val); };
+  const info = [];
+  for (const c of connections) {
+    const a = nodesById[c.fromId], b = nodesById[c.toId];
+    if (!a || !b || c.fromId === c.toId) { info.push(null); continue; }
+    const ac = { x: a.x + a.w / 2, y: a.y + a.h / 2 };
+    const bc = { x: b.x + b.w / 2, y: b.y + b.h / 2 };
+    const sepR = b.x - (a.x + a.w), sepL = a.x - (b.x + b.w);
+    const sepB = b.y - (a.y + a.h), sepT = a.y - (b.y + b.h);
+    const hSep = Math.max(sepR, sepL), vSep = Math.max(sepB, sepT);
+    const dx = bc.x - ac.x, dy = bc.y - ac.y;
+    let fromDir;
+    if (hSep >= 0 && (hSep >= vSep || vSep < 0))      fromDir = dx >= 0 ? 'right' : 'left';
+    else if (vSep >= 0)                               fromDir = dy >= 0 ? 'bottom' : 'top';
+    else fromDir = Math.abs(dx) >= Math.abs(dy) ? (dx >= 0 ? 'right' : 'left') : (dy >= 0 ? 'bottom' : 'top');
+    info.push({ connId: c.id, fromDir, toDir: _OPP_DIR[fromDir], fromT: 0.5, toT: 0.5,
+                _from: c.fromId, _to: c.toId, _oFrom: bc, _oTo: ac });
+  }
+  // Répartition des t : grouper par (forme, côté), trier par la position de
+  // l'autre extrémité le long du côté → les flèches s'éventent sans se croiser.
+  const groups = new Map();
+  for (const it of info) {
+    if (!it) continue;
+    pushG(groups, it._from + '|' + it.fromDir, { it, end: 'from', dir: it.fromDir, other: it._oFrom });
+    pushG(groups, it._to   + '|' + it.toDir,   { it, end: 'to',   dir: it.toDir,   other: it._oTo });
+  }
+  for (const arr of groups.values()) {
+    const axis = (arr[0].dir === 'top' || arr[0].dir === 'bottom') ? 'x' : 'y';
+    arr.sort((p, r) => p.other[axis] - r.other[axis]);
+    const n = arr.length;
+    arr.forEach((e, i) => {
+      const t = n <= 1 ? 0.5 : (i + 1) / (n + 1);
+      if (e.end === 'from') e.it.fromT = t; else e.it.toT = t;
+    });
+  }
+  return info.map(it => it ? { connId: it.connId, fromDir: it.fromDir, fromT: it.fromT, toDir: it.toDir, toT: it.toT } : null);
+}
+
 /* ── Retour à la ligne ──────────────────────────── */
 
 function wrapText(text, maxChars, maxLines = 4) {
@@ -394,4 +564,12 @@ function wrapText(text, maxChars, maxLines = 4) {
     if (cur && result.length < maxLines) result.push(cur);
   }
   return result.slice(0, maxLines);
+}
+
+// Export pour tests Node (sans effet dans le navigateur : `module` n'existe pas)
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = {
+    polylineToPath, orthogonalPts, avoidShapes, simplifyPath, orthogonalArrow,
+    routeOrthogonalAStar, autoAssignPorts, _segCrossesRect, _advancePt,
+  };
 }

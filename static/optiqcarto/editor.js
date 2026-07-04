@@ -836,16 +836,20 @@ function renderConnections() {
         ly = c.labelOffset.y;
         angle = arrowMajorH ? 0 : -90;
       } else {
-        // Trouver le segment préféré : le plus long dans la direction dominante
-        let longestSeg = 0, longestLen = 0, longestForcedSeg = -1, longestForcedLen = 0;
+        // Segment préféré : dans la direction dominante, on privilégie le segment
+        // le plus PROCHE DE LA POINTE (fin de flèche) suffisamment long, pour que le
+        // label se pose près du bout ; à défaut le plus long dominant, puis le plus long.
+        let longestSeg = 0, longestLen = 0, longestForcedSeg = -1, longestForcedLen = 0, lastForcedSeg = -1;
         for (let i = 0; i < orthopts.length - 1; i++) {
           const pa = orthopts[i], pb = orthopts[i + 1];
           const l = Math.hypot(pb.x - pa.x, pb.y - pa.y);
           const segH = Math.abs(pb.y - pa.y) < 2;
           if (l > longestLen) { longestLen = l; longestSeg = i; }
           if (segH === arrowMajorH && l > longestForcedLen) { longestForcedLen = l; longestForcedSeg = i; }
+          if (segH === arrowMajorH && l >= 55) lastForcedSeg = i;
         }
-        const preferSeg = longestForcedSeg >= 0 ? longestForcedSeg : longestSeg;
+        const preferSeg = lastForcedSeg >= 0 ? lastForcedSeg
+                        : (longestForcedSeg >= 0 ? longestForcedSeg : longestSeg);
 
         // Générer des candidats le long des segments dans la direction dominante.
         // perp=0 UNIQUEMENT : le label est toujours sur la flèche, jamais à côté.
@@ -5969,7 +5973,7 @@ function runCartoCheck() {
    ARCHITECTE — placement automatique des labels de flèches
    ══════════════════════════════════════════════════ */
 
-function architectLabels() {
+function architectLabels(commit) {
   // 1. Label orientation MUST match the segment direction
   // 2. Label box must fit within segment with clearance from both ends
   // 3. Adaptive corner clearance — reduces for longer labels so they can still be placed
@@ -5985,6 +5989,16 @@ function architectLabels() {
   const STEP_PX   = 6;
 
   const placed = [];
+  const ARROW_CLEAR = 5; // marge min entre la boîte du label et une AUTRE flèche
+
+  // Segments de toutes les flèches (pour qu'aucun label ne se pose sur une autre flèche)
+  const allSegs = [];
+  for (const cc of state.connections) {
+    const pp = cc._computedOrthopts;
+    if (!pp || pp.length < 2) continue;
+    for (let i = 0; i < pp.length - 1; i++)
+      allSegs.push({ connId: cc.id, ax: pp[i].x, ay: pp[i].y, bx: pp[i + 1].x, by: pp[i + 1].y });
+  }
 
   function labelSize(c) {
     const lines = (c.label || '').split('\n');
@@ -5993,7 +6007,7 @@ function architectLabels() {
     return { lw, lh };
   }
 
-  function hits(cx, cy, bw, bh) {
+  function hits(cx, cy, bw, bh, curId) {
     const hw = bw / 2, hh = bh / 2;
     for (const sh of state.shapes) {
       if (cx + hw > sh.x - SHAPE_M && cx - hw < sh.x + sh.w + SHAPE_M &&
@@ -6004,6 +6018,18 @@ function architectLabels() {
       if (cx + hw > p.cx - p.hw - LABEL_GAP && cx - hw < p.cx + p.hw + LABEL_GAP &&
           cy + hh > p.cy - p.hh - LABEL_GAP && cy - hh < p.cy + p.hh + LABEL_GAP)
         return true;
+    }
+    // Ne pas chevaucher une AUTRE flèche : distance du bord de la boîte au segment
+    for (const seg of allSegs) {
+      if (seg.connId === curId) continue; // sa propre flèche → OK, le label s'y pose
+      const abx = seg.bx - seg.ax, aby = seg.by - seg.ay;
+      const len2 = abx * abx + aby * aby;
+      if (len2 < 1) continue;
+      const t = Math.max(0, Math.min(1, ((cx - seg.ax) * abx + (cy - seg.ay) * aby) / len2));
+      const px = seg.ax + t * abx, py = seg.ay + t * aby;
+      const bdx = Math.max(0, Math.abs(cx - px) - hw);
+      const bdy = Math.max(0, Math.abs(cy - py) - hh);
+      if (Math.hypot(bdx, bdy) < ARROW_CLEAR) return true;
     }
     return false;
   }
@@ -6069,7 +6095,7 @@ function architectLabels() {
         for (let t = tMax; t >= tMin - 1e-6; t -= STEP_PX / segLen) {
           const cx = pa.x + dx * t;
           const cy = pa.y + dy * t;
-          if (!hits(cx, cy, bw, bh)) {
+          if (!hits(cx, cy, bw, bh, c.id)) {
             c.labelOffset = { x: cx, y: cy };
             placed.push({ cx, cy, hw: bw / 2, hh: bh / 2 });
             ok = true;
@@ -6082,7 +6108,7 @@ function architectLabels() {
     if (!ok) delete c.labelOffset;
   }
 
-  snapshot(); render();
+  if (commit !== false) { snapshot(); render(); }
 }
 
 function _labelOnSeg(conn, seg) {
@@ -6118,7 +6144,7 @@ function _chooseDetourDir(isH, segPos, os, oe, offset) {
   return countHits(-1) <= countHits(+1) ? -1 : +1;
 }
 
-function architectArrows() {
+function architectArrows(silent) {
   const CLOSE       = 9;   // distance perpendiculaire max pour considérer deux segments superposés
   const MIN_OVERLAP = 20;  // longueur minimale de chevauchement à corriger (px)
   const GAP         = 14;  // marge avant/après la zone de détour
@@ -6193,8 +6219,8 @@ function architectArrows() {
   }
 
   if (toFix.length === 0) {
-    showToast(_L('editor.toast.no_arrow_overlap') || 'Aucune superposition détectée');
-    return;
+    if (!silent) showToast(_L('editor.toast.no_arrow_overlap') || 'Aucune superposition détectée');
+    return 0;
   }
 
   for (const { conn, seg, oStart, oEnd } of toFix) {
@@ -6245,8 +6271,88 @@ function architectArrows() {
     }
   }
 
-  showToast(toFix.length + ' ' + (_L('editor.toast.arrows_fixed') || 'flèche(s) décalée(s)'));
+  if (!silent) { showToast(toFix.length + ' ' + (_L('editor.toast.arrows_fixed') || 'flèche(s) décalée(s)')); snapshot(); render(); }
+  return toFix.length;
+}
+
+/* ══════════════════════════════════════════════════
+   AGENCEMENT AUTOMATIQUE — le bouton « tout ranger »
+   Enchaîne : ports optimaux → routage orthogonal contournant les formes →
+   séparation des flèches parallèles → placement des labels près de la pointe.
+   Un seul appel = un diagramme « façon Visio » sans réglage manuel.
+   ══════════════════════════════════════════════════ */
+function autoLayoutArrows() {
+  if (window.OPTIQCARTO_READONLY) return;
+  if (!state.connections || state.connections.length === 0) {
+    showToast(_L('editor.toast.no_arrows') || 'Aucune flèche à agencer');
+    return;
+  }
+
+  // 1) Repartir d'une base propre : effacer tout tracé/label manuel
+  for (const c of state.connections) {
+    c.userPts = null; c.bendOffset = null;
+    delete c._archDetoured; delete c.labelOffset;
+  }
+
+  // Boîtes résolues (formes + groupes) pour l'attribution des ports
+  const nodesById = {};
+  for (const s of state.shapes) nodesById[s.id] = { x: s.x, y: s.y, w: s.w, h: s.h, type: s.type };
+  if (state.groups) for (const g of state.groups) {
+    const b = getGroupBounds(g);
+    if (b) nodesById[g.id] = { x: b.x, y: b.y, w: b.w, h: b.h, type: 'group' };
+  }
+
+  // 2) Ports optimaux (côtés qui se font face, répartis pour ne pas se croiser)
+  const ports = autoAssignPorts(nodesById, state.connections);
+  const pByConn = {};
+  for (const p of ports) if (p) pByConn[p.connId] = p;
+  for (const c of state.connections) {
+    const p = pByConn[c.id];
+    if (!p) continue;
+    c.fromPortDir = p.fromDir; c.fromPortT = p.fromT;
+    c.toPortDir   = p.toDir;   c.toPortT   = p.toT;
+  }
+
+  // 3) Rendu → spreadPort calcule fp/tp avec les nouveaux ports
+  render();
+
+  // 4) Routage orthogonal évitant les formes, connexion par connexion
+  let routed = 0;
+  for (const c of state.connections) {
+    const pts = c._computedOrthopts;
+    if (!pts || pts.length < 2) continue;
+    const fp = { x: pts[0].x, y: pts[0].y, dir: c.fromPortDir || 'right' };
+    const last = pts[pts.length - 1];
+    const tp = { x: last.x, y: last.y, dir: c.toPortDir || 'left' };
+    // Si une extrémité est un groupe, ses formes membres ne sont pas des obstacles
+    const skipMembers = new Set();
+    if (state.groups) for (const g of state.groups) {
+      if (g.id === c.fromId || g.id === c.toId) (g.shapeIds || []).forEach(id => skipMembers.add(id));
+    }
+    const obstacles = [];
+    for (const s of state.shapes) {
+      if (s.id === c.fromId || s.id === c.toId) continue;
+      if (skipMembers.has(s.id)) continue;
+      if (s.type === 'decision') continue; // les losanges sont des nœuds de routage
+      obstacles.push({ x: s.x, y: s.y, w: s.w, h: s.h });
+    }
+    let route = null;
+    try { route = routeOrthogonalAStar(fp, tp, obstacles); } catch (_) { route = null; }
+    if (route && route.length >= 2) {
+      const mids = route.slice(1, -1).map(p => ({ x: p.x, y: p.y }));
+      c.userPts = mids.length ? mids : null;
+      routed++;
+    }
+    // sinon : userPts reste null → routage classique live (repli sûr)
+  }
+
+  render();                 // refléter les tracés A*
+  architectArrows(true);    // séparer les flèches parallèles restantes (silencieux)
+  render();                 // routes séparées → _computedOrthopts à jour pour les labels
+  architectLabels(false);   // labels près de la pointe, sans chevaucher formes/flèches/labels
+
   snapshot(); render();
+  showToast((_L('editor.toast.arrows_arranged') || 'Flèches agencées automatiquement'));
 }
 
 
@@ -6713,12 +6819,12 @@ function init() {
 
   document.getElementById('btn-new-carto').addEventListener('click', newCarto);
   document.getElementById('btn-architect').addEventListener('click', runCartoCheck);
-  // btn-place-labels: click → architectLabels immediately; hover 1s → dropdown
+  // btn-place-labels: click → agencement automatique complet ; survol 1s → menu (options fines)
   (function() {
     if (window.OPTIQCARTO_READONLY) return;
     const btn = document.getElementById('btn-place-labels');
     if (!btn) return;
-    btn.addEventListener('click', architectLabels);
+    btn.addEventListener('click', autoLayoutArrows);
 
     const drop = document.createElement('div');
     drop.id = 'architect-dropdown';
@@ -6726,24 +6832,30 @@ function init() {
       'position:absolute;top:100%;left:50%;transform:translateX(-50%)',
       'margin-top:4px;background:#fff;border:1.5px solid #e2e8f0',
       'border-radius:10px;box-shadow:0 6px 20px rgba(0,0,0,0.15)',
-      'z-index:9000;min-width:200px;overflow:hidden;display:none',
+      'z-index:9000;min-width:230px;overflow:hidden;display:none',
       'flex-direction:column',
     ].join(';');
     drop.innerHTML = `
-      <button id="arch-btn-labels" style="padding:10px 16px;border:none;background:none;text-align:left;cursor:pointer;font-size:0.83rem;color:#1e293b;display:flex;align-items:center;gap:8px;width:100%">
-        <i class="fa-solid fa-tag" style="color:#ec4899;width:14px"></i>
-        <span data-key="editor.arch_drop_labels">Architecter les labels</span>
+      <button id="arch-btn-all" style="padding:10px 16px;border:none;background:none;text-align:left;cursor:pointer;font-size:0.83rem;color:#1e293b;display:flex;align-items:center;gap:8px;width:100%;font-weight:600">
+        <i class="fa-solid fa-wand-magic-sparkles" style="color:#22c55e;width:14px"></i>
+        <span data-key="editor.arch_drop_all">Tout agencer (flèches + labels)</span>
       </button>
       <button id="arch-btn-arrows" style="padding:10px 16px;border:none;background:none;text-align:left;cursor:pointer;font-size:0.83rem;color:#1e293b;display:flex;align-items:center;gap:8px;width:100%;border-top:1px solid #f1f5f9">
         <i class="fa-solid fa-arrows-split-up-and-left" style="color:#3b82f6;width:14px"></i>
-        <span data-key="editor.arch_drop_arrows">Architecter les flèches</span>
+        <span data-key="editor.arch_drop_arrows">Séparer les flèches seulement</span>
+      </button>
+      <button id="arch-btn-labels" style="padding:10px 16px;border:none;background:none;text-align:left;cursor:pointer;font-size:0.83rem;color:#1e293b;display:flex;align-items:center;gap:8px;width:100%;border-top:1px solid #f1f5f9">
+        <i class="fa-solid fa-tag" style="color:#ec4899;width:14px"></i>
+        <span data-key="editor.arch_drop_labels">Placer les labels seulement</span>
       </button>`;
-    drop.querySelector('#arch-btn-labels').onmouseenter = e => e.currentTarget.style.background = '#f8fafc';
-    drop.querySelector('#arch-btn-labels').onmouseleave = e => e.currentTarget.style.background = '';
-    drop.querySelector('#arch-btn-arrows').onmouseenter = e => e.currentTarget.style.background = '#f8fafc';
-    drop.querySelector('#arch-btn-arrows').onmouseleave = e => e.currentTarget.style.background = '';
-    drop.querySelector('#arch-btn-labels').addEventListener('click', e => { e.stopPropagation(); hideDrop(); architectLabels(); });
+    for (const id of ['#arch-btn-all', '#arch-btn-arrows', '#arch-btn-labels']) {
+      const b = drop.querySelector(id);
+      b.onmouseenter = e => e.currentTarget.style.background = '#f8fafc';
+      b.onmouseleave = e => e.currentTarget.style.background = '';
+    }
+    drop.querySelector('#arch-btn-all').addEventListener('click',    e => { e.stopPropagation(); hideDrop(); autoLayoutArrows(); });
     drop.querySelector('#arch-btn-arrows').addEventListener('click', e => { e.stopPropagation(); hideDrop(); architectArrows(); });
+    drop.querySelector('#arch-btn-labels').addEventListener('click', e => { e.stopPropagation(); hideDrop(); architectLabels(); });
 
     // Apply i18n to dropdown labels
     drop.querySelectorAll('[data-key]').forEach(el => {
