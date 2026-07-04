@@ -126,6 +126,63 @@ class TestActivitiesViewSearch:
 
 
 # ===========================================================================
+# 1bis. GET /activities/view/search — Recherche insensible aux accents
+# ===========================================================================
+
+def _create_activity(app, entity_id, name):
+    with app.app_context():
+        from Code.models.models import Activities
+        from Code.extensions import db
+        a = Activities(entity_id=entity_id, name=name, description="Activité de test accents")
+        db.session.add(a)
+        db.session.commit()
+        return a.id
+
+
+def _delete_activity(app, activity_id):
+    with app.app_context():
+        from Code.models.models import Activities
+        from Code.extensions import db
+        a = Activities.query.get(activity_id)
+        if a:
+            db.session.delete(a)
+            db.session.commit()
+
+
+class TestActivitiesViewSearchAccentInsensitive:
+
+    def test_unaccented_query_matches_accented_name(self, auth_client, app, ids):
+        """Rechercher 'Deja Vu' doit trouver une activité nommée 'Déjà Vù'."""
+        aid = _create_activity(app, ids["entity_id"], "Déjà Vù Accent Test")
+        try:
+            r = auth_client.get("/activities/view/search?q=Deja+Vu+Accent+Test")
+            data = r.get_json()
+            assert data["count"] >= 1
+        finally:
+            _delete_activity(app, aid)
+
+    def test_accented_query_matches_unaccented_name(self, auth_client, app, ids):
+        """Rechercher 'Eleve' (sans accent) doit trouver 'Élève Sans Accent Test'."""
+        aid = _create_activity(app, ids["entity_id"], "Eleve Sans Accent Test")
+        try:
+            r = auth_client.get("/activities/view/search?q=%C3%89l%C3%A8ve+Sans+Accent+Test")
+            data = r.get_json()
+            assert data["count"] >= 1
+        finally:
+            _delete_activity(app, aid)
+
+    def test_accent_insensitive_search_is_case_insensitive_too(self, auth_client, app, ids):
+        """La normalisation accents + casse fonctionne combinée (MAJ + accents)."""
+        aid = _create_activity(app, ids["entity_id"], "Été Combiné Test")
+        try:
+            r = auth_client.get("/activities/view/search?q=ETE+COMBINE+TEST")
+            data = r.get_json()
+            assert data["count"] >= 1
+        finally:
+            _delete_activity(app, aid)
+
+
+# ===========================================================================
 # 2. POST /testpanel/admin/clone_entity — Clonage d'entité
 # ===========================================================================
 

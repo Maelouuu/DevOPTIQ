@@ -197,6 +197,71 @@ class TestRolesAPI:
         assert isinstance(data["users"], list)
         assert isinstance(data["roles"], list)
 
+    def test_collaborators_roles_have_comp_color_key(self, auth_client, app, ids):
+        """Chaque rôle d'un user dans la réponse expose 'comp_color' (même si None)."""
+        rid = _create_role(app, ids, name="Rôle Comp Color Vide")
+        uid = _create_user(app, ids, email="compcolor.empty@devoptiq.com")
+        with app.app_context():
+            from Code.models.models import UserRole
+            from Code.extensions import db
+            db.session.add(UserRole(user_id=uid, role_id=rid))
+            db.session.commit()
+        try:
+            data = auth_client.get("/gestion_rh/all_collaborators_with_manager").get_json()
+            user_entry = next(u for u in data["users"] if u["id"] == uid)
+            role_entry = next(r for r in user_entry["roles"] if r["id"] == rid)
+            assert "comp_color" in role_entry
+            assert role_entry["comp_color"] is None
+        finally:
+            with app.app_context():
+                from Code.models.models import UserRole
+                from Code.extensions import db
+                UserRole.query.filter_by(user_id=uid, role_id=rid).delete()
+                db.session.commit()
+            _delete_user(app, uid)
+            _delete_role(app, rid)
+
+    def test_collaborators_comp_color_reflects_garant_evaluations(self, auth_client, app, ids):
+        """comp_color reflète la moyenne des notes 'manager' sur les activités Garant du rôle."""
+        rid = _create_role(app, ids, name="Rôle Comp Color Vert")
+        uid = _create_user(app, ids, email="compcolor.green@devoptiq.com")
+        with app.app_context():
+            from Code.models.models import UserRole, CompetencyEvaluation
+            from Code.extensions import db
+            db.session.add(UserRole(user_id=uid, role_id=rid))
+            db.session.execute(
+                db.text(
+                    "INSERT INTO activity_roles (activity_id, role_id, status) "
+                    "VALUES (:aid, :rid, 'Garant')"
+                ),
+                {"aid": ids["activity_id"], "rid": rid},
+            )
+            db.session.add(CompetencyEvaluation(
+                user_id=uid, activity_id=ids["activity_id"],
+                item_id=None, item_type=None,
+                eval_number="manager", note="green",
+            ))
+            db.session.commit()
+        try:
+            data = auth_client.get("/gestion_rh/all_collaborators_with_manager").get_json()
+            user_entry = next(u for u in data["users"] if u["id"] == uid)
+            role_entry = next(r for r in user_entry["roles"] if r["id"] == rid)
+            assert role_entry["comp_color"] == "#22c55e"
+        finally:
+            with app.app_context():
+                from Code.models.models import UserRole, CompetencyEvaluation
+                from Code.extensions import db
+                CompetencyEvaluation.query.filter_by(
+                    user_id=uid, activity_id=ids["activity_id"], eval_number="manager"
+                ).delete()
+                db.session.execute(
+                    db.text("DELETE FROM activity_roles WHERE role_id = :rid"), {"rid": rid}
+                )
+                UserRole.query.filter_by(user_id=uid, role_id=rid).delete()
+                db.session.commit()
+            _delete_user(app, uid)
+            _delete_role(app, rid)
+
 
 # ===========================================================================
 # 3. CRUD Rôles (create / update / delete)

@@ -50,6 +50,24 @@
   },
   "entries": [
     {
+      "at": "2026-07-04T03:16:09",
+      "date": "04/07/2026 · 03:16",
+      "author": "routine",
+      "title": "Couverture patchs/journal panel + accents + comp_color + tasks",
+      "summary": "Suite deja a 100% (1372/1372) : effort reinvesti en couverture. Ajout de 25 tests ciblant du code non teste introduit recemment (routes /testpanel/patches et /testpanel/journal, recherche activites insensible aux accents, champ comp_color dans gestion_rh et roles_view, fix silent=True sur update_task).",
+      "new_tests": 25,
+      "tests_fixed": 0,
+      "patches": 0,
+      "page": "test_panel",
+      "highlights": [
+        "test_51_test_panel_patches_journal.py : 17 tests (routes /testpanel/patches, /testpanel/journal, modele TestPatch)",
+        "test_42 : 3 tests de recherche insensible aux accents (Activites)",
+        "test_12 + test_24 : 4 tests sur le champ comp_color (couleur de competence des titulaires/collaborateurs)",
+        "test_49 : 1 test sur le fix silent=True (Content-Type invalide -> 400 au lieu de 415/500)"
+      ],
+      "next": "Poursuivre la couverture de l'editeur OptiqCarto (JS) et surveiller les prochains changements de routes non couverts."
+    },
+    {
       "id": "2026-06-27-refonte-panel",
       "at": "2026-06-27T19:30:00",
       "date": "27/06/2026 · 19:30",

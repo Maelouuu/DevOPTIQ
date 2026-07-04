@@ -176,6 +176,83 @@ class TestValidationLevel:
 
 
 # ===========================================================================
+# 3bis. GET /roles_view/ — Couleur de compétence des titulaires (comp_color)
+# ===========================================================================
+
+def _create_user_for_holder(app, ids, email):
+    from Code.models.models import User
+    from Code.extensions import db
+    from werkzeug.security import generate_password_hash
+    with app.app_context():
+        u = User(
+            entity_id=ids["entity_id"], first_name="Titulaire", last_name="Test",
+            email=email, password=generate_password_hash("Pass123!"), status="user",
+        )
+        db.session.add(u)
+        db.session.commit()
+        return u.id
+
+
+def _cleanup_holder(app, uid, rid, activity_id):
+    from Code.models.models import UserRole, CompetencyEvaluation, User
+    from Code.extensions import db
+    with app.app_context():
+        CompetencyEvaluation.query.filter_by(user_id=uid, activity_id=activity_id).delete()
+        db.session.execute(db.text("DELETE FROM activity_roles WHERE role_id = :rid"), {"rid": rid})
+        UserRole.query.filter_by(user_id=uid, role_id=rid).delete()
+        u = User.query.get(uid)
+        if u:
+            db.session.delete(u)
+        db.session.commit()
+
+
+class TestRoleHoldersCompColor:
+
+    def test_holder_without_evaluation_has_no_color(self, auth_client, app, ids):
+        """Un titulaire sans évaluation n'affiche pas de puce de couleur."""
+        rid = _create_role(app, ids, name="Rôle Holder Sans Note")
+        uid = _create_user_for_holder(app, ids, "holder.nocolor@devoptiq.com")
+        with app.app_context():
+            from Code.models.models import UserRole
+            from Code.extensions import db
+            db.session.add(UserRole(user_id=uid, role_id=rid))
+            db.session.commit()
+        try:
+            r = auth_client.get("/roles_view/")
+            assert r.status_code == 200
+        finally:
+            _cleanup_holder(app, uid, rid, ids["activity_id"])
+
+    def test_holder_with_green_evaluation_shows_green_hex(self, auth_client, app, ids):
+        """Un titulaire noté 'green' (manager) sur une activité Garant du rôle affiche #22c55e."""
+        rid = _create_role(app, ids, name="Rôle Holder Vert")
+        uid = _create_user_for_holder(app, ids, "holder.green@devoptiq.com")
+        with app.app_context():
+            from Code.models.models import UserRole, CompetencyEvaluation
+            from Code.extensions import db
+            db.session.add(UserRole(user_id=uid, role_id=rid))
+            db.session.execute(
+                db.text(
+                    "INSERT INTO activity_roles (activity_id, role_id, status) "
+                    "VALUES (:aid, :rid, 'Garant')"
+                ),
+                {"aid": ids["activity_id"], "rid": rid},
+            )
+            db.session.add(CompetencyEvaluation(
+                user_id=uid, activity_id=ids["activity_id"],
+                item_id=None, item_type=None,
+                eval_number="manager", note="green",
+            ))
+            db.session.commit()
+        try:
+            r = auth_client.get("/roles_view/")
+            assert r.status_code == 200
+            assert b"#22c55e" in r.data
+        finally:
+            _cleanup_holder(app, uid, rid, ids["activity_id"])
+
+
+# ===========================================================================
 # 4. GET /your_api/activity_items/<activity_id> — Items d'une activité
 # ===========================================================================
 

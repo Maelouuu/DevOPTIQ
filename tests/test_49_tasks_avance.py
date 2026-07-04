@@ -268,6 +268,19 @@ class TestTaskUpdate:
         finally:
             _delete_task(app, tid)
 
+    def test_update_wrong_content_type_returns_400_not_500(self, auth_client, app, ids):
+        """PUT avec un Content-Type non-JSON et un corps non-vide retourne 400 (pas 415/500)."""
+        tid = _create_task(app, ids, name="Tâche Wrong Content-Type")
+        try:
+            r = auth_client.put(
+                f"/tasks/{tid}",
+                data="name=Ignoré",
+                content_type="text/plain",
+            )
+            assert r.status_code == 400
+        finally:
+            _delete_task(app, tid)
+
     def test_update_partial_only_name(self, auth_client, app, ids):
         """PUT avec seulement 'name' ne modifie pas la description existante."""
         tid = _create_task(app, ids, name="Tâche Partial", description="Desc originale")
