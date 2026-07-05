@@ -6258,7 +6258,7 @@ function architectArrows(silent) {
    séparation des flèches parallèles → placement des labels près de la pointe.
    Un seul appel = un diagramme « façon Visio » sans réglage manuel.
    ══════════════════════════════════════════════════ */
-function autoLayoutArrows() {
+async function autoLayoutArrows() {
   if (window.OPTIQCARTO_READONLY) return;
   if (!state.connections || state.connections.length === 0) {
     showToast(_L('editor.toast.no_arrows') || 'Aucune flèche à agencer');
@@ -6279,62 +6279,179 @@ function autoLayoutArrows() {
     if (b) nodesById[g.id] = { x: b.x, y: b.y, w: b.w, h: b.h, type: 'group' };
   }
 
-  // 2) Ports optimaux (côtés qui se font face, répartis pour ne pas se croiser)
-  const ports = autoAssignPorts(nodesById, state.connections);
-  const pByConn = {};
-  for (const p of ports) if (p) pByConn[p.connId] = p;
-  for (const c of state.connections) {
-    const p = pByConn[c.id];
-    if (!p) continue;
-    c.fromPortDir = p.fromDir; c.fromPortT = p.fromT;
-    c.toPortDir   = p.toDir;   c.toPortT   = p.toT;
+  // 2) Routage. Moteur pro « libavoid » (WASM) si dispo : il choisit les côtés,
+  //    évite les formes, sépare les flèches parallèles (nudging) et minimise les
+  //    croisements. On relit sa géométrie EXACTE et on recalcule le port dir/t à
+  //    partir des extrémités qu'il a choisies (→ fp/tp de render == tracé libavoid).
+  //    Repli sûr sur le routeur A* interne sinon.
+  let A = window.__optiqAvoid || null;
+  if (!A && window.__optiqAvoidReady && !window.__optiqAvoidFailed) {
+    try { A = await window.__optiqAvoidReady; } catch (_) { A = null; }
+  }
+  let usedLib = false;
+  if (A) {
+    try {
+      const results = _libavoidRoute(A, nodesById, state.connections);
+      if (results && results.length) {
+        const byId = {}; for (const r of results) byId[r.connId] = r;
+        for (const c of state.connections) {
+          const r = byId[c.id];
+          if (!r) continue;
+          c.fromPortDir = r.fromDir; c.fromPortT = r.fromT;
+          c.toPortDir   = r.toDir;   c.toPortT   = r.toT;
+          c.userPts     = r.userPts;
+        }
+        usedLib = true;
+      }
+    } catch (e) { console.warn('[OptiqCarto] libavoid a échoué, repli A* :', e && e.message); usedLib = false; }
   }
 
-  // 3) Rendu → spreadPort calcule fp/tp avec les nouveaux ports
-  render();
-
-  // 4) Routage orthogonal évitant les formes, connexion par connexion
-  let routed = 0;
-  for (const c of state.connections) {
-    const pts = c._computedOrthopts;
-    if (!pts || pts.length < 2) continue;
-    const fp = { x: pts[0].x, y: pts[0].y, dir: c.fromPortDir || 'right' };
-    const last = pts[pts.length - 1];
-    const tp = { x: last.x, y: last.y, dir: c.toPortDir || 'left' };
-    // Si une extrémité est un groupe, ses formes membres ne sont pas des obstacles
-    const skipMembers = new Set();
-    if (state.groups) for (const g of state.groups) {
-      if (g.id === c.fromId || g.id === c.toId) (g.shapeIds || []).forEach(id => skipMembers.add(id));
+  if (!usedLib) {
+    // ── Repli : ports internes (autoAssignPorts) + routeur A* + séparation ──
+    const ports = autoAssignPorts(nodesById, state.connections);
+    const pByConn = {}; for (const p of ports) if (p) pByConn[p.connId] = p;
+    for (const c of state.connections) {
+      const p = pByConn[c.id]; if (!p) continue;
+      c.fromPortDir = p.fromDir; c.fromPortT = p.fromT;
+      c.toPortDir = p.toDir; c.toPortT = p.toT;
     }
-    const obstacles = [];
-    for (const s of state.shapes) {
-      if (s.id === c.fromId || s.id === c.toId) continue;
-      if (skipMembers.has(s.id)) continue;
-      if (s.type === 'decision') {
-        // Losange : silhouette inscrite dans la bbox → obstacle réduit (~moitié
-        // centrale) pour éviter de traverser le losange sans sur-bloquer ses coins.
-        obstacles.push({ x: s.x + s.w * 0.22, y: s.y + s.h * 0.22, w: s.w * 0.56, h: s.h * 0.56 });
-      } else {
-        obstacles.push({ x: s.x, y: s.y, w: s.w, h: s.h });
+    render();
+    for (const c of state.connections) {
+      const pts = c._computedOrthopts;
+      if (!pts || pts.length < 2) continue;
+      const fp = { x: pts[0].x, y: pts[0].y, dir: c.fromPortDir || 'right' };
+      const last = pts[pts.length - 1];
+      const tp = { x: last.x, y: last.y, dir: c.toPortDir || 'left' };
+      const skipMembers = new Set();
+      if (state.groups) for (const g of state.groups) {
+        if (g.id === c.fromId || g.id === c.toId) (g.shapeIds || []).forEach(id => skipMembers.add(id));
+      }
+      const obstacles = [];
+      for (const s of state.shapes) {
+        if (s.id === c.fromId || s.id === c.toId) continue;
+        if (skipMembers.has(s.id)) continue;
+        if (s.type === 'decision') obstacles.push({ x: s.x + s.w * 0.22, y: s.y + s.h * 0.22, w: s.w * 0.56, h: s.h * 0.56 });
+        else obstacles.push({ x: s.x, y: s.y, w: s.w, h: s.h });
+      }
+      let route = null;
+      try { route = routeOrthogonalAStar(fp, tp, obstacles); } catch (_) { route = null; }
+      if (route && route.length >= 2) {
+        const mids = route.slice(1, -1).map(p => ({ x: p.x, y: p.y }));
+        c.userPts = mids.length ? mids : null;
       }
     }
-    let route = null;
-    try { route = routeOrthogonalAStar(fp, tp, obstacles); } catch (_) { route = null; }
-    if (route && route.length >= 2) {
-      const mids = route.slice(1, -1).map(p => ({ x: p.x, y: p.y }));
-      c.userPts = mids.length ? mids : null;
-      routed++;
-    }
-    // sinon : userPts reste null → routage classique live (repli sûr)
+    render();
+    _separateLanes(); // séparation des voies (le fallback A* n'a pas de nudging global)
   }
 
-  render();                 // refléter les tracés A*
-  _separateLanes();         // flèches parallèles → voies nettes espacées
-  render();                 // voies à jour → _computedOrthopts pour les labels
+  render();                 // routes à jour → _computedOrthopts pour les labels
   architectLabels(false);   // labels près de la pointe, sans chevaucher formes/flèches/labels
 
   snapshot(); render();
   showToast((_L('editor.toast.arrows_arranged') || 'Flèches agencées automatiquement'));
+}
+
+// Routage via libavoid (WASM). Pose des pins fixes exclusifs aux points de
+// pin central (toutes directions) par forme → libavoid choisit le meilleur côté,
+// aligne les parallèles (nudging) et minimise les croisements. On relit sa
+// géométrie exacte et on RECALCULE le port dir/t depuis l'extrémité qu'il a
+// choisie (avec le halo de spreadPort) → fp/tp de render == tracé libavoid.
+// Renvoie [{connId, fromDir, fromT, toDir, toT, userPts}].
+function _libavoidRoute(A, nodesById, connections) {
+  const RP = A.RoutingParameter, RO = A.RoutingOption;
+  const ORTHO = A.RouterFlag.OrthogonalRouting.value;
+  const router = new A.Router(ORTHO);
+  router.setRoutingParameter(RP.shapeBufferDistance, 12);
+  router.setRoutingParameter(RP.idealNudgingDistance, 18);
+  router.setRoutingParameter(RP.segmentPenalty, 250);   // pénalise fort les coudes → moins de vaguelettes
+  router.setRoutingParameter(RP.anglePenalty, 250);
+  router.setRoutingParameter(RP.crossingPenalty, 600);
+  router.setRoutingParameter(RP.fixedSharedPathPenalty, 200);
+  router.setRoutingOption(RO.nudgeOrthogonalSegmentsConnectedToShapes, true);
+  router.setRoutingOption(RO.nudgeOrthogonalTouchingColinearSegments, true);
+  router.setRoutingOption(RO.nudgeSharedPathsWithCommonEndPoint, true);
+  router.setRoutingOption(RO.performUnifyingNudgingPreprocessingStep, true);
+
+  const pool = [];
+  const P = (x, y) => { const p = new A.Point(x, y); pool.push(p); return p; };
+  const rectPoly = (x, y, w, h) => { const r = new A.Rectangle(P(x, y), P(x + w, y + h)); pool.push(r); return r; };
+
+  const shapeRefs = {};
+  for (const id in nodesById) {
+    const n = nodesById[id];
+    const sr = new A.ShapeRef(router, rectPoly(n.x, n.y, n.w, n.h));
+    if (n.type === 'decision') {
+      // Losange : 4 pins aux POINTES (milieux des côtés) — libavoid entre
+      // perpendiculairement dans une pointe (pas de pin enterré au centre).
+      const tips = [[0.5, 0, 1], [0.5, 1, 2], [0, 0.5, 4], [1, 0.5, 8]]; // xo,yo,dir haut/bas/gauche/droite
+      for (const [xo, yo, d] of tips) { const pin = new A.ShapeConnectionPin(sr, 1, xo, yo, true, 0, d); pin.setExclusive(false); }
+    } else {
+      const pin = new A.ShapeConnectionPin(sr, 1, 0.5, 0.5, true, 0, 15); // centre, toutes directions
+      pin.setExclusive(false);
+    }
+    shapeRefs[id] = sr;
+  }
+
+  const conns = [];
+  for (const c of connections) {
+    if (c.fromId === c.toId || !shapeRefs[c.fromId] || !shapeRefs[c.toId]) continue;
+    const ce1 = new A.ConnEnd(shapeRefs[c.fromId], 1); pool.push(ce1);
+    const ce2 = new A.ConnEnd(shapeRefs[c.toId],   1); pool.push(ce2);
+    const cr = new A.ConnRef(router, ce1, ce2);
+    conns.push({ connId: c.id, cr, from: nodesById[c.fromId], to: nodesById[c.toId] });
+  }
+
+  router.processTransaction();
+
+  // Recalcule dir/t depuis l'extrémité choisie par libavoid (p0=extrémité,
+  // p1=point suivant). Le halo (7px process) reproduit spreadPort.
+  function endInfo(node, p0, p1) {
+    const w = node.w || 1, h = node.h || 1;
+    const dx = p1.x - p0.x, dy = p1.y - p0.y;
+    let dir;
+    if (Math.abs(dx) >= Math.abs(dy)) dir = dx >= 0 ? 'right' : 'left';
+    else dir = dy >= 0 ? 'bottom' : 'top';
+    let t;
+    if (dir === 'right' || dir === 'left') t = (p1.y - node.y) / h;
+    else t = (p1.x - node.x) / w;
+    return { dir, t: Math.max(0, Math.min(1, t)) };
+  }
+  // Pour un losange : cale l'extrémité EXACTEMENT sur la pointe et redresse le
+  // segment d'approche à la hauteur de la pointe → flèche droite dans la pointe
+  // (spreadPort renvoie la pointe pour les décisions ; on fait coïncider les deux).
+  function snapDecisionEnd(pts, node, atStart) {
+    const dir = atStart ? endInfo(node, pts[0], pts[1]).dir
+                        : endInfo(node, pts[pts.length - 1], pts[pts.length - 2]).dir;
+    const cx = node.x + node.w / 2, cy = node.y + node.h / 2;
+    let tip;
+    if (dir === 'left')       tip = { x: node.x, y: cy };
+    else if (dir === 'right') tip = { x: node.x + node.w, y: cy };
+    else if (dir === 'top')   tip = { x: cx, y: node.y };
+    else                      tip = { x: cx, y: node.y + node.h };
+    const horiz = dir === 'left' || dir === 'right';
+    const endIdx = atStart ? 0 : pts.length - 1;
+    const nbrIdx = atStart ? 1 : pts.length - 2;
+    if (horiz) pts[nbrIdx].y = tip.y; else pts[nbrIdx].x = tip.x; // redresse l'approche
+    pts[endIdx] = { x: tip.x, y: tip.y };
+  }
+
+  const results = [];
+  for (const { connId, cr, from, to } of conns) {
+    const pl = cr.displayRoute();
+    const pts = [];
+    for (let i = 0; i < pl.size(); i++) { const pt = pl.at(i); pts.push({ x: pt.x, y: pt.y }); }
+    if (pts.length < 2) continue;
+    if (from.type === 'decision') snapDecisionEnd(pts, from, true);
+    if (to.type === 'decision')   snapDecisionEnd(pts, to, false);
+    const fi = endInfo(from, pts[0], pts[1]);
+    const ti = endInfo(to, pts[pts.length - 1], pts[pts.length - 2]);
+    const mids = pts.slice(1, -1).map(p => ({ x: p.x, y: p.y }));
+    results.push({ connId, fromDir: fi.dir, fromT: fi.t, toDir: ti.dir, toT: ti.t, userPts: mids.length ? mids : null });
+  }
+
+  try { router.delete(); } catch (_) {}
+  for (const h of pool) { try { h.delete(); } catch (_) {} }
+  return results;
 }
 
 // Sépare les flèches parallèles en VOIES nettes (au lieu de bosses) : décale les

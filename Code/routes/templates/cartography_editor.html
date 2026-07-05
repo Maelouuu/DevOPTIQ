@@ -761,6 +761,21 @@
 <script src="{{ url_for('static', filename='optiqcarto/vsdx_importer.js') }}"></script>
 <script src="{{ url_for('static', filename='optiqcarto/editor.js') }}"></script>
 
+<!-- ══ Moteur de routage orthogonal libavoid (WASM) — chargé une fois, en async ══ -->
+<script type="module">
+  import { AvoidLib } from "{{ url_for('static', filename='optiqcarto/vendor/libavoid.mjs') }}";
+  // Expose une promesse que editor.js attend au moment de l'agencement auto.
+  window.__optiqAvoidReady = (async () => {
+    await AvoidLib.load("{{ url_for('static', filename='optiqcarto/vendor/libavoid.wasm') }}");
+    window.__optiqAvoid = AvoidLib.getInstance();
+    return window.__optiqAvoid;
+  })().catch(err => {
+    console.warn('[OptiqCarto] libavoid indisponible, repli sur le routeur interne :', err && err.message);
+    window.__optiqAvoidFailed = true;
+    return null;
+  });
+</script>
+
 <!-- ══ Plein écran automatique à l'ouverture de l'éditeur ══ -->
 <script>
 (function(){
