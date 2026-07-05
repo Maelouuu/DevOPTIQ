@@ -6258,200 +6258,213 @@ function architectArrows(silent) {
    séparation des flèches parallèles → placement des labels près de la pointe.
    Un seul appel = un diagramme « façon Visio » sans réglage manuel.
    ══════════════════════════════════════════════════ */
+let _autoLayoutBusy = false;
+
 async function autoLayoutArrows() {
-  if (window.OPTIQCARTO_READONLY) return;
+  if (window.OPTIQCARTO_READONLY || _autoLayoutBusy) return;
   if (!state.connections || state.connections.length === 0) {
     showToast(_L('editor.toast.no_arrows') || 'Aucune flèche à agencer');
     return;
   }
+  _autoLayoutBusy = true;
 
-  // 1) Repartir d'une base propre : effacer tout tracé/label manuel
-  for (const c of state.connections) {
-    c.userPts = null; c.bendOffset = null;
-    delete c._archDetoured; delete c.labelOffset;
-  }
+  // Sauvegarde de l'état AVANT + visuel avant (rien n'est appliqué sans confirmation)
+  const beforeJSON = JSON.stringify(state);
+  const beforeSVG = _snapshotCartoSVG();
 
-  // Boîtes résolues (formes + groupes) pour l'attribution des ports
-  const nodesById = {};
-  for (const s of state.shapes) nodesById[s.id] = { x: s.x, y: s.y, w: s.w, h: s.h, type: s.type };
-  if (state.groups) for (const g of state.groups) {
-    const b = getGroupBounds(g);
-    if (b) nodesById[g.id] = { x: b.x, y: b.y, w: b.w, h: b.h, type: 'group' };
-  }
+  _showLayoutLoading(true);
+  await _yieldPaint(); // laisse le navigateur peindre le spinner avant de calculer
 
-  // 2) Routage. Moteur pro « libavoid » (WASM) si dispo : il choisit les côtés,
-  //    évite les formes, sépare les flèches parallèles (nudging) et minimise les
-  //    croisements. On relit sa géométrie EXACTE et on recalcule le port dir/t à
-  //    partir des extrémités qu'il a choisies (→ fp/tp de render == tracé libavoid).
-  //    Repli sûr sur le routeur A* interne sinon.
-  let A = window.__optiqAvoid || null;
-  if (!A && window.__optiqAvoidReady && !window.__optiqAvoidFailed) {
-    try { A = await window.__optiqAvoidReady; } catch (_) { A = null; }
-  }
-  let usedLib = false;
-  if (A) {
+  try {
+    const nodesById = {};
+    for (const s of state.shapes) nodesById[s.id] = { x: s.x, y: s.y, w: s.w, h: s.h, type: s.type };
+    if (state.groups) for (const g of state.groups) {
+      const b = getGroupBounds(g);
+      if (b) nodesById[g.id] = { x: b.x, y: b.y, w: b.w, h: b.h, type: 'group' };
+    }
+
+    // repartir propre
+    for (const c of state.connections) { c.userPts = null; c.bendOffset = null; delete c._archDetoured; delete c.labelOffset; }
+
+    // 1) Routage libavoid dans le Web Worker (UI non gelée, timeout de sécurité)
+    let usedLib = false;
     try {
-      const results = _libavoidRoute(A, nodesById, state.connections);
+      const plain = state.connections.map(c => ({ id: c.id, fromId: c.fromId, toId: c.toId }));
+      const results = await _routeViaWorker(nodesById, plain, 25000);
       if (results && results.length) {
         const byId = {}; for (const r of results) byId[r.connId] = r;
         for (const c of state.connections) {
-          const r = byId[c.id];
-          if (!r) continue;
+          const r = byId[c.id]; if (!r) continue;
           c.fromPortDir = r.fromDir; c.fromPortT = r.fromT;
-          c.toPortDir   = r.toDir;   c.toPortT   = r.toT;
-          c.userPts     = r.userPts;
+          c.toPortDir = r.toDir; c.toPortT = r.toT; c.userPts = r.userPts;
         }
         usedLib = true;
       }
-    } catch (e) { console.warn('[OptiqCarto] libavoid a échoué, repli A* :', e && e.message); usedLib = false; }
-  }
+    } catch (e) { console.warn('[OptiqCarto] libavoid worker indisponible, repli A* :', e && e.message); usedLib = false; }
 
-  if (!usedLib) {
-    // ── Repli : ports internes (autoAssignPorts) + routeur A* + séparation ──
-    const ports = autoAssignPorts(nodesById, state.connections);
-    const pByConn = {}; for (const p of ports) if (p) pByConn[p.connId] = p;
-    for (const c of state.connections) {
-      const p = pByConn[c.id]; if (!p) continue;
-      c.fromPortDir = p.fromDir; c.fromPortT = p.fromT;
-      c.toPortDir = p.toDir; c.toPortT = p.toT;
+    // 2) Repli A* interne si le worker n'a rien donné
+    if (!usedLib) {
+      const ports = autoAssignPorts(nodesById, state.connections);
+      const pByConn = {}; for (const p of ports) if (p) pByConn[p.connId] = p;
+      for (const c of state.connections) {
+        const p = pByConn[c.id]; if (!p) continue;
+        c.fromPortDir = p.fromDir; c.fromPortT = p.fromT; c.toPortDir = p.toDir; c.toPortT = p.toT;
+      }
+      render();
+      for (const c of state.connections) {
+        const pts = c._computedOrthopts;
+        if (!pts || pts.length < 2) continue;
+        const fp = { x: pts[0].x, y: pts[0].y, dir: c.fromPortDir || 'right' };
+        const last = pts[pts.length - 1];
+        const tp = { x: last.x, y: last.y, dir: c.toPortDir || 'left' };
+        const skipMembers = new Set();
+        if (state.groups) for (const g of state.groups) {
+          if (g.id === c.fromId || g.id === c.toId) (g.shapeIds || []).forEach(id => skipMembers.add(id));
+        }
+        const obstacles = [];
+        for (const s of state.shapes) {
+          if (s.id === c.fromId || s.id === c.toId) continue;
+          if (skipMembers.has(s.id)) continue;
+          if (s.type === 'decision') obstacles.push({ x: s.x + s.w * 0.22, y: s.y + s.h * 0.22, w: s.w * 0.56, h: s.h * 0.56 });
+          else obstacles.push({ x: s.x, y: s.y, w: s.w, h: s.h });
+        }
+        let route = null;
+        try { route = routeOrthogonalAStar(fp, tp, obstacles); } catch (_) { route = null; }
+        if (route && route.length >= 2) { const mids = route.slice(1, -1).map(p => ({ x: p.x, y: p.y })); c.userPts = mids.length ? mids : null; }
+      }
+      render();
+      _separateLanes();
     }
+
     render();
-    for (const c of state.connections) {
-      const pts = c._computedOrthopts;
-      if (!pts || pts.length < 2) continue;
-      const fp = { x: pts[0].x, y: pts[0].y, dir: c.fromPortDir || 'right' };
-      const last = pts[pts.length - 1];
-      const tp = { x: last.x, y: last.y, dir: c.toPortDir || 'left' };
-      const skipMembers = new Set();
-      if (state.groups) for (const g of state.groups) {
-        if (g.id === c.fromId || g.id === c.toId) (g.shapeIds || []).forEach(id => skipMembers.add(id));
-      }
-      const obstacles = [];
-      for (const s of state.shapes) {
-        if (s.id === c.fromId || s.id === c.toId) continue;
-        if (skipMembers.has(s.id)) continue;
-        if (s.type === 'decision') obstacles.push({ x: s.x + s.w * 0.22, y: s.y + s.h * 0.22, w: s.w * 0.56, h: s.h * 0.56 });
-        else obstacles.push({ x: s.x, y: s.y, w: s.w, h: s.h });
-      }
-      let route = null;
-      try { route = routeOrthogonalAStar(fp, tp, obstacles); } catch (_) { route = null; }
-      if (route && route.length >= 2) {
-        const mids = route.slice(1, -1).map(p => ({ x: p.x, y: p.y }));
-        c.userPts = mids.length ? mids : null;
-      }
-    }
+    architectLabels(false); // labels près de la pointe
     render();
-    _separateLanes(); // séparation des voies (le fallback A* n'a pas de nudging global)
+    const afterJSON = JSON.stringify(state);
+    const afterSVG = _snapshotCartoSVG();
+
+    // On revient à l'état AVANT : rien n'est appliqué tant que l'utilisateur n'a pas confirmé
+    state = JSON.parse(beforeJSON); _restoreCollapsedPiles(); render();
+
+    _showLayoutLoading(false);
+    _showBeforeAfterModal(beforeSVG, afterSVG, () => {
+      state = JSON.parse(afterJSON); _restoreCollapsedPiles(); clearSelection(); render(); snapshot();
+      showToast((_L('editor.toast.arrows_arranged') || 'Flèches agencées automatiquement'));
+    });
+  } catch (err) {
+    console.error('[OptiqCarto] agencement auto :', err);
+    state = JSON.parse(beforeJSON); _restoreCollapsedPiles(); render();
+    _showLayoutLoading(false);
+    showToast('Erreur pendant l\'agencement');
+  } finally {
+    _autoLayoutBusy = false;
   }
-
-  render();                 // routes à jour → _computedOrthopts pour les labels
-  architectLabels(false);   // labels près de la pointe, sans chevaucher formes/flèches/labels
-
-  snapshot(); render();
-  showToast((_L('editor.toast.arrows_arranged') || 'Flèches agencées automatiquement'));
 }
 
-// Routage via libavoid (WASM). Pose des pins fixes exclusifs aux points de
-// pin central (toutes directions) par forme → libavoid choisit le meilleur côté,
-// aligne les parallèles (nudging) et minimise les croisements. On relit sa
-// géométrie exacte et on RECALCULE le port dir/t depuis l'extrémité qu'il a
-// choisie (avec le halo de spreadPort) → fp/tp de render == tracé libavoid.
-// Renvoie [{connId, fromDir, fromT, toDir, toT, userPts}].
-function _libavoidRoute(A, nodesById, connections) {
-  const RP = A.RoutingParameter, RO = A.RoutingOption;
-  const ORTHO = A.RouterFlag.OrthogonalRouting.value;
-  const router = new A.Router(ORTHO);
-  router.setRoutingParameter(RP.shapeBufferDistance, 12);
-  router.setRoutingParameter(RP.idealNudgingDistance, 18);
-  router.setRoutingParameter(RP.segmentPenalty, 250);   // pénalise fort les coudes → moins de vaguelettes
-  router.setRoutingParameter(RP.anglePenalty, 250);
-  router.setRoutingParameter(RP.crossingPenalty, 600);
-  router.setRoutingParameter(RP.fixedSharedPathPenalty, 200);
-  router.setRoutingOption(RO.nudgeOrthogonalSegmentsConnectedToShapes, true);
-  router.setRoutingOption(RO.nudgeOrthogonalTouchingColinearSegments, true);
-  router.setRoutingOption(RO.nudgeSharedPathsWithCommonEndPoint, true);
-  router.setRoutingOption(RO.performUnifyingNudgingPreprocessingStep, true);
+/* ── Client du Web Worker libavoid (routage hors thread principal) ── */
+let _lvWorker = null, _lvReqId = 0;
+const _lvPending = {};
+function _getLvWorker() {
+  if (_lvWorker) return _lvWorker;
+  const url = window.OPTIQCARTO_LIBAVOID_WORKER;
+  if (!url || typeof Worker === 'undefined') return null;
+  try {
+    const w = new Worker(url, { type: 'module' });
+    w.onmessage = (e) => {
+      const d = e.data || {}; const p = _lvPending[d.id];
+      if (!p) return; delete _lvPending[d.id];
+      if (d.ok) p.resolve(d.results); else p.reject(new Error(d.error || 'worker'));
+    };
+    w.onerror = (ev) => { console.warn('[OptiqCarto] worker error', ev && ev.message); };
+    _lvWorker = w;
+  } catch (e) { console.warn('[OptiqCarto] worker indispo', e && e.message); _lvWorker = null; }
+  return _lvWorker;
+}
+function _routeViaWorker(nodesById, connections, timeoutMs) {
+  return new Promise((resolve, reject) => {
+    const w = _getLvWorker();
+    if (!w) { reject(new Error('no worker')); return; }
+    const id = ++_lvReqId;
+    const timer = setTimeout(() => {
+      delete _lvPending[id];
+      try { w.terminate(); } catch (_) {}
+      _lvWorker = null; // recréé au prochain appel
+      reject(new Error('timeout'));
+    }, timeoutMs || 25000);
+    _lvPending[id] = {
+      resolve: (r) => { clearTimeout(timer); resolve(r); },
+      reject: (e) => { clearTimeout(timer); reject(e); },
+    };
+    w.postMessage({ id, nodesById, connections });
+  });
+}
 
-  const pool = [];
-  const P = (x, y) => { const p = new A.Point(x, y); pool.push(p); return p; };
-  const rectPoly = (x, y, w, h) => { const r = new A.Rectangle(P(x, y), P(x + w, y + h)); pool.push(r); return r; };
+// Laisse le navigateur peindre (2 frames) avant un calcul lourd
+function _yieldPaint() { return new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))); }
 
-  const shapeRefs = {};
-  for (const id in nodesById) {
-    const n = nodesById[id];
-    const sr = new A.ShapeRef(router, rectPoly(n.x, n.y, n.w, n.h));
-    if (n.type === 'decision') {
-      // Losange : 4 pins aux POINTES (milieux des côtés) — libavoid entre
-      // perpendiculairement dans une pointe (pas de pin enterré au centre).
-      const tips = [[0.5, 0, 1], [0.5, 1, 2], [0, 0.5, 4], [1, 0.5, 8]]; // xo,yo,dir haut/bas/gauche/droite
-      for (const [xo, yo, d] of tips) { const pin = new A.ShapeConnectionPin(sr, 1, xo, yo, true, 0, d); pin.setExclusive(false); }
-    } else {
-      const pin = new A.ShapeConnectionPin(sr, 1, 0.5, 0.5, true, 0, 15); // centre, toutes directions
-      pin.setExclusive(false);
+// Overlay de chargement plein écran
+function _showLayoutLoading(show) {
+  let el = document.getElementById('carto-layout-loading');
+  if (show) {
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'carto-layout-loading';
+      el.innerHTML = '<div class="cll-box"><div class="cll-spin"></div><div class="cll-txt">Agencement des flèches…</div></div>';
+      document.body.appendChild(el);
     }
-    shapeRefs[id] = sr;
-  }
+    el.style.display = 'flex';
+  } else if (el) { el.style.display = 'none'; }
+}
 
-  const conns = [];
-  for (const c of connections) {
-    if (c.fromId === c.toId || !shapeRefs[c.fromId] || !shapeRefs[c.toId]) continue;
-    const ce1 = new A.ConnEnd(shapeRefs[c.fromId], 1); pool.push(ce1);
-    const ce2 = new A.ConnEnd(shapeRefs[c.toId],   1); pool.push(ce2);
-    const cr = new A.ConnRef(router, ce1, ce2);
-    conns.push({ connId: c.id, cr, from: nodesById[c.fromId], to: nodesById[c.toId] });
-  }
+// Bornes du contenu (formes + tracés) pour cadrer un aperçu
+function _cartoContentBounds() {
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  for (const s of state.shapes) { minX = Math.min(minX, s.x); minY = Math.min(minY, s.y); maxX = Math.max(maxX, s.x + s.w); maxY = Math.max(maxY, s.y + s.h); }
+  for (const c of state.connections) { const p = c._computedOrthopts; if (!p) continue; for (const pt of p) { minX = Math.min(minX, pt.x); minY = Math.min(minY, pt.y); maxX = Math.max(maxX, pt.x); maxY = Math.max(maxY, pt.y); } }
+  if (!isFinite(minX)) return null;
+  const pad = 45;
+  return { x: minX - pad, y: minY - pad, w: (maxX - minX) + 2 * pad, h: (maxY - minY) + 2 * pad };
+}
 
-  router.processTransaction();
+// Snapshot SVG autonome de la carto (pour l'aperçu avant/après) : clone du canvas
+// sans le transform du viewport, cadré sur le contenu, sans poignées de sélection.
+function _snapshotCartoSVG() {
+  const b = _cartoContentBounds();
+  const clone = canvas.cloneNode(true);
+  clone.removeAttribute('id');
+  const rg = clone.querySelector('#root-group'); if (rg) rg.removeAttribute('transform');
+  ['g-handles', 'g-ui', 'g-overlay', 'g-lasso'].forEach(id => { const el = clone.querySelector('#' + id); if (el) el.innerHTML = ''; });
+  if (b) clone.setAttribute('viewBox', `${b.x} ${b.y} ${b.w} ${b.h}`);
+  clone.removeAttribute('width'); clone.removeAttribute('height');
+  clone.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+  clone.style.width = '100%'; clone.style.height = '100%'; clone.style.display = 'block'; clone.style.background = '#f6f8fb';
+  return clone;
+}
 
-  // Recalcule dir/t depuis l'extrémité choisie par libavoid (p0=extrémité,
-  // p1=point suivant). Le halo (7px process) reproduit spreadPort.
-  function endInfo(node, p0, p1) {
-    const w = node.w || 1, h = node.h || 1;
-    const dx = p1.x - p0.x, dy = p1.y - p0.y;
-    let dir;
-    if (Math.abs(dx) >= Math.abs(dy)) dir = dx >= 0 ? 'right' : 'left';
-    else dir = dy >= 0 ? 'bottom' : 'top';
-    let t;
-    if (dir === 'right' || dir === 'left') t = (p1.y - node.y) / h;
-    else t = (p1.x - node.x) / w;
-    return { dir, t: Math.max(0, Math.min(1, t)) };
-  }
-  // Pour un losange : cale l'extrémité EXACTEMENT sur la pointe et redresse le
-  // segment d'approche à la hauteur de la pointe → flèche droite dans la pointe
-  // (spreadPort renvoie la pointe pour les décisions ; on fait coïncider les deux).
-  function snapDecisionEnd(pts, node, atStart) {
-    const dir = atStart ? endInfo(node, pts[0], pts[1]).dir
-                        : endInfo(node, pts[pts.length - 1], pts[pts.length - 2]).dir;
-    const cx = node.x + node.w / 2, cy = node.y + node.h / 2;
-    let tip;
-    if (dir === 'left')       tip = { x: node.x, y: cy };
-    else if (dir === 'right') tip = { x: node.x + node.w, y: cy };
-    else if (dir === 'top')   tip = { x: cx, y: node.y };
-    else                      tip = { x: cx, y: node.y + node.h };
-    const horiz = dir === 'left' || dir === 'right';
-    const endIdx = atStart ? 0 : pts.length - 1;
-    const nbrIdx = atStart ? 1 : pts.length - 2;
-    if (horiz) pts[nbrIdx].y = tip.y; else pts[nbrIdx].x = tip.x; // redresse l'approche
-    pts[endIdx] = { x: tip.x, y: tip.y };
-  }
-
-  const results = [];
-  for (const { connId, cr, from, to } of conns) {
-    const pl = cr.displayRoute();
-    const pts = [];
-    for (let i = 0; i < pl.size(); i++) { const pt = pl.at(i); pts.push({ x: pt.x, y: pt.y }); }
-    if (pts.length < 2) continue;
-    if (from.type === 'decision') snapDecisionEnd(pts, from, true);
-    if (to.type === 'decision')   snapDecisionEnd(pts, to, false);
-    const fi = endInfo(from, pts[0], pts[1]);
-    const ti = endInfo(to, pts[pts.length - 1], pts[pts.length - 2]);
-    const mids = pts.slice(1, -1).map(p => ({ x: p.x, y: p.y }));
-    results.push({ connId, fromDir: fi.dir, fromT: fi.t, toDir: ti.dir, toT: ti.t, userPts: mids.length ? mids : null });
-  }
-
-  try { router.delete(); } catch (_) {}
-  for (const h of pool) { try { h.delete(); } catch (_) {} }
-  return results;
+// Modale de comparaison avant / après avec Appliquer / Annuler
+function _showBeforeAfterModal(beforeSVG, afterSVG, onApply) {
+  document.getElementById('carto-ba-modal')?.remove();
+  const m = document.createElement('div');
+  m.id = 'carto-ba-modal';
+  m.innerHTML =
+    '<div class="ba-card">' +
+      '<div class="ba-head"><i class="fa-solid fa-wand-magic-sparkles"></i> Comparer l\'agencement</div>' +
+      '<div class="ba-panels">' +
+        '<div class="ba-col"><div class="ba-tag ba-tag--before">Avant</div><div class="ba-view" id="ba-before"></div></div>' +
+        '<div class="ba-col"><div class="ba-tag ba-tag--after">Après</div><div class="ba-view" id="ba-after"></div></div>' +
+      '</div>' +
+      '<div class="ba-actions">' +
+        '<button class="ba-btn ba-btn--cancel" id="ba-cancel">Annuler</button>' +
+        '<button class="ba-btn ba-btn--apply" id="ba-apply"><i class="fa-solid fa-check"></i> Appliquer</button>' +
+      '</div>' +
+    '</div>';
+  document.body.appendChild(m);
+  m.querySelector('#ba-before').appendChild(beforeSVG);
+  m.querySelector('#ba-after').appendChild(afterSVG);
+  const close = () => m.remove();
+  m.querySelector('#ba-cancel').addEventListener('click', close);
+  m.querySelector('#ba-apply').addEventListener('click', () => { close(); if (onApply) onApply(); });
+  m.addEventListener('mousedown', (e) => { if (e.target === m) close(); });
+  document.addEventListener('keydown', function esc(e) { if (e.key === 'Escape') { close(); document.removeEventListener('keydown', esc); } });
 }
 
 // Sépare les flèches parallèles en VOIES nettes (au lieu de bosses) : décale les

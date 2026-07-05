@@ -761,19 +761,10 @@
 <script src="{{ url_for('static', filename='optiqcarto/vsdx_importer.js') }}"></script>
 <script src="{{ url_for('static', filename='optiqcarto/editor.js') }}"></script>
 
-<!-- ══ Moteur de routage orthogonal libavoid (WASM) — chargé une fois, en async ══ -->
-<script type="module">
-  import { AvoidLib } from "{{ url_for('static', filename='optiqcarto/vendor/libavoid.mjs') }}";
-  // Expose une promesse que editor.js attend au moment de l'agencement auto.
-  window.__optiqAvoidReady = (async () => {
-    await AvoidLib.load("{{ url_for('static', filename='optiqcarto/vendor/libavoid.wasm') }}");
-    window.__optiqAvoid = AvoidLib.getInstance();
-    return window.__optiqAvoid;
-  })().catch(err => {
-    console.warn('[OptiqCarto] libavoid indisponible, repli sur le routeur interne :', err && err.message);
-    window.__optiqAvoidFailed = true;
-    return null;
-  });
+<!-- ══ Routage orthogonal libavoid (WASM) : exécuté dans un Web Worker (hors du
+     thread principal → l'UI ne gèle jamais pendant le calcul) ══ -->
+<script>
+  window.OPTIQCARTO_LIBAVOID_WORKER = "{{ url_for('static', filename='optiqcarto/vendor/libavoid-worker.mjs') }}";
 </script>
 
 <!-- ══ Plein écran automatique à l'ouverture de l'éditeur ══ -->
@@ -935,6 +926,66 @@ document.addEventListener('DOMContentLoaded', () => {
 .tb-autolayout-btn:hover {
   background: rgba(34,197,94,0.10);
 }
+
+/* ── Overlay de chargement (agencement auto) ── */
+#carto-layout-loading {
+  position: fixed; inset: 0; z-index: 100000;
+  display: none; align-items: center; justify-content: center;
+  background: rgba(15,23,42,0.45);
+}
+#carto-layout-loading .cll-box {
+  display: flex; flex-direction: column; align-items: center; gap: 14px;
+  background: #fff; padding: 26px 36px; border-radius: 14px;
+  box-shadow: 0 18px 50px rgba(0,0,0,0.35);
+}
+#carto-layout-loading .cll-spin {
+  width: 42px; height: 42px; border-radius: 50%;
+  border: 4px solid #e2e8f0; border-top-color: #22c55e;
+  animation: cll-rot 0.8s linear infinite;
+}
+@keyframes cll-rot { to { transform: rotate(360deg); } }
+#carto-layout-loading .cll-txt { font: 600 14px 'Segoe UI', system-ui, sans-serif; color: #1e293b; }
+
+/* ── Modale de comparaison avant / après ── */
+#carto-ba-modal {
+  position: fixed; inset: 0; z-index: 100001;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(15,23,42,0.55); padding: 24px;
+}
+#carto-ba-modal .ba-card {
+  background: #fff; border-radius: 16px; width: min(1100px, 96vw); max-height: 92vh;
+  display: flex; flex-direction: column; overflow: hidden;
+  box-shadow: 0 24px 70px rgba(0,0,0,0.45);
+}
+#carto-ba-modal .ba-head {
+  padding: 15px 22px; font: 700 16px 'Segoe UI', system-ui, sans-serif; color: #0f172a;
+  border-bottom: 1px solid #eef2f7; display: flex; align-items: center; gap: 9px;
+}
+#carto-ba-modal .ba-head i { color: #22c55e; }
+#carto-ba-modal .ba-panels { display: flex; gap: 14px; padding: 16px; min-height: 0; flex: 1; }
+#carto-ba-modal .ba-col { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+#carto-ba-modal .ba-tag {
+  align-self: flex-start; font: 700 11px 'Segoe UI', system-ui, sans-serif; letter-spacing: .05em;
+  padding: 3px 12px; border-radius: 999px; margin-bottom: 8px; text-transform: uppercase;
+}
+#carto-ba-modal .ba-tag--before { background: #eef2f7; color: #64748b; }
+#carto-ba-modal .ba-tag--after  { background: rgba(34,197,94,0.14); color: #15803d; }
+#carto-ba-modal .ba-view {
+  flex: 1; min-height: 300px; height: 58vh; border: 1px solid #e2e8f0; border-radius: 10px;
+  overflow: hidden; background: #f6f8fb;
+}
+#carto-ba-modal .ba-view svg { width: 100%; height: 100%; display: block; }
+#carto-ba-modal .ba-actions {
+  display: flex; justify-content: flex-end; gap: 10px; padding: 14px 22px; border-top: 1px solid #eef2f7;
+}
+#carto-ba-modal .ba-btn {
+  padding: 9px 20px; border-radius: 9px; border: none; cursor: pointer;
+  font: 600 13.5px 'Segoe UI', system-ui, sans-serif;
+}
+#carto-ba-modal .ba-btn--cancel { background: #eef2f7; color: #475569; }
+#carto-ba-modal .ba-btn--cancel:hover { background: #e2e8f0; }
+#carto-ba-modal .ba-btn--apply  { background: #22c55e; color: #fff; }
+#carto-ba-modal .ba-btn--apply:hover { background: #16a34a; }
 
 /* ── Notification "plein écran" (item plein écran auto) ── */
 #carto-fs-notif {
