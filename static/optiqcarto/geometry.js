@@ -415,7 +415,7 @@ function _segCrossesRect(ax, ay, bx, by, R) {
 function routeOrthogonalAStar(fp, tp, obstacles, opts) {
   opts = opts || {};
   const MARGIN = opts.margin != null ? opts.margin : 16;
-  const STUB   = opts.stub   != null ? opts.stub   : 22;
+  const STUB   = opts.stub   != null ? opts.stub   : 28; // approche droite mini avant la pointe
   const BEND   = opts.bend   != null ? opts.bend   : 20;
   const MAXNODES = 4200;
 
@@ -522,13 +522,54 @@ function autoAssignPorts(nodesById, connections) {
     else if (vSep >= 0)                               fromDir = dy >= 0 ? 'bottom' : 'top';
     else fromDir = Math.abs(dx) >= Math.abs(dy) ? (dx >= 0 ? 'right' : 'left') : (dy >= 0 ? 'bottom' : 'top');
     info.push({ connId: c.id, fromDir, toDir: _OPP_DIR[fromDir], fromT: 0.5, toT: 0.5,
-                _from: c.fromId, _to: c.toId, _oFrom: bc, _oTo: ac });
+                _from: c.fromId, _to: c.toId, _a: a, _b: b, _oFrom: bc, _oTo: ac,
+                _aDec: a.type === 'decision', _bDec: b.type === 'decision' });
   }
-  // Répartition des t : grouper par (forme, côté), trier par la position de
-  // l'autre extrémité le long du côté → les flèches s'éventent sans se croiser.
-  const groups = new Map();
+  // ── Candidats « ligne droite » ────────────────────────────────────
+  // Une flèche peut être droite si les formes se font face avec un
+  // recouvrement perpendiculaire (ideal = coordonnée commune des 2 ports).
+  // Décisions : port fixé sur la pointe du losange → on aligne l'autre dessus.
+  const clampT = t => Math.max(0.08, Math.min(0.92, t));
   for (const it of info) {
     if (!it) continue;
+    const horiz = it.fromDir === 'left' || it.fromDir === 'right';
+    const a = it._a, b = it._b;
+    const aLo = horiz ? a.y : a.x, aHi = horiz ? a.y + a.h : a.x + a.w;
+    const bMin = horiz ? b.y : b.x, bMax = horiz ? b.y + b.h : b.x + b.w;
+    const aTip = (aLo + aHi) / 2, bTip = (bMin + bMax) / 2;
+    let ideal = null;
+    if (it._aDec && it._bDec) { if (Math.abs(aTip - bTip) < 2) ideal = aTip; }
+    else if (it._aDec) { if (aTip >= bMin - 2 && aTip <= bMax + 2) ideal = aTip; }
+    else if (it._bDec) { if (bTip >= aLo - 2 && bTip <= aHi + 2) ideal = bTip; }
+    else {
+      const lo = Math.max(aLo, bMin), hi = Math.min(aHi, bMax);
+      if (hi - lo >= 14) ideal = (lo + hi) / 2;
+    }
+    it._ideal = ideal; it._horiz = horiz;
+    it._aLo = aLo; it._aHi = aHi; it._bMin = bMin; it._bMax = bMax;
+  }
+  // Compte des CANDIDATS DROITS par côté : une flèche ne s'aligne que si aucune
+  // autre flèche droite ne partage le même côté (une diagonale ne bloque pas).
+  const straightOnSide = new Map();
+  for (const it of info) if (it && it._ideal != null) {
+    straightOnSide.set(it._from + '|' + it.fromDir, (straightOnSide.get(it._from + '|' + it.fromDir) || 0) + 1);
+    straightOnSide.set(it._to   + '|' + it.toDir,   (straightOnSide.get(it._to   + '|' + it.toDir)   || 0) + 1);
+  }
+  for (const it of info) if (it && it._ideal != null) {
+    if ((straightOnSide.get(it._from + '|' + it.fromDir) || 0) <= 1 &&
+        (straightOnSide.get(it._to   + '|' + it.toDir)   || 0) <= 1) {
+      it.fromT = clampT((it._ideal - it._aLo) / (it._aHi - it._aLo || 1));
+      it.toT   = clampT((it._ideal - it._bMin) / (it._bMax - it._bMin || 1));
+      it._aligned = true;
+    }
+  }
+
+  // ── Répartition des flèches NON alignées ──────────────────────────
+  // Groupées par côté, triées par la position de l'autre extrémité →
+  // elles s'éventent sans se croiser, en évitant les flèches déjà alignées.
+  const groups = new Map();
+  for (const it of info) {
+    if (!it || it._aligned) continue;
     pushG(groups, it._from + '|' + it.fromDir, { it, end: 'from', dir: it.fromDir, other: it._oFrom });
     pushG(groups, it._to   + '|' + it.toDir,   { it, end: 'to',   dir: it.toDir,   other: it._oTo });
   }
@@ -541,6 +582,7 @@ function autoAssignPorts(nodesById, connections) {
       if (e.end === 'from') e.it.fromT = t; else e.it.toT = t;
     });
   }
+
   return info.map(it => it ? { connId: it.connId, fromDir: it.fromDir, fromT: it.fromT, toDir: it.toDir, toT: it.toT } : null);
 }
 

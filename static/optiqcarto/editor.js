@@ -834,7 +834,9 @@ function renderConnections() {
       if (c.labelOffset) {
         lx = c.labelOffset.x;
         ly = c.labelOffset.y;
-        angle = arrowMajorH ? 0 : -90;
+        // Orientation figée par l'agencement auto (parallèle au segment) si dispo,
+        // sinon direction dominante de la flèche.
+        angle = (c.labelOffset.a !== undefined) ? c.labelOffset.a : (arrowMajorH ? 0 : -90);
       } else {
         // Segment préféré : dans la direction dominante, on privilégie le segment
         // le plus PROCHE DE LA POINTE (fin de flèche) suffisamment long, pour que le
@@ -6034,78 +6036,53 @@ function architectLabels(commit) {
     return false;
   }
 
-  // Adaptive corner margin: shorter for wider labels
-  function cornerM(lw) {
-    return Math.max(CORNER_MIN, CORNER_BASE - Math.max(0, lw - 80) * 0.18);
+  const TIP_GAP = 12;    // espace lisible entre la pointe/source et le bord du label
+  const CORNER_M = 16;   // marge par rapport a un coude (angle)
+
+  // Essaie de poser le label sur le segment [pa,pb] au plus pres de pb (cote pointe).
+  // marginB = marge cote pb (pointe/coude), marginA = marge cote pa (source/coude).
+  function tryOnSegment(c, pa, pb, lw, lh, marginA, marginB) {
+    const dx = pb.x - pa.x, dy = pb.y - pa.y, len = Math.hypot(dx, dy);
+    if (len < 1) return null;
+    const isH = Math.abs(dy) < Math.abs(dx);
+    const bw = isH ? lw : lh, bh = isH ? lh : lw;
+    const alongHalf = lw / 2;
+    const tMax = 1 - (alongHalf + marginB) / len;
+    const tMin = (alongHalf + marginA) / len;
+    if (tMax < tMin) return null;              // segment trop court pour ce label
+    for (let t = tMax; t >= tMin - 1e-6; t -= STEP_PX / len) {
+      const cx = pa.x + dx * t, cy = pa.y + dy * t;
+      if (!hits(cx, cy, bw, bh, c.id)) return { x: cx, y: cy, a: isH ? 0 : -90, hw: bw / 2, hh: bh / 2 };
+    }
+    return null;
   }
 
   for (const c of state.connections) {
     if (!(c.label || '').trim()) continue;
     const pts = c._computedOrthopts;
-    if (!pts || pts.length < 2) continue;
-
+    if (!pts || pts.length < 2) { delete c.labelOffset; continue; }
     const { lw, lh } = labelSize(c);
+    const last = pts.length - 2; // dernier segment (cote pointe)
+    let res = null;
 
-    let totalH = 0, totalV = 0;
-    for (let i = 0; i < pts.length - 1; i++) {
-      totalH += Math.abs(pts[i+1].x - pts[i].x);
-      totalV += Math.abs(pts[i+1].y - pts[i].y);
+    // Passe stricte : de la pointe vers la source, marges de coude completes
+    for (let si = last; si >= 0 && !res; si--) {
+      const marginB = (si === last) ? TIP_GAP : CORNER_M;   // pb = pointe ou coude
+      const marginA = (si === 0)    ? TIP_GAP : CORNER_M;   // pa = source ou coude
+      res = tryOnSegment(c, pts[si], pts[si + 1], lw, lh, marginA, marginB);
     }
-    const majorH = totalH >= totalV;
-
-    // Build segment list with metadata
-    const segs = [];
-    for (let i = 0; i < pts.length - 1; i++) {
-      const pa = pts[i], pb = pts[i+1];
-      const dx = pb.x - pa.x, dy = pb.y - pa.y;
-      const len = Math.hypot(dx, dy);
-      if (len < 1) continue;
-      const isH = Math.abs(dy) < Math.abs(dx);
-      segs.push({ i, pa, pb, dx, dy, len, isH });
+    // Passe relachee : marges minimales (toujours sans chevaucher formes/fleches)
+    if (!res) {
+      for (let si = last; si >= 0 && !res; si--)
+        res = tryOnSegment(c, pts[si], pts[si + 1], lw, lh, 6, 6);
     }
 
-    let ok = false;
-
-    // Pass 0: matching direction, from arrowhead end
-    // Pass 1: any direction, from arrowhead end
-    // Pass 2: any direction, longest-first (minimum corner margin)
-    for (let pass = 0; pass < 3 && !ok; pass++) {
-      let cands;
-      if (pass < 2) {
-        cands = [...segs].reverse();
-        if (pass === 0) cands = cands.filter(s => s.isH === majorH);
-      } else {
-        cands = [...segs].sort((a, b) => b.len - a.len);
-      }
-
-      for (const seg of cands) {
-        if (ok) break;
-        const { pa, pb, dx, dy, len: segLen, isH } = seg;
-        const bw = isH ? lw : lh;
-        const bh = isH ? lh : lw;
-        const halfAlong = bw / 2;
-        const cm = pass < 2 ? cornerM(lw) : CORNER_MIN;
-        const needLen = halfAlong * 2 + cm * 2;
-        if (segLen < needLen) continue;
-
-        const tMin = (halfAlong + cm) / segLen;
-        const tMax = 1 - (halfAlong + cm) / segLen;
-        if (tMax < tMin) continue;
-
-        for (let t = tMax; t >= tMin - 1e-6; t -= STEP_PX / segLen) {
-          const cx = pa.x + dx * t;
-          const cy = pa.y + dy * t;
-          if (!hits(cx, cy, bw, bh, c.id)) {
-            c.labelOffset = { x: cx, y: cy };
-            placed.push({ cx, cy, hw: bw / 2, hh: bh / 2 });
-            ok = true;
-            break;
-          }
-        }
-      }
+    if (res) {
+      c.labelOffset = { x: res.x, y: res.y, a: res.a };
+      placed.push({ cx: res.x, cy: res.y, hw: res.hw, hh: res.hh });
+    } else {
+      delete c.labelOffset;
     }
-
-    if (!ok) delete c.labelOffset;
   }
 
   if (commit !== false) { snapshot(); render(); }
@@ -6333,8 +6310,13 @@ function autoLayoutArrows() {
     for (const s of state.shapes) {
       if (s.id === c.fromId || s.id === c.toId) continue;
       if (skipMembers.has(s.id)) continue;
-      if (s.type === 'decision') continue; // les losanges sont des nœuds de routage
-      obstacles.push({ x: s.x, y: s.y, w: s.w, h: s.h });
+      if (s.type === 'decision') {
+        // Losange : silhouette inscrite dans la bbox → obstacle réduit (~moitié
+        // centrale) pour éviter de traverser le losange sans sur-bloquer ses coins.
+        obstacles.push({ x: s.x + s.w * 0.22, y: s.y + s.h * 0.22, w: s.w * 0.56, h: s.h * 0.56 });
+      } else {
+        obstacles.push({ x: s.x, y: s.y, w: s.w, h: s.h });
+      }
     }
     let route = null;
     try { route = routeOrthogonalAStar(fp, tp, obstacles); } catch (_) { route = null; }
@@ -6893,72 +6875,8 @@ function init() {
 
   document.getElementById('btn-new-carto').addEventListener('click', newCarto);
   document.getElementById('btn-architect').addEventListener('click', runCartoCheck);
-  // btn-place-labels: click → agencement automatique complet ; survol 1s → menu (options fines)
-  (function() {
-    if (window.OPTIQCARTO_READONLY) return;
-    const btn = document.getElementById('btn-place-labels');
-    if (!btn) return;
-    btn.addEventListener('click', autoLayoutArrows);
-
-    const drop = document.createElement('div');
-    drop.id = 'architect-dropdown';
-    drop.style.cssText = [
-      'position:absolute;top:100%;left:50%;transform:translateX(-50%)',
-      'margin-top:4px;background:#fff;border:1.5px solid #e2e8f0',
-      'border-radius:10px;box-shadow:0 6px 20px rgba(0,0,0,0.15)',
-      'z-index:9000;min-width:230px;overflow:hidden;display:none',
-      'flex-direction:column',
-    ].join(';');
-    drop.innerHTML = `
-      <button id="arch-btn-all" style="padding:10px 16px;border:none;background:none;text-align:left;cursor:pointer;font-size:0.83rem;color:#1e293b;display:flex;align-items:center;gap:8px;width:100%;font-weight:600">
-        <i class="fa-solid fa-wand-magic-sparkles" style="color:#22c55e;width:14px"></i>
-        <span data-key="editor.arch_drop_all">Tout agencer (flèches + labels)</span>
-      </button>
-      <button id="arch-btn-arrows" style="padding:10px 16px;border:none;background:none;text-align:left;cursor:pointer;font-size:0.83rem;color:#1e293b;display:flex;align-items:center;gap:8px;width:100%;border-top:1px solid #f1f5f9">
-        <i class="fa-solid fa-arrows-split-up-and-left" style="color:#3b82f6;width:14px"></i>
-        <span data-key="editor.arch_drop_arrows">Séparer les flèches seulement</span>
-      </button>
-      <button id="arch-btn-labels" style="padding:10px 16px;border:none;background:none;text-align:left;cursor:pointer;font-size:0.83rem;color:#1e293b;display:flex;align-items:center;gap:8px;width:100%;border-top:1px solid #f1f5f9">
-        <i class="fa-solid fa-tag" style="color:#ec4899;width:14px"></i>
-        <span data-key="editor.arch_drop_labels">Placer les labels seulement</span>
-      </button>`;
-    for (const id of ['#arch-btn-all', '#arch-btn-arrows', '#arch-btn-labels']) {
-      const b = drop.querySelector(id);
-      b.onmouseenter = e => e.currentTarget.style.background = '#f8fafc';
-      b.onmouseleave = e => e.currentTarget.style.background = '';
-    }
-    drop.querySelector('#arch-btn-all').addEventListener('click',    e => { e.stopPropagation(); hideDrop(); autoLayoutArrows(); });
-    drop.querySelector('#arch-btn-arrows').addEventListener('click', e => { e.stopPropagation(); hideDrop(); architectArrows(); });
-    drop.querySelector('#arch-btn-labels').addEventListener('click', e => { e.stopPropagation(); hideDrop(); architectLabels(); });
-
-    // Apply i18n to dropdown labels
-    drop.querySelectorAll('[data-key]').forEach(el => {
-      const t = _L(el.dataset.key);
-      if (t && t !== el.dataset.key) el.textContent = t;
-    });
-
-    // Position relative — btn must have position:relative
-    btn.style.position = 'relative';
-    btn.appendChild(drop);
-
-    let _hoverTimer = null;
-    function showDrop() { drop.style.display = 'flex'; }
-    function hideDrop() { drop.style.display = 'none'; clearTimeout(_hoverTimer); }
-
-    btn.addEventListener('mouseenter', () => {
-      _hoverTimer = setTimeout(showDrop, 1000);
-    });
-    btn.addEventListener('mouseleave', e => {
-      clearTimeout(_hoverTimer);
-      if (!drop.contains(e.relatedTarget)) hideDrop();
-    });
-    drop.addEventListener('mouseleave', e => {
-      if (!btn.contains(e.relatedTarget)) hideDrop();
-    });
-    document.addEventListener('click', e => {
-      if (!btn.contains(e.target)) hideDrop();
-    }, true);
-  })();
+  // btn-place-labels : bouton unique et clair → agencement automatique complet
+  document.getElementById('btn-place-labels')?.addEventListener('click', autoLayoutArrows);
   document.getElementById('btn-undo').addEventListener('click', undo);
   document.getElementById('btn-redo').addEventListener('click', redo);
   document.getElementById('btn-fit').addEventListener('click', fitView);
