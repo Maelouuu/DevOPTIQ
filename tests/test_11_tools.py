@@ -579,3 +579,58 @@ class TestToolsTaskAPI:
         )
         assert r.status_code == 200
         _delete_tool(app, tid)
+
+
+# ===========================================================================
+# 8. API — les mutations exigent une session authentifiée
+# ===========================================================================
+
+class TestGestionOutilsApiAuth:
+    """Utilise un client isolé (app.test_client() dédié par test) car le
+    fixture `client` partage son cookie-jar avec `auth_client` (scope=session)."""
+
+    def test_create_tool_requires_auth(self, app):
+        with app.test_client() as fresh:
+            r = fresh.post(
+                "/gestion_outils/api/tools",
+                data=json.dumps({"name": "Sans Auth"}),
+                content_type="application/json",
+            )
+        assert r.status_code == 401
+
+    def test_update_tool_requires_auth(self, app, ids):
+        tid = _create_tool(app, ids, name="Outil Auth Update")
+        try:
+            with app.test_client() as fresh:
+                r = fresh.put(
+                    f"/gestion_outils/api/tools/{tid}",
+                    data=json.dumps({"name": "Renommé Sans Auth"}),
+                    content_type="application/json",
+                )
+            assert r.status_code == 401
+        finally:
+            _delete_tool(app, tid)
+
+    def test_delete_tool_requires_auth(self, app, ids):
+        tid = _create_tool(app, ids, name="Outil Auth Delete")
+        try:
+            with app.test_client() as fresh:
+                r = fresh.delete(f"/gestion_outils/api/tools/{tid}")
+            assert r.status_code == 401
+        finally:
+            _delete_tool(app, tid)
+
+    def test_replace_tool_requires_auth(self, app, ids):
+        tid_src = _create_tool(app, ids, name="Outil Auth Replace Src")
+        tid_dst = _create_tool(app, ids, name="Outil Auth Replace Dst")
+        try:
+            with app.test_client() as fresh:
+                r = fresh.post(
+                    f"/gestion_outils/api/tools/{tid_src}/replace",
+                    data=json.dumps({"replacement_id": tid_dst}),
+                    content_type="application/json",
+                )
+            assert r.status_code == 401
+        finally:
+            _delete_tool(app, tid_src)
+            _delete_tool(app, tid_dst)

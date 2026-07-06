@@ -148,17 +148,18 @@ class TestActivitiesPerformanceAdd:
         finally:
             _teardown(app, link_id=link_id, data_id=data_id)
 
-    def test_missing_link_id_causes_error(self, auth_client):
-        """Payload sans link_id → accès dict échoue → réponse d'erreur (4xx/5xx)."""
+    def test_missing_link_id_returns_400(self, auth_client):
+        """Payload sans link_id → 400 avec champ 'error' (validation explicite)."""
         r = auth_client.post(
             "/activities/performance/add",
             data=json.dumps({"name": "Sans link"}),
             content_type="application/json",
         )
-        assert r.status_code in (400, 500)
+        assert r.status_code == 400
+        assert "error" in json.loads(r.data)
 
-    def test_missing_name_causes_error(self, auth_client, ids, app):
-        """Payload sans name → accès dict échoue → réponse d'erreur (4xx/5xx)."""
+    def test_missing_name_returns_400(self, auth_client, ids, app):
+        """Payload sans name → 400 avec champ 'error' (validation explicite)."""
         link_id, data_id = _make_link(app, ids, "add07")
         try:
             r = auth_client.post(
@@ -166,7 +167,8 @@ class TestActivitiesPerformanceAdd:
                 data=json.dumps({"link_id": link_id}),
                 content_type="application/json",
             )
-            assert r.status_code in (400, 500)
+            assert r.status_code == 400
+            assert "error" in json.loads(r.data)
         finally:
             _teardown(app, link_id=link_id, data_id=data_id)
 
@@ -248,8 +250,8 @@ class TestActivitiesPerformanceUpdate:
         )
         assert r.status_code == 404
 
-    def test_update_missing_name_causes_error(self, auth_client, ids, app):
-        """PUT sans champ name → KeyError → réponse d'erreur (4xx/5xx)."""
+    def test_update_missing_name_returns_400(self, auth_client, ids, app):
+        """PUT sans champ name → 400 avec champ 'error' (validation explicite)."""
         link_id, data_id = _make_link(app, ids, "upd04")
         perf_id = _make_perf(app, link_id, "Perf Upd04")
         try:
@@ -258,7 +260,8 @@ class TestActivitiesPerformanceUpdate:
                 data=json.dumps({"description": "Description seule, pas de name"}),
                 content_type="application/json",
             )
-            assert r.status_code in (400, 500)
+            assert r.status_code == 400
+            assert "error" in json.loads(r.data)
         finally:
             _teardown(app, link_id=link_id, data_id=data_id)
 

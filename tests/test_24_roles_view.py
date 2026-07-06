@@ -87,6 +87,21 @@ class TestUpdateRoleMission:
         )
         assert r.get_json()["role_id"] == role_id
 
+    def test_update_mission_requires_auth(self, app, ids):
+        """Sans session authentifiée → 401 (pas de mutation possible)."""
+        role_id = _create_role(app, ids, name="Rôle Mission Sans Auth")
+        with app.test_client() as fresh:
+            r = fresh.put(
+                f"/roles_view/{role_id}/mission",
+                data=json.dumps({"mission_generale": "Ne doit pas être appliqué"}),
+                content_type="application/json",
+            )
+        assert r.status_code == 401
+        with app.app_context():
+            from Code.models.models import Role
+            role = Role.query.get(role_id)
+            assert getattr(role, "mission_generale", "") != "Ne doit pas être appliqué"
+
     def test_update_mission_persists_in_db(self, auth_client, app, ids):
         role_id = _create_role(app, ids, name="Rôle Mission Persist")
         auth_client.put(

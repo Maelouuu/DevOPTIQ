@@ -90,6 +90,25 @@ class TestTaskLinkAssignments:
         data = json.loads(r.data)
         assert data.get("ok") is True  # DELETE idempotent
 
+    def test_assign_arbitrary_direction_value_accepted(self, auth_client, ids):
+        """L'API n'impose pas d'énumération stricte sur `direction` (comportement actuel)."""
+        if not ids.get("link_id"):
+            pytest.skip("Aucun lien disponible")
+        r = auth_client.post(
+            "/task-links/assign",
+            data=json.dumps({
+                "link_id": ids["link_id"],
+                "task_id": ids["task_id"],
+                "direction": "sideways",
+            }),
+            content_type="application/json",
+        )
+        assert r.status_code in (200, 201)
+        data = json.loads(r.data)
+        assert data.get("ok") is True
+        # Nettoyage pour ne pas polluer les autres tests utilisant ce link_id.
+        auth_client.delete(f"/task-links/{ids['link_id']}/sideways")
+
     def test_assign_then_reassign(self, auth_client, ids):
         """Réassigner un lien déjà assigné doit fonctionner (upsert)."""
         if not ids.get("link_id"):
@@ -117,3 +136,35 @@ class TestTaskLinkAssignments:
         assert r2.status_code in (200, 201)
         data = json.loads(r2.data)
         assert data.get("ok") is True
+
+
+class TestTaskLinkAssignmentsAuth:
+    """Vérifie que les endpoints /task-links/* exigent une session authentifiée.
+
+    Utilise un client isolé (app.test_client() dédié) plutôt que le fixture
+    `client` partagé, car ce dernier partage son cookie-jar avec `auth_client`
+    (scope=session) et serait donc pollué par n'importe quel autre test.
+    """
+
+    def test_assign_requires_auth(self, app, ids):
+        with app.test_client() as fresh:
+            r = fresh.post(
+                "/task-links/assign",
+                data=json.dumps({
+                    "link_id": ids["link_id"],
+                    "task_id": ids["task_id"],
+                    "direction": "incoming",
+                }),
+                content_type="application/json",
+            )
+        assert r.status_code == 401
+
+    def test_unassign_requires_auth(self, app, ids):
+        with app.test_client() as fresh:
+            r = fresh.delete(f"/task-links/{ids['link_id']}/incoming")
+        assert r.status_code == 401
+
+    def test_get_assignments_requires_auth(self, app, ids):
+        with app.test_client() as fresh:
+            r = fresh.get(f"/task-links/activity/{ids['activity_id']}")
+        assert r.status_code == 401

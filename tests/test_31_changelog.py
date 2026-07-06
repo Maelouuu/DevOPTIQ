@@ -179,3 +179,25 @@ class TestChangelog:
         """La réponse est du JSON (Content-Type application/json)."""
         r = auth_client.get("/api/changelog")
         assert "application/json" in r.content_type
+
+
+# ===========================================================================
+# 3. Accès sans authentification — les deux endpoints sont publics
+# ===========================================================================
+
+class TestChangelogNoAuth:
+    """Ces endpoints ne filtrent pas par entité et ne vérifient pas la session
+    (comportement actuel, volontairement permissif pour un flux d'activité
+    globale) : on documente ce comportement plutôt que d'en supposer un autre."""
+
+    def test_recent_activity_accessible_without_auth(self, app):
+        with app.test_client() as fresh:
+            r = fresh.get("/api/recent-activity")
+        assert r.status_code == 200
+        assert json.loads(r.data)["ok"] is True
+
+    def test_changelog_accessible_without_auth(self, app):
+        with app.test_client() as fresh:
+            r = fresh.get("/api/changelog")
+        assert r.status_code == 200
+        assert json.loads(r.data)["ok"] is True

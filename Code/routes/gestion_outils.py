@@ -1,10 +1,16 @@
 # Code/routes/gestion_outils.py
-from flask import Blueprint, render_template, jsonify, request, abort
+from flask import Blueprint, render_template, jsonify, request, abort, session
 from sqlalchemy import func
 from Code.extensions import db
 from Code.models.models import Tool, Task, Activities, task_tools, Entity
 
 bp_tools = Blueprint("gestion_outils", __name__, url_prefix="/gestion_outils")
+
+
+def _require_auth():
+    if not session.get('user_id'):
+        return jsonify({"error": "Non connecté"}), 401
+    return None
 
 
 # -------------------------
@@ -67,6 +73,9 @@ def list_tools():
 # -------------------------
 @bp_tools.route("/api/tools", methods=["POST"])
 def create_tool():
+    auth_error = _require_auth()
+    if auth_error:
+        return auth_error
     payload = request.get_json(silent=True) or {}
     name = (payload.get("name") or "").strip()
     description = (payload.get("description") or "").strip() or None
@@ -93,6 +102,9 @@ def create_tool():
 # -------------------------
 @bp_tools.route("/api/tools/<int:tool_id>", methods=["PUT"])
 def update_tool(tool_id):
+    auth_error = _require_auth()
+    if auth_error:
+        return auth_error
     tool = Tool.query.get_or_404(tool_id)
     payload = request.get_json(silent=True) or {}
 
@@ -163,6 +175,9 @@ def tool_usages(tool_id):
 # -------------------------
 @bp_tools.route("/api/tools/<int:tool_id>/replace", methods=["POST"])
 def replace_tool(tool_id):
+    auth_error = _require_auth()
+    if auth_error:
+        return auth_error
     tool_src = Tool.query.get_or_404(tool_id)
     payload = request.get_json(silent=True) or {}
     replacement_id = payload.get("replacement_id")
@@ -221,6 +236,9 @@ def replace_tool(tool_id):
 # -------------------------
 @bp_tools.route("/api/tools/<int:tool_id>", methods=["DELETE"])
 def delete_tool(tool_id):
+    auth_error = _require_auth()
+    if auth_error:
+        return auth_error
     tool = Tool.query.get_or_404(tool_id)
     force_detach = request.args.get("force_detach", "false").lower() == "true"
 

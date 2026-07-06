@@ -1,9 +1,15 @@
 # Code/routes/task_link_assignments.py
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, session
 from sqlalchemy import text
 from Code.extensions import db
 
 task_links_bp = Blueprint('task_links', __name__, url_prefix='/task-links')
+
+
+def _require_auth():
+    if not session.get('user_id'):
+        return jsonify({"error": "Non connecté"}), 401
+    return None
 
 _table_ensured = False
 
@@ -23,6 +29,9 @@ def ensure_table():
 
 @task_links_bp.route('/assign', methods=['POST'])
 def assign():
+    auth_error = _require_auth()
+    if auth_error:
+        return auth_error
     ensure_table()
     data = request.get_json(force=True) or {}
     link_id = data.get('link_id')
@@ -50,6 +59,9 @@ def assign():
 
 @task_links_bp.route('/<int:link_id>/<direction>', methods=['DELETE'])
 def unassign(link_id, direction):
+    auth_error = _require_auth()
+    if auth_error:
+        return auth_error
     ensure_table()
     try:
         db.session.execute(
@@ -65,6 +77,9 @@ def unassign(link_id, direction):
 
 @task_links_bp.route('/activity/<int:activity_id>', methods=['GET'])
 def get_assignments(activity_id):
+    auth_error = _require_auth()
+    if auth_error:
+        return auth_error
     ensure_table()
     try:
         rows = db.session.execute(text("""

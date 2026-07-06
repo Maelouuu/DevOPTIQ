@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, jsonify, request
+from flask import Blueprint, render_template, jsonify, request, session
 from sqlalchemy import text, func, bindparam
 from Code.extensions import db
 from Code.models.models import Role, Entity
@@ -234,6 +234,8 @@ def update_role_mission(role_id: int):
     """
     Met à jour la mission_generale du rôle (colonne TEXT `mission_generale` dans la table roles).
     """
+    if not session.get('user_id'):
+        return jsonify({"error": "Non connecté"}), 401
     data = request.get_json(silent=True) or {}
     mission = data.get("mission_generale", "").strip()
 

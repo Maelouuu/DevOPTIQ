@@ -8,13 +8,16 @@ from .activities_performance import add_performance, update_performance, delete_
 
 @activities_bp.route("/performance/add", methods=["POST"])
 def add_perf():
-    data = request.get_json()
-    # On passe name + description
+    data = request.get_json(silent=True) or {}
+    if not data.get("link_id") or not data.get("name"):
+        return jsonify({"error": "link_id et name sont requis"}), 400
     return add_performance(data["link_id"], data["name"], data.get("description",""))
 
 @activities_bp.route("/performance/<int:perf_id>", methods=["PUT"])
 def update_perf(perf_id):
-    data = request.get_json()
+    data = request.get_json(silent=True) or {}
+    if not data.get("name"):
+        return jsonify({"error": "name est requis"}), 400
     return update_performance(perf_id, data["name"], data.get("description",""))
 
 @activities_bp.route("/performance/<int:perf_id>", methods=["DELETE"])
