@@ -6290,12 +6290,15 @@ async function autoLayoutArrows() {
     // repartir propre
     for (const c of state.connections) { c.userPts = null; c.bendOffset = null; delete c._archDetoured; delete c.labelOffset; }
 
-    // 1) Routage libavoid dans le Web Worker — seulement en-dessous d'un seuil.
-    // Au-delà, libavoid explose (coût super-linéaire en nombre de flèches :
-    // ~40→0,1 s, ~100→10 s, ~230→>2 min) → on passe direct au routeur interne.
+    // 1) Routeur INTERNE par défaut : autoAssignPorts choisit des points
+    // d'accroche « humains » (côté qui se fait face, ordonnés le long du côté
+    // pour ne pas se croiser, tirs droits quand c'est aligné). libavoid, lui,
+    // choisissait parfois de mauvais côtés → détours et croisements. libavoid
+    // reste disponible derrière un flag (nudging des parallèles) ; il est aussi
+    // borné à ≤120 flèches car son coût explose au-delà (~100→10 s, ~230→>2 min).
     const LIB_MAX = 120;
     let usedLib = false;
-    if (nConn <= LIB_MAX) {
+    if (window.OPTIQCARTO_USE_LIBAVOID && nConn <= LIB_MAX) {
       try {
         const plain = state.connections.map(c => ({ id: c.id, fromId: c.fromId, toId: c.toId }));
         // Timeout adaptatif : laisse le temps aux cartos moyennes, coupe les cas fous.
@@ -6359,6 +6362,8 @@ async function autoLayoutArrows() {
       _separateLanes();
     }
 
+    render();
+    _straightenTips(); // pointes toujours droites (jamais un angle dans la tête)
     render();
     architectLabels(false); // labels près de la pointe
     render();
@@ -6504,6 +6509,20 @@ function _showBeforeAfterModal(beforeSVG, afterSVG, onApply) {
   m.querySelector('#ba-apply').addEventListener('click', () => { close(); if (onApply) onApply(); });
   m.addEventListener('mousedown', (e) => { if (e.target === m) close(); });
   document.addEventListener('keydown', function esc(e) { if (e.key === 'Escape') { close(); document.removeEventListener('keydown', esc); } });
+}
+
+// Garantit que CHAQUE flèche rentre (et sort) tout droit sur au moins MIN_TIP px
+// (la tête de flèche fait ~21 px → jamais posée sur un virage). Corrige les stubs
+// raccourcis par la séparation en voies. Ne bouge que des points intérieurs.
+function _straightenTips() {
+  const MIN_TIP = 26;
+  for (const c of state.connections) {
+    const pts = c._computedOrthopts;
+    if (!pts || pts.length < 4) continue;
+    let np = _straightApproach(pts, c.fromPortDir, MIN_TIP, true);
+    np = _straightApproach(np, c.toPortDir, MIN_TIP, false);
+    if (np !== pts) c.userPts = np.slice(1, -1).map(p => ({ x: p.x, y: p.y }));
+  }
 }
 
 // Sépare les flèches parallèles en VOIES nettes (au lieu de bosses) : décale les
