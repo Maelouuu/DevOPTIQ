@@ -14,6 +14,8 @@ function ensure() {
 }
 
 // ── Routage (identique à l'adaptateur principal) ───────────────────────────
+// N.B. libavoid est réservé aux cartos ≤ ~120 flèches (le coût est super-linéaire
+// en nombre de flèches) ; au-delà, l'éditeur bascule sur le routeur interne.
 function routeAll(A, nodesById, connections) {
   const RP = A.RoutingParameter, RO = A.RoutingOption;
   const ORTHO = A.RouterFlag.OrthogonalRouting.value;
@@ -108,8 +110,10 @@ onmessage = async (e) => {
   const { id, nodesById, connections } = e.data || {};
   try {
     const lib = await ensure();
+    const t0 = (typeof performance !== 'undefined' ? performance.now() : Date.now());
     const results = routeAll(lib, nodesById, connections);
-    postMessage({ id, ok: true, results });
+    const t1 = (typeof performance !== 'undefined' ? performance.now() : Date.now());
+    postMessage({ id, ok: true, results, timing: Math.round(t1 - t0) });
   } catch (err) {
     postMessage({ id, ok: false, error: String((err && err.message) || err) });
   }

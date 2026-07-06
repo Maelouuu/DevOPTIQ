@@ -408,6 +408,55 @@ function _segCrossesRect(ax, ay, bx, by, R) {
   return y1 < ry2 - E && y2 > ry1 + E;
 }
 
+// Min-heap binaire (file de priorité) — remplace le balayage linéaire de l'open
+// set : chaque extraction du minimum est en O(log n) au lieu de O(n). C'est ce
+// qui rend l'A* assez rapide pour lever les limites et router proprement les
+// grosses cartos (sans quoi les longues flèches abandonnaient et traversaient
+// les formes).
+function _MinHeap() {
+  const a = [];
+  const up = i => { while (i > 0) { const p = (i - 1) >> 1; if (a[p].f <= a[i].f) break; [a[p], a[i]] = [a[i], a[p]]; i = p; } };
+  const down = i => {
+    for (;;) { let l = 2 * i + 1, r = l + 1, s = i;
+      if (l < a.length && a[l].f < a[s].f) s = l;
+      if (r < a.length && a[r].f < a[s].f) s = r;
+      if (s === i) break; [a[s], a[i]] = [a[i], a[s]]; i = s; }
+  };
+  return {
+    get size() { return a.length; },
+    push(n) { a.push(n); up(a.length - 1); },
+    pop() { const top = a[0], last = a.pop(); if (a.length) { a[0] = last; down(0); } return top; },
+  };
+}
+
+// Réduit un tableau de coordonnées triées à ~max valeurs en fusionnant celles
+// qui sont proches (quantification par seaux). Les coordonnées « protégées »
+// (entrées/sorties) sont toujours conservées exactement. Sûr : la grille ne sert
+// qu'à proposer des points de virage — les obstacles sont testés sur les vrais
+// rectangles, donc une grille plus grossière ne crée jamais de croisement (au
+// pire elle rate un couloir étroit → l'A* échoue et on garde le repli).
+function _thinCoords(arr, keep, max) {
+  if (arr.length <= max) return arr;
+  const lo = arr[0], hi = arr[arr.length - 1];
+  const bucket = Math.max(1, (hi - lo) / max);
+  const s = new Set();
+  for (const v of arr) s.add(Math.round(v / bucket) * bucket);
+  for (const v of keep) s.add(v);
+  return [...s].sort((a, b) => a - b);
+}
+
+// Un tracé orthogonal traverse-t-il l'intérieur d'un des obstacles ? (sert de
+// filet de sécurité pour rattraper un stub ou un segment résiduel qui frôlerait
+// une forme.)
+function pathCrossesObstacles(pts, obstacles) {
+  if (!pts || pts.length < 2) return false;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const a = pts[i], b = pts[i + 1];
+    for (const o of obstacles) if (_segCrossesRect(a.x, a.y, b.x, b.y, o)) return true;
+  }
+  return false;
+}
+
 // Routage orthogonal évitant les obstacles (A* sur une grille de « lignes
 // intéressantes » façon Hightower/draw.io). Coût = longueur + pénalité de virage.
 // fp/tp = { x, y, dir }  ;  obstacles = [{x,y,w,h}] (hors formes des 2 extrémités).
@@ -417,7 +466,8 @@ function routeOrthogonalAStar(fp, tp, obstacles, opts) {
   const MARGIN = opts.margin != null ? opts.margin : 16;
   const STUB   = opts.stub   != null ? opts.stub   : 28; // approche droite mini avant la pointe
   const BEND   = opts.bend   != null ? opts.bend   : 20;
-  const MAXNODES = 4200;
+  const NODE_CAP = opts.nodeCap != null ? opts.nodeCap : 40000; // grille bornée (heap ⇒ abordable)
+  const AXIS_CAP = Math.floor(Math.sqrt(NODE_CAP));
 
   const s0 = _advancePt(fp, fp.dir, STUB);
   const e0 = _advancePt(tp, tp.dir, STUB);
@@ -439,9 +489,14 @@ function routeOrthogonalAStar(fp, tp, obstacles, opts) {
   addX(s0.x); addX(e0.x); addX(fp.x); addX(tp.x);
   addY(s0.y); addY(e0.y); addY(fp.y); addY(tp.y);
   for (const r of rects) { addX(r.x); addX(r.x + r.w); addY(r.y); addY(r.y + r.h); }
-  const xs = [...xsSet].sort((a, b) => a - b);
-  const ys = [...ysSet].sort((a, b) => a - b);
-  if (xs.length * ys.length > MAXNODES) return null; // trop dense → repli sur routage classique
+  let xs = [...xsSet].sort((a, b) => a - b);
+  let ys = [...ysSet].sort((a, b) => a - b);
+  // Trop de lignes → on grossit la grille au lieu d'abandonner (les longues
+  // flèches des grosses cartos ne traversent plus les formes).
+  const keepX = [q(s0.x), q(e0.x), q(fp.x), q(tp.x)];
+  const keepY = [q(s0.y), q(e0.y), q(fp.y), q(tp.y)];
+  if (xs.length > AXIS_CAP) xs = _thinCoords(xs, keepX, AXIS_CAP);
+  if (ys.length > AXIS_CAP) ys = _thinCoords(ys, keepY, AXIS_CAP);
 
   const xi = new Map(xs.map((v, i) => [v, i]));
   const yi = new Map(ys.map((v, i) => [v, i]));
@@ -459,23 +514,23 @@ function routeOrthogonalAStar(fp, tp, obstacles, opts) {
     return true;
   }
 
-  const goalKey = gX + ',' + gY;
+  const goalKey = gX * 100000 + gY;
   const H = (ix, iy) => Math.abs(xs[ix] - xs[gX]) + Math.abs(ys[iy] - ys[gY]);
-  const open = new Map();
+  const heap = _MinHeap();
   const gScore = new Map();
   const closed = new Set();
-  const startKey = sX + ',' + sY;
-  open.set(startKey, { xi: sX, yi: sY, g: 0, f: H(sX, sY), dir: fp.dir, prev: null });
+  const startKey = sX * 100000 + sY;
+  heap.push({ xi: sX, yi: sY, g: 0, f: H(sX, sY), dir: fp.dir, prev: null, key: startKey });
   gScore.set(startKey, 0);
 
   let goal = null, guard = 0;
-  const MAXITER = 30000;
-  while (open.size && guard++ < MAXITER) {
-    let bestKey = null, best = null;
-    for (const [k, n] of open) if (!best || n.f < best.f) { best = n; bestKey = k; }
-    open.delete(bestKey);
-    if (bestKey === goalKey) { goal = best; break; }
-    closed.add(bestKey);
+  const MAXITER = 400000;
+  while (heap.size && guard++ < MAXITER) {
+    const best = heap.pop();
+    if (best.key === goalKey) { goal = best; break; }
+    if (closed.has(best.key)) continue;
+    if (best.g > (gScore.get(best.key) ?? Infinity)) continue; // entrée périmée (lazy delete)
+    closed.add(best.key);
     const cx = xs[best.xi], cy = ys[best.yi];
     const neigh = [];
     if (best.xi + 1 < xs.length) neigh.push([best.xi + 1, best.yi, 'right']);
@@ -483,15 +538,15 @@ function routeOrthogonalAStar(fp, tp, obstacles, opts) {
     if (best.yi + 1 < ys.length) neigh.push([best.xi, best.yi + 1, 'bottom']);
     if (best.yi - 1 >= 0)        neigh.push([best.xi, best.yi - 1, 'top']);
     for (const [nx, ny, ndir] of neigh) {
-      const k = nx + ',' + ny;
+      const k = nx * 100000 + ny;
       if (closed.has(k)) continue;
       const px = xs[nx], py = ys[ny];
       if ((nx !== gX || ny !== gY) && ptInside(px, py)) continue;
       if (!edgeClear(cx, cy, px, py)) continue;
       const g = best.g + Math.abs(px - cx) + Math.abs(py - cy) + (best.dir && best.dir !== ndir ? BEND : 0);
-      if (gScore.has(k) && g >= gScore.get(k)) continue;
+      if (g >= (gScore.get(k) ?? Infinity)) continue;
       gScore.set(k, g);
-      open.set(k, { xi: nx, yi: ny, g, f: g + H(nx, ny), dir: ndir, prev: best });
+      heap.push({ xi: nx, yi: ny, g, f: g + H(nx, ny), dir: ndir, prev: best, key: k });
     }
   }
   if (!goal) return null;
@@ -613,5 +668,6 @@ if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     polylineToPath, orthogonalPts, avoidShapes, simplifyPath, orthogonalArrow,
     routeOrthogonalAStar, autoAssignPorts, _segCrossesRect, _advancePt,
+    pathCrossesObstacles,
   };
 }

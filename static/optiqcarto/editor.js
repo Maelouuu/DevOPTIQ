@@ -6272,7 +6272,11 @@ async function autoLayoutArrows() {
   const beforeJSON = JSON.stringify(state);
   const beforeSVG = _snapshotCartoSVG();
 
-  _showLayoutLoading(true);
+  const nConn = state.connections.length;
+  // Grosse carto : le calcul dure quelques secondes → on prévient l'utilisateur
+  // (jamais figé grâce au worker + au chrono).
+  const bigHint = nConn > 60 ? 'Grande cartographie (' + nConn + ' flèches) — quelques secondes…' : '';
+  _showLayoutLoading(true, bigHint);
   await _yieldPaint(); // laisse le navigateur peindre le spinner avant de calculer
 
   try {
@@ -6286,23 +6290,30 @@ async function autoLayoutArrows() {
     // repartir propre
     for (const c of state.connections) { c.userPts = null; c.bendOffset = null; delete c._archDetoured; delete c.labelOffset; }
 
-    // 1) Routage libavoid dans le Web Worker (UI non gelée, timeout de sécurité)
+    // 1) Routage libavoid dans le Web Worker — seulement en-dessous d'un seuil.
+    // Au-delà, libavoid explose (coût super-linéaire en nombre de flèches :
+    // ~40→0,1 s, ~100→10 s, ~230→>2 min) → on passe direct au routeur interne.
+    const LIB_MAX = 120;
     let usedLib = false;
-    try {
-      const plain = state.connections.map(c => ({ id: c.id, fromId: c.fromId, toId: c.toId }));
-      const results = await _routeViaWorker(nodesById, plain, 25000);
-      if (results && results.length) {
-        const byId = {}; for (const r of results) byId[r.connId] = r;
-        for (const c of state.connections) {
-          const r = byId[c.id]; if (!r) continue;
-          c.fromPortDir = r.fromDir; c.fromPortT = r.fromT;
-          c.toPortDir = r.toDir; c.toPortT = r.toT; c.userPts = r.userPts;
+    if (nConn <= LIB_MAX) {
+      try {
+        const plain = state.connections.map(c => ({ id: c.id, fromId: c.fromId, toId: c.toId }));
+        // Timeout adaptatif : laisse le temps aux cartos moyennes, coupe les cas fous.
+        const timeoutMs = Math.min(30000, 6000 + nConn * 220);
+        const results = await _routeViaWorker(nodesById, plain, timeoutMs);
+        if (results && results.length) {
+          const byId = {}; for (const r of results) byId[r.connId] = r;
+          for (const c of state.connections) {
+            const r = byId[c.id]; if (!r) continue;
+            c.fromPortDir = r.fromDir; c.fromPortT = r.fromT;
+            c.toPortDir = r.toDir; c.toPortT = r.toT; c.userPts = r.userPts;
+          }
+          usedLib = true;
         }
-        usedLib = true;
-      }
-    } catch (e) { console.warn('[OptiqCarto] libavoid worker indisponible, repli A* :', e && e.message); usedLib = false; }
+      } catch (e) { console.warn('[OptiqCarto] libavoid worker indisponible/timeout, routeur interne :', e && e.message); usedLib = false; }
+    }
 
-    // 2) Repli A* interne si le worker n'a rien donné
+    // 2) Routeur orthogonal interne (rapide, propre) : grosses cartos + repli.
     if (!usedLib) {
       const ports = autoAssignPorts(nodesById, state.connections);
       const pByConn = {}; for (const p of ports) if (p) pByConn[p.connId] = p;
@@ -6311,6 +6322,7 @@ async function autoLayoutArrows() {
         c.fromPortDir = p.fromDir; c.fromPortT = p.fromT; c.toPortDir = p.toDir; c.toPortT = p.toT;
       }
       render();
+      let _routed = 0;
       for (const c of state.connections) {
         const pts = c._computedOrthopts;
         if (!pts || pts.length < 2) continue;
@@ -6330,7 +6342,18 @@ async function autoLayoutArrows() {
         }
         let route = null;
         try { route = routeOrthogonalAStar(fp, tp, obstacles); } catch (_) { route = null; }
+        // Repli : grille plus fine (moins de quantification) pour les rares flèches
+        // que la grille grossie n'a pas su router.
+        if (!route) { try { route = routeOrthogonalAStar(fp, tp, obstacles, { nodeCap: 90000 }); } catch (_) { route = null; } }
+        // Filet de sécurité : si le tracé frôle encore une forme (stub ou segment
+        // résiduel), on le nettoie par détour ; sinon on garde le tracé A* tel quel.
+        if (route && route.length >= 2 && pathCrossesObstacles(route, obstacles)) {
+          try { route = simplifyPath(avoidShapes(route, state.shapes, c.fromId, c.toId)); } catch (_) {}
+        }
         if (route && route.length >= 2) { const mids = route.slice(1, -1).map(p => ({ x: p.x, y: p.y })); c.userPts = mids.length ? mids : null; }
+        // Rendre la main régulièrement : l'UI et le spinner restent vivants même
+        // sur une très grosse carto (le calcul reste sur le thread principal).
+        if ((++_routed % 40) === 0) await _yieldPaint();
       }
       render();
       _separateLanes();
@@ -6402,17 +6425,33 @@ function _routeViaWorker(nodesById, connections, timeoutMs) {
 function _yieldPaint() { return new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))); }
 
 // Overlay de chargement plein écran
-function _showLayoutLoading(show) {
+let _layoutLoadingTimer = null;
+function _showLayoutLoading(show, hint) {
   let el = document.getElementById('carto-layout-loading');
   if (show) {
     if (!el) {
       el = document.createElement('div');
       el.id = 'carto-layout-loading';
-      el.innerHTML = '<div class="cll-box"><div class="cll-spin"></div><div class="cll-txt">Agencement des flèches…</div></div>';
+      el.innerHTML = '<div class="cll-box"><div class="cll-spin"></div>' +
+        '<div class="cll-txt">Agencement des flèches…</div>' +
+        '<div class="cll-sub"></div><div class="cll-time"></div></div>';
       document.body.appendChild(el);
     }
+    const sub = el.querySelector('.cll-sub');
+    if (sub) sub.textContent = hint || '';
     el.style.display = 'flex';
-  } else if (el) { el.style.display = 'none'; }
+    // Compteur de temps écoulé : sur une grosse carto le calcul dure quelques
+    // secondes — le chrono montre que ça travaille (jamais figé).
+    const t0 = performance.now();
+    const timeEl = el.querySelector('.cll-time');
+    if (_layoutLoadingTimer) clearInterval(_layoutLoadingTimer);
+    const tick = () => { if (timeEl) timeEl.textContent = ((performance.now() - t0) / 1000).toFixed(1) + ' s'; };
+    tick();
+    _layoutLoadingTimer = setInterval(tick, 100);
+  } else if (el) {
+    el.style.display = 'none';
+    if (_layoutLoadingTimer) { clearInterval(_layoutLoadingTimer); _layoutLoadingTimer = null; }
+  }
 }
 
 // Bornes du contenu (formes + tracés) pour cadrer un aperçu
