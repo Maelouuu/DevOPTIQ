@@ -392,6 +392,31 @@ function _advancePt(p, dir, dist) {
   return { x: p.x, y: p.y - dist }; // top
 }
 
+// Garantit une approche DROITE d'au moins minLen avant la pointe (ou après la
+// sortie) : la flèche rentre/sort perpendiculairement à la forme sur une petite
+// distance → sa tête n'est jamais posée sur un virage. N'ajuste que des points
+// intérieurs (jamais les ports), et ne crée jamais d'oblique. Cas typique : la
+// séparation en voies a rapproché le segment de la forme et raccourci le stub.
+function _straightApproach(pts, dir, minLen, atStart) {
+  const n = pts.length;
+  if (n < 4 || !dir) return pts; // besoin d'un coude intérieur déplaçable
+  const ei = atStart ? 0 : n - 1;       // port (fixe)
+  const ni = atStart ? 1 : n - 2;       // voisin du port
+  const ci = atStart ? 2 : n - 3;       // coude avant le voisin (doit rester intérieur)
+  if (ci <= 0 || ci >= n - 1) return pts;
+  const end = pts[ei], nbr = pts[ni];
+  const horiz = (dir === 'left' || dir === 'right'); // approche le long de x
+  const along = horiz ? Math.abs(nbr.y - end.y) < 1.5 : Math.abs(nbr.x - end.x) < 1.5;
+  if (!along) return pts; // dernier segment non perpendiculaire au côté → on ne touche pas
+  const cur = horiz ? Math.abs(nbr.x - end.x) : Math.abs(nbr.y - end.y);
+  if (cur >= minLen) return pts;
+  const tgt = _advancePt(end, dir, minLen); // point extérieur à minLen sur l'axe d'approche
+  const p = pts.map(q => ({ x: q.x, y: q.y }));
+  if (horiz) { p[ni].x = tgt.x; p[ci].x = tgt.x; }
+  else       { p[ni].y = tgt.y; p[ci].y = tgt.y; }
+  return p;
+}
+
 // Un segment orthogonal A→B traverse-t-il l'INTÉRIEUR strict du rectangle R ?
 // (toucher un bord est autorisé — sinon on ne pourrait jamais longer une forme)
 function _segCrossesRect(ax, ay, bx, by, R) {
@@ -668,6 +693,6 @@ if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     polylineToPath, orthogonalPts, avoidShapes, simplifyPath, orthogonalArrow,
     routeOrthogonalAStar, autoAssignPorts, _segCrossesRect, _advancePt,
-    pathCrossesObstacles,
+    pathCrossesObstacles, _straightApproach,
   };
 }

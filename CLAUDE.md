@@ -133,10 +133,13 @@ Fonctionnement :
 - À chaque sauvegarde (`/cartography/api/save`), `_sync_carto_to_db()` extrait les données vers les modèles `Activities`, `Role`, `Link`
 
 ### Agencement automatique des flèches (bouton « Agencement auto »)
-- **Routage à deux niveaux selon la taille** (le coût de libavoid est super-linéaire en nombre de flèches : ~40→0,1 s, ~100→10 s, ~230→>2 min → il gèle/plante les grosses cartos) :
-  - **≤ 120 flèches** → **libavoid** (WASM) dans un **Web Worker** (`vendor/libavoid-worker.mjs`, hors thread principal, timeout adaptatif) : qualité pro, 0 croisement, nudging des parallèles.
-  - **> 120 flèches** (ou timeout du worker) → **routeur orthogonal interne** (`geometry.js` : `routeOrthogonalAStar`, A* sur grille de Hanan avec **file de priorité binaire** + grille bornée/quantifiée `_thinCoords` → jamais d'abandon, donc plus de flèche qui traverse une forme). Rapide (~0,3–1 s) et propre.
-- Le nombre de flèches (pas le nombre de formes) est le facteur de coût : 177 formes / 37 flèches se route en 0,12 s.
+- **Routeur interne par défaut** (`geometry.js`) — c'est lui qui donne le placement le plus lisible :
+  - `autoAssignPorts` choisit des **points d'accroche « humains »** : côté qui se fait face, **ordonnés le long du côté** (pas de croisement), **tir droit** quand les formes sont alignées. (libavoid choisissait parfois de mauvais côtés → détours/croisements.)
+  - `routeOrthogonalAStar` : A* sur grille de Hanan avec **file de priorité binaire** + grille bornée/quantifiée `_thinCoords` → jamais d'abandon (plus de flèche qui traverse une forme). Filet : `pathCrossesObstacles` + `avoidShapes` sur les tracés résiduels.
+  - `_straightApproach` / `_straightenTips()` : **approche droite ≥ 26 px** avant chaque pointe → la tête de flèche n'est jamais posée sur un virage.
+  - `_separateLanes` : sépare les flèches parallèles en voies nettes.
+  - Rapide et propre : carto réelle (177 formes / 37 flèches) → **0 croisement en ~0,25 s** ; 140 flèches → 0 croisement en ~0,37 s.
+- **libavoid (WASM)** reste vendu (`vendor/libavoid-worker.mjs`, Web Worker) mais **désactivé par défaut** (flag `window.OPTIQCARTO_USE_LIBAVOID`, borné à ≤120 flèches car son coût est super-linéaire : ~100→10 s, ~230→>2 min). Son nudging des parallèles est joli mais ses points d'accroche sont moins bons.
 - `_showLayoutLoading()` : spinner + **chrono** + message « grande cartographie » ; aperçu **avant/après** avec Appliquer/Annuler avant toute modification.
 
 ---
