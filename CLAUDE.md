@@ -133,14 +133,18 @@ Fonctionnement :
 - À chaque sauvegarde (`/cartography/api/save`), `_sync_carto_to_db()` extrait les données vers les modèles `Activities`, `Role`, `Link`
 
 ### Agencement automatique des flèches (bouton « Agencement auto »)
-- **Routeur interne par défaut** (`geometry.js`) — c'est lui qui donne le placement le plus lisible :
-  - `autoAssignPorts` choisit des **points d'accroche « humains »** : côté qui se fait face, **ordonnés le long du côté** (pas de croisement), **tir droit** quand les formes sont alignées. (libavoid choisissait parfois de mauvais côtés → détours/croisements.)
-  - `routeOrthogonalAStar` : A* sur grille de Hanan avec **file de priorité binaire** + grille bornée/quantifiée `_thinCoords` → jamais d'abandon (plus de flèche qui traverse une forme). Filet : `pathCrossesObstacles` + `avoidShapes` sur les tracés résiduels.
-  - `_straightApproach` / `_straightenTips()` : **approche droite ≥ 26 px** avant chaque pointe → la tête de flèche n'est jamais posée sur un virage.
+- **Moteur choisi selon la TAILLE** (dans `_computeAutoLayout()`, cœur partagé par le bouton ET l'import VSDX). Bornes `LIB_MIN=40`, `LIB_MAX=260` :
+  - **< 40 flèches → routeur INTERNE** (`geometry.js`) : instantané, déjà ≈0 croisement sur les petites cartos.
+  - **40–260 flèches → libavoid (WASM)** (`vendor/libavoid-worker.mjs`, Web Worker) : **ACTIVÉ PAR DÉFAUT** (`window.OPTIQCARTO_USE_LIBAVOID=true` posé dans le template éditeur). Son **routage global + nudging** réduit fortement les croisements dès que ça devient dense. Mesuré en navigateur (Chromium) sur cartos réalistes : **165 flèches → ~17 croisements en <1 s** (vs ~76 pour l'interne) ; 230 flèches → ~4 s. L'ancienne note « ~100→10 s » était fausse (build/mesure obsolète). Repli automatique sur l'interne si le worker échoue ou dépasse le timeout adaptatif (`min(20 s, 6 s + n×80 ms)`).
+  - **> 260 flèches → routeur interne** : libavoid devient trop lent sur les cartos denses pathologiques ; l'interne reste instantané.
+- **Routeur interne** (`geometry.js`, repli + petites cartos) :
+  - `autoAssignPorts` : points d'accroche « humains » (côté qui se fait face, ordonnés le long du côté, tir droit si aligné).
+  - `routeOrthogonalAStar` : A* sur grille de Hanan (file de priorité binaire + grille bornée `_thinCoords`). Filet : `pathCrossesObstacles` + `avoidShapes`.
   - `_separateLanes` : sépare les flèches parallèles en voies nettes.
-  - Rapide et propre : carto réelle (177 formes / 37 flèches) → **0 croisement en ~0,25 s** ; 140 flèches → 0 croisement en ~0,37 s.
-- **libavoid (WASM)** reste vendu (`vendor/libavoid-worker.mjs`, Web Worker) mais **désactivé par défaut** (flag `window.OPTIQCARTO_USE_LIBAVOID`, borné à ≤120 flèches car son coût est super-linéaire : ~100→10 s, ~230→>2 min). Son nudging des parallèles est joli mais ses points d'accroche sont moins bons.
-- `_showLayoutLoading()` : spinner + **chrono** + message « grande cartographie » ; aperçu **avant/après** avec Appliquer/Annuler avant toute modification.
+- **Pointes de flèche (padding, quel que soit le moteur)** : `polylineToPath(pts, R, tipPad=18)` borne le rayon du **dernier coude** → approche **droite ≥ 18 px** avant la tête (~16 px) : la pointe ne se pose jamais sur un virage. Complété par `_straightenTips()` (≥26 px) côté routage.
+- **Losanges de décision (recentrage)** : `_alignDecisionsToNeighbors()` (pré-routage) nudge chaque losange sur l'axe de flux de ses **voisins connectés** (X sur voisins verticaux, Y sur horizontaux, médiane, déplacement borné 80 px) ; `snapDecisionsToArrows()` (post-routage) recentre pile sur les **flèches connectées uniquement** (plus de saut vers une flèche voisine non liée).
+- **Import VSDX** : à la reconstruction de la carto, `_computeAutoLayout()` est appliqué directement (remplace les tracés Visio bruts par un routage propre). `Ctrl+Z` ramène à l'import brut (baseline dans l'historique).
+- `_showLayoutLoading()` : spinner + **chrono** + message « grande cartographie » ; aperçu **avant/après** avec Appliquer/Annuler (bouton uniquement ; l'import VSDX applique directement).
 
 ---
 

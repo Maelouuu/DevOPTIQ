@@ -765,6 +765,12 @@
      thread principal → l'UI ne gèle jamais pendant le calcul) ══ -->
 <script>
   window.OPTIQCARTO_LIBAVOID_WORKER = "{{ url_for('static', filename='optiqcarto/vendor/libavoid-worker.mjs') }}";
+  // Routage global libavoid ACTIVÉ par défaut : sur les cartos moyennes/grandes il
+  // réduit fortement les croisements (routage global + nudging) par rapport au
+  // routeur interne (qui route chaque flèche isolément). L'éditeur choisit le
+  // moteur selon la taille (petites → interne instantané ; grandes → libavoid) et
+  // retombe automatiquement sur l'interne si le worker échoue/expire.
+  if (window.OPTIQCARTO_USE_LIBAVOID === undefined) window.OPTIQCARTO_USE_LIBAVOID = true;
 </script>
 
 <!-- ══ Plein écran automatique à l'ouverture de l'éditeur ══ -->

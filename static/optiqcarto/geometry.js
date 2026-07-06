@@ -159,14 +159,23 @@ function bezierMidpoint(fp, tp) {
   };
 }
 
-function polylineToPath(pts, R) {
+// tipPad : longueur d'approche DROITE garantie avant la pointe.
+// La tête de flèche fait ~16 px : si le dernier coude est arrondi trop près du bout,
+// la pointe se pose sur la courbe → elle « tourne ». En bornant le rayon du DERNIER
+// coude on force un segment droit ≥ tipPad avant la pointe, quel que soit le moteur
+// de routage (interne, libavoid, VSDX). 0 = comportement historique inchangé.
+function polylineToPath(pts, R, tipPad = 0) {
   if (pts.length < 2) return '';
   let d = `M ${pts[0].x},${pts[0].y}`;
+  const lastCorner = pts.length - 2;
   for (let i = 1; i < pts.length - 1; i++) {
     const p = pts[i - 1], c = pts[i], n = pts[i + 1];
     const d1 = Math.hypot(c.x - p.x, c.y - p.y);
     const d2 = Math.hypot(n.x - c.x, n.y - c.y);
-    const r  = Math.min(R, d1 / 2, d2 / 2);
+    let r  = Math.min(R, d1 / 2, d2 / 2);
+    // Coude juste avant la pointe : garder ≥ tipPad de droite dans le dernier segment
+    // → la tête de flèche (~16 px) se pose toujours sur du droit, jamais sur un virage.
+    if (tipPad > 0 && i === lastCorner) r = Math.min(r, Math.max(0, d2 - tipPad));
     if (r < 0.5) { d += ` L ${c.x},${c.y}`; continue; }
     const v1x = (c.x - p.x) / d1, v1y = (c.y - p.y) / d1;
     const v2x = (n.x - c.x) / d2, v2y = (n.y - c.y) / d2;

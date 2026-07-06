@@ -790,7 +790,9 @@ function renderConnections() {
         displayOrthopts = orthopts.filter((_, idx) => idx !== si);
         if (displayOrthopts.length < 2) displayOrthopts = orthopts;
       }
-      d = polylineToPath(displayOrthopts, 12);
+      // tipPad = 18 : approche droite garantie avant la tête (~16 px) → la pointe
+      // ne se pose jamais sur un virage (« padding » demandé pour les pointes).
+      d = polylineToPath(displayOrthopts, 12, 18);
     }
     const isSel = selectedConn === c.id;
     const color = isSel ? '#1f7a54' : c.color;
@@ -4983,18 +4985,58 @@ function _unused_vsdxAutoLayout(shapes, conns, bands, groups) {
    VSDX IMPORT
    ══════════════════════════════════════════════════ */
 
-// After render(), snap each decision diamond's center to the nearest point
-// on any rendered connection path (uses _computedOrthopts set by renderConnections).
-// Called once after VSDX import so diamonds align pixel-perfectly with arrows
-// even when orthogonal routing deviates from the original Visio connector path.
+// Nudge chaque losange de décision sur l'axe de flux de ses voisins CONNECTÉS
+// (pré-routage). Un losange se branche par ses 4 pointes (milieux de côtés) : pour
+// que les flèches le touchent bien droit (et qu'il ne paraisse pas « décalé »), son
+// centre doit s'aligner sur ses voisins — X sur les voisins verticaux, Y sur les
+// horizontaux. Déplacement borné (jamais de téléportation). Médiane = robuste aux
+// cas où deux branches divergent. Renvoie true si au moins un losange a bougé.
+function _alignDecisionsToNeighbors(maxShift = 80) {
+  const byId = {}; for (const s of state.shapes) byId[s.id] = s;
+  const median = arr => { const a = arr.slice().sort((x, y) => x - y); const m = a.length >> 1;
+    return a.length % 2 ? a[m] : (a[m - 1] + a[m]) / 2; };
+  let moved = false;
+  for (const D of state.shapes) {
+    if (D.type !== 'decision') continue;
+    const Dcx = D.x + D.w / 2, Dcy = D.y + D.h / 2;
+    const cxVotes = [], cyVotes = [];
+    for (const c of state.connections) {
+      let N = null;
+      if (c.fromId === D.id) N = byId[c.toId];
+      else if (c.toId === D.id) N = byId[c.fromId];
+      if (!N) continue;
+      const Ncx = N.x + N.w / 2, Ncy = N.y + N.h / 2;
+      // Relation dominante : plus verticale → la flèche entre/sort par une pointe
+      // haut/bas → aligner le X du losange ; sinon aligner le Y.
+      if (Math.abs(Ncy - Dcy) >= Math.abs(Ncx - Dcx)) cxVotes.push(Ncx);
+      else cyVotes.push(Ncy);
+    }
+    if (cxVotes.length) {
+      const shift = Math.max(-maxShift, Math.min(maxShift, median(cxVotes) - Dcx));
+      if (Math.abs(shift) > 0.5) { D.x = Math.round(D.x + shift); moved = true; }
+    }
+    if (cyVotes.length) {
+      const shift = Math.max(-maxShift, Math.min(maxShift, median(cyVotes) - Dcy));
+      if (Math.abs(shift) > 0.5) { D.y = Math.round(D.y + shift); moved = true; }
+    }
+  }
+  return moved;
+}
+
+// Recentre chaque losange sur la ou les flèches qui le CONNECTENT réellement
+// (post-routage : lit _computedOrthopts). Contrairement à l'ancienne version, on
+// n'attrape plus une flèche voisine non liée : seul le tracé des connexions dont le
+// losange est une extrémité compte. On projette le centre sur le segment de flèche
+// le plus proche parmi ces connexions → le losange épouse pile la ligne de flux.
 function snapDecisionsToArrows() {
-  const THRESH = 130; // px — max distance to consider an arrow "matching"
+  const THRESH = 130; // px — décalage max toléré (sécurité anti-saut)
   let moved = false;
   for (const s of state.shapes) {
     if (s.type !== 'decision') continue;
     const cx = s.x + s.w / 2, cy = s.y + s.h / 2;
     let bestDist = THRESH, bestPx = cx, bestPy = cy;
     for (const c of state.connections) {
+      if (c.fromId !== s.id && c.toId !== s.id) continue; // uniquement les flèches liées
       const pts = c._computedOrthopts;
       if (!pts || pts.length < 2) continue;
       for (let i = 0; i < pts.length - 1; i++) {
@@ -5015,6 +5057,7 @@ function snapDecisionsToArrows() {
     }
   }
   if (moved) renderShapes();
+  return moved;
 }
 
 function openVSDXDialog() {
@@ -5292,10 +5335,17 @@ async function importVSDX(file) {
       if (from) c.color = from.color;
     });
 
-    history = [JSON.stringify(state)]; histIndex = 0;
+    history = [JSON.stringify(state)]; histIndex = 0; // baseline = import Visio brut (Ctrl+Z y revient)
     render();
-    snapDecisionsToArrows(); // centre les losanges sur la flèche la plus proche
     _alignImportedShapes(state.shapes, state.connections); // snap near-aligned shapes to H/V
+    // Agencement automatique de la carto reconstruite : remplace les tracés Visio
+    // bruts par un routage propre (libavoid sur les grandes cartos, interne sinon) →
+    // moins de croisements, pointes droites (padding), losanges recentrés sur le flux.
+    if (state.connections.length) {
+      setStatus('Agencement automatique des flèches…');
+      try { await _computeAutoLayout(); snapshot(); }
+      catch (e) { console.warn('[VSDX] agencement auto ignoré :', e && e.message); snapDecisionsToArrows(); }
+    }
     fitView(); updateProps();
 
     document.getElementById('vsdx-dialog').classList.add('hidden');
@@ -6260,26 +6310,19 @@ function architectArrows(silent) {
    ══════════════════════════════════════════════════ */
 let _autoLayoutBusy = false;
 
-async function autoLayoutArrows() {
-  if (window.OPTIQCARTO_READONLY || _autoLayoutBusy) return;
-  if (!state.connections || state.connections.length === 0) {
-    showToast(_L('editor.toast.no_arrows') || 'Aucune flèche à agencer');
-    return;
-  }
-  _autoLayoutBusy = true;
-
-  // Sauvegarde de l'état AVANT + visuel avant (rien n'est appliqué sans confirmation)
-  const beforeJSON = JSON.stringify(state);
-  const beforeSVG = _snapshotCartoSVG();
-
+// Cœur de l'agencement automatique : ré-assigne ports + tracés de TOUTES les
+// connexions et recentre les losanges, EN PLACE dans `state`. Aucune UI/preview ici
+// → réutilisable par le bouton « Agencement auto » (avec preview avant/après) ET par
+// l'import VSDX (application directe lors de la reconstruction de la carto).
+async function _computeAutoLayout() {
   const nConn = state.connections.length;
-  // Grosse carto : le calcul dure quelques secondes → on prévient l'utilisateur
-  // (jamais figé grâce au worker + au chrono).
-  const bigHint = nConn > 60 ? 'Grande cartographie (' + nConn + ' flèches) — quelques secondes…' : '';
-  _showLayoutLoading(true, bigHint);
-  await _yieldPaint(); // laisse le navigateur peindre le spinner avant de calculer
 
-  try {
+  // Recentre d'abord les losanges de décision sur leurs voisins connectés → les
+  // flèches les toucheront pile sur les pointes (fini les losanges « décalés »).
+  // Fait avant de figer nodesById pour que le routage parte des bonnes positions.
+  _alignDecisionsToNeighbors();
+
+  {
     const nodesById = {};
     for (const s of state.shapes) nodesById[s.id] = { x: s.x, y: s.y, w: s.w, h: s.h, type: s.type };
     if (state.groups) for (const g of state.groups) {
@@ -6287,22 +6330,26 @@ async function autoLayoutArrows() {
       if (b) nodesById[g.id] = { x: b.x, y: b.y, w: b.w, h: b.h, type: 'group' };
     }
 
-    // repartir propre
-    for (const c of state.connections) { c.userPts = null; c.bendOffset = null; delete c._archDetoured; delete c.labelOffset; }
+    // repartir propre (on repart des tracés vierges : userPts + chemins Visio bruts)
+    for (const c of state.connections) { c.userPts = null; c.customPath = null; c.bendOffset = null; delete c._archDetoured; delete c.labelOffset; }
 
-    // 1) Routeur INTERNE par défaut : autoAssignPorts choisit des points
-    // d'accroche « humains » (côté qui se fait face, ordonnés le long du côté
-    // pour ne pas se croiser, tirs droits quand c'est aligné). libavoid, lui,
-    // choisissait parfois de mauvais côtés → détours et croisements. libavoid
-    // reste disponible derrière un flag (nudging des parallèles) ; il est aussi
-    // borné à ≤120 flèches car son coût explose au-delà (~100→10 s, ~230→>2 min).
-    const LIB_MAX = 120;
+    // 1) Choix du moteur selon la TAILLE (mesuré en navigateur sur cartos réalistes) :
+    //   • < LIB_MIN flèches  → routeur INTERNE : instantané et déjà excellent (≈0
+    //     croisement) sur les petites cartos ; inutile de payer libavoid.
+    //   • LIB_MIN..LIB_MAX   → libavoid : routage GLOBAL + nudging → bien moins de
+    //     croisements que l'interne dès que ça devient dense (ex. 165 flèches :
+    //     ~17 croisements vs ~76 pour l'interne), et rapide (<1 s à 165, ~4 s à 230).
+    //   • > LIB_MAX          → routeur interne : libavoid devient trop lent sur les
+    //     cartos pathologiques ; l'interne reste instantané.
+    // Repli automatique sur l'interne si le worker échoue ou dépasse le timeout.
+    const LIB_MIN = 40, LIB_MAX = 260;
     let usedLib = false;
-    if (window.OPTIQCARTO_USE_LIBAVOID && nConn <= LIB_MAX) {
+    if (window.OPTIQCARTO_USE_LIBAVOID && window.OPTIQCARTO_LIBAVOID_WORKER && nConn >= LIB_MIN && nConn <= LIB_MAX) {
       try {
         const plain = state.connections.map(c => ({ id: c.id, fromId: c.fromId, toId: c.toId }));
-        // Timeout adaptatif : laisse le temps aux cartos moyennes, coupe les cas fous.
-        const timeoutMs = Math.min(30000, 6000 + nConn * 220);
+        // Timeout adaptatif : généreux pour laisser finir les grandes cartos réelles
+        // (rapides), borné pour couper les cas denses pathologiques → repli interne.
+        const timeoutMs = Math.min(20000, 6000 + nConn * 80);
         const results = await _routeViaWorker(nodesById, plain, timeoutMs);
         if (results && results.length) {
           const byId = {}; for (const r of results) byId[r.connId] = r;
@@ -6365,8 +6412,36 @@ async function autoLayoutArrows() {
     render();
     _straightenTips(); // pointes toujours droites (jamais un angle dans la tête)
     render();
+    snapDecisionsToArrows(); // recentre les losanges pile sur leurs flèches connectées
+    render();
     architectLabels(false); // labels près de la pointe
     render();
+  }
+}
+
+// Bouton « Agencement auto » : calcule l'agencement puis propose un aperçu
+// avant/après (rien n'est appliqué tant que l'utilisateur n'a pas confirmé).
+async function autoLayoutArrows() {
+  if (window.OPTIQCARTO_READONLY || _autoLayoutBusy) return;
+  if (!state.connections || state.connections.length === 0) {
+    showToast(_L('editor.toast.no_arrows') || 'Aucune flèche à agencer');
+    return;
+  }
+  _autoLayoutBusy = true;
+
+  // Sauvegarde de l'état AVANT + visuel avant (rien n'est appliqué sans confirmation)
+  const beforeJSON = JSON.stringify(state);
+  const beforeSVG = _snapshotCartoSVG();
+
+  const nConn = state.connections.length;
+  // Grosse carto : le calcul dure quelques secondes → on prévient l'utilisateur
+  // (jamais figé grâce au worker + au chrono).
+  const bigHint = nConn > 60 ? 'Grande cartographie (' + nConn + ' flèches) — quelques secondes…' : '';
+  _showLayoutLoading(true, bigHint);
+  await _yieldPaint(); // laisse le navigateur peindre le spinner avant de calculer
+
+  try {
+    await _computeAutoLayout();
     const afterJSON = JSON.stringify(state);
     const afterSVG = _snapshotCartoSVG();
 
@@ -6402,7 +6477,18 @@ function _getLvWorker() {
       if (!p) return; delete _lvPending[d.id];
       if (d.ok) p.resolve(d.results); else p.reject(new Error(d.error || 'worker'));
     };
-    w.onerror = (ev) => { console.warn('[OptiqCarto] worker error', ev && ev.message); };
+    // Échec de chargement du worker (404 .mjs, MIME, CSP, WASM bloqué…) : on rejette
+    // TOUTES les requêtes en attente immédiatement → repli instantané sur le routeur
+    // interne (sinon on attendrait le timeout complet). Le worker cassé est jeté.
+    w.onerror = (ev) => {
+      console.warn('[OptiqCarto] worker error', ev && ev.message);
+      for (const k of Object.keys(_lvPending)) {
+        const p = _lvPending[k]; delete _lvPending[k];
+        try { p.reject(new Error('worker onerror')); } catch (_) {}
+      }
+      try { w.terminate(); } catch (_) {}
+      if (_lvWorker === w) _lvWorker = null;
+    };
     _lvWorker = w;
   } catch (e) { console.warn('[OptiqCarto] worker indispo', e && e.message); _lvWorker = null; }
   return _lvWorker;
