@@ -724,12 +724,16 @@ function renderConnections() {
         case 'bottom': return { x: ep.x + ep.w * t,    y: ep.y + ep.h + h, dir: 'bottom' };
       }
     }
-    // Auto-spread: distribute evenly among outgoing connections on this edge
+    // Auto-spread : répartit sur ce côté TOUTES les connexions qui l'utilisent —
+    // entrantes ET sortantes (unifiedUsage) — pour qu'aucune flèche n'atterrisse sur
+    // le même point qu'une autre (un point de connexion = un seul branchement). Avant,
+    // on ne comptait que les sortantes (fromUsage) → 2 flèches entrantes se posaient
+    // toutes deux au centre (t=0.5) et se superposaient.
     const key = `${ep.id}-${dir}`;
-    const users = fromUsage[key] || [];
-    const idx = users.indexOf(connId);
+    const users = unifiedUsage[key] || [];
+    const idx = users.findIndex(u => u.connId === connId && u.end === end);
     const n   = users.length;
-    const t   = n <= 1 ? 0.5 : (idx + 1) / (n + 1);
+    const t   = (idx < 0 || n <= 1) ? 0.5 : (idx + 1) / (n + 1);
     switch (dir) {
       case 'left':   return { x: ep.x - h,           y: ep.y + ep.h * t, dir: 'left'   };
       case 'right':  return { x: ep.x + ep.w + h,    y: ep.y + ep.h * t, dir: 'right'  };
@@ -4986,6 +4990,38 @@ function _unused_vsdxAutoLayout(shapes, conns, bands, groups) {
    ══════════════════════════════════════════════════ */
 
 // Nudge chaque losange de décision sur l'axe de flux de ses voisins CONNECTÉS
+// Aère la carto : sépare les formes qui se chevauchent ou sont trop serrées
+// (relaxation par paires). Objectif : « dénouer » les zones complexes et laisser de
+// la place aux flèches/labels, SANS tout réarranger — seules les paires en dessous de
+// minGap bougent (une carto déjà aérée n'est pas touchée), l'ordre relatif gauche/
+// droite/haut/bas est préservé, et les formes groupées sont laissées intactes (on ne
+// casse pas un groupe). C'est le « on sacrifie un peu la disposition d'origine pour
+// gagner en lisibilité » demandé. Renvoie true si au moins une forme a bougé.
+function _declutterShapes(minGap = 30, iters = 16) {
+  const grouped = new Set();
+  if (state.groups) for (const g of state.groups) (g.shapeIds || []).forEach(id => grouped.add(id));
+  const nodes = state.shapes.filter(s => !grouped.has(s.id));
+  if (nodes.length < 2) return false;
+  const m = minGap / 2;
+  let anyMoved = false;
+  for (let it = 0; it < iters; it++) {
+    let moved = false;
+    for (let i = 0; i < nodes.length; i++) for (let j = i + 1; j < nodes.length; j++) {
+      const a = nodes[i], b = nodes[j];
+      const ox = Math.min(a.x + a.w + m, b.x + b.w + m) - Math.max(a.x - m, b.x - m);
+      const oy = Math.min(a.y + a.h + m, b.y + b.h + m) - Math.max(a.y - m, b.y - m);
+      if (ox <= 0 || oy <= 0) continue; // pas de chevauchement (marge incluse)
+      // Repousse sur l'axe de moindre pénétration → déplacement minimal.
+      if (ox <= oy) { const p = ox / 2 + 0.5, d = (a.x + a.w / 2) <= (b.x + b.w / 2) ? -1 : 1; a.x += d * p; b.x -= d * p; }
+      else          { const p = oy / 2 + 0.5, d = (a.y + a.h / 2) <= (b.y + b.h / 2) ? -1 : 1; a.y += d * p; b.y -= d * p; }
+      moved = true; anyMoved = true;
+    }
+    if (!moved) break;
+  }
+  if (anyMoved) for (const s of nodes) { s.x = Math.round(s.x); s.y = Math.round(s.y); }
+  return anyMoved;
+}
+
 // (pré-routage). Un losange se branche par ses 4 pointes (milieux de côtés) : pour
 // que les flèches le touchent bien droit (et qu'il ne paraisse pas « décalé »), son
 // centre doit s'aligner sur ses voisins — X sur les voisins verticaux, Y sur les
@@ -5023,41 +5059,38 @@ function _alignDecisionsToNeighbors(maxShift = 80) {
   return moved;
 }
 
-// Recentre chaque losange sur la ou les flèches qui le CONNECTENT réellement
-// (post-routage : lit _computedOrthopts). Contrairement à l'ancienne version, on
-// n'attrape plus une flèche voisine non liée : seul le tracé des connexions dont le
-// losange est une extrémité compte. On projette le centre sur le segment de flèche
-// le plus proche parmi ces connexions → le losange épouse pile la ligne de flux.
-function snapDecisionsToArrows() {
-  const THRESH = 130; // px — décalage max toléré (sécurité anti-saut)
-  let moved = false;
-  for (const s of state.shapes) {
-    if (s.type !== 'decision') continue;
-    const cx = s.x + s.w / 2, cy = s.y + s.h / 2;
-    let bestDist = THRESH, bestPx = cx, bestPy = cy;
-    for (const c of state.connections) {
-      if (c.fromId !== s.id && c.toId !== s.id) continue; // uniquement les flèches liées
-      const pts = c._computedOrthopts;
-      if (!pts || pts.length < 2) continue;
-      for (let i = 0; i < pts.length - 1; i++) {
-        const ax = pts[i].x, ay = pts[i].y, bx = pts[i+1].x, by = pts[i+1].y;
-        const abx = bx - ax, aby = by - ay;
-        const len2 = abx*abx + aby*aby;
-        if (len2 < 4) continue;
-        const t = Math.max(0, Math.min(1, ((cx - ax)*abx + (cy - ay)*aby) / len2));
-        const px = ax + t*abx, py = ay + t*aby;
-        const d = Math.hypot(cx - px, cy - py);
-        if (d < bestDist) { bestDist = d; bestPx = px; bestPy = py; }
-      }
-    }
-    if (bestDist < THRESH) {
-      s.x = Math.round(bestPx - s.w / 2);
-      s.y = Math.round(bestPy - s.h / 2);
-      moved = true;
-    }
-  }
-  if (moved) renderShapes();
-  return moved;
+// Demande à l'utilisateur comment reconstruire la carto importée :
+//  • 'auto'    → notre agencement automatique (routage propre, très lisible)
+//  • 'classic' → reconstruction fidèle à la disposition Visio d'origine (pixel)
+// Renvoie une Promise('auto' | 'classic').
+function _askVsdxLayoutMode() {
+  return new Promise(resolve => {
+    const ov = document.createElement('div');
+    ov.className = 'modal-overlay';
+    ov.style.zIndex = '10001';
+    ov.innerHTML = `
+      <div class="modal-card" style="max-width:460px;border-top:3px solid var(--pink)">
+        <div class="modal-header"><h2 style="color:var(--pink)">
+          <i class="fa-solid fa-wand-magic-sparkles" style="margin-right:8px;opacity:.9"></i>Reconstruire la cartographie</h2></div>
+        <div class="modal-body" style="display:flex;flex-direction:column;gap:12px">
+          <p style="font-size:13px;color:var(--text-muted);margin:0;line-height:1.6">
+            Comment veux-tu reconstruire cette cartographie&nbsp;?</p>
+          <button id="_vsdx-auto" class="btn-ok" style="width:100%;text-align:left;display:flex;gap:11px;align-items:flex-start;padding:13px 15px;border-radius:11px">
+            <i class="fa-solid fa-wand-magic-sparkles" style="margin-top:2px"></i>
+            <span><strong>Agencement automatique</strong> <span style="opacity:.7">(recommandé)</span><br>
+            <span style="font-size:12px;opacity:.85">Routage propre et lisible via notre moteur : moins de croisements, pointes droites, losanges bien placés.</span></span>
+          </button>
+          <button id="_vsdx-classic" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.12);color:var(--text-muted);border-radius:11px;padding:13px 15px;font-size:13px;cursor:pointer;text-align:left;display:flex;gap:11px;align-items:flex-start;font-family:inherit;width:100%">
+            <i class="fa-solid fa-clone" style="margin-top:2px"></i>
+            <span><strong>Reconstruction classique</strong><br>
+            <span style="font-size:12px;opacity:.8">Fidèle à la disposition Visio d'origine (pixel).</span></span>
+          </button>
+        </div>
+      </div>`;
+    document.body.appendChild(ov);
+    ov.querySelector('#_vsdx-auto').onclick    = () => { ov.remove(); resolve('auto'); };
+    ov.querySelector('#_vsdx-classic').onclick = () => { ov.remove(); resolve('classic'); };
+  });
 }
 
 function openVSDXDialog() {
@@ -5335,17 +5368,33 @@ async function importVSDX(file) {
       if (from) c.color = from.color;
     });
 
-    history = [JSON.stringify(state)]; histIndex = 0; // baseline = import Visio brut (Ctrl+Z y revient)
     render();
     _alignImportedShapes(state.shapes, state.connections); // snap near-aligned shapes to H/V
-    // Agencement automatique de la carto reconstruite : remplace les tracés Visio
-    // bruts par un routage propre (libavoid sur les grandes cartos, interne sinon) →
-    // moins de croisements, pointes droites (padding), losanges recentrés sur le flux.
-    if (state.connections.length) {
-      setStatus('Agencement automatique des flèches…');
-      try { await _computeAutoLayout(); snapshot(); }
-      catch (e) { console.warn('[VSDX] agencement auto ignoré :', e && e.message); snapDecisionsToArrows(); }
+
+    // Choix utilisateur : agencement auto (routage propre) OU reconstruction fidèle
+    // à Visio. Sur une carto sans flèche, rien à agencer → classique d'office.
+    document.getElementById('vsdx-dialog').classList.add('hidden');
+    let mode = 'classic';
+    if (state.connections.length) mode = await _askVsdxLayoutMode();
+
+    if (mode === 'auto') {
+      // Agencement automatique : remplace les tracés Visio bruts par un routage propre
+      // (libavoid sur les grandes cartos, interne sinon) → moins de croisements,
+      // pointes droites (padding), losanges bien branchés sur les pointes.
+      const hint = connections.length > 60 ? 'Grande cartographie (' + connections.length + ' flèches) — quelques secondes…' : '';
+      _showLayoutLoading(true, hint);
+      await _yieldPaint();
+      try { await _computeAutoLayout(); }
+      catch (e) { console.warn('[VSDX] agencement auto ignoré :', e && e.message); }
+      _showLayoutLoading(false);
+    } else {
+      // Classique (fidèle Visio) : les tracés exacts importés (customPath) deviennent
+      // les points de passage RENDUS (userPts) au lieu d'un re-routage orthogonal.
+      for (const c of state.connections)
+        if (c.customPath && c.customPath.length >= 3) c.userPts = c.customPath.slice(1, -1);
     }
+    render();
+    history = [JSON.stringify(state)]; histIndex = 0; // baseline = carto reconstruite
     fitView(); updateProps();
 
     document.getElementById('vsdx-dialog').classList.add('hidden');
@@ -6314,10 +6363,17 @@ let _autoLayoutBusy = false;
 // connexions et recentre les losanges, EN PLACE dans `state`. Aucune UI/preview ici
 // → réutilisable par le bouton « Agencement auto » (avec preview avant/après) ET par
 // l'import VSDX (application directe lors de la reconstruction de la carto).
-async function _computeAutoLayout() {
+async function _computeAutoLayout(opts) {
+  opts = opts || {};
+  const declutter = opts.declutter !== false; // aération activée par défaut
   const nConn = state.connections.length;
 
-  // Recentre d'abord les losanges de décision sur leurs voisins connectés → les
+  // Aère les zones trop serrées (formes qui se chevauchent) : « dénoue » les endroits
+  // complexes et laisse respirer flèches + labels. Ne touche que ce qui est trop serré
+  // → l'essence de la carto est préservée. Désactivable via opts.declutter=false.
+  if (declutter) _declutterShapes();
+
+  // Recentre ensuite les losanges de décision sur leurs voisins connectés → les
   // flèches les toucheront pile sur les pointes (fini les losanges « décalés »).
   // Fait avant de figer nodesById pour que le routage parte des bonnes positions.
   _alignDecisionsToNeighbors();
@@ -6412,8 +6468,11 @@ async function _computeAutoLayout() {
     render();
     _straightenTips(); // pointes toujours droites (jamais un angle dans la tête)
     render();
-    snapDecisionsToArrows(); // recentre les losanges pile sur leurs flèches connectées
-    render();
+    // NB : on ne déplace PAS les losanges après routage. Les flèches se branchent déjà
+    // pile sur leurs pointes (spreadPort renvoie les sommets, et le worker libavoid y
+    // accroche exactement, une pointe = une flèche). Bouger un losange après coup
+    // désaxe son dernier segment (userPts figés) → « ne finit plus sur la flèche ».
+    // Le recentrage se fait AVANT routage via _alignDecisionsToNeighbors().
     architectLabels(false); // labels près de la pointe
     render();
   }
@@ -6440,18 +6499,27 @@ async function autoLayoutArrows() {
   _showLayoutLoading(true, bigHint);
   await _yieldPaint(); // laisse le navigateur peindre le spinner avant de calculer
 
-  try {
-    await _computeAutoLayout();
-    const afterJSON = JSON.stringify(state);
-    const afterSVG = _snapshotCartoSVG();
-
-    // On revient à l'état AVANT : rien n'est appliqué tant que l'utilisateur n'a pas confirmé
+  // Recalcule l'agencement depuis l'état AVANT, avec ou sans aération. Renvoie le SVG
+  // « après » et mémorise le JSON à appliquer. Réutilisé par le toggle de la modale.
+  let declutter = true, afterJSON = null;
+  async function computeAfter() {
+    state = JSON.parse(beforeJSON); _restoreCollapsedPiles();
+    await _computeAutoLayout({ declutter });
+    afterJSON = JSON.stringify(state);
+    const svg = _snapshotCartoSVG();
     state = JSON.parse(beforeJSON); _restoreCollapsedPiles(); render();
+    return svg;
+  }
 
+  try {
+    const afterSVG = await computeAfter();
     _showLayoutLoading(false);
     _showBeforeAfterModal(beforeSVG, afterSVG, () => {
       state = JSON.parse(afterJSON); _restoreCollapsedPiles(); clearSelection(); render(); snapshot();
       showToast((_L('editor.toast.arrows_arranged') || 'Flèches agencées automatiquement'));
+    }, {
+      declutter,
+      onToggle: async (val) => { declutter = val; return await computeAfter(); },
     });
   } catch (err) {
     console.error('[OptiqCarto] agencement auto :', err);
@@ -6571,10 +6639,17 @@ function _snapshotCartoSVG() {
 }
 
 // Modale de comparaison avant / après avec Appliquer / Annuler
-function _showBeforeAfterModal(beforeSVG, afterSVG, onApply) {
+function _showBeforeAfterModal(beforeSVG, afterSVG, onApply, opts) {
+  opts = opts || {};
   document.getElementById('carto-ba-modal')?.remove();
   const m = document.createElement('div');
   m.id = 'carto-ba-modal';
+  // Toggle « aérer » : donne la possibilité de laisser l'agencement DÉPLACER un peu
+  // les formes (dénouer/espacer) ou de garder les positions d'origine.
+  const toggleHtml = opts.onToggle ?
+    ('<label class="ba-toggle" style="display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--text-muted);cursor:pointer;margin-right:auto">' +
+       '<input type="checkbox" id="ba-declutter" ' + (opts.declutter ? 'checked' : '') + ' style="width:15px;height:15px;cursor:pointer">' +
+       'Aérer les formes trop serrées (déplacer un peu pour dénouer)</label>') : '';
   m.innerHTML =
     '<div class="ba-card">' +
       '<div class="ba-head"><i class="fa-solid fa-wand-magic-sparkles"></i> Comparer l\'agencement</div>' +
@@ -6583,6 +6658,7 @@ function _showBeforeAfterModal(beforeSVG, afterSVG, onApply) {
         '<div class="ba-col"><div class="ba-tag ba-tag--after">Après</div><div class="ba-view" id="ba-after"></div></div>' +
       '</div>' +
       '<div class="ba-actions">' +
+        toggleHtml +
         '<button class="ba-btn ba-btn--cancel" id="ba-cancel">Annuler</button>' +
         '<button class="ba-btn ba-btn--apply" id="ba-apply"><i class="fa-solid fa-check"></i> Appliquer</button>' +
       '</div>' +
@@ -6593,6 +6669,19 @@ function _showBeforeAfterModal(beforeSVG, afterSVG, onApply) {
   const close = () => m.remove();
   m.querySelector('#ba-cancel').addEventListener('click', close);
   m.querySelector('#ba-apply').addEventListener('click', () => { close(); if (onApply) onApply(); });
+  const declEl = m.querySelector('#ba-declutter');
+  if (declEl && opts.onToggle) {
+    let baBusy = false;
+    declEl.addEventListener('change', async () => {
+      if (baBusy) { declEl.checked = !declEl.checked; return; }
+      baBusy = true; declEl.disabled = true;
+      const view = m.querySelector('#ba-after');
+      view.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-muted);font-size:13px">Recalcul…</div>';
+      try { const newSVG = await opts.onToggle(declEl.checked); view.innerHTML = ''; view.appendChild(newSVG); }
+      catch (_) {}
+      baBusy = false; declEl.disabled = false;
+    });
+  }
   m.addEventListener('mousedown', (e) => { if (e.target === m) close(); });
   document.addEventListener('keydown', function esc(e) { if (e.key === 'Escape') { close(); document.removeEventListener('keydown', esc); } });
 }

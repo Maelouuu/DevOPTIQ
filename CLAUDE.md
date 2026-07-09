@@ -141,10 +141,14 @@ Fonctionnement :
   - `autoAssignPorts` : points d'accroche « humains » (côté qui se fait face, ordonnés le long du côté, tir droit si aligné).
   - `routeOrthogonalAStar` : A* sur grille de Hanan (file de priorité binaire + grille bornée `_thinCoords`). Filet : `pathCrossesObstacles` + `avoidShapes`.
   - `_separateLanes` : sépare les flèches parallèles en voies nettes.
+- **Exclusivité des points de connexion (un point = un seul branchement)** :
+  - Formes normales : `spreadPort` répartit via `unifiedUsage` (entrantes **+** sortantes) et non plus `fromUsage` (sortantes seules) → deux flèches entrantes ne se posent plus toutes deux au centre (t=0.5).
+  - Losanges : les 4 pointes sont des **pins libavoid EXCLUSIFS** (`setExclusive(true)` dans le worker) → chaque pointe ne reçoit qu'une flèche ; deux branches (Oui/Non) partent de pointes différentes (droite + bas). Au-delà de 4 connexions (rare), dégradation propre sans plantage.
 - **Pointes de flèche (padding, quel que soit le moteur)** : `polylineToPath(pts, R, tipPad=18)` borne le rayon du **dernier coude** → approche **droite ≥ 18 px** avant la tête (~16 px) : la pointe ne se pose jamais sur un virage. Complété par `_straightenTips()` (≥26 px) côté routage.
-- **Losanges de décision (recentrage)** : `_alignDecisionsToNeighbors()` (pré-routage) nudge chaque losange sur l'axe de flux de ses **voisins connectés** (X sur voisins verticaux, Y sur horizontaux, médiane, déplacement borné 80 px) ; `snapDecisionsToArrows()` (post-routage) recentre pile sur les **flèches connectées uniquement** (plus de saut vers une flèche voisine non liée).
-- **Import VSDX** : à la reconstruction de la carto, `_computeAutoLayout()` est appliqué directement (remplace les tracés Visio bruts par un routage propre). `Ctrl+Z` ramène à l'import brut (baseline dans l'historique).
-- `_showLayoutLoading()` : spinner + **chrono** + message « grande cartographie » ; aperçu **avant/après** avec Appliquer/Annuler (bouton uniquement ; l'import VSDX applique directement).
+- **Losanges de décision** : recentrage UNIQUEMENT en pré-routage via `_alignDecisionsToNeighbors()` (nudge sur l'axe de flux des voisins connectés, borné 80 px). ⚠️ **Aucun déplacement post-routage** : bouger un losange après coup désaxe son dernier segment (userPts figés) → « le losange ne finit plus sur la flèche ». Le worker accroche les flèches pile sur les pointes.
+- **Aération (`_declutterShapes`)** : sépare les formes qui se chevauchent/trop serrées (relaxation par paires, ordre relatif préservé, groupes intacts) → « dénoue » les zones complexes et fait de la place aux labels. **Activée par défaut** dans `_computeAutoLayout({declutter})`, **débrayable** via la case « Aérer les formes » de l'aperçu avant/après (recalcul en direct). Seules les paires trop proches bougent → l'essence de la carto est préservée.
+- **Import VSDX** : à la reconstruction, l'utilisateur **choisit** (`_askVsdxLayoutMode`) entre **Agencement automatique** (`_computeAutoLayout()`, routage propre) et **Reconstruction classique** (fidèle Visio : les `customPath` exacts deviennent les `userPts` rendus).
+- `_showLayoutLoading()` : spinner + **chrono** + message « grande cartographie » ; aperçu **avant/après** avec Appliquer/Annuler + toggle d'aération (bouton uniquement ; l'import VSDX applique le mode choisi directement).
 
 ---
 

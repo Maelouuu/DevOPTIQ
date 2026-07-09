@@ -41,8 +41,11 @@ function routeAll(A, nodesById, connections) {
     if (!(n.w > 0) || !(n.h > 0)) continue; // ignore les formes dégénérées
     const sr = new A.ShapeRef(router, rectPoly(n.x, n.y, n.w, n.h));
     if (n.type === 'decision') {
+      // Pointes EXCLUSIVES : chaque pointe du losange ne reçoit qu'UNE flèche → deux
+      // branches (Oui/Non) partent de pointes différentes (droite + bas), jamais du
+      // même point. Plus lisible et respecte « un point de connexion = un branchement ».
       const tips = [[0.5, 0, 1], [0.5, 1, 2], [0, 0.5, 4], [1, 0.5, 8]];
-      for (const [xo, yo, d] of tips) { const pin = new A.ShapeConnectionPin(sr, 1, xo, yo, true, 0, d); pin.setExclusive(false); }
+      for (const [xo, yo, d] of tips) { const pin = new A.ShapeConnectionPin(sr, 1, xo, yo, true, 0, d); pin.setExclusive(true); }
     } else {
       const pin = new A.ShapeConnectionPin(sr, 1, 0.5, 0.5, true, 0, 15); pin.setExclusive(false);
     }
