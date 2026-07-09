@@ -6164,16 +6164,17 @@ function architectLabels(commit) {
     const last = pts.length - 2; // dernier segment (cote pointe)
     let res = null;
 
-    // Passe stricte : de la pointe vers la source, marges de coude completes
+    // Segment le plus proche de la POINTE d'abord : sur CHAQUE segment on tente les
+    // marges de coude pleines PUIS des marges minimales, AVANT de reculer vers la
+    // source. Ainsi le label reste au plus près de la pointe tout en respectant ses
+    // restrictions (jamais sur une forme, une autre flèche ou un autre label). L'ancien
+    // ordre (tous les segments en strict, puis tous en relâché) posait le label loin de
+    // la pointe sur un segment bien dégagé plutôt que près d'elle avec une marge réduite.
     for (let si = last; si >= 0 && !res; si--) {
       const marginB = (si === last) ? TIP_GAP : CORNER_M;   // pb = pointe ou coude
       const marginA = (si === 0)    ? TIP_GAP : CORNER_M;   // pa = source ou coude
-      res = tryOnSegment(c, pts[si], pts[si + 1], lw, lh, marginA, marginB);
-    }
-    // Passe relachee : marges minimales (toujours sans chevaucher formes/fleches)
-    if (!res) {
-      for (let si = last; si >= 0 && !res; si--)
-        res = tryOnSegment(c, pts[si], pts[si + 1], lw, lh, 6, 6);
+      res = tryOnSegment(c, pts[si], pts[si + 1], lw, lh, marginA, marginB)
+         || tryOnSegment(c, pts[si], pts[si + 1], lw, lh, 6, 6);
     }
 
     if (res) {
