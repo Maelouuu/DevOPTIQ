@@ -12,8 +12,18 @@ Sans clé OPENAI_API_KEY (environnement de test) :
 """
 import json
 import pytest
+from unittest.mock import MagicMock
 
 pytestmark = pytest.mark.propose_ia
+
+
+def _fake_openai_client(content):
+    """Client OpenAI factice : chat.completions.create(...) renvoie `content`."""
+    fake = MagicMock()
+    fake.chat.completions.create.return_value = MagicMock(
+        choices=[MagicMock(message=MagicMock(content=content))]
+    )
+    return fake
 
 
 # ---------------------------------------------------------------------------
@@ -669,3 +679,446 @@ class TestActivityItemsAPI:
                 if sv:
                     db.session.delete(sv)
                     db.session.commit()
+
+
+# ===========================================================================
+# 8. POST /propose_savoirs/propose — avec client OpenAI (mock)
+# ===========================================================================
+
+class TestProposeSavoirsWithClient:
+
+    def test_mocked_client_returns_parsed_lines(self, auth_client, monkeypatch):
+        """Avec un client OpenAI mocké, la réponse texte est parsée en liste de lignes."""
+        import Code.routes.propose_savoirs as mod
+        fake_client = _fake_openai_client("- Règles de nomenclature\n- Procédure qualité\n- Normes RGPD")
+        monkeypatch.setattr(mod, "openai_client_or_none", lambda: (fake_client, None))
+
+        r = auth_client.post(
+            "/propose_savoirs/propose",
+            data=json.dumps({"name": "Activité Test Savoirs IA"}),
+            content_type="application/json",
+        )
+        assert r.status_code == 200
+        data = json.loads(r.data)
+        assert data["proposals"] == ["Règles de nomenclature", "Procédure qualité", "Normes RGPD"]
+        assert "source" not in data
+
+    def test_mocked_client_strips_bullets_and_blank_lines(self, auth_client, monkeypatch):
+        """Les puces (-,•) et lignes vides sont retirées du résultat."""
+        import Code.routes.propose_savoirs as mod
+        fake_client = _fake_openai_client("• Item un\n\n-   Item deux   \n")
+        monkeypatch.setattr(mod, "openai_client_or_none", lambda: (fake_client, None))
+
+        r = auth_client.post(
+            "/propose_savoirs/propose",
+            data=json.dumps({}),
+            content_type="application/json",
+        )
+        assert r.status_code == 200
+        assert json.loads(r.data)["proposals"] == ["Item un", "Item deux"]
+
+    def test_mocked_client_english_lang_uses_english_prompt(self, auth_client, monkeypatch):
+        """Avec lang='en' en session, le prompt système anglais est utilisé (capturé via le mock)."""
+        import Code.routes.propose_savoirs as mod
+        fake_client = _fake_openai_client("- Knowledge item A\n- Knowledge item B")
+        monkeypatch.setattr(mod, "openai_client_or_none", lambda: (fake_client, None))
+
+        with auth_client.session_transaction() as sess:
+            sess["lang"] = "en"
+        try:
+            r = auth_client.post(
+                "/propose_savoirs/propose",
+                data=json.dumps({"name": "Order processing"}),
+                content_type="application/json",
+            )
+            assert r.status_code == 200
+            data = json.loads(r.data)
+            assert data["proposals"] == ["Knowledge item A", "Knowledge item B"]
+            call_kwargs = fake_client.chat.completions.create.call_args.kwargs
+            system_msg = call_kwargs["messages"][0]["content"]
+            assert "precise and concise HR/training assistant" in system_msg
+        finally:
+            with auth_client.session_transaction() as sess:
+                sess.pop("lang", None)
+
+    def test_mocked_client_exception_falls_back_to_200_with_error(self, auth_client, monkeypatch):
+        """Si le client OpenAI lève une exception, la route renvoie 200 + message d'erreur (pas de crash)."""
+        import Code.routes.propose_savoirs as mod
+        fake_client = MagicMock()
+        fake_client.chat.completions.create.side_effect = RuntimeError("boom")
+        monkeypatch.setattr(mod, "openai_client_or_none", lambda: (fake_client, None))
+
+        r = auth_client.post(
+            "/propose_savoirs/propose",
+            data=json.dumps({"name": "Activité en erreur"}),
+            content_type="application/json",
+        )
+        assert r.status_code == 200
+        data = json.loads(r.data)
+        assert "error" in data
+        assert "boom" in data["error"]
+        assert len(data["proposals"]) == 1
+
+
+# ===========================================================================
+# 9. POST /propose_savoir_faires/propose — avec client OpenAI (mock)
+# ===========================================================================
+
+class TestProposeSavoirFairesWithClient:
+
+    def test_mocked_client_returns_parsed_lines(self, auth_client, monkeypatch):
+        """Avec un client OpenAI mocké, la réponse texte est parsée en liste de lignes."""
+        import Code.routes.propose_savoir_faires as mod
+        fake_client = _fake_openai_client("- Utiliser le logiciel ERP\n- Vérifier les écarts de stock")
+        monkeypatch.setattr(mod, "openai_client_or_none", lambda: (fake_client, None))
+
+        r = auth_client.post(
+            "/propose_savoir_faires/propose",
+            data=json.dumps({"name": "Gestion du stock"}),
+            content_type="application/json",
+        )
+        assert r.status_code == 200
+        data = json.loads(r.data)
+        assert data["proposals"] == ["Utiliser le logiciel ERP", "Vérifier les écarts de stock"]
+        assert "source" not in data
+
+    def test_mocked_client_english_lang_uses_english_prompt(self, auth_client, monkeypatch):
+        """Avec lang='en' en session, le prompt système anglais est utilisé."""
+        import Code.routes.propose_savoir_faires as mod
+        fake_client = _fake_openai_client("- Apply the safety checklist")
+        monkeypatch.setattr(mod, "openai_client_or_none", lambda: (fake_client, None))
+
+        with auth_client.session_transaction() as sess:
+            sess["lang"] = "en"
+        try:
+            r = auth_client.post(
+                "/propose_savoir_faires/propose",
+                data=json.dumps({"name": "Field inspection"}),
+                content_type="application/json",
+            )
+            assert r.status_code == 200
+            call_kwargs = fake_client.chat.completions.create.call_args.kwargs
+            system_msg = call_kwargs["messages"][0]["content"]
+            assert "precise and concise HR/training assistant" in system_msg
+            assert "=== CONTEXT ===" in call_kwargs["messages"][1]["content"]
+        finally:
+            with auth_client.session_transaction() as sess:
+                sess.pop("lang", None)
+
+    def test_mocked_client_exception_falls_back_to_200_with_error(self, auth_client, monkeypatch):
+        """Si le client OpenAI lève une exception, la route renvoie 200 + message d'erreur (pas de crash)."""
+        import Code.routes.propose_savoir_faires as mod
+        fake_client = MagicMock()
+        fake_client.chat.completions.create.side_effect = RuntimeError("kaboom")
+        monkeypatch.setattr(mod, "openai_client_or_none", lambda: (fake_client, None))
+
+        r = auth_client.post(
+            "/propose_savoir_faires/propose",
+            data=json.dumps({"name": "Activité en erreur SF"}),
+            content_type="application/json",
+        )
+        assert r.status_code == 200
+        data = json.loads(r.data)
+        assert "error" in data
+        assert "kaboom" in data["error"]
+        assert len(data["proposals"]) == 1
+
+
+# ===========================================================================
+# 10. POST /propose_softskills/propose — avec client OpenAI (mock)
+# ===========================================================================
+
+class TestProposeSoftskillsWithClient:
+
+    def test_mocked_client_json_array_parsed(self, auth_client, monkeypatch):
+        """Réponse JSON valide (tableau) → proposals mappées avec niveau traduit."""
+        import Code.routes.propose_softskills as mod
+        content = json.dumps([
+            {"habilete": "Autonomie", "niveau": "3 - Maîtrise", "justification": "Contexte X"},
+        ])
+        fake_client = _fake_openai_client(content)
+        monkeypatch.setattr(mod, "openai_client_or_none", lambda: (fake_client, None))
+
+        r = auth_client.post(
+            "/propose_softskills/propose",
+            data=json.dumps({"name": "Pilotage projet"}),
+            content_type="application/json",
+        )
+        assert r.status_code == 200
+        proposals = json.loads(r.data)["proposals"]
+        assert proposals == [{"habilete": "Autonomie", "niveau": "3 (Maîtrise)", "justification": "Contexte X"}]
+
+    def test_mocked_client_single_dict_wrapped_in_list(self, auth_client, monkeypatch):
+        """Réponse JSON = objet unique (pas un tableau) → traité comme liste à 1 élément."""
+        import Code.routes.propose_softskills as mod
+        content = json.dumps({"habilete": "Rigueur", "niveau": "2", "justification": "j"})
+        fake_client = _fake_openai_client(content)
+        monkeypatch.setattr(mod, "openai_client_or_none", lambda: (fake_client, None))
+
+        r = auth_client.post(
+            "/propose_softskills/propose",
+            data=json.dumps({}),
+            content_type="application/json",
+        )
+        proposals = json.loads(r.data)["proposals"]
+        assert len(proposals) == 1
+        assert proposals[0]["habilete"] == "Rigueur"
+        assert proposals[0]["niveau"] == "2 (Acquisition)"
+
+    def test_mocked_client_niveau_as_int(self, auth_client, monkeypatch):
+        """Un niveau fourni en entier (pas string) est converti correctement."""
+        import Code.routes.propose_softskills as mod
+        content = json.dumps([{"habilete": "Excellence op.", "niveau": 4, "justification": "j"}])
+        fake_client = _fake_openai_client(content)
+        monkeypatch.setattr(mod, "openai_client_or_none", lambda: (fake_client, None))
+
+        r = auth_client.post(
+            "/propose_softskills/propose",
+            data=json.dumps({}),
+            content_type="application/json",
+        )
+        proposals = json.loads(r.data)["proposals"]
+        assert proposals[0]["niveau"] == "4 (Excellence)"
+
+    def test_mocked_client_invalid_json_falls_back_to_line_parsing(self, auth_client, monkeypatch):
+        """Réponse non-JSON → repli sur un parsing ligne par ligne avec niveau par défaut."""
+        import Code.routes.propose_softskills as mod
+        fake_client = _fake_openai_client("Autonomie\nRigueur professionnelle\nCommunication claire")
+        monkeypatch.setattr(mod, "openai_client_or_none", lambda: (fake_client, None))
+
+        r = auth_client.post(
+            "/propose_softskills/propose",
+            data=json.dumps({}),
+            content_type="application/json",
+        )
+        assert r.status_code == 200
+        proposals = json.loads(r.data)["proposals"]
+        assert len(proposals) == 3
+        assert all(p["niveau"] == "2 (Acquisition)" for p in proposals)
+        assert {p["habilete"] for p in proposals} == {"Autonomie", "Rigueur professionnelle", "Communication claire"}
+
+    def test_mocked_client_lang_en_maps_niveau_and_prompt(self, auth_client, monkeypatch):
+        """lang='en' → prompt et niveau_map anglais utilisés."""
+        import Code.routes.propose_softskills as mod
+        content = json.dumps([{"habilete": "Autonomy", "niveau": "1", "justification": "j"}])
+        fake_client = _fake_openai_client(content)
+        monkeypatch.setattr(mod, "openai_client_or_none", lambda: (fake_client, None))
+
+        with auth_client.session_transaction() as sess:
+            sess["lang"] = "en"
+        try:
+            r = auth_client.post(
+                "/propose_softskills/propose",
+                data=json.dumps({"name": "Project steering"}),
+                content_type="application/json",
+            )
+            assert r.status_code == 200
+            proposals = json.loads(r.data)["proposals"]
+            assert proposals[0]["niveau"] == "1 (Basic)"
+            call_kwargs = fake_client.chat.completions.create.call_args.kwargs
+            assert "Socio-Cognitive Abilities" in call_kwargs["messages"][0]["content"]
+        finally:
+            with auth_client.session_transaction() as sess:
+                sess.pop("lang", None)
+
+    def test_mocked_client_outgoing_performance_and_tasks_in_prompt(self, auth_client, monkeypatch):
+        """tasks/constraints/outgoing.performance sont bien injectés dans le prompt (make_enumeration)."""
+        import Code.routes.propose_softskills as mod
+        fake_client = _fake_openai_client(json.dumps([{"habilete": "X", "niveau": "2", "justification": "j"}]))
+        monkeypatch.setattr(mod, "openai_client_or_none", lambda: (fake_client, None))
+
+        payload = {
+            "name": "Support client",
+            "tasks": [{"description": "Répondre aux tickets"}, "Suivre le CRM"],
+            "constraints": ["Délai 24h"],
+            "outgoing": [{"performance": {"name": "Satisfaction", "description": "Taux de résolution"}}],
+        }
+        r = auth_client.post(
+            "/propose_softskills/propose",
+            data=json.dumps(payload),
+            content_type="application/json",
+        )
+        assert r.status_code == 200
+        prompt = fake_client.chat.completions.create.call_args.kwargs["messages"][1]["content"]
+        assert "T1: Répondre aux tickets" in prompt
+        assert "T2: Suivre le CRM" in prompt
+        assert "C1: Délai 24h" in prompt
+        assert "P1: Satisfaction - Taux de résolution" in prompt
+
+    def test_mocked_client_exception_returns_default_fallback(self, auth_client, monkeypatch):
+        """Exception dans l'appel OpenAI → 200 avec proposal par défaut + champ 'error'."""
+        import Code.routes.propose_softskills as mod
+        fake_client = MagicMock()
+        fake_client.chat.completions.create.side_effect = RuntimeError("hsc-boom")
+        monkeypatch.setattr(mod, "openai_client_or_none", lambda: (fake_client, None))
+
+        r = auth_client.post(
+            "/propose_softskills/propose",
+            data=json.dumps({"name": "Activité en erreur HSC"}),
+            content_type="application/json",
+        )
+        assert r.status_code == 200
+        data = json.loads(r.data)
+        assert "error" in data
+        assert "hsc-boom" in data["error"]
+        assert data["proposals"] == [{
+            "habilete": "Habileté non déterminée (erreur serveur).",
+            "niveau": "2 (Acquisition)",
+            "justification": "",
+        }]
+
+
+# ===========================================================================
+# 11. POST /propose_aptitudes/propose & /feasibility — avec client OpenAI (mock)
+# ===========================================================================
+
+class TestProposeAptitudesWithClient:
+
+    def test_propose_mocked_client_valid_json_returns_result(self, auth_client, monkeypatch):
+        """JSON valide → 'proposals' contient l'objet parsé tel quel."""
+        import Code.routes.propose_aptitudes as mod
+        payload_result = {"categories": [{"nom": "Vision", "score": 1}]}
+        fake_client = _fake_openai_client(json.dumps(payload_result))
+        monkeypatch.setattr(mod, "openai_client_or_none", lambda: (fake_client, None))
+
+        r = auth_client.post(
+            "/propose_aptitudes/propose",
+            data=json.dumps({"name": "Saisie de données", "tools": ["Excel"]}),
+            content_type="application/json",
+        )
+        assert r.status_code == 200
+        data = json.loads(r.data)
+        assert data["proposals"] == payload_result
+        assert "error" not in data
+
+    def test_propose_mocked_client_invalid_json_returns_error(self, auth_client, monkeypatch):
+        """JSON invalide → proposals={} + champ 'error' explicite."""
+        import Code.routes.propose_aptitudes as mod
+        fake_client = _fake_openai_client("not a json at all")
+        monkeypatch.setattr(mod, "openai_client_or_none", lambda: (fake_client, None))
+
+        r = auth_client.post(
+            "/propose_aptitudes/propose",
+            data=json.dumps({}),
+            content_type="application/json",
+        )
+        assert r.status_code == 200
+        data = json.loads(r.data)
+        assert data["proposals"] == {}
+        assert "error" in data
+
+    def test_propose_mocked_client_exception_returns_error(self, auth_client, monkeypatch):
+        """Exception dans l'appel OpenAI → proposals={} + champ 'error'."""
+        import Code.routes.propose_aptitudes as mod
+        fake_client = MagicMock()
+        fake_client.chat.completions.create.side_effect = RuntimeError("aptitude-boom")
+        monkeypatch.setattr(mod, "openai_client_or_none", lambda: (fake_client, None))
+
+        r = auth_client.post(
+            "/propose_aptitudes/propose",
+            data=json.dumps({"name": "Activité en erreur aptitudes"}),
+            content_type="application/json",
+        )
+        assert r.status_code == 200
+        data = json.loads(r.data)
+        assert data["proposals"] == {}
+        assert "aptitude-boom" in data["error"]
+
+    def test_propose_mocked_client_builds_summary_with_tools_constraints_tasks(self, auth_client, monkeypatch):
+        """build_activity_summary : outils/contraintes/tâches/performance apparaissent dans le prompt."""
+        import Code.routes.propose_aptitudes as mod
+        fake_client = _fake_openai_client(json.dumps({}))
+        monkeypatch.setattr(mod, "openai_client_or_none", lambda: (fake_client, None))
+
+        payload = {
+            "name": "Intervention terrain",
+            "description": "Inspection sur site",
+            "tools": ["EPI", "Checklist"],
+            "constraints": ["Délai 2h"],
+            "tasks": [{"description": "Vérifier équipements"}, "Rédiger rapport"],
+            "outgoing": [{"performance": {"name": "Conformité", "description": "Taux OK"}}],
+        }
+        r = auth_client.post(
+            "/propose_aptitudes/propose",
+            data=json.dumps(payload),
+            content_type="application/json",
+        )
+        assert r.status_code == 200
+        prompt = fake_client.chat.completions.create.call_args.kwargs["messages"][1]["content"]
+        assert "EPI, Checklist" in prompt
+        assert "Délai 2h" in prompt
+        assert "T1: Vérifier équipements" in prompt
+        assert "T2: Rédiger rapport" in prompt
+        assert "Conformité - Taux OK" in prompt
+
+    def test_feasibility_mocked_client_valid_json_returns_result(self, auth_client, monkeypatch):
+        """JSON valide → 'result' contient l'objet parsé tel quel."""
+        import Code.routes.propose_aptitudes as mod
+        payload_result = {"ajouts_recommandes": ["Ecran adapté"]}
+        fake_client = _fake_openai_client(json.dumps(payload_result))
+        monkeypatch.setattr(mod, "openai_client_or_none", lambda: (fake_client, None))
+
+        r = auth_client.post(
+            "/propose_aptitudes/feasibility",
+            data=json.dumps({
+                "activity_name": "Saisie de données",
+                "inclusion_scoring_json": {"vision": 2},
+                "profil_fonctionnel": {"vision": "faible"},
+                "assistive_products": ["Loupe numérique", "Contraste élevé"],
+            }),
+            content_type="application/json",
+        )
+        assert r.status_code == 200
+        data = json.loads(r.data)
+        assert data["result"] == payload_result
+        prompt = fake_client.chat.completions.create.call_args.kwargs["messages"][1]["content"]
+        assert "Loupe numérique" in prompt
+        assert "Contraste élevé" in prompt
+
+    def test_feasibility_mocked_client_invalid_json_returns_error(self, auth_client, monkeypatch):
+        """JSON invalide → result={} + champ 'error'."""
+        import Code.routes.propose_aptitudes as mod
+        fake_client = _fake_openai_client("nope not json")
+        monkeypatch.setattr(mod, "openai_client_or_none", lambda: (fake_client, None))
+
+        r = auth_client.post(
+            "/propose_aptitudes/feasibility",
+            data=json.dumps({"activity_name": "X"}),
+            content_type="application/json",
+        )
+        assert r.status_code == 200
+        data = json.loads(r.data)
+        assert data["result"] == {}
+        assert "error" in data
+
+    def test_feasibility_mocked_client_exception_returns_error(self, auth_client, monkeypatch):
+        """Exception dans l'appel OpenAI → result={} + champ 'error'."""
+        import Code.routes.propose_aptitudes as mod
+        fake_client = MagicMock()
+        fake_client.chat.completions.create.side_effect = RuntimeError("feasibility-boom")
+        monkeypatch.setattr(mod, "openai_client_or_none", lambda: (fake_client, None))
+
+        r = auth_client.post(
+            "/propose_aptitudes/feasibility",
+            data=json.dumps({"activity_name": "Y"}),
+            content_type="application/json",
+        )
+        assert r.status_code == 200
+        data = json.loads(r.data)
+        assert data["result"] == {}
+        assert "feasibility-boom" in data["error"]
+
+    def test_feasibility_mocked_client_no_assistive_products_default_text(self, auth_client, monkeypatch):
+        """Sans assistive_products → texte par défaut 'Aucune aide renseignée' dans le prompt."""
+        import Code.routes.propose_aptitudes as mod
+        fake_client = _fake_openai_client(json.dumps({}))
+        monkeypatch.setattr(mod, "openai_client_or_none", lambda: (fake_client, None))
+
+        r = auth_client.post(
+            "/propose_aptitudes/feasibility",
+            data=json.dumps({"activity_name": "Z"}),
+            content_type="application/json",
+        )
+        assert r.status_code == 200
+        prompt = fake_client.chat.completions.create.call_args.kwargs["messages"][1]["content"]
+        assert "Aucune aide renseignée" in prompt
