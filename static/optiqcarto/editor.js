@@ -6622,7 +6622,24 @@ function _showLayoutLoading(show, hint) {
     if (!el) {
       el = document.createElement('div');
       el.id = 'carto-layout-loading';
-      el.innerHTML = '<div class="cll-box"><div class="cll-spin"></div>' +
+      // Animation thématique : une mini-cartographie qui « se route » sous nos yeux —
+      // nœuds qui respirent + impulsions qui parcourent les flèches (couleurs OPTIQ).
+      el.innerHTML = '<div class="cll-box">' +
+        '<svg class="cll-anim" viewBox="0 0 140 108" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">' +
+          '<path class="cll-e-bg" d="M50,25 H90"/>' +
+          '<path class="cll-e-bg" d="M29,36 V60 Q29,65 34,65 H70"/>' +
+          '<path class="cll-e-bg" d="M85,80 H98"/>' +
+          '<path class="cll-edge e1" pathLength="100" d="M50,25 H90"/>' +
+          '<path class="cll-edge e2" pathLength="100" d="M29,36 V60 Q29,65 34,65 H70"/>' +
+          '<path class="cll-edge e3" pathLength="100" d="M85,80 H98"/>' +
+          '<path class="cll-head" d="M84,21 L91,25 L84,29 Z"/>' +
+          '<path class="cll-head h2" d="M66,60 L74,60 L70,66 Z"/>' +
+          '<path class="cll-head h3" d="M92,75 L99,79 L92,83 Z"/>' +
+          '<rect class="cll-node n1" x="8" y="14" width="42" height="22" rx="6"/>' +
+          '<rect class="cll-node n2" x="90" y="14" width="42" height="22" rx="6"/>' +
+          '<rect class="cll-node n3" x="98" y="68" width="34" height="22" rx="6"/>' +
+          '<path class="cll-diamond" d="M70,65 L85,80 L70,95 L55,80 Z"/>' +
+        '</svg>' +
         '<div class="cll-txt">Agencement des flèches…</div>' +
         '<div class="cll-sub"></div><div class="cll-time"></div></div>';
       document.body.appendChild(el);
