@@ -721,19 +721,29 @@ function autoAssignPorts(nodesById, connections) {
   const sideEnds = new Map();
   for (const it of info) {
     if (!it) continue;
-    if (!it._aDec) pushG(sideEnds, it._from + '|' + it.fromDir, { it, end: 'from', other: it._oFrom });
-    if (!it._bDec) pushG(sideEnds, it._to   + '|' + it.toDir,   { it, end: 'to',   other: it._oTo });
+    if (!it._aDec) pushG(sideEnds, it._from + '|' + it.fromDir, { it, end: 'from', other: it._oFrom, node: it._a });
+    if (!it._bDec) pushG(sideEnds, it._to   + '|' + it.toDir,   { it, end: 'to',   other: it._oTo,   node: it._b });
   }
   for (const arr of sideEnds.values()) {
-    if (arr.length < 2) continue;
     const dir = arr[0].end === 'from' ? arr[0].it.fromDir : arr[0].it.toDir;
     const axis = (dir === 'top' || dir === 'bottom') ? 'x' : 'y';
-    arr.sort((p, r) => p.other[axis] - r.other[axis]);
+    const node = arr[0].node;
+    const lo = axis === 'y' ? node.y : node.x;
+    const hi = axis === 'y' ? node.y + node.h : node.x + node.w;
+    const span = hi - lo || 1;
+    // On ALIGNE chaque port sur la projection de sa cible sur le côté → la flèche
+    // vise sa cible presque en ligne droite (moins de virages → moins de croisements
+    // près de la forme, là où ils naissent). Puis on garantit un écart minimal pour
+    // que deux flèches ne se superposent pas (exclusivité conservée).
+    for (const e of arr) e._tt = clampT((e.other[axis] - lo) / span);
+    arr.sort((p, r) => p._tt - r._tt);
     const n = arr.length;
-    arr.forEach((e, i) => {
-      const t = clampT((i + 1) / (n + 1));
-      if (e.end === 'from') e.it.fromT = t; else e.it.toT = t;
-    });
+    const gap = Math.min(1 / (n + 1), 0.84 / (n - 1));
+    let prev = -Infinity;
+    for (const e of arr) { let t = e._tt; if (t < prev + gap) t = prev + gap; e._t = t; prev = t; }
+    const over = prev - 0.92;
+    if (over > 0) for (const e of arr) e._t = Math.max(0.08, e._t - over);
+    for (const e of arr) { if (e.end === 'from') e.it.fromT = e._t; else e.it.toT = e._t; }
   }
 
   return info.map(it => it ? { connId: it.connId, fromDir: it.fromDir, fromT: it.fromT, toDir: it.toDir, toT: it.toT } : null);
