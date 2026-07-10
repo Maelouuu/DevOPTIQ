@@ -646,6 +646,33 @@ function _renderChoiceBadgesOnConns() {
   }
 }
 
+// Garantit que le premier ET le dernier segment sont le long de l'AXE de leur port,
+// pour que la tête de flèche pointe pile dans le côté de la forme. Le port est
+// recalculé par spreadPort (t dérivé) et ne coïncide pas toujours avec la fin du
+// tracé → le dernier segment peut finir PERPENDICULAIRE à l'axe du port (ex. segment
+// horizontal dans un port « bottom ») → le marqueur SVG s'oriente le long de ce
+// segment → la pointe « pivote » de 90°. On repositionne le dernier coude pour que
+// l'approche finale suive l'axe du port (copie : l'état sauvegardé n'est pas touché).
+function _alignPortApproach(pts, fdir, tdir) {
+  if (!pts || pts.length < 3) return pts;
+  const out = pts.map(p => ({ x: p.x, y: p.y }));
+  const n = out.length;
+  const fix = (portIdx, adjIdx, p2Idx, dir) => {
+    const port = out[portIdx], adj = out[adjIdx], p2 = out[p2Idx];
+    const vert = (dir === 'top' || dir === 'bottom');
+    // segment port→adj déjà le long de l'axe du port ?
+    if (vert ? Math.abs(adj.x - port.x) < 1.5 : Math.abs(adj.y - port.y) < 1.5) return;
+    // Éviter un dernier segment dégénéré (le coude collerait au port).
+    if (vert ? Math.abs(p2.y - port.y) < 4 : Math.abs(p2.x - port.x) < 4) return;
+    // Reposer le coude : port→adj le long de l'axe du port, p2→adj perpendiculaire.
+    if (vert) { adj.x = port.x; adj.y = p2.y; }
+    else      { adj.y = port.y; adj.x = p2.x; }
+  };
+  fix(n - 1, n - 2, n - 3, tdir);        // pointe (porte le marqueur → priorité)
+  if (n >= 4) fix(0, 1, 2, fdir);        // sortie : seulement si son coude est distinct
+  return out;                            // de celui de la pointe (sinon ils se battent)
+}
+
 function renderConnections() {
   gConns.innerHTML = '';
 
@@ -794,6 +821,9 @@ function renderConnections() {
         displayOrthopts = orthopts.filter((_, idx) => idx !== si);
         if (displayOrthopts.length < 2) displayOrthopts = orthopts;
       }
+      // Aligne les segments d'extrémité sur l'axe des ports → la tête pointe droit
+      // dans la forme (fini les pointes qui pivotent sur un micro-jog terminal).
+      displayOrthopts = _alignPortApproach(displayOrthopts, fp.dir, tp.dir);
       // tipPad = 18 : approche droite garantie avant la tête (~16 px) → la pointe
       // ne se pose jamais sur un virage (« padding » demandé pour les pointes).
       d = polylineToPath(displayOrthopts, 12, 18);
