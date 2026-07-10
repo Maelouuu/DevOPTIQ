@@ -393,6 +393,16 @@ function orthogonalArrow(fp, tp) {
 
 const _OPP_DIR = { right: 'left', left: 'right', top: 'bottom', bottom: 'top' };
 
+// Ordre de repli d'une pointe de losange : sa direction, puis les 2 perpendiculaires,
+// puis l'opposée. Sert à réattribuer une pointe LIBRE la plus proche quand la pointe
+// préférée est déjà prise (exclusivité : une pointe = une seule flèche).
+const _TIP_FALLBACK = {
+  top:    ['top', 'right', 'left', 'bottom'],
+  right:  ['right', 'bottom', 'top', 'left'],
+  bottom: ['bottom', 'left', 'right', 'top'],
+  left:   ['left', 'top', 'bottom', 'right'],
+};
+
 // Avance un point d'une distance dans une direction cardinale.
 function _advancePt(p, dir, dist) {
   if (dir === 'right')  return { x: p.x + dist, y: p.y };
@@ -668,6 +678,60 @@ function autoAssignPorts(nodesById, connections) {
     const n = arr.length;
     arr.forEach((e, i) => {
       const t = n <= 1 ? 0.5 : (i + 1) / (n + 1);
+      if (e.end === 'from') e.it.fromT = t; else e.it.toT = t;
+    });
+  }
+
+  // ── Exclusivité des pointes de losange (un point = un seul branchement) ──
+  // Un losange se branche par ses 4 pointes. Le routeur interne peut poser 2 flèches
+  // sur la même pointe (ex. 2 sorties vers la droite) → superposition. On réattribue
+  // ici : chaque flèche d'un losange reçoit une pointe DISTINCTE, au plus proche de sa
+  // direction naturelle. Au-delà de 4 flèches (rare) le partage reste propre.
+  const decEnds = new Map();
+  for (const it of info) {
+    if (!it) continue;
+    if (it._aDec) pushG(decEnds, it._from, { it, end: 'from', other: it._oFrom, node: it._a });
+    if (it._bDec) pushG(decEnds, it._to,   { it, end: 'to',   other: it._oTo,   node: it._b });
+  }
+  for (const arr of decEnds.values()) {
+    const node = arr[0].node;
+    const cx = node.x + node.w / 2, cy = node.y + node.h / 2;
+    for (const e of arr) {
+      const dx = e.other.x - cx, dy = e.other.y - cy;
+      e._pref = Math.abs(dx) >= Math.abs(dy) ? (dx >= 0 ? 'right' : 'left') : (dy >= 0 ? 'bottom' : 'top');
+    }
+    // Ordre déterministe (pointe préférée puis id) pour une attribution stable.
+    const order = { top: 0, right: 1, bottom: 2, left: 3 };
+    arr.sort((p, r) => (order[p._pref] - order[r._pref]) || (p.it.connId - r.it.connId));
+    const used = new Set();
+    for (const e of arr) {
+      const dir = _TIP_FALLBACK[e._pref].find(d => !used.has(d)) || e._pref;
+      used.add(dir);
+      if (e.end === 'from') { e.it.fromDir = dir; e.it.fromT = 0.5; }
+      else                  { e.it.toDir   = dir; e.it.toT   = 0.5; }
+    }
+  }
+
+  // ── Garantie FINALE d'exclusivité sur les formes normales ───────────────
+  // Un point d'accroche « aligné » (tir droit) et une flèche répartie peuvent
+  // atterrir au même t sur un même côté (ex. deux à t≈0.5) → superposition. On
+  // regroupe TOUTES les extrémités par (forme, côté) et, dès qu'un côté en porte
+  // ≥2, on ré-écarte leurs t en positions distinctes (ordre = position de l'autre
+  // extrémité, pour ne pas se croiser). Un côté à 1 seule flèche garde son t aligné.
+  const sideEnds = new Map();
+  for (const it of info) {
+    if (!it) continue;
+    if (!it._aDec) pushG(sideEnds, it._from + '|' + it.fromDir, { it, end: 'from', other: it._oFrom });
+    if (!it._bDec) pushG(sideEnds, it._to   + '|' + it.toDir,   { it, end: 'to',   other: it._oTo });
+  }
+  for (const arr of sideEnds.values()) {
+    if (arr.length < 2) continue;
+    const dir = arr[0].end === 'from' ? arr[0].it.fromDir : arr[0].it.toDir;
+    const axis = (dir === 'top' || dir === 'bottom') ? 'x' : 'y';
+    arr.sort((p, r) => p.other[axis] - r.other[axis]);
+    const n = arr.length;
+    arr.forEach((e, i) => {
+      const t = clampT((i + 1) / (n + 1));
       if (e.end === 'from') e.it.fromT = t; else e.it.toT = t;
     });
   }
