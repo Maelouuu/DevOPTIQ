@@ -5019,7 +5019,6 @@ function _unused_vsdxAutoLayout(shapes, conns, bands, groups) {
    VSDX IMPORT
    ══════════════════════════════════════════════════ */
 
-// Nudge chaque losange de décision sur l'axe de flux de ses voisins CONNECTÉS
 // Aère la carto : sépare les formes qui se chevauchent ou sont trop serrées
 // (relaxation par paires). Objectif : « dénouer » les zones complexes et laisser de
 // la place aux flèches/labels, SANS tout réarranger — seules les paires en dessous de
@@ -5052,11 +5051,12 @@ function _declutterShapes(minGap = 30, iters = 16) {
   return anyMoved;
 }
 
-// (pré-routage). Un losange se branche par ses 4 pointes (milieux de côtés) : pour
-// que les flèches le touchent bien droit (et qu'il ne paraisse pas « décalé »), son
-// centre doit s'aligner sur ses voisins — X sur les voisins verticaux, Y sur les
-// horizontaux. Déplacement borné (jamais de téléportation). Médiane = robuste aux
-// cas où deux branches divergent. Renvoie true si au moins un losange a bougé.
+// Nudge chaque losange de décision (pré-routage) sur l'axe de flux de ses voisins
+// CONNECTÉS : un losange se branche par ses 4 pointes → pour que les flèches le
+// touchent bien droit, son centre s'aligne sur ses voisins — X sur les voisins
+// verticaux, Y sur les horizontaux. Déplacement borné, médiane robuste. Ne touche
+// QUE les losanges qui ont des connexions (les losanges décoratifs non connectés
+// sont posés sur la flèche la plus proche APRÈS routage, cf. _seatFloatingDecisions).
 function _alignDecisionsToNeighbors(maxShift = 80) {
   const byId = {}; for (const s of state.shapes) byId[s.id] = s;
   const median = arr => { const a = arr.slice().sort((x, y) => x - y); const m = a.length >> 1;
@@ -5087,6 +5087,90 @@ function _alignDecisionsToNeighbors(maxShift = 80) {
     }
   }
   return moved;
+}
+
+// Repose les losanges DÉCORATIFS (sans aucune connexion) sur la flèche routée la plus
+// proche. Dans Visio ces losanges sont posés SUR une flèche, mais notre routage
+// re-trace les flèches → le losange se retrouve « à côté ». On projette son centre sur
+// le segment de flèche le plus proche (post-routage : lit _computedOrthopts). Ne
+// touche JAMAIS un losange CONNECTÉ (ses flèches sont accrochées à ses pointes, le
+// bouger les désaxerait) → aucune régression sur les losanges du flux.
+function _seatFloatingDecisions(maxDist = 240) {
+  const connected = new Set();
+  for (const c of state.connections) { connected.add(c.fromId); connected.add(c.toId); }
+  let moved = false;
+  for (const s of state.shapes) {
+    if (s.type !== 'decision' || connected.has(s.id)) continue;
+    const cx = s.x + s.w / 2, cy = s.y + s.h / 2;
+    let bestDist = maxDist, bestPx = cx, bestPy = cy;
+    for (const c of state.connections) {
+      const pts = c._computedOrthopts;
+      if (!pts || pts.length < 2) continue;
+      for (let i = 0; i < pts.length - 1; i++) {
+        const ax = pts[i].x, ay = pts[i].y, bx = pts[i + 1].x, by = pts[i + 1].y;
+        const abx = bx - ax, aby = by - ay, l2 = abx * abx + aby * aby;
+        if (l2 < 4) continue;
+        const t = Math.max(0, Math.min(1, ((cx - ax) * abx + (cy - ay) * aby) / l2));
+        const px = ax + t * abx, py = ay + t * aby, d = Math.hypot(cx - px, cy - py);
+        if (d < bestDist) { bestDist = d; bestPx = px; bestPy = py; }
+      }
+    }
+    if (bestDist < maxDist) { s.x = Math.round(bestPx - s.w / 2); s.y = Math.round(bestPy - s.h / 2); moved = true; }
+  }
+  if (moved) renderShapes();
+  return moved;
+}
+
+// Aligne les formes CONNECTÉES quasi-alignées pour redresser les flèches (gain de
+// simplicité). Transitif via union-find : si A~B (même colonne) et B~C, alors A,B,C
+// partagent EXACTEMENT la même colonne → aligner C ne peut pas dé-aligner A de B. On
+// construit deux partitions indépendantes (colonnes = X commun, lignes = Y commun) à
+// partir des connexions presque droites (écart ≤ THRESH), puis chaque classe adopte
+// la MÉDIANE de ses centres. Petit seuil → petits déplacements, l'aération n'est pas
+// défaite. Losanges et formes groupées exclus (gérés à part).
+function _alignConnectedShapes(thresh = 18) {
+  const grouped = new Set();
+  if (state.groups) for (const g of state.groups) (g.shapeIds || []).forEach(id => grouped.add(id));
+  const eligible = s => s && s.type !== 'decision' && !grouped.has(s.id);
+  const byId = {}; for (const s of state.shapes) if (eligible(s)) byId[s.id] = s;
+  // union-find
+  const parent = {};
+  const find = x => { while (parent[x] !== x) { parent[x] = parent[parent[x]]; x = parent[x]; } return x; };
+  const union = (a, b) => { parent[find(a)] = find(b); };
+  const initUF = () => { for (const id in byId) parent[id] = id; };
+  const cx = s => s.x + s.w / 2, cy = s => s.y + s.h / 2;
+
+  // ── Colonnes (X commun) : connexions quasi-verticales ──
+  initUF();
+  for (const c of state.connections) {
+    const a = byId[c.fromId], b = byId[c.toId];
+    if (!a || !b) continue;
+    if (Math.abs(cx(a) - cx(b)) <= thresh && Math.abs(cx(a) - cx(b)) < Math.abs(cy(a) - cy(b))) union(c.fromId, c.toId);
+  }
+  const colGroups = {};
+  for (const id in byId) { const r = find(id); (colGroups[r] = colGroups[r] || []).push(byId[id]); }
+  for (const r in colGroups) {
+    const grp = colGroups[r]; if (grp.length < 2) continue;
+    const xs = grp.map(cx).sort((u, v) => u - v); const m = xs.length >> 1;
+    const med = xs.length % 2 ? xs[m] : (xs[m - 1] + xs[m]) / 2;
+    for (const s of grp) s.x = Math.round(med - s.w / 2);
+  }
+
+  // ── Lignes (Y commun) : connexions quasi-horizontales ──
+  initUF();
+  for (const c of state.connections) {
+    const a = byId[c.fromId], b = byId[c.toId];
+    if (!a || !b) continue;
+    if (Math.abs(cy(a) - cy(b)) <= thresh && Math.abs(cy(a) - cy(b)) < Math.abs(cx(a) - cx(b))) union(c.fromId, c.toId);
+  }
+  const rowGroups = {};
+  for (const id in byId) { const r = find(id); (rowGroups[r] = rowGroups[r] || []).push(byId[id]); }
+  for (const r in rowGroups) {
+    const grp = rowGroups[r]; if (grp.length < 2) continue;
+    const ys = grp.map(cy).sort((u, v) => u - v); const m = ys.length >> 1;
+    const med = ys.length % 2 ? ys[m] : (ys[m - 1] + ys[m]) / 2;
+    for (const s of grp) s.y = Math.round(med - s.h / 2);
+  }
 }
 
 // Demande à l'utilisateur comment reconstruire la carto importée :
@@ -5370,7 +5454,11 @@ async function importVSDX(file) {
   }
 
   try {
-    const result = await vsdxParse(file, setStatus, onOrphans, false);
+    // spliceDecisions: true → les losanges de décision posés « sur » un connecteur dans
+    // Visio (sans <Connect>) sont insérés dans le flux (A→B devient A→D→B) → ils
+    // deviennent de vrais nœuds connectés, bien placés et branchés sur leurs pointes,
+    // au lieu de flotter à côté après re-routage.
+    const result = await vsdxParse(file, setStatus, onOrphans, { spliceDecisions: true });
     if (!result) {
       setStatus('Import annul\u00e9. Vous pouvez d\u00e9poser un fichier corrig\u00e9.', true);
       return;
@@ -6399,15 +6487,20 @@ async function _computeAutoLayout(opts) {
   const declutter = opts.declutter !== false; // aération activée par défaut
   const nConn = state.connections.length;
 
-  // Aère les zones trop serrées (formes qui se chevauchent) : « dénoue » les endroits
-  // complexes et laisse respirer flèches + labels. Ne touche que ce qui est trop serré
-  // → l'essence de la carto est préservée. Désactivable via opts.declutter=false.
-  if (declutter) _declutterShapes();
-
-  // Recentre ensuite les losanges de décision sur leurs voisins connectés → les
-  // flèches les toucheront pile sur les pointes (fini les losanges « décalés »).
-  // Fait avant de figer nodesById pour que le routage parte des bonnes positions.
-  _alignDecisionsToNeighbors();
+  // ══ ORDRE DES ÉTAPES QUI DÉPLACENT LES FORMES (pré-routage) ══
+  // L'ordre est choisi pour que les étapes ne se défassent PAS l'une l'autre :
+  //  1) alignement : redresse les formes quasi-alignées (colonnes/lignes communes) ;
+  //  2) aération : sépare ensuite les chevauchements EN POUSSANT SUR L'AXE LIBRE
+  //     (horizontal pour une ligne partagée, vertical pour une colonne) → l'alignement
+  //     de l'étape 1 est PRÉSERVÉ, pas défait ;
+  //  3) losanges connectés : recentrés en dernier sur le flux de leurs voisins (ils ont
+  //     le dernier mot sur leur position avant routage).
+  // (Les losanges NON connectés sont posés sur la flèche la plus proche APRÈS routage.)
+  if (declutter) {
+    _alignConnectedShapes();  // 1) redresse les flèches en alignant les formes quasi-alignées
+    _declutterShapes();       // 2) aère (pousse sur l'axe libre → n'annule pas l'alignement)
+  }
+  _alignDecisionsToNeighbors(); // 3) losanges connectés recentrés sur leurs voisins
 
   {
     const nodesById = {};
@@ -6499,11 +6592,12 @@ async function _computeAutoLayout(opts) {
     render();
     _straightenTips(); // pointes toujours droites (jamais un angle dans la tête)
     render();
-    // NB : on ne déplace PAS les losanges après routage. Les flèches se branchent déjà
-    // pile sur leurs pointes (spreadPort renvoie les sommets, et le worker libavoid y
-    // accroche exactement, une pointe = une flèche). Bouger un losange après coup
-    // désaxe son dernier segment (userPts figés) → « ne finit plus sur la flèche ».
-    // Le recentrage se fait AVANT routage via _alignDecisionsToNeighbors().
+    // Losanges CONNECTÉS : jamais déplacés après routage (leurs flèches sont accrochées
+    // à leurs pointes, les bouger les désaxerait) — leur recentrage s'est fait AVANT
+    // routage. Losanges DÉCORATIFS (non connectés) : reposés ici sur la flèche routée la
+    // plus proche (dans Visio ils sont posés sur une flèche, notre routage la déplace).
+    _seatFloatingDecisions();
+    render();
     architectLabels(false); // labels près de la pointe
     render();
   }

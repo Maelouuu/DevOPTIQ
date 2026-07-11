@@ -961,10 +961,12 @@ class VsdxImporter {
         if (t < 0.05 || t > 0.95) continue;
         const px = Ax + t*ABx, py = Ay + t*ABy;
         if (Math.hypot(Dx - px, Dy - py) >= SPLICE_THRESH) continue;
-        // Splice: A→B becomes A→D then D→B
+        // Splice: A→B becomes A→D then D→B. Les DEUX moitiés pointent vers le
+        // connecteur d'origine (_origConnId) pour hériter du STYLE (trait/pointillé) ;
+        // le label du connecteur n'apparaît qu'une fois (sur D→B) via _suppressLabel.
         delete connMap[connId];
-        connMap[`__sp${synCtr++}`] = { source: sv,          target: dec.visioId };
-        connMap[`__sp${synCtr++}`] = { source: dec.visioId, target: tv, _origConnId: connId };
+        connMap[`__sp${synCtr++}`] = { source: sv,          target: dec.visioId, _origConnId: connId, _suppressLabel: true };
+        connMap[`__sp${synCtr++}`] = { source: dec.visioId, target: tv,          _origConnId: connId };
       }
     }
   }
@@ -1096,7 +1098,7 @@ class VsdxImporter {
       const srcShape = newShapes.find(s => s.id === fromId) || newGroups.find(g => g.id === fromId);
 
       const connItem = shapeMap[ends._origConnId || connId];
-      const connLabel = connItem ? (this.vText(connItem.el) || '') : '';
+      const connLabel = (connItem && !ends._suppressLabel) ? (this.vText(connItem.el) || '') : '';
       const connMid   = connItem ? connItem.el.getAttribute('Master') : null;
       const masterLp  = connMid ? (await this.getMasterInfo(connMid)).linePattern : 1;
       const lpStr     = connItem ? (this.vCellDeep(connItem.el, 'LinePattern') || String(masterLp)) : '1';
@@ -1363,8 +1365,8 @@ function detectShapeType(masterName, visioType, isEllipse, isDiamond, isSubproce
 
 // ── Public entry point ────────────────────────────────────────────
 // Usage: const result = await vsdxParse(file, setStatus, onOrphans)
-async function vsdxParse(file, onProgress, onOrphans) {
+async function vsdxParse(file, onProgress, onOrphans, opts = {}) {
   const zip = await JSZip.loadAsync(file);
   const importer = new VsdxImporter(zip, onProgress);
-  return await importer.parse(onOrphans);
+  return await importer.parse(onOrphans, opts);
 }
