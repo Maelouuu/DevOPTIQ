@@ -34,8 +34,17 @@ node tests/carto/drive.mjs "?declutter=0" /tmp/nodeclutter.png
 node tests/carto/drive.mjs "?cx=8089&cy=94&zw=1500&zh=1150" /tmp/group.png
 ```
 
-Sortie console = JSON : `before`/`after` (croisements, nb de segments), `fit`
+Sortie console = JSON : `before`/`after` (croisements, nb de segments), `tips`
+(pointes réellement pivotées : dernier segment rendu non aligné sur l'axe du port —
+lit la même géométrie que le SVG, via `_alignPortApproach`), `fit`
 (dimensions/échelle), `nbShapes`, `nbConns`.
+
+Repères mesurés sur `hard.vsdx` (routeur interne, post-agencement) : ~350
+croisements (inhérents à un graphe dense et cyclique — non réductibles à zéro par
+un algo), **2 pointes pivotées à 3–4 px** (négligeable), 17/19 losanges décoratifs
+seatés à ≤13 px d'une flèche. À working-zoom la carto est propre ; l'aspect
+« spaghetti » n'apparaît qu'en vue d'ensemble (normal pour une swimlane de cette
+densité).
 
 ## Paramètres d'URL (`harness.html`)
 

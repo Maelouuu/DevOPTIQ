@@ -78,6 +78,25 @@ function _measure(){
     if(_segInt(segs[i][0],segs[i][1],segs[j][0],segs[j][1])) cross++;
   return {cross, nSeg:segs.length};
 }
+// Pointes RÉELLES : reproduit le tracé rendu (_alignPortApproach sur _computedOrthopts,
+// exactement comme renderConnections) et vérifie que le dernier segment suit l'axe du
+// port cible. Fiable (lit la même géométrie que le SVG dessiné).
+function _measureTips(){
+  let pivot=0; const samples=[];
+  for(const c of state.connections){
+    let pts=c._computedOrthopts; if(!pts||pts.length<2) continue;
+    if(typeof _alignPortApproach==='function'){
+      try{ pts=_alignPortApproach(pts.slice(), c.fromPortDir, c.toPortDir); }catch(_){}
+    }
+    const p2=pts[pts.length-2], p1=pts[pts.length-1];
+    const dx=Math.abs(p1.x-p2.x), dy=Math.abs(p1.y-p2.y);
+    const dir=c.toPortDir||'left';
+    const wantH=(dir==='left'||dir==='right');
+    const off = wantH ? dy : dx; // écart perpendiculaire à l'axe attendu
+    if(off>2 && Math.hypot(dx,dy)>0.5){ pivot++; if(samples.length<10) samples.push({id:c.id,x:Math.round(p1.x),y:Math.round(p1.y),off:Math.round(off),dir}); }
+  }
+  return {pivot, samples};
+}
 // ── cadrage + capture ─────────────────────────────────────────────────────
 function _fitCanvas(maxW){
   maxW = maxW||1700;
@@ -115,7 +134,8 @@ async function run(){
   const cx=q.get('cx'),cy=q.get('cy'),zw=q.get('zw');
   const fit=(cx!=null&&cy!=null&&zw!=null) ? _fitRegion(+cx,+cy,+zw,+(q.get('zh')||zw)) : _fitCanvas(1700);
   render();
-  window.__R__={vsdx, mode:{declutter,route}, before, after, fit, nbShapes:state.shapes.length, nbConns:state.connections.length};
+  const tips=route?_measureTips():{pivot:0,samples:[]};
+  window.__R__={vsdx, mode:{declutter,route}, before, after, tips, fit, nbShapes:state.shapes.length, nbConns:state.connections.length};
   document.title='DONE';
 }
 run().catch(e=>{window.__R__={err:String(e&&e.stack||e)};document.title='DONE';});
