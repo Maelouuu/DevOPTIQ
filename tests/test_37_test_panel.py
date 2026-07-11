@@ -11,6 +11,9 @@ Couvre :
   - POST /testpanel/admin/reset-stale (JSON — expire les runs bloqués)
   - POST /testpanel/run/page/<slug>   (JSON — 404 si slug inconnu, run_id sinon)
   - POST /testpanel/run/all           (JSON — retourne run_id, sans lancer pytest)
+  - GET  /testpanel/patches           (patches.html — registre des correctifs tracés)
+  - GET  /testpanel/journal           (journal.html — plan versionné + historique)
+  - GET  /testpanel/stream/<run_id>   (SSE — sleep neutralisé pour éviter tout blocage)
 """
 import pytest
 
@@ -490,3 +493,150 @@ class TestTestPanelRunAll:
         r1 = auth_client.post("/testpanel/run/all")
         r2 = auth_client.post("/testpanel/run/all")
         assert r1.get_json()["run_id"] != r2.get_json()["run_id"]
+
+
+# ===========================================================================
+# 9. GET /testpanel/patches
+# ===========================================================================
+
+def _get_or_create_patch(app, **overrides):
+    """Crée (ou réutilise) un TestPatch dédié aux tests, isolé par patch_uid unique."""
+    from Code.models.test_models import TestPatch
+    from Code.extensions import db
+    with app.app_context():
+        patch = TestPatch.query.filter_by(patch_uid="unit-test-panel-patch-coverage").first()
+        if patch is None:
+            patch = TestPatch(patch_uid="unit-test-panel-patch-coverage")
+            db.session.add(patch)
+        patch.title           = overrides.get("title", "Patch de couverture unitaire")
+        patch.node_ids        = "[\"tests/test_00_fake.py::T::test_fake\"]"
+        patch.page_slug       = overrides.get("page_slug", "tools")
+        patch.failure_reason  = "Échec simulé pour couverture du panel."
+        patch.was_real_bug    = overrides.get("was_real_bug", True)
+        patch.root_cause      = overrides.get("root_cause", "app_bug")
+        patch.error            = "Erreur simulée."
+        patch.fix_description  = "Correctif simulé."
+        patch.files_changed    = "[\"Code/routes/tools.py\"]"
+        patch.author           = "routine"
+        db.session.commit()
+        return patch.id
+
+
+class TestTestPanelPatches:
+
+    def test_patches_page_accessible_auth(self, auth_client):
+        r = auth_client.get("/testpanel/patches")
+        assert r.status_code == 200
+
+    def test_patches_page_no_auth_no_crash(self, client):
+        """La page patches ne doit pas planter (500) sans session active."""
+        r = client.get("/testpanel/patches")
+        assert r.status_code != 500
+
+    def test_patches_page_response_is_html(self, auth_client):
+        r = auth_client.get("/testpanel/patches")
+        assert "text/html" in r.content_type
+
+    def test_patches_page_lists_seeded_patch_title(self, auth_client, app):
+        """Un patch enregistré en base apparaît dans le rendu de la page."""
+        _get_or_create_patch(app, title="Patch de couverture unitaire")
+        r = auth_client.get("/testpanel/patches")
+        assert b"Patch de couverture unitaire" in r.data
+
+    def test_patches_page_real_bug_flag_rendered(self, auth_client, app):
+        """was_real_bug=True doit se traduire par le libellé 'Oui' dans le HTML."""
+        _get_or_create_patch(app, was_real_bug=True)
+        r = auth_client.get("/testpanel/patches")
+        assert "Oui".encode() in r.data
+
+    def test_patches_page_contains_files_changed(self, auth_client, app):
+        _get_or_create_patch(app)
+        r = auth_client.get("/testpanel/patches")
+        assert b"Code/routes/tools.py" in r.data
+
+
+# ===========================================================================
+# 10. GET /testpanel/journal
+# ===========================================================================
+
+class TestTestPanelJournal:
+
+    def test_journal_page_accessible_auth(self, auth_client):
+        r = auth_client.get("/testpanel/journal")
+        assert r.status_code == 200
+
+    def test_journal_page_no_auth_no_crash(self, client):
+        r = client.get("/testpanel/journal")
+        assert r.status_code != 500
+
+    def test_journal_page_response_is_html(self, auth_client):
+        r = auth_client.get("/testpanel/journal")
+        assert "text/html" in r.content_type
+
+    def test_journal_page_reflects_versioned_plan_title(self, auth_client):
+        """Le titre du plan versionné (tests/journal.json) apparaît dans la page."""
+        r = auth_client.get("/testpanel/journal")
+        assert "Plan de couverture".encode() in r.data
+
+    def test_journal_page_missing_file_no_crash(self, auth_client, monkeypatch):
+        """Si tests/journal.json est introuvable, la page reste fonctionnelle."""
+        import Code.routes.test_panel as _tp
+        monkeypatch.setattr(_tp, "_JOURNAL_FILE", _tp._TESTS_DIR / "journal_inexistant.json")
+        r = auth_client.get("/testpanel/journal")
+        assert r.status_code == 200
+
+
+# ===========================================================================
+# 11. GET /testpanel/stream/<run_id>
+# ===========================================================================
+
+class TestTestPanelStream:
+
+    def test_stream_known_run_returns_200(self, auth_client, monkeypatch):
+        """Un run déjà terminé en mémoire se stream immédiatement (pas de blocage)."""
+        import Code.routes.test_panel as _tp
+        import time as _time_mod
+        monkeypatch.setattr(_time_mod, "sleep", lambda s: None)
+        run_id = 999001
+        with _tp._runs_lock:
+            _tp._runs[run_id] = {"lines": ["ligne 1", "ligne 2"], "done": True}
+        r = auth_client.get(f"/testpanel/stream/{run_id}")
+        assert r.status_code == 200
+
+    def test_stream_known_run_content_type_is_event_stream(self, auth_client, monkeypatch):
+        import Code.routes.test_panel as _tp
+        import time as _time_mod
+        monkeypatch.setattr(_time_mod, "sleep", lambda s: None)
+        run_id = 999002
+        with _tp._runs_lock:
+            _tp._runs[run_id] = {"lines": [], "done": True}
+        r = auth_client.get(f"/testpanel/stream/{run_id}")
+        assert r.content_type.startswith("text/event-stream")
+
+    def test_stream_known_run_body_contains_lines(self, auth_client, monkeypatch):
+        import Code.routes.test_panel as _tp
+        import time as _time_mod
+        monkeypatch.setattr(_time_mod, "sleep", lambda s: None)
+        run_id = 999003
+        with _tp._runs_lock:
+            _tp._runs[run_id] = {"lines": ["patch appliqué"], "done": True}
+        r = auth_client.get(f"/testpanel/stream/{run_id}")
+        assert b"patch appliqu" in r.data
+
+    def test_stream_known_run_body_ends_with_done_marker(self, auth_client, monkeypatch):
+        import Code.routes.test_panel as _tp
+        import time as _time_mod
+        monkeypatch.setattr(_time_mod, "sleep", lambda s: None)
+        run_id = 999004
+        with _tp._runs_lock:
+            _tp._runs[run_id] = {"lines": [], "done": True}
+        r = auth_client.get(f"/testpanel/stream/{run_id}")
+        assert b"[DONE]" in r.data
+
+    def test_stream_unknown_run_returns_200_without_hanging(self, auth_client, monkeypatch):
+        """Un run_id jamais initialisé sort de la boucle sans bloquer (sleep neutralisé)."""
+        import Code.routes.test_panel as _tp
+        import time as _time_mod
+        monkeypatch.setattr(_time_mod, "sleep", lambda s: None)
+        r = auth_client.get("/testpanel/stream/999999")
+        assert r.status_code == 200

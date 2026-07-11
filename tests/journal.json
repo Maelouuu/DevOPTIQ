@@ -2,14 +2,14 @@
   "plan": {
     "title": "Plan de couverture & fiabilisation des tests",
     "objective": "À chaque exécution, la routine répartit sa capacité : ~70% pour étendre la couverture (nouveaux tests) et ~30% pour repérer et corriger les tests défaillants, en traçant chaque correctif.",
-    "updated_at": "27/06/2026",
+    "updated_at": "11/07/2026",
     "steps": [
       {
         "id": "coverage",
         "title": "Couverture des pages Flask",
         "status": "in_progress",
-        "progress": 92,
-        "note": "50 fichiers de test couvrent l'essentiel des pages. Reste surtout l'éditeur OptiqCarto (JS)."
+        "progress": 93,
+        "note": "50 fichiers de test couvrent l'essentiel des pages. Audit route-par-route : toutes les routes Flask ont désormais au moins un test (dernier trou comblé : /testpanel/patches, /journal, /stream). Reste surtout l'éditeur OptiqCarto (JS)."
       },
       {
         "id": "green",
@@ -49,6 +49,24 @@
     ]
   },
   "entries": [
+    {
+      "at": "2026-07-11T03:15:23",
+      "date": "11/07/2026 · 03:15",
+      "author": "routine",
+      "title": "Couverture Panel de Tests — routes patches/journal/stream",
+      "summary": "Suite déjà à 100% (1383/1383) ; aucun bug applicatif à corriger. Investissement des 30% dans la couverture : ajout de 17 tests sur test_37_test_panel.py couvrant les 3 routes du testpanel qui n'avaient aucune assertion dédiée (GET /testpanel/patches, GET /testpanel/journal, GET /testpanel/stream/<run_id>).",
+      "new_tests": 17,
+      "tests_fixed": 0,
+      "patches": 0,
+      "page": "test_panel",
+      "highlights": [
+        "GET /testpanel/patches : accès auth/non-auth, rendu HTML, affichage d'un patch seedé (titre, was_real_bug, fichiers modifiés)",
+        "GET /testpanel/journal : accès auth/non-auth, rendu du plan versionné, robustesse si journal.json est absent",
+        "GET /testpanel/stream/<run_id> (SSE) : run connu (lignes + marqueur [DONE]) et run_id inconnu — time.sleep neutralisé via monkeypatch pour éviter tout blocage de la suite",
+        "Audit de couverture route-par-route (matching @route vs appels dans tests/) : 100% des blueprints sauf test_panel.py, désormais comblé"
+      ],
+      "next": "Poursuivre l'audit route-par-route sur les modules restants si de nouvelles routes apparaissent ; envisager une vraie mesure de coverage.py pour affiner au-delà du matching par route."
+    },
     {
       "id": "2026-06-27-refonte-panel",
       "at": "2026-06-27T19:30:00",
