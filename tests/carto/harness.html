@@ -1,0 +1,123 @@
+<!doctype html><html><head><meta charset="utf-8"><style>
+  html,body{margin:0;background:#fff;font-family:Arial,Helvetica,sans-serif}
+  #canvas{display:block;background:#fff}
+  .hidden{display:none}
+</style></head><body>
+<!--
+  Banc d'essai visuel OptiqCarto — pilote le VRAI éditeur (editor.js) sur une carto
+  d'import VSDX, exécute l'agencement auto réel (_computeAutoLayout) et rend le SVG,
+  pour valider chaque changement EN CAPTURE avant de pousser (cf. README.md).
+
+  Scaffold DOM minimal : editor.js lie ses refs SVG (const gShapes = getElementById…)
+  au chargement. On fournit donc #canvas + les calques AVANT les <script>. init()
+  (DOMContentLoaded) échoue proprement (boutons UI absents) sans bloquer le reste.
+-->
+<svg id="canvas" width="1700" height="1200" xmlns="http://www.w3.org/2000/svg">
+  <g id="root-group">
+    <g id="g-bands"></g>
+    <g id="g-legend"></g>
+    <g id="g-groups"></g>
+    <g id="g-connections"></g>
+    <g id="g-shapes"></g>
+    <g id="g-handles"></g>
+    <g id="g-ui"></g>
+    <g id="g-overlay"></g>
+    <g id="g-lasso"></g>
+  </g>
+</svg>
+<div id="status-zoom" class="hidden"></div>
+<input id="label-editor" class="hidden">
+<div id="canvas-map-list" class="hidden"></div>
+<div id="multiselect-badge" class="hidden"><span id="multiselect-count"></span></div>
+
+<script>
+  window.OPTIQ_I18N = {};
+  window.OPTIQCARTO_READONLY = false;
+  // Sur les grosses cartos denses (ex. hard.vsdx, 243 flèches) libavoid time-out puis
+  // repli sur le routeur interne : on teste directement l'interne (= ce qui ship).
+  window.OPTIQCARTO_USE_LIBAVOID = false;
+</script>
+<script src="./jszip.min.js"></script>
+<script src="/static/optiqcarto/color-utils.js"></script>
+<script src="/static/optiqcarto/geometry.js"></script>
+<script src="/static/optiqcarto/highlight-mode.js"></script>
+<script src="/static/optiqcarto/vsdx_importer.js"></script>
+<script src="/static/optiqcarto/editor.js"></script>
+
+<script>
+// ── mesures indépendantes de l'éditeur ───────────────────────────────────
+function _portPoint(s, dir, t){
+  t = (t==null?0.5:t);
+  const h = s.type==='process' ? 7 : 0;
+  if(dir==='top')    return {x:s.x+s.w*t, y:s.y-h};
+  if(dir==='bottom') return {x:s.x+s.w*t, y:s.y+s.h+h};
+  if(dir==='left')   return {x:s.x-h,     y:s.y+s.h*t};
+  return {x:s.x+s.w+h, y:s.y+s.h*t};
+}
+function _segInt(a,b,c,d){
+  const o=(p,q,r)=>Math.sign((q[0]-p[0])*(r[1]-p[1])-(q[1]-p[1])*(r[0]-p[0]));
+  const o1=o(a,b,c),o2=o(a,b,d),o3=o(c,d,a),o4=o(c,d,b);
+  return o1!==o2&&o3!==o4&&o1!==0&&o2!==0&&o3!==0&&o4!==0;
+}
+// NB : reconstruit les polylignes depuis userPts (approximation du tracé rendu ; le
+// rendu réel ajoute stubs/arrondis). Fiable pour compter les croisements, indicatif
+// pour le reste.
+function _measure(){
+  const byId=new Map(state.shapes.map(s=>[s.id,s]));
+  const segs=[];
+  for(const c of state.connections){
+    const a=byId.get(c.fromId),b=byId.get(c.toId); if(!a||!b) continue;
+    const fp=_portPoint(a,c.fromPortDir||'right',c.fromPortT);
+    const tp=_portPoint(b,c.toPortDir||'left',c.toPortT);
+    const mids=(c.userPts||[]).map(p=>[p.x,p.y]);
+    const pl=[[fp.x,fp.y],...mids,[tp.x,tp.y]];
+    for(let i=0;i<pl.length-1;i++) segs.push([pl[i],pl[i+1]]);
+  }
+  let cross=0;
+  for(let i=0;i<segs.length;i++)for(let j=i+1;j<segs.length;j++)
+    if(_segInt(segs[i][0],segs[i][1],segs[j][0],segs[j][1])) cross++;
+  return {cross, nSeg:segs.length};
+}
+// ── cadrage + capture ─────────────────────────────────────────────────────
+function _fitCanvas(maxW){
+  maxW = maxW||1700;
+  let minX=1e9,minY=1e9,maxX=-1e9,maxY=-1e9,y=-200;
+  for(const bnd of state.bands){ if(bnd.deleted)continue; minY=Math.min(minY,y); maxY=Math.max(maxY,y+bnd.height); y+=bnd.height; }
+  for(const s of state.shapes){minX=Math.min(minX,s.x);minY=Math.min(minY,s.y);maxX=Math.max(maxX,s.x+s.w);maxY=Math.max(maxY,s.y+s.h);}
+  const pad=60; minX-=pad;minY-=pad;maxX+=pad;maxY+=pad;
+  const W=maxX-minX,H=maxY-minY,scale=Math.min(1,maxW/W);
+  const cv=document.getElementById('canvas');
+  cv.setAttribute('width',Math.round(W*scale)); cv.setAttribute('height',Math.round(H*scale));
+  document.getElementById('root-group').setAttribute('transform',`scale(${scale}) translate(${-minX},${-minY})`);
+  return {W:Math.round(W),H:Math.round(H),scale:+scale.toFixed(3)};
+}
+function _fitRegion(cx,cy,zw,zh){
+  const maxPx=1400,scale=Math.min(maxPx/zw,maxPx/zh),cv=document.getElementById('canvas');
+  cv.setAttribute('width',Math.round(zw*scale)); cv.setAttribute('height',Math.round(zh*scale));
+  document.getElementById('root-group').setAttribute('transform',`scale(${scale}) translate(${-(cx-zw/2)},${-(cy-zh/2)})`);
+  return {region:{cx,cy,zw,zh},scale:+scale.toFixed(3)};
+}
+
+async function run(){
+  const q=new URLSearchParams(location.search);
+  const vsdx = q.get('vsdx') || '/Code/hard.vsdx';   // carto de référence par défaut
+  const declutter = q.get('declutter')!=='0';         // aération (align+declutter) on/off
+  const route = q.get('route')!=='0';                 // agencement auto on/off (positions brutes)
+  const buf=await (await fetch(vsdx)).arrayBuffer();
+  const res=await vsdxParse(new Blob([buf]),()=>{},async()=>'keep',{spliceDecisions:false});
+  state.bands=res.bands; state.shapes=res.shapes; state.connections=res.connections;
+  state.groups=res.groups||[]; state.showBands=true;
+  state.connections.forEach(c=>{const f=state.shapes.find(s=>s.id===c.fromId); if(f)c.color=f.color;});
+  render();
+  const before=_measure();
+  if(route) await _computeAutoLayout({declutter});
+  const after=_measure();
+  const cx=q.get('cx'),cy=q.get('cy'),zw=q.get('zw');
+  const fit=(cx!=null&&cy!=null&&zw!=null) ? _fitRegion(+cx,+cy,+zw,+(q.get('zh')||zw)) : _fitCanvas(1700);
+  render();
+  window.__R__={vsdx, mode:{declutter,route}, before, after, fit, nbShapes:state.shapes.length, nbConns:state.connections.length};
+  document.title='DONE';
+}
+run().catch(e=>{window.__R__={err:String(e&&e.stack||e)};document.title='DONE';});
+</script>
+</body></html>
