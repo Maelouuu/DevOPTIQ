@@ -97,6 +97,26 @@ function _measureTips(){
   }
   return {pivot, samples};
 }
+// Losanges décoratifs : combien sont bien reposés sur LEUR flèche d'origine (tag
+// _seatConnId posé avant routage). Un losange taggé doit finir à ~0 px de la flèche
+// routée de son connecteur — sinon il est sur la MAUVAISE flèche (le bug à traquer).
+function _measureDeco(){
+  const connected=new Set(); state.connections.forEach(c=>{connected.add(c.fromId);connected.add(c.toId);});
+  const connById={}; state.connections.forEach(c=>connById[c.id]=c);
+  const decos=state.shapes.filter(s=>s.type==='decision'&&!connected.has(s.id));
+  let tagged=0, seatedOnTag=0, untagged=0; const bad=[];
+  for(const D of decos){
+    if(D._seatConnId==null){untagged++;continue;}
+    tagged++;
+    const c=connById[D._seatConnId], pts=c&&c._computedOrthopts;
+    if(!pts||pts.length<2){bad.push({id:D.id,reason:'no-route'});continue;}
+    const cx=D.x+D.w/2, cy=D.y+D.h/2; let m=1e9;
+    for(let i=0;i<pts.length-1;i++){const d=_distSeg(cx,cy,pts[i],pts[i+1]);if(d<m)m=d;}
+    if(m<=6) seatedOnTag++; else bad.push({id:D.id,dist:Math.round(m)});
+  }
+  return {count:decos.length, tagged, seatedOnTag, untagged, bad:bad.slice(0,8)};
+}
+function _distSeg(px,py,a,b){const dx=b.x-a.x,dy=b.y-a.y,L=dx*dx+dy*dy||1;let t=((px-a.x)*dx+(py-a.y)*dy)/L;t=Math.max(0,Math.min(1,t));return Math.hypot(px-(a.x+t*dx),py-(a.y+t*dy));}
 // ── cadrage + capture ─────────────────────────────────────────────────────
 function _fitCanvas(maxW){
   maxW = maxW||1700;
@@ -128,6 +148,9 @@ async function run(){
   state.groups=res.groups||[]; state.showBands=true;
   state.connections.forEach(c=>{const f=state.shapes.find(s=>s.id===c.fromId); if(f)c.color=f.color;});
   render();
+  // Fidèle au flux d'import : associe les losanges décoratifs à leur flèche d'origine
+  // (customPath encore présent) avant tout re-routage.
+  if(typeof _tagFloatingDecisions==='function') _tagFloatingDecisions(state.shapes, state.connections);
   const before=_measure();
   if(route) await _computeAutoLayout({declutter});
   const after=_measure();
@@ -135,7 +158,8 @@ async function run(){
   const fit=(cx!=null&&cy!=null&&zw!=null) ? _fitRegion(+cx,+cy,+zw,+(q.get('zh')||zw)) : _fitCanvas(1700);
   render();
   const tips=route?_measureTips():{pivot:0,samples:[]};
-  window.__R__={vsdx, mode:{declutter,route}, before, after, tips, fit, nbShapes:state.shapes.length, nbConns:state.connections.length};
+  const deco=route?_measureDeco():{tagged:0,seatedOnTag:0,untagged:0};
+  window.__R__={vsdx, mode:{declutter,route}, before, after, tips, deco, fit, nbShapes:state.shapes.length, nbConns:state.connections.length};
   document.title='DONE';
 }
 run().catch(e=>{window.__R__={err:String(e&&e.stack||e)};document.title='DONE';});

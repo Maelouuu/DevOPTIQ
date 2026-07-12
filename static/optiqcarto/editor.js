@@ -4903,25 +4903,94 @@ function _alignDecisionsToNeighbors(maxShift = 80) {
 // le segment de flèche le plus proche (post-routage : lit _computedOrthopts). Ne
 // touche JAMAIS un losange CONNECTÉ (ses flèches sont accrochées à ses pointes, le
 // bouger les désaxerait) → aucune régression sur les losanges du flux.
+// Projection d'un point sur une polyligne : renvoie {dist, px, py, frac} où frac est
+// la position (0..1) le long de la polyligne (arc-length) du point projeté.
+function _projectOnPolyline(cx, cy, pts) {
+  let total = 0; const cum = [0];
+  for (let i = 0; i < pts.length - 1; i++) { total += Math.hypot(pts[i+1].x - pts[i].x, pts[i+1].y - pts[i].y); cum.push(total); }
+  let best = { dist: Infinity, px: cx, py: cy, frac: 0 };
+  for (let i = 0; i < pts.length - 1; i++) {
+    const ax = pts[i].x, ay = pts[i].y, bx = pts[i+1].x, by = pts[i+1].y;
+    const abx = bx - ax, aby = by - ay, l2 = abx*abx + aby*aby;
+    if (l2 < 1e-6) continue;
+    const t = Math.max(0, Math.min(1, ((cx - ax) * abx + (cy - ay) * aby) / l2));
+    const px = ax + t * abx, py = ay + t * aby, d = Math.hypot(cx - px, cy - py);
+    if (d < best.dist) { const along = cum[i] + t * Math.sqrt(l2); best = { dist: d, px, py, frac: total > 0 ? along / total : 0 }; }
+  }
+  return best;
+}
+// Point à la position fractionnaire (0..1 arc-length) le long d'une polyligne.
+function _pointAtFrac(pts, frac) {
+  let total = 0; const seg = [];
+  for (let i = 0; i < pts.length - 1; i++) { const l = Math.hypot(pts[i+1].x - pts[i].x, pts[i+1].y - pts[i].y); seg.push(l); total += l; }
+  if (total <= 0) return { x: pts[0].x, y: pts[0].y };
+  let target = Math.max(0, Math.min(1, frac)) * total, acc = 0;
+  for (let i = 0; i < seg.length; i++) {
+    if (acc + seg[i] >= target) { const t = seg[i] > 0 ? (target - acc) / seg[i] : 0; return { x: pts[i].x + t * (pts[i+1].x - pts[i].x), y: pts[i].y + t * (pts[i+1].y - pts[i].y) }; }
+    acc += seg[i];
+  }
+  const last = pts[pts.length - 1]; return { x: last.x, y: last.y };
+}
+
+// Enregistre, pour chaque losange DÉCORATIF (décision sans connexion), le connecteur
+// sur lequel il était posé DANS VISIO (via le tracé d'origine customPath, sinon la
+// droite centre→centre) + sa position fractionnaire le long de ce connecteur. À
+// appeler À L'IMPORT, tant que customPath est encore disponible (l'agencement auto le
+// purge). Ainsi le losange sera reposé sur la BONNE flèche (pas la plus proche après
+// re-routage). THRESH borné : au-delà, le losange n'est vraiment sur aucune flèche.
+function _tagFloatingDecisions(shapes, conns, thresh = 60) {
+  const byId = {}; for (const s of shapes) byId[s.id] = s;
+  const connected = new Set();
+  for (const c of conns) { connected.add(c.fromId); connected.add(c.toId); }
+  const origPoly = (c) => {
+    if (c.customPath && c.customPath.length >= 2) return c.customPath.map(p => ({ x: p.x, y: p.y }));
+    const a = byId[c.fromId], b = byId[c.toId];
+    if (!a || !b) return null;
+    return [{ x: a.x + a.w / 2, y: a.y + a.h / 2 }, { x: b.x + b.w / 2, y: b.y + b.h / 2 }];
+  };
+  for (const D of shapes) {
+    if (D.type !== 'decision' || connected.has(D.id)) continue;
+    const cx = D.x + D.w / 2, cy = D.y + D.h / 2;
+    let best = null;
+    for (const c of conns) {
+      const poly = origPoly(c); if (!poly) continue;
+      const pr = _projectOnPolyline(cx, cy, poly);
+      if (!best || pr.dist < best.dist) best = { connId: c.id, dist: pr.dist, frac: pr.frac };
+    }
+    if (best && best.dist <= thresh) { D._seatConnId = best.connId; D._seatFrac = best.frac; }
+    else { delete D._seatConnId; delete D._seatFrac; }
+  }
+}
+
+// Repose les losanges DÉCORATIFS sur leur flèche d'origine (tag _seatConnId posé à
+// l'import), à la même position fractionnaire. Repli : si pas de tag (ou flèche
+// disparue), on projette sur la flèche routée la plus proche. Ne touche JAMAIS un
+// losange CONNECTÉ.
 function _seatFloatingDecisions(maxDist = 240) {
   const connected = new Set();
-  for (const c of state.connections) { connected.add(c.fromId); connected.add(c.toId); }
+  const connById = {};
+  for (const c of state.connections) { connected.add(c.fromId); connected.add(c.toId); connById[c.id] = c; }
   let moved = false;
   for (const s of state.shapes) {
     if (s.type !== 'decision' || connected.has(s.id)) continue;
     const cx = s.x + s.w / 2, cy = s.y + s.h / 2;
+    // 1) Tag présent → reposer sur SA flèche, à SA position fractionnaire.
+    if (s._seatConnId != null && s._seatFrac != null) {
+      const c = connById[s._seatConnId];
+      const pts = c && c._computedOrthopts;
+      if (pts && pts.length >= 2) {
+        const p = _pointAtFrac(pts, s._seatFrac);
+        s.x = Math.round(p.x - s.w / 2); s.y = Math.round(p.y - s.h / 2); moved = true;
+        continue;
+      }
+    }
+    // 2) Repli : flèche routée la plus proche.
     let bestDist = maxDist, bestPx = cx, bestPy = cy;
     for (const c of state.connections) {
       const pts = c._computedOrthopts;
       if (!pts || pts.length < 2) continue;
-      for (let i = 0; i < pts.length - 1; i++) {
-        const ax = pts[i].x, ay = pts[i].y, bx = pts[i + 1].x, by = pts[i + 1].y;
-        const abx = bx - ax, aby = by - ay, l2 = abx * abx + aby * aby;
-        if (l2 < 4) continue;
-        const t = Math.max(0, Math.min(1, ((cx - ax) * abx + (cy - ay) * aby) / l2));
-        const px = ax + t * abx, py = ay + t * aby, d = Math.hypot(cx - px, cy - py);
-        if (d < bestDist) { bestDist = d; bestPx = px; bestPy = py; }
-      }
+      const pr = _projectOnPolyline(cx, cy, pts);
+      if (pr.dist < bestDist) { bestDist = pr.dist; bestPx = pr.px; bestPy = pr.py; }
     }
     if (bestDist < maxDist) { s.x = Math.round(bestPx - s.w / 2); s.y = Math.round(bestPy - s.h / 2); moved = true; }
   }
@@ -5296,6 +5365,9 @@ async function importVSDX(file) {
     });
 
     render();
+    // Associe chaque losange décoratif à SA flèche d'origine AVANT tout re-routage
+    // (customPath encore présent) → il sera reposé sur la bonne flèche, pas la plus proche.
+    _tagFloatingDecisions(state.shapes, state.connections);
     _alignImportedShapes(state.shapes, state.connections); // snap near-aligned shapes to H/V
 
     // Choix utilisateur : agencement auto (routage propre) OU reconstruction fidèle
