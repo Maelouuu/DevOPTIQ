@@ -43,6 +43,7 @@
 <script src="/static/optiqcarto/highlight-mode.js"></script>
 <script src="/static/optiqcarto/vsdx_importer.js"></script>
 <script src="/static/optiqcarto/editor.js"></script>
+<script src="/static/optiqcarto/optiqrouter.js"></script>
 
 <script>
 // ── mesures indépendantes de l'éditeur ───────────────────────────────────
@@ -161,6 +162,25 @@ function _measureLabels(){
   }
   return {labeled:conns.length, placed:withOffset, onOtherArrow};
 }
+// Chevauchements : paires de segments parallèles de flèches DIFFÉRENTES qui se
+// superposent (même axe, coord à ≤tol px, recouvrement >minOv). C'est le vrai signal
+// « spaghetti » (des traits l'un sur l'autre), distinct des croisements (inévitables).
+function _measureOverlaps(tol,minOv){
+  tol=tol||4; minOv=minOv||30;
+  const segs=[];
+  for(const c of state.connections){const p=c._computedOrthopts;if(!p||p.length<2)continue;
+    for(let i=0;i<p.length-1;i++){const a=p[i],b=p[i+1];
+      const isH=Math.abs(a.y-b.y)<1.5,isV=Math.abs(a.x-b.x)<1.5; if(!isH&&!isV)continue;
+      segs.push({id:c.id,isH,coord:isH?a.y:a.x,lo:isH?Math.min(a.x,b.x):Math.min(a.y,b.y),hi:isH?Math.max(a.x,b.x):Math.max(a.y,b.y)});
+    }}
+  let overlaps=0;
+  for(let i=0;i<segs.length;i++)for(let j=i+1;j<segs.length;j++){
+    const A=segs[i],B=segs[j]; if(A.id===B.id||A.isH!==B.isH)continue;
+    if(Math.abs(A.coord-B.coord)>tol)continue;
+    if(Math.min(A.hi,B.hi)-Math.max(A.lo,B.lo)>minOv) overlaps++;
+  }
+  return overlaps;
+}
 // ── cadrage + capture ─────────────────────────────────────────────────────
 function _fitCanvas(maxW){
   maxW = maxW||1700;
@@ -186,6 +206,7 @@ async function run(){
   const vsdx = q.get('vsdx') || '/Code/hard.vsdx';   // carto de référence par défaut
   const classic = q.get('classic')==='1';             // reconstruction classique (fidèle Visio)
   const fix = q.get('fix')==='1';                      // applique le correctif classique (angles+labels)
+  const router = q.get('router')==='1';               // prototype routeur par canaux/voies
   const declutter = q.get('declutter')!=='0';         // aération (align+declutter) on/off
   const route = q.get('route')!=='0' && !classic;     // agencement auto on/off (positions brutes)
   const buf=await (await fetch(vsdx)).arrayBuffer();
@@ -198,7 +219,13 @@ async function run(){
   // (customPath encore présent) avant tout re-routage.
   if(typeof _tagFloatingDecisions==='function') _tagFloatingDecisions(state.shapes, state.connections);
   const before=_measure();
-  if(classic){
+  if(router){
+    // Prototype : routeur par canaux/voies sur positions Visio inchangées.
+    OptiqRouter.routeAll(state.shapes, state.connections);
+    render();
+    if(typeof architectLabels==='function') architectLabels(false); // labels près pointes, sans croisement
+    render();
+  } else if(classic){
     // Reconstruction classique = tracés Visio exacts (customPath → userPts).
     for(const c of state.connections) if(c.customPath && c.customPath.length>=3) c.userPts=c.customPath.slice(1,-1);
     render();
@@ -215,7 +242,8 @@ async function run(){
   const deco=route?_measureDeco():{tagged:0,seatedOnTag:0,untagged:0};
   const angles=_measureAngles();
   const labels=_measureLabels();
-  window.__R__={vsdx, mode:{classic,fix,declutter,route}, before, after, tips, deco, angles, labels, fit, nbShapes:state.shapes.length, nbConns:state.connections.length};
+  const overlaps=_measureOverlaps();
+  window.__R__={vsdx, mode:{classic,fix,router,declutter,route}, before, after, tips, deco, angles, labels, overlaps, fit, nbShapes:state.shapes.length, nbConns:state.connections.length};
   document.title='DONE';
 }
 run().catch(e=>{window.__R__={err:String(e&&e.stack||e)};document.title='DONE';});
