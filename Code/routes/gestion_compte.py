@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, request, redirect, url_for, jsonify
+from flask import Blueprint, render_template, request, redirect, url_for, jsonify, session
 from werkzeug.security import generate_password_hash
 from sqlalchemy.orm.attributes import flag_modified
 from sqlalchemy import text
@@ -6,6 +6,12 @@ from Code.extensions import db
 from Code.models.models import User, Role, UserRole, Entity, CompetencyEvaluation, TimeAnalysis
 
 gestion_compte_bp = Blueprint('gestion_compte', __name__, url_prefix='/comptes')
+
+
+def _require_auth():
+    if not session.get('user_id'):
+        return jsonify({"error": "Non connecté"}), 401
+    return None
 
 @gestion_compte_bp.route('/')
 def list_users():
@@ -88,6 +94,9 @@ def list_users():
 
 @gestion_compte_bp.route('/create', methods=['POST'])
 def create_user():
+    auth_error = _require_auth()
+    if auth_error:
+        return auth_error
     first_name = request.form.get('first_name', '').strip()
     last_name  = request.form.get('last_name',  '').strip()
     email      = request.form.get('email',      '').strip()
@@ -136,6 +145,9 @@ def create_user():
 
 @gestion_compte_bp.route('/delete/<int:user_id>', methods=['POST'])
 def delete_user(user_id):
+    auth_error = _require_auth()
+    if auth_error:
+        return auth_error
     try:
         # Récupérer l'utilisateur
         user = User.query.get_or_404(user_id)
@@ -182,6 +194,9 @@ def update_user(user_id):
     roles = Role.for_active_entity().all()
 
     if request.method == 'POST':
+        auth_error = _require_auth()
+        if auth_error:
+            return auth_error
         user.first_name = request.form['first_name']
         user.last_name = request.form['last_name']
         user.age = request.form.get('age')
@@ -229,6 +244,9 @@ def get_managers():
 
 @gestion_compte_bp.route('/assign_manager', methods=['POST'])
 def assign_manager():
+    auth_error = _require_auth()
+    if auth_error:
+        return auth_error
     manager_id = int(request.form['manager_id'])
     multi = request.form.get('multi_select', '0') == '1'
 
@@ -262,6 +280,9 @@ def assign_manager():
 
 @gestion_compte_bp.route('/remove_collaborator/<int:user_id>', methods=['POST'])
 def remove_collaborator(user_id):
+    auth_error = _require_auth()
+    if auth_error:
+        return auth_error
     user = User.query.get(user_id)
     if user:
         user.manager_id = None
@@ -290,6 +311,9 @@ def get_subordinates(manager_id):
 
 @gestion_compte_bp.route('/set_password/<int:user_id>', methods=['POST'])
 def set_password(user_id):
+    auth_error = _require_auth()
+    if auth_error:
+        return auth_error
     user = User.query.get_or_404(user_id)
     data = request.get_json(silent=True) or {}
     new_password = (data.get('password') or '').strip()
@@ -312,6 +336,9 @@ def import_excel():
     Import d'utilisateurs via fichier Excel
     Format attendu: prenom, nom, email, age, mot_de_passe, role, statut
     """
+    auth_error = _require_auth()
+    if auth_error:
+        return auth_error
     try:
         print("📥 Import Excel - Début")
         data = request.get_json()

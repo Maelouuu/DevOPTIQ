@@ -421,5 +421,117 @@
     ],
     "author": "routine",
     "fixed_at": "2026-07-06T03:21:13"
+  },
+  {
+    "patch_uid": "2026-07-13-gestion-compte-mutations-no-auth",
+    "title": "API comptes (create/update/delete/set_password/import_excel) accessible sans session",
+    "node_ids": [
+      "tests/test_18_gestion_compte.py::TestGestionCompteNoAuth::test_create_user_requires_auth",
+      "tests/test_18_gestion_compte.py::TestGestionCompteNoAuth::test_delete_user_requires_auth",
+      "tests/test_18_gestion_compte.py::TestGestionCompteNoAuth::test_update_user_post_requires_auth",
+      "tests/test_18_gestion_compte.py::TestGestionCompteNoAuth::test_assign_manager_requires_auth",
+      "tests/test_18_gestion_compte.py::TestGestionCompteNoAuth::test_remove_collaborator_requires_auth",
+      "tests/test_18_gestion_compte.py::TestGestionCompteNoAuth::test_set_password_requires_auth",
+      "tests/test_18_gestion_compte.py::TestGestionCompteNoAuth::test_import_excel_requires_auth",
+      "tests/test_18_gestion_compte.py::TestGestionCompteNoAuth::test_create_user_still_works_when_authenticated"
+    ],
+    "page_slug": "gestion_compte",
+    "failure_reason": "Analyse de couverture : aucune route mutante de gestion_compte.py (create/delete/update/assign_manager/remove_collaborator/set_password/import_excel) ne verifiait la session, contrairement a la convention 401 Non connecte deja appliquee dans gestion_outils.py et roles_view.py.",
+    "was_real_bug": true,
+    "root_cause": "app_bug",
+    "error": "Un client anonyme pouvait creer, modifier, supprimer n'importe quel utilisateur, reinitialiser le mot de passe de n'importe quel compte (y compris admin) et importer des utilisateurs en masse, sans jamais etre authentifie.",
+    "fix_description": "Ajout d'un helper _require_auth() (session.get('user_id')) dans gestion_compte.py, applique en tete de create_user, delete_user, update_user (branche POST), assign_manager, remove_collaborator, set_password et import_excel, retournant 401 si absent.",
+    "files_changed": [
+      "Code/routes/gestion_compte.py",
+      "tests/test_18_gestion_compte.py"
+    ],
+    "author": "routine",
+    "fixed_at": "2026-07-13T03:17:40"
+  },
+  {
+    "patch_uid": "2026-07-13-gestion-rh-mutations-no-auth",
+    "title": "API RH (roles/settings/managers) accessible sans session",
+    "node_ids": [
+      "tests/test_12_gestion_rh.py::TestGestionRHNoAuth::test_update_settings_requires_auth",
+      "tests/test_12_gestion_rh.py::TestGestionRHNoAuth::test_update_single_setting_requires_auth",
+      "tests/test_12_gestion_rh.py::TestGestionRHNoAuth::test_assign_roles_requires_auth",
+      "tests/test_12_gestion_rh.py::TestGestionRHNoAuth::test_import_roles_requires_auth",
+      "tests/test_12_gestion_rh.py::TestGestionRHNoAuth::test_create_role_requires_auth",
+      "tests/test_12_gestion_rh.py::TestGestionRHNoAuth::test_delete_role_requires_auth",
+      "tests/test_12_gestion_rh.py::TestGestionRHNoAuth::test_collaborateur_roles_requires_auth",
+      "tests/test_12_gestion_rh.py::TestGestionRHNoAuth::test_update_collaborator_name_requires_auth",
+      "tests/test_12_gestion_rh.py::TestGestionRHNoAuth::test_assign_manager_requires_auth",
+      "tests/test_12_gestion_rh.py::TestGestionRHNoAuth::test_assign_manager_simple_requires_auth",
+      "tests/test_12_gestion_rh.py::TestGestionRHNoAuth::test_role_still_created_when_authenticated"
+    ],
+    "page_slug": "gestion_rh",
+    "failure_reason": "Analyse de couverture : aucune route mutante de gestion_rh.py (parametres entreprise, roles, affectation managers, renommage collaborateur) ne verifiait la session utilisateur.",
+    "was_real_bug": true,
+    "root_cause": "app_bug",
+    "error": "Un client anonyme pouvait modifier les parametres entreprise, creer/renommer/supprimer des roles, reassigner tous les roles d'un collaborateur, renommer un utilisateur et changer les affectations manager, sans authentification.",
+    "fix_description": "Ajout d'un helper _require_auth() (session.get('user_id')) dans gestion_rh.py, applique en tete de update_settings, assign_roles, import_roles, update_single_setting, create_or_update_role, delete_role, update_collaborateur_roles, update_collaborator_name, assign_manager et assign_manager_simple, retournant 401 si absent.",
+    "files_changed": [
+      "Code/routes/gestion_rh.py",
+      "tests/test_12_gestion_rh.py"
+    ],
+    "author": "routine",
+    "fixed_at": "2026-07-13T03:18:01"
+  },
+  {
+    "patch_uid": "2026-07-13-gestion-rh-update-single-setting-sql-injection",
+    "title": "Injection SQL dans update_single_setting via le parametre key",
+    "node_ids": [
+      "tests/test_12_gestion_rh.py::TestUpdateSingleSettingInjection::test_unknown_key_rejected",
+      "tests/test_12_gestion_rh.py::TestUpdateSingleSettingInjection::test_injection_payload_rejected",
+      "tests/test_12_gestion_rh.py::TestUpdateSingleSettingInjection::test_valid_key_still_works"
+    ],
+    "page_slug": "gestion_rh",
+    "failure_reason": "Analyse de couverture / revue de securite : update_single_setting construisait la requete SQL avec f-string en interpolant directement request.form.get('key') dans 'UPDATE entreprise_settings SET {key} = :val', sans whitelist ni echappement.",
+    "was_real_bug": true,
+    "root_cause": "app_bug",
+    "error": "Le nom de colonne de la clause SET provenait directement de l'entree utilisateur (POST key=...) et etait injecte tel quel dans la requete SQL brute (db.session.execute(text(f\"...SET {key} = :val...\"))), permettant une injection SQL arbitraire (ex: cle contenant '; DROP TABLE users; --').",
+    "fix_description": "Ajout d'une whitelist ENTREPRISE_SETTINGS_COLUMNS (work_hours_per_day, work_days_per_week, work_weeks_per_year, work_days_per_year) verifiee avant construction de la requete ; toute cle hors whitelist retourne 400 sans toucher la base.",
+    "files_changed": [
+      "Code/routes/gestion_rh.py",
+      "tests/test_12_gestion_rh.py"
+    ],
+    "author": "routine",
+    "fixed_at": "2026-07-13T03:18:01"
+  },
+  {
+    "patch_uid": "2026-07-13-competences-crud-mutations-no-auth",
+    "title": "CRUD Aptitudes/HSC/Savoirs/Savoir-Faires accessible sans session",
+    "node_ids": [
+      "tests/test_05_aptitudes.py::TestAptitudesNoAuth::test_add_aptitude_requires_auth",
+      "tests/test_05_aptitudes.py::TestAptitudesNoAuth::test_update_aptitude_requires_auth",
+      "tests/test_05_aptitudes.py::TestAptitudesNoAuth::test_delete_aptitude_requires_auth",
+      "tests/test_06_softskills.py::TestSoftskillsNoAuth::test_add_softskill_requires_auth",
+      "tests/test_06_softskills.py::TestSoftskillsNoAuth::test_update_softskill_requires_auth",
+      "tests/test_06_softskills.py::TestSoftskillsNoAuth::test_delete_softskill_requires_auth",
+      "tests/test_19_savoirs.py::TestSavoirsNoAuth::test_add_savoir_requires_auth",
+      "tests/test_19_savoirs.py::TestSavoirsNoAuth::test_update_savoir_requires_auth",
+      "tests/test_19_savoirs.py::TestSavoirsNoAuth::test_delete_savoir_requires_auth",
+      "tests/test_20_savoir_faires.py::TestSavoirFairesNoAuth::test_add_sf_requires_auth",
+      "tests/test_20_savoir_faires.py::TestSavoirFairesNoAuth::test_update_sf_requires_auth",
+      "tests/test_20_savoir_faires.py::TestSavoirFairesNoAuth::test_delete_sf_requires_auth"
+    ],
+    "page_slug": "aptitudes",
+    "failure_reason": "Analyse de couverture : les 4 blueprints CRUD quasi identiques aptitudes.py, softskills.py, savoirs.py et savoir_faires.py (add/update/delete) ne verifiaient jamais session['user_id'], contrairement a la convention _require_auth deja etablie ailleurs (gestion_outils.py, roles_view.py).",
+    "was_real_bug": true,
+    "root_cause": "app_bug",
+    "error": "Un client anonyme pouvait ajouter, modifier ou supprimer des aptitudes, softskills (HSC), savoirs et savoir-faires sur n'importe quelle activite sans etre authentifie.",
+    "fix_description": "Ajout d'un helper _require_auth() (session.get('user_id')) dans chacun des 4 fichiers, applique en tete des routes add/update/delete, retournant 401 si absent.",
+    "files_changed": [
+      "Code/routes/aptitudes.py",
+      "Code/routes/softskills.py",
+      "Code/routes/savoirs.py",
+      "Code/routes/savoir_faires.py",
+      "tests/test_05_aptitudes.py",
+      "tests/test_06_softskills.py",
+      "tests/test_19_savoirs.py",
+      "tests/test_20_savoir_faires.py"
+    ],
+    "author": "routine",
+    "fixed_at": "2026-07-13T03:21:31"
   }
 ]

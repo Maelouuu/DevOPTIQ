@@ -70,3 +70,35 @@ class TestAptitudesCRUD:
         assert r.status_code in (200, 404)
         if r.status_code == 200:
             assert len(r.data) > 0
+
+
+# ===========================================================================
+# 5. Sécurité — mutations sans session
+# ===========================================================================
+
+class TestAptitudesNoAuth:
+    """Utilise un client isolé (app.test_client() dédié par test) car le
+    fixture `client` partage son cookie-jar avec `auth_client` (scope=session)."""
+
+    def test_add_aptitude_requires_auth(self, app, ids):
+        with app.test_client() as fresh:
+            r = fresh.post(
+                "/aptitudes/add",
+                data=json.dumps({"description": "Sans Session", "activity_id": ids["activity_id"]}),
+                content_type="application/json",
+            )
+        assert r.status_code == 401
+
+    def test_update_aptitude_requires_auth(self, app, ids):
+        with app.test_client() as fresh:
+            r = fresh.put(
+                f"/aptitudes/{ids['activity_id']}/999999",
+                data=json.dumps({"description": "X"}),
+                content_type="application/json",
+            )
+        assert r.status_code == 401
+
+    def test_delete_aptitude_requires_auth(self, app, ids):
+        with app.test_client() as fresh:
+            r = fresh.delete(f"/aptitudes/{ids['activity_id']}/999999")
+        assert r.status_code == 401

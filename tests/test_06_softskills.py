@@ -78,3 +78,39 @@ class TestSoftskillsCRUD:
     def test_render_softskills(self, auth_client, ids):
         r = auth_client.get(f"/softskills/{ids['activity_id']}/render")
         assert r.status_code in (200, 404)
+
+
+# ===========================================================================
+# Sécurité — mutations sans session
+# ===========================================================================
+
+class TestSoftskillsNoAuth:
+    """Utilise un client isolé (app.test_client() dédié par test) car le
+    fixture `client` partage son cookie-jar avec `auth_client` (scope=session)."""
+
+    def test_add_softskill_requires_auth(self, app, ids):
+        with app.test_client() as fresh:
+            r = fresh.post(
+                "/softskills/add",
+                data=json.dumps({
+                    "activity_id": ids["activity_id"],
+                    "habilete": "Sans Session",
+                    "niveau": "2",
+                }),
+                content_type="application/json",
+            )
+        assert r.status_code == 401
+
+    def test_update_softskill_requires_auth(self, app, ids):
+        with app.test_client() as fresh:
+            r = fresh.put(
+                f"/softskills/{ids['activity_id']}/999999",
+                data=json.dumps({"habilete": "X", "niveau": "1"}),
+                content_type="application/json",
+            )
+        assert r.status_code == 401
+
+    def test_delete_softskill_requires_auth(self, app, ids):
+        with app.test_client() as fresh:
+            r = fresh.delete(f"/softskills/{ids['activity_id']}/999999")
+        assert r.status_code == 401

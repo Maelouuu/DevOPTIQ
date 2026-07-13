@@ -568,3 +568,110 @@ class TestImportExcel:
         data = json.loads(r.data)
         assert "success" in data
         assert "message" in data
+
+
+# ===========================================================================
+# 11. Sécurité — endpoints mutants sans session
+# ===========================================================================
+
+class TestGestionCompteNoAuth:
+    """Utilise un client isolé (app.test_client() dédié par test) car le
+    fixture `client` partage son cookie-jar avec `auth_client` (scope=session).
+    Aucune route qui crée/modifie/supprime un compte ne doit être accessible
+    sans session (protection ajoutée via _require_auth)."""
+
+    def test_create_user_requires_auth(self, app):
+        with app.test_client() as fresh:
+            r = fresh.post(
+                "/comptes/create",
+                data={
+                    "first_name": "Sans",
+                    "last_name": "Session",
+                    "email": "sans.session@devoptiq.com",
+                    "password": "Pass123!",
+                    "role_id": "1",
+                },
+            )
+        assert r.status_code == 401
+
+    def test_delete_user_requires_auth(self, app):
+        with app.test_client() as fresh:
+            r = fresh.post("/comptes/delete/999999")
+        assert r.status_code == 401
+
+    def test_update_user_post_requires_auth(self, app, ids):
+        uid = _create_user(app, ids, "noauth.update.test@devoptiq.com")
+        try:
+            with app.test_client() as fresh:
+                r = fresh.post(
+                    f"/comptes/update/{uid}",
+                    data={
+                        "first_name": "Hack",
+                        "last_name": "Attempt",
+                        "email": "noauth.update.test@devoptiq.com",
+                        "status": "admin",
+                        "role_id": "1",
+                    },
+                )
+            assert r.status_code == 401
+        finally:
+            _delete_user(app, uid)
+
+    def test_assign_manager_requires_auth(self, app):
+        with app.test_client() as fresh:
+            r = fresh.post("/comptes/assign_manager", data={"manager_id": "1", "user_id": "2"})
+        assert r.status_code == 401
+
+    def test_remove_collaborator_requires_auth(self, app):
+        with app.test_client() as fresh:
+            r = fresh.post("/comptes/remove_collaborator/999999")
+        assert r.status_code == 401
+
+    def test_set_password_requires_auth(self, app, ids):
+        uid = _create_user(app, ids, "noauth.setpwd.test@devoptiq.com")
+        try:
+            with app.test_client() as fresh:
+                r = fresh.post(
+                    f"/comptes/set_password/{uid}",
+                    data=json.dumps({"password": "NewPass123!"}),
+                    content_type="application/json",
+                )
+            assert r.status_code == 401
+        finally:
+            _delete_user(app, uid)
+
+    def test_import_excel_requires_auth(self, app):
+        with app.test_client() as fresh:
+            r = fresh.post(
+                "/comptes/import_excel",
+                data=json.dumps({"users": []}),
+                content_type="application/json",
+            )
+        assert r.status_code == 401
+
+    def test_create_user_still_works_when_authenticated(self, auth_client, ids, app):
+        """Non-régression : avec session, la création fonctionne toujours."""
+        role_id = _create_role(app, ids, name="Rôle Post Fix Compte Auth")
+        try:
+            r = auth_client.post(
+                "/comptes/create",
+                data={
+                    "first_name": "Avec",
+                    "last_name": "Session",
+                    "email": "avec.session.postfix@devoptiq.com",
+                    "password": "Pass123!",
+                    "role_id": str(role_id),
+                    "status": "user",
+                },
+            )
+            assert r.status_code == 302
+        finally:
+            with app.app_context():
+                from Code.models.models import User, UserRole
+                from Code.extensions import db
+                u = User.query.filter_by(email="avec.session.postfix@devoptiq.com").first()
+                if u:
+                    UserRole.query.filter_by(user_id=u.id).delete()
+                    db.session.delete(u)
+                    db.session.commit()
+            _delete_role(app, role_id)

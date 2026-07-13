@@ -1,11 +1,17 @@
 # Code/routes/aptitudes.py
 
-from flask import Blueprint, request, jsonify, render_template
+from flask import Blueprint, request, jsonify, render_template, session
 from Code.extensions import db
 from Code.models.models import Activities, Aptitude
 
 
 aptitudes_bp = Blueprint('aptitudes_bp', __name__, url_prefix='/aptitudes')
+
+
+def _require_auth():
+    if not session.get('user_id'):
+        return jsonify({"error": "Non connecté"}), 401
+    return None
 
 
 @aptitudes_bp.route('/add', methods=['POST'])
@@ -14,6 +20,9 @@ def add_aptitude():
     Ajoute une "Aptitude" à l'activité <activity_id>.
     JSON attendu : { "description": "<str>", "activity_id": <int> }
     """
+    auth_error = _require_auth()
+    if auth_error:
+        return auth_error
     data = request.get_json() or {}
     desc = data.get("description", "").strip()
     activity_id = data.get("activity_id")
@@ -42,6 +51,9 @@ def update_aptitude(activity_id, aptitudes_id):
     Met à jour une "Aptitude" existante sur l'activité <activity_id>.
     JSON attendu : { "description": "<str>" }
     """
+    auth_error = _require_auth()
+    if auth_error:
+        return auth_error
     data = request.get_json() or {}
     new_desc = data.get("description", "").strip()
     if not new_desc:
@@ -67,6 +79,9 @@ def delete_aptitude(activity_id, aptitudes_id):
     """
     Supprime une "Aptitude" existant de l'activité <activity_id>.
     """
+    auth_error = _require_auth()
+    if auth_error:
+        return auth_error
     aptitudes_obj = Aptitude.query.filter_by(id=aptitudes_id, activity_id=activity_id).first()
     if not aptitudes_obj:
         return jsonify({"error": "Aptitude not found"}), 404

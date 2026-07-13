@@ -1,12 +1,18 @@
 # Code/routes/savoir_faires.py
 
-from flask import Blueprint, request, jsonify, render_template, abort
+from flask import Blueprint, request, jsonify, render_template, abort, session
 from Code.extensions import db
 from Code.models.models import Activities, SavoirFaire
 
 # Blueprint pour les savoir-faires
 # (on garde le même nom de variable/endpoint pour ne pas casser les url_for éventuels)
 savoir_faires_bp = Blueprint('savoir_faires_bp', __name__, url_prefix='/savoir_faires')
+
+
+def _require_auth():
+    if not session.get('user_id'):
+        return jsonify({"error": "Non connecté"}), 401
+    return None
 
 
 @savoir_faires_bp.route('/add', methods=['POST'])
@@ -27,6 +33,9 @@ def add_savoir_faires():
          "savoir_faires": ["<str>", "<str>", ...]
        }
     """
+    auth_error = _require_auth()
+    if auth_error:
+        return auth_error
     data = request.get_json(silent=True) or {}
     activity_id = data.get("activity_id")
 
@@ -82,6 +91,9 @@ def update_savoir_faires(activity_id, savoir_faires_id):
     Met à jour un 'SavoirFaire' existant sur l'activité <activity_id>.
     JSON attendu : { "description": "<str>" }
     """
+    auth_error = _require_auth()
+    if auth_error:
+        return auth_error
     data = request.get_json(silent=True) or {}
     new_desc = (data.get("description") or "").strip()
     if not new_desc:
@@ -108,6 +120,9 @@ def delete_savoir_faires(activity_id, savoir_faires_id):
     """
     Supprime un 'SavoirFaire' existant de l'activité <activity_id>.
     """
+    auth_error = _require_auth()
+    if auth_error:
+        return auth_error
     sf_obj = SavoirFaire.query.filter_by(id=savoir_faires_id, activity_id=activity_id).first()
     if not sf_obj:
         return jsonify({"error": "SavoirFaire not found"}), 404

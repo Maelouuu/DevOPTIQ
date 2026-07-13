@@ -370,3 +370,35 @@ class TestRenderSavoirFaires:
             assert b"SF Rendu HTML Test" in r.data
         finally:
             _delete_sf(app, sf_id)
+
+
+# ===========================================================================
+# 6. Sécurité — mutations sans session
+# ===========================================================================
+
+class TestSavoirFairesNoAuth:
+    """Utilise un client isolé (app.test_client() dédié par test) car le
+    fixture `client` partage son cookie-jar avec `auth_client` (scope=session)."""
+
+    def test_add_sf_requires_auth(self, app, ids):
+        with app.test_client() as fresh:
+            r = fresh.post(
+                "/savoir_faires/add",
+                data=json.dumps({"description": "Sans Session", "activity_id": ids["activity_id"]}),
+                content_type="application/json",
+            )
+        assert r.status_code == 401
+
+    def test_update_sf_requires_auth(self, app, ids):
+        with app.test_client() as fresh:
+            r = fresh.put(
+                f"/savoir_faires/{ids['activity_id']}/999999",
+                data=json.dumps({"description": "X"}),
+                content_type="application/json",
+            )
+        assert r.status_code == 401
+
+    def test_delete_sf_requires_auth(self, app, ids):
+        with app.test_client() as fresh:
+            r = fresh.delete(f"/savoir_faires/{ids['activity_id']}/999999")
+        assert r.status_code == 401

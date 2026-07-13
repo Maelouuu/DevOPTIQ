@@ -632,3 +632,135 @@ class TestImportRoles:
             content_type="multipart/form-data",
         )
         assert r.status_code in (200, 302)
+
+
+# ===========================================================================
+# 10. Sécurité — endpoints mutants sans session
+# ===========================================================================
+
+class TestGestionRHNoAuth:
+    """Utilise un client isolé (app.test_client() dédié par test) car le
+    fixture `client` partage son cookie-jar avec `auth_client` (scope=session).
+    Aucune route qui modifie des données ne doit être accessible sans session."""
+
+    def test_update_settings_requires_auth(self, app):
+        _ensure_entreprise_settings(app)
+        with app.test_client() as fresh:
+            r = fresh.post("/gestion_rh/update_settings", data={"work_hours_per_day": "8"})
+        assert r.status_code == 401
+
+    def test_update_single_setting_requires_auth(self, app):
+        _ensure_entreprise_settings(app)
+        with app.test_client() as fresh:
+            r = fresh.post(
+                "/gestion_rh/update_single_setting",
+                data={"key": "work_hours_per_day", "value": "7"},
+            )
+        assert r.status_code == 401
+
+    def test_assign_roles_requires_auth(self, app):
+        with app.test_client() as fresh:
+            r = fresh.post("/gestion_rh/assign_roles", data={"user_id": 1, "role_ids": [1]})
+        assert r.status_code == 401
+
+    def test_import_roles_requires_auth(self, app):
+        data = {"role_file": (io.BytesIO(b"Role\n"), "roles.csv")}
+        with app.test_client() as fresh:
+            r = fresh.post("/gestion_rh/import_roles", data=data, content_type="multipart/form-data")
+        assert r.status_code == 401
+
+    def test_create_role_requires_auth(self, app):
+        with app.test_client() as fresh:
+            r = fresh.post("/gestion_rh/role", data={"name": "Sans Session"})
+        assert r.status_code == 401
+
+    def test_delete_role_requires_auth(self, app):
+        with app.test_client() as fresh:
+            r = fresh.post("/gestion_rh/delete_role/999999")
+        assert r.status_code == 401
+
+    def test_collaborateur_roles_requires_auth(self, app):
+        with app.test_client() as fresh:
+            r = fresh.post("/gestion_rh/collaborateur_roles", data={"user_id": 1})
+        assert r.status_code == 401
+
+    def test_update_collaborator_name_requires_auth(self, app):
+        with app.test_client() as fresh:
+            r = fresh.post(
+                "/gestion_rh/update_collaborator_name",
+                data=json.dumps({"user_id": 1, "name": "X Y"}),
+                content_type="application/json",
+            )
+        assert r.status_code == 401
+
+    def test_assign_manager_requires_auth(self, app):
+        with app.test_client() as fresh:
+            r = fresh.post(
+                "/gestion_rh/assign_manager",
+                data=json.dumps({"manager_id": 1, "assignments": [{"user_id": 1, "role_id": 1}]}),
+                content_type="application/json",
+            )
+        assert r.status_code == 401
+
+    def test_assign_manager_simple_requires_auth(self, app):
+        with app.test_client() as fresh:
+            r = fresh.post(
+                "/gestion_rh/assign_manager_simple",
+                data=json.dumps({"user_id": 1, "manager_id": 2}),
+                content_type="application/json",
+            )
+        assert r.status_code == 401
+
+    def test_role_still_created_when_authenticated(self, auth_client, app):
+        """Non-régression : avec session, la création de rôle fonctionne toujours."""
+        r = auth_client.post("/gestion_rh/role", data={"name": "Rôle Post Fix Auth"})
+        assert r.status_code == 200
+        with app.app_context():
+            from Code.models.models import Role
+            from Code.extensions import db
+            role = Role.query.filter_by(name="Rôle Post Fix Auth").first()
+            assert role is not None
+            db.session.delete(role)
+            db.session.commit()
+
+
+# ===========================================================================
+# 11. Sécurité — injection SQL sur update_single_setting
+# ===========================================================================
+
+class TestUpdateSingleSettingInjection:
+    """update_single_setting interpolait `key` directement dans une requête
+    SQL brute (UPDATE entreprise_settings SET {key} = :val). Un `key` qui ne
+    correspond pas à une colonne connue doit être rejeté (400), pas exécuté."""
+
+    def test_unknown_key_rejected(self, auth_client, app):
+        _ensure_entreprise_settings(app)
+        r = auth_client.post(
+            "/gestion_rh/update_single_setting",
+            data={"key": "work_hours_per_day = 0 --", "value": "1"},
+        )
+        assert r.status_code == 400
+
+    def test_injection_payload_rejected(self, auth_client, app):
+        _ensure_entreprise_settings(app)
+        payload_key = "work_hours_per_day=1 WHERE 1=1; DROP TABLE users; --"
+        r = auth_client.post(
+            "/gestion_rh/update_single_setting",
+            data={"key": payload_key, "value": "1"},
+        )
+        assert r.status_code == 400
+        with app.app_context():
+            from Code.models.models import User
+            # La table users doit toujours exister et être interrogeable.
+            assert User.query.count() >= 0
+
+    def test_valid_key_still_works(self, auth_client, app):
+        """Non-régression : une clé whitelistée continue de fonctionner."""
+        _ensure_entreprise_settings(app)
+        r = auth_client.post(
+            "/gestion_rh/update_single_setting",
+            data={"key": "work_days_per_week", "value": "4"},
+        )
+        assert r.status_code == 200
+        data = json.loads(r.data)
+        assert data.get("success") is True

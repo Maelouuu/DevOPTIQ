@@ -1,5 +1,5 @@
 import re
-from flask import Blueprint, request, jsonify, render_template
+from flask import Blueprint, request, jsonify, render_template, session
 from sqlalchemy import func
 from Code.extensions import db
 from Code.models.models import Softskill, Activities
@@ -7,11 +7,20 @@ from Code.models.models import Softskill, Activities
 softskills_crud_bp = Blueprint("softskills_crud_bp", __name__, url_prefix="/softskills")
 
 
+def _require_auth():
+    if not session.get('user_id'):
+        return jsonify({"error": "Non connecté"}), 401
+    return None
+
+
 # ==========================================================
 # AJOUT MANUEL
 # ==========================================================
 @softskills_crud_bp.route("/add", methods=["POST"])
 def add_softskill():
+    auth_error = _require_auth()
+    if auth_error:
+        return auth_error
     data = request.get_json() or {}
 
     activity_id = data.get("activity_id")
@@ -69,6 +78,9 @@ def add_softskill():
 # ==========================================================
 @softskills_crud_bp.route("/<int:activity_id>/<int:ss_id>", methods=["PUT"])
 def update_softskill(activity_id, ss_id):
+    auth_error = _require_auth()
+    if auth_error:
+        return auth_error
     data = request.get_json() or {}
 
     habilete = (data.get("habilete") or "").strip()
@@ -106,6 +118,9 @@ def update_softskill(activity_id, ss_id):
 # ==========================================================
 @softskills_crud_bp.route("/<int:activity_id>/<int:ss_id>", methods=["DELETE"])
 def delete_softskill(activity_id, ss_id):
+    auth_error = _require_auth()
+    if auth_error:
+        return auth_error
     ss = Softskill.query.get(ss_id)
 
     if not ss:

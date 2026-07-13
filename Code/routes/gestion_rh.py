@@ -6,10 +6,23 @@ from sqlalchemy import text
 
 gestion_rh_bp = Blueprint('gestion_rh', __name__, url_prefix='/gestion_rh')
 
+ENTREPRISE_SETTINGS_COLUMNS = {
+    "work_hours_per_day",
+    "work_days_per_week",
+    "work_weeks_per_year",
+    "work_days_per_year",
+}
+
 
 def get_active_entity_id():
     """Récupère l'ID de l'entité active depuis la session."""
     return session.get('active_entity_id')
+
+
+def _require_auth():
+    if not session.get('user_id'):
+        return jsonify({"error": "Non connecté"}), 401
+    return None
 
 
 def ensure_manager_id_column():
@@ -63,6 +76,9 @@ def gestion_rh_home():
 
 @gestion_rh_bp.route('/update_settings', methods=['POST'])
 def update_settings():
+    auth_error = _require_auth()
+    if auth_error:
+        return auth_error
     data = request.form
     active_entity_id = get_active_entity_id()
     
@@ -92,6 +108,9 @@ def update_settings():
 
 @gestion_rh_bp.route('/assign_roles', methods=['POST'])
 def assign_roles():
+    auth_error = _require_auth()
+    if auth_error:
+        return auth_error
     user_id = request.form.get("user_id")
     role_ids = request.form.getlist("role_ids")
     db.session.query(UserRole).filter_by(user_id=user_id).delete()
@@ -111,6 +130,9 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 @gestion_rh_bp.route('/import_roles', methods=['POST'])
 def import_roles():
+    auth_error = _require_auth()
+    if auth_error:
+        return auth_error
     file = request.files['role_file']
     if file and file.filename.endswith('.csv'):
         filepath = os.path.join(UPLOAD_FOLDER, secure_filename(file.filename))
@@ -138,9 +160,15 @@ def import_roles():
 
 @gestion_rh_bp.route('/update_single_setting', methods=['POST'])
 def update_single_setting():
+    auth_error = _require_auth()
+    if auth_error:
+        return auth_error
     key = request.form.get("key")
     value = request.form.get("value")
-    
+
+    if key not in ENTREPRISE_SETTINGS_COLUMNS:
+        return jsonify(success=False, error="Paramètre inconnu"), 400
+
     active_entity_id = get_active_entity_id()
 
     # Récupère ou crée la ligne entreprise_settings pour cette entité
@@ -174,6 +202,9 @@ def update_single_setting():
 
 @gestion_rh_bp.route('/role', methods=['POST'])
 def create_or_update_role():
+    auth_error = _require_auth()
+    if auth_error:
+        return auth_error
     role_id = request.form.get('id')
     name = request.form.get('name').strip()
 
@@ -191,6 +222,9 @@ def create_or_update_role():
 
 @gestion_rh_bp.route('/delete_role/<int:role_id>', methods=['POST'])
 def delete_role(role_id):
+    auth_error = _require_auth()
+    if auth_error:
+        return auth_error
     role = Role.query.get(role_id)
     if role:
         db.session.delete(role)
@@ -241,6 +275,9 @@ def get_collaborateurs():
 
 @gestion_rh_bp.route('/collaborateur_roles', methods=['POST'])
 def update_collaborateur_roles():
+    auth_error = _require_auth()
+    if auth_error:
+        return auth_error
     user_id = request.form.get('user_id')
     new_roles = request.form.getlist('role_ids[]')  # tableau de IDs
     db.session.query(UserRole).filter_by(user_id=user_id).delete()
@@ -256,6 +293,9 @@ def update_collaborator_name():
     Met à jour le nom d'un collaborateur.
     Body JSON: { "user_id": int, "name": "Prénom Nom" }
     """
+    auth_error = _require_auth()
+    if auth_error:
+        return auth_error
     data = request.get_json()
     user_id = data.get('user_id')
     full_name = data.get('name', '').strip()
@@ -283,6 +323,9 @@ def update_collaborator_name():
 
 @gestion_rh_bp.route('/assign_manager', methods=['POST'])
 def assign_manager():
+    auth_error = _require_auth()
+    if auth_error:
+        return auth_error
     data = request.get_json()
     manager_id = data.get('manager_id')
     assignments = data.get('assignments', [])  # liste de { user_id, role_id }
@@ -426,6 +469,9 @@ def assign_manager_simple():
     - manager_id: int ou null (null pour retirer)
     - role_ids: list[int] ou null (null = global, liste = par rôle)
     """
+    auth_error = _require_auth()
+    if auth_error:
+        return auth_error
     data = request.get_json()
     user_id = data.get('user_id')
     manager_id = data.get('manager_id')

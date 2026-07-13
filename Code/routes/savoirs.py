@@ -1,11 +1,17 @@
 # Code/routes/savoirs.py
 
-from flask import Blueprint, request, jsonify, render_template
+from flask import Blueprint, request, jsonify, render_template, session
 from Code.extensions import db
 from Code.models.models import Activities, Savoir
 
 # Utiliser un préfixe différent pour le blueprint, si nécessaire, mais ici on garde '/savoirs'
 savoirs_bp = Blueprint('savoirs_bp', __name__, url_prefix='/savoirs')
+
+
+def _require_auth():
+    if not session.get('user_id'):
+        return jsonify({"error": "Non connecté"}), 401
+    return None
 
 
 @savoirs_bp.route('/add', methods=['POST'])
@@ -14,6 +20,9 @@ def add_savoir():
     Ajoute un "Savoir" à l'activité <activity_id>.
     JSON attendu : { "description": "<str>", "activity_id": <int> }
     """
+    auth_error = _require_auth()
+    if auth_error:
+        return auth_error
     data = request.get_json() or {}
     desc = data.get("description", "").strip()
     activity_id = data.get("activity_id")
@@ -43,6 +52,9 @@ def update_savoir(activity_id, savoir_id):
     Met à jour un "Savoir" existant sur l'activité <activity_id>.
     JSON attendu : { "description": "<str>" }
     """
+    auth_error = _require_auth()
+    if auth_error:
+        return auth_error
     data = request.get_json() or {}
     new_desc = data.get("description", "").strip()
     if not new_desc:
@@ -69,6 +81,9 @@ def delete_savoir(activity_id, savoir_id):
     """
     Supprime un "Savoir" existant de l'activité <activity_id>.
     """
+    auth_error = _require_auth()
+    if auth_error:
+        return auth_error
     savoir_obj = Savoir.query.filter_by(id=savoir_id, activity_id=activity_id).first()
     if not savoir_obj:
         return jsonify({"error": "Savoir not found"}), 404
