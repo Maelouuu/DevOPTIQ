@@ -117,6 +117,50 @@ function _measureDeco(){
   return {count:decos.length, tagged, seatedOnTag, untagged, bad:bad.slice(0,8)};
 }
 function _distSeg(px,py,a,b){const dx=b.x-a.x,dy=b.y-a.y,L=dx*dx+dy*dy||1;let t=((px-a.x)*dx+(py-a.y)*dy)/L;t=Math.max(0,Math.min(1,t));return Math.hypot(px-(a.x+t*dx),py-(a.y+t*dy));}
+// Segments non droits : ni horizontaux ni verticaux (déviation perpendiculaire > tol px).
+// Lit _computedOrthopts (géométrie rendue réelle). Ignore les micro-segments.
+function _measureAngles(tol){
+  tol=tol||2; let total=0, skew=0; const samples=[];
+  for(const c of state.connections){
+    const pts=c._computedOrthopts; if(!pts||pts.length<2) continue;
+    for(let i=0;i<pts.length-1;i++){
+      const dx=Math.abs(pts[i+1].x-pts[i].x), dy=Math.abs(pts[i+1].y-pts[i].y);
+      if(dx<1&&dy<1) continue;
+      total++;
+      const off=Math.min(dx,dy); // écart à l'axe le plus proche
+      if(off>tol){ skew++; if(samples.length<10) samples.push({id:c.id,x:Math.round(pts[i].x),y:Math.round(pts[i].y),dx:Math.round(dx),dy:Math.round(dy)}); }
+    }
+  }
+  return {total, skew, samples};
+}
+// Labels : combien de flèches ont un label, combien sont posés (labelOffset), et
+// combien de labels posés chevauchent le segment d'une AUTRE flèche (le défaut à éviter).
+// Lit les <text> réellement rendus dans #g-connections (fidèle au SVG).
+function _measureLabels(){
+  const conns=state.connections.filter(c=>(c.label||'').trim());
+  const withOffset=state.connections.filter(c=>c.labelOffset).length;
+  // segments de toutes les flèches
+  const segs=[];
+  for(const c of state.connections){const p=c._computedOrthopts;if(!p||p.length<2)continue;for(let i=0;i<p.length-1;i++)segs.push({id:c.id,a:p[i],b:p[i+1]});}
+  const byId=new Map(state.shapes.map(s=>[s.id,s]));
+  let onOtherArrow=0;
+  for(const c of conns){
+    if(!c.labelOffset) continue;
+    const lines=(c.label||'').split('\n');
+    const lw=Math.max(24,Math.max(...lines.map(l=>l.length))*6.5+10), lh=13*lines.length+(lines.length>1?4:0);
+    const horiz=(c.labelOffset.a===0); const bw=horiz?lw:lh, bh=horiz?lh:lw;
+    const cx=c.labelOffset.x, cy=c.labelOffset.y, hw=bw/2, hh=bh/2;
+    for(const sg of segs){ if(sg.id===c.id) continue;
+      // distance du BORD de la boîte au segment (comme architectLabels)
+      const abx=sg.b.x-sg.a.x, aby=sg.b.y-sg.a.y, L=abx*abx+aby*aby||1;
+      const t=Math.max(0,Math.min(1,((cx-sg.a.x)*abx+(cy-sg.a.y)*aby)/L));
+      const px=sg.a.x+t*abx, py=sg.a.y+t*aby;
+      const bdx=Math.max(0,Math.abs(cx-px)-hw), bdy=Math.max(0,Math.abs(cy-py)-hh);
+      if(Math.hypot(bdx,bdy)<3){ onOtherArrow++; break; }
+    }
+  }
+  return {labeled:conns.length, placed:withOffset, onOtherArrow};
+}
 // ── cadrage + capture ─────────────────────────────────────────────────────
 function _fitCanvas(maxW){
   maxW = maxW||1700;
@@ -140,8 +184,10 @@ function _fitRegion(cx,cy,zw,zh){
 async function run(){
   const q=new URLSearchParams(location.search);
   const vsdx = q.get('vsdx') || '/Code/hard.vsdx';   // carto de référence par défaut
+  const classic = q.get('classic')==='1';             // reconstruction classique (fidèle Visio)
+  const fix = q.get('fix')==='1';                      // applique le correctif classique (angles+labels)
   const declutter = q.get('declutter')!=='0';         // aération (align+declutter) on/off
-  const route = q.get('route')!=='0';                 // agencement auto on/off (positions brutes)
+  const route = q.get('route')!=='0' && !classic;     // agencement auto on/off (positions brutes)
   const buf=await (await fetch(vsdx)).arrayBuffer();
   const res=await vsdxParse(new Blob([buf]),()=>{},async()=>'keep',{spliceDecisions:false});
   state.bands=res.bands; state.shapes=res.shapes; state.connections=res.connections;
@@ -152,14 +198,24 @@ async function run(){
   // (customPath encore présent) avant tout re-routage.
   if(typeof _tagFloatingDecisions==='function') _tagFloatingDecisions(state.shapes, state.connections);
   const before=_measure();
-  if(route) await _computeAutoLayout({declutter});
+  if(classic){
+    // Reconstruction classique = tracés Visio exacts (customPath → userPts).
+    for(const c of state.connections) if(c.customPath && c.customPath.length>=3) c.userPts=c.customPath.slice(1,-1);
+    render();
+    if(fix && typeof _reconstructClassicPolish==='function') _reconstructClassicPolish();
+    render();
+  } else if(route){
+    await _computeAutoLayout({declutter});
+  }
   const after=_measure();
   const cx=q.get('cx'),cy=q.get('cy'),zw=q.get('zw');
   const fit=(cx!=null&&cy!=null&&zw!=null) ? _fitRegion(+cx,+cy,+zw,+(q.get('zh')||zw)) : _fitCanvas(1700);
   render();
   const tips=route?_measureTips():{pivot:0,samples:[]};
   const deco=route?_measureDeco():{tagged:0,seatedOnTag:0,untagged:0};
-  window.__R__={vsdx, mode:{declutter,route}, before, after, tips, deco, fit, nbShapes:state.shapes.length, nbConns:state.connections.length};
+  const angles=_measureAngles();
+  const labels=_measureLabels();
+  window.__R__={vsdx, mode:{classic,fix,declutter,route}, before, after, tips, deco, angles, labels, fit, nbShapes:state.shapes.length, nbConns:state.connections.length};
   document.title='DONE';
 }
 run().catch(e=>{window.__R__={err:String(e&&e.stack||e)};document.title='DONE';});

@@ -55,9 +55,16 @@ swimlane de cette densité).
 | Param | Rôle |
 |-------|------|
 | `vsdx=/Code/xxx.vsdx` | carto à charger (défaut `hard.vsdx`) |
+| `classic=1` | reconstruction classique (fidèle Visio, pas d'agencement) |
+| `fix=1` | + retouche classique : angles droits + labels près pointes sans croisement |
 | `route=0` | ne pas exécuter l'agencement auto (positions Visio brutes) |
 | `declutter=0` | désactive align + declutter (garde le routage) |
 | `cx,cy,zw,zh` | zoom sur une région (coordonnées carto) |
+
+Métriques ajoutées : `angles` (segments non droits — biais perpendiculaire >2 px),
+`labels` (`labeled`/`placed`/`onOtherArrow`). Repères import **classique** hard.vsdx :
+sans fix → 209 segments biaisés ; avec fix → **21** (le reste = vraies diagonales
+Visio) et **222/243 labels placés près des pointes, 0 sur une autre flèche**.
 
 ## Notes
 

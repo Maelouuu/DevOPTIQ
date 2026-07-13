@@ -5391,6 +5391,10 @@ async function importVSDX(file) {
       // les points de passage RENDUS (userPts) au lieu d'un re-routage orthogonal.
       for (const c of state.connections)
         if (c.customPath && c.customPath.length >= 3) c.userPts = c.customPath.slice(1, -1);
+      render();                    // popule _computedOrthopts (tracés Visio)
+      _reconstructClassicPolish(); // NE ré-agence PAS : redresse juste les angles pas
+                                   // droits + place les labels près des pointes sans
+                                   // jamais les poser là où une flèche en croise une autre.
     }
     render();
     history = [JSON.stringify(state)]; histIndex = 0; // baseline = carto reconstruite
@@ -6185,6 +6189,62 @@ function architectLabels(commit) {
   }
 
   if (commit !== false) { snapshot(); render(); }
+}
+
+// Orthogonalise un tracé « escalier » quasi-droit (import Visio) : chaque segment
+// devient EXACTEMENT horizontal ou vertical, sans re-router. Les points reliés par un
+// segment vertical partagent leur X, ceux reliés par un segment horizontal partagent
+// leur Y (union-find). Chaque classe prend la valeur de son extrémité ancrée (le port,
+// début/fin), sinon la médiane — les coudes gardent donc la position Visio, seuls les
+// petits biais (formes non alignées dans Visio) sont redressés. Renvoie de nouveaux points.
+function _orthogonalizeStaircase(pts) {
+  const n = pts.length;
+  if (n < 2) return pts.map(p => ({ x: p.x, y: p.y }));
+  const isV = [];
+  for (let i = 0; i < n - 1; i++) {
+    const dx = Math.abs(pts[i + 1].x - pts[i].x), dy = Math.abs(pts[i + 1].y - pts[i].y);
+    isV.push(dy >= dx); // vertical dominant → segment vertical
+  }
+  const ux = [...Array(n).keys()], uy = [...Array(n).keys()];
+  const find = (u, i) => { while (u[i] !== i) { u[i] = u[u[i]]; i = u[i]; } return i; };
+  const uni = (u, a, b) => { u[find(u, a)] = find(u, b); };
+  for (let i = 0; i < n - 1; i++) {
+    if (isV[i]) uni(ux, i, i + 1);   // vertical → même X
+    else        uni(uy, i, i + 1);   // horizontal → même Y
+  }
+  const median = arr => { const a = arr.slice().sort((x, y) => x - y); const m = a.length >> 1; return a.length % 2 ? a[m] : (a[m - 1] + a[m]) / 2; };
+  const resolve = (u, coord) => {
+    const cls = {};
+    for (let i = 0; i < n; i++) { const r = find(u, i); (cls[r] = cls[r] || []).push(i); }
+    const val = new Array(n);
+    for (const r in cls) {
+      const idxs = cls[r];
+      // ancre : extrémité 0 (départ) prioritaire, sinon n-1 (arrivée), sinon médiane
+      let v = idxs.includes(0) ? coord[0] : idxs.includes(n - 1) ? coord[n - 1] : median(idxs.map(i => coord[i]));
+      for (const i of idxs) val[i] = v;
+    }
+    return val;
+  };
+  const nx = resolve(ux, pts.map(p => p.x));
+  const ny = resolve(uy, pts.map(p => p.y));
+  return pts.map((_, i) => ({ x: nx[i], y: ny[i] }));
+}
+
+// Reconstruction classique (fidèle Visio) — retouches demandées :
+//  1) redresse les angles pas droits (orthogonalise chaque tracé Visio, ports gardés) ;
+//  2) place les labels près des pointes SANS jamais poser un label là où une flèche en
+//     croise une autre (architectLabels — récupéré de l'agencement auto).
+// N'AGENCE PAS : les formes et les tracés restent ceux de Visio, on ne fait que nettoyer.
+function _reconstructClassicPolish() {
+  for (const c of state.connections) {
+    const pts = c._computedOrthopts;
+    if (!pts || pts.length < 3) continue; // pas de coude → rien à redresser
+    const ortho = _orthogonalizeStaircase(pts);
+    const mids = ortho.slice(1, -1); // on jette les extrémités : render remet les vrais ports
+    c.userPts = mids.length ? mids : c.userPts;
+  }
+  render();                 // recalcule _computedOrthopts avec angles droits
+  architectLabels(false);   // labels près des pointes, jamais sur une autre flèche
 }
 
 function _labelOnSeg(conn, seg) {
