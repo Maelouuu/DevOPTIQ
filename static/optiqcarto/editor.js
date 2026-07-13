@@ -5114,8 +5114,21 @@ async function importVSDX(file) {
     // rajoute des croisements). On garde donc les tracés Visio exacts (customPath →
     // userPts) et on retouche juste les angles + les labels.
     document.getElementById('vsdx-dialog').classList.add('hidden');
-    for (const c of state.connections)
-      if (c.customPath && c.customPath.length >= 3) c.userPts = c.customPath.slice(1, -1);
+    // Bornes de la carto (bandes en Y, formes en X) : certains connecteurs Visio ont un
+    // point de passage DANS LE VIDE (au-delà des bandes) → longue excursion verticale
+    // hors carto. Pour ceux-là on jette les userPts Visio et on route proprement (fallback
+    // orthogonal de renderConnections). Marge pour tolérer un léger débordement légitime.
+    let _bTop = -200, _bBot = -200;
+    for (const b of state.bands) if (!b.deleted) _bBot += b.height;
+    let _sxLo = Infinity, _sxHi = -Infinity;
+    for (const s of state.shapes) { _sxLo = Math.min(_sxLo, s.x); _sxHi = Math.max(_sxHi, s.x + s.w); }
+    const _OOB = 50;
+    const _wpInVoid = p => p.y > _bBot + _OOB || p.y < _bTop - _OOB || p.x < _sxLo - _OOB || p.x > _sxHi + _OOB;
+    for (const c of state.connections) {
+      if (!c.customPath || c.customPath.length < 3) continue;
+      const mids = c.customPath.slice(1, -1);
+      c.userPts = mids.some(_wpInVoid) ? null : mids; // tracé qui fuit → route propre
+    }
     render();                    // popule _computedOrthopts (tracés Visio)
     _reconstructClassicPolish(); // NE ré-agence PAS : redresse les angles pas droits +
                                  // place les labels près des pointes sans les poser là

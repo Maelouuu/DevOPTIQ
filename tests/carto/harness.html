@@ -182,6 +182,28 @@ function _measureOverlaps(tol,minOv){
 }
 // Longueur totale des tracés rendus (px). Proxy direct du « spaghetti » : plus les
 // flèches sont longues (formes éloignées), plus la vue d'ensemble est chargée.
+// Points de flèche HORS des bandes (au-delà de la zone utile) — révèle les tracés qui
+// « fuient » vers le vide (le bug des longues lignes verticales sous la carto).
+function _measureOOB(){
+  let bandTop=-200, bandBot=-200; for(const b of state.bands){ if(b.deleted)continue; bandBot+=b.height; }
+  let sMinX=1e9,sMaxX=-1e9; for(const s of state.shapes){sMinX=Math.min(sMinX,s.x);sMaxX=Math.max(sMaxX,s.x+s.w);}
+  const byId=new Map(state.shapes.map(s=>[s.id,s]));
+  const M=80; let below=0, above=0, right=0, left=0, aYmin=1e9,aYmax=-1e9; const offenders=[];
+  for(const c of state.connections){const p=c._computedOrthopts;if(!p)continue;
+    let oobThis=false;
+    for(const pt of p){ aYmin=Math.min(aYmin,pt.y); aYmax=Math.max(aYmax,pt.y);
+      if(pt.y>bandBot+M){below++;oobThis=true;} else if(pt.y<bandTop-M){above++;oobThis=true;}
+      if(pt.x>sMaxX+M){right++;} else if(pt.x<sMinX-M){left++;}
+    }
+    if(oobThis && offenders.length<10){
+      const a=byId.get(c.fromId), b=byId.get(c.toId);
+      const cpY=(c.customPath||[]).map(q=>Math.round(q.y));
+      offenders.push({id:c.id, fromY:a?Math.round(a.y+a.h/2):null, toY:b?Math.round(b.y+b.h/2):null,
+        pathY:p.map(q=>Math.round(q.y)), cpY, nUser:(c.userPts||[]).length});
+    }
+  }
+  return {bandTop,bandBot,arrowYmin:Math.round(aYmin),arrowYmax:Math.round(aYmax),below,above,right,left,offenders};
+}
 function _measureLength(){
   let total=0;
   for(const c of state.connections){const p=c._computedOrthopts;if(!p||p.length<2)continue;
@@ -221,13 +243,15 @@ async function run(){
   state.groups=res.groups||[]; state.showBands=true;
   state.connections.forEach(c=>{const f=state.shapes.find(s=>s.id===c.fromId); if(f)c.color=f.color;});
   render();
-  // Fidèle au flux d'import : associe les losanges décoratifs à leur flèche d'origine
-  // (customPath encore présent) avant tout re-routage.
-  if(typeof _tagFloatingDecisions==='function') _tagFloatingDecisions(state.shapes, state.connections);
   const before=_measure();
   if(classic){
-    // Reconstruction classique = tracés Visio exacts (customPath → userPts).
-    for(const c of state.connections) if(c.customPath && c.customPath.length>=3) c.userPts=c.customPath.slice(1,-1);
+    // Reconstruction classique = tracés Visio exacts (customPath → userPts), SAUF les
+    // tracés qui fuient hors carto (waypoint dans le vide) → route propre (userPts=null).
+    let bTop=-200,bBot=-200; for(const b of state.bands) if(!b.deleted) bBot+=b.height;
+    let sxLo=Infinity,sxHi=-Infinity; for(const s of state.shapes){sxLo=Math.min(sxLo,s.x);sxHi=Math.max(sxHi,s.x+s.w);}
+    const OOB=50, wpVoid=p=>p.y>bBot+OOB||p.y<bTop-OOB||p.x<sxLo-OOB||p.x>sxHi+OOB;
+    for(const c of state.connections){ if(!c.customPath||c.customPath.length<3) continue;
+      const mids=c.customPath.slice(1,-1); c.userPts=mids.some(wpVoid)?null:mids; }
     render();
     if(fix && typeof _reconstructClassicPolish==='function') _reconstructClassicPolish();
     const lp=q.get('labelpos'); // test du curseur global de labels (0..100)
@@ -246,7 +270,8 @@ async function run(){
   const labels=_measureLabels();
   const overlaps=_measureOverlaps();
   const length=_measureLength();
-  window.__R__={vsdx, mode:{classic,fix,declutter,route}, before, after, tips, deco, angles, labels, overlaps, length, fit, nbShapes:state.shapes.length, nbConns:state.connections.length};
+  const oob=_measureOOB();
+  window.__R__={vsdx, mode:{classic,fix,declutter,route}, before, after, tips, deco, angles, labels, overlaps, length, oob:{below:oob.below,above:oob.above,right:oob.right,left:oob.left}, fit, nbShapes:state.shapes.length, nbConns:state.connections.length};
   document.title='DONE';
 }
 run().catch(e=>{window.__R__={err:String(e&&e.stack||e)};document.title='DONE';});
