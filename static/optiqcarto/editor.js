@@ -5370,32 +5370,17 @@ async function importVSDX(file) {
     _tagFloatingDecisions(state.shapes, state.connections);
     _alignImportedShapes(state.shapes, state.connections); // snap near-aligned shapes to H/V
 
-    // Choix utilisateur : agencement auto (routage propre) OU reconstruction fidèle
-    // à Visio. Sur une carto sans flèche, rien à agencer → classique d'office.
+    // Reconstruction CLASSIQUE (fidèle Visio) — mode unique par défaut : le re-routage
+    // (« agencement auto ») a été mesuré PIRE (il jette le bon tracé humain de Visio et
+    // rajoute des croisements). On garde donc les tracés Visio exacts (customPath →
+    // userPts) et on retouche juste les angles + les labels.
     document.getElementById('vsdx-dialog').classList.add('hidden');
-    let mode = 'classic';
-    if (state.connections.length) mode = await _askVsdxLayoutMode();
-
-    if (mode === 'auto') {
-      // Agencement automatique : remplace les tracés Visio bruts par un routage propre
-      // (libavoid sur les grandes cartos, interne sinon) → moins de croisements,
-      // pointes droites (padding), losanges bien branchés sur les pointes.
-      const hint = connections.length > 60 ? 'Grande cartographie (' + connections.length + ' flèches) — quelques secondes…' : '';
-      _showLayoutLoading(true, hint);
-      await _yieldPaint();
-      try { await _computeAutoLayout(); }
-      catch (e) { console.warn('[VSDX] agencement auto ignoré :', e && e.message); }
-      _showLayoutLoading(false);
-    } else {
-      // Classique (fidèle Visio) : les tracés exacts importés (customPath) deviennent
-      // les points de passage RENDUS (userPts) au lieu d'un re-routage orthogonal.
-      for (const c of state.connections)
-        if (c.customPath && c.customPath.length >= 3) c.userPts = c.customPath.slice(1, -1);
-      render();                    // popule _computedOrthopts (tracés Visio)
-      _reconstructClassicPolish(); // NE ré-agence PAS : redresse juste les angles pas
-                                   // droits + place les labels près des pointes sans
-                                   // jamais les poser là où une flèche en croise une autre.
-    }
+    for (const c of state.connections)
+      if (c.customPath && c.customPath.length >= 3) c.userPts = c.customPath.slice(1, -1);
+    render();                    // popule _computedOrthopts (tracés Visio)
+    _reconstructClassicPolish(); // NE ré-agence PAS : redresse les angles pas droits +
+                                 // place les labels près des pointes sans les poser là
+                                 // où une flèche en croise une autre.
     render();
     history = [JSON.stringify(state)]; histIndex = 0; // baseline = carto reconstruite
     fitView(); updateProps();
@@ -6245,6 +6230,54 @@ function _reconstructClassicPolish() {
   }
   render();                 // recalcule _computedOrthopts avec angles droits
   architectLabels(false);   // labels près des pointes, jamais sur une autre flèche
+  if (typeof _syncLabelSlider === 'function') _syncLabelSlider();
+}
+
+// Point à la fraction t (0..1 arc-length) le long d'un tracé + angle du segment local
+// (0 = horizontal, -90 = vertical) pour orienter le label parallèlement à la flèche.
+function _pointAlongPath(pts, t) {
+  const seg = []; let total = 0;
+  for (let i = 0; i < pts.length - 1; i++) { const l = Math.hypot(pts[i + 1].x - pts[i].x, pts[i + 1].y - pts[i].y); seg.push(l); total += l; }
+  if (total <= 0) return { x: pts[0].x, y: pts[0].y, a: 0 };
+  const target = Math.max(0, Math.min(1, t)) * total;
+  let acc = 0;
+  for (let i = 0; i < seg.length; i++) {
+    if (acc + seg[i] >= target || i === seg.length - 1) {
+      const a = pts[i], b = pts[i + 1], f = seg[i] > 0 ? (target - acc) / seg[i] : 0;
+      const isH = Math.abs(b.y - a.y) < Math.abs(b.x - a.x);
+      return { x: a.x + f * (b.x - a.x), y: a.y + f * (b.y - a.y), a: isH ? 0 : -90 };
+    }
+    acc += seg[i];
+  }
+  const last = pts[pts.length - 1]; return { x: last.x, y: last.y, a: 0 };
+}
+
+// Curseur global des labels : place TOUS les labels à la même position relative le long
+// de LEUR flèche. t = 0 → vers l'origine (source), t = 1 → vers la pointe. Une marge par
+// flèche empêche le label de se poser sur les formes d'extrémité. Remplace l'ancien
+// « agencement auto » : un seul réglage, en direct.
+function setLabelsAlongArrows(t) {
+  state._labelPos = t;
+  for (const c of state.connections) {
+    if (!(c.label || '').trim()) continue;
+    const pts = c._computedOrthopts;
+    if (!pts || pts.length < 2) { delete c.labelOffset; continue; }
+    let total = 0;
+    for (let i = 0; i < pts.length - 1; i++) total += Math.hypot(pts[i + 1].x - pts[i].x, pts[i + 1].y - pts[i].y);
+    const lines = (c.label || '').split('\n');
+    const lw = Math.max(24, Math.max(...lines.map(l => l.length)) * 6.5 + 10);
+    const marginFrac = total > 0 ? Math.min(0.42, (lw / 2 + 16) / total) : 0.42;
+    const tEff = marginFrac + t * (1 - 2 * marginFrac); // t=0 → origine dégagée, t=1 → pointe dégagée
+    const p = _pointAlongPath(pts, tEff);
+    c.labelOffset = { x: p.x, y: p.y, a: p.a };
+  }
+  renderConnections();
+}
+
+// Aligne la valeur du curseur sur state._labelPos (après import/chargement).
+function _syncLabelSlider() {
+  const s = document.getElementById('label-pos-slider');
+  if (s && state._labelPos != null) s.value = Math.round(state._labelPos * 100);
 }
 
 function _labelOnSeg(conn, seg) {
@@ -7190,8 +7223,13 @@ function init() {
 
   document.getElementById('btn-new-carto').addEventListener('click', newCarto);
   document.getElementById('btn-architect').addEventListener('click', runCartoCheck);
-  // btn-place-labels : bouton unique et clair → agencement automatique complet
-  document.getElementById('btn-place-labels')?.addEventListener('click', autoLayoutArrows);
+  // Curseur global des labels : glisser = déplacer TOUS les labels le long de leur
+  // flèche (gauche = origine, droite = pointe). En direct ; snapshot au relâchement.
+  const _lps = document.getElementById('label-pos-slider');
+  if (_lps) {
+    _lps.addEventListener('input', e => setLabelsAlongArrows(parseInt(e.target.value, 10) / 100));
+    _lps.addEventListener('change', () => snapshot());
+  }
   document.getElementById('btn-undo').addEventListener('click', undo);
   document.getElementById('btn-redo').addEventListener('click', redo);
   document.getElementById('btn-fit').addEventListener('click', fitView);

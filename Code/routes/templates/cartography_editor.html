@@ -186,10 +186,11 @@
         </button>
       </div>
     </div>
-      <button class="tool-btn-top tb-autolayout-btn" id="btn-place-labels" title="{{ t('editor.btn_auto_layout_title') }}">
-        <i class="fa-solid fa-wand-magic-sparkles"></i>
-        <span>{{ t('editor.btn_auto_layout') }}</span>
-      </button>
+      <div class="tool-btn-top tb-labelpos" id="label-pos-ctl" title="Position des labels le long des flèches — glisser vers la pointe ou vers l'origine">
+        <i class="fa-solid fa-tag"></i>
+        <input type="range" id="label-pos-slider" min="0" max="100" value="82" step="1" aria-label="Position des labels">
+        <span class="tb-labelpos-caption">Labels</span>
+      </div>
       <button class="tool-btn-top tb-check-btn" id="btn-architect" title="{{ t('editor.btn_verify') }}">
         <i class="fa-solid fa-magnifying-glass-chart"></i>
         <span>{{ t('editor.btn_verify') }}</span>
@@ -913,24 +914,6 @@ document.addEventListener('DOMContentLoaded', () => {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-/* ── Bouton « Agencement auto » (action phare : tracé + labels en un clic) ── */
-.tb-autolayout-btn {
-  position: relative;
-}
-.tb-autolayout-btn i { color: var(--green, #22c55e); }
-.tb-autolayout-btn::after {
-  content: "";
-  position: absolute;
-  left: 6px; right: 6px; bottom: 3px;
-  height: 2px;
-  border-radius: 2px;
-  background: linear-gradient(90deg, #22c55e, #ec4899);
-  opacity: 0.85;
-}
-.tb-autolayout-btn:hover {
-  background: rgba(34,197,94,0.10);
 }
 
 /* ── Overlay de chargement (agencement auto) ── */

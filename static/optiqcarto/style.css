@@ -548,6 +548,16 @@ html, body {
   color: var(--text-muted);
   transition: color 0.18s;
 }
+/* Curseur global de position des labels (remplace l'ancien « agencement auto ») */
+.tb-labelpos { cursor: default; min-width: 132px; gap: 4px; }
+.tb-labelpos-caption { font-size: 9px; line-height: 1; opacity: 0.72; }
+#label-pos-slider {
+  width: 116px;
+  height: 3px;
+  cursor: pointer;
+  accent-color: var(--green, #22c55e);
+  background: transparent;
+}
 .tool-btn-top:hover {
   background: rgba(77,184,104,0.1);
   border-color: var(--green-border);

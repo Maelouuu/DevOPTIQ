@@ -230,6 +230,8 @@ async function run(){
     for(const c of state.connections) if(c.customPath && c.customPath.length>=3) c.userPts=c.customPath.slice(1,-1);
     render();
     if(fix && typeof _reconstructClassicPolish==='function') _reconstructClassicPolish();
+    const lp=q.get('labelpos'); // test du curseur global de labels (0..100)
+    if(lp!=null && typeof setLabelsAlongArrows==='function') setLabelsAlongArrows(+lp/100);
     render();
   } else if(route){
     await _computeAutoLayout({declutter});
