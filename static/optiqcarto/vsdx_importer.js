@@ -1092,9 +1092,35 @@ class VsdxImporter {
     for (const [connId, ends] of Object.entries(connMap)) {
       const { source: sv, target: tv } = ends;
       if (!sv || !tv) continue;
-      const fromId = _shapeIdMap[sv] || _groupIdMap[sv];
-      const toId   = _shapeIdMap[tv] || _groupIdMap[tv];
+      let fromId = _shapeIdMap[sv] || _groupIdMap[sv];
+      let toId   = _shapeIdMap[tv] || _groupIdMap[tv];
       if (!fromId || !toId) continue;
+      // Un endpoint qui vise un GROUPE (conteneur) finit sur le bord vide du grand cadre
+      // transparent, loin des formes → « flèche dans le vide ». On le re-cible sur la
+      // forme MEMBRE la plus proche de l'autre extrémité → la flèche atteint une vraie
+      // activité. On jette alors la géométrie Visio (qui visait le groupe) et on route propre.
+      let regrouped = false;
+      {
+        const _endCenter = eid => {
+          const s = newShapes.find(x => x.id === eid); if (s) return { x: s.x + s.w / 2, y: s.y + s.h / 2 };
+          const g = newGroups.find(x => x.id === eid);
+          if (g) { const ms = (g.shapeIds || []).map(m => newShapes.find(x => x.id === m)).filter(Boolean);
+            if (ms.length) return { x: ms.reduce((a, s) => a + s.x + s.w / 2, 0) / ms.length, y: ms.reduce((a, s) => a + s.y + s.h / 2, 0) / ms.length }; }
+          return null;
+        };
+        const _nearestMember = (gid, otherId) => {
+          const g = newGroups.find(x => x.id === gid);
+          const ms = (g.shapeIds || []).map(m => newShapes.find(x => x.id === m)).filter(Boolean);
+          if (!ms.length) return gid;
+          const o = _endCenter(otherId); if (!o) return ms[0].id;
+          let best = ms[0], bd = Infinity;
+          for (const m of ms) { const d = Math.hypot((m.x + m.w / 2) - o.x, (m.y + m.h / 2) - o.y); if (d < bd) { bd = d; best = m; } }
+          return best.id;
+        };
+        if (newGroups.some(g => g.id === fromId)) { const n = _nearestMember(fromId, toId); if (n !== fromId) { fromId = n; regrouped = true; } }
+        if (newGroups.some(g => g.id === toId))   { const n = _nearestMember(toId, fromId); if (n !== toId)   { toId   = n; regrouped = true; } }
+      }
+      if (fromId === toId) continue;
       const srcShape = newShapes.find(s => s.id === fromId) || newGroups.find(g => g.id === fromId);
 
       const connItem = shapeMap[ends._origConnId || connId];
@@ -1109,7 +1135,7 @@ class VsdxImporter {
       let fromPortDir = 'right', toPortDir = 'left';
       let fromPortT, toPortT, customPath;
 
-      if (!isSynthetic && connItem && sAbs && tAbs) {
+      if (!isSynthetic && !regrouped && connItem && sAbs && tAbs) {
         const ce = connItem.el;
         const bx = parseFloat(this.vCell(ce, 'BeginX') || '0');
         const by = parseFloat(this.vCell(ce, 'BeginY') || '0');
@@ -1137,6 +1163,15 @@ class VsdxImporter {
             if (tgtS && toPortT   !== undefined) pts[pts.length-1] = snapToEdge(tgtS, toPortDir, toPortT, tgtS.type === 'process' ? 7 : 0);
             customPath = pts;
           }
+        }
+      } else if (regrouped) {
+        // Endpoint re-ciblé sur un membre : ports selon la direction dominante entre les
+        // formes RÉSOLUES (coords écran), pas de customPath (route propre au rendu).
+        const fs = newShapes.find(s => s.id === fromId), ts = newShapes.find(s => s.id === toId);
+        if (fs && ts) {
+          const dx = (ts.x + ts.w / 2) - (fs.x + fs.w / 2), dy = (ts.y + ts.h / 2) - (fs.y + fs.h / 2);
+          fromPortDir = Math.abs(dx) >= Math.abs(dy) ? (dx >= 0 ? 'right' : 'left') : (dy >= 0 ? 'bottom' : 'top');
+          toPortDir   = OPP[fromPortDir];
         }
       } else if (sAbs && tAbs) {
         const dx = tAbs.pinX - sAbs.pinX, dy = tAbs.pinY - sAbs.pinY;
