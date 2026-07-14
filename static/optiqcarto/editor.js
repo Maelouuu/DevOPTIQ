@@ -5981,6 +5981,79 @@ function _orthogonalizeStaircase(pts) {
 //  2) place les labels près des pointes SANS jamais poser un label là où une flèche en
 //     croise une autre (architectLabels — récupéré de l'agencement auto).
 // N'AGENCE PAS : les formes et les tracés restent ceux de Visio, on ne fait que nettoyer.
+// Sépare les segments de flèches PARALLÈLES qui se superposent (même axe, même coord,
+// plages qui se recouvrent) en VOIES distinctes → fini les 2-3 flèches empilées sur la
+// même ligne (typiquement en bordure quand plusieurs flèches visent des ports alignés).
+// Ne bouge que des segments intérieurs (entre userPts), jamais à travers une forme.
+function _separateLanes() {
+  const GAP = 16, CLOSE = 11, MIN_OVER = 26, SAFE_M = 6;
+  const rects = state.shapes
+    .filter(s => s.type !== 'decision')
+    .map(s => ({ x: s.x - SAFE_M, y: s.y - SAFE_M, w: s.w + 2 * SAFE_M, h: s.h + 2 * SAFE_M }));
+  const crossesObstacle = (isH, coord, lo, hi) => {
+    const ax = isH ? lo : coord, ay = isH ? coord : lo;
+    const bx = isH ? hi : coord, by = isH ? coord : hi;
+    for (const r of rects) if (_segCrossesRect(ax, ay, bx, by, r)) return true;
+    return false;
+  };
+  // On collecte TOUS les segments longs (axe-alignés). Un segment est « mobile » si ses
+  // DEUX extrémités sont des userPts (on peut le décaler) ; sinon (collé à un port) il est
+  // FIXE mais sert d'ancre — on pousse les mobiles pour ne pas le chevaucher.
+  const segs = [];
+  for (const c of state.connections) {
+    const pts = c._computedOrthopts;
+    if (!pts || pts.length < 2) continue;
+    for (let i = 0; i <= pts.length - 2; i++) {
+      const a = pts[i], b = pts[i + 1];
+      const isH = Math.abs(a.y - b.y) < 1.5, isV = Math.abs(a.x - b.x) < 1.5;
+      if (!isH && !isV) continue;
+      const len = isH ? Math.abs(b.x - a.x) : Math.abs(b.y - a.y);
+      if (len < MIN_OVER) continue;
+      const movable = !!c.userPts && i >= 1 && i <= pts.length - 3;
+      segs.push({ c, isH, movable, coord: isH ? a.y : a.x,
+        lo: isH ? Math.min(a.x, b.x) : Math.min(a.y, b.y),
+        hi: isH ? Math.max(a.x, b.x) : Math.max(a.y, b.y), uA: i - 1, uB: i });
+    }
+  }
+  const used = new Array(segs.length).fill(false);
+  for (let i = 0; i < segs.length; i++) {
+    if (used[i]) continue;
+    const bundle = [segs[i]]; used[i] = true;
+    for (let j = i + 1; j < segs.length; j++) {
+      if (used[j]) continue;
+      const t = segs[j];
+      if (t.isH !== segs[i].isH || Math.abs(t.coord - segs[i].coord) > CLOSE) continue;
+      if (bundle.some(m => Math.min(m.hi, t.hi) - Math.max(m.lo, t.lo) > MIN_OVER)) { bundle.push(t); used[j] = true; }
+    }
+    if (new Set(bundle.map(b => b.c.id)).size < 2) continue;
+    const movable = bundle.filter(s => s.movable);
+    if (!movable.length) continue; // aucun segment déplaçable → on laisse
+    const fixedCoords = bundle.filter(s => !s.movable).map(s => s.coord);
+    const base = fixedCoords.length ? fixedCoords[0] : bundle.reduce((s, b) => s + b.coord, 0) / bundle.length;
+    const assigned = fixedCoords.slice();
+    const free = v => assigned.every(o => Math.abs(v - o) >= GAP - 1);
+    movable.sort((a, b) => a.coord - b.coord).forEach(seg => {
+      let target = null;
+      for (let s = 0; s <= bundle.length + 2 && target === null; s++) {
+        for (const v of (s === 0 ? [base] : [base - s * GAP, base + s * GAP])) {
+          if (free(v) && !crossesObstacle(seg.isH, v, seg.lo, seg.hi)) { target = v; break; }
+        }
+      }
+      if (target === null || Math.abs(target - seg.coord) < 0.5) { assigned.push(seg.coord); return; }
+      assigned.push(target);
+      const up = seg.c.userPts;
+      if (seg.isH) { if (up[seg.uA]) up[seg.uA].y = target; if (up[seg.uB]) up[seg.uB].y = target; }
+      else        { if (up[seg.uA]) up[seg.uA].x = target; if (up[seg.uB]) up[seg.uB].x = target; }
+    });
+  }
+  for (const c of state.connections) {
+    if (!c.userPts || !c._computedOrthopts) continue;
+    const pts = c._computedOrthopts;
+    const full = simplifyPath([pts[0], ...c.userPts, pts[pts.length - 1]]);
+    c.userPts = full.length > 2 ? full.slice(1, -1) : null;
+  }
+}
+
 function _reconstructClassicPolish() {
   for (const c of state.connections) {
     const pts = c._computedOrthopts;
@@ -5990,6 +6063,8 @@ function _reconstructClassicPolish() {
     c.userPts = mids.length ? mids : c.userPts;
   }
   render();                 // recalcule _computedOrthopts avec angles droits
+  _separateLanes();         // sépare les flèches parallèles superposées en voies distinctes
+  render();
   architectLabels(false);   // labels près des pointes, jamais sur une autre flèche
   if (typeof _syncLabelSlider === 'function') _syncLabelSlider();
 }
