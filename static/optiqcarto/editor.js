@@ -5144,6 +5144,7 @@ async function importVSDX(file) {
     _reconstructClassicPolish(); // NE ré-agence PAS : redresse les angles pas droits +
                                  // place les labels près des pointes sans les poser là
                                  // où une flèche en croise une autre.
+    _seatDecorativeDiamonds();   // repose les losanges décoratifs sur leur flèche finale
     render();
     history = [JSON.stringify(state)]; histIndex = 0; // baseline = carto reconstruite
     fitView(); updateProps();
@@ -6010,6 +6011,56 @@ function _pointAlongPath(pts, t) {
     acc += seg[i];
   }
   const last = pts[pts.length - 1]; return { x: last.x, y: last.y, a: 0 };
+}
+
+// Projette un point sur une polyligne : renvoie {dist, frac} (frac = position 0..1 en
+// arc-length du point projeté le plus proche).
+function _projectOnPolyline(cx, cy, pts) {
+  let total = 0; const cum = [0];
+  for (let i = 0; i < pts.length - 1; i++) { total += Math.hypot(pts[i + 1].x - pts[i].x, pts[i + 1].y - pts[i].y); cum.push(total); }
+  let best = { dist: Infinity, frac: 0 };
+  for (let i = 0; i < pts.length - 1; i++) {
+    const ax = pts[i].x, ay = pts[i].y, bx = pts[i + 1].x, by = pts[i + 1].y;
+    const abx = bx - ax, aby = by - ay, l2 = abx * abx + aby * aby;
+    if (l2 < 1e-6) continue;
+    const t = Math.max(0, Math.min(1, ((cx - ax) * abx + (cy - ay) * aby) / l2));
+    const px = ax + t * abx, py = ay + t * aby, d = Math.hypot(cx - px, cy - py);
+    if (d < best.dist) best = { dist: d, frac: total > 0 ? (cum[i] + t * Math.sqrt(l2)) / total : 0 };
+  }
+  return best;
+}
+
+// Repose les losanges DÉCORATIFS (décision sans connexion) sur LEUR flèche. En
+// reconstruction classique les losanges Visio sont posés « sur » une flèche ; quand on
+// redresse les angles ou qu'on rejette un tracé en détour, la flèche bouge mais le
+// losange reste → décalé. On l'associe au connecteur dont le tracé Visio d'ORIGINE
+// (customPath) passe le plus près, puis on le repose sur le tracé FINAL de ce connecteur
+// à la même position fractionnaire. Repli : laissé en place si loin de tout connecteur.
+function _seatDecorativeDiamonds() {
+  const connected = new Set();
+  const byId = {};
+  for (const c of state.connections) { connected.add(c.fromId); connected.add(c.toId); }
+  for (const s of state.shapes) byId[s.id] = s;
+  const origPoly = c => {
+    if (c.customPath && c.customPath.length >= 2) return c.customPath;
+    const a = byId[c.fromId], b = byId[c.toId];
+    return (a && b) ? [{ x: a.x + a.w / 2, y: a.y + a.h / 2 }, { x: b.x + b.w / 2, y: b.y + b.h / 2 }] : null;
+  };
+  for (const D of state.shapes) {
+    if (D.type !== 'decision' || connected.has(D.id)) continue;
+    const cx = D.x + D.w / 2, cy = D.y + D.h / 2;
+    let best = null, bestDist = Infinity, bestFrac = 0;
+    for (const c of state.connections) {
+      const poly = origPoly(c); if (!poly) continue;
+      const pr = _projectOnPolyline(cx, cy, poly);
+      if (pr.dist < bestDist) { bestDist = pr.dist; best = c; bestFrac = pr.frac; }
+    }
+    if (!best || bestDist > 60) continue;            // pas clairement sur un connecteur → laisser
+    const pts = best._computedOrthopts;
+    if (!pts || pts.length < 2) continue;
+    const p = _pointAlongPath(pts, bestFrac);        // même fraction, sur le tracé FINAL
+    D.x = Math.round(p.x - D.w / 2); D.y = Math.round(p.y - D.h / 2);
+  }
 }
 
 // Curseur global des labels : place TOUS les labels à la même position relative le long

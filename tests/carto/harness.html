@@ -97,25 +97,6 @@ function _measureTips(){
   }
   return {pivot, samples};
 }
-// Losanges décoratifs : combien sont bien reposés sur LEUR flèche d'origine (tag
-// _seatConnId posé avant routage). Un losange taggé doit finir à ~0 px de la flèche
-// routée de son connecteur — sinon il est sur la MAUVAISE flèche (le bug à traquer).
-function _measureDeco(){
-  const connected=new Set(); state.connections.forEach(c=>{connected.add(c.fromId);connected.add(c.toId);});
-  const connById={}; state.connections.forEach(c=>connById[c.id]=c);
-  const decos=state.shapes.filter(s=>s.type==='decision'&&!connected.has(s.id));
-  let tagged=0, seatedOnTag=0, untagged=0; const bad=[];
-  for(const D of decos){
-    if(D._seatConnId==null){untagged++;continue;}
-    tagged++;
-    const c=connById[D._seatConnId], pts=c&&c._computedOrthopts;
-    if(!pts||pts.length<2){bad.push({id:D.id,reason:'no-route'});continue;}
-    const cx=D.x+D.w/2, cy=D.y+D.h/2; let m=1e9;
-    for(let i=0;i<pts.length-1;i++){const d=_distSeg(cx,cy,pts[i],pts[i+1]);if(d<m)m=d;}
-    if(m<=6) seatedOnTag++; else bad.push({id:D.id,dist:Math.round(m)});
-  }
-  return {count:decos.length, tagged, seatedOnTag, untagged, bad:bad.slice(0,8)};
-}
 function _distSeg(px,py,a,b){const dx=b.x-a.x,dy=b.y-a.y,L=dx*dx+dy*dy||1;let t=((px-a.x)*dx+(py-a.y)*dy)/L;t=Math.max(0,Math.min(1,t));return Math.hypot(px-(a.x+t*dx),py-(a.y+t*dy));}
 // Segments non droits : ni horizontaux ni verticaux (déviation perpendiculaire > tol px).
 // Lit _computedOrthopts (géométrie rendue réelle). Ignore les micro-segments.
@@ -217,6 +198,17 @@ function _measureVoidEnds(thresh){
     if(!gids.has(c.toId)   && dToShapes(p[p.length-1].x,p[p.length-1].y)>thresh)n++; }
   return n;
 }
+// Losanges décoratifs mal posés : distance du centre au segment de flèche le plus proche.
+// Compte ceux à > tol px de toute flèche (= « à côté » de leur flèche).
+function _measureDecoOffArrow(tol){
+  tol=tol||18;
+  const connected=new Set(); state.connections.forEach(c=>{connected.add(c.fromId);connected.add(c.toId);});
+  const decos=state.shapes.filter(s=>s.type==='decision'&&!connected.has(s.id));
+  const segs=[]; for(const c of state.connections){const q=c._computedOrthopts;if(!q||q.length<2)continue;for(let i=0;i<q.length-1;i++)segs.push([q[i],q[i+1]]);}
+  const dSeg=(px,py,a,b)=>{const dx=b.x-a.x,dy=b.y-a.y,L=dx*dx+dy*dy||1;let t=((px-a.x)*dx+(py-a.y)*dy)/L;t=Math.max(0,Math.min(1,t));return Math.hypot(px-(a.x+t*dx),py-(a.y+t*dy));};
+  let off=0; for(const D of decos){const cx=D.x+D.w/2,cy=D.y+D.h/2;let m=1e9;for(const s of segs){const d=dSeg(cx,cy,s[0],s[1]);if(d<m)m=d;}if(m>tol)off++;}
+  return {count:decos.length, offArrow:off};
+}
 function _measureLength(){
   let total=0;
   for(const c of state.connections){const p=c._computedOrthopts;if(!p||p.length<2)continue;
@@ -271,6 +263,7 @@ async function run(){
       c.userPts=bad?null:mids; }
     render();
     if(fix && typeof _reconstructClassicPolish==='function') _reconstructClassicPolish();
+    if(fix && typeof _seatDecorativeDiamonds==='function') _seatDecorativeDiamonds();
     const lp=q.get('labelpos'); // test du curseur global de labels (0..100)
     if(lp!=null && typeof setLabelsAlongArrows==='function') setLabelsAlongArrows(+lp/100);
     render();
@@ -282,14 +275,14 @@ async function run(){
   const fit=(cx!=null&&cy!=null&&zw!=null) ? _fitRegion(+cx,+cy,+zw,+(q.get('zh')||zw)) : _fitCanvas(1700);
   render();
   const tips=route?_measureTips():{pivot:0,samples:[]};
-  const deco=route?_measureDeco():{tagged:0,seatedOnTag:0,untagged:0};
   const angles=_measureAngles();
   const labels=_measureLabels();
   const overlaps=_measureOverlaps();
   const length=_measureLength();
   const oob=_measureOOB();
   const voidEnds=_measureVoidEnds();
-  window.__R__={vsdx, mode:{classic,fix,declutter,route}, before, after, tips, deco, angles, labels, overlaps, length, oob:{below:oob.below,above:oob.above,right:oob.right,left:oob.left}, voidEnds, fit, nbShapes:state.shapes.length, nbConns:state.connections.length};
+  const deco=_measureDecoOffArrow();
+  window.__R__={vsdx, mode:{classic,fix,declutter,route}, before, after, tips, deco, angles, labels, overlaps, length, oob:{below:oob.below,above:oob.above,right:oob.right,left:oob.left}, voidEnds, deco, fit, nbShapes:state.shapes.length, nbConns:state.connections.length};
   document.title='DONE';
 }
 run().catch(e=>{window.__R__={err:String(e&&e.stack||e)};document.title='DONE';});
