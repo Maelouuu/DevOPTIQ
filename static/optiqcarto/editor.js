@@ -5114,20 +5114,31 @@ async function importVSDX(file) {
     // rajoute des croisements). On garde donc les tracés Visio exacts (customPath →
     // userPts) et on retouche juste les angles + les labels.
     document.getElementById('vsdx-dialog').classList.add('hidden');
-    // Bornes de la carto (bandes en Y, formes en X) : certains connecteurs Visio ont un
-    // point de passage DANS LE VIDE (au-delà des bandes) → longue excursion verticale
-    // hors carto. Pour ceux-là on jette les userPts Visio et on route proprement (fallback
-    // orthogonal de renderConnections). Marge pour tolérer un léger débordement légitime.
+    // On garde les tracés Visio exacts SAUF ceux qui font un DÉTOUR aberrant. Deux cas
+    // rejetés (→ userPts=null → route propre orthogonale + évitement de renderConnections) :
+    //   1) point de passage HORS carto (au-delà des bandes) — flèche qui fuit dans le vide ;
+    //   2) point de passage loin HORS de la boîte des DEUX extrémités — la flèche plonge
+    //      bien plus bas/haut/loin que ses formes puis revient (2 angles inutiles, mesuré
+    //      sur hard.vsdx : ex. deux formes à y≈5200 avec un détour à y≈6400).
     let _bTop = -200, _bBot = -200;
     for (const b of state.bands) if (!b.deleted) _bBot += b.height;
     let _sxLo = Infinity, _sxHi = -Infinity;
     for (const s of state.shapes) { _sxLo = Math.min(_sxLo, s.x); _sxHi = Math.max(_sxHi, s.x + s.w); }
-    const _OOB = 50;
-    const _wpInVoid = p => p.y > _bBot + _OOB || p.y < _bTop - _OOB || p.x < _sxLo - _OOB || p.x > _sxHi + _OOB;
+    const _OOB = 50, _DET = 180; // marge détour hors boîte des extrémités
+    const _byId = {}; for (const s of state.shapes) _byId[s.id] = s;
     for (const c of state.connections) {
       if (!c.customPath || c.customPath.length < 3) continue;
       const mids = c.customPath.slice(1, -1);
-      c.userPts = mids.some(_wpInVoid) ? null : mids; // tracé qui fuit → route propre
+      const a = _byId[c.fromId], b = _byId[c.toId];
+      let exLo = -Infinity, exHi = Infinity, eyLo = -Infinity, eyHi = Infinity;
+      if (a && b) {
+        exLo = Math.min(a.x, b.x) - _DET; exHi = Math.max(a.x + a.w, b.x + b.w) + _DET;
+        eyLo = Math.min(a.y, b.y) - _DET; eyHi = Math.max(a.y + a.h, b.y + b.h) + _DET;
+      }
+      const bad = mids.some(p =>
+        p.y > _bBot + _OOB || p.y < _bTop - _OOB || p.x < _sxLo - _OOB || p.x > _sxHi + _OOB || // hors carto
+        p.x < exLo || p.x > exHi || p.y < eyLo || p.y > eyHi);                                  // détour hors boîte
+      c.userPts = bad ? null : mids;
     }
     render();                    // popule _computedOrthopts (tracés Visio)
     _reconstructClassicPolish(); // NE ré-agence PAS : redresse les angles pas droits +

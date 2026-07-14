@@ -255,13 +255,17 @@ async function run(){
   render();
   const before=_measure();
   if(classic){
-    // Reconstruction classique = tracés Visio exacts (customPath → userPts), SAUF les
-    // tracés qui fuient hors carto (waypoint dans le vide) → route propre (userPts=null).
+    // Tracés Visio exacts SAUF détours aberrants (hors carto OU loin hors boîte des
+    // deux extrémités) → route propre (userPts=null). Cf. editor.js même logique.
     let bTop=-200,bBot=-200; for(const b of state.bands) if(!b.deleted) bBot+=b.height;
     let sxLo=Infinity,sxHi=-Infinity; for(const s of state.shapes){sxLo=Math.min(sxLo,s.x);sxHi=Math.max(sxHi,s.x+s.w);}
-    const OOB=50, wpVoid=p=>p.y>bBot+OOB||p.y<bTop-OOB||p.x<sxLo-OOB||p.x>sxHi+OOB;
+    const OOB=50, DET=180, byId={}; for(const s of state.shapes) byId[s.id]=s;
     for(const c of state.connections){ if(!c.customPath||c.customPath.length<3) continue;
-      const mids=c.customPath.slice(1,-1); c.userPts=mids.some(wpVoid)?null:mids; }
+      const mids=c.customPath.slice(1,-1), a=byId[c.fromId], b=byId[c.toId];
+      let exLo=-1e9,exHi=1e9,eyLo=-1e9,eyHi=1e9;
+      if(a&&b){exLo=Math.min(a.x,b.x)-DET;exHi=Math.max(a.x+a.w,b.x+b.w)+DET;eyLo=Math.min(a.y,b.y)-DET;eyHi=Math.max(a.y+a.h,b.y+b.h)+DET;}
+      const bad=mids.some(p=>p.y>bBot+OOB||p.y<bTop-OOB||p.x<sxLo-OOB||p.x>sxHi+OOB||p.x<exLo||p.x>exHi||p.y<eyLo||p.y>eyHi);
+      c.userPts=bad?null:mids; }
     render();
     if(fix && typeof _reconstructClassicPolish==='function') _reconstructClassicPolish();
     const lp=q.get('labelpos'); // test du curseur global de labels (0..100)
