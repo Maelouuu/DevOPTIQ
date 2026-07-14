@@ -205,13 +205,16 @@ function _measureOOB(){
   return {bandTop,bandBot,arrowYmin:Math.round(aYmin),arrowYmax:Math.round(aYmax),below,above,right,left,offenders};
 }
 // Extrémités de flèche qui atterrissent DANS LE VIDE (loin de toute forme) — révèle les
-// flèches qui « pointent nulle part » (ex. connectées au bord vide d'un groupe conteneur).
+// flèches qui « pointent nulle part ». Les extrémités qui visent un GROUPE conteneur sont
+// EXCLUES : elles finissent légitimement sur le bord du cadre, loin des formes membres.
 function _measureVoidEnds(thresh){
   thresh=thresh||35; const shapes=state.shapes;
+  const gids=new Set((state.groups||[]).map(g=>g.id));
   const dToShapes=(x,y)=>{let m=1e9;for(const s of shapes){const dx=Math.max(s.x-x,0,x-(s.x+s.w)),dy=Math.max(s.y-y,0,y-(s.y+s.h));m=Math.min(m,Math.hypot(dx,dy));if(m===0)break;}return m;};
   let n=0;
   for(const c of state.connections){const p=c._computedOrthopts;if(!p||p.length<2)continue;
-    if(dToShapes(p[0].x,p[0].y)>thresh)n++; if(dToShapes(p[p.length-1].x,p[p.length-1].y)>thresh)n++; }
+    if(!gids.has(c.fromId) && dToShapes(p[0].x,p[0].y)>thresh)n++;
+    if(!gids.has(c.toId)   && dToShapes(p[p.length-1].x,p[p.length-1].y)>thresh)n++; }
   return n;
 }
 function _measureLength(){
