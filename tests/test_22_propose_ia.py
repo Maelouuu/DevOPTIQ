@@ -13,7 +13,59 @@ Sans clé OPENAI_API_KEY (environnement de test) :
 import json
 import pytest
 
+import Code.routes.propose_savoirs as propose_savoirs_mod
+import Code.routes.propose_savoir_faires as propose_savoir_faires_mod
+import Code.routes.propose_softskills as propose_softskills_mod
+import Code.routes.propose_aptitudes as propose_aptitudes_mod
+
 pytestmark = pytest.mark.propose_ia
+
+
+# ---------------------------------------------------------------------------
+# Fake client OpenAI (pour exercer la branche "avec clé" des endpoints IA)
+# ---------------------------------------------------------------------------
+
+class _FakeMessage:
+    def __init__(self, content):
+        self.content = content
+
+
+class _FakeChoice:
+    def __init__(self, content):
+        self.message = _FakeMessage(content)
+
+
+class _FakeResponse:
+    def __init__(self, content):
+        self.choices = [_FakeChoice(content)]
+
+
+class _FakeCompletions:
+    def __init__(self, content=None, raise_exc=None):
+        self._content = content
+        self._raise_exc = raise_exc
+
+    def create(self, **kwargs):
+        if self._raise_exc is not None:
+            raise self._raise_exc
+        return _FakeResponse(self._content)
+
+
+class _FakeChat:
+    def __init__(self, content=None, raise_exc=None):
+        self.completions = _FakeCompletions(content, raise_exc)
+
+
+class _FakeOpenAIClient:
+    def __init__(self, content=None, raise_exc=None):
+        self.chat = _FakeChat(content, raise_exc)
+
+
+def _mock_openai_client(monkeypatch, module, content=None, raise_exc=None):
+    """Remplace openai_client_or_none() du module donné par un client factice."""
+    fake = _FakeOpenAIClient(content=content, raise_exc=raise_exc)
+    monkeypatch.setattr(module, "openai_client_or_none", lambda: (fake, None))
+    return fake
 
 
 # ---------------------------------------------------------------------------
@@ -371,6 +423,239 @@ class TestProposeAptitudes:
             content_type="application/json",
         )
         assert r.status_code == 200
+
+
+# ===========================================================================
+# 4bis. Branches "avec client OpenAI mocké" (succès, JSON invalide, exception)
+# ===========================================================================
+
+class TestProposeSavoirsWithClient:
+
+    def test_success_returns_parsed_lines(self, auth_client, monkeypatch):
+        _mock_openai_client(
+            monkeypatch, propose_savoirs_mod,
+            content="- Règles de sécurité\n- Norme ISO 9001\n- Procédure qualité",
+        )
+        r = auth_client.post(
+            "/propose_savoirs/propose",
+            data=json.dumps({"name": "Test", "savoir_faires": ["Utiliser l'outil X"]}),
+            content_type="application/json",
+        )
+        assert r.status_code == 200
+        data = r.get_json()
+        assert data["proposals"] == ["Règles de sécurité", "Norme ISO 9001", "Procédure qualité"]
+
+    def test_client_exception_returns_error_field(self, auth_client, monkeypatch):
+        _mock_openai_client(monkeypatch, propose_savoirs_mod, raise_exc=RuntimeError("boom"))
+        r = auth_client.post(
+            "/propose_savoirs/propose",
+            data=json.dumps({"name": "Test"}),
+            content_type="application/json",
+        )
+        assert r.status_code == 200
+        data = r.get_json()
+        assert "error" in data
+        assert data["proposals"]
+
+
+class TestProposeSavoirFairesWithClient:
+
+    def test_success_returns_parsed_lines(self, auth_client, monkeypatch):
+        _mock_openai_client(
+            monkeypatch, propose_savoir_faires_mod,
+            content="- Utiliser la checklist sécurité\n- Rédiger le rapport d'intervention",
+        )
+        r = auth_client.post(
+            "/propose_savoir_faires/propose",
+            data=json.dumps({"name": "Test"}),
+            content_type="application/json",
+        )
+        assert r.status_code == 200
+        data = r.get_json()
+        assert data["proposals"] == [
+            "Utiliser la checklist sécurité",
+            "Rédiger le rapport d'intervention",
+        ]
+
+    def test_client_exception_returns_error_field(self, auth_client, monkeypatch):
+        _mock_openai_client(monkeypatch, propose_savoir_faires_mod, raise_exc=RuntimeError("boom"))
+        r = auth_client.post(
+            "/propose_savoir_faires/propose",
+            data=json.dumps({"name": "Test"}),
+            content_type="application/json",
+        )
+        assert r.status_code == 200
+        data = r.get_json()
+        assert "error" in data
+        assert data["proposals"]
+
+
+class TestProposeSoftskillsWithClient:
+
+    def test_success_valid_json_returns_structured_proposals(self, auth_client, monkeypatch):
+        content = json.dumps([
+            {"habilete": "Coopération", "niveau": "3 (Maîtrise)",
+             "justification": "Sollicitation: 2. Travail avec plusieurs acteurs."},
+            {"habilete": "Raisonnement logique", "niveau": "2",
+             "justification": "Analyse de données complexes."},
+        ])
+        _mock_openai_client(monkeypatch, propose_softskills_mod, content=content)
+        r = auth_client.post(
+            "/propose_softskills/propose",
+            data=json.dumps({
+                "name": "Activité X",
+                "tasks": ["T1"],
+                "constraints": ["C1"],
+                "outgoing": [{"performance": {"name": "P1", "description": "desc"}}],
+            }),
+            content_type="application/json",
+        )
+        assert r.status_code == 200
+        data = r.get_json()
+        assert len(data["proposals"]) == 2
+        assert data["proposals"][0]["habilete"] == "Coopération"
+        assert data["proposals"][0]["niveau"] == "3 (Maîtrise)"
+        assert data["proposals"][1]["niveau"] == "2 (Acquisition)"
+
+    def test_success_en_lang_uses_english_mapping(self, auth_client, monkeypatch):
+        content = json.dumps([
+            {"habilete": "Cooperation", "niveau": "3", "justification": "Multi-actor work."},
+        ])
+        _mock_openai_client(monkeypatch, propose_softskills_mod, content=content)
+        with auth_client.session_transaction() as sess:
+            sess["lang"] = "en"
+        r = auth_client.post(
+            "/propose_softskills/propose",
+            data=json.dumps({"name": "Activity X", "tasks": ["T1"]}),
+            content_type="application/json",
+        )
+        assert r.status_code == 200
+        data = r.get_json()
+        assert data["proposals"][0]["niveau"] == "3 (Proficient)"
+
+    def test_invalid_json_falls_back_to_line_parsing(self, auth_client, monkeypatch):
+        _mock_openai_client(
+            monkeypatch, propose_softskills_mod,
+            content="- Coopération\n- Raisonnement logique\n",
+        )
+        r = auth_client.post(
+            "/propose_softskills/propose",
+            data=json.dumps({"name": "Activité X"}),
+            content_type="application/json",
+        )
+        assert r.status_code == 200
+        data = r.get_json()
+        habiletes = [p["habilete"] for p in data["proposals"]]
+        assert "Coopération" in habiletes
+
+    def test_client_exception_returns_error_field(self, auth_client, monkeypatch):
+        _mock_openai_client(monkeypatch, propose_softskills_mod, raise_exc=RuntimeError("boom"))
+        r = auth_client.post(
+            "/propose_softskills/propose",
+            data=json.dumps({"name": "Activité X"}),
+            content_type="application/json",
+        )
+        assert r.status_code == 200
+        data = r.get_json()
+        assert "error" in data
+        assert data["proposals"]
+
+
+class TestProposeAptitudesWithClient:
+
+    def test_propose_success_valid_json(self, auth_client, monkeypatch):
+        content = json.dumps({
+            "vision": {"niveau": "0 (Aucune)", "risque": "Aucun", "leviers": []},
+            "auditif": {"niveau": "1 (Faible)", "risque": "Bruit ambiant", "leviers": ["Casque antibruit"]},
+            "physique": {
+                "haut_du_corps": "1 (Faible)", "bas_du_corps": "0 (Aucune)",
+                "fatigabilite": "1 (Faible)", "risque": "Saisie répétée", "leviers": [],
+            },
+            "environnemental": {"niveau": "1 (Faible)", "risque": "Open space", "leviers": []},
+            "exposition_risque": {"niveau": "0 (Aucune)", "risque": "Aucune", "leviers": []},
+            "profils_valorisables": [],
+        })
+        _mock_openai_client(monkeypatch, propose_aptitudes_mod, content=content)
+        r = auth_client.post(
+            "/propose_aptitudes/propose",
+            data=json.dumps({"name": "Test", "description": "desc"}),
+            content_type="application/json",
+        )
+        assert r.status_code == 200
+        data = r.get_json()
+        assert data["proposals"]["vision"]["niveau"] == "0 (Aucune)"
+
+    def test_propose_invalid_json_returns_error(self, auth_client, monkeypatch):
+        _mock_openai_client(monkeypatch, propose_aptitudes_mod, content="not json at all {")
+        r = auth_client.post(
+            "/propose_aptitudes/propose",
+            data=json.dumps({"name": "Test"}),
+            content_type="application/json",
+        )
+        assert r.status_code == 200
+        data = r.get_json()
+        assert data["proposals"] == {}
+        assert "error" in data
+
+    def test_propose_client_exception_returns_error(self, auth_client, monkeypatch):
+        _mock_openai_client(monkeypatch, propose_aptitudes_mod, raise_exc=RuntimeError("boom"))
+        r = auth_client.post(
+            "/propose_aptitudes/propose",
+            data=json.dumps({"name": "Test"}),
+            content_type="application/json",
+        )
+        assert r.status_code == 200
+        data = r.get_json()
+        assert data["proposals"] == {}
+        assert "error" in data
+
+    def test_feasibility_success_valid_json(self, auth_client, monkeypatch):
+        content = json.dumps({
+            "statut": "OK avec adaptations",
+            "mesures_deja_en_place": [],
+            "ajouts_recommandes": ["Poste adapté"],
+            "a_ajuster": [],
+            "risque_residuel": "Faible",
+            "points_a_instruire": [],
+            "commentaire": "OK",
+        })
+        _mock_openai_client(monkeypatch, propose_aptitudes_mod, content=content)
+        r = auth_client.post(
+            "/propose_aptitudes/feasibility",
+            data=json.dumps({
+                "activity_name": "Test",
+                "profil_fonctionnel": {"vision": "normale"},
+                "assistive_products": ["Loupe"],
+            }),
+            content_type="application/json",
+        )
+        assert r.status_code == 200
+        data = r.get_json()
+        assert data["result"]["statut"] == "OK avec adaptations"
+
+    def test_feasibility_invalid_json_returns_error(self, auth_client, monkeypatch):
+        _mock_openai_client(monkeypatch, propose_aptitudes_mod, content="{not valid")
+        r = auth_client.post(
+            "/propose_aptitudes/feasibility",
+            data=json.dumps({"activity_name": "Test"}),
+            content_type="application/json",
+        )
+        assert r.status_code == 200
+        data = r.get_json()
+        assert data["result"] == {}
+        assert "error" in data
+
+    def test_feasibility_client_exception_returns_error(self, auth_client, monkeypatch):
+        _mock_openai_client(monkeypatch, propose_aptitudes_mod, raise_exc=RuntimeError("boom"))
+        r = auth_client.post(
+            "/propose_aptitudes/feasibility",
+            data=json.dumps({"activity_name": "Test"}),
+            content_type="application/json",
+        )
+        assert r.status_code == 200
+        data = r.get_json()
+        assert data["result"] == {}
+        assert "error" in data
 
 
 # ===========================================================================
