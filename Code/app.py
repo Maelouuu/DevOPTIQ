@@ -255,6 +255,9 @@ def create_app(test_config=None):
     from Code.routes.result_capabilities import result_cap_bp
     app.register_blueprint(result_cap_bp)
 
+    from Code.routes.mastery import mastery_bp
+    app.register_blueprint(mastery_bp)
+
     from Code.routes.ui_routes import ui_bp
     app.register_blueprint(ui_bp)
 
@@ -314,6 +317,12 @@ def create_app(test_config=None):
         _safe_add_column("data", "minimum_performance_text", "TEXT")
         _safe_add_column("data", "qualification_source", "VARCHAR(10)")
         _safe_add_column("data", "qualification_updated_at", "TIMESTAMP")
+        # V1.1 — CDC 3 : niveaux de maîtrise (requis rôle × activité, démontré individu)
+        _safe_add_column("activity_roles", "required_mastery_level", "INTEGER")
+        _safe_add_column("competency_evaluation", "mastery_level", "INTEGER")
+        _safe_add_column("competency_evaluation", "evidence", "TEXT")
+        _safe_add_column("competency_evaluation", "evaluated_at", "TIMESTAMP")
+        _safe_add_column("competency_evaluation", "evaluator_user_id", "INTEGER")
 
         # 3. Tables supplémentaires
         try:

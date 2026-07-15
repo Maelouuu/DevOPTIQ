@@ -19,6 +19,9 @@ activity_roles = db.Table(
     db.Column('activity_id', db.Integer, db.ForeignKey('activities.id'), primary_key=True),
     db.Column('role_id', db.Integer, db.ForeignKey('roles.id'), primary_key=True),
     db.Column('status', db.String(50), nullable=False),
+    # V1.1 — CDC 3.4 : niveau de maîtrise REQUIS par le couple Rôle × Activité (0..4 ou NULL).
+    # Défaut 2 pour l'association Garant ; NULL pour les autres tant qu'il n'est pas défini.
+    db.Column('required_mastery_level', db.Integer, nullable=True),
     extend_existing=True
 )
 
@@ -426,7 +429,8 @@ class User(db.Model):
     manager_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
 
     subordinates = db.relationship('User', backref=db.backref('manager', remote_side=[id]))
-    evaluations = db.relationship('CompetencyEvaluation', back_populates='user', cascade='all, delete-orphan')
+    evaluations = db.relationship('CompetencyEvaluation', back_populates='user',
+                                  foreign_keys='CompetencyEvaluation.user_id', cascade='all, delete-orphan')
 
     @classmethod
     def for_active_entity(cls):
@@ -458,10 +462,17 @@ class CompetencyEvaluation(db.Model):
     item_id = db.Column(db.Integer, nullable=True)
     item_type = db.Column(db.String(50), nullable=True)
     eval_number = db.Column(db.String(50), nullable=False)
-    note = db.Column(db.String(10), nullable=False)
+    note = db.Column(db.String(10), nullable=False)      # legacy couleur — conservé pour compat
     created_at = db.Column(db.Text, default=datetime.utcnow)
 
-    user = db.relationship('User', back_populates='evaluations')
+    # V1.1 — CDC 3.5 : évaluation par RÉSULTAT. Pour un RESULT : item_type='activity_results',
+    # item_id=data_id. La couleur devient calculée depuis mastery_level + écart au requis.
+    mastery_level = db.Column(db.Integer, nullable=True)          # 0..4
+    evidence = db.Column(db.Text, nullable=True)
+    evaluated_at = db.Column(db.DateTime, nullable=True)
+    evaluator_user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
+
+    user = db.relationship('User', back_populates='evaluations', foreign_keys=[user_id])
 
     __table_args__ = (
         db.UniqueConstraint('user_id', 'activity_id', 'item_id', 'item_type', 'eval_number'),
