@@ -5587,9 +5587,10 @@ function _showCheckPanel(issues) {
     duplicate: { icon: 'fa-copy',                 color: '#4DB868' },
     overlap:   { icon: 'fa-clone',                color: '#f59e0b' },
   };
-  // Types d'erreurs corrigeables automatiquement (repositionnement chirurgical).
-  const AUTO_FIXABLE = new Set(['outofband', 'overlap']);
-  const nFixable = issues.filter(i => AUTO_FIXABLE.has(i.type)).length;
+  // Corrections proposées pour les erreurs relevées (hors-bande, chevauchement, renvoi
+  // orphelin, doublon). Calculées ici pour savoir s'il faut afficher le bouton + son compteur.
+  const fixes = _computeFixes(issues);
+  const nFixable = fixes.length;
 
   const panel = document.createElement('div');
   panel.id = '_carto-check-panel';
@@ -5639,7 +5640,7 @@ function _showCheckPanel(issues) {
       <button id="_ccp-fix" style="width:100%;display:flex;align-items:center;justify-content:center;gap:8px;padding:10px 14px;border-radius:10px;border:1px solid rgba(77,184,104,0.55);background:rgba(77,184,104,0.18);color:#B7F0C8;font-size:12.5px;font-weight:700;cursor:pointer;transition:background .15s;margin-bottom:9px">
         <i class="fa-solid fa-screwdriver-wrench"></i> Corriger les erreurs (${nFixable})
       </button>
-      <div style="font-size:10px;color:#567460;margin:-3px 0 11px;line-height:1.4;text-align:center">Rectifie seulement les erreurs relevées (hors-bande, chevauchements) — le reste de la carto est laissé tel quel</div>` : '';
+      <div style="font-size:10px;color:#567460;margin:-3px 0 11px;line-height:1.4;text-align:center">Aperçu zoomé + validation avant application. Ne corrige que les erreurs relevées (hors-bande, chevauchement, renvoi orphelin, doublon) — le reste de la carto reste tel quel</div>` : '';
   const footer = `
     <div style="padding:12px 14px;border-top:1px solid rgba(77,184,104,0.12);flex-shrink:0">
       ${fixBtn}
@@ -5658,7 +5659,7 @@ function _showCheckPanel(issues) {
   if (fixBtnEl) {
     fixBtnEl.onmouseenter = () => fixBtnEl.style.background = 'rgba(77,184,104,0.30)';
     fixBtnEl.onmouseleave = () => fixBtnEl.style.background = 'rgba(77,184,104,0.18)';
-    fixBtnEl.onclick = () => _autoFixIssues(issues);   // runCartoCheck() rafraîchit le panneau
+    fixBtnEl.onclick = () => _showFixPreview(fixes);   // aperçu + validation avant application
   }
 
   const arrangeBtn = panel.querySelector('#_ccp-arrange');
@@ -5808,30 +5809,64 @@ function _findFreeSpot(shape, others, gap, ranges) {
   return null;
 }
 
-// Corrige UNIQUEMENT les erreurs positionnelles relevées (hors-bande + chevauchements),
-// en ne touchant qu'aux formes fautives et aux flèches qui y sont rattachées. Le reste de
-// la carto (positions et tracés Visio des autres flèches) est laissé tel quel.
-function _autoFixIssues(issues) {
-  const fixable = issues.filter(i => i.type === 'outofband' || i.type === 'overlap');
-  if (!fixable.length) { showToast('Aucune erreur repositionnable'); return; }
-  snapshot();
+// Traduit les erreurs relevées en CORRECTIONS proposées (sans rien appliquer). Chaque
+// correction porte : la forme visée, une action déterministe, et de quoi en afficher un
+// aperçu. 4 familles : hors-bande (recentrer), chevauchement (écarter), renvoi orphelin
+// (supprimer), nom en doublon (renommer avec suffixe). Le reste de la carto est ignoré.
+function _computeFixes(issues) {
   const ranges = _cartoBandRanges();
+  const usedNames = new Set(state.shapes
+    .filter(s => s.type === 'process' || s.type === 'special')
+    .map(s => (s.label || '').trim()).filter(Boolean));
+  const dupSeen = {};
+  const fixes = [];
+  for (const it of issues) {
+    const s = it.shape;
+    if (!s) continue;
+    if (it.type === 'outofband') {
+      const b = _nearestBand(s.y + s.h / 2, ranges);
+      if (b) fixes.push({ type: 'outofband', shape: s, after: { x: s.x, y: Math.round(b.y + (b.yEnd - b.y - s.h) / 2) },
+        desc: `Recentrer « ${s.label || 'Sans nom'} » dans sa bande` });
+    } else if (it.type === 'overlap') {
+      const others = state.shapes.filter(o => o !== s && _isFlowShape(o));
+      const spot = _findFreeSpot(s, others, 10, ranges);
+      if (spot) fixes.push({ type: 'overlap', shape: s, after: spot,
+        desc: `Écarter « ${s.label || 'Sans nom'} » (chevauchement)` });
+    } else if (it.type === 'renvoi') {
+      fixes.push({ type: 'renvoi', shape: s, desc: `Supprimer le renvoi orphelin « ${s.label || 'Sans nom'} »` });
+    } else if (it.type === 'duplicate') {
+      const base = (s.label || '').trim();
+      dupSeen[base] = (dupSeen[base] || 0) + 1;
+      if (dupSeen[base] === 1) continue;               // garde la 1re occurrence intacte
+      let n = dupSeen[base], name;
+      do { name = `${base} (${n})`; n++; } while (usedNames.has(name));
+      usedNames.add(name);
+      fixes.push({ type: 'duplicate', shape: s, newLabel: name, desc: `Renommer le doublon « ${base} » → « ${name} »` });
+    }
+  }
+  return fixes;
+}
+
+// Applique les corrections VALIDÉES. Ne touche qu'aux formes visées ; ne ré-route que les
+// flèches rattachées à une forme déplacée (les tracés Visio des autres restent intacts).
+function _applyFixes(fixes) {
+  if (!fixes || !fixes.length) return;
+  snapshot();
   const moved = new Set();
-  // 1. hors-bande → recentrer dans la bande la plus proche (déplacement vertical seul)
-  for (const it of fixable) {
-    if (it.type !== 'outofband' || !it.shape) continue;
-    const b = _nearestBand(it.shape.y + it.shape.h / 2, ranges);
-    if (b) { it.shape.y = Math.round(b.y + (b.yEnd - b.y - it.shape.h) / 2); moved.add(it.shape.id); }
+  const deleted = new Set();
+  for (const f of fixes) {
+    if (f.type === 'outofband' || f.type === 'overlap') {
+      f.shape.x = f.after.x; f.shape.y = f.after.y; moved.add(f.shape.id);
+    } else if (f.type === 'renvoi') {
+      deleted.add(f.shape.id);
+    } else if (f.type === 'duplicate') {
+      f.shape.label = f.newLabel;                     // pas de déplacement → pas de re-routage
+    }
   }
-  // 2. chevauchements → écarter la forme fautive vers l'emplacement libre le plus proche
-  for (const it of fixable) {
-    if (it.type !== 'overlap' || !it.shape) continue;
-    const others = state.shapes.filter(o => o !== it.shape && _isFlowShape(o));
-    const spot = _findFreeSpot(it.shape, others, 10, ranges);
-    if (spot) { it.shape.x = spot.x; it.shape.y = spot.y; moved.add(it.shape.id); }
+  if (deleted.size) {
+    state.shapes = state.shapes.filter(s => !deleted.has(s.id));
+    state.connections = state.connections.filter(c => !deleted.has(c.fromId) && !deleted.has(c.toId));
   }
-  if (!moved.size) { showToast('Aucune erreur repositionnable'); return; }
-  // 3. re-router SEULEMENT les flèches rattachées à une forme déplacée (le reste intact)
   for (const c of state.connections) {
     if (moved.has(c.fromId) || moved.has(c.toId)) {
       c.userPts = null; c.customPath = null; c.bendOffset = null; c.labelOffset = null;
@@ -5839,8 +5874,117 @@ function _autoFixIssues(issues) {
     }
   }
   render();
-  showToast(`${moved.size} erreur(s) corrigée(s)`);
+  showToast(`${fixes.length} correction(s) appliquée(s)`);
   runCartoCheck();   // ré-analyse et rafraîchit le panneau
+}
+
+function _esc(s) {
+  return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+// Une forme dans l'aperçu zoomé (chaîne SVG). Variantes : faded (voisine), old (position
+// actuelle, rouge pointillé), target (nouvelle position, vert), del (à supprimer, croix rouge),
+// rename (nouveau libellé en vert).
+function _thumbShape(o, opt) {
+  opt = opt || {};
+  const col = o.color || '#94a3b8';
+  const op = opt.faded ? '0.30' : (opt.old ? '0.45' : '1');
+  let stroke = 'none', sw = '0', dash = '';
+  if (opt.old) { stroke = '#ef4444'; sw = '2'; dash = 'stroke-dasharray="5,4"'; }
+  else if (opt.target) { stroke = '#16a34a'; sw = '2.5'; }
+  else if (opt.del) { stroke = '#ef4444'; sw = '2.5'; }
+  let body;
+  if (o.type === 'decision') body = `<path d="${roundedDiamond(o.x, o.y, o.w, o.h, 10)}" fill="${col}" fill-opacity="${op}" stroke="${stroke}" stroke-width="${sw}" ${dash}/>`;
+  else if (o.type === 'start-end') body = `<ellipse cx="${o.x + o.w / 2}" cy="${o.y + o.h / 2}" rx="${o.w / 2}" ry="${o.h / 2}" fill="${col}" fill-opacity="${op}" stroke="${stroke}" stroke-width="${sw}" ${dash}/>`;
+  else body = `<rect x="${o.x}" y="${o.y}" width="${o.w}" height="${o.h}" rx="12" fill="${col}" fill-opacity="${op}" stroke="${stroke}" stroke-width="${sw}" ${dash}/>`;
+  let txt = '';
+  const lbl = opt.rename || o.label || '';
+  if (lbl && !opt.faded && !opt.old) {
+    const short = lbl.length > 16 ? lbl.slice(0, 15) + '…' : lbl;
+    txt = `<text x="${o.x + o.w / 2}" y="${o.y + o.h / 2}" text-anchor="middle" dominant-baseline="central" font-size="11" font-weight="700" fill="${opt.rename ? '#166534' : (o.textColor || '#fff')}">${_esc(short)}</text>`;
+  }
+  let cross = '';
+  if (opt.del) cross = `<line x1="${o.x}" y1="${o.y}" x2="${o.x + o.w}" y2="${o.y + o.h}" stroke="#ef4444" stroke-width="2.5"/><line x1="${o.x + o.w}" y1="${o.y}" x2="${o.x}" y2="${o.y + o.h}" stroke="#ef4444" stroke-width="2.5"/>`;
+  return body + txt + cross;
+}
+
+// Aperçu zoomé d'une correction (chaîne SVG). Montre le contexte (voisins + bandes),
+// la position actuelle et — pour un déplacement — la position cible avec une flèche.
+function _fixThumb(f) {
+  const s = f.shape;
+  let minX = s.x, minY = s.y, maxX = s.x + s.w, maxY = s.y + s.h;
+  if (f.after) { minX = Math.min(minX, f.after.x); minY = Math.min(minY, f.after.y); maxX = Math.max(maxX, f.after.x + s.w); maxY = Math.max(maxY, f.after.y + s.h); }
+  const pad = 100;
+  minX -= pad; minY -= pad; maxX += pad; maxY += pad;
+  const vw = maxX - minX, vh = maxY - minY;
+  let inner = '';
+  for (const b of _cartoBandRanges()) {
+    if (b.yEnd < minY || b.y > maxY) continue;
+    inner += `<rect x="${minX}" y="${b.y}" width="${vw}" height="${b.yEnd - b.y}" fill="#000" fill-opacity="0.03" stroke="#cbd5e1" stroke-width="0.8" stroke-dasharray="5,5"/>`;
+  }
+  for (const o of state.shapes) {
+    if (o === s || !(o.x < maxX && o.x + o.w > minX && o.y < maxY && o.y + o.h > minY)) continue;
+    inner += _thumbShape(o, { faded: true });
+  }
+  if (f.type === 'renvoi') inner += _thumbShape(s, { del: true });
+  else if (f.type === 'duplicate') inner += _thumbShape(s, { rename: f.newLabel });
+  else {
+    inner += _thumbShape(s, { old: true });
+    inner += _thumbShape({ ...s, x: f.after.x, y: f.after.y }, { target: true });
+    const cx1 = s.x + s.w / 2, cy1 = s.y + s.h / 2, cx2 = f.after.x + s.w / 2, cy2 = f.after.y + s.h / 2;
+    if (Math.hypot(cx2 - cx1, cy2 - cy1) > 6)
+      inner += `<line x1="${cx1}" y1="${cy1}" x2="${cx2}" y2="${cy2}" stroke="#16a34a" stroke-width="2.5" stroke-dasharray="7,4" marker-end="url(#_cfx-arw)"/>`;
+  }
+  return `<svg viewBox="${minX} ${minY} ${vw} ${vh}" width="100%" height="150" preserveAspectRatio="xMidYMid meet" style="display:block">
+    <defs><marker id="_cfx-arw" markerWidth="9" markerHeight="9" refX="6" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 Z" fill="#16a34a"/></marker></defs>
+    ${inner}</svg>`;
+}
+
+// Pop-up de VALIDATION : aperçu zoomé de chaque correction + cases à cocher. Rien n'est
+// appliqué tant que l'utilisateur n'a pas validé la sélection.
+function _showFixPreview(fixes) {
+  if (!fixes || !fixes.length) { showToast('Aucune erreur corrigeable'); return; }
+  document.getElementById('_carto-fix-overlay')?.remove();
+  const sBtn = 'padding:9px 15px;border-radius:9px;border:1px solid var(--green-border,#3a5a44);background:rgba(77,184,104,0.08);color:var(--text-muted,#9fb0a4);font-size:12.5px;font-weight:600;cursor:pointer;font-family:inherit';
+  const pBtn = 'padding:9px 17px;border-radius:9px;border:1px solid var(--green-dark,#2f8f52);background:linear-gradient(135deg,#4DB868 0%,#2f8f52 100%);color:#fff;font-size:12.5px;font-weight:700;cursor:pointer;font-family:inherit';
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.id = '_carto-fix-overlay';
+  const cards = fixes.map((f, i) => {
+    const accent = f.type === 'renvoi' ? '#ef4444' : (f.type === 'duplicate' ? '#f59e0b' : '#22c55e');
+    return `<label style="display:block;border:1px solid var(--border,#2b3a2f);border-radius:12px;overflow:hidden;margin-bottom:12px;cursor:pointer">
+      <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:rgba(77,184,104,0.06)">
+        <input type="checkbox" class="_cfx" data-i="${i}" checked style="width:16px;height:16px;accent-color:${accent};flex-shrink:0">
+        <span style="flex:1;font-size:12.5px;font-weight:600;color:var(--text,#D6EDD9)">${_esc(f.desc)}</span>
+      </div>
+      <div style="background:#F3F5F2;background-image:radial-gradient(circle,rgba(0,0,0,0.06) 1px,transparent 1px);background-size:18px 18px">${_fixThumb(f)}</div>
+    </label>`;
+  }).join('');
+  overlay.innerHTML = `
+    <div class="modal-card" style="max-width:540px;max-height:88vh;display:flex;flex-direction:column">
+      <div class="modal-header">
+        <h2><i class="fa-solid fa-screwdriver-wrench" style="color:var(--green,#4DB868);margin-right:8px"></i>Corriger les erreurs</h2>
+        <span style="font-size:12px;color:var(--green-lt,#7BE0A0);font-weight:700">${fixes.length} correction(s)</span>
+      </div>
+      <div class="modal-body" style="overflow-y:auto;padding:14px 18px">
+        <p class="modal-hint" style="margin:0 0 12px">Vérifiez chaque correction sur l'aperçu zoomé (position actuelle en <b style="color:#ef4444">rouge</b>, cible en <b style="color:#16a34a">vert</b>) puis validez. Seules les cases cochées sont appliquées — le reste de la carto reste inchangé.</p>
+        ${cards}
+      </div>
+      <div class="modal-footer" style="justify-content:space-between">
+        <button id="_cfx-cancel" style="${sBtn}">Annuler</button>
+        <button id="_cfx-apply" style="${pBtn}"><i class="fa-solid fa-check" style="margin-right:6px"></i>Appliquer <span id="_cfx-n">(${fixes.length})</span></button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  const upd = () => { overlay.querySelector('#_cfx-n').textContent = `(${overlay.querySelectorAll('._cfx:checked').length})`; };
+  overlay.querySelectorAll('._cfx').forEach(cb => cb.addEventListener('change', upd));
+  overlay.querySelector('#_cfx-cancel').onclick = () => overlay.remove();
+  overlay.querySelector('#_cfx-apply').onclick = () => {
+    const sel = [...overlay.querySelectorAll('._cfx:checked')].map(cb => fixes[parseInt(cb.dataset.i)]);
+    overlay.remove();
+    if (sel.length) _applyFixes(sel); else showToast('Aucune correction sélectionnée');
+  };
 }
 
 /* ══════════════════════════════════════════════════
