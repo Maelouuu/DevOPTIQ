@@ -29,20 +29,27 @@ def _dname(d, lang=None):
     return (d.name_en if lang == "en" and d.name_en else d.name_fr)
 
 
-def domain_gap(user_id, role_id, activity_id):
-    """True si un domaine requis (rôle × activité) présente un écart pour l'individu
-    (niveau démontré < requis). Sert à l'alerte « Technicité » du tableau (CDC 6.3)."""
-    reqs = RoleActivityDomainRequirement.query.filter_by(role_id=role_id, activity_id=activity_id).all()
-    if not reqs:
-        return False
+def domain_status(user_id, role_id, activity_id):
+    """État de technicité d'un couple individu × rôle × activité pour le tableau (CDC 6.3) :
+      - 'none' : aucun domaine technique requis n'est défini → rien à afficher ;
+      - 'gap'  : au moins un domaine requis présente un écart (démontré < requis, ou non évalué) ;
+      - 'ok'   : tous les domaines requis sont tenus au niveau attendu.
+    Distingue le « pas de technicité paramétrée » du « technicité tenue » (avant : tout à vide)."""
+    active_reqs = [r for r in RoleActivityDomainRequirement.query.filter_by(
+        role_id=role_id, activity_id=activity_id).all() if r.required_level is not None]
+    if not active_reqs:
+        return "none"
     levels = {u.domain_id: u.demonstrated_level for u in UserDomainLevel.query.filter_by(user_id=user_id).all()}
-    for r in reqs:
-        if r.required_level is None:
-            continue
+    for r in active_reqs:
         dem = levels.get(r.domain_id)
         if dem is None or dem < r.required_level:
-            return True
-    return False
+            return "gap"
+    return "ok"
+
+
+def domain_gap(user_id, role_id, activity_id):
+    """True si la technicité présente un écart (compat)."""
+    return domain_status(user_id, role_id, activity_id) == "gap"
 
 
 @domains_bp.route("/scale", methods=["GET"])

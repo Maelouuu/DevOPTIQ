@@ -12,7 +12,7 @@
       title: 'Compétences', pick_collab: 'Sélectionnez un collaborateur pour commencer.',
       pick_collab2: 'Sélectionnez un collaborateur puis un rôle.',
       c_activity: 'Activité', c_required: 'Niveau requis', c_demonstrated: 'Niveau démontré',
-      c_gap: 'Écart', c_results: 'Résultats', c_last: 'Dernière éval.', c_tech: 'Technicité', tech_gap: 'Écart',
+      c_gap: 'Écart', c_results: 'Résultats', c_last: 'Dernière éval.', c_tech: 'Technicité', tech_gap: 'Écart', tech_ok: 'Tenu',
       competence: 'Compétence principale', analyze_gap: "Analyser l'écart",
       save_eval: "Enregistrer l'évaluation", evaluate: 'Évaluer', not_assessed: 'Non évalué',
       no_result: "Aucun résultat qualifié pour cette activité. Qualifiez d'abord les sorties.",
@@ -49,7 +49,7 @@
       title: 'Skills', pick_collab: 'Select a team member to start.',
       pick_collab2: 'Select a team member then a role.',
       c_activity: 'Activity', c_required: 'Required level', c_demonstrated: 'Demonstrated level',
-      c_gap: 'Gap', c_results: 'Results', c_last: 'Last eval.', c_tech: 'Technicity', tech_gap: 'Gap',
+      c_gap: 'Gap', c_results: 'Results', c_last: 'Last eval.', c_tech: 'Technicity', tech_gap: 'Gap', tech_ok: 'Met',
       competence: 'Main competence', analyze_gap: 'Analyze gap',
       save_eval: 'Save evaluation', evaluate: 'Evaluate', not_assessed: 'Not assessed',
       no_result: 'No qualified result for this activity. Qualify the outputs first.',
@@ -172,6 +172,26 @@
     return `<span class="gap-zero">0</span>`;
   }
   function fmtDate(iso) { if (!iso) return T('none'); try { return new Date(iso).toLocaleDateString(LANG === 'en' ? 'en-GB' : 'fr-FR'); } catch (e) { return T('none'); } }
+  // Couleur attachée au PALIER requis (échelle croissante, sur le thème bleu).
+  function levelColor(lvl) { return ({ 0: 'grey', 1: 'sky', 2: 'blue', 3: 'indigo', 4: 'green' })[lvl] || 'grey'; }
+  const dash = () => `<span class="cv2-dash">${T('none')}</span>`;
+  function reqChip(lvl, label) { return (lvl === null || lvl === undefined) ? dash() : chip(levelColor(lvl), label); }
+  function gapBadge(gap) {
+    if (gap === null || gap === undefined) return dash();
+    if (gap > 0) return `<span class="cv2-gap pos">+${gap}</span>`;
+    if (gap < 0) return `<span class="cv2-gap neg">${gap}</span>`;
+    return `<span class="cv2-gap zero">0</span>`;
+  }
+  function resPill(at, total) {
+    if (!total) return dash();
+    return `<span class="cv2-respill${at >= total ? ' done' : ''}">${at}/${total}</span>`;
+  }
+  function techCell(status) {
+    if (status === 'gap') return `<span class="chip orange"><span class="lv"></span>${T('tech_gap')}</span>`;
+    if (status === 'ok') return `<span class="chip green"><span class="lv"></span>${T('tech_ok')}</span>`;
+    return dash();
+  }
+  function dateCell(iso) { return iso ? `<span class="cv2-date">${fmtDate(iso)}</span>` : dash(); }
 
   function renderDashboard(d) {
     const tw = $('#cv2-tablewrap'), ph = $('#cv2-placeholder'), tb = $('#cv2-tbody');
@@ -182,12 +202,12 @@
       const tr = document.createElement('tr');
       tr.innerHTML =
         `<td><div class="cv2-actname">${a.activity_name}</div>${a.competence ? `<div class="cv2-actcomp">${a.competence}</div>` : ''}</td>
-         <td>${a.required_level === null ? T('none') : chip('grey', a.required_label)}</td>
+         <td>${reqChip(a.required_level, a.required_label)}</td>
          <td>${chip(a.color, a.demonstrated_label)}</td>
-         <td>${gapCell(a.gap)}</td>
-         <td>${a.n_at_required}/${a.n_results}</td>
-         <td>${a.technicity_alert ? '<span class="chip orange"><span class="lv"></span>' + T('tech_gap') + '</span>' : '<span class="gap-zero">' + T('none') + '</span>'}</td>
-         <td>${fmtDate(a.last_evaluation)}</td>
+         <td>${gapBadge(a.gap)}</td>
+         <td>${resPill(a.n_at_required, a.n_results)}</td>
+         <td>${techCell(a.technicity)}</td>
+         <td>${dateCell(a.last_evaluation)}</td>
          <td style="text-align:right"><button class="btn btn-primary btn-sm">${T('evaluate')}</button></td>`;
       tr.querySelector('button').onclick = () => openDrawer(a);
       tb.appendChild(tr);
@@ -262,7 +282,7 @@
     const g = document.createElement('div'); g.className = 'cv2-summary';
     // requis
     const cr = document.createElement('div'); cr.className = 'sm';
-    const rv = st.required_level === null ? `<span class="gap-zero">${T('not_set')}</span>` : chip('grey', st.required_label);
+    const rv = st.required_level === null ? `<span class="gap-zero">${T('not_set')}</span>` : chip(levelColor(st.required_level), st.required_label);
     cr.innerHTML = `<div class="k">${T('c_required')}</div><div class="v">${rv} <button class="cv2-link cv2-reqedit-btn">${T('edit')}</button></div>`;
     const row = document.createElement('div'); row.className = 'cv2-reqedit hidden';
     [null, 0, 1, 2, 3, 4].forEach(lv => { const b = document.createElement('button'); b.textContent = lv === null ? T('not_set') : lv; if (st.required_level === lv) b.classList.add('sel'); b.onclick = () => setRequired(lv); row.appendChild(b); });
