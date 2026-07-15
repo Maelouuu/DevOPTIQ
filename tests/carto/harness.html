@@ -273,6 +273,11 @@ async function run(){
     const lp=q.get('labelpos'); // test du curseur global de labels (0..100)
     if(lp!=null && typeof setLabelsAlongArrows==='function') setLabelsAlongArrows(+lp/100);
     render();
+    if(q.get('diamonds')==='1' && typeof _startDiamondPlacement==='function'){
+      _seatDecorativeDiamonds(); render();
+      _startDiamondPlacement(()=>{ window.__DP_DONE__=true; });
+      window.__DP_OPEN__ = !!document.getElementById('diamond-place-overlay');
+    }
   } else if(q.get('arrange2')==='1'){
     // valide la VRAIE fonction embarquée _computeAutoArrange() (bouton éditeur)
     render(); _computeAutoArrange();

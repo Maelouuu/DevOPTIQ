@@ -5145,7 +5145,11 @@ async function importVSDX(file) {
     _reconstructClassicPolish(); // NE ré-agence PAS : redresse les angles pas droits +
                                  // place les labels près des pointes sans les poser là
                                  // où une flèche en croise une autre.
-    _seatDecorativeDiamonds();   // repose les losanges décoratifs sur leur flèche finale
+    _seatDecorativeDiamonds();   // PRÉ-place les losanges décoratifs sur leur flèche finale
+    render();
+
+    // Finalisation de l'import — différée après le placement manuel des losanges.
+    const _finalizeImport = () => {
     render();
     history = [JSON.stringify(state)]; histIndex = 0; // baseline = carto reconstruite
     fitView(); updateProps();
@@ -5156,6 +5160,11 @@ async function importVSDX(file) {
     const nCustom = connections.filter(c => c.customPath).length;
     console.log(`[VSDX] ${shapes.length} formes, ${connections.length} connexions, ${nCustom} chemins Visio exacts, ${groups.length} groupes`);
     showToast(_L('editor.toast.vsdx_done').replace('{shapes}', shapes.length).replace('{conns}', connections.length).replace('{bands}', bands.length));
+    };
+
+    // Contribution utilisateur : ajuster finement chaque losange décoratif (déjà
+    // pré-placé sur sa flèche) dans une fenêtre zoomée, avant de terminer l'import.
+    _startDiamondPlacement(_finalizeImport);
 
   } catch(err) {
     console.error('VSDX import error:', err);
@@ -6196,6 +6205,166 @@ function _reconstructClassicPolish() {
   render();
   architectLabels(false);   // labels près des pointes, jamais sur une autre flèche
   if (typeof _syncLabelSlider === 'function') _syncLabelSlider();
+}
+
+/* ══════════════════════════════════════════════════
+   PLACEMENT MANUEL DES LOSANGES (contribution utilisateur à l'import VSDX)
+   Après reconstruction, chaque losange décoratif est PRÉ-placé sur sa flèche.
+   On propose à l'utilisateur d'ajuster finement chaque losange, un par un, dans
+   une fenêtre zoomée (le « cadre »). La position validée devient définitive.
+   ══════════════════════════════════════════════════ */
+function _startDiamondPlacement(onDone) {
+  const done = () => { try { onDone && onDone(); } catch (e) { console.error(e); } };
+  let diamonds;
+  try {
+    const connected = new Set();
+    for (const c of state.connections) { connected.add(c.fromId); connected.add(c.toId); }
+    diamonds = state.shapes.filter(s => s.type === 'decision' && !connected.has(s.id));
+  } catch (e) { console.error(e); return done(); }
+  if (!diamonds.length) return done();
+
+  const NS = 'http://www.w3.org/2000/svg';
+  const SVGW = 560, SVGH = 400;
+  const WINW = 640, WINH = WINW * SVGH / SVGW; // fenêtre monde (même ratio que le cadre)
+  let idx = 0;
+
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.id = 'diamond-place-overlay';
+  const sBtn = 'padding:9px 15px;border-radius:9px;border:1px solid var(--green-border);background:rgba(77,184,104,0.08);color:var(--text-muted);font-size:12.5px;font-weight:600;cursor:pointer;font-family:inherit';
+  const pBtn = 'padding:9px 17px;border-radius:9px;border:1px solid var(--green-dark);background:linear-gradient(135deg,var(--green) 0%,var(--green-dark) 100%);color:#fff;font-size:12.5px;font-weight:700;cursor:pointer;font-family:inherit';
+  overlay.innerHTML = `
+    <div class="modal-card" style="max-width:${SVGW + 44}px">
+      <div class="modal-header">
+        <h2><i class="fa-solid fa-gem" style="color:var(--green);margin-right:8px"></i>Placement des losanges</h2>
+        <span id="dp-progress" style="font-size:12px;color:var(--green-lt);font-weight:700"></span>
+      </div>
+      <div class="modal-body" style="padding:14px 18px 12px">
+        <p class="modal-hint" style="margin:0 0 11px">Glissez le <b style="color:#cfd3cf">losange gris</b> à sa position exacte, puis validez. La position choisie devient définitive.</p>
+        <div style="border:1px solid var(--border);border-radius:12px;overflow:hidden;background:#F3F5F2;background-image:radial-gradient(circle,rgba(0,0,0,0.07) 1px,transparent 1px);background-size:20px 20px">
+          <svg id="dp-frame" width="${SVGW}" height="${SVGH}" style="display:block;touch-action:none"></svg>
+        </div>
+      </div>
+      <div class="modal-footer" style="justify-content:space-between;align-items:center;gap:10px">
+        <button id="dp-skip" style="${sBtn}">Tout garder</button>
+        <div style="display:flex;gap:8px">
+          <button id="dp-prev" style="${sBtn}">← Précédent</button>
+          <button id="dp-valid" style="${pBtn}">Valider →</button>
+        </div>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+
+  const svg  = overlay.querySelector('#dp-frame');
+  const prog = overlay.querySelector('#dp-progress');
+  const prevBtn = overlay.querySelector('#dp-prev');
+  const validBtn = overlay.querySelector('#dp-valid');
+
+  const _toWorld = evt => {
+    const pt = svg.createSVGPoint(); pt.x = evt.clientX; pt.y = evt.clientY;
+    const w = pt.matrixTransform(svg.getScreenCTM().inverse());
+    return { x: w.x, y: w.y };
+  };
+
+  function shapeNode(s, isCurrent) {
+    const g = document.createElementNS(NS, 'g');
+    let el;
+    if (s.type === 'decision') {
+      el = document.createElementNS(NS, 'path');
+      el.setAttribute('d', roundedDiamond(s.x, s.y, s.w, s.h, 12));
+    } else if (s.type === 'start-end') {
+      el = document.createElementNS(NS, 'ellipse');
+      el.setAttribute('cx', s.x + s.w / 2); el.setAttribute('cy', s.y + s.h / 2);
+      el.setAttribute('rx', s.w / 2); el.setAttribute('ry', s.h / 2);
+    } else {
+      el = document.createElementNS(NS, 'rect');
+      el.setAttribute('x', s.x); el.setAttribute('y', s.y);
+      el.setAttribute('width', s.w); el.setAttribute('height', s.h);
+      el.setAttribute('rx', 14); el.setAttribute('ry', 14);
+    }
+    el.setAttribute('fill', s.color || '#94a3b8');
+    if (isCurrent) {
+      el.setAttribute('stroke', '#22c55e'); el.setAttribute('stroke-width', '3.5');
+      el.setAttribute('style', 'filter:drop-shadow(0 3px 7px rgba(0,0,0,0.4))');
+      g.style.cursor = 'grab';
+    } else { el.setAttribute('opacity', '0.96'); }
+    g.appendChild(el);
+    const label = (s.label || '').trim();
+    if (label && !isCurrent) {
+      const t = document.createElementNS(NS, 'text');
+      t.setAttribute('x', s.x + s.w / 2); t.setAttribute('y', s.y + s.h / 2);
+      t.setAttribute('text-anchor', 'middle'); t.setAttribute('dominant-baseline', 'central');
+      t.setAttribute('font-size', '11'); t.setAttribute('font-weight', '700');
+      t.setAttribute('fill', s.textColor || '#fff'); t.setAttribute('pointer-events', 'none');
+      t.textContent = label.length > 18 ? label.slice(0, 17) + '…' : label;
+      g.appendChild(t);
+    }
+    return g;
+  }
+
+  function renderFrame() {
+    const D = diamonds[idx];
+    const cx = D.x + D.w / 2, cy = D.y + D.h / 2;
+    const vx = cx - WINW / 2, vy = cy - WINH / 2;
+    svg.setAttribute('viewBox', `${vx} ${vy} ${WINW} ${WINH}`);
+    while (svg.firstChild) svg.removeChild(svg.firstChild);
+    // connexions (filtre grossier sur la fenêtre élargie)
+    for (const c of state.connections) {
+      const p = c._computedOrthopts; if (!p || p.length < 2) continue;
+      if (!p.some(q => q.x > vx - 140 && q.x < vx + WINW + 140 && q.y > vy - 140 && q.y < vy + WINH + 140)) continue;
+      const poly = document.createElementNS(NS, 'polyline');
+      poly.setAttribute('points', p.map(q => `${q.x},${q.y}`).join(' '));
+      poly.setAttribute('fill', 'none'); poly.setAttribute('stroke', c.color || '#8a8f8a');
+      poly.setAttribute('stroke-width', '2.2'); poly.setAttribute('stroke-linejoin', 'round');
+      poly.setAttribute('opacity', '0.8');
+      svg.appendChild(poly);
+    }
+    // formes voisines (les autres losanges pré-placés servent aussi de repère)
+    for (const s of state.shapes) {
+      if (s === D) continue;
+      if (s.x + s.w < vx - 60 || s.x > vx + WINW + 60 || s.y + s.h < vy - 60 || s.y > vy + WINH + 60) continue;
+      svg.appendChild(shapeNode(s, false));
+    }
+    // losange courant (dessiné en dernier, au-dessus)
+    const g = shapeNode(D, true);
+    svg.appendChild(g);
+    _bindDrag(D, g);
+    prog.textContent = `Losange ${idx + 1} / ${diamonds.length}`;
+    prevBtn.style.opacity = idx === 0 ? '0.4' : '1';
+    prevBtn.style.pointerEvents = idx === 0 ? 'none' : 'auto';
+    validBtn.textContent = idx === diamonds.length - 1 ? 'Terminer ✓' : 'Valider →';
+  }
+
+  function _bindDrag(D, g) {
+    // move/up écoutés sur window (pas sur g) : le losange est petit, le pointeur en
+    // sort vite pendant le glissé → il faut capturer les mouvements globalement.
+    let offX = 0, offY = 0;
+    const move = e => {
+      const w = _toWorld(e);
+      let ncx = w.x - offX, ncy = w.y - offY;
+      const vb = svg.viewBox.baseVal;
+      ncx = Math.max(vb.x + D.w / 2, Math.min(vb.x + vb.width - D.w / 2, ncx));
+      ncy = Math.max(vb.y + D.h / 2, Math.min(vb.y + vb.height - D.h / 2, ncy));
+      D.x = ncx - D.w / 2; D.y = ncy - D.h / 2;
+      g.firstChild.setAttribute('d', roundedDiamond(D.x, D.y, D.w, D.h, 12));
+    };
+    const up = () => { window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); g.style.cursor = 'grab'; };
+    g.addEventListener('pointerdown', e => {
+      e.preventDefault();
+      const w = _toWorld(e);
+      offX = w.x - (D.x + D.w / 2); offY = w.y - (D.y + D.h / 2);
+      g.style.cursor = 'grabbing';
+      window.addEventListener('pointermove', move);
+      window.addEventListener('pointerup', up);
+    });
+  }
+
+  const finish = () => { overlay.remove(); done(); };
+  validBtn.addEventListener('click', () => { if (idx >= diamonds.length - 1) finish(); else { idx++; renderFrame(); } });
+  prevBtn.addEventListener('click', () => { if (idx > 0) { idx--; renderFrame(); } });
+  overlay.querySelector('#dp-skip').addEventListener('click', finish); // accepte le pré-placement du reste
+
+  renderFrame();
 }
 
 // Point à la fraction t (0..1 arc-length) le long d'un tracé + angle du segment local
