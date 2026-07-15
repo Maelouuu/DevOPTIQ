@@ -220,6 +220,16 @@ class Data(db.Model):
     description = db.Column(db.Text, nullable=True)
     layer = db.Column(db.String(50), nullable=True)
 
+    # V1.1 — CDC 1 : nature sémantique de la donnée de sortie (≠ Data.type qui est le type de flux).
+    # Codes techniques internes, jamais affichés tels quels : RESULT | MEASURE | EVENT | INFORMATION.
+    # NULL = donnée pas encore qualifiée.
+    semantic_nature = db.Column(db.String(20), nullable=True)
+    # Standard minimal de performance — surtout pour RESULT : « à partir de quel niveau l'activité
+    # est-elle considérée tenue de manière autonome (niveau 2) ? ». Proposé IA, corrigé utilisateur.
+    minimum_performance_text = db.Column(db.Text, nullable=True)
+    qualification_source = db.Column(db.String(10), nullable=True)      # AI | MANUAL
+    qualification_updated_at = db.Column(db.DateTime, nullable=True)
+
     __table_args__ = (
         db.UniqueConstraint('entity_id', 'shape_id', name='uq_entity_data_shape'),
     )

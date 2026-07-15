@@ -249,6 +249,9 @@ def create_app(test_config=None):
     from Code.routes.projection_metier import projection_metier_bp
     app.register_blueprint(projection_metier_bp)
 
+    from Code.routes.qualify_outputs import qualify_bp
+    app.register_blueprint(qualify_bp)
+
     from Code.routes.ui_routes import ui_bp
     app.register_blueprint(ui_bp)
 
@@ -303,6 +306,11 @@ def create_app(test_config=None):
         _safe_add_column("links", "cross_carto_label", "VARCHAR(200)")
         _safe_add_column("cross_carto_liaisons", "display_label", "VARCHAR(200)")
         _safe_add_column("links", "choice_label", "VARCHAR(10)")
+        # V1.1 — CDC 1 : qualification sémantique des données de sortie
+        _safe_add_column("data", "semantic_nature", "VARCHAR(20)")
+        _safe_add_column("data", "minimum_performance_text", "TEXT")
+        _safe_add_column("data", "qualification_source", "VARCHAR(10)")
+        _safe_add_column("data", "qualification_updated_at", "TIMESTAMP")
 
         # 3. Tables supplémentaires
         try:
