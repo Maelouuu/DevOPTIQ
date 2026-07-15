@@ -26,6 +26,7 @@
   </g>
 </svg>
 <div id="status-zoom" class="hidden"></div>
+<div id="toast"></div>
 <input id="label-editor" class="hidden">
 <div id="canvas-map-list" class="hidden"></div>
 <div id="multiselect-badge" class="hidden"><span id="multiselect-count"></span></div>
@@ -245,7 +246,7 @@ async function run(){
   const fix = q.get('fix')==='1';                      // applique le correctif classique (angles+labels)
   const declutter = q.get('declutter')!=='0';         // aération (align+declutter) on/off
   const arrange = q.get('arrange')==='1';              // NOUVEL agencement auto (layered, contraint bandes)
-  const route = q.get('route')!=='0' && !classic && !arrange; // agencement auto legacy
+  const route = q.get('route')!=='0' && !classic && !arrange && q.get('arrange2')!=='1'; // agencement auto legacy
   const buf=await (await fetch(vsdx)).arrayBuffer();
   const res=await vsdxParse(new Blob([buf]),()=>{},async()=>'keep',{spliceDecisions:false});
   state.bands=res.bands; state.shapes=res.shapes; state.connections=res.connections;
@@ -271,6 +272,10 @@ async function run(){
     const lp=q.get('labelpos'); // test du curseur global de labels (0..100)
     if(lp!=null && typeof setLabelsAlongArrows==='function') setLabelsAlongArrows(+lp/100);
     render();
+  } else if(q.get('arrange2')==='1'){
+    // valide la VRAIE fonction embarquée _computeAutoArrange() (bouton éditeur)
+    render(); _computeAutoArrange();
+    window.__ARR__={ via:'_computeAutoArrange' };
   } else if(arrange){
     // ── NOUVEL agencement auto : layered contraint aux bandes ────────────────
     const R = OptiqArrange.arrange(state.shapes, state.connections, state.bands);

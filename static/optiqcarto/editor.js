@@ -5738,10 +5738,27 @@ function _showCheckPanel(issues) {
     </div>`;
   }
 
-  panel.innerHTML = hdr + body;
+  // Pied de panneau : action Agencement auto (rangée ici pour l'instant ; on
+  // l'adaptera plus tard pour qu'elle s'intègre à la section dédiée).
+  const footer = `
+    <div style="padding:12px 14px;border-top:1px solid rgba(77,184,104,0.12);flex-shrink:0">
+      <button id="_ccp-arrange" style="width:100%;display:flex;align-items:center;justify-content:center;gap:8px;padding:10px 14px;border-radius:10px;border:1px solid rgba(77,184,104,0.35);background:rgba(77,184,104,0.10);color:#7BE0A0;font-size:12.5px;font-weight:600;cursor:pointer;transition:background .15s">
+        <i class="fa-solid fa-wand-magic-sparkles"></i> Agencement auto
+      </button>
+      <div style="font-size:10px;color:#567460;margin-top:7px;line-height:1.4;text-align:center">Réorganise les formes en flux gauche→droite (chaque forme reste dans sa bande)</div>
+    </div>`;
+
+  panel.innerHTML = hdr + body + footer;
   document.body.appendChild(panel);
 
   panel.querySelector('#_ccp-close').onclick = () => panel.remove();
+
+  const arrangeBtn = panel.querySelector('#_ccp-arrange');
+  if (arrangeBtn) {
+    arrangeBtn.onmouseenter = () => arrangeBtn.style.background = 'rgba(77,184,104,0.20)';
+    arrangeBtn.onmouseleave = () => arrangeBtn.style.background = 'rgba(77,184,104,0.10)';
+    arrangeBtn.onclick = () => { panel.remove(); _computeAutoArrange(); };
+  }
 
   panel.querySelectorAll('._ccp-goto').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -5817,6 +5834,65 @@ function runCartoCheck() {
   }
 
   _showCheckPanel(issues);
+}
+
+/* ══════════════════════════════════════════════════
+   AGENCEMENT AUTO — réordonne les formes en colonnes (layered), chaque forme
+   restant DANS SA BANDE d'origine. Flux gauche→droite, flèches retour dans un
+   canal dédié au-dessus de la carto. N'est JAMAIS appelé à l'import VSDX
+   (l'import reste la reconstruction classique fidèle Visio) — bouton manuel.
+   ══════════════════════════════════════════════════ */
+
+function _computeAutoArrange() {
+  if (typeof OptiqArrange === 'undefined' || !OptiqArrange.arrange) {
+    showToast('Agencement auto indisponible'); return;
+  }
+  if (!state.shapes.length) { showToast(_L('editor.toast.no_shapes_check')); return; }
+  snapshot();
+
+  const R = OptiqArrange.arrange(state.shapes, state.connections, state.bands);
+  for (const s of state.shapes) { const p = R.pos.get(s.id); if (p) { s.x = p.x; s.y = p.y; } }
+
+  // routage recalculé de zéro : on jette les tracés Visio, on repart des ports.
+  for (const c of state.connections) {
+    c.userPts = null; c.customPath = null; c.bendOffset = null; c.labelOffset = null;
+    c.fromPortT = undefined; c.toPortT = undefined;
+    const back = R.backEdges.has(c.fromId + '|' + c.toId);
+    const rf = R.ranks.get(c.fromId), rt = R.ranks.get(c.toId);
+    if (back || rt <= rf) { c.fromPortDir = 'bottom'; c.toPortDir = 'bottom'; c._back = true; }
+    else                  { c.fromPortDir = 'right';  c.toPortDir = 'left';   c._back = false; }
+  }
+  render();
+  _reconstructClassicPolish();      // angles droits + voies + labels
+
+  // ── flèches RETOUR : canal dédié AU-DESSUS de la carto (jamais droite→gauche
+  //    à travers le flux). Packing par intervalle x → canal court même à 43 retours.
+  const backs = state.connections.filter(c => c._back);
+  if (backs.length) {
+    const byId = new Map(state.shapes.map(s => [s.id, s]));
+    const top = -200;                // 1re bande commence à y = -200
+    const items = backs.map(c => {
+      const a = byId.get(c.fromId), b = byId.get(c.toId);
+      const sx = a ? a.x + a.w / 2 : 0, tx = b ? b.x + b.w / 2 : 0;
+      return { c, a, b, sx, tx, lo: Math.min(sx, tx), hi: Math.max(sx, tx) };
+    }).filter(it => it.a && it.b).sort((p, q) => (q.hi - q.lo) - (p.hi - p.lo));
+    const laneHi = [], PAD = 24, GAP = 18;
+    for (const it of items) {
+      let lane = laneHi.findIndex(h => it.lo > h + PAD);
+      if (lane < 0) lane = laneHi.length;
+      laneHi[lane] = it.hi; it.lane = lane;
+    }
+    for (const it of items) {
+      const chY = top - 30 - it.lane * GAP;
+      it.c.fromPortDir = 'top'; it.c.toPortDir = 'top';
+      it.c.fromPortT = 0.5; it.c.toPortT = 0.5;
+      it.c.userPts = [{ x: it.sx, y: chY }, { x: it.tx, y: chY }];
+    }
+    render();
+  }
+  for (const c of state.connections) { delete c._back; delete c._span; }
+  if (typeof fitView === 'function') fitView();
+  showToast('Agencement auto appliqué');
 }
 
 /* ══════════════════════════════════════════════════
