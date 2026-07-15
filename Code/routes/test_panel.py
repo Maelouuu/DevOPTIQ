@@ -10,7 +10,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 
 from flask import (Blueprint, Response, jsonify, render_template, request,
-                   stream_with_context, current_app)
+                   stream_with_context, current_app, abort)
 
 from Code.extensions import db
 from Code.models.test_models import (TestCase, TestPage, TestPatch, TestResult,
@@ -697,7 +697,7 @@ def run_page(slug):
 
 @test_panel_bp.route('/run/case/<int:case_id>', methods=['POST'])
 def run_case(case_id):
-    db.session.get(TestCase, case_id) or (lambda: (_ for _ in ()).throw(Exception()))()
+    db.session.get(TestCase, case_id) or abort(404)
     return jsonify({'run_id': _start_run(f'case:{case_id}')})
 
 

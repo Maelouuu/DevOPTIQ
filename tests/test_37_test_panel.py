@@ -11,6 +11,7 @@ Couvre :
   - POST /testpanel/admin/reset-stale (JSON — expire les runs bloqués)
   - POST /testpanel/run/page/<slug>   (JSON — 404 si slug inconnu, run_id sinon)
   - POST /testpanel/run/all           (JSON — retourne run_id, sans lancer pytest)
+  - POST /testpanel/run/case/<id>     (JSON — 404 si case_id inconnu, run_id sinon)
   - GET  /testpanel/patches           (patches.html — registre des correctifs tracés)
   - GET  /testpanel/journal           (journal.html — plan versionné + historique)
   - GET  /testpanel/stream/<run_id>   (SSE — sleep neutralisé pour éviter tout blocage)
@@ -493,6 +494,59 @@ class TestTestPanelRunAll:
         r1 = auth_client.post("/testpanel/run/all")
         r2 = auth_client.post("/testpanel/run/all")
         assert r1.get_json()["run_id"] != r2.get_json()["run_id"]
+
+
+# ===========================================================================
+# 8b. POST /testpanel/run/case/<int:case_id>
+# ===========================================================================
+
+class TestTestPanelRunCase:
+
+    def test_run_unknown_case_returns_404(self, auth_client):
+        """case_id inexistant → 404 (pas un crash 500)."""
+        r = auth_client.post("/testpanel/run/case/999999")
+        assert r.status_code == 404
+
+    def test_run_known_case_returns_run_id(self, auth_client, app, monkeypatch):
+        """Case connu → 200 avec run_id (monkeypatch pour éviter subprocess pytest)."""
+        _ensure_synced(auth_client)
+        with app.app_context():
+            from Code.models.test_models import TestCase
+            case = TestCase.query.first()
+        if case is None:
+            pytest.skip("Aucun test case en base après sync")
+
+        import Code.routes.test_panel as _tp
+        monkeypatch.setattr(_tp, "_run_thread", lambda *a, **kw: None)
+
+        r = auth_client.post(f"/testpanel/run/case/{case.id}")
+        assert r.status_code == 200
+        data = r.get_json()
+        assert "run_id" in data
+        assert isinstance(data["run_id"], int)
+        assert data["run_id"] > 0
+
+    def test_run_case_creates_test_run_in_db(self, auth_client, app, monkeypatch):
+        """Après POST run/case, un TestRun est créé en base avec le scope attendu."""
+        _ensure_synced(auth_client)
+        with app.app_context():
+            from Code.models.test_models import TestCase
+            case = TestCase.query.first()
+        if case is None:
+            pytest.skip("Aucun test case en base après sync")
+
+        import Code.routes.test_panel as _tp
+        monkeypatch.setattr(_tp, "_run_thread", lambda *a, **kw: None)
+
+        r = auth_client.post(f"/testpanel/run/case/{case.id}")
+        run_id = r.get_json()["run_id"]
+
+        with app.app_context():
+            from Code.models.test_models import TestRun
+            run = TestRun.query.get(run_id)
+        assert run is not None
+        assert run.scope == f"case:{case.id}"
+        assert run.status == "running"
 
 
 # ===========================================================================

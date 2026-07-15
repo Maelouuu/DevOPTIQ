@@ -421,5 +421,29 @@
     ],
     "author": "routine",
     "fixed_at": "2026-07-06T03:21:13"
+  },
+  {
+    "patch_uid": "2026-07-15-testpanel-run-case-404",
+    "title": "POST /testpanel/run/case/<id> inconnu → 500 au lieu de 404",
+    "node_ids": [
+      "tests/test_37_test_panel.py::TestTestPanelRunCase::test_run_unknown_case_returns_404",
+      "tests/test_37_test_panel.py::TestTestPanelRunCase::test_run_known_case_returns_run_id",
+      "tests/test_37_test_panel.py::TestTestPanelRunCase::test_run_case_creates_test_run_in_db",
+      "tests/test_50_activities_map_api_et_ui.py::TestRunCase::test_nonexistent_case_id_returns_404",
+      "tests/test_50_activities_map_api_et_ui.py::TestRunCase::test_zero_case_id_returns_error"
+    ],
+    "page_slug": "test_panel",
+    "failure_reason": "En écrivant de nouveaux tests pour /testpanel/run/case/<id> (endpoint non couvert dans test_37), un case_id inconnu provoquait une erreur 500 brute au lieu du 404 attendu (comportement incohérent avec le endpoint jumeau /run/page/<slug> qui utilise first_or_404()).",
+    "was_real_bug": true,
+    "root_cause": "app_bug",
+    "error": "run_case() faisait `db.session.get(TestCase, case_id) or (lambda: (_ for _ in ()).throw(Exception()))()` : une Exception generique non geree provoquait un 500 Internal Server Error au lieu d une reponse 404 propre pour un case_id inexistant.",
+    "fix_description": "Remplacement par `db.session.get(TestCase, case_id) or abort(404)` (import de abort depuis flask), alignant le comportement sur celui de run_page. Les deux tests existants dans test_50_activities_map_api_et_ui.py qui figeaient l ancien comportement bugge (assert status_code == 500) ont ete corriges pour attendre 404.",
+    "files_changed": [
+      "Code/routes/test_panel.py",
+      "tests/test_37_test_panel.py",
+      "tests/test_50_activities_map_api_et_ui.py"
+    ],
+    "author": "routine",
+    "fixed_at": "2026-07-15T03:15:13"
   }
 ]

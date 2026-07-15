@@ -200,19 +200,19 @@ class TestUiActivities:
 class TestRunCase:
 
     def test_nonexistent_case_id_returns_error(self, auth_client):
-        """case_id inexistant → exception levée → réponse non-200."""
+        """case_id inexistant → réponse non-200."""
         r = auth_client.post("/testpanel/run/case/999999")
         assert r.status_code != 200
 
-    def test_nonexistent_case_id_returns_500(self, auth_client):
-        """case_id absent de la DB → erreur non gérée → 500."""
+    def test_nonexistent_case_id_returns_404(self, auth_client):
+        """case_id absent de la DB → 404 (pas un crash 500)."""
         r = auth_client.post("/testpanel/run/case/999999")
-        assert r.status_code == 500
+        assert r.status_code == 404
 
     def test_zero_case_id_returns_error(self, auth_client):
         """case_id=0 (jamais valide) → erreur serveur."""
         r = auth_client.post("/testpanel/run/case/0")
-        assert r.status_code in (404, 500)
+        assert r.status_code == 404
 
     def test_response_content_type_on_error(self, auth_client):
         """Même en cas d'erreur, la réponse est JSON ou HTML (pas de crash non géré)."""
