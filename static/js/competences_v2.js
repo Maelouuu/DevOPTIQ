@@ -12,7 +12,7 @@
       title: 'Compétences', pick_collab: 'Sélectionnez un collaborateur pour commencer.',
       pick_collab2: 'Sélectionnez un collaborateur puis un rôle.',
       c_activity: 'Activité', c_required: 'Niveau requis', c_demonstrated: 'Niveau démontré',
-      c_gap: 'Écart', c_results: 'Résultats', c_last: 'Dernière éval.',
+      c_gap: 'Écart', c_results: 'Résultats', c_last: 'Dernière éval.', c_tech: 'Technicité', tech_gap: 'Écart',
       competence: 'Compétence principale', analyze_gap: "Analyser l'écart",
       save_eval: "Enregistrer l'évaluation", evaluate: 'Évaluer', not_assessed: 'Non évalué',
       no_result: "Aucun résultat qualifié pour cette activité. Qualifiez d'abord les sorties.",
@@ -28,7 +28,7 @@
       title: 'Skills', pick_collab: 'Select a team member to start.',
       pick_collab2: 'Select a team member then a role.',
       c_activity: 'Activity', c_required: 'Required level', c_demonstrated: 'Demonstrated level',
-      c_gap: 'Gap', c_results: 'Results', c_last: 'Last eval.',
+      c_gap: 'Gap', c_results: 'Results', c_last: 'Last eval.', c_tech: 'Technicity', tech_gap: 'Gap',
       competence: 'Main competence', analyze_gap: 'Analyze gap',
       save_eval: 'Save evaluation', evaluate: 'Evaluate', not_assessed: 'Not assessed',
       no_result: 'No qualified result for this activity. Qualify the outputs first.',
@@ -124,6 +124,7 @@
          <td>${chip(a.color, a.demonstrated_label)}</td>
          <td>${gapCell(a.gap)}</td>
          <td>${a.n_at_required}/${a.n_results}</td>
+         <td>${a.technicity_alert ? '<span class="chip orange"><span class="lv"></span>' + T('tech_gap') + '</span>' : '<span class="gap-zero">' + T('none') + '</span>'}</td>
          <td>${fmtDate(a.last_evaluation)}</td>
          <td style="text-align:right"><button class="btn btn-primary btn-sm">${T('evaluate')}</button></td>`;
       tr.querySelector('button').onclick = () => openDrawer(a);

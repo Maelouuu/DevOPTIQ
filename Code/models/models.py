@@ -172,6 +172,9 @@ class Activities(db.Model):
     description = db.Column(db.Text, nullable=True)
     is_result = db.Column(db.Boolean, nullable=False, default=False)
     shape_subtype = db.Column(db.String(50), nullable=True)  # 'normal', 'external', 'extco', 'special'
+    # V1.1 — CDC 5 : cadence de l'activité (code interne EVENT/DAILY/WEEKLY… + précisions).
+    cadence_code = db.Column(db.String(20), nullable=True)
+    cadence_details = db.Column(db.Text, nullable=True)
 
     # Durée/délai (défaut / préremplissage des autres pages)
     duration_minutes = db.Column(db.Float, default=0)
@@ -232,6 +235,9 @@ class Data(db.Model):
     minimum_performance_text = db.Column(db.Text, nullable=True)
     qualification_source = db.Column(db.String(10), nullable=True)      # AI | MANUAL
     qualification_updated_at = db.Column(db.DateTime, nullable=True)
+    # V1.1 — CDC 5.4 : cadence et fraîcheur de la donnée.
+    update_cadence_code = db.Column(db.String(20), nullable=True)
+    max_age_hours = db.Column(db.Integer, nullable=True)
 
     __table_args__ = (
         db.UniqueConstraint('entity_id', 'shape_id', name='uq_entity_data_shape'),
@@ -522,6 +528,70 @@ class ResultDiagnostic(db.Model):
     __table_args__ = (
         db.UniqueConstraint('user_id', 'activity_id', 'data_id', name='uq_result_diagnostic'),
     )
+
+
+class TechnicalDomain(db.Model):
+    """V1.1 — CDC 4 : domaine de technicité (« Technical domain », jamais « expertise domain » —
+    Expertise = niveau 4). Permet qu'une même activité soit exercée dans des contextes techniques
+    différents (Plastic/Metal, Français/Maths…) sans dupliquer l'activité."""
+    __tablename__ = 'technical_domains'
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    entity_id = db.Column(db.Integer, db.ForeignKey('entities.id'), nullable=True, index=True)
+    name_fr = db.Column(db.String(150), nullable=False)
+    name_en = db.Column(db.String(150), nullable=True)
+    description = db.Column(db.Text, nullable=True)
+    active = db.Column(db.Boolean, default=True)
+
+
+class ActivityTechnicalDomain(db.Model):
+    __tablename__ = 'activity_technical_domains'
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    activity_id = db.Column(db.Integer, db.ForeignKey('activities.id'), nullable=False, index=True)
+    domain_id = db.Column(db.Integer, db.ForeignKey('technical_domains.id'), nullable=False, index=True)
+    __table_args__ = (db.UniqueConstraint('activity_id', 'domain_id', name='uq_activity_domain'),)
+
+
+class RoleActivityDomainRequirement(db.Model):
+    """Niveau technique REQUIS par le rôle sur une activité, pour un domaine donné."""
+    __tablename__ = 'role_activity_domain_requirements'
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    role_id = db.Column(db.Integer, db.ForeignKey('roles.id'), nullable=False, index=True)
+    activity_id = db.Column(db.Integer, db.ForeignKey('activities.id'), nullable=False, index=True)
+    domain_id = db.Column(db.Integer, db.ForeignKey('technical_domains.id'), nullable=False, index=True)
+    required_level = db.Column(db.Integer, nullable=True)   # 0..4
+    __table_args__ = (db.UniqueConstraint('role_id', 'activity_id', 'domain_id', name='uq_role_activity_domain'),)
+
+
+class UserDomainLevel(db.Model):
+    """Niveau technique DÉMONTRÉ par l'individu sur un domaine (axe séparé du niveau d'activité)."""
+    __tablename__ = 'user_domain_levels'
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, index=True)
+    domain_id = db.Column(db.Integer, db.ForeignKey('technical_domains.id'), nullable=False, index=True)
+    demonstrated_level = db.Column(db.Integer, nullable=True)   # 0..4
+    evidence = db.Column(db.Text, nullable=True)
+    evaluated_at = db.Column(db.DateTime, nullable=True)
+    evaluator_user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
+    __table_args__ = (db.UniqueConstraint('user_id', 'domain_id', name='uq_user_domain'),)
+
+
+class HscLevelDescriptor(db.Model):
+    """V1.1 — CDC 7.3 : référentiel comportemental des 16 HSC, 4 niveaux chacune. Sert à
+    l'auto-positionnement (comportements observables) plutôt qu'un choix direct de niveau."""
+    __tablename__ = 'hsc_level_descriptors'
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    entity_id = db.Column(db.Integer, db.ForeignKey('entities.id'), nullable=True, index=True)
+    hsc_name = db.Column(db.String(150), nullable=False, index=True)
+    level = db.Column(db.Integer, nullable=False)              # 1..4
+    descriptor_fr = db.Column(db.Text, nullable=True)
+    descriptor_en = db.Column(db.Text, nullable=True)
+    observable_behaviors_fr = db.Column(db.Text, nullable=True)
+    observable_behaviors_en = db.Column(db.Text, nullable=True)
+    example_situations_fr = db.Column(db.Text, nullable=True)
+    example_situations_en = db.Column(db.Text, nullable=True)
+    development_focus_fr = db.Column(db.Text, nullable=True)
+    development_focus_en = db.Column(db.Text, nullable=True)
+    __table_args__ = (db.UniqueConstraint('entity_id', 'hsc_name', 'level', name='uq_hsc_level'),)
 
 
 class TimeAnalysis(db.Model):

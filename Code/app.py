@@ -261,6 +261,15 @@ def create_app(test_config=None):
     from Code.routes.diagnostic import diagnostic_bp
     app.register_blueprint(diagnostic_bp)
 
+    from Code.routes.technical_domains import domains_bp
+    app.register_blueprint(domains_bp)
+
+    from Code.routes.cadence import cadence_bp
+    app.register_blueprint(cadence_bp)
+
+    from Code.routes.hsc_positioning import hsc_bp
+    app.register_blueprint(hsc_bp)
+
     from Code.routes.ui_routes import ui_bp
     app.register_blueprint(ui_bp)
 
@@ -326,6 +335,11 @@ def create_app(test_config=None):
         _safe_add_column("competency_evaluation", "evidence", "TEXT")
         _safe_add_column("competency_evaluation", "evaluated_at", "TIMESTAMP")
         _safe_add_column("competency_evaluation", "evaluator_user_id", "INTEGER")
+        # V1.1 — CDC 5 : cadences activité + fraîcheur données
+        _safe_add_column("activities", "cadence_code", "VARCHAR(20)")
+        _safe_add_column("activities", "cadence_details", "TEXT")
+        _safe_add_column("data", "update_cadence_code", "VARCHAR(20)")
+        _safe_add_column("data", "max_age_hours", "INTEGER")
 
         # 3. Tables supplémentaires
         try:
@@ -370,6 +384,16 @@ def create_app(test_config=None):
             print("[DB] Table result_diagnostics prête")
         except Exception as e:
             print(f"[DB] result_diagnostics check: {e}")
+
+        try:
+            from Code.models.models import (TechnicalDomain, ActivityTechnicalDomain,
+                RoleActivityDomainRequirement, UserDomainLevel, HscLevelDescriptor)
+            for _m in (TechnicalDomain, ActivityTechnicalDomain, RoleActivityDomainRequirement,
+                       UserDomainLevel, HscLevelDescriptor):
+                _m.__table__.create(db.engine, checkfirst=True)
+            print("[DB] Tables V1.1 itér.2 (domaines + HSC) prêtes")
+        except Exception as e:
+            print(f"[DB] V1.1 itér.2 tables: {e}")
 
         # 4. Marquer les migrations Alembic comme appliquées (sans les exécuter)
         # db_upgrade() est intentionnellement absent : il attend un verrou PostgreSQL

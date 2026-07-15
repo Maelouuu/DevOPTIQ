@@ -134,6 +134,11 @@ def dashboard(user_id, role_id):
                 user_id=user_id, activity_id=act.id, item_type=RESULT_ITEM_TYPE).all():
             if ev.eval_number in VALIDATING and ev.evaluated_at:
                 last = max(last, ev.evaluated_at) if last else ev.evaluated_at
+        try:
+            from Code.routes.technical_domains import domain_gap
+            tech_alert = domain_gap(user_id, role_id, act.id)
+        except Exception:
+            tech_alert = False
         rows.append({
             "activity_id": act.id, "activity_name": act.name,
             "competence": comp.description if comp else None,
@@ -141,7 +146,7 @@ def dashboard(user_id, role_id):
             "demonstrated_level": st["global_level"], "demonstrated_label": st["global_label"],
             "gap": st["gap"], "color": st["color"],
             "n_results": st["n_results"], "n_at_required": st["n_at_required"],
-            "complete": st["complete"],
+            "complete": st["complete"], "technicity_alert": tech_alert,
             "last_evaluation": last.isoformat() if last else None,
         })
     rows.sort(key=lambda r: r["activity_name"].lower())
