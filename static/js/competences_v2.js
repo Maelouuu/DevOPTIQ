@@ -22,6 +22,12 @@
       cause_q: "Quelle est la cause de l'écart ?", linked_caps: 'Capacités reliées à ce résultat',
       no_gap: 'Aucun résultat en écart : le niveau requis est tenu.', dem: 'démontré', req: 'requis',
       plan_title: "Plan d'accompagnement", diag_saved: 'Diagnostic enregistré', gen: 'Génération…',
+      configure: "Configurer l'activité", qualify_title: 'Qualification des sorties',
+      qualify_desc: "L'IA propose une nature pour chaque donnée de sortie. Corrigez si besoin, puis validez. Les résultats fondent la compétence.",
+      validate_analysis: "Valider l'analyse", to_qualify: 'À qualifier', set_required: 'Définir',
+      setup_done: 'Activité configurée', min_perf_ph: 'Standard minimal de performance…',
+      no_out: "Cette activité n'a aucune donnée de sortie à qualifier.", req_set: 'Niveau requis mis à jour',
+      not_set: 'Non défini', analyze: 'Analyser les sorties',
     },
     en: {
       manager: 'Manager', collaborators: 'Team members', no_collab: 'No team member.',
@@ -38,6 +44,12 @@
       cause_q: 'What is the cause of the gap?', linked_caps: 'Capabilities linked to this result',
       no_gap: 'No result below the required level.', dem: 'demonstrated', req: 'required',
       plan_title: 'Support plan', diag_saved: 'Diagnosis saved', gen: 'Generating…',
+      configure: 'Configure activity', qualify_title: 'Output qualification',
+      qualify_desc: 'AI suggests a nature for each output. Adjust if needed, then validate. Results ground the competence.',
+      validate_analysis: 'Validate analysis', to_qualify: 'To qualify', set_required: 'Set',
+      setup_done: 'Activity configured', min_perf_ph: 'Minimum performance standard…',
+      no_out: 'This activity has no output data to qualify.', req_set: 'Required level updated',
+      not_set: 'Not set', analyze: 'Analyze outputs',
     },
   };
   const T = k => (I18N[LANG][k] || k);
@@ -166,14 +178,24 @@
 
   function renderResults(st) {
     const body = $('#cv2-drawer-body'); body.innerHTML = '';
-    const warn = $('#cv2-drawer-warn');
+    const warn = $('#cv2-drawer-warn'); warn.classList.add('hidden');
     const sb = () => $('#cv2-save-btn');
-    if (!st.results || !st.results.length) { warn.classList.remove('hidden'); warn.textContent = T('no_result'); if (sb()) sb().disabled = true; return; }
-    warn.classList.add('hidden'); if (sb()) sb().disabled = false;
-    // bandeau niveau global vs requis
+    // Activité pas encore configurée (aucun résultat qualifié) → proposer de la configurer.
+    if (!st.results || !st.results.length) {
+      if (sb()) sb().disabled = true;
+      const setup = document.createElement('div'); setup.className = 'cv2-setup';
+      setup.innerHTML = `<div class="st">${T('no_result')}</div><div class="sd">${T('qualify_desc')}</div>`;
+      const b = document.createElement('button'); b.className = 'btn btn-primary'; b.textContent = T('analyze');
+      b.onclick = () => showQualify(b); setup.appendChild(b);
+      body.appendChild(setup);
+      body.appendChild(requiredBand(st));   // on peut fixer le requis même sans résultat
+      return;
+    }
+    if (sb()) sb().disabled = false;
+    // bandeau niveau global vs requis (requis éditable)
     const g = document.createElement('div'); g.className = 'cv2-global';
-    g.innerHTML = `<div><div class="k">${T('c_demonstrated')} (min)</div>${chip(st.color, st.global_label)}</div>
-                   <div style="text-align:right"><div class="k">${T('c_required')}</div>${st.required_level === null ? T('none') : chip('grey', st.required_label)}</div>`;
+    g.innerHTML = `<div><div class="k">${T('c_demonstrated')} (min)</div>${chip(st.color, st.global_label)}</div>`;
+    g.appendChild(requiredCell(st));
     body.appendChild(g);
     st.results.forEach(r => {
       const card = document.createElement('div'); card.className = 'cv2-res'; card.dataset.dataId = r.data_id;
@@ -285,6 +307,81 @@
       items.map(it => `<div class="cv2-planitem"><b>${it.development_objective || ''}</b>${it.target_level ? ` → ${it.target_level}` : ''}
         ${it.work_situations ? `<div>${Array.isArray(it.work_situations) ? it.work_situations.join(', ') : it.work_situations}</div>` : ''}
         ${it.steps ? `<div style="color:var(--muted);margin-top:4px">${Array.isArray(it.steps) ? it.steps.join(' · ') : it.steps}</div>` : ''}</div>`).join('');
+  }
+
+  // ── Niveau requis éditable (le manager le définit depuis la page) ───
+  function requiredEditor(st) {
+    const wrap = document.createElement('div'); wrap.style.textAlign = 'right';
+    wrap.innerHTML = `<div class="k">${T('c_required')}</div>`;
+    const row = document.createElement('div'); row.className = 'cv2-reqedit'; row.style.justifyContent = 'flex-end';
+    [null, 0, 1, 2, 3, 4].forEach(lv => {
+      const b = document.createElement('button'); b.textContent = lv === null ? T('not_set') : lv;
+      if (st.required_level === lv) b.classList.add('sel');
+      b.onclick = () => setRequired(lv);
+      row.appendChild(b);
+    });
+    wrap.appendChild(row);
+    return wrap;
+  }
+  function requiredCell(st) { return requiredEditor(st); }
+  function requiredBand(st) { const g = document.createElement('div'); g.className = 'cv2-global'; g.appendChild(document.createElement('div')); g.appendChild(requiredEditor(st)); return g; }
+
+  async function setRequired(lvl) {
+    await api('/mastery/required', { method: 'POST', body: JSON.stringify({
+      activity_id: state.activity.activity_id, role_id: state.roleId, required_mastery_level: lvl }) });
+    toast(T('req_set'));
+    await showEvaluation();
+    renderDashboard(await api(`/mastery/dashboard/${state.userId}/${state.roleId}`));
+  }
+
+  // ── Configuration d'une activité : qualifier les sorties → compétence ───
+  async function showQualify(btn) {
+    if (btn) { btn.disabled = true; btn.textContent = T('gen'); }
+    const aid = state.activity.activity_id;
+    const [outs, ana] = await Promise.all([api(`/qualify/outputs/${aid}`), api(`/qualify/analyze/${aid}`, { method: 'POST' })]);
+    const body = $('#cv2-drawer-body'); body.innerHTML = ''; $('#cv2-comp').classList.add('hidden');
+    const panel = document.createElement('div'); panel.className = 'cv2-setup';
+    panel.innerHTML = `<div class="st">${T('qualify_title')}</div><div class="sd">${T('qualify_desc')}</div>`;
+    const outputs = outs.outputs || [], labels = outs.labels || {};
+    if (!outputs.length) {
+      panel.insertAdjacentHTML('beforeend', `<div class="cv2-warn" style="margin:0">${(ana && ana.warning) || T('no_out')}</div>`);
+      body.appendChild(panel); setFooter([{ cls: 'btn-ghost', label: T('back'), on: showEvaluation }]); return;
+    }
+    const props = {}; (ana.outputs || []).forEach(p => props[p.data_id] = p);
+    outputs.forEach(o => {
+      const p = props[o.data_id] || {}, nature = o.nature || p.suggested_nature || '';
+      const row = document.createElement('div'); row.className = 'cv2-qz'; row.dataset.dataId = o.data_id;
+      const opts = `<option value="">${T('to_qualify')}</option>` + Object.keys(labels).map(k => `<option value="${k}" ${nature === k ? 'selected' : ''}>${labels[k]}</option>`).join('');
+      const mv = (o.minimum_performance_text || p.suggested_minimum_performance || '').replace(/"/g, '&quot;');
+      row.innerHTML = `<div style="flex:1"><div class="qn">${o.name}</div>${p.justification ? `<div class="qj">${p.justification}</div>` : ''}
+        <input class="cv2-minperf ${nature === 'RESULT' ? '' : 'hidden'}" placeholder="${T('min_perf_ph')}" value="${mv}"></div>
+        <select class="cv2-natsel">${opts}</select>`;
+      const sel = row.querySelector('.cv2-natsel'), mp = row.querySelector('.cv2-minperf');
+      sel.onchange = () => mp.classList.toggle('hidden', sel.value !== 'RESULT');
+      panel.appendChild(row);
+    });
+    body.appendChild(panel);
+    setFooter([{ cls: 'btn-ghost', label: T('back'), on: showEvaluation },
+               { cls: 'btn-primary', label: T('validate_analysis'), on: () => saveQualify() }]);
+  }
+
+  async function saveQualify() {
+    const aid = state.activity.activity_id;
+    const rows = [...document.querySelectorAll('#cv2-drawer-body .cv2-qz')];
+    const payload = { outputs: rows.map(r => { const sel = r.querySelector('.cv2-natsel'), mp = r.querySelector('.cv2-minperf');
+      return { data_id: +r.dataset.dataId, nature: sel.value || null, minimum_performance_text: mp ? mp.value : '', source: 'MANUAL' }; }) };
+    await api(`/qualify/save/${aid}`, { method: 'POST', body: JSON.stringify(payload) });
+    // compétence principale + liens S/SF/HSC (best effort ; sans clé IA → sautés proprement)
+    const comp = await api(`/competence/generate/${aid}`, { method: 'POST' });
+    if (comp.competence && (comp.competence.description_fr || comp.competence.description_en)) {
+      await api(`/competence/save/${aid}`, { method: 'POST', body: JSON.stringify({
+        description: (LANG === 'en' ? comp.competence.description_en : comp.competence.description_fr) || comp.competence.description_fr || comp.competence.description_en }) });
+    }
+    await api(`/competence/result_links/generate/${aid}`, { method: 'POST' });
+    toast(T('setup_done'));
+    const d = await api(`/mastery/dashboard/${state.userId}/${state.roleId}`); renderDashboard(d);
+    const row = (d.activities || []).find(a => a.activity_id === aid); if (row) state.activity = row;
+    showEvaluation();
   }
 
   document.addEventListener('DOMContentLoaded', boot);
