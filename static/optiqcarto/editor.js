@@ -147,7 +147,7 @@ const SHAPE_DEFAULTS = {
   process:   { label: 'Activité',      color: '#22c55e', textColor: '#ffffff', validationBadge: false, validationColor: '#4DB868', w: 130, h: 90,  fontSize: 18, subtype: 'normal' },
   'start-end': { label: 'Renvoi',      color: '#ffffff', textColor: '#000000', validationBadge: false, validationColor: '#4DB868', w: 90,  h: 90,  fontSize: 13, subtype: 'normal' },
   special:   { label: 'Sous-activité', color: '#f59e0b', textColor: '#ffffff', validationBadge: false, validationColor: '#4DB868', w: 130, h: 90,  fontSize: 13, subtype: 'normal' },
-  decision:  { label: 'Décision',      color: '#9ca3af', textColor: '#ffffff', validationBadge: false, validationColor: '#4DB868', w: 100, h: 100, fontSize: 13, subtype: 'normal', decisionYesDir: null },
+  decision:  { label: 'Décision',      color: '#9ca3af', textColor: '#ffffff', validationBadge: false, validationColor: '#4DB868', w: 100, h: 100, fontSize: 13, subtype: 'normal' },
 };
 
 const HINTS = {
@@ -562,89 +562,6 @@ function snapToPolyline(pts, px, py, maxPerp = 45) {
   return { x: bestOnSeg.x + nx * clampedPerp, y: bestOnSeg.y + ny * clampedPerp };
 }
 
-/* ══════════════════════════════════════════════════
-   DÉCISION — logique géométrique O/N
-   ══════════════════════════════════════════════════ */
-
-// Connections whose computed path passes within the diamond's circumscribed radius.
-// Requires renderConnections() to have run first (populates _computedOrthopts).
-function _nearbyConnections(diamond) {
-  const cx = diamond.x + diamond.w / 2, cy = diamond.y + diamond.h / 2;
-  const thresh = Math.hypot(diamond.w / 2, diamond.h / 2) + 8;
-  return state.connections.filter(c => {
-    const pts = c._computedOrthopts;
-    if (!pts || pts.length < 2) return false;
-    for (let i = 0; i < pts.length - 1; i++) {
-      const ax = pts[i].x, ay = pts[i].y, bx = pts[i+1].x, by = pts[i+1].y;
-      const abx = bx - ax, aby = by - ay;
-      const len2 = abx*abx + aby*aby;
-      if (len2 < 4) continue;
-      const t = Math.max(0, Math.min(1, ((cx-ax)*abx + (cy-ay)*aby) / len2));
-      if (Math.hypot(cx - (ax+t*abx), cy - (ay+t*aby)) < thresh) return true;
-    }
-    return false;
-  });
-}
-
-// After decisionYesDir changes: tag each nearby connection with choiceLabel ('Oui'/'Non')
-// so it persists in the saved JSON and syncs to Link.choice_label via _do_sync.
-function _syncChoiceLabels(diamond) {
-  const nearby = _nearbyConnections(diamond);
-  for (const c of nearby) c.choiceLabel = null;
-  if (!diamond.decisionYesDir || nearby.length === 0) return;
-  if (nearby.length === 1) { nearby[0].choiceLabel = 'Oui'; return; }
-  const CW90 = { right: 'down', down: 'left', left: 'up', up: 'right' };
-  const noDir = CW90[diamond.decisionYesDir];
-  const cx = diamond.x + diamond.w / 2, cy = diamond.y + diamond.h / 2;
-  for (const c of nearby) {
-    const pts = c._computedOrthopts;
-    if (!pts || pts.length < 2) continue;
-    let minDist = Infinity, closestIdx = 0;
-    for (let i = 0; i < pts.length; i++) {
-      const d = Math.hypot(cx - pts[i].x, cy - pts[i].y);
-      if (d < minDist) { minDist = d; closestIdx = i; }
-    }
-    const nextIdx = closestIdx + 1 < pts.length ? closestIdx + 1 : closestIdx - 1;
-    if (nextIdx < 0 || nextIdx === closestIdx) continue;
-    const dx = pts[nextIdx].x - pts[closestIdx].x, dy = pts[nextIdx].y - pts[closestIdx].y;
-    const exitDir = Math.abs(dx) >= Math.abs(dy) ? (dx >= 0 ? 'right' : 'left') : (dy >= 0 ? 'down' : 'up');
-    if (exitDir === diamond.decisionYesDir) c.choiceLabel = 'Oui';
-    else if (exitDir === noDir)             c.choiceLabel = 'Non';
-  }
-}
-
-// Small O/N badge on each connection line, at the exit point from the nearest diamond.
-function _renderChoiceBadgesOnConns() {
-  for (const conn of state.connections) {
-    if (!conn.choiceLabel) continue;
-    const pts = conn._computedOrthopts;
-    if (!pts || pts.length < 2) continue;
-    let bestDiamond = null, bestDist = Infinity;
-    for (const s of state.shapes) {
-      if (s.type !== 'decision') continue;
-      const cx = s.x + s.w / 2, cy = s.y + s.h / 2;
-      for (const p of pts) {
-        const d = Math.hypot(cx - p.x, cy - p.y);
-        if (d < bestDist) { bestDist = d; bestDiamond = s; }
-      }
-    }
-    if (!bestDiamond || bestDist > Math.hypot(bestDiamond.w/2, bestDiamond.h/2) + 20) continue;
-    const dcx = bestDiamond.x + bestDiamond.w / 2, dcy = bestDiamond.y + bestDiamond.h / 2;
-    let minDist = Infinity, closestIdx = 0;
-    for (let i = 0; i < pts.length; i++) {
-      const d = Math.hypot(dcx - pts[i].x, dcy - pts[i].y);
-      if (d < minDist) { minDist = d; closestIdx = i; }
-    }
-    const exitIdx = closestIdx + 1 < pts.length ? closestIdx + 1 : closestIdx > 0 ? closestIdx - 1 : closestIdx;
-    const bx = pts[exitIdx].x, by = pts[exitIdx].y;
-    const isYes = conn.choiceLabel === 'Oui';
-    const bg = isYes ? '#22c55e' : '#f97316', bd = isYes ? '#16a34a' : '#ea580c';
-    const badgeG = el('g', { 'pointer-events': 'none' }, gConns);
-    el('circle', { cx: bx, cy: by, r: '8', fill: bg, stroke: bd, 'stroke-width': '1.5' }, badgeG);
-    el('text', { x: String(bx), y: String(by), 'text-anchor': 'middle', 'dominant-baseline': 'middle', fill: '#ffffff', 'font-size': '8', 'font-family': 'Segoe UI, sans-serif', 'font-weight': '700' }, badgeG).textContent = isYes ? 'O' : 'N';
-  }
-}
-
 // Garantit que le premier ET le dernier segment sont le long de l'AXE de leur port,
 // pour que la tête de flèche pointe pile dans le côté de la forme. Le port est
 // recalculé par spreadPort (t dérivé) et ne coïncide pas toujours avec la fin du
@@ -1053,7 +970,6 @@ function renderConnections() {
     }
     gConns.appendChild(lg);
   }
-  _renderChoiceBadgesOnConns();
 }
 
 /* ══════════════════════════════════════════════════
@@ -1217,34 +1133,6 @@ function renderShapes() {
         fill: 'url(#shape-shine)',
         'pointer-events': 'none',
       }, g);
-
-      // Directional O/N badges — anchored to the 4 tips of the diamond
-      const TIP = {
-        right: { x: s.x + s.w + 16, y: s.y + s.h / 2 },
-        down:  { x: s.x + s.w / 2,  y: s.y + s.h + 16 },
-        left:  { x: s.x - 16,        y: s.y + s.h / 2 },
-        up:    { x: s.x + s.w / 2,   y: s.y - 16 },
-      };
-      const CW90 = { right: 'down', down: 'left', left: 'up', up: 'right' };
-      if (s.decisionYesDir) {
-        const noDir = CW90[s.decisionYesDir];
-        const nearbyCount = _nearbyConnections(s).length;
-        const yp = TIP[s.decisionYesDir];
-        const yg = el('g', { 'data-type': 'decision-dir-badge', 'data-shape-id': String(s.id), cursor: 'pointer' }, g);
-        el('circle', { cx: yp.x, cy: yp.y, r: '10', fill: '#22c55e', stroke: '#16a34a', 'stroke-width': '1.5' }, yg);
-        el('text', { x: String(yp.x), y: String(yp.y), 'text-anchor': 'middle', 'dominant-baseline': 'middle', fill: '#ffffff', 'font-size': '9', 'font-family': 'Segoe UI, sans-serif', 'font-weight': '700', 'pointer-events': 'none' }, yg).textContent = 'O';
-        if (nearbyCount !== 1) {
-          const np = TIP[noDir];
-          const ng = el('g', { 'data-type': 'decision-dir-badge', 'data-shape-id': String(s.id), cursor: 'pointer' }, g);
-          el('circle', { cx: np.x, cy: np.y, r: '10', fill: '#f97316', stroke: '#ea580c', 'stroke-width': '1.5' }, ng);
-          el('text', { x: String(np.x), y: String(np.y), 'text-anchor': 'middle', 'dominant-baseline': 'middle', fill: '#ffffff', 'font-size': '9', 'font-family': 'Segoe UI, sans-serif', 'font-weight': '700', 'pointer-events': 'none' }, ng).textContent = 'N';
-        }
-      } else {
-        const hx = s.x + s.w + 10, hy = s.y - 10;
-        const hg = el('g', { 'data-type': 'decision-dir-badge', 'data-shape-id': String(s.id), 'data-export-hidden': '1', cursor: 'pointer' }, g);
-        el('circle', { cx: hx, cy: hy, r: '9', fill: '#ffffff', stroke: '#d1d5db', 'stroke-width': '1.5' }, hg);
-        el('text', { x: String(hx), y: String(hy), 'text-anchor': 'middle', 'dominant-baseline': 'middle', fill: '#9ca3af', 'font-size': '9', 'font-family': 'Segoe UI, sans-serif', 'font-weight': '700', 'pointer-events': 'none' }, hg).textContent = '?';
-      }
     } else {
       shapeEl = el('path', {
         d: wavyPath(s.x, s.y, s.w, s.h),
@@ -2493,23 +2381,6 @@ function onDown(e) {
       const which = connEndEl.getAttribute('data-conn-end');
       connEndDrag = { connId: cid, which, curX: x, curY: y, snapShapeId: null, snapDir: null };
       canvas.style.cursor = 'grabbing';
-      return;
-    }
-
-    // Decision direction badge click — cycle direction of O/N on diamond shape
-    const dirBadgeEl = e.target.closest('[data-type="decision-dir-badge"]');
-    if (dirBadgeEl) {
-      const sid = parseInt(dirBadgeEl.getAttribute('data-shape-id'));
-      const shape = state.shapes.find(s => s.id === sid);
-      if (shape && shape.type === 'decision') {
-        const dirs = [null, 'right', 'down', 'left', 'up'];
-        const cur = shape.decisionYesDir ?? null;
-        const idx = dirs.indexOf(cur);
-        shape.decisionYesDir = dirs[(idx + 1) % dirs.length];
-        _syncChoiceLabels(shape);
-        snapshot();
-        render();
-      }
       return;
     }
 
@@ -5714,7 +5585,11 @@ function _showCheckPanel(issues) {
     renvoi:    { icon: 'fa-circle-dot',           color: '#F4B8D0' },
     outofband: { icon: 'fa-up-right-from-square', color: '#6DD98A' },
     duplicate: { icon: 'fa-copy',                 color: '#4DB868' },
+    overlap:   { icon: 'fa-clone',                color: '#f59e0b' },
   };
+  // Types d'erreurs corrigeables automatiquement (repositionnement chirurgical).
+  const AUTO_FIXABLE = new Set(['outofband', 'overlap']);
+  const nFixable = issues.filter(i => AUTO_FIXABLE.has(i.type)).length;
 
   const panel = document.createElement('div');
   panel.id = '_carto-check-panel';
@@ -5757,20 +5632,34 @@ function _showCheckPanel(issues) {
     </div>`;
   }
 
-  // Pied de panneau : action Agencement auto (rangée ici pour l'instant ; on
-  // l'adaptera plus tard pour qu'elle s'intègre à la section dédiée).
+  // Pied de panneau : correction ciblée (ne touche QUE les erreurs relevées) + agencement
+  // auto (réorganise toute la carto). La correction ciblée n'apparaît que s'il y a des
+  // erreurs repositionnables (hors-bande / chevauchement).
+  const fixBtn = nFixable > 0 ? `
+      <button id="_ccp-fix" style="width:100%;display:flex;align-items:center;justify-content:center;gap:8px;padding:10px 14px;border-radius:10px;border:1px solid rgba(77,184,104,0.55);background:rgba(77,184,104,0.18);color:#B7F0C8;font-size:12.5px;font-weight:700;cursor:pointer;transition:background .15s;margin-bottom:9px">
+        <i class="fa-solid fa-screwdriver-wrench"></i> Corriger les erreurs (${nFixable})
+      </button>
+      <div style="font-size:10px;color:#567460;margin:-3px 0 11px;line-height:1.4;text-align:center">Rectifie seulement les erreurs relevées (hors-bande, chevauchements) — le reste de la carto est laissé tel quel</div>` : '';
   const footer = `
     <div style="padding:12px 14px;border-top:1px solid rgba(77,184,104,0.12);flex-shrink:0">
+      ${fixBtn}
       <button id="_ccp-arrange" style="width:100%;display:flex;align-items:center;justify-content:center;gap:8px;padding:10px 14px;border-radius:10px;border:1px solid rgba(77,184,104,0.35);background:rgba(77,184,104,0.10);color:#7BE0A0;font-size:12.5px;font-weight:600;cursor:pointer;transition:background .15s">
         <i class="fa-solid fa-wand-magic-sparkles"></i> Agencement auto
       </button>
-      <div style="font-size:10px;color:#567460;margin-top:7px;line-height:1.4;text-align:center">Réorganise les formes en flux gauche→droite (chaque forme reste dans sa bande)</div>
+      <div style="font-size:10px;color:#567460;margin-top:7px;line-height:1.4;text-align:center">Réorganise TOUTE la carto en flux gauche→droite (chaque forme reste dans sa bande)</div>
     </div>`;
 
   panel.innerHTML = hdr + body + footer;
   document.body.appendChild(panel);
 
   panel.querySelector('#_ccp-close').onclick = () => panel.remove();
+
+  const fixBtnEl = panel.querySelector('#_ccp-fix');
+  if (fixBtnEl) {
+    fixBtnEl.onmouseenter = () => fixBtnEl.style.background = 'rgba(77,184,104,0.30)';
+    fixBtnEl.onmouseleave = () => fixBtnEl.style.background = 'rgba(77,184,104,0.18)';
+    fixBtnEl.onclick = () => _autoFixIssues(issues);   // runCartoCheck() rafraîchit le panneau
+  }
 
   const arrangeBtn = panel.querySelector('#_ccp-arrange');
   if (arrangeBtn) {
@@ -5852,7 +5741,106 @@ function runCartoCheck() {
     }
   }
 
+  // 5. Chevauchements de formes (petite erreur de placement, corrigeable auto)
+  const flow = state.shapes.filter(_isFlowShape);
+  const flaggedOverlap = new Set();
+  for (let i = 0; i < flow.length; i++) {
+    for (let j = i + 1; j < flow.length; j++) {
+      const a = flow[i], b = flow[j];
+      const ox = Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x);
+      const oy = Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y);
+      if (ox > 6 && oy > 6) {
+        const mv = (b.x + b.y >= a.x + a.y) ? b : a;   // déplace la forme la plus à droite/basse
+        if (flaggedOverlap.has(mv.id)) continue;
+        flaggedOverlap.add(mv.id);
+        const other = mv === b ? a : b;
+        issues.push({ type: 'overlap', shape: mv,
+          msg: `« ${mv.label || 'Sans nom'} » chevauche « ${other.label || 'Sans nom'} »` });
+      }
+    }
+  }
+
   _showCheckPanel(issues);
+}
+
+function _isFlowShape(s) {
+  return s && (s.type === 'process' || s.type === 'special' || s.type === 'decision' || s.type === 'start-end');
+}
+
+function _cartoBandRanges() {
+  const r = [];
+  if (state.bands && state.bands.length) {
+    let y = -200;
+    for (const band of state.bands) {
+      if (!band.deleted) { r.push({ y, yEnd: y + band.height }); y += band.height; }
+    }
+  }
+  return r;
+}
+
+function _nearestBand(midY, ranges) {
+  let best = null, bd = Infinity;
+  for (const b of ranges) {
+    const d = midY < b.y ? b.y - midY : (midY >= b.yEnd ? midY - b.yEnd : 0);
+    if (d < bd) { bd = d; best = b; }
+  }
+  return best;
+}
+
+// Emplacement libre le plus PROCHE (déplacement minimal) pour `shape`, en restant si
+// possible dans sa bande. Ne concerne QUE cette forme.
+function _findFreeSpot(shape, others, gap, ranges) {
+  const band = ranges.length ? _nearestBand(shape.y + shape.h / 2, ranges) : null;
+  const collides = (x, y) => others.some(o => {
+    const ox = Math.min(x + shape.w, o.x + o.w) - Math.max(x, o.x);
+    const oy = Math.min(y + shape.h, o.y + o.h) - Math.max(y, o.y);
+    return ox > -gap && oy > -gap;
+  });
+  if (!collides(shape.x, shape.y)) return null;
+  const step = 20, maxR = 900;
+  for (let r = step; r <= maxR; r += step) {
+    for (const [dx, dy] of [[r, 0], [-r, 0], [0, r], [0, -r], [r, r], [-r, r], [r, -r], [-r, -r]]) {
+      const nx = shape.x + dx, ny = shape.y + dy;
+      if (band && (ny < band.y || ny + shape.h > band.yEnd)) continue;
+      if (!collides(nx, ny)) return { x: nx, y: ny };
+    }
+  }
+  return null;
+}
+
+// Corrige UNIQUEMENT les erreurs positionnelles relevées (hors-bande + chevauchements),
+// en ne touchant qu'aux formes fautives et aux flèches qui y sont rattachées. Le reste de
+// la carto (positions et tracés Visio des autres flèches) est laissé tel quel.
+function _autoFixIssues(issues) {
+  const fixable = issues.filter(i => i.type === 'outofband' || i.type === 'overlap');
+  if (!fixable.length) { showToast('Aucune erreur repositionnable'); return; }
+  snapshot();
+  const ranges = _cartoBandRanges();
+  const moved = new Set();
+  // 1. hors-bande → recentrer dans la bande la plus proche (déplacement vertical seul)
+  for (const it of fixable) {
+    if (it.type !== 'outofband' || !it.shape) continue;
+    const b = _nearestBand(it.shape.y + it.shape.h / 2, ranges);
+    if (b) { it.shape.y = Math.round(b.y + (b.yEnd - b.y - it.shape.h) / 2); moved.add(it.shape.id); }
+  }
+  // 2. chevauchements → écarter la forme fautive vers l'emplacement libre le plus proche
+  for (const it of fixable) {
+    if (it.type !== 'overlap' || !it.shape) continue;
+    const others = state.shapes.filter(o => o !== it.shape && _isFlowShape(o));
+    const spot = _findFreeSpot(it.shape, others, 10, ranges);
+    if (spot) { it.shape.x = spot.x; it.shape.y = spot.y; moved.add(it.shape.id); }
+  }
+  if (!moved.size) { showToast('Aucune erreur repositionnable'); return; }
+  // 3. re-router SEULEMENT les flèches rattachées à une forme déplacée (le reste intact)
+  for (const c of state.connections) {
+    if (moved.has(c.fromId) || moved.has(c.toId)) {
+      c.userPts = null; c.customPath = null; c.bendOffset = null; c.labelOffset = null;
+      c.fromPortT = undefined; c.toPortT = undefined;
+    }
+  }
+  render();
+  showToast(`${moved.size} erreur(s) corrigée(s)`);
+  runCartoCheck();   // ré-analyse et rafraîchit le panneau
 }
 
 /* ══════════════════════════════════════════════════
