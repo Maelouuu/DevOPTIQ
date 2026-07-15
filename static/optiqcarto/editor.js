@@ -6288,7 +6288,7 @@ function _startDiamondPlacement(onDone) {
         <span id="dp-progress" style="font-size:12px;color:var(--green-lt);font-weight:700"></span>
       </div>
       <div class="modal-body" style="padding:14px 18px 12px">
-        <p class="modal-hint" style="margin:0 0 11px">Glissez le <b style="color:#cfd3cf">losange gris</b> à sa position exacte, puis validez. La position choisie devient définitive.</p>
+        <p class="modal-hint" style="margin:0 0 11px">Glissez le <b style="color:#cfd3cf">losange gris</b> (sa flèche est <b style="color:#e0a500">surlignée</b>) et, si besoin, les <b style="color:#e0a500">étiquettes</b> pour les positionner l'un par rapport à l'autre, puis validez.</p>
         <div style="border:1px solid var(--border);border-radius:12px;overflow:hidden;background:#F3F5F2;background-image:radial-gradient(circle,rgba(0,0,0,0.07) 1px,transparent 1px);background-size:20px 20px">
           <svg id="dp-frame" width="${SVGW}" height="${SVGH}" style="display:block;touch-action:none"></svg>
         </div>
@@ -6350,21 +6350,67 @@ function _startDiamondPlacement(onDone) {
     return g;
   }
 
+  // Étiquette de flèche affichée dans le cadre, GLISSABLE (met à jour c.labelOffset) →
+  // l'utilisateur ajuste losange ET labels l'un par rapport à l'autre. La flèche associée
+  // au losange (`_seatConnId`) est mise en avant (fond ambré).
+  function labelNode(c, vx, vy, emphasized) {
+    const pts = c._computedOrthopts; if (!pts || pts.length < 2) return null;
+    const has = c.labelOffset && typeof c.labelOffset.x === 'number';
+    const pos = has ? { x: c.labelOffset.x, y: c.labelOffset.y } : (() => { const p = _pointAlongPath(pts, 0.5); return { x: p.x, y: p.y }; })();
+    if (pos.x < vx - 30 || pos.x > vx + WINW + 30 || pos.y < vy - 30 || pos.y > vy + WINH + 30) return null;
+    const lines = (c.label || '').split('\n');
+    const lw = Math.max(20, Math.max(...lines.map(l => l.length)) * 6 + 6), lh = 12 * lines.length + 6;
+    const g = document.createElementNS(NS, 'g'); g.style.cursor = 'grab';
+    g.setAttribute('transform', `translate(${pos.x},${pos.y})`);
+    const rect = document.createElementNS(NS, 'rect');
+    rect.setAttribute('x', -lw / 2); rect.setAttribute('y', -lh / 2); rect.setAttribute('width', lw); rect.setAttribute('height', lh); rect.setAttribute('rx', 4);
+    rect.setAttribute('fill', emphasized ? '#fff4cf' : 'rgba(255,255,255,0.86)');
+    rect.setAttribute('stroke', emphasized ? '#e0a500' : (c.color || '#c8c8c8'));
+    rect.setAttribute('stroke-width', emphasized ? 1.4 : 0.8);
+    g.appendChild(rect);
+    lines.forEach((ln, i) => { const t = document.createElementNS(NS, 'text');
+      t.setAttribute('x', 0); t.setAttribute('y', -lh / 2 + 11 + i * 12);
+      t.setAttribute('text-anchor', 'middle'); t.setAttribute('font-size', '9.5'); t.setAttribute('font-weight', emphasized ? 700 : 600);
+      t.setAttribute('fill', emphasized ? '#6b4f00' : '#333'); t.setAttribute('pointer-events', 'none'); t.textContent = ln; g.appendChild(t); });
+    let ox = 0, oy = 0;
+    const move = e => { const w = _toWorld(e); const nx = w.x - ox, ny = w.y - oy;
+      g.setAttribute('transform', `translate(${nx},${ny})`); c.labelOffset = { x: nx, y: ny, a: (c.labelOffset && c.labelOffset.a) || 0 }; };
+    const up = () => { window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); g.style.cursor = 'grab'; };
+    g.addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation();
+      const w = _toWorld(e); const cur = has ? c.labelOffset : pos; ox = w.x - cur.x; oy = w.y - cur.y;
+      g.style.cursor = 'grabbing'; window.addEventListener('pointermove', move); window.addEventListener('pointerup', up); });
+    return g;
+  }
+
   function renderFrame() {
     const D = diamonds[idx];
     const cx = D.x + D.w / 2, cy = D.y + D.h / 2;
     const vx = cx - WINW / 2, vy = cy - WINH / 2;
+    const seatId = D._seatConnId;
     svg.setAttribute('viewBox', `${vx} ${vy} ${WINW} ${WINH}`);
     while (svg.firstChild) svg.removeChild(svg.firstChild);
-    // connexions (filtre grossier sur la fenêtre élargie)
+    const visible = [];
     for (const c of state.connections) {
       const p = c._computedOrthopts; if (!p || p.length < 2) continue;
       if (!p.some(q => q.x > vx - 140 && q.x < vx + WINW + 140 && q.y > vy - 140 && q.y < vy + WINH + 140)) continue;
+      visible.push(c);
+    }
+    // flèche associée au losange EN SURBRILLANCE (halo ambré dessous) — aide visuelle.
+    const seat = seatId != null ? visible.find(c => c.id === seatId) : null;
+    if (seat) {
+      const halo = document.createElementNS(NS, 'polyline');
+      halo.setAttribute('points', seat._computedOrthopts.map(q => `${q.x},${q.y}`).join(' '));
+      halo.setAttribute('fill', 'none'); halo.setAttribute('stroke', '#f4c430'); halo.setAttribute('stroke-width', '9');
+      halo.setAttribute('stroke-linejoin', 'round'); halo.setAttribute('stroke-linecap', 'round'); halo.setAttribute('opacity', '0.55');
+      svg.appendChild(halo);
+    }
+    for (const c of visible) {
+      const p = c._computedOrthopts, hi = seat && c.id === seat.id;
       const poly = document.createElementNS(NS, 'polyline');
       poly.setAttribute('points', p.map(q => `${q.x},${q.y}`).join(' '));
       poly.setAttribute('fill', 'none'); poly.setAttribute('stroke', c.color || '#8a8f8a');
-      poly.setAttribute('stroke-width', '2.2'); poly.setAttribute('stroke-linejoin', 'round');
-      poly.setAttribute('opacity', '0.8');
+      poly.setAttribute('stroke-width', hi ? 3 : 2.2); poly.setAttribute('stroke-linejoin', 'round');
+      poly.setAttribute('opacity', hi ? 1 : 0.8);
       svg.appendChild(poly);
     }
     // formes voisines (les autres losanges pré-placés servent aussi de repère)
@@ -6373,6 +6419,9 @@ function _startDiamondPlacement(onDone) {
       if (s.x + s.w < vx - 60 || s.x > vx + WINW + 60 || s.y + s.h < vy - 60 || s.y > vy + WINH + 60) continue;
       svg.appendChild(shapeNode(s, false));
     }
+    // étiquettes glissables (l'associée en avant)
+    for (const c of visible) { if (!(c.label || '').trim()) continue;
+      const ln = labelNode(c, vx, vy, seat && c.id === seat.id); if (ln) svg.appendChild(ln); }
     // losange courant (dessiné en dernier, au-dessus)
     const g = shapeNode(D, true);
     svg.appendChild(g);
@@ -6476,7 +6525,8 @@ function _seatDecorativeDiamonds() {
       const pr = _projectOnPolyline(cx, cy, poly);
       if (pr.dist < bestDist) { bestDist = pr.dist; best = c; bestFrac = pr.frac; }
     }
-    if (!best || bestDist > 60) continue;            // pas clairement sur un connecteur → laisser
+    if (!best || bestDist > 60) { delete D._seatConnId; continue; } // pas clairement sur un connecteur → laisser
+    D._seatConnId = best.id;                          // flèche associée (surbrillance pop-up placement)
     const pts = best._computedOrthopts;
     if (!pts || pts.length < 2) continue;
     const p = _pointAlongPath(pts, bestFrac);        // même fraction, sur le tracé FINAL
