@@ -5140,6 +5140,7 @@ async function importVSDX(file) {
         p.x < exLo || p.x > exHi || p.y < eyLo || p.y > eyHi);                                  // détour hors boîte
       c.userPts = bad ? null : mids;
     }
+    _straightenAlignedConnectors(); // Visio droit + formes désalignées → aligne les ports (fini l'escalier)
     render();                    // popule _computedOrthopts (tracés Visio)
     _reconstructClassicPolish(); // NE ré-agence PAS : redresse les angles pas droits +
                                  // place les labels près des pointes sans les poser là
@@ -6127,6 +6128,58 @@ function _separateLanes() {
     const pts = c._computedOrthopts;
     const full = simplifyPath([pts[0], ...c.userPts, pts[pts.length - 1]]);
     c.userPts = full.length > 2 ? full.slice(1, -1) : null;
+  }
+}
+
+// Flèches que Visio a tracées DROITES (tout droit, sans coude) entre deux formes
+// légèrement DÉSALIGNÉES : notre routage orthogonal fabrique un escalier (jog) parce
+// que les deux ports tombent à des X (ou Y) différents — le décalage des centres
+// dépasse le seuil « ligne droite » de 4 px. On aligne alors les DEUX ports sur une
+// coordonnée commune (prise dans le recouvrement des deux formes) → la règle ligne
+// droite s'applique → tracé rectiligne, fidèle à Visio. Ne touche QUE les connecteurs
+// que Visio a faits droits (≤2 pts, ou tous les points quasi-colinéaires sur un axe)
+// et seulement si les formes se recouvrent sur l'axe perpendiculaire (sinon le coude
+// est inévitable). Mesuré hard.vsdx : les verticales alignées lointaines redeviennent
+// droites (ex. « Counter Sales » → « Retrait comptoir », escalier → droite).
+function _straightenAlignedConnectors() {
+  const byId = {}; for (const s of state.shapes) byId[s.id] = s;
+  const AX = 34;      // tolérance de colinéarité (px) sur l'axe transverse
+  const MINLEN = 120; // ne redresse que les connecteurs LONGS (le jog court est invisible
+                      // et redresser du court n'apporte rien tout en risquant des superpositions)
+  const OVLF = 0.45;  // recouvrement min = 45 % de la plus petite forme (= vraiment alignées)
+  for (const c of state.connections) {
+    if (c.userPts && c.userPts.length) continue;   // tracé Visio avec coudes gardés → intact
+    const a = byId[c.fromId], b = byId[c.toId];
+    if (!a || !b) continue;
+    const cp = c.customPath || [];
+    const xs = cp.map(p => p.x), ys = cp.map(p => p.y);
+    const xRange = xs.length ? Math.max(...xs) - Math.min(...xs) : 0;
+    const yRange = ys.length ? Math.max(...ys) - Math.min(...ys) : 0;
+    const acx = a.x + a.w / 2, acy = a.y + a.h / 2, bcx = b.x + b.w / 2, bcy = b.y + b.h / 2;
+    const dx = Math.abs(acx - bcx), dy = Math.abs(acy - bcy);
+    if (dy >= dx) {                                 // dominante VERTICALE
+      if (dy < MINLEN) continue;                    // trop court → jog invisible, on laisse
+      if (cp.length > 2 && xRange > AX) continue;   // Visio a fait un vrai coude → intact
+      const lo = Math.max(a.x, b.x), hi = Math.min(a.x + a.w, b.x + b.w);
+      if (hi - lo < OVLF * Math.min(a.w, b.w)) continue; // pas vraiment alignées → coude toléré
+      const commonX = (lo + hi) / 2;
+      c.fromPortDir = acy < bcy ? 'bottom' : 'top';
+      c.toPortDir   = acy < bcy ? 'top' : 'bottom';
+      c.fromPortT = Math.min(0.98, Math.max(0.02, (commonX - a.x) / a.w));
+      c.toPortT   = Math.min(0.98, Math.max(0.02, (commonX - b.x) / b.w));
+      c.userPts = null;
+    } else {                                        // dominante HORIZONTALE
+      if (dx < MINLEN) continue;
+      if (cp.length > 2 && yRange > AX) continue;
+      const lo = Math.max(a.y, b.y), hi = Math.min(a.y + a.h, b.y + b.h);
+      if (hi - lo < OVLF * Math.min(a.h, b.h)) continue;
+      const commonY = (lo + hi) / 2;
+      c.fromPortDir = acx < bcx ? 'right' : 'left';
+      c.toPortDir   = acx < bcx ? 'left' : 'right';
+      c.fromPortT = Math.min(0.98, Math.max(0.02, (commonY - a.y) / a.h));
+      c.toPortT   = Math.min(0.98, Math.max(0.02, (commonY - b.y) / b.h));
+      c.userPts = null;
+    }
   }
 }
 

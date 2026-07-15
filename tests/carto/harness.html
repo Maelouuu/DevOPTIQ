@@ -266,6 +266,7 @@ async function run(){
       if(a&&b){exLo=Math.min(a.x,b.x)-DET;exHi=Math.max(a.x+a.w,b.x+b.w)+DET;eyLo=Math.min(a.y,b.y)-DET;eyHi=Math.max(a.y+a.h,b.y+b.h)+DET;}
       const bad=mids.some(p=>p.y>bBot+OOB||p.y<bTop-OOB||p.x<sxLo-OOB||p.x>sxHi+OOB||p.x<exLo||p.x>exHi||p.y<eyLo||p.y>eyHi);
       c.userPts=bad?null:mids; }
+    if(typeof _straightenAlignedConnectors==='function') _straightenAlignedConnectors();
     render();
     if(fix && typeof _reconstructClassicPolish==='function') _reconstructClassicPolish();
     if(fix && typeof _seatDecorativeDiamonds==='function') _seatDecorativeDiamonds();
