@@ -38,6 +38,11 @@
       need_result: "Marquez au moins une sortie comme « Résultat de l'activité » avant de valider : c'est ce niveau que vous évaluerez ensuite.",
       configured_go_eval: 'Sorties qualifiées ✓ — évaluez maintenant le niveau du collaborateur pour chaque résultat, puis enregistrez.',
       req_failed: 'Action impossible (erreur réseau ou serveur).', pick_level: 'Choisissez un niveau ci-dessous',
+      roles_label: 'Rôles du collaborateur',
+      tech_title: 'Technicité — domaine technique',
+      tech_exp: "Axe séparé de la maîtrise : une même activité peut être exercée dans des contextes techniques différents (ex. Plastique / Métal). Fixez le niveau technique requis par le rôle et le niveau démontré par le collaborateur.",
+      tech_required: 'Requis', tech_demonstrated: 'Démontré', tech_add_ph: 'Nouveau domaine (ex. Plastique)…',
+      tech_link: 'Ajouter', tech_pick: 'Choisir un domaine existant…', tech_empty: 'Aucun domaine technique lié à cette activité.',
     },
     en: {
       manager: 'Manager', collaborators: 'Team members', no_collab: 'No team member.',
@@ -70,11 +75,16 @@
       need_result: 'Mark at least one output as “Activity result” before validating: that is the level you will evaluate next.',
       configured_go_eval: 'Outputs qualified ✓ — now set the team member’s level for each result, then save.',
       req_failed: 'Action failed (network or server error).', pick_level: 'Pick a level below',
+      roles_label: "Team member's roles",
+      tech_title: 'Technicity — technical domain',
+      tech_exp: 'A separate axis from mastery: the same activity can be performed in different technical contexts (e.g. Plastic / Metal). Set the technical level required by the role and the level demonstrated by the team member.',
+      tech_required: 'Required', tech_demonstrated: 'Demonstrated', tech_add_ph: 'New domain (e.g. Plastic)…',
+      tech_link: 'Add', tech_pick: 'Pick an existing domain…', tech_empty: 'No technical domain linked to this activity.',
     },
   };
   const T = k => (I18N[LANG][k] || k);
 
-  const state = { userId: null, userName: '', roleId: null, roleName: '', scale: {}, notAssessed: 'Non évalué', activity: null };
+  const state = { userId: null, userName: '', roleId: null, roleName: '', scale: {}, notAssessed: 'Non évalué', activity: null, domScale: {} };
 
   // api() ne rejette jamais silencieusement : en cas d'erreur réseau/serveur, on prévient
   // l'utilisateur (toast) et on renvoie un objet marqué {__error:true} que les appelants gèrent.
@@ -102,11 +112,13 @@
   // ── Chargement initial ──────────────────────────────────────────────
   async function boot() {
     applyStaticI18n();
-    const sc = await api('/mastery/scale');
+    const [sc, ds] = await Promise.all([api('/mastery/scale'), api('/domains/scale')]);
     state.scale = sc.mastery || {}; state.notAssessed = sc.not_assessed || 'Non évalué';
+    state.domScale = (ds && ds.scale) || {};
     const mgr = await api('/competences/current_user_manager');
     if (mgr && mgr.manager_id) {
       $('#cv2-mgr-name').textContent = mgr.manager_name || '—';
+      $('#cv2-mgr-av').textContent = initials(...String(mgr.manager_name || '').split(' ')) || 'M';
       const collabs = await api('/competences/collaborators/' + mgr.manager_id);
       renderCollabs(collabs || []);
     }
@@ -118,7 +130,7 @@
     if (!list.length) { $('#cv2-collab-empty').classList.remove('hidden'); return; }
     list.forEach(u => {
       const li = document.createElement('li');
-      li.innerHTML = `<span class="av">${initials(u.first_name, u.last_name)}</span><span>${u.first_name} ${u.last_name}</span>`;
+      li.innerHTML = `<span class="av">${initials(u.first_name, u.last_name)}</span><span>${u.first_name} ${u.last_name}</span><span class="chev">›</span>`;
       li.onclick = () => selectCollab(u, li);
       ul.appendChild(li);
     });
@@ -130,7 +142,9 @@
     state.userId = u.id; state.userName = `${u.first_name} ${u.last_name}`;
     $('#cv2-sub').textContent = state.userName;
     const r = await api('/competences/get_user_roles/' + u.id);
-    renderRoles((r && r.roles) || []);
+    const roles = (r && r.roles) || [];
+    const lbl = $('#cv2-roles-lbl'); lbl.classList.toggle('hidden', !roles.length);
+    renderRoles(roles);
   }
 
   function renderRoles(roles) {
@@ -225,6 +239,7 @@
       b.onclick = () => showQualify(b); setup.appendChild(b);
       body.appendChild(setup);
       body.appendChild(requiredSummary(st));
+      body.appendChild(technicitySection());
       return;
     }
     if (sb()) sb().disabled = false;
@@ -239,6 +254,7 @@
     h.innerHTML = `<div class="eh">${T('eval_of')} ${state.userName}</div><div class="cv2-evalsub">${T('eval_hint')}</div>`;
     body.appendChild(h);
     st.results.forEach(r => body.appendChild(resultCard(r)));
+    body.appendChild(technicitySection());
   }
 
   // Résumé compact : requis (éditable) · démontré (min) · écart.
@@ -282,6 +298,80 @@
       const hint = card.querySelector('.cv2-pickhint'); if (hint) hint.remove();
     });
     return card;
+  }
+
+  // ── Technicité : domaines techniques (axe séparé de la maîtrise, CDC 4) ──────
+  function refreshDashboard() { api(`/mastery/dashboard/${state.userId}/${state.roleId}`).then(renderDashboard); }
+  function domSelect(val, onchange) {
+    const s = document.createElement('select'); s.className = 'cv2-domsel';
+    const opts = [['', '—']].concat(Object.keys(state.domScale).map(k => [k, `${k} · ${state.domScale[k]}`]));
+    opts.forEach(([v, l]) => { const o = document.createElement('option'); o.value = v; o.textContent = l;
+      if ((val === null || val === undefined) ? v === '' : String(val) === v) o.selected = true; s.appendChild(o); });
+    s.onchange = () => onchange(s.value === '' ? null : +s.value);
+    return s;
+  }
+  function technicitySection() {
+    const det = document.createElement('details'); det.className = 'cv2-tech';
+    det.innerHTML = `<summary><span class="ti"><svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+      <path d="M12 3l7 4v6c0 4-3 6.5-7 8-4-1.5-7-4-7-8V7l7-4z" stroke="#fff" stroke-width="1.7" stroke-linejoin="round"/>
+      <path d="M9 12l2 2 4-4" stroke="#fff" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+      ${T('tech_title')}<span class="caret">›</span></summary>
+      <div class="tbody"><div class="texp">${T('tech_exp')}</div><div class="cv2-domlist"></div><div class="cv2-domadd"></div></div>`;
+    let loaded = false;
+    det.addEventListener('toggle', async () => { if (det.open && !loaded) { loaded = true; await loadTech(det); } });
+    return det;
+  }
+  async function loadTech(det) {
+    const aid = state.activity.activity_id;
+    const [dom, all] = await Promise.all([
+      api(`/domains/activity/${aid}?role_id=${state.roleId}&user_id=${state.userId}`), api('/domains/list')]);
+    renderDomList(det.querySelector('.cv2-domlist'), aid, (dom && dom.domains) || []);
+    renderDomAdd(det, aid, (all && all.domains) || [], (dom && dom.domains) || []);
+  }
+  function renderDomList(list, aid, domains) {
+    list.innerHTML = '';
+    if (!domains.length) { list.innerHTML = `<div class="cv2-emptydom">${T('tech_empty')}</div>`; return; }
+    domains.forEach(d => {
+      const row = document.createElement('div'); row.className = 'cv2-domrow';
+      const dn = document.createElement('div'); dn.className = 'dn'; dn.textContent = d.name; row.appendChild(dn);
+      const rq = document.createElement('div'); rq.className = 'df'; rq.innerHTML = `<span class="fl">${T('tech_required')}</span>`;
+      rq.appendChild(domSelect(d.required_level, v => setDom('/domains/required', { role_id: state.roleId, activity_id: aid, domain_id: d.domain_id, required_level: v }, list, aid)));
+      const dm = document.createElement('div'); dm.className = 'df'; dm.innerHTML = `<span class="fl">${T('tech_demonstrated')}</span>`;
+      dm.appendChild(domSelect(d.demonstrated_level, v => setDom('/domains/user_level', { user_id: state.userId, domain_id: d.domain_id, demonstrated_level: v }, list, aid)));
+      row.appendChild(rq); row.appendChild(dm);
+      if (d.gap !== null && d.gap !== undefined) { const g = document.createElement('div');
+        g.innerHTML = d.gap < 0 ? `<span class="chip red"><span class="lv"></span>${d.gap}</span>` : `<span class="chip green"><span class="lv"></span>+${d.gap}</span>`;
+        row.appendChild(g); }
+      list.appendChild(row);
+    });
+  }
+  async function setDom(url, body, list, aid) {
+    const r = await api(url, { method: 'POST', body: JSON.stringify(body) });
+    if (r.__error) return;
+    const dom = await api(`/domains/activity/${aid}?role_id=${state.roleId}&user_id=${state.userId}`);
+    renderDomList(list, aid, (dom && dom.domains) || []); refreshDashboard();
+  }
+  function renderDomAdd(det, aid, allDomains, linked) {
+    const add = det.querySelector('.cv2-domadd'); add.innerHTML = '';
+    const linkedIds = new Set(linked.map(d => d.domain_id));
+    const avail = allDomains.filter(d => !linkedIds.has(d.id));
+    if (avail.length) {
+      const sel = document.createElement('select'); sel.className = 'cv2-domsel';
+      sel.innerHTML = `<option value="">${T('tech_pick')}</option>` + avail.map(d => `<option value="${d.id}">${d.name}</option>`).join('');
+      const b = document.createElement('button'); b.className = 'btn btn-ghost btn-sm'; b.textContent = T('tech_link');
+      b.onclick = async () => { if (!sel.value) return; await linkDom(aid, +sel.value); await loadTech(det); };
+      add.appendChild(sel); add.appendChild(b);
+    }
+    const inp = document.createElement('input'); inp.placeholder = T('tech_add_ph');
+    const cb = document.createElement('button'); cb.className = 'btn btn-primary btn-sm'; cb.textContent = '＋';
+    cb.onclick = async () => { const nm = inp.value.trim(); if (!nm) return;
+      const r = await api('/domains/create', { method: 'POST', body: JSON.stringify({ name_fr: nm }) });
+      if (r && r.id) { await linkDom(aid, r.id); inp.value = ''; await loadTech(det); } };
+    add.appendChild(inp); add.appendChild(cb);
+  }
+  async function linkDom(aid, did) {
+    await api(`/domains/activity/${aid}/link`, { method: 'POST', body: JSON.stringify({ domain_id: did }) });
+    refreshDashboard();
   }
 
   async function saveEvaluation() {
