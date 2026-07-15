@@ -43,6 +43,7 @@
 <script src="/static/optiqcarto/highlight-mode.js"></script>
 <script src="/static/optiqcarto/vsdx_importer.js"></script>
 <script src="/static/optiqcarto/editor.js"></script>
+<script src="/static/optiqcarto/optiqarrange.js"></script>
 
 <script>
 // ── mesures indépendantes de l'éditeur ───────────────────────────────────
@@ -221,6 +222,8 @@ function _fitCanvas(maxW){
   let minX=1e9,minY=1e9,maxX=-1e9,maxY=-1e9,y=-200;
   for(const bnd of state.bands){ if(bnd.deleted)continue; minY=Math.min(minY,y); maxY=Math.max(maxY,y+bnd.height); y+=bnd.height; }
   for(const s of state.shapes){minX=Math.min(minX,s.x);minY=Math.min(minY,s.y);maxX=Math.max(maxX,s.x+s.w);maxY=Math.max(maxY,s.y+s.h);}
+  // inclure les points de flèche (canal retour au-dessus de la carto) pour ne pas les couper
+  for(const c of state.connections){const p=c._computedOrthopts;if(!p)continue;for(const q of p){minX=Math.min(minX,q.x);minY=Math.min(minY,q.y);maxX=Math.max(maxX,q.x);maxY=Math.max(maxY,q.y);}}
   const pad=60; minX-=pad;minY-=pad;maxX+=pad;maxY+=pad;
   const W=maxX-minX,H=maxY-minY,scale=Math.min(1,maxW/W);
   const cv=document.getElementById('canvas');
@@ -241,7 +244,8 @@ async function run(){
   const classic = q.get('classic')==='1';             // reconstruction classique (fidèle Visio)
   const fix = q.get('fix')==='1';                      // applique le correctif classique (angles+labels)
   const declutter = q.get('declutter')!=='0';         // aération (align+declutter) on/off
-  const route = q.get('route')!=='0' && !classic;     // agencement auto on/off (positions brutes)
+  const arrange = q.get('arrange')==='1';              // NOUVEL agencement auto (layered, contraint bandes)
+  const route = q.get('route')!=='0' && !classic && !arrange; // agencement auto legacy
   const buf=await (await fetch(vsdx)).arrayBuffer();
   const res=await vsdxParse(new Blob([buf]),()=>{},async()=>'keep',{spliceDecisions:false});
   state.bands=res.bands; state.shapes=res.shapes; state.connections=res.connections;
@@ -267,8 +271,49 @@ async function run(){
     const lp=q.get('labelpos'); // test du curseur global de labels (0..100)
     if(lp!=null && typeof setLabelsAlongArrows==='function') setLabelsAlongArrows(+lp/100);
     render();
-  } else if(route){
-    await _computeAutoLayout({declutter});
+  } else if(arrange){
+    // ── NOUVEL agencement auto : layered contraint aux bandes ────────────────
+    const R = OptiqArrange.arrange(state.shapes, state.connections, state.bands);
+    for(const s of state.shapes){ const p=R.pos.get(s.id); if(p){ s.x=p.x; s.y=p.y; } }
+    // routage recalculé de zéro : on jette les tracés Visio
+    for(const c of state.connections){
+      c.userPts=null; c.customPath=null; c.bendOffset=null; c.labelOffset=null;
+      c.fromPortT=undefined; c.toPortT=undefined;
+      const back = R.backEdges.has(c.fromId+'|'+c.toId);
+      const rf=R.ranks.get(c.fromId), rt=R.ranks.get(c.toId);
+      if(back || rt<=rf){
+        // flèche RETOUR : sort par le bas, ré-entre par le bas (canal sous les formes)
+        c.fromPortDir='bottom'; c.toPortDir='bottom'; c._back=true;
+      }else{
+        c.fromPortDir='right'; c.toPortDir='left'; c._back=false;
+      }
+    }
+    render();
+    if(typeof _reconstructClassicPolish==='function') _reconstructClassicPolish();
+    // ── flèches RETOUR : canal dédié AU-DESSUS de la carto (jamais droite→gauche
+    //    à travers le flux). Chaque retour a sa voie ; on route explicitement. ──
+    const backs=state.connections.filter(c=>c._back);
+    if(backs.length){
+      const byId=new Map(state.shapes.map(s=>[s.id,s]));
+      let top=-200; // 1re bande commence à y=-200
+      // voies compactes : packing gloutons par intervalle x (les retours qui ne se
+      // recouvrent pas en x partagent une voie → canal court même à 43 retours).
+      const items=backs.map(c=>{const a=byId.get(c.fromId),b=byId.get(c.toId);
+        const sx=a?a.x+a.w/2:0, tx=b?b.x+b.w/2:0; return {c,a,b,sx,tx,lo:Math.min(sx,tx),hi:Math.max(sx,tx)};})
+        .filter(it=>it.a&&it.b).sort((p,q)=>(q.hi-q.lo)-(p.hi-p.lo)); // larges d'abord
+      const laneHi=[]; // dernière borne droite occupée par voie
+      const PAD=24;
+      for(const it of items){ let lane=laneHi.findIndex(h=>it.lo>h+PAD); if(lane<0){lane=laneHi.length;} laneHi[lane]=it.hi; it.lane=lane; }
+      const GAP=18;
+      for(const it of items){
+        const chY=top-30-it.lane*GAP;
+        it.c.fromPortDir='top'; it.c.toPortDir='top';
+        it.c.fromPortT=0.5; it.c.toPortT=0.5;
+        it.c.userPts=[{x:it.sx,y:chY},{x:it.tx,y:chY}];
+      }
+      render();
+    }
+    window.__ARR__={ nBack:R.backEdges.size, nRanks:(new Set([...R.ranks.values()])).size };
   }
   const after=_measure();
   const cx=q.get('cx'),cy=q.get('cy'),zw=q.get('zw');
@@ -282,7 +327,7 @@ async function run(){
   const oob=_measureOOB();
   const voidEnds=_measureVoidEnds();
   const deco=_measureDecoOffArrow();
-  window.__R__={vsdx, mode:{classic,fix,declutter,route}, before, after, tips, deco, angles, labels, overlaps, length, oob:{below:oob.below,above:oob.above,right:oob.right,left:oob.left}, voidEnds, deco, fit, nbShapes:state.shapes.length, nbConns:state.connections.length};
+  window.__R__={vsdx, mode:{classic,fix,declutter,route,arrange}, arr:window.__ARR__||null, before, after, tips, deco, angles, labels, overlaps, length, oob:{below:oob.below,above:oob.above,right:oob.right,left:oob.left}, voidEnds, deco, fit, nbShapes:state.shapes.length, nbConns:state.connections.length};
   document.title='DONE';
 }
 run().catch(e=>{window.__R__={err:String(e&&e.stack||e)};document.title='DONE';});
