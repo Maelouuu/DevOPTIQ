@@ -35,22 +35,81 @@ def label_for(nature, lang=None):
     return NATURE_LABELS[nature].get(lang, NATURE_LABELS[nature]["fr"])
 
 
+def _norm(s):
+    return (s or "").strip().lower()
+
+
+def _current_output_specs(activity):
+    """Sorties COURANTES d'une activité = ses connexions SORTANTES (Link). Le nom de la sortie
+    est le libellé de la flèche (Link.description) ; à défaut, le nom de l'activité/donnée
+    destinataire. Retourne une liste ordonnée [(name, flux_type)] dédupliquée par nom."""
+    specs, seen = [], set()
+    for lk in Link.query.filter(Link.source_activity_id == activity.id).order_by(Link.id).all():
+        name = (lk.description or "").strip()
+        if not name and lk.target_activity_id:
+            ta = Activities.query.get(lk.target_activity_id)
+            name = (ta.name or "").strip() if ta else ""
+        if not name and lk.target_data_id:
+            td = Data.query.get(lk.target_data_id)
+            name = (td.name or "").strip() if td else ""
+        if not name:
+            continue
+        key = _norm(name)
+        if key in seen:
+            continue
+        seen.add(key)
+        specs.append((name, lk.type or "flux"))
+    return specs
+
+
+def materialize_activity_outputs(activity_id):
+    """Matérialise les connexions sortantes de l'activité en lignes Data durables (CDC §8).
+    Idempotent : get-or-create par (producer_activity_id, nom). Les Data matérialisées n'ont pas
+    de shape_id (invisibles dans la carto) et ne sont jamais touchées par la re-synchro carto,
+    donc la qualification survit aux sauvegardes de cartographie. Une sortie déjà qualifiée est
+    conservée même si le libellé de sa connexion a changé (on ne perd pas le travail utilisateur)."""
+    activity = Activities.query.get(activity_id)
+    if not activity:
+        return []
+    existing = {_norm(d.name): d
+                for d in Data.query.filter_by(producer_activity_id=activity_id).all()}
+    outs, kept, changed = [], set(), False
+    for name, flux_type in _current_output_specs(activity):
+        d = existing.get(_norm(name))
+        if d is None:
+            d = Data(entity_id=activity.entity_id, name=name, type=flux_type or "flux",
+                     producer_activity_id=activity_id)
+            db.session.add(d)
+            db.session.flush()
+            existing[_norm(name)] = d
+            changed = True
+        outs.append(d)
+        kept.add(d.id)
+    # conserver les sorties déjà qualifiées dont la connexion a été renommée/retirée
+    for d in existing.values():
+        if d.id not in kept and d.semantic_nature:
+            outs.append(d)
+            kept.add(d.id)
+    if changed:
+        db.session.commit()
+    return outs
+
+
 def get_activity_outputs(activity_id):
-    """Données de sortie d'une activité = Data ciblées par un Link sortant
-    (source_activity_id = activité, target_data_id renseigné)."""
-    links = Link.query.filter(
-        Link.source_activity_id == activity_id,
-        Link.target_data_id.isnot(None),
-    ).all()
-    seen, ids = set(), []
-    for lk in links:
+    """Données de sortie d'une activité = ses connexions sortantes, matérialisées en Data
+    (voir materialize_activity_outputs). Inclut aussi, par compat héritage, les Data ciblées
+    explicitement par un Link sortant via target_data_id."""
+    outs = materialize_activity_outputs(activity_id)
+    seen = {d.id for d in outs}
+    legacy_ids = []
+    for lk in Link.query.filter(Link.source_activity_id == activity_id,
+                                Link.target_data_id.isnot(None)).all():
         if lk.target_data_id not in seen:
             seen.add(lk.target_data_id)
-            ids.append(lk.target_data_id)
-    if not ids:
-        return []
-    by_id = {d.id: d for d in Data.query.filter(Data.id.in_(ids)).all()}
-    return [by_id[i] for i in ids if i in by_id]
+            legacy_ids.append(lk.target_data_id)
+    if legacy_ids:
+        outs += Data.query.filter(Data.id.in_(legacy_ids)).all()
+    return outs
 
 
 def _serialize_output(d, lang=None):

@@ -238,6 +238,12 @@ class Data(db.Model):
     # V1.1 — CDC 5.4 : cadence et fraîcheur de la donnée.
     update_cadence_code = db.Column(db.String(20), nullable=True)
     max_age_hours = db.Column(db.Integer, nullable=True)
+    # V1.1 — CDC 1/§8 : une « donnée de sortie » d'une activité EST une connexion sortante
+    # (Link) de la carto. Les Link sont supprimés/recréés à chaque sauvegarde de carto, donc la
+    # qualification métier (nature, standard) ne peut PAS vivre sur le Link. On matérialise chaque
+    # sortie en une ligne Data durable, ancrée à son activité productrice via ce champ. Ces Data
+    # n'ont pas de shape_id → invisibles dans la carto, jamais touchées par la re-synchro.
+    producer_activity_id = db.Column(db.Integer, db.ForeignKey('activities.id'), nullable=True, index=True)
 
     __table_args__ = (
         db.UniqueConstraint('entity_id', 'shape_id', name='uq_entity_data_shape'),

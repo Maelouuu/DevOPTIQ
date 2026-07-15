@@ -329,6 +329,8 @@ def create_app(test_config=None):
         _safe_add_column("data", "minimum_performance_text", "TEXT")
         _safe_add_column("data", "qualification_source", "VARCHAR(10)")
         _safe_add_column("data", "qualification_updated_at", "TIMESTAMP")
+        # V1.1 — CDC 1/§8 : ancrage d'une sortie matérialisée à son activité productrice
+        _safe_add_column("data", "producer_activity_id", "INTEGER")
         # V1.1 — CDC 3 : niveaux de maîtrise (requis rôle × activité, démontré individu)
         _safe_add_column("activity_roles", "required_mastery_level", "INTEGER")
         _safe_add_column("competency_evaluation", "mastery_level", "INTEGER")

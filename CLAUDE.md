@@ -162,6 +162,15 @@ techniques internes (RESULT, DAILY, WORK_ARCHITECTURE…) **jamais affichés** :
 - **P1** `qualify_outputs.py` (`/qualify`) — `Data` +`semantic_nature`/`minimum_performance_text`/
   `qualification_source`/`qualification_updated_at`. Analyse IA des sorties (RESULT/MEASURE/
   EVENT/INFORMATION), repli sans clé = « à qualifier » (jamais inventé).
+  ⚠️ **Correctif (les sorties = connexions sortantes).** Une « donnée de sortie » d'une activité
+  EST une **connexion sortante** (Link activité→activité) de la carto ; son nom = le libellé de la
+  flèche (`Link.description`), à défaut le nom de l'activité destinataire. Les `Link` sont
+  supprimés/recréés à chaque sauvegarde carto → la qualification ne peut PAS vivre sur le `Link`.
+  `materialize_activity_outputs()` matérialise chaque connexion sortante en `Data` durable ancrée
+  via `Data.producer_activity_id` (sans `shape_id` → invisible dans la carto, jamais touchée par
+  `_sync_carto_to_db`). Idempotent (get-or-create par nom) ; une sortie déjà qualifiée est
+  conservée même si le libellé de sa connexion change. Corrige « Configurer (qualifier les sorties)
+  » qui affichait toujours « aucune donnée de sortie ». Tests : `tests/test_51_qualify_outputs.py`.
 - **P2** `result_capabilities.py` (`/competence`) — table `result_capability_links` (RESULT↔S/SF/HSC).
   Compétence PRINCIPALE (fondée sur les RESULT, sans énumérer S/SF/HSC) ; S/SF/HSC générés par résultat ; badges « R1 ».
 - **P3** `mastery.py` (`/mastery`) — `activity_roles.required_mastery_level`, `CompetencyEvaluation`
