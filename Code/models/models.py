@@ -502,6 +502,28 @@ class ResultCapabilityLink(db.Model):
     )
 
 
+class ResultDiagnostic(db.Model):
+    """V1.1 — CDC 6.6 : diagnostic d'un écart sur un RÉSULTAT pour un individu. Trois familles
+    de causes possibles (WORK_ARCHITECTURE, ABILITY_TO_ACT, EXECUTION_CONDITIONS). L'IA propose,
+    le Garant/Manager valide. Seule ABILITY_TO_ACT justifie un plan de développement individuel."""
+    __tablename__ = 'result_diagnostics'
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    entity_id = db.Column(db.Integer, db.ForeignKey('entities.id'), nullable=True, index=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, index=True)
+    activity_id = db.Column(db.Integer, db.ForeignKey('activities.id'), nullable=False, index=True)
+    data_id = db.Column(db.Integer, db.ForeignKey('data.id'), nullable=False, index=True)  # RESULT
+    families = db.Column(db.Text, nullable=True)         # JSON : liste de codes familles validés
+    note = db.Column(db.Text, nullable=True)
+    validated_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    __table_args__ = (
+        db.UniqueConstraint('user_id', 'activity_id', 'data_id', name='uq_result_diagnostic'),
+    )
+
+
 class TimeAnalysis(db.Model):
     __tablename__ = 'time_analysis'
 

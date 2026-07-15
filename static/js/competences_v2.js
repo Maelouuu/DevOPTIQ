@@ -18,7 +18,10 @@
       no_result: "Aucun résultat qualifié pour cette activité. Qualifiez d'abord les sorties.",
       std: 'Standard minimal', self: 'Auto-évaluation', saved: 'Évaluation enregistrée',
       no_activities: 'Aucune activité pour ce rôle.', pick_role: 'Sélectionnez un rôle.',
-      none: '—', diag_soon: "Diagnostic de l'écart (à venir)",
+      none: '—', back: "← Évaluation", save_diag: 'Enregistrer le diagnostic', gen_plan: 'Générer le plan',
+      cause_q: "Quelle est la cause de l'écart ?", linked_caps: 'Capacités reliées à ce résultat',
+      no_gap: 'Aucun résultat en écart : le niveau requis est tenu.', dem: 'démontré', req: 'requis',
+      plan_title: "Plan d'accompagnement", diag_saved: 'Diagnostic enregistré', gen: 'Génération…',
     },
     en: {
       manager: 'Manager', collaborators: 'Team members', no_collab: 'No team member.',
@@ -31,7 +34,10 @@
       no_result: 'No qualified result for this activity. Qualify the outputs first.',
       std: 'Minimum standard', self: 'Self-assessment', saved: 'Evaluation saved',
       no_activities: 'No activity for this role.', pick_role: 'Select a role.',
-      none: '—', diag_soon: 'Gap diagnosis (coming soon)',
+      none: '—', back: '← Evaluation', save_diag: 'Save diagnosis', gen_plan: 'Generate plan',
+      cause_q: 'What is the cause of the gap?', linked_caps: 'Capabilities linked to this result',
+      no_gap: 'No result below the required level.', dem: 'demonstrated', req: 'required',
+      plan_title: 'Support plan', diag_saved: 'Diagnosis saved', gen: 'Generating…',
     },
   };
   const T = k => (I18N[LANG][k] || k);
@@ -125,14 +131,17 @@
     });
   }
 
-  // ── Drawer : évaluation par résultat ────────────────────────────────
+  // ── Drawer : évaluation par résultat + diagnostic ───────────────────
   function bindDrawer() {
     $('#cv2-drawer-close').onclick = closeDrawer;
     $('#cv2-overlay').onclick = closeDrawer;
-    $('#cv2-save-btn').onclick = saveEvaluation;
-    $('#cv2-diag-btn').onclick = () => toast(T('diag_soon'));
   }
   function closeDrawer() { $('#cv2-drawer').classList.remove('open'); $('#cv2-overlay').classList.remove('open'); }
+
+  function setFooter(buttons) {
+    const f = $('#cv2-footer'); f.innerHTML = '';
+    buttons.forEach(b => { const el = document.createElement('button'); el.className = 'btn ' + b.cls; el.textContent = b.label; el.onclick = b.on; if (b.id) el.id = b.id; f.appendChild(el); });
+  }
 
   async function openDrawer(row) {
     state.activity = row;
@@ -141,15 +150,25 @@
     const comp = $('#cv2-comp');
     if (row.competence) { comp.classList.remove('hidden'); $('#cv2-comp-text').textContent = row.competence; } else comp.classList.add('hidden');
     $('#cv2-drawer').classList.add('open'); $('#cv2-overlay').classList.add('open');
-    const st = await api(`/mastery/activity/${state.userId}/${row.activity_id}?role_id=${state.roleId}`);
+    showEvaluation();
+  }
+
+  async function showEvaluation() {
+    const st = await api(`/mastery/activity/${state.userId}/${state.activity.activity_id}?role_id=${state.roleId}`);
+    state.lastState = st;
     renderResults(st);
+    setFooter([
+      { cls: 'btn-ghost', label: T('analyze_gap'), on: showDiagnostic },
+      { cls: 'btn-primary', label: T('save_eval'), on: saveEvaluation, id: 'cv2-save-btn' },
+    ]);
   }
 
   function renderResults(st) {
     const body = $('#cv2-drawer-body'); body.innerHTML = '';
     const warn = $('#cv2-drawer-warn');
-    if (!st.results || !st.results.length) { warn.classList.remove('hidden'); warn.textContent = T('no_result'); $('#cv2-save-btn').disabled = true; return; }
-    warn.classList.add('hidden'); $('#cv2-save-btn').disabled = false;
+    const sb = () => $('#cv2-save-btn');
+    if (!st.results || !st.results.length) { warn.classList.remove('hidden'); warn.textContent = T('no_result'); if (sb()) sb().disabled = true; return; }
+    warn.classList.add('hidden'); if (sb()) sb().disabled = false;
     // bandeau niveau global vs requis
     const g = document.createElement('div'); g.className = 'cv2-global';
     g.innerHTML = `<div><div class="k">${T('c_demonstrated')} (min)</div>${chip(st.color, st.global_label)}</div>
@@ -176,7 +195,7 @@
 
   async function saveEvaluation() {
     const cards = document.querySelectorAll('#cv2-drawer-body .cv2-res');
-    const btn = $('#cv2-save-btn'); btn.disabled = true;
+    const btn = $('#cv2-save-btn'); if (btn) btn.disabled = true;
     for (const c of cards) {
       const sel = c.querySelector('.cv2-lvbtn.sel');
       if (!sel) continue;
@@ -190,13 +209,81 @@
         }),
       });
     }
-    btn.disabled = false;
     toast(T('saved'));
-    // rafraîchir drawer + tableau
-    const st = await api(`/mastery/activity/${state.userId}/${state.activity.activity_id}?role_id=${state.roleId}`);
-    renderResults(st);
-    const d = await api(`/mastery/dashboard/${state.userId}/${state.roleId}`);
-    renderDashboard(d);
+    await showEvaluation();                 // rafraîchit drawer + footer
+    renderDashboard(await api(`/mastery/dashboard/${state.userId}/${state.roleId}`));
+  }
+
+  // ── Diagnostic de l'écart (CDC 6.5-6.9) ─────────────────────────────
+  async function showDiagnostic() {
+    const st = state.lastState || await api(`/mastery/activity/${state.userId}/${state.activity.activity_id}?role_id=${state.roleId}`);
+    // résultats en écart : niveau démontré < requis (ou < 2)
+    const req = st.required_level;
+    const gapRes = (st.results || []).filter(r => r.demonstrated_level !== null &&
+      (r.demonstrated_level < 2 || (req !== null && r.demonstrated_level < req)));
+    const fams = await api('/diagnostic/families');
+    const body = $('#cv2-drawer-body'); body.innerHTML = '';
+    $('#cv2-drawer-warn').classList.add('hidden');
+    if (!gapRes.length) { const p = document.createElement('div'); p.className = 'cv2-warn'; p.style.background = '#f0fdf4'; p.style.borderColor = '#bbf7d0'; p.style.color = '#15803d'; p.classList.remove('hidden'); p.textContent = T('no_gap'); body.appendChild(p); }
+    for (const r of gapRes) body.appendChild(await diagBlock(r, fams.families));
+    setFooter([{ cls: 'btn-ghost', label: T('back'), on: showEvaluation }]);
+  }
+
+  async function diagBlock(result, families) {
+    const st = await api(`/diagnostic/${state.userId}/${state.activity.activity_id}/${result.data_id}?role_id=${state.roleId}`);
+    const wrap = document.createElement('div'); wrap.className = 'cv2-diagres'; wrap.dataset.dataId = result.data_id;
+    const selected = new Set(st.families || []);
+    wrap.innerHTML = `<div class="dtitle"><span>${st.result.name}</span>${chip(result.demonstrated_level < 2 ? 'red' : 'orange', st.status.label)}</div>
+      <div style="font-size:12px;color:var(--muted);margin-top:4px">${st.demonstrated_label} (${T('dem')}) · ${st.required_label} (${T('req')})</div>
+      <div style="font-weight:700;font-size:12.5px;margin:12px 0 2px">${T('cause_q')}</div>
+      <div class="cv2-fams"></div>
+      <div class="cv2-caps hidden"></div>
+      <div class="cv2-plan"></div>`;
+    const famsBox = wrap.querySelector('.cv2-fams');
+    families.forEach(f => {
+      const el = document.createElement('div'); el.className = 'cv2-fam' + (selected.has(f.code) ? ' sel' : ''); el.dataset.code = f.code;
+      el.innerHTML = `<div class="fh"><span class="bx"></span>${f.label}</div><div class="fd">${f.description}</div>`;
+      el.onclick = () => { el.classList.toggle('sel'); selected.has(f.code) ? selected.delete(f.code) : selected.add(f.code); onDiagChange(wrap, st, selected); };
+      famsBox.appendChild(el);
+    });
+    onDiagChange(wrap, st, selected, true);
+    return wrap;
+  }
+
+  async function onDiagChange(wrap, st, selected, initial) {
+    const capsBox = wrap.querySelector('.cv2-caps'), planBox = wrap.querySelector('.cv2-plan');
+    // save du diagnostic (sauf au 1er rendu)
+    if (!initial) {
+      await api('/diagnostic/save', { method: 'POST', body: JSON.stringify({
+        user_id: state.userId, activity_id: state.activity.activity_id, data_id: +wrap.dataset.dataId, families: [...selected] }) });
+    }
+    // Capacité à agir → afficher les capacités reliées + bouton plan
+    if (selected.has(st.individual_family)) {
+      capsBox.classList.remove('hidden');
+      capsBox.innerHTML = `<div style="font-weight:700;font-size:12px;margin-bottom:6px">${T('linked_caps')}</div>` +
+        (st.capabilities.length ? st.capabilities.map(c =>
+          `<div class="cv2-cap"><div><span class="ct">${c.type_label}</span><div>${c.label || '—'}</div></div>
+           <div class="lvls"><span class="${c.gap !== null && c.gap < 0 ? 'gap-neg' : 'gap-zero'}">${c.demonstrated_level === null ? T('none') : c.demonstrated_level}</span> / ${c.required_level === null ? T('none') : c.required_level}</div></div>`).join('')
+          : `<div style="font-size:12px;color:var(--muted)">${T('none')}</div>`);
+      const btn = document.createElement('button'); btn.className = 'btn btn-primary btn-sm'; btn.style.marginTop = '10px'; btn.textContent = T('gen_plan');
+      btn.onclick = () => genPlan(wrap, btn);
+      capsBox.appendChild(btn);
+    } else { capsBox.classList.add('hidden'); planBox.innerHTML = ''; }
+  }
+
+  async function genPlan(wrap, btn) {
+    btn.disabled = true; btn.textContent = T('gen');
+    const j = await api('/diagnostic/plan', { method: 'POST', body: JSON.stringify({
+      user_id: state.userId, activity_id: state.activity.activity_id, data_id: +wrap.dataset.dataId, role_id: state.roleId }) });
+    const planBox = wrap.querySelector('.cv2-plan'); planBox.innerHTML = '';
+    btn.disabled = false; btn.textContent = T('gen_plan');
+    if (j.no_individual_plan) { planBox.innerHTML = `<div class="cv2-noplan">${j.message}</div>`; return; }
+    const items = j.plan || [];
+    if (!items.length) { planBox.innerHTML = `<div class="cv2-noplan">${j.source && j.source !== 'AI' ? 'IA indisponible.' : T('none')}</div>`; return; }
+    planBox.innerHTML = `<div style="font-weight:700;font-size:12.5px;margin:12px 0 6px">${T('plan_title')}</div>` +
+      items.map(it => `<div class="cv2-planitem"><b>${it.development_objective || ''}</b>${it.target_level ? ` → ${it.target_level}` : ''}
+        ${it.work_situations ? `<div>${Array.isArray(it.work_situations) ? it.work_situations.join(', ') : it.work_situations}</div>` : ''}
+        ${it.steps ? `<div style="color:var(--muted);margin-top:4px">${Array.isArray(it.steps) ? it.steps.join(' · ') : it.steps}</div>` : ''}</div>`).join('');
   }
 
   document.addEventListener('DOMContentLoaded', boot);

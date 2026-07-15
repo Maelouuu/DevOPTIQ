@@ -258,6 +258,9 @@ def create_app(test_config=None):
     from Code.routes.mastery import mastery_bp
     app.register_blueprint(mastery_bp)
 
+    from Code.routes.diagnostic import diagnostic_bp
+    app.register_blueprint(diagnostic_bp)
+
     from Code.routes.ui_routes import ui_bp
     app.register_blueprint(ui_bp)
 
@@ -360,6 +363,13 @@ def create_app(test_config=None):
             print("[DB] Table result_capability_links prête")
         except Exception as e:
             print(f"[DB] result_capability_links check: {e}")
+
+        try:
+            from Code.models.models import ResultDiagnostic
+            ResultDiagnostic.__table__.create(db.engine, checkfirst=True)
+            print("[DB] Table result_diagnostics prête")
+        except Exception as e:
+            print(f"[DB] result_diagnostics check: {e}")
 
         # 4. Marquer les migrations Alembic comme appliquées (sans les exécuter)
         # db_upgrade() est intentionnellement absent : il attend un verrou PostgreSQL
