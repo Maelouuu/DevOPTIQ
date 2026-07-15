@@ -150,6 +150,35 @@ Fonctionnement :
 
 ---
 
+## Refonte Compétences V1.1 (CDC OPTIQ — en cours)
+
+Plan complet : `docs/refonte_competences_v1_1.md`. Recâble le module autour de la chaîne
+**Activité → Données de sortie → RÉSULTAT → Compétence → Diagnostic → Plan**. L'évaluation
+commence par le RÉSULTAT ; S/SF/HSC ne servent qu'au diagnostic d'un écart. Niveau global
+d'activité = **min** des résultats (jamais de moyenne) ; NULL (non évalué) ≠ 0. Codes
+techniques internes (RESULT, DAILY, WORK_ARCHITECTURE…) **jamais affichés** : libellés FR/EN.
+
+**Itération 1 livrée (backend testé + page refondue) :**
+- **P1** `qualify_outputs.py` (`/qualify`) — `Data` +`semantic_nature`/`minimum_performance_text`/
+  `qualification_source`/`qualification_updated_at`. Analyse IA des sorties (RESULT/MEASURE/
+  EVENT/INFORMATION), repli sans clé = « à qualifier » (jamais inventé).
+- **P2** `result_capabilities.py` (`/competence`) — table `result_capability_links` (RESULT↔S/SF/HSC).
+  Compétence PRINCIPALE (fondée sur les RESULT, sans énumérer S/SF/HSC) ; S/SF/HSC générés par résultat ; badges « R1 ».
+- **P3** `mastery.py` (`/mastery`) — `activity_roles.required_mastery_level`, `CompetencyEvaluation`
+  +`mastery_level`/`evidence`/`evaluated_at`/`evaluator_user_id`. Éval par RESULT (`item_type='activity_results'`),
+  global = min, couleur calculée. Échelle 0-4 + NULL.
+- **P6** page Compétences **refondue en place** (`competences_view.html` + `competences_v2.js`) :
+  tableau requis/démontré/écart/résultats → tiroir éval par résultat → diagnostic 3 familles
+  (`diagnostic.py` `/diagnostic`, table `result_diagnostics`) → plan (règle CDC 6.8 : pas de plan
+  individuel auto si l'écart relève de l'Architecture ou des Conditions d'exécution).
+- Migrations idempotentes cross-dialect (`_safe_add_column` + `__table__.create(checkfirst=True)`).
+  IA = gpt-4o-mini, JSON strict, repli propre. 1402 tests existants OK (non-régression).
+
+**Itération 2 à venir :** P4 domaines de technicité, P5 cadences/cohérence des rythmes, P7
+auto-positionnement HSC. Intégrations fiche activité (panneau qualification, badges S/SF/HSC).
+
+---
+
 ## Conventions de code
 
 - **Pas de framework JS** : tout en vanilla JS, `$()` est un alias `document.querySelector`
