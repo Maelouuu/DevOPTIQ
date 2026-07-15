@@ -1016,8 +1016,61 @@ class VsdxImporter {
 
   // ─── Phase 13: Build connections ────────────────────────────────
 
+  // Récupère les connexions « à moitié collées » : certains connecteurs Visio n'ont
+  // un <Connect> que d'UN côté (l'autre bout « flotte », mais tombe PILE dans une
+  // forme). On infère l'extrémité manquante en cherchant la forme (ou, à défaut, le
+  // groupe) dont la boîte Visio contient le point qui flotte. Sans ça, ces connecteurs
+  // sont jetés (source/target absent) → flèches et renvois perdus à l'import
+  // (mesuré hard.vsdx : renvoi « Spare Parts Stock » isolé, 10 connecteurs jetés).
+  _recoverFloatingConnections() {
+    const { connMap, shapePinAbs, shapeMap, _shapeIdMap, _groupIdMap } = this;
+    const gMap = _groupIdMap || {};
+    const cand = [];
+    for (const vid in shapePinAbs) {
+      const a = shapePinAbs[vid]; if (!a || !a.w) continue;
+      const isShape = !!_shapeIdMap[vid], isGroup = !!gMap[vid];
+      if (!isShape && !isGroup) continue;
+      cand.push({ vid, isShape, x0: a.pinX - a.w / 2, x1: a.pinX + a.w / 2, y0: a.pinY - a.h / 2, y1: a.pinY + a.h / 2, area: a.w * a.h });
+    }
+    const TOL = 0.4;   // slack Visio : le bout d'un connecteur peut tomber un poil HORS
+                       // du bord (points de connexion) → tolérance courte, bien < l'écart
+                       // aux groupes voisins (~2,7) pour éviter les faux raccords.
+    const distBox = (c, x, y) => {
+      const dx = Math.max(c.x0 - x, 0, x - c.x1), dy = Math.max(c.y0 - y, 0, y - c.y1);
+      return Math.hypot(dx, dy);
+    };
+    // forme la plus proche à ≤TOL (plus petite d'abord si ex æquo) ; à défaut, groupe.
+    const find = (x, y) => {
+      let bestS = null, bestSd = Infinity, bestG = null, bestGd = Infinity;
+      for (const c of cand) {
+        const d = distBox(c, x, y);
+        if (c.isShape) { if (d < bestSd || (d === bestSd && bestS && c.area < bestS.area)) { bestSd = d; bestS = c; } }
+        else           { if (d < bestGd) { bestGd = d; bestG = c; } }
+      }
+      if (bestS && bestSd <= TOL) return bestS.vid;
+      if (bestG && bestGd <= TOL) return bestG.vid;
+      return null;
+    };
+    let recovered = 0;
+    for (const cid in connMap) {
+      const e = connMap[cid];
+      if ((e.source && e.target) || cid.startsWith('__sp')) continue;
+      const el = (shapeMap[cid] || {}).el; if (!el) continue;
+      if (!e.source) {
+        const bx = parseFloat(this.vCell(el, 'BeginX') || 'NaN'), by = parseFloat(this.vCell(el, 'BeginY') || 'NaN');
+        if (!isNaN(bx) && !isNaN(by)) { const v = find(bx, by); if (v) { e.source = v; recovered++; } }
+      }
+      if (!e.target) {
+        const ex = parseFloat(this.vCell(el, 'EndX') || 'NaN'), ey = parseFloat(this.vCell(el, 'EndY') || 'NaN');
+        if (!isNaN(ex) && !isNaN(ey)) { const v = find(ex, ey); if (v) { e.target = v; recovered++; } }
+      }
+    }
+    if (recovered) this.log(`Connexions récupérées (extrémité flottante) : ${recovered}`);
+  }
+
   async buildConnections() {
     this.log('Reconstruction des connexions…');
+    this._recoverFloatingConnections();
     const { connMap, shapePinAbs, shapeMap, newShapes, newGroups,
             _shapeIdMap, _groupIdMap, topOfDiagram, leftEdge, SCALE } = this;
     const OPP = { right:'left', left:'right', top:'bottom', bottom:'top' };

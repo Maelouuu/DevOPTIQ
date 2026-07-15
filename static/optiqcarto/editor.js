@@ -5126,10 +5126,19 @@ async function importVSDX(file) {
     for (const s of state.shapes) { _sxLo = Math.min(_sxLo, s.x); _sxHi = Math.max(_sxHi, s.x + s.w); }
     const _OOB = 50, _DET = 180; // marge détour hors boîte des extrémités
     const _byId = {}; for (const s of state.shapes) _byId[s.id] = s;
+    // Résout la boîte d'une extrémité : forme OU groupe (sinon un connecteur qui vise un
+    // GROUPE avait une boîte infinie → un détour « plonge puis remonte » DANS les bandes
+    // n'était jamais rejeté (mesuré hard.vsdx : « Bar Feeder Technician » plongeait 650 px
+    // sous sa source avant de remonter vers le groupe Installation, tout en haut).
+    const _boundsOf = id => {
+      const s = _byId[id]; if (s) return s;
+      const g = (state.groups || []).find(g => g.id === id);
+      return g ? getGroupBounds(g) : null;
+    };
     for (const c of state.connections) {
       if (!c.customPath || c.customPath.length < 3) continue;
       const mids = c.customPath.slice(1, -1);
-      const a = _byId[c.fromId], b = _byId[c.toId];
+      const a = _boundsOf(c.fromId), b = _boundsOf(c.toId);
       let exLo = -Infinity, exHi = Infinity, eyLo = -Infinity, eyHi = Infinity;
       if (a && b) {
         exLo = Math.min(a.x, b.x) - _DET; exHi = Math.max(a.x + a.w, b.x + b.w) + _DET;
@@ -6151,43 +6160,82 @@ function _separateLanes() {
 // est inévitable). Mesuré hard.vsdx : les verticales alignées lointaines redeviennent
 // droites (ex. « Counter Sales » → « Retrait comptoir », escalier → droite).
 function _straightenAlignedConnectors() {
-  const byId = {}; for (const s of state.shapes) byId[s.id] = s;
-  const AX = 34;      // tolérance de colinéarité (px) sur l'axe transverse
-  const MINLEN = 120; // ne redresse que les connecteurs LONGS (le jog court est invisible
-                      // et redresser du court n'apporte rien tout en risquant des superpositions)
-  const OVLF = 0.45;  // recouvrement min = 45 % de la plus petite forme (= vraiment alignées)
+  const shapes = state.shapes;
+  const byId = {}; for (const s of shapes) byId[s.id] = s;
+  const MINLEN = 120; // ne redresse que les connecteurs LONGS (le jog court est invisible)
+  const MINOVL = 28;  // recouvrement min (px) des deux formes sur l'axe transverse : assez
+                      // pour poser un port propre ; sinon les formes ne sont pas alignées.
+  const GAP = 16;     // écart mini entre deux tracés droits parallèles (anti-empilement)
+  const MARGIN = 10;  // marge autour d'une forme traversée
+  const claimedV = [], claimedH = []; // {coord, lo, hi} des droites déjà posées
+
+  // Choisit une coordonnée dans [lo,hi] hors des intervalles `blocked` (formes tierces
+  // traversées + droites déjà posées). Préfère le point voulu ; sinon le plus grand
+  // trou libre. Renvoie null si aucune voie droite ne passe → on garde le routage.
+  const pickFree = (lo, hi, blocked, want) => {
+    if (hi - lo < 2) return null;
+    const bl = blocked.filter(z => z[1] > lo && z[0] < hi)
+      .map(z => [Math.max(lo, z[0]), Math.min(hi, z[1])]).sort((p, q) => p[0] - q[0]);
+    const free = []; let cur = lo;
+    for (const [z0, z1] of bl) { if (z0 > cur) free.push([cur, z0]); cur = Math.max(cur, z1); }
+    if (cur < hi) free.push([cur, hi]);
+    let best = null;
+    for (const f of free) {
+      if (f[1] - f[0] < 2) continue;
+      if (want >= f[0] && want <= f[1]) return want;
+      if (!best || (f[1] - f[0]) > (best[1] - best[0])) best = f;
+    }
+    return best ? (best[0] + best[1]) / 2 : null;
+  };
+
   for (const c of state.connections) {
-    if (c.userPts && c.userPts.length) continue;   // tracé Visio avec coudes gardés → intact
     const a = byId[c.fromId], b = byId[c.toId];
     if (!a || !b) continue;
-    const cp = c.customPath || [];
-    const xs = cp.map(p => p.x), ys = cp.map(p => p.y);
-    const xRange = xs.length ? Math.max(...xs) - Math.min(...xs) : 0;
-    const yRange = ys.length ? Math.max(...ys) - Math.min(...ys) : 0;
     const acx = a.x + a.w / 2, acy = a.y + a.h / 2, bcx = b.x + b.w / 2, bcy = b.y + b.h / 2;
     const dx = Math.abs(acx - bcx), dy = Math.abs(acy - bcy);
+    // On redresse même les connecteurs à coudes Visio SI les deux formes sont vraiment
+    // alignées (recouvrement ≥ OVLF) ET qu'une voie droite libre existe (garde-fous
+    // formes tierces + anti-empilement plus bas). Cas typique : deux flèches
+    // bidirectionnelles entre deux formes empilées que Visio décale en escalier et qui
+    // finissent par se croiser → deux voies droites parallèles distinctes.
     if (dy >= dx) {                                 // dominante VERTICALE
       if (dy < MINLEN) continue;                    // trop court → jog invisible, on laisse
-      if (cp.length > 2 && xRange > AX) continue;   // Visio a fait un vrai coude → intact
       const lo = Math.max(a.x, b.x), hi = Math.min(a.x + a.w, b.x + b.w);
-      if (hi - lo < OVLF * Math.min(a.w, b.w)) continue; // pas vraiment alignées → coude toléré
-      const commonX = (lo + hi) / 2;
+      if (hi - lo < MINOVL) continue;                   // pas vraiment alignées → coude toléré
+      const segLo = acy < bcy ? a.y + a.h : b.y + b.h;   // segment entre les deux formes
+      const segHi = acy < bcy ? b.y : a.y;
+      const blocked = [];
+      // formes tierces que la droite traverserait → NE PAS passer au travers (bug carto)
+      for (const s of shapes) { if (s === a || s === b) continue;
+        if (s.y < segHi && s.y + s.h > segLo) blocked.push([s.x - MARGIN, s.x + s.w + MARGIN]); }
+      // droites déjà posées qui chevauchent en Y → voies distinctes (anti-empilement)
+      for (const cl of claimedV) if (cl.lo < segHi && cl.hi > segLo) blocked.push([cl.coord - GAP, cl.coord + GAP]);
+      const commonX = pickFree(lo, hi, blocked, (lo + hi) / 2);
+      if (commonX == null) continue;                // aucune voie droite libre → on garde le routage
       c.fromPortDir = acy < bcy ? 'bottom' : 'top';
       c.toPortDir   = acy < bcy ? 'top' : 'bottom';
       c.fromPortT = Math.min(0.98, Math.max(0.02, (commonX - a.x) / a.w));
       c.toPortT   = Math.min(0.98, Math.max(0.02, (commonX - b.x) / b.w));
       c.userPts = null;
+      claimedV.push({ coord: commonX, lo: segLo, hi: segHi });
     } else {                                        // dominante HORIZONTALE
       if (dx < MINLEN) continue;
-      if (cp.length > 2 && yRange > AX) continue;
       const lo = Math.max(a.y, b.y), hi = Math.min(a.y + a.h, b.y + b.h);
-      if (hi - lo < OVLF * Math.min(a.h, b.h)) continue;
-      const commonY = (lo + hi) / 2;
+      if (hi - lo < MINOVL) continue;
+      const segLo = acx < bcx ? a.x + a.w : b.x + b.w;
+      const segHi = acx < bcx ? b.x : a.x;
+      const blocked = [];
+      for (const s of shapes) { if (s === a || s === b) continue;
+        if (s.x < segHi && s.x + s.w > segLo) blocked.push([s.y - MARGIN, s.y + s.h + MARGIN]); }
+      for (const cl of claimedH) if (cl.lo < segHi && cl.hi > segLo) blocked.push([cl.coord - GAP, cl.coord + GAP]);
+      const commonY = pickFree(lo, hi, blocked, (lo + hi) / 2);
+      if (commonY == null) continue;
       c.fromPortDir = acx < bcx ? 'right' : 'left';
       c.toPortDir   = acx < bcx ? 'left' : 'right';
       c.fromPortT = Math.min(0.98, Math.max(0.02, (commonY - a.y) / a.h));
       c.toPortT   = Math.min(0.98, Math.max(0.02, (commonY - b.y) / b.h));
       c.userPts = null;
+      claimedH.push({ coord: commonY, lo: segLo, hi: segHi });
     }
   }
 }
