@@ -129,6 +129,18 @@
     .cv2-reqedit button.sel{background:var(--ink);color:#fff;border-color:var(--ink)}
     .cv2-link{background:none;border:none;color:var(--brand);font-weight:700;font-size:12px;cursor:pointer;padding:0}
     .cv2-minperf{width:100%;margin-top:8px;border:1px solid var(--line);border-radius:8px;padding:7px 9px;font-family:inherit;font-size:12px}
+    /* Attente (analyse IA), bannière de guidage, sélecteur de niveau lisible */
+    .cv2-busy{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:64px 20px;color:var(--muted);font-weight:600;font-size:13px;text-align:center}
+    .cv2-spin{width:34px;height:34px;border-radius:50%;border:3px solid var(--brand-dim);border-top-color:var(--brand);animation:cv2spin .8s linear infinite}
+    @keyframes cv2spin{to{transform:rotate(360deg)}}
+    .cv2-ok{background:#f0fdf4;border:1px solid #bbf7d0;color:#15803d;border-radius:10px;padding:11px 14px;font-size:12.5px;font-weight:600;margin-bottom:14px}
+    .cv2-pickhint{font-weight:600;color:var(--orange);text-transform:none;letter-spacing:0}
+    .cv2-levels{display:flex;flex-direction:column;gap:6px;margin-top:8px}
+    .cv2-lvbtn{display:flex;align-items:center;gap:9px;text-align:left;width:100%;border:1px solid var(--line);background:#fff;border-radius:9px;padding:9px 12px;cursor:pointer;font-weight:600;font-size:12.5px;color:var(--ink)}
+    .cv2-lvbtn b{display:inline-flex;width:22px;height:22px;align-items:center;justify-content:center;border-radius:6px;background:var(--brand-dim);color:var(--brand-dark);font-size:12px;flex-shrink:0;font-weight:700}
+    .cv2-lvbtn:hover{border-color:var(--brand)}
+    .cv2-lvbtn.sel{border-color:var(--brand);background:var(--brand);color:#fff}
+    .cv2-lvbtn.sel b{background:rgba(255,255,255,.25);color:#fff}
     .hidden{display:none!important}
     .cv2-toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:var(--ink);color:#fff;padding:11px 18px;border-radius:10px;font-weight:600;z-index:60;opacity:0;transition:opacity .2s}
     .cv2-toast.show{opacity:1}

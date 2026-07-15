@@ -34,6 +34,10 @@
       eval_of: 'Évaluation de', eval_hint: 'Fixez, pour chaque résultat, le niveau tenu par le collaborateur.',
       collab_level: 'Niveau du collaborateur', ref: 'référence', edit: 'modifier',
       evidence_ph: 'Preuve / commentaire (facultatif)', diagnose: "Diagnostiquer l'écart",
+      configuring: 'Configuration en cours… (analyse IA des sorties)', loading: 'Chargement…',
+      need_result: "Marquez au moins une sortie comme « Résultat de l'activité » avant de valider : c'est ce niveau que vous évaluerez ensuite.",
+      configured_go_eval: 'Sorties qualifiées ✓ — évaluez maintenant le niveau du collaborateur pour chaque résultat, puis enregistrez.',
+      req_failed: 'Action impossible (erreur réseau ou serveur).', pick_level: 'Choisissez un niveau ci-dessous',
     },
     en: {
       manager: 'Manager', collaborators: 'Team members', no_collab: 'No team member.',
@@ -62,14 +66,34 @@
       eval_of: 'Evaluation of', eval_hint: 'For each result, set the level the team member holds.',
       collab_level: "Team member's level", ref: 'reference', edit: 'edit',
       evidence_ph: 'Evidence / comment (optional)', diagnose: 'Diagnose the gap',
+      configuring: 'Configuring… (AI analysis of outputs)', loading: 'Loading…',
+      need_result: 'Mark at least one output as “Activity result” before validating: that is the level you will evaluate next.',
+      configured_go_eval: 'Outputs qualified ✓ — now set the team member’s level for each result, then save.',
+      req_failed: 'Action failed (network or server error).', pick_level: 'Pick a level below',
     },
   };
   const T = k => (I18N[LANG][k] || k);
 
   const state = { userId: null, userName: '', roleId: null, roleName: '', scale: {}, notAssessed: 'Non évalué', activity: null };
 
-  function api(url, opts) { return fetch(url, Object.assign({ headers: { 'Content-Type': 'application/json' } }, opts)).then(r => r.json()); }
+  // api() ne rejette jamais silencieusement : en cas d'erreur réseau/serveur, on prévient
+  // l'utilisateur (toast) et on renvoie un objet marqué {__error:true} que les appelants gèrent.
+  async function api(url, opts) {
+    try {
+      const r = await fetch(url, Object.assign({ headers: { 'Content-Type': 'application/json' } }, opts));
+      const txt = await r.text();
+      let data; try { data = txt ? JSON.parse(txt) : {}; } catch (e) { data = null; }
+      if (!r.ok || data === null) { toast(T('req_failed')); return { __error: true, status: r.status }; }
+      return data;
+    } catch (e) { toast(T('req_failed')); return { __error: true }; }
+  }
   function toast(msg) { const t = $('#cv2-toast'); t.textContent = msg; t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 1900); }
+  // Indicateur d'attente dans le tiroir (les analyses IA prennent plusieurs secondes).
+  function showBusy(msg) {
+    const body = $('#cv2-drawer-body');
+    body.innerHTML = `<div class="cv2-busy"><span class="cv2-spin"></span><div>${msg || T('loading')}</div></div>`;
+    $('#cv2-footer').querySelectorAll('button').forEach(b => { b.disabled = true; });
+  }
   function applyStaticI18n() { document.querySelectorAll('[data-i18n]').forEach(el => { const k = el.dataset.i18n; if (I18N[LANG][k]) el.textContent = I18N[LANG][k]; }); }
 
   function levelName(lvl) { return lvl === null || lvl === undefined ? state.notAssessed : (state.scale[String(lvl)] || String(lvl)); }
@@ -204,6 +228,12 @@
       return;
     }
     if (sb()) sb().disabled = false;
+    // Bannière de guidage juste après la configuration des sorties.
+    if (state.justConfigured) {
+      state.justConfigured = false;
+      const ok = document.createElement('div'); ok.className = 'cv2-ok';
+      ok.textContent = T('configured_go_eval'); body.appendChild(ok);
+    }
     body.appendChild(requiredSummary(st));
     const h = document.createElement('div'); h.className = 'cv2-evalhead';
     h.innerHTML = `<div class="eh">${T('eval_of')} ${state.userName}</div><div class="cv2-evalsub">${T('eval_hint')}</div>`;
@@ -229,22 +259,27 @@
     return g;
   }
 
-  // Carte d'un RÉSULTAT : le niveau du COLLABORATEUR est le contrôle central.
+  // Carte d'un RÉSULTAT : le niveau du COLLABORATEUR est le contrôle central. Chaque bouton
+  // porte le NUMÉRO + le LIBELLÉ du niveau (0 « Non démontré » … 4 « Expertise ») pour que
+  // l'action « évaluer » soit évidente, plus « Non évalué » (≠ 0).
   function resultCard(r) {
     const card = document.createElement('div'); card.className = 'cv2-res'; card.dataset.dataId = r.data_id;
     const levels = [null, 0, 1, 2, 3, 4].map(lv => {
       const sel = r.demonstrated_level === lv ? ' sel' : '';
-      return `<button class="cv2-lvbtn${sel}" data-lv="${lv === null ? '' : lv}">${lv === null ? T('not_assessed') : lv}</button>`;
+      const txt = lv === null ? T('not_assessed') : `<b>${lv}</b> ${levelName(lv)}`;
+      return `<button class="cv2-lvbtn${sel}" data-lv="${lv === null ? '' : lv}">${txt}</button>`;
     }).join('');
+    const needPick = (r.demonstrated_level === null || r.demonstrated_level === undefined);
     card.innerHTML = `
       <div class="rname">${r.name}</div>
       ${r.minimum_performance_text ? `<div class="rstd">${T('std')} : ${r.minimum_performance_text}</div>` : ''}
-      <div class="cv2-lvlabel">${T('collab_level')}</div>
+      <div class="cv2-lvlabel">${T('collab_level')}${needPick ? ` <span class="cv2-pickhint">— ${T('pick_level')}</span>` : ''}</div>
       <div class="cv2-levels">${levels}</div>
       ${r.self_level !== null && r.self_level !== undefined ? `<div class="self">${T('self')} : ${levelName(r.self_level)} · ${T('ref')}</div>` : ''}
       <textarea class="cv2-ev" placeholder="${T('evidence_ph')}"></textarea>`;
     card.querySelectorAll('.cv2-lvbtn').forEach(b => b.onclick = () => {
       card.querySelectorAll('.cv2-lvbtn').forEach(x => x.classList.remove('sel')); b.classList.add('sel');
+      const hint = card.querySelector('.cv2-pickhint'); if (hint) hint.remove();
     });
     return card;
   }
@@ -354,6 +389,7 @@
   async function showQualify(btn) {
     if (btn) { btn.disabled = true; btn.textContent = T('gen'); }
     const aid = state.activity.activity_id;
+    showBusy(T('configuring'));
     const [outs, ana] = await Promise.all([api(`/qualify/outputs/${aid}`), api(`/qualify/analyze/${aid}`, { method: 'POST' })]);
     const body = $('#cv2-drawer-body'); body.innerHTML = ''; $('#cv2-comp').classList.add('hidden');
     const panel = document.createElement('div'); panel.className = 'cv2-setup';
@@ -384,9 +420,19 @@
   async function saveQualify() {
     const aid = state.activity.activity_id;
     const rows = [...document.querySelectorAll('#cv2-drawer-body .cv2-qz')];
-    const payload = { outputs: rows.map(r => { const sel = r.querySelector('.cv2-natsel'), mp = r.querySelector('.cv2-minperf');
-      return { data_id: +r.dataset.dataId, nature: sel.value || null, minimum_performance_text: mp ? mp.value : '', source: 'MANUAL' }; }) };
-    await api(`/qualify/save/${aid}`, { method: 'POST', body: JSON.stringify(payload) });
+    const outputs = rows.map(r => { const sel = r.querySelector('.cv2-natsel'), mp = r.querySelector('.cv2-minperf');
+      return { data_id: +r.dataset.dataId, nature: sel.value || null, minimum_performance_text: mp ? mp.value : '', source: 'MANUAL' }; });
+    // Garde-fou : sans aucune sortie « Résultat », il n'y a rien à évaluer → on prévient et on reste.
+    if (!outputs.some(o => o.nature === 'RESULT')) {
+      let w = $('#cv2-need-result');
+      if (!w) { w = document.createElement('div'); w.id = 'cv2-need-result'; w.className = 'cv2-warn'; w.style.margin = '0 0 12px';
+        const panel = $('#cv2-drawer-body .cv2-setup'); (panel || $('#cv2-drawer-body')).prepend(w); }
+      w.textContent = T('need_result'); w.scrollIntoView({ block: 'nearest' });
+      return;
+    }
+    showBusy(T('configuring'));
+    const save = await api(`/qualify/save/${aid}`, { method: 'POST', body: JSON.stringify({ outputs }) });
+    if (save.__error) { return showQualify(); }
     // compétence principale + liens S/SF/HSC (best effort ; sans clé IA → sautés proprement)
     const comp = await api(`/competence/generate/${aid}`, { method: 'POST' });
     if (comp.competence && (comp.competence.description_fr || comp.competence.description_en)) {
@@ -397,6 +443,7 @@
     toast(T('setup_done'));
     const d = await api(`/mastery/dashboard/${state.userId}/${state.roleId}`); renderDashboard(d);
     const row = (d.activities || []).find(a => a.activity_id === aid); if (row) state.activity = row;
+    state.justConfigured = true;
     showEvaluation();
   }
 
