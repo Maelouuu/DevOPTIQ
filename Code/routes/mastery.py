@@ -110,6 +110,45 @@ def activity_mastery(user_id, activity_id, role_id=None):
     }
 
 
+@mastery_bp.route("/dashboard/<int:user_id>/<int:role_id>", methods=["GET"])
+def dashboard(user_id, role_id):
+    """Tableau principal (CDC 6.3) : activités du rôle, avec pour chacune niveau requis,
+    niveau démontré (min des résultats), écart, résultats au requis, dernière évaluation."""
+    from Code.models.models import Role, Competency, Entity
+    role = Role.query.get(role_id)
+    if not role:
+        return jsonify({"error": "role_not_found"}), 404
+    q = db.session.query(Activities).join(
+        activity_roles, activity_roles.c.activity_id == Activities.id).filter(
+        activity_roles.c.role_id == role_id)
+    active_entity_id = Entity.get_active_id()
+    if active_entity_id:
+        q = q.filter(Activities.entity_id == active_entity_id)
+    rows = []
+    for act in q.all():
+        st = activity_mastery(user_id, act.id, role_id)
+        comp = Competency.query.filter_by(activity_id=act.id).first()
+        # dernière validation Garant/Manager parmi les résultats de l'activité
+        last = None
+        for ev in CompetencyEvaluation.query.filter_by(
+                user_id=user_id, activity_id=act.id, item_type=RESULT_ITEM_TYPE).all():
+            if ev.eval_number in VALIDATING and ev.evaluated_at:
+                last = max(last, ev.evaluated_at) if last else ev.evaluated_at
+        rows.append({
+            "activity_id": act.id, "activity_name": act.name,
+            "competence": comp.description if comp else None,
+            "required_level": st["required_level"], "required_label": st["required_label"],
+            "demonstrated_level": st["global_level"], "demonstrated_label": st["global_label"],
+            "gap": st["gap"], "color": st["color"],
+            "n_results": st["n_results"], "n_at_required": st["n_at_required"],
+            "complete": st["complete"],
+            "last_evaluation": last.isoformat() if last else None,
+        })
+    rows.sort(key=lambda r: r["activity_name"].lower())
+    return jsonify({"user_id": user_id, "role_id": role_id, "role_name": role.name,
+                    "activities": rows}), 200
+
+
 @mastery_bp.route("/scale", methods=["GET"])
 def scale():
     lang = _lang()

@@ -1,490 +1,148 @@
-<!-- 
-    FICHIER À PLACER DANS : templates/competences_view.html
-    
-    DÉPENDANCES REQUISES :
-    - static/competences.css
-    - static/js/synth_competences.js
--->
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="{{ lang or 'fr' }}">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ t('comp.page_title') }}</title>
-    
-    <!-- Google Fonts - Distinctive typography -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&display=swap" rel="stylesheet">
-    
-    <!-- Main CSS -->
-    <link rel="stylesheet" type="text/css" href="./../../../static/synthese_comp.css">
-    <!-- Styles modale (plan de formation) + page-loader : sans ça, le plan
-         s'affiche en texte brut au lieu d'une popup (.modal.hidden non appliqué). -->
-    <link rel="stylesheet" type="text/css" href="/static/synth_competences_extras.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OPTIQ — Compétences</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&display=swap" rel="stylesheet">
+  <style>
+    :root{
+      --pink:#ec4899; --pink-dark:#be185d; --pink-dim:#fdf2f8;
+      --green:#22c55e; --green-dark:#16a34a;
+      --ink:#1f2430; --muted:#7a8194; --line:#e8eaf0; --bg:#f6f7fb; --card:#fff;
+      --red:#ef4444; --orange:#f59e0b; --grey:#c3c8d4;
+      --radius:14px; --shadow:0 1px 3px rgba(20,25,40,.06),0 8px 30px rgba(20,25,40,.06);
+    }
+    *{box-sizing:border-box}
+    body{margin:0;font-family:'DM Sans',system-ui,sans-serif;background:var(--bg);color:var(--ink);font-size:14px}
+    header{position:sticky;top:0;z-index:30}
+    .cv2-layout{display:flex;min-height:calc(100vh - 0px)}
+    /* Sidebar */
+    .cv2-sidebar{width:264px;flex-shrink:0;background:var(--card);border-right:1px solid var(--line);padding:18px 14px;min-height:100vh}
+    .cv2-mgr{display:flex;align-items:center;gap:9px;padding:10px 12px;background:var(--pink-dim);border-radius:12px;margin-bottom:16px}
+    .cv2-mgr .dot{width:9px;height:9px;border-radius:50%;background:var(--pink)}
+    .cv2-mgr .lbl{font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;display:block}
+    .cv2-mgr .nm{font-weight:700;font-size:13px}
+    .cv2-sec-title{font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin:6px 6px 10px}
+    .cv2-collab{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px}
+    .cv2-collab li{padding:9px 12px;border-radius:10px;cursor:pointer;font-weight:600;display:flex;align-items:center;gap:9px;transition:background .12s}
+    .cv2-collab li:hover{background:var(--pink-dim)}
+    .cv2-collab li.active{background:var(--pink);color:#fff}
+    .cv2-collab li .av{width:26px;height:26px;border-radius:50%;background:#eef0f6;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:var(--muted)}
+    .cv2-collab li.active .av{background:rgba(255,255,255,.25);color:#fff}
+    .cv2-empty-side{font-size:12px;color:var(--muted);padding:10px 6px}
+    /* Main */
+    .cv2-main{flex:1;padding:26px 30px;min-width:0}
+    .cv2-h1{font-size:22px;font-weight:700;margin:0}
+    .cv2-sub{color:var(--muted);margin:3px 0 18px}
+    .cv2-roles{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px}
+    .cv2-role{padding:8px 16px;border-radius:999px;border:1px solid var(--line);background:var(--card);cursor:pointer;font-weight:600;color:var(--muted)}
+    .cv2-role.active{background:var(--ink);color:#fff;border-color:var(--ink)}
+    .cv2-placeholder{background:var(--card);border:1px dashed var(--line);border-radius:var(--radius);padding:46px;text-align:center;color:var(--muted)}
+    /* Table */
+    .cv2-tablewrap{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow)}
+    table.cv2-tab{width:100%;border-collapse:collapse}
+    .cv2-tab th{text-align:left;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.03em;padding:13px 16px;border-bottom:1px solid var(--line);font-weight:700}
+    .cv2-tab td{padding:14px 16px;border-bottom:1px solid var(--line);vertical-align:middle}
+    .cv2-tab tr:last-child td{border-bottom:none}
+    .cv2-tab tr:hover td{background:#fafbff}
+    .cv2-actname{font-weight:700}
+    .cv2-actcomp{font-size:12px;color:var(--muted);margin-top:2px;max-width:340px}
+    .chip{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;font-weight:700;font-size:12.5px}
+    .chip .lv{width:8px;height:8px;border-radius:50%}
+    .chip.grey{background:#f1f2f6;color:#6b7280}.chip.grey .lv{background:var(--grey)}
+    .chip.red{background:#fef2f2;color:#b91c1c}.chip.red .lv{background:var(--red)}
+    .chip.orange{background:#fffbeb;color:#b45309}.chip.orange .lv{background:var(--orange)}
+    .chip.green{background:#f0fdf4;color:#15803d}.chip.green .lv{background:var(--green)}
+    .gap-pos{color:var(--green-dark);font-weight:700}.gap-neg{color:var(--red);font-weight:700}.gap-zero{color:var(--muted)}
+    .btn{border:none;border-radius:9px;padding:8px 14px;font-weight:700;font-size:12.5px;cursor:pointer;font-family:inherit}
+    .btn-primary{background:var(--pink);color:#fff}.btn-primary:hover{background:var(--pink-dark)}
+    .btn-ghost{background:#f2f3f8;color:var(--ink)}.btn-ghost:hover{background:#e7e9f2}
+    .btn-sm{padding:6px 11px;font-size:12px}
+    /* Drawer */
+    .cv2-overlay{position:fixed;inset:0;background:rgba(20,25,40,.35);z-index:50;opacity:0;pointer-events:none;transition:opacity .2s}
+    .cv2-overlay.open{opacity:1;pointer-events:auto}
+    .cv2-drawer{position:fixed;top:0;right:0;height:100vh;width:min(620px,94vw);background:var(--bg);z-index:51;transform:translateX(100%);transition:transform .24s cubic-bezier(.4,0,.2,1);display:flex;flex-direction:column;box-shadow:-8px 0 40px rgba(20,25,40,.2)}
+    .cv2-drawer.open{transform:none}
+    .cv2-dh{padding:20px 24px;background:var(--card);border-bottom:1px solid var(--line)}
+    .cv2-dh .x{float:right;background:none;border:none;font-size:22px;cursor:pointer;color:var(--muted);line-height:1}
+    .cv2-dh h2{margin:0 0 4px;font-size:18px}
+    .cv2-comp{background:var(--pink-dim);border:1px solid #fbcfe8;border-radius:12px;padding:12px 14px;margin:16px 24px;font-size:13.5px;line-height:1.5}
+    .cv2-comp .tag{font-size:10.5px;font-weight:700;color:var(--pink-dark);text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:4px}
+    .cv2-db{flex:1;overflow-y:auto;padding:0 24px 24px}
+    .cv2-res{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:15px 16px;margin-bottom:13px}
+    .cv2-res .rhead{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+    .cv2-res .rname{font-weight:700}
+    .cv2-res .rstd{font-size:12px;color:var(--muted);margin-top:3px}
+    .cv2-res .self{font-size:11.5px;color:var(--muted);margin-top:6px}
+    .cv2-levels{display:flex;gap:6px;margin-top:11px;flex-wrap:wrap}
+    .cv2-lvbtn{border:1px solid var(--line);background:#fff;border-radius:8px;padding:6px 10px;cursor:pointer;font-weight:600;font-size:12px;color:var(--muted)}
+    .cv2-lvbtn.sel{border-color:var(--ink);background:var(--ink);color:#fff}
+    .cv2-ev{width:100%;margin-top:9px;border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-family:inherit;font-size:12.5px;resize:vertical;min-height:38px}
+    .cv2-global{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px;display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
+    .cv2-global .k{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.03em}
+    .cv2-df{padding:14px 24px;background:var(--card);border-top:1px solid var(--line);display:flex;gap:9px;justify-content:flex-end}
+    .cv2-warn{background:#fffbeb;border:1px solid #fde68a;color:#92400e;border-radius:10px;padding:10px 13px;font-size:12.5px;margin:0 24px 14px}
+    .hidden{display:none!important}
+    .cv2-toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:var(--ink);color:#fff;padding:11px 18px;border-radius:10px;font-weight:600;z-index:60;opacity:0;transition:opacity .2s}
+    .cv2-toast.show{opacity:1}
+  </style>
 </head>
-<body>
-    <header>
-        {% include 'header_buttons.html' %}
-    </header>
+<body data-lang="{{ lang or 'fr' }}">
+  <header>{% include 'header_buttons.html' %}</header>
 
-    <!-- ═══════════════════════════════════════════════════════════════
-         LAYOUT PRINCIPAL : Sidebar + Contenu
-    ═══════════════════════════════════════════════════════════════ -->
-    <div class="comp-layout">
-        
-        <!-- SIDEBAR COLLABORATEURS -->
-        <aside class="comp-sidebar">
-            <div class="sidebar-header">
-                <div class="manager-badge">
-                    <span class="manager-dot"></span>
-                    <div class="manager-info">
-                        <span class="manager-label">{{ t('comp.manager_label') }}</span>
-                        <span class="manager-name" id="manager-name">—</span>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="sidebar-section">
-                <h3 class="sidebar-title">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
-                        <circle cx="9" cy="7" r="4"/>
-                        <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
-                        <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
-                    </svg>
-                    {{ t('comp.collaborators_title') }}
-                </h3>
-                <ul class="collab-list" id="collaborator-list">
-                    <!-- Injecté par JS -->
-                </ul>
-                <p class="sidebar-empty" id="no-collab-msg">{{ t('comp.no_collab') }}</p>
-            </div>
-        </aside>
+  <div class="cv2-layout">
+    <aside class="cv2-sidebar">
+      <div class="cv2-mgr">
+        <span class="dot"></span>
+        <div><span class="lbl" data-i18n="manager">Manager</span><span class="nm" id="cv2-mgr-name">—</span></div>
+      </div>
+      <div class="cv2-sec-title" data-i18n="collaborators">Collaborateurs</div>
+      <ul class="cv2-collab" id="cv2-collab"></ul>
+      <p class="cv2-empty-side hidden" id="cv2-collab-empty" data-i18n="no_collab">Aucun collaborateur.</p>
+    </aside>
 
-        <!-- CONTENU PRINCIPAL -->
-        <main class="comp-main">
-            
-            <!-- En-tête page -->
-            <div class="page-header">
-                <div class="page-header-content">
-                    <h1 class="page-title">{{ t('comp.page_title') }}</h1>
-                    <p class="page-subtitle" id="selected-collab-name">{{ t('comp.select_collab') }}</p>
-                </div>
-                <div class="page-actions">
-                    <button id="toggle-summary" class="btn btn-outline" disabled>
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                            <polyline points="14,2 14,8 20,8"/>
-                            <line x1="16" y1="13" x2="8" y2="13"/>
-                            <line x1="16" y1="17" x2="8" y2="17"/>
-                            <polyline points="10,9 9,9 8,9"/>
-                        </svg>
-                        {{ t('comp.btn_summary') }}
-                    </button>
-                    <button id="save-competencies-button" class="btn btn-primary" disabled>
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
-                            <polyline points="17,21 17,13 7,13 7,21"/>
-                            <polyline points="7,3 7,8 15,8"/>
-                        </svg>
-                        {{ t('btn.save') }}
-                    </button>
-                </div>
-            </div>
+    <main class="cv2-main">
+      <h1 class="cv2-h1" data-i18n="title">Compétences</h1>
+      <p class="cv2-sub" id="cv2-sub" data-i18n="pick_collab">Sélectionnez un collaborateur pour commencer.</p>
+      <div class="cv2-roles" id="cv2-roles"></div>
+      <div class="cv2-placeholder" id="cv2-placeholder" data-i18n="pick_collab2">Aucune donnée à afficher.</div>
+      <div class="cv2-tablewrap hidden" id="cv2-tablewrap">
+        <table class="cv2-tab">
+          <thead><tr>
+            <th data-i18n="c_activity">Activité</th>
+            <th data-i18n="c_required">Niveau requis</th>
+            <th data-i18n="c_demonstrated">Niveau démontré</th>
+            <th data-i18n="c_gap">Écart</th>
+            <th data-i18n="c_results">Résultats</th>
+            <th data-i18n="c_last">Dernière éval.</th>
+            <th></th>
+          </tr></thead>
+          <tbody id="cv2-tbody"></tbody>
+        </table>
+      </div>
+    </main>
+  </div>
 
-            <!-- Message état vide -->
-            <div class="empty-state" id="empty-state">
-                <div class="empty-state-icon">
-                    <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
-                        <circle cx="9" cy="7" r="4"/>
-                        <line x1="19" y1="8" x2="19" y2="14"/>
-                        <line x1="22" y1="11" x2="16" y2="11"/>
-                    </svg>
-                </div>
-                <h2>{{ t('comp.welcome_title') }}</h2>
-                <p>{{ t('comp.welcome_text') }}</p>
-            </div>
-
-            <!-- Grille des rôles -->
-            <div class="roles-grid" id="roles-grid">
-                <!-- Cartes de rôles injectées par JS -->
-            </div>
-
-            <!-- Section synthèse globale (cachée par défaut) -->
-            <div id="global-summary-section" class="summary-section hidden"></div>
-
-        </main>
+  <div class="cv2-overlay" id="cv2-overlay"></div>
+  <aside class="cv2-drawer" id="cv2-drawer">
+    <div class="cv2-dh">
+      <button class="x" id="cv2-drawer-close">&times;</button>
+      <h2 id="cv2-drawer-title">—</h2>
+      <div class="cv2-sub" id="cv2-drawer-role" style="margin:0"></div>
     </div>
-
-    <!-- ═══════════════════════════════════════════════════════════════
-         MODAL : Détail d'un Rôle (Liste activités + Tableau synthèse)
-    ═══════════════════════════════════════════════════════════════ -->
-    <div id="modal-role" class="modal hidden" data-modal="role">
-        <div class="modal-backdrop"></div>
-        <div class="modal-container modal-lg">
-            <div class="modal-header">
-                <button class="modal-back hidden" data-action="close-modal">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <line x1="19" y1="12" x2="5" y2="12"/>
-                        <polyline points="12,19 5,12 12,5"/>
-                    </svg>
-                </button>
-                <div class="modal-header-content">
-                    <span class="modal-badge">{{ t('comp.modal_role_badge') }}</span>
-                    <h2 class="modal-title" id="modal-role-title">—</h2>
-                </div>
-                <button class="modal-close" data-action="close-modal">
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <line x1="18" y1="6" x2="6" y2="18"/>
-                        <line x1="6" y1="6" x2="18" y2="18"/>
-                    </svg>
-                </button>
-            </div>
-            <div class="modal-body" id="modal-role-body">
-                
-                <!-- Section : Liste des activités -->
-                <section class="modal-section">
-                    <h3 class="section-title">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <rect x="3" y="3" width="7" height="7"/>
-                            <rect x="14" y="3" width="7" height="7"/>
-                            <rect x="14" y="14" width="7" height="7"/>
-                            <rect x="3" y="14" width="7" height="7"/>
-                        </svg>
-                        {{ t('comp.modal_activities_title') }}
-                    </h3>
-                    <div class="activities-grid" id="modal-activities-list">
-                        <!-- Cartes d'activités injectées par JS -->
-                    </div>
-                </section>
-
-                <!-- Section : Tableau synthèse -->
-                <section class="modal-section">
-                    <h3 class="section-title">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M3 3h18v18H3z"/>
-                            <path d="M3 9h18"/>
-                            <path d="M9 21V9"/>
-                        </svg>
-                        {{ t('comp.modal_eval_title') }}
-                    </h3>
-                    <div class="table-wrapper">
-                        <table class="eval-table" id="modal-synthese-table">
-                            <thead>
-                                <tr>
-                                    <th>{{ t('comp.th_activity') }}</th>
-                                    <th class="th-eval">{{ t('eval.garant') }}</th>
-                                    <th class="th-eval">{{ t('eval.manager') }}</th>
-                                </tr>
-                            </thead>
-                            <tbody id="modal-synthese-body">
-                                <!-- Lignes injectées par JS -->
-                            </tbody>
-                        </table>
-                    </div>
-                </section>
-                
-            </div>
-            <div class="modal-footer">
-                <button class="btn btn-outline" data-action="close-modal">{{ t('btn.close') }}</button>
-                <button class="btn btn-primary" id="save-role-evals">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
-                        <polyline points="17,21 17,13 7,13 7,21"/>
-                        <polyline points="7,3 7,8 15,8"/>
-                    </svg>
-                    {{ t('comp.save_evals') }}
-                </button>
-            </div>
-        </div>
+    <div class="cv2-comp hidden" id="cv2-comp"><span class="tag" data-i18n="competence">Compétence principale</span><span id="cv2-comp-text"></span></div>
+    <div class="cv2-warn hidden" id="cv2-drawer-warn"></div>
+    <div class="cv2-db" id="cv2-drawer-body"></div>
+    <div class="cv2-df">
+      <button class="btn btn-ghost" id="cv2-diag-btn" data-i18n="analyze_gap">Analyser l'écart</button>
+      <button class="btn btn-primary" id="cv2-save-btn" data-i18n="save_eval">Enregistrer l'évaluation</button>
     </div>
+  </aside>
 
-    <!-- ═══════════════════════════════════════════════════════════════
-         MODAL : Détail d'une Activité (3 onglets)
-    ═══════════════════════════════════════════════════════════════ -->
-    <div id="modal-activity" class="modal hidden" data-modal="activity">
-        <div class="modal-backdrop"></div>
-        <div class="modal-container modal-xl">
-            <div class="modal-header">
-                <button class="modal-back" data-action="back-to-role">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <line x1="19" y1="12" x2="5" y2="12"/>
-                        <polyline points="12,19 5,12 12,5"/>
-                    </svg>
-                    <span>{{ t('comp.back_to_role') }}</span>
-                </button>
-                <div class="modal-header-content">
-                    <span class="modal-badge modal-badge-activity">{{ t('comp.modal_activity_badge') }}</span>
-                    <h2 class="modal-title" id="modal-activity-title">—</h2>
-                </div>
-                <button class="modal-close" data-action="close-all-modals">
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <line x1="18" y1="6" x2="6" y2="18"/>
-                        <line x1="6" y1="6" x2="18" y2="18"/>
-                    </svg>
-                </button>
-            </div>
-            
-            <!-- Tabs Navigation -->
-            <div class="tabs-nav">
-                <button class="tab-btn active" data-tab="performances">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <line x1="18" y1="20" x2="18" y2="10"/>
-                        <line x1="12" y1="20" x2="12" y2="4"/>
-                        <line x1="6" y1="20" x2="6" y2="14"/>
-                    </svg>
-                    {{ t('comp.tab_performances') }}
-                </button>
-                <button class="tab-btn" data-tab="savoirs">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
-                        <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
-                    </svg>
-                    {{ t('comp.tab_savoirs') }}
-                </button>
-                <button class="tab-btn" data-tab="prerequis">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                        <polyline points="14,2 14,8 20,8"/>
-                        <line x1="12" y1="18" x2="12" y2="12"/>
-                        <line x1="9" y1="15" x2="15" y2="15"/>
-                    </svg>
-                    {{ t('comp.tab_prerequis') }}
-                </button>
-            </div>
+  <div class="cv2-toast" id="cv2-toast"></div>
 
-            <div class="modal-body">
-                
-                <!-- TAB : Performances -->
-                <div class="tab-panel active" data-panel="performances" id="tab-performances">
-                    <div class="perf-wrapper" id="perf-container">
-                        <!-- Contenu performances injecté par JS -->
-                    </div>
-                </div>
-
-                <!-- TAB : Savoirs / Savoir-Faire / HSC -->
-                <div class="tab-panel" data-panel="savoirs" id="tab-savoirs">
-                    
-                    <!-- Savoirs -->
-                    <div class="knowledge-block">
-                        <div class="knowledge-header">
-                            <h4>
-                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <circle cx="12" cy="12" r="10"/>
-                                    <line x1="12" y1="16" x2="12" y2="12"/>
-                                    <line x1="12" y1="8" x2="12.01" y2="8"/>
-                                </svg>
-                                {{ t('comp.block_savoirs') }}
-                            </h4>
-                        </div>
-                        <div class="table-wrapper">
-                            <table class="eval-table compact">
-                                <thead>
-                                    <tr>
-                                        <th>{{ t('comp.th_description') }}</th>
-                                        <th class="th-eval">1</th>
-                                        <th class="th-eval">2</th>
-                                        <th class="th-eval">3</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="savoirs-tbody">
-                                    <!-- Lignes injectées par JS -->
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-
-                    <!-- Savoir-Faire -->
-                    <div class="knowledge-block">
-                        <div class="knowledge-header">
-                            <h4>
-                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
-                                </svg>
-                                {{ t('comp.block_sf') }}
-                            </h4>
-                        </div>
-                        <div class="table-wrapper">
-                            <table class="eval-table compact">
-                                <thead>
-                                    <tr>
-                                        <th>{{ t('comp.th_description') }}</th>
-                                        <th class="th-eval">1</th>
-                                        <th class="th-eval">2</th>
-                                        <th class="th-eval">3</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="savoir-faires-tbody">
-                                    <!-- Lignes injectées par JS -->
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-
-                    <!-- HSC -->
-                    <div class="knowledge-block">
-                        <div class="knowledge-header">
-                            <h4>
-                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
-                                </svg>
-                                {{ t('comp.block_hsc') }}
-                            </h4>
-                        </div>
-                        <div class="table-wrapper">
-                            <table class="eval-table compact">
-                                <thead>
-                                    <tr>
-                                        <th>{{ t('comp.th_description') }}</th>
-                                        <th class="th-eval">1</th>
-                                        <th class="th-eval">2</th>
-                                        <th class="th-eval">3</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="hsc-tbody">
-                                    <!-- Lignes injectées par JS -->
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                    
-                    <!-- Bouton enregistrer pour les savoirs/SF/HSC -->
-                    <div class="savoirs-actions">
-                        <button class="btn btn-primary" id="save-savoirs-evals">
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
-                                <polyline points="17,21 17,13 7,13 7,21"/>
-                                <polyline points="7,3 7,8 15,8"/>
-                            </svg>
-                            {{ t('comp.save_evals') }}
-                        </button>
-                    </div>
-                    
-                </div>
-
-                <!-- TAB : Prérequis & Plan -->
-                <div class="tab-panel" data-panel="prerequis" id="tab-prerequis">
-                    <div class="prerequis-card" id="prerequis-container"
-                         data-activity-id=""
-                         data-role-id="">
-                        
-                        <div class="prerequis-header">
-                            <h4>
-                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
-                                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
-                                </svg>
-                                {{ t('comp.manager_comments') }}
-                            </h4>
-                            <div class="prerequis-actions">
-                                <button class="btn btn-sm btn-outline" data-action="load-prerequis">
-                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                        <polyline points="1,4 1,10 7,10"/>
-                                        <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/>
-                                    </svg>
-                                    {{ t('comp.btn_load') }}
-                                </button>
-                                <button class="btn btn-sm btn-primary" data-action="save-prerequis" disabled>
-                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                        <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
-                                        <polyline points="17,21 17,13 7,13 7,21"/>
-                                        <polyline points="7,3 7,8 15,8"/>
-                                    </svg>
-                                    {{ t('btn.save') }}
-                                </button>
-                                <button class="btn btn-sm btn-emerald" data-action="generate-plan" disabled>
-                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                        <polygon points="13,2 3,14 12,14 11,22 21,10 12,10 13,2"/>
-                                    </svg>
-                                    {{ t('comp.btn_generate_plan') }}
-                                </button>
-                            </div>
-                        </div>
-                        
-                        <div class="prerequis-table-wrapper">
-                            <table class="prerequis-table">
-                                <thead>
-                                    <tr>
-                                        <th style="width:40%">{{ t('comp.prerequis_col_item') }}</th>
-                                        <th style="width:15%">{{ t('comp.prerequis_col_type') }}</th>
-                                        <th style="width:45%">{{ t('comp.prerequis_col_comment') }}</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="prerequis-tbody">
-                                    <!-- Lignes injectées par JS -->
-                                </tbody>
-                            </table>
-                        </div>
-                        <p class="prerequis-hint">{{ t('comp.prerequis_hint') }}</p>
-                        
-                    </div>
-                </div>
-                
-            </div>
-        </div>
-    </div>
-
-    <!-- ═══════════════════════════════════════════════════════════════
-         MODAL : Aperçu du Plan généré
-    ═══════════════════════════════════════════════════════════════ -->
-    <div id="modal-plan" class="modal hidden" data-modal="plan">
-        <div class="modal-backdrop"></div>
-        <div class="modal-container modal-lg">
-            <div class="modal-header modal-header-plan">
-                <button class="modal-back" data-action="back-to-activity">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <line x1="19" y1="12" x2="5" y2="12"/>
-                        <polyline points="12,19 5,12 12,5"/>
-                    </svg>
-                    <span>Retour</span>
-                </button>
-                <div class="modal-header-content">
-                    <span class="modal-badge modal-badge-plan">{{ t('comp.plan_badge') }}</span>
-                    <h2 class="modal-title">{{ t('comp.plan_title') }}</h2>
-                </div>
-                <button class="modal-close" data-action="close-plan-modal">
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <line x1="18" y1="6" x2="6" y2="18"/>
-                        <line x1="6" y1="6" x2="18" y2="18"/>
-                    </svg>
-                </button>
-            </div>
-            <div class="modal-body" id="modal-plan-body">
-                <!-- Contenu du plan injecté par JS -->
-            </div>
-            <div class="modal-footer">
-                <button class="btn btn-outline" data-action="close-plan-modal">{{ t('btn.close') }}</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- ═══════════════════════════════════════════════════════════════
-         OVERLAY DE CHARGEMENT
-    ═══════════════════════════════════════════════════════════════ -->
-    <div id="page-loader" class="page-loader hidden">
-        <div class="loader-content">
-            <div class="loader-spinner"></div>
-            <p class="loader-text">{{ t('comp.loading_text') }}</p>
-        </div>
-    </div>
-
-    <!-- ═══════════════════════════════════════════════════════════════
-         TOAST NOTIFICATIONS
-    ═══════════════════════════════════════════════════════════════ -->
-    <div id="toast-container"></div>
-
-    <!-- ═══════════════════════════════════════════════════════════════
-         SCRIPTS
-    ═══════════════════════════════════════════════════════════════ -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/underscore.js/1.13.6/underscore-min.js"></script>
-    <script src="{{ url_for('static', filename='js/synth_competences.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/plan_formation.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/performance_perso.js') }}"></script>
-
-    <!-- Templates inclus (pour compatibilité) -->
-    {% include 'performance_perso_block.html' %}
-
+  <script>window.OPTIQ_LANG = document.body.dataset.lang || 'fr';</script>
+  <script src="/static/js/competences_v2.js"></script>
 </body>
 </html>

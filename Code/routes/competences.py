@@ -14,7 +14,7 @@ competences_bp = Blueprint('competences_bp', __name__, url_prefix='/competences'
 
 @competences_bp.route('/view', methods=['GET'])
 def competences_view():
-    return render_template('competences_view.html')
+    return render_template('competences_view.html', lang=session.get('lang', 'fr'))
 
 
 @competences_bp.route('/current_user_manager', methods=['GET'])
