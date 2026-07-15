@@ -252,6 +252,9 @@ def create_app(test_config=None):
     from Code.routes.qualify_outputs import qualify_bp
     app.register_blueprint(qualify_bp)
 
+    from Code.routes.result_capabilities import result_cap_bp
+    app.register_blueprint(result_cap_bp)
+
     from Code.routes.ui_routes import ui_bp
     app.register_blueprint(ui_bp)
 
@@ -341,6 +344,13 @@ def create_app(test_config=None):
             print("[DB] Table cross_carto_liaisons prête")
         except Exception as e:
             print(f"[DB] cross_carto_liaisons check: {e}")
+
+        try:
+            from Code.models.models import ResultCapabilityLink
+            ResultCapabilityLink.__table__.create(db.engine, checkfirst=True)
+            print("[DB] Table result_capability_links prête")
+        except Exception as e:
+            print(f"[DB] result_capability_links check: {e}")
 
         # 4. Marquer les migrations Alembic comme appliquées (sans les exécuter)
         # db_upgrade() est intentionnellement absent : il attend un verrou PostgreSQL

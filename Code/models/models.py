@@ -468,6 +468,29 @@ class CompetencyEvaluation(db.Model):
     )
 
 
+class ResultCapabilityLink(db.Model):
+    """V1.1 — CDC 2.7 : relie un RÉSULTAT (Data.semantic_nature = RESULT) aux savoirs,
+    savoir-faire et HSC nécessaires pour le produire. Sert au DIAGNOSTIC d'un écart : quand
+    un résultat n'est pas tenu, on n'affiche que les capacités reliées à CE résultat.
+    Un même S/SF/HSC peut être relié à plusieurs résultats (une ligne par lien)."""
+    __tablename__ = 'result_capability_links'
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    entity_id = db.Column(db.Integer, db.ForeignKey('entities.id'), nullable=True, index=True)
+    activity_id = db.Column(db.Integer, db.ForeignKey('activities.id'), nullable=False, index=True)
+    data_id = db.Column(db.Integer, db.ForeignKey('data.id'), nullable=False, index=True)  # → RESULT
+    item_type = db.Column(db.String(20), nullable=False)   # SAVOIR | SAVOIR_FAIRE | HSC
+    item_id = db.Column(db.Integer, nullable=False)
+    required_level = db.Column(db.Integer, nullable=True)   # 1..4 (nullable à la migration)
+    source = db.Column(db.String(10), nullable=True)        # AI | MANUAL
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    __table_args__ = (
+        db.UniqueConstraint('activity_id', 'data_id', 'item_type', 'item_id', name='uq_result_capability'),
+    )
+
+
 class TimeAnalysis(db.Model):
     __tablename__ = 'time_analysis'
 
