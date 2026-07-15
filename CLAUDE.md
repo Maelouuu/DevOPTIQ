@@ -174,8 +174,20 @@ techniques internes (RESULT, DAILY, WORK_ARCHITECTURE…) **jamais affichés** :
 - Migrations idempotentes cross-dialect (`_safe_add_column` + `__table__.create(checkfirst=True)`).
   IA = gpt-4o-mini, JSON strict, repli propre. 1402 tests existants OK (non-régression).
 
-**Itération 2 à venir :** P4 domaines de technicité, P5 cadences/cohérence des rythmes, P7
-auto-positionnement HSC. Intégrations fiche activité (panneau qualification, badges S/SF/HSC).
+**Itération 2 livrée (backend testé) :**
+- **P4** `technical_domains.py` (`/domains`) — 4 tables (technical_domains,
+  activity_technical_domains, role_activity_domain_requirements, user_domain_levels), échelle
+  technique 0-4 dédiée. Alerte « Technicité » branchée sur le tableau principal (`domain_gap`).
+- **P5** `cadence.py` (`/cadence`) — `Activities` +cadence, `Data` +update_cadence/max_age_hours,
+  9 codes. Analyse « Cohérence des rythmes » LECTURE SEULE (règles, sans IA) : point de vigilance
+  + question OPTIQ quand une donnée est plus lente que l'activité aval.
+- **P7** `hsc_positioning.py` (`/hsc`) — niveaux stabilisés (4 = Expertise, plus « Excellence »),
+  table `hsc_level_descriptors` (référentiel comportemental), auto-positionnement IA (niveau
+  probable, jamais validé seul).
+
+**Reste (finitions, premier jet à retravailler) :** UI de gestion des domaines et curseur de
+cadence sur la fiche activité ; panneau de qualification des sorties + badges « R1 » sur les
+écrans S/SF/HSC ; widget d'auto-positionnement HSC ; carto : badge cadence (repo OptiqCarto).
 
 ---
 
