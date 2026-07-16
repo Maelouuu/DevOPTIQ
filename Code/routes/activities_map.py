@@ -521,49 +521,125 @@ def delete_entity(entity_id):
         print(f"[CARTO] Dossier supprimé: {entity_dir}")
 
     try:
-        # Bulk deletes explicites pour éviter le chargement ORM en cascade (perf)
-        act_ids = db.session.execute(
-            db.select(Activities.id).where(Activities.entity_id == entity_id)
-        ).scalars().all()
+        # Suppression EXHAUSTIVE dans l'ordre enfants → parents, pour ne JAMAIS violer une
+        # clé étrangère (Neon/PostgreSQL applique les FK ; SQLite non). On couvre toutes les
+        # tables qui référencent l'entité, ses activités, rôles, données, liens, tâches, outils
+        # et domaines techniques. ⚠️ Toute NOUVELLE table liée à l'un de ces objets doit être
+        # ajoutée ici (c'est l'omission de `competencies`/S/SF/HSC qui provoquait l'erreur).
+        from Code.models.models import (
+            Tool, Competency, Softskill, Savoir, SavoirFaire, Aptitude, Constraint,
+            CompetencyEvaluation, ResultCapabilityLink, ResultDiagnostic,
+            ActivityTechnicalDomain, RoleActivityDomainRequirement, UserDomainLevel,
+            TechnicalDomain, HscLevelDescriptor, Performance, TaskLinkAssignment,
+            TimeProject, TimeProjectLine, TimeRoleAnalysis, TimeRoleLine,
+            TimeWeakness, TimeAnalysis, CartoCalque, UserRole, User,
+        )
 
+        sel = lambda stmt: db.session.execute(stmt).scalars().all()
+
+        def _del(model, column, ids):
+            if ids:
+                model.query.filter(column.in_(ids)).delete(synchronize_session=False)
+
+        def _adel(table, column, ids):
+            if ids:
+                db.session.execute(table.delete().where(column.in_(ids)))
+
+        # ── Rassembler les identifiants liés à l'entité ──
+        act_ids  = sel(db.select(Activities.id).where(Activities.entity_id == entity_id))
+        role_ids = sel(db.select(Role.id).where(Role.entity_id == entity_id))
+        tool_ids = sel(db.select(Tool.id).where(Tool.entity_id == entity_id))
+        dom_ids  = sel(db.select(TechnicalDomain.id).where(TechnicalDomain.entity_id == entity_id))
+        task_ids = sel(db.select(Task.id).where(Task.activity_id.in_(act_ids))) if act_ids else []
+        data_ids = set(sel(db.select(Data.id).where(Data.entity_id == entity_id)))
         if act_ids:
-            task_ids = db.session.execute(
-                db.select(Task.id).where(Task.activity_id.in_(act_ids))
-            ).scalars().all()
-            if task_ids:
-                db.session.execute(task_tools.delete().where(task_tools.c.task_id.in_(task_ids)))
-                db.session.execute(task_roles.delete().where(task_roles.c.task_id.in_(task_ids)))
-                Task.query.filter(Task.activity_id.in_(act_ids)).delete(synchronize_session=False)
-            db.session.execute(activity_roles.delete().where(activity_roles.c.activity_id.in_(act_ids)))
+            data_ids.update(sel(db.select(Data.id).where(Data.producer_activity_id.in_(act_ids))))
+        data_ids = list(data_ids)
+        # Liens de l'entité OU référençant ses activités/données (y compris cross-entité)
+        link_conds = [Link.entity_id == entity_id]
+        if act_ids:
+            link_conds += [Link.source_activity_id.in_(act_ids), Link.target_activity_id.in_(act_ids)]
+        if data_ids:
+            link_conds += [Link.source_data_id.in_(data_ids), Link.target_data_id.in_(data_ids)]
+        link_ids = sel(db.select(Link.id).where(or_(*link_conds)))
+        tra_ids  = sel(db.select(TimeRoleAnalysis.id).where(TimeRoleAnalysis.role_id.in_(role_ids))) if role_ids else []
+        tp_ids   = sel(db.select(TimeProject.id).where(TimeProject.entity_id == entity_id))
+        liaison_ids = sel(db.select(CrossCartoLiaison.id).where(or_(
+            CrossCartoLiaison.extco_entity_id == entity_id,
+            CrossCartoLiaison.origin_entity_id == entity_id)))
 
-        # CrossCartoLiaison : nettoyer les liaisons où cette entité est extco OU origine
-        # Puis supprimer les liens propagés dans les AUTRES entités (cross_carto_liaison_id)
-        liaison_ids_to_del = db.session.execute(
-            db.select(CrossCartoLiaison.id).where(
-                or_(
-                    CrossCartoLiaison.extco_entity_id == entity_id,
-                    CrossCartoLiaison.origin_entity_id == entity_id
-                )
-            )
-        ).scalars().all()
-        if liaison_ids_to_del:
-            # Supprimer les liens propagés dans les entités tierces
-            Link.query.filter(
-                Link.cross_carto_liaison_id.in_(liaison_ids_to_del)
-            ).delete(synchronize_session=False)
-            CrossCartoLiaison.query.filter(
-                CrossCartoLiaison.id.in_(liaison_ids_to_del)
-            ).delete(synchronize_session=False)
+        # ── Tables d'association ──
+        _adel(task_tools, task_tools.c.task_id, task_ids)
+        _adel(task_roles, task_roles.c.task_id, task_ids)
+        _adel(task_roles, task_roles.c.role_id, role_ids)
+        _adel(activity_roles, activity_roles.c.activity_id, act_ids)
+        _adel(activity_roles, activity_roles.c.role_id, role_ids)
+        _del(UserRole, UserRole.role_id, role_ids)
 
-        Link.query.filter_by(entity_id=entity_id).delete(synchronize_session=False)
+        # ── Enfants des liens (avant les liens) ──
+        _del(Performance, Performance.link_id, link_ids)
+        _del(TaskLinkAssignment, TaskLinkAssignment.link_id, link_ids)
+        _del(TaskLinkAssignment, TaskLinkAssignment.task_id, task_ids)
+        # Liens propagés cross-carto (dans d'autres entités) puis les liaisons
+        if liaison_ids:
+            Link.query.filter(Link.cross_carto_liaison_id.in_(liaison_ids)).delete(synchronize_session=False)
+        _del(Link, Link.id, link_ids)
+        _del(CrossCartoLiaison, CrossCartoLiaison.id, liaison_ids)
+
+        # ── Enfants référençant activités / données ──
+        _del(ResultCapabilityLink, ResultCapabilityLink.activity_id, act_ids)
+        _del(ResultCapabilityLink, ResultCapabilityLink.data_id, data_ids)
+        _del(ResultCapabilityLink, ResultCapabilityLink.entity_id, [entity_id])
+        _del(ResultDiagnostic, ResultDiagnostic.activity_id, act_ids)
+        _del(ResultDiagnostic, ResultDiagnostic.data_id, data_ids)
+        _del(ResultDiagnostic, ResultDiagnostic.entity_id, [entity_id])
+        _del(CompetencyEvaluation, CompetencyEvaluation.activity_id, act_ids)
+        _del(Competency, Competency.activity_id, act_ids)
+        _del(Softskill, Softskill.activity_id, act_ids)
+        _del(Savoir, Savoir.activity_id, act_ids)
+        _del(SavoirFaire, SavoirFaire.activity_id, act_ids)
+        _del(Aptitude, Aptitude.activity_id, act_ids)
+        _del(Constraint, Constraint.activity_id, act_ids)
+        _del(TimeProjectLine, TimeProjectLine.activity_id, act_ids)
+        _del(TimeRoleLine, TimeRoleLine.activity_id, act_ids)
+        _del(TimeWeakness, TimeWeakness.activity_id, act_ids)
+        _del(TimeWeakness, TimeWeakness.task_id, task_ids)
+        _del(TimeAnalysis, TimeAnalysis.activity_id, act_ids)
+        _del(TimeAnalysis, TimeAnalysis.task_id, task_ids)
+        _del(TimeAnalysis, TimeAnalysis.role_id, role_ids)
+
+        # ── Domaines techniques (enfants avant domaines) ──
+        _del(ActivityTechnicalDomain, ActivityTechnicalDomain.activity_id, act_ids)
+        _del(ActivityTechnicalDomain, ActivityTechnicalDomain.domain_id, dom_ids)
+        _del(RoleActivityDomainRequirement, RoleActivityDomainRequirement.activity_id, act_ids)
+        _del(RoleActivityDomainRequirement, RoleActivityDomainRequirement.role_id, role_ids)
+        _del(RoleActivityDomainRequirement, RoleActivityDomainRequirement.domain_id, dom_ids)
+        _del(UserDomainLevel, UserDomainLevel.domain_id, dom_ids)
+
+        # ── Analyses de temps (projets / rôles) ──
+        _del(TimeRoleLine, TimeRoleLine.role_analysis_id, tra_ids)
+        _del(TimeRoleAnalysis, TimeRoleAnalysis.id, tra_ids)
+        _del(TimeProjectLine, TimeProjectLine.project_id, tp_ids)
+        _del(TimeProject, TimeProject.id, tp_ids)
+
+        # ── Tâches, puis données (Data.producer_activity_id → activities) ──
+        _del(Task, Task.activity_id, act_ids)
+        _del(Data, Data.id, data_ids)
+        Data.query.filter_by(entity_id=entity_id).delete(synchronize_session=False)
+
+        # ── Objets principaux de l'entité ──
         Activities.query.filter_by(entity_id=entity_id).delete(synchronize_session=False)
-        # Supprimer les activity_roles référençant les rôles de cette entité, puis les rôles
-        role_ids = db.session.execute(
-            db.select(Role.id).where(Role.entity_id == entity_id)
-        ).scalars().all()
-        if role_ids:
-            db.session.execute(activity_roles.delete().where(activity_roles.c.role_id.in_(role_ids)))
-            Role.query.filter(Role.id.in_(role_ids)).delete(synchronize_session=False)
+        _del(Role, Role.id, role_ids)
+        _del(Tool, Tool.id, tool_ids)
+        _del(TechnicalDomain, TechnicalDomain.id, dom_ids)
+        HscLevelDescriptor.query.filter_by(entity_id=entity_id).delete(synchronize_session=False)
+        CartoCalque.query.filter_by(entity_id=entity_id).delete(synchronize_session=False)
+
+        # ── Utilisateurs : on DÉTACHE de l'entité (on ne supprime pas les comptes) ──
+        User.query.filter_by(entity_id=entity_id).update(
+            {User.entity_id: None}, synchronize_session=False)
+
+        # ── Entité ──
         Entity.query.filter_by(id=entity_id).delete(synchronize_session=False)
         db.session.commit()
         
