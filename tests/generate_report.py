@@ -62,6 +62,12 @@ PAGE_LABELS = {
     "test_48_set_password_admin":        "Définition de Mot de Passe Admin",
     "test_49_tasks_avance":              "Tâches — CRUD & Rôles Avancé",
     "test_50_activities_map_api_et_ui":  "API Activités Cartographie & Interface UI",
+    "test_51_qualify_outputs":           "Qualification des Données de Sortie (RESULT)",
+    "test_52_cadence":                   "Cadences & Cohérence des Rythmes",
+    "test_53_hsc_positioning":           "Auto-positionnement HSC",
+    "test_54_technical_domains":         "Domaines de Technicité",
+    "test_55_result_capabilities":       "Compétence Principale & Liens S/SF/HSC par Résultat",
+    "test_56_mastery":                   "Niveaux de Maîtrise & Tableau de Bord",
 }
 
 
