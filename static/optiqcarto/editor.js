@@ -3563,6 +3563,7 @@ function fitView() {
    ══════════════════════════════════════════════════ */
 const MINI_W = 200, MINI_H = 144, MINI_PAD = 8;
 let _mini = null;
+let _miniScale = 1;   // 1 = taille de base ; borné à [1, 2] (max = double) via la poignée coin
 let _miniSig = '';
 window.__miniReady = true;   // applyViewport peut désormais appeler renderMinimap()
 
@@ -3585,7 +3586,8 @@ function _buildMinimap() {
   wrap.id = 'carto-minimap';
   wrap.title = '';
   wrap.innerHTML =
-    `<div class="mini-header" title="Glissez pour déplacer la mini-carte">
+    `<div class="mini-resize" title="Glissez pour redimensionner la mini-carte"></div>
+     <div class="mini-header" title="Glissez pour déplacer la mini-carte">
        <span class="mini-grip"></span><span class="mini-title">Mini-carte</span>
      </div>
      <svg width="${MINI_W}" height="${MINI_H}" viewBox="0 0 ${MINI_W} ${MINI_H}"
@@ -3605,20 +3607,56 @@ function _buildMinimap() {
     frame: wrap.querySelector('#mini-frame'),
     handles: Array.from(wrap.querySelectorAll('.mini-handle')),
     header: wrap.querySelector('.mini-header'),
+    resizer: wrap.querySelector('.mini-resize'),
     bbox: null, ms: 1, offX: 0, offY: 0,
   };
   _attachMinimapDrag();
   _attachMinimapReposition(_mini.header);
+  _attachMinimapResize(_mini.resizer);
+  if (_miniScale !== 1) _applyMiniSize();
   window.addEventListener('resize', () => { if (_mini && _mini.bbox) _updateMinimapFrame(); });
 }
 
+// Redimensionnement de la mini-carte via la poignée du coin supérieur gauche.
+// Bornes : min = taille de base (_miniScale = 1), max = double (_miniScale = 2).
+function _applyMiniSize() {
+  if (!_mini) return;
+  const MW = Math.round(MINI_W * _miniScale), MH = Math.round(MINI_H * _miniScale);
+  _mini.wrap.style.width = MW + 'px';
+  _mini.svg.setAttribute('width', MW);
+  _mini.svg.setAttribute('height', MH);
+  _mini.svg.setAttribute('viewBox', `0 0 ${MW} ${MH}`);
+  const bg = _mini.wrap.querySelector('.mini-bg');
+  if (bg) { bg.setAttribute('width', MW); bg.setAttribute('height', MH); }
+  _miniSig = '';               // force le redessin des formes à la nouvelle échelle
+  renderMinimap();
+}
+
+function _attachMinimapResize(handle) {
+  if (!handle) return;
+  handle.addEventListener('mousedown', (e) => {
+    e.preventDefault(); e.stopPropagation();
+    const startScale = _miniScale, sx = e.clientX, sy = e.clientY;
+    const move = (ev) => {
+      // Coin haut-gauche : vers la gauche/haut = agrandir. Bornes [1, 2].
+      const grow = Math.max((sx - ev.clientX) / MINI_W, (sy - ev.clientY) / MINI_H);
+      _miniScale = Math.max(1, Math.min(2, startScale + grow));
+      _applyMiniSize();
+    };
+    const up = () => { window.removeEventListener('mousemove', move); window.removeEventListener('mouseup', up); };
+    window.addEventListener('mousemove', move);
+    window.addEventListener('mouseup', up);
+  });
+}
+
 function _drawMiniShapes(b) {
+  const MW = MINI_W * _miniScale, MH = MINI_H * _miniScale, PAD = MINI_PAD * _miniScale;
   const cw = (b.maxX - b.minX) || 1, ch = (b.maxY - b.minY) || 1;
-  const availW = MINI_W - MINI_PAD * 2, availH = MINI_H - MINI_PAD * 2;
+  const availW = MW - PAD * 2, availH = MH - PAD * 2;
   const ms = Math.min(availW / cw, availH / ch);
   _mini.ms = ms;
-  _mini.offX = MINI_PAD + (availW - cw * ms) / 2;
-  _mini.offY = MINI_PAD + (availH - ch * ms) / 2;
+  _mini.offX = PAD + (availW - cw * ms) / 2;
+  _mini.offY = PAD + (availH - ch * ms) / 2;
   _mini.bbox = b;
   const parts = [];
   for (const s of state.shapes) {

@@ -2676,20 +2676,40 @@ html, body {
   align-items: center;
   gap: 7px;
   height: 22px;
-  padding: 0 9px;
-  background: #f1f5f9;
-  border-bottom: 1px solid #e2e8f0;
+  padding: 0 9px 0 18px;   /* décalage à gauche pour la poignée de redimensionnement */
+  background: var(--green, #4DB868);
+  border-bottom: 1px solid var(--green-dark, #389E52);
   cursor: move;
-  font: 600 11px/1 'Segoe UI', system-ui, sans-serif;
-  color: #64748b;
+  font: 700 11px/1 'Segoe UI', system-ui, sans-serif;
+  color: #ec4899;
 }
 #carto-minimap .mini-grip {
   width: 12px;
   height: 8px;
-  background-image: radial-gradient(#94a3b8 1px, transparent 1px);
+  background-image: radial-gradient(#ec4899 1px, transparent 1px);
   background-size: 4px 4px;
+  opacity: 0.95;
+}
+/* Poignée de redimensionnement — coin supérieur gauche (min = taille actuelle, max = ×2) */
+#carto-minimap .mini-resize {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 16px;
+  height: 16px;
+  cursor: nwse-resize;
+  z-index: 5;
+}
+#carto-minimap .mini-resize::before {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  border-top: 8px solid #ec4899;
+  border-right: 8px solid transparent;
   opacity: 0.85;
 }
+#carto-minimap .mini-resize:hover::before { opacity: 1; }
 #carto-minimap svg { display: block; }
 #carto-minimap .mini-bg { fill: #eef1f6; }
 #carto-minimap .mini-frame {
