@@ -216,21 +216,17 @@ function orthogonalPts(fp, tp, bundleOffset = 0, userOffset = { dx: 0, dy: 0 }) 
   } else if (!isH(fdir) && isH(tdir)) {
     return [fp, p1, { x: p1.x + (userOffset.dx || 0), y: p2.y + (userOffset.dy || 0) }, p2, tp];
   } else if (isH(fdir)) {
-    // H→H : décaler le segment horizontal du milieu pour séparer les bundles parallèles
+    // H→H : UN seul décrochement (Z propre : sortir → traverser une fois → entrer) au lieu
+    // d'un escalier à deux décrochements. Le décroché vertical est près de la source ;
+    // bundleOffset sépare les connexions parallèles.
     if (Math.abs(dy12) < 2) return [fp, p1, p2, tp];
-    const SAFE = 52;
-    const rawMid = (p1.y + p2.y) / 2;
-    const safeMid = Math.abs(rawMid - fp.y) < SAFE ? fp.y + Math.sign(dy12 || 1) * SAFE : rawMid;
-    const midY = safeMid + bundleOffset + (userOffset.dy || 0);
-    return [fp, p1, { x: p1.x, y: midY }, { x: p2.x, y: midY }, p2, tp];
+    const jogX = p1.x + bundleOffset + (userOffset.dx || 0);
+    return [fp, { x: jogX, y: fp.y }, { x: jogX, y: tp.y }, tp];
   } else {
-    // V→V : décaler le segment vertical du milieu pour séparer les bundles parallèles
+    // V→V : idem, UN seul décrochement horizontal (Z propre) au lieu d'un escalier.
     if (Math.abs(dx12) < 2) return [fp, p1, p2, tp];
-    const SAFE = 52;
-    const rawMid = (p1.x + p2.x) / 2;
-    const safeMid = Math.abs(rawMid - fp.x) < SAFE ? fp.x + Math.sign(dx12 || 1) * SAFE : rawMid;
-    const midX = safeMid + bundleOffset + (userOffset.dx || 0);
-    return [fp, p1, { x: midX, y: p1.y }, { x: midX, y: p2.y }, p2, tp];
+    const jogY = p1.y + bundleOffset + (userOffset.dy || 0);
+    return [fp, { x: fp.x, y: jogY }, { x: tp.x, y: jogY }, tp];
   }
 }
 
