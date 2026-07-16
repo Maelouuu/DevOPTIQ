@@ -2676,21 +2676,22 @@ html, body {
   align-items: center;
   gap: 7px;
   height: 22px;
-  padding: 0 9px 0 18px;   /* décalage à gauche pour la poignée de redimensionnement */
-  background: var(--green, #4DB868);
-  border-bottom: 1px solid var(--green-dark, #389E52);
+  padding: 0 9px 0 18px;   /* marge gauche = zone de redimensionnement (coin haut-gauche) */
+  background: var(--bg-toolbar, #111814);
+  border-bottom: 1px solid var(--bg-app, #0E1610);
   cursor: move;
   font: 700 11px/1 'Segoe UI', system-ui, sans-serif;
-  color: #ec4899;
+  color: var(--pink, #F4B8D0);
 }
 #carto-minimap .mini-grip {
   width: 12px;
   height: 8px;
-  background-image: radial-gradient(#ec4899 1px, transparent 1px);
+  background-image: radial-gradient(var(--pink, #F4B8D0) 1px, transparent 1px);
   background-size: 4px 4px;
   opacity: 0.95;
 }
-/* Poignée de redimensionnement — coin supérieur gauche (min = taille actuelle, max = ×2) */
+/* Zone de redimensionnement — coin supérieur gauche (min = taille actuelle, max = ×2).
+   Pas d'indicateur visuel : le curseur nwse-resize suffit à l'affordance. */
 #carto-minimap .mini-resize {
   position: absolute;
   top: 0;
@@ -2700,16 +2701,6 @@ html, body {
   cursor: nwse-resize;
   z-index: 5;
 }
-#carto-minimap .mini-resize::before {
-  content: "";
-  position: absolute;
-  top: 2px;
-  left: 2px;
-  border-top: 8px solid #ec4899;
-  border-right: 8px solid transparent;
-  opacity: 0.85;
-}
-#carto-minimap .mini-resize:hover::before { opacity: 1; }
 #carto-minimap svg { display: block; }
 #carto-minimap .mini-bg { fill: #eef1f6; }
 #carto-minimap .mini-frame {
