@@ -10,9 +10,14 @@ from Code.models.models import Entity, Activities, Link, Data
 
 
 @pytest.fixture()
-def carto(app):
+def carto(app, client):
     """Entité dédiée : activité A avec 3 connexions sortantes (2 avec libellé, 1 sans),
-    activité Z sans aucune connexion sortante. Nettoyage complet après le test."""
+    activité Z sans aucune connexion sortante. Nettoyage complet après le test.
+    Le client HTTP est partagé (scope=session) entre tous les fichiers de test : on restaure
+    la session à son état d'avant ce fixture pour ne pas laisser active_entity_id pointer
+    vers une entité supprimée (pollution des tests exécutés après ce fichier)."""
+    with client.session_transaction() as s:
+        prev_entity_id = s.get("active_entity_id")
     with app.app_context():
         ent = Entity(name="QualifOutECo")
         db.session.add(ent); db.session.flush()
@@ -39,6 +44,8 @@ def carto(app):
             synchronize_session=False)
         Entity.query.filter_by(id=ids["entity_id"]).delete()
         db.session.commit()
+    with client.session_transaction() as s:
+        s["active_entity_id"] = prev_entity_id
 
 
 def _sess(client, entity_id):

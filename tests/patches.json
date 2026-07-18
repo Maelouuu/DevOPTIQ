@@ -445,5 +445,24 @@
     ],
     "author": "routine",
     "fixed_at": "2026-07-15T03:15:13"
+  },
+  {
+    "patch_uid": "2026-07-18-qualify-outputs-entity-session-pollution",
+    "title": "Session partagée : active_entity_id non restauré après le fixture carto de qualify_outputs",
+    "node_ids": [
+      "tests/test_57_mastery.py::TestDashboard::test_dashboard_excludes_activity_from_other_entity"
+    ],
+    "page_slug": "mastery",
+    "failure_reason": "Le nouveau test de couverture /mastery/dashboard (isolation cross-entité) échouait uniquement dans la suite complète : une activité d'une autre entité apparaissait dans le tableau de bord malgré le filtrage par entité active.",
+    "was_real_bug": false,
+    "root_cause": "test_isolation",
+    "error": "tests/test_51_qualify_outputs.py::carto est un fixture qui active une entité dédiée (session partagée, scope=session) puis la supprime en teardown, sans jamais restaurer active_entity_id/user_id. Les tests exécutés après ce fichier héritaient donc d'un active_entity_id pointant vers une entité supprimée : Entity.get_active() échouait la vérification d'ownership et retombait sur le fallback (première entité de l'utilisateur) ou laissait le filtrage d'entité inopérant selon le test, exposant des données cross-entité. Aucun bug applicatif dans /mastery.",
+    "fix_description": "Le fixture carto restaure désormais explicitement active_entity_id (valeur précédente) sur le client partagé après suppression de son entité dédiée. Par prudence supplémentaire, les tests dashboard de test_57_mastery.py forcent aussi explicitement user_id + active_entity_id avant leurs requêtes (même pattern que le patch 2026-06-25-active-entity-session-pollution).",
+    "files_changed": [
+      "tests/test_51_qualify_outputs.py",
+      "tests/test_57_mastery.py"
+    ],
+    "author": "routine",
+    "fixed_at": "2026-07-18T03:22:34"
   }
 ]
