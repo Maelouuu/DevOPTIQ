@@ -48,7 +48,8 @@ DevOPTIQ/
 │   ├── js/                 # JS par domaine
 │   └── optiqcarto/         # Outil cartographie (editor.js, style.css, vsdx_importer.js)
 └── docs/
-    └── index.html          # Documentation progressive (à compléter par la routine)
+    ├── index.html          # Documentation progressive (à compléter par la routine)
+    └── guide.html          # Guide utilisateur (responsive desktop + mobile)
 ```
 
 ---
