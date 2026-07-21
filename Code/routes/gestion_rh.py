@@ -1,15 +1,40 @@
 from flask import Blueprint, render_template, request, redirect, url_for, jsonify, session
 from Code.extensions import db
-from Code.models.models import User, Role, UserRole, Entity
+from Code.models.models import User, Role, UserRole, Entity, EntrepriseSettings
+from Code.role_i18n import on_role_name_saved
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy import text
 
 gestion_rh_bp = Blueprint('gestion_rh', __name__, url_prefix='/gestion_rh')
 
+# Colonnes modifiables de entreprise_settings (liste blanche — jamais de clé
+# arbitraire interpolée dans le SQL)
+SETTING_KEYS = ("work_hours_per_day", "work_days_per_week",
+                "work_weeks_per_year", "work_days_per_year")
+
 
 def get_active_entity_id():
     """Récupère l'ID de l'entité active depuis la session."""
     return session.get('active_entity_id')
+
+
+def _ensure_settings_table():
+    """Crée entreprise_settings si absente (DB historiques sans le modèle)."""
+    try:
+        EntrepriseSettings.__table__.create(db.engine, checkfirst=True)
+    except Exception:
+        db.session.rollback()
+
+
+def _get_settings_row(entity_id, create=False):
+    """Ligne de paramètres de l'entité active (ou la 1re ligne sans entité)."""
+    q = EntrepriseSettings.query
+    row = (q.filter_by(entity_id=entity_id).first() if entity_id
+           else q.order_by(EntrepriseSettings.id).first())
+    if row is None and create:
+        row = EntrepriseSettings(entity_id=entity_id)
+        db.session.add(row)
+    return row
 
 
 def ensure_manager_id_column():
@@ -31,14 +56,15 @@ def gestion_rh_home():
 
         # Récupérer les paramètres entreprise
         try:
-            if active_entity_id:
-                row = db.session.execute(
-                    text("SELECT * FROM entreprise_settings WHERE entity_id = :eid LIMIT 1"),
-                    {"eid": active_entity_id}
-                ).mappings().fetchone()
-            else:
-                row = db.session.execute(text("SELECT * FROM entreprise_settings LIMIT 1")).mappings().fetchone()
-            settings = dict(row) if row else {}
+            _ensure_settings_table()
+            row = _get_settings_row(active_entity_id)
+            settings = {}
+            if row:
+                for k in SETTING_KEYS:
+                    v = getattr(row, k)
+                    if v is None:
+                        continue
+                    settings[k] = int(v) if isinstance(v, float) and v.is_integer() else v
         except Exception as e:
             print(f"⚠️ Erreur récupération settings: {e}")
             db.session.rollback()  # IMPORTANT: Rollback pour réinitialiser la transaction
@@ -61,31 +87,24 @@ def gestion_rh_home():
         return f"<h1>Erreur</h1><p>Une erreur est survenue: {str(e)}</p><pre>{traceback.format_exc()}</pre>", 500
 
 
+def _parse_setting_value(raw):
+    if raw is None or str(raw).strip() == "":
+        return None
+    try:
+        return float(str(raw).replace(",", "."))
+    except ValueError:
+        return None
+
+
 @gestion_rh_bp.route('/update_settings', methods=['POST'])
 def update_settings():
     data = request.form
     active_entity_id = get_active_entity_id()
-    
-    # Supprimer les anciens paramètres de cette entité
-    if active_entity_id:
-        db.session.execute(
-            text("DELETE FROM entreprise_settings WHERE entity_id = :eid"),
-            {"eid": active_entity_id}
-        )
-    else:
-        db.session.execute(text("DELETE FROM entreprise_settings"))
-    
-    # Insérer les nouveaux paramètres
-    db.session.execute(text("""
-        INSERT INTO entreprise_settings (work_hours_per_day, work_days_per_week, work_weeks_per_year, work_days_per_year, entity_id)
-        VALUES (:h, :d, :w, :y, :eid)
-    """), {
-        "h": data.get("work_hours_per_day"),
-        "d": data.get("work_days_per_week"),
-        "w": data.get("work_weeks_per_year"),
-        "y": data.get("work_days_per_year"),
-        "eid": active_entity_id
-    })
+
+    _ensure_settings_table()
+    row = _get_settings_row(active_entity_id, create=True)
+    for key in SETTING_KEYS:
+        setattr(row, key, _parse_setting_value(data.get(key)))
     db.session.commit()
     return redirect(url_for('gestion_rh.gestion_rh_home'))
 
@@ -140,36 +159,27 @@ def import_roles():
 def update_single_setting():
     key = request.form.get("key")
     value = request.form.get("value")
-    
-    active_entity_id = get_active_entity_id()
 
-    # Récupère ou crée la ligne entreprise_settings pour cette entité
-    if active_entity_id:
-        row = db.session.execute(
-            text("SELECT * FROM entreprise_settings WHERE entity_id = :eid LIMIT 1"),
-            {"eid": active_entity_id}
-        ).fetchone()
-    else:
-        row = db.session.execute(text("SELECT * FROM entreprise_settings LIMIT 1")).fetchone()
-    
-    if not row:
-        db.session.execute(text("""
-            INSERT INTO entreprise_settings (work_hours_per_day, work_days_per_week, work_weeks_per_year, work_days_per_year, entity_id)
-            VALUES (NULL, NULL, NULL, NULL, :eid)
-        """), {"eid": active_entity_id})
+    if key not in SETTING_KEYS:
+        return jsonify(success=False, error="Paramètre inconnu"), 400
+
+    try:
+        active_entity_id = get_active_entity_id()
+        _ensure_settings_table()
+        row = _get_settings_row(active_entity_id, create=True)
+        setattr(row, key, _parse_setting_value(value))
         db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        print(f"❌ Erreur update_single_setting: {e}")
+        return jsonify(success=False, error=str(e)), 500
 
-    # Effectue une mise à jour du champ concerné pour cette entité
-    if active_entity_id:
-        db.session.execute(text(f"""
-            UPDATE entreprise_settings SET {key} = :val WHERE entity_id = :eid
-        """), {'val': value, 'eid': active_entity_id})
-    else:
-        db.session.execute(text(f"""
-            UPDATE entreprise_settings SET {key} = :val
-        """), {'val': value})
-    db.session.commit()
-    return jsonify(success=True)
+    # Relecture en base : ne jamais annoncer un succès non persisté
+    saved = db.session.execute(
+        text("SELECT {} FROM entreprise_settings WHERE id = :rid".format(key)),
+        {"rid": row.id}
+    ).scalar()
+    return jsonify(success=True, key=key, value=saved)
 
 
 @gestion_rh_bp.route('/role', methods=['POST'])
@@ -180,10 +190,11 @@ def create_or_update_role():
     if role_id:
         role = Role.query.get(role_id)
         if role:
-            role.name = name
+            on_role_name_saved(role, name)
     else:
         active_entity_id = get_active_entity_id()
         new_role = Role(name=name, entity_id=active_entity_id)
+        on_role_name_saved(new_role, name)
         db.session.add(new_role)
     db.session.commit()
     return jsonify(success=True)

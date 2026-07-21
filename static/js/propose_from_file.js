@@ -3,6 +3,47 @@
   const safeShowSpinner = () => (typeof showSpinner === "function" ? showSpinner() : void 0);
   const safeHideSpinner = () => (typeof hideSpinner === "function" ? hideSpinner() : void 0);
 
+  // Traductions injectées par le template (window.PROPOSE_I18N, clés pf_*) —
+  // repli français si la page ne les fournit pas.
+  const PF_FR = {
+    pf_loaded: 'Fichier DCP chargé',
+    pf_none: 'Aucun fichier DCP',
+    pf_stats_tech: 'compétences techniques',
+    pf_stats_behav: 'comportementales',
+    pf_mode_standard_desc: "L'IA génère ses propositions librement en analysant le contexte de l'activité.",
+    pf_mode_file_desc: "L'IA sélectionne les meilleures correspondances parmi les compétences du fichier DCP chargé.",
+    pf_modal_title: 'Fichier DCP de référence',
+    pf_drop_here: 'Glisser-déposer un fichier Excel ici',
+    pf_format_hint: 'Format .xlsx — colonnes attendues : JobText, GrpName, CompName',
+    pf_browse: 'Parcourir',
+    pf_delete: 'Supprimer',
+    pf_close: 'Fermer',
+    pf_save: 'Enregistrer',
+    pf_saved: 'Enregistré',
+    pf_sending: 'Envoi…',
+    pf_file_saved: 'Fichier enregistré',
+    pf_file_deleted: 'Fichier supprimé.',
+    pf_delete_confirm: 'Supprimer le fichier DCP chargé ?',
+    pf_unsupported: 'Format non supporté — utilisez un fichier .xlsx',
+    pf_no_file_warning: "Aucun fichier DCP chargé. Veuillez d'abord charger un fichier de référence via le bouton « Fichier DCP ».",
+    pf_err: 'Erreur :',
+    pf_err_unknown: 'Erreur inconnue',
+    pf_err_proposals: "Impossible d'obtenir les propositions (voir console).",
+    pf_apt_title: 'Propositions Aptitudes — Fichier DCP',
+    pf_hsc_title: 'Propositions SCA/HSC — Fichier DCP',
+    pf_cancel: 'Annuler',
+    pf_save_selection: 'Enregistrer la sélection',
+    pf_none_available: 'Aucune proposition disponible',
+    pf_no_proposal: 'Aucune proposition',
+    pf_select_one: 'Aucun élément sélectionné.',
+    pf_select_one_hsc: 'Veuillez sélectionner au moins une HSC.',
+    pf_save_error: "Erreur lors de l'enregistrement (voir console).",
+    pf_col_skill: 'Habileté',
+    pf_col_level: 'Niveau',
+    pf_col_justification: 'Justification'
+  };
+  const PT = (k) => (window.PROPOSE_I18N && window.PROPOSE_I18N[k]) || PF_FR[k] || k;
+
   function esc(str) {
     return String(str)
       .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
@@ -24,14 +65,14 @@
           const sfCount  = SF_GROUPS.reduce((n, g)  => n + (stats[g] || 0), 0);
           const hscCount = HSC_GROUPS.reduce((n, g) => n + (stats[g] || 0), 0);
           const parts = [];
-          if (sfCount)  parts.push(`${sfCount} compétences techniques`);
-          if (hscCount) parts.push(`${hscCount} comportementales`);
+          if (sfCount)  parts.push(`${sfCount} ${PT('pf_stats_tech')}`);
+          if (hscCount) parts.push(`${hscCount} ${PT('pf_stats_behav')}`);
           const detail = parts.length ? ` — ${parts.join(', ')}` : '';
           el.className = 'ref-file-bar-label has-file';
-          el.innerHTML = `<i class="fa-solid fa-file-check"></i> Fichier DCP chargé${detail}`;
+          el.innerHTML = `<i class="fa-solid fa-file-check"></i> ${PT('pf_loaded')}${detail}`;
         } else {
           el.className = 'ref-file-bar-label no-file';
-          el.innerHTML = `<i class="fa-solid fa-triangle-exclamation"></i> Aucun fichier DCP`;
+          el.innerHTML = `<i class="fa-solid fa-triangle-exclamation"></i> ${PT('pf_none')}`;
         }
       });
     } catch (_) {}
@@ -62,7 +103,7 @@
 
     dlg.innerHTML = `
       <div class="modal-header-propose">
-        <h3><i class="fa-solid fa-folder-open" style="color:#764ba2"></i> Fichier DCP de référence</h3>
+        <h3><i class="fa-solid fa-folder-open" style="color:#764ba2"></i> ${PT('pf_modal_title')}</h3>
         <button class="modal-close-btn-propose" id="rfCloseBtn"><i class="fa-solid fa-xmark"></i></button>
       </div>
       <div class="modal-body-propose">
@@ -73,14 +114,14 @@
             align-items:center; justify-content:space-between; gap:12px;">
           <div>
             <div style="font-weight:700; color:#15803d; margin-bottom:3px; font-size:0.92rem;">
-              <i class="fa-solid fa-file-check"></i> Fichier DCP chargé
+              <i class="fa-solid fa-file-check"></i> ${PT('pf_loaded')}
             </div>
             <div id="rfCurrentDetail" style="font-size:0.8rem; color:#16a34a;"></div>
           </div>
           <button id="rfDeleteBtn" style="flex-shrink:0; background:#fff; border:1.5px solid #fca5a5;
               color:#ef4444; border-radius:7px; padding:5px 12px; cursor:pointer; font-size:0.82rem;
               display:flex; align-items:center; gap:5px; white-space:nowrap; transition:background 0.15s;">
-            <i class="fa-solid fa-trash-can"></i> Supprimer
+            <i class="fa-solid fa-trash-can"></i> ${PT('pf_delete')}
           </button>
         </div>
 
@@ -89,13 +130,13 @@
             padding:30px 24px; text-align:center; cursor:pointer; transition:border-color 0.2s, background 0.2s;">
           <i class="fa-solid fa-cloud-arrow-up" style="font-size:2.2rem; color:#a78bfa; display:block; margin-bottom:10px;"></i>
           <p style="font-weight:700; color:#7c3aed; margin:0 0 5px; font-size:0.95rem;">
-            Glisser-déposer un fichier Excel ici
+            ${PT('pf_drop_here')}
           </p>
           <p style="font-size:0.78rem; color:#9ca3af; margin:0 0 18px;">
-            Format .xlsx — colonnes attendues : JobText, GrpName, CompName
+            ${PT('pf_format_hint')}
           </p>
           <button class="btn-propose-from-file" id="rfPickBtn">
-            <i class="fa-solid fa-folder-open"></i> Parcourir
+            <i class="fa-solid fa-folder-open"></i> ${PT('pf_browse')}
           </button>
           <input type="file" id="rfFileInput" accept=".xlsx,.xls" style="display:none" />
           <div id="rfSelectedFile" style="margin-top:12px; font-size:0.85rem; color:#7c3aed; font-weight:600; min-height:20px;"></div>
@@ -105,10 +146,10 @@
       </div>
       <div class="modal-footer-propose">
         <button class="btn-modal-secondary-propose" id="rfCancelBtn">
-          <i class="fa-solid fa-xmark"></i> Fermer
+          <i class="fa-solid fa-xmark"></i> ${PT('pf_close')}
         </button>
         <button class="btn-modal-primary-propose" id="rfUploadBtn" disabled>
-          <i class="fa-solid fa-floppy-disk"></i> Enregistrer
+          <i class="fa-solid fa-floppy-disk"></i> ${PT('pf_save')}
         </button>
       </div>
     `;
@@ -129,7 +170,7 @@
         const stats = d.stats || {};
         const sfC  = SF_GROUPS.reduce((n, g)  => n + (stats[g] || 0), 0);
         const hscC = HSC_GROUPS.reduce((n, g) => n + (stats[g] || 0), 0);
-        currentDet.textContent = `${sfC} compétences techniques, ${hscC} comportementales`;
+        currentDet.textContent = `${sfC} ${PT('pf_stats_tech')}, ${hscC} ${PT('pf_stats_behav')}`;
         currentDiv.style.display = 'flex';
       }
     }).catch(() => {});
@@ -152,7 +193,7 @@
       if (f && (f.name.endsWith('.xlsx') || f.name.endsWith('.xls'))) {
         _setSelectedFile(f);
       } else if (f) {
-        feedback.innerHTML = '<span style="color:#dc2626"><i class="fa-solid fa-triangle-exclamation"></i> Format non supporté — utilisez un fichier .xlsx</span>';
+        feedback.innerHTML = `<span style="color:#dc2626"><i class="fa-solid fa-triangle-exclamation"></i> ${PT('pf_unsupported')}</span>`;
       }
     });
     dropZone.addEventListener('click', (e) => {
@@ -174,7 +215,7 @@
 
     // Delete current file
     deleteBtn.onclick = async () => {
-      if (!confirm('Supprimer le fichier DCP chargé ?')) return;
+      if (!confirm(PT('pf_delete_confirm'))) return;
       deleteBtn.disabled = true;
       deleteBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
       try {
@@ -182,12 +223,12 @@
         currentDiv.style.display = 'none';
         selectedLbl.textContent = '';
         uploadBtn.disabled = true;
-        feedback.innerHTML = '<span style="color:#6b7280"><i class="fa-solid fa-check"></i> Fichier supprimé.</span>';
+        feedback.innerHTML = `<span style="color:#6b7280"><i class="fa-solid fa-check"></i> ${PT('pf_file_deleted')}</span>`;
         initRefFileStatus();
       } catch (_) {}
       finally {
         deleteBtn.disabled = false;
-        deleteBtn.innerHTML = '<i class="fa-solid fa-trash-can"></i> Supprimer';
+        deleteBtn.innerHTML = `<i class="fa-solid fa-trash-can"></i> ${PT('pf_delete')}`;
       }
     };
 
@@ -196,7 +237,7 @@
       const f = uploadBtn._file || fileInput.files[0];
       if (!f) return;
       uploadBtn.disabled = true;
-      uploadBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Envoi…';
+      uploadBtn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> ${PT('pf_sending')}`;
       feedback.innerHTML = '';
       const fd = new FormData();
       fd.append('file', f);
@@ -208,20 +249,20 @@
           const sfC  = SF_GROUPS.reduce((n, g)  => n + (stats[g] || 0), 0);
           const hscC = HSC_GROUPS.reduce((n, g) => n + (stats[g] || 0), 0);
           feedback.innerHTML = `<span style="color:#22c55e">
-            <i class="fa-solid fa-check"></i> Fichier enregistré — ${sfC} compétences techniques, ${hscC} comportementales.
+            <i class="fa-solid fa-check"></i> ${PT('pf_file_saved')} — ${sfC} ${PT('pf_stats_tech')}, ${hscC} ${PT('pf_stats_behav')}.
           </span>`;
-          uploadBtn.innerHTML = '<i class="fa-solid fa-check"></i> Enregistré';
-          currentDet.textContent = `${sfC} compétences techniques, ${hscC} comportementales`;
+          uploadBtn.innerHTML = `<i class="fa-solid fa-check"></i> ${PT('pf_saved')}`;
+          currentDet.textContent = `${sfC} ${PT('pf_stats_tech')}, ${hscC} ${PT('pf_stats_behav')}`;
           currentDiv.style.display = 'flex';
           initRefFileStatus();
           setTimeout(() => { ov.style.display = 'none'; }, 1600);
         } else {
-          throw new Error(d.error || 'Erreur inconnue');
+          throw new Error(d.error || PT('pf_err_unknown'));
         }
       } catch (err) {
         feedback.innerHTML = `<span style="color:#dc2626"><i class="fa-solid fa-triangle-exclamation"></i> ${esc(err.message)}</span>`;
         uploadBtn.disabled = false;
-        uploadBtn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Enregistrer';
+        uploadBtn.innerHTML = `<i class="fa-solid fa-floppy-disk"></i> ${PT('pf_save')}`;
       }
     };
 
@@ -229,7 +270,7 @@
   }
 
   function _noFileWarning() {
-    alert('Aucun fichier DCP chargé. Veuillez d\'abord charger un fichier de référence via le bouton « Fichier DCP ».');
+    alert(PT('pf_no_file_warning'));
     openRefFileModal();
   }
 
@@ -246,7 +287,7 @@
       const d = await r.json();
       safeHideSpinner();
       if (d.error === 'no_file') { _noFileWarning(); return; }
-      if (d.error) { alert('Erreur : ' + d.error); return; }
+      if (d.error) { alert(PT('pf_err') + ' ' + d.error); return; }
       const sfList = Array.isArray(d.proposals_sf) ? d.proposals_sf : [];
       const sList  = Array.isArray(d.proposals_s)  ? d.proposals_s  : [];
       if (typeof showProposedSavoirsFairesModal === 'function') {
@@ -255,7 +296,7 @@
     } catch (err) {
       safeHideSpinner();
       console.error('proposeFromFileSF:', err);
-      alert('Impossible d\'obtenir les propositions (voir console).');
+      alert(PT('pf_err_proposals'));
     }
   }
 
@@ -289,12 +330,12 @@
       const d = await r.json();
       safeHideSpinner();
       if (d.error === 'no_file') { _noFileWarning(); return; }
-      if (d.error) { alert('Erreur : ' + d.error); return; }
+      if (d.error) { alert(PT('pf_err') + ' ' + d.error); return; }
       _showAptFileModal(Array.isArray(d.proposals) ? d.proposals : [], activityId);
     } catch (err) {
       safeHideSpinner();
       console.error('proposeFromFileAptitudes:', err);
-      alert('Impossible d\'obtenir les propositions (voir console).');
+      alert(PT('pf_err_proposals'));
     }
   }
 
@@ -310,11 +351,11 @@
               <span>${esc(p)}</span>
             </label>
           </li>`).join('')
-      : `<li style="color:#999;">Aucune proposition disponible</li>`;
+      : `<li style="color:#999;">${PT('pf_none_available')}</li>`;
 
     dlg.innerHTML = `
       <div class="modal-header-propose">
-        <h3><i class="fa-solid fa-file-lines" style="color:#764ba2"></i> Propositions Aptitudes — Fichier DCP</h3>
+        <h3><i class="fa-solid fa-file-lines" style="color:#764ba2"></i> ${PT('pf_apt_title')}</h3>
         <button class="modal-close-btn-propose" id="aptFCloseBtn"><i class="fa-solid fa-xmark"></i></button>
       </div>
       <div class="modal-body-propose">
@@ -322,10 +363,10 @@
       </div>
       <div class="modal-footer-propose">
         <button class="btn-modal-secondary-propose" id="aptFCancelBtn">
-          <i class="fa-solid fa-xmark"></i> Annuler
+          <i class="fa-solid fa-xmark"></i> ${PT('pf_cancel')}
         </button>
         <button class="btn-modal-primary-propose" id="aptFValidateBtn">
-          <i class="fa-solid fa-check"></i> Enregistrer
+          <i class="fa-solid fa-check"></i> ${PT('pf_save')}
         </button>
       </div>
     `;
@@ -335,7 +376,7 @@
 
     dlg.querySelector('#aptFValidateBtn').onclick = async () => {
       const checked = dlg.querySelectorAll('input[type="checkbox"]:checked');
-      if (!checked.length) { alert('Aucun élément sélectionné.'); return; }
+      if (!checked.length) { alert(PT('pf_select_one')); return; }
       safeShowSpinner();
       try {
         await Promise.all(Array.from(checked).map(cb =>
@@ -350,7 +391,7 @@
         ov.style.display = 'none';
       } catch (err) {
         console.error('Erreur enregistrement aptitudes:', err);
-        alert('Erreur lors de l\'enregistrement (voir console).');
+        alert(PT('pf_save_error'));
       } finally {
         safeHideSpinner();
       }
@@ -389,12 +430,12 @@
       const d = await r.json();
       safeHideSpinner();
       if (d.error === 'no_file') { _noFileWarning(); return; }
-      if (d.error) { alert('Erreur : ' + d.error); return; }
+      if (d.error) { alert(PT('pf_err') + ' ' + d.error); return; }
       _showHscFileModal(Array.isArray(d.proposals) ? d.proposals : [], activityId);
     } catch (err) {
       safeHideSpinner();
       console.error('proposeFromFileHSC:', err);
-      alert('Impossible d\'obtenir les propositions (voir console).');
+      alert(PT('pf_err_proposals'));
     }
   }
 
@@ -420,7 +461,7 @@
 
     dlg.innerHTML = `
       <div class="modal-header-propose">
-        <h3><i class="fa-solid fa-file-lines" style="color:#764ba2"></i> Propositions SCA/HSC — Fichier DCP</h3>
+        <h3><i class="fa-solid fa-file-lines" style="color:#764ba2"></i> ${PT('pf_hsc_title')}</h3>
         <button class="modal-close-btn-propose" id="hscFCloseBtn"><i class="fa-solid fa-xmark"></i></button>
       </div>
       <div class="modal-body-propose">
@@ -428,20 +469,20 @@
           <thead>
             <tr>
               <th class="col-check"><input type="checkbox" id="hscFSelectAll" checked></th>
-              <th class="col-habilete">Habileté</th>
-              <th class="col-niveau">Niveau</th>
-              <th class="col-justification">Justification</th>
+              <th class="col-habilete">${PT('pf_col_skill')}</th>
+              <th class="col-niveau">${PT('pf_col_level')}</th>
+              <th class="col-justification">${PT('pf_col_justification')}</th>
             </tr>
           </thead>
-          <tbody id="hscFBody">${rows || '<tr><td colspan="4" style="color:#999; text-align:center; padding:16px;">Aucune proposition</td></tr>'}</tbody>
+          <tbody id="hscFBody">${rows || '<tr><td colspan="4" style="color:#999; text-align:center; padding:16px;">${PT('pf_no_proposal')}</td></tr>'}</tbody>
         </table>
       </div>
       <div class="modal-footer-propose">
         <button class="btn-modal-secondary-propose" id="hscFCancelBtn">
-          <i class="fa-solid fa-xmark"></i> Annuler
+          <i class="fa-solid fa-xmark"></i> ${PT('pf_cancel')}
         </button>
         <button class="btn-modal-primary-propose" id="hscFValidateBtn">
-          <i class="fa-solid fa-check"></i> Enregistrer la sélection
+          <i class="fa-solid fa-check"></i> ${PT('pf_save_selection')}
         </button>
       </div>
     `;
@@ -468,7 +509,7 @@
 
     dlg.querySelector('#hscFValidateBtn').onclick = async () => {
       const checked = dlg.querySelectorAll('#hscFBody input[type="checkbox"]:checked');
-      if (!checked.length) { alert('Veuillez sélectionner au moins une HSC.'); return; }
+      if (!checked.length) { alert(PT('pf_select_one_hsc')); return; }
       safeShowSpinner();
       try {
         await Promise.all(Array.from(checked).map(cb =>
@@ -488,7 +529,7 @@
         ov.style.display = 'none';
       } catch (err) {
         console.error('Erreur enregistrement HSC:', err);
-        alert('Erreur lors de l\'enregistrement (voir console).');
+        alert(PT('pf_save_error'));
       } finally {
         safeHideSpinner();
       }
@@ -517,8 +558,8 @@
     if (btnFile) btnFile.classList.toggle('dcp-mode-active', mode === 'file');
     if (desc) {
       desc.textContent = mode === 'standard'
-        ? "L'IA génère ses propositions librement en analysant le contexte de l'activité."
-        : "L'IA sélectionne les meilleures correspondances parmi les compétences du fichier DCP chargé.";
+        ? PT('pf_mode_standard_desc')
+        : PT('pf_mode_file_desc');
     }
   }
 

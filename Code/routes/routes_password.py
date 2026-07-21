@@ -1,13 +1,24 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash
 from flask_mail import Message
-from werkzeug.security import generate_password_hash
 from itsdangerous import URLSafeTimedSerializer, SignatureExpired, BadSignature
 from flask import current_app
+from sqlalchemy import text
 from sqlalchemy.orm.attributes import flag_modified
 from Code.models.models import User
 from Code.extensions import mail, db
+from Code.security import hash_password, verify_password
 
 auth_password_bp = Blueprint("auth_password", __name__)
+
+
+def _find_user_by_email(email):
+    """Recherche exacte puis insensible à la casse (les emails saisis avec des
+    majuscules historiques ne doivent pas faire échouer silencieusement le reset)."""
+    from sqlalchemy import func
+    user = User.query.filter_by(email=email).first()
+    if user is None:
+        user = User.query.filter(func.lower(User.email) == (email or "").lower()).first()
+    return user
 
 
 @auth_password_bp.route("/forgot_password", methods=["POST"])
@@ -17,7 +28,7 @@ def forgot_password():
         flash("Adresse email requise.", "error")
         return redirect(url_for("auth.login"))
 
-    user = User.query.filter_by(email=email).first()
+    user = _find_user_by_email(email)
 
     # Ne pas révéler si l'email existe ou non
     if user:
@@ -68,19 +79,28 @@ def reset_password(token):
         elif new_password != confirm:
             error = "Les mots de passe ne correspondent pas."
         else:
-            user = User.query.filter_by(email=email).first()
+            user = _find_user_by_email(email)
             if user:
                 try:
-                    user.password = generate_password_hash(new_password)
+                    user.password = hash_password(new_password)
                     flag_modified(user, "password")
                     db.session.add(user)
                     db.session.commit()
-                    flash("Mot de passe modifie avec succes. Vous pouvez vous connecter.", "success")
-                    return redirect(url_for("auth.login"))
                 except Exception as e:
                     db.session.rollback()
                     current_app.logger.error("[RESET_PWD] Erreur commit: %s", e)
                     error = "Erreur serveur lors de la mise à jour. Réessayez."
+                else:
+                    # Vérification post-commit : relire le hash en base pour ne
+                    # jamais annoncer un succès qui n'a pas été persisté.
+                    stored = db.session.execute(
+                        text("SELECT password FROM users WHERE id = :uid"), {"uid": user.id}
+                    ).scalar()
+                    if verify_password(stored, new_password):
+                        flash("Mot de passe modifie avec succes. Vous pouvez vous connecter.", "success")
+                        return redirect(url_for("auth.login"))
+                    current_app.logger.error("[RESET_PWD] Hash non persisté pour user %s", user.id)
+                    error = "La modification n'a pas été persistée. Réessayez ou contactez l'administrateur."
             else:
                 flash("Utilisateur introuvable.", "error")
                 return redirect(url_for("auth.login"))

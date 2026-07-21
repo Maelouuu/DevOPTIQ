@@ -342,6 +342,22 @@ def create_app(test_config=None):
         _safe_add_column("activities", "cadence_details", "TEXT")
         _safe_add_column("data", "update_cadence_code", "VARCHAR(20)")
         _safe_add_column("data", "max_age_hours", "INTEGER")
+        # Traduction des noms de rôles (caches FR/EN, affichage selon la langue)
+        _safe_add_column("roles", "name_fr", "VARCHAR(200)")
+        _safe_add_column("roles", "name_en", "VARCHAR(200)")
+        # Paramètres entreprise : les tables historiques n'avaient pas entity_id
+        _safe_add_column("entreprise_settings", "entity_id", "INTEGER")
+
+        # users.password : les hashes modernes (~162 car. en scrypt) dépassaient
+        # une colonne créée étroite avant l'élargissement du modèle → l'UPDATE
+        # échouait en PostgreSQL et l'ancien mot de passe restait actif.
+        try:
+            with db.engine.connect() as _conn:
+                _conn.execute(_text("ALTER TABLE users ALTER COLUMN password TYPE VARCHAR(255)"))
+                _conn.commit()
+                print("[DB] Colonne users.password élargie à VARCHAR(255)")
+        except Exception:
+            pass  # SQLite (longueur non contraignante) ou déjà au bon type
 
         # 3. Tables supplémentaires
         try:
@@ -365,6 +381,13 @@ def create_app(test_config=None):
             print("[DB] Table recent_events prête")
         except Exception as e:
             print(f"[DB] recent_events check: {e}")
+
+        try:
+            from Code.models.models import EntrepriseSettings
+            EntrepriseSettings.__table__.create(db.engine, checkfirst=True)
+            print("[DB] Table entreprise_settings prête")
+        except Exception as e:
+            print(f"[DB] entreprise_settings check: {e}")
 
         try:
             from Code.models.models import CrossCartoLiaison

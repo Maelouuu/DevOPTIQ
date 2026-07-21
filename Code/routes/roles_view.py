@@ -61,6 +61,11 @@ def view_roles():
     # MODIFIÉ: Filtrer les rôles par entité active
     roles = Role.for_active_entity().order_by(func.lower(Role.name)).all()
 
+    # Noms affichés dans la langue de l'interface (traduits + mis en cache,
+    # nom d'origine conservé dans role.name)
+    from Code.role_i18n import display_names
+    role_names_i18n = display_names(roles)
+
     roles_data = []
     for role in roles:
         # Bloc 1 : Activités où le rôle est Garant
@@ -216,7 +221,8 @@ def view_roles():
             holders = []
 
         roles_data.append({
-            "role": {"id": role.id, "name": role.name},
+            "role": {"id": role.id, "name": role.name,
+                     "display_name": role_names_i18n.get(role.id, role.name)},
             "mission_generale": _get_role_mission(role.id),
             "block1": block1,
             "block2": block2,

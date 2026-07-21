@@ -6,6 +6,40 @@
 // ═══════════════════════════════════════════════════════════════
 // UTILITIES
 // ═══════════════════════════════════════════════════════════════
+// Traductions injectées par le template (window.GRH_I18N) — repli français
+const GRH_FR = {
+    save: 'Enregistrer', cancel: 'Annuler',
+    param_updated: 'Paramètre mis à jour',
+    param_save_error: "Erreur : le paramètre n'a pas pu être enregistré",
+    role_created: 'Rôle créé', role_updated: 'Rôle modifié', role_deleted: 'Rôle supprimé',
+    role_delete_confirm: 'Supprimer ce rôle ?',
+    no_role: 'Aucun rôle', save_roles: 'Enregistrer les rôles', roles_updated: 'Rôles mis à jour',
+    edit_name: 'Modifier le nom', edit_name_prompt: 'Modifier le nom du collaborateur :',
+    name_updated: 'Nom mis à jour', update_error: 'Erreur lors de la mise à jour',
+    network_error: 'Erreur réseau', collapse_list: 'Réduire la liste',
+    show_all: 'Afficher tous les collaborateurs',
+    select_manager_msg: 'Sélectionnez un manager pour voir les collaborateurs',
+    filter_all: 'Tous', filter_assigned: 'Affectés',
+    no_collab_found: 'Aucun collaborateur trouvé', manage_assignment: "Gérer l'affectation",
+    comp_color_title: 'Compétences : moyenne des notes du manager',
+    select_roles_to_assign: 'Sélectionner les rôles à affecter',
+    select_all: 'Tout sélectionner', deselect_all: 'Tout désélectionner',
+    assigned: 'Affecté', not_assigned: 'Non affecté',
+    assign_selected: 'Affecter les rôles sélectionnés',
+    assign_selected_desc: 'Affecter ce collaborateur à {manager} pour les rôles cochés',
+    unassign_selected: 'Retirer les rôles sélectionnés',
+    unassign_selected_desc: "Retirer l'affectation pour les rôles cochés",
+    select_one_role: 'Sélectionnez au moins un rôle',
+    roles_assigned_to: '{count} rôle(s) affecté(s) à {manager}',
+    assignment_removed: 'Affectation retirée', assignment_error: "Erreur d'affectation",
+    error: 'Erreur'
+};
+function T(key, vars) {
+    let s = (window.GRH_I18N && window.GRH_I18N[key]) || GRH_FR[key] || key;
+    if (vars) Object.keys(vars).forEach(k => { s = s.replace('{' + k + '}', vars[k]); });
+    return s;
+}
+
 function showToast(message, type = 'success') {
     const container = document.getElementById('toast-container');
     const toast = document.createElement('div');
@@ -72,11 +106,18 @@ function initParamListeners() {
 
             const saveBtn = document.createElement('button');
             saveBtn.className = 'btn btn-sm btn-primary';
-            saveBtn.textContent = 'Save';
+            saveBtn.textContent = T('save');
 
             const cancelBtn = document.createElement('button');
             cancelBtn.className = 'btn btn-sm btn-outline';
-            cancelBtn.textContent = 'Cancel';
+            cancelBtn.textContent = T('cancel');
+
+            const restore = (text) => {
+                valueEl.textContent = text;
+                editBtn.style.display = '';
+                saveBtn.remove();
+                cancelBtn.remove();
+            };
 
             saveBtn.addEventListener('click', async () => {
                 const input = valueEl.querySelector('input');
@@ -84,20 +125,23 @@ function initParamListeners() {
                 const formData = new FormData();
                 formData.append('key', key);
                 formData.append('value', newValue);
-                await fetch('/gestion_rh/update_single_setting', { method: 'POST', body: formData });
-                valueEl.textContent = newValue || '—';
-                editBtn.style.display = '';
-                saveBtn.remove();
-                cancelBtn.remove();
-                showToast('Parameter updated');
+                try {
+                    const res = await fetch('/gestion_rh/update_single_setting', { method: 'POST', body: formData });
+                    const data = await res.json().catch(() => ({}));
+                    if (!res.ok || !data.success) {
+                        restore(currentValue);
+                        showToast(data.error || T('param_save_error'), 'error');
+                        return;
+                    }
+                    restore(newValue || '—');
+                    showToast(T('param_updated'));
+                } catch (err) {
+                    restore(currentValue);
+                    showToast(T('network_error'), 'error');
+                }
             });
 
-            cancelBtn.addEventListener('click', () => {
-                valueEl.textContent = currentValue;
-                editBtn.style.display = '';
-                saveBtn.remove();
-                cancelBtn.remove();
-            });
+            cancelBtn.addEventListener('click', () => restore(currentValue));
 
             actionsEl.appendChild(saveBtn);
             actionsEl.appendChild(cancelBtn);
@@ -128,7 +172,7 @@ function initRoleListeners() {
         const formData = new FormData();
         formData.append('name', name);
         await fetch('/gestion_rh/role', { method: 'POST', body: formData });
-        showToast('Role created');
+        showToast(T('role_created'));
         setTimeout(() => location.reload(), 800);
     });
 
@@ -142,11 +186,11 @@ function initRoleListeners() {
         // Delete
         deleteBtn.addEventListener('click', async (e) => {
             e.stopPropagation();
-            if (!confirm('Delete this role?')) return;
+            if (!confirm(T('role_delete_confirm'))) return;
             const res = await fetch(`/gestion_rh/delete_role/${roleId}`, { method: 'POST' });
             if (res.ok) {
                 row.remove();
-                showToast('Role deleted');
+                showToast(T('role_deleted'));
             }
         });
 
@@ -160,11 +204,11 @@ function initRoleListeners() {
 
             const saveBtn = document.createElement('button');
             saveBtn.className = 'btn btn-sm btn-primary';
-            saveBtn.textContent = 'Save';
+            saveBtn.textContent = T('save');
 
             const cancelBtn = document.createElement('button');
             cancelBtn.className = 'btn btn-sm btn-outline';
-            cancelBtn.textContent = 'Cancel';
+            cancelBtn.textContent = T('cancel');
 
             saveBtn.addEventListener('click', async () => {
                 const input = nameEl.querySelector('input');
@@ -180,7 +224,7 @@ function initRoleListeners() {
                 deleteBtn.style.display = '';
                 saveBtn.remove();
                 cancelBtn.remove();
-                showToast('Role updated');
+                showToast(T('role_updated'));
             });
 
             cancelBtn.addEventListener('click', () => {
@@ -232,7 +276,7 @@ function renderCollaborateurs(showAll = false) {
 
     data.forEach(user => {
         const initials = getInitials(user.name.split(' ')[0], user.name.split(' ').slice(1).join(' '));
-        const rolesText = user.roles.length ? user.roles.map(r => capitalize(r)).join(', ') : 'No role';
+        const rolesText = user.roles.length ? user.roles.map(r => capitalize(r)).join(', ') : T('no_role');
 
         const div = document.createElement('div');
         div.className = 'grh-collab-item';
@@ -242,7 +286,7 @@ function renderCollaborateurs(showAll = false) {
                 <div class="grh-collab-info">
                     <div class="grh-collab-name">
                         ${user.name}
-                        <button class="edit-name-btn" title="Edit name">
+                        <button class="edit-name-btn" title="${T('edit_name')}">
                             <i class="fa-solid fa-pen"></i>
                         </button>
                     </div>
@@ -253,7 +297,7 @@ function renderCollaborateurs(showAll = false) {
             <div class="grh-collab-edit">
                 <div class="grh-role-checkboxes" id="collab-roles-${user.id}"></div>
                 <div class="grh-collab-save-row">
-                    <button class="btn btn-sm btn-secondary save-collab-roles" data-user-id="${user.id}">Save roles</button>
+                    <button class="btn btn-sm btn-secondary save-collab-roles" data-user-id="${user.id}">${T('save_roles')}</button>
                 </div>
             </div>
         `;
@@ -305,7 +349,7 @@ function renderCollaborateurs(showAll = false) {
             formData.append('user_id', user.id);
             selectedRoles.forEach(id => formData.append('role_ids[]', id));
             await fetch('/gestion_rh/collaborateur_roles', { method: 'POST', body: formData });
-            showToast('Roles updated');
+            showToast(T('roles_updated'));
             loadCollaborateurs();
             if (selectedManagerId) loadManagerCollabs();
         });
@@ -317,9 +361,9 @@ function renderCollaborateurs(showAll = false) {
     const toggleBtn = document.getElementById('toggle-collab-view');
     if (toggleBtn) {
         if (showAll) {
-            toggleBtn.innerHTML = '<i class="fa-solid fa-chevron-up"></i> Collapse list';
+            toggleBtn.innerHTML = `<i class="fa-solid fa-chevron-up"></i> ${T('collapse_list')}`;
         } else {
-            toggleBtn.innerHTML = '<i class="fa-solid fa-chevron-down"></i> Show all collaborators';
+            toggleBtn.innerHTML = `<i class="fa-solid fa-chevron-down"></i> ${T('show_all')}`;
         }
         toggleBtn.onclick = () => renderCollaborateurs(!showAll);
         toggleBtn.style.display = fullCollabData.length > 4 ? '' : 'none';
@@ -327,7 +371,7 @@ function renderCollaborateurs(showAll = false) {
 }
 
 function editCollaboratorName(userId, currentName) {
-    const newName = prompt('Edit collaborator name:', currentName);
+    const newName = prompt(T('edit_name_prompt'), currentName);
     if (newName === null || newName.trim() === '' || newName.trim() === currentName) return;
 
     fetch('/gestion_rh/update_collaborator_name', {
@@ -338,13 +382,13 @@ function editCollaboratorName(userId, currentName) {
     .then(res => res.json())
     .then(data => {
         if (data.success) {
-            showToast('Name updated');
+            showToast(T('name_updated'));
             loadCollaborateurs();
         } else {
-            showToast('Update error', 'error');
+            showToast(T('update_error'), 'error');
         }
     })
-    .catch(() => showToast('Network error', 'error'));
+    .catch(() => showToast(T('network_error'), 'error'));
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -373,7 +417,7 @@ function initManagerSection() {
             loadManagerCollabs();
         } else {
             document.getElementById('manager-assignment-container').innerHTML =
-                '<div class="grh-no-results">Select a manager to view collaborators</div>';
+                `<div class="grh-no-results">${T('select_manager_msg')}</div>`;
             document.getElementById('manager-role-filter').innerHTML = '';
         }
     });
@@ -398,8 +442,8 @@ function renderManagerRoleFilter() {
     if (!bar) return;
 
     let html = '';
-    html += `<span class="role-filter-badge ${managerActiveFilter === 'all' ? 'active' : ''}" data-filter="all">All</span>`;
-    html += `<span class="role-filter-badge ${managerActiveFilter === 'assigned' ? 'active' : ''}" data-filter="assigned">Assigned</span>`;
+    html += `<span class="role-filter-badge ${managerActiveFilter === 'all' ? 'active' : ''}" data-filter="all">${T('filter_all')}</span>`;
+    html += `<span class="role-filter-badge ${managerActiveFilter === 'assigned' ? 'active' : ''}" data-filter="assigned">${T('filter_assigned')}</span>`;
     managerAllRoles.forEach(r => {
         html += `<span class="role-filter-badge ${managerActiveFilter === String(r.id) ? 'active' : ''}" data-filter="${r.id}">${capitalize(r.name)}</span>`;
     });
@@ -450,7 +494,7 @@ function renderManagerCollabList() {
     }
 
     if (filtered.length === 0) {
-        container.innerHTML = '<div class="grh-no-results">No collaborator found</div>';
+        container.innerHTML = `<div class="grh-no-results">${T('no_collab_found')}</div>`;
         return;
     }
 
@@ -476,11 +520,11 @@ function renderManagerCollabList() {
                 const colStyle = r.comp_color
                     ? ` style="border-color:${r.comp_color};color:${r.comp_color};font-weight:600;"`
                     : '';
-                const colTitle = r.comp_color ? ' title="Compétences : moyenne des notes du manager"' : '';
+                const colTitle = r.comp_color ? ` title="${T('comp_color_title')}"` : '';
                 return `<span class="grh-assign-role-tag ${isRoleAssigned ? 'assigned' : 'unassigned'}"${colStyle}${colTitle}>${capitalize(r.name)}</span>`;
             }).join('');
         } else {
-            rolesHtml = '<span style="color:#94a3b8; font-size:11px;">No role</span>';
+            rolesHtml = `<span style="color:#94a3b8; font-size:11px;">${T('no_role')}</span>`;
         }
 
         let dotHtml = '';
@@ -498,7 +542,7 @@ function renderManagerCollabList() {
                     <div class="grh-assign-name">${c.first_name} ${c.last_name}</div>
                     <div class="grh-assign-roles">${rolesHtml}</div>
                 </div>
-                <button class="grh-assign-btn" title="Manage assignment">
+                <button class="grh-assign-btn" title="${T('manage_assignment')}">
                     <i class="fa-solid fa-link"></i>
                 </button>
             </div>
@@ -526,21 +570,20 @@ function openAssignModal(userId) {
             return `<span class="grh-assign-role-badge"${colStyle}>${capitalize(r.name)}</span>`;
         }).join('');
     } else {
-        rolesHtml = '<span style="color:#94a3b8; font-size:12px; font-style:italic;">No role</span>';
+        rolesHtml = `<span style="color:#94a3b8; font-size:12px; font-style:italic;">${T('no_role')}</span>`;
     }
 
     // Build role selection checkboxes
     let roleSelectHtml = '';
     if (user.roles && user.roles.length > 0) {
         const allAssigned = user.roles.every(r => r.manager_id === selectedManagerId);
-        const noneAssigned = user.roles.every(r => r.manager_id !== selectedManagerId);
 
         roleSelectHtml = `
             <div class="grh-modal-section-title">
                 <i class="fa-solid fa-list-check"></i>
-                Sélectionner les rôles à affecter
+                ${T('select_roles_to_assign')}
                 <button class="grh-modal-select-all" id="modal-toggle-all">
-                    ${allAssigned ? 'Deselect all' : 'Select all'}
+                    ${allAssigned ? T('deselect_all') : T('select_all')}
                 </button>
             </div>
             <div class="grh-modal-role-select" id="modal-role-select">
@@ -551,7 +594,7 @@ function openAssignModal(userId) {
                             <input type="checkbox" value="${r.id}" ${isRoleAssigned ? 'checked' : ''}>
                             <span class="role-label">${capitalize(r.name)}</span>
                             <span class="role-status ${isRoleAssigned ? 'assigned' : 'not-assigned'}">
-                                ${isRoleAssigned ? 'Assigned' : 'Not assigned'}
+                                ${isRoleAssigned ? T('assigned') : T('not_assigned')}
                             </span>
                         </label>
                     `;
@@ -575,8 +618,8 @@ function openAssignModal(userId) {
                     <i class="fa-solid fa-link"></i>
                 </div>
                 <div class="grh-assign-action-text">
-                    <strong>Assign selected roles</strong>
-                    <span>Assign this collaborator to ${selectedManagerName} for the checked roles</span>
+                    <strong>${T('assign_selected')}</strong>
+                    <span>${T('assign_selected_desc', { manager: selectedManagerName })}</span>
                 </div>
             </button>
             <button class="grh-assign-action-btn danger" id="modal-unassign-btn">
@@ -584,8 +627,8 @@ function openAssignModal(userId) {
                     <i class="fa-solid fa-link-slash"></i>
                 </div>
                 <div class="grh-assign-action-text">
-                    <strong>Remove selected roles</strong>
-                    <span>Remove assignment for the checked roles</span>
+                    <strong>${T('unassign_selected')}</strong>
+                    <span>${T('unassign_selected_desc', { manager: selectedManagerName })}</span>
                 </div>
             </button>
         </div>
@@ -610,7 +653,7 @@ function openAssignModal(userId) {
                 cb.checked = !allChecked;
                 cb.closest('.grh-modal-role-item').classList.toggle('selected', !allChecked);
             });
-            toggleAllBtn.textContent = allChecked ? 'Select all' : 'Deselect all';
+            toggleAllBtn.textContent = allChecked ? T('select_all') : T('deselect_all');
             updateModalButtons(userId);
         });
     }
@@ -619,7 +662,7 @@ function openAssignModal(userId) {
     body.querySelector('#modal-assign-btn').addEventListener('click', () => {
         const selectedRoleIds = getSelectedModalRoleIds();
         if (selectedRoleIds.length === 0) {
-            showToast('Select at least one role', 'error');
+            showToast(T('select_one_role'), 'error');
             return;
         }
         assignToManager(userId, selectedManagerId, selectedRoleIds);
@@ -629,7 +672,7 @@ function openAssignModal(userId) {
     body.querySelector('#modal-unassign-btn').addEventListener('click', () => {
         const selectedRoleIds = getSelectedModalRoleIds();
         if (selectedRoleIds.length === 0) {
-            showToast('Select at least one role', 'error');
+            showToast(T('select_one_role'), 'error');
             return;
         }
         unassignFromManager(userId, selectedRoleIds);
@@ -705,14 +748,13 @@ async function assignToManager(userId, managerId, roleIds) {
             }
             closeAssignModal();
             renderManagerCollabList();
-            const count = roleIds ? roleIds.length : 'tous les';
-            showToast(`${count} role(s) assigned to ${selectedManagerName}`);
+            showToast(T('roles_assigned_to', { count: roleIds ? roleIds.length : allRoles.length, manager: selectedManagerName }));
         } else {
-            showToast(data.message || 'Error', 'error');
+            showToast(data.message || T('error'), 'error');
         }
     } catch (err) {
         console.error('Assignment error:', err);
-        showToast('Assignment error', 'error');
+        showToast(T('assignment_error'), 'error');
     }
 }
 
@@ -747,13 +789,13 @@ async function unassignFromManager(userId, roleIds) {
             }
             closeAssignModal();
             renderManagerCollabList();
-            showToast('Assignment removed');
+            showToast(T('assignment_removed'));
         } else {
-            showToast(data.message || 'Error', 'error');
+            showToast(data.message || T('error'), 'error');
         }
     } catch (err) {
         console.error('Unassignment error:', err);
-        showToast('Unassignment error', 'error');
+        showToast(T('assignment_error'), 'error');
     }
 }
 

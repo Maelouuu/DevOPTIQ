@@ -76,7 +76,7 @@
   <table class="global-summary-table" id="global-users-table">
     <thead>
       <tr>
-        <th>User</th>
+        <th>{{ t('common.user') }}</th>
         {% for role in roles %}
           <th data-role="{{ role.name }}">{{ role.name }}</th>
         {% endfor %}
@@ -92,7 +92,7 @@
               {% if note %}
                 <span class="eval-indicator {{ note }}" title="{{ note }}"></span>
               {% else %}
-                <span class="eval-indicator empty" title="No evaluation"></span>
+                <span class="eval-indicator empty" title="{{ t('rh.no_evaluation') }}"></span>
               {% endif %}
             </td>
           {% endfor %}

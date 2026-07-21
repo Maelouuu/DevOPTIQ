@@ -1,14 +1,15 @@
 from flask import Blueprint, render_template, request, redirect, url_for, session, flash
+from sqlalchemy.orm.attributes import flag_modified
 from Code.models.models import User, Role, UserRole  # Ajout de UserRole
 from Code.extensions import db
-from werkzeug.security import generate_password_hash, check_password_hash
+from Code.security import hash_password, verify_password, needs_rehash
 
 auth_bp = Blueprint('auth', __name__)
 
 @auth_bp.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
-        email = request.form.get('email')
+        email = (request.form.get('email') or '').strip()
         password = request.form.get('password')
 
         # Vérifier si l'utilisateur existe dans la base de données
@@ -18,9 +19,19 @@ def login():
             return redirect(url_for('auth.login'))
 
         # Vérifier si le mot de passe correspond
-        if not check_password_hash(user.password, password):
+        if not verify_password(user.password, password):
             flash('Mot de passe incorrect.', 'error')
             return redirect(url_for('auth.login'))
+
+        # Migration transparente : re-hache les formats historiques (scrypt…)
+        # vers le standard PBKDF2 au fil des connexions réussies.
+        if needs_rehash(user.password):
+            try:
+                user.password = hash_password(password)
+                flag_modified(user, 'password')
+                db.session.commit()
+            except Exception:
+                db.session.rollback()  # le login reste valide même si la migration échoue
 
         session['user_email'] = email
         session['user_id'] = user.id  # IMPORTANT pour le filtrage des entités

@@ -51,7 +51,7 @@
           <span class="grh-param-label">{{ label }}</span>
           <span class="grh-param-value">{{ settings[key] if key in settings else "—" }}</span>
           <div class="grh-param-actions">
-            <button class="btn btn-icon-only edit-param-btn" title="Modifier">
+            <button class="btn btn-icon-only edit-param-btn" title="{{ t('btn.edit') }}">
               <i class="fa-solid fa-pen"></i>
             </button>
           </div>
@@ -87,10 +87,10 @@
             </div>
             <span class="grh-role-name">{{ role.name }}</span>
             <div class="grh-role-actions">
-              <button class="btn btn-icon-only edit-role-btn" title="Modifier">
+              <button class="btn btn-icon-only edit-role-btn" title="{{ t('btn.edit') }}">
                 <i class="fa-solid fa-pen"></i>
               </button>
-              <button class="btn btn-icon-only danger delete-role-btn" title="Supprimer">
+              <button class="btn btn-icon-only danger delete-role-btn" title="{{ t('btn.delete') }}">
                 <i class="fa-solid fa-trash"></i>
               </button>
             </div>
@@ -174,13 +174,12 @@
     <div class="grh-card">
       <div class="grh-card-header">
         <i class="fa-solid fa-file-lines"></i>
-        Fichier de référence DCP
+        {{ t('rh.dcp_title') }}
       </div>
       <div class="grh-card-body">
         <p style="font-size:0.88rem; color:#64748b; margin-bottom:16px; line-height:1.55;">
-          Ce fichier Excel est utilisé pour générer automatiquement des propositions de savoir-faire,
-          aptitudes et HSC à partir des fiches de poste.<br>
-          <span style="color:#94a3b8; font-size:0.82rem;">Format attendu : colonnes <code>JobText</code>, <code>GrpName</code>, <code>CompName</code></span>
+          {{ t('rh.dcp_desc') }}<br>
+          <span style="color:#94a3b8; font-size:0.82rem;">{{ t('rh.dcp_format') }} <code>JobText</code>, <code>GrpName</code>, <code>CompName</code></span>
         </p>
         <div id="rh-dcp-status" style="display:flex; align-items:center; gap:10px; padding:10px 14px;
             background:#f8fafc; border-radius:9px; border:1px solid #e2e8f0; margin-bottom:16px;">
@@ -190,21 +189,21 @@
         </div>
         <button class="btn btn-sm btn-outline" onclick="openRefFileModal()"
             style="display:flex; align-items:center; gap:7px; font-weight:600;">
-          <i class="fa-solid fa-folder-open"></i> Gérer le fichier DCP
+          <i class="fa-solid fa-folder-open"></i> {{ t('rh.dcp_manage') }}
         </button>
 
         <!-- Mode propositions -->
         <div style="margin-top:20px; padding-top:16px; border-top:1px solid #e2e8f0;">
           <p style="font-size:0.83rem; color:#475569; font-weight:600; margin:0 0 10px;">
             <i class="fa-solid fa-sliders" style="color:#764ba2; margin-right:5px;"></i>
-            Mode des propositions IA
+            {{ t('rh.dcp_mode_title') }}
           </p>
           <div style="display:flex; gap:8px; flex-wrap:wrap;">
             <button id="btn-mode-standard" class="dcp-mode-btn" onclick="setDcpMode('standard')">
-              <i class="fa-solid fa-wand-magic-sparkles"></i> Standard
+              <i class="fa-solid fa-wand-magic-sparkles"></i> {{ t('rh.dcp_mode_standard') }}
             </button>
             <button id="btn-mode-file" class="dcp-mode-btn" onclick="setDcpMode('file')">
-              <i class="fa-solid fa-file-lines"></i> Via fichier DCP
+              <i class="fa-solid fa-file-lines"></i> {{ t('rh.dcp_mode_file') }}
             </button>
           </div>
           <p id="dcp-mode-desc" style="font-size:0.78rem; color:#94a3b8; margin:8px 0 0; line-height:1.5;"></p>
@@ -240,6 +239,87 @@
   <!-- ═══════════════════════════════════════════════════════════════
        SCRIPTS
   ═══════════════════════════════════════════════════════════════ -->
+  <script>
+    // Traductions pour les textes construits côté JS (gestion_rh.js)
+    window.GRH_I18N = {
+      save:                 {{ t('btn.save') | tojson }},
+      cancel:               {{ t('btn.cancel') | tojson }},
+      param_updated:        {{ t('rh.param_updated') | tojson }},
+      param_save_error:     {{ t('rh.param_save_error') | tojson }},
+      role_created:         {{ t('rh.role_created') | tojson }},
+      role_updated:         {{ t('rh.role_updated') | tojson }},
+      role_deleted:         {{ t('rh.role_deleted') | tojson }},
+      role_delete_confirm:  {{ t('rh.role_delete_confirm') | tojson }},
+      no_role:              {{ t('rh.no_role') | tojson }},
+      save_roles:           {{ t('rh.save_roles') | tojson }},
+      roles_updated:        {{ t('rh.roles_updated') | tojson }},
+      edit_name:            {{ t('rh.edit_name') | tojson }},
+      edit_name_prompt:     {{ t('rh.edit_name_prompt') | tojson }},
+      name_updated:         {{ t('rh.name_updated') | tojson }},
+      update_error:         {{ t('rh.update_error') | tojson }},
+      network_error:        {{ t('rh.network_error') | tojson }},
+      collapse_list:        {{ t('rh.collapse_list') | tojson }},
+      show_all:             {{ t('rh.toggle_show_all') | tojson }},
+      select_manager_msg:   {{ t('rh.select_manager_msg') | tojson }},
+      filter_all:           {{ t('rh.filter_all') | tojson }},
+      filter_assigned:      {{ t('rh.filter_assigned') | tojson }},
+      no_collab_found:      {{ t('rh.no_collab_found') | tojson }},
+      manage_assignment:    {{ t('rh.manage_assignment') | tojson }},
+      comp_color_title:     {{ t('rh.comp_color_title') | tojson }},
+      select_roles_to_assign:{{ t('rh.select_roles_to_assign') | tojson }},
+      select_all:           {{ t('rh.select_all') | tojson }},
+      deselect_all:         {{ t('rh.deselect_all') | tojson }},
+      assigned:             {{ t('rh.assigned') | tojson }},
+      not_assigned:         {{ t('rh.not_assigned') | tojson }},
+      assign_selected:      {{ t('rh.assign_selected') | tojson }},
+      assign_selected_desc: {{ t('rh.assign_selected_desc') | tojson }},
+      unassign_selected:    {{ t('rh.unassign_selected') | tojson }},
+      unassign_selected_desc:{{ t('rh.unassign_selected_desc') | tojson }},
+      select_one_role:      {{ t('rh.select_one_role') | tojson }},
+      roles_assigned_to:    {{ t('rh.roles_assigned_to') | tojson }},
+      assignment_removed:   {{ t('rh.assignment_removed') | tojson }},
+      assignment_error:     {{ t('rh.assignment_error') | tojson }},
+      error:                {{ t('rh.error') | tojson }}
+    };
+    // Traductions pour propose_from_file.js (section DCP)
+    window.PROPOSE_I18N = Object.assign(window.PROPOSE_I18N || {}, {
+      pf_loaded:            {{ t('pf.loaded') | tojson }},
+      pf_none:              {{ t('pf.none') | tojson }},
+      pf_stats_tech:        {{ t('pf.stats_tech') | tojson }},
+      pf_stats_behav:       {{ t('pf.stats_behav') | tojson }},
+      pf_mode_standard_desc:{{ t('pf.mode_standard_desc') | tojson }},
+      pf_mode_file_desc:    {{ t('pf.mode_file_desc') | tojson }},
+      pf_modal_title:       {{ t('pf.modal_title') | tojson }},
+      pf_drop_here:         {{ t('pf.drop_here') | tojson }},
+      pf_format_hint:       {{ t('pf.format_hint') | tojson }},
+      pf_browse:            {{ t('pf.browse') | tojson }},
+      pf_delete:            {{ t('pf.delete') | tojson }},
+      pf_close:             {{ t('pf.close') | tojson }},
+      pf_save:              {{ t('pf.save') | tojson }},
+      pf_saved:             {{ t('pf.saved') | tojson }},
+      pf_sending:           {{ t('pf.sending') | tojson }},
+      pf_file_saved:        {{ t('pf.file_saved') | tojson }},
+      pf_file_deleted:      {{ t('pf.file_deleted') | tojson }},
+      pf_delete_confirm:    {{ t('pf.delete_confirm') | tojson }},
+      pf_unsupported:       {{ t('pf.unsupported') | tojson }},
+      pf_no_file_warning:   {{ t('pf.no_file_warning') | tojson }},
+      pf_err:               {{ t('pf.err') | tojson }},
+      pf_err_unknown:       {{ t('pf.err_unknown') | tojson }},
+      pf_err_proposals:     {{ t('pf.err_proposals') | tojson }},
+      pf_apt_title:         {{ t('pf.apt_title') | tojson }},
+      pf_hsc_title:         {{ t('pf.hsc_title') | tojson }},
+      pf_cancel:            {{ t('pf.cancel') | tojson }},
+      pf_save_selection:    {{ t('pf.save_selection') | tojson }},
+      pf_none_available:    {{ t('pf.none_available') | tojson }},
+      pf_no_proposal:       {{ t('pf.no_proposal') | tojson }},
+      pf_select_one:        {{ t('pf.select_one') | tojson }},
+      pf_select_one_hsc:    {{ t('pf.select_one_hsc') | tojson }},
+      pf_save_error:        {{ t('pf.save_error') | tojson }},
+      pf_col_skill:         {{ t('pf.col_skill') | tojson }},
+      pf_col_level:         {{ t('pf.col_level') | tojson }},
+      pf_col_justification: {{ t('pf.col_justification') | tojson }}
+    });
+  </script>
   <script src="{{ url_for('static', filename='js/gestion_rh.js') }}" defer></script>
   <script src="{{ url_for('static', filename='js/global_users_summary.js') }}"></script>
   <script src="{{ url_for('static', filename='js/propose_from_file.js') }}"></script>

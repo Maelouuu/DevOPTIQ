@@ -1,9 +1,9 @@
 from flask import Blueprint, render_template, request, redirect, url_for, jsonify
-from werkzeug.security import generate_password_hash
 from sqlalchemy.orm.attributes import flag_modified
 from sqlalchemy import text
 from Code.extensions import db
 from Code.models.models import User, Role, UserRole, Entity, CompetencyEvaluation, TimeAnalysis
+from Code.security import hash_password, verify_password
 
 gestion_compte_bp = Blueprint('gestion_compte', __name__, url_prefix='/comptes')
 
@@ -121,7 +121,7 @@ def create_user():
         last_name=last_name,
         age=age,
         email=email,
-        password=generate_password_hash(password),
+        password=hash_password(password),
         status=status,
         entity_id=active_entity_id
     )
@@ -190,7 +190,7 @@ def update_user(user_id):
 
         new_password = request.form.get('password', '').strip()
         if new_password:
-            new_hash = generate_password_hash(new_password)
+            new_hash = hash_password(new_password)
             user.password = new_hash
             flag_modified(user, 'password')  # force SQLAlchemy à inclure password dans l'UPDATE
             print(f"[UPDATE_USER] Password updated for user {user_id}, hash[:25]={new_hash[:25]}")
@@ -296,14 +296,23 @@ def set_password(user_id):
     if len(new_password) < 6:
         return jsonify({'ok': False, 'error': 'Le mot de passe doit contenir au moins 6 caractères.'}), 400
     try:
-        user.password = generate_password_hash(new_password)
+        user.password = hash_password(new_password)
         flag_modified(user, 'password')
         db.session.add(user)
         db.session.commit()
-        return jsonify({'ok': True})
     except Exception as e:
         db.session.rollback()
         return jsonify({'ok': False, 'error': str(e)}), 500
+
+    # Vérification post-commit : on relit le hash réellement en base pour
+    # garantir que la modification a bien été persistée (jamais de faux succès).
+    stored = db.session.execute(
+        text("SELECT password FROM users WHERE id = :uid"), {"uid": user_id}
+    ).scalar()
+    if not verify_password(stored, new_password):
+        return jsonify({'ok': False,
+                        'error': "La modification n'a pas été persistée en base. Contactez l'administrateur."}), 500
+    return jsonify({'ok': True})
 
 
 @gestion_compte_bp.route('/import_excel', methods=['POST'])
@@ -364,7 +373,7 @@ def import_excel():
                     last_name=user_data.get('nom', '').strip(),
                     email=user_data.get('email', '').strip(),
                     age=int(user_data.get('age')) if user_data.get('age') and str(user_data.get('age')).strip() else None,
-                    password=generate_password_hash(user_data.get('mot_de_passe', '').strip()),
+                    password=hash_password(user_data.get('mot_de_passe', '').strip()),
                     status=user_data.get('statut', 'user').strip(),
                     entity_id=active_entity_id
                 )

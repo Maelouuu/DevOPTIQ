@@ -37,18 +37,23 @@ def get_company_params():
     return defaults
 
 def get_calendar_params():
+    # Paramètres saisis dans Gestion RH (table entreprise_settings, par entité).
+    # NB : l'ancienne requête visait une table `enterprise_settings` inexistante.
     try:
-        row = db.session.execute(text("""
-            SELECT hours_per_day, days_per_week, weeks_per_year
-            FROM enterprise_settings
-            LIMIT 1
-        """)).fetchone()
+        from Code.models.models import EntrepriseSettings, Entity
+        try:
+            eid = Entity.get_active_id()
+        except Exception:
+            eid = None
+        row = EntrepriseSettings.query.filter_by(entity_id=eid).first() if eid else None
+        if row is None:
+            row = EntrepriseSettings.query.order_by(EntrepriseSettings.id).first()
         if row:
-            return {'hours_per_day': float(row[0] or 7),
-                    'days_per_week': int(row[1] or 5),
-                    'weeks_per_year': int(row[2] or 47)}
+            return {'hours_per_day': float(row.work_hours_per_day or 7),
+                    'days_per_week': int(row.work_days_per_week or 5),
+                    'weeks_per_year': int(row.work_weeks_per_year or 47)}
     except Exception:
-        pass
+        db.session.rollback()
     cp = get_company_params()
     return {'hours_per_day': 7.0, 'days_per_week': cp['Js'], 'weeks_per_year': cp['Sa']}
 

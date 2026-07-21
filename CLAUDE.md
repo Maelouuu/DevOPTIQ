@@ -270,6 +270,30 @@ cadence sur la fiche activité ; panneau de qualification des sorties + badges �
 
 ## Notes importantes
 
+- **Mots de passe (politique de hachage)** : centralisée dans `Code/security.py` —
+  `hash_password()` / `verify_password()` / `needs_rehash()`. Standard = **PBKDF2-SHA256
+  600 000 itérations** (recommandation OWASP, ~102 caractères → tient dans toutes les
+  variantes historiques de la colonne). Les anciens hashes (scrypt Werkzeug 3, ~162 car.,
+  cause du bug « le changement de mot de passe ne prend pas » quand la colonne prod était
+  trop étroite) restent acceptés au login et sont **re-hachés silencieusement** vers le
+  standard. `set_password` et le reset par email **relisent le hash en base après commit**
+  (jamais de faux succès). Migration idempotente au démarrage : `users.password` élargi
+  à VARCHAR(255). Ne jamais appeler `generate_password_hash` directement — passer par
+  `Code/security.py`.
+- **Paramètres entreprise** : modèle `EntrepriseSettings` (table `entreprise_settings`,
+  1 ligne par entité) — historiquement en SQL brut sans modèle, donc jamais créée par
+  `create_all()` en prod (section RH vide + faux succès d'enregistrement). Endpoints
+  réécrits en ORM avec liste blanche des clés (`SETTING_KEYS`) et relecture post-commit ;
+  le JS (`gestion_rh.js`) vérifie désormais `res.ok`. `get_calendar_params()` (time_view)
+  lit maintenant cette table (l'ancienne requête visait `enterprise_settings`, inexistante).
+- **Traduction des rôles** : `Code/role_i18n.py` — `Role.name` = saisie d'origine (jamais
+  réécrite), caches `name_fr`/`name_en`. À la création/renommage, le nom saisi remplit le
+  cache de la langue courante ; l'autre langue est traduite à la volée (gpt-4o-mini) au
+  premier affichage de la page Rôles puis persistée. Sans clé OpenAI → nom d'origine
+  (jamais inventé). Appeler `on_role_name_saved(role, name)` sur tout create/rename de rôle.
+- **i18n JS** : page RH → `window.GRH_I18N` (gestion_rh.js) ; fichier DCP →
+  clés `pf_*` dans `window.PROPOSE_I18N` (propose_from_file.js, repli français intégré).
+  Injecter les chaînes avec `| tojson` (jamais `"{{ t(...) }}"` → entités HTML dans le JS).
 - La branche principale de travail est **`staging`** (pas `main`)
 - `main` = production stable — ne merger que les versions validées
 - Les fichiers `.vsdx` dans `Code/` sont des exemples Visio pour les tests

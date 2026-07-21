@@ -4,6 +4,7 @@ from flask import Blueprint, request, jsonify
 from sqlalchemy import text, func
 from Code.extensions import db
 from Code.models.models import Role, Entity
+from Code.role_i18n import on_role_name_saved
 
 roles_bp = Blueprint('roles', __name__, url_prefix='/roles')
 
@@ -37,6 +38,7 @@ def set_garant_role(activity_id):
         # MODIFIÉ: Créer le rôle avec l'entité active
         active_entity_id = Entity.get_active_id()
         existing = Role(name=role_name, entity_id=active_entity_id)
+        on_role_name_saved(existing, role_name)
         db.session.add(existing)
         db.session.commit()
 
@@ -72,7 +74,7 @@ def update_role(role_id):
     new_name = data.get("name", "").strip()
     if not new_name:
         return jsonify({"error": "Name is required"}), 400
-    role.name = new_name
+    on_role_name_saved(role, new_name)
     db.session.commit()
     return jsonify({"message": "Role updated", "role": {"id": role.id, "name": role.name}}), 200
 

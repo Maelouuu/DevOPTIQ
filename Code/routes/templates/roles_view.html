@@ -471,7 +471,7 @@
         <!-- En-tête -->
         <div class="role-header" onclick="toggleRoleContainer('role-body-{{ item.role.id }}', event)">
           <span class="toggle-icon" id="role-icon-{{ item.role.id }}">▶</span>
-          {{ t('roles.role_prefix') }} <span id="role-name-{{ item.role.id }}">{{ item.role.name }}</span>
+          {{ t('roles.role_prefix') }} <span id="role-name-{{ item.role.id }}">{{ item.role.display_name }}</span>
           <div class="actions">
             <i class="fas fa-pencil-alt" title="Renommer le rôle" onclick="editRole(event, {{ item.role.id }})"></i>
             <i class="fas fa-trash" title="Supprimer le rôle" onclick="deleteRole(event, {{ item.role.id }})"></i>

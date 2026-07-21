@@ -323,6 +323,11 @@ class Role(db.Model):
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     entity_id = db.Column(db.Integer, db.ForeignKey('entities.id'), nullable=True, index=True)
     name = db.Column(db.String(100), nullable=False)
+    # Caches de traduction du nom (affichage selon la langue de l'interface).
+    # `name` reste la saisie d'origine ; name_fr/name_en sont remplis à la
+    # création/renommage (langue courante) puis à la volée par IA pour l'autre.
+    name_fr = db.Column(db.String(200), nullable=True)
+    name_en = db.Column(db.String(200), nullable=True)
     onboarding_plan = db.Column(db.Text, nullable=True)
     mission_generale = db.Column(db.Text, nullable=True)
 
@@ -436,7 +441,7 @@ class User(db.Model):
     last_name = db.Column(db.String(100), nullable=False)
     age = db.Column(db.Integer, nullable=True)
     email = db.Column(db.String(200), nullable=False, unique=True)
-    password = db.Column(db.String(200), nullable=False)
+    password = db.Column(db.String(255), nullable=False)
     status = db.Column(db.String(20), nullable=False, default='user')
     manager_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
 
@@ -462,6 +467,23 @@ class UserRole(db.Model):
     user = db.relationship('User', backref='user_roles', foreign_keys=[user_id])
     role = db.relationship('Role', backref='user_roles')
     manager = db.relationship('User', foreign_keys=[manager_id])
+
+
+class EntrepriseSettings(db.Model):
+    """Paramètres de temps de travail de l'entreprise (par entité).
+
+    Historiquement gérée en SQL brut sans modèle : la table n'était donc
+    jamais créée par create_all() en production, et la section « Paramètres
+    de l'entreprise » de la page Gestion RH restait vide.
+    """
+    __tablename__ = 'entreprise_settings'
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    work_hours_per_day = db.Column(db.Float, nullable=True)
+    work_days_per_week = db.Column(db.Float, nullable=True)
+    work_weeks_per_year = db.Column(db.Float, nullable=True)
+    work_days_per_year = db.Column(db.Float, nullable=True)
+    entity_id = db.Column(db.Integer, nullable=True, index=True)
 
 
 class CompetencyEvaluation(db.Model):
