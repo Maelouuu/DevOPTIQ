@@ -68,6 +68,8 @@ PAGE_LABELS = {
     "test_54_hsc_positioning":           "Auto-positionnement HSC",
     "test_55_technical_domains":         "Domaines de Technicité",
     "test_56_result_capabilities":       "Compétence Principale & S/SF/HSC par Résultat",
+    "test_57_mastery":                   "Niveaux de Maîtrise",
+    "test_58_diagnostic":                "Diagnostic d'Écart & Plan d'Accompagnement",
 }
 
 
