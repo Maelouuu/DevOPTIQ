@@ -17,6 +17,65 @@ pytestmark = pytest.mark.propose_ia
 
 
 # ---------------------------------------------------------------------------
+# Fake OpenAI client — simule le SDK openai sans appel réseau réel, pour
+# couvrir les branches "avec clé" (succès + parsing + exception) des routes
+# propose_savoirs / propose_savoir_faires / propose_softskills / propose_aptitudes.
+# ---------------------------------------------------------------------------
+
+class _FakeMessage:
+    def __init__(self, content):
+        self.content = content
+
+
+class _FakeChoice:
+    def __init__(self, content):
+        self.message = _FakeMessage(content)
+
+
+class _FakeCompletion:
+    def __init__(self, content):
+        self.choices = [_FakeChoice(content)]
+
+
+class _FakeChatCompletions:
+    def __init__(self, content=None, raise_exc=None):
+        self._content = content
+        self._raise_exc = raise_exc
+
+    def create(self, **kwargs):
+        if self._raise_exc is not None:
+            raise self._raise_exc
+        return _FakeCompletion(self._content)
+
+
+class _FakeChat:
+    def __init__(self, content=None, raise_exc=None):
+        self.completions = _FakeChatCompletions(content, raise_exc)
+
+
+class _FakeOpenAIClient:
+    def __init__(self, content=None, raise_exc=None):
+        self.chat = _FakeChat(content, raise_exc)
+
+
+def _mock_openai(monkeypatch, module, content=None, raise_exc=None):
+    """Patche openai_client_or_none() importé dans <module> pour renvoyer un faux client."""
+    fake_client = _FakeOpenAIClient(content=content, raise_exc=raise_exc)
+    monkeypatch.setattr(
+        f"Code.routes.{module}.openai_client_or_none",
+        lambda: (fake_client, None),
+    )
+
+
+def _lang_client(app, lang):
+    """Client isolé (non partagé) avec la langue de session forcée."""
+    fresh = app.test_client()
+    with fresh.session_transaction() as sess:
+        sess["lang"] = lang
+    return fresh
+
+
+# ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 
@@ -117,6 +176,66 @@ class TestProposeSavoirs:
         proposals = json.loads(r.data)["proposals"]
         assert len(proposals) >= 3
 
+    def test_with_openai_key_success_returns_parsed_lines(self, app, monkeypatch):
+        """Avec client OpenAI mocké (succès), les puces de la réponse sont nettoyées et renvoyées."""
+        _mock_openai(
+            monkeypatch, "propose_savoirs",
+            content="- Règles de nomenclature catalogue\n- Procédure interne de transfert\n\n- Principes qualité",
+        )
+        with app.test_client() as fresh:
+            r = fresh.post(
+                "/propose_savoirs/propose",
+                data=json.dumps({"name": "Gestion catalogue", "savoir_faires": ["Utiliser l'ERP"]}),
+                content_type="application/json",
+            )
+        assert r.status_code == 200
+        data = json.loads(r.data)
+        assert "source" not in data
+        assert data["proposals"] == [
+            "Règles de nomenclature catalogue",
+            "Procédure interne de transfert",
+            "Principes qualité",
+        ]
+
+    def test_with_openai_key_english_lang_success(self, app, monkeypatch):
+        """Langue de session 'en' → la route répond toujours 200 sans erreur (branche EN exécutée)."""
+        _mock_openai(monkeypatch, "propose_savoirs", content="- Catalogue naming rules\n- Internal transfer procedure")
+        fresh = _lang_client(app, "en")
+        r = fresh.post(
+            "/propose_savoirs/propose",
+            data=json.dumps({"name": "Catalog management"}),
+            content_type="application/json",
+        )
+        assert r.status_code == 200
+        assert json.loads(r.data)["proposals"] == ["Catalogue naming rules", "Internal transfer procedure"]
+
+    def test_with_openai_key_exception_returns_fallback_error_fr(self, app, monkeypatch):
+        """Si le client OpenAI lève une exception → 200 + message d'erreur FR + champ 'error'."""
+        _mock_openai(monkeypatch, "propose_savoirs", raise_exc=RuntimeError("boom"))
+        with app.test_client() as fresh:
+            r = fresh.post(
+                "/propose_savoirs/propose",
+                data=json.dumps({"name": "X"}),
+                content_type="application/json",
+            )
+        assert r.status_code == 200
+        data = json.loads(r.data)
+        assert "error" in data
+        assert data["proposals"] == ["Savoir non déterminé (erreur serveur)"]
+
+    def test_with_openai_key_exception_returns_fallback_error_en(self, app, monkeypatch):
+        """Exception + langue 'en' → message d'erreur en anglais."""
+        _mock_openai(monkeypatch, "propose_savoirs", raise_exc=RuntimeError("boom"))
+        fresh = _lang_client(app, "en")
+        r = fresh.post(
+            "/propose_savoirs/propose",
+            data=json.dumps({"name": "X"}),
+            content_type="application/json",
+        )
+        assert r.status_code == 200
+        data = json.loads(r.data)
+        assert data["proposals"] == ["Knowledge not determined (server error)"]
+
 
 # ===========================================================================
 # 2. POST /propose_savoir_faires/propose
@@ -181,6 +300,66 @@ class TestProposeSavoirFaires:
         )
         proposals = json.loads(r.data)["proposals"]
         assert len(proposals) >= 3
+
+    def test_with_openai_key_success_returns_parsed_lines(self, app, monkeypatch):
+        """Avec client OpenAI mocké (succès), les puces sont nettoyées et renvoyées."""
+        _mock_openai(
+            monkeypatch, "propose_savoir_faires",
+            content="- Utiliser le logiciel ERP\n• Vérifier les écarts d'inventaire\n\n- Documenter les anomalies",
+        )
+        with app.test_client() as fresh:
+            r = fresh.post(
+                "/propose_savoir_faires/propose",
+                data=json.dumps({"name": "Gestion du stock"}),
+                content_type="application/json",
+            )
+        assert r.status_code == 200
+        data = json.loads(r.data)
+        assert "source" not in data
+        assert data["proposals"] == [
+            "Utiliser le logiciel ERP",
+            "Vérifier les écarts d'inventaire",
+            "Documenter les anomalies",
+        ]
+
+    def test_with_openai_key_english_lang_success(self, app, monkeypatch):
+        """Langue de session 'en' → la route répond 200 (branche EN exécutée)."""
+        _mock_openai(monkeypatch, "propose_savoir_faires", content="- Use the ERP software\n- Verify inventory gaps")
+        fresh = _lang_client(app, "en")
+        r = fresh.post(
+            "/propose_savoir_faires/propose",
+            data=json.dumps({"name": "Stock management"}),
+            content_type="application/json",
+        )
+        assert r.status_code == 200
+        assert json.loads(r.data)["proposals"] == ["Use the ERP software", "Verify inventory gaps"]
+
+    def test_with_openai_key_exception_returns_fallback_error_fr(self, app, monkeypatch):
+        """Exception côté client OpenAI → 200 + message d'erreur FR + champ 'error'."""
+        _mock_openai(monkeypatch, "propose_savoir_faires", raise_exc=RuntimeError("boom"))
+        with app.test_client() as fresh:
+            r = fresh.post(
+                "/propose_savoir_faires/propose",
+                data=json.dumps({"name": "X"}),
+                content_type="application/json",
+            )
+        assert r.status_code == 200
+        data = json.loads(r.data)
+        assert "error" in data
+        assert data["proposals"] == ["Savoir-faire non déterminé (erreur serveur)"]
+
+    def test_with_openai_key_exception_returns_fallback_error_en(self, app, monkeypatch):
+        """Exception + langue 'en' → message d'erreur en anglais."""
+        _mock_openai(monkeypatch, "propose_savoir_faires", raise_exc=RuntimeError("boom"))
+        fresh = _lang_client(app, "en")
+        r = fresh.post(
+            "/propose_savoir_faires/propose",
+            data=json.dumps({"name": "X"}),
+            content_type="application/json",
+        )
+        assert r.status_code == 200
+        data = json.loads(r.data)
+        assert data["proposals"] == ["Practical skill not determined (server error)"]
 
 
 # ===========================================================================
@@ -260,6 +439,137 @@ class TestProposeSoftskills:
             content_type="application/json",
         )
         assert r.status_code == 200
+
+    def test_with_openai_key_valid_json_array_success(self, app, monkeypatch):
+        """Réponse IA = tableau JSON valide → proposals structurées avec niveau mappé."""
+        content = json.dumps([
+            {"habilete": "Coopération", "niveau": "3 (Maîtrise)", "justification": "Travail multi-acteurs."},
+            {"habilete": "Synthèse", "niveau": "2", "justification": "Rédaction de comptes rendus."},
+        ])
+        _mock_openai(monkeypatch, "propose_softskills", content=content)
+        with app.test_client() as fresh:
+            r = fresh.post(
+                "/propose_softskills/propose",
+                data=json.dumps({
+                    "name": "Coordination de projet",
+                    "tasks": [{"description": "Animer des réunions"}],
+                    "constraints": [{"description": "Délais serrés"}],
+                    "outgoing": [{"performance": {"name": "Livraison", "description": "À date"}}],
+                }),
+                content_type="application/json",
+            )
+        assert r.status_code == 200
+        proposals = json.loads(r.data)["proposals"]
+        assert len(proposals) == 2
+        assert proposals[0] == {"habilete": "Coopération", "niveau": "3 (Maîtrise)", "justification": "Travail multi-acteurs."}
+        assert proposals[1]["niveau"] == "2 (Acquisition)"
+
+    def test_with_openai_key_single_dict_response_is_wrapped(self, app, monkeypatch):
+        """Réponse IA = objet JSON unique (pas un tableau) → transformé en liste à 1 élément."""
+        content = json.dumps({"habilete": "Planification", "niveau": 4, "justification": "Jalons multiples."})
+        _mock_openai(monkeypatch, "propose_softskills", content=content)
+        with app.test_client() as fresh:
+            r = fresh.post("/propose_softskills/propose", data=json.dumps({}), content_type="application/json")
+        assert r.status_code == 200
+        proposals = json.loads(r.data)["proposals"]
+        assert len(proposals) == 1
+        assert proposals[0]["habilete"] == "Planification"
+        assert proposals[0]["niveau"] == "4 (Excellence)"
+
+    def test_with_openai_key_english_lang_success(self, app, monkeypatch):
+        """Langue 'en' → niveau mappé sur le libellé anglais correspondant."""
+        content = json.dumps([{"habilete": "Cooperation", "niveau": "1", "justification": "Team work."}])
+        _mock_openai(monkeypatch, "propose_softskills", content=content)
+        fresh = _lang_client(app, "en")
+        r = fresh.post("/propose_softskills/propose", data=json.dumps({"name": "Ops"}), content_type="application/json")
+        assert r.status_code == 200
+        proposals = json.loads(r.data)["proposals"]
+        assert proposals[0]["niveau"] == "1 (Basic)"
+
+    def test_with_openai_key_invalid_json_falls_back_to_text_lines(self, app, monkeypatch):
+        """Réponse IA non-JSON → repli sur un parsing ligne par ligne du texte brut."""
+        _mock_openai(monkeypatch, "propose_softskills", content="- Coopération renforcée\n- Synthèse rapide des échanges")
+        with app.test_client() as fresh:
+            r = fresh.post("/propose_softskills/propose", data=json.dumps({}), content_type="application/json")
+        assert r.status_code == 200
+        proposals = json.loads(r.data)["proposals"]
+        assert len(proposals) == 2
+        assert proposals[0]["habilete"] == "Coopération renforcée"
+        assert proposals[0]["niveau"] == "2 (Acquisition)"
+        assert proposals[0]["justification"] == ""
+
+    def test_with_openai_key_empty_json_array_uses_default_entry(self, app, monkeypatch):
+        """Réponse IA = tableau JSON vide et aucune ligne exploitable → entrée par défaut."""
+        _mock_openai(monkeypatch, "propose_softskills", content="[]")
+        with app.test_client() as fresh:
+            r = fresh.post("/propose_softskills/propose", data=json.dumps({}), content_type="application/json")
+        assert r.status_code == 200
+        proposals = json.loads(r.data)["proposals"]
+        assert len(proposals) == 1
+        assert proposals[0]["habilete"] == "Communication professionnelle"
+
+    def test_with_openai_key_unknown_niveau_uses_default_level(self, app, monkeypatch):
+        """Un niveau non reconnu (hors 1-4) retombe sur le niveau par défaut (2)."""
+        content = json.dumps([{"habilete": "Adaptation relationnelle", "niveau": "9 (Inconnu)", "justification": "X"}])
+        _mock_openai(monkeypatch, "propose_softskills", content=content)
+        with app.test_client() as fresh:
+            r = fresh.post("/propose_softskills/propose", data=json.dumps({}), content_type="application/json")
+        proposals = json.loads(r.data)["proposals"]
+        assert proposals[0]["niveau"] == "2 (Acquisition)"
+
+    def test_with_openai_key_exception_returns_fallback_error_fr(self, app, monkeypatch):
+        """Exception côté client OpenAI → 200 + entrée d'erreur FR + champ 'error'."""
+        _mock_openai(monkeypatch, "propose_softskills", raise_exc=RuntimeError("boom"))
+        with app.test_client() as fresh:
+            r = fresh.post("/propose_softskills/propose", data=json.dumps({}), content_type="application/json")
+        assert r.status_code == 200
+        data = json.loads(r.data)
+        assert "error" in data
+        assert data["proposals"][0]["habilete"] == "Habileté non déterminée (erreur serveur)."
+
+    def test_with_openai_key_exception_returns_fallback_error_en(self, app, monkeypatch):
+        """Exception + langue 'en' → entrée d'erreur en anglais."""
+        _mock_openai(monkeypatch, "propose_softskills", raise_exc=RuntimeError("boom"))
+        fresh = _lang_client(app, "en")
+        r = fresh.post("/propose_softskills/propose", data=json.dumps({}), content_type="application/json")
+        assert r.status_code == 200
+        data = json.loads(r.data)
+        assert data["proposals"][0]["habilete"] == "Ability not determined (server error)."
+
+    def test_with_openai_key_unclosed_bracket_falls_back_to_text_lines(self, app, monkeypatch):
+        """Réponse IA avec crochet ouvrant non refermé → clean_json_response renvoie le texte brut tel quel."""
+        _mock_openai(monkeypatch, "propose_softskills", content="[Coopération renforcée sans fermeture")
+        with app.test_client() as fresh:
+            r = fresh.post("/propose_softskills/propose", data=json.dumps({}), content_type="application/json")
+        assert r.status_code == 200
+        proposals = json.loads(r.data)["proposals"]
+        assert len(proposals) >= 1
+
+    def test_with_openai_key_plain_string_tasks_and_constraints(self, app, monkeypatch):
+        """Tâches/contraintes en simples chaînes (pas des dicts) → branche 'else' de make_enumeration."""
+        content = json.dumps([{"habilete": "Coopération", "niveau": "2", "justification": "X"}])
+        _mock_openai(monkeypatch, "propose_softskills", content=content)
+        with app.test_client() as fresh:
+            r = fresh.post(
+                "/propose_softskills/propose",
+                data=json.dumps({
+                    "name": "Support client",
+                    "tasks": ["Répondre aux appels", "Escalader les incidents"],
+                    "constraints": ["Délai de réponse 24h"],
+                }),
+                content_type="application/json",
+            )
+        assert r.status_code == 200
+        assert json.loads(r.data)["proposals"][0]["habilete"] == "Coopération"
+
+    def test_with_openai_key_empty_result_english_uses_default_entry(self, app, monkeypatch):
+        """Tableau JSON vide + langue 'en' + aucune ligne exploitable → entrée par défaut anglaise."""
+        _mock_openai(monkeypatch, "propose_softskills", content="[]")
+        fresh = _lang_client(app, "en")
+        r = fresh.post("/propose_softskills/propose", data=json.dumps({}), content_type="application/json")
+        assert r.status_code == 200
+        proposals = json.loads(r.data)["proposals"]
+        assert proposals[0]["habilete"] == "Professional Communication"
 
 
 # ===========================================================================
@@ -371,6 +681,184 @@ class TestProposeAptitudes:
             content_type="application/json",
         )
         assert r.status_code == 200
+
+    # -- /propose --------------------------------------------------------
+
+    def test_propose_with_openai_key_success_full_payload(self, app, monkeypatch):
+        """Succès avec payload riche (description, outils, contraintes, tâches, performance)."""
+        content = json.dumps({
+            "vision": {"niveau": "1 (Faible)", "risque": "Ecran prolongé", "leviers": ["Zoom logiciel"]},
+            "exposition_risque": {"niveau": "2 (Moderee)", "risque": "Terrain", "leviers": ["EPI"]},
+        })
+        _mock_openai(monkeypatch, "propose_aptitudes", content=content)
+        with app.test_client() as fresh:
+            r = fresh.post(
+                "/propose_aptitudes/propose",
+                data=json.dumps({
+                    "title": "Intervention terrain",
+                    "description": "Inspection sur site",
+                    "tools": ["EPI", "Checklist"],
+                    "constraints": ["Délai 2h"],
+                    "tasks": [{"description": "Vérifier les équipements"}, "Rédiger le rapport"],
+                    "outgoing": [{"performance": {"name": "Conformité", "description": "0 défaut"}}],
+                    "competences_text": "Lecture de plans",
+                    "savoirs_text": "Normes sécurité",
+                    "savoir_faire_text": "Utiliser un détecteur",
+                    "hsc_context": "Vigilance",
+                }),
+                content_type="application/json",
+            )
+        assert r.status_code == 200
+        data = json.loads(r.data)
+        assert "error" not in data
+        assert data["proposals"]["vision"]["niveau"] == "1 (Faible)"
+
+    def test_propose_with_openai_key_empty_payload_uses_defaults(self, app, monkeypatch):
+        """Payload vide en succès → nom/summary par défaut ('Non renseigné'), pas de crash."""
+        _mock_openai(monkeypatch, "propose_aptitudes", content=json.dumps({"vision": {"niveau": "0 (Aucune)"}}))
+        with app.test_client() as fresh:
+            r = fresh.post("/propose_aptitudes/propose", data="{}", content_type="application/json")
+        assert r.status_code == 200
+        assert json.loads(r.data)["proposals"]["vision"]["niveau"] == "0 (Aucune)"
+
+    def test_propose_with_openai_key_english_lang_success(self, app, monkeypatch):
+        """Langue 'en' → branche EN exécutée sans erreur."""
+        _mock_openai(monkeypatch, "propose_aptitudes", content=json.dumps({"vision": {"niveau": "1 (Low)"}}))
+        fresh = _lang_client(app, "en")
+        r = fresh.post(
+            "/propose_aptitudes/propose",
+            data=json.dumps({"name": "Quality control"}),
+            content_type="application/json",
+        )
+        assert r.status_code == 200
+        assert json.loads(r.data)["proposals"]["vision"]["niveau"] == "1 (Low)"
+
+    def test_propose_with_openai_key_invalid_json_returns_error(self, app, monkeypatch):
+        """Réponse IA non-JSON → 200 + proposals={} + champ 'error' (échec de parsing)."""
+        _mock_openai(monkeypatch, "propose_aptitudes", content="Ceci n'est pas du JSON valide {{{")
+        with app.test_client() as fresh:
+            r = fresh.post("/propose_aptitudes/propose", data=json.dumps({"name": "X"}), content_type="application/json")
+        assert r.status_code == 200
+        data = json.loads(r.data)
+        assert data["proposals"] == {}
+        assert "error" in data
+
+    def test_propose_with_openai_key_exception_returns_error(self, app, monkeypatch):
+        """Exception côté client OpenAI → 200 + proposals={} + champ 'error'."""
+        _mock_openai(monkeypatch, "propose_aptitudes", raise_exc=RuntimeError("boom"))
+        with app.test_client() as fresh:
+            r = fresh.post("/propose_aptitudes/propose", data=json.dumps({"name": "X"}), content_type="application/json")
+        assert r.status_code == 200
+        data = json.loads(r.data)
+        assert data["proposals"] == {}
+        assert "error" in data
+
+    def test_propose_with_openai_key_no_brackets_returns_error(self, app, monkeypatch):
+        """Réponse IA sans '[' ni '{' → clean_json_response renvoie le texte tel quel → échec parsing."""
+        _mock_openai(monkeypatch, "propose_aptitudes", content="Reponse totalement libre sans structure JSON")
+        with app.test_client() as fresh:
+            r = fresh.post("/propose_aptitudes/propose", data=json.dumps({"name": "X"}), content_type="application/json")
+        assert r.status_code == 200
+        data = json.loads(r.data)
+        assert data["proposals"] == {}
+        assert "error" in data
+
+    def test_propose_with_openai_key_bare_array_response(self, app, monkeypatch):
+        """Réponse IA = tableau JSON sans accolade (ex: [1, 2, 3]) → extraction par crochets."""
+        _mock_openai(monkeypatch, "propose_aptitudes", content="[1, 2, 3]")
+        with app.test_client() as fresh:
+            r = fresh.post("/propose_aptitudes/propose", data=json.dumps({"name": "X"}), content_type="application/json")
+        assert r.status_code == 200
+        data = json.loads(r.data)
+        assert "error" not in data
+        assert data["proposals"] == [1, 2, 3]
+
+    # -- /feasibility ------------------------------------------------------
+
+    def test_feasibility_with_openai_key_success_full_payload(self, app, monkeypatch):
+        """Succès avec inclusion_scoring_json en dict, assistive_products peuplée, profil complet."""
+        content = json.dumps({
+            "statut": "OK avec adaptations",
+            "mesures_deja_en_place": ["Amplificateur"],
+            "ajouts_recommandes": ["Boucle magnétique"],
+            "a_ajuster": [],
+            "risque_residuel": "Faible",
+            "points_a_instruire": [],
+            "commentaire": "Adapté.",
+        })
+        _mock_openai(monkeypatch, "propose_aptitudes", content=content)
+        with app.test_client() as fresh:
+            r = fresh.post(
+                "/propose_aptitudes/feasibility",
+                data=json.dumps({
+                    "activity_name": "Accueil téléphonique",
+                    "inclusion_scoring_json": {"auditif": {"niveau": "2 (Moderee)"}},
+                    "profil_fonctionnel": {"audition": "déficit léger", "vision": "normale"},
+                    "commentaire_court": "RAS",
+                    "assistive_products": ["Amplificateur de son", "Boucle magnétique"],
+                }),
+                content_type="application/json",
+            )
+        assert r.status_code == 200
+        data = json.loads(r.data)
+        assert "error" not in data
+        assert data["result"]["statut"] == "OK avec adaptations"
+
+    def test_feasibility_with_openai_key_no_assistive_products_default_text(self, app, monkeypatch):
+        """Liste assistive_products vide → texte par défaut 'Aucune aide renseignée' (pas de crash)."""
+        _mock_openai(monkeypatch, "propose_aptitudes", content=json.dumps({"statut": "A instruire"}))
+        with app.test_client() as fresh:
+            r = fresh.post(
+                "/propose_aptitudes/feasibility",
+                data=json.dumps({"activity_name": "Saisie", "assistive_products": []}),
+                content_type="application/json",
+            )
+        assert r.status_code == 200
+        assert json.loads(r.data)["result"]["statut"] == "A instruire"
+
+    def test_feasibility_with_openai_key_non_list_assistive_products(self, app, monkeypatch):
+        """assistive_products non-liste (ex: chaîne) → convertie en texte via str() sans crash."""
+        _mock_openai(monkeypatch, "propose_aptitudes", content=json.dumps({"statut": "OK"}))
+        with app.test_client() as fresh:
+            r = fresh.post(
+                "/propose_aptitudes/feasibility",
+                data=json.dumps({"activity_name": "Saisie", "assistive_products": "Loupe électronique"}),
+                content_type="application/json",
+            )
+        assert r.status_code == 200
+        assert json.loads(r.data)["result"]["statut"] == "OK"
+
+    def test_feasibility_with_openai_key_english_lang_success(self, app, monkeypatch):
+        """Langue 'en' → branche EN exécutée sans erreur."""
+        _mock_openai(monkeypatch, "propose_aptitudes", content=json.dumps({"statut": "OK"}))
+        fresh = _lang_client(app, "en")
+        r = fresh.post(
+            "/propose_aptitudes/feasibility",
+            data=json.dumps({"activity_name": "Data entry"}),
+            content_type="application/json",
+        )
+        assert r.status_code == 200
+        assert json.loads(r.data)["result"]["statut"] == "OK"
+
+    def test_feasibility_with_openai_key_invalid_json_returns_error(self, app, monkeypatch):
+        """Réponse IA non-JSON → 200 + result={} + champ 'error'."""
+        _mock_openai(monkeypatch, "propose_aptitudes", content="pas du JSON {{{")
+        with app.test_client() as fresh:
+            r = fresh.post("/propose_aptitudes/feasibility", data=json.dumps({}), content_type="application/json")
+        assert r.status_code == 200
+        data = json.loads(r.data)
+        assert data["result"] == {}
+        assert "error" in data
+
+    def test_feasibility_with_openai_key_exception_returns_error(self, app, monkeypatch):
+        """Exception côté client OpenAI → 200 + result={} + champ 'error'."""
+        _mock_openai(monkeypatch, "propose_aptitudes", raise_exc=RuntimeError("boom"))
+        with app.test_client() as fresh:
+            r = fresh.post("/propose_aptitudes/feasibility", data=json.dumps({}), content_type="application/json")
+        assert r.status_code == 200
+        data = json.loads(r.data)
+        assert data["result"] == {}
+        assert "error" in data
 
 
 # ===========================================================================

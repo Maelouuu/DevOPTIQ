@@ -70,6 +70,7 @@ PAGE_LABELS = {
     "test_56_result_capabilities":       "Compétence Principale & S/SF/HSC par Résultat",
     "test_57_mastery":                   "Niveaux de Maîtrise",
     "test_58_diagnostic":                "Diagnostic d'Écart & Plan d'Accompagnement",
+    "test_59_i18n_settings_password":    "Sécurité Mot de Passe, Paramètres Entreprise & Traductions RH",
 }
 
 
