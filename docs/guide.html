@@ -477,8 +477,8 @@
           <div class="hero-card-icon" style="background:rgba(13,148,136,0.2)">
             <i class="fa-solid fa-diagram-project" style="color:#2dd4bf"></i>
           </div>
-          <h4>Cartographie OptiqCarto</h4>
-          <p>Visualisez et éditez l'organisation de vos processus métier sous forme de carte SVG interactive.</p>
+          <h4>Cartographie Cartocolor©</h4>
+          <p>Une représentation structurée de l'organisation du travail, sous forme de carte SVG interactive.</p>
         </div>
         <div class="hero-card">
           <div class="hero-card-icon" style="background:rgba(124,58,237,0.2)">
@@ -542,9 +542,9 @@
         <div>Votre compte est créé par un administrateur. Si vous n'avez pas encore accès, contactez votre référent OPTIQ.</div>
       </div>
       <ul class="steps">
-        <li><span class="snum">1</span>Accédez à l'URL de votre instance DevOPTIQ</li>
-        <li><span class="snum">2</span>Entrez vos identifiants (e-mail + mot de passe)</li>
-        <li><span class="snum">3</span>Vous arrivez sur la page Cartographie — votre tableau de bord principal</li>
+        <li><span class="snum">1</span><div>Accédez à l'URL de votre instance DevOPTIQ</div></li>
+        <li><span class="snum">2</span><div>Entrez vos identifiants (e-mail + mot de passe)</div></li>
+        <li><span class="snum">3</span><div>Vous arrivez sur la page Cartographie — votre tableau de bord principal</div></li>
       </ul>
     </div>
     <div class="feat-visual">
@@ -598,7 +598,9 @@
   <div class="divider">La barre de navigation</div>
   <p style="font-size:.9rem;color:#374151;margin-bottom:20px;line-height:1.7">
     Une fois connecté, une barre de navigation flottante apparaît en haut de chaque page.
-    Elle donne accès aux 9 modules principaux de l'application.
+    Elle donne accès aux 9 modules principaux de l'application. La <strong>Cartographie</strong>
+    apparaît en premier : c'est elle qui pilote toute l'application — la carte alimente
+    les activités, les rôles et les compétences.
   </p>
 
   <!-- Nav mockup — reconstruction HTML exacte depuis cardnav.css -->
@@ -618,6 +620,11 @@
               <line x1="22" y1="22" x2="28" y2="28" stroke="#4ade80" stroke-width="2" stroke-linecap="round"/>
             </svg>
           </div>
+        </a>
+        <!-- Cartographie — en premier : elle pilote toute l'application -->
+        <a style="display:flex;align-items:center;gap:6px;padding:8px 10px 8px 8px;border-radius:20px;color:#ffffff;font-size:13px;font-weight:600;text-decoration:none;flex-shrink:0;min-height:52px;white-space:nowrap;">
+          <span style="width:28px;height:28px;border-radius:9px;background:#fff;display:flex;align-items:center;justify-content:center;color:#0d9488;box-shadow:0 1px 4px rgba(0,0,0,.18);font-size:12px;flex-shrink:0;"><i class="fa-solid fa-diagram-project"></i></span>
+          <span>Cartographie</span>
         </a>
         <!-- Activités -->
         <a style="display:flex;align-items:center;gap:6px;padding:8px 10px 8px 8px;border-radius:20px;color:#ffffff;font-size:13px;font-weight:600;text-decoration:none;flex-shrink:0;min-height:52px;white-space:nowrap;">
@@ -654,11 +661,6 @@
           <span style="width:28px;height:28px;border-radius:9px;background:#fff;display:flex;align-items:center;justify-content:center;color:#ea580c;box-shadow:0 1px 4px rgba(0,0,0,.18);font-size:12px;flex-shrink:0;"><i class="fa-solid fa-screwdriver-wrench"></i></span>
           <span>Outils</span>
         </a>
-        <!-- Cartographie -->
-        <a style="display:flex;align-items:center;gap:6px;padding:8px 10px 8px 8px;border-radius:20px;color:#ffffff;font-size:13px;font-weight:600;text-decoration:none;flex-shrink:0;min-height:52px;white-space:nowrap;">
-          <span style="width:28px;height:28px;border-radius:9px;background:#fff;display:flex;align-items:center;justify-content:center;color:#0d9488;box-shadow:0 1px 4px rgba(0,0,0,.18);font-size:12px;flex-shrink:0;"><i class="fa-solid fa-diagram-project"></i></span>
-          <span>Cartographie</span>
-        </a>
         <!-- Paramètres -->
         <a style="display:flex;align-items:center;gap:6px;padding:8px 10px 8px 8px;border-radius:20px;color:#ffffff;font-size:13px;font-weight:600;text-decoration:none;flex-shrink:0;min-height:52px;white-space:nowrap;">
           <span style="width:28px;height:28px;border-radius:9px;background:#fff;display:flex;align-items:center;justify-content:center;color:#6366f1;box-shadow:0 1px 4px rgba(0,0,0,.18);font-size:12px;flex-shrink:0;"><i class="fa-solid fa-gear"></i></span>
@@ -673,12 +675,22 @@
     </div>
   </div>
 
+  <div class="tip" style="margin-top:-14px;margin-bottom:28px">
+    <i class="fa-solid fa-computer-mouse"></i>
+    <div>Si la barre de menu dépasse la largeur de votre écran, elle <strong>défile horizontalement</strong> : maintenez le clic gauche enfoncé et faites glisser la souris (ou glissez au doigt sur mobile).</div>
+  </div>
+
   <!-- Nav module cards -->
   <div class="cg cg3">
     <div class="card">
+      <div class="card-icon" style="background:rgba(13,148,136,0.1)"><i class="fa-solid fa-diagram-project" style="color:#0d9488"></i></div>
+      <h4>Cartographie</h4>
+      <p>L'éditeur Cartocolor© et la vue d'ensemble de vos entités. C'est la cartographie qui pilote toute l'application.</p>
+    </div>
+    <div class="card">
       <div class="card-icon" style="background:rgba(124,58,237,0.1)"><i class="fa-solid fa-list-check" style="color:#7c3aed"></i></div>
       <h4>Activités</h4>
-      <p>Liste et fiches détaillées de toutes les activités métier, avec tâches, outils et compétences associées.</p>
+      <p>Liste et fiches détaillées de toutes les activités, avec tâches, outils et compétences associées.</p>
     </div>
     <div class="card">
       <div class="card-icon" style="background:rgba(5,150,105,0.1)"><i class="fa-solid fa-users-rectangle" style="color:#059669"></i></div>
@@ -696,11 +708,6 @@
       <p>Planification des temps par projet, activité et rôle. Détection des surcharges.</p>
     </div>
     <div class="card">
-      <div class="card-icon" style="background:rgba(13,148,136,0.1)"><i class="fa-solid fa-diagram-project" style="color:#0d9488"></i></div>
-      <h4>Cartographie</h4>
-      <p>Éditeur OptiqCarto et vue d'ensemble de toutes vos entités et cartographies.</p>
-    </div>
-    <div class="card">
       <div class="card-icon" style="background:rgba(22,163,74,0.1)"><i class="fa-solid fa-building-user" style="color:#16a34a"></i></div>
       <h4>RH / Comptes</h4>
       <p>Gestion des collaborateurs, rôles, managers, paramètres d'entité et comptes utilisateurs.</p>
@@ -713,15 +720,20 @@
     <div class="feat-text">
       <h3><i class="fa-solid fa-building" style="color:var(--pink);margin-right:6px"></i>Choisir son entité active</h3>
       <p>
-        DevOPTIQ est une plateforme <strong>multi-entités</strong> : vous pouvez gérer plusieurs
-        organisations depuis un seul compte (un département, une filiale, une équipe…).
-        L'<strong>entité active</strong> est celle sur laquelle vous travaillez à l'instant T.
-        Elle agit comme un filtre global : tout ce que vous voyez (activités, rôles, compétences)
-        appartient à cette entité.
+        Dans DevOPTIQ, une <strong>entité</strong> représente une organisation que vous
+        cartographiez : un service, un département, une filiale… Chaque entité possède
+        ses propres données — sa cartographie, ses activités, ses rôles, ses compétences
+        et ses collaborateurs.
+      </p>
+      <p>
+        Vous travaillez toujours sur <strong>une seule entité à la fois</strong> :
+        c'est l'<strong>entité active</strong>. Toutes les pages de l'application
+        (Activités, Rôles, Compétences…) affichent uniquement les données de cette entité.
+        Son nom est rappelé en haut de la page Cartographie.
       </p>
       <div class="key">
         <i class="fa-solid fa-circle-exclamation"></i>
-        <div>Vous changez d'entité depuis la page <strong>Cartographie</strong> en cliquant sur l'entité souhaitée dans le panneau de gauche. Ce choix persiste pendant toute votre session.</div>
+        <div>Pour changer d'entité : sur la page <strong>Cartographie</strong>, cliquez sur le bouton <strong>« Gestion des entités »</strong>, sélectionnez l'entité souhaitée puis cliquez sur <strong>Activer</strong>. Ce choix persiste pendant toute votre session.</div>
       </div>
     </div>
     <div class="feat-visual">
@@ -764,8 +776,8 @@
           <!-- Note -->
           <rect x="152" y="184" width="224" height="56" rx="8" fill="#fffbeb" stroke="#fde68a" stroke-width="1"/>
           <text x="264" y="201" text-anchor="middle" font-family="system-ui" font-size="8.5" font-weight="700" fill="#92400e">Comment changer d'entité ?</text>
-          <text x="264" y="216" text-anchor="middle" font-family="system-ui" font-size="8" fill="#6b7280">Page Cartographie → panneau</text>
-          <text x="264" y="229" text-anchor="middle" font-family="system-ui" font-size="8" fill="#6b7280">gauche → cliquer sur une entité</text>
+          <text x="264" y="216" text-anchor="middle" font-family="system-ui" font-size="8" fill="#6b7280">Page Cartographie → bouton</text>
+          <text x="264" y="229" text-anchor="middle" font-family="system-ui" font-size="8" fill="#6b7280">« Gestion des entités » → Activer</text>
           <text x="264" y="242" text-anchor="middle" font-family="system-ui" font-size="8" fill="#6b7280">Le choix persiste en session</text>
           <!-- Caption -->
           <text x="200" y="275" text-anchor="middle" font-family="system-ui" font-size="7.5" fill="#d1d5db">Schéma conceptuel — Gestion des entités</text>
@@ -782,35 +794,59 @@
       <i class="fa-solid fa-diagram-project"></i>
     </div>
     <div>
-      <h2 class="sec-title">2. La Cartographie OptiqCarto</h2>
-      <p class="sec-desc">Le cœur de DevOPTIQ. Dessinez, organisez et versionnez vos processus métier en quelques clics.</p>
+      <h2 class="sec-title">2. La Cartographie Cartocolor©</h2>
+      <p class="sec-desc">Le cœur de DevOPTIQ. Une représentation structurée de l'organisation du travail, que vous dessinez et versionnez en quelques clics.</p>
     </div>
   </div>
 
   <div class="concept">
     <h3><i class="fa-solid fa-lightbulb"></i> Qu'est-ce qu'une cartographie ?</h3>
     <p>
-      Une cartographie est une <strong>carte visuelle de vos processus métier</strong>, organisée
-      en bandes horizontales (les rôles ou niveaux hiérarchiques) avec des boîtes
-      représentant chaque activité et des flèches indiquant les flux entre elles.
+      Une cartographie (en anglais <em>map</em>) est une <strong>représentation structurée
+      de l'organisation du travail</strong> de votre entité — pas un simple schéma de processus.
       C'est à partir de cette carte que DevOPTIQ structure toute votre base de données :
       activités, tâches, compétences et ressources humaines.
     </p>
   </div>
 
-  <!-- L'éditeur OptiqCarto -->
+  <!-- Taxonomie OPTIQ -->
+  <div class="divider">La taxonomie OPTIQ — les 4 éléments de la carte</div>
+  <div class="cg cg4">
+    <div class="card" style="border-top:3px solid #0d9488">
+      <div class="card-icon" style="background:rgba(13,148,136,0.1)"><i class="fa-solid fa-grip-lines" style="color:#0d9488"></i></div>
+      <h4>Bande</h4>
+      <p>Bande horizontale représentant une <strong>compétence clé mobilisée</strong>. Ce n'est ni un rôle, ni un niveau hiérarchique, ni un service.</p>
+    </div>
+    <div class="card" style="border-top:3px solid #7c3aed">
+      <div class="card-icon" style="background:rgba(124,58,237,0.1)"><i class="fa-solid fa-square-check" style="color:#7c3aed"></i></div>
+      <h4>Activité</h4>
+      <p>Unité représentant une <strong>étape de la production d'un flux de travail</strong> — et non un processus.</p>
+    </div>
+    <div class="card" style="border-top:3px solid #ec4899">
+      <div class="card-icon" style="background:rgba(236,72,153,0.1)"><i class="fa-solid fa-arrow-right-long" style="color:#ec4899"></i></div>
+      <h4>Flèche</h4>
+      <p>Connexion matérialisant un <strong>flux de données</strong> entre deux activités.</p>
+    </div>
+    <div class="card" style="border-top:3px solid #d97706">
+      <div class="card-icon" style="background:rgba(217,119,6,0.1)"><i class="fa-solid fa-user-gear" style="color:#d97706"></i></div>
+      <h4>Rôle</h4>
+      <p>Construit à partir des <strong>responsabilités exercées sur les activités</strong> : Garant, Réalisateur ou Approbateur — indépendant des bandes.</p>
+    </div>
+  </div>
+
+  <!-- L'éditeur Cartocolor© -->
   <div class="feat-block" style="margin-bottom:48px">
     <div class="feat-text">
-      <h3><i class="fa-solid fa-pen-ruler" style="color:#0d9488;margin-right:6px"></i>L'éditeur OptiqCarto</h3>
+      <h3><i class="fa-solid fa-pen-ruler" style="color:#0d9488;margin-right:6px"></i>L'éditeur Cartocolor©</h3>
       <p>
-        L'éditeur est un outil SVG interactif entièrement maison. Il vous permet de créer
+        L'éditeur est un outil SVG interactif propriétaire. Il vous permet de créer
         et modifier votre cartographie directement dans le navigateur, sans logiciel externe.
       </p>
       <ul class="steps">
-        <li><span class="snum">1</span><strong>Bandes (rôles)</strong> — Créez des bandes horizontales pour organiser vos activités par niveau ou par service</li>
-        <li><span class="snum">2</span><strong>Activités</strong> — Ajoutez des boîtes dans les bandes pour représenter chaque processus</li>
-        <li><span class="snum">3</span><strong>Connexions</strong> — Reliez les activités par des flèches pour matérialiser les flux</li>
-        <li><span class="snum">4</span><strong>Synchronisation</strong> — Cliquez sur "Sauvegarder" pour mettre à jour la base de données automatiquement</li>
+        <li><span class="snum">1</span><div><strong>Bandes</strong> — Créez des bandes horizontales : chacune représente une <strong>compétence clé mobilisée</strong> par les activités qu'elle contient</div></li>
+        <li><span class="snum">2</span><div><strong>Activités</strong> — Ajoutez des boîtes dans les bandes : chacune représente une <strong>étape de la production d'un flux de travail</strong></div></li>
+        <li><span class="snum">3</span><div><strong>Connexions</strong> — Reliez les activités par des flèches pour matérialiser les <strong>flux de données</strong></div></li>
+        <li><span class="snum">4</span><div><strong>Synchronisation</strong> — Cliquez sur <strong>Fichier → Sauvegarder</strong> pour mettre à jour la base de données automatiquement</div></li>
       </ul>
       <div class="tip">
         <i class="fa-solid fa-lightbulb"></i>
@@ -830,54 +866,54 @@
           </defs>
           <rect width="620" height="400" fill="#f1f5f9" rx="12"/>
           <!-- Title -->
-          <text x="310" y="26" text-anchor="middle" font-family="system-ui" font-size="12" font-weight="800" fill="#0f172a">Structure de l'éditeur OptiqCarto</text>
+          <text x="310" y="26" text-anchor="middle" font-family="system-ui" font-size="12" font-weight="800" fill="#0f172a">Structure de l'éditeur Cartocolor©</text>
           <!-- Toolbar zone -->
           <rect x="12" y="40" width="596" height="44" rx="8" fill="rgba(13,148,136,.1)" stroke="#0d9488" stroke-width="1.5"/>
           <text x="310" y="57" text-anchor="middle" font-family="system-ui" font-size="9.5" font-weight="700" fill="#0d9488">BARRE D'OUTILS</text>
-          <text x="310" y="72" text-anchor="middle" font-family="system-ui" font-size="8.5" fill="#6b7280">Sauvegarder · Import .vsdx · Calques · + Activité · + Bande · Sélection lasso · Annuler / Rétablir</text>
+          <text x="310" y="72" text-anchor="middle" font-family="system-ui" font-size="8.5" fill="#6b7280">Sélection · Connecter · Grouper · Formes · Architecte · Annuler / Rétablir · Fichier : Sauvegarder, Exports, Import .vsdx</text>
           <!-- Left panel -->
           <rect x="12" y="97" width="130" height="256" rx="8" fill="rgba(30,41,59,.07)" stroke="#334155" stroke-width="1.5"/>
           <text x="77" y="118" text-anchor="middle" font-family="system-ui" font-size="9" font-weight="700" fill="#334155">PANNEAU GAUCHE</text>
-          <!-- Entities sub-box -->
-          <rect x="20" y="126" width="114" height="76" rx="6" fill="rgba(236,72,153,.07)" stroke="rgba(236,72,153,.3)" stroke-width="1"/>
-          <text x="77" y="143" text-anchor="middle" font-family="system-ui" font-size="9" font-weight="700" fill="#be185d">ENTITÉS</text>
-          <text x="77" y="158" text-anchor="middle" font-family="system-ui" font-size="8" fill="#6b7280">Sélectionner</text>
-          <text x="77" y="170" text-anchor="middle" font-family="system-ui" font-size="8" fill="#6b7280">l'entité active</text>
-          <text x="77" y="192" text-anchor="middle" font-family="system-ui" font-size="8" fill="#ec4899" font-weight="600">→ Filtre global</text>
-          <!-- Calques sub-box -->
+          <!-- Légende sub-box -->
+          <rect x="20" y="126" width="114" height="76" rx="6" fill="rgba(34,197,94,.07)" stroke="rgba(34,197,94,.3)" stroke-width="1"/>
+          <text x="77" y="143" text-anchor="middle" font-family="system-ui" font-size="9" font-weight="700" fill="#15803d">LÉGENDE</text>
+          <text x="77" y="158" text-anchor="middle" font-family="system-ui" font-size="8" fill="#6b7280">Formes : activité,</text>
+          <text x="77" y="170" text-anchor="middle" font-family="system-ui" font-size="8" fill="#6b7280">début/fin, décision…</text>
+          <text x="77" y="192" text-anchor="middle" font-family="system-ui" font-size="8" fill="#16a34a" font-weight="600">→ Repères visuels</text>
+          <!-- Éléments sub-box -->
           <rect x="20" y="212" width="114" height="76" rx="6" fill="rgba(99,102,241,.07)" stroke="rgba(99,102,241,.3)" stroke-width="1"/>
-          <text x="77" y="229" text-anchor="middle" font-family="system-ui" font-size="9" font-weight="700" fill="#4f46e5">CALQUES</text>
-          <text x="77" y="244" text-anchor="middle" font-family="system-ui" font-size="8" fill="#6b7280">Versions de la</text>
-          <text x="77" y="256" text-anchor="middle" font-family="system-ui" font-size="8" fill="#6b7280">cartographie</text>
-          <text x="77" y="278" text-anchor="middle" font-family="system-ui" font-size="8" fill="#6366f1" font-weight="600">→ Versionnage</text>
+          <text x="77" y="229" text-anchor="middle" font-family="system-ui" font-size="9" font-weight="700" fill="#4f46e5">ÉLÉMENTS</text>
+          <text x="77" y="244" text-anchor="middle" font-family="system-ui" font-size="8" fill="#6b7280">Liste des bandes,</text>
+          <text x="77" y="256" text-anchor="middle" font-family="system-ui" font-size="8" fill="#6b7280">activités et groupes</text>
+          <text x="77" y="278" text-anchor="middle" font-family="system-ui" font-size="8" fill="#6366f1" font-weight="600">→ Navigation</text>
           <!-- Canvas area -->
           <rect x="155" y="97" width="453" height="256" rx="8" fill="white" stroke="#e5e7eb" stroke-width="1.5"/>
           <text x="381" y="117" text-anchor="middle" font-family="system-ui" font-size="10" font-weight="800" fill="#374151">CANVAS INTERACTIF</text>
           <!-- Band 1 -->
           <rect x="163" y="124" width="437" height="56" rx="6" fill="#fdf2f8" stroke="#fbcfe8" stroke-width="1"/>
-          <text x="175" y="146" font-family="system-ui" font-size="8" fill="#9ca3af" font-weight="600">BANDE (rôle / niveau)</text>
+          <text x="175" y="146" font-family="system-ui" font-size="8" fill="#9ca3af" font-weight="600">BANDE (compétence clé)</text>
           <rect x="196" y="133" width="76" height="34" rx="5" fill="white" stroke="#ec4899" stroke-width="1.5"/>
           <text x="234" y="154" text-anchor="middle" font-family="system-ui" font-size="9" fill="#111827" font-weight="600">Activité A</text>
           <rect x="288" y="133" width="76" height="34" rx="5" fill="white" stroke="#7c3aed" stroke-width="1.5"/>
           <text x="326" y="154" text-anchor="middle" font-family="system-ui" font-size="9" fill="#111827" font-weight="600">Activité B</text>
           <line x1="272" y1="150" x2="288" y2="150" stroke="#6b7280" stroke-width="1.5" marker-end="url(#a1)"/>
-          <rect x="380" y="130" width="82" height="40" rx="5" fill="#fff7ed" stroke="#ea580c" stroke-width="1.5" stroke-dasharray="4,2"/>
-          <text x="421" y="148" text-anchor="middle" font-family="system-ui" font-size="8.5" font-weight="700" fill="#ea580c">PILE</text>
-          <text x="421" y="161" text-anchor="middle" font-family="system-ui" font-size="7.5" fill="#6b7280">Groupe pliable</text>
+          <rect x="380" y="130" width="82" height="40" rx="5" fill="rgba(179,160,255,.1)" stroke="#7c3aed" stroke-width="1.5" stroke-dasharray="8,5"/>
+          <text x="421" y="148" text-anchor="middle" font-family="system-ui" font-size="8.5" font-weight="700" fill="#7c3aed">GROUPE</text>
+          <text x="421" y="161" text-anchor="middle" font-family="system-ui" font-size="7.5" fill="#6b7280">Conteneur nommé</text>
           <rect x="478" y="133" width="76" height="34" rx="5" fill="white" stroke="#6b7280" stroke-width="1.5" stroke-dasharray="5,3"/>
           <text x="516" y="148" text-anchor="middle" font-family="system-ui" font-size="8.5" fill="#9ca3af">Activ. ext.</text>
           <text x="516" y="161" text-anchor="middle" font-family="system-ui" font-size="7.5" fill="#9ca3af">(extco)</text>
           <!-- Band 2 -->
           <rect x="163" y="190" width="437" height="56" rx="6" fill="#f0fdf4" stroke="#bbf7d0" stroke-width="1"/>
-          <text x="175" y="212" font-family="system-ui" font-size="8" fill="#9ca3af" font-weight="600">BANDE (rôle / niveau)</text>
+          <text x="175" y="212" font-family="system-ui" font-size="8" fill="#9ca3af" font-weight="600">BANDE (compétence clé)</text>
           <rect x="196" y="199" width="76" height="34" rx="5" fill="white" stroke="#0d9488" stroke-width="1.5"/>
           <text x="234" y="220" text-anchor="middle" font-family="system-ui" font-size="9" fill="#111827" font-weight="600">Activité C</text>
           <path d="M234,150 L234,199" fill="none" stroke="#ec4899" stroke-width="1.5" stroke-dasharray="4,3" marker-end="url(#a2)"/>
-          <!-- Lasso selection box -->
+          <!-- Multi-selection box -->
           <rect x="288" y="192" width="165" height="50" rx="4" fill="none" stroke="#2563eb" stroke-width="1.5" stroke-dasharray="6,3"/>
-          <text x="370" y="212" text-anchor="middle" font-family="system-ui" font-size="8.5" font-weight="700" fill="#2563eb">Sélection lasso</text>
-          <text x="370" y="226" text-anchor="middle" font-family="system-ui" font-size="8" fill="#6b7280">(multi-sélection)</text>
-          <text x="370" y="237" text-anchor="middle" font-family="system-ui" font-size="8" fill="#6b7280">Dessiner pour sélectionner</text>
+          <text x="370" y="212" text-anchor="middle" font-family="system-ui" font-size="8.5" font-weight="700" fill="#2563eb">Multi-sélection</text>
+          <text x="370" y="226" text-anchor="middle" font-family="system-ui" font-size="8" fill="#6b7280">Maj + clic sur les formes</text>
+          <text x="370" y="237" text-anchor="middle" font-family="system-ui" font-size="8" fill="#6b7280">puis « Grouper » (G)</text>
           <!-- Legend row -->
           <rect x="163" y="258" width="437" height="82" rx="6" fill="#f8fafc"/>
           <text x="381" y="275" text-anchor="middle" font-family="system-ui" font-size="9" font-weight="700" fill="#374151">LÉGENDE</text>
@@ -885,14 +921,14 @@
           <text x="199" y="297" text-anchor="middle" font-family="system-ui" font-size="7.5" fill="#374151">Activité propre</text>
           <rect x="246" y="284" width="46" height="18" rx="4" fill="white" stroke="#6b7280" stroke-width="1.5" stroke-dasharray="4,2"/>
           <text x="269" y="297" text-anchor="middle" font-family="system-ui" font-size="7.5" fill="#6b7280">Activité extco</text>
-          <rect x="316" y="281" width="50" height="22" rx="4" fill="#fff7ed" stroke="#ea580c" stroke-width="1.5" stroke-dasharray="4,2"/>
-          <text x="341" y="296" text-anchor="middle" font-family="system-ui" font-size="7.5" fill="#ea580c">Pile (groupe)</text>
+          <rect x="316" y="281" width="50" height="22" rx="4" fill="rgba(179,160,255,.1)" stroke="#7c3aed" stroke-width="1.5" stroke-dasharray="8,5"/>
+          <text x="341" y="296" text-anchor="middle" font-family="system-ui" font-size="7.5" fill="#7c3aed">Groupe</text>
           <rect x="386" y="284" width="46" height="18" rx="4" fill="none" stroke="#2563eb" stroke-width="1.5" stroke-dasharray="6,3"/>
-          <text x="409" y="297" text-anchor="middle" font-family="system-ui" font-size="7.5" fill="#2563eb">Lasso select.</text>
+          <text x="409" y="297" text-anchor="middle" font-family="system-ui" font-size="7.5" fill="#2563eb">Multi-sélect.</text>
           <line x1="446" y1="293" x2="466" y2="293" stroke="#ec4899" stroke-width="1.5" stroke-dasharray="4,3" marker-end="url(#a2)"/>
-          <text x="520" y="297" text-anchor="middle" font-family="system-ui" font-size="7.5" fill="#ec4899">Flux inter-bande</text>
+          <text x="520" y="297" text-anchor="middle" font-family="system-ui" font-size="7.5" fill="#ec4899">Flux de données</text>
           <!-- Caption -->
-          <text x="310" y="385" text-anchor="middle" font-family="system-ui" font-size="8" fill="#9ca3af">Schéma conceptuel — Éditeur OptiqCarto</text>
+          <text x="310" y="385" text-anchor="middle" font-family="system-ui" font-size="8" fill="#9ca3af">Schéma conceptuel — Éditeur Cartocolor©</text>
         </svg>
       </div>
     </div>
@@ -902,22 +938,22 @@
   <div class="divider">Multi-entités — une base par organisation</div>
   <div class="feat-block rev">
     <div class="feat-text">
-      <h3><i class="fa-solid fa-building-columns" style="color:#0d9488;margin-right:6px"></i>Une base de données par entité, mais interconnectée</h3>
+      <h3><i class="fa-solid fa-building-columns" style="color:#0d9488;margin-right:6px"></i>Chaque entité a ses propres données</h3>
       <p>
-        Chaque entité possède sa <strong>propre base de données indépendante</strong> :
-        ses activités, ses rôles, ses tâches, ses collaborateurs et ses compétences
-        lui appartiennent exclusivement.
+        Concrètement : les activités, rôles, tâches, compétences et collaborateurs de la
+        Direction Financière n'apparaissent jamais dans les pages de la DSI, et
+        inversement. <strong>Rien n'est partagé automatiquement</strong> entre entités.
       </p>
       <p>
-        Cependant, les entités peuvent <strong>se référencer mutuellement</strong>
-        dans leurs cartographies via les <em>activités externes</em> (extco).
-        Par exemple, la Direction Financière peut afficher dans sa carto
-        l'activité "Système d'information" gérée par la DSI, sans dupliquer
-        les données — c'est un lien, pas une copie.
+        Une exception, bien pratique : une cartographie peut <strong>afficher</strong> une
+        activité qui appartient à une autre entité. C'est une <strong>activité externe
+        (extco)</strong> : elle apparaît en pointillés, et ce n'est qu'un renvoi vers
+        l'activité d'origine — pas une copie. Exemple : la Direction Financière affiche
+        dans sa cartographie l'activité « Système d'information », qui reste gérée par la DSI.
       </p>
       <div class="tip">
         <i class="fa-solid fa-lightbulb"></i>
-        <div>Les <strong>activités extco</strong> apparaissent en pointillés dans l'éditeur pour les distinguer des activités propres à l'entité.</div>
+        <div>Le bouton <strong>« Connexions »</strong> de la page Cartographie met ces liens en évidence et ouvre un aperçu <em>en lecture seule</em> de la cartographie de l'autre entité — sans changer votre entité active.</div>
       </div>
     </div>
     <div class="feat-visual">
@@ -970,82 +1006,9 @@
           <!-- Legend -->
           <rect x="140" y="248" width="180" height="38" rx="8" fill="white" stroke="#e5e7eb" stroke-width="1"/>
           <line x1="153" y1="263" x2="183" y2="263" stroke="#0d9488" stroke-width="1.5" stroke-dasharray="4,2"/>
-          <text x="188" y="267" font-family="system-ui" font-size="8" fill="#6b7280">Lien cross-carto (extco)</text>
+          <text x="188" y="267" font-family="system-ui" font-size="8" fill="#6b7280">Lien entre cartographies (extco)</text>
           <rect x="153" y="271" width="28" height="10" rx="2" fill="white" stroke="#6b7280" stroke-dasharray="3,2" stroke-width="1"/>
-          <text x="188" y="280" font-family="system-ui" font-size="8" fill="#6b7280">Activité externe dans la carto</text>
-        </svg>
-      </div>
-    </div>
-  </div>
-
-  <!-- Calques - versionnage -->
-  <div class="divider">Calques — versionnez votre organisation</div>
-  <div class="feat-block">
-    <div class="feat-text">
-      <h3><i class="fa-solid fa-layer-group" style="color:#0d9488;margin-right:6px"></i>Les calques : plusieurs versions de votre carto</h3>
-      <p>
-        Un <strong>calque</strong> est une version alternative ou un instantané de votre
-        cartographie principale. Pensez-y comme aux branches dans Git : votre
-        organisation actuelle est la branche principale, et les calques sont des
-        branches de test ou de planification.
-      </p>
-      <div class="cg cg2" style="margin-top:16px">
-        <div class="card">
-          <div class="card-icon" style="background:#f0fdf4"><i class="fa-solid fa-code-branch" style="color:#16a34a"></i></div>
-          <h4>Scénarios futurs</h4>
-          <p>Testez une réorganisation avant de la valider officiellement.</p>
-        </div>
-        <div class="card">
-          <div class="card-icon" style="background:#eff6ff"><i class="fa-solid fa-clock-rotate-left" style="color:#2563eb"></i></div>
-          <h4>Historique</h4>
-          <p>Gardez une trace de votre organisation passée pour comparaison.</p>
-        </div>
-      </div>
-      <ul class="steps" style="margin-top:16px">
-        <li><span class="snum">1</span>Dans l'éditeur, cliquez sur <strong>Calques</strong> dans la barre d'outils</li>
-        <li><span class="snum">2</span>Cliquez sur <strong>+ Nouveau calque</strong> et donnez-lui un nom</li>
-        <li><span class="snum">3</span>Modifiez librement ce calque — la carto principale reste intacte</li>
-        <li><span class="snum">4</span>Basculez entre calques depuis le panneau latéral gauche</li>
-      </ul>
-    </div>
-    <div class="feat-visual">
-      <div class="mockup">
-        <svg viewBox="0 0 420 320" xmlns="http://www.w3.org/2000/svg">
-          <rect width="420" height="320" fill="#f8fafc" rx="12"/>
-          <!-- Timeline vertical -->
-          <line x1="60" y1="40" x2="60" y2="290" stroke="#e5e7eb" stroke-width="2"/>
-          <!-- Node 1: Main -->
-          <circle cx="60" cy="60" r="12" fill="#ec4899"/>
-          <text x="60" y="64" text-anchor="middle" font-family="system-ui" font-size="9" fill="white" font-weight="700">v1</text>
-          <rect x="84" y="46" width="310" height="28" rx="7" fill="white" stroke="#ec4899" stroke-width="1.5"/>
-          <text x="100" y="60" font-family="system-ui" font-size="10" font-weight="700" fill="#be185d">v1 — Actuel</text>
-          <text x="100" y="71" font-family="system-ui" font-size="8.5" fill="#9ca3af">Votre organisation en production</text>
-          <circle cx="380" cy="60" r="4" fill="#ec4899"/>
-          <text x="380" y="64" text-anchor="middle" font-family="system-ui" font-size="7" fill="white">●</text>
-          <!-- Branch line v2 -->
-          <path d="M60,100 C60,115, 100,130, 100,145" fill="none" stroke="#2563eb" stroke-width="1.5" stroke-dasharray="4,3"/>
-          <!-- Node 2 -->
-          <circle cx="100" cy="145" r="12" fill="#2563eb"/>
-          <text x="100" y="149" text-anchor="middle" font-family="system-ui" font-size="9" fill="white" font-weight="700">v2</text>
-          <rect x="124" y="131" width="272" height="28" rx="7" fill="white" stroke="#2563eb" stroke-width="1.5"/>
-          <text x="140" y="145" font-family="system-ui" font-size="10" font-weight="700" fill="#1e3a8a">v2 — Réorganisation 2025</text>
-          <text x="140" y="156" font-family="system-ui" font-size="8.5" fill="#9ca3af">Scénario de transformation Q3</text>
-          <!-- Branch line vA -->
-          <path d="M60,100 C60,195, 60,205, 60,215" fill="none" stroke="#059669" stroke-width="1.5" stroke-dasharray="4,3"/>
-          <!-- Node 3 -->
-          <circle cx="60" cy="215" r="12" fill="#059669"/>
-          <text x="60" y="219" text-anchor="middle" font-family="system-ui" font-size="7" fill="white" font-weight="700">v3</text>
-          <rect x="84" y="201" width="310" height="28" rx="7" fill="white" stroke="#059669" stroke-width="1.5"/>
-          <text x="100" y="215" font-family="system-ui" font-size="10" font-weight="700" fill="#065f46">v3 — Externalisation Paie</text>
-          <text x="100" y="226" font-family="system-ui" font-size="8.5" fill="#9ca3af">Simulation si Paie externalisée</text>
-          <!-- Add new calque button -->
-          <line x1="60" y1="227" x2="60" y2="265" stroke="#e5e7eb" stroke-width="1.5" stroke-dasharray="3,3"/>
-          <circle cx="60" cy="271" r="12" fill="none" stroke="#e5e7eb" stroke-width="2"/>
-          <text x="60" y="275" text-anchor="middle" font-family="system-ui" font-size="14" fill="#9ca3af">+</text>
-          <text x="84" y="275" font-family="system-ui" font-size="9.5" fill="#9ca3af">+ Nouveau calque</text>
-          <!-- Label: switch -->
-          <rect x="84" y="295" width="220" height="18" rx="5" fill="#fdf2f8"/>
-          <text x="94" y="307" font-family="system-ui" font-size="8.5" fill="#be185d">← Cliquez sur un calque pour le rendre actif</text>
+          <text x="188" y="280" font-family="system-ui" font-size="8" fill="#6b7280">Activité externe (en pointillés)</text>
         </svg>
       </div>
     </div>
@@ -1056,39 +1019,52 @@
     <i class="fa-solid fa-file-import"></i>
     <div>
       <strong>Import Visio (.vsdx) :</strong> Si votre organisation dispose déjà de diagrammes
-      Microsoft Visio, vous pouvez les importer directement dans OptiqCarto. Les formes,
+      Microsoft Visio, vous pouvez les importer directement dans Cartocolor©. Les formes,
       bandes et connexions sont automatiquement reconnues et converties. Glissez-déposez
       votre fichier .vsdx ou utilisez le bouton "Importer…" dans la barre d'outils de l'éditeur.
     </div>
   </div>
 
   <!-- Sélection & Groupement -->
-  <div class="divider">Sélection &amp; Groupement avancés</div>
+  <div class="divider">Multi-sélection &amp; Groupes</div>
+  <p style="font-size:.9rem;color:#374151;margin-bottom:20px;line-height:1.7">
+    Deux fonctions à ne pas confondre : la <strong>multi-sélection</strong> est un geste
+    d'<strong>édition ponctuel</strong> (elle disparaît après usage), tandis que le
+    <strong>groupe</strong> est une <strong>structure durable</strong> qui fait partie de la
+    cartographie.
+  </p>
   <div class="cg cg2" style="margin-bottom:24px">
-    <div class="card">
-      <div class="card-icon" style="background:rgba(37,99,235,0.1)"><i class="fa-solid fa-vector-square" style="color:#2563eb"></i></div>
-      <h4>Sélection lasso</h4>
+    <div class="card" style="border-top:3px solid #2563eb">
+      <div class="card-icon" style="background:rgba(37,99,235,0.1)"><i class="fa-solid fa-arrow-pointer" style="color:#2563eb"></i></div>
+      <h4>Multi-sélection — pour éditer</h4>
       <p>
-        Activez l'outil lasso dans la barre d'outils, puis dessinez un rectangle de sélection
-        sur le canvas en cliquant-glissant. Toutes les activités couvertes sont sélectionnées
-        simultanément et peuvent être déplacées ou groupées ensemble.
-        Le lasso <strong>se désactive automatiquement</strong> après chaque sélection.
+        Avec l'outil <strong>Sélection</strong>, maintenez <strong>Maj</strong> et cliquez
+        sur plusieurs formes pour les sélectionner ensemble. Vous pouvez alors les déplacer
+        d'un seul geste ou les transformer en groupe.
+      </p>
+      <p style="margin-top:8px"><strong>Quand l'utiliser ?</strong> Pour un geste d'édition
+        ponctuel : réorganiser un ensemble d'activités ou préparer la création d'un groupe.
+        Rien n'est enregistré dans la carte — la sélection disparaît dès l'action effectuée.
       </p>
     </div>
-    <div class="card">
-      <div class="card-icon" style="background:rgba(234,88,12,0.1)"><i class="fa-solid fa-layer-group" style="color:#ea580c"></i></div>
-      <h4>Piles d'activités</h4>
+    <div class="card" style="border-top:3px solid #7c3aed">
+      <div class="card-icon" style="background:rgba(124,58,237,0.1)"><i class="fa-solid fa-object-group" style="color:#7c3aed"></i></div>
+      <h4>Groupes — pour organiser</h4>
       <p>
-        Regroupez plusieurs activités connexes dans une <strong>pile</strong> (conteneur pliable).
-        Une pile peut être <em>réduite</em> pour afficher une vue compacte, ou <em>déployée</em>
-        pour montrer toutes les activités individuelles. Les connexions (ports) restent
-        <strong>persistantes</strong> lors du pliage/dépliage — les flux sont préservés.
+        Sélectionnez au moins 2 formes puis cliquez sur <strong>Grouper</strong> (ou touche
+        <strong>G</strong>) : un conteneur nommé, dessiné en pointillés, entoure les activités.
+        Double-cliquez sur son badge pour le renommer ; un clic sur le groupe le met en
+        évidence et grise le reste de la carte.
+      </p>
+      <p style="margin-top:8px"><strong>Quand l'utiliser ?</strong> Pour structurer durablement
+        la carte : le groupe fait partie de la cartographie et reste en place tant que vous ne
+        le dissociez pas. Idéal pour matérialiser des ensembles d'activités liées.
       </p>
     </div>
   </div>
   <div class="tip">
     <i class="fa-solid fa-lightbulb"></i>
-    <div>Les piles sont particulièrement utiles pour les cartographies denses : elles permettent de simplifier la vue d'ensemble sans perdre d'information sur les flux entre groupes d'activités.</div>
+    <div>Les groupes sont particulièrement utiles pour les cartographies denses : ils matérialisent les ensembles cohérents d'activités sans masquer les flux de données entre eux.</div>
   </div>
 </section>
 
@@ -1113,9 +1089,9 @@
         de l'activité : tâches, connexions, compétences, temps…
       </p>
       <ul class="steps">
-        <li><span class="snum">1</span>Cliquez sur le nom d'une activité pour <strong>l'ouvrir</strong></li>
-        <li><span class="snum">2</span>Naviguez entre les <strong>onglets</strong> pour accéder aux différents aspects</li>
-        <li><span class="snum">3</span>Utilisez la <strong>barre de recherche</strong> pour filtrer par nom</li>
+        <li><span class="snum">1</span><div>Cliquez sur le nom d'une activité pour <strong>l'ouvrir</strong></div></li>
+        <li><span class="snum">2</span><div>Naviguez entre les <strong>onglets</strong> pour accéder aux différents aspects</div></li>
+        <li><span class="snum">3</span><div>Utilisez la <strong>barre de recherche</strong> pour filtrer par nom</div></li>
       </ul>
     </div>
     <div class="feat-visual">
@@ -1183,7 +1159,7 @@
     <div class="card">
       <div class="card-icon" style="background:rgba(13,148,136,0.1)"><i class="fa-solid fa-arrows-left-right" style="color:#0d9488"></i></div>
       <h4>Connexions</h4>
-      <p>Flux entrants et sortants depuis/vers d'autres activités. Chaque connexion peut recevoir des indicateurs de performance (KPIs).</p>
+      <p>Flux de données entrants et sortants depuis/vers d'autres activités. Chaque connexion peut recevoir des indicateurs de performance (KPIs).</p>
     </div>
     <div class="card">
       <div class="card-icon" style="background:rgba(37,99,235,0.1)"><i class="fa-solid fa-layer-group" style="color:#2563eb"></i></div>
@@ -1405,10 +1381,10 @@
         </div>
       </div>
       <ul class="steps">
-        <li><span class="snum">1</span>Ouvrez une fiche activité et cliquez sur l'onglet <strong>Tâches</strong></li>
-        <li><span class="snum">2</span>Cliquez sur l'icône chatbot <i class="fa-solid fa-robot" style="color:#16a34a"></i></li>
-        <li><span class="snum">3</span>Décrivez l'activité en langage naturel</li>
-        <li><span class="snum">4</span>Validez les tâches proposées pour les injecter automatiquement</li>
+        <li><span class="snum">1</span><div>Ouvrez une fiche activité et cliquez sur l'onglet <strong>Tâches</strong></div></li>
+        <li><span class="snum">2</span><div>Cliquez sur l'icône chatbot <i class="fa-solid fa-robot" style="color:#16a34a"></i></div></li>
+        <li><span class="snum">3</span><div>Décrivez l'activité en langage naturel</div></li>
+        <li><span class="snum">4</span><div>Validez les tâches proposées pour les injecter automatiquement</div></li>
       </ul>
     </div>
     <div class="feat-visual">
@@ -1576,7 +1552,7 @@
     <div class="card">
       <div class="card-icon" style="background:rgba(22,163,74,0.1)"><i class="fa-solid fa-users-rectangle" style="color:#16a34a"></i></div>
       <h4>Gestion des rôles</h4>
-      <p>Créez les rôles de votre entité (ex: "Comptable Senior", "Chef de Projet"). Chaque rôle a une mission générale et peut être assigné à plusieurs collaborateurs. Les rôles structurent les bandes dans votre cartographie.</p>
+      <p>Créez les rôles de votre entité (ex: "Comptable Senior", "Chef de Projet"). Chaque rôle a une mission générale et peut être assigné à plusieurs collaborateurs. Un rôle se construit à partir des <strong>responsabilités exercées sur les activités</strong> — il est indépendant des bandes de la cartographie.</p>
     </div>
     <div class="card">
       <div class="card-icon" style="background:rgba(22,163,74,0.1)"><i class="fa-solid fa-user-plus" style="color:#16a34a"></i></div>
@@ -1590,8 +1566,8 @@
     </div>
     <div class="card">
       <div class="card-icon" style="background:rgba(22,163,74,0.1)"><i class="fa-solid fa-map-marked-alt" style="color:#16a34a"></i></div>
-      <h4>Garant d'activité</h4>
-      <p>Chaque activité peut désigner un rôle comme <strong>Garant</strong> : c'est le responsable métier de l'activité. Le Garant apparaît dans les fiches et les exports, et peut évaluer les compétences associées.</p>
+      <h4>Responsabilités sur les activités</h4>
+      <p>Un rôle porte généralement plusieurs activités, où il peut être <strong>Garant</strong> (il garantit le résultat de l'activité), <strong>Réalisateur</strong> (il réalise lorsque la réalisation est déléguée) ou <strong>Approbateur</strong> (il valide lorsqu'une validation est nécessaire). Le Garant apparaît dans les fiches et les exports, et peut évaluer les compétences associées.</p>
     </div>
   </div>
 
@@ -1656,15 +1632,15 @@
       <h3><i class="fa-solid fa-arrows-left-right" style="color:#e11d48;margin-right:6px"></i>KPIs sur les connexions</h3>
       <p>
         Dans DevOPTIQ, les indicateurs de performance (KPIs) sont attachés aux
-        <strong>connexions entre activités</strong> (les flèches de votre carto).
-        C'est une approche orientée flux : on mesure la qualité de la transmission
-        entre deux processus plutôt que l'activité seule.
+        <strong>connexions entre activités</strong> (les flèches de votre cartographie).
+        C'est une approche orientée flux : on mesure la qualité du <strong>flux de
+        données</strong> transmis d'une activité à l'autre, plutôt que l'activité seule.
       </p>
       <ul class="steps">
-        <li><span class="snum">1</span>Ouvrez une fiche activité et allez dans l'onglet <strong>Connexions</strong></li>
-        <li><span class="snum">2</span>Cliquez sur le bouton <strong>"+ KPI"</strong> à côté d'une connexion</li>
-        <li><span class="snum">3</span>Saisissez le nom, l'unité et la valeur cible de l'indicateur</li>
-        <li><span class="snum">4</span>Mettez à jour la valeur réelle régulièrement pour suivre la progression</li>
+        <li><span class="snum">1</span><div>Ouvrez une fiche activité et allez dans l'onglet <strong>Connexions</strong></div></li>
+        <li><span class="snum">2</span><div>Cliquez sur le bouton <strong>"+ KPI"</strong> à côté d'une connexion</div></li>
+        <li><span class="snum">3</span><div>Saisissez le nom, l'unité et la valeur cible de l'indicateur</div></li>
+        <li><span class="snum">4</span><div>Mettez à jour la valeur réelle régulièrement pour suivre la progression</div></li>
       </ul>
     </div>
     <div class="feat-visual">
@@ -1977,19 +1953,31 @@
     </div>
     <div class="card">
       <h4 style="color:var(--pink-dk);margin-bottom:6px"><i class="fa-solid fa-diagram-project" style="margin-right:6px"></i>Cartographie</h4>
-      <p>Représentation visuelle SVG des processus métier d'une entité, organisée en bandes (rôles) et activités reliées par des connexions.</p>
+      <p>Représentation structurée de l'organisation du travail d'une entité (en anglais : <em>map</em>). Des bandes — les compétences clés mobilisées — contiennent les activités, reliées par des flux de données.</p>
     </div>
     <div class="card">
-      <h4 style="color:var(--pink-dk);margin-bottom:6px"><i class="fa-solid fa-layer-group" style="margin-right:6px"></i>Calque</h4>
-      <p>Version alternative d'une cartographie. Permet de tester des scénarios ou de conserver un historique sans toucher à la carto principale.</p>
+      <h4 style="color:var(--pink-dk);margin-bottom:6px"><i class="fa-solid fa-grip-lines" style="margin-right:6px"></i>Bande</h4>
+      <p>Bande horizontale de la cartographie représentant une <strong>compétence clé mobilisée</strong> par les activités qu'elle contient. Ce n'est ni un rôle, ni un niveau hiérarchique, ni un service.</p>
+    </div>
+    <div class="card">
+      <h4 style="color:var(--pink-dk);margin-bottom:6px"><i class="fa-solid fa-square-check" style="margin-right:6px"></i>Activité</h4>
+      <p>Unité représentant une <strong>étape de la production d'un flux de travail</strong> (et non un processus). Chaque activité est décrite par ses tâches, outils, compétences et connexions.</p>
+    </div>
+    <div class="card">
+      <h4 style="color:var(--pink-dk);margin-bottom:6px"><i class="fa-solid fa-user-gear" style="margin-right:6px"></i>Rôle</h4>
+      <p>Ensemble de responsabilités exercées sur des activités. Un rôle porte généralement plusieurs activités, où il peut être Garant, Réalisateur ou Approbateur.</p>
+    </div>
+    <div class="card">
+      <h4 style="color:var(--pink-dk);margin-bottom:6px"><i class="fa-solid fa-object-group" style="margin-right:6px"></i>Groupe</h4>
+      <p>Conteneur nommé regroupant plusieurs activités dans la cartographie. Dessiné en pointillés, il matérialise un ensemble cohérent sans masquer les flux de données.</p>
     </div>
     <div class="card">
       <h4 style="color:var(--pink-dk);margin-bottom:6px"><i class="fa-solid fa-arrow-right-arrow-left" style="margin-right:6px"></i>Extco (activité externe)</h4>
-      <p>Activité d'une autre entité référencée dans votre cartographie. Apparaît en pointillés et crée un lien cross-carto sans dupliquer les données.</p>
+      <p>Activité d'une autre entité référencée dans votre cartographie. Apparaît en pointillés et crée un lien entre cartographies sans dupliquer les données.</p>
     </div>
     <div class="card">
-      <h4 style="color:var(--pink-dk);margin-bottom:6px"><i class="fa-solid fa-star" style="margin-right:6px"></i>Garant</h4>
-      <p>Rôle désigné comme responsable d'une activité. Le Garant peut évaluer les compétences et apparaît dans les exports.</p>
+      <h4 style="color:var(--pink-dk);margin-bottom:6px"><i class="fa-solid fa-star" style="margin-right:6px"></i>Garant / Réalisateur / Approbateur</h4>
+      <p>Les trois responsabilités qu'un rôle peut exercer : le <strong>Garant</strong> garantit le résultat de l'activité, le <strong>Réalisateur</strong> réalise lorsque la réalisation est déléguée, l'<strong>Approbateur</strong> valide lorsqu'une validation est nécessaire.</p>
     </div>
     <div class="card">
       <h4 style="color:var(--pink-dk);margin-bottom:6px"><i class="fa-solid fa-brain" style="margin-right:6px"></i>HSC</h4>
@@ -2001,15 +1989,15 @@
     </div>
     <div class="card">
       <h4 style="color:var(--pink-dk);margin-bottom:6px"><i class="fa-solid fa-arrows-left-right" style="margin-right:6px"></i>Connexion / Lien</h4>
-      <p>Flux directionnel entre deux activités dans la cartographie. Les connexions peuvent recevoir des KPIs pour mesurer la qualité du flux.</p>
+      <p>Flux de données directionnel entre deux activités de la cartographie. Les connexions peuvent recevoir des KPIs pour mesurer la qualité du flux.</p>
     </div>
     <div class="card">
       <h4 style="color:var(--pink-dk);margin-bottom:6px"><i class="fa-solid fa-chart-line" style="margin-right:6px"></i>KPI</h4>
       <p>Indicateur clé de performance attaché à une connexion entre activités. Permet de mesurer et suivre la qualité d'un flux de données ou de travail.</p>
     </div>
     <div class="card">
-      <h4 style="color:var(--pink-dk);margin-bottom:6px"><i class="fa-solid fa-clock" style="margin-right:6px"></i>Calque de temps</h4>
-      <p>Unité de planification des temps : activité à fréquence journalière, hebdomadaire, mensuelle ou annuelle, avec durée unitaire et rôle associé.</p>
+      <h4 style="color:var(--pink-dk);margin-bottom:6px"><i class="fa-solid fa-clock" style="margin-right:6px"></i>Planification des temps</h4>
+      <p>Chaque activité peut être planifiée avec une fréquence (journalière, hebdomadaire, mensuelle ou annuelle), une durée unitaire et un rôle associé. Ces données alimentent le calcul de charge.</p>
     </div>
   </div>
 

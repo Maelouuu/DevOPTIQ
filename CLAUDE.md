@@ -98,7 +98,9 @@ DevOPTIQ/
 
 ## OptiqCarto — outil de cartographie
 
-Outil SVG maison intégré dans l'app. **Deux repos liés :**
+Outil SVG propriétaire intégré dans l'app. Nom utilisateur/commercial : **Cartocolor©**
+(le nom technique interne reste OptiqCarto : fichiers, routes, colonne `optiqcarto_data`).
+**Deux repos liés :**
 - `DevOPTIQ/static/optiqcarto/` ← source principale
 - `OptiqCarto/static/js/` et `OptiqCarto/static/css/` ← copie synchronisée
 
@@ -147,6 +149,23 @@ Fonctionnement :
 11. Tous les autres blueprints
 
 ---
+
+## Points de vigilance (retours métier, juillet 2026)
+
+- **Taxonomie OPTIQ** (à respecter dans toute doc/UI) : bandes = compétences clés mobilisées
+  (PAS des rôles/niveaux/services) ; activités = étapes de la production d'un flux de travail
+  (PAS des processus) ; flèches = flux de données ; rôles = construits à partir des
+  responsabilités sur les activités (Garant / Réalisateur / Approbateur). Dire "cartographie",
+  jamais "carto". Dire "outil propriétaire", jamais "outil maison".
+- **Incohérence fonctionnelle confirmée** (à corriger avant transfert Inde) :
+  `_sync_carto_to_db()` dans `cartography_editor.py` transforme chaque bande en `Role`
+  (lignes ~200-218) et recalcule l'affectation activité↔rôle d'après la position verticale
+  des activités (`_get_band_for_y`, lignes ~230-243, `status='garant'`). Contraire à la
+  logique Cartocolor© ci-dessus.
+- **Fonctionnalités absentes de l'app** (ne pas documenter comme existantes) :
+  calques/versions de cartographie (une seule carto par entité, `Entity.optiqcarto_data`),
+  sélection lasso, piles pliables. Ce qui existe : multi-sélection Maj+clic, groupes
+  (`createGroup`, conteneurs nommés non pliables), bandes gérées via le panneau gauche.
 
 ## Notes importantes
 
