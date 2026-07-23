@@ -8,9 +8,11 @@ Tests unitaires pour les deux parseurs VSDX (pas de Flask, pas de DB) :
       helpers XML, _is_pure_diamond_geometry, _is_likely_annotation,
       _infer_oui_non, extract_decisions_from_vsdx
 """
+import io
 import os
 import sys
 import tempfile
+import zipfile
 import xml.etree.ElementTree as ET
 
 import pytest
@@ -492,5 +494,285 @@ class TestExtractDecisionsFromVsdx:
         try:
             result = extract_decisions_from_vsdx(path)
             assert result["decisions"] == []
+        finally:
+            os.unlink(path)
+
+
+# =============================================================================
+# 11. _infer_oui_non — branches géométriques avancées (non couvertes par le
+#    bloc 9 : filtrage cyclique, vecteurs opposés, repli à 90°)
+# =============================================================================
+
+class TestInferOuiNonAdvanced:
+
+    def test_cyclic_incoming_excluded_from_forward_direction(self):
+        """Une source entrante qui est aussi une cible sortante (boucle) ne doit
+        pas polluer le calcul du vecteur de flux amont."""
+        from Code.routes.vsdx_decision_extractor import _infer_oui_non
+        decisions = [{
+            "id": "d1",
+            "outgoing": [{"to_id": "cyclicSrc"}, {"to_id": "other"}],
+            "incoming": [{"from_id": "cyclicSrc"}, {"from_id": "realSrc"}],
+        }]
+        shape_info = {
+            "d1": {"pin_x": 0, "pin_y": 0},
+            "cyclicSrc": {"pin_x": 0, "pin_y": -5},
+            "realSrc": {"pin_x": 5, "pin_y": 0},
+            "other": {"pin_x": 0, "pin_y": 5},
+        }
+        _infer_oui_non(decisions, shape_info)
+        for conn in decisions[0]["outgoing"]:
+            assert isinstance(conn.get("inferred_badge"), str)
+
+    def test_opposing_incoming_vectors_cancel_gives_empty_badges(self):
+        """Deux flux entrants strictement opposés s'annulent (norme ~0) : le
+        badge inféré doit rester vide plutôt que planter sur une division
+        par zéro."""
+        from Code.routes.vsdx_decision_extractor import _infer_oui_non
+        decisions = [{
+            "id": "d1",
+            "outgoing": [{"to_id": "t1"}, {"to_id": "t2"}],
+            "incoming": [{"from_id": "s1"}, {"from_id": "s2"}],
+        }]
+        shape_info = {
+            "d1": {"pin_x": 0, "pin_y": 0},
+            "s1": {"pin_x": 5, "pin_y": 0},
+            "s2": {"pin_x": -5, "pin_y": 0},
+            "t1": {"pin_x": 0, "pin_y": 5},
+            "t2": {"pin_x": 0, "pin_y": -5},
+        }
+        _infer_oui_non(decisions, shape_info)
+        assert all(c.get("inferred_badge") == "" for c in decisions[0]["outgoing"])
+
+    def test_fallback_90_degrees_flips_borderline_non_to_oui(self):
+        """Si le seuil de 45° ne fait ressortir aucun 'Oui', le repli à 90°
+        doit requalifier la branche la plus proche du flux en 'Oui' tout en
+        laissant celle opposée en 'Non'."""
+        from Code.routes.vsdx_decision_extractor import _infer_oui_non
+        decisions = [{
+            "id": "d1",
+            "outgoing": [{"to_id": "t60"}, {"to_id": "t180"}],
+            "incoming": [{"from_id": "s1"}],
+        }]
+        shape_info = {
+            "d1": {"pin_x": 0, "pin_y": 0},
+            "s1": {"pin_x": -5, "pin_y": 0},   # flux amont => direction (1, 0)
+            "t60": {"pin_x": 5, "pin_y": 8.660},   # à 60° de l'axe du flux
+            "t180": {"pin_x": -10, "pin_y": 0},    # opposé au flux (180°)
+        }
+        _infer_oui_non(decisions, shape_info)
+        by_target = {c["to_id"]: c["inferred_badge"] for c in decisions[0]["outgoing"]}
+        assert by_target["t60"] == "Oui"
+        assert by_target["t180"] == "Non"
+
+    def test_incoming_source_missing_from_shape_info_is_skipped(self):
+        """Une connexion entrante dont la source n'a pas d'entrée shape_info
+        (coordonnées 0,0 par défaut) ne doit pas casser le calcul."""
+        from Code.routes.vsdx_decision_extractor import _infer_oui_non
+        decisions = [{
+            "id": "d1",
+            "outgoing": [{"to_id": "t1"}, {"to_id": "t2"}],
+            "incoming": [{"from_id": "ghost"}],
+        }]
+        shape_info = {
+            "d1": {"pin_x": 3, "pin_y": 3},
+            "t1": {"pin_x": 8, "pin_y": 3},
+            "t2": {"pin_x": 3, "pin_y": 8},
+        }
+        _infer_oui_non(decisions, shape_info)
+        # "ghost" est absent de shape_info => pin (0,0) => filtré (sx/sy nuls),
+        # in_vecs reste vide => badges vidés sans exception.
+        assert all(c.get("inferred_badge") == "" for c in decisions[0]["outgoing"])
+
+
+# =============================================================================
+# 12. _parse_page — pipeline complet (shapes, connecteurs, badges, splice)
+# =============================================================================
+
+def _page_bytes(shapes_xml, connects_xml):
+    return (
+        f'<PageContents xmlns="{NS}">'
+        f'<Shapes>{shapes_xml}</Shapes>'
+        f'<Connects>{connects_xml}</Connects>'
+        f'</PageContents>'
+    ).encode("utf-8")
+
+
+class TestParsePageIntegration:
+
+    def test_explicit_connections_with_own_text_and_group_badges(self):
+        """Décision reliée explicitement : badge via texte propre du connecteur
+        (3b) ET badge via appartenance à un groupe (3a). Aucune décision non
+        connectée => pas de splice."""
+        from Code.routes.vsdx_decision_extractor import _parse_page
+
+        shapes = """
+        <Shape ID="1"><Cell N="PinX" V="1"/><Cell N="PinY" V="11"/><Text>Debut</Text></Shape>
+        <Shape ID="2" Master="m1"><Cell N="PinX" V="1"/><Cell N="PinY" V="6"/><Text>Decision A</Text></Shape>
+        <Shape ID="3"><Cell N="PinX" V="6"/><Cell N="PinY" V="6"/><Text>Chemin Oui</Text></Shape>
+        <Shape ID="4"><Cell N="PinX" V="-4"/><Cell N="PinY" V="6"/><Text>Chemin Non</Text></Shape>
+        <Shape ID="10"><Cell N="BeginX" V="1"/><Cell N="BeginY" V="11"/><Cell N="EndX" V="1"/><Cell N="EndY" V="6"/></Shape>
+        <Shape ID="11"><Cell N="BeginX" V="1"/><Cell N="BeginY" V="6"/><Cell N="EndX" V="6"/><Cell N="EndY" V="6"/><Text>Oui</Text></Shape>
+        <Shape ID="20">
+          <Shapes>
+            <Shape ID="13"><Text>Non</Text></Shape>
+            <Shape ID="12"><Cell N="BeginX" V="1"/><Cell N="BeginY" V="6"/><Cell N="EndX" V="-4"/><Cell N="EndY" V="6"/></Shape>
+          </Shapes>
+        </Shape>
+        """
+        connects = """
+        <Connect FromSheet="10" FromCell="BeginX" ToSheet="1"/>
+        <Connect FromSheet="10" FromCell="EndX" ToSheet="2"/>
+        <Connect FromSheet="11" FromCell="BeginX" ToSheet="2"/>
+        <Connect FromSheet="11" FromCell="EndX" ToSheet="3"/>
+        <Connect FromSheet="12" FromCell="BeginX" ToSheet="2"/>
+        <Connect FromSheet="12" FromCell="EndX" ToSheet="4"/>
+        """
+        result = {"decisions": [], "total_shapes": 0, "total_connectors": 0, "errors": []}
+        _parse_page(_page_bytes(shapes, connects), {"m1": "decision"}, result)
+
+        assert result["errors"] == []
+        assert len(result["decisions"]) == 1
+        dec = result["decisions"][0]
+        assert dec["id"] == "2"
+        assert dec["splice"] is False
+        assert len(dec["incoming"]) == 1
+        assert dec["incoming"][0]["from_id"] == "1"
+
+        badges = {o["to_id"]: o["badge"] for o in dec["outgoing"]}
+        assert badges == {"3": "Oui", "4": "Non"}
+        assert all("inferred_badge" in o for o in dec["outgoing"])
+
+    def test_splice_two_crossing_connectors_creates_synthetic_links(self):
+        """Une décision non connectée explicitement mais posée sur deux
+        connecteurs qui se croisent doit être 'splicée' sur les deux, avec
+        2 entrées et 2 sorties synthétiques référençant le connecteur d'origine."""
+        from Code.routes.vsdx_decision_extractor import _parse_page
+
+        shapes = """
+        <Shape ID="1"><Cell N="PinX" V="1"/><Cell N="PinY" V="6"/><Text>A</Text></Shape>
+        <Shape ID="2"><Cell N="PinX" V="11"/><Cell N="PinY" V="6"/><Text>B</Text></Shape>
+        <Shape ID="3"><Cell N="PinX" V="6"/><Cell N="PinY" V="1"/><Text>C</Text></Shape>
+        <Shape ID="4"><Cell N="PinX" V="6"/><Cell N="PinY" V="11"/><Text>D</Text></Shape>
+        <Shape ID="10"><Cell N="BeginX" V="1"/><Cell N="BeginY" V="6"/><Cell N="EndX" V="11"/><Cell N="EndY" V="6"/></Shape>
+        <Shape ID="11"><Cell N="BeginX" V="6"/><Cell N="BeginY" V="1"/><Cell N="EndX" V="6"/><Cell N="EndY" V="11"/></Shape>
+        <Shape ID="5" Master="m1"><Cell N="PinX" V="6"/><Cell N="PinY" V="6"/><Text>Decision croisee</Text></Shape>
+        """
+        connects = """
+        <Connect FromSheet="10" FromCell="BeginX" ToSheet="1"/>
+        <Connect FromSheet="10" FromCell="EndX" ToSheet="2"/>
+        <Connect FromSheet="11" FromCell="BeginX" ToSheet="3"/>
+        <Connect FromSheet="11" FromCell="EndX" ToSheet="4"/>
+        """
+        result = {"decisions": [], "total_shapes": 0, "total_connectors": 0, "errors": []}
+        _parse_page(_page_bytes(shapes, connects), {"m1": "decision"}, result)
+
+        assert result["errors"] == []
+        assert len(result["decisions"]) == 1
+        dec = result["decisions"][0]
+        assert dec["id"] == "5"
+        assert dec["splice"] is True
+        assert len(dec["outgoing"]) == 2
+        assert len(dec["incoming"]) == 2
+        assert {o["to_id"] for o in dec["outgoing"]} == {"2", "4"}
+        assert {i["from_id"] for i in dec["incoming"]} == {"1", "3"}
+        assert {o["_orig_conn_id"] for o in dec["outgoing"]} == {"10", "11"}
+        assert all(o["inferred_badge"] in ("Oui", "Non") for o in dec["outgoing"])
+
+    def test_no_decisions_no_connectors_still_populates_counts(self):
+        from Code.routes.vsdx_decision_extractor import _parse_page
+
+        shapes = '<Shape ID="1"><Cell N="PinX" V="0"/><Cell N="PinY" V="0"/><Text>Simple box</Text></Shape>'
+        result = {"decisions": [], "total_shapes": 0, "total_connectors": 0, "errors": []}
+        _parse_page(_page_bytes(shapes, ""), {}, result)
+
+        assert result["total_shapes"] == 1
+        assert result["total_connectors"] == 0
+        assert result["decisions"] == []
+
+    def test_malformed_xml_records_parse_error(self):
+        from Code.routes.vsdx_decision_extractor import _parse_page
+
+        result = {"decisions": [], "total_shapes": 0, "total_connectors": 0, "errors": []}
+        _parse_page(b"<not><valid", {}, result)
+
+        assert len(result["errors"]) == 1
+        assert result["decisions"] == []
+
+
+# =============================================================================
+# 13. extract_decisions_from_vsdx — cas de succès end-to-end (zip réel)
+# =============================================================================
+
+def _make_vsdx(entries):
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as zf:
+        for name, content in entries.items():
+            zf.writestr(name, content)
+    f = tempfile.NamedTemporaryFile(suffix=".vsdx", delete=False)
+    f.write(buf.getvalue())
+    f.close()
+    return f.name
+
+
+class TestExtractDecisionsFromVsdxSuccess:
+
+    def test_success_parses_masters_and_finds_decision(self):
+        from Code.routes.vsdx_decision_extractor import extract_decisions_from_vsdx
+
+        masters_xml = f'<Masters xmlns="{NS}"><Master ID="1" NameU="Decision"/></Masters>'
+        page_xml = (
+            f'<PageContents xmlns="{NS}"><Shapes>'
+            '<Shape ID="1"><Cell N="PinX" V="1"/><Cell N="PinY" V="11"/><Text>Debut</Text></Shape>'
+            '<Shape ID="2" Master="1"><Cell N="PinX" V="1"/><Cell N="PinY" V="6"/><Text>Decision?</Text></Shape>'
+            '<Shape ID="3"><Cell N="PinX" V="6"/><Cell N="PinY" V="6"/><Text>Suite</Text></Shape>'
+            '<Shape ID="10"><Cell N="BeginX" V="1"/><Cell N="BeginY" V="11"/><Cell N="EndX" V="1"/><Cell N="EndY" V="6"/></Shape>'
+            '<Shape ID="11"><Cell N="BeginX" V="1"/><Cell N="BeginY" V="6"/><Cell N="EndX" V="6"/><Cell N="EndY" V="6"/></Shape>'
+            '</Shapes><Connects>'
+            '<Connect FromSheet="10" FromCell="BeginX" ToSheet="1"/>'
+            '<Connect FromSheet="10" FromCell="EndX" ToSheet="2"/>'
+            '<Connect FromSheet="11" FromCell="BeginX" ToSheet="2"/>'
+            '<Connect FromSheet="11" FromCell="EndX" ToSheet="3"/>'
+            '</Connects></PageContents>'
+        )
+        path = _make_vsdx({
+            "visio/masters/masters.xml": masters_xml,
+            "visio/pages/page1.xml": page_xml,
+        })
+        try:
+            result = extract_decisions_from_vsdx(path)
+            assert result["errors"] == []
+            assert result["total_shapes"] == 5
+            assert len(result["decisions"]) == 1
+            assert result["decisions"][0]["id"] == "2"
+            assert result["decisions"][0]["master_name"] == "decision"
+        finally:
+            os.unlink(path)
+
+    def test_missing_masters_xml_still_parses_page(self):
+        from Code.routes.vsdx_decision_extractor import extract_decisions_from_vsdx
+
+        page_xml = (
+            f'<PageContents xmlns="{NS}"><Shapes>'
+            '<Shape ID="1"><Cell N="PinX" V="0"/><Cell N="PinY" V="0"/><Text>Boite simple</Text></Shape>'
+            '</Shapes><Connects></Connects></PageContents>'
+        )
+        path = _make_vsdx({"visio/pages/page1.xml": page_xml})
+        try:
+            result = extract_decisions_from_vsdx(path)
+            assert result["errors"] == []
+            assert result["total_shapes"] == 1
+            assert result["decisions"] == []
+        finally:
+            os.unlink(path)
+
+    def test_no_page_files_returns_explicit_error(self):
+        from Code.routes.vsdx_decision_extractor import extract_decisions_from_vsdx
+
+        path = _make_vsdx({"visio/masters/masters.xml": f'<Masters xmlns="{NS}"/>'})
+        try:
+            result = extract_decisions_from_vsdx(path)
+            assert result["decisions"] == []
+            assert any("page" in e.lower() for e in result["errors"])
         finally:
             os.unlink(path)

@@ -430,3 +430,496 @@ class TestExtractUserCompetencies:
             from Code.routes.projection_metier import _extract_user_competencies
             result = _extract_user_competencies(ids["user_id"])
         assert all(isinstance(label, str) and label.strip() for label in result)
+
+    def test_role_avec_activite_liee_extrait_toutes_les_competences(self, app, ids):
+        """Rôle → activité (activity_roles) → Competency/Savoir/SavoirFaire/
+        Softskill/Aptitude : chaque libellé doit remonter dans les labels."""
+        with app.app_context():
+            from Code.models.models import (
+                Role, UserRole, Activities, Competency, Savoir, SavoirFaire,
+                Softskill, Aptitude, activity_roles,
+            )
+            from Code.extensions import db
+
+            role = Role(name="Role Chaine Test", entity_id=ids["entity_id"])
+            activity = Activities(
+                entity_id=ids["entity_id"],
+                name="Activite Chaine Test",
+                description="desc",
+            )
+            db.session.add_all([role, activity])
+            db.session.flush()
+            role_id, activity_id = role.id, activity.id
+
+            db.session.execute(
+                activity_roles.insert().values(
+                    activity_id=activity_id, role_id=role_id, status="active"
+                )
+            )
+            db.session.add(UserRole(user_id=ids["user_id"], role_id=role_id))
+            db.session.add(Competency(description="Competence Chaine", activity_id=activity_id))
+            db.session.add(Savoir(description="Savoir Chaine", activity_id=activity_id))
+            db.session.add(SavoirFaire(description="SavoirFaire Chaine", activity_id=activity_id))
+            db.session.add(Softskill(habilete="Softskill Chaine", niveau="3", activity_id=activity_id))
+            db.session.add(Aptitude(description="Aptitude Chaine", activity_id=activity_id))
+            db.session.commit()
+
+            try:
+                from Code.routes.projection_metier import _extract_user_competencies
+                result = _extract_user_competencies(ids["user_id"])
+                assert "Activite Chaine Test" in result
+                assert "Competence Chaine" in result
+                assert "Savoir Chaine" in result
+                assert "SavoirFaire Chaine" in result
+                assert "Softskill Chaine" in result
+                assert "Aptitude Chaine" in result
+            finally:
+                db.session.execute(
+                    activity_roles.delete().where(activity_roles.c.role_id == role_id)
+                )
+                db.session.query(UserRole).filter_by(
+                    user_id=ids["user_id"], role_id=role_id
+                ).delete()
+                # Delete ORM-style (pas .query().delete()) pour déclencher le
+                # cascade="all, delete-orphan" sur les Competency/Savoir/... liés
+                # — sinon ils restent orphelins et polluent un futur activity_id
+                # réutilisé par SQLite.
+                act = db.session.get(Activities, activity_id)
+                if act:
+                    db.session.delete(act)
+                db.session.query(Role).filter_by(id=role_id).delete()
+                db.session.commit()
+
+
+# ===========================================================================
+# 6. get_access_token — flux OAuth2 (mock de requests.post)
+# ===========================================================================
+
+class _FakeResponse:
+    def __init__(self, status_code=200, json_data=None, text=""):
+        self.status_code = status_code
+        self._json_data = json_data if json_data is not None else {}
+        self.text = text
+
+    def json(self):
+        if self._json_data is None:
+            raise ValueError("no json")
+        return self._json_data
+
+
+class TestGetAccessToken:
+
+    def setup_method(self):
+        import Code.routes.projection_metier as pm
+        self.pm = pm
+        # Sauvegarde l'état pour restauration en fin de test (isolation)
+        self._orig_id = pm.ROME_CLIENT_ID
+        self._orig_secret = pm.ROME_CLIENT_SECRET
+        self._orig_scope = pm.ROME_SCOPE
+        self._orig_cache = dict(pm._token_cache)
+        pm.ROME_CLIENT_ID = "test_client_id"
+        pm.ROME_CLIENT_SECRET = "test_client_secret"
+        pm.ROME_SCOPE = "api_rome-fiches-metiersv1"
+        pm._token_cache["access_token"] = None
+        pm._token_cache["expires_at"] = 0
+
+    def teardown_method(self):
+        self.pm.ROME_CLIENT_ID = self._orig_id
+        self.pm.ROME_CLIENT_SECRET = self._orig_secret
+        self.pm.ROME_SCOPE = self._orig_scope
+        self.pm._token_cache["access_token"] = self._orig_cache["access_token"]
+        self.pm._token_cache["expires_at"] = self._orig_cache["expires_at"]
+
+    def test_missing_client_id_returns_none(self):
+        self.pm.ROME_CLIENT_ID = ""
+        assert self.pm.get_access_token() is None
+
+    def test_missing_scope_returns_none(self, monkeypatch):
+        self.pm.ROME_SCOPE = ""
+        assert self.pm.get_access_token() is None
+
+    def test_cached_valid_token_returned_without_http_call(self, monkeypatch):
+        self.pm._token_cache["access_token"] = "cached-token"
+        self.pm._token_cache["expires_at"] = self.pm.time.time() + 3600
+
+        def _boom(*a, **k):
+            raise AssertionError("requests.post ne doit pas être appelé si le cache est valide")
+        monkeypatch.setattr(self.pm.requests, "post", _boom)
+
+        assert self.pm.get_access_token() == "cached-token"
+
+    def test_first_attempt_success_returns_token(self, monkeypatch):
+        monkeypatch.setattr(
+            self.pm.requests, "post",
+            lambda *a, **k: _FakeResponse(200, {"access_token": "tok-1", "expires_in": 1200}),
+        )
+        token = self.pm.get_access_token()
+        assert token == "tok-1"
+        assert self.pm._token_cache["access_token"] == "tok-1"
+
+    def test_first_attempt_400_falls_back_to_second_attempt_success(self, monkeypatch):
+        calls = {"n": 0}
+
+        def fake_post(url, data=None, headers=None, timeout=None):
+            calls["n"] += 1
+            if calls["n"] == 1:
+                return _FakeResponse(400, {"error": "invalid_scope", "error_description": "nope"})
+            return _FakeResponse(200, {"access_token": "tok-2", "expires_in": 900})
+
+        monkeypatch.setattr(self.pm.requests, "post", fake_post)
+        token = self.pm.get_access_token()
+        assert token == "tok-2"
+        assert calls["n"] == 2
+
+    def test_both_attempts_fail_returns_none(self, monkeypatch):
+        monkeypatch.setattr(
+            self.pm.requests, "post",
+            lambda *a, **k: _FakeResponse(500, {"_raw_text": "server error"}, text="server error"),
+        )
+        assert self.pm.get_access_token() is None
+
+    def test_timeout_on_first_attempt_falls_through_to_second(self, monkeypatch):
+        import requests as real_requests
+
+        def fake_post(url, data=None, headers=None, timeout=None):
+            if headers and "Authorization" in headers:
+                raise real_requests.exceptions.Timeout()
+            return _FakeResponse(200, {"access_token": "tok-3", "expires_in": 600})
+
+        monkeypatch.setattr(self.pm.requests, "post", fake_post)
+        assert self.pm.get_access_token() == "tok-3"
+
+    def test_non_json_response_body_handled_gracefully(self, monkeypatch):
+        def fake_post(url, data=None, headers=None, timeout=None):
+            r = _FakeResponse(500, json_data=None, text="<html>error</html>")
+            return r
+        monkeypatch.setattr(self.pm.requests, "post", fake_post)
+        assert self.pm.get_access_token() is None
+
+
+# ===========================================================================
+# 7. rome_search_jobs / rome_get_job_details — appels HTTP (mock requests.get)
+# ===========================================================================
+
+class TestRomeHttpCalls:
+
+    def setup_method(self):
+        import Code.routes.projection_metier as pm
+        self.pm = pm
+        self._orig_cache = dict(pm._token_cache)
+        pm._token_cache["access_token"] = "fixed-token"
+        pm._token_cache["expires_at"] = pm.time.time() + 3600
+
+    def teardown_method(self):
+        self.pm._token_cache["access_token"] = self._orig_cache["access_token"]
+        self.pm._token_cache["expires_at"] = self._orig_cache["expires_at"]
+
+    def test_search_jobs_empty_query_returns_empty_without_http(self):
+        assert self.pm.rome_search_jobs("") == []
+        assert self.pm.rome_search_jobs("   ") == []
+
+    def test_search_jobs_list_response(self, monkeypatch):
+        monkeypatch.setattr(
+            self.pm.requests, "get",
+            lambda *a, **k: _FakeResponse(200, [{"code": "M1805"}]),
+        )
+        result = self.pm.rome_search_jobs("developpeur")
+        assert result == [{"code": "M1805"}]
+
+    def test_search_jobs_dict_response_with_metiers_key(self, monkeypatch):
+        monkeypatch.setattr(
+            self.pm.requests, "get",
+            lambda *a, **k: _FakeResponse(200, {"metiers": [{"code": "M1806"}]}),
+        )
+        result = self.pm.rome_search_jobs("developpeur")
+        assert result == [{"code": "M1806"}]
+
+    def test_search_jobs_unexpected_shape_returns_empty(self, monkeypatch):
+        monkeypatch.setattr(
+            self.pm.requests, "get",
+            lambda *a, **k: _FakeResponse(200, "not a list or dict"),
+        )
+        assert self.pm.rome_search_jobs("x") == []
+
+    def test_search_jobs_non_200_returns_empty(self, monkeypatch):
+        monkeypatch.setattr(
+            self.pm.requests, "get",
+            lambda *a, **k: _FakeResponse(404, {}, text="not found"),
+        )
+        assert self.pm.rome_search_jobs("x") == []
+
+    def test_search_jobs_timeout_returns_empty(self, monkeypatch):
+        import requests as real_requests
+
+        def raise_timeout(*a, **k):
+            raise real_requests.exceptions.Timeout()
+        monkeypatch.setattr(self.pm.requests, "get", raise_timeout)
+        assert self.pm.rome_search_jobs("x") == []
+
+    def test_search_jobs_generic_exception_returns_empty(self, monkeypatch):
+        def raise_runtime(*a, **k):
+            raise RuntimeError("boom")
+        monkeypatch.setattr(self.pm.requests, "get", raise_runtime)
+        assert self.pm.rome_search_jobs("x") == []
+
+    def test_get_job_details_empty_code_returns_empty_dict(self):
+        assert self.pm.rome_get_job_details("") == {}
+
+    def test_get_job_details_success(self, monkeypatch):
+        monkeypatch.setattr(
+            self.pm.requests, "get",
+            lambda *a, **k: _FakeResponse(200, {"code": "M1805", "metier": {"libelle": "Dev"}}),
+        )
+        result = self.pm.rome_get_job_details("M1805")
+        assert result["code"] == "M1805"
+
+    def test_get_job_details_non_dict_response_returns_empty(self, monkeypatch):
+        monkeypatch.setattr(
+            self.pm.requests, "get",
+            lambda *a, **k: _FakeResponse(200, ["not", "a", "dict"]),
+        )
+        assert self.pm.rome_get_job_details("M1805") == {}
+
+    def test_get_job_details_non_200_returns_empty(self, monkeypatch):
+        monkeypatch.setattr(
+            self.pm.requests, "get",
+            lambda *a, **k: _FakeResponse(503, {}),
+        )
+        assert self.pm.rome_get_job_details("M1805") == {}
+
+    def test_get_job_details_timeout_returns_empty(self, monkeypatch):
+        import requests as real_requests
+
+        def raise_timeout(*a, **k):
+            raise real_requests.exceptions.Timeout()
+        monkeypatch.setattr(self.pm.requests, "get", raise_timeout)
+        assert self.pm.rome_get_job_details("M1805") == {}
+
+    def test_no_token_available_short_circuits_search(self, monkeypatch):
+        self.pm._token_cache["access_token"] = None
+        self.pm._token_cache["expires_at"] = 0
+        monkeypatch.setattr(self.pm, "ROME_CLIENT_ID", "")
+        assert self.pm.rome_search_jobs("x") == []
+
+    def test_no_token_available_short_circuits_details(self, monkeypatch):
+        self.pm._token_cache["access_token"] = None
+        self.pm._token_cache["expires_at"] = 0
+        monkeypatch.setattr(self.pm, "ROME_CLIENT_ID", "")
+        assert self.pm.rome_get_job_details("M1805") == {}
+
+
+# ===========================================================================
+# 8. Helpers d'extraction de fiche métier ROME
+# ===========================================================================
+
+class TestJobExtractionHelpers:
+
+    def test_extract_competencies_from_job_full(self):
+        from Code.routes.projection_metier import _extract_competencies_from_job
+        job = {
+            "groupesCompetencesMobilisees": [
+                {"competences": [{"libelle": "Python"}, {"libelle": "SQL"}]},
+                {"competences": [{"libelle": " Docker "}]},
+            ]
+        }
+        result = _extract_competencies_from_job(job)
+        assert result == ["Python", "SQL", "Docker"]
+
+    def test_extract_competencies_ignores_malformed_entries(self):
+        from Code.routes.projection_metier import _extract_competencies_from_job
+        job = {
+            "groupesCompetencesMobilisees": [
+                "not_a_dict",
+                {"competences": "not_a_list"},
+                {"competences": [{"libelle": ""}, "not_a_dict", {"no_libelle": True}]},
+            ]
+        }
+        assert _extract_competencies_from_job(job) == []
+
+    def test_extract_competencies_missing_key_returns_empty(self):
+        from Code.routes.projection_metier import _extract_competencies_from_job
+        assert _extract_competencies_from_job({}) == []
+
+    def test_extract_job_label(self):
+        from Code.routes.projection_metier import _extract_job_label
+        assert _extract_job_label({"metier": {"libelle": " Développeur "}}) == "Développeur"
+
+    def test_extract_job_label_missing_returns_empty(self):
+        from Code.routes.projection_metier import _extract_job_label
+        assert _extract_job_label({}) == ""
+
+    def test_extract_job_code_top_level(self):
+        from Code.routes.projection_metier import _extract_job_code
+        assert _extract_job_code({"code": " M1805 "}) == "M1805"
+
+    def test_extract_job_code_falls_back_to_metier_code(self):
+        from Code.routes.projection_metier import _extract_job_code
+        assert _extract_job_code({"metier": {"code": "M1806"}}) == "M1806"
+
+    def test_extract_job_code_missing_returns_empty(self):
+        from Code.routes.projection_metier import _extract_job_code
+        assert _extract_job_code({}) == ""
+
+
+# ===========================================================================
+# 9. analyze_user — pipeline complet de matching (rome_search_jobs /
+#    rome_get_job_details mockés au niveau module)
+# ===========================================================================
+
+class TestAnalyzeUserFullMatching:
+
+    def _setup_role_with_competency(self, app, ids, description):
+        from Code.models.models import Role, UserRole, Activities, Competency, activity_roles
+        from Code.extensions import db
+
+        with app.app_context():
+            role = Role(name="Role Matching Test", entity_id=ids["entity_id"])
+            activity = Activities(
+                entity_id=ids["entity_id"], name="Activite Matching Test", description="d"
+            )
+            db.session.add_all([role, activity])
+            db.session.flush()
+            role_id, activity_id = role.id, activity.id
+            db.session.execute(
+                activity_roles.insert().values(activity_id=activity_id, role_id=role_id, status="active")
+            )
+            db.session.add(UserRole(user_id=ids["user_id"], role_id=role_id))
+            db.session.add(Competency(description=description, activity_id=activity_id))
+            db.session.commit()
+        return role_id, activity_id
+
+    def _teardown(self, app, ids, role_id, activity_id):
+        from Code.models.models import Role, UserRole, Activities, activity_roles
+        from Code.extensions import db
+
+        with app.app_context():
+            db.session.execute(activity_roles.delete().where(activity_roles.c.role_id == role_id))
+            db.session.query(UserRole).filter_by(user_id=ids["user_id"], role_id=role_id).delete()
+            act = db.session.get(Activities, activity_id)
+            if act:
+                db.session.delete(act)
+            db.session.query(Role).filter_by(id=role_id).delete()
+            db.session.commit()
+
+    def test_full_match_when_all_job_competencies_owned(self, app, auth_client, ids, monkeypatch):
+        """Le libellé de compétence utilisateur couvre exactement la compétence
+        du métier ROME → le métier doit apparaître dans 'full' avec score 100."""
+        role_id, activity_id = self._setup_role_with_competency(
+            app, ids, "Gestion de projet informatique"
+        )
+        try:
+            import Code.routes.projection_metier as pm
+            monkeypatch.setattr(
+                pm, "rome_search_jobs",
+                lambda query: [{"code": "M1805"}],
+            )
+            monkeypatch.setattr(
+                pm, "rome_get_job_details",
+                lambda code: {
+                    "metier": {"libelle": "Chef de projet"},
+                    "code": "M1805",
+                    "groupesCompetencesMobilisees": [
+                        {"competences": [{"libelle": "Gestion de projet informatique"}]}
+                    ],
+                },
+            )
+            r = auth_client.get(f"/projection_metier/analyze_user/{ids['user_id']}")
+            assert r.status_code == 200
+            data = r.get_json()
+            assert any(j["code"] == "M1805" for j in data["full"])
+            matched = next(j for j in data["full"] if j["code"] == "M1805")
+            assert matched["score"] == 100.0
+            assert matched["missing_count"] == 0
+        finally:
+            self._teardown(app, ids, role_id, activity_id)
+
+    def test_partial_match_when_some_competencies_missing(self, app, auth_client, ids, monkeypatch):
+        role_id, activity_id = self._setup_role_with_competency(
+            app, ids, "Analyse de donnees"
+        )
+        try:
+            import Code.routes.projection_metier as pm
+            monkeypatch.setattr(pm, "rome_search_jobs", lambda query: [{"code": "M1403"}])
+            monkeypatch.setattr(
+                pm, "rome_get_job_details",
+                lambda code: {
+                    "metier": {"libelle": "Data analyst"},
+                    "code": "M1403",
+                    "groupesCompetencesMobilisees": [
+                        {"competences": [
+                            {"libelle": "Analyse de donnees"},
+                            {"libelle": "Pilotage nucleaire avance"},
+                        ]}
+                    ],
+                },
+            )
+            r = auth_client.get(f"/projection_metier/analyze_user/{ids['user_id']}")
+            assert r.status_code == 200
+            data = r.get_json()
+            assert any(j["code"] == "M1403" for j in data["partial"])
+            matched = next(j for j in data["partial"] if j["code"] == "M1403")
+            assert 0 < matched["score"] < 100
+            assert matched["missing_count"] >= 1
+        finally:
+            self._teardown(app, ids, role_id, activity_id)
+
+    def test_job_without_competencies_goes_to_partial_with_zero_score(self, app, auth_client, ids, monkeypatch):
+        role_id, activity_id = self._setup_role_with_competency(app, ids, "Cuisine moleculaire")
+        try:
+            import Code.routes.projection_metier as pm
+            monkeypatch.setattr(pm, "rome_search_jobs", lambda query: [{"code": "Z0000"}])
+            monkeypatch.setattr(
+                pm, "rome_get_job_details",
+                lambda code: {"metier": {"libelle": "Metier vide"}, "code": "Z0000"},
+            )
+            r = auth_client.get(f"/projection_metier/analyze_user/{ids['user_id']}")
+            assert r.status_code == 200
+            data = r.get_json()
+            matched = next(j for j in data["partial"] if j["code"] == "Z0000")
+            assert matched["score"] == 0
+            assert matched["total"] == 0
+        finally:
+            self._teardown(app, ids, role_id, activity_id)
+
+    def test_job_details_missing_is_skipped(self, app, auth_client, ids, monkeypatch):
+        """rome_get_job_details() renvoie {} (métier introuvable) → il ne doit
+        apparaître ni dans full ni dans partial."""
+        role_id, activity_id = self._setup_role_with_competency(app, ids, "Menuiserie")
+        try:
+            import Code.routes.projection_metier as pm
+            monkeypatch.setattr(pm, "rome_search_jobs", lambda query: [{"code": "X9999"}])
+            monkeypatch.setattr(pm, "rome_get_job_details", lambda code: {})
+            r = auth_client.get(f"/projection_metier/analyze_user/{ids['user_id']}")
+            assert r.status_code == 200
+            data = r.get_json()
+            codes = {j["code"] for j in data["full"] + data["partial"]}
+            assert "X9999" not in codes
+        finally:
+            self._teardown(app, ids, role_id, activity_id)
+
+    def test_pagination_limits_full_page_size(self, app, auth_client, ids, monkeypatch):
+        role_id, activity_id = self._setup_role_with_competency(app, ids, "Soudure industrielle")
+        try:
+            import Code.routes.projection_metier as pm
+            codes = [f"F{i:04d}" for i in range(3)]
+            monkeypatch.setattr(pm, "rome_search_jobs", lambda query: [{"code": c} for c in codes])
+            monkeypatch.setattr(
+                pm, "rome_get_job_details",
+                lambda code: {
+                    "metier": {"libelle": f"Metier {code}"},
+                    "code": code,
+                    "groupesCompetencesMobilisees": [
+                        {"competences": [{"libelle": "Soudure industrielle"}]}
+                    ],
+                },
+            )
+            r = auth_client.get(
+                f"/projection_metier/analyze_user/{ids['user_id']}?full_limit=1&full_offset=0"
+            )
+            assert r.status_code == 200
+            data = r.get_json()
+            assert len(data["full"]) <= 1
+            assert data["page"]["full"]["limit"] == 1
+            assert data["page"]["full"]["total"] >= 1
+        finally:
+            self._teardown(app, ids, role_id, activity_id)

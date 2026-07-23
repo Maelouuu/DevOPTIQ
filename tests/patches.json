@@ -445,5 +445,23 @@
     ],
     "author": "routine",
     "fixed_at": "2026-07-15T03:15:13"
+  },
+  {
+    "patch_uid": "2026-07-23-projection-metier-splice-orphans",
+    "title": "Fuite d'objets orphelins dans les nouveaux tests de couverture projection_metier",
+    "node_ids": [
+      "tests/test_33_activities_data.py::TestActivityDetails::test_details_listes_vides_pour_items_inexistants"
+    ],
+    "page_slug": "projection_metier",
+    "failure_reason": "Passe seul mais echoue dans la suite complete : test_details_listes_vides_pour_items_inexistants attend des listes vides pour une nouvelle activite jetable, mais recevait des savoirs/competences residuels.",
+    "was_real_bug": false,
+    "root_cause": "test_isolation",
+    "error": "Les nouveaux tests de couverture ajoutes dans test_32_projection_metier.py (TestExtractUserCompetencies et TestAnalyzeUserFullMatching) nettoyaient leurs activites de test via db.session.query(Activities).filter_by(id=activity_id).delete() (bulk delete). Ce type de delete ne declenche PAS le cascade=\"all, delete-orphan\" de SQLAlchemy sur les relations Competency/Savoir/SavoirFaire/Softskill/Aptitude : les enregistrements enfants restaient orphelins en base. SQLite reutilisant ensuite le meme id d'activite (le max id libere) pour une nouvelle activite creee par un autre test, celle-ci heritait des enregistrements orphelins et l'assertion de listes vides echouait.",
+    "fix_description": "Remplacement du bulk delete par un delete ORM (db.session.get(Activities, activity_id) puis db.session.delete(act)) dans les deux blocs de teardown ajoutes, ce qui declenche correctement le cascade et supprime les enfants Competency/Savoir/SavoirFaire/Softskill/Aptitude avec l'activite.",
+    "files_changed": [
+      "tests/test_32_projection_metier.py"
+    ],
+    "author": "routine",
+    "fixed_at": "2026-07-23T03:28:16"
   }
 ]
