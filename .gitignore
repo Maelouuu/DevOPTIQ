@@ -18,3 +18,5 @@ export_code.docx
 tools/licensing/license_private.pem
 tools/licensing/out/
 distribution/.env
+tools/prompts/prompts_key.txt
+Code/prompts/prompts.enc

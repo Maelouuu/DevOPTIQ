@@ -2,6 +2,7 @@
 import json
 import re
 from flask import Blueprint, request, jsonify, current_app, session
+from Code.prompts import get_prompt, prompts_available
 from .propose_common import (
     openai_client_or_none,
     dummy_from_context,
@@ -9,184 +10,12 @@ from .propose_common import (
 
 bp_propose_softskills = Blueprint("propose_softskills", __name__)
 
-X50_766_HSC_FR = """
-Liste officielle X50-766 :
-- Auto-évaluation
-- Auto-régulation
-- Auto-organisation
-- Auto-mobilisation
-- Sensibilité sociale
-- Adaptation relationnelle
-- Coopération
-- Raisonnement logique
-- Planification
-- Arbitrage
-- Traitement de l'information
-- Synthèse
-- Conceptualisation
-- Flexibilité mentale
-- Projection
-- Approche globale
-"""
 
-X50_766_SCA_EN = """
-Official XP X50-766 list:
-- Self-Assessment
-- Self-Regulation
-- Self-Organization
-- Self-Mobilization
-- Social Sensitivity
-- Relational Adaptation
-- Cooperation
-- Logical Reasoning
-- Planning
-- Trade-off Decision-Making
-- Information Processing
-- Synthesis
-- Conceptualization
-- Cognitive Flexibility
-- Prospective Thinking
-- Systemic Approach
-"""
 
 # Legacy alias kept for any internal reference
-X50_766_HSC = X50_766_HSC_FR
 
-PROMPT_HEADER_HSC_FR = """
-Tu es un expert en analyse du travail, en sciences cognitives et en ingénierie des compétences.
-Tu appliques une logique OPTIQ : les HSC retenues doivent expliquer la tenue réelle de l'activité au regard des RESULTATS attendus, des tâches, des contraintes et des performances (pas de généralités).
 
-🎯 Objectif : Proposer directement (sans soft skills utilisateur) une COMBINAIRE de 4 à 6 HSC essentielles pour l'activité fournie.
-- 4 à 6 HSC : centrées sur l'essentiel, robustes au contexte, sans catalogue.
-- Une activité peut produire plusieurs résultats : ta combinatoire doit couvrir l'ensemble.
 
-Activité : {activity_name}
-
-Valeur(s) ajoutée(s) / Résultat(s) attendu(s) / Performances :
-{perf_text}
-
-Tâches (T1..Tn) :
-{tasks_text}
-
-Contraintes (C1..Cn) :
-{constraints_text}
-
-Liste COMPLETE des HSC X50-766 (n'utilise QUE ces termes, strictement) :
-{x50_766_hsc}
-
-Niveaux possibles (n'utilise QUE ces libellés) :
-1 (Aptitude)
-2 (Acquisition)
-3 (Maîtrise)
-4 (Excellence)
-
-RÈGLES DE RAISONNEMENT (obligatoire) :
-
-1) IDENTIFIER 1 à 3 RESULTATS MAJEURS de l'activité (R1..Rk) à partir des performances et/ou des tâches.
-   - L'activité peut avoir plusieurs résultats : ta combinatoire de HSC doit couvrir l'ensemble des résultats R1..Rk.
-
-2) SÉLECTION PAR ESSENTIEL :
-   - Ne retiens une HSC QUE si elle est nécessaire pour :
-     a) produire un résultat R(i), OU
-     b) respecter une contrainte C(i), OU
-     c) atteindre une performance P(i).
-   - Chaque HSC doit apporter une contribution différente (éviter doublons de sens).
-
-3) RÈGLE ANTI-ÉVIDENCE / ANTI-GÉNÉRIQUE :
-   - N'ajoute pas une HSC "par réflexe".
-   - Exclure "Planification" sauf si les T/C/P montrent une complexité réelle de plan (jalons, dépendances critiques, replanification, ressources limitées, multi-acteurs, aléas).
-   - Si l'enchaînement des tâches est simplement "normal", ne pas citer Planification.
-
-4) NIVEAU (1 à 4) :
-   - Le niveau attendu dépend du degré de variabilité, d'incertitude, d'enjeux QCD, de multi-acteurs et de formalisation exigée par T/C/P.
-   - N'attribue pas 4 (Excellence) sans justification forte liée à T/C/P.
-
-5) TEST FINAL DE COUVERTURE :
-   - Avant de répondre, vérifie que chaque résultat majeur R(i) est couvert par au moins une HSC.
-   - Si ce n'est pas le cas, ajuste la sélection (sans dépasser 6 HSC).
-
-FORMAT DE SORTIE (obligatoire) :
-- Réponds UNIQUEMENT avec un tableau JSON brut (aucun texte hors JSON, pas de backticks).
-- 4 à 6 entrées. Chaque entrée = {{
-    "habilete": <str parmi la liste X50-766>,
-    "niveau": "X (Label)",
-    "justification": "Sollicitation: <NA|1|2>. 2 à 3 phrases maximum expliquant en quoi cette HSC permet de tenir l'activité (références à R(i), T(i), C(i), P(i) si pertinent)."
-}}
-
-Contraintes rédactionnelles :
-- La justification doit référencer au moins un élément parmi T(i), C(i) ou P(i) (et plusieurs si pertinent).
-- Ne sors pas de champs supplémentaires : uniquement habilete, niveau, justification.
-- RÉPONDS UNIQUEMENT AVEC LE TABLEAU JSON.
-"""
-
-PROMPT_HEADER_SCA_EN = """
-You are an expert in work analysis, cognitive science and competency engineering.
-You apply OPTIQ logic: SCA selected must explain how the activity is actually carried out with regard to expected RESULTS, tasks, constraints and performances (no generalities).
-
-🎯 Objective: Propose directly (without user soft skills) a COMBINATION of 4 to 6 essential SCA for the given activity.
-- 4 to 6 SCA: focused on essentials, robust to context, not a catalogue.
-- An activity may produce several results: your combination must cover all of them.
-
-Activity: {activity_name}
-
-Added value(s) / Expected result(s) / Performances:
-{perf_text}
-
-Tasks (T1..Tn):
-{tasks_text}
-
-Constraints (C1..Cn):
-{constraints_text}
-
-COMPLETE list of XP X50-766 SCA (use ONLY these exact terms):
-{x50_766_hsc}
-
-Proficiency levels (use ONLY these labels):
-1 (Basic)
-2 (Developing)
-3 (Proficient)
-4 (Highly Proficient)
-
-REASONING RULES (mandatory):
-
-1) IDENTIFY 1 to 3 MAJOR RESULTS of the activity (R1..Rk) from performances and/or tasks.
-   - The activity may have several results: your SCA combination must cover all results R1..Rk.
-
-2) SELECTION BY ESSENTIALS:
-   - Only retain an SCA if it is necessary to:
-     a) produce a result R(i), OR
-     b) comply with a constraint C(i), OR
-     c) achieve a performance P(i).
-   - Each SCA must contribute differently (avoid overlapping meanings).
-
-3) ANTI-OBVIOUS / ANTI-GENERIC RULE:
-   - Do not add an SCA "by reflex".
-   - Exclude "Planning" unless T/C/P show real planning complexity (milestones, critical dependencies, rescheduling, limited resources, multi-actor, hazards).
-   - If task sequencing is simply "normal", do not cite Planning.
-
-4) LEVEL (1 to 4):
-   - Expected level depends on the degree of variability, uncertainty, QCD stakes, multi-actor situations and formalisation required by T/C/P.
-   - Do not assign 4 (Highly Proficient) without strong justification linked to T/C/P.
-
-5) FINAL COVERAGE TEST:
-   - Before answering, verify that each major result R(i) is covered by at least one SCA.
-   - If not, adjust the selection (without exceeding 6 SCA).
-
-OUTPUT FORMAT (mandatory):
-- Respond ONLY with a raw JSON array (no text outside JSON, no backticks).
-- 4 to 6 entries. Each entry = {{
-    "habilete": <str from the XP X50-766 list>,
-    "niveau": "X (Label)",
-    "justification": "Solicitation: <NA|1|2>. 2 to 3 sentences maximum explaining how this SCA enables the activity (references to R(i), T(i), C(i), P(i) as relevant)."
-}}
-
-Wording constraints:
-- Justification must reference at least one element from T(i), C(i) or P(i) (and several if relevant).
-- Do not output additional fields: only habilete, niveau, justification.
-- RESPOND ONLY WITH THE JSON ARRAY.
-"""
-
-PROMPT_HEADER_HSC = PROMPT_HEADER_HSC_FR
 
 # --------------------------------------------------------------------
 # OUTILS : extraction JSON propre
@@ -240,7 +69,7 @@ def propose_softskills():
 
         client, err = openai_client_or_none()
         lang = session.get('lang', 'fr')
-        if client is None:
+        if client is None or not prompts_available():
             default_level = "2 (Developing)" if lang == 'en' else "2 (Acquisition)"
             default_justif = "Proposal generated without AI (OpenAI key missing)." if lang == 'en' else "Proposition générée sans IA (clé OpenAI absente)."
             proposals = [
@@ -276,12 +105,13 @@ def propose_softskills():
         lang = session.get('lang', 'fr')
         if lang == 'en':
             perf_text = "\n".join(perf_lines) if perf_lines else "(No performances recorded)"
-            prompt = PROMPT_HEADER_SCA_EN.format(
+            prompt = get_prompt(
+                "propose.softskills.header.en",
                 activity_name=activity_name,
                 perf_text=perf_text,
                 tasks_text=tasks_text,
                 constraints_text=constraints_text,
-                x50_766_hsc=X50_766_SCA_EN,
+                x50_766_hsc=get_prompt("referential.x50_766.en") or "",
             )
             system_msg = (
                 "You are an HR expert in Socio-Cognitive Abilities (SCA) XP X50-766. "
@@ -289,12 +119,13 @@ def propose_softskills():
             )
         else:
             perf_text = "\n".join(perf_lines) if perf_lines else "(Aucune performance renseignée)"
-            prompt = PROMPT_HEADER_HSC_FR.format(
+            prompt = get_prompt(
+                "propose.softskills.header.fr",
                 activity_name=activity_name,
                 perf_text=perf_text,
                 tasks_text=tasks_text,
                 constraints_text=constraints_text,
-                x50_766_hsc=X50_766_HSC_FR,
+                x50_766_hsc=get_prompt("referential.x50_766.fr") or "",
             )
             system_msg = (
                 "Tu es un assistant RH expert en habiletés sociocognitives X50-766. "

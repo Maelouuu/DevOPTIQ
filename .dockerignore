@@ -50,3 +50,8 @@ fix_unique_constraint.py
 run_app_no_key.bat
 run_tests.sh
 distribution/
+
+# Prompts IA : le catalogue en clair reste hors de l'image client — seul le
+# bundle chiffré Code/prompts/prompts.enc (généré avant build) est embarqué.
+Code/prompts/catalog.py
+.github/

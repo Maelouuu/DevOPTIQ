@@ -93,6 +93,9 @@ def verify_license():
         "issued_at": payload.get("issued_at"),
         "expires_at": expires,
         "mtime": mtime,
+        # Clé de déchiffrement du bundle de prompts IA (cf. Code/prompts/) —
+        # jamais exposée par /license, lue uniquement par le loader de prompts.
+        "prompts_key": payload.get("prompts_key"),
     }
 
 

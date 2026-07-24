@@ -1,38 +1,12 @@
 # Code/routes/propose_savoir_faires.py
 from flask import Blueprint, request, jsonify, current_app, session
+from Code.prompts import get_prompt, prompts_available
 from .propose_common import build_activity_context, openai_client_or_none, dummy_from_context
 
 bp_propose_sf = Blueprint("propose_savoir_faires", __name__)
 
-PROMPT_HEADER_SAVOIR_FAIRES_FR = """
-Analyse les informations d’activité ci-dessous et propose uniquement des SAVOIR-FAIRE
-concrets et opérationnels, formulés par verbes d’action.
 
-Règles :
-- Chaque item commence par un verbe d’action (Utiliser, Maîtriser, Vérifier, Rédiger, Structurer, Appliquer, Contrôler, Analyser, Consolider, Documenter…)
-- Précise toujours sur quoi ou avec quoi le savoir-faire s’exerce (procédure, outil, norme, donnée, contrainte, rôle…)
-- Les savoir-faire doivent être spécifiques et contextualisés, pas vagues ni génériques.
-- Ne répète pas les tâches textuellement, déduis l’apprentissage concret nécessaire.
-- Limite la réponse à 3 à 7 items maximum.
-- Sortie attendue : liste à puces, une ligne par savoir-faire.
-- Réponds en français.
-"""
 
-PROMPT_HEADER_SAVOIR_FAIRES_EN = """
-Analyse the activity information below and propose only concrete and operational PRACTICAL SKILLS,
-phrased as action verbs.
-
-Rules:
-- Each item starts with an action verb (Use, Master, Verify, Draft, Structure, Apply, Control, Analyse, Consolidate, Document…)
-- Always specify what or with what the practical skill is exercised (procedure, tool, standard, data, constraint, role…)
-- Practical skills must be specific and contextualised, not vague or generic.
-- Do not repeat tasks verbatim; derive the concrete learning required.
-- Limit the response to 3 to 7 items maximum.
-- Expected output: bullet list, one line per practical skill.
-- Respond in English.
-"""
-
-PROMPT_HEADER_SAVOIR_FAIRES = PROMPT_HEADER_SAVOIR_FAIRES_FR
 
 @bp_propose_sf.route("/propose_savoir_faires/propose", methods=["POST"])
 def propose_savoir_faires():
@@ -46,18 +20,17 @@ def propose_savoir_faires():
             return jsonify({"proposals": dummy_from_context(ctx, "savoir_faire"), "source": err}), 200
 
         lang = session.get('lang', 'fr')
-        header = PROMPT_HEADER_SAVOIR_FAIRES_EN if lang == 'en' else PROMPT_HEADER_SAVOIR_FAIRES_FR
+        header = get_prompt(f"propose.savoir_faires.header.{'en' if lang == 'en' else 'fr'}")
+        if header is None:
+            return jsonify({"proposals": dummy_from_context(ctx, "savoir_faire"),
+                            "source": "prompts-unavailable"}), 200
         ctx_label = "CONTEXT" if lang == 'en' else "CONTEXTE"
         prompt = f"""{header}
 
 === {ctx_label} ===
 {ctx}
 """
-        system_msg = (
-            "You are a precise and concise HR/training assistant."
-            if lang == 'en'
-            else "Tu es un assistant RH/formation, précis et concis."
-        )
+        system_msg = get_prompt(f"propose.system.{'en' if lang == 'en' else 'fr'}")
         resp = client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[

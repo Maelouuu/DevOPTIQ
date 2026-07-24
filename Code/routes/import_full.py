@@ -9,6 +9,7 @@ from difflib import SequenceMatcher
 
 import openpyxl
 from flask import Blueprint, request, jsonify, session
+from Code.prompts import get_prompt, prompts_available
 from sqlalchemy import func
 
 from Code.extensions import db
@@ -267,34 +268,13 @@ def _algorithmic_match(excel_groups: list, db_activities: list) -> dict:
 # Enrichissement OpenAI optionnel (uniquement pour les non-matchés)
 # ---------------------------------------------------------------------------
 
-ENRICH_PROMPT = """\
-Tu es un assistant d'import OPTIQ.
-On t'envoie des groupes d'activités Excel qui N'ONT PAS pu être mappés automatiquement,
-et la liste des activités de la base.
-
-Pour chaque groupe non-mappé, essaie de trouver l'activité la plus proche dans la base
-(matching sémantique, synonymes, traductions FR/EN).
-
-Réponds UNIQUEMENT en JSON valide :
-{
-  "resolved": [
-    {
-      "activity_name_excel": "...",
-      "activity_id": 42,
-      "activity_name_db": "...",
-      "confidence": "high"|"medium"|"low",
-      "match_reason": "..."
-    }
-  ],
-  "still_unmatched": ["nom excel", ...]
-}
-"""
 
 
 def _try_openai_enrich(unmatched_groups: list, db_activities: list) -> dict | None:
     """Tente un enrichissement IA pour les non-matchés. Retourne None si indisponible."""
     api_key = os.getenv('OPENAI_API_KEY')
-    if not api_key or not unmatched_groups:
+    enrich_prompt = get_prompt("import.enrich")
+    if not api_key or not unmatched_groups or enrich_prompt is None:
         return None
 
     try:
@@ -311,7 +291,7 @@ def _try_openai_enrich(unmatched_groups: list, db_activities: list) -> dict | No
         resp = client.chat.completions.create(
             model=model,
             messages=[
-                {'role': 'system', 'content': ENRICH_PROMPT},
+                {'role': 'system', 'content': enrich_prompt},
                 {'role': 'user', 'content': json.dumps(payload, ensure_ascii=False)},
             ],
             response_format={'type': 'json_object'},

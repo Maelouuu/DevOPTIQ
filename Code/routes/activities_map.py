@@ -26,6 +26,7 @@ from sqlalchemy import or_
 from sqlalchemy.orm.attributes import flag_modified
 
 from Code.extensions import db
+from Code.prompts import get_prompt, prompts_available
 from Code.models.models import Activities, Entity, Link, Data, Task, Role, CrossCartoLiaison, activity_roles, task_roles, task_tools
 
 from Code.routes.vsdx_conection_parser import (
@@ -2095,25 +2096,11 @@ def _ai_extract_decisions(vsdx_result: Dict, context_name: str = '') -> Dict:
 
     summary = '\n'.join(lines)
 
-    system_prompt = (
-        "Tu es un expert en analyse de diagrammes de flux Visio. "
-        "On te soumet les losanges extraits automatiquement d'un fichier VSDX. "
-        "Ta mission : valider et restituer fidèlement ces données — sans rien inventer.\n\n"
-        "RÈGLES STRICTES :\n"
-        "- Conserve exactement les labels et connexions fournis, sans les modifier.\n"
-        "- Ne déduis PAS de badges Oui/Non : mets badge='' pour toutes les connexions "
-        "sauf si un badge est explicitement indiqué dans les données d'entrée (ex: [badge:Oui]).\n"
-        "- Ne crée pas de connexions absentes des données d'entrée.\n"
-        "- Si les données sont correctes, retourne-les telles quelles.\n\n"
-        "Réponds UNIQUEMENT en JSON valide, sans texte avant ni après :\n"
-        '{"decisions": [{"id": "...", "label": "...", '
-        '"incoming": [{"from_id": "", "from_label": ""}], '
-        '"outgoing": [{"to_id": "", "to_label": "", "badge": ""}]}]}'
-    )
+    system_prompt = get_prompt("carto.decisions.system")
 
     client, err = openai_client_or_none()
-    if not client:
-        return {"source": "error", "error": err, "data": {"decisions": []}}
+    if not client or system_prompt is None:
+        return {"source": "error", "error": err or "prompts non chargés", "data": {"decisions": []}}
 
     try:
         resp = client.chat.completions.create(

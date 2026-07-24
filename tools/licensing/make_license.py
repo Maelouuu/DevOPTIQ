@@ -32,6 +32,9 @@ def main():
     ap.add_argument("--licensee", required=True, help="Nom du client (raison sociale)")
     ap.add_argument("--expires", help="Date d'expiration YYYY-MM-DD")
     ap.add_argument("--days", type=int, help="Durée en jours à partir d'aujourd'hui")
+    ap.add_argument("--prompts-key", help="Clé Fernet du bundle de prompts IA à embarquer "
+                    "(cf. tools/prompts/encrypt_prompts.py ; par défaut, relue depuis "
+                    "tools/prompts/prompts_key.txt si présent)")
     args = ap.parse_args()
 
     if bool(args.expires) == bool(args.days):
@@ -46,12 +49,21 @@ def main():
     with open(PRIVATE_PATH, "rb") as f:
         key = load_pem_private_key(f.read(), password=None)
 
+    prompts_key = args.prompts_key
+    if not prompts_key:
+        _pk_path = os.path.join(os.path.dirname(HERE), "prompts", "prompts_key.txt")
+        if os.path.exists(_pk_path):
+            prompts_key = open(_pk_path).read().strip()
+            print(f"Clé de prompts relue depuis {_pk_path}")
+
     payload = {
         "product": "OptiqFluent",
         "licensee": args.licensee,
         "issued_at": date.today().isoformat(),
         "expires_at": expires.isoformat(),
     }
+    if prompts_key:
+        payload["prompts_key"] = prompts_key
     doc = {
         "payload": payload,
         "signature": base64.b64encode(key.sign(canonical_payload_bytes(payload))).decode(),

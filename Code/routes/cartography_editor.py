@@ -21,6 +21,7 @@ from flask import (
 )
 
 from Code.extensions import db
+from Code.prompts import get_prompt, prompts_available
 from Code.models.models import (
     Activities, CartoCalque, CompetencyEvaluation, CrossCartoLiaison,
     Entity, Link, Role, TimeAnalysis, TimeProjectLine, TimeRoleLine,
@@ -1011,13 +1012,9 @@ def api_architect():
         band_y_info.append({"label": b.get("label", ""), "y_start": y, "y_end": y + b.get("height", 220)})
         y += b.get("height", 220)
 
-    system_prompt = (
-        "Tu es un expert en architecture de processus métier. "
-        "Tu dois repositionner les formes d'un diagramme de flux pour maximiser la lisibilité : "
-        "pas de chevauchement, connexions courtes, alignement logique gauche→droite dans chaque bande. "
-        "Réponds UNIQUEMENT avec un JSON valide : {\"positions\": [{\"id\": <int>, \"x\": <int>, \"y\": <int>}, ...]}. "
-        "Aucun texte avant ou après le JSON."
-    )
+    system_prompt = get_prompt("carto.reposition.system")
+    if system_prompt is None:
+        return jsonify({"error": "Prompts IA non chargés sur cette instance."}), 500
 
     user_prompt = (
         f"Bandes (horizontal swimlanes, y croissant) :\n{json.dumps(band_y_info, ensure_ascii=False)}\n\n"

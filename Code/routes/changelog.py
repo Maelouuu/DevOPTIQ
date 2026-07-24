@@ -6,6 +6,7 @@ import time
 from datetime import datetime
 
 from flask import Blueprint, jsonify
+from Code.prompts import get_prompt
 
 changelog_bp = Blueprint('changelog', __name__)
 
@@ -64,7 +65,8 @@ def _fallback_changelog():
 
 def _generate_with_openai(commits):
     api_key = os.environ.get('OPENAI_API_KEY')
-    if not api_key:
+    system_prompt = get_prompt("changelog.system")
+    if not api_key or system_prompt is None:
         return None
     try:
         from openai import OpenAI
@@ -75,22 +77,7 @@ def _generate_with_openai(commits):
             messages=[
                 {
                     'role': 'system',
-                    'content': (
-                        "Tu es le rédacteur des notes de version d'une application web professionnelle de gestion "
-                        "de processus métier appelée OPTIQ.\n"
-                        "Tu reçois des messages de commits git et tu dois les transformer en annonces concrètes "
-                        "et positives pour des utilisateurs non-techniques.\n\n"
-                        "RÈGLES :\n"
-                        "- 3 à 5 points maximum, regroupés par thème\n"
-                        "- Langue : français uniquement, ton positif et concret\n"
-                        "- JAMAIS mentionner : ORM, SQL, CSS, hash, token, migration, backend, bug, refactoring\n"
-                        "- Décris le bénéfice : 'vous pouvez désormais…', 'la page X affiche maintenant…'\n"
-                        "- Chaque point : titre court (≤5 mots) + description (1-2 phrases)\n"
-                        "- icon : une classe Font Awesome existante (ex: 'fa-solid fa-diagram-project')\n"
-                        "  Choisis des icônes précises et pertinentes pour chaque fonctionnalité\n"
-                        "- Réponds UNIQUEMENT en JSON strict (pas de markdown) :\n"
-                        '  {"items": [{"icon":"fa-solid fa-...","title":"...","desc":"..."}, ...]}'
-                    )
+                    'content': system_prompt
                 },
                 {
                     'role': 'user',

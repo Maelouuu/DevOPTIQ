@@ -8,6 +8,7 @@
 import json
 from datetime import datetime
 from flask import Blueprint, request, jsonify, current_app, session
+from Code.prompts import get_prompt, prompts_available
 from Code.extensions import db
 from Code.models.models import Data, Link, Task, Activities
 from Code.routes.propose_common import openai_client_or_none
@@ -148,35 +149,6 @@ def _build_context(activity, outputs):
     return "\n".join(lines)
 
 
-PROMPT_SYSTEM = {
-    "fr": (
-        "Tu es un analyste de la méthode OPTIQ. Tu qualifies la NATURE SÉMANTIQUE de chaque "
-        "donnée de sortie d'une activité, selon ces définitions strictes :\n"
-        "- RESULT : production dont la tenue au standard attendu démontre DIRECTEMENT que l'activité "
-        "est correctement tenue.\n"
-        "- MEASURE : donnée qui mesure, constate ou objectivise un état, un déroulement ou un résultat.\n"
-        "- EVENT : survenue d'un fait qui déclenche ou conditionne une autre activité ; sa seule "
-        "production ne démontre pas la maîtrise de l'activité source.\n"
-        "- INFORMATION : information utile à une autre activité, sans être un résultat démonstratif, "
-        "une mesure ni un événement.\n"
-        "Pour chaque RESULT, propose un standard minimal de performance (niveau à partir duquel "
-        "l'activité est considérée tenue de manière autonome). Ne modifie jamais la cartographie. "
-        "Réponds UNIQUEMENT en JSON."
-    ),
-    "en": (
-        "You are an OPTIQ method analyst. Qualify the SEMANTIC NATURE of each activity output, "
-        "using these strict definitions:\n"
-        "- RESULT: output whose achievement at the expected standard DIRECTLY demonstrates the "
-        "activity is correctly performed.\n"
-        "- MEASURE: data that measures, observes or objectifies a state, a process or a result.\n"
-        "- EVENT: occurrence of a fact that triggers or conditions another activity; producing it "
-        "alone does not demonstrate mastery of the source activity.\n"
-        "- INFORMATION: information useful to another activity, without being a demonstrative result, "
-        "a measure or an event.\n"
-        "For each RESULT, propose a minimum performance standard (threshold from which the activity is "
-        "considered performed autonomously). Never modify the cartography. Answer ONLY in JSON."
-    ),
-}
 
 
 def _prompt_user(ctx, lang):
@@ -237,7 +209,8 @@ def analyze(activity_id):
                                     if lang == "fr" else "This activity has no output data.")}), 200
 
     client, err = openai_client_or_none()
-    if client is None:
+    system_prompt = get_prompt(f"qualify.system.{lang}") or get_prompt("qualify.system.fr")
+    if client is None or system_prompt is None:
         return jsonify({"outputs": _fallback_proposals(outs), "source": err or "no_ai"}), 200
 
     try:
@@ -245,7 +218,7 @@ def analyze(activity_id):
         resp = client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
-                {"role": "system", "content": PROMPT_SYSTEM.get(lang, PROMPT_SYSTEM["fr"])},
+                {"role": "system", "content": system_prompt},
                 {"role": "user", "content": _prompt_user(ctx, lang)},
             ],
             temperature=0.2,

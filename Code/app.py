@@ -4,10 +4,12 @@ import os
 import sys
 from dotenv import load_dotenv
 
-load_dotenv()
-
 current_dir = os.path.dirname(os.path.abspath(__file__))
 parent_dir = os.path.dirname(current_dir)
+
+# Chemin explicite : load_dotenv() sans argument remonte la pile d'appels pour
+# localiser .env — fragile (casse notamment dans une image bytecode-only).
+load_dotenv(os.path.join(parent_dir, ".env"))
 if current_dir not in sys.path:
     sys.path.insert(0, current_dir)
 if parent_dir not in sys.path:
@@ -254,8 +256,11 @@ def create_app(test_config=None):
     from Code.routes.settings import settings_bp
     app.register_blueprint(settings_bp)
 
-    from Code.routes.test_panel import test_panel_bp
-    app.register_blueprint(test_panel_bp)
+    # Panel de tests : outillage interne AFDEC — désactivé dans l'image client
+    # (TESTPANEL_ENABLED=0 dans le Dockerfile → routes non enregistrées, 404).
+    if os.getenv("TESTPANEL_ENABLED", "1") == "1":
+        from Code.routes.test_panel import test_panel_bp
+        app.register_blueprint(test_panel_bp)
 
     from Code.routes.projection_metier import projection_metier_bp
     app.register_blueprint(projection_metier_bp)

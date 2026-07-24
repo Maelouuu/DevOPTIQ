@@ -298,10 +298,29 @@ privé (ghcr.io) + licence signée à expiration + contrat d'évaluation**. Cont
   postgres:16 + volume), `INSTALL.md`, `CONTRAT_EVALUATION.md` (projet à faire
   valider par un juriste).
 - **Rebranding** : DevOPTIQ → OptiqFluent dans l'UI, emails et en-têtes.
-- **À faire (phase 2)** : sécurisation des prompts IA (sortis du code ?),
-  dissuasion anti-inspection de l'image, désactivation du `/testpanel` chez le
-  client (les tests sont exclus de l'image → panel non fonctionnel), décision
-  LibreOffice (allège l'image de ~1,5 Go si retirable).
+- **Phase 2 (livrée)** :
+  - **Prompts IA externalisés + chiffrés** : TOUS les prompts (36, dont le
+    référentiel X50-766) vivent dans `Code/prompts/catalog.py` (dict `PROMPTS`,
+    exclu de l'image client). `get_prompt(key, **vars)` (`Code/prompts/__init__.py`),
+    placeholders `[[var]]` (PAS `.format` : accolades JSON). Image client = bundle
+    chiffré Fernet `Code/prompts/prompts.enc` (généré par
+    `tools/prompts/encrypt_prompts.py`), clé via env `PROMPTS_KEY` ou champ
+    `prompts_key` de la licence signée. Sans clé → chaque route dégrade comme
+    « sans clé OpenAI » (fallbacks existants). ⚠️ Ne JAMAIS remettre un prompt en
+    dur dans une route — tout passe par le catalogue. Seul `role_i18n.py` garde
+    son prompt trivial en dur (aucun savoir-faire dedans).
+  - **Anti-inspection** : image bytecode-only (Dockerfile : `compileall -b` puis
+    suppression des `.py` sauf `gunicorn.conf.py`). `load_dotenv()` avec chemin
+    explicite (l'auto-détection casse en bytecode). Dissuasion, pas protection
+    absolue (le vrai verrou = prompts chiffrés + licence + contrat).
+  - **`/testpanel` désactivé chez le client** : blueprint non enregistré si
+    `TESTPANEL_ENABLED=0` (baké dans le Dockerfile ; réactivable par env).
+  - **LibreOffice retiré** du Dockerfile (~1,5 Go) : aucun usage dans le code
+    (exports = openpyxl/python-docx).
+  - **CI** : `.github/workflows/client-image.yml` — push d'un tag `client-v*` →
+    build + push `ghcr.io/maelouuu/optiqfluent:<version>` + `:beta` (secret GitHub
+    `PROMPTS_KEY` requis). Runbook AFDEC complet : `distribution/RELEASE.md`
+    (keygen, licences, token client, leviers de contrôle).
 
 ## Notes importantes
 
