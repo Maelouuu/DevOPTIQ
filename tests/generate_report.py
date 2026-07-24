@@ -71,6 +71,8 @@ PAGE_LABELS = {
     "test_57_mastery":                   "Niveaux de Maîtrise",
     "test_58_diagnostic":                "Diagnostic d'Écart & Plan d'Accompagnement",
     "test_59_i18n_settings_password":    "Sécurité Mot de Passe, Paramètres Entreprise & Traductions RH",
+    "test_60_activity_items_api":        "API Agrégée Savoirs/Savoir-Faire/HSC par Activité",
+    "test_61_propose_common":            "Utilitaires Communs Propositions IA (Contexte & Fallback)",
 }
 
 
