@@ -33,8 +33,10 @@ def create_app(test_config=None):
     static_folder = os.path.join(parent_dir, "static")
     app = Flask(__name__, static_folder=static_folder)
 
-    app.config["DEBUG"] = True
-    app.config["PROPAGATE_EXCEPTIONS"] = True
+    # Jamais de debug par défaut : stack traces interdites chez un client.
+    _debug = os.getenv("FLASK_DEBUG", "0").lower() in ("1", "true", "yes")
+    app.config["DEBUG"] = _debug
+    app.config["PROPAGATE_EXCEPTIONS"] = _debug
 
     # -----------------------------
     # 1) Base de données
@@ -45,12 +47,13 @@ def create_app(test_config=None):
         if db_url.startswith("postgres://"):
             db_url = db_url.replace("postgres://", "postgresql://", 1)
         app.config["SQLALCHEMY_DATABASE_URI"] = db_url
-        # Pool de connexions limité pour Neon (free tier = max ~20 connexions)
+        # Défauts calibrés Neon free tier (max ~20 connexions) ; un Postgres
+        # local/dédié peut monter via DB_POOL_SIZE / DB_MAX_OVERFLOW.
         app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
             "pool_pre_ping": True,
             "pool_recycle": 300,
-            "pool_size": 2,
-            "max_overflow": 3,
+            "pool_size": int(os.getenv("DB_POOL_SIZE", "2")),
+            "max_overflow": int(os.getenv("DB_MAX_OVERFLOW", "3")),
         }
     else:
         instance_path = os.path.join(os.path.dirname(__file__), "instance")
@@ -75,13 +78,21 @@ def create_app(test_config=None):
     # -----------------------------
     # 2) Mail
     # -----------------------------
-    _mail_user = os.getenv("MAIL_USERNAME", "afdec.enterprise.services@gmail.com")
+    # Aucun identifiant par défaut : chaque instance (client compris) fournit son
+    # propre compte d'envoi via l'environnement (compte Google + mot de passe
+    # d'application, cf. distribution/.env.example). Sans config → envoi désactivé.
+    _mail_user = os.getenv("MAIL_USERNAME")
+    _mail_pwd  = os.getenv("MAIL_PASSWORD")
     app.config["MAIL_SERVER"]         = os.getenv("MAIL_SERVER", "smtp.gmail.com")
     app.config["MAIL_PORT"]           = int(os.getenv("MAIL_PORT", 587))
     app.config["MAIL_USE_TLS"]        = True
     app.config["MAIL_USERNAME"]       = _mail_user
-    app.config["MAIL_PASSWORD"]       = os.getenv("MAIL_PASSWORD", "awdkerghqvuwjhel")
+    app.config["MAIL_PASSWORD"]       = _mail_pwd
     app.config["MAIL_DEFAULT_SENDER"] = os.getenv("MAIL_DEFAULT_SENDER", _mail_user)
+    app.config["MAIL_CONFIGURED"]     = bool(_mail_user and _mail_pwd)
+    if not app.config["MAIL_CONFIGURED"]:
+        print("[MAIL] MAIL_USERNAME/MAIL_PASSWORD absents — envoi d'emails désactivé "
+              "(reset de mot de passe indisponible)")
 
     # Appliquer la config de test APRÈS les defaults (override complet)
     if test_config:
@@ -434,12 +445,13 @@ def create_app(test_config=None):
         except Exception as e:
             print(f"[DB] alembic_version: {e}")
 
-        # 5. Seed données de démonstration recent_events
+        # 5. Seed données de démonstration recent_events (opt-in : DEMO_SEED=1 —
+        # une instance client démarre sur une base réellement vierge)
         try:
             import json as _json_seed
             from datetime import datetime as _datetime, timedelta
             from Code.models.models import RecentEvent as _RE
-            if _RE.query.count() == 0:
+            if os.getenv("DEMO_SEED", "0") == "1" and _RE.query.count() == 0:
                 _now = _datetime.utcnow()
                 _seeds = [
                     _RE(event_type='activity_created',
@@ -485,13 +497,53 @@ def create_app(test_config=None):
         finally:
             db.session.remove()
 
-        # 6. Réinitialiser le pool — toutes les connexions du startup sont fermées
+        # 6. Bootstrap du premier compte : base sans aucun utilisateur (installation
+        # neuve chez un client) + ADMIN_EMAIL/ADMIN_PASSWORD fournis → création
+        # d'un administrateur. Ne fait rien dès qu'un utilisateur existe.
+        try:
+            from Code.models.models import User as _User
+            from Code.security import hash_password as _hash_password
+            _admin_email = (os.getenv("ADMIN_EMAIL") or "").strip().lower()
+            _admin_pwd = os.getenv("ADMIN_PASSWORD")
+            if _User.query.count() == 0:
+                if _admin_email and _admin_pwd:
+                    db.session.add(_User(
+                        first_name=os.getenv("ADMIN_FIRST_NAME", "Admin"),
+                        last_name=os.getenv("ADMIN_LAST_NAME", "OptiqFluent"),
+                        email=_admin_email,
+                        password=_hash_password(_admin_pwd),
+                        status="administrateur",
+                    ))
+                    db.session.commit()
+                    print(f"[BOOTSTRAP] Compte administrateur créé : {_admin_email}")
+                else:
+                    print("[BOOTSTRAP] Aucun utilisateur en base et ADMIN_EMAIL/"
+                          "ADMIN_PASSWORD absents — personne ne pourra se connecter. "
+                          "Définir ces variables pour créer le premier compte.")
+        except Exception as e:
+            db.session.rollback()
+            print(f"[BOOTSTRAP] Création admin: {e}")
+
+        # 7. Réinitialiser le pool — toutes les connexions du startup sont fermées
         # avant que le worker commence à traiter les requêtes HTTP
         db.engine.dispose()
         print("[DB] Pool connexions réinitialisé")
 
-    # secret key
-    app.secret_key = os.getenv("SECRET_KEY", "devoptiq-secret")
+    # Secret key : jamais de valeur par défaut publique (cookies forgeables).
+    # Sans SECRET_KEY, on génère un secret aléatoire éphémère : l'app démarre,
+    # mais les sessions sautent à chaque redémarrage → la définir en production.
+    _secret = os.getenv("SECRET_KEY")
+    if not _secret:
+        import secrets as _secrets
+        _secret = _secrets.token_hex(32)
+        print("[SECURITY] SECRET_KEY non définie — secret aléatoire éphémère généré "
+              "(sessions invalidées à chaque redémarrage). Définir SECRET_KEY en production.")
+    app.secret_key = _secret
+
+    # Licence signée à expiration (active uniquement si REQUIRE_LICENSE=1 —
+    # baké dans l'image distribuée aux clients, inactif en dev/tests)
+    from Code.licensing import init_license_enforcement
+    init_license_enforcement(app)
 
     @app.route("/healthz")
     def healthz():
@@ -514,4 +566,5 @@ app = create_app()
 if __name__ == "__main__":
     # IMPORTANT: use_reloader=False pour éviter "database is locked" avec SQLite
     # Le reloader crée 2 processus qui accèdent à la DB simultanément
-    app.run(debug=True, host="0.0.0.0", port=int(os.getenv("PORT", 8080)), use_reloader=False)
+    app.run(debug=app.config["DEBUG"], host="0.0.0.0",
+            port=int(os.getenv("PORT", 8080)), use_reloader=False)

@@ -1,4 +1,4 @@
-"""Blueprint OptiqCarto — éditeur de cartographie intégré à DevOPTIQ.
+"""Blueprint OptiqCarto — éditeur de cartographie intégré à OptiqFluent.
 
 La carto JSON de chaque entité est stockée en base de données (colonne
 Entity.optiqcarto_data) pour survivre aux redémarrages Cloud Run.

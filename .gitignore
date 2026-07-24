@@ -13,3 +13,8 @@ Z-Dev bis/
 .venv/
 /Archives/
 export_code.docx
+
+# Licence OptiqFluent : la clé privée et les licences émises ne vont JAMAIS dans git
+tools/licensing/license_private.pem
+tools/licensing/out/
+distribution/.env

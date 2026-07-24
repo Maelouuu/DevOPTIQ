@@ -1,6 +1,4 @@
 #!/bin/sh
-exec gunicorn \
-  -w 1 \
-  -b 0.0.0.0:8080 \
-  --timeout 120 \
-  Code.app:app
+# Toute la config (workers, port, timeout) vit dans gunicorn.conf.py —
+# ajustable via WEB_CONCURRENCY / PORT sans toucher à l'image.
+exec gunicorn -c gunicorn.conf.py Code.app:app

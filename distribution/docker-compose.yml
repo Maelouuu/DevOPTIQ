@@ -1,0 +1,47 @@
+# OptiqFluent (beta test) — installation client autonome
+# Prérequis : Docker + Docker Compose, un fichier .env rempli (cf. .env.example)
+# et le fichier de licence dans ./license/optiqfluent.lic
+
+services:
+  app:
+    image: ghcr.io/maelouuu/optiqfluent:beta
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      # Option A : PostgreSQL embarqué ci-dessous (mot de passe lu dans .env).
+      # Option B (PostgreSQL hébergé par vos soins) : remplacez cette valeur par
+      # l'URL de votre hébergeur et supprimez le service `db` + le bloc depends_on.
+      DATABASE_URL: postgresql://optiqfluent:${POSTGRES_PASSWORD}@db:5432/optiqfluent
+      LICENSE_PATH: /app/license/optiqfluent.lic
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./license:/app/license:ro
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-fs", "http://localhost:8080/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  # PostgreSQL embarqué (option A). Si vous utilisez votre propre PostgreSQL
+  # hébergé (option B du .env), supprimez ce service et le bloc depends_on.
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: optiqfluent
+      POSTGRES_USER: optiqfluent
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - optiqfluent-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U optiqfluent -d optiqfluent"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  optiqfluent-db:

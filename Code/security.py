@@ -1,5 +1,5 @@
 # Code/security.py
-# Politique de hachage des mots de passe DevOPTIQ.
+# Politique de hachage des mots de passe OptiqFluent.
 #
 # Standard : PBKDF2-HMAC-SHA256, 600 000 itérations (recommandation OWASP).
 # Le hash produit (~102 caractères) tient dans toutes les variantes historiques

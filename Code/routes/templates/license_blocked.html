@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OptiqFluent — Licence requise</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      min-height: 100vh; display: flex; align-items: center; justify-content: center;
+      background: linear-gradient(135deg, #fdf2f8 0%, #fce7f3 100%);
+      color: #1f2937; padding: 24px;
+    }
+    .card {
+      background: #fff; border-radius: 16px; padding: 48px 40px; max-width: 520px;
+      box-shadow: 0 20px 60px rgba(190, 24, 93, .15); text-align: center;
+    }
+    .logo { font-size: 28px; font-weight: 700; color: #be185d; margin-bottom: 8px; }
+    .badge {
+      display: inline-block; background: #fee2e2; color: #b91c1c;
+      font-size: 13px; font-weight: 600; padding: 4px 14px; border-radius: 999px;
+      margin: 16px 0 20px;
+    }
+    p { color: #4b5563; line-height: 1.6; margin-bottom: 12px; }
+    .detail { font-size: 13px; color: #9ca3af; margin-top: 20px; }
+    .contact { margin-top: 24px; font-weight: 600; color: #be185d; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="logo">OptiqFluent</div>
+    <div class="badge">Licence requise</div>
+    {% if expires_at %}
+      <p>La licence d'utilisation de cette instance{% if licensee %} ({{ licensee }}){% endif %}
+         a expiré le <strong>{{ expires_at }}</strong>.</p>
+      <p>L'application et vos données sont intactes : l'accès sera rétabli
+         dès l'installation d'une licence renouvelée.</p>
+    {% else %}
+      <p>Aucune licence d'utilisation valide n'est installée sur cette instance.</p>
+    {% endif %}
+    <p class="contact">Contactez AFDEC pour obtenir ou renouveler votre licence.</p>
+    {% if error %}<div class="detail">{{ error }}</div>{% endif %}
+  </div>
+</body>
+</html>

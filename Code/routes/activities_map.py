@@ -2133,19 +2133,6 @@ def _ai_extract_decisions(vsdx_result: Dict, context_name: str = '') -> Dict:
     except Exception as e:
         return {"source": "error", "error": str(e), "data": {"decisions": []}}
 
-@activities_map_bp.route("/api/debug-decisions/env-check", methods=["GET"])
-def api_debug_env_check():
-    """Diagnostic temporaire — liste les noms des vars d'env disponibles."""
-    import os as _os
-    keys = sorted(_os.environ.keys())
-    openai_key = _os.environ.get("OPENAI_API_KEY", "")
-    return jsonify({
-        "openai_api_key_present": bool(openai_key),
-        "openai_api_key_prefix": openai_key[:8] + "..." if openai_key else None,
-        "all_env_var_names": keys,
-    })
-
-
 @activities_map_bp.route("/api/debug-decisions/analyze-file", methods=["POST"])
 def api_debug_analyze_file():
     """

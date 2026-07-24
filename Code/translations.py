@@ -1,5 +1,5 @@
 # Code/translations.py
-# Dictionnaire de traductions FR/EN pour l'interface DevOPTIQ.
+# Dictionnaire de traductions FR/EN pour l'interface OptiqFluent.
 # Usage :  from Code.translations import t
 #          t('nav.activities')           → utilise la langue de la session Flask
 #          t('nav.activities', lang='en') → force la langue

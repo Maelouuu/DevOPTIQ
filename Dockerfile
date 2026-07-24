@@ -1,4 +1,4 @@
-# Dockerfile — AFDEC / Flask → Cloud Run
+# Dockerfile — AFDEC / OptiqFluent (Flask) → Cloud Run ou on-premise client
 FROM python:3.12-slim
 
 # ==========================================================
@@ -44,6 +44,11 @@ COPY . .
 # 5) Cloud Run utilise la variable d'environnement PORT
 # ==========================================================
 ENV PORT=8080
+
+# Licence signée obligatoire par défaut (image distribuée aux clients).
+# Nos propres déploiements peuvent passer REQUIRE_LICENSE=0 dans leur config
+# d'environnement (Cloud Run) — le contrat client interdit ce contournement.
+ENV REQUIRE_LICENSE=1
 
 # ==========================================================
 # 6) Lancement Gunicorn (production)

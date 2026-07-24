@@ -268,6 +268,41 @@ cadence sur la fiche activité ; panneau de qualification des sorties + badges �
 
 ---
 
+## Distribution client — branche `optiqfluent-beta-test`
+
+Branche dédiée à la mise à disposition de l'app chez un client pilote (rebrandée
+**OptiqFluent**), basée sur `staging`. Modèle retenu : **image Docker sur registre
+privé (ghcr.io) + licence signée à expiration + contrat d'évaluation**. Contenu :
+
+- **Durcissement pré-livraison** (tout dans cette branche) : mot de passe Gmail
+  AFDEC retiré du code (mail 100 % par env, désactivé proprement sans config —
+  `MAIL_CONFIGURED`) ; endpoint debug `/api/debug-decisions/env-check` (fuite des
+  vars d'env) supprimé ; `SECRET_KEY` sans défaut public (secret éphémère + warning
+  si absente) ; `DEBUG` piloté par `FLASK_DEBUG` (défaut off) ; pool DB configurable
+  (`DB_POOL_SIZE`/`DB_MAX_OVERFLOW`) ; seed de démo derrière `DEMO_SEED=1` ;
+  **bootstrap 1er compte admin** (`ADMIN_EMAIL`/`ADMIN_PASSWORD`, seulement si 0
+  utilisateur) ; gunicorn unifié (`gunicorn.conf.py`, `WEB_CONCURRENCY`) ;
+  `.dockerignore` étendu (zips, backups, tests, docs, vsdx, scripts dev, tools/).
+- **Licence** (`Code/licensing.py`) : JSON signé Ed25519 (clé publique embarquée
+  `Code/license_pubkey.pem`, clé privée JAMAIS committée), date d'expiration,
+  active si `REQUIRE_LICENSE=1` (baké dans le Dockerfile de cette branche — nos
+  propres déploiements passent `REQUIRE_LICENSE=0`). Bloque tout sauf `/healthz`,
+  `/license`, `/static` (page `license_blocked.html`). Renouvellement à chaud :
+  remplacer le fichier `.lic`, pris en compte sans redémarrage. Outils AFDEC :
+  `tools/licensing/keygen.py` (une fois, avant le 1er build client — la clé
+  publique committée doit correspondre à une clé privée conservée) et
+  `tools/licensing/make_license.py --licensee … --days …`.
+- **Kit client** (`distribution/`, exclu de l'image) : `.env.example` commenté
+  (DB embarquée ou hébergée, clé OpenAI du client, compte Google + mot de passe
+  d'application pour le mail, admin initial), `docker-compose.yml` (app +
+  postgres:16 + volume), `INSTALL.md`, `CONTRAT_EVALUATION.md` (projet à faire
+  valider par un juriste).
+- **Rebranding** : DevOPTIQ → OptiqFluent dans l'UI, emails et en-têtes.
+- **À faire (phase 2)** : sécurisation des prompts IA (sortis du code ?),
+  dissuasion anti-inspection de l'image, désactivation du `/testpanel` chez le
+  client (les tests sont exclus de l'image → panel non fonctionnel), décision
+  LibreOffice (allège l'image de ~1,5 Go si retirable).
+
 ## Notes importantes
 
 - **Mots de passe (politique de hachage)** : centralisée dans `Code/security.py` —

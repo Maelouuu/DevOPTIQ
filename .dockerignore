@@ -1,14 +1,52 @@
-__pycache__/
-*.pyc
-*.pyo
-*.pyd
-*.sqlite
-*.db
-instance/
-.env
-.git
-.gitignore
+# NB : les patterns .dockerignore ne sont PAS récursifs par défaut → **/ requis
+# pour les répertoires imbriqués (ex. Code/instance).
+
+# --- Python / caches ---
+**/__pycache__
+**/*.pyc
+**/*.pyo
+**/*.pyd
 .mypy_cache/
 .pytest_cache/
 dist/
 build/
+
+# --- Secrets & données locales : ne JAMAIS embarquer dans l'image ---
+**/.env
+**/*.sqlite
+**/*.db
+**/instance
+tools/
+
+# --- Git & outillage interne ---
+.git
+.gitignore
+.claude/
+CLAUDE.md
+
+# --- Docs internes, archives, exports : inutiles au runtime et sensibles ---
+docs/
+doc/
+Archives/
+backup/
+tests/
+uploads/
+Code.zip
+codeApp.zip
+DevOPTIQ_Prompts_IA.pdf
+database_schema.png
+REFONTE_ACTIVITES.md
+**/*.vsdx
+export_code.py
+export_data.py
+import_data.py
+generate_prompts_pdf.py
+transfer_db_data.py
+create_test_user.py
+cleanup_activities.py
+cleanup_extra_activities.py
+fix_entreprise_settings.py
+fix_unique_constraint.py
+run_app_no_key.bat
+run_tests.sh
+distribution/

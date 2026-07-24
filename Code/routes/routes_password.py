@@ -28,6 +28,11 @@ def forgot_password():
         flash("Adresse email requise.", "error")
         return redirect(url_for("auth.login"))
 
+    if not current_app.config.get("MAIL_CONFIGURED"):
+        flash("L'envoi d'email n'est pas configuré sur cette instance. "
+              "Contactez votre administrateur pour réinitialiser votre mot de passe.", "error")
+        return redirect(url_for("auth.login"))
+
     user = _find_user_by_email(email)
 
     # Ne pas révéler si l'email existe ou non
@@ -37,15 +42,15 @@ def forgot_password():
         reset_link = url_for("auth_password.reset_password", token=token, _external=True)
 
         msg = Message(
-            subject="Réinitialisation de votre mot de passe DevOPTIQ",
+            subject="Réinitialisation de votre mot de passe OptiqFluent",
             recipients=[email],
         )
         msg.body = (
             "Bonjour,\n\n"
-            "Vous avez demande la reinitialisation de votre mot de passe DevOPTIQ.\n\n"
+            "Vous avez demande la reinitialisation de votre mot de passe OptiqFluent.\n\n"
             f"Cliquez sur ce lien pour choisir un nouveau mot de passe :\n{reset_link}\n\n"
             "Ce lien est valable 1 heure. Si vous n'etes pas a l'origine de cette demande, ignorez cet email.\n\n"
-            "--- L'equipe DevOPTIQ"
+            "--- L'equipe OptiqFluent"
         )
         try:
             mail.send(msg)
