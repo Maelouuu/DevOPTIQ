@@ -52,9 +52,16 @@ fi
 NEW_ENV="REQUIRE_LICENSE=0@TESTPANEL_ENABLED=1@PROMPTS_KEY=${PROMPTS_KEY}"
 [ -n "$OLD_ENV" ] && NEW_ENV="${OLD_ENV}@${NEW_ENV}"
 
-echo "== Déploiement de $NEW_SERVICE (build Cloud Build depuis les sources) =="
+# Build explicite puis déploiement de l'image : le raccourci
+# `gcloud run deploy --source` échoue avec « Container import failed »
+# (constaté en conditions réelles) — la voie en deux temps est fiable.
+IMAGE="${REGION}-docker.pkg.dev/$(gcloud config get-value project)/cloud-run-source-deploy/optiqfluent:$(date +%Y%m%d-%H%M%S)"
+echo "== Build Cloud Build → $IMAGE =="
+gcloud builds submit --region "$REGION" --tag "$IMAGE" .
+
+echo "== Déploiement de $NEW_SERVICE =="
 gcloud run deploy "$NEW_SERVICE" \
-  --source . \
+  --image "$IMAGE" \
   --region "$REGION" \
   --allow-unauthenticated \
   --set-env-vars "^@^${NEW_ENV}"

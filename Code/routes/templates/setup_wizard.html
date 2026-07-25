@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OptiqFluent — Installation</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; font-family:'Segoe UI',system-ui,sans-serif; }
+  body { min-height:100vh; background:linear-gradient(135deg,#fdf2f8,#fce7f3); color:#1f2937;
+         display:flex; align-items:flex-start; justify-content:center; padding:40px 16px; }
+  .wrap { width:100%; max-width:680px; }
+  .brand { text-align:center; margin-bottom:24px; }
+  .brand h1 { color:#be185d; font-size:30px; }
+  .brand p { color:#6b7280; margin-top:4px; }
+  .steps { display:flex; gap:6px; margin-bottom:20px; }
+  .steps span { flex:1; height:6px; border-radius:3px; background:#f3d2e2; }
+  .steps span.done { background:#22c55e; }
+  .steps span.cur { background:#ec4899; }
+  .card { background:#fff; border-radius:14px; padding:32px; box-shadow:0 12px 40px rgba(190,24,93,.12); }
+  .card h2 { font-size:20px; margin-bottom:6px; }
+  .card .sub { color:#6b7280; font-size:14px; margin-bottom:20px; line-height:1.5; }
+  label { display:block; font-weight:600; font-size:14px; margin:14px 0 4px; }
+  input, textarea { width:100%; padding:10px 12px; border:1px solid #e5e7eb; border-radius:8px;
+                    font-size:14px; }
+  input:focus, textarea:focus { outline:2px solid #f9a8d4; border-color:#ec4899; }
+  textarea { min-height:110px; font-family:monospace; font-size:12px; }
+  .hint { font-size:12px; color:#9ca3af; margin-top:4px; line-height:1.4; }
+  .row { display:flex; gap:12px; }
+  .row > div { flex:1; }
+  .btns { display:flex; justify-content:space-between; margin-top:26px; gap:10px; }
+  button { border:0; border-radius:8px; padding:11px 22px; font-size:14px; font-weight:600; cursor:pointer; }
+  .primary { background:#ec4899; color:#fff; }
+  .primary:hover { background:#be185d; }
+  .ghost { background:#f3f4f6; color:#374151; }
+  .test { background:#fdf2f8; color:#be185d; border:1px solid #f9a8d4; margin-top:10px; }
+  button:disabled { opacity:.5; cursor:default; }
+  .msg { margin-top:10px; padding:10px 12px; border-radius:8px; font-size:13px; display:none; }
+  .msg.ok { display:block; background:#f0fdf4; color:#15803d; }
+  .msg.err { display:block; background:#fef2f2; color:#b91c1c; }
+  .recap { font-size:14px; line-height:1.9; }
+  .recap b { color:#be185d; }
+  #overlay { position:fixed; inset:0; background:rgba(253,242,248,.96); display:none;
+             align-items:center; justify-content:center; text-align:center; }
+  .spin { width:44px; height:44px; border:4px solid #f9a8d4; border-top-color:#be185d;
+          border-radius:50%; margin:0 auto 18px; animation:r 1s linear infinite; }
+  @keyframes r { to { transform:rotate(360deg); } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="brand"><h1>OptiqFluent</h1><p>Assistant d'installation</p></div>
+  <div class="steps" id="stepbar"></div>
+  <div class="card" id="card"></div>
+</div>
+
+<div id="overlay">
+  <div>
+    <div class="spin"></div>
+    <h2 style="color:#be185d">Installation en cours…</h2>
+    <p style="color:#6b7280;margin-top:8px">L'application redémarre avec votre configuration.<br>
+       Vous serez redirigé vers la page de connexion automatiquement.</p>
+  </div>
+</div>
+
+<script>
+const LICENSE = {{ license_status | tojson }};
+const DB_DEFAULT = {{ db_default | tojson }};
+const MAIL_SERVER_DEFAULT = {{ mail_server_default | tojson }};
+
+const state = { license_ok: LICENSE.valid, db_url: DB_DEFAULT, db_ok: false,
+                openai_key: "", mail: {}, admin: {} };
+
+const steps = [];
+if (LICENSE.required) steps.push("licence");
+steps.push("db", "openai", "mail", "admin", "recap");
+let cur = 0;
+
+const $ = s => document.querySelector(s);
+const esc = s => { const d = document.createElement('div'); d.textContent = s ?? ''; return d.innerHTML; };
+
+function bar() {
+  $("#stepbar").innerHTML = steps.map((s,i) =>
+    `<span class="${i<cur?'done':i===cur?'cur':''}"></span>`).join("");
+}
+
+async function api(path, body) {
+  const r = await fetch("/setup/api/" + path, { method:"POST",
+    headers:{ "Content-Type":"application/json" }, body: JSON.stringify(body) });
+  return r.json();
+}
+function show(el, ok, text) { el.className = "msg " + (ok?"ok":"err"); el.innerHTML = esc(text); }
+
+const render = {
+  licence() { return `
+    <h2>1. Licence d'utilisation</h2>
+    <div class="sub">Collez le contenu du fichier <b>optiqfluent.lic</b> fourni par AFDEC
+      (ouvrez-le avec un éditeur de texte, sélectionnez tout, copiez).</div>
+    ${LICENSE.valid ? `<div class="msg ok" style="display:block">Licence déjà installée :
+       ${esc(LICENSE.licensee)} — valide jusqu'au ${esc(LICENSE.expires_at)}.</div>`
+    : `<textarea id="lic" placeholder='{"payload": {...}, "signature": "..."}'></textarea>
+       <button class="test" onclick="doLicense()">Valider la licence</button>`}
+    <div class="msg" id="m"></div>`;
+  },
+  db() { return `
+    <h2>${LICENSE.required?2:1}. Base de données</h2>
+    <div class="sub">Si vous utilisez l'installation standard (base PostgreSQL intégrée au
+      docker-compose), <b>laissez la valeur pré-remplie</b>. Si votre entreprise fournit sa
+      propre base PostgreSQL, indiquez son URL de connexion.</div>
+    <label>URL de connexion PostgreSQL</label>
+    <input id="dburl" value="${esc(state.db_url)}" placeholder="postgresql://utilisateur:motdepasse@hote:5432/base">
+    <div class="hint">Les tables seront créées automatiquement au premier démarrage — la base
+      doit simplement exister et être vide (ou déjà OptiqFluent).</div>
+    <button class="test" onclick="doDb()">Tester la connexion</button>
+    <div class="msg" id="m"></div>`;
+  },
+  openai() { return `
+    <h2>${steps.indexOf("openai")+1}. Intelligence artificielle</h2>
+    <div class="sub">Les fonctions IA (assistant, propositions de compétences, imports)
+      utilisent l'API OpenAI avec la clé de votre entreprise : créez-la sur
+      <b>platform.openai.com</b> (API keys), avec un plafond de dépense recommandé.
+      Vous pourrez l'ajouter plus tard, mais les fonctions IA seront limitées d'ici là.</div>
+    <label>Clé API OpenAI</label>
+    <input id="oaikey" value="${esc(state.openai_key)}" placeholder="sk-...">
+    <button class="test" onclick="doOpenai()">Tester la clé</button>
+    <div class="msg" id="m"></div>`;
+  },
+  mail() { return `
+    <h2>${steps.indexOf("mail")+1}. Envoi d'emails <span style="font-weight:400;color:#9ca3af;font-size:14px">(facultatif)</span></h2>
+    <div class="sub">Sert uniquement au « mot de passe oublié ». Avec un compte Google :
+      activez la validation en deux étapes puis créez un <b>mot de passe d'application</b>
+      (myaccount.google.com/apppasswords) — c'est lui qu'il faut saisir ici, pas le mot de
+      passe habituel. Vous pouvez passer cette étape.</div>
+    <div class="row">
+      <div><label>Serveur SMTP</label><input id="mserver" value="${esc(state.mail.server || MAIL_SERVER_DEFAULT)}"></div>
+      <div style="max-width:110px"><label>Port</label><input id="mport" value="${esc(state.mail.port || 587)}"></div>
+    </div>
+    <label>Adresse d'envoi</label>
+    <input id="muser" value="${esc(state.mail.username||'')}" placeholder="notifications@votre-entreprise.fr">
+    <label>Mot de passe d'application</label>
+    <input id="mpwd" type="password" value="${esc(state.mail.password||'')}">
+    <button class="test" onclick="doMail()">Tester l'envoi</button>
+    <div class="msg" id="m"></div>`;
+  },
+  admin() { return `
+    <h2>${steps.indexOf("admin")+1}. Compte administrateur</h2>
+    <div class="sub">Le premier compte de l'application : il servira à créer les autres
+      utilisateurs. Choisissez un mot de passe fort (8 caractères minimum).</div>
+    <div class="row">
+      <div><label>Prénom</label><input id="afn" value="${esc(state.admin.first_name||'')}"></div>
+      <div><label>Nom</label><input id="aln" value="${esc(state.admin.last_name||'')}"></div>
+    </div>
+    <label>Email</label><input id="aem" value="${esc(state.admin.email||'')}" placeholder="admin@votre-entreprise.fr">
+    <label>Mot de passe</label><input id="apw" type="password" value="${esc(state.admin.password||'')}">
+    <label>Confirmation</label><input id="apw2" type="password">
+    <div class="msg" id="m"></div>`;
+  },
+  recap() { return `
+    <h2>${steps.length}. Récapitulatif</h2>
+    <div class="sub">Vérifiez puis lancez l'installation — l'application redémarre avec
+      cette configuration (une trentaine de secondes).</div>
+    <div class="recap">
+      ${LICENSE.required?`<div><b>Licence</b> : ${state.license_ok?'✅ valide':'❌ manquante'}</div>`:''}
+      <div><b>Base de données</b> : ${state.db_ok?'✅ connexion vérifiée':'⚠️ non testée'} — <code style="font-size:12px">${esc(state.db_url.replace(/:\/\/([^:]+):[^@]*@/,'://$1:•••@'))}</code></div>
+      <div><b>Clé OpenAI</b> : ${state.openai_key?'✅ renseignée':'— aucune (fonctions IA limitées)'}</div>
+      <div><b>Email</b> : ${state.mail.username?('✅ '+esc(state.mail.username)):'— non configuré (reset de mot de passe désactivé)'}</div>
+      <div><b>Administrateur</b> : ✅ ${esc(state.admin.email)}</div>
+    </div>
+    <div class="msg" id="m"></div>`;
+  },
+};
+
+function draw() {
+  bar();
+  $("#card").innerHTML = render[steps[cur]]() + `
+    <div class="btns">
+      <button class="ghost" onclick="prev()" ${cur===0?'disabled':''}>← Retour</button>
+      ${steps[cur]==='recap'
+        ? `<button class="primary" onclick="finish()">🚀 Installer</button>`
+        : `<button class="primary" onclick="next()">Continuer →</button>`}
+    </div>`;
+}
+function prev() { if (cur>0) { cur--; draw(); } }
+
+function collect() {
+  const s = steps[cur];
+  if (s==='db') state.db_url = $("#dburl").value.trim();
+  if (s==='openai') state.openai_key = $("#oaikey").value.trim();
+  if (s==='mail') state.mail = { server:$("#mserver").value.trim(), port:$("#mport").value.trim(),
+                                 username:$("#muser").value.trim(), password:$("#mpwd").value };
+  if (s==='admin') state.admin = { first_name:$("#afn").value, last_name:$("#aln").value,
+                                   email:$("#aem").value.trim(), password:$("#apw").value };
+}
+
+function next() {
+  collect();
+  const s = steps[cur];
+  if (s==='licence' && !state.license_ok)
+    return show($("#m"), false, "Validez d'abord votre licence pour continuer.");
+  if (s==='db' && !state.db_url)
+    return show($("#m"), false, "Renseignez l'URL de la base de données.");
+  if (s==='admin') {
+    if (!/^[^@]+@[^@]+\.[^@]+$/.test(state.admin.email))
+      return show($("#m"), false, "Email administrateur invalide.");
+    if (state.admin.password.length < 8)
+      return show($("#m"), false, "Mot de passe trop court (8 caractères minimum).");
+    if (state.admin.password !== $("#apw2").value)
+      return show($("#m"), false, "Les deux mots de passe ne correspondent pas.");
+  }
+  cur++; draw();
+}
+
+async function doLicense() {
+  const r = await api("license", { content: $("#lic").value });
+  if (r.ok) { state.license_ok = true; LICENSE.valid = true;
+              LICENSE.licensee = r.licensee; LICENSE.expires_at = r.expires_at; draw();
+              show($("#m"), true, `Licence valide : ${r.licensee} — jusqu'au ${r.expires_at}.`); }
+  else show($("#m"), false, r.error);
+}
+async function doDb() {
+  collect();
+  show($("#m"), true, "Test en cours…");
+  const r = await api("test-db", { url: state.db_url });
+  state.db_ok = r.ok;
+  show($("#m"), r.ok, r.ok ? "Connexion réussie." : r.error);
+}
+async function doOpenai() {
+  collect();
+  show($("#m"), true, "Test en cours…");
+  const r = await api("test-openai", { key: state.openai_key });
+  show($("#m"), r.ok, r.ok ? "Clé valide." : r.error);
+}
+async function doMail() {
+  collect();
+  show($("#m"), true, "Test en cours…");
+  const r = await api("test-mail", state.mail);
+  show($("#m"), r.ok, r.ok ? "Connexion SMTP réussie." : r.error);
+}
+
+async function finish() {
+  const r = await api("finish", { database_url: state.db_url, openai_key: state.openai_key,
+                                  mail: state.mail, admin: state.admin });
+  if (!r.ok) return show($("#m"), false, r.error);
+  $("#overlay").style.display = "flex";
+  if (!r.restarting) { setTimeout(() => location.href = "/", 2500); return; }
+  // Attendre que l'app redémarre configurée : /setup/ping disparaît (404) puis /healthz répond
+  const poll = setInterval(async () => {
+    try {
+      const p = await fetch("/setup/ping");
+      if (p.status === 404) {
+        const h = await fetch("/healthz");
+        if (h.ok) { clearInterval(poll); location.href = "/"; }
+      }
+    } catch (e) { /* redémarrage en cours */ }
+  }, 2000);
+}
+
+draw();
+</script>
+</body>
+</html>

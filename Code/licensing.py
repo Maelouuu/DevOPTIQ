@@ -20,8 +20,9 @@ from flask import render_template, request
 
 _PUBKEY_PATH = os.path.join(os.path.dirname(__file__), "license_pubkey.pem")
 
-# Chemins toujours servis, licence valide ou non
-_EXEMPT_PREFIXES = ("/healthz", "/license", "/static/")
+# Chemins toujours servis, licence valide ou non (/setup : l'assistant
+# d'installation permet justement de déposer la licence)
+_EXEMPT_PREFIXES = ("/healthz", "/license", "/static/", "/setup")
 
 
 class LicenseError(Exception):
@@ -53,17 +54,22 @@ def canonical_payload_bytes(payload):
 
 
 def verify_license():
-    """Vérifie signature + structure. Retourne les infos de licence.
+    """Vérifie signature + structure de la licence configurée (env/fichier).
 
     Lève LicenseError si absente, malformée, mal signée ou sans date valide.
     (L'expiration est comparée à chaque requête, pas seulement ici.)
     """
+    raw, mtime = _read_license_raw()
+    return verify_license_bytes(raw, mtime)
+
+
+def verify_license_bytes(raw, mtime=None):
+    """Vérifie un contenu de licence arbitraire (utilisé aussi par /setup)."""
     if not os.path.isfile(_PUBKEY_PATH):
         raise LicenseError(
             "Clé publique de licence absente (Code/license_pubkey.pem). "
             "Côté AFDEC : exécuter tools/licensing/keygen.py avant le build."
         )
-    raw, mtime = _read_license_raw()
     try:
         doc = json.loads(raw)
         payload = doc["payload"]

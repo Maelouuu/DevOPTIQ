@@ -1,6 +1,7 @@
 # OptiqFluent (beta test) — installation client autonome
-# Prérequis : Docker + Docker Compose, un fichier .env rempli (cf. .env.example)
-# et le fichier de licence dans ./license/optiqfluent.lic
+# Prérequis : Docker + Docker Compose, un fichier .env à côté (cf. .env.example).
+# Premier démarrage : ouvrez http://<machine>:8080 — l'assistant d'installation
+# vous guide (licence, base, clé IA, email, compte administrateur).
 
 services:
   app:
@@ -8,15 +9,18 @@ services:
     restart: unless-stopped
     env_file: .env
     environment:
-      # Option A : PostgreSQL embarqué ci-dessous (mot de passe lu dans .env).
-      # Option B (PostgreSQL hébergé par vos soins) : remplacez cette valeur par
-      # l'URL de votre hébergeur et supprimez le service `db` + le bloc depends_on.
+      # Assistant d'installation au premier démarrage (écrit dans ./config)
+      SETUP_WIZARD: "1"
+      # Base PostgreSQL intégrée ci-dessous (mot de passe lu dans .env).
+      # L'assistant permet aussi d'indiquer une base hébergée par vos soins.
       DATABASE_URL: postgresql://optiqfluent:${POSTGRES_PASSWORD}@db:5432/optiqfluent
       LICENSE_PATH: /app/license/optiqfluent.lic
     ports:
       - "8080:8080"
     volumes:
-      - ./license:/app/license:ro
+      - ./config:/app/config          # configuration écrite par l'assistant
+      - ./license:/app/license:ro     # licence fournie par AFDEC (optionnel :
+                                      # elle peut aussi être collée dans l'assistant)
     depends_on:
       db:
         condition: service_healthy
@@ -26,8 +30,6 @@ services:
       timeout: 5s
       retries: 3
 
-  # PostgreSQL embarqué (option A). Si vous utilisez votre propre PostgreSQL
-  # hébergé (option B du .env), supprimez ce service et le bloc depends_on.
   db:
     image: postgres:16-alpine
     restart: unless-stopped

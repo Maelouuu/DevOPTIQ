@@ -331,6 +331,21 @@ privé (ghcr.io) + licence signée à expiration + contrat d'évaluation**. Cont
     INSTALL.md sans Docker (licence de test avec prompts_key embarquée, arbre
     bytecode-only, PostgreSQL 16 vierge, gunicorn, 9 vérifications curl/logs
     dont prompts-via-licence). Passe 9/9.
+  - **Assistant d'installation web** (`/setup`) : premier démarrage de l'image
+    client (`SETUP_WIZARD=1` dans le compose + aucune config écrite) → mode
+    installation (`Code/routes/setup_wizard.py` + `setup_wizard.html`) : gate
+    before_request vers /setup, étapes licence (collée, validée, sauvée sur le
+    volume) → BDD (test de connexion, pré-remplie avec la base intégrée) →
+    clé OpenAI (testée) → mail optionnel (test SMTP) → compte admin → récap.
+    « Installer » écrit `/app/config/optiqfluent.env` (volume `./config`,
+    valeurs dotenv double-quotées) puis SIGTERM au master gunicorn → le
+    conteneur redémarre configuré et le boot NORMAL fait tout (create_all,
+    migrations, bootstrap admin) ; `ADMIN_PASSWORD` est purgé du fichier après
+    création du compte. Relancer l'assistant = supprimer le fichier de config.
+    Les vraies variables d'env gardent priorité sur le fichier. `/setup` exempt
+    du blocage licence. Tests : `tests/test_60_setup_wizard.py` (14) + E2E
+    Postgres. ⚠️ Ne s'applique pas à Cloud Run (pas de volume persistant —
+    nos déploiements restent configurés par variables d'environnement).
 
 ## Notes importantes
 

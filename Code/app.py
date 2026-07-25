@@ -10,12 +10,42 @@ parent_dir = os.path.dirname(current_dir)
 # Chemin explicite : load_dotenv() sans argument remonte la pile d'appels pour
 # localiser .env — fragile (casse notamment dans une image bytecode-only).
 load_dotenv(os.path.join(parent_dir, ".env"))
+
+# Fichier de configuration écrit par l'assistant d'installation (/setup) sur le
+# volume client. Les vraies variables d'environnement gardent la priorité
+# (load_dotenv n'écrase jamais une variable déjà définie).
+CONFIG_DIR = os.getenv("CONFIG_DIR", "/app/config")
+CONFIG_ENV_PATH = os.path.join(CONFIG_DIR, "optiqfluent.env")
+load_dotenv(CONFIG_ENV_PATH)
+
+
+def _setup_done():
+    try:
+        with open(CONFIG_ENV_PATH) as f:
+            return "SETUP_DONE=1" in f.read()
+    except OSError:
+        return False
+
+
+def _scrub_admin_password():
+    """Une fois le compte admin créé, son mot de passe initial ne doit pas
+    rester en clair dans le fichier écrit par l'assistant d'installation."""
+    try:
+        with open(CONFIG_ENV_PATH) as f:
+            lines = f.readlines()
+        kept = [l for l in lines if not l.startswith("ADMIN_PASSWORD=")]
+        if len(kept) != len(lines):
+            with open(CONFIG_ENV_PATH, "w") as f:
+                f.writelines(kept)
+            print("[BOOTSTRAP] ADMIN_PASSWORD retiré du fichier de configuration")
+    except OSError:
+        pass
 if current_dir not in sys.path:
     sys.path.insert(0, current_dir)
 if parent_dir not in sys.path:
     sys.path.insert(0, parent_dir)
 
-from flask import Flask, redirect, url_for
+from flask import Flask, redirect, request, url_for
 from flask_migrate import Migrate
 from Code.extensions import db, mail
 
@@ -39,6 +69,31 @@ def create_app(test_config=None):
     _debug = os.getenv("FLASK_DEBUG", "0").lower() in ("1", "true", "yes")
     app.config["DEBUG"] = _debug
     app.config["PROPAGATE_EXCEPTIONS"] = _debug
+
+    # ── Assistant d'installation (premier démarrage de l'image client) ──
+    # SETUP_WIZARD=1 (docker-compose client) + aucune configuration écrite →
+    # l'app démarre en mode installation : uniquement /setup, qui guide le
+    # client (licence, base, clé IA, mail, admin), écrit CONFIG_ENV_PATH puis
+    # redémarre le conteneur. Le boot suivant est un démarrage normal.
+    if (test_config is None and os.getenv("SETUP_WIZARD", "0") == "1"
+            and not _setup_done()):
+        from Code.routes.setup_wizard import setup_bp
+        app.register_blueprint(setup_bp)
+        app.secret_key = os.urandom(24).hex()
+
+        @app.route("/healthz")
+        def healthz():
+            return "ok", 200
+
+        @app.before_request
+        def _setup_gate():
+            if request.path.startswith(("/setup", "/static", "/healthz")):
+                return None
+            return redirect("/setup")
+
+        print("[SETUP] Mode installation actif — ouvrir l'application dans un "
+              "navigateur pour lancer l'assistant (/setup)")
+        return app
 
     # -----------------------------
     # 1) Base de données
@@ -521,6 +576,7 @@ def create_app(test_config=None):
                     ))
                     db.session.commit()
                     print(f"[BOOTSTRAP] Compte administrateur créé : {_admin_email}")
+                    _scrub_admin_password()
                 else:
                     print("[BOOTSTRAP] Aucun utilisateur en base et ADMIN_EMAIL/"
                           "ADMIN_PASSWORD absents — personne ne pourra se connecter. "
