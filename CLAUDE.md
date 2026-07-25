@@ -321,6 +321,16 @@ privé (ghcr.io) + licence signée à expiration + contrat d'évaluation**. Cont
     build + push `ghcr.io/maelouuu/optiqfluent:<version>` + `:beta` (secret GitHub
     `PROMPTS_KEY` requis). Runbook AFDEC complet : `distribution/RELEASE.md`
     (keygen, licences, token client, leviers de contrôle).
+  - **Déploiement Cloud Run interne** : `tools/deploy/deploy_cloudrun.sh` —
+    remplace `devoptiq-staging-mv` par `optiqfluent-staging` (Cloud Run ne
+    renomme pas : création + recopie des env vars + suppression sur
+    confirmation ; ajoute REQUIRE_LICENSE=0, PROMPTS_KEY, TESTPANEL_ENABLED=1).
+    ⚠️ `.gcloudignore` obligatoire (sinon gcloud suit .gitignore qui exclut
+    prompts.enc → build cassé).
+  - **Répétition d'installation client** : `tools/test_install.sh` — rejoue
+    INSTALL.md sans Docker (licence de test avec prompts_key embarquée, arbre
+    bytecode-only, PostgreSQL 16 vierge, gunicorn, 9 vérifications curl/logs
+    dont prompts-via-licence). Passe 9/9.
 
 ## Notes importantes
 

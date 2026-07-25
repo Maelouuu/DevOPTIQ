@@ -1,0 +1,22 @@
+# Upload Cloud Build (gcloud run deploy --source / gcloud builds submit).
+# ⚠️ Ce fichier est indispensable : sans lui, gcloud retombe sur .gitignore,
+# qui exclut Code/prompts/prompts.enc → le build échouerait (garde Dockerfile).
+# Le contexte Docker applique ensuite .dockerignore normalement.
+.git
+.gitignore
+Venv/
+.venv/
+__pycache__/
+*.pyc
+Code/instance/
+*.sqlite
+*.db
+Archives/
+backup/
+Code.zip
+codeApp.zip
+uploads/
+tools/licensing/license_private.pem
+tools/licensing/out/
+tools/prompts/prompts_key.txt
+distribution/.env
