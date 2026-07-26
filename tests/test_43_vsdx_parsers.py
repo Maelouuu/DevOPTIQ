@@ -11,6 +11,7 @@ Tests unitaires pour les deux parseurs VSDX (pas de Flask, pas de DB) :
 import os
 import sys
 import tempfile
+import zipfile
 import xml.etree.ElementTree as ET
 
 import pytest
@@ -28,6 +29,20 @@ def _xml(inner=""):
 
 def _conn(src, tgt, dtype="nourrissante", dname="Données"):
     return {"source_name": src, "target_name": tgt, "data_type": dtype, "data_name": dname}
+
+
+def _vsdx_zip(page_xml, masters_xml=None, extra_pages=None):
+    """Crée un fichier .vsdx (zip) temporaire avec une page1 et, optionnellement, des masters."""
+    fd, path = tempfile.mkstemp(suffix=".vsdx")
+    os.close(fd)
+    with zipfile.ZipFile(path, "w") as zf:
+        zf.writestr("visio/pages/page1.xml", page_xml)
+        if masters_xml is not None:
+            zf.writestr("visio/masters/masters.xml", masters_xml)
+        if extra_pages:
+            for name, content in extra_pages.items():
+                zf.writestr(name, content)
+    return path
 
 
 # =============================================================================
@@ -494,3 +509,448 @@ class TestExtractDecisionsFromVsdx:
             assert result["decisions"] == []
         finally:
             os.unlink(path)
+
+    def test_zip_without_pages_returns_explicit_error(self):
+        from Code.routes.vsdx_decision_extractor import extract_decisions_from_vsdx
+        fd, path = tempfile.mkstemp(suffix=".vsdx")
+        os.close(fd)
+        with zipfile.ZipFile(path, "w") as zf:
+            zf.writestr("readme.txt", "no pages here")
+        try:
+            result = extract_decisions_from_vsdx(path)
+        finally:
+            os.unlink(path)
+        assert result["decisions"] == []
+        assert any("Aucune page" in e for e in result["errors"])
+
+
+# =============================================================================
+# 11. extract_decisions_from_vsdx — flux complet via un .vsdx synthétique
+# =============================================================================
+
+MASTERS_XML = f'''<Masters xmlns="{NS}">
+  <Master ID="1" NameU="Decision"/>
+  <Master ID="2" NameU="Process"/>
+</Masters>'''
+
+# Start(10) --Oui(connecteur 100)--> Decision(20) --(101)--> OuiTarget(30)
+#                                                --(102)--> NonTarget(40)
+PAGE_BASIC_DECISION = f'''<PageContents xmlns="{NS}">
+  <Shapes>
+    <Shape ID="10" Master="2">
+      <Cell N="PinX" V="100"/>
+      <Cell N="PinY" V="110"/>
+      <Text>Start</Text>
+    </Shape>
+    <Shape ID="20" Master="1">
+      <Cell N="PinX" V="100"/>
+      <Cell N="PinY" V="105"/>
+      <Text>Decision?</Text>
+    </Shape>
+    <Shape ID="30" Master="2">
+      <Cell N="PinX" V="100"/>
+      <Cell N="PinY" V="100"/>
+      <Text>OuiTarget</Text>
+    </Shape>
+    <Shape ID="40" Master="2">
+      <Cell N="PinX" V="105"/>
+      <Cell N="PinY" V="105"/>
+      <Text>NonTarget</Text>
+    </Shape>
+    <Shape ID="100" Master="2">
+      <Text>Oui</Text>
+    </Shape>
+    <Shape ID="101" Master="2"/>
+    <Shape ID="102" Master="2"/>
+  </Shapes>
+  <Connects>
+    <Connect FromSheet="100" FromCell="BeginX" ToSheet="10"/>
+    <Connect FromSheet="100" FromCell="EndX" ToSheet="20"/>
+    <Connect FromSheet="101" FromCell="BeginX" ToSheet="20"/>
+    <Connect FromSheet="101" FromCell="EndX" ToSheet="30"/>
+    <Connect FromSheet="102" FromCell="BeginX" ToSheet="20"/>
+    <Connect FromSheet="102" FromCell="EndX" ToSheet="40"/>
+  </Connects>
+</PageContents>'''
+
+
+class TestExtractDecisionsFullFlow:
+
+    def test_single_decision_two_branches(self):
+        from Code.routes.vsdx_decision_extractor import extract_decisions_from_vsdx
+        path = _vsdx_zip(PAGE_BASIC_DECISION, MASTERS_XML)
+        try:
+            result = extract_decisions_from_vsdx(path)
+        finally:
+            os.unlink(path)
+        assert result["errors"] == []
+        assert result["total_shapes"] == 7
+        assert result["total_connectors"] == 6
+        assert len(result["decisions"]) == 1
+
+        dec = result["decisions"][0]
+        assert dec["id"] == "20"
+        assert dec["label"] == "Decision?"
+        assert dec["master_name"] == "decision"
+        assert dec["splice"] is False
+        assert len(dec["incoming"]) == 1
+        assert dec["incoming"][0]["from_id"] == "10"
+        assert dec["incoming"][0]["badge"] == "Oui"
+
+        by_target = {o["to_id"]: o for o in dec["outgoing"]}
+        assert by_target["30"]["inferred_badge"] == "Oui"
+        assert by_target["40"]["inferred_badge"] == "Non"
+
+    def test_malformed_masters_xml_does_not_crash(self):
+        from Code.routes.vsdx_decision_extractor import extract_decisions_from_vsdx
+        path = _vsdx_zip(PAGE_BASIC_DECISION, masters_xml="<not valid xml")
+        try:
+            result = extract_decisions_from_vsdx(path)
+        finally:
+            os.unlink(path)
+        assert result["errors"] == []
+        assert isinstance(result["decisions"], list)
+
+
+PAGE_SECOND = f'''<PageContents xmlns="{NS}">
+  <Shapes>
+    <Shape ID="999" Master="2"><Text>ShouldNotBeCounted</Text></Shape>
+    <Shape ID="998" Master="2"/>
+    <Shape ID="997" Master="2"/>
+  </Shapes>
+</PageContents>'''
+
+
+class TestExtractDecisionsMultiPage:
+
+    def test_only_first_sorted_page_is_parsed(self):
+        from Code.routes.vsdx_decision_extractor import extract_decisions_from_vsdx
+        path = _vsdx_zip(
+            PAGE_BASIC_DECISION, MASTERS_XML,
+            extra_pages={"visio/pages/page2.xml": PAGE_SECOND},
+        )
+        try:
+            result = extract_decisions_from_vsdx(path)
+        finally:
+            os.unlink(path)
+        # page1.xml < page2.xml lexicographiquement → seule page1 est lue
+        assert result["total_shapes"] == 7
+
+
+PAGE_ANNOTATION_DIAMOND = f'''<PageContents xmlns="{NS}">
+  <Shapes>
+    <Shape ID="50" Master="2">
+      <Cell N="PinX" V="0"/>
+      <Cell N="PinY" V="0"/>
+      <Cell N="Width" V="5"/>
+      <Cell N="Height" V="1"/>
+      <Text>Big diamond legend</Text>
+      <Section N="Geometry">
+        <Row T="MoveTo"/>
+        <Row T="LineTo"/>
+        <Row T="LineTo"/>
+        <Row T="LineTo"/>
+        <Row T="LineTo"/>
+      </Section>
+    </Shape>
+  </Shapes>
+</PageContents>'''
+
+
+class TestExtractDecisionsAnnotationExclusion:
+
+    def test_large_diamond_geometry_excluded_as_annotation(self):
+        from Code.routes.vsdx_decision_extractor import extract_decisions_from_vsdx
+        path = _vsdx_zip(PAGE_ANNOTATION_DIAMOND)
+        try:
+            result = extract_decisions_from_vsdx(path)
+        finally:
+            os.unlink(path)
+        assert result["decisions"] == []
+        assert result["total_shapes"] == 1
+
+
+PAGE_GROUP_BADGE = f'''<PageContents xmlns="{NS}">
+  <Shapes>
+    <Shape ID="20" Master="1">
+      <Cell N="PinX" V="0"/>
+      <Cell N="PinY" V="5"/>
+      <Text>Decision?</Text>
+    </Shape>
+    <Shape ID="30" Master="2">
+      <Cell N="PinX" V="0"/>
+      <Cell N="PinY" V="0"/>
+      <Text>Target</Text>
+    </Shape>
+    <Shape ID="999" Master="2">
+      <Shapes>
+        <Shape ID="100" Master="2"/>
+        <Shape ID="100b" Master="2"><Text>Oui</Text></Shape>
+      </Shapes>
+    </Shape>
+  </Shapes>
+  <Connects>
+    <Connect FromSheet="100" FromCell="BeginX" ToSheet="20"/>
+    <Connect FromSheet="100" FromCell="EndX" ToSheet="30"/>
+  </Connects>
+</PageContents>'''
+
+
+class TestExtractDecisionsBadgeGroupMembership:
+
+    def test_badge_via_group_membership(self):
+        from Code.routes.vsdx_decision_extractor import extract_decisions_from_vsdx
+        path = _vsdx_zip(PAGE_GROUP_BADGE, MASTERS_XML)
+        try:
+            result = extract_decisions_from_vsdx(path)
+        finally:
+            os.unlink(path)
+        dec = result["decisions"][0]
+        assert dec["outgoing"][0]["badge"] == "Oui"
+
+
+PAGE_PROXIMITY_BADGE = f'''<PageContents xmlns="{NS}">
+  <Shapes>
+    <Shape ID="20" Master="1">
+      <Cell N="PinX" V="0"/>
+      <Cell N="PinY" V="5"/>
+      <Text>Decision?</Text>
+    </Shape>
+    <Shape ID="30" Master="2">
+      <Cell N="PinX" V="0"/>
+      <Cell N="PinY" V="0"/>
+      <Text>Target</Text>
+    </Shape>
+    <Shape ID="100" Master="2"/>
+    <Shape ID="500" Master="2">
+      <Cell N="PinX" V="0"/>
+      <Cell N="PinY" V="2.4"/>
+      <Text>Non</Text>
+    </Shape>
+  </Shapes>
+  <Connects>
+    <Connect FromSheet="100" FromCell="BeginX" ToSheet="20"/>
+    <Connect FromSheet="100" FromCell="EndX" ToSheet="30"/>
+  </Connects>
+</PageContents>'''
+
+
+class TestExtractDecisionsBadgeProximityFallback:
+
+    def test_badge_assigned_via_proximity(self):
+        from Code.routes.vsdx_decision_extractor import extract_decisions_from_vsdx
+        path = _vsdx_zip(PAGE_PROXIMITY_BADGE, MASTERS_XML)
+        try:
+            result = extract_decisions_from_vsdx(path)
+        finally:
+            os.unlink(path)
+        dec = result["decisions"][0]
+        assert dec["outgoing"][0]["badge"] == "Non"
+
+
+PAGE_SPLICE = f'''<PageContents xmlns="{NS}">
+  <Shapes>
+    <Shape ID="5" Master="2">
+      <Cell N="PinX" V="0"/>
+      <Cell N="PinY" V="0"/>
+      <Text>SrcA</Text>
+    </Shape>
+    <Shape ID="6" Master="2">
+      <Cell N="PinX" V="10"/>
+      <Cell N="PinY" V="0"/>
+      <Text>TgtB</Text>
+    </Shape>
+    <Shape ID="7" Master="2">
+      <Cell N="BeginX" V="0"/><Cell N="BeginY" V="0"/>
+      <Cell N="EndX" V="10"/><Cell N="EndY" V="0"/>
+      <Text>Suite</Text>
+    </Shape>
+    <Shape ID="8" Master="3">
+      <Cell N="PinX" V="5"/>
+      <Cell N="PinY" V="0"/>
+      <Text>Choix?</Text>
+      <Section N="Geometry">
+        <Row T="MoveTo"/>
+        <Row T="LineTo"/>
+        <Row T="LineTo"/>
+        <Row T="LineTo"/>
+        <Row T="LineTo"/>
+      </Section>
+    </Shape>
+  </Shapes>
+  <Connects>
+    <Connect FromSheet="7" FromCell="BeginX" ToSheet="5"/>
+    <Connect FromSheet="7" FromCell="EndX" ToSheet="6"/>
+  </Connects>
+</PageContents>'''
+
+SPLICE_MASTERS = f'''<Masters xmlns="{NS}">
+  <Master ID="2" NameU="Process"/>
+  <Master ID="3" NameU="Etape"/>
+</Masters>'''
+
+
+class TestExtractDecisionsSplice:
+
+    def test_unconnected_diamond_is_spliced_onto_passing_connector(self):
+        from Code.routes.vsdx_decision_extractor import extract_decisions_from_vsdx
+        path = _vsdx_zip(PAGE_SPLICE, SPLICE_MASTERS)
+        try:
+            result = extract_decisions_from_vsdx(path)
+        finally:
+            os.unlink(path)
+        assert len(result["decisions"]) == 1
+        dec = result["decisions"][0]
+        assert dec["id"] == "8"
+        assert dec["splice"] is True
+        assert len(dec["incoming"]) == 1
+        assert dec["incoming"][0]["from_id"] == "5"
+        assert len(dec["outgoing"]) == 1
+        assert dec["outgoing"][0]["to_id"] == "6"
+        assert dec["outgoing"][0]["badge"] == "Suite"
+        # Le comptage des connecteurs porte sur les <Connect> d'origine,
+        # pas sur les connecteurs synthétiques créés par la scission (splice).
+        assert result["total_connectors"] == 2
+
+
+# =============================================================================
+# 12. _infer_oui_non — branches géométriques avancées
+# =============================================================================
+
+class TestInferOuiNonAdvanced:
+
+    def test_cyclic_incoming_excluded_from_forward_direction(self):
+        from Code.routes.vsdx_decision_extractor import _infer_oui_non
+        decisions = [{
+            "id": "d1",
+            "incoming": [{"from_id": "A"}, {"from_id": "B"}],
+            "outgoing": [{"to_id": "A"}, {"to_id": "C"}],
+        }]
+        shape_info = {
+            "d1": {"pin_x": 0, "pin_y": 0},
+            "A": {"pin_x": 0, "pin_y": -5},
+            "B": {"pin_x": 0, "pin_y": 5},
+            "C": {"pin_x": 0, "pin_y": -10},
+        }
+        _infer_oui_non(decisions, shape_info)
+        by_target = {o["to_id"]: o for o in decisions[0]["outgoing"]}
+        # Si A (cyclique) n'était pas exclu, son vecteur annulerait celui de B
+        # et laisserait les badges vides — ce n'est pas le cas ici.
+        assert by_target["C"]["inferred_badge"] == "Oui"
+
+    def test_incoming_vectors_cancel_out_leaves_badges_empty(self):
+        from Code.routes.vsdx_decision_extractor import _infer_oui_non
+        decisions = [{
+            "id": "d1",
+            "incoming": [{"from_id": "A"}, {"from_id": "B"}],
+            "outgoing": [{"to_id": "C"}, {"to_id": "D"}],
+        }]
+        shape_info = {
+            "d1": {"pin_x": 0, "pin_y": 0},
+            "A": {"pin_x": 0, "pin_y": 5},
+            "B": {"pin_x": 0, "pin_y": -5},
+            "C": {"pin_x": 5, "pin_y": 0},
+            "D": {"pin_x": -5, "pin_y": 0},
+        }
+        _infer_oui_non(decisions, shape_info)
+        assert decisions[0]["outgoing"][0]["inferred_badge"] == ""
+        assert decisions[0]["outgoing"][1]["inferred_badge"] == ""
+
+    def test_no_valid_incoming_vector_leaves_badges_empty(self):
+        from Code.routes.vsdx_decision_extractor import _infer_oui_non
+        decisions = [{
+            "id": "d1",
+            "incoming": [{"from_id": "A"}],
+            "outgoing": [{"to_id": "C"}, {"to_id": "D"}],
+        }]
+        shape_info = {
+            "d1": {"pin_x": 5, "pin_y": 5},
+            "A": {"pin_x": 0, "pin_y": 0},
+            "C": {"pin_x": 10, "pin_y": 5},
+            "D": {"pin_x": 5, "pin_y": 10},
+        }
+        _infer_oui_non(decisions, shape_info)
+        assert all(o["inferred_badge"] == "" for o in decisions[0]["outgoing"])
+
+    def test_orig_conn_id_direction_preferred_over_target_center(self):
+        from Code.routes.vsdx_decision_extractor import _infer_oui_non
+        decisions = [{
+            "id": "d1",
+            "incoming": [{"from_id": "S"}],
+            "outgoing": [
+                {"to_id": "T1", "_orig_conn_id": "c1"},
+                {"to_id": "T2", "_orig_conn_id": "c2"},
+            ],
+        }]
+        shape_info = {
+            "d1": {"pin_x": 0, "pin_y": 0},
+            "S": {"pin_x": 0, "pin_y": 10},
+            # Centres de cibles volontairement trompeurs : s'ils étaient
+            # utilisés, le verdict serait inversé.
+            "T1": {"pin_x": 0, "pin_y": 10},
+            "T2": {"pin_x": 0, "pin_y": 10},
+            # Géométrie réelle du connecteur d'origine (BeginXY → EndXY)
+            "c1": {"begin_x": 1, "begin_y": 1, "end_x": 1, "end_y": -9},
+            "c2": {"begin_x": 1, "begin_y": 1, "end_x": 11, "end_y": 1},
+        }
+        _infer_oui_non(decisions, shape_info)
+        by_target = {o["to_id"]: o for o in decisions[0]["outgoing"]}
+        assert by_target["T1"]["inferred_badge"] == "Oui"
+        assert by_target["T2"]["inferred_badge"] == "Non"
+
+    def test_falls_back_to_target_center_when_orig_conn_missing(self):
+        from Code.routes.vsdx_decision_extractor import _infer_oui_non
+        decisions = [{
+            "id": "d1",
+            "incoming": [{"from_id": "S"}],
+            "outgoing": [
+                {"to_id": "T1", "_orig_conn_id": ""},
+                {"to_id": "T2"},
+            ],
+        }]
+        shape_info = {
+            "d1": {"pin_x": 0, "pin_y": 0},
+            "S": {"pin_x": 0, "pin_y": 10},
+            "T1": {"pin_x": 0, "pin_y": -10},
+            "T2": {"pin_x": 10, "pin_y": 0},
+        }
+        _infer_oui_non(decisions, shape_info)
+        by_target = {o["to_id"]: o for o in decisions[0]["outgoing"]}
+        assert by_target["T1"]["inferred_badge"] == "Oui"
+        assert by_target["T2"]["inferred_badge"] == "Non"
+
+    def test_target_and_orig_missing_leaves_badge_empty(self):
+        from Code.routes.vsdx_decision_extractor import _infer_oui_non
+        decisions = [{
+            "id": "d1",
+            "incoming": [{"from_id": "S"}],
+            "outgoing": [{"to_id": "Ghost"}, {"to_id": "T2"}],
+        }]
+        shape_info = {
+            "d1": {"pin_x": 0, "pin_y": 0},
+            "S": {"pin_x": 0, "pin_y": 10},
+            "Ghost": {"pin_x": 0, "pin_y": 0},
+            "T2": {"pin_x": 0, "pin_y": -10},
+        }
+        _infer_oui_non(decisions, shape_info)
+        by_target = {o["to_id"]: o for o in decisions[0]["outgoing"]}
+        assert by_target["Ghost"]["inferred_badge"] == ""
+        assert by_target["T2"]["inferred_badge"] == "Oui"
+
+    def test_ninety_degree_fallback_promotes_one_to_oui(self):
+        from Code.routes.vsdx_decision_extractor import _infer_oui_non
+        decisions = [{
+            "id": "d1",
+            "incoming": [{"from_id": "S"}],
+            "outgoing": [{"to_id": "TA"}, {"to_id": "TB"}],
+        }]
+        shape_info = {
+            "d1": {"pin_x": 0, "pin_y": 0},
+            "S": {"pin_x": 0, "pin_y": 10},
+            "TA": {"pin_x": 8.66, "pin_y": -5},
+            "TB": {"pin_x": -8.66, "pin_y": 5},
+        }
+        _infer_oui_non(decisions, shape_info)
+        by_target = {o["to_id"]: o for o in decisions[0]["outgoing"]}
+        assert by_target["TA"]["inferred_badge"] == "Oui"
+        assert by_target["TB"]["inferred_badge"] == "Non"
