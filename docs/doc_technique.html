@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Documentation DevOPTIQ</title>
+  <title>DevOPTIQ — Documentation technique</title>
   <style>
     /* ── Reset & base ── */
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -198,6 +198,7 @@
   <a href="#activites" class="done">Activités</a>
   <a href="#import-ia" class="done">Import IA</a>
   <a href="#competences" class="done">Compétences &amp; Skills</a>
+  <a href="#refonte-competences" class="done">Refonte Compétences V1.1</a>
   <a href="#performance" class="done">Performance</a>
   <a href="#rh" class="done">Gestion RH</a>
   <a href="#chatbot" class="done">Chatbot IA</a>
@@ -219,6 +220,10 @@
   <a href="#constraints" class="done">Contraintes</a>
   <a href="#gestion-outils" class="done">Gestion des outils</a>
 
+  <div class="nav-section">Distribution &amp; Admin</div>
+  <a href="#admin-ia" class="done">Administration &amp; UX IA</a>
+  <a href="#distribution" class="done">Distribution OptiqFluent</a>
+
   <div class="nav-section">Référence</div>
   <a href="#api" class="done">APIs — Cartographie</a>
   <a href="#deploiement" class="done">Déploiement</a>
@@ -230,7 +235,8 @@
   <div id="cover">
     <div class="cover-tag">📄 Documentation interne — AFDEC</div>
     <h1>Dev<span>OPTIQ</span></h1>
-    <p>Manuel complet de l'application de gestion des compétences, activités et performance organisationnelle.</p>
+    <p>Manuel complet de l'application de gestion des compétences, activités et performance organisationnelle.
+       Distribuée aux clients sous le nom <strong>OptiqFluent</strong> (branche <code>optiqfluent-beta-test</code> : licence signée, prompts chiffrés, image Docker durcie).</p>
     <div class="cover-meta">
       <div class="cover-meta-item"><strong>Organisation</strong>AFDEC</div>
       <div class="cover-meta-item"><strong>Auteur</strong>Mael Girardin</div>
@@ -308,13 +314,14 @@
     </div>
 
     <h3>Flux de démarrage</h3>
-    <p>Au démarrage du conteneur Cloud Run, <code>create_app()</code> exécute dans l'ordre :</p>
+    <p>Au démarrage du conteneur (serveur WSGI <code>gunicorn</code>, config unifiée <code>gunicorn.conf.py</code>), <code>create_app()</code> exécute dans l'ordre :</p>
     <ol>
-      <li>Configuration DB (PostgreSQL si <code>DATABASE_URL</code> présent, sinon SQLite local)</li>
-      <li>Configuration Flask-Mail (SMTP Gmail)</li>
-      <li>Enregistrement des 31 blueprints</li>
-      <li><code>db.create_all()</code> + ajout colonnes manquantes via <code>ALTER TABLE</code> + marquage Alembic</li>
+      <li>Configuration DB (PostgreSQL si <code>DATABASE_URL</code> présent, sinon SQLite local), pool configurable via <code>DB_POOL_SIZE</code>/<code>DB_MAX_OVERFLOW</code></li>
+      <li>Configuration Flask-Mail (mail 100&nbsp;% par variables d'env — désactivé proprement si non configuré, flag <code>MAIL_CONFIGURED</code>)</li>
+      <li>Enregistrement des ~49 blueprints (dont les 7 blueprints Refonte Compétences V1.1)</li>
+      <li><code>db.create_all()</code> + ajout colonnes manquantes via <code>ALTER TABLE</code> idempotent (<code>_safe_add_column</code>) + marquage Alembic — protégé par <code>lock_timeout</code> : une migration ne peut plus bloquer le démarrage</li>
       <li>Réinitialisation du pool de connexions DB avant d'accepter les requêtes HTTP</li>
+      <li>Init console serveur (<code>Code/logstream.py</code> — tee stdout/stderr vers un fichier plafonné 2&nbsp;Mo, hors tests)</li>
     </ol>
 
     <h3>Gestion des fichiers sur Cloud Run</h3>
@@ -334,8 +341,10 @@
 ├── static/
 │   ├── *.css               ← CSS par domaine
 │   ├── js/                 ← JS vanilla par domaine
-│   └── optiqcarto/         ← editor.js, vsdx_importer.js
-└── docs/index.html         ← Ce fichier</pre>
+│   └── optiqcarto/         ← editor.js, vsdx_importer.js, optiqarrange.js
+├── tools/                  ← Outillage AFDEC (licences, prompts, déploiement)
+├── distribution/           ← Kit client OptiqFluent (compose, INSTALL.md…)
+└── docs/doc_technique.html ← Ce fichier (+ guide.html : guide utilisateur)</pre>
   </section>
 
   <section id="stack">
@@ -346,15 +355,16 @@
       <tr><td>Base de données</td><td><code>PostgreSQL</code> (prod) / <code>SQLite</code> (local)</td><td>PostgreSQL avec pool limité (pool_size=2, max_overflow=3) pour Neon free tier. SQLite avec WAL et busy_timeout=5s.</td></tr>
       <tr><td>ORM</td><td><code>SQLAlchemy</code> via Flask-SQLAlchemy</td><td>Tous les modèles dans <code>models/models.py</code>. Colonnes post-déploiement ajoutées via <code>ALTER TABLE</code> direct.</td></tr>
       <tr><td>Frontend</td><td>HTML Jinja2 · CSS vanilla · JS vanilla</td><td>Pas de framework JS. <code>$()</code> = alias <code>document.querySelector()</code>. Un fichier CSS par domaine.</td></tr>
-      <tr><td>Auth</td><td>Sessions Flask · <code>werkzeug.security</code></td><td>Hash mots de passe pbkdf2:sha256. Entité active dans <code>session['active_entity_id']</code>.</td></tr>
-      <tr><td>IA</td><td>Anthropic Claude API</td><td>Chatbot intégré, import IA global, proposition compétences/savoirs/softskills, traduction.</td></tr>
+      <tr><td>Auth</td><td>Sessions Flask · <code>Code/security.py</code></td><td>Politique de hachage centralisée : <strong>PBKDF2-SHA256 600&nbsp;000 itérations</strong> (<code>hash_password</code>/<code>verify_password</code>/<code>needs_rehash</code>). Les anciens hashes (scrypt) sont acceptés au login puis re-hachés silencieusement. Entité active dans <code>session['active_entity_id']</code>.</td></tr>
+      <tr><td>IA</td><td>OpenAI GPT (<code>gpt-4o-mini</code>) · Anthropic Claude</td><td>OpenAI partout (chatbot, propositions, plans, onboarding, changelog, traductions, refonte V1.1) ; Anthropic Claude en second essai pour le réagencement IA de la carto. Clé lue via <code>get_openai_key()</code> (table <code>app_settings</code> puis env) — jamais <code>os.getenv</code> direct. Repli propre sans clé (jamais d'invention).</td></tr>
       <tr><td>Cartographie</td><td>OptiqCarto (outil maison)</td><td>Éditeur SVG JS vanilla. État JSON dans <code>Entity.optiqcarto_data</code>. Sync Activities/Roles/Links à chaque save.</td></tr>
-      <tr><td>Email</td><td>Flask-Mail · Gmail SMTP</td><td>Reset de mot de passe.</td></tr>
-      <tr><td>Déploiement</td><td>Google Cloud Run · Docker</td><td>Image Docker, port 8080, variables via Cloud Run.</td></tr>
+      <tr><td>Email</td><td>Flask-Mail · SMTP</td><td>Reset de mot de passe. 100&nbsp;% configuré par env (<code>MAIL_CONFIGURED</code>) — aucun mot de passe en dur dans le code.</td></tr>
+      <tr><td>Déploiement</td><td>Google Cloud Run · Docker · gunicorn</td><td>Image Docker, port 8080, variables via Cloud Run. Image client OptiqFluent : bytecode-only + licence + prompts chiffrés (voir <a href="#distribution">Distribution</a>).</td></tr>
     </table>
     <h3>Dépendances Python clés</h3>
     <pre>Flask, Flask-SQLAlchemy, Flask-Migrate, Flask-Mail
-werkzeug, python-dotenv, anthropic, gunicorn</pre>
+werkzeug, python-dotenv, openai, anthropic, openpyxl, gunicorn
+cryptography (Ed25519 licence + Fernet prompts — branche distribution)</pre>
   </section>
 
   <section id="modeles">
@@ -467,6 +477,22 @@ werkzeug, python-dotenv, anthropic, gunicorn</pre>
 
     <h3>Journal d'activité automatique</h3>
     <p>SQLAlchemy event listeners enregistrent automatiquement dans <code>recent_events</code> toute création/modification/suppression des modèles <code>Activities</code>, <code>Task</code>, <code>Role</code>, <code>Tool</code>. <code>_capture_changes()</code> compare l'historique SQLAlchemy avant/après pour ne logger que les champs modifiés.</p>
+
+    <h3>Ajouts récents (Refonte Compétences V1.1, paramètres, admin)</h3>
+    <table>
+      <tr><th>Table / colonne</th><th>Rôle</th></tr>
+      <tr><td><code>data</code> +<code>semantic_nature</code>, <code>minimum_performance_text</code>, <code>qualification_source</code>, <code>update_cadence</code>, <code>max_age_hours</code>, <code>producer_activity_id</code></td><td>Qualification des données de sortie (RESULT/MEASURE/EVENT/INFORMATION) + cadence. Les sorties d'une activité sont matérialisées en <code>Data</code> durables (sans <code>shape_id</code> — invisibles dans la carto, jamais touchées par la sync).</td></tr>
+      <tr><td><code>result_capability_links</code></td><td>Association RESULTat ↔ Savoir / Savoir-Faire / HSC (badges «&nbsp;R1&nbsp;»)</td></tr>
+      <tr><td><code>result_diagnostics</code></td><td>Diagnostic d'écart par résultat (3 familles)</td></tr>
+      <tr><td><code>technical_domains</code>, <code>activity_technical_domains</code>, <code>role_activity_domain_requirements</code>, <code>user_domain_levels</code></td><td>Domaines de technicité — échelle technique 0-4 dédiée, alerte «&nbsp;Technicité&nbsp;»</td></tr>
+      <tr><td><code>hsc_level_descriptors</code></td><td>Référentiel comportemental HSC (niveaux stabilisés, 4 = Expertise)</td></tr>
+      <tr><td><code>competency_evaluations</code> +<code>mastery_level</code>, <code>evidence</code>, <code>evaluated_at</code>, <code>evaluator_user_id</code></td><td>Évaluation par résultat (échelle 0-4 + NULL, <code>item_type='activity_results'</code>)</td></tr>
+      <tr><td><code>activity_roles.required_mastery_level</code></td><td>Niveau de maîtrise requis par rôle et activité</td></tr>
+      <tr><td><code>activities.cadence</code></td><td>Cadence de l'activité (9 codes — analyse «&nbsp;Cohérence des rythmes&nbsp;»)</td></tr>
+      <tr><td><code>entreprise_settings</code> (modèle <code>EntrepriseSettings</code>)</td><td>Paramètres temps de travail par entité — désormais un vrai modèle ORM (créé par <code>create_all()</code>), endpoints en liste blanche <code>SETTING_KEYS</code></td></tr>
+      <tr><td><code>app_settings</code></td><td>Réglages applicatifs à chaud — notamment la clé OpenAI saisie depuis Paramètres → Administration (<code>Code/ai_key.py</code>)</td></tr>
+      <tr><td><code>test_pages</code>, <code>test_cases</code>, <code>test_runs</code>, <code>test_results</code>, <code>test_patches</code></td><td>Panel de tests <code>/testpanel/</code> (modèles dans <code>Code/models/test_models.py</code>, registre versionné <code>tests/patches.json</code>)</td></tr>
+    </table>
   </section>
 
   <section id="cartographie">
@@ -515,6 +541,30 @@ werkzeug, python-dotenv, anthropic, gunicorn</pre>
     <h3>Gestion multi-entités</h3>
     <p>L'entité active est dans <code>session['active_entity_id']</code>. <code>get_active_entity()</code> : session → <code>is_active=True</code> DB → dernière entité du user.</p>
     <p><code>GET /activities/api/cross_carto_matches</code> — activités partagées entre l'entité active et les autres entités du même utilisateur.</p>
+
+    <h3>Import VSDX — reconstruction classique (mode unique)</h3>
+    <p>L'import Visio reconstruit la carto <strong>fidèlement au tracé humain d'origine</strong> — mesure au banc <code>tests/carto/</code> : re-router les flèches jette le bon tracé Visio et <em>ajoute</em> des croisements. Les tracés exacts (<code>customPath</code>) deviennent les <code>userPts</code> rendus, sauf les détours aberrants (waypoint hors carto ou loin des extrémités) qui sont re-routés proprement. Retouches sans ré-agencement (<code>_reconstructClassicPolish()</code>) :</p>
+    <ul>
+      <li><strong>Angles droits</strong> — <code>_orthogonalizeStaircase()</code> orthogonalise les tracés quasi-droits (union-find)</li>
+      <li><strong>Voies</strong> — <code>_separateLanes()</code> sépare les flèches parallèles superposées (gap 16&nbsp;px)</li>
+      <li><strong>Flèches alignées droites</strong> — <code>_straightenAlignedConnectors()</code> supprime les «&nbsp;escaliers&nbsp;» entre formes alignées (garde-fous : jamais à travers une forme tierce, anti-empilement)</li>
+      <li><strong>Labels</strong> — <code>architectLabels()</code> place les labels près des pointes sans jamais chevaucher une autre flèche</li>
+      <li><strong>Connexions à moitié collées</strong> — <code>_recoverFloatingConnections()</code> (vsdx_importer) infère l'extrémité manquante d'un connecteur n'ayant un <code>&lt;Connect&gt;</code> que d'un côté</li>
+      <li><strong>Losanges décoratifs</strong> — <code>_seatDecorativeDiamonds()</code> repose chaque losange sur le tracé final de sa flèche ; puis pop-up de <strong>placement manuel</strong> (<code>_startDiamondPlacement()</code>) : fenêtre zoomée par losange, flèche associée surlignée, étiquettes glissables</li>
+    </ul>
+    <div class="callout callout-info">
+      <strong>Curseur global des labels</strong> (toolbar, <code>#label-pos-slider</code>) : <code>setLabelsAlongArrows(t)</code> pose tous les labels à la même fraction de leur flèche (gauche = origine, droite = pointe), en direct.
+    </div>
+
+    <h3>Diagnostic carto, agencement auto &amp; correction ciblée</h3>
+    <p>La pop-up <strong>Diagnostic carto</strong> (bouton Vérifier) liste les anomalies (<code>runCartoCheck</code>) et propose deux actions :</p>
+    <ul>
+      <li><strong>Agencement auto</strong> — moteur isolé <code>static/optiqcarto/optiqarrange.js</code> (<code>_computeAutoArrange()</code>) : layered/Sugiyama contraint aux bandes, chaque forme reste dans sa bande, flèches retour dans un canal dédié. <em>Jamais utilisé à l'import VSDX.</em></li>
+      <li><strong>Corriger les erreurs</strong> — correction ciblée qui ne touche que les formes fautives : <code>_computeFixes()</code> → pop-up de validation avec aperçu zoomé (<code>_showFixPreview()</code>) → <code>_applyFixes()</code>. 4 familles : <code>outofband</code> (recentrage dans la bande), <code>overlap</code> (déplacement vers un emplacement libre), <code>renvoi</code> orphelin (suppression), <code>duplicate</code> (renommage «&nbsp;(n)&nbsp;»). Seules les flèches des formes déplacées sont re-routées.</li>
+    </ul>
+    <div class="callout callout-warn">
+      Retiré de l'éditeur : l'ancien bouton «&nbsp;Agencement auto&nbsp;» de la toolbar (libavoid + worker, ~710 lignes) et le badge de décision Oui/Non sur les losanges. Le champ <code>Link.choice_label</code> (DB) et son affichage dans les fiches activité sont un autre mécanisme, conservés.
+    </div>
   </section>
 
   <!-- ═══════════════════════════════════════════════════════════════ -->
@@ -560,6 +610,41 @@ werkzeug, python-dotenv, anthropic, gunicorn</pre>
       <tr><td>GET</td><td><code>/competences/global_flat_summary/&lt;user_id&gt;</code></td><td>Tableau HTML à plat avec lignes manager</td></tr>
       <tr><td>GET</td><td><code>/competences/users/global_summary</code></td><td>Dashboard tous les collaborateurs × rôles × évaluations manager</td></tr>
     </table>
+    <div class="callout callout-tip">
+      La page Compétences a été <strong>refondue</strong> (CDC OPTIQ V1.1) : voir la section <a href="#refonte-competences">Refonte Compétences V1.1</a> — évaluation par RÉSULTAT, diagnostic d'écart et plan.
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <section id="refonte-competences">
+    <h2 class="section-title">Refonte Compétences V1.1 (CDC OPTIQ) <span class="badge badge-done">Documenté</span></h2>
+    <p>Plan complet : <code>docs/refonte_competences_v1_1.md</code>. Le module Compétences est recâblé autour de la chaîne
+    <strong>Activité → Données de sortie → RÉSULTAT → Compétence → Diagnostic → Plan</strong>.
+    L'évaluation commence par le RÉSULTAT ; Savoirs/Savoir-Faires/HSC ne servent qu'au diagnostic d'un écart.</p>
+    <div class="callout callout-warn">
+      Règles structurantes : niveau global d'activité = <strong>min</strong> des résultats (jamais de moyenne) ; <code>NULL</code> (non évalué) ≠ 0 ;
+      les codes techniques internes (RESULT, DAILY, WORK_ARCHITECTURE…) ne sont <strong>jamais affichés</strong> — libellés FR/EN uniquement.
+    </div>
+
+    <h3>Les 7 blueprints</h3>
+    <table>
+      <tr><th>Module</th><th>Fichier · préfixe</th><th>Rôle</th></tr>
+      <tr><td>P1 — Qualification des sorties</td><td><code>qualify_outputs.py</code> · <code>/qualify</code></td><td>Analyse IA des données de sortie (RESULT / MEASURE / EVENT / INFORMATION), repli «&nbsp;à qualifier&nbsp;» sans clé. Une sortie EST une connexion sortante de la carto : <code>materialize_activity_outputs()</code> la matérialise en <code>Data</code> durable (ancrée via <code>producer_activity_id</code>, jamais touchée par la sync carto). Idempotent (get-or-create par nom).</td></tr>
+      <tr><td>P2 — Compétence par résultat</td><td><code>result_capabilities.py</code> · <code>/competence</code></td><td>Table <code>result_capability_links</code> (RESULT ↔ S/SF/HSC). Compétence PRINCIPALE fondée sur les RESULT ; S/SF/HSC générés par résultat ; badges «&nbsp;R1&nbsp;».</td></tr>
+      <tr><td>P3 — Niveaux de maîtrise</td><td><code>mastery.py</code> · <code>/mastery</code></td><td>Éval par RESULT (<code>item_type='activity_results'</code>), échelle 0-4 + NULL, global = min, couleur calculée. <code>activity_roles.required_mastery_level</code> = niveau requis.</td></tr>
+      <tr><td>P4 — Domaines de technicité</td><td><code>technical_domains.py</code> · <code>/domains</code></td><td>4 tables, échelle technique 0-4 dédiée. Alerte «&nbsp;Technicité&nbsp;» (<code>domain_gap</code>) branchée sur le tableau principal.</td></tr>
+      <tr><td>P5 — Cadence</td><td><code>cadence.py</code> · <code>/cadence</code></td><td><code>Activities.cadence</code>, <code>Data.update_cadence</code>/<code>max_age_hours</code>, 9 codes. Analyse «&nbsp;Cohérence des rythmes&nbsp;» en lecture seule (règles, sans IA) : vigilance + question OPTIQ quand une donnée est plus lente que l'activité aval.</td></tr>
+      <tr><td>Diagnostic &amp; plan</td><td><code>diagnostic.py</code> · <code>/diagnostic</code></td><td>Table <code>result_diagnostics</code>, 3 familles d'écart. Règle CDC 6.8 : pas de plan individuel automatique si l'écart relève de l'<em>Architecture du travail</em> ou des <em>Conditions d'exécution</em>.</td></tr>
+      <tr><td>P7 — Positionnement HSC</td><td><code>hsc_positioning.py</code> · <code>/hsc</code></td><td>Niveaux stabilisés (4 = Expertise), référentiel <code>hsc_level_descriptors</code>, auto-positionnement IA (niveau probable, jamais validé seul).</td></tr>
+    </table>
+
+    <h3>Front — page Compétences refondue</h3>
+    <p><code>competences_view.html</code> + <code>static/js/competences_v2.js</code> : tableau requis / démontré / écart / résultats →
+    tiroir d'évaluation par résultat → diagnostic 3 familles → plan. Les migrations sont idempotentes et cross-dialect
+    (<code>_safe_add_column</code> + <code>__table__.create(checkfirst=True)</code>). IA = gpt-4o-mini, JSON strict, repli propre.</p>
+    <div class="callout callout-info">
+      Reste (premier jet à retravailler) : UI de gestion des domaines, curseur de cadence sur la fiche activité, panneau de qualification des sorties + badges «&nbsp;R1&nbsp;» sur les écrans S/SF/HSC, widget d'auto-positionnement HSC, badge cadence carto (repo OptiqCarto).
+    </div>
   </section>
 
   <!-- ═══════════════════════════════════════════════════════════════ -->
@@ -608,6 +693,9 @@ werkzeug, python-dotenv, anthropic, gunicorn</pre>
 
     <div class="callout callout-warn">
       Au démarrage de l'app, <code>gestion_rh.py</code> exécute un <code>ALTER TABLE user_roles ADD COLUMN manager_id</code> idempotent pour les bases sans migration complète.
+    </div>
+    <div class="callout callout-info">
+      <strong>Paramètres entreprise</strong> : la table <code>entreprise_settings</code> est désormais portée par un vrai modèle ORM (<code>EntrepriseSettings</code>, 1 ligne par entité) — historiquement en SQL brut sans modèle, donc jamais créée par <code>create_all()</code> en prod (section RH vide + faux succès d'enregistrement). Endpoints réécrits en ORM avec liste blanche <code>SETTING_KEYS</code> et relecture post-commit ; <code>get_calendar_params()</code> (time_view) lit maintenant cette table.
     </div>
 
     <h3>Affectation des managers</h3>
@@ -712,6 +800,9 @@ werkzeug, python-dotenv, anthropic, gunicorn</pre>
     <div class="callout callout-info">
       La conversation est <strong>stateless côté serveur</strong> : l'historique complet (messages user + assistant) est renvoyé par le client à chaque appel à <code>POST /api/chatbot/chat</code>.
     </div>
+    <div class="callout callout-warn">
+      <strong>Clé IA</strong> : toutes les routes IA lisent la clé via <code>get_openai_key()</code> (<code>Code/ai_key.py</code> — table <code>app_settings</code> puis env <code>OPENAI_API_KEY</code>), jamais <code>os.getenv</code> direct. Chatbot sans clé → <code>503 ai_unavailable</code>, converti en pop-up claire côté client (<code>optiq_alert.js</code>). Sur la branche distribution, les prompts système vivent dans le catalogue <code>Code/prompts/catalog.py</code> (chiffré Fernet dans l'image client) — ne jamais remettre un prompt en dur dans une route.
+    </div>
 
     <h3>Référence API</h3>
     <table>
@@ -743,8 +834,10 @@ werkzeug, python-dotenv, anthropic, gunicorn</pre>
 
     <h3>Sécurité</h3>
     <ul>
-      <li>Mots de passe : <code>werkzeug.security.generate_password_hash</code> (pbkdf2:sha256)</li>
-      <li>Clé session : variable d'environnement <code>SECRET_KEY</code></li>
+      <li><strong>Mots de passe</strong> : politique centralisée dans <code>Code/security.py</code> — <code>hash_password()</code> / <code>verify_password()</code> / <code>needs_rehash()</code>. Standard = <strong>PBKDF2-SHA256 600&nbsp;000 itérations</strong> (OWASP). Ne jamais appeler <code>generate_password_hash</code> directement.</li>
+      <li><strong>Rétro-compatibilité</strong> : les anciens hashes (scrypt Werkzeug 3, ~162 caractères) restent acceptés au login et sont re-hachés silencieusement vers le standard. Migration idempotente au démarrage : <code>users.password</code> élargi à VARCHAR(255).</li>
+      <li><strong>Fiabilité</strong> : <code>set_password</code> et le reset par email relisent le hash en base après commit — jamais de faux succès.</li>
+      <li>Clé session : variable d'environnement <code>SECRET_KEY</code> (branche distribution : plus de défaut public — secret éphémère + warning si absente)</li>
       <li>Reset password : blueprint <code>auth_password_bp</code> (<code>routes_password.py</code>)</li>
     </ul>
 
@@ -1238,28 +1331,114 @@ Body: {
   <!-- ═══════════════════════════════════════════════════════════════ -->
   <section id="deploiement">
     <h2 class="section-title">Déploiement <span class="badge badge-done">Documenté</span></h2>
-    <p>Application déployée sur <strong>Google Cloud Run</strong> via image Docker. Serveur WSGI : <code>gunicorn</code>.</p>
+    <p>Application déployée sur <strong>Google Cloud Run</strong> via image Docker. Serveur WSGI : <code>gunicorn</code>, config unifiée <code>gunicorn.conf.py</code> (<code>WEB_CONCURRENCY</code>). Service interne : <code>optiqfluent-staging</code> (script <code>tools/deploy/deploy_cloudrun.sh</code> — ⚠️ <code>.gcloudignore</code> obligatoire).</p>
 
-    <h3>Variables d'environnement (Cloud Run)</h3>
+    <h3>Variables d'environnement</h3>
     <table>
       <tr><th>Variable</th><th>Rôle</th></tr>
       <tr><td><code>DATABASE_URL</code></td><td>URL PostgreSQL prod. Absent = SQLite local.</td></tr>
-      <tr><td><code>SECRET_KEY</code></td><td>Clé secrète Flask pour les sessions</td></tr>
-      <tr><td><code>ANTHROPIC_KEY</code></td><td>Clé API Claude (chatbot, import IA)</td></tr>
-      <tr><td><code>MAIL_SERVER / MAIL_PORT / MAIL_USERNAME / MAIL_PASSWORD</code></td><td>Config SMTP Gmail</td></tr>
+      <tr><td><code>SECRET_KEY</code></td><td>Clé secrète Flask (plus de défaut public — secret éphémère + warning si absente)</td></tr>
+      <tr><td><code>OPENAI_API_KEY</code></td><td>Clé OpenAI (repli si aucune clé en table <code>app_settings</code>)</td></tr>
+      <tr><td><code>ANTHROPIC_API_KEY / ANTHROPIC_KEY</code></td><td>Clé Claude (second essai du réagencement IA carto)</td></tr>
+      <tr><td><code>MAIL_SERVER / MAIL_PORT / MAIL_USERNAME / MAIL_PASSWORD</code></td><td>Config SMTP — mail désactivé proprement si absent (<code>MAIL_CONFIGURED</code>)</td></tr>
+      <tr><td><code>FLASK_DEBUG</code></td><td>Mode debug (défaut off)</td></tr>
+      <tr><td><code>DB_POOL_SIZE / DB_MAX_OVERFLOW</code></td><td>Pool de connexions configurable</td></tr>
+      <tr><td><code>DEMO_SEED</code></td><td>Seed de démo (opt-in, <code>=1</code>)</td></tr>
+      <tr><td><code>ADMIN_EMAIL / ADMIN_PASSWORD</code></td><td>Bootstrap du 1er compte admin (seulement si 0 utilisateur)</td></tr>
+      <tr><td><code>REQUIRE_LICENSE</code></td><td>Active la vérification de licence (baké <code>=1</code> dans l'image client ; nos déploiements passent <code>=0</code>)</td></tr>
+      <tr><td><code>PROMPTS_KEY</code></td><td>Clé Fernet du bundle de prompts chiffré (ou champ <code>prompts_key</code> de la licence)</td></tr>
+      <tr><td><code>TESTPANEL_ENABLED</code></td><td><code>/testpanel</code> non enregistré si <code>=0</code> (baké dans l'image client)</td></tr>
+      <tr><td><code>SETUP_WIZARD</code></td><td>Active l'assistant d'installation web <code>/setup</code> au premier démarrage (image client)</td></tr>
       <tr><td><code>PORT</code></td><td>Port d'écoute (8080, injecté par Cloud Run)</td></tr>
     </table>
 
     <h3>Stratégie migrations DB</h3>
     <div class="callout callout-warn">
-      <code>flask db upgrade</code> n'est PAS exécuté au démarrage (risque de verrou PostgreSQL 10min+). À la place : <code>db.create_all()</code> + <code>_safe_add_column()</code> qui ignore l'erreur si la colonne existe.
+      <code>flask db upgrade</code> n'est PAS exécuté au démarrage (risque de verrou PostgreSQL 10min+). À la place : <code>db.create_all()</code> + <code>_safe_add_column()</code> qui ignore l'erreur si la colonne existe. Le tout sous <code>lock_timeout</code> : les migrations ne peuvent plus bloquer le démarrage.
     </div>
 
     <h3>Branches</h3>
     <ul>
       <li><code>staging</code> — développement principal</li>
       <li><code>main</code> — production stable (merger uniquement les versions validées)</li>
+      <li><code>optiqfluent-beta-test</code> — distribution client OptiqFluent (basée sur <code>staging</code>, voir <a href="#distribution">Distribution</a>)</li>
     </ul>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <section id="admin-ia">
+    <h2 class="section-title">Administration &amp; UX IA <span class="badge badge-done">Documenté</span></h2>
+    <p>Ensemble livré sur la branche <code>optiqfluent-beta-test</code> : administration à chaud de l'application et gestion propre des états «&nbsp;IA non configurée&nbsp;».</p>
+
+    <h3>Clé IA à chaud — <code>Code/ai_key.py</code></h3>
+    <p><code>get_openai_key()</code> lit la clé dans la table <code>app_settings</code> (clé <code>openai_api_key</code>) en priorité, puis dans l'env <code>OPENAI_API_KEY</code>. Toutes les routes IA sont recâblées dessus.</p>
+    <div class="callout callout-warn">
+      Ne <strong>jamais</strong> lire <code>os.getenv("OPENAI_API_KEY")</code> dans une route — toujours <code>get_openai_key()</code>. Message d'erreur standard : «&nbsp;Clé IA non renseignée.&nbsp;»
+    </div>
+
+    <h3>Paramètres → section Administration (<code>settings.py</code>)</h3>
+    <p>Visible seulement si <code>User.status</code> ∈ {admin, administrateur} (décorateur <code>admin_required</code>) ; invisible sinon.</p>
+    <table>
+      <tr><th>Méthode</th><th>URL</th><th>Description</th></tr>
+      <tr><td>GET</td><td><code>/parametres/admin/overview</code></td><td>Vue d'ensemble admin (clé IA masquée, URL BDD masquée)</td></tr>
+      <tr><td>POST</td><td><code>/parametres/admin/openai-key/reveal</code></td><td>Révèle la clé IA en clair</td></tr>
+      <tr><td>POST</td><td><code>/parametres/admin/openai-key</code></td><td>Enregistre / remplace la clé IA (table <code>app_settings</code>)</td></tr>
+      <tr><td>GET</td><td><code>/parametres/admin/logs</code></td><td>Console serveur — lecture incrémentale par offset (polling)</td></tr>
+    </table>
+
+    <h3>Console serveur — <code>Code/logstream.py</code></h3>
+    <p>Tee stdout/stderr + handler logging vers <code>/tmp/optiqfluent-server.log</code> (plafonné 2&nbsp;Mo), initialisé dans <code>create_app</code> (hors tests), lecture incrémentale par offset depuis la section Administration (panneau rétractable).</p>
+
+    <h3>Pop-ups in-app — <code>static/js/optiq_alert.js</code></h3>
+    <ul>
+      <li><code>optiqAlert()</code> — modal DA maison (remplace les <code>alert()</code> natifs : le script override <code>window.alert</code> sur toute page qui l'inclut)</li>
+      <li><code>optiqAiCheck(data)</code> — détecte les réponses IA dégradées → pop-up «&nbsp;clé IA non renseignée&nbsp;» ou «&nbsp;IA indisponible&nbsp;»</li>
+      <li>Inclus via <code>script_loader.html</code>, <code>chatbot_widget.html</code>, <code>competences_view.html</code>, <code>activity_savoirs.html</code> ; checks dans les handlers propose_* / competencies. Chatbot sans clé → <code>503 ai_unavailable</code>.</li>
+    </ul>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <section id="distribution">
+    <h2 class="section-title">Distribution OptiqFluent <span class="badge badge-done">Documenté</span></h2>
+    <p>Branche <code>optiqfluent-beta-test</code> (basée sur <code>staging</code>) : mise à disposition de l'app chez un client pilote, rebrandée <strong>OptiqFluent</strong>. Modèle retenu : <strong>image Docker sur registre privé (ghcr.io) + licence signée à expiration + contrat d'évaluation</strong>.</p>
+
+    <h3>Durcissement pré-livraison</h3>
+    <ul>
+      <li>Mot de passe Gmail AFDEC retiré du code (mail 100&nbsp;% par env, <code>MAIL_CONFIGURED</code>)</li>
+      <li>Endpoint debug <code>/api/debug-decisions/env-check</code> (fuite des vars d'env) supprimé</li>
+      <li><code>SECRET_KEY</code> sans défaut public ; <code>DEBUG</code> piloté par <code>FLASK_DEBUG</code> (défaut off)</li>
+      <li>Seed de démo derrière <code>DEMO_SEED=1</code> ; bootstrap 1er compte admin (<code>ADMIN_EMAIL</code>/<code>ADMIN_PASSWORD</code>, seulement si 0 utilisateur)</li>
+      <li><code>.dockerignore</code> étendu (zips, backups, tests, docs, vsdx, scripts dev, tools/)</li>
+    </ul>
+
+    <h3>Licence signée — <code>Code/licensing.py</code></h3>
+    <p>JSON signé <strong>Ed25519</strong> (clé publique embarquée <code>Code/license_pubkey.pem</code>, clé privée jamais committée), date d'expiration, active si <code>REQUIRE_LICENSE=1</code>. Bloque tout sauf <code>/healthz</code>, <code>/license</code>, <code>/static</code>, <code>/setup</code> (page <code>license_blocked.html</code>). Renouvellement à chaud : remplacer le fichier <code>.lic</code>, pris en compte sans redémarrage. Outils AFDEC : <code>tools/licensing/keygen.py</code> et <code>tools/licensing/make_license.py --licensee … --days …</code>.</p>
+
+    <h3>Prompts IA externalisés + chiffrés</h3>
+    <p>Les 36 prompts (dont le référentiel X50-766) vivent dans <code>Code/prompts/catalog.py</code> (dict <code>PROMPTS</code>, exclu de l'image client). <code>get_prompt(key, **vars)</code> avec placeholders <code>[[var]]</code> (pas <code>.format</code> : accolades JSON). Image client = bundle chiffré <strong>Fernet</strong> <code>Code/prompts/prompts.enc</code> (généré par <code>tools/prompts/encrypt_prompts.py</code>), clé via env <code>PROMPTS_KEY</code> ou champ <code>prompts_key</code> de la licence. Sans clé → chaque route dégrade comme «&nbsp;sans clé OpenAI&nbsp;».</p>
+    <div class="callout callout-warn">
+      Ne JAMAIS remettre un prompt en dur dans une route — tout passe par le catalogue. Seul <code>role_i18n.py</code> garde son prompt trivial en dur.
+    </div>
+
+    <h3>Anti-inspection &amp; image client</h3>
+    <ul>
+      <li>Image <strong>bytecode-only</strong> (Dockerfile : <code>compileall -b</code> puis suppression des <code>.py</code> sauf <code>gunicorn.conf.py</code>) — dissuasion ; le vrai verrou = prompts chiffrés + licence + contrat</li>
+      <li><code>load_dotenv()</code> avec chemin explicite (l'auto-détection casse en bytecode)</li>
+      <li><code>/testpanel</code> non enregistré si <code>TESTPANEL_ENABLED=0</code> (baké dans le Dockerfile client)</li>
+      <li>LibreOffice retiré du Dockerfile (~1,5&nbsp;Go — aucun usage : exports = openpyxl/python-docx)</li>
+    </ul>
+
+    <h3>Assistant d'installation web — <code>/setup</code></h3>
+    <p>Premier démarrage de l'image client (<code>SETUP_WIZARD=1</code> + aucune config écrite) → mode installation (<code>Code/routes/setup_wizard.py</code>) : gate <code>before_request</code> vers /setup, étapes <strong>licence</strong> (collée, validée, sauvée sur le volume) → <strong>BDD</strong> (test de connexion) → <strong>clé OpenAI</strong> (testée) → <strong>mail</strong> optionnel (test SMTP) → <strong>compte admin</strong> → récap. «&nbsp;Installer&nbsp;» écrit <code>/app/config/optiqfluent.env</code> puis SIGTERM au master gunicorn → redémarrage configuré ; <code>ADMIN_PASSWORD</code> purgé du fichier après création du compte. Les vraies variables d'env gardent priorité sur le fichier. Ne s'applique pas à Cloud Run (pas de volume persistant).</p>
+
+    <h3>Kit client &amp; CI</h3>
+    <table>
+      <tr><th>Élément</th><th>Contenu</th></tr>
+      <tr><td><code>distribution/</code></td><td><code>.env.example</code> commenté, <code>docker-compose.yml</code> (app + postgres:16 + volume), <code>INSTALL.md</code>, <code>CONTRAT_EVALUATION.md</code> (à faire valider par un juriste), <code>RELEASE.md</code> (runbook AFDEC)</td></tr>
+      <tr><td>CI <code>.github/workflows/client-image.yml</code></td><td>Push d'un tag <code>client-v*</code> → build + push <code>ghcr.io/maelouuu/optiqfluent:&lt;version&gt;</code> + <code>:beta</code> (secret GitHub <code>PROMPTS_KEY</code> requis)</td></tr>
+      <tr><td><code>tools/test_install.sh</code></td><td>Répétition d'installation client sans Docker : licence de test, arbre bytecode-only, PostgreSQL 16 vierge, gunicorn, 9 vérifications curl/logs</td></tr>
+      <tr><td><code>tools/deploy/deploy_cloudrun.sh</code></td><td>Déploiement Cloud Run interne (<code>optiqfluent-staging</code>, avec <code>REQUIRE_LICENSE=0</code>, <code>PROMPTS_KEY</code>, <code>TESTPANEL_ENABLED=1</code>)</td></tr>
+    </table>
   </section>
 
   <!-- ═══════════════════════════════════════════════════════════════ -->

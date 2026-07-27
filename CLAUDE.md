@@ -15,11 +15,11 @@ git checkout staging
 git pull origin staging
 ```
 
-Toutes les modifications (docs/index.html, CLAUDE.md) doivent être committées et pushées sur `staging`. Ne jamais travailler sur la branche de session par défaut.
+Toutes les modifications (docs/doc_technique.html, docs/guide.html, CLAUDE.md) doivent être committées et pushées sur `staging`. Ne jamais travailler sur la branche de session par défaut.
 
 **Séquence de fin de session obligatoire :**
 ```bash
-git add docs/index.html CLAUDE.md
+git add docs/ CLAUDE.md
 git commit -m "Docs: <description de ce qui a été documenté>"
 git push -u origin staging
 ```
@@ -71,7 +71,8 @@ DevOPTIQ/
 │   ├── js/                 # JS par domaine
 │   └── optiqcarto/         # Outil cartographie (editor.js, style.css, vsdx_importer.js)
 └── docs/
-    └── index.html          # Documentation progressive (à compléter par la routine)
+    ├── doc_technique.html  # Documentation technique progressive (ex-index.html)
+    └── guide.html          # Guide utilisateur (ordre des sections = ordre de la nav bar)
 ```
 
 ---
@@ -214,7 +215,7 @@ cadence sur la fiche activité ; panneau de qualification des sorties + badges �
 
 ---
 
-## État de la documentation (`docs/index.html`)
+## État de la documentation (`docs/doc_technique.html` + `docs/guide.html`)
 
 > Mis à jour par la routine de documentation. Indiquer ici ce qui a été documenté.
 
@@ -259,6 +260,12 @@ cadence sur la fiche activité ; panneau de qualification des sorties + badges �
 - **Liens tâches** (`task_link_assignments.py`) : assignations directionnelles tâche ↔ lien, table auto-créée checkfirst, upsert par delete+insert, GET par activité via jointure 3 tables, erreur silencieuse GET, 3 endpoints documentés
 - **Contraintes** (`constraints.py`) : CRUD contraintes d'activité, validation existence activité, double clé activity_id+constraint_id sur PUT/DELETE, fragment HTML render, 4 endpoints documentés
 - **Gestion des outils** (`gestion_outils.py`) : cycle de vie complet des outils (create/update/replace/delete), 4 stratégies de suppression (directe/force_detach/partielle/409), remplacement atomique inter-tâches, pré-chargement anti-N+1, unicité insensible à la casse par entité, 7 endpoints documentés
+
+### Complété (session 7 — 2026-07-27)
+- **Renommage** : `docs/index.html` → `docs/doc_technique.html` (liens du guide mis à jour)
+- **Doc technique — mise à niveau OptiqFluent & V1.1** : nouvelle section « Refonte Compétences V1.1 » (7 blueprints P1-P7, chaîne Résultat, règles min/NULL), nouvelle section « Distribution OptiqFluent » (durcissement, licence Ed25519, prompts chiffrés Fernet, image bytecode-only, assistant /setup, kit client, CI ghcr.io), nouvelle section « Administration & UX IA » (ai_key, settings admin, logstream, optiq_alert). Sections mises à jour : Stack (IA = OpenAI gpt-4o-mini partout + Claude en secours carto ; auth = security.py PBKDF2 600k), Architecture (~49 blueprints, gunicorn.conf.py, lock_timeout), Modèles (tables V1.1 + app_settings + test_*), Cartographie (import VSDX classique + polish, diagnostic/agencement auto/correction ciblée, curseur labels, losanges), Auth (politique mots de passe), RH (EntrepriseSettings ORM), Chatbot (get_openai_key, 503 ai_unavailable, prompts catalog), Déploiement (variables complètes, branche optiqfluent-beta-test)
+- **Guide utilisateur — restructuration + illustrations** : sections réordonnées sur l'ordre de la nav bar (Carto → Activités → Rôles → Compétences → Temps → Comptes → RH → Outils → [IA, Performance, Export] → Paramètres → Glossaire). 3 nouvelles sections illustrées : Rôles (fiche 5 blocs + onboarding IA déplacé depuis RH), Comptes (mockup table + import en masse déplacé depuis RH), Outils (4 cartes cycle de vie). Nouveaux blocs : évaluation par RÉSULTAT (chaîne + mockup tiroir d'éval + diagnostic 3 familles + technicité/cadence/HSC), import Visio fidèle (mockup avant/après), Diagnostic carto (mockup pop-up Corriger les erreurs / Agencement auto), « Et si l'IA n'est pas configurée ? », Paramètres → section Administration (mockup clé IA + console serveur) + note édition OptiqFluent, calendrier de travail déplacé dans RH, 2 entrées de glossaire (Résultat, Diagnostic d'écart)
+- **App — nav bar réordonnée** (`header_buttons.html`) : Cartographie, Activités, Rôles, Compétences, Temps, Comptes, RH, Outils, Paramètres — même ordre que le guide (règle : Cartographie première, Paramètres dernière)
 
 ### En cours
 - *(rien)*
