@@ -14,5 +14,7 @@ psycopg2-binary
 requests
 openpyxl
 pytest
+pytest-html
+pytest-cov
 werkzeug
 
