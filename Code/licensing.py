@@ -30,20 +30,30 @@ class LicenseError(Exception):
 
 
 def _read_license_raw():
-    """Licence via env (base64) ou fichier. Retourne (bytes, mtime|None)."""
+    """Licence via env (base64) ou fichier. Retourne (bytes, mtime|None).
+
+    Cherche dans l'ordre : OPTIQFLUENT_LICENSE (env, base64) → LICENSE_PATH →
+    <CONFIG_DIR>/optiqfluent.lic (emplacement écrit par l'assistant /setup —
+    indispensable quand un LICENSE_PATH d'environnement pointe ailleurs, car
+    l'env a priorité sur le fichier de config de l'assistant)."""
     b64 = os.getenv("OPTIQFLUENT_LICENSE")
     if b64:
         try:
             return base64.b64decode(b64), None
         except Exception as e:
             raise LicenseError(f"OPTIQFLUENT_LICENSE illisible (base64 attendu) : {e}")
-    path = os.getenv("LICENSE_PATH", "/app/license/optiqfluent.lic")
-    if os.path.isfile(path):
-        with open(path, "rb") as f:
-            return f.read(), os.path.getmtime(path)
+    candidates = [
+        os.getenv("LICENSE_PATH", "/app/license/optiqfluent.lic"),
+        os.path.join(os.getenv("CONFIG_DIR", "/app/config"), "optiqfluent.lic"),
+    ]
+    for path in candidates:
+        if os.path.isfile(path):
+            with open(path, "rb") as f:
+                return f.read(), os.path.getmtime(path)
     raise LicenseError(
         "Aucune licence trouvée : définir OPTIQFLUENT_LICENSE (contenu base64) "
-        f"ou déposer le fichier de licence dans {path} (variable LICENSE_PATH)."
+        "ou déposer le fichier de licence dans "
+        + " ou ".join(dict.fromkeys(candidates)) + "."
     )
 
 

@@ -14,7 +14,8 @@ services:
       # Base PostgreSQL intégrée ci-dessous (mot de passe lu dans .env).
       # L'assistant permet aussi d'indiquer une base hébergée par vos soins.
       DATABASE_URL: postgresql://optiqfluent:${POSTGRES_PASSWORD}@db:5432/optiqfluent
-      LICENSE_PATH: /app/license/optiqfluent.lic
+      # NB : pas de LICENSE_PATH ici — l'app cherche d'elle-même dans
+      # ./license/optiqfluent.lic (fichier fourni) puis ./config/ (assistant).
     ports:
       - "8080:8080"
     volumes:

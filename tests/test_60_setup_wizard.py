@@ -130,3 +130,16 @@ class TestLicenseApi:
         r = setup_app.test_client().post(
             "/setup/api/license", json={"content": '{"pas": "une licence"}'})
         assert r.get_json()["ok"] is False
+
+    def test_licence_repli_config_dir(self, tmp_path, monkeypatch):
+        """Une licence sauvée par l'assistant dans CONFIG_DIR doit être trouvée
+        même si un LICENSE_PATH d'environnement pointe vers un fichier absent
+        (cas du docker-compose historique — bug de la répétition générale)."""
+        monkeypatch.setenv("LICENSE_PATH", str(tmp_path / "nexiste-pas.lic"))
+        monkeypatch.delenv("OPTIQFLUENT_LICENSE", raising=False)
+        monkeypatch.setenv("CONFIG_DIR", str(tmp_path))
+        (tmp_path / "optiqfluent.lic").write_bytes(b'{"marqueur": 1}')
+        from Code.licensing import _read_license_raw
+        raw, mtime = _read_license_raw()
+        assert raw == b'{"marqueur": 1}'
+        assert mtime is not None
