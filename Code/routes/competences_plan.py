@@ -3,6 +3,7 @@ import os
 import json
 from datetime import datetime
 from flask import Blueprint, request, jsonify, session
+from Code.ai_key import get_openai_key
 from Code.prompts import get_prompt, prompts_available
 from sqlalchemy import text
 from Code.extensions import db
@@ -155,7 +156,7 @@ def _call_llm_or_dummy(prompt: str):
     - Renvoie un dict JSON.
     - En cas d'indispo clé/API/SDK ⇒ plan dummy.
     """
-    api_key = os.environ.get("OPENAI_API_KEY")
+    api_key = get_openai_key()
     if not api_key:
         return _dummy_plan()
 

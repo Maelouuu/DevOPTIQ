@@ -313,7 +313,7 @@ class TestChatbotChat:
         assert r.status_code == 400
 
     def test_chat_with_message_returns_200_or_500(self, auth_client):
-        """Message valide → 200 si OpenAI disponible, 500 sinon (clé absente en test)."""
+        """Message valide → 200 si OpenAI dispo, 503 clé absente, 500 erreur API."""
         r = auth_client.post(
             "/api/chatbot/chat",
             data=json.dumps({
@@ -324,10 +324,10 @@ class TestChatbotChat:
             }),
             content_type="application/json",
         )
-        assert r.status_code in (200, 500)
+        assert r.status_code in (200, 500, 503)
 
     def test_chat_mode_ameliorer_accepted(self, auth_client):
-        """mode='ameliorer' est accepté et produit 200 ou 500 (OpenAI)."""
+        """mode='ameliorer' accepté → 200/503/500 selon la disponibilité IA."""
         r = auth_client.post(
             "/api/chatbot/chat",
             data=json.dumps({
@@ -338,7 +338,7 @@ class TestChatbotChat:
             }),
             content_type="application/json",
         )
-        assert r.status_code in (200, 500)
+        assert r.status_code in (200, 500, 503)
 
     def test_chat_error_response_has_error_key(self, auth_client):
         """En cas d'erreur OpenAI, la réponse JSON contient le champ 'error'."""

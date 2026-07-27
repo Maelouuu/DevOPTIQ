@@ -976,3 +976,12 @@ class CrossCartoLiaison(db.Model):
     is_active = db.Column(db.Boolean, default=True, nullable=False)
     display_label = db.Column(db.String(200), nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+
+class AppSetting(db.Model):
+    """Réglages d'instance modifiables à chaud (page Paramètres, section admin).
+    Clés utilisées : 'openai_api_key'. Priorité sur les variables d'environnement."""
+    __tablename__ = 'app_settings'
+
+    key = db.Column(db.String(64), primary_key=True)
+    value = db.Column(db.Text, nullable=True)

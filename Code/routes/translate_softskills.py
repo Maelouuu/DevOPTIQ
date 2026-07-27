@@ -3,6 +3,7 @@ import os
 import json
 import re
 from flask import Blueprint, request, jsonify, current_app, session
+from Code.ai_key import get_openai_key
 from Code.prompts import get_prompt, prompts_available
 
 translate_softskills_bp = Blueprint('translate_softskills_bp', __name__, url_prefix='/translate_softskills')
@@ -15,9 +16,9 @@ translate_softskills_bp = Blueprint('translate_softskills_bp', __name__, url_pre
 
 
 def get_openai_client():
-    api_key = os.getenv("OPENAI_API_KEY")
+    api_key = get_openai_key()
     if not api_key:
-        return None, "Clé OpenAI manquante (OPENAI_API_KEY)."
+        return None, "Clé IA non renseignée."
     try:
         from openai import OpenAI
         client = OpenAI(api_key=api_key)

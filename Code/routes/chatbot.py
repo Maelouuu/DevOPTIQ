@@ -5,6 +5,7 @@ import os
 import json
 from flask import Blueprint, request, jsonify, session
 from Code.prompts import get_prompt, prompts_available
+from Code.ai_key import get_openai_key
 from sqlalchemy import or_
 from openai import OpenAI
 
@@ -385,7 +386,12 @@ def chat():
     ]
 
     try:
-        client = OpenAI()
+        api_key = get_openai_key()
+        if not api_key:
+            err_msg = ('AI key not configured on this instance.' if lang == 'en'
+                       else "Clé IA non renseignée sur cette instance.")
+            return jsonify({'error': err_msg, 'ai_unavailable': True}), 503
+        client = OpenAI(api_key=api_key)
         model = os.getenv('OPENAI_CHATBOT_MODEL', 'gpt-4o-mini')
         resp = client.chat.completions.create(
             model=model,

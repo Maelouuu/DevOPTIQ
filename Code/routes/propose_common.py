@@ -1,6 +1,7 @@
 # Code/routes/propose_common.py
 import os
 from flask import current_app
+from Code.ai_key import get_openai_key
 
 def build_activity_context(activity_json: dict) -> str:
     title = activity_json.get("title") or activity_json.get("name") or ""
@@ -42,9 +43,9 @@ def openai_client_or_none():
     Essaie d'instancier le client OpenAI.
     Si la clé n'est pas là → on renvoie (None, "raison").
     """
-    key = os.environ.get("OPENAI_API_KEY")
+    key = get_openai_key()
     if not key:
-        return None, "Clé OpenAI manquante (OPENAI_API_KEY)."
+        return None, "Clé IA non renseignée."
     try:
         from openai import OpenAI
         return OpenAI(api_key=key), None

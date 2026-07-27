@@ -6,6 +6,7 @@ import time
 from datetime import datetime
 
 from flask import Blueprint, jsonify
+from Code.ai_key import get_openai_key
 from Code.prompts import get_prompt
 
 changelog_bp = Blueprint('changelog', __name__)
@@ -64,7 +65,7 @@ def _fallback_changelog():
     ]}
 
 def _generate_with_openai(commits):
-    api_key = os.environ.get('OPENAI_API_KEY')
+    api_key = get_openai_key()
     system_prompt = get_prompt("changelog.system")
     if not api_key or system_prompt is None:
         return None

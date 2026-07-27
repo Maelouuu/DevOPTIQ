@@ -347,6 +347,28 @@ privé (ghcr.io) + licence signée à expiration + contrat d'évaluation**. Cont
     Postgres. ⚠️ Ne s'applique pas à Cloud Run (pas de volume persistant —
     nos déploiements restent configurés par variables d'environnement).
 
+## Administration & UX IA (branche optiqfluent-beta-test)
+
+- **Clé IA à chaud** : `Code/ai_key.py` — `get_openai_key()` (table `app_settings`
+  clé `openai_api_key` en priorité, puis env `OPENAI_API_KEY`). ⚠️ Ne JAMAIS lire
+  `os.getenv("OPENAI_API_KEY")` dans une route : toujours `get_openai_key()`
+  (toutes les routes IA recâblées). Message d'erreur standard : « Clé IA non
+  renseignée. »
+- **Paramètres → section Administration** (`settings.py`, visible seulement si
+  `User.status` ∈ {admin, administrateur} ; invisible sinon) : clé IA masquée
+  (révélation/modification via `/parametres/admin/openai-key[...]`), URL BDD
+  masquée, **console serveur** rétractable (polling `/parametres/admin/logs`).
+- **Console serveur** : `Code/logstream.py` — tee stdout/stderr + handler logging
+  vers `/tmp/optiqfluent-server.log` (plafonné 2 Mo), init dans `create_app`
+  (hors tests), lecture incrémentale par offset.
+- **Pop-up in-app** : `static/js/optiq_alert.js` — `optiqAlert()` (modal DA),
+  `optiqAiCheck(data)` (détecte les réponses IA dégradées → pop-up « clé IA non
+  renseignée » ou « IA indisponible »), et **override de `window.alert`** (toute
+  page qui inclut le script convertit ses alert() en pop-ups stylées). Inclus via
+  `script_loader.html`, `chatbot_widget.html`, `competences_view.html`,
+  `activity_savoirs.html`. Checks ajoutés dans les handlers propose_* /
+  competencies. Chatbot sans clé → 503 `ai_unavailable`.
+
 ## Notes importantes
 
 - **Mots de passe (politique de hachage)** : centralisée dans `Code/security.py` —

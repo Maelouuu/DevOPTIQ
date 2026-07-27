@@ -1,6 +1,7 @@
 # Code/routes/skills.py
 
 from flask import Blueprint, request, jsonify, session
+from Code.ai_key import get_openai_key
 from Code.prompts import get_prompt, prompts_available
 import os
 import openai
@@ -80,9 +81,9 @@ def propose_skills():
         return jsonify({"error": "Prompts IA non chargés sur cette instance."}), 500
 
     # --- OpenAI API KEY ---
-    openai.api_key = os.getenv("OPENAI_API_KEY")
+    openai.api_key = get_openai_key()
     if not openai.api_key:
-        return jsonify({"error": "Clé OpenAI manquante (OPENAI_API_KEY)."}), 500
+        return jsonify({"error": "Clé IA non renseignée."}), 500
 
     # --- NOUVEAU CLIENT OPENAI ---
     try:

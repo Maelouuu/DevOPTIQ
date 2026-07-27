@@ -70,6 +70,12 @@ def create_app(test_config=None):
     app.config["DEBUG"] = _debug
     app.config["PROPAGATE_EXCEPTIONS"] = _debug
 
+    # Console serveur (Paramètres → section admin) : duplique stdout/stderr et
+    # le logging vers un fichier tampon lisible depuis l'app.
+    if test_config is None:
+        from Code.logstream import init_logstream
+        init_logstream()
+
     # ── Assistant d'installation (premier démarrage de l'image client) ──
     # SETUP_WIZARD=1 (docker-compose client) + aucune configuration écrite →
     # l'app démarre en mode installation : uniquement /setup, qui guide le
@@ -451,6 +457,13 @@ def create_app(test_config=None):
             print("[DB] Table file_blobs prête")
         except Exception as e:
             print(f"[DB] file_blobs check: {e}")
+
+        try:
+            from Code.models.models import AppSetting
+            AppSetting.__table__.create(db.engine, checkfirst=True)
+            print("[DB] Table app_settings prête")
+        except Exception as e:
+            print(f"[DB] app_settings check: {e}")
 
         try:
             from Code.models.test_models import TestPage, TestCase, TestRun, TestResult

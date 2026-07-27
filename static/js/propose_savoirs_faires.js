@@ -60,6 +60,7 @@
       const savoirs = Array.isArray(sData.proposals) ? sData.proposals : [];
 
       safeHideSpinner();
+      if (window.optiqAiCheck) window.optiqAiCheck(sData);
       showProposedSavoirsFairesModal(savoirFaires, savoirs, activityData.id);
     } catch (err) {
       safeHideSpinner();

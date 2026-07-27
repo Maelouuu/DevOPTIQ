@@ -1,4 +1,5 @@
 from flask import Blueprint, request, jsonify, session
+from Code.ai_key import get_openai_key
 from Code.prompts import get_prompt, prompts_available
 import os
 from Code.extensions import db
@@ -24,7 +25,7 @@ def generate_onboarding(role_id):
         err_msg = "AI unavailable (prompts not loaded)." if lang == 'en' else "IA indisponible (prompts non chargés)."
         return jsonify({"error": err_msg}), 500
 
-    api_key = os.getenv("OPENAI_API_KEY")
+    api_key = get_openai_key()
     if not api_key:
         err_msg = "OpenAI key missing (OPENAI_API_KEY)." if lang == 'en' else "Clé OpenAI manquante (OPENAI_API_KEY)."
         return jsonify({"error": err_msg}), 500

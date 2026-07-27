@@ -9,6 +9,7 @@ from difflib import SequenceMatcher
 
 import openpyxl
 from flask import Blueprint, request, jsonify, session
+from Code.ai_key import get_openai_key
 from Code.prompts import get_prompt, prompts_available
 from sqlalchemy import func
 
@@ -272,7 +273,7 @@ def _algorithmic_match(excel_groups: list, db_activities: list) -> dict:
 
 def _try_openai_enrich(unmatched_groups: list, db_activities: list) -> dict | None:
     """Tente un enrichissement IA pour les non-matchés. Retourne None si indisponible."""
-    api_key = os.getenv('OPENAI_API_KEY')
+    api_key = get_openai_key()
     enrich_prompt = get_prompt("import.enrich")
     if not api_key or not unmatched_groups or enrich_prompt is None:
         return None
@@ -286,7 +287,7 @@ def _try_openai_enrich(unmatched_groups: list, db_activities: list) -> dict | No
             ],
             'db_activities': db_activities,
         }
-        client = OpenAI()
+        client = OpenAI(api_key=api_key)
         model = os.getenv('OPENAI_CHATBOT_MODEL', 'gpt-4o-mini')
         resp = client.chat.completions.create(
             model=model,

@@ -21,6 +21,7 @@ from flask import (
 )
 
 from Code.extensions import db
+from Code.ai_key import get_openai_key
 from Code.prompts import get_prompt, prompts_available
 from Code.models.models import (
     Activities, CartoCalque, CompetencyEvaluation, CrossCartoLiaison,
@@ -1036,11 +1037,11 @@ def api_architect():
         return json.loads(raw.strip())
 
     # Essai 1 : OpenAI (utilise OPENAI_API_KEY depuis l'environnement, comme chatbot.py)
-    openai_key = os.environ.get("OPENAI_API_KEY")
+    openai_key = get_openai_key()
     if openai_key:
         try:
             from openai import OpenAI as _OAI
-            client = _OAI()  # lit OPENAI_API_KEY automatiquement
+            client = _OAI(api_key=openai_key)
             response = client.chat.completions.create(
                 model=os.environ.get("OPENAI_CHATBOT_MODEL", "gpt-4o-mini"),
                 messages=[

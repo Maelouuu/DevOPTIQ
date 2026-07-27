@@ -51,6 +51,7 @@ function fetchActivityDetailsForSavoirs(activityId) {
     .then(data => {
       hideSpinner();
       console.log(data);
+      if (window.optiqAiCheck) window.optiqAiCheck(data);
       if (data.error) {
         console.error("Erreur IA /savoirs/propose_savoirs:", data.error);
         alert("Erreur proposition Savoirs : " + data.error);

@@ -312,6 +312,165 @@
       </div>
     </div>
 
+    {% if is_admin %}
+    <!-- ── Section : Administration (visible uniquement statut administrateur) ── -->
+    <p class="stt-section-label">{{ t('settings.section.admin') }}</p>
+
+    <div class="stt-card">
+      <div class="stt-card__head">
+        <div class="stt-card__head-icon"><i class="fa-solid fa-key"></i></div>
+        <span class="stt-card__title">{{ t('settings.aikey') }}</span>
+      </div>
+      <p class="stt-card__desc">{{ t('settings.aikey.desc') }}</p>
+      <div class="stt-admin-row">
+        <code id="stt-key-value" class="stt-admin-code">…</code>
+        <button class="stt-admin-btn" id="stt-key-toggle" type="button">
+          <i class="fa-solid fa-eye"></i> <span>{{ t('settings.aikey.show') }}</span>
+        </button>
+        <button class="stt-admin-btn" id="stt-key-edit" type="button">
+          <i class="fa-solid fa-pen"></i> {{ t('settings.aikey.edit') }}
+        </button>
+      </div>
+      <div class="stt-admin-row" id="stt-key-editrow" style="display:none">
+        <input id="stt-key-input" class="stt-admin-input" type="text"
+               placeholder="sk-..." autocomplete="off" spellcheck="false">
+        <button class="stt-admin-btn stt-admin-btn--primary" id="stt-key-save" type="button">
+          {{ t('settings.aikey.save') }}
+        </button>
+        <button class="stt-admin-btn" id="stt-key-cancel" type="button">
+          {{ t('settings.aikey.cancel') }}
+        </button>
+      </div>
+      <p class="stt-admin-error" id="stt-key-error"></p>
+    </div>
+
+    <div class="stt-card">
+      <div class="stt-card__head">
+        <div class="stt-card__head-icon"><i class="fa-solid fa-database"></i></div>
+        <span class="stt-card__title">{{ t('settings.dburl') }}</span>
+      </div>
+      <p class="stt-card__desc">{{ t('settings.dburl.desc') }}</p>
+      <code id="stt-dburl" class="stt-admin-code stt-admin-code--block">…</code>
+    </div>
+
+    <div class="stt-card">
+      <div class="stt-card__head">
+        <div class="stt-card__head-icon"><i class="fa-solid fa-terminal"></i></div>
+        <span class="stt-card__title">{{ t('settings.console') }}</span>
+      </div>
+      <p class="stt-card__desc">{{ t('settings.console.desc') }}</p>
+      <button class="stt-admin-btn" id="stt-console-toggle" type="button">
+        <i class="fa-solid fa-chevron-down"></i> <span>{{ t('settings.console.open') }}</span>
+      </button>
+      <pre id="stt-console" class="stt-console" style="display:none"></pre>
+    </div>
+
+    <style>
+      .stt-admin-row { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-top:6px; }
+      .stt-admin-code { background:#f9fafb; border:1px solid #e5e7eb; border-radius:8px;
+                        padding:8px 12px; font-size:.82rem; color:#374151; word-break:break-all; }
+      .stt-admin-code--block { display:block; margin-top:6px; }
+      .stt-admin-input { flex:1; min-width:260px; padding:9px 12px; border:1.5px solid #e5e7eb;
+                         border-radius:9px; font-size:.85rem; font-family:ui-monospace,monospace; }
+      .stt-admin-input:focus { outline:none; border-color:#ec4899; box-shadow:0 0 0 3px rgba(236,72,153,.13); }
+      .stt-admin-btn { border:1.5px solid #f9a8d4; background:#fdf2f8; color:#be185d;
+                       border-radius:9px; padding:8px 14px; font-size:.82rem; font-weight:600;
+                       cursor:pointer; font-family:inherit; }
+      .stt-admin-btn:hover { background:#fce7f3; }
+      .stt-admin-btn--primary { background:#ec4899; border-color:#ec4899; color:#fff; }
+      .stt-admin-btn--primary:hover { background:#be185d; }
+      .stt-admin-error { color:#dc2626; font-size:.8rem; margin-top:6px; min-height:1em; }
+      .stt-console { margin-top:10px; background:#0f172a; color:#d1fae5; border-radius:10px;
+                     padding:14px; height:320px; overflow-y:auto; font-size:.74rem;
+                     line-height:1.5; white-space:pre-wrap; word-break:break-all; }
+    </style>
+
+    <script>
+      (function () {
+        let realKey = null, keyShown = false, consoleTimer = null, logOffset = 0;
+        const $ = id => document.getElementById(id);
+        const T = {
+          show: {{ t('settings.aikey.show') | tojson }},
+          hide: {{ t('settings.aikey.hide') | tojson }},
+          notset: {{ t('settings.aikey.notset') | tojson }},
+          copen: {{ t('settings.console.open') | tojson }},
+          cclose: {{ t('settings.console.close') | tojson }},
+        };
+        let masked = null;
+
+        function renderKey() {
+          $('stt-key-value').textContent =
+            keyShown ? (realKey || T.notset) : (masked || T.notset);
+          $('stt-key-toggle').querySelector('span').textContent = keyShown ? T.hide : T.show;
+        }
+
+        fetch('/parametres/admin/overview')
+          .then(r => r.json())
+          .then(d => {
+            if (!d.ok) return;
+            masked = d.openai_key_masked;
+            $('stt-dburl').textContent = d.db_url_masked;
+            renderKey();
+          });
+
+        $('stt-key-toggle').addEventListener('click', async () => {
+          if (!keyShown && realKey === null) {
+            const r = await fetch('/parametres/admin/openai-key/reveal', { method: 'POST' });
+            const d = await r.json();
+            if (!d.ok) return;
+            realKey = d.key;
+          }
+          keyShown = !keyShown;
+          renderKey();
+        });
+
+        $('stt-key-edit').addEventListener('click', () => {
+          $('stt-key-editrow').style.display = 'flex';
+          $('stt-key-input').focus();
+        });
+        $('stt-key-cancel').addEventListener('click', () => {
+          $('stt-key-editrow').style.display = 'none';
+          $('stt-key-error').textContent = '';
+        });
+        $('stt-key-save').addEventListener('click', async () => {
+          const r = await fetch('/parametres/admin/openai-key', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ key: $('stt-key-input').value }),
+          });
+          const d = await r.json();
+          if (!d.ok) { $('stt-key-error').textContent = d.error || 'Erreur'; return; }
+          masked = d.openai_key_masked; realKey = null; keyShown = false;
+          $('stt-key-editrow').style.display = 'none';
+          $('stt-key-input').value = ''; $('stt-key-error').textContent = '';
+          renderKey();
+        });
+
+        async function pollLogs() {
+          const r = await fetch('/parametres/admin/logs?offset=' + logOffset);
+          const d = await r.json();
+          if (d.ok && d.data) {
+            if (d.offset < logOffset) $('stt-console').textContent = '';
+            $('stt-console').textContent += d.data;
+            logOffset = d.offset;
+            $('stt-console').scrollTop = $('stt-console').scrollHeight;
+          } else if (d.ok) {
+            logOffset = d.offset;
+          }
+        }
+        $('stt-console-toggle').addEventListener('click', () => {
+          const pre = $('stt-console');
+          const open = pre.style.display === 'none';
+          pre.style.display = open ? 'block' : 'none';
+          $('stt-console-toggle').querySelector('span').textContent = open ? T.cclose : T.copen;
+          $('stt-console-toggle').querySelector('i').className =
+            'fa-solid fa-chevron-' + (open ? 'up' : 'down');
+          if (open) { pollLogs(); consoleTimer = setInterval(pollLogs, 2000); }
+          else if (consoleTimer) { clearInterval(consoleTimer); consoleTimer = null; }
+        });
+      })();
+    </script>
+    {% endif %}
+
   </div><!-- /.stt-page -->
 
   <!-- Toast -->
