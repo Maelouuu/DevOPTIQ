@@ -366,9 +366,23 @@ def create_app(test_config=None):
     with app.app_context():
         from sqlalchemy import text as _text
 
+        _is_pg = db.engine.dialect.name == "postgresql"
+
+        def _init_conn():
+            """Connexion d'init qui ne peut JAMAIS bloquer le démarrage : un
+            ALTER en attente d'un verrou tenu par une autre instance (base
+            partagée) suspendrait le boot avant même l'ouverture du port —
+            Cloud Run tuerait la révision. Timeout court → on passe son tour,
+            la migration réussira à un prochain démarrage."""
+            conn = db.engine.connect()
+            if _is_pg:
+                conn.execute(_text("SET lock_timeout = '5s'"))
+                conn.execute(_text("SET statement_timeout = '60s'"))
+            return conn
+
         def _safe_add_column(table, col, col_type):
             try:
-                with db.engine.connect() as _conn:
+                with _init_conn() as _conn:
                     _conn.execute(_text(f"ALTER TABLE {table} ADD COLUMN {col} {col_type}"))
                     _conn.commit()
                     print(f"[DB] Colonne {table}.{col} ajoutée")
@@ -423,12 +437,12 @@ def create_app(test_config=None):
         # une colonne créée étroite avant l'élargissement du modèle → l'UPDATE
         # échouait en PostgreSQL et l'ancien mot de passe restait actif.
         try:
-            with db.engine.connect() as _conn:
+            with _init_conn() as _conn:
                 _conn.execute(_text("ALTER TABLE users ALTER COLUMN password TYPE VARCHAR(255)"))
                 _conn.commit()
                 print("[DB] Colonne users.password élargie à VARCHAR(255)")
         except Exception:
-            pass  # SQLite (longueur non contraignante) ou déjà au bon type
+            pass  # SQLite (longueur non contraignante), déjà au bon type, ou verrou occupé
 
         # 3. Tables supplémentaires
         try:
@@ -495,7 +509,7 @@ def create_app(test_config=None):
         # db_upgrade() est intentionnellement absent : il attend un verrou PostgreSQL
         # pendant 10+ minutes si la colonne existe déjà → worker timeout → crash infini.
         try:
-            with db.engine.connect() as _conn:
+            with _init_conn() as _conn:
                 _conn.execute(_text("DELETE FROM alembic_version"))
                 _conn.execute(_text(
                     "INSERT INTO alembic_version (version_num) VALUES ('b2c3d4e5f6a7')"
