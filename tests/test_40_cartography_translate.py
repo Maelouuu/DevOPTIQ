@@ -5,6 +5,7 @@ Couverture des routes non encore testées :
   - translate_softskills.py   → POST /translate_softskills/translate
 """
 import pytest
+from unittest.mock import patch
 
 pytestmark = pytest.mark.cartography_translate
 
@@ -86,6 +87,41 @@ class TestUpdateCartography:
             body = r.get_json()
             combined = body.get("error", "") + body.get("message", "")
             assert filename in combined
+        finally:
+            _set_svg_filename(app, ids["entity_id"], None)
+
+    def test_success_path_returns_200_with_summary(self, auth_client, ids, app):
+        """Fichier trouvé + traitement OK (mocké) → 200 avec message/summary/file."""
+        _set_svg_filename(app, ids["entity_id"], "example.vsdx")
+        try:
+            with patch("Code.routes.activities_cartography.process_visio_file") as mock_process, \
+                 patch("Code.routes.activities_cartography.print_summary") as mock_summary:
+                mock_summary.side_effect = lambda: print("Résumé de test")
+                r = auth_client.get("/activities/update-cartography")
+            assert r.status_code == 200
+            body = r.get_json()
+            assert body["file"] == "example.vsdx"
+            assert "Résumé de test" in body["summary"]
+            assert "message" in body
+            mock_process.assert_called_once()
+            called_path = mock_process.call_args[0][0]
+            assert called_path.endswith("example.vsdx")
+        finally:
+            _set_svg_filename(app, ids["entity_id"], None)
+
+    def test_processing_exception_returns_500(self, auth_client, ids, app):
+        """Une exception levée pendant le traitement Visio → 500 + message d'erreur."""
+        _set_svg_filename(app, ids["entity_id"], "example.vsdx")
+        try:
+            with patch(
+                "Code.routes.activities_cartography.process_visio_file",
+                side_effect=RuntimeError("boom"),
+            ):
+                r = auth_client.get("/activities/update-cartography")
+            assert r.status_code == 500
+            body = r.get_json()
+            assert body["error"] == "boom"
+            assert "message" in body
         finally:
             _set_svg_filename(app, ids["entity_id"], None)
 
