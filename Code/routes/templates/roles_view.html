@@ -3,114 +3,126 @@
 <head>
   <meta charset="UTF-8" />
   <title>{{ t('roles.page_title') }}</title>
-  <link rel="stylesheet" href="/static/optiq.css" />
   <link rel="stylesheet" href="/static/spinner.css" />
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
   <style>
-    /* Conteneur global */
+    /* ═══ Page Rôles — alignée sur le design system commun (ui-theme.css).
+       Accent de page : émeraude var(--pg-accent) #059669 (icône nav Rôles).
+       Tous les volets partagent LA MÊME grammaire : .role-block + .block-header
+       + .block-content ; une seule échelle de tailles (15 / 13.5 / 12.5 / 12). ═══ */
+
     .page-container {
       max-width: 1200px;
       margin: 0 auto;
-      padding: 12px;
+      padding: 0 22px 48px;
     }
 
-    /* Carte rôle */
+    /* ── Carte rôle ── */
     .role-container {
-      border: 1px solid #e3e3e3;
-      padding: 10px 10px 14px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--r-card);
+      box-shadow: var(--sh-card);
+      padding: 10px 10px 12px;
       margin-bottom: 14px;
-      background-color: #f8fff9;
-      color: #222;
-      border-radius: 8px;
     }
     .role-header {
       cursor: pointer;
-      font-size: 1.1rem;
+      font-size: 15px;
       font-weight: 700;
-      padding: 6px 8px;
-      background-color: #e9f8ee;
-      border-radius: 6px;
+      color: var(--ink);
+      padding: 9px 12px;
+      background: var(--pg-accent-softer);
+      border: 1px solid var(--pg-accent-border);
+      border-radius: 9px;
       display: flex;
       align-items: center;
       gap: 8px;
+      user-select: none;
+      transition: background 0.15s;
     }
+    .role-header:hover { background: var(--pg-accent-soft); }
     .role-header .actions {
       margin-left: auto;
       display: flex;
-      gap: 10px;
+      gap: 4px;
     }
     .role-header .actions i {
       cursor: pointer;
-      color: #444;
+      color: var(--muted);
+      font-size: 13px;
+      padding: 6px 7px;
+      border-radius: 7px;
+      transition: color 0.15s, background 0.15s;
     }
-    .toggle-icon {
+    .role-header .actions i:hover { color: var(--pg-accent-deep); background: var(--card); }
+    /* .page-container en préfixe : optiq.css (chargé après ce <style> via la
+       nav) définit aussi .toggle-icon — la spécificité doit rester ici */
+    .page-container .toggle-icon {
+      font-size: 11px;
       font-weight: 700;
-      width: 18px;
+      color: var(--pg-accent);
+      width: 16px;
       display: inline-block;
       text-align: center;
+      margin-right: 0;
     }
     .role-body {
       display: none;
-      margin-top: 8px;
+      margin-top: 10px;
     }
 
-    /* Blocs internes */
+    /* ── Volets internes : une seule grammaire pour TOUS les blocs ── */
     .role-block {
-      margin: 10px 0;
-      border: 1px solid #c6e6d2;
-      border-left: 4px solid #1f7a54;
-      border-radius: 8px;
+      margin: 8px 0;
+      border: 1px solid var(--border);
+      border-radius: 10px;
       overflow: hidden;
-      background: #fff;
-      box-shadow: 0 1px 6px rgba(31,122,84,0.07);
+      background: var(--card);
     }
     .block-header {
       cursor: pointer;
-      font-size: 0.95rem;
-      font-weight: 600;
-      padding: 11px 14px;
-      background: linear-gradient(to right, #eefbf3, #f8fffe);
-      border-bottom: 1px solid #d1f0e0;
+      font-size: 13.5px;
+      font-weight: 700;
+      padding: 10px 14px;
+      background: var(--card-2);
       display: flex;
       align-items: center;
       gap: 8px;
-      color: #155e43;
+      color: var(--ink-2);
       transition: background 0.15s;
       user-select: none;
     }
-    .block-header:hover {
-      background: linear-gradient(to right, #e0f7ea, #eefbf3);
-    }
-    .block-header .toggle-icon {
-      color: #1f7a54;
-      font-size: 0.8rem;
-    }
+    .block-header:hover { background: var(--pg-accent-softer); }
+    .block-header .toggle-icon { font-size: 10px; }
     .block-content {
       display: none;
       padding: 14px 16px;
-      color: #222;
-      background: #fcfffe;
+      color: var(--ink-2);
+      font-size: 13.5px;
+      border-top: 1px solid var(--border);
+      background: var(--card);
     }
 
-    /* Mission Générale */
+    /* ── Mission générale ── */
     .mission-area {
       width: 100%;
       min-height: 100px;
       resize: vertical;
       padding: 10px 12px;
-      border: 1.5px solid #a8d5bc;
-      border-radius: 8px;
+      border: 1px solid var(--border-strong);
+      border-radius: 9px;
       font-family: inherit;
-      font-size: 0.93rem;
-      color: #1a3329;
-      background: #fafffe;
+      font-size: 13.5px;
+      line-height: 1.5;
+      color: var(--ink);
+      background: var(--card);
       outline: none;
       transition: border-color 0.15s, box-shadow 0.15s;
       box-sizing: border-box;
     }
     .mission-area:focus {
-      border-color: #1f7a54;
-      box-shadow: 0 0 0 3px rgba(31,122,84,0.1);
+      border-color: var(--pg-accent);
+      box-shadow: 0 0 0 3px var(--pg-accent-glow);
     }
     .mission-footer {
       display: flex;
@@ -119,154 +131,183 @@
       margin-top: 10px;
     }
 
-    /* Sous-catégories bloc 4 */
+    /* ── Sous-catégories du bloc Savoirs/SF/Aptitudes/HSC ── */
     .block4-category {
-      font-size: 0.78rem;
+      font-size: 12.5px;
       font-weight: 700;
       text-transform: uppercase;
       letter-spacing: 0.05em;
-      color: #1f7a54;
+      color: var(--muted);
       margin: 14px 0 6px;
       display: flex;
       align-items: center;
-      gap: 6px;
+      gap: 7px;
       padding-bottom: 4px;
-      border-bottom: 1px solid #d1f0e0;
+      border-bottom: 1px solid var(--border);
     }
+    .block4-category i { color: var(--pg-accent); font-size: 12px; }
     .block4-category:first-child { margin-top: 2px; }
+
+    /* ── Listes : un seul style d'item pour tous les volets ── */
+    .activity-list,
     .block4-list {
       list-style: none;
       padding: 0;
       margin: 0 0 4px;
       display: flex;
       flex-direction: column;
-      gap: 4px;
+      gap: 5px;
     }
+    .activity-list li,
     .block4-list li {
-      padding: 6px 10px;
-      background: #f4fbf6;
-      border-radius: 6px;
-      font-size: 0.9rem;
-      color: #1a3329;
-      border-left: 2px solid #a8d5bc;
-    }
-    .btn-primary {
       padding: 8px 12px;
-      border-radius: 6px;
-      border: none;
-      background: #1f7a54;
-      color: #fff;
-      cursor: pointer;
+      background: var(--pg-accent-softer);
+      border-radius: 8px;
+      border-left: 3px solid var(--pg-accent-border);
+      font-size: 13.5px;
+      color: var(--ink-2);
+      transition: background 0.15s;
     }
-    .btn-secondary {
-      padding: 8px 12px;
-      border-radius: 6px;
-      border: 1px solid #d0d7de;
-      background: #fff;
-      cursor: pointer;
+    .activity-list li:hover,
+    .block4-list li:hover { background: var(--pg-accent-soft); }
+    .li-empty {
+      color: var(--faint) !important;
+      font-style: italic;
+      background: none !important;
+      border-left: none !important;
     }
 
-    /* Tableau simple */
+    .activity-link {
+      color: var(--ink);
+      font-size: 13.5px;
+      font-weight: 500;
+      text-decoration: none;
+      cursor: pointer;
+      transition: color 0.15s;
+    }
+    .activity-link:hover {
+      color: var(--pg-accent-deep);
+      text-decoration: underline;
+    }
+    .activity-description {
+      font-size: 12.5px;
+      color: var(--muted);
+      margin-top: 3px;
+    }
+
+    .hsc-level {
+      color: var(--pg-accent-deep);
+      font-size: 12px;
+      font-weight: 600;
+      margin-left: 6px;
+    }
+    .hsc-justif {
+      font-size: 12.5px;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+
+    .block-empty {
+      color: var(--faint);
+      font-size: 13px;
+      font-style: italic;
+      padding: 4px 2px;
+      margin: 0;
+    }
+
+    /* ── Boutons ── */
+    .btn-primary {
+      display: inline-flex; align-items: center; gap: 7px;
+      padding: 9px 16px;
+      border-radius: var(--r-btn);
+      border: none;
+      background: linear-gradient(135deg, var(--pg-accent), var(--pg-accent-deep));
+      color: #fff;
+      font-family: inherit;
+      font-size: 13.5px;
+      font-weight: 600;
+      cursor: pointer;
+      box-shadow: 0 4px 12px -4px var(--pg-accent-glow);
+      transition: filter 0.15s;
+    }
+    .btn-primary:hover { filter: brightness(1.06); }
+    .btn-secondary {
+      display: inline-flex; align-items: center; gap: 7px;
+      padding: 9px 16px;
+      border-radius: var(--r-btn);
+      border: 1px solid var(--border-strong);
+      background: var(--card);
+      color: var(--ink-2);
+      font-family: inherit;
+      font-size: 13.5px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: border-color 0.15s, color 0.15s;
+    }
+    .btn-secondary:hover { border-color: var(--pg-accent); color: var(--pg-accent-deep); }
+
+    /* ── Tableau (volet Tâches) ── */
     table.simple {
       width: 100%;
       border-collapse: collapse;
-      border-radius: 6px;
+      border-radius: 8px;
       overflow: hidden;
+      border: 1px solid var(--border);
     }
     table.simple th, table.simple td {
-      border: 1px solid #d1f0e0;
-      padding: 8px 10px;
+      padding: 9px 12px;
       text-align: left;
-      font-size: 0.9rem;
-    }
-    table.simple thead {
-      background: #e9f8ee;
+      font-size: 13.5px;
+      border-bottom: 1px solid var(--border);
     }
     table.simple thead th {
-      color: #1f7a54;
+      background: var(--card-2);
+      color: var(--muted);
       font-weight: 700;
-      font-size: 0.82rem;
+      font-size: 12px;
       text-transform: uppercase;
-      letter-spacing: 0.03em;
+      letter-spacing: 0.04em;
     }
-    table.simple tbody tr:hover {
-      background: #f4fbf6;
+    table.simple tbody tr:last-child td { border-bottom: none; }
+    table.simple tbody tr:hover td {
+      background: var(--pg-accent-softer);
     }
 
-    /* Titulaires */
+    /* ── Titulaires ── */
     .holder-badge {
       display: inline-flex;
       align-items: center;
       gap: 6px;
-      padding: 5px 10px;
-      border-radius: 20px;
-      background: #f0fdf4;
-      border: 1px solid #a8d5bc;
+      padding: 5px 11px;
+      border-radius: 999px;
+      background: var(--pg-accent-softer);
+      border: 1px solid var(--pg-accent-border);
       margin: 4px 6px 0 0;
-      font-size: 0.87rem;
-      color: #155e43;
+      font-size: 13px;
+      color: var(--ink-2);
     }
     .holder-badge .level {
       font-weight: 700;
-      color: #1f7a54;
+      color: var(--pg-accent-deep);
       min-width: 1.5rem;
       text-align: center;
-      background: #d1f0e0;
-      border-radius: 10px;
-      padding: 1px 6px;
-      font-size: 0.78rem;
+      background: var(--pg-accent-soft);
+      border-radius: 999px;
+      padding: 1px 7px;
+      font-size: 12px;
+    }
+    .holder-dot {
+      width: 9px; height: 9px;
+      border-radius: 50%;
+      display: inline-block;
+      flex-shrink: 0;
     }
 
-    /* Liens vers activités */
-    .activity-link {
-      color: #222;
-      font-size: 0.82rem;
-      text-decoration: none;
-      cursor: pointer;
-      transition: color 0.2s;
-    }
-    .activity-link:hover {
-      color: #000;
-      text-decoration: underline;
-    }
-
-    /* Liste activités */
-    .activity-list {
-      list-style: none;
-      padding: 0;
-      margin: 0;
-      display: flex;
-      flex-direction: column;
-      gap: 5px;
-    }
-    .activity-list li {
-      padding: 9px 13px;
-      background: #f4fbf6;
-      border-radius: 7px;
-      border-left: 3px solid #1f7a54;
-      transition: background 0.15s, box-shadow 0.15s;
-    }
-    .activity-list li:hover {
-      background: #e6f9ee;
-      box-shadow: 0 1px 4px rgba(31,122,84,0.1);
-    }
-    .activity-description {
-      font-size: 0.85em;
-      color: #5a8a72;
-      margin-top: 3px;
-    }
-    .block-empty {
-      color: #7fae96;
-      font-size: 0.9rem;
-      font-style: italic;
-      padding: 6px 2px;
-    }
-
-    /* Spinner overlay */
+    /* ── Spinner overlay ── */
     #spinnerOverlay {
       display:none;
       position:fixed; top:0; left:0; right:0; bottom:0;
-      background:rgba(0,0,0,0.25); z-index:9999;
+      background:rgba(15,23,42,0.35); z-index:9999;
     }
     #spinnerOverlay .center {
       position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
@@ -277,7 +318,7 @@
       display: flex;
       align-items: center;
       gap: 12px;
-      margin: 14px 0 20px;
+      margin: 0 0 18px;
     }
     .role-search-box {
       position: relative;
@@ -289,31 +330,31 @@
       left: 14px;
       top: 50%;
       transform: translateY(-50%);
-      color: #1f7a54;
-      font-size: 0.95rem;
+      color: var(--pg-accent);
+      font-size: 13px;
       pointer-events: none;
     }
     .role-search-input {
       width: 100%;
-      padding: 11px 18px 11px 40px;
-      border: 2px solid #a8d5bc;
-      border-radius: 30px;
-      font-size: 0.95rem;
+      padding: 10px 18px 10px 38px;
+      border: 1px solid var(--border-strong);
+      border-radius: 999px;
+      font-size: 13.5px;
       font-family: inherit;
-      color: #2c3e50;
-      background: #fff;
+      color: var(--ink);
+      background: var(--card);
       outline: none;
       transition: border-color 0.2s, box-shadow 0.2s;
       box-sizing: border-box;
     }
-    .role-search-input::placeholder { color: #7fae96; }
+    .role-search-input::placeholder { color: var(--faint); }
     .role-search-input:focus {
-      border-color: #1f7a54;
-      box-shadow: 0 0 0 4px rgba(31,122,84,0.12);
+      border-color: var(--pg-accent);
+      box-shadow: 0 0 0 3px var(--pg-accent-glow);
     }
     .role-search-count {
-      font-size: 0.85rem;
-      color: #5a8a72;
+      font-size: 12.5px;
+      color: var(--muted);
       white-space: nowrap;
       min-width: 80px;
     }
@@ -321,23 +362,25 @@
       display: inline-flex;
       align-items: center;
       gap: 7px;
-      padding: 10px 18px;
-      border-radius: 8px;
+      padding: 9px 16px;
+      border-radius: var(--r-btn);
       border: none;
-      background: #1f7a54;
+      background: linear-gradient(135deg, var(--pg-accent), var(--pg-accent-deep));
       color: #fff;
-      font-size: 0.92rem;
+      font-family: inherit;
+      font-size: 13.5px;
       font-weight: 600;
       cursor: pointer;
-      transition: background 0.2s;
+      box-shadow: 0 4px 12px -4px var(--pg-accent-glow);
+      transition: filter 0.2s;
       margin-left: auto;
     }
-    .btn-export-roles:hover { background: #0d5a3a; }
+    .btn-export-roles:hover { filter: brightness(1.06); }
 
-    /* ── Export Modal (green theme) ── */
+    /* ── Modale export ── */
     .export-modal-overlay {
       position: fixed; inset: 0;
-      background: rgba(10, 30, 20, 0.45);
+      background: rgba(15, 23, 42, 0.45);
       backdrop-filter: blur(4px);
       z-index: 10000;
       display: flex; align-items: center; justify-content: center;
@@ -345,10 +388,10 @@
     }
     .export-modal-overlay.hidden { display: none; }
     .export-modal-card {
-      background: #fff;
-      border-radius: 20px;
+      background: var(--card);
+      border-radius: 16px;
       width: 100%; max-width: 520px;
-      box-shadow: 0 24px 80px rgba(10,90,58,0.25);
+      box-shadow: var(--sh-pop);
       overflow: hidden;
       animation: em-pop 0.22s cubic-bezier(.34,1.3,.64,1) both;
     }
@@ -358,14 +401,14 @@
     }
     .export-modal-header {
       position: relative;
-      background: linear-gradient(155deg, #0a2e1a 0%, #0d5a3a 35%, #1f7a54 65%, #2d9e6e 100%);
-      padding: 28px 28px 22px;
+      background: linear-gradient(155deg, #022c22 0%, #064e3b 40%, var(--pg-accent-deep) 75%, var(--pg-accent) 100%);
+      padding: 24px 28px 20px;
       overflow: hidden;
     }
     .export-modal-header-glow {
       position: absolute; top: -40px; right: -40px;
       width: 180px; height: 180px;
-      background: radial-gradient(circle, rgba(100,220,150,0.35) 0%, transparent 70%);
+      background: radial-gradient(circle, rgba(110,231,183,0.35) 0%, transparent 70%);
       border-radius: 50%;
     }
     .export-modal-header-content {
@@ -373,86 +416,93 @@
       display: flex; align-items: center; gap: 16px;
     }
     .export-modal-icon-wrap {
-      width: 48px; height: 48px;
+      width: 46px; height: 46px;
       background: rgba(255,255,255,0.15);
-      border: 1.5px solid rgba(255,255,255,0.3);
-      border-radius: 14px;
+      border: 1px solid rgba(255,255,255,0.3);
+      border-radius: 13px;
       display: flex; align-items: center; justify-content: center;
-      font-size: 22px; color: #a7f3d0;
+      font-size: 20px; color: #a7f3d0;
     }
     .export-modal-title {
-      font-size: 20px; font-weight: 800; color: #fff; margin: 0;
+      font-size: 18px; font-weight: 700; color: #fff; margin: 0;
     }
     .export-modal-subtitle {
-      font-size: 13px; color: rgba(167,243,208,0.8); margin: 4px 0 0;
+      font-size: 13px; color: rgba(167,243,208,0.85); margin: 3px 0 0;
     }
     .export-modal-close {
-      position: absolute; top: 16px; right: 16px;
+      position: absolute; top: 14px; right: 14px;
       background: rgba(255,255,255,0.15); border: none;
-      width: 32px; height: 32px; border-radius: 50%;
-      color: rgba(255,255,255,0.8); font-size: 15px;
+      width: 30px; height: 30px; border-radius: 50%;
+      color: rgba(255,255,255,0.85); font-size: 14px;
       cursor: pointer; display: flex; align-items: center; justify-content: center;
       transition: background 0.2s;
     }
     .export-modal-close:hover { background: rgba(255,255,255,0.25); }
-    .export-modal-body { padding: 24px 28px 8px; }
-    .export-field { margin-bottom: 20px; }
+    .export-modal-body { padding: 22px 28px 6px; }
+    .export-field { margin-bottom: 18px; }
     .export-label {
-      display: block; font-size: 13px; font-weight: 700;
-      color: #1f7a54; margin-bottom: 8px; letter-spacing: .3px;
+      display: block; font-size: 12.5px; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 0.05em;
+      color: var(--muted); margin-bottom: 8px;
     }
-    .export-optional { font-weight: 400; color: #9ca3af; font-size: 12px; }
+    .export-label i { color: var(--pg-accent); }
+    .export-optional { font-weight: 400; text-transform: none; letter-spacing: 0; color: var(--faint); font-size: 12px; }
     .export-select-wrap { position: relative; }
     .export-select {
       width: 100%; padding: 10px 36px 10px 14px;
-      border: 2px solid #a8d5bc; border-radius: 10px;
-      font-size: 14px; color: #1a1a1a; background: #fff;
+      border: 1px solid var(--border-strong); border-radius: 9px;
+      font-size: 13.5px; color: var(--ink); background: var(--card);
       cursor: pointer; outline: none;
       appearance: none; -webkit-appearance: none;
-      transition: border-color 0.2s;
+      transition: border-color 0.2s, box-shadow 0.2s;
     }
-    .export-select:focus { border-color: #1f7a54; }
+    .export-select:focus { border-color: var(--pg-accent); box-shadow: 0 0 0 3px var(--pg-accent-glow); }
     .export-format-row { display: flex; gap: 12px; }
     .export-format-card {
       flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px;
-      padding: 14px 10px; border: 2px solid #d1fae5;
+      padding: 14px 10px; border: 1px solid var(--border);
       border-radius: 12px; cursor: pointer; transition: all 0.2s;
-      background: #f0fdf4;
+      background: var(--card-2);
     }
     .export-format-card input { display: none; }
     .export-format-card.selected,
-    .export-format-card:hover { border-color: #1f7a54; background: #e9f8ee; }
-    .export-format-icon { font-size: 22px; color: #1f7a54; }
-    .export-format-name { font-size: 13px; font-weight: 700; color: #1a1a1a; }
-    .export-format-ext { font-size: 11px; color: #6b7280; }
+    .export-format-card:hover { border-color: var(--pg-accent); background: var(--pg-accent-softer); }
+    .export-format-icon { font-size: 20px; color: var(--pg-accent); }
+    .export-format-name { font-size: 13px; font-weight: 700; color: var(--ink); }
+    .export-format-ext { font-size: 11.5px; color: var(--muted); }
     .export-modal-footer {
       display: flex; align-items: center; justify-content: flex-end; gap: 10px;
-      padding: 16px 28px 24px;
+      padding: 14px 28px 22px;
     }
     .export-btn-cancel {
-      padding: 10px 20px; border-radius: 10px;
-      border: 1.5px solid #d1d5db; background: #fff;
-      font-size: 14px; font-weight: 600; color: #374151;
-      cursor: pointer; transition: background 0.2s;
+      padding: 9px 18px; border-radius: var(--r-btn);
+      border: 1px solid var(--border-strong); background: var(--card);
+      font-family: inherit;
+      font-size: 13.5px; font-weight: 600; color: var(--ink-2);
+      cursor: pointer; transition: border-color 0.2s, color 0.2s;
     }
-    .export-btn-cancel:hover { background: #f9fafb; }
+    .export-btn-cancel:hover { border-color: var(--pg-accent); color: var(--pg-accent-deep); }
     .export-btn-dl {
-      padding: 10px 22px; border-radius: 10px; border: none;
-      background: linear-gradient(135deg, #1f7a54, #2d9e6e);
-      color: #fff; font-size: 14px; font-weight: 700;
+      padding: 9px 20px; border-radius: var(--r-btn); border: none;
+      background: linear-gradient(135deg, var(--pg-accent), var(--pg-accent-deep));
+      color: #fff; font-family: inherit; font-size: 13.5px; font-weight: 600;
       cursor: pointer; display: flex; align-items: center; gap: 8px;
-      transition: opacity 0.2s;
+      box-shadow: 0 4px 12px -4px var(--pg-accent-glow);
+      transition: filter 0.2s;
     }
-    .export-btn-dl:hover { opacity: 0.88; }
+    .export-btn-dl:hover { filter: brightness(1.06); }
   </style>
 </head>
-<body>
+<body class="pg page--roles">
   <script>window.ACTIVE_ENTITY = {{ active_entity | tojson | safe }};</script>
 
   {% include "header_buttons.html" %}
 
   <div class="page-container">
-    <h1>{{ t('roles.page_title') }}</h1>
+    {% with banner_page='roles', banner_icon='fa-solid fa-users-rectangle',
+            banner_title=t('roles.page_title'), banner_sub=t('roles.subtitle') %}
+      {% include "page_banner.html" %}
+    {% endwith %}
 
     <div class="role-search-wrapper">
       <div class="role-search-box">
@@ -588,7 +638,7 @@
                 {% for entry in item.block4 if entry.type == 'savoir' %}
                   <li>{{ entry.value }}</li>
                 {% else %}
-                  <li style="color:#7fae96;font-style:italic;background:none;border-left:none;">—</li>
+                  <li class="li-empty">—</li>
                 {% endfor %}
               </ul>
 
@@ -597,7 +647,7 @@
                 {% for entry in item.block4 if entry.type == 'savoir-faire' %}
                   <li>{{ entry.value }}</li>
                 {% else %}
-                  <li style="color:#7fae96;font-style:italic;background:none;border-left:none;">—</li>
+                  <li class="li-empty">—</li>
                 {% endfor %}
               </ul>
 
@@ -606,7 +656,7 @@
                 {% for entry in item.block4 if entry.type == 'aptitude' %}
                   <li>{{ entry.value }}</li>
                 {% else %}
-                  <li style="color:#7fae96;font-style:italic;background:none;border-left:none;">—</li>
+                  <li class="li-empty">—</li>
                 {% endfor %}
               </ul>
 
@@ -617,9 +667,9 @@
                   {% for hsc in hsc_entries %}
                     <li>
                       <strong>{{ hsc.value }}</strong>
-                      <span style="color:#1f7a54;font-size:0.82rem;margin-left:6px;">({{ t('roles.hsc_level_prefix') }} {{ hsc.niveau }})</span>
+                      <span class="hsc-level">({{ t('roles.hsc_level_prefix') }} {{ hsc.niveau }})</span>
                       {% if hsc.justification and hsc.justification != 'Pas de justification' %}
-                        <div style="font-size:0.83rem;color:#5a8a72;margin-top:2px;">{{ t('roles.hsc_justif_prefix') }} {{ hsc.justification }}</div>
+                        <div class="hsc-justif">{{ t('roles.hsc_justif_prefix') }} {{ hsc.justification }}</div>
                       {% endif %}
                     </li>
                   {% endfor %}
@@ -642,7 +692,7 @@
                   {% for u in item.holders %}
                     <span class="holder-badge" data-user-id="{{ u.id }}" data-role-id="{{ item.role.id }}"
                           {% if u.comp_color %}style="border-color:{{ u.comp_color }};" title="Niveau de compétences (moyenne des notes du manager)"{% endif %}>
-                      {% if u.comp_color %}<span style="width:9px;height:9px;border-radius:50%;background:{{ u.comp_color }};display:inline-block;flex-shrink:0;"></span>{% endif %}
+                      {% if u.comp_color %}<span class="holder-dot" style="background:{{ u.comp_color }};"></span>{% endif %}
                       <span {% if u.comp_color %}style="color:{{ u.comp_color }};font-weight:600;"{% endif %}>{{ u.last_name }} {{ u.first_name }}</span>
                       <span class="level" id="validation-{{ u.id }}-{{ item.role.id }}">–</span>
                     </span>
@@ -772,7 +822,7 @@
           return;
         }
         // Optionnel : petit feedback
-        ta.style.outline = '2px solid #1f7a54';
+        ta.style.outline = '2px solid var(--pg-accent)';
         setTimeout(() => ta.style.outline = 'none', 800);
       })
       .catch(err => {
@@ -841,8 +891,6 @@
       });
     }
   </script>
-  <!-- NOTE : on conserve /static/js/roles.js si utilisé ailleurs dans l'app -->
-  <script src="/static/js/roles.js"></script>
 
   <script>
   /* ── Recherche rôles ── */

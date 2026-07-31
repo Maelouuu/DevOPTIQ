@@ -208,14 +208,16 @@
   });
   toggleFwMode();
 
-  function showFwFeedback(isOk, msg) {
-    const el = document.getElementById('fw-feedback');
-    if (!el) return;
+  function flashFeedback(id, isOk, msg) {
+    const el = document.getElementById(id);
+    if (!el) { if (!isOk) alert(msg); return; }
     el.textContent = msg;
     el.className = 'time-inline-feedback ' + (isOk ? 'ok' : 'error');
     el.style.display = 'block';
     setTimeout(() => { el.style.display = 'none'; }, 3500);
   }
+
+  function showFwFeedback(isOk, msg) { flashFeedback('fw-feedback', isOk, msg); }
 
   async function sendWeakness(save=false){
     const modeEl = $$('input[name="fw-mode"]:checked')[0];
@@ -260,6 +262,9 @@
     // AA = occurrences (nombre, pas de conversion)
     const aaEl = document.getElementById('AA');
     if (aaEl) aaEl.textContent = m['AA'] != null ? Math.round(m['AA']) : '—';
+    // Les résultats n'apparaissent qu'après un premier calcul réussi
+    document.getElementById('fw-results-empty')?.classList.add('hidden');
+    document.getElementById('fw-results-section')?.classList.remove('hidden');
     if (save) showFwFeedback(true, 'Analyse faiblesse enregistrée avec succès');
   }
 
@@ -360,13 +365,13 @@
     const r = await fetch('/temps/api/project', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)});
     const j = await r.json();
     if (j.ok) {
-      alert(`Projet enregistré (id ${j.project_id})`);
+      flashFeedback('proj-feedback', true, 'Projet enregistré avec succès');
       projectBody.innerHTML = '';
       $('#project-name').value = '';
       await refreshProjectList();
       addProjectRow(); recalcProjectTotals();
     } else {
-      alert("Erreur d'enregistrement");
+      flashFeedback('proj-feedback', false, "Erreur d'enregistrement");
     }
   });
 
@@ -534,13 +539,13 @@
     if (currentActivityEditId) {
       const r = await fetch(`/temps/api/activity_workload/${currentActivityEditId}`, {method:'PATCH', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)});
       j = await r.json();
-      if (!j.ok) return alert('Erreur de mise à jour');
-      alert('Analyse activité mise à jour.');
+      if (!j.ok) return flashFeedback('act-feedback', false, 'Erreur de mise à jour');
+      flashFeedback('act-feedback', true, 'Analyse activité mise à jour.');
     } else {
       const r = await fetch('/temps/api/activity_workload', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)});
       j = await r.json();
-      if (!j.ok) return alert("Erreur d'enregistrement");
-      alert('Analyse activité enregistrée.');
+      if (!j.ok) return flashFeedback('act-feedback', false, "Erreur d'enregistrement");
+      flashFeedback('act-feedback', true, 'Analyse activité enregistrée.');
     }
 
     $('#act-total').textContent = fmtH(j.total_minutes || 0);
@@ -774,10 +779,10 @@
     const r = await fetch('/temps/api/role_analysis', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)});
     const j = await r.json();
     if (j.ok){
-      alert('Analyse rôle enregistrée.');
+      flashFeedback('role-feedback', true, 'Analyse rôle enregistrée.');
       $('#role-name').value='';
       await refreshRoleAnalyses();
-    } else alert("Erreur d'enregistrement");
+    } else flashFeedback('role-feedback', false, "Erreur d'enregistrement");
   });
 
   async function refreshRoleAnalyses(){
