@@ -40,18 +40,21 @@ Description: {description}
 
 def openai_client_or_none():
     """
-    Essaie d'instancier le client OpenAI.
-    Si la clé n'est pas là → on renvoie (None, "raison").
+    Client IA unifié (Claude via point d'accès compatible OpenAI, ou OpenAI —
+    voir Code/ai_client.py). Signature conservée : (client, raison_ou_None).
+    Le modèle à utiliser avec ce client est donné par ai_model().
     """
-    key = get_openai_key()
-    if not key:
-        return None, "Clé IA non renseignée."
-    try:
-        from openai import OpenAI
-        return OpenAI(api_key=key), None
-    except Exception as e:
-        current_app.logger.exception(e)
-        return None, str(e)
+    from Code.ai_client import make_ai_client
+    client, _model, err = make_ai_client()
+    if err:
+        return None, err
+    return client, None
+
+
+def ai_model():
+    """Modèle IA effectif — remplace les model="gpt-4o-mini" en dur."""
+    from Code.ai_client import ai_model as _ai_model
+    return _ai_model()
 
 
 def dummy_from_context(ctx: str, kind: str = "savoir"):

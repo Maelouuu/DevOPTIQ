@@ -2,7 +2,7 @@ from flask import Blueprint, request, jsonify, current_app, session
 from Code.prompts import get_prompt, prompts_available
 import json
 import re
-from .propose_common import openai_client_or_none
+from .propose_common import ai_model, openai_client_or_none
 
 bp_propose_aptitudes = Blueprint("propose_aptitudes", __name__)
 
@@ -94,7 +94,7 @@ def propose_aptitudes():
         lang = session.get('lang', 'fr')
         lang_instr = "Respond in English (risque, leviers, profils fields)." if lang == 'en' else "Réponds en français (champs risque, leviers, profils)."
         resp = client.chat.completions.create(
-            model="gpt-4o-mini",
+            model=ai_model(),
             messages=[
                 {"role": "system", "content": f"Tu es un expert en analyse du travail, prevention sante/securite et inclusion. Tu reponds UNIQUEMENT en JSON valide, sans markdown ni texte supplementaire. {lang_instr}"},
                 {"role": "user", "content": prompt},
@@ -164,7 +164,7 @@ def propose_feasibility():
         lang2 = session.get('lang', 'fr')
         lang_instr2 = "Respond in English (text fields)." if lang2 == 'en' else "Réponds en français (champs texte)."
         resp = client.chat.completions.create(
-            model="gpt-4o-mini",
+            model=ai_model(),
             messages=[
                 {"role": "system", "content": f"Tu es un expert prevention et inclusion. Tu reponds UNIQUEMENT en JSON valide, sans markdown ni texte supplementaire. {lang_instr2}"},
                 {"role": "user", "content": prompt},

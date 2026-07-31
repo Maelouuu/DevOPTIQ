@@ -11,7 +11,7 @@ from flask import Blueprint, request, jsonify, current_app, session
 from Code.prompts import get_prompt, prompts_available
 from Code.extensions import db
 from Code.models.models import Data, Link, Task, Activities
-from Code.routes.propose_common import openai_client_or_none
+from Code.routes.propose_common import ai_model, openai_client_or_none
 
 qualify_bp = Blueprint("qualify_outputs", __name__, url_prefix="/qualify")
 
@@ -216,7 +216,7 @@ def analyze(activity_id):
     try:
         ctx = _build_context(activity, outs)
         resp = client.chat.completions.create(
-            model="gpt-4o-mini",
+            model=ai_model(),
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": _prompt_user(ctx, lang)},

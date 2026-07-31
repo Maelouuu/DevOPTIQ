@@ -1037,13 +1037,13 @@ def api_architect():
         return json.loads(raw.strip())
 
     # Essai 1 : OpenAI (utilise OPENAI_API_KEY depuis l'environnement, comme chatbot.py)
-    openai_key = get_openai_key()
-    if openai_key:
+    from Code.ai_client import make_ai_client
+    _client, _ai_model, _mk_err = make_ai_client()
+    if _client:
         try:
-            from openai import OpenAI as _OAI
-            client = _OAI(api_key=openai_key)
+            client = _client
             response = client.chat.completions.create(
-                model=os.environ.get("OPENAI_CHATBOT_MODEL", "gpt-4o-mini"),
+                model=os.environ.get("OPENAI_CHATBOT_MODEL") or _ai_model,
                 messages=[
                     {"role": "system", "content": system_prompt},
                     {"role": "user",   "content": user_prompt},

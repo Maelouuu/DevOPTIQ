@@ -118,7 +118,12 @@ def api_test_openai():
         return jsonify({"ok": False, "error": "Clé vide."})
     try:
         from openai import OpenAI
-        client = OpenAI(api_key=key, timeout=15)
+        # Clé Claude (sk-ant-…) → point d'accès compatible OpenAI d'Anthropic
+        kwargs = {"api_key": key, "timeout": 15}
+        if key.startswith("sk-ant-"):
+            from Code.ai_client import ANTHROPIC_OPENAI_BASE
+            kwargs["base_url"] = ANTHROPIC_OPENAI_BASE
+        client = OpenAI(**kwargs)
         client.models.list()
         return jsonify({"ok": True})
     except Exception as e:

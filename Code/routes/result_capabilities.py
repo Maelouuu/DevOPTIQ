@@ -12,7 +12,7 @@ from Code.models.models import (
     Data, Task, Activities, Competency, Savoir, SavoirFaire, Softskill,
     ResultCapabilityLink, Entity, Link,
 )
-from Code.routes.propose_common import openai_client_or_none
+from Code.routes.propose_common import ai_model, openai_client_or_none
 from Code.routes.qualify_outputs import get_activity_outputs
 
 result_cap_bp = Blueprint("result_capabilities", __name__, url_prefix="/competence")
@@ -65,7 +65,7 @@ def generate_competence(activity_id):
         return jsonify({"competence": None, "source": err or "no_ai"}), 200
     try:
         resp = client.chat.completions.create(
-            model="gpt-4o-mini",
+            model=ai_model(),
             messages=[
                 {"role": "system", "content": comp_system},
                 {"role": "user", "content": f"=== CONTEXTE ===\n{_result_ctx(activity, results)}\n\n"
@@ -155,7 +155,7 @@ def generate_result_links(activity_id):
         return jsonify({"links": [], "source": err or "no_ai"}), 200
     try:
         resp = client.chat.completions.create(
-            model="gpt-4o-mini",
+            model=ai_model(),
             messages=[
                 {"role": "system", "content": sfhsc_system},
                 {"role": "user", "content": f"=== CONTEXTE ===\n{_result_ctx(activity, results)}\n\n"

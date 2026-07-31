@@ -161,11 +161,9 @@ def _call_llm_or_dummy(prompt: str):
         return _dummy_plan()
 
     try:
-        # SDK v1
-        from openai import OpenAI  # pip install --upgrade openai
-        client = OpenAI(api_key=api_key)
-
-        model = os.environ.get("OPENAI_MODEL", "gpt-4o-mini")
+        from Code.ai_client import make_ai_client
+        client, model, _err = make_ai_client()
+        model = os.environ.get("OPENAI_MODEL") or model
         resp = client.chat.completions.create(
             model=model,
             temperature=0.2,

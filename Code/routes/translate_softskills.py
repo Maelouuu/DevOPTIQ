@@ -15,16 +15,15 @@ translate_softskills_bp = Blueprint('translate_softskills_bp', __name__, url_pre
 
 
 
+def _tls_ai_model():
+    from Code.ai_client import ai_model
+    return ai_model()
+
+
 def get_openai_client():
-    api_key = get_openai_key()
-    if not api_key:
-        return None, "Clé IA non renseignée."
-    try:
-        from openai import OpenAI
-        client = OpenAI(api_key=api_key)
-        return client, None
-    except Exception as e:
-        return None, str(e)
+    from Code.ai_client import make_ai_client
+    client, _model, err = make_ai_client()
+    return (client, None) if not err else (None, err)
 
 
 def clean_json_response(text):
@@ -113,7 +112,7 @@ def translate_softskills():
 
     try:
         response = client.chat.completions.create(
-            model="gpt-4o-mini",
+            model=_tls_ai_model(),
             messages=[
                 {"role": "system", "content": system_msg},
                 {"role": "user", "content": prompt}

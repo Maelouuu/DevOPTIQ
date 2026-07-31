@@ -7,7 +7,7 @@ from flask import Blueprint, request, jsonify, current_app, session
 from Code.prompts import get_prompt, prompts_available
 from Code.extensions import db
 from Code.models.models import HscLevelDescriptor, Entity
-from Code.routes.propose_common import openai_client_or_none
+from Code.routes.propose_common import ai_model, openai_client_or_none
 
 hsc_bp = Blueprint("hsc_positioning", __name__, url_prefix="/hsc")
 
@@ -89,7 +89,7 @@ def position():
               '"missing_evidence_for_next_level": "...", "development_focus": "..."}')
     try:
         resp = client.chat.completions.create(
-            model="gpt-4o-mini",
+            model=ai_model(),
             messages=[{"role": "system", "content": pos_system},
                       {"role": "user", "content": f"HSC : {name}\nRéponses situations :\n"
                                                   + "\n".join(f"- {r}" for r in responses)

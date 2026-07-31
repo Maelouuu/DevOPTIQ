@@ -1,26 +1,39 @@
-# Code/ai_key.py — Clé OpenAI effective de l'instance.
+# Code/ai_key.py — Clés IA effectives de l'instance (OpenAI et Anthropic/Claude).
 #
-# Priorité : réglage en base (app_settings.openai_api_key, modifiable à chaud
+# Priorité pour chaque clé : réglage en base (app_settings, modifiable à chaud
 # depuis Paramètres → section admin) puis variable d'environnement
-# OPENAI_API_KEY (Cloud Run, .env, assistant d'installation).
-# ⚠️ Ne plus jamais lire os.getenv("OPENAI_API_KEY") directement dans une
-# route : toujours passer par get_openai_key().
+# (Cloud Run, .env, assistant d'installation).
+# ⚠️ Ne plus jamais lire os.getenv("OPENAI_API_KEY"/"ANTHROPIC_API_KEY")
+# directement dans une route : toujours passer par ces helpers — et pour
+# obtenir un client, passer par Code.ai_client.make_ai_client().
 
 import os
 
 _SETTING_KEY = "openai_api_key"
+_SETTING_KEY_ANTHROPIC = "anthropic_api_key"
 
 
-def get_openai_key():
+def _setting(key):
     try:
         from Code.extensions import db
         from Code.models.models import AppSetting
-        row = db.session.get(AppSetting, _SETTING_KEY)
+        row = db.session.get(AppSetting, key)
         if row and (row.value or "").strip():
             return row.value.strip()
     except Exception:
         pass  # hors contexte app / table absente → repli env
-    return (os.getenv("OPENAI_API_KEY") or "").strip() or None
+    return None
+
+
+def get_openai_key():
+    return _setting(_SETTING_KEY) or (os.getenv("OPENAI_API_KEY") or "").strip() or None
+
+
+def get_anthropic_key():
+    return (_setting(_SETTING_KEY_ANTHROPIC)
+            or (os.getenv("ANTHROPIC_API_KEY") or "").strip()
+            or (os.getenv("ANTHROPIC_KEY") or "").strip()
+            or None)
 
 
 def set_openai_key(value):

@@ -31,8 +31,8 @@ def generate_onboarding(role_id):
         return jsonify({"error": err_msg}), 500
 
     try:
-        from openai import OpenAI
-        client = OpenAI(api_key=api_key)
+        from Code.ai_client import make_ai_client
+        client, _ai_model, _err = make_ai_client()
 
         system_content = (
             "You are a specialist in SCA development and professional support."
@@ -41,7 +41,7 @@ def generate_onboarding(role_id):
         )
 
         response = client.chat.completions.create(
-            model="gpt-4o-mini",
+            model=_ai_model,
             messages=[
                 {"role": "system", "content": system_content},
                 {"role": "user", "content": prompt}

@@ -391,8 +391,9 @@ def chat():
             err_msg = ('AI key not configured on this instance.' if lang == 'en'
                        else "Clé IA non renseignée sur cette instance.")
             return jsonify({'error': err_msg, 'ai_unavailable': True}), 503
-        client = OpenAI(api_key=api_key)
-        model = os.getenv('OPENAI_CHATBOT_MODEL', 'gpt-4o-mini')
+        from Code.ai_client import make_ai_client
+        client, model, _err = make_ai_client()
+        model = os.getenv('OPENAI_CHATBOT_MODEL') or model
         resp = client.chat.completions.create(
             model=model,
             messages=messages,

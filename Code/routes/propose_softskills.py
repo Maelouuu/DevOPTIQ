@@ -4,6 +4,7 @@ import re
 from flask import Blueprint, request, jsonify, current_app, session
 from Code.prompts import get_prompt, prompts_available
 from .propose_common import (
+    ai_model,
     openai_client_or_none,
     dummy_from_context,
 )
@@ -134,7 +135,7 @@ def propose_softskills():
             )
 
         resp = client.chat.completions.create(
-            model="gpt-4o-mini",
+            model=ai_model(),
             messages=[
                 {"role": "system", "content": system_msg},
                 {"role": "user", "content": prompt},

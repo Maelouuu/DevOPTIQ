@@ -10,7 +10,7 @@ from Code.prompts import get_prompt, prompts_available
 from Code.extensions import db
 from Code.models.models import (Activities, Data, CompetencyEvaluation, ResultCapabilityLink,
                                 ResultDiagnostic, Savoir, SavoirFaire, Softskill)
-from Code.routes.propose_common import openai_client_or_none
+from Code.routes.propose_common import ai_model, openai_client_or_none
 from Code.routes.mastery import (_reference_level, required_level, level_label, MASTERY_SCALE)
 
 diagnostic_bp = Blueprint("diagnostic", __name__, url_prefix="/diagnostic")
@@ -184,7 +184,7 @@ def generate_plan():
         return jsonify({"plan": None, "source": err or "no_ai", "context": ctx}), 200
     try:
         resp = client.chat.completions.create(
-            model="gpt-4o-mini",
+            model=ai_model(),
             messages=[{"role": "system", "content": plan_system},
                       {"role": "user", "content": "Contexte:\n" + json.dumps(ctx, ensure_ascii=False)
                                                   + "\nRéponds en " + ("français." if lang == "fr" else "English.")}],

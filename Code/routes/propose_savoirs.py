@@ -1,7 +1,7 @@
 # Code/routes/propose_savoirs.py
 from flask import Blueprint, request, jsonify, current_app, session
 from Code.prompts import get_prompt, prompts_available
-from .propose_common import build_activity_context, openai_client_or_none, dummy_from_context
+from .propose_common import ai_model, build_activity_context, openai_client_or_none, dummy_from_context
 
 bp_propose_savoirs = Blueprint("propose_savoirs", __name__)
 
@@ -48,7 +48,7 @@ def propose_savoirs():
 """
         system_msg = get_prompt(f"propose.system.{'en' if lang == 'en' else 'fr'}")
         resp = client.chat.completions.create(
-            model="gpt-4o-mini",
+            model=ai_model(),
             messages=[
                 {"role": "system", "content": system_msg},
                 {"role": "user", "content": prompt},

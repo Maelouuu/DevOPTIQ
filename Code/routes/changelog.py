@@ -70,11 +70,11 @@ def _generate_with_openai(commits):
     if not api_key or system_prompt is None:
         return None
     try:
-        from openai import OpenAI
-        client = OpenAI(api_key=api_key)
+        from Code.ai_client import make_ai_client
+        client, _ai_model, _err = make_ai_client()
         commits_text = '\n'.join(f'- {c}' for c in commits)
         response = client.chat.completions.create(
-            model=os.getenv('OPENAI_CHATBOT_MODEL', 'gpt-4o-mini'),
+            model=os.getenv('OPENAI_CHATBOT_MODEL') or _ai_model,
             messages=[
                 {
                     'role': 'system',

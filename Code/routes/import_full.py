@@ -287,8 +287,9 @@ def _try_openai_enrich(unmatched_groups: list, db_activities: list) -> dict | No
             ],
             'db_activities': db_activities,
         }
-        client = OpenAI(api_key=api_key)
-        model = os.getenv('OPENAI_CHATBOT_MODEL', 'gpt-4o-mini')
+        from Code.ai_client import make_ai_client
+        client, model, _err = make_ai_client()
+        model = os.getenv('OPENAI_CHATBOT_MODEL') or model
         resp = client.chat.completions.create(
             model=model,
             messages=[

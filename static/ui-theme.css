@@ -84,6 +84,15 @@
    base gris-bleu froide + halo discret de la couleur de la page,
    qui descend depuis la nav.
    ════════════════════════════════════════════════════════════════ */
+/* Densité de référence : l'app a été calibrée pour un affichage à 80 % —
+   on applique ce facteur nous-mêmes pour que 100 % navigateur = le bon
+   rendu. (Pages du design system uniquement ; la cartographie, avec ses
+   calculs de coordonnées souris, reste à l'échelle 1.) */
+body.pg,
+body:has(.pg-root) {
+  zoom: 0.8;
+}
+
 body.pg,
 body:has(.pg-root) {
   background-color: var(--pg-bg);

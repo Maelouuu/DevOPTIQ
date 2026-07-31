@@ -88,7 +88,7 @@ def _translate_batch(names, lang):
     """
     if not names:
         return []
-    from Code.routes.propose_common import openai_client_or_none
+    from Code.routes.propose_common import openai_client_or_none, ai_model
     client, _err = openai_client_or_none()
     if client is None:
         return None
@@ -106,7 +106,7 @@ def _translate_batch(names, lang):
     )
     try:
         resp = client.chat.completions.create(
-            model="gpt-4o-mini",
+            model=ai_model(),
             messages=[{"role": "user", "content": prompt}],
             response_format={"type": "json_object"},
             temperature=0,

@@ -87,11 +87,11 @@ def propose_skills():
 
     # --- NOUVEAU CLIENT OPENAI ---
     try:
-        from openai import OpenAI
-        client = OpenAI(api_key=openai.api_key)
+        from Code.ai_client import make_ai_client
+        client, _ai_model, _err = make_ai_client()
 
         response = client.chat.completions.create(
-            model="gpt-4o-mini",    # modèle compatible nouvelle API
+            model=_ai_model,
             messages=[
                 {"role": "system", "content": get_prompt("skills.system")},
                 {"role": "user", "content": prompt}

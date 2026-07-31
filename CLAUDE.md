@@ -409,11 +409,20 @@ privé (ghcr.io) + licence signée à expiration + contrat d'évaluation**. Cont
 
 ## Administration & UX IA (branche optiqfluent-beta-test)
 
-- **Clé IA à chaud** : `Code/ai_key.py` — `get_openai_key()` (table `app_settings`
-  clé `openai_api_key` en priorité, puis env `OPENAI_API_KEY`). ⚠️ Ne JAMAIS lire
-  `os.getenv("OPENAI_API_KEY")` dans une route : toujours `get_openai_key()`
-  (toutes les routes IA recâblées). Message d'erreur standard : « Clé IA non
-  renseignée. »
+- **Clé IA à chaud** : `Code/ai_key.py` — `get_openai_key()` / `get_anthropic_key()`
+  (table `app_settings` clés `openai_api_key`/`anthropic_api_key` en priorité, puis env).
+  ⚠️ Ne JAMAIS lire les clés par `os.getenv` dans une route. Message d'erreur
+  standard : « Clé IA non renseignée. »
+- **Fournisseur IA interchangeable (2026-07)** : `Code/ai_client.py` —
+  `make_ai_client()` renvoie (client, model, err) ; interface OpenAI
+  `chat.completions` conservée partout, Claude servi via le point d'accès
+  compatible OpenAI d'Anthropic (`https://api.anthropic.com/v1/`, zéro dépendance).
+  Sélection : `AI_PROVIDER` (`auto` défaut : Claude si clé Anthropic présente,
+  sinon OpenAI) ; modèle : `AI_MODEL` sinon `claude-haiku-4-5-20251001` /
+  `gpt-4o-mini`. ⚠️ Ne JAMAIS écrire `model="gpt-4o-mini"` en dur : utiliser
+  `ai_model()` (ré-exporté par propose_common). Banc de non-régression qualité :
+  `tools/ai_eval/run_compare.py` (rapport côte à côte sur les prompts réels —
+  à lancer avec les 2 clés AVANT d'activer la bascule).
 - **Paramètres → section Administration** (`settings.py`, visible seulement si
   `User.status` ∈ {admin, administrateur} ; invisible sinon) : clé IA masquée
   (révélation/modification via `/parametres/admin/openai-key[...]`), URL BDD
