@@ -20,3 +20,4 @@ tools/licensing/out/
 distribution/.env
 tools/prompts/prompts_key.txt
 Code/prompts/prompts.enc
+docs/guide_standalone.html
