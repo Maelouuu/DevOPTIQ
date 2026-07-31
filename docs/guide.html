@@ -86,6 +86,18 @@
   .video-tag{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:700;color:#fff;
     background:var(--a);border-radius:6px;padding:2px 8px;margin-right:7px;vertical-align:1px}
 
+  /* Cadre DISTINCT pour les vidéos de démonstration : bandeau plein accent
+     + bord coloré — impossible de les confondre avec une capture. */
+  .frame-video{border:2px solid var(--a);
+    box-shadow:0 12px 30px -12px color-mix(in srgb,var(--a) 45%,transparent)}
+  .frame-video .frame-bar{background:linear-gradient(135deg,var(--a),color-mix(in srgb,var(--a) 65%,#000));
+    border-bottom:none;height:36px}
+  .frame-video .frame-bar i{display:none}
+  .frame-video .frame-bar span{margin-left:0;color:#fff;font-size:12.5px;font-weight:700;
+    display:flex;align-items:center;gap:9px}
+  .frame-video .frame-bar span::before{content:'▶  DÉMONSTRATION';font-size:10px;letter-spacing:.06em;
+    background:rgba(255,255,255,.22);border-radius:6px;padding:3px 8px}
+
   /* ── Encadrés pédagogiques ── */
   .box{border-radius:12px;padding:14px 18px;margin:16px 0;font-size:14.5px;border:1px solid}
   .box b:first-child{display:block;font-size:12px;text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px}
@@ -286,10 +298,11 @@
         détaillée dans la page Activités.</li>
   </ol>
   <figure>
-    <div class="frame"><div class="frame-bar"><i></i><i></i><i></i><span>flux-carto.webm</span></div>
+    <div class="frame frame-video"><div class="frame-bar"><span>Se déplacer, zoomer, ouvrir une activité depuis la carte</span></div>
     <video controls muted playsinline preload="metadata" poster="assets/guide/poster-flux-carto.png" src="assets/guide/flux-carto.webm"></video></div>
-    <figcaption><span class="video-tag">▶ démonstration</span>Zoom à la molette, déplacement, puis recherche
-    d'une activité dans la liste de droite.</figcaption>
+    <figcaption><span class="video-tag">▶ démonstration</span>Le pas-à-pas ci-dessus, en vrai :
+    déplacement au cliquer-glisser, zoom à la molette, puis clic sur «&nbsp;Analyse de faisabilité&nbsp;»
+    dans la liste — sa fiche s'ouvre dans la page Activités.</figcaption>
   </figure>
 
   <h3>D'où vient la carte&nbsp;?</h3>
@@ -352,7 +365,7 @@
     <li><b>Parcourez les onglets</b> selon votre besoin — tout est au même endroit.</li>
   </ol>
   <figure>
-    <div class="frame"><div class="frame-bar"><i></i><i></i><i></i><span>flux-activite.webm</span></div>
+    <div class="frame frame-video"><div class="frame-bar"><span>Rechercher une activité et parcourir sa fiche</span></div>
     <video controls muted playsinline preload="metadata" poster="assets/guide/poster-flux-activite.png" src="assets/guide/flux-activite.webm"></video></div>
     <figcaption><span class="video-tag">▶ démonstration</span>Recherche d'une activité, ouverture de sa
     fiche, passage d'onglet en onglet.</figcaption>
@@ -401,9 +414,10 @@
     <img src="assets/guide/role-detail.png" alt="Détail d'un rôle" loading="lazy"></div>
   </figure>
   <figure>
-    <div class="frame"><div class="frame-bar"><i></i><i></i><i></i><span>flux-role.webm</span></div>
+    <div class="frame frame-video"><div class="frame-bar"><span>Parcourir un rôle et compléter sa mission</span></div>
     <video controls muted playsinline preload="metadata" poster="assets/guide/poster-flux-role.png" src="assets/guide/flux-role.webm"></video></div>
-    <figcaption><span class="video-tag">▶ démonstration</span>Ouverture d'un rôle puis de ses volets
+    <figcaption><span class="video-tag">▶ démonstration</span>Le parcours complet&nbsp;: recherche du rôle,
+    ouverture, complément de la <b>mission générale</b> puis Enregistrer, et lecture des volets
     «&nbsp;Activités Garant&nbsp;» et «&nbsp;Savoirs&nbsp;».</figcaption>
   </figure>
 
@@ -415,10 +429,10 @@
         <b>HTML</b> (rapport visuel prêt à imprimer). Le fichier se télécharge immédiatement.</li>
   </ol>
   <figure>
-    <div class="frame"><div class="frame-bar"><i></i><i></i><i></i><span>flux-export.webm</span></div>
+    <div class="frame frame-video"><div class="frame-bar"><span>Exporter : périmètre puis format</span></div>
     <video controls muted playsinline preload="metadata" poster="assets/guide/poster-flux-export.png" src="assets/guide/flux-export.webm"></video></div>
-    <figcaption><span class="video-tag">▶ démonstration</span>Ouverture de la fenêtre d'export et choix du
-    format.</figcaption>
+    <figcaption><span class="video-tag">▶ démonstration</span>Les étapes 1-2-3&nbsp;: ouverture,
+    choix du <b>périmètre</b> (un rôle précis), puis du <b>format</b>.</figcaption>
   </figure>
   </div>
 </section>
@@ -454,10 +468,11 @@
         (compétence, architecture de travail ou conditions d'exécution) et propose un plan adapté.</li>
   </ol>
   <figure>
-    <div class="frame"><div class="frame-bar"><i></i><i></i><i></i><span>flux-competences.webm</span></div>
+    <div class="frame frame-video"><div class="frame-bar"><span>Choisir un collaborateur, un rôle, ouvrir l'évaluation</span></div>
     <video controls muted playsinline preload="metadata" poster="assets/guide/poster-flux-competences.png" src="assets/guide/flux-competences.webm"></video></div>
-    <figcaption><span class="video-tag">▶ démonstration</span>Sélection de deux collaborateurs&nbsp;: les
-    rôles et le tableau se mettent à jour.</figcaption>
+    <figcaption><span class="video-tag">▶ démonstration</span>Les étapes 1-2-3 du pas-à-pas&nbsp;:
+    choix d'un collaborateur, passage d'un rôle à l'autre (le tableau suit), puis clic sur
+    <b>Évaluer</b> — le volet d'évaluation s'ouvre.</figcaption>
   </figure>
 
   <div class="box box-clair"><b>En clair — le niveau global</b>
@@ -499,6 +514,13 @@
     dessous.</figcaption>
   </figure>
   <figure>
+    <div class="frame frame-video"><div class="frame-bar"><span>Chiffrer un projet et l'enregistrer</span></div>
+    <video controls muted playsinline preload="metadata" poster="assets/guide/poster-flux-projet.png" src="assets/guide/flux-projet.webm"></video></div>
+    <figcaption><span class="video-tag">▶ démonstration</span>Un projet de bout en bout&nbsp;: nom,
+    durées/délais des activités, ajout d'une ligne, la <b>Charge globale</b> se met à jour, puis
+    <b>Enregistrer</b>.</figcaption>
+  </figure>
+  <figure>
     <div class="frame"><div class="frame-bar"><i></i><i></i><i></i><span>Onglet Rôle</span></div>
     <img src="assets/guide/temps-role.png" alt="Temps - rôle" loading="lazy"></div>
     <figcaption>Choisissez un rôle&nbsp;: ses activités se chargent seules. Renseignez durées et
@@ -518,7 +540,7 @@
         <b>coût annuel</b>. <b>Enregistrer</b> conserve l'analyse.</li>
   </ol>
   <figure>
-    <div class="frame"><div class="frame-bar"><i></i><i></i><i></i><span>flux-faiblesse.webm</span></div>
+    <div class="frame frame-video"><div class="frame-bar"><span>Chiffrer une faiblesse de A à Z</span></div>
     <video controls muted playsinline preload="metadata" poster="assets/guide/poster-flux-faiblesse.png" src="assets/guide/flux-faiblesse.webm"></video></div>
     <figcaption><span class="video-tag">▶ démonstration</span>Saisie complète d'une faiblesse puis calcul —
     les résultats apparaissent en bas.</figcaption>
