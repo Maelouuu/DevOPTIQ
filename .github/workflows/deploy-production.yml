@@ -23,6 +23,20 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # Le Dockerfile (durci OptiqFluent) refuse de builder sans le bundle de
+      # prompts chiffré — même étape que client-image.yml, même secret.
+      - name: Chiffrer les prompts IA (prompts.enc requis par le Dockerfile)
+        env:
+          PROMPTS_KEY: ${{ secrets.PROMPTS_KEY }}
+        run: |
+          test -n "$PROMPTS_KEY" || {
+            echo "::error::Secret PROMPTS_KEY manquant (Settings → Secrets → Actions)";
+            exit 1;
+          }
+          pip install --quiet cryptography
+          python tools/prompts/encrypt_prompts.py > /dev/null
+          echo "Bundle prompts.enc généré"
+
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
         with:
@@ -55,6 +69,8 @@ jobs:
             --set-env-vars "SECRET_KEY=${{ secrets.PROD_SECRET_KEY }}" \
             --set-env-vars "FLASK_ENV=production" \
             --set-env-vars "GOOGLE_CLOUD_PROJECT=${{ secrets.GCP_PROJECT_ID }}" \
+            --set-env-vars "REQUIRE_LICENSE=0" \
+            --set-env-vars "PROMPTS_KEY=${{ secrets.PROMPTS_KEY }}" \
             --memory 2Gi \
             --timeout 120 \
             --quiet
