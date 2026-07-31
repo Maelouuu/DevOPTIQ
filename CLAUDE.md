@@ -308,6 +308,18 @@ partagent un design system chargé partout via `header_buttons.html` :
 - **Guide utilisateur — restructuration + illustrations** : sections réordonnées sur l'ordre de la nav bar (Carto → Activités → Rôles → Compétences → Temps → Comptes → RH → Outils → [IA, Performance, Export] → Paramètres → Glossaire). 3 nouvelles sections illustrées : Rôles (fiche 5 blocs + onboarding IA déplacé depuis RH), Comptes (mockup table + import en masse déplacé depuis RH), Outils (4 cartes cycle de vie). Nouveaux blocs : évaluation par RÉSULTAT (chaîne + mockup tiroir d'éval + diagnostic 3 familles + technicité/cadence/HSC), import Visio fidèle (mockup avant/après), Diagnostic carto (mockup pop-up Corriger les erreurs / Agencement auto), « Et si l'IA n'est pas configurée ? », Paramètres → section Administration (mockup clé IA + console serveur) + note édition OptiqFluent, calendrier de travail déplacé dans RH, 2 entrées de glossaire (Résultat, Diagnostic d'écart)
 - **App — nav bar réordonnée** (`header_buttons.html`) : Cartographie, Activités, Rôles, Compétences, Temps, Comptes, RH, Outils, Paramètres — même ordre que le guide (règle : Cartographie première, Paramètres dernière)
 
+### Complété (session 8 — 2026-07-31)
+- **Guide utilisateur entièrement refondu** (`docs/guide.html`) : orienté prise en
+  main par des non-techniciens — sections dans l'ordre de la nav avec le code
+  couleur de l'app, « à quoi ça sert / ce que vous voyez / pas-à-pas », 18 vraies
+  captures + 6 vidéos de manipulation (curseur visible) dans `docs/assets/guide/`.
+- **Pipeline de captures automatique** (`tools/guide/` — README dedans) : base de
+  démo réaliste seedée depuis `Code/example.vsdx` via l'API carto, puis Playwright
+  capture écrans et vidéos tout seul. À relancer après toute évolution visuelle.
+- Correctif prod : `/competences/current_user_manager` renvoyait l'id 114 codé en
+  dur → page Compétences morte sur toute autre base. Désormais : l'utilisateur
+  connecté s'il encadre, sinon son manager.
+
 ### En cours
 - *(rien)*
 

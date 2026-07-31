@@ -19,16 +19,32 @@ def competences_view():
 
 @competences_bp.route('/current_user_manager', methods=['GET'])
 def get_current_user_manager():
-    """Retourne toujours Mael Girardin (id 114) comme manager"""
-    manager = User.query.get(114)
-    if not manager:
-        return jsonify({'error': 'Manager introuvable'}), 404
-
-    return jsonify({
-        'manager_id': 114,
-        'manager_name': f"{manager.first_name} {manager.last_name}",
-        'is_manager': True
-    })
+    """Manager affiché dans la sidebar : l'utilisateur connecté s'il encadre
+    des collaborateurs (users.manager_id ou user_roles.manager_id), sinon son
+    propre manager. Anciennement codé en dur sur l'id 114 (base d'origine) —
+    la page Compétences tombait en erreur sur toute autre base."""
+    uid = session.get('user_id')
+    user = User.query.get(uid) if uid else None
+    if user:
+        manages = (
+            User.query.filter_by(manager_id=user.id).count() > 0
+            or UserRole.query.filter_by(manager_id=user.id).count() > 0
+        )
+        if manages:
+            return jsonify({
+                'manager_id': user.id,
+                'manager_name': f"{user.first_name} {user.last_name}",
+                'is_manager': True
+            })
+        if user.manager_id:
+            manager = User.query.get(user.manager_id)
+            if manager:
+                return jsonify({
+                    'manager_id': manager.id,
+                    'manager_name': f"{manager.first_name} {manager.last_name}",
+                    'is_manager': False
+                })
+    return jsonify({'error': 'Manager introuvable'}), 404
 
 
 @competences_bp.route('/managers', methods=['GET'])
