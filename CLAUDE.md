@@ -210,8 +210,49 @@ cadence sur la fiche activité ; panneau de qualification des sorties + badges �
 - **CSS par domaine** : chaque page a son CSS dédié, `optiq.css` = styles globaux
 - **Templates Jinja2** : les pages incluent des partials (`{% include "partial.html" %}`)
 - **Blueprints Flask** : chaque domaine est un blueprint enregistré dans `app.py`
-- **Couleurs thème** : rose `#ec4899` / `#be185d` (principal), vert `#22c55e` (accent)
 - **Pas de commentaires évidents** dans le code : seulement pour les WHY non-évidents
+
+---
+
+## Design system UI (2026-07 — cohérence visuelle globale)
+
+Toutes les pages (SAUF la cartographie `/activities/map` + éditeur, intouchée)
+partagent un design system chargé partout via `header_buttons.html` :
+
+- **`static/ui-theme.css`** = source de vérité : tokens (`--pg-font` DM Sans,
+  `--pg-font-display` Fraunces, encres `--ink/--ink-2/--muted/--faint`, surfaces
+  `--card/--card-2/--border`, rayons `--r-card` 14 / `--r-btn` 9, ombre `--sh-card`),
+  **échelle typo UNIQUE en px** : bandeau 26 (Fraunces) · en-tête de carte/volet
+  15/700 · corps 15 · secondaire/boutons/tables 13.5 · labels uppercase 12.5/700 ·
+  th 12 uppercase · badges/méta 12 (min 11). ⚠️ Ne JAMAIS réintroduire d'em/rem
+  fantaisistes ni de tailles hors échelle dans un CSS de page.
+- **Couleur par page** = celle de son icône dans la nav (classes `page--carto`
+  `#0d9488`, `page--activities` `#7c3aed`, `page--roles` `#059669`,
+  `page--competences` `#2563eb` (Projection métier incluse), `page--time`
+  `#d97706`, `page--accounts` `#e11d48`, `page--rh` `#16a34a`, `page--tools`
+  `#ea580c`, `page--settings` `#6366f1`). Poser `pg-root page--<clé>` sur la
+  racine (ou `class="pg page--<clé>"` sur `<body>`) → accent via `var(--pg-accent)`
+  + dérivés `--pg-accent-deep/-soft/-softer/-border/-glow`.
+- **2 éléments d'identité communs** : la nav (cardnav) + le **bandeau de page**
+  `{% include "page_banner.html" %}` (icône teintée, titre Fraunces, sous-titre,
+  encart chiffre optionnel). Fond commun gris-bleu `#f2f4f9` + halo couleur de
+  page (défini dans ui-theme, ne pas remettre de `background` sur body en CSS de page).
+- **`optiq.css`** = base neutre (body DM Sans 15px). ⚠️ L'ancien
+  `body { font-size:30px; Arial }` + `input { width:40ch; min-height:48px }` a
+  été supprimé : c'était la cause racine des incohérences (chargé APRÈS le CSS
+  de page depuis la nav, il écrasait tout). Ne jamais remettre de styles
+  opinionated globaux dedans.
+- Boutons primaires = dégradé `linear-gradient(135deg, var(--pg-accent), var(--pg-accent-deep))`
+  13.5/600 radius `--r-btn` ; secondaires = bord `--border-strong` ; th de tables =
+  12px uppercase `--muted` fond `--card-2`. Couleurs SÉMANTIQUES (feux vert/orange/
+  rouge d'évaluation, sévérité Faiblesse, badge rose cross-carto) conservées.
+- Page Temps : refonte ergonomique (KPI intermédiaires sobres vs finaux accent 22px,
+  résultats Faiblesse masqués avant calcul, feedback inline au lieu d'alert()).
+  ⚠️ Endpoints `/temps/api/activity_workload*`, `role_activities`, PATCH projet
+  restaurés dans `time_view.py` (perdus à la divergence des branches — le JS les
+  appelait dans le vide).
+- Fichiers morts supprimés (21) : anciens partials activity_*, time_list/form,
+  gestion_compte v1, synthese_comp.css & co (jamais liés).
 
 ---
 
@@ -274,6 +315,107 @@ cadence sur la fiche activité ; panneau de qualification des sorties + badges �
 1. Éditeur OptiqCarto côté JS (`static/optiqcarto/editor.js`) — seul élément majeur restant
 
 ---
+
+## Distribution client — branche `optiqfluent-beta-test`
+
+Branche dédiée à la mise à disposition de l'app chez un client pilote (rebrandée
+**OptiqFluent**), basée sur `staging`. Modèle retenu : **image Docker sur registre
+privé (ghcr.io) + licence signée à expiration + contrat d'évaluation**. Contenu :
+
+- **Durcissement pré-livraison** (tout dans cette branche) : mot de passe Gmail
+  AFDEC retiré du code (mail 100 % par env, désactivé proprement sans config —
+  `MAIL_CONFIGURED`) ; endpoint debug `/api/debug-decisions/env-check` (fuite des
+  vars d'env) supprimé ; `SECRET_KEY` sans défaut public (secret éphémère + warning
+  si absente) ; `DEBUG` piloté par `FLASK_DEBUG` (défaut off) ; pool DB configurable
+  (`DB_POOL_SIZE`/`DB_MAX_OVERFLOW`) ; seed de démo derrière `DEMO_SEED=1` ;
+  **bootstrap 1er compte admin** (`ADMIN_EMAIL`/`ADMIN_PASSWORD`, seulement si 0
+  utilisateur) ; gunicorn unifié (`gunicorn.conf.py`, `WEB_CONCURRENCY`) ;
+  `.dockerignore` étendu (zips, backups, tests, docs, vsdx, scripts dev, tools/).
+- **Licence** (`Code/licensing.py`) : JSON signé Ed25519 (clé publique embarquée
+  `Code/license_pubkey.pem`, clé privée JAMAIS committée), date d'expiration,
+  active si `REQUIRE_LICENSE=1` (baké dans le Dockerfile de cette branche — nos
+  propres déploiements passent `REQUIRE_LICENSE=0`). Bloque tout sauf `/healthz`,
+  `/license`, `/static` (page `license_blocked.html`). Renouvellement à chaud :
+  remplacer le fichier `.lic`, pris en compte sans redémarrage. Outils AFDEC :
+  `tools/licensing/keygen.py` (une fois, avant le 1er build client — la clé
+  publique committée doit correspondre à une clé privée conservée) et
+  `tools/licensing/make_license.py --licensee … --days …`.
+- **Kit client** (`distribution/`, exclu de l'image) : `.env.example` commenté
+  (DB embarquée ou hébergée, clé OpenAI du client, compte Google + mot de passe
+  d'application pour le mail, admin initial), `docker-compose.yml` (app +
+  postgres:16 + volume), `INSTALL.md`, `CONTRAT_EVALUATION.md` (projet à faire
+  valider par un juriste).
+- **Rebranding** : DevOPTIQ → OptiqFluent dans l'UI, emails et en-têtes.
+- **Phase 2 (livrée)** :
+  - **Prompts IA externalisés + chiffrés** : TOUS les prompts (36, dont le
+    référentiel X50-766) vivent dans `Code/prompts/catalog.py` (dict `PROMPTS`,
+    exclu de l'image client). `get_prompt(key, **vars)` (`Code/prompts/__init__.py`),
+    placeholders `[[var]]` (PAS `.format` : accolades JSON). Image client = bundle
+    chiffré Fernet `Code/prompts/prompts.enc` (généré par
+    `tools/prompts/encrypt_prompts.py`), clé via env `PROMPTS_KEY` ou champ
+    `prompts_key` de la licence signée. Sans clé → chaque route dégrade comme
+    « sans clé OpenAI » (fallbacks existants). ⚠️ Ne JAMAIS remettre un prompt en
+    dur dans une route — tout passe par le catalogue. Seul `role_i18n.py` garde
+    son prompt trivial en dur (aucun savoir-faire dedans).
+  - **Anti-inspection** : image bytecode-only (Dockerfile : `compileall -b` puis
+    suppression des `.py` sauf `gunicorn.conf.py`). `load_dotenv()` avec chemin
+    explicite (l'auto-détection casse en bytecode). Dissuasion, pas protection
+    absolue (le vrai verrou = prompts chiffrés + licence + contrat).
+  - **`/testpanel` désactivé chez le client** : blueprint non enregistré si
+    `TESTPANEL_ENABLED=0` (baké dans le Dockerfile ; réactivable par env).
+  - **LibreOffice retiré** du Dockerfile (~1,5 Go) : aucun usage dans le code
+    (exports = openpyxl/python-docx).
+  - **CI** : `.github/workflows/client-image.yml` — push d'un tag `client-v*` →
+    build + push `ghcr.io/maelouuu/optiqfluent:<version>` + `:beta` (secret GitHub
+    `PROMPTS_KEY` requis). Runbook AFDEC complet : `distribution/RELEASE.md`
+    (keygen, licences, token client, leviers de contrôle).
+  - **Déploiement Cloud Run interne** : `tools/deploy/deploy_cloudrun.sh` —
+    remplace `devoptiq-staging-mv` par `optiqfluent-staging` (Cloud Run ne
+    renomme pas : création + recopie des env vars + suppression sur
+    confirmation ; ajoute REQUIRE_LICENSE=0, PROMPTS_KEY, TESTPANEL_ENABLED=1).
+    ⚠️ `.gcloudignore` obligatoire (sinon gcloud suit .gitignore qui exclut
+    prompts.enc → build cassé).
+  - **Répétition d'installation client** : `tools/test_install.sh` — rejoue
+    INSTALL.md sans Docker (licence de test avec prompts_key embarquée, arbre
+    bytecode-only, PostgreSQL 16 vierge, gunicorn, 9 vérifications curl/logs
+    dont prompts-via-licence). Passe 9/9.
+  - **Assistant d'installation web** (`/setup`) : premier démarrage de l'image
+    client (`SETUP_WIZARD=1` dans le compose + aucune config écrite) → mode
+    installation (`Code/routes/setup_wizard.py` + `setup_wizard.html`) : gate
+    before_request vers /setup, étapes licence (collée, validée, sauvée sur le
+    volume) → BDD (test de connexion, pré-remplie avec la base intégrée) →
+    clé OpenAI (testée) → mail optionnel (test SMTP) → compte admin → récap.
+    « Installer » écrit `/app/config/optiqfluent.env` (volume `./config`,
+    valeurs dotenv double-quotées) puis SIGTERM au master gunicorn → le
+    conteneur redémarre configuré et le boot NORMAL fait tout (create_all,
+    migrations, bootstrap admin) ; `ADMIN_PASSWORD` est purgé du fichier après
+    création du compte. Relancer l'assistant = supprimer le fichier de config.
+    Les vraies variables d'env gardent priorité sur le fichier. `/setup` exempt
+    du blocage licence. Tests : `tests/test_60_setup_wizard.py` (14) + E2E
+    Postgres. ⚠️ Ne s'applique pas à Cloud Run (pas de volume persistant —
+    nos déploiements restent configurés par variables d'environnement).
+
+## Administration & UX IA (branche optiqfluent-beta-test)
+
+- **Clé IA à chaud** : `Code/ai_key.py` — `get_openai_key()` (table `app_settings`
+  clé `openai_api_key` en priorité, puis env `OPENAI_API_KEY`). ⚠️ Ne JAMAIS lire
+  `os.getenv("OPENAI_API_KEY")` dans une route : toujours `get_openai_key()`
+  (toutes les routes IA recâblées). Message d'erreur standard : « Clé IA non
+  renseignée. »
+- **Paramètres → section Administration** (`settings.py`, visible seulement si
+  `User.status` ∈ {admin, administrateur} ; invisible sinon) : clé IA masquée
+  (révélation/modification via `/parametres/admin/openai-key[...]`), URL BDD
+  masquée, **console serveur** rétractable (polling `/parametres/admin/logs`).
+- **Console serveur** : `Code/logstream.py` — tee stdout/stderr + handler logging
+  vers `/tmp/optiqfluent-server.log` (plafonné 2 Mo), init dans `create_app`
+  (hors tests), lecture incrémentale par offset.
+- **Pop-up in-app** : `static/js/optiq_alert.js` — `optiqAlert()` (modal DA),
+  `optiqAiCheck(data)` (détecte les réponses IA dégradées → pop-up « clé IA non
+  renseignée » ou « IA indisponible »), et **override de `window.alert`** (toute
+  page qui inclut le script convertit ses alert() en pop-ups stylées). Inclus via
+  `script_loader.html`, `chatbot_widget.html`, `competences_view.html`,
+  `activity_savoirs.html`. Checks ajoutés dans les handlers propose_* /
+  competencies. Chatbot sans clé → 503 `ai_unavailable`.
 
 ## Notes importantes
 

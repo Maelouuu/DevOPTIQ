@@ -493,45 +493,10 @@ class TestLiaisonDeoffice:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# 7. GET /activities/api/debug-decisions/env-check
+# 7. GET /activities/api/debug-decisions (legacy)
 # ─────────────────────────────────────────────────────────────────────────────
-
-class TestDebugEnvCheck:
-
-    def test_retourne_200(self, auth_client):
-        """La route env-check répond toujours 200."""
-        r = auth_client.get("/activities/api/debug-decisions/env-check")
-        assert r.status_code == 200
-
-    def test_contient_openai_key_present(self, auth_client):
-        """La réponse expose openai_api_key_present."""
-        r = auth_client.get("/activities/api/debug-decisions/env-check")
-        data = r.get_json()
-        assert "openai_api_key_present" in data
-
-    def test_openai_key_present_est_bool(self, auth_client):
-        """openai_api_key_present est un booléen."""
-        r = auth_client.get("/activities/api/debug-decisions/env-check")
-        data = r.get_json()
-        assert isinstance(data["openai_api_key_present"], bool)
-
-    def test_contient_all_env_var_names(self, auth_client):
-        """La réponse liste les noms de toutes les variables d'environnement."""
-        r = auth_client.get("/activities/api/debug-decisions/env-check")
-        data = r.get_json()
-        assert "all_env_var_names" in data
-        assert isinstance(data["all_env_var_names"], list)
-
-    def test_route_accessible_sans_auth(self, app):
-        """La route ne requiert pas d'authentification."""
-        fresh = app.test_client()
-        r = fresh.get("/activities/api/debug-decisions/env-check")
-        assert r.status_code == 200
-
-
-# ─────────────────────────────────────────────────────────────────────────────
-# 8. GET /activities/api/debug-decisions (legacy)
-# ─────────────────────────────────────────────────────────────────────────────
+# NB : la route /api/debug-decisions/env-check (et ses tests) a été SUPPRIMÉE :
+# elle exposait les noms de toutes les variables d'environnement sans auth.
 
 class TestDebugDecisionsLegacy:
 

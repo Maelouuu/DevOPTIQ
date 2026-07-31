@@ -1,0 +1,50 @@
+# OptiqFluent (beta test) — installation client autonome
+# Prérequis : Docker + Docker Compose, un fichier .env à côté (cf. .env.example).
+# Premier démarrage : ouvrez http://<machine>:8080 — l'assistant d'installation
+# vous guide (licence, base, clé IA, email, compte administrateur).
+
+services:
+  app:
+    image: ghcr.io/maelouuu/optiqfluent:beta
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      # Assistant d'installation au premier démarrage (écrit dans ./config)
+      SETUP_WIZARD: "1"
+      # Base PostgreSQL intégrée ci-dessous (mot de passe lu dans .env).
+      # L'assistant permet aussi d'indiquer une base hébergée par vos soins.
+      DATABASE_URL: postgresql://optiqfluent:${POSTGRES_PASSWORD}@db:5432/optiqfluent
+      # NB : pas de LICENSE_PATH ici — l'app cherche d'elle-même dans
+      # ./license/optiqfluent.lic (fichier fourni) puis ./config/ (assistant).
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./config:/app/config          # configuration écrite par l'assistant
+      - ./license:/app/license:ro     # licence fournie par AFDEC (optionnel :
+                                      # elle peut aussi être collée dans l'assistant)
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-fs", "http://localhost:8080/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: optiqfluent
+      POSTGRES_USER: optiqfluent
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - optiqfluent-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U optiqfluent -d optiqfluent"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  optiqfluent-db:

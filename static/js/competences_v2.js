@@ -166,10 +166,10 @@
 
   function chip(color, label) { return `<span class="chip ${color}"><span class="lv"></span>${label}</span>`; }
   function gapCell(gap) {
-    if (gap === null || gap === undefined) return `<span class="gap-zero">${T('none')}</span>`;
-    if (gap > 0) return `<span class="gap-pos">+${gap}</span>`;
-    if (gap < 0) return `<span class="gap-neg">${gap}</span>`;
-    return `<span class="gap-zero">0</span>`;
+    if (gap === null || gap === undefined) return `<span class="cv2-gap zero">${T('none')}</span>`;
+    if (gap > 0) return `<span class="cv2-gap pos">+${gap}</span>`;
+    if (gap < 0) return `<span class="cv2-gap neg">${gap}</span>`;
+    return `<span class="cv2-gap zero">0</span>`;
   }
   function fmtDate(iso) { if (!iso) return T('none'); try { return new Date(iso).toLocaleDateString(LANG === 'en' ? 'en-GB' : 'fr-FR'); } catch (e) { return T('none'); } }
   // Couleur attachée au PALIER requis (échelle croissante, sur le thème bleu).

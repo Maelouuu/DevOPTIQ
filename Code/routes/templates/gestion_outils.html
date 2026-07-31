@@ -4,22 +4,9 @@
 <script src="{{ url_for('static', filename='js/file-picker.js') }}"></script>
 <script defer src="{{ url_for('static', filename='js/gestion_outils.js') }}"></script>
 
-<div class="tools-page">
+<div class="tools-page pg-root page--tools">
 
-  <!-- ── Hero Banner ── -->
-  <div class="page-banner">
-    <div class="page-banner__icon">
-      <i class="fa-solid fa-screwdriver-wrench"></i>
-    </div>
-    <div class="page-banner__text">
-      <h1 class="page-banner__title">{{ t('page.tools') }}</h1>
-      <p class="page-banner__sub">{{ t('tools.subtitle') }}</p>
-    </div>
-    <div class="page-banner__stat" id="toolsCount">
-      <span class="stat-val">—</span>
-      <span class="stat-lbl">{{ t('tools.count_label') }}</span>
-    </div>
-  </div>
+  {% with banner_page='tools', banner_icon='fa-solid fa-screwdriver-wrench', banner_title=t('page.tools'), banner_sub=t('tools.subtitle'), banner_stat_id='toolsCount', banner_stat_value='—', banner_stat_label=t('tools.count_label') %}{% include "page_banner.html" %}{% endwith %}
 
   <!-- ── Section 1 : Créer un outil (toggle) ── -->
   <section class="section-card section-card--create" id="createSection" aria-labelledby="create-title">

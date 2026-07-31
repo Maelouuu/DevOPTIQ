@@ -1,5 +1,5 @@
 /* ============================================================================
-   DevOPTIQ — Test Panel  ·  Shared client logic
+   OptiqFluent — Test Panel  ·  Shared client logic
    - TP.run(scope)        live test-execution drawer (structured, not raw term)
    - TP.lineChart(...)    success-rate SVG line chart
    - TP.escapeHtml(...)

@@ -1,7 +1,7 @@
 <!-- Code/routes/templates/activity_savoirs.html -->
 <div class="savoirs-section">
     <div id="savoirs-container-{{ activity.id }}">
-      <h3>{{ t('savoirs.title') }}</h3>
+      <h4 class="sf-sv-subtitle">{{ t('savoirs.title') }}</h4>
       {% if activity.savoirs and activity.savoirs|length > 0 %}
         <ul>
           {% for sv in activity.savoirs %}
@@ -19,7 +19,7 @@
               </button>
   
               <!-- Formulaire d'édition caché -->
-              <div id="edit-savoir-form-{{ sv.id }}" style="display:none; margin-top:5px;">
+              <div id="edit-savoir-form-{{ sv.id }}" style="display:none; margin-top:10px;">
                 <input type="text" id="edit-savoir-input-{{ sv.id }}" />
                 <button onclick="submitEditSavoir('{{ activity.id }}','{{ sv.id }}')">{{ t('btn.save') }}</button>
                 <button onclick="hideEditSavoirForm('{{ sv.id }}')">{{ t('btn.cancel') }}</button>
@@ -32,7 +32,7 @@
         <p>{{ t('propose.none_savoir') }}</p>
       {% endif %}
       <button onclick="showAddSavoirForm('{{ activity.id }}')">{{ t('savoirs.add_btn') }}</button>
-      <div id="add-savoir-form-{{ activity.id }}" style="display:none; margin-top:5px;">
+      <div id="add-savoir-form-{{ activity.id }}" style="display:none; margin-top:10px;">
         <input type="text" id="add-savoir-input-{{ activity.id }}" />
         <button onclick="submitAddSavoir('{{ activity.id }}')">{{ t('btn.save') }}</button>
         <button onclick="hideAddSavoirForm('{{ activity.id }}')">{{ t('btn.cancel') }}</button>

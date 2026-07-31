@@ -2,22 +2,9 @@
 <link rel="stylesheet" href="{{ url_for('static', filename='gestion_compte_new.css') }}">
 <script defer src="{{ url_for('static', filename='js/gestion_compte_new.js') }}"></script>
 
-<div class="accounts-page">
+<div class="accounts-page pg-root page--accounts">
 
-  <!-- ── Hero Banner ── -->
-  <div class="page-banner">
-    <div class="page-banner__icon">
-      <i class="fa-solid fa-users"></i>
-    </div>
-    <div class="page-banner__text">
-      <h1 class="page-banner__title">Account Management</h1>
-      <p class="page-banner__sub">{{ t('account.subtitle') }}</p>
-    </div>
-    <div class="page-banner__stat" id="usersCount">
-      <span class="stat-val">{{ users|length }}</span>
-      <span class="stat-lbl">{{ t('account.users_count') }}</span>
-    </div>
-  </div>
+  {% with banner_page='accounts', banner_icon='fa-solid fa-users-gear', banner_title=t('page.accounts'), banner_sub=t('account.subtitle'), banner_stat_id='usersCount', banner_stat_value=users|length, banner_stat_label=t('account.users_count') %}{% include "page_banner.html" %}{% endwith %}
 
   <!-- ── Tabs ── -->
   <div class="tabs-row" role="tablist">
@@ -264,7 +251,7 @@
   <div class="modal-card">
     <div class="modal-header">
       <h3 class="modal-title"><i class="fa-solid fa-circle-info"></i> {{ t('account.modal_format_title') }}</h3>
-      <button class="modal-close" onclick="closeFormatModal()" aria-label="Fermer"><i class="fa-solid fa-xmark"></i></button>
+      <button class="modal-close" onclick="closeFormatModal()" aria-label="{{ t('btn.close') }}"><i class="fa-solid fa-xmark"></i></button>
     </div>
     <div class="modal-body">
       <p class="mb-12">{{ t('account.modal_format_cols') }}</p>
@@ -292,7 +279,7 @@
   <div class="modal-card">
     <div class="modal-header modal-header--danger">
       <h3 class="modal-title"><i class="fa-solid fa-triangle-exclamation"></i> {{ t('account.delete_title') }}</h3>
-      <button class="modal-close modal-close--dark" onclick="closeDeleteModal()" aria-label="Fermer"><i class="fa-solid fa-xmark"></i></button>
+      <button class="modal-close modal-close--dark" onclick="closeDeleteModal()" aria-label="{{ t('btn.close') }}"><i class="fa-solid fa-xmark"></i></button>
     </div>
     <div class="modal-body">
       <p>{{ t('account.delete_question') }} <strong id="deleteUserName"></strong> ?</p>

@@ -4,16 +4,48 @@ import os
 import sys
 from dotenv import load_dotenv
 
-load_dotenv()
-
 current_dir = os.path.dirname(os.path.abspath(__file__))
 parent_dir = os.path.dirname(current_dir)
+
+# Chemin explicite : load_dotenv() sans argument remonte la pile d'appels pour
+# localiser .env — fragile (casse notamment dans une image bytecode-only).
+load_dotenv(os.path.join(parent_dir, ".env"))
+
+# Fichier de configuration écrit par l'assistant d'installation (/setup) sur le
+# volume client. Les vraies variables d'environnement gardent la priorité
+# (load_dotenv n'écrase jamais une variable déjà définie).
+CONFIG_DIR = os.getenv("CONFIG_DIR", "/app/config")
+CONFIG_ENV_PATH = os.path.join(CONFIG_DIR, "optiqfluent.env")
+load_dotenv(CONFIG_ENV_PATH)
+
+
+def _setup_done():
+    try:
+        with open(CONFIG_ENV_PATH) as f:
+            return "SETUP_DONE=1" in f.read()
+    except OSError:
+        return False
+
+
+def _scrub_admin_password():
+    """Une fois le compte admin créé, son mot de passe initial ne doit pas
+    rester en clair dans le fichier écrit par l'assistant d'installation."""
+    try:
+        with open(CONFIG_ENV_PATH) as f:
+            lines = f.readlines()
+        kept = [l for l in lines if not l.startswith("ADMIN_PASSWORD=")]
+        if len(kept) != len(lines):
+            with open(CONFIG_ENV_PATH, "w") as f:
+                f.writelines(kept)
+            print("[BOOTSTRAP] ADMIN_PASSWORD retiré du fichier de configuration")
+    except OSError:
+        pass
 if current_dir not in sys.path:
     sys.path.insert(0, current_dir)
 if parent_dir not in sys.path:
     sys.path.insert(0, parent_dir)
 
-from flask import Flask, redirect, url_for
+from flask import Flask, redirect, request, url_for
 from flask_migrate import Migrate
 from Code.extensions import db, mail
 
@@ -33,8 +65,41 @@ def create_app(test_config=None):
     static_folder = os.path.join(parent_dir, "static")
     app = Flask(__name__, static_folder=static_folder)
 
-    app.config["DEBUG"] = True
-    app.config["PROPAGATE_EXCEPTIONS"] = True
+    # Jamais de debug par défaut : stack traces interdites chez un client.
+    _debug = os.getenv("FLASK_DEBUG", "0").lower() in ("1", "true", "yes")
+    app.config["DEBUG"] = _debug
+    app.config["PROPAGATE_EXCEPTIONS"] = _debug
+
+    # Console serveur (Paramètres → section admin) : duplique stdout/stderr et
+    # le logging vers un fichier tampon lisible depuis l'app.
+    if test_config is None:
+        from Code.logstream import init_logstream
+        init_logstream()
+
+    # ── Assistant d'installation (premier démarrage de l'image client) ──
+    # SETUP_WIZARD=1 (docker-compose client) + aucune configuration écrite →
+    # l'app démarre en mode installation : uniquement /setup, qui guide le
+    # client (licence, base, clé IA, mail, admin), écrit CONFIG_ENV_PATH puis
+    # redémarre le conteneur. Le boot suivant est un démarrage normal.
+    if (test_config is None and os.getenv("SETUP_WIZARD", "0") == "1"
+            and not _setup_done()):
+        from Code.routes.setup_wizard import setup_bp
+        app.register_blueprint(setup_bp)
+        app.secret_key = os.urandom(24).hex()
+
+        @app.route("/healthz")
+        def healthz():
+            return "ok", 200
+
+        @app.before_request
+        def _setup_gate():
+            if request.path.startswith(("/setup", "/static", "/healthz")):
+                return None
+            return redirect("/setup")
+
+        print("[SETUP] Mode installation actif — ouvrir l'application dans un "
+              "navigateur pour lancer l'assistant (/setup)")
+        return app
 
     # -----------------------------
     # 1) Base de données
@@ -45,12 +110,13 @@ def create_app(test_config=None):
         if db_url.startswith("postgres://"):
             db_url = db_url.replace("postgres://", "postgresql://", 1)
         app.config["SQLALCHEMY_DATABASE_URI"] = db_url
-        # Pool de connexions limité pour Neon (free tier = max ~20 connexions)
+        # Défauts calibrés Neon free tier (max ~20 connexions) ; un Postgres
+        # local/dédié peut monter via DB_POOL_SIZE / DB_MAX_OVERFLOW.
         app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
             "pool_pre_ping": True,
             "pool_recycle": 300,
-            "pool_size": 2,
-            "max_overflow": 3,
+            "pool_size": int(os.getenv("DB_POOL_SIZE", "2")),
+            "max_overflow": int(os.getenv("DB_MAX_OVERFLOW", "3")),
         }
     else:
         instance_path = os.path.join(os.path.dirname(__file__), "instance")
@@ -75,13 +141,21 @@ def create_app(test_config=None):
     # -----------------------------
     # 2) Mail
     # -----------------------------
-    _mail_user = os.getenv("MAIL_USERNAME", "afdec.enterprise.services@gmail.com")
+    # Aucun identifiant par défaut : chaque instance (client compris) fournit son
+    # propre compte d'envoi via l'environnement (compte Google + mot de passe
+    # d'application, cf. distribution/.env.example). Sans config → envoi désactivé.
+    _mail_user = os.getenv("MAIL_USERNAME")
+    _mail_pwd  = os.getenv("MAIL_PASSWORD")
     app.config["MAIL_SERVER"]         = os.getenv("MAIL_SERVER", "smtp.gmail.com")
     app.config["MAIL_PORT"]           = int(os.getenv("MAIL_PORT", 587))
     app.config["MAIL_USE_TLS"]        = True
     app.config["MAIL_USERNAME"]       = _mail_user
-    app.config["MAIL_PASSWORD"]       = os.getenv("MAIL_PASSWORD", "awdkerghqvuwjhel")
+    app.config["MAIL_PASSWORD"]       = _mail_pwd
     app.config["MAIL_DEFAULT_SENDER"] = os.getenv("MAIL_DEFAULT_SENDER", _mail_user)
+    app.config["MAIL_CONFIGURED"]     = bool(_mail_user and _mail_pwd)
+    if not app.config["MAIL_CONFIGURED"]:
+        print("[MAIL] MAIL_USERNAME/MAIL_PASSWORD absents — envoi d'emails désactivé "
+              "(reset de mot de passe indisponible)")
 
     # Appliquer la config de test APRÈS les defaults (override complet)
     if test_config:
@@ -243,8 +317,11 @@ def create_app(test_config=None):
     from Code.routes.settings import settings_bp
     app.register_blueprint(settings_bp)
 
-    from Code.routes.test_panel import test_panel_bp
-    app.register_blueprint(test_panel_bp)
+    # Panel de tests : outillage interne AFDEC — désactivé dans l'image client
+    # (TESTPANEL_ENABLED=0 dans le Dockerfile → routes non enregistrées, 404).
+    if os.getenv("TESTPANEL_ENABLED", "1") == "1":
+        from Code.routes.test_panel import test_panel_bp
+        app.register_blueprint(test_panel_bp)
 
     from Code.routes.projection_metier import projection_metier_bp
     app.register_blueprint(projection_metier_bp)
@@ -295,9 +372,23 @@ def create_app(test_config=None):
     with app.app_context():
         from sqlalchemy import text as _text
 
+        _is_pg = db.engine.dialect.name == "postgresql"
+
+        def _init_conn():
+            """Connexion d'init qui ne peut JAMAIS bloquer le démarrage : un
+            ALTER en attente d'un verrou tenu par une autre instance (base
+            partagée) suspendrait le boot avant même l'ouverture du port —
+            Cloud Run tuerait la révision. Timeout court → on passe son tour,
+            la migration réussira à un prochain démarrage."""
+            conn = db.engine.connect()
+            if _is_pg:
+                conn.execute(_text("SET lock_timeout = '5s'"))
+                conn.execute(_text("SET statement_timeout = '60s'"))
+            return conn
+
         def _safe_add_column(table, col, col_type):
             try:
-                with db.engine.connect() as _conn:
+                with _init_conn() as _conn:
                     _conn.execute(_text(f"ALTER TABLE {table} ADD COLUMN {col} {col_type}"))
                     _conn.commit()
                     print(f"[DB] Colonne {table}.{col} ajoutée")
@@ -352,12 +443,12 @@ def create_app(test_config=None):
         # une colonne créée étroite avant l'élargissement du modèle → l'UPDATE
         # échouait en PostgreSQL et l'ancien mot de passe restait actif.
         try:
-            with db.engine.connect() as _conn:
+            with _init_conn() as _conn:
                 _conn.execute(_text("ALTER TABLE users ALTER COLUMN password TYPE VARCHAR(255)"))
                 _conn.commit()
                 print("[DB] Colonne users.password élargie à VARCHAR(255)")
         except Exception:
-            pass  # SQLite (longueur non contraignante) ou déjà au bon type
+            pass  # SQLite (longueur non contraignante), déjà au bon type, ou verrou occupé
 
         # 3. Tables supplémentaires
         try:
@@ -366,6 +457,13 @@ def create_app(test_config=None):
             print("[DB] Table file_blobs prête")
         except Exception as e:
             print(f"[DB] file_blobs check: {e}")
+
+        try:
+            from Code.models.models import AppSetting
+            AppSetting.__table__.create(db.engine, checkfirst=True)
+            print("[DB] Table app_settings prête")
+        except Exception as e:
+            print(f"[DB] app_settings check: {e}")
 
         try:
             from Code.models.test_models import TestPage, TestCase, TestRun, TestResult
@@ -424,7 +522,7 @@ def create_app(test_config=None):
         # db_upgrade() est intentionnellement absent : il attend un verrou PostgreSQL
         # pendant 10+ minutes si la colonne existe déjà → worker timeout → crash infini.
         try:
-            with db.engine.connect() as _conn:
+            with _init_conn() as _conn:
                 _conn.execute(_text("DELETE FROM alembic_version"))
                 _conn.execute(_text(
                     "INSERT INTO alembic_version (version_num) VALUES ('b2c3d4e5f6a7')"
@@ -434,12 +532,13 @@ def create_app(test_config=None):
         except Exception as e:
             print(f"[DB] alembic_version: {e}")
 
-        # 5. Seed données de démonstration recent_events
+        # 5. Seed données de démonstration recent_events (opt-in : DEMO_SEED=1 —
+        # une instance client démarre sur une base réellement vierge)
         try:
             import json as _json_seed
             from datetime import datetime as _datetime, timedelta
             from Code.models.models import RecentEvent as _RE
-            if _RE.query.count() == 0:
+            if os.getenv("DEMO_SEED", "0") == "1" and _RE.query.count() == 0:
                 _now = _datetime.utcnow()
                 _seeds = [
                     _RE(event_type='activity_created',
@@ -485,13 +584,54 @@ def create_app(test_config=None):
         finally:
             db.session.remove()
 
-        # 6. Réinitialiser le pool — toutes les connexions du startup sont fermées
+        # 6. Bootstrap du premier compte : base sans aucun utilisateur (installation
+        # neuve chez un client) + ADMIN_EMAIL/ADMIN_PASSWORD fournis → création
+        # d'un administrateur. Ne fait rien dès qu'un utilisateur existe.
+        try:
+            from Code.models.models import User as _User
+            from Code.security import hash_password as _hash_password
+            _admin_email = (os.getenv("ADMIN_EMAIL") or "").strip().lower()
+            _admin_pwd = os.getenv("ADMIN_PASSWORD")
+            if _User.query.count() == 0:
+                if _admin_email and _admin_pwd:
+                    db.session.add(_User(
+                        first_name=os.getenv("ADMIN_FIRST_NAME", "Admin"),
+                        last_name=os.getenv("ADMIN_LAST_NAME", "OptiqFluent"),
+                        email=_admin_email,
+                        password=_hash_password(_admin_pwd),
+                        status="administrateur",
+                    ))
+                    db.session.commit()
+                    print(f"[BOOTSTRAP] Compte administrateur créé : {_admin_email}")
+                    _scrub_admin_password()
+                else:
+                    print("[BOOTSTRAP] Aucun utilisateur en base et ADMIN_EMAIL/"
+                          "ADMIN_PASSWORD absents — personne ne pourra se connecter. "
+                          "Définir ces variables pour créer le premier compte.")
+        except Exception as e:
+            db.session.rollback()
+            print(f"[BOOTSTRAP] Création admin: {e}")
+
+        # 7. Réinitialiser le pool — toutes les connexions du startup sont fermées
         # avant que le worker commence à traiter les requêtes HTTP
         db.engine.dispose()
         print("[DB] Pool connexions réinitialisé")
 
-    # secret key
-    app.secret_key = os.getenv("SECRET_KEY", "devoptiq-secret")
+    # Secret key : jamais de valeur par défaut publique (cookies forgeables).
+    # Sans SECRET_KEY, on génère un secret aléatoire éphémère : l'app démarre,
+    # mais les sessions sautent à chaque redémarrage → la définir en production.
+    _secret = os.getenv("SECRET_KEY")
+    if not _secret:
+        import secrets as _secrets
+        _secret = _secrets.token_hex(32)
+        print("[SECURITY] SECRET_KEY non définie — secret aléatoire éphémère généré "
+              "(sessions invalidées à chaque redémarrage). Définir SECRET_KEY en production.")
+    app.secret_key = _secret
+
+    # Licence signée à expiration (active uniquement si REQUIRE_LICENSE=1 —
+    # baké dans l'image distribuée aux clients, inactif en dev/tests)
+    from Code.licensing import init_license_enforcement
+    init_license_enforcement(app)
 
     @app.route("/healthz")
     def healthz():
@@ -514,4 +654,5 @@ app = create_app()
 if __name__ == "__main__":
     # IMPORTANT: use_reloader=False pour éviter "database is locked" avec SQLite
     # Le reloader crée 2 processus qui accèdent à la DB simultanément
-    app.run(debug=True, host="0.0.0.0", port=int(os.getenv("PORT", 8080)), use_reloader=False)
+    app.run(debug=app.config["DEBUG"], host="0.0.0.0",
+            port=int(os.getenv("PORT", 8080)), use_reloader=False)

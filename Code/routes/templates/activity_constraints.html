@@ -1,7 +1,7 @@
 <!-- Code/routes/templates/activity_constraints.html -->
 
 <div class="constraints-section">
-  <h3>{{ t('constraint.title') }}</h3>
+  {# Le titre de section est porté par activity_card_new.html (.overview-section-title) — pas de doublon ici. #}
 
   <div id="constraints-container-{{ item.activity.id }}">
     {% if item.constraints and item.constraints|length > 0 %}
@@ -30,10 +30,10 @@
             </button>
 
             <!-- Formulaire d'édition caché -->
-            <div id="edit-constraint-form-{{ c.id }}" style="display:none; margin-top:8px;">
+            <div id="edit-constraint-form-{{ c.id }}" style="display:none; margin-top:10px;">
               <input type="text" id="edit-constraint-input-{{ c.id }}" placeholder="{{ t('common.description') }}" />
               <!-- File picker édition -->
-              <div style="margin-top:8px;">
+              <div style="margin-top:10px;">
                 <div class="fp-wrap" id="edit-fp-{{ c.id }}">
                   <div class="fp-zone">
                     <span class="fp-spinner" style="display:none"><i class="fa-solid fa-spinner fa-spin"></i></span>
@@ -50,7 +50,7 @@
                   <input type="hidden" class="fp-path" value="{{ c.file_path or '' }}">
                 </div>
               </div>
-              <div style="margin-top:6px; display:flex; gap:4px;">
+              <div style="margin-top:10px; display:flex; gap:4px;">
                 <button class="icon-btn icon-btn-success" onclick="submitEditConstraint('{{ item.activity.id }}','{{ c.id }}')" title="{{ t('btn.save') }}"><i class="fa-solid fa-check"></i></button>
                 <button class="icon-btn" onclick="hideEditConstraintForm('{{ c.id }}')" title="{{ t('btn.cancel') }}"><i class="fa-solid fa-xmark"></i></button>
               </div>
@@ -68,7 +68,7 @@
   <div id="add-constraint-form-{{ item.activity.id }}" style="display:none; margin-top:10px;">
     <input type="text" id="add-constraint-input-{{ item.activity.id }}" placeholder="{{ t('constraint.placeholder') }}" />
     <!-- File picker ajout -->
-    <div style="margin-top:8px;">
+    <div style="margin-top:10px;">
       <div class="fp-wrap" id="add-fp-{{ item.activity.id }}">
         <div class="fp-zone">
           <span class="fp-spinner" style="display:none"><i class="fa-solid fa-spinner fa-spin"></i></span>
@@ -85,7 +85,7 @@
         <input type="hidden" class="fp-path">
       </div>
     </div>
-    <div style="margin-top:6px; display:flex; gap:4px;">
+    <div style="margin-top:10px; display:flex; gap:4px;">
       <button class="icon-btn icon-btn-success" onclick="submitAddConstraint('{{ item.activity.id }}')" title="{{ t('btn.save') }}"><i class="fa-solid fa-check"></i></button>
       <button class="icon-btn" onclick="hideAddConstraintForm('{{ item.activity.id }}')" title="{{ t('btn.cancel') }}"><i class="fa-solid fa-xmark"></i></button>
     </div>

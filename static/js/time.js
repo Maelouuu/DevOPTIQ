@@ -208,14 +208,16 @@
   });
   toggleFwMode();
 
-  function showFwFeedback(isOk, msg) {
-    const el = document.getElementById('fw-feedback');
-    if (!el) return;
+  function flashFeedback(id, isOk, msg) {
+    const el = document.getElementById(id);
+    if (!el) { if (!isOk) alert(msg); return; }
     el.textContent = msg;
     el.className = 'time-inline-feedback ' + (isOk ? 'ok' : 'error');
     el.style.display = 'block';
     setTimeout(() => { el.style.display = 'none'; }, 3500);
   }
+
+  function showFwFeedback(isOk, msg) { flashFeedback('fw-feedback', isOk, msg); }
 
   async function sendWeakness(save=false){
     const modeEl = $$('input[name="fw-mode"]:checked')[0];
@@ -260,6 +262,9 @@
     // AA = occurrences (nombre, pas de conversion)
     const aaEl = document.getElementById('AA');
     if (aaEl) aaEl.textContent = m['AA'] != null ? Math.round(m['AA']) : '—';
+    // Les résultats n'apparaissent qu'après un premier calcul réussi
+    document.getElementById('fw-results-empty')?.classList.add('hidden');
+    document.getElementById('fw-results-section')?.classList.remove('hidden');
     if (save) showFwFeedback(true, 'Analyse faiblesse enregistrée avec succès');
   }
 
@@ -360,13 +365,13 @@
     const r = await fetch('/temps/api/project', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)});
     const j = await r.json();
     if (j.ok) {
-      alert(`Projet enregistré (id ${j.project_id})`);
+      flashFeedback('proj-feedback', true, 'Projet enregistré avec succès');
       projectBody.innerHTML = '';
       $('#project-name').value = '';
       await refreshProjectList();
       addProjectRow(); recalcProjectTotals();
     } else {
-      alert("Erreur d'enregistrement");
+      flashFeedback('proj-feedback', false, "Erreur d'enregistrement");
     }
   });
 
@@ -377,18 +382,21 @@
     const r = await fetch('/temps/api/projects');
     const j = await r.json();
     if (!j.ok) { list.innerHTML = '<div class="muted">Erreur de chargement</div>'; return; }
-    if (!j.projects.length) { list.innerHTML = '<div class="muted">Aucun projet enregistré.</div>'; return; }
+    // L'API renvoie {items:[{line_count,total_*_minutes}]} ; l'ancien contrat
+    // ({projects:[{nb_activites,…}]}) est gardé en repli.
+    const projects = j.projects || j.items || [];
+    if (!projects.length) { list.innerHTML = '<div class="muted">Aucun projet enregistré.</div>'; return; }
 
-    list.innerHTML = j.projects.map(p => `
+    list.innerHTML = projects.map(p => `
       <div class="acc-item" data-id="${p.id}">
         <div class="acc-head">
           <div class="acc-title">
             <b class="proj-name">${p.name || 'Sans titre'}</b>
             <input class="proj-name-input hidden input" value="${(p.name || '').replace(/"/g,'&quot;')}" />
-            <span class="badge">${p.nb_activites} act.</span>
-            <span class="badge">${fmtH(p.charge_globale_minutes)}</span>
+            <span class="badge">${p.nb_activites ?? p.line_count ?? 0} act.</span>
+            <span class="badge">${fmtH(p.charge_globale_minutes ?? p.total_charge_minutes ?? 0)}</span>
           </div>
-          <div class="acc-meta">Durée ${fmtH(p.tot_duree_minutes)} · Délai ${fmtH(p.delais_optimum_minutes)}</div>
+          <div class="acc-meta">Durée ${fmtH(p.tot_duree_minutes ?? p.total_duration_minutes ?? 0)}</div>
           <div class="acc-actions">
             <button class="icon-btn edit-proj" title="Renommer">✎</button>
             <button class="icon-btn success save-proj hidden" title="Enregistrer">✔</button>
@@ -465,7 +473,7 @@
                     <td>${fmtH(r.duration_minutes)}</td>
                     <td>${fmtH(r.delay_minutes)}</td>
                     <td>${r.nb_people}</td>
-                    <td>${fmtH(r.charge)}</td>
+                    <td>${fmtH(r.charge_minutes ?? r.charge ?? 0)}</td>
                     <td><button class="icon-btn danger del-line" title="Supprimer la ligne">🗑</button></td>
                   </tr>`).join('')}
                 </tbody>
@@ -534,13 +542,13 @@
     if (currentActivityEditId) {
       const r = await fetch(`/temps/api/activity_workload/${currentActivityEditId}`, {method:'PATCH', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)});
       j = await r.json();
-      if (!j.ok) return alert('Erreur de mise à jour');
-      alert('Analyse activité mise à jour.');
+      if (!j.ok) return flashFeedback('act-feedback', false, 'Erreur de mise à jour');
+      flashFeedback('act-feedback', true, 'Analyse activité mise à jour.');
     } else {
       const r = await fetch('/temps/api/activity_workload', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)});
       j = await r.json();
-      if (!j.ok) return alert("Erreur d'enregistrement");
-      alert('Analyse activité enregistrée.');
+      if (!j.ok) return flashFeedback('act-feedback', false, "Erreur d'enregistrement");
+      flashFeedback('act-feedback', true, 'Analyse activité enregistrée.');
     }
 
     $('#act-total').textContent = fmtH(j.total_minutes || 0);
@@ -774,10 +782,10 @@
     const r = await fetch('/temps/api/role_analysis', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)});
     const j = await r.json();
     if (j.ok){
-      alert('Analyse rôle enregistrée.');
+      flashFeedback('role-feedback', true, 'Analyse rôle enregistrée.');
       $('#role-name').value='';
       await refreshRoleAnalyses();
-    } else alert("Erreur d'enregistrement");
+    } else flashFeedback('role-feedback', false, "Erreur d'enregistrement");
   });
 
   async function refreshRoleAnalyses(){

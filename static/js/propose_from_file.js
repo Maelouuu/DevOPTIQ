@@ -474,7 +474,7 @@
               <th class="col-justification">${PT('pf_col_justification')}</th>
             </tr>
           </thead>
-          <tbody id="hscFBody">${rows || '<tr><td colspan="4" style="color:#999; text-align:center; padding:16px;">${PT('pf_no_proposal')}</td></tr>'}</tbody>
+          <tbody id="hscFBody">${rows || `<tr><td colspan="4" style="color:#999; text-align:center; padding:16px;">${PT('pf_no_proposal')}</td></tr>`}</tbody>
         </table>
       </div>
       <div class="modal-footer-propose">

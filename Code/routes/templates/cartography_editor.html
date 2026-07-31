@@ -8,7 +8,7 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
   <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 
-  <!-- Configuration DevOPTIQ injectée avant editor.js -->
+  <!-- Configuration OptiqFluent injectée avant editor.js -->
   <script>
     window.OPTIQCARTO_API_BASE      = '/cartography';
     window.OPTIQCARTO_DEFAULT_NAME  = {{ (entity_name or '')|tojson }};
@@ -880,7 +880,7 @@ document.addEventListener('DOMContentLoaded', () => {
 </script>
 {% endif %}
 
-<!-- CSS spécifique intégration DevOPTIQ -->
+<!-- CSS spécifique intégration OptiqFluent -->
 <style>
 .tb-back-link {
   display: flex;

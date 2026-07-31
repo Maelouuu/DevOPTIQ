@@ -46,6 +46,9 @@ function proposeSkills(activityData) {
     hideSpinner();
     if (data.error) {
       console.error("Erreur IA /skills/propose:", data.error);
+      if (!window.optiqAiCheck || !window.optiqAiCheck(data)) {
+        alert("Erreur IA : " + data.error);
+      }
       return;
     }
     const lines = data.proposals;

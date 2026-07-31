@@ -5,29 +5,21 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{{ t('rh.page_title') }}</title>
 
-  <!-- Google Fonts -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&display=swap" rel="stylesheet">
-
   <!-- Font Awesome -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
   <!-- CSS -->
   <link rel="stylesheet" href="{{ url_for('static', filename='gestion_rh.css') }}">
 </head>
-<body>
+<body class="pg page--rh">
   <header>
     {% include 'header_buttons.html' %}
   </header>
 
   <!-- ═══════════════════════════════════════════════════════════════
-       PAGE HEADER
+       PAGE HEADER — bandeau commun
   ═══════════════════════════════════════════════════════════════ -->
-  <div class="grh-page-header">
-    <h1>{{ t('rh.page_title') }}</h1>
-    <p>{{ t('rh.page_subtitle') }}</p>
-  </div>
+  {% with banner_page='rh', banner_icon='fa-solid fa-building-user', banner_title=t('rh.page_title'), banner_sub=t('rh.page_subtitle') %}{% include "page_banner.html" %}{% endwith %}
 
   <div class="grh-container">
 
@@ -66,7 +58,7 @@
     <div class="grh-card">
       <div class="grh-card-header secondary">
         <span><i class="fa-solid fa-tags"></i> {{ t('rh.section_roles') }}</span>
-        <button class="btn btn-sm btn-outline" id="show-create-role" style="color:#0f172a;">
+        <button class="btn btn-sm btn-outline" id="show-create-role">
           <i class="fa-solid fa-plus"></i> {{ t('rh.btn_new_role') }}
         </button>
       </div>
@@ -195,7 +187,7 @@
         <!-- Mode propositions -->
         <div style="margin-top:20px; padding-top:16px; border-top:1px solid #e2e8f0;">
           <p style="font-size:0.83rem; color:#475569; font-weight:600; margin:0 0 10px;">
-            <i class="fa-solid fa-sliders" style="color:#764ba2; margin-right:5px;"></i>
+            <i class="fa-solid fa-sliders" style="color:var(--pg-accent); margin-right:5px;"></i>
             {{ t('rh.dcp_mode_title') }}
           </p>
           <div style="display:flex; gap:8px; flex-wrap:wrap;">

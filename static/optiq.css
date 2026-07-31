@@ -1,43 +1,38 @@
-/* ====== Style global à ~30px pour tout ====== */
+/* ════════════════════════════════════════════════════════════════════════════
+   OPTIQ — optiq.css : base globale (chargée sur toutes les pages via
+   header_buttons.html, juste avant ui-theme.css).
 
-/* Corps de page : 30px pour tout le texte */
+   ⚠️ Historique : ce fichier imposait `body { font-size: 30px; font-family:
+   Arial }` et `input { width: 40ch; min-height: 48px }` — rechargé depuis le
+   <body> APRÈS le CSS de chaque page, il écrasait la typo de toute l'app
+   (textes en em / non stylés à 30px, champs géants). La base est désormais
+   alignée sur le design system (DM Sans 15px), voir ui-theme.css.
+   ════════════════════════════════════════════════════════════════════════════ */
+
 body {
-  font-family: Arial, sans-serif;
-  font-size: 30px; 
-  line-height: 1.5;
+  font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 15px;
+  line-height: 1.55;
+  color: #0f172a;
 }
 
 /* ========================================
-   BOUTONS ET ICÔNES
+   BOUTONS ET ICÔNES — base neutre
    ======================================== */
 
-/* Tous les boutons généraux (Mettre à jour, Garant, etc.) */
 button,
-.update-btn,
-.onboarding-btn,
 .icon-btn {
-  font-size: 1em; /* => 30px */
+  font-family: inherit;
+  font-size: 13.5px;
   line-height: 1.2;
   cursor: pointer;
 }
 
-/* Bouton "Mettre à jour la cartographie", etc. */
-.update-btn {
-  background-color: green;
-  color: white;
-  padding: 18px 28px; /* adapté à la taille 30px */
-  border: none;
-  border-radius: 5px;
-  margin-bottom: 20px;
-}
-
-/* Icônes dans les boutons (poubelle, crayon, etc.) */
 button i,
 .icon-btn i {
-  font-size: 1em; /* => 30px */
+  font-size: 14px;
 }
 
-/* Boutons icônes simples (ex: poubelle) */
 .icon-btn {
   background: none;
   border: none;
@@ -45,27 +40,29 @@ button i,
 }
 
 /* ========================================
-   ZONES DE SAISIE (inputs, textarea, select)
+   ZONES DE SAISIE — base neutre
+   (plus de largeur 40ch ni de hauteur 48px imposées : chaque page
+   dimensionne ses champs ; ici on ne fixe que la typo)
    ======================================== */
 
-/* On agrandit les champs pour ~5..6 mots */
 input[type="text"],
 input[type="number"],
+input[type="email"],
+input[type="password"],
 textarea,
 select {
-  font-size: 1em;      /* => 30px, même que le corps */
-  line-height: 1.3;
+  font-family: inherit;
+  font-size: 13.5px;
+  line-height: 1.4;
   padding: 8px 10px;
-  width: 40ch;         /* Assez large pour ~5..6 mots */
-  min-height: 48px;    /* Pour ne pas être trop écrasé */
   box-sizing: border-box;
 }
 
 /* ========================================
-   ACTIVITÉS, ENTÊTES, TABLES
+   ACTIVITÉS, ENTÊTES, TABLES (composants hérités
+   de la fiche activité — normalisés en px)
    ======================================== */
 
-/* Conteneur principal de chaque activité */
 .activity-container {
   border: 1px solid #aaa;
   margin-bottom: 20px;
@@ -98,16 +95,14 @@ select {
   cursor: pointer;
 }
 
-/* Titre d’activité : un peu plus grand => 1.2em => ~36px */
 .activity-header h2 {
   margin: 0;
   flex-grow: 1;
-  font-size: 1.2em;
+  font-size: 17px;
 }
 
-/* Icône de bascule (▶) : 1.2em => ~36px */
 .toggle-icon {
-  font-size: 1.2em;
+  font-size: 13px;
   margin-right: 8px;
 }
 
@@ -128,7 +123,7 @@ select {
   width: 48%;
 }
 .connections-container h3 {
-  font-size: 1em; /* => 30px */
+  font-size: 14px;
   margin: 0 0 8px 0;
 }
 
@@ -137,11 +132,12 @@ select {
   width: 100%;
   border-collapse: collapse;
   margin-bottom: 14px;
+  font-size: 13.5px;
 }
 .conn-table th,
 .conn-table td {
   border: 1px solid #ccc;
-  padding: 10px;
+  padding: 8px 10px;
   text-align: left;
 }
 .conn-table th {
@@ -205,14 +201,14 @@ select {
 }
 
 /* ========================================
-   TÂCHES 
+   TÂCHES
    ======================================== */
 
 .tasks-section {
   margin-top: 14px;
 }
 .tasks-section h3 {
-  font-size: 1em; /* => 30px */
+  font-size: 14px;
   margin-bottom: 10px;
 }
 
@@ -229,7 +225,7 @@ select {
    LAYOUT EN GRILLE POUR LES TÂCHES
    =============================== */
 
-/* 
+/*
    On transforme .task-row en une grille à 3 colonnes :
    1) Tâche (nom, description, icône drag)
    2) Outils
@@ -237,9 +233,9 @@ select {
 */
 .tasks-section .task-row {
   display: grid !important;
-  grid-template-columns: 40% 30% 30% !important; /* Ajustez à votre guise */
+  grid-template-columns: 40% 30% 30% !important;
   gap: 10px !important;
-  align-items: start !important; /* Aligne le contenu en haut */
+  align-items: start !important;
 }
 
 /* Colonne 1 : nom/description de la tâche */
@@ -283,17 +279,18 @@ select {
 }
 .tasks-section .tools-list li {
   background: #f0f0f0 !important;
-  padding: 8px 10px !important;
-  border-radius: 3px !important;
+  padding: 6px 10px !important;
+  border-radius: 6px !important;
   margin-bottom: 5px !important;
   display: inline-block !important;
   margin-right: 8px !important;
+  font-size: 13px !important;
 }
 
 /* Bouton d'ajout d'outil (ex: +) */
 .add-tool-btn {
-  width: 40px;
-  height: 40px;
+  width: 32px;
+  height: 32px;
   border: 1px solid #ccc;
   background-color: #fafafa;
   display: inline-flex;
@@ -317,25 +314,14 @@ select {
    ======================================== */
 
 .softskill-justification {
-  font-size: 1em !important; /* => 30px */
-  line-height: 1.4;
+  font-size: 13px;
+  line-height: 1.45;
 }
-
-/* Fin du fichier */
-/* For the "Performance" input forms */
-#perf-add-form-*, #perf-edit-form-* input[type="text"] {
-  width: 40ch !important;   /* ~ 5..7 mots */
-  min-width: 300px !important; 
-  box-sizing: border-box;
-}
-
 
 /* ================================================
-   PATCH À AJOUTER À LA FIN DE optiq.css
-   Fix pour le z-index du spinner
+   Z-INDEX DU SPINNER — toujours au-dessus de tout
 ================================================ */
 
-/* 🔥 FIX CRITIQUE : SPINNER AU-DESSUS DE TOUT */
 #spinner,
 .spinner,
 .spinner-overlay,

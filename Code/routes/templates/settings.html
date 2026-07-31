@@ -5,86 +5,37 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{{ t('settings.title') }}</title>
 
-  <!-- Google Fonts — DM Sans -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600;9..40,700&display=swap" rel="stylesheet">
-
-  <!-- Font Awesome 6.5.1 -->
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-
   <style>
-    /* ── Reset & base ───────────────────────────────────────────── */
+    /* ═══ Page Paramètres — alignée sur le design system commun (ui-theme.css).
+       Accent de page : indigo var(--pg-accent) #6366f1 (icône nav Paramètres).
+       Échelle : titres de cartes 15/700 · corps 13.5 · labels 12.5 uppercase. ═══ */
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-    body {
-      font-family: 'DM Sans', Arial, sans-serif;
-      font-size: 15px;
-      line-height: 1.6;
-      background: #f5f6fa;
-      color: #1a1d23;
-      min-height: 100vh;
-    }
 
     /* ── Page layout ────────────────────────────────────────────── */
     .stt-page {
       max-width: 760px;
       margin: 0 auto;
-      padding: 32px 20px 64px;
-    }
-
-    /* ── Page header ────────────────────────────────────────────── */
-    .stt-header {
-      display: flex;
-      align-items: center;
-      gap: 18px;
-      margin-bottom: 36px;
-    }
-
-    .stt-header__icon {
-      width: 52px;
-      height: 52px;
-      border-radius: 14px;
-      background: linear-gradient(135deg, #ec4899, #be185d);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: #fff;
-      font-size: 22px;
-      flex-shrink: 0;
-      box-shadow: 0 4px 12px rgba(236, 72, 153, 0.30);
-    }
-
-    .stt-header__text h1 {
-      font-size: 24px;
-      font-weight: 700;
-      color: #1a1d23;
-      letter-spacing: -0.3px;
-    }
-
-    .stt-header__text p {
-      font-size: 14px;
-      color: #6b7280;
-      margin-top: 2px;
+      padding: 0 20px 64px;
     }
 
     /* ── Section label ──────────────────────────────────────────── */
     .stt-section-label {
-      font-size: 11px;
+      font-size: 12.5px;
       font-weight: 700;
-      letter-spacing: 0.08em;
+      letter-spacing: 0.05em;
       text-transform: uppercase;
-      color: #9ca3af;
+      color: var(--muted);
       margin-bottom: 12px;
     }
 
     /* ── Card ───────────────────────────────────────────────────── */
     .stt-card {
-      background: #fff;
-      border-radius: 16px;
-      box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
-      padding: 28px 28px 32px;
-      margin-bottom: 24px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--r-card);
+      box-shadow: var(--sh-card);
+      padding: 24px 24px 28px;
+      margin-bottom: 22px;
     }
 
     .stt-card__head {
@@ -98,25 +49,25 @@
       width: 36px;
       height: 36px;
       border-radius: 10px;
-      background: #fce7f3;
+      background: var(--pg-accent-soft);
       display: flex;
       align-items: center;
       justify-content: center;
-      color: #be185d;
+      color: var(--pg-accent-deep);
       font-size: 15px;
       flex-shrink: 0;
     }
 
     .stt-card__title {
-      font-size: 16px;
-      font-weight: 600;
-      color: #1a1d23;
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--ink);
     }
 
     .stt-card__desc {
       font-size: 13px;
-      color: #6b7280;
-      margin-bottom: 24px;
+      color: var(--muted);
+      margin-bottom: 22px;
       margin-top: 4px;
       padding-left: 48px;
     }
@@ -130,25 +81,25 @@
 
     .stt-lang-card {
       position: relative;
-      border: 2px solid #e5e7eb;
-      border-radius: 14px;
+      border: 1px solid var(--border-strong);
+      border-radius: 12px;
       padding: 20px 20px 18px;
       cursor: pointer;
       transition: border-color 0.18s, box-shadow 0.18s, transform 0.12s;
-      background: #fafafa;
+      background: var(--card-2);
       user-select: none;
     }
 
     .stt-lang-card:hover {
-      border-color: #d1d5db;
-      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.07);
+      border-color: var(--pg-accent);
+      box-shadow: 0 4px 14px rgba(15, 23, 42, 0.07);
       transform: translateY(-1px);
     }
 
     .stt-lang-card.is-active {
-      border-color: #22c55e;
-      background: #f0fdf4;
-      box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.12), 0 4px 14px rgba(34, 197, 94, 0.10);
+      border-color: var(--pg-accent);
+      background: var(--pg-accent-softer);
+      box-shadow: 0 0 0 3px var(--pg-accent-glow);
     }
 
     .stt-lang-card.is-active .stt-lang-check {
@@ -163,23 +114,23 @@
     }
 
     .stt-lang-card__name {
-      font-size: 16px;
-      font-weight: 600;
-      color: #1a1d23;
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--ink);
       margin-bottom: 2px;
     }
 
     .stt-lang-card.is-active .stt-lang-card__name {
-      color: #15803d;
+      color: var(--pg-accent-deep);
     }
 
     .stt-lang-card__native {
       font-size: 12px;
-      color: #9ca3af;
+      color: var(--faint);
     }
 
     .stt-lang-card.is-active .stt-lang-card__native {
-      color: #4ade80;
+      color: var(--pg-accent);
     }
 
     /* Check badge */
@@ -190,7 +141,7 @@
       width: 22px;
       height: 22px;
       border-radius: 50%;
-      background: #22c55e;
+      background: var(--pg-accent);
       color: #fff;
       display: flex;
       align-items: center;
@@ -201,18 +152,55 @@
       transition: opacity 0.18s, transform 0.18s;
     }
 
+    {% if is_admin %}
+    /* ── Administration (rendu uniquement pour les admins : aucune trace
+       de la section — même en CSS — pour les autres statuts) ── */
+    .stt-admin-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 6px; }
+    .stt-admin-code {
+      background: var(--card-2); border: 1px solid var(--border); border-radius: 8px;
+      padding: 8px 12px; font-family: var(--pg-font-mono); font-size: 12px;
+      color: var(--ink-2); word-break: break-all;
+    }
+    .stt-admin-code--block { display: block; margin-top: 6px; }
+    .stt-admin-input {
+      flex: 1; min-width: 260px; padding: 9px 12px; border: 1px solid var(--border-strong);
+      border-radius: var(--r-input); font-size: 13px; font-family: var(--pg-font-mono);
+    }
+    .stt-admin-input:focus { outline: none; border-color: var(--pg-accent); box-shadow: 0 0 0 3px var(--pg-accent-glow); }
+    .stt-admin-btn {
+      display: inline-flex; align-items: center; gap: 6px;
+      border: 1px solid var(--border-strong); background: var(--card); color: var(--ink-2);
+      border-radius: 8px; padding: 7px 13px; font-size: 12.5px; font-weight: 600;
+      cursor: pointer; font-family: inherit;
+      transition: border-color 0.15s, color 0.15s, background 0.15s;
+    }
+    .stt-admin-btn:hover { border-color: var(--pg-accent); color: var(--pg-accent-deep); }
+    .stt-admin-btn--primary {
+      background: linear-gradient(135deg, var(--pg-accent), var(--pg-accent-deep));
+      border-color: transparent; color: #fff;
+    }
+    .stt-admin-btn--primary:hover { filter: brightness(1.06); color: #fff; }
+    .stt-admin-error { color: var(--danger); font-size: 12.5px; margin-top: 6px; min-height: 1em; }
+    .stt-console {
+      margin-top: 10px; background: #0f172a; color: #d1fae5; border-radius: 10px;
+      padding: 14px; height: 320px; overflow-y: auto;
+      font-family: var(--pg-font-mono); font-size: 12px;
+      line-height: 1.5; white-space: pre-wrap; word-break: break-all;
+    }
+    {% endif %}
+
     /* ── Toast notification ─────────────────────────────────────── */
     .stt-toast {
       position: fixed;
       bottom: 28px;
       left: 50%;
       transform: translateX(-50%) translateY(16px);
-      background: #1a1d23;
+      background: var(--ink);
       color: #fff;
       font-size: 13px;
       font-weight: 500;
       padding: 10px 20px;
-      border-radius: 100px;
+      border-radius: 999px;
       box-shadow: 0 6px 20px rgba(0, 0, 0, 0.20);
       display: flex;
       align-items: center;
@@ -244,12 +232,11 @@
     /* ── Responsive ─────────────────────────────────────────────── */
     @media (max-width: 480px) {
       .stt-lang-grid { grid-template-columns: 1fr; }
-      .stt-header { flex-direction: column; align-items: flex-start; gap: 12px; }
       .stt-card { padding: 20px 16px 24px; }
     }
   </style>
 </head>
-<body>
+<body class="pg page--settings">
 
   <!-- Navigation -->
   <header>
@@ -258,16 +245,10 @@
 
   <div class="stt-page">
 
-    <!-- ── Page header ──────────────────────────────────────────── -->
-    <div class="stt-header">
-      <div class="stt-header__icon">
-        <i class="fa-solid fa-gear"></i>
-      </div>
-      <div class="stt-header__text">
-        <h1>{{ t('settings.title') }}</h1>
-        <p>{{ t('settings.subtitle') }}</p>
-      </div>
-    </div>
+    {% with banner_page='settings', banner_icon='fa-solid fa-gear',
+            banner_title=t('settings.title'), banner_sub=t('settings.subtitle') %}
+      {% include "page_banner.html" %}
+    {% endwith %}
 
     <!-- ── Section : Interface ──────────────────────────────────── -->
     <p class="stt-section-label">{{ t('settings.section.interface') }}</p>
@@ -277,7 +258,7 @@
         <div class="stt-card__head-icon">
           <i class="fa-solid fa-language"></i>
         </div>
-        <span class="stt-card__title">{{ t('settings.language') }}</span>
+        <h2 class="stt-card__title">{{ t('settings.language') }}</h2>
       </div>
       <p class="stt-card__desc">{{ t('settings.language.desc') }}</p>
 
@@ -311,6 +292,145 @@
 
       </div>
     </div>
+
+    {% if is_admin %}
+    <!-- ── Section : Administration (visible uniquement statut administrateur) ── -->
+    <p class="stt-section-label">{{ t('settings.section.admin') }}</p>
+
+    <div class="stt-card">
+      <div class="stt-card__head">
+        <div class="stt-card__head-icon"><i class="fa-solid fa-key"></i></div>
+        <h2 class="stt-card__title">{{ t('settings.aikey') }}</h2>
+      </div>
+      <p class="stt-card__desc">{{ t('settings.aikey.desc') }}</p>
+      <div class="stt-admin-row">
+        <code id="stt-key-value" class="stt-admin-code">…</code>
+        <button class="stt-admin-btn" id="stt-key-toggle" type="button">
+          <i class="fa-solid fa-eye"></i> <span>{{ t('settings.aikey.show') }}</span>
+        </button>
+        <button class="stt-admin-btn" id="stt-key-edit" type="button">
+          <i class="fa-solid fa-pen"></i> {{ t('settings.aikey.edit') }}
+        </button>
+      </div>
+      <div class="stt-admin-row" id="stt-key-editrow" style="display:none">
+        <input id="stt-key-input" class="stt-admin-input" type="text"
+               placeholder="sk-..." autocomplete="off" spellcheck="false">
+        <button class="stt-admin-btn stt-admin-btn--primary" id="stt-key-save" type="button">
+          {{ t('settings.aikey.save') }}
+        </button>
+        <button class="stt-admin-btn" id="stt-key-cancel" type="button">
+          {{ t('settings.aikey.cancel') }}
+        </button>
+      </div>
+      <p class="stt-admin-error" id="stt-key-error"></p>
+    </div>
+
+    <div class="stt-card">
+      <div class="stt-card__head">
+        <div class="stt-card__head-icon"><i class="fa-solid fa-database"></i></div>
+        <h2 class="stt-card__title">{{ t('settings.dburl') }}</h2>
+      </div>
+      <p class="stt-card__desc">{{ t('settings.dburl.desc') }}</p>
+      <code id="stt-dburl" class="stt-admin-code stt-admin-code--block">…</code>
+    </div>
+
+    <div class="stt-card">
+      <div class="stt-card__head">
+        <div class="stt-card__head-icon"><i class="fa-solid fa-terminal"></i></div>
+        <h2 class="stt-card__title">{{ t('settings.console') }}</h2>
+      </div>
+      <p class="stt-card__desc">{{ t('settings.console.desc') }}</p>
+      <button class="stt-admin-btn" id="stt-console-toggle" type="button">
+        <i class="fa-solid fa-chevron-down"></i> <span>{{ t('settings.console.open') }}</span>
+      </button>
+      <pre id="stt-console" class="stt-console" style="display:none"></pre>
+    </div>
+
+    <script>
+      (function () {
+        let realKey = null, keyShown = false, consoleTimer = null, logOffset = 0;
+        const $ = id => document.getElementById(id);
+        const T = {
+          show: {{ t('settings.aikey.show') | tojson }},
+          hide: {{ t('settings.aikey.hide') | tojson }},
+          notset: {{ t('settings.aikey.notset') | tojson }},
+          copen: {{ t('settings.console.open') | tojson }},
+          cclose: {{ t('settings.console.close') | tojson }},
+        };
+        let masked = null;
+
+        function renderKey() {
+          $('stt-key-value').textContent =
+            keyShown ? (realKey || T.notset) : (masked || T.notset);
+          $('stt-key-toggle').querySelector('span').textContent = keyShown ? T.hide : T.show;
+        }
+
+        fetch('/parametres/admin/overview')
+          .then(r => r.json())
+          .then(d => {
+            if (!d.ok) return;
+            masked = d.openai_key_masked;
+            $('stt-dburl').textContent = d.db_url_masked;
+            renderKey();
+          });
+
+        $('stt-key-toggle').addEventListener('click', async () => {
+          if (!keyShown && realKey === null) {
+            const r = await fetch('/parametres/admin/openai-key/reveal', { method: 'POST' });
+            const d = await r.json();
+            if (!d.ok) return;
+            realKey = d.key;
+          }
+          keyShown = !keyShown;
+          renderKey();
+        });
+
+        $('stt-key-edit').addEventListener('click', () => {
+          $('stt-key-editrow').style.display = 'flex';
+          $('stt-key-input').focus();
+        });
+        $('stt-key-cancel').addEventListener('click', () => {
+          $('stt-key-editrow').style.display = 'none';
+          $('stt-key-error').textContent = '';
+        });
+        $('stt-key-save').addEventListener('click', async () => {
+          const r = await fetch('/parametres/admin/openai-key', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ key: $('stt-key-input').value }),
+          });
+          const d = await r.json();
+          if (!d.ok) { $('stt-key-error').textContent = d.error || 'Erreur'; return; }
+          masked = d.openai_key_masked; realKey = null; keyShown = false;
+          $('stt-key-editrow').style.display = 'none';
+          $('stt-key-input').value = ''; $('stt-key-error').textContent = '';
+          renderKey();
+        });
+
+        async function pollLogs() {
+          const r = await fetch('/parametres/admin/logs?offset=' + logOffset);
+          const d = await r.json();
+          if (d.ok && d.data) {
+            if (d.offset < logOffset) $('stt-console').textContent = '';
+            $('stt-console').textContent += d.data;
+            logOffset = d.offset;
+            $('stt-console').scrollTop = $('stt-console').scrollHeight;
+          } else if (d.ok) {
+            logOffset = d.offset;
+          }
+        }
+        $('stt-console-toggle').addEventListener('click', () => {
+          const pre = $('stt-console');
+          const open = pre.style.display === 'none';
+          pre.style.display = open ? 'block' : 'none';
+          $('stt-console-toggle').querySelector('span').textContent = open ? T.cclose : T.copen;
+          $('stt-console-toggle').querySelector('i').className =
+            'fa-solid fa-chevron-' + (open ? 'up' : 'down');
+          if (open) { pollLogs(); consoleTimer = setInterval(pollLogs, 2000); }
+          else if (consoleTimer) { clearInterval(consoleTimer); consoleTimer = null; }
+        });
+      })();
+    </script>
+    {% endif %}
 
   </div><!-- /.stt-page -->
 

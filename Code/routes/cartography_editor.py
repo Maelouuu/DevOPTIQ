@@ -1,4 +1,4 @@
-"""Blueprint OptiqCarto — éditeur de cartographie intégré à DevOPTIQ.
+"""Blueprint OptiqCarto — éditeur de cartographie intégré à OptiqFluent.
 
 La carto JSON de chaque entité est stockée en base de données (colonne
 Entity.optiqcarto_data) pour survivre aux redémarrages Cloud Run.
@@ -21,6 +21,8 @@ from flask import (
 )
 
 from Code.extensions import db
+from Code.ai_key import get_openai_key
+from Code.prompts import get_prompt, prompts_available
 from Code.models.models import (
     Activities, CartoCalque, CompetencyEvaluation, CrossCartoLiaison,
     Entity, Link, Role, TimeAnalysis, TimeProjectLine, TimeRoleLine,
@@ -1011,13 +1013,9 @@ def api_architect():
         band_y_info.append({"label": b.get("label", ""), "y_start": y, "y_end": y + b.get("height", 220)})
         y += b.get("height", 220)
 
-    system_prompt = (
-        "Tu es un expert en architecture de processus métier. "
-        "Tu dois repositionner les formes d'un diagramme de flux pour maximiser la lisibilité : "
-        "pas de chevauchement, connexions courtes, alignement logique gauche→droite dans chaque bande. "
-        "Réponds UNIQUEMENT avec un JSON valide : {\"positions\": [{\"id\": <int>, \"x\": <int>, \"y\": <int>}, ...]}. "
-        "Aucun texte avant ou après le JSON."
-    )
+    system_prompt = get_prompt("carto.reposition.system")
+    if system_prompt is None:
+        return jsonify({"error": "Prompts IA non chargés sur cette instance."}), 500
 
     user_prompt = (
         f"Bandes (horizontal swimlanes, y croissant) :\n{json.dumps(band_y_info, ensure_ascii=False)}\n\n"
@@ -1039,11 +1037,11 @@ def api_architect():
         return json.loads(raw.strip())
 
     # Essai 1 : OpenAI (utilise OPENAI_API_KEY depuis l'environnement, comme chatbot.py)
-    openai_key = os.environ.get("OPENAI_API_KEY")
+    openai_key = get_openai_key()
     if openai_key:
         try:
             from openai import OpenAI as _OAI
-            client = _OAI()  # lit OPENAI_API_KEY automatiquement
+            client = _OAI(api_key=openai_key)
             response = client.chat.completions.create(
                 model=os.environ.get("OPENAI_CHATBOT_MODEL", "gpt-4o-mini"),
                 messages=[

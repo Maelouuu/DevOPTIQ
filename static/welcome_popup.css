@@ -7,6 +7,7 @@
   position: fixed;
   inset: 0;
   z-index: 9999;
+  font-family: var(--pg-font, 'DM Sans', -apple-system, sans-serif);
   display: flex;
   align-items: center;
   justify-content: center;

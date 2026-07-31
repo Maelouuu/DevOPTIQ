@@ -2,19 +2,17 @@
 <link rel="stylesheet" href="{{ url_for('static', filename='projection_metier.css') }}">
 <script defer src="{{ url_for('static', filename='js/projection_metier.js') }}"></script>
 
-<div class="pm-page">
+<div class="pm-page pg-root page--competences">
 
-  <!-- ── Banner ── -->
-  <div class="pm-banner">
-    <div class="pm-banner__icon"><i class="fa-solid fa-briefcase"></i></div>
-    <div class="pm-banner__text">
-      <h1 class="pm-banner__title">Projection Métiers ROME 4.0</h1>
-      <p class="pm-banner__sub">Identifiez les métiers maîtrisables et envisageables pour chaque collaborateur</p>
-    </div>
-    <div class="pm-banner__chips">
-      <span class="pm-chip"><span class="dot dot-green"></span> 100 % couvertes</span>
-      <span class="pm-chip"><span class="dot dot-amber"></span> Couverture partielle</span>
-    </div>
+  {% with banner_page='competences', banner_icon='fa-solid fa-briefcase',
+          banner_title='Projection Métiers ROME 4.0',
+          banner_sub='Identifiez les métiers maîtrisables et envisageables pour chaque collaborateur' %}
+    {% include "page_banner.html" %}
+  {% endwith %}
+
+  <div class="pm-banner__chips">
+    <span class="pm-chip"><span class="dot dot-green"></span> 100 % couvertes</span>
+    <span class="pm-chip"><span class="dot dot-amber"></span> Couverture partielle</span>
   </div>
 
   <!-- ── Layout 3 colonnes ── -->

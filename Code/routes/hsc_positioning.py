@@ -4,6 +4,7 @@
 # directement un niveau. L'IA propose un niveau PROBABLE ; seul un évaluateur habilité valide.
 import json
 from flask import Blueprint, request, jsonify, current_app, session
+from Code.prompts import get_prompt, prompts_available
 from Code.extensions import db
 from Code.models.models import HscLevelDescriptor, Entity
 from Code.routes.propose_common import openai_client_or_none
@@ -67,13 +68,6 @@ def upsert_descriptor():
     return jsonify({"ok": True, "id": row.id}), 200
 
 
-HSC_POS_SYSTEM = (
-    "Tu es un analyste OPTIQ. À partir des RÉPONSES d'une personne à des situations comportementales "
-    "et d'exemples vécus, tu proposes un niveau PROBABLE (1 Aptitude, 2 Acquisition, 3 Maîtrise, "
-    "4 Expertise) pour une HSC donnée. Tu ne valides jamais seul : tu proposes. Base-toi sur des "
-    "comportements observables, pas sur des déclarations d'intention. Indique ce qui MANQUE pour le "
-    "niveau suivant. Réponds UNIQUEMENT en JSON."
-)
 
 
 @hsc_bp.route("/position", methods=["POST"])
@@ -86,7 +80,8 @@ def position():
         return jsonify({"error": "invalid"}), 400
     lang = _lang()
     client, err = openai_client_or_none()
-    if client is None:
+    pos_system = get_prompt("hsc.positioning.system")
+    if client is None or pos_system is None:
         return jsonify({"proposal": None, "source": err or "no_ai"}), 200
     responses = p.get("responses") or []
     examples = p.get("examples") or ""
@@ -95,7 +90,7 @@ def position():
     try:
         resp = client.chat.completions.create(
             model="gpt-4o-mini",
-            messages=[{"role": "system", "content": HSC_POS_SYSTEM},
+            messages=[{"role": "system", "content": pos_system},
                       {"role": "user", "content": f"HSC : {name}\nRéponses situations :\n"
                                                   + "\n".join(f"- {r}" for r in responses)
                                                   + (f"\nExemple vécu : {examples}" if examples else "")

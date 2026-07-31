@@ -1,0 +1,26 @@
+{# ── page_banner.html — bandeau d'en-tête commun à toutes les pages ──────────
+   Élément d'identité partagé (avec la nav bar) : icône teintée de la couleur
+   de la page, titre Fraunces, sous-titre, filet accent en tête de carte.
+   Styles : static/ui-theme.css (.page-banner).
+
+   Variables attendues (via {% with %} avant {% include %}) :
+     banner_page  : clé de couleur — carto | activities | roles | competences |
+                    time | accounts | rh | tools | settings
+     banner_icon  : classes Font Awesome (ex. 'fa-solid fa-clock')
+     banner_title : titre de la page
+     banner_sub   : sous-titre (optionnel)
+     banner_stat_value / banner_stat_label / banner_stat_id : encart chiffre (optionnel)
+#}
+<div class="page-banner page--{{ banner_page }}">
+  <div class="page-banner__icon"><i class="{{ banner_icon }}"></i></div>
+  <div class="page-banner__text">
+    <h1 class="page-banner__title">{{ banner_title }}</h1>
+    {% if banner_sub %}<p class="page-banner__sub">{{ banner_sub }}</p>{% endif %}
+  </div>
+  {% if banner_stat_label %}
+  <div class="page-banner__stat"{% if banner_stat_id %} id="{{ banner_stat_id }}"{% endif %}>
+    <span class="stat-val">{{ banner_stat_value if banner_stat_value is not none else '—' }}</span>
+    <span class="stat-lbl">{{ banner_stat_label }}</span>
+  </div>
+  {% endif %}
+</div>

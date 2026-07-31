@@ -1,6 +1,8 @@
 # Code/routes/skills.py
 
 from flask import Blueprint, request, jsonify, session
+from Code.ai_key import get_openai_key
+from Code.prompts import get_prompt, prompts_available
 import os
 import openai
 import re
@@ -65,26 +67,23 @@ def propose_skills():
     # --- PROMPT ---
     lang = session.get('lang', 'fr')
     lang_instr = "Write the 3 competency proposals in English." if lang == 'en' else "Rédigez les 3 propositions en français."
-    prompt = f"""
-Vous êtes un expert en gestion des compétences selon la norme NF X50-124.
-Rédigez exactement 3 propositions de compétences,
-chacune sur une nouvelle ligne distincte,
-sans puce ni numérotation,
-en commençant par un verbe d'action.
-{lang_instr}
-
-Activité : {activity_name}
-Entrées : {input_data_value}
-Sorties : {output_data_value}
-Tâches : {tasks_str}
-Connexions sortantes : {outgoing_str}
-Outils : {tools_str}
-"""
+    prompt = get_prompt(
+        "skills.competencies",
+        lang_instr=lang_instr,
+        activity_name=activity_name,
+        input_data=input_data_value,
+        output_data=output_data_value,
+        tasks=tasks_str,
+        outgoing=outgoing_str,
+        tools=tools_str,
+    )
+    if prompt is None:
+        return jsonify({"error": "Prompts IA non chargés sur cette instance."}), 500
 
     # --- OpenAI API KEY ---
-    openai.api_key = os.getenv("OPENAI_API_KEY")
+    openai.api_key = get_openai_key()
     if not openai.api_key:
-        return jsonify({"error": "Clé OpenAI manquante (OPENAI_API_KEY)."}), 500
+        return jsonify({"error": "Clé IA non renseignée."}), 500
 
     # --- NOUVEAU CLIENT OPENAI ---
     try:
@@ -94,7 +93,7 @@ Outils : {tools_str}
         response = client.chat.completions.create(
             model="gpt-4o-mini",    # modèle compatible nouvelle API
             messages=[
-                {"role": "system", "content": "Vous êtes un assistant spécialisé en compétences NF X50-124."},
+                {"role": "system", "content": get_prompt("skills.system")},
                 {"role": "user", "content": prompt}
             ],
             temperature=0.3,

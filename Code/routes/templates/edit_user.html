@@ -1,18 +1,9 @@
 {% include "header_buttons.html" %}
 <link rel="stylesheet" href="{{ url_for('static', filename='gestion_compte_new.css') }}">
 
-<div class="accounts-page">
+<div class="accounts-page pg-root page--accounts">
 
-  <!-- ── Banner ── -->
-  <div class="page-banner">
-    <div class="page-banner__icon">
-      <i class="fa-solid fa-user-pen"></i>
-    </div>
-    <div class="page-banner__text">
-      <h1 class="page-banner__title">Edit User</h1>
-      <p class="page-banner__sub">{{ user.first_name }} {{ user.last_name }}</p>
-    </div>
-  </div>
+  {% with banner_page='accounts', banner_icon='fa-solid fa-user-pen', banner_title=t('account.edit_user_title'), banner_sub=user.first_name ~ ' ' ~ user.last_name %}{% include "page_banner.html" %}{% endwith %}
 
   <!-- ── Formulaire ── -->
   <section class="section-card" style="max-width: 680px; margin: 0 auto;">
@@ -20,8 +11,8 @@
       <div class="section-card__head-left">
         <span class="section-icon"><i class="fa-solid fa-pencil"></i></span>
         <div>
-          <h2 class="section-card__title">Account Information</h2>
-          <p class="section-card__subtitle">Update the fields and save</p>
+          <h2 class="section-card__title">{{ t('account.edit_info_title') }}</h2>
+          <p class="section-card__subtitle">{{ t('account.edit_info_subtitle') }}</p>
         </div>
       </div>
     </div>
@@ -33,7 +24,7 @@
           <div class="search-style-wrap">
             <i class="fa-solid fa-user search-style-icon"></i>
             <input type="text" name="first_name" class="search-style-input"
-                   placeholder="First name *" value="{{ user.first_name }}" required autocomplete="off">
+                   placeholder="{{ t('account.field_firstname') }} *" value="{{ user.first_name }}" required autocomplete="off">
           </div>
         </div>
 
@@ -41,7 +32,7 @@
           <div class="search-style-wrap">
             <i class="fa-solid fa-user search-style-icon"></i>
             <input type="text" name="last_name" class="search-style-input"
-                   placeholder="Last name *" value="{{ user.last_name }}" required autocomplete="off">
+                   placeholder="{{ t('account.field_lastname') }} *" value="{{ user.last_name }}" required autocomplete="off">
           </div>
         </div>
 
@@ -57,7 +48,7 @@
           <div class="search-style-wrap">
             <i class="fa-solid fa-calendar search-style-icon"></i>
             <input type="number" name="age" class="search-style-input"
-                   placeholder="Age" value="{{ user.age or '' }}" min="18" max="100" autocomplete="off">
+                   placeholder="{{ t('account.field_age') }}" value="{{ user.age or '' }}" min="18" max="100" autocomplete="off">
           </div>
         </div>
 
@@ -76,19 +67,19 @@
           <div class="search-style-wrap search-style-wrap--select">
             <i class="fa-solid fa-shield search-style-icon"></i>
             <select name="status" class="search-style-input" required>
-              <option value="user"          {% if user.status == 'user' %}selected{% endif %}>User</option>
-              <option value="rh"            {% if user.status == 'rh' %}selected{% endif %}>HR</option>
-              <option value="administrateur"{% if user.status == 'administrateur' %}selected{% endif %}>Administrator</option>
+              <option value="user"          {% if user.status == 'user' %}selected{% endif %}>{{ t('account.status_user') }}</option>
+              <option value="rh"            {% if user.status == 'rh' %}selected{% endif %}>{{ t('account.status_rh') }}</option>
+              <option value="administrateur"{% if user.status == 'administrateur' %}selected{% endif %}>{{ t('account.status_admin') }}</option>
             </select>
           </div>
         </div>
 
         <div class="field-btn" style="gap: 10px; display: flex; justify-content: flex-end;">
           <a href="{{ url_for('gestion_compte.list_users') }}" class="btn btn-ghost">
-            <i class="fa-solid fa-xmark"></i> Cancel
+            <i class="fa-solid fa-xmark"></i> {{ t('btn.cancel') }}
           </a>
           <button type="submit" class="btn btn-pink">
-            <i class="fa-solid fa-check"></i> Save
+            <i class="fa-solid fa-check"></i> {{ t('btn.save') }}
           </button>
         </div>
 
@@ -102,8 +93,8 @@
       <div class="section-card__head-left">
         <span class="section-icon"><i class="fa-solid fa-lock"></i></span>
         <div>
-          <h2 class="section-card__title">Change Password</h2>
-          <p class="section-card__subtitle">Leave blank if no change needed</p>
+          <h2 class="section-card__title">{{ t('account.change_pw_title') }}</h2>
+          <p class="section-card__subtitle">{{ t('account.change_pw_subtitle') }}</p>
         </div>
       </div>
     </div>
@@ -112,35 +103,44 @@
       <div class="search-style-wrap">
         <i class="fa-solid fa-lock search-style-icon"></i>
         <input type="password" id="chpw-new" class="search-style-input"
-               placeholder="New password (min. 6 chars)"
+               placeholder="{{ t('account.new_pw_ph') }}"
                autocomplete="new-password">
       </div>
       <div class="search-style-wrap">
         <i class="fa-solid fa-lock search-style-icon"></i>
         <input type="password" id="chpw-confirm" class="search-style-input"
-               placeholder="Confirm new password"
+               placeholder="{{ t('account.confirm_pw_ph') }}"
                autocomplete="new-password">
       </div>
-      <div id="chpw-msg" style="font-size:0.84rem; min-height:20px;"></div>
+      <div id="chpw-msg" style="font-size:12.5px; min-height:20px;"></div>
       <div style="display:flex; justify-content:flex-end;">
         <button type="button" class="btn btn-pink" onclick="submitPasswordChange()">
-          <i class="fa-solid fa-key"></i> Update Password
+          <i class="fa-solid fa-key"></i> {{ t('account.btn_update_pw') }}
         </button>
       </div>
     </div>
   </section>
 
   <script>
+  const CHPW_I18N = {
+    enter:    {{ t('account.pw_enter') | tojson }},
+    min:      {{ t('account.pw_min') | tojson }},
+    mismatch: {{ t('account.pw_mismatch') | tojson }},
+    saving:   {{ t('account.pw_saving') | tojson }},
+    updated:  {{ t('account.pw_updated') | tojson }},
+    network:  {{ t('account.pw_network_error') | tojson }}
+  };
+
   function submitPasswordChange() {
     const newPw   = document.getElementById('chpw-new').value;
     const confirm = document.getElementById('chpw-confirm').value;
     const msg     = document.getElementById('chpw-msg');
 
-    if (!newPw) { msg.innerHTML = '<span style="color:#dc2626">Please enter a new password.</span>'; return; }
-    if (newPw.length < 6) { msg.innerHTML = '<span style="color:#dc2626">Minimum 6 characters.</span>'; return; }
-    if (newPw !== confirm) { msg.innerHTML = '<span style="color:#dc2626">Passwords do not match.</span>'; return; }
+    if (!newPw) { msg.innerHTML = `<span style="color:#dc2626">${CHPW_I18N.enter}</span>`; return; }
+    if (newPw.length < 6) { msg.innerHTML = `<span style="color:#dc2626">${CHPW_I18N.min}</span>`; return; }
+    if (newPw !== confirm) { msg.innerHTML = `<span style="color:#dc2626">${CHPW_I18N.mismatch}</span>`; return; }
 
-    msg.innerHTML = '<span style="color:#6b7280"><i class="fa-solid fa-spinner fa-spin"></i> Saving…</span>';
+    msg.innerHTML = `<span style="color:#6b7280"><i class="fa-solid fa-spinner fa-spin"></i> ${CHPW_I18N.saving}</span>`;
     fetch('/comptes/set_password/{{ user.id }}', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -149,14 +149,14 @@
     .then(r => r.json())
     .then(d => {
       if (d.ok) {
-        msg.innerHTML = '<span style="color:#16a34a"><i class="fa-solid fa-check"></i> Password updated successfully.</span>';
+        msg.innerHTML = `<span style="color:#16a34a"><i class="fa-solid fa-check"></i> ${CHPW_I18N.updated}</span>`;
         document.getElementById('chpw-new').value = '';
         document.getElementById('chpw-confirm').value = '';
       } else {
         msg.innerHTML = `<span style="color:#dc2626"><i class="fa-solid fa-triangle-exclamation"></i> ${d.error || 'Error'}</span>`;
       }
     })
-    .catch(() => { msg.innerHTML = '<span style="color:#dc2626">Network error.</span>'; });
+    .catch(() => { msg.innerHTML = `<span style="color:#dc2626">${CHPW_I18N.network}</span>`; });
   }
   </script>
 

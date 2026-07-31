@@ -6,6 +6,7 @@
 import json
 from datetime import datetime
 from flask import Blueprint, request, jsonify, current_app, session
+from Code.prompts import get_prompt, prompts_available
 from Code.extensions import db
 from Code.models.models import (Activities, Data, CompetencyEvaluation, ResultCapabilityLink,
                                 ResultDiagnostic, Savoir, SavoirFaire, Softskill)
@@ -147,13 +148,6 @@ def save_diagnostic():
     return jsonify({"ok": True, "families": fams}), 200
 
 
-PLAN_SYSTEM = (
-    "Tu es un analyste OPTIQ. Tu conçois un plan d'accompagnement pour développer la CAPACITÉ À AGIR "
-    "d'un collaborateur sur un RÉSULTAT d'activité en écart. Le plan cible les savoirs/savoir-faire/HSC "
-    "en écart et les SITUATIONS DE TRAVAIL à réaliser, pas des formations génériques. Réponds UNIQUEMENT "
-    "en JSON avec une liste 'plan' d'objectifs, chacun : development_objective, target_level, "
-    "work_situations, support_mode, steps (liste), evidence_expected, review_date, reviewer."
-)
 
 
 @diagnostic_bp.route("/plan", methods=["POST"])
@@ -185,12 +179,13 @@ def generate_plan():
         "capabilities_in_gap": [{"type": c["type_label"], "label": c["label"],
                                  "current": c["demonstrated_level"], "required": c["required_level"]} for c in caps],
     }
-    if client is None:
+    plan_system = get_prompt("diagnostic.plan.system")
+    if client is None or plan_system is None:
         return jsonify({"plan": None, "source": err or "no_ai", "context": ctx}), 200
     try:
         resp = client.chat.completions.create(
             model="gpt-4o-mini",
-            messages=[{"role": "system", "content": PLAN_SYSTEM},
+            messages=[{"role": "system", "content": plan_system},
                       {"role": "user", "content": "Contexte:\n" + json.dumps(ctx, ensure_ascii=False)
                                                   + "\nRéponds en " + ("français." if lang == "fr" else "English.")}],
             temperature=0.3, response_format={"type": "json_object"})

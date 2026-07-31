@@ -1,130 +1,12 @@
 from flask import Blueprint, request, jsonify, current_app, session
+from Code.prompts import get_prompt, prompts_available
 import json
 import re
 from .propose_common import openai_client_or_none
 
 bp_propose_aptitudes = Blueprint("propose_aptitudes", __name__)
 
-PROMPT_INCLUSION_SCORING = """
-Tu es expert en analyse du travail, prevention sante/securite et inclusion (amenagement raisonnable).
-Important : ne traite PAS les HSC (cognitif/competences fines). Ici : accessibilite, prevention, conditions de travail.
 
-Activite : {activity_name}
-Resume activite (outils, delais, conformite, environnement) :
-{activity_summary}
-
-Contexte optionnel (si renseigne ; sinon ignorer sans penaliser) :
-- Competences attendues : {competences_text}
-- Savoirs attendus : {savoirs_text}
-- Savoir-faire attendus : {savoir_faire_text}
-- HSC essentielles (deja calculees) : {hsc_context}
-
-ECHELLE DE COTATION (utilise exactement ces libelles) :
-0 (Aucune) | 1 (Faible) | 2 (Moderee) | 3 (Elevee)
-
-CATEGORIES (uniquement celles-ci) :
-1) Vision
-2) Auditif (communication orale, alertes sonores, reunions, telephone, bruit ambiant necessaire/genants)
-3) Physique (haut du corps / bas du corps / fatigabilite)
-4) Environnemental (bruit/interruptions + modalites oral/ecrit + exigences de qualite de communication si explicites)
-5) Exposition / Risque (accident, machines, hauteur, engins, chimique, exterieur, isolement)
-
-REGLES :
-A) Concision : chaque categorie = 1 risque court + 1 a 2 leviers (specifiques).
-B) Leviers = adaptations inclusion : integrer, quand pertinent, des adaptations possibles (poste, logiciel, modalites, outils d'assistance).
-   - Vision : inclure au moins 1 levier de type "accessibilite numerique" si outil/logiciel est central (zoom/contraste, navigation clavier, lecteur d'ecran, conformite accessibilite type WCAG/EN 301 549 si applicable).
-C) Anti-generique : pas "ergonomie standard" (chaise/posture) sauf si le resume indique saisie intensive / longues plages / pic sous delai.
-D) Performance/delai : ne l'utiliser comme facteur de risque QUE si c'est manifestement contraignant ou a tolerance zero.
-   Exemples de signaux "evidents" : delai tres court/urgent, penalites, "0 erreur", "zero defaut", securite critique, audit, conformite bloquante.
-   Sinon, ignorer le delai comme facteur de risque.
-E) Exposition/Risque :
-   - Si aucune exposition explicite dans le resume : niveau 0 + 1 seul levier conditionnel max (pas plus).
-F) Profils valorisables : 2 max, toujours formules prudemment et conditionnes par "si exigences metier acquises".
-
-FORMAT DE SORTIE :
-Reponds UNIQUEMENT en JSON brut (pas de texte hors JSON, pas de backticks) :
-
-{{
-  "vision": {{
-    "niveau": "X (Libelle)",
-    "risque": "<7-12 mots>",
-    "leviers": ["<adaptation inclusive 7-12 mots>", "<optionnel>"]
-  }},
-  "auditif": {{
-    "niveau": "X (Libelle)",
-    "risque": "<7-12 mots>",
-    "leviers": ["<adaptation inclusive 7-12 mots>", "<optionnel>"]
-  }},
-  "physique": {{
-    "haut_du_corps": "X (Libelle)",
-    "bas_du_corps": "X (Libelle)",
-    "fatigabilite": "X (Libelle)",
-    "risque": "<7-12 mots>",
-    "leviers": ["<adaptation inclusive 7-12 mots>", "<optionnel>"]
-  }},
-  "environnemental": {{
-    "niveau": "X (Libelle)",
-    "risque": "<7-12 mots>",
-    "leviers": ["<adaptation inclusive 7-12 mots>", "<optionnel>"]
-  }},
-  "exposition_risque": {{
-    "niveau": "X (Libelle)",
-    "risque": "<7-12 mots>",
-    "leviers": ["<0 ou 1 levier si niveau 0 ; sinon 1-2>"]
-  }},
-  "profils_valorisables": [
-    {{
-      "profil": "<profil/handicap generique>",
-      "atout_possible": "<7-14 mots>",
-      "condition": "Si exigences metier acquises : <cadre necessaire, 7-14 mots>"
-    }}
-  ]
-}}
-"""
-
-PROMPT_HANDICAP_FEASIBILITY_ICF = """
-Tu es expert prevention et inclusion. Tu n'etablis aucun diagnostic medical.
-Objectif : evaluer la faisabilite d'adaptation d'une personne (limitations fonctionnelles) a une activite, en tenant compte des aides/compensations deja en place.
-
-Reference : description fonctionnelle inspiree ICF/CIF (OMS).
-
-Activite : {activity_name}
-Analyse exigences (JSON) :
-{inclusion_scoring_json}
-
-Profil fonctionnel (si une dimension est inconnue, mettre "inconnu") :
-- Vision : {vision}
-- Audition/communication : {audition}
-- Motricite fine (mains) : {motricite_fine}
-- Mobilite/posture : {mobilite_posture}
-- Endurance/fatigabilite : {endurance}
-- Sensibilite environnementale (bruit/lumiere/interruptions) : {sensibilite_env}
-- Commentaire court (facultatif, sans detail medical) : {commentaire_court}
-
-Aides / compensations deja en place (liste + eventuel "Autres") :
-{assistive_products_text}
-
-REGLES :
-1) Statut : "OK", "OK avec adaptations", "A instruire", ou "Non recommande sans changement majeur".
-2) Tu dois distinguer :
-   - "mesures_deja_en_place" : ce qui est deja present et pertinent (a conserver),
-   - "ajouts_recommandes" : ce qui manque (2 a 4 max),
-   - "a_ajuster" : ce qui est en place mais insuffisant/mal aligne (0 a 2 max).
-3) Ne repropose pas comme "ajout" une mesure deja listee dans les aides/compensations : au contraire, place-la dans "mesures_deja_en_place" ou "a_ajuster".
-4) Tes ajouts doivent etre alignes sur Vision/Physique/Environnemental/Exposition du JSON d'exigences.
-5) Si incertitude ou exposition/securite non triviale : "A instruire" + points a clarifier + recommander validation ergonomie/sante au travail (ou equivalent selon pays).
-
-FORMAT (JSON brut uniquement) :
-{{
-  "statut": "OK|OK avec adaptations|A instruire|Non recommande sans changement majeur",
-  "mesures_deja_en_place": ["...", "..."],
-  "ajouts_recommandes": ["...", "...", "..."],
-  "a_ajuster": ["...", "..."],
-  "risque_residuel": "<1 phrase>",
-  "points_a_instruire": ["...", "..."],
-  "commentaire": "<1-2 phrases prudentes>"
-}}
-"""
 
 
 def clean_json_response(text):
@@ -197,7 +79,8 @@ def propose_aptitudes():
         savoir_faire_text = activity.get("savoir_faire_text") or "Non renseigné"
         hsc_context = activity.get("hsc_context") or "Non renseigné"
 
-        prompt = PROMPT_INCLUSION_SCORING.format(
+        prompt = get_prompt(
+            "propose.aptitudes.inclusion_scoring",
             activity_name=activity_name,
             activity_summary=activity_summary,
             competences_text=competences_text,
@@ -205,6 +88,8 @@ def propose_aptitudes():
             savoir_faire_text=savoir_faire_text,
             hsc_context=hsc_context,
         )
+        if prompt is None:
+            return jsonify({"proposals": {}, "source": "prompts-unavailable"}), 200
 
         lang = session.get('lang', 'fr')
         lang_instr = "Respond in English (risque, leviers, profils fields)." if lang == 'en' else "Réponds en français (champs risque, leviers, profils)."
@@ -260,7 +145,8 @@ def propose_feasibility():
         else:
             assistive_products_text = str(assistive_products)
 
-        prompt = PROMPT_HANDICAP_FEASIBILITY_ICF.format(
+        prompt = get_prompt(
+            "propose.aptitudes.handicap_icf",
             activity_name=activity_name,
             inclusion_scoring_json=inclusion_scoring_json,
             vision=vision,
@@ -272,6 +158,8 @@ def propose_feasibility():
             commentaire_court=commentaire_court,
             assistive_products_text=assistive_products_text,
         )
+        if prompt is None:
+            return jsonify({"result": {}, "source": "prompts-unavailable"}), 200
 
         lang2 = session.get('lang', 'fr')
         lang_instr2 = "Respond in English (text fields)." if lang2 == 'en' else "Réponds en français (champs texte)."

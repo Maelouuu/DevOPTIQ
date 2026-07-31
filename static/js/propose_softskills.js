@@ -39,6 +39,7 @@ function proposeSoftskills(activityData) {
   })
   .then(resp => {
     hideSpinner();
+    if (window.optiqAiCheck) window.optiqAiCheck(resp);
     if (resp.error) {
       alert("Erreur proposition HSC : " + resp.error);
       return;

@@ -1,0 +1,68 @@
+# Build & push de l'image client OptiqFluent vers ghcr.io/maelouuu/optiqfluent
+#
+# Déclenchement : push d'un tag `client-v*` (ex: client-v1.0.0) sur ce dépôt.
+#   git tag client-v1.0.0 && git push origin client-v1.0.0
+# → publie ghcr.io/maelouuu/optiqfluent:1.0.0 et :beta
+#
+# Prérequis (une seule fois) :
+#   1. Secret de dépôt PROMPTS_KEY (Settings → Secrets → Actions) : la clé
+#      Fernet générée par tools/prompts/encrypt_prompts.py — la même que celle
+#      embarquée dans les licences client (--prompts-key).
+#   2. Code/license_pubkey.pem committé (tools/licensing/keygen.py).
+#   3. Après le 1er push : passer le package ghcr `optiqfluent` en visibilité
+#      Private et vérifier qu'il est lié à ce dépôt.
+
+name: client-image
+
+on:
+  push:
+    tags:
+      - "client-v*"
+
+jobs:
+  build-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Vérifier la clé publique de licence
+        run: |
+          test -f Code/license_pubkey.pem || {
+            echo "::error::Code/license_pubkey.pem absent — exécuter tools/licensing/keygen.py et committer la clé publique";
+            exit 1;
+          }
+
+      - name: Chiffrer les prompts IA
+        env:
+          PROMPTS_KEY: ${{ secrets.PROMPTS_KEY }}
+        run: |
+          test -n "$PROMPTS_KEY" || {
+            echo "::error::Secret PROMPTS_KEY manquant (Settings → Secrets → Actions)";
+            exit 1;
+          }
+          pip install --quiet cryptography
+          python tools/prompts/encrypt_prompts.py > /dev/null
+          echo "Bundle prompts.enc généré"
+
+      - name: Login ghcr.io
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extraire la version du tag
+        id: version
+        run: echo "version=${GITHUB_REF_NAME#client-v}" >> "$GITHUB_OUTPUT"
+
+      - name: Build & push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: |
+            ghcr.io/maelouuu/optiqfluent:${{ steps.version.outputs.version }}
+            ghcr.io/maelouuu/optiqfluent:beta

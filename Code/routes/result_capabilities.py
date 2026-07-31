@@ -6,6 +6,7 @@
 import json
 from datetime import datetime
 from flask import Blueprint, request, jsonify, current_app, session
+from Code.prompts import get_prompt, prompts_available
 from Code.extensions import db
 from Code.models.models import (
     Data, Task, Activities, Competency, Savoir, SavoirFaire, Softskill,
@@ -39,16 +40,6 @@ def _result_ctx(activity, results):
 
 
 # ─────────────────────────── Compétence principale (CDC 2.2–2.4) ───────────────────────────
-COMP_SYSTEM = (
-    "Tu es un analyste de la méthode OPTIQ. La compétence est la CAPACITÉ DÉMONTRÉE à tenir "
-    "régulièrement une activité en produisant ses RÉSULTATS au niveau minimal de performance requis. "
-    "La formulation de la compétence NE DOIT PAS énumérer les savoirs, savoir-faire ou HSC mobilisés, "
-    "ni recopier le standard de performance. Analyse UNIQUEMENT les résultats (RESULT) pour définir ce "
-    "qui démontre la tenue de l'activité ; les tâches et autres données ne servent que de contexte. "
-    "Propose UNE SEULE compétence principale. Si plusieurs résultats sont très indépendants, produisent "
-    "des finalités différentes et reposent sur des chaînes de tâches différentes, lève une alerte de "
-    "granularité (sans créer ni supprimer d'activité). Réponds UNIQUEMENT en JSON."
-)
 COMP_SCHEMA = (
     '{"activity_competence": {"description_fr": "...", "description_en": "..."}, '
     '"result_ids_used": [<int>], '
@@ -69,13 +60,14 @@ def generate_competence(activity_id):
                         "warning": ("Aucun résultat qualifié : la compétence ne peut pas être générée."
                                     if lang == "fr" else "No qualified result: competence cannot be generated.")}), 200
     client, err = openai_client_or_none()
-    if client is None:
+    comp_system = get_prompt("result_capabilities.competency.system")
+    if client is None or comp_system is None:
         return jsonify({"competence": None, "source": err or "no_ai"}), 200
     try:
         resp = client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
-                {"role": "system", "content": COMP_SYSTEM},
+                {"role": "system", "content": comp_system},
                 {"role": "user", "content": f"=== CONTEXTE ===\n{_result_ctx(activity, results)}\n\n"
                                              f"Renvoie un JSON respectant EXACTEMENT ce schéma :\n{COMP_SCHEMA}"},
             ],
@@ -115,14 +107,6 @@ def save_competence(activity_id):
 
 
 # ─────────────────────── S/SF/HSC par résultat (CDC 2.5–2.7) ───────────────────────
-SFHSC_SYSTEM = (
-    "Tu es un analyste OPTIQ. Pour CHAQUE résultat (RESULT) d'une activité, tu identifies, dans "
-    "cet ordre : les savoir-faire opératoires nécessaires pour produire le résultat, puis les savoirs "
-    "(connaissances/règles/référentiels) qui les soutiennent, puis UNIQUEMENT les HSC réellement "
-    "sollicitées par les contraintes, arbitrages ou interactions de la situation. Un savoir-faire n'est "
-    "pas une tâche ni un résultat ; un savoir est une connaissance, pas une action ; une HSC n'est pas un "
-    "trait de personnalité vague. Donne pour chaque HSC un niveau requis 1 à 4. Réponds UNIQUEMENT en JSON."
-)
 SFHSC_SCHEMA = (
     '{"results": [{"data_id": <int>, '
     '"savoir_faires": ["..."], "savoirs": ["..."], '
@@ -166,13 +150,14 @@ def generate_result_links(activity_id):
     if not results:
         return jsonify({"links": [], "source": "no_result"}), 200
     client, err = openai_client_or_none()
-    if client is None:
+    sfhsc_system = get_prompt("result_capabilities.sfhsc.system")
+    if client is None or sfhsc_system is None:
         return jsonify({"links": [], "source": err or "no_ai"}), 200
     try:
         resp = client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
-                {"role": "system", "content": SFHSC_SYSTEM},
+                {"role": "system", "content": sfhsc_system},
                 {"role": "user", "content": f"=== CONTEXTE ===\n{_result_ctx(activity, results)}\n\n"
                                              f"Renvoie un JSON respectant EXACTEMENT ce schéma :\n{SFHSC_SCHEMA}"},
             ],

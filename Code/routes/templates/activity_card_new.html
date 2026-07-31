@@ -195,7 +195,7 @@
                                                                     <i class="fa-solid fa-trash"></i>
                                                                 </button>
                                                             </div>
-                                                            <div id="perf-edit-form-{{ conn.performance.id }}" style="display:none; margin-top:8px;">
+                                                            <div id="perf-edit-form-{{ conn.performance.id }}" style="display:none; margin-top:10px;">
                                                                 <input type="text" id="perf-edit-input-{{ conn.performance.id }}" style="width:250px;" />
                                                                 <button class="action-btn" onclick="submitEditPerf('{{ conn.performance.id }}')">{{ t('btn.save') }}</button>
                                                                 <button class="action-btn secondary" onclick="hideEditPerfForm('{{ conn.performance.id }}')">{{ t('btn.cancel') }}</button>
@@ -204,7 +204,7 @@
                                                             <button class="action-btn" onclick="showAddPerfForm('{{ conn.link_id }}')">
                                                                 <i class="fa-solid fa-plus"></i> {{ t('activity.performance') }}
                                                             </button>
-                                                            <div id="perf-add-form-{{ conn.link_id }}" style="display:none; margin-top:8px;">
+                                                            <div id="perf-add-form-{{ conn.link_id }}" style="display:none; margin-top:10px;">
                                                                 <input type="text" id="perf-add-input-{{ conn.link_id }}" style="width:250px;" />
                                                                 <button class="action-btn" onclick="submitAddPerf('{{ conn.link_id }}')">{{ t('btn.save') }}</button>
                                                                 <button class="action-btn secondary" onclick="hideAddPerfForm('{{ conn.link_id }}')">{{ t('btn.cancel') }}</button>
