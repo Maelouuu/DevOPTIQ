@@ -26,10 +26,10 @@
         </button>
 
         <!-- Formulaire d'édition caché -->
-        <div id="edit-constraint-form-{{ c.id }}" style="display:none; margin-top:8px;">
+        <div id="edit-constraint-form-{{ c.id }}" style="display:none; margin-top:10px;">
           <input type="text" id="edit-constraint-input-{{ c.id }}" placeholder="Description" />
           <!-- File picker édition -->
-          <div style="margin-top:8px;">
+          <div style="margin-top:10px;">
             <div class="fp-wrap" id="edit-fp-{{ c.id }}">
               <div class="fp-zone">
                 <span class="fp-spinner" style="display:none"><i class="fa-solid fa-spinner fa-spin"></i></span>
@@ -46,7 +46,7 @@
               <input type="hidden" class="fp-path" value="{{ c.file_path or '' }}">
             </div>
           </div>
-          <div style="margin-top:6px; display:flex; gap:4px;">
+          <div style="margin-top:10px; display:flex; gap:4px;">
             <button class="icon-btn icon-btn-success" onclick="submitEditConstraint('{{ activity.id }}','{{ c.id }}')" title="Enregistrer"><i class="fa-solid fa-check"></i></button>
             <button class="icon-btn" onclick="hideEditConstraintForm('{{ c.id }}')" title="Annuler"><i class="fa-solid fa-xmark"></i></button>
           </div>

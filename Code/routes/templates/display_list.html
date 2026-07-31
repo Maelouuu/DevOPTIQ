@@ -4,8 +4,6 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Liste des activités</title>
-  <!-- Font Awesome -->
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <!-- CSS pour la liste des activités refaite -->
   <link rel="stylesheet" href="/static/activities_list.css">
   <!-- CSS spinner -->
@@ -23,7 +21,11 @@
 
   {% include "header_buttons.html" %}
 
-  <h1>{{ t('act_list.title') }}</h1>
+  <div class="pg-root page--activities">
+
+  {% with banner_page='activities', banner_icon='fa-solid fa-list-check', banner_title=t('act_list.title') %}{% include "page_banner.html" %}{% endwith %}
+
+  <div class="pg-container">
 
   <!-- Barre de recherche + bouton import -->
   <div class="activity-search-wrapper">
@@ -80,6 +82,9 @@
       <span id="load-more-label">{{ t('act_list.load_more') }}</span>
     </button>
   </div>
+
+  </div><!-- /.pg-container -->
+  </div><!-- /.pg-root page--activities -->
 
   {% include "modals_and_spinner.html" %}
 
