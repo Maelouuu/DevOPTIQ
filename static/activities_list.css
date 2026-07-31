@@ -13,10 +13,10 @@ body { margin: 0; }
 
 body .activity-container,
 .activity-container {
-    border: 1px solid var(--border) !important;
+    border: 1px solid var(--pg-accent-border) !important;
     padding: 10px 10px 14px !important;
     margin-bottom: 14px !important;
-    background-color: var(--card) !important;
+    background-color: var(--pg-accent-softer) !important;
     color: var(--ink) !important;
     border-radius: var(--r-card) !important;
     box-shadow: var(--sh-card) !important;
@@ -55,31 +55,32 @@ body .activity-container.highlighted-activity,
    ======================================== */
 
 /* Même grammaire d'en-tête dépliable que la page Rôles :
-   fond teinte accent claire, texte encre, chevron accent */
+   plein accent, texte blanc, chevron blanc */
 body .activity-header,
 .activity-header {
     cursor: pointer !important;
     font-size: 15px !important;
     font-weight: 700 !important;
     padding: 10px 14px !important;
-    background-color: var(--pg-accent-softer) !important;
-    border: 1px solid var(--pg-accent-border) !important;
+    background: linear-gradient(135deg, var(--pg-accent), var(--pg-accent-deep)) !important;
+    border: none !important;
     border-radius: 9px !important;
+    box-shadow: 0 4px 12px -6px var(--pg-accent-glow) !important;
     display: flex !important;
     align-items: center !important;
     gap: 10px !important;
-    transition: background-color 0.2s ease !important;
+    transition: filter 0.2s ease !important;
 }
 
 body .activity-header:hover,
 .activity-header:hover {
-    background-color: var(--pg-accent-soft) !important;
+    filter: brightness(1.07) !important;
 }
 
 body .activity-header h2,
 .activity-header h2 {
     margin: 0 !important;
-    color: var(--ink) !important;
+    color: #ffffff !important;
     font-size: 15px !important;
     font-weight: 700 !important;
     flex: 1 !important;
@@ -91,7 +92,7 @@ body .toggle-icon,
     width: 16px !important;
     display: inline-block !important;
     text-align: center !important;
-    color: var(--pg-accent) !important;
+    color: rgba(255,255,255,0.9) !important;
     font-size: 11px !important;
     transition: none !important;
 }
@@ -106,8 +107,8 @@ body .toggle-icon,
 
 .activity-summary {
     padding: 10px 12px;
-    border-bottom: 1px solid #e9ecef;
-    background-color: #f8f9fa;
+    border-bottom: 1px solid var(--pg-accent-border);
+    background-color: transparent;
 }
 
 .activity-description {
@@ -150,8 +151,10 @@ body .toggle-icon,
 
 .tabs-container {
     display: flex;
-    background-color: #fff;
-    border-bottom: 1px solid #e3e3e3;
+    gap: 4px;
+    background-color: transparent;
+    border-bottom: 1px solid var(--pg-accent-border);
+    padding: 6px 6px 6px 0;
     overflow-x: auto;
     scrollbar-width: thin;
 }
@@ -172,25 +175,25 @@ body .toggle-icon,
 .tab-button {
     background: none;
     border: none;
+    border-radius: 8px;
     padding: 8px 16px;
     font-size: 13.5px;
-    color: #6c757d;
+    color: var(--ink-2);
     cursor: pointer;
     transition: all 0.2s ease;
-    border-bottom: 2px solid transparent;
     white-space: nowrap;
-    font-weight: 500;
+    font-weight: 600;
 }
 
 .tab-button:hover {
-    color: #495057;
-    background-color: #f8f9fa;
+    color: var(--pg-accent-deep);
+    background-color: var(--pg-accent-soft);
 }
 
 .tab-button.active {
-    color: var(--pg-accent);
-    border-bottom-color: var(--pg-accent);
-    background-color: #f8f9fa;
+    color: #fff;
+    background: linear-gradient(135deg, var(--pg-accent), var(--pg-accent-deep));
+    box-shadow: 0 3px 10px -4px var(--pg-accent-glow);
 }
 
 /* ========================================
@@ -200,6 +203,9 @@ body .toggle-icon,
 .tab-content {
     display: none;
     padding: 12px;
+    background: var(--card);
+    border-radius: 10px;
+    margin-top: 8px;
     animation: fadeIn 0.2s ease;
 }
 
@@ -221,7 +227,7 @@ body .toggle-icon,
 /* Titre de section dans un onglet */
 .section-title {
     font-size: 15px;
-    color: var(--ink);
+    color: var(--pg-accent-deep);
     margin-bottom: 12px;
     font-weight: 700;
     display: flex;
@@ -250,13 +256,13 @@ body .toggle-icon,
 }
 
 .data-table th {
-    background: #f3f6f8;
-    color: #222;
+    background: var(--pg-accent-soft);
+    color: var(--pg-accent-deep);
     padding: 8px 10px;
     text-align: left;
-    font-weight: 600;
+    font-weight: 700;
     font-size: 12.5px;
-    border-bottom: 1px solid #e3e3e3;
+    border-bottom: 1px solid var(--pg-accent-border);
 }
 
 .data-table td {
@@ -791,15 +797,16 @@ body .toggle-icon,
 
 .overview-section {
     background-color: #fff;
-    border-radius: 6px;
+    border-radius: 8px;
     padding: 12px;
-    border: 1px solid #e3e3e3;
+    border: 1px solid var(--pg-accent-border);
+    border-left: 3px solid var(--pg-accent);
 }
 
 .overview-section-title {
     /* même niveau que .section-title */
     font-size: 15px;
-    color: var(--ink);
+    color: var(--pg-accent-deep);
     margin-bottom: 10px;
     font-weight: 700;
     display: flex;

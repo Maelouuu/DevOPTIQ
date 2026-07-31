@@ -18,8 +18,8 @@
 
     /* ── Carte rôle ── */
     .role-container {
-      background: var(--card);
-      border: 1px solid var(--border);
+      background: var(--pg-accent-softer);
+      border: 1px solid var(--pg-accent-border);
       border-radius: var(--r-card);
       box-shadow: var(--sh-card);
       padding: 10px 10px 12px;
@@ -29,18 +29,20 @@
       cursor: pointer;
       font-size: 15px;
       font-weight: 700;
-      color: var(--ink);
-      padding: 9px 12px;
-      background: var(--pg-accent-softer);
-      border: 1px solid var(--pg-accent-border);
+      color: #fff;
+      padding: 10px 14px;
+      background: linear-gradient(135deg, var(--pg-accent), var(--pg-accent-deep));
+      border: none;
       border-radius: 9px;
+      box-shadow: 0 4px 12px -6px var(--pg-accent-glow);
       display: flex;
       align-items: center;
       gap: 8px;
       user-select: none;
-      transition: background 0.15s;
+      transition: filter 0.15s;
     }
-    .role-header:hover { background: var(--pg-accent-soft); }
+    .role-header:hover { filter: brightness(1.07); }
+    .role-header .toggle-icon { color: rgba(255,255,255,0.9); }
     .role-header .actions {
       margin-left: auto;
       display: flex;
@@ -48,13 +50,13 @@
     }
     .role-header .actions i {
       cursor: pointer;
-      color: var(--muted);
+      color: rgba(255,255,255,0.75);
       font-size: 13px;
       padding: 6px 7px;
       border-radius: 7px;
       transition: color 0.15s, background 0.15s;
     }
-    .role-header .actions i:hover { color: var(--pg-accent-deep); background: var(--card); }
+    .role-header .actions i:hover { color: #fff; background: rgba(255,255,255,0.18); }
     /* .page-container en préfixe : optiq.css (chargé après ce <style> via la
        nav) définit aussi .toggle-icon — la spécificité doit rester ici */
     .page-container .toggle-icon {
@@ -74,7 +76,8 @@
     /* ── Volets internes : une seule grammaire pour TOUS les blocs ── */
     .role-block {
       margin: 8px 0;
-      border: 1px solid var(--border);
+      border: 1px solid var(--pg-accent-border);
+      border-left: 3px solid var(--pg-accent);
       border-radius: 10px;
       overflow: hidden;
       background: var(--card);
@@ -84,22 +87,22 @@
       font-size: 13.5px;
       font-weight: 700;
       padding: 10px 14px;
-      background: var(--card-2);
+      background: color-mix(in srgb, var(--pg-accent) 14%, #ffffff);
       display: flex;
       align-items: center;
       gap: 8px;
-      color: var(--ink-2);
+      color: var(--pg-accent-deep);
       transition: background 0.15s;
       user-select: none;
     }
-    .block-header:hover { background: var(--pg-accent-softer); }
+    .block-header:hover { background: color-mix(in srgb, var(--pg-accent) 20%, #ffffff); }
     .block-header .toggle-icon { font-size: 10px; }
     .block-content {
       display: none;
       padding: 14px 16px;
       color: var(--ink-2);
       font-size: 13.5px;
-      border-top: 1px solid var(--border);
+      border-top: 1px solid var(--pg-accent-border);
       background: var(--card);
     }
 
@@ -137,13 +140,13 @@
       font-weight: 700;
       text-transform: uppercase;
       letter-spacing: 0.05em;
-      color: var(--muted);
+      color: var(--pg-accent-deep);
       margin: 14px 0 6px;
       display: flex;
       align-items: center;
       gap: 7px;
       padding-bottom: 4px;
-      border-bottom: 1px solid var(--border);
+      border-bottom: 1px solid var(--pg-accent-border);
     }
     .block4-category i { color: var(--pg-accent); font-size: 12px; }
     .block4-category:first-child { margin-top: 2px; }
@@ -163,7 +166,7 @@
       padding: 8px 12px;
       background: var(--pg-accent-softer);
       border-radius: 8px;
-      border-left: 3px solid var(--pg-accent-border);
+      border-left: 3px solid var(--pg-accent);
       font-size: 13.5px;
       color: var(--ink-2);
       transition: background 0.15s;
@@ -252,17 +255,17 @@
       border-collapse: collapse;
       border-radius: 8px;
       overflow: hidden;
-      border: 1px solid var(--border);
+      border: 1px solid var(--pg-accent-border);
     }
     table.simple th, table.simple td {
       padding: 9px 12px;
       text-align: left;
       font-size: 13.5px;
-      border-bottom: 1px solid var(--border);
+      border-bottom: 1px solid var(--pg-accent-border);
     }
     table.simple thead th {
-      background: var(--card-2);
-      color: var(--muted);
+      background: var(--pg-accent-soft);
+      color: var(--pg-accent-deep);
       font-weight: 700;
       font-size: 12px;
       text-transform: uppercase;
@@ -337,7 +340,7 @@
     .role-search-input {
       width: 100%;
       padding: 10px 18px 10px 38px;
-      border: 1px solid var(--border-strong);
+      border: 1.5px solid var(--pg-accent-border);
       border-radius: 999px;
       font-size: 13.5px;
       font-family: inherit;
