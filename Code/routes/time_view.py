@@ -241,6 +241,16 @@ def api_projects_list():
         })
     return jsonify({"ok": True, "items": out})
 
+@time_bp.route('/api/project/<int:project_id>', methods=['PATCH'])
+def api_project_rename(project_id):
+    proj = TimeProject.query.get_or_404(project_id)
+    d = request.get_json(force=True) or {}
+    new_name = (d.get('name') or '').strip()
+    if new_name:
+        proj.name = new_name
+        db.session.commit()
+    return jsonify({"ok": True, "id": proj.id, "name": proj.name})
+
 @time_bp.route('/api/project/<int:project_id>', methods=['DELETE'])
 def api_project_delete(project_id):
     proj = TimeProject.query.get_or_404(project_id)
@@ -321,6 +331,93 @@ def api_time_analysis_delete(tid):
     db.session.delete(x)
     db.session.commit()
     return jsonify({"ok": True, "deleted": True})
+
+# ========================= CHARGES : ANALYSE ACTIVITÉ =========================
+# Endpoints appelés par static/js/time.js (onglet Activité). Ils existaient sur
+# la lignée main (avant divergence des branches) mais manquaient ici : l'onglet
+# chargeait dans le vide (404). Restaurés à l'identique — TimeAnalysis porte
+# déjà nb_people/impact_unit/delay_increase.
+
+def _workload_total(x):
+    return float(x.duration or 0) * max(1, x.frequency or 1) * max(1, x.nb_people or 1)
+
+def _workload_json(x):
+    act = Activities.query.get(x.activity_id)
+    return {
+        "id": x.id,
+        "activity_id": x.activity_id,
+        "activity": act.name if act else "",
+        "duration_minutes": float(x.duration or 0),
+        "recurrence": x.recurrence,
+        "frequency": int(x.frequency or 1),
+        "nb_people": int(x.nb_people or 1),
+        "total_minutes": _workload_total(x)
+    }
+
+@time_bp.route('/api/activity_workload', methods=['POST'])
+def api_activity_workload():
+    d = request.get_json(force=True) or {}
+    ta = TimeAnalysis(
+        type='activity',
+        activity_id=int(d['activity_id']),
+        duration=int(round(to_minutes(d.get('duration', 0), d.get('duration_unit')))),
+        recurrence=(d.get('recurrence') or 'journalier').strip().lower(),
+        frequency=int(d.get('frequency') or 1),
+        nb_people=int(d.get('nb_people') or 1),
+        delay=None,
+        delay_increase=None,
+        impact_unit='minutes'
+    )
+    db.session.add(ta)
+    db.session.commit()
+    return jsonify({"ok": True, "id": ta.id, "total_minutes": _workload_total(ta)})
+
+@time_bp.route('/api/activity_workload/<int:wk_id>', methods=['GET'])
+def api_activity_workload_read(wk_id):
+    x = TimeAnalysis.query.get_or_404(wk_id)
+    return jsonify({"ok": True, "item": _workload_json(x)})
+
+@time_bp.route('/api/activity_workload/<int:wk_id>', methods=['PATCH'])
+def api_activity_workload_update(wk_id):
+    x = TimeAnalysis.query.get_or_404(wk_id)
+    if x.type != 'activity':
+        return jsonify({"ok": False, "error": "bad_type"}), 400
+    d = request.get_json(force=True) or {}
+    if d.get('activity_id') is not None: x.activity_id = int(d['activity_id'])
+    if d.get('duration') is not None and d.get('duration_unit'):
+        x.duration = int(round(to_minutes(d['duration'], d['duration_unit'])))
+    if d.get('recurrence') is not None: x.recurrence = (d['recurrence'] or '').strip().lower()
+    if d.get('frequency') is not None: x.frequency = int(d['frequency'])
+    if d.get('nb_people') is not None: x.nb_people = int(d['nb_people'])
+    db.session.commit()
+    return jsonify({"ok": True, "id": x.id, "total_minutes": _workload_total(x)})
+
+@time_bp.route('/api/activity_workload/<int:wk_id>', methods=['DELETE'])
+def api_activity_workload_delete(wk_id):
+    x = TimeAnalysis.query.get_or_404(wk_id)
+    if x.type != 'activity':
+        return jsonify({"ok": False, "error": "bad_type"}), 400
+    db.session.delete(x)
+    db.session.commit()
+    return jsonify({"ok": True, "deleted": True})
+
+@time_bp.route('/api/activity_workloads', methods=['GET'])
+def api_activity_workloads_list():
+    entity_activity_ids = [a.id for a in Activities.for_active_entity().all()]
+    items = (TimeAnalysis.query
+             .filter_by(type='activity')
+             .filter(TimeAnalysis.activity_id.in_(entity_activity_ids))
+             .order_by(TimeAnalysis.id.desc())
+             .all())
+    return jsonify({"ok": True, "items": [_workload_json(x) for x in items]})
+
+@time_bp.route('/api/role_activities/<int:role_id>', methods=['GET'])
+def api_role_activities(role_id):
+    qs = (Activities.query
+          .join(activity_roles, Activities.id == activity_roles.c.activity_id)
+          .filter(activity_roles.c.role_id == role_id)
+          .order_by(Activities.name.asc()))
+    return jsonify({"ok": True, "activities": [{"id": a.id, "name": a.name} for a in qs.all()]})
 
 # ========================= ACTIVITÉS (liste) =========================
 @time_bp.route('/api/activities', methods=['GET'])

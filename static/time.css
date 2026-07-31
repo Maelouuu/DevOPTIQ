@@ -482,7 +482,7 @@ td .input[type="number"], td select { width: 100%; max-width: 100%; }
 .subcard-grid .row-actions { grid-column: 1 / -1; }
 .subcard-grid > h3 + * { margin-top: 0 !important; }
 
-.subcard-grid.equal { grid-auto-rows: 1fr; }
+.subcard-grid.equal { grid-auto-rows: auto; }
 .subcard-grid.equal .sc-field {
   display: grid;
   grid-template-rows: auto auto auto;

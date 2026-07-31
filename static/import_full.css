@@ -30,6 +30,7 @@
 
 /* ── Overlay ────────────────────────────────────────────────── */
 .if-overlay {
+  font-family: var(--pg-font, 'DM Sans', -apple-system, sans-serif);
   position: fixed;
   inset: 0;
   background: rgba(15, 10, 35, 0.6);

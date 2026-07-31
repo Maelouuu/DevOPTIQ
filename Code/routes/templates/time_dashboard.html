@@ -231,7 +231,7 @@
               <label class="chk"><input type="radio" name="fw-mode" value="activity" checked> {{ t('time.fw_mode_global') }}</label>
               <label class="chk"><input type="radio" name="fw-mode" value="tasks"> {{ t('time.fw_mode_tasks') }}</label>
             </div>
-            <div class="field-hint">{{ t('time.fw_hint_mode') }}</div>
+            <div class="field-hint">{{ t('time.fw_hint_mode') | safe }}</div>
           </div>
 
           <div>
@@ -317,7 +317,7 @@
           <div class="sc-field">
             <label>{{ t('time.fw_prob_label') }}</label>
             <input id="fw-n" type="number" value="1" min="1" class="input" />
-            <div class="field-hint">{{ t('time.fw_hint_prob') }}</div>
+            <div class="field-hint">{{ t('time.fw_hint_prob') | safe }}</div>
           </div>
 
           <div class="sc-field">
@@ -328,7 +328,7 @@
                 <option>{{ t('time.unit_minutes') }}</option><option>{{ t('time.unit_hours') }}</option><option>{{ t('time.unit_days') }}</option>
               </select>
             </div>
-            <div class="field-hint">{{ t('time.fw_hint_extra') }}</div>
+            <div class="field-hint">{{ t('time.fw_hint_extra') | safe }}</div>
           </div>
 
           <div class="sc-field">
@@ -339,7 +339,7 @@
                 <option>{{ t('time.unit_minutes') }}</option><option>{{ t('time.unit_hours') }}</option><option>{{ t('time.unit_days') }}</option>
               </select>
             </div>
-            <div class="field-hint">{{ t('time.fw_hint_delay') }}</div>
+            <div class="field-hint">{{ t('time.fw_hint_delay') | safe }}</div>
           </div>
 
           <div class="row-actions">

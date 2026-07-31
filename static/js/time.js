@@ -382,18 +382,21 @@
     const r = await fetch('/temps/api/projects');
     const j = await r.json();
     if (!j.ok) { list.innerHTML = '<div class="muted">Erreur de chargement</div>'; return; }
-    if (!j.projects.length) { list.innerHTML = '<div class="muted">Aucun projet enregistré.</div>'; return; }
+    // L'API renvoie {items:[{line_count,total_*_minutes}]} ; l'ancien contrat
+    // ({projects:[{nb_activites,…}]}) est gardé en repli.
+    const projects = j.projects || j.items || [];
+    if (!projects.length) { list.innerHTML = '<div class="muted">Aucun projet enregistré.</div>'; return; }
 
-    list.innerHTML = j.projects.map(p => `
+    list.innerHTML = projects.map(p => `
       <div class="acc-item" data-id="${p.id}">
         <div class="acc-head">
           <div class="acc-title">
             <b class="proj-name">${p.name || 'Sans titre'}</b>
             <input class="proj-name-input hidden input" value="${(p.name || '').replace(/"/g,'&quot;')}" />
-            <span class="badge">${p.nb_activites} act.</span>
-            <span class="badge">${fmtH(p.charge_globale_minutes)}</span>
+            <span class="badge">${p.nb_activites ?? p.line_count ?? 0} act.</span>
+            <span class="badge">${fmtH(p.charge_globale_minutes ?? p.total_charge_minutes ?? 0)}</span>
           </div>
-          <div class="acc-meta">Durée ${fmtH(p.tot_duree_minutes)} · Délai ${fmtH(p.delais_optimum_minutes)}</div>
+          <div class="acc-meta">Durée ${fmtH(p.tot_duree_minutes ?? p.total_duration_minutes ?? 0)}</div>
           <div class="acc-actions">
             <button class="icon-btn edit-proj" title="Renommer">✎</button>
             <button class="icon-btn success save-proj hidden" title="Enregistrer">✔</button>
@@ -470,7 +473,7 @@
                     <td>${fmtH(r.duration_minutes)}</td>
                     <td>${fmtH(r.delay_minutes)}</td>
                     <td>${r.nb_people}</td>
-                    <td>${fmtH(r.charge)}</td>
+                    <td>${fmtH(r.charge_minutes ?? r.charge ?? 0)}</td>
                     <td><button class="icon-btn danger del-line" title="Supprimer la ligne">🗑</button></td>
                   </tr>`).join('')}
                 </tbody>
