@@ -520,12 +520,12 @@
   display: inline-flex;
   align-items: center;
   gap: 7px;
-  background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+  background: linear-gradient(135deg, var(--pg-accent, #7c3aed), var(--pg-accent-deep, #6d28d9));
   color: #fff;
   border: none;
-  border-radius: 24px;
+  border-radius: 999px;
   padding: 9px 18px;
-  font-size: 0.84rem;
+  font-size: 13.5px;
   font-weight: 600;
   cursor: pointer;
   font-family: inherit;

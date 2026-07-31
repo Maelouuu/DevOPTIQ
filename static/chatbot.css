@@ -4,6 +4,9 @@
    ============================================================ */
 
 /* ── Bouton déclencheur ───────────────────────────────────── */
+.chatbot-modal, .btn-chatbot-trigger {
+  font-family: var(--pg-font, 'DM Sans', -apple-system, sans-serif);
+}
 .btn-chatbot-trigger {
   display: inline-flex;
   align-items: center;
