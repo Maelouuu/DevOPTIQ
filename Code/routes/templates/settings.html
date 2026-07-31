@@ -152,7 +152,9 @@
       transition: opacity 0.18s, transform 0.18s;
     }
 
-    /* ── Administration ─────────────────────────────────────────── */
+    {% if is_admin %}
+    /* ── Administration (rendu uniquement pour les admins : aucune trace
+       de la section — même en CSS — pour les autres statuts) ── */
     .stt-admin-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 6px; }
     .stt-admin-code {
       background: var(--card-2); border: 1px solid var(--border); border-radius: 8px;
@@ -185,6 +187,7 @@
       font-family: var(--pg-font-mono); font-size: 12px;
       line-height: 1.5; white-space: pre-wrap; word-break: break-all;
     }
+    {% endif %}
 
     /* ── Toast notification ─────────────────────────────────────── */
     .stt-toast {
