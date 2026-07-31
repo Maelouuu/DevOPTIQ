@@ -210,8 +210,49 @@ cadence sur la fiche activité ; panneau de qualification des sorties + badges �
 - **CSS par domaine** : chaque page a son CSS dédié, `optiq.css` = styles globaux
 - **Templates Jinja2** : les pages incluent des partials (`{% include "partial.html" %}`)
 - **Blueprints Flask** : chaque domaine est un blueprint enregistré dans `app.py`
-- **Couleurs thème** : rose `#ec4899` / `#be185d` (principal), vert `#22c55e` (accent)
 - **Pas de commentaires évidents** dans le code : seulement pour les WHY non-évidents
+
+---
+
+## Design system UI (2026-07 — cohérence visuelle globale)
+
+Toutes les pages (SAUF la cartographie `/activities/map` + éditeur, intouchée)
+partagent un design system chargé partout via `header_buttons.html` :
+
+- **`static/ui-theme.css`** = source de vérité : tokens (`--pg-font` DM Sans,
+  `--pg-font-display` Fraunces, encres `--ink/--ink-2/--muted/--faint`, surfaces
+  `--card/--card-2/--border`, rayons `--r-card` 14 / `--r-btn` 9, ombre `--sh-card`),
+  **échelle typo UNIQUE en px** : bandeau 26 (Fraunces) · en-tête de carte/volet
+  15/700 · corps 15 · secondaire/boutons/tables 13.5 · labels uppercase 12.5/700 ·
+  th 12 uppercase · badges/méta 12 (min 11). ⚠️ Ne JAMAIS réintroduire d'em/rem
+  fantaisistes ni de tailles hors échelle dans un CSS de page.
+- **Couleur par page** = celle de son icône dans la nav (classes `page--carto`
+  `#0d9488`, `page--activities` `#7c3aed`, `page--roles` `#059669`,
+  `page--competences` `#2563eb` (Projection métier incluse), `page--time`
+  `#d97706`, `page--accounts` `#e11d48`, `page--rh` `#16a34a`, `page--tools`
+  `#ea580c`, `page--settings` `#6366f1`). Poser `pg-root page--<clé>` sur la
+  racine (ou `class="pg page--<clé>"` sur `<body>`) → accent via `var(--pg-accent)`
+  + dérivés `--pg-accent-deep/-soft/-softer/-border/-glow`.
+- **2 éléments d'identité communs** : la nav (cardnav) + le **bandeau de page**
+  `{% include "page_banner.html" %}` (icône teintée, titre Fraunces, sous-titre,
+  encart chiffre optionnel). Fond commun gris-bleu `#f2f4f9` + halo couleur de
+  page (défini dans ui-theme, ne pas remettre de `background` sur body en CSS de page).
+- **`optiq.css`** = base neutre (body DM Sans 15px). ⚠️ L'ancien
+  `body { font-size:30px; Arial }` + `input { width:40ch; min-height:48px }` a
+  été supprimé : c'était la cause racine des incohérences (chargé APRÈS le CSS
+  de page depuis la nav, il écrasait tout). Ne jamais remettre de styles
+  opinionated globaux dedans.
+- Boutons primaires = dégradé `linear-gradient(135deg, var(--pg-accent), var(--pg-accent-deep))`
+  13.5/600 radius `--r-btn` ; secondaires = bord `--border-strong` ; th de tables =
+  12px uppercase `--muted` fond `--card-2`. Couleurs SÉMANTIQUES (feux vert/orange/
+  rouge d'évaluation, sévérité Faiblesse, badge rose cross-carto) conservées.
+- Page Temps : refonte ergonomique (KPI intermédiaires sobres vs finaux accent 22px,
+  résultats Faiblesse masqués avant calcul, feedback inline au lieu d'alert()).
+  ⚠️ Endpoints `/temps/api/activity_workload*`, `role_activities`, PATCH projet
+  restaurés dans `time_view.py` (perdus à la divergence des branches — le JS les
+  appelait dans le vide).
+- Fichiers morts supprimés (21) : anciens partials activity_*, time_list/form,
+  gestion_compte v1, synthese_comp.css & co (jamais liés).
 
 ---
 
