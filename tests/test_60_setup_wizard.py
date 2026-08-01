@@ -80,6 +80,25 @@ class TestSetupApis:
         r = setup_app.test_client().post("/setup/api/test-openai", json={"key": ""})
         assert r.get_json()["ok"] is False
 
+    def test_mail_champs_vides(self, setup_app):
+        r = setup_app.test_client().post("/setup/api/test-mail", json={})
+        data = r.get_json()
+        assert data["ok"] is False
+        assert "requis" in data["error"].lower()
+
+    def test_mail_port_invalide(self, setup_app):
+        r = setup_app.test_client().post("/setup/api/test-mail", json={
+            "username": "a@b.fr", "password": "x", "port": "pas-un-port"})
+        data = r.get_json()
+        assert data["ok"] is False
+        assert "port" in data["error"].lower()
+
+    def test_mail_echec_connexion(self, setup_app):
+        r = setup_app.test_client().post("/setup/api/test-mail", json={
+            "server": "hote-inexistant-optiq", "port": 587,
+            "username": "a@b.fr", "password": "x"})
+        assert r.get_json()["ok"] is False
+
     def test_finish_valide_email_admin(self, setup_app, tmp_path):
         r = setup_app.test_client().post("/setup/api/finish", json={
             "database_url": f"sqlite:///{tmp_path}/t.db",

@@ -445,5 +445,25 @@
     ],
     "author": "routine",
     "fixed_at": "2026-07-15T03:15:13"
+  },
+  {
+    "patch_uid": "2026-08-01-debug-decisions-analyze-file-no-auth",
+    "title": "debug-decisions/analyze-file(+/ai) : upload VSDX et appel IA sans aucune vérification de session",
+    "node_ids": [
+      "tests/test_44_cross_carto_liaisons.py::TestDebugAnalyzeFile::test_sans_auth_retourne_401",
+      "tests/test_44_cross_carto_liaisons.py::TestDebugAnalyzeFileAI::test_sans_auth_retourne_401"
+    ],
+    "page_slug": "cross_carto_liaisons",
+    "failure_reason": "En écrivant des tests d'authentification pour /activities/api/debug-decisions/analyze-file et .../analyze-file/ai (endpoints jamais testés sans session dans test_44), un client anonyme obtenait 200 au lieu du 401 attendu, contrairement à la convention utilisée ailleurs dans activities_map.py.",
+    "was_real_bug": true,
+    "root_cause": "app_bug",
+    "error": "api_debug_analyze_file() et api_debug_analyze_file_ai() (Code/routes/activities_map.py) ne vérifiaient jamais session['user_id'] avant de traiter le fichier VSDX uploadé. Un client totalement anonyme pouvait donc déclencher un parsing VSDX et, pire, un appel payant à l'API IA (Claude/OpenAI) via /analyze-file/ai, sans être connecté -- alors que ces routes sont utilisées depuis static/js/debug_decisions.js, une page normalement réservée aux utilisateurs authentifiés.",
+    "fix_description": "Ajout d'une vérification session.get('user_id') en tête des deux routes, retournant 401 'Non connecté' si absente, conforme à la convention déjà utilisée dans le reste de activities_map.py (ex: /api/entities). Deux tests ajoutés à test_44_cross_carto_liaisons.py couvrant le cas anonyme pour les deux endpoints.",
+    "files_changed": [
+      "Code/routes/activities_map.py",
+      "tests/test_44_cross_carto_liaisons.py"
+    ],
+    "author": "routine",
+    "fixed_at": "2026-08-01T03:13:37"
   }
 ]

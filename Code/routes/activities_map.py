@@ -2128,6 +2128,9 @@ def api_debug_analyze_file():
     The 'tool' result is computed in the browser via VsdxImporter.
     The 'ai' result is fetched separately via /analyze-file/ai.
     """
+    if not session.get('user_id'):
+        return jsonify({"error": "Non connecté"}), 401
+
     vsdx_file = request.files.get('vsdx')
     if not vsdx_file or not vsdx_file.filename:
         return jsonify({"error": "Aucun fichier fourni"}), 400
@@ -2155,6 +2158,9 @@ def api_debug_analyze_file_ai():
     Accepts a VSDX file upload (multipart field 'vsdx').
     Sends the first page XML to Claude/OpenAI for decision extraction.
     """
+    if not session.get('user_id'):
+        return jsonify({"error": "Non connecté"}), 401
+
     vsdx_file = request.files.get('vsdx')
     if not vsdx_file or not vsdx_file.filename:
         return jsonify({"error": "Aucun fichier fourni"}), 400

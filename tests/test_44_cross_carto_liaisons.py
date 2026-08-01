@@ -585,6 +585,18 @@ class TestDebugAnalyzeFile:
         )
         assert r.status_code == 400
 
+    def test_sans_auth_retourne_401(self, app):
+        """Client anonyme (pas de session) → 401, pas de traitement du fichier."""
+        fresh = app.test_client()
+        data = {"vsdx": (io.BytesIO(b"fake content"), "diagram.vsdx")}
+        r = fresh.post(
+            "/activities/api/debug-decisions/analyze-file",
+            data=data,
+            content_type="multipart/form-data",
+        )
+        assert r.status_code == 401
+        assert "error" in r.get_json()
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 10. POST /activities/api/debug-decisions/analyze-file/ai
@@ -621,6 +633,18 @@ class TestDebugAnalyzeFileAI:
             content_type="multipart/form-data",
         )
         assert r.status_code == 400
+
+    def test_sans_auth_retourne_401(self, app):
+        """Client anonyme (pas de session) → 401 (aucun appel IA sans authentification)."""
+        fresh = app.test_client()
+        data = {"vsdx": (io.BytesIO(b"fake content"), "diagram.vsdx")}
+        r = fresh.post(
+            "/activities/api/debug-decisions/analyze-file/ai",
+            data=data,
+            content_type="multipart/form-data",
+        )
+        assert r.status_code == 401
+        assert "error" in r.get_json()
 
 
 # ─────────────────────────────────────────────────────────────────────────────
