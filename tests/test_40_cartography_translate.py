@@ -4,6 +4,7 @@ Couverture des routes non encore testées :
   - activities_cartography.py → GET /activities/update-cartography
   - translate_softskills.py   → POST /translate_softskills/translate
 """
+import os
 import pytest
 
 pytestmark = pytest.mark.cartography_translate
@@ -77,6 +78,26 @@ class TestUpdateCartography:
         error_text = (body.get("error", "") + body.get("message", "")).lower()
         assert "cartographie" in error_text or "svg" in error_text or "visio" in error_text
 
+    def test_existing_file_but_processing_raises_returns_500(self, auth_client, ids, app, monkeypatch):
+        """Fichier trouvé (Code/example.vsdx) mais process_visio_file lève →
+        500 + message d'erreur (couvre la branche try/except sans déclencher
+        le traitement réel — process_visio_file vide la table 'links' de
+        façon globale, non isolée par entité : l'appeler réellement ici
+        polluerait toute la suite de tests partagée)."""
+        assert os.path.exists(os.path.join("Code", "example.vsdx"))
+        monkeypatch.setattr(
+            "Code.routes.activities_cartography.process_visio_file",
+            lambda path: (_ for _ in ()).throw(RuntimeError("parse boom")),
+        )
+        _set_svg_filename(app, ids["entity_id"], "example.vsdx")
+        try:
+            r = auth_client.get("/activities/update-cartography")
+            assert r.status_code == 500
+            body = r.get_json()
+            assert "parse boom" in body["error"]
+        finally:
+            _set_svg_filename(app, ids["entity_id"], None)
+
     def test_nonexistent_svg_error_includes_filename(self, auth_client, ids, app):
         """Le message d'erreur (fichier absent) contient le nom du fichier."""
         filename = "cartographie_test_manquante.vsdx"
@@ -88,6 +109,66 @@ class TestUpdateCartography:
             assert filename in combined
         finally:
             _set_svg_filename(app, ids["entity_id"], None)
+
+
+# ---------------------------------------------------------------------------
+# Fake client IA — simule Code.routes.translate_softskills.get_openai_client()
+# pour couvrir les branches "avec client" (succès, erreurs de parsing,
+# exception) sans appel réseau réel.
+# ---------------------------------------------------------------------------
+
+class _FakeMessage:
+    def __init__(self, content):
+        self.content = content
+
+
+class _FakeChoice:
+    def __init__(self, content):
+        self.message = _FakeMessage(content)
+
+
+class _FakeCompletion:
+    def __init__(self, content):
+        self.choices = [_FakeChoice(content)]
+
+
+class _FakeChatCompletions:
+    def __init__(self, content=None, raise_exc=None):
+        self._content = content
+        self._raise_exc = raise_exc
+
+    def create(self, **kwargs):
+        if self._raise_exc is not None:
+            raise self._raise_exc
+        return _FakeCompletion(self._content)
+
+
+class _FakeChat:
+    def __init__(self, content=None, raise_exc=None):
+        self.completions = _FakeChatCompletions(content, raise_exc)
+
+
+class _FakeTranslateClient:
+    def __init__(self, content=None, raise_exc=None):
+        self.chat = _FakeChat(content, raise_exc)
+
+
+def _mock_translate_client(monkeypatch, content=None, raise_exc=None):
+    """Patche get_openai_client() dans translate_softskills.py."""
+    fake_client = _FakeTranslateClient(content=content, raise_exc=raise_exc)
+    monkeypatch.setattr(
+        "Code.routes.translate_softskills.get_openai_client",
+        lambda: (fake_client, None),
+    )
+
+
+def _lang_client(app, lang):
+    """Client frais (non partagé, donc pas de pollution de auth_client) avec
+    la langue de session forcée."""
+    fresh = app.test_client()
+    with fresh.session_transaction() as sess:
+        sess["lang"] = lang
+    return fresh
 
 
 # ===========================================================================
@@ -190,6 +271,162 @@ class TestTranslateSoftskills:
         """Toute réponse d'erreur contient la clé 'error'."""
         r = auth_client.post("/translate_softskills/translate", json={})
         assert "error" in r.get_json()
+
+    # --- Avec client IA simulé (succès + branches de traitement) ---
+
+    def test_success_returns_proposals_with_niveau_mapped_fr(self, app, monkeypatch):
+        """Réponse IA valide (JSON array) → 200 + niveau numérique traduit en FR."""
+        content = '[{"habilete": "Coopération", "niveau": "2", "justification": "..."}]'
+        _mock_translate_client(monkeypatch, content=content)
+        fresh = app.test_client()
+        r = fresh.post(
+            "/translate_softskills/translate",
+            json={"user_input": "travail en équipe"},
+        )
+        assert r.status_code == 200
+        body = r.get_json()
+        assert body["proposals"][0]["niveau"] == "2 (Acquisition)"
+
+    def test_success_lang_en_uses_english_niveau_mapping(self, app, monkeypatch):
+        """Session lang=en → prompt/niveau en anglais."""
+        content = '[{"habilete": "Cooperation", "niveau": 3, "justification": "..."}]'
+        _mock_translate_client(monkeypatch, content=content)
+        fresh = _lang_client(app, "en")
+        r = fresh.post(
+            "/translate_softskills/translate",
+            json={"user_input": "teamwork"},
+        )
+        assert r.status_code == 200
+        body = r.get_json()
+        assert body["proposals"][0]["niveau"] == "3 (Proficient)"
+
+    def test_success_with_outgoing_performance_included(self, app, monkeypatch):
+        """activity_data.outgoing avec 'performance' → couvre make_enumeration/perf_lines."""
+        content = '[{"habilete": "Rigueur", "niveau": "1", "justification": "..."}]'
+        _mock_translate_client(monkeypatch, content=content)
+        fresh = app.test_client()
+        r = fresh.post(
+            "/translate_softskills/translate",
+            json={
+                "user_input": "rigueur, autonomie",
+                "activity_data": {
+                    "name": "Activité Test",
+                    "tasks": [{"description": "Analyser les données"}],
+                    "constraints": [{"description": "Confidentialité"}],
+                    "outgoing": [
+                        {"performance": {"name": "Qualité", "description": "Taux d'erreur faible"}},
+                        {"no_performance_here": True},
+                    ],
+                },
+            },
+        )
+        assert r.status_code == 200
+        assert r.get_json()["proposals"][0]["habilete"] == "Rigueur"
+
+    def test_dict_response_is_wrapped_in_list(self, app, monkeypatch):
+        """L'IA renvoie un objet JSON seul (pas un tableau) → normalisé en liste."""
+        content = '{"habilete": "Adaptabilité", "niveau": "4", "justification": "..."}'
+        _mock_translate_client(monkeypatch, content=content)
+        fresh = app.test_client()
+        r = fresh.post(
+            "/translate_softskills/translate",
+            json={"user_input": "adaptabilité"},
+        )
+        assert r.status_code == 200
+        body = r.get_json()
+        assert isinstance(body["proposals"], list)
+        assert body["proposals"][0]["habilete"] == "Adaptabilité"
+
+    def test_non_list_non_dict_response_returns_400(self, app, monkeypatch):
+        """L'IA renvoie un JSON scalaire (ni liste ni objet) → 400."""
+        _mock_translate_client(monkeypatch, content='"juste une chaine"')
+        fresh = app.test_client()
+        r = fresh.post(
+            "/translate_softskills/translate",
+            json={"user_input": "communication"},
+        )
+        assert r.status_code == 400
+        assert "tableau" in r.get_json()["error"].lower()
+
+    def test_invalid_json_response_returns_400(self, app, monkeypatch):
+        """Réponse IA non-JSON → 400 + message de parsing."""
+        _mock_translate_client(monkeypatch, content="ceci n'est pas du JSON {")
+        fresh = app.test_client()
+        r = fresh.post(
+            "/translate_softskills/translate",
+            json={"user_input": "communication"},
+        )
+        assert r.status_code == 400
+        assert "parsing" in r.get_json()["error"].lower()
+
+    def test_markdown_wrapped_json_response_is_cleaned_then_parsed(self, app, monkeypatch):
+        """Réponse IA entourée de backticks markdown → nettoyée puis parsée avec succès."""
+        content = '```json\n[{"habilete": "Ecoute", "niveau": "2", "justification": "..."}]\n```'
+        _mock_translate_client(monkeypatch, content=content)
+        fresh = app.test_client()
+        r = fresh.post(
+            "/translate_softskills/translate",
+            json={"user_input": "écoute active"},
+        )
+        assert r.status_code == 200
+        assert r.get_json()["proposals"][0]["habilete"] == "Ecoute"
+
+    def test_exception_during_ai_call_returns_500(self, app, monkeypatch):
+        """Exception levée pendant l'appel IA → 500 + message d'erreur."""
+        _mock_translate_client(monkeypatch, raise_exc=RuntimeError("boom"))
+        fresh = app.test_client()
+        r = fresh.post(
+            "/translate_softskills/translate",
+            json={"user_input": "communication"},
+        )
+        assert r.status_code == 500
+        assert "boom" in r.get_json()["error"]
+
+    def test_non_digit_niveau_left_untouched(self, app, monkeypatch):
+        """niveau non numérique (déjà un libellé) → laissé tel quel, pas de KeyError."""
+        content = '[{"habilete": "Ecoute", "niveau": "NA", "justification": "..."}]'
+        _mock_translate_client(monkeypatch, content=content)
+        fresh = app.test_client()
+        r = fresh.post(
+            "/translate_softskills/translate",
+            json={"user_input": "écoute"},
+        )
+        assert r.status_code == 200
+        assert r.get_json()["proposals"][0]["niveau"] == "NA"
+
+    def test_prompts_not_loaded_returns_500(self, app, monkeypatch):
+        """get_prompt() renvoie None (catalogue non chargé) → 500 explicite."""
+        _mock_translate_client(monkeypatch, content="[]")
+        monkeypatch.setattr(
+            "Code.routes.translate_softskills.get_prompt",
+            lambda *a, **k: None,
+        )
+        fresh = app.test_client()
+        r = fresh.post(
+            "/translate_softskills/translate",
+            json={"user_input": "communication"},
+        )
+        assert r.status_code == 500
+        assert "prompt" in r.get_json()["error"].lower()
+
+    # --- Unitaire : make_enumeration ---
+
+    def test_make_enumeration_empty_list_returns_placeholder(self):
+        """make_enumeration sur liste vide → placeholder '(Aucune ...)'."""
+        from Code.routes.translate_softskills import make_enumeration
+        assert make_enumeration("T", []) == "(Aucune T)"
+
+    def test_make_enumeration_with_dict_items(self):
+        """make_enumeration sur des dicts → utilise le champ 'description'."""
+        from Code.routes.translate_softskills import make_enumeration
+        result = make_enumeration("T", [{"description": "Premiere tache"}])
+        assert result == "T1: Premiere tache"
+
+    def test_make_enumeration_with_plain_strings(self):
+        """make_enumeration sur des chaînes brutes (pas de dict)."""
+        from Code.routes.translate_softskills import make_enumeration
+        result = make_enumeration("C", ["Délai serré", "Budget limité"])
+        assert result == "C1: Délai serré\nC2: Budget limité"
 
     # --- Unitaire : clean_json_response ---
 

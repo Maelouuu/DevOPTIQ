@@ -2,13 +2,13 @@
   "plan": {
     "title": "Plan de couverture & fiabilisation des tests",
     "objective": "À chaque exécution, la routine répartit sa capacité : ~70% pour étendre la couverture (nouveaux tests) et ~30% pour repérer et corriger les tests défaillants, en traçant chaque correctif.",
-    "updated_at": "11/07/2026",
+    "updated_at": "02/08/2026",
     "steps": [
       {
         "id": "coverage",
         "title": "Couverture des pages Flask",
         "status": "in_progress",
-        "progress": 93,
+        "progress": 84,
         "note": "50 fichiers de test couvrent l'essentiel des pages. Audit route-par-route : toutes les routes Flask ont désormais au moins un test (dernier trou comblé : /testpanel/patches, /journal, /stream). Reste surtout l'éditeur OptiqCarto (JS)."
       },
       {
@@ -49,6 +49,23 @@
     ]
   },
   "entries": [
+    {
+      "at": "2026-08-02T03:22:52",
+      "date": "02/08/2026 · 03:22",
+      "author": "routine",
+      "title": "Couverture HSC/Traduction softskills + cartographie VSDX",
+      "summary": "Ajout de 14 tests ciblant les branches non couvertes de la traduction IA des soft skills (succès, langues, JSON invalide, exceptions) et de la mise à jour de cartographie VSDX. Suite déjà à 100% de réussite : pas de bug à corriger, temps réinvesti en couverture.",
+      "new_tests": 14,
+      "tests_fixed": 0,
+      "patches": 0,
+      "page": "cartography_translate",
+      "highlights": [
+        "translate_softskills.py : 59% -> 100% de couverture",
+        "activities_cartography.py : 59% -> 84% de couverture",
+        "1665 tests, tous au vert"
+      ],
+      "next": "Poursuivre la couverture sur activities_map.py et test_panel.py (gros fichiers encore partiellement couverts)."
+    },
     {
       "at": "2026-07-11T03:15:23",
       "date": "11/07/2026 · 03:15",
