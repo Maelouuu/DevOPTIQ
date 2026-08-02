@@ -13,7 +13,10 @@ def login():
         password = request.form.get('password')
 
         # Vérifier si l'utilisateur existe dans la base de données
-        user = User.query.filter_by(email=email).first()
+        # (insensible à la casse : les adresses d'entreprise sont souvent
+        # affichées Prenom.Nom@… alors qu'elles sont stockées en minuscules)
+        from sqlalchemy import func
+        user = User.query.filter(func.lower(User.email) == email.lower()).first()
         if user is None:
             flash('Compte introuvable.', 'error')
             return redirect(url_for('auth.login'))
@@ -33,7 +36,9 @@ def login():
             except Exception:
                 db.session.rollback()  # le login reste valide même si la migration échoue
 
-        session['user_email'] = email
+        # Email canonique (celui de la base) : les lectures par
+        # session['user_email'] restent des égalités strictes.
+        session['user_email'] = user.email
         session['user_id'] = user.id  # IMPORTANT pour le filtrage des entités
         return redirect(url_for('activities_map_bp.activities_map_page'))
 

@@ -612,6 +612,39 @@ def create_app(test_config=None):
             db.session.rollback()
             print(f"[BOOTSTRAP] Création admin: {e}")
 
+        # 6bis. Comptes pilote (branche optiqfluent-beta-test uniquement) :
+        # les testeurs ARaymond + AFDEC. Idempotent — créé seulement si
+        # l'email n'existe pas encore ; un mot de passe changé ensuite n'est
+        # donc jamais réécrasé au redémarrage.
+        try:
+            from sqlalchemy import func as _func
+            from Code.models.models import User as _User
+            from Code.security import hash_password as _hash_password
+            _PILOT_ACCOUNTS = [
+                ("Mael", "Girardin", "mael.pierre.girardin@icloud.com"),
+                ("Hubert", "Grandjean", "h.grandjean@afdec.fr"),
+                ("Aditya", "Vaze", "aditya.vaze@araymond.com"),
+                ("Rakesh", "Khandelwal", "rakesh.khandelwal@araymond.com"),
+                ("Vaishali", "Erande", "vaishali.erande@araymond.com"),
+                ("Madhuri", "Sindhankar", "madhuri.sindhankar@araymond.com"),
+            ]
+            _pwd = None
+            _created = []
+            for _fn, _ln, _em in _PILOT_ACCOUNTS:
+                if _User.query.filter(_func.lower(_User.email) == _em).first():
+                    continue
+                if _pwd is None:
+                    _pwd = _hash_password("password")
+                db.session.add(_User(first_name=_fn, last_name=_ln, email=_em,
+                                     password=_pwd, status="manager"))
+                _created.append(_em)
+            if _created:
+                db.session.commit()
+                print(f"[BOOTSTRAP] Comptes pilote créés : {', '.join(_created)}")
+        except Exception as e:
+            db.session.rollback()
+            print(f"[BOOTSTRAP] Comptes pilote: {e}")
+
         # 7. Réinitialiser le pool — toutes les connexions du startup sont fermées
         # avant que le worker commence à traiter les requêtes HTTP
         db.engine.dispose()
