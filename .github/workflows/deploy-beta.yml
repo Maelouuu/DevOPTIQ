@@ -84,11 +84,14 @@ jobs:
           python3 - <<'PY'
           import os, re, sys
           import psycopg2
-          url = os.environ["PILOT_DATABASE_URL"]
+          # Nettoyage : espaces, retours à la ligne ou guillemets collés au
+          # copier-coller du secret ne doivent pas casser l'URL.
+          url = os.environ["PILOT_DATABASE_URL"].strip().strip('"').strip("'").strip()
           m = re.match(r"postgresql(?:\+\w+)?://([^:]+):([^@]+)@([^/:]+)(?::(\d+))?/([^?]+)", url)
           if not m:
               sys.exit("PILOT_DATABASE_URL illisible (attendu postgresql://user:mdp@hote/base?...)")
           user, pwd, host, port, db = m.groups()
+          print(f"Cible : hôte={host} base={db} (utilisateur {user})")
           host_direct = host.replace("-pooler", "")
           con = None
           for maint in ("neondb", "postgres"):
@@ -120,16 +123,26 @@ jobs:
         run: |
           EXTRA=()
           if [ -n "$PILOT_DATABASE_URL" ]; then
-            EXTRA+=(--update-env-vars "^@^DATABASE_URL=${PILOT_DATABASE_URL}")
+            # Même nettoyage que l'étape précédente (espaces/guillemets/CRLF)
+            CLEANED=$(printf '%s' "$PILOT_DATABASE_URL" | tr -d '\r\n' \
+              | sed -e "s/^[\"' ]*//" -e "s/[\"' ]*$//")
+            EXTRA+=(--update-env-vars "^@^DATABASE_URL=${CLEANED}")
             echo "Base pilote dédiée : DATABASE_URL remplacée sur le service"
           fi
-          gcloud run deploy ${{ env.SERVICE }} \
+          if ! gcloud run deploy ${{ env.SERVICE }} \
             --image ${{ env.IMAGE }}:${{ github.sha }} \
             --region ${{ env.REGION }} \
             --platform managed \
             --allow-unauthenticated \
             "${EXTRA[@]}" \
-            --quiet
+            --quiet; then
+            echo "=== ÉCHEC DU DÉPLOIEMENT — logs récents du service ==="
+            gcloud logging read \
+              "resource.type=cloud_run_revision AND resource.labels.service_name=${{ env.SERVICE }}" \
+              --project "${{ env.PROJECT_ID }}" --freshness 15m --limit 150 \
+              --order desc --format 'value(timestamp,severity,textPayload)' || true
+            exit 1
+          fi
 
       # --retry seul ne réessaie PAS sur un 404 : juste après la bascule de
       # trafic, la nouvelle révision peut mettre quelques secondes à répondre
