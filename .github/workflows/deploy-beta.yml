@@ -1,0 +1,87 @@
+name: Deploy → Pilote (optiqfluent-staging)
+
+# La branche optiqfluent-beta-test est l'environnement du test pilote client :
+# chaque push déploie le service Cloud Run optiqfluent-staging (créé par
+# tools/deploy/deploy_cloudrun.sh). Les variables d'environnement du service
+# (DATABASE_URL, SECRET_KEY, clés IA, REQUIRE_LICENSE=0, PROMPTS_KEY,
+# TESTPANEL_ENABLED=1) sont déjà posées sur le service et sont PRÉSERVÉES :
+# on ne remplace que l'image.
+
+on:
+  push:
+    branches: [optiqfluent-beta-test]
+  workflow_dispatch:
+
+env:
+  PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+  REGION: europe-west1
+  SERVICE: optiqfluent-staging
+  IMAGE: europe-west1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/cloud-run-source-deploy/optiqfluent
+
+jobs:
+  deploy:
+    name: Build & Deploy (Pilote)
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      id-token: write   # requis pour Workload Identity Federation
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Le Dockerfile (durci OptiqFluent) refuse de builder sans le bundle de
+      # prompts chiffré — le catalogue en clair est exclu de l'image. Même
+      # étape que deploy-staging.yml, même secret PROMPTS_KEY.
+      - name: Chiffrer les prompts IA (prompts.enc requis par le Dockerfile)
+        env:
+          PROMPTS_KEY: ${{ secrets.PROMPTS_KEY }}
+        run: |
+          test -n "$PROMPTS_KEY" || {
+            echo "::error::Secret PROMPTS_KEY manquant (Settings → Secrets → Actions)";
+            exit 1;
+          }
+          pip install --quiet cryptography
+          python tools/prompts/encrypt_prompts.py > /dev/null
+          echo "Bundle prompts.enc généré"
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
+          service_account: ${{ secrets.GCP_SA_EMAIL }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker europe-west1-docker.pkg.dev --quiet
+
+      - name: Build Docker image
+        run: |
+          docker build -t ${{ env.IMAGE }}:${{ github.sha }} -t ${{ env.IMAGE }}:beta .
+
+      - name: Push Docker image
+        run: |
+          docker push ${{ env.IMAGE }}:${{ github.sha }}
+          docker push ${{ env.IMAGE }}:beta
+
+      # Pas de --set-env-vars : la config posée sur le service est conservée
+      # telle quelle (seule l'image change).
+      - name: Deploy to Cloud Run (optiqfluent-staging)
+        run: |
+          gcloud run deploy ${{ env.SERVICE }} \
+            --image ${{ env.IMAGE }}:${{ github.sha }} \
+            --region ${{ env.REGION }} \
+            --platform managed \
+            --allow-unauthenticated \
+            --quiet
+
+      - name: Smoke test
+        run: |
+          URL=$(gcloud run services describe ${{ env.SERVICE }} \
+            --region ${{ env.REGION }} --format='value(status.url)')
+          echo "Service : $URL"
+          curl -fsS --retry 5 --retry-delay 5 "$URL/healthz" \
+            && echo " ← healthz OK"
