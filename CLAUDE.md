@@ -387,6 +387,15 @@ privé (ghcr.io) + licence signée à expiration + contrat d'évaluation**. Cont
     confirmation ; ajoute REQUIRE_LICENSE=0, PROMPTS_KEY, TESTPANEL_ENABLED=1).
     ⚠️ `.gcloudignore` obligatoire (sinon gcloud suit .gitignore qui exclut
     prompts.enc → build cassé).
+  - **CI pilote** : `.github/workflows/deploy-beta.yml` — chaque push sur
+    `optiqfluent-beta-test` redéploie `optiqfluent-staging` (mêmes secrets que
+    deploy-staging.yml). Ne remplace QUE l'image : les env vars posées sur le
+    service (DATABASE_URL, clés, REQUIRE_LICENSE=0…) sont préservées.
+  - **Comptes pilote ARaymond** (cette branche uniquement, `app.py` étape
+    6bis) : 6 comptes seedés au démarrage s'ils n'existent pas (Mael Girardin,
+    Hubert Grandjean + 4 testeurs @araymond.com), statut `manager`, mot de
+    passe initial « password », jamais réécrasé. Login insensible à la casse
+    de l'email (`connexion_routes.py`).
   - **Répétition d'installation client** : `tools/test_install.sh` — rejoue
     INSTALL.md sans Docker (licence de test avec prompts_key embarquée, arbre
     bytecode-only, PostgreSQL 16 vierge, gunicorn, 9 vérifications curl/logs
