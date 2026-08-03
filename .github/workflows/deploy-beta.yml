@@ -126,7 +126,22 @@ jobs:
             # Même nettoyage que l'étape précédente (espaces/guillemets/CRLF)
             CLEANED=$(printf '%s' "$PILOT_DATABASE_URL" | tr -d '\r\n' \
               | sed -e "s/^[\"' ]*//" -e "s/[\"' ]*$//")
-            EXTRA+=(--update-env-vars "^@^DATABASE_URL=${CLEANED}")
+            # Délimiteur ^##^ : jamais présent dans une URL de connexion.
+            # SURTOUT PAS '@' — l'URL contient user:mdp@hôte, gcloud coupait
+            # la valeur au @ et le service recevait une URL sans hôte
+            # (cause des crashs de démarrage des révisions 00010/00011).
+            EXTRA+=(--update-env-vars "^##^DATABASE_URL=${CLEANED}")
+            # Purge des clés parasites créées par l'ancien délimiteur : tout
+            # nom qui n'est pas un identifiant d'environnement valide.
+            GARBAGE=$(gcloud run services describe ${{ env.SERVICE }} \
+                --region ${{ env.REGION }} \
+                --format='value(spec.template.spec.containers[0].env.name)' \
+              | tr ';' '\n' | grep -v -E '^[A-Za-z_][A-Za-z0-9_]*$' \
+              | paste -sd, - || true)
+            if [ -n "$GARBAGE" ]; then
+              echo "Purge des variables parasites : $GARBAGE"
+              EXTRA+=(--remove-env-vars "$GARBAGE")
+            fi
             echo "Base pilote dédiée : DATABASE_URL remplacée sur le service"
           fi
           if ! gcloud run deploy ${{ env.SERVICE }} \

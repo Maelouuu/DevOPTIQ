@@ -31,26 +31,26 @@ PROMPTS_KEY=$(cat tools/prompts/prompts_key.txt)
 echo "prompts.enc prêt"
 
 echo "== Récupération des variables d'env de $OLD_SERVICE =="
-# Reprises telles quelles sur le nouveau service (séparateur @ : les valeurs
-# type DATABASE_URL peuvent contenir des virgules)
+# Reprises telles quelles sur le nouveau service (séparateur ## : les valeurs
+# type DATABASE_URL contiennent virgules ET arobases)
 OLD_ENV=$(gcloud run services describe "$OLD_SERVICE" --region "$REGION" --format=json 2>/dev/null | \
   python3 -c "
 import sys, json
 svc = json.load(sys.stdin)
 envs = svc['spec']['template']['spec']['containers'][0].get('env', [])
 skip = {'REQUIRE_LICENSE', 'PROMPTS_KEY', 'TESTPANEL_ENABLED'}
-print('@'.join(f\"{e['name']}={e['value']}\" for e in envs
+print('##'.join(f\"{e['name']}={e['value']}\" for e in envs
                if e['name'] not in skip and 'value' in e))
 ") || OLD_ENV=""
 if [ -n "$OLD_ENV" ]; then
-  echo "Variables reprises : $(echo "$OLD_ENV" | tr '@' '\n' | cut -d= -f1 | tr '\n' ' ')"
+  echo "Variables reprises : $(echo "$OLD_ENV" | sed 's/##/\n/g' | cut -d= -f1 | tr '\n' ' ')"
 else
   echo "⚠ Aucune variable récupérée de $OLD_SERVICE — pense à définir DATABASE_URL,"
   echo "  SECRET_KEY, OPENAI_API_KEY, MAIL_* à la main (--set-env-vars ou console)."
 fi
 
-NEW_ENV="REQUIRE_LICENSE=0@TESTPANEL_ENABLED=1@PROMPTS_KEY=${PROMPTS_KEY}"
-[ -n "$OLD_ENV" ] && NEW_ENV="${OLD_ENV}@${NEW_ENV}"
+NEW_ENV="REQUIRE_LICENSE=0##TESTPANEL_ENABLED=1##PROMPTS_KEY=${PROMPTS_KEY}"
+[ -n "$OLD_ENV" ] && NEW_ENV="${OLD_ENV}##${NEW_ENV}"
 
 # Build explicite puis déploiement de l'image : le raccourci
 # `gcloud run deploy --source` échoue avec « Container import failed »
@@ -64,7 +64,7 @@ gcloud run deploy "$NEW_SERVICE" \
   --image "$IMAGE" \
   --region "$REGION" \
   --allow-unauthenticated \
-  --set-env-vars "^@^${NEW_ENV}"
+  --set-env-vars "^##^${NEW_ENV}"  # ## : jamais dans une valeur (contrairement à @, présent dans DATABASE_URL)
 
 URL=$(gcloud run services describe "$NEW_SERVICE" --region "$REGION" --format='value(status.url)')
 echo "== Vérification =="
