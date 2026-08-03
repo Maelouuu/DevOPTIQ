@@ -55,7 +55,8 @@
         <div class="field">
           <div class="search-style-wrap search-style-wrap--select">
             <i class="fa-solid fa-briefcase search-style-icon"></i>
-            <select name="role_id" class="search-style-input" required>
+            <select name="role_id" class="search-style-input">
+              <option value="" {% if not current_role %}selected{% endif %}>{{ t('account.role_none') }}</option>
               {% for role in roles %}
                 <option value="{{ role.id }}" {% if current_role and current_role.role_id == role.id %}selected{% endif %}>{{ role.name }}</option>
               {% endfor %}
@@ -68,6 +69,7 @@
             <i class="fa-solid fa-shield search-style-icon"></i>
             <select name="status" class="search-style-input" required>
               <option value="user"          {% if user.status == 'user' %}selected{% endif %}>{{ t('account.status_user') }}</option>
+              <option value="manager"       {% if user.status == 'manager' %}selected{% endif %}>{{ t('account.status_manager') }}</option>
               <option value="rh"            {% if user.status == 'rh' %}selected{% endif %}>{{ t('account.status_rh') }}</option>
               <option value="administrateur"{% if user.status == 'administrateur' %}selected{% endif %}>{{ t('account.status_admin') }}</option>
             </select>
