@@ -78,10 +78,23 @@ jobs:
             --allow-unauthenticated \
             --quiet
 
+      # --retry seul ne réessaie PAS sur un 404 : juste après la bascule de
+      # trafic, la nouvelle révision peut mettre quelques secondes à répondre
+      # (constaté au run #1). --retry-all-errors couvre ce délai de propagation.
       - name: Smoke test
         run: |
           URL=$(gcloud run services describe ${{ env.SERVICE }} \
             --region ${{ env.REGION }} --format='value(status.url)')
           echo "Service : $URL"
-          curl -fsS --retry 5 --retry-delay 5 "$URL/healthz" \
+          curl -fsS --retry 12 --retry-delay 5 --retry-all-errors "$URL/healthz" \
             && echo " ← healthz OK"
+          # Connexion réelle d'un compte pilote (seedé au boot) : le login
+          # renvoie 302 → /activities/map si OK, 302 → /login sinon.
+          LOC=$(curl -sS -o /dev/null -w '%{redirect_url}' \
+            --data-urlencode 'email=aditya.vaze@araymond.com' \
+            --data-urlencode 'password=password' "$URL/login")
+          echo "Login pilote → $LOC"
+          case "$LOC" in
+            */activities/map) echo " ← comptes pilote OK" ;;
+            *) echo "::error::Le compte pilote ne peut pas se connecter"; exit 1 ;;
+          esac
