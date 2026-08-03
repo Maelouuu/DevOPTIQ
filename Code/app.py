@@ -613,34 +613,45 @@ def create_app(test_config=None):
             print(f"[BOOTSTRAP] Création admin: {e}")
 
         # 6bis. Comptes pilote (branche optiqfluent-beta-test uniquement) :
-        # les testeurs ARaymond + AFDEC. Idempotent — créé seulement si
+        # AFDEC en administrateur, testeurs ARaymond en manager (affiché
+        # « Gestionnaire de compétences »). Idempotent — créé seulement si
         # l'email n'existe pas encore ; un mot de passe changé ensuite n'est
-        # donc jamais réécrasé au redémarrage.
+        # donc jamais réécrasé au redémarrage. Convergence one-shot du
+        # statut : un compte AFDEC resté « manager » (valeur du seed initial)
+        # est promu administrateur ; un statut changé à la main ensuite n'est
+        # plus jamais touché.
         try:
             from sqlalchemy import func as _func
             from Code.models.models import User as _User
             from Code.security import hash_password as _hash_password
             _PILOT_ACCOUNTS = [
-                ("Mael", "Girardin", "mael.pierre.girardin@icloud.com"),
-                ("Hubert", "Grandjean", "h.grandjean@afdec.fr"),
-                ("Aditya", "Vaze", "aditya.vaze@araymond.com"),
-                ("Rakesh", "Khandelwal", "rakesh.khandelwal@araymond.com"),
-                ("Vaishali", "Erande", "vaishali.erande@araymond.com"),
-                ("Madhuri", "Sindhankar", "madhuri.sindhankar@araymond.com"),
+                ("Mael", "Girardin", "mael.pierre.girardin@icloud.com", "administrateur"),
+                ("Hubert", "Grandjean", "h.grandjean@afdec.fr", "administrateur"),
+                ("Aditya", "Vaze", "aditya.vaze@araymond.com", "manager"),
+                ("Rakesh", "Khandelwal", "rakesh.khandelwal@araymond.com", "manager"),
+                ("Vaishali", "Erande", "vaishali.erande@araymond.com", "manager"),
+                ("Madhuri", "Sindhankar", "madhuri.sindhankar@araymond.com", "manager"),
             ]
             _pwd = None
-            _created = []
-            for _fn, _ln, _em in _PILOT_ACCOUNTS:
-                if _User.query.filter(_func.lower(_User.email) == _em).first():
+            _created, _promoted = [], []
+            for _fn, _ln, _em, _st in _PILOT_ACCOUNTS:
+                _u = _User.query.filter(_func.lower(_User.email) == _em).first()
+                if _u:
+                    if _st == "administrateur" and _u.status == "manager":
+                        _u.status = _st
+                        _promoted.append(_em)
                     continue
                 if _pwd is None:
                     _pwd = _hash_password("password")
                 db.session.add(_User(first_name=_fn, last_name=_ln, email=_em,
-                                     password=_pwd, status="manager"))
+                                     password=_pwd, status=_st))
                 _created.append(_em)
-            if _created:
+            if _created or _promoted:
                 db.session.commit()
-                print(f"[BOOTSTRAP] Comptes pilote créés : {', '.join(_created)}")
+                if _created:
+                    print(f"[BOOTSTRAP] Comptes pilote créés : {', '.join(_created)}")
+                if _promoted:
+                    print(f"[BOOTSTRAP] Comptes promus administrateur : {', '.join(_promoted)}")
         except Exception as e:
             db.session.rollback()
             print(f"[BOOTSTRAP] Comptes pilote: {e}")
