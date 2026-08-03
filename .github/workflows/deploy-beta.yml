@@ -67,15 +67,68 @@ jobs:
           docker push ${{ env.IMAGE }}:${{ github.sha }}
           docker push ${{ env.IMAGE }}:beta
 
-      # Pas de --set-env-vars : la config posée sur le service est conservée
-      # telle quelle (seule l'image change).
-      - name: Deploy to Cloud Run (optiqfluent-staging)
+      # Base pilote DÉDIÉE (isolée de staging) : si le secret PILOT_DATABASE_URL
+      # est défini, la base est créée sur le serveur si elle n'existe pas
+      # (connexion de maintenance sur l'endpoint direct, hors pooler), puis
+      # DATABASE_URL est remplacée sur le service au déploiement. Sans secret,
+      # la config actuelle du service est conservée telle quelle.
+      - name: Créer la base pilote si besoin (secret PILOT_DATABASE_URL)
+        env:
+          PILOT_DATABASE_URL: ${{ secrets.PILOT_DATABASE_URL }}
         run: |
+          if [ -z "$PILOT_DATABASE_URL" ]; then
+            echo "Secret PILOT_DATABASE_URL absent — base actuelle du service conservée"
+            exit 0
+          fi
+          pip install --quiet psycopg2-binary
+          python3 - <<'PY'
+          import os, re, sys
+          import psycopg2
+          url = os.environ["PILOT_DATABASE_URL"]
+          m = re.match(r"postgresql(?:\+\w+)?://([^:]+):([^@]+)@([^/:]+)(?::(\d+))?/([^?]+)", url)
+          if not m:
+              sys.exit("PILOT_DATABASE_URL illisible (attendu postgresql://user:mdp@hote/base?...)")
+          user, pwd, host, port, db = m.groups()
+          host_direct = host.replace("-pooler", "")
+          con = None
+          for maint in ("neondb", "postgres"):
+              try:
+                  con = psycopg2.connect(dbname=maint, user=user, password=pwd,
+                                         host=host_direct, port=port or 5432,
+                                         sslmode="require", connect_timeout=20)
+                  break
+              except Exception as e:
+                  print(f"connexion de maintenance via {maint} : {e}")
+          if con is None:
+              sys.exit("impossible de joindre le serveur pour créer la base")
+          con.autocommit = True
+          cur = con.cursor()
+          cur.execute("SELECT 1 FROM pg_database WHERE datname = %s", (db,))
+          if cur.fetchone():
+              print(f"Base « {db} » déjà présente — rien à créer")
+          else:
+              cur.execute(f'CREATE DATABASE "{db}"')
+              print(f"Base « {db} » créée (vide — le schéma et les comptes pilote"
+                    " seront créés au démarrage de l'app)")
+          PY
+
+      # Sans secret : seule l'image change, la config du service est conservée.
+      # Avec secret : DATABASE_URL est remplacée (les autres variables restent).
+      - name: Deploy to Cloud Run (optiqfluent-staging)
+        env:
+          PILOT_DATABASE_URL: ${{ secrets.PILOT_DATABASE_URL }}
+        run: |
+          EXTRA=()
+          if [ -n "$PILOT_DATABASE_URL" ]; then
+            EXTRA+=(--update-env-vars "^@^DATABASE_URL=${PILOT_DATABASE_URL}")
+            echo "Base pilote dédiée : DATABASE_URL remplacée sur le service"
+          fi
           gcloud run deploy ${{ env.SERVICE }} \
             --image ${{ env.IMAGE }}:${{ github.sha }} \
             --region ${{ env.REGION }} \
             --platform managed \
             --allow-unauthenticated \
+            "${EXTRA[@]}" \
             --quiet
 
       # --retry seul ne réessaie PAS sur un 404 : juste après la bascule de
