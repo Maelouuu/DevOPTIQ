@@ -101,3 +101,67 @@ def test_qualified_output_survives_connection_rename(app, client, carto):
     names = {o["name"] for o in client.get(f"/qualify/outputs/{carto['a']}").get_json()["outputs"]}
     assert "Pièce finie" in names          # nouvelle connexion matérialisée
     assert "Pièce usinée" in names         # sortie qualifiée conservée (travail préservé)
+
+
+class TestSave:
+    def test_unknown_activity_returns_404(self, client, carto):
+        _sess(client, carto["entity_id"])
+        r = client.post("/qualify/save/999999", json={"outputs": []})
+        assert r.status_code == 404
+        assert r.get_json()["error"] == "activity_not_found"
+
+    def test_unknown_data_id_is_ignored(self, client, carto):
+        _sess(client, carto["entity_id"])
+        r = client.post(f"/qualify/save/{carto['a']}", json={"outputs": [
+            {"data_id": 999999, "nature": "RESULT", "source": "MANUAL"}]})
+        assert r.status_code == 200
+        assert r.get_json()["saved"] == 0
+
+    def test_requalifying_a_result_emits_warning(self, app, client, carto):
+        _sess(client, carto["entity_id"])
+        outs = client.get(f"/qualify/outputs/{carto['a']}").get_json()["outputs"]
+        target = next(o for o in outs if o["name"] == "Pièce usinée")
+        client.post(f"/qualify/save/{carto['a']}", json={"outputs": [
+            {"data_id": target["data_id"], "nature": "RESULT", "source": "MANUAL"}]})
+        r = client.post(f"/qualify/save/{carto['a']}", json={"outputs": [
+            {"data_id": target["data_id"], "nature": "MEASURE", "source": "MANUAL"}]})
+        assert r.status_code == 200
+        body = r.get_json()
+        assert body["saved"] == 1
+        assert len(body["warnings"]) == 1
+        assert body["warnings"][0]["data_id"] == target["data_id"]
+        with app.app_context():
+            d = Data.query.get(target["data_id"])
+            assert d.semantic_nature == "MEASURE"
+
+
+class TestAnalyze:
+    """POST /qualify/analyze/<activity_id> — pas de clé IA en test → repli explicite
+    (CDC §8 : jamais de nature inventée, jamais de 500)."""
+
+    def test_unknown_activity_returns_404(self, client, carto):
+        _sess(client, carto["entity_id"])
+        r = client.post("/qualify/analyze/999999")
+        assert r.status_code == 404
+        assert r.get_json()["error"] == "activity_not_found"
+
+    def test_no_outputs_returns_warning(self, client, carto):
+        _sess(client, carto["entity_id"])
+        r = client.post(f"/qualify/analyze/{carto['z']}")
+        assert r.status_code == 200
+        body = r.get_json()
+        assert body["outputs"] == []
+        assert body["source"] == "no_outputs"
+        assert body["warning"]
+
+    def test_no_ai_key_returns_fallback_proposals(self, client, carto):
+        _sess(client, carto["entity_id"])
+        r = client.post(f"/qualify/analyze/{carto['a']}")
+        assert r.status_code == 200
+        body = r.get_json()
+        assert body["source"] != "AI"
+        assert body.get("warning") is None  # avertissement calculé seulement sur repli IA (raw), pas absence de clé
+        assert len(body["outputs"]) == 3
+        for prop in body["outputs"]:
+            assert prop["suggested_nature"] is None
+            assert prop["confidence"] == "none"
