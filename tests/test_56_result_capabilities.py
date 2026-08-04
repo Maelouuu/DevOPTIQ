@@ -63,6 +63,51 @@ def _cleanup_activity(app, activity_id):
         db.session.commit()
 
 
+class _FakeMessage:
+    def __init__(self, content):
+        self.content = content
+
+
+class _FakeChoice:
+    def __init__(self, content):
+        self.message = _FakeMessage(content)
+
+
+class _FakeCompletion:
+    def __init__(self, content):
+        self.choices = [_FakeChoice(content)]
+
+
+class _FakeChatCompletions:
+    def __init__(self, content=None, raise_exc=None):
+        self._content = content
+        self._raise_exc = raise_exc
+
+    def create(self, **kwargs):
+        if self._raise_exc is not None:
+            raise self._raise_exc
+        return _FakeCompletion(self._content)
+
+
+class _FakeChat:
+    def __init__(self, content=None, raise_exc=None):
+        self.completions = _FakeChatCompletions(content, raise_exc)
+
+
+class _FakeOpenAIClient:
+    def __init__(self, content=None, raise_exc=None):
+        self.chat = _FakeChat(content, raise_exc)
+
+
+def _mock_ai(monkeypatch, module, content=None, raise_exc=None):
+    """Patche openai_client_or_none() importé dans Code.routes.<module>."""
+    fake_client = _FakeOpenAIClient(content=content, raise_exc=raise_exc)
+    monkeypatch.setattr(
+        f"Code.routes.{module}.openai_client_or_none",
+        lambda: (fake_client, None),
+    )
+
+
 class TestGenerateCompetence:
 
     def test_unknown_activity_returns_404(self, auth_client):
@@ -93,6 +138,41 @@ class TestGenerateCompetence:
             assert "competence" in data
             assert "source" in data
             assert data["source"] != "AI"
+        finally:
+            _cleanup_activity(app, aid)
+
+    def test_ai_success_returns_competence_and_result_ids(self, auth_client, app, ids, monkeypatch):
+        aid = _create_activity(app, ids["entity_id"])
+        did = _create_result_data(app, ids["entity_id"], aid)
+        try:
+            content = json.dumps({
+                "activity_competence": {"description_fr": "Tenir la production au standard",
+                                        "description_en": "Hold production at standard"},
+                "result_ids_used": [did, 999999],
+                "granularity_alert": {"alert": False},
+            })
+            _mock_ai(monkeypatch, "result_capabilities", content=content)
+            r = auth_client.post(f"/competence/generate/{aid}")
+            assert r.status_code == 200
+            data = r.get_json()
+            assert data["source"] == "AI"
+            assert data["competence"]["description_fr"] == "Tenir la production au standard"
+            # l'id inconnu (999999) est filtré, seul le vrai résultat reste
+            assert data["result_ids_used"] == [did]
+        finally:
+            _cleanup_activity(app, aid)
+
+    def test_ai_exception_falls_back_with_error_source(self, auth_client, app, ids, monkeypatch):
+        aid = _create_activity(app, ids["entity_id"])
+        _create_result_data(app, ids["entity_id"], aid)
+        try:
+            _mock_ai(monkeypatch, "result_capabilities", raise_exc=RuntimeError("boom"))
+            r = auth_client.post(f"/competence/generate/{aid}")
+            assert r.status_code == 200
+            data = r.get_json()
+            assert data["source"] == "error"
+            assert data["competence"] is None
+            assert "boom" in data["error"]
         finally:
             _cleanup_activity(app, aid)
 
@@ -172,6 +252,62 @@ class TestGenerateResultLinks:
             data = r.get_json()
             assert data["links"] == []
             assert data["source"] != "AI"
+        finally:
+            _cleanup_activity(app, aid)
+
+    def test_ai_success_creates_items_and_links(self, auth_client, app, ids, monkeypatch):
+        aid = _create_activity(app, ids["entity_id"])
+        did = _create_result_data(app, ids["entity_id"], aid)
+        try:
+            content = json.dumps({"results": [{
+                "data_id": did,
+                "savoir_faires": ["Régler la machine"],
+                "savoirs": ["Norme qualité"],
+                "hsc": [{"name": "Rigueur", "required_level": 3}],
+            }]})
+            _mock_ai(monkeypatch, "result_capabilities", content=content)
+            r = auth_client.post(f"/competence/result_links/generate/{aid}")
+            assert r.status_code == 200
+            data = r.get_json()
+            assert data["source"] == "AI"
+            assert data["created"] == 3
+            by_result = data["links"]["by_result"]
+            assert len(by_result) == 1
+            item_labels = {it["item_label"] for it in by_result[0]["items"]}
+            assert item_labels == {"Régler la machine", "Norme qualité", "Rigueur"}
+
+            # relancer avec les mêmes items ne doit pas dupliquer les liens
+            r2 = auth_client.post(f"/competence/result_links/generate/{aid}")
+            assert r2.get_json()["created"] == 0
+        finally:
+            _cleanup_activity(app, aid)
+
+    def test_ai_unknown_data_id_in_response_is_ignored(self, auth_client, app, ids, monkeypatch):
+        aid = _create_activity(app, ids["entity_id"])
+        _create_result_data(app, ids["entity_id"], aid)
+        try:
+            content = json.dumps({"results": [{
+                "data_id": 999999, "savoir_faires": ["Ne doit pas être créé"],
+            }]})
+            _mock_ai(monkeypatch, "result_capabilities", content=content)
+            r = auth_client.post(f"/competence/result_links/generate/{aid}")
+            data = r.get_json()
+            assert data["created"] == 0
+            assert data["links"]["by_result"] == []
+        finally:
+            _cleanup_activity(app, aid)
+
+    def test_ai_exception_falls_back_with_error_source(self, auth_client, app, ids, monkeypatch):
+        aid = _create_activity(app, ids["entity_id"])
+        _create_result_data(app, ids["entity_id"], aid)
+        try:
+            _mock_ai(monkeypatch, "result_capabilities", raise_exc=RuntimeError("boom"))
+            r = auth_client.post(f"/competence/result_links/generate/{aid}")
+            assert r.status_code == 200
+            data = r.get_json()
+            assert data["source"] == "error"
+            assert data["links"] == []
+            assert "boom" in data["error"]
         finally:
             _cleanup_activity(app, aid)
 

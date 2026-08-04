@@ -4,6 +4,7 @@ Couverture des routes non encore testées :
   - activities_cartography.py → GET /activities/update-cartography
   - translate_softskills.py   → POST /translate_softskills/translate
 """
+import json
 import pytest
 
 pytestmark = pytest.mark.cartography_translate
@@ -214,3 +215,155 @@ class TestTranslateSoftskills:
         raw = '{"habilete": "Coopération"}'
         result = clean_json_response(raw)
         assert result == '{"habilete": "Coopération"}'
+
+    # --- Avec client IA simulé (fake) ---
+
+
+class _FakeMessage:
+    def __init__(self, content):
+        self.content = content
+
+
+class _FakeChoice:
+    def __init__(self, content):
+        self.message = _FakeMessage(content)
+
+
+class _FakeCompletion:
+    def __init__(self, content):
+        self.choices = [_FakeChoice(content)]
+
+
+class _FakeChatCompletions:
+    def __init__(self, content=None, raise_exc=None):
+        self._content = content
+        self._raise_exc = raise_exc
+
+    def create(self, **kwargs):
+        if self._raise_exc is not None:
+            raise self._raise_exc
+        return _FakeCompletion(self._content)
+
+
+class _FakeChat:
+    def __init__(self, content=None, raise_exc=None):
+        self.completions = _FakeChatCompletions(content, raise_exc)
+
+
+class _FakeOpenAIClient:
+    def __init__(self, content=None, raise_exc=None):
+        self.chat = _FakeChat(content, raise_exc)
+
+
+def _mock_translate_client(monkeypatch, content=None, raise_exc=None):
+    fake_client = _FakeOpenAIClient(content=content, raise_exc=raise_exc)
+    monkeypatch.setattr(
+        "Code.routes.translate_softskills.get_openai_client",
+        lambda: (fake_client, None),
+    )
+
+
+class TestTranslateSoftskillsWithAI:
+
+    def test_success_returns_proposals_with_mapped_niveau(self, auth_client, monkeypatch):
+        content = json.dumps([
+            {"habilete": "Rigueur", "niveau": "3", "justification": "Contexte exigeant"},
+        ])
+        _mock_translate_client(monkeypatch, content=content)
+        r = auth_client.post(
+            "/translate_softskills/translate",
+            json={"user_input": "rigueur, précision"},
+        )
+        assert r.status_code == 200
+        proposals = r.get_json()["proposals"]
+        assert len(proposals) == 1
+        assert proposals[0]["habilete"] == "Rigueur"
+        assert proposals[0]["niveau"] == "3 (Maîtrise)"
+
+    def test_success_english_lang_uses_english_niveau_map(self, auth_client, monkeypatch):
+        content = json.dumps([{"habilete": "Rigor", "niveau": 2}])
+        _mock_translate_client(monkeypatch, content=content)
+        with auth_client.session_transaction() as sess:
+            sess["lang"] = "en"
+        try:
+            r = auth_client.post(
+                "/translate_softskills/translate",
+                json={"user_input": "rigor"},
+            )
+            assert r.status_code == 200
+            assert r.get_json()["proposals"][0]["niveau"] == "2 (Developing)"
+        finally:
+            with auth_client.session_transaction() as sess:
+                sess["lang"] = "fr"
+
+    def test_success_with_activity_data_context_including_performance(self, auth_client, monkeypatch):
+        """Couvre la construction du contexte 'performance' (outgoing avec performance)."""
+        content = json.dumps([{"habilete": "Coopération", "niveau": "1"}])
+        _mock_translate_client(monkeypatch, content=content)
+        r = auth_client.post(
+            "/translate_softskills/translate",
+            json={
+                "user_input": "coopération",
+                "activity_data": {
+                    "name": "Assemblage",
+                    "tasks": [{"description": "Monter la pièce"}],
+                    "constraints": [{"description": "Délai court"}],
+                    "outgoing": [
+                        {"performance": {"name": "Cote", "description": "Respect de la cote"}},
+                        {"no_performance": True},
+                    ],
+                },
+            },
+        )
+        assert r.status_code == 200
+        assert r.get_json()["proposals"][0]["habilete"] == "Coopération"
+
+    def test_single_dict_response_is_wrapped_in_list(self, auth_client, monkeypatch):
+        content = json.dumps({"habilete": "Adaptabilité", "niveau": "4"})
+        _mock_translate_client(monkeypatch, content=content)
+        r = auth_client.post(
+            "/translate_softskills/translate",
+            json={"user_input": "adaptabilité"},
+        )
+        assert r.status_code == 200
+        proposals = r.get_json()["proposals"]
+        assert isinstance(proposals, list)
+        assert proposals[0]["habilete"] == "Adaptabilité"
+
+    def test_non_list_non_dict_json_returns_400(self, auth_client, monkeypatch):
+        content = json.dumps("juste une chaîne")
+        _mock_translate_client(monkeypatch, content=content)
+        r = auth_client.post(
+            "/translate_softskills/translate",
+            json={"user_input": "test"},
+        )
+        assert r.status_code == 400
+        assert "error" in r.get_json()
+
+    def test_invalid_json_response_returns_400(self, auth_client, monkeypatch):
+        _mock_translate_client(monkeypatch, content="ceci n'est pas du JSON valide {")
+        r = auth_client.post(
+            "/translate_softskills/translate",
+            json={"user_input": "test"},
+        )
+        assert r.status_code == 400
+        assert "JSON" in r.get_json()["error"]
+
+    def test_ai_exception_returns_500(self, auth_client, monkeypatch):
+        _mock_translate_client(monkeypatch, raise_exc=RuntimeError("boom"))
+        r = auth_client.post(
+            "/translate_softskills/translate",
+            json={"user_input": "test"},
+        )
+        assert r.status_code == 500
+        assert "boom" in r.get_json()["error"]
+
+    def test_markdown_wrapped_json_is_cleaned_and_parsed(self, auth_client, monkeypatch):
+        content = "```json\n" + json.dumps([{"habilete": "Écoute", "niveau": "1"}]) + "\n```"
+        _mock_translate_client(monkeypatch, content=content)
+        r = auth_client.post(
+            "/translate_softskills/translate",
+            json={"user_input": "écoute"},
+        )
+        assert r.status_code == 200
+        assert r.get_json()["proposals"][0]["habilete"] == "Écoute"

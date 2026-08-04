@@ -2,14 +2,14 @@
   "plan": {
     "title": "Plan de couverture & fiabilisation des tests",
     "objective": "À chaque exécution, la routine répartit sa capacité : ~70% pour étendre la couverture (nouveaux tests) et ~30% pour repérer et corriger les tests défaillants, en traçant chaque correctif.",
-    "updated_at": "11/07/2026",
+    "updated_at": "04/08/2026",
     "steps": [
       {
         "id": "coverage",
         "title": "Couverture des pages Flask",
         "status": "in_progress",
-        "progress": 93,
-        "note": "50 fichiers de test couvrent l'essentiel des pages. Audit route-par-route : toutes les routes Flask ont désormais au moins un test (dernier trou comblé : /testpanel/patches, /journal, /stream). Reste surtout l'éditeur OptiqCarto (JS)."
+        "progress": 94,
+        "note": "Mesure coverage.py ajoutée (Code/routes : 78%). qualify_outputs/result_capabilities/translate_softskills désormais 94-99% (branches IA succès/exception simulées). Reste : activities_map.py (54%) et cartography_editor.py (72%), plus editeur OptiqCarto (JS)."
       },
       {
         "id": "green",
@@ -49,6 +49,25 @@
     ]
   },
   "entries": [
+    {
+      "at": "2026-08-04T03:37:49",
+      "date": "04/08/2026 · 03:37",
+      "author": "routine",
+      "title": "Couverture IA : qualification des sorties, compétence par résultat, traduction HSC",
+      "summary": "Suite déjà à 100% (1651/1651) ; aucun bug applicatif à corriger. Investissement de la totalité du run dans la couverture : mesure de coverage.py sur Code/routes (77%) pour cibler les fichiers les plus troués, puis 57 nouveaux tests avec client IA simulé (fake OpenAI) sur les branches succès/exception/repli jamais exercées de qualify_outputs.py, result_capabilities.py et translate_softskills.py.",
+      "new_tests": 57,
+      "tests_fixed": 0,
+      "patches": 0,
+      "page": "qualify_outputs, result_capabilities, cartography_translate",
+      "highlights": [
+        "qualify_outputs.py : 59% -> 94% (analyze() succès IA + avertissements 0/>3 résultats + exception + filtrage id/nature invalides ; save() cas limites ; outputs() 404)",
+        "result_capabilities.py : 61% -> 97% (generate_competence() et generate_result_links() : succès IA avec création/déduplication d'items S/SF/HSC, et repli sur exception)",
+        "translate_softskills.py : 59% -> 99% (succès IA fr/en, mapping des niveaux, JSON enveloppé en objet unique, JSON invalide, réponse non-liste/dict, exception, nettoyage markdown)",
+        "Couverture globale Code/routes : 77% -> 78%",
+        "Tous les nouveaux tests sont isolés (entités/activités dédiées + cleanup) pour ne pas polluer la session de test partagée"
+      ],
+      "next": "Cibler ensuite activities_map.py (54%, le plus gros fichier de routes) et cartography_editor.py (72%) ; ne jamais exécuter process_visio_file() (activities_cartography.py, chemin succès) contre la base de test partagée, car il vide et reconstruit globalement les tables Activities/Data/Link."
+    },
     {
       "at": "2026-07-11T03:15:23",
       "date": "11/07/2026 · 03:15",
