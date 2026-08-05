@@ -174,6 +174,118 @@ class TestActivitiesMapPage:
         assert r.status_code in (200, 400)
         assert r.content_type.startswith("application/json")
 
+    def test_update_cartography_no_active_entity_returns_400(self, app):
+        """Sans entité active en session, la route renvoie l'erreur dédiée."""
+        with app.test_client() as fresh:
+            r = fresh.get("/activities/update-cartography")
+        assert r.status_code == 400
+        assert "Aucune entité active" in json.loads(r.data)["error"]
+
+    def test_update_cartography_no_svg_filename_returns_400(self, app, ids):
+        """Entité active sans svg_filename : erreur dédiée 'aucune cartographie'."""
+        from Code.models.models import Entity
+        from Code.extensions import db
+        _set_owner(app, ids)
+        with app.app_context():
+            entity = Entity.query.get(ids["entity_id"])
+            original = entity.svg_filename
+            entity.svg_filename = None
+            db.session.commit()
+        try:
+            with app.test_client() as fresh:
+                _set_active_session(fresh, ids)
+                r = fresh.get("/activities/update-cartography")
+            assert r.status_code == 400
+            assert "cartographie" in json.loads(r.data)["error"].lower()
+        finally:
+            with app.app_context():
+                entity = Entity.query.get(ids["entity_id"])
+                entity.svg_filename = original
+                db.session.commit()
+
+    def test_update_cartography_file_not_found_returns_404(self, app, ids):
+        """Entité active avec un svg_filename introuvable sur disque : 404."""
+        from Code.models.models import Entity
+        from Code.extensions import db
+        _set_owner(app, ids)
+        with app.app_context():
+            entity = Entity.query.get(ids["entity_id"])
+            original = entity.svg_filename
+            entity.svg_filename = "fichier_totalement_inexistant_xyz.vsdx"
+            db.session.commit()
+        try:
+            with app.test_client() as fresh:
+                _set_active_session(fresh, ids)
+                r = fresh.get("/activities/update-cartography")
+            assert r.status_code == 404
+            assert "introuvable" in json.loads(r.data)["error"].lower()
+        finally:
+            with app.app_context():
+                entity = Entity.query.get(ids["entity_id"])
+                entity.svg_filename = original
+                db.session.commit()
+
+    def test_update_cartography_success_returns_summary(self, app, ids, monkeypatch, tmp_path):
+        """Fichier présent + traitement mocké : réponse 200 avec le résumé texte."""
+        import Code.routes.activities_cartography as carto_module
+        from Code.models.models import Entity
+        from Code.extensions import db
+
+        fake_file = tmp_path / "carto_test.vsdx"
+        fake_file.write_bytes(b"fake")
+
+        _set_owner(app, ids)
+        with app.app_context():
+            entity = Entity.query.get(ids["entity_id"])
+            original = entity.svg_filename
+            entity.svg_filename = str(fake_file)
+            db.session.commit()
+
+        monkeypatch.setattr(carto_module, "process_visio_file", lambda path: None)
+        monkeypatch.setattr(carto_module, "print_summary", lambda: print("Résumé de test"))
+        try:
+            with app.test_client() as fresh:
+                _set_active_session(fresh, ids)
+                r = fresh.get("/activities/update-cartography")
+            assert r.status_code == 200
+            body = json.loads(r.data)
+            assert "Résumé de test" in body["summary"]
+            assert body["file"] == str(fake_file)
+        finally:
+            with app.app_context():
+                entity = Entity.query.get(ids["entity_id"])
+                entity.svg_filename = original
+                db.session.commit()
+
+    def test_update_cartography_processing_error_returns_500(self, app, ids, monkeypatch):
+        """Une exception pendant le traitement Visio renvoie une 500 gérée."""
+        import Code.routes.activities_cartography as carto_module
+        from Code.models.models import Entity
+        from Code.extensions import db
+
+        _set_owner(app, ids)
+        with app.app_context():
+            entity = Entity.query.get(ids["entity_id"])
+            original = entity.svg_filename
+            entity.svg_filename = __file__  # fichier existant sur disque
+            db.session.commit()
+
+        def _boom(path):
+            raise RuntimeError("parsing cassé")
+
+        monkeypatch.setattr(carto_module, "process_visio_file", _boom)
+        try:
+            with app.test_client() as fresh:
+                _set_active_session(fresh, ids)
+                r = fresh.get("/activities/update-cartography")
+            assert r.status_code == 500
+            assert "parsing cassé" in json.loads(r.data)["error"]
+        finally:
+            with app.app_context():
+                entity = Entity.query.get(ids["entity_id"])
+                entity.svg_filename = original
+                db.session.commit()
+
 
 # ===========================================================================
 # 2. API Entités — liste et détails
