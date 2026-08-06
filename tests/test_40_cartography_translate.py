@@ -4,6 +4,7 @@ Couverture des routes non encore testées :
   - activities_cartography.py → GET /activities/update-cartography
   - translate_softskills.py   → POST /translate_softskills/translate
 """
+import os
 import pytest
 
 pytestmark = pytest.mark.cartography_translate
@@ -88,6 +89,61 @@ class TestUpdateCartography:
             assert filename in combined
         finally:
             _set_svg_filename(app, ids["entity_id"], None)
+
+    def test_existing_file_processed_returns_200_with_summary(self, auth_client, ids, app, monkeypatch):
+        """Fichier trouvé : process_visio_file/print_summary sont appelés, réponse 200 + résumé."""
+        import Code.routes.activities_cartography as mod
+
+        filename = "cartographie_test_ok.vsdx"
+        path = os.path.join("Code", filename)
+        calls = {"processed": None}
+
+        def fake_process(vsdx_path):
+            calls["processed"] = vsdx_path
+
+        def fake_summary():
+            print("résumé factice")
+
+        monkeypatch.setattr(mod, "process_visio_file", fake_process)
+        monkeypatch.setattr(mod, "print_summary", fake_summary)
+
+        with open(path, "w") as f:
+            f.write("contenu factice")
+        _set_svg_filename(app, ids["entity_id"], filename)
+        try:
+            r = auth_client.get("/activities/update-cartography")
+            assert r.status_code == 200
+            body = r.get_json()
+            assert calls["processed"] == path
+            assert "résumé factice" in body["summary"]
+            assert body["file"] == filename
+        finally:
+            _set_svg_filename(app, ids["entity_id"], None)
+            os.remove(path)
+
+    def test_processing_exception_returns_500(self, auth_client, ids, app, monkeypatch):
+        """Une exception dans process_visio_file est capturée et renvoyée en 500."""
+        import Code.routes.activities_cartography as mod
+
+        filename = "cartographie_test_erreur.vsdx"
+        path = os.path.join("Code", filename)
+
+        def fake_process(vsdx_path):
+            raise RuntimeError("boom")
+
+        monkeypatch.setattr(mod, "process_visio_file", fake_process)
+
+        with open(path, "w") as f:
+            f.write("contenu factice")
+        _set_svg_filename(app, ids["entity_id"], filename)
+        try:
+            r = auth_client.get("/activities/update-cartography")
+            assert r.status_code == 500
+            body = r.get_json()
+            assert "boom" in body["error"]
+        finally:
+            _set_svg_filename(app, ids["entity_id"], None)
+            os.remove(path)
 
 
 # ===========================================================================

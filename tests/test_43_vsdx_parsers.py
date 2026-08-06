@@ -181,6 +181,10 @@ class TestExtractDataInfo:
         _, dname = self.p._extract_data_info("", "")
         assert dname is None
 
+    def test_whitespace_only_text_and_empty_name_normalized_to_none(self):
+        _, dname = self.p._extract_data_info("", "   ")
+        assert dname is None
+
 
 # =============================================================================
 # 4. VsdxConnectionParser.parse (erreurs de fichier)
@@ -247,6 +251,237 @@ class TestVsdxConnectionParserParse:
         conns, errors = parse_vsdx_connections("/nonexistent.vsdx")
         assert conns == []
         assert len(errors) > 0
+
+    def test_zip_without_pages_returns_explicit_error(self):
+        from Code.routes.vsdx_conection_parser import VsdxConnectionParser
+        fd, path = tempfile.mkstemp(suffix=".vsdx")
+        os.close(fd)
+        with zipfile.ZipFile(path, "w") as zf:
+            zf.writestr("readme.txt", "no pages here")
+        try:
+            conns, errors = VsdxConnectionParser(path).parse()
+        finally:
+            os.unlink(path)
+        assert conns == []
+        assert any("Aucune page" in e for e in errors)
+
+
+# =============================================================================
+# 4bis. VsdxConnectionParser.parse — flux complet via un .vsdx synthétique
+# =============================================================================
+
+PAGE_ONE_CONNECTION = f'''<PageContents xmlns="{NS}">
+  <Shapes>
+    <Shape ID="10" Name="ActShapeA">
+      <Text>Act A</Text>
+    </Shape>
+    <Shape ID="20" Name="ActShapeB">
+      <Text>Act B</Text>
+    </Shape>
+    <Shape ID="100" Name="N-Data">
+      <Text>Planning previsionnel</Text>
+    </Shape>
+  </Shapes>
+  <Connects>
+    <Connect FromSheet="100" FromCell="BeginX" ToSheet="10"/>
+    <Connect FromSheet="100" FromCell="EndX" ToSheet="20"/>
+  </Connects>
+</PageContents>'''
+
+
+class TestVsdxConnectionParserFullFlow:
+
+    def test_single_connection_parsed_with_data_type_and_name(self):
+        from Code.routes.vsdx_conection_parser import VsdxConnectionParser
+        path = _vsdx_zip(PAGE_ONE_CONNECTION)
+        try:
+            conns, errors = VsdxConnectionParser(path).parse()
+        finally:
+            os.unlink(path)
+        assert errors == []
+        assert len(conns) == 1
+        c = conns[0]
+        assert c["source_shape_id"] == "10"
+        assert c["source_name"] == "Act A"
+        assert c["target_shape_id"] == "20"
+        assert c["target_name"] == "Act B"
+        assert c["connector_id"] == "100"
+        assert c["data_name"] == "Planning previsionnel"
+        assert c["data_type"] == "nourrissante"
+
+    def test_flag_layer_shapes_are_excluded_from_connections(self):
+        from Code.routes.vsdx_conection_parser import VsdxConnectionParser
+        page = f'''<PageContents xmlns="{NS}">
+  <Shapes>
+    <Shape ID="10" Name="ActShapeA"><Text>Act A</Text></Shape>
+    <Shape ID="20" Name="Flag">
+      <Cell N="LayerMember" V="6"/>
+      <Text>Drapeau</Text>
+    </Shape>
+    <Shape ID="100" Name="N-Data"><Text>Donnee</Text></Shape>
+  </Shapes>
+  <Connects>
+    <Connect FromSheet="100" FromCell="BeginX" ToSheet="10"/>
+    <Connect FromSheet="100" FromCell="EndX" ToSheet="20"/>
+  </Connects>
+</PageContents>'''
+        path = _vsdx_zip(page)
+        try:
+            parser = VsdxConnectionParser(path)
+            conns, errors = parser.parse()
+        finally:
+            os.unlink(path)
+        assert errors == []
+        assert conns == []
+        excluded = parser.get_excluded_shapes()
+        assert len(excluded) == 1
+        assert excluded[0]["shape_id"] == "20"
+
+    def test_resultat_prefixed_shape_excludes_connection(self):
+        from Code.routes.vsdx_conection_parser import VsdxConnectionParser
+        page = f'''<PageContents xmlns="{NS}">
+  <Shapes>
+    <Shape ID="10" Name="ActShapeA"><Text>Résultat.Chiffre d'affaires</Text></Shape>
+    <Shape ID="20" Name="ActShapeB"><Text>Act B</Text></Shape>
+    <Shape ID="100" Name="N-Data"><Text>Donnee</Text></Shape>
+  </Shapes>
+  <Connects>
+    <Connect FromSheet="100" FromCell="BeginX" ToSheet="10"/>
+    <Connect FromSheet="100" FromCell="EndX" ToSheet="20"/>
+  </Connects>
+</PageContents>'''
+        path = _vsdx_zip(page)
+        try:
+            conns, errors = VsdxConnectionParser(path).parse()
+        finally:
+            os.unlink(path)
+        assert errors == []
+        assert conns == []
+
+    def test_connect_missing_from_or_to_sheet_is_skipped(self):
+        from Code.routes.vsdx_conection_parser import VsdxConnectionParser
+        page = f'''<PageContents xmlns="{NS}">
+  <Shapes>
+    <Shape ID="10" Name="ActShapeA"><Text>Act A</Text></Shape>
+  </Shapes>
+  <Connects>
+    <Connect FromCell="BeginX" ToSheet="10"/>
+  </Connects>
+</PageContents>'''
+        path = _vsdx_zip(page)
+        try:
+            conns, errors = VsdxConnectionParser(path).parse()
+        finally:
+            os.unlink(path)
+        assert errors == []
+        assert conns == []
+
+    def test_connector_without_matching_target_shape_is_skipped(self):
+        from Code.routes.vsdx_conection_parser import VsdxConnectionParser
+        page = f'''<PageContents xmlns="{NS}">
+  <Shapes>
+    <Shape ID="10" Name="ActShapeA"><Text>Act A</Text></Shape>
+    <Shape ID="100" Name="N-Data"><Text>Donnee</Text></Shape>
+  </Shapes>
+  <Connects>
+    <Connect FromSheet="100" FromCell="BeginX" ToSheet="10"/>
+    <Connect FromSheet="100" FromCell="EndX" ToSheet="999"/>
+  </Connects>
+</PageContents>'''
+        path = _vsdx_zip(page)
+        try:
+            conns, errors = VsdxConnectionParser(path).parse()
+        finally:
+            os.unlink(path)
+        assert errors == []
+        assert conns == []
+
+    def test_multiple_pages_accumulate_connections(self):
+        from Code.routes.vsdx_conection_parser import VsdxConnectionParser
+        page2 = f'''<PageContents xmlns="{NS}">
+  <Shapes>
+    <Shape ID="30" Name="ActShapeC"><Text>Act C</Text></Shape>
+    <Shape ID="40" Name="ActShapeD"><Text>Act D</Text></Shape>
+    <Shape ID="200" Name="T-Data"><Text>Commande</Text></Shape>
+  </Shapes>
+  <Connects>
+    <Connect FromSheet="200" FromCell="BeginX" ToSheet="30"/>
+    <Connect FromSheet="200" FromCell="EndX" ToSheet="40"/>
+  </Connects>
+</PageContents>'''
+        path = _vsdx_zip(PAGE_ONE_CONNECTION, extra_pages={"visio/pages/page2.xml": page2})
+        try:
+            conns, errors = VsdxConnectionParser(path).parse()
+        finally:
+            os.unlink(path)
+        assert errors == []
+        assert len(conns) == 2
+        by_source = {c["source_shape_id"]: c for c in conns}
+        assert by_source["10"]["target_shape_id"] == "20"
+        assert by_source["30"]["target_shape_id"] == "40"
+        assert by_source["30"]["data_type"] == "déclenchante"
+
+    def test_malformed_page_xml_reports_error_without_crashing(self):
+        from Code.routes.vsdx_conection_parser import VsdxConnectionParser
+        path = _vsdx_zip("<not valid xml")
+        try:
+            conns, errors = VsdxConnectionParser(path).parse()
+        finally:
+            os.unlink(path)
+        assert conns == []
+        assert any("parsing XML" in e for e in errors)
+
+    def test_shape_without_id_is_ignored(self):
+        from Code.routes.vsdx_conection_parser import VsdxConnectionParser
+        page = f'''<PageContents xmlns="{NS}">
+  <Shapes>
+    <Shape Name="NoIdShape"><Text>Orphan</Text></Shape>
+    <Shape ID="10" Name="ActShapeA"><Text>Act A</Text></Shape>
+    <Shape ID="20" Name="ActShapeB"><Text>Act B</Text></Shape>
+    <Shape ID="100" Name="N-Data"><Text>Donnee</Text></Shape>
+  </Shapes>
+  <Connects>
+    <Connect FromSheet="100" FromCell="BeginX" ToSheet="10"/>
+    <Connect FromSheet="100" FromCell="EndX" ToSheet="20"/>
+  </Connects>
+</PageContents>'''
+        path = _vsdx_zip(page)
+        try:
+            conns, errors = VsdxConnectionParser(path).parse()
+        finally:
+            os.unlink(path)
+        assert errors == []
+        assert len(conns) == 1
+
+    def test_connector_with_only_begin_side_yields_no_connection(self):
+        from Code.routes.vsdx_conection_parser import VsdxConnectionParser
+        page = f'''<PageContents xmlns="{NS}">
+  <Shapes>
+    <Shape ID="10" Name="ActShapeA"><Text>Act A</Text></Shape>
+    <Shape ID="20" Name="ActShapeB"><Text>Act B</Text></Shape>
+    <Shape ID="100" Name="N-Data"><Text>Donnee</Text></Shape>
+  </Shapes>
+  <Connects>
+    <Connect FromSheet="100" FromCell="BeginX" ToSheet="10"/>
+  </Connects>
+</PageContents>'''
+        path = _vsdx_zip(page)
+        try:
+            conns, errors = VsdxConnectionParser(path).parse()
+        finally:
+            os.unlink(path)
+        assert errors == []
+        assert conns == []
+
+    def test_get_unique_activities_after_real_parse(self):
+        from Code.routes.vsdx_conection_parser import VsdxConnectionParser
+        path = _vsdx_zip(PAGE_ONE_CONNECTION)
+        try:
+            parser = VsdxConnectionParser(path)
+            parser.parse()
+        finally:
+            os.unlink(path)
+        assert parser.get_unique_activities() == ["Act A", "Act B"]
 
 
 # =============================================================================
