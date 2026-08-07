@@ -4,6 +4,7 @@ Page : Gestion du Temps — routes avancées (/temps)
 Couverture des endpoints non testés dans test_09_time.py :
   - POST   /temps/api/project               → création projet de charges
   - GET    /temps/api/project/<id>           → lecture projet
+  - PATCH  /temps/api/project/<id>           → renommage projet
   - DELETE /temps/api/project/<id>           → suppression projet
   - DELETE /temps/api/project_line/<id>      → suppression ligne projet
   - DELETE /temps/api/time_analysis/<id>     → suppression analyse de temps
@@ -128,6 +129,43 @@ class TestTimeProject:
         data = r.get_json()
         assert data.get("ok") is True
         assert isinstance(data.get("items"), list)
+
+    def test_patch_project_renames_it(self, auth_client, ids):
+        create = _create_project(auth_client, ids["activity_id"], name="Ancien Nom Projet")
+        pid = create.get_json()["project_id"]
+
+        r = auth_client.patch(
+            f"/temps/api/project/{pid}",
+            data=json.dumps({"name": "Nouveau Nom Projet"}),
+            content_type="application/json",
+        )
+        assert r.status_code == 200
+        data = r.get_json()
+        assert data.get("ok") is True
+        assert data.get("name") == "Nouveau Nom Projet"
+
+        r2 = auth_client.get(f"/temps/api/project/{pid}")
+        assert r2.get_json()["project"]["name"] == "Nouveau Nom Projet"
+
+    def test_patch_project_empty_name_ignored(self, auth_client, ids):
+        create = _create_project(auth_client, ids["activity_id"], name="Nom Stable Projet")
+        pid = create.get_json()["project_id"]
+
+        r = auth_client.patch(
+            f"/temps/api/project/{pid}",
+            data=json.dumps({"name": "   "}),
+            content_type="application/json",
+        )
+        assert r.status_code == 200
+        assert r.get_json()["name"] == "Nom Stable Projet"
+
+    def test_patch_project_not_found_returns_404(self, auth_client):
+        r = auth_client.patch(
+            "/temps/api/project/999999",
+            data=json.dumps({"name": "Peu importe"}),
+            content_type="application/json",
+        )
+        assert r.status_code == 404
 
     def test_delete_project_removes_it(self, auth_client, ids):
         create = _create_project(auth_client, ids["activity_id"], name="Projet À Supprimer")
