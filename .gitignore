@@ -22,3 +22,4 @@ tools/prompts/prompts_key.txt
 Code/prompts/prompts.enc
 docs/guide_standalone.html
 tools/guide/auth_state.json
+tools/guide/demo_v2.db*

@@ -124,6 +124,76 @@
   .chaine .fleche{align-self:center;color:var(--faint);font-size:18px;font-weight:700}
   @media (max-width:860px){.chaine .fleche{display:none}}
 
+  /* ── Diapos : le déroulé d'une fonctionnalité en écrans animés ── */
+  .diapo{margin:22px 0 10px;border:1px solid var(--border);border-radius:14px;background:#fff;
+    box-shadow:var(--sh);overflow:hidden}
+  .diapo-head{display:flex;align-items:center;gap:10px;padding:11px 18px;border-bottom:1px solid var(--border);
+    background:color-mix(in srgb,var(--a) 5%,#fff)}
+  .diapo-head .tag{font-size:10.5px;font-weight:800;letter-spacing:.07em;color:#fff;background:var(--a);
+    border-radius:6px;padding:3px 9px;text-transform:uppercase;flex-shrink:0}
+  .diapo-head b{font-size:15px;color:var(--ink)}
+  .diapo-head .n{margin-left:auto;font-size:12.5px;font-weight:700;color:var(--muted);font-variant-numeric:tabular-nums}
+  .diapo-stage{position:relative;overflow:hidden}
+  .diapo-slide{position:absolute;inset:0;padding:20px 26px 14px;display:grid;
+    grid-template-columns:minmax(0,1fr) minmax(0,1.1fr);gap:24px;align-items:center;
+    opacity:0;transform:translateX(30px);pointer-events:none;
+    transition:opacity .45s ease,transform .45s cubic-bezier(.2,.8,.25,1)}
+  .diapo-slide.on{position:relative;opacity:1;transform:none;pointer-events:auto}
+  .diapo-slide.off{transform:translateX(-30px)}
+  .d-txt h4{font-size:16.5px;font-weight:700;color:var(--ink);margin-bottom:7px;display:flex;gap:10px;align-items:baseline}
+  .d-txt h4 .k{flex:none;width:26px;height:26px;border-radius:8px;display:inline-grid;place-items:center;
+    background:var(--a);color:#fff;font-size:13.5px;font-weight:800;transform:translateY(4px)}
+  .d-txt p{font-size:14px;color:var(--ink2);margin:6px 0 0;line-height:1.6}
+  .d-txt .d-note{font-size:12.5px;color:var(--muted);margin-top:9px;padding-left:10px;
+    border-left:3px solid color-mix(in srgb,var(--a) 40%,#fff)}
+  /* Écran stylisé dans la diapo */
+  .mk{position:relative;border:1px solid var(--border);border-radius:12px;background:var(--card2);
+    padding:14px;min-height:216px;display:flex;flex-direction:column;gap:8px;justify-content:center}
+  .mk .win{background:#fff;border:1px solid var(--border);border-radius:10px;padding:10px 12px;
+    box-shadow:0 1px 3px rgba(15,23,42,.06)}
+  .mk-band{border-radius:8px;padding:7px 10px;display:flex;gap:8px;align-items:center;min-height:40px}
+  .mk-case{background:#fff;border:1.5px solid;border-radius:7px;padding:4px 9px;font-size:11.5px;font-weight:650;color:var(--ink);white-space:nowrap}
+  .mk-fl{color:var(--faint);font-weight:800}
+  .mk-row{display:flex;gap:8px;align-items:center;font-size:12px;color:var(--ink2)}
+  .mk-pill{border-radius:999px;padding:3px 11px;font-size:11.5px;font-weight:700;border:1px solid var(--border);background:#fff}
+  .mk-pill.on{background:var(--a);border-color:var(--a);color:#fff}
+  .mk-btn{display:inline-flex;align-items:center;gap:6px;border-radius:8px;padding:5px 12px;font-size:12px;
+    font-weight:700;background:var(--a);color:#fff;box-shadow:0 3px 8px -2px color-mix(in srgb,var(--a) 55%,transparent)}
+  .mk-chip{display:inline-flex;align-items:center;border-radius:7px;padding:3px 9px;font-size:11px;font-weight:700;
+    background:color-mix(in srgb,var(--a) 10%,#fff);color:var(--a);border:1px solid color-mix(in srgb,var(--a) 28%,#fff)}
+  .mk-bar{height:9px;border-radius:6px;background:#eef1f6;overflow:hidden}
+  .mk-bar i{display:block;height:100%;border-radius:6px;background:var(--a)}
+  .mk-note{font-size:10.5px;color:var(--faint);text-align:center;margin-top:2px}
+  /* Notes / échelle */
+  .mk-scale{display:flex;gap:5px}
+  .mk-scale i{width:26px;height:24px;border-radius:7px;display:grid;place-items:center;background:#eef1f6;
+    color:var(--muted);font-size:12px;font-weight:800;font-style:normal}
+  .mk-scale i.sel{background:var(--a);color:#fff}
+  /* Bulles d'annotation dans l'écran — animées à l'arrivée de la diapo */
+  .sb{position:absolute;z-index:6;max-width:215px;background:#0f172a;color:#f1f5f9;font-size:12px;
+    font-weight:600;line-height:1.45;border-radius:10px;padding:7px 11px;
+    box-shadow:0 4px 10px rgba(15,23,42,.25),0 14px 34px -10px rgba(15,23,42,.4);opacity:0;transform:translateY(7px)}
+  .sb b{color:#fff}
+  .sb::after{content:'';position:absolute;width:10px;height:10px;background:#0f172a;transform:rotate(45deg)}
+  .sb.sb-t::after{bottom:-4px;left:22px}   /* bulle AU-DESSUS de la cible */
+  .sb.sb-b::after{top:-4px;left:22px}      /* bulle EN DESSOUS */
+  .sb.sb-r::after{left:-4px;top:12px}      /* bulle À DROITE */
+  .on .sb{animation:sb-in .5s cubic-bezier(.2,.85,.3,1.15) forwards;animation-delay:var(--d,.55s)}
+  @keyframes sb-in{to{opacity:1;transform:none}}
+  /* Navigation */
+  .diapo-nav{display:flex;align-items:center;justify-content:center;gap:14px;padding:10px 16px 13px}
+  .diapo-nav button{border:1px solid var(--border);background:#fff;color:var(--ink2);width:32px;height:32px;
+    border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;transition:all .2s;line-height:1}
+  .diapo-nav button:hover{border-color:var(--a);color:var(--a);box-shadow:var(--sh)}
+  .d-dots{display:flex;gap:7px}
+  .d-dots button{width:9px;height:9px;min-width:0;padding:0;border-radius:50%;border:none;background:#dbe2ec;cursor:pointer;transition:all .25s}
+  .d-dots button.cur{background:var(--a);transform:scale(1.3)}
+  @media (max-width:820px){
+    .diapo-slide{grid-template-columns:1fr;gap:14px;padding:16px 16px 10px}
+    .sb{max-width:170px;font-size:11px}
+  }
+  @media print{.diapo-slide{position:relative;opacity:1;transform:none}.diapo-nav{display:none}}
+
   /* ── Glossaire ── */
   .gloss{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:12px;margin-top:16px}
   .gloss div{background:#fff;border:1px solid var(--border);border-radius:12px;padding:13px 16px;font-size:14px}
@@ -185,7 +255,9 @@
   couleur que dans l'app. Dans chaque section&nbsp;: <b>à quoi sert la page</b> (deux phrases), <b>ce que
   vous voyez à l'écran</b> (capture), et <b>des pas-à-pas</b> pour les gestes du quotidien. Les vidéos
   <span style="background:#334155;color:#fff;border-radius:6px;padding:1px 8px;font-size:12px;font-weight:700">▶ démonstration</span>
-  se lancent d'un clic et montrent la manipulation en conditions réelles.
+  se lancent d'un clic&nbsp;: chaque étape y est <b>commentée à l'écran</b> par des bulles d'explication.
+  Les déroulés <span style="background:#2563eb;color:#fff;border-radius:6px;padding:1px 8px;font-size:12px;font-weight:700">EN IMAGES</span>
+  avancent tout seuls, écran par écran — prenez la main avec les flèches <b>‹ ›</b> pour aller à votre rythme.
 </div>
 
 <!-- ══════════════ BIEN DÉMARRER ══════════════ -->
@@ -318,6 +390,92 @@
   À chaque enregistrement de la carte, l'application <b>synchronise automatiquement</b> les activités, les
   rôles et les connexions dans toutes les autres pages. La carte n'est pas un dessin décoratif&nbsp;:
   c'est la source de vérité de votre base.</div>
+
+  <div class="diapo" data-auto="6800">
+    <div class="diapo-head"><span class="tag">En images</span><b>Ce qui se passe quand la carte est enregistrée</b><span class="n">1/4</span></div>
+    <div class="diapo-stage">
+
+      <div class="diapo-slide on">
+        <div class="d-txt">
+          <h4><span class="k">1</span>Vous dessinez — ou importez — la carte</h4>
+          <p>Des <b>bandes</b> (les compétences clés), des <b>activités</b> (les cases) et des
+             <b>flèches</b> (les données qui circulent). C'est tout le vocabulaire nécessaire.</p>
+          <p class="d-note">Import Visio (.vsdx), Import IA ou dessin à la main : le résultat est le même.</p>
+        </div>
+        <div class="d-visu"><div class="mk">
+          <div class="mk-band" style="background:#ccfbf1">
+            <span class="mk-case" style="border-color:#0d9488">Analyse</span><span class="mk-fl">→</span>
+            <span class="mk-case" style="border-color:#0d9488">Cotation</span><span class="mk-fl">→</span>
+            <span class="mk-case" style="border-color:#0d9488">Devis</span>
+          </div>
+          <div class="mk-band" style="background:#ede9fe">
+            <span class="mk-case" style="border-color:#7c3aed">Production</span><span class="mk-fl">→</span>
+            <span class="mk-case" style="border-color:#7c3aed">Contrôle</span>
+          </div>
+          <div class="mk-note">La carte — vue simplifiée</div>
+          <div class="sb sb-b" style="top:56px;left:22px;--d:.55s">Une <b>bande</b> = une compétence clé</div>
+          <div class="sb sb-t" style="bottom:88px;right:14px;--d:1.3s">Une <b>flèche</b> = une donnée qui circule</div>
+        </div></div>
+      </div>
+
+      <div class="diapo-slide">
+        <div class="d-txt">
+          <h4><span class="k">2</span>Vous enregistrez</h4>
+          <p>Dans l'éditeur, un clic sur <b>Enregistrer</b> suffit. C'est le moment où la carte
+             cesse d'être un dessin pour devenir <b>la base de données</b> de l'application.</p>
+        </div>
+        <div class="d-visu"><div class="mk">
+          <div class="win" style="display:flex;align-items:center;gap:10px">
+            <span style="font-size:13px;font-weight:700;color:var(--ink)">✏️ Éditeur de carte</span>
+            <span class="mk-pill">Annuler</span>
+            <span class="mk-btn" style="margin-left:auto">💾 Enregistrer</span>
+          </div>
+          <div class="mk-band" style="background:#ccfbf1;opacity:.65">
+            <span class="mk-case" style="border-color:#0d9488">Analyse</span><span class="mk-fl">→</span>
+            <span class="mk-case" style="border-color:#0d9488">Cotation</span>
+          </div>
+          <div class="sb sb-t" style="top:64px;right:8px;--d:.6s">Un seul clic — tout se propage à partir d'ici</div>
+        </div></div>
+      </div>
+
+      <div class="diapo-slide">
+        <div class="d-txt">
+          <h4><span class="k">3</span>OPTIQ synchronise les autres pages</h4>
+          <p>Chaque case devient une <b>fiche d'activité</b>, les responsabilités construisent les
+             <b>rôles</b>, les flèches deviennent les <b>connexions</b> des fiches. Automatiquement.</p>
+        </div>
+        <div class="d-visu"><div class="mk">
+          <div class="mk-row" style="justify-content:center;gap:14px">
+            <span class="mk-chip" style="--a:#0d9488;font-size:13px;padding:8px 14px">🗺️ La carte</span>
+            <span class="mk-fl" style="font-size:18px">→</span>
+            <div style="display:flex;flex-direction:column;gap:7px">
+              <span class="mk-chip" style="--a:#7c3aed">📋 Activités — les fiches</span>
+              <span class="mk-chip" style="--a:#059669">👥 Rôles — qui garantit quoi</span>
+              <span class="mk-chip" style="--a:#2563eb">🎯 Compétences — quoi évaluer</span>
+            </div>
+          </div>
+          <div class="sb sb-b" style="top:14px;right:12px;--d:.7s">Créées, mises à jour et reliées <b>sans aucune ressaisie</b></div>
+        </div></div>
+      </div>
+
+      <div class="diapo-slide">
+        <div class="d-txt">
+          <h4><span class="k">4</span>Une seule source de vérité</h4>
+          <p>Renommez une activité sur la carte&nbsp;: sa fiche, ses rôles et ses évaluations suivent.
+             Vous ne saisissez <b>jamais deux fois</b> la même information.</p>
+          <p class="d-note">C'est pour cela que la carte est le point de départ de tout le guide.</p>
+        </div>
+        <div class="d-visu"><div class="mk">
+          <div class="win mk-row"><span>🗺️</span><span>Carte&nbsp;: «&nbsp;Cotation&nbsp;» renommée «&nbsp;Chiffrage&nbsp;»</span></div>
+          <div class="win mk-row" style="color:var(--muted)"><span>📋</span><span>Fiche d'activité&nbsp;: <b style="color:#7c3aed">Chiffrage</b> ✓</span></div>
+          <div class="win mk-row" style="color:var(--muted)"><span>👥</span><span>Rôle Garant&nbsp;: activités à jour ✓</span></div>
+          <div class="sb sb-b" style="top:44px;right:10px;--d:.7s">Tout suit, <b>partout</b>, immédiatement</div>
+        </div></div>
+      </div>
+
+    </div>
+    <div class="diapo-nav"><button class="d-prev" aria-label="Précédent">‹</button><div class="d-dots"></div><button class="d-next" aria-label="Suivant">›</button></div>
+  </div>
   </div>
 </section>
 
@@ -370,6 +528,86 @@
     <figcaption><span class="video-tag">▶ démonstration</span>Recherche d'une activité, ouverture de sa
     fiche, passage d'onglet en onglet.</figcaption>
   </figure>
+
+  <div class="diapo" data-auto="6800">
+    <div class="diapo-head"><span class="tag">En images</span><b>La fiche d'activité, onglet par onglet</b><span class="n">1/4</span></div>
+    <div class="diapo-stage">
+
+      <div class="diapo-slide on">
+        <div class="d-txt">
+          <h4><span class="k">1</span>Vue d'ensemble — l'essentiel</h4>
+          <p>La description, le <b>Garant</b> (le rôle qui garantit le résultat), et les <b>connexions</b>
+             entrantes et sortantes — exactement les flèches de la carte.</p>
+        </div>
+        <div class="d-visu"><div class="mk">
+          <div class="mk-row" style="gap:6px">
+            <span class="mk-pill on">Vue d'ensemble</span><span class="mk-pill">Compétences</span>
+            <span class="mk-pill">Savoirs</span><span class="mk-pill">HSC</span><span class="mk-pill">Temps</span>
+          </div>
+          <div class="win mk-row"><span>👤 Garant&nbsp;:</span><span class="mk-chip" style="--a:#059669">Customer relation</span></div>
+          <div class="win mk-row"><span>↘ Entrante&nbsp;:</span><span>Demande client <i style="color:var(--faint)">(déclenchante)</i></span></div>
+          <div class="win mk-row"><span>↗ Sortante&nbsp;:</span><span>Dossier de cotation</span></div>
+          <div class="sb sb-b" style="top:46px;left:14px;--d:.6s">Le <b>Garant</b> répond du résultat</div>
+          <div class="sb sb-t" style="bottom:78px;right:10px;--d:1.35s">Les connexions = <b>les flèches de la carte</b></div>
+        </div></div>
+      </div>
+
+      <div class="diapo-slide">
+        <div class="d-txt">
+          <h4><span class="k">2</span>Compétences &amp; Savoirs</h4>
+          <p>Ce qu'il faut maîtriser pour produire le résultat attendu&nbsp;: compétences d'un côté,
+             connaissances théoriques et <b>savoir-faire</b> pratiques de l'autre.</p>
+          <p class="d-note">Le bouton <b>Proposer…</b> (IA) pré-remplit ces listes — vous validez.</p>
+        </div>
+        <div class="d-visu"><div class="mk">
+          <div class="mk-row" style="gap:6px">
+            <span class="mk-pill">Vue d'ensemble</span><span class="mk-pill on">Compétences</span>
+            <span class="mk-pill on" style="opacity:.75">Savoirs</span><span class="mk-pill">HSC</span><span class="mk-pill">Temps</span>
+          </div>
+          <div class="win mk-row"><span class="mk-chip">Lire un plan technique</span><span class="mk-chip">Chiffrer un coût</span></div>
+          <div class="win mk-row"><span>📖</span><span>Normes de cotation — <i style="color:var(--faint)">savoir</i></span></div>
+          <div class="win mk-row"><span>🛠️</span><span>Établir un devis dans l'ERP — <i style="color:var(--faint)">savoir-faire</i></span></div>
+          <div class="sb sb-t" style="bottom:96px;right:12px;--d:.7s"><b>Proposer…</b> fait travailler l'IA — vous gardez la main</div>
+        </div></div>
+      </div>
+
+      <div class="diapo-slide">
+        <div class="d-txt">
+          <h4><span class="k">3</span>HSC — les habiletés socio-cognitives</h4>
+          <p>Communication, rigueur, coopération… évaluées de <b>1 à 4</b>. Ce sont elles qui font
+             la différence entre «&nbsp;savoir faire&nbsp;» et «&nbsp;bien faire, en équipe&nbsp;».</p>
+        </div>
+        <div class="d-visu"><div class="mk">
+          <div class="mk-row" style="gap:6px">
+            <span class="mk-pill">Vue d'ensemble</span><span class="mk-pill">Compétences</span>
+            <span class="mk-pill">Savoirs</span><span class="mk-pill on">HSC</span><span class="mk-pill">Temps</span>
+          </div>
+          <div class="win mk-row"><span style="flex:1">Communication client</span><span class="mk-scale"><i>1</i><i>2</i><i class="sel">3</i><i>4</i></span></div>
+          <div class="win mk-row"><span style="flex:1">Rigueur</span><span class="mk-scale"><i>1</i><i class="sel">2</i><i>3</i><i>4</i></span></div>
+          <div class="sb sb-t" style="bottom:70px;right:10px;--d:.7s">Un <b>niveau attendu</b> par habileté, de 1 à 4</div>
+        </div></div>
+      </div>
+
+      <div class="diapo-slide">
+        <div class="d-txt">
+          <h4><span class="k">4</span>Temps — durée et délai standard</h4>
+          <p>Combien de temps de <b>travail</b> demande l'activité, et combien de <b>délai</b> s'écoule.
+             Ces valeurs alimentent directement la page <a href="#temps">Temps</a>.</p>
+        </div>
+        <div class="d-visu"><div class="mk">
+          <div class="mk-row" style="gap:6px">
+            <span class="mk-pill">Vue d'ensemble</span><span class="mk-pill">Compétences</span>
+            <span class="mk-pill">Savoirs</span><span class="mk-pill">HSC</span><span class="mk-pill on">Temps</span>
+          </div>
+          <div class="win mk-row"><span style="flex:1">⏱️ Durée de travail</span><b>2 h</b></div>
+          <div class="win mk-row"><span style="flex:1">⏳ Délai (attente)</span><b>1 jour</b></div>
+          <div class="sb sb-t" style="bottom:64px;right:12px;--d:.7s">Repris tel quel par la page <b>Temps</b></div>
+        </div></div>
+      </div>
+
+    </div>
+    <div class="diapo-nav"><button class="d-prev" aria-label="Précédent">‹</button><div class="d-dots"></div><button class="d-next" aria-label="Suivant">›</button></div>
+  </div>
 
   <div class="box box-astuce"><b>Astuce</b>
   Les boutons <b>Assistant IA</b> et <b>Proposer…</b> présents dans les fiches font travailler l'IA pour
@@ -475,6 +713,108 @@
     <b>Évaluer</b> — le volet d'évaluation s'ouvre.</figcaption>
   </figure>
 
+  <div class="diapo" data-auto="7200">
+    <div class="diapo-head"><span class="tag">En images</span><b>Évaluer sur le résultat — le déroulé complet</b><span class="n">1/5</span></div>
+    <div class="diapo-stage">
+
+      <div class="diapo-slide on">
+        <div class="d-txt">
+          <h4><span class="k">1</span>Choisir la personne, puis le rôle</h4>
+          <p>À gauche, votre équipe. Cliquez sur un collaborateur, puis sur l'un de ses
+             <b>rôles</b>&nbsp;: le tableau liste les activités de ce rôle.</p>
+        </div>
+        <div class="d-visu"><div class="mk">
+          <div style="display:grid;grid-template-columns:120px 1fr;gap:10px">
+            <div class="win" style="padding:8px">
+              <div class="mk-row" style="font-weight:700;color:var(--a)">● Claire M.</div>
+              <div class="mk-row" style="color:var(--muted)">○ Jean D.</div>
+              <div class="mk-row" style="color:var(--muted)">○ Sophie L.</div>
+            </div>
+            <div>
+              <div class="mk-row" style="gap:6px;margin-bottom:8px">
+                <span class="mk-pill on">Customer relation</span><span class="mk-pill">Planning</span>
+              </div>
+              <div class="win mk-row" style="color:var(--muted)">Activités du rôle…</div>
+            </div>
+          </div>
+          <div class="sb sb-r" style="top:18px;left:132px;--d:.6s">Un clic — le tableau suit</div>
+        </div></div>
+      </div>
+
+      <div class="diapo-slide">
+        <div class="d-txt">
+          <h4><span class="k">2</span>Lire le tableau requis / démontré / écart</h4>
+          <p>Pour chaque activité&nbsp;: le niveau <b>requis</b> par le rôle, le niveau
+             <b>démontré</b> par la personne, et l'<b>écart</b>. Les problèmes sautent aux yeux.</p>
+        </div>
+        <div class="d-visu"><div class="mk">
+          <div class="win mk-row" style="font-size:11px;color:var(--faint);font-weight:700">
+            <span style="flex:1">ACTIVITÉ</span><span style="width:52px">REQUIS</span><span style="width:62px">DÉMONTRÉ</span><span style="width:44px">ÉCART</span></div>
+          <div class="win mk-row"><span style="flex:1">Analyse de faisabilité</span>
+            <span style="width:52px"><b>3</b></span><span style="width:62px"><b style="color:#16a34a">3</b></span><span style="width:44px;color:#16a34a">✓ 0</span></div>
+          <div class="win mk-row"><span style="flex:1">Cotation</span>
+            <span style="width:52px"><b>3</b></span><span style="width:62px"><b style="color:#dc2626">1</b></span><span style="width:44px;color:#dc2626">▼ −2</span></div>
+          <div class="sb sb-t" style="bottom:56px;right:8px;--d:.7s">Ici, un <b>écart de 2 niveaux</b> à traiter</div>
+        </div></div>
+      </div>
+
+      <div class="diapo-slide">
+        <div class="d-txt">
+          <h4><span class="k">3</span>Évaluer, résultat par résultat</h4>
+          <p>Le volet d'évaluation liste les <b>résultats</b> que produit l'activité. Chacun se note
+             de <b>0</b> (non démontré) à <b>4</b> (expertise).</p>
+          <p class="d-note">«&nbsp;Non évalué&nbsp;» n'est pas zéro&nbsp;: tant qu'on n'a pas observé, on ne juge pas.</p>
+        </div>
+        <div class="d-visu"><div class="mk">
+          <div class="win mk-row"><span style="flex:1">R1 · Devis transmis au client</span>
+            <span class="mk-scale"><i>0</i><i>1</i><i>2</i><i class="sel">3</i><i>4</i></span></div>
+          <div class="win mk-row"><span style="flex:1">R2 · Marge vérifiée et documentée</span>
+            <span class="mk-scale"><i>0</i><i class="sel">1</i><i>2</i><i>3</i><i>4</i></span></div>
+          <div class="win mk-row" style="color:var(--muted)"><span style="flex:1">R3 · Relance planifiée</span>
+            <span class="mk-scale"><i>—</i></span></div>
+          <div class="sb sb-t" style="bottom:96px;right:6px;--d:.7s">On note <b>ce qui est produit</b>, pas la théorie</div>
+          <div class="sb sb-t" style="bottom:16px;right:6px;--d:1.5s">R3 non observé → <b>pas noté</b></div>
+        </div></div>
+      </div>
+
+      <div class="diapo-slide">
+        <div class="d-txt">
+          <h4><span class="k">4</span>Le niveau global = le minimum</h4>
+          <p>Jamais une moyenne&nbsp;: une moyenne <b>cacherait le point faible</b>, le minimum le montre.
+             Ici, R2 à 1 fixe le niveau global à 1 — c'est lui qu'il faut traiter.</p>
+        </div>
+        <div class="d-visu"><div class="mk">
+          <div class="mk-row" style="justify-content:center;gap:16px">
+            <span class="mk-chip">R1 = 3</span>
+            <span class="mk-chip" style="--a:#dc2626">R2 = 1</span>
+            <span class="mk-fl" style="font-size:16px">→</span>
+            <span class="mk-btn" style="background:#dc2626">Global = 1</span>
+          </div>
+          <div class="mk-bar" style="margin-top:10px"><i style="width:25%;background:#dc2626"></i></div>
+          <div class="mk-note">min(3, 1) = 1 — le point faible reste visible</div>
+          <div class="sb sb-b" style="top:8px;right:10px;--d:.7s"><b>min</b>, jamais une moyenne</div>
+        </div></div>
+      </div>
+
+      <div class="diapo-slide">
+        <div class="d-txt">
+          <h4><span class="k">5</span>Diagnostiquer avant d'agir</h4>
+          <p>Un écart n'est pas toujours un problème de personne. Le diagnostic distingue
+             <b>trois familles de causes</b> — et un plan de formation individuel n'est proposé
+             que pour la première.</p>
+        </div>
+        <div class="d-visu"><div class="mk">
+          <div class="win mk-row"><span class="mk-chip" style="--a:#2563eb">1 · Capacité à agir</span><span style="color:var(--muted);font-size:11.5px">→ plan individuel</span></div>
+          <div class="win mk-row"><span class="mk-chip" style="--a:#d97706">2 · Architecture du travail</span><span style="color:var(--muted);font-size:11.5px">→ corriger la carte</span></div>
+          <div class="win mk-row"><span class="mk-chip" style="--a:#dc2626">3 · Conditions d'exécution</span><span style="color:var(--muted);font-size:11.5px">→ agir sur les moyens</span></div>
+          <div class="sb sb-t" style="bottom:66px;right:8px;--d:.7s">Former quelqu'un ne répare pas une <b>organisation défaillante</b></div>
+        </div></div>
+      </div>
+
+    </div>
+    <div class="diapo-nav"><button class="d-prev" aria-label="Précédent">‹</button><div class="d-dots"></div><button class="d-next" aria-label="Suivant">›</button></div>
+  </div>
+
   <div class="box box-clair"><b>En clair — le niveau global</b>
   Le niveau global d'une activité est toujours le <b>minimum</b> des résultats évalués — jamais une
   moyenne. Une moyenne cacherait le point faible&nbsp;; le minimum le montre. Et «&nbsp;non évalué&nbsp;»
@@ -539,6 +879,73 @@
     <li>Cliquez sur <b>Calculer</b>&nbsp;: les résultats s'affichent, du cas dégradé jusqu'au
         <b>coût annuel</b>. <b>Enregistrer</b> conserve l'analyse.</li>
   </ol>
+
+  <div class="diapo" data-auto="6800">
+    <div class="diapo-head"><span class="tag">En images</span><b>D'un irritant à un coût annuel</b><span class="n">1/4</span></div>
+    <div class="diapo-stage">
+
+      <div class="diapo-slide on">
+        <div class="d-txt">
+          <h4><span class="k">1</span>Décrire le problème</h4>
+          <p>Partez d'un irritant concret que tout le monde connaît — ici, des
+             <b>données client incomplètes</b> à la réception d'une commande.</p>
+        </div>
+        <div class="d-visu"><div class="mk">
+          <div class="win mk-row"><span>Faiblesse&nbsp;:</span><b>«&nbsp;Données client incomplètes&nbsp;»</b></div>
+          <div class="win mk-row" style="color:var(--muted)"><span>Activité concernée&nbsp;:</span><span>Saisie de commande — journalière</span></div>
+          <div class="sb sb-t" style="bottom:70px;left:16px;--d:.6s">Quelques mots suffisent</div>
+        </div></div>
+      </div>
+
+      <div class="diapo-slide">
+        <div class="d-txt">
+          <h4><span class="k">2</span>Sa probabilité</h4>
+          <p>À quelle fréquence le problème survient-il&nbsp;? «&nbsp;<b>1 sur 4</b>&nbsp;» se lit&nbsp;:
+             une exécution sur quatre se passe mal. Pas besoin de statistiques — votre
+             expérience du terrain suffit.</p>
+        </div>
+        <div class="d-visu"><div class="mk">
+          <div class="mk-row" style="justify-content:center;gap:10px;font-size:20px">
+            <span>✅</span><span>✅</span><span>✅</span><span style="filter:grayscale(0);">⚠️</span>
+          </div>
+          <div class="mk-note" style="font-size:12px;margin-top:6px">1 exécution sur 4 rencontre le problème</div>
+          <div class="win mk-row" style="justify-content:center;margin-top:6px"><span>Probabilité&nbsp;:</span><b>1 sur 4</b></div>
+          <div class="sb sb-b" style="top:6px;right:12px;--d:.7s">Votre <b>ressenti terrain</b> suffit</div>
+        </div></div>
+      </div>
+
+      <div class="diapo-slide">
+        <div class="d-txt">
+          <h4><span class="k">3</span>L'impact d'une occurrence</h4>
+          <p>Quand le problème survient, que se passe-t-il&nbsp;? Du <b>travail en plus</b>
+             (rappeler le client, corriger…) et de l'<b>attente en plus</b> (le dossier reste bloqué).</p>
+        </div>
+        <div class="d-visu"><div class="mk">
+          <div class="win mk-row"><span style="flex:1">🛠️ Travail en plus</span><b>+ 25 min</b></div>
+          <div class="win mk-row"><span style="flex:1">⏳ Attente en plus</span><b>+ 120 min</b></div>
+          <div class="sb sb-t" style="bottom:64px;right:10px;--d:.7s">Les deux comptent — le travail <b>et</b> le délai</div>
+        </div></div>
+      </div>
+
+      <div class="diapo-slide">
+        <div class="d-txt">
+          <h4><span class="k">4</span>Le verdict — chiffré à l'année</h4>
+          <p>L'application croise probabilité, impact et récurrence de l'activité, et affiche le
+             <b>coût annuel</b> en travail et en retard. Le ressenti devient un argument.</p>
+          <p class="d-note">Exemple&nbsp;: 25 min × 1 fois sur 4 × une activité quotidienne ≈ <b>25 h de travail perdues par an</b> — pour un seul irritant.</p>
+        </div>
+        <div class="d-visu"><div class="mk">
+          <div class="win mk-row"><span style="flex:1">Coût annuel — travail</span><b style="color:#dc2626">≈ 25 h</b></div>
+          <div class="mk-bar"><i style="width:38%;background:#dc2626"></i></div>
+          <div class="win mk-row" style="margin-top:4px"><span style="flex:1">Coût annuel — retard</span><b style="color:#d97706">≈ 140 h</b></div>
+          <div class="mk-bar"><i style="width:92%;background:#d97706"></i></div>
+          <div class="sb sb-t" style="bottom:88px;right:8px;--d:.7s">Le chiffre à apporter en <b>revue d'équipe</b></div>
+        </div></div>
+      </div>
+
+    </div>
+    <div class="diapo-nav"><button class="d-prev" aria-label="Précédent">‹</button><div class="d-dots"></div><button class="d-next" aria-label="Suivant">›</button></div>
+  </div>
   <figure>
     <div class="frame frame-video"><div class="frame-bar"><span>Chiffrer une faiblesse de A à Z</span></div>
     <video controls muted playsinline preload="metadata" poster="assets/guide/poster-flux-faiblesse.png" src="assets/guide/flux-faiblesse.webm"></video></div>
@@ -729,5 +1136,53 @@
 
 </main>
 </div>
+
+<script>
+// ── Diapos : auto-avance quand visible, pause au survol, navigation manuelle ──
+document.querySelectorAll('.diapo').forEach(dp => {
+  const slides = [...dp.querySelectorAll('.diapo-slide')];
+  const dots = dp.querySelector('.d-dots');
+  const cnt = dp.querySelector('.diapo-head .n');
+  const DELAY = +(dp.dataset.auto || 6200);
+  let cur = 0, timer = null, manual = false, visible = false;
+
+  slides.forEach((s, i) => {
+    const b = document.createElement('button');
+    b.setAttribute('aria-label', 'Écran ' + (i + 1));
+    b.addEventListener('click', () => go(i, true));
+    dots.appendChild(b);
+  });
+
+  function show(i) {
+    slides[cur].classList.remove('on');
+    slides[cur].classList.add('off');
+    cur = (i + slides.length) % slides.length;
+    const s = slides[cur];
+    s.classList.remove('off', 'on');
+    void s.offsetWidth;            // relance les animations des bulles
+    s.classList.add('on');
+    [...dots.children].forEach((d, k) => d.classList.toggle('cur', k === cur));
+    if (cnt) cnt.textContent = (cur + 1) + '/' + slides.length;
+  }
+  function arm() {
+    clearTimeout(timer);
+    if (visible && !manual) timer = setTimeout(() => { show(cur + 1); arm(); }, DELAY);
+  }
+  function go(i, byUser) {
+    if (byUser) manual = true;     // l'utilisateur prend la main → plus d'auto-avance
+    show(i); arm();
+  }
+  dp.querySelector('.d-prev').addEventListener('click', () => go(cur - 1, true));
+  dp.querySelector('.d-next').addEventListener('click', () => go(cur + 1, true));
+  dp.addEventListener('mouseenter', () => clearTimeout(timer));
+  dp.addEventListener('mouseleave', arm);
+  new IntersectionObserver(es => es.forEach(e => {
+    visible = e.isIntersecting;
+    if (visible) { slides[cur].classList.remove('on'); void slides[cur].offsetWidth; slides[cur].classList.add('on'); }
+    arm();
+  }), { threshold: .3 }).observe(dp);
+  show(0);
+});
+</script>
 </body>
 </html>

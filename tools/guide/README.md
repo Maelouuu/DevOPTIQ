@@ -24,15 +24,17 @@ python tools/guide/seed_demo.py          # sert sur http://127.0.0.1:5601
 # 2) dans un autre terminal : captures d'écran (→ docs/assets/guide/*.png)
 python tools/guide/capture_screens.py
 
-# 3) vidéos de manipulation, curseur visible (→ docs/assets/guide/flux-*.webm)
+# 3) vidéos de manipulation, curseur visible + bulles d'explication incrustées
+#    (carte-titre d'ouverture, bandeau « Étape i/n », bulle ancrée par étape,
+#    bulle ✓ de conclusion) → docs/assets/guide/flux-*.webm
 python tools/guide/capture_videos.py
 
-# 4) compression des vidéos + posters
+# 4) compression des vidéos + posters (2.6 s = la carte-titre est affichée)
 cd docs/assets/guide
 FF=/opt/pw-browsers/ffmpeg-1011/ffmpeg-linux
 for f in flux-*.webm; do
   $FF -y -i "$f" -c:v libvpx -b:v 450k -crf 22 -vf scale=1120:-2 -an "c_$f" && mv "c_$f" "$f"
-  $FF -y -ss 1.5 -i "$f" -frames:v 1 "poster-${f%.webm}.png"
+  $FF -y -ss 2.6 -i "$f" -frames:v 1 "poster-${f%.webm}.png"
 done
 ```
 
