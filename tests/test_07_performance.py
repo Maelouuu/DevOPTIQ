@@ -57,6 +57,37 @@ class TestPerformanceCRUD:
         r = auth_client.delete("/performance/999999")
         assert r.status_code in (404, 200)
 
+    def test_update_performance_success(self, auth_client, app):
+        """PUT sur une performance existante : la modification est bien persistée."""
+        with app.app_context():
+            from Code.models.models import Performance, Link
+            from Code.extensions import db
+            link = Link.query.first()
+            existing = Performance.query.filter_by(link_id=link.id).first()
+            if existing:
+                db.session.delete(existing)
+                db.session.commit()
+            perf = Performance(link_id=link.id, name="Perf initiale", description="Desc initiale")
+            db.session.add(perf)
+            db.session.commit()
+            perf_id = perf.id
+
+        r = auth_client.put(
+            f"/performance/{perf_id}",
+            data=json.dumps({"name": "Perf modifiée", "description": "Desc modifiée"}),
+            content_type="application/json",
+        )
+        assert r.status_code == 200
+
+        with app.app_context():
+            from Code.models.models import Performance
+            from Code.extensions import db
+            updated = Performance.query.get(perf_id)
+            assert updated.name == "Perf modifiée"
+            assert updated.description == "Desc modifiée"
+            db.session.delete(updated)
+            db.session.commit()
+
     def test_render_performance_for_link(self, auth_client, app):
         link_id = self._get_link_id(app)
         if not link_id:

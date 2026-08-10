@@ -87,6 +87,112 @@ def test_save_qualification_persists(app, client, carto):
         assert d.minimum_performance_text == "Cote respectée"
 
 
+def test_analyze_unknown_activity_returns_404(client, carto):
+    _sess(client, carto["entity_id"])
+    r = client.post("/qualify/analyze/999999")
+    assert r.status_code == 404
+    assert r.get_json()["error"] == "activity_not_found"
+
+
+def test_analyze_activity_without_outputs_returns_no_outputs_source(client, carto):
+    _sess(client, carto["entity_id"])
+    r = client.post(f"/qualify/analyze/{carto['z']}")
+    assert r.status_code == 200
+    body = r.get_json()
+    assert body["outputs"] == []
+    assert body["source"] == "no_outputs"
+    assert body["warning"]
+
+
+def test_analyze_without_ai_key_falls_back_to_unqualified_proposals(client, carto):
+    """Sans clé IA configurée en test (CDC §8) : jamais de 500, repli explicite
+    « à qualifier » pour chaque sortie, aucune nature inventée."""
+    _sess(client, carto["entity_id"])
+    outs = client.get(f"/qualify/outputs/{carto['a']}").get_json()["outputs"]
+    expected_ids = {o["data_id"] for o in outs}
+
+    r = client.post(f"/qualify/analyze/{carto['a']}")
+    assert r.status_code == 200
+    body = r.get_json()
+    assert body["source"] != "AI"
+    proposals = body["outputs"]
+    assert {p["data_id"] for p in proposals} == expected_ids
+    for p in proposals:
+        assert p["suggested_nature"] is None
+        assert p["confidence"] == "none"
+
+
+def test_save_unknown_activity_returns_404(client, carto):
+    _sess(client, carto["entity_id"])
+    r = client.post("/qualify/save/999999", json={"outputs": []})
+    assert r.status_code == 404
+    assert r.get_json()["error"] == "activity_not_found"
+
+
+def test_save_ignores_data_id_not_in_activity_outputs(app, client, carto):
+    """Un data_id qui n'appartient pas aux sorties courantes de l'activité (ex : ID
+    d'une autre activité) est silencieusement ignoré, jamais persisté."""
+    _sess(client, carto["entity_id"])
+    with app.app_context():
+        from Code.models.models import Data
+        from Code.extensions import db
+        foreign = Data(entity_id=carto["entity_id"], name="Sortie étrangère",
+                        type="flux", producer_activity_id=carto["b"])
+        db.session.add(foreign)
+        db.session.commit()
+        foreign_id = foreign.id
+
+    r = client.post(f"/qualify/save/{carto['a']}", json={"outputs": [
+        {"data_id": foreign_id, "nature": "RESULT", "source": "MANUAL"}]})
+    assert r.status_code == 200
+    assert r.get_json()["saved"] == 0
+
+    with app.app_context():
+        from Code.models.models import Data
+        d = Data.query.get(foreign_id)
+        assert d.semantic_nature is None
+        db.session.delete(d)
+        db.session.commit()
+
+
+def test_save_invalid_nature_code_stored_as_none(app, client, carto):
+    _sess(client, carto["entity_id"])
+    outs = client.get(f"/qualify/outputs/{carto['a']}").get_json()["outputs"]
+    target = next(o for o in outs if o["name"] == "Pièce usinée")
+
+    r = client.post(f"/qualify/save/{carto['a']}", json={"outputs": [
+        {"data_id": target["data_id"], "nature": "NOT_A_REAL_CODE", "source": "MANUAL"}]})
+    assert r.status_code == 200
+    assert r.get_json()["saved"] == 1
+    with app.app_context():
+        from Code.models.models import Data
+        d = Data.query.get(target["data_id"])
+        assert d.semantic_nature is None
+
+
+def test_save_requalifying_result_returns_warning(app, client, carto):
+    """CDC 1.9 : requalifier une sortie déjà marquée RESULT vers une autre nature
+    doit avertir (non bloquant) car des évaluations/liens peuvent en dépendre."""
+    _sess(client, carto["entity_id"])
+    outs = client.get(f"/qualify/outputs/{carto['a']}").get_json()["outputs"]
+    target = next(o for o in outs if o["name"] == "Pièce usinée")
+
+    r = client.post(f"/qualify/save/{carto['a']}", json={"outputs": [
+        {"data_id": target["data_id"], "nature": "RESULT", "source": "MANUAL"}]})
+    assert r.status_code == 200 and r.get_json()["warnings"] == []
+
+    r = client.post(f"/qualify/save/{carto['a']}", json={"outputs": [
+        {"data_id": target["data_id"], "nature": "MEASURE", "source": "MANUAL"}]})
+    assert r.status_code == 200
+    body = r.get_json()
+    assert body["saved"] == 1
+    assert len(body["warnings"]) == 1
+    assert body["warnings"][0]["data_id"] == target["data_id"]
+    with app.app_context():
+        from Code.models.models import Data
+        assert Data.query.get(target["data_id"]).semantic_nature == "MEASURE"
+
+
 def test_qualified_output_survives_connection_rename(app, client, carto):
     _sess(client, carto["entity_id"])
     outs = client.get(f"/qualify/outputs/{carto['a']}").get_json()["outputs"]

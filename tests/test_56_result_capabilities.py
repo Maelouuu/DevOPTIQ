@@ -256,6 +256,31 @@ class TestUpsertResultLink:
         finally:
             _cleanup_activity(app, aid)
 
+    def test_link_survives_deleted_underlying_item_with_null_label(self, auth_client, app, ids):
+        """Si le savoir-faire relié à un lien est supprimé indépendamment (autre page),
+        _item_label ne doit jamais lever d'exception : le lien reste visible avec label=None."""
+        aid = _create_activity(app, ids["entity_id"])
+        did = _create_result_data(app, ids["entity_id"], aid)
+        sfid = _create_savoir_faire(app, aid)
+        try:
+            auth_client.post(
+                f"/competence/result_links/{aid}",
+                data=json.dumps({"data_id": did, "item_type": "SAVOIR_FAIRE", "item_id": sfid}),
+                content_type="application/json",
+            )
+            with app.app_context():
+                from Code.models.models import SavoirFaire
+                from Code.extensions import db
+                SavoirFaire.query.filter_by(id=sfid).delete()
+                db.session.commit()
+
+            r = auth_client.get(f"/competence/result_links/{aid}")
+            assert r.status_code == 200
+            items = r.get_json()["by_result"][0]["items"]
+            assert any(it["item_id"] == sfid and it["item_label"] is None for it in items)
+        finally:
+            _cleanup_activity(app, aid)
+
     def test_delete_link_by_delete_id(self, auth_client, app, ids):
         aid = _create_activity(app, ids["entity_id"])
         did = _create_result_data(app, ids["entity_id"], aid)
