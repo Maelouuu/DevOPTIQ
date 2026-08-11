@@ -38,6 +38,15 @@ class TestHscLevels:
         r = client.get("/hsc/levels")
         assert r.status_code == 200
 
+    def test_levels_english_language(self, auth_client):
+        with auth_client.session_transaction() as s:
+            s["lang"] = "en"
+        r = auth_client.get("/hsc/levels")
+        data = r.get_json()
+        assert data["levels"]["4"] == "Expert"
+        with auth_client.session_transaction() as s:
+            s["lang"] = "fr"
+
 
 class TestHscDescriptors:
 
@@ -109,6 +118,77 @@ class TestHscDescriptors:
             data = r.get_json()
             assert len(data["descriptors"]) == 1
             assert data["descriptors"][0]["descriptor"] == "Version corrigée."
+        finally:
+            _cleanup_descriptors(app, name)
+
+    def test_upsert_descriptor_english_fields_used_when_lang_en(self, auth_client, app):
+        name = "Rigueur Test 54 EN"
+        try:
+            auth_client.post(
+                "/hsc/descriptors",
+                data=json.dumps({
+                    "hsc_name": name, "level": 3,
+                    "descriptor_fr": "Version française.",
+                    "descriptor_en": "English version.",
+                }),
+                content_type="application/json",
+            )
+            with auth_client.session_transaction() as s:
+                s["lang"] = "en"
+            r = auth_client.get(f"/hsc/descriptors/{name}")
+            data = r.get_json()
+            assert data["descriptors"][0]["descriptor"] == "English version."
+            with auth_client.session_transaction() as s:
+                s["lang"] = "fr"
+        finally:
+            _cleanup_descriptors(app, name)
+
+    def test_descriptor_created_for_other_entity_not_visible(self, auth_client, app, ids):
+        """Un descripteur créé pour une entité active B n'est pas visible depuis l'entité A
+        (sauf s'il est global, entity_id NULL). Force la session sur un ID connu (ids fixture)
+        plutôt que de faire confiance à l'état ambiant : d'autres tests peuvent laisser
+        active_entity_id à None dans la session partagée (scope=session)."""
+        name = "Confidentialité Test 54"
+        from Code.models.models import Entity, User
+        from Code.extensions import db
+        with app.app_context():
+            user = User.query.filter_by(email="test@devoptiq.com").first()
+            other = Entity(name="HSC Autre Entité Test 54", owner_id=user.id)
+            db.session.add(other)
+            db.session.commit()
+            other_id = other.id
+        try:
+            with auth_client.session_transaction() as s:
+                s["active_entity_id"] = other_id
+            auth_client.post(
+                "/hsc/descriptors",
+                data=json.dumps({"hsc_name": name, "level": 1, "descriptor_fr": "Spécifique à Autre Entité."}),
+                content_type="application/json",
+            )
+            with auth_client.session_transaction() as s:
+                s["active_entity_id"] = ids["entity_id"]
+            r = auth_client.get(f"/hsc/descriptors/{name}")
+            assert r.get_json()["descriptors"] == []
+        finally:
+            _cleanup_descriptors(app, name)
+            with app.app_context():
+                Entity.query.filter_by(id=other_id).delete()
+                db.session.commit()
+            with auth_client.session_transaction() as s:
+                s["active_entity_id"] = ids["entity_id"]
+
+    def test_multiple_levels_returned_sorted(self, auth_client, app):
+        name = "Adaptabilité Test 54"
+        try:
+            for lvl in (3, 1, 2):
+                auth_client.post(
+                    "/hsc/descriptors",
+                    data=json.dumps({"hsc_name": name, "level": lvl, "descriptor_fr": f"Niveau {lvl}."}),
+                    content_type="application/json",
+                )
+            r = auth_client.get(f"/hsc/descriptors/{name}")
+            levels = [d["level"] for d in r.get_json()["descriptors"]]
+            assert levels == [1, 2, 3]
         finally:
             _cleanup_descriptors(app, name)
 

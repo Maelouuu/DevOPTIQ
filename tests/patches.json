@@ -465,5 +465,23 @@
     ],
     "author": "routine",
     "fixed_at": "2026-08-01T03:13:37"
+  },
+  {
+    "patch_uid": "2026-08-11-entity-deletion-session-user-id-leak",
+    "title": "test_delete_entity_never_fails_on_fk : session user_id jamais restauré, pollue tous les tests suivants",
+    "node_ids": [
+      "tests/test_52_entity_deletion.py::test_delete_entity_never_fails_on_fk"
+    ],
+    "page_slug": "entity_deletion",
+    "failure_reason": "En ajoutant des tests de couverture pour /hsc (test_54_hsc_positioning.py, isolation cross-entite des descripteurs), un nouveau test passait seul mais echouait dans la suite complete : un descripteur cree sous une entite B restait visible apres retour a l'entite A.",
+    "was_real_bug": false,
+    "root_cause": "test_isolation",
+    "error": "test_delete_entity_never_fails_on_fk (tests/test_52_entity_deletion.py) definissait session['user_id'] = owner.id sur le client Flask partage (fixture client, scope=session, egalement utilise par auth_client), supprimait ensuite ce owner en fin de test, sans jamais restaurer session['user_id'] a l'utilisateur de test canonique. Tous les tests executes apres (ordre alphabetique des fichiers) heritaient donc d'un user_id pointant vers un utilisateur supprime. Entity.get_active() (Code/models/models.py) retombe alors silencieusement sur eid=None au lieu de lever une erreur, ce qui masquait le probleme pour la plupart des tests existants mais faussait tout test verifiant l'isolation par entite active (ex: nouveaux tests HSC).",
+    "fix_description": "test_delete_entity_never_fails_on_fk restaure desormais session['user_id'] a l'utilisateur de test (fixture ids['user_id']) dans un bloc finally, immediatement apres l'appel DELETE et avant les assertions. Aucune modification applicative : le comportement de Entity.get_active() est correct, seul l'etat de session partage entre tests n'etait pas nettoye.",
+    "files_changed": [
+      "tests/test_52_entity_deletion.py"
+    ],
+    "author": "routine",
+    "fixed_at": "2026-08-11T03:31:42"
   }
 ]

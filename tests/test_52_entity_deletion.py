@@ -81,15 +81,22 @@ def seeded_entity(app):
             db.session.commit()
 
 
-def test_delete_entity_never_fails_on_fk(app, client, seeded_entity):
-    ids = seeded_entity
+def test_delete_entity_never_fails_on_fk(app, client, seeded_entity, ids):
+    seed = seeded_entity
     with client.session_transaction() as s:
-        s["user_id"] = ids["owner_id"]
-    r = client.delete(f"/activities/api/entities/{ids['entity_id']}")
+        s["user_id"] = seed["owner_id"]
+    try:
+        r = client.delete(f"/activities/api/entities/{seed['entity_id']}")
+    finally:
+        # `client`/`auth_client` sont partagés (scope=session) : restaurer l'utilisateur
+        # de test, sinon "Del Owner" (supprimé ci-dessous) pollue tous les tests suivants.
+        with client.session_transaction() as s:
+            s["user_id"] = ids["user_id"]
     assert r.status_code == 200, r.get_data(as_text=True)
     assert r.get_json().get("status") == "ok"
 
     with app.app_context():
+        ids = seed
         # L'entité et tout son arbre ont disparu
         assert Entity.query.get(ids["entity_id"]) is None
         assert Activities.query.filter_by(entity_id=ids["entity_id"]).count() == 0

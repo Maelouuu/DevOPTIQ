@@ -101,3 +101,95 @@ def test_qualified_output_survives_connection_rename(app, client, carto):
     names = {o["name"] for o in client.get(f"/qualify/outputs/{carto['a']}").get_json()["outputs"]}
     assert "Pièce finie" in names          # nouvelle connexion matérialisée
     assert "Pièce usinée" in names         # sortie qualifiée conservée (travail préservé)
+
+
+def test_outputs_unknown_activity_returns_404(client, carto):
+    _sess(client, carto["entity_id"])
+    r = client.get("/qualify/outputs/999999")
+    assert r.status_code == 404
+    assert r.get_json()["error"] == "activity_not_found"
+
+
+class TestAnalyze:
+    def test_unknown_activity_returns_404(self, client, carto):
+        _sess(client, carto["entity_id"])
+        r = client.post("/qualify/analyze/999999")
+        assert r.status_code == 404
+        assert r.get_json()["error"] == "activity_not_found"
+
+    def test_activity_without_outputs_returns_warning(self, client, carto):
+        _sess(client, carto["entity_id"])
+        r = client.post(f"/qualify/analyze/{carto['z']}")
+        assert r.status_code == 200
+        body = r.get_json()
+        assert body["outputs"] == []
+        assert body["source"] == "no_outputs"
+        assert body["warning"]
+
+    def test_no_ai_key_returns_fallback_proposals_never_500(self, client, carto):
+        """Sans clé IA en test (CDC §8) : repli explicite, jamais d'invention de nature."""
+        _sess(client, carto["entity_id"])
+        r = client.post(f"/qualify/analyze/{carto['a']}")
+        assert r.status_code == 200
+        body = r.get_json()
+        assert body["source"] != "AI"
+        assert len(body["outputs"]) == 3
+        for o in body["outputs"]:
+            assert o["suggested_nature"] is None
+            assert o["confidence"] == "none"
+
+    def test_english_lang_returns_english_warning(self, client, carto):
+        with client.session_transaction() as s:
+            s["active_entity_id"] = carto["entity_id"]
+            s["lang"] = "en"
+        r = client.post(f"/qualify/analyze/{carto['z']}")
+        assert r.status_code == 200
+        assert "no output data" in r.get_json()["warning"].lower()
+
+
+class TestSave:
+    def test_unknown_activity_returns_404(self, client, carto):
+        _sess(client, carto["entity_id"])
+        r = client.post("/qualify/save/999999", json={"outputs": []})
+        assert r.status_code == 404
+        assert r.get_json()["error"] == "activity_not_found"
+
+    def test_invalid_nature_is_stored_as_none(self, app, client, carto):
+        _sess(client, carto["entity_id"])
+        outs = client.get(f"/qualify/outputs/{carto['a']}").get_json()["outputs"]
+        target = next(o for o in outs if o["name"] == "Pièce usinée")
+        r = client.post(f"/qualify/save/{carto['a']}", json={"outputs": [
+            {"data_id": target["data_id"], "nature": "NOT_A_REAL_NATURE", "source": "MANUAL"}]})
+        assert r.status_code == 200 and r.get_json()["saved"] == 1
+        with app.app_context():
+            d = Data.query.get(target["data_id"])
+            assert d.semantic_nature is None
+
+    def test_unknown_data_id_is_skipped_and_not_counted(self, client, carto):
+        _sess(client, carto["entity_id"])
+        r = client.post(f"/qualify/save/{carto['a']}", json={"outputs": [
+            {"data_id": 999999, "nature": "RESULT", "source": "MANUAL"}]})
+        assert r.status_code == 200
+        assert r.get_json()["saved"] == 0
+
+    def test_requalifying_result_to_other_nature_warns(self, app, client, carto):
+        _sess(client, carto["entity_id"])
+        outs = client.get(f"/qualify/outputs/{carto['a']}").get_json()["outputs"]
+        target = next(o for o in outs if o["name"] == "Pièce usinée")
+        client.post(f"/qualify/save/{carto['a']}", json={"outputs": [
+            {"data_id": target["data_id"], "nature": "RESULT", "source": "MANUAL"}]})
+        r = client.post(f"/qualify/save/{carto['a']}", json={"outputs": [
+            {"data_id": target["data_id"], "nature": "MEASURE", "source": "MANUAL"}]})
+        body = r.get_json()
+        assert len(body["warnings"]) == 1
+        assert body["warnings"][0]["data_id"] == target["data_id"]
+        with app.app_context():
+            d = Data.query.get(target["data_id"])
+            assert d.semantic_nature == "MEASURE"
+
+    def test_empty_outputs_list_saves_nothing(self, client, carto):
+        _sess(client, carto["entity_id"])
+        r = client.post(f"/qualify/save/{carto['a']}", json={"outputs": []})
+        assert r.status_code == 200
+        assert r.get_json()["saved"] == 0
+        assert r.get_json()["warnings"] == []
