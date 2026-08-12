@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>Petit Agenda</title>
+<meta name="theme-color" content="#cde2a0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Petit Agenda">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="img/icon-180.png">
+<link rel="icon" type="image/png" href="img/icon-192.png">
+<link rel="stylesheet" href="css/app.css">
+</head>
+<body class="bg-jour">
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="i-sun" viewBox="0 0 20 20">
+      <circle cx="10" cy="10" r="4" fill="none" stroke="currentColor" stroke-width="1.8"/>
+      <path d="M10 1.5v2.4M10 16.1v2.4M1.5 10h2.4M16.1 10h2.4M3.9 3.9l1.7 1.7M14.4 14.4l1.7 1.7M16.1 3.9l-1.7 1.7M5.6 14.4l-1.7 1.7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+    </symbol>
+    <symbol id="i-week" viewBox="0 0 20 20">
+      <rect x="2.5" y="3.5" width="3.8" height="13" rx="1.4" fill="none" stroke="currentColor" stroke-width="1.6"/>
+      <rect x="8.1" y="3.5" width="3.8" height="13" rx="1.4" fill="none" stroke="currentColor" stroke-width="1.6"/>
+      <rect x="13.7" y="3.5" width="3.8" height="13" rx="1.4" fill="none" stroke="currentColor" stroke-width="1.6"/>
+    </symbol>
+    <symbol id="i-month" viewBox="0 0 20 20">
+      <rect x="2.5" y="3" width="15" height="14" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.7"/>
+      <path d="M2.5 7.5h15M7.5 7.5v9.5M12.5 7.5v9.5" stroke="currentColor" stroke-width="1.7"/>
+    </symbol>
+    <symbol id="i-pen" viewBox="0 0 20 20">
+      <path d="M4 16l9.2-9.2 2.6 2.6L6.6 18.6 3 19.5z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/>
+    </symbol>
+    <symbol id="i-spark" viewBox="0 0 20 20">
+      <path d="M10 1Q11.4 8.6 19 10Q11.4 11.4 10 19Q8.6 11.4 1 10Q8.6 8.6 10 1Z" fill="currentColor"/>
+    </symbol>
+    <symbol id="i-moon" viewBox="0 0 20 20">
+      <path d="M12.5 2.5a7.5 7.5 0 1 0 5 13.2A8.3 8.3 0 0 1 12.5 2.5z" fill="currentColor"/>
+      <path d="M15.5 4.2Q15.9 6.3 18 6.7Q15.9 7.1 15.5 9.2Q15.1 7.1 13 6.7Q15.1 6.3 15.5 4.2Z" fill="currentColor" opacity=".85"/>
+    </symbol>
+    <symbol id="i-cake" viewBox="0 0 20 20">
+      <rect x="4" y="9.5" width="12" height="7" rx="2.2" fill="#e8a25c"/>
+      <path d="M4.6 12.4q2.7 1.6 5.4 0t5.4 0" stroke="#fdf6d8" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+      <path d="M10 4.6v3.4" stroke="#c9763d" stroke-width="1.7" stroke-linecap="round"/>
+      <circle cx="10" cy="2.9" r="1.5" fill="#f5d442"/>
+    </symbol>
+    <symbol id="i-bell" viewBox="0 0 20 20">
+      <path d="M10 2.6a5.2 5.2 0 0 1 5.2 5.2v3.6l1.6 2.8H3.2l1.6-2.8V7.8A5.2 5.2 0 0 1 10 2.6z" fill="#e5bb3f"/>
+      <circle cx="10" cy="16.6" r="1.6" fill="#c98d3f"/>
+    </symbol>
+    <symbol id="i-cross" viewBox="0 0 20 20">
+      <path d="M8 3h4v5h5v4h-5v5H8v-5H3V8h5z" fill="currentColor"/>
+    </symbol>
+    <symbol id="i-gear" viewBox="0 0 20 20">
+      <circle cx="10" cy="10" r="5.6" fill="none" stroke="currentColor" stroke-width="1.9"/>
+      <circle cx="10" cy="10" r="1.9" fill="currentColor"/>
+      <path d="M10 1.6v3M10 15.4v3M1.6 10h3M15.4 10h3M4.1 4.1l2.1 2.1M13.8 13.8l2.1 2.1M15.9 4.1l-2.1 2.1M6.2 13.8l-2.1 2.1" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/>
+    </symbol>
+    <symbol id="i-cam" viewBox="0 0 20 20">
+      <rect x="2.5" y="6" width="15" height="11" rx="2.6" fill="none" stroke="currentColor" stroke-width="1.7"/>
+      <path d="M7 6l1.4-2.4h3.2L13 6" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/>
+      <circle cx="10" cy="11.4" r="3" fill="none" stroke="currentColor" stroke-width="1.7"/>
+    </symbol>
+    <symbol id="i-x" viewBox="0 0 20 20">
+      <path d="M5 5l10 10M15 5L5 15" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+    </symbol>
+    <symbol id="i-chev" viewBox="0 0 20 20">
+      <path d="M12.5 4L7 10l5.5 6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+    </symbol>
+    <symbol id="b-nurse" viewBox="0 0 62 72">
+      <rect x="17" y="36" width="28" height="30" rx="14" fill="#dcedb2" stroke="#4c8b33" stroke-width="2.6"/>
+      <circle cx="31" cy="23" r="15.5" fill="#dcedb2" stroke="#4c8b33" stroke-width="2.6"/>
+      <path d="M17.5 17a14.5 9 0 0 1 27 0l-1.2 4.5H18.7z" fill="#fdf7e0" stroke="#4c8b33" stroke-width="2.3" stroke-linejoin="round"/>
+      <path d="M31 12.2v5M28.5 14.7h5" stroke="#e07b6a" stroke-width="2" stroke-linecap="round"/>
+      <circle cx="25.5" cy="27" r="1.8" fill="#3d5c2a"/>
+      <circle cx="36.5" cy="27" r="1.8" fill="#3d5c2a"/>
+      <path d="M28 32q3 2.6 6 0" fill="none" stroke="#3d5c2a" stroke-width="1.7" stroke-linecap="round"/>
+    </symbol>
+    <symbol id="b-party" viewBox="0 0 62 72">
+      <rect x="17" y="36" width="28" height="30" rx="14" fill="#dcedb2" stroke="#4c8b33" stroke-width="2.6"/>
+      <circle cx="31" cy="23" r="15.5" fill="#dcedb2" stroke="#4c8b33" stroke-width="2.6"/>
+      <path d="M24 10l6-9 5 10z" fill="#f5d442" stroke="#4c8b33" stroke-width="2.2" stroke-linejoin="round"/>
+      <circle cx="30" cy="1.5" r="2" fill="#e5bb3f"/>
+      <circle cx="25.5" cy="23" r="1.8" fill="#3d5c2a"/>
+      <circle cx="36.5" cy="23" r="1.8" fill="#3d5c2a"/>
+      <path d="M28 29q3 2.6 6 0" fill="none" stroke="#3d5c2a" stroke-width="1.7" stroke-linecap="round"/>
+    </symbol>
+  </defs>
+</svg>
+
+<div id="app">
+  <main id="main">
+    <section id="view-jour" class="view"></section>
+    <section id="view-semaine" class="view" hidden></section>
+    <section id="view-mois" class="view" hidden></section>
+    <section id="view-notes" class="view" hidden></section>
+  </main>
+
+  <button id="fab" aria-label="Ajouter">+</button>
+
+  <nav class="tabbar" id="tabbar">
+    <button class="tab on" data-view="jour"><svg><use href="#i-sun"/></svg>Aujourd'hui</button>
+    <button class="tab" data-view="semaine"><svg><use href="#i-week"/></svg>Semaine</button>
+    <button class="tab" data-view="mois"><svg><use href="#i-month"/></svg>Mois</button>
+    <button class="tab" data-view="notes"><svg><use href="#i-pen"/></svg>Notes</button>
+  </nav>
+</div>
+
+<div id="overlay" hidden></div>
+<div id="sheet" hidden></div>
+
+<script src="js/app.js"></script>
+<script>
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js"));
+}
+</script>
+</body>
+</html>
