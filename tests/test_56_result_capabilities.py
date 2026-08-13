@@ -14,6 +14,55 @@ import pytest
 pytestmark = pytest.mark.result_capabilities
 
 
+# ---------------------------------------------------------------------------
+# Fake OpenAI client — simule le SDK sans appel réseau réel, pour couvrir les
+# branches "avec client dispo" (succès, exception) de result_capabilities.py.
+# ---------------------------------------------------------------------------
+
+class _FakeMessage:
+    def __init__(self, content):
+        self.content = content
+
+
+class _FakeChoice:
+    def __init__(self, content):
+        self.message = _FakeMessage(content)
+
+
+class _FakeCompletion:
+    def __init__(self, content):
+        self.choices = [_FakeChoice(content)]
+
+
+class _FakeChatCompletions:
+    def __init__(self, content=None, raise_exc=None):
+        self._content = content
+        self._raise_exc = raise_exc
+
+    def create(self, **kwargs):
+        if self._raise_exc is not None:
+            raise self._raise_exc
+        return _FakeCompletion(self._content)
+
+
+class _FakeChat:
+    def __init__(self, content=None, raise_exc=None):
+        self.completions = _FakeChatCompletions(content, raise_exc)
+
+
+class _FakeOpenAIClient:
+    def __init__(self, content=None, raise_exc=None):
+        self.chat = _FakeChat(content, raise_exc)
+
+
+def _mock_result_cap_client(monkeypatch, content=None, raise_exc=None):
+    fake_client = _FakeOpenAIClient(content=content, raise_exc=raise_exc)
+    monkeypatch.setattr(
+        "Code.routes.result_capabilities.openai_client_or_none",
+        lambda: (fake_client, None),
+    )
+
+
 def _create_activity(app, entity_id, name="Activité Compétence Test 56"):
     with app.app_context():
         from Code.models.models import Activities
@@ -96,6 +145,44 @@ class TestGenerateCompetence:
         finally:
             _cleanup_activity(app, aid)
 
+    def test_success_with_fake_client_returns_competence(self, auth_client, app, ids, monkeypatch):
+        """Client IA dispo + réponse JSON valide → compétence générée + result_ids_used filtrés."""
+        aid = _create_activity(app, ids["entity_id"])
+        rid = _create_result_data(app, ids["entity_id"], aid)
+        _mock_result_cap_client(monkeypatch, content=json.dumps({
+            "activity_competence": {
+                "description_fr": "Capacité à usiner la pièce au standard requis.",
+                "description_en": "Ability to machine the part to the required standard.",
+            },
+            "result_ids_used": [rid, 9999999],
+            "granularity_alert": {"alert": False},
+        }))
+        try:
+            r = auth_client.post(f"/competence/generate/{aid}")
+            assert r.status_code == 200
+            data = r.get_json()
+            assert data["source"] == "AI"
+            assert "usiner" in data["competence"]["description_fr"].lower()
+            assert data["result_ids_used"] == [rid]
+            assert data["granularity_alert"]["alert"] is False
+        finally:
+            _cleanup_activity(app, aid)
+
+    def test_ai_exception_falls_back_gracefully(self, auth_client, app, ids, monkeypatch):
+        """Le client IA lève une exception → 200 + repli, jamais de 500 exposée."""
+        aid = _create_activity(app, ids["entity_id"])
+        _create_result_data(app, ids["entity_id"], aid)
+        _mock_result_cap_client(monkeypatch, raise_exc=RuntimeError("Timeout IA"))
+        try:
+            r = auth_client.post(f"/competence/generate/{aid}")
+            assert r.status_code == 200
+            data = r.get_json()
+            assert data["competence"] is None
+            assert data["source"] == "error"
+            assert "Timeout IA" in data["error"]
+        finally:
+            _cleanup_activity(app, aid)
+
 
 class TestSaveCompetence:
 
@@ -172,6 +259,86 @@ class TestGenerateResultLinks:
             data = r.get_json()
             assert data["links"] == []
             assert data["source"] != "AI"
+        finally:
+            _cleanup_activity(app, aid)
+
+    def test_success_creates_items_and_links(self, auth_client, app, ids, monkeypatch):
+        """Client IA dispo → crée les S/SF/HSC manquants + les liens result_capability_links."""
+        aid = _create_activity(app, ids["entity_id"])
+        rid = _create_result_data(app, ids["entity_id"], aid)
+        _mock_result_cap_client(monkeypatch, content=json.dumps({
+            "results": [{
+                "data_id": rid,
+                "savoir_faires": ["Régler la machine"],
+                "savoirs": ["Connaître les tolérances"],
+                "hsc": [{"name": "Rigueur", "required_level": 3}],
+            }, {
+                "data_id": 9999999,  # id inconnu → bloc ignoré
+                "savoir_faires": ["Ignoré"],
+            }],
+        }))
+        try:
+            r = auth_client.post(f"/competence/result_links/generate/{aid}")
+            assert r.status_code == 200
+            data = r.get_json()
+            assert data["source"] == "AI"
+            assert data["created"] == 3
+            items = data["links"]["by_result"][0]["items"]
+            assert len(items) == 3
+            hsc_item = next(it for it in items if it["item_type"] == "HSC")
+            assert hsc_item["item_label"] == "Rigueur"
+            assert hsc_item["required_level"] == 3
+        finally:
+            _cleanup_activity(app, aid)
+
+    def test_success_reuses_existing_item_and_updates_level(self, auth_client, app, ids, monkeypatch):
+        """Un savoir-faire déjà présent (même texte, insensible à la casse) est réutilisé,
+        pas dupliqué ; un lien déjà existant sans niveau requis se voit compléter."""
+        aid = _create_activity(app, ids["entity_id"])
+        rid = _create_result_data(app, ids["entity_id"], aid)
+        sfid = _create_savoir_faire(app, aid, description="régler la machine")
+        with app.app_context():
+            from Code.models.models import ResultCapabilityLink
+            from Code.extensions import db
+            db.session.add(ResultCapabilityLink(
+                entity_id=ids["entity_id"], activity_id=aid, data_id=rid,
+                item_type="SAVOIR_FAIRE", item_id=sfid, required_level=None, source="AI"))
+            db.session.commit()
+
+        _mock_result_cap_client(monkeypatch, content=json.dumps({
+            "results": [{
+                "data_id": rid,
+                "savoir_faires": ["Régler la machine"],  # même texte, casse différente
+                "savoirs": [],
+                "hsc": [],
+            }],
+        }))
+        try:
+            r = auth_client.post(f"/competence/result_links/generate/{aid}")
+            assert r.status_code == 200
+            data = r.get_json()
+            assert data["created"] == 0  # lien déjà existant, pas de doublon créé
+            with app.app_context():
+                from Code.models.models import SavoirFaire, ResultCapabilityLink
+                assert SavoirFaire.query.filter_by(activity_id=aid).count() == 1
+                link = ResultCapabilityLink.query.filter_by(
+                    activity_id=aid, data_id=rid, item_type="SAVOIR_FAIRE", item_id=sfid).first()
+                assert link is not None
+        finally:
+            _cleanup_activity(app, aid)
+
+    def test_ai_exception_rolls_back_and_returns_error(self, auth_client, app, ids, monkeypatch):
+        """Le client IA lève une exception → rollback + 200 + repli explicite (jamais 500)."""
+        aid = _create_activity(app, ids["entity_id"])
+        _create_result_data(app, ids["entity_id"], aid)
+        _mock_result_cap_client(monkeypatch, raise_exc=RuntimeError("Timeout IA"))
+        try:
+            r = auth_client.post(f"/competence/result_links/generate/{aid}")
+            assert r.status_code == 200
+            data = r.get_json()
+            assert data["links"] == []
+            assert data["source"] == "error"
+            assert "Timeout IA" in data["error"]
         finally:
             _cleanup_activity(app, aid)
 

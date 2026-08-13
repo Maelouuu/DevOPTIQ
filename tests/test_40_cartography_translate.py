@@ -4,6 +4,8 @@ Couverture des routes non encore testées :
   - activities_cartography.py → GET /activities/update-cartography
   - translate_softskills.py   → POST /translate_softskills/translate
 """
+import os
+import json as json_module
 import pytest
 
 pytestmark = pytest.mark.cartography_translate
@@ -21,6 +23,57 @@ def _set_svg_filename(app, entity_id, value):
         e = Entity.query.get(entity_id)
         e.svg_filename = value
         db.session.commit()
+
+
+# ---------------------------------------------------------------------------
+# Fake OpenAI client — simule le SDK sans appel réseau réel, pour couvrir les
+# branches "avec client dispo" de translate_softskills (succès, JSON invalide,
+# type non-liste, exception).
+# ---------------------------------------------------------------------------
+
+class _FakeMessage:
+    def __init__(self, content):
+        self.content = content
+
+
+class _FakeChoice:
+    def __init__(self, content):
+        self.message = _FakeMessage(content)
+
+
+class _FakeCompletion:
+    def __init__(self, content):
+        self.choices = [_FakeChoice(content)]
+
+
+class _FakeChatCompletions:
+    def __init__(self, content=None, raise_exc=None):
+        self._content = content
+        self._raise_exc = raise_exc
+
+    def create(self, **kwargs):
+        if self._raise_exc is not None:
+            raise self._raise_exc
+        return _FakeCompletion(self._content)
+
+
+class _FakeChat:
+    def __init__(self, content=None, raise_exc=None):
+        self.completions = _FakeChatCompletions(content, raise_exc)
+
+
+class _FakeOpenAIClient:
+    def __init__(self, content=None, raise_exc=None):
+        self.chat = _FakeChat(content, raise_exc)
+
+
+def _mock_translate_client(monkeypatch, content=None, raise_exc=None):
+    """Patche get_openai_client() importé dans translate_softskills."""
+    fake_client = _FakeOpenAIClient(content=content, raise_exc=raise_exc)
+    monkeypatch.setattr(
+        "Code.routes.translate_softskills.get_openai_client",
+        lambda: (fake_client, None),
+    )
 
 
 # ===========================================================================
@@ -88,6 +141,64 @@ class TestUpdateCartography:
             assert filename in combined
         finally:
             _set_svg_filename(app, ids["entity_id"], None)
+
+    def test_existing_file_success_returns_summary(self, auth_client, ids, app, monkeypatch):
+        """Fichier de cartographie trouvé + traitement OK → 200 + résumé."""
+        filename = "cartographie_test_existante.vsdx"
+        svg_dir = os.path.join("static", "svg")
+        os.makedirs(svg_dir, exist_ok=True)
+        file_path = os.path.join(svg_dir, filename)
+        with open(file_path, "w") as f:
+            f.write("dummy")
+
+        monkeypatch.setattr(
+            "Code.routes.activities_cartography.process_visio_file",
+            lambda path: None,
+        )
+        monkeypatch.setattr(
+            "Code.routes.activities_cartography.print_summary",
+            lambda: print("Résumé de traitement OK"),
+        )
+
+        _set_svg_filename(app, ids["entity_id"], filename)
+        try:
+            r = auth_client.get("/activities/update-cartography")
+            assert r.status_code == 200
+            body = r.get_json()
+            assert "message" in body
+            assert "summary" in body
+            assert body["file"] == filename
+        finally:
+            _set_svg_filename(app, ids["entity_id"], None)
+            os.remove(file_path)
+
+    def test_processing_exception_returns_500(self, auth_client, ids, app, monkeypatch):
+        """Fichier trouvé mais process_visio_file lève une exception → 500."""
+        filename = "cartographie_test_erreur.vsdx"
+        svg_dir = os.path.join("static", "svg")
+        os.makedirs(svg_dir, exist_ok=True)
+        file_path = os.path.join(svg_dir, filename)
+        with open(file_path, "w") as f:
+            f.write("dummy")
+
+        def _boom(path):
+            raise RuntimeError("Fichier Visio corrompu")
+
+        monkeypatch.setattr(
+            "Code.routes.activities_cartography.process_visio_file",
+            _boom,
+        )
+
+        _set_svg_filename(app, ids["entity_id"], filename)
+        try:
+            r = auth_client.get("/activities/update-cartography")
+            assert r.status_code == 500
+            body = r.get_json()
+            assert "error" in body
+            assert "Fichier Visio corrompu" in body["error"]
+        finally:
+            _set_svg_filename(app, ids["entity_id"], None)
+            os.remove(file_path)
 
 
 # ===========================================================================
@@ -214,3 +325,140 @@ class TestTranslateSoftskills:
         raw = '{"habilete": "Coopération"}'
         result = clean_json_response(raw)
         assert result == '{"habilete": "Coopération"}'
+
+    def test_clean_json_returns_raw_text_if_no_json_markers(self):
+        """clean_json_response renvoie le texte brut si ni tableau ni objet détecté."""
+        from Code.routes.translate_softskills import clean_json_response
+        raw = "Pas de JSON ici du tout."
+        result = clean_json_response(raw)
+        assert result == raw
+
+    # --- Succès avec client IA simulé ---
+
+    def test_success_with_fake_client_returns_proposals(self, auth_client, monkeypatch):
+        """Client IA dispo + réponse JSON valide (liste) → 200 + proposals avec niveau traduit."""
+        _mock_translate_client(
+            monkeypatch,
+            content=json_module.dumps([
+                {"habilete": "Communication", "niveau": "2"},
+                {"habilete": "Leadership", "niveau": 3},
+            ]),
+        )
+        r = auth_client.post(
+            "/translate_softskills/translate",
+            json={
+                "user_input": "communication, leadership",
+                "activity_data": {
+                    "name": "Pilotage projet",
+                    "tasks": [{"description": "Coordonner l'équipe"}],
+                    "constraints": [{"description": "Délai serré"}],
+                    "outgoing": [
+                        {"performance": {"name": "Livraison", "description": "À temps"}},
+                        {"autre_champ": "ignoré"},
+                    ],
+                },
+            },
+        )
+        assert r.status_code == 200
+        body = r.get_json()
+        proposals = body["proposals"]
+        assert len(proposals) == 2
+        assert proposals[0]["niveau"] == "2 (Acquisition)"
+        assert proposals[1]["niveau"] == "3 (Maîtrise)"
+
+    def test_success_english_session_lang_translates_niveau(self, app, monkeypatch):
+        """Session lang='en' → prompt anglais + libellés de niveau en anglais."""
+        _mock_translate_client(
+            monkeypatch,
+            content=json_module.dumps([{"habilete": "Teamwork", "niveau": "1"}]),
+        )
+        fresh = app.test_client()
+        with fresh.session_transaction() as sess:
+            sess["lang"] = "en"
+        r = fresh.post(
+            "/translate_softskills/translate",
+            json={"user_input": "teamwork"},
+        )
+        assert r.status_code == 200
+        proposals = r.get_json()["proposals"]
+        assert proposals[0]["niveau"] == "1 (Basic)"
+
+    def test_success_dict_response_wrapped_in_list(self, auth_client, monkeypatch):
+        """Réponse JSON = objet unique (pas une liste) → transformé en liste d'un élément."""
+        _mock_translate_client(
+            monkeypatch,
+            content=json_module.dumps({"habilete": "Rigueur", "niveau": "4"}),
+        )
+        r = auth_client.post(
+            "/translate_softskills/translate",
+            json={"user_input": "rigueur"},
+        )
+        assert r.status_code == 200
+        proposals = r.get_json()["proposals"]
+        assert isinstance(proposals, list)
+        assert len(proposals) == 1
+        assert proposals[0]["niveau"] == "4 (Excellence)"
+
+    def test_invalid_json_response_returns_400(self, auth_client, monkeypatch):
+        """Réponse IA non-JSON → 400 + message de parsing."""
+        _mock_translate_client(monkeypatch, content="Ceci n'est pas du JSON valide {{{")
+        r = auth_client.post(
+            "/translate_softskills/translate",
+            json={"user_input": "communication"},
+        )
+        assert r.status_code == 400
+        assert "parsing" in r.get_json()["error"].lower()
+
+    def test_json_response_not_list_or_dict_returns_400(self, auth_client, monkeypatch):
+        """Réponse JSON valide mais scalaire (ni liste ni objet) → 400."""
+        _mock_translate_client(monkeypatch, content=json_module.dumps("juste une chaîne"))
+        r = auth_client.post(
+            "/translate_softskills/translate",
+            json={"user_input": "communication"},
+        )
+        assert r.status_code == 400
+        assert "tableau" in r.get_json()["error"].lower()
+
+    def test_client_exception_returns_500(self, auth_client, monkeypatch):
+        """Le client IA lève une exception pendant l'appel → 500 + message d'erreur."""
+        _mock_translate_client(monkeypatch, raise_exc=RuntimeError("Timeout API"))
+        r = auth_client.post(
+            "/translate_softskills/translate",
+            json={"user_input": "communication"},
+        )
+        assert r.status_code == 500
+        assert "Timeout API" in r.get_json()["error"]
+
+    def test_success_no_activity_data_uses_empty_enumerations(self, auth_client, monkeypatch):
+        """Sans activity_data (tâches/contraintes absentes) → make_enumeration renvoie
+        le libellé « Aucune » sans planter la requête IA."""
+        _mock_translate_client(
+            monkeypatch,
+            content=json_module.dumps([{"habilete": "Autonomie", "niveau": "2"}]),
+        )
+        r = auth_client.post(
+            "/translate_softskills/translate",
+            json={"user_input": "autonomie"},
+        )
+        assert r.status_code == 200
+
+    def test_success_with_plain_string_tasks_and_constraints(self, auth_client, monkeypatch):
+        """tasks/constraints donnés en chaînes simples (pas des dicts) → make_enumeration
+        prend la branche non-dict sans erreur."""
+        _mock_translate_client(
+            monkeypatch,
+            content=json_module.dumps([{"habilete": "Rigueur", "niveau": "2"}]),
+        )
+        r = auth_client.post(
+            "/translate_softskills/translate",
+            json={
+                "user_input": "rigueur",
+                "activity_data": {
+                    "name": "Activité Test",
+                    "tasks": ["Préparer le dossier", "Valider"],
+                    "constraints": ["Respect des délais"],
+                    "outgoing": [],
+                },
+            },
+        )
+        assert r.status_code == 200

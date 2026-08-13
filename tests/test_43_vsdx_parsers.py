@@ -181,6 +181,12 @@ class TestExtractDataInfo:
         _, dname = self.p._extract_data_info("", "")
         assert dname is None
 
+    def test_whitespace_only_text_and_empty_name_normalized_to_none(self):
+        """connector_text composé uniquement d'espaces + connector_name vide → data_name
+        finit à '' (pas de préfixe pour le compléter) → normalisé explicitement à None."""
+        _, dname = self.p._extract_data_info("", "   ")
+        assert dname is None
+
 
 # =============================================================================
 # 4. VsdxConnectionParser.parse (erreurs de fichier)
@@ -247,6 +253,212 @@ class TestVsdxConnectionParserParse:
         conns, errors = parse_vsdx_connections("/nonexistent.vsdx")
         assert conns == []
         assert len(errors) > 0
+
+
+# =============================================================================
+# 4bis. VsdxConnectionParser._parse_page — construction des connexions
+# =============================================================================
+
+def _page_xml(shapes_xml, connects_xml):
+    return f"""<PageContents xmlns="{NS}">
+  <Shapes>
+    {shapes_xml}
+  </Shapes>
+  <Connects>
+    {connects_xml}
+  </Connects>
+</PageContents>"""
+
+
+def _shape(shape_id, name="", text="", layer=None):
+    layer_cell = f'<Cell N="LayerMember" V="{layer}"/>' if layer is not None else ""
+    return f'<Shape ID="{shape_id}" Name="{name}">{layer_cell}<Text>{text}</Text></Shape>'
+
+
+def _connect(from_sheet, from_cell, to_sheet):
+    return f'<Connect FromSheet="{from_sheet}" FromCell="{from_cell}" ToSheet="{to_sheet}"/>'
+
+
+def _parser():
+    from Code.routes.vsdx_conection_parser import VsdxConnectionParser
+    return VsdxConnectionParser.__new__(VsdxConnectionParser)
+
+
+def _fresh_parser():
+    p = _parser()
+    p.shape_info = {}
+    p.connections = []
+    p.excluded_shape_ids = set()
+    return p
+
+
+class TestParsePage:
+
+    def test_full_valid_connection_is_parsed(self):
+        p = _fresh_parser()
+        xml = _page_xml(
+            _shape("1", name="ActA", text="Activité A")
+            + _shape("2", name="ActB", text="Activité B")
+            + _shape("3", name="N- Project Management", text="Planning prévisionnel"),
+            _connect("3", "BeginX", "1") + _connect("3", "EndX", "2"),
+        )
+        p._parse_page(xml.encode("utf-8"), [])
+        assert len(p.connections) == 1
+        conn = p.connections[0]
+        assert conn["source_name"] == "Activité A"
+        assert conn["target_name"] == "Activité B"
+        assert conn["data_name"] == "Planning prévisionnel"
+        assert conn["data_type"] == "nourrissante"
+
+    def test_shape_without_id_is_skipped(self):
+        p = _fresh_parser()
+        xml = f"""<PageContents xmlns="{NS}">
+  <Shapes>
+    <Shape Name="NoId"><Text>Sans ID</Text></Shape>
+    {_shape("1", name="ActA", text="Activité A")}
+  </Shapes>
+  <Connects></Connects>
+</PageContents>"""
+        p._parse_page(xml.encode("utf-8"), [])
+        assert "1" in p.shape_info
+        assert len(p.shape_info) == 1
+
+    def test_excluded_layer_flags_shape_and_drops_connection(self):
+        p = _fresh_parser()
+        xml = _page_xml(
+            _shape("1", name="ActA", text="Activité A", layer="6")
+            + _shape("2", name="ActB", text="Activité B"),
+            _connect("3", "BeginX", "1") + _connect("3", "EndX", "2"),
+        )
+        p._parse_page(xml.encode("utf-8"), [])
+        assert "1" in p.excluded_shape_ids
+        assert p.connections == []
+
+    def test_connect_missing_fromsheet_is_ignored(self):
+        p = _fresh_parser()
+        xml = _page_xml(
+            _shape("1", text="Activité A") + _shape("2", text="Activité B"),
+            '<Connect FromCell="BeginX" ToSheet="1"/>' + _connect("3", "EndX", "2"),
+        )
+        p._parse_page(xml.encode("utf-8"), [])
+        assert p.connections == []
+
+    def test_connector_with_only_source_is_skipped(self):
+        """Un connecteur sans EndX (pas de target) ne produit pas de connexion."""
+        p = _fresh_parser()
+        xml = _page_xml(
+            _shape("1", text="Activité A") + _shape("2", text="Activité B"),
+            _connect("3", "BeginX", "1"),
+        )
+        p._parse_page(xml.encode("utf-8"), [])
+        assert p.connections == []
+
+    def test_missing_shape_name_and_text_skips_connection(self):
+        """Shape source sans Name ni Text résolvable → nom vide → connexion ignorée."""
+        p = _fresh_parser()
+        xml = _page_xml(
+            _shape("1", name="", text="") + _shape("2", text="Activité B"),
+            _connect("3", "BeginX", "1") + _connect("3", "EndX", "2"),
+        )
+        p._parse_page(xml.encode("utf-8"), [])
+        assert p.connections == []
+
+    def test_resultat_prefix_source_is_excluded(self):
+        p = _fresh_parser()
+        xml = _page_xml(
+            _shape("1", text="Résultat.Livraison") + _shape("2", text="Activité B"),
+            _connect("3", "BeginX", "1") + _connect("3", "EndX", "2"),
+        )
+        p._parse_page(xml.encode("utf-8"), [])
+        assert p.connections == []
+
+    def test_resultat_prefix_target_is_excluded(self):
+        p = _fresh_parser()
+        xml = _page_xml(
+            _shape("1", text="Activité A") + _shape("2", text="Résultat.Livraison"),
+            _connect("3", "BeginX", "1") + _connect("3", "EndX", "2"),
+        )
+        p._parse_page(xml.encode("utf-8"), [])
+        assert p.connections == []
+
+    def test_connector_without_shape_info_still_resolves_names(self):
+        """Connecteur sans Shape correspondant (conn_info vide) : data_name/data_type = None,
+        mais la connexion source→target reste créée."""
+        p = _fresh_parser()
+        xml = _page_xml(
+            _shape("1", text="Activité A") + _shape("2", text="Activité B"),
+            _connect("99", "BeginX", "1") + _connect("99", "EndX", "2"),
+        )
+        p._parse_page(xml.encode("utf-8"), [])
+        assert len(p.connections) == 1
+        assert p.connections[0]["data_name"] is None
+        assert p.connections[0]["data_type"] is None
+
+    def test_malformed_xml_appends_parse_error(self):
+        p = _fresh_parser()
+        errors = []
+        p._parse_page(b"<not><valid</xml", errors)
+        assert len(errors) == 1
+        assert "parsing" in errors[0].lower() or "xml" in errors[0].lower()
+        assert p.connections == []
+
+    def test_shape_falls_back_to_name_when_no_text(self):
+        p = _fresh_parser()
+        xml = _page_xml(
+            _shape("1", name="ActASansTexte") + _shape("2", text="Activité B"),
+            _connect("3", "BeginX", "1") + _connect("3", "EndX", "2"),
+        )
+        p._parse_page(xml.encode("utf-8"), [])
+        assert len(p.connections) == 1
+        assert p.connections[0]["source_name"] == "ActASansTexte"
+
+
+class TestParseFullIntegration:
+
+    def test_valid_vsdx_file_returns_connections_no_errors(self):
+        from Code.routes.vsdx_conection_parser import VsdxConnectionParser
+        page_xml = _page_xml(
+            _shape("1", name="ActA", text="Activité A")
+            + _shape("2", name="ActB", text="Activité B")
+            + _shape("3", name="N- Fournitures", text="Bon de commande"),
+            _connect("3", "BeginX", "1") + _connect("3", "EndX", "2"),
+        )
+        path = _vsdx_zip(page_xml)
+        try:
+            conns, errors = VsdxConnectionParser(path).parse()
+            assert errors == []
+            assert len(conns) == 1
+            assert conns[0]["source_name"] == "Activité A"
+            assert conns[0]["target_name"] == "Activité B"
+        finally:
+            os.unlink(path)
+
+    def test_vsdx_without_page_files_returns_error(self):
+        from Code.routes.vsdx_conection_parser import VsdxConnectionParser
+        fd, path = tempfile.mkstemp(suffix=".vsdx")
+        os.close(fd)
+        with zipfile.ZipFile(path, "w") as zf:
+            zf.writestr("not_a_page.txt", "hello")
+        try:
+            conns, errors = VsdxConnectionParser(path).parse()
+            assert conns == []
+            assert any("page" in e.lower() for e in errors)
+        finally:
+            os.unlink(path)
+
+    def test_get_excluded_shapes_returns_flagged_entries(self):
+        from Code.routes.vsdx_conection_parser import VsdxConnectionParser
+        page_xml = _page_xml(_shape("1", text="Drapeau A", layer="6"), "")
+        path = _vsdx_zip(page_xml)
+        try:
+            p = VsdxConnectionParser(path)
+            p.parse()
+            excluded = p.get_excluded_shapes()
+            assert len(excluded) == 1
+            assert excluded[0]["shape_id"] == "1"
+            assert excluded[0]["text"] == "Drapeau A"
+        finally:
+            os.unlink(path)
 
 
 # =============================================================================
