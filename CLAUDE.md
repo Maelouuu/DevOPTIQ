@@ -447,6 +447,33 @@ privé (ghcr.io) + licence signée à expiration + contrat d'évaluation**. Cont
   `activity_savoirs.html`. Checks ajoutés dans les handlers propose_* /
   competencies. Chatbot sans clé → 503 `ai_unavailable`.
 
+## Suivi d'audience OptiqPulse (2026-08)
+
+Service **privé** de suivi des utilisateurs, séparé de l'app (données sensibles,
+jamais exposées aux utilisateurs). Deux morceaux :
+
+- **Instrumentation dans l'app** : `Code/routes/pulse_track.py` (after_request →
+  `usage_events` : pages vues GET HTML + actions POST/PUT/PATCH/DELETE, durée
+  serveur ; endpoint `/pulse/beat`) + `static/js/pulse.js` (battement ~60 s,
+  onglet visible, inclus via `header_buttons.html`) → table `usage_beats`.
+  Modèles dans models.py (`UsageEvent`, `UsageBeat`, sans FK users), tables
+  créées par create_all au boot. Écriture en connexion Core dédiée (jamais la
+  session ORM), toute erreur avalée. **Désactivé sous TESTING** (activer par
+  test : `app.config['PULSE_FORCE']=True`) ; kill switch `PULSE_DISABLED=1`.
+  Bruit ignoré : /static, /pulse, /healthz, /parametres/admin/logs. Purge au
+  boot : battements 90 j, événements 400 j.
+- **Dashboard `pulse/`** (Flask autonome, service Cloud Run `optiq-pulse`,
+  workflow `.github/workflows/deploy-pulse.yml` sur push de `pulse/**`) : se
+  branche en LECTURE sur les bases Neon listées dans `PULSE_DBS[_B64]`
+  (composées en CI depuis les secrets `PILOT_DATABASE_URL` +
+  `PULSE_EXTRA_DBS`). Agrégation 100 % Python (`aggregates.py`, testable
+  SQLite) : connectés maintenant (battement < 3 min), pic de simultanés
+  (buckets minute), moyenne/jour, temps par page (deltas entre battements,
+  plafond 90 s), top pages (libellés FR), table utilisateurs + parcours
+  chronologique. **Compte unique** `Mael_Girardin` (mdp défaut `testtest`,
+  changer via secret/env `PULSE_PASSWORD`), anti-force-brute, noindex.
+  Tests : `tests/test_61_pulse.py` (14). Doc : `pulse/README.md`.
+
 ## Notes importantes
 
 - **Mots de passe (politique de hachage)** : centralisée dans `Code/security.py` —

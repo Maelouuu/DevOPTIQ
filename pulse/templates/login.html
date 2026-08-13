@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>OptiqPulse — Connexion</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='pulse.css') }}">
+</head>
+<body class="login-page">
+  <main class="login-card">
+    <div class="wordmark"><span class="pulse-dot"></span>OptiqPulse</div>
+    <p class="login-sub">Suivi d'audience DevOPTIQ / OptiqFluent — accès restreint</p>
+    {% if error %}<div class="login-error">{{ error }}</div>{% endif %}
+    <form method="post" autocomplete="off">
+      <label for="username">Identifiant</label>
+      <input id="username" name="username" type="text" required autofocus>
+      <label for="password">Mot de passe</label>
+      <input id="password" name="password" type="password" required>
+      <button type="submit">Se connecter</button>
+    </form>
+  </main>
+</body>
+</html>
