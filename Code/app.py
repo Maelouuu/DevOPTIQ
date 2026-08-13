@@ -317,6 +317,12 @@ def create_app(test_config=None):
     from Code.routes.settings import settings_bp
     app.register_blueprint(settings_bp)
 
+    # Télémétrie OptiqPulse : journalisation passive (pages vues, actions,
+    # présence) lue par le service externe pulse/. Désactivable par env.
+    from Code.routes.pulse_track import pulse_bp, init_tracking
+    app.register_blueprint(pulse_bp)
+    init_tracking(app)
+
     # Panel de tests : outillage interne AFDEC — désactivé dans l'image client
     # (TESTPANEL_ENABLED=0 dans le Dockerfile → routes non enregistrées, 404).
     if os.getenv("TESTPANEL_ENABLED", "1") == "1":
@@ -611,6 +617,19 @@ def create_app(test_config=None):
         except Exception as e:
             db.session.rollback()
             print(f"[BOOTSTRAP] Création admin: {e}")
+
+        # 6ter. Rétention télémétrie OptiqPulse : les battements (1/min/user)
+        # sont volumineux et n'ont d'intérêt que récents ; les événements
+        # restent plus longtemps pour les tendances.
+        try:
+            from datetime import datetime as _dt, timedelta as _td
+            from Code.models.models import UsageBeat as _UB, UsageEvent as _UE
+            _UB.query.filter(_UB.ts < _dt.utcnow() - _td(days=90)).delete()
+            _UE.query.filter(_UE.ts < _dt.utcnow() - _td(days=400)).delete()
+            db.session.commit()
+        except Exception as e:
+            db.session.rollback()
+            print(f"[BOOTSTRAP] Purge télémétrie: {e}")
 
         # 7. Réinitialiser le pool — toutes les connexions du startup sont fermées
         # avant que le worker commence à traiter les requêtes HTTP

@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>OptiqPulse</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='pulse.css') }}">
+</head>
+<body>
+<header class="topbar">
+  <div class="wordmark"><span class="pulse-dot"></span>OptiqPulse</div>
+  <div class="controls">
+    <select id="src-select" title="Instance">
+      <option value="all">Toutes les instances</option>
+      {% for s in sources %}<option value="{{ s }}">{{ s }}</option>{% endfor %}
+    </select>
+    <nav class="ranges" id="range-nav">
+      <button data-range="today">Aujourd'hui</button>
+      <button data-range="7d" class="on">7 jours</button>
+      <button data-range="30d">30 jours</button>
+      <button data-range="90d">90 jours</button>
+    </nav>
+    <a class="logout" href="{{ url_for('logout') }}">Déconnexion</a>
+  </div>
+</header>
+
+<main class="wrap">
+  <div id="src-errors"></div>
+
+  <section class="tiles" id="tiles"></section>
+
+  <div class="grid-2">
+    <section class="card">
+      <h2>En ligne maintenant</h2>
+      <div id="online-list" class="online-list"></div>
+    </section>
+    <section class="card">
+      <h2 id="main-chart-title">Utilisateurs par jour</h2>
+      <div id="main-chart" class="chart"></div>
+    </section>
+  </div>
+
+  <div class="grid-2">
+    <section class="card">
+      <h2>Pages les plus vues</h2>
+      <div id="pages-views" class="hbars"></div>
+    </section>
+    <section class="card">
+      <h2>Temps passé par page <span class="unit">(minutes)</span></h2>
+      <div id="pages-time" class="hbars"></div>
+    </section>
+  </div>
+
+  <section class="card">
+    <h2>Utilisateurs</h2>
+    <div class="table-scroll">
+      <table id="users-table">
+        <thead><tr>
+          <th></th><th>Utilisateur</th><th>Instance</th><th>Dernière activité</th>
+          <th class="num">Temps</th><th class="num">Pages vues</th>
+          <th class="num">Actions</th><th class="num">Sessions</th>
+          <th>Pages principales</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="card" id="journey-card" hidden>
+    <h2 id="journey-title">Parcours</h2>
+    <div id="journey" class="journey"></div>
+  </section>
+
+  <p class="foot" id="foot"></p>
+</main>
+
+<div id="tooltip" class="tooltip" hidden></div>
+<script src="{{ url_for('static', filename='pulse.js') }}" defer></script>
+</body>
+</html>

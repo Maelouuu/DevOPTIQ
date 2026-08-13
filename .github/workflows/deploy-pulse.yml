@@ -1,0 +1,141 @@
+name: Deploy → OptiqPulse (optiq-pulse)
+
+# Dashboard privé de suivi des utilisateurs (pulse/ — service séparé de
+# l'app). Déployé sur son propre service Cloud Run, accessible uniquement
+# via le compte unique (voir pulse/README.md). Les bases suivies sont
+# composées depuis les secrets : PILOT_DATABASE_URL (base pilote) +
+# PULSE_EXTRA_DBS (JSON [{name,url},…] optionnel pour d'autres instances).
+
+on:
+  push:
+    branches: [optiqfluent-beta-test]
+    paths:
+      - 'pulse/**'
+      - '.github/workflows/deploy-pulse.yml'
+  workflow_dispatch:
+
+env:
+  PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+  REGION: europe-west1
+  SERVICE: optiq-pulse
+  IMAGE: europe-west1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/cloud-run-source-deploy/optiq-pulse
+
+jobs:
+  deploy:
+    name: Build & Deploy (OptiqPulse)
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      id-token: write   # requis pour Workload Identity Federation
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
+          service_account: ${{ secrets.GCP_SA_EMAIL }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker europe-west1-docker.pkg.dev --quiet
+
+      - name: Build & push image
+        run: |
+          docker build -t ${{ env.IMAGE }}:${{ github.sha }} -t ${{ env.IMAGE }}:latest pulse/
+          docker push ${{ env.IMAGE }}:${{ github.sha }}
+          docker push ${{ env.IMAGE }}:latest
+
+      # Bases suivies → PULSE_DBS_B64 (base64 : aucune fuite dans les logs,
+      # aucun souci d'escaping gcloud avec les URLs qui contiennent @ , =).
+      - name: Composer la liste des bases suivies
+        env:
+          PILOT_DATABASE_URL: ${{ secrets.PILOT_DATABASE_URL }}
+          PULSE_EXTRA_DBS: ${{ secrets.PULSE_EXTRA_DBS }}
+        run: |
+          python3 - <<'PY' >> "$GITHUB_ENV"
+          import base64, json, os
+          dbs = []
+          pilot = (os.environ.get("PILOT_DATABASE_URL") or "").strip().strip('"').strip("'")
+          if pilot:
+              dbs.append({"name": "Pilote ARaymond", "url": pilot})
+          extra = (os.environ.get("PULSE_EXTRA_DBS") or "").strip()
+          if extra:
+              dbs.extend(json.loads(extra))
+          print("PULSE_DBS_B64=" + base64.b64encode(
+              json.dumps(dbs).encode()).decode())
+          print(f"::notice::{len(dbs)} base(s) suivie(s) configurée(s)")
+          PY
+
+      # Clé de session stable entre déploiements : secret GitHub si présent,
+      # sinon celle déjà posée sur le service, sinon générée (1er déploiement).
+      - name: Clé de session
+        env:
+          SECRET_PULSE_KEY: ${{ secrets.PULSE_SECRET_KEY }}
+        run: |
+          KEY="$SECRET_PULSE_KEY"
+          if [ -z "$KEY" ]; then
+            KEY=$(gcloud run services describe ${{ env.SERVICE }} \
+                --region ${{ env.REGION }} --format=json 2>/dev/null \
+              | python3 -c "import json,sys
+          try:
+              svc = json.load(sys.stdin)
+              envs = svc['spec']['template']['spec']['containers'][0].get('env', [])
+              print(next((e['value'] for e in envs if e['name'] == 'PULSE_SECRET_KEY'), ''))
+          except Exception:
+              print('')" || true)
+          fi
+          if [ -z "$KEY" ]; then
+            KEY=$(openssl rand -hex 32)
+            echo "Clé de session générée (1er déploiement)"
+          fi
+          echo "::add-mask::$KEY"
+          echo "PULSE_KEY=$KEY" >> "$GITHUB_ENV"
+
+      - name: Deploy to Cloud Run (optiq-pulse)
+        env:
+          SECRET_PULSE_PASSWORD: ${{ secrets.PULSE_PASSWORD }}
+        run: |
+          # Délimiteur ^##^ : les URLs Neon contiennent @ : , (jamais ##).
+          VARS="PULSE_DBS_B64=${PULSE_DBS_B64}##PULSE_SECRET_KEY=${PULSE_KEY}"
+          if [ -n "$SECRET_PULSE_PASSWORD" ]; then
+            VARS="${VARS}##PULSE_PASSWORD=${SECRET_PULSE_PASSWORD}"
+          fi
+          if ! gcloud run deploy ${{ env.SERVICE }} \
+            --image ${{ env.IMAGE }}:${{ github.sha }} \
+            --region ${{ env.REGION }} \
+            --platform managed \
+            --allow-unauthenticated \
+            --memory 512Mi --cpu 1 --max-instances 2 \
+            --update-env-vars "^##^${VARS}" \
+            --quiet; then
+            echo "=== ÉCHEC DU DÉPLOIEMENT — logs récents du service ==="
+            gcloud logging read \
+              "resource.type=cloud_run_revision AND resource.labels.service_name=${{ env.SERVICE }}" \
+              --project "${{ env.PROJECT_ID }}" --freshness 15m --limit 100 \
+              --order desc --format 'value(timestamp,severity,textPayload)' || true
+            exit 1
+          fi
+
+      - name: Smoke test
+        env:
+          SECRET_PULSE_PASSWORD: ${{ secrets.PULSE_PASSWORD }}
+        run: |
+          URL=$(gcloud run services describe ${{ env.SERVICE }} \
+            --region ${{ env.REGION }} --format='value(status.url)')
+          echo "OptiqPulse : $URL"
+          curl -fsS --retry 12 --retry-delay 5 --retry-all-errors "$URL/healthz" \
+            && echo " ← healthz OK"
+          PW="${SECRET_PULSE_PASSWORD:-testtest}"
+          LOC=$(curl -sS -o /dev/null -w '%{redirect_url}' \
+            --data-urlencode 'username=Mael_Girardin' \
+            --data-urlencode "password=$PW" "$URL/login")
+          case "$LOC" in
+            */) echo " ← login OptiqPulse OK" ;;
+            *) echo "::error::Login OptiqPulse impossible"; exit 1 ;;
+          esac

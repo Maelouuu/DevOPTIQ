@@ -978,6 +978,38 @@ class CrossCartoLiaison(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 
+class UsageEvent(db.Model):
+    """Télémétrie OptiqPulse : une ligne par page vue (GET HTML) ou action
+    (POST/PUT/PATCH/DELETE). Jamais affiché dans l'app — lu uniquement par le
+    service externe OptiqPulse (pulse/) branché sur la base Neon de l'instance.
+    Pas de FK sur users : la télémétrie survit à la suppression d'un compte."""
+    __tablename__ = 'usage_events'
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    ts = db.Column(db.DateTime, default=datetime.utcnow, nullable=False, index=True)
+    user_id = db.Column(db.Integer, nullable=True, index=True)
+    session_key = db.Column(db.String(32), nullable=True)
+    kind = db.Column(db.String(10), nullable=False, default='view')  # view | action
+    method = db.Column(db.String(8), nullable=False, default='GET')
+    path = db.Column(db.String(300), nullable=False)
+    endpoint = db.Column(db.String(120), nullable=True)
+    status = db.Column(db.SmallInteger, nullable=True)
+    duration_ms = db.Column(db.Integer, nullable=True)
+
+
+class UsageBeat(db.Model):
+    """Battement de présence (~60 s, onglet visible) envoyé par pulse.js.
+    Source du « connectés maintenant », des pics de fréquentation et du temps
+    passé par page (delta entre battements consécutifs, plafonné côté Pulse)."""
+    __tablename__ = 'usage_beats'
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    ts = db.Column(db.DateTime, default=datetime.utcnow, nullable=False, index=True)
+    user_id = db.Column(db.Integer, nullable=False, index=True)
+    session_key = db.Column(db.String(32), nullable=True)
+    path = db.Column(db.String(300), nullable=True)
+
+
 class AppSetting(db.Model):
     """Réglages d'instance modifiables à chaud (page Paramètres, section admin).
     Clés utilisées : 'openai_api_key'. Priorité sur les variables d'environnement."""
