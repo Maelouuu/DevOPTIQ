@@ -71,6 +71,9 @@ def _headers(resp):
     return resp
 
 
+# /healthz est INTERCEPTÉ par le frontend Google sur *.run.app (404 servi
+# avant le conteneur) — /health est l'alias qui marche depuis l'extérieur.
+@app.route("/health")
 @app.route("/healthz")
 def healthz():
     return {"ok": True, "sources": len(aggregates.load_sources())}

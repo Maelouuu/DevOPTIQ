@@ -267,6 +267,7 @@ class TestPulseApp:
         assert c.get("/api/overview").status_code == 401
         assert c.get("/api/journey?src=Test&user=1").status_code == 401
         assert c.get("/healthz").status_code == 200
+        assert c.get("/health").status_code == 200
         assert "Disallow: /" in c.get("/robots.txt").get_data(as_text=True)
 
     def test_login_wrong_then_right(self, pulse_app):
