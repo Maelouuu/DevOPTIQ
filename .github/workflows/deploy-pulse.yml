@@ -131,8 +131,12 @@ jobs:
           URL=$(gcloud run services describe ${{ env.SERVICE }} \
             --region ${{ env.REGION }} --format='value(status.url)')
           echo "OptiqPulse : $URL"
-          curl -fsS --retry 12 --retry-delay 5 --retry-all-errors "$URL/healthz" \
-            && echo " ← healthz OK"
+          # 24 essais : un domaine *.run.app fraîchement créé renvoie 404
+          # pendant ~1 min de propagation. || exit : sous set -e, l'échec du
+          # membre gauche d'un && ne stoppe PAS le job (constaté au run #2).
+          curl -fsS --retry 24 --retry-delay 5 --retry-all-errors "$URL/healthz" \
+            || { echo "::error::healthz KO"; exit 1; }
+          echo " ← healthz OK"
           PW="${SECRET_PULSE_PASSWORD:-testtest}"
           LOC=$(curl -sS -o /dev/null -w '%{redirect_url}' \
             --data-urlencode 'username=Mael_Girardin' \
