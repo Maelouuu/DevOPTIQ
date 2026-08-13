@@ -58,7 +58,8 @@ jobs:
           PILOT_DATABASE_URL: ${{ secrets.PILOT_DATABASE_URL }}
           PULSE_EXTRA_DBS: ${{ secrets.PULSE_EXTRA_DBS }}
         run: |
-          python3 - <<'PY' >> "$GITHUB_ENV"
+          # Seul KEY=VALUE va dans GITHUB_ENV — le notice part sur stdout.
+          python3 - <<'PY'
           import base64, json, os
           dbs = []
           pilot = (os.environ.get("PILOT_DATABASE_URL") or "").strip().strip('"').strip("'")
@@ -67,8 +68,9 @@ jobs:
           extra = (os.environ.get("PULSE_EXTRA_DBS") or "").strip()
           if extra:
               dbs.extend(json.loads(extra))
-          print("PULSE_DBS_B64=" + base64.b64encode(
-              json.dumps(dbs).encode()).decode())
+          with open(os.environ["GITHUB_ENV"], "a") as fh:
+              fh.write("PULSE_DBS_B64=" + base64.b64encode(
+                  json.dumps(dbs).encode()).decode() + "\n")
           print(f"::notice::{len(dbs)} base(s) suivie(s) configurée(s)")
           PY
 
