@@ -53,25 +53,68 @@ jobs:
 
       # Bases suivies → PULSE_DBS_B64 (base64 : aucune fuite dans les logs,
       # aucun souci d'escaping gcloud avec les URLs qui contiennent @ , =).
+      # Sources, dédupliquées par URL :
+      #   1. les 3 secrets connus (Pilote / Staging / Production) ;
+      #   2. DÉCOUVERTE AUTO : tout service Cloud Run du projet portant une
+      #      DATABASE_URL — une nouvelle branche déployée est suivie au
+      #      prochain déploiement pulse, sans nouveau secret ;
+      #   3. PULSE_EXTRA_DBS (JSON [{name,url},…]) pour des bases hors GCP.
       - name: Composer la liste des bases suivies
         env:
           PILOT_DATABASE_URL: ${{ secrets.PILOT_DATABASE_URL }}
+          STAGING_DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
+          PROD_DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}
           PULSE_EXTRA_DBS: ${{ secrets.PULSE_EXTRA_DBS }}
         run: |
-          # Seul KEY=VALUE va dans GITHUB_ENV — le notice part sur stdout.
+          gcloud run services list --region ${{ env.REGION }} --format=json \
+            > /tmp/services.json 2>/dev/null || echo "[]" > /tmp/services.json
+          # Seul KEY=VALUE va dans GITHUB_ENV — le notice part sur stdout
+          # (noms uniquement, jamais les URLs).
           python3 - <<'PY'
           import base64, json, os
-          dbs = []
-          pilot = (os.environ.get("PILOT_DATABASE_URL") or "").strip().strip('"').strip("'")
-          if pilot:
-              dbs.append({"name": "Pilote ARaymond", "url": pilot})
-          extra = (os.environ.get("PULSE_EXTRA_DBS") or "").strip()
+
+          def clean(u):
+              return (u or "").strip().strip('"').strip("'").strip()
+
+          dbs, seen = [], set()
+
+          def add(name, url):
+              url = clean(url)
+              if url and url not in seen:
+                  seen.add(url)
+                  dbs.append({"name": name, "url": url})
+
+          LABELS = {"optiqfluent-staging": "Pilote ARaymond",
+                    "devoptiq-staging": "Staging",
+                    "devoptiq": "Production"}
+          add("Pilote ARaymond", os.environ.get("PILOT_DATABASE_URL"))
+          add("Staging", os.environ.get("STAGING_DATABASE_URL"))
+          add("Production", os.environ.get("PROD_DATABASE_URL"))
+          try:
+              services = json.load(open("/tmp/services.json"))
+          except Exception:
+              services = []
+          for svc in services:
+              try:
+                  name = svc["metadata"]["name"]
+                  if name == "optiq-pulse":
+                      continue
+                  envs = (svc["spec"]["template"]["spec"]["containers"][0]
+                          .get("env") or [])
+                  url = next((e.get("value") for e in envs
+                              if e.get("name") == "DATABASE_URL"), None)
+                  add(LABELS.get(name, name), url)
+              except Exception:
+                  continue
+          extra = clean(os.environ.get("PULSE_EXTRA_DBS"))
           if extra:
-              dbs.extend(json.loads(extra))
+              for it in json.loads(extra):
+                  add(it.get("name") or "Instance", it.get("url"))
           with open(os.environ["GITHUB_ENV"], "a") as fh:
               fh.write("PULSE_DBS_B64=" + base64.b64encode(
                   json.dumps(dbs).encode()).decode() + "\n")
-          print(f"::notice::{len(dbs)} base(s) suivie(s) configurée(s)")
+          noms = ", ".join(d["name"] for d in dbs) or "aucune"
+          print(f"::notice::{len(dbs)} base(s) suivie(s) : {noms}")
           PY
 
       # Clé de session stable entre déploiements : secret GitHub si présent,

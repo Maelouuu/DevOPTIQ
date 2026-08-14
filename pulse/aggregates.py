@@ -154,7 +154,17 @@ def load_window(source, start_utc):
             } for r in rows]
     except Exception as e:
         out["ok"] = False
-        out["error"] = f"{type(e).__name__}: {e}"
+        msg = str(e)
+        if ("usage_events" in msg or "usage_beats" in msg) and \
+                ("does not exist" in msg or "no such table" in msg
+                 or "UndefinedTable" in msg):
+            # Base joignable mais branche pas encore instrumentée (le code
+            # de télémétrie n'y a pas été mergé/déployé).
+            out["error"] = ("télémétrie pas encore installée sur cette "
+                            "instance (tables absentes — elles seront créées "
+                            "au prochain déploiement de sa branche)")
+        else:
+            out["error"] = f"{type(e).__name__}: {e}"
     return out
 
 
