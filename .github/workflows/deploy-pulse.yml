@@ -110,9 +110,17 @@ jobs:
           if extra:
               for it in json.loads(extra):
                   add(it.get("name") or "Instance", it.get("url"))
+          # MASQUAGE OBLIGATOIRE : GitHub affiche les variables d'étape
+          # (dont celles issues de GITHUB_ENV) dans l'en-tête des étapes
+          # suivantes — et le dépôt est PUBLIC. Une URL venue de la
+          # découverte gcloud n'est PAS un secret du run, elle ne serait
+          # pas masquée automatiquement (fuite constatée au run #5).
+          b64 = base64.b64encode(json.dumps(dbs).encode()).decode()
+          for d in dbs:
+              print(f"::add-mask::{d['url']}")
+          print(f"::add-mask::{b64}")
           with open(os.environ["GITHUB_ENV"], "a") as fh:
-              fh.write("PULSE_DBS_B64=" + base64.b64encode(
-                  json.dumps(dbs).encode()).decode() + "\n")
+              fh.write("PULSE_DBS_B64=" + b64 + "\n")
           noms = ", ".join(d["name"] for d in dbs) or "aucune"
           print(f"::notice::{len(dbs)} base(s) suivie(s) : {noms}")
           PY
