@@ -106,14 +106,16 @@ class TestInstrumentation:
 # 2. Agrégations du service pulse/
 # ---------------------------------------------------------------------------
 
-NOW = datetime.now(timezone.utc).replace(second=0, microsecond=0)
-
-
 @pytest.fixture()
 def pulse_source(tmp_path):
     """Base SQLite imitant une instance : 2 utilisateurs, Alice en ligne
     (battements jusqu'à il y a 1 min), Bob parti il y a 6 min ; recouvrement
-    de présence entre -8 et -6 min → pic de 2 simultanés."""
+    de présence entre -8 et -6 min → pic de 2 simultanés.
+    L'heure de référence est capturée ICI (pas à l'import du module) : la
+    fenêtre « en ligne » fait 3 min, une suite complète qui met plus de
+    2 min à atteindre ce module rendrait Alice hors ligne (faux échec
+    d'isolation constaté sur staging, suite à 1694 tests)."""
+    NOW = datetime.now(timezone.utc).replace(second=0, microsecond=0)
     db_path = tmp_path / "instance.db"
     eng = sa.create_engine(f"sqlite:///{db_path}")
     with eng.begin() as c:
@@ -160,12 +162,12 @@ def pulse_source(tmp_path):
         add_event(NOW - timedelta(minutes=8), 2, "sb1", "view", "GET",
                   "/competences/")
     eng.dispose()
-    return {"name": "Test", "url": f"sqlite:///{db_path}"}
+    return {"name": "Test", "url": f"sqlite:///{db_path}", "now": NOW}
 
 
 def _window(pulse_source, days=7):
     return aggregates.load_window(pulse_source,
-                                  NOW - timedelta(days=days))
+                                  pulse_source["now"] - timedelta(days=days))
 
 
 class TestAggregates:
@@ -180,7 +182,7 @@ class TestAggregates:
 
     def test_summarize_tiles_and_online(self, pulse_source):
         s = aggregates.summarize([("Test", _window(pulse_source))], "7d",
-                                 now=NOW)
+                                 now=pulse_source["now"])
         assert s["errors"] == []
         # Alice a battu il y a 1 min → en ligne ; Bob (6 min) → hors ligne
         assert s["tiles"]["online_now"] == 1
@@ -196,7 +198,7 @@ class TestAggregates:
 
     def test_summarize_daily_and_pages(self, pulse_source):
         s = aggregates.summarize([("Test", _window(pulse_source))], "7d",
-                                 now=NOW)
+                                 now=pulse_source["now"])
         assert len(s["daily"]) == 7
         today = s["daily"][-1]
         assert today["users"] == 2
@@ -210,7 +212,7 @@ class TestAggregates:
 
     def test_summarize_users_and_journey(self, pulse_source):
         w = _window(pulse_source)
-        s = aggregates.summarize([("Test", w)], "7d", now=NOW)
+        s = aggregates.summarize([("Test", w)], "7d", now=pulse_source["now"])
         assert [u["name"] for u in s["users"]][0] == "Alice Martin"
         alice = s["users"][0]
         assert alice["online"] is True
@@ -228,9 +230,10 @@ class TestAggregates:
 
     def test_source_error_is_graceful(self):
         bad = {"name": "Morte", "url": "sqlite:///nonexistent/dir/x.db"}
-        w = aggregates.load_window(bad, NOW - timedelta(days=7))
+        now = datetime.now(timezone.utc)
+        w = aggregates.load_window(bad, now - timedelta(days=7))
         assert w["ok"] is False and w["error"]
-        s = aggregates.summarize([("Morte", w)], "7d", now=NOW)
+        s = aggregates.summarize([("Morte", w)], "7d", now=now)
         assert s["errors"][0]["source"] == "Morte"
         assert s["tiles"]["online_now"] == 0
 
@@ -247,7 +250,8 @@ class TestAggregates:
 
 @pytest.fixture()
 def pulse_app(pulse_source, monkeypatch):
-    monkeypatch.setenv("PULSE_DBS", json.dumps([pulse_source]))
+    monkeypatch.setenv("PULSE_DBS", json.dumps(
+        [{"name": pulse_source["name"], "url": pulse_source["url"]}]))
     monkeypatch.setenv("PULSE_INSECURE_COOKIE", "1")
     monkeypatch.delenv("PULSE_PASSWORD", raising=False)
     monkeypatch.delenv("PULSE_PASSWORD_HASH", raising=False)
