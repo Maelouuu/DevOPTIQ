@@ -616,6 +616,33 @@ class TestApiResync:
         r = auth_client.post("/cartography/api/resync/999999")
         assert r.status_code == 404
 
+    def test_resync_entity_dautrui_retourne_404(self, auth_client, app):
+        """Entité existante mais appartenant à un autre compte → 404 (pas de
+        resync cross-tenant), même si elle a une carto stockée."""
+        from werkzeug.security import generate_password_hash
+        from Code.models.models import Entity, User
+        from Code.extensions import db
+        with app.app_context():
+            other = User(first_name="Autre", last_name="Resync",
+                         email="autre.resync@t.com",
+                         password=generate_password_hash("x"), status="admin")
+            db.session.add(other)
+            db.session.flush()
+            e = Entity(name="Entité Resync Autrui", owner_id=other.id,
+                       optiqcarto_data=json.dumps(EMPTY_STATE))
+            db.session.add(e)
+            db.session.commit()
+            other_entity_id = e.id
+            other_user_id = other.id
+        try:
+            r = auth_client.post(f"/cartography/api/resync/{other_entity_id}")
+            assert r.status_code == 404
+        finally:
+            with app.app_context():
+                Entity.query.filter_by(id=other_entity_id).delete()
+                User.query.filter_by(id=other_user_id).delete()
+                db.session.commit()
+
     def test_resync_avec_shapes_carto_retourne_200(self, auth_client, app, ids):
         """Resync avec une carto comportant une activité → 200 (sans erreur de sync)."""
         _set_carto(app, ids, EMPTY_STATE)

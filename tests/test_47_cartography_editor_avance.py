@@ -273,11 +273,50 @@ class TestGetLiaisonsAuth:
         finally:
             _delete_liaison(app, lid)
 
-    def test_entity_id_param_differente_retourne_vide(self, auth_client, ids, app):
-        """entity_id appartenant à un autre propriétaire → liste vide."""
+    def test_entity_id_param_inconnue_retourne_vide(self, auth_client, ids, app):
+        """entity_id inexistante → liste vide."""
         _ensure_owner(app, ids)
         r = auth_client.get("/cartography/api/liaisons?entity_id=999999")
         assert r.get_json() == []
+
+    def test_entity_id_param_autre_proprietaire_retourne_vide(self, auth_client, ids, app):
+        """entity_id d'une entité EXISTANTE mais appartenant à un autre compte
+        → liste vide (pas de fuite cross-tenant), même si elle a des liaisons actives."""
+        _ensure_owner(app, ids)
+        from werkzeug.security import generate_password_hash
+        from Code.models.models import Entity, User, CrossCartoLiaison, Activities
+        from Code.extensions import db
+        with app.app_context():
+            other = User(first_name="Autre", last_name="Liaisons",
+                         email="autre.liaisons@t.com",
+                         password=generate_password_hash("x"), status="admin")
+            db.session.add(other)
+            db.session.flush()
+            other_entity = Entity(name="Entité Liaisons Autrui", owner_id=other.id)
+            db.session.add(other_entity)
+            db.session.flush()
+            other_act = Activities(entity_id=other_entity.id, name="Act Autrui")
+            db.session.add(other_act)
+            db.session.flush()
+            liaison = CrossCartoLiaison(
+                extco_entity_id=other_entity.id, extco_activity_id=other_act.id,
+                origin_entity_id=other_entity.id, origin_activity_id=other_act.id,
+                is_active=True,
+            )
+            db.session.add(liaison)
+            db.session.commit()
+            other_entity_id = other_entity.id
+            other_user_id = other.id
+        try:
+            r = auth_client.get(f"/cartography/api/liaisons?entity_id={other_entity_id}")
+            assert r.get_json() == []
+        finally:
+            with app.app_context():
+                CrossCartoLiaison.query.filter_by(extco_entity_id=other_entity_id).delete()
+                Activities.query.filter_by(entity_id=other_entity_id).delete()
+                Entity.query.filter_by(id=other_entity_id).delete()
+                User.query.filter_by(id=other_user_id).delete()
+                db.session.commit()
 
 
 # ─────────────────────────────────────────────────────────────────────────────

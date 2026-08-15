@@ -60,6 +60,39 @@ def _delete_entity(app, entity_id):
             db.session.commit()
 
 
+def _create_other_user_with_entity(app, name="Entité Autre Utilisateur"):
+    """Crée un second utilisateur (distinct de celui du seed) propriétaire de sa
+    propre entité. Retourne (user_id, entity_id) pour les tests cross-entity."""
+    with app.app_context():
+        from werkzeug.security import generate_password_hash
+        from Code.models.models import Entity, User
+        from Code.extensions import db
+        other = User(
+            first_name="Autre", last_name="Utilisateur",
+            email=f"autre.util.{name.lower().replace(' ', '')}@t.com",
+            password=generate_password_hash("x"), status="admin",
+        )
+        db.session.add(other)
+        db.session.flush()
+        e = Entity(name=name, description="Entité d'un autre compte", owner_id=other.id)
+        db.session.add(e)
+        db.session.commit()
+        return other.id, e.id
+
+
+def _delete_user_and_entity(app, user_id, entity_id):
+    with app.app_context():
+        from Code.models.models import Entity, User
+        from Code.extensions import db
+        e = Entity.query.get(entity_id)
+        if e:
+            db.session.delete(e)
+        u = User.query.get(user_id)
+        if u:
+            db.session.delete(u)
+        db.session.commit()
+
+
 def _clear_entity_svg(app, entity_id):
     """Supprime tout SVG (disque + DB) d'une entité.
 
@@ -296,6 +329,18 @@ class TestEntityAPIMutations:
         r = client.post("/activities/api/entities/1/activate")
         assert r.status_code == 401
 
+    def test_activate_entity_cross_user_returns_404(self, app, auth_client, ids):
+        """POST /activities/api/entities/<id_appartenant_a_autrui>/activate → 404
+        (l'entité existe mais n'appartient pas à l'utilisateur connecté)."""
+        other_user_id, other_entity_id = _create_other_user_with_entity(
+            app, name="Entité Activate Cross-User")
+        try:
+            _set_active_session(auth_client, ids)
+            r = auth_client.post(f"/activities/api/entities/{other_entity_id}/activate")
+            assert r.status_code == 404
+        finally:
+            _delete_user_and_entity(app, other_user_id, other_entity_id)
+
     def test_update_entity_name(self, app, auth_client, ids):
         """PATCH /activities/api/entities/<id> renomme l'entité."""
         new_eid = _create_entity(app, ids["user_id"], name="Entité Avant PATCH")
@@ -331,6 +376,26 @@ class TestEntityAPIMutations:
         )
         assert r.status_code == 401
 
+    def test_update_entity_cross_user_returns_404_and_leaves_name_untouched(self, app, auth_client, ids):
+        """PATCH /activities/api/entities/<id_appartenant_a_autrui> → 404, et le nom
+        de l'entité d'autrui n'est PAS modifié (pas de fuite d'écriture cross-tenant)."""
+        other_user_id, other_entity_id = _create_other_user_with_entity(
+            app, name="Entité Update Cross-User")
+        try:
+            _set_active_session(auth_client, ids)
+            r = auth_client.patch(
+                f"/activities/api/entities/{other_entity_id}",
+                data=json.dumps({"name": "Renommée Par Intrus"}),
+                content_type="application/json",
+            )
+            assert r.status_code == 404
+            with app.app_context():
+                from Code.models.models import Entity
+                untouched = Entity.query.get(other_entity_id)
+                assert untouched.name == "Entité Update Cross-User"
+        finally:
+            _delete_user_and_entity(app, other_user_id, other_entity_id)
+
     def test_delete_entity_ok(self, app, auth_client, ids):
         """DELETE /activities/api/entities/<id> supprime l'entité."""
         new_eid = _create_entity(app, ids["user_id"], name="Entité À Supprimer")
@@ -352,6 +417,22 @@ class TestEntityAPIMutations:
             sess.clear()
         r = client.delete("/activities/api/entities/1")
         assert r.status_code == 401
+
+    def test_delete_entity_cross_user_returns_404_and_survives(self, app, auth_client, ids):
+        """DELETE /activities/api/entities/<id_appartenant_a_autrui> → 404, et
+        l'entité d'autrui existe TOUJOURS en base après coup (pas de suppression
+        cross-tenant malgré la réponse 404)."""
+        other_user_id, other_entity_id = _create_other_user_with_entity(
+            app, name="Entité Delete Cross-User")
+        try:
+            _set_active_session(auth_client, ids)
+            r = auth_client.delete(f"/activities/api/entities/{other_entity_id}")
+            assert r.status_code == 404
+            with app.app_context():
+                from Code.models.models import Entity
+                assert Entity.query.get(other_entity_id) is not None
+        finally:
+            _delete_user_and_entity(app, other_user_id, other_entity_id)
 
 
 # ===========================================================================
