@@ -214,3 +214,161 @@ class TestTranslateSoftskills:
         raw = '{"habilete": "Coopération"}'
         result = clean_json_response(raw)
         assert result == '{"habilete": "Coopération"}'
+
+
+# ===========================================================================
+# 3. POST /translate_softskills/translate — flux IA complet (client mocké)
+# ===========================================================================
+
+def _fake_ai_client(content):
+    """Construit un faux client OpenAI-like renvoyant `content` comme réponse."""
+    class _FakeMessage:
+        pass
+
+    class _FakeChoice:
+        pass
+
+    class _FakeResponse:
+        pass
+
+    class _FakeCompletions:
+        def create(self, **kwargs):
+            msg = _FakeMessage()
+            msg.content = content
+            choice = _FakeChoice()
+            choice.message = msg
+            resp = _FakeResponse()
+            resp.choices = [choice]
+            return resp
+
+    class _FakeChat:
+        completions = _FakeCompletions()
+
+    class _FakeClient:
+        chat = _FakeChat()
+
+    return _FakeClient()
+
+
+class TestTranslateSoftskillsAiFlow:
+
+    def test_success_fr_maps_niveau_and_returns_proposals(self, auth_client, monkeypatch):
+        """Réponse IA JSON valide (tableau) → proposals renvoyés, niveau traduit en FR."""
+        import json as _json
+        payload = [{"habilete": "Communication", "niveau": "2"}]
+        monkeypatch.setattr(
+            "Code.ai_client.make_ai_client",
+            lambda *a, **kw: (_fake_ai_client(_json.dumps(payload)), "fake-model", None),
+        )
+        r = auth_client.post(
+            "/translate_softskills/translate",
+            json={"user_input": "communication, leadership"},
+        )
+        assert r.status_code == 200
+        body = r.get_json()
+        assert body["proposals"][0]["habilete"] == "Communication"
+        assert body["proposals"][0]["niveau"] == "2 (Acquisition)"
+
+    def test_success_en_lang_uses_english_niveau_map(self, auth_client, monkeypatch):
+        """Session lang='en' → prompt anglais utilisé et niveau traduit en EN."""
+        import json as _json
+        payload = [{"habilete": "Teamwork", "niveau": 3}]
+        monkeypatch.setattr(
+            "Code.ai_client.make_ai_client",
+            lambda *a, **kw: (_fake_ai_client(_json.dumps(payload)), "fake-model", None),
+        )
+        with auth_client.session_transaction() as sess:
+            sess["lang"] = "en"
+        r = auth_client.post(
+            "/translate_softskills/translate",
+            json={
+                "user_input": "teamwork, rigor",
+                "activity_data": {
+                    "name": "Test Activity",
+                    "tasks": [{"description": "Main task"}],
+                    "constraints": [{"description": "Tight deadline"}],
+                    "outgoing": [{"performance": {"name": "Perf1", "description": "Desc1"}}],
+                },
+            },
+        )
+        assert r.status_code == 200
+        assert r.get_json()["proposals"][0]["niveau"] == "3 (Proficient)"
+
+    def test_dict_response_is_wrapped_into_a_list(self, auth_client, monkeypatch):
+        """Réponse IA = un objet unique (pas un tableau) → enveloppé dans une liste."""
+        import json as _json
+        payload = {"habilete": "Coopération", "niveau": "1"}
+        monkeypatch.setattr(
+            "Code.ai_client.make_ai_client",
+            lambda *a, **kw: (_fake_ai_client(_json.dumps(payload)), "fake-model", None),
+        )
+        r = auth_client.post(
+            "/translate_softskills/translate",
+            json={"user_input": "coopération"},
+        )
+        assert r.status_code == 200
+        proposals = r.get_json()["proposals"]
+        assert isinstance(proposals, list) and len(proposals) == 1
+        assert proposals[0]["habilete"] == "Coopération"
+
+    def test_non_list_non_dict_response_returns_400(self, auth_client, monkeypatch):
+        """Réponse IA = un scalaire JSON (ni liste ni objet) → 400."""
+        monkeypatch.setattr(
+            "Code.ai_client.make_ai_client",
+            lambda *a, **kw: (_fake_ai_client("42"), "fake-model", None),
+        )
+        r = auth_client.post(
+            "/translate_softskills/translate",
+            json={"user_input": "quelque chose"},
+        )
+        assert r.status_code == 400
+        assert "tableau" in r.get_json()["error"].lower()
+
+    def test_invalid_json_response_returns_400(self, auth_client, monkeypatch):
+        """Réponse IA non parsable en JSON → 400 avec message de parsing."""
+        monkeypatch.setattr(
+            "Code.ai_client.make_ai_client",
+            lambda *a, **kw: (_fake_ai_client("ceci n'est pas du JSON"), "fake-model", None),
+        )
+        r = auth_client.post(
+            "/translate_softskills/translate",
+            json={"user_input": "quelque chose"},
+        )
+        assert r.status_code == 400
+        assert "pars" in r.get_json()["error"].lower()
+
+    def test_client_exception_returns_500(self, auth_client, monkeypatch):
+        """Le client IA lève une exception à l'appel → 500 + message d'erreur."""
+        class _RaisingClient:
+            class chat:
+                class completions:
+                    @staticmethod
+                    def create(**kwargs):
+                        raise RuntimeError("réseau indisponible")
+
+        monkeypatch.setattr(
+            "Code.ai_client.make_ai_client",
+            lambda *a, **kw: (_RaisingClient(), "fake-model", None),
+        )
+        r = auth_client.post(
+            "/translate_softskills/translate",
+            json={"user_input": "quelque chose"},
+        )
+        assert r.status_code == 500
+        assert "réseau indisponible" in r.get_json()["error"]
+
+    def test_missing_prompt_returns_500(self, auth_client, monkeypatch):
+        """get_prompt() renvoie None (prompts non chargés) → 500 explicite."""
+        monkeypatch.setattr(
+            "Code.ai_client.make_ai_client",
+            lambda *a, **kw: (_fake_ai_client("[]"), "fake-model", None),
+        )
+        monkeypatch.setattr(
+            "Code.routes.translate_softskills.get_prompt", lambda *a, **kw: None
+        )
+        r = auth_client.post(
+            "/translate_softskills/translate",
+            json={"user_input": "quelque chose"},
+        )
+        assert r.status_code == 500
+        assert "prompt" in r.get_json()["error"].lower()
