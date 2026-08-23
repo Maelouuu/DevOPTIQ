@@ -14,6 +14,50 @@ import pytest
 pytestmark = pytest.mark.result_capabilities
 
 
+def _fake_client_returning(content):
+    """Client IA factice : chat.completions.create(...) renvoie `content` comme message.content."""
+    class _FakeMessage:
+        pass
+
+    class _FakeChoice:
+        pass
+
+    class _FakeResponse:
+        pass
+
+    class _FakeCompletions:
+        def create(self, **kwargs):
+            msg = _FakeMessage()
+            msg.content = content
+            choice = _FakeChoice()
+            choice.message = msg
+            resp = _FakeResponse()
+            resp.choices = [choice]
+            return resp
+
+    class _FakeChat:
+        completions = _FakeCompletions()
+
+    class _FakeClient:
+        chat = _FakeChat()
+
+    return _FakeClient()
+
+
+def _fake_client_raising(message):
+    class _RaisingCompletions:
+        def create(self, **kwargs):
+            raise RuntimeError(message)
+
+    class _RaisingChat:
+        completions = _RaisingCompletions()
+
+    class _RaisingClient:
+        chat = _RaisingChat()
+
+    return _RaisingClient()
+
+
 def _create_activity(app, entity_id, name="Activité Compétence Test 56"):
     with app.app_context():
         from Code.models.models import Activities
@@ -96,6 +140,52 @@ class TestGenerateCompetence:
         finally:
             _cleanup_activity(app, aid)
 
+    def test_success_returns_ai_competence_filtering_unknown_result_ids(self, auth_client, app, ids, monkeypatch):
+        import Code.routes.result_capabilities as rc_module
+
+        aid = _create_activity(app, ids["entity_id"])
+        did = _create_result_data(app, ids["entity_id"], aid)
+        ai_payload = json.dumps({
+            "activity_competence": {"description_fr": "Usiner conforme", "description_en": "Machine to spec"},
+            "result_ids_used": [did, 999999],
+            "granularity_alert": {"alert": True, "reason_fr": "Trop de résultats", "reason_en": "Too many results"},
+        })
+        monkeypatch.setattr(rc_module, "get_prompt", lambda *a, **k: "SYSTEM PROMPT")
+        monkeypatch.setattr(
+            "Code.ai_client.make_ai_client",
+            lambda: (_fake_client_returning(ai_payload), "fake-model", None),
+        )
+        try:
+            r = auth_client.post(f"/competence/generate/{aid}")
+            assert r.status_code == 200
+            data = r.get_json()
+            assert data["source"] == "AI"
+            assert data["competence"]["description_fr"] == "Usiner conforme"
+            assert data["result_ids_used"] == [did]
+            assert data["granularity_alert"]["alert"] is True
+        finally:
+            _cleanup_activity(app, aid)
+
+    def test_ai_exception_returns_error_source(self, auth_client, app, ids, monkeypatch):
+        import Code.routes.result_capabilities as rc_module
+
+        aid = _create_activity(app, ids["entity_id"])
+        _create_result_data(app, ids["entity_id"], aid)
+        monkeypatch.setattr(rc_module, "get_prompt", lambda *a, **k: "SYSTEM PROMPT")
+        monkeypatch.setattr(
+            "Code.ai_client.make_ai_client",
+            lambda: (_fake_client_raising("panne IA"), "fake-model", None),
+        )
+        try:
+            r = auth_client.post(f"/competence/generate/{aid}")
+            assert r.status_code == 200
+            data = r.get_json()
+            assert data["competence"] is None
+            assert data["source"] == "error"
+            assert "panne IA" in data["error"]
+        finally:
+            _cleanup_activity(app, aid)
+
 
 class TestSaveCompetence:
 
@@ -172,6 +262,104 @@ class TestGenerateResultLinks:
             data = r.get_json()
             assert data["links"] == []
             assert data["source"] != "AI"
+        finally:
+            _cleanup_activity(app, aid)
+
+    def test_success_creates_items_and_links_for_valid_results_only(self, auth_client, app, ids, monkeypatch):
+        """L'IA propose SF/Savoir/HSC pour un résultat valide et un data_id inconnu (ignoré) ;
+        les items sont créés à la volée et les liens (source=AI) enregistrés."""
+        import Code.routes.result_capabilities as rc_module
+
+        aid = _create_activity(app, ids["entity_id"])
+        did = _create_result_data(app, ids["entity_id"], aid)
+        ai_payload = json.dumps({
+            "results": [
+                {"data_id": did,
+                 "savoir_faires": ["Régler la machine"],
+                 "savoirs": ["Lecture de plan"],
+                 "hsc": [{"name": "Rigueur", "required_level": 3}, "ignoré (pas un dict)"]},
+                {"data_id": 999999, "savoir_faires": ["Ne doit jamais être créé"]},
+            ]
+        })
+        monkeypatch.setattr(rc_module, "get_prompt", lambda *a, **k: "SYSTEM PROMPT")
+        monkeypatch.setattr(
+            "Code.ai_client.make_ai_client",
+            lambda: (_fake_client_returning(ai_payload), "fake-model", None),
+        )
+        try:
+            r = auth_client.post(f"/competence/result_links/generate/{aid}")
+            assert r.status_code == 200
+            data = r.get_json()
+            assert data["source"] == "AI"
+            assert data["created"] == 3
+            items = data["links"]["by_result"][0]["items"]
+            labels = {(it["item_type"], it["item_label"]) for it in items}
+            assert ("SAVOIR_FAIRE", "Régler la machine") in labels
+            assert ("SAVOIR", "Lecture de plan") in labels
+            assert ("HSC", "Rigueur") in labels
+            hsc_item = next(it for it in items if it["item_type"] == "HSC")
+            assert hsc_item["required_level"] == 3
+
+            with app.app_context():
+                from Code.models.models import SavoirFaire, Data
+                assert SavoirFaire.query.filter_by(activity_id=aid, description="Régler la machine").count() == 1
+                assert Data.query.get(999999) is None
+        finally:
+            _cleanup_activity(app, aid)
+
+    def test_success_second_call_deduplicates_and_upgrades_level(self, auth_client, app, ids, monkeypatch):
+        """Un appel répété ne duplique pas les liens ; un required_level manquant peut être complété."""
+        import Code.routes.result_capabilities as rc_module
+
+        aid = _create_activity(app, ids["entity_id"])
+        did = _create_result_data(app, ids["entity_id"], aid)
+        first_payload = json.dumps({"results": [{"data_id": did, "hsc": [{"name": "Rigueur"}]}]})
+        second_payload = json.dumps({"results": [{"data_id": did, "hsc": [{"name": "Rigueur", "required_level": 4}]}]})
+        monkeypatch.setattr(rc_module, "get_prompt", lambda *a, **k: "SYSTEM PROMPT")
+
+        monkeypatch.setattr(
+            "Code.ai_client.make_ai_client",
+            lambda: (_fake_client_returning(first_payload), "fake-model", None),
+        )
+        try:
+            auth_client.post(f"/competence/result_links/generate/{aid}")
+
+            monkeypatch.setattr(
+                "Code.ai_client.make_ai_client",
+                lambda: (_fake_client_returning(second_payload), "fake-model", None),
+            )
+            r = auth_client.post(f"/competence/result_links/generate/{aid}")
+            assert r.status_code == 200
+            data = r.get_json()
+            assert data["created"] == 0
+            items = data["links"]["by_result"][0]["items"]
+            assert len(items) == 1
+            assert items[0]["required_level"] == 4
+
+            with app.app_context():
+                from Code.models.models import ResultCapabilityLink
+                rows = ResultCapabilityLink.query.filter_by(activity_id=aid, item_type="HSC").all()
+                assert len(rows) == 1
+        finally:
+            _cleanup_activity(app, aid)
+
+    def test_ai_exception_rolls_back_and_returns_error_source(self, auth_client, app, ids, monkeypatch):
+        import Code.routes.result_capabilities as rc_module
+
+        aid = _create_activity(app, ids["entity_id"])
+        _create_result_data(app, ids["entity_id"], aid)
+        monkeypatch.setattr(rc_module, "get_prompt", lambda *a, **k: "SYSTEM PROMPT")
+        monkeypatch.setattr(
+            "Code.ai_client.make_ai_client",
+            lambda: (_fake_client_raising("panne IA"), "fake-model", None),
+        )
+        try:
+            r = auth_client.post(f"/competence/result_links/generate/{aid}")
+            assert r.status_code == 200
+            data = r.get_json()
+            assert data["links"] == []
+            assert data["source"] == "error"
+            assert "panne IA" in data["error"]
         finally:
             _cleanup_activity(app, aid)
 
