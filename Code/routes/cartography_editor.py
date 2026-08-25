@@ -4,9 +4,12 @@ La carto JSON de chaque entité est stockée en base de données (colonne
 Entity.optiqcarto_data) pour survivre aux redémarrages Cloud Run.
 Le fichier VSDX reste sur disque (upload ponctuel, non critique).
 """
+import io
 import json
 import os
+import re
 import tempfile
+from datetime import datetime
 from types import SimpleNamespace
 
 from flask import (
@@ -661,6 +664,177 @@ def api_load(name):
         return jsonify({"error": "Introuvable"}), 404
 
     return jsonify(json.loads(entity.optiqcarto_data))
+
+
+# ─────────────────────────────────────────────
+# PAQUET DE CARTO (.optiqcarto) — export / import
+# ─────────────────────────────────────────────
+# Un paquet transporte une cartographie CORRIGÉE d'un compte à l'autre sans
+# repasser par le .vsdx : le fichier Visio d'origine ré-introduirait les défauts
+# que l'utilisateur vient de reprendre à la main. Le paquet contient l'entité et
+# son diagramme ; à l'import, activités / rôles / connexions sont dérivés par
+# _sync_carto_to_db, exactement comme après un import Visio.
+
+CARTO_PACKAGE_FORMAT = "optiqcarto/entity"
+CARTO_PACKAGE_VERSION = 1
+
+
+def _slugify(text, fallback="carto"):
+    slug = re.sub(r"[^a-zA-Z0-9]+", "_", (text or "")).strip("_").lower()
+    return slug or fallback
+
+
+def _build_carto_package(entity):
+    return {
+        "format": CARTO_PACKAGE_FORMAT,
+        "version": CARTO_PACKAGE_VERSION,
+        "exported_at": datetime.utcnow().isoformat(timespec="seconds") + "Z",
+        "entity": {
+            "name": entity.name,
+            "description": entity.description or "",
+            "vsdx_filename": entity.vsdx_filename or "",
+        },
+        "diagram": json.loads(entity.optiqcarto_data),
+    }
+
+
+def _read_carto_package(payload):
+    """Accepte un paquet .optiqcarto OU un diagramme brut.
+
+    Renvoie (meta, diagram) ; lève ValueError si le contenu n'est pas exploitable.
+    Le diagramme brut est toléré : c'est ce que renvoie /api/load, et les cartos
+    de tools/provisioning/carto/ sont dans ce format.
+    """
+    if not isinstance(payload, dict):
+        raise ValueError("Fichier illisible")
+    if payload.get("format") == CARTO_PACKAGE_FORMAT:
+        diagram = payload.get("diagram")
+        meta = payload.get("entity") or {}
+    else:
+        diagram = payload
+        meta = {}
+    if not isinstance(diagram, dict) or not isinstance(diagram.get("shapes"), list):
+        raise ValueError("Ce fichier ne contient pas de cartographie")
+    return meta, diagram
+
+
+def _unique_entity_name(base, user_id):
+    """Évite d'écraser une entité existante : « Nom », « Nom (2) », « Nom (3) »…"""
+    name = (base or "Cartographie importée").strip()[:200]
+    taken = {
+        e.name for e in Entity.query.filter_by(owner_id=user_id).all() if e.name
+    }
+    if name not in taken:
+        return name
+    i = 2
+    while f"{name} ({i})"[:200] in taken:
+        i += 1
+    return f"{name} ({i})"[:200]
+
+
+@cartography_editor_bp.route("/api/export")
+def api_export():
+    """Télécharge l'entité active (ou ?entity_id=) sous forme de paquet .optiqcarto."""
+    if not _require_auth():
+        return jsonify({"error": "Non autorisé"}), 403
+
+    user_id = session.get("user_id")
+    entity_id = request.args.get("entity_id", type=int)
+    if entity_id:
+        entity = Entity.query.filter_by(id=entity_id, owner_id=user_id).first()
+    else:
+        entity = _get_active_entity()
+    if not entity:
+        return jsonify({"error": "Aucune entité active"}), 400
+    if not entity.optiqcarto_data:
+        return jsonify({"error": "Cette entité n'a pas de cartographie"}), 404
+
+    payload = json.dumps(_build_carto_package(entity), ensure_ascii=False, indent=1)
+    buf = io.BytesIO(payload.encode("utf-8"))
+    return send_file(
+        buf,
+        mimetype="application/json",
+        as_attachment=True,
+        download_name=f"{_slugify(entity.name)}.optiqcarto",
+    )
+
+
+@cartography_editor_bp.route("/api/import", methods=["POST"])
+def api_import():
+    """Recrée une entité et sa cartographie à partir d'un paquet .optiqcarto.
+
+    Par défaut l'entité est CRÉÉE (le paquet sert à distribuer une carto d'un
+    compte à l'autre). Avec entity_id, la carto d'une entité existante de
+    l'utilisateur est remplacée.
+    """
+    if not _require_auth():
+        return jsonify({"error": "Non autorisé"}), 403
+
+    user_id = session.get("user_id")
+    upload = request.files.get("file")
+    if not upload:
+        return jsonify({"error": "Aucun fichier fourni"}), 400
+
+    try:
+        payload = json.loads(upload.read().decode("utf-8-sig"))
+    except (UnicodeDecodeError, json.JSONDecodeError):
+        return jsonify({"error": "Fichier illisible : ce n'est pas un paquet .optiqcarto"}), 400
+
+    try:
+        meta, diagram = _read_carto_package(payload)
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+
+    entity_id = request.form.get("entity_id", type=int)
+    if entity_id:
+        entity = Entity.query.filter_by(id=entity_id, owner_id=user_id).first()
+        if not entity:
+            return jsonify({"error": "Entité introuvable"}), 404
+        created = False
+    else:
+        wanted = (request.form.get("name") or meta.get("name") or "").strip()
+        entity = Entity(
+            name=_unique_entity_name(wanted, user_id),
+            description=meta.get("description", ""),
+            owner_id=user_id,
+            is_active=True,
+        )
+        db.session.add(entity)
+        created = True
+
+    if meta.get("vsdx_filename"):
+        entity.vsdx_filename = meta["vsdx_filename"]
+    entity.optiqcarto_data = json.dumps(diagram, ensure_ascii=False)
+
+    # L'entité importée devient l'entité courante — sinon l'utilisateur atterrit
+    # dans l'éditeur sur la carto précédente et croit que l'import a échoué.
+    Entity.query.filter_by(owner_id=user_id).update({"is_active": False})
+    entity.is_active = True
+    db.session.commit()
+    session["active_entity_id"] = entity.id
+
+    sync_error = None
+    try:
+        _sync_carto_to_db(entity, diagram)
+    except Exception as exc:
+        import traceback
+        sync_error = str(exc)
+        traceback.print_exc()
+
+    resp = {
+        "ok": True,
+        "created": created,
+        "entity": {"id": entity.id, "name": entity.name},
+        "counts": {
+            "shapes": len(diagram.get("shapes", [])),
+            "connections": len(diagram.get("connections", [])),
+            "bands": len(diagram.get("bands", [])),
+        },
+        "redirect_url": "/cartography/editor",
+    }
+    if sync_error:
+        resp["sync_warning"] = sync_error
+    return jsonify(resp)
 
 
 # ─────────────────────────────────────────────

@@ -5112,6 +5112,24 @@ async function importVSDX(file) {
 }
 
 /* ══════════════════════════════════════════════════
+   PAQUET DE CARTO (.optiqcarto)
+   ══════════════════════════════════════════════════ */
+
+// Télécharge la carto de l'entité sous forme de paquet transportable, pour la
+// réinstaller sur un autre compte sans repasser par le .vsdx (qui ré-introduirait
+// les défauts d'import déjà corrigés à la main).
+// On enregistre d'abord si le diagramme a changé : sinon on distribuerait une
+// version antérieure aux retouches qu'on vient justement de faire.
+async function exportCartoPackage() {
+  if (isDirty) {
+    const ok = await saveJSON();
+    if (!ok) { showToast(_L('editor.toast.export_carto_needs_save')); return; }
+  }
+  const apiBase = window.OPTIQCARTO_API_BASE || '/cartography';
+  window.location.href = apiBase + '/api/export';
+}
+
+/* ══════════════════════════════════════════════════
    BANDS DIALOG
    ══════════════════════════════════════════════════ */
 
@@ -7261,6 +7279,7 @@ function init() {
   document.getElementById('btn-delete').addEventListener('click', deleteSelected);
   document.getElementById('btn-export-svg').addEventListener('click', exportSVG);
   document.getElementById('btn-export-pdf').addEventListener('click', exportPDF);
+  document.getElementById('btn-export-carto').addEventListener('click', exportCartoPackage);
   document.getElementById('btn-save').addEventListener('click', saveJSON);
   document.getElementById('btn-load').addEventListener('click', openLoadDialog);
   document.getElementById('btn-import-vsdx').addEventListener('click', openVSDXDialog);
