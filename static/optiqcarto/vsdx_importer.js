@@ -5,6 +5,11 @@
    ══════════════════════════════════════════════════════════════════ */
 
 class VsdxImporter {
+  // Types de Row qui se terminent sur un sommet (X,Y). Les arcs sont réduits à
+  // leur point d'arrivée : le renderer arrondit lui-même les angles.
+  static VERTEX_ROW = { MoveTo:1, LineTo:1, ArcTo:1, EllipticalArcTo:1,
+                        PolylineTo:1, NURBSTo:1, SplineStart:1, SplineKnot:1 };
+
   constructor(zip, onProgress) {
     this.zip  = zip;
     this.log  = onProgress || (() => {});
@@ -973,8 +978,13 @@ class VsdxImporter {
 
   // Nudge portT values that are too close on the same endpoint+direction pair.
   // Preserves exact Visio positions and only separates near-duplicates (< MIN_GAP apart).
+  // EXCEPTION : deux flèches qui partent EXACTEMENT du même point de connexion
+  // Visio sont les branches d'une même fourche. Les écarter casse leur tronc
+  // commun — c'est ce qui produisait deux traits parallèles décalés là où la
+  // carte d'origine n'en montre qu'un qui se divise.
   _nudgePortConflicts(conns) {
     const MIN_GAP = 0.05;
+    const SAME = 1e-4;
     const byKey = {};
     for (const c of conns) {
       for (const [idKey, dirKey, tKey] of [
@@ -993,6 +1003,7 @@ class VsdxImporter {
       for (let i = 1; i < entries.length; i++) {
         const prev = entries[i-1].c[entries[i-1].tKey];
         const cur  = entries[i].c[entries[i].tKey];
+        if (Math.abs(cur - prev) <= SAME) continue;   // même point exact → fourche
         if (cur - prev < MIN_GAP) {
           entries[i].c[entries[i].tKey] = Math.min(0.95, prev + MIN_GAP);
         }
@@ -1093,32 +1104,80 @@ class VsdxImporter {
       return Math.min(0.95, Math.max(0.05, t));
     }
 
-    function readConnGeom(el, bx, by, ex, ey) {
-      const raw = [];
+    // Lit la polyligne d'un connecteur en coordonnées page Visio.
+    //
+    // Deux erreurs corrigées ici, à l'origine de la quasi-totalité des dégâts
+    // à l'import :
+    //  • Les Row d'une Section Geometry sont exprimées dans le repère LOCAL du
+    //    connecteur, dont l'origine est Pin − LocPin — et NON le point Begin.
+    //    LocPinY vaut la demi-hauteur du connecteur : on décalait donc chaque
+    //    tracé de quelques millimètres, d'où les flèches en biais.
+    //  • Une Cell X ou Y absente d'une Row est HÉRITÉE du master. On jetait la
+    //    Row entière : sur ce fichier client, 60 % des connecteurs perdaient
+    //    ainsi leur géométrie et retombaient sur le routage automatique.
+    const readConnGeom = (el, connVisioId, bx, by, ex, ey) => {
+      const abs = shapePinAbs[connVisioId];
+      if (!abs) return [];
+      const cw = parseFloat(this.vCell(el, 'Width')  || '0');
+      const ch = parseFloat(this.vCell(el, 'Height') || '0');
+      const lpXv = this.vCell(el, 'LocPinX'), lpYv = this.vCell(el, 'LocPinY');
+      const lpX = lpXv !== null ? parseFloat(lpXv) : cw / 2;
+      const lpY = lpYv !== null ? parseFloat(lpYv) : ch / 2;
+      const ox = abs.pinX - (isNaN(lpX) ? 0 : lpX);
+      const oy = abs.pinY - (isNaN(lpY) ? 0 : lpY);
+
+      let sec = null;
       for (const child of Array.from(el.childNodes)) {
         if (child.nodeType !== 1 || child.localName !== 'Section') continue;
         if (child.getAttribute('N') !== 'Geometry') continue;
-        for (const row of Array.from(child.childNodes)) {
-          if (row.nodeType !== 1 || row.localName !== 'Row') continue;
-          const T = row.getAttribute('T');
-          if (T !== 'MoveTo' && T !== 'LineTo') continue;
-          let rx = null, ry = null;
-          for (const cell of Array.from(row.childNodes)) {
-            if (cell.nodeType !== 1 || cell.localName !== 'Cell') continue;
-            const N = cell.getAttribute('N');
-            if (N === 'X') rx = parseFloat(cell.getAttribute('V') || '0');
-            if (N === 'Y') ry = parseFloat(cell.getAttribute('V') || '0');
-          }
-          if (rx !== null && ry !== null) raw.push({ x: rx, y: ry });
-        }
-        break;
+        if (this.vCell(child, 'NoShow') === '1') continue;
+        sec = child; break;
       }
-      if (raw.length < 2) return [];
-      const distAbs = Math.hypot(raw[0].x - bx, raw[0].y - by);
-      const distRel = Math.hypot(raw[0].x, raw[0].y);
-      const isRel   = distRel < distAbs;
-      return raw.map(p => ({ x: isRel ? bx + p.x : p.x, y: isRel ? by + p.y : p.y }));
-    }
+      if (!sec) return [];
+
+      const rows = [];
+      for (const row of Array.from(sec.childNodes)) {
+        if (row.nodeType !== 1 || row.localName !== 'Row') continue;
+        if (row.getAttribute('Del') === '1') continue;       // Row supprimée par Visio
+        if (!VsdxImporter.VERTEX_ROW[row.getAttribute('T')]) continue;
+        let rx = null, ry = null;
+        for (const cell of Array.from(row.childNodes)) {
+          if (cell.nodeType !== 1 || cell.localName !== 'Cell') continue;
+          const N = cell.getAttribute('N');
+          if (N === 'X') { const v = parseFloat(cell.getAttribute('V')); if (!isNaN(v)) rx = v; }
+          if (N === 'Y') { const v = parseFloat(cell.getAttribute('V')); if (!isNaN(v)) ry = v; }
+        }
+        rows.push({ x: rx, y: ry });
+      }
+      if (rows.length === 0) return [];
+
+      const last = rows.length - 1;
+      if (rows[0].x === null)    rows[0].x    = bx - ox;
+      if (rows[0].y === null)    rows[0].y    = by - oy;
+      if (rows[last].x === null) rows[last].x = ex - ox;
+      if (rows[last].y === null) rows[last].y = ey - oy;
+      for (let i = 1; i <= last; i++) {
+        if (rows[i].x === null) rows[i].x = rows[i-1].x;
+        if (rows[i].y === null) rows[i].y = rows[i-1].y;
+      }
+
+      const pts = rows.map(p => ({ x: p.x + ox, y: p.y + oy }));
+      // MoveTo entièrement héritée → le vrai départ est Begin.
+      if (Math.hypot(pts[0].x - bx, pts[0].y - by) > 0.02) pts.unshift({ x: bx, y: by });
+      const lp = pts[pts.length - 1];
+      if (Math.hypot(lp.x - ex, lp.y - ey) > 0.02) pts.push({ x: ex, y: ey });
+
+      const out = [pts[0]];
+      for (let i = 1; i < pts.length; i++)
+        if (Math.hypot(pts[i].x - out[out.length-1].x, pts[i].y - out[out.length-1].y) > 0.004)
+          out.push(pts[i]);
+      if (out.length < 2) return [];
+      // Garde-fou : un sommet très loin du couloir Begin→End = repère mal lu.
+      const span = Math.hypot(ex - bx, ey - by) + 4;
+      for (const p of out)
+        if (Math.hypot(p.x - bx, p.y - by) > span * 3 + 10) return [];
+      return out;
+    };
 
     // Wrap visioToScreen pour appliquer le bandShift sur Y (cohérent avec
     // l'ajustement appliqué dans importActivities — sinon les customPath
@@ -1130,16 +1189,7 @@ class VsdxImporter {
       return { x: (vx - leftEdge) * SCALE, y: ny + self._bandShiftFor(ny) };
     }
 
-    function snapToEdge(s, dir, t, halo) {
-      const h = halo || 0, T = t !== undefined ? t : 0.5;
-      switch (dir) {
-        case 'right':  return { x: s.x + s.w + h,  y: s.y + s.h * T };
-        case 'left':   return { x: s.x - h,          y: s.y + s.h * T };
-        case 'top':    return { x: s.x + s.w * T,    y: s.y - h };
-        case 'bottom': return { x: s.x + s.w * T,    y: s.y + s.h + h };
-        default:       return { x: s.x + s.w / 2,    y: s.y + s.h / 2 };
-      }
-    }
+    const snapToEdge = (s, dir, t, halo) => this.snapEdge(s, dir, t, halo);
 
     const newConns = this.newConns;
     for (const [connId, ends] of Object.entries(connMap)) {
@@ -1170,26 +1220,14 @@ class VsdxImporter {
         const ey = parseFloat(this.vCell(ce, 'EndY')   || '0');
         if (bx || by) { fromPortDir = portDirFromPt(bx, by, sAbs); fromPortT = computePortT(bx, by, sAbs, fromPortDir); }
         if (ex || ey) { toPortDir   = portDirFromPt(ex, ey, tAbs); toPortT   = computePortT(ex, ey, tAbs, toPortDir); }
-        const rawGeom = readConnGeom(ce, bx, by, ex, ey);
-        if (rawGeom.length >= 2) {
-          const THRESH  = 1.5;
-          const geomRel = rawGeom.map(p => ({ x: bx + p.x, y: by + p.y }));
-          const geomAbs = rawGeom;
-          const errRelS = Math.hypot(geomRel[0].x - bx, geomRel[0].y - by);
-          const errRelE = Math.hypot(geomRel[geomRel.length-1].x - ex, geomRel[geomRel.length-1].y - ey);
-          const errAbsS = Math.hypot(geomAbs[0].x - bx, geomAbs[0].y - by);
-          const errAbsE = Math.hypot(geomAbs[geomAbs.length-1].x - ex, geomAbs[geomAbs.length-1].y - ey);
-          const useRel  = (errRelS + errRelE) <= (errAbsS + errAbsE);
-          const geomVis = useRel ? geomRel : geomAbs;
-          const errS = useRel ? errRelS : errAbsS, errE = useRel ? errRelE : errAbsE;
-          if (errS < THRESH && errE < THRESH) {
-            const srcS = newShapes.find(s => s.id === (_shapeIdMap[sv] || _groupIdMap[sv]));
-            const tgtS = newShapes.find(s => s.id === (_shapeIdMap[tv] || _groupIdMap[tv]));
-            const pts  = geomVis.map(p => visioToScreen(p.x, p.y));
-            if (srcS && fromPortT !== undefined) pts[0] = snapToEdge(srcS, fromPortDir, fromPortT, srcS.type === 'process' ? 7 : 0);
-            if (tgtS && toPortT   !== undefined) pts[pts.length-1] = snapToEdge(tgtS, toPortDir, toPortT, tgtS.type === 'process' ? 7 : 0);
-            customPath = pts;
-          }
+        const geomVis = readConnGeom(ce, connId, bx, by, ex, ey);
+        if (geomVis.length >= 2) {
+          const srcS = newShapes.find(s => s.id === fromId);
+          const tgtS = newShapes.find(s => s.id === toId);
+          const pts  = geomVis.map(p => visioToScreen(p.x, p.y));
+          if (srcS) pts[0]            = snapToEdge(srcS, fromPortDir, fromPortT);
+          if (tgtS) pts[pts.length-1] = snapToEdge(tgtS, toPortDir,   toPortT);
+          customPath = this.orthoClean(pts, fromPortDir, toPortDir);
         }
       } else if (sAbs && tAbs) {
         const dx = tAbs.pinX - sAbs.pinX, dy = tAbs.pinY - sAbs.pinY;
@@ -1230,6 +1268,12 @@ class VsdxImporter {
       const h = band.height;
       newBands.splice(newBands.indexOf(band), 1);
       for (const s of newShapes) { if (s.y + s.h/2 >= bandStart + h) s.y -= h; }
+      // Même décalage sur les tracés Visio, sinon les flèches se détachent des
+      // formes qu'on vient de remonter (stretchBands le fait déjà de son côté).
+      for (const c of this.newConns) {
+        if (!c.customPath) continue;
+        for (const pt of c.customPath) if (pt.y >= bandStart + h) pt.y -= h;
+      }
     }
     newBands.forEach((b, i) => { b.id = i + 1; });
     for (const s of newShapes) { if (s.y < 0) s.y = 0; }
@@ -1270,6 +1314,175 @@ class VsdxImporter {
       }
       y0 += band.height;
     }
+  }
+
+  // Point d'ancrage d'une flèche sur le bord d'une forme. Les losanges se
+  // branchent toujours sur la pointe — même règle que spreadPort côté renderer,
+  // sinon le tracé importé démarre à côté de la flèche affichée.
+  snapEdge(sh, dir, t, halo) {
+    const h = halo !== undefined ? halo : (sh.type === 'process' ? 7 : 0);
+    const T = t !== undefined ? t : 0.5;
+    const cx = sh.x + sh.w / 2, cy = sh.y + sh.h / 2;
+    if (sh.type === 'decision') {
+      if (dir === 'right')  return { x: sh.x + sh.w, y: cy };
+      if (dir === 'left')   return { x: sh.x,        y: cy };
+      if (dir === 'top')    return { x: cx,          y: sh.y };
+      if (dir === 'bottom') return { x: cx,          y: sh.y + sh.h };
+      return { x: cx, y: cy };
+    }
+    switch (dir) {
+      case 'right':  return { x: sh.x + sh.w + h, y: sh.y + sh.h * T };
+      case 'left':   return { x: sh.x - h,        y: sh.y + sh.h * T };
+      case 'top':    return { x: sh.x + sh.w * T, y: sh.y - h };
+      case 'bottom': return { x: sh.x + sh.w * T, y: sh.y + sh.h + h };
+      default:       return { x: cx, y: cy };
+    }
+  }
+
+  // Ré-équerre une polyligne. Les coordonnées Visio portent du bruit flottant
+  // (1e-15) et les deux extrémités ont été replacées sur les ports réels : sans
+  // cette passe, les flèches partent de quelques pixels en biais sur toute leur
+  // longueur — ce que l'utilisateur voit comme « des traits pas droits ».
+  orthoClean(pts, fdir, tdir) {
+    const EPS = 4.5;
+    const vert = d => d === 'top' || d === 'bottom';
+    let p = pts.map(q => ({ x: q.x, y: q.y }));
+    const N = p.length;
+    if (N < 2) return pts;
+
+    for (let i = 2; i < N - 1; i++) {
+      const dx = Math.abs(p[i].x - p[i-1].x), dy = Math.abs(p[i].y - p[i-1].y);
+      if (dx <= dy && dx < EPS) p[i].x = p[i-1].x;
+      else if (dy < dx && dy < EPS) p[i].y = p[i-1].y;
+    }
+
+    // Raccord des extrémités : petit écart → on aligne ; gros écart → vrai coude.
+    if (N === 2) {
+      const dx = p[1].x - p[0].x, dy = p[1].y - p[0].y;
+      if (Math.abs(dx) < Math.abs(dy) && Math.abs(dx) < EPS) { const m = (p[0].x + p[1].x)/2; p[0].x = m; p[1].x = m; }
+      else if (Math.abs(dy) < Math.abs(dx) && Math.abs(dy) < EPS) { const m = (p[0].y + p[1].y)/2; p[0].y = m; p[1].y = m; }
+      else if (Math.abs(dx) > EPS && Math.abs(dy) > EPS)
+        p = vert(fdir) ? [p[0], { x: p[0].x, y: p[1].y }, p[1]]
+                       : [p[0], { x: p[1].x, y: p[0].y }, p[1]];
+    } else {
+      const fv = vert(fdir);
+      const off0 = fv ? Math.abs(p[1].x - p[0].x) : Math.abs(p[1].y - p[0].y);
+      if (off0 <= EPS) { if (fv) p[1].x = p[0].x; else p[1].y = p[0].y; }
+      else p.splice(1, 0, fv ? { x: p[0].x, y: p[1].y } : { x: p[1].x, y: p[0].y });
+
+      const m = p.length, tv = vert(tdir);
+      const offN = tv ? Math.abs(p[m-2].x - p[m-1].x) : Math.abs(p[m-2].y - p[m-1].y);
+      if (offN <= EPS) { if (tv) p[m-2].x = p[m-1].x; else p[m-2].y = p[m-1].y; }
+      else p.splice(m-1, 0, tv ? { x: p[m-1].x, y: p[m-2].y } : { x: p[m-2].x, y: p[m-1].y });
+    }
+
+    const out = [p[0]];
+    for (let i = 1; i < p.length; i++) {
+      const prev = out[out.length-1];
+      if (Math.hypot(p[i].x - prev.x, p[i].y - prev.y) < 0.5) continue;
+      out.push(p[i]);
+    }
+    for (let i = 1; i < out.length - 1; ) {
+      const a = out[i-1], b = out[i], c = out[i+1];
+      const cross = (b.x-a.x)*(c.y-a.y) - (b.y-a.y)*(c.x-a.x);
+      if (Math.abs(cross) < 1) out.splice(i, 1); else i++;
+    }
+    // Résidus de quelques pixels : on autorise le glissement des extrémités LE
+    // LONG du bord de la forme. Invisible, et ça évite les longues verticales
+    // qui penchent de 3 px.
+    for (let i = out.length - 1; i >= 1; i--) {
+      const dx = Math.abs(out[i].x - out[i-1].x), dy = Math.abs(out[i].y - out[i-1].y);
+      if (dx > 0 && dx <= EPS && dx < dy) out[i-1].x = out[i].x;
+      else if (dy > 0 && dy <= EPS && dy < dx) out[i-1].y = out[i].y;
+    }
+    return out.length >= 2 ? out : pts;
+  }
+
+  // ─── Phase 17: Ré-ancrage final des tracés ───────────────────────
+  // cleanupBands / antiOverlap / stretchBands bougent les formes APRÈS la
+  // construction des connexions. On recolle donc les deux extrémités de chaque
+  // tracé Visio sur les bords définitifs, puis on ré-équerre.
+
+  finalizeConnPaths() {
+    const byId = {};
+    for (const sh of this.newShapes) byId[sh.id] = sh;
+    for (const c of this.newConns) {
+      if (!c.customPath || c.customPath.length < 2) continue;
+      const f = byId[c.fromId], t = byId[c.toId];
+      const pts = c.customPath.map(p => ({ x: p.x, y: p.y }));
+      if (f) pts[0]              = this.snapEdge(f, c.fromPortDir, c.fromPortT);
+      if (t) pts[pts.length - 1] = this.snapEdge(t, c.toPortDir,   c.toPortT);
+      c.customPath = this.orthoClean(pts, c.fromPortDir, c.toPortDir);
+    }
+  }
+
+  // ─── Phase 18: Multi-liens (fourches et fusions) ─────────────────
+  // Visio dessine « une flèche qui se divise en deux » comme N connecteurs qui
+  // partagent leurs premiers sommets — le tronc — avant de diverger. Lus
+  // littéralement, ces troncs deviennent N polylignes presque, mais pas tout à
+  // fait, identiques : le renderer les traite alors comme N flèches distinctes
+  // et les écarte, d'où la bouillie de traits superposés au départ des
+  // losanges. On aligne ici chaque portion commune sur une polyligne unique et
+  // on marque les membres, pour qu'une fourche s'affiche comme UN tronc et ses
+  // branches. Idem en sens inverse pour les fusions.
+
+  bundleMultiLinks() {
+    const TOL = 7;            // px — deux sommets aussi proches sont « le même »
+    const conns = this.newConns.filter(c => c.customPath && c.customPath.length >= 2);
+    let seq = 0;
+
+    const clusters = (list, fromEnd) => {
+      const buckets = {};
+      for (const c of list) {
+        const k = fromEnd ? `${c.fromId}|${c.fromPortDir}` : `${c.toId}|${c.toPortDir}`;
+        (buckets[k] = buckets[k] || []).push(c);
+      }
+      const out = [];
+      for (const group of Object.values(buckets)) {
+        const cls = [];
+        for (const c of group) {
+          const p = fromEnd ? c.customPath[0] : c.customPath[c.customPath.length - 1];
+          let cl = cls.find(cl => Math.hypot(cl.x - p.x, cl.y - p.y) <= TOL);
+          if (!cl) { cl = { x: p.x, y: p.y, list: [] }; cls.push(cl); }
+          cl.list.push(c);
+        }
+        for (const cl of cls) if (cl.list.length >= 2) out.push(cl.list);
+      }
+      return out;
+    };
+
+    const snapRun = (members, forward, bundleId) => {
+      const at = (c, i) => forward ? c.customPath[i] : c.customPath[c.customPath.length - 1 - i];
+      const walk = (list, idx) => {
+        // ne jamais absorber la propre extrémité d'un connecteur dans un tronc
+        const alive = list.filter(c => idx < c.customPath.length - 1);
+        if (alive.length < 2) return;
+        const groups = [];
+        for (const c of alive) {
+          const p = at(c, idx);
+          let g = groups.find(g => Math.hypot(g.x - p.x, g.y - p.y) <= TOL);
+          if (!g) { g = { x: p.x, y: p.y, list: [] }; groups.push(g); }
+          g.list.push(c);
+        }
+        for (const g of groups) {
+          if (g.list.length < 2) continue;
+          let sx = 0, sy = 0;
+          for (const c of g.list) { const p = at(c, idx); sx += p.x; sy += p.y; }
+          const ax = sx / g.list.length, ay = sy / g.list.length;
+          for (const c of g.list) {
+            const p = at(c, idx); p.x = ax; p.y = ay;
+            if (forward) c.trunkFrom = Math.max(c.trunkFrom || 0, idx);
+            else         c.trunkTo   = Math.max(c.trunkTo   || 0, idx);
+            c.bundleId = bundleId;
+          }
+          walk(g.list, idx + 1);
+        }
+      };
+      walk(members, 0);
+    };
+
+    for (const m of clusters(conns, true))  snapRun(m, true,  `f${seq++}`);
+    for (const m of clusters(conns, false)) snapRun(m, false, `t${seq++}`);
   }
 
   // ─── Phase 16: Anti-overlap light pass ───────────────────────────
@@ -1353,6 +1566,8 @@ class VsdxImporter {
 
     this.antiOverlap();   // résoudre les chevauchements avant d'étirer les bandes
     this.stretchBands();  // étirer les bandes pour contenir les shapes repositionnés
+    this.finalizeConnPaths(); // recoller les tracés Visio sur les bords définitifs
+    this.bundleMultiLinks();  // fusionner les troncs des fourches / fusions
 
     // Shift from importer space (y=0 at top of first band) to editor space
     // (y=-200 at top of first band, matching BAND_Y_START in renderBands/getBandForY).
