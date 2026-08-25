@@ -155,6 +155,10 @@ def apply_carto(entity, carto_path, report):
     from Code.routes.cartography_editor import _sync_carto_to_db
 
     diagram = json.load(open(carto_path, encoding='utf-8'))
+    # Accepte aussi un paquet .optiqcarto exporté depuis l'app (même fichier
+    # utilisable par le provisionnement ET par l'import manuel dans l'interface).
+    if isinstance(diagram, dict) and diagram.get("format") == "optiqcarto/entity":
+        diagram = diagram.get("diagram") or {}
     entity.optiqcarto_data = json.dumps(diagram, ensure_ascii=False)
     db.session.flush()
     _sync_carto_to_db(entity, diagram)

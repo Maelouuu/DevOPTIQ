@@ -3676,6 +3676,29 @@
   box-shadow: 0 6px 18px rgba(236,72,153,0.42);
 }
 
+/* Import d'un paquet .optiqcarto — action secondaire à côté de « Créer » */
+.em-btn-import-carto {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 11px 16px;
+  background: #fff;
+  color: #be185d;
+  border: 2px solid #fce7f3;
+  border-radius: 11px;
+  font-size: 0.88rem;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: border-color 0.15s, background 0.15s;
+}
+.em-btn-import-carto:hover {
+  border-color: #ec4899;
+  background: #fdf2f8;
+}
+.em-btn-import-carto:disabled { opacity: 0.6; cursor: default; }
+
 .em-empty-hint {
   font-size: 0.8rem;
   color: #d1d5db;

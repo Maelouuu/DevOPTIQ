@@ -124,6 +124,10 @@
             <button id="wizard-create-entity-btn" class="em-btn-create">
               <i class="fa-solid fa-plus"></i> {{ t('map.entity_create_btn') }}
             </button>
+            <button id="wizard-import-carto-btn" class="em-btn-import-carto" title="{{ t('map.entity_import_carto_hint') }}">
+              <i class="fa-solid fa-file-import"></i> {{ t('map.entity_import_carto') }}
+            </button>
+            <input type="file" id="wizard-import-carto-file" accept=".optiqcarto,.json" hidden>
           </div>
           <div class="entities-grid" id="wizard-entities-list"></div>
           <div class="wizard-entities-empty hidden" id="wizard-entities-empty">

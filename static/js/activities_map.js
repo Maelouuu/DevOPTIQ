@@ -382,6 +382,7 @@ function initWizard() {
 
   // Création entité
   $("#wizard-create-entity-btn")?.addEventListener("click", createEntity);
+  wireCartoImport();
   $("#wizard-new-entity-name")?.addEventListener("keypress", (e) => { if (e.key === "Enter") createEntity(); });
 
   // Navigation
@@ -453,6 +454,43 @@ async function loadEntitiesList() {
     });
   } catch (e) {
     list.innerHTML = '<p class="error">Erreur de chargement</p>';
+  }
+}
+
+// Import d'un paquet .optiqcarto : recrée l'entité et sa cartographie sans
+// repasser par le .vsdx, qui ré-introduirait les défauts déjà corrigés à la main.
+function wireCartoImport() {
+  const btn = $("#wizard-import-carto-btn");
+  const input = $("#wizard-import-carto-file");
+  if (!btn || !input) return;
+  btn.addEventListener("click", () => { input.value = ""; input.click(); });
+  input.addEventListener("change", () => {
+    if (input.files && input.files[0]) importCartoPackage(input.files[0]);
+  });
+}
+
+async function importCartoPackage(file) {
+  const btn = $("#wizard-import-carto-btn");
+  const label = btn ? btn.innerHTML : null;
+  if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>'; }
+  try {
+    const fd = new FormData();
+    fd.append("file", file);
+    // Le nom saisi à côté, s'il y en a un, prime sur celui du paquet.
+    const wanted = $("#wizard-new-entity-name")?.value.trim();
+    if (wanted) fd.append("name", wanted);
+
+    const res = await fetch("/cartography/api/import", { method: "POST", body: fd });
+    const data = await res.json();
+    if (data.error) { alert(data.error); return; }
+    if (data.sync_warning) {
+      alert("Cartographie importée, mais l'extraction des activités a échoué :\n" + data.sync_warning);
+    }
+    window.location.href = data.redirect_url || "/cartography/editor";
+  } catch (e) {
+    alert("Erreur réseau pendant l'import de la cartographie");
+  } finally {
+    if (btn) { btn.disabled = false; if (label !== null) btn.innerHTML = label; }
   }
 }
 

@@ -86,6 +86,21 @@ Le `.vsdx` d'origine est conservé à côté du JSON : il permet de régénérer
 carto après une amélioration de l'importeur. Les `.vsdx` sont exclus de l'image
 client.
 
+### Repartir d'une carto corrigée à la main
+
+Quand une carto a été **reprise dans l'éditeur** (retouches que le `.vsdx` ne
+contient pas), on ne repasse pas par Visio : depuis le compte concerné, bouton
+**« Exporter la carto »** de l'éditeur → fichier `.optiqcarto`. Déposez-le dans
+`tools/provisioning/carto/` et référencez-le tel quel dans le plan :
+
+```jsonc
+"carto": "../carto/rfq_fluidclip_corrige.optiqcarto"
+```
+
+`apply_carto` accepte aussi bien le paquet que le diagramme brut. Le même fichier
+peut être remis à un utilisateur : dans l'app, **Gestion des entités → Importer une
+carto** recrée l'entité et sa cartographie sur son compte.
+
 ## Plans existants
 
 | Plan | Contenu |
