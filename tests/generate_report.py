@@ -73,6 +73,7 @@ PAGE_LABELS = {
     "test_59_i18n_settings_password":    "Sécurité Mot de Passe, Paramètres Entreprise & Traductions RH",
     "test_60_setup_wizard":              "Assistant de Configuration Initiale (Setup Wizard)",
     "test_61_admin_settings":            "Clés API & Paramètres Administrateur",
+    "test_61_pulse":                     "OptiqPulse — Suivi d'Audience",
 }
 
 
