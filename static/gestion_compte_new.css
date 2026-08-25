@@ -399,6 +399,7 @@ a { text-decoration: none; }
 .badge-role   { background: var(--pg-accent-soft); color: var(--pg-accent-deep); border: 1px solid var(--pg-accent-border); }
 .badge-more   { background: var(--card-2); color: var(--muted); border: 1px solid var(--border); cursor: pointer; }
 .badge-user   { background: #dbeafe; color: #1d4ed8; }
+.badge-manager { background: #dcfce7; color: #15803d; }
 .badge-rh     { background: #fef9c3; color: #854d0e; }
 .badge-admin  { background: var(--pg-accent-soft); color: var(--pg-accent-deep); }
 

@@ -1,6 +1,3 @@
-import re
-import unicodedata
-
 from flask import Blueprint, render_template, request, redirect, url_for, jsonify, session
 from sqlalchemy.orm.attributes import flag_modified
 from sqlalchemy import text
@@ -8,57 +5,19 @@ from Code.extensions import db
 from Code.models.models import (User, Role, UserRole, Entity, CompetencyEvaluation,
                                 TimeAnalysis, default_lang_for)
 from Code.security import hash_password, verify_password
+from Code.permissions import (can_create_accounts,
+                              can_edit_account, current_user, is_admin,
+                              is_admin_status, is_competency_manager_status)
 
 gestion_compte_bp = Blueprint('gestion_compte', __name__, url_prefix='/comptes')
 
 
-# ── Droits sur la page Comptes ───────────────────────────────────────────
-# User.status est un texte libre : selon l'instance il s'écrit avec ou sans
-# accents, en majuscules, avec un tiret… On compare donc une forme normalisée
-# plutôt que la chaîne brute.
-_ADMIN_STATUSES = {"admin", "administrateur", "administrator"}
-
-# Statuts autorisés à CRÉER des comptes, en plus des administrateurs.
-_ACCOUNT_CREATOR_STATUSES = {
-    "gestionnaire de competences",
-    "gestionnaire des competences",
-    "gestionnaire competences",
-    "competency manager",
-    "skills manager",
-}
-
-
-def _norm_status(raw):
-    """minuscule, sans accents, espaces/tirets/underscores unifiés."""
-    s = unicodedata.normalize("NFD", raw or "")
-    s = "".join(c for c in s if unicodedata.category(c) != "Mn").lower()
-    return re.sub(r"[\s_\-]+", " ", s).strip()
-
-
-def _current_user():
-    uid = session.get('user_id')
-    return db.session.get(User, uid) if uid else None
-
-
-def _is_admin(user=None):
-    user = user if user is not None else _current_user()
-    return bool(user and _norm_status(user.status) in _ADMIN_STATUSES)
-
-
-def _can_create_accounts(user=None):
-    user = user if user is not None else _current_user()
-    if not user:
-        return False
-    st = _norm_status(user.status)
-    return st in _ADMIN_STATUSES or st in _ACCOUNT_CREATOR_STATUSES
-
-
-def _can_edit_account(target_user_id, user=None):
-    """Hors administrateurs, chacun ne peut modifier QUE son propre compte."""
-    user = user if user is not None else _current_user()
-    if not user:
-        return False
-    return _is_admin(user) or user.id == int(target_user_id)
+# Les règles de droits vivent dans Code/permissions.py : la page Comptes,
+# les paramètres et le partage d'entités s'appuient sur les mêmes.
+_current_user = current_user
+_is_admin = is_admin
+_can_create_accounts = can_create_accounts
+_can_edit_account = can_edit_account
 
 
 def _forbidden(msg_key):
@@ -131,6 +90,8 @@ def list_users():
             is_admin=_is_admin(me),
             can_create_accounts=_can_create_accounts(me),
             current_user_id=(me.id if me else None),
+            is_admin_status=is_admin_status,
+            is_competency_manager_status=is_competency_manager_status,
         )
 
     except Exception as e:
@@ -286,7 +247,9 @@ def update_user(user_id):
         return redirect(url_for('gestion_compte.list_users', tab='list-tab', msg='updated'))
 
     current_role = UserRole.query.filter_by(user_id=user.id).first()
-    return render_template('edit_user.html', user=user, roles=roles, current_role=current_role)
+    return render_template('edit_user.html', user=user, roles=roles, current_role=current_role,
+                           is_admin_status=is_admin_status,
+                           is_competency_manager_status=is_competency_manager_status)
 
 @gestion_compte_bp.route('/managers')
 def get_managers():

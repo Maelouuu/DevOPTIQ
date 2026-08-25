@@ -169,6 +169,12 @@
                 <i class="fa-solid fa-pen"></i>
                 <span>{{ t('map.entity_btn_rename') }}</span>
               </button>
+              {% if is_admin %}
+              <button id="wizard-share-btn" class="em-action-btn em-action-share">
+                <i class="fa-solid fa-share-nodes"></i>
+                <span>{{ t('map.entity_btn_share') }}</span>
+              </button>
+              {% endif %}
               <button id="wizard-delete-btn" class="em-action-btn em-action-delete">
                 <i class="fa-solid fa-trash"></i>
                 <span>{{ t('map.entity_btn_delete') }}</span>
@@ -181,6 +187,23 @@
           </div>
         </div>
 
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL PARTAGE D'ENTITÉ (administrateurs) -->
+  <div id="share-entity-modal" class="modal hidden">
+    <div class="modal-content share-modal">
+      <h3 class="share-modal-title">
+        <i class="fa-solid fa-share-nodes"></i> {{ t('map.share_title') }}
+      </h3>
+      <p class="share-modal-desc" id="share-modal-desc"></p>
+      <div class="share-user-list" id="share-user-list"></div>
+      <div class="share-modal-actions">
+        <button id="share-cancel-btn" class="modal-btn-cancel">{{ t('btn.cancel') }}</button>
+        <button id="share-confirm-btn" class="modal-btn-share">
+          <i class="fa-solid fa-paper-plane"></i> {{ t('map.share_confirm') }}
+        </button>
       </div>
     </div>
   </div>

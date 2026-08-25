@@ -197,6 +197,15 @@ def _normalize_link_type(raw):
 # ============================================================
 # PAGE CARTOGRAPHIE
 # ============================================================
+def _map_is_admin():
+    """Partage d'entité réservé aux administrateurs (Code/permissions.py)."""
+    try:
+        from Code.permissions import is_admin
+        return is_admin()
+    except Exception:
+        return False
+
+
 @activities_map_bp.route("/map")
 def activities_map_page():
     user_id = session.get('user_id')
@@ -307,6 +316,7 @@ def activities_map_page():
         has_optiqcarto=has_optiqcarto,
         extco_activity_ids=extco_activity_ids,
         active_calque_id=active_calque_id,
+        is_admin=_map_is_admin(),
     )
 
 
@@ -656,6 +666,129 @@ def delete_entity(entity_id):
     except Exception as e:
         db.session.rollback()
         return jsonify({"error": str(e)}), 500
+
+
+# ─────────────────────────────────────────────
+# PARTAGE D'UNE ENTITÉ (administrateurs)
+# ─────────────────────────────────────────────
+# Une entité n'appartient qu'à son propriétaire (Entity.get_active est strict
+# sur owner_id) : « partager » signifie donc en DÉPOSER UNE COPIE chez chaque
+# destinataire, pas ouvrir un accès partagé. Chacun repart ensuite avec la
+# sienne et peut la modifier sans toucher à l'originale.
+
+def _unique_entity_name_for(base, user_id):
+    """« Nom », puis « Nom (2) », « Nom (3) »… chez le destinataire."""
+    name = (base or "Entité partagée").strip()[:200]
+    taken = {e.name for e in Entity.query.filter_by(owner_id=user_id).all() if e.name}
+    if name not in taken:
+        return name
+    i = 2
+    while f"{name} ({i})"[:200] in taken:
+        i += 1
+    return f"{name} ({i})"[:200]
+
+
+@activities_map_bp.route("/api/entities/<int:entity_id>/share/candidates")
+def share_candidates(entity_id):
+    """Comptes à qui l'entité peut être déposée."""
+    from Code.permissions import is_admin
+    from Code.models.models import User
+
+    user_id = session.get('user_id')
+    if not user_id:
+        return jsonify({"error": "Non connecté"}), 401
+    if not is_admin():
+        return jsonify({"error": "Réservé aux administrateurs"}), 403
+
+    entity = Entity.query.filter_by(id=entity_id, owner_id=user_id).first()
+    if not entity:
+        return jsonify({"error": "Entité introuvable"}), 404
+
+    users = User.query.filter(User.id != user_id).order_by(User.first_name, User.last_name).all()
+    out = []
+    for u in users:
+        deja = Entity.query.filter_by(owner_id=u.id, name=entity.name).first() is not None
+        out.append({
+            "id": u.id,
+            "name": f"{u.first_name} {u.last_name}".strip() or u.email,
+            "email": u.email,
+            "already_has": deja,
+        })
+    return jsonify({"entity": {"id": entity.id, "name": entity.name}, "users": out})
+
+
+@activities_map_bp.route("/api/entities/<int:entity_id>/share", methods=["POST"])
+def share_entity(entity_id):
+    """Dépose une copie de l'entité (carto comprise) chez les comptes choisis."""
+    from Code.permissions import is_admin
+    from Code.models.models import User
+    from Code.routes.cartography_editor import _sync_carto_to_db
+
+    user_id = session.get('user_id')
+    if not user_id:
+        return jsonify({"error": "Non connecté"}), 401
+    if not is_admin():
+        return jsonify({"error": "Réservé aux administrateurs"}), 403
+
+    source = Entity.query.filter_by(id=entity_id, owner_id=user_id).first()
+    if not source:
+        return jsonify({"error": "Entité introuvable"}), 404
+
+    data = request.get_json(silent=True) or {}
+    raw_ids = data.get("user_ids") or []
+    try:
+        target_ids = [int(x) for x in raw_ids]
+    except (TypeError, ValueError):
+        return jsonify({"error": "Liste de destinataires invalide"}), 400
+    target_ids = [i for i in target_ids if i != user_id]
+    if not target_ids:
+        return jsonify({"error": "Aucun destinataire sélectionné"}), 400
+
+    diagram = None
+    if source.optiqcarto_data:
+        try:
+            diagram = json.loads(source.optiqcarto_data)
+        except (ValueError, TypeError):
+            diagram = None
+
+    resultats, echecs = [], []
+    for tid in target_ids:
+        cible = db.session.get(User, tid)
+        if not cible:
+            echecs.append({"user_id": tid, "error": "Compte introuvable"})
+            continue
+        copie = Entity(
+            name=_unique_entity_name_for(source.name, tid),
+            description=source.description,
+            owner_id=tid,
+            vsdx_filename=source.vsdx_filename,
+            svg_filename=source.svg_filename,
+            svg_content=source.svg_content,
+            optiqcarto_data=source.optiqcarto_data,
+            is_active=False,
+        )
+        db.session.add(copie)
+        db.session.commit()
+
+        # Activités, rôles et connexions sont dérivés comme après un import
+        # Visio : sans ça le destinataire reçoit une carte sans données.
+        erreur = None
+        if diagram:
+            try:
+                _sync_carto_to_db(copie, diagram)
+            except Exception as exc:
+                import traceback
+                traceback.print_exc()
+                erreur = str(exc)
+        resultats.append({
+            "user_id": tid,
+            "user": f"{cible.first_name} {cible.last_name}".strip() or cible.email,
+            "entity_id": copie.id,
+            "entity_name": copie.name,
+            "sync_warning": erreur,
+        })
+
+    return jsonify({"status": "ok", "shared": resultats, "failed": echecs})
 
 
 @activities_map_bp.route("/api/entities/<int:entity_id>", methods=["PATCH"])

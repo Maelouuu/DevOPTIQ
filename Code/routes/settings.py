@@ -17,19 +17,11 @@ settings_bp = Blueprint(
 
 _ALLOWED_LANGS = set(TRANSLATIONS.keys())
 
-# Les statuts 'admin' et 'administrateur' coexistent historiquement en base
-_ADMIN_STATUSES = {"admin", "administrateur"}
-
-
 def _is_admin():
-    uid = session.get('user_id')
-    if not uid:
-        return False
+    """Délègue à Code/permissions.py — une seule définition d'« administrateur »."""
     try:
-        from Code.extensions import db
-        from Code.models.models import User
-        user = db.session.get(User, uid)
-        return bool(user and (user.status or "").lower() in _ADMIN_STATUSES)
+        from Code.permissions import is_admin
+        return is_admin()
     except Exception:
         return False
 

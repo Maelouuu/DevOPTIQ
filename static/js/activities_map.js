@@ -390,6 +390,7 @@ function initWizard() {
 
   // Actions entité
   $("#wizard-activate-btn")?.addEventListener("click", activateEntity);
+  wireEntityShare();
 
   $("#wizard-open-editor-btn")?.addEventListener("click", async () => {
     if (!wizardState.selectedEntity) { window.location.href = "/cartography/editor"; return; }
@@ -512,6 +513,83 @@ async function createEntity() {
     await loadEntitiesList();
     setTimeout(() => selectEntity(data.entity.id), 50);
   } catch (e) { alert("Erreur réseau"); }
+}
+
+/* ══════════════════════════════════════════════════
+   PARTAGE D'UNE ENTITÉ (administrateurs)
+   ══════════════════════════════════════════════════
+   Partager = déposer une COPIE de l'entité chez chaque destinataire : une
+   entité n'appartient qu'à son propriétaire, il n'existe pas d'accès partagé.
+   Chacun repart avec la sienne et la modifie sans toucher à l'originale. */
+
+function wireEntityShare() {
+  $("#wizard-share-btn")?.addEventListener("click", openShareModal);
+  $("#share-cancel-btn")?.addEventListener("click", () => hideModal("share-entity-modal"));
+  $("#share-confirm-btn")?.addEventListener("click", confirmShare);
+}
+
+async function openShareModal() {
+  const entity = wizardState.selectedEntity;
+  if (!entity) return;
+  const list = $("#share-user-list");
+  const desc = $("#share-modal-desc");
+  if (!list) return;
+
+  list.innerHTML = '<p class="share-loading"><i class="fa-solid fa-spinner fa-spin"></i></p>';
+  showModal("share-entity-modal");
+
+  try {
+    const res = await fetch(`/activities/api/entities/${entity.id}/share/candidates`);
+    const data = await res.json();
+    if (data.error) { list.innerHTML = `<p class="share-error">${data.error}</p>`; return; }
+
+    if (desc) desc.textContent = data.entity.name;
+    if (!data.users.length) {
+      list.innerHTML = '<p class="share-empty">Aucun autre compte sur cette instance.</p>';
+      return;
+    }
+    list.innerHTML = data.users.map(u => `
+      <label class="share-user-row">
+        <input type="checkbox" class="share-user-cb" value="${u.id}">
+        <span class="share-user-name">${u.name}</span>
+        <span class="share-user-mail">${u.email}</span>
+        ${u.already_has ? '<span class="share-user-flag">déjà une copie</span>' : ''}
+      </label>`).join("");
+  } catch (e) {
+    list.innerHTML = '<p class="share-error">Erreur de chargement des comptes.</p>';
+  }
+}
+
+async function confirmShare() {
+  const entity = wizardState.selectedEntity;
+  const ids = [...document.querySelectorAll(".share-user-cb:checked")].map(cb => parseInt(cb.value));
+  if (!entity || !ids.length) { alert("Sélectionnez au moins un compte."); return; }
+
+  const btn = $("#share-confirm-btn");
+  const label = btn ? btn.innerHTML : null;
+  if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>'; }
+  try {
+    const res = await fetch(`/activities/api/entities/${entity.id}/share`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ user_ids: ids }),
+    });
+    const data = await res.json();
+    if (data.error) { alert(data.error); return; }
+
+    const noms = data.shared.map(s => s.user).join(", ");
+    const alertes = data.shared.filter(s => s.sync_warning);
+    hideModal("share-entity-modal");
+    if (alertes.length) {
+      alert(`Entité déposée chez : ${noms}.\nMais l'extraction des activités a échoué pour ${alertes.length} compte(s).`);
+    } else {
+      alert(`Entité déposée chez : ${noms}.`);
+    }
+  } catch (e) {
+    alert("Erreur réseau pendant le partage.");
+  } finally {
+    if (btn) { btn.disabled = false; if (label !== null) btn.innerHTML = label; }
+  }
 }
 
 async function selectEntity(id) {

@@ -228,7 +228,17 @@ cadence sur la fiche activité ; panneau de qualification des sorties + badges �
   - Le gabarit masque les onglets Créer/Import sans le droit, et les boutons Modifier/Supprimer hors périmètre ; les routes refusent quand même côté serveur (le masquage n'est pas une sécurité).
 - **Onglet d'accueil** = **Utilisateurs** (`list-tab`), placé en premier ; Créer et Import viennent après.
 - **Langue** : colonne `users.lang` (VARCHAR(5), défaut `en`), ajoutée à chaud par `_safe_add_column` avec rattrapage des lignes existantes au démarrage. `DEFAULT_LANG` et `DEFAULT_FRENCH_ACCOUNTS` vivent dans `models.py` : seul `afdec.enterprise.services@gmail.com` naît en français. La connexion applique `user.lang` à `session['lang']`, `/parametres/set_language` persiste le choix sur le compte, et un `before_request` pose `session['lang']` par défaut — les dizaines de `session.get('lang', 'fr')` disséminées dans les vues ne retombent donc jamais sur le français.
-- Tests : `tests/test_50_accounts_permissions_lang.py` (18 cas).
+- Tests : `tests/test_50_accounts_permissions_lang.py` (31 cas).
+- **Où vivent les droits** : `Code/permissions.py` — source unique pour la page Comptes, les Paramètres et le partage d'entités. `is_competency_manager_status()` reconnaît une **famille** de valeurs plutôt qu'une liste figée : `users.status` est un VARCHAR(20), donc « Gestionnaire de compétences » y arrive **tronqué** (« gestionnaire de comp »), et le libellé est saisi tantôt en français tantôt en anglais. Règle : commence par « gestionnaire », OU contient « manager » + (« competency » | « competence » | « skill »).
+- **Valeur canonique** `gestionnaire` (13 car., tient dans la colonne) proposée dans les listes déroulantes création / édition / filtre. Le badge de la liste affiche la **valeur brute** quand elle n'est reconnue par aucune règle, au lieu de la faire passer pour « Utilisateur » : un statut mal orthographié se voit, au lieu de produire des droits inexpliqués.
+
+### Partage d'une entité (administrateurs)
+
+Une entité n'appartient qu'à son propriétaire (`Entity.get_active` est strict sur `owner_id`) : il n'existe pas d'accès partagé. **Partager = déposer une COPIE** chez chaque destinataire, qui repart ensuite avec la sienne sans toucher à l'originale.
+- `GET /activities/api/entities/<id>/share/candidates` → comptes cibles (`already_has` signale ceux qui ont déjà une entité du même nom).
+- `POST /activities/api/entities/<id>/share` `{user_ids:[…]}` → pour chacun, une Entity neuve (nom, description, `vsdx_filename`, SVG, `optiqcarto_data`), nom suffixé « (2) » en cas de collision, puis `_sync_carto_to_db` — sinon le destinataire reçoit une carte sans activités ni rôles.
+- Les deux routes exigent le statut administrateur ET la propriété de l'entité (404 sinon). Bouton **Partager** dans la pop-up Gestion des entités, masqué pour les autres.
+- Tests : `tests/test_51_entity_share.py` (11 cas).
 
 ---
 
