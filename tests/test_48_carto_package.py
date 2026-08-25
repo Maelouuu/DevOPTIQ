@@ -15,6 +15,22 @@ import pytest
 pytestmark = pytest.mark.cartography_editor
 
 
+# Le client de test est partagé par TOUTE la suite (fixture de portée session).
+# Ces tests changent de compte connecté : sans restauration, les modules
+# suivants héritent d'une session non-admin et échouent.
+@pytest.fixture(scope='module', autouse=True)
+def _restaurer_la_session(app, client, ids):
+    yield
+    with app.app_context():
+        from Code.models.models import User
+        seed = User.query.filter_by(email='test@devoptiq.com').first()
+        uid, umail = seed.id, seed.email
+    with client.session_transaction() as sess:
+        sess['user_id'] = uid
+        sess['user_email'] = umail
+        sess['active_entity_id'] = ids['entity_id']
+
+
 DIAGRAM = {
     "shapes": [
         {"id": "s1", "type": "process", "label": "Réception RFQ",

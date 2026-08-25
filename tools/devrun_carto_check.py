@@ -47,7 +47,13 @@ with app.app_context():
                password=generate_password_hash("Test1234!"), status="admin")
     dst = User(first_name="Cible", last_name="Compte", email="cible@test.local",
                password=generate_password_hash("Test1234!"), status="admin")
-    db.session.add_all([src, dst])
+    # Deux profils non-admin pour vérifier les droits de la page Comptes.
+    gest = User(first_name="Gestion", last_name="Competences", email="gest@test.local",
+                password=generate_password_hash("Test1234!"),
+                status="Gestionnaire de compétences")
+    simple = User(first_name="Simple", last_name="Utilisateur", email="simple@test.local",
+                  password=generate_password_hash("Test1234!"), status="user")
+    db.session.add_all([src, dst, gest, simple])
     db.session.commit()
 
     ent = Entity(name="ARaymond — RFQ FluidClip", description="carto de référence",
@@ -60,7 +66,9 @@ with app.app_context():
     print(f"[devrun] base   : {db_path}")
     print(f"[devrun] carto  : {CARTO} — {len(diagram.get('shapes', []))} formes, "
           f"{len(diagram.get('connections', []))} connexions")
-    print(f"[devrun] source : source@test.local / Test1234!  (entité {ent.id})")
-    print(f"[devrun] cible  : cible@test.local  / Test1234!  (aucune entité)")
+    print(f"[devrun] source : source@test.local / Test1234!  (admin, entité {ent.id})")
+    print(f"[devrun] cible  : cible@test.local  / Test1234!  (admin, aucune entité)")
+    print(f"[devrun] gest   : gest@test.local   / Test1234!  (gestionnaire de compétences)")
+    print(f"[devrun] simple : simple@test.local / Test1234!  (utilisateur)")
 
 app.run(host="127.0.0.1", port=8123, debug=False, use_reloader=False)

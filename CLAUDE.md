@@ -219,6 +219,19 @@ cadence sur la fiche activité ; panneau de qualification des sorties + badges �
 
 ---
 
+## Page Comptes — droits et langue
+
+- **Droits** (`Code/routes/gestion_compte.py`) : `User.status` est un texte libre, écrit différemment selon les instances → comparaison sur une forme **normalisée** (minuscules, sans accents, séparateurs unifiés) via `_norm_status()`.
+  - `_ADMIN_STATUSES` = admin / administrateur / administrator.
+  - `_ACCOUNT_CREATOR_STATUSES` = gestionnaire de compétences (+ variantes, `competency manager`). **Créer** un compte — formulaire ET import Excel — exige admin OU ce statut.
+  - **Modifier** un compte : admin, ou soi-même uniquement (`_can_edit_account`). Le champ `status` n'est appliqué que si l'appelant est admin — sinon on s'auto-promeut depuis l'édition de son propre compte. **Supprimer** : admin seulement.
+  - Le gabarit masque les onglets Créer/Import sans le droit, et les boutons Modifier/Supprimer hors périmètre ; les routes refusent quand même côté serveur (le masquage n'est pas une sécurité).
+- **Onglet d'accueil** = **Utilisateurs** (`list-tab`), placé en premier ; Créer et Import viennent après.
+- **Langue** : colonne `users.lang` (VARCHAR(5), défaut `en`), ajoutée à chaud par `_safe_add_column` avec rattrapage des lignes existantes au démarrage. `DEFAULT_LANG` et `DEFAULT_FRENCH_ACCOUNTS` vivent dans `models.py` : seul `afdec.enterprise.services@gmail.com` naît en français. La connexion applique `user.lang` à `session['lang']`, `/parametres/set_language` persiste le choix sur le compte, et un `before_request` pose `session['lang']` par défaut — les dizaines de `session.get('lang', 'fr')` disséminées dans les vues ne retombent donc jamais sur le français.
+- Tests : `tests/test_50_accounts_permissions_lang.py` (18 cas).
+
+---
+
 ## Conventions de code
 
 - **Pas de framework JS** : tout en vanilla JS, `$()` est un alias `document.querySelector`

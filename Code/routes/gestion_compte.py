@@ -1,11 +1,69 @@
-from flask import Blueprint, render_template, request, redirect, url_for, jsonify
+import re
+import unicodedata
+
+from flask import Blueprint, render_template, request, redirect, url_for, jsonify, session
 from sqlalchemy.orm.attributes import flag_modified
 from sqlalchemy import text
 from Code.extensions import db
-from Code.models.models import User, Role, UserRole, Entity, CompetencyEvaluation, TimeAnalysis
+from Code.models.models import (User, Role, UserRole, Entity, CompetencyEvaluation,
+                                TimeAnalysis, default_lang_for)
 from Code.security import hash_password, verify_password
 
 gestion_compte_bp = Blueprint('gestion_compte', __name__, url_prefix='/comptes')
+
+
+# ── Droits sur la page Comptes ───────────────────────────────────────────
+# User.status est un texte libre : selon l'instance il s'écrit avec ou sans
+# accents, en majuscules, avec un tiret… On compare donc une forme normalisée
+# plutôt que la chaîne brute.
+_ADMIN_STATUSES = {"admin", "administrateur", "administrator"}
+
+# Statuts autorisés à CRÉER des comptes, en plus des administrateurs.
+_ACCOUNT_CREATOR_STATUSES = {
+    "gestionnaire de competences",
+    "gestionnaire des competences",
+    "gestionnaire competences",
+    "competency manager",
+    "skills manager",
+}
+
+
+def _norm_status(raw):
+    """minuscule, sans accents, espaces/tirets/underscores unifiés."""
+    s = unicodedata.normalize("NFD", raw or "")
+    s = "".join(c for c in s if unicodedata.category(c) != "Mn").lower()
+    return re.sub(r"[\s_\-]+", " ", s).strip()
+
+
+def _current_user():
+    uid = session.get('user_id')
+    return db.session.get(User, uid) if uid else None
+
+
+def _is_admin(user=None):
+    user = user if user is not None else _current_user()
+    return bool(user and _norm_status(user.status) in _ADMIN_STATUSES)
+
+
+def _can_create_accounts(user=None):
+    user = user if user is not None else _current_user()
+    if not user:
+        return False
+    st = _norm_status(user.status)
+    return st in _ADMIN_STATUSES or st in _ACCOUNT_CREATOR_STATUSES
+
+
+def _can_edit_account(target_user_id, user=None):
+    """Hors administrateurs, chacun ne peut modifier QUE son propre compte."""
+    user = user if user is not None else _current_user()
+    if not user:
+        return False
+    return _is_admin(user) or user.id == int(target_user_id)
+
+
+def _forbidden(msg_key):
+    """Refus sur une soumission de formulaire : retour à la liste avec message."""
+    return redirect(url_for('gestion_compte.list_users', tab='list-tab', msg=msg_key))
 
 @gestion_compte_bp.route('/')
 def list_users():
@@ -59,13 +117,17 @@ def list_users():
 
         print(f"👔 Nombre de managers trouvés: {len(managers)}")
 
+        me = _current_user()
         return render_template(
             'gestion_compte_new.html',
             role_users=role_users,
             roles=roles,
             users=users,
             users_with_roles=users_with_roles,
-            managers=managers
+            managers=managers,
+            is_admin=_is_admin(me),
+            can_create_accounts=_can_create_accounts(me),
+            current_user_id=(me.id if me else None),
         )
 
     except Exception as e:
@@ -74,17 +136,23 @@ def list_users():
         traceback.print_exc()
 
         # Retourner une page avec des listes vides en cas d'erreur
+        me = _current_user()
         return render_template(
             'gestion_compte_new.html',
             role_users={},
             roles=[],
             users=[],
             users_with_roles=[],
-            managers=[]
+            managers=[],
+            is_admin=_is_admin(me),
+            can_create_accounts=_can_create_accounts(me),
+            current_user_id=(me.id if me else None),
         )
 
 @gestion_compte_bp.route('/create', methods=['POST'])
 def create_user():
+    if not _can_create_accounts():
+        return _forbidden('error_forbidden_create')
     first_name = request.form.get('first_name', '').strip()
     last_name  = request.form.get('last_name',  '').strip()
     email      = request.form.get('email',      '').strip()
@@ -120,6 +188,7 @@ def create_user():
         email=email,
         password=hash_password(password),
         status=status,
+        lang=default_lang_for(email),
         entity_id=active_entity_id
     )
     db.session.add(user)
@@ -133,6 +202,9 @@ def create_user():
 
 @gestion_compte_bp.route('/delete/<int:user_id>', methods=['POST'])
 def delete_user(user_id):
+    # Supprimer un compte reste réservé aux administrateurs — y compris le sien.
+    if not _is_admin():
+        return _forbidden('error_forbidden_edit')
     try:
         # Récupérer l'utilisateur
         user = User.query.get_or_404(user_id)
@@ -174,6 +246,8 @@ def delete_user(user_id):
 
 @gestion_compte_bp.route('/update/<int:user_id>', methods=['GET', 'POST'])
 def update_user(user_id):
+    if not _can_edit_account(user_id):
+        return _forbidden('error_forbidden_edit')
     user = User.query.get_or_404(user_id)
     # MODIFIÉ: Filtrer les rôles par entité active
     roles = Role.for_active_entity().all()
@@ -183,7 +257,10 @@ def update_user(user_id):
         user.last_name = request.form['last_name']
         user.age = request.form.get('age')
         user.email = request.form['email']
-        user.status = request.form['status']
+        # Seul un administrateur change un statut : sinon n'importe qui
+        # s'auto-promeut depuis l'édition de son propre compte.
+        if _is_admin():
+            user.status = request.form['status']
 
         new_password = request.form.get('password', '').strip()
         if new_password:
@@ -294,6 +371,8 @@ def get_subordinates(manager_id):
 
 @gestion_compte_bp.route('/set_password/<int:user_id>', methods=['POST'])
 def set_password(user_id):
+    if not _can_edit_account(user_id):
+        return jsonify({'ok': False, 'error': "Vous ne pouvez modifier que votre propre compte."}), 403
     user = User.query.get_or_404(user_id)
     data = request.get_json(silent=True) or {}
     new_password = (data.get('password') or '').strip()
@@ -325,6 +404,10 @@ def import_excel():
     Import d'utilisateurs via fichier Excel
     Format attendu: prenom, nom, email, age, mot_de_passe, role, statut
     """
+    if not _can_create_accounts():
+        return jsonify({'success': False,
+                        'error': "Seuls les administrateurs et les gestionnaires de compétences "
+                                 "peuvent créer des comptes."}), 403
     try:
         print("📥 Import Excel - Début")
         data = request.get_json()
@@ -379,6 +462,7 @@ def import_excel():
                     age=int(user_data.get('age')) if user_data.get('age') and str(user_data.get('age')).strip() else None,
                     password=hash_password(user_data.get('mot_de_passe', '').strip()),
                     status=user_data.get('statut', 'user').strip(),
+                    lang=default_lang_for(user_data.get('email', '')),
                     entity_id=active_entity_id
                 )
                 db.session.add(user)

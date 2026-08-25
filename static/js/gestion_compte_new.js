@@ -267,6 +267,8 @@ document.addEventListener('DOMContentLoaded', () => {
         error_missing_password:'Le mot de passe doit contenir au moins 6 caractères.',
         error_missing_role:    'Veuillez sélectionner un rôle.',
         error_email_exists:    'Cette adresse email est déjà utilisée.',
+        error_forbidden_create:'Seuls les administrateurs et les gestionnaires de compétences peuvent créer des comptes.',
+        error_forbidden_edit:  'Vous ne pouvez modifier que votre propre compte.',
     };
     if (msgParam && toastMessages[msgParam]) {
         const isError = msgParam.startsWith('error_');
