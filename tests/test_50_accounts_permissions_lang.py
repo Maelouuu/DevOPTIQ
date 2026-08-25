@@ -216,3 +216,51 @@ def test_session_sans_langue_retombe_sur_l_anglais(app, client):
     client.get("/login")
     with client.session_transaction() as sess:
         assert sess.get("lang") == "en"
+
+
+# ── Reconnaissance du statut « gestionnaire de compétences » ──────────────────
+# La colonne users.status est un VARCHAR(20) : le libellé complet y arrive
+# tronqué. Et selon l'instance il est saisi en français ou en anglais.
+
+@pytest.mark.parametrize("valeur", [
+    "manager",                      # valeur canonique des listes déroulantes
+    "Gestionnaire de compétences",  # libellé complet
+    "gestionnaire de comp",         # tronqué par VARCHAR(20)
+    "GESTIONNAIRE",
+    "gestionnaire-competences",
+    "Competency Manager",
+    "competency_manager",
+    "skills manager",
+])
+def test_variantes_reconnues_comme_gestionnaire(valeur):
+    from Code.permissions import can_create_accounts_status, is_competency_manager_status
+    assert is_competency_manager_status(valeur), valeur
+    assert can_create_accounts_status(valeur), valeur
+
+
+@pytest.mark.parametrize("valeur", ["user", "rh", "", None, "viewer"])
+def test_valeurs_qui_ne_donnent_pas_le_droit_de_creer(valeur):
+    from Code.permissions import can_create_accounts_status
+    assert not can_create_accounts_status(valeur), valeur
+
+
+@pytest.mark.parametrize("valeur", ["admin", "administrateur", "Administrator", "ADMIN"])
+def test_variantes_administrateur(valeur):
+    from Code.permissions import is_admin_status, can_create_accounts_status
+    assert is_admin_status(valeur), valeur
+    assert can_create_accounts_status(valeur), valeur
+
+
+def test_le_statut_canonique_tient_dans_la_colonne():
+    """users.status est un VARCHAR(20) : la valeur proposée doit y entrer."""
+    from Code.permissions import COMPETENCY_MANAGER_STATUS
+    assert len(COMPETENCY_MANAGER_STATUS) <= 20
+
+
+def test_un_gestionnaire_voit_les_onglets_de_creation(app, client):
+    """Régression : le statut canonique doit ouvrir Créer et Import Excel."""
+    uid = _mk_user(app, "perm.gest2@devoptiq.com", "manager")
+    _as(client, uid, "perm.gest2@devoptiq.com")
+    html = client.get("/comptes/").data.decode("utf-8")
+    assert 'data-tab="create-tab"' in html
+    assert 'data-tab="import-tab"' in html

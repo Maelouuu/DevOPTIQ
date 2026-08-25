@@ -85,6 +85,7 @@
                 <option value="user">{{ t('account.status_user') }}</option>
                 <option value="manager">{{ t('account.status_manager') }}</option>
                 <option value="rh">{{ t('account.status_rh') }}</option>
+                <option value="manager">{{ t('account.status_manager') }}</option>
                 <option value="administrateur">{{ t('account.status_admin') }}</option>
               </select>
             </div>
@@ -168,6 +169,7 @@
             <option value="user">{{ t('account.status_user') }}</option>
             <option value="manager">{{ t('account.status_manager') }}</option>
             <option value="rh">{{ t('account.status_rh') }}</option>
+            <option value="manager">{{ t('account.status_manager') }}</option>
             <option value="administrateur">{{ t('account.status_admin') }}</option>
           </select>
         </div>
@@ -217,12 +219,14 @@
                     {% endif %}
                   </td>
                   <td>
-                    {% if user.status == 'administrateur' %}
+                    {% if is_admin_status(user.status) %}
                       <span class="badge badge-admin">Admin</span>
+                    {% elif is_competency_manager_status(user.status) %}
+                      <span class="badge badge-manager">{{ t('account.status_manager') }}</span>
                     {% elif user.status == 'rh' %}
                       <span class="badge badge-rh">RH</span>
-                    {% elif user.status == 'manager' %}
-                      <span class="badge badge-manager">{{ t('account.status_manager') }}</span>
+                    {% elif user.status and user.status != 'user' %}
+                      <span class="badge badge-user" title="{{ t('account.status_unknown_hint') }}">{{ user.status }}</span>
                     {% else %}
                       <span class="badge badge-user">{{ t('account.status_user') }}</span>
                     {% endif %}
