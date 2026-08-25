@@ -535,6 +535,10 @@ async function openShareModal() {
   const desc = $("#share-modal-desc");
   if (!list) return;
 
+  const confirmBtn = $("#share-confirm-btn");
+  if (confirmBtn) confirmBtn.style.display = "";
+  const cancelBtn = $("#share-cancel-btn");
+  if (cancelBtn) cancelBtn.textContent = "Annuler";
   list.innerHTML = '<p class="share-loading"><i class="fa-solid fa-spinner fa-spin"></i></p>';
   showModal("share-entity-modal");
 
@@ -577,14 +581,26 @@ async function confirmShare() {
     const data = await res.json();
     if (data.error) { alert(data.error); return; }
 
-    const noms = data.shared.map(s => s.user).join(", ");
     const alertes = data.shared.filter(s => s.sync_warning);
-    hideModal("share-entity-modal");
-    if (alertes.length) {
-      alert(`Entité déposée chez : ${noms}.\nMais l'extraction des activités a échoué pour ${alertes.length} compte(s).`);
-    } else {
-      alert(`Entité déposée chez : ${noms}.`);
+    const list = $("#share-user-list");
+    if (list) {
+      list.innerHTML = data.shared.map(s => `
+        <div class="share-done-row">
+          <i class="fa-solid fa-circle-check"></i>
+          <span class="share-user-name">${s.user}</span>
+          <span class="share-done-entity">${s.entity_name}</span>
+        </div>`).join("")
+        + (alertes.length
+            ? `<p class="share-warn">Copie déposée, mais l'extraction des activités a échoué pour ${alertes.length} compte(s).</p>`
+            : '<p class="share-ok">Chacun retrouve l\'entité dans sa propre liste, prête à l\'emploi.</p>');
     }
+    const desc = $("#share-modal-desc");
+    if (desc) desc.textContent = `${data.shared.length} copie(s) déposée(s)`;
+    const confirm = $("#share-confirm-btn");
+    if (confirm) confirm.style.display = "none";
+    const cancel = $("#share-cancel-btn");
+    if (cancel) cancel.textContent = "Fermer";
+    return;
   } catch (e) {
     alert("Erreur réseau pendant le partage.");
   } finally {

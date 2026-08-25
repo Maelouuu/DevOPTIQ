@@ -4573,6 +4573,21 @@ body.connexion-mode-active .activity-item:not(.connexion-match):not(.connexion-o
   border-radius: 999px;
   padding: 2px 8px;
 }
+.share-done-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 10px;
+}
+.share-done-row i { color: #16a34a; }
+.share-done-entity { font-size: 0.78rem; color: #94a3b8; margin-left: auto; }
+.share-ok, .share-warn {
+  margin: 6px 10px 2px;
+  font-size: 0.8rem;
+  color: #15803d;
+}
+.share-warn { color: #b45309; }
+
 .share-loading, .share-empty, .share-error {
   margin: 0;
   padding: 18px;

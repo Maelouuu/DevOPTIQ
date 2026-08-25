@@ -2,7 +2,20 @@
 
 Chaque flux rejoue, dans l'ordre, le pas-à-pas écrit dans la section
 correspondante du guide (docs/guide.html) : ce que le texte explique,
-la vidéo le montre. En plus du curseur visible et du halo de clic :
+la vidéo le montre.
+
+RÈGLE D'ÉCRITURE DES BULLES — chaque vidéo raconte UN cas précis, nommé,
+chiffré. Elle ne décrit pas l'interface : on ne dit pas « chaque onglet montre
+une facette », on montre ce qu'on cherche et ce qu'on trouve. Concrètement :
+
+  - la carte-titre pose la SITUATION (« Claire part en congés, qui reprend
+    la cotation ? »), pas la fonctionnalité ;
+  - chaque bulle nomme la donnée manipulée (l'activité, le collaborateur,
+    la valeur saisie) plutôt que le widget cliqué ;
+  - la bulle de conclusion donne le RÉSULTAT obtenu — un chiffre, un nom,
+    une décision — et pas un résumé de ce qu'on vient de voir.
+
+En plus du curseur visible et du halo de clic :
 
   - une CARTE-TITRE en ouverture (nom de la page, objectif du parcours) ;
   - un BANDEAU D'ÉTAPE en bas (Étape i/n — libellé, points de progression) ;
@@ -249,15 +262,17 @@ with sync_playwright() as p:
         shutil.move(path, os.path.join(OUT, name))
         print('video', name)
 
-    # ── Cartographie : se déplacer, zoomer, ouvrir une activité ─────────────
-    # (pas-à-pas « Naviguer dans la carte », étapes 1-2-3)
+    # ── Cartographie ────────────────────────────────────────────────────────
+    # Cas suivi : « un client demande un prix — par où ça passe chez nous ? »
     def flow_carto(pg):
         N = 3
         cv = pg.locator('svg').first
         box = cv.bounding_box()
         if box:
             cx, cy = box['x'] + box['width'] * 0.5, box['y'] + box['height'] * 0.4
-            step(pg, 1, N, 'Se déplacer', "Maintenez le <b>clic gauche</b> sur la carte et faites-la glisser pour vous déplacer.",
+            step(pg, 1, N, 'Suivre le flux',
+                 "On cherche le trajet d'une <b>demande de prix</b>. On fait glisser la carte "
+                 "vers la gauche pour remonter au début du flux.",
                  cv, 'bottom', dy=-260)
             pg.mouse.move(cx, cy, steps=22)
             pg.wait_for_timeout(400)
@@ -265,57 +280,82 @@ with sync_playwright() as p:
             pg.mouse.move(cx - 160, cy - 60, steps=30)
             pg.mouse.up()
             pg.wait_for_timeout(600)
-            step(pg, 2, N, 'Zoomer', "Zoomez et dézoomez avec la <b>molette</b> de la souris — la carte reste centrée sous le curseur.",
+            step(pg, 2, N, 'Lire les enchaînements',
+                 "On zoome pour lire les <b>flèches</b> : chacune est une donnée qui passe d'une "
+                 "activité à la suivante. C'est ça, le flux réel.",
                  cv, 'bottom', dy=-260)
             for _ in range(4):
                 pg.mouse.wheel(0, -240)
                 pg.wait_for_timeout(420)
             pg.wait_for_timeout(500)
-        # 3. cliquer une activité dans la liste de droite → sa fiche s'ouvre
+        # 3. l'activité qui nous intéresse → sa fiche
         item = pg.locator('text=Analyse de faisabilité').last
         if item.count():
-            step(pg, 3, N, 'Ouvrir une activité',
-                 "Un clic sur une activité — ici dans la <b>liste de droite</b> — ouvre sa fiche détaillée.",
+            step(pg, 3, N, 'Ouvrir le maillon',
+                 "L'étape qui nous intéresse est <b>Analyse de faisabilité</b>. Un clic dessus "
+                 "pour savoir qui la tient et ce qu'elle produit.",
                  item, 'left')
             slow_click(pg, item, after=2000)
-            done(pg, "La fiche s'ouvre dans la page <b>Activités</b> : tâches, connexions, compétences… tout y est.")
+            done(pg, "En trois gestes on est passé d'une carte muette à <b>la fiche d'Analyse de "
+                     "faisabilité</b> : ses tâches, ses données d'entrée et de sortie, ses compétences.")
 
-    # ── Activités : rechercher, déplier, parcourir les onglets ──────────────
+    # ── Activités ───────────────────────────────────────────────────────────
+    # Cas suivi : « Claire part en congés — que faut-il savoir faire pour
+    # reprendre la cotation ? »
     def flow_activite(pg):
         N = 3
         s = pg.locator('.activity-search-input')
-        step(pg, 1, N, 'Rechercher', "Tapez quelques lettres : la liste se <b>filtre en direct</b>.", s, 'bottom')
+        step(pg, 1, N, "Retrouver l'activité",
+             "La question du jour : <b>que faut-il maîtriser pour reprendre la cotation&nbsp;?</b> "
+             "On tape « cotation », la liste se réduit à l'activité concernée.", s, 'bottom')
         type_slow(pg, s, 'cotation', delay=130)
         pg.wait_for_timeout(700)
         hdr = pg.locator('.activity-container:visible .activity-header').first
-        step(pg, 2, N, 'Déplier la fiche', "Cliquez sur la barre violette : la <b>fiche complète</b> de l'activité se déplie.", hdr, 'bottom')
+        step(pg, 2, N, 'Ouvrir sa fiche',
+             "Un clic sur la barre violette déplie la fiche&nbsp;: on y voit d'abord les "
+             "<b>tâches</b> et les <b>données</b> que la cotation consomme et produit.", hdr, 'bottom')
         slow_click(pg, hdr, after=1400)
-        first = True
+        libelles = {
+            'Compétences': "Onglet <b>Compétences</b>&nbsp;: le résultat attendu, formulé comme on "
+                           "l'évaluera — « produire une cotation conforme du premier coup ».",
+            'Savoirs':     "Onglet <b>Savoirs</b>&nbsp;: ce qu'il faut connaître pour y arriver — ici "
+                           "le processus qualité ISO 9001 du site.",
+            'Temps':       "Onglet <b>Temps</b>&nbsp;: la durée de chaque tâche. C'est ce qui alimentera "
+                           "le chiffrage dans la page Temps.",
+        }
+        i = 3
         for label in ['Compétences', 'Savoirs', 'Temps']:
             t = pg.locator('.tab-button:visible', has_text=label).first
             if t.count():
-                if first:
-                    step(pg, 3, N, 'Parcourir les onglets',
-                         "Chaque onglet montre une facette : <b>Compétences</b>, <b>Savoirs</b>, <b>Temps</b>…", t, 'bottom')
-                    first = False
-                slow_click(pg, t, after=1500)
-        done(pg, "Tout ce que l'application sait de l'activité est réuni sur cette fiche.")
+                bulle(pg, libelles[label], t, 'bottom', num=i if label == 'Compétences' else None,
+                      hold=2000)
+                if label == 'Compétences':
+                    banner(pg, 3, N, 'Lire ce qu\'il faut savoir faire')
+                clear_bulle(pg)
+                slow_click(pg, t, after=1200)
+        done(pg, "Réponse en trois clics&nbsp;: pour reprendre la cotation il faut <b>ce résultat</b>, "
+                 "<b>ces savoirs</b> et compter <b>ce temps-là</b>. Rien à aller chercher ailleurs.")
 
     # ── Rôles : rechercher, déplier, éditer la mission, parcourir 2 volets ──
     def flow_role(pg):
         N = 4
         s = pg.locator('#roleSearchInput')
-        step(pg, 1, N, 'Trouver le rôle', "Recherchez le rôle par son nom — la liste se filtre en direct.", s, 'bottom')
+        step(pg, 1, N, 'Trouver le rôle',
+             "On prépare l'entretien annuel du <b>Customer Service</b>&nbsp;: il faut sa fiche de "
+             "poste à jour. On tape son nom.", s, 'bottom')
         type_slow(pg, s, 'customer', delay=120)
         pg.wait_for_timeout(600)
         hdr = pg.locator('.role-container:visible .role-header').first
-        step(pg, 2, N, 'Déplier le rôle', "Un clic déplie la <b>fiche du rôle</b> : mission, activités, compétences, titulaires.", hdr, 'bottom')
+        step(pg, 2, N, 'Lire la fiche',
+             "La fiche est déjà remplie&nbsp;: elle hérite des <b>activités</b> que ce rôle garantit "
+             "dans la carte. Personne ne l'a saisie à la main.", hdr, 'bottom')
         slow_click(pg, hdr, after=1200)
         # Mission générale : compléter puis Enregistrer
         ta = pg.locator('.role-container:visible .mission-area').first
         if ta.count():
-            step(pg, 3, N, 'Compléter la mission',
-                 "La <b>mission générale</b> s'édite directement ici. Complétez-la puis cliquez sur <b>Enregistrer</b>.", ta, 'top')
+            step(pg, 3, N, 'Ajouter un engagement',
+                 "Seule la <b>mission</b> se rédige à la main. On y ajoute l'engagement pris cette "
+                 "année&nbsp;: répondre au client sous 48&nbsp;h.", ta, 'top')
             slow_click(pg, ta, after=250)
             pg.keyboard.press('End')
             pg.keyboard.type(' Répondre au client sous 48 h.', delay=50)
@@ -328,42 +368,52 @@ with sync_playwright() as p:
             b = pg.locator('.role-container:visible .block-header', has_text=txt).first
             if b.count():
                 if first:
-                    step(pg, 4, N, 'Parcourir les volets',
-                         "Chaque volet se déplie d'un clic — ici les <b>activités garanties</b>, puis les <b>savoirs</b>.", b, 'top')
+                    step(pg, 4, N, 'Vérifier le contenu',
+                         "<b>Activités garanties</b> puis <b>Savoirs</b>&nbsp;: c'est le contenu réel du "
+                         "poste, celui dont on parlera en entretien.", b, 'top')
                     first = False
                 slow_click(pg, b, after=1500)
-        done(pg, "La fiche de poste vivante du rôle : toujours à jour, sans double saisie.")
+        done(pg, "La fiche de poste du Customer Service est prête pour l'entretien&nbsp;: elle a suivi "
+                 "la carte toute l'année, on n'a eu qu'<b>une phrase à écrire</b>.")
 
     # ── Compétences : collaborateur → rôles → ouvrir l'évaluation ───────────
     def flow_competences(pg):
         N = 3
         li = pg.locator('.cv2-collab li').first
         if li.count():
-            step(pg, 1, N, 'Choisir un collaborateur',
-                 "À gauche : votre équipe. Cliquez sur un <b>collaborateur</b> pour l'ouvrir.", li, 'right')
+            step(pg, 1, N, 'Ouvrir le collaborateur',
+                 "Entretien de <b>Claire Dupont</b>&nbsp;: on veut savoir où elle en est, résultat par "
+                 "résultat, avant d'en parler avec elle.", li, 'right')
             slow_click(pg, li, after=1900)
         pills = pg.locator('.cv2-role')
         if pills.count() > 1:
-            step(pg, 2, N, 'Choisir un rôle',
-                 "Ses <b>rôles</b> s'affichent en pilules : le tableau suit le rôle sélectionné.", pills.nth(1), 'bottom')
+            step(pg, 2, N, 'Se placer sur un rôle',
+                 "Claire tient <b>plusieurs rôles</b>. On évalue toujours dans un rôle donné&nbsp;: "
+                 "les attendus ne sont pas les mêmes.", pills.nth(1), 'bottom')
             slow_click(pg, pills.nth(1), after=1700)
             slow_click(pg, pills.first, after=1700)
         ev = pg.locator('.cv2-tab button', has_text='Évaluer').first
         if ev.count():
-            step(pg, 3, N, "Ouvrir l'évaluation",
-                 "Cliquez sur <b>Évaluer</b> : le volet s'ouvre, résultat par résultat, de 0 à 4.", ev, 'left')
+            step(pg, 3, N, "Évaluer sur le résultat",
+                 "On ne note pas « Claire, 3/5 »&nbsp;: on se prononce sur <b>chaque résultat qu'elle "
+                 "produit</b>, de 0 à 4.", ev, 'left')
             slow_click(pg, ev, after=2400)
-            done(pg, "On évalue le <b>résultat produit</b> — le niveau global est le <b>minimum</b> des résultats, jamais une moyenne.")
+            done(pg, "Un seul résultat à 1 tire le niveau du rôle à 1&nbsp;: le global est le "
+                     "<b>minimum</b>, jamais une moyenne. C'est ce qui rend l'écart actionnable — "
+                     "on sait exactement quoi travailler.")
 
     # ── Temps / Projet : nommer, remplir, ajouter une ligne, enregistrer ────
     def flow_projet(pg):
         N = 4
         nom = pg.locator('#project-name')
-        step(pg, 1, N, 'Nommer le projet', "Donnez un <b>nom</b> au projet — chaque ligne sera une activité.", nom, 'bottom')
+        step(pg, 1, N, 'Poser la question',
+             "La direction demande&nbsp;: <b>combien coûte notre présence au salon&nbsp;?</b> "
+             "On assemble les activités qu'il faudra mobiliser.", nom, 'bottom')
         type_slow(pg, nom, 'Salon professionnel 2026', delay=50)
         row = pg.locator('#project-rows tr').first
-        step(pg, 2, N, 'Renseigner la 1re activité',
-             "Pour chaque activité : <b>durée</b> de travail, <b>délai</b> d'attente, <b>nombre de personnes</b>.",
+        step(pg, 2, N, 'Chiffrer la 1re activité',
+             "Première activité&nbsp;: <b>2&nbsp;h</b> de travail, <b>1&nbsp;jour</b> d'attente avant "
+             "la suite, <b>2&nbsp;personnes</b>. Le délai n'est pas du travail — il ne coûte rien.",
              row, 'bottom')
         type_slow(pg, row.locator('.cell-dur'), '2', clear=True, delay=110)
         row.locator('.cell-du select').select_option(label='heures')
@@ -373,7 +423,9 @@ with sync_playwright() as p:
         pg.wait_for_timeout(450)
         type_slow(pg, row.locator('.cell-nbp'), '2', clear=True, delay=110)
         add = pg.locator('#btn-add-line')
-        step(pg, 3, N, 'Ajouter une ligne', "<b>+ Ajouter une ligne</b> pour intégrer une autre activité au projet.", add, 'top')
+        step(pg, 3, N, 'Ajouter la suivante',
+             "Le salon mobilise une <b>seconde activité</b>&nbsp;: on l'ajoute et on la chiffre à "
+             "<b>4&nbsp;h</b>.", add, 'top')
         slow_click(pg, add, after=800)
         row2 = pg.locator('#project-rows tr').nth(1)
         row2.locator('.cell-act select').select_option(index=3)
@@ -383,79 +435,131 @@ with sync_playwright() as p:
         pg.wait_for_timeout(600)
         kpis = pg.locator('.kpis').first
         kpis.scroll_into_view_if_needed()
-        step(pg, 4, N, 'Lire le résultat',
-             "La <b>Charge globale</b> se met à jour en continu — c'est le chiffre qui compte.", kpis, 'top', hold=2300)
+        step(pg, 4, N, 'Lire la réponse',
+             "La <b>charge globale</b> s'affiche&nbsp;: c'est le nombre d'heures de travail réellement "
+             "engagées. Voilà le chiffre à donner à la direction.", kpis, 'top', hold=2600)
         slow_click(pg, pg.locator('#btn-save-project'), after=1800)
-        done(pg, "<b>Enregistrer</b> conserve le projet : vous le retrouverez en bas de page.")
+        done(pg, "Le projet est enregistré&nbsp;: l'an prochain on repart de ce chiffrage au lieu "
+                 "de <b>réestimer au doigt mouillé</b>.")
 
     # ── Temps / Faiblesse : saisie complète puis calcul ─────────────────────
     def flow_faiblesse(pg):
         N = 4
         slow_click(pg, pg.locator('.subtab[data-subtab="faiblesse"]'), after=900)
         k = pg.locator('#fw-k')
-        step(pg, 1, N, 'Décrire la faiblesse',
-             "Décrivez le <b>problème récurrent</b> en quelques mots — ici des données client incomplètes.", k, 'bottom')
+        step(pg, 1, N, "Nommer l'irritant",
+             "Tout le monde s'en plaint sans jamais le chiffrer&nbsp;: <b>les données client arrivent "
+             "incomplètes</b> et il faut relancer. On va le mettre en euros.", k, 'bottom')
         type_slow(pg, k, 'Données client incomplètes', delay=50)
         n_ = pg.locator('#fw-n')
-        step(pg, 2, N, 'Indiquer la probabilité',
-             "«&nbsp;1 sur 4&nbsp;» : le problème survient <b>une fois sur quatre</b>.", n_, 'bottom')
+        step(pg, 2, N, 'À quelle fréquence',
+             "L'équipe l'estime à <b>un dossier sur quatre</b>. Pas besoin de mesure exacte&nbsp;: "
+             "un ordre de grandeur partagé suffit.", n_, 'bottom')
         f = n_; f.click(); f.fill(''); pg.keyboard.type('4', delay=130)
-        step(pg, 3, N, "Estimer l'impact",
-             "Quand il survient : <b>25 min</b> de travail en plus et <b>120 min</b> d'attente.", pg.locator('#fw-l'), 'bottom')
+        step(pg, 3, N, "Ce que ça coûte à chaque fois",
+             "Quand ça arrive&nbsp;: <b>25&nbsp;min</b> de travail en plus pour relancer, et "
+             "<b>120&nbsp;min</b> d'attente avant la réponse du client.", pg.locator('#fw-l'), 'bottom')
         f = pg.locator('#fw-l'); f.click(); pg.keyboard.type('25', delay=130)
         f = pg.locator('#fw-m'); f.click(); pg.keyboard.type('120', delay=130)
         if pg.locator('#fw-dur').input_value() in ('', '0'):
             f = pg.locator('#fw-dur'); f.click(); f.fill(''); pg.keyboard.type('40', delay=120)
         calc = pg.locator('#btn-fw-calc')
-        step(pg, 4, N, 'Calculer', "<b>Calculer</b> transforme le ressenti en chiffres.", calc, 'top')
+        step(pg, 4, N, 'Obtenir le montant',
+             "Trois estimations, un clic&nbsp;: l'application croise fréquence, temps perdu et volume "
+             "annuel.", calc, 'top')
         slow_click(pg, calc, after=1300)
         res = pg.locator('#fw-results-section')
         res.scroll_into_view_if_needed()
         pg.wait_for_timeout(800)
-        bulle(pg, "Le <b>coût annuel</b> (en rouge) est le chiffre à retenir : le meilleur argument pour prioriser une action.",
-              res, 'top', num='✓', hold=2600, ok=True)
+        bulle(pg, "Le <b>coût annuel</b> en rouge, c'est l'irritant traduit en euros. On ne dit plus "
+                  "« ça nous fait perdre du temps »&nbsp;: on dit combien, et l'arbitrage se fait tout seul.",
+              res, 'top', num='✓', hold=3000, ok=True)
         clear_bulle(pg)
 
     # ── Rôles : exporter (périmètre + format) ───────────────────────────────
     def flow_export(pg):
         N = 3
         btn = pg.locator('#btn-export-roles')
-        step(pg, 1, N, "Ouvrir l'export", "Le bouton <b>Exporter</b> est en haut à droite de la page Rôles.", btn, 'bottom')
+        step(pg, 1, N, "Sortir la fiche",
+             "Le RH demande la fiche de poste d'<b>un</b> rôle pour un recrutement. On part de "
+             "<b>Exporter</b>, en haut à droite.", btn, 'bottom')
         slow_click(pg, btn, after=1300)
         sel = pg.locator('#exportRoleSelect')
         if sel.count():
-            step(pg, 2, N, 'Choisir le périmètre',
-                 "Toute l'<b>entité</b>… ou un <b>rôle précis</b> (pour une fiche de poste).", sel, 'bottom')
+            step(pg, 2, N, 'Un seul rôle',
+                 "On ne sort pas toute l'entité&nbsp;: on choisit <b>le rôle concerné</b>. L'export "
+                 "ne contiendra que lui.", sel, 'bottom')
             sel.select_option(index=1)
             pg.wait_for_timeout(800)
         html_card = pg.locator('#fmt-html-card')
-        step(pg, 3, N, 'Choisir le format',
-             "<b>HTML</b> : rapport visuel prêt à imprimer. <b>Excel</b> : classeur à retravailler.", html_card, 'top')
+        step(pg, 3, N, 'Le bon format',
+             "<b>HTML</b> pour l'envoyer tel quel ou l'imprimer&nbsp;; <b>Excel</b> si le RH doit "
+             "retravailler le contenu.", html_card, 'top')
         slow_click(pg, html_card, after=1100)
         slow_click(pg, pg.locator('#fmt-excel-card'), after=1100)
-        done(pg, "Le fichier se télécharge immédiatement — rien d'autre à faire.")
+        done(pg, "Fiche de poste prête à envoyer, tirée de la carte&nbsp;: elle dit ce que le poste "
+                 "<b>fait vraiment</b>, pas ce qu'on avait écrit il y a trois ans.")
         slow_click(pg, pg.locator('#exportModalCancel'), after=500)
 
+    # ── Partage d'entité ────────────────────────────────────────────────────
+    # Cas suivi : « la carte est prête, il faut que l'équipe l'ait aussi »
+    def flow_partage(pg):
+        N = 4
+        ouvrir = pg.locator('#carto-wizard-btn')
+        step(pg, 1, N, 'Ouvrir la gestion',
+             "La carte du site est finie et corrigée. Il faut maintenant que <b>l'équipe l'ait "
+             "aussi</b>, sans la refaire. On ouvre la gestion des entités.", ouvrir, 'bottom')
+        slow_click(pg, ouvrir, after=1200)
+        carte = pg.locator('.entity-grid-item').first
+        if carte.count():
+            step(pg, 2, N, "Choisir l'entité",
+                 "On sélectionne l'entité à transmettre — ici <b>AFDEC Industrie</b>, celle qui "
+                 "porte la carte qu'on vient de terminer.", carte, 'right')
+            slow_click(pg, carte, after=1100)
+        partager = pg.locator('#wizard-share-btn')
+        if not partager.count():
+            return  # bouton réservé aux administrateurs
+        step(pg, 3, N, 'Choisir les destinataires',
+             "<b>Partager</b> n'apparaît que pour les administrateurs. On coche les collègues qui "
+             "doivent travailler sur cette carte.", partager, 'top')
+        slow_click(pg, partager, after=1500)
+        cases = pg.locator('.share-user-cb')
+        n = cases.count()
+        for k in range(min(2, n)):
+            slow_click(pg, cases.nth(k), after=650)
+        valider = pg.locator('#share-confirm-btn')
+        step(pg, 4, N, 'Déposer la copie',
+             "Chacun reçoit <b>sa propre copie</b> de l'entité&nbsp;: il pourra la modifier sans "
+             "toucher à l'originale.", valider, 'top')
+        slow_click(pg, valider, after=2600)
+        done(pg, "C'est fait&nbsp;: la carte, ses activités et ses rôles sont <b>déjà dans leur "
+                 "compte</b>. Personne n'a eu à réimporter le fichier Visio.")
+
+    # La carte-titre pose la SITUATION : le spectateur doit savoir, avant que
+    # la première bulle apparaisse, quelle question la vidéo va résoudre.
     video('flux-carto.webm', flow_carto, '/activities/map', '#0d9488',
-          'Cartographie', 'Naviguer dans la carte',
-          'Se déplacer, zoomer, ouvrir une activité — 3 gestes à connaître')
+          'Cartographie', 'Un client demande un prix',
+          'Par où passe la demande chez nous, et qui fait quoi ?')
     video('flux-activite.webm', flow_activite, '/activities/view', '#7c3aed',
-          'Activités', "Lire une fiche d'activité",
-          'Rechercher, déplier la fiche, parcourir les onglets')
+          'Activités', 'Claire part en congés',
+          'Que faut-il savoir faire pour reprendre la cotation ?')
     video('flux-role.webm', flow_role, '/roles_view/', '#059669',
-          'Rôles', 'Parcourir un rôle et compléter sa mission',
-          'La fiche de poste vivante, volet par volet')
+          'Rôles', "Préparer un entretien annuel",
+          'La fiche de poste du Customer Service est-elle à jour ?')
     video('flux-competences.webm', flow_competences, '/competences/view', '#2563eb',
-          'Compétences', 'Évaluer un collaborateur',
-          "Collaborateur → rôle → évaluation par résultat")
+          'Compétences', 'Où en est Claire Dupont ?',
+          "S'évaluer sur des résultats produits, pas sur une note globale")
     video('flux-projet.webm', flow_projet, '/temps/', '#d97706',
-          'Temps · Projet', 'Chiffrer un projet',
-          'Assembler des activités et lire la charge globale')
+          'Temps · Projet', 'Combien coûte le salon ?',
+          'Assembler les activités mobilisées et lire la charge réelle')
     video('flux-faiblesse.webm', flow_faiblesse, '/temps/', '#d97706',
-          'Temps · Faiblesse', "Chiffrer une faiblesse",
-          "D'un irritant récurrent à un coût annuel chiffré")
+          'Temps · Faiblesse', 'Des données client incomplètes',
+          "Mettre un montant annuel sur un irritant que tout le monde subit")
     video('flux-export.webm', flow_export, '/roles_view/', '#059669',
-          'Rôles · Export', 'Exporter des fiches de poste',
-          'Choisir le périmètre puis le format — le fichier se télécharge')
+          'Rôles · Export', 'Le RH demande une fiche de poste',
+          'Sortir un seul rôle, au bon format, en trois clics')
+    video('flux-partage.webm', flow_partage, '/activities/map', '#0d9488',
+          'Cartographie · Partage', "L'équipe doit avoir la même carte",
+          'Déposer une copie de son entité chez ses collègues')
     browser.close()
 print('VIDEOS OK')

@@ -209,6 +209,19 @@
     .hero h1{font-size:29px}
   }
   @media print{.toc{display:none}.layout{grid-template-columns:1fr}video{display:none}}
+  /* Une vidéo pas encore régénérée (pipeline tools/guide) ne doit pas laisser
+     un lecteur vide dans le guide : on masque la figure entière. */
+  figure.no-video{display:none}
+
+  /* ── Tableau de droits ── */
+  .tbl{width:100%;border-collapse:separate;border-spacing:0;margin:16px 0 6px;font-size:14.5px;
+       background:var(--card);border:1px solid var(--border);border-radius:12px;overflow:hidden;box-shadow:var(--sh)}
+  .tbl th,.tbl td{padding:10px 14px;text-align:left;border-bottom:1px solid var(--border);vertical-align:top}
+  .tbl thead th{background:var(--card2);font-size:12.5px;font-weight:700;color:var(--muted);
+                text-transform:uppercase;letter-spacing:.04em;line-height:1.35}
+  .tbl tbody tr:last-child td{border-bottom:none}
+  .tbl td:first-child{white-space:nowrap}
+  @media (max-width:700px){.tbl{display:block;overflow-x:auto}}
 </style>
 </head>
 <body>
@@ -372,9 +385,11 @@
   <figure>
     <div class="frame frame-video"><div class="frame-bar"><span>Se déplacer, zoomer, ouvrir une activité depuis la carte</span></div>
     <video controls muted playsinline preload="metadata" poster="assets/guide/poster-flux-carto.png" src="assets/guide/flux-carto.webm"></video></div>
-    <figcaption><span class="video-tag">▶ démonstration</span>Le pas-à-pas ci-dessus, en vrai :
-    déplacement au cliquer-glisser, zoom à la molette, puis clic sur «&nbsp;Analyse de faisabilité&nbsp;»
-    dans la liste — sa fiche s'ouvre dans la page Activités.</figcaption>
+    <figcaption><span class="video-tag">▶ démonstration</span><b>Un client demande un prix — par où
+    ça passe&nbsp;?</b> On remonte le flux au cliquer-glisser, on zoome pour lire les flèches
+    (chacune est une donnée qui circule), puis on ouvre le maillon qui nous intéresse&nbsp;:
+    «&nbsp;Analyse de faisabilité&nbsp;». En trois gestes, on sait qui la tient et ce qu'elle
+    produit.</figcaption>
   </figure>
 
   <h3>D'où vient la carte&nbsp;?</h3>
@@ -390,6 +405,48 @@
   À chaque enregistrement de la carte, l'application <b>synchronise automatiquement</b> les activités, les
   rôles et les connexions dans toutes les autres pages. La carte n'est pas un dessin décoratif&nbsp;:
   c'est la source de vérité de votre base.</div>
+
+  <h3>Donner la carte à son équipe</h3>
+  <p>Une entité appartient à <b>une seule personne</b>&nbsp;: celle qui l'a créée. Il n'y a pas
+     d'accès partagé — partager, c'est <b>déposer une copie</b> de l'entité chez chaque destinataire.
+     Chacun repart avec la sienne et la fait évoluer sans toucher à l'originale.</p>
+  <ol class="steps">
+    <li>Page Cartographie, bouton <b>Gestion des entités</b>, puis cliquez sur l'entité à transmettre.</li>
+    <li>Bouton <b>Partager</b> — il n'apparaît que pour les <b>administrateurs</b>.</li>
+    <li>Cochez les collègues concernés. Un repère «&nbsp;déjà une copie&nbsp;» signale ceux qui ont
+        déjà une entité du même nom.</li>
+    <li><b>Déposer la copie</b>&nbsp;: chacun retrouve l'entité dans sa propre liste, avec la carte,
+        les activités, les rôles et les connexions — rien à réimporter.</li>
+  </ol>
+  <figure>
+    <div class="frame frame-video"><div class="frame-bar"><span>Déposer une copie de son entité chez ses collègues</span></div>
+    <video controls muted playsinline preload="metadata" poster="assets/guide/poster-flux-partage.png" src="assets/guide/flux-partage.webm"></video></div>
+    <figcaption><span class="video-tag">▶ démonstration</span><b>La carte est finie&nbsp;: il faut que
+    l'équipe l'ait aussi.</b> Gestion des entités, sélection de l'entité, <b>Partager</b>, deux
+    collègues cochés — leur compte contient déjà la carte et ses rôles à la fin de la vidéo.</figcaption>
+  </figure>
+
+  <div class="box box-attention"><b>Copie, pas synchronisation</b>
+  Une modification faite après le partage <b>ne se propage pas</b>&nbsp;: les copies sont
+  indépendantes dès le dépôt. Si la carte de référence évolue, repartagez-la — les destinataires
+  recevront une nouvelle entité, suffixée «&nbsp;(2)&nbsp;».</div>
+
+  <h3>Emporter une carto corrigée d'un compte à l'autre</h3>
+  <p>Quand une carte a été <b>reprise à la main</b> dans l'éditeur, ne redistribuez pas le fichier
+     Visio d'origine&nbsp;: le réimporter réintroduirait les défauts que vous venez de corriger.
+     Utilisez le fichier <b>.optiqcarto</b>, qui transporte la carte telle qu'elle est.</p>
+  <ol class="steps">
+    <li>Dans l'éditeur, bouton <b>Exporter la carto</b>&nbsp;: vous obtenez un fichier
+        <code>.optiqcarto</code>. Vos retouches en cours sont enregistrées avant le téléchargement.</li>
+    <li>Sur le compte destinataire&nbsp;: <b>Gestion des entités</b> → <b>Importer une carto</b>,
+        déposez le fichier.</li>
+    <li>L'entité est créée, activée, et ses activités, rôles et connexions sont dérivés
+        automatiquement — exactement comme après un import Visio.</li>
+  </ol>
+  <div class="box box-clair"><b>Lequel choisir&nbsp;?</b>
+  <b>Partager</b> quand les destinataires sont sur la même instance (deux clics, rien à manipuler).
+  <b>.optiqcarto</b> quand il faut franchir une frontière&nbsp;: une autre instance, un envoi par
+  mail, une sauvegarde à conserver.</div>
 
   <div class="diapo" data-auto="6800">
     <div class="diapo-head"><span class="tag">En images</span><b>Ce qui se passe quand la carte est enregistrée</b><span class="n">1/4</span></div>
@@ -525,7 +582,8 @@
   <figure>
     <div class="frame frame-video"><div class="frame-bar"><span>Rechercher une activité et parcourir sa fiche</span></div>
     <video controls muted playsinline preload="metadata" poster="assets/guide/poster-flux-activite.png" src="assets/guide/flux-activite.webm"></video></div>
-    <figcaption><span class="video-tag">▶ démonstration</span>Recherche d'une activité, ouverture de sa
+    <figcaption><span class="video-tag">▶ démonstration</span><b>Claire part en congés&nbsp;: que
+    faut-il savoir faire pour reprendre la cotation&nbsp;?</b> Recherche de l'activité, ouverture de sa
     fiche, passage d'onglet en onglet.</figcaption>
   </figure>
 
@@ -654,7 +712,9 @@
   <figure>
     <div class="frame frame-video"><div class="frame-bar"><span>Parcourir un rôle et compléter sa mission</span></div>
     <video controls muted playsinline preload="metadata" poster="assets/guide/poster-flux-role.png" src="assets/guide/flux-role.webm"></video></div>
-    <figcaption><span class="video-tag">▶ démonstration</span>Le parcours complet&nbsp;: recherche du rôle,
+    <figcaption><span class="video-tag">▶ démonstration</span><b>Préparer un entretien annuel.</b>
+    La fiche du Customer Service est déjà remplie par la carte&nbsp;; il ne reste qu'une phrase à
+    écrire. Le parcours complet&nbsp;: recherche du rôle,
     ouverture, complément de la <b>mission générale</b> puis Enregistrer, et lecture des volets
     «&nbsp;Activités Garant&nbsp;» et «&nbsp;Savoirs&nbsp;».</figcaption>
   </figure>
@@ -669,7 +729,8 @@
   <figure>
     <div class="frame frame-video"><div class="frame-bar"><span>Exporter : périmètre puis format</span></div>
     <video controls muted playsinline preload="metadata" poster="assets/guide/poster-flux-export.png" src="assets/guide/flux-export.webm"></video></div>
-    <figcaption><span class="video-tag">▶ démonstration</span>Les étapes 1-2-3&nbsp;: ouverture,
+    <figcaption><span class="video-tag">▶ démonstration</span><b>Le RH demande la fiche de poste
+    d'un rôle pour un recrutement.</b> Les étapes 1-2-3&nbsp;: ouverture,
     choix du <b>périmètre</b> (un rôle précis), puis du <b>format</b>.</figcaption>
   </figure>
   </div>
@@ -708,7 +769,9 @@
   <figure>
     <div class="frame frame-video"><div class="frame-bar"><span>Choisir un collaborateur, un rôle, ouvrir l'évaluation</span></div>
     <video controls muted playsinline preload="metadata" poster="assets/guide/poster-flux-competences.png" src="assets/guide/flux-competences.webm"></video></div>
-    <figcaption><span class="video-tag">▶ démonstration</span>Les étapes 1-2-3 du pas-à-pas&nbsp;:
+    <figcaption><span class="video-tag">▶ démonstration</span><b>Où en est Claire Dupont&nbsp;?</b>
+    On se place dans un rôle précis — les attendus ne sont pas les mêmes d'un rôle à l'autre — puis
+    on se prononce résultat par résultat. Les étapes 1-2-3 du pas-à-pas&nbsp;:
     choix d'un collaborateur, passage d'un rôle à l'autre (le tableau suit), puis clic sur
     <b>Évaluer</b> — le volet d'évaluation s'ouvre.</figcaption>
   </figure>
@@ -856,7 +919,9 @@
   <figure>
     <div class="frame frame-video"><div class="frame-bar"><span>Chiffrer un projet et l'enregistrer</span></div>
     <video controls muted playsinline preload="metadata" poster="assets/guide/poster-flux-projet.png" src="assets/guide/flux-projet.webm"></video></div>
-    <figcaption><span class="video-tag">▶ démonstration</span>Un projet de bout en bout&nbsp;: nom,
+    <figcaption><span class="video-tag">▶ démonstration</span><b>«&nbsp;Combien coûte notre présence
+    au salon&nbsp;?&nbsp;»</b> On assemble les activités mobilisées et on lit la charge réelle —
+    le délai d'attente ne compte pas comme du travail. Un projet de bout en bout&nbsp;: nom,
     durées/délais des activités, ajout d'une ligne, la <b>Charge globale</b> se met à jour, puis
     <b>Enregistrer</b>.</figcaption>
   </figure>
@@ -949,7 +1014,10 @@
   <figure>
     <div class="frame frame-video"><div class="frame-bar"><span>Chiffrer une faiblesse de A à Z</span></div>
     <video controls muted playsinline preload="metadata" poster="assets/guide/poster-flux-faiblesse.png" src="assets/guide/flux-faiblesse.webm"></video></div>
-    <figcaption><span class="video-tag">▶ démonstration</span>Saisie complète d'une faiblesse puis calcul —
+    <figcaption><span class="video-tag">▶ démonstration</span><b>«&nbsp;Les données client arrivent
+    incomplètes&nbsp;»</b>&nbsp;— l'irritant dont tout le monde se plaint sans jamais le chiffrer.
+    Un dossier sur quatre, 25&nbsp;min de relance, 120&nbsp;min d'attente&nbsp;: saisie complète
+    puis calcul —
     les résultats apparaissent en bas.</figcaption>
   </figure>
   <figure>
@@ -974,24 +1042,44 @@
   <div class="sec-body">
 
   <p><b>À quoi ça sert&nbsp;?</b> La page Comptes gère les <b>accès à l'application</b>&nbsp;: création
-     d'un utilisateur, import en masse depuis Excel, modification d'une fiche ou d'un mot de passe.</p>
+     d'un utilisateur, import en masse depuis Excel, modification d'une fiche ou d'un mot de passe.
+     Elle s'ouvre sur la <b>liste des utilisateurs</b>&nbsp;; les onglets de création n'apparaissent
+     que si votre statut vous y autorise.</p>
 
   <figure>
-    <div class="frame"><div class="frame-bar"><i></i><i></i><i></i><span>Page Comptes — onglet Créer</span></div>
+    <div class="frame"><div class="frame-bar"><i></i><i></i><i></i><span>Page Comptes — onglet Utilisateurs</span></div>
     <img src="assets/guide/comptes.png" alt="Page comptes" loading="lazy"></div>
-    <figcaption>Trois onglets&nbsp;: <b>Créer</b> (formulaire ci-dessus), <b>Import Excel</b> (créer tous
-    les comptes d'un coup depuis un fichier) et <b>Utilisateurs</b> (la liste, avec modification et
-    suppression).</figcaption>
+    <figcaption>L'onglet <b>Utilisateurs</b> est celui d'accueil&nbsp;: la liste, avec recherche et
+    filtres. Viennent ensuite <b>Créer</b> (formulaire) et <b>Import Excel</b> (tous les comptes d'un
+    coup depuis un fichier).</figcaption>
   </figure>
 
+  <h3>Qui a le droit de quoi</h3>
+  <p>Trois statuts, trois périmètres. Le statut se choisit à la création du compte et se modifie
+     ensuite depuis la fiche&nbsp;— par un administrateur uniquement.</p>
+  <table class="tbl">
+    <thead><tr><th>Statut</th><th>Modifier son propre compte</th><th>Créer / importer des comptes</th><th>Modifier ou supprimer le compte d'un autre</th></tr></thead>
+    <tbody>
+      <tr><td><b>Utilisateur</b></td><td>Oui</td><td>Non</td><td>Non</td></tr>
+      <tr><td><b>Gestionnaire de compétences</b></td><td>Oui</td><td><b>Oui</b></td><td>Non</td></tr>
+      <tr><td><b>Administrateur</b></td><td>Oui</td><td><b>Oui</b></td><td><b>Oui</b> (suppression comprise)</td></tr>
+    </tbody>
+  </table>
+
   <ol class="steps">
-    <li>Onglet <b>Créer</b>&nbsp;: renseignez prénom, nom, e-mail, mot de passe et rôle applicatif
-        (utilisateur ou administrateur), puis <b>Créer l'utilisateur</b>.</li>
+    <li>Onglet <b>Utilisateurs</b>&nbsp;: la liste. Le bouton <b>Modifier</b> n'apparaît que sur les
+        lignes que vous avez le droit de toucher — la vôtre, ou toutes si vous êtes administrateur.</li>
+    <li>Onglet <b>Créer</b>&nbsp;: prénom, nom, e-mail, mot de passe, rôle métier et <b>statut</b>,
+        puis <b>Créer l'utilisateur</b>.</li>
     <li>Pour un arrivage groupé, préférez <b>Import Excel</b>&nbsp;: le format attendu est affiché à
         l'écran (une ligne par personne).</li>
-    <li>Onglet <b>Utilisateurs</b>&nbsp;: modifiez une fiche, changez un mot de passe, supprimez un
-        compte.</li>
   </ol>
+
+  <div class="box box-attention"><b>Un statut affiché tel quel</b>
+  Si la liste montre un statut «&nbsp;brut&nbsp;» au lieu d'une pastille (Utilisateur, Gestionnaire
+  de compétences, Admin), c'est que la valeur enregistrée n'est reconnue par aucune règle&nbsp;:
+  le compte n'a donc <b>aucun des droits associés</b>. Rouvrez sa fiche et resélectionnez le statut
+  dans la liste déroulante.</div>
 
   <div class="box box-attention"><b>À ne pas confondre</b>
   La page <b>Comptes</b> gère l'<i>accès à l'application</i>. L'affectation des personnes aux <i>rôles
@@ -1138,6 +1226,12 @@
 </div>
 
 <script>
+// ── Vidéo absente (pipeline tools/guide pas encore relancé) : on masque la
+//    figure entière plutôt que de laisser un lecteur vide dans le guide.
+document.querySelectorAll('figure .frame-video video').forEach(v => {
+  v.addEventListener('error', () => v.closest('figure')?.classList.add('no-video'), true);
+});
+
 // ── Diapos : auto-avance quand visible, pause au survol, navigation manuelle ──
 document.querySelectorAll('.diapo').forEach(dp => {
   const slides = [...dp.querySelectorAll('.diapo-slide')];

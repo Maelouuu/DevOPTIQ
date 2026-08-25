@@ -27,6 +27,7 @@ python tools/guide/capture_screens.py
 # 3) vidéos de manipulation, curseur visible + bulles d'explication incrustées
 #    (carte-titre d'ouverture, bandeau « Étape i/n », bulle ancrée par étape,
 #    bulle ✓ de conclusion) → docs/assets/guide/flux-*.webm
+#    8 vidéos, dont flux-partage.webm (partage d'entité entre comptes)
 python tools/guide/capture_videos.py
 
 # 4) compression des vidéos + posters (2.6 s = la carte-titre est affichée)
@@ -37,6 +38,22 @@ for f in flux-*.webm; do
   $FF -y -ss 2.6 -i "$f" -frames:v 1 "poster-${f%.webm}.png"
 done
 ```
+
+## Comment sont écrites les vidéos
+
+Chaque vidéo raconte **un cas précis, nommé, chiffré** — elle ne décrit pas
+l'interface. La règle, appliquée dans `capture_videos.py` :
+
+- la **carte-titre** pose la situation (« Claire part en congés — que faut-il
+  savoir faire pour reprendre la cotation ? »), pas la fonctionnalité ;
+- chaque **bulle** nomme la donnée manipulée (l'activité, le collaborateur, la
+  valeur saisie) plutôt que le widget cliqué. On ne dit pas « chaque onglet
+  montre une facette » : on dit ce qu'on cherche, et ce qu'on trouve ;
+- la **bulle de conclusion** donne le résultat obtenu — un chiffre, un nom, une
+  décision — et pas un résumé de ce qu'on vient de voir.
+
+Les légendes sous les vidéos, dans `docs/guide.html`, reprennent le même cas :
+le lecteur doit savoir ce que la vidéo résout avant de la lancer.
 
 ## Ce que fait la base de démo (`seed_demo.py`)
 
