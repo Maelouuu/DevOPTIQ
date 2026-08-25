@@ -636,11 +636,20 @@ function renderConnections() {
     if (!fromUsage[fk]) fromUsage[fk] = [];
     fromUsage[fk].push(c.id);
     // unifiedUsage : entrantes + sortantes mélangées (pour point physique unique)
+    // La clé de tri est la position de l'AUTRE extrémité. Sans elle l'ordre
+    // d'attache dépend de l'ordre de state.connections : deux flèches parallèles
+    // entre les deux mêmes formes se retrouvaient interverties (celle du haut
+    // passait en bas), alors que Visio les dessine côte à côte.
+    const fHoriz = (fdir === 'left' || fdir === 'right');
+    const tHoriz = (tdir === 'left' || tdir === 'right');
     if (!unifiedUsage[fk]) unifiedUsage[fk] = [];
-    unifiedUsage[fk].push({ connId: c.id, end: 'from' });
+    unifiedUsage[fk].push({ connId: c.id, end: 'from',
+                            _k: fHoriz ? to.y + to.h/2 : to.x + to.w/2 });
     if (!unifiedUsage[tk]) unifiedUsage[tk] = [];
-    unifiedUsage[tk].push({ connId: c.id, end: 'to' });
+    unifiedUsage[tk].push({ connId: c.id, end: 'to',
+                            _k: tHoriz ? from.y + from.h/2 : from.x + from.w/2 });
   }
+  for (const list of Object.values(unifiedUsage)) list.sort((a, b) => a._k - b._k);
 
   // spreadPort: attache une connexion au bord d'une forme.
   // Si explicitT est fourni (depuis VSDX ou drag manuel), l'utilise directement
@@ -686,6 +695,9 @@ function renderConnections() {
     }
   }
 
+  const _connById = {};
+  for (const c of state.connections) _connById[c.id] = c;
+
   const placedLabels = []; // bounding boxes des labels déjà placés
   const placedPaths  = []; // segments des connexions déjà rendues (évite labels aux croisements)
   const labelQueue   = []; // labels collectés en passe 1, rendus en passe 2 (toujours au-dessus)
@@ -712,8 +724,17 @@ function renderConnections() {
     {
       const fk2 = `${c.fromId}-${fdir}`;
       const fUsers2 = fromUsage[fk2] || [];
-      const fIdx2 = fUsers2.indexOf(c.id);
-      const fN2 = fUsers2.length;
+      // Les branches d'une fourche partent toutes du MÊME point de connexion :
+      // elles doivent partager un tronc, donc recevoir le même décalage. On ne
+      // compte donc que les points de départ DISTINCTS — sinon un « une flèche
+      // qui se divise en deux » ressort en deux traits parallèles décalés.
+      const _okeys = fUsers2.map(id => {
+        const o = _connById[id];
+        return o && o.fromPortT !== undefined ? o.fromPortT.toFixed(4) : 'c' + id;
+      });
+      const _ouniq = [...new Set(_okeys)];
+      const fIdx2 = _ouniq.indexOf(_okeys[fUsers2.indexOf(c.id)]);
+      const fN2 = _ouniq.length;
       const bundleOffset = fN2 > 1 ? (fIdx2 - (fN2 - 1) / 2) * 14 : 0;
       if (c.userPts && c.userPts.length >= 1) {
         orthopts = [fp, ...c.userPts, tp];
