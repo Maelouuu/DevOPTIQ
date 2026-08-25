@@ -1,6 +1,6 @@
 from flask import Blueprint, render_template, request, redirect, url_for, session, flash
 from sqlalchemy.orm.attributes import flag_modified
-from Code.models.models import User, Role, UserRole  # Ajout de UserRole
+from Code.models.models import User, Role, UserRole, DEFAULT_LANG, default_lang_for  # Ajout de UserRole
 from Code.extensions import db
 from Code.security import hash_password, verify_password, needs_rehash
 
@@ -35,6 +35,17 @@ def login():
 
         session['user_email'] = email
         session['user_id'] = user.id  # IMPORTANT pour le filtrage des entités
+        # Langue du compte. Les comptes créés avant l'ajout de la colonne
+        # n'ont rien : on retombe sur le défaut produit (anglais), sauf pour
+        # les comptes explicitement français.
+        lang = getattr(user, 'lang', None) or default_lang_for(user.email)
+        session['lang'] = lang
+        if getattr(user, 'lang', None) != lang:
+            try:
+                user.lang = lang
+                db.session.commit()
+            except Exception:
+                db.session.rollback()  # le login reste valide
         return redirect(url_for('activities_map_bp.activities_map_page'))
 
     return render_template('connexion.html')
@@ -44,6 +55,7 @@ def logout():
     session.pop('user_email', None)
     session.pop('user_id', None)  # Nettoyer l'ID utilisateur
     session.pop('active_entity_id', None)  # Nettoyer l'entité active
+    session['lang'] = DEFAULT_LANG  # l'écran de connexion repart en anglais
     flash('Déconnexion réussie.', 'success')
     return redirect(url_for('auth.login'))
 

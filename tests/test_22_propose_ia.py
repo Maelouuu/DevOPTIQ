@@ -212,7 +212,7 @@ class TestProposeSavoirs:
     def test_with_openai_key_exception_returns_fallback_error_fr(self, app, monkeypatch):
         """Si le client OpenAI lève une exception → 200 + message d'erreur FR + champ 'error'."""
         _mock_openai(monkeypatch, "propose_savoirs", raise_exc=RuntimeError("boom"))
-        with app.test_client() as fresh:
+        with _lang_client(app, 'fr') as fresh:
             r = fresh.post(
                 "/propose_savoirs/propose",
                 data=json.dumps({"name": "X"}),
@@ -337,7 +337,7 @@ class TestProposeSavoirFaires:
     def test_with_openai_key_exception_returns_fallback_error_fr(self, app, monkeypatch):
         """Exception côté client OpenAI → 200 + message d'erreur FR + champ 'error'."""
         _mock_openai(monkeypatch, "propose_savoir_faires", raise_exc=RuntimeError("boom"))
-        with app.test_client() as fresh:
+        with _lang_client(app, 'fr') as fresh:
             r = fresh.post(
                 "/propose_savoir_faires/propose",
                 data=json.dumps({"name": "X"}),
@@ -447,7 +447,7 @@ class TestProposeSoftskills:
             {"habilete": "Synthèse", "niveau": "2", "justification": "Rédaction de comptes rendus."},
         ])
         _mock_openai(monkeypatch, "propose_softskills", content=content)
-        with app.test_client() as fresh:
+        with _lang_client(app, 'fr') as fresh:
             r = fresh.post(
                 "/propose_softskills/propose",
                 data=json.dumps({
@@ -468,7 +468,7 @@ class TestProposeSoftskills:
         """Réponse IA = objet JSON unique (pas un tableau) → transformé en liste à 1 élément."""
         content = json.dumps({"habilete": "Planification", "niveau": 4, "justification": "Jalons multiples."})
         _mock_openai(monkeypatch, "propose_softskills", content=content)
-        with app.test_client() as fresh:
+        with _lang_client(app, 'fr') as fresh:
             r = fresh.post("/propose_softskills/propose", data=json.dumps({}), content_type="application/json")
         assert r.status_code == 200
         proposals = json.loads(r.data)["proposals"]
@@ -489,7 +489,7 @@ class TestProposeSoftskills:
     def test_with_openai_key_invalid_json_falls_back_to_text_lines(self, app, monkeypatch):
         """Réponse IA non-JSON → repli sur un parsing ligne par ligne du texte brut."""
         _mock_openai(monkeypatch, "propose_softskills", content="- Coopération renforcée\n- Synthèse rapide des échanges")
-        with app.test_client() as fresh:
+        with _lang_client(app, 'fr') as fresh:
             r = fresh.post("/propose_softskills/propose", data=json.dumps({}), content_type="application/json")
         assert r.status_code == 200
         proposals = json.loads(r.data)["proposals"]
@@ -501,7 +501,7 @@ class TestProposeSoftskills:
     def test_with_openai_key_empty_json_array_uses_default_entry(self, app, monkeypatch):
         """Réponse IA = tableau JSON vide et aucune ligne exploitable → entrée par défaut."""
         _mock_openai(monkeypatch, "propose_softskills", content="[]")
-        with app.test_client() as fresh:
+        with _lang_client(app, 'fr') as fresh:
             r = fresh.post("/propose_softskills/propose", data=json.dumps({}), content_type="application/json")
         assert r.status_code == 200
         proposals = json.loads(r.data)["proposals"]
@@ -512,7 +512,7 @@ class TestProposeSoftskills:
         """Un niveau non reconnu (hors 1-4) retombe sur le niveau par défaut (2)."""
         content = json.dumps([{"habilete": "Adaptation relationnelle", "niveau": "9 (Inconnu)", "justification": "X"}])
         _mock_openai(monkeypatch, "propose_softskills", content=content)
-        with app.test_client() as fresh:
+        with _lang_client(app, 'fr') as fresh:
             r = fresh.post("/propose_softskills/propose", data=json.dumps({}), content_type="application/json")
         proposals = json.loads(r.data)["proposals"]
         assert proposals[0]["niveau"] == "2 (Acquisition)"
@@ -520,7 +520,7 @@ class TestProposeSoftskills:
     def test_with_openai_key_exception_returns_fallback_error_fr(self, app, monkeypatch):
         """Exception côté client OpenAI → 200 + entrée d'erreur FR + champ 'error'."""
         _mock_openai(monkeypatch, "propose_softskills", raise_exc=RuntimeError("boom"))
-        with app.test_client() as fresh:
+        with _lang_client(app, 'fr') as fresh:
             r = fresh.post("/propose_softskills/propose", data=json.dumps({}), content_type="application/json")
         assert r.status_code == 200
         data = json.loads(r.data)

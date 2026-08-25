@@ -64,6 +64,21 @@ def set_language():
     if lang not in _ALLOWED_LANGS:
         return jsonify({'ok': False, 'error': 'Langue non supportée'}), 400
     session['lang'] = lang
+
+    # Persister sur le compte : le choix doit survivre à la déconnexion.
+    uid = session.get('user_id')
+    if uid:
+        try:
+            from Code.extensions import db
+            from Code.models.models import User
+            user = db.session.get(User, uid)
+            if user is not None and getattr(user, 'lang', None) != lang:
+                user.lang = lang
+                db.session.commit()
+        except Exception:
+            from Code.extensions import db
+            db.session.rollback()  # le changement reste actif pour la session
+
     return jsonify({'ok': True, 'lang': lang})
 
 

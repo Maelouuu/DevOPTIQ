@@ -191,10 +191,21 @@ def create_app(test_config=None):
     # ── Contexte de traduction (injecte t() et lang dans tous les templates) ──
     from Code.translations import t as _t
 
+    # L'anglais est la langue par défaut : on renseigne session['lang'] dès la
+    # première requête pour que les dizaines de session.get('lang', 'fr')
+    # disséminées dans les vues ne retombent jamais sur le français.
+    @app.before_request
+    def _default_language():
+        from flask import session as _sess
+        from Code.models.models import DEFAULT_LANG
+        if not _sess.get('lang'):
+            _sess['lang'] = DEFAULT_LANG
+
     @app.context_processor
     def inject_translation():
         from flask import session as _sess
-        lang = _sess.get('lang', 'fr') if _sess else 'fr'
+        from Code.models.models import DEFAULT_LANG
+        lang = _sess.get('lang', DEFAULT_LANG) if _sess else DEFAULT_LANG
         return {'t': _t, 'lang': lang}
 
     # -----------------------------
@@ -414,6 +425,20 @@ def create_app(test_config=None):
         _safe_add_column("entities", "svg_content", "TEXT")
         _safe_add_column("entities", "vsdx_filename", "VARCHAR(255)")
         _safe_add_column("entities", "optiqcarto_data", "TEXT")
+        _safe_add_column("users", "lang", "VARCHAR(5)")
+        # Comptes créés avant la colonne : anglais par défaut, sauf ceux qui
+        # doivent rester en français (DEFAULT_FRENCH_ACCOUNTS).
+        try:
+            from Code.models.models import DEFAULT_LANG, DEFAULT_FRENCH_ACCOUNTS
+            with _init_conn() as _conn:
+                _conn.execute(_text("UPDATE users SET lang = :d WHERE lang IS NULL OR lang = ''"),
+                              {"d": DEFAULT_LANG})
+                for _mail in DEFAULT_FRENCH_ACCOUNTS:
+                    _conn.execute(_text("UPDATE users SET lang = 'fr' WHERE lower(email) = :m"),
+                                  {"m": _mail})
+                _conn.commit()
+        except Exception as _e:
+            print(f"[DB] backfill users.lang ignoré: {_e}")
         _safe_add_column("recent_events", "detail", "TEXT")
         _safe_add_column("recent_events", "user_id", "INTEGER")
         _safe_add_column("activities", "shape_subtype", "VARCHAR(50)")

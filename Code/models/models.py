@@ -443,6 +443,10 @@ class User(db.Model):
     email = db.Column(db.String(200), nullable=False, unique=True)
     password = db.Column(db.String(255), nullable=False)
     status = db.Column(db.String(20), nullable=False, default='user')
+    # Langue de l'interface, propre au compte. L'anglais est la langue par
+    # défaut du produit ; seuls les comptes de DEFAULT_FRENCH_ACCOUNTS naissent
+    # en français. Modifiable ensuite depuis Paramètres.
+    lang = db.Column(db.String(5), nullable=False, default='en', server_default='en')
     manager_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
 
     subordinates = db.relationship('User', backref=db.backref('manager', remote_side=[id]))
@@ -455,6 +459,18 @@ class User(db.Model):
         if active_entity_id:
             return cls.query.filter_by(entity_id=active_entity_id)
         return cls.query.filter(cls.id < 0)
+
+
+# Langue servie quand rien n'est précisé (compte, session).
+DEFAULT_LANG = 'en'
+
+# Comptes qui restent en français malgré le défaut anglais.
+DEFAULT_FRENCH_ACCOUNTS = {'afdec.enterprise.services@gmail.com'}
+
+
+def default_lang_for(email):
+    """Langue initiale d'un compte, d'après son e-mail."""
+    return 'fr' if (email or '').strip().lower() in DEFAULT_FRENCH_ACCOUNTS else DEFAULT_LANG
 
 
 class UserRole(db.Model):
