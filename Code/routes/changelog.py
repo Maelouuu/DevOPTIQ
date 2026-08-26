@@ -5,7 +5,8 @@ import json
 import time
 from datetime import datetime
 
-from flask import Blueprint, jsonify
+from Code.translations import t
+from flask import Blueprint, jsonify, session
 from Code.ai_key import get_openai_key
 from Code.prompts import get_prompt
 
@@ -52,10 +53,29 @@ def _read_curated():
         with open(path, 'r', encoding='utf-8') as f:
             items = json.load(f)
         if isinstance(items, list) and items:
-            return {"items": items}
+            return {"items": [_curated_lang(it) for it in items]}
     except Exception:
         pass
     return None
+
+def _lang():
+    """Langue de la session ; 'fr' hors contexte de requete."""
+    try:
+        return session.get('lang', 'fr')
+    except RuntimeError:
+        return 'fr'
+
+
+def _curated_lang(item):
+    """Sert title_en/desc_en quand la session est en anglais."""
+    if _lang() != 'en':
+        return item
+    sortie = dict(item)
+    for champ in ('title', 'desc'):
+        if item.get(champ + '_en'):
+            sortie[champ] = item[champ + '_en']
+    return sortie
+
 
 def _fallback_changelog():
     return {"items": [
@@ -105,33 +125,32 @@ def _format_relative_time(dt):
     diff = datetime.utcnow() - dt
     seconds = diff.total_seconds()
     if seconds < 60:
-        return "à l'instant"
+        return t('event.just_now')
     elif seconds < 3600:
         minutes = int(seconds / 60)
-        return f"il y a {minutes} min"
+        return t('event.min_ago') % minutes
     elif seconds < 86400:
         hours = int(seconds / 3600)
-        return f"il y a {hours}h"
+        return t('event.hours_ago') % hours
     else:
         days = int(seconds / 86400)
-        return f"il y a {days}j"
+        return t('event.days_ago') % days
 
 
-_EVENT_LABELS = {
-    'activity_created': 'Ajout',
-    'activity_updated': 'Modification',
-    'activity_deleted': 'Suppression',
-    'task_created':     'Ajout',
-    'task_updated':     'Modification',
-    'task_deleted':     'Suppression',
-    'role_created':     'Ajout',
-    'role_updated':     'Modification',
-    'role_deleted':     'Suppression',
-    'tool_created':     'Ajout',
-    'tool_updated':     'Modification',
-    'tool_deleted':     'Suppression',
-    'tool_linked':      'Association',
+_EVENT_KINDS = {
+    'created': 'event.kind_add',
+    'updated': 'event.kind_update',
+    'deleted': 'event.kind_delete',
+    'linked':  'event.kind_link',
 }
+
+
+def _event_kind(event_type):
+    for suffixe, cle in _EVENT_KINDS.items():
+        if (event_type or '').endswith(suffixe):
+            return t(cle)
+    return t('event.kind_other')
+
 
 _EVENT_COLORS = {
     'created': 'green',
@@ -151,9 +170,12 @@ def _event_color(event_type):
 def _format_date(dt):
     if not dt:
         return ""
-    months = ['jan.', 'fév.', 'mars', 'avr.', 'mai', 'juin',
-              'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.']
-    return f"{dt.day} {months[dt.month - 1]} à {dt.strftime('%H:%M')}"
+    mois = {'fr': ['jan.', 'fév.', 'mars', 'avr.', 'mai', 'juin',
+                   'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'],
+            'en': ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+                   'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']}
+    libelle = mois.get(_lang(), mois['fr'])
+    return f"{dt.day} {libelle[dt.month - 1]} {t('event.date_at')} {dt.strftime('%H:%M')}"
 
 
 @changelog_bp.route('/api/recent-activity', methods=['GET'])
@@ -187,7 +209,7 @@ def get_recent_activity():
                 "icon":        ev.icon,
                 "label":       ev.label,
                 "type":        ev.event_type,
-                "event_label": _EVENT_LABELS.get(ev.event_type, 'Événement'),
+                "event_label": _event_kind(ev.event_type),
                 "color":       _event_color(ev.event_type),
                 "time":        _format_relative_time(ev.created_at),
                 "date":        _format_date(ev.created_at),

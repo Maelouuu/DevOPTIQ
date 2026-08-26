@@ -71,7 +71,7 @@ class TestRecentActivity:
                 db.session.commit()
 
     def test_recent_activity_event_label_mapped(self, app, auth_client):
-        """L'event_label est correctement mappé depuis _EVENT_LABELS."""
+        """L'event_label suit la langue de la session (FR et EN)."""
         with app.app_context():
             from Code.models.models import RecentEvent
             from Code.extensions import db
@@ -84,11 +84,14 @@ class TestRecentActivity:
             db.session.commit()
             ev_id = ev.id
 
-        r = auth_client.get("/api/recent-activity")
-        body = json.loads(r.data)
-        created_items = [i for i in body["items"] if i.get("type") == "task_created"]
-        if created_items:
-            assert created_items[0]["event_label"] == "Ajout"
+        for langue, attendu in (("fr", "Ajout"), ("en", "Added")):
+            with auth_client.session_transaction() as sess:
+                sess["lang"] = langue
+            r = auth_client.get("/api/recent-activity")
+            body = json.loads(r.data)
+            created_items = [i for i in body["items"] if i.get("type") == "task_created"]
+            if created_items:
+                assert created_items[0]["event_label"] == attendu
 
         with app.app_context():
             from Code.models.models import RecentEvent

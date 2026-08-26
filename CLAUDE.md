@@ -358,6 +358,34 @@ partagent un design system chargé partout via `header_buttons.html` :
   dur → page Compétences morte sur toute autre base. Désormais : l'utilisateur
   connecté s'il encadre, sinon son manager.
 
+### Complété (session 9 — 2026-08-26)
+- **Guide bilingue jusqu'aux DONNÉES** (`tools/guide/demo_data_i18n.py`) : le VSDX
+  d'exemple mélange les langues (20 bandes anglaises, 16 activités et 27 flèches
+  françaises) — le guide français affichait donc des rôles anglais et le guide
+  anglais des activités françaises. `traduire_diagramme()` réécrit les libellés
+  AVANT `/cartography/api/save` (activités, rôles et liens naissent traduits) et
+  tout le contenu enrichi est décliné (outils, verbes de tâches, savoirs, HSC,
+  missions, projet, faiblesse). `libelles_non_traduits()` signale au démarrage du
+  seed tout libellé sans entrée. Les 36 captures et 16 vidéos ont été refaites.
+- **Voile sombre sur les captures du guide** : les images des paires FR/EN
+  portaient `loading="lazy"` — une image cachée n'est jamais chargée, et en thème
+  sombre le `.frame` laissait voir `var(--card)` (#141d2e) le temps du décodage.
+  Correction : plus de `loading="lazy"` sur les paires (le fichier autonome
+  embarque déjà les octets en data:) + fond de cadre clair constant.
+- **Traductions applicatives manquantes** (visibles dans les captures anglaises) :
+  carte des activités (« Cartographie », « 14 activités », « Rechercher une
+  activité »… → `map.*`), page Temps (en-têtes des 3 tableaux construits par
+  `time.js` + résumé des projets → `window.TIME_I18N`, helper `tl(cle, defaut)`),
+  fenêtre de bienvenue et journal d'activité (`welcome.*`, `event.*`, dates,
+  nouveautés curées bilingues via `title_en`/`desc_en` dans
+  `static/changelog_user.json`). Balayage automatisé : 36 mots français sur les
+  9 pages anglaises → 0.
+- ⚠️ **Piège RecentEvent** : les listeners SQLAlchemy de `models.py` écrivent le
+  libellé de l'événement (« Rôle modifié : X ») dans la langue de `session['lang']`
+  au moment de l'écriture. Un script qui travaille dans un simple `app_context()`
+  n'a pas de session → tout repart en français. `seed_demo.py` enrichit donc dans
+  un `test_request_context()` avec `session['lang']` posé.
+
 ### En cours
 - *(rien)*
 
