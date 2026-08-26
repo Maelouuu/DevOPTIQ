@@ -214,6 +214,7 @@
   /* Une vidéo pas encore régénérée (pipeline tools/guide) ne doit pas laisser
      un lecteur vide dans le guide : on masque la figure entière. */
   figure.no-video{display:none}
+  video.no-video{display:none}
 
   /* ══ Thème sombre ══
      Seuls les jetons changent : le reste du guide s'appuie déjà dessus. */
@@ -241,18 +242,47 @@
     background:#f1f5f9;
   }
 
-  /* ══ Barre d'outils : thème + langue ══ */
-  .gbar{position:sticky;top:0;z-index:40;display:flex;justify-content:flex-end;gap:8px;
-    padding:12px 0 4px;background:linear-gradient(var(--bg) 68%,transparent)}
-  .gbar button{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--border);
-    background:var(--card);color:var(--ink2);border-radius:999px;padding:7px 14px;
-    font-family:var(--font);font-size:13px;font-weight:700;cursor:pointer;
-    box-shadow:var(--sh);transition:border-color .18s,color .18s}
-  .gbar button:hover{border-color:var(--c-comp);color:var(--ink)}
-  .gbar .seg{display:inline-flex;border:1px solid var(--border);border-radius:999px;
-    background:var(--card);box-shadow:var(--sh);overflow:hidden}
-  .gbar .seg button{border:none;box-shadow:none;border-radius:0;padding:7px 13px}
-  .gbar .seg button[aria-pressed="true"]{background:var(--c-comp);color:#fff}
+  /* ══ Barre d'outils : thème + langue ══
+     Un seul bloc « verre » : segment de langue à indicateur glissant, séparateur,
+     bascule de thème. Icônes en SVG — les emoji ne se rendent pas partout. */
+  .gbar{position:sticky;top:0;z-index:40;display:flex;justify-content:flex-end;
+    padding:14px 0 6px;background:linear-gradient(var(--bg) 62%,transparent);pointer-events:none}
+  .gctl{display:inline-flex;align-items:center;gap:4px;padding:5px;border-radius:999px;
+    background:color-mix(in srgb,var(--card) 86%,transparent);
+    border:1px solid var(--border);pointer-events:auto;
+    backdrop-filter:blur(14px) saturate(1.4);-webkit-backdrop-filter:blur(14px) saturate(1.4);
+    box-shadow:0 1px 2px rgba(15,23,42,.06),0 14px 34px -16px rgba(15,23,42,.42)}
+  :root[data-theme="dark"] .gctl{box-shadow:0 1px 2px rgba(0,0,0,.4),0 14px 34px -16px rgba(0,0,0,.7)}
+
+  .gseg{position:relative;display:inline-flex;border-radius:999px;background:var(--card2)}
+  .gseg .ind{position:absolute;top:3px;bottom:3px;left:3px;width:calc(50% - 3px);border-radius:999px;
+    background:linear-gradient(150deg,var(--c-comp),color-mix(in srgb,var(--c-comp) 68%,#000));
+    box-shadow:0 2px 8px -2px color-mix(in srgb,var(--c-comp) 80%,transparent);
+    transition:transform .34s cubic-bezier(.25,.9,.3,1.2)}
+  :root[lang="en"] .gseg .ind{transform:translateX(100%)}
+  .gseg button{position:relative;z-index:1;border:none;background:none;cursor:pointer;
+    font-family:var(--font);font-size:12.5px;font-weight:800;letter-spacing:.045em;
+    color:var(--muted);padding:7px 15px;border-radius:999px;transition:color .26s}
+  .gseg button[aria-pressed="true"]{color:#fff}
+  .gseg button:hover[aria-pressed="false"]{color:var(--ink)}
+
+  .gsep{width:1px;height:20px;background:var(--border);margin:0 3px;flex:none}
+
+  #btn-theme{display:inline-flex;align-items:center;gap:8px;border:none;background:none;
+    cursor:pointer;font-family:var(--font);font-size:12.5px;font-weight:700;color:var(--ink2);
+    padding:7px 14px 7px 9px;border-radius:999px;transition:background .2s,color .2s}
+  #btn-theme:hover{background:var(--card2);color:var(--ink)}
+  #btn-theme .ico{position:relative;width:19px;height:19px;flex:none;display:grid;place-items:center}
+  #btn-theme .ico svg{position:absolute;width:19px;height:19px;stroke:currentColor;fill:none;
+    stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;
+    transition:opacity .3s ease,transform .42s cubic-bezier(.25,.9,.3,1.25)}
+  #btn-theme .ico .moon{opacity:1;transform:none;color:#6366f1}
+  #btn-theme .ico .sun{opacity:0;transform:rotate(-70deg) scale(.6);color:#f59e0b}
+  :root[data-theme="dark"] #btn-theme .ico .moon{opacity:0;transform:rotate(70deg) scale(.6)}
+  :root[data-theme="dark"] #btn-theme .ico .sun{opacity:1;transform:none}
+
+  .gctl button:focus-visible{outline:2px solid var(--c-comp);outline-offset:2px}
+  @media (max-width:700px){#btn-theme span:not(.ico){display:none}#btn-theme{padding:7px 10px}}
   @media print{.gbar{display:none}}
 
   /* ══ Bascule FR / EN ══
@@ -304,14 +334,21 @@
 
 <!-- ══════════════ BARRE : THÈME + LANGUE ══════════════ -->
 <div class="gbar">
-  <div class="seg" role="group" aria-label="Langue / Language">
-    <button type="button" data-lang="fr" aria-pressed="true">FR</button>
-    <button type="button" data-lang="en" aria-pressed="false">EN</button>
+  <div class="gctl">
+    <div class="gseg" role="group" aria-label="Langue / Language">
+      <span class="ind" aria-hidden="true"></span>
+      <button type="button" data-lang="fr" aria-pressed="true">FR</button>
+      <button type="button" data-lang="en" aria-pressed="false">EN</button>
+    </div>
+    <span class="gsep" aria-hidden="true"></span>
+    <button type="button" id="btn-theme" aria-pressed="false">
+      <span class="ico" aria-hidden="true">
+        <svg class="moon" viewBox="0 0 24 24"><path d="M20.5 14.6A8.6 8.6 0 0 1 9.4 3.5a8.6 8.6 0 1 0 11.1 11.1Z"/></svg>
+        <svg class="sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.1"/><path d="M12 2.6v2.2M12 19.2v2.2M4.4 4.4l1.6 1.6M18 18l1.6 1.6M2.6 12h2.2M19.2 12h2.2M4.4 19.6 6 18M18 6l1.6-1.6"/></svg>
+      </span>
+      <span class="t-fr">Thème sombre</span><span class="t-en">Dark theme</span>
+    </button>
   </div>
-  <button type="button" id="btn-theme" aria-pressed="false">
-    <span id="theme-ico">🌙</span>
-    <span class="t-fr">Thème sombre</span><span class="t-en">Dark theme</span>
-  </button>
 </div>
 
 <!-- ══════════════ EN-TÊTE ══════════════ -->
@@ -446,7 +483,7 @@
   </ol>
   <figure>
     <div class="frame frame-video"><div class="frame-bar"><span><span class="t-fr">Se déplacer, zoomer, ouvrir une activité depuis la carte</span><span class="t-en">Pan, zoom, open an activity from the map</span></span></div>
-    <video controls muted playsinline preload="metadata" poster="assets/guide/poster-flux-carto.png" src="assets/guide/flux-carto.webm"></video></div>
+    <video class="t-fr" controls muted playsinline preload="metadata" poster="assets/guide/poster-flux-carto.png" src="assets/guide/flux-carto.webm"></video><video class="t-en" controls muted playsinline preload="metadata" poster="assets/guide/poster-flux-carto-en.png" src="assets/guide/flux-carto-en.webm"></video></div>
     <figcaption><span class="t-fr"><span class="video-tag"><span class="t-fr">▶ démonstration</span><span class="t-en">▶ walkthrough</span></span><b>Un client demande un prix — par où
     ça passe&nbsp;?</b> On remonte le flux au cliquer-glisser, on zoome pour lire les flèches
     (chacune est une donnée qui circule), puis on ouvre le maillon qui nous intéresse&nbsp;:
@@ -482,7 +519,7 @@
   </ol>
   <figure>
     <div class="frame frame-video"><div class="frame-bar"><span><span class="t-fr">Déposer une copie de son entité chez ses collègues</span><span class="t-en">Drop a copy of your entity into your colleagues' accounts</span></span></div>
-    <video controls muted playsinline preload="metadata" poster="assets/guide/poster-flux-partage.png" src="assets/guide/flux-partage.webm"></video></div>
+    <video class="t-fr" controls muted playsinline preload="metadata" poster="assets/guide/poster-flux-partage.png" src="assets/guide/flux-partage.webm"></video><video class="t-en" controls muted playsinline preload="metadata" poster="assets/guide/poster-flux-partage-en.png" src="assets/guide/flux-partage-en.webm"></video></div>
     <figcaption><span class="t-fr"><span class="video-tag"><span class="t-fr">▶ démonstration</span><span class="t-en">▶ walkthrough</span></span><b>La carte est finie&nbsp;: il faut que
     l'équipe l'ait aussi.</b> Gestion des entités, sélection de l'entité, <b>Partager</b>, deux
     collègues cochés — leur compte contient déjà la carte et ses rôles à la fin de la vidéo.</span><span class="t-en"><span class="video-tag">▶ walkthrough</span><b>The map is finished&nbsp;: the team needs it too.</b> Manage entities, pick the entity, <b>Share</b>, two colleagues ticked — by the end of the video their accounts already hold the map and its roles.</span></figcaption>
@@ -643,7 +680,7 @@
   </ol>
   <figure>
     <div class="frame frame-video"><div class="frame-bar"><span><span class="t-fr">Rechercher une activité et parcourir sa fiche</span><span class="t-en">Search for an activity and browse its record</span></span></div>
-    <video controls muted playsinline preload="metadata" poster="assets/guide/poster-flux-activite.png" src="assets/guide/flux-activite.webm"></video></div>
+    <video class="t-fr" controls muted playsinline preload="metadata" poster="assets/guide/poster-flux-activite.png" src="assets/guide/flux-activite.webm"></video><video class="t-en" controls muted playsinline preload="metadata" poster="assets/guide/poster-flux-activite-en.png" src="assets/guide/flux-activite-en.webm"></video></div>
     <figcaption><span class="t-fr"><span class="video-tag"><span class="t-fr">▶ démonstration</span><span class="t-en">▶ walkthrough</span></span><b>Claire part en congés&nbsp;: que
     faut-il savoir faire pour reprendre la cotation&nbsp;?</b> Recherche de l'activité, ouverture de sa
     fiche, passage d'onglet en onglet.</span><span class="t-en"><span class="video-tag">▶ walkthrough</span><b>Claire is going on leave&nbsp;: what do you need to know to take over quoting&nbsp;?</b> Search for the activity, open its record, move from tab to tab.</span></figcaption>
@@ -773,7 +810,7 @@
   </figure>
   <figure>
     <div class="frame frame-video"><div class="frame-bar"><span><span class="t-fr">Parcourir un rôle et compléter sa mission</span><span class="t-en">Browse a role and complete its mission</span></span></div>
-    <video controls muted playsinline preload="metadata" poster="assets/guide/poster-flux-role.png" src="assets/guide/flux-role.webm"></video></div>
+    <video class="t-fr" controls muted playsinline preload="metadata" poster="assets/guide/poster-flux-role.png" src="assets/guide/flux-role.webm"></video><video class="t-en" controls muted playsinline preload="metadata" poster="assets/guide/poster-flux-role-en.png" src="assets/guide/flux-role-en.webm"></video></div>
     <figcaption><span class="t-fr"><span class="video-tag"><span class="t-fr">▶ démonstration</span><span class="t-en">▶ walkthrough</span></span><b>Préparer un entretien annuel.</b>
     La fiche du Customer Service est déjà remplie par la carte&nbsp;; il ne reste qu'une phrase à
     écrire. Le parcours complet&nbsp;: recherche du rôle,
@@ -790,7 +827,7 @@
   </ol>
   <figure>
     <div class="frame frame-video"><div class="frame-bar"><span><span class="t-fr">Exporter : périmètre puis format</span><span class="t-en">Export: scope then format</span></span></div>
-    <video controls muted playsinline preload="metadata" poster="assets/guide/poster-flux-export.png" src="assets/guide/flux-export.webm"></video></div>
+    <video class="t-fr" controls muted playsinline preload="metadata" poster="assets/guide/poster-flux-export.png" src="assets/guide/flux-export.webm"></video><video class="t-en" controls muted playsinline preload="metadata" poster="assets/guide/poster-flux-export-en.png" src="assets/guide/flux-export-en.webm"></video></div>
     <figcaption><span class="t-fr"><span class="video-tag"><span class="t-fr">▶ démonstration</span><span class="t-en">▶ walkthrough</span></span><b>Le RH demande la fiche de poste
     d'un rôle pour un recrutement.</b> Les étapes 1-2-3&nbsp;: ouverture,
     choix du <b>périmètre</b> (un rôle précis), puis du <b>format</b>.</span><span class="t-en"><span class="video-tag">▶ walkthrough</span><b>HR asks for one role's job description for a hire.</b> Steps 1-2-3&nbsp;: open the dialog, choose the <b>scope</b> (one specific role), then the <b>format</b>.</span></figcaption>
@@ -830,7 +867,7 @@
   </ol>
   <figure>
     <div class="frame frame-video"><div class="frame-bar"><span><span class="t-fr">Choisir un collaborateur, un rôle, ouvrir l'évaluation</span><span class="t-en">Pick a person, a role, open the assessment</span></span></div>
-    <video controls muted playsinline preload="metadata" poster="assets/guide/poster-flux-competences.png" src="assets/guide/flux-competences.webm"></video></div>
+    <video class="t-fr" controls muted playsinline preload="metadata" poster="assets/guide/poster-flux-competences.png" src="assets/guide/flux-competences.webm"></video><video class="t-en" controls muted playsinline preload="metadata" poster="assets/guide/poster-flux-competences-en.png" src="assets/guide/flux-competences-en.webm"></video></div>
     <figcaption><span class="t-fr"><span class="video-tag"><span class="t-fr">▶ démonstration</span><span class="t-en">▶ walkthrough</span></span><b>Où en est Claire Dupont&nbsp;?</b>
     On se place dans un rôle précis — les attendus ne sont pas les mêmes d'un rôle à l'autre — puis
     on se prononce résultat par résultat. Les étapes 1-2-3 du pas-à-pas&nbsp;:
@@ -980,7 +1017,7 @@
   </figure>
   <figure>
     <div class="frame frame-video"><div class="frame-bar"><span><span class="t-fr">Chiffrer un projet et l'enregistrer</span><span class="t-en">Cost a project and save it</span></span></div>
-    <video controls muted playsinline preload="metadata" poster="assets/guide/poster-flux-projet.png" src="assets/guide/flux-projet.webm"></video></div>
+    <video class="t-fr" controls muted playsinline preload="metadata" poster="assets/guide/poster-flux-projet.png" src="assets/guide/flux-projet.webm"></video><video class="t-en" controls muted playsinline preload="metadata" poster="assets/guide/poster-flux-projet-en.png" src="assets/guide/flux-projet-en.webm"></video></div>
     <figcaption><span class="t-fr"><span class="video-tag"><span class="t-fr">▶ démonstration</span><span class="t-en">▶ walkthrough</span></span><b>«&nbsp;Combien coûte notre présence
     au salon&nbsp;?&nbsp;»</b> On assemble les activités mobilisées et on lit la charge réelle —
     le délai d'attente ne compte pas comme du travail. Un projet de bout en bout&nbsp;: nom,
@@ -1075,7 +1112,7 @@
   </div>
   <figure>
     <div class="frame frame-video"><div class="frame-bar"><span><span class="t-fr">Chiffrer une faiblesse de A à Z</span><span class="t-en">Cost a weakness from start to finish</span></span></div>
-    <video controls muted playsinline preload="metadata" poster="assets/guide/poster-flux-faiblesse.png" src="assets/guide/flux-faiblesse.webm"></video></div>
+    <video class="t-fr" controls muted playsinline preload="metadata" poster="assets/guide/poster-flux-faiblesse.png" src="assets/guide/flux-faiblesse.webm"></video><video class="t-en" controls muted playsinline preload="metadata" poster="assets/guide/poster-flux-faiblesse-en.png" src="assets/guide/flux-faiblesse-en.webm"></video></div>
     <figcaption><span class="t-fr"><span class="video-tag"><span class="t-fr">▶ démonstration</span><span class="t-en">▶ walkthrough</span></span><b>«&nbsp;Les données client arrivent
     incomplètes&nbsp;»</b>&nbsp;— l'irritant dont tout le monde se plaint sans jamais le chiffrer.
     Un dossier sur quatre, 25&nbsp;min de relance, 120&nbsp;min d'attente&nbsp;: saisie complète
@@ -1304,10 +1341,10 @@
 
   // ── Thème ──
   const btnTheme = document.getElementById('btn-theme');
-  const ico = document.getElementById('theme-ico');
   function appliquerTheme(mode) {
+    // Les deux icônes sont dans le DOM ; c'est le CSS qui permute selon
+    // data-theme — pas de scintillement, et l'animation reste fluide.
     root.setAttribute('data-theme', mode);
-    if (ico) ico.textContent = mode === 'dark' ? '☀️' : '🌙';
     if (btnTheme) btnTheme.setAttribute('aria-pressed', mode === 'dark' ? 'true' : 'false');
     const fr = btnTheme && btnTheme.querySelector('.t-fr');
     const en = btnTheme && btnTheme.querySelector('.t-en');
@@ -1324,7 +1361,7 @@
   });
 
   // ── Langue ──
-  const boutonsLangue = [...document.querySelectorAll('.gbar [data-lang]')];
+  const boutonsLangue = [...document.querySelectorAll('.gseg [data-lang]')];
   function appliquerLangue(l) {
     root.setAttribute('lang', l);
     boutonsLangue.forEach(b => b.setAttribute('aria-pressed', b.dataset.lang === l ? 'true' : 'false'));
@@ -1333,6 +1370,8 @@
   }
   appliquerLangue(lire('optiq-guide-lang') || 'fr');
   boutonsLangue.forEach(b => b.addEventListener('click', () => {
+    // Mettre en pause la vidéo qu'on quitte : masquée, elle continuerait sinon.
+    document.querySelectorAll('video').forEach(v => { try { v.pause(); } catch (_) {} });
     appliquerLangue(b.dataset.lang);
     ecrire('optiq-guide-lang', b.dataset.lang);
   }));
@@ -1341,7 +1380,13 @@
 // ── Vidéo absente (pipeline tools/guide pas encore relancé) : on masque la
 //    figure entière plutôt que de laisser un lecteur vide dans le guide.
 document.querySelectorAll('figure .frame-video video').forEach(v => {
-  v.addEventListener('error', () => v.closest('figure')?.classList.add('no-video'), true);
+  v.addEventListener('error', () => {
+    // Une figure porte les DEUX langues : on masque la vidéo absente, et la
+    // figure entière seulement si aucune des deux n'a pu être chargée.
+    v.classList.add('no-video');
+    const fig = v.closest('figure');
+    if (fig && !fig.querySelector('video:not(.no-video)')) fig.classList.add('no-video');
+  }, true);
 });
 
 // ── Diapos : auto-avance quand visible, pause au survol, navigation manuelle ──

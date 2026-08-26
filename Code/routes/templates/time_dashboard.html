@@ -1,5 +1,12 @@
 {% include "header_buttons.html" %}
 <link rel="stylesheet" href="{{ url_for('static', filename='time.css') }}">
+<script>
+  // Libellés des unités de durée. La VALEUR envoyée au serveur reste
+  // française (clé de UNIT_TO_MIN) : seul l'affichage suit la langue.
+  window.TIME_I18N = { minutes: {{ t('time.unit_minutes')|tojson }},
+                       hours:   {{ t('time.unit_hours')|tojson }},
+                       days:    {{ t('time.unit_days')|tojson }} };
+</script>
 <script defer src="{{ url_for('static', filename='js/time.js') }}"></script>
 
 <div id="page-temps" class="container pg-root page--time">

@@ -47,7 +47,10 @@
   function unitSelect(){
     const s=document.createElement('select');
     s.className='input';
-    s.innerHTML=`<option>minutes</option><option>heures</option><option>jours</option>`;
+    const L = window.TIME_I18N || {};
+    s.innerHTML = `<option value="minutes">${L.minutes || 'minutes'}</option>`
+                + `<option value="heures">${L.hours || 'heures'}</option>`
+                + `<option value="jours">${L.days || 'jours'}</option>`;
     return s;
   }
 

@@ -219,6 +219,29 @@ cadence sur la fiche activité ; panneau de qualification des sorties + badges �
 
 ---
 
+## Guide utilisateur (`docs/guide.html`)
+
+- **Un seul fichier, deux langues, deux thèmes.** Barre en haut à droite : segment
+  FR/EN à indicateur glissant + bascule clair/sombre (icônes SVG, pas d'emoji —
+  ils ne se rendent pas partout). Choix mémorisés dans `localStorage`, chaque accès
+  en try/catch : un fichier ouvert depuis une clé USB ou une pièce jointe peut
+  refuser le stockage. Au premier affichage le thème suit `prefers-color-scheme`.
+- **Traduction** : les deux versions cohabitent dans le document
+  (`<span class="t-fr">` / `<span class="t-en">`) et le CSS n'affiche que la langue
+  active (`:root[lang=…]`). Aucun rechargement, le fichier reste autonome. ⚠️ Ne
+  jamais envelopper un fragment qui traverse une balise (`…</b><span>…`) : le
+  navigateur répare l'imbrication et le texte reste affiché dans les deux langues.
+- **Thème sombre** : seuls les jetons CSS changent. Les maquettes miniatures (`.mk`)
+  gardent volontairement un fond CLAIR : elles représentent l'application, qui est
+  claire, comme les captures juste à côté.
+- **Vidéos bilingues** : `GUIDE_LANG=fr|en` (voir `tools/guide/README.md`). Chaque
+  `<video>` est doublée `t-fr`/`t-en` ; le changement de langue met en pause les
+  lectures en cours (une vidéo masquée continuerait sinon).
+- **Fichier autonome** : `tools/guide/build_standalone.py` → `docs/guide_standalone.html`
+  (tout en base64, ~32 Mo avec les deux jeux de vidéos ; exclu de git).
+
+---
+
 ## Page Comptes — droits et langue
 
 - **Droits** (`Code/routes/gestion_compte.py`) : `User.status` est un texte libre, écrit différemment selon les instances → comparaison sur une forme **normalisée** (minuscules, sans accents, séparateurs unifiés) via `_norm_status()`.

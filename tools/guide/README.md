@@ -39,6 +39,33 @@ for f in flux-*.webm; do
 done
 ```
 
+## Deux jeux de vidéos : français et anglais
+
+`GUIDE_LANG=en` tourne le jeu anglais : la langue est appliquée **à la session
+de l'app** (interface traduite) **et aux bulles** (table `traductions_videos.py`).
+Les fichiers sortent suffixés `-en`.
+
+```bash
+GUIDE_LANG=fr python tools/guide/capture_videos.py   # flux-*.webm
+GUIDE_LANG=en python tools/guide/capture_videos.py   # flux-*-en.webm
+ONLY=flux-projet.webm GUIDE_LANG=en python tools/guide/capture_videos.py  # un seul parcours
+```
+
+Deux pièges, corrigés mais à connaître si on ajoute un parcours :
+
+- **les sélecteurs par libellé** (`has_text=`, `select_option(label=)`) doivent
+  passer par `T(fr, en)`. Un libellé français cherché dans une interface
+  anglaise fait attendre Playwright jusqu'au timeout, parcours après parcours —
+  un tournage entier peut y passer une heure sans message d'erreur. Le délai est
+  désormais plafonné à 8 s pour que l'échec soit rapide et visible ;
+- **les noms de données de démonstration** (« Analyse de faisabilité »,
+  « Customer relation ») viennent de la carto et ne sont PAS traduits : les
+  cibler tels quels est correct dans les deux langues.
+
+Un texte de bulle absent de `traductions_videos.py` ressort en français et le
+script le signale en fin de tournage — pas de vidéo à moitié traduite livrée
+sans qu'on le voie.
+
 ## Comment sont écrites les vidéos
 
 Chaque vidéo raconte **un cas précis, nommé, chiffré** — elle ne décrit pas
