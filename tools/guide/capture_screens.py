@@ -13,6 +13,15 @@ OUT = os.path.abspath(os.path.join(BASE, '..', '..', 'docs', 'assets', 'guide'))
 os.makedirs(OUT, exist_ok=True)
 URL = 'http://127.0.0.1:5601'
 
+# Langue du jeu de captures : GUIDE_LANG=en produit les fichiers suffixés « -en ».
+LANG = os.environ.get('GUIDE_LANG', 'fr')
+SUFFIXE = '' if LANG == 'fr' else '-' + LANG
+
+
+def T(fr, en):
+    """Texte selon la langue du jeu de captures (libellés ciblés, saisies)."""
+    return en if LANG == 'en' else fr
+
 # Curseur visible + halo de clic pour les vidéos
 CURSOR_JS = """
 window.addEventListener('DOMContentLoaded', () => {
@@ -36,14 +45,19 @@ window.addEventListener('DOMContentLoaded', () => {
 """
 
 
+def set_lang(pg):
+    """Langue de la session. Appelée AVANT le login : l'écran de connexion en
+    dépend lui aussi, et il est capturé avant d'être authentifié."""
+    pg.request.post(URL + '/parametres/set_language', data={'lang': LANG})
+
+
 def login(pg):
     pg.goto(URL + '/login')
     pg.fill('input[name="email"]', 'demo@afdec.fr')
     pg.fill('input[name="password"]', 'Visual123!')
     pg.click('button[type="submit"], input[type="submit"]')
     pg.wait_for_load_state('networkidle')
-    # Captures en français, quelle que soit la langue par défaut du compte.
-    pg.request.post(URL + '/parametres/set_language', data={'lang': 'fr'})
+    set_lang(pg)          # le compte a sa propre langue : on impose celle du jeu
     pg.wait_for_load_state('networkidle')
 
 
@@ -74,8 +88,24 @@ def slow_click(pg, locator, before=600, after=900):
 
 
 def shot(pg, name, full=False, clip=None):
-    pg.screenshot(path=os.path.join(OUT, name), full_page=full, clip=clip)
-    print('shot', name)
+    cible = name.replace('.png', SUFFIXE + '.png')
+    pg.screenshot(path=os.path.join(OUT, cible), full_page=full, clip=clip)
+    print('shot', cible)
+
+
+def shot_capped(pg, name, max_h=1500):
+    """Capture le HAUT de la page, hauteur plafonnée.
+
+    full_page=True sur ces pages donnait des images de 3 000 à 4 000 px de haut :
+    réduites à la largeur du guide, elles écrasaient tout le reste et devenaient
+    illisibles. On garde le haut de la page dans un format proche du carré.
+    """
+    hauteur = pg.evaluate("document.documentElement.scrollHeight")
+    largeur = pg.viewport_size['width']
+    pg.evaluate("window.scrollTo(0, 0)")
+    pg.wait_for_timeout(200)
+    shot(pg, name, full=True,
+         clip={'x': 0, 'y': 0, 'width': largeur, 'height': min(hauteur, max_h)})
 
 
 # Chromium : CHROME_PATH si fourni, sinon celui installé par
@@ -90,9 +120,11 @@ with sync_playwright() as p:
     ctx = browser.new_context(viewport={'width': 1440, 'height': 900})
     pg = ctx.new_page()
 
-    # Connexion (avant login)
+    # Connexion (avant login) — la langue doit déjà être posée
     pg.goto(URL + '/login')
-    pg.wait_for_timeout(600)
+    set_lang(pg)
+    pg.reload()
+    pg.wait_for_timeout(700)
     shot(pg, 'login.png')
 
     login(pg)
@@ -111,7 +143,7 @@ with sync_playwright() as p:
     shot(pg, 'activites-liste.png')
     slow_click(pg, pg.locator('.activity-header').first, before=100, after=800)
     shot(pg, 'activite-fiche.png')
-    tab = pg.locator('.tab-button', has_text='Compétences').first
+    tab = pg.locator('.tab-button', has_text=T('Compétences', 'Competencies')).first
     if tab.count():
         slow_click(pg, tab, before=100, after=800)
         shot(pg, 'activite-onglet-competences.png')
@@ -120,10 +152,10 @@ with sync_playwright() as p:
     goto(pg, '/roles_view/')
     shot(pg, 'roles-liste.png')
     slow_click(pg, pg.locator('.role-header').first, before=100, after=700)
-    b1 = pg.locator('.block-header', has_text='Garant').first
+    b1 = pg.locator('.block-header', has_text=T('Garant', 'Guarantor')).first
     if b1.count():
         slow_click(pg, b1, before=100, after=700)
-    shot(pg, 'role-detail.png', full=True)
+    shot_capped(pg, 'role-detail.png')
     # Modale export
     pg.locator('#btn-export-roles').click()
     pg.wait_for_timeout(900)
@@ -147,20 +179,21 @@ with sync_playwright() as p:
     slow_click(pg, pg.locator('.subtab[data-subtab="role"]'), before=100, after=900)
     shot(pg, 'temps-role.png')
     slow_click(pg, pg.locator('.subtab[data-subtab="faiblesse"]'), before=100, after=700)
-    pg.locator('#fw-k').fill('Données client incomplètes à la réception')
+    pg.locator('#fw-k').fill(T('Données client incomplètes à la réception',
+                              'Incomplete customer data on receipt'))
     pg.locator('#fw-n').fill('4')
     pg.locator('#fw-l').fill('25')
     pg.locator('#fw-m').fill('120')
     if pg.locator('#fw-dur').input_value() in ('', '0'):
         pg.locator('#fw-dur').fill('40')
     slow_click(pg, pg.locator('#btn-fw-calc'), before=200, after=1200)
-    shot(pg, 'temps-faiblesse.png', full=True)
+    shot_capped(pg, 'temps-faiblesse.png')
 
     # Comptes / RH / Outils / Paramètres
     goto(pg, '/comptes/')
     shot(pg, 'comptes.png')
     goto(pg, '/gestion_rh/')
-    shot(pg, 'rh.png', full=True)
+    shot_capped(pg, 'rh.png')
     goto(pg, '/gestion_outils/')
     shot(pg, 'outils.png')
     goto(pg, '/parametres/')

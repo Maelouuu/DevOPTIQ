@@ -214,7 +214,7 @@
   /* Une vidéo pas encore régénérée (pipeline tools/guide) ne doit pas laisser
      un lecteur vide dans le guide : on masque la figure entière. */
   figure.no-video{display:none}
-  video.no-video{display:none}
+  video.no-video,img.no-video{display:none}
 
   /* ══ Thème sombre ══
      Seuls les jetons changent : le reste du guide s'appuie déjà dessus. */
@@ -386,7 +386,7 @@
      <i>Mot de passe oublié&nbsp;?</i> vous envoie un e-mail de réinitialisation.</span><span class="t-en">Open the application address provided by your administrator, enter your e-mail and password, then click <b>Sign in</b>. If you have forgotten it, the <i>Forgot password&nbsp;?</i> link sends you a reset e-mail.</span></p>
   <figure>
     <div class="frame"><div class="frame-bar"><i></i><i></i><i></i><span><span class="t-fr">Écran de connexion</span><span class="t-en">Sign-in screen</span></span></div>
-    <img src="assets/guide/login.png" alt="Écran de connexion" loading="lazy"></div>
+    <img class="t-fr" src="assets/guide/login.png" alt="Écran de connexion" loading="lazy"><img class="t-en" src="assets/guide/login-en.png" alt="Écran de connexion" loading="lazy"></div>
   </figure>
 
   <h3><span class="t-fr">À l'arrivée : les nouveautés</span><span class="t-en">On arrival: what's new</span></h3>
@@ -395,7 +395,7 @@
      et quand. Cliquez sur <b>C'est parti&nbsp;!</b> pour la refermer.</span><span class="t-en">The first time you sign in each day, a <b>Welcome</b> window sums up what's new in the application (on the left) and the recent activity in your workspace (on the right)&nbsp;: who changed what, and when. Click <b>Let's go&nbsp;!</b> to close it.</span></p>
   <figure>
     <div class="frame"><div class="frame-bar"><i></i><i></i><i></i><span><span class="t-fr">Fenêtre de bienvenue</span><span class="t-en">Welcome window</span></span></div>
-    <img src="assets/guide/bienvenue.png" alt="Pop-up de bienvenue" loading="lazy"></div>
+    <img class="t-fr" src="assets/guide/bienvenue.png" alt="Pop-up de bienvenue" loading="lazy"><img class="t-en" src="assets/guide/bienvenue-en.png" alt="Pop-up de bienvenue" loading="lazy"></div>
   </figure>
 
   <h3><span class="t-fr">Se repérer : la barre de navigation</span><span class="t-en">Finding your way: the navigation bar</span></h3>
@@ -403,7 +403,7 @@
      retrouverez cette couleur partout dans la page (bandeau, boutons, titres), et dans ce guide.</span><span class="t-en">The bar at the top of the screen is your compass. Each page has <b>its own icon and colour</b> — you will find that colour throughout the page (banner, buttons, headings), and in this guide.</span></p>
   <figure>
     <div class="frame"><div class="frame-bar"><i></i><i></i><i></i><span><span class="t-fr">Barre de navigation</span><span class="t-en">Navigation bar</span></span></div>
-    <img src="assets/guide/nav.png" alt="Barre de navigation" loading="lazy"></div>
+    <img class="t-fr" src="assets/guide/nav.png" alt="Barre de navigation" loading="lazy"><img class="t-en" src="assets/guide/nav-en.png" alt="Barre de navigation" loading="lazy"></div>
     <figcaption><span class="t-fr">De gauche à droite : <b>Cartographie</b> (le point de départ), <b>Activités</b>,
     <b>Rôles</b>, <b>Compétences</b>, <b>Temps</b>, <b>Comptes</b>, <b>Gestion RH</b>, <b>Outils</b>,
     <b>Paramètres</b> — et la déconnexion tout à droite.</span><span class="t-en">From left to right: <b>Activity map</b> (the starting point), <b>Activities</b>, <b>Roles</b>, <b>Competencies</b>, <b>Time</b>, <b>Accounts</b>, <b>HR management</b>, <b>Tools</b>, <b>Settings</b> — and sign-out on the far right.</span></figcaption>
@@ -468,7 +468,7 @@
 
   <figure>
     <div class="frame"><div class="frame-bar"><i></i><i></i><i></i><span><span class="t-fr">Page Cartographie</span><span class="t-en">Activity map page</span></span></div>
-    <img src="assets/guide/carto.png" alt="Page cartographie" loading="lazy"></div>
+    <img class="t-fr" src="assets/guide/carto.png" alt="Page cartographie" loading="lazy"><img class="t-en" src="assets/guide/carto-en.png" alt="Page cartographie" loading="lazy"></div>
     <figcaption><span class="t-fr"><b>À gauche</b>&nbsp;: la carte (chaque couleur de bande = une compétence clé).
     <b>À droite</b>&nbsp;: la liste des activités de la carte, avec recherche.
     <b>En haut</b>&nbsp;: Import IA, Connexions inter-cartographies et Gestion des entités.</span><span class="t-en"><b>On the left</b>&nbsp;: the map (each band colour = one key competency). <b>On the right</b>&nbsp;: the list of activities on the map, with search. <b>At the top</b>&nbsp;: AI import, cross-map connections and entity management.</span></figcaption>
@@ -650,7 +650,7 @@
 
   <figure>
     <div class="frame"><div class="frame-bar"><i></i><i></i><i></i><span><span class="t-fr">Liste des activités</span><span class="t-en">Activity list</span></span></div>
-    <img src="assets/guide/activites-liste.png" alt="Liste des activités" loading="lazy"></div>
+    <img class="t-fr" src="assets/guide/activites-liste.png" alt="Liste des activités" loading="lazy"><img class="t-en" src="assets/guide/activites-liste-en.png" alt="Liste des activités" loading="lazy"></div>
     <figcaption><span class="t-fr">Chaque barre violette est une activité. La <b>barre de recherche</b> filtre la liste en
     direct&nbsp;; un clic sur une barre déplie la fiche.</span><span class="t-en">Each purple bar is an activity. The <b>search bar</b> filters the list live&nbsp;; clicking a bar unfolds the record.</span></figcaption>
   </figure>
@@ -667,7 +667,7 @@
   </ul>
   <figure>
     <div class="frame"><div class="frame-bar"><i></i><i></i><i></i><span><span class="t-fr">Fiche d'activité — Vue d'ensemble</span><span class="t-en">Activity record — Overview</span></span></div>
-    <img src="assets/guide/activite-fiche.png" alt="Fiche activité" loading="lazy"></div>
+    <img class="t-fr" src="assets/guide/activite-fiche.png" alt="Fiche activité" loading="lazy"><img class="t-en" src="assets/guide/activite-fiche-en.png" alt="Fiche activité" loading="lazy"></div>
     <figcaption><span class="t-fr">Sous le titre&nbsp;: la description et le <b>Garant</b>. Les tableaux
     <b>Entrantes/Sortantes</b> listent les données qui arrivent et repartent — ce sont exactement les
     flèches de la cartographie.</span><span class="t-en">Under the title&nbsp;: the description and the <b>Owner</b>. The <b>Incoming/Outgoing</b> tables list the data arriving and leaving — these are exactly the arrows on the activity map.</span></figcaption>
@@ -789,7 +789,7 @@
 
   <figure>
     <div class="frame"><div class="frame-bar"><i></i><i></i><i></i><span><span class="t-fr">Page Rôles</span><span class="t-en">Roles page</span></span></div>
-    <img src="assets/guide/roles-liste.png" alt="Liste des rôles" loading="lazy"></div>
+    <img class="t-fr" src="assets/guide/roles-liste.png" alt="Liste des rôles" loading="lazy"><img class="t-en" src="assets/guide/roles-liste-en.png" alt="Liste des rôles" loading="lazy"></div>
     <figcaption><span class="t-fr">Une barre verte par rôle. En haut&nbsp;: la <b>recherche</b> et le bouton
     <b>Exporter</b>.</span><span class="t-en">One green bar per role. At the top&nbsp;: the <b>search</b> box and the <b>Export</b> button.</span></figcaption>
   </figure>
@@ -806,7 +806,7 @@
   </ul>
   <figure>
     <div class="frame"><div class="frame-bar"><i></i><i></i><i></i><span><span class="t-fr">Fiche d'un rôle dépliée</span><span class="t-en">A role record, unfolded</span></span></div>
-    <img src="assets/guide/role-detail.png" alt="Détail d'un rôle" loading="lazy"></div>
+    <img class="t-fr" src="assets/guide/role-detail.png" alt="Détail d'un rôle" loading="lazy"><img class="t-en" src="assets/guide/role-detail-en.png" alt="Détail d'un rôle" loading="lazy"></div>
   </figure>
   <figure>
     <div class="frame frame-video"><div class="frame-bar"><span><span class="t-fr">Parcourir un rôle et compléter sa mission</span><span class="t-en">Browse a role and complete its mission</span></span></div>
@@ -851,7 +851,7 @@
 
   <figure>
     <div class="frame"><div class="frame-bar"><i></i><i></i><i></i><span><span class="t-fr">Page Compétences</span><span class="t-en">Competencies page</span></span></div>
-    <img src="assets/guide/competences.png" alt="Page compétences" loading="lazy"></div>
+    <img class="t-fr" src="assets/guide/competences.png" alt="Page compétences" loading="lazy"><img class="t-en" src="assets/guide/competences-en.png" alt="Page compétences" loading="lazy"></div>
     <figcaption><span class="t-fr"><b>À gauche</b>&nbsp;: vous (le manager) et vos collaborateurs.
     <b>À droite</b>&nbsp;: les rôles du collaborateur sélectionné, puis le tableau de ses activités avec
     niveau <b>requis</b>, niveau <b>démontré</b> et <b>écart</b>.</span><span class="t-en"><b>On the left</b>&nbsp;: you (the manager) and your team. <b>On the right</b>&nbsp;: the selected person's roles, then the table of their activities with the <b>required</b> level, the <b>demonstrated</b> level and the <b>gap</b>.</span></figcaption>
@@ -1010,7 +1010,7 @@
 
   <figure>
     <div class="frame"><div class="frame-bar"><i></i><i></i><i></i><span><span class="t-fr">Onglet Projet</span><span class="t-en">Project tab</span></span></div>
-    <img src="assets/guide/temps-projet.png" alt="Temps - projet" loading="lazy"></div>
+    <img class="t-fr" src="assets/guide/temps-projet.png" alt="Temps - projet" loading="lazy"><img class="t-en" src="assets/guide/temps-projet-en.png" alt="Temps - projet" loading="lazy"></div>
     <figcaption><span class="t-fr">Une ligne par activité du projet. Les indicateurs discrets sont intermédiaires&nbsp;; la
     <b>Charge globale</b> (en ambre) est le résultat qui compte. Les projets enregistrés se retrouvent en
     dessous.</span><span class="t-en">One row per project activity. The quiet indicators are intermediate&nbsp;; the <b>Overall workload</b> (in amber) is the figure that matters. Saved projects appear underneath.</span></figcaption>
@@ -1026,7 +1026,7 @@
   </figure>
   <figure>
     <div class="frame"><div class="frame-bar"><i></i><i></i><i></i><span><span class="t-fr">Onglet Rôle</span><span class="t-en">Role tab</span></span></div>
-    <img src="assets/guide/temps-role.png" alt="Temps - rôle" loading="lazy"></div>
+    <img class="t-fr" src="assets/guide/temps-role.png" alt="Temps - rôle" loading="lazy"><img class="t-en" src="assets/guide/temps-role-en.png" alt="Temps - rôle" loading="lazy"></div>
     <figcaption><span class="t-fr">Choisissez un rôle&nbsp;: ses activités se chargent seules. Renseignez durées et
     récurrences&nbsp;; l'<b>estimation mensuelle/annuelle</b> s'affiche en ambre.</span><span class="t-en">Pick a role&nbsp;: its activities load on their own. Fill in durations and recurrences&nbsp;; the <b>monthly/yearly estimate</b> appears in amber.</span></figcaption>
   </figure>
@@ -1121,7 +1121,7 @@
   </figure>
   <figure>
     <div class="frame"><div class="frame-bar"><i></i><i></i><i></i><span><span class="t-fr">Résultats d'une faiblesse</span><span class="t-en">Results for a weakness</span></span></div>
-    <img src="assets/guide/temps-faiblesse.png" alt="Résultats faiblesse" loading="lazy"></div>
+    <img class="t-fr" src="assets/guide/temps-faiblesse.png" alt="Résultats faiblesse" loading="lazy"><img class="t-en" src="assets/guide/temps-faiblesse-en.png" alt="Résultats faiblesse" loading="lazy"></div>
     <figcaption><span class="t-fr">Quatre groupes de résultats&nbsp;: impact par exécution, cas dégradé (ambre),
     <b>coût annuel</b> (rouge — le chiffre à retenir) et coût mensuel.</span><span class="t-en">Four groups of results&nbsp;: impact per run, degraded case (amber), <b>annual cost</b> (red — the figure to remember) and monthly cost.</span></figcaption>
   </figure>
@@ -1147,7 +1147,7 @@
 
   <figure>
     <div class="frame"><div class="frame-bar"><i></i><i></i><i></i><span><span class="t-fr">Page Comptes — onglet Utilisateurs</span><span class="t-en">Accounts page — Users tab</span></span></div>
-    <img src="assets/guide/comptes.png" alt="Page comptes" loading="lazy"></div>
+    <img class="t-fr" src="assets/guide/comptes.png" alt="Page comptes" loading="lazy"><img class="t-en" src="assets/guide/comptes-en.png" alt="Page comptes" loading="lazy"></div>
     <figcaption><span class="t-fr">L'onglet <b>Utilisateurs</b> est celui d'accueil&nbsp;: la liste, avec recherche et
     filtres. Viennent ensuite <b>Créer</b> (formulaire) et <b>Import Excel</b> (tous les comptes d'un
     coup depuis un fichier).</span><span class="t-en">The <b>Users</b> tab is the landing tab&nbsp;: the list, with search and filters. Then come <b>Create</b> (form) and <b>Excel import</b> (every account at once from a file).</span></figcaption>
@@ -1200,7 +1200,7 @@
 
   <figure>
     <div class="frame"><div class="frame-bar"><i></i><i></i><i></i><span><span class="t-fr">Page Gestion RH</span><span class="t-en">HR management page</span></span></div>
-    <img src="assets/guide/rh.png" alt="Page gestion RH" loading="lazy"></div>
+    <img class="t-fr" src="assets/guide/rh.png" alt="Page gestion RH" loading="lazy"><img class="t-en" src="assets/guide/rh-en.png" alt="Page gestion RH" loading="lazy"></div>
     <figcaption><span class="t-fr">De haut en bas&nbsp;: <b>Paramètres de l'entreprise</b> (heures/jour, jours/semaine… —
     utilisés par la page Temps), <b>Gestion des rôles</b>, <b>Collaborateurs</b>,
     <b>Affectation</b> par manager, <b>Aperçu global des évaluations</b> (feux
@@ -1233,7 +1233,7 @@
 
   <figure>
     <div class="frame"><div class="frame-bar"><i></i><i></i><i></i><span><span class="t-fr">Page Outils</span><span class="t-en">Tools page</span></span></div>
-    <img src="assets/guide/outils.png" alt="Page outils" loading="lazy"></div>
+    <img class="t-fr" src="assets/guide/outils.png" alt="Page outils" loading="lazy"><img class="t-en" src="assets/guide/outils-en.png" alt="Page outils" loading="lazy"></div>
     <figcaption><span class="t-fr">Une carte par outil, avec son nombre d'utilisations. Le bouton <b>Gérer / Supprimer</b>
     propose remplacement et suppression&nbsp;— l'application vous prévient si l'outil est encore utilisé
     quelque part.</span><span class="t-en">One card per tool, with how many times it is used. The <b>Manage / Delete</b> button offers replacement and deletion&nbsp;— the application warns you if the tool is still in use somewhere.</span></figcaption>
@@ -1283,7 +1283,7 @@
 
   <figure>
     <div class="frame"><div class="frame-bar"><i></i><i></i><i></i><span><span class="t-fr">Page Paramètres (vue administrateur)</span><span class="t-en">Settings page (administrator view)</span></span></div>
-    <img src="assets/guide/parametres.png" alt="Page paramètres" loading="lazy"></div>
+    <img class="t-fr" src="assets/guide/parametres.png" alt="Page paramètres" loading="lazy"><img class="t-en" src="assets/guide/parametres-en.png" alt="Page paramètres" loading="lazy"></div>
   </figure>
   </div>
 </section>
@@ -1379,6 +1379,16 @@
 
 // ── Vidéo absente (pipeline tools/guide pas encore relancé) : on masque la
 //    figure entière plutôt que de laisser un lecteur vide dans le guide.
+// Capture absente dans une langue : on masque l'image, et le cadre entier
+// seulement si aucune des deux versions n'a pu être chargée.
+document.querySelectorAll('figure .frame img').forEach(im => {
+  im.addEventListener('error', () => {
+    im.classList.add('no-video');
+    const fig = im.closest('figure');
+    if (fig && !fig.querySelector('img:not(.no-video)')) fig.classList.add('no-video');
+  }, true);
+});
+
 document.querySelectorAll('figure .frame-video video').forEach(v => {
   v.addEventListener('error', () => {
     // Une figure porte les DEUX langues : on masque la vidéo absente, et la
