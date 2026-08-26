@@ -2,16 +2,22 @@
   {
     "icon": "fa-solid fa-diagram-project",
     "title": "Navigation inter-cartographies",
-    "desc": "En mode Connexions sur la page Cartographie, cliquez directement sur une activité liée pour basculer vers l'entité correspondante et atterrir sur l'activité en question dans la liste."
+    "desc": "En mode Connexions sur la page Cartographie, cliquez directement sur une activité liée pour basculer vers l'entité correspondante et atterrir sur l'activité en question dans la liste.",
+    "title_en": "Cross-map navigation",
+    "desc_en": "In Connections mode on the Cartography page, click straight on a linked activity to switch to the matching entity and land on that activity in the list."
   },
   {
     "icon": "fa-solid fa-key",
     "title": "Modification des mots de passe",
-    "desc": "Depuis la page Comptes, vous pouvez désormais modifier le mot de passe de n'importe quel utilisateur directement, sans aucune manipulation technique."
+    "desc": "Depuis la page Comptes, vous pouvez désormais modifier le mot de passe de n'importe quel utilisateur directement, sans aucune manipulation technique.",
+    "title_en": "Password changes",
+    "desc_en": "From the Accounts page you can now change any user’s password directly, with no technical steps."
   },
   {
     "icon": "fa-solid fa-file-export",
     "title": "Export Excel & rapport HTML",
-    "desc": "Exportez toutes les données d'une entité en un clic depuis la Cartographie — fichier Excel multi-feuilles ou rapport HTML visuel, avec filtre optionnel par rôle."
+    "desc": "Exportez toutes les données d'une entité en un clic depuis la Cartographie — fichier Excel multi-feuilles ou rapport HTML visuel, avec filtre optionnel par rôle.",
+    "title_en": "Excel export & HTML report",
+    "desc_en": "Export all of an entity’s data in one click from Cartography — a multi-sheet Excel file or a visual HTML report, with an optional filter by role."
   }
 ]

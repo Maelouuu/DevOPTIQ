@@ -7,9 +7,9 @@ du guide, sur une base de démonstration réaliste — sans aucune capture manue
 ## Prérequis
 
 - Python + dépendances du projet (`pip install -r requirements.txt`) + `playwright`
-- Chromium Playwright (env web : `/opt/pw-browsers/chromium`, sinon
+- Chromium Playwright (env web : `~/.cache/ms-playwright`, sinon
   `CHROME_PATH=/chemin/vers/chrome`)
-- ffmpeg pour la compression vidéo (env web : `/opt/pw-browsers/ffmpeg-1011/ffmpeg-linux`)
+- ffmpeg pour la compression vidéo (env web : `~/.cache/ms-playwright/ffmpeg-1011/ffmpeg-linux`)
 
 ## Étapes
 
@@ -32,7 +32,7 @@ python tools/guide/capture_videos.py
 
 # 4) compression des vidéos + posters (2.6 s = la carte-titre est affichée)
 cd docs/assets/guide
-FF=/opt/pw-browsers/ffmpeg-1011/ffmpeg-linux
+FF=~/.cache/ms-playwright/ffmpeg-1011/ffmpeg-linux
 for f in flux-*.webm; do
   $FF -y -i "$f" -c:v libvpx -b:v 450k -crf 22 -vf scale=1120:-2 -an "c_$f" && mv "c_$f" "$f"
   $FF -y -ss 2.6 -i "$f" -frames:v 1 "poster-${f%.webm}.png"
@@ -58,9 +58,11 @@ Deux pièges, corrigés mais à connaître si on ajoute un parcours :
   anglaise fait attendre Playwright jusqu'au timeout, parcours après parcours —
   un tournage entier peut y passer une heure sans message d'erreur. Le délai est
   désormais plafonné à 8 s pour que l'échec soit rapide et visible ;
-- **les noms de données de démonstration** (« Analyse de faisabilité »,
-  « Customer relation ») viennent de la carto et ne sont PAS traduits : les
-  cibler tels quels est correct dans les deux langues.
+- **les noms de données de démonstration** (« Analyse de faisabilité » /
+  « Feasibility analysis », « Relation client » / « Customer relation ») sont
+  eux aussi TRADUITS depuis `demo_data_i18n.py` : un parcours qui cherche un
+  libellé de la carto doit passer par `T(fr, en)`, sinon il ne trouve rien
+  dans l'autre langue.
 
 Un texte de bulle absent de `traductions_videos.py` ressort en français et le
 script le signale en fin de tournage — pas de vidéo à moitié traduite livrée
@@ -81,6 +83,20 @@ l'interface. La règle, appliquée dans `capture_videos.py` :
 
 Les légendes sous les vidéos, dans `docs/guide.html`, reprennent le même cas :
 le lecteur doit savoir ce que la vidéo résout avant de la lancer.
+
+## Jeu de données bilingue (`demo_data_i18n.py`)
+
+`GUIDE_LANG` ne change pas que la langue de l'interface : il change **les
+données**. Le VSDX d'exemple mélange les langues (bandes anglaises, activités
+françaises) — servi tel quel, le guide français affichait des rôles anglais et
+le guide anglais des activités françaises.
+
+`demo_data_i18n.py` porte trois tables (bandes, formes, flèches) et tout le
+contenu enrichi (outils, verbes de tâches, savoirs, missions, projet,
+faiblesse). `traduire_diagramme()` réécrit les libellés AVANT l'appel à
+`/cartography/api/save` : activités, rôles et liens naissent donc déjà traduits.
+`libelles_non_traduits()` liste au démarrage du seed ce qui n'a pas d'entrée —
+un libellé ajouté à la carto d'exemple se signale tout seul.
 
 ## Ce que fait la base de démo (`seed_demo.py`)
 

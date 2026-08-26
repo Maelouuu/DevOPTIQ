@@ -417,7 +417,7 @@ with sync_playwright() as p:
                 pg.wait_for_timeout(420)
             pg.wait_for_timeout(500)
         # 3. l'activité qui nous intéresse → sa fiche
-        item = pg.locator('text=Analyse de faisabilité').last
+        item = pg.locator('text=' + T('Analyse de faisabilité', 'Feasibility analysis')).last
         if item.count():
             step(pg, 3, N, T('Ouvrir le maillon', 'Open the link'),
                  "L'étape qui nous intéresse est <b>Analyse de faisabilité</b>. Un clic dessus "
@@ -436,7 +436,7 @@ with sync_playwright() as p:
         step(pg, 1, N, T("Retrouver l'activité", 'Find the activity'),
              "La question du jour : <b>que faut-il maîtriser pour reprendre la cotation&nbsp;?</b> "
              "On tape « cotation », la liste se réduit à l'activité concernée.", s, 'bottom')
-        type_slow(pg, s, 'cotation', delay=130)
+        type_slow(pg, s, T('cotation', 'pricing'), delay=130)
         pg.wait_for_timeout(700)
         hdr = pg.locator('.activity-container:visible .activity-header').first
         step(pg, 2, N, T('Ouvrir sa fiche', 'Open its record'),
@@ -472,9 +472,9 @@ with sync_playwright() as p:
         N = 4
         s = pg.locator('#roleSearchInput')
         step(pg, 1, N, T('Trouver le rôle', 'Find the role'),
-             "On prépare l'entretien annuel du <b>Customer Service</b>&nbsp;: il faut sa fiche de "
+             "On prépare l'entretien annuel de <b>Relation client</b>&nbsp;: il faut sa fiche de "
              "poste à jour. On tape son nom.", s, 'bottom')
-        type_slow(pg, s, 'customer', delay=120)
+        type_slow(pg, s, T('relation', 'customer'), delay=120)
         pg.wait_for_timeout(600)
         hdr = pg.locator('.role-container:visible .role-header').first
         step(pg, 2, N, T('Lire la fiche', 'Read the record'),
@@ -504,7 +504,7 @@ with sync_playwright() as p:
                          "poste, celui dont on parlera en entretien.", b, 'top')
                     first = False
                 slow_click(pg, b, after=1500)
-        done(pg, "La fiche de poste du Customer Service est prête pour l'entretien&nbsp;: elle a suivi "
+        done(pg, "La fiche de poste de Relation client est prête pour l'entretien&nbsp;: elle a suivi "
                  "la carte toute l'année, on n'a eu qu'<b>une phrase à écrire</b>.")
 
     # ── Compétences : collaborateur → rôles → ouvrir l'évaluation ───────────
@@ -676,7 +676,7 @@ with sync_playwright() as p:
           'Que faut-il savoir faire pour reprendre la cotation ?')
     video('flux-role.webm', flow_role, '/roles_view/', '#059669',
           'Rôles', "Préparer un entretien annuel",
-          'La fiche de poste du Customer Service est-elle à jour ?')
+          'La fiche de poste de Relation client est-elle à jour ?')
     video('flux-competences.webm', flow_competences, '/competences/view', '#2563eb',
           'Compétences', 'Où en est Claire Dupont ?',
           "S'évaluer sur des résultats produits, pas sur une note globale")

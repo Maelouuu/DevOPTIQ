@@ -803,6 +803,12 @@ class TaskLinkAssignment(db.Model):
     )
 
 
+def _event_label(cle):
+    """Libelle d'evenement dans la langue de la session (repli francais)."""
+    from Code.translations import t
+    return t(cle)
+
+
 class RecentEvent(db.Model):
     """Journal d'activité récente : créations/modifications/suppressions des 4 entités principales."""
     __tablename__ = 'recent_events'
@@ -873,7 +879,7 @@ def _capture_changes(target, fields):
 def _on_activity_insert(mapper, connection, target):
     detail = {"name": target.name, "description": target.description or ""}
     _log_recent(connection, 'activity_created', 'fa-solid fa-diagram-project',
-                f'Activité créée : {target.name}', target.entity_id, detail=detail)
+                f'{_event_label("event.activity_created")} : {target.name}', target.entity_id, detail=detail)
 
 
 @event.listens_for(Activities, 'before_update')
@@ -886,7 +892,7 @@ def _on_activity_update(mapper, connection, target):
     changes = getattr(target, '_prev_changes', None) or []
     detail = {"changes": changes} if changes else None
     _log_recent(connection, 'activity_updated', 'fa-solid fa-pen-to-square',
-                f'Activité modifiée : {target.name}', target.entity_id, detail=detail)
+                f'{_event_label("event.activity_updated")} : {target.name}', target.entity_id, detail=detail)
 
 
 # ── Tasks ─────────────────────────────────────────────────────────
@@ -894,7 +900,7 @@ def _on_activity_update(mapper, connection, target):
 def _on_task_insert(mapper, connection, target):
     detail = {"name": target.name, "description": target.description or ""}
     _log_recent(connection, 'task_created', 'fa-solid fa-list-check',
-                f'Tâche créée : {target.name}', detail=detail)
+                f'{_event_label("event.task_created")} : {target.name}', detail=detail)
 
 
 @event.listens_for(Task, 'before_update')
@@ -907,7 +913,7 @@ def _on_task_update(mapper, connection, target):
     changes = getattr(target, '_prev_changes', None) or []
     detail = {"changes": changes} if changes else None
     _log_recent(connection, 'task_updated', 'fa-solid fa-pen-to-square',
-                f'Tâche modifiée : {target.name}', detail=detail)
+                f'{_event_label("event.task_updated")} : {target.name}', detail=detail)
 
 
 # ── Roles ─────────────────────────────────────────────────────────
@@ -915,7 +921,7 @@ def _on_task_update(mapper, connection, target):
 def _on_role_insert(mapper, connection, target):
     detail = {"name": target.name, "mission": target.onboarding_plan or ""}
     _log_recent(connection, 'role_created', 'fa-solid fa-user-tie',
-                f'Rôle créé : {target.name}', target.entity_id, detail=detail)
+                f'{_event_label("event.role_created")} : {target.name}', target.entity_id, detail=detail)
 
 
 @event.listens_for(Role, 'before_update')
@@ -928,7 +934,7 @@ def _on_role_update(mapper, connection, target):
     changes = getattr(target, '_prev_changes', None) or []
     detail = {"changes": changes} if changes else None
     _log_recent(connection, 'role_updated', 'fa-solid fa-pen-to-square',
-                f'Rôle modifié : {target.name}', target.entity_id, detail=detail)
+                f'{_event_label("event.role_updated")} : {target.name}', target.entity_id, detail=detail)
 
 
 # ── Tools ──────────────────────────────────────────────────────────
@@ -936,7 +942,7 @@ def _on_role_update(mapper, connection, target):
 def _on_tool_insert(mapper, connection, target):
     detail = {"name": target.name, "description": target.description or ""}
     _log_recent(connection, 'tool_created', 'fa-solid fa-toolbox',
-                f'Outil créé : {target.name}', target.entity_id, detail=detail)
+                f'{_event_label("event.tool_created")} : {target.name}', target.entity_id, detail=detail)
 
 
 @event.listens_for(Tool, 'before_update')
@@ -949,7 +955,7 @@ def _on_tool_update(mapper, connection, target):
     changes = getattr(target, '_prev_changes', None) or []
     detail = {"changes": changes} if changes else None
     _log_recent(connection, 'tool_updated', 'fa-solid fa-pen-to-square',
-                f'Outil modifié : {target.name}', target.entity_id, detail=detail)
+                f'{_event_label("event.tool_updated")} : {target.name}', target.entity_id, detail=detail)
 
 
 # ── Suppressions ──────────────────────────────────────────────────
@@ -957,28 +963,28 @@ def _on_tool_update(mapper, connection, target):
 def _on_activity_delete(mapper, connection, target):
     detail = {"name": target.name, "description": target.description or ""}
     _log_recent(connection, 'activity_deleted', 'fa-solid fa-trash',
-                f'Activité supprimée : {target.name}', target.entity_id, detail=detail)
+                f'{_event_label("event.activity_deleted")} : {target.name}', target.entity_id, detail=detail)
 
 
 @event.listens_for(Task, 'after_delete')
 def _on_task_delete(mapper, connection, target):
     detail = {"name": target.name}
     _log_recent(connection, 'task_deleted', 'fa-solid fa-trash',
-                f'Tâche supprimée : {target.name}', detail=detail)
+                f'{_event_label("event.task_deleted")} : {target.name}', detail=detail)
 
 
 @event.listens_for(Role, 'after_delete')
 def _on_role_delete(mapper, connection, target):
     detail = {"name": target.name}
     _log_recent(connection, 'role_deleted', 'fa-solid fa-trash',
-                f'Rôle supprimé : {target.name}', target.entity_id, detail=detail)
+                f'{_event_label("event.role_deleted")} : {target.name}', target.entity_id, detail=detail)
 
 
 @event.listens_for(Tool, 'after_delete')
 def _on_tool_delete(mapper, connection, target):
     detail = {"name": target.name, "description": target.description or ""}
     _log_recent(connection, 'tool_deleted', 'fa-solid fa-trash',
-                f'Outil supprimé : {target.name}', target.entity_id, detail=detail)
+                f'{_event_label("event.tool_deleted")} : {target.name}', target.entity_id, detail=detail)
 
 class CrossCartoLiaison(db.Model):
     """Liaison officialisée entre une activité hachurée (extco) et son original."""

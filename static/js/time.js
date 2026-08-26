@@ -1,5 +1,9 @@
 // Code/static/js/time.js
 (() => {
+  // Libelles injectes par le gabarit : sans eux (page servie hors
+  // time_dashboard) on retombe sur le francais plutot que sur 'undefined'.
+  const L = window.TIME_I18N || {};
+  const tl = (cle, defaut) => L[cle] || defaut;
   const $ = (s, c=document) => c.querySelector(s);
   const $$ = (s, c=document) => Array.from(c.querySelectorAll(s));
   const v = (sel) => $(sel)?.value;
@@ -47,10 +51,9 @@
   function unitSelect(){
     const s=document.createElement('select');
     s.className='input';
-    const L = window.TIME_I18N || {};
-    s.innerHTML = `<option value="minutes">${L.minutes || 'minutes'}</option>`
-                + `<option value="heures">${L.hours || 'heures'}</option>`
-                + `<option value="jours">${L.days || 'jours'}</option>`;
+    s.innerHTML = `<option value="minutes">${tl('minutes', 'minutes')}</option>`
+                + `<option value="heures">${tl('hours', 'heures')}</option>`
+                + `<option value="jours">${tl('days', 'jours')}</option>`;
     return s;
   }
 
@@ -381,14 +384,14 @@
   async function refreshProjectList(){
     const list = $('#project-list');
     if (!list) return;
-    list.innerHTML = '<div class="muted">Chargement…</div>';
+    list.innerHTML = `<div class="muted">${tl('loading', 'Chargement…')}</div>`;
     const r = await fetch('/temps/api/projects');
     const j = await r.json();
-    if (!j.ok) { list.innerHTML = '<div class="muted">Erreur de chargement</div>'; return; }
+    if (!j.ok) { list.innerHTML = `<div class="muted">${tl('load_error', 'Erreur de chargement')}</div>`; return; }
     // L'API renvoie {items:[{line_count,total_*_minutes}]} ; l'ancien contrat
     // ({projects:[{nb_activites,…}]}) est gardé en repli.
     const projects = j.projects || j.items || [];
-    if (!projects.length) { list.innerHTML = '<div class="muted">Aucun projet enregistré.</div>'; return; }
+    if (!projects.length) { list.innerHTML = `<div class="muted">${tl('no_project', 'Aucun projet enregistré.')}</div>`; return; }
 
     list.innerHTML = projects.map(p => `
       <div class="acc-item" data-id="${p.id}">
@@ -396,10 +399,10 @@
           <div class="acc-title">
             <b class="proj-name">${p.name || 'Sans titre'}</b>
             <input class="proj-name-input hidden input" value="${(p.name || '').replace(/"/g,'&quot;')}" />
-            <span class="badge">${p.nb_activites ?? p.line_count ?? 0} act.</span>
+            <span class="badge">${p.nb_activites ?? p.line_count ?? 0} ${tl('meta_acts', 'act.')}</span>
             <span class="badge">${fmtH(p.charge_globale_minutes ?? p.total_charge_minutes ?? 0)}</span>
           </div>
-          <div class="acc-meta">Durée ${fmtH(p.tot_duree_minutes ?? p.total_duration_minutes ?? 0)}</div>
+          <div class="acc-meta">${tl('meta_duration', 'Durée')} ${fmtH(p.tot_duree_minutes ?? p.total_duration_minutes ?? 0)}</div>
           <div class="acc-actions">
             <button class="icon-btn edit-proj" title="Renommer">✎</button>
             <button class="icon-btn success save-proj hidden" title="Enregistrer">✔</button>
@@ -457,7 +460,7 @@
         if (opened) {
           const rr = await fetch(`/temps/api/project/${id}`);
           const jj = await rr.json();
-          if (!jj.ok) { body.innerHTML = '<div class="muted">Erreur</div>'; return; }
+          if (!jj.ok) { body.innerHTML = `<div class="muted">${tl('error', 'Erreur')}</div>`; return; }
           const rows = jj.lines || [];
           body.innerHTML = `
             <div class="table-wrap">
@@ -467,7 +470,7 @@
                 </colgroup>
                 <thead>
                   <tr>
-                    <th>Activité</th><th>Durée (h)</th><th>Délai (h)</th><th>Nb</th><th>Charge (h)</th><th>Actions</th>
+                    <th>${tl('col_activity', 'Activité')}</th><th>${tl('col_duration_h', 'Durée (h)')}</th><th>${tl('col_delay_h', 'Délai (h)')}</th><th>${tl('col_count', 'Nb')}</th><th>${tl('col_load_h', 'Charge (h)')}</th><th>${tl('col_actions', 'Actions')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -493,7 +496,7 @@
               if (resp.ok) {
                 if (resp.project_deleted) {
                   item.remove();
-                  if (!$('#project-list').children.length) $('#project-list').innerHTML='<div class="muted">Aucun projet enregistré.</div>';
+                  if (!$('#project-list').children.length) $('#project-list').innerHTML=`<div class="muted">${tl('no_project', 'Aucun projet enregistré.')}</div>`;
                 } else {
                   item.classList.remove('open'); head.click();
                 }
@@ -510,7 +513,7 @@
         const j = await r.json();
         if (j.ok) {
           item.remove();
-          if (!$('#project-list').children.length) $('#project-list').innerHTML='<div class="muted">Aucun projet enregistré.</div>';
+          if (!$('#project-list').children.length) $('#project-list').innerHTML=`<div class="muted">${tl('no_project', 'Aucun projet enregistré.')}</div>`;
         } else alert('Erreur de suppression');
       };
     });
@@ -564,11 +567,11 @@
   async function refreshActivityWorkloadList(){
     const list = $('#activity-list');
     if (!list) return;
-    list.innerHTML = '<div class="muted">Chargement…</div>';
+    list.innerHTML = `<div class="muted">${tl('loading', 'Chargement…')}</div>`;
     const r = await fetch('/temps/api/activity_workloads');
     const j = await r.json();
-    if (!j.ok) { list.innerHTML = '<div class="muted">Erreur de chargement</div>'; return; }
-    if (!j.items.length) { list.innerHTML = '<div class="muted">Aucune analyse enregistrée.</div>'; return; }
+    if (!j.ok) { list.innerHTML = `<div class="muted">${tl('load_error', 'Erreur de chargement')}</div>`; return; }
+    if (!j.items.length) { list.innerHTML = `<div class="muted">${tl('no_analysis', 'Aucune analyse enregistrée.')}</div>`; return; }
 
     list.innerHTML = j.items.map(it => `
       <div class="acc-item" data-id="${it.id}">
@@ -579,7 +582,7 @@
             <span class="badge">freq ${it.frequency}</span>
             <span class="badge">nb ${it.nb_people}</span>
           </div>
-          <div class="acc-meta">Durée ${fmtH(it.duration_minutes)} · Total ${fmtH(it.total_minutes)}</div>
+          <div class="acc-meta">${tl('meta_duration', 'Durée')} ${fmtH(it.duration_minutes)} · ${tl('meta_total', 'Total')} ${fmtH(it.total_minutes)}</div>
           <div class="acc-actions">
             <button class="icon-btn edit-aw" title="Éditer">✎</button>
             <button class="icon-btn danger del-aw" title="Supprimer">🗑</button>
@@ -593,7 +596,7 @@
                 <col class="col-activity"><col class="col-num"><col class="col-rec"><col class="col-num-xs"><col class="col-num-xs"><col class="col-num"><col class="col-num">
               </colgroup>
               <thead>
-                <tr><th>Activité</th><th>Durée (h)</th><th>Récurrence</th><th>Fréq.</th><th>Nb</th><th>Total (h)</th><th>Délai (h)</th></tr>
+                <tr><th>${tl('col_activity', 'Activité')}</th><th>${tl('col_duration_h', 'Durée (h)')}</th><th>${tl('col_recurrence', 'Récurrence')}</th><th>${tl('col_frequency', 'Fréq.')}</th><th>${tl('col_count', 'Nb')}</th><th>${tl('col_total_h', 'Total (h)')}</th><th>${tl('col_delay_h', 'Délai (h)')}</th></tr>
               </thead>
               <tbody>
                 <tr>
@@ -753,7 +756,7 @@
     roleActivitiesOptions = [];
     const r = await fetch(`/temps/api/role_activities/${roleId}`);
     const j = await r.json();
-    if (!j.ok) { roleBody.innerHTML = '<tr><td colspan="6" class="muted">Erreur de chargement</td></tr>'; return; }
+    if (!j.ok) { roleBody.innerHTML = `<tr><td colspan="6" class="muted">${tl('load_error', 'Erreur de chargement')}</td></tr>`; return; }
     roleActivitiesOptions = j.activities || [];
     if (!roleActivitiesOptions.length) {
       roleBody.innerHTML = '<tr><td colspan="6" class="muted">Aucune activité pour ce rôle.</td></tr>'; 
@@ -794,11 +797,11 @@
   async function refreshRoleAnalyses(){
     const list = $('#role-list');
     if (!list) return;
-    list.innerHTML = '<div class="muted">Chargement…</div>';
+    list.innerHTML = `<div class="muted">${tl('loading', 'Chargement…')}</div>`;
     const r = await fetch('/temps/api/role_analyses');
     const j = await r.json();
-    if (!j.ok){ list.innerHTML = '<div class="muted">Erreur de chargement</div>'; return; }
-    if (!j.items.length){ list.innerHTML = '<div class="muted">Aucune analyse enregistrée.</div>'; return; }
+    if (!j.ok){ list.innerHTML = `<div class="muted">${tl('load_error', 'Erreur de chargement')}</div>`; return; }
+    if (!j.items.length){ list.innerHTML = `<div class="muted">${tl('no_analysis', 'Aucune analyse enregistrée.')}</div>`; return; }
 
     list.innerHTML = j.items.map(it => `
       <div class="acc-item" data-id="${it.id}">
@@ -869,7 +872,7 @@
         if (opened){
           const rr = await fetch(`/temps/api/role_analysis/${id}`);
           const jj = await rr.json();
-          if (!jj.ok){ body.innerHTML = '<div class="muted">Erreur</div>'; return; }
+          if (!jj.ok){ body.innerHTML = `<div class="muted">${tl('error', 'Erreur')}</div>`; return; }
           const rows = jj.lines || [];
           body.innerHTML = `
             <div class="table-wrap">
@@ -878,7 +881,7 @@
                   <col class="col-activity"><col class="col-num"><col class="col-rec"><col class="col-num-xs"><col class="col-num"><col class="col-actions">
                 </colgroup>
                 <thead>
-                  <tr><th>Activité</th><th>Durée (h)</th><th>Récurrence</th><th>Fréq.</th><th>Pesée (h)</th><th>Actions</th></tr>
+                  <tr><th>${tl('col_activity', 'Activité')}</th><th>${tl('col_duration_h', 'Durée (h)')}</th><th>${tl('col_recurrence', 'Récurrence')}</th><th>${tl('col_frequency', 'Fréq.')}</th><th>${tl('col_weighed_h', 'Pesée (h)')}</th><th>${tl('col_actions', 'Actions')}</th></tr>
                 </thead>
                 <tbody>
                   ${rows.map(r => `<tr data-line="${r.id}">
@@ -903,7 +906,7 @@
               if (resp.ok){
                 if (resp.analysis_deleted){
                   item.remove();
-                  if (!$('#role-list').children.length) $('#role-list').innerHTML = '<div class="muted">Aucune analyse enregistrée.</div>';
+                  if (!$('#role-list').children.length) $('#role-list').innerHTML = `<div class="muted">${tl('no_analysis', 'Aucune analyse enregistrée.')}</div>`;
                 }else{
                   item.classList.remove('open'); head.click();
                 }
@@ -920,7 +923,7 @@
         const j = await r.json();
         if (j.ok){
           item.remove();
-          if (!$('#role-list').children.length) $('#role-list').innerHTML = '<div class="muted">Aucune analyse enregistrée.</div>';
+          if (!$('#role-list').children.length) $('#role-list').innerHTML = `<div class="muted">${tl('no_analysis', 'Aucune analyse enregistrée.')}</div>`;
         }else alert('Suppression impossible');
       };
     });

@@ -18,11 +18,11 @@ TRAD = {
     "Activités": "Activities",
     "Claire part en congés": "Claire is going on leave",
     "Que faut-il savoir faire pour reprendre la cotation ?":
-        "What do you need to know to take over quoting?",
+        "What must you know to take over Pricing?",
     "Rôles": "Roles",
     "Préparer un entretien annuel": "Preparing an annual review",
-    "La fiche de poste du Customer Service est-elle à jour ?":
-        "Is the Customer Service job description up to date?",
+    "La fiche de poste de Relation client est-elle à jour ?":
+        "Is the Customer relation job description up to date?",
     "Compétences": "Competencies",
     "Où en est Claire Dupont ?": "Where does Claire Dupont stand?",
     "S'évaluer sur des résultats produits, pas sur une note globale":
@@ -65,16 +65,16 @@ TRAD = {
     # ── Activités ─────────────────────────────────────────────────────────
     "La question du jour : <b>que faut-il maîtriser pour reprendre la cotation&nbsp;?</b> "
     "On tape « cotation », la liste se réduit à l'activité concernée.":
-        "Today's question: <b>what must you master to take over quoting&nbsp;?</b> "
-        "Type «&nbsp;cotation&nbsp;» and the list narrows to the activity concerned.",
+        "Today's question: <b>what must you master to take over Pricing&nbsp;?</b> "
+        "Type «&nbsp;pricing&nbsp;» and the list narrows to the activity concerned.",
     "Un clic sur la barre violette déplie la fiche&nbsp;: on y voit d'abord les "
     "<b>tâches</b> et les <b>données</b> que la cotation consomme et produit.":
         "One click on the purple bar unfolds the record&nbsp;: first come the "
-        "<b>tasks</b> and the <b>data</b> that quoting consumes and produces.",
+        "<b>tasks</b> and the <b>data</b> that Pricing consumes and produces.",
     "Onglet <b>Compétences</b>&nbsp;: le résultat attendu, formulé comme on "
     "l'évaluera — « produire une cotation conforme du premier coup ».":
         "<b>Competencies</b> tab&nbsp;: the expected result, worded the way it "
-        "will be assessed — «&nbsp;produce a compliant quote first time&nbsp;».",
+        "will be assessed — «&nbsp;deliver the expected output right first time&nbsp;».",
     "Onglet <b>Savoirs</b>&nbsp;: ce qu'il faut connaître pour y arriver — ici "
     "le processus qualité ISO 9001 du site.":
         "<b>Knowledge</b> tab&nbsp;: what you need to know to get there — here "
@@ -85,14 +85,14 @@ TRAD = {
         "costing on the Time page.",
     "Réponse en trois clics&nbsp;: pour reprendre la cotation il faut <b>ce résultat</b>, "
     "<b>ces savoirs</b> et compter <b>ce temps-là</b>. Rien à aller chercher ailleurs.":
-        "Answered in three clicks&nbsp;: to take over quoting you need <b>this "
+        "Answered in three clicks&nbsp;: to take over Pricing you need <b>this "
         "result</b>, <b>this knowledge</b> and <b>that much time</b>. Nothing to "
         "look up anywhere else.",
 
     # ── Rôles ─────────────────────────────────────────────────────────────
-    "On prépare l'entretien annuel du <b>Customer Service</b>&nbsp;: il faut sa "
+    "On prépare l'entretien annuel de <b>Relation client</b>&nbsp;: il faut sa "
     "fiche de poste à jour. On tape son nom.":
-        "We are preparing the <b>Customer Service</b> annual review&nbsp;: we need "
+        "We are preparing the <b>Customer relation</b> annual review&nbsp;: we need "
         "an up-to-date job description. Type the role name.",
     "La fiche est déjà remplie&nbsp;: elle hérite des <b>activités</b> que ce rôle "
     "garantit dans la carte. Personne ne l'a saisie à la main.":
@@ -106,9 +106,9 @@ TRAD = {
     "poste, celui dont on parlera en entretien.":
         "<b>Owned activities</b> then <b>Knowledge</b>&nbsp;: this is the real "
         "content of the job, what the review will be about.",
-    "La fiche de poste du Customer Service est prête pour l'entretien&nbsp;: elle a "
+    "La fiche de poste de Relation client est prête pour l'entretien&nbsp;: elle a "
     "suivi la carte toute l'année, on n'a eu qu'<b>une phrase à écrire</b>.":
-        "The Customer Service job description is ready for the review&nbsp;: it "
+        "The Customer relation job description is ready for the review&nbsp;: it "
         "followed the map all year, and we only had <b>one sentence to write</b>.",
 
     # ── Compétences ───────────────────────────────────────────────────────
