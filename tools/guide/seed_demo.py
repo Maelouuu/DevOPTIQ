@@ -40,8 +40,12 @@ with app.app_context():
     db.session.add(ent); db.session.flush()
 
     def mkuser(fn, ln, email, status="viewer", age=None):
+        # lang='fr' : le guide est en français, les captures doivent montrer
+        # l'interface française. L'anglais est le défaut produit depuis que
+        # users.lang existe — sans ce paramètre les écrans sortiraient en anglais.
         u = User(entity_id=ent.id, first_name=fn, last_name=ln, email=email,
-                 password=hash_password("Visual123!"), status=status, age=age)
+                 password=hash_password("Visual123!"), status=status, age=age,
+                 lang="fr")
         db.session.add(u)
         return u
 

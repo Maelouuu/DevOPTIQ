@@ -144,13 +144,27 @@ OVERLAY_JS = r"""
 """
 
 
+def _settle(pg, locator, tries=2):
+    """Amène l'élément à l'écran ; tolère un DOM qui vient d'être re-rendu."""
+    for k in range(tries):
+        try:
+            locator.scroll_into_view_if_needed()
+            return True
+        except Exception:
+            pg.wait_for_timeout(700)
+    return False
+
+
 def slow_click(pg, locator, before=500, after=1100):
-    locator.scroll_into_view_if_needed()
-    box = locator.bounding_box()
+    _settle(pg, locator)
+    try:
+        box = locator.bounding_box()
+    except Exception:
+        box = None
     if box:
         pg.mouse.move(box['x'] + box['width'] / 2, box['y'] + box['height'] / 2, steps=26)
     pg.wait_for_timeout(before)
-    locator.click()
+    locator.click()          # auto-wait de Playwright : re-résout si besoin
     pg.wait_for_timeout(after)
 
 
@@ -173,7 +187,7 @@ def bulle(pg, text, locator=None, place='top', num=None, hold=2100, dx=0, dy=0, 
     x = y = None
     if locator is not None:
         try:
-            locator.scroll_into_view_if_needed()
+            _settle(pg, locator)
             pg.wait_for_timeout(250)
             box = locator.bounding_box()
             if box:
@@ -218,8 +232,13 @@ def done(pg, text, hold=2300):
     clear_bulle(pg)
 
 
+# Chromium : CHROME_PATH si fourni, sinon celui installé par
+# « playwright install chromium ». Le chemin /opt/pw-browsers de l'env web
+# n'existe pas sur un poste de dev.
+_LAUNCH = {"executable_path": os.environ["CHROME_PATH"]} if os.environ.get("CHROME_PATH") else {}
+
 with sync_playwright() as p:
-    browser = p.chromium.launch(executable_path='/opt/pw-browsers/chromium')
+    browser = p.chromium.launch(**_LAUNCH)
 
     # Session une fois pour toutes (le login n'apparaît pas dans les vidéos)
     ctx = browser.new_context()
@@ -229,10 +248,19 @@ with sync_playwright() as p:
     pg.fill('input[name="password"]', 'Visual123!')
     pg.click('button[type="submit"], input[type="submit"]')
     pg.wait_for_load_state('networkidle')
+    # Vidéos en français, quelle que soit la langue par défaut du compte.
+    pg.request.post(URL + '/parametres/set_language', data={'lang': 'fr'})
+    pg.wait_for_timeout(300)
     ctx.storage_state(path=STATE)
     ctx.close()
 
+    # ONLY=flux-carto.webm → ne re-tourne que cette vidéo (mise au point d'un
+    # parcours sans repasser les huit).
+    ONLY = {n for n in (os.environ.get('ONLY') or '').split(',') if n.strip()}
+
     def video(name, flow, start, accent, chip, titre, sous_titre):
+        if ONLY and name not in ONLY:
+            return
         ctx = browser.new_context(viewport={'width': 1280, 'height': 800},
                                   storage_state=STATE,
                                   record_video_dir=OUT,

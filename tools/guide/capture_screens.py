@@ -42,6 +42,9 @@ def login(pg):
     pg.fill('input[name="password"]', 'Visual123!')
     pg.click('button[type="submit"], input[type="submit"]')
     pg.wait_for_load_state('networkidle')
+    # Captures en français, quelle que soit la langue par défaut du compte.
+    pg.request.post(URL + '/parametres/set_language', data={'lang': 'fr'})
+    pg.wait_for_load_state('networkidle')
 
 
 def dismiss(pg):
@@ -75,8 +78,13 @@ def shot(pg, name, full=False, clip=None):
     print('shot', name)
 
 
+# Chromium : CHROME_PATH si fourni, sinon celui installé par
+# « playwright install chromium ». Le chemin /opt/pw-browsers de l'env web
+# n'existe pas sur un poste de dev.
+_LAUNCH = {"executable_path": os.environ["CHROME_PATH"]} if os.environ.get("CHROME_PATH") else {}
+
 with sync_playwright() as p:
-    browser = p.chromium.launch(executable_path='/opt/pw-browsers/chromium')
+    browser = p.chromium.launch(**_LAUNCH)
 
     # ════════════ CAPTURES ════════════
     ctx = browser.new_context(viewport={'width': 1440, 'height': 900})
