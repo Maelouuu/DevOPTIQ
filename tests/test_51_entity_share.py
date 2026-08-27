@@ -4,7 +4,10 @@ Partage d'une entité entre comptes — /activities/api/entities/<id>/share
 
 Une entité n'appartient qu'à son propriétaire (Entity.get_active est strict sur
 owner_id) : partager signifie en DÉPOSER UNE COPIE chez chaque destinataire.
-Réservé aux administrateurs.
+
+Tout le monde peut partager. Ce qui change avec le statut, c'est le consentement
+du destinataire : un administrateur dépose directement, un compte ordinaire ne
+fait que proposer (EntityShareOffer) — la copie n'existe qu'après acceptation.
 """
 import json
 
@@ -83,17 +86,18 @@ def cast(app):
 
 # ── Droits ────────────────────────────────────────────────────────────────────
 
-def test_un_non_admin_ne_peut_pas_lister_les_destinataires(app, client, cast):
+def test_un_non_proprietaire_ne_voit_pas_les_destinataires(app, client, cast):
+    """Le partage est ouvert à tous, mais seulement pour SES entités."""
     _as(client, cast["simple"], "share.simple@devoptiq.com")
     res = client.get(f"/activities/api/entities/{cast['entity_id']}/share/candidates")
-    assert res.status_code == 403
+    assert res.status_code == 404
 
 
-def test_un_non_admin_ne_peut_pas_partager(app, client, cast):
+def test_un_non_proprietaire_ne_peut_pas_partager(app, client, cast):
     _as(client, cast["simple"], "share.simple@devoptiq.com")
     res = client.post(f"/activities/api/entities/{cast['entity_id']}/share",
                       json={"user_ids": [cast["dest1"]]})
-    assert res.status_code == 403
+    assert res.status_code == 404
 
 
 def test_un_admin_ne_partage_que_ses_propres_entites(app, client, cast):
@@ -196,3 +200,171 @@ def test_partage_vers_un_compte_inexistant(app, client, cast):
     body = res.get_json()
     assert body["shared"] == []
     assert len(body["failed"]) == 1
+
+
+# ── Partage par un compte NON admin : proposition, puis consentement ──────────
+
+@pytest.fixture(scope="module")
+def offreur(app):
+    """Un compte ordinaire, propriétaire de sa propre entité."""
+    from Code.models.models import Entity
+    from Code.extensions import db
+    uid = _mk_user(app, "share.offreur@devoptiq.com", "user")
+    with app.app_context():
+        ent = Entity.query.filter_by(name="Carto proposée", owner_id=uid).first()
+        if ent is None:
+            ent = Entity(name="Carto proposée", description="proposée",
+                         owner_id=uid, vsdx_filename="offre.vsdx")
+            db.session.add(ent)
+        ent.optiqcarto_data = json.dumps(DIAGRAM, ensure_ascii=False)
+        db.session.commit()
+        return {"user_id": uid, "entity_id": ent.id}
+
+
+def _offres_en_attente(app, user_id):
+    from Code.models.models import EntityShareOffer
+    with app.app_context():
+        return EntityShareOffer.query.filter_by(to_user_id=user_id, status='pending').all()
+
+
+def test_un_compte_ordinaire_peut_lister_les_destinataires(app, client, offreur):
+    _as(client, offreur["user_id"], "share.offreur@devoptiq.com")
+    res = client.get(f"/activities/api/entities/{offreur['entity_id']}/share/candidates")
+    assert res.status_code == 200
+    body = res.get_json()
+    assert body["direct"] is False          # il PROPOSE, il ne dépose pas
+    assert offreur["user_id"] not in [u["id"] for u in body["users"]]
+
+
+def test_un_admin_a_le_depot_direct(app, client, cast):
+    _as(client, cast["owner"], "share.admin@devoptiq.com")
+    body = client.get(
+        f"/activities/api/entities/{cast['entity_id']}/share/candidates").get_json()
+    assert body["direct"] is True
+
+
+def test_le_partage_non_admin_ne_cree_rien_tout_de_suite(app, client, offreur, cast):
+    from Code.models.models import Entity
+    _as(client, offreur["user_id"], "share.offreur@devoptiq.com")
+    res = client.post(f"/activities/api/entities/{offreur['entity_id']}/share",
+                      json={"user_ids": [cast["dest1"]]})
+    assert res.status_code == 200
+    body = res.get_json()
+    assert body["direct"] is False
+    assert body["shared"] == []
+    assert len(body["pending"]) == 1
+
+    with app.app_context():
+        assert Entity.query.filter_by(owner_id=cast["dest1"], name="Carto proposée").first() is None
+    assert any(o.entity_name == "Carto proposée" for o in _offres_en_attente(app, cast["dest1"]))
+
+
+def test_renvoyer_la_meme_proposition_n_empile_pas(app, client, offreur, cast):
+    _as(client, offreur["user_id"], "share.offreur@devoptiq.com")
+    client.post(f"/activities/api/entities/{offreur['entity_id']}/share",
+                json={"user_ids": [cast["dest1"]]})
+    offres = [o for o in _offres_en_attente(app, cast["dest1"])
+              if o.entity_name == "Carto proposée"]
+    assert len(offres) == 1
+
+
+def test_le_destinataire_voit_la_proposition(app, client, offreur, cast):
+    _as(client, cast["dest1"], "share.dest1@devoptiq.com")
+    body = client.get("/activities/api/share/offers").get_json()
+    proposee = [o for o in body["offers"] if o["entity_name"] == "Carto proposée"]
+    assert len(proposee) == 1
+    assert proposee[0]["from"]
+
+
+def test_refuser_ne_cree_aucune_entite(app, client, offreur, cast):
+    from Code.models.models import Entity, EntityShareOffer
+    _as(client, cast["dest1"], "share.dest1@devoptiq.com")
+    offre_id = [o for o in client.get("/activities/api/share/offers").get_json()["offers"]
+                if o["entity_name"] == "Carto proposée"][0]["id"]
+
+    res = client.post(f"/activities/api/share/offers/{offre_id}/respond",
+                      json={"action": "decline"})
+    assert res.status_code == 200
+    assert res.get_json()["action"] == "declined"
+
+    with app.app_context():
+        assert Entity.query.filter_by(owner_id=cast["dest1"], name="Carto proposée").first() is None
+        assert EntityShareOffer.query.get(offre_id).status == "declined"
+    # et la proposition disparaît de la liste
+    restantes = client.get("/activities/api/share/offers").get_json()["offers"]
+    assert all(o["id"] != offre_id for o in restantes)
+
+
+def test_repondre_deux_fois_est_refuse(app, client, offreur, cast):
+    from Code.models.models import EntityShareOffer
+    with app.app_context():
+        offre = (EntityShareOffer.query
+                 .filter_by(to_user_id=cast["dest1"], status="declined").first())
+        offre_id = offre.id
+    _as(client, cast["dest1"], "share.dest1@devoptiq.com")
+    res = client.post(f"/activities/api/share/offers/{offre_id}/respond",
+                      json={"action": "accept"})
+    assert res.status_code == 409
+
+
+def test_accepter_cree_l_entite_et_ses_activites(app, client, offreur, cast):
+    from Code.models.models import Entity, Activities
+    _as(client, offreur["user_id"], "share.offreur@devoptiq.com")
+    client.post(f"/activities/api/entities/{offreur['entity_id']}/share",
+                json={"user_ids": [cast["dest2"]]})
+
+    _as(client, cast["dest2"], "share.dest2@devoptiq.com")
+    offre_id = [o for o in client.get("/activities/api/share/offers").get_json()["offers"]
+                if o["entity_name"] == "Carto proposée"][0]["id"]
+    res = client.post(f"/activities/api/share/offers/{offre_id}/respond",
+                      json={"action": "accept"})
+    assert res.status_code == 200
+    body = res.get_json()
+    assert body["action"] == "accepted"
+
+    with app.app_context():
+        copie = Entity.query.get(body["entity_id"])
+        assert copie.owner_id == cast["dest2"]
+        assert copie.vsdx_filename == "offre.vsdx"
+        noms = {a.name for a in Activities.query.filter_by(entity_id=copie.id).all()}
+        assert {"Partage Activité A", "Partage Activité B"} <= noms
+
+
+def test_on_ne_repond_pas_a_la_proposition_d_un_autre(app, client, offreur, cast):
+    from Code.models.models import EntityShareOffer
+    _as(client, offreur["user_id"], "share.offreur@devoptiq.com")
+    client.post(f"/activities/api/entities/{offreur['entity_id']}/share",
+                json={"user_ids": [cast["dest1"]]})
+    with app.app_context():
+        offre_id = (EntityShareOffer.query
+                    .filter_by(to_user_id=cast["dest1"], status="pending").first().id)
+
+    _as(client, cast["dest2"], "share.dest2@devoptiq.com")
+    res = client.post(f"/activities/api/share/offers/{offre_id}/respond",
+                      json={"action": "accept"})
+    assert res.status_code == 404
+
+
+def test_action_invalide_refusee(app, client, offreur, cast):
+    from Code.models.models import EntityShareOffer
+    with app.app_context():
+        offre_id = (EntityShareOffer.query
+                    .filter_by(to_user_id=cast["dest1"], status="pending").first().id)
+    _as(client, cast["dest1"], "share.dest1@devoptiq.com")
+    res = client.post(f"/activities/api/share/offers/{offre_id}/respond",
+                      json={"action": "peut-etre"})
+    assert res.status_code == 400
+
+
+def test_les_candidats_signalent_une_proposition_en_attente(app, client, offreur, cast):
+    _as(client, offreur["user_id"], "share.offreur@devoptiq.com")
+    body = client.get(
+        f"/activities/api/entities/{offreur['entity_id']}/share/candidates").get_json()
+    dest1 = next(u for u in body["users"] if u["id"] == cast["dest1"])
+    assert dest1["pending"] is True
+
+
+def test_les_offres_exigent_une_session(app, client):
+    with client.session_transaction() as sess:
+        sess.pop("user_id", None)
+    assert client.get("/activities/api/share/offers").status_code == 401

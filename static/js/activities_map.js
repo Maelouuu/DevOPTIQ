@@ -516,11 +516,13 @@ async function createEntity() {
 }
 
 /* ══════════════════════════════════════════════════
-   PARTAGE D'UNE ENTITÉ (administrateurs)
+   PARTAGE D'UNE ENTITÉ
    ══════════════════════════════════════════════════
    Partager = déposer une COPIE de l'entité chez chaque destinataire : une
    entité n'appartient qu'à son propriétaire, il n'existe pas d'accès partagé.
-   Chacun repart avec la sienne et la modifie sans toucher à l'originale. */
+   Chacun repart avec la sienne et la modifie sans toucher à l'originale.
+   Ouvert à tous : seul le CONSENTEMENT change (dépôt direct pour un admin,
+   proposition à accepter sinon). */
 
 function wireEntityShare() {
   $("#wizard-share-btn")?.addEventListener("click", openShareModal);
@@ -528,9 +530,16 @@ function wireEntityShare() {
   $("#share-confirm-btn")?.addEventListener("click", confirmShare);
 }
 
+const SHARE_L = () => window.SHARE_I18N || {};
+
+// Un administrateur dépose sa copie directement ; tout autre compte envoie une
+// proposition, et l'entité n'est créée qu'après acceptation du destinataire.
+let shareDirect = true;
+
 async function openShareModal() {
   const entity = wizardState.selectedEntity;
   if (!entity) return;
+  const L = SHARE_L();
   const list = $("#share-user-list");
   const desc = $("#share-modal-desc");
   if (!list) return;
@@ -538,7 +547,7 @@ async function openShareModal() {
   const confirmBtn = $("#share-confirm-btn");
   if (confirmBtn) confirmBtn.style.display = "";
   const cancelBtn = $("#share-cancel-btn");
-  if (cancelBtn) cancelBtn.textContent = "Annuler";
+  if (cancelBtn) cancelBtn.textContent = L.cancel || "Annuler";
   list.innerHTML = '<p class="share-loading"><i class="fa-solid fa-spinner fa-spin"></i></p>';
   showModal("share-entity-modal");
 
@@ -547,9 +556,18 @@ async function openShareModal() {
     const data = await res.json();
     if (data.error) { list.innerHTML = `<p class="share-error">${data.error}</p>`; return; }
 
-    if (desc) desc.textContent = data.entity.name;
+    shareDirect = data.direct !== false;
+    if (desc) {
+      desc.innerHTML = `${data.entity.name}`
+        + `<span class="share-mode-hint">${shareDirect ? (L.directHint || "") : (L.offerHint || "")}</span>`;
+    }
+    if (confirmBtn) {
+      confirmBtn.innerHTML = shareDirect
+        ? `<i class="fa-solid fa-paper-plane"></i> ${L.confirm || "Déposer la copie"}`
+        : `<i class="fa-solid fa-paper-plane"></i> ${L.send || "Envoyer la proposition"}`;
+    }
     if (!data.users.length) {
-      list.innerHTML = '<p class="share-empty">Aucun autre compte sur cette instance.</p>';
+      list.innerHTML = `<p class="share-empty">${L.noAccount || "Aucun autre compte sur cette instance."}</p>`;
       return;
     }
     list.innerHTML = data.users.map(u => `
@@ -557,17 +575,19 @@ async function openShareModal() {
         <input type="checkbox" class="share-user-cb" value="${u.id}">
         <span class="share-user-name">${u.name}</span>
         <span class="share-user-mail">${u.email}</span>
-        ${u.already_has ? '<span class="share-user-flag">déjà une copie</span>' : ''}
+        ${u.pending ? `<span class="share-user-flag">${L.pendingFlag || "proposition en attente"}</span>`
+                    : (u.already_has ? `<span class="share-user-flag">${L.hasCopy || "déjà une copie"}</span>` : '')}
       </label>`).join("");
   } catch (e) {
-    list.innerHTML = '<p class="share-error">Erreur de chargement des comptes.</p>';
+    list.innerHTML = `<p class="share-error">${L.loadError || "Erreur de chargement des comptes."}</p>`;
   }
 }
 
 async function confirmShare() {
+  const L = SHARE_L();
   const entity = wizardState.selectedEntity;
   const ids = [...document.querySelectorAll(".share-user-cb:checked")].map(cb => parseInt(cb.value));
-  if (!entity || !ids.length) { alert("Sélectionnez au moins un compte."); return; }
+  if (!entity || !ids.length) { alert(L.pickOne || "Sélectionnez au moins un compte."); return; }
 
   const btn = $("#share-confirm-btn");
   const label = btn ? btn.innerHTML : null;
@@ -581,32 +601,69 @@ async function confirmShare() {
     const data = await res.json();
     if (data.error) { alert(data.error); return; }
 
-    const alertes = data.shared.filter(s => s.sync_warning);
+    const deposees = data.shared || [];
+    const proposees = data.pending || [];
+    const alertes = deposees.filter(s => s.sync_warning);
     const list = $("#share-user-list");
     if (list) {
-      list.innerHTML = data.shared.map(s => `
+      const lignes = deposees.map(s => `
         <div class="share-done-row">
           <i class="fa-solid fa-circle-check"></i>
           <span class="share-user-name">${s.user}</span>
           <span class="share-done-entity">${s.entity_name}</span>
-        </div>`).join("")
-        + (alertes.length
-            ? `<p class="share-warn">Copie déposée, mais l'extraction des activités a échoué pour ${alertes.length} compte(s).</p>`
-            : '<p class="share-ok">Chacun retrouve l\'entité dans sa propre liste, prête à l\'emploi.</p>');
+        </div>`).concat(proposees.map(s => `
+        <div class="share-done-row share-done-pending">
+          <i class="fa-solid fa-paper-plane"></i>
+          <span class="share-user-name">${s.user}</span>
+          <span class="share-done-entity">${L.sent || "Proposition envoyée"}</span>
+        </div>`)).join("");
+      const pied = proposees.length
+        ? `<p class="share-ok">${L.donePending || ""}</p>`
+        : (alertes.length
+            ? `<p class="share-warn">${(L.doneWarn || "%s").replace("%s", alertes.length)}</p>`
+            : `<p class="share-ok">${L.doneOk || ""}</p>`);
+      list.innerHTML = lignes + pied;
     }
     const desc = $("#share-modal-desc");
-    if (desc) desc.textContent = `${data.shared.length} copie(s) déposée(s)`;
+    if (desc) desc.textContent = entity.name;
     const confirm = $("#share-confirm-btn");
     if (confirm) confirm.style.display = "none";
     const cancel = $("#share-cancel-btn");
-    if (cancel) cancel.textContent = "Fermer";
+    if (cancel) cancel.textContent = L.close || "Fermer";
     return;
   } catch (e) {
-    alert("Erreur réseau pendant le partage.");
+    alert(L.netError || "Erreur réseau pendant le partage.");
   } finally {
     if (btn) { btn.disabled = false; if (label !== null) btn.innerHTML = label; }
   }
 }
+
+async function createEntity() {
+  const input = $("#wizard-new-entity-name");
+  const name = input?.value.trim();
+  if (!name) { alert("Nom requis"); return; }
+
+  try {
+    const res = await fetch("/activities/api/entities", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name })
+    });
+    const data = await res.json();
+    if (data.error) { alert(data.error); return; }
+    if (data.redirect_url) { window.location.href = data.redirect_url; return; }
+    input.value = "";
+    await loadEntitiesList();
+    setTimeout(() => selectEntity(data.entity.id), 50);
+  } catch (e) { alert("Erreur réseau"); }
+}
+
+/* ══════════════════════════════════════════════════
+   PARTAGE D'UNE ENTITÉ (administrateurs)
+   ══════════════════════════════════════════════════
+   Partager = déposer une COPIE de l'entité chez chaque destinataire : une
+   entité n'appartient qu'à son propriétaire, il n'existe pas d'accès partagé.
+   Chacun repart avec la sienne et la modifie sans toucher à l'originale. */
 
 async function selectEntity(id) {
   const entity = wizardState.entitiesCache.find(e => e.id === id);

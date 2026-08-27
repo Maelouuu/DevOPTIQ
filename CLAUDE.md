@@ -255,13 +255,37 @@ cadence sur la fiche activité ; panneau de qualification des sorties + badges �
 - **Où vivent les droits** : `Code/permissions.py` — source unique pour la page Comptes, les Paramètres et le partage d'entités. `is_competency_manager_status()` reconnaît une **famille** de valeurs plutôt qu'une liste figée : `users.status` est un VARCHAR(20), donc « Gestionnaire de compétences » y arrive **tronqué** (« gestionnaire de comp »), et le libellé est saisi tantôt en français tantôt en anglais. Règle : commence par « gestionnaire », OU contient « manager » + (« competency » | « competence » | « skill »).
 - **Valeur canonique** `gestionnaire` (13 car., tient dans la colonne) proposée dans les listes déroulantes création / édition / filtre. Le badge de la liste affiche la **valeur brute** quand elle n'est reconnue par aucune règle, au lieu de la faire passer pour « Utilisateur » : un statut mal orthographié se voit, au lieu de produire des droits inexpliqués.
 
-### Partage d'une entité (administrateurs)
+### Partage d'une entité (tous les statuts, avec consentement)
 
 Une entité n'appartient qu'à son propriétaire (`Entity.get_active` est strict sur `owner_id`) : il n'existe pas d'accès partagé. **Partager = déposer une COPIE** chez chaque destinataire, qui repart ensuite avec la sienne sans toucher à l'originale.
-- `GET /activities/api/entities/<id>/share/candidates` → comptes cibles (`already_has` signale ceux qui ont déjà une entité du même nom).
-- `POST /activities/api/entities/<id>/share` `{user_ids:[…]}` → pour chacun, une Entity neuve (nom, description, `vsdx_filename`, SVG, `optiqcarto_data`), nom suffixé « (2) » en cas de collision, puis `_sync_carto_to_db` — sinon le destinataire reçoit une carte sans activités ni rôles.
-- Les deux routes exigent le statut administrateur ET la propriété de l'entité (404 sinon). Bouton **Partager** dans la pop-up Gestion des entités, masqué pour les autres.
-- Tests : `tests/test_51_entity_share.py` (11 cas).
+
+**Tout le monde peut partager ses propres entités.** Ce que change le statut, c'est le
+CONSENTEMENT du destinataire :
+- **administrateur → dépôt direct**, sans rien demander (comportement d'origine) ;
+- **tout autre statut → proposition**. Rien n'est créé à l'envoi : une ligne
+  `EntityShareOffer` (table `entity_share_offers`) porte une **copie du contenu**
+  (nom, description, `vsdx_filename`, SVG, `optiqcarto_data`) — le destinataire
+  reçoit ce qui lui a été proposé même si l'expéditeur modifie ou supprime son
+  entité entre-temps. À sa prochaine ouverture de l'app, une pop-up centrée
+  (`entity_share_popup.html`, incluse par `header_buttons.html`, donc sur toutes
+  les pages) annonce « X vous propose son entité … » avec **Accepter / Refuser**.
+  Accepter crée l'entité et dérive activités/rôles/liens ; refuser ne crée rien.
+
+- `GET /activities/api/entities/<id>/share/candidates` → comptes cibles + `direct`
+  (dépôt direct ou proposition), `already_has`, `pending`.
+- `POST /activities/api/entities/<id>/share` `{user_ids:[…]}` → `shared` (dépôts) et/ou
+  `pending` (propositions). Une seule proposition en attente par (expéditeur, entité,
+  destinataire) : renvoyer deux fois ne fait pas deux pop-ups.
+- `GET /activities/api/share/offers` → propositions en attente du compte connecté.
+- `POST /activities/api/share/offers/<id>/respond` `{action:"accept"|"decline"}` →
+  404 si l'offre vise un autre compte, 409 si elle est déjà traitée.
+- Les routes d'envoi exigent la **propriété** de l'entité (404 sinon) — plus le statut admin.
+  Le dépôt (direct ou après acceptation) passe par `_deposer_copie()` : nom suffixé
+  « (2) » en cas de collision, puis `_sync_carto_to_db` — sinon le destinataire reçoit
+  une carte sans activités ni rôles.
+- La pop-up attend que la **fenêtre de bienvenue** soit refermée (MutationObserver) pour
+  ne pas empiler deux modales, et ne recharge la page qu'après une acceptation.
+- Tests : `tests/test_51_entity_share.py` (23 cas).
 
 ---
 
@@ -294,6 +318,13 @@ partagent un design system chargé partout via `header_buttons.html` :
   `#ea580c`, `page--settings` `#6366f1`). Poser `pg-root page--<clé>` sur la
   racine (ou `class="pg page--<clé>"` sur `<body>`) → accent via `var(--pg-accent)`
   + dérivés `--pg-accent-deep/-soft/-softer/-border/-glow`.
+- **Liseré de défilement de la nav** (`cardnav.css` + `js/cardnav.js`) : la barre
+  native est masquée, et sans trackpad la nav ne pouvait pas défiler. Un liseré
+  fin (rail + curseur dégradé vert→rose) est posé en bas de la zone des items ;
+  **il se tire**, un clic dans le rail saute à la position, et la molette
+  verticale défile la nav tant qu'elle n'est pas en butée (au-delà, la page
+  reprend la main). Invisible au repos, il apparaît au survol de la nav et
+  pendant le défilement ; masqué sur mobile (le menu s'y déplie en colonne).
 - **2 éléments d'identité communs** : la nav (cardnav) + le **bandeau de page**
   `{% include "page_banner.html" %}` (icône teintée, titre Fraunces, sous-titre,
   encart chiffre optionnel). Fond commun gris-bleu `#f2f4f9` + halo couleur de
