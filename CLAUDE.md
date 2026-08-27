@@ -277,15 +277,25 @@ CONSENTEMENT du destinataire :
   `pending` (propositions). Une seule proposition en attente par (expéditeur, entité,
   destinataire) : renvoyer deux fois ne fait pas deux pop-ups.
 - `GET /activities/api/share/offers` → propositions en attente du compte connecté.
-- `POST /activities/api/share/offers/<id>/respond` `{action:"accept"|"decline"}` →
+- `POST /activities/api/share/offers/<id>/respond` `{action:"accept"|"update"|"decline"}` →
   404 si l'offre vise un autre compte, 409 si elle est déjà traitée.
+- **Carto déjà présente chez le destinataire** : la liste des propositions renvoie
+  `existing` (l'entité de MÊME NOM qu'il possède déjà) avec `differs` (comparaison
+  JSON des deux `optiqcarto_data`). La pop-up propose alors **Mettre à jour la
+  mienne** (`action:"update"` — remplace SA carto par celle reçue au lieu d'empiler
+  « Nom (2) »), **Créer une copie**, ou Refuser ; si les deux cartos sont identiques,
+  le bouton de mise à jour disparaît. `update` sans entité du même nom → 400.
+  ⚠️ Mettre à jour passe par `_sync_carto_to_db`, qui fait un **upsert** (shape_id
+  puis nom) : les activités communes gardent tâches, compétences et évaluations,
+  mais celles absentes de la carto reçue sont **supprimées** avec leurs données
+  liées. La pop-up le dit avant de valider.
 - Les routes d'envoi exigent la **propriété** de l'entité (404 sinon) — plus le statut admin.
   Le dépôt (direct ou après acceptation) passe par `_deposer_copie()` : nom suffixé
   « (2) » en cas de collision, puis `_sync_carto_to_db` — sinon le destinataire reçoit
   une carte sans activités ni rôles.
 - La pop-up attend que la **fenêtre de bienvenue** soit refermée (MutationObserver) pour
   ne pas empiler deux modales, et ne recharge la page qu'après une acceptation.
-- Tests : `tests/test_51_entity_share.py` (23 cas).
+- Tests : `tests/test_51_entity_share.py` (27 cas).
 
 ---
 
@@ -320,7 +330,8 @@ partagent un design system chargé partout via `header_buttons.html` :
   + dérivés `--pg-accent-deep/-soft/-softer/-border/-glow`.
 - **Liseré de défilement de la nav** (`cardnav.css` + `js/cardnav.js`) : la barre
   native est masquée, et sans trackpad la nav ne pouvait pas défiler. Un liseré
-  fin (rail + curseur dégradé vert→rose) est posé en bas de la zone des items ;
+  court (200 px max, ~20 % de la largeur de la nav) et vert `#49e8a4` — celui
+  du contour de la nav — est posé en bas de la zone des items ;
   **il se tire**, un clic dans le rail saute à la position, et la molette
   verticale défile la nav tant qu'elle n'est pas en butée (au-delà, la page
   reprend la main). Invisible au repos, il apparaît au survol de la nav et

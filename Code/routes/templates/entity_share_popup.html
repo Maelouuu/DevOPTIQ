@@ -10,7 +10,7 @@
   }
   #eso-overlay.eso-visible{opacity:1}
   #eso-card{
-    width:min(94vw,470px);
+    width:min(94vw,500px);
     background:#fff; color:#111827;
     border-radius:16px; overflow:hidden;
     box-shadow:0 24px 60px rgba(8,12,22,.32);
@@ -49,10 +49,20 @@
   .eso-entity-desc{font-size:13px; color:#6b7280; margin-top:2px}
   .eso-hint{font-size:13px; color:#6b7280; margin:14px 0 0; line-height:1.5}
 
-  .eso-actions{display:flex; gap:10px; padding:0 22px 20px}
+  .eso-known{
+    margin:14px 0 0; padding:11px 13px;
+    border-radius:10px; border:1px solid #fde68a; background:#fffbeb;
+    font-size:13px; color:#92400e; line-height:1.5;
+  }
+  .eso-known b{font-weight:700}
+  .eso-known-hint{display:block; margin-top:5px; color:#a16207}
+
+  .eso-actions{display:flex; gap:8px; padding:0 22px 20px; flex-wrap:wrap}
+  .eso-actions .eso-btn{flex:1 1 auto; padding-left:10px; padding-right:10px}
+  .eso-actions .eso-accept{flex:1.2 1 auto}
   .eso-btn{
     flex:1; border:0; border-radius:10px; padding:11px 14px;
-    font-size:13.5px; font-weight:600; cursor:pointer;
+    font-size:13px; font-weight:600; cursor:pointer; white-space:nowrap;
     font-family:inherit; transition:filter .15s ease, background .15s ease;
   }
   .eso-btn:disabled{opacity:.6; cursor:default}
@@ -60,6 +70,8 @@
   .eso-decline:hover:not(:disabled){background:#f3f4f6}
   .eso-accept{background:linear-gradient(135deg,#0d9488,#0f766e); color:#fff}
   .eso-accept:hover:not(:disabled){filter:brightness(1.06)}
+  .eso-copy{background:#fff; color:#0f766e; border:1px solid #99f6e4}
+  .eso-copy:hover:not(:disabled){background:#f0fdfa}
   .eso-done{
     padding:0 22px 20px; font-size:13.5px; color:#0f766e; font-weight:600;
     display:none;
@@ -82,10 +94,12 @@
           <div class="eso-entity-desc" id="eso-entity-desc"></div>
         </div>
       </div>
-      <p class="eso-hint">{{ t('share.offer_hint') }}</p>
+      <p class="eso-hint" id="eso-hint">{{ t('share.offer_hint') }}</p>
+      <div class="eso-known" id="eso-known" style="display:none"></div>
     </div>
     <div class="eso-actions" id="eso-actions">
       <button class="eso-btn eso-decline" id="eso-decline">{{ t('share.decline') }}</button>
+      <button class="eso-btn eso-copy" id="eso-copy" style="display:none">{{ t('share.make_copy') }}</button>
       <button class="eso-btn eso-accept" id="eso-accept">{{ t('share.accept') }}</button>
     </div>
     <div class="eso-done" id="eso-done"></div>
@@ -99,6 +113,14 @@
     remaining: {{ t('share.remaining')|tojson }},
     accepted:  {{ t('share.accepted')|tojson }},
     declined:  {{ t('share.declined')|tojson }},
+    updated:   {{ t('share.updated')|tojson }},
+    already:   {{ t('share.already_have')|tojson }},
+    differs:   {{ t('share.diff_hint')|tojson }},
+    same:      {{ t('share.same_hint')|tojson }},
+    update:    {{ t('share.update')|tojson }},
+    accept:    {{ t('share.accept')|tojson }},
+    offerHint: {{ t('share.offer_hint')|tojson }},
+    updateHint: {{ t('share.update_hint')|tojson }},
   };
   const overlay = document.getElementById('eso-overlay');
   if (!overlay) return;
@@ -120,6 +142,32 @@
     el('eso-entity-desc').style.display = o.description ? '' : 'none';
     el('eso-count').textContent = offres.length > 1
       ? remplir(I18N.remaining, index + 1, offres.length) : '';
+
+    // Déjà une entité du même nom : mettre à jour la sienne plutôt que
+    // d'empiler une copie — proposé seulement si la version reçue diffère.
+    const connue = o.existing;
+    const known = el('eso-known');
+    const copie = el('eso-copy');
+    const accepter = el('eso-accept');
+    if (connue) {
+      known.innerHTML = remplir(I18N.already, '<b>' + echapper(connue.name) + '</b>')
+        + '<span class="eso-known-hint">'
+        + (connue.differs ? echapper(I18N.differs) : echapper(I18N.same)) + '</span>';
+      known.style.display = 'block';
+      copie.style.display = '';
+      accepter.textContent = connue.differs ? I18N.update : I18N.accept;
+      accepter.dataset.action = connue.differs ? 'update' : 'accept';
+      if (!connue.differs) { accepter.style.display = 'none'; }
+      else { accepter.style.display = ''; }
+      el('eso-hint').textContent = connue.differs ? I18N.updateHint : I18N.offerHint;
+    } else {
+      known.style.display = 'none';
+      copie.style.display = 'none';
+      accepter.style.display = '';
+      accepter.textContent = I18N.accept;
+      accepter.dataset.action = 'accept';
+      el('eso-hint').textContent = I18N.offerHint;
+    }
     el('eso-done').style.display = 'none';
     el('eso-actions').style.display = 'flex';
     overlay.style.display = 'flex';
@@ -144,7 +192,7 @@
   async function repondre(action) {
     const o = offres[index];
     if (!o) return;
-    const boutons = [el('eso-accept'), el('eso-decline')];
+    const boutons = [el('eso-accept'), el('eso-copy'), el('eso-decline')];
     boutons.forEach(b => b.disabled = true);
     try {
       const res = await fetch('/activities/api/share/offers/' + o.id + '/respond', {
@@ -154,9 +202,10 @@
       });
       const data = await res.json();
       if (!data.error) {
-        if (action === 'accept') aAccepte = true;
+        if (action !== 'decline') aAccepte = true;
         el('eso-actions').style.display = 'none';
-        el('eso-done').textContent = action === 'accept' ? I18N.accepted : I18N.declined;
+        el('eso-done').textContent = action === 'decline' ? I18N.declined
+                                   : action === 'update' ? I18N.updated : I18N.accepted;
         el('eso-done').style.display = 'block';
         setTimeout(() => { index += 1; afficher(); }, 900);
         return;
@@ -165,7 +214,9 @@
     terminer();
   }
 
-  el('eso-accept').addEventListener('click', () => repondre('accept'));
+  el('eso-accept').addEventListener('click', (e) =>
+    repondre(e.currentTarget.dataset.action || 'accept'));
+  el('eso-copy').addEventListener('click', () => repondre('accept'));
   el('eso-decline').addEventListener('click', () => repondre('decline'));
 
   async function charger() {

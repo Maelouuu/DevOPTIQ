@@ -368,3 +368,98 @@ def test_les_offres_exigent_une_session(app, client):
     with client.session_transaction() as sess:
         sess.pop("user_id", None)
     assert client.get("/activities/api/share/offers").status_code == 401
+
+
+# ── Le destinataire possède déjà cette entité ────────────────────────────────
+
+DIAGRAM_ANCIEN = {
+    "shapes": [
+        {"id": "p1", "type": "process", "label": "Partage Activité A",
+         "x": 100, "y": 0, "w": 120, "h": 60},
+        {"id": "p9", "type": "process", "label": "Activité disparue",
+         "x": 700, "y": 0, "w": 120, "h": 60},
+    ],
+    "bands": [{"id": "b1", "label": "Bande Partage", "height": 200}],
+    "connections": [],
+}
+
+
+@pytest.fixture(scope="module")
+def jumeau(app):
+    """Un compte qui possède déjà « Carto proposée », dans une version plus ancienne."""
+    from Code.models.models import Entity
+    from Code.extensions import db
+    from Code.routes.cartography_editor import _sync_carto_to_db
+    uid = _mk_user(app, "share.jumeau@devoptiq.com", "user")
+    with app.app_context():
+        ent = Entity.query.filter_by(name="Carto proposée", owner_id=uid).first()
+        if ent is None:
+            ent = Entity(name="Carto proposée", owner_id=uid)
+            db.session.add(ent)
+        ent.optiqcarto_data = json.dumps(DIAGRAM_ANCIEN, ensure_ascii=False)
+        db.session.commit()
+        _sync_carto_to_db(ent, DIAGRAM_ANCIEN)
+        db.session.commit()
+        return {"user_id": uid, "entity_id": ent.id}
+
+
+def _offre_pour(client, email, user_id, offreur, nom="Carto proposée"):
+    _as(client, offreur["user_id"], "share.offreur@devoptiq.com")
+    client.post(f"/activities/api/entities/{offreur['entity_id']}/share",
+                json={"user_ids": [user_id]})
+    _as(client, user_id, email)
+    offres = client.get("/activities/api/share/offers").get_json()["offers"]
+    return next(o for o in offres if o["entity_name"] == nom)
+
+
+def test_l_offre_signale_l_entite_du_meme_nom_et_l_ecart(app, client, offreur, jumeau):
+    offre = _offre_pour(client, "share.jumeau@devoptiq.com", jumeau["user_id"], offreur)
+    assert offre["existing"] is not None
+    assert offre["existing"]["id"] == jumeau["entity_id"]
+    assert offre["existing"]["differs"] is True
+
+
+def test_mettre_a_jour_remplace_la_carto_sans_creer_d_entite(app, client, offreur, jumeau):
+    from Code.models.models import Entity, Activities
+    offre = _offre_pour(client, "share.jumeau@devoptiq.com", jumeau["user_id"], offreur)
+
+    with app.app_context():
+        avant = Entity.query.filter_by(owner_id=jumeau["user_id"]).count()
+
+    res = client.post(f"/activities/api/share/offers/{offre['id']}/respond",
+                      json={"action": "update"})
+    assert res.status_code == 200
+    body = res.get_json()
+    assert body["action"] == "updated"
+    assert body["entity_id"] == jumeau["entity_id"]
+
+    with app.app_context():
+        # aucune entité de plus : c'est la sienne qui a changé
+        assert Entity.query.filter_by(owner_id=jumeau["user_id"]).count() == avant
+        cible = Entity.query.get(jumeau["entity_id"])
+        assert json.loads(cible.optiqcarto_data) == DIAGRAM
+        noms = {a.name for a in Activities.query.filter_by(entity_id=cible.id).all()}
+        assert {"Partage Activité A", "Partage Activité B"} <= noms
+        assert "Activité disparue" not in noms
+
+
+def test_une_carto_identique_est_signalee_comme_telle(app, client, offreur, jumeau):
+    """Après la mise à jour, la même proposition n'a plus d'écart à annoncer."""
+    offre = _offre_pour(client, "share.jumeau@devoptiq.com", jumeau["user_id"], offreur)
+    assert offre["existing"]["differs"] is False
+
+
+def test_mettre_a_jour_sans_entite_du_meme_nom_est_refuse(app, client, offreur, cast):
+    """Le destinataire n'a rien de ce nom : il n'y a rien à mettre à jour."""
+    from Code.models.models import Entity
+    from Code.extensions import db
+    neuf = _mk_user(app, "share.sansjumeau@devoptiq.com", "user")
+    with app.app_context():
+        for e in Entity.query.filter_by(owner_id=neuf).all():
+            db.session.delete(e)
+        db.session.commit()
+
+    offre = _offre_pour(client, "share.sansjumeau@devoptiq.com", neuf, offreur)
+    res = client.post(f"/activities/api/share/offers/{offre['id']}/respond",
+                      json={"action": "update"})
+    assert res.status_code == 400
