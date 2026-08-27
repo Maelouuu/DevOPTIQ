@@ -513,7 +513,10 @@ class VsdxImporter {
       ourCum += bandH;
 
       const bandIdx = newBands.length + 1;
-      const color = fill || FALLBACK_COLORS[bandIdx % FALLBACK_COLORS.length];
+      // Aucune couleur lisible dans le fichier → gris neutre. Piocher dans une
+      // palette de repli affichait des couleurs qui n'existent PAS dans le Visio
+      // d'origine, et la carto ne ressemblait plus à ce que l'utilisateur a dessiné.
+      const color = fill || '#d1d5db';
       newBands.push({ id: bandIdx, label: label || `Bande ${bandIdx}`, color, fontSize: 22, height: bandH });
     }
   }
@@ -578,20 +581,42 @@ class VsdxImporter {
   //      (Stakeholder of the Order has no text node on its label — its label is a
   //      Visio formula — so the LAST child approach is needed to skip the grey
   //      background shape and land on the correct colored index strip.)
+  // Couleur d'un couloir = celle de son BANDEAU D'INDEX (l'enfant qui porte le
+  // libellé de la bande). Deux pièges :
+  //  • prendre « le dernier enfant coloré » ramenait tantôt le bandeau, tantôt
+  //    le fond du couloir — d'où des bandes qui ne ressemblaient pas au fichier ;
+  //  • un couloir qui ne redéfinit rien HÉRITE la couleur de son gabarit
+  //    (MasterShape) : sans la résoudre, on inventait une couleur de repli.
   _extractLaneFill(el) {
-    const fill = this.vCell(el, 'FillForegnd');
-    if (!this.isWashedOut(fill)) return fill;
-
     const childEl = this.vEl(el, 'Shapes');
-    if (!childEl) return null;
 
-    // Scan all children; keep the last one that is not near-white (= index strip).
-    let best = null;
-    for (const child of this.vAll(childEl, 'Shape')) {
-      const cf = this.vCell(child, 'FillForegnd');
-      if (cf && cf.startsWith('#') && !this._isNearWhite(cf)) best = cf;
+    // Uniquement la couleur POSÉE dans le fichier. Remonter au gabarit ramènerait
+    // le rouge d'usine du stencil sur un couloir qui s'affiche clair dans Visio :
+    // ce serait inventer une couleur, juste autrement.
+    const couleurDe = (child) => {
+      const propre = this.vCell(child, 'FillForegnd');
+      return (propre && propre.startsWith('#') && !this._isNearWhite(propre)) ? propre : null;
+    };
+
+    if (childEl) {
+      const enfants = this.vAll(childEl, 'Shape');
+      // 1) l'enfant qui porte le libellé = le bandeau
+      for (const child of enfants) {
+        if (!this.vText(child)) continue;
+        const c = couleurDe(child);
+        if (c) return c;
+      }
+      // 2) à défaut, le dernier enfant coloré (ancien comportement)
+      let best = null;
+      for (const child of enfants) {
+        const c = couleurDe(child);
+        if (c) best = c;
+      }
+      if (best) return best;
     }
-    return best;
+
+    const fill = this.vCell(el, 'FillForegnd');
+    return this.isWashedOut(fill) ? null : fill;
   }
 
   // Détermine le shift Y à appliquer à un point dont le Y naturel (sans

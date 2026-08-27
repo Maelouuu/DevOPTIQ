@@ -6680,8 +6680,21 @@ function _startDiamondPlacement(onDone) {
     });
   }
 
-  const finish = () => { overlay.remove(); done(); };
-  validBtn.addEventListener('click', () => { if (idx >= diamonds.length - 1) finish(); else { idx++; renderFrame(); } });
+  // Un losange validé ici doit être BRANCHÉ sur sa flèche, exactement comme ceux
+  // que l'import a déjà insérés. Sans ça, deux régimes cohabitent — connecté
+  // pour les uns, simple décor posé par-dessus pour les autres — et les liens
+  // métier diffèrent selon qui a placé le losange.
+  const brancher = (D) => {
+    if (!D) return;
+    try { if (_snapDiamondToArrow(D)) render(); } catch (e) { console.error(e); }
+  };
+  const brancherTous = () => { for (const D of diamonds) brancher(D); };
+
+  const finish = () => { brancherTous(); overlay.remove(); done(); };
+  validBtn.addEventListener('click', () => {
+    brancher(diamonds[idx]);
+    if (idx >= diamonds.length - 1) finish(); else { idx++; renderFrame(); }
+  });
   prevBtn.addEventListener('click', () => { if (idx > 0) { idx--; renderFrame(); } });
   overlay.querySelector('#dp-skip').addEventListener('click', finish); // accepte le pré-placement du reste
 
@@ -6719,7 +6732,7 @@ function _projectOnPolyline(cx, cy, pts) {
     if (l2 < 1e-6) continue;
     const t = Math.max(0, Math.min(1, ((cx - ax) * abx + (cy - ay) * aby) / l2));
     const px = ax + t * abx, py = ay + t * aby, d = Math.hypot(cx - px, cy - py);
-    if (d < best.dist) best = { dist: d, x: px, y: py, frac: total > 0 ? (cum[i] + t * Math.sqrt(l2)) / total : 0 };
+    if (d < best.dist) best = { dist: d, x: px, y: py, seg: i, frac: total > 0 ? (cum[i] + t * Math.sqrt(l2)) / total : 0 };
   }
   return best;
 }
