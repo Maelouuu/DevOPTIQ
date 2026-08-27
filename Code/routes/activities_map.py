@@ -694,7 +694,7 @@ def _unique_entity_name_for(base, user_id):
     return f"{name} ({i})"[:200]
 
 
-def _deposer_copie(source, target_id):
+def _deposer_copie(source, target_id, nom=None):
     """Crée l'entité chez le destinataire et en dérive activités/rôles/liens.
 
     `source` est soit une Entity, soit une EntityShareOffer : les deux portent
@@ -702,7 +702,7 @@ def _deposer_copie(source, target_id):
     """
     from Code.routes.cartography_editor import _sync_carto_to_db
 
-    nom_source = getattr(source, 'name', None) or getattr(source, 'entity_name', None)
+    nom_source = nom or getattr(source, 'name', None) or getattr(source, 'entity_name', None)
     copie = Entity(
         name=_unique_entity_name_for(nom_source, target_id),
         description=source.description,
@@ -727,6 +727,37 @@ def _deposer_copie(source, target_id):
             traceback.print_exc()
             erreur = str(exc)
     return copie, erreur
+
+
+def _remplacer_entite(cible, source, nom=None):
+    """Écrase la carto d'une entité existante par celle de `source`.
+
+    Mêmes règles que la mise à jour côté destinataire : `_sync_carto_to_db` fait
+    un upsert, donc les activités communes gardent leurs données et celles
+    absentes de la carto reçue disparaissent.
+    """
+    from Code.routes.cartography_editor import _sync_carto_to_db
+
+    if nom:
+        cible.name = nom[:200]
+    if source.description:
+        cible.description = source.description
+    cible.vsdx_filename = source.vsdx_filename
+    cible.svg_filename = source.svg_filename
+    cible.svg_content = source.svg_content
+    cible.optiqcarto_data = source.optiqcarto_data
+    db.session.commit()
+
+    erreur = None
+    diagram = _carto_json(source.optiqcarto_data)
+    if diagram:
+        try:
+            _sync_carto_to_db(cible, diagram)
+        except Exception as exc:
+            import traceback
+            traceback.print_exc()
+            erreur = str(exc)
+    return cible, erreur
 
 
 def _carto_json(donnees):
@@ -770,14 +801,20 @@ def share_candidates(entity_id):
     users = User.query.filter(User.id != user_id).order_by(User.first_name, User.last_name).all()
     out = []
     for u in users:
-        deja = Entity.query.filter_by(owner_id=u.id, name=entity.name).first() is not None
-        out.append({
+        siennes = Entity.query.filter_by(owner_id=u.id).order_by(Entity.name).all()
+        deja = any(e.name == entity.name for e in siennes)
+        ligne = {
             "id": u.id,
             "name": _nom_compte(u),
             "email": u.email,
             "already_has": deja,
             "pending": u.id in en_attente,
-        })
+        }
+        # Un dépôt d'autorité peut viser une entité existante : l'admin a besoin
+        # de la liste pour choisir laquelle remplacer.
+        if direct:
+            ligne["entities"] = [{"id": e.id, "name": e.name} for e in siennes]
+        out.append(ligne)
     return jsonify({
         "entity": {"id": entity.id, "name": entity.name},
         "users": out,
@@ -813,6 +850,18 @@ def share_entity(entity_id):
     # proposition comme tout le monde. Les autres comptes ne PEUVENT que proposer.
     mode = (data.get("mode") or "direct").strip().lower()
     direct = is_admin() and mode != "offer"
+
+    # Dépôt d'autorité : l'admin peut imposer le nom, et viser une entité
+    # existante du destinataire au lieu d'en créer une de plus.
+    nom_impose = (data.get("name") or "").strip()[:200] or None
+    remplacements = {}
+    if direct:
+        for cle, valeur in (data.get("replace") or {}).items():
+            try:
+                remplacements[int(cle)] = int(valeur)
+            except (TypeError, ValueError):
+                return jsonify({"error": "Entité à remplacer invalide"}), 400
+
     resultats, proposes, echecs = [], [], []
 
     for tid in target_ids:
@@ -822,18 +871,29 @@ def share_entity(entity_id):
             continue
 
         if direct:
-            copie, erreur = _deposer_copie(source, tid)
+            a_remplacer = remplacements.get(tid)
+            if a_remplacer:
+                existante = Entity.query.filter_by(id=a_remplacer, owner_id=tid).first()
+                if not existante:
+                    echecs.append({"user_id": tid, "error": "Entité à remplacer introuvable"})
+                    continue
+                copie, erreur = _remplacer_entite(existante, source, nom_impose)
+                genre = 'replace'
+            else:
+                copie, erreur = _deposer_copie(source, tid, nom_impose)
+                genre = 'copy'
             # Recevoir une entité sans avoir rien demandé mérite une explication :
             # on laisse une notification, affichée à sa prochaine ouverture.
             db.session.add(EntityShareOffer(
                 from_user_id=user_id, to_user_id=tid, source_entity_id=entity_id,
                 entity_name=copie.name, description=source.description,
-                status='delivered', created_entity_id=copie.id))
+                status='delivered', deposit_kind=genre, created_entity_id=copie.id))
             resultats.append({
                 "user_id": tid,
                 "user": _nom_compte(cible),
                 "entity_id": copie.id,
                 "entity_name": copie.name,
+                "replaced": genre == 'replace',
                 "sync_warning": erreur,
             })
             continue
@@ -907,6 +967,7 @@ def share_offers():
             "created_at": o.created_at.isoformat() if o.created_at else None,
             "existing": existante,
             "kind": "notice" if notice else "offer",
+            "replaced": bool(notice and o.deposit_kind == 'replace'),
         })
     return jsonify({"offers": out})
 

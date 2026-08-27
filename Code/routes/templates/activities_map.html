@@ -19,6 +19,9 @@
     directHint:  {{ t('map.share_direct_hint')|tojson }},
     modeDirect:  {{ t('map.share_mode_direct')|tojson }},
     modeOffer:   {{ t('map.share_mode_offer')|tojson }},
+    targetNew:     {{ t('map.share_target_new')|tojson }},
+    targetReplace: {{ t('map.share_target_replace')|tojson }},
+    replaced:      {{ t('map.share_replaced')|tojson }},
     offerHint:   {{ t('map.share_offer_hint')|tojson }},
     pendingFlag: {{ t('map.share_pending_flag')|tojson }},
     hasCopy:     {{ t('map.share_has_copy')|tojson }},
@@ -227,6 +230,10 @@
           <input type="radio" name="share-mode" value="offer">
           <span>{{ t('map.share_mode_offer') }}</span>
         </label>
+      </div>
+      <div class="share-name-row" id="share-name-row" style="display:none">
+        <label class="share-name-label" for="share-name">{{ t('map.share_name_label') }}</label>
+        <input type="text" id="share-name" class="share-name-input" maxlength="200">
       </div>
       <div class="share-user-list" id="share-user-list"></div>
       <div class="share-modal-actions">

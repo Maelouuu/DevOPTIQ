@@ -123,8 +123,11 @@
     updateHint: {{ t('share.update_hint')|tojson }},
     title:       {{ t('share.offer_title')|tojson }},
     noticeTitle: {{ t('share.notice_title')|tojson }},
+    noticeTitleUpd: {{ t('share.notice_title_upd')|tojson }},
     noticeIntro: {{ t('share.notice_intro')|tojson }},
     noticeHint:  {{ t('share.notice_hint')|tojson }},
+    noticeReplaced:     {{ t('share.notice_replaced')|tojson }},
+    noticeReplacedHint: {{ t('share.notice_replaced_hint')|tojson }},
     gotIt:       {{ t('share.got_it')|tojson }},
     decline:     {{ t('share.decline')|tojson }},
   };
@@ -145,9 +148,13 @@
     // « notice » = l'entité a déjà été déposée par un administrateur : rien à
     // accepter, on explique seulement ce qui vient d'arriver dans ses données.
     const info = o.kind === 'notice';
-    el('eso-title').textContent = info ? I18N.noticeTitle : I18N.title;
-    el('eso-from').innerHTML = remplir(info ? I18N.noticeIntro : I18N.from,
-                                       '<b>' + echapper(o.from) + '</b>');
+    const majTitre = info && o.replaced;
+    el('eso-title').textContent = majTitre ? I18N.noticeTitleUpd
+                                : info ? I18N.noticeTitle : I18N.title;
+    const remplacee = info && o.replaced;
+    el('eso-from').innerHTML = remplir(
+      remplacee ? I18N.noticeReplaced : (info ? I18N.noticeIntro : I18N.from),
+      '<b>' + echapper(o.from) + '</b>');
     el('eso-entity-name').textContent = o.entity_name || '—';
     el('eso-entity-desc').textContent = o.description || '';
     el('eso-entity-desc').style.display = o.description ? '' : 'none';
@@ -168,7 +175,7 @@
       accepter.style.display = '';
       accepter.textContent = I18N.gotIt;
       accepter.dataset.action = 'acknowledge';
-      el('eso-hint').textContent = I18N.noticeHint;
+      el('eso-hint').textContent = remplacee ? I18N.noticeReplacedHint : I18N.noticeHint;
     } else if (connue) {
       known.innerHTML = remplir(I18N.already, '<b>' + echapper(connue.name) + '</b>')
         + '<span class="eso-known-hint">'

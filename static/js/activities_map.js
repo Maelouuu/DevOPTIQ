@@ -532,6 +532,27 @@ function wireEntityShare() {
 
 const SHARE_L = () => window.SHARE_I18N || {};
 
+// Dépôt d'autorité : l'admin vise soit une entité neuve, soit une entité
+// existante du destinataire (qui sera écrasée par la carto envoyée).
+function cibleSelect(u, L) {
+  if (!u.entities || !u.entities.length) return "";
+  const options = [`<option value="">${L.targetNew || "Créer une nouvelle entité"}</option>`]
+    .concat(u.entities.map(e =>
+      `<option value="${e.id}">${(L.targetReplace || 'Remplacer « %s »').replace("%s", e.name)}</option>`));
+  return `<select class="share-target" data-user="${u.id}">${options.join("")}</select>`;
+}
+
+// Les cibles n'ont de sens qu'en dépôt d'autorité.
+function majCibles() {
+  const direct = shareDirect && shareMode() === "direct";
+  document.querySelectorAll(".share-target").forEach(sel => {
+    sel.style.display = direct ? "" : "none";
+    if (!direct) sel.value = "";
+  });
+  const ligne = $("#share-name-row");
+  if (ligne) ligne.style.display = direct ? "flex" : "none";
+}
+
 // « direct » = dépôt d'autorité (admin), « offer » = proposition à accepter.
 const shareMode = () =>
   document.querySelector('#share-mode input[name="share-mode"]:checked')?.value || "direct";
@@ -578,8 +599,10 @@ async function openShareModal() {
           + `<span class="share-mode-hint">${direct ? (L.directHint || "") : (L.offerHint || "")}</span>`;
       }
     };
+    const champNom = $("#share-name");
+    if (champNom) champNom.value = data.entity.name || "";
     document.querySelectorAll('#share-mode input[name="share-mode"]')
-      .forEach(r => r.addEventListener("change", majBouton));
+      .forEach(r => r.addEventListener("change", () => { majBouton(); majCibles(); }));
     majBouton();
     if (!data.users.length) {
       list.innerHTML = `<p class="share-empty">${L.noAccount || "Aucun autre compte sur cette instance."}</p>`;
@@ -592,10 +615,23 @@ async function openShareModal() {
         <span class="share-user-mail">${u.email}</span>
         ${u.pending ? `<span class="share-user-flag">${L.pendingFlag || "proposition en attente"}</span>`
                     : (u.already_has ? `<span class="share-user-flag">${L.hasCopy || "déjà une copie"}</span>` : '')}
+        ${cibleSelect(u, L)}
       </label>`).join("");
+    majCibles();
   } catch (e) {
     list.innerHTML = `<p class="share-error">${L.loadError || "Erreur de chargement des comptes."}</p>`;
   }
+}
+
+// { id du compte : id de l'entité à écraser } — vide = tout en création.
+function ciblesChoisies() {
+  const cibles = {};
+  document.querySelectorAll(".share-user-row").forEach(ligne => {
+    const cb = ligne.querySelector(".share-user-cb");
+    const sel = ligne.querySelector(".share-target");
+    if (cb?.checked && sel?.value) cibles[cb.value] = sel.value;
+  });
+  return cibles;
 }
 
 async function confirmShare() {
@@ -611,7 +647,12 @@ async function confirmShare() {
     const res = await fetch(`/activities/api/entities/${entity.id}/share`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ user_ids: ids, mode: shareMode() }),
+      body: JSON.stringify({
+        user_ids: ids,
+        mode: shareMode(),
+        name: ($("#share-name")?.value || "").trim() || undefined,
+        replace: ciblesChoisies(),
+      }),
     });
     const data = await res.json();
     if (data.error) { alert(data.error); return; }
@@ -625,7 +666,8 @@ async function confirmShare() {
         <div class="share-done-row">
           <i class="fa-solid fa-circle-check"></i>
           <span class="share-user-name">${s.user}</span>
-          <span class="share-done-entity">${s.entity_name}</span>
+          <span class="share-done-entity">${s.entity_name}${
+            s.replaced ? ` (${L.replaced || "remplacée"})` : ""}</span>
         </div>`).concat(proposees.map(s => `
         <div class="share-done-row share-done-pending">
           <i class="fa-solid fa-paper-plane"></i>

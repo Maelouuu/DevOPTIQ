@@ -2995,6 +2995,7 @@ function onUp(e) {
           for (const conn of state.connections) {
             if (conn.fromId === id || conn.toId === id) conn.userPts = null;
           }
+          if (s) _snapDiamondToArrow(s);
         }
         snapshot();
         render();
@@ -5028,10 +5029,12 @@ async function importVSDX(file) {
     state.bandWidth   = Math.max(3200, Math.round(shapes.reduce((m, s) => Math.max(m, s.x + s.w), 0) + 300));
     state.nextId      = nextOid + 1;
 
-    // Propagate shape colors to outgoing connections
+    // Propagate shape colors to outgoing connections. Une branche qui SORT d'un
+    // losange garde la couleur du flux (celle posée à l'import), sinon toutes
+    // les sorties de décision viraient au gris du losange.
     state.connections.forEach(c => {
       const from = state.shapes.find(s => s.id === c.fromId);
-      if (from) c.color = from.color;
+      if (from && from.type !== 'decision') c.color = from.color;
     });
 
     render();
@@ -6314,6 +6317,12 @@ function _separateLanes() {
       const len = isH ? Math.abs(b.x - a.x) : Math.abs(b.y - a.y);
       if (len < MIN_OVER) continue;
       const movable = !!c.userPts && i >= 1 && i <= pts.length - 3;
+      // Un tronc commun de fourche DOIT rester superposé : c'est une seule
+      // flèche qui se divise, pas deux flèches parallèles à écarter.
+      const dansTronc = c.bundleId && (
+        (c.trunkFrom && i <= c.trunkFrom) ||
+        (c.trunkTo   && i >= pts.length - 1 - c.trunkTo));
+      if (dansTronc) continue;
       segs.push({ c, isH, movable, coord: isH ? a.y : a.x,
         lo: isH ? Math.min(a.x, b.x) : Math.min(a.y, b.y),
         hi: isH ? Math.max(a.x, b.x) : Math.max(a.y, b.y), uA: i - 1, uB: i });
@@ -6459,6 +6468,7 @@ function _reconstructClassicPolish() {
   }
   render();                 // recalcule _computedOrthopts avec angles droits
   _separateLanes();         // sépare les flèches parallèles superposées en voies distinctes
+  _realignBundles();        // …sauf les troncs de fourche, qu'on remet en coïncidence
   render();
   architectLabels(false);   // labels près des pointes, jamais sur une autre flèche
   if (typeof _syncLabelSlider === 'function') _syncLabelSlider();
@@ -6704,7 +6714,7 @@ function _projectOnPolyline(cx, cy, pts) {
     if (l2 < 1e-6) continue;
     const t = Math.max(0, Math.min(1, ((cx - ax) * abx + (cy - ay) * aby) / l2));
     const px = ax + t * abx, py = ay + t * aby, d = Math.hypot(cx - px, cy - py);
-    if (d < best.dist) best = { dist: d, frac: total > 0 ? (cum[i] + t * Math.sqrt(l2)) / total : 0 };
+    if (d < best.dist) best = { dist: d, x: px, y: py, frac: total > 0 ? (cum[i] + t * Math.sqrt(l2)) / total : 0 };
   }
   return best;
 }
@@ -6725,22 +6735,91 @@ function _seatDecorativeDiamonds() {
     const a = byId[c.fromId], b = byId[c.toId];
     return (a && b) ? [{ x: a.x + a.w / 2, y: a.y + a.h / 2 }, { x: b.x + b.w / 2, y: b.y + b.h / 2 }] : null;
   };
+  const parId = {}; for (const c of state.connections) parId[c.id] = c;
   for (const D of state.shapes) {
     if (D.type !== 'decision' || connected.has(D.id)) continue;
     const cx = D.x + D.w / 2, cy = D.y + D.h / 2;
-    let best = null, bestDist = Infinity, bestFrac = 0;
-    for (const c of state.connections) {
-      const poly = origPoly(c); if (!poly) continue;
-      const pr = _projectOnPolyline(cx, cy, poly);
-      if (pr.dist < bestDist) { bestDist = pr.dist; best = c; bestFrac = pr.frac; }
+
+    // L'import rattache le losange par la COULEUR de trait Visio (les flèches
+    // d'une même décision partagent la couleur du losange) : bien plus sûr que
+    // « la plus proche », qui se trompe dès que deux tracés se frôlent.
+    let best = D.seatConnId ? parId[D.seatConnId] : null;
+    let bestFrac = D.seatFrac != null ? D.seatFrac : 0;
+    if (!best) {
+      let bestDist = Infinity;
+      for (const c of state.connections) {
+        const poly = origPoly(c); if (!poly) continue;
+        const pr = _projectOnPolyline(cx, cy, poly);
+        if (pr.dist < bestDist) { bestDist = pr.dist; best = c; bestFrac = pr.frac; }
+      }
+      if (!best || bestDist > 60) { delete D._seatConnId; continue; }
     }
-    if (!best || bestDist > 60) { delete D._seatConnId; continue; } // pas clairement sur un connecteur → laisser
     D._seatConnId = best.id;                          // flèche associée (surbrillance pop-up placement)
     const pts = best._computedOrthopts;
     if (!pts || pts.length < 2) continue;
-    const p = _pointAlongPath(pts, bestFrac);        // même fraction, sur le tracé FINAL
-    D.x = Math.round(p.x - D.w / 2); D.y = Math.round(p.y - D.h / 2);
+    // Même fraction sur le tracé FINAL, puis projection : la fraction seule
+    // laissait le losange à côté du trait dès que le tracé avait été retouché.
+    const p = _pointAlongPath(pts, bestFrac);
+    const pr = _projectOnPolyline(p.x, p.y, pts);
+    const px = pr.x != null ? pr.x : p.x, py = pr.y != null ? pr.y : p.y;
+    D.x = Math.round(px - D.w / 2); D.y = Math.round(py - D.h / 2);
   }
+}
+
+// Losange lâché tout près d'une flèche : on le pose PILE dessus, centré sur le
+// trait. Viser le milieu d'un trait de 2 px à la souris est pénible ; à moins de
+// SNAP_LOSANGE px, on considère que c'est l'intention.
+const SNAP_LOSANGE = 14;
+function _snapDiamondToArrow(D) {
+  if (!D || D.type !== 'decision') return false;
+  for (const c of state.connections)
+    if (c.fromId === D.id || c.toId === D.id) return false;   // losange dans le flux : on n'y touche pas
+  const cx = D.x + D.w / 2, cy = D.y + D.h / 2;
+  let best = null, bestDist = Infinity, bestPr = null;
+  for (const c of state.connections) {
+    const pts = c._computedOrthopts;
+    if (!pts || pts.length < 2) continue;
+    const pr = _projectOnPolyline(cx, cy, pts);
+    if (pr.dist < bestDist) { bestDist = pr.dist; best = c; bestPr = pr; }
+  }
+  if (!best || bestDist > SNAP_LOSANGE || bestPr.x == null) return false;
+  D.x = Math.round(bestPr.x - D.w / 2);
+  D.y = Math.round(bestPr.y - D.h / 2);
+  D.seatConnId = best.id;
+  D.seatFrac = +bestPr.frac.toFixed(4);
+  D._seatConnId = best.id;
+  return true;
+}
+
+// Tronc commun d'une fourche : l'import aligne les premiers sommets des flèches
+// qui partent ensemble (bundleMultiLinks), mais le polish les sépare ensuite en
+// voies distinctes — d'où les deux traits presque superposés au départ des
+// losanges. On remet les points du tronc en coïncidence après retouche.
+function _realignBundles() {
+  const paquets = {};
+  for (const c of state.connections) {
+    if (!c.bundleId || !c.userPts) continue;
+    (paquets[c.bundleId] = paquets[c.bundleId] || []).push(c);
+  }
+  let recolles = 0;
+  for (const membres of Object.values(paquets)) {
+    if (membres.length < 2) continue;
+    const debut = membres[0].bundleId.startsWith('f');
+    const profondeur = Math.min(...membres.map(c =>
+      (debut ? (c.trunkFrom || 0) : (c.trunkTo || 0))));
+    if (profondeur < 1) continue;
+    const ref = membres[0].userPts;
+    for (const c of membres.slice(1)) {
+      for (let i = 0; i < profondeur && i < ref.length && i < c.userPts.length; i++) {
+        const src = debut ? ref[i] : ref[ref.length - 1 - i];
+        const dst = debut ? c.userPts[i] : c.userPts[c.userPts.length - 1 - i];
+        if (!src || !dst) continue;
+        if (Math.abs(dst.x - src.x) > 0.01 || Math.abs(dst.y - src.y) > 0.01) recolles++;
+        dst.x = src.x; dst.y = src.y;
+      }
+    }
+  }
+  return recolles;
 }
 
 // Curseur global des labels : place TOUS les labels à la même position relative le long

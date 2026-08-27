@@ -279,3 +279,62 @@ def test_export_et_import_exigent_une_session(app, client):
         sess.clear()
     assert client.get("/cartography/api/export").status_code == 403
     assert client.post("/cartography/api/import").status_code == 403
+
+
+# ── Losange inséré dans le flux (import VSDX : la flèche est coupée dessus) ───
+# L'import pose désormais le losange EN NOEUD : A → losange → B1/B2. Le modèle
+# métier, lui, ne connaît que des activités : _do_sync doit retrouver A → B.
+
+DIAGRAM_DECISION = {
+    "shapes": [
+        {"id": "a1", "type": "process", "label": "Analyser la demande",
+         "x": 100, "y": 0, "w": 120, "h": 60},
+        {"id": "d1", "type": "decision", "label": "Faisable ?",
+         "x": 300, "y": 10, "w": 40, "h": 40},
+        {"id": "b1", "type": "process", "label": "Chiffrer",
+         "x": 500, "y": 0, "w": 120, "h": 60},
+        {"id": "b2", "type": "process", "label": "Refuser la demande",
+         "x": 500, "y": 120, "w": 120, "h": 60},
+    ],
+    "bands": [{"id": "b", "label": "Commerce", "height": 300}],
+    "connections": [
+        {"id": 801, "fromId": "a1", "toId": "d1", "label": ""},
+        {"id": 802, "fromId": "d1", "toId": "b1", "label": "Oui"},
+        {"id": 803, "fromId": "d1", "toId": "b2", "label": "Non"},
+    ],
+    "bandWidth": 1400,
+}
+
+
+def test_un_losange_dans_le_flux_garde_le_lien_metier(app, client, ids):
+    """A → losange → B doit produire les liens A → B (le losange n'est pas une activité)."""
+    # les tests precedents laissent la session sur un autre compte
+    with app.app_context():
+        from Code.models.models import User
+        seed = User.query.filter_by(email='test@devoptiq.com').first()
+        uid, umail = seed.id, seed.email
+    with client.session_transaction() as sess:
+        sess['user_id'] = uid
+        sess['user_email'] = umail
+        sess['active_entity_id'] = ids['entity_id']
+
+    res = client.post('/cartography/api/save', json={'diagram': DIAGRAM_DECISION})
+    assert res.status_code == 200
+
+    with app.app_context():
+        from Code.models.models import Activities, Link
+        ent_id = ids['entity_id']
+        acts = {a.name: a for a in Activities.query.filter_by(entity_id=ent_id).all()}
+        assert 'Analyser la demande' in acts
+        assert 'Chiffrer' in acts
+        # le losange n'est pas une activité
+        assert 'Faisable ?' not in acts
+
+        liens = Link.query.filter(
+            Link.source_activity_id == acts['Analyser la demande'].id).all()
+        cibles = {l.target_activity_id for l in liens}
+        assert acts['Chiffrer'].id in cibles, "le lien A → B est perdu quand un losange coupe la flèche"
+        assert acts['Refuser la demande'].id in cibles
+        # le libellé de la décision est absorbé comme choix Oui/Non
+        vers_chiffrer = next(l for l in liens if l.target_activity_id == acts['Chiffrer'].id)
+        assert (vers_chiffrer.choice_label or '').lower() in ('oui', 'yes', '')

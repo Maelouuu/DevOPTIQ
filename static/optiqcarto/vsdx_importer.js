@@ -80,6 +80,21 @@ class VsdxImporter {
   }
 
   // Searches Cell in direct children AND within Section > Row > Cell
+  // Couleur de trait telle qu'elle est VUE dans Visio : celle posée sur la forme,
+  // sinon celle héritée du master. C'est le seul signal fiable pour rattacher un
+  // losange décoratif à SA flèche : dans une carto métier, toutes les flèches
+  // d'une même décision partagent la couleur du losange (pleines ou pointillées,
+  // peu importe). Les valeurs de thème (THEMEVAL…) ne sont pas des couleurs.
+  async visioLineColor(el) {
+    const direct = this.vCellDeep(el, 'LineColor');
+    if (direct && direct.startsWith('#')) return direct.toLowerCase();
+    const mid = el.getAttribute('Master') || el.getAttribute('MasterShape');
+    if (!mid) return null;
+    const info = await this.getMasterInfo(mid);
+    const c = info && info.lineColor;
+    return c && c.startsWith('#') ? c.toLowerCase() : null;
+  }
+
   vCellDeep(el, name) {
     const direct = this.vCell(el, name);
     if (direct !== null) return direct;
@@ -245,7 +260,8 @@ class VsdxImporter {
   async getMasterInfo(mid) {
     const DEFAULTS = { w: 0.9449, h: 0.7087, linePattern: 1, fillPattern: 1,
                        isEllipse: false, isDiamond: false, isSubprocess: false,
-                       isStadium: false, isWavyBottom: false, aspect: 1, fillColor: null };
+                       isStadium: false, isWavyBottom: false, aspect: 1,
+                       fillColor: null, lineColor: null };
     if (!mid) return DEFAULTS;
     if (this.masterInfoCache[mid]) return this.masterInfoCache[mid];
     const fpath = this.masterIdToFile[mid];
@@ -255,7 +271,7 @@ class VsdxImporter {
       const doc = this.parseXml(xml);
 
       // ── Dimensions + style du shape primaire ──
-      let bw, bh, lp = 1, fp = 1, fillColor = null, rounding = 0;
+      let bw, bh, lp = 1, fp = 1, fillColor = null, lineColor = null, rounding = 0;
       for (const s of doc.getElementsByTagName('Shape')) {
         const w = this.vCell(s, 'Width'), h = this.vCell(s, 'Height');
         if (w) bw = parseFloat(w);
@@ -266,6 +282,8 @@ class VsdxImporter {
         if (fpv) fp = parseInt(fpv) || 1;
         const fc = this.vCell(s, 'FillForegnd');
         if (fc && fc.startsWith('#') && !fillColor) fillColor = fc;
+        const lc = this.vCell(s, 'LineColor');
+        if (lc && lc.startsWith('#') && !lineColor) lineColor = lc;
         // Cellule Rounding : Visio arrondit les coins via propriété de style (pas des arcs
         // dans la géométrie). Une valeur élevée (≥ 30 % de la petite dim.) crée l'aspect
         // "activité externe" (côtés en parenthèses) sans aucun EllipticalArcTo dans la geom.
@@ -312,7 +330,7 @@ class VsdxImporter {
 
       return this.masterInfoCache[mid] = {
         w: bw || 0.9449, h: bh || 0.7087,
-        linePattern: lp, fillPattern: fp, fillColor,
+        linePattern: lp, fillPattern: fp, fillColor, lineColor,
         isEllipse: g.isEllipse, isDiamond: g.isDiamond,
         isSubprocess: g.isSubprocess, isWavyBottom: g.isWavyBottom,
         isStadium, aspect,
@@ -899,6 +917,186 @@ class VsdxImporter {
     }
   }
 
+  // ─── Rattachement des losanges décoratifs à LEUR flèche ──────────
+  // Un losange de décision n'est pas connecté dans Visio : il est posé SUR les
+  // flèches. « La flèche la plus proche » se trompe dès que deux tracés se
+  // frôlent — ce qui arrive constamment autour d'un losange.
+  //
+  // Le signal fiable est la COULEUR DE TRAIT, portée par les flèches (le losange
+  // lui-même n'a pas de couleur propre : c'est une forme « Small If » qui hérite
+  // tout de son master). Les flèches d'une même décision partagent une couleur :
+  // l'entrée et les une ou deux sorties. On choisit donc la FAMILLE de couleur la
+  // mieux représentée autour du losange, puis on le pose sur elle — au point de
+  // divergence quand la décision a deux sorties, au plus près sinon.
+  async tagDecorativeDiamonds() {
+    const { newShapes, newConns } = this;
+    const RAYON = 90;          // au-delà, le losange ne « touche » plus rien
+    const SEUIL_COUPE = 45;    // le losange est vraiment POSÉ sur la flèche
+    const SEUIL_SEUL  = 14;    // décision à une seule sortie : exigence plus stricte
+    const coupes = [];
+
+    const connectes = new Set();
+    for (const c of newConns) { connectes.add(c.fromId); connectes.add(c.toId); }
+
+    const projeter = (px, py, pts) => {
+      let best = Infinity, bx = pts[0].x, by = pts[0].y, frac = 0, seg = 0, total = 0;
+      const longs = [];
+      for (let i = 0; i < pts.length - 1; i++) {
+        const l = Math.hypot(pts[i + 1].x - pts[i].x, pts[i + 1].y - pts[i].y);
+        longs.push(l); total += l;
+      }
+      let parcouru = 0;
+      for (let i = 0; i < pts.length - 1; i++) {
+        const a = pts[i], b = pts[i + 1];
+        const dx = b.x - a.x, dy = b.y - a.y, l2 = dx * dx + dy * dy;
+        const t = l2 ? Math.max(0, Math.min(1, ((px - a.x) * dx + (py - a.y) * dy) / l2)) : 0;
+        const qx = a.x + t * dx, qy = a.y + t * dy;
+        const d = Math.hypot(px - qx, py - qy);
+        if (d < best) { best = d; bx = qx; by = qy; seg = i; frac = total ? (parcouru + t * longs[i]) / total : 0; }
+        parcouru += longs[i];
+      }
+      return { dist: best, x: bx, y: by, frac, seg };
+    };
+
+    // Point de divergence d'une fourche : dernier sommet commun aux membres.
+    const divergence = (membres) => {
+      const debut = (membres[0].bundleId || 'f').startsWith('f');
+      const prof = Math.min(...membres.map(c => (debut ? c.trunkFrom : c.trunkTo) || 0));
+      if (!prof) return null;
+      const pts = membres[0].customPath;
+      return debut ? pts[prof] : pts[pts.length - 1 - prof];
+    };
+
+    let taggés = 0, parCouleur = 0, surFourche = 0;
+    for (const D of newShapes) {
+      if (D.type !== 'decision' || connectes.has(D.id)) continue;
+      const cx = D.x + D.w / 2, cy = D.y + D.h / 2;
+
+      const proches = [];
+      for (const c of newConns) {
+        if (!c.customPath || c.customPath.length < 2) continue;
+        const pr = projeter(cx, cy, c.customPath);
+        if (pr.dist <= RAYON) proches.push({ c, pr });
+      }
+      if (!proches.length) continue;
+
+      // Familles de couleur autour du losange : la mieux représentée gagne
+      // (une décision amène au moins une entrée + une sortie de même couleur),
+      // à égalité c'est la plus proche.
+      const familles = new Map();
+      for (const item of proches) {
+        const k = item.c._visioColor || '?';
+        const f = familles.get(k) || { membres: [], plusProche: Infinity };
+        f.membres.push(item);
+        f.plusProche = Math.min(f.plusProche, item.pr.dist);
+        familles.set(k, f);
+      }
+      let famille = null;
+      for (const [k, f] of familles) {
+        if (k === '?') continue;
+        if (!famille || f.membres.length > famille.membres.length ||
+            (f.membres.length === famille.membres.length && f.plusProche < famille.plusProche)) {
+          famille = f;
+        }
+      }
+      const retenus = famille && famille.membres.length ? famille.membres : proches;
+      if (famille && famille.membres.length > 1) parCouleur++;
+
+      retenus.sort((a, b) => a.pr.dist - b.pr.dist);
+      const choisi = retenus[0];
+      D.seatConnId = choisi.c.id;
+      D.seatFrac = +choisi.pr.frac.toFixed(4);
+      taggés++;
+
+      // Deux sorties issues du même tronc : le losange se pose PILE à la
+      // bifurcation, c'est là que la décision se lit.
+      const paquet = retenus.map(i => i.c).filter(c => c.bundleId === choisi.c.bundleId);
+      if (choisi.c.bundleId && paquet.length > 1) {
+        const p = divergence(paquet);
+        if (p && Math.hypot(p.x - cx, p.y - cy) <= RAYON) {
+          const pr = projeter(p.x, p.y, choisi.c.customPath);
+          D.seatFrac = +pr.frac.toFixed(4);
+          D.x = Math.round(p.x - D.w / 2);
+          D.y = Math.round(p.y - D.h / 2);
+          surFourche++;
+        }
+      }
+
+      // Une décision, c'est UNE entrée et une ou deux sorties : on ne coupe que
+      // les flèches qui viennent de la MÊME source (le tronc qui se divise).
+      // Les autres ne font que passer à côté — les couper fabriquerait des
+      // entrées parasites, et c'est ce qui avait fait abandonner l'insertion
+      // automatique des losanges dans le flux.
+      const traversantes = retenus.filter(i => i.pr.dist <= SEUIL_COUPE &&
+                                               i.pr.frac > 0.06 && i.pr.frac < 0.94);
+      const parSource = new Map();
+      for (const i of traversantes) {
+        const k = String(i.c.fromId);
+        (parSource.get(k) || parSource.set(k, []).get(k)).push(i);
+      }
+      let tronc = null;
+      for (const groupe of parSource.values()) {
+        if (!tronc || groupe.length > tronc.length ||
+            (groupe.length === tronc.length &&
+             groupe[0].pr.dist < tronc[0].pr.dist)) tronc = groupe;
+      }
+      // Une seule flèche : on ne coupe que si le losange est vraiment DESSUS.
+      if (tronc && (tronc.length > 1 || tronc[0].pr.dist <= SEUIL_SEUL))
+        coupes.push({ D, membres: tronc });
+    }
+
+    // ── Couper les flèches sur le losange ────────────────────────────────
+    // Une décision, c'est UNE entrée et une ou deux sorties. Tant que le
+    // losange n'est qu'un décor posé sur N flèches indépendantes, chaque
+    // branche redessine le tronc : deux traits presque superposés que rien ne
+    // peut aligner parfaitement. En coupant, le tronc n'existe qu'une fois.
+    let entrees = 0, sorties = 0;
+    const dirDepuis = (a, b) => Math.abs(b.x - a.x) >= Math.abs(b.y - a.y)
+      ? (b.x >= a.x ? 'right' : 'left') : (b.y >= a.y ? 'bottom' : 'top');
+
+    for (const { D, membres } of coupes) {
+      const troncs = new Map();   // une seule entrée par source
+      for (const { c, pr } of membres) {
+        const coupe = { x: pr.x, y: pr.y };
+        // Indice du SEGMENT touche : deduire l'indice de la fraction de longueur
+        // coupait au mauvais endroit des que les segments etaient inegaux.
+        const idx = Math.max(1, Math.min(c.customPath.length - 1, pr.seg + 1));
+        const avant = c.customPath.slice(0, idx).concat([coupe]);
+        const apres = [coupe].concat(c.customPath.slice(idx));
+        if (avant.length < 2 || apres.length < 2) continue;
+
+        const cleTronc = `${c.fromId}|${Math.round(coupe.x)}|${Math.round(coupe.y)}`;
+        if (!troncs.has(cleTronc)) {
+          troncs.set(cleTronc, true);
+          newConns.push({
+            id: this.nextOid++, fromId: c.fromId, toId: D.id,
+            fromPortDir: c.fromPortDir, toPortDir: dirDepuis(coupe, avant[avant.length - 2]),
+            color: c.color, label: '', style: c.style, routing: 'orthogonal',
+            fromPortT: c.fromPortT, customPath: avant, _visioColor: c._visioColor,
+          });
+          entrees++;
+        }
+        newConns.push({
+          id: this.nextOid++, fromId: D.id, toId: c.toId,
+          fromPortDir: dirDepuis(coupe, apres[1]), toPortDir: c.toPortDir,
+          color: c.color, label: c.label, style: c.style, routing: 'orthogonal',
+          toPortT: c.toPortT, customPath: apres, _visioColor: c._visioColor,
+        });
+        sorties++;
+        c._remplacée = true;
+      }
+      if (troncs.size) { D.seatConnId = null; D.seatFrac = null; }
+    }
+    for (let i = newConns.length - 1; i >= 0; i--)
+      if (newConns[i]._remplacée) newConns.splice(i, 1);
+    if (coupes.length)
+      console.log(`[VSDX] losanges insérés dans le flux : ${coupes.length} (${entrees} entrée(s), ${sorties} sortie(s))`);
+    {
+    console.log(`[VSDX] losanges rattachés : ${taggés} (dont ${parCouleur} par une famille de couleur, ${surFourche} posés sur une bifurcation)`);
+    this.log(`Losanges rattachés à leur flèche : ${taggés}`);
+    }
+  }
+
   // ─── Phase 11: Build groups from Visio container groups ──────────
 
   buildGroups() {
@@ -1235,6 +1433,7 @@ class VsdxImporter {
         toPortDir   = OPP[fromPortDir];
       }
 
+      const visioColor = connItem ? await this.visioLineColor(connItem.el) : null;
       const connObj = {
         id: this.nextOid++, fromId, toId, fromPortDir, toPortDir,
         color: srcShape ? srcShape.color : '#567460',
@@ -1243,6 +1442,9 @@ class VsdxImporter {
       if (fromPortT !== undefined) connObj.fromPortT = fromPortT;
       if (toPortT   !== undefined) connObj.toPortT   = toPortT;
       if (customPath)              connObj.customPath = customPath;
+      // Sert au rattachement des losanges (phase suivante) ; retiré avant sauvegarde.
+      if (visioColor)              connObj._visioColor = visioColor;
+      if (!isSynthetic && connItem) connObj._visioId = ends._origConnId || connId;
       newConns.push(connObj);
     }
 
@@ -1542,6 +1744,7 @@ class VsdxImporter {
     // affecting the editor's connection topology.
     if (opts.spliceDecisions) this.spliceDecisions();
     await this.buildConnections();
+    await this.tagDecorativeDiamonds();
     this.cleanupBands();
 
     // ── Orphan handling (empty + unconnected shapes) ──
