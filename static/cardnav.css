@@ -126,15 +126,15 @@
 /* La barre native est masquée (scrollbar-width:none) : celle-ci la remplace.
    Ce n'est pas qu'un indicateur — on peut la TIRER, c'est le seul moyen de
    faire défiler la nav avec une souris sans molette horizontale. */
+/* Zone de CAPTATION : transparente, large, collée au bas de la nav. Le rail
+   ne fait que 3 px de haut — viser au pixel serait pénible. Elle descend sous
+   la zone des items (bottom négatif) pour ne pas voler le clic des boutons,
+   qui doivent continuer à mener à leur page. */
 .card-scrollbar {
   position: absolute;
-  /* Court et centré : sur toute la largeur, il pesait plus lourd que la nav. */
-  left: 50%; transform: translateX(-50%);
-  bottom: 2px;
-  width: min(34%, 200px);
-  height: 3px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.06);
+  left: 0; right: 0; bottom: -6px;
+  height: 13px;
+  display: flex; align-items: flex-end; justify-content: center;
   opacity: 0;
   pointer-events: none;
   transition: opacity .22s ease;
@@ -143,6 +143,17 @@
 .card-scrollbar.is-scrollable { pointer-events: auto; }
 .card-nav:hover .card-scrollbar.is-scrollable,
 .card-scrollbar.is-scrollable.is-active { opacity: 1; }
+
+/* Rail VISIBLE : court et centré, sur toute la largeur il pesait plus lourd
+   que la nav. */
+.card-scrollbar-track {
+  position: relative;
+  width: min(34%, 200px);
+  height: 3px;
+  margin-bottom: 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+}
 
 .card-scrollbar-thumb {
   position: absolute;

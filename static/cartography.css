@@ -4554,6 +4554,24 @@ body.connexion-mode-active .activity-item:not(.connexion-match):not(.connexion-o
 }
 .share-done-row.share-done-pending i { color: #d97706; }
 
+.share-mode {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  margin-bottom: 14px;
+  padding: 10px 12px;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 10px;
+  background: #f8fafc;
+}
+.share-mode-label { font-size: 0.78rem; font-weight: 700; color: #64748b; }
+.share-mode-opt {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 0.82rem; font-weight: 600; color: #334155; cursor: pointer;
+}
+.share-mode-opt input { accent-color: #7c3aed; cursor: pointer; }
+
 .share-user-list {
   max-height: 320px;
   overflow-y: auto;

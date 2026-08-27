@@ -463,3 +463,100 @@ def test_mettre_a_jour_sans_entite_du_meme_nom_est_refuse(app, client, offreur, 
     res = client.post(f"/activities/api/share/offers/{offre['id']}/respond",
                       json={"action": "update"})
     assert res.status_code == 400
+
+
+# ── L'admin choisit : dépôt d'autorité ou proposition ────────────────────────
+
+def test_un_admin_peut_demander_l_accord(app, client, cast):
+    """Avec mode=offer, l'admin ne dépose plus : il propose, comme les autres."""
+    from Code.models.models import EntityShareOffer
+    receveur = _mk_user(app, "share.accord@devoptiq.com", "user")
+    _as(client, cast["owner"], "share.admin@devoptiq.com")
+    res = client.post(f"/activities/api/entities/{cast['entity_id']}/share",
+                      json={"user_ids": [receveur], "mode": "offer"})
+    assert res.status_code == 200
+    body = res.get_json()
+    assert body["direct"] is False
+    assert body["shared"] == []
+    assert len(body["pending"]) == 1
+    with app.app_context():
+        from Code.models.models import Entity
+        assert Entity.query.filter_by(owner_id=receveur).count() == 0
+        assert EntityShareOffer.query.filter_by(
+            to_user_id=receveur, status='pending').count() == 1
+
+
+def test_un_compte_ordinaire_ne_peut_pas_forcer(app, client, offreur, cast):
+    """mode=direct depuis un compte non admin reste une simple proposition."""
+    receveur = _mk_user(app, "share.pasforce@devoptiq.com", "user")
+    _as(client, offreur["user_id"], "share.offreur@devoptiq.com")
+    res = client.post(f"/activities/api/entities/{offreur['entity_id']}/share",
+                      json={"user_ids": [receveur], "mode": "direct"})
+    body = res.get_json()
+    assert body["direct"] is False
+    assert body["shared"] == []
+    assert len(body["pending"]) == 1
+
+
+def test_un_depot_d_autorite_laisse_une_notification(app, client, cast):
+    from Code.models.models import Entity
+    receveur = _mk_user(app, "share.notifie@devoptiq.com", "user")
+    _as(client, cast["owner"], "share.admin@devoptiq.com")
+    res = client.post(f"/activities/api/entities/{cast['entity_id']}/share",
+                      json={"user_ids": [receveur], "mode": "direct"})
+    assert res.get_json()["direct"] is True
+
+    with app.app_context():
+        assert Entity.query.filter_by(owner_id=receveur).count() == 1
+
+    _as(client, receveur, "share.notifie@devoptiq.com")
+    offres = client.get("/activities/api/share/offers").get_json()["offers"]
+    assert len(offres) == 1
+    notice = offres[0]
+    assert notice["kind"] == "notice"
+    assert notice["entity_name"] == "Entité à partager"
+    assert notice["from"]
+    return notice
+
+
+def test_une_notification_s_acquitte_et_disparait(app, client, cast):
+    receveur = _mk_user(app, "share.acquitte@devoptiq.com", "user")
+    _as(client, cast["owner"], "share.admin@devoptiq.com")
+    client.post(f"/activities/api/entities/{cast['entity_id']}/share",
+                json={"user_ids": [receveur], "mode": "direct"})
+
+    _as(client, receveur, "share.acquitte@devoptiq.com")
+    notice = client.get("/activities/api/share/offers").get_json()["offers"][0]
+    res = client.post(f"/activities/api/share/offers/{notice['id']}/respond",
+                      json={"action": "acknowledge"})
+    assert res.status_code == 200
+    assert res.get_json()["action"] == "acknowledged"
+    assert client.get("/activities/api/share/offers").get_json()["offers"] == []
+
+
+def test_on_n_accepte_pas_une_notification(app, client, cast):
+    """L'entité est déjà là : accepter n'aurait aucun sens (et ferait un doublon)."""
+    receveur = _mk_user(app, "share.refusnotice@devoptiq.com", "user")
+    _as(client, cast["owner"], "share.admin@devoptiq.com")
+    client.post(f"/activities/api/entities/{cast['entity_id']}/share",
+                json={"user_ids": [receveur], "mode": "direct"})
+
+    _as(client, receveur, "share.refusnotice@devoptiq.com")
+    notice = client.get("/activities/api/share/offers").get_json()["offers"][0]
+    res = client.post(f"/activities/api/share/offers/{notice['id']}/respond",
+                      json={"action": "accept"})
+    assert res.status_code == 409
+
+
+def test_on_n_acquitte_pas_une_proposition(app, client, offreur, cast):
+    receveur = _mk_user(app, "share.pasacquit@devoptiq.com", "user")
+    _as(client, offreur["user_id"], "share.offreur@devoptiq.com")
+    client.post(f"/activities/api/entities/{offreur['entity_id']}/share",
+                json={"user_ids": [receveur]})
+
+    _as(client, receveur, "share.pasacquit@devoptiq.com")
+    offre = client.get("/activities/api/share/offers").get_json()["offers"][0]
+    assert offre["kind"] == "offer"
+    res = client.post(f"/activities/api/share/offers/{offre['id']}/respond",
+                      json={"action": "acknowledge"})
+    assert res.status_code == 400
