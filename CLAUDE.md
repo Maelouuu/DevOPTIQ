@@ -180,9 +180,26 @@ transporte le diagramme **tel qu'il est en base**, d'un compte à l'autre.
   - Mesuré (banc `tests/carto`) : carto client 12 losanges insérés dans le flux,
     28/28 losanges à ≤0,5 px de LEUR flèche ; hard.vsdx inchangé (croisements
     198 → 197, chevauchements 20 → 19 pour 11 connexions de plus).
-  - **Aimantation** (`_snapDiamondToArrow`) : lâcher un losange à moins de 14 px
-    d'une flèche le pose PILE sur le trait, centré — viser le milieu d'un trait de
-    2 px à la souris était pénible.
+  - **Coupe SÉQUENTIELLE** : deux losanges posés sur la MÊME flèche la coupaient
+    chacun de leur côté, sur le tracé d'origine → deux demi-flèches concurrentes
+    (le doublon visible sur la carto client). Chaque losange travaille donc sur
+    les flèches telles qu'elles sont APRÈS les coupes précédentes. Mesuré carto
+    client : croisements 52 → 46, chevauchements 15 → 7 (mieux qu'avant l'insertion
+    des losanges), hard.vsdx inchangé (198 croisements, chevauchements 20 → 16).
+  - **Où couper** : au point de divergence des branches — l'angle droit de la
+    décision — mais **seulement s'il tombe sous le losange** (≤45 px). Deux branches
+    partagent souvent un long tronc depuis leur source : couper là déplacerait le
+    losange à l'autre bout de la carto. Sinon on coupe à l'endroit où Visio a posé
+    le losange, et toutes les branches sont coupées au MÊME point (tronc unique,
+    90° exact entre les deux sorties).
+  - **Aimantation = insertion** (`_snapDiamondToArrow` → `_insertDiamondOnArrow`) :
+    lâcher un losange à moins de 14 px d'une flèche le coupe dessus, exactement
+    comme à l'import. ⚠️ Un losange posé à la main ne doit PAS rester un décor
+    par-dessus la flèche : les liens métier suivent le flux, et deux régimes
+    (connecté / décoratif) donnaient des liens différents selon qui l'avait posé.
+  - **Rendu** : une flèche qui ENTRE dans un losange n'a **ni pointe ni marge**
+    (`tipPad` 0, pas de `marker-end`) — le flux ne s'arrête pas à la décision, il
+    se divise, et toute marge agrandirait la zone sensible autour du losange.
   - Une branche qui SORT d'un losange garde la couleur du flux : sans ça, la
     propagation « couleur de la forme source » repeignait toutes les sorties de
     décision en gris.
