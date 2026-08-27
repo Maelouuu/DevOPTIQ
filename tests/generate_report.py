@@ -74,6 +74,7 @@ PAGE_LABELS = {
     "test_60_setup_wizard":              "Assistant de Configuration Initiale (Setup Wizard)",
     "test_61_admin_settings":            "Clés API & Paramètres Administrateur",
     "test_61_pulse":                     "OptiqPulse — Suivi d'Audience",
+    "test_62_activities_constraints_items": "Contraintes/Données (/activities) & API Items d'Activité",
 }
 
 
