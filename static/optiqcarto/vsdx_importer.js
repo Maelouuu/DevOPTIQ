@@ -1054,20 +1054,81 @@ class VsdxImporter {
     const dirDepuis = (a, b) => Math.abs(b.x - a.x) >= Math.abs(b.y - a.y)
       ? (b.x >= a.x ? 'right' : 'left') : (b.y >= a.y ? 'bottom' : 'top');
 
-    for (const { D, membres } of coupes) {
-      const troncs = new Map();   // une seule entrée par source
-      for (const { c, pr } of membres) {
-        const coupe = { x: pr.x, y: pr.y };
-        // Indice du SEGMENT touche : deduire l'indice de la fraction de longueur
-        // coupait au mauvais endroit des que les segments etaient inegaux.
-        const idx = Math.max(1, Math.min(c.customPath.length - 1, pr.seg + 1));
+    const MEME_PT = 6;   // deux sommets à moins de 6 px sont « le même point »
+
+    for (const { D, membres: membresInitiaux } of coupes) {
+      const cxD0 = D.x + D.w / 2, cyD0 = D.y + D.h / 2;
+      const couleur = membresInitiaux[0].c._visioColor;
+
+      // Recalcul sur les flèches ACTUELLES : une flèche traversée par deux
+      // losanges a déjà été coupée par le précédent, et c'est sur sa moitié
+      // qu'il faut travailler — sinon on recrée une flèche complète en doublon.
+      const dispo = newConns.filter(c => !c._remplacée && c.customPath &&
+                                         c.customPath.length >= 2 &&
+                                         (!couleur || c._visioColor === couleur));
+      const candidats = dispo
+        .map(c => ({ c, pr: projeter(cxD0, cyD0, c.customPath) }))
+        .filter(i => i.pr.dist <= SEUIL_COUPE && i.pr.frac > 0.04 && i.pr.frac < 0.96);
+      if (!candidats.length) continue;
+
+      const parSrc = new Map();
+      for (const i of candidats) {
+        const k = String(i.c.fromId);
+        (parSrc.get(k) || parSrc.set(k, []).get(k)).push(i);
+      }
+      let membres = null;
+      for (const g of parSrc.values())
+        if (!membres || g.length > membres.length ||
+            (g.length === membres.length && g[0].pr.dist < membres[0].pr.dist)) membres = g;
+      if (!membres || (membres.length === 1 && membres[0].pr.dist > SEUIL_SEUL)) continue;
+
+      const chemins = membres.map(m => m.c.customPath);
+
+      // Point de DIVERGENCE : dernier sommet commun à toutes les branches. Dans
+      // Visio c'est exactement l'angle droit du losange — une décision à deux
+      // sorties fait toujours 90° pile entre elles. Couper là (et non chacune à
+      // sa propre projection) garantit un tronc unique et des sorties alignées.
+      let profondeur = 0;
+      if (chemins.length > 1) {
+        const mini = Math.min(...chemins.map(p => p.length));
+        while (profondeur + 1 < mini) {
+          const ref = chemins[0][profondeur + 1];
+          const tous = chemins.every(p =>
+            Math.hypot(p[profondeur + 1].x - ref.x, p[profondeur + 1].y - ref.y) <= MEME_PT);
+          if (!tous) break;
+          profondeur++;
+        }
+      }
+
+      // La bifurcation ne fait foi QUE si elle tombe sous le losange. Deux
+      // branches peuvent partager un long tronc depuis leur source commune :
+      // couper là déplacerait le losange à l'autre bout de la carto.
+      let coupe = null;
+      const cxD = D.x + D.w / 2, cyD = D.y + D.h / 2;
+      if (chemins.length > 1 && profondeur >= 1) {
+        const bif = chemins[0][profondeur];
+        if (Math.hypot(bif.x - cxD, bif.y - cyD) <= SEUIL_COUPE)
+          coupe = { x: bif.x, y: bif.y };
+      }
+      if (!coupe) coupe = { x: membres[0].pr.x, y: membres[0].pr.y };
+
+      // Toutes les branches sont coupées au MÊME point : c'est ce qui garantit
+      // un tronc unique et, sur une décision à deux sorties, l'angle droit.
+      const indices = membres.map(m => {
+        const pr = projeter(coupe.x, coupe.y, m.c.customPath);
+        return Math.max(1, Math.min(m.c.customPath.length - 1, pr.seg + 1));
+      });
+
+      let troncPose = false;
+      membres.forEach((m, i) => {
+        const c = m.c;
+        const idx = Math.max(1, Math.min(c.customPath.length - 1, indices[i]));
         const avant = c.customPath.slice(0, idx).concat([coupe]);
         const apres = [coupe].concat(c.customPath.slice(idx));
-        if (avant.length < 2 || apres.length < 2) continue;
+        if (avant.length < 2 || apres.length < 2) return;
 
-        const cleTronc = `${c.fromId}|${Math.round(coupe.x)}|${Math.round(coupe.y)}`;
-        if (!troncs.has(cleTronc)) {
-          troncs.set(cleTronc, true);
+        if (!troncPose) {
+          troncPose = true;
           newConns.push({
             id: this.nextOid++, fromId: c.fromId, toId: D.id,
             fromPortDir: c.fromPortDir, toPortDir: dirDepuis(coupe, avant[avant.length - 2]),
@@ -1084,8 +1145,15 @@ class VsdxImporter {
         });
         sorties++;
         c._remplacée = true;
+      });
+
+      if (troncPose) {
+        // Le losange se cale sur l'angle : son CENTRE est le point de coupe.
+        D.x = Math.round(coupe.x - D.w / 2);
+        D.y = Math.round(coupe.y - D.h / 2);
+        D.seatConnId = null;
+        D.seatFrac = null;
       }
-      if (troncs.size) { D.seatConnId = null; D.seatFrac = null; }
     }
     for (let i = newConns.length - 1; i >= 0; i--)
       if (newConns[i]._remplacée) newConns.splice(i, 1);

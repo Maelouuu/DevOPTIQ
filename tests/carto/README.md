@@ -80,7 +80,13 @@ Deux métriques dédiées, ajoutées avec l'insertion des losanges dans le flux 
 Repères carto client (`tools/provisioning/carto/Map_RFQ_FluidClip_Harmonized_HG_v9.vsdx`,
 `?classic=1&fix=1`) : 28 losanges, 28 rattachés (25 par une famille de couleur),
 12 insérés dans le flux, `surSaFleche` 28/28, médiane 0,3 px, `ecartMaxTronc` 0.
-Sur `hard.vsdx` : 10 losanges insérés, croisements 198 → 197.
+Sur `hard.vsdx` : 10 losanges insérés, croisements 198 (identique),
+chevauchements 20 → 16.
+
+Après la coupe séquentielle (chaque losange travaille sur les flèches déjà
+coupées par les précédents — deux losanges sur la même flèche fabriquaient
+sinon deux demi-flèches concurrentes) : carto client croisements 52 → **46**,
+chevauchements 15 → **7**, 12 losanges insérés avec **une seule entrée chacun**.
 
 ## Notes
 

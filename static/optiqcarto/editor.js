@@ -715,6 +715,9 @@ function renderConnections() {
     const fdir = c.fromPortDir || (Math.abs(dx) >= Math.abs(dy) ? (dx >= 0 ? 'right' : 'left') : (dy >= 0 ? 'bottom' : 'top'));
     const tdir = c.toPortDir || OPP[fdir]; // indépendant si défini explicitement
 
+    // Vers un LOSANGE : ni pointe ni marge (voir plus bas) — le flux ne s'arrete
+    // pas a la decision, il se divise.
+    const versLosange = to._type === 'decision';
     const fp = spreadPort(from, fdir, c.id, 'from', c.fromPortT);
     const tp = spreadPort(to,   tdir, c.id, 'to',   c.toPortT);
     const routing = 'orthogonal';
@@ -763,7 +766,9 @@ function renderConnections() {
       displayOrthopts = _alignPortApproach(displayOrthopts, fp.dir, tp.dir);
       // tipPad = 18 : approche droite garantie avant la tête (~16 px) → la pointe
       // ne se pose jamais sur un virage (« padding » demandé pour les pointes).
-      d = polylineToPath(displayOrthopts, 12, 18);
+      // Vers un losange : marge nulle, le trait touche la pointe (la zone
+      // sensible autour de la decision reste la plus petite possible).
+      d = polylineToPath(displayOrthopts, 12, versLosange ? 0 : 18);
     }
     const isSel = selectedConn === c.id;
     const color = isSel ? '#1f7a54' : c.color;
@@ -781,7 +786,7 @@ function renderConnections() {
       stroke: color,
       'stroke-width': isSel ? '4.5' : '3',
       'stroke-dasharray': c.style === 'dashed' ? '9,6' : 'none',
-      'marker-end': `url(#${mId})`,
+      ...(versLosange ? {} : { 'marker-end': `url(#${mId})` }),
       'data-id': c.id, 'data-type': 'conn', cursor: 'pointer',
       'pointer-events': 'none',
     }, gConns);
@@ -6773,7 +6778,7 @@ const SNAP_LOSANGE = 14;
 function _snapDiamondToArrow(D) {
   if (!D || D.type !== 'decision') return false;
   for (const c of state.connections)
-    if (c.fromId === D.id || c.toId === D.id) return false;   // losange dans le flux : on n'y touche pas
+    if (c.fromId === D.id || c.toId === D.id) return false;   // déjà dans le flux
   const cx = D.x + D.w / 2, cy = D.y + D.h / 2;
   let best = null, bestDist = Infinity, bestPr = null;
   for (const c of state.connections) {
@@ -6783,11 +6788,44 @@ function _snapDiamondToArrow(D) {
     if (pr.dist < bestDist) { bestDist = pr.dist; best = c; bestPr = pr; }
   }
   if (!best || bestDist > SNAP_LOSANGE || bestPr.x == null) return false;
-  D.x = Math.round(bestPr.x - D.w / 2);
-  D.y = Math.round(bestPr.y - D.h / 2);
-  D.seatConnId = best.id;
-  D.seatFrac = +bestPr.frac.toFixed(4);
-  D._seatConnId = best.id;
+  return _insertDiamondOnArrow(D, best, bestPr);
+}
+
+// Coupe la flèche sur le losange : A → losange → B. Même résultat qu'à l'import,
+// pour qu'un losange posé à la main ne reste pas un décor par-dessus une flèche
+// (les liens métier suivent le flux, pas ce qui est dessiné au-dessus).
+function _insertDiamondOnArrow(D, c, pr) {
+  const pts = c._computedOrthopts;
+  if (!pts || pts.length < 2 || pr.seg == null) return false;
+  const coupe = { x: Math.round(pr.x), y: Math.round(pr.y) };
+  const avant = pts.slice(1, pr.seg + 1).map(p => ({ x: p.x, y: p.y }));
+  const apres = pts.slice(pr.seg + 1, pts.length - 1).map(p => ({ x: p.x, y: p.y }));
+  const dirVers = (a, b) => Math.abs(b.x - a.x) >= Math.abs(b.y - a.y)
+    ? (b.x >= a.x ? 'right' : 'left') : (b.y >= a.y ? 'bottom' : 'top');
+
+  const versPrec = avant.length ? avant[avant.length - 1] : pts[0];
+  const versSuiv = apres.length ? apres[0] : pts[pts.length - 1];
+
+  const branche = {
+    id: state.nextId++, fromId: D.id, toId: c.toId,
+    fromPortDir: dirVers(coupe, versSuiv),
+    toPortDir: c.toPortDir, toPortT: c.toPortT,
+    color: c.color, label: c.label, style: c.style, routing: 'orthogonal',
+    userPts: apres.length ? apres : null,
+  };
+
+  c.toId = D.id;
+  c.toPortDir = dirVers(coupe, versPrec);
+  delete c.toPortT;
+  c.userPts = avant.length ? avant : null;
+  c.label = '';
+  delete c.customPath;
+  delete c.labelOffset;
+
+  state.connections.push(branche);
+  D.x = Math.round(coupe.x - D.w / 2);
+  D.y = Math.round(coupe.y - D.h / 2);
+  delete D.seatConnId; delete D.seatFrac; delete D._seatConnId;
   return true;
 }
 
