@@ -389,7 +389,7 @@ async function run(){
   const deco=_measureDecoOffArrow();
   const decoOwn=_measureDecoOwn();
   const bundles=_measureBundles();
-  window.__R__={vsdx, mode:{classic,fix,declutter,route,arrange}, arr:window.__ARR__||null, before, after, liens:state.connections.map(c=>({id:c.id,f:c.fromId,t:c.toId,lab:(c.label||"").replace(/\s+/g," ").slice(0,30)})), formes:state.shapes.map(s=>({id:s.id,label:(s.label||"").slice(0,28),x:Math.round(s.x),y:Math.round(s.y),w:s.w,h:s.h,type:s.type})), tips, deco, decoOwn, bundles, angles, labels, overlaps, length, oob:{below:oob.below,above:oob.above,right:oob.right,left:oob.left}, voidEnds, deco, fit, nbShapes:state.shapes.length, nbConns:state.connections.length};
+  window.__R__={vsdx, mode:{classic,fix,declutter,route,arrange}, arr:window.__ARR__||null, before, after, bandes:state.bands.map(b=>({id:b.id,label:b.label,color:b.color,h:b.height})), liens:state.connections.map(c=>({id:c.id,f:c.fromId,t:c.toId,lab:(c.label||"").replace(/\s+/g," ").slice(0,30)})), formes:state.shapes.map(s=>({id:s.id,label:(s.label||"").slice(0,28),x:Math.round(s.x),y:Math.round(s.y),w:s.w,h:s.h,type:s.type})), tips, deco, decoOwn, bundles, angles, labels, overlaps, length, oob:{below:oob.below,above:oob.above,right:oob.right,left:oob.left}, voidEnds, deco, fit, nbShapes:state.shapes.length, nbConns:state.connections.length};
   document.title='DONE';
 }
 run().catch(e=>{window.__R__={err:String(e&&e.stack||e)};document.title='DONE';});
