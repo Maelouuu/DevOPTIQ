@@ -121,6 +121,12 @@
     accept:    {{ t('share.accept')|tojson }},
     offerHint: {{ t('share.offer_hint')|tojson }},
     updateHint: {{ t('share.update_hint')|tojson }},
+    title:       {{ t('share.offer_title')|tojson }},
+    noticeTitle: {{ t('share.notice_title')|tojson }},
+    noticeIntro: {{ t('share.notice_intro')|tojson }},
+    noticeHint:  {{ t('share.notice_hint')|tojson }},
+    gotIt:       {{ t('share.got_it')|tojson }},
+    decline:     {{ t('share.decline')|tojson }},
   };
   const overlay = document.getElementById('eso-overlay');
   if (!overlay) return;
@@ -136,7 +142,12 @@
   function afficher() {
     const o = offres[index];
     if (!o) return terminer();
-    el('eso-from').innerHTML = remplir(I18N.from, '<b>' + echapper(o.from) + '</b>');
+    // « notice » = l'entité a déjà été déposée par un administrateur : rien à
+    // accepter, on explique seulement ce qui vient d'arriver dans ses données.
+    const info = o.kind === 'notice';
+    el('eso-title').textContent = info ? I18N.noticeTitle : I18N.title;
+    el('eso-from').innerHTML = remplir(info ? I18N.noticeIntro : I18N.from,
+                                       '<b>' + echapper(o.from) + '</b>');
     el('eso-entity-name').textContent = o.entity_name || '—';
     el('eso-entity-desc').textContent = o.description || '';
     el('eso-entity-desc').style.display = o.description ? '' : 'none';
@@ -145,11 +156,20 @@
 
     // Déjà une entité du même nom : mettre à jour la sienne plutôt que
     // d'empiler une copie — proposé seulement si la version reçue diffère.
-    const connue = o.existing;
+    const connue = info ? null : o.existing;
     const known = el('eso-known');
     const copie = el('eso-copy');
     const accepter = el('eso-accept');
-    if (connue) {
+    const refuser = el('eso-decline');
+    refuser.style.display = info ? 'none' : '';
+    if (info) {
+      known.style.display = 'none';
+      copie.style.display = 'none';
+      accepter.style.display = '';
+      accepter.textContent = I18N.gotIt;
+      accepter.dataset.action = 'acknowledge';
+      el('eso-hint').textContent = I18N.noticeHint;
+    } else if (connue) {
       known.innerHTML = remplir(I18N.already, '<b>' + echapper(connue.name) + '</b>')
         + '<span class="eso-known-hint">'
         + (connue.differs ? echapper(I18N.differs) : echapper(I18N.same)) + '</span>';
@@ -202,12 +222,14 @@
       });
       const data = await res.json();
       if (!data.error) {
-        if (action !== 'decline') aAccepte = true;
+        if (action === 'accept' || action === 'update') aAccepte = true;
         el('eso-actions').style.display = 'none';
         el('eso-done').textContent = action === 'decline' ? I18N.declined
-                                   : action === 'update' ? I18N.updated : I18N.accepted;
+                                   : action === 'update' ? I18N.updated
+                                   : action === 'acknowledge' ? '' : I18N.accepted;
+        el('eso-done').style.display = action === 'acknowledge' ? 'none' : 'block';
         el('eso-done').style.display = 'block';
-        setTimeout(() => { index += 1; afficher(); }, 900);
+        setTimeout(() => { index += 1; afficher(); }, action === 'acknowledge' ? 200 : 900);
         return;
       }
     } catch (e) { /* le réseau a lâché : on referme sans rien créer */ }

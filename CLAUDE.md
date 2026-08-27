@@ -228,7 +228,14 @@ cadence sur la fiche activité ; panneau de qualification des sorties + badges �
   - Le gabarit masque les onglets Créer/Import sans le droit, et les boutons Modifier/Supprimer hors périmètre ; les routes refusent quand même côté serveur (le masquage n'est pas une sécurité).
 - **Onglet d'accueil** = **Utilisateurs** (`list-tab`), placé en premier ; Créer et Import viennent après.
 - **Langue** : colonne `users.lang` (VARCHAR(5), défaut `en`), ajoutée à chaud par `_safe_add_column` avec rattrapage des lignes existantes au démarrage. `DEFAULT_LANG` et `DEFAULT_FRENCH_ACCOUNTS` vivent dans `models.py` : seul `afdec.enterprise.services@gmail.com` naît en français. La connexion applique `user.lang` à `session['lang']`, `/parametres/set_language` persiste le choix sur le compte, et un `before_request` pose `session['lang']` par défaut — les dizaines de `session.get('lang', 'fr')` disséminées dans les vues ne retombent donc jamais sur le français.
-- Tests : `tests/test_50_accounts_permissions_lang.py` (31 cas).
+- ⚠️ **Modification d'un compte** : un champ « âge » laissé vide arrive comme `''`.
+  Envoyé tel quel dans une colonne entière, PostgreSQL rejette la requête — et
+  c'est TOUTE modification qui tombait en 500 (même un simple nom de famille), y
+  compris le changement de statut. `update_user` convertit désormais l'âge
+  (`int` ou `None`), refuse proprement un âge non numérique ou un email déjà pris,
+  tronque le statut à la taille de la colonne (20), rend le rôle facultatif et
+  rattrape toute `SQLAlchemyError` en message plutôt qu'en 500.
+- Tests : `tests/test_50_accounts_permissions_lang.py` (36 cas).
 - **Où vivent les droits** : `Code/permissions.py` — source unique pour la page Comptes, les Paramètres et le partage d'entités. `is_competency_manager_status()` reconnaît une **famille** de valeurs plutôt qu'une liste figée : `users.status` est un VARCHAR(20), donc « Gestionnaire de compétences » y arrive **tronqué** (« gestionnaire de comp »), et le libellé est saisi tantôt en français tantôt en anglais. Règle : commence par « gestionnaire », OU contient « manager » + (« competency » | « competence » | « skill »).
 - **Valeur canonique** `gestionnaire` (13 car., tient dans la colonne) proposée dans les listes déroulantes création / édition / filtre. Le badge de la liste affiche la **valeur brute** quand elle n'est reconnue par aucune règle, au lieu de la faire passer pour « Utilisateur » : un statut mal orthographié se voit, au lieu de produire des droits inexpliqués.
 
@@ -238,7 +245,12 @@ Une entité n'appartient qu'à son propriétaire (`Entity.get_active` est strict
 
 **Tout le monde peut partager ses propres entités.** Ce que change le statut, c'est le
 CONSENTEMENT du destinataire :
-- **administrateur → dépôt direct**, sans rien demander (comportement d'origine) ;
+- **administrateur → il choisit** (`mode` dans le POST, sélecteur dans la modale) :
+  **dépôt d'autorité** (défaut) ou **proposition** comme tout le monde. Un dépôt
+  d'autorité laisse une **notification** (`EntityShareOffer` en statut `delivered`) :
+  le destinataire voit à sa prochaine ouverture « X vous a transféré une entité »,
+  avec un seul bouton **Compris** (`action:"acknowledge"` → statut `acknowledged`).
+  Recevoir une entité sans avoir rien demandé mérite une explication ;
 - **tout autre statut → proposition**. Rien n'est créé à l'envoi : une ligne
   `EntityShareOffer` (table `entity_share_offers`) porte une **copie du contenu**
   (nom, description, `vsdx_filename`, SVG, `optiqcarto_data`) — le destinataire
@@ -272,7 +284,7 @@ CONSENTEMENT du destinataire :
   une carte sans activités ni rôles.
 - La pop-up attend que la **fenêtre de bienvenue** soit refermée (MutationObserver) pour
   ne pas empiler deux modales, et ne recharge la page qu'après une acceptation.
-- Tests : `tests/test_51_entity_share.py` (27 cas).
+- Tests : `tests/test_51_entity_share.py` (33 cas).
 
 ---
 
@@ -309,10 +321,16 @@ partagent un design system chargé partout via `header_buttons.html` :
   native est masquée, et sans trackpad la nav ne pouvait pas défiler. Un liseré
   court (200 px max, ~20 % de la largeur de la nav) et vert `#49e8a4` — celui
   du contour de la nav — est posé en bas de la zone des items ;
-  **il se tire**, un clic dans le rail saute à la position, et la molette
+  **il se tire**, un clic saute à la position, et la molette
   verticale défile la nav tant qu'elle n'est pas en butée (au-delà, la page
   reprend la main). Invisible au repos, il apparaît au survol de la nav et
   pendant le défilement ; masqué sur mobile (le menu s'y déplie en colonne).
+  ⚠️ **Zone de captation ≠ rail visible** : viser 3 px de haut serait pénible, donc
+  `.card-scrollbar` est une bande TRANSPARENTE de 13 px sur toute la largeur des
+  items, et `.card-scrollbar-track` est le rail visible (200 px centré) à
+  l'intérieur. La bande descend sous la zone des items (`bottom:-6px`) pour ne pas
+  voler le clic des boutons de nav, qui doivent continuer à mener à leur page ;
+  un clic n'importe où dans la bande est ramené sur le rail (bornes comprises).
 - **2 éléments d'identité communs** : la nav (cardnav) + le **bandeau de page**
   `{% include "page_banner.html" %}` (icône teintée, titre Fraunces, sous-titre,
   encart chiffre optionnel). Fond commun gris-bleu `#f2f4f9` + halo couleur de

@@ -809,7 +809,10 @@ def share_entity(entity_id):
     if not target_ids:
         return jsonify({"error": "Aucun destinataire sélectionné"}), 400
 
-    direct = is_admin()
+    # L'admin choisit : dépôt d'autorité (défaut, comportement historique) ou
+    # proposition comme tout le monde. Les autres comptes ne PEUVENT que proposer.
+    mode = (data.get("mode") or "direct").strip().lower()
+    direct = is_admin() and mode != "offer"
     resultats, proposes, echecs = [], [], []
 
     for tid in target_ids:
@@ -820,6 +823,12 @@ def share_entity(entity_id):
 
         if direct:
             copie, erreur = _deposer_copie(source, tid)
+            # Recevoir une entité sans avoir rien demandé mérite une explication :
+            # on laisse une notification, affichée à sa prochaine ouverture.
+            db.session.add(EntityShareOffer(
+                from_user_id=user_id, to_user_id=tid, source_entity_id=entity_id,
+                entity_name=copie.name, description=source.description,
+                status='delivered', created_entity_id=copie.id))
             resultats.append({
                 "user_id": tid,
                 "user": _nom_compte(cible),
@@ -868,7 +877,8 @@ def share_offers():
         return jsonify({"error": "Non connecté"}), 401
 
     offres = (EntityShareOffer.query
-              .filter_by(to_user_id=user_id, status='pending')
+              .filter(EntityShareOffer.to_user_id == user_id,
+                      EntityShareOffer.status.in_(('pending', 'delivered')))
               .order_by(EntityShareOffer.created_at.asc())
               .all())
     out = []
@@ -877,7 +887,10 @@ def share_offers():
         # Le destinataire a peut-être déjà cette entité : on lui dira si la
         # version proposée diffère de la sienne, pour qu'il choisisse entre
         # mettre à jour et recevoir une copie de plus.
-        jumelle = _entite_jumelle(o.entity_name, user_id)
+        # Une notification annonce un dépôt DÉJÀ fait : rien à accepter, et pas
+        # de doublon à signaler (l'entité citée est justement celle reçue).
+        notice = o.status == 'delivered'
+        jumelle = None if notice else _entite_jumelle(o.entity_name, user_id)
         existante = None
         if jumelle:
             existante = {
@@ -893,6 +906,7 @@ def share_offers():
             "from_email": envoyeur.email if envoyeur else None,
             "created_at": o.created_at.isoformat() if o.created_at else None,
             "existing": existante,
+            "kind": "notice" if notice else "offer",
         })
     return jsonify({"offers": out})
 
@@ -908,12 +922,24 @@ def respond_share_offer(offer_id):
 
     data = request.get_json(silent=True) or {}
     action = (data.get("action") or "").strip().lower()
-    if action not in ("accept", "update", "decline"):
+    if action not in ("accept", "update", "decline", "acknowledge"):
         return jsonify({"error": "Action invalide"}), 400
 
     offre = EntityShareOffer.query.filter_by(id=offer_id, to_user_id=user_id).first()
     if not offre:
         return jsonify({"error": "Proposition introuvable"}), 404
+
+    # Notification d'un dépôt déjà effectué : on ne fait que la marquer lue.
+    if offre.status == 'delivered':
+        if action != "acknowledge":
+            return jsonify({"error": "Cette entité a déjà été déposée"}), 409
+        offre.status = 'acknowledged'
+        offre.responded_at = datetime.utcnow()
+        db.session.commit()
+        return jsonify({"status": "ok", "action": "acknowledged"})
+
+    if action == "acknowledge":
+        return jsonify({"error": "Action invalide"}), 400
     if offre.status != 'pending':
         return jsonify({"error": "Proposition déjà traitée"}), 409
 

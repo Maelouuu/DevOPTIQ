@@ -1,4 +1,5 @@
 from flask import Blueprint, render_template, request, redirect, url_for, jsonify, session
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm.attributes import flag_modified
 from sqlalchemy import text
 from Code.extensions import db
@@ -214,30 +215,54 @@ def update_user(user_id):
     roles = Role.for_active_entity().all()
 
     if request.method == 'POST':
-        user.first_name = request.form['first_name']
-        user.last_name = request.form['last_name']
-        user.age = request.form.get('age')
-        user.email = request.form['email']
+        form = request.form
+        prenom = (form.get('first_name') or '').strip()
+        nom    = (form.get('last_name')  or '').strip()
+        email  = (form.get('email')      or '').strip()
+        if not prenom or not nom:
+            return redirect(url_for('gestion_compte.list_users', msg='error_missing_name'))
+        if not email:
+            return redirect(url_for('gestion_compte.list_users', msg='error_missing_email'))
+        if User.query.filter(User.email == email, User.id != user.id).first():
+            return redirect(url_for('gestion_compte.list_users', msg='error_email_exists'))
+
+        # Un champ « âge » laissé vide arrive comme '' : tel quel dans une
+        # colonne entière, PostgreSQL rejette la requête et TOUTE modification
+        # (même un simple nom de famille) repartait en erreur 500.
+        age_brut = (form.get('age') or '').strip()
+        try:
+            age = int(age_brut) if age_brut else None
+        except ValueError:
+            return redirect(url_for('gestion_compte.list_users', msg='error_invalid_age'))
+
+        user.first_name = prenom
+        user.last_name = nom
+        user.email = email
+        user.age = age
         # Seul un administrateur change un statut : sinon n'importe qui
         # s'auto-promeut depuis l'édition de son propre compte.
         if _is_admin():
-            user.status = request.form['status']
+            # La colonne fait 20 caractères : un libellé plus long serait tronqué
+            # par la base (ou refusé), avec des droits inexpliqués à la clé.
+            statut = (form.get('status') or user.status or 'user').strip()
+            user.status = statut[:20]
 
-        new_password = request.form.get('password', '').strip()
+        new_password = form.get('password', '').strip()
         if new_password:
             new_hash = hash_password(new_password)
             user.password = new_hash
             flag_modified(user, 'password')  # force SQLAlchemy à inclure password dans l'UPDATE
-            print(f"[UPDATE_USER] Password updated for user {user_id}, hash[:25]={new_hash[:25]}")
 
-        # Mise à jour du rôle — FACULTATIF : vide = « Aucun rôle » (le rôle
-        # existant est retiré). Bloquer l'enregistrement sans rôle empêchait
-        # p.ex. de passer un compte en administrateur avant la création des
-        # rôles de l'entité.
-        new_role_raw = (request.form.get('role_id') or '').strip()
+        # Mise à jour du rôle — FACULTATIF : vide = « aucun rôle » (le rôle
+        # existant est retiré). Exiger un rôle empêchait p.ex. de passer un
+        # compte en administrateur avant la création des rôles de l'entité.
+        new_role_raw = (form.get('role_id') or '').strip()
         user_role = UserRole.query.filter_by(user_id=user.id).first()
         if new_role_raw:
-            new_role_id = int(new_role_raw)
+            try:
+                new_role_id = int(new_role_raw)
+            except ValueError:
+                return redirect(url_for('gestion_compte.list_users', msg='error_missing_role'))
             if user_role:
                 user_role.role_id = new_role_id
             else:
@@ -246,8 +271,14 @@ def update_user(user_id):
             db.session.delete(user_role)
 
         db.session.add(user)
-        db.session.commit()
-        print(f"[UPDATE_USER] Commit OK for user {user_id}")
+        try:
+            db.session.commit()
+        except SQLAlchemyError:
+            # Mieux vaut un message dans la page qu'une 500 opaque.
+            db.session.rollback()
+            import traceback
+            traceback.print_exc()
+            return redirect(url_for('gestion_compte.list_users', msg='error_update'))
         return redirect(url_for('gestion_compte.list_users', tab='list-tab', msg='updated'))
 
     current_role = UserRole.query.filter_by(user_id=user.id).first()

@@ -69,7 +69,6 @@
             <i class="fa-solid fa-shield search-style-icon"></i>
             <select name="status" class="search-style-input" required>
               <option value="user"          {% if user.status == 'user' %}selected{% endif %}>{{ t('account.status_user') }}</option>
-              <option value="manager"       {% if user.status == 'manager' %}selected{% endif %}>{{ t('account.status_manager') }}</option>
               <option value="rh"            {% if user.status == 'rh' %}selected{% endif %}>{{ t('account.status_rh') }}</option>
               <option value="manager"       {% if is_competency_manager_status(user.status) %}selected{% endif %}>{{ t('account.status_manager') }}</option>
               <option value="administrateur"{% if is_admin_status(user.status) %}selected{% endif %}>{{ t('account.status_admin') }}</option>

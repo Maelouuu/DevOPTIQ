@@ -264,3 +264,91 @@ def test_un_gestionnaire_voit_les_onglets_de_creation(app, client):
     html = client.get("/comptes/").data.decode("utf-8")
     assert 'data-tab="create-tab"' in html
     assert 'data-tab="import-tab"' in html
+
+
+# ── Modification d'un compte : robustesse du formulaire ──────────────────────
+# Un « âge » vide partait tel quel ('') dans une colonne entière : PostgreSQL
+# refusait, et TOUTE modification (même un nom de famille) tombait en 500.
+
+def test_modifier_un_compte_sans_age(app, client, actors):
+    _as(client, actors["admin"], "perm.admin@devoptiq.com")
+    res = client.post(f"/comptes/update/{actors['other']}", data={
+        "first_name": "Jean", "last_name": "Nouveau",
+        "email": "perm.other@devoptiq.com", "age": "",
+        "status": "user", "role_id": "",
+    })
+    assert res.status_code == 302
+    assert "msg=updated" in res.headers["Location"]
+    with app.app_context():
+        from Code.models.models import User
+        u = User.query.get(actors["other"])
+        assert u.last_name == "Nouveau"
+        assert u.age is None          # et surtout PAS la chaîne vide
+
+
+def test_modifier_le_statut_d_un_compte(app, client, actors):
+    _as(client, actors["admin"], "perm.admin@devoptiq.com")
+    res = client.post(f"/comptes/update/{actors['other']}", data={
+        "first_name": "Jean", "last_name": "Nouveau",
+        "email": "perm.other@devoptiq.com", "age": "",
+        "status": "manager", "role_id": "",
+    })
+    assert res.status_code == 302
+    with app.app_context():
+        from Code.models.models import User
+        assert User.query.get(actors["other"]).status == "manager"
+
+
+def test_un_age_non_numerique_est_refuse_proprement(app, client, actors):
+    _as(client, actors["admin"], "perm.admin@devoptiq.com")
+    res = client.post(f"/comptes/update/{actors['other']}", data={
+        "first_name": "Jean", "last_name": "Nouveau",
+        "email": "perm.other@devoptiq.com", "age": "trente",
+        "status": "user", "role_id": "",
+    })
+    assert res.status_code == 302
+    assert "error_invalid_age" in res.headers["Location"]
+
+
+def test_un_email_deja_pris_est_refuse(app, client, actors):
+    _as(client, actors["admin"], "perm.admin@devoptiq.com")
+    res = client.post(f"/comptes/update/{actors['other']}", data={
+        "first_name": "Jean", "last_name": "Nouveau",
+        "email": "perm.admin@devoptiq.com", "age": "",
+        "status": "user", "role_id": "",
+    })
+    assert res.status_code == 302
+    assert "error_email_exists" in res.headers["Location"]
+    with app.app_context():
+        from Code.models.models import User
+        assert User.query.get(actors["other"]).email == "perm.other@devoptiq.com"
+
+
+def test_le_role_est_facultatif_a_la_modification(app, client, actors):
+    """Sans rôle sélectionné, l'affectation existante est retirée — pas de 500."""
+    from Code.models.models import UserRole, Role
+    from Code.extensions import db
+    with app.app_context():
+        from Code.models.models import User
+        role = Role.query.filter_by(name="Role edition compte").first()
+        if role is None:
+            role = Role(name="Role edition compte",
+                        entity_id=User.query.get(actors["other"]).entity_id)
+            db.session.add(role)
+            db.session.commit()
+        if not UserRole.query.filter_by(user_id=actors["other"]).first():
+            db.session.add(UserRole(user_id=actors["other"], role_id=role.id))
+            db.session.commit()
+
+    _as(client, actors["admin"], "perm.admin@devoptiq.com")
+    res = client.post(f"/comptes/update/{actors['other']}", data={
+        "first_name": "Jean", "last_name": "Nouveau",
+        "email": "perm.other@devoptiq.com", "age": "42",
+        "status": "user", "role_id": "",
+    })
+    assert res.status_code == 302
+    assert "msg=updated" in res.headers["Location"]
+    with app.app_context():
+        from Code.models.models import User, UserRole as UR
+        assert UR.query.filter_by(user_id=actors["other"]).first() is None
+        assert User.query.get(actors["other"]).age == 42

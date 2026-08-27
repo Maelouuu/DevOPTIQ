@@ -65,9 +65,10 @@
   // défiler : le liseré est une vraie barre, on peut la tirer, et la molette
   // verticale déplace la nav tant qu'elle n'est pas en butée.
   const bar   = document.getElementById('card-scrollbar');
+  const track = bar?.querySelector('.card-scrollbar-track');
   const thumb = bar?.querySelector('.card-scrollbar-thumb');
 
-  if (scroll && bar && thumb) {
+  if (scroll && bar && track && thumb) {
     let masquer = null;
 
     const debordement = () => scroll.scrollWidth - scroll.clientWidth;
@@ -76,7 +77,7 @@
       const max = debordement();
       if (max <= 2) { bar.classList.remove('is-scrollable'); return; }
       bar.classList.add('is-scrollable');
-      const largeurRail = bar.clientWidth;
+      const largeurRail = track.clientWidth;
       const largeur = Math.max(28, largeurRail * (scroll.clientWidth / scroll.scrollWidth));
       thumb.style.width = largeur + 'px';
       thumb.style.transform =
@@ -115,7 +116,9 @@
     let saisi = false, snapInitial = '';
 
     function positionner(clientX) {
-      const rail = bar.getBoundingClientRect();
+      // Le clic peut tomber n'importe où dans la zone de captation : on le
+      // ramène sur le rail, bornes comprises.
+      const rail = track.getBoundingClientRect();
       const largeur = thumb.offsetWidth;
       const course = rail.width - largeur;
       if (course <= 0) return;

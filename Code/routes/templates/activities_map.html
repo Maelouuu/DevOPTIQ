@@ -17,6 +17,8 @@
     send:        {{ t('map.share_send')|tojson }},
     confirm:     {{ t('map.share_confirm')|tojson }},
     directHint:  {{ t('map.share_direct_hint')|tojson }},
+    modeDirect:  {{ t('map.share_mode_direct')|tojson }},
+    modeOffer:   {{ t('map.share_mode_offer')|tojson }},
     offerHint:   {{ t('map.share_offer_hint')|tojson }},
     pendingFlag: {{ t('map.share_pending_flag')|tojson }},
     hasCopy:     {{ t('map.share_has_copy')|tojson }},
@@ -215,6 +217,17 @@
         <i class="fa-solid fa-share-nodes"></i> {{ t('map.share_title') }}
       </h3>
       <p class="share-modal-desc" id="share-modal-desc"></p>
+      <div class="share-mode" id="share-mode" style="display:none">
+        <span class="share-mode-label">{{ t('map.share_mode_label') }}</span>
+        <label class="share-mode-opt">
+          <input type="radio" name="share-mode" value="direct" checked>
+          <span>{{ t('map.share_mode_direct') }}</span>
+        </label>
+        <label class="share-mode-opt">
+          <input type="radio" name="share-mode" value="offer">
+          <span>{{ t('map.share_mode_offer') }}</span>
+        </label>
+      </div>
       <div class="share-user-list" id="share-user-list"></div>
       <div class="share-modal-actions">
         <button id="share-cancel-btn" class="modal-btn-cancel">{{ t('btn.cancel') }}</button>

@@ -532,6 +532,10 @@ function wireEntityShare() {
 
 const SHARE_L = () => window.SHARE_I18N || {};
 
+// « direct » = dépôt d'autorité (admin), « offer » = proposition à accepter.
+const shareMode = () =>
+  document.querySelector('#share-mode input[name="share-mode"]:checked')?.value || "direct";
+
 // Un administrateur dépose sa copie directement ; tout autre compte envoie une
 // proposition, et l'entité n'est créée qu'après acceptation du destinataire.
 let shareDirect = true;
@@ -557,15 +561,26 @@ async function openShareModal() {
     if (data.error) { list.innerHTML = `<p class="share-error">${data.error}</p>`; return; }
 
     shareDirect = data.direct !== false;
-    if (desc) {
-      desc.innerHTML = `${data.entity.name}`
-        + `<span class="share-mode-hint">${shareDirect ? (L.directHint || "") : (L.offerHint || "")}</span>`;
+    // Un admin choisit son régime ; les autres n'ont pas le choix, on masque.
+    const choix = $("#share-mode");
+    if (choix) {
+      choix.style.display = shareDirect ? "" : "none";
+      const radio = choix.querySelector('input[value="direct"]');
+      if (radio) radio.checked = true;
     }
-    if (confirmBtn) {
-      confirmBtn.innerHTML = shareDirect
-        ? `<i class="fa-solid fa-paper-plane"></i> ${L.confirm || "Déposer la copie"}`
-        : `<i class="fa-solid fa-paper-plane"></i> ${L.send || "Envoyer la proposition"}`;
-    }
+    const majBouton = () => {
+      if (!confirmBtn) return;
+      const direct = shareDirect && shareMode() === "direct";
+      confirmBtn.innerHTML = `<i class="fa-solid fa-paper-plane"></i> `
+        + (direct ? (L.confirm || "Déposer la copie") : (L.send || "Envoyer la proposition"));
+      if (desc) {
+        desc.innerHTML = `${data.entity.name}`
+          + `<span class="share-mode-hint">${direct ? (L.directHint || "") : (L.offerHint || "")}</span>`;
+      }
+    };
+    document.querySelectorAll('#share-mode input[name="share-mode"]')
+      .forEach(r => r.addEventListener("change", majBouton));
+    majBouton();
     if (!data.users.length) {
       list.innerHTML = `<p class="share-empty">${L.noAccount || "Aucun autre compte sur cette instance."}</p>`;
       return;
@@ -596,7 +611,7 @@ async function confirmShare() {
     const res = await fetch(`/activities/api/entities/${entity.id}/share`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ user_ids: ids }),
+      body: JSON.stringify({ user_ids: ids, mode: shareMode() }),
     });
     const data = await res.json();
     if (data.error) { alert(data.error); return; }
