@@ -12,6 +12,25 @@
   window.ALL_ENTITIES = {{ all_entities | tojson | safe }};
   window.EXTCO_ACTIVITY_IDS = {{ extco_activity_ids | tojson | safe }};
   window.ACTIVE_CALQUE_ID   = {{ active_calque_id | tojson | safe }};
+  // Libellés du partage : le JS en a besoin, et ils changent avec la langue.
+  window.SHARE_I18N = {
+    send:        {{ t('map.share_send')|tojson }},
+    confirm:     {{ t('map.share_confirm')|tojson }},
+    directHint:  {{ t('map.share_direct_hint')|tojson }},
+    offerHint:   {{ t('map.share_offer_hint')|tojson }},
+    pendingFlag: {{ t('map.share_pending_flag')|tojson }},
+    hasCopy:     {{ t('map.share_has_copy')|tojson }},
+    sent:        {{ t('map.share_sent')|tojson }},
+    noAccount:   {{ t('map.share_no_account')|tojson }},
+    pickOne:     {{ t('map.share_pick_one')|tojson }},
+    loadError:   {{ t('map.share_load_error')|tojson }},
+    netError:    {{ t('map.share_net_error')|tojson }},
+    doneOk:      {{ t('map.share_done_ok')|tojson }},
+    doneWarn:    {{ t('map.share_done_warn')|tojson }},
+    donePending: {{ t('map.share_done_pending')|tojson }},
+    cancel:      {{ t('btn.cancel')|tojson }},
+    close:       {{ t('btn.close')|tojson }}
+  };
 </script>
 
 <!-- Le mode "mise en évidence" est entièrement piloté en JS (highlight-extco-map.js)
@@ -169,12 +188,10 @@
                 <i class="fa-solid fa-pen"></i>
                 <span>{{ t('map.entity_btn_rename') }}</span>
               </button>
-              {% if is_admin %}
               <button id="wizard-share-btn" class="em-action-btn em-action-share">
                 <i class="fa-solid fa-share-nodes"></i>
                 <span>{{ t('map.entity_btn_share') }}</span>
               </button>
-              {% endif %}
               <button id="wizard-delete-btn" class="em-action-btn em-action-delete">
                 <i class="fa-solid fa-trash"></i>
                 <span>{{ t('map.entity_btn_delete') }}</span>
@@ -191,7 +208,7 @@
     </div>
   </div>
 
-  <!-- MODAL PARTAGE D'ENTITÉ (administrateurs) -->
+  <!-- MODAL PARTAGE D'ENTITÉ -->
   <div id="share-entity-modal" class="modal hidden">
     <div class="modal-content share-modal">
       <h3 class="share-modal-title">

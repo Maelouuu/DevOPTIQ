@@ -4544,6 +4544,16 @@ body.connexion-mode-active .activity-item:not(.connexion-match):not(.connexion-o
   font-weight: 700;
   color: #7c3aed;
 }
+.share-mode-hint {
+  display: block;
+  margin-top: 5px;
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: #64748b;
+  line-height: 1.45;
+}
+.share-done-row.share-done-pending i { color: #d97706; }
+
 .share-user-list {
   max-height: 320px;
   overflow-y: auto;

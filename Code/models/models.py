@@ -823,6 +823,34 @@ class RecentEvent(db.Model):
     user_id = db.Column(db.Integer, nullable=True)  # utilisateur à l'origine de l'action
 
 
+class EntityShareOffer(db.Model):
+    """Proposition de partage d'entité en attente de réponse.
+
+    Un administrateur dépose directement sa copie chez le destinataire ; tout
+    autre compte ne peut que PROPOSER. Le contenu de la carto est recopié ici
+    au moment de l'envoi : le destinataire reçoit ce qui lui a été proposé,
+    même si l'expéditeur modifie ou supprime son entité entre-temps.
+    """
+    __tablename__ = 'entity_share_offers'
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    from_user_id = db.Column(db.Integer, nullable=False, index=True)
+    to_user_id = db.Column(db.Integer, nullable=False, index=True)
+    source_entity_id = db.Column(db.Integer, nullable=True)
+
+    entity_name = db.Column(db.String(200), nullable=False)
+    description = db.Column(db.Text, nullable=True)
+    vsdx_filename = db.Column(db.String(255), nullable=True)
+    svg_filename = db.Column(db.String(255), nullable=True)
+    svg_content = db.Column(db.Text, nullable=True)
+    optiqcarto_data = db.Column(db.Text, nullable=True)
+
+    status = db.Column(db.String(20), nullable=False, default='pending')  # pending|accepted|declined
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    responded_at = db.Column(db.DateTime, nullable=True)
+    created_entity_id = db.Column(db.Integer, nullable=True)
+
+
 # -------------------------------------------------------------------
 # SQLAlchemy event listeners — journal d'activité automatique
 # -------------------------------------------------------------------
