@@ -128,7 +128,10 @@
    faire défiler la nav avec une souris sans molette horizontale. */
 .card-scrollbar {
   position: absolute;
-  left: 4px; right: 4px; bottom: 2px;
+  /* Court et centré : sur toute la largeur, il pesait plus lourd que la nav. */
+  left: 50%; transform: translateX(-50%);
+  bottom: 2px;
+  width: min(34%, 200px);
   height: 3px;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.06);
@@ -146,13 +149,14 @@
   top: -1px; height: 5px;
   min-width: 28px;
   border-radius: 999px;
-  background: linear-gradient(90deg, rgba(74,222,128,.5), rgba(255,194,227,.5));
+  /* Le vert du contour de la nav (#49e8a4), sans dégradé. */
+  background: rgba(73, 232, 164, .55);
   transition: background .2s ease, box-shadow .2s ease;
 }
 .card-scrollbar:hover .card-scrollbar-thumb,
 .card-scrollbar.is-dragging .card-scrollbar-thumb {
-  background: linear-gradient(90deg, #4ade80, #ffc2e3);
-  box-shadow: 0 0 10px rgba(74,222,128,.35);
+  background: #49e8a4;
+  box-shadow: 0 0 10px rgba(73, 232, 164, .35);
 }
 
 /* ── Items de navigation ────────────────────── */

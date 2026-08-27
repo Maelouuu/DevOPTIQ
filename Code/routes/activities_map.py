@@ -729,6 +729,19 @@ def _deposer_copie(source, target_id):
     return copie, erreur
 
 
+def _carto_json(donnees):
+    """Carto désérialisée, ou None si absente/illisible (pour comparaison)."""
+    try:
+        return json.loads(donnees) if donnees else None
+    except (ValueError, TypeError):
+        return None
+
+
+def _entite_jumelle(nom, user_id):
+    """Entité du compte portant déjà ce nom — celle qu'on peut mettre à jour."""
+    return Entity.query.filter_by(owner_id=user_id, name=(nom or '').strip()).first()
+
+
 def _nom_compte(u):
     return f"{u.first_name} {u.last_name}".strip() or u.email
 
@@ -861,6 +874,17 @@ def share_offers():
     out = []
     for o in offres:
         envoyeur = db.session.get(User, o.from_user_id)
+        # Le destinataire a peut-être déjà cette entité : on lui dira si la
+        # version proposée diffère de la sienne, pour qu'il choisisse entre
+        # mettre à jour et recevoir une copie de plus.
+        jumelle = _entite_jumelle(o.entity_name, user_id)
+        existante = None
+        if jumelle:
+            existante = {
+                "id": jumelle.id,
+                "name": jumelle.name,
+                "differs": _carto_json(jumelle.optiqcarto_data) != _carto_json(o.optiqcarto_data),
+            }
         out.append({
             "id": o.id,
             "entity_name": o.entity_name,
@@ -868,6 +892,7 @@ def share_offers():
             "from": _nom_compte(envoyeur) if envoyeur else "—",
             "from_email": envoyeur.email if envoyeur else None,
             "created_at": o.created_at.isoformat() if o.created_at else None,
+            "existing": existante,
         })
     return jsonify({"offers": out})
 
@@ -883,7 +908,7 @@ def respond_share_offer(offer_id):
 
     data = request.get_json(silent=True) or {}
     action = (data.get("action") or "").strip().lower()
-    if action not in ("accept", "decline"):
+    if action not in ("accept", "update", "decline"):
         return jsonify({"error": "Action invalide"}), 400
 
     offre = EntityShareOffer.query.filter_by(id=offer_id, to_user_id=user_id).first()
@@ -897,6 +922,43 @@ def respond_share_offer(offer_id):
         offre.responded_at = datetime.utcnow()
         db.session.commit()
         return jsonify({"status": "ok", "action": "declined"})
+
+    if action == "update":
+        # Remplacer SA carto par celle reçue. _sync_carto_to_db fait un upsert
+        # (shape_id puis nom) : les activités communes gardent leurs tâches,
+        # compétences et évaluations ; celles qui ne sont plus dans la carto
+        # reçue disparaissent, avec les données qui en dépendent.
+        from Code.routes.cartography_editor import _sync_carto_to_db
+
+        cible = _entite_jumelle(offre.entity_name, user_id)
+        if not cible:
+            return jsonify({"error": "Aucune entité du même nom à mettre à jour"}), 400
+
+        if offre.description:
+            cible.description = offre.description
+        cible.vsdx_filename = offre.vsdx_filename
+        cible.svg_filename = offre.svg_filename
+        cible.svg_content = offre.svg_content
+        cible.optiqcarto_data = offre.optiqcarto_data
+        db.session.commit()
+
+        erreur = None
+        diagram = _carto_json(offre.optiqcarto_data)
+        if diagram:
+            try:
+                _sync_carto_to_db(cible, diagram)
+            except Exception as exc:
+                import traceback
+                traceback.print_exc()
+                erreur = str(exc)
+
+        offre.status = 'accepted'
+        offre.responded_at = datetime.utcnow()
+        offre.created_entity_id = cible.id
+        db.session.commit()
+        return jsonify({"status": "ok", "action": "updated",
+                        "entity_id": cible.id, "entity_name": cible.name,
+                        "sync_warning": erreur})
 
     copie, erreur = _deposer_copie(offre, user_id)
     offre.status = 'accepted'
