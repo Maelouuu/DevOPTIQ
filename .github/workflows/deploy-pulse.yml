@@ -8,7 +8,7 @@ name: Deploy → OptiqPulse (optiq-pulse)
 
 on:
   push:
-    branches: [optiqfluent-beta-test]
+    branches: [optiqfluent-staging, optiqfluent-beta-test]
     paths:
       - 'pulse/**'
       - '.github/workflows/deploy-pulse.yml'

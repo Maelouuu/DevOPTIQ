@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# Déploiement OptiqFluent (branche optiqfluent-beta-test) sur Cloud Run.
+# Déploiement OptiqFluent (branche optiqfluent-staging) sur Cloud Run.
 #
 # Remplace devoptiq-staging-mv par un service renommé optiqfluent-staging :
 # Cloud Run ne permet PAS de renommer un service — on en crée un nouveau en
 # recopiant les variables d'environnement de l'ancien, puis on supprime
 # l'ancien (sur confirmation).
 #
-# À lancer depuis la racine du dépôt, branche optiqfluent-beta-test :
+# À lancer depuis la racine du dépôt, branche optiqfluent-staging :
 #   bash tools/deploy/deploy_cloudrun.sh
 #
 # Prérequis : gcloud authentifié (gcloud auth login) + projet actif
@@ -23,7 +23,7 @@ echo "== Vérifications préalables =="
 command -v gcloud >/dev/null || { echo "gcloud introuvable"; exit 1; }
 test -f Dockerfile || { echo "À lancer depuis la racine du dépôt"; exit 1; }
 BRANCH=$(git rev-parse --abbrev-ref HEAD)
-[ "$BRANCH" = "optiqfluent-beta-test" ] || echo "⚠ Branche courante : $BRANCH (attendu : optiqfluent-beta-test)"
+[ "$BRANCH" = "optiqfluent-staging" ] || echo "⚠ Branche courante : $BRANCH (attendu : optiqfluent-staging)"
 
 echo "== Bundle de prompts chiffré =="
 python3 tools/prompts/encrypt_prompts.py > /dev/null

@@ -1,6 +1,6 @@
 name: Deploy → Pilote (optiqfluent-staging)
 
-# La branche optiqfluent-beta-test est l'environnement du test pilote client :
+# La branche optiqfluent-staging est l'environnement du test pilote client :
 # chaque push déploie le service Cloud Run optiqfluent-staging (créé par
 # tools/deploy/deploy_cloudrun.sh). Les variables d'environnement du service
 # (DATABASE_URL, SECRET_KEY, clés IA, REQUIRE_LICENSE=0, PROMPTS_KEY,
@@ -9,7 +9,10 @@ name: Deploy → Pilote (optiqfluent-staging)
 
 on:
   push:
-    branches: [optiqfluent-beta-test]
+    # Le nom de la branche suit celui du service Cloud Run. L'ancien nom
+    # (optiqfluent-beta-test) reste accepté le temps que tous les clones locaux
+    # soient renommés.
+    branches: [optiqfluent-staging, optiqfluent-beta-test]
   workflow_dispatch:
 
 env:

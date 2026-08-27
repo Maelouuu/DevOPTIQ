@@ -643,7 +643,7 @@ def create_app(test_config=None):
             db.session.rollback()
             print(f"[BOOTSTRAP] Création admin: {e}")
 
-        # 6bis. Comptes pilote (branche optiqfluent-beta-test uniquement) :
+        # 6bis. Comptes pilote (branche optiqfluent-staging uniquement) :
         # AFDEC en administrateur, testeurs ARaymond en manager (affiché
         # « Gestionnaire de compétences »). Idempotent — créé seulement si
         # l'email n'existe pas encore ; un mot de passe changé ensuite n'est

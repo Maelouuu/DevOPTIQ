@@ -22,3 +22,6 @@ tools/prompts/prompts_key.txt
 Code/prompts/prompts.enc
 docs/guide_standalone.html
 tools/guide/auth_state.json
+
+# Base SQLite jetable du pipeline du guide
+tools/guide/demo_v2.db*

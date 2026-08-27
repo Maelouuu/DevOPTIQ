@@ -236,7 +236,7 @@
     <div class="cover-tag">📄 Documentation interne — AFDEC</div>
     <h1>Dev<span>OPTIQ</span></h1>
     <p>Manuel complet de l'application de gestion des compétences, activités et performance organisationnelle.
-       Distribuée aux clients sous le nom <strong>OptiqFluent</strong> (branche <code>optiqfluent-beta-test</code> : licence signée, prompts chiffrés, image Docker durcie).</p>
+       Distribuée aux clients sous le nom <strong>OptiqFluent</strong> (branche <code>optiqfluent-staging</code> : licence signée, prompts chiffrés, image Docker durcie).</p>
     <div class="cover-meta">
       <div class="cover-meta-item"><strong>Organisation</strong>AFDEC</div>
       <div class="cover-meta-item"><strong>Auteur</strong>Mael Girardin</div>
@@ -1361,14 +1361,14 @@ Body: {
     <ul>
       <li><code>staging</code> — développement principal</li>
       <li><code>main</code> — production stable (merger uniquement les versions validées)</li>
-      <li><code>optiqfluent-beta-test</code> — distribution client OptiqFluent (basée sur <code>staging</code>, voir <a href="#distribution">Distribution</a>)</li>
+      <li><code>optiqfluent-staging</code> — distribution client OptiqFluent (basée sur <code>staging</code>, voir <a href="#distribution">Distribution</a>)</li>
     </ul>
   </section>
 
   <!-- ═══════════════════════════════════════════════════════════════ -->
   <section id="admin-ia">
     <h2 class="section-title">Administration &amp; UX IA <span class="badge badge-done">Documenté</span></h2>
-    <p>Ensemble livré sur la branche <code>optiqfluent-beta-test</code> : administration à chaud de l'application et gestion propre des états «&nbsp;IA non configurée&nbsp;».</p>
+    <p>Ensemble livré sur la branche <code>optiqfluent-staging</code> : administration à chaud de l'application et gestion propre des états «&nbsp;IA non configurée&nbsp;».</p>
 
     <h3>Clé IA à chaud — <code>Code/ai_key.py</code></h3>
     <p><code>get_openai_key()</code> lit la clé dans la table <code>app_settings</code> (clé <code>openai_api_key</code>) en priorité, puis dans l'env <code>OPENAI_API_KEY</code>. Toutes les routes IA sont recâblées dessus.</p>
@@ -1400,7 +1400,7 @@ Body: {
   <!-- ═══════════════════════════════════════════════════════════════ -->
   <section id="distribution">
     <h2 class="section-title">Distribution OptiqFluent <span class="badge badge-done">Documenté</span></h2>
-    <p>Branche <code>optiqfluent-beta-test</code> (basée sur <code>staging</code>) : mise à disposition de l'app chez un client pilote, rebrandée <strong>OptiqFluent</strong>. Modèle retenu : <strong>image Docker sur registre privé (ghcr.io) + licence signée à expiration + contrat d'évaluation</strong>.</p>
+    <p>Branche <code>optiqfluent-staging</code> (basée sur <code>staging</code>) : mise à disposition de l'app chez un client pilote, rebrandée <strong>OptiqFluent</strong>. Modèle retenu : <strong>image Docker sur registre privé (ghcr.io) + licence signée à expiration + contrat d'évaluation</strong>.</p>
 
     <h3>Durcissement pré-livraison</h3>
     <ul>
