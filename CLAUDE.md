@@ -156,6 +156,36 @@ transporte le diagramme **tel qu'il est en base**, d'un compte à l'autre.
   3. **labels** — `architectLabels()` place les labels près des pointes SANS jamais les poser là où une flèche en croise une autre (222/243 placés, 0 sur une autre flèche).
 - **Curseur global des labels** (remplace le bouton « Agencement auto » ; toolbar, `#label-pos-slider`) : `setLabelsAlongArrows(t)` pose TOUS les labels à la même fraction `t` de LEUR flèche — gauche = origine (source), droite = pointe — en direct. `_pointAlongPath()` donne point + angle ; une marge par flèche évite le chevauchement des formes d'extrémité.
 - **Pointes** (au rendu, toujours actif) : `polylineToPath(pts,R,tipPad=18)` (approche droite ≥18 px avant la tête) + `_alignPortApproach()` (dernier segment aligné sur l'axe du port → la tête ne pivote pas).
+- **Losanges = vrais nœuds du flux (2026-08-27)** — `tagDecorativeDiamonds()`
+  (vsdx_importer). Un losange Visio n'est PAS connecté : il est posé sur les
+  flèches, et l'import en faisait un décor. Conséquence : une décision à deux
+  sorties donnait **deux flèches complètes** qui redessinaient chacune le tronc
+  d'entrée — deux traits presque superposés que rien n'aligne parfaitement.
+  Désormais on **coupe** la flèche sur le losange : une entrée, une ou deux
+  sorties, tronc unique par construction.
+  - **Quelle flèche ?** La couleur de trait Visio (`LineColor` de la forme, sinon
+    du master) est le seul signal fiable : les flèches d'une même décision
+    partagent une couleur. ⚠️ Le losange lui-même n'a PAS de couleur propre dans
+    les fichiers réels (forme « Small If » qui hérite tout de son master) — c'est
+    la FAMILLE de couleur la mieux représentée autour de lui qui désigne sa
+    décision. Mesuré sur la carto client : 25 losanges sur 28 corroborés par une
+    famille de couleur.
+  - **On ne coupe que le tronc** : parmi les flèches qui passent à ≤45 px, seules
+    celles issues de la MÊME source sont coupées (une flèche isolée exige ≤14 px).
+    Couper tout ce qui passe fabriquait des entrées parasites — c'est ce qui avait
+    fait abandonner l'ancien `spliceDecisions`, resté désactivé.
+  - Le modèle métier n'en souffre pas : `_do_sync` retrouve A → B à travers le
+    losange (`decision_upstream`) et absorbe son libellé en `choice_label`.
+    Couvert par `tests/test_48_carto_package.py`.
+  - Mesuré (banc `tests/carto`) : carto client 12 losanges insérés dans le flux,
+    28/28 losanges à ≤0,5 px de LEUR flèche ; hard.vsdx inchangé (croisements
+    198 → 197, chevauchements 20 → 19 pour 11 connexions de plus).
+  - **Aimantation** (`_snapDiamondToArrow`) : lâcher un losange à moins de 14 px
+    d'une flèche le pose PILE sur le trait, centré — viser le milieu d'un trait de
+    2 px à la souris était pénible.
+  - Une branche qui SORT d'un losange garde la couleur du flux : sans ça, la
+    propagation « couleur de la forme source » repeignait toutes les sorties de
+    décision en gris.
 - **Losanges décoratifs** (non connectés, posés « sur » une flèche dans Visio sans `<Connect>`) : `spliceDecisions` DÉSACTIVÉ (les insérer dans le flux complexifiait les flèches pour rien). `_seatDecorativeDiamonds()` les repose sur LEUR flèche APRÈS le polish : quand on redresse un angle ou qu'on rejette un tracé en détour, la flèche bouge — le losange, associé au connecteur dont le `customPath` Visio d'origine passe le plus près (seuil 60 px), est reposé sur le tracé FINAL de ce connecteur, à la même fraction. Mesuré hard.vsdx : 17/19 losanges à ≤5 px de leur flèche ; les 2 restants sont VRAIMENT flottants dans Visio (>90 px de tout connecteur) → laissés à leur position Visio. Banc : métrique `deco.offArrow`.
 - ⚠️ **Réalité hard.vsdx** : 165 formes / 243 flèches / 43 flèches « retour » (graphe cyclique) → **~400 croisements MÊME dans le Visio d'origine fait à la main**. Densité inhérente, aucun algo (ni Graphviz, ni l'humain) ne fait mieux. Sur une carto de taille normale : **0 croisement**. On juge la réussite sur les cartos normales, PAS sur hard.vsdx (cas extrême / stress-test).
 - **Flèches alignées DROITES** (`_straightenAlignedConnectors()`, appelé à l'import avant le polish) : une flèche entre deux formes alignées mais légèrement décalées devenait un ESCALIER (les deux ports tombaient à des X différents). On aligne les deux ports sur une coordonnée commune du recouvrement → tracé rectiligne fidèle Visio. **Garde-fous (essentiels) :** (1) uniquement connecteurs longs (>120 px) et formes qui se recouvrent (≥28 px) ; (2) **jamais à travers une forme tierce** (`pickFree` évite les X occupés par une forme → sinon on garde le routage qui la contourne) ; (3) **anti-empilement** : deux droites parallèles gardent ≥16 px d'écart (deux flèches bidirectionnelles entre formes empilées → deux voies distinctes, plus de croisement). Banc hard.vsdx : 45 verticales alignées → 0 escalier, 0 traversée de forme ; example/CT/TSM : 0 croisement, 0 superposition.
@@ -250,7 +280,12 @@ CONSENTEMENT du destinataire :
   d'autorité laisse une **notification** (`EntityShareOffer` en statut `delivered`) :
   le destinataire voit à sa prochaine ouverture « X vous a transféré une entité »,
   avec un seul bouton **Compris** (`action:"acknowledge"` → statut `acknowledged`).
-  Recevoir une entité sans avoir rien demandé mérite une explication ;
+  Recevoir une entité sans avoir rien demandé mérite une explication. Sur ce
+  chemin l'admin **nomme** l'entité déposée (`name`) et peut viser une entité
+  **existante** du destinataire pour l'écraser (`replace: {user_id: entity_id}`)
+  au lieu d'empiler « Nom (2) » ; la notification le dit (« a remplacé une de vos
+  entités »). Les entités de chaque compte ne sont listées (`entities` dans
+  `share/candidates`) que pour un admin en dépôt direct ;
 - **tout autre statut → proposition**. Rien n'est créé à l'envoi : une ligne
   `EntityShareOffer` (table `entity_share_offers`) porte une **copie du contenu**
   (nom, description, `vsdx_filename`, SVG, `optiqcarto_data`) — le destinataire
@@ -284,7 +319,7 @@ CONSENTEMENT du destinataire :
   une carte sans activités ni rôles.
 - La pop-up attend que la **fenêtre de bienvenue** soit refermée (MutationObserver) pour
   ne pas empiler deux modales, et ne recharge la page qu'après une acceptation.
-- Tests : `tests/test_51_entity_share.py` (33 cas).
+- Tests : `tests/test_51_entity_share.py` (40 cas).
 
 ---
 

@@ -426,6 +426,9 @@ def create_app(test_config=None):
         _safe_add_column("entities", "vsdx_filename", "VARCHAR(255)")
         _safe_add_column("entities", "optiqcarto_data", "TEXT")
         _safe_add_column("users", "lang", "VARCHAR(5)")
+        # Table creee par create_all, mais une colonne ajoutee apres coup
+        # ne l est pas : les instances deja deployees ont besoin de l ALTER.
+        _safe_add_column("entity_share_offers", "deposit_kind", "VARCHAR(20)")
         # Comptes créés avant la colonne : anglais par défaut, sauf ceux qui
         # doivent rester en français (DEFAULT_FRENCH_ACCOUNTS).
         try:

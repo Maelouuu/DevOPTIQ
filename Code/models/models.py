@@ -845,7 +845,9 @@ class EntityShareOffer(db.Model):
     svg_content = db.Column(db.Text, nullable=True)
     optiqcarto_data = db.Column(db.Text, nullable=True)
 
-    status = db.Column(db.String(20), nullable=False, default='pending')  # pending|accepted|declined
+    status = db.Column(db.String(20), nullable=False, default='pending')
+    # pending|accepted|declined (proposition) — delivered|acknowledged (dépôt d'autorité)
+    deposit_kind = db.Column(db.String(20), nullable=True)  # copy|replace
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     responded_at = db.Column(db.DateTime, nullable=True)
     created_entity_id = db.Column(db.Integer, nullable=True)

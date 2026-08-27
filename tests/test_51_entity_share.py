@@ -560,3 +560,142 @@ def test_on_n_acquitte_pas_une_proposition(app, client, offreur, cast):
     res = client.post(f"/activities/api/share/offers/{offre['id']}/respond",
                       json={"action": "acknowledge"})
     assert res.status_code == 400
+
+
+# ── Dépôt d'autorité : nommer, ou écraser une entité existante ───────────────
+
+def test_l_admin_impose_le_nom_de_l_entite_deposee(app, client, cast):
+    from Code.models.models import Entity
+    receveur = _mk_user(app, "share.nomme@devoptiq.com", "user")
+    _as(client, cast["owner"], "share.admin@devoptiq.com")
+    res = client.post(f"/activities/api/entities/{cast['entity_id']}/share",
+                      json={"user_ids": [receveur], "mode": "direct",
+                            "name": "Carto ARaymond 2026"})
+    assert res.status_code == 200
+    depot = res.get_json()["shared"][0]
+    assert depot["entity_name"] == "Carto ARaymond 2026"
+    assert depot["replaced"] is False
+    with app.app_context():
+        assert Entity.query.get(depot["entity_id"]).name == "Carto ARaymond 2026"
+
+
+def test_l_admin_remplace_une_entite_existante(app, client, cast):
+    """Aucune entité de plus : celle visée est écrasée par la carto envoyée."""
+    from Code.models.models import Entity, Activities
+    from Code.extensions import db
+    receveur = _mk_user(app, "share.ecrase@devoptiq.com", "user")
+    with app.app_context():
+        ancienne = Entity(name="Sa vieille carto", owner_id=receveur,
+                          optiqcarto_data=json.dumps({"shapes": [
+                              {"id": "z1", "type": "process", "label": "Vieille activité",
+                               "x": 0, "y": 0, "w": 100, "h": 50}], "bands": [], "connections": []}))
+        db.session.add(ancienne)
+        db.session.commit()
+        cible_id = ancienne.id
+        avant = Entity.query.filter_by(owner_id=receveur).count()
+
+    _as(client, cast["owner"], "share.admin@devoptiq.com")
+    res = client.post(f"/activities/api/entities/{cast['entity_id']}/share",
+                      json={"user_ids": [receveur], "mode": "direct",
+                            "replace": {str(receveur): cible_id}})
+    assert res.status_code == 200
+    depot = res.get_json()["shared"][0]
+    assert depot["replaced"] is True
+    assert depot["entity_id"] == cible_id
+
+    with app.app_context():
+        assert Entity.query.filter_by(owner_id=receveur).count() == avant
+        cible = Entity.query.get(cible_id)
+        assert json.loads(cible.optiqcarto_data) == DIAGRAM
+        noms = {a.name for a in Activities.query.filter_by(entity_id=cible_id).all()}
+        assert {"Partage Activité A", "Partage Activité B"} <= noms
+        assert "Vieille activité" not in noms
+
+
+def test_le_remplacement_peut_aussi_renommer(app, client, cast):
+    from Code.models.models import Entity
+    from Code.extensions import db
+    receveur = _mk_user(app, "share.renomme@devoptiq.com", "user")
+    with app.app_context():
+        cible = Entity(name="Ancien nom", owner_id=receveur)
+        db.session.add(cible)
+        db.session.commit()
+        cible_id = cible.id
+
+    _as(client, cast["owner"], "share.admin@devoptiq.com")
+    client.post(f"/activities/api/entities/{cast['entity_id']}/share",
+                json={"user_ids": [receveur], "mode": "direct", "name": "Nom imposé",
+                      "replace": {str(receveur): cible_id}})
+    with app.app_context():
+        assert Entity.query.get(cible_id).name == "Nom imposé"
+
+
+def test_le_remplacement_ne_vise_que_les_entites_du_destinataire(app, client, cast):
+    """Viser l'entité d'un tiers ne doit rien écraser."""
+    receveur = _mk_user(app, "share.pasavous@devoptiq.com", "user")
+    _as(client, cast["owner"], "share.admin@devoptiq.com")
+    res = client.post(f"/activities/api/entities/{cast['entity_id']}/share",
+                      json={"user_ids": [receveur], "mode": "direct",
+                            "replace": {str(receveur): cast["entity_id"]}})
+    assert res.status_code == 200
+    body = res.get_json()
+    assert body["shared"] == []
+    assert len(body["failed"]) == 1
+
+
+def test_la_notification_dit_que_c_est_un_remplacement(app, client, cast):
+    from Code.models.models import Entity
+    from Code.extensions import db
+    receveur = _mk_user(app, "share.notifremplace@devoptiq.com", "user")
+    with app.app_context():
+        cible = Entity(name="À écraser", owner_id=receveur)
+        db.session.add(cible)
+        db.session.commit()
+        cible_id = cible.id
+
+    _as(client, cast["owner"], "share.admin@devoptiq.com")
+    client.post(f"/activities/api/entities/{cast['entity_id']}/share",
+                json={"user_ids": [receveur], "mode": "direct",
+                      "replace": {str(receveur): cible_id}})
+
+    _as(client, receveur, "share.notifremplace@devoptiq.com")
+    notice = client.get("/activities/api/share/offers").get_json()["offers"][0]
+    assert notice["kind"] == "notice"
+    assert notice["replaced"] is True
+
+
+def test_un_compte_ordinaire_ne_peut_pas_ecraser(app, client, offreur, cast):
+    """Sans le statut admin, `replace` est ignoré : on ne fait que proposer."""
+    from Code.models.models import Entity
+    from Code.extensions import db
+    receveur = _mk_user(app, "share.protege@devoptiq.com", "user")
+    with app.app_context():
+        sienne = Entity(name="Intouchable", owner_id=receveur,
+                        optiqcarto_data=json.dumps({"shapes": [], "bands": [], "connections": []}))
+        db.session.add(sienne)
+        db.session.commit()
+        cible_id, avant = sienne.id, sienne.optiqcarto_data
+
+    _as(client, offreur["user_id"], "share.offreur@devoptiq.com")
+    res = client.post(f"/activities/api/entities/{offreur['entity_id']}/share",
+                      json={"user_ids": [receveur], "mode": "direct",
+                            "replace": {str(receveur): cible_id}})
+    assert res.status_code == 200
+    assert res.get_json()["shared"] == []
+    with app.app_context():
+        assert Entity.query.get(cible_id).optiqcarto_data == avant
+
+
+def test_les_candidats_listent_les_entites_pour_un_admin(app, client, cast, offreur):
+    _as(client, cast["owner"], "share.admin@devoptiq.com")
+    body = client.get(
+        f"/activities/api/entities/{cast['entity_id']}/share/candidates").get_json()
+    assert body["direct"] is True
+    assert all("entities" in u for u in body["users"])
+
+    # un compte ordinaire ne propose pas de cible, donc pas de liste d'entités
+    _as(client, offreur["user_id"], "share.offreur@devoptiq.com")
+    body = client.get(
+        f"/activities/api/entities/{offreur['entity_id']}/share/candidates").get_json()
+    assert body["direct"] is False
+    assert all("entities" not in u for u in body["users"])

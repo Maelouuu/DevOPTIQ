@@ -66,6 +66,22 @@ Métriques ajoutées : `angles` (segments non droits — biais perpendiculaire >
 sans fix → 209 segments biaisés ; avec fix → **21** (le reste = vraies diagonales
 Visio) et **222/243 labels placés près des pointes, 0 sur une autre flèche**.
 
+## Losanges et fourches
+
+Deux métriques dédiées, ajoutées avec l'insertion des losanges dans le flux :
+
+- `decoOwn` : distance du losange à **SA** flèche (celle à laquelle l'import l'a
+  rattaché), pas à la plus proche — c'est justement le défaut qu'on corrige.
+  `surSaFleche` = losanges à moins de 6 px de leur flèche.
+- `bundles` : `ecartMaxTronc` = écart maximal entre deux membres d'un même paquet
+  sur leur portion commune. Doit rester à **0** : une fourche, c'est une flèche
+  qui se divise, pas deux flèches parallèles.
+
+Repères carto client (`tools/provisioning/carto/Map_RFQ_FluidClip_Harmonized_HG_v9.vsdx`,
+`?classic=1&fix=1`) : 28 losanges, 28 rattachés (25 par une famille de couleur),
+12 insérés dans le flux, `surSaFleche` 28/28, médiane 0,3 px, `ecartMaxTronc` 0.
+Sur `hard.vsdx` : 10 losanges insérés, croisements 198 → 197.
+
 ## Notes
 
 - `harness.html` fournit un scaffold DOM minimal (`#canvas` + calques `g-*`) car

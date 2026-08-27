@@ -211,6 +211,54 @@ function _measureDecoOffArrow(tol){
   let off=0; for(const D of decos){const cx=D.x+D.w/2,cy=D.y+D.h/2;let m=1e9;for(const s of segs){const d=dSeg(cx,cy,s[0],s[1]);if(d<m)m=d;}if(m>tol)off++;}
   return {count:decos.length, offArrow:off};
 }
+// Distance du losange a SA fleche (celle a laquelle l'import l'a rattache par la
+// couleur). « Pres d'une fleche » ne suffit pas : c'est justement le defaut qu'on
+// corrige — le losange se posait sur la voisine.
+function _measureDecoOwn(tol){
+  tol=tol||6;
+  const connected=new Set(); state.connections.forEach(c=>{connected.add(c.fromId);connected.add(c.toId);});
+  const decos=state.shapes.filter(s=>s.type==='decision'&&!connected.has(s.id));
+  const parId={}; state.connections.forEach(c=>parId[c.id]=c);
+  const dSeg=(px,py,a,b)=>{const dx=b.x-a.x,dy=b.y-a.y,L=dx*dx+dy*dy||1;let t=((px-a.x)*dx+(py-a.y)*dy)/L;t=Math.max(0,Math.min(1,t));return Math.hypot(px-(a.x+t*dx),py-(a.y+t*dy));};
+  const dPoly=(px,py,q)=>{let m=1e9;for(let i=0;i<q.length-1;i++){const d=dSeg(px,py,q[i],q[i+1]);if(d<m)m=d;}return m;};
+  let tagged=0, ok=0, sansTag=0; const ecarts=[];
+  for(const D of decos){
+    const cx=D.x+D.w/2, cy=D.y+D.h/2;
+    const c=parId[D.seatConnId||D._seatConnId];
+    if(!c||!c._computedOrthopts||c._computedOrthopts.length<2){sansTag++;continue;}
+    tagged++;
+    const d=dPoly(cx,cy,c._computedOrthopts);
+    ecarts.push(+d.toFixed(1));
+    if(d<=tol) ok++;
+  }
+  ecarts.sort((a,b)=>a-b);
+  const attache=decos.map(D=>{const cc=parId[D.seatConnId||D._seatConnId]; return {d:D.id, lab:cc?((cc.label||'').replace(/\s+/g,' ').slice(0,28)):null, from:cc?cc.fromId:null, to:cc?cc.toId:null, x:Math.round(D.x), y:Math.round(D.y)};});
+  return {count:decos.length, tagged, sansTag, surSaFleche:ok, attache,
+          median:ecarts.length?ecarts[Math.floor(ecarts.length/2)]:null,
+          max:ecarts.length?ecarts[ecarts.length-1]:null};
+}
+// Troncs de fourche : deux membres d'un meme paquet doivent SE SUPERPOSER sur la
+// portion commune (une fleche qui se divise), pas courir en parallele.
+function _measureBundles(){
+  const paquets={};
+  for(const c of state.connections){ if(!c.bundleId) continue; (paquets[c.bundleId]=paquets[c.bundleId]||[]).push(c); }
+  let nb=0, ecartMax=0, membres=0;
+  for(const list of Object.values(paquets)){
+    if(list.length<2) continue;
+    nb++; membres+=list.length;
+    const debut=list[0].bundleId.startsWith('f');
+    const prof=Math.min(...list.map(c=>debut?(c.trunkFrom||0):(c.trunkTo||0)));
+    // userPts (et non _computedOrthopts) : le rendu ajoute les points de port,
+    // qui different d'une branche a l'autre — ce n'est pas le tronc.
+    for(let i=0;i<prof;i++){
+      const pts=list.map(c=>{const q=c.userPts; if(!q||q.length<1) return null;
+        return debut?q[i]:q[q.length-1-i];}).filter(Boolean);
+      for(let a=0;a<pts.length;a++) for(let b=a+1;b<pts.length;b++)
+        ecartMax=Math.max(ecartMax, Math.hypot(pts[a].x-pts[b].x, pts[a].y-pts[b].y));
+    }
+  }
+  return {paquets:nb, membres, ecartMaxTronc:+ecartMax.toFixed(2)};
+}
 function _measureLength(){
   let total=0;
   for(const c of state.connections){const p=c._computedOrthopts;if(!p||p.length<2)continue;
@@ -251,7 +299,7 @@ async function run(){
   const res=await vsdxParse(new Blob([buf]),()=>{},async()=>'keep',{spliceDecisions:false});
   state.bands=res.bands; state.shapes=res.shapes; state.connections=res.connections;
   state.groups=res.groups||[]; state.showBands=true;
-  state.connections.forEach(c=>{const f=state.shapes.find(s=>s.id===c.fromId); if(f)c.color=f.color;});
+  state.connections.forEach(c=>{const f=state.shapes.find(s=>s.id===c.fromId); if(f&&f.type!=='decision')c.color=f.color;});
   render();
   const before=_measure();
   if(classic){
@@ -339,7 +387,9 @@ async function run(){
   const oob=_measureOOB();
   const voidEnds=_measureVoidEnds();
   const deco=_measureDecoOffArrow();
-  window.__R__={vsdx, mode:{classic,fix,declutter,route,arrange}, arr:window.__ARR__||null, before, after, tips, deco, angles, labels, overlaps, length, oob:{below:oob.below,above:oob.above,right:oob.right,left:oob.left}, voidEnds, deco, fit, nbShapes:state.shapes.length, nbConns:state.connections.length};
+  const decoOwn=_measureDecoOwn();
+  const bundles=_measureBundles();
+  window.__R__={vsdx, mode:{classic,fix,declutter,route,arrange}, arr:window.__ARR__||null, before, after, tips, deco, decoOwn, bundles, angles, labels, overlaps, length, oob:{below:oob.below,above:oob.above,right:oob.right,left:oob.left}, voidEnds, deco, fit, nbShapes:state.shapes.length, nbConns:state.connections.length};
   document.title='DONE';
 }
 run().catch(e=>{window.__R__={err:String(e&&e.stack||e)};document.title='DONE';});
