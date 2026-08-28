@@ -75,6 +75,7 @@ PAGE_LABELS = {
     "test_61_admin_settings":            "Clés API & Paramètres Administrateur",
     "test_61_pulse":                     "OptiqPulse — Suivi d'Audience",
     "test_62_activities_constraints_items": "Contraintes/Données (/activities) & API Items d'Activité",
+    "test_63_cartography_translate_advanced": "Cartographie (succès/erreur) & Traduction Soft Skills IA",
 }
 
 
