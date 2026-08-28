@@ -261,7 +261,7 @@ class VsdxImporter {
     const DEFAULTS = { w: 0.9449, h: 0.7087, linePattern: 1, fillPattern: 1,
                        isEllipse: false, isDiamond: false, isSubprocess: false,
                        isStadium: false, isWavyBottom: false, aspect: 1,
-                       fillColor: null, lineColor: null };
+                       fillColor: null, lineColor: null, subFills: {} };
     if (!mid) return DEFAULTS;
     if (this.masterInfoCache[mid]) return this.masterInfoCache[mid];
     const fpath = this.masterIdToFile[mid];
@@ -272,6 +272,7 @@ class VsdxImporter {
 
       // ── Dimensions + style du shape primaire ──
       let bw, bh, lp = 1, fp = 1, fillColor = null, lineColor = null, rounding = 0;
+      const subFills = {};
       for (const s of doc.getElementsByTagName('Shape')) {
         const w = this.vCell(s, 'Width'), h = this.vCell(s, 'Height');
         if (w) bw = parseFloat(w);
@@ -291,6 +292,17 @@ class VsdxImporter {
         if (rv) rounding = Math.max(rounding, parseFloat(rv) || 0);
         if (bw && bh) break;
       }
+      // Remplissage PAR SOUS-FORME, sur TOUTES les formes du gabarit : la boucle
+      // ci-dessus s'arrête à la forme primaire (break dès qu'on a ses dimensions)
+      // et ne voit donc jamais les sous-formes. Or un couloir qui ne redéfinit
+      // rien hérite la couleur de la sous-forme correspondante (MasterShape) —
+      // c'est de là que vient la couleur de sa bande.
+      for (const sub of doc.getElementsByTagName('Shape')) {
+        const sid = sub.getAttribute('ID');
+        const sfc = this.vCell(sub, 'FillForegnd');
+        if (sid && sfc && sfc.startsWith('#')) subFills[sid] = sfc;
+      }
+
       // Second pass FillPattern (sous-shapes)
       if (fp === 1) {
         for (const s of doc.getElementsByTagName('Shape')) {
@@ -330,7 +342,7 @@ class VsdxImporter {
 
       return this.masterInfoCache[mid] = {
         w: bw || 0.9449, h: bh || 0.7087,
-        linePattern: lp, fillPattern: fp, fillColor, lineColor,
+        linePattern: lp, fillPattern: fp, fillColor, lineColor, subFills,
         isEllipse: g.isEllipse, isDiamond: g.isDiamond,
         isSubprocess: g.isSubprocess, isWavyBottom: g.isWavyBottom,
         isStadium, aspect,
@@ -590,12 +602,16 @@ class VsdxImporter {
   _extractLaneFill(el) {
     const childEl = this.vEl(el, 'Shapes');
 
-    // Uniquement la couleur POSÉE dans le fichier. Remonter au gabarit ramènerait
-    // le rouge d'usine du stencil sur un couloir qui s'affiche clair dans Visio :
-    // ce serait inventer une couleur, juste autrement.
+    // Couleur posée sur l'enfant, sinon celle qu'il HÉRITE de la sous-forme
+    // correspondante du gabarit : un couloir qui ne redéfinit rien s'affiche bien
+    // avec la couleur du gabarit dans Visio (3e bande de la carto client = rouge).
+    const sousFormes = (this.masterInfoCache[el.getAttribute('Master')] || {}).subFills || {};
     const couleurDe = (child) => {
       const propre = this.vCell(child, 'FillForegnd');
-      return (propre && propre.startsWith('#') && !this._isNearWhite(propre)) ? propre : null;
+      if (propre) return (propre.startsWith('#') && !this._isNearWhite(propre)) ? propre : null;
+      if (this.vCell(child, 'FillPattern') === '0') return null;   // explicitement sans remplissage
+      const heritee = sousFormes[child.getAttribute('MasterShape')];
+      return (heritee && heritee.startsWith('#') && !this._isNearWhite(heritee)) ? heritee : null;
     };
 
     if (childEl) {
@@ -1027,7 +1043,13 @@ class VsdxImporter {
       const retenus = famille && famille.membres.length ? famille.membres : proches;
       if (famille && famille.membres.length > 1) parCouleur++;
 
-      retenus.sort((a, b) => a.pr.dist - b.pr.dist);
+      // Score = distance + pénalité si le losange tombe sur une EXTRÉMITÉ du
+      // tracé : au départ d'une activité, toutes ses flèches sortantes passent
+      // par le même point, donc « la plus proche » est un tirage au sort. Celle
+      // que le losange traverse en son milieu est la bonne.
+      const PENALITE_BOUT = 60;
+      const score = i => i.pr.dist + ((i.pr.frac < 0.06 || i.pr.frac > 0.94) ? PENALITE_BOUT : 0);
+      retenus.sort((a, b) => score(a) - score(b));
       const choisi = retenus[0];
       D.seatConnId = choisi.c.id;
       D.seatFrac = +choisi.pr.frac.toFixed(4);
@@ -1076,6 +1098,7 @@ class VsdxImporter {
     // branche redessine le tronc : deux traits presque superposés que rien ne
     // peut aligner parfaitement. En coupant, le tronc n'existe qu'une fois.
     let entrees = 0, sorties = 0;
+    const remplacements = new Map();   // ancienne flèche → [entrée, sortie] issues de la coupe
     const dirDepuis = (a, b) => Math.abs(b.x - a.x) >= Math.abs(b.y - a.y)
       ? (b.x >= a.x ? 'right' : 'left') : (b.y >= a.y ? 'bottom' : 'top');
 
@@ -1102,9 +1125,11 @@ class VsdxImporter {
         (parSrc.get(k) || parSrc.set(k, []).get(k)).push(i);
       }
       let membres = null;
-      for (const g of parSrc.values())
+      for (const g of parSrc.values()) {
+        g.sort((a, b) => a.pr.dist - b.pr.dist);
         if (!membres || g.length > membres.length ||
             (g.length === membres.length && g[0].pr.dist < membres[0].pr.dist)) membres = g;
+      }
       if (!membres || (membres.length === 1 && membres[0].pr.dist > SEUIL_SEUL)) continue;
 
       const chemins = membres.map(m => m.c.customPath);
@@ -1170,6 +1195,7 @@ class VsdxImporter {
         });
         sorties++;
         c._remplacée = true;
+        remplacements.set(c.id, [newConns[newConns.length - 2], newConns[newConns.length - 1]]);
       });
 
       if (troncPose) {
@@ -1180,6 +1206,29 @@ class VsdxImporter {
         D.seatFrac = null;
       }
     }
+    // Un losange rattaché à une flèche qui vient d'être coupée doit suivre la
+    // MOITIÉ qui passe encore chez lui ; sinon il pointe dans le vide et l'éditeur
+    // le repose sur « la plus proche », c'est-à-dire n'importe laquelle.
+    for (const D of newShapes) {
+      if (D.type !== 'decision' || !D.seatConnId) continue;
+      const cx = D.x + D.w / 2, cy = D.y + D.h / 2;
+      // Une moitie peut avoir ete recoupee par un losange suivant : on suit la
+      // chaine jusqu a une fleche qui existe encore.
+      for (let tour = 0; tour < 6; tour++) {
+        const moities = remplacements.get(D.seatConnId);
+        if (!moities) break;
+        let best = null, bestD = Infinity, bestFrac = 0;
+        for (const m of moities) {
+          if (!m || !m.customPath || m.customPath.length < 2) continue;
+          const pr = projeter(cx, cy, m.customPath);
+          if (pr.dist < bestD) { bestD = pr.dist; best = m; bestFrac = pr.frac; }
+        }
+        if (!best) { D.seatConnId = null; D.seatFrac = null; break; }
+        D.seatConnId = best.id;
+        D.seatFrac = +bestFrac.toFixed(4);
+      }
+    }
+
     for (let i = newConns.length - 1; i >= 0; i--)
       if (newConns[i]._remplacée) newConns.splice(i, 1);
     if (coupes.length)
