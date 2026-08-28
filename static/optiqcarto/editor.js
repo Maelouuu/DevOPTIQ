@@ -6475,6 +6475,9 @@ function _reconstructClassicPolish() {
   _separateLanes();         // sépare les flèches parallèles superposées en voies distinctes
   _realignBundles();        // …sauf les troncs de fourche, qu'on remet en coïncidence
   render();
+  // Les tracés viennent de bouger : les losanges du flux se recalent dessus.
+  // Deux passes — déplacer un losange déplace ses ports, donc ses flèches.
+  for (let i = 0; i < 2; i++) { if (!_alignDiamondsOnFlow()) break; render(); }
   architectLabels(false);   // labels près des pointes, jamais sur une autre flèche
   if (typeof _syncLabelSlider === 'function') _syncLabelSlider();
 }
@@ -6840,6 +6843,44 @@ function _insertDiamondOnArrow(D, c, pr) {
   D.y = Math.round(coupe.y - D.h / 2);
   delete D.seatConnId; delete D.seatFrac; delete D._seatConnId;
   return true;
+}
+
+// Recentre un losange DU FLUX sur ses flèches. Le polish redresse les angles et
+// sépare les voies APRÈS l'insertion : le losange, lui, ne bougeait plus (seuls
+// les décoratifs sont reposés), et se retrouvait à côté de son propre trait.
+//
+// Principe : chaque flèche qui touche le losange arrive par un segment droit.
+// Un segment vertical impose le X du losange, un segment horizontal impose son Y.
+function _alignDiamondsOnFlow() {
+  let bouges = 0;
+  for (const D of state.shapes) {
+    if (D.type !== 'decision') continue;
+    const liees = state.connections.filter(c => c.fromId === D.id || c.toId === D.id);
+    if (!liees.length) continue;
+    const cx = D.x + D.w / 2, cy = D.y + D.h / 2;
+
+    const xs = [], ys = [];
+    for (const c of liees) {
+      const pts = c._computedOrthopts;
+      if (!pts || pts.length < 2) continue;
+      const voisin = c.toId === D.id ? pts[pts.length - 2] : pts[1];
+      if (!voisin) continue;
+      if (Math.abs(voisin.x - cx) <= Math.abs(voisin.y - cy)) xs.push(voisin.x);
+      else ys.push(voisin.y);
+    }
+    const median = (t) => {
+      if (!t.length) return null;
+      const v = [...t].sort((a, b) => a - b);
+      return v[Math.floor(v.length / 2)];
+    };
+    const nx = median(xs), ny = median(ys);
+    const px = nx == null ? cx : nx, py = ny == null ? cy : ny;
+    if (Math.abs(px - cx) < 0.5 && Math.abs(py - cy) < 0.5) continue;
+    D.x = Math.round(px - D.w / 2);
+    D.y = Math.round(py - D.h / 2);
+    bouges++;
+  }
+  return bouges;
 }
 
 // Tronc commun d'une fourche : l'import aligne les premiers sommets des flèches

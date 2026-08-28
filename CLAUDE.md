@@ -202,6 +202,21 @@ transporte le diagramme **tel qu'il est en base**, d'un compte à l'autre.
     ajustés à la main restaient décoratifs alors que ceux de l'import étaient
     dans le flux. Mesuré carto client : après validation, 28/28 losanges
     connectés, 0 avec plusieurs entrées, croisements 45, chevauchements 4.
+  - **Après la coupe, suivre sa flèche** : une flèche coupée disparaît, et les
+    losanges qui s'y rattachaient pointaient dans le vide — l'éditeur les
+    reposait alors sur « la plus proche », c'est-à-dire n'importe laquelle. On
+    re-pointe chaque losange sur la MOITIÉ qui passe encore chez lui, en suivant
+    la chaîne quand la moitié a elle-même été recoupée.
+  - **Fan-out** : au départ d'une activité, toutes ses flèches sortantes passent
+    par le même point — « la plus proche » est un tirage au sort. On pénalise
+    (60 px) les candidates dont la projection tombe sur une EXTRÉMITÉ du tracé :
+    celle que le losange traverse en son milieu gagne.
+  - **Recentrage après retouche** (`_alignDiamondsOnFlow`) : le polish redresse
+    les angles et sépare les voies APRÈS l'insertion. Un losange branché n'était
+    plus repositionné (seuls les décoratifs le sont) et se retrouvait à côté de
+    son propre trait. Chaque flèche qui le touche impose une coordonnée (segment
+    vertical → X, horizontal → Y) ; deux passes, car bouger le losange bouge ses
+    ports.
   - **Rendu** : une flèche qui ENTRE dans un losange n'a **ni pointe ni marge**
     (`tipPad` 0, pas de `marker-end`) — le flux ne s'arrête pas à la décision, il
     se divise, et toute marge agrandirait la zone sensible autour du losange.
@@ -210,15 +225,18 @@ transporte le diagramme **tel qu'il est en base**, d'un compte à l'autre.
     décision en gris.
 - **Losanges décoratifs** (non connectés, posés « sur » une flèche dans Visio sans `<Connect>`) : `spliceDecisions` DÉSACTIVÉ (les insérer dans le flux complexifiait les flèches pour rien). `_seatDecorativeDiamonds()` les repose sur LEUR flèche APRÈS le polish : quand on redresse un angle ou qu'on rejette un tracé en détour, la flèche bouge — le losange, associé au connecteur dont le `customPath` Visio d'origine passe le plus près (seuil 60 px), est reposé sur le tracé FINAL de ce connecteur, à la même fraction. Mesuré hard.vsdx : 17/19 losanges à ≤5 px de leur flèche ; les 2 restants sont VRAIMENT flottants dans Visio (>90 px de tout connecteur) → laissés à leur position Visio. Banc : métrique `deco.offArrow`.
 - **Couleur des bandes = celle du BANDEAU D'INDEX du couloir Visio**
-  (`_extractLaneFill`). Deux défauts corrigés : (1) on gardait « le dernier
+  (`_extractLaneFill`). Trois défauts corrigés : (1) on gardait « le dernier
   enfant coloré », qui ramenait tantôt le bandeau, tantôt le fond du couloir —
   d'où des bandes qui ne ressemblaient pas au fichier ; on prend désormais
-  l'enfant qui PORTE le libellé. (2) Sans couleur lisible, on piochait dans une
-  palette de repli (`FALLBACK_COLORS`) : la carto affichait des couleurs
-  **absentes du Visio**. Une bande sans couleur est maintenant **neutre**
-  (`#d1d5db`). ⚠️ Ne PAS remonter au gabarit : le stencil « couloir color »
-  porte un rouge d'usine (#ff0000) qui n'est pas ce que Visio affiche.
-  Mesuré : carto client 18/18 bandes conformes au fichier (1 seule neutre).
+  l'enfant qui PORTE le libellé. (2) Un couloir qui ne redéfinit rien **hérite**
+  la couleur de la sous-forme correspondante de son gabarit (`MasterShape` →
+  `subFills`) : sans ça la 3e bande de la carto client sortait grise au lieu de
+  rouge. ⚠️ `getMasterInfo` s'arrête à la forme primaire (`break` dès qu'il a ses
+  dimensions) — les sous-formes se collectent dans une passe SÉPARÉE. (3) Sans
+  aucune couleur, on piochait dans une palette de repli (`FALLBACK_COLORS`) : la
+  carto affichait des couleurs **absentes du Visio**. Le repli est maintenant
+  neutre (`#d1d5db`). Mesuré : carto client 18/18 bandes conformes, hard.vsdx
+  14/14 (aucune neutre).
 - ⚠️ **Réalité hard.vsdx** : 165 formes / 243 flèches / 43 flèches « retour » (graphe cyclique) → **~400 croisements MÊME dans le Visio d'origine fait à la main**. Densité inhérente, aucun algo (ni Graphviz, ni l'humain) ne fait mieux. Sur une carto de taille normale : **0 croisement**. On juge la réussite sur les cartos normales, PAS sur hard.vsdx (cas extrême / stress-test).
 - **Flèches alignées DROITES** (`_straightenAlignedConnectors()`, appelé à l'import avant le polish) : une flèche entre deux formes alignées mais légèrement décalées devenait un ESCALIER (les deux ports tombaient à des X différents). On aligne les deux ports sur une coordonnée commune du recouvrement → tracé rectiligne fidèle Visio. **Garde-fous (essentiels) :** (1) uniquement connecteurs longs (>120 px) et formes qui se recouvrent (≥28 px) ; (2) **jamais à travers une forme tierce** (`pickFree` évite les X occupés par une forme → sinon on garde le routage qui la contourne) ; (3) **anti-empilement** : deux droites parallèles gardent ≥16 px d'écart (deux flèches bidirectionnelles entre formes empilées → deux voies distinctes, plus de croisement). Banc hard.vsdx : 45 verticales alignées → 0 escalier, 0 traversée de forme ; example/CT/TSM : 0 croisement, 0 superposition.
 - **Connexions « à moitié collées » récupérées** (`_recoverFloatingConnections()`, vsdx_importer) : un connecteur Visio n'ayant un `<Connect>` que d'UN côté (l'autre bout flotte mais tombe pile dans une forme) était jeté (source/target absent). On infère l'extrémité manquante via la boîte Visio qui contient le point (tol 0,4). Corrige le renvoi isolé « Spare Parts Stock » ET les losanges « au milieu de nulle part » (posés sur ces flèches perdues). Banc hard.vsdx : 243 → 245 connexions.
