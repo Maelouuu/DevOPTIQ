@@ -289,3 +289,53 @@ class TestRenderSavoirs:
             assert b"Savoir Rendu Test" in r.data
         finally:
             _delete_savoir(app, savoir_id)
+
+
+# ===========================================================================
+# 5. Erreurs DB (branches except → 500 + rollback)
+# ===========================================================================
+
+class TestSavoirDbErrors:
+
+    def _break_commit(self, monkeypatch, app):
+        with app.app_context():
+            from Code.extensions import db
+            def _boom(*a, **kw):
+                raise RuntimeError("panne DB simulée")
+            monkeypatch.setattr(db.session, "commit", _boom)
+
+    def test_add_savoir_db_error_returns_500(self, auth_client, ids, app, monkeypatch):
+        self._break_commit(monkeypatch, app)
+        r = auth_client.post(
+            "/savoirs/add",
+            data=json.dumps({"description": "Va échouer", "activity_id": ids["activity_id"]}),
+            content_type="application/json",
+        )
+        assert r.status_code == 500
+        assert "panne DB simulée" in json.loads(r.data)["error"]
+
+    def test_update_savoir_db_error_returns_500(self, auth_client, ids, app, monkeypatch):
+        savoir_id = _create_savoir(app, ids["activity_id"], "Avant échec update")
+        try:
+            self._break_commit(monkeypatch, app)
+            r = auth_client.put(
+                f"/savoirs/{ids['activity_id']}/{savoir_id}",
+                data=json.dumps({"description": "Nouvelle valeur"}),
+                content_type="application/json",
+            )
+            assert r.status_code == 500
+            assert "panne DB simulée" in json.loads(r.data)["error"]
+        finally:
+            monkeypatch.undo()
+            _delete_savoir(app, savoir_id)
+
+    def test_delete_savoir_db_error_returns_500(self, auth_client, ids, app, monkeypatch):
+        savoir_id = _create_savoir(app, ids["activity_id"], "Avant échec delete")
+        try:
+            self._break_commit(monkeypatch, app)
+            r = auth_client.delete(f"/savoirs/{ids['activity_id']}/{savoir_id}")
+            assert r.status_code == 500
+            assert "panne DB simulée" in json.loads(r.data)["error"]
+        finally:
+            monkeypatch.undo()
+            _delete_savoir(app, savoir_id)

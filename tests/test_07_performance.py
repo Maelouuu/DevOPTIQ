@@ -9,6 +9,77 @@ import json
 pytestmark = pytest.mark.performance
 
 
+def _create_link_no_perf(app, ids):
+    """Crée un Link dédié (sans Performance associée) pour tester le fragment vide."""
+    from Code.extensions import db
+    from Code.models.models import Link, Data
+
+    with app.app_context():
+        data_obj = Data(entity_id=ids["entity_id"], name="Donnée Perf Fragment", type="nourrissante")
+        db.session.add(data_obj)
+        db.session.flush()
+        link = Link(
+            entity_id=ids["entity_id"],
+            source_data_id=data_obj.id,
+            target_activity_id=ids["activity_id"],
+            type="nourrissante",
+        )
+        db.session.add(link)
+        db.session.commit()
+        return link.id, data_obj.id
+
+
+def _delete_link_and_data(app, link_id, data_id):
+    from Code.extensions import db
+    from Code.models.models import Link, Data
+
+    with app.app_context():
+        lk = Link.query.get(link_id)
+        if lk:
+            db.session.delete(lk)
+        d = Data.query.get(data_id)
+        if d:
+            db.session.delete(d)
+        db.session.commit()
+
+
+class TestRenderFragmentNoPerformance:
+    """Couvre _render_fragment quand aucune Performance n'existe encore (bouton d'ajout)."""
+
+    def test_render_by_link_without_perf_shows_add_button(self, auth_client, ids, app):
+        link_id, data_id = _create_link_no_perf(app, ids)
+        try:
+            r = auth_client.get(f"/performance/render/{link_id}")
+            assert r.status_code == 200
+            html = r.get_data(as_text=True)
+            assert "Aucune performance générale définie" in html
+            assert f"showAddPerfForm('{link_id}')" in html
+            assert f"perf-add-form-{link_id}" in html
+        finally:
+            _delete_link_and_data(app, link_id, data_id)
+
+    def test_render_by_activity_link_without_perf_shows_bare_message(self, auth_client, ids, app):
+        """render_activity fait un INNER JOIN sur Performance : un lien sans performance
+        n'est jamais trouvé, donc pas de bouton d'ajout (link_id reste None)."""
+        link_id, data_id = _create_link_no_perf(app, ids)
+        try:
+            r = auth_client.get(f"/performance/render_activity/{ids['activity_id']}")
+            assert r.status_code == 200
+            html = r.get_data(as_text=True)
+            assert "Aucune performance générale définie" in html
+            assert "showAddPerfForm" not in html
+        finally:
+            _delete_link_and_data(app, link_id, data_id)
+
+    def test_render_by_activity_no_link_at_all_shows_bare_message(self, auth_client, app):
+        """Aucune activité/lien correspondant → fragment sans bouton (link_id=None)."""
+        r = auth_client.get("/performance/render_activity/999999")
+        assert r.status_code == 200
+        html = r.get_data(as_text=True)
+        assert "Aucune performance générale définie" in html
+        assert "showAddPerfForm" not in html
+
+
 class TestPerformanceCRUD:
 
     def _get_link_id(self, app):
@@ -104,3 +175,36 @@ class TestPerformanceCRUD:
         # Supprimer
         r = auth_client.delete(f"/performance/{perf_id}")
         assert r.status_code in (200, 204)
+
+    def test_update_performance_existing_changes_name_and_description(self, auth_client, ids, app):
+        """PUT sur une performance existante → 200 + champs mis à jour en base."""
+        from Code.extensions import db
+        from Code.models.models import Performance
+
+        link_id, data_id = _create_link_no_perf(app, ids)
+        with app.app_context():
+            perf = Performance(link_id=link_id, name="Nom initial", description="Desc initiale")
+            db.session.add(perf)
+            db.session.commit()
+            perf_id = perf.id
+
+        try:
+            r = auth_client.put(
+                f"/performance/{perf_id}",
+                data=json.dumps({"name": "Nom modifié", "description": "Desc modifiée"}),
+                content_type="application/json",
+            )
+            assert r.status_code == 200
+            assert r.get_json()["message"] == "Performance mise à jour"
+
+            with app.app_context():
+                updated = Performance.query.get(perf_id)
+                assert updated.name == "Nom modifié"
+                assert updated.description == "Desc modifiée"
+        finally:
+            with app.app_context():
+                p = Performance.query.get(perf_id)
+                if p:
+                    db.session.delete(p)
+                    db.session.commit()
+            _delete_link_and_data(app, link_id, data_id)

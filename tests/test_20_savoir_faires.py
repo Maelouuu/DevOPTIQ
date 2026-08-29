@@ -370,3 +370,63 @@ class TestRenderSavoirFaires:
             assert b"SF Rendu HTML Test" in r.data
         finally:
             _delete_sf(app, sf_id)
+
+
+# ===========================================================================
+# 6. Erreurs DB (branches except → 500 + rollback)
+# ===========================================================================
+
+class TestSavoirFaireDbErrors:
+
+    def _break_commit(self, monkeypatch, app):
+        with app.app_context():
+            from Code.extensions import db
+            def _boom(*a, **kw):
+                raise RuntimeError("panne DB simulée")
+            monkeypatch.setattr(db.session, "commit", _boom)
+
+    def test_add_sf_unitaire_db_error_returns_500(self, auth_client, ids, app, monkeypatch):
+        self._break_commit(monkeypatch, app)
+        r = auth_client.post(
+            "/savoir_faires/add",
+            data=json.dumps({"description": "Va échouer", "activity_id": ids["activity_id"]}),
+            content_type="application/json",
+        )
+        assert r.status_code == 500
+        assert "panne DB simulée" in json.loads(r.data)["error"]
+
+    def test_add_sf_batch_db_error_returns_500(self, auth_client, ids, app, monkeypatch):
+        self._break_commit(monkeypatch, app)
+        r = auth_client.post(
+            "/savoir_faires/add",
+            data=json.dumps({"activity_id": ids["activity_id"], "savoir_faires": ["SF Va Échouer"]}),
+            content_type="application/json",
+        )
+        assert r.status_code == 500
+        assert "panne DB simulée" in json.loads(r.data)["error"]
+
+    def test_update_sf_db_error_returns_500(self, auth_client, ids, app, monkeypatch):
+        sf_id = _create_sf(app, ids["activity_id"], "Avant échec update")
+        try:
+            self._break_commit(monkeypatch, app)
+            r = auth_client.put(
+                f"/savoir_faires/{ids['activity_id']}/{sf_id}",
+                data=json.dumps({"description": "Nouvelle valeur"}),
+                content_type="application/json",
+            )
+            assert r.status_code == 500
+            assert "panne DB simulée" in json.loads(r.data)["error"]
+        finally:
+            monkeypatch.undo()
+            _delete_sf(app, sf_id)
+
+    def test_delete_sf_db_error_returns_500(self, auth_client, ids, app, monkeypatch):
+        sf_id = _create_sf(app, ids["activity_id"], "Avant échec delete")
+        try:
+            self._break_commit(monkeypatch, app)
+            r = auth_client.delete(f"/savoir_faires/{ids['activity_id']}/{sf_id}")
+            assert r.status_code == 500
+            assert "panne DB simulée" in json.loads(r.data)["error"]
+        finally:
+            monkeypatch.undo()
+            _delete_sf(app, sf_id)

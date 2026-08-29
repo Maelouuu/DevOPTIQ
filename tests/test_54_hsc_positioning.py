@@ -8,9 +8,37 @@ Couverture :
   - POST /hsc/position                         → auto-positionnement (repli sans clé IA)
 """
 import json
+from types import SimpleNamespace
+
 import pytest
 
 pytestmark = pytest.mark.hsc_positioning
+
+
+class _FakeCompletions:
+    def __init__(self, content=None, raise_exc=None):
+        self._content = content
+        self._raise_exc = raise_exc
+
+    def create(self, **kwargs):
+        if self._raise_exc:
+            raise self._raise_exc
+        message = SimpleNamespace(content=self._content)
+        choice = SimpleNamespace(message=message)
+        return SimpleNamespace(choices=[choice])
+
+
+class _FakeClient:
+    def __init__(self, content=None, raise_exc=None):
+        self.chat = SimpleNamespace(completions=_FakeCompletions(content=content, raise_exc=raise_exc))
+
+
+def _patch_ai_client(monkeypatch, content=None, raise_exc=None):
+    fake = _FakeClient(content=content, raise_exc=raise_exc)
+    monkeypatch.setattr(
+        "Code.routes.hsc_positioning.openai_client_or_none",
+        lambda: (fake, None),
+    )
 
 
 def _cleanup_descriptors(app, hsc_name):
@@ -143,3 +171,62 @@ class TestHscPosition:
             content_type="application/json",
         )
         assert r.status_code == 200
+
+    def test_position_with_mocked_ai_returns_proposal(self, auth_client, monkeypatch):
+        """Client IA mocké renvoie un JSON valide → proposal complète, source=AI."""
+        _patch_ai_client(
+            monkeypatch,
+            content=json.dumps({
+                "probable_level": 3,
+                "confidence": "high",
+                "evidence_summary": "Anticipe les blocages.",
+                "missing_evidence_for_next_level": "Peu d'exemples de mentorat.",
+                "development_focus": "Accompagner un pair.",
+            }),
+        )
+        r = auth_client.post(
+            "/hsc/position",
+            data=json.dumps({
+                "hsc_name": "Auto-organisation",
+                "responses": ["Je priorise mes tâches sans qu'on me le demande."],
+                "examples": "Livraison anticipée d'un projet.",
+            }),
+            content_type="application/json",
+        )
+        assert r.status_code == 200
+        data = r.get_json()
+        assert data["source"] == "AI"
+        proposal = data["proposal"]
+        assert proposal["hsc_name"] == "Auto-organisation"
+        assert proposal["probable_level"] == 3
+        assert proposal["probable_label"] == "Maîtrise"
+        assert proposal["confidence"] == "high"
+        assert proposal["evidence_summary"] == "Anticipe les blocages."
+
+    def test_position_with_mocked_ai_invalid_level_becomes_null(self, auth_client, monkeypatch):
+        """Un niveau hors 1-4 renvoyé par l'IA est neutralisé (pas de label ni de niveau)."""
+        _patch_ai_client(monkeypatch, content=json.dumps({"probable_level": 9}))
+        r = auth_client.post(
+            "/hsc/position",
+            data=json.dumps({"hsc_name": "Coopération", "responses": ["a"]}),
+            content_type="application/json",
+        )
+        assert r.status_code == 200
+        proposal = r.get_json()["proposal"]
+        assert proposal["probable_level"] is None
+        assert proposal["probable_label"] is None
+        assert proposal["confidence"] == "medium"
+
+    def test_position_ai_client_exception_returns_error_source(self, auth_client, monkeypatch):
+        """Une exception du client IA est capturée : réponse 200 avec source=error, jamais de 500."""
+        _patch_ai_client(monkeypatch, raise_exc=RuntimeError("panne réseau IA"))
+        r = auth_client.post(
+            "/hsc/position",
+            data=json.dumps({"hsc_name": "Coopération", "responses": ["a"]}),
+            content_type="application/json",
+        )
+        assert r.status_code == 200
+        data = r.get_json()
+        assert data["proposal"] is None
+        assert data["source"] == "error"
+        assert "panne réseau IA" in data["error"]

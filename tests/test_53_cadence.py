@@ -233,6 +233,35 @@ class TestConsistency:
             _cleanup_data(app, did)
             _cleanup_activity(app, aid)
 
+    def test_consistency_skips_link_with_dangling_data_reference(self, auth_client, app, ids):
+        """Un Link pointant vers un Data supprimé (FK non nettoyée) est ignoré sans planter."""
+        with app.app_context():
+            from Code.models.models import Link
+            from Code.extensions import db
+            link = Link(
+                entity_id=ids["entity_id"],
+                source_data_id=9999999,
+                target_activity_id=ids["activity_id"],
+                type="nourrissante",
+            )
+            db.session.add(link)
+            db.session.commit()
+            link_id = link.id
+        try:
+            r = auth_client.get("/cadence/consistency")
+            assert r.status_code == 200
+            data = r.get_json()
+            matches = [w for w in data["warnings"] if w["source_data_id"] == 9999999]
+            assert matches == []
+        finally:
+            with app.app_context():
+                from Code.models.models import Link
+                from Code.extensions import db
+                lk = Link.query.get(link_id)
+                if lk:
+                    db.session.delete(lk)
+                    db.session.commit()
+
     def test_consistency_no_warning_when_ranks_ok(self, auth_client, app, ids):
         aid = _create_activity(app, ids["entity_id"], name="Activité Rythme Lent")
         did = _create_data(app, ids["entity_id"], name="Donnée Rythme Rapide")
