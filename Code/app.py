@@ -422,6 +422,7 @@ def create_app(test_config=None):
         # 2. Colonnes manquantes — ALTER TABLE instantané, ignore si déjà présente
         _safe_add_column("tools", "file_path", "VARCHAR(512)")
         _safe_add_column("constraints", "file_path", "VARCHAR(512)")
+        _safe_add_column("tasks", "file_path", "VARCHAR(512)")
         _safe_add_column("entities", "svg_content", "TEXT")
         _safe_add_column("entities", "vsdx_filename", "VARCHAR(255)")
         _safe_add_column("entities", "optiqcarto_data", "TEXT")

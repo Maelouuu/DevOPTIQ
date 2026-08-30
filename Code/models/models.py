@@ -270,6 +270,10 @@ class Task(db.Model):
     duration_minutes = db.Column(db.Float, default=0)
     delay_minutes = db.Column(db.Float, default=0)
 
+    # Pièce jointe de la tâche — distincte de celle d'un outil : le mode
+    # opératoire de la tâche n'est pas la notice de l'outil qu'elle utilise.
+    file_path = db.Column(db.String(512), nullable=True)
+
     tools = db.relationship(
         'Tool',
         secondary=task_tools,

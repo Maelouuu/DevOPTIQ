@@ -122,33 +122,51 @@ function _checkRenvoiAutoLink(fromShapeId, toShapeId) {
 
 // ── Défauts par type de forme ─────────────────────
 function _defaultBands() {
+  // Gabarit proposé à la création d'une carto. `key` = entrée du catalogue de
+  // traduction : le libellé est réécrit à chaque ouverture tant que la bande n'a
+  // pas été renommée à la main (cf. _applyTemplateI18n).
   return [
-    { id:  0, label: 'Client',                                                               color: '#FFFFFF', fontSize: 11, height: 100 },
-    { id:  1, label: 'Analyse de Marché & Communication',                                    color: '#C00000', fontSize: 11, height: 220, deleted: true },
-    { id:  2, label: 'Vente & Suivi commercial',                                             color: '#FF0000', fontSize: 11, height: 220 },
-    { id:  3, label: 'Gestion Administrative & Financière',                                  color: '#92D050', fontSize: 11, height: 220 },
-    { id:  4, label: 'Négociation & Relations Fournisseurs',                                 color: '#4F6228', fontSize: 11, height: 220, deleted: true },
-    { id:  5, label: 'Coordination & Suivi de Projet',                                      color: '#95B3D7', fontSize: 11, height: 220 },
-    { id:  6, label: 'Conception Produit & Ingénierie',                                     color: '#548DD4', fontSize: 11, height: 220 },
-    { id:  7, label: 'Organisation Industrielle & Méthodes (hors production directe)',       color: '#365F91', fontSize: 11, height: 220, deleted: true },
-    { id:  8, label: 'Satisfaction Client & Amélioration Continue',                          color: '#FFFF00', fontSize: 11, height: 220, deleted: true },
-    { id:  9, label: 'Contrôle qualité & Mesure (Métrologie)',                              color: '#5F497A', fontSize: 11, height: 220, deleted: true },
-    { id: 10, label: 'Fabrication & Réalisation Produit (opérations directes)',              color: '#0070C0', fontSize: 11, height: 220 },
-    { id: 11, label: 'Organisation & Planification du Travail',                              color: '#FF9900', fontSize: 11, height: 220 },
-    { id: 12, label: 'Analyse Technique & Résolution de Problèmes',                          color: '#984806', fontSize: 11, height: 220 },
-    { id: 13, label: 'Logistique & Gestion des Flux Physiques',                              color: '#CC9900', fontSize: 11, height: 220 },
-    { id: 14, label: 'Pilotage Stratégique & Opérationnel (macro)',                          color: '#D9D9D9', fontSize: 11, height: 220 },
-    { id: 15, label: 'Gestion des Compétences & des Talents',                                color: '#92D050', fontSize: 11, height: 220, deleted: true },
-    { id: 16, label: 'Fournisseur',                                                          color: '#FFFFFF', fontSize: 11, height: 100 },
-  ];
+    { id:  0, key: 'client',        color: '#FFFFFF', fontSize: 11, height: 100 },
+    { id:  1, key: 'market',        color: '#C00000', fontSize: 11, height: 220, deleted: true },
+    { id:  2, key: 'sales',         color: '#FF0000', fontSize: 11, height: 220 },
+    { id:  3, key: 'admin',         color: '#92D050', fontSize: 11, height: 220 },
+    { id:  4, key: 'purchasing',    color: '#4F6228', fontSize: 11, height: 220, deleted: true },
+    { id:  5, key: 'project',       color: '#95B3D7', fontSize: 11, height: 220 },
+    { id:  6, key: 'design',        color: '#548DD4', fontSize: 11, height: 220 },
+    { id:  7, key: 'methods',       color: '#365F91', fontSize: 11, height: 220, deleted: true },
+    { id:  8, key: 'satisfaction',  color: '#FFFF00', fontSize: 11, height: 220, deleted: true },
+    { id:  9, key: 'quality',       color: '#5F497A', fontSize: 11, height: 220, deleted: true },
+    { id: 10, key: 'production',    color: '#0070C0', fontSize: 11, height: 220 },
+    { id: 11, key: 'planning',      color: '#FF9900', fontSize: 11, height: 220 },
+    { id: 12, key: 'tech_analysis', color: '#984806', fontSize: 11, height: 220 },
+    { id: 13, key: 'logistics',     color: '#CC9900', fontSize: 11, height: 220 },
+    { id: 14, key: 'steering',      color: '#D9D9D9', fontSize: 11, height: 220 },
+    { id: 15, key: 'talents',       color: '#92D050', fontSize: 11, height: 220, deleted: true },
+    // Index vert pastel, corps blanc : bandeau lisible sans teinter la bande.
+    { id: 17, key: 'network',       color: '#A9DFBF', bodyColor: '#FFFFFF', fontSize: 11, height: 220 },
+    { id: 18, key: 'other',         color: '#A9DFBF', bodyColor: '#FFFFFF', fontSize: 11, height: 220 },
+    { id: 16, key: 'supplier',      color: '#FFFFFF', fontSize: 11, height: 100 },
+  ].map(b => Object.assign({}, b, { label: _L('editor.dband.' + b.key) }));
 }
 
+// Le texte pré-rempli d'une forme suit la langue de l'interface : `labelKey`
+// reste posée sur la forme tant que son texte n'a pas été retouché.
 const SHAPE_DEFAULTS = {
-  process:   { label: 'Activité',      color: '#22c55e', textColor: '#ffffff', validationBadge: false, validationColor: '#4DB868', w: 130, h: 90,  fontSize: 18, subtype: 'normal' },
-  'start-end': { label: 'Renvoi',      color: '#ffffff', textColor: '#000000', validationBadge: false, validationColor: '#4DB868', w: 90,  h: 90,  fontSize: 13, subtype: 'normal' },
-  special:   { label: 'Résultat', color: '#f59e0b', textColor: '#ffffff', validationBadge: false, validationColor: '#4DB868', w: 130, h: 90,  fontSize: 13, subtype: 'normal' },
-  decision:  { label: 'Décision',      color: '#9ca3af', textColor: '#ffffff', validationBadge: false, validationColor: '#4DB868', w: 100, h: 100, fontSize: 13, subtype: 'normal' },
+  process:     { labelKey: 'editor.shape_activity',    color: '#22c55e', textColor: '#ffffff', validationBadge: false, validationColor: '#4DB868', w: 130, h: 90,  fontSize: 18, subtype: 'normal' },
+  'start-end': { labelKey: 'editor.shape_renvoi',      color: '#ffffff', textColor: '#000000', validationBadge: false, validationColor: '#4DB868', w: 90,  h: 90,  fontSize: 13, subtype: 'normal' },
+  special:     { labelKey: 'editor.shape_subactivity', color: '#f59e0b', textColor: '#ffffff', validationBadge: false, validationColor: '#4DB868', w: 130, h: 90,  fontSize: 13, subtype: 'normal' },
+  decision:    { labelKey: 'editor.shape_decision',    color: '#9ca3af', textColor: '#ffffff', validationBadge: false, validationColor: '#4DB868', w: 100, h: 100, fontSize: 13, subtype: 'normal' },
 };
+Object.values(SHAPE_DEFAULTS).forEach(d => { d.label = _L(d.labelKey); });
+
+// Réécrit les libellés du gabarit dans la langue courante. On le fait à
+// L'OUVERTURE plutôt qu'au rendu : `label` part tel quel vers la base
+// (_sync_carto_to_db), qui ne saurait pas résoudre une clé de traduction.
+function _applyTemplateI18n(st) {
+  if (!st) return;
+  (st.bands  || []).forEach(b => { if (b.key)      b.label = _L('editor.dband.' + b.key); });
+  (st.shapes || []).forEach(s => { if (s.labelKey) s.label = _L(s.labelKey); });
+}
 
 const HINTS = {
   select:    'Clic = sélectionner · Glisser = déplacer · Double-clic = éditer texte · Suppr = supprimer',
@@ -437,7 +455,7 @@ function renderBands() {
     if (band.deleted) continue;
     const isSel = selectedBand === band.id;
     const g = el('g', {}, gBands);
-    const bgColor = bandBgColor(band.color);
+    const bgColor = band.bodyColor || bandBgColor(band.color);
 
     // Fond de la bande → très pâle pour faire ressortir les formes
     el('rect', { x: 0, y, width: bw, height: band.height, fill: bgColor }, g);
@@ -3190,6 +3208,7 @@ function commitLabel() {
   const s = state.shapes.find(s => s.id === labelEditing.shapeId);
   if (s) {
     s.label = labelEd.value.trim();
+    delete s.labelKey;           // texte saisi : il ne suit plus la langue
     if (s.type === 'start-end') {
       _updateRenvoiColor(s);
       // Regression fix: auto-link wasn't created when label was set after connection
@@ -3467,6 +3486,7 @@ function bindProps() {
       const s = state.shapes.find(s => s.id === id);
       if (!s) continue;
       s.label = v;
+      delete s.labelKey;         // texte saisi : il ne suit plus la langue
       if (s.type === 'start-end') _updateRenvoiColor(s);
     }
   });
@@ -5365,16 +5385,24 @@ function renderBandsTbList() {
     const row = document.createElement('div');
     row.className = 'bands-tb-row' + (band.deleted ? ' deleted' : '');
     if (band.deleted) {
+      row.title = _L('editor.band_restore');
       row.innerHTML = `
         <div class="bands-tb-swatch" style="background:${band.color}"></div>
-        <span class="bands-tb-row-label">${band.label || 'Bande ' + (i + 1)}</span>
-        <button class="bands-tb-restore" data-i="${i}" title="Restaurer la bande"><i class="fa-solid fa-rotate-left"></i></button>`;
+        <span class="bands-tb-row-label">${band.label || _L('editor.band_n', i + 1)}</span>
+        <button class="bands-tb-restore" data-i="${i}" title="${_L('editor.band_restore')}"><i class="fa-solid fa-rotate-left"></i></button>`;
     } else {
+      row.title = _L('editor.band_hide');
       row.innerHTML = `
         <div class="bands-tb-swatch" style="background:${band.color}"></div>
-        <span class="bands-tb-row-label">${band.label || 'Bande ' + (i + 1)}</span>
-        <button class="bands-tb-del" data-i="${i}" title="Masquer la bande"><i class="fa-solid fa-trash"></i></button>`;
+        <span class="bands-tb-row-label">${band.label || _L('editor.band_n', i + 1)}</span>
+        <button class="bands-tb-del" data-i="${i}" title="${_L('editor.band_hide')}"><i class="fa-solid fa-trash"></i></button>`;
     }
+    // Viser un bouton de 26 px pour masquer une bande est pénible : toute la
+    // ligne déclenche l'action, le bouton n'est plus qu'un repère visuel.
+    row.addEventListener('click', () => {
+      const btn = row.querySelector('.bands-tb-del, .bands-tb-restore');
+      if (btn) btn.click();
+    });
     list.appendChild(row);
   });
   list.querySelectorAll('.bands-tb-del').forEach(btn => {
@@ -5414,10 +5442,14 @@ function renderBandsList() {
   });
 
   list.querySelectorAll('.bc').forEach(e => e.addEventListener('input', ev => {
-    state.bands[ev.target.dataset.i].color = ev.target.value; renderBands();
+    const b = state.bands[ev.target.dataset.i];
+    b.color = ev.target.value; delete b.bodyColor;  // couleur choisie : le corps suit
+    renderBands();
   }));
   list.querySelectorAll('.bl').forEach(e => e.addEventListener('input', ev => {
-    state.bands[ev.target.dataset.i].label = ev.target.value; renderBands();
+    const b = state.bands[ev.target.dataset.i];
+    b.label = ev.target.value; delete b.key;   // renommée : ne suit plus la langue
+    renderBands();
   }));
   list.querySelectorAll('.bh').forEach(e => e.addEventListener('input', ev => {
     state.bands[ev.target.dataset.i].height = parseInt(ev.target.value) || 150; renderBands();
@@ -5452,11 +5484,12 @@ function bindBandProps() {
     el.addEventListener('input', e => { fn(e.target.value); render(); });
     el.addEventListener('change', snapshot);
   };
-  bprop('band-label', v => { const b = state.bands.find(b => b.id === selectedBand); if (b) b.label = v; });
+  bprop('band-label', v => { const b = state.bands.find(b => b.id === selectedBand); if (b) { b.label = v; delete b.key; } });
   bprop('band-color', v => {
     const b = state.bands.find(b => b.id === selectedBand);
     if (!b) return;
     b.color = v;
+    delete b.bodyColor;
     const pastelEl = document.getElementById('band-pastel-preview');
     if (pastelEl) pastelEl.style.background = bandPastel(v);
     state.shapes.forEach(s => { if (getBandForY(s.y + s.h / 2)?.id === b.id) updateShapeColor(s); });
@@ -6022,7 +6055,8 @@ function _applyFixes(fixes) {
     } else if (f.type === 'renvoi') {
       deleted.add(f.shape.id);
     } else if (f.type === 'duplicate') {
-      f.shape.label = f.newLabel;                     // pas de déplacement → pas de re-routage
+      f.shape.label = f.newLabel;
+      delete f.shape.labelKey;                     // pas de déplacement → pas de re-routage
     }
   }
   if (deleted.size) {
@@ -7067,8 +7101,9 @@ function _showBulkPanel(shapeType, shapeSubtype, wrap, anchorBtn) {
 
   const previewClassMap = { process: 'normal', special: 'special', 'start-end': 'renvoi', decision: 'decision' };
   const subtypeClass    = shapeSubtype === 'external' ? 'external' : shapeSubtype === 'extco' ? 'extco' : (previewClassMap[shapeType] || 'normal');
-  const labelMap = { process: 'Activité', special: 'Résultat', 'start-end': 'Renvoi', decision: 'Décision' };
-  const shapeName = (shapeSubtype === 'external' ? 'Activité externe' : shapeSubtype === 'extco' ? 'Ext. entreprise' : labelMap[shapeType]) || shapeType;
+  const shapeName = _L(shapeSubtype === 'external' ? 'editor.shape_ext_activity'
+                     : shapeSubtype === 'extco'    ? 'editor.shape_extco'
+                     : (SHAPE_DEFAULTS[shapeType] || {}).labelKey || shapeType);
 
   const panel = document.createElement('div');
   panel.id = '_bulk-side-panel';
@@ -7444,13 +7479,17 @@ function init() {
     const { x, y } = screenToSVG(e.clientX, e.clientY);
     const def = SHAPE_DEFAULTS[shapeType];
     const shapeSubtype = e.dataTransfer.getData('text/shape-subtype') || def.subtype || 'normal';
+    const labelKey = shapeSubtype === 'external' ? 'editor.shape_ext_activity'
+                   : shapeSubtype === 'extco'    ? 'editor.shape_ext_company'
+                   : def.labelKey;
     const s = {
       id: state.nextId++,
       type: shapeType,
       x: Math.round(x - def.w / 2),
       y: Math.round(y - def.h / 2),
       w: def.w, h: def.h,
-      label: shapeSubtype === 'external' ? 'Activité externe' : shapeSubtype === 'extco' ? 'Externe à l\'entreprise' : def.label,
+      label: _L(labelKey),
+      labelKey,
       color: def.color,
       textColor: def.textColor,
       strokeColor: '',
@@ -7684,6 +7723,7 @@ function init() {
         );
       }
       _restoreCollapsedPiles();
+      _applyTemplateI18n(state);
       history = [JSON.stringify(state)]; histIndex = 0;
       isDirty = false;
       render(); updateProps(); fitView();

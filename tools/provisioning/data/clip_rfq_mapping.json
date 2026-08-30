@@ -1,0 +1,37 @@
+{
+  "_lisez_moi": [
+    "Correspondance libellé Excel client → nom d'activité dans la carto FluidClip",
+    "(harmonisée v9). Les libellés ne coïncident pas : la carte a été renommée,",
+    "l'Excel garde le vocabulaire du client. Une valeur null écarte la ligne.",
+    "Les lignes marquées « ~ » ci-dessous sont un choix de lecture (le contenu des",
+    "tâches, pas le libellé, a tranché) : à revoir avec le client si besoin."
+  ],
+
+  "Study of RFQ": "RFQ Handling",
+  "Identify Part": "Develop Preliminary Technical Solution",
+  "Technical proposal to customer (Catalogue Part)": "Preliminary Technical Solution Presentation",
+  "Submitting commercial Offer": "Manage Commercial Offer",
+  "Pre-Feasibility Meeting": "Manage CFT Pre-Feasibility Review",
+  "V2- project creation": "Set up Project Creation",
+  "Start of cost estimation": "Cost Estimation",
+  "Receive LOI/ PO": "Confirm Award & Activate Commercial Terms",
+  "rate contract in SAP & handover to OMCS": "Set-up Contract Data",
+  "request PPAP to Origin": "Network PPAP management",
+  "Request PPAP": "Manage PPAP",
+  "Contract review Preparation & Approval": "Contract review Re Quotation  & Approval (IM)",
+  "Cost estimation": "Cost Estimation",
+  "Design Proposal": "Manage RFQ Technical offer",
+  "Engineering Detalis": "Consolidate Technical & BOM Data",
+  "Net loC request approval": "Net Loc Approval",
+  "Risk Assements": "Conduct Risk Assessment",
+  "Review with CFT (HOD)": "Lead Review with CFT",
+  "Technical Proposal to customer": "Manage Final Technical Proposal",
+  "Calrification  with customer": "Clarify RFQ Requirements",
+  "PPAP review & PSW approve": "PPAP review & PSW approval",
+  "G1 & G2 review": "G1 & G2 Review",
+  "Project Kick Off Technicale feasibiltes review": "Project Kick-Off Technical Feasibilities review",
+  "IP checking": "IP Check",
+  "Capacity confirmation": "Manage Clips Avaibility & Volum",
+  "BOP parts Cost & process Cost": "Research Child-Part Purchase Prices",
+  "Technicle project sign off": "Technical Sign Off With Customer"
+}

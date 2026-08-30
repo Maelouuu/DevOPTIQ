@@ -6,6 +6,10 @@ cartographie — via la MÊME logique que l'éditeur (`_sync_carto_to_db`), donc
 activités, rôles et connexions sont dérivés de la carte exactement comme après
 un import Visio dans l'interface.
 
+Une entité peut aussi être COMPLÉTÉE (`tasks_excel`) : tâches, outils, rôles et
+compétences d'un fichier Excel client sont injectés dans une carto déjà en
+place, activité par activité, via le pipeline d'import de l'application.
+
 Le script est idempotent : le rejouer ne duplique rien (comptes retrouvés par
 e-mail, entité par nom + propriétaire, carto ré-synchronisée par shape_id/nom).
 
@@ -136,8 +140,31 @@ def ensure_entity(spec, owner, report):
 
     name = spec["name"].strip()
     entity = Entity.query.filter_by(name=name, owner_id=owner.id).first()
+
+    # Compléter une carto déjà en place : son nom exact n'est pas toujours
+    # connu du plan (elle a pu être renommée). On la retrouve par fragment,
+    # TOUJOURS dans le périmètre du propriétaire — jamais chez un autre compte.
+    if not entity and spec.get("match_name_contains"):
+        frag = spec["match_name_contains"].strip().lower()
+        cands = [e for e in Entity.query.filter_by(owner_id=owner.id).all()
+                 if frag in (e.name or "").lower()]
+        if len(cands) == 1:
+            entity = cands[0]
+            report.append(f"  ~ entité retrouvée « {entity.name} » (id={entity.id}, "
+                          f"fragment « {spec['match_name_contains']} »)")
+        elif len(cands) > 1:
+            noms = ", ".join(f"« {e.name} »" for e in cands)
+            raise SystemExit(f"[!] « {spec['match_name_contains']} » désigne "
+                             f"{len(cands)} entités de {owner.email} : {noms}. "
+                             f"Précisez \"name\" dans le plan.")
+
     if entity:
-        report.append(f"  ~ entité existante « {name} » (id={entity.id})")
+        if not spec.get("match_name_contains"):
+            report.append(f"  ~ entité existante « {name} » (id={entity.id})")
+    elif spec.get("require_existing"):
+        raise SystemExit(f"[!] aucune entité « {name} » "
+                         f"(ni contenant « {spec.get('match_name_contains', '')} ») "
+                         f"chez {owner.email} — rien n'a été écrit.")
     else:
         entity = Entity(name=name, description=spec.get("description"), owner_id=owner.id)
         db.session.add(entity)
@@ -170,6 +197,113 @@ def apply_carto(entity, carto_path, report):
     report.append(f"  → carto synchronisée : {acts} activités, {roles} rôles, {links} connexions "
                   f"(source : {len(diagram.get('shapes', []))} formes, "
                   f"{len(diagram.get('bands', []))} bandes)")
+
+
+def apply_tasks_excel(entity, xlsx_path, mapping, report, seuil_auto=0.90):
+    """Injecte tâches / outils / rôles d'un Excel client dans une carto en place.
+
+    On réutilise le pipeline d'import de l'application (`import_full`) : même
+    lecture du fichier, mêmes get-or-create, même déduplication des tâches par
+    nom. Seul l'appariement change : les libellés du client ne sont PAS ceux de
+    la carte (harmonisée), une table de correspondance explicite les relie ;
+    l'appariement automatique ne sert que de filet, et seulement s'il est sûr.
+    """
+    from Code.extensions import db
+    from Code.models.models import Activities, Competency, Task
+    from Code.routes.import_full import (
+        _parse_excel_bytes, _similarity, _get_or_create_tool, _get_or_create_role,
+        _link_role_to_activity, _link_role_to_task,
+    )
+    from sqlalchemy import func
+
+    groupes = _parse_excel_bytes(io.open(xlsx_path, 'rb').read())
+    activites = Activities.query.filter_by(entity_id=entity.id).all()
+    par_nom = {(a.name or '').strip().lower(): a for a in activites}
+
+    stats = {'tasks_created': 0, 'tools_created': 0, 'roles_created': 0,
+             'competencies_created': 0, 'activities_updated': 0}
+    ignores, deja = [], 0
+
+    for groupe in groupes:
+        libelle = (groupe.get('activity_name') or '').strip()
+        cible = mapping.get(libelle, '__auto__')
+
+        if cible is None:                       # explicitement écarté du plan
+            ignores.append(f"{libelle} (écarté)")
+            continue
+
+        activite = None
+        if cible != '__auto__':
+            activite = par_nom.get(cible.strip().lower())
+            if not activite:
+                ignores.append(f"{libelle} → « {cible} » absente de la carto")
+                continue
+        else:
+            meilleur, score = None, 0.0
+            for a in activites:
+                sc = _similarity(libelle, a.name or '')
+                if sc > score:
+                    meilleur, score = a, sc
+            if meilleur and score >= seuil_auto:
+                activite = meilleur
+            else:
+                ignores.append(f"{libelle} (aucune correspondance sûre : "
+                               f"{score:.0%} avec « {meilleur.name if meilleur else '—'} »)")
+                continue
+
+        garant = (groupe.get('guarantor') or '').strip()
+        if garant:
+            _link_role_to_activity(_get_or_create_role(garant, entity.id, stats),
+                                   activite, 'Garant')
+
+        rang = (db.session.query(func.max(Task.order))
+                .filter_by(activity_id=activite.id).scalar() or 0)
+
+        for i, entree in enumerate(groupe.get('tasks', [])):
+            nom = (entree.get('name') or '').strip()
+            if not nom:
+                continue
+            if Task.query.filter(Task.activity_id == activite.id,
+                                 func.lower(Task.name) == nom.lower()).first():
+                deja += 1
+                continue
+
+            tache = Task(name=nom, description=entree.get('commentary', '') or '',
+                         order=rang + i + 1, activity_id=activite.id)
+            db.session.add(tache)
+            db.session.flush()
+            stats['tasks_created'] += 1
+
+            for outil in (entree.get('tools') or []):
+                outil = (outil or '').strip()
+                if outil:
+                    o = _get_or_create_tool(outil, entity.id, stats)
+                    if o not in tache.tools:
+                        tache.tools.append(o)
+
+            for champ, statut in (('doer', 'executant'), ('approver', 'approbateur')):
+                qui = (entree.get(champ) or '').strip()
+                if qui:
+                    _link_role_to_task(_get_or_create_role(qui, entity.id, stats),
+                                       tache, statut)
+
+            for savoir in (entree.get('skills') or []):
+                savoir = (savoir or '').strip()
+                if savoir and not Competency.query.filter_by(
+                        activity_id=activite.id, description=savoir).first():
+                    db.session.add(Competency(activity_id=activite.id, description=savoir))
+                    stats['competencies_created'] += 1
+
+        stats['activities_updated'] += 1
+
+    db.session.flush()
+    report.append(f"  → Excel « {os.path.basename(xlsx_path)} » : "
+                  f"{stats['activities_updated']}/{len(groupes)} activités complétées, "
+                  f"{stats['tasks_created']} tâches, {stats['tools_created']} outils, "
+                  f"{stats['roles_created']} rôles, {stats['competencies_created']} compétences"
+                  + (f", {deja} tâches déjà présentes" if deja else ""))
+    for ligne in ignores:
+        report.append(f"    ! non injecté : {ligne}")
 
 
 def wire_manager(entity, manager, report):
@@ -239,6 +373,13 @@ def run(plan_path, database_url, dry_run, force_password):
                         report.append(f"  → {u.email} rattaché à « {entity.name} »")
             if ent_spec.get("carto"):
                 apply_carto(entity, os.path.join(plan_dir, ent_spec["carto"]), report)
+            if ent_spec.get("tasks_excel"):
+                spec_x = ent_spec["tasks_excel"]
+                mapping = spec_x.get("mapping") or {}
+                if isinstance(mapping, str):
+                    mapping = json.load(open(os.path.join(plan_dir, mapping), encoding='utf-8'))
+                apply_tasks_excel(entity, os.path.join(plan_dir, spec_x["file"]),
+                                  mapping, report)
             for email in ent_spec.get("managers", []):
                 mgr = User.query.filter(db.func.lower(User.email) == email.strip().lower()).first()
                 if mgr:

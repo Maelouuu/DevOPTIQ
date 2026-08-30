@@ -1,0 +1,22 @@
+{
+  "label": "Maël Girardin — carto FluidClip complétée par l'Excel client (CLIP_ RFQ Tasks)",
+  "_perimetre": [
+    "Ce plan ne touche QUE le compte afdec.enterprise.services@gmail.com :",
+    "l'entité est cherchée chez ce propriétaire, et require_existing empêche",
+    "d'en créer une ailleurs. Aucun autre compte n'est modifié.",
+    "Il ne crée pas de compte non plus (bloc users vide)."
+  ],
+  "users": [],
+  "entities": [
+    {
+      "name": "ARaymond — RFQ FluidClip",
+      "match_name_contains": "fluidclip",
+      "owner_email": "afdec.enterprise.services@gmail.com",
+      "require_existing": true,
+      "tasks_excel": {
+        "file": "../data/clip_rfq_tasks.xlsx",
+        "mapping": "../data/clip_rfq_mapping.json"
+      }
+    }
+  ]
+}
