@@ -267,9 +267,45 @@ transporte le diagramme **tel qu'il est en base**, d'un compte à l'autre.
   aussi `from=carto|roles`. Le bandeau rouge disait « sélectionnée depuis la
   cartographie » même en venant de la page Rôles ; il dit maintenant la bonne
   origine, et un libellé neutre sans paramètre.
+- **Groupes (éditeur)** : le cadre d'un groupe expose 4 **poignées de connexion**
+  au survol/sélection (`data-group-port`) — on pouvait viser un groupe avec une
+  flèche mais jamais en partir. Le panneau de droite liste d'abord les formes DU
+  groupe (« Dans le groupe (n) ») puis les autres (« Ajouter au groupe ») : il
+  affichait toute la carto dans l'ordre du modèle.
+- **Boutons de bandes** : croix et « + » filiformes sur fond sombre → boutons
+  pleins avec icônes (`fa-trash`, `fa-rotate-left`). ⚠️ Le « + » de la liste des
+  bandes RESTAURE une bande masquée ; il n'existe pas de création de bande dans
+  l'éditeur (les bandes viennent de l'import VSDX).
+- **Libellés** : la forme `special` s'appelle **Résultat** (et non plus
+  « Sous-activité »), et la marque affichée dans l'éditeur est **Optiq Map**.
 - **Terme produit en anglais = « Map »** (`nav.carto`, `page.carto`,
   `map.card_title`, `carto.save`, toasts éditeur). Les URLs, fichiers et ids
   restent `cartography` : ce sont des chemins, pas de l'affichage.
+
+## Liste des activités — tâches et outils
+
+- ⚠️ **Ordre des tâches** : `order` seul ne départage pas deux tâches de même
+  rang — les lignes sortaient alors dans leur ordre PHYSIQUE, que PostgreSQL
+  change après un UPDATE : la tâche qu'on venait de modifier « sautait » dans la
+  liste. `id` est désormais le dernier critère de tri (vue liste ET partial).
+- **Choix des outils** = liste à cocher (`.tool-picker`, `loadExistingTools`) :
+  classée par nom, les outils déjà rattachés sont cochés/désactivés et signalés,
+  et on en prend plusieurs sans ctrl+clic. Un outil accompagné d'un fichier
+  porte l'icône `fa-file-lines` et un fond ambré (`.tool-badge--file`,
+  `.tool-pick--file`), comme les contraintes avec pièce jointe.
+- ⚠️ **`static/js/tools.js` est chargé APRÈS `tasks.js`** (`script_loader.html`).
+  Il redéfinissait `showToolForm`/`hideToolForm`/`submitTools` : l'ancienne
+  version (un `<select>` d'`<option>`) écrasait silencieusement la nouvelle, et
+  le sélecteur refait ne s'affichait jamais. Ces doublons ont été retirés — ne
+  rien redéfinir dans `tools.js` de ce que `tasks.js` expose déjà.
+
+## Fenêtre de bienvenue
+
+`sessionStorage` est PAR ONGLET : « ouvrir dans un nouvel onglet » repartait d'un
+stockage vide et réaffichait la fenêtre. On mémorise maintenant dans
+`localStorage` la **signature des nouveautés lues** (titres + début des textes) :
+la fenêtre ne revient que lorsque le changelog change vraiment. Tous les accès au
+stockage sont en try/catch (navigateur qui refuse le stockage).
 
 ## Refonte Compétences V1.1 (CDC OPTIQ — en cours)
 
