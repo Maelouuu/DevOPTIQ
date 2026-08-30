@@ -429,6 +429,17 @@ def create_app(test_config=None):
         # Table creee par create_all, mais une colonne ajoutee apres coup
         # ne l est pas : les instances deja deployees ont besoin de l ALTER.
         _safe_add_column("entity_share_offers", "deposit_kind", "VARCHAR(20)")
+        # Statut Garant : l'import carto l'écrivait en minuscule, la page Rôles
+        # cherchait 'Garant' — un rôle garant d'après la carte n'apparaissait
+        # donc nulle part dans sa fiche. On aligne les lignes existantes.
+        try:
+            with _init_conn() as _conn:
+                _conn.execute(_text(
+                    "UPDATE activity_roles SET status = 'Garant' "
+                    "WHERE status IS NOT NULL AND status <> 'Garant' AND lower(status) = 'garant'"))
+                _conn.commit()
+        except Exception as _e:
+            print(f"[DB] normalisation statut Garant ignorée: {_e}")
         # Comptes créés avant la colonne : anglais par défaut, sauf ceux qui
         # doivent rester en français (DEFAULT_FRENCH_ACCOUNTS).
         try:

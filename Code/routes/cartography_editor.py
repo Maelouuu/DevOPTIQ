@@ -396,7 +396,7 @@ def _do_sync(entity, diagram):
     for aid, rid in new_ar.items():
         if aid not in cur_ar or cur_ar[aid] != rid:
             db.session.execute(
-                activity_roles.insert().values(activity_id=aid, role_id=rid, status='garant')
+                activity_roles.insert().values(activity_id=aid, role_id=rid, status='Garant')
             )
 
     # ── Links — diff (pas de delete-all + insert-all) ────────────────────────

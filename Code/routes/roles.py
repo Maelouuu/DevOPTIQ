@@ -44,7 +44,7 @@ def set_garant_role(activity_id):
 
     # Supprimer l'ancien Garant
     db.session.execute(
-        text("DELETE FROM activity_roles WHERE activity_id=:aid AND status='Garant'"),
+        text("DELETE FROM activity_roles WHERE activity_id=:aid AND LOWER(status)='garant'"),
         {"aid": activity_id}
     )
     # Ajouter le nouveau Garant
