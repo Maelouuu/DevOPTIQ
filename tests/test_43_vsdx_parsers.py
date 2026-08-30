@@ -181,6 +181,12 @@ class TestExtractDataInfo:
         _, dname = self.p._extract_data_info("", "")
         assert dname is None
 
+    def test_whitespace_only_text_with_empty_name_normalized_to_none(self):
+        # connector_text tronqué à "" (whitespace-only) et connector_name vide :
+        # data_name reste "" après le bloc de fallback, puis normalisé à None.
+        _, dname = self.p._extract_data_info("", "   ")
+        assert dname is None
+
 
 # =============================================================================
 # 4. VsdxConnectionParser.parse (erreurs de fichier)
@@ -247,6 +253,129 @@ class TestVsdxConnectionParserParse:
         conns, errors = parse_vsdx_connections("/nonexistent.vsdx")
         assert conns == []
         assert len(errors) > 0
+
+
+# =============================================================================
+# 4bis. VsdxConnectionParser.parse / _parse_page — parsing réel (page XML valide)
+# =============================================================================
+
+VSDX_NS = "http://schemas.microsoft.com/office/visio/2012/main"
+
+
+def _page_xml(inner):
+    return f'<PageContents xmlns="{VSDX_NS}">{inner}</PageContents>'
+
+
+class TestVsdxConnectionParserFullParse:
+
+    def test_full_page_produces_expected_connections(self):
+        """Exerce _parse_page en profondeur : shape sans ID ignorée, connexion
+        touchant un drapeau (layer 6) exclue, connecteur sans cible ignoré,
+        connecteur sans ToSheet ignoré, connecteur pointant vers un shape
+        inexistant ignoré, connexion valide avec type/nom extraits du
+        connecteur."""
+        from Code.routes.vsdx_conection_parser import VsdxConnectionParser
+
+        page = _page_xml("""
+            <Shapes>
+              <Shape Name="SansID"><Text>Ignoree Sans ID</Text></Shape>
+              <Shape ID="1" Name="ShapeA">
+                <Cell N="LayerMember" V="1"/>
+                <Text>Activite Source</Text>
+              </Shape>
+              <Shape ID="2" Name="ShapeB">
+                <Cell N="LayerMember" V="1"/>
+                <Text>Activite Cible</Text>
+              </Shape>
+              <Shape ID="3" Name="ShapeDrapeau">
+                <Cell N="LayerMember" V="6"/>
+                <Text>Drapeau</Text>
+              </Shape>
+              <Shape ID="10" Name="N-Planning"><Text>Planning previsionnel</Text></Shape>
+              <Shape ID="11" Name="T-Commande"><Text>Commande client</Text></Shape>
+              <Shape ID="12" Name="SansCible"><Text>Connecteur orphelin</Text></Shape>
+            </Shapes>
+            <Connects>
+              <Connect FromSheet="10" FromCell="BeginX" ToSheet="1"/>
+              <Connect FromSheet="10" FromCell="EndX" ToSheet="2"/>
+              <Connect FromSheet="11" FromCell="BeginX" ToSheet="3"/>
+              <Connect FromSheet="11" FromCell="EndX" ToSheet="2"/>
+              <Connect FromSheet="12" FromCell="BeginX" ToSheet="1"/>
+              <Connect FromSheet="99" FromCell="EndX"/>
+              <Connect FromSheet="13" FromCell="BeginX" ToSheet="1"/>
+              <Connect FromSheet="13" FromCell="EndX" ToSheet="999"/>
+            </Connects>
+        """)
+        path = _vsdx_zip(page)
+        try:
+            conns, errors = VsdxConnectionParser(path).parse()
+            assert errors == []
+            assert len(conns) == 1
+            c = conns[0]
+            assert c["source_name"] == "Activite Source"
+            assert c["target_name"] == "Activite Cible"
+            assert c["data_type"] == "nourrissante"
+            assert c["data_name"] == "Planning previsionnel"
+        finally:
+            os.unlink(path)
+
+    def test_target_starting_with_resultat_is_skipped(self):
+        from Code.routes.vsdx_conection_parser import VsdxConnectionParser
+
+        page = _page_xml("""
+            <Shapes>
+              <Shape ID="1"><Text>Depart</Text></Shape>
+              <Shape ID="2"><Text>Résultat.Arrivee</Text></Shape>
+              <Shape ID="9" Name="Connecteur"><Text>Donnee</Text></Shape>
+            </Shapes>
+            <Connects>
+              <Connect FromSheet="9" FromCell="BeginX" ToSheet="1"/>
+              <Connect FromSheet="9" FromCell="EndX" ToSheet="2"/>
+            </Connects>
+        """)
+        path = _vsdx_zip(page)
+        try:
+            conns, errors = VsdxConnectionParser(path).parse()
+            assert conns == []
+            assert errors == []
+        finally:
+            os.unlink(path)
+
+    def test_no_page_files_returns_error(self):
+        from Code.routes.vsdx_conection_parser import VsdxConnectionParser
+
+        fd, path = tempfile.mkstemp(suffix=".vsdx")
+        os.close(fd)
+        with zipfile.ZipFile(path, "w") as zf:
+            zf.writestr("visio/document.xml", "<root/>")
+        try:
+            conns, errors = VsdxConnectionParser(path).parse()
+            assert conns == []
+            assert any("page" in e.lower() for e in errors)
+        finally:
+            os.unlink(path)
+
+    def test_malformed_page_xml_reports_error_and_keeps_going(self):
+        from Code.routes.vsdx_conection_parser import VsdxConnectionParser
+
+        good_page = _page_xml("""
+            <Shapes>
+              <Shape ID="1"><Text>Depart Bis</Text></Shape>
+              <Shape ID="2"><Text>Arrivee Bis</Text></Shape>
+              <Shape ID="9" Name="Connecteur"><Text>Donnee Bis</Text></Shape>
+            </Shapes>
+            <Connects>
+              <Connect FromSheet="9" FromCell="BeginX" ToSheet="1"/>
+              <Connect FromSheet="9" FromCell="EndX" ToSheet="2"/>
+            </Connects>
+        """)
+        path = _vsdx_zip(good_page, extra_pages={"visio/pages/page2.xml": "<not-xml"})
+        try:
+            conns, errors = VsdxConnectionParser(path).parse()
+            assert len(conns) == 1
+            assert any("parsing xml" in e.lower() for e in errors)
+        finally:
+            os.unlink(path)
 
 
 # =============================================================================

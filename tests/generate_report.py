@@ -76,6 +76,7 @@ PAGE_LABELS = {
     "test_61_pulse":                     "OptiqPulse — Suivi d'Audience",
     "test_62_activities_constraints_items": "Contraintes/Données (/activities) & API Items d'Activité",
     "test_63_cartography_translate_advanced": "Cartographie (succès/erreur) & Traduction Soft Skills IA",
+    "test_64_activities_map_gaps":       "Cartographie — CRUD Entités, Extraction SVG & Liaisons Cross-Carto (Avancé)",
 }
 
 
