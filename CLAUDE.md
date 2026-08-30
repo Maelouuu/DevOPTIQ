@@ -820,6 +820,17 @@ rôles de tâche, `Skills` → compétences.
   mentions d'absence (regex « no/not/aucun… » + « skill/compétence », plus une
   liste de valeurs vides : `-`, `n/a`, `none`…). 17 lignes supprimées après coup
   sur le pilote : 53 → 36 compétences.
+- ⚠️ **`--dry-run` n'était pas étanche** : `_sync_carto_to_db` finit par un
+  `commit()`, qui figeait tout ce que le plan avait écrit avant lui (le rollback
+  final n'annulait plus que la dernière étape). `_neutraliser_commits()` remplace
+  `commit` par `flush` en simulation. Vérifié au banc : un plan qui crée compte +
+  entité + carto + Excel laisse la base vide après `--dry-run`.
+- `plans/pilote_fluidclip_tasks.json` : les **six** comptes ARaymond gardent leur
+  carto FluidClip et reçoivent les données de l'Excel ; Maël reçoit en plus
+  **« Entité de rendu FluidClip »** (copie de LEUR carto + les mêmes données) pour
+  contrôler leur rendu. Appliqué le 2026-08-30 : 96 tâches / 28 outils / 32 rôles /
+  36 compétences par entité (les tâches saisies à la main par ces comptes sont
+  conservées : Hubert 100, Madhuri 97, Vaishali 97).
 
 ## Notes importantes
 

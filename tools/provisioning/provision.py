@@ -355,6 +355,20 @@ def wire_manager(entity, manager, report):
                       f"(la vue manager s'activera dès qu'un compte lui sera rattaché)")
 
 
+def _neutraliser_commits(db):
+    """Rend `--dry-run` réellement étanche.
+
+    Le plan réutilise du code applicatif (`_sync_carto_to_db`) qui termine par
+    un `db.session.commit()` : en simulation, ce commit figeait dans la base
+    TOUT ce que les étapes précédentes avaient écrit, et le rollback final
+    n'annulait plus que la dernière. On remplace le commit par un flush le
+    temps de la simulation — les contraintes sont vérifiées, rien n'est figé.
+    """
+    vrai_commit = db.session.commit
+    db.session.commit = db.session.flush
+    return vrai_commit
+
+
 def run(plan_path, database_url, dry_run, force_password):
     plan = json.load(open(plan_path, encoding='utf-8'))
     plan_dir = os.path.dirname(os.path.abspath(plan_path))
@@ -374,6 +388,9 @@ def run(plan_path, database_url, dry_run, force_password):
             db.create_all()  # ne crée que les tables absentes — jamais destructif
         except Exception as exc:
             print(f"[!] create_all : {exc}")
+
+        if dry_run:
+            _neutraliser_commits(db)
 
         for spec in plan.get("users", []):
             ensure_user(spec, report, force_password)

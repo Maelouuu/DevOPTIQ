@@ -29,6 +29,13 @@ python tools/provisioning/provision.py --plan tools/provisioning/plans/araymond.
 Le script est **idempotent** : comptes retrouvés par e-mail, entité par nom +
 propriétaire, carto re-synchronisée par `shape_id`/nom. Le rejouer ne duplique rien.
 
+> ⚠️ **`--dry-run` a longtemps menti.** Le plan réutilise du code applicatif
+> (`_sync_carto_to_db`) qui se termine par un `commit()` : dès qu'un plan
+> synchronisait une carto, ce commit figeait TOUT ce que les étapes
+> précédentes avaient écrit, et le rollback final n'annulait plus que la
+> dernière. En simulation, `commit` est désormais remplacé par `flush`
+> (`_neutraliser_commits`) : les contraintes sont vérifiées, rien n'est figé.
+
 ## Écrire un plan
 
 ```jsonc
@@ -143,4 +150,5 @@ ce contenu dans une carto **déjà en place** :
 | Plan | Contenu |
 |---|---|
 | `plans/araymond.json` | Compte `vikrant.khadapkar@araymond.com` (manager) + entité **ARaymond — RFQ FluidClip** issue de `Map_RFQ_FluidClip_Harmonized_HG_v9.vsdx` — 42 activités, 18 rôles, 72 connexions. |
+| `plans/pilote_fluidclip_tasks.json` | Instance pilote : injecte l'Excel client dans les **six** entités « FluidCLip » existantes (Aditya, Hubert, Madhuri, Rakesh, Vaishali, Vikrant) **sans toucher à leur carte**, et crée chez Maël **« Entité de rendu FluidClip »** — copie de la carto que ces comptes ont aujourd'hui, complétée des mêmes données, pour contrôler ce qu'ils voient. Non couverts volontairement : « FluidCLip (2) » (2ᵉ copie de h.grandjean) et l'entité sans propriétaire. |
 | `plans/maelg_fluidclip_tasks.json` | **Compte `afdec.enterprise.services@gmail.com` uniquement** : complète sa carto FluidClip avec l'Excel client `CLIP_ RFQ Tasks` — 25 activités, 96 tâches, 28 outils, 14 rôles, 53 compétences. Ne crée ni compte ni entité. |
