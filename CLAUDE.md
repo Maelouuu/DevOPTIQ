@@ -807,10 +807,13 @@ rôles de tâche, `Skills` → compétences.
   `match_name_contains` (retrouve l'entité même renommée, **chez ce propriétaire
   seulement**). Si l'entité n'existe pas chez lui, le script s'arrête sans rien
   écrire — même si une entité du même nom existe chez quelqu'un d'autre.
-- `plans/maelg_fluidclip_tasks.json` : carto FluidClip du compte
-  `afdec.enterprise.services@gmail.com` complétée par `CLIP_ RFQ Tasks.xlsx`
-  (25 activités, 96 tâches, 28 outils, 14 rôles, 53 compétences). À lancer avec
-  `DATABASE_URL` sur la base cible (`--dry-run` d'abord).
+- `plans/maelg_fluidclip_tasks.json` : carto « FluidCLip » du compte
+  `mael.pierre.girardin@icloud.com` complétée par `CLIP_ RFQ Tasks.xlsx`.
+  ⚠️ **Sept autres comptes de l'instance pilote possèdent une entité du MÊME
+  nom** — d'où le cloisonnement par propriétaire. Appliqué le 2026-08-30 sur
+  `optiqfluent_pilot` (Neon) : 25/25 activités appariées, 96 tâches, 28 outils,
+  14 rôles, 53 compétences ; entités des autres comptes inchangées (0 tâche).
+  Rejouable tel quel (`--dry-run` d'abord).
 
 ## Notes importantes
 
