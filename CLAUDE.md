@@ -224,6 +224,29 @@ transporte le diagramme **tel qu'il est en base**, d'un compte à l'autre.
     propagation « couleur de la forme source » repeignait toutes les sorties de
     décision en gris.
 - **Losanges décoratifs** (non connectés, posés « sur » une flèche dans Visio sans `<Connect>`) : `spliceDecisions` DÉSACTIVÉ (les insérer dans le flux complexifiait les flèches pour rien). `_seatDecorativeDiamonds()` les repose sur LEUR flèche APRÈS le polish : quand on redresse un angle ou qu'on rejette un tracé en détour, la flèche bouge — le losange, associé au connecteur dont le `customPath` Visio d'origine passe le plus près (seuil 60 px), est reposé sur le tracé FINAL de ce connecteur, à la même fraction. Mesuré hard.vsdx : 17/19 losanges à ≤5 px de leur flèche ; les 2 restants sont VRAIMENT flottants dans Visio (>90 px de tout connecteur) → laissés à leur position Visio. Banc : métrique `deco.offArrow`.
+- **Légende de l'export (PDF / SVG uniquement)** — `_buildExportLegend()` +
+  `LEGEND_PALETTE` (editor.js). Refaite sur le modèle des cartes Visio AFDEC :
+  bandeau d'index « Légende » (`#ebf1df`, filet `#94ac6a`, mention AFDEC©),
+  7 formes-témoins commentées (activité, résultat, activité client/fournisseur
+  hachurée, activité d'une autre entité, activité communautaire ombrée, renvoi,
+  renvoi vers une autre carte), nature des liaisons (trait plein = donnée
+  déclenchante, pointillé = nourrissante) + schéma de décision oui/non, et
+  surtout la **palette des 30 familles de compétences** relevée dans le Visio
+  (`Marketing #820d0d` … `Tutorat #ccc2d9`, 5 colonnes × 6 lignes). Sans elle,
+  la couleur d'une activité — l'information principale d'une carto AFDEC —
+  n'était expliquée nulle part sur le document imprimé. Bilingue (`legend.*`,
+  58 clés/langue). ⚠️ Deux pièges : (1) les `defs` du canevas sont clonées AVANT
+  la construction de la légende → sa hachure est déclarée dans ses propres
+  `defs` (`#legend-hatch`), pas via `ensureHatchPattern` ; (2) `EXPORT_LEGEND_W`
+  (2648 px) élargit la vue de l'export quand la carto est plus étroite, sinon la
+  palette serait coupée à droite. N'apparaît JAMAIS à l'écran.
+- ⚠️ **Une carto déjà en base ne se corrige pas en corrigeant l'importeur.**
+  Les cartos du pilote portaient une bande `#06b6d4` — une couleur de la palette
+  de repli `FALLBACK_COLORS`, absente du Visio — parce qu'elles avaient été
+  importées AVANT le correctif de `_extractLaneFill`. L'importeur actuel rend
+  bien `#ff0000` : c'est la donnée stockée (`Entity.optiqcarto_data`) qu'il faut
+  réparer, entité par entité. Fait le 2026-08-30 sur 12 entités du pilote (la
+  couleur de bande ne vit QUE dans ce JSON — aucune resynchronisation requise).
 - **Couleur des bandes = celle du BANDEAU D'INDEX du couloir Visio**
   (`_extractLaneFill`). Trois défauts corrigés : (1) on gardait « le dernier
   enfant coloré », qui ramenait tantôt le bandeau, tantôt le fond du couloir —
