@@ -30,6 +30,7 @@ import argparse
 import io
 import json
 import os
+import re
 import sys
 import tempfile
 
@@ -199,6 +200,23 @@ def apply_carto(entity, carto_path, report):
                   f"{len(diagram.get('bands', []))} bandes)")
 
 
+_SANS_COMPETENCE = re.compile(
+    r"^\W*(no|not|non|aucun|aucune|pas)\b.*\b(skill|skills|competenc|compétenc)",
+    re.IGNORECASE)
+_VIDE = {"-", "--", "/", "n/a", "na", "none", "nil", "aucune", "aucun", "néant", "neant"}
+
+
+def _est_non_competence(libelle):
+    """La colonne Skills sert aussi à dire qu'il n'y a RIEN à savoir faire.
+
+    « No Special skills required » (27 lignes du fichier client) et « - » sont
+    des mentions d'absence, pas des compétences : les enregistrer créait une
+    compétence portant la phrase elle-même.
+    """
+    t = (libelle or "").strip()
+    return (not t) or t.lower() in _VIDE or bool(_SANS_COMPETENCE.match(t))
+
+
 def apply_tasks_excel(entity, xlsx_path, mapping, report, seuil_auto=0.90):
     """Injecte tâches / outils / rôles d'un Excel client dans une carto en place.
 
@@ -222,7 +240,7 @@ def apply_tasks_excel(entity, xlsx_path, mapping, report, seuil_auto=0.90):
 
     stats = {'tasks_created': 0, 'tools_created': 0, 'roles_created': 0,
              'competencies_created': 0, 'activities_updated': 0}
-    ignores, deja = [], 0
+    ignores, deja, ecartees = [], 0, 0
 
     for groupe in groupes:
         libelle = (groupe.get('activity_name') or '').strip()
@@ -289,6 +307,9 @@ def apply_tasks_excel(entity, xlsx_path, mapping, report, seuil_auto=0.90):
 
             for savoir in (entree.get('skills') or []):
                 savoir = (savoir or '').strip()
+                if _est_non_competence(savoir):
+                    ecartees += 1
+                    continue
                 if savoir and not Competency.query.filter_by(
                         activity_id=activite.id, description=savoir).first():
                     db.session.add(Competency(activity_id=activite.id, description=savoir))
@@ -301,7 +322,9 @@ def apply_tasks_excel(entity, xlsx_path, mapping, report, seuil_auto=0.90):
                   f"{stats['activities_updated']}/{len(groupes)} activités complétées, "
                   f"{stats['tasks_created']} tâches, {stats['tools_created']} outils, "
                   f"{stats['roles_created']} rôles, {stats['competencies_created']} compétences"
-                  + (f", {deja} tâches déjà présentes" if deja else ""))
+                  + (f", {deja} tâches déjà présentes" if deja else "")
+                  + (f", {ecartees} mentions « pas de compétence requise » écartées"
+                     if ecartees else ""))
     for ligne in ignores:
         report.append(f"    ! non injecté : {ligne}")
 

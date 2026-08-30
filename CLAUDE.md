@@ -814,6 +814,12 @@ rôles de tâche, `Skills` → compétences.
   `optiqfluent_pilot` (Neon) : 25/25 activités appariées, 96 tâches, 28 outils,
   14 rôles, 53 compétences ; entités des autres comptes inchangées (0 tâche).
   Rejouable tel quel (`--dry-run` d'abord).
+- ⚠️ **La colonne Skills sert aussi à dire qu'il n'y a RIEN à savoir faire** :
+  « No Special skills required » (27 lignes du fichier) et « - » devenaient des
+  compétences portant la phrase elle-même. `_est_non_competence()` écarte ces
+  mentions d'absence (regex « no/not/aucun… » + « skill/compétence », plus une
+  liste de valeurs vides : `-`, `n/a`, `none`…). 17 lignes supprimées après coup
+  sur le pilote : 53 → 36 compétences.
 
 ## Notes importantes
 
