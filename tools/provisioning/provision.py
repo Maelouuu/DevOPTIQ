@@ -369,8 +369,16 @@ def _neutraliser_commits(db):
     return vrai_commit
 
 
-def run(plan_path, database_url, dry_run, force_password):
+def run(plan_path, database_url, dry_run, force_password, only_owner=None):
     plan = json.load(open(plan_path, encoding='utf-8'))
+    if only_owner:
+        cible = only_owner.strip().lower()
+        plan["entities"] = [e for e in plan.get("entities", [])
+                            if (e.get("owner_email") or "").strip().lower() == cible]
+        plan["users"] = [u for u in plan.get("users", [])
+                         if (u.get("email") or "").strip().lower() == cible]
+        if not plan["entities"]:
+            raise SystemExit(f"[!] aucune entité du plan n'appartient à {only_owner}")
     plan_dir = os.path.dirname(os.path.abspath(plan_path))
     report = []
 
@@ -381,6 +389,9 @@ def run(plan_path, database_url, dry_run, force_password):
     with app.app_context():
         uri = app.config.get("SQLALCHEMY_DATABASE_URI", "")
         print(f"Plan   : {plan.get('label', os.path.basename(plan_path))}")
+        if only_owner:
+            print(f"Filtre : {only_owner} uniquement "
+                  f"({len(plan['entities'])} entité(s) du plan)")
         print(f"Base   : {uri.split('@')[-1] if '@' in uri else uri}")
         print(f"Mode   : {'SIMULATION (aucune écriture)' if dry_run else 'APPLICATION'}\n")
 
@@ -442,8 +453,11 @@ def main():
     ap.add_argument("--dry-run", action="store_true", help="simule sans écrire")
     ap.add_argument("--force-password", action="store_true",
                     help="réinitialise le mot de passe des comptes déjà existants")
+    ap.add_argument("--only", metavar="EMAIL", default=None,
+                    help="ne traiter que les entités de ce propriétaire "
+                         "(rejouer un plan pour un seul compte)")
     args = ap.parse_args()
-    run(args.plan, args.database_url, args.dry_run, args.force_password)
+    run(args.plan, args.database_url, args.dry_run, args.force_password, args.only)
 
 
 if __name__ == "__main__":

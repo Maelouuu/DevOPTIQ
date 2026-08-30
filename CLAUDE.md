@@ -830,7 +830,13 @@ rôles de tâche, `Skills` → compétences.
   **« Entité de rendu FluidClip »** (copie de LEUR carto + les mêmes données) pour
   contrôler leur rendu. Appliqué le 2026-08-30 : 96 tâches / 28 outils / 32 rôles /
   36 compétences par entité (les tâches saisies à la main par ces comptes sont
-  conservées : Hubert 100, Madhuri 97, Vaishali 97).
+  conservées : Hubert 100, Madhuri 97, Vaishali 97). Priya Bhivare n'avait aucune
+  FluidClip : la sienne a été **créée** depuis le même modèle (42 activités,
+  96 tâches). ⚠️ Une entité portant un bloc `carto` est **re-synchronisée à
+  chaque rejeu**, et `_sync_carto_to_db` efface les rôles absents de la carte :
+  les rôles issus de l'Excel sont donc recréés à chaque passage (leurs `id`
+  changent). D'où l'option **`--only EMAIL`**, qui rejoue un plan pour un seul
+  compte.
 
 ## Notes importantes
 

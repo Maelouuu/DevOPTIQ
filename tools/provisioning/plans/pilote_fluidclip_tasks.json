@@ -6,6 +6,8 @@
     "outils, rôles et compétences de l'Excel (déduplication par nom, donc",
     "les tâches saisies à la main par ces comptes sont conservées).",
     "La dernière est CRÉÉE chez Maël à partir de la carto que les autres ont",
+    "Priya Bhivare n'avait aucune FluidClip : la sienne est CREEE a partir du",
+    "meme modele, avec les memes donnees, pour l'aligner sur les autres.",
     "aujourd'hui (76 formes / 18 bandes / 88 connexions, identique chez tous),",
     "pour voir sur son compte exactement le rendu qu'ils auront.",
     "Non couverts volontairement : « FluidCLip (2) » (2e copie de h.grandjean)",
@@ -17,37 +19,66 @@
       "name": "FluidCLip",
       "owner_email": "aditya.vaze@araymond.com",
       "require_existing": true,
-      "tasks_excel": { "file": "../data/clip_rfq_tasks.xlsx", "mapping": "../data/clip_rfq_mapping.json" }
+      "tasks_excel": {
+        "file": "../data/clip_rfq_tasks.xlsx",
+        "mapping": "../data/clip_rfq_mapping.json"
+      }
     },
     {
       "name": "FluidCLip",
       "owner_email": "h.grandjean@afdec.fr",
       "require_existing": true,
-      "tasks_excel": { "file": "../data/clip_rfq_tasks.xlsx", "mapping": "../data/clip_rfq_mapping.json" }
+      "tasks_excel": {
+        "file": "../data/clip_rfq_tasks.xlsx",
+        "mapping": "../data/clip_rfq_mapping.json"
+      }
     },
     {
       "name": "FluidCLip",
       "owner_email": "madhuri.sindhankar@araymond.com",
       "require_existing": true,
-      "tasks_excel": { "file": "../data/clip_rfq_tasks.xlsx", "mapping": "../data/clip_rfq_mapping.json" }
+      "tasks_excel": {
+        "file": "../data/clip_rfq_tasks.xlsx",
+        "mapping": "../data/clip_rfq_mapping.json"
+      }
     },
     {
       "name": "FluidCLip",
       "owner_email": "rakesh.khandelwal@araymond.com",
       "require_existing": true,
-      "tasks_excel": { "file": "../data/clip_rfq_tasks.xlsx", "mapping": "../data/clip_rfq_mapping.json" }
+      "tasks_excel": {
+        "file": "../data/clip_rfq_tasks.xlsx",
+        "mapping": "../data/clip_rfq_mapping.json"
+      }
     },
     {
       "name": "FluidCLip",
       "owner_email": "vaishali.erande@araymond.com",
       "require_existing": true,
-      "tasks_excel": { "file": "../data/clip_rfq_tasks.xlsx", "mapping": "../data/clip_rfq_mapping.json" }
+      "tasks_excel": {
+        "file": "../data/clip_rfq_tasks.xlsx",
+        "mapping": "../data/clip_rfq_mapping.json"
+      }
     },
     {
       "name": "FluidCLip",
       "owner_email": "vikrant.khadapkar@araymond.com",
       "require_existing": true,
-      "tasks_excel": { "file": "../data/clip_rfq_tasks.xlsx", "mapping": "../data/clip_rfq_mapping.json" }
+      "tasks_excel": {
+        "file": "../data/clip_rfq_tasks.xlsx",
+        "mapping": "../data/clip_rfq_mapping.json"
+      }
+    },
+    {
+      "name": "FluidCLip",
+      "description": "Processus RFQ FluidClip — copie de la carto des autres comptes, completee par l'Excel client.",
+      "owner_email": "priya.bhivare@araymond.com",
+      "vsdx_filename": "Map_RFQ_FluidClip_Harmonized_HG_v9.vsdx",
+      "carto": "../carto/fluidclip_comptes_pilote.json",
+      "tasks_excel": {
+        "file": "../data/clip_rfq_tasks.xlsx",
+        "mapping": "../data/clip_rfq_mapping.json"
+      }
     },
     {
       "name": "Entité de rendu FluidClip",
@@ -55,7 +86,10 @@
       "owner_email": "mael.pierre.girardin@icloud.com",
       "vsdx_filename": "Map_RFQ_FluidClip_Harmonized_HG_v9.vsdx",
       "carto": "../carto/fluidclip_comptes_pilote.json",
-      "tasks_excel": { "file": "../data/clip_rfq_tasks.xlsx", "mapping": "../data/clip_rfq_mapping.json" }
+      "tasks_excel": {
+        "file": "../data/clip_rfq_tasks.xlsx",
+        "mapping": "../data/clip_rfq_mapping.json"
+      }
     }
   ]
 }
