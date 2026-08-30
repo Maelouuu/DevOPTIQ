@@ -3,7 +3,20 @@
   window.TASK_I18N = Object.assign(window.TASK_I18N || {}, {
     linked: {{ t('task.tool_linked')|tojson }},
     empty:  {{ t('task.tool_none')|tojson }},
-    error:  {{ t('task.tool_load_error')|tojson }}
+    error:  {{ t('task.tool_load_error')|tojson }},
+    card_title:   {{ t('task.tool_card_title')|tojson }},
+    card_shared:  {{ t('task.tool_card_shared')|tojson }},
+    card_name:    {{ t('task.tool_card_name')|tojson }},
+    card_desc:    {{ t('task.tool_card_desc')|tojson }},
+    card_file:    {{ t('task.tool_card_file')|tojson }},
+    card_open:    {{ t('task.tool_card_open')|tojson }},
+    card_remove:  {{ t('task.tool_card_remove')|tojson }},
+    card_save:    {{ t('btn.save')|tojson }},
+    card_cancel:  {{ t('btn.cancel')|tojson }},
+    card_saved:   {{ t('task.tool_card_saved')|tojson }},
+    drag_or:      {{ t('fp.drag_or')|tojson }},
+    fp_hint:      {{ t('task.tool_card_fp_hint')|tojson }},
+    fp_remove:    {{ t('fp.remove')|tojson }}
   });
 </script>
 {# Code/routes/templates/tasks_partial.html - Version compacte moderne #}
@@ -47,6 +60,12 @@
                 <!-- Info tâche -->
                 <div class="task-info">
                   <span class="task-name" id="task-name-display-{{ task.id }}">{{ task.name }}</span>
+                  {% if task.file_path %}
+                    <a class="task-file-chip" href="/utils/serve-file?path={{ task.file_path }}" target="_blank"
+                       title="{{ t('task.file_open') }}">
+                      <i class="fa-solid fa-paperclip"></i> {{ t('task.file_chip') }}
+                    </a>
+                  {% endif %}
                   {% if task.description %}
                     <span class="task-desc" id="task-desc-display-{{ task.id }}">{{ task.description }}</span>
                   {% endif %}
@@ -56,9 +75,10 @@
                 <div class="task-tools-badges" id="tools-badges-{{ task.id }}">
                   {% if task.tools and task.tools|length > 0 %}
                     {% for tool in task.tools %}
-                      <span class="tool-badge{% if tool.file_path %} tool-badge--file{% endif %}"
+                      <span class="tool-badge tool-badge--clickable{% if tool.file_path %} tool-badge--file{% endif %}"
                             data-tool-id="{{ tool.id }}"
-                            {% if tool.file_path %}title="{{ t('task.tool_has_file') }}"{% endif %}>
+                            onclick="openToolCard('{{ task.id }}', '{{ tool.id }}', event)"
+                            title="{% if tool.file_path %}{{ t('task.tool_has_file') }} — {% endif %}{{ t('task.tool_card_hint') }}">
                         <i class="fa-solid {% if tool.file_path %}fa-file-lines{% else %}fa-wrench{% endif %}"></i> {{ tool.name }}
                         {% if tool.file_path %}
                           <a class="tool-badge-file" href="/utils/serve-file?path={{ tool.file_path }}" target="_blank" title="Ouvrir : {{ tool.file_path }}">
@@ -86,7 +106,7 @@
 
                 <!-- Actions -->
                 <div class="task-actions">
-                  <button class="icon-btn" onclick="showEditTaskForm('{{ activity.id }}', '{{ task.id }}', '{{ task.name|escapejs }}', '{{ task.description|default('')|escapejs }}')" title="Modifier">
+                  <button class="icon-btn" onclick="showEditTaskForm('{{ activity.id }}', '{{ task.id }}', '{{ task.name|escapejs }}', '{{ task.description|default('')|escapejs }}', '{{ task.file_path|default('')|escapejs }}')" title="{{ t('btn.edit') }}">
                     <i class="fa-solid fa-pencil"></i>
                   </button>
                   <button class="icon-btn icon-btn-danger" onclick="deleteTask('{{ activity.id }}', '{{ task.id }}')" title="Supprimer">
@@ -99,6 +119,22 @@
               <div class="task-edit-form" id="edit-task-form-{{ task.id }}" style="display:none;">
                 <input type="text" id="edit-task-name-{{ task.id }}" class="task-input" placeholder="{{ t('task.name_ph') }}" />
                 <input type="text" id="edit-task-desc-{{ task.id }}" class="task-input" placeholder="{{ t('task.desc_ph') }}" />
+                <span class="fp-label"><i class="fa-solid fa-paperclip"></i> {{ t('task.file_label') }}</span>
+                <div class="fp-wrap" id="edit-task-fp-{{ task.id }}">
+                  <div class="fp-zone">
+                    <span class="fp-spinner" style="display:none"><i class="fa-solid fa-spinner fa-spin"></i></span>
+                    <i class="fa-solid fa-cloud-arrow-up fp-icon"></i>
+                    <p class="fp-text">{{ t('fp.drag_or') }}</p>
+                    <p class="fp-hint">{{ t('fp.optional_hint') }}</p>
+                  </div>
+                  <div class="fp-selected hidden">
+                    <i class="fa-solid fa-file-circle-check fp-ok-icon"></i>
+                    <span class="fp-fname"></span>
+                    <button type="button" class="fp-clear" title="{{ t('fp.remove') }}"><i class="fa-solid fa-xmark"></i></button>
+                  </div>
+                  <input type="file" class="fp-input">
+                  <input type="hidden" class="fp-path">
+                </div>
                 <div class="task-form-actions">
                   <button class="btn-action-primary btn-sm" onclick="submitEditTask('{{ activity.id }}', '{{ task.id }}')">
                     <i class="fa-solid fa-check"></i> {{ t('btn.save') }}
@@ -111,32 +147,38 @@
 
               <!-- Formulaire d'ajout d'outils (caché) -->
               <div id="tool-form-{{ task.id }}" class="task-tool-form" style="display: none;">
-                <div class="form-row">
+
+                <!-- Bloc 1 : outils déjà enregistrés -->
+                <div class="tool-form-block">
                   <label for="existing-tools-{{ task.id }}">{{ t('task.link_existing_tool') }}</label>
                   <div id="existing-tools-{{ task.id }}" class="tool-picker"
                        data-task-id="{{ task.id }}"></div>
+                  <p class="tool-form-note"><i class="fa-solid fa-circle-info"></i> {{ t('task.tool_existing_file_note') }}</p>
                 </div>
-                <div class="form-row">
-                  <label>{{ t('task.create_tool_label') }}</label>
+
+                <!-- Bloc 2 : créer un outil — le fichier déposé ici est CELUI DE L'OUTIL,
+                     pas celui de la tâche (qui se renseigne dans le formulaire de tâche). -->
+                <div class="tool-form-block tool-form-block--new">
+                  <label for="new-tool-name-{{ task.id }}">{{ t('task.create_tool_label') }}</label>
                   <input type="text" id="new-tool-name-{{ task.id }}" class="task-input" placeholder="{{ t('task.tool_name_ph') }}" />
-                  <div style="margin-top:10px;">
-                    <div class="fp-wrap" id="new-tool-fp-{{ task.id }}">
-                      <div class="fp-zone">
-                        <span class="fp-spinner" style="display:none"><i class="fa-solid fa-spinner fa-spin"></i></span>
-                        <i class="fa-solid fa-cloud-arrow-up fp-icon"></i>
-                        <p class="fp-text">{{ t('fp.drag_or') }}</p>
-                        <p class="fp-hint">{{ t('fp.optional_hint') }}</p>
-                      </div>
-                      <div class="fp-selected hidden">
-                        <i class="fa-solid fa-file-circle-check fp-ok-icon"></i>
-                        <span class="fp-fname"></span>
-                        <button type="button" class="fp-clear" title="{{ t('fp.remove') }}"><i class="fa-solid fa-xmark"></i></button>
-                      </div>
-                      <input type="file" class="fp-input">
-                      <input type="hidden" class="fp-path">
+                  <span class="fp-label"><i class="fa-solid fa-paperclip"></i> {{ t('task.tool_file_label') }}</span>
+                  <div class="fp-wrap" id="new-tool-fp-{{ task.id }}">
+                    <div class="fp-zone">
+                      <span class="fp-spinner" style="display:none"><i class="fa-solid fa-spinner fa-spin"></i></span>
+                      <i class="fa-solid fa-cloud-arrow-up fp-icon"></i>
+                      <p class="fp-text">{{ t('fp.drag_or') }}</p>
+                      <p class="fp-hint">{{ t('fp.optional_hint') }}</p>
                     </div>
+                    <div class="fp-selected hidden">
+                      <i class="fa-solid fa-file-circle-check fp-ok-icon"></i>
+                      <span class="fp-fname"></span>
+                      <button type="button" class="fp-clear" title="{{ t('fp.remove') }}"><i class="fa-solid fa-xmark"></i></button>
+                    </div>
+                    <input type="file" class="fp-input">
+                    <input type="hidden" class="fp-path">
                   </div>
                 </div>
+
                 <div class="task-form-actions">
                   <button class="btn-action-primary btn-sm" onclick="submitToolsNew('{{ task.id }}')">
                     <i class="fa-solid fa-check"></i> {{ t('btn.save') }}
@@ -232,6 +274,22 @@
     <div id="task-form-{{ activity.id }}" class="inline-add-form" style="display:none;">
       <input type="text" id="task-name-{{ activity.id }}" class="task-input" placeholder="{{ t('task.name_ph') }}" />
       <input type="text" id="task-desc-{{ activity.id }}" class="task-input" placeholder="{{ t('task.desc_ph') }}" />
+      <span class="fp-label"><i class="fa-solid fa-paperclip"></i> {{ t('task.file_label') }}</span>
+      <div class="fp-wrap" id="task-fp-{{ activity.id }}">
+        <div class="fp-zone">
+          <span class="fp-spinner" style="display:none"><i class="fa-solid fa-spinner fa-spin"></i></span>
+          <i class="fa-solid fa-cloud-arrow-up fp-icon"></i>
+          <p class="fp-text">{{ t('fp.drag_or') }}</p>
+          <p class="fp-hint">{{ t('fp.optional_hint') }}</p>
+        </div>
+        <div class="fp-selected hidden">
+          <i class="fa-solid fa-file-circle-check fp-ok-icon"></i>
+          <span class="fp-fname"></span>
+          <button type="button" class="fp-clear" title="{{ t('fp.remove') }}"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <input type="file" class="fp-input">
+        <input type="hidden" class="fp-path">
+      </div>
       <button class="icon-btn icon-btn-success" onclick="submitTask('{{ activity.id }}')">
         <i class="fa-solid fa-check"></i>
       </button>

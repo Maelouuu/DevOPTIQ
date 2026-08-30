@@ -79,6 +79,7 @@ function showTaskForm(activityId) {
   const formDiv = document.getElementById(`task-form-${activityId}`);
   if (formDiv) {
     formDiv.style.display = 'block';
+    initFilePicker(document.getElementById(`task-fp-${activityId}`));
   }
 }
 
@@ -91,6 +92,7 @@ function hideTaskForm(activityId) {
   const descInput = document.getElementById(`task-desc-${activityId}`);
   if (nameInput) nameInput.value = "";
   if (descInput) descInput.value = "";
+  fpReset(document.getElementById(`task-fp-${activityId}`));
 }
 
 function submitTask(activityId) {
@@ -100,6 +102,7 @@ function submitTask(activityId) {
 
   const taskName = nameInput.value.trim();
   const taskDesc = descInput.value.trim();
+  const taskFile = fpGetPath(document.getElementById(`task-fp-${activityId}`));
 
   if (!taskName) {
     alert("Le nom de la tâche est requis.");
@@ -112,7 +115,8 @@ function submitTask(activityId) {
     body: JSON.stringify({
       activity_id: activityId,
       name: taskName,
-      description: taskDesc
+      description: taskDesc,
+      file_path: taskFile
     })
   })
   .then(response => response.json())
@@ -130,7 +134,7 @@ function submitTask(activityId) {
   });
 }
 
-function showEditTaskForm(activityId, taskId, currentName, currentDesc) {
+function showEditTaskForm(activityId, taskId, currentName, currentDesc, currentFile) {
   const formDiv = document.getElementById(`edit-task-form-${taskId}`);
   const nameInput = document.getElementById(`edit-task-name-${taskId}`);
   const descInput = document.getElementById(`edit-task-desc-${taskId}`);
@@ -138,6 +142,9 @@ function showEditTaskForm(activityId, taskId, currentName, currentDesc) {
     formDiv.style.display = 'block';
     nameInput.value = currentName || "";
     descInput.value = currentDesc || "";
+    const picker = document.getElementById(`edit-task-fp-${taskId}`);
+    initFilePicker(picker);
+    fpSetPath(picker, currentFile || "");
   }
 }
 
@@ -155,6 +162,7 @@ function submitEditTask(activityId, taskId) {
 
   const newName = nameInput.value.trim();
   const newDesc = descInput.value.trim();
+  const newFile = fpGetPath(document.getElementById(`edit-task-fp-${taskId}`));
 
   if (!newName) {
     alert("Le nom de la tâche est requis.");
@@ -164,7 +172,7 @@ function submitEditTask(activityId, taskId) {
   fetch(`/tasks/${taskId}`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name: newName, description: newDesc })
+    body: JSON.stringify({ name: newName, description: newDesc, file_path: newFile })
   })
   .then(response => response.json())
   .then(data => {
@@ -291,9 +299,130 @@ function _toolEsc(v) {
 }
 function _toolI18n(cle) {
   const L = window.TASK_I18N || {};
-  const defauts = { empty: 'Aucun outil enregistré.', linked: 'déjà lié',
-                    error: 'Chargement impossible.' };
+  const defauts = {
+    empty: 'Aucun outil enregistré.', linked: 'déjà lié',
+    error: 'Chargement impossible.',
+    card_title: "Fiche de l'outil", card_name: "Nom de l'outil",
+    card_desc: 'Description', card_file: "Fichier de l'outil",
+    card_open: 'Ouvrir', card_remove: 'Retirer le fichier',
+    card_save: 'Enregistrer', card_cancel: 'Annuler',
+    card_saved: 'Outil enregistré.',
+    card_shared: "Cet outil est partagé : le nom, la description et le fichier valent pour toutes les tâches qui l'utilisent.",
+    drag_or: 'Glisser un fichier ici ou parcourir',
+    fp_hint: 'Déposez la notice, la procédure… (optionnel)',
+    fp_remove: 'Supprimer le fichier',
+  };
   return L[cle] || defauts[cle];
+}
+
+/* =====================================================
+   FICHE OUTIL — un fichier peut être joint APRÈS coup
+   =====================================================
+   Le dépôt du formulaire « + outil » ne concerne que l'outil qu'on est en
+   train de créer : sans cette fiche, un outil déjà enregistré ne pouvait
+   plus recevoir sa notice. */
+
+function openToolCard(taskId, toolId, ev) {
+  // Le badge porte aussi le lien du fichier et la croix de détachement.
+  if (ev && ev.target.closest('.badge-remove, .tool-badge-file')) return;
+  if (ev) ev.stopPropagation();
+
+  fetch('/tools/all')
+    .then(r => r.json())
+    .then(outils => {
+      const outil = (outils || []).find(o => String(o.id) === String(toolId));
+      if (!outil) { alert(_toolI18n('error')); return; }
+      _renderToolCard(taskId, outil);
+    })
+    .catch(() => alert(_toolI18n('error')));
+}
+
+function _renderToolCard(taskId, outil) {
+  document.getElementById('tool-card-overlay')?.remove();
+
+  const lien = outil.file_path
+    ? `<a class="tool-card-link" href="/utils/serve-file?path=${encodeURIComponent(outil.file_path)}" target="_blank">
+         <i class="fa-solid fa-up-right-from-square"></i> ${_toolI18n('card_open')}</a>`
+    : '';
+
+  const ov = document.createElement('div');
+  ov.id = 'tool-card-overlay';
+  ov.className = 'tool-card-overlay';
+  ov.innerHTML = `
+    <div class="tool-card" role="dialog" aria-modal="true">
+      <div class="tool-card-head">
+        <i class="fa-solid ${outil.file_path ? 'fa-file-lines' : 'fa-wrench'}"></i>
+        <h3>${_toolI18n('card_title')}</h3>
+        <button class="tool-card-close" type="button" title="${_toolI18n('card_cancel')}">
+          <i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="tool-card-body">
+        <label class="tool-card-label" for="tool-card-name">${_toolI18n('card_name')}</label>
+        <input type="text" id="tool-card-name" class="task-input" value="${_toolEsc(outil.name || '')}">
+
+        <label class="tool-card-label" for="tool-card-desc">${_toolI18n('card_desc')}</label>
+        <textarea id="tool-card-desc" class="task-input" rows="2">${_toolEsc(outil.description || '')}</textarea>
+
+        <label class="tool-card-label">
+          <i class="fa-solid fa-paperclip"></i> ${_toolI18n('card_file')} ${lien}
+        </label>
+        <div class="fp-wrap" id="tool-card-fp">
+          <div class="fp-zone">
+            <span class="fp-spinner" style="display:none"><i class="fa-solid fa-spinner fa-spin"></i></span>
+            <i class="fa-solid fa-cloud-arrow-up fp-icon"></i>
+            <p class="fp-text">${_toolI18n('drag_or')}</p>
+            <p class="fp-hint">${_toolI18n('fp_hint')}</p>
+          </div>
+          <div class="fp-selected hidden">
+            <i class="fa-solid fa-file-circle-check fp-ok-icon"></i>
+            <span class="fp-fname"></span>
+            <button type="button" class="fp-clear" title="${_toolI18n('fp_remove')}"><i class="fa-solid fa-xmark"></i></button>
+          </div>
+          <input type="file" class="fp-input">
+          <input type="hidden" class="fp-path">
+        </div>
+        <p class="tool-card-note"><i class="fa-solid fa-circle-info"></i> ${_toolI18n('card_shared')}</p>
+      </div>
+      <div class="tool-card-actions">
+        <button class="btn-action-primary btn-sm" id="tool-card-save">
+          <i class="fa-solid fa-check"></i> ${_toolI18n('card_save')}</button>
+        <button class="btn-action-secondary btn-sm" id="tool-card-cancel">
+          <i class="fa-solid fa-xmark"></i> ${_toolI18n('card_cancel')}</button>
+      </div>
+    </div>`;
+  document.body.appendChild(ov);
+
+  const picker = ov.querySelector('#tool-card-fp');
+  initFilePicker(picker);
+  fpSetPath(picker, outil.file_path || '');
+
+  const fermer = () => ov.remove();
+  ov.querySelector('.tool-card-close').addEventListener('click', fermer);
+  ov.querySelector('#tool-card-cancel').addEventListener('click', fermer);
+  ov.addEventListener('click', e => { if (e.target === ov) fermer(); });
+  document.addEventListener('keydown', function esc(e) {
+    if (e.key === 'Escape') { fermer(); document.removeEventListener('keydown', esc); }
+  });
+
+  ov.querySelector('#tool-card-save').addEventListener('click', async () => {
+    const nom = ov.querySelector('#tool-card-name').value.trim();
+    if (!nom) { alert(_toolI18n('card_name')); return; }
+    try {
+      const r = await fetch(`/gestion_outils/api/tools/${outil.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: nom,
+          description: ov.querySelector('#tool-card-desc').value.trim(),
+          file_path: fpGetPath(picker),
+        }),
+      });
+      const d = await r.json();
+      if (!r.ok) { alert(d.error || _toolI18n('error')); return; }
+      fermer();
+      _refreshTaskActivity(taskId);   // le badge suit le fichier
+    } catch { alert(_toolI18n('error')); }
+  });
 }
 
 function _refreshTaskActivity(taskId) {

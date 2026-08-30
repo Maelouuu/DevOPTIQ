@@ -278,6 +278,22 @@ transporte le diagramme **tel qu'il est en base**, d'un compte à l'autre.
   l'éditeur (les bandes viennent de l'import VSDX).
 - **Libellés** : la forme `special` s'appelle **Résultat** (et non plus
   « Sous-activité »), et la marque affichée dans l'éditeur est **Optiq Map**.
+- **Gabarit traduit** (bandes pré-créées + textes pré-remplis des formes) :
+  chaque bande par défaut porte une `key` (`editor.dband.*`) et chaque forme
+  déposée une `labelKey` (`editor.shape_*`). `_applyTemplateI18n(state)` réécrit
+  ces libellés **à l'ouverture** de la carto, pas au rendu : `label` part tel quel
+  vers `_sync_carto_to_db`, qui ne saurait pas résoudre une clé. ⚠️ Renommer une
+  bande (`delete b.key`) ou retoucher le texte d'une forme (`delete s.labelKey`)
+  détache définitivement le libellé du catalogue — sinon la saisie de
+  l'utilisateur serait écrasée au prochain changement de langue.
+- **Deux bandes de gabarit en plus** : `network` / `other` (« Réseau », « Autre »),
+  index vert pastel `#A9DFBF` et **corps blanc** via le nouveau champ
+  `band.bodyColor` (`renderBands` : `band.bodyColor || bandBgColor(band.color)`).
+  Choisir une couleur de bande à la main efface `bodyColor` (le corps redevient
+  la version pâle de l'index).
+- **Ligne de bande entièrement cliquable** (liste de la barre d'outils) : viser
+  un bouton de 26 px pour masquer/restaurer était pénible — un clic n'importe où
+  sur la ligne déclenche son bouton, qui n'est plus qu'un repère visuel.
 - **Terme produit en anglais = « Map »** (`nav.carto`, `page.carto`,
   `map.card_title`, `carto.save`, toasts éditeur). Les URLs, fichiers et ids
   restent `cartography` : ce sont des chemins, pas de l'affichage.
@@ -293,6 +309,23 @@ transporte le diagramme **tel qu'il est en base**, d'un compte à l'autre.
   et on en prend plusieurs sans ctrl+clic. Un outil accompagné d'un fichier
   porte l'icône `fa-file-lines` et un fond ambré (`.tool-badge--file`,
   `.tool-pick--file`), comme les contraintes avec pièce jointe.
+- **Deux pièces jointes distinctes** : `Task.file_path` (NOUVEAU, migration à
+  chaud `tasks.file_path`) = mode opératoire de la tâche ; `Tool.file_path` =
+  notice de l'outil. Le panneau « + outil » n'affichait qu'un dépôt, posé sous la
+  liste des outils : on ne savait pas à quoi le fichier se rattachait. Il est
+  désormais scindé en deux blocs encadrés (`.tool-form-block`) — outils existants
+  d'un côté, création d'un outil ET **son** fichier de l'autre — et le fichier de
+  la tâche vit dans les formulaires de tâche (ajout et édition), avec une pastille
+  `.task-file-chip` à côté de son nom.
+- **Fiche d'un outil** (`openToolCard`, `tasks.js`) : cliquer le badge d'un outil
+  dans une tâche ouvre une modale (nom, description, dépôt de fichier) →
+  `PUT /gestion_outils/api/tools/<id>`. Sans elle, un outil déjà enregistré ne
+  pouvait **plus jamais** recevoir de fichier : le seul dépôt existant servait à
+  la création. La modale est construite en JS (pas de gabarit) car
+  `tasks_partial.html` est inclus une fois PAR activité. `/tools/all` renvoie
+  aussi `description` (le champ de la fiche restait vide sinon).
+- Tests : `tests/test_62_task_tool_files.py` (8 cas — création/ajout/retrait des
+  deux fichiers, indépendance, renommage sans perte).
 - ⚠️ **`static/js/tools.js` est chargé APRÈS `tasks.js`** (`script_loader.html`).
   Il redéfinissait `showToolForm`/`hideToolForm`/`submitTools` : l'ancienne
   version (un `<select>` d'`<option>`) écrasait silencieusement la nouvelle, et
@@ -742,6 +775,28 @@ jamais exposées aux utilisateurs). Deux morceaux :
   chronologique. **Compte unique** `Mael_Girardin` (mdp défaut `testtest`,
   changer via secret/env `PULSE_PASSWORD`), anti-force-brute, noindex.
   Tests : `tests/test_61_pulse.py` (14). Doc : `pulse/README.md`.
+
+## Provisionnement — compléter une carto avec un Excel client
+
+`tools/provisioning/provision.py` sait aussi **injecter les tâches d'un tableur
+client dans une carto déjà en place** (bloc `tasks_excel` du plan) : il réutilise
+le pipeline d'import de l'app (`Code/routes/import_full`) — même lecture du
+fichier, mêmes get-or-create outils/rôles, déduplication des tâches par nom (donc
+idempotent). `Guarantor` → rôle **Garant** de l'activité, `Doer`/`Approver` →
+rôles de tâche, `Skills` → compétences.
+
+- ⚠️ **L'appariement est une table explicite** (`data/*_mapping.json`), pas du
+  fuzzy : les libellés du client ne sont pas ceux de la carte harmonisée
+  (« Identify Part » → « Develop Preliminary Technical Solution »). L'appariement
+  automatique ne sert que de filet, et seulement au-delà de 90 %.
+- **Cloisonnement par compte** : `owner_email` + `require_existing` + le nouveau
+  `match_name_contains` (retrouve l'entité même renommée, **chez ce propriétaire
+  seulement**). Si l'entité n'existe pas chez lui, le script s'arrête sans rien
+  écrire — même si une entité du même nom existe chez quelqu'un d'autre.
+- `plans/maelg_fluidclip_tasks.json` : carto FluidClip du compte
+  `afdec.enterprise.services@gmail.com` complétée par `CLIP_ RFQ Tasks.xlsx`
+  (25 activités, 96 tâches, 28 outils, 14 rôles, 53 compétences). À lancer avec
+  `DATABASE_URL` sur la base cible (`--dry-run` d'abord).
 
 ## Notes importantes
 
