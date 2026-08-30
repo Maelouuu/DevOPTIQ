@@ -122,7 +122,9 @@ def _build_activity_data(activities):
     # Tâches
     all_tasks = db.session.query(Task).filter(
         Task.activity_id.in_(activity_ids)
-    ).order_by(Task.activity_id, Task.order.asc().nullsfirst()).all()
+    # `id` en dernier critere : a `order` egal, l'ordre doit rester le meme
+    # d'un affichage a l'autre (sinon la tache modifiee change de place).
+    ).order_by(Task.activity_id, Task.order.asc().nullsfirst(), Task.id).all()
     tasks_by_act = {}
     for t in all_tasks:
         tasks_by_act.setdefault(t.activity_id, []).append(t)

@@ -83,10 +83,17 @@
   const rcLoading  = document.getElementById('wp-recent-loading');
   const rcItems    = document.getElementById('wp-recent-items');
 
+  // Signature du contenu lu : tant qu'elle ne change pas, la fenêtre ne
+  // revient plus — y compris dans un nouvel onglet.
+  let signatureCourante = '';
+  function lire(cle) { try { return localStorage.getItem(cle); } catch (e) { return null; } }
+  function ecrire(cle, val) { try { localStorage.setItem(cle, val); } catch (e) { /* stockage refusé */ } }
+
   function closePopup() {
     overlay.classList.remove('wp-visible');
     setTimeout(() => { overlay.style.display = 'none'; }, 450);
-    sessionStorage.setItem(STORAGE_KEY, '1');
+    try { sessionStorage.setItem(STORAGE_KEY, '1'); } catch (e) { /* ignore */ }
+    if (signatureCourante) ecrire(STORAGE_KEY, signatureCourante);
   }
 
   closeBtn.addEventListener('click', closePopup);
@@ -94,14 +101,31 @@
   overlay.addEventListener('click', (e) => { if (e.target === overlay) closePopup(); });
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closePopup(); });
 
-  if (!sessionStorage.getItem(STORAGE_KEY)) {
-    overlay.style.display = 'flex';
-    requestAnimationFrame(() => requestAnimationFrame(() => overlay.classList.add('wp-visible')));
+  // Déjà fermée dans cet onglet (sessionStorage) ou déjà lue dans ce navigateur
+  // (localStorage, mis à jour à la fermeture) → on n'affiche rien.
+  let dejaVue = false;
+  try { dejaVue = !!sessionStorage.getItem(STORAGE_KEY); } catch (e) { /* ignore */ }
+  const dejaLue = lire(STORAGE_KEY);
 
-    // Charger les nouveautés
+  if (!dejaVue) {
+    const montrer = () => {
+      if (overlay.style.display === 'flex') return;
+      overlay.style.display = 'flex';
+      requestAnimationFrame(() => requestAnimationFrame(() => overlay.classList.add('wp-visible')));
+    };
+
+    // Charger les nouveautés — c'est leur contenu qui décide de l'affichage :
+    // rien de neuf depuis la dernière lecture, rien à annoncer.
     fetch('/api/changelog')
       .then(r => r.json())
       .then(data => {
+        signatureCourante = (data.items || [])
+          .map(i => (i.title || '') + '|' + (i.desc || '').slice(0, 40)).join('#');
+        if (dejaLue && signatureCourante && dejaLue === signatureCourante) {
+          overlay.style.display = 'none';
+          return;
+        }
+        montrer();
         clLoading.style.display = 'none';
         if (!data.ok || !data.items || !data.items.length) {
           clItems.innerHTML = '<p class="wp-empty">Aucune nouveauté à afficher.</p>';

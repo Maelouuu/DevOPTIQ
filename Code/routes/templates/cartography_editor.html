@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>OptiqCarto — {{ entity_name or 'Éditeur' }}</title>
+  <title>Optiq Map — {{ entity_name or 'Éditeur' }}</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='optiqcarto/style.css') }}">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
   <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
@@ -36,7 +36,7 @@
     <!-- Logo -->
     <div class="tb-logo">
       <span class="tb-logo-mark">◉</span>
-      <span class="tb-logo-name">OptiqCarto</span>
+      <span class="tb-logo-name">Optiq Map</span>
       {% if entity_name %}
         <span class="tb-entity-badge">{{ entity_name }}</span>
       {% endif %}
@@ -622,7 +622,7 @@
       <p style="font-size:13px;line-height:1.7;color:var(--text-muted);margin:0 0 16px">
         Vous avez une cartographie <strong>Visio</strong> existante pour l'entité
         <strong>{{ entity_name }}</strong>.<br>
-        Voulez-vous l'importer automatiquement dans OptiqCarto ?
+        Voulez-vous l'importer automatiquement dans Optiq Map ?
       </p>
       <p style="font-size:11.5px;color:var(--text-muted);opacity:.7;margin:0">
         Les formes et connexions seront reconstruites depuis votre fichier VSDX.

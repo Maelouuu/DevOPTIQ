@@ -249,23 +249,51 @@ function hideToolForm(taskId) {
   }
 }
 
+// Liste des outils à cocher : classée par nom, celles déjà rattachées à la
+// tâche sont cochées et signalées. Un <select multiple> obligeait à un
+// ctrl+clic pour en prendre plusieurs et ne montrait pas l'existant.
 function loadExistingTools(taskId) {
+  const hote = document.getElementById(`existing-tools-${taskId}`);
+  if (!hote) return;
+  hote.innerHTML = '<p class="tool-picker-loading">…</p>';
+
+  const dejaLies = new Set(
+    [...document.querySelectorAll(`#tools-badges-${taskId} .tool-badge`)]
+      .map(b => String(b.dataset.toolId)));
+
   fetch('/tools/all')
     .then(resp => resp.json())
     .then(data => {
-      const select = document.getElementById(`existing-tools-${taskId}`);
-      if (!select) return;
-      select.innerHTML = "";
-      data.forEach(tool => {
-        const opt = document.createElement('option');
-        opt.value = tool.id;
-        opt.textContent = tool.name + (tool.file_path ? ' 📎' : '');
-        select.appendChild(opt);
-      });
+      const outils = (data || []).slice().sort((a, b) =>
+        (a.name || '').localeCompare(b.name || '', undefined, { sensitivity: 'base' }));
+      if (!outils.length) {
+        hote.innerHTML = `<p class="tool-picker-empty">${_toolI18n('empty')}</p>`;
+        return;
+      }
+      hote.innerHTML = outils.map(tool => {
+        const lie = dejaLies.has(String(tool.id));
+        return `<label class="tool-pick${lie ? ' tool-pick--linked' : ''}${tool.file_path ? ' tool-pick--file' : ''}">
+          <input type="checkbox" value="${tool.id}"${lie ? ' checked disabled' : ''}>
+          <i class="fa-solid ${tool.file_path ? 'fa-file-lines' : 'fa-wrench'}"></i>
+          <span class="tool-pick-name">${_toolEsc(tool.name || '')}</span>
+          ${lie ? `<span class="tool-pick-flag">${_toolI18n('linked')}</span>` : ''}
+        </label>`;
+      }).join('');
     })
     .catch(err => {
       console.error("Erreur loadExistingTools:", err);
+      hote.innerHTML = `<p class="tool-picker-empty">${_toolI18n('error')}</p>`;
     });
+}
+
+function _toolEsc(v) {
+  return String(v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+function _toolI18n(cle) {
+  const L = window.TASK_I18N || {};
+  const defauts = { empty: 'Aucun outil enregistré.', linked: 'déjà lié',
+                    error: 'Chargement impossible.' };
+  return L[cle] || defauts[cle];
 }
 
 function _refreshTaskActivity(taskId) {
@@ -284,7 +312,8 @@ async function submitToolsNew(taskId) {
   const picker         = document.getElementById(`new-tool-fp-${taskId}`);
 
   const existing_tool_ids = existingSelect
-    ? [...existingSelect.options].filter(o => o.selected).map(o => parseInt(o.value))
+    ? [...existingSelect.querySelectorAll('input[type=checkbox]')]
+        .filter(c => c.checked && !c.disabled).map(c => parseInt(c.value))
     : [];
 
   const newName  = nameIn ? nameIn.value.trim() : "";

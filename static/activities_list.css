@@ -2948,3 +2948,57 @@ body.dnd-active .task-conn-slot.task-conn-outgoing:not(.has-conn) {
   border-color: var(--pg-accent, #7c3aed);
   color: var(--pg-accent, #7c3aed);
 }
+
+
+/* ── Choix des outils d'une tâche ─────────────────────────────────────────
+   Liste à cocher plutôt qu'un <select multiple> : on voit d'un coup d'œil ce
+   qui est déjà lié, et prendre plusieurs outils ne demande plus de ctrl+clic. */
+.tool-picker {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    max-height: 220px;
+    overflow-y: auto;
+    padding: 6px;
+    border: 1px solid #d0d7de;
+    border-radius: 9px;
+    background: #fff;
+}
+.tool-pick {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 8px;
+    border-radius: 7px;
+    font-size: 13px;
+    color: #334155;
+    cursor: pointer;
+    transition: background .15s ease;
+}
+.tool-pick:hover { background: #f1f5f9; }
+.tool-pick input { cursor: pointer; accent-color: var(--pg-accent, #7c3aed); }
+.tool-pick i { font-size: 11px; color: #94a3b8; }
+.tool-pick-name { flex: 1; }
+.tool-pick--linked { color: #16794c; background: #f0fdf4; cursor: default; }
+.tool-pick--linked i { color: #16794c; }
+.tool-pick-flag {
+    font-size: 11px;
+    font-weight: 700;
+    color: #16794c;
+    background: #dcfce7;
+    border-radius: 999px;
+    padding: 1px 8px;
+}
+/* Outil accompagné d'un fichier : même code visuel que les contraintes. */
+.tool-pick--file i { color: #b45309; }
+.tool-picker-loading, .tool-picker-empty {
+    margin: 6px; font-size: 12.5px; color: #64748b;
+}
+
+.tool-badge--file {
+    background: #fff7ed;
+    border-color: #fdba74;
+    color: #9a3412;
+}
+.tool-badge--file:hover { background: #ffedd5; }
+.tool-badge--file i { color: #b45309; }

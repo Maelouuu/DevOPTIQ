@@ -1,3 +1,11 @@
+<script>
+  // Libellés du sélecteur d'outils (rendu côté JS).
+  window.TASK_I18N = Object.assign(window.TASK_I18N || {}, {
+    linked: {{ t('task.tool_linked')|tojson }},
+    empty:  {{ t('task.tool_none')|tojson }},
+    error:  {{ t('task.tool_load_error')|tojson }}
+  });
+</script>
 {# Code/routes/templates/tasks_partial.html - Version compacte moderne #}
 <div class="tasks-section-modern">
 
@@ -48,8 +56,10 @@
                 <div class="task-tools-badges" id="tools-badges-{{ task.id }}">
                   {% if task.tools and task.tools|length > 0 %}
                     {% for tool in task.tools %}
-                      <span class="tool-badge" data-tool-id="{{ tool.id }}">
-                        <i class="fa-solid fa-wrench"></i> {{ tool.name }}
+                      <span class="tool-badge{% if tool.file_path %} tool-badge--file{% endif %}"
+                            data-tool-id="{{ tool.id }}"
+                            {% if tool.file_path %}title="{{ t('task.tool_has_file') }}"{% endif %}>
+                        <i class="fa-solid {% if tool.file_path %}fa-file-lines{% else %}fa-wrench{% endif %}"></i> {{ tool.name }}
                         {% if tool.file_path %}
                           <a class="tool-badge-file" href="/utils/serve-file?path={{ tool.file_path }}" target="_blank" title="Ouvrir : {{ tool.file_path }}">
                             <i class="fa-solid fa-paperclip"></i>
@@ -103,7 +113,8 @@
               <div id="tool-form-{{ task.id }}" class="task-tool-form" style="display: none;">
                 <div class="form-row">
                   <label for="existing-tools-{{ task.id }}">{{ t('task.link_existing_tool') }}</label>
-                  <select id="existing-tools-{{ task.id }}" multiple class="task-select"></select>
+                  <div id="existing-tools-{{ task.id }}" class="tool-picker"
+                       data-task-id="{{ task.id }}"></div>
                 </div>
                 <div class="form-row">
                   <label>{{ t('task.create_tool_label') }}</label>

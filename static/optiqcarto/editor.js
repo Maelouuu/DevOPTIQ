@@ -146,7 +146,7 @@ function _defaultBands() {
 const SHAPE_DEFAULTS = {
   process:   { label: 'Activité',      color: '#22c55e', textColor: '#ffffff', validationBadge: false, validationColor: '#4DB868', w: 130, h: 90,  fontSize: 18, subtype: 'normal' },
   'start-end': { label: 'Renvoi',      color: '#ffffff', textColor: '#000000', validationBadge: false, validationColor: '#4DB868', w: 90,  h: 90,  fontSize: 13, subtype: 'normal' },
-  special:   { label: 'Sous-activité', color: '#f59e0b', textColor: '#ffffff', validationBadge: false, validationColor: '#4DB868', w: 130, h: 90,  fontSize: 13, subtype: 'normal' },
+  special:   { label: 'Résultat', color: '#f59e0b', textColor: '#ffffff', validationBadge: false, validationColor: '#4DB868', w: 130, h: 90,  fontSize: 13, subtype: 'normal' },
   decision:  { label: 'Décision',      color: '#9ca3af', textColor: '#ffffff', validationBadge: false, validationColor: '#4DB868', w: 100, h: 100, fontSize: 13, subtype: 'normal' },
 };
 
@@ -155,7 +155,7 @@ const HINTS = {
   connect:   'Cliquez sur la forme source, puis sur la forme destination · Échap = annuler',
   process:   'Cliquez sur le canevas pour placer l\'activité',
   'start-end': 'Cliquez sur le canevas pour placer un renvoi',
-  special:   'Cliquez sur le canevas pour placer la sous-activité',
+  special:   'Cliquez sur le canevas pour placer le résultat',
 };
 
 // ── État principal ────────────────────────────────
@@ -229,6 +229,7 @@ let _calqueIsNew = false;
 let _baseStateForDiff = null;
 let _calqueList = [];
 let selectedGroup = null;
+let groupHoverId  = null;   // groupe survolé : montre ses poignées de connexion
 let groupHighlightId = null;
 let expandedGroups = new Set();
 let collapsedPiles = new Set(); // IDs of pile groups collapsed on canvas
@@ -1541,6 +1542,29 @@ function renderGroups() {
     }, gGroups);
     grpG.style.cursor = isCollapsedPile ? 'move' : 'pointer';
 
+    // Poignées de connexion du groupe : sans elles, on pouvait viser un groupe
+    // avec une flèche mais jamais en partir.
+    if (!window.OPTIQCARTO_READONLY && !portDrag && selectedConn === null &&
+        (isSel || isHL || groupHoverId === grp.id)) {
+      const ps = 10 / vpScale, sw = 1.5 / vpScale;
+      const ports = {
+        left:   { x: gx,          y: gy + gh / 2 },
+        right:  { x: gx + gw,     y: gy + gh / 2 },
+        top:    { x: gx + gw / 2, y: gy },
+        bottom: { x: gx + gw / 2, y: gy + gh },
+      };
+      for (const [pName, p] of Object.entries(ports)) {
+        el('rect', {
+          x: p.x - ps / 2, y: p.y - ps / 2, width: ps, height: ps,
+          fill: tool === 'connect' ? '#1f7a54' : '#7c3aed',
+          stroke: '#ffffff', 'stroke-width': sw, rx: '2',
+          'data-port': pName,
+          'data-group-port': String(grp.id),
+          cursor: 'crosshair',
+        }, grpG);
+      }
+    }
+
     if (grp.isPile) {
       const isCollapsed = collapsedPiles.has(grp.id);
 
@@ -2220,8 +2244,29 @@ function onDown(e) {
   // ── Drag depuis une poignée de port (toujours actif) ─────
   const portEl = e.target.closest('[data-port]');
   if (portEl && !spaceDown) {
+    const portName = portEl.getAttribute('data-port');
+
+    // Poignée d'un GROUPE : la source est le groupe lui-même (les connexions
+    // savent déjà viser un groupe, cf. _resolveEp).
+    const groupPortId = portEl.getAttribute('data-group-port');
+    if (groupPortId) {
+      const grp = (state.groups || []).find(g => g.id === parseInt(groupPortId));
+      const b = grp && getGroupBounds(grp);
+      if (b) {
+        const pts = {
+          left:   { x: b.x,           y: b.y + b.h / 2, dir: 'left'   },
+          right:  { x: b.x + b.w,     y: b.y + b.h / 2, dir: 'right'  },
+          top:    { x: b.x + b.w / 2, y: b.y,           dir: 'top'    },
+          bottom: { x: b.x + b.w / 2, y: b.y + b.h,     dir: 'bottom' },
+        };
+        portDrag = { fromShapeId: grp.id, fromPort: pts[portName] || pts.right,
+                     curX: 0, curY: 0, snapShapeId: null, snapDir: null, snapT: 0.5 };
+        canvas.style.cursor = 'crosshair';
+      }
+      return;
+    }
+
     const fromShapeId = parseInt(portEl.getAttribute('data-shape-id'));
-    const portName    = portEl.getAttribute('data-port');
     const shape = state.shapes.find(s => s.id === fromShapeId);
     if (shape) {
       portDrag = { fromShapeId, fromPort: getPorts(shape)[portName], curX: 0, curY: 0, snapShapeId: null, snapDir: null, snapT: 0.5 };
@@ -2774,6 +2819,16 @@ function onMove(e) {
     renderHandles();
   }
 
+  // Survol d'un groupe (cadre ou poignée) → ses points de connexion s'affichent.
+  if (!portDrag && !isDragging) {
+    const cadre = e.target.closest('.group-container');
+    const surGroupe = cadre ? parseInt(cadre.getAttribute('data-group-id')) : null;
+    if (surGroupe !== groupHoverId) {
+      groupHoverId = surGroupe;
+      renderGroups();
+    }
+  }
+
   /* ── Aperçu outil Connecter ── */
   if (tool === 'connect') {
     gOverlay.innerHTML = '';
@@ -2943,7 +2998,8 @@ function onUp(e) {
         if (_toPx !== null && _toPx < portDrag.fromPort.x) {
           showToast(_L('editor.toast.backward_arrow'));
         } else {
-          const fromShape = state.shapes.find(s => s.id === portDrag.fromShapeId);
+          const fromShape = state.shapes.find(s => s.id === portDrag.fromShapeId)
+            || (state.groups || []).find(g => g.id === portDrag.fromShapeId);
           const conn = {
             id: state.nextId++,
             fromId: portDrag.fromShapeId,
@@ -3343,11 +3399,32 @@ function updateProps() {
   }
 }
 
+// Les formes DU groupe d'abord, le reste ensuite : la liste affichait toutes
+// les activités de la carto dans l'ordre du modèle, on ne reconnaissait pas
+// « son » groupe dedans.
 function _renderGroupShapesList(grp) {
   const container = document.getElementById('group-shapes-list');
   if (!container) return;
   container.innerHTML = '';
-  for (const s of state.shapes) {
+  const membres = state.shapes.filter(s => grp.shapeIds.includes(s.id));
+  const autres  = state.shapes.filter(s => !grp.shapeIds.includes(s.id));
+  const parNom = (a, b) => (a.label || '').localeCompare(b.label || '', undefined, { sensitivity: 'base' });
+  membres.sort(parNom); autres.sort(parNom);
+
+  const titre = (texte) => {
+    const h = document.createElement('div');
+    h.className = 'group-shape-sep';
+    h.textContent = texte;
+    container.appendChild(h);
+  };
+  if (membres.length) titre(`Dans le groupe (${membres.length})`);
+  let separateurPose = false;
+
+  for (const s of membres.concat(autres)) {
+    if (!separateurPose && !grp.shapeIds.includes(s.id)) {
+      titre('Ajouter au groupe');
+      separateurPose = true;
+    }
     const inGroup = grp.shapeIds.includes(s.id);
     const row = document.createElement('div');
     row.className = 'group-shape-row' + (inGroup ? ' in-group' : '');
@@ -3900,7 +3977,7 @@ function _buildExportLegend(legendY, bw) {
 
   const shapeItems = [
     { label: 'Activité',       d1: 'Activité principale',     d2: 'de l\'entité',           color: '#96afcf', draw: 'rect'        },
-    { label: 'Sous-activité',  d1: 'Variante atténuée',       d2: 'd\'une activité',         color: '#b5c9de', draw: 'rect-variant' },
+    { label: 'Résultat',       d1: 'Variante atténuée',       d2: 'd\'une activité',         color: '#b5c9de', draw: 'rect-variant' },
     { label: 'Act. externe',   d1: 'Activité confiée à une',  d2: 'organisation externe',    color: '#e2e8f0', draw: 'rect-round'  },
     { label: 'Décision',       d1: 'Bifurcation oui / non',   d2: null,                      color: '#9ca3af', draw: 'diamond'     },
     { label: 'Renvoi',         d1: 'Référence vers',          d2: 'une autre activité',      color: '#f4f4f5', draw: 'circle'      },
@@ -4080,7 +4157,7 @@ function exportPDF() {
   const encoded = encodeURIComponent(svgStr);
   const win = window.open('', '_blank');
   if (!win) { showToast(_L('editor.toast.popup_blocked')); return; }
-  win.document.write(`<!DOCTYPE html><html><head><title>OptiqCarto — Export PDF</title>
+  win.document.write(`<!DOCTYPE html><html><head><title>Optiq Map — Export PDF</title>
 <style>
   * { margin:0; padding:0; box-sizing:border-box; }
   html, body { width:287mm; height:200mm; overflow:hidden; background:#fff; }
@@ -5291,19 +5368,19 @@ function renderBandsTbList() {
       row.innerHTML = `
         <div class="bands-tb-swatch" style="background:${band.color}"></div>
         <span class="bands-tb-row-label">${band.label || 'Bande ' + (i + 1)}</span>
-        <button class="bands-tb-restore" data-i="${i}" title="Restaurer">+</button>`;
+        <button class="bands-tb-restore" data-i="${i}" title="Restaurer la bande"><i class="fa-solid fa-rotate-left"></i></button>`;
     } else {
       row.innerHTML = `
         <div class="bands-tb-swatch" style="background:${band.color}"></div>
         <span class="bands-tb-row-label">${band.label || 'Bande ' + (i + 1)}</span>
-        <button class="bands-tb-del" data-i="${i}" title="Masquer">×</button>`;
+        <button class="bands-tb-del" data-i="${i}" title="Masquer la bande"><i class="fa-solid fa-trash"></i></button>`;
     }
     list.appendChild(row);
   });
   list.querySelectorAll('.bands-tb-del').forEach(btn => {
     btn.addEventListener('click', async ev => {
       ev.stopPropagation();
-      if (await _deleteBand(parseInt(ev.target.dataset.i))) {
+      if (await _deleteBand(parseInt(ev.currentTarget.dataset.i))) {
         renderBandsTbList();
         renderBandsList();
       }
@@ -5312,7 +5389,7 @@ function renderBandsTbList() {
   list.querySelectorAll('.bands-tb-restore').forEach(btn => {
     btn.addEventListener('click', ev => {
       ev.stopPropagation();
-      _restoreBand(parseInt(ev.target.dataset.i));
+      _restoreBand(parseInt(ev.currentTarget.dataset.i));
       renderBandsTbList();
       renderBandsList();
     });
@@ -5331,7 +5408,7 @@ function renderBandsList() {
       <input type="text"  value="${band.label}" placeholder="Label…" class="bl" data-i="${i}">
       <input type="number" value="${band.height}" min="60" max="800" step="20" class="bh" data-i="${i}" title="Hauteur (px)">
       <span class="band-label-extra">px</span>
-      <button class="band-delete" data-i="${i}" title="Supprimer">×</button>
+      <button class="band-delete" data-i="${i}" title="Supprimer la bande"><i class="fa-solid fa-trash"></i></button>
     `;
     list.appendChild(row);
   });
@@ -5346,7 +5423,7 @@ function renderBandsList() {
     state.bands[ev.target.dataset.i].height = parseInt(ev.target.value) || 150; renderBands();
   }));
   list.querySelectorAll('.band-delete').forEach(e => e.addEventListener('click', async ev => {
-    if (await _deleteBand(parseInt(ev.target.dataset.i))) {
+    if (await _deleteBand(parseInt(ev.currentTarget.dataset.i))) {
       renderBandsList();
       renderBandsTbList();
     }
@@ -6990,7 +7067,7 @@ function _showBulkPanel(shapeType, shapeSubtype, wrap, anchorBtn) {
 
   const previewClassMap = { process: 'normal', special: 'special', 'start-end': 'renvoi', decision: 'decision' };
   const subtypeClass    = shapeSubtype === 'external' ? 'external' : shapeSubtype === 'extco' ? 'extco' : (previewClassMap[shapeType] || 'normal');
-  const labelMap = { process: 'Activité', special: 'Sous-activité', 'start-end': 'Renvoi', decision: 'Décision' };
+  const labelMap = { process: 'Activité', special: 'Résultat', 'start-end': 'Renvoi', decision: 'Décision' };
   const shapeName = (shapeSubtype === 'external' ? 'Activité externe' : shapeSubtype === 'extco' ? 'Ext. entreprise' : labelMap[shapeType]) || shapeType;
 
   const panel = document.createElement('div');

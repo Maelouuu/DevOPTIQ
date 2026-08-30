@@ -226,7 +226,10 @@ def render_tasks(activity_id):
     if not activity:
         return "Activité introuvable.", 404
 
-    sorted_tasks = sorted(activity.tasks, key=lambda t: t.order if t.order is not None else 0)
+    # `id` départage les tâches de même `order` : sans lui, la tâche qu'on
+    # vient de modifier remontait ou descendait dans la liste au rafraîchissement.
+    sorted_tasks = sorted(activity.tasks,
+                          key=lambda t: (t.order if t.order is not None else 0, t.id))
 
     # Construire task_conn_map pour l'affichage des connexions dans le partial
     task_conn_map = {}
