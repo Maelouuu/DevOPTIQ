@@ -1013,6 +1013,10 @@ TRANSLATIONS = {
 
         # ── Page Liste Activités — UI généraux ──────────────────────────────
         'act_list.selected_from_carto': 'Activité sélectionnée depuis la cartographie',
+        'act_list.selected_from_roles': 'Activité sélectionnée depuis les rôles',
+        'act_list.selected':            'Activité sélectionnée',
+        'act_list.expand_all':          'Tout ouvrir',
+        'act_list.collapse_all':        'Tout fermer',
         'act_list.result_singular':     'résultat',
         'act_list.result_plural':       'résultats',
 
@@ -1071,7 +1075,7 @@ TRANSLATIONS = {
         'nav.hr':           'HR\nManage.',
         'nav.career':       'Career\nMapping',
         'nav.tools':        'Tools\nMgmt',
-        'nav.carto':        'Cartography',
+        'nav.carto':        'Map',
         'nav.settings':     'Settings',
         'nav.logout':       'Log out',
 
@@ -1159,7 +1163,7 @@ TRANSLATIONS = {
         'page.hr':          'HR Management',
         'page.career':      'Career Mapping',
         'page.tools':       'Tools Management',
-        'page.carto':       'Cartography',
+        'page.carto':       'Map',
         'page.settings':    'Settings',
         'page.import':      'Import',
         'page.export':      'Export',
@@ -1390,7 +1394,7 @@ TRANSLATIONS = {
 
         # ── Cartographie ─────────────────────────────────────────────────────
         'carto.editor':      'Editor',
-        'carto.save':        'Save cartography',
+        'carto.save':        'Save map',
         'carto.bands':       'Bands',
         'carto.shapes':      'Shapes',
         'carto.connections': 'Connections',
@@ -1471,7 +1475,7 @@ TRANSLATIONS = {
         'share.notice_replaced_hint': 'Its content was overwritten by the map received: activities present in both keep their tasks, competencies and assessments; those no longer there were deleted.',
         'map.entity_back':              'Back to entities',
         'map.delete_modal_title':       'Delete entity',
-        'map.delete_modal_desc':        'All associated data (activities, connections, cartography) will be <strong>permanently deleted</strong>. This action is irreversible.',
+        'map.delete_modal_desc':        'All associated data (activities, connections, map) will be <strong>permanently deleted</strong>. This action is irreversible.',
         'map.rename_modal_title':       'Rename entity',
         'map.rename_placeholder':       'New name',
         'map.rename_btn':               'Rename',
@@ -1487,7 +1491,7 @@ TRANSLATIONS = {
         'map.count_activity':           'activity',
         'map.count_activities':         'activities',
         'map.search_activity':          'Search for an activity…',
-        'map.card_title':               'Cartography',
+        'map.card_title':               'Map',
         'map.cross_carto_title':        'Highlight external activities (hatched)',
         'map.no_activities':            'No activities for this entity.',
         'map.no_activities_hint':       'Save a map in the editor to import activities.',
@@ -1891,7 +1895,7 @@ TRANSLATIONS = {
         'editor.toast.pdf_done':                'PDF window opened — use Ctrl+P to save as PDF',
         'editor.toast.group_min':               'Select at least 2 shapes to create a group',
         'editor.toast.group_created':           'Group created — double-click to rename',
-        'editor.toast.new_carto':               'New cartography created',
+        'editor.toast.new_carto':               'New map created',
         'editor.toast.sync_error':              'Sync error: ',
         'editor.toast.export_carto_needs_save': 'Could not save — export cancelled.',
         'editor.toast.error_prefix':            'Error: ',
@@ -1907,7 +1911,7 @@ TRANSLATIONS = {
         'editor.confirm.delete_layer':          'Delete layer "{name}"?',
         'editor.confirm.delete_carto':          'Delete "{name}"?',
         'editor.prompt.conn_label':             'Arrow label:',
-        'editor.load.empty':                    'No saved cartography.',
+        'editor.load.empty':                    'No saved map.',
         'editor.bulk.count_hint':               'Number of shapes to create per band',
         'editor.bulk.text_section':             'Shape text',
         'editor.bulk.name_placeholder':         'Leave empty = no name',
@@ -2066,7 +2070,11 @@ TRANSLATIONS = {
         'savoirs.add_btn':  '+ Add knowledge',
 
         # ── Activities list — general UI ─────────────────────────────────────
-        'act_list.selected_from_carto': 'Activity selected from cartography',
+        'act_list.selected_from_carto': 'Activity selected from the map',
+        'act_list.selected_from_roles': 'Activity selected from Roles',
+        'act_list.selected':            'Selected activity',
+        'act_list.expand_all':          'Expand all',
+        'act_list.collapse_all':        'Collapse all',
         'act_list.result_singular':     'result',
         'act_list.result_plural':       'results',
 

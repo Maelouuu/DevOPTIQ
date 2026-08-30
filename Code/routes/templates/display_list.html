@@ -41,6 +41,11 @@
       >
     </div>
     <span id="activity-search-count" class="activity-search-count"></span>
+    <button class="btn-expand-all" id="btn-expand-all" type="button"
+            data-label-open="{{ t('act_list.expand_all') }}"
+            data-label-close="{{ t('act_list.collapse_all') }}">
+      <i class="fa-solid fa-angles-down"></i> <span>{{ t('act_list.expand_all') }}</span>
+    </button>
     <button class="btn-import-tasks" onclick="openImportModal()" title="{{ t('act_list.import_title') }}">
       <i class="fa-solid fa-file-import"></i> {{ t('act_list.import_tasks') }}
     </button>
@@ -50,7 +55,7 @@
   <div id="special-activity-section" style="display:none; margin-bottom:18px;">
     <div class="special-activity-header">
       <span class="special-activity-label">
-        <i class="fa-solid fa-location-dot"></i> {{ t('act_list.selected_from_carto') }}
+        <i class="fa-solid fa-location-dot"></i> {{ t(pinned_label or 'act_list.selected') }}
       </span>
       <button id="btn-close-special" class="special-activity-close" title="{{ t('btn.close') }}">
         <i class="fa-solid fa-xmark"></i>
@@ -288,6 +293,35 @@
         }
       }, 280);
     };
+
+    // ── Tout ouvrir / tout fermer ────────────────────────────────────────────
+    // Déplier une par une pour comparer deux activités était fastidieux ;
+    // le bouton agit sur les cartes AFFICHÉES (recherche et pagination comprises).
+    const btnAll = document.getElementById('btn-expand-all');
+    if (btnAll) {
+      const cartesVisibles = () =>
+        Array.from(document.querySelectorAll('.activity-container'))
+             .filter(c => c.style.display !== 'none');
+      const majBouton = (ouvert) => {
+        btnAll.querySelector('span').textContent =
+          ouvert ? btnAll.dataset.labelClose : btnAll.dataset.labelOpen;
+        btnAll.querySelector('i').className =
+          ouvert ? 'fa-solid fa-angles-up' : 'fa-solid fa-angles-down';
+        btnAll.dataset.open = ouvert ? '1' : '';
+      };
+      btnAll.addEventListener('click', () => {
+        const ouvrir = btnAll.dataset.open !== '1';
+        for (const carte of cartesVisibles()) {
+          const id = carte.dataset.activityId;
+          const contenu = document.getElementById('content-' + id);
+          const icone   = document.getElementById('icon-' + id);
+          if (!contenu) continue;
+          contenu.style.display = ouvrir ? 'block' : 'none';
+          if (icone) icone.textContent = ouvrir ? '▼' : '▶';
+        }
+        majBouton(ouvrir);
+      });
+    }
 
     // ── Init ─────────────────────────────────────────────────────────────────
     initSpecialSection();

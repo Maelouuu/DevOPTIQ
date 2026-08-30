@@ -247,7 +247,7 @@ function activateSvgClicks() {
             handleCrossCartoClick(name, entities);
           }
         } else {
-          window.location.href = `/activities/view?activity_id=${actId}`;
+          window.location.href = `/activities/view?activity_id=${actId}&from=carto`;
         }
       }
     });
@@ -1257,7 +1257,7 @@ function initCrossCartoMode() {
         }
       }
       if (found && found.dataset.id) {
-        window.location.href = `/activities/view?activity_id=${found.dataset.id}`;
+        window.location.href = `/activities/view?activity_id=${found.dataset.id}&from=carto`;
       }
     }
 

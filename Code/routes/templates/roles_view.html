@@ -559,7 +559,7 @@
                 <ul class="activity-list">
                   {% for act in item.block1 %}
                     <li>
-                      <a href="/activities/view?activity_id={{ act.id }}" class="activity-link">
+                      <a href="/activities/view?activity_id={{ act.id }}&from=roles" class="activity-link">
                         {{ act.name }}
                       </a>
                       {% if act.description %}
@@ -594,7 +594,7 @@
                     {% for row in item.block2 %}
                       <tr>
                         <td>
-                          <a href="/activities/view?activity_id={{ row.activity_id }}" class="activity-link">
+                          <a href="/activities/view?activity_id={{ row.activity_id }}&from=roles" class="activity-link">
                             {{ row.activity_name }}
                           </a>
                         </td>

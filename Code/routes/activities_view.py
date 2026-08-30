@@ -31,12 +31,18 @@ def view_activities():
         pass
 
     activity_id = request.args.get('activity_id', type=int)
+    # D'où vient l'activité épinglée ? Le bandeau doit le dire juste : on
+    # arrivait ici depuis la page Rôles avec « sélectionnée depuis la carte ».
+    origines = {'carto': 'act_list.selected_from_carto',
+                'roles': 'act_list.selected_from_roles'}
+    pinned_label = origines.get((request.args.get('from') or '').strip().lower(),
+                                'act_list.selected')
     total       = Activities.for_active_entity().count()
 
     if not total:
         return render_template('display_list.html', activity_data=[],
                                has_more=False, next_offset=0, total=0,
-                               pinned_activity_id=None)
+                               pinned_activity_id=None, pinned_label=pinned_label)
 
     if activity_id:
         target = Activities.for_active_entity().filter(Activities.id == activity_id).first()
@@ -59,7 +65,8 @@ def view_activities():
                            has_more=has_more,
                            next_offset=next_offset,
                            total=total,
-                           pinned_activity_id=activity_id)
+                           pinned_activity_id=activity_id,
+                           pinned_label=pinned_label)
 
 
 @activities_bp.route('/view/more', methods=['GET'])

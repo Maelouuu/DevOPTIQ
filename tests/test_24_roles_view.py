@@ -283,3 +283,74 @@ class TestActivityItemsAPI:
         body = auth_client.get(f"/your_api/activity_items/{ids['activity_id']}").get_json()
         names = [item["name"] for item in body["hsc"]]
         assert any("Adaptabilité (Avancé)" in n for n in names)
+
+
+# ── Statut Garant : la casse ne doit plus decider ────────────────────────────
+# L'import carto ecrivait 'garant' en minuscule et la page Roles cherchait
+# 'Garant' : un role garant d'apres la carte n'apparaissait nulle part.
+
+def test_un_garant_en_minuscule_est_bien_liste(app, auth_client, ids):
+    from Code.extensions import db
+    from Code.models.models import Role, Activities, activity_roles
+    from sqlalchemy import text
+
+    with app.app_context():
+        role = Role(name="Role garant minuscule", entity_id=ids["entity_id"])
+        db.session.add(role)
+        acte = Activities(name="Activite du garant minuscule", entity_id=ids["entity_id"])
+        db.session.add(acte)
+        db.session.commit()
+        rid, aid = role.id, acte.id
+        db.session.execute(
+            activity_roles.insert().values(activity_id=aid, role_id=rid, status='garant'))
+        db.session.commit()
+
+    res = auth_client.get("/roles_view/")
+    assert res.status_code == 200
+    page = res.data.decode("utf-8")
+    assert "Activite du garant minuscule" in page, (
+        "une activite dont le statut est 'garant' (minuscule) doit apparaitre "
+        "dans le bloc Garant de la fiche role")
+
+    with app.app_context():
+        db.session.execute(text(
+            "DELETE FROM activity_roles WHERE role_id = :r"), {"r": rid})
+        db.session.query(Activities).filter_by(id=aid).delete()
+        db.session.query(Role).filter_by(id=rid).delete()
+        db.session.commit()
+
+
+def test_la_carto_ecrit_le_statut_garant_capitalise(app, auth_client, ids):
+    """Une carto enregistree doit poser status='Garant', comme le reste de l'app."""
+    from Code.extensions import db
+    from sqlalchemy import text
+
+    diagramme = {
+        "shapes": [{"id": "g1", "type": "process", "label": "Activite bande garante",
+                    "x": 40, "y": -150, "w": 120, "h": 60}],   # dans la bande (elle demarre a -200)
+        "bands": [{"id": "bg", "label": "Bande garante", "height": 200}],
+        "connections": [],
+        "bandWidth": 900,
+    }
+    # d'autres tests laissent la session sur un autre compte
+    with app.app_context():
+        from Code.models.models import User
+        seed = User.query.filter_by(email="test@devoptiq.com").first()
+        uid, umail = seed.id, seed.email
+    with auth_client.session_transaction() as sess:
+        sess["user_id"] = uid
+        sess["user_email"] = umail
+        sess["active_entity_id"] = ids["entity_id"]
+
+    res = auth_client.post('/cartography/api/save', json={'diagram': diagramme})
+    assert res.status_code == 200
+
+    # La base de test est partagee : on ne regarde que les lignes creees par
+    # CETTE carto, sinon un autre test qui insere 'garant' fait echouer celui-ci.
+    with app.app_context():
+        statuts = {r[0] for r in db.session.execute(text(
+            "SELECT ar.status FROM activity_roles ar "
+            "JOIN activities a ON a.id = ar.activity_id "
+            "WHERE a.name = :n"), {"n": "Activite bande garante"}).fetchall()}
+        assert statuts, "la carto doit poser un garant sur l'activite de sa bande"
+        assert statuts == {"Garant"}, f"statut attendu 'Garant', obtenu {statuts}"

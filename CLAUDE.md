@@ -249,6 +249,28 @@ transporte le diagramme **tel qu'il est en base**, d'un compte à l'autre.
 
 ---
 
+## Page Activités & fiche Rôle — points d'attention
+
+- **« Tout ouvrir » / « Tout fermer »** (`display_list.html`) : déplie toutes les
+  cartes AFFICHÉES (recherche et pagination comprises), le libellé et l'icône du
+  bouton suivent l'état.
+- ⚠️ **Statut `Garant` : la casse comptait.** L'import carto écrivait
+  `status='garant'` (minuscule) dans `activity_roles`, la page Rôles cherchait
+  `'Garant'` — un rôle garant d'après la carte n'apparaissait donc NULLE PART
+  dans sa fiche (blocs Activités garant, compétences et savoirs associés).
+  Corrigé des deux côtés : l'écriture est capitalisée partout, les lectures
+  comparent en `LOWER(...)` (roles_view, export, gestion_rh, roles), et un
+  `UPDATE` au démarrage normalise les lignes existantes. `activities_view.py`
+  était déjà insensible à la casse — d'où une fiche activité juste et une fiche
+  rôle vide, le symptôme trompeur.
+- **Provenance de l'activité épinglée** : `/activities/view?activity_id=…` reçoit
+  aussi `from=carto|roles`. Le bandeau rouge disait « sélectionnée depuis la
+  cartographie » même en venant de la page Rôles ; il dit maintenant la bonne
+  origine, et un libellé neutre sans paramètre.
+- **Terme produit en anglais = « Map »** (`nav.carto`, `page.carto`,
+  `map.card_title`, `carto.save`, toasts éditeur). Les URLs, fichiers et ids
+  restent `cartography` : ce sont des chemins, pas de l'affichage.
+
 ## Refonte Compétences V1.1 (CDC OPTIQ — en cours)
 
 Plan complet : `docs/refonte_competences_v1_1.md`. Recâble le module autour de la chaîne
