@@ -19,6 +19,48 @@ import pytest
 pytestmark = pytest.mark.competences_plan
 
 
+class _FakeMessage:
+    def __init__(self, content):
+        self.content = content
+
+
+class _FakeChoice:
+    def __init__(self, content):
+        self.message = _FakeMessage(content)
+
+
+class _FakeCompletion:
+    def __init__(self, content):
+        self.choices = [_FakeChoice(content)]
+
+
+class _FakeChatCompletions:
+    def __init__(self, content=None, raise_exc=None):
+        self._content = content
+        self._raise_exc = raise_exc
+
+    def create(self, **kwargs):
+        if self._raise_exc is not None:
+            raise self._raise_exc
+        return _FakeCompletion(self._content)
+
+
+class _FakeChat:
+    def __init__(self, content=None, raise_exc=None):
+        self.completions = _FakeChatCompletions(content, raise_exc)
+
+
+class _FakeAiClient:
+    def __init__(self, content=None, raise_exc=None):
+        self.chat = _FakeChat(content, raise_exc)
+
+
+def _mock_llm(monkeypatch, content=None, raise_exc=None, model="gpt-4o-mini"):
+    monkeypatch.setattr("Code.routes.competences_plan.get_openai_key", lambda: "sk-fake-test-key")
+    fake_client = _FakeAiClient(content=content, raise_exc=raise_exc)
+    monkeypatch.setattr("Code.ai_client.make_ai_client", lambda: (fake_client, model, None))
+
+
 # ---------------------------------------------------------------------------
 # Fixtures locales
 # ---------------------------------------------------------------------------
@@ -265,6 +307,78 @@ class TestGeneratePlan:
         )
         assert r.status_code == 200
         assert r.get_json()["ok"] is True
+
+    def test_generate_plan_no_prompt_header_returns_503(self, auth_client, ids, monkeypatch):
+        monkeypatch.setattr("Code.routes.competences_plan.get_prompt", lambda key: None)
+        r = auth_client.post(
+            "/competences_plan/generate_plan",
+            data=self._payload(ids),
+            content_type="application/json",
+        )
+        assert r.status_code == 503
+        assert r.get_json()["ok"] is False
+
+    def test_generate_plan_missing_field_falls_back_with_warning(self, auth_client):
+        """Un payload incomplet (KeyError dans le bloc principal) doit renvoyer un plan
+        dummy annoté plutôt qu'une 500."""
+        r = auth_client.post(
+            "/competences_plan/generate_plan",
+            data=json.dumps({"user_id": 1}),
+            content_type="application/json",
+        )
+        assert r.status_code == 200
+        body = r.get_json()
+        assert body["ok"] is True
+        assert "warning" in body
+        assert body["plan"]["meta"]["source"] == "error_fallback"
+
+    def test_generate_plan_with_ai_success_returns_parsed_plan(self, auth_client, ids, monkeypatch):
+        content = json.dumps({"type": "PLAN_IA", "axes": [{"intitule": "Axe IA"}]})
+        _mock_llm(monkeypatch, content=content)
+        r = auth_client.post(
+            "/competences_plan/generate_plan",
+            data=self._payload(ids),
+            content_type="application/json",
+        )
+        assert r.status_code == 200
+        plan = r.get_json()["plan"]
+        assert plan["type"] == "PLAN_IA"
+        assert plan["axes"] == [{"intitule": "Axe IA"}]
+
+    def test_generate_plan_with_ai_wrapped_json_is_extracted(self, auth_client, ids, monkeypatch):
+        """Le modèle a entouré le JSON de texte libre : on l'extrait via regex."""
+        content = 'Voici le plan demandé :\n{"type": "PLAN_WRAPPED", "axes": []}'
+        _mock_llm(monkeypatch, content=content)
+        r = auth_client.post(
+            "/competences_plan/generate_plan",
+            data=self._payload(ids),
+            content_type="application/json",
+        )
+        assert r.status_code == 200
+        assert r.get_json()["plan"]["type"] == "PLAN_WRAPPED"
+
+    def test_generate_plan_with_ai_unparseable_content_falls_back_dummy(self, auth_client, ids, monkeypatch):
+        _mock_llm(monkeypatch, content="Ceci n'est pas du JSON du tout.")
+        r = auth_client.post(
+            "/competences_plan/generate_plan",
+            data=self._payload(ids),
+            content_type="application/json",
+        )
+        assert r.status_code == 200
+        plan = r.get_json()["plan"]
+        assert plan["meta"]["source"] == "fallback_parse_error"
+
+    def test_generate_plan_with_ai_exception_falls_back_dummy(self, auth_client, ids, monkeypatch):
+        _mock_llm(monkeypatch, raise_exc=RuntimeError("boom-ia"))
+        r = auth_client.post(
+            "/competences_plan/generate_plan",
+            data=self._payload(ids),
+            content_type="application/json",
+        )
+        assert r.status_code == 200
+        plan = r.get_json()["plan"]
+        assert plan["meta"]["source"] == "fallback_exception"
+        assert "boom-ia" in plan["meta"]["error"]
 
 
 # ===========================================================================

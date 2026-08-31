@@ -11,6 +11,48 @@ import pytest
 pytestmark = pytest.mark.onboarding
 
 
+class _FakeMessage:
+    def __init__(self, content):
+        self.content = content
+
+
+class _FakeChoice:
+    def __init__(self, content):
+        self.message = _FakeMessage(content)
+
+
+class _FakeCompletion:
+    def __init__(self, content):
+        self.choices = [_FakeChoice(content)]
+
+
+class _FakeChatCompletions:
+    def __init__(self, content=None, raise_exc=None):
+        self._content = content
+        self._raise_exc = raise_exc
+
+    def create(self, **kwargs):
+        if self._raise_exc is not None:
+            raise self._raise_exc
+        return _FakeCompletion(self._content)
+
+
+class _FakeChat:
+    def __init__(self, content=None, raise_exc=None):
+        self.completions = _FakeChatCompletions(content, raise_exc)
+
+
+class _FakeAiClient:
+    def __init__(self, content=None, raise_exc=None):
+        self.chat = _FakeChat(content, raise_exc)
+
+
+def _mock_ai(monkeypatch, content=None, raise_exc=None):
+    monkeypatch.setattr("Code.routes.onboarding.get_openai_key", lambda: "sk-fake-test-key")
+    fake_client = _FakeAiClient(content=content, raise_exc=raise_exc)
+    monkeypatch.setattr("Code.ai_client.make_ai_client", lambda: (fake_client, "gpt-4o-mini", None))
+
+
 def _create_role(app, ids):
     """Crée un rôle de test et retourne son id."""
     from Code.extensions import db
@@ -143,6 +185,58 @@ class TestGenerateOnboarding:
             content_type="application/json",
         )
         assert r.content_type.startswith("application/json")
+
+    def test_prompt_non_charge_retourne_500(self, auth_client, app, ids, monkeypatch):
+        """get_prompt renvoie None (prompts non chargés) → 500 avant même de vérifier la clé."""
+        monkeypatch.setattr("Code.routes.onboarding.get_prompt", lambda *a, **k: None)
+        role_id = _create_role(app, ids)
+        try:
+            r = auth_client.post(
+                f"/roles/{role_id}/onboarding/generate",
+                json={"hsc_list": []},
+                content_type="application/json",
+            )
+            assert r.status_code == 500
+            assert "error" in r.get_json()
+        finally:
+            _delete_role(app, role_id)
+
+    def test_generation_succes_sauvegarde_plan(self, auth_client, app, ids, monkeypatch):
+        """Avec clé IA et client mockés, le plan généré est renvoyé et persisté sur le rôle."""
+        _mock_ai(monkeypatch, content="  Plan d'onboarding généré  ")
+        role_id = _create_role(app, ids)
+        try:
+            r = auth_client.post(
+                f"/roles/{role_id}/onboarding/generate",
+                json={"hsc_list": ["Rigueur"]},
+                content_type="application/json",
+            )
+            assert r.status_code == 200
+            data = r.get_json()
+            assert data["onboarding_plan"] == "Plan d'onboarding généré"
+            assert "message" in data
+
+            with app.app_context():
+                from Code.models.models import Role
+                role = Role.query.get(role_id)
+                assert role.onboarding_plan == "Plan d'onboarding généré"
+        finally:
+            _delete_role(app, role_id)
+
+    def test_generation_exception_ia_retourne_500(self, auth_client, app, ids, monkeypatch):
+        """Une exception du client IA est renvoyée en 500 avec le message d'erreur."""
+        _mock_ai(monkeypatch, raise_exc=RuntimeError("boom-onboarding"))
+        role_id = _create_role(app, ids)
+        try:
+            r = auth_client.post(
+                f"/roles/{role_id}/onboarding/generate",
+                json={"hsc_list": []},
+                content_type="application/json",
+            )
+            assert r.status_code == 500
+            assert "boom-onboarding" in r.get_json()["error"]
+        finally:
+            _delete_role(app, role_id)
 
 
 # ===========================================================================
