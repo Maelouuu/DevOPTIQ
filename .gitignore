@@ -7,6 +7,7 @@ Code/instance/
 # Exclure les fichiers temporaires ou système
 *.log
 *.tmp
+.coverage
 .DS_StorPyt
 Z-Dev bis/
 .env
