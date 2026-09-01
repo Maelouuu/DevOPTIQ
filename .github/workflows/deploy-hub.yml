@@ -1,0 +1,127 @@
+name: Deploy → Optiq Hub (optiq-hub)
+
+# Point d'entrée unique de l'écosystème (hub/ — service séparé de l'app).
+# Regroupe les instances, la documentation et le catalogue des outils.
+# Accès par compte unique (voir hub/README.md).
+
+on:
+  push:
+    branches: [staging]
+    paths:
+      - 'hub/**'
+      - 'docs/**'
+      - '.github/workflows/deploy-hub.yml'
+  workflow_dispatch:
+
+env:
+  PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+  REGION: europe-west1
+  SERVICE: optiq-hub
+  IMAGE: europe-west1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/cloud-run-source-deploy/optiq-hub
+
+jobs:
+  deploy:
+    name: Build & Deploy (Optiq Hub)
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      id-token: write   # requis pour Workload Identity Federation
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
+          service_account: ${{ secrets.GCP_SA_EMAIL }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev --quiet
+
+      # La doc est servie PAR le hub : on l'embarque dans le contexte de build.
+      # (Le .dockerignore de la racine exclut docs/ de l'image applicative ;
+      # ici le contexte est hub/, donc il ne s'applique pas.)
+      - name: Embarquer la documentation
+        run: |
+          rm -rf hub/_docs && mkdir -p hub/_docs
+          cp docs/doc_technique.html docs/guide.html hub/_docs/
+          cp docs/refonte_competences_v1_1.md hub/_docs/ 2>/dev/null || true
+          cp -r docs/assets hub/_docs/assets
+          # guide_standalone.html (~32 Mo) reste dehors : le guide servi ici
+          # charge ses médias depuis /assets, l'autonome ne sert qu'à l'envoi.
+          du -sh hub/_docs
+
+      - name: Build Docker image
+        run: |
+          docker build -t ${{ env.IMAGE }}:${{ github.sha }} -t ${{ env.IMAGE }}:latest hub/
+
+      - name: Push Docker image
+        run: |
+          docker push ${{ env.IMAGE }}:${{ github.sha }}
+          docker push ${{ env.IMAGE }}:latest
+
+      # Clé de session : conservée d'un déploiement à l'autre pour ne pas
+      # déconnecter à chaque livraison ; générée au premier passage.
+      - name: Clé de session
+        run: |
+          KEY=$(gcloud run services describe ${{ env.SERVICE }} \
+                  --region ${{ env.REGION }} \
+                  --format='value(spec.template.spec.containers[0].env.filter("name:HUB_SECRET_KEY").extract("value"))' \
+                2>/dev/null | tr -d '[]' || true)
+          if [ -z "$KEY" ]; then
+            KEY=$(python3 -c "import secrets; print(secrets.token_hex(32))")
+            echo "Clé de session générée (1er déploiement)"
+          fi
+          echo "::add-mask::$KEY"
+          echo "HUB_KEY=$KEY" >> "$GITHUB_ENV"
+
+      - name: Deploy to Cloud Run (optiq-hub)
+        env:
+          SECRET_HUB_PASSWORD: ${{ secrets.HUB_PASSWORD }}
+        run: |
+          # Délimiteur ^##^ : un mot de passe peut contenir , : @ (jamais ##).
+          VARS="HUB_SECRET_KEY=${HUB_KEY}"
+          if [ -n "$SECRET_HUB_PASSWORD" ]; then
+            VARS="${VARS}##HUB_PASSWORD=${SECRET_HUB_PASSWORD}"
+          fi
+          if ! gcloud run deploy ${{ env.SERVICE }} \
+            --image ${{ env.IMAGE }}:${{ github.sha }} \
+            --region ${{ env.REGION }} \
+            --platform managed \
+            --allow-unauthenticated \
+            --memory 512Mi --cpu 1 --max-instances 2 \
+            --update-env-vars "^##^${VARS}" \
+            --quiet; then
+            echo "=== ÉCHEC DU DÉPLOIEMENT — logs récents du service ==="
+            gcloud logging read \
+              "resource.type=cloud_run_revision AND resource.labels.service_name=${{ env.SERVICE }}" \
+              --project "${{ env.PROJECT_ID }}" --freshness 15m --limit 100 \
+              --order desc --format 'value(timestamp,severity,textPayload)' || true
+            exit 1
+          fi
+
+      - name: Smoke test
+        run: |
+          URL=$(gcloud run services describe ${{ env.SERVICE }} \
+            --region ${{ env.REGION }} --format='value(status.url)')
+          echo "Optiq Hub : $URL"
+          # /health et PAS /healthz : ce dernier est intercepté par le frontend
+          # Google sur *.run.app (404 avant même d'atteindre le conteneur).
+          for i in 1 2 3 4 5 6; do
+            CODE=$(curl -s -o /dev/null -w '%{http_code}' "$URL/health" || echo 000)
+            [ "$CODE" = "200" ] && break
+            echo "tentative $i : $CODE — nouvelle tentative dans 10 s"
+            sleep 10
+          done
+          [ "$CODE" = "200" ] || { echo "healthcheck KO ($CODE)"; exit 1; }
+          # La racine doit renvoyer vers la connexion : le hub n'est pas public.
+          REDIR=$(curl -s -o /dev/null -w '%{http_code}' "$URL/")
+          echo "racine : $REDIR (302 attendu)"
+          [ "$REDIR" = "302" ] || { echo "le hub devrait exiger une connexion"; exit 1; }
+          echo "OPTIQ HUB EN LIGNE : $URL"

@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Optiq Hub</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,700&family=Fraunces:opsz,wght@9..144,600;9..144,700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="{{ url_for('static', filename='hub.css') }}">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='13' fill='none' stroke='%2349e8a4' stroke-width='4'/></svg>">
+</head>
+<body>
+
+<svg class="sprite" aria-hidden="true">
+  <symbol id="i-lien" viewBox="0 0 24 24"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></symbol>
+  <symbol id="i-livre" viewBox="0 0 24 24"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 19a2 2 0 0 1 2-2h13"/></symbol>
+  <symbol id="i-boussole" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="m15.5 8.5-2 5-5 2 2-5z"/></symbol>
+  <symbol id="i-plan" viewBox="0 0 24 24"><path d="M4 6h16M4 12h10M4 18h13"/></symbol>
+  <symbol id="i-copie" viewBox="0 0 24 24"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></symbol>
+  <symbol id="i-ok" viewBox="0 0 24 24"><path d="m5 13 4 4 10-10"/></symbol>
+  <symbol id="i-git" viewBox="0 0 24 24"><circle cx="6" cy="6" r="2.5"/><circle cx="6" cy="18" r="2.5"/><circle cx="18" cy="9" r="2.5"/><path d="M6 8.5v7M8.5 6H14a2 2 0 0 1 2 2v.5"/></symbol>
+  <symbol id="i-terminal" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="m7 9 3 3-3 3M13 15h4"/></symbol>
+  <symbol id="i-onde" viewBox="0 0 24 24"><path d="M3 12h3l2.5-7 3.5 14 3-9 2 4h4"/></symbol>
+</svg>
+
+<div class="aurore" aria-hidden="true"></div>
+
+<header class="entete">
+  <div class="entete-in">
+    <a class="marque" href="/">
+      <span class="marque-pastille"></span>
+      <span>
+        <strong>Optiq</strong> Hub
+        <em>l'écosystème DevOPTIQ en un seul endroit</em>
+      </span>
+    </a>
+    <nav class="nav-ancres">
+      <a href="#instances">Instances</a>
+      <a href="#documentation">Documentation</a>
+      <a href="#outils">Outils locaux</a>
+      <a href="#depot">Dépôt &amp; CI</a>
+    </nav>
+    <a class="deconnexion" href="{{ url_for('logout') }}">Quitter</a>
+  </div>
+</header>
+
+<main class="page">
+
+  <section class="bandeau">
+    <h1>Tout l'écosystème, à un seul endroit</h1>
+    <p>
+      Les instances en ligne et leur état réel, la documentation servie directement ici,
+      le suivi d'audience, et les commandes qui tournent sur votre poste — sans avoir à
+      retrouver une URL, un fichier ou une ligne de terminal.
+    </p>
+    <div class="compteurs">
+      <div class="compteur"><b id="c-ligne">—</b><span>instances en ligne</span></div>
+      <div class="compteur"><b>{{ inv.INSTANCES|length }}</b><span>services déployés</span></div>
+      <div class="compteur"><b>{{ inv.DOCUMENTS|length }}</b><span>documents</span></div>
+      <div class="compteur"><b>{{ inv.OUTILS|map(attribute='entrees')|map('length')|sum }}</b><span>commandes cataloguées</span></div>
+    </div>
+  </section>
+
+  <!-- ══════════ INSTANCES ══════════ -->
+  <section id="instances" class="bloc">
+    <div class="bloc-tete">
+      <h2>Instances en ligne</h2>
+      <p>Chaque service déployé, à qui il s'adresse et sur quelle base il tourne.
+         L'état est mesuré depuis le hub, pas déclaré.</p>
+      <button class="btn-refresh" id="btn-refresh" type="button">
+        <svg class="ic"><use href="#i-onde"></use></svg> Actualiser l'état
+      </button>
+    </div>
+
+    <div class="grille-instances">
+      {% for i in inv.INSTANCES %}
+      {% set e = etats.get(i.cle, {}) %}
+      <article class="carte-instance acc-{{ i.accent }}" data-cle="{{ i.cle }}">
+        <div class="ci-liseret"></div>
+        <header class="ci-tete">
+          <div>
+            <h3>{{ i.nom }}</h3>
+            <code class="ci-service">{{ i.service }}</code>
+          </div>
+          <span class="pastille etat-{{ (e.etat or 'inconnu')|replace(' ', '-')|replace('é','e') }}"
+                data-role="pastille">
+            <i></i><span data-role="libelle">{{ e.etat or 'sondage…' }}</span>
+          </span>
+        </header>
+
+        <p class="ci-role">{{ i.role }}</p>
+
+        <dl class="ci-meta">
+          <div><dt>Public</dt><dd>{{ i.public }}</dd></div>
+          <div><dt>Branche</dt><dd><code>{{ i.branche }}</code></dd></div>
+          <div><dt>Base</dt><dd>{{ i.base }}</dd></div>
+          <div><dt>Déploiement</dt><dd><code>{{ i.workflow }}</code></dd></div>
+        </dl>
+
+        {% if i.notes %}<p class="ci-note">{{ i.notes }}</p>{% endif %}
+
+        <footer class="ci-pied">
+          <a class="btn-principal" href="{{ i.url }}" target="_blank" rel="noopener">
+            Ouvrir <svg class="ic"><use href="#i-lien"></use></svg>
+          </a>
+          {% for l in i.liens or [] %}
+            <a class="btn-secondaire" href="{{ i.url }}{{ l.href }}" target="_blank" rel="noopener">{{ l.libelle }}</a>
+          {% endfor %}
+          <span class="ci-latence" data-role="latence">
+            {%- if e.ms %}{{ e.ms }} ms{% endif -%}
+          </span>
+        </footer>
+      </article>
+      {% endfor %}
+    </div>
+  </section>
+
+  <!-- ══════════ DOCUMENTATION ══════════ -->
+  <section id="documentation" class="bloc">
+    <div class="bloc-tete">
+      <h2>Documentation</h2>
+      <p>Servie par le hub : plus besoin d'ouvrir un fichier local ni de le retrouver dans le dépôt.</p>
+    </div>
+    <div class="grille-docs">
+      {% for d in inv.DOCUMENTS %}
+      <a class="carte-doc acc-{{ d.accent }}" href="{{ d.href }}" target="_blank" rel="noopener">
+        <svg class="carte-doc-ic"><use href="#i-{{ d.icone }}"></use></svg>
+        <h3>{{ d.titre }}</h3>
+        <p>{{ d.resume }}</p>
+        <code>{{ d.source }}</code>
+      </a>
+      {% endfor %}
+    </div>
+  </section>
+
+  <!-- ══════════ OUTILS LOCAUX ══════════ -->
+  <section id="outils" class="bloc">
+    <div class="bloc-tete">
+      <h2>Outils locaux</h2>
+      <p>Ces traitements tournent sur votre poste — une page web ne peut pas les lancer à votre place.
+         Le hub en garde le mode d'emploi : ce que fait chaque commande, quand s'en servir,
+         et la ligne exacte à coller, en un clic.</p>
+    </div>
+
+    {% for cat in inv.OUTILS %}
+    <div class="cat-outils acc-{{ cat.accent }}">
+      <h3 class="cat-titre"><svg class="ic"><use href="#i-terminal"></use></svg> {{ cat.categorie }}</h3>
+      <div class="grille-outils">
+        {% for o in cat.entrees %}
+        <article class="carte-outil">
+          <h4>{{ o.titre }}</h4>
+          <p class="co-quoi">{{ o.quoi }}</p>
+          <p class="co-quand"><span>Quand</span> {{ o.quand }}</p>
+          <div class="co-cmd">
+            <code>{{ o.cmd }}</code>
+            <button class="btn-copie" type="button" data-cmd="{{ o.cmd }}" title="Copier la commande">
+              <svg class="ic"><use href="#i-copie"></use></svg>
+              <svg class="ic ic-ok"><use href="#i-ok"></use></svg>
+            </button>
+          </div>
+        </article>
+        {% endfor %}
+      </div>
+    </div>
+    {% endfor %}
+  </section>
+
+  <!-- ══════════ DÉPÔT & CI ══════════ -->
+  <section id="depot" class="bloc">
+    <div class="bloc-tete">
+      <h2>Dépôt &amp; intégration continue</h2>
+      <p>Quelle branche part où, et par quel workflow.</p>
+    </div>
+
+    <div class="duo">
+      <div class="panneau">
+        <h3><svg class="ic"><use href="#i-git"></use></svg> Branches</h3>
+        <ul class="liste-branches">
+          {% for b in inv.BRANCHES %}
+          <li class="acc-{{ b.accent }}">
+            <code>{{ b.nom }}</code>
+            <span>{{ b.role }}</span>
+            <em>→ {{ b.deploie }}</em>
+          </li>
+          {% endfor %}
+        </ul>
+        <a class="btn-secondaire" href="{{ inv.DEPOT }}" target="_blank" rel="noopener">
+          Ouvrir le dépôt <svg class="ic"><use href="#i-lien"></use></svg>
+        </a>
+      </div>
+
+      <div class="panneau">
+        <h3><svg class="ic"><use href="#i-onde"></use></svg> Workflows</h3>
+        <table class="tab">
+          <thead><tr><th>Workflow</th><th>Déclencheur</th><th>Cible</th></tr></thead>
+          <tbody>
+            {% for w in inv.WORKFLOWS %}
+            <tr>
+              <td><a href="{{ inv.DEPOT }}/actions/workflows/{{ w.fichier }}" target="_blank" rel="noopener">{{ w.titre }}</a></td>
+              <td>{{ w.declencheur }}</td>
+              <td><code>{{ w.cible }}</code></td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="panneau panneau-large">
+      <h3>Secrets GitHub utilisés</h3>
+      <p class="panneau-sous">Nommés ici pour mémoire — leurs valeurs ne sont ni stockées ni affichées par le hub.</p>
+      <ul class="liste-secrets">
+        {% for s in inv.SECRETS %}
+        <li><code>{{ s.nom }}</code><span>{{ s.usage }}</span></li>
+        {% endfor %}
+      </ul>
+    </div>
+  </section>
+
+  <footer class="pied">
+    <span>Optiq Hub — AFDEC</span>
+    <span>Usage interne · ne pas diffuser</span>
+  </footer>
+</main>
+
+<script>window.__ETATS__ = {{ etats | tojson }};</script>
+<script src="{{ url_for('static', filename='hub.js') }}"></script>
+</body>
+</html>

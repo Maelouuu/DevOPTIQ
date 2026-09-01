@@ -23,3 +23,6 @@ Code/prompts/prompts.enc
 docs/guide_standalone.html
 tools/guide/auth_state.json
 tools/guide/demo_v2.db*
+
+# Hub : la doc est copiee dans l image au build, jamais versionnee ici
+hub/_docs/

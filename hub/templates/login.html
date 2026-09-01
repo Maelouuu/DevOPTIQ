@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Optiq Hub — Connexion</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,700&family=Fraunces:opsz,wght@9..144,600;9..144,700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="{{ url_for('static', filename='hub.css') }}">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='13' fill='none' stroke='%2349e8a4' stroke-width='4'/></svg>">
+</head>
+<body>
+<div class="aurore" aria-hidden="true"></div>
+
+<div class="page-login">
+  <form class="boite-login" method="post" autocomplete="on">
+    <div class="marque">
+      <span class="marque-pastille"></span>
+      <span><strong>Optiq</strong> Hub</span>
+    </div>
+    <h1>Accès réservé</h1>
+    <p class="sous">Ce hub nomme les instances, les bases et les secrets internes.</p>
+
+    {% if erreur %}<div class="erreur">{{ erreur }}</div>{% endif %}
+
+    <input type="hidden" name="suite" value="{{ suite }}">
+    <div class="champ">
+      <label for="username">Identifiant</label>
+      <input id="username" name="username" autocomplete="username" required autofocus>
+    </div>
+    <div class="champ">
+      <label for="password">Mot de passe</label>
+      <input id="password" name="password" type="password" autocomplete="current-password" required>
+    </div>
+    <button class="btn-login" type="submit">Entrer</button>
+  </form>
+</div>
+</body>
+</html>

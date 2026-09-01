@@ -813,6 +813,34 @@ jamais exposées aux utilisateurs). Deux morceaux :
   changer via secret/env `PULSE_PASSWORD`), anti-force-brute, noindex.
   Tests : `tests/test_61_pulse.py` (14). Doc : `pulse/README.md`.
 
+## Optiq Hub — point d'entrée unique (2026-09)
+
+`hub/` — service Cloud Run **séparé de l'app** (même patron qu'OptiqPulse),
+déployé par `.github/workflows/deploy-hub.yml` sur push `staging` touchant
+`hub/**` ou `docs/**`. Il regroupe ce qui était éparpillé : instances en ligne
+avec leur **état sondé en direct** (côté serveur, cache 25 s, pool de threads),
+documentation **servie par le hub** (`/doc`, `/guide`, `/doc/refonte`, médias
+sous `/assets/…`), catalogue des commandes locales copiables, branches et
+workflows. Compte unique `Mael_Girardin` (secret `HUB_PASSWORD`, défaut baké
+`testtest`), anti-force-brute, `noindex`.
+
+- ⚠️ **Tout le contenu vit dans `hub/inventaire.py`** — instances, documents,
+  commandes, branches, secrets. Le gabarit ne porte aucune donnée en dur :
+  ajouter une instance, c'est éditer une liste Python. **Aucun secret dedans** :
+  on nomme les bases et les secrets GitHub, on ne recopie pas leurs valeurs.
+- ⚠️ **La doc est copiée dans `hub/_docs` par le workflow, jamais versionnée**
+  (`.gitignore`) : le `.dockerignore` de la racine exclut `docs/`, mais le
+  contexte de build du hub est `hub/`, donc cette exclusion ne s'y applique pas.
+  `guide_standalone.html` (~32 Mo) reste dehors — le guide servi charge ses
+  médias depuis `/assets`.
+- ⚠️ `/health` et **pas** `/healthz` (intercepté par le frontend Google sur
+  `*.run.app`) ; `HUB_SECRET_KEY` est conservée d'un déploiement à l'autre,
+  sinon chaque livraison déconnecte la session.
+- **Ce que le hub ne fait pas** : lancer les traitements locaux (`pytest`,
+  provisionnement, captures du guide). Une page hébergée ne peut pas exécuter
+  un script sur le poste de l'utilisateur ; le hub en garde le mode d'emploi et
+  la commande exacte, copiable en un clic.
+
 ## Provisionnement — compléter une carto avec un Excel client
 
 `tools/provisioning/provision.py` sait aussi **injecter les tâches d'un tableur
