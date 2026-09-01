@@ -41,11 +41,11 @@ def list_users():
 
         print(f"📊 Nombre de rôles trouvés: {len(roles)}")
 
-        # Récupérer tous les utilisateurs (tri alphabétique par NOM COMPLET)
-        if active_entity_id:
-            users = User.query.filter_by(entity_id=active_entity_id).order_by(User.first_name, User.last_name).all()
-        else:
-            users = User.query.order_by(User.first_name, User.last_name).all()
+        # Tous les utilisateurs de la base, SANS filtre d'entité : la page
+        # Comptes administre les comptes de l'instance entière — filtrer par
+        # entité active masquait les comptes sans entité (page « 0 users »
+        # dès qu'une entité était sélectionnée).
+        users = User.query.order_by(User.first_name, User.last_name).all()
 
         print(f"👥 Nombre d'utilisateurs trouvés: {len(users)}")
 
@@ -71,10 +71,7 @@ def list_users():
             manager_role = Role.query.filter_by(name="manager").first()
 
         if manager_role:
-            if active_entity_id:
-                managers = User.query.filter_by(entity_id=active_entity_id).join(UserRole, User.id == UserRole.user_id).filter(UserRole.role_id == manager_role.id).all()
-            else:
-                managers = User.query.join(UserRole, User.id == UserRole.user_id).filter(UserRole.role_id == manager_role.id).all()
+            managers = User.query.join(UserRole, User.id == UserRole.user_id).filter(UserRole.role_id == manager_role.id).all()
         else:
             managers = []
 
@@ -133,15 +130,15 @@ def create_user():
         return redirect(url_for('gestion_compte.list_users', msg='error_missing_email'))
     if not password or len(password) < 6:
         return redirect(url_for('gestion_compte.list_users', msg='error_missing_password'))
-    if not role_id_raw:
-        return redirect(url_for('gestion_compte.list_users', msg='error_missing_role'))
+    # Rôle FACULTATIF : un compte peut exister sans rôle (ex. premier admin
+    # avant que les rôles de l'entité soient créés).
     if User.query.filter_by(email=email).first():
         return redirect(url_for('gestion_compte.list_users', msg='error_email_exists'))
 
     try:
-        role_id = int(role_id_raw)
+        role_id = int(role_id_raw) if role_id_raw else None
     except ValueError:
-        return redirect(url_for('gestion_compte.list_users', msg='error_missing_role'))
+        role_id = None
 
     age = int(age_raw) if age_raw else None
 
@@ -159,9 +156,9 @@ def create_user():
     db.session.add(user)
     db.session.commit()
 
-    user_role = UserRole(user_id=user.id, role_id=role_id)
-    db.session.add(user_role)
-    db.session.commit()
+    if role_id:
+        db.session.add(UserRole(user_id=user.id, role_id=role_id))
+        db.session.commit()
 
     return redirect(url_for('gestion_compte.list_users', tab='list-tab', msg='created'))
 
