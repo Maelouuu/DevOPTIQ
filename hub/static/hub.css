@@ -223,6 +223,15 @@ body {
 }
 .paysage { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
 
+/* Toile fournie : cadrage bas (le sujet de ces illustrations est en bas de
+   l'image), et voile clair côté gauche pour que le cartouche reste lisible
+   même sur une zone chargée. */
+.toile-photo { position: absolute; inset: 0; width: 100%; height: 100%;
+               object-fit: cover; object-position: 50% 62%; display: block; }
+.toile-voile { position: absolute; inset: 0;
+               background: linear-gradient(96deg, rgba(255,255,255,.72) 0%,
+                           rgba(255,255,255,.34) 38%, rgba(255,255,255,0) 62%); }
+
 /* Cartouche : le titre posé sur la toile, comme un cartel de musée. */
 .heros-cartouche {
   position: relative; z-index: 2; margin: 0 0 22px 24px; max-width: 60ch;

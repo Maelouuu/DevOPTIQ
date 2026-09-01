@@ -1,0 +1,24 @@
+Bannières des sections
+======================
+
+Déposer une image nommée d'après la section, elle remplace la bannière
+peinte de cette page :
+
+  accueil.jpg          Accueil
+  instances.jpg        Instances
+  infrastructure.jpg   Infrastructure
+  documentation.jpg    Documentation
+  tests.jpg            Tests
+  outils.jpg           Outils
+  ci.jpg               Dépôt & CI
+
+Extensions acceptées : .jpg .jpeg .png .webp .avif
+Format conseillé : large (≈1600×500), le sujet plutôt vers le bas —
+le cadrage est en `object-position: 50% 62%`.
+
+Aucun fichier pour une section = sa bannière peinte reste affichée.
+Un push sur staging touchant hub/** redéploie le hub avec les images.
+
+⚠️ Ces images sont embarquées dans le hub. N'y déposer que des visuels
+dont l'usage est autorisé : plusieurs illustrations trouvées en ligne
+sont signées et protégées.

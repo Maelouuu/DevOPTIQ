@@ -76,10 +76,34 @@ def _headers(resp):
     return resp
 
 
+_TOILES = os.path.join(_HERE, "static", "toiles")
+_EXTENSIONS = (".jpg", ".jpeg", ".png", ".webp", ".avif")
+
+
+def toiles_disponibles():
+    """Nom de fichier de la toile de chaque section, quand elle existe.
+
+    Relu à chaque rendu : déposer une image la met en ligne au redéploiement
+    suivant, sans toucher au code. Une section sans fichier garde la bannière
+    peinte — c'est le repli, jamais une page cassée.
+    """
+    trouvees = {}
+    try:
+        fichiers = os.listdir(_TOILES)
+    except OSError:
+        return trouvees
+    for f in fichiers:
+        base, ext = os.path.splitext(f)
+        if ext.lower() in _EXTENSIONS:
+            trouvees.setdefault(base, f)
+    return trouvees
+
+
 @app.context_processor
 def _commun():
-    """`inv` et `page_active` disponibles dans tous les gabarits."""
-    return {"inv": inventaire, "page_active": request.endpoint}
+    """`inv`, `page_active` et les toiles disponibles, dans tous les gabarits."""
+    return {"inv": inventaire, "page_active": request.endpoint,
+            "toiles": toiles_disponibles()}
 
 
 # ── État des instances ────────────────────────────────────────────────────

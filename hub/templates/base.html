@@ -57,7 +57,15 @@
 <div class="cadre">
   <main id="contenu" class="colonne">
     <header class="heros">
-      {% include "_paysage.html" %}
+      {% set _toile = toiles.get(page_active) %}
+      {% if _toile %}
+        {# Toile fournie : elle prend toute la bannière. Le dégradé sous le
+           cartouche garde le titre lisible quelle que soit l'image. #}
+        <img class="toile-photo" src="{{ url_for('static', filename='toiles/' ~ _toile) }}" alt="">
+        <span class="toile-voile" aria-hidden="true"></span>
+      {% else %}
+        {% include "_paysage.html" %}
+      {% endif %}
       <span class="heros-num">{% block page_num %}00{% endblock %}</span>
       <div class="heros-cartouche">
         <span class="heros-sur">{% block page_sur %}Optiq Hub{% endblock %}</span>
