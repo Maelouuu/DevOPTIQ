@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block titre %}Dépôt & CI — Optiq Hub{% endblock %}
+{% block accent %}ci{% endblock %}
+{% block page_icone %}git{% endblock %}
+{% block page_titre %}Dépôt &amp; CI{% endblock %}
+{% block page_sous %}Quelle branche part où, par quel workflow.{% endblock %}
+{% block bandeau_extra %}
+<a class="btn-sec" href="{{ inv.DEPOT }}" target="_blank" rel="noopener">
+  Dépôt GitHub <svg class="ic"><use href="#i-lien"></use></svg>
+</a>
+{% endblock %}
+
+{% block contenu %}
+
+<section class="volet">
+  <div class="volet-tete"><h2>Branches</h2></div>
+  <div class="grille-3">
+    {% for b in inv.BRANCHES %}
+    <article class="carte acc-{{ b.accent }}">
+      <div class="carte-liseret"></div>
+      <h2 class="branche-nom"><code>{{ b.nom }}</code></h2>
+      <p class="carte-resume">{{ b.role }}</p>
+      <span class="fleche-deploie">→ <code>{{ b.deploie }}</code></span>
+    </article>
+    {% endfor %}
+  </div>
+</section>
+
+<section class="volet">
+  <div class="volet-tete"><h2>Workflows</h2></div>
+  <div class="tab-enveloppe">
+    <table class="tab">
+      <thead><tr><th>Workflow</th><th>Cible</th><th></th></tr></thead>
+      <tbody>
+        {% for w in inv.WORKFLOWS %}
+        <tr>
+          <td>{{ w.titre }}<span class="sous-ligne">{{ w.fichier }}</span></td>
+          <td><code>{{ w.cible }}</code></td>
+          <td class="colonne-action">
+            <a class="btn-sec" href="{{ inv.DEPOT }}/actions/workflows/{{ w.fichier }}"
+               target="_blank" rel="noopener">Exécutions</a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="volet">
+  <div class="volet-tete"><h2>Secrets</h2></div>
+  <ul class="secrets">
+    {% for nom, usage in inv.SECRETS %}
+    <li><code>{{ nom }}</code><span>{{ usage }}</span></li>
+    {% endfor %}
+  </ul>
+  <p class="note">Nommés pour mémoire — leurs valeurs ne sont ni stockées ni affichées par le hub.</p>
+</section>
+
+{% endblock %}

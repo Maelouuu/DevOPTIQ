@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block titre %}Optiq Hub{% endblock %}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,700&family=Fraunces:opsz,wght@9..144,600;9..144,700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="{{ url_for('static', filename='hub.css') }}">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='9' fill='%230d9488'/><circle cx='16' cy='16' r='7' fill='none' stroke='%23fff' stroke-width='3'/></svg>">
+</head>
+<body class="pg page--{% block accent %}accueil{% endblock %}">
+
+<svg class="sprite" aria-hidden="true">
+  <symbol id="i-grille" viewBox="0 0 24 24"><rect x="3" y="3" width="7.5" height="7.5" rx="2"/><rect x="13.5" y="3" width="7.5" height="7.5" rx="2"/><rect x="3" y="13.5" width="7.5" height="7.5" rx="2"/><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="2"/></symbol>
+  <symbol id="i-fenetre" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M7 6.5h.01M10 6.5h.01"/></symbol>
+  <symbol id="i-serveur" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="6" rx="2"/><rect x="3" y="14" width="18" height="6" rx="2"/><path d="M7 7h.01M7 17h.01"/></symbol>
+  <symbol id="i-livre" viewBox="0 0 24 24"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 19a2 2 0 0 1 2-2h13"/></symbol>
+  <symbol id="i-boussole" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="m15.5 8.5-2 5-5 2 2-5z"/></symbol>
+  <symbol id="i-plan" viewBox="0 0 24 24"><path d="M4 6h16M4 12h10M4 18h13"/></symbol>
+  <symbol id="i-terminal" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="m7 9 3 3-3 3M13 15h4"/></symbol>
+  <symbol id="i-git" viewBox="0 0 24 24"><circle cx="6" cy="6" r="2.5"/><circle cx="6" cy="18" r="2.5"/><circle cx="18" cy="9" r="2.5"/><path d="M6 8.5v7M8.5 6H14a2 2 0 0 1 2 2v.5"/></symbol>
+  <symbol id="i-lien" viewBox="0 0 24 24"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></symbol>
+  <symbol id="i-copie" viewBox="0 0 24 24"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></symbol>
+  <symbol id="i-ok" viewBox="0 0 24 24"><path d="m5 13 4 4 10-10"/></symbol>
+  <symbol id="i-nuage" viewBox="0 0 24 24"><path d="M7 18a4 4 0 0 1-.6-7.95A5.5 5.5 0 0 1 17 9.5a3.5 3.5 0 0 1 .5 6.96"/></symbol>
+  <symbol id="i-base" viewBox="0 0 24 24"><ellipse cx="12" cy="6" rx="8" ry="3"/><path d="M4 6v6c0 1.7 3.6 3 8 3s8-1.3 8-3V6M4 12v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6"/></symbol>
+</svg>
+
+<a class="saut" href="#contenu">Aller au contenu</a>
+
+<div class="cadre">
+  <aside class="rail">
+    <a class="rail-marque" href="{{ url_for('accueil') }}">
+      <span class="rail-logo"></span>
+      <span><strong>Optiq</strong> Hub</span>
+    </a>
+    <nav class="rail-nav">
+      {% for p in inv.PAGES %}
+      <a class="rail-item acc-{{ p.accent }}{% if page_active == p.cle %} actif{% endif %}" href="{{ p.route }}">
+        <svg class="ic"><use href="#i-{{ p.icone }}"></use></svg>
+        <span>{{ p.titre }}</span>
+      </a>
+      {% endfor %}
+    </nav>
+    <a class="rail-sortie" href="{{ url_for('logout') }}">Se déconnecter</a>
+  </aside>
+
+  <main id="contenu" class="colonne">
+    <header class="bandeau">
+      <span class="bandeau-ic"><svg class="ic"><use href="#i-{% block page_icone %}grille{% endblock %}"></use></svg></span>
+      <div class="bandeau-txt">
+        <h1>{% block page_titre %}{% endblock %}</h1>
+        <p>{% block page_sous %}{% endblock %}</p>
+      </div>
+      {% block bandeau_extra %}{% endblock %}
+    </header>
+
+    {% block contenu %}{% endblock %}
+  </main>
+</div>
+
+<script>window.__ETATS__ = {{ (etats if etats is defined else {}) | tojson }};</script>
+<script src="{{ url_for('static', filename='hub.js') }}"></script>
+</body>
+</html>

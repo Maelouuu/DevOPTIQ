@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block titre %}Outils — Optiq Hub{% endblock %}
+{% block accent %}outils{% endblock %}
+{% block page_icone %}terminal{% endblock %}
+{% block page_titre %}Outils{% endblock %}
+{% block page_sous %}Ces traitements tournent sur votre poste. Cliquez pour copier la commande.{% endblock %}
+
+{% block contenu %}
+{% for cat in inv.OUTILS %}
+<section class="volet acc-{{ cat.accent }}">
+  <div class="volet-tete"><h2><i class="puce-cat"></i> {{ cat.categorie }}</h2></div>
+  <div class="grille-2">
+    {% for o in cat.entrees %}
+    <article class="cmd">
+      <div class="cmd-tete">
+        <h3>{{ o.titre }}</h3>
+        <button class="btn-copie" type="button" data-cmd="{{ o.cmd }}" title="Copier">
+          <svg class="ic"><use href="#i-copie"></use></svg>
+          <svg class="ic ic-ok"><use href="#i-ok"></use></svg>
+        </button>
+      </div>
+      <p>{{ o.quoi }}</p>
+      <code>{{ o.cmd }}</code>
+    </article>
+    {% endfor %}
+  </div>
+</section>
+{% endfor %}
+{% endblock %}

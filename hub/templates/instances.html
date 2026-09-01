@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block titre %}Instances — Optiq Hub{% endblock %}
+{% block accent %}instances{% endblock %}
+{% block page_icone %}fenetre{% endblock %}
+{% block page_titre %}Instances{% endblock %}
+{% block page_sous %}État mesuré depuis le hub, pas déclaré.{% endblock %}
+{% block bandeau_extra %}
+<button class="btn-sec" id="btn-refresh" type="button">Actualiser</button>
+{% endblock %}
+
+{% block contenu %}
+<div class="grille-3">
+  {% for i in inv.INSTANCES %}
+  {% set e = etats.get(i.cle, {}) %}
+  <article class="carte acc-{{ i.accent }}" data-cle="{{ i.cle }}">
+    <div class="carte-liseret"></div>
+
+    <header class="carte-tete">
+      <div>
+        <h2>{{ i.nom }}</h2>
+        <span class="carte-variante">{{ i.variante }}</span>
+      </div>
+      <span class="pill etat-{{ (e.etat or 'inconnu')|replace(' ','-')|replace('é','e') }}" data-role="pastille">
+        <i></i><span data-role="libelle">{{ e.etat or '…' }}</span>
+      </span>
+    </header>
+
+    <p class="carte-resume">{{ i.resume }}</p>
+
+    <ul class="chips">
+      <li><span>Pour</span>{{ i.pour }}</li>
+      <li><span>Branche</span><code>{{ i.branche }}</code></li>
+      <li><span>Base</span>{{ i.base }}</li>
+    </ul>
+
+    <footer class="carte-pied">
+      <a class="btn-pri" href="{{ i.url }}" target="_blank" rel="noopener">
+        Ouvrir <svg class="ic"><use href="#i-lien"></use></svg>
+      </a>
+      {% for l in i.liens or [] %}
+      <a class="btn-sec" href="{{ i.url }}{{ l.href }}" target="_blank" rel="noopener">{{ l.libelle }}</a>
+      {% endfor %}
+      <a class="btn-sec btn-console"
+         href="{{ inv.CONSOLE_RUN.format(service=i.service) }}" target="_blank" rel="noopener"
+         title="Console Cloud Run du service {{ i.service }}">
+        <svg class="ic"><use href="#i-nuage"></use></svg> Console
+      </a>
+      <span class="latence" data-role="latence">{% if e.ms %}{{ e.ms }} ms{% endif %}</span>
+    </footer>
+  </article>
+  {% endfor %}
+</div>
+{% endblock %}

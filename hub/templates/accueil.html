@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block titre %}Optiq Hub{% endblock %}
+{% block accent %}accueil{% endblock %}
+{% block page_icone %}grille{% endblock %}
+{% block page_titre %}Optiq Hub{% endblock %}
+{% block page_sous %}Tout l'écosystème DevOPTIQ, à un seul endroit.{% endblock %}
+
+{% block contenu %}
+
+<section class="etat-bande">
+  {% for i in inv.INSTANCES %}
+  {% set e = etats.get(i.cle, {}) %}
+  <a class="etat-puce acc-{{ i.accent }}" href="{{ i.url }}" target="_blank" rel="noopener"
+     data-cle="{{ i.cle }}" title="{{ i.nom }} — {{ i.variante }}">
+    <span class="etat-point etat-{{ (e.etat or 'inconnu')|replace(' ','-')|replace('é','e') }}"
+          data-role="pastille"></span>
+    <b>{{ i.nom }}</b>
+    <span>{{ i.variante }}</span>
+    <em data-role="latence">{% if e.ms %}{{ e.ms }} ms{% endif %}</em>
+  </a>
+  {% endfor %}
+</section>
+
+<section class="tuiles">
+  {% for p in inv.PAGES if p.cle != 'accueil' %}
+  <a class="tuile acc-{{ p.accent }}" href="{{ p.route }}">
+    <span class="tuile-ic"><svg class="ic"><use href="#i-{{ p.icone }}"></use></svg></span>
+    <h2>{{ p.titre }}</h2>
+    <p>
+      {%- if p.cle == "instances" %}Les {{ inv.INSTANCES|length }} applications en ligne, leur état et leurs accès.
+      {%- elif p.cle == "infrastructure" %}Services Cloud Run et bases Neon, avec leurs consoles.
+      {%- elif p.cle == "documentation" %}Doc technique, guide utilisateur, plan V1.1.
+      {%- elif p.cle == 'outils' %}{{ inv.OUTILS|map(attribute='entrees')|map('length')|sum }} commandes prêtes à coller.
+      {%- else %}Branches, workflows et secrets.{% endif -%}
+    </p>
+    <span class="tuile-fleche">→</span>
+  </a>
+  {% endfor %}
+</section>
+
+{% endblock %}

@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block titre %}Documentation — Optiq Hub{% endblock %}
+{% block accent %}docs{% endblock %}
+{% block page_icone %}livre{% endblock %}
+{% block page_titre %}Documentation{% endblock %}
+{% block page_sous %}Servie par le hub : plus de fichier à retrouver.{% endblock %}
+
+{% block contenu %}
+<div class="grille-3">
+  {% for d in inv.DOCUMENTS %}
+  <a class="carte carte-lien acc-{{ d.accent }}" href="{{ d.href }}" target="_blank" rel="noopener">
+    <div class="carte-liseret"></div>
+    <span class="doc-ic"><svg class="ic"><use href="#i-{{ d.icone }}"></use></svg></span>
+    <h2>{{ d.titre }}</h2>
+    <p class="carte-resume">{{ d.resume }}</p>
+    <span class="carte-cta">Ouvrir <svg class="ic"><use href="#i-lien"></use></svg></span>
+  </a>
+  {% endfor %}
+</div>
+{% endblock %}
