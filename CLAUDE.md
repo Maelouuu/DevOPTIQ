@@ -156,7 +156,110 @@ transporte le diagramme **tel qu'il est en base**, d'un compte à l'autre.
   3. **labels** — `architectLabels()` place les labels près des pointes SANS jamais les poser là où une flèche en croise une autre (222/243 placés, 0 sur une autre flèche).
 - **Curseur global des labels** (remplace le bouton « Agencement auto » ; toolbar, `#label-pos-slider`) : `setLabelsAlongArrows(t)` pose TOUS les labels à la même fraction `t` de LEUR flèche — gauche = origine (source), droite = pointe — en direct. `_pointAlongPath()` donne point + angle ; une marge par flèche évite le chevauchement des formes d'extrémité.
 - **Pointes** (au rendu, toujours actif) : `polylineToPath(pts,R,tipPad=18)` (approche droite ≥18 px avant la tête) + `_alignPortApproach()` (dernier segment aligné sur l'axe du port → la tête ne pivote pas).
+- **Losanges = vrais nœuds du flux (2026-08-27)** — `tagDecorativeDiamonds()`
+  (vsdx_importer). Un losange Visio n'est PAS connecté : il est posé sur les
+  flèches, et l'import en faisait un décor. Conséquence : une décision à deux
+  sorties donnait **deux flèches complètes** qui redessinaient chacune le tronc
+  d'entrée — deux traits presque superposés que rien n'aligne parfaitement.
+  Désormais on **coupe** la flèche sur le losange : une entrée, une ou deux
+  sorties, tronc unique par construction.
+  - **Quelle flèche ?** La couleur de trait Visio (`LineColor` de la forme, sinon
+    du master) est le seul signal fiable : les flèches d'une même décision
+    partagent une couleur. ⚠️ Le losange lui-même n'a PAS de couleur propre dans
+    les fichiers réels (forme « Small If » qui hérite tout de son master) — c'est
+    la FAMILLE de couleur la mieux représentée autour de lui qui désigne sa
+    décision. Mesuré sur la carto client : 25 losanges sur 28 corroborés par une
+    famille de couleur.
+  - **On ne coupe que le tronc** : parmi les flèches qui passent à ≤45 px, seules
+    celles issues de la MÊME source sont coupées (une flèche isolée exige ≤14 px).
+    Couper tout ce qui passe fabriquait des entrées parasites — c'est ce qui avait
+    fait abandonner l'ancien `spliceDecisions`, resté désactivé.
+  - Le modèle métier n'en souffre pas : `_do_sync` retrouve A → B à travers le
+    losange (`decision_upstream`) et absorbe son libellé en `choice_label`.
+    Couvert par `tests/test_48_carto_package.py`.
+  - Mesuré (banc `tests/carto`) : carto client 12 losanges insérés dans le flux,
+    28/28 losanges à ≤0,5 px de LEUR flèche ; hard.vsdx inchangé (croisements
+    198 → 197, chevauchements 20 → 19 pour 11 connexions de plus).
+  - **Coupe SÉQUENTIELLE** : deux losanges posés sur la MÊME flèche la coupaient
+    chacun de leur côté, sur le tracé d'origine → deux demi-flèches concurrentes
+    (le doublon visible sur la carto client). Chaque losange travaille donc sur
+    les flèches telles qu'elles sont APRÈS les coupes précédentes. Mesuré carto
+    client : croisements 52 → 46, chevauchements 15 → 7 (mieux qu'avant l'insertion
+    des losanges), hard.vsdx inchangé (198 croisements, chevauchements 20 → 16).
+  - **Où couper** : au point de divergence des branches — l'angle droit de la
+    décision — mais **seulement s'il tombe sous le losange** (≤45 px). Deux branches
+    partagent souvent un long tronc depuis leur source : couper là déplacerait le
+    losange à l'autre bout de la carto. Sinon on coupe à l'endroit où Visio a posé
+    le losange, et toutes les branches sont coupées au MÊME point (tronc unique,
+    90° exact entre les deux sorties).
+  - **Aimantation = insertion** (`_snapDiamondToArrow` → `_insertDiamondOnArrow`) :
+    lâcher un losange à moins de 14 px d'une flèche le coupe dessus, exactement
+    comme à l'import. ⚠️ Un losange posé à la main ne doit PAS rester un décor
+    par-dessus la flèche : les liens métier suivent le flux, et deux régimes
+    (connecté / décoratif) donnaient des liens différents selon qui l'avait posé.
+    La **pop-up de placement** (`_startDiamondPlacement`) branche elle aussi ce
+    qu'elle valide — « Valider » comme « Tout garder » : sinon les losanges
+    ajustés à la main restaient décoratifs alors que ceux de l'import étaient
+    dans le flux. Mesuré carto client : après validation, 28/28 losanges
+    connectés, 0 avec plusieurs entrées, croisements 45, chevauchements 4.
+  - **Après la coupe, suivre sa flèche** : une flèche coupée disparaît, et les
+    losanges qui s'y rattachaient pointaient dans le vide — l'éditeur les
+    reposait alors sur « la plus proche », c'est-à-dire n'importe laquelle. On
+    re-pointe chaque losange sur la MOITIÉ qui passe encore chez lui, en suivant
+    la chaîne quand la moitié a elle-même été recoupée.
+  - **Fan-out** : au départ d'une activité, toutes ses flèches sortantes passent
+    par le même point — « la plus proche » est un tirage au sort. On pénalise
+    (60 px) les candidates dont la projection tombe sur une EXTRÉMITÉ du tracé :
+    celle que le losange traverse en son milieu gagne.
+  - **Recentrage après retouche** (`_alignDiamondsOnFlow`) : le polish redresse
+    les angles et sépare les voies APRÈS l'insertion. Un losange branché n'était
+    plus repositionné (seuls les décoratifs le sont) et se retrouvait à côté de
+    son propre trait. Chaque flèche qui le touche impose une coordonnée (segment
+    vertical → X, horizontal → Y) ; deux passes, car bouger le losange bouge ses
+    ports.
+  - **Rendu** : une flèche qui ENTRE dans un losange n'a **ni pointe ni marge**
+    (`tipPad` 0, pas de `marker-end`) — le flux ne s'arrête pas à la décision, il
+    se divise, et toute marge agrandirait la zone sensible autour du losange.
+  - Une branche qui SORT d'un losange garde la couleur du flux : sans ça, la
+    propagation « couleur de la forme source » repeignait toutes les sorties de
+    décision en gris.
 - **Losanges décoratifs** (non connectés, posés « sur » une flèche dans Visio sans `<Connect>`) : `spliceDecisions` DÉSACTIVÉ (les insérer dans le flux complexifiait les flèches pour rien). `_seatDecorativeDiamonds()` les repose sur LEUR flèche APRÈS le polish : quand on redresse un angle ou qu'on rejette un tracé en détour, la flèche bouge — le losange, associé au connecteur dont le `customPath` Visio d'origine passe le plus près (seuil 60 px), est reposé sur le tracé FINAL de ce connecteur, à la même fraction. Mesuré hard.vsdx : 17/19 losanges à ≤5 px de leur flèche ; les 2 restants sont VRAIMENT flottants dans Visio (>90 px de tout connecteur) → laissés à leur position Visio. Banc : métrique `deco.offArrow`.
+- **Légende de l'export (PDF / SVG uniquement)** — `_buildExportLegend()` +
+  `LEGEND_PALETTE` (editor.js). Refaite sur le modèle des cartes Visio AFDEC :
+  bandeau d'index « Légende » (`#ebf1df`, filet `#94ac6a`, mention AFDEC©),
+  7 formes-témoins commentées (activité, résultat, activité client/fournisseur
+  hachurée, activité d'une autre entité, activité communautaire ombrée, renvoi,
+  renvoi vers une autre carte), nature des liaisons (trait plein = donnée
+  déclenchante, pointillé = nourrissante) + schéma de décision oui/non, et
+  surtout la **palette des 30 familles de compétences** relevée dans le Visio
+  (`Marketing #820d0d` … `Tutorat #ccc2d9`, 5 colonnes × 6 lignes). Sans elle,
+  la couleur d'une activité — l'information principale d'une carto AFDEC —
+  n'était expliquée nulle part sur le document imprimé. Bilingue (`legend.*`,
+  58 clés/langue). ⚠️ Deux pièges : (1) les `defs` du canevas sont clonées AVANT
+  la construction de la légende → sa hachure est déclarée dans ses propres
+  `defs` (`#legend-hatch`), pas via `ensureHatchPattern` ; (2) `EXPORT_LEGEND_W`
+  (2648 px) élargit la vue de l'export quand la carto est plus étroite, sinon la
+  palette serait coupée à droite. N'apparaît JAMAIS à l'écran.
+- ⚠️ **Une carto déjà en base ne se corrige pas en corrigeant l'importeur.**
+  Les cartos du pilote portaient une bande `#06b6d4` — une couleur de la palette
+  de repli `FALLBACK_COLORS`, absente du Visio — parce qu'elles avaient été
+  importées AVANT le correctif de `_extractLaneFill`. L'importeur actuel rend
+  bien `#ff0000` : c'est la donnée stockée (`Entity.optiqcarto_data`) qu'il faut
+  réparer, entité par entité. Fait le 2026-08-30 sur 12 entités du pilote (la
+  couleur de bande ne vit QUE dans ce JSON — aucune resynchronisation requise).
+- **Couleur des bandes = celle du BANDEAU D'INDEX du couloir Visio**
+  (`_extractLaneFill`). Trois défauts corrigés : (1) on gardait « le dernier
+  enfant coloré », qui ramenait tantôt le bandeau, tantôt le fond du couloir —
+  d'où des bandes qui ne ressemblaient pas au fichier ; on prend désormais
+  l'enfant qui PORTE le libellé. (2) Un couloir qui ne redéfinit rien **hérite**
+  la couleur de la sous-forme correspondante de son gabarit (`MasterShape` →
+  `subFills`) : sans ça la 3e bande de la carto client sortait grise au lieu de
+  rouge. ⚠️ `getMasterInfo` s'arrête à la forme primaire (`break` dès qu'il a ses
+  dimensions) — les sous-formes se collectent dans une passe SÉPARÉE. (3) Sans
+  aucune couleur, on piochait dans une palette de repli (`FALLBACK_COLORS`) : la
+  carto affichait des couleurs **absentes du Visio**. Le repli est maintenant
+  neutre (`#d1d5db`). Mesuré : carto client 18/18 bandes conformes, hard.vsdx
+  14/14 (aucune neutre).
 - ⚠️ **Réalité hard.vsdx** : 165 formes / 243 flèches / 43 flèches « retour » (graphe cyclique) → **~400 croisements MÊME dans le Visio d'origine fait à la main**. Densité inhérente, aucun algo (ni Graphviz, ni l'humain) ne fait mieux. Sur une carto de taille normale : **0 croisement**. On juge la réussite sur les cartos normales, PAS sur hard.vsdx (cas extrême / stress-test).
 - **Flèches alignées DROITES** (`_straightenAlignedConnectors()`, appelé à l'import avant le polish) : une flèche entre deux formes alignées mais légèrement décalées devenait un ESCALIER (les deux ports tombaient à des X différents). On aligne les deux ports sur une coordonnée commune du recouvrement → tracé rectiligne fidèle Visio. **Garde-fous (essentiels) :** (1) uniquement connecteurs longs (>120 px) et formes qui se recouvrent (≥28 px) ; (2) **jamais à travers une forme tierce** (`pickFree` évite les X occupés par une forme → sinon on garde le routage qui la contourne) ; (3) **anti-empilement** : deux droites parallèles gardent ≥16 px d'écart (deux flèches bidirectionnelles entre formes empilées → deux voies distinctes, plus de croisement). Banc hard.vsdx : 45 verticales alignées → 0 escalier, 0 traversée de forme ; example/CT/TSM : 0 croisement, 0 superposition.
 - **Connexions « à moitié collées » récupérées** (`_recoverFloatingConnections()`, vsdx_importer) : un connecteur Visio n'ayant un `<Connect>` que d'UN côté (l'autre bout flotte mais tombe pile dans une forme) était jeté (source/target absent). On infère l'extrémité manquante via la boîte Visio qui contient le point (tol 0,4). Corrige le renvoi isolé « Spare Parts Stock » ET les losanges « au milieu de nulle part » (posés sur ces flèches perdues). Banc hard.vsdx : 243 → 245 connexions.
@@ -168,6 +271,97 @@ transporte le diagramme **tel qu'il est en base**, d'un compte à l'autre.
 - **Correction ciblée des erreurs (NOUVEAU)** — bouton **« Corriger les erreurs »** dans la pop-up Diagnostic carto (à côté d'« Agencement auto »). Contrairement à l'agencement auto (réorganise TOUTE la carto), la correction ciblée ne touche QUE les formes fautives relevées et laisse le reste tel quel. Flux en 3 temps : `_computeFixes(issues)` (propose sans appliquer) → `_showFixPreview(fixes)` (**pop-up de validation avec aperçu ZOOMÉ** de chaque correction : position actuelle en rouge pointillé, cible en vert + flèche, croix rouge pour une suppression, nouveau libellé pour un renommage ; cases à cocher, défaut cochées) → `_applyFixes(sel)` (applique la sélection validée). **4 familles corrigées** : `outofband` (recentrage vertical dans la bande la plus proche via `_nearestBand`), `overlap` (nouvelle détection dans `runCartoCheck` → `_findFreeSpot` déplace la forme vers l'emplacement libre le plus proche, en restant dans sa bande), `renvoi` orphelin (**suppression** de la forme + ses connexions), `duplicate` (**renommage** avec suffixe « (n) », la 1re occurrence est conservée). Seules les flèches rattachées à une forme déplacée voient leur routage réinitialisé (`userPts/customPath/…` = null) ; les tracés Visio des autres flèches sont intacts. `isolated` reste listé seulement (pas de correction déterministe). Testé (`tests/carto` — `test_autofix.js` + intégration navigateur : aperçu, validation, application des 4 familles, préservation des tracés).
 
 ---
+
+## Page Activités & fiche Rôle — points d'attention
+
+- **« Tout ouvrir » / « Tout fermer »** (`display_list.html`) : déplie toutes les
+  cartes AFFICHÉES (recherche et pagination comprises), le libellé et l'icône du
+  bouton suivent l'état.
+- ⚠️ **Statut `Garant` : la casse comptait.** L'import carto écrivait
+  `status='garant'` (minuscule) dans `activity_roles`, la page Rôles cherchait
+  `'Garant'` — un rôle garant d'après la carte n'apparaissait donc NULLE PART
+  dans sa fiche (blocs Activités garant, compétences et savoirs associés).
+  Corrigé des deux côtés : l'écriture est capitalisée partout, les lectures
+  comparent en `LOWER(...)` (roles_view, export, gestion_rh, roles), et un
+  `UPDATE` au démarrage normalise les lignes existantes. `activities_view.py`
+  était déjà insensible à la casse — d'où une fiche activité juste et une fiche
+  rôle vide, le symptôme trompeur.
+- **Provenance de l'activité épinglée** : `/activities/view?activity_id=…` reçoit
+  aussi `from=carto|roles`. Le bandeau rouge disait « sélectionnée depuis la
+  cartographie » même en venant de la page Rôles ; il dit maintenant la bonne
+  origine, et un libellé neutre sans paramètre.
+- **Groupes (éditeur)** : le cadre d'un groupe expose 4 **poignées de connexion**
+  au survol/sélection (`data-group-port`) — on pouvait viser un groupe avec une
+  flèche mais jamais en partir. Le panneau de droite liste d'abord les formes DU
+  groupe (« Dans le groupe (n) ») puis les autres (« Ajouter au groupe ») : il
+  affichait toute la carto dans l'ordre du modèle.
+- **Boutons de bandes** : croix et « + » filiformes sur fond sombre → boutons
+  pleins avec icônes (`fa-trash`, `fa-rotate-left`). ⚠️ Le « + » de la liste des
+  bandes RESTAURE une bande masquée ; il n'existe pas de création de bande dans
+  l'éditeur (les bandes viennent de l'import VSDX).
+- **Libellés** : la forme `special` s'appelle **Résultat** (et non plus
+  « Sous-activité »), et la marque affichée dans l'éditeur est **Optiq Map**.
+- **Gabarit traduit** (bandes pré-créées + textes pré-remplis des formes) :
+  chaque bande par défaut porte une `key` (`editor.dband.*`) et chaque forme
+  déposée une `labelKey` (`editor.shape_*`). `_applyTemplateI18n(state)` réécrit
+  ces libellés **à l'ouverture** de la carto, pas au rendu : `label` part tel quel
+  vers `_sync_carto_to_db`, qui ne saurait pas résoudre une clé. ⚠️ Renommer une
+  bande (`delete b.key`) ou retoucher le texte d'une forme (`delete s.labelKey`)
+  détache définitivement le libellé du catalogue — sinon la saisie de
+  l'utilisateur serait écrasée au prochain changement de langue.
+- **Deux bandes de gabarit en plus** : `network` / `other` (« Réseau », « Autre »),
+  index vert pastel `#A9DFBF` et **corps blanc** via le nouveau champ
+  `band.bodyColor` (`renderBands` : `band.bodyColor || bandBgColor(band.color)`).
+  Choisir une couleur de bande à la main efface `bodyColor` (le corps redevient
+  la version pâle de l'index).
+- **Ligne de bande entièrement cliquable** (liste de la barre d'outils) : viser
+  un bouton de 26 px pour masquer/restaurer était pénible — un clic n'importe où
+  sur la ligne déclenche son bouton, qui n'est plus qu'un repère visuel.
+- **Terme produit en anglais = « Map »** (`nav.carto`, `page.carto`,
+  `map.card_title`, `carto.save`, toasts éditeur). Les URLs, fichiers et ids
+  restent `cartography` : ce sont des chemins, pas de l'affichage.
+
+## Liste des activités — tâches et outils
+
+- ⚠️ **Ordre des tâches** : `order` seul ne départage pas deux tâches de même
+  rang — les lignes sortaient alors dans leur ordre PHYSIQUE, que PostgreSQL
+  change après un UPDATE : la tâche qu'on venait de modifier « sautait » dans la
+  liste. `id` est désormais le dernier critère de tri (vue liste ET partial).
+- **Choix des outils** = liste à cocher (`.tool-picker`, `loadExistingTools`) :
+  classée par nom, les outils déjà rattachés sont cochés/désactivés et signalés,
+  et on en prend plusieurs sans ctrl+clic. Un outil accompagné d'un fichier
+  porte l'icône `fa-file-lines` et un fond ambré (`.tool-badge--file`,
+  `.tool-pick--file`), comme les contraintes avec pièce jointe.
+- **Deux pièces jointes distinctes** : `Task.file_path` (NOUVEAU, migration à
+  chaud `tasks.file_path`) = mode opératoire de la tâche ; `Tool.file_path` =
+  notice de l'outil. Le panneau « + outil » n'affichait qu'un dépôt, posé sous la
+  liste des outils : on ne savait pas à quoi le fichier se rattachait. Il est
+  désormais scindé en deux blocs encadrés (`.tool-form-block`) — outils existants
+  d'un côté, création d'un outil ET **son** fichier de l'autre — et le fichier de
+  la tâche vit dans les formulaires de tâche (ajout et édition), avec une pastille
+  `.task-file-chip` à côté de son nom.
+- **Fiche d'un outil** (`openToolCard`, `tasks.js`) : cliquer le badge d'un outil
+  dans une tâche ouvre une modale (nom, description, dépôt de fichier) →
+  `PUT /gestion_outils/api/tools/<id>`. Sans elle, un outil déjà enregistré ne
+  pouvait **plus jamais** recevoir de fichier : le seul dépôt existant servait à
+  la création. La modale est construite en JS (pas de gabarit) car
+  `tasks_partial.html` est inclus une fois PAR activité. `/tools/all` renvoie
+  aussi `description` (le champ de la fiche restait vide sinon).
+- Tests : `tests/test_62_task_tool_files.py` (8 cas — création/ajout/retrait des
+  deux fichiers, indépendance, renommage sans perte).
+- ⚠️ **`static/js/tools.js` est chargé APRÈS `tasks.js`** (`script_loader.html`).
+  Il redéfinissait `showToolForm`/`hideToolForm`/`submitTools` : l'ancienne
+  version (un `<select>` d'`<option>`) écrasait silencieusement la nouvelle, et
+  le sélecteur refait ne s'affichait jamais. Ces doublons ont été retirés — ne
+  rien redéfinir dans `tools.js` de ce que `tasks.js` expose déjà.
+
+## Fenêtre de bienvenue
+
+`sessionStorage` est PAR ONGLET : « ouvrir dans un nouvel onglet » repartait d'un
+stockage vide et réaffichait la fenêtre. On mémorise maintenant dans
+`localStorage` la **signature des nouveautés lues** (titres + début des textes) :
+la fenêtre ne revient que lorsque le changelog change vraiment. Tous les accès au
+stockage sont en try/catch (navigateur qui refuse le stockage).
 
 ## Refonte Compétences V1.1 (CDC OPTIQ — en cours)
 
@@ -219,6 +413,103 @@ cadence sur la fiche activité ; panneau de qualification des sorties + badges �
 
 ---
 
+## Guide utilisateur (`docs/guide.html`)
+
+- **Un seul fichier, deux langues, deux thèmes.** Barre en haut à droite : segment
+  FR/EN à indicateur glissant + bascule clair/sombre (icônes SVG, pas d'emoji —
+  ils ne se rendent pas partout). Choix mémorisés dans `localStorage`, chaque accès
+  en try/catch : un fichier ouvert depuis une clé USB ou une pièce jointe peut
+  refuser le stockage. Au premier affichage le thème suit `prefers-color-scheme`.
+- **Traduction** : les deux versions cohabitent dans le document
+  (`<span class="t-fr">` / `<span class="t-en">`) et le CSS n'affiche que la langue
+  active (`:root[lang=…]`). Aucun rechargement, le fichier reste autonome. ⚠️ Ne
+  jamais envelopper un fragment qui traverse une balise (`…</b><span>…`) : le
+  navigateur répare l'imbrication et le texte reste affiché dans les deux langues.
+- **Thème sombre** : seuls les jetons CSS changent. Les maquettes miniatures (`.mk`)
+  gardent volontairement un fond CLAIR : elles représentent l'application, qui est
+  claire, comme les captures juste à côté.
+- **Vidéos bilingues** : `GUIDE_LANG=fr|en` (voir `tools/guide/README.md`). Chaque
+  `<video>` est doublée `t-fr`/`t-en` ; le changement de langue met en pause les
+  lectures en cours (une vidéo masquée continuerait sinon).
+- **Fichier autonome** : `tools/guide/build_standalone.py` → `docs/guide_standalone.html`
+  (tout en base64, ~32 Mo avec les deux jeux de vidéos ; exclu de git).
+
+---
+
+## Page Comptes — droits et langue
+
+- **Droits** (`Code/routes/gestion_compte.py`) : `User.status` est un texte libre, écrit différemment selon les instances → comparaison sur une forme **normalisée** (minuscules, sans accents, séparateurs unifiés) via `_norm_status()`.
+  - `_ADMIN_STATUSES` = admin / administrateur / administrator.
+  - `_ACCOUNT_CREATOR_STATUSES` = gestionnaire de compétences (+ variantes, `competency manager`). **Créer** un compte — formulaire ET import Excel — exige admin OU ce statut.
+  - **Modifier** un compte : admin, ou soi-même uniquement (`_can_edit_account`). Le champ `status` n'est appliqué que si l'appelant est admin — sinon on s'auto-promeut depuis l'édition de son propre compte. **Supprimer** : admin seulement.
+  - Le gabarit masque les onglets Créer/Import sans le droit, et les boutons Modifier/Supprimer hors périmètre ; les routes refusent quand même côté serveur (le masquage n'est pas une sécurité).
+- **Onglet d'accueil** = **Utilisateurs** (`list-tab`), placé en premier ; Créer et Import viennent après.
+- **Langue** : colonne `users.lang` (VARCHAR(5), défaut `en`), ajoutée à chaud par `_safe_add_column` avec rattrapage des lignes existantes au démarrage. `DEFAULT_LANG` et `DEFAULT_FRENCH_ACCOUNTS` vivent dans `models.py` : seul `afdec.enterprise.services@gmail.com` naît en français. La connexion applique `user.lang` à `session['lang']`, `/parametres/set_language` persiste le choix sur le compte, et un `before_request` pose `session['lang']` par défaut — les dizaines de `session.get('lang', 'fr')` disséminées dans les vues ne retombent donc jamais sur le français.
+- ⚠️ **Modification d'un compte** : un champ « âge » laissé vide arrive comme `''`.
+  Envoyé tel quel dans une colonne entière, PostgreSQL rejette la requête — et
+  c'est TOUTE modification qui tombait en 500 (même un simple nom de famille), y
+  compris le changement de statut. `update_user` convertit désormais l'âge
+  (`int` ou `None`), refuse proprement un âge non numérique ou un email déjà pris,
+  tronque le statut à la taille de la colonne (20), rend le rôle facultatif et
+  rattrape toute `SQLAlchemyError` en message plutôt qu'en 500.
+- Tests : `tests/test_50_accounts_permissions_lang.py` (36 cas).
+- **Où vivent les droits** : `Code/permissions.py` — source unique pour la page Comptes, les Paramètres et le partage d'entités. `is_competency_manager_status()` reconnaît une **famille** de valeurs plutôt qu'une liste figée : `users.status` est un VARCHAR(20), donc « Gestionnaire de compétences » y arrive **tronqué** (« gestionnaire de comp »), et le libellé est saisi tantôt en français tantôt en anglais. Règle : commence par « gestionnaire », OU contient « manager » + (« competency » | « competence » | « skill »).
+- **Valeur canonique** `gestionnaire` (13 car., tient dans la colonne) proposée dans les listes déroulantes création / édition / filtre. Le badge de la liste affiche la **valeur brute** quand elle n'est reconnue par aucune règle, au lieu de la faire passer pour « Utilisateur » : un statut mal orthographié se voit, au lieu de produire des droits inexpliqués.
+
+### Partage d'une entité (tous les statuts, avec consentement)
+
+Une entité n'appartient qu'à son propriétaire (`Entity.get_active` est strict sur `owner_id`) : il n'existe pas d'accès partagé. **Partager = déposer une COPIE** chez chaque destinataire, qui repart ensuite avec la sienne sans toucher à l'originale.
+
+**Tout le monde peut partager ses propres entités.** Ce que change le statut, c'est le
+CONSENTEMENT du destinataire :
+- **administrateur → il choisit** (`mode` dans le POST, sélecteur dans la modale) :
+  **dépôt d'autorité** (défaut) ou **proposition** comme tout le monde. Un dépôt
+  d'autorité laisse une **notification** (`EntityShareOffer` en statut `delivered`) :
+  le destinataire voit à sa prochaine ouverture « X vous a transféré une entité »,
+  avec un seul bouton **Compris** (`action:"acknowledge"` → statut `acknowledged`).
+  Recevoir une entité sans avoir rien demandé mérite une explication. Sur ce
+  chemin l'admin **nomme** l'entité déposée (`name`) et peut viser une entité
+  **existante** du destinataire pour l'écraser (`replace: {user_id: entity_id}`)
+  au lieu d'empiler « Nom (2) » ; la notification le dit (« a remplacé une de vos
+  entités »). Les entités de chaque compte ne sont listées (`entities` dans
+  `share/candidates`) que pour un admin en dépôt direct ;
+- **tout autre statut → proposition**. Rien n'est créé à l'envoi : une ligne
+  `EntityShareOffer` (table `entity_share_offers`) porte une **copie du contenu**
+  (nom, description, `vsdx_filename`, SVG, `optiqcarto_data`) — le destinataire
+  reçoit ce qui lui a été proposé même si l'expéditeur modifie ou supprime son
+  entité entre-temps. À sa prochaine ouverture de l'app, une pop-up centrée
+  (`entity_share_popup.html`, incluse par `header_buttons.html`, donc sur toutes
+  les pages) annonce « X vous propose son entité … » avec **Accepter / Refuser**.
+  Accepter crée l'entité et dérive activités/rôles/liens ; refuser ne crée rien.
+
+- `GET /activities/api/entities/<id>/share/candidates` → comptes cibles + `direct`
+  (dépôt direct ou proposition), `already_has`, `pending`.
+- `POST /activities/api/entities/<id>/share` `{user_ids:[…]}` → `shared` (dépôts) et/ou
+  `pending` (propositions). Une seule proposition en attente par (expéditeur, entité,
+  destinataire) : renvoyer deux fois ne fait pas deux pop-ups.
+- `GET /activities/api/share/offers` → propositions en attente du compte connecté.
+- `POST /activities/api/share/offers/<id>/respond` `{action:"accept"|"update"|"decline"}` →
+  404 si l'offre vise un autre compte, 409 si elle est déjà traitée.
+- **Carto déjà présente chez le destinataire** : la liste des propositions renvoie
+  `existing` (l'entité de MÊME NOM qu'il possède déjà) avec `differs` (comparaison
+  JSON des deux `optiqcarto_data`). La pop-up propose alors **Mettre à jour la
+  mienne** (`action:"update"` — remplace SA carto par celle reçue au lieu d'empiler
+  « Nom (2) »), **Créer une copie**, ou Refuser ; si les deux cartos sont identiques,
+  le bouton de mise à jour disparaît. `update` sans entité du même nom → 400.
+  ⚠️ Mettre à jour passe par `_sync_carto_to_db`, qui fait un **upsert** (shape_id
+  puis nom) : les activités communes gardent tâches, compétences et évaluations,
+  mais celles absentes de la carto reçue sont **supprimées** avec leurs données
+  liées. La pop-up le dit avant de valider.
+- Les routes d'envoi exigent la **propriété** de l'entité (404 sinon) — plus le statut admin.
+  Le dépôt (direct ou après acceptation) passe par `_deposer_copie()` : nom suffixé
+  « (2) » en cas de collision, puis `_sync_carto_to_db` — sinon le destinataire reçoit
+  une carte sans activités ni rôles.
+- La pop-up attend que la **fenêtre de bienvenue** soit refermée (MutationObserver) pour
+  ne pas empiler deux modales, et ne recharge la page qu'après une acceptation.
+- Tests : `tests/test_51_entity_share.py` (40 cas).
+
+---
+
 ## Conventions de code
 
 - **Pas de framework JS** : tout en vanilla JS, `$()` est un alias `document.querySelector`
@@ -248,6 +539,20 @@ partagent un design system chargé partout via `header_buttons.html` :
   `#ea580c`, `page--settings` `#6366f1`). Poser `pg-root page--<clé>` sur la
   racine (ou `class="pg page--<clé>"` sur `<body>`) → accent via `var(--pg-accent)`
   + dérivés `--pg-accent-deep/-soft/-softer/-border/-glow`.
+- **Liseré de défilement de la nav** (`cardnav.css` + `js/cardnav.js`) : la barre
+  native est masquée, et sans trackpad la nav ne pouvait pas défiler. Un liseré
+  court (200 px max, ~20 % de la largeur de la nav) et vert `#49e8a4` — celui
+  du contour de la nav — est posé en bas de la zone des items ;
+  **il se tire**, un clic saute à la position, et la molette
+  verticale défile la nav tant qu'elle n'est pas en butée (au-delà, la page
+  reprend la main). Invisible au repos, il apparaît au survol de la nav et
+  pendant le défilement ; masqué sur mobile (le menu s'y déplie en colonne).
+  ⚠️ **Zone de captation ≠ rail visible** : viser 3 px de haut serait pénible, donc
+  `.card-scrollbar` est une bande TRANSPARENTE de 13 px sur toute la largeur des
+  items, et `.card-scrollbar-track` est le rail visible (200 px centré) à
+  l'intérieur. La bande descend sous la zone des items (`bottom:-6px`) pour ne pas
+  voler le clic des boutons de nav, qui doivent continuer à mener à leur page ;
+  un clic n'importe où dans la bande est ramené sur le rail (bornes comprises).
 - **2 éléments d'identité communs** : la nav (cardnav) + le **bandeau de page**
   `{% include "page_banner.html" %}` (icône teintée, titre Fraunces, sous-titre,
   encart chiffre optionnel). Fond commun gris-bleu `#f2f4f9` + halo couleur de
@@ -334,6 +639,34 @@ partagent un design system chargé partout via `header_buttons.html` :
 - Correctif prod : `/competences/current_user_manager` renvoyait l'id 114 codé en
   dur → page Compétences morte sur toute autre base. Désormais : l'utilisateur
   connecté s'il encadre, sinon son manager.
+
+### Complété (session 9 — 2026-08-26)
+- **Guide bilingue jusqu'aux DONNÉES** (`tools/guide/demo_data_i18n.py`) : le VSDX
+  d'exemple mélange les langues (20 bandes anglaises, 16 activités et 27 flèches
+  françaises) — le guide français affichait donc des rôles anglais et le guide
+  anglais des activités françaises. `traduire_diagramme()` réécrit les libellés
+  AVANT `/cartography/api/save` (activités, rôles et liens naissent traduits) et
+  tout le contenu enrichi est décliné (outils, verbes de tâches, savoirs, HSC,
+  missions, projet, faiblesse). `libelles_non_traduits()` signale au démarrage du
+  seed tout libellé sans entrée. Les 36 captures et 16 vidéos ont été refaites.
+- **Voile sombre sur les captures du guide** : les images des paires FR/EN
+  portaient `loading="lazy"` — une image cachée n'est jamais chargée, et en thème
+  sombre le `.frame` laissait voir `var(--card)` (#141d2e) le temps du décodage.
+  Correction : plus de `loading="lazy"` sur les paires (le fichier autonome
+  embarque déjà les octets en data:) + fond de cadre clair constant.
+- **Traductions applicatives manquantes** (visibles dans les captures anglaises) :
+  carte des activités (« Cartographie », « 14 activités », « Rechercher une
+  activité »… → `map.*`), page Temps (en-têtes des 3 tableaux construits par
+  `time.js` + résumé des projets → `window.TIME_I18N`, helper `tl(cle, defaut)`),
+  fenêtre de bienvenue et journal d'activité (`welcome.*`, `event.*`, dates,
+  nouveautés curées bilingues via `title_en`/`desc_en` dans
+  `static/changelog_user.json`). Balayage automatisé : 36 mots français sur les
+  9 pages anglaises → 0.
+- ⚠️ **Piège RecentEvent** : les listeners SQLAlchemy de `models.py` écrivent le
+  libellé de l'événement (« Rôle modifié : X ») dans la langue de `session['lang']`
+  au moment de l'écriture. Un script qui travaille dans un simple `app_context()`
+  n'a pas de session → tout repart en français. `seed_demo.py` enrichit donc dans
+  un `test_request_context()` avec `session['lang']` posé.
 
 ### En cours
 - *(rien)*
@@ -479,6 +812,54 @@ jamais exposées aux utilisateurs). Deux morceaux :
   chronologique. **Compte unique** `Mael_Girardin` (mdp défaut `testtest`,
   changer via secret/env `PULSE_PASSWORD`), anti-force-brute, noindex.
   Tests : `tests/test_61_pulse.py` (14). Doc : `pulse/README.md`.
+
+## Provisionnement — compléter une carto avec un Excel client
+
+`tools/provisioning/provision.py` sait aussi **injecter les tâches d'un tableur
+client dans une carto déjà en place** (bloc `tasks_excel` du plan) : il réutilise
+le pipeline d'import de l'app (`Code/routes/import_full`) — même lecture du
+fichier, mêmes get-or-create outils/rôles, déduplication des tâches par nom (donc
+idempotent). `Guarantor` → rôle **Garant** de l'activité, `Doer`/`Approver` →
+rôles de tâche, `Skills` → compétences.
+
+- ⚠️ **L'appariement est une table explicite** (`data/*_mapping.json`), pas du
+  fuzzy : les libellés du client ne sont pas ceux de la carte harmonisée
+  (« Identify Part » → « Develop Preliminary Technical Solution »). L'appariement
+  automatique ne sert que de filet, et seulement au-delà de 90 %.
+- **Cloisonnement par compte** : `owner_email` + `require_existing` + le nouveau
+  `match_name_contains` (retrouve l'entité même renommée, **chez ce propriétaire
+  seulement**). Si l'entité n'existe pas chez lui, le script s'arrête sans rien
+  écrire — même si une entité du même nom existe chez quelqu'un d'autre.
+- `plans/maelg_fluidclip_tasks.json` : carto « FluidCLip » du compte
+  `mael.pierre.girardin@icloud.com` complétée par `CLIP_ RFQ Tasks.xlsx`.
+  ⚠️ **Sept autres comptes de l'instance pilote possèdent une entité du MÊME
+  nom** — d'où le cloisonnement par propriétaire. Appliqué le 2026-08-30 sur
+  `optiqfluent_pilot` (Neon) : 25/25 activités appariées, 96 tâches, 28 outils,
+  14 rôles, 53 compétences ; entités des autres comptes inchangées (0 tâche).
+  Rejouable tel quel (`--dry-run` d'abord).
+- ⚠️ **La colonne Skills sert aussi à dire qu'il n'y a RIEN à savoir faire** :
+  « No Special skills required » (27 lignes du fichier) et « - » devenaient des
+  compétences portant la phrase elle-même. `_est_non_competence()` écarte ces
+  mentions d'absence (regex « no/not/aucun… » + « skill/compétence », plus une
+  liste de valeurs vides : `-`, `n/a`, `none`…). 17 lignes supprimées après coup
+  sur le pilote : 53 → 36 compétences.
+- ⚠️ **`--dry-run` n'était pas étanche** : `_sync_carto_to_db` finit par un
+  `commit()`, qui figeait tout ce que le plan avait écrit avant lui (le rollback
+  final n'annulait plus que la dernière étape). `_neutraliser_commits()` remplace
+  `commit` par `flush` en simulation. Vérifié au banc : un plan qui crée compte +
+  entité + carto + Excel laisse la base vide après `--dry-run`.
+- `plans/pilote_fluidclip_tasks.json` : les **six** comptes ARaymond gardent leur
+  carto FluidClip et reçoivent les données de l'Excel ; Maël reçoit en plus
+  **« Entité de rendu FluidClip »** (copie de LEUR carto + les mêmes données) pour
+  contrôler leur rendu. Appliqué le 2026-08-30 : 96 tâches / 28 outils / 32 rôles /
+  36 compétences par entité (les tâches saisies à la main par ces comptes sont
+  conservées : Hubert 100, Madhuri 97, Vaishali 97). Priya Bhivare n'avait aucune
+  FluidClip : la sienne a été **créée** depuis le même modèle (42 activités,
+  96 tâches). ⚠️ Une entité portant un bloc `carto` est **re-synchronisée à
+  chaque rejeu**, et `_sync_carto_to_db` efface les rôles absents de la carte :
+  les rôles issus de l'Excel sont donc recréés à chaque passage (leurs `id`
+  changent). D'où l'option **`--only EMAIL`**, qui rejoue un plan pour un seul
+  compte.
 
 ## Notes importantes
 

@@ -12,6 +12,30 @@
   window.ALL_ENTITIES = {{ all_entities | tojson | safe }};
   window.EXTCO_ACTIVITY_IDS = {{ extco_activity_ids | tojson | safe }};
   window.ACTIVE_CALQUE_ID   = {{ active_calque_id | tojson | safe }};
+  // Libellés du partage : le JS en a besoin, et ils changent avec la langue.
+  window.SHARE_I18N = {
+    send:        {{ t('map.share_send')|tojson }},
+    confirm:     {{ t('map.share_confirm')|tojson }},
+    directHint:  {{ t('map.share_direct_hint')|tojson }},
+    modeDirect:  {{ t('map.share_mode_direct')|tojson }},
+    modeOffer:   {{ t('map.share_mode_offer')|tojson }},
+    targetNew:     {{ t('map.share_target_new')|tojson }},
+    targetReplace: {{ t('map.share_target_replace')|tojson }},
+    replaced:      {{ t('map.share_replaced')|tojson }},
+    offerHint:   {{ t('map.share_offer_hint')|tojson }},
+    pendingFlag: {{ t('map.share_pending_flag')|tojson }},
+    hasCopy:     {{ t('map.share_has_copy')|tojson }},
+    sent:        {{ t('map.share_sent')|tojson }},
+    noAccount:   {{ t('map.share_no_account')|tojson }},
+    pickOne:     {{ t('map.share_pick_one')|tojson }},
+    loadError:   {{ t('map.share_load_error')|tojson }},
+    netError:    {{ t('map.share_net_error')|tojson }},
+    doneOk:      {{ t('map.share_done_ok')|tojson }},
+    doneWarn:    {{ t('map.share_done_warn')|tojson }},
+    donePending: {{ t('map.share_done_pending')|tojson }},
+    cancel:      {{ t('btn.cancel')|tojson }},
+    close:       {{ t('btn.close')|tojson }}
+  };
 </script>
 
 <!-- Le mode "mise en évidence" est entièrement piloté en JS (highlight-extco-map.js)
@@ -40,7 +64,7 @@
         {{ t('map.btn_import_ia') }}
       </button>
       <!-- Bouton "Connexions" — toggle mise en évidence des activités externes/hachurées -->
-      <button id="cross-carto-btn" class="cross-carto-btn" title="Mettre en évidence les activités externes (hachurées)">
+      <button id="cross-carto-btn" class="cross-carto-btn" title="{{ t('map.cross_carto_title') }}">
         <img src="{{ url_for('static', filename='img/connexion.png') }}" alt="" class="btn-icon-img cross-carto-icon">
         <span id="cross-carto-label">{{ t('map.btn_connections') }}</span>
         <span class="cross-carto-dot"></span>
@@ -81,7 +105,7 @@
       <div class="carto-preview-header">
         <div class="carto-preview-header-left">
           <i class="fa-solid fa-diagram-project"></i>
-          <span id="carto-preview-title">Cartographie</span>
+          <span id="carto-preview-title">{{ t('map.card_title') }}</span>
         </div>
         <button id="carto-preview-close" class="carto-preview-close" title="Fermer">
           <i class="fa-solid fa-xmark"></i>
@@ -169,6 +193,10 @@
                 <i class="fa-solid fa-pen"></i>
                 <span>{{ t('map.entity_btn_rename') }}</span>
               </button>
+              <button id="wizard-share-btn" class="em-action-btn em-action-share">
+                <i class="fa-solid fa-share-nodes"></i>
+                <span>{{ t('map.entity_btn_share') }}</span>
+              </button>
               <button id="wizard-delete-btn" class="em-action-btn em-action-delete">
                 <i class="fa-solid fa-trash"></i>
                 <span>{{ t('map.entity_btn_delete') }}</span>
@@ -181,6 +209,38 @@
           </div>
         </div>
 
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL PARTAGE D'ENTITÉ -->
+  <div id="share-entity-modal" class="modal hidden">
+    <div class="modal-content share-modal">
+      <h3 class="share-modal-title">
+        <i class="fa-solid fa-share-nodes"></i> {{ t('map.share_title') }}
+      </h3>
+      <p class="share-modal-desc" id="share-modal-desc"></p>
+      <div class="share-mode" id="share-mode" style="display:none">
+        <span class="share-mode-label">{{ t('map.share_mode_label') }}</span>
+        <label class="share-mode-opt">
+          <input type="radio" name="share-mode" value="direct" checked>
+          <span>{{ t('map.share_mode_direct') }}</span>
+        </label>
+        <label class="share-mode-opt">
+          <input type="radio" name="share-mode" value="offer">
+          <span>{{ t('map.share_mode_offer') }}</span>
+        </label>
+      </div>
+      <div class="share-name-row" id="share-name-row" style="display:none">
+        <label class="share-name-label" for="share-name">{{ t('map.share_name_label') }}</label>
+        <input type="text" id="share-name" class="share-name-input" maxlength="200">
+      </div>
+      <div class="share-user-list" id="share-user-list"></div>
+      <div class="share-modal-actions">
+        <button id="share-cancel-btn" class="modal-btn-cancel">{{ t('btn.cancel') }}</button>
+        <button id="share-confirm-btn" class="modal-btn-share">
+          <i class="fa-solid fa-paper-plane"></i> {{ t('map.share_confirm') }}
+        </button>
       </div>
     </div>
   </div>
@@ -223,7 +283,7 @@
           <div class="carto-viewer-cardheader-left">
             <div class="carto-viewer-cardicon" onclick="fitViewer()" title="{{ t('map.fit_view') }}" style="cursor:pointer"><i class="fa-solid fa-diagram-project"></i></div>
             <div>
-              <h3 class="carto-viewer-cardtitle">Cartographie</h3>
+              <h3 class="carto-viewer-cardtitle">{{ t('map.card_title') }}</h3>
               {% if active_entity %}<span class="carto-viewer-cardentity">{{ active_entity.name }}</span>{% endif %}
             </div>
           </div>
@@ -280,13 +340,13 @@
         <div class="activities-panel-icon"><i class="fa-solid fa-list-check"></i></div>
         <div>
           <h3 class="activities-panel-title">{{ t('map.panel_title') }}</h3>
-          <span class="activities-panel-count">{{ activities|length }} activité{{ 's' if activities|length != 1 else '' }}</span>
+          <span class="activities-panel-count">{{ activities|length }} {{ t('map.count_activities') if activities|length != 1 else t('map.count_activity') }}</span>
         </div>
       </div>
       {% if activities %}
         <div class="carto-activity-search">
           <i class="fa-solid fa-magnifying-glass"></i>
-          <input type="search" id="carto-activity-search" placeholder="Rechercher une activité…" autocomplete="off">
+          <input type="search" id="carto-activity-search" placeholder="{{ t('map.search_activity') }}" autocomplete="off">
         </div>
         <ul class="activities-list" id="activities-list">
           {% for a in activities %}

@@ -25,7 +25,8 @@ def add_task():
         name=data['name'],
         description=data.get('description', ''),
         order=data.get('order', None),
-        activity_id=data['activity_id']
+        activity_id=data['activity_id'],
+        file_path=(data.get('file_path') or '').strip() or None,
     )
     db.session.add(new_task)
     db.session.commit()
@@ -34,6 +35,7 @@ def add_task():
         'id': new_task.id,
         'name': new_task.name,
         'description': new_task.description,
+        'file_path': new_task.file_path,
         'order': new_task.order,
         'activity_id': new_task.activity_id
     }), 201
@@ -226,7 +228,10 @@ def render_tasks(activity_id):
     if not activity:
         return "Activité introuvable.", 404
 
-    sorted_tasks = sorted(activity.tasks, key=lambda t: t.order if t.order is not None else 0)
+    # `id` départage les tâches de même `order` : sans lui, la tâche qu'on
+    # vient de modifier remontait ou descendait dans la liste au rafraîchissement.
+    sorted_tasks = sorted(activity.tasks,
+                          key=lambda t: (t.order if t.order is not None else 0, t.id))
 
     # Construire task_conn_map pour l'affichage des connexions dans le partial
     task_conn_map = {}
@@ -295,6 +300,8 @@ def update_task(task_id):
         task.name = data['name']
     if 'description' in data:
         task.description = data['description']
+    if 'file_path' in data:
+        task.file_path = (data.get('file_path') or '').strip() or None
 
     try:
         db.session.commit()
@@ -302,6 +309,7 @@ def update_task(task_id):
             'id': task.id,
             'name': task.name,
             'description': task.description,
+            'file_path': task.file_path,
             'order': task.order,
             'activity_id': task.activity_id
         }), 200

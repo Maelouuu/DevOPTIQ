@@ -1,0 +1,279 @@
+<!-- entity_share_popup.html — proposition de partage d'entité reçue.
+     Un administrateur dépose sa copie directement ; tout autre compte ne fait
+     que proposer, et c'est ici que le destinataire accepte ou refuse. -->
+<style>
+  #eso-overlay{
+    position:fixed; inset:0; z-index:10050;
+    display:none; align-items:center; justify-content:center;
+    background:rgba(8,12,22,.55); backdrop-filter:blur(6px);
+    opacity:0; transition:opacity .25s ease;
+  }
+  #eso-overlay.eso-visible{opacity:1}
+  #eso-card{
+    width:min(94vw,500px);
+    background:#fff; color:#111827;
+    border-radius:16px; overflow:hidden;
+    box-shadow:0 24px 60px rgba(8,12,22,.32);
+    transform:translateY(10px) scale(.985);
+    transition:transform .25s cubic-bezier(.4,0,.2,1);
+    font-family:'DM Sans',system-ui,sans-serif;
+  }
+  #eso-overlay.eso-visible #eso-card{transform:none}
+
+  .eso-head{
+    padding:20px 22px 16px;
+    background:linear-gradient(135deg,#0d9488,#0f766e);
+    color:#fff;
+  }
+  .eso-badge{
+    display:inline-flex; align-items:center; gap:6px;
+    font-size:11.5px; font-weight:700; letter-spacing:.06em; text-transform:uppercase;
+    background:rgba(255,255,255,.18); border-radius:999px; padding:4px 10px;
+  }
+  .eso-title{
+    margin:10px 0 0; font-family:'Fraunces',Georgia,serif;
+    font-size:20px; font-weight:600; line-height:1.25;
+  }
+  .eso-count{margin:6px 0 0; font-size:12px; opacity:.85}
+
+  .eso-body{padding:20px 22px}
+  .eso-from{font-size:15px; margin:0 0 12px}
+  .eso-from b{font-weight:700}
+  .eso-entity{
+    display:flex; align-items:center; gap:10px;
+    border:1px solid #e5e7eb; border-radius:12px;
+    padding:12px 14px; background:#f8fafc;
+  }
+  .eso-entity i{color:#0d9488; font-size:16px}
+  .eso-entity-name{font-weight:700; font-size:15px}
+  .eso-entity-desc{font-size:13px; color:#6b7280; margin-top:2px}
+  .eso-hint{font-size:13px; color:#6b7280; margin:14px 0 0; line-height:1.5}
+
+  .eso-known{
+    margin:14px 0 0; padding:11px 13px;
+    border-radius:10px; border:1px solid #fde68a; background:#fffbeb;
+    font-size:13px; color:#92400e; line-height:1.5;
+  }
+  .eso-known b{font-weight:700}
+  .eso-known-hint{display:block; margin-top:5px; color:#a16207}
+
+  .eso-actions{display:flex; gap:8px; padding:0 22px 20px; flex-wrap:wrap}
+  .eso-actions .eso-btn{flex:1 1 auto; padding-left:10px; padding-right:10px}
+  .eso-actions .eso-accept{flex:1.2 1 auto}
+  .eso-btn{
+    flex:1; border:0; border-radius:10px; padding:11px 14px;
+    font-size:13px; font-weight:600; cursor:pointer; white-space:nowrap;
+    font-family:inherit; transition:filter .15s ease, background .15s ease;
+  }
+  .eso-btn:disabled{opacity:.6; cursor:default}
+  .eso-decline{background:#fff; color:#4b5563; border:1px solid #d1d5db}
+  .eso-decline:hover:not(:disabled){background:#f3f4f6}
+  .eso-accept{background:linear-gradient(135deg,#0d9488,#0f766e); color:#fff}
+  .eso-accept:hover:not(:disabled){filter:brightness(1.06)}
+  .eso-copy{background:#fff; color:#0f766e; border:1px solid #99f6e4}
+  .eso-copy:hover:not(:disabled){background:#f0fdfa}
+  .eso-done{
+    padding:0 22px 20px; font-size:13.5px; color:#0f766e; font-weight:600;
+    display:none;
+  }
+</style>
+
+<div id="eso-overlay" role="dialog" aria-modal="true" aria-labelledby="eso-title">
+  <div id="eso-card">
+    <div class="eso-head">
+      <span class="eso-badge"><i class="fa-solid fa-share-nodes"></i> OPTIQ</span>
+      <h2 class="eso-title" id="eso-title">{{ t('share.offer_title') }}</h2>
+      <p class="eso-count" id="eso-count"></p>
+    </div>
+    <div class="eso-body">
+      <p class="eso-from" id="eso-from"></p>
+      <div class="eso-entity">
+        <i class="fa-solid fa-diagram-project"></i>
+        <div>
+          <div class="eso-entity-name" id="eso-entity-name"></div>
+          <div class="eso-entity-desc" id="eso-entity-desc"></div>
+        </div>
+      </div>
+      <p class="eso-hint" id="eso-hint">{{ t('share.offer_hint') }}</p>
+      <div class="eso-known" id="eso-known" style="display:none"></div>
+    </div>
+    <div class="eso-actions" id="eso-actions">
+      <button class="eso-btn eso-decline" id="eso-decline">{{ t('share.decline') }}</button>
+      <button class="eso-btn eso-copy" id="eso-copy" style="display:none">{{ t('share.make_copy') }}</button>
+      <button class="eso-btn eso-accept" id="eso-accept">{{ t('share.accept') }}</button>
+    </div>
+    <div class="eso-done" id="eso-done"></div>
+  </div>
+</div>
+
+<script>
+(function () {
+  const I18N = {
+    from:      {{ t('share.offer_intro')|tojson }},
+    remaining: {{ t('share.remaining')|tojson }},
+    accepted:  {{ t('share.accepted')|tojson }},
+    declined:  {{ t('share.declined')|tojson }},
+    updated:   {{ t('share.updated')|tojson }},
+    already:   {{ t('share.already_have')|tojson }},
+    differs:   {{ t('share.diff_hint')|tojson }},
+    same:      {{ t('share.same_hint')|tojson }},
+    update:    {{ t('share.update')|tojson }},
+    accept:    {{ t('share.accept')|tojson }},
+    offerHint: {{ t('share.offer_hint')|tojson }},
+    updateHint: {{ t('share.update_hint')|tojson }},
+    title:       {{ t('share.offer_title')|tojson }},
+    noticeTitle: {{ t('share.notice_title')|tojson }},
+    noticeTitleUpd: {{ t('share.notice_title_upd')|tojson }},
+    noticeIntro: {{ t('share.notice_intro')|tojson }},
+    noticeHint:  {{ t('share.notice_hint')|tojson }},
+    noticeReplaced:     {{ t('share.notice_replaced')|tojson }},
+    noticeReplacedHint: {{ t('share.notice_replaced_hint')|tojson }},
+    gotIt:       {{ t('share.got_it')|tojson }},
+    decline:     {{ t('share.decline')|tojson }},
+  };
+  const overlay = document.getElementById('eso-overlay');
+  if (!overlay) return;
+
+  const el = id => document.getElementById(id);
+  let offres = [], index = 0, aAccepte = false;
+
+  function remplir(txt, ...valeurs) {
+    let i = 0;
+    return String(txt).replace(/%s/g, () => valeurs[i++]);
+  }
+
+  function afficher() {
+    const o = offres[index];
+    if (!o) return terminer();
+    // « notice » = l'entité a déjà été déposée par un administrateur : rien à
+    // accepter, on explique seulement ce qui vient d'arriver dans ses données.
+    const info = o.kind === 'notice';
+    const majTitre = info && o.replaced;
+    el('eso-title').textContent = majTitre ? I18N.noticeTitleUpd
+                                : info ? I18N.noticeTitle : I18N.title;
+    const remplacee = info && o.replaced;
+    el('eso-from').innerHTML = remplir(
+      remplacee ? I18N.noticeReplaced : (info ? I18N.noticeIntro : I18N.from),
+      '<b>' + echapper(o.from) + '</b>');
+    el('eso-entity-name').textContent = o.entity_name || '—';
+    el('eso-entity-desc').textContent = o.description || '';
+    el('eso-entity-desc').style.display = o.description ? '' : 'none';
+    el('eso-count').textContent = offres.length > 1
+      ? remplir(I18N.remaining, index + 1, offres.length) : '';
+
+    // Déjà une entité du même nom : mettre à jour la sienne plutôt que
+    // d'empiler une copie — proposé seulement si la version reçue diffère.
+    const connue = info ? null : o.existing;
+    const known = el('eso-known');
+    const copie = el('eso-copy');
+    const accepter = el('eso-accept');
+    const refuser = el('eso-decline');
+    refuser.style.display = info ? 'none' : '';
+    if (info) {
+      known.style.display = 'none';
+      copie.style.display = 'none';
+      accepter.style.display = '';
+      accepter.textContent = I18N.gotIt;
+      accepter.dataset.action = 'acknowledge';
+      el('eso-hint').textContent = remplacee ? I18N.noticeReplacedHint : I18N.noticeHint;
+    } else if (connue) {
+      known.innerHTML = remplir(I18N.already, '<b>' + echapper(connue.name) + '</b>')
+        + '<span class="eso-known-hint">'
+        + (connue.differs ? echapper(I18N.differs) : echapper(I18N.same)) + '</span>';
+      known.style.display = 'block';
+      copie.style.display = '';
+      accepter.textContent = connue.differs ? I18N.update : I18N.accept;
+      accepter.dataset.action = connue.differs ? 'update' : 'accept';
+      if (!connue.differs) { accepter.style.display = 'none'; }
+      else { accepter.style.display = ''; }
+      el('eso-hint').textContent = connue.differs ? I18N.updateHint : I18N.offerHint;
+    } else {
+      known.style.display = 'none';
+      copie.style.display = 'none';
+      accepter.style.display = '';
+      accepter.textContent = I18N.accept;
+      accepter.dataset.action = 'accept';
+      el('eso-hint').textContent = I18N.offerHint;
+    }
+    el('eso-done').style.display = 'none';
+    el('eso-actions').style.display = 'flex';
+    overlay.style.display = 'flex';
+    requestAnimationFrame(() => overlay.classList.add('eso-visible'));
+  }
+
+  function echapper(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+
+  function terminer() {
+    overlay.classList.remove('eso-visible');
+    setTimeout(() => {
+      overlay.style.display = 'none';
+      // L'entité créée doit apparaître dans les listes : on recharge une fois,
+      // seulement si quelque chose a réellement été accepté.
+      if (aAccepte) window.location.reload();
+    }, 250);
+  }
+
+  async function repondre(action) {
+    const o = offres[index];
+    if (!o) return;
+    const boutons = [el('eso-accept'), el('eso-copy'), el('eso-decline')];
+    boutons.forEach(b => b.disabled = true);
+    try {
+      const res = await fetch('/activities/api/share/offers/' + o.id + '/respond', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({action}),
+      });
+      const data = await res.json();
+      if (!data.error) {
+        if (action === 'accept' || action === 'update') aAccepte = true;
+        el('eso-actions').style.display = 'none';
+        el('eso-done').textContent = action === 'decline' ? I18N.declined
+                                   : action === 'update' ? I18N.updated
+                                   : action === 'acknowledge' ? '' : I18N.accepted;
+        el('eso-done').style.display = action === 'acknowledge' ? 'none' : 'block';
+        el('eso-done').style.display = 'block';
+        setTimeout(() => { index += 1; afficher(); }, action === 'acknowledge' ? 200 : 900);
+        return;
+      }
+    } catch (e) { /* le réseau a lâché : on referme sans rien créer */ }
+    terminer();
+  }
+
+  el('eso-accept').addEventListener('click', (e) =>
+    repondre(e.currentTarget.dataset.action || 'accept'));
+  el('eso-copy').addEventListener('click', () => repondre('accept'));
+  el('eso-decline').addEventListener('click', () => repondre('decline'));
+
+  async function charger() {
+    try {
+      const res = await fetch('/activities/api/share/offers');
+      if (!res.ok) return;
+      const data = await res.json();
+      offres = data.offers || [];
+      if (offres.length) attendreAccueil(afficher);
+    } catch (e) { /* jamais bloquant */ }
+  }
+
+  // La fenêtre de bienvenue occupe déjà le centre de l'écran au premier
+  // chargement : on attend qu'elle soit refermée pour ne pas empiler deux modales.
+  function attendreAccueil(suite) {
+    const accueil = document.getElementById('welcome-popup-overlay');
+    const visible = () => accueil && getComputedStyle(accueil).display !== 'none';
+    if (!visible()) return suite();
+    const obs = new MutationObserver(() => {
+      if (!visible()) { obs.disconnect(); suite(); }
+    });
+    obs.observe(accueil, {attributes: true, attributeFilter: ['style', 'class']});
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', charger);
+  } else {
+    charger();
+  }
+})();
+</script>

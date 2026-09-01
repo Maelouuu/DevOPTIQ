@@ -69,3 +69,19 @@ class TestActivitiesRoutes:
         assert r.status_code == 200
         # La page doit avoir une section pour les tâches
         assert b"task" in r.data.lower() or b"t\xc3\xa2che" in r.data
+
+
+# ── Provenance de l'activite epinglee ────────────────────────────────────────
+# Le bandeau disait « selectionnee depuis la cartographie » meme quand on
+# arrivait depuis la page Roles.
+
+def test_le_bandeau_dit_la_provenance(auth_client, ids):
+    aid = ids["activity_id"]
+    depuis_roles = auth_client.get(f"/activities/view?activity_id={aid}&from=roles").data.decode("utf-8")
+    depuis_carto = auth_client.get(f"/activities/view?activity_id={aid}&from=carto").data.decode("utf-8")
+    sans_origine = auth_client.get(f"/activities/view?activity_id={aid}").data.decode("utf-8")
+
+    assert "les rôles" in depuis_roles or "from Roles" in depuis_roles
+    assert "cartographie" in depuis_carto or "from the map" in depuis_carto
+    # sans provenance : un libelle neutre, pas « depuis la cartographie »
+    assert "cartographie" not in sans_origine and "from the map" not in sans_origine

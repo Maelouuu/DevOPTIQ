@@ -36,6 +36,7 @@
   padding: 6px 8px 6px 6px;
   gap: 0;
   overflow: hidden;
+  position: relative;
   transition: box-shadow .25s ease, border-color .25s ease;
 }
 .card-nav:hover {
@@ -99,6 +100,7 @@
 
 /* ── Zone des items ─────────────────────────── */
 .card-nav-content {
+  position: relative;   /* repère du liseré de défilement */
   flex: 1 1 auto;
   display: flex; align-items: center;
   min-width: 0;
@@ -119,6 +121,54 @@
 }
 .card-scroll::-webkit-scrollbar { display: none; }
 .card-scroll { scrollbar-width: none; }
+
+/* ── Liseré de défilement ───────────────────── */
+/* La barre native est masquée (scrollbar-width:none) : celle-ci la remplace.
+   Ce n'est pas qu'un indicateur — on peut la TIRER, c'est le seul moyen de
+   faire défiler la nav avec une souris sans molette horizontale. */
+/* Zone de CAPTATION : transparente, large, collée au bas de la nav. Le rail
+   ne fait que 3 px de haut — viser au pixel serait pénible. Elle descend sous
+   la zone des items (bottom négatif) pour ne pas voler le clic des boutons,
+   qui doivent continuer à mener à leur page. */
+.card-scrollbar {
+  position: absolute;
+  left: 0; right: 0; bottom: -6px;
+  height: 13px;
+  display: flex; align-items: flex-end; justify-content: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .22s ease;
+  z-index: 3;
+}
+.card-scrollbar.is-scrollable { pointer-events: auto; }
+.card-nav:hover .card-scrollbar.is-scrollable,
+.card-scrollbar.is-scrollable.is-active { opacity: 1; }
+
+/* Rail VISIBLE : court et centré, sur toute la largeur il pesait plus lourd
+   que la nav. */
+.card-scrollbar-track {
+  position: relative;
+  width: min(34%, 200px);
+  height: 3px;
+  margin-bottom: 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.card-scrollbar-thumb {
+  position: absolute;
+  top: -1px; height: 5px;
+  min-width: 28px;
+  border-radius: 999px;
+  /* Le vert du contour de la nav (#49e8a4), sans dégradé. */
+  background: rgba(73, 232, 164, .55);
+  transition: background .2s ease, box-shadow .2s ease;
+}
+.card-scrollbar:hover .card-scrollbar-thumb,
+.card-scrollbar.is-dragging .card-scrollbar-thumb {
+  background: #49e8a4;
+  box-shadow: 0 0 10px rgba(73, 232, 164, .35);
+}
 
 /* ── Items de navigation ────────────────────── */
 .nav-card {
@@ -253,6 +303,8 @@
   }
 
   .hamburger-menu { display: flex; }
+
+  .card-scrollbar { display: none; }
 
   .card-nav-content {
     width: 100%;

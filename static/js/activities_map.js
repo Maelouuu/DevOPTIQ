@@ -247,7 +247,7 @@ function activateSvgClicks() {
             handleCrossCartoClick(name, entities);
           }
         } else {
-          window.location.href = `/activities/view?activity_id=${actId}`;
+          window.location.href = `/activities/view?activity_id=${actId}&from=carto`;
         }
       }
     });
@@ -390,6 +390,7 @@ function initWizard() {
 
   // Actions entité
   $("#wizard-activate-btn")?.addEventListener("click", activateEntity);
+  wireEntityShare();
 
   $("#wizard-open-editor-btn")?.addEventListener("click", async () => {
     if (!wizardState.selectedEntity) { window.location.href = "/cartography/editor"; return; }
@@ -513,6 +514,213 @@ async function createEntity() {
     setTimeout(() => selectEntity(data.entity.id), 50);
   } catch (e) { alert("Erreur réseau"); }
 }
+
+/* ══════════════════════════════════════════════════
+   PARTAGE D'UNE ENTITÉ
+   ══════════════════════════════════════════════════
+   Partager = déposer une COPIE de l'entité chez chaque destinataire : une
+   entité n'appartient qu'à son propriétaire, il n'existe pas d'accès partagé.
+   Chacun repart avec la sienne et la modifie sans toucher à l'originale.
+   Ouvert à tous : seul le CONSENTEMENT change (dépôt direct pour un admin,
+   proposition à accepter sinon). */
+
+function wireEntityShare() {
+  $("#wizard-share-btn")?.addEventListener("click", openShareModal);
+  $("#share-cancel-btn")?.addEventListener("click", () => hideModal("share-entity-modal"));
+  $("#share-confirm-btn")?.addEventListener("click", confirmShare);
+}
+
+const SHARE_L = () => window.SHARE_I18N || {};
+
+// Dépôt d'autorité : l'admin vise soit une entité neuve, soit une entité
+// existante du destinataire (qui sera écrasée par la carto envoyée).
+function cibleSelect(u, L) {
+  if (!u.entities || !u.entities.length) return "";
+  const options = [`<option value="">${L.targetNew || "Créer une nouvelle entité"}</option>`]
+    .concat(u.entities.map(e =>
+      `<option value="${e.id}">${(L.targetReplace || 'Remplacer « %s »').replace("%s", e.name)}</option>`));
+  return `<select class="share-target" data-user="${u.id}">${options.join("")}</select>`;
+}
+
+// Les cibles n'ont de sens qu'en dépôt d'autorité.
+function majCibles() {
+  const direct = shareDirect && shareMode() === "direct";
+  document.querySelectorAll(".share-target").forEach(sel => {
+    sel.style.display = direct ? "" : "none";
+    if (!direct) sel.value = "";
+  });
+  const ligne = $("#share-name-row");
+  if (ligne) ligne.style.display = direct ? "flex" : "none";
+}
+
+// « direct » = dépôt d'autorité (admin), « offer » = proposition à accepter.
+const shareMode = () =>
+  document.querySelector('#share-mode input[name="share-mode"]:checked')?.value || "direct";
+
+// Un administrateur dépose sa copie directement ; tout autre compte envoie une
+// proposition, et l'entité n'est créée qu'après acceptation du destinataire.
+let shareDirect = true;
+
+async function openShareModal() {
+  const entity = wizardState.selectedEntity;
+  if (!entity) return;
+  const L = SHARE_L();
+  const list = $("#share-user-list");
+  const desc = $("#share-modal-desc");
+  if (!list) return;
+
+  const confirmBtn = $("#share-confirm-btn");
+  if (confirmBtn) confirmBtn.style.display = "";
+  const cancelBtn = $("#share-cancel-btn");
+  if (cancelBtn) cancelBtn.textContent = L.cancel || "Annuler";
+  list.innerHTML = '<p class="share-loading"><i class="fa-solid fa-spinner fa-spin"></i></p>';
+  showModal("share-entity-modal");
+
+  try {
+    const res = await fetch(`/activities/api/entities/${entity.id}/share/candidates`);
+    const data = await res.json();
+    if (data.error) { list.innerHTML = `<p class="share-error">${data.error}</p>`; return; }
+
+    shareDirect = data.direct !== false;
+    // Un admin choisit son régime ; les autres n'ont pas le choix, on masque.
+    const choix = $("#share-mode");
+    if (choix) {
+      choix.style.display = shareDirect ? "" : "none";
+      const radio = choix.querySelector('input[value="direct"]');
+      if (radio) radio.checked = true;
+    }
+    const majBouton = () => {
+      if (!confirmBtn) return;
+      const direct = shareDirect && shareMode() === "direct";
+      confirmBtn.innerHTML = `<i class="fa-solid fa-paper-plane"></i> `
+        + (direct ? (L.confirm || "Déposer la copie") : (L.send || "Envoyer la proposition"));
+      if (desc) {
+        desc.innerHTML = `${data.entity.name}`
+          + `<span class="share-mode-hint">${direct ? (L.directHint || "") : (L.offerHint || "")}</span>`;
+      }
+    };
+    const champNom = $("#share-name");
+    if (champNom) champNom.value = data.entity.name || "";
+    document.querySelectorAll('#share-mode input[name="share-mode"]')
+      .forEach(r => r.addEventListener("change", () => { majBouton(); majCibles(); }));
+    majBouton();
+    if (!data.users.length) {
+      list.innerHTML = `<p class="share-empty">${L.noAccount || "Aucun autre compte sur cette instance."}</p>`;
+      return;
+    }
+    list.innerHTML = data.users.map(u => `
+      <label class="share-user-row">
+        <input type="checkbox" class="share-user-cb" value="${u.id}">
+        <span class="share-user-name">${u.name}</span>
+        <span class="share-user-mail">${u.email}</span>
+        ${u.pending ? `<span class="share-user-flag">${L.pendingFlag || "proposition en attente"}</span>`
+                    : (u.already_has ? `<span class="share-user-flag">${L.hasCopy || "déjà une copie"}</span>` : '')}
+        ${cibleSelect(u, L)}
+      </label>`).join("");
+    majCibles();
+  } catch (e) {
+    list.innerHTML = `<p class="share-error">${L.loadError || "Erreur de chargement des comptes."}</p>`;
+  }
+}
+
+// { id du compte : id de l'entité à écraser } — vide = tout en création.
+function ciblesChoisies() {
+  const cibles = {};
+  document.querySelectorAll(".share-user-row").forEach(ligne => {
+    const cb = ligne.querySelector(".share-user-cb");
+    const sel = ligne.querySelector(".share-target");
+    if (cb?.checked && sel?.value) cibles[cb.value] = sel.value;
+  });
+  return cibles;
+}
+
+async function confirmShare() {
+  const L = SHARE_L();
+  const entity = wizardState.selectedEntity;
+  const ids = [...document.querySelectorAll(".share-user-cb:checked")].map(cb => parseInt(cb.value));
+  if (!entity || !ids.length) { alert(L.pickOne || "Sélectionnez au moins un compte."); return; }
+
+  const btn = $("#share-confirm-btn");
+  const label = btn ? btn.innerHTML : null;
+  if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>'; }
+  try {
+    const res = await fetch(`/activities/api/entities/${entity.id}/share`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        user_ids: ids,
+        mode: shareMode(),
+        name: ($("#share-name")?.value || "").trim() || undefined,
+        replace: ciblesChoisies(),
+      }),
+    });
+    const data = await res.json();
+    if (data.error) { alert(data.error); return; }
+
+    const deposees = data.shared || [];
+    const proposees = data.pending || [];
+    const alertes = deposees.filter(s => s.sync_warning);
+    const list = $("#share-user-list");
+    if (list) {
+      const lignes = deposees.map(s => `
+        <div class="share-done-row">
+          <i class="fa-solid fa-circle-check"></i>
+          <span class="share-user-name">${s.user}</span>
+          <span class="share-done-entity">${s.entity_name}${
+            s.replaced ? ` (${L.replaced || "remplacée"})` : ""}</span>
+        </div>`).concat(proposees.map(s => `
+        <div class="share-done-row share-done-pending">
+          <i class="fa-solid fa-paper-plane"></i>
+          <span class="share-user-name">${s.user}</span>
+          <span class="share-done-entity">${L.sent || "Proposition envoyée"}</span>
+        </div>`)).join("");
+      const pied = proposees.length
+        ? `<p class="share-ok">${L.donePending || ""}</p>`
+        : (alertes.length
+            ? `<p class="share-warn">${(L.doneWarn || "%s").replace("%s", alertes.length)}</p>`
+            : `<p class="share-ok">${L.doneOk || ""}</p>`);
+      list.innerHTML = lignes + pied;
+    }
+    const desc = $("#share-modal-desc");
+    if (desc) desc.textContent = entity.name;
+    const confirm = $("#share-confirm-btn");
+    if (confirm) confirm.style.display = "none";
+    const cancel = $("#share-cancel-btn");
+    if (cancel) cancel.textContent = L.close || "Fermer";
+    return;
+  } catch (e) {
+    alert(L.netError || "Erreur réseau pendant le partage.");
+  } finally {
+    if (btn) { btn.disabled = false; if (label !== null) btn.innerHTML = label; }
+  }
+}
+
+async function createEntity() {
+  const input = $("#wizard-new-entity-name");
+  const name = input?.value.trim();
+  if (!name) { alert("Nom requis"); return; }
+
+  try {
+    const res = await fetch("/activities/api/entities", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name })
+    });
+    const data = await res.json();
+    if (data.error) { alert(data.error); return; }
+    if (data.redirect_url) { window.location.href = data.redirect_url; return; }
+    input.value = "";
+    await loadEntitiesList();
+    setTimeout(() => selectEntity(data.entity.id), 50);
+  } catch (e) { alert("Erreur réseau"); }
+}
+
+/* ══════════════════════════════════════════════════
+   PARTAGE D'UNE ENTITÉ (administrateurs)
+   ══════════════════════════════════════════════════
+   Partager = déposer une COPIE de l'entité chez chaque destinataire : une
+   entité n'appartient qu'à son propriétaire, il n'existe pas d'accès partagé.
+   Chacun repart avec la sienne et la modifie sans toucher à l'originale. */
 
 async function selectEntity(id) {
   const entity = wizardState.entitiesCache.find(e => e.id === id);
@@ -1049,7 +1257,7 @@ function initCrossCartoMode() {
         }
       }
       if (found && found.dataset.id) {
-        window.location.href = `/activities/view?activity_id=${found.dataset.id}`;
+        window.location.href = `/activities/view?activity_id=${found.dataset.id}&from=carto`;
       }
     }
 

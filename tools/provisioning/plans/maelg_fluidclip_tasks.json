@@ -1,0 +1,24 @@
+{
+  "label": "Maël Girardin — carto FluidClip complétée par l'Excel client (CLIP_ RFQ Tasks)",
+  "_perimetre": [
+    "Ce plan ne touche QUE le compte mael.pierre.girardin@icloud.com :",
+    "l'entité est cherchée chez ce propriétaire, et require_existing empêche",
+    "d'en créer une ailleurs. Aucun autre compte n'est modifié.",
+    "Sept autres comptes possedent une copie nommee « FluidCLip » : elles ne",
+    "sont pas touchees (la recherche est bornee au proprietaire).",
+    "Il ne crée pas de compte non plus (bloc users vide)."
+  ],
+  "users": [],
+  "entities": [
+    {
+      "name": "FluidCLip",
+      "match_name_contains": "fluidclip",
+      "owner_email": "mael.pierre.girardin@icloud.com",
+      "require_existing": true,
+      "tasks_excel": {
+        "file": "../data/clip_rfq_tasks.xlsx",
+        "mapping": "../data/clip_rfq_mapping.json"
+      }
+    }
+  ]
+}

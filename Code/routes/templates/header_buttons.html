@@ -91,6 +91,15 @@
         </a>
 
       </div>
+
+      <!-- Liseré de défilement : la nav défile horizontalement, mais sans
+           trackpad rien ne permettait de la faire glisser. Discret au repos,
+           il apparaît au survol et pendant le défilement — et il se tire. -->
+      <div class="card-scrollbar" id="card-scrollbar" aria-hidden="true">
+        <div class="card-scrollbar-track" id="card-scrollbar-track">
+          <div class="card-scrollbar-thumb"></div>
+        </div>
+      </div>
     </div>
 
     <!-- Déconnexion -->
@@ -106,3 +115,4 @@
 <script src="{{ url_for('static', filename='js/pulse.js') }}" defer></script>
 
 {% include "welcome_popup.html" %}
+{% include "entity_share_popup.html" %}

@@ -8,19 +8,22 @@
 
   <!-- ── Tabs ── -->
   <div class="tabs-row" role="tablist">
-    <button class="tab-btn active" role="tab" aria-selected="true"  data-tab="create-tab">
+    <button class="tab-btn active" role="tab" aria-selected="true" data-tab="list-tab">
+      <i class="fa-solid fa-list"></i> {{ t('account.users_tab') }}
+    </button>
+    {% if can_create_accounts %}
+    <button class="tab-btn" role="tab" aria-selected="false" data-tab="create-tab">
       <i class="fa-solid fa-user-plus"></i> {{ t('account.tab_create') }}
     </button>
     <button class="tab-btn" role="tab" aria-selected="false" data-tab="import-tab">
       <i class="fa-solid fa-file-excel"></i> {{ t('account.tab_import') }}
     </button>
-    <button class="tab-btn" role="tab" aria-selected="false" data-tab="list-tab">
-      <i class="fa-solid fa-list"></i> {{ t('account.users_tab') }}
-    </button>
+    {% endif %}
   </div>
 
-  <!-- ── ONGLET 1 : Créer un utilisateur ── -->
-  <div id="create-tab" class="tab-pane active">
+  <!-- ── ONGLET : Créer un utilisateur (administrateurs + gestionnaires) ── -->
+  {% if can_create_accounts %}
+  <div id="create-tab" class="tab-pane">
     <section class="section-card" aria-labelledby="create-title">
       <div class="section-card__head">
         <div class="section-card__head-left">
@@ -81,6 +84,7 @@
               <select name="status" class="search-style-input" required>
                 <option value="user">{{ t('account.status_user') }}</option>
                 <option value="rh">{{ t('account.status_rh') }}</option>
+                <option value="manager">{{ t('account.status_manager') }}</option>
                 <option value="administrateur">{{ t('account.status_admin') }}</option>
               </select>
             </div>
@@ -138,7 +142,9 @@
   </div>
 
   <!-- ── ONGLET 3 : Liste des utilisateurs ── -->
-  <div id="list-tab" class="tab-pane">
+  {% endif %}
+
+  <div id="list-tab" class="tab-pane active">
     <section class="section-card" aria-labelledby="list-title">
       <div class="section-card__head">
         <div class="section-card__head-left">
@@ -161,6 +167,7 @@
             <option value="">{{ t('account.all_statuses') }}</option>
             <option value="user">{{ t('account.status_user') }}</option>
             <option value="rh">{{ t('account.status_rh') }}</option>
+            <option value="manager">{{ t('account.status_manager') }}</option>
             <option value="administrateur">{{ t('account.status_admin') }}</option>
           </select>
         </div>
@@ -210,22 +217,33 @@
                     {% endif %}
                   </td>
                   <td>
-                    {% if user.status == 'administrateur' %}
+                    {% if is_admin_status(user.status) %}
                       <span class="badge badge-admin">Admin</span>
+                    {% elif is_competency_manager_status(user.status) %}
+                      <span class="badge badge-manager">{{ t('account.status_manager') }}</span>
                     {% elif user.status == 'rh' %}
                       <span class="badge badge-rh">RH</span>
+                    {% elif user.status and user.status != 'user' %}
+                      <span class="badge badge-user" title="{{ t('account.status_unknown_hint') }}">{{ user.status }}</span>
                     {% else %}
                       <span class="badge badge-user">{{ t('account.status_user') }}</span>
                     {% endif %}
                   </td>
                   <td class="td-actions">
+                    {% if is_admin or user.id == current_user_id %}
                     <a href="{{ url_for('gestion_compte.update_user', user_id=user.id) }}" class="btn btn-sm btn-outline">
                       <i class="fa-solid fa-pencil"></i> {{ t('account.btn_modify') }}
                     </a>
+                    {% endif %}
+                    {% if is_admin %}
                     <button type="button" class="btn btn-sm btn-danger"
                             onclick="confirmDelete('{{ user.id }}', '{{ user.first_name }} {{ user.last_name }}')">
                       <i class="fa-solid fa-trash"></i> {{ t('account.btn_delete') }}
                     </button>
+                    {% endif %}
+                    {% if not is_admin and user.id != current_user_id %}
+                    <span class="td-muted">—</span>
+                    {% endif %}
                   </td>
                 </tr>
               {% endfor %}

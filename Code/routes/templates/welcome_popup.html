@@ -17,8 +17,8 @@
         <span class="wp-brand-name">OPTIQ</span>
       </div>
 
-      <h2 class="wp-header-title" id="wp-title">Bienvenue</h2>
-      <p class="wp-header-sub">Nouveautés et activité récente sur votre espace</p>
+      <h2 class="wp-header-title" id="wp-title">{{ t('welcome.title') }}</h2>
+      <p class="wp-header-sub">{{ t('welcome.subtitle') }}</p>
     </div>
 
     <!-- Deux panneaux -->
@@ -30,13 +30,13 @@
           <div class="wp-panel-icon-wrap wp-panel-icon-violet">
             <i class="fa-solid fa-sparkles"></i>
           </div>
-          <span class="wp-panel-title">Nouveautés</span>
+          <span class="wp-panel-title">{{ t('welcome.news') }}</span>
           <span class="wp-badge-new"><span class="wp-badge-dot"></span>New</span>
         </div>
         <div class="wp-panel-body">
           <div id="welcome-popup-loading" class="wp-panel-loading">
             <div class="wp-spinner"></div>
-            <span>Chargement…</span>
+            <span>{{ t('welcome.loading') }}</span>
           </div>
           <div id="welcome-popup-items" class="wp-items" style="display:none;"></div>
         </div>
@@ -48,12 +48,12 @@
           <div class="wp-panel-icon-wrap wp-panel-icon-teal">
             <i class="fa-solid fa-clock-rotate-left"></i>
           </div>
-          <span class="wp-panel-title">Activité récente</span>
+          <span class="wp-panel-title">{{ t('welcome.recent') }}</span>
         </div>
         <div class="wp-panel-body">
           <div id="wp-recent-loading" class="wp-panel-loading">
             <div class="wp-spinner wp-spinner-teal"></div>
-            <span>Chargement…</span>
+            <span>{{ t('welcome.loading') }}</span>
           </div>
           <div id="wp-recent-items" class="wp-recent-list" style="display:none;"></div>
         </div>
@@ -64,7 +64,7 @@
     <!-- Pied -->
     <div id="welcome-popup-footer">
       <div class="wp-divider"></div>
-      <button id="welcome-popup-cta">C'est parti !</button>
+      <button id="welcome-popup-cta">{{ t('welcome.cta') }}</button>
     </div>
 
   </div>
@@ -83,10 +83,17 @@
   const rcLoading  = document.getElementById('wp-recent-loading');
   const rcItems    = document.getElementById('wp-recent-items');
 
+  // Signature du contenu lu : tant qu'elle ne change pas, la fenêtre ne
+  // revient plus — y compris dans un nouvel onglet.
+  let signatureCourante = '';
+  function lire(cle) { try { return localStorage.getItem(cle); } catch (e) { return null; } }
+  function ecrire(cle, val) { try { localStorage.setItem(cle, val); } catch (e) { /* stockage refusé */ } }
+
   function closePopup() {
     overlay.classList.remove('wp-visible');
     setTimeout(() => { overlay.style.display = 'none'; }, 450);
-    sessionStorage.setItem(STORAGE_KEY, '1');
+    try { sessionStorage.setItem(STORAGE_KEY, '1'); } catch (e) { /* ignore */ }
+    if (signatureCourante) ecrire(STORAGE_KEY, signatureCourante);
   }
 
   closeBtn.addEventListener('click', closePopup);
@@ -94,14 +101,31 @@
   overlay.addEventListener('click', (e) => { if (e.target === overlay) closePopup(); });
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closePopup(); });
 
-  if (!sessionStorage.getItem(STORAGE_KEY)) {
-    overlay.style.display = 'flex';
-    requestAnimationFrame(() => requestAnimationFrame(() => overlay.classList.add('wp-visible')));
+  // Déjà fermée dans cet onglet (sessionStorage) ou déjà lue dans ce navigateur
+  // (localStorage, mis à jour à la fermeture) → on n'affiche rien.
+  let dejaVue = false;
+  try { dejaVue = !!sessionStorage.getItem(STORAGE_KEY); } catch (e) { /* ignore */ }
+  const dejaLue = lire(STORAGE_KEY);
 
-    // Charger les nouveautés
+  if (!dejaVue) {
+    const montrer = () => {
+      if (overlay.style.display === 'flex') return;
+      overlay.style.display = 'flex';
+      requestAnimationFrame(() => requestAnimationFrame(() => overlay.classList.add('wp-visible')));
+    };
+
+    // Charger les nouveautés — c'est leur contenu qui décide de l'affichage :
+    // rien de neuf depuis la dernière lecture, rien à annoncer.
     fetch('/api/changelog')
       .then(r => r.json())
       .then(data => {
+        signatureCourante = (data.items || [])
+          .map(i => (i.title || '') + '|' + (i.desc || '').slice(0, 40)).join('#');
+        if (dejaLue && signatureCourante && dejaLue === signatureCourante) {
+          overlay.style.display = 'none';
+          return;
+        }
+        montrer();
         clLoading.style.display = 'none';
         if (!data.ok || !data.items || !data.items.length) {
           clItems.innerHTML = '<p class="wp-empty">Aucune nouveauté à afficher.</p>';
@@ -187,6 +211,19 @@
         rcItems.style.display = 'flex';
       });
 
+    const WP_I18N = {
+      fields: {{ t('welcome.fields_changed')|tojson }},
+      link:   {{ t('welcome.link_detail')|tojson }},
+      tool:   {{ t('welcome.tool')|tojson }},
+      task:   {{ t('welcome.task')|tojson }},
+      desc:   {{ t('welcome.description')|tojson }},
+      mission: {{ t('welcome.mission')|tojson }},
+      deleted: {{ t('welcome.data_deleted')|tojson }},
+      created: {{ t('welcome.data_created')|tojson }},
+      detail: {{ t('welcome.detail')|tojson }},
+      none:   {{ t('welcome.no_detail')|tojson }},
+    };
+
     // ── Rendu du contenu de la section déroulante ──────────────────
     function _renderDetail(detail, type) {
       if (!detail) return '';
@@ -201,32 +238,32 @@
             <span class="wp-diff-after">${_esc(ch.after)}</span>
           </div>`
         ).join('');
-        return `<div class="wp-diff-header">Champs modifiés</div><div class="wp-diff-list">${rows}</div>`;
+        return `<div class="wp-diff-header">${WP_I18N.fields}</div><div class="wp-diff-list">${rows}</div>`;
       }
 
       // Association outil → tâche
       if (detail.tool && detail.task) {
-        return `<div class="wp-diff-header">Détail de l'association</div>
+        return `<div class="wp-diff-header">${WP_I18N.link}</div>
           <div class="wp-diff-list">
-            <div class="wp-diff-row"><span class="wp-diff-field">Outil</span><span class="wp-diff-value">${_esc(detail.tool)}</span></div>
-            <div class="wp-diff-row"><span class="wp-diff-field">Tâche</span><span class="wp-diff-value">${_esc(detail.task)}</span></div>
+            <div class="wp-diff-row"><span class="wp-diff-field">${WP_I18N.tool}</span><span class="wp-diff-value">${_esc(detail.tool)}</span></div>
+            <div class="wp-diff-row"><span class="wp-diff-field">${WP_I18N.task}</span><span class="wp-diff-value">${_esc(detail.task)}</span></div>
           </div>`;
       }
 
       // Création / suppression / données
       const lines = [];
-      if (detail.description) lines.push({k: 'Description', v: detail.description});
-      if (detail.mission)     lines.push({k: 'Mission',     v: detail.mission});
+      if (detail.description) lines.push({k: WP_I18N.desc, v: detail.description});
+      if (detail.mission)     lines.push({k: WP_I18N.mission, v: detail.mission});
       if (!lines.length && !detail.name) return '';
 
-      const header = type && type.endsWith('deleted') ? 'Données supprimées'
-                   : type && type.endsWith('created') ? 'Données créées' : 'Détail';
+      const header = type && type.endsWith('deleted') ? WP_I18N.deleted
+                   : type && type.endsWith('created') ? WP_I18N.created : WP_I18N.detail;
       const rows = lines.map(l =>
         `<div class="wp-diff-row">
           <span class="wp-diff-field">${_esc(l.k)}</span>
           <span class="wp-diff-value">${_esc(l.v)}</span>
         </div>`
-      ).join('') || `<div class="wp-diff-row"><span class="wp-diff-value" style="color:#6b7280;font-style:italic;">Aucun détail supplémentaire.</span></div>`;
+      ).join('') || `<div class="wp-diff-row"><span class="wp-diff-value" style="color:#6b7280;font-style:italic;">${WP_I18N.none}</span></div>`;
       return `<div class="wp-diff-header">${header}</div><div class="wp-diff-list">${rows}</div>`;
     }
 

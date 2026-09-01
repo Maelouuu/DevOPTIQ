@@ -398,7 +398,7 @@ def get_all_collaborators_with_manager():
     from Code.competency_color import user_competency_hex
     role_acts = {}
     for rid, aid in db.session.execute(text(
-        "SELECT role_id, activity_id FROM activity_roles WHERE status = 'Garant'"
+        "SELECT role_id, activity_id FROM activity_roles WHERE LOWER(status) = 'garant'"
     )).fetchall():
         role_acts.setdefault(rid, []).append(aid)
 

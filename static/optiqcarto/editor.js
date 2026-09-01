@@ -122,40 +122,58 @@ function _checkRenvoiAutoLink(fromShapeId, toShapeId) {
 
 // ── Défauts par type de forme ─────────────────────
 function _defaultBands() {
+  // Gabarit proposé à la création d'une carto. `key` = entrée du catalogue de
+  // traduction : le libellé est réécrit à chaque ouverture tant que la bande n'a
+  // pas été renommée à la main (cf. _applyTemplateI18n).
   return [
-    { id:  0, label: 'Client',                                                               color: '#FFFFFF', fontSize: 11, height: 100 },
-    { id:  1, label: 'Analyse de Marché & Communication',                                    color: '#C00000', fontSize: 11, height: 220, deleted: true },
-    { id:  2, label: 'Vente & Suivi commercial',                                             color: '#FF0000', fontSize: 11, height: 220 },
-    { id:  3, label: 'Gestion Administrative & Financière',                                  color: '#92D050', fontSize: 11, height: 220 },
-    { id:  4, label: 'Négociation & Relations Fournisseurs',                                 color: '#4F6228', fontSize: 11, height: 220, deleted: true },
-    { id:  5, label: 'Coordination & Suivi de Projet',                                      color: '#95B3D7', fontSize: 11, height: 220 },
-    { id:  6, label: 'Conception Produit & Ingénierie',                                     color: '#548DD4', fontSize: 11, height: 220 },
-    { id:  7, label: 'Organisation Industrielle & Méthodes (hors production directe)',       color: '#365F91', fontSize: 11, height: 220, deleted: true },
-    { id:  8, label: 'Satisfaction Client & Amélioration Continue',                          color: '#FFFF00', fontSize: 11, height: 220, deleted: true },
-    { id:  9, label: 'Contrôle qualité & Mesure (Métrologie)',                              color: '#5F497A', fontSize: 11, height: 220, deleted: true },
-    { id: 10, label: 'Fabrication & Réalisation Produit (opérations directes)',              color: '#0070C0', fontSize: 11, height: 220 },
-    { id: 11, label: 'Organisation & Planification du Travail',                              color: '#FF9900', fontSize: 11, height: 220 },
-    { id: 12, label: 'Analyse Technique & Résolution de Problèmes',                          color: '#984806', fontSize: 11, height: 220 },
-    { id: 13, label: 'Logistique & Gestion des Flux Physiques',                              color: '#CC9900', fontSize: 11, height: 220 },
-    { id: 14, label: 'Pilotage Stratégique & Opérationnel (macro)',                          color: '#D9D9D9', fontSize: 11, height: 220 },
-    { id: 15, label: 'Gestion des Compétences & des Talents',                                color: '#92D050', fontSize: 11, height: 220, deleted: true },
-    { id: 16, label: 'Fournisseur',                                                          color: '#FFFFFF', fontSize: 11, height: 100 },
-  ];
+    { id:  0, key: 'client',        color: '#FFFFFF', fontSize: 11, height: 100 },
+    { id:  1, key: 'market',        color: '#C00000', fontSize: 11, height: 220, deleted: true },
+    { id:  2, key: 'sales',         color: '#FF0000', fontSize: 11, height: 220 },
+    { id:  3, key: 'admin',         color: '#92D050', fontSize: 11, height: 220 },
+    { id:  4, key: 'purchasing',    color: '#4F6228', fontSize: 11, height: 220, deleted: true },
+    { id:  5, key: 'project',       color: '#95B3D7', fontSize: 11, height: 220 },
+    { id:  6, key: 'design',        color: '#548DD4', fontSize: 11, height: 220 },
+    { id:  7, key: 'methods',       color: '#365F91', fontSize: 11, height: 220, deleted: true },
+    { id:  8, key: 'satisfaction',  color: '#FFFF00', fontSize: 11, height: 220, deleted: true },
+    { id:  9, key: 'quality',       color: '#5F497A', fontSize: 11, height: 220, deleted: true },
+    { id: 10, key: 'production',    color: '#0070C0', fontSize: 11, height: 220 },
+    { id: 11, key: 'planning',      color: '#FF9900', fontSize: 11, height: 220 },
+    { id: 12, key: 'tech_analysis', color: '#984806', fontSize: 11, height: 220 },
+    { id: 13, key: 'logistics',     color: '#CC9900', fontSize: 11, height: 220 },
+    { id: 14, key: 'steering',      color: '#D9D9D9', fontSize: 11, height: 220 },
+    { id: 15, key: 'talents',       color: '#92D050', fontSize: 11, height: 220, deleted: true },
+    // Index vert pastel, corps blanc : bandeau lisible sans teinter la bande.
+    { id: 17, key: 'network',       color: '#A9DFBF', bodyColor: '#FFFFFF', fontSize: 11, height: 220 },
+    { id: 18, key: 'other',         color: '#A9DFBF', bodyColor: '#FFFFFF', fontSize: 11, height: 220 },
+    { id: 16, key: 'supplier',      color: '#FFFFFF', fontSize: 11, height: 100 },
+  ].map(b => Object.assign({}, b, { label: _L('editor.dband.' + b.key) }));
 }
 
+// Le texte pré-rempli d'une forme suit la langue de l'interface : `labelKey`
+// reste posée sur la forme tant que son texte n'a pas été retouché.
 const SHAPE_DEFAULTS = {
-  process:   { label: 'Activité',      color: '#22c55e', textColor: '#ffffff', validationBadge: false, validationColor: '#4DB868', w: 130, h: 90,  fontSize: 18, subtype: 'normal' },
-  'start-end': { label: 'Renvoi',      color: '#ffffff', textColor: '#000000', validationBadge: false, validationColor: '#4DB868', w: 90,  h: 90,  fontSize: 13, subtype: 'normal' },
-  special:   { label: 'Sous-activité', color: '#f59e0b', textColor: '#ffffff', validationBadge: false, validationColor: '#4DB868', w: 130, h: 90,  fontSize: 13, subtype: 'normal' },
-  decision:  { label: 'Décision',      color: '#9ca3af', textColor: '#ffffff', validationBadge: false, validationColor: '#4DB868', w: 100, h: 100, fontSize: 13, subtype: 'normal' },
+  process:     { labelKey: 'editor.shape_activity',    color: '#22c55e', textColor: '#ffffff', validationBadge: false, validationColor: '#4DB868', w: 130, h: 90,  fontSize: 18, subtype: 'normal' },
+  'start-end': { labelKey: 'editor.shape_renvoi',      color: '#ffffff', textColor: '#000000', validationBadge: false, validationColor: '#4DB868', w: 90,  h: 90,  fontSize: 13, subtype: 'normal' },
+  special:     { labelKey: 'editor.shape_subactivity', color: '#f59e0b', textColor: '#ffffff', validationBadge: false, validationColor: '#4DB868', w: 130, h: 90,  fontSize: 13, subtype: 'normal' },
+  decision:    { labelKey: 'editor.shape_decision',    color: '#9ca3af', textColor: '#ffffff', validationBadge: false, validationColor: '#4DB868', w: 100, h: 100, fontSize: 13, subtype: 'normal' },
 };
+Object.values(SHAPE_DEFAULTS).forEach(d => { d.label = _L(d.labelKey); });
+
+// Réécrit les libellés du gabarit dans la langue courante. On le fait à
+// L'OUVERTURE plutôt qu'au rendu : `label` part tel quel vers la base
+// (_sync_carto_to_db), qui ne saurait pas résoudre une clé de traduction.
+function _applyTemplateI18n(st) {
+  if (!st) return;
+  (st.bands  || []).forEach(b => { if (b.key)      b.label = _L('editor.dband.' + b.key); });
+  (st.shapes || []).forEach(s => { if (s.labelKey) s.label = _L(s.labelKey); });
+}
 
 const HINTS = {
   select:    'Clic = sélectionner · Glisser = déplacer · Double-clic = éditer texte · Suppr = supprimer',
   connect:   'Cliquez sur la forme source, puis sur la forme destination · Échap = annuler',
   process:   'Cliquez sur le canevas pour placer l\'activité',
   'start-end': 'Cliquez sur le canevas pour placer un renvoi',
-  special:   'Cliquez sur le canevas pour placer la sous-activité',
+  special:   'Cliquez sur le canevas pour placer le résultat',
 };
 
 // ── État principal ────────────────────────────────
@@ -229,6 +247,7 @@ let _calqueIsNew = false;
 let _baseStateForDiff = null;
 let _calqueList = [];
 let selectedGroup = null;
+let groupHoverId  = null;   // groupe survolé : montre ses poignées de connexion
 let groupHighlightId = null;
 let expandedGroups = new Set();
 let collapsedPiles = new Set(); // IDs of pile groups collapsed on canvas
@@ -436,7 +455,7 @@ function renderBands() {
     if (band.deleted) continue;
     const isSel = selectedBand === band.id;
     const g = el('g', {}, gBands);
-    const bgColor = bandBgColor(band.color);
+    const bgColor = band.bodyColor || bandBgColor(band.color);
 
     // Fond de la bande → très pâle pour faire ressortir les formes
     el('rect', { x: 0, y, width: bw, height: band.height, fill: bgColor }, g);
@@ -715,6 +734,9 @@ function renderConnections() {
     const fdir = c.fromPortDir || (Math.abs(dx) >= Math.abs(dy) ? (dx >= 0 ? 'right' : 'left') : (dy >= 0 ? 'bottom' : 'top'));
     const tdir = c.toPortDir || OPP[fdir]; // indépendant si défini explicitement
 
+    // Vers un LOSANGE : ni pointe ni marge (voir plus bas) — le flux ne s'arrete
+    // pas a la decision, il se divise.
+    const versLosange = to._type === 'decision';
     const fp = spreadPort(from, fdir, c.id, 'from', c.fromPortT);
     const tp = spreadPort(to,   tdir, c.id, 'to',   c.toPortT);
     const routing = 'orthogonal';
@@ -763,7 +785,9 @@ function renderConnections() {
       displayOrthopts = _alignPortApproach(displayOrthopts, fp.dir, tp.dir);
       // tipPad = 18 : approche droite garantie avant la tête (~16 px) → la pointe
       // ne se pose jamais sur un virage (« padding » demandé pour les pointes).
-      d = polylineToPath(displayOrthopts, 12, 18);
+      // Vers un losange : marge nulle, le trait touche la pointe (la zone
+      // sensible autour de la decision reste la plus petite possible).
+      d = polylineToPath(displayOrthopts, 12, versLosange ? 0 : 18);
     }
     const isSel = selectedConn === c.id;
     const color = isSel ? '#1f7a54' : c.color;
@@ -781,7 +805,7 @@ function renderConnections() {
       stroke: color,
       'stroke-width': isSel ? '4.5' : '3',
       'stroke-dasharray': c.style === 'dashed' ? '9,6' : 'none',
-      'marker-end': `url(#${mId})`,
+      ...(versLosange ? {} : { 'marker-end': `url(#${mId})` }),
       'data-id': c.id, 'data-type': 'conn', cursor: 'pointer',
       'pointer-events': 'none',
     }, gConns);
@@ -1536,6 +1560,29 @@ function renderGroups() {
     }, gGroups);
     grpG.style.cursor = isCollapsedPile ? 'move' : 'pointer';
 
+    // Poignées de connexion du groupe : sans elles, on pouvait viser un groupe
+    // avec une flèche mais jamais en partir.
+    if (!window.OPTIQCARTO_READONLY && !portDrag && selectedConn === null &&
+        (isSel || isHL || groupHoverId === grp.id)) {
+      const ps = 10 / vpScale, sw = 1.5 / vpScale;
+      const ports = {
+        left:   { x: gx,          y: gy + gh / 2 },
+        right:  { x: gx + gw,     y: gy + gh / 2 },
+        top:    { x: gx + gw / 2, y: gy },
+        bottom: { x: gx + gw / 2, y: gy + gh },
+      };
+      for (const [pName, p] of Object.entries(ports)) {
+        el('rect', {
+          x: p.x - ps / 2, y: p.y - ps / 2, width: ps, height: ps,
+          fill: tool === 'connect' ? '#1f7a54' : '#7c3aed',
+          stroke: '#ffffff', 'stroke-width': sw, rx: '2',
+          'data-port': pName,
+          'data-group-port': String(grp.id),
+          cursor: 'crosshair',
+        }, grpG);
+      }
+    }
+
     if (grp.isPile) {
       const isCollapsed = collapsedPiles.has(grp.id);
 
@@ -2215,8 +2262,29 @@ function onDown(e) {
   // ── Drag depuis une poignée de port (toujours actif) ─────
   const portEl = e.target.closest('[data-port]');
   if (portEl && !spaceDown) {
+    const portName = portEl.getAttribute('data-port');
+
+    // Poignée d'un GROUPE : la source est le groupe lui-même (les connexions
+    // savent déjà viser un groupe, cf. _resolveEp).
+    const groupPortId = portEl.getAttribute('data-group-port');
+    if (groupPortId) {
+      const grp = (state.groups || []).find(g => g.id === parseInt(groupPortId));
+      const b = grp && getGroupBounds(grp);
+      if (b) {
+        const pts = {
+          left:   { x: b.x,           y: b.y + b.h / 2, dir: 'left'   },
+          right:  { x: b.x + b.w,     y: b.y + b.h / 2, dir: 'right'  },
+          top:    { x: b.x + b.w / 2, y: b.y,           dir: 'top'    },
+          bottom: { x: b.x + b.w / 2, y: b.y + b.h,     dir: 'bottom' },
+        };
+        portDrag = { fromShapeId: grp.id, fromPort: pts[portName] || pts.right,
+                     curX: 0, curY: 0, snapShapeId: null, snapDir: null, snapT: 0.5 };
+        canvas.style.cursor = 'crosshair';
+      }
+      return;
+    }
+
     const fromShapeId = parseInt(portEl.getAttribute('data-shape-id'));
-    const portName    = portEl.getAttribute('data-port');
     const shape = state.shapes.find(s => s.id === fromShapeId);
     if (shape) {
       portDrag = { fromShapeId, fromPort: getPorts(shape)[portName], curX: 0, curY: 0, snapShapeId: null, snapDir: null, snapT: 0.5 };
@@ -2769,6 +2837,16 @@ function onMove(e) {
     renderHandles();
   }
 
+  // Survol d'un groupe (cadre ou poignée) → ses points de connexion s'affichent.
+  if (!portDrag && !isDragging) {
+    const cadre = e.target.closest('.group-container');
+    const surGroupe = cadre ? parseInt(cadre.getAttribute('data-group-id')) : null;
+    if (surGroupe !== groupHoverId) {
+      groupHoverId = surGroupe;
+      renderGroups();
+    }
+  }
+
   /* ── Aperçu outil Connecter ── */
   if (tool === 'connect') {
     gOverlay.innerHTML = '';
@@ -2938,7 +3016,8 @@ function onUp(e) {
         if (_toPx !== null && _toPx < portDrag.fromPort.x) {
           showToast(_L('editor.toast.backward_arrow'));
         } else {
-          const fromShape = state.shapes.find(s => s.id === portDrag.fromShapeId);
+          const fromShape = state.shapes.find(s => s.id === portDrag.fromShapeId)
+            || (state.groups || []).find(g => g.id === portDrag.fromShapeId);
           const conn = {
             id: state.nextId++,
             fromId: portDrag.fromShapeId,
@@ -2995,6 +3074,7 @@ function onUp(e) {
           for (const conn of state.connections) {
             if (conn.fromId === id || conn.toId === id) conn.userPts = null;
           }
+          if (s) _snapDiamondToArrow(s);
         }
         snapshot();
         render();
@@ -3128,6 +3208,7 @@ function commitLabel() {
   const s = state.shapes.find(s => s.id === labelEditing.shapeId);
   if (s) {
     s.label = labelEd.value.trim();
+    delete s.labelKey;           // texte saisi : il ne suit plus la langue
     if (s.type === 'start-end') {
       _updateRenvoiColor(s);
       // Regression fix: auto-link wasn't created when label was set after connection
@@ -3337,11 +3418,32 @@ function updateProps() {
   }
 }
 
+// Les formes DU groupe d'abord, le reste ensuite : la liste affichait toutes
+// les activités de la carto dans l'ordre du modèle, on ne reconnaissait pas
+// « son » groupe dedans.
 function _renderGroupShapesList(grp) {
   const container = document.getElementById('group-shapes-list');
   if (!container) return;
   container.innerHTML = '';
-  for (const s of state.shapes) {
+  const membres = state.shapes.filter(s => grp.shapeIds.includes(s.id));
+  const autres  = state.shapes.filter(s => !grp.shapeIds.includes(s.id));
+  const parNom = (a, b) => (a.label || '').localeCompare(b.label || '', undefined, { sensitivity: 'base' });
+  membres.sort(parNom); autres.sort(parNom);
+
+  const titre = (texte) => {
+    const h = document.createElement('div');
+    h.className = 'group-shape-sep';
+    h.textContent = texte;
+    container.appendChild(h);
+  };
+  if (membres.length) titre(`Dans le groupe (${membres.length})`);
+  let separateurPose = false;
+
+  for (const s of membres.concat(autres)) {
+    if (!separateurPose && !grp.shapeIds.includes(s.id)) {
+      titre('Ajouter au groupe');
+      separateurPose = true;
+    }
     const inGroup = grp.shapeIds.includes(s.id);
     const row = document.createElement('div');
     row.className = 'group-shape-row' + (inGroup ? ' in-group' : '');
@@ -3384,6 +3486,7 @@ function bindProps() {
       const s = state.shapes.find(s => s.id === id);
       if (!s) continue;
       s.label = v;
+      delete s.labelKey;         // texte saisi : il ne suit plus la langue
       if (s.type === 'start-end') _updateRenvoiColor(s);
     }
   });
@@ -3834,151 +3937,230 @@ function _attachMinimapReposition(header) {
    EXPORT — BANDE LÉGENDE STATIQUE
    ══════════════════════════════════════════════════ */
 
-const EXPORT_LEGEND_H = 190;
+const EXPORT_LEGEND_H = 348;
+// Largeur intrinsèque : bandeau + colonne de gauche (formes / liaisons) +
+// palette. L'export élargit sa vue quand la carto est plus étroite, sinon la
+// légende serait coupée à droite.
+const EXPORT_LEGEND_W = INDEX_W_SVG + 26 + 7 * 196 + 46 + 5 * 208 + 24;
 
+// Palette des familles de compétences — les 30 couleurs de la légende AFDEC,
+// relevées dans le Visio de référence (5 colonnes × 6 lignes, ordre d'origine).
+const LEGEND_PALETTE = [
+  [['marketing', '#820d0d'], ['marketing_other', '#c00000'], ['customer', '#ff0000'],
+   ['customer_other', '#f75757'], ['customer_service', '#ff6699'], ['product_mgmt', '#92d050']],
+  [['hr', '#00b050'], ['finance', '#50632a'], ['purchase', '#7e891d'],
+   ['skills', '#bae9ca'], ['project', '#93cddd'], ['project_other', '#abf0f7']],
+  [['engineering', '#00b0f0'], ['engineering_other', '#1ba7c5'], ['production', '#0070c0'],
+   ['production_other', '#003dbb'], ['measurement', '#4088ae'], ['measurement_other', '#405177']],
+  [['planning', '#f59d56'], ['planning_other', '#f3632c'], ['logistics', '#bf9000'],
+   ['logistics_other', '#bdab06'], ['maintenance', '#795128'], ['maintenance_other', '#4f341a']],
+  [['quality', '#ffff00'], ['quality_other', '#f4ffac'], ['strategy', '#d9d9d9'],
+   ['operations', '#7f7f7f'], ['management_other', '#595959'], ['tutoring', '#ccc2d9']],
+];
+
+// Légende de l'export (PDF / SVG uniquement — jamais à l'écran).
+//
+// Elle reprend celle des cartes Visio d'origine : formes-témoins commentées,
+// nature des liaisons, décision, et la palette des familles de compétences qui
+// donne son sens à la couleur des activités. Sans cette palette, la couleur
+// d'une activité — qui EST l'information principale d'une carto AFDEC —
+// n'était expliquée nulle part sur le document imprimé.
 function _buildExportLegend(legendY, bw) {
-  const g    = el('g', { id: 'g-export-legend' });
-  const IDX  = INDEX_W_SVG;
-  const PINK = '#ec4899';
-  const DARK = '#374151';
-  const GRAY = '#6b7280';
-  const ff   = 'Segoe UI, sans-serif';
+  const g   = el('g', { id: 'g-export-legend' });
+  const IDX = INDEX_W_SVG;
+  const ff  = 'Segoe UI, sans-serif';
+  const INK = '#1f2937';      // titres et libellés
+  const SUB = '#4b5563';      // texte explicatif
+  const TAB = '#ebf1df';      // bandeau d'index « Légende » du Visio
+  const TABL = '#94ac6a';     // son filet
+  const SEP = '#d7dee6';
+  const TRAIT = '#374151';
 
-  // Background
-  el('rect', { x: 0, y: legendY, width: bw, height: EXPORT_LEGEND_H, fill: '#f9fafb' }, g);
+  // Les defs du canevas sont clonées AVANT la construction de la légende : une
+  // hachure posée par ensureHatchPattern n'y figurerait pas. On la déclare ici.
+  const defs = el('defs', {}, g);
+  const hach = el('pattern', { id: 'legend-hatch', width: '10', height: '10',
+    patternUnits: 'userSpaceOnUse', patternTransform: 'rotate(45)' }, defs);
+  el('rect', { width: '10', height: '10', fill: '#e9edf2' }, hach);
+  el('line', { x1: '0', y1: '0', x2: '0', y2: '10',
+    stroke: '#6b7280', 'stroke-width': '3.5', opacity: '0.6' }, hach);
 
-  // Index column (pink, same style as bands)
-  el('rect', { x: 0, y: legendY, width: IDX, height: EXPORT_LEGEND_H, fill: PINK }, g);
+  const bg      = el('rect', { x: 0, y: legendY, height: EXPORT_LEGEND_H, fill: '#ffffff' }, g);
+  const soulign = el('line', { x1: 0, y1: legendY + EXPORT_LEGEND_H, y2: legendY + EXPORT_LEGEND_H,
+                               stroke: TABL, 'stroke-width': '3' }, g);
+
+  // ── Bandeau d'index, comme une bande de la carto ───────────────────────
+  el('rect', { x: 0, y: legendY, width: IDX, height: EXPORT_LEGEND_H, fill: TAB }, g);
   el('line', { x1: IDX, y1: legendY, x2: IDX, y2: legendY + EXPORT_LEGEND_H,
-    stroke: darkenColor(PINK, 0.72), 'stroke-width': '3' }, g);
+               stroke: TABL, 'stroke-width': '3' }, g);
   const tg = el('g', { transform: `rotate(-90, ${IDX / 2}, ${legendY + EXPORT_LEGEND_H / 2})` }, g);
-  txt('LÉGENDE', {
-    x: IDX / 2, y: legendY + EXPORT_LEGEND_H / 2,
+  txt(_L('legend.title'), {
+    x: IDX / 2, y: legendY + EXPORT_LEGEND_H / 2 - 7,
     'text-anchor': 'middle', 'dominant-baseline': 'middle',
-    fill: '#ffffff', 'font-size': '13', 'font-family': ff, 'font-weight': '700', 'letter-spacing': '1',
+    fill: '#3f5320', 'font-size': '15', 'font-family': ff,
+    'font-weight': '700', 'letter-spacing': '2',
   }, tg);
-  el('line', { x1: 0, y1: legendY + EXPORT_LEGEND_H, x2: bw, y2: legendY + EXPORT_LEGEND_H,
-    stroke: darkenColor(PINK, 0.72), 'stroke-width': '3' }, g);
+  txt('AFDEC© 2001 - 2020', {
+    x: IDX / 2, y: legendY + EXPORT_LEGEND_H / 2 + 11,
+    'text-anchor': 'middle', 'dominant-baseline': 'middle',
+    fill: '#6b7f4a', 'font-size': '8.5', 'font-family': ff,
+  }, tg);
 
-  // Layout constants
-  const X0  = IDX + 32;
-  const TY  = legendY + 20;    // section title
-  const SY  = legendY + 38;    // shape top
-  const SH  = 44;              // shape height
-  const SW  = 110;             // shape width
-  const GAP = 22;              // gap between samples
-  const LBY = SY + SH + 11;   // bold label below shape
-  const D1Y = LBY + 13;       // description line 1
-  const D2Y = D1Y + 12;       // description line 2
-
-  // Helper: label + description below a shape at column cx
-  function shapeCaption(cx, label, d1, d2) {
-    txt(label, {
-      x: cx + SW / 2, y: LBY, 'text-anchor': 'middle',
-      fill: DARK, 'font-size': '8.5', 'font-family': ff, 'font-weight': '700',
-    }, g);
-    txt(d1, {
-      x: cx + SW / 2, y: D1Y, 'text-anchor': 'middle',
-      fill: GRAY, 'font-size': '7.5', 'font-family': ff,
-    }, g);
-    if (d2) txt(d2, {
-      x: cx + SW / 2, y: D2Y, 'text-anchor': 'middle',
-      fill: GRAY, 'font-size': '7.5', 'font-family': ff,
-    }, g);
-  }
-
-  // ── Section 1 : Types de formes ──────────────────────────────────────────
-  txt('Types de formes', {
-    x: X0, y: TY, fill: DARK, 'font-size': '10.5', 'font-weight': '700', 'font-family': ff,
+  // ── Petits outils de mise en page ──────────────────────────────────────
+  const titre = (x, y, s) => txt(s.toUpperCase(), {
+    x, y, fill: INK, 'font-size': '12',
+    'font-family': ff, 'font-weight': '700', 'letter-spacing': '0.8',
   }, g);
 
-  const shapeItems = [
-    { label: 'Activité',       d1: 'Activité principale',     d2: 'de l\'entité',           color: '#96afcf', draw: 'rect'        },
-    { label: 'Sous-activité',  d1: 'Variante atténuée',       d2: 'd\'une activité',         color: '#b5c9de', draw: 'rect-variant' },
-    { label: 'Act. externe',   d1: 'Activité confiée à une',  d2: 'organisation externe',    color: '#e2e8f0', draw: 'rect-round'  },
-    { label: 'Décision',       d1: 'Bifurcation oui / non',   d2: null,                      color: '#9ca3af', draw: 'diamond'     },
-    { label: 'Renvoi',         d1: 'Référence vers',          d2: 'une autre activité',      color: '#f4f4f5', draw: 'circle'      },
-  ];
+  // Paragraphe replié à la largeur voulue ; renvoie l'ordonnée d'après.
+  function para(x, y, largeur, s, taille = 8.5, fill = SUB, ancre = 'start') {
+    const lignes = wrapText(s, Math.max(10, Math.floor(largeur / (taille * 0.505))), 9);
+    lignes.forEach((ln, i) => txt(ln, {
+      x, y: y + i * (taille + 2.6), fill, 'font-size': taille,
+      'font-family': ff, 'text-anchor': ancre,
+    }, g));
+    return y + lignes.length * (taille + 2.6);
+  }
 
-  let cx = X0;
-  for (const item of shapeItems) {
-    const tc = bandTextColor(item.color);
-    if (item.draw === 'rect') {
-      el('rect', { x: cx, y: SY, width: SW, height: SH, rx: 3,
-        fill: item.color, stroke: darkenColor(item.color, 0.65), 'stroke-width': '1.5' }, g);
-      txt(item.label, { x: cx + SW / 2, y: SY + SH / 2,
-        'text-anchor': 'middle', 'dominant-baseline': 'middle',
-        fill: tc, 'font-size': '8', 'font-family': ff, 'font-weight': '600' }, g);
-    } else if (item.draw === 'rect-variant') {
-      el('rect', { x: cx, y: SY, width: SW, height: SH, rx: 3,
-        fill: item.color, stroke: darkenColor(item.color, 0.65),
-        'stroke-width': '1.5', 'stroke-dasharray': '5,3' }, g);
-      txt(item.label, { x: cx + SW / 2, y: SY + SH / 2,
-        'text-anchor': 'middle', 'dominant-baseline': 'middle',
-        fill: tc, 'font-size': '8', 'font-family': ff, 'font-weight': '600' }, g);
-    } else if (item.draw === 'rect-round') {
-      el('rect', { x: cx, y: SY, width: SW, height: SH, rx: 14,
-        fill: item.color, stroke: '#94a3b8', 'stroke-width': '1.5' }, g);
-      txt(item.label, { x: cx + SW / 2, y: SY + SH / 2,
-        'text-anchor': 'middle', 'dominant-baseline': 'middle',
-        fill: DARK, 'font-size': '7.5', 'font-family': ff, 'font-weight': '600' }, g);
-    } else if (item.draw === 'diamond') {
-      const dcx = cx + SW / 2, dcy = SY + SH / 2;
-      el('polygon', {
-        points: `${dcx},${SY} ${cx + SW},${dcy} ${dcx},${SY + SH} ${cx},${dcy}`,
-        fill: item.color, stroke: '#6b7280', 'stroke-width': '1.5' }, g);
-    } else if (item.draw === 'circle') {
-      const r = SH / 2;
-      el('circle', { cx: cx + r, cy: SY + r, r,
-        fill: item.color, stroke: '#9ca3af', 'stroke-width': '1.5' }, g);
+  const X0 = IDX + 26;            // colonne de gauche
+  const COL = 196;                // largeur d'une forme-témoin et de son texte
+  const GAUCHE_W = 7 * COL;
+
+  // ══ Bloc haut gauche : les formes ═════════════════════════════════════
+  titre(X0, legendY + 24, _L('legend.sec_shapes'));
+
+  const SW = 128, SH = 52;
+  const SY = legendY + 42;
+  const CY = SY + SH + 18;
+  const DY = CY + 13;
+  const GRIS = '#f2f2f2';
+  const BORD = '#8c97a8';
+
+  function cadre(cx, dessin, couleur) {
+    const gx = cx + (COL - SW) / 2;
+    if (dessin === 'activite' || dessin === 'communaute') {
+      if (dessin === 'communaute') {
+        // Ombre portée = activité produite dans un cadre communautaire.
+        el('rect', { x: gx + 6, y: SY + 6, width: SW, height: SH, rx: 16, fill: '#c8cdd4' }, g);
+      }
+      el('rect', { x: gx, y: SY, width: SW, height: SH, rx: 16,
+                   fill: couleur, stroke: BORD, 'stroke-width': '1.6' }, g);
+    } else if (dessin === 'reseau') {
+      el('rect', { x: gx, y: SY, width: SW, height: SH, rx: SH / 2,
+                   fill: couleur, stroke: BORD, 'stroke-width': '1.6' }, g);
+    } else if (dessin === 'fournisseur') {
+      el('rect', { x: gx, y: SY, width: SW, height: SH, rx: 16,
+                   fill: 'url(#legend-hatch)', stroke: BORD, 'stroke-width': '1.6' }, g);
+    } else if (dessin === 'resultat') {
+      el('path', { d: wavyPath(gx, SY, SW, SH), fill: couleur,
+                   stroke: BORD, 'stroke-width': '1.6' }, g);
+    } else if (dessin === 'renvoi') {
+      el('circle', { cx: cx + COL / 2, cy: SY + SH / 2, r: SH / 2,
+                     fill: couleur, stroke: BORD, 'stroke-width': '1.6' }, g);
+    } else if (dessin === 'carte') {
+      el('rect', { x: gx + 20, y: SY, width: SW - 40, height: SH, rx: 4,
+                   fill: couleur, stroke: BORD, 'stroke-width': '1.6' }, g);
+      el('line', { x1: gx + 20, y1: SY + 13, x2: gx + SW - 20, y2: SY + 13,
+                   stroke: BORD, 'stroke-width': '1.2' }, g);
     }
-    shapeCaption(cx, item.label, item.d1, item.d2);
-    cx += SW + GAP;
   }
 
-  // Vertical separator between the two sections
-  cx += 16;
-  el('line', { x1: cx, y1: legendY + 8, x2: cx, y2: legendY + EXPORT_LEGEND_H - 8,
-    stroke: '#d1d5db', 'stroke-width': '1' }, g);
-  cx += 20;
+  const formes = [
+    ['activite',    GRIS,      'activity'],
+    ['resultat',    '#ffe8c2', 'result'],
+    ['fournisseur', GRIS,      'supplier'],
+    ['reseau',      GRIS,      'network'],
+    ['communaute',  GRIS,      'community'],
+    ['renvoi',      '#f4f4f5', 'return'],
+    ['carte',       GRIS,      'submap'],
+  ];
+  formes.forEach(([dessin, couleur, cle], i) => {
+    const cx = X0 + i * COL;
+    cadre(cx, dessin, couleur);
+    txt(_L('legend.' + cle), {
+      x: cx + COL / 2, y: CY, 'text-anchor': 'middle',
+      fill: INK, 'font-size': '10', 'font-family': ff, 'font-weight': '700',
+    }, g);
+    para(cx + COL / 2, DY, COL - 16, _L('legend.' + cle + '_d'), 8.5, SUB, 'middle');
+  });
 
-  // ── Section 2 : Types de liaisons ────────────────────────────────────────
-  txt('Types de liaisons', {
-    x: cx, y: TY, fill: DARK, 'font-size': '10.5', 'font-weight': '700', 'font-family': ff,
-  }, g);
+  // Filet horizontal : sépare les deux blocs de la colonne de gauche.
+  el('line', { x1: X0, y1: legendY + 180, x2: X0 + GAUCHE_W - 14, y2: legendY + 180,
+               stroke: SEP, 'stroke-width': '1' }, g);
 
-  const LW  = 88;  // arrow line length
-  const L1Y = SY + 8;
-  const L2Y = SY + SH - 8;
+  // ══ Bloc bas gauche : liaisons & décision ═════════════════════════════
+  titre(X0, legendY + 204, _L('legend.sec_links'));
 
-  // Solid → Déclenchante
-  el('line', { x1: cx, y1: L1Y, x2: cx + LW, y2: L1Y, stroke: DARK, 'stroke-width': '2' }, g);
-  el('polygon', { points: `${cx+LW},${L1Y} ${cx+LW-8},${L1Y-4} ${cx+LW-8},${L1Y+4}`, fill: DARK }, g);
-  txt('Déclenchante', {
-    x: cx + LW + 10, y: L1Y + 4, fill: DARK, 'font-size': '9', 'font-family': ff, 'font-weight': '700',
-  }, g);
-  txt('Démarre ou déclenche l\'activité cible', {
-    x: cx + LW + 10, y: L1Y + 16, fill: GRAY, 'font-size': '7.5', 'font-family': ff,
-  }, g);
+  const LW = 104;
+  function liaison(y, pointille, cle, desc) {
+    el('line', { x1: X0, y1: y, x2: X0 + LW, y2: y, stroke: TRAIT, 'stroke-width': '2.4',
+                 ...(pointille ? { 'stroke-dasharray': '9,5' } : {}) }, g);
+    el('polygon', { points: `${X0 + LW},${y} ${X0 + LW - 10},${y - 5} ${X0 + LW - 10},${y + 5}`,
+                    fill: TRAIT }, g);
+    txt(_L('legend.' + cle), {
+      x: X0 + LW + 12, y: y + 4, fill: INK, 'font-size': '10',
+      'font-family': ff, 'font-weight': '700',
+    }, g);
+    para(X0, y + 18, 420, _L('legend.' + desc));
+  }
+  liaison(legendY + 228, false, 'solid', 'solid_d');
+  liaison(legendY + 286, true,  'dashed', 'dashed_d');
 
-  // Dashed → Nourrissante
-  el('line', { x1: cx, y1: L2Y, x2: cx + LW, y2: L2Y,
-    stroke: DARK, 'stroke-width': '2', 'stroke-dasharray': '8,4' }, g);
-  el('polygon', { points: `${cx+LW},${L2Y} ${cx+LW-8},${L2Y-4} ${cx+LW-8},${L2Y+4}`, fill: DARK }, g);
-  txt('Nourrissante', {
-    x: cx + LW + 10, y: L2Y + 4, fill: DARK, 'font-size': '9', 'font-family': ff, 'font-weight': '700',
-  }, g);
-  txt('Nourrit, complète ou peut bloquer', {
-    x: cx + LW + 10, y: L2Y + 16, fill: GRAY, 'font-size': '7.5', 'font-family': ff,
-  }, g);
+  // Ce que porte une flèche : sens, couleur, texte.
+  para(X0 + 470, legendY + 222, 330, _L('legend.arrow_d'));
 
+  // Décision : « oui » continue tout droit, « non » tourne à 90°.
+  const DX0 = X0 + 838;
+  txt(_L('legend.decision'), { x: DX0, y: legendY + 222, fill: INK, 'font-size': '10',
+    'font-family': ff, 'font-weight': '700' }, g);
+  para(DX0, legendY + 238, 250, _L('legend.decision_d'));
+
+  const dx = DX0 + 300, dy = legendY + 246, DW = 56, DH = 44;
+  const dcy = dy + DH / 2;
+  el('line', { x1: dx - 46, y1: dcy, x2: dx, y2: dcy, stroke: TRAIT, 'stroke-width': '2.4' }, g);
+  el('line', { x1: dx + DW, y1: dcy, x2: dx + DW + 54, y2: dcy, stroke: TRAIT, 'stroke-width': '2.4' }, g);
+  el('polygon', { points: `${dx + DW + 54},${dcy} ${dx + DW + 44},${dcy - 5} ${dx + DW + 44},${dcy + 5}`,
+                  fill: TRAIT }, g);
+  el('line', { x1: dx + DW / 2, y1: dy + DH, x2: dx + DW / 2, y2: dy + DH + 36,
+               stroke: TRAIT, 'stroke-width': '2.4' }, g);
+  el('polygon', { points: `${dx + DW / 2},${dy + DH + 36} ${dx + DW / 2 - 5},${dy + DH + 26} ${dx + DW / 2 + 5},${dy + DH + 26}`,
+                  fill: TRAIT }, g);
+  el('path', { d: roundedDiamond(dx, dy, DW, DH, 8), fill: '#9ca3af',
+               stroke: '#6b7280', 'stroke-width': '1.4' }, g);
+  txt(_L('legend.yes'), { x: dx + DW + 24, y: dcy - 8, 'text-anchor': 'middle',
+    fill: INK, 'font-size': '9', 'font-family': ff, 'font-weight': '700' }, g);
+  txt(_L('legend.no'), { x: dx + DW / 2 + 10, y: dy + DH + 30,
+    fill: INK, 'font-size': '9', 'font-family': ff, 'font-weight': '700' }, g);
+
+  // ══ Colonne de droite : palette des familles de compétences ═══════════
+  const PX = X0 + GAUCHE_W + 46;
+  el('line', { x1: PX - 26, y1: legendY + 14, x2: PX - 26, y2: legendY + EXPORT_LEGEND_H - 14,
+               stroke: SEP, 'stroke-width': '1' }, g);
+
+  titre(PX, legendY + 24, _L('legend.sec_palette'));
+  para(PX, legendY + 42, 1000, _L('legend.palette_d'));
+
+  const PW = 208, PH = 42, PSY = legendY + 70;
+  LEGEND_PALETTE.forEach((colonne, ci) => {
+    colonne.forEach(([cle, couleur], ri) => {
+      const px = PX + ci * PW, py = PSY + ri * PH;
+      el('rect', { x: px, y: py, width: 34, height: 20, rx: 3,
+                   fill: couleur, stroke: '#9aa3ae', 'stroke-width': '0.8' }, g);
+      txt(_L('legend.fam.' + cle), {
+        x: px + 42, y: py + 14.5, fill: INK, 'font-size': '9.5', 'font-family': ff,
+      }, g);
+    });
+  });
+
+  // ── Largeur définitive ────────────────────────────────────────────────
+  const W = Math.max(bw, PX + LEGEND_PALETTE.length * PW + 24);
+  bg.setAttribute('width', W);
+  soulign.setAttribute('x2', W);
   return g;
 }
 
-/* ══════════════════════════════════════════════════
-   EXPORT SVG
-   ══════════════════════════════════════════════════ */
-
+// Les repères d'édition (poignées, halos) portent data-export-hidden : ils
+// n'ont rien à faire sur un document imprimé.
 function _stripExportHidden(root) {
   root.querySelectorAll('[data-export-hidden="1"]').forEach(el => el.remove());
 }
@@ -3999,7 +4181,7 @@ function exportSVG() {
   const pad = 50;
   minX = Math.min(minX, 0) - pad;       // ensure x=0 (band origin) is always visible
   minY = Math.min(minY, legendY) - pad; // extend upward to include legend band
-  maxX += pad; maxY += pad;
+  maxX = Math.max(maxX, EXPORT_LEGEND_W) + pad; maxY += pad;
   const W = maxX - minX, H = maxY - minY;
 
   const svgNS = 'http://www.w3.org/2000/svg';
@@ -4048,7 +4230,7 @@ function exportPDF() {
   const pad = 50;
   minX = Math.min(minX, 0) - pad;
   minY = Math.min(minY, legendY) - pad;
-  maxX += pad; maxY += pad;
+  maxX = Math.max(maxX, EXPORT_LEGEND_W) + pad; maxY += pad;
   const W = maxX - minX, H = maxY - minY;
 
   const svgNS = 'http://www.w3.org/2000/svg';
@@ -4074,7 +4256,7 @@ function exportPDF() {
   const encoded = encodeURIComponent(svgStr);
   const win = window.open('', '_blank');
   if (!win) { showToast(_L('editor.toast.popup_blocked')); return; }
-  win.document.write(`<!DOCTYPE html><html><head><title>OptiqCarto — Export PDF</title>
+  win.document.write(`<!DOCTYPE html><html><head><title>Optiq Map — Export PDF</title>
 <style>
   * { margin:0; padding:0; box-sizing:border-box; }
   html, body { width:287mm; height:200mm; overflow:hidden; background:#fff; }
@@ -5028,10 +5210,12 @@ async function importVSDX(file) {
     state.bandWidth   = Math.max(3200, Math.round(shapes.reduce((m, s) => Math.max(m, s.x + s.w), 0) + 300));
     state.nextId      = nextOid + 1;
 
-    // Propagate shape colors to outgoing connections
+    // Propagate shape colors to outgoing connections. Une branche qui SORT d'un
+    // losange garde la couleur du flux (celle posée à l'import), sinon toutes
+    // les sorties de décision viraient au gris du losange.
     state.connections.forEach(c => {
       const from = state.shapes.find(s => s.id === c.fromId);
-      if (from) c.color = from.color;
+      if (from && from.type !== 'decision') c.color = from.color;
     });
 
     render();
@@ -5280,22 +5464,30 @@ function renderBandsTbList() {
     const row = document.createElement('div');
     row.className = 'bands-tb-row' + (band.deleted ? ' deleted' : '');
     if (band.deleted) {
+      row.title = _L('editor.band_restore');
       row.innerHTML = `
         <div class="bands-tb-swatch" style="background:${band.color}"></div>
-        <span class="bands-tb-row-label">${band.label || 'Bande ' + (i + 1)}</span>
-        <button class="bands-tb-restore" data-i="${i}" title="Restaurer">+</button>`;
+        <span class="bands-tb-row-label">${band.label || _L('editor.band_n', i + 1)}</span>
+        <button class="bands-tb-restore" data-i="${i}" title="${_L('editor.band_restore')}"><i class="fa-solid fa-rotate-left"></i></button>`;
     } else {
+      row.title = _L('editor.band_hide');
       row.innerHTML = `
         <div class="bands-tb-swatch" style="background:${band.color}"></div>
-        <span class="bands-tb-row-label">${band.label || 'Bande ' + (i + 1)}</span>
-        <button class="bands-tb-del" data-i="${i}" title="Masquer">×</button>`;
+        <span class="bands-tb-row-label">${band.label || _L('editor.band_n', i + 1)}</span>
+        <button class="bands-tb-del" data-i="${i}" title="${_L('editor.band_hide')}"><i class="fa-solid fa-trash"></i></button>`;
     }
+    // Viser un bouton de 26 px pour masquer une bande est pénible : toute la
+    // ligne déclenche l'action, le bouton n'est plus qu'un repère visuel.
+    row.addEventListener('click', () => {
+      const btn = row.querySelector('.bands-tb-del, .bands-tb-restore');
+      if (btn) btn.click();
+    });
     list.appendChild(row);
   });
   list.querySelectorAll('.bands-tb-del').forEach(btn => {
     btn.addEventListener('click', async ev => {
       ev.stopPropagation();
-      if (await _deleteBand(parseInt(ev.target.dataset.i))) {
+      if (await _deleteBand(parseInt(ev.currentTarget.dataset.i))) {
         renderBandsTbList();
         renderBandsList();
       }
@@ -5304,7 +5496,7 @@ function renderBandsTbList() {
   list.querySelectorAll('.bands-tb-restore').forEach(btn => {
     btn.addEventListener('click', ev => {
       ev.stopPropagation();
-      _restoreBand(parseInt(ev.target.dataset.i));
+      _restoreBand(parseInt(ev.currentTarget.dataset.i));
       renderBandsTbList();
       renderBandsList();
     });
@@ -5323,22 +5515,26 @@ function renderBandsList() {
       <input type="text"  value="${band.label}" placeholder="Label…" class="bl" data-i="${i}">
       <input type="number" value="${band.height}" min="60" max="800" step="20" class="bh" data-i="${i}" title="Hauteur (px)">
       <span class="band-label-extra">px</span>
-      <button class="band-delete" data-i="${i}" title="Supprimer">×</button>
+      <button class="band-delete" data-i="${i}" title="Supprimer la bande"><i class="fa-solid fa-trash"></i></button>
     `;
     list.appendChild(row);
   });
 
   list.querySelectorAll('.bc').forEach(e => e.addEventListener('input', ev => {
-    state.bands[ev.target.dataset.i].color = ev.target.value; renderBands();
+    const b = state.bands[ev.target.dataset.i];
+    b.color = ev.target.value; delete b.bodyColor;  // couleur choisie : le corps suit
+    renderBands();
   }));
   list.querySelectorAll('.bl').forEach(e => e.addEventListener('input', ev => {
-    state.bands[ev.target.dataset.i].label = ev.target.value; renderBands();
+    const b = state.bands[ev.target.dataset.i];
+    b.label = ev.target.value; delete b.key;   // renommée : ne suit plus la langue
+    renderBands();
   }));
   list.querySelectorAll('.bh').forEach(e => e.addEventListener('input', ev => {
     state.bands[ev.target.dataset.i].height = parseInt(ev.target.value) || 150; renderBands();
   }));
   list.querySelectorAll('.band-delete').forEach(e => e.addEventListener('click', async ev => {
-    if (await _deleteBand(parseInt(ev.target.dataset.i))) {
+    if (await _deleteBand(parseInt(ev.currentTarget.dataset.i))) {
       renderBandsList();
       renderBandsTbList();
     }
@@ -5367,11 +5563,12 @@ function bindBandProps() {
     el.addEventListener('input', e => { fn(e.target.value); render(); });
     el.addEventListener('change', snapshot);
   };
-  bprop('band-label', v => { const b = state.bands.find(b => b.id === selectedBand); if (b) b.label = v; });
+  bprop('band-label', v => { const b = state.bands.find(b => b.id === selectedBand); if (b) { b.label = v; delete b.key; } });
   bprop('band-color', v => {
     const b = state.bands.find(b => b.id === selectedBand);
     if (!b) return;
     b.color = v;
+    delete b.bodyColor;
     const pastelEl = document.getElementById('band-pastel-preview');
     if (pastelEl) pastelEl.style.background = bandPastel(v);
     state.shapes.forEach(s => { if (getBandForY(s.y + s.h / 2)?.id === b.id) updateShapeColor(s); });
@@ -5937,7 +6134,8 @@ function _applyFixes(fixes) {
     } else if (f.type === 'renvoi') {
       deleted.add(f.shape.id);
     } else if (f.type === 'duplicate') {
-      f.shape.label = f.newLabel;                     // pas de déplacement → pas de re-routage
+      f.shape.label = f.newLabel;
+      delete f.shape.labelKey;                     // pas de déplacement → pas de re-routage
     }
   }
   if (deleted.size) {
@@ -6314,6 +6512,12 @@ function _separateLanes() {
       const len = isH ? Math.abs(b.x - a.x) : Math.abs(b.y - a.y);
       if (len < MIN_OVER) continue;
       const movable = !!c.userPts && i >= 1 && i <= pts.length - 3;
+      // Un tronc commun de fourche DOIT rester superposé : c'est une seule
+      // flèche qui se divise, pas deux flèches parallèles à écarter.
+      const dansTronc = c.bundleId && (
+        (c.trunkFrom && i <= c.trunkFrom) ||
+        (c.trunkTo   && i >= pts.length - 1 - c.trunkTo));
+      if (dansTronc) continue;
       segs.push({ c, isH, movable, coord: isH ? a.y : a.x,
         lo: isH ? Math.min(a.x, b.x) : Math.min(a.y, b.y),
         hi: isH ? Math.max(a.x, b.x) : Math.max(a.y, b.y), uA: i - 1, uB: i });
@@ -6459,7 +6663,11 @@ function _reconstructClassicPolish() {
   }
   render();                 // recalcule _computedOrthopts avec angles droits
   _separateLanes();         // sépare les flèches parallèles superposées en voies distinctes
+  _realignBundles();        // …sauf les troncs de fourche, qu'on remet en coïncidence
   render();
+  // Les tracés viennent de bouger : les losanges du flux se recalent dessus.
+  // Deux passes — déplacer un losange déplace ses ports, donc ses flèches.
+  for (let i = 0; i < 2; i++) { if (!_alignDiamondsOnFlow()) break; render(); }
   architectLabels(false);   // labels près des pointes, jamais sur une autre flèche
   if (typeof _syncLabelSlider === 'function') _syncLabelSlider();
 }
@@ -6665,8 +6873,21 @@ function _startDiamondPlacement(onDone) {
     });
   }
 
-  const finish = () => { overlay.remove(); done(); };
-  validBtn.addEventListener('click', () => { if (idx >= diamonds.length - 1) finish(); else { idx++; renderFrame(); } });
+  // Un losange validé ici doit être BRANCHÉ sur sa flèche, exactement comme ceux
+  // que l'import a déjà insérés. Sans ça, deux régimes cohabitent — connecté
+  // pour les uns, simple décor posé par-dessus pour les autres — et les liens
+  // métier diffèrent selon qui a placé le losange.
+  const brancher = (D) => {
+    if (!D) return;
+    try { if (_snapDiamondToArrow(D)) render(); } catch (e) { console.error(e); }
+  };
+  const brancherTous = () => { for (const D of diamonds) brancher(D); };
+
+  const finish = () => { brancherTous(); overlay.remove(); done(); };
+  validBtn.addEventListener('click', () => {
+    brancher(diamonds[idx]);
+    if (idx >= diamonds.length - 1) finish(); else { idx++; renderFrame(); }
+  });
   prevBtn.addEventListener('click', () => { if (idx > 0) { idx--; renderFrame(); } });
   overlay.querySelector('#dp-skip').addEventListener('click', finish); // accepte le pré-placement du reste
 
@@ -6704,7 +6925,7 @@ function _projectOnPolyline(cx, cy, pts) {
     if (l2 < 1e-6) continue;
     const t = Math.max(0, Math.min(1, ((cx - ax) * abx + (cy - ay) * aby) / l2));
     const px = ax + t * abx, py = ay + t * aby, d = Math.hypot(cx - px, cy - py);
-    if (d < best.dist) best = { dist: d, frac: total > 0 ? (cum[i] + t * Math.sqrt(l2)) / total : 0 };
+    if (d < best.dist) best = { dist: d, x: px, y: py, seg: i, frac: total > 0 ? (cum[i] + t * Math.sqrt(l2)) / total : 0 };
   }
   return best;
 }
@@ -6725,22 +6946,162 @@ function _seatDecorativeDiamonds() {
     const a = byId[c.fromId], b = byId[c.toId];
     return (a && b) ? [{ x: a.x + a.w / 2, y: a.y + a.h / 2 }, { x: b.x + b.w / 2, y: b.y + b.h / 2 }] : null;
   };
+  const parId = {}; for (const c of state.connections) parId[c.id] = c;
   for (const D of state.shapes) {
     if (D.type !== 'decision' || connected.has(D.id)) continue;
     const cx = D.x + D.w / 2, cy = D.y + D.h / 2;
-    let best = null, bestDist = Infinity, bestFrac = 0;
-    for (const c of state.connections) {
-      const poly = origPoly(c); if (!poly) continue;
-      const pr = _projectOnPolyline(cx, cy, poly);
-      if (pr.dist < bestDist) { bestDist = pr.dist; best = c; bestFrac = pr.frac; }
+
+    // L'import rattache le losange par la COULEUR de trait Visio (les flèches
+    // d'une même décision partagent la couleur du losange) : bien plus sûr que
+    // « la plus proche », qui se trompe dès que deux tracés se frôlent.
+    let best = D.seatConnId ? parId[D.seatConnId] : null;
+    let bestFrac = D.seatFrac != null ? D.seatFrac : 0;
+    if (!best) {
+      let bestDist = Infinity;
+      for (const c of state.connections) {
+        const poly = origPoly(c); if (!poly) continue;
+        const pr = _projectOnPolyline(cx, cy, poly);
+        if (pr.dist < bestDist) { bestDist = pr.dist; best = c; bestFrac = pr.frac; }
+      }
+      if (!best || bestDist > 60) { delete D._seatConnId; continue; }
     }
-    if (!best || bestDist > 60) { delete D._seatConnId; continue; } // pas clairement sur un connecteur → laisser
     D._seatConnId = best.id;                          // flèche associée (surbrillance pop-up placement)
     const pts = best._computedOrthopts;
     if (!pts || pts.length < 2) continue;
-    const p = _pointAlongPath(pts, bestFrac);        // même fraction, sur le tracé FINAL
-    D.x = Math.round(p.x - D.w / 2); D.y = Math.round(p.y - D.h / 2);
+    // Même fraction sur le tracé FINAL, puis projection : la fraction seule
+    // laissait le losange à côté du trait dès que le tracé avait été retouché.
+    const p = _pointAlongPath(pts, bestFrac);
+    const pr = _projectOnPolyline(p.x, p.y, pts);
+    const px = pr.x != null ? pr.x : p.x, py = pr.y != null ? pr.y : p.y;
+    D.x = Math.round(px - D.w / 2); D.y = Math.round(py - D.h / 2);
   }
+}
+
+// Losange lâché tout près d'une flèche : on le pose PILE dessus, centré sur le
+// trait. Viser le milieu d'un trait de 2 px à la souris est pénible ; à moins de
+// SNAP_LOSANGE px, on considère que c'est l'intention.
+const SNAP_LOSANGE = 14;
+function _snapDiamondToArrow(D) {
+  if (!D || D.type !== 'decision') return false;
+  for (const c of state.connections)
+    if (c.fromId === D.id || c.toId === D.id) return false;   // déjà dans le flux
+  const cx = D.x + D.w / 2, cy = D.y + D.h / 2;
+  let best = null, bestDist = Infinity, bestPr = null;
+  for (const c of state.connections) {
+    const pts = c._computedOrthopts;
+    if (!pts || pts.length < 2) continue;
+    const pr = _projectOnPolyline(cx, cy, pts);
+    if (pr.dist < bestDist) { bestDist = pr.dist; best = c; bestPr = pr; }
+  }
+  if (!best || bestDist > SNAP_LOSANGE || bestPr.x == null) return false;
+  return _insertDiamondOnArrow(D, best, bestPr);
+}
+
+// Coupe la flèche sur le losange : A → losange → B. Même résultat qu'à l'import,
+// pour qu'un losange posé à la main ne reste pas un décor par-dessus une flèche
+// (les liens métier suivent le flux, pas ce qui est dessiné au-dessus).
+function _insertDiamondOnArrow(D, c, pr) {
+  const pts = c._computedOrthopts;
+  if (!pts || pts.length < 2 || pr.seg == null) return false;
+  const coupe = { x: Math.round(pr.x), y: Math.round(pr.y) };
+  const avant = pts.slice(1, pr.seg + 1).map(p => ({ x: p.x, y: p.y }));
+  const apres = pts.slice(pr.seg + 1, pts.length - 1).map(p => ({ x: p.x, y: p.y }));
+  const dirVers = (a, b) => Math.abs(b.x - a.x) >= Math.abs(b.y - a.y)
+    ? (b.x >= a.x ? 'right' : 'left') : (b.y >= a.y ? 'bottom' : 'top');
+
+  const versPrec = avant.length ? avant[avant.length - 1] : pts[0];
+  const versSuiv = apres.length ? apres[0] : pts[pts.length - 1];
+
+  const branche = {
+    id: state.nextId++, fromId: D.id, toId: c.toId,
+    fromPortDir: dirVers(coupe, versSuiv),
+    toPortDir: c.toPortDir, toPortT: c.toPortT,
+    color: c.color, label: c.label, style: c.style, routing: 'orthogonal',
+    userPts: apres.length ? apres : null,
+  };
+
+  c.toId = D.id;
+  c.toPortDir = dirVers(coupe, versPrec);
+  delete c.toPortT;
+  c.userPts = avant.length ? avant : null;
+  c.label = '';
+  delete c.customPath;
+  delete c.labelOffset;
+
+  state.connections.push(branche);
+  D.x = Math.round(coupe.x - D.w / 2);
+  D.y = Math.round(coupe.y - D.h / 2);
+  delete D.seatConnId; delete D.seatFrac; delete D._seatConnId;
+  return true;
+}
+
+// Recentre un losange DU FLUX sur ses flèches. Le polish redresse les angles et
+// sépare les voies APRÈS l'insertion : le losange, lui, ne bougeait plus (seuls
+// les décoratifs sont reposés), et se retrouvait à côté de son propre trait.
+//
+// Principe : chaque flèche qui touche le losange arrive par un segment droit.
+// Un segment vertical impose le X du losange, un segment horizontal impose son Y.
+function _alignDiamondsOnFlow() {
+  let bouges = 0;
+  for (const D of state.shapes) {
+    if (D.type !== 'decision') continue;
+    const liees = state.connections.filter(c => c.fromId === D.id || c.toId === D.id);
+    if (!liees.length) continue;
+    const cx = D.x + D.w / 2, cy = D.y + D.h / 2;
+
+    const xs = [], ys = [];
+    for (const c of liees) {
+      const pts = c._computedOrthopts;
+      if (!pts || pts.length < 2) continue;
+      const voisin = c.toId === D.id ? pts[pts.length - 2] : pts[1];
+      if (!voisin) continue;
+      if (Math.abs(voisin.x - cx) <= Math.abs(voisin.y - cy)) xs.push(voisin.x);
+      else ys.push(voisin.y);
+    }
+    const median = (t) => {
+      if (!t.length) return null;
+      const v = [...t].sort((a, b) => a - b);
+      return v[Math.floor(v.length / 2)];
+    };
+    const nx = median(xs), ny = median(ys);
+    const px = nx == null ? cx : nx, py = ny == null ? cy : ny;
+    if (Math.abs(px - cx) < 0.5 && Math.abs(py - cy) < 0.5) continue;
+    D.x = Math.round(px - D.w / 2);
+    D.y = Math.round(py - D.h / 2);
+    bouges++;
+  }
+  return bouges;
+}
+
+// Tronc commun d'une fourche : l'import aligne les premiers sommets des flèches
+// qui partent ensemble (bundleMultiLinks), mais le polish les sépare ensuite en
+// voies distinctes — d'où les deux traits presque superposés au départ des
+// losanges. On remet les points du tronc en coïncidence après retouche.
+function _realignBundles() {
+  const paquets = {};
+  for (const c of state.connections) {
+    if (!c.bundleId || !c.userPts) continue;
+    (paquets[c.bundleId] = paquets[c.bundleId] || []).push(c);
+  }
+  let recolles = 0;
+  for (const membres of Object.values(paquets)) {
+    if (membres.length < 2) continue;
+    const debut = membres[0].bundleId.startsWith('f');
+    const profondeur = Math.min(...membres.map(c =>
+      (debut ? (c.trunkFrom || 0) : (c.trunkTo || 0))));
+    if (profondeur < 1) continue;
+    const ref = membres[0].userPts;
+    for (const c of membres.slice(1)) {
+      for (let i = 0; i < profondeur && i < ref.length && i < c.userPts.length; i++) {
+        const src = debut ? ref[i] : ref[ref.length - 1 - i];
+        const dst = debut ? c.userPts[i] : c.userPts[c.userPts.length - 1 - i];
+        if (!src || !dst) continue;
+        if (Math.abs(dst.x - src.x) > 0.01 || Math.abs(dst.y - src.y) > 0.01) recolles++;
+        dst.x = src.x; dst.y = src.y;
+      }
+    }
+  }
+  return recolles;
 }
 
 // Curseur global des labels : place TOUS les labels à la même position relative le long
@@ -6819,8 +7180,9 @@ function _showBulkPanel(shapeType, shapeSubtype, wrap, anchorBtn) {
 
   const previewClassMap = { process: 'normal', special: 'special', 'start-end': 'renvoi', decision: 'decision' };
   const subtypeClass    = shapeSubtype === 'external' ? 'external' : shapeSubtype === 'extco' ? 'extco' : (previewClassMap[shapeType] || 'normal');
-  const labelMap = { process: 'Activité', special: 'Sous-activité', 'start-end': 'Renvoi', decision: 'Décision' };
-  const shapeName = (shapeSubtype === 'external' ? 'Activité externe' : shapeSubtype === 'extco' ? 'Ext. entreprise' : labelMap[shapeType]) || shapeType;
+  const shapeName = _L(shapeSubtype === 'external' ? 'editor.shape_ext_activity'
+                     : shapeSubtype === 'extco'    ? 'editor.shape_extco'
+                     : (SHAPE_DEFAULTS[shapeType] || {}).labelKey || shapeType);
 
   const panel = document.createElement('div');
   panel.id = '_bulk-side-panel';
@@ -7196,13 +7558,17 @@ function init() {
     const { x, y } = screenToSVG(e.clientX, e.clientY);
     const def = SHAPE_DEFAULTS[shapeType];
     const shapeSubtype = e.dataTransfer.getData('text/shape-subtype') || def.subtype || 'normal';
+    const labelKey = shapeSubtype === 'external' ? 'editor.shape_ext_activity'
+                   : shapeSubtype === 'extco'    ? 'editor.shape_ext_company'
+                   : def.labelKey;
     const s = {
       id: state.nextId++,
       type: shapeType,
       x: Math.round(x - def.w / 2),
       y: Math.round(y - def.h / 2),
       w: def.w, h: def.h,
-      label: shapeSubtype === 'external' ? 'Activité externe' : shapeSubtype === 'extco' ? 'Externe à l\'entreprise' : def.label,
+      label: _L(labelKey),
+      labelKey,
       color: def.color,
       textColor: def.textColor,
       strokeColor: '',
@@ -7436,6 +7802,7 @@ function init() {
         );
       }
       _restoreCollapsedPiles();
+      _applyTemplateI18n(state);
       history = [JSON.stringify(state)]; histIndex = 0;
       isDirty = false;
       render(); updateProps(); fitView();

@@ -15,7 +15,7 @@ from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
 
-from sqlalchemy import text as _sql_text
+from sqlalchemy import func, text as _sql_text
 
 from Code.extensions import db
 from Code.models.models import (
@@ -132,7 +132,7 @@ def _collect_entity_data(entity_id, role_id=None):
             .join(activity_roles, activity_roles.c.activity_id == Activities.id)
             .filter(
                 activity_roles.c.role_id == role_id,
-                activity_roles.c.status == 'Garant',
+                func.lower(activity_roles.c.status) == 'garant',
                 Activities.entity_id == entity_id,
             )
             .order_by(Activities.name)

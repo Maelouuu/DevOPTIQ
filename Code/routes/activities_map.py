@@ -11,6 +11,7 @@ import shutil
 import xml.etree.ElementTree as ET
 import tempfile
 import uuid
+from datetime import datetime
 from typing import Dict
 
 from flask import (
@@ -197,6 +198,15 @@ def _normalize_link_type(raw):
 # ============================================================
 # PAGE CARTOGRAPHIE
 # ============================================================
+def _map_is_admin():
+    """Partage d'entité réservé aux administrateurs (Code/permissions.py)."""
+    try:
+        from Code.permissions import is_admin
+        return is_admin()
+    except Exception:
+        return False
+
+
 @activities_map_bp.route("/map")
 def activities_map_page():
     user_id = session.get('user_id')
@@ -307,6 +317,7 @@ def activities_map_page():
         has_optiqcarto=has_optiqcarto,
         extco_activity_ids=extco_activity_ids,
         active_calque_id=active_calque_id,
+        is_admin=_map_is_admin(),
     )
 
 
@@ -656,6 +667,394 @@ def delete_entity(entity_id):
     except Exception as e:
         db.session.rollback()
         return jsonify({"error": str(e)}), 500
+
+
+# ─────────────────────────────────────────────
+# PARTAGE D'UNE ENTITÉ
+# ─────────────────────────────────────────────
+# Une entité n'appartient qu'à son propriétaire (Entity.get_active est strict
+# sur owner_id) : « partager » signifie donc en DÉPOSER UNE COPIE chez chaque
+# destinataire, pas ouvrir un accès partagé. Chacun repart ensuite avec la
+# sienne et peut la modifier sans toucher à l'originale.
+#
+# Qui peut partager : tout le monde. Ce qui change avec le statut, c'est le
+# CONSENTEMENT du destinataire : un administrateur dépose sans rien demander,
+# un compte ordinaire ne fait que proposer — la copie n'est créée qu'après
+# acceptation (voir EntityShareOffer et /api/share/offers).
+
+def _unique_entity_name_for(base, user_id):
+    """« Nom », puis « Nom (2) », « Nom (3) »… chez le destinataire."""
+    name = (base or "Entité partagée").strip()[:200]
+    taken = {e.name for e in Entity.query.filter_by(owner_id=user_id).all() if e.name}
+    if name not in taken:
+        return name
+    i = 2
+    while f"{name} ({i})"[:200] in taken:
+        i += 1
+    return f"{name} ({i})"[:200]
+
+
+def _deposer_copie(source, target_id, nom=None):
+    """Crée l'entité chez le destinataire et en dérive activités/rôles/liens.
+
+    `source` est soit une Entity, soit une EntityShareOffer : les deux portent
+    les mêmes champs de carto. Retourne (entité, message d'erreur de synchro).
+    """
+    from Code.routes.cartography_editor import _sync_carto_to_db
+
+    nom_source = nom or getattr(source, 'name', None) or getattr(source, 'entity_name', None)
+    copie = Entity(
+        name=_unique_entity_name_for(nom_source, target_id),
+        description=source.description,
+        owner_id=target_id,
+        vsdx_filename=source.vsdx_filename,
+        svg_filename=source.svg_filename,
+        svg_content=source.svg_content,
+        optiqcarto_data=source.optiqcarto_data,
+        is_active=False,
+    )
+    db.session.add(copie)
+    db.session.commit()
+
+    # Activités, rôles et connexions sont dérivés comme après un import Visio :
+    # sans ça le destinataire reçoit une carte sans données.
+    erreur = None
+    if source.optiqcarto_data:
+        try:
+            _sync_carto_to_db(copie, json.loads(source.optiqcarto_data))
+        except Exception as exc:
+            import traceback
+            traceback.print_exc()
+            erreur = str(exc)
+    return copie, erreur
+
+
+def _remplacer_entite(cible, source, nom=None):
+    """Écrase la carto d'une entité existante par celle de `source`.
+
+    Mêmes règles que la mise à jour côté destinataire : `_sync_carto_to_db` fait
+    un upsert, donc les activités communes gardent leurs données et celles
+    absentes de la carto reçue disparaissent.
+    """
+    from Code.routes.cartography_editor import _sync_carto_to_db
+
+    if nom:
+        cible.name = nom[:200]
+    if source.description:
+        cible.description = source.description
+    cible.vsdx_filename = source.vsdx_filename
+    cible.svg_filename = source.svg_filename
+    cible.svg_content = source.svg_content
+    cible.optiqcarto_data = source.optiqcarto_data
+    db.session.commit()
+
+    erreur = None
+    diagram = _carto_json(source.optiqcarto_data)
+    if diagram:
+        try:
+            _sync_carto_to_db(cible, diagram)
+        except Exception as exc:
+            import traceback
+            traceback.print_exc()
+            erreur = str(exc)
+    return cible, erreur
+
+
+def _carto_json(donnees):
+    """Carto désérialisée, ou None si absente/illisible (pour comparaison)."""
+    try:
+        return json.loads(donnees) if donnees else None
+    except (ValueError, TypeError):
+        return None
+
+
+def _entite_jumelle(nom, user_id):
+    """Entité du compte portant déjà ce nom — celle qu'on peut mettre à jour."""
+    return Entity.query.filter_by(owner_id=user_id, name=(nom or '').strip()).first()
+
+
+def _nom_compte(u):
+    return f"{u.first_name} {u.last_name}".strip() or u.email
+
+
+@activities_map_bp.route("/api/entities/<int:entity_id>/share/candidates")
+def share_candidates(entity_id):
+    """Comptes à qui l'entité peut être proposée."""
+    from Code.models.models import User, EntityShareOffer
+
+    user_id = session.get('user_id')
+    if not user_id:
+        return jsonify({"error": "Non connecté"}), 401
+
+    entity = Entity.query.filter_by(id=entity_id, owner_id=user_id).first()
+    if not entity:
+        return jsonify({"error": "Entité introuvable"}), 404
+
+    from Code.permissions import is_admin
+    direct = is_admin()
+
+    en_attente = {
+        o.to_user_id for o in EntityShareOffer.query.filter_by(
+            from_user_id=user_id, source_entity_id=entity_id, status='pending').all()
+    }
+
+    users = User.query.filter(User.id != user_id).order_by(User.first_name, User.last_name).all()
+    out = []
+    for u in users:
+        siennes = Entity.query.filter_by(owner_id=u.id).order_by(Entity.name).all()
+        deja = any(e.name == entity.name for e in siennes)
+        ligne = {
+            "id": u.id,
+            "name": _nom_compte(u),
+            "email": u.email,
+            "already_has": deja,
+            "pending": u.id in en_attente,
+        }
+        # Un dépôt d'autorité peut viser une entité existante : l'admin a besoin
+        # de la liste pour choisir laquelle remplacer.
+        if direct:
+            ligne["entities"] = [{"id": e.id, "name": e.name} for e in siennes]
+        out.append(ligne)
+    return jsonify({
+        "entity": {"id": entity.id, "name": entity.name},
+        "users": out,
+        "direct": direct,
+    })
+
+
+@activities_map_bp.route("/api/entities/<int:entity_id>/share", methods=["POST"])
+def share_entity(entity_id):
+    """Dépose la copie (admin) ou envoie une proposition (tout autre statut)."""
+    from Code.models.models import User, EntityShareOffer
+    from Code.permissions import is_admin
+
+    user_id = session.get('user_id')
+    if not user_id:
+        return jsonify({"error": "Non connecté"}), 401
+
+    source = Entity.query.filter_by(id=entity_id, owner_id=user_id).first()
+    if not source:
+        return jsonify({"error": "Entité introuvable"}), 404
+
+    data = request.get_json(silent=True) or {}
+    raw_ids = data.get("user_ids") or []
+    try:
+        target_ids = [int(x) for x in raw_ids]
+    except (TypeError, ValueError):
+        return jsonify({"error": "Liste de destinataires invalide"}), 400
+    target_ids = [i for i in dict.fromkeys(target_ids) if i != user_id]
+    if not target_ids:
+        return jsonify({"error": "Aucun destinataire sélectionné"}), 400
+
+    # L'admin choisit : dépôt d'autorité (défaut, comportement historique) ou
+    # proposition comme tout le monde. Les autres comptes ne PEUVENT que proposer.
+    mode = (data.get("mode") or "direct").strip().lower()
+    direct = is_admin() and mode != "offer"
+
+    # Dépôt d'autorité : l'admin peut imposer le nom, et viser une entité
+    # existante du destinataire au lieu d'en créer une de plus.
+    nom_impose = (data.get("name") or "").strip()[:200] or None
+    remplacements = {}
+    if direct:
+        for cle, valeur in (data.get("replace") or {}).items():
+            try:
+                remplacements[int(cle)] = int(valeur)
+            except (TypeError, ValueError):
+                return jsonify({"error": "Entité à remplacer invalide"}), 400
+
+    resultats, proposes, echecs = [], [], []
+
+    for tid in target_ids:
+        cible = db.session.get(User, tid)
+        if not cible:
+            echecs.append({"user_id": tid, "error": "Compte introuvable"})
+            continue
+
+        if direct:
+            a_remplacer = remplacements.get(tid)
+            if a_remplacer:
+                existante = Entity.query.filter_by(id=a_remplacer, owner_id=tid).first()
+                if not existante:
+                    echecs.append({"user_id": tid, "error": "Entité à remplacer introuvable"})
+                    continue
+                copie, erreur = _remplacer_entite(existante, source, nom_impose)
+                genre = 'replace'
+            else:
+                copie, erreur = _deposer_copie(source, tid, nom_impose)
+                genre = 'copy'
+            # Recevoir une entité sans avoir rien demandé mérite une explication :
+            # on laisse une notification, affichée à sa prochaine ouverture.
+            db.session.add(EntityShareOffer(
+                from_user_id=user_id, to_user_id=tid, source_entity_id=entity_id,
+                entity_name=copie.name, description=source.description,
+                status='delivered', deposit_kind=genre, created_entity_id=copie.id))
+            resultats.append({
+                "user_id": tid,
+                "user": _nom_compte(cible),
+                "entity_id": copie.id,
+                "entity_name": copie.name,
+                "replaced": genre == 'replace',
+                "sync_warning": erreur,
+            })
+            continue
+
+        # Une seule proposition en attente par (expéditeur, entité, destinataire) :
+        # renvoyer deux fois ne doit pas empiler deux pop-ups identiques.
+        offre = EntityShareOffer.query.filter_by(
+            from_user_id=user_id, to_user_id=tid,
+            source_entity_id=entity_id, status='pending').first()
+        if offre is None:
+            offre = EntityShareOffer(
+                from_user_id=user_id, to_user_id=tid, source_entity_id=entity_id)
+            db.session.add(offre)
+        offre.entity_name = source.name
+        offre.description = source.description
+        offre.vsdx_filename = source.vsdx_filename
+        offre.svg_filename = source.svg_filename
+        offre.svg_content = source.svg_content
+        offre.optiqcarto_data = source.optiqcarto_data
+        offre.created_at = datetime.utcnow()
+        db.session.flush()
+        proposes.append({
+            "user_id": tid,
+            "user": _nom_compte(cible),
+            "offer_id": offre.id,
+            "entity_name": source.name,
+        })
+
+    db.session.commit()
+    return jsonify({"status": "ok", "direct": direct,
+                    "shared": resultats, "pending": proposes, "failed": echecs})
+
+
+@activities_map_bp.route("/api/share/offers")
+def share_offers():
+    """Propositions en attente pour le compte connecté (pop-up d'accueil)."""
+    from Code.models.models import User, EntityShareOffer
+
+    user_id = session.get('user_id')
+    if not user_id:
+        return jsonify({"error": "Non connecté"}), 401
+
+    offres = (EntityShareOffer.query
+              .filter(EntityShareOffer.to_user_id == user_id,
+                      EntityShareOffer.status.in_(('pending', 'delivered')))
+              .order_by(EntityShareOffer.created_at.asc())
+              .all())
+    out = []
+    for o in offres:
+        envoyeur = db.session.get(User, o.from_user_id)
+        # Le destinataire a peut-être déjà cette entité : on lui dira si la
+        # version proposée diffère de la sienne, pour qu'il choisisse entre
+        # mettre à jour et recevoir une copie de plus.
+        # Une notification annonce un dépôt DÉJÀ fait : rien à accepter, et pas
+        # de doublon à signaler (l'entité citée est justement celle reçue).
+        notice = o.status == 'delivered'
+        jumelle = None if notice else _entite_jumelle(o.entity_name, user_id)
+        existante = None
+        if jumelle:
+            existante = {
+                "id": jumelle.id,
+                "name": jumelle.name,
+                "differs": _carto_json(jumelle.optiqcarto_data) != _carto_json(o.optiqcarto_data),
+            }
+        out.append({
+            "id": o.id,
+            "entity_name": o.entity_name,
+            "description": o.description,
+            "from": _nom_compte(envoyeur) if envoyeur else "—",
+            "from_email": envoyeur.email if envoyeur else None,
+            "created_at": o.created_at.isoformat() if o.created_at else None,
+            "existing": existante,
+            "kind": "notice" if notice else "offer",
+            "replaced": bool(notice and o.deposit_kind == 'replace'),
+        })
+    return jsonify({"offers": out})
+
+
+@activities_map_bp.route("/api/share/offers/<int:offer_id>/respond", methods=["POST"])
+def respond_share_offer(offer_id):
+    """Accepte (crée l'entité) ou refuse (ne crée rien) une proposition."""
+    from Code.models.models import EntityShareOffer
+
+    user_id = session.get('user_id')
+    if not user_id:
+        return jsonify({"error": "Non connecté"}), 401
+
+    data = request.get_json(silent=True) or {}
+    action = (data.get("action") or "").strip().lower()
+    if action not in ("accept", "update", "decline", "acknowledge"):
+        return jsonify({"error": "Action invalide"}), 400
+
+    offre = EntityShareOffer.query.filter_by(id=offer_id, to_user_id=user_id).first()
+    if not offre:
+        return jsonify({"error": "Proposition introuvable"}), 404
+
+    # Notification d'un dépôt déjà effectué : on ne fait que la marquer lue.
+    if offre.status == 'delivered':
+        if action != "acknowledge":
+            return jsonify({"error": "Cette entité a déjà été déposée"}), 409
+        offre.status = 'acknowledged'
+        offre.responded_at = datetime.utcnow()
+        db.session.commit()
+        return jsonify({"status": "ok", "action": "acknowledged"})
+
+    if action == "acknowledge":
+        return jsonify({"error": "Action invalide"}), 400
+    if offre.status != 'pending':
+        return jsonify({"error": "Proposition déjà traitée"}), 409
+
+    if action == "decline":
+        offre.status = 'declined'
+        offre.responded_at = datetime.utcnow()
+        db.session.commit()
+        return jsonify({"status": "ok", "action": "declined"})
+
+    if action == "update":
+        # Remplacer SA carto par celle reçue. _sync_carto_to_db fait un upsert
+        # (shape_id puis nom) : les activités communes gardent leurs tâches,
+        # compétences et évaluations ; celles qui ne sont plus dans la carto
+        # reçue disparaissent, avec les données qui en dépendent.
+        from Code.routes.cartography_editor import _sync_carto_to_db
+
+        cible = _entite_jumelle(offre.entity_name, user_id)
+        if not cible:
+            return jsonify({"error": "Aucune entité du même nom à mettre à jour"}), 400
+
+        if offre.description:
+            cible.description = offre.description
+        cible.vsdx_filename = offre.vsdx_filename
+        cible.svg_filename = offre.svg_filename
+        cible.svg_content = offre.svg_content
+        cible.optiqcarto_data = offre.optiqcarto_data
+        db.session.commit()
+
+        erreur = None
+        diagram = _carto_json(offre.optiqcarto_data)
+        if diagram:
+            try:
+                _sync_carto_to_db(cible, diagram)
+            except Exception as exc:
+                import traceback
+                traceback.print_exc()
+                erreur = str(exc)
+
+        offre.status = 'accepted'
+        offre.responded_at = datetime.utcnow()
+        offre.created_entity_id = cible.id
+        db.session.commit()
+        return jsonify({"status": "ok", "action": "updated",
+                        "entity_id": cible.id, "entity_name": cible.name,
+                        "sync_warning": erreur})
+
+    copie, erreur = _deposer_copie(offre, user_id)
+    offre.status = 'accepted'
+    offre.responded_at = datetime.utcnow()
+    offre.created_entity_id = copie.id
+    db.session.commit()
+    return jsonify({"status": "ok", "action": "accepted",
+                    "entity_id": copie.id, "entity_name": copie.name,
+                    "sync_warning": erreur})
 
 
 @activities_map_bp.route("/api/entities/<int:entity_id>", methods=["PATCH"])

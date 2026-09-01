@@ -7,9 +7,9 @@ du guide, sur une base de démonstration réaliste — sans aucune capture manue
 ## Prérequis
 
 - Python + dépendances du projet (`pip install -r requirements.txt`) + `playwright`
-- Chromium Playwright (env web : `/opt/pw-browsers/chromium`, sinon
+- Chromium Playwright (env web : `~/.cache/ms-playwright`, sinon
   `CHROME_PATH=/chemin/vers/chrome`)
-- ffmpeg pour la compression vidéo (env web : `/opt/pw-browsers/ffmpeg-1011/ffmpeg-linux`)
+- ffmpeg pour la compression vidéo (env web : `~/.cache/ms-playwright/ffmpeg-1011/ffmpeg-linux`)
 
 ## Étapes
 
@@ -27,16 +27,76 @@ python tools/guide/capture_screens.py
 # 3) vidéos de manipulation, curseur visible + bulles d'explication incrustées
 #    (carte-titre d'ouverture, bandeau « Étape i/n », bulle ancrée par étape,
 #    bulle ✓ de conclusion) → docs/assets/guide/flux-*.webm
+#    8 vidéos, dont flux-partage.webm (partage d'entité entre comptes)
 python tools/guide/capture_videos.py
 
 # 4) compression des vidéos + posters (2.6 s = la carte-titre est affichée)
 cd docs/assets/guide
-FF=/opt/pw-browsers/ffmpeg-1011/ffmpeg-linux
+FF=~/.cache/ms-playwright/ffmpeg-1011/ffmpeg-linux
 for f in flux-*.webm; do
   $FF -y -i "$f" -c:v libvpx -b:v 450k -crf 22 -vf scale=1120:-2 -an "c_$f" && mv "c_$f" "$f"
   $FF -y -ss 2.6 -i "$f" -frames:v 1 "poster-${f%.webm}.png"
 done
 ```
+
+## Deux jeux de vidéos : français et anglais
+
+`GUIDE_LANG=en` tourne le jeu anglais : la langue est appliquée **à la session
+de l'app** (interface traduite) **et aux bulles** (table `traductions_videos.py`).
+Les fichiers sortent suffixés `-en`.
+
+```bash
+GUIDE_LANG=fr python tools/guide/capture_videos.py   # flux-*.webm
+GUIDE_LANG=en python tools/guide/capture_videos.py   # flux-*-en.webm
+ONLY=flux-projet.webm GUIDE_LANG=en python tools/guide/capture_videos.py  # un seul parcours
+```
+
+Deux pièges, corrigés mais à connaître si on ajoute un parcours :
+
+- **les sélecteurs par libellé** (`has_text=`, `select_option(label=)`) doivent
+  passer par `T(fr, en)`. Un libellé français cherché dans une interface
+  anglaise fait attendre Playwright jusqu'au timeout, parcours après parcours —
+  un tournage entier peut y passer une heure sans message d'erreur. Le délai est
+  désormais plafonné à 8 s pour que l'échec soit rapide et visible ;
+- **les noms de données de démonstration** (« Analyse de faisabilité » /
+  « Feasibility analysis », « Relation client » / « Customer relation ») sont
+  eux aussi TRADUITS depuis `demo_data_i18n.py` : un parcours qui cherche un
+  libellé de la carto doit passer par `T(fr, en)`, sinon il ne trouve rien
+  dans l'autre langue.
+
+Un texte de bulle absent de `traductions_videos.py` ressort en français et le
+script le signale en fin de tournage — pas de vidéo à moitié traduite livrée
+sans qu'on le voie.
+
+## Comment sont écrites les vidéos
+
+Chaque vidéo raconte **un cas précis, nommé, chiffré** — elle ne décrit pas
+l'interface. La règle, appliquée dans `capture_videos.py` :
+
+- la **carte-titre** pose la situation (« Claire part en congés — que faut-il
+  savoir faire pour reprendre la cotation ? »), pas la fonctionnalité ;
+- chaque **bulle** nomme la donnée manipulée (l'activité, le collaborateur, la
+  valeur saisie) plutôt que le widget cliqué. On ne dit pas « chaque onglet
+  montre une facette » : on dit ce qu'on cherche, et ce qu'on trouve ;
+- la **bulle de conclusion** donne le résultat obtenu — un chiffre, un nom, une
+  décision — et pas un résumé de ce qu'on vient de voir.
+
+Les légendes sous les vidéos, dans `docs/guide.html`, reprennent le même cas :
+le lecteur doit savoir ce que la vidéo résout avant de la lancer.
+
+## Jeu de données bilingue (`demo_data_i18n.py`)
+
+`GUIDE_LANG` ne change pas que la langue de l'interface : il change **les
+données**. Le VSDX d'exemple mélange les langues (bandes anglaises, activités
+françaises) — servi tel quel, le guide français affichait des rôles anglais et
+le guide anglais des activités françaises.
+
+`demo_data_i18n.py` porte trois tables (bandes, formes, flèches) et tout le
+contenu enrichi (outils, verbes de tâches, savoirs, missions, projet,
+faiblesse). `traduire_diagramme()` réécrit les libellés AVANT l'appel à
+`/cartography/api/save` : activités, rôles et liens naissent donc déjà traduits.
+`libelles_non_traduits()` liste au démarrage du seed ce qui n'a pas d'entrée —
+un libellé ajouté à la carto d'exemple se signale tout seul.
 
 ## Ce que fait la base de démo (`seed_demo.py`)
 

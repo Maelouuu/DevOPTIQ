@@ -75,8 +75,8 @@
 
   /* ── Figures : captures dans un cadre navigateur ── */
   figure{margin:20px 0 6px}
-  .frame{border-radius:12px;overflow:hidden;border:1px solid var(--border);box-shadow:var(--sh);background:#fff}
-  .frame-bar{display:flex;align-items:center;gap:6px;height:30px;padding:0 12px;background:#eef1f6;border-bottom:1px solid var(--border)}
+  .frame{border-radius:12px;overflow:hidden;border:1px solid var(--border);box-shadow:var(--sh);background:#eef2f7}
+  .frame-bar{display:flex;align-items:center;gap:6px;height:30px;padding:0 12px;background:var(--card2);border-bottom:1px solid var(--border)}
   .frame-bar i{width:10px;height:10px;border-radius:50%;display:block}
   .frame-bar i:nth-child(1){background:#fca5a5}.frame-bar i:nth-child(2){background:#fcd34d}.frame-bar i:nth-child(3){background:#86efac}
   .frame-bar span{margin-left:10px;font-size:11.5px;color:var(--faint);font-weight:600}
@@ -95,7 +95,9 @@
   .frame-video .frame-bar i{display:none}
   .frame-video .frame-bar span{margin-left:0;color:#fff;font-size:12.5px;font-weight:700;
     display:flex;align-items:center;gap:9px}
-  .frame-video .frame-bar span::before{content:'▶  DÉMONSTRATION';font-size:10px;letter-spacing:.06em;
+  /* > span : le libellé est maintenant doublé (t-fr / t-en) à l'intérieur ;
+     sans le sélecteur direct, la pastille se dessinerait aussi sur chacun. */
+  .frame-video .frame-bar > span::before{content:'▶  DÉMONSTRATION';font-size:10px;letter-spacing:.06em;
     background:rgba(255,255,255,.22);border-radius:6px;padding:3px 8px}
 
   /* ── Encadrés pédagogiques ── */
@@ -108,7 +110,7 @@
   /* ── Pas à pas ── */
   .steps{counter-reset:s;list-style:none;padding:0;margin:14px 0}
   .steps li{counter-increment:s;position:relative;padding:10px 14px 10px 52px;margin:8px 0;
-    background:#fff;border:1px solid var(--border);border-radius:11px;font-size:14.5px}
+    background:var(--card);border:1px solid var(--border);border-radius:11px;font-size:14.5px}
   .steps li::before{content:counter(s);position:absolute;left:12px;top:50%;transform:translateY(-50%);
     width:28px;height:28px;border-radius:9px;display:grid;place-items:center;
     background:linear-gradient(135deg,var(--a),color-mix(in srgb,var(--a) 70%,#000));color:#fff;font-weight:700;font-size:13.5px}
@@ -116,7 +118,7 @@
 
   /* ── Chaîne OPTIQ (schéma CSS) ── */
   .chaine{display:flex;flex-wrap:wrap;align-items:stretch;gap:8px;margin:20px 0}
-  .chaine .maillon{flex:1 1 150px;min-width:150px;background:#fff;border:1px solid var(--border);border-radius:12px;
+  .chaine .maillon{flex:1 1 150px;min-width:150px;background:var(--card);border:1px solid var(--border);border-radius:12px;
     padding:12px 14px;box-shadow:var(--sh);border-top:3px solid var(--mc)}
   .chaine .maillon b{display:flex;align-items:center;gap:7px;font-size:14px;color:var(--ink)}
   .chaine .maillon b i{font-style:normal;font-size:16px}
@@ -125,10 +127,10 @@
   @media (max-width:860px){.chaine .fleche{display:none}}
 
   /* ── Diapos : le déroulé d'une fonctionnalité en écrans animés ── */
-  .diapo{margin:22px 0 10px;border:1px solid var(--border);border-radius:14px;background:#fff;
+  .diapo{margin:22px 0 10px;border:1px solid var(--border);border-radius:14px;background:var(--card);
     box-shadow:var(--sh);overflow:hidden}
   .diapo-head{display:flex;align-items:center;gap:10px;padding:11px 18px;border-bottom:1px solid var(--border);
-    background:color-mix(in srgb,var(--a) 5%,#fff)}
+    background:color-mix(in srgb,var(--a) 5%,var(--card))}
   .diapo-head .tag{font-size:10.5px;font-weight:800;letter-spacing:.07em;color:#fff;background:var(--a);
     border-radius:6px;padding:3px 9px;text-transform:uppercase;flex-shrink:0}
   .diapo-head b{font-size:15px;color:var(--ink)}
@@ -182,11 +184,11 @@
   @keyframes sb-in{to{opacity:1;transform:none}}
   /* Navigation */
   .diapo-nav{display:flex;align-items:center;justify-content:center;gap:14px;padding:10px 16px 13px}
-  .diapo-nav button{border:1px solid var(--border);background:#fff;color:var(--ink2);width:32px;height:32px;
+  .diapo-nav button{border:1px solid var(--border);background:var(--card);color:var(--ink2);width:32px;height:32px;
     border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;transition:all .2s;line-height:1}
   .diapo-nav button:hover{border-color:var(--a);color:var(--a);box-shadow:var(--sh)}
   .d-dots{display:flex;gap:7px}
-  .d-dots button{width:9px;height:9px;min-width:0;padding:0;border-radius:50%;border:none;background:#dbe2ec;cursor:pointer;transition:all .25s}
+  .d-dots button{width:9px;height:9px;min-width:0;padding:0;border-radius:50%;border:none;background:var(--border);cursor:pointer;transition:all .25s}
   .d-dots button.cur{background:var(--a);transform:scale(1.3)}
   @media (max-width:820px){
     .diapo-slide{grid-template-columns:1fr;gap:14px;padding:16px 16px 10px}
@@ -196,7 +198,7 @@
 
   /* ── Glossaire ── */
   .gloss{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:12px;margin-top:16px}
-  .gloss div{background:#fff;border:1px solid var(--border);border-radius:12px;padding:13px 16px;font-size:14px}
+  .gloss div{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:13px 16px;font-size:14px}
   .gloss dt{font-weight:700;color:var(--ink);margin-bottom:3px}
   .gloss dd{color:var(--muted);font-size:13.5px;margin:0}
 
@@ -209,6 +211,97 @@
     .hero h1{font-size:29px}
   }
   @media print{.toc{display:none}.layout{grid-template-columns:1fr}video{display:none}}
+  /* Une vidéo pas encore régénérée (pipeline tools/guide) ne doit pas laisser
+     un lecteur vide dans le guide : on masque la figure entière. */
+  figure.no-video{display:none}
+  video.no-video,img.no-video{display:none}
+
+  /* ══ Thème sombre ══
+     Seuls les jetons changent : le reste du guide s'appuie déjà dessus. */
+  :root[data-theme="dark"]{
+    --ink:#f1f5f9; --ink2:#cbd5e1; --muted:#94a3b8; --faint:#64748b;
+    --bg:#0b1220; --card:#141d2e; --card2:#1b2739; --border:#2a3750;
+    --sh:0 1px 2px rgba(0,0,0,.3),0 10px 28px -14px rgba(0,0,0,.55);
+  }
+  :root[data-theme="dark"] .toc{background:rgba(20,29,46,.72)}
+  :root[data-theme="dark"] .toc a:hover{background:var(--card2)}
+  :root[data-theme="dark"] .box-clair{background:#132038;border-color:#1e3a6b}
+  :root[data-theme="dark"] .box-clair b:first-child{color:#7ea8ff}
+  :root[data-theme="dark"] .box-astuce{background:#10251a;border-color:#1d5136}
+  :root[data-theme="dark"] .box-astuce b:first-child{color:#6ee7a8}
+  :root[data-theme="dark"] .box-attention{background:#2a2113;border-color:#5c451a}
+  :root[data-theme="dark"] .box-attention b:first-child{color:#fbbf24}
+  :root[data-theme="dark"] .mk-bar,
+  :root[data-theme="dark"] .mk-scale i{background:#24324a}
+  :root[data-theme="dark"] a{color:#7ea8ff}
+  /* Les maquettes miniatures représentent l'application, qui est claire :
+     elles gardent un fond clair, comme les captures d'écran juste à côté. */
+  :root[data-theme="dark"] .mk{
+    --ink:#0f172a; --ink2:#334155; --muted:#64748b; --faint:#94a3b8;
+    --card:#fff; --card2:#f8fafc; --border:#e2e8f0;
+    background:#f1f5f9;
+  }
+
+  /* ══ Barre d'outils : thème + langue ══
+     Un seul bloc « verre » : segment de langue à indicateur glissant, séparateur,
+     bascule de thème. Icônes en SVG — les emoji ne se rendent pas partout. */
+  .gbar{position:sticky;top:0;z-index:40;display:flex;justify-content:flex-end;
+    padding:14px 0 6px;background:linear-gradient(var(--bg) 62%,transparent);pointer-events:none}
+  .gctl{display:inline-flex;align-items:center;gap:4px;padding:5px;border-radius:999px;
+    background:color-mix(in srgb,var(--card) 86%,transparent);
+    border:1px solid var(--border);pointer-events:auto;
+    backdrop-filter:blur(14px) saturate(1.4);-webkit-backdrop-filter:blur(14px) saturate(1.4);
+    box-shadow:0 1px 2px rgba(15,23,42,.06),0 14px 34px -16px rgba(15,23,42,.42)}
+  :root[data-theme="dark"] .gctl{box-shadow:0 1px 2px rgba(0,0,0,.4),0 14px 34px -16px rgba(0,0,0,.7)}
+
+  .gseg{position:relative;display:inline-flex;border-radius:999px;background:var(--card2)}
+  .gseg .ind{position:absolute;top:3px;bottom:3px;left:3px;width:calc(50% - 3px);border-radius:999px;
+    background:linear-gradient(150deg,var(--c-comp),color-mix(in srgb,var(--c-comp) 68%,#000));
+    box-shadow:0 2px 8px -2px color-mix(in srgb,var(--c-comp) 80%,transparent);
+    transition:transform .34s cubic-bezier(.25,.9,.3,1.2)}
+  :root[lang="en"] .gseg .ind{transform:translateX(100%)}
+  .gseg button{position:relative;z-index:1;border:none;background:none;cursor:pointer;
+    font-family:var(--font);font-size:12.5px;font-weight:800;letter-spacing:.045em;
+    color:var(--muted);padding:7px 15px;border-radius:999px;transition:color .26s}
+  .gseg button[aria-pressed="true"]{color:#fff}
+  .gseg button:hover[aria-pressed="false"]{color:var(--ink)}
+
+  .gsep{width:1px;height:20px;background:var(--border);margin:0 3px;flex:none}
+
+  #btn-theme{display:inline-flex;align-items:center;gap:8px;border:none;background:none;
+    cursor:pointer;font-family:var(--font);font-size:12.5px;font-weight:700;color:var(--ink2);
+    padding:7px 14px 7px 9px;border-radius:999px;transition:background .2s,color .2s}
+  #btn-theme:hover{background:var(--card2);color:var(--ink)}
+  #btn-theme .ico{position:relative;width:19px;height:19px;flex:none;display:grid;place-items:center}
+  #btn-theme .ico svg{position:absolute;width:19px;height:19px;stroke:currentColor;fill:none;
+    stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;
+    transition:opacity .3s ease,transform .42s cubic-bezier(.25,.9,.3,1.25)}
+  #btn-theme .ico .moon{opacity:1;transform:none;color:#6366f1}
+  #btn-theme .ico .sun{opacity:0;transform:rotate(-70deg) scale(.6);color:#f59e0b}
+  :root[data-theme="dark"] #btn-theme .ico .moon{opacity:0;transform:rotate(70deg) scale(.6)}
+  :root[data-theme="dark"] #btn-theme .ico .sun{opacity:1;transform:none}
+
+  .gctl button:focus-visible{outline:2px solid var(--c-comp);outline-offset:2px}
+  @media (max-width:700px){#btn-theme span:not(.ico){display:none}#btn-theme{padding:7px 10px}}
+  @media print{.gbar{display:none}}
+
+  /* ══ Bascule FR / EN ══
+     Les deux versions cohabitent dans le document ; seule celle de la langue
+     active est affichée. Aucun rechargement, et le guide reste un seul fichier. */
+  .frame-video .frame-bar > span::before{content:'▶  DÉMONSTRATION'}
+  :root[lang="en"] .frame-video .frame-bar > span::before{content:'▶  WALKTHROUGH'}
+  :root[lang="fr"] .t-en{display:none}
+  :root[lang="en"] .t-fr{display:none}
+
+  /* ── Tableau de droits ── */
+  .tbl{width:100%;border-collapse:separate;border-spacing:0;margin:16px 0 6px;font-size:14.5px;
+       background:var(--card);border:1px solid var(--border);border-radius:12px;overflow:hidden;box-shadow:var(--sh)}
+  .tbl th,.tbl td{padding:10px 14px;text-align:left;border-bottom:1px solid var(--border);vertical-align:top}
+  .tbl thead th{background:var(--card2);font-size:12.5px;font-weight:700;color:var(--muted);
+                text-transform:uppercase;letter-spacing:.04em;line-height:1.35}
+  .tbl tbody tr:last-child td{border-bottom:none}
+  .tbl td:first-child{white-space:nowrap}
+  @media (max-width:700px){.tbl{display:block;overflow-x:auto}}
 </style>
 </head>
 <body>
@@ -218,89 +311,108 @@
 <nav class="toc">
   <div class="toc-brand">
     <div class="toc-logo">◎</div>
-    <div><b>OPTIQ</b><small>Guide de prise en main</small></div>
+    <div><b>OPTIQ</b><small><span class="t-fr">Guide de prise en main</span><span class="t-en">Getting started guide</span></small></div>
   </div>
-  <a href="#demarrer"><span class="dot" style="background:var(--c-neutre)"></span> Bien démarrer</a>
-  <a href="#concept"><span class="dot" style="background:var(--c-neutre)"></span> L'idée OPTIQ en 3 minutes</a>
-  <div class="toc-group">Les pages de l'application</div>
-  <a href="#carto"><span class="dot" style="background:var(--c-carto)"></span> Cartographie</a>
-  <a href="#activites"><span class="dot" style="background:var(--c-act)"></span> Activités</a>
-  <a href="#roles"><span class="dot" style="background:var(--c-roles)"></span> Rôles</a>
-  <a href="#competences"><span class="dot" style="background:var(--c-comp)"></span> Compétences</a>
-  <a href="#temps"><span class="dot" style="background:var(--c-temps)"></span> Temps</a>
-  <a href="#comptes"><span class="dot" style="background:var(--c-comptes)"></span> Comptes</a>
-  <a href="#rh"><span class="dot" style="background:var(--c-rh)"></span> Gestion RH</a>
-  <a href="#outils"><span class="dot" style="background:var(--c-outils)"></span> Outils</a>
-  <div class="toc-group">Transverse</div>
-  <a href="#ia"><span class="dot" style="background:var(--c-ia)"></span> L'IA dans OPTIQ</a>
-  <a href="#parametres"><span class="dot" style="background:var(--c-param)"></span> Paramètres</a>
-  <a href="#glossaire"><span class="dot" style="background:var(--c-neutre)"></span> Glossaire</a>
+  <a href="#demarrer"><span class="t-fr"><span class="dot" style="background:var(--c-neutre)"></span> Bien démarrer</span><span class="t-en"><span class="dot" style="background:var(--c-neutre)"></span> Getting started</span></a>
+  <a href="#concept"><span class="t-fr"><span class="dot" style="background:var(--c-neutre)"></span> L'idée OPTIQ en 3 minutes</span><span class="t-en"><span class="dot" style="background:var(--c-neutre)"></span> The OPTIQ idea in 3 minutes</span></a>
+  <div class="toc-group"><span class="t-fr">Les pages de l'application</span><span class="t-en">The application's pages</span></div>
+  <a href="#carto"><span class="t-fr"><span class="dot" style="background:var(--c-carto)"></span> Cartographie</span><span class="t-en"><span class="dot" style="background:var(--c-carto)"></span> Activity map</span></a>
+  <a href="#activites"><span class="t-fr"><span class="dot" style="background:var(--c-act)"></span> Activités</span><span class="t-en"><span class="dot" style="background:var(--c-act)"></span> Activities</span></a>
+  <a href="#roles"><span class="t-fr"><span class="dot" style="background:var(--c-roles)"></span> Rôles</span><span class="t-en"><span class="dot" style="background:var(--c-roles)"></span> Roles</span></a>
+  <a href="#competences"><span class="t-fr"><span class="dot" style="background:var(--c-comp)"></span> Compétences</span><span class="t-en"><span class="dot" style="background:var(--c-comp)"></span> Competencies</span></a>
+  <a href="#temps"><span class="t-fr"><span class="dot" style="background:var(--c-temps)"></span> Temps</span><span class="t-en"><span class="dot" style="background:var(--c-temps)"></span> Time</span></a>
+  <a href="#comptes"><span class="t-fr"><span class="dot" style="background:var(--c-comptes)"></span> Comptes</span><span class="t-en"><span class="dot" style="background:var(--c-comptes)"></span> Accounts</span></a>
+  <a href="#rh"><span class="t-fr"><span class="dot" style="background:var(--c-rh)"></span> Gestion RH</span><span class="t-en"><span class="dot" style="background:var(--c-rh)"></span> HR management</span></a>
+  <a href="#outils"><span class="t-fr"><span class="dot" style="background:var(--c-outils)"></span> Outils</span><span class="t-en"><span class="dot" style="background:var(--c-outils)"></span> Tools</span></a>
+  <div class="toc-group"><span class="t-fr">Transverse</span><span class="t-en">Cross-cutting</span></div>
+  <a href="#ia"><span class="t-fr"><span class="dot" style="background:var(--c-ia)"></span> L'IA dans OPTIQ</span><span class="t-en"><span class="dot" style="background:var(--c-ia)"></span> AI in OPTIQ</span></a>
+  <a href="#parametres"><span class="t-fr"><span class="dot" style="background:var(--c-param)"></span> Paramètres</span><span class="t-en"><span class="dot" style="background:var(--c-param)"></span> Settings</span></a>
+  <a href="#glossaire"><span class="t-fr"><span class="dot" style="background:var(--c-neutre)"></span> Glossaire</span><span class="t-en"><span class="dot" style="background:var(--c-neutre)"></span> Glossary</span></a>
 </nav>
 
 <main>
 
-<!-- ══════════════ EN-TÊTE ══════════════ -->
-<div class="hero">
-  <h1>Prenez OPTIQ en main</h1>
-  <p>OPTIQ dessine <b style="color:#fff">ce que fait votre entreprise</b>, <b style="color:#fff">qui le
-     fait</b>, <b style="color:#fff">avec quelles compétences</b> et <b style="color:#fff">en combien de
-     temps</b>. Ce guide vous accompagne page par page, avec de vraies captures de l'application et de
-     courtes vidéos de manipulation&nbsp;: vous voyez toujours ce dont on parle.</p>
-  <span class="promesse">✓ Aucune connaissance technique nécessaire</span>
+<!-- ══════════════ BARRE : THÈME + LANGUE ══════════════ -->
+<div class="gbar">
+  <div class="gctl">
+    <div class="gseg" role="group" aria-label="Langue / Language">
+      <span class="ind" aria-hidden="true"></span>
+      <button type="button" data-lang="fr" aria-pressed="true">FR</button>
+      <button type="button" data-lang="en" aria-pressed="false">EN</button>
+    </div>
+    <span class="gsep" aria-hidden="true"></span>
+    <button type="button" id="btn-theme" aria-pressed="false">
+      <span class="ico" aria-hidden="true">
+        <svg class="moon" viewBox="0 0 24 24"><path d="M20.5 14.6A8.6 8.6 0 0 1 9.4 3.5a8.6 8.6 0 1 0 11.1 11.1Z"/></svg>
+        <svg class="sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.1"/><path d="M12 2.6v2.2M12 19.2v2.2M4.4 4.4l1.6 1.6M18 18l1.6 1.6M2.6 12h2.2M19.2 12h2.2M4.4 19.6 6 18M18 6l1.6-1.6"/></svg>
+      </span>
+      <span class="t-fr">Thème sombre</span><span class="t-en">Dark theme</span>
+    </button>
+  </div>
 </div>
 
-<div class="box box-clair" style="margin-top:18px">
+<!-- ══════════════ EN-TÊTE ══════════════ -->
+<div class="hero">
+  <h1><span class="t-fr">Prenez OPTIQ en main</span><span class="t-en">Get started with OPTIQ</span></h1>
+  <p><span class="t-fr">OPTIQ dessine <b style="color:#fff">ce que fait votre entreprise</b>, <b style="color:#fff">qui le
+     fait</b>, <b style="color:#fff">avec quelles compétences</b> et <b style="color:#fff">en combien de
+     temps</b>. Ce guide vous accompagne page par page, avec de vraies captures de l'application et de
+     courtes vidéos de manipulation&nbsp;: vous voyez toujours ce dont on parle.</span><span class="t-en">OPTIQ maps out <b style="color:#fff">what your company does</b>, <b style="color:#fff">who does it</b>, <b style="color:#fff">with which competencies</b> and <b style="color:#fff">how long it takes</b>. This guide walks you through the application page by page, with real screenshots and short walkthrough videos&nbsp;: you always see what is being described.</span></p>
+  <span class="promesse"><span class="t-fr">✓ Aucune connaissance technique nécessaire</span><span class="t-en">✓ No technical knowledge required</span></span>
+</div>
+
+<div class="box box-clair" style="margin-top:18px"><span class="t-fr">
   <b>Comment lire ce guide</b>
   Chaque page de l'application a sa section, dans l'ordre de la barre de navigation, avec le même code
   couleur que dans l'app. Dans chaque section&nbsp;: <b>à quoi sert la page</b> (deux phrases), <b>ce que
   vous voyez à l'écran</b> (capture), et <b>des pas-à-pas</b> pour les gestes du quotidien. Les vidéos
-  <span style="background:#334155;color:#fff;border-radius:6px;padding:1px 8px;font-size:12px;font-weight:700">▶ démonstration</span>
+  <span style="background:#334155;color:#fff;border-radius:6px;padding:1px 8px;font-size:12px;font-weight:700"><span class="t-fr">▶ démonstration</span><span class="t-en">▶ walkthrough</span></span>
   se lancent d'un clic&nbsp;: chaque étape y est <b>commentée à l'écran</b> par des bulles d'explication.
   Les déroulés <span style="background:#2563eb;color:#fff;border-radius:6px;padding:1px 8px;font-size:12px;font-weight:700">EN IMAGES</span>
   avancent tout seuls, écran par écran — prenez la main avec les flèches <b>‹ ›</b> pour aller à votre rythme.
-</div>
+</span><span class="t-en"><b>How to read this guide</b> Every page of the application has its own section, in the order of the navigation bar, using the same colour code as the app. Each section covers&nbsp;: <b>what the page is for</b> (two sentences), <b>what you see on screen</b> (screenshot), and <b>step-by-step instructions</b> for everyday tasks. The <span style="background:#334155;color:#fff;border-radius:6px;padding:1px 8px;font-size:12px;font-weight:700">▶ walkthrough</span> videos play in one click&nbsp;: every step is <b>annotated on screen</b> with explanation bubbles. The <span style="background:#2563eb;color:#fff;border-radius:6px;padding:1px 8px;font-size:12px;font-weight:700">IN PICTURES</span> sequences advance on their own, screen by screen — take over with the <b>‹ ›</b> arrows to go at your own pace.</span></div>
 
 <!-- ══════════════ BIEN DÉMARRER ══════════════ -->
 <section id="demarrer" style="--a:var(--c-neutre)">
   <div class="sec-head">
     <div class="sec-ico">🚪</div>
-    <div><h2>Bien démarrer</h2><small>Se connecter et se repérer — 2 minutes</small></div>
+    <div><h2><span class="t-fr">Bien démarrer</span><span class="t-en">Getting started</span></h2><small><span class="t-fr">Se connecter et se repérer — 2 minutes</span><span class="t-en">Signing in and finding your way — 2 minutes</span></small></div>
   </div>
   <div class="sec-body">
 
-  <h3>Se connecter</h3>
-  <p>Ouvrez l'adresse de l'application fournie par votre administrateur, saisissez votre e-mail et votre
+  <h3><span class="t-fr">Se connecter</span><span class="t-en">Signing in</span></h3>
+  <p><span class="t-fr">Ouvrez l'adresse de l'application fournie par votre administrateur, saisissez votre e-mail et votre
      mot de passe, puis cliquez sur <b>Se connecter</b>. En cas d'oubli, le lien
-     <i>Mot de passe oublié&nbsp;?</i> vous envoie un e-mail de réinitialisation.</p>
+     <i>Mot de passe oublié&nbsp;?</i> vous envoie un e-mail de réinitialisation.</span><span class="t-en">Open the application address provided by your administrator, enter your e-mail and password, then click <b>Sign in</b>. If you have forgotten it, the <i>Forgot password&nbsp;?</i> link sends you a reset e-mail.</span></p>
   <figure>
-    <div class="frame"><div class="frame-bar"><i></i><i></i><i></i><span>Écran de connexion</span></div>
-    <img src="assets/guide/login.png" alt="Écran de connexion" loading="lazy"></div>
+    <div class="frame"><div class="frame-bar"><i></i><i></i><i></i><span><span class="t-fr">Écran de connexion</span><span class="t-en">Sign-in screen</span></span></div>
+    <img class="t-fr" src="assets/guide/login.png" alt="Écran de connexion"><img class="t-en" src="assets/guide/login-en.png" alt="Écran de connexion"></div>
   </figure>
 
-  <h3>À l'arrivée : les nouveautés</h3>
-  <p>À la première connexion de la journée, une fenêtre <b>Bienvenue</b> résume les nouveautés de
+  <h3><span class="t-fr">À l'arrivée : les nouveautés</span><span class="t-en">On arrival: what's new</span></h3>
+  <p><span class="t-fr">À la première connexion de la journée, une fenêtre <b>Bienvenue</b> résume les nouveautés de
      l'application (à gauche) et l'activité récente de votre espace (à droite)&nbsp;: qui a modifié quoi,
-     et quand. Cliquez sur <b>C'est parti&nbsp;!</b> pour la refermer.</p>
+     et quand. Cliquez sur <b>C'est parti&nbsp;!</b> pour la refermer.</span><span class="t-en">The first time you sign in each day, a <b>Welcome</b> window sums up what's new in the application (on the left) and the recent activity in your workspace (on the right)&nbsp;: who changed what, and when. Click <b>Let's go&nbsp;!</b> to close it.</span></p>
   <figure>
-    <div class="frame"><div class="frame-bar"><i></i><i></i><i></i><span>Fenêtre de bienvenue</span></div>
-    <img src="assets/guide/bienvenue.png" alt="Pop-up de bienvenue" loading="lazy"></div>
+    <div class="frame"><div class="frame-bar"><i></i><i></i><i></i><span><span class="t-fr">Fenêtre de bienvenue</span><span class="t-en">Welcome window</span></span></div>
+    <img class="t-fr" src="assets/guide/bienvenue.png" alt="Pop-up de bienvenue"><img class="t-en" src="assets/guide/bienvenue-en.png" alt="Pop-up de bienvenue"></div>
   </figure>
 
-  <h3>Se repérer : la barre de navigation</h3>
-  <p>La barre en haut de l'écran est votre boussole. Chaque page a <b>son icône et sa couleur</b> — vous
-     retrouverez cette couleur partout dans la page (bandeau, boutons, titres), et dans ce guide.</p>
+  <h3><span class="t-fr">Se repérer : la barre de navigation</span><span class="t-en">Finding your way: the navigation bar</span></h3>
+  <p><span class="t-fr">La barre en haut de l'écran est votre boussole. Chaque page a <b>son icône et sa couleur</b> — vous
+     retrouverez cette couleur partout dans la page (bandeau, boutons, titres), et dans ce guide.</span><span class="t-en">The bar at the top of the screen is your compass. Each page has <b>its own icon and colour</b> — you will find that colour throughout the page (banner, buttons, headings), and in this guide.</span></p>
   <figure>
-    <div class="frame"><div class="frame-bar"><i></i><i></i><i></i><span>Barre de navigation</span></div>
-    <img src="assets/guide/nav.png" alt="Barre de navigation" loading="lazy"></div>
-    <figcaption>De gauche à droite : <b>Cartographie</b> (le point de départ), <b>Activités</b>,
+    <div class="frame"><div class="frame-bar"><i></i><i></i><i></i><span><span class="t-fr">Barre de navigation</span><span class="t-en">Navigation bar</span></span></div>
+    <img class="t-fr" src="assets/guide/nav.png" alt="Barre de navigation"><img class="t-en" src="assets/guide/nav-en.png" alt="Barre de navigation"></div>
+    <figcaption><span class="t-fr">De gauche à droite : <b>Cartographie</b> (le point de départ), <b>Activités</b>,
     <b>Rôles</b>, <b>Compétences</b>, <b>Temps</b>, <b>Comptes</b>, <b>Gestion RH</b>, <b>Outils</b>,
-    <b>Paramètres</b> — et la déconnexion tout à droite.</figcaption>
+    <b>Paramètres</b> — et la déconnexion tout à droite.</span><span class="t-en">From left to right: <b>Activity map</b> (the starting point), <b>Activities</b>, <b>Roles</b>, <b>Competencies</b>, <b>Time</b>, <b>Accounts</b>, <b>HR management</b>, <b>Tools</b>, <b>Settings</b> — and sign-out on the far right.</span></figcaption>
   </figure>
 
-  <div class="box box-astuce"><b>Astuce</b>
+  <div class="box box-astuce"><span class="t-fr"><b>Astuce</b>
   Sous la barre de navigation, chaque page s'ouvre par un <b>bandeau</b> avec son icône, son titre et
   parfois un chiffre clé (nombre d'outils, d'utilisateurs…). Un coup d'œil au bandeau suffit pour savoir
-  où vous êtes.</div>
+  où vous êtes.</span><span class="t-en"><b>Tip</b> Below the navigation bar, every page opens with a <b>banner</b> showing its icon, its title and sometimes a key figure (number of tools, of users…). One glance at the banner tells you where you are.</span></div>
   </div>
 </section>
 
@@ -308,35 +420,35 @@
 <section id="concept" style="--a:var(--c-neutre)">
   <div class="sec-head">
     <div class="sec-ico">💡</div>
-    <div><h2>L'idée OPTIQ en 3 minutes</h2><small>Comprendre la logique avant les boutons</small></div>
+    <div><h2><span class="t-fr">L'idée OPTIQ en 3 minutes</span><span class="t-en">The OPTIQ idea in 3 minutes</span></h2><small><span class="t-fr">Comprendre la logique avant les boutons</span><span class="t-en">Understanding the logic before the buttons</span></small></div>
   </div>
   <div class="sec-body">
 
-  <p>OPTIQ repose sur une idée simple&nbsp;: <b>tout part de la cartographie</b>. Vous dessinez (ou importez)
+  <p><span class="t-fr">OPTIQ repose sur une idée simple&nbsp;: <b>tout part de la cartographie</b>. Vous dessinez (ou importez)
      la carte des activités de votre entreprise, et l'application en déduit le reste — les fiches
      d'activités, les rôles, les compétences à évaluer, les temps à mesurer. Vous ne saisissez jamais deux
-     fois la même information.</p>
+     fois la même information.</span><span class="t-en">OPTIQ rests on one simple idea&nbsp;: <b>everything starts from the activity map</b>. You draw (or import) the map of your company's activities, and the application derives the rest from it — the activity records, the roles, the competencies to assess, the times to measure. You never enter the same information twice.</span></p>
 
   <div class="chaine">
-    <div class="maillon" style="--mc:var(--c-carto)"><b><i>🗺️</i> Cartographie</b><span>La carte de ce que fait l'entreprise&nbsp;: activités, flux, compétences clés.</span></div>
+    <div class="maillon" style="--mc:var(--c-carto)"><b><i>🗺️</i> <span class="t-fr">Cartographie</span><span class="t-en">Activity map</span></b><span><span class="t-fr">La carte de ce que fait l'entreprise&nbsp;: activités, flux, compétences clés.</span><span class="t-en">The map of what the company does&nbsp;: activities, flows, key competencies.</span></span></div>
     <div class="fleche">→</div>
-    <div class="maillon" style="--mc:var(--c-act)"><b><i>📋</i> Activités</b><span>Chaque case de la carte devient une fiche&nbsp;: tâches, outils, connexions.</span></div>
+    <div class="maillon" style="--mc:var(--c-act)"><b><i>📋</i> <span class="t-fr">Activités</span><span class="t-en">Activities</span></b><span><span class="t-fr">Chaque case de la carte devient une fiche&nbsp;: tâches, outils, connexions.</span><span class="t-en">Each box on the map becomes a record&nbsp;: tasks, tools, connections.</span></span></div>
     <div class="fleche">→</div>
-    <div class="maillon" style="--mc:var(--c-roles)"><b><i>👥</i> Rôles</b><span>Qui garantit quoi. Chaque rôle voit ses activités, compétences et titulaires.</span></div>
+    <div class="maillon" style="--mc:var(--c-roles)"><b><i>👥</i> <span class="t-fr">Rôles</span><span class="t-en">Roles</span></b><span><span class="t-fr">Qui garantit quoi. Chaque rôle voit ses activités, compétences et titulaires.</span><span class="t-en">Who guarantees what. Each role shows its activities, competencies and holders.</span></span></div>
     <div class="fleche">→</div>
-    <div class="maillon" style="--mc:var(--c-comp)"><b><i>🎯</i> Compétences</b><span>On évalue les personnes sur le résultat produit, pas sur des cases à cocher.</span></div>
+    <div class="maillon" style="--mc:var(--c-comp)"><b><i>🎯</i> <span class="t-fr">Compétences</span><span class="t-en">Competencies</span></b><span><span class="t-fr">On évalue les personnes sur le résultat produit, pas sur des cases à cocher.</span><span class="t-en">People are assessed on the result produced, not on tick boxes.</span></span></div>
     <div class="fleche">→</div>
-    <div class="maillon" style="--mc:var(--c-temps)"><b><i>⏱️</i> Temps</b><span>Combien de temps prennent les activités — et combien coûtent les problèmes.</span></div>
+    <div class="maillon" style="--mc:var(--c-temps)"><b><i>⏱️</i> <span class="t-fr">Temps</span><span class="t-en">Time</span></b><span><span class="t-fr">Combien de temps prennent les activités — et combien coûtent les problèmes.</span><span class="t-en">How long activities take — and how much problems cost.</span></span></div>
   </div>
 
-  <div class="box box-clair"><b>Les 4 éléments de la carte — le vocabulaire à connaître</b>
+  <div class="box box-clair"><b><span class="t-fr">Les 4 éléments de la carte — le vocabulaire à connaître</span><span class="t-en">The 4 elements of the map — the vocabulary to know</span></b>
   <ul style="margin-top:4px">
-    <li><b>Bande</b> (ligne horizontale colorée)&nbsp;: une <b>compétence clé</b> mobilisée par l'entreprise.
-        Ce n'est ni un service, ni un niveau hiérarchique.</li>
-    <li><b>Activité</b> (case)&nbsp;: une étape de la production d'un flux de travail.</li>
-    <li><b>Flèche</b>&nbsp;: une <b>donnée</b> qui circule d'une activité à l'autre — elle peut être
-        <i>déclenchante</i> (elle démarre l'activité) ou <i>nourrissante</i> (elle l'alimente).</li>
-    <li><b>Losange</b>&nbsp;: un point de décision sur le flux.</li>
+    <li><span class="t-fr"><b>Bande</b> (ligne horizontale colorée)&nbsp;: une <b>compétence clé</b> mobilisée par l'entreprise.
+        Ce n'est ni un service, ni un niveau hiérarchique.</span><span class="t-en"><b>Band</b> (coloured horizontal row)&nbsp;: a <b>key competency</b> the company draws on. It is neither a department nor a level in the hierarchy.</span></li>
+    <li><span class="t-fr"><b>Activité</b> (case)&nbsp;: une étape de la production d'un flux de travail.</span><span class="t-en"><b>Activity</b> (box)&nbsp;: one step in the production of a work flow.</span></li>
+    <li><span class="t-fr"><b>Flèche</b>&nbsp;: une <b>donnée</b> qui circule d'une activité à l'autre — elle peut être
+        <i>déclenchante</i> (elle démarre l'activité) ou <i>nourrissante</i> (elle l'alimente).</span><span class="t-en"><b>Arrow</b>&nbsp;: a <b>piece of data</b> travelling from one activity to another — it can be <i>triggering</i> (it starts the activity) or <i>feeding</i> (it supplies it).</span></li>
+    <li><span class="t-fr"><b>Losange</b>&nbsp;: un point de décision sur le flux.</span><span class="t-en"><b>Diamond</b>&nbsp;: a decision point in the flow.</span></li>
   </ul></div>
   </div>
 </section>
@@ -345,131 +457,175 @@
 <section id="carto" style="--a:var(--c-carto)">
   <div class="sec-head">
     <div class="sec-ico" style="background:linear-gradient(135deg,#0d9488,#0f766e)">🗺️</div>
-    <div><h2>Cartographie</h2><small>Le point de départ — tout le monde la consulte, quelques-uns l'éditent</small></div>
+    <div><h2><span class="t-fr">Cartographie</span><span class="t-en">Activity map</span></h2><small><span class="t-fr">Le point de départ — tout le monde la consulte, quelques-uns l'éditent</span><span class="t-en">The starting point — everyone consults it, a few people edit it</span></small></div>
   </div>
   <div class="sec-body">
 
-  <p><b>À quoi ça sert&nbsp;?</b> La page Cartographie affiche la carte des activités de votre entité&nbsp;:
+  <p><span class="t-fr"><b>À quoi ça sert&nbsp;?</b> La page Cartographie affiche la carte des activités de votre entité&nbsp;:
      les bandes de compétences, les activités, et les flux qui les relient. C'est la photo d'ensemble de
      «&nbsp;comment l'entreprise produit&nbsp;». À droite, la liste des activités permet d'y accéder
-     directement.</p>
+     directement.</span><span class="t-en"><b>What is it for&nbsp;?</b> The Activity map page shows your entity's map&nbsp;: the competency bands, the activities, and the flows connecting them. It is the big picture of «&nbsp;how the company produces&nbsp;». On the right, the activity list gives direct access to any of them.</span></p>
 
   <figure>
-    <div class="frame"><div class="frame-bar"><i></i><i></i><i></i><span>Page Cartographie</span></div>
-    <img src="assets/guide/carto.png" alt="Page cartographie" loading="lazy"></div>
-    <figcaption><b>À gauche</b>&nbsp;: la carte (chaque couleur de bande = une compétence clé).
+    <div class="frame"><div class="frame-bar"><i></i><i></i><i></i><span><span class="t-fr">Page Cartographie</span><span class="t-en">Activity map page</span></span></div>
+    <img class="t-fr" src="assets/guide/carto.png" alt="Page cartographie"><img class="t-en" src="assets/guide/carto-en.png" alt="Page cartographie"></div>
+    <figcaption><span class="t-fr"><b>À gauche</b>&nbsp;: la carte (chaque couleur de bande = une compétence clé).
     <b>À droite</b>&nbsp;: la liste des activités de la carte, avec recherche.
-    <b>En haut</b>&nbsp;: Import IA, Connexions inter-cartographies et Gestion des entités.</figcaption>
+    <b>En haut</b>&nbsp;: Import IA, Connexions inter-cartographies et Gestion des entités.</span><span class="t-en"><b>On the left</b>&nbsp;: the map (each band colour = one key competency). <b>On the right</b>&nbsp;: the list of activities on the map, with search. <b>At the top</b>&nbsp;: AI import, cross-map connections and entity management.</span></figcaption>
   </figure>
 
-  <h3>Naviguer dans la carte</h3>
+  <h3><span class="t-fr">Naviguer dans la carte</span><span class="t-en">Moving around the map</span></h3>
   <ol class="steps">
-    <li><b>Déplacez-vous</b> en maintenant le clic gauche et en faisant glisser la carte.</li>
-    <li><b>Zoomez</b> avec la molette de la souris.</li>
-    <li><b>Cliquez sur une activité</b> (dans la carte ou dans la liste de droite) pour ouvrir sa fiche
-        détaillée dans la page Activités.</li>
+    <li><span class="t-fr"><b>Déplacez-vous</b> en maintenant le clic gauche et en faisant glisser la carte.</span><span class="t-en"><b>Pan</b> by holding the left mouse button and dragging the map.</span></li>
+    <li><span class="t-fr"><b>Zoomez</b> avec la molette de la souris.</span><span class="t-en"><b>Zoom</b> with the mouse wheel.</span></li>
+    <li><span class="t-fr"><b>Cliquez sur une activité</b> (dans la carte ou dans la liste de droite) pour ouvrir sa fiche
+        détaillée dans la page Activités.</span><span class="t-en"><b>Click an activity</b> (on the map or in the list on the right) to open its detailed record in the Activities page.</span></li>
   </ol>
   <figure>
-    <div class="frame frame-video"><div class="frame-bar"><span>Se déplacer, zoomer, ouvrir une activité depuis la carte</span></div>
-    <video controls muted playsinline preload="metadata" poster="assets/guide/poster-flux-carto.png" src="assets/guide/flux-carto.webm"></video></div>
-    <figcaption><span class="video-tag">▶ démonstration</span>Le pas-à-pas ci-dessus, en vrai :
-    déplacement au cliquer-glisser, zoom à la molette, puis clic sur «&nbsp;Analyse de faisabilité&nbsp;»
-    dans la liste — sa fiche s'ouvre dans la page Activités.</figcaption>
+    <div class="frame frame-video"><div class="frame-bar"><span><span class="t-fr">Se déplacer, zoomer, ouvrir une activité depuis la carte</span><span class="t-en">Pan, zoom, open an activity from the map</span></span></div>
+    <video class="t-fr" controls muted playsinline preload="metadata" poster="assets/guide/poster-flux-carto.png" src="assets/guide/flux-carto.webm"></video><video class="t-en" controls muted playsinline preload="metadata" poster="assets/guide/poster-flux-carto-en.png" src="assets/guide/flux-carto-en.webm"></video></div>
+    <figcaption><span class="t-fr"><span class="video-tag"><span class="t-fr">▶ démonstration</span><span class="t-en">▶ walkthrough</span></span><b>Un client demande un prix — par où
+    ça passe&nbsp;?</b> On remonte le flux au cliquer-glisser, on zoome pour lire les flèches
+    (chacune est une donnée qui circule), puis on ouvre le maillon qui nous intéresse&nbsp;:
+    «&nbsp;Analyse de faisabilité&nbsp;». En trois gestes, on sait qui la tient et ce qu'elle
+    produit.</span><span class="t-en"><span class="video-tag">▶ walkthrough</span><b>A customer asks for a price — where does it go inside the company&nbsp;?</b> We follow the flow back by dragging, zoom in to read the arrows (each one is a piece of data in transit), then open the link that matters&nbsp;: «&nbsp;Feasibility analysis&nbsp;». Three gestures later, we know who owns it and what it produces.</span></figcaption>
   </figure>
 
-  <h3>D'où vient la carte&nbsp;?</h3>
-  <p>Trois possibilités, réservées aux personnes qui administrent la cartographie&nbsp;:</p>
+  <h3><span class="t-fr">D'où vient la carte&nbsp;?</span><span class="t-en">Where does the map come from&nbsp;?</span></h3>
+  <p><span class="t-fr">Trois possibilités, réservées aux personnes qui administrent la cartographie&nbsp;:</span><span class="t-en">Three options, reserved for the people who administer the map&nbsp;:</span></p>
   <ul>
-    <li><b>Import d'un fichier Visio (.vsdx)</b>&nbsp;: l'application reconstruit fidèlement votre schéma
-        existant — formes, bandes, flèches et libellés.</li>
-    <li><b>Import IA</b>&nbsp;: décrivez votre organisation, l'IA propose une première carte.</li>
-    <li><b>Éditeur intégré</b> (bouton <i>Ouvrir l'éditeur</i>)&nbsp;: dessinez ou retouchez la carte
-        directement — l'éditeur dispose de son propre outil de vérification et de correction.</li>
+    <li><span class="t-fr"><b>Import d'un fichier Visio (.vsdx)</b>&nbsp;: l'application reconstruit fidèlement votre schéma
+        existant — formes, bandes, flèches et libellés.</span><span class="t-en"><b>Import a Visio file (.vsdx)</b>&nbsp;: the application faithfully rebuilds your existing diagram — shapes, bands, arrows and labels.</span></li>
+    <li><span class="t-fr"><b>Import IA</b>&nbsp;: décrivez votre organisation, l'IA propose une première carte.</span><span class="t-en"><b>AI import</b>&nbsp;: describe your organisation and the AI proposes a first map.</span></li>
+    <li><span class="t-fr"><b>Éditeur intégré</b> (bouton <i>Ouvrir l'éditeur</i>)&nbsp;: dessinez ou retouchez la carte
+        directement — l'éditeur dispose de son propre outil de vérification et de correction.</span><span class="t-en"><b>Built-in editor</b> (<i>Open the editor</i> button)&nbsp;: draw or adjust the map directly — the editor has its own checking and correction tool.</span></li>
   </ul>
-  <div class="box box-clair"><b>En clair</b>
+  <div class="box box-clair"><span class="t-fr"><b>En clair</b>
   À chaque enregistrement de la carte, l'application <b>synchronise automatiquement</b> les activités, les
   rôles et les connexions dans toutes les autres pages. La carte n'est pas un dessin décoratif&nbsp;:
-  c'est la source de vérité de votre base.</div>
+  c'est la source de vérité de votre base.</span><span class="t-en"><b>In short</b> Every time the map is saved, the application <b>automatically synchronises</b> the activities, the roles and the connections across all the other pages. The map is not a decorative drawing&nbsp;: it is the source of truth for your data.</span></div>
+
+  <h3><span class="t-fr">Donner la carte à son équipe</span><span class="t-en">Giving the map to your team</span></h3>
+  <p><span class="t-fr">Une entité appartient à <b>une seule personne</b>&nbsp;: celle qui l'a créée. Il n'y a pas
+     d'accès partagé — partager, c'est <b>déposer une copie</b> de l'entité chez chaque destinataire.
+     Chacun repart avec la sienne et la fait évoluer sans toucher à l'originale.</span><span class="t-en">An entity belongs to <b>one person only</b>&nbsp;: whoever created it. There is no shared access — sharing means <b>dropping a copy</b> of the entity into each recipient's account. Each of them walks away with their own and develops it without touching the original.</span></p>
+  <ol class="steps">
+    <li><span class="t-fr">Page Cartographie, bouton <b>Gestion des entités</b>, puis cliquez sur l'entité à transmettre.</span><span class="t-en">Activity map page, <b>Manage entities</b> button, then click the entity you want to pass on.</span></li>
+    <li><span class="t-fr">Bouton <b>Partager</b> — il n'apparaît que pour les <b>administrateurs</b>.</span><span class="t-en"><b>Share</b> button — it only appears for <b>administrators</b>.</span></li>
+    <li><span class="t-fr">Cochez les collègues concernés. Un repère «&nbsp;déjà une copie&nbsp;» signale ceux qui ont
+        déjà une entité du même nom.</span><span class="t-en">Tick the colleagues concerned. An «&nbsp;already has a copy&nbsp;» marker flags those who already own an entity with the same name.</span></li>
+    <li><span class="t-fr"><b>Déposer la copie</b>&nbsp;: chacun retrouve l'entité dans sa propre liste, avec la carte,
+        les activités, les rôles et les connexions — rien à réimporter.</span><span class="t-en"><b>Drop the copy</b>&nbsp;: each of them finds the entity in their own list, with the map, the activities, the roles and the connections — nothing to re-import.</span></li>
+  </ol>
+  <figure>
+    <div class="frame frame-video"><div class="frame-bar"><span><span class="t-fr">Déposer une copie de son entité chez ses collègues</span><span class="t-en">Drop a copy of your entity into your colleagues' accounts</span></span></div>
+    <video class="t-fr" controls muted playsinline preload="metadata" poster="assets/guide/poster-flux-partage.png" src="assets/guide/flux-partage.webm"></video><video class="t-en" controls muted playsinline preload="metadata" poster="assets/guide/poster-flux-partage-en.png" src="assets/guide/flux-partage-en.webm"></video></div>
+    <figcaption><span class="t-fr"><span class="video-tag"><span class="t-fr">▶ démonstration</span><span class="t-en">▶ walkthrough</span></span><b>La carte est finie&nbsp;: il faut que
+    l'équipe l'ait aussi.</b> Gestion des entités, sélection de l'entité, <b>Partager</b>, deux
+    collègues cochés — leur compte contient déjà la carte et ses rôles à la fin de la vidéo.</span><span class="t-en"><span class="video-tag">▶ walkthrough</span><b>The map is finished&nbsp;: the team needs it too.</b> Manage entities, pick the entity, <b>Share</b>, two colleagues ticked — by the end of the video their accounts already hold the map and its roles.</span></figcaption>
+  </figure>
+
+  <div class="box box-attention"><span class="t-fr"><b>Copie, pas synchronisation</b>
+  Une modification faite après le partage <b>ne se propage pas</b>&nbsp;: les copies sont
+  indépendantes dès le dépôt. Si la carte de référence évolue, repartagez-la — les destinataires
+  recevront une nouvelle entité, suffixée «&nbsp;(2)&nbsp;».</span><span class="t-en"><b>A copy, not a sync</b> A change made after sharing <b>does not propagate</b>&nbsp;: the copies are independent from the moment they are dropped. If the reference map changes, share it again — the recipients will receive a new entity, suffixed «&nbsp;(2)&nbsp;».</span></div>
+
+  <h3><span class="t-fr">Emporter une carto corrigée d'un compte à l'autre</span><span class="t-en">Carrying a corrected map from one account to another</span></h3>
+  <p><span class="t-fr">Quand une carte a été <b>reprise à la main</b> dans l'éditeur, ne redistribuez pas le fichier
+     Visio d'origine&nbsp;: le réimporter réintroduirait les défauts que vous venez de corriger.
+     Utilisez le fichier <b>.optiqcarto</b>, qui transporte la carte telle qu'elle est.</span><span class="t-en">Once a map has been <b>reworked by hand</b> in the editor, do not hand out the original Visio file&nbsp;: re-importing it would bring back the very flaws you have just corrected. Use the <b>.optiqcarto</b> file, which carries the map exactly as it stands.</span></p>
+  <ol class="steps">
+    <li><span class="t-fr">Dans l'éditeur, bouton <b>Exporter la carto</b>&nbsp;: vous obtenez un fichier
+        <code>.optiqcarto</code>. Vos retouches en cours sont enregistrées avant le téléchargement.</span><span class="t-en">In the editor, <b>Export the map</b> button&nbsp;: you get an <code>.optiqcarto</code> file. Any edits in progress are saved before the download.</span></li>
+    <li><span class="t-fr">Sur le compte destinataire&nbsp;: <b>Gestion des entités</b> → <b>Importer une carto</b>,
+        déposez le fichier.</span><span class="t-en">On the receiving account&nbsp;: <b>Manage entities</b> → <b>Import a map</b>, drop the file in.</span></li>
+    <li><span class="t-fr">L'entité est créée, activée, et ses activités, rôles et connexions sont dérivés
+        automatiquement — exactement comme après un import Visio.</span><span class="t-en">The entity is created, activated, and its activities, roles and connections are derived automatically — exactly as after a Visio import.</span></li>
+  </ol>
+  <div class="box box-clair"><span class="t-fr"><b>Lequel choisir&nbsp;?</b>
+  <b>Partager</b> quand les destinataires sont sur la même instance (deux clics, rien à manipuler).
+  <b>.optiqcarto</b> quand il faut franchir une frontière&nbsp;: une autre instance, un envoi par
+  mail, une sauvegarde à conserver.</span><span class="t-en"><b>Which one should I use&nbsp;?</b> <b>Share</b> when the recipients are on the same instance (two clicks, nothing to handle). <b>.optiqcarto</b> when you need to cross a boundary&nbsp;: another instance, an e-mail, a backup to keep.</span></div>
 
   <div class="diapo" data-auto="6800">
-    <div class="diapo-head"><span class="tag">En images</span><b>Ce qui se passe quand la carte est enregistrée</b><span class="n">1/4</span></div>
+    <div class="diapo-head"><span class="tag"><span class="t-fr">En images</span><span class="t-en">In pictures</span></span><b><span class="t-fr">Ce qui se passe quand la carte est enregistrée</span><span class="t-en">What happens when the map is saved</span></b><span class="n">1/4</span></div>
     <div class="diapo-stage">
 
       <div class="diapo-slide on">
         <div class="d-txt">
-          <h4><span class="k">1</span>Vous dessinez — ou importez — la carte</h4>
-          <p>Des <b>bandes</b> (les compétences clés), des <b>activités</b> (les cases) et des
-             <b>flèches</b> (les données qui circulent). C'est tout le vocabulaire nécessaire.</p>
-          <p class="d-note">Import Visio (.vsdx), Import IA ou dessin à la main : le résultat est le même.</p>
+          <h4><span class="t-fr"><span class="k">1</span>Vous dessinez — ou importez — la carte</span><span class="t-en"><span class="k">1</span>You draw — or import — the map</span></h4>
+          <p><span class="t-fr">Des <b>bandes</b> (les compétences clés), des <b>activités</b> (les cases) et des
+             <b>flèches</b> (les données qui circulent). C'est tout le vocabulaire nécessaire.</span><span class="t-en"><b>Bands</b> (the key competencies), <b>activities</b> (the boxes) and <b>arrows</b> (the data in transit). That is the whole vocabulary you need.</span></p>
+          <p class="d-note"><span class="t-fr">Import Visio (.vsdx), Import IA ou dessin à la main : le résultat est le même.</span><span class="t-en">Visio import (.vsdx), AI import or drawing by hand: the result is the same.</span></p>
         </div>
         <div class="d-visu"><div class="mk">
           <div class="mk-band" style="background:#ccfbf1">
-            <span class="mk-case" style="border-color:#0d9488">Analyse</span><span class="mk-fl">→</span>
-            <span class="mk-case" style="border-color:#0d9488">Cotation</span><span class="mk-fl">→</span>
-            <span class="mk-case" style="border-color:#0d9488">Devis</span>
+            <span class="mk-case" style="border-color:#0d9488"><span class="t-fr">Analyse</span><span class="t-en">Analysis</span></span><span class="mk-fl">→</span>
+            <span class="mk-case" style="border-color:#0d9488"><span class="t-fr">Cotation</span><span class="t-en">Pricing</span></span><span class="mk-fl">→</span>
+            <span class="mk-case" style="border-color:#0d9488"><span class="t-fr">Devis</span><span class="t-en">Quote</span></span>
           </div>
           <div class="mk-band" style="background:#ede9fe">
             <span class="mk-case" style="border-color:#7c3aed">Production</span><span class="mk-fl">→</span>
-            <span class="mk-case" style="border-color:#7c3aed">Contrôle</span>
+            <span class="mk-case" style="border-color:#7c3aed"><span class="t-fr">Contrôle</span><span class="t-en">Control</span></span>
           </div>
-          <div class="mk-note">La carte — vue simplifiée</div>
-          <div class="sb sb-b" style="top:56px;left:22px;--d:.55s">Une <b>bande</b> = une compétence clé</div>
-          <div class="sb sb-t" style="bottom:88px;right:14px;--d:1.3s">Une <b>flèche</b> = une donnée qui circule</div>
+          <div class="mk-note"><span class="t-fr">La carte — vue simplifiée</span><span class="t-en">The map — simplified view</span></div>
+          <div class="sb sb-b" style="top:56px;left:22px;--d:.55s"><span class="t-fr">Une <b>bande</b> = une compétence clé</span><span class="t-en">One <b>band</b> = one key competency</span></div>
+          <div class="sb sb-t" style="bottom:88px;right:14px;--d:1.3s"><span class="t-fr">Une <b>flèche</b> = une donnée qui circule</span><span class="t-en">One <b>arrow</b> = one piece of data in transit</span></div>
         </div></div>
       </div>
 
       <div class="diapo-slide">
         <div class="d-txt">
-          <h4><span class="k">2</span>Vous enregistrez</h4>
-          <p>Dans l'éditeur, un clic sur <b>Enregistrer</b> suffit. C'est le moment où la carte
-             cesse d'être un dessin pour devenir <b>la base de données</b> de l'application.</p>
+          <h4><span class="t-fr"><span class="k">2</span>Vous enregistrez</span><span class="t-en"><span class="k">2</span>You save</span></h4>
+          <p><span class="t-fr">Dans l'éditeur, un clic sur <b>Enregistrer</b> suffit. C'est le moment où la carte
+             cesse d'être un dessin pour devenir <b>la base de données</b> de l'application.</span><span class="t-en">In the editor, one click on <b>Save</b> is enough. That is the moment the map stops being a drawing and becomes <b>the application's database</b>.</span></p>
         </div>
         <div class="d-visu"><div class="mk">
           <div class="win" style="display:flex;align-items:center;gap:10px">
-            <span style="font-size:13px;font-weight:700;color:var(--ink)">✏️ Éditeur de carte</span>
-            <span class="mk-pill">Annuler</span>
-            <span class="mk-btn" style="margin-left:auto">💾 Enregistrer</span>
+            <span style="font-size:13px;font-weight:700;color:var(--ink)"><span class="t-fr">✏️ Éditeur de carte</span><span class="t-en">✏️ Map editor</span></span>
+            <span class="mk-pill"><span class="t-fr">Annuler</span><span class="t-en">Cancel</span></span>
+            <span class="mk-btn" style="margin-left:auto"><span class="t-fr">💾 Enregistrer</span><span class="t-en">💾 Save</span></span>
           </div>
           <div class="mk-band" style="background:#ccfbf1;opacity:.65">
-            <span class="mk-case" style="border-color:#0d9488">Analyse</span><span class="mk-fl">→</span>
-            <span class="mk-case" style="border-color:#0d9488">Cotation</span>
+            <span class="mk-case" style="border-color:#0d9488"><span class="t-fr">Analyse</span><span class="t-en">Analysis</span></span><span class="mk-fl">→</span>
+            <span class="mk-case" style="border-color:#0d9488"><span class="t-fr">Cotation</span><span class="t-en">Pricing</span></span>
           </div>
-          <div class="sb sb-t" style="top:64px;right:8px;--d:.6s">Un seul clic — tout se propage à partir d'ici</div>
+          <div class="sb sb-t" style="top:64px;right:8px;--d:.6s"><span class="t-fr">Un seul clic — tout se propage à partir d'ici</span><span class="t-en">A single click — everything spreads from here</span></div>
         </div></div>
       </div>
 
       <div class="diapo-slide">
         <div class="d-txt">
-          <h4><span class="k">3</span>OPTIQ synchronise les autres pages</h4>
-          <p>Chaque case devient une <b>fiche d'activité</b>, les responsabilités construisent les
-             <b>rôles</b>, les flèches deviennent les <b>connexions</b> des fiches. Automatiquement.</p>
+          <h4><span class="t-fr"><span class="k">3</span>OPTIQ synchronise les autres pages</span><span class="t-en"><span class="k">3</span>OPTIQ synchronises the other pages</span></h4>
+          <p><span class="t-fr">Chaque case devient une <b>fiche d'activité</b>, les responsabilités construisent les
+             <b>rôles</b>, les flèches deviennent les <b>connexions</b> des fiches. Automatiquement.</span><span class="t-en">Each box becomes an <b>activity record</b>, the responsibilities build the <b>roles</b>, the arrows become the <b>connections</b> on the records. Automatically.</span></p>
         </div>
         <div class="d-visu"><div class="mk">
           <div class="mk-row" style="justify-content:center;gap:14px">
-            <span class="mk-chip" style="--a:#0d9488;font-size:13px;padding:8px 14px">🗺️ La carte</span>
+            <span class="mk-chip" style="--a:#0d9488;font-size:13px;padding:8px 14px"><span class="t-fr">🗺️ La carte</span><span class="t-en">🗺️ The map</span></span>
             <span class="mk-fl" style="font-size:18px">→</span>
             <div style="display:flex;flex-direction:column;gap:7px">
-              <span class="mk-chip" style="--a:#7c3aed">📋 Activités — les fiches</span>
-              <span class="mk-chip" style="--a:#059669">👥 Rôles — qui garantit quoi</span>
-              <span class="mk-chip" style="--a:#2563eb">🎯 Compétences — quoi évaluer</span>
+              <span class="mk-chip" style="--a:#7c3aed"><span class="t-fr">📋 Activités — les fiches</span><span class="t-en">📋 Activities — the records</span></span>
+              <span class="mk-chip" style="--a:#059669"><span class="t-fr">👥 Rôles — qui garantit quoi</span><span class="t-en">👥 Roles — who guarantees what</span></span>
+              <span class="mk-chip" style="--a:#2563eb"><span class="t-fr">🎯 Compétences — quoi évaluer</span><span class="t-en">🎯 Competencies — what to assess</span></span>
             </div>
           </div>
-          <div class="sb sb-b" style="top:14px;right:12px;--d:.7s">Créées, mises à jour et reliées <b>sans aucune ressaisie</b></div>
+          <div class="sb sb-b" style="top:14px;right:12px;--d:.7s"><span class="t-fr">Créées, mises à jour et reliées <b>sans aucune ressaisie</b></span><span class="t-en">Created, updated and linked <b>with no re-entry</b></span></div>
         </div></div>
       </div>
 
       <div class="diapo-slide">
         <div class="d-txt">
-          <h4><span class="k">4</span>Une seule source de vérité</h4>
-          <p>Renommez une activité sur la carte&nbsp;: sa fiche, ses rôles et ses évaluations suivent.
-             Vous ne saisissez <b>jamais deux fois</b> la même information.</p>
-          <p class="d-note">C'est pour cela que la carte est le point de départ de tout le guide.</p>
+          <h4><span class="t-fr"><span class="k">4</span>Une seule source de vérité</span><span class="t-en"><span class="k">4</span>A single source of truth</span></h4>
+          <p><span class="t-fr">Renommez une activité sur la carte&nbsp;: sa fiche, ses rôles et ses évaluations suivent.
+             Vous ne saisissez <b>jamais deux fois</b> la même information.</span><span class="t-en">Rename an activity on the map&nbsp;: its record, its roles and its assessments follow. You <b>never</b> enter the same information <b>twice</b>.</span></p>
+          <p class="d-note"><span class="t-fr">C'est pour cela que la carte est le point de départ de tout le guide.</span><span class="t-en">That is why the map is the starting point of this whole guide.</span></p>
         </div>
         <div class="d-visu"><div class="mk">
-          <div class="win mk-row"><span>🗺️</span><span>Carte&nbsp;: «&nbsp;Cotation&nbsp;» renommée «&nbsp;Chiffrage&nbsp;»</span></div>
-          <div class="win mk-row" style="color:var(--muted)"><span>📋</span><span>Fiche d'activité&nbsp;: <b style="color:#7c3aed">Chiffrage</b> ✓</span></div>
-          <div class="win mk-row" style="color:var(--muted)"><span>👥</span><span>Rôle Garant&nbsp;: activités à jour ✓</span></div>
-          <div class="sb sb-b" style="top:44px;right:10px;--d:.7s">Tout suit, <b>partout</b>, immédiatement</div>
+          <div class="win mk-row"><span>🗺️</span><span><span class="t-fr">Carte&nbsp;: «&nbsp;Cotation&nbsp;» renommée «&nbsp;Chiffrage&nbsp;»</span><span class="t-en">Map&nbsp;: «&nbsp;Pricing&nbsp;» renamed «&nbsp;Costing&nbsp;»</span></span></div>
+          <div class="win mk-row" style="color:var(--muted)"><span>📋</span><span><span class="t-fr">Fiche d'activité&nbsp;: <b style="color:#7c3aed">Chiffrage</b> ✓</span><span class="t-en">Activity record&nbsp;: <b style="color:#7c3aed">Chiffrage</b> ✓</span></span></div>
+          <div class="win mk-row" style="color:var(--muted)"><span>👥</span><span><span class="t-fr">Rôle Garant&nbsp;: activités à jour ✓</span><span class="t-en">Owner role&nbsp;: activities up to date ✓</span></span></div>
+          <div class="sb sb-b" style="top:44px;right:10px;--d:.7s"><span class="t-fr">Tout suit, <b>partout</b>, immédiatement</span><span class="t-en">Everything follows, <b>everywhere</b>, immediately</span></div>
         </div></div>
       </div>
 
@@ -483,125 +639,126 @@
 <section id="activites" style="--a:var(--c-act)">
   <div class="sec-head">
     <div class="sec-ico" style="background:linear-gradient(135deg,#7c3aed,#6d28d9)">📋</div>
-    <div><h2>Activités</h2><small>La fiche d'identité de chaque activité — pour tous</small></div>
+    <div><h2><span class="t-fr">Activités</span><span class="t-en">Activities</span></h2><small><span class="t-fr">La fiche d'identité de chaque activité — pour tous</span><span class="t-en">The identity card of each activity — for everyone</span></small></div>
   </div>
   <div class="sec-body">
 
-  <p><b>À quoi ça sert&nbsp;?</b> Chaque activité de la carte a ici sa <b>fiche complète</b>&nbsp;: qui en
+  <p><span class="t-fr"><b>À quoi ça sert&nbsp;?</b> Chaque activité de la carte a ici sa <b>fiche complète</b>&nbsp;: qui en
      est Garant, quelles tâches la composent, quelles données y entrent et en sortent, quelles compétences
      elle demande, combien de temps elle prend. C'est la page de référence quand on se demande
-     «&nbsp;concrètement, comment se passe cette activité&nbsp;?&nbsp;».</p>
+     «&nbsp;concrètement, comment se passe cette activité&nbsp;?&nbsp;».</span><span class="t-en"><b>What is it for&nbsp;?</b> Every activity on the map has its <b>full record</b> here&nbsp;: who is Owner, which tasks make it up, which data comes in and goes out, which competencies it calls for, how long it takes. This is the reference page whenever you wonder «&nbsp;how does this activity actually work&nbsp;?&nbsp;».</span></p>
 
   <figure>
-    <div class="frame"><div class="frame-bar"><i></i><i></i><i></i><span>Liste des activités</span></div>
-    <img src="assets/guide/activites-liste.png" alt="Liste des activités" loading="lazy"></div>
-    <figcaption>Chaque barre violette est une activité. La <b>barre de recherche</b> filtre la liste en
-    direct&nbsp;; un clic sur une barre déplie la fiche.</figcaption>
+    <div class="frame"><div class="frame-bar"><i></i><i></i><i></i><span><span class="t-fr">Liste des activités</span><span class="t-en">Activity list</span></span></div>
+    <img class="t-fr" src="assets/guide/activites-liste.png" alt="Liste des activités"><img class="t-en" src="assets/guide/activites-liste-en.png" alt="Liste des activités"></div>
+    <figcaption><span class="t-fr">Chaque barre violette est une activité. La <b>barre de recherche</b> filtre la liste en
+    direct&nbsp;; un clic sur une barre déplie la fiche.</span><span class="t-en">Each purple bar is an activity. The <b>search bar</b> filters the list live&nbsp;; clicking a bar unfolds the record.</span></figcaption>
   </figure>
 
-  <h3>Lire une fiche d'activité</h3>
-  <p>La fiche s'organise en <b>5 onglets</b>&nbsp;:</p>
+  <h3><span class="t-fr">Lire une fiche d'activité</span><span class="t-en">Reading an activity record</span></h3>
+  <p><span class="t-fr">La fiche s'organise en <b>5 onglets</b>&nbsp;:</span><span class="t-en">The record is organised in <b>5 tabs</b>&nbsp;:</span></p>
   <ul>
-    <li><b>Vue d'ensemble</b>&nbsp;: description, Garant, connexions entrantes/sortantes (les flèches de la
-        carte), contraintes et tâches associées.</li>
-    <li><b>Compétences</b>&nbsp;: ce qu'il faut savoir faire pour produire le résultat attendu.</li>
-    <li><b>Savoirs &amp; SF</b>&nbsp;: les connaissances théoriques et les savoir-faire pratiques.</li>
-    <li><b>HSC</b>&nbsp;: les habiletés socio-cognitives (communication, rigueur…), avec leur niveau.</li>
-    <li><b>Temps</b>&nbsp;: durée et délai standard de l'activité.</li>
+    <li><span class="t-fr"><b><span class="t-fr">Vue d'ensemble</span><span class="t-en">Overview</span></b>&nbsp;: description, Garant, connexions entrantes/sortantes (les flèches de la
+        carte), contraintes et tâches associées.</span><span class="t-en"><b>Overview</b>&nbsp;: description, Owner, incoming/outgoing connections (the arrows on the map), constraints and related tasks.</span></li>
+    <li><span class="t-fr"><b>Compétences</b>&nbsp;: ce qu'il faut savoir faire pour produire le résultat attendu.</span><span class="t-en"><b>Competencies</b>&nbsp;: what you need to be able to do in order to produce the expected result.</span></li>
+    <li><span class="t-fr"><b>Savoirs &amp; SF</b>&nbsp;: les connaissances théoriques et les savoir-faire pratiques.</span><span class="t-en"><b>Knowledge &amp; know-how</b>&nbsp;: theoretical knowledge and practical know-how.</span></li>
+    <li><span class="t-fr"><b><span class="t-fr">HSC</span><span class="t-en">SCS</span></b>&nbsp;: les habiletés socio-cognitives (communication, rigueur…), avec leur niveau.</span><span class="t-en"><b>SCS</b>&nbsp;: socio-cognitive skills (communication, rigour…), with their level.</span></li>
+    <li><span class="t-fr"><b>Temps</b>&nbsp;: durée et délai standard de l'activité.</span><span class="t-en"><b>Time</b>&nbsp;: standard duration and lead time for the activity.</span></li>
   </ul>
   <figure>
-    <div class="frame"><div class="frame-bar"><i></i><i></i><i></i><span>Fiche d'activité — Vue d'ensemble</span></div>
-    <img src="assets/guide/activite-fiche.png" alt="Fiche activité" loading="lazy"></div>
-    <figcaption>Sous le titre&nbsp;: la description et le <b>Garant</b>. Les tableaux
+    <div class="frame"><div class="frame-bar"><i></i><i></i><i></i><span><span class="t-fr">Fiche d'activité — Vue d'ensemble</span><span class="t-en">Activity record — Overview</span></span></div>
+    <img class="t-fr" src="assets/guide/activite-fiche.png" alt="Fiche activité"><img class="t-en" src="assets/guide/activite-fiche-en.png" alt="Fiche activité"></div>
+    <figcaption><span class="t-fr">Sous le titre&nbsp;: la description et le <b>Garant</b>. Les tableaux
     <b>Entrantes/Sortantes</b> listent les données qui arrivent et repartent — ce sont exactement les
-    flèches de la cartographie.</figcaption>
+    flèches de la cartographie.</span><span class="t-en">Under the title&nbsp;: the description and the <b>Owner</b>. The <b>Incoming/Outgoing</b> tables list the data arriving and leaving — these are exactly the arrows on the activity map.</span></figcaption>
   </figure>
 
   <ol class="steps">
-    <li><b>Recherchez</b> l'activité par son nom dans la barre du haut.</li>
-    <li><b>Cliquez sur sa barre violette</b> pour déplier la fiche.</li>
-    <li><b>Parcourez les onglets</b> selon votre besoin — tout est au même endroit.</li>
+    <li><span class="t-fr"><b>Recherchez</b> l'activité par son nom dans la barre du haut.</span><span class="t-en"><b>Search</b> for the activity by name in the top bar.</span></li>
+    <li><span class="t-fr"><b>Cliquez sur sa barre violette</b> pour déplier la fiche.</span><span class="t-en"><b>Click its purple bar</b> to unfold the record.</span></li>
+    <li><span class="t-fr"><b>Parcourez les onglets</b> selon votre besoin — tout est au même endroit.</span><span class="t-en"><b>Browse the tabs</b> as needed — everything is in one place.</span></li>
   </ol>
   <figure>
-    <div class="frame frame-video"><div class="frame-bar"><span>Rechercher une activité et parcourir sa fiche</span></div>
-    <video controls muted playsinline preload="metadata" poster="assets/guide/poster-flux-activite.png" src="assets/guide/flux-activite.webm"></video></div>
-    <figcaption><span class="video-tag">▶ démonstration</span>Recherche d'une activité, ouverture de sa
-    fiche, passage d'onglet en onglet.</figcaption>
+    <div class="frame frame-video"><div class="frame-bar"><span><span class="t-fr">Rechercher une activité et parcourir sa fiche</span><span class="t-en">Search for an activity and browse its record</span></span></div>
+    <video class="t-fr" controls muted playsinline preload="metadata" poster="assets/guide/poster-flux-activite.png" src="assets/guide/flux-activite.webm"></video><video class="t-en" controls muted playsinline preload="metadata" poster="assets/guide/poster-flux-activite-en.png" src="assets/guide/flux-activite-en.webm"></video></div>
+    <figcaption><span class="t-fr"><span class="video-tag"><span class="t-fr">▶ démonstration</span><span class="t-en">▶ walkthrough</span></span><b>Claire part en congés&nbsp;: que
+    faut-il savoir faire pour reprendre la cotation&nbsp;?</b> Recherche de l'activité, ouverture de sa
+    fiche, passage d'onglet en onglet.</span><span class="t-en"><span class="video-tag">▶ walkthrough</span><b>Claire is going on leave&nbsp;: what do you need to know to take over quoting&nbsp;?</b> Search for the activity, open its record, move from tab to tab.</span></figcaption>
   </figure>
 
   <div class="diapo" data-auto="6800">
-    <div class="diapo-head"><span class="tag">En images</span><b>La fiche d'activité, onglet par onglet</b><span class="n">1/4</span></div>
+    <div class="diapo-head"><span class="tag"><span class="t-fr">En images</span><span class="t-en">In pictures</span></span><b><span class="t-fr">La fiche d'activité, onglet par onglet</span><span class="t-en">The activity record, tab by tab</span></b><span class="n">1/4</span></div>
     <div class="diapo-stage">
 
       <div class="diapo-slide on">
         <div class="d-txt">
-          <h4><span class="k">1</span>Vue d'ensemble — l'essentiel</h4>
-          <p>La description, le <b>Garant</b> (le rôle qui garantit le résultat), et les <b>connexions</b>
-             entrantes et sortantes — exactement les flèches de la carte.</p>
+          <h4><span class="t-fr"><span class="k">1</span>Vue d'ensemble — l'essentiel</span><span class="t-en"><span class="k">1</span>Overview — the essentials</span></h4>
+          <p><span class="t-fr">La description, le <b>Garant</b> (le rôle qui garantit le résultat), et les <b>connexions</b>
+             entrantes et sortantes — exactement les flèches de la carte.</span><span class="t-en">The description, the <b>Owner</b> (the role that guarantees the result), and the incoming and outgoing <b>connections</b> — exactly the arrows on the map.</span></p>
         </div>
         <div class="d-visu"><div class="mk">
           <div class="mk-row" style="gap:6px">
-            <span class="mk-pill on">Vue d'ensemble</span><span class="mk-pill">Compétences</span>
-            <span class="mk-pill">Savoirs</span><span class="mk-pill">HSC</span><span class="mk-pill">Temps</span>
+            <span class="mk-pill on"><span class="t-fr">Vue d'ensemble</span><span class="t-en">Overview</span></span><span class="mk-pill"><span class="t-fr">Compétences</span><span class="t-en">Competencies</span></span>
+            <span class="mk-pill"><span class="t-fr">Savoirs</span><span class="t-en">Knowledge</span></span><span class="mk-pill"><span class="t-fr">HSC</span><span class="t-en">SCS</span></span><span class="mk-pill">Temps</span>
           </div>
-          <div class="win mk-row"><span>👤 Garant&nbsp;:</span><span class="mk-chip" style="--a:#059669">Customer relation</span></div>
-          <div class="win mk-row"><span>↘ Entrante&nbsp;:</span><span>Demande client <i style="color:var(--faint)">(déclenchante)</i></span></div>
-          <div class="win mk-row"><span>↗ Sortante&nbsp;:</span><span>Dossier de cotation</span></div>
-          <div class="sb sb-b" style="top:46px;left:14px;--d:.6s">Le <b>Garant</b> répond du résultat</div>
-          <div class="sb sb-t" style="bottom:78px;right:10px;--d:1.35s">Les connexions = <b>les flèches de la carte</b></div>
+          <div class="win mk-row"><span>👤 Garant&nbsp;:</span><span class="mk-chip" style="--a:#059669"><span class="t-fr">Relation client</span><span class="t-en">Customer relation</span></span></div>
+          <div class="win mk-row"><span>↘ Entrante&nbsp;:</span><span><span class="t-fr">Demande client</span><span class="t-en">Customer request</span> <i style="color:var(--faint)"><span class="t-fr">(déclenchante)</span><span class="t-en">(triggering)</span></i></span></div>
+          <div class="win mk-row"><span>↗ Sortante&nbsp;:</span><span><span class="t-fr">Dossier de cotation</span><span class="t-en">Pricing file</span></span></div>
+          <div class="sb sb-b" style="top:46px;left:14px;--d:.6s"><span class="t-fr">Le <b>Garant</b> répond du résultat</span><span class="t-en">The <b>Owner</b> answers for the result</span></div>
+          <div class="sb sb-t" style="bottom:78px;right:10px;--d:1.35s"><span class="t-fr">Les connexions = <b>les flèches de la carte</b></span><span class="t-en">Connections = <b>the arrows on the map</b></span></div>
         </div></div>
       </div>
 
       <div class="diapo-slide">
         <div class="d-txt">
-          <h4><span class="k">2</span>Compétences &amp; Savoirs</h4>
-          <p>Ce qu'il faut maîtriser pour produire le résultat attendu&nbsp;: compétences d'un côté,
-             connaissances théoriques et <b>savoir-faire</b> pratiques de l'autre.</p>
-          <p class="d-note">Le bouton <b>Proposer…</b> (IA) pré-remplit ces listes — vous validez.</p>
+          <h4><span class="t-fr"><span class="k">2</span>Compétences &amp; Savoirs</span><span class="t-en"><span class="k">2</span>Competencies &amp; Knowledge</span></h4>
+          <p><span class="t-fr">Ce qu'il faut maîtriser pour produire le résultat attendu&nbsp;: compétences d'un côté,
+             connaissances théoriques et <b>savoir-faire</b> pratiques de l'autre.</span><span class="t-en">What must be mastered to produce the expected result&nbsp;: competencies on one side, theoretical knowledge and practical <b>know-how</b> on the other.</span></p>
+          <p class="d-note"><span class="t-fr">Le bouton <b>Proposer…</b> (IA) pré-remplit ces listes — vous validez.</span><span class="t-en">The <b>Propose…</b> button (AI) pre-fills these lists — you approve them.</span></p>
         </div>
         <div class="d-visu"><div class="mk">
           <div class="mk-row" style="gap:6px">
-            <span class="mk-pill">Vue d'ensemble</span><span class="mk-pill on">Compétences</span>
-            <span class="mk-pill on" style="opacity:.75">Savoirs</span><span class="mk-pill">HSC</span><span class="mk-pill">Temps</span>
+            <span class="mk-pill"><span class="t-fr">Vue d'ensemble</span><span class="t-en">Overview</span></span><span class="mk-pill on"><span class="t-fr">Compétences</span><span class="t-en">Competencies</span></span>
+            <span class="mk-pill on" style="opacity:.75"><span class="t-fr">Savoirs</span><span class="t-en">Knowledge</span></span><span class="mk-pill"><span class="t-fr">HSC</span><span class="t-en">SCS</span></span><span class="mk-pill">Temps</span>
           </div>
-          <div class="win mk-row"><span class="mk-chip">Lire un plan technique</span><span class="mk-chip">Chiffrer un coût</span></div>
+          <div class="win mk-row"><span class="mk-chip"><span class="t-fr">Lire un plan technique</span><span class="t-en">Read a technical drawing</span></span><span class="mk-chip"><span class="t-fr">Chiffrer un coût</span><span class="t-en">Cost an estimate</span></span></div>
           <div class="win mk-row"><span>📖</span><span>Normes de cotation — <i style="color:var(--faint)">savoir</i></span></div>
-          <div class="win mk-row"><span>🛠️</span><span>Établir un devis dans l'ERP — <i style="color:var(--faint)">savoir-faire</i></span></div>
-          <div class="sb sb-t" style="bottom:96px;right:12px;--d:.7s"><b>Proposer…</b> fait travailler l'IA — vous gardez la main</div>
+          <div class="win mk-row"><span>🛠️</span><span><span class="t-fr">Établir un devis dans l'ERP — <i style="color:var(--faint)">savoir-faire</i></span><span class="t-en">Draw up a quote in the ERP — <i style="color:var(--faint)">know-how</i></span></span></div>
+          <div class="sb sb-t" style="bottom:96px;right:12px;--d:.7s"><span class="t-fr"><b>Proposer…</b> fait travailler l'IA — vous gardez la main</span><span class="t-en"><b>Propose…</b> puts the AI to work — you stay in control</span></div>
         </div></div>
       </div>
 
       <div class="diapo-slide">
         <div class="d-txt">
-          <h4><span class="k">3</span>HSC — les habiletés socio-cognitives</h4>
-          <p>Communication, rigueur, coopération… évaluées de <b>1 à 4</b>. Ce sont elles qui font
-             la différence entre «&nbsp;savoir faire&nbsp;» et «&nbsp;bien faire, en équipe&nbsp;».</p>
+          <h4><span class="t-fr"><span class="k">3</span>HSC — les habiletés socio-cognitives</span><span class="t-en"><span class="k">3</span>SCS — socio-cognitive skills</span></h4>
+          <p><span class="t-fr">Communication, rigueur, coopération… évaluées de <b>1 à 4</b>. Ce sont elles qui font
+             la différence entre «&nbsp;savoir faire&nbsp;» et «&nbsp;bien faire, en équipe&nbsp;».</span><span class="t-en">Communication, rigour, cooperation… rated from <b>1 to 4</b>. They are what separates «&nbsp;being able to do it&nbsp;» from «&nbsp;doing it well, as a team&nbsp;».</span></p>
         </div>
         <div class="d-visu"><div class="mk">
           <div class="mk-row" style="gap:6px">
-            <span class="mk-pill">Vue d'ensemble</span><span class="mk-pill">Compétences</span>
-            <span class="mk-pill">Savoirs</span><span class="mk-pill on">HSC</span><span class="mk-pill">Temps</span>
+            <span class="mk-pill"><span class="t-fr">Vue d'ensemble</span><span class="t-en">Overview</span></span><span class="mk-pill"><span class="t-fr">Compétences</span><span class="t-en">Competencies</span></span>
+            <span class="mk-pill"><span class="t-fr">Savoirs</span><span class="t-en">Knowledge</span></span><span class="mk-pill on"><span class="t-fr">HSC</span><span class="t-en">SCS</span></span><span class="mk-pill">Temps</span>
           </div>
           <div class="win mk-row"><span style="flex:1">Communication client</span><span class="mk-scale"><i>1</i><i>2</i><i class="sel">3</i><i>4</i></span></div>
           <div class="win mk-row"><span style="flex:1">Rigueur</span><span class="mk-scale"><i>1</i><i class="sel">2</i><i>3</i><i>4</i></span></div>
-          <div class="sb sb-t" style="bottom:70px;right:10px;--d:.7s">Un <b>niveau attendu</b> par habileté, de 1 à 4</div>
+          <div class="sb sb-t" style="bottom:70px;right:10px;--d:.7s"><span class="t-fr">Un <b>niveau attendu</b> par habileté, de 1 à 4</span><span class="t-en">One <b>expected level</b> per skill, from 1 to 4</span></div>
         </div></div>
       </div>
 
       <div class="diapo-slide">
         <div class="d-txt">
-          <h4><span class="k">4</span>Temps — durée et délai standard</h4>
-          <p>Combien de temps de <b>travail</b> demande l'activité, et combien de <b>délai</b> s'écoule.
-             Ces valeurs alimentent directement la page <a href="#temps">Temps</a>.</p>
+          <h4><span class="t-fr"><span class="k">4</span>Temps — durée et délai standard</span><span class="t-en"><span class="k">4</span>Time — standard duration and lead time</span></h4>
+          <p><span class="t-fr">Combien de temps de <b>travail</b> demande l'activité, et combien de <b>délai</b> s'écoule.
+             Ces valeurs alimentent directement la page <a href="#temps"><span class="t-fr">Temps</span><span class="t-en">Time</span></a>.</span><span class="t-en">How much <b>work</b> time the activity takes, and how much <b>lead</b> time elapses. These values feed straight into the <a href="#temps">Time</a> page.</span></p>
         </div>
         <div class="d-visu"><div class="mk">
           <div class="mk-row" style="gap:6px">
-            <span class="mk-pill">Vue d'ensemble</span><span class="mk-pill">Compétences</span>
-            <span class="mk-pill">Savoirs</span><span class="mk-pill">HSC</span><span class="mk-pill on">Temps</span>
+            <span class="mk-pill"><span class="t-fr">Vue d'ensemble</span><span class="t-en">Overview</span></span><span class="mk-pill"><span class="t-fr">Compétences</span><span class="t-en">Competencies</span></span>
+            <span class="mk-pill"><span class="t-fr">Savoirs</span><span class="t-en">Knowledge</span></span><span class="mk-pill"><span class="t-fr">HSC</span><span class="t-en">SCS</span></span><span class="mk-pill on">Temps</span>
           </div>
           <div class="win mk-row"><span style="flex:1">⏱️ Durée de travail</span><b>2 h</b></div>
           <div class="win mk-row"><span style="flex:1">⏳ Délai (attente)</span><b>1 jour</b></div>
-          <div class="sb sb-t" style="bottom:64px;right:12px;--d:.7s">Repris tel quel par la page <b>Temps</b></div>
+          <div class="sb sb-t" style="bottom:64px;right:12px;--d:.7s"><span class="t-fr">Repris tel quel par la page <b>Temps</b></span><span class="t-en">Used as-is by the <b>Time</b> page</span></div>
         </div></div>
       </div>
 
@@ -609,10 +766,10 @@
     <div class="diapo-nav"><button class="d-prev" aria-label="Précédent">‹</button><div class="d-dots"></div><button class="d-next" aria-label="Suivant">›</button></div>
   </div>
 
-  <div class="box box-astuce"><b>Astuce</b>
+  <div class="box box-astuce"><span class="t-fr"><b>Astuce</b>
   Les boutons <b>Assistant IA</b> et <b>Proposer…</b> présents dans les fiches font travailler l'IA pour
   vous&nbsp;: proposition de tâches, de compétences, de savoir-faire… Vous restez toujours libre d'accepter
-  ou de refuser chaque proposition (voir la section <a href="#ia">L'IA dans OPTIQ</a>).</div>
+  ou de refuser chaque proposition (voir la section <a href="#ia"><span class="t-fr">L'IA dans OPTIQ</span><span class="t-en">AI in OPTIQ</span></a>).</span><span class="t-en"><b>Tip</b> The <b>AI assistant</b> and <b>Propose…</b> buttons found on the records put the AI to work for you&nbsp;: suggested tasks, competencies, know-how… You always remain free to accept or reject each suggestion (see the <a href="#ia">AI in OPTIQ</a> section).</span></div>
   </div>
 </section>
 
@@ -620,57 +777,60 @@
 <section id="roles" style="--a:var(--c-roles)">
   <div class="sec-head">
     <div class="sec-ico" style="background:linear-gradient(135deg,#059669,#047857)">👥</div>
-    <div><h2>Rôles</h2><small>Qui fait quoi — la vue consolidée par rôle</small></div>
+    <div><h2><span class="t-fr">Rôles</span><span class="t-en">Roles</span></h2><small><span class="t-fr">Qui fait quoi — la vue consolidée par rôle</span><span class="t-en">Who does what — the consolidated view by role</span></small></div>
   </div>
   <div class="sec-body">
 
-  <p><b>À quoi ça sert&nbsp;?</b> Un rôle ne se déclare pas arbitrairement&nbsp;: il se construit à partir
+  <p><span class="t-fr"><b>À quoi ça sert&nbsp;?</b> Un rôle ne se déclare pas arbitrairement&nbsp;: il se construit à partir
      des responsabilités exercées sur les activités de la carte — <b>Garant</b> (il garantit le résultat),
      <b>Réalisateur</b> ou <b>Approbateur</b>. La page Rôles consolide automatiquement tout ce que
      l'application sait de chaque rôle&nbsp;: ses activités, ses tâches, ses compétences et ses titulaires.
-     C'est la base d'une fiche de poste vivante.</p>
+     C'est la base d'une fiche de poste vivante.</span><span class="t-en"><b>What is it for&nbsp;?</b> A role is not declared arbitrarily&nbsp;: it is built from the responsibilities exercised over the activities on the map — <b>Owner</b> (guarantees the result), <b>Doer</b> or <b>Approver</b>. The Roles page automatically consolidates everything the application knows about each role&nbsp;: its activities, its tasks, its competencies and its holders. This is the basis for a living job description.</span></p>
 
   <figure>
-    <div class="frame"><div class="frame-bar"><i></i><i></i><i></i><span>Page Rôles</span></div>
-    <img src="assets/guide/roles-liste.png" alt="Liste des rôles" loading="lazy"></div>
-    <figcaption>Une barre verte par rôle. En haut&nbsp;: la <b>recherche</b> et le bouton
-    <b>Exporter</b>.</figcaption>
+    <div class="frame"><div class="frame-bar"><i></i><i></i><i></i><span><span class="t-fr">Page Rôles</span><span class="t-en">Roles page</span></span></div>
+    <img class="t-fr" src="assets/guide/roles-liste.png" alt="Liste des rôles"><img class="t-en" src="assets/guide/roles-liste-en.png" alt="Liste des rôles"></div>
+    <figcaption><span class="t-fr">Une barre verte par rôle. En haut&nbsp;: la <b>recherche</b> et le bouton
+    <b>Exporter</b>.</span><span class="t-en">One green bar per role. At the top&nbsp;: the <b>search</b> box and the <b>Export</b> button.</span></figcaption>
   </figure>
 
-  <h3>La fiche d'un rôle — 6 volets</h3>
-  <p>Cliquez sur un rôle pour le déplier. Tous les volets se lisent de la même façon&nbsp;:</p>
+  <h3><span class="t-fr">La fiche d'un rôle — 6 volets</span><span class="t-en">A role record — 6 panels</span></h3>
+  <p><span class="t-fr">Cliquez sur un rôle pour le déplier. Tous les volets se lisent de la même façon&nbsp;:</span><span class="t-en">Click a role to unfold it. Every panel reads the same way&nbsp;:</span></p>
   <ul>
-    <li><b>Mission générale</b>&nbsp;: la raison d'être du rôle, modifiable directement (Enregistrer).</li>
-    <li><b>Activités où ce rôle est Garant</b>&nbsp;: ses responsabilités principales.</li>
-    <li><b>Activités/Tâches où il intervient</b> (non Garant)&nbsp;: ses contributions.</li>
-    <li><b>Compétences associées</b> aux activités garanties.</li>
-    <li><b>Savoirs, Savoir-faire, Aptitudes et HSC</b>&nbsp;: le bagage attendu, par catégorie.</li>
-    <li><b>Titulaires</b>&nbsp;: les personnes qui portent ce rôle aujourd'hui, avec leur niveau.</li>
+    <li><span class="t-fr"><b>Mission générale</b>&nbsp;: la raison d'être du rôle, modifiable directement (Enregistrer).</span><span class="t-en"><b>General mission</b>&nbsp;: the purpose of the role, editable directly (Save).</span></li>
+    <li><span class="t-fr"><b>Activités où ce rôle est Garant</b>&nbsp;: ses responsabilités principales.</span><span class="t-en"><b>Activities where this role is Owner</b>&nbsp;: its main responsibilities.</span></li>
+    <li><span class="t-fr"><b>Activités/Tâches où il intervient</b> (non Garant)&nbsp;: ses contributions.</span><span class="t-en"><b>Activities/Tasks it contributes to</b> (not Owner)&nbsp;: its contributions.</span></li>
+    <li><span class="t-fr"><b>Compétences associées</b> aux activités garanties.</span><span class="t-en"><b>Competencies attached</b> to the activities it owns.</span></li>
+    <li><span class="t-fr"><b>Savoirs, Savoir-faire, Aptitudes et HSC</b>&nbsp;: le bagage attendu, par catégorie.</span><span class="t-en"><b>Knowledge, Know-how, Aptitudes and SCS</b>&nbsp;: the expected background, by category.</span></li>
+    <li><span class="t-fr"><b>Titulaires</b>&nbsp;: les personnes qui portent ce rôle aujourd'hui, avec leur niveau.</span><span class="t-en"><b>Holders</b>&nbsp;: the people carrying this role today, with their level.</span></li>
   </ul>
   <figure>
-    <div class="frame"><div class="frame-bar"><i></i><i></i><i></i><span>Fiche d'un rôle dépliée</span></div>
-    <img src="assets/guide/role-detail.png" alt="Détail d'un rôle" loading="lazy"></div>
+    <div class="frame"><div class="frame-bar"><i></i><i></i><i></i><span><span class="t-fr">Fiche d'un rôle dépliée</span><span class="t-en">A role record, unfolded</span></span></div>
+    <img class="t-fr" src="assets/guide/role-detail.png" alt="Détail d'un rôle"><img class="t-en" src="assets/guide/role-detail-en.png" alt="Détail d'un rôle"></div>
   </figure>
   <figure>
-    <div class="frame frame-video"><div class="frame-bar"><span>Parcourir un rôle et compléter sa mission</span></div>
-    <video controls muted playsinline preload="metadata" poster="assets/guide/poster-flux-role.png" src="assets/guide/flux-role.webm"></video></div>
-    <figcaption><span class="video-tag">▶ démonstration</span>Le parcours complet&nbsp;: recherche du rôle,
+    <div class="frame frame-video"><div class="frame-bar"><span><span class="t-fr">Parcourir un rôle et compléter sa mission</span><span class="t-en">Browse a role and complete its mission</span></span></div>
+    <video class="t-fr" controls muted playsinline preload="metadata" poster="assets/guide/poster-flux-role.png" src="assets/guide/flux-role.webm"></video><video class="t-en" controls muted playsinline preload="metadata" poster="assets/guide/poster-flux-role-en.png" src="assets/guide/flux-role-en.webm"></video></div>
+    <figcaption><span class="t-fr"><span class="video-tag"><span class="t-fr">▶ démonstration</span><span class="t-en">▶ walkthrough</span></span><b>Préparer un entretien annuel.</b>
+    La fiche de Relation client est déjà remplie par la carte&nbsp;; il ne reste qu'une phrase à
+    écrire. Le parcours complet&nbsp;: recherche du rôle,
     ouverture, complément de la <b>mission générale</b> puis Enregistrer, et lecture des volets
-    «&nbsp;Activités Garant&nbsp;» et «&nbsp;Savoirs&nbsp;».</figcaption>
+    «&nbsp;Activités Garant&nbsp;» et «&nbsp;Savoirs&nbsp;».</span><span class="t-en"><span class="video-tag">▶ walkthrough</span><b>Preparing an annual review.</b> The Customer relation record is already filled in by the map&nbsp;; only one sentence is left to write. The full run&nbsp;: search for the role, open it, complete the <b>general mission</b> then Save, and read the «&nbsp;Owned activities&nbsp;» and «&nbsp;Knowledge&nbsp;» panels.</span></figcaption>
   </figure>
 
-  <h3>Exporter (fiches de poste, revues RH…)</h3>
+  <h3><span class="t-fr">Exporter (fiches de poste, revues RH…)</span><span class="t-en">Exporting (job descriptions, HR reviews…)</span></h3>
   <ol class="steps">
-    <li>Cliquez sur <b>Exporter</b> en haut à droite de la page.</li>
-    <li>Choisissez le périmètre&nbsp;: <b>toute l'entité</b> ou <b>un rôle précis</b>.</li>
-    <li>Choisissez le format&nbsp;: <b>Excel</b> (fichier multi-feuilles à retravailler) ou
-        <b>HTML</b> (rapport visuel prêt à imprimer). Le fichier se télécharge immédiatement.</li>
+    <li><span class="t-fr">Cliquez sur <b>Exporter</b> en haut à droite de la page.</span><span class="t-en">Click <b>Export</b> at the top right of the page.</span></li>
+    <li><span class="t-fr">Choisissez le périmètre&nbsp;: <b>toute l'entité</b> ou <b>un rôle précis</b>.</span><span class="t-en">Choose the scope&nbsp;: <b>the whole entity</b> or <b>one specific role</b>.</span></li>
+    <li><span class="t-fr">Choisissez le format&nbsp;: <b>Excel</b> (fichier multi-feuilles à retravailler) ou
+        <b>HTML</b> (rapport visuel prêt à imprimer). Le fichier se télécharge immédiatement.</span><span class="t-en">Choose the format&nbsp;: <b>Excel</b> (multi-sheet file to rework) or <b>HTML</b> (visual report ready to print). The file downloads immediately.</span></li>
   </ol>
   <figure>
-    <div class="frame frame-video"><div class="frame-bar"><span>Exporter : périmètre puis format</span></div>
-    <video controls muted playsinline preload="metadata" poster="assets/guide/poster-flux-export.png" src="assets/guide/flux-export.webm"></video></div>
-    <figcaption><span class="video-tag">▶ démonstration</span>Les étapes 1-2-3&nbsp;: ouverture,
-    choix du <b>périmètre</b> (un rôle précis), puis du <b>format</b>.</figcaption>
+    <div class="frame frame-video"><div class="frame-bar"><span><span class="t-fr">Exporter : périmètre puis format</span><span class="t-en">Export: scope then format</span></span></div>
+    <video class="t-fr" controls muted playsinline preload="metadata" poster="assets/guide/poster-flux-export.png" src="assets/guide/flux-export.webm"></video><video class="t-en" controls muted playsinline preload="metadata" poster="assets/guide/poster-flux-export-en.png" src="assets/guide/flux-export-en.webm"></video></div>
+    <figcaption><span class="t-fr"><span class="video-tag"><span class="t-fr">▶ démonstration</span><span class="t-en">▶ walkthrough</span></span><b>Le RH demande la fiche de poste
+    d'un rôle pour un recrutement.</b> Les étapes 1-2-3&nbsp;: ouverture,
+    choix du <b>périmètre</b> (un rôle précis), puis du <b>format</b>.</span><span class="t-en"><span class="video-tag">▶ walkthrough</span><b>HR asks for one role's job description for a hire.</b> Steps 1-2-3&nbsp;: open the dialog, choose the <b>scope</b> (one specific role), then the <b>format</b>.</span></figcaption>
   </figure>
   </div>
 </section>
@@ -679,49 +839,51 @@
 <section id="competences" style="--a:var(--c-comp)">
   <div class="sec-head">
     <div class="sec-ico" style="background:linear-gradient(135deg,#2563eb,#1d4ed8)">🎯</div>
-    <div><h2>Compétences</h2><small>Évaluer sur le résultat — pour les managers</small></div>
+    <div><h2><span class="t-fr">Compétences</span><span class="t-en">Competencies</span></h2><small><span class="t-fr">Évaluer sur le résultat — pour les managers</span><span class="t-en">Assessing on the result — for managers</span></small></div>
   </div>
   <div class="sec-body">
 
-  <p><b>À quoi ça sert&nbsp;?</b> C'est ici qu'un manager évalue ses collaborateurs. La philosophie OPTIQ
+  <p><span class="t-fr"><b>À quoi ça sert&nbsp;?</b> C'est ici qu'un manager évalue ses collaborateurs. La philosophie OPTIQ
      tient en une phrase&nbsp;: <b>on évalue le résultat produit, pas une liste de cases à cocher</b>.
      La question n'est jamais «&nbsp;sait-il utiliser tel logiciel&nbsp;?&nbsp;» mais
      «&nbsp;le résultat de son activité est-il au niveau attendu&nbsp;?&nbsp;». Les savoirs et savoir-faire
-     ne servent qu'ensuite, pour <b>diagnostiquer</b> un écart et bâtir le bon plan d'action.</p>
+     ne servent qu'ensuite, pour <b>diagnostiquer</b> un écart et bâtir le bon plan d'action.</span><span class="t-en"><b>What is it for&nbsp;?</b> This is where a manager assesses their team. The OPTIQ philosophy fits in one sentence&nbsp;: <b>you assess the result produced, not a list of tick boxes</b>. The question is never «&nbsp;can they use this software&nbsp;?&nbsp;» but «&nbsp;is the result of their activity at the expected level&nbsp;?&nbsp;». Knowledge and know-how only come in afterwards, to <b>diagnose</b> a gap and build the right action plan.</span></p>
 
   <figure>
-    <div class="frame"><div class="frame-bar"><i></i><i></i><i></i><span>Page Compétences</span></div>
-    <img src="assets/guide/competences.png" alt="Page compétences" loading="lazy"></div>
-    <figcaption><b>À gauche</b>&nbsp;: vous (le manager) et vos collaborateurs.
+    <div class="frame"><div class="frame-bar"><i></i><i></i><i></i><span><span class="t-fr">Page Compétences</span><span class="t-en">Competencies page</span></span></div>
+    <img class="t-fr" src="assets/guide/competences.png" alt="Page compétences"><img class="t-en" src="assets/guide/competences-en.png" alt="Page compétences"></div>
+    <figcaption><span class="t-fr"><b>À gauche</b>&nbsp;: vous (le manager) et vos collaborateurs.
     <b>À droite</b>&nbsp;: les rôles du collaborateur sélectionné, puis le tableau de ses activités avec
-    niveau <b>requis</b>, niveau <b>démontré</b> et <b>écart</b>.</figcaption>
+    niveau <b>requis</b>, niveau <b>démontré</b> et <b>écart</b>.</span><span class="t-en"><b>On the left</b>&nbsp;: you (the manager) and your team. <b>On the right</b>&nbsp;: the selected person's roles, then the table of their activities with the <b>required</b> level, the <b>demonstrated</b> level and the <b>gap</b>.</span></figcaption>
   </figure>
 
   <ol class="steps">
-    <li><b>Choisissez un collaborateur</b> dans la liste de gauche.</li>
-    <li><b>Choisissez un de ses rôles</b> (pilules bleues)&nbsp;: le tableau liste les activités du rôle.</li>
-    <li><b>Cliquez sur Évaluer</b> sur une ligne&nbsp;: le volet d'évaluation s'ouvre, résultat par
-        résultat, sur une échelle de 0 (non démontré) à 4 (expertise).</li>
-    <li>En cas d'écart, lancez le <b>diagnostic</b>&nbsp;: l'application vous aide à identifier la cause
-        (compétence, architecture de travail ou conditions d'exécution) et propose un plan adapté.</li>
+    <li><span class="t-fr"><b>Choisissez un collaborateur</b> dans la liste de gauche.</span><span class="t-en"><b>Pick a team member</b> from the list on the left.</span></li>
+    <li><span class="t-fr"><b>Choisissez un de ses rôles</b> (pilules bleues)&nbsp;: le tableau liste les activités du rôle.</span><span class="t-en"><b>Pick one of their roles</b> (blue pills)&nbsp;: the table lists the role's activities.</span></li>
+    <li><span class="t-fr"><b>Cliquez sur Évaluer</b> sur une ligne&nbsp;: le volet d'évaluation s'ouvre, résultat par
+        résultat, sur une échelle de 0 (non démontré) à 4 (expertise).</span><span class="t-en"><b>Click Assess</b> on a row&nbsp;: the assessment panel opens, result by result, on a scale from 0 (not demonstrated) to 4 (expert).</span></li>
+    <li><span class="t-fr">En cas d'écart, lancez le <b>diagnostic</b>&nbsp;: l'application vous aide à identifier la cause
+        (compétence, architecture de travail ou conditions d'exécution) et propose un plan adapté.</span><span class="t-en">If there is a gap, run the <b>diagnosis</b>&nbsp;: the application helps you identify the cause (competency, work architecture or working conditions) and suggests a suitable plan.</span></li>
   </ol>
   <figure>
-    <div class="frame frame-video"><div class="frame-bar"><span>Choisir un collaborateur, un rôle, ouvrir l'évaluation</span></div>
-    <video controls muted playsinline preload="metadata" poster="assets/guide/poster-flux-competences.png" src="assets/guide/flux-competences.webm"></video></div>
-    <figcaption><span class="video-tag">▶ démonstration</span>Les étapes 1-2-3 du pas-à-pas&nbsp;:
+    <div class="frame frame-video"><div class="frame-bar"><span><span class="t-fr">Choisir un collaborateur, un rôle, ouvrir l'évaluation</span><span class="t-en">Pick a person, a role, open the assessment</span></span></div>
+    <video class="t-fr" controls muted playsinline preload="metadata" poster="assets/guide/poster-flux-competences.png" src="assets/guide/flux-competences.webm"></video><video class="t-en" controls muted playsinline preload="metadata" poster="assets/guide/poster-flux-competences-en.png" src="assets/guide/flux-competences-en.webm"></video></div>
+    <figcaption><span class="t-fr"><span class="video-tag"><span class="t-fr">▶ démonstration</span><span class="t-en">▶ walkthrough</span></span><b>Où en est Claire Dupont&nbsp;?</b>
+    On se place dans un rôle précis — les attendus ne sont pas les mêmes d'un rôle à l'autre — puis
+    on se prononce résultat par résultat. Les étapes 1-2-3 du pas-à-pas&nbsp;:
     choix d'un collaborateur, passage d'un rôle à l'autre (le tableau suit), puis clic sur
-    <b>Évaluer</b> — le volet d'évaluation s'ouvre.</figcaption>
+    <b>Évaluer</b> — le volet d'évaluation s'ouvre.</span><span class="t-en"><span class="video-tag">▶ walkthrough</span><b>Where does Claire Dupont stand&nbsp;?</b> We work inside one specific role — expectations differ from one role to another — then rate result by result. Steps 1-2-3 of the walkthrough&nbsp;: pick a team member, switch from one role to another (the table follows), then click <b>Assess</b> — the assessment panel opens.</span></figcaption>
   </figure>
 
   <div class="diapo" data-auto="7200">
-    <div class="diapo-head"><span class="tag">En images</span><b>Évaluer sur le résultat — le déroulé complet</b><span class="n">1/5</span></div>
+    <div class="diapo-head"><span class="tag"><span class="t-fr">En images</span><span class="t-en">In pictures</span></span><b><span class="t-fr">Évaluer sur le résultat — le déroulé complet</span><span class="t-en">Assessing on the result — the full sequence</span></b><span class="n">1/5</span></div>
     <div class="diapo-stage">
 
       <div class="diapo-slide on">
         <div class="d-txt">
-          <h4><span class="k">1</span>Choisir la personne, puis le rôle</h4>
-          <p>À gauche, votre équipe. Cliquez sur un collaborateur, puis sur l'un de ses
-             <b>rôles</b>&nbsp;: le tableau liste les activités de ce rôle.</p>
+          <h4><span class="t-fr"><span class="k">1</span>Choisir la personne, puis le rôle</span><span class="t-en"><span class="k">1</span>Pick the person, then the role</span></h4>
+          <p><span class="t-fr">À gauche, votre équipe. Cliquez sur un collaborateur, puis sur l'un de ses
+             <b>rôles</b>&nbsp;: le tableau liste les activités de ce rôle.</span><span class="t-en">On the left, your team. Click a team member, then one of their <b>roles</b>&nbsp;: the table lists that role's activities.</span></p>
         </div>
         <div class="d-visu"><div class="mk">
           <div style="display:grid;grid-template-columns:120px 1fr;gap:10px">
@@ -732,38 +894,38 @@
             </div>
             <div>
               <div class="mk-row" style="gap:6px;margin-bottom:8px">
-                <span class="mk-pill on">Customer relation</span><span class="mk-pill">Planning</span>
+                <span class="mk-pill on"><span class="t-fr">Relation client</span><span class="t-en">Customer relation</span></span><span class="mk-pill"><span class="t-fr">Ordonnancement</span><span class="t-en">Planning</span></span>
               </div>
-              <div class="win mk-row" style="color:var(--muted)">Activités du rôle…</div>
+              <div class="win mk-row" style="color:var(--muted)"><span class="t-fr">Activités du rôle…</span><span class="t-en">The role's activities…</span></div>
             </div>
           </div>
-          <div class="sb sb-r" style="top:18px;left:132px;--d:.6s">Un clic — le tableau suit</div>
+          <div class="sb sb-r" style="top:18px;left:132px;--d:.6s"><span class="t-fr">Un clic — le tableau suit</span><span class="t-en">One click — the table follows</span></div>
         </div></div>
       </div>
 
       <div class="diapo-slide">
         <div class="d-txt">
-          <h4><span class="k">2</span>Lire le tableau requis / démontré / écart</h4>
-          <p>Pour chaque activité&nbsp;: le niveau <b>requis</b> par le rôle, le niveau
-             <b>démontré</b> par la personne, et l'<b>écart</b>. Les problèmes sautent aux yeux.</p>
+          <h4><span class="t-fr"><span class="k">2</span>Lire le tableau requis / démontré / écart</span><span class="t-en"><span class="k">2</span>Read the required / demonstrated / gap table</span></h4>
+          <p><span class="t-fr">Pour chaque activité&nbsp;: le niveau <b>requis</b> par le rôle, le niveau
+             <b>démontré</b> par la personne, et l'<b>écart</b>. Les problèmes sautent aux yeux.</span><span class="t-en">For each activity&nbsp;: the level <b>required</b> by the role, the level <b>demonstrated</b> by the person, and the <b>gap</b>. Problems jump off the page.</span></p>
         </div>
         <div class="d-visu"><div class="mk">
           <div class="win mk-row" style="font-size:11px;color:var(--faint);font-weight:700">
-            <span style="flex:1">ACTIVITÉ</span><span style="width:52px">REQUIS</span><span style="width:62px">DÉMONTRÉ</span><span style="width:44px">ÉCART</span></div>
-          <div class="win mk-row"><span style="flex:1">Analyse de faisabilité</span>
+            <span style="flex:1"><span class="t-fr">ACTIVITÉ</span><span class="t-en">ACTIVITY</span></span><span style="width:52px"><span class="t-fr">REQUIS</span><span class="t-en">REQUIRED</span></span><span style="width:62px"><span class="t-fr">DÉMONTRÉ</span><span class="t-en">DEMONSTRATED</span></span><span style="width:44px"><span class="t-fr">ÉCART</span><span class="t-en">GAP</span></span></div>
+          <div class="win mk-row"><span style="flex:1"><span class="t-fr">Analyse de faisabilité</span><span class="t-en">Feasibility analysis</span></span>
             <span style="width:52px"><b>3</b></span><span style="width:62px"><b style="color:#16a34a">3</b></span><span style="width:44px;color:#16a34a">✓ 0</span></div>
-          <div class="win mk-row"><span style="flex:1">Cotation</span>
+          <div class="win mk-row"><span style="flex:1"><span class="t-fr">Cotation</span><span class="t-en">Pricing</span></span>
             <span style="width:52px"><b>3</b></span><span style="width:62px"><b style="color:#dc2626">1</b></span><span style="width:44px;color:#dc2626">▼ −2</span></div>
-          <div class="sb sb-t" style="bottom:56px;right:8px;--d:.7s">Ici, un <b>écart de 2 niveaux</b> à traiter</div>
+          <div class="sb sb-t" style="bottom:56px;right:8px;--d:.7s"><span class="t-fr">Ici, un <b>écart de 2 niveaux</b> à traiter</span><span class="t-en">Here, a <b>2-level gap</b> to deal with</span></div>
         </div></div>
       </div>
 
       <div class="diapo-slide">
         <div class="d-txt">
-          <h4><span class="k">3</span>Évaluer, résultat par résultat</h4>
-          <p>Le volet d'évaluation liste les <b>résultats</b> que produit l'activité. Chacun se note
-             de <b>0</b> (non démontré) à <b>4</b> (expertise).</p>
-          <p class="d-note">«&nbsp;Non évalué&nbsp;» n'est pas zéro&nbsp;: tant qu'on n'a pas observé, on ne juge pas.</p>
+          <h4><span class="t-fr"><span class="k">3</span>Évaluer, résultat par résultat</span><span class="t-en"><span class="k">3</span>Assess, result by result</span></h4>
+          <p><span class="t-fr">Le volet d'évaluation liste les <b>résultats</b> que produit l'activité. Chacun se note
+             de <b>0</b> (non démontré) à <b>4</b> (expertise).</span><span class="t-en">The assessment panel lists the <b>results</b> the activity produces. Each one is rated from <b>0</b> (not demonstrated) to <b>4</b> (expert).</span></p>
+          <p class="d-note"><span class="t-fr">«&nbsp;Non évalué&nbsp;» n'est pas zéro&nbsp;: tant qu'on n'a pas observé, on ne juge pas.</span><span class="t-en">«&nbsp;Not assessed&nbsp;» is not zero&nbsp;: as long as nothing has been observed, no judgement is made.</span></p>
         </div>
         <div class="d-visu"><div class="mk">
           <div class="win mk-row"><span style="flex:1">R1 · Devis transmis au client</span>
@@ -772,42 +934,42 @@
             <span class="mk-scale"><i>0</i><i class="sel">1</i><i>2</i><i>3</i><i>4</i></span></div>
           <div class="win mk-row" style="color:var(--muted)"><span style="flex:1">R3 · Relance planifiée</span>
             <span class="mk-scale"><i>—</i></span></div>
-          <div class="sb sb-t" style="bottom:96px;right:6px;--d:.7s">On note <b>ce qui est produit</b>, pas la théorie</div>
-          <div class="sb sb-t" style="bottom:16px;right:6px;--d:1.5s">R3 non observé → <b>pas noté</b></div>
+          <div class="sb sb-t" style="bottom:96px;right:6px;--d:.7s"><span class="t-fr">On note <b>ce qui est produit</b>, pas la théorie</span><span class="t-en">We rate <b>what is produced</b>, not the theory</span></div>
+          <div class="sb sb-t" style="bottom:16px;right:6px;--d:1.5s"><span class="t-fr">R3 non observé → <b>pas noté</b></span><span class="t-en">R3 not observed → <b>not rated</b></span></div>
         </div></div>
       </div>
 
       <div class="diapo-slide">
         <div class="d-txt">
-          <h4><span class="k">4</span>Le niveau global = le minimum</h4>
-          <p>Jamais une moyenne&nbsp;: une moyenne <b>cacherait le point faible</b>, le minimum le montre.
-             Ici, R2 à 1 fixe le niveau global à 1 — c'est lui qu'il faut traiter.</p>
+          <h4><span class="t-fr"><span class="k">4</span>Le niveau global = le minimum</span><span class="t-en"><span class="k">4</span>The overall level = the minimum</span></h4>
+          <p><span class="t-fr">Jamais une moyenne&nbsp;: une moyenne <b>cacherait le point faible</b>, le minimum le montre.
+             Ici, R2 à 1 fixe le niveau global à 1 — c'est lui qu'il faut traiter.</span><span class="t-en">Never an average&nbsp;: an average would <b>hide the weak point</b>, the minimum shows it. Here, R2 at 1 sets the overall level to 1 — and that is what needs work.</span></p>
         </div>
         <div class="d-visu"><div class="mk">
           <div class="mk-row" style="justify-content:center;gap:16px">
             <span class="mk-chip">R1 = 3</span>
             <span class="mk-chip" style="--a:#dc2626">R2 = 1</span>
             <span class="mk-fl" style="font-size:16px">→</span>
-            <span class="mk-btn" style="background:#dc2626">Global = 1</span>
+            <span class="mk-btn" style="background:#dc2626"><span class="t-fr">Global = 1</span><span class="t-en">Overall = 1</span></span>
           </div>
           <div class="mk-bar" style="margin-top:10px"><i style="width:25%;background:#dc2626"></i></div>
-          <div class="mk-note">min(3, 1) = 1 — le point faible reste visible</div>
-          <div class="sb sb-b" style="top:8px;right:10px;--d:.7s"><b>min</b>, jamais une moyenne</div>
+          <div class="mk-note"><span class="t-fr">min(3, 1) = 1 — le point faible reste visible</span><span class="t-en">min(3, 1) = 1 — the weak point stays visible</span></div>
+          <div class="sb sb-b" style="top:8px;right:10px;--d:.7s"><span class="t-fr"><b>min</b>, jamais une moyenne</span><span class="t-en"><b>min</b>, never an average</span></div>
         </div></div>
       </div>
 
       <div class="diapo-slide">
         <div class="d-txt">
-          <h4><span class="k">5</span>Diagnostiquer avant d'agir</h4>
-          <p>Un écart n'est pas toujours un problème de personne. Le diagnostic distingue
+          <h4><span class="t-fr"><span class="k">5</span>Diagnostiquer avant d'agir</span><span class="t-en"><span class="k">5</span>Diagnose before acting</span></h4>
+          <p><span class="t-fr">Un écart n'est pas toujours un problème de personne. Le diagnostic distingue
              <b>trois familles de causes</b> — et un plan de formation individuel n'est proposé
-             que pour la première.</p>
+             que pour la première.</span><span class="t-en">A gap is not always a people problem. The diagnosis distinguishes <b>three families of causes</b> — and an individual training plan is only suggested for the first one.</span></p>
         </div>
         <div class="d-visu"><div class="mk">
-          <div class="win mk-row"><span class="mk-chip" style="--a:#2563eb">1 · Capacité à agir</span><span style="color:var(--muted);font-size:11.5px">→ plan individuel</span></div>
-          <div class="win mk-row"><span class="mk-chip" style="--a:#d97706">2 · Architecture du travail</span><span style="color:var(--muted);font-size:11.5px">→ corriger la carte</span></div>
-          <div class="win mk-row"><span class="mk-chip" style="--a:#dc2626">3 · Conditions d'exécution</span><span style="color:var(--muted);font-size:11.5px">→ agir sur les moyens</span></div>
-          <div class="sb sb-t" style="bottom:66px;right:8px;--d:.7s">Former quelqu'un ne répare pas une <b>organisation défaillante</b></div>
+          <div class="win mk-row"><span class="mk-chip" style="--a:#2563eb"><span class="t-fr">1 · Capacité à agir</span><span class="t-en">1 · Ability to act</span></span><span style="color:var(--muted);font-size:11.5px">→ plan individuel</span></div>
+          <div class="win mk-row"><span class="mk-chip" style="--a:#d97706"><span class="t-fr">2 · Architecture du travail</span><span class="t-en">2 · Work architecture</span></span><span style="color:var(--muted);font-size:11.5px"><span class="t-fr">→ corriger la carte</span><span class="t-en">→ fix the map</span></span></div>
+          <div class="win mk-row"><span class="mk-chip" style="--a:#dc2626"><span class="t-fr">3 · Conditions d'exécution</span><span class="t-en">3 · Working conditions</span></span><span style="color:var(--muted);font-size:11.5px">→ agir sur les moyens</span></div>
+          <div class="sb sb-t" style="bottom:66px;right:8px;--d:.7s"><span class="t-fr">Former quelqu'un ne répare pas une <b>organisation défaillante</b></span><span class="t-en">Training someone does not repair a <b>broken organisation</b></span></div>
         </div></div>
       </div>
 
@@ -815,15 +977,15 @@
     <div class="diapo-nav"><button class="d-prev" aria-label="Précédent">‹</button><div class="d-dots"></div><button class="d-next" aria-label="Suivant">›</button></div>
   </div>
 
-  <div class="box box-clair"><b>En clair — le niveau global</b>
+  <div class="box box-clair"><span class="t-fr"><b>En clair — le niveau global</b>
   Le niveau global d'une activité est toujours le <b>minimum</b> des résultats évalués — jamais une
   moyenne. Une moyenne cacherait le point faible&nbsp;; le minimum le montre. Et «&nbsp;non évalué&nbsp;»
-  n'est pas zéro&nbsp;: tant qu'on n'a pas observé, on ne juge pas.</div>
+  n'est pas zéro&nbsp;: tant qu'on n'a pas observé, on ne juge pas.</span><span class="t-en"><b>In short — the overall level</b> The overall level of an activity is always the <b>minimum</b> of the assessed results — never an average. An average would hide the weak point&nbsp;; the minimum shows it. And «&nbsp;not assessed&nbsp;» is not zero&nbsp;: as long as nothing has been observed, no judgement is made.</span></div>
 
-  <div class="box box-attention"><b>À noter</b>
+  <div class="box box-attention"><span class="t-fr"><b>À noter</b>
   Un plan de formation individuel n'est proposé que si l'écart relève bien de la personne. Si le diagnostic
   montre que le problème vient de l'organisation du travail ou des conditions d'exécution, former la
-  personne ne servirait à rien — l'application vous le dit.</div>
+  personne ne servirait à rien — l'application vous le dit.</span><span class="t-en"><b>Worth knowing</b> An individual training plan is only suggested if the gap really does come down to the person. If the diagnosis shows the problem lies in how the work is organised or in the working conditions, training the person would achieve nothing — and the application says so.</span></div>
   </div>
 </section>
 
@@ -831,115 +993,117 @@
 <section id="temps" style="--a:var(--c-temps)">
   <div class="sec-head">
     <div class="sec-ico" style="background:linear-gradient(135deg,#d97706,#b45309)">⏱️</div>
-    <div><h2>Temps</h2><small>Estimer les charges et chiffrer les problèmes</small></div>
+    <div><h2><span class="t-fr">Temps</span><span class="t-en">Time</span></h2><small><span class="t-fr">Estimer les charges et chiffrer les problèmes</span><span class="t-en">Estimating workloads and putting a figure on problems</span></small></div>
   </div>
   <div class="sec-body">
 
-  <p><b>À quoi ça sert&nbsp;?</b> La page Temps répond à quatre questions, une par onglet&nbsp;:</p>
+  <p><span class="t-fr"><b>À quoi ça sert&nbsp;?</b> La page Temps répond à quatre questions, une par onglet&nbsp;:</span><span class="t-en"><b>What is it for&nbsp;?</b> The Time page answers four questions, one per tab&nbsp;:</span></p>
   <ul>
-    <li><b>Projet</b> — «&nbsp;Combien coûterait ce projet en temps&nbsp;?&nbsp;» Assemblez des activités,
-        l'application calcule la charge globale.</li>
-    <li><b>Activité</b> — «&nbsp;Combien de temps prend cette activité, à quelle fréquence&nbsp;?&nbsp;»</li>
-    <li><b>Rôle</b> — «&nbsp;Quelle est la charge de travail d'un rôle&nbsp;?&nbsp;» Le tableau se
-        pré-remplit avec les activités du rôle&nbsp;; vous obtenez l'estimation mensuelle et annuelle.</li>
-    <li><b>Faiblesse</b> — «&nbsp;Combien nous coûte ce problème récurrent&nbsp;?&nbsp;» Le plus puissant
-        des quatre&nbsp;: voir ci-dessous.</li>
+    <li><span class="t-fr"><b>Projet</b> — «&nbsp;Combien coûterait ce projet en temps&nbsp;?&nbsp;» Assemblez des activités,
+        l'application calcule la charge globale.</span><span class="t-en"><b>Project</b> — «&nbsp;How much time would this project cost&nbsp;?&nbsp;» Assemble activities and the application computes the overall workload.</span></li>
+    <li><span class="t-fr"><b>Activité</b> — «&nbsp;Combien de temps prend cette activité, à quelle fréquence&nbsp;?&nbsp;»</span><span class="t-en"><b>Activity</b> — «&nbsp;How long does this activity take, and how often&nbsp;?&nbsp;»</span></li>
+    <li><span class="t-fr"><b>Rôle</b> — «&nbsp;Quelle est la charge de travail d'un rôle&nbsp;?&nbsp;» Le tableau se
+        pré-remplit avec les activités du rôle&nbsp;; vous obtenez l'estimation mensuelle et annuelle.</span><span class="t-en"><b>Role</b> — «&nbsp;What is a role's workload&nbsp;?&nbsp;» The table pre-fills itself with the role's activities&nbsp;; you get the monthly and yearly estimate.</span></li>
+    <li><span class="t-fr"><b>Faiblesse</b> — «&nbsp;Combien nous coûte ce problème récurrent&nbsp;?&nbsp;» Le plus puissant
+        des quatre&nbsp;: voir ci-dessous.</span><span class="t-en"><b>Weakness</b> — «&nbsp;How much is this recurring problem costing us&nbsp;?&nbsp;» The most powerful of the four&nbsp;: see below.</span></li>
   </ul>
 
   <figure>
-    <div class="frame"><div class="frame-bar"><i></i><i></i><i></i><span>Onglet Projet</span></div>
-    <img src="assets/guide/temps-projet.png" alt="Temps - projet" loading="lazy"></div>
-    <figcaption>Une ligne par activité du projet. Les indicateurs discrets sont intermédiaires&nbsp;; la
+    <div class="frame"><div class="frame-bar"><i></i><i></i><i></i><span><span class="t-fr">Onglet Projet</span><span class="t-en">Project tab</span></span></div>
+    <img class="t-fr" src="assets/guide/temps-projet.png" alt="Temps - projet"><img class="t-en" src="assets/guide/temps-projet-en.png" alt="Temps - projet"></div>
+    <figcaption><span class="t-fr">Une ligne par activité du projet. Les indicateurs discrets sont intermédiaires&nbsp;; la
     <b>Charge globale</b> (en ambre) est le résultat qui compte. Les projets enregistrés se retrouvent en
-    dessous.</figcaption>
+    dessous.</span><span class="t-en">One row per project activity. The quiet indicators are intermediate&nbsp;; the <b>Overall workload</b> (in amber) is the figure that matters. Saved projects appear underneath.</span></figcaption>
   </figure>
   <figure>
-    <div class="frame frame-video"><div class="frame-bar"><span>Chiffrer un projet et l'enregistrer</span></div>
-    <video controls muted playsinline preload="metadata" poster="assets/guide/poster-flux-projet.png" src="assets/guide/flux-projet.webm"></video></div>
-    <figcaption><span class="video-tag">▶ démonstration</span>Un projet de bout en bout&nbsp;: nom,
+    <div class="frame frame-video"><div class="frame-bar"><span><span class="t-fr">Chiffrer un projet et l'enregistrer</span><span class="t-en">Cost a project and save it</span></span></div>
+    <video class="t-fr" controls muted playsinline preload="metadata" poster="assets/guide/poster-flux-projet.png" src="assets/guide/flux-projet.webm"></video><video class="t-en" controls muted playsinline preload="metadata" poster="assets/guide/poster-flux-projet-en.png" src="assets/guide/flux-projet-en.webm"></video></div>
+    <figcaption><span class="t-fr"><span class="video-tag"><span class="t-fr">▶ démonstration</span><span class="t-en">▶ walkthrough</span></span><b>«&nbsp;Combien coûte notre présence
+    au salon&nbsp;?&nbsp;»</b> On assemble les activités mobilisées et on lit la charge réelle —
+    le délai d'attente ne compte pas comme du travail. Un projet de bout en bout&nbsp;: nom,
     durées/délais des activités, ajout d'une ligne, la <b>Charge globale</b> se met à jour, puis
-    <b>Enregistrer</b>.</figcaption>
+    <b>Enregistrer</b>.</span><span class="t-en"><span class="video-tag">▶ walkthrough</span><b>«&nbsp;How much does our presence at the trade show cost&nbsp;?&nbsp;»</b> We assemble the activities involved and read the real workload — waiting time does not count as work. A project from end to end&nbsp;: name, activity durations/lead times, adding a row, the <b>Overall workload</b> updating, then <b>Save</b>.</span></figcaption>
   </figure>
   <figure>
-    <div class="frame"><div class="frame-bar"><i></i><i></i><i></i><span>Onglet Rôle</span></div>
-    <img src="assets/guide/temps-role.png" alt="Temps - rôle" loading="lazy"></div>
-    <figcaption>Choisissez un rôle&nbsp;: ses activités se chargent seules. Renseignez durées et
-    récurrences&nbsp;; l'<b>estimation mensuelle/annuelle</b> s'affiche en ambre.</figcaption>
+    <div class="frame"><div class="frame-bar"><i></i><i></i><i></i><span><span class="t-fr">Onglet Rôle</span><span class="t-en">Role tab</span></span></div>
+    <img class="t-fr" src="assets/guide/temps-role.png" alt="Temps - rôle"><img class="t-en" src="assets/guide/temps-role-en.png" alt="Temps - rôle"></div>
+    <figcaption><span class="t-fr">Choisissez un rôle&nbsp;: ses activités se chargent seules. Renseignez durées et
+    récurrences&nbsp;; l'<b>estimation mensuelle/annuelle</b> s'affiche en ambre.</span><span class="t-en">Pick a role&nbsp;: its activities load on their own. Fill in durations and recurrences&nbsp;; the <b>monthly/yearly estimate</b> appears in amber.</span></figcaption>
   </figure>
 
-  <h3>Chiffrer une faiblesse (le réflexe à prendre)</h3>
-  <p>Une «&nbsp;faiblesse&nbsp;», c'est un problème qui revient&nbsp;: des données incomplètes, une machine
+  <h3><span class="t-fr">Chiffrer une faiblesse (le réflexe à prendre)</span><span class="t-en">Putting a figure on a weakness (the habit to build)</span></h3>
+  <p><span class="t-fr">Une «&nbsp;faiblesse&nbsp;», c'est un problème qui revient&nbsp;: des données incomplètes, une machine
      capricieuse, une validation qui traîne. L'onglet Faiblesse transforme votre ressenti
-     («&nbsp;on perd du temps avec ça&nbsp;») en chiffres&nbsp;: <b>surcroît de travail et retard par an</b>.</p>
+     («&nbsp;on perd du temps avec ça&nbsp;») en chiffres&nbsp;: <b>surcroît de travail et retard par an</b>.</span><span class="t-en">A «&nbsp;weakness&nbsp;» is a problem that keeps coming back&nbsp;: incomplete data, a temperamental machine, an approval that drags on. The Weakness tab turns your gut feeling («&nbsp;this wastes our time&nbsp;») into figures&nbsp;: <b>extra work and delay per year</b>.</span></p>
   <ol class="steps">
-    <li><b>Choisissez l'activité</b> concernée, sa récurrence et sa fréquence.</li>
-    <li><b>Décrivez la faiblesse</b> en quelques mots, et indiquez sa probabilité
-        («&nbsp;1 sur 4&nbsp;» = le problème survient une fois sur quatre).</li>
-    <li><b>Estimez l'impact d'une occurrence</b>&nbsp;: temps de travail en plus, attente en plus.</li>
-    <li>Cliquez sur <b>Calculer</b>&nbsp;: les résultats s'affichent, du cas dégradé jusqu'au
-        <b>coût annuel</b>. <b>Enregistrer</b> conserve l'analyse.</li>
+    <li><span class="t-fr"><b>Choisissez l'activité</b> concernée, sa récurrence et sa fréquence.</span><span class="t-en"><b>Pick the activity</b> concerned, its recurrence and its frequency.</span></li>
+    <li><span class="t-fr"><b>Décrivez la faiblesse</b> en quelques mots, et indiquez sa probabilité
+        («&nbsp;1 sur 4&nbsp;» = le problème survient une fois sur quatre).</span><span class="t-en"><b>Describe the weakness</b> in a few words, and give its probability («&nbsp;1 in 4&nbsp;» = the problem happens one time out of four).</span></li>
+    <li><span class="t-fr"><b>Estimez l'impact d'une occurrence</b>&nbsp;: temps de travail en plus, attente en plus.</span><span class="t-en"><b>Estimate the impact of one occurrence</b>&nbsp;: extra working time, extra waiting time.</span></li>
+    <li><span class="t-fr">Cliquez sur <b>Calculer</b>&nbsp;: les résultats s'affichent, du cas dégradé jusqu'au
+        <b>coût annuel</b>. <b>Enregistrer</b> conserve l'analyse.</span><span class="t-en">Click <b>Calculate</b>&nbsp;: the results appear, from the degraded case through to the <b>annual cost</b>. <b>Save</b> keeps the analysis.</span></li>
   </ol>
 
   <div class="diapo" data-auto="6800">
-    <div class="diapo-head"><span class="tag">En images</span><b>D'un irritant à un coût annuel</b><span class="n">1/4</span></div>
+    <div class="diapo-head"><span class="tag"><span class="t-fr">En images</span><span class="t-en">In pictures</span></span><b><span class="t-fr">D'un irritant à un coût annuel</span><span class="t-en">From an irritant to an annual cost</span></b><span class="n">1/4</span></div>
     <div class="diapo-stage">
 
       <div class="diapo-slide on">
         <div class="d-txt">
-          <h4><span class="k">1</span>Décrire le problème</h4>
-          <p>Partez d'un irritant concret que tout le monde connaît — ici, des
-             <b>données client incomplètes</b> à la réception d'une commande.</p>
+          <h4><span class="t-fr"><span class="k">1</span>Décrire le problème</span><span class="t-en"><span class="k">1</span>Describe the problem</span></h4>
+          <p><span class="t-fr">Partez d'un irritant concret que tout le monde connaît — ici, des
+             <b>données client incomplètes</b> à la réception d'une commande.</span><span class="t-en">Start from a concrete irritant everyone knows — here, <b>incomplete customer data</b> when an order comes in.</span></p>
         </div>
         <div class="d-visu"><div class="mk">
-          <div class="win mk-row"><span>Faiblesse&nbsp;:</span><b>«&nbsp;Données client incomplètes&nbsp;»</b></div>
-          <div class="win mk-row" style="color:var(--muted)"><span>Activité concernée&nbsp;:</span><span>Saisie de commande — journalière</span></div>
-          <div class="sb sb-t" style="bottom:70px;left:16px;--d:.6s">Quelques mots suffisent</div>
+          <div class="win mk-row"><span class="t-fr"><span>Faiblesse&nbsp;:</span><b>«&nbsp;Données client incomplètes&nbsp;»</b></span><span class="t-en"><span>Weakness&nbsp;:</span><b>«&nbsp;Incomplete customer data&nbsp;»</b></span></div>
+          <div class="win mk-row" style="color:var(--muted)"><span><span class="t-fr">Activité concernée&nbsp;:</span><span class="t-en">Activity concerned&nbsp;:</span></span><span><span class="t-fr">Saisie de commande — journalière</span><span class="t-en">Order entry — daily</span></span></div>
+          <div class="sb sb-t" style="bottom:70px;left:16px;--d:.6s"><span class="t-fr">Quelques mots suffisent</span><span class="t-en">A few words are enough</span></div>
         </div></div>
       </div>
 
       <div class="diapo-slide">
         <div class="d-txt">
-          <h4><span class="k">2</span>Sa probabilité</h4>
-          <p>À quelle fréquence le problème survient-il&nbsp;? «&nbsp;<b>1 sur 4</b>&nbsp;» se lit&nbsp;:
+          <h4><span class="t-fr"><span class="k">2</span>Sa probabilité</span><span class="t-en"><span class="k">2</span>Its probability</span></h4>
+          <p><span class="t-fr">À quelle fréquence le problème survient-il&nbsp;? «&nbsp;<b>1 sur 4</b>&nbsp;» se lit&nbsp;:
              une exécution sur quatre se passe mal. Pas besoin de statistiques — votre
-             expérience du terrain suffit.</p>
+             expérience du terrain suffit.</span><span class="t-en">How often does the problem happen&nbsp;? «&nbsp;<b>1 in 4</b>&nbsp;» reads as&nbsp;: one run out of four goes wrong. No statistics needed — your experience on the ground is enough.</span></p>
         </div>
         <div class="d-visu"><div class="mk">
           <div class="mk-row" style="justify-content:center;gap:10px;font-size:20px">
             <span>✅</span><span>✅</span><span>✅</span><span style="filter:grayscale(0);">⚠️</span>
           </div>
-          <div class="mk-note" style="font-size:12px;margin-top:6px">1 exécution sur 4 rencontre le problème</div>
+          <div class="mk-note" style="font-size:12px;margin-top:6px"><span class="t-fr">1 exécution sur 4 rencontre le problème</span><span class="t-en">1 run out of 4 hits the problem</span></div>
           <div class="win mk-row" style="justify-content:center;margin-top:6px"><span>Probabilité&nbsp;:</span><b>1 sur 4</b></div>
-          <div class="sb sb-b" style="top:6px;right:12px;--d:.7s">Votre <b>ressenti terrain</b> suffit</div>
+          <div class="sb sb-b" style="top:6px;right:12px;--d:.7s"><span class="t-fr">Votre <b>ressenti terrain</b> suffit</span><span class="t-en">Your <b>feel for the ground</b> is enough</span></div>
         </div></div>
       </div>
 
       <div class="diapo-slide">
         <div class="d-txt">
-          <h4><span class="k">3</span>L'impact d'une occurrence</h4>
-          <p>Quand le problème survient, que se passe-t-il&nbsp;? Du <b>travail en plus</b>
-             (rappeler le client, corriger…) et de l'<b>attente en plus</b> (le dossier reste bloqué).</p>
+          <h4><span class="t-fr"><span class="k">3</span>L'impact d'une occurrence</span><span class="t-en"><span class="k">3</span>The impact of one occurrence</span></h4>
+          <p><span class="t-fr">Quand le problème survient, que se passe-t-il&nbsp;? Du <b>travail en plus</b>
+             (rappeler le client, corriger…) et de l'<b>attente en plus</b> (le dossier reste bloqué).</span><span class="t-en">When the problem happens, what follows&nbsp;? <b>Extra work</b> (calling the customer back, correcting…) and <b>extra waiting</b> (the file stays blocked).</span></p>
         </div>
         <div class="d-visu"><div class="mk">
-          <div class="win mk-row"><span style="flex:1">🛠️ Travail en plus</span><b>+ 25 min</b></div>
-          <div class="win mk-row"><span style="flex:1">⏳ Attente en plus</span><b>+ 120 min</b></div>
-          <div class="sb sb-t" style="bottom:64px;right:10px;--d:.7s">Les deux comptent — le travail <b>et</b> le délai</div>
+          <div class="win mk-row"><span style="flex:1"><span class="t-fr">🛠️ Travail en plus</span><span class="t-en">🛠️ Extra work</span></span><b>+ 25 min</b></div>
+          <div class="win mk-row"><span style="flex:1"><span class="t-fr">⏳ Attente en plus</span><span class="t-en">⏳ Extra waiting</span></span><b>+ 120 min</b></div>
+          <div class="sb sb-t" style="bottom:64px;right:10px;--d:.7s"><span class="t-fr">Les deux comptent — le travail <b>et</b> le délai</span><span class="t-en">Both count — the work <b>and</b> the delay</span></div>
         </div></div>
       </div>
 
       <div class="diapo-slide">
         <div class="d-txt">
-          <h4><span class="k">4</span>Le verdict — chiffré à l'année</h4>
-          <p>L'application croise probabilité, impact et récurrence de l'activité, et affiche le
-             <b>coût annuel</b> en travail et en retard. Le ressenti devient un argument.</p>
-          <p class="d-note">Exemple&nbsp;: 25 min × 1 fois sur 4 × une activité quotidienne ≈ <b>25 h de travail perdues par an</b> — pour un seul irritant.</p>
+          <h4><span class="t-fr"><span class="k">4</span>Le verdict — chiffré à l'année</span><span class="t-en"><span class="k">4</span>The verdict — costed per year</span></h4>
+          <p><span class="t-fr">L'application croise probabilité, impact et récurrence de l'activité, et affiche le
+             <b>coût annuel</b> en travail et en retard. Le ressenti devient un argument.</span><span class="t-en">The application combines probability, impact and the activity's recurrence, and shows the <b>annual cost</b> in work and in delay. A gut feeling becomes an argument.</span></p>
+          <p class="d-note"><span class="t-fr">Exemple&nbsp;: 25 min × 1 fois sur 4 × une activité quotidienne ≈ <b>25 h de travail perdues par an</b> — pour un seul irritant.</span><span class="t-en">Example&nbsp;: 25 min × 1 time in 4 × a daily activity ≈ <b>25 hours of work lost per year</b> — for a single irritant.</span></p>
         </div>
         <div class="d-visu"><div class="mk">
           <div class="win mk-row"><span style="flex:1">Coût annuel — travail</span><b style="color:#dc2626">≈ 25 h</b></div>
           <div class="mk-bar"><i style="width:38%;background:#dc2626"></i></div>
           <div class="win mk-row" style="margin-top:4px"><span style="flex:1">Coût annuel — retard</span><b style="color:#d97706">≈ 140 h</b></div>
           <div class="mk-bar"><i style="width:92%;background:#d97706"></i></div>
-          <div class="sb sb-t" style="bottom:88px;right:8px;--d:.7s">Le chiffre à apporter en <b>revue d'équipe</b></div>
+          <div class="sb sb-t" style="bottom:88px;right:8px;--d:.7s"><span class="t-fr">Le chiffre à apporter en <b>revue d'équipe</b></span><span class="t-en">The figure to bring to the <b>team review</b></span></div>
         </div></div>
       </div>
 
@@ -947,21 +1111,24 @@
     <div class="diapo-nav"><button class="d-prev" aria-label="Précédent">‹</button><div class="d-dots"></div><button class="d-next" aria-label="Suivant">›</button></div>
   </div>
   <figure>
-    <div class="frame frame-video"><div class="frame-bar"><span>Chiffrer une faiblesse de A à Z</span></div>
-    <video controls muted playsinline preload="metadata" poster="assets/guide/poster-flux-faiblesse.png" src="assets/guide/flux-faiblesse.webm"></video></div>
-    <figcaption><span class="video-tag">▶ démonstration</span>Saisie complète d'une faiblesse puis calcul —
-    les résultats apparaissent en bas.</figcaption>
+    <div class="frame frame-video"><div class="frame-bar"><span><span class="t-fr">Chiffrer une faiblesse de A à Z</span><span class="t-en">Cost a weakness from start to finish</span></span></div>
+    <video class="t-fr" controls muted playsinline preload="metadata" poster="assets/guide/poster-flux-faiblesse.png" src="assets/guide/flux-faiblesse.webm"></video><video class="t-en" controls muted playsinline preload="metadata" poster="assets/guide/poster-flux-faiblesse-en.png" src="assets/guide/flux-faiblesse-en.webm"></video></div>
+    <figcaption><span class="t-fr"><span class="video-tag"><span class="t-fr">▶ démonstration</span><span class="t-en">▶ walkthrough</span></span><b>«&nbsp;Les données client arrivent
+    incomplètes&nbsp;»</b>&nbsp;— l'irritant dont tout le monde se plaint sans jamais le chiffrer.
+    Un dossier sur quatre, 25&nbsp;min de relance, 120&nbsp;min d'attente&nbsp;: saisie complète
+    puis calcul —
+    les résultats apparaissent en bas.</span><span class="t-en"><span class="video-tag">▶ walkthrough</span><b>«&nbsp;Customer data arrives incomplete&nbsp;»</b>&nbsp;— the irritant everyone complains about without ever costing it. One file in four, 25&nbsp;min chasing it up, 120&nbsp;min waiting&nbsp;: full entry then calculation — the results appear at the bottom.</span></figcaption>
   </figure>
   <figure>
-    <div class="frame"><div class="frame-bar"><i></i><i></i><i></i><span>Résultats d'une faiblesse</span></div>
-    <img src="assets/guide/temps-faiblesse.png" alt="Résultats faiblesse" loading="lazy"></div>
-    <figcaption>Quatre groupes de résultats&nbsp;: impact par exécution, cas dégradé (ambre),
-    <b>coût annuel</b> (rouge — le chiffre à retenir) et coût mensuel.</figcaption>
+    <div class="frame"><div class="frame-bar"><i></i><i></i><i></i><span><span class="t-fr">Résultats d'une faiblesse</span><span class="t-en">Results for a weakness</span></span></div>
+    <img class="t-fr" src="assets/guide/temps-faiblesse.png" alt="Résultats faiblesse"><img class="t-en" src="assets/guide/temps-faiblesse-en.png" alt="Résultats faiblesse"></div>
+    <figcaption><span class="t-fr">Quatre groupes de résultats&nbsp;: impact par exécution, cas dégradé (ambre),
+    <b>coût annuel</b> (rouge — le chiffre à retenir) et coût mensuel.</span><span class="t-en">Four groups of results&nbsp;: impact per run, degraded case (amber), <b>annual cost</b> (red — the figure to remember) and monthly cost.</span></figcaption>
   </figure>
 
-  <div class="box box-astuce"><b>Astuce</b>
+  <div class="box box-astuce"><span class="t-fr"><b>Astuce</b>
   Un coût annuel chiffré est le meilleur argument pour prioriser une action d'amélioration. Passez vos
-  irritants récurrents dans l'onglet Faiblesse avant votre prochaine revue d'équipe.</div>
+  irritants récurrents dans l'onglet Faiblesse avant votre prochaine revue d'équipe.</span><span class="t-en"><b>Tip</b> A costed annual figure is the best argument for prioritising an improvement. Run your recurring irritants through the Weakness tab before your next team review.</span></div>
   </div>
 </section>
 
@@ -969,33 +1136,53 @@
 <section id="comptes" style="--a:var(--c-comptes)">
   <div class="sec-head">
     <div class="sec-ico" style="background:linear-gradient(135deg,#e11d48,#be123c)">👤</div>
-    <div><h2>Comptes</h2><small>Créer et gérer les utilisateurs — administrateurs</small></div>
+    <div><h2><span class="t-fr">Comptes</span><span class="t-en">Accounts</span></h2><small><span class="t-fr">Créer et gérer les utilisateurs — administrateurs</span><span class="t-en">Creating and managing users — administrators</span></small></div>
   </div>
   <div class="sec-body">
 
-  <p><b>À quoi ça sert&nbsp;?</b> La page Comptes gère les <b>accès à l'application</b>&nbsp;: création
-     d'un utilisateur, import en masse depuis Excel, modification d'une fiche ou d'un mot de passe.</p>
+  <p><span class="t-fr"><b>À quoi ça sert&nbsp;?</b> La page Comptes gère les <b>accès à l'application</b>&nbsp;: création
+     d'un utilisateur, import en masse depuis Excel, modification d'une fiche ou d'un mot de passe.
+     Elle s'ouvre sur la <b>liste des utilisateurs</b>&nbsp;; les onglets de création n'apparaissent
+     que si votre statut vous y autorise.</span><span class="t-en"><b>What is it for&nbsp;?</b> The Accounts page manages <b>access to the application</b>&nbsp;: creating a user, bulk import from Excel, editing a record or a password. It opens on the <b>list of users</b>&nbsp;; the creation tabs only appear if your status allows it.</span></p>
 
   <figure>
-    <div class="frame"><div class="frame-bar"><i></i><i></i><i></i><span>Page Comptes — onglet Créer</span></div>
-    <img src="assets/guide/comptes.png" alt="Page comptes" loading="lazy"></div>
-    <figcaption>Trois onglets&nbsp;: <b>Créer</b> (formulaire ci-dessus), <b>Import Excel</b> (créer tous
-    les comptes d'un coup depuis un fichier) et <b>Utilisateurs</b> (la liste, avec modification et
-    suppression).</figcaption>
+    <div class="frame"><div class="frame-bar"><i></i><i></i><i></i><span><span class="t-fr">Page Comptes — onglet Utilisateurs</span><span class="t-en">Accounts page — Users tab</span></span></div>
+    <img class="t-fr" src="assets/guide/comptes.png" alt="Page comptes"><img class="t-en" src="assets/guide/comptes-en.png" alt="Page comptes"></div>
+    <figcaption><span class="t-fr">L'onglet <b>Utilisateurs</b> est celui d'accueil&nbsp;: la liste, avec recherche et
+    filtres. Viennent ensuite <b>Créer</b> (formulaire) et <b>Import Excel</b> (tous les comptes d'un
+    coup depuis un fichier).</span><span class="t-en">The <b>Users</b> tab is the landing tab&nbsp;: the list, with search and filters. Then come <b>Create</b> (form) and <b>Excel import</b> (every account at once from a file).</span></figcaption>
   </figure>
 
+  <h3><span class="t-fr">Qui a le droit de quoi</span><span class="t-en">Who is allowed to do what</span></h3>
+  <p><span class="t-fr">Trois statuts, trois périmètres. Le statut se choisit à la création du compte et se modifie
+     ensuite depuis la fiche&nbsp;— par un administrateur uniquement.</span><span class="t-en">Three statuses, three scopes. The status is chosen when the account is created and changed afterwards from the record&nbsp;— by an administrator only.</span></p>
+  <table class="tbl">
+    <thead><tr><th><span class="t-fr">Statut</span><span class="t-en">Status</span></th><th><span class="t-fr">Modifier son propre compte</span><span class="t-en">Edit their own account</span></th><th><span class="t-fr">Créer / importer des comptes</span><span class="t-en">Create / import accounts</span></th><th><span class="t-fr">Modifier ou supprimer le compte d'un autre</span><span class="t-en">Edit or delete someone else's account</span></th></tr></thead>
+    <tbody>
+      <tr><td><span class="t-fr"><b>Utilisateur</b></span><span class="t-en"><b>User</b></span></td><td><span class="t-fr">Oui</span><span class="t-en">Yes</span></td><td><span class="t-fr">Non</span><span class="t-en">No</span></td><td><span class="t-fr">Non</span><span class="t-en">No</span></td></tr>
+      <tr><td><span class="t-fr"><b>Gestionnaire de compétences</b></span><span class="t-en"><b>Competency manager</b></span></td><td><span class="t-fr">Oui</span><span class="t-en">Yes</span></td><td><span class="t-fr"><b>Oui</b></span><span class="t-en"><b>Yes</b></span></td><td><span class="t-fr">Non</span><span class="t-en">No</span></td></tr>
+      <tr><td><span class="t-fr"><b>Administrateur</b></span><span class="t-en"><b>Administrator</b></span></td><td><span class="t-fr">Oui</span><span class="t-en">Yes</span></td><td><span class="t-fr"><b>Oui</b></span><span class="t-en"><b>Yes</b></span></td><td><span class="t-fr"><b>Oui</b> (suppression comprise)</span><span class="t-en"><b>Yes</b> (deletion included)</span></td></tr>
+    </tbody>
+  </table>
+
   <ol class="steps">
-    <li>Onglet <b>Créer</b>&nbsp;: renseignez prénom, nom, e-mail, mot de passe et rôle applicatif
-        (utilisateur ou administrateur), puis <b>Créer l'utilisateur</b>.</li>
-    <li>Pour un arrivage groupé, préférez <b>Import Excel</b>&nbsp;: le format attendu est affiché à
-        l'écran (une ligne par personne).</li>
-    <li>Onglet <b>Utilisateurs</b>&nbsp;: modifiez une fiche, changez un mot de passe, supprimez un
-        compte.</li>
+    <li><span class="t-fr">Onglet <b>Utilisateurs</b>&nbsp;: la liste. Le bouton <b>Modifier</b> n'apparaît que sur les
+        lignes que vous avez le droit de toucher — la vôtre, ou toutes si vous êtes administrateur.</span><span class="t-en"><b>Users</b> tab&nbsp;: the list. The <b>Edit</b> button only appears on the rows you are allowed to touch — your own, or all of them if you are an administrator.</span></li>
+    <li><span class="t-fr">Onglet <b>Créer</b>&nbsp;: prénom, nom, e-mail, mot de passe, rôle métier et <b>statut</b>,
+        puis <b>Créer l'utilisateur</b>.</span><span class="t-en"><b>Create</b> tab&nbsp;: first name, last name, e-mail, password, business role and <b>status</b>, then <b>Create the user</b>.</span></li>
+    <li><span class="t-fr">Pour un arrivage groupé, préférez <b>Import Excel</b>&nbsp;: le format attendu est affiché à
+        l'écran (une ligne par personne).</span><span class="t-en">For a group of new joiners, use <b>Excel import</b>&nbsp;: the expected format is shown on screen (one row per person).</span></li>
   </ol>
 
-  <div class="box box-attention"><b>À ne pas confondre</b>
+  <div class="box box-attention"><span class="t-fr"><b>Un statut affiché tel quel</b>
+  Si la liste montre un statut «&nbsp;brut&nbsp;» au lieu d'une pastille (Utilisateur, Gestionnaire
+  de compétences, Admin), c'est que la valeur enregistrée n'est reconnue par aucune règle&nbsp;:
+  le compte n'a donc <b>aucun des droits associés</b>. Rouvrez sa fiche et resélectionnez le statut
+  dans la liste déroulante.</span><span class="t-en"><b>A status shown as-is</b> If the list shows a «&nbsp;raw&nbsp;» status instead of a badge (User, Competency manager, Admin), the stored value matches no rule&nbsp;: the account therefore has <b>none of the associated rights</b>. Reopen its record and pick the status again from the drop-down list.</span></div>
+
+  <div class="box box-attention"><span class="t-fr"><b>À ne pas confondre</b>
   La page <b>Comptes</b> gère l'<i>accès à l'application</i>. L'affectation des personnes aux <i>rôles
-  métier</i> (qui est «&nbsp;Chef d'atelier&nbsp;»&nbsp;?) se fait dans <a href="#rh">Gestion RH</a>.</div>
+  métier</i> (qui est «&nbsp;Chef d'atelier&nbsp;»&nbsp;?) se fait dans <a href="#rh"><span class="t-fr">Gestion RH</span><span class="t-en">HR management</span></a>.</span><span class="t-en"><b>Do not confuse the two</b> The <b>Accounts</b> page manages <i>access to the application</i>. Assigning people to <i>business roles</i> (who is the «&nbsp;Workshop manager&nbsp;»&nbsp;?) happens in <a href="#rh">HR management</a>.</span></div>
   </div>
 </section>
 
@@ -1003,30 +1190,30 @@
 <section id="rh" style="--a:var(--c-rh)">
   <div class="sec-head">
     <div class="sec-ico" style="background:linear-gradient(135deg,#16a34a,#15803d)">🏢</div>
-    <div><h2>Gestion RH</h2><small>Relier les personnes aux rôles — RH et managers</small></div>
+    <div><h2><span class="t-fr">Gestion RH</span><span class="t-en">HR management</span></h2><small><span class="t-fr">Relier les personnes aux rôles — RH et managers</span><span class="t-en">Connecting people to roles — HR and managers</span></small></div>
   </div>
   <div class="sec-body">
 
-  <p><b>À quoi ça sert&nbsp;?</b> C'est la page qui <b>relie les personnes à l'organisation</b>&nbsp;:
+  <p><span class="t-fr"><b>À quoi ça sert&nbsp;?</b> C'est la page qui <b>relie les personnes à l'organisation</b>&nbsp;:
      paramètres de temps de travail de l'entreprise, création des rôles, affectation des collaborateurs à
-     leurs rôles et à leur manager, et synthèse des évaluations de toute l'équipe.</p>
+     leurs rôles et à leur manager, et synthèse des évaluations de toute l'équipe.</span><span class="t-en"><b>What is it for&nbsp;?</b> This is the page that <b>connects people to the organisation</b>&nbsp;: company working-time settings, role creation, assigning staff to their roles and their manager, and a summary of the whole team's assessments.</span></p>
 
   <figure>
-    <div class="frame"><div class="frame-bar"><i></i><i></i><i></i><span>Page Gestion RH</span></div>
-    <img src="assets/guide/rh.png" alt="Page gestion RH" loading="lazy"></div>
-    <figcaption>De haut en bas&nbsp;: <b>Paramètres de l'entreprise</b> (heures/jour, jours/semaine… —
+    <div class="frame"><div class="frame-bar"><i></i><i></i><i></i><span><span class="t-fr">Page Gestion RH</span><span class="t-en">HR management page</span></span></div>
+    <img class="t-fr" src="assets/guide/rh.png" alt="Page gestion RH"><img class="t-en" src="assets/guide/rh-en.png" alt="Page gestion RH"></div>
+    <figcaption><span class="t-fr">De haut en bas&nbsp;: <b>Paramètres de l'entreprise</b> (heures/jour, jours/semaine… —
     utilisés par la page Temps), <b>Gestion des rôles</b>, <b>Collaborateurs</b>,
     <b>Affectation</b> par manager, <b>Aperçu global des évaluations</b> (feux
-    vert/orange/rouge) et le <b>fichier de référence DCP</b> pour les propositions IA.</figcaption>
+    vert/orange/rouge) et le <b>fichier de référence DCP</b> pour les propositions IA.</span><span class="t-en">From top to bottom&nbsp;: <b>Company settings</b> (hours/day, days/week… — used by the Time page), <b>Role management</b>, <b>Staff</b>, <b>Assignment</b> by manager, <b>Overall assessment view</b> (green/amber/red lights) and the <b>DCP reference file</b> for AI suggestions.</span></figcaption>
   </figure>
 
   <ol class="steps">
-    <li><b>Renseignez les paramètres de l'entreprise</b> (crayon en bout de ligne)&nbsp;: ils servent aux
-        calculs de charge de la page Temps.</li>
-    <li><b>Affectez chaque collaborateur</b> à son ou ses rôles, et désignez son manager — c'est ce qui
-        alimente la page Compétences.</li>
-    <li>Suivez l'<b>aperçu global</b>&nbsp;: une ligne par personne, une colonne par rôle, un feu par
-        évaluation.</li>
+    <li><span class="t-fr"><b>Renseignez les paramètres de l'entreprise</b> (crayon en bout de ligne)&nbsp;: ils servent aux
+        calculs de charge de la page Temps.</span><span class="t-en"><b>Fill in the company settings</b> (pencil at the end of the row)&nbsp;: they feed the workload calculations on the Time page.</span></li>
+    <li><span class="t-fr"><b>Affectez chaque collaborateur</b> à son ou ses rôles, et désignez son manager — c'est ce qui
+        alimente la page Compétences.</span><span class="t-en"><b>Assign each team member</b> to their role or roles, and name their manager — this is what feeds the Competencies page.</span></li>
+    <li><span class="t-fr">Suivez l'<b>aperçu global</b>&nbsp;: une ligne par personne, une colonne par rôle, un feu par
+        évaluation.</span><span class="t-en">Follow the <b>overall view</b>&nbsp;: one row per person, one column per role, one light per assessment.</span></li>
   </ol>
   </div>
 </section>
@@ -1035,21 +1222,21 @@
 <section id="outils" style="--a:var(--c-outils)">
   <div class="sec-head">
     <div class="sec-ico" style="background:linear-gradient(135deg,#ea580c,#c2410c)">🔧</div>
-    <div><h2>Outils</h2><small>Le référentiel des outils de travail</small></div>
+    <div><h2><span class="t-fr">Outils</span><span class="t-en">Tools</span></h2><small><span class="t-fr">Le référentiel des outils de travail</span><span class="t-en">The reference list of working tools</span></small></div>
   </div>
   <div class="sec-body">
 
-  <p><b>À quoi ça sert&nbsp;?</b> Tous les outils cités dans les tâches (logiciels, machines,
+  <p><span class="t-fr"><b>À quoi ça sert&nbsp;?</b> Tous les outils cités dans les tâches (logiciels, machines,
      instruments…) vivent ici. Créer, renommer, fusionner deux doublons, rattacher une documentation,
      supprimer&nbsp;: chaque changement se répercute automatiquement dans toutes les fiches d'activités qui
-     utilisent l'outil.</p>
+     utilisent l'outil.</span><span class="t-en"><b>What is it for&nbsp;?</b> Every tool mentioned in tasks (software, machines, instruments…) lives here. Create, rename, merge two duplicates, attach documentation, delete&nbsp;: each change is automatically reflected in every activity record that uses the tool.</span></p>
 
   <figure>
-    <div class="frame"><div class="frame-bar"><i></i><i></i><i></i><span>Page Outils</span></div>
-    <img src="assets/guide/outils.png" alt="Page outils" loading="lazy"></div>
-    <figcaption>Une carte par outil, avec son nombre d'utilisations. Le bouton <b>Gérer / Supprimer</b>
+    <div class="frame"><div class="frame-bar"><i></i><i></i><i></i><span><span class="t-fr">Page Outils</span><span class="t-en">Tools page</span></span></div>
+    <img class="t-fr" src="assets/guide/outils.png" alt="Page outils"><img class="t-en" src="assets/guide/outils-en.png" alt="Page outils"></div>
+    <figcaption><span class="t-fr">Une carte par outil, avec son nombre d'utilisations. Le bouton <b>Gérer / Supprimer</b>
     propose remplacement et suppression&nbsp;— l'application vous prévient si l'outil est encore utilisé
-    quelque part.</figcaption>
+    quelque part.</span><span class="t-en">One card per tool, with how many times it is used. The <b>Manage / Delete</b> button offers replacement and deletion&nbsp;— the application warns you if the tool is still in use somewhere.</span></figcaption>
   </figure>
   </div>
 </section>
@@ -1058,26 +1245,26 @@
 <section id="ia" style="--a:var(--c-ia)">
   <div class="sec-head">
     <div class="sec-ico" style="background:linear-gradient(135deg,#8b5cf6,#6d28d9)">🤖</div>
-    <div><h2>L'IA dans OPTIQ</h2><small>Une assistante, jamais un pilote automatique</small></div>
+    <div><h2><span class="t-fr">L'IA dans OPTIQ</span><span class="t-en">AI in OPTIQ</span></h2><small><span class="t-fr">Une assistante, jamais un pilote automatique</span><span class="t-en">An assistant, never an autopilot</span></small></div>
   </div>
   <div class="sec-body">
 
-  <p>L'IA intervient à plusieurs endroits de l'application, toujours selon la même règle&nbsp;:
-     <b>elle propose, vous disposez</b>. Rien n'est enregistré sans votre validation.</p>
+  <p><span class="t-fr">L'IA intervient à plusieurs endroits de l'application, toujours selon la même règle&nbsp;:
+     <b>elle propose, vous disposez</b>. Rien n'est enregistré sans votre validation.</span><span class="t-en">The AI steps in at several points in the application, always under the same rule&nbsp;: <b>it proposes, you decide</b>. Nothing is saved without your approval.</span></p>
   <ul>
-    <li><b>Import IA</b> (Cartographie)&nbsp;: générer une première carte à partir d'une description ou
-        d'un fichier Excel.</li>
-    <li><b>Assistant / Chatbot</b> (Activités)&nbsp;: créer ou améliorer une activité en dialoguant.</li>
-    <li><b>Propositions</b> (fiches activités)&nbsp;: suggérer tâches, compétences, savoirs, savoir-faire,
-        aptitudes et HSC — éventuellement à partir de votre fichier de référence DCP (page RH).</li>
-    <li><b>Diagnostic d'écart</b> (Compétences)&nbsp;: aider à qualifier la cause d'un écart et proposer
-        un plan.</li>
+    <li><span class="t-fr"><b>Import IA</b> (Cartographie)&nbsp;: générer une première carte à partir d'une description ou
+        d'un fichier Excel.</span><span class="t-en"><b>AI import</b> (Activity map)&nbsp;: generate a first map from a description or an Excel file.</span></li>
+    <li><span class="t-fr"><b>Assistant / Chatbot</b> (Activités)&nbsp;: créer ou améliorer une activité en dialoguant.</span><span class="t-en"><b>Assistant / Chatbot</b> (Activities)&nbsp;: create or improve an activity through a conversation.</span></li>
+    <li><span class="t-fr"><b>Propositions</b> (fiches activités)&nbsp;: suggérer tâches, compétences, savoirs, savoir-faire,
+        aptitudes et HSC — éventuellement à partir de votre fichier de référence DCP (page RH).</span><span class="t-en"><b>Suggestions</b> (activity records)&nbsp;: propose tasks, competencies, knowledge, know-how, aptitudes and SCS — optionally based on your DCP reference file (HR page).</span></li>
+    <li><span class="t-fr"><b>Diagnostic d'écart</b> (Compétences)&nbsp;: aider à qualifier la cause d'un écart et proposer
+        un plan.</span><span class="t-en"><b>Gap diagnosis</b> (Competencies)&nbsp;: help qualify the cause of a gap and suggest a plan.</span></li>
   </ul>
 
-  <div class="box box-attention"><b>Et si l'IA n'est pas configurée&nbsp;?</b>
+  <div class="box box-attention"><span class="t-fr"><b>Et si l'IA n'est pas configurée&nbsp;?</b>
   Toutes ces fonctions demandent une clé IA, renseignée par votre administrateur dans
-  <a href="#parametres">Paramètres</a>. Sans clé, l'application <b>fonctionne normalement</b> — les
-  boutons IA affichent simplement «&nbsp;Clé IA non renseignée&nbsp;» au lieu de produire une proposition.</div>
+  <a href="#parametres"><span class="t-fr">Paramètres</span><span class="t-en">Settings</span></a>. Sans clé, l'application <b>fonctionne normalement</b> — les
+  boutons IA affichent simplement «&nbsp;Clé IA non renseignée&nbsp;» au lieu de produire une proposition.</span><span class="t-en"><b>What if the AI is not configured&nbsp;?</b> All these functions need an AI key, entered by your administrator in <a href="#parametres">Settings</a>. Without a key, the application <b>works normally</b> — the AI buttons simply show «&nbsp;AI key not set&nbsp;» instead of producing a suggestion.</span></div>
   </div>
 </section>
 
@@ -1085,18 +1272,18 @@
 <section id="parametres" style="--a:var(--c-param)">
   <div class="sec-head">
     <div class="sec-ico" style="background:linear-gradient(135deg,#6366f1,#4f46e5)">⚙️</div>
-    <div><h2>Paramètres</h2><small>Langue pour tous — administration pour les admins</small></div>
+    <div><h2><span class="t-fr">Paramètres</span><span class="t-en">Settings</span></h2><small><span class="t-fr">Langue pour tous — administration pour les admins</span><span class="t-en">Language for everyone — administration for admins</span></small></div>
   </div>
   <div class="sec-body">
 
-  <p><b>À quoi ça sert&nbsp;?</b> Chacun y choisit sa <b>langue d'interface</b> (français ou anglais,
+  <p><span class="t-fr"><b>À quoi ça sert&nbsp;?</b> Chacun y choisit sa <b>langue d'interface</b> (français ou anglais,
      appliquée immédiatement). Les administrateurs y trouvent en plus la section
      <b>Administration</b>&nbsp;: clé IA (masquée, modifiable à chaud), URL de la base de données et
-     console serveur pour le support.</p>
+     console serveur pour le support.</span><span class="t-en"><b>What is it for&nbsp;?</b> Everyone picks their <b>interface language</b> here (French or English, applied immediately). Administrators also find the <b>Administration</b> section&nbsp;: AI key (masked, editable without a restart), database URL and server console for support.</span></p>
 
   <figure>
-    <div class="frame"><div class="frame-bar"><i></i><i></i><i></i><span>Page Paramètres (vue administrateur)</span></div>
-    <img src="assets/guide/parametres.png" alt="Page paramètres" loading="lazy"></div>
+    <div class="frame"><div class="frame-bar"><i></i><i></i><i></i><span><span class="t-fr">Page Paramètres (vue administrateur)</span><span class="t-en">Settings page (administrator view)</span></span></div>
+    <img class="t-fr" src="assets/guide/parametres.png" alt="Page paramètres"><img class="t-en" src="assets/guide/parametres-en.png" alt="Page paramètres"></div>
   </figure>
   </div>
 </section>
@@ -1105,39 +1292,113 @@
 <section id="glossaire" style="--a:var(--c-neutre)">
   <div class="sec-head">
     <div class="sec-ico">📖</div>
-    <div><h2>Glossaire</h2><small>Les mots OPTIQ en une phrase</small></div>
+    <div><h2><span class="t-fr">Glossaire</span><span class="t-en">Glossary</span></h2><small><span class="t-fr">Les mots OPTIQ en une phrase</span><span class="t-en">The OPTIQ vocabulary, one sentence each</span></small></div>
   </div>
   <div class="sec-body">
   <dl class="gloss">
-    <div><dt>Bande</dt><dd>Ligne horizontale de la carte&nbsp;: une compétence clé mobilisée par l'entreprise.</dd></div>
-    <div><dt>Activité</dt><dd>Une étape de la production d'un flux de travail — une case de la carte.</dd></div>
-    <div><dt>Donnée déclenchante</dt><dd>Donnée dont l'arrivée démarre une activité.</dd></div>
-    <div><dt>Donnée nourrissante</dt><dd>Donnée qui alimente une activité sans la déclencher.</dd></div>
-    <div><dt>Garant</dt><dd>Le rôle qui garantit le résultat d'une activité.</dd></div>
-    <div><dt>Rôle</dt><dd>Ensemble cohérent de responsabilités tenues sur des activités&nbsp;; porté par un ou plusieurs titulaires.</dd></div>
-    <div><dt>Titulaire</dt><dd>Personne qui porte un rôle aujourd'hui.</dd></div>
-    <div><dt>Résultat</dt><dd>Ce que produit concrètement une activité — la base de l'évaluation des compétences.</dd></div>
-    <div><dt>Écart</dt><dd>Différence entre le niveau requis par le rôle et le niveau démontré par la personne.</dd></div>
-    <div><dt>Diagnostic d'écart</dt><dd>Analyse de la cause d'un écart&nbsp;: compétence, architecture de travail ou conditions d'exécution.</dd></div>
-    <div><dt>HSC</dt><dd>Habiletés socio-cognitives (communication, rigueur, coopération…), évaluées de 1 à 4.</dd></div>
-    <div><dt>Savoir / Savoir-faire</dt><dd>Connaissance théorique / geste professionnel maîtrisé en pratique.</dd></div>
-    <div><dt>Faiblesse</dt><dd>Problème récurrent dont la page Temps chiffre le coût annuel en travail et en retard.</dd></div>
-    <div><dt>Entité</dt><dd>Périmètre organisationnel (site, service…) portant sa propre cartographie et ses données.</dd></div>
-    <div><dt>DCP</dt><dd>Fichier de référence des fiches de poste utilisé pour ancrer les propositions de l'IA.</dd></div>
+    <div><dt><span class="t-fr">Bande</span><span class="t-en">Band</span></dt><dd><span class="t-fr">Ligne horizontale de la carte&nbsp;: une compétence clé mobilisée par l'entreprise.</span><span class="t-en">A horizontal row on the map&nbsp;: a key competency the company draws on.</span></dd></div>
+    <div><dt><span class="t-fr">Activité</span><span class="t-en">Activity</span></dt><dd><span class="t-fr">Une étape de la production d'un flux de travail — une case de la carte.</span><span class="t-en">One step in the production of a work flow — a box on the map.</span></dd></div>
+    <div><dt><span class="t-fr">Donnée déclenchante</span><span class="t-en">Triggering data</span></dt><dd><span class="t-fr">Donnée dont l'arrivée démarre une activité.</span><span class="t-en">Data whose arrival starts an activity.</span></dd></div>
+    <div><dt><span class="t-fr">Donnée nourrissante</span><span class="t-en">Feeding data</span></dt><dd><span class="t-fr">Donnée qui alimente une activité sans la déclencher.</span><span class="t-en">Data that supplies an activity without starting it.</span></dd></div>
+    <div><dt><span class="t-fr">Garant</span><span class="t-en">Owner</span></dt><dd><span class="t-fr">Le rôle qui garantit le résultat d'une activité.</span><span class="t-en">The role that guarantees an activity's result.</span></dd></div>
+    <div><dt><span class="t-fr">Rôle</span><span class="t-en">Role</span></dt><dd><span class="t-fr">Ensemble cohérent de responsabilités tenues sur des activités&nbsp;; porté par un ou plusieurs titulaires.</span><span class="t-en">A coherent set of responsibilities held over activities&nbsp;; carried by one or several holders.</span></dd></div>
+    <div><dt><span class="t-fr">Titulaire</span><span class="t-en">Holder</span></dt><dd><span class="t-fr">Personne qui porte un rôle aujourd'hui.</span><span class="t-en">The person carrying a role today.</span></dd></div>
+    <div><dt><span class="t-fr">Résultat</span><span class="t-en">Result</span></dt><dd><span class="t-fr">Ce que produit concrètement une activité — la base de l'évaluation des compétences.</span><span class="t-en">What an activity actually produces — the basis for assessing competencies.</span></dd></div>
+    <div><dt><span class="t-fr">Écart</span><span class="t-en">Gap</span></dt><dd><span class="t-fr">Différence entre le niveau requis par le rôle et le niveau démontré par la personne.</span><span class="t-en">The difference between the level required by the role and the level demonstrated by the person.</span></dd></div>
+    <div><dt><span class="t-fr">Diagnostic d'écart</span><span class="t-en">Gap diagnosis</span></dt><dd><span class="t-fr">Analyse de la cause d'un écart&nbsp;: compétence, architecture de travail ou conditions d'exécution.</span><span class="t-en">Analysis of the cause of a gap&nbsp;: competency, work architecture or working conditions.</span></dd></div>
+    <div><dt><span class="t-fr"><span class="t-fr">HSC</span><span class="t-en">SCS</span></span><span class="t-en">SCS</span></dt><dd><span class="t-fr">Habiletés socio-cognitives (communication, rigueur, coopération…), évaluées de 1 à 4.</span><span class="t-en">Socio-cognitive skills (communication, rigour, cooperation…), rated from 1 to 4.</span></dd></div>
+    <div><dt><span class="t-fr">Savoir / Savoir-faire</span><span class="t-en">Knowledge / Know-how</span></dt><dd><span class="t-fr">Connaissance théorique / geste professionnel maîtrisé en pratique.</span><span class="t-en">Theoretical knowledge / a professional gesture mastered in practice.</span></dd></div>
+    <div><dt><span class="t-fr">Faiblesse</span><span class="t-en">Weakness</span></dt><dd><span class="t-fr">Problème récurrent dont la page Temps chiffre le coût annuel en travail et en retard.</span><span class="t-en">A recurring problem whose annual cost in work and delay is computed by the Time page.</span></dd></div>
+    <div><dt><span class="t-fr">Entité</span><span class="t-en">Entity</span></dt><dd><span class="t-fr">Périmètre organisationnel (site, service…) portant sa propre cartographie et ses données.</span><span class="t-en">An organisational scope (site, department…) carrying its own activity map and data.</span></dd></div>
+    <div><dt><span class="t-fr">DCP</span><span class="t-en">DCP</span></dt><dd><span class="t-fr">Fichier de référence des fiches de poste utilisé pour ancrer les propositions de l'IA.</span><span class="t-en">The reference file of job descriptions used to ground the AI's suggestions.</span></dd></div>
   </dl>
   </div>
 </section>
 
-<footer>
+<footer><span class="t-fr">
   Guide de prise en main OPTIQ — les captures et vidéos de ce guide sont générées automatiquement sur une
   base de démonstration, à partir de la version courante de l'application. Les visuels peuvent différer
   légèrement de votre version.
-</footer>
+</span><span class="t-en">
+  OPTIQ getting started guide — the screenshots and videos in this guide are generated
+  automatically on a demonstration database, from the current version of the application.
+  The visuals may differ slightly from your own version.
+</span></footer>
 
 </main>
 </div>
 
 <script>
+// ── Thème clair / sombre et langue FR / EN ───────────────────────────────
+// Choix mémorisés dans localStorage : le guide est un fichier statique, il
+// n'a rien d'autre pour se souvenir. Un fichier ouvert depuis une clé USB ou
+// un mail peut refuser le stockage : tout est donc en try/catch, et le guide
+// s'affiche normalement même si rien ne peut être mémorisé.
+(() => {
+  const root = document.documentElement;
+  const lire = k => { try { return localStorage.getItem(k); } catch (_) { return null; } };
+  const ecrire = (k, v) => { try { localStorage.setItem(k, v); } catch (_) {} };
+
+  // ── Thème ──
+  const btnTheme = document.getElementById('btn-theme');
+  function appliquerTheme(mode) {
+    // Les deux icônes sont dans le DOM ; c'est le CSS qui permute selon
+    // data-theme — pas de scintillement, et l'animation reste fluide.
+    root.setAttribute('data-theme', mode);
+    if (btnTheme) btnTheme.setAttribute('aria-pressed', mode === 'dark' ? 'true' : 'false');
+    const fr = btnTheme && btnTheme.querySelector('.t-fr');
+    const en = btnTheme && btnTheme.querySelector('.t-en');
+    if (fr) fr.textContent = mode === 'dark' ? 'Thème clair' : 'Thème sombre';
+    if (en) en.textContent = mode === 'dark' ? 'Light theme' : 'Dark theme';
+  }
+  const themeInitial = lire('optiq-guide-theme')
+    || (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+  appliquerTheme(themeInitial);
+  if (btnTheme) btnTheme.addEventListener('click', () => {
+    const suivant = root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+    appliquerTheme(suivant);
+    ecrire('optiq-guide-theme', suivant);
+  });
+
+  // ── Langue ──
+  const boutonsLangue = [...document.querySelectorAll('.gseg [data-lang]')];
+  function appliquerLangue(l) {
+    root.setAttribute('lang', l);
+    boutonsLangue.forEach(b => b.setAttribute('aria-pressed', b.dataset.lang === l ? 'true' : 'false'));
+    document.title = l === 'en' ? 'OPTIQ — Getting started guide'
+                                : 'OPTIQ — Guide de prise en main';
+  }
+  appliquerLangue(lire('optiq-guide-lang') || 'fr');
+  boutonsLangue.forEach(b => b.addEventListener('click', () => {
+    // Mettre en pause la vidéo qu'on quitte : masquée, elle continuerait sinon.
+    document.querySelectorAll('video').forEach(v => { try { v.pause(); } catch (_) {} });
+    appliquerLangue(b.dataset.lang);
+    ecrire('optiq-guide-lang', b.dataset.lang);
+  }));
+})();
+
+// ── Vidéo absente (pipeline tools/guide pas encore relancé) : on masque la
+//    figure entière plutôt que de laisser un lecteur vide dans le guide.
+// Capture absente dans une langue : on masque l'image, et le cadre entier
+// seulement si aucune des deux versions n'a pu être chargée.
+document.querySelectorAll('figure .frame img').forEach(im => {
+  im.addEventListener('error', () => {
+    im.classList.add('no-video');
+    const fig = im.closest('figure');
+    if (fig && !fig.querySelector('img:not(.no-video)')) fig.classList.add('no-video');
+  }, true);
+});
+
+document.querySelectorAll('figure .frame-video video').forEach(v => {
+  v.addEventListener('error', () => {
+    // Une figure porte les DEUX langues : on masque la vidéo absente, et la
+    // figure entière seulement si aucune des deux n'a pu être chargée.
+    v.classList.add('no-video');
+    const fig = v.closest('figure');
+    if (fig && !fig.querySelector('video:not(.no-video)')) fig.classList.add('no-video');
+  }, true);
+});
+
 // ── Diapos : auto-avance quand visible, pause au survol, navigation manuelle ──
 document.querySelectorAll('.diapo').forEach(dp => {
   const slides = [...dp.querySelectorAll('.diapo-slide')];

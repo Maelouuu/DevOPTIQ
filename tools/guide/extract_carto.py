@@ -12,7 +12,7 @@ BASE = os.path.dirname(os.path.abspath(__file__))
 vsdx = '/' + (sys.argv[1] if len(sys.argv) > 1 else 'Code/example.vsdx').lstrip('/')
 
 with sync_playwright() as p:
-    b = p.chromium.launch(executable_path=os.environ.get('CHROME_PATH', '/opt/pw-browsers/chromium'))
+    b = p.chromium.launch(**({'executable_path': os.environ['CHROME_PATH']} if os.environ.get('CHROME_PATH') else {}))
     pg = b.new_page(viewport={'width': 1750, 'height': 1300})
     pg.goto(f'http://localhost:8099/tests/carto/harness.html?vsdx={vsdx}', wait_until='load', timeout=30000)
     pg.wait_for_function('document.title === "DONE"', timeout=120000)

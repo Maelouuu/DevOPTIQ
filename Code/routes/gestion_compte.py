@@ -1,11 +1,29 @@
-from flask import Blueprint, render_template, request, redirect, url_for, jsonify
+from flask import Blueprint, render_template, request, redirect, url_for, jsonify, session
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm.attributes import flag_modified
 from sqlalchemy import text
 from Code.extensions import db
-from Code.models.models import User, Role, UserRole, Entity, CompetencyEvaluation, TimeAnalysis
+from Code.models.models import (User, Role, UserRole, Entity, CompetencyEvaluation,
+                                TimeAnalysis, default_lang_for)
 from Code.security import hash_password, verify_password
+from Code.permissions import (can_create_accounts,
+                              can_edit_account, current_user, is_admin,
+                              is_admin_status, is_competency_manager_status)
 
 gestion_compte_bp = Blueprint('gestion_compte', __name__, url_prefix='/comptes')
+
+
+# Les règles de droits vivent dans Code/permissions.py : la page Comptes,
+# les paramètres et le partage d'entités s'appuient sur les mêmes.
+_current_user = current_user
+_is_admin = is_admin
+_can_create_accounts = can_create_accounts
+_can_edit_account = can_edit_account
+
+
+def _forbidden(msg_key):
+    """Refus sur une soumission de formulaire : retour à la liste avec message."""
+    return redirect(url_for('gestion_compte.list_users', tab='list-tab', msg=msg_key))
 
 @gestion_compte_bp.route('/')
 def list_users():
@@ -62,13 +80,19 @@ def list_users():
 
         print(f"👔 Nombre de managers trouvés: {len(managers)}")
 
+        me = _current_user()
         return render_template(
             'gestion_compte_new.html',
             role_users=role_users,
             roles=roles,
             users=users,
             users_with_roles=users_with_roles,
-            managers=managers
+            managers=managers,
+            is_admin=_is_admin(me),
+            can_create_accounts=_can_create_accounts(me),
+            current_user_id=(me.id if me else None),
+            is_admin_status=is_admin_status,
+            is_competency_manager_status=is_competency_manager_status,
         )
 
     except Exception as e:
@@ -77,17 +101,23 @@ def list_users():
         traceback.print_exc()
 
         # Retourner une page avec des listes vides en cas d'erreur
+        me = _current_user()
         return render_template(
             'gestion_compte_new.html',
             role_users={},
             roles=[],
             users=[],
             users_with_roles=[],
-            managers=[]
+            managers=[],
+            is_admin=_is_admin(me),
+            can_create_accounts=_can_create_accounts(me),
+            current_user_id=(me.id if me else None),
         )
 
 @gestion_compte_bp.route('/create', methods=['POST'])
 def create_user():
+    if not _can_create_accounts():
+        return _forbidden('error_forbidden_create')
     first_name = request.form.get('first_name', '').strip()
     last_name  = request.form.get('last_name',  '').strip()
     email      = request.form.get('email',      '').strip()
@@ -123,6 +153,7 @@ def create_user():
         email=email,
         password=hash_password(password),
         status=status,
+        lang=default_lang_for(email),
         entity_id=active_entity_id
     )
     db.session.add(user)
@@ -136,6 +167,9 @@ def create_user():
 
 @gestion_compte_bp.route('/delete/<int:user_id>', methods=['POST'])
 def delete_user(user_id):
+    # Supprimer un compte reste réservé aux administrateurs — y compris le sien.
+    if not _is_admin():
+        return _forbidden('error_forbidden_edit')
     try:
         # Récupérer l'utilisateur
         user = User.query.get_or_404(user_id)
@@ -177,39 +211,83 @@ def delete_user(user_id):
 
 @gestion_compte_bp.route('/update/<int:user_id>', methods=['GET', 'POST'])
 def update_user(user_id):
+    if not _can_edit_account(user_id):
+        return _forbidden('error_forbidden_edit')
     user = User.query.get_or_404(user_id)
     # MODIFIÉ: Filtrer les rôles par entité active
     roles = Role.for_active_entity().all()
 
     if request.method == 'POST':
-        user.first_name = request.form['first_name']
-        user.last_name = request.form['last_name']
-        user.age = request.form.get('age')
-        user.email = request.form['email']
-        user.status = request.form['status']
+        form = request.form
+        prenom = (form.get('first_name') or '').strip()
+        nom    = (form.get('last_name')  or '').strip()
+        email  = (form.get('email')      or '').strip()
+        if not prenom or not nom:
+            return redirect(url_for('gestion_compte.list_users', msg='error_missing_name'))
+        if not email:
+            return redirect(url_for('gestion_compte.list_users', msg='error_missing_email'))
+        if User.query.filter(User.email == email, User.id != user.id).first():
+            return redirect(url_for('gestion_compte.list_users', msg='error_email_exists'))
 
-        new_password = request.form.get('password', '').strip()
+        # Un champ « âge » laissé vide arrive comme '' : tel quel dans une
+        # colonne entière, PostgreSQL rejette la requête et TOUTE modification
+        # (même un simple nom de famille) repartait en erreur 500.
+        age_brut = (form.get('age') or '').strip()
+        try:
+            age = int(age_brut) if age_brut else None
+        except ValueError:
+            return redirect(url_for('gestion_compte.list_users', msg='error_invalid_age'))
+
+        user.first_name = prenom
+        user.last_name = nom
+        user.email = email
+        user.age = age
+        # Seul un administrateur change un statut : sinon n'importe qui
+        # s'auto-promeut depuis l'édition de son propre compte.
+        if _is_admin():
+            # La colonne fait 20 caractères : un libellé plus long serait tronqué
+            # par la base (ou refusé), avec des droits inexpliqués à la clé.
+            statut = (form.get('status') or user.status or 'user').strip()
+            user.status = statut[:20]
+
+        new_password = form.get('password', '').strip()
         if new_password:
             new_hash = hash_password(new_password)
             user.password = new_hash
             flag_modified(user, 'password')  # force SQLAlchemy à inclure password dans l'UPDATE
-            print(f"[UPDATE_USER] Password updated for user {user_id}, hash[:25]={new_hash[:25]}")
 
-        # Mise à jour du rôle
-        new_role_id = int(request.form['role_id'])
+        # Mise à jour du rôle — FACULTATIF : vide = « aucun rôle » (le rôle
+        # existant est retiré). Exiger un rôle empêchait p.ex. de passer un
+        # compte en administrateur avant la création des rôles de l'entité.
+        new_role_raw = (form.get('role_id') or '').strip()
         user_role = UserRole.query.filter_by(user_id=user.id).first()
-        if user_role:
-            user_role.role_id = new_role_id
-        else:
-            db.session.add(UserRole(user_id=user.id, role_id=new_role_id))
+        if new_role_raw:
+            try:
+                new_role_id = int(new_role_raw)
+            except ValueError:
+                return redirect(url_for('gestion_compte.list_users', msg='error_missing_role'))
+            if user_role:
+                user_role.role_id = new_role_id
+            else:
+                db.session.add(UserRole(user_id=user.id, role_id=new_role_id))
+        elif user_role:
+            db.session.delete(user_role)
 
         db.session.add(user)
-        db.session.commit()
-        print(f"[UPDATE_USER] Commit OK for user {user_id}")
+        try:
+            db.session.commit()
+        except SQLAlchemyError:
+            # Mieux vaut un message dans la page qu'une 500 opaque.
+            db.session.rollback()
+            import traceback
+            traceback.print_exc()
+            return redirect(url_for('gestion_compte.list_users', msg='error_update'))
         return redirect(url_for('gestion_compte.list_users', tab='list-tab', msg='updated'))
 
     current_role = UserRole.query.filter_by(user_id=user.id).first()
-    return render_template('edit_user.html', user=user, roles=roles, current_role=current_role)
+    return render_template('edit_user.html', user=user, roles=roles, current_role=current_role,
+                           is_admin_status=is_admin_status,
+                           is_competency_manager_status=is_competency_manager_status)
 
 @gestion_compte_bp.route('/managers')
 def get_managers():
@@ -290,6 +368,8 @@ def get_subordinates(manager_id):
 
 @gestion_compte_bp.route('/set_password/<int:user_id>', methods=['POST'])
 def set_password(user_id):
+    if not _can_edit_account(user_id):
+        return jsonify({'ok': False, 'error': "Vous ne pouvez modifier que votre propre compte."}), 403
     user = User.query.get_or_404(user_id)
     data = request.get_json(silent=True) or {}
     new_password = (data.get('password') or '').strip()
@@ -321,6 +401,10 @@ def import_excel():
     Import d'utilisateurs via fichier Excel
     Format attendu: prenom, nom, email, age, mot_de_passe, role, statut
     """
+    if not _can_create_accounts():
+        return jsonify({'success': False,
+                        'error': "Seuls les administrateurs et les gestionnaires de compétences "
+                                 "peuvent créer des comptes."}), 403
     try:
         print("📥 Import Excel - Début")
         data = request.get_json()
@@ -375,6 +459,7 @@ def import_excel():
                     age=int(user_data.get('age')) if user_data.get('age') and str(user_data.get('age')).strip() else None,
                     password=hash_password(user_data.get('mot_de_passe', '').strip()),
                     status=user_data.get('statut', 'user').strip(),
+                    lang=default_lang_for(user_data.get('email', '')),
                     entity_id=active_entity_id
                 )
                 db.session.add(user)

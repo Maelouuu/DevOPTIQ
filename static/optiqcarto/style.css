@@ -634,36 +634,41 @@ html, body {
   border: 1px solid rgba(255,255,255,0.12);
 }
 .bands-tb-row-label { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* Boutons pleins : sur le fond sombre de la barre, un caractère fin passait
+   inaperçu — on cherchait la croix pour supprimer une bande. */
 .bands-tb-del {
-  background: transparent;
-  border: none;
-  color: #F4B8D0;
+  background: rgba(239,68,68,0.14);
+  border: 1px solid rgba(239,68,68,0.45);
+  color: #fca5a5;
   cursor: pointer;
-  font-size: 16px;
+  font-size: 12px;
   line-height: 1;
-  padding: 0 2px;
-  opacity: 0.75;
-  transition: opacity 0.15s;
+  width: 26px; height: 26px;
+  border-radius: 7px;
+  display: flex; align-items: center; justify-content: center;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
   flex-shrink: 0;
 }
-.bands-tb-del:hover { opacity: 1; }
+.bands-tb-del:hover {
+  background: #ef4444; border-color: #ef4444; color: #fff;
+}
 .bands-tb-row.deleted { opacity: 0.45; }
 .bands-tb-row.deleted .bands-tb-swatch { filter: grayscale(1); }
 .bands-tb-row.deleted .bands-tb-row-label { color: #567460; text-decoration: line-through; }
 .bands-tb-restore {
-  background: transparent;
+  background: rgba(77,184,104,0.18);
   border: 1px solid #4DB868;
-  color: #4DB868;
+  color: #86efac;
   cursor: pointer;
-  font-size: 13px;
+  font-size: 12px;
   line-height: 1;
-  padding: 1px 5px;
-  border-radius: 4px;
-  opacity: 0.75;
-  transition: opacity 0.15s;
+  width: 26px; height: 26px;
+  border-radius: 7px;
+  display: flex; align-items: center; justify-content: center;
+  transition: background 0.15s, color 0.15s;
   flex-shrink: 0;
 }
-.bands-tb-restore:hover { opacity: 1; }
+.bands-tb-restore:hover { background: #4DB868; color: #06210f; }
 
 .tool-btn-top.danger { color: var(--pink); }
 .tool-btn-top.danger i { color: var(--pink); }
@@ -1950,30 +1955,32 @@ html, body {
 }
 .band-row .band-label-extra { font-size: 10px; color: var(--text-muted); white-space: nowrap; }
 .band-delete {
-  background: rgba(239,68,68,0.1);
-  border: 1px solid rgba(239,68,68,0.22);
+  background: rgba(239,68,68,0.16);
+  border: 1px solid rgba(239,68,68,0.5);
   color: #fca5a5;
-  width: 28px; height: 28px;
-  border-radius: 6px;
+  width: 30px; height: 30px;
+  border-radius: 7px;
   cursor: pointer;
-  font-size: 15px;
+  font-size: 12.5px;
   display: flex; align-items: center; justify-content: center;
   flex-shrink: 0;
-  transition: background 0.15s;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
 }
-.band-delete:hover { background: rgba(239,68,68,0.22); }
+.band-delete:hover { background: #ef4444; border-color: #ef4444; color: #fff; }
 
 .btn-add-band {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 8px;
   margin-top: 12px;
-  padding: 8px 14px;
-  border: 1px dashed var(--green-border);
+  padding: 10px 14px;
+  border: 1px solid var(--green);
   border-radius: 8px;
-  background: transparent;
-  color: var(--text-muted);
+  background: var(--green-dim);
+  color: var(--green-lt);
   font-size: 12.5px;
+  font-weight: 600;
   font-family: inherit;
   cursor: pointer;
   width: 100%;
@@ -2718,3 +2725,17 @@ html, body {
 #carto-minimap .mini-handle[data-c="se"] { cursor: nwse-resize; }
 #carto-minimap .mini-handle[data-c="ne"],
 #carto-minimap .mini-handle[data-c="sw"] { cursor: nesw-resize; }
+
+
+/* Separateur de la liste des formes d'un groupe : « dans le groupe » puis
+   « a ajouter » — sinon on cherchait ses propres formes dans toute la carto. */
+.group-shape-sep {
+  margin: 8px 0 4px;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.group-shape-sep:first-child { margin-top: 0; }
+.group-shape-row.in-group { background: rgba(124,58,237,0.10); border-radius: 6px; }

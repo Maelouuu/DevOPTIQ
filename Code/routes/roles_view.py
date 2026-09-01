@@ -73,7 +73,7 @@ def view_roles():
             SELECT a.id, a.name, a.description
             FROM activity_roles ar
             JOIN activities a ON ar.activity_id = a.id
-            WHERE ar.role_id = :rid AND ar.status = 'Garant'
+            WHERE ar.role_id = :rid AND LOWER(ar.status) = 'garant'
         """)
         garant_activities = db.session.execute(stmt1, {"rid": role.id}).fetchall()
         block1 = [{"id": row[0], "name": row[1], "description": row[2]} for row in garant_activities]
@@ -106,7 +106,7 @@ def view_roles():
             SELECT c.id, c.description
             FROM competencies c
             JOIN activity_roles ar ON c.activity_id = ar.activity_id
-            WHERE ar.role_id = :rid AND ar.status = 'Garant'
+            WHERE ar.role_id = :rid AND LOWER(ar.status) = 'garant'
         """)
         competencies = db.session.execute(stmt3, {"rid": role.id}).fetchall()
         block3 = [{"id": comp[0], "description": comp[1]} for comp in competencies]
@@ -115,7 +115,7 @@ def view_roles():
         stmt_ids = text("""
             SELECT DISTINCT ar.activity_id
             FROM activity_roles ar
-            WHERE ar.role_id = :rid AND ar.status = 'Garant'
+            WHERE ar.role_id = :rid AND LOWER(ar.status) = 'garant'
         """)
         activity_ids = [row[0] for row in db.session.execute(stmt_ids, {"rid": role.id}).fetchall()]
 

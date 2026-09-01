@@ -31,12 +31,18 @@ def view_activities():
         pass
 
     activity_id = request.args.get('activity_id', type=int)
+    # D'où vient l'activité épinglée ? Le bandeau doit le dire juste : on
+    # arrivait ici depuis la page Rôles avec « sélectionnée depuis la carte ».
+    origines = {'carto': 'act_list.selected_from_carto',
+                'roles': 'act_list.selected_from_roles'}
+    pinned_label = origines.get((request.args.get('from') or '').strip().lower(),
+                                'act_list.selected')
     total       = Activities.for_active_entity().count()
 
     if not total:
         return render_template('display_list.html', activity_data=[],
                                has_more=False, next_offset=0, total=0,
-                               pinned_activity_id=None)
+                               pinned_activity_id=None, pinned_label=pinned_label)
 
     if activity_id:
         target = Activities.for_active_entity().filter(Activities.id == activity_id).first()
@@ -59,7 +65,8 @@ def view_activities():
                            has_more=has_more,
                            next_offset=next_offset,
                            total=total,
-                           pinned_activity_id=activity_id)
+                           pinned_activity_id=activity_id,
+                           pinned_label=pinned_label)
 
 
 @activities_bp.route('/view/more', methods=['GET'])
@@ -115,7 +122,9 @@ def _build_activity_data(activities):
     # Tâches
     all_tasks = db.session.query(Task).filter(
         Task.activity_id.in_(activity_ids)
-    ).order_by(Task.activity_id, Task.order.asc().nullsfirst()).all()
+    # `id` en dernier critere : a `order` egal, l'ordre doit rester le meme
+    # d'un affichage a l'autre (sinon la tache modifiee change de place).
+    ).order_by(Task.activity_id, Task.order.asc().nullsfirst(), Task.id).all()
     tasks_by_act = {}
     for t in all_tasks:
         tasks_by_act.setdefault(t.activity_id, []).append(t)

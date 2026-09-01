@@ -1,5 +1,30 @@
 {% include "header_buttons.html" %}
 <link rel="stylesheet" href="{{ url_for('static', filename='time.css') }}">
+<script>
+  // Libellés des unités de durée. La VALEUR envoyée au serveur reste
+  // française (clé de UNIT_TO_MIN) : seul l'affichage suit la langue.
+  window.TIME_I18N = { minutes: {{ t('time.unit_minutes')|tojson }},
+                       hours:   {{ t('time.unit_hours')|tojson }},
+                       days:    {{ t('time.unit_days')|tojson }},
+                       col_activity:  {{ t('time.col_activity')|tojson }},
+                       col_duration_h: {{ t('time.col_duration_h')|tojson }},
+                       col_delay_h:   {{ t('time.col_delay_h')|tojson }},
+                       col_count:     {{ t('time.col_count')|tojson }},
+                       col_load_h:    {{ t('time.col_load_h')|tojson }},
+                       col_actions:   {{ t('time.col_actions')|tojson }},
+                       col_recurrence: {{ t('time.col_recurrence')|tojson }},
+                       col_frequency: {{ t('time.col_frequency')|tojson }},
+                       col_total_h:   {{ t('time.col_total_h')|tojson }},
+                       col_weighed_h: {{ t('time.col_weighed_h')|tojson }},
+                       loading:       {{ t('time.loading')|tojson }},
+                       load_error:    {{ t('time.load_error')|tojson }},
+                       error:         {{ t('time.error')|tojson }},
+                       no_project:    {{ t('time.no_project')|tojson }},
+                       no_analysis:   {{ t('time.no_analysis')|tojson }},
+                       meta_duration: {{ t('time.meta_duration')|tojson }},
+                       meta_total:    {{ t('time.meta_total')|tojson }},
+                       meta_acts:     {{ t('time.meta_acts')|tojson }} };
+</script>
 <script defer src="{{ url_for('static', filename='js/time.js') }}"></script>
 
 <div id="page-temps" class="container pg-root page--time">

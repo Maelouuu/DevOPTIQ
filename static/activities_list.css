@@ -2923,3 +2923,200 @@ body.dnd-active .task-conn-slot.task-conn-outgoing:not(.has-conn) {
     color: #be185d;
     box-shadow: 0 2px 8px rgba(190,24,93,0.10);
 }
+
+
+/* Tout ouvrir / tout fermer — même gabarit que le bouton d'import, en secondaire :
+   c'est une commande d'affichage, pas une action sur les données. */
+.btn-expand-all {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border: 1px solid var(--border-strong, #cbd5e1);
+  border-radius: var(--r-btn, 9px);
+  background: var(--card, #fff);
+  color: var(--ink-2, #334155);
+  font-family: inherit;
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background .15s ease, border-color .15s ease;
+}
+.btn-expand-all:hover {
+  background: var(--card-2, #f8fafc);
+  border-color: var(--pg-accent, #7c3aed);
+  color: var(--pg-accent, #7c3aed);
+}
+
+
+/* ── Choix des outils d'une tâche ─────────────────────────────────────────
+   Liste à cocher plutôt qu'un <select multiple> : on voit d'un coup d'œil ce
+   qui est déjà lié, et prendre plusieurs outils ne demande plus de ctrl+clic. */
+.tool-picker {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    max-height: 220px;
+    overflow-y: auto;
+    padding: 6px;
+    border: 1px solid #d0d7de;
+    border-radius: 9px;
+    background: #fff;
+}
+.tool-pick {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 8px;
+    border-radius: 7px;
+    font-size: 13px;
+    color: #334155;
+    cursor: pointer;
+    transition: background .15s ease;
+}
+.tool-pick:hover { background: #f1f5f9; }
+.tool-pick input { cursor: pointer; accent-color: var(--pg-accent, #7c3aed); }
+.tool-pick i { font-size: 11px; color: #94a3b8; }
+.tool-pick-name { flex: 1; }
+.tool-pick--linked { color: #16794c; background: #f0fdf4; cursor: default; }
+.tool-pick--linked i { color: #16794c; }
+.tool-pick-flag {
+    font-size: 11px;
+    font-weight: 700;
+    color: #16794c;
+    background: #dcfce7;
+    border-radius: 999px;
+    padding: 1px 8px;
+}
+/* Outil accompagné d'un fichier : même code visuel que les contraintes. */
+.tool-pick--file i { color: #b45309; }
+.tool-picker-loading, .tool-picker-empty {
+    margin: 6px; font-size: 12.5px; color: #64748b;
+}
+
+.tool-badge--file {
+    background: #fff7ed;
+    border-color: #fdba74;
+    color: #9a3412;
+}
+.tool-badge--file:hover { background: #ffedd5; }
+.tool-badge--file i { color: #b45309; }
+
+
+/* ══════════════════════════════════════════════════════════
+   Pièces jointes : celle de la TÂCHE et celle de l'OUTIL
+   Deux dépôts distincts — le panneau « + outil » ne portait
+   qu'une zone, posée sous la liste des outils : on ne savait
+   pas à quoi le fichier se rattachait.
+   ══════════════════════════════════════════════════════════ */
+
+.tool-form-block {
+    border: 1px solid var(--border, #e2e8f0);
+    border-radius: 10px;
+    padding: 10px 12px;
+    margin-bottom: 10px;
+    background: #fbfcfe;
+}
+.tool-form-block--new { background: #fffdf7; border-color: #fde4bd; }
+.tool-form-block > label {
+    display: block;
+    font-size: 12.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .02em;
+    color: #64748b;
+    margin-bottom: 6px;
+}
+.tool-form-note {
+    margin: 8px 0 0;
+    font-size: 12px;
+    color: #64748b;
+}
+.tool-form-note i { color: #94a3b8; margin-right: 4px; }
+.fp-label {
+    display: block;
+    margin: 10px 0 5px;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: #475569;
+}
+.fp-label i { color: #94a3b8; margin-right: 4px; }
+
+.task-file-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin-left: 8px;
+    padding: 1px 7px;
+    border-radius: 999px;
+    background: #fff7ed;
+    border: 1px solid #fdba74;
+    color: #9a3412;
+    font-size: 11.5px;
+    text-decoration: none;
+}
+.task-file-chip:hover { background: #ffedd5; }
+
+.tool-badge--clickable { cursor: pointer; }
+
+/* ── Fiche d'un outil (modale) ── */
+.tool-card-overlay {
+    position: fixed; inset: 0; z-index: 1200;
+    background: rgba(15, 23, 42, 0.45);
+    display: flex; align-items: center; justify-content: center;
+    padding: 20px;
+}
+.tool-card {
+    width: min(520px, 100%);
+    max-height: 88vh;
+    overflow-y: auto;
+    background: var(--card, #fff);
+    border-radius: var(--r-card, 14px);
+    box-shadow: 0 18px 48px rgba(15, 23, 42, 0.28);
+}
+.tool-card-head {
+    display: flex; align-items: center; gap: 9px;
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--border, #e2e8f0);
+}
+.tool-card-head i { color: #ea580c; }
+.tool-card-head h3 { flex: 1; margin: 0; font-size: 15px; font-weight: 700; }
+.tool-card-close {
+    background: none; border: none; cursor: pointer;
+    color: #94a3b8; font-size: 15px; line-height: 1;
+}
+.tool-card-close:hover { color: #334155; }
+.tool-card-body { padding: 14px 16px; }
+.tool-card-label {
+    display: block;
+    margin: 12px 0 5px;
+    font-size: 12.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .02em;
+    color: #64748b;
+}
+.tool-card-label:first-child { margin-top: 0; }
+.tool-card-body .task-input { width: 100%; }
+.tool-card-link {
+    margin-left: 8px;
+    font-size: 11.5px;
+    font-weight: 600;
+    text-transform: none;
+    letter-spacing: 0;
+    color: #2563eb;
+    text-decoration: none;
+}
+.tool-card-link:hover { text-decoration: underline; }
+.tool-card-note {
+    margin: 10px 0 0;
+    font-size: 12px;
+    color: #64748b;
+}
+.tool-card-note i { color: #94a3b8; margin-right: 4px; }
+.tool-card-actions {
+    display: flex; gap: 8px; justify-content: flex-end;
+    padding: 12px 16px;
+    border-top: 1px solid var(--border, #e2e8f0);
+}
