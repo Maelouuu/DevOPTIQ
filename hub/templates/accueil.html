@@ -1,41 +1,57 @@
 {% extends "base.html" %}
 {% block titre %}Optiq Hub{% endblock %}
 {% block accent %}accueil{% endblock %}
-{% block page_icone %}grille{% endblock %}
+{% block page_num %}00{% endblock %}
+{% block page_sur %}AFDEC · Écosystème{% endblock %}
 {% block page_titre %}Optiq Hub{% endblock %}
-{% block page_sous %}Tout l'écosystème DevOPTIQ, à un seul endroit.{% endblock %}
+{% block page_sous %}Les instances, l'infrastructure, la documentation et les outils — un seul point d'entrée.{% endblock %}
 
 {% block contenu %}
 
-<section class="etat-bande">
-  {% for i in inv.INSTANCES %}
-  {% set e = etats.get(i.cle, {}) %}
-  <a class="etat-puce acc-{{ i.accent }}" href="{{ i.url }}" target="_blank" rel="noopener"
-     data-cle="{{ i.cle }}" title="{{ i.nom }} — {{ i.variante }}">
-    <span class="etat-point etat-{{ (e.etat or 'inconnu')|replace(' ','-')|replace('é','e') }}"
-          data-role="pastille"></span>
-    <b>{{ i.nom }}</b>
-    <span>{{ i.variante }}</span>
-    <em data-role="latence">{% if e.ms %}{{ e.ms }} ms{% endif %}</em>
-  </a>
-  {% endfor %}
+<section class="bande">
+  <div class="bande-index">
+    <span class="bande-tag acc-accueil"><svg class="ic"><use href="#i-fenetre"></use></svg> En service</span>
+    <span class="bande-trait"></span>
+  </div>
+  <div class="etat-bande">
+    {% for i in inv.INSTANCES %}
+    {% set e = etats.get(i.cle, {}) %}
+    <a class="etat-puce acc-{{ i.accent }}" href="{{ i.url }}" target="_blank" rel="noopener"
+       data-cle="{{ i.cle }}" title="{{ i.nom }} — {{ i.variante }}">
+      <span class="etat-point etat-{{ (e.etat or 'inconnu')|replace(' ','-')|replace('é','e') }}"
+            data-role="pastille"></span>
+      <span class="etat-puce-txt">
+        <b>{{ i.nom }}</b>
+        <span>{{ i.variante }}</span>
+      </span>
+      <em data-role="latence">{% if e.ms %}{{ e.ms }} ms{% endif %}</em>
+    </a>
+    {% endfor %}
+  </div>
 </section>
 
-<section class="tuiles">
-  {% for p in inv.PAGES if p.cle != 'accueil' %}
-  <a class="tuile acc-{{ p.accent }}" href="{{ p.route }}">
-    <span class="tuile-ic"><svg class="ic"><use href="#i-{{ p.icone }}"></use></svg></span>
-    <h2>{{ p.titre }}</h2>
-    <p>
-      {%- if p.cle == "instances" %}Les {{ inv.INSTANCES|length }} applications en ligne, leur état et leurs accès.
-      {%- elif p.cle == "infrastructure" %}Services Cloud Run et bases Neon, avec leurs consoles.
-      {%- elif p.cle == "documentation" %}Doc technique, guide utilisateur, plan V1.1.
-      {%- elif p.cle == 'outils' %}{{ inv.OUTILS|map(attribute='entrees')|map('length')|sum }} commandes prêtes à coller.
-      {%- else %}Branches, workflows et secrets.{% endif -%}
-    </p>
-    <span class="tuile-fleche">→</span>
-  </a>
-  {% endfor %}
+<section class="bande">
+  <div class="bande-index">
+    <span class="bande-tag acc-instances"><svg class="ic"><use href="#i-grille"></use></svg> Sections</span>
+    <span class="bande-trait"></span>
+  </div>
+  <div class="tuiles">
+    {% for p in inv.PAGES if p.cle != 'accueil' %}
+    <a class="tuile acc-{{ p.accent }}" href="{{ p.route }}">
+      <span class="tuile-num">{{ '%02d'|format(loop.index) }}</span>
+      <span class="tuile-ic"><svg class="ic"><use href="#i-{{ p.icone }}"></use></svg></span>
+      <h2>{{ p.titre }}</h2>
+      <p>
+        {%- if p.cle == "instances" %}Les {{ inv.INSTANCES|length }} applications en ligne, leur état et leurs accès.
+        {%- elif p.cle == "infrastructure" %}Services Cloud Run et bases Neon, avec leurs consoles.
+        {%- elif p.cle == "documentation" %}Doc technique, guide utilisateur, plan V1.1.
+        {%- elif p.cle == 'outils' %}{{ inv.OUTILS|map(attribute='entrees')|map('length')|sum }} commandes prêtes à coller.
+        {%- else %}Branches, workflows et secrets.{% endif -%}
+      </p>
+      <span class="tuile-fleche">Ouvrir</span>
+    </a>
+    {% endfor %}
+  </div>
 </section>
 
 {% endblock %}

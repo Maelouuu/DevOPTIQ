@@ -8,9 +8,12 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,700&family=Fraunces:opsz,wght@9..144,600;9..144,700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="{{ url_for('static', filename='hub.css') }}">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='9' fill='%230d9488'/><circle cx='16' cy='16' r='7' fill='none' stroke='%23fff' stroke-width='3'/></svg>">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='9' fill='%23101725'/><circle cx='16' cy='16' r='8' fill='none' stroke='%230d9488' stroke-width='4'/></svg>">
 </head>
-<body class="pg page--{% block accent %}accueil{% endblock %}">
+<body class="page--{% block accent %}accueil{% endblock %}">
+
+<div class="fond" aria-hidden="true"></div>
+<div class="grain" aria-hidden="true"></div>
 
 <svg class="sprite" aria-hidden="true">
   <symbol id="i-grille" viewBox="0 0 24 24"><rect x="3" y="3" width="7.5" height="7.5" rx="2"/><rect x="13.5" y="3" width="7.5" height="7.5" rx="2"/><rect x="3" y="13.5" width="7.5" height="7.5" rx="2"/><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="2"/></symbol>
@@ -34,27 +37,32 @@
   <aside class="rail">
     <a class="rail-marque" href="{{ url_for('accueil') }}">
       <span class="rail-logo"></span>
-      <span><strong>Optiq</strong> Hub</span>
+      <span><strong>Optiq</strong> <span>Hub</span></span>
     </a>
+    <p class="rail-titre">Écosystème</p>
     <nav class="rail-nav">
       {% for p in inv.PAGES %}
       <a class="rail-item acc-{{ p.accent }}{% if page_active == p.cle %} actif{% endif %}" href="{{ p.route }}">
+        <span class="puce"></span>
         <svg class="ic"><use href="#i-{{ p.icone }}"></use></svg>
         <span>{{ p.titre }}</span>
       </a>
       {% endfor %}
     </nav>
-    <a class="rail-sortie" href="{{ url_for('logout') }}">Se déconnecter</a>
+    <div class="rail-pied">
+      <a class="rail-sortie" href="{{ url_for('logout') }}">Se déconnecter</a>
+    </div>
   </aside>
 
   <main id="contenu" class="colonne">
-    <header class="bandeau">
-      <span class="bandeau-ic"><svg class="ic"><use href="#i-{% block page_icone %}grille{% endblock %}"></use></svg></span>
-      <div class="bandeau-txt">
+    <header class="heros">
+      <span class="heros-num">{% block page_num %}00{% endblock %}</span>
+      <div class="heros-txt">
+        <span class="heros-sur">{% block page_sur %}Optiq Hub{% endblock %}</span>
         <h1>{% block page_titre %}{% endblock %}</h1>
         <p>{% block page_sous %}{% endblock %}</p>
       </div>
-      {% block bandeau_extra %}{% endblock %}
+      <div class="heros-extra">{% block bandeau_extra %}{% endblock %}</div>
     </header>
 
     {% block contenu %}{% endblock %}

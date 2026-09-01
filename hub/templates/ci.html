@@ -1,7 +1,8 @@
 {% extends "base.html" %}
 {% block titre %}Dépôt & CI — Optiq Hub{% endblock %}
 {% block accent %}ci{% endblock %}
-{% block page_icone %}git{% endblock %}
+{% block page_num %}05{% endblock %}
+{% block page_sur %}Livraison{% endblock %}
 {% block page_titre %}Dépôt &amp; CI{% endblock %}
 {% block page_sous %}Quelle branche part où, par quel workflow.{% endblock %}
 {% block bandeau_extra %}
@@ -12,22 +13,32 @@
 
 {% block contenu %}
 
-<section class="volet">
-  <div class="volet-tete"><h2>Branches</h2></div>
+<section class="bande acc-ci">
+  <div class="bande-index">
+    <span class="bande-tag"><svg class="ic"><use href="#i-git"></use></svg> Branches</span>
+    <span class="bande-trait"></span>
+  </div>
   <div class="grille-3">
     {% for b in inv.BRANCHES %}
     <article class="carte acc-{{ b.accent }}">
-      <div class="carte-liseret"></div>
-      <h2 class="branche-nom"><code>{{ b.nom }}</code></h2>
-      <p class="carte-resume">{{ b.role }}</p>
-      <span class="fleche-deploie">→ <code>{{ b.deploie }}</code></span>
+      <div class="carte-bandeau">
+        <svg class="ic"><use href="#i-git"></use></svg>
+        <code>{{ b.nom }}</code>
+      </div>
+      <div class="carte-corps">
+        <p class="carte-resume">{{ b.role }}</p>
+        <span class="fleche-deploie">déploie → <code>{{ b.deploie }}</code></span>
+      </div>
     </article>
     {% endfor %}
   </div>
 </section>
 
-<section class="volet">
-  <div class="volet-tete"><h2>Workflows</h2></div>
+<section class="bande acc-infra">
+  <div class="bande-index">
+    <span class="bande-tag"><svg class="ic"><use href="#i-nuage"></use></svg> Workflows</span>
+    <span class="bande-trait"></span>
+  </div>
   <div class="tab-enveloppe">
     <table class="tab">
       <thead><tr><th>Workflow</th><th>Cible</th><th></th></tr></thead>
@@ -47,8 +58,11 @@
   </div>
 </section>
 
-<section class="volet">
-  <div class="volet-tete"><h2>Secrets</h2></div>
+<section class="bande acc-pilote">
+  <div class="bande-index">
+    <span class="bande-tag">Secrets</span>
+    <span class="bande-trait"></span>
+  </div>
   <ul class="secrets">
     {% for nom, usage in inv.SECRETS %}
     <li><code>{{ nom }}</code><span>{{ usage }}</span></li>

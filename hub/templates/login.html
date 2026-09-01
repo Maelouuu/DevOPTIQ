@@ -8,17 +8,22 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,700&family=Fraunces:opsz,wght@9..144,600;9..144,700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="{{ url_for('static', filename='hub.css') }}">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='9' fill='%230d9488'/><circle cx='16' cy='16' r='7' fill='none' stroke='%23fff' stroke-width='3'/></svg>">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='9' fill='%23101725'/><circle cx='16' cy='16' r='8' fill='none' stroke='%230d9488' stroke-width='4'/></svg>">
 </head>
-<body class="pg page--accueil">
+<body class="page--accueil">
+<div class="fond" aria-hidden="true"></div>
+<div class="grain" aria-hidden="true"></div>
+
 <div class="page-login">
   <form class="boite-login" method="post" autocomplete="on">
-    <div class="rail-marque">
-      <span class="rail-logo"></span>
-      <span><strong>Optiq</strong> Hub</span>
+    <div class="boite-login-tete">
+      <div class="rail-marque">
+        <span class="rail-logo"></span>
+        <span><strong>Optiq</strong> <span>Hub</span></span>
+      </div>
+      <h1>Accès réservé</h1>
+      <p class="sous">Instances, bases et secrets internes.</p>
     </div>
-    <h1>Accès réservé</h1>
-    <p class="sous">Ce hub nomme les instances, les bases et les secrets internes.</p>
     {% if erreur %}<div class="erreur">{{ erreur }}</div>{% endif %}
     <input type="hidden" name="suite" value="{{ suite }}">
     <div class="champ">

@@ -8,15 +8,16 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,700&family=Fraunces:opsz,wght@9..144,600;9..144,700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="{{ url_for('static', filename='hub.css') }}">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='9' fill='%230d9488'/><circle cx='16' cy='16' r='7' fill='none' stroke='%23fff' stroke-width='3'/></svg>">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='9' fill='%23101725'/><circle cx='16' cy='16' r='8' fill='none' stroke='%230d9488' stroke-width='4'/></svg>">
 </head>
-<body class="pg page--docs">
+<body class="page--documentation">
+<div class="fond" aria-hidden="true"></div>
+<div class="grain" aria-hidden="true"></div>
 <div class="page-md">
-  <a class="retour" href="/documentation">← Retour à la documentation</a>
+  <a class="retour" href="/documentation">← Documentation</a>
   <h1>{{ titre }}</h1>
-  {# Rendu brut volontaire : c'est un plan de travail, sa mise en forme
-     Markdown reste lisible telle quelle — inutile d'embarquer un
-     convertisseur pour un seul fichier. #}
+  {# Rendu brut volontaire : plan de travail, sa mise en forme Markdown reste
+     lisible telle quelle — inutile d'embarquer un convertisseur. #}
   <pre>{{ contenu }}</pre>
 </div>
 </body>

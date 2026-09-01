@@ -1,24 +1,24 @@
 {% extends "base.html" %}
 {% block titre %}Infrastructure — Optiq Hub{% endblock %}
-{% block accent %}infra{% endblock %}
-{% block page_icone %}serveur{% endblock %}
+{% block accent %}infrastructure{% endblock %}
+{% block page_num %}02{% endblock %}
+{% block page_sur %}Ce qui tourne où{% endblock %}
 {% block page_titre %}Infrastructure{% endblock %}
-{% block page_sous %}Ce qui tourne où, et comment y accéder.{% endblock %}
+{% block page_sous %}Services Cloud Run et bases Neon, avec leurs consoles.{% endblock %}
 
 {% block contenu %}
 
-<section class="volet">
-  <div class="volet-tete">
-    <h2><svg class="ic"><use href="#i-nuage"></use></svg> Services Cloud Run</h2>
+<section class="bande acc-infra">
+  <div class="bande-index">
+    <span class="bande-tag"><svg class="ic"><use href="#i-nuage"></use></svg> Services Cloud Run</span>
+    <span class="bande-trait"></span>
     <a class="btn-sec" href="{{ inv.CONSOLE_RUN_LISTE }}" target="_blank" rel="noopener">
       Tous les services <svg class="ic"><use href="#i-lien"></use></svg>
     </a>
   </div>
   <div class="tab-enveloppe">
     <table class="tab">
-      <thead>
-        <tr><th>Service</th><th>Correspond à</th><th>État</th><th>Déploiement</th><th></th></tr>
-      </thead>
+      <thead><tr><th>Service</th><th>Correspond à</th><th>État</th><th>Déploiement</th><th></th></tr></thead>
       <tbody>
         {% for s in inv.SERVICES_RUN %}
         {% set inst = (inv.INSTANCES | selectattr('service', 'equalto', s.service) | list | first) %}
@@ -31,12 +31,9 @@
             <span class="pill mini etat-{{ (e.etat or 'inconnu')|replace(' ','-')|replace('é','e') }}" data-role="pastille">
               <i></i><span data-role="libelle">{{ e.etat or '…' }}</span>
             </span>
-            {% else %}<span class="muet">—</span>{% endif %}
+            {% else %}<span class="muet">ce hub</span>{% endif %}
           </td>
-          <td>
-            <code>{{ s.workflow }}</code>
-            <span class="sous-ligne">{{ s.declencheur }}</span>
-          </td>
+          <td><code>{{ s.workflow }}</code><span class="sous-ligne">{{ s.declencheur }}</span></td>
           <td class="colonne-action">
             <a class="btn-sec" href="{{ inv.CONSOLE_RUN.format(service=s.service) }}"
                target="_blank" rel="noopener">Console</a>
@@ -49,18 +46,17 @@
   <p class="note">Région <code>{{ inv.REGION }}</code> · projet <code>{{ inv.PROJET_NUM }}</code></p>
 </section>
 
-<section class="volet">
-  <div class="volet-tete">
-    <h2><svg class="ic"><use href="#i-base"></use></svg> Bases Neon</h2>
+<section class="bande acc-pilote">
+  <div class="bande-index">
+    <span class="bande-tag"><svg class="ic"><use href="#i-base"></use></svg> Bases Neon</span>
+    <span class="bande-trait"></span>
     <a class="btn-sec" href="{{ inv.CONSOLE_NEON }}" target="_blank" rel="noopener">
       Console Neon <svg class="ic"><use href="#i-lien"></use></svg>
     </a>
   </div>
   <div class="tab-enveloppe">
     <table class="tab">
-      <thead>
-        <tr><th>Base</th><th>Utilisée par</th><th>Point d'accès</th><th>Secret GitHub</th></tr>
-      </thead>
+      <thead><tr><th>Base</th><th>Utilisée par</th><th>Point d'accès</th><th>Secret GitHub</th></tr></thead>
       <tbody>
         {% for b in inv.BASES_NEON %}
         <tr class="acc-{{ b.accent }}">
@@ -79,9 +75,7 @@
       </tbody>
     </table>
   </div>
-  <p class="note">
-    Les chaînes de connexion ne sont ni stockées ni affichées ici — le hub nomme, il ne recopie pas.
-  </p>
+  <p class="note">Les chaînes de connexion ne sont ni stockées ni affichées ici — le hub nomme, il ne recopie pas.</p>
 </section>
 
 {% endblock %}

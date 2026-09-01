@@ -1,7 +1,8 @@
 {% extends "base.html" %}
 {% block titre %}Documentation — Optiq Hub{% endblock %}
-{% block accent %}docs{% endblock %}
-{% block page_icone %}livre{% endblock %}
+{% block accent %}documentation{% endblock %}
+{% block page_num %}03{% endblock %}
+{% block page_sur %}Références{% endblock %}
 {% block page_titre %}Documentation{% endblock %}
 {% block page_sous %}Servie par le hub : plus de fichier à retrouver.{% endblock %}
 
@@ -9,11 +10,16 @@
 <div class="grille-3">
   {% for d in inv.DOCUMENTS %}
   <a class="carte carte-lien acc-{{ d.accent }}" href="{{ d.href }}" target="_blank" rel="noopener">
-    <div class="carte-liseret"></div>
-    <span class="doc-ic"><svg class="ic"><use href="#i-{{ d.icone }}"></use></svg></span>
-    <h2>{{ d.titre }}</h2>
-    <p class="carte-resume">{{ d.resume }}</p>
-    <span class="carte-cta">Ouvrir <svg class="ic"><use href="#i-lien"></use></svg></span>
+    <div class="carte-bandeau">
+      <svg class="ic"><use href="#i-{{ d.icone }}"></use></svg>
+      <span>{{ d.source if d.source is defined else '' }}</span>
+    </div>
+    <div class="carte-corps">
+      <span class="doc-ic"><svg class="ic"><use href="#i-{{ d.icone }}"></use></svg></span>
+      <h2>{{ d.titre }}</h2>
+      <p class="carte-resume">{{ d.resume }}</p>
+      <span class="carte-cta">Ouvrir <svg class="ic"><use href="#i-lien"></use></svg></span>
+    </div>
   </a>
   {% endfor %}
 </div>
