@@ -108,75 +108,67 @@ body {
               border-radius: var(--r-btn); box-shadow: var(--om-2); }
 
 /* ══ Ossature ═══════════════════════════════════════════════════════════ */
-.cadre { position: relative; z-index: 2; display: grid;
-         grid-template-columns: 252px 1fr; min-height: 100vh; }
+.cadre { position: relative; z-index: 2; }
+.colonne { max-width: 1280px; margin: 0 auto; padding: 26px 32px 60px; }
 
-/* ── Rail : la colonne d'index de la carto ─────────────────────────────── */
-.rail {
-  position: sticky; top: 0; align-self: start; height: 100vh;
-  display: flex; flex-direction: column;
-  padding: 22px 16px 18px;
-  background:
-    radial-gradient(28rem 20rem at 15% 0%, rgba(139,92,246,.16), transparent 62%),
-    radial-gradient(24rem 18rem at 85% 100%, rgba(20,184,166,.14), transparent 60%),
-    linear-gradient(180deg, #fbfaff 0%, #eef3fd 100%);
-  color: var(--encre-2);
-  box-shadow: inset -1px 0 0 rgba(16,23,37,.06), 6px 0 26px -22px rgba(16,23,37,.35);
+/* ── Navbar : barre haute, collante, avec l'arc de couleurs de la marque ─ */
+.navbar {
+  position: sticky; top: 0; z-index: 30;
+  background: rgba(255,255,255,.82);
+  backdrop-filter: blur(16px) saturate(1.4);
+  border-bottom: 1px solid var(--trait);
 }
-.rail::after {           /* filet coloré : le bord d'index d'une bande */
-  content: ""; position: absolute; top: 0; right: 0; bottom: 0; width: 3px;
-  background: linear-gradient(180deg, #0d9488, #7c3aed 34%, #2563eb 58%, #ea580c 82%, #e11d48);
-  opacity: .9;
+.navbar-in {
+  max-width: 1280px; margin: 0 auto; padding: 11px 32px;
+  display: flex; align-items: center; gap: 22px;
+}
+/* Filet dégradé sous la barre : la signature couleur du produit. */
+.navbar-arc {
+  display: block; height: 3px;
+  background: linear-gradient(90deg, #14b8a6, #8b5cf6 26%, #3b82f6 48%,
+                              #10b981 66%, #f97316 84%, #6366f1);
 }
 
-.rail-marque { display: flex; align-items: center; gap: 11px; text-decoration: none;
-               color: var(--encre); padding: 2px 8px 22px; }
-.rail-logo {
-  width: 34px; height: 34px; border-radius: 11px; flex-shrink: 0; position: relative;
-  background: conic-gradient(from 200deg, #0d9488, #7c3aed, #ea580c, #e11d48, #0d9488);
-  box-shadow: 0 6px 18px -4px rgba(124,58,237,.6);
+.marque { display: flex; align-items: center; gap: 11px; text-decoration: none;
+          color: var(--encre); flex-shrink: 0; }
+.marque-logo {
+  width: 32px; height: 32px; border-radius: 10px; position: relative; flex-shrink: 0;
+  background: conic-gradient(from 200deg, #14b8a6, #8b5cf6, #f97316, #f43f5e, #14b8a6);
+  box-shadow: 0 5px 14px -4px rgba(139,92,246,.5);
 }
-.rail-logo::after { content: ""; position: absolute; inset: 9px; border-radius: 50%;
-                    background: #fff; }
-.rail-marque strong { font-family: var(--f-titre); font-weight: 700; font-size: 18px;
-                      letter-spacing: -.01em; }
-.rail-marque span span { font-size: 18px; color: var(--gris); }
+.marque-logo::after { content: ""; position: absolute; inset: 8px; border-radius: 50%;
+                      background: #fff; }
+.marque-txt strong { font-family: var(--f-titre); font-weight: 700; font-size: 17px;
+                     letter-spacing: -.01em; }
+.marque-txt span { font-size: 17px; color: var(--gris); }
 
-.rail-titre { font-size: 10.5px; font-weight: 700; letter-spacing: .14em;
-              text-transform: uppercase; color: var(--gris-clair); padding: 0 10px 9px; }
-
-.rail-nav { display: flex; flex-direction: column; gap: 3px; }
-.rail-item {
-  position: relative; display: flex; align-items: center; gap: 11px;
-  padding: 10px 12px; border-radius: 11px; text-decoration: none;
-  color: var(--encre-2); font-size: 13.5px; font-weight: 500;
+.nav-liens { display: flex; align-items: center; gap: 3px; margin-left: auto;
+             overflow-x: auto; scrollbar-width: none; }
+.nav-liens::-webkit-scrollbar { display: none; }
+.nav-lien {
+  position: relative; display: inline-flex; align-items: center; gap: 8px;
+  padding: 9px 13px; border-radius: 10px; white-space: nowrap;
+  color: var(--encre-2); text-decoration: none; font-size: 13.5px; font-weight: 600;
   transition: background .15s, color .15s;
 }
-.rail-item .puce {           /* pastille d'index : la couleur de la bande */
-  width: 9px; height: 9px; border-radius: 3px; background: var(--a); flex-shrink: 0;
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--a) 22%, transparent);
+.nav-lien .ic { width: 16px; height: 16px; color: var(--gris-clair); transition: color .15s; }
+.nav-lien:hover { background: color-mix(in srgb, var(--a) 10%, #fff); color: var(--encre); }
+.nav-lien:hover .ic { color: var(--a); }
+.nav-lien.actif {
+  background: color-mix(in srgb, var(--a) 14%, #fff);
+  color: var(--a); font-weight: 700;
 }
-.rail-item .ic { width: 16px; height: 16px; color: var(--gris-clair); transition: color .15s; }
-.rail-item:hover { background: rgba(255,255,255,.85); color: var(--encre); }
-.rail-item:hover .ic { color: var(--a); }
-.rail-item.actif {
-  background: linear-gradient(90deg, color-mix(in srgb, var(--a) 22%, #fff), #fff);
-  color: var(--encre); font-weight: 700;
-  box-shadow: 0 2px 8px -4px color-mix(in srgb, var(--a) 70%, transparent);
-}
-.rail-item.actif .ic { color: var(--a); }
-.rail-item.actif::before {
-  content: ""; position: absolute; left: -16px; top: 8px; bottom: 8px; width: 3px;
-  border-radius: 0 3px 3px 0; background: var(--a);
+.nav-lien.actif .ic { color: var(--a); }
+/* Trait sous l'onglet actif : il rejoint l'arc de la barre. */
+.nav-lien.actif::after {
+  content: ""; position: absolute; left: 13px; right: 13px; bottom: -12px; height: 3px;
+  border-radius: 3px 3px 0 0; background: var(--a);
 }
 
-.rail-pied { margin-top: auto; padding-top: 18px; }
-.rail-sortie { display: block; text-align: center; font-size: 12.5px; color: var(--gris);
-               text-decoration: none; padding: 9px; border-radius: var(--r-btn);
-               border: 1px solid var(--trait); background: rgba(255,255,255,.7); }
-.rail-sortie:hover { background: #fff; color: var(--encre); }
-
-.colonne { padding: 26px 32px 60px; max-width: 1280px; }
+.nav-sortie { flex-shrink: 0; font-size: 12.5px; font-weight: 600; color: var(--gris);
+              text-decoration: none; padding: 8px 13px; border-radius: 10px;
+              border: 1px solid var(--trait); background: rgba(255,255,255,.7); }
+.nav-sortie:hover { background: #fff; color: var(--encre); border-color: var(--trait-fort); }
 
 /* ══ Héros de page : la couleur devient une SURFACE ═════════════════════ */
 .heros {
@@ -464,6 +456,29 @@ body {
 .btn-copie.fait .ic { display: none; }
 .btn-copie.fait .ic-ok { display: block; }
 
+/* ══ Lanceur de tests ══════════════════════════════════════════════════ */
+.lanceur { background: linear-gradient(180deg, #fff, var(--carte-2));
+           border: 1px solid var(--trait); border-left: 4px solid var(--a);
+           border-radius: var(--r-carte); padding: 18px 20px; box-shadow: var(--om-2); }
+.lanceur-champ { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.lanceur-champ label { font-size: 11px; font-weight: 700; letter-spacing: .09em;
+                       text-transform: uppercase; color: var(--gris); }
+.lanceur-champ label code { font-family: var(--f-mono); text-transform: none;
+                            letter-spacing: 0; color: var(--a); }
+.lanceur-champ label span { font-weight: 500; color: var(--gris-clair); letter-spacing: 0;
+                            text-transform: none; font-size: 11.5px; }
+.lanceur-champ input { flex: 1; min-width: 220px; padding: 10px 13px;
+                       font-family: var(--f-mono); font-size: 12.5px; color: var(--encre);
+                       background: #fff; border: 1px solid var(--trait-fort);
+                       border-radius: var(--r-btn); }
+.lanceur-champ input:focus { outline: 0; border-color: var(--a);
+                             box-shadow: 0 0 0 3px color-mix(in srgb, var(--a) 18%, transparent); }
+.lanceur-aide { font-size: 12.5px; color: var(--gris); margin-top: 11px; }
+.lanceur-retour { margin-top: 13px; padding: 10px 13px; border-radius: 10px;
+                  font-size: 13px; font-weight: 500; }
+.lanceur-retour.ok { background: #ecfdf5; border: 1px solid #6ee7b7; color: #047857; }
+.lanceur-retour.ko { background: #fff7ed; border: 1px solid #fdba74; color: #c2410c; }
+
 /* ══ Secrets ═══════════════════════════════════════════════════════════ */
 .secrets { list-style: none; display: grid;
            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 10px; }
@@ -491,7 +506,7 @@ body {
 }
 .boite-login-tete::before { content: ""; position: absolute; inset: 0; opacity: .17;
   background-image: repeating-linear-gradient(180deg, rgba(20,184,166,.5) 0 2px, transparent 2px 40px); }
-.boite-login-tete .rail-marque { position: relative; justify-content: center; padding: 0 0 10px; }
+.boite-login-tete .marque { position: relative; justify-content: center; padding: 0 0 10px; }
 .boite-login h1 { position: relative; font-family: var(--f-titre); font-size: 21px;
                   font-weight: 700; color: #0f766e; }
 .boite-login .sous { position: relative; color: var(--gris); font-size: 13px; }
@@ -535,19 +550,12 @@ a:focus-visible, button:focus-visible, input:focus-visible {
   * { transition-duration: .001ms !important; animation-duration: .001ms !important; }
 }
 @media (max-width: 920px) {
-  .cadre { grid-template-columns: 1fr; }
-  .rail { position: static; height: auto; flex-direction: row; align-items: center;
-          overflow-x: auto; padding: 12px 14px; }
-  .rail::after { top: auto; bottom: 0; left: 0; right: 0; width: auto; height: 3px;
-                 background: linear-gradient(90deg, #0d9488, #7c3aed, #2563eb, #ea580c, #e11d48); }
-  .rail-marque { padding: 0 10px 0 4px; }
-  .rail-titre, .rail-item span:not(.puce) { display: none; }
-  .rail-item.actif span:not(.puce) { display: inline; }
-  .rail-nav { flex-direction: row; }
-  .rail-item.actif::before { display: none; }
-  .rail-pied { margin: 0 0 0 auto; padding: 0; }
+  .navbar-in { padding: 10px 16px; gap: 12px; }
+  .nav-lien span { display: none; }
+  .nav-lien.actif span { display: inline; }
   .colonne { padding: 18px 16px 44px; }
   .heros { padding: 22px; }
   .heros h1 { font-size: 30px; }
   .heros-num { font-size: 44px; }
+}
 }

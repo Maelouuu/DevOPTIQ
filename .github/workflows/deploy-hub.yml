@@ -84,11 +84,18 @@ jobs:
       - name: Deploy to Cloud Run (optiq-hub)
         env:
           SECRET_HUB_PASSWORD: ${{ secrets.HUB_PASSWORD }}
+          # Jeton GitHub : permet au hub de LANCER la suite de tests
+          # (workflow_dispatch sur tests.yml) et de lire les exécutions.
+          # Absent → la page Tests reste consultable et explique quoi poser.
+          SECRET_HUB_GH_TOKEN: ${{ secrets.HUB_GITHUB_TOKEN }}
         run: |
           # Délimiteur ^##^ : un mot de passe peut contenir , : @ (jamais ##).
           VARS="HUB_SECRET_KEY=${HUB_KEY}"
           if [ -n "$SECRET_HUB_PASSWORD" ]; then
             VARS="${VARS}##HUB_PASSWORD=${SECRET_HUB_PASSWORD}"
+          fi
+          if [ -n "$SECRET_HUB_GH_TOKEN" ]; then
+            VARS="${VARS}##HUB_GITHUB_TOKEN=${SECRET_HUB_GH_TOKEN}"
           fi
           if ! gcloud run deploy ${{ env.SERVICE }} \
             --image ${{ env.IMAGE }}:${{ github.sha }} \

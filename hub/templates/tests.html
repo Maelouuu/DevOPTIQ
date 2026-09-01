@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% block titre %}Tests — Optiq Hub{% endblock %}
+{% block accent %}tests{% endblock %}
+{% block page_num %}04{% endblock %}
+{% block page_sur %}Qualité{% endblock %}
+{% block page_titre %}Tests{% endblock %}
+{% block page_sous %}Lancer la suite, suivre l'exécution, lire le résultat.{% endblock %}
+{% block bandeau_extra %}
+<button class="btn-pri" id="btn-lancer" type="button">Lancer la suite</button>
+{% endblock %}
+
+{% block contenu %}
+
+<section class="bande acc-tests">
+  <div class="bande-index">
+    <span class="bande-tag"><svg class="ic"><use href="#i-ok"></use></svg> Lancer</span>
+    <span class="bande-trait"></span>
+  </div>
+
+  <div class="lanceur">
+    <div class="lanceur-champ">
+      <label for="filtre">Filtre <code>-k</code> <span>optionnel</span></label>
+      <input id="filtre" placeholder="ex. activities, carto, task_tool" autocomplete="off">
+    </div>
+    <p class="lanceur-aide">
+      Vide = toute la suite (~1860 tests, ≈ 3 min sur le runner).
+      L'exécution tourne dans GitHub Actions, pas sur les instances : la suite
+      n'est pas embarquée dans l'image applicative.
+    </p>
+    <div class="lanceur-retour" id="retour" hidden></div>
+  </div>
+</section>
+
+<section class="bande acc-instances">
+  <div class="bande-index">
+    <span class="bande-tag"><svg class="ic"><use href="#i-git"></use></svg> Exécutions</span>
+    <span class="bande-trait"></span>
+    <button class="btn-sec" id="btn-recharger" type="button">Recharger</button>
+  </div>
+
+  <div class="tab-enveloppe">
+    <table class="tab">
+      <thead>
+        <tr><th>Exécution</th><th>Résultat</th><th>Déclenchée par</th><th>Quand</th><th></th></tr>
+      </thead>
+      <tbody id="corps-runs">
+        <tr><td colspan="5" class="muet">Chargement…</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="note" id="note-runs"></p>
+</section>
+
+<section class="bande acc-docs">
+  <div class="bande-index">
+    <span class="bande-tag"><svg class="ic"><use href="#i-fenetre"></use></svg> Détail par test</span>
+    <span class="bande-trait"></span>
+  </div>
+  <div class="grille-3">
+    <a class="carte carte-lien acc-staging" href="{{ panel_url }}/testpanel/" target="_blank" rel="noopener">
+      <div class="carte-bandeau"><svg class="ic"><use href="#i-fenetre"></use></svg><span>panel de tests</span></div>
+      <div class="carte-corps">
+        <h2>Panel de tests</h2>
+        <p class="carte-resume">Vue par page et par cas, historique et correctifs tracés.</p>
+        <span class="carte-cta">Ouvrir <svg class="ic"><use href="#i-lien"></use></svg></span>
+      </div>
+    </a>
+    <a class="carte carte-lien acc-guide" href="{{ panel_url }}/testpanel/journal" target="_blank" rel="noopener">
+      <div class="carte-bandeau"><svg class="ic"><use href="#i-plan"></use></svg><span>carnet de bord</span></div>
+      <div class="carte-corps">
+        <h2>Carnet de bord</h2>
+        <p class="carte-resume">Plan en cours et compte rendu de chaque campagne.</p>
+        <span class="carte-cta">Ouvrir <svg class="ic"><use href="#i-lien"></use></svg></span>
+      </div>
+    </a>
+    <a class="carte carte-lien acc-ci" href="{{ inv.DEPOT }}/actions/workflows/tests.yml" target="_blank" rel="noopener">
+      <div class="carte-bandeau"><svg class="ic"><use href="#i-git"></use></svg><span>tests.yml</span></div>
+      <div class="carte-corps">
+        <h2>Journaux complets</h2>
+        <p class="carte-resume">Sortie pytest intégrale et rapports téléchargeables.</p>
+        <span class="carte-cta">Ouvrir <svg class="ic"><use href="#i-lien"></use></svg></span>
+      </div>
+    </a>
+  </div>
+</section>
+
+{% endblock %}

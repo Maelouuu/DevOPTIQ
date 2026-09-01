@@ -33,27 +33,28 @@
 
 <a class="saut" href="#contenu">Aller au contenu</a>
 
-<div class="cadre">
-  <aside class="rail">
-    <a class="rail-marque" href="{{ url_for('accueil') }}">
-      <span class="rail-logo"></span>
-      <span><strong>Optiq</strong> <span>Hub</span></span>
+<header class="navbar">
+  <div class="navbar-in">
+    <a class="marque" href="{{ url_for('accueil') }}">
+      <span class="marque-logo"></span>
+      <span class="marque-txt"><strong>Optiq</strong> <span>Hub</span></span>
     </a>
-    <p class="rail-titre">Écosystème</p>
-    <nav class="rail-nav">
+
+    <nav class="nav-liens">
       {% for p in inv.PAGES %}
-      <a class="rail-item acc-{{ p.accent }}{% if page_active == p.cle %} actif{% endif %}" href="{{ p.route }}">
-        <span class="puce"></span>
+      <a class="nav-lien acc-{{ p.accent }}{% if page_active == p.cle %} actif{% endif %}" href="{{ p.route }}">
         <svg class="ic"><use href="#i-{{ p.icone }}"></use></svg>
         <span>{{ p.titre }}</span>
       </a>
       {% endfor %}
     </nav>
-    <div class="rail-pied">
-      <a class="rail-sortie" href="{{ url_for('logout') }}">Se déconnecter</a>
-    </div>
-  </aside>
 
+    <a class="nav-sortie" href="{{ url_for('logout') }}" title="Se déconnecter">Quitter</a>
+  </div>
+  <span class="navbar-arc" aria-hidden="true"></span>
+</header>
+
+<div class="cadre">
   <main id="contenu" class="colonne">
     <header class="heros">
       <span class="heros-num">{% block page_num %}00{% endblock %}</span>

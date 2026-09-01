@@ -21,6 +21,7 @@ from flask import (Flask, abort, jsonify, redirect, render_template, request,
                    send_from_directory, session, url_for)
 from werkzeug.security import check_password_hash
 
+import ci_github
 import inventaire
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
@@ -177,6 +178,37 @@ def documentation():
 @login_required
 def outils():
     return render_template("outils.html")
+
+
+# ── Tests ─────────────────────────────────────────────────────────────────
+# L'application déployée n'embarque pas `tests/` (exclu par .dockerignore) :
+# elle ne peut donc pas lancer pytest. C'est GitHub Actions qui exécute la
+# suite ; le hub la déclenche et suit son avancement.
+def _url_panel():
+    for i in inventaire.INSTANCES:
+        if i["cle"] == "staging":
+            return i["url"]
+    return ""
+
+
+@app.route("/tests")
+@login_required
+def tests():
+    return render_template("tests.html", panel_url=_url_panel())
+
+
+@app.route("/api/tests/executions")
+@login_required
+def api_tests_executions():
+    return jsonify(ci_github.executions())
+
+
+@app.route("/api/tests/lancer", methods=["POST"])
+@login_required
+def api_tests_lancer():
+    filtre = (request.get_json(silent=True) or {}).get("filtre", "")
+    ok, message = ci_github.lancer(filtre)
+    return jsonify({"ok": ok, "message": message}), (200 if ok else 400)
 
 
 @app.route("/ci")
