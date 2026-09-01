@@ -266,6 +266,149 @@ class TestGeneratePlan:
         assert r.status_code == 200
         assert r.get_json()["ok"] is True
 
+    def test_generate_plan_no_prompts_loaded_returns_503(self, auth_client, ids, monkeypatch):
+        monkeypatch.setattr("Code.routes.competences_plan.get_prompt", lambda *a, **k: None)
+        r = auth_client.post(
+            "/competences_plan/generate_plan",
+            data=self._payload(ids),
+            content_type="application/json",
+        )
+        assert r.status_code == 503
+        assert r.get_json()["ok"] is False
+
+    def test_generate_plan_invalid_user_id_falls_back_to_dummy_with_warning(self, auth_client, ids):
+        r = auth_client.post(
+            "/competences_plan/generate_plan",
+            data=json.dumps({
+                "user_id": "not-an-int",
+                "role_id": 1,
+                "activity_id": ids["activity_id"],
+                "payload_contexte": {},
+            }),
+            content_type="application/json",
+        )
+        assert r.status_code == 200
+        body = r.get_json()
+        assert body["ok"] is True
+        assert "warning" in body
+        assert body["plan"]["meta"]["source"] == "error_fallback"
+
+
+class _FakeMessage:
+    def __init__(self, content):
+        self.content = content
+
+
+class _FakeChoice:
+    def __init__(self, content):
+        self.message = _FakeMessage(content)
+
+
+class _FakeCompletion:
+    def __init__(self, content):
+        self.choices = [_FakeChoice(content)]
+
+
+class _FakeChatCompletions:
+    def __init__(self, content=None, raise_exc=None):
+        self._content = content
+        self._raise_exc = raise_exc
+
+    def create(self, **kwargs):
+        if self._raise_exc is not None:
+            raise self._raise_exc
+        return _FakeCompletion(self._content)
+
+
+class _FakeChat:
+    def __init__(self, content=None, raise_exc=None):
+        self.completions = _FakeChatCompletions(content, raise_exc)
+
+
+class _FakeAiClient:
+    def __init__(self, content=None, raise_exc=None):
+        self.chat = _FakeChat(content, raise_exc)
+
+
+def _mock_ai(monkeypatch, content=None, raise_exc=None, make_client_raises=None):
+    monkeypatch.setattr("Code.routes.competences_plan.get_openai_key", lambda: "fake-key")
+    if make_client_raises is not None:
+        def _boom(*a, **k):
+            raise make_client_raises
+        monkeypatch.setattr("Code.ai_client.make_ai_client", _boom)
+    else:
+        fake_client = _FakeAiClient(content=content, raise_exc=raise_exc)
+        monkeypatch.setattr(
+            "Code.ai_client.make_ai_client",
+            lambda *a, **k: (fake_client, "gpt-4o-mini", None),
+        )
+
+
+class TestGeneratePlanWithAI:
+
+    def _payload(self, ids):
+        return json.dumps({
+            "user_id": ids["user_id"],
+            "role_id": 1,
+            "activity_id": ids["activity_id"],
+            "payload_contexte": {
+                "role": {"name": "Rôle Test"},
+                "activity": {"name": "Activité Test"},
+                "evaluations": {},
+                "prerequis_comments": [],
+            },
+        })
+
+    def test_ai_success_returns_parsed_json_plan(self, auth_client, ids, monkeypatch):
+        content = json.dumps({"type": "PLAN_DE_FORMATION", "axes": []})
+        _mock_ai(monkeypatch, content=content)
+        r = auth_client.post(
+            "/competences_plan/generate_plan",
+            data=self._payload(ids),
+            content_type="application/json",
+        )
+        assert r.status_code == 200
+        body = r.get_json()
+        assert body["ok"] is True
+        assert body["plan"]["type"] == "PLAN_DE_FORMATION"
+
+    def test_ai_response_with_surrounding_text_extracts_json(self, auth_client, ids, monkeypatch):
+        content = "Voici le plan demandé :\n" + json.dumps({"type": "PLAN_DE_FORMATION", "axes": []})
+        _mock_ai(monkeypatch, content=content)
+        r = auth_client.post(
+            "/competences_plan/generate_plan",
+            data=self._payload(ids),
+            content_type="application/json",
+        )
+        assert r.status_code == 200
+        body = r.get_json()
+        assert body["plan"]["type"] == "PLAN_DE_FORMATION"
+
+    def test_ai_response_unparseable_falls_back_to_dummy(self, auth_client, ids, monkeypatch):
+        _mock_ai(monkeypatch, content="Ceci n'est pas du JSON du tout.")
+        r = auth_client.post(
+            "/competences_plan/generate_plan",
+            data=self._payload(ids),
+            content_type="application/json",
+        )
+        assert r.status_code == 200
+        body = r.get_json()
+        assert body["ok"] is True
+        assert body["plan"]["meta"]["source"] == "fallback_parse_error"
+
+    def test_ai_client_exception_falls_back_to_dummy(self, auth_client, ids, monkeypatch):
+        _mock_ai(monkeypatch, make_client_raises=RuntimeError("client indisponible"))
+        r = auth_client.post(
+            "/competences_plan/generate_plan",
+            data=self._payload(ids),
+            content_type="application/json",
+        )
+        assert r.status_code == 200
+        body = r.get_json()
+        assert body["ok"] is True
+        assert body["plan"]["meta"]["source"] == "fallback_exception"
+        assert "client indisponible" in body["plan"]["meta"]["error"]
+
 
 # ===========================================================================
 # 4. POST /competences_plan/save_plan — Enregistrement d'un plan personnalisé
@@ -398,6 +541,38 @@ class TestSavePlan:
         )
         assert r.status_code == 400
 
+    def test_save_plan_db_error_returns_500(self, auth_client, ids, app, monkeypatch):
+        """Une erreur DB pendant l'insertion doit renvoyer 500 + ok:False (pas de 500 non géré)."""
+        uid = ids["user_id"] + 7000
+        aid = ids["activity_id"] + 7000
+        with app.app_context():
+            from sqlalchemy import text
+            from Code.extensions import db
+            db.session.execute(text(
+                "DELETE FROM user_activity_plans WHERE user_id=:u AND activity_id=:a"
+            ), {"u": uid, "a": aid})
+            db.session.commit()
+
+            orig_execute = db.session.execute
+
+            def _boom(stmt, *a, **k):
+                if "INSERT INTO user_activity_plans" in str(stmt):
+                    raise RuntimeError("db indisponible")
+                return orig_execute(stmt, *a, **k)
+
+            monkeypatch.setattr(db.session, "execute", _boom)
+
+        r = auth_client.post(
+            "/competences_plan/save_plan",
+            data=json.dumps({"user_id": uid, "activity_id": aid, "role_id": None,
+                             "plan": {"x": 1}, "force": False}),
+            content_type="application/json",
+        )
+        assert r.status_code == 500
+        body = r.get_json()
+        assert body["ok"] is False
+        assert "db indisponible" in body["error"]
+
 
 # ===========================================================================
 # 5. GET /competences_plan/get_plan/<uid>/<aid> — Récupération d'un plan
@@ -478,3 +653,26 @@ class TestGetPlan:
         meta = r.get_json().get("meta", {})
         assert "updated_at" in meta
         assert "created_at" in meta
+
+    def test_get_plan_with_corrupted_json_returns_none_content(self, auth_client, ids, app):
+        """Une ligne dont le content n'est pas du JSON valide ne doit pas faire planter la route."""
+        uid = ids["user_id"] + 8000
+        aid = ids["activity_id"] + 8000
+
+        with app.app_context():
+            from sqlalchemy import text
+            from Code.extensions import db
+            db.session.execute(text(
+                "DELETE FROM user_activity_plans WHERE user_id=:u AND activity_id=:a"
+            ), {"u": uid, "a": aid})
+            db.session.execute(text("""
+                INSERT INTO user_activity_plans (user_id, activity_id, role_id, content, created_at, updated_at)
+                VALUES (:u, :a, NULL, :content, '2026-01-01T00:00:00', '2026-01-01T00:00:00')
+            """), {"u": uid, "a": aid, "content": "{ceci n'est pas du json"})
+            db.session.commit()
+
+        r = auth_client.get(f"/competences_plan/get_plan/{uid}/{aid}")
+        assert r.status_code == 200
+        body = r.get_json()
+        assert body["ok"] is True
+        assert body["plan"] is None
