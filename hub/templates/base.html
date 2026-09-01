@@ -57,8 +57,9 @@
 <div class="cadre">
   <main id="contenu" class="colonne">
     <header class="heros">
+      {% include "_paysage.html" %}
       <span class="heros-num">{% block page_num %}00{% endblock %}</span>
-      <div class="heros-txt">
+      <div class="heros-cartouche">
         <span class="heros-sur">{% block page_sur %}Optiq Hub{% endblock %}</span>
         <h1>{% block page_titre %}{% endblock %}</h1>
         <p>{% block page_sous %}{% endblock %}</p>

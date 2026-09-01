@@ -1,0 +1,147 @@
+{# ══════════════════════════════════════════════════════════════════════════
+   Bannière peinte — paysage d'été méditerranéen, dessiné à la main en SVG.
+
+   Un seul dessin, six palettes : les couleurs viennent des variables CSS de
+   la page (--p1..--p7), si bien que chaque section a SON tableau sans qu'on
+   redessine quoi que ce soit.
+
+   Le rendu « peint » vient de deux filtres : `pinceau` (turbulence +
+   déplacement) qui fait onduler les bords des collines comme un coup de
+   brosse, et `grain-toile` qui pose une trame de toile sur les aplats.
+
+   ⚠️ Illustration ORIGINALE. Les références du client sont des œuvres
+   signées : on en reprend les gammes de couleur, jamais les images.
+   ══════════════════════════════════════════════════════════════════════════ #}
+<svg class="paysage" viewBox="0 0 1200 300" preserveAspectRatio="xMidYMax slice"
+     xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
+  <defs>
+    <linearGradient id="pg-ciel" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%"   stop-color="var(--p1)"/>
+      <stop offset="62%"  stop-color="var(--p2)"/>
+      <stop offset="100%" stop-color="var(--p3)"/>
+    </linearGradient>
+    <linearGradient id="pg-loin" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%"   stop-color="var(--p4)"/>
+      <stop offset="100%" stop-color="var(--p5)"/>
+    </linearGradient>
+    <linearGradient id="pg-milieu" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%"   stop-color="var(--p5)"/>
+      <stop offset="100%" stop-color="var(--p6)"/>
+    </linearGradient>
+    <linearGradient id="pg-proche" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%"   stop-color="var(--p6)"/>
+      <stop offset="100%" stop-color="var(--p7)"/>
+    </linearGradient>
+    <radialGradient id="pg-soleil">
+      <stop offset="0%"   stop-color="#fffbe8" stop-opacity=".95"/>
+      <stop offset="42%"  stop-color="var(--p-soleil)" stop-opacity=".85"/>
+      <stop offset="100%" stop-color="var(--p-soleil)" stop-opacity="0"/>
+    </radialGradient>
+
+    <!-- Bord de brosse : la turbulence déforme les silhouettes. -->
+    <filter id="pg-pinceau" x="-6%" y="-14%" width="112%" height="130%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.012 0.03"
+                    numOctaves="3" seed="7" result="bruit"/>
+      <feDisplacementMap in="SourceGraphic" in2="bruit" scale="19"
+                         xChannelSelector="R" yChannelSelector="G"/>
+    </filter>
+    <filter id="pg-brume" x="-10%" y="-30%" width="120%" height="160%">
+      <feGaussianBlur stdDeviation="9"/>
+    </filter>
+    <!-- Trame de toile : le grain d'une peinture, pas d'un écran. -->
+    <filter id="pg-toile" x="0" y="0" width="100%" height="100%">
+      <feTurbulence type="fractalNoise" baseFrequency=".9" numOctaves="2" result="t"/>
+      <feColorMatrix in="t" type="saturate" values="0" result="g"/>
+      <feComposite in="g" in2="SourceGraphic" operator="in"/>
+    </filter>
+  </defs>
+
+  <!-- ── Ciel ── -->
+  <rect width="1200" height="300" fill="url(#pg-ciel)"/>
+
+  <!-- ── Soleil et halo ── -->
+  <circle cx="965" cy="72" r="118" fill="url(#pg-soleil)"/>
+  <circle cx="965" cy="72" r="26" fill="#fffdf2" opacity=".92"/>
+
+  <!-- ── Nuages : amas d'ellipses floutées, comme des touches empâtées ── -->
+  <g filter="url(#pg-brume)" opacity=".85">
+    <g fill="#ffffff" opacity=".92">
+      <ellipse cx="180" cy="66" rx="86" ry="27"/>
+      <ellipse cx="244" cy="56" rx="58" ry="24"/>
+      <ellipse cx="126" cy="58" rx="46" ry="19"/>
+      <ellipse cx="560" cy="42" rx="70" ry="20"/>
+      <ellipse cx="620" cy="52" rx="48" ry="16"/>
+    </g>
+  </g>
+
+  <!-- ── Collines : trois plans, bords à la brosse ── -->
+  <g filter="url(#pg-pinceau)">
+    <path fill="url(#pg-loin)"
+          d="M0,150 C120,112 210,168 330,146 C452,124 520,86 654,110
+             C790,134 860,178 990,150 C1090,128 1150,140 1200,132 L1200,300 L0,300 Z"/>
+    <path fill="url(#pg-milieu)"
+          d="M0,204 C140,176 250,214 392,196 C520,180 610,146 742,172
+             C880,199 980,222 1200,190 L1200,300 L0,300 Z"/>
+    <path fill="url(#pg-proche)"
+          d="M0,252 C160,232 280,262 430,248 C592,232 700,206 840,228
+             C980,250 1090,264 1200,246 L1200,300 L0,300 Z"/>
+  </g>
+
+  <!-- ── Crêtes éclairées : l'empâtement clair au sommet des collines ── -->
+  <g fill="none" stroke="var(--p-touche)" stroke-width="3.2" stroke-linecap="round" opacity=".5">
+    <path d="M40,152 C150,120 230,168 330,148"/>
+    <path d="M470,120 C560,100 620,110 690,116"/>
+    <path d="M0,206 C130,180 240,214 380,198"/>
+    <path d="M760,176 C880,200 980,220 1120,196"/>
+  </g>
+
+  <!-- ── Bosquets : petites masses feuillues, touches empilées ── -->
+  <g fill="var(--p-cypres)" opacity=".55">
+    <ellipse cx="300" cy="236" rx="26" ry="15"/>
+    <ellipse cx="322" cy="228" rx="18" ry="11"/>
+    <ellipse cx="694" cy="228" rx="30" ry="16"/>
+    <ellipse cx="718" cy="220" rx="20" ry="12"/>
+    <ellipse cx="906" cy="240" rx="22" ry="13"/>
+  </g>
+
+  <!-- ── Oiseaux : deux traits, l'échelle du paysage ── -->
+  <g fill="none" stroke="var(--p-cypres)" stroke-width="2" stroke-linecap="round" opacity=".45">
+    <path d="M392,96 q9,-7 18,0 q9,-7 18,0"/>
+    <path d="M448,74 q7,-6 14,0 q7,-6 14,0"/>
+  </g>
+
+  <!-- ── Cyprès : la signature toscane ── -->
+  <g fill="var(--p-cypres)" opacity=".92">
+    <path d="M126,246 c-13,-2 -16,-26 -8,-52 c6,-20 9,-42 12,-42 c3,0 7,22 12,42 c7,26 4,50 -9,52 z"/>
+    <path d="M162,252 c-10,-2 -13,-20 -7,-40 c5,-16 7,-32 9,-32 c3,0 6,16 10,32 c5,20 2,38 -8,40 z"/>
+    <path d="M1064,244 c-12,-2 -15,-24 -8,-48 c6,-19 9,-39 11,-39 c3,0 7,20 12,39 c6,24 3,46 -9,48 z"/>
+  </g>
+
+  <!-- ── Champ fleuri : touches pointillées, façon impressionniste ── -->
+  <g fill="var(--p-soleil)" opacity=".45">
+    <circle cx="96"  cy="282" r="2.8"/><circle cx="288" cy="278" r="2.4"/>
+    <circle cx="516" cy="284" r="2.9"/><circle cx="722" cy="280" r="2.5"/>
+    <circle cx="944" cy="284" r="2.7"/><circle cx="1128" cy="280" r="2.4"/>
+  </g>
+  <g fill="var(--p-fleur)" opacity=".7">
+    <circle cx="60"  cy="276" r="3.4"/><circle cx="132" cy="286" r="2.6"/>
+    <circle cx="205" cy="270" r="3.1"/><circle cx="268" cy="288" r="2.4"/>
+    <circle cx="330" cy="274" r="3.6"/><circle cx="402" cy="290" r="2.7"/>
+    <circle cx="470" cy="272" r="3.2"/><circle cx="536" cy="286" r="2.5"/>
+    <circle cx="606" cy="276" r="3.5"/><circle cx="676" cy="292" r="2.6"/>
+    <circle cx="742" cy="272" r="3.1"/><circle cx="812" cy="288" r="2.8"/>
+    <circle cx="878" cy="274" r="3.4"/><circle cx="948" cy="290" r="2.5"/>
+    <circle cx="1016" cy="276" r="3.2"/><circle cx="1088" cy="286" r="2.7"/>
+    <circle cx="1152" cy="272" r="3.3"/>
+  </g>
+
+  <!-- ── Touches de brosse claires : le relief du pré ── -->
+  <g stroke="var(--p-touche)" stroke-width="2.4" stroke-linecap="round" opacity=".38" fill="none">
+    <path d="M88,262 q16,-7 34,-3"/>   <path d="M246,256 q18,-8 36,-3"/>
+    <path d="M430,264 q16,-7 34,-2"/>  <path d="M628,258 q18,-8 36,-3"/>
+    <path d="M836,262 q16,-7 34,-3"/>  <path d="M1024,256 q18,-8 36,-2"/>
+  </g>
+
+  <!-- Voile de toile sur l'ensemble -->
+  <rect width="1200" height="300" filter="url(#pg-toile)" opacity=".07"/>
+</svg>

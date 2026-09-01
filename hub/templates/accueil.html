@@ -45,10 +45,32 @@
         {%- if p.cle == "instances" %}Les {{ inv.INSTANCES|length }} applications en ligne, leur état et leurs accès.
         {%- elif p.cle == "infrastructure" %}Services Cloud Run et bases Neon, avec leurs consoles.
         {%- elif p.cle == "documentation" %}Doc technique, guide utilisateur, plan V1.1.
+        {%- elif p.cle == 'tests' %}Lancer la suite, suivre l'exécution, lire le résultat.
         {%- elif p.cle == 'outils' %}{{ inv.OUTILS|map(attribute='entrees')|map('length')|sum }} commandes prêtes à coller.
         {%- else %}Branches, workflows et secrets.{% endif -%}
       </p>
       <span class="tuile-fleche">Ouvrir</span>
+    </a>
+    {% endfor %}
+  </div>
+</section>
+
+<section class="bande">
+  <div class="bande-index">
+    <span class="bande-tag acc-outils">Gammes</span>
+    <span class="bande-trait"></span>
+  </div>
+  {# Chaque section porte sa palette : on la donne à voir, et elle sert de
+     raccourci. Les teintes sont relevées sur les tableaux de référence. #}
+  <div class="gammes">
+    {% for p in inv.PAGES %}
+    <a class="gamme page--{{ p.cle }}" href="{{ p.route }}" title="{{ p.titre }}">
+      <span class="gamme-touches">
+        <i style="background:var(--p1)"></i><i style="background:var(--p4)"></i>
+        <i style="background:var(--p6)"></i><i style="background:var(--p-soleil)"></i>
+        <i style="background:var(--p-cypres)"></i>
+      </span>
+      <b>{{ p.titre }}</b>
     </a>
     {% endfor %}
   </div>

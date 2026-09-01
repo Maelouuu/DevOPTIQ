@@ -42,6 +42,48 @@
   --acc-encre: #0f766e;  /* texte sur pastel */
 }
 
+/* ══════════════════════════════════════════════════════════════════════
+   Gammes des sections — relevées sur les tableaux de référence (été
+   méditerranéen, couleur impressionniste). p1→p3 = ciel, p4→p7 = collines
+   du fond au premier plan, puis soleil, cyprès, fleurs et touches de brosse.
+   Le dessin est le même partout : seule la gamme change.
+   ══════════════════════════════════════════════════════════════════════ */
+.page--accueil {        /* Toscane — ciel franc, prés vifs */
+  --p1: #2f9fe4; --p2: #7ccdf1; --p3: #cdeefa;
+  --p4: #b9e24d; --p5: #86c93c; --p6: #59a831; --p7: #3d8a2b;
+  --p-soleil: #ffd23f; --p-cypres: #2c6b26; --p-fleur: #fdfbb4; --p-touche: #e6fa96;
+}
+.page--instances {      /* Blé — champs d'or sous le bleu */
+  --p1: #3d94e2; --p2: #8ccdf2; --p3: #dcefFB;
+  --p4: #f8de4c; --p5: #efc72e; --p6: #d2a41e; --p7: #ad8214;
+  --p-soleil: #fff6b0; --p-cypres: #6a5a1b; --p-fleur: #fffbe0; --p-touche: #ffef9a;
+}
+.page--infrastructure { /* Nemophila — outremer intense */
+  --p1: #1f52d8; --p2: #4d80f0; --p3: #aac7fb;
+  --p4: #2f6be0; --p5: #2453c8; --p6: #1c40aa; --p7: #16338c;
+  --p-soleil: #dce9ff; --p-cypres: #11307e; --p-fleur: #d2e2ff; --p-touche: #82aaf6;
+}
+.page--documentation {  /* Oliveraie — verts et citron */
+  --p1: #3fb0e5; --p2: #8ed8f2; --p3: #d9f1fa;
+  --p4: #d2e45c; --p5: #9ac93f; --p6: #69a731; --p7: #458529;
+  --p-soleil: #ffe066; --p-cypres: #2a6a28; --p-fleur: #fdfcb2; --p-touche: #e9f89c;
+}
+.page--tests {          /* Lavande — Provence en juillet */
+  --p1: #4593e6; --p2: #8fc4f2; --p3: #dceafb;
+  --p4: #b69ce9; --p5: #8f6fd8; --p6: #6e4ec0; --p7: #52399b;
+  --p-soleil: #ffe08a; --p-cypres: #3c2977; --p-fleur: #f1e6ff; --p-touche: #cdb8f6;
+}
+.page--outils {         /* Terre de Sienne — fin d'après-midi */
+  --p1: #f5b02c; --p2: #f9cf5e; --p3: #fdeaaa;
+  --p4: #e9954b; --p5: #d97434; --p6: #b75427; --p7: #92401e;
+  --p-soleil: #fff3c4; --p-cypres: #5b2f17; --p-fleur: #ffdaa2; --p-touche: #ffc578;
+}
+.page--ci {             /* Crépuscule — indigo lumineux */
+  --p1: #5a6fe0; --p2: #909df0; --p3: #d0d7fb;
+  --p4: #7c8bf0; --p5: #5f6cd8; --p6: #4954bd; --p7: #3a4398;
+  --p-soleil: #ffe9a0; --p-cypres: #2e357f; --p-fleur: #e1e6ff; --p-touche: #a9b4f8;
+}
+
 /* Couleur de page : un vif, un pastel, une encre. Les grands aplats prennent
    le pastel ; le vif reste sur les petits éléments. */
 .page--accueil       { --acc: #14b8a6; --acc-clair: #ccfbf1; --acc-encre: #0f766e; }
@@ -50,6 +92,7 @@
 .page--documentation { --acc: #10b981; --acc-clair: #d1fae5; --acc-encre: #047857; }
 .page--outils        { --acc: #f97316; --acc-clair: #ffedd5; --acc-encre: #c2410c; }
 .page--ci            { --acc: #6366f1; --acc-clair: #e0e7ff; --acc-encre: #4338ca; }
+.page--tests         { --acc: #8b5cf6; --acc-clair: #ede9fe; --acc-encre: #6d28d9; }
 
 /* Accent local (carte, ligne, bandeau). */
 .acc-accueil, .acc-hub, .acc-staging { --a: #14b8a6; }
@@ -170,50 +213,49 @@ body {
               border: 1px solid var(--trait); background: rgba(255,255,255,.7); }
 .nav-sortie:hover { background: #fff; color: var(--encre); border-color: var(--trait-fort); }
 
-/* ══ Héros de page : la couleur devient une SURFACE ═════════════════════ */
+/* ══ Héros de page : une toile, pas un aplat ═══════════════════════════ */
 .heros {
   position: relative; overflow: hidden; border-radius: var(--r-bloc);
-  padding: 30px 32px; margin-bottom: 28px; color: var(--encre-2);
-  background: linear-gradient(112deg,
-              color-mix(in srgb, var(--acc-clair) 88%, #fff) 0%,
-              var(--acc-clair) 46%,
-              color-mix(in srgb, var(--acc) 26%, #fff) 100%);
-  border: 1px solid color-mix(in srgb, var(--acc) 30%, #fff);
-  box-shadow: var(--om-2);
-  display: flex; align-items: center; gap: 22px; flex-wrap: wrap;
+  min-height: 250px; margin-bottom: 28px; color: var(--encre);
+  border: 1px solid color-mix(in srgb, var(--acc) 26%, #fff);
+  box-shadow: var(--om-3);
+  display: flex; align-items: flex-end;
 }
-/* Motif de bandes : rappel direct des couloirs d'une carto Optiq. */
-.heros::before {
-  content: ""; position: absolute; inset: 0; opacity: .16;
-  background-image: repeating-linear-gradient(180deg,
-    color-mix(in srgb, var(--acc) 55%, transparent) 0 2px, transparent 2px 46px);
-  mask-image: linear-gradient(100deg, #000 8%, transparent 62%);
+.paysage { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+
+/* Cartouche : le titre posé sur la toile, comme un cartel de musée. */
+.heros-cartouche {
+  position: relative; z-index: 2; margin: 0 0 22px 24px; max-width: 60ch;
+  background: rgba(255,255,255,.9); backdrop-filter: blur(7px) saturate(1.2);
+  border: 1px solid rgba(255,255,255,.9); border-left: 5px solid var(--acc);
+  border-radius: 14px; padding: 15px 20px 16px;
+  box-shadow: 0 12px 34px -16px rgba(16,23,37,.55);
 }
-.heros::after {
-  content: ""; position: absolute; inset: 0; opacity: .16; mix-blend-mode: multiply;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)' opacity='.4'/%3E%3C/svg%3E");
-}
-.heros-num {
-  position: relative; font-family: var(--f-titre); font-size: 64px; font-weight: 700;
-  line-height: .84; color: color-mix(in srgb, var(--acc) 34%, #fff); letter-spacing: -.03em;
-}
-.heros-txt { position: relative; flex: 1; min-width: 240px; }
 .heros-sur { display: inline-flex; align-items: center; gap: 7px; font-size: 10.5px;
              font-weight: 700; letter-spacing: .16em; text-transform: uppercase;
-             color: var(--acc-encre); margin-bottom: 7px; }
+             color: var(--acc-encre); margin-bottom: 5px; }
 .heros-sur::before { content: ""; width: 16px; height: 2px; background: var(--acc); }
-.heros h1 { font-family: var(--f-titre); font-size: 40px; font-weight: 700; color: var(--acc-encre);
-            letter-spacing: -.02em; line-height: 1.05; margin-bottom: 6px; }
-.heros p { font-size: 15px; color: var(--encre-2); max-width: 56ch; }
-.heros-extra { position: relative; display: flex; gap: 8px; flex-wrap: wrap; }
+.heros h1 { font-family: var(--f-titre); font-size: 38px; font-weight: 700;
+            color: var(--encre); letter-spacing: -.02em; line-height: 1.05;
+            margin-bottom: 4px; }
+.heros p { font-size: 14.5px; color: var(--encre-2); }
 
-/* Boutons sur le héros : verre, pas gris. */
-.heros-extra .btn-sec, .heros-extra a, .heros-extra button {
-  background: rgba(255,255,255,.85); border: 1px solid color-mix(in srgb, var(--acc) 34%, #fff);
-  color: var(--acc-encre); backdrop-filter: blur(6px);
+.heros-num {
+  position: absolute; z-index: 2; top: 16px; left: 26px;
+  font-family: var(--f-titre); font-size: 62px; font-weight: 700; line-height: .84;
+  color: rgba(255,255,255,.55); letter-spacing: -.03em;
+  text-shadow: 0 2px 14px rgba(16,23,37,.22);
 }
-.heros-extra .btn-sec:hover { background: #fff; color: var(--acc-encre);
-                              border-color: var(--acc); }
+.heros-extra { position: absolute; z-index: 2; top: 18px; right: 20px;
+               display: flex; gap: 8px; flex-wrap: wrap; }
+.heros-extra .btn-sec, .heros-extra a, .heros-extra button {
+  background: rgba(255,255,255,.9); border: 1px solid rgba(255,255,255,.95);
+  color: var(--acc-encre); backdrop-filter: blur(6px);
+  box-shadow: 0 6px 18px -10px rgba(16,23,37,.5);
+}
+.heros-extra .btn-sec:hover { background: #fff; border-color: var(--acc); }
+.heros-extra .btn-pri { border: 0; color: #fff;
+  background: linear-gradient(135deg, var(--acc), color-mix(in srgb, var(--acc) 66%, #fff)); }
 
 /* ══ Bande de section : le bandeau d'index d'une carto ══════════════════ */
 .bande { margin-bottom: 30px; }
@@ -362,6 +404,27 @@ body {
                 text-transform: uppercase; color: var(--a); }
 .tuile-fleche::after { content: "→"; transition: transform .18s; }
 .tuile:hover .tuile-fleche::after { transform: translateX(4px); }
+
+/* ══ Gammes : la palette du peintre ════════════════════════════════════ */
+.gammes { display: grid; grid-template-columns: repeat(auto-fit, minmax(168px, 1fr)); gap: 12px; }
+.gamme {
+  display: flex; flex-direction: column; gap: 9px; text-decoration: none;
+  background: linear-gradient(180deg, #fff, var(--carte-2));
+  border: 1px solid var(--trait); border-radius: 13px; padding: 13px 14px;
+  box-shadow: var(--om-1); transition: box-shadow .16s, transform .16s, border-color .16s;
+}
+.gamme:hover { box-shadow: var(--om-2); transform: translateY(-2px);
+               border-color: color-mix(in srgb, var(--p6) 42%, #fff); }
+.gamme-touches { display: flex; gap: 0; border-radius: 8px; overflow: hidden;
+                 box-shadow: inset 0 0 0 1px rgba(16,23,37,.06); }
+/* Bandes inégales : une palette de peintre, pas un nuancier régulier. */
+.gamme-touches i { height: 26px; display: block; }
+.gamme-touches i:nth-child(1) { flex: 1.5; }
+.gamme-touches i:nth-child(2) { flex: 1.1; }
+.gamme-touches i:nth-child(3) { flex: 1.3; }
+.gamme-touches i:nth-child(4) { flex: .7; }
+.gamme-touches i:nth-child(5) { flex: .6; }
+.gamme b { font-size: 12.5px; font-weight: 700; color: var(--encre); }
 
 /* ══ Pastilles d'état ══════════════════════════════════════════════════ */
 .pill { margin-left: auto; display: inline-flex; align-items: center; gap: 6px;
