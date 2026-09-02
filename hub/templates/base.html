@@ -57,14 +57,14 @@
 <div class="cadre">
   <main id="contenu" class="colonne">
     <header class="heros">
+      {% include "_paysage.html" %}
       {% set _toile = toiles.get(page_active) %}
       {% if _toile %}
-        {# Toile fournie : elle prend toute la bannière. Le dégradé sous le
-           cartouche garde le titre lisible quelle que soit l'image. #}
-        <img class="toile-photo" src="{{ url_for('static', filename='toiles/' ~ _toile) }}" alt="">
-        <span class="toile-voile" aria-hidden="true"></span>
-      {% else %}
-        {% include "_paysage.html" %}
+        {# Illustration en PORTRAIT : accrochée comme un tableau plutôt
+           qu'étirée en bandeau, qui n'en montrerait qu'une tranche. #}
+        <figure class="tableau">
+          <img src="{{ url_for('static', filename='toiles/' ~ _toile) }}" alt="" loading="lazy">
+        </figure>
       {% endif %}
       <span class="heros-num">{% block page_num %}00{% endblock %}</span>
       <div class="heros-cartouche">

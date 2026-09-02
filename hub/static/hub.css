@@ -216,25 +216,38 @@ body {
 /* ══ Héros de page : une toile, pas un aplat ═══════════════════════════ */
 .heros {
   position: relative; overflow: hidden; border-radius: var(--r-bloc);
-  min-height: 250px; margin-bottom: 28px; color: var(--encre);
+  min-height: 288px; margin-bottom: 28px; color: var(--encre);
   border: 1px solid color-mix(in srgb, var(--acc) 26%, #fff);
   box-shadow: var(--om-3);
   display: flex; align-items: flex-end;
 }
 .paysage { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
 
-/* Toile fournie : cadrage bas (le sujet de ces illustrations est en bas de
-   l'image), et voile clair côté gauche pour que le cartouche reste lisible
-   même sur une zone chargée. */
-.toile-photo { position: absolute; inset: 0; width: 100%; height: 100%;
-               object-fit: cover; object-position: 50% 62%; display: block; }
-.toile-voile { position: absolute; inset: 0;
-               background: linear-gradient(96deg, rgba(255,255,255,.72) 0%,
-                           rgba(255,255,255,.34) 38%, rgba(255,255,255,0) 62%); }
+/* Tableau accroché : passe-partout blanc, cadre fin, ombre portée et une
+   très légère inclinaison — l'objet doit se lire comme une toile posée sur
+   le paysage, pas comme une vignette. */
+.tableau {
+  position: absolute; z-index: 2; right: 26px; top: 18px; bottom: 18px;
+  margin: 0; padding: 7px; border-radius: 6px;
+  background: linear-gradient(180deg, #fff, #f4f1e8);
+  border: 1px solid rgba(16,23,37,.14);
+  box-shadow: 0 14px 34px -12px rgba(16,23,37,.5), 0 2px 6px rgba(16,23,37,.16);
+  transform: rotate(-1.2deg);
+  transition: transform .25s ease, box-shadow .25s ease;
+}
+.tableau img { display: block; height: 100%; width: auto; max-width: 34vw;
+               border-radius: 2px; object-fit: cover; }
+.heros:hover .tableau { transform: rotate(0deg) scale(1.015);
+                        box-shadow: 0 20px 46px -14px rgba(16,23,37,.55); }
+/* Le clou : un point sombre au-dessus du cadre. */
+.tableau::before { content: ""; position: absolute; top: -9px; left: 50%;
+                   width: 6px; height: 6px; margin-left: -3px; border-radius: 50%;
+                   background: rgba(16,23,37,.34); }
 
 /* Cartouche : le titre posé sur la toile, comme un cartel de musée. */
 .heros-cartouche {
-  position: relative; z-index: 2; margin: 0 0 22px 24px; max-width: 60ch;
+  position: relative; z-index: 2; margin: 0 0 22px 24px;
+  max-width: min(60ch, 58%);
   background: rgba(255,255,255,.9); backdrop-filter: blur(7px) saturate(1.2);
   border: 1px solid rgba(255,255,255,.9); border-left: 5px solid var(--acc);
   border-radius: 14px; padding: 15px 20px 16px;
@@ -622,6 +635,8 @@ a:focus-visible, button:focus-visible, input:focus-visible {
   * { transition-duration: .001ms !important; animation-duration: .001ms !important; }
 }
 @media (max-width: 920px) {
+  .tableau { display: none; }
+  .heros-cartouche { max-width: none; }
   .navbar-in { padding: 10px 16px; gap: 12px; }
   .nav-lien span { display: none; }
   .nav-lien.actif span { display: inline; }
