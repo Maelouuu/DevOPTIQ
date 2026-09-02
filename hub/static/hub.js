@@ -183,26 +183,30 @@ document.getElementById('btn-lancer')?.addEventListener('click', async (ev) => {
 if (document.getElementById('corps-runs')) chargerExecutions();
 
 
-/* ══ Secteurs : inclinaison vers le curseur ══════════════════════════════
-   La carte pivote de quelques degrés seulement — au-delà, le texte se
-   déforme et devient pénible à lire. Coupé si l'utilisateur demande moins
-   d'animations, et sur les écrans tactiles (aucun survol). */
+/* ══ L'arbre : la branche du nœud survolé s'allume ═══════════════════════
+   Le lien entre un nœud et le tronc doit se voir : on marque la branche
+   correspondante et on estompe les autres. La couleur vive vient du nœud
+   lui-même, pour rester cohérent avec sa section. */
 (function () {
-  const cartes = document.querySelectorAll('.secteur');
-  if (!cartes.length) return;
-  if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-  if (!matchMedia('(hover: hover)').matches) return;
+  const arbre = document.querySelector('.arbre');
+  if (!arbre) return;
 
-  const AMPLITUDE = 7;   // degrés
+  arbre.querySelectorAll('.noeud[data-br]').forEach(noeud => {
+    const branche = arbre.querySelector('.br-' + noeud.dataset.br);
+    if (!branche) return;
 
-  cartes.forEach(carte => {
-    carte.addEventListener('pointermove', ev => {
-      const r = carte.getBoundingClientRect();
-      const x = (ev.clientX - r.left) / r.width - .5;
-      const y = (ev.clientY - r.top) / r.height - .5;
-      carte.style.transform =
-        'rotateY(' + (x * AMPLITUDE) + 'deg) rotateX(' + (-y * AMPLITUDE) + 'deg) translateY(-4px)';
-    });
-    carte.addEventListener('pointerleave', () => { carte.style.transform = ''; });
+    const allumer = () => {
+      arbre.dataset.actif = noeud.dataset.br;
+      arbre.style.setProperty('--acc-vif', getComputedStyle(noeud).getPropertyValue('--a').trim());
+      branche.classList.add('vive');
+    };
+    const eteindre = () => {
+      delete arbre.dataset.actif;
+      branche.classList.remove('vive');
+    };
+    noeud.addEventListener('pointerenter', allumer);
+    noeud.addEventListener('pointerleave', eteindre);
+    noeud.addEventListener('focus', allumer);
+    noeud.addEventListener('blur', eteindre);
   });
 })();

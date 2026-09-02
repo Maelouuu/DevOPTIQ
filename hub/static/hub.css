@@ -235,49 +235,79 @@ body{
 .tuile-fleche::after{content:"→";transition:transform .18s}
 .tuile:hover .tuile-fleche::after{transform:translateX(4px)}
 
-/* ══ Secteurs — cartes en relief, saynètes animées ════════════════════════
-   Chaque secteur montre ce qu'il fait plutôt que de le dire : la doc se
-   feuillette, la clé serre, la branche pousse. Les cartes s'inclinent vers
-   le curseur (perspective + rotation pilotées par hub.js), l'illustration
-   flotte au-dessus du plan de la carte.
+/* ══ L'arbre — carte de l'écosystème ══════════════════════════════════════
+   Un tronc central, six branches, six nœuds. Ce n'est pas une grille de
+   cartes redite : c'est une CARTE — les liens sont dessinés, et chaque nœud
+   porte un chiffre réel.
+
+   Deux couches superposées : un SVG qui trace les branches (viewBox 1200×560,
+   `preserveAspectRatio="none"` pour que ses coordonnées suivent exactement
+   les pourcentages des nœuds) et les nœuds en HTML par-dessus, pour garder
+   une vraie typographie et des liens accessibles.
    ══════════════════════════════════════════════════════════════════════ */
-.secteurs{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:20px;
-  perspective:1100px}
+.arbre{position:relative;height:560px;margin-top:4px}
 
-.secteur{position:relative;display:block;text-decoration:none;overflow:hidden;
-  background:linear-gradient(168deg,#fff 0%,color-mix(in srgb,var(--a) 7%,#fff) 100%);
-  border:1px solid var(--trait);
-  border-radius:98px 98px 16px 16px;         /* l'arche, jusque dans les cartes */
-  padding:26px 22px 22px;
+.branches{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
+.br{fill:none;stroke:var(--trait2);stroke-width:2.2;stroke-linecap:round;
+  transition:stroke .25s ease,stroke-width .25s ease}
+/* Les branches poussent depuis le tronc au chargement. */
+.br{stroke-dasharray:520;stroke-dashoffset:520;animation:pousse-br 1.5s ease-out forwards}
+.br-instances{animation-delay:.15s}.br-infrastructure{animation-delay:.3s}
+.br-documentation{animation-delay:.45s}.br-tests{animation-delay:.6s}
+.br-outils{animation-delay:.75s}.br-ci{animation-delay:.9s}
+@keyframes pousse-br{to{stroke-dashoffset:0}}
+
+.feuilles ellipse{fill:#588b2f;opacity:0;animation:eclot-f .6s ease-out forwards 1.4s}
+@keyframes eclot-f{to{opacity:.5}}
+
+/* Branche mise en avant quand son nœud est survolé (classe posée par hub.js). */
+.arbre[data-actif] .br{stroke:var(--trait);opacity:.5}
+.arbre[data-actif] .br.vive{stroke:var(--acc-vif);stroke-width:3.4;opacity:1}
+.arbre[data-actif] .feuilles ellipse{opacity:.22}
+
+/* ── Tronc ── */
+.noeud-centre{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+  z-index:3;width:186px;padding:20px 18px 18px;text-align:center;
+  background:linear-gradient(168deg,#fff,var(--chaux2));
+  border:1px solid var(--trait);border-radius:93px 93px 16px 16px;
+  box-shadow:0 18px 40px -22px rgba(43,42,32,.6)}
+.noeud-centre svg{width:44px;height:44px;margin-bottom:8px}
+.noeud-centre b{display:block;font-family:var(--f-titre);font-size:19px;font-weight:600;color:var(--encre)}
+.noeud-centre span{font-family:var(--f-titre);font-style:italic;font-size:12.5px;color:var(--gris)}
+
+/* ── Nœuds ── */
+.noeud{position:absolute;left:var(--x);top:var(--y);transform:translate(-50%,-50%);
+  z-index:2;width:196px;padding:16px 14px 14px;text-align:center;text-decoration:none;
+  background:linear-gradient(168deg,#fff,color-mix(in srgb,var(--a) 8%,#fff));
+  border:1px solid var(--trait);border-radius:98px 98px 14px 14px;
   box-shadow:var(--om1);
-  transform-style:preserve-3d;
-  transition:box-shadow .3s ease,border-color .3s ease}
-.secteur:hover{box-shadow:0 30px 60px -28px color-mix(in srgb,var(--a) 70%,rgba(43,42,32,.8));
-  border-color:color-mix(in srgb,var(--a) 40%,#fff)}
+  transition:transform .25s ease,box-shadow .25s ease,border-color .25s ease}
+.noeud:hover{transform:translate(-50%,-50%) translateY(-6px) scale(1.03);
+  box-shadow:0 26px 52px -24px color-mix(in srgb,var(--a) 70%,rgba(43,42,32,.85));
+  border-color:color-mix(in srgb,var(--a) 45%,#fff);z-index:4}
+.arbre[data-actif] .noeud{opacity:.55}
+.arbre[data-actif] .noeud:hover{opacity:1}
 
-/* Halo de voûte : l'ombre colorée derrière la saynète. */
-.secteur::before{content:"";position:absolute;top:-58px;left:50%;transform:translateX(-50%);
-  width:200px;height:150px;border-radius:0 0 100px 100px;
-  background:color-mix(in srgb,var(--a) 15%,#fff);transition:background .3s ease}
-.secteur:hover::before{background:color-mix(in srgb,var(--a) 24%,#fff)}
+.noeud-vign{display:grid;place-items:center;height:76px;margin-bottom:8px}
+.noeud .vign{width:96px;height:80px;overflow:visible}
+.noeud b{display:block;font-family:var(--f-titre);font-size:17px;font-weight:600;
+  color:var(--encre);margin-bottom:2px}
+.noeud em{font-family:var(--f-titre);font-style:italic;font-size:12.5px;color:var(--gris)}
 
-/* Reflet qui traverse la carte au survol. */
-.secteur-eclat{position:absolute;inset:0;pointer-events:none;opacity:0;
-  background:linear-gradient(104deg,transparent 34%,rgba(255,255,255,.7) 50%,transparent 66%);
-  transform:translateX(-60%);transition:opacity .3s ease}
-.secteur:hover .secteur-eclat{opacity:1;animation:eclat 1.1s ease-out}
-@keyframes eclat{from{transform:translateX(-60%)}to{transform:translateX(60%)}}
+@media (prefers-reduced-motion:reduce){
+  .br{stroke-dashoffset:0;animation:none}
+  .feuilles ellipse{opacity:.5;animation:none}
+}
 
-.secteur-scene{position:relative;display:grid;place-items:center;height:112px;margin-bottom:16px;
-  transform:translateZ(38px);transition:transform .3s ease}
-.secteur:hover .secteur-scene{transform:translateZ(56px) scale(1.05)}
-.vign{width:120px;height:100px;overflow:visible}
-.vign *{transform-box:fill-box}
-
-.secteur-txt{position:relative;text-align:center;transform:translateZ(18px)}
-.secteur h3{font-family:var(--f-titre);font-size:20px;font-weight:600;color:var(--encre);
-  margin-bottom:4px}
-.secteur p{font-family:var(--f-titre);font-style:italic;font-size:13.5px;color:var(--gris)}
+/* En colonne étroite, la carte n'a plus de sens : les nœuds redeviennent une
+   liste et les branches disparaissent. */
+@media (max-width:1000px){
+  .arbre{height:auto;display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px}
+  .branches{display:none}
+  .noeud,.noeud-centre{position:static;transform:none;width:auto}
+  .noeud:hover{transform:translateY(-4px)}
+  .noeud-centre{grid-column:1/-1}
+}
 
 /* ── Traits communs des saynètes ── */
 .vign [class^="v-"]{fill:none;stroke:var(--a);stroke-width:2.4;
