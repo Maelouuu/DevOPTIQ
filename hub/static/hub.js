@@ -181,3 +181,28 @@ document.getElementById('btn-lancer')?.addEventListener('click', async (ev) => {
 });
 
 if (document.getElementById('corps-runs')) chargerExecutions();
+
+
+/* ══ Secteurs : inclinaison vers le curseur ══════════════════════════════
+   La carte pivote de quelques degrés seulement — au-delà, le texte se
+   déforme et devient pénible à lire. Coupé si l'utilisateur demande moins
+   d'animations, et sur les écrans tactiles (aucun survol). */
+(function () {
+  const cartes = document.querySelectorAll('.secteur');
+  if (!cartes.length) return;
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  if (!matchMedia('(hover: hover)').matches) return;
+
+  const AMPLITUDE = 7;   // degrés
+
+  cartes.forEach(carte => {
+    carte.addEventListener('pointermove', ev => {
+      const r = carte.getBoundingClientRect();
+      const x = (ev.clientX - r.left) / r.width - .5;
+      const y = (ev.clientY - r.top) / r.height - .5;
+      carte.style.transform =
+        'rotateY(' + (x * AMPLITUDE) + 'deg) rotateX(' + (-y * AMPLITUDE) + 'deg) translateY(-4px)';
+    });
+    carte.addEventListener('pointerleave', () => { carte.style.transform = ''; });
+  });
+})();

@@ -55,4 +55,111 @@
   </div>
 </section>
 
+<section class="bande">
+  <div class="bande-index">
+    <span class="bande-tag acc-accueil">Le jardin</span>
+    <span class="bande-trait"></span>
+  </div>
+
+  {# Chaque secteur porte une saynète animée qui dit ce qu'il fait : la doc est
+     un livre qui se feuillette, les outils une clé qui serre, la CI une
+     branche qui pousse. Les cartes s'inclinent vers le curseur (hub.js). #}
+  <div class="secteurs">
+
+    <a class="secteur acc-instances" href="/instances">
+      <div class="secteur-scene">
+        <svg viewBox="0 0 120 100" class="vign" aria-hidden="true">
+          <rect class="v-fen v-fen3" x="26" y="16" width="72" height="50" rx="7"/>
+          <rect class="v-fen v-fen2" x="18" y="24" width="72" height="50" rx="7"/>
+          <rect class="v-fen v-fen1" x="10" y="32" width="72" height="50" rx="7"/>
+          <path class="v-barre" d="M10 44h72"/>
+          <circle class="v-led" cx="20" cy="38" r="2.6"/>
+          <circle class="v-pt" cx="46" cy="63" r="7"/>
+        </svg>
+      </div>
+      <div class="secteur-txt"><h3>Instances</h3><p>Les applications en ligne et leur état</p></div>
+      <span class="secteur-eclat" aria-hidden="true"></span>
+    </a>
+
+    <a class="secteur acc-infra" href="/infrastructure">
+      <div class="secteur-scene">
+        <svg viewBox="0 0 120 100" class="vign" aria-hidden="true">
+          <ellipse class="v-disque" cx="60" cy="26" rx="30" ry="11"/>
+          <path class="v-flanc" d="M30 26v42c0 6 13 11 30 11s30-5 30-11V26"/>
+          <ellipse class="v-anneau v-a1" cx="60" cy="44" rx="30" ry="11"/>
+          <ellipse class="v-anneau v-a2" cx="60" cy="60" rx="30" ry="11"/>
+          <circle class="v-voyant v-t1" cx="46" cy="86" r="3"/>
+          <circle class="v-voyant v-t2" cx="60" cy="86" r="3"/>
+          <circle class="v-voyant v-t3" cx="74" cy="86" r="3"/>
+        </svg>
+      </div>
+      <div class="secteur-txt"><h3>Infrastructure</h3><p>Services Cloud Run et bases Neon</p></div>
+      <span class="secteur-eclat" aria-hidden="true"></span>
+    </a>
+
+    <a class="secteur acc-docs" href="/documentation">
+      <div class="secteur-scene">
+        <svg viewBox="0 0 120 100" class="vign" aria-hidden="true">
+          <path class="v-couv" d="M14 24c16-7 30-7 46 0v56c-16-7-30-7-46 0z"/>
+          <path class="v-couv" d="M106 24c-16-7-30-7-46 0v56c16-7 30-7 46 0z"/>
+          <path class="v-page v-p1" d="M60 24c13-6 25-6 40 0v54c-15-6-27-6-40 0z"/>
+          <path class="v-page v-p2" d="M60 24c13-6 25-6 40 0v54c-15-6-27-6-40 0z"/>
+          <path class="v-dos" d="M60 24v56"/>
+          <g class="v-lignes"><path d="M70 40h24M70 50h20M70 60h24"/></g>
+        </svg>
+      </div>
+      <div class="secteur-txt"><h3>Documentation</h3><p>Doc technique, guide, plan V1.1</p></div>
+      <span class="secteur-eclat" aria-hidden="true"></span>
+    </a>
+
+    <a class="secteur acc-tests" href="/tests">
+      <div class="secteur-scene">
+        <svg viewBox="0 0 120 100" class="vign" aria-hidden="true">
+          <circle class="v-cercle" cx="60" cy="50" r="32"/>
+          <circle class="v-orbe" cx="60" cy="50" r="32"/>
+          <path class="v-coche" d="M44 51l11 11 22-24"/>
+        </svg>
+      </div>
+      <div class="secteur-txt"><h3>Tests</h3><p>Lancer la suite et lire le résultat</p></div>
+      <span class="secteur-eclat" aria-hidden="true"></span>
+    </a>
+
+    <a class="secteur acc-outils" href="/outils">
+      <div class="secteur-scene">
+        <svg viewBox="0 0 120 100" class="vign" aria-hidden="true">
+          <g transform="translate(88 26)">
+            <g class="v-boulon">
+              <path d="M0 -12l10.4 6v12L0 12l-10.4-6v-12z"/>
+              <circle cx="0" cy="0" r="5"/>
+            </g>
+          </g>
+          <g transform="translate(8 6) scale(3.6)">
+            <g class="v-cle">
+              <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
+            </g>
+          </g>
+        </svg>
+      </div>
+      <div class="secteur-txt"><h3>Outils</h3><p>Seize commandes prêtes à coller</p></div>
+      <span class="secteur-eclat" aria-hidden="true"></span>
+    </a>
+
+    <a class="secteur acc-ci" href="/ci">
+      <div class="secteur-scene">
+        <svg viewBox="0 0 120 100" class="vign" aria-hidden="true">
+          <path class="v-tronc" d="M32 84V22"/>
+          <path class="v-branche" d="M32 52c0-14 12-20 28-20h16"/>
+          <circle class="v-noeud v-n1" cx="32" cy="80" r="6"/>
+          <circle class="v-noeud v-n2" cx="32" cy="52" r="6"/>
+          <circle class="v-noeud v-n3" cx="80" cy="32" r="6"/>
+          <circle class="v-noeud v-n4" cx="32" cy="24" r="6"/>
+        </svg>
+      </div>
+      <div class="secteur-txt"><h3>Dépôt &amp; CI</h3><p>Branches, workflows et secrets</p></div>
+      <span class="secteur-eclat" aria-hidden="true"></span>
+    </a>
+
+  </div>
+</section>
+
 {% endblock %}
