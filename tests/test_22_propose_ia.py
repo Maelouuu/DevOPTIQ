@@ -67,6 +67,21 @@ def _mock_openai(monkeypatch, module, content=None, raise_exc=None):
     )
 
 
+def _mock_skills_ai(monkeypatch, content=None, raise_exc=None):
+    """Simule une clé OpenAI + client IA fonctionnels pour /skills/propose.
+
+    skills.py construit son client via `from Code.ai_client import make_ai_client`
+    importé localement dans la fonction : on patche la source, pas la référence
+    locale à skills.py (qui n'existe qu'au moment de l'appel).
+    """
+    monkeypatch.setattr("Code.routes.skills.get_openai_key", lambda: "sk-fake-key")
+    fake_client = _FakeOpenAIClient(content=content, raise_exc=raise_exc)
+    monkeypatch.setattr(
+        "Code.ai_client.make_ai_client",
+        lambda *a, **kw: (fake_client, "gpt-4o-mini", None),
+    )
+
+
 def _lang_client(app, lang):
     """Client isolé (non partagé) avec la langue de session forcée."""
     fresh = app.test_client()
@@ -917,6 +932,71 @@ class TestSkillsPropose:
         )
         assert r.status_code == 400
 
+    def test_prompt_indisponible_retourne_500(self, auth_client, monkeypatch):
+        """get_prompt() renvoie None (prompts non chargés) → 500 explicite."""
+        monkeypatch.setattr("Code.routes.skills.get_prompt", lambda *a, **kw: None)
+        r = auth_client.post(
+            "/skills/propose",
+            data=json.dumps({"name": "X", "tasks": [{"name": "Analyser"}]}),
+            content_type="application/json",
+        )
+        assert r.status_code == 500
+        assert "error" in r.get_json()
+
+    def test_output_data_dict_et_connexions_completes_avec_ia(self, auth_client, monkeypatch):
+        """Couvre les branches dict pour output_data, outgoing et tools + les 3 propositions IA."""
+        _mock_skills_ai(monkeypatch, content="Analyse de données\nRédaction de rapports\nGestion des priorités")
+        r = auth_client.post(
+            "/skills/propose",
+            data=json.dumps({
+                "name": "Activité complète",
+                "input_data": "Bon de commande",
+                "output_data": {"text": "Rapport final"},
+                "tasks": [{"name": "Analyser"}, "Rédiger"],
+                "outgoing": [{"target_name": "Comptabilité"}, "Direction"],
+                "tools": [{"name": "Excel"}, "CRM"],
+            }),
+            content_type="application/json",
+        )
+        assert r.status_code == 200
+        data = r.get_json()
+        assert data["proposals"] == ["Analyse de données", "Rédaction de rapports", "Gestion des priorités"]
+
+    def test_reponse_ia_sur_une_ligne_est_decoupee_en_phrases(self, auth_client, monkeypatch):
+        """Fallback : l'IA renvoie tout sur une ligne → découpage en phrases par '. '."""
+        _mock_skills_ai(monkeypatch, content="Analyser les données. Rédiger le rapport. Prioriser les tâches.")
+        r = auth_client.post(
+            "/skills/propose",
+            data=json.dumps({"name": "X", "tasks": [{"name": "Analyser"}]}),
+            content_type="application/json",
+        )
+        assert r.status_code == 200
+        proposals = r.get_json()["proposals"]
+        assert len(proposals) == 3
+        assert proposals[0] == "Analyser les données"
+
+    def test_plus_de_trois_lignes_ia_tronque_a_trois(self, auth_client, monkeypatch):
+        """Plus de 3 lignes renvoyées par l'IA → tronqué à 3."""
+        _mock_skills_ai(monkeypatch, content="Une\nDeux\nTrois\nQuatre")
+        r = auth_client.post(
+            "/skills/propose",
+            data=json.dumps({"name": "X", "tasks": [{"name": "Analyser"}]}),
+            content_type="application/json",
+        )
+        assert r.status_code == 200
+        assert r.get_json()["proposals"] == ["Une", "Deux", "Trois"]
+
+    def test_exception_ia_retourne_500(self, auth_client, monkeypatch):
+        """Le client IA lève une exception → 500 avec le message d'erreur."""
+        _mock_skills_ai(monkeypatch, raise_exc=RuntimeError("panne IA"))
+        r = auth_client.post(
+            "/skills/propose",
+            data=json.dumps({"name": "X", "tasks": [{"name": "Analyser"}]}),
+            content_type="application/json",
+        )
+        assert r.status_code == 500
+        assert "panne IA" in r.get_json()["error"]
+
 
 # ===========================================================================
 # 6. CRUD Compétences via /skills
@@ -1061,6 +1141,60 @@ class TestSkillsCRUD:
         with app.app_context():
             from Code.models.models import Competency
             assert Competency.query.get(comp_id) is None
+
+    def test_add_erreur_commit_retourne_500(self, auth_client, ids, monkeypatch):
+        """Une exception au commit (DB down) → rollback + 500 avec le message d'erreur."""
+        from sqlalchemy.orm import Session as SqlaSession
+
+        def raise_commit_error(self):
+            raise RuntimeError("DB down")
+
+        monkeypatch.setattr(SqlaSession, "commit", raise_commit_error)
+        r = auth_client.post(
+            "/skills/add",
+            data=json.dumps({"activity_id": ids["activity_id"], "description": "Ne sera jamais créée"}),
+            content_type="application/json",
+        )
+        assert r.status_code == 500
+        assert "DB down" in r.get_json()["error"]
+
+    def test_update_erreur_commit_retourne_500(self, auth_client, ids, app, monkeypatch):
+        """Une exception au commit lors d'un update → rollback + 500."""
+        from sqlalchemy.orm import Session as SqlaSession
+
+        comp_id = _create_competency(app, ids["activity_id"], "Avant erreur commit update")
+        try:
+            def raise_commit_error(self):
+                raise RuntimeError("DB down")
+
+            monkeypatch.setattr(SqlaSession, "commit", raise_commit_error)
+            r = auth_client.put(
+                f"/skills/{comp_id}",
+                data=json.dumps({"description": "Nouvelle valeur"}),
+                content_type="application/json",
+            )
+            assert r.status_code == 500
+            assert "DB down" in r.get_json()["error"]
+        finally:
+            monkeypatch.undo()
+            _delete_competency(app, comp_id)
+
+    def test_delete_erreur_commit_retourne_500(self, auth_client, ids, app, monkeypatch):
+        """Une exception au commit lors d'un delete → rollback + 500."""
+        from sqlalchemy.orm import Session as SqlaSession
+
+        comp_id = _create_competency(app, ids["activity_id"], "Avant erreur commit delete")
+        try:
+            def raise_commit_error(self):
+                raise RuntimeError("DB down")
+
+            monkeypatch.setattr(SqlaSession, "commit", raise_commit_error)
+            r = auth_client.delete(f"/skills/{comp_id}")
+            assert r.status_code == 500
+            assert "DB down" in r.get_json()["error"]
+        finally:
+            monkeypatch.undo()
+            _delete_competency(app, comp_id)
 
 
 # ===========================================================================

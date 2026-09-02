@@ -77,6 +77,9 @@ PAGE_LABELS = {
     "test_62_activities_constraints_items": "Contraintes/Données (/activities) & API Items d'Activité",
     "test_63_cartography_translate_advanced": "Cartographie (succès/erreur) & Traduction Soft Skills IA",
     "test_64_activities_map_gaps":       "Cartographie — CRUD Entités, Extraction SVG & Liaisons Cross-Carto (Avancé)",
+    "test_48_carto_package":             "Paquet de Cartographie (.optiqcarto)",
+    "test_49_carto_dom_contract":        "Contrat DOM Éditeur/Viewer OptiqCarto",
+    "test_51_entity_share":              "Partage d'Entité entre Comptes",
 }
 
 

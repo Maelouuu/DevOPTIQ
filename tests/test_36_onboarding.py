@@ -11,6 +11,57 @@ import pytest
 pytestmark = pytest.mark.onboarding
 
 
+class _FakeMessage:
+    def __init__(self, content):
+        self.content = content
+
+
+class _FakeChoice:
+    def __init__(self, content):
+        self.message = _FakeMessage(content)
+
+
+class _FakeCompletion:
+    def __init__(self, content):
+        self.choices = [_FakeChoice(content)]
+
+
+class _FakeChatCompletions:
+    def __init__(self, content=None, raise_exc=None):
+        self._content = content
+        self._raise_exc = raise_exc
+
+    def create(self, **kwargs):
+        if self._raise_exc is not None:
+            raise self._raise_exc
+        return _FakeCompletion(self._content)
+
+
+class _FakeChat:
+    def __init__(self, content=None, raise_exc=None):
+        self.completions = _FakeChatCompletions(content, raise_exc)
+
+
+class _FakeOpenAIClient:
+    def __init__(self, content=None, raise_exc=None):
+        self.chat = _FakeChat(content, raise_exc)
+
+
+def _mock_ai(monkeypatch, content=None, raise_exc=None):
+    """Simule une clé OpenAI présente + un client IA fonctionnel pour generate_onboarding.
+
+    get_openai_key est importé au niveau module dans onboarding.py (patch direct) ;
+    make_ai_client est importé localement dans la fonction à chaque appel, donc on
+    patche sa source (Code.ai_client.make_ai_client).
+    """
+    monkeypatch.setattr("Code.routes.onboarding.get_openai_key", lambda: "sk-fake-key")
+    fake_client = _FakeOpenAIClient(content=content, raise_exc=raise_exc)
+    monkeypatch.setattr(
+        "Code.ai_client.make_ai_client",
+        lambda *a, **kw: (fake_client, "gpt-4o-mini", None),
+    )
+
+
 def _create_role(app, ids):
     """Crée un rôle de test et retourne son id."""
     from Code.extensions import db
@@ -143,6 +194,81 @@ class TestGenerateOnboarding:
             content_type="application/json",
         )
         assert r.content_type.startswith("application/json")
+
+    def test_prompt_indisponible_retourne_500(self, auth_client, app, ids, monkeypatch):
+        """get_prompt() renvoie None (prompts non chargés) → 500 explicite, jamais un crash."""
+        monkeypatch.setattr("Code.routes.onboarding.get_prompt", lambda *a, **kw: None)
+        role_id = _create_role(app, ids)
+        try:
+            r = auth_client.post(
+                f"/roles/{role_id}/onboarding/generate",
+                json={"hsc_list": ["Auto-organisation"]},
+                content_type="application/json",
+            )
+            assert r.status_code == 500
+            assert "error" in r.get_json()
+        finally:
+            _delete_role(app, role_id)
+
+    def test_succes_genere_et_persiste_le_plan(self, auth_client, app, ids, monkeypatch):
+        """Avec clé + client IA fonctionnels : le plan généré est renvoyé ET sauvegardé sur le rôle."""
+        _mock_ai(monkeypatch, content="1. Découverte de l'équipe\n2. Formation aux outils")
+        role_id = _create_role(app, ids)
+        try:
+            r = auth_client.post(
+                f"/roles/{role_id}/onboarding/generate",
+                json={"hsc_list": ["Auto-organisation", "Coopération"]},
+                content_type="application/json",
+            )
+            assert r.status_code == 200
+            data = r.get_json()
+            assert data["onboarding_plan"] == "1. Découverte de l'équipe\n2. Formation aux outils"
+            assert "message" in data
+
+            from Code.models.models import Role
+            with app.app_context():
+                role = Role.query.get(role_id)
+                assert role.onboarding_plan == "1. Découverte de l'équipe\n2. Formation aux outils"
+        finally:
+            _delete_role(app, role_id)
+
+    def test_succes_langue_anglaise(self, app, ids, monkeypatch):
+        """Session en anglais : message de succès et prompt système en anglais."""
+        _mock_ai(monkeypatch, content="Plan in English")
+        fresh = app.test_client()
+        with fresh.session_transaction() as sess:
+            sess["user_id"] = ids["user_id"]
+            sess["active_entity_id"] = ids["entity_id"]
+            sess["lang"] = "en"
+
+        role_id = _create_role(app, ids)
+        try:
+            r = fresh.post(
+                f"/roles/{role_id}/onboarding/generate",
+                json={"hsc_list": ["Cooperation"]},
+                content_type="application/json",
+            )
+            assert r.status_code == 200
+            data = r.get_json()
+            assert data["message"] == "Onboarding plan generated successfully"
+            assert data["onboarding_plan"] == "Plan in English"
+        finally:
+            _delete_role(app, role_id)
+
+    def test_exception_ia_retourne_500_avec_message(self, auth_client, app, ids, monkeypatch):
+        """Le client IA lève une exception (timeout, réseau...) → 500 avec le message d'erreur."""
+        _mock_ai(monkeypatch, raise_exc=RuntimeError("service indisponible"))
+        role_id = _create_role(app, ids)
+        try:
+            r = auth_client.post(
+                f"/roles/{role_id}/onboarding/generate",
+                json={"hsc_list": ["Auto-organisation"]},
+                content_type="application/json",
+            )
+            assert r.status_code == 500
+            assert "service indisponible" in r.get_json()["error"]
+        finally:
+            _delete_role(app, role_id)
 
 
 # ===========================================================================

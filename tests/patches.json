@@ -465,5 +465,25 @@
     ],
     "author": "routine",
     "fixed_at": "2026-08-01T03:13:37"
+  },
+  {
+    "patch_uid": "2026-09-02-hsc-position-default-lang-isolation",
+    "title": "test_54_hsc_positioning : hypothese francais par defaut cassee hors pollution de session",
+    "node_ids": [
+      "tests/test_54_hsc_positioning.py::TestHscLevels::test_levels_default_language_french",
+      "tests/test_54_hsc_positioning.py::TestHscDescriptors::test_upsert_descriptor_creates_row",
+      "tests/test_54_hsc_positioning.py::TestHscPosition::test_position_with_ai_key_success_returns_proposal"
+    ],
+    "page_slug": "hsc_positioning",
+    "failure_reason": "En ecrivant de nouveaux tests de la branche IA de /hsc/position, ces 2 tests existants (+ 1 nouveau) echouaient quand le fichier est lance seul : ils attendaient les libelles francais (Expertise, Acquisition, Maitrise) en utilisant auth_client sans jamais fixer explicitement session[lang]. Ils ne passaient dans la suite complete que parce qu un test execute plus tot met lang=fr sur le client partage (scope=session) -- pollution masquant une hypothese fausse.",
+    "was_real_bug": false,
+    "root_cause": "test_isolation",
+    "error": "Code/app.py avant_request _default_language() force explicitement session[lang]=DEFAULT_LANG (anglais) des la premiere requete si lang est absent -- l ancais est la langue par defaut de l app, pas le francais. Les tests supposaient a tort le francais par defaut sur auth_client (session partagee par toute la suite), ce qui n est vrai que si un test precedent a deja pollue lang=fr dessus.",
+    "fix_description": "Ajout d un helper _authed_client(app, lang) qui cree un client Flask isole et fixe explicitement session[lang] avant chaque assertion dependant de la langue (meme pattern que _lang_client dans test_22_propose_ia.py). Les 2 tests existants et le nouveau test de succes IA forcent maintenant lang=fr explicitement ; un nouveau test dedie verifie sur un client tout neuf que l anglais est bien la langue par defaut effective.",
+    "files_changed": [
+      "tests/test_54_hsc_positioning.py"
+    ],
+    "author": "routine",
+    "fixed_at": "2026-09-02T03:23:42"
   }
 ]
