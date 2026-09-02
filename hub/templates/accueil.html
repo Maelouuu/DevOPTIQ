@@ -55,25 +55,4 @@
   </div>
 </section>
 
-<section class="bande">
-  <div class="bande-index">
-    <span class="bande-tag acc-outils">Gammes</span>
-    <span class="bande-trait"></span>
-  </div>
-  {# Chaque section porte sa palette : on la donne à voir, et elle sert de
-     raccourci. Les teintes sont relevées sur les tableaux de référence. #}
-  <div class="gammes">
-    {% for p in inv.PAGES %}
-    <a class="gamme page--{{ p.cle }}" href="{{ p.route }}" title="{{ p.titre }}">
-      <span class="gamme-touches">
-        <i style="background:var(--p1)"></i><i style="background:var(--p4)"></i>
-        <i style="background:var(--p6)"></i><i style="background:var(--p-soleil)"></i>
-        <i style="background:var(--p-cypres)"></i>
-      </span>
-      <b>{{ p.titre }}</b>
-    </a>
-    {% endfor %}
-  </div>
-</section>
-
 {% endblock %}
