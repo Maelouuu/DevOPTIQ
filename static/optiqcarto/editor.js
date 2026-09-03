@@ -1432,33 +1432,80 @@ function _fitShapeIntoBand(s) {
   }
 }
 
+const SEL_BLUE = '#2563eb';
+
+// Équerres d'angle épaissies, tracées sur le rayon du cadre pour se confondre
+// avec lui. Le repère se lit instantanément sans ajouter de nouvelle forme.
+function _selCorners(x, y, w, h, r, len, stroke, sw, parent) {
+  const L = Math.max(r + 4, Math.min(len, w / 2.6, h / 2.6));
+  const arcs = [
+    `M ${x},${y + L} L ${x},${y + r} A ${r},${r} 0 0 1 ${x + r},${y} L ${x + L},${y}`,
+    `M ${x + w - L},${y} L ${x + w - r},${y} A ${r},${r} 0 0 1 ${x + w},${y + r} L ${x + w},${y + L}`,
+    `M ${x + w},${y + h - L} L ${x + w},${y + h - r} A ${r},${r} 0 0 1 ${x + w - r},${y + h} L ${x + w - L},${y + h}`,
+    `M ${x + L},${y + h} L ${x + r},${y + h} A ${r},${r} 0 0 1 ${x},${y + h - r} L ${x},${y + h - L}`,
+  ];
+  for (const d of arcs) {
+    el('path', {
+      d, fill: 'none', stroke, 'stroke-width': String(sw),
+      'stroke-linecap': 'round', 'pointer-events': 'none',
+    }, parent);
+  }
+}
+
 function renderHandles() {
   gHandles.innerHTML = '';
+
+  const isMulti = selectedShapes.size > 1;
+  let bnx = Infinity, bny = Infinity, bxx = -Infinity, bxy = -Infinity;
 
   for (const id of selectedShapes) {
     const s = state.shapes.find(x => x.id === id);
     if (!s) continue;
-    // Outer glow ring
+    if (isMulti) {
+      bnx = Math.min(bnx, s.x); bny = Math.min(bny, s.y);
+      bxx = Math.max(bxx, s.x + s.w); bxy = Math.max(bxy, s.y + s.h);
+    }
+    // Les activités portent une auréole de 7px : on passe au large sinon le
+    // repère se superpose à leur propre contour.
+    const pad = 6 + (s.type === 'process' ? 7 : 0);
+    const rx = 14 + pad;
+    const bx = s.x - pad, by = s.y - pad, bw = s.w + pad * 2, bh = s.h + pad * 2;
+
+    // Halo diffus — détache la forme de la bande, quelle que soit sa couleur
     el('rect', {
-      x: s.x - 9, y: s.y - 9,
-      width: s.w + 18, height: s.h + 18,
-      rx: '17', ry: '17',
-      fill: 'none',
-      stroke: 'rgba(59,130,246,0.28)',
-      'stroke-width': '7',
+      x: bx - 4, y: by - 4, width: bw + 8, height: bh + 8,
+      rx: String(rx + 4), ry: String(rx + 4),
+      fill: 'none', stroke: 'rgba(37,99,235,0.16)', 'stroke-width': '8',
       'pointer-events': 'none',
     }, gHandles);
-    // Inner selection rect
+    // Liseré blanc — seul moyen de rester lisible sur une forme déjà bleue
     el('rect', {
-      x: s.x - 5, y: s.y - 5,
-      width: s.w + 10, height: s.h + 10,
-      rx: '14', ry: '14',
-      fill: 'rgba(59,130,246,0.06)',
-      stroke: '#3b82f6',
-      'stroke-width': '2.5',
-      'stroke-dasharray': '7,3',
+      x: bx, y: by, width: bw, height: bh, rx: String(rx), ry: String(rx),
+      fill: 'none', stroke: '#ffffff', 'stroke-width': '3.6',
       'pointer-events': 'none',
     }, gHandles);
+    // Anneau net
+    el('rect', {
+      x: bx, y: by, width: bw, height: bh, rx: String(rx), ry: String(rx),
+      fill: 'none', stroke: SEL_BLUE, 'stroke-width': '2.2',
+      'pointer-events': 'none',
+    }, gHandles);
+    _selCorners(bx, by, bw, bh, rx, rx + 9, SEL_BLUE, 4, gHandles);
+  }
+
+  // Cadre englobant : c'est lui qui fait lire la sélection multiple comme un
+  // seul bloc, et non comme des formes surlignées au hasard.
+  if (isMulti && bnx < Infinity) {
+    const P = 34;
+    const ex = bnx - P, ey = bny - P;
+    const ew = (bxx - bnx) + P * 2, eh = (bxy - bny) + P * 2;
+    el('rect', {
+      x: ex, y: ey, width: ew, height: eh, rx: '26', ry: '26',
+      fill: 'rgba(37,99,235,0.045)', stroke: 'rgba(37,99,235,0.45)',
+      'stroke-width': '1.8', 'stroke-dasharray': '13,9',
+      'pointer-events': 'none',
+    }, gHandles);
+    _selCorners(ex, ey, ew, eh, 26, 52, SEL_BLUE, 3, gHandles);
   }
 
   // Indicateurs de port (snap halo) lors du drag depuis un port bleu OU drag d'extrémité de connexion
@@ -1560,29 +1607,6 @@ function renderGroups() {
     }, gGroups);
     grpG.style.cursor = isCollapsedPile ? 'move' : 'pointer';
 
-    // Poignées de connexion du groupe : sans elles, on pouvait viser un groupe
-    // avec une flèche mais jamais en partir.
-    if (!window.OPTIQCARTO_READONLY && !portDrag && selectedConn === null &&
-        (isSel || isHL || groupHoverId === grp.id)) {
-      const ps = 10 / vpScale, sw = 1.5 / vpScale;
-      const ports = {
-        left:   { x: gx,          y: gy + gh / 2 },
-        right:  { x: gx + gw,     y: gy + gh / 2 },
-        top:    { x: gx + gw / 2, y: gy },
-        bottom: { x: gx + gw / 2, y: gy + gh },
-      };
-      for (const [pName, p] of Object.entries(ports)) {
-        el('rect', {
-          x: p.x - ps / 2, y: p.y - ps / 2, width: ps, height: ps,
-          fill: tool === 'connect' ? '#1f7a54' : '#7c3aed',
-          stroke: '#ffffff', 'stroke-width': sw, rx: '2',
-          'data-port': pName,
-          'data-group-port': String(grp.id),
-          cursor: 'crosshair',
-        }, grpG);
-      }
-    }
-
     if (grp.isPile) {
       const isCollapsed = collapsedPiles.has(grp.id);
 
@@ -1598,18 +1622,18 @@ function renderGroups() {
       for (const [dx, dy] of [[8, 8], [4, 4]]) {
         el('rect', {
           x: bx + dx, y: by + dy, width: bw, height: bh, rx: 14, ry: 14,
-          fill: 'rgba(124,58,237,0.04)',
-          stroke: 'rgba(124,58,237,0.3)',
-          'stroke-width': '1',
+          fill: 'rgba(124,58,237,0.10)',
+          stroke: 'rgba(124,58,237,0.45)',
+          'stroke-width': '2',
           'pointer-events': 'none',
         }, grpG);
       }
       el('rect', {
         x: bx, y: by, width: bw, height: bh, rx: 14, ry: 14,
-        fill: isSel ? 'rgba(124,58,237,0.1)' : (isHL ? 'rgba(124,58,237,0.08)' : 'rgba(124,58,237,0.05)'),
+        fill: isSel ? 'rgba(124,58,237,0.26)' : (isHL ? 'rgba(124,58,237,0.22)' : 'rgba(124,58,237,0.16)'),
         stroke: isSel || isHL ? '#9f7aea' : color,
-        'stroke-width': isSel || isHL ? '2' : '1.5',
-        'stroke-dasharray': '8,5',
+        'stroke-width': isSel || isHL ? '4.5' : '3.5',
+        'stroke-dasharray': '10,6',
       }, grpG);
 
       // Pile label badge — toggles collapse on click
@@ -1642,12 +1666,14 @@ function renderGroups() {
         render();
       });
     } else {
+      // Le fond reprend la couleur du groupe (et non plus un violet fixe quasi
+      // invisible) : c'est ce qui rend le périmètre lisible d'un coup d'œil.
       el('rect', {
         x: gx, y: gy, width: gw, height: gh, rx: 18, ry: 18,
-        fill: isHL ? 'rgba(252,205,255,0.06)' : (isSel ? 'rgba(179,160,255,0.07)' : 'rgba(179,160,255,0.03)'),
+        fill: isHL ? hexToRgba('#fccdff', 0.22) : hexToRgba(color, isSel ? 0.26 : 0.16),
         stroke: isHL ? '#fccdff' : color,
-        'stroke-width': isSel || isHL ? '2' : '1.5',
-        'stroke-dasharray': '8,5',
+        'stroke-width': isSel || isHL ? '4.5' : '3.5',
+        'stroke-dasharray': '10,6',
       }, grpG);
 
       // Badge label for regular groups
@@ -1664,6 +1690,44 @@ function renderGroups() {
       t.setAttribute('pointer-events', 'none');
       t.textContent = grp.label || 'Groupe';
       grpG.appendChild(t);
+    }
+
+    // Poignées de connexion du groupe : sans elles, on pouvait viser un groupe
+    // avec une flèche mais jamais en partir. Mêmes points que ceux sur lesquels
+    // une flèche s'aimante (getGroupDetailedPorts) — écart constant, quantité
+    // proportionnelle à la taille du groupe, donc alignables sur les activités.
+    // Dessinées en dernier pour rester nettes par-dessus le cadre.
+    if (!window.OPTIQCARTO_READONLY && !portDrag && selectedConn === null &&
+        (isSel || isHL || groupHoverId === grp.id)) {
+      const ps = 10 / vpScale, sw = 1.5 / vpScale;
+      const byDir = { top: [], bottom: [], left: [], right: [] };
+      for (const p of getGroupDetailedPorts({ x: gx, y: gy, w: gw, h: gh })) byDir[p.dir].push(p);
+
+      for (const dir of ['top', 'bottom', 'left', 'right']) {
+        const list = byDir[dir];
+        // La poignée mesure 10 px à l'écran quel que soit le zoom : dézoomé, des
+        // points espacés de 21 px carto se recouvrent et forment un bandeau plein.
+        // On n'en montre qu'un sur k — l'écart affiché reste régulier, et
+        // l'aimantation, elle, continue d'utiliser la grille complète.
+        let k = 1;
+        if (list.length > 1) {
+          const horiz = dir === 'top' || dir === 'bottom';
+          const gapPx = Math.abs(horiz ? list[1].x - list[0].x : list[1].y - list[0].y) * vpScale;
+          k = Math.max(1, Math.ceil(14 / Math.max(gapPx, 0.01)));
+        }
+        for (let i = 0; i < list.length; i += k) {
+          const p = list[i];
+          el('rect', {
+            x: p.x - ps / 2, y: p.y - ps / 2, width: ps, height: ps,
+            fill: tool === 'connect' ? '#1f7a54' : '#7c3aed',
+            stroke: '#ffffff', 'stroke-width': sw, rx: '2',
+            'data-port': p.dir,
+            'data-group-port': String(grp.id),
+            'data-port-t': String(p.t),
+            cursor: 'crosshair',
+          }, grpG);
+        }
+      }
     }
 
     grpG.addEventListener('click', e => {
@@ -2271,11 +2335,15 @@ function onDown(e) {
       const grp = (state.groups || []).find(g => g.id === parseInt(groupPortId));
       const b = grp && getGroupBounds(grp);
       if (b) {
+        // data-port-t : position exacte du point le long du côté (les groupes en
+        // ont autant que leur taille le permet, pas seulement le milieu).
+        const tAttr = portEl.getAttribute('data-port-t');
+        const t = tAttr === null ? 0.5 : parseFloat(tAttr);
         const pts = {
-          left:   { x: b.x,           y: b.y + b.h / 2, dir: 'left'   },
-          right:  { x: b.x + b.w,     y: b.y + b.h / 2, dir: 'right'  },
-          top:    { x: b.x + b.w / 2, y: b.y,           dir: 'top'    },
-          bottom: { x: b.x + b.w / 2, y: b.y + b.h,     dir: 'bottom' },
+          left:   { x: b.x,            y: b.y + b.h * t, dir: 'left',   t },
+          right:  { x: b.x + b.w,      y: b.y + b.h * t, dir: 'right',  t },
+          top:    { x: b.x + b.w * t,  y: b.y,           dir: 'top',    t },
+          bottom: { x: b.x + b.w * t,  y: b.y + b.h,     dir: 'bottom', t },
         };
         portDrag = { fromShapeId: grp.id, fromPort: pts[portName] || pts.right,
                      curX: 0, curY: 0, snapShapeId: null, snapDir: null, snapT: 0.5 };

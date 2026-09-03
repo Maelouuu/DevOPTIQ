@@ -8,6 +8,11 @@ function hexToRgb(hex) {
   return [parseInt(hex.slice(1,3),16), parseInt(hex.slice(3,5),16), parseInt(hex.slice(5,7),16)];
 }
 
+function hexToRgba(hex, alpha) {
+  const [r,g,b] = hexToRgb(hex);
+  return `rgba(${r},${g},${b},${alpha})`;
+}
+
 function bandPastel(hex) {
   const [r,g,b] = hexToRgb(hex);
   return '#' + [r*0.25+255*0.75, g*0.25+255*0.75, b*0.25+255*0.75]
