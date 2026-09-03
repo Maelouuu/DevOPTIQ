@@ -1455,16 +1455,13 @@ function _selCorners(x, y, w, h, r, len, stroke, sw, parent) {
 function renderHandles() {
   gHandles.innerHTML = '';
 
-  const isMulti = selectedShapes.size > 1;
-  let bnx = Infinity, bny = Infinity, bxx = -Infinity, bxy = -Infinity;
-
+  // Pas de cadre englobant la sélection multiple : dès que deux formes
+  // sélectionnées en encadrent une troisième qui ne l'est pas, le cadre affirme
+  // une appartenance fausse. Le repère reste donc porté par CHAQUE forme, et le
+  // compte est annoncé par le badge « SÉLECTION MULTIPLE » en haut du canevas.
   for (const id of selectedShapes) {
     const s = state.shapes.find(x => x.id === id);
     if (!s) continue;
-    if (isMulti) {
-      bnx = Math.min(bnx, s.x); bny = Math.min(bny, s.y);
-      bxx = Math.max(bxx, s.x + s.w); bxy = Math.max(bxy, s.y + s.h);
-    }
     // Les activités portent une auréole de 7px : on passe au large sinon le
     // repère se superpose à leur propre contour.
     const pad = 6 + (s.type === 'process' ? 7 : 0);
@@ -1491,21 +1488,6 @@ function renderHandles() {
       'pointer-events': 'none',
     }, gHandles);
     _selCorners(bx, by, bw, bh, rx, rx + 9, SEL_BLUE, 4, gHandles);
-  }
-
-  // Cadre englobant : c'est lui qui fait lire la sélection multiple comme un
-  // seul bloc, et non comme des formes surlignées au hasard.
-  if (isMulti && bnx < Infinity) {
-    const P = 34;
-    const ex = bnx - P, ey = bny - P;
-    const ew = (bxx - bnx) + P * 2, eh = (bxy - bny) + P * 2;
-    el('rect', {
-      x: ex, y: ey, width: ew, height: eh, rx: '26', ry: '26',
-      fill: 'rgba(37,99,235,0.045)', stroke: 'rgba(37,99,235,0.45)',
-      'stroke-width': '1.8', 'stroke-dasharray': '13,9',
-      'pointer-events': 'none',
-    }, gHandles);
-    _selCorners(ex, ey, ew, eh, 26, 52, SEL_BLUE, 3, gHandles);
   }
 
   // Indicateurs de port (snap halo) lors du drag depuis un port bleu OU drag d'extrémité de connexion
