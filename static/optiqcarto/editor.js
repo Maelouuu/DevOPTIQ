@@ -1432,25 +1432,7 @@ function _fitShapeIntoBand(s) {
   }
 }
 
-const SEL_BLUE = '#2563eb';
-
-// Équerres d'angle épaissies, tracées sur le rayon du cadre pour se confondre
-// avec lui. Le repère se lit instantanément sans ajouter de nouvelle forme.
-function _selCorners(x, y, w, h, r, len, stroke, sw, parent) {
-  const L = Math.max(r + 4, Math.min(len, w / 2.6, h / 2.6));
-  const arcs = [
-    `M ${x},${y + L} L ${x},${y + r} A ${r},${r} 0 0 1 ${x + r},${y} L ${x + L},${y}`,
-    `M ${x + w - L},${y} L ${x + w - r},${y} A ${r},${r} 0 0 1 ${x + w},${y + r} L ${x + w},${y + L}`,
-    `M ${x + w},${y + h - L} L ${x + w},${y + h - r} A ${r},${r} 0 0 1 ${x + w - r},${y + h} L ${x + w - L},${y + h}`,
-    `M ${x + L},${y + h} L ${x + r},${y + h} A ${r},${r} 0 0 1 ${x},${y + h - r} L ${x},${y + h - L}`,
-  ];
-  for (const d of arcs) {
-    el('path', {
-      d, fill: 'none', stroke, 'stroke-width': String(sw),
-      'stroke-linecap': 'round', 'pointer-events': 'none',
-    }, parent);
-  }
-}
+const SEL_PINK = '#ff1d8e';
 
 function renderHandles() {
   gHandles.innerHTML = '';
@@ -1468,26 +1450,31 @@ function renderHandles() {
     const rx = 14 + pad;
     const bx = s.x - pad, by = s.y - pad, bw = s.w + pad * 2, bh = s.h + pad * 2;
 
-    // Halo diffus — détache la forme de la bande, quelle que soit sa couleur
+    // Aura — un anneau flouté (f-sel-aura), pas une pile d'anneaux : simuler un
+    // dégradé par opacités successives se voit en bandes dès qu'on zoome. Elle
+    // détache la forme du fond de bande.
     el('rect', {
-      x: bx - 4, y: by - 4, width: bw + 8, height: bh + 8,
-      rx: String(rx + 4), ry: String(rx + 4),
-      fill: 'none', stroke: 'rgba(37,99,235,0.16)', 'stroke-width': '8',
+      x: bx - 7, y: by - 7, width: bw + 14, height: bh + 14,
+      rx: String(rx + 7), ry: String(rx + 7),
+      fill: 'none', stroke: 'rgba(255,29,142,0.85)', 'stroke-width': '10',
+      filter: 'url(#f-sel-aura)',
       'pointer-events': 'none',
     }, gHandles);
-    // Liseré blanc — seul moyen de rester lisible sur une forme déjà bleue
+    // Contour en tirets alternés rose / noir : les tirets noirs sont posés
+    // PAR-DESSUS un anneau rose plein. C'est l'alternance qui rend le repère
+    // lisible partout — une bande pâle avale un contour sombre, une activité
+    // foncée avale un contour clair, mais aucun fond ne peut avaler les deux.
     el('rect', {
       x: bx, y: by, width: bw, height: bh, rx: String(rx), ry: String(rx),
-      fill: 'none', stroke: '#ffffff', 'stroke-width': '3.6',
+      fill: 'none', stroke: SEL_PINK, 'stroke-width': '4.5',
       'pointer-events': 'none',
     }, gHandles);
-    // Anneau net
     el('rect', {
       x: bx, y: by, width: bw, height: bh, rx: String(rx), ry: String(rx),
-      fill: 'none', stroke: SEL_BLUE, 'stroke-width': '2.2',
+      fill: 'none', stroke: '#000000', 'stroke-width': '4.5',
+      'stroke-dasharray': '11,11',
       'pointer-events': 'none',
     }, gHandles);
-    _selCorners(bx, by, bw, bh, rx, rx + 9, SEL_BLUE, 4, gHandles);
   }
 
   // Indicateurs de port (snap halo) lors du drag depuis un port bleu OU drag d'extrémité de connexion
