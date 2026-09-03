@@ -360,9 +360,13 @@
       <filter id="f-shadow" x="-30%" y="-30%" width="160%" height="160%">
         <feDropShadow dx="0" dy="4" stdDeviation="5" flood-color="rgba(0,0,0,0.22)"/>
       </filter>
-      <filter id="f-shadow-sel" x="-30%" y="-30%" width="160%" height="160%">
-        <feDropShadow dx="0" dy="0" stdDeviation="7" flood-color="rgba(37,99,235,0.45)"/>
+      <filter id="f-shadow-sel" x="-60%" y="-60%" width="220%" height="220%">
+        <feDropShadow dx="0" dy="0" stdDeviation="6" flood-color="rgba(0,0,0,0.55)"/>
         <feDropShadow dx="0" dy="4" stdDeviation="4" flood-color="rgba(0,0,0,0.28)"/>
+      </filter>
+      <!-- Aura de selection : flou applique a l anneau rose de renderHandles -->
+      <filter id="f-sel-aura" x="-60%" y="-60%" width="220%" height="220%">
+        <feGaussianBlur stdDeviation="5"/>
       </filter>
       <linearGradient id="shape-shine" x1="0" y1="0" x2="0" y2="1">
         <stop offset="0%"   stop-color="rgba(255,255,255,0.22)"/>
