@@ -11,6 +11,22 @@ from werkzeug.security import generate_password_hash
 import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
+# ⚠️ AUCUNE clé IA pendant la suite, quelle que soit la machine.
+#
+# Des dizaines de tests vérifient le comportement SANS clé (repli, 500 explicite,
+# champ `source` de secours) ; ils s'appuyaient sur le fait qu'un poste de
+# développement n'en a pas. Depuis que le panel rejoue la suite SUR l'instance,
+# elle tourne là où les clés SONT présentes dans l'environnement : quinze de ces
+# tests viraient au rouge, sur cinq fichiers, pour une raison qui n'a rien à voir
+# avec le code — et faussaient le taux de fiabilité que le panel existe pour
+# montrer. Certains fichiers faisaient déjà ce `delenv` chacun de leur côté ; on
+# le fait une fois pour toutes, ici, avant la création de l'application.
+#
+# Les tests qui vérifient le chemin AVEC clé ne passent pas par l'environnement :
+# ils remplacent `get_openai_key` par une valeur factice.
+for _cle_ia in ("OPENAI_API_KEY", "ANTHROPIC_API_KEY", "ANTHROPIC_KEY"):
+    os.environ.pop(_cle_ia, None)
+
 
 @pytest.fixture(scope="session")
 def app():

@@ -917,6 +917,17 @@ Le hub ne se contente plus de pointer vers le panel : il en est la façade.
   empêchait de faire défiler la page dès que le pointeur passait sur l'anneau.
   Navigation : flèches, clavier, glisser, geste horizontal, champ de filtre
   (70 pages à la flèche serait une corvée).
+- ⚠️ **La suite tourne désormais là où les CLÉS IA existent.** Des dizaines de
+  tests vérifient le comportement *sans* clé et comptaient sur le fait qu'un
+  poste de développement n'en a pas ; sur l'instance, Cloud Run porte
+  `OPENAI_API_KEY`/`ANTHROPIC_API_KEY` dans l'environnement, que le
+  sous-processus pytest hérite → **15 tests rouges sur 5 fichiers** (16, 22, 47,
+  56, 58), donc un taux de fiabilité faux par construction. `tests/conftest.py`
+  retire ces variables avant de créer l'application : la suite ne dépend plus de
+  la machine (mesuré : 1877 passés avec ET sans clés).
+- **Le panel compte des FONCTIONS, pytest compte des EXÉCUTIONS** : un
+  `@pytest.mark.parametrize` (4 dans `test_50`) rend un cas recensé et plusieurs
+  résultats. L'écart 1860 recensés / 1877 joués est normal.
 - **`tools/repet_image.sh`** — répète la disposition de l'image SANS Docker
   (exclusions `.dockerignore` + purge bytecode, `tests/` épargné) et y lance la
   suite. À passer avant toute livraison qui touche au Dockerfile ou aux tests :

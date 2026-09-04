@@ -525,5 +525,27 @@
     ],
     "author": "claude",
     "fixed_at": "2026-09-04T18:11:44"
+  },
+  {
+    "patch_uid": "2026-09-04-suite-sans-cle-ia",
+    "title": "Suite : aucune cle IA, quelle que soit la machine",
+    "node_ids": [
+      "tests/test_22_propose_ia.py::TestProposeAptitudes::test_propose_source_field_present",
+      "tests/test_47_cartography_editor_avance.py::TestArchitectPayload::test_shapes_non_vides_sans_cle_ia_retourne_500",
+      "tests/test_56_result_capabilities.py::TestGenerateCompetence::test_with_result_no_ai_key_returns_explicit_source",
+      "tests/test_58_diagnostic.py::TestGeneratePlan::test_individual_family_no_ai_key_returns_explicit_source",
+      "tests/test_16_import_full.py::TestImportFullAnalyzeEdgeCases::test_analyze_unmatched_has_probable_reason_for_close_match"
+    ],
+    "page_slug": "propose_ia",
+    "failure_reason": "Des dizaines de tests verifient le comportement SANS cle IA en comptant sur le fait qu'un poste de developpement n'en a pas.",
+    "was_real_bug": false,
+    "root_cause": "test_quality",
+    "error": "Quinze tests sur cinq fichiers (16, 22, 47, 56, 58) rouges SUR L'INSTANCE et verts en local : Cloud Run porte OPENAI_API_KEY/ANTHROPIC_API_KEY dans son environnement, que le sous-processus pytest herite. Le taux de fiabilite affiche par le panel — la mesure meme pour laquelle il existe — etait donc faux par construction.",
+    "fix_description": "conftest.py retire OPENAI_API_KEY, ANTHROPIC_API_KEY et ANTHROPIC_KEY de l'environnement avant la creation de l'application. Plusieurs fichiers faisaient deja ce delenv chacun de leur cote ; c'est desormais fait une fois pour toutes. Les tests du chemin AVEC cle ne passent pas par l'environnement (ils remplacent get_openai_key). Verifie : 1877 passes avec et sans cles en environnement.",
+    "files_changed": [
+      "tests/conftest.py"
+    ],
+    "author": "claude",
+    "fixed_at": "2026-09-04T18:27:23"
   }
 ]
