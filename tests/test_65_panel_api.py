@@ -293,3 +293,25 @@ class TestRecensementDesCas:
         assert vus == ['tests/test_51_entity_share.py::test_partage',
                        'tests/test_01_auth.py::TestLoginPage::test_ok']
         assert tp is not None
+
+
+class TestSyncTolerant:
+    """Le recensement réécrit 71 pages et ~1900 cas à chaque appel ; sur
+    Postgres il lui arrive de dépasser le temps imparti. Le catalogue reste
+    lisible en base : une panne du recensement ne doit pas rendre 500, sinon le
+    hub annonce « l'instance ne répond pas » pour rien."""
+
+    def test_le_catalogue_reste_lisible_si_le_recensement_echoue(self, client, monkeypatch):
+        from Code.routes import test_panel as tp
+
+        def _plante():
+            raise RuntimeError("timeout du recensement")
+
+        monkeypatch.setattr(tp, 'sync_tests_to_db', _plante)
+        r = client.get('/testpanel/api/pages')
+        assert r.status_code == 200
+        assert r.get_json()['pages'], "les pages déjà en base doivent sortir"
+
+        r = client.get('/testpanel/api/etat')
+        assert r.status_code == 200
+        assert r.get_json()['pages'] > 0

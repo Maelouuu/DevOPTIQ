@@ -829,9 +829,23 @@ def _fiabilite(cases):
     return round(100 * verts / len(joues)), verts, len(joues) - verts, len(joues)
 
 
+def _sync_tolerant():
+    """Recenser si possible, lire quoi qu'il arrive.
+
+    Le recensement réécrit 71 pages et ~1900 cas à chaque appel ; sur Postgres
+    il lui arrive de dépasser le temps imparti. Sans ce filet, le hub affichait
+    « l'instance ne répond pas » alors que le catalogue était parfaitement
+    lisible en base. Même parti pris que le `before_request` des pages visuelles.
+    """
+    try:
+        sync_tests_to_db()
+    except Exception:
+        db.session.rollback()
+
+
 @test_panel_bp.route('/api/pages')
 def api_pages():
-    sync_tests_to_db()
+    _sync_tolerant()
     pages = TestPage.query.order_by(TestPage.file_name).all()
     sortie = []
     for page in pages:
@@ -884,7 +898,7 @@ def api_page(slug):
 @test_panel_bp.route('/api/etat')
 def api_etat():
     """Ce que le hub doit savoir avant de proposer un lancement."""
-    sync_tests_to_db()
+    _sync_tolerant()
     en_cours = TestRun.query.filter_by(status='running').order_by(
         TestRun.started_at.desc()).first()
     dernier = TestRun.query.filter_by(status='done').order_by(

@@ -894,7 +894,7 @@ Le hub ne se contente plus de pointer vers le panel : il en est la façade.
   `/api/pages`, `/api/page/<slug>` — le seul contrat entre l'app et le hub.
   `_fiabilite()` **exclut les cas jamais joués** du calcul : les compter comme
   des échecs ferait chuter le score d'une page qu'on n'a pas encore lancée.
-  Tests : `tests/test_65_panel_api.py` (20 cas).
+  Tests : `tests/test_65_panel_api.py` (21 cas).
 - **Pont côté hub** (`hub/panel_client.py`) : le navigateur ne peut pas appeler
   l'instance (deux domaines, aucun CORS) — le hub appelle côté serveur et
   republie sous son domaine. `PANEL_BASE` vise une autre instance pour la mise
