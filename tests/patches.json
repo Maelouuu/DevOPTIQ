@@ -486,5 +486,44 @@
     ],
     "author": "claude",
     "fixed_at": "2026-09-04T17:17:36"
+  },
+  {
+    "patch_uid": "2026-09-04-post-411-runapp",
+    "title": "Pont du hub : un POST vers un *.run.app doit porter un corps vide",
+    "node_ids": [
+      "tests/test_65_panel_api.py::TestPontDuHub::test_un_post_porte_un_corps_vide_explicite"
+    ],
+    "page_slug": "panel",
+    "failure_reason": "hub/panel_client.lancer() postait sans data : urllib n'envoie alors aucun Content-Length.",
+    "was_real_bug": true,
+    "root_cause": "app_bug",
+    "error": "411 Length Required renvoye par le FRONTEND GOOGLE des *.run.app, sans jamais atteindre l'application. Invisible au banc local (rien ne s'interpose) : le lancement de la suite marchait en local et echouait en ligne — exactement le symptome que le module devait faire disparaitre.",
+    "fix_description": "_appel() envoie data=b'' sur les POST, ce qui pose Content-Length: 0. Trouve en lancant reellement la suite sur l'instance deployee apres le push, pas en local.",
+    "files_changed": [
+      "hub/panel_client.py",
+      "tests/test_65_panel_api.py"
+    ],
+    "author": "claude",
+    "fixed_at": "2026-09-04T17:59:27"
+  },
+  {
+    "patch_uid": "2026-09-04-recensement-fonctions-module",
+    "title": "Panel : recenser aussi les tests ecrits en fonctions de module",
+    "node_ids": [
+      "tests/test_65_panel_api.py::TestRecensementDesCas::test_les_fonctions_de_module_sont_recensees",
+      "tests/test_65_panel_api.py::TestRecensementDesCas::test_un_resultat_de_fonction_de_module_retrouve_son_cas"
+    ],
+    "page_slug": "panel",
+    "failure_reason": "_parse_test_file ne parcourait que les ast.ClassDef : un fichier sans classe sortait a zero cas.",
+    "was_real_bug": true,
+    "root_cause": "app_bug",
+    "error": "Sept fichiers entiers (test_48, 49, 50, 51, 52, 62, 51_qualify) sont ecrits en fonctions de module — environ 120 tests. Ils etaient recenses avec 0 cas : affichage « jamais joue » meme apres une execution complete, et poids nul dans tous les taux de fiabilite. Symetriquement _save_results prenait parts[-1] comme nom de classe, donc le NOM DU MODULE pour un test sans classe : le resultat ne se rattachait a rien. Et _build_args fabriquait « fichier.py::::nom », que pytest refuse.",
+    "fix_description": "Le parseur recense les FunctionDef/AsyncFunctionDef de module en plus de celles des classes, avec un node_id sans segment de classe. Le lecteur de XML JUnit prend comme classe ce qui SUIT le module, vide s'il n'y a rien. Le lancement d'un cas isole reutilise le node_id recense. Trouve en lisant le catalogue du panel de l'instance apres la premiere execution reelle : 1745 cas recenses contre 1873 joues.",
+    "files_changed": [
+      "Code/routes/test_panel.py",
+      "tests/test_65_panel_api.py"
+    ],
+    "author": "claude",
+    "fixed_at": "2026-09-04T18:11:44"
   }
 ]

@@ -52,22 +52,34 @@ def _parse_test_file(fpath: Path) -> dict:
                             marker = v.elts[0].attr
 
     cases = []
+
+    def _ajouter(fonction, classe, doc_parent):
+        doc = ast.get_docstring(fonction) or doc_parent
+        # node_id pytest : avec la classe quand il y en a une, sans sinon.
+        node_id = (f"tests/{fpath.name}::{classe}::{fonction.name}" if classe
+                   else f"tests/{fpath.name}::{fonction.name}")
+        cases.append({
+            'node_id':      node_id,
+            'class_name':   classe or '',
+            'name':         fonction.name,
+            'display_name': fonction.name[5:].replace('_', ' ').capitalize(),
+            'description':  doc,
+        })
+
+    # ⚠️ Les tests écrits en fonctions de MODULE comptent autant que ceux
+    # rangés dans une classe. Ne recenser que les classes laissait sept pages
+    # entières (test_48, 49, 50, 51, 52, 62…) à zéro cas : elles affichaient
+    # « jamais joué » même après une exécution complète, et leurs ~120 tests
+    # ne pesaient dans aucun taux de fiabilité.
+    _FONCTIONS = (ast.FunctionDef, ast.AsyncFunctionDef)
     for node in tree.body:
-        if not isinstance(node, ast.ClassDef):
-            continue
-        class_doc = ast.get_docstring(node) or ''
-        for item in node.body:
-            if not isinstance(item, ast.FunctionDef) or not item.name.startswith('test_'):
-                continue
-            doc = ast.get_docstring(item) or class_doc
-            display = item.name[5:].replace('_', ' ').capitalize()
-            cases.append({
-                'node_id':      f"tests/{fpath.name}::{node.name}::{item.name}",
-                'class_name':   node.name,
-                'name':         item.name,
-                'display_name': display,
-                'description':  doc,
-            })
+        if isinstance(node, ast.ClassDef):
+            class_doc = ast.get_docstring(node) or ''
+            for item in node.body:
+                if isinstance(item, _FONCTIONS) and item.name.startswith('test_'):
+                    _ajouter(item, node.name, class_doc)
+        elif isinstance(node, _FONCTIONS) and node.name.startswith('test_'):
+            _ajouter(node, None, '')
 
     # slug: remove numeric prefix → e.g. test_01_auth → auth
     parts = fpath.stem.split('_')
@@ -232,7 +244,10 @@ def _build_args(scope: str, xml_path: str) -> list[str]:
     elif scope.startswith('case:'):
         case = db.session.get(TestCase, int(scope[5:]))
         if case:
-            base += [f'tests/{case.page.file_name}::{case.class_name}::{case.name}']
+            # node_id tel qu'il a été recensé : un test écrit en fonction de
+            # module n'a pas de classe, et « fichier::::nom » ne veut rien dire
+            # pour pytest.
+            base += [case.node_id]
     return base
 
 
@@ -257,12 +272,19 @@ def _save_results(db_url: str, run_id: int, xml_path: str, emit):
     for tc in root.findall('.//testcase'):
         classname = tc.get('classname', '')
         name      = tc.get('name', '')
+        # JUnit donne « tests.test_50_x.TestY » pour un test de classe et
+        # « tests.test_50_x » pour un test écrit en fonction de module. Prendre
+        # parts[-1] comme classe faisait passer le NOM DU MODULE pour une
+        # classe : le node_id ne correspondait à rien et le résultat était
+        # perdu. La classe est ce qui SUIT le module, s'il y a quelque chose.
         parts     = classname.split('.')
-        file_mod  = next((p for p in parts if p.startswith('test_')), '')
-        class_nm  = parts[-1] if len(parts) > 1 else ''
-        node_id   = f"tests/{file_mod}.py::{class_nm}::{name}" if file_mod else ''
-        if not node_id:
+        idx       = next((i for i, p in enumerate(parts) if p.startswith('test_')), None)
+        if idx is None:
             continue
+        file_mod  = parts[idx]
+        class_nm  = '.'.join(parts[idx + 1:])
+        node_id   = (f"tests/{file_mod}.py::{class_nm}::{name}" if class_nm
+                     else f"tests/{file_mod}.py::{name}")
         failure = tc.find('failure')
         error   = tc.find('error')
         if failure is not None:

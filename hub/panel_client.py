@@ -36,7 +36,12 @@ def _base():
 
 def _appel(chemin, methode="GET", delai=DELAI):
     url = _base() + chemin
-    req = urllib.request.Request(url, method=methode,
+    # ⚠️ Corps VIDE explicite sur un POST. Sans `data`, urllib n'envoie pas de
+    # Content-Length, et le frontend Google des *.run.app répond 411 Length
+    # Required sans jamais atteindre l'application. Invisible en local, où rien
+    # ne s'interpose : le lancement marchait au banc et échouait en ligne.
+    corps = b"" if methode == "POST" else None
+    req = urllib.request.Request(url, data=corps, method=methode,
                                  headers={"User-Agent": "OptiqHub/1.0",
                                           "Accept": "application/json"})
     try:

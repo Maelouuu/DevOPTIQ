@@ -880,15 +880,31 @@ Le hub ne se contente plus de pointer vers le panel : il en est la façade.
   id distinct, portée exacte — reste celui que `tests/test_37_test_panel.py`
   vérifie, et une route qu'un test neutralise n'est jamais bridée. Ce n'est PAS
   une authentification.
+- ⚠️ **Un test écrit en fonction de MODULE compte autant qu'un test de classe.**
+  `_parse_test_file` ne parcourait que les `ClassDef` : sept fichiers entiers
+  (`test_48`, `49`, `50`, `51`, `52`, `62`… soit ~120 tests) sortaient à **zéro
+  cas**, affichaient « jamais joué » même après une exécution complète et ne
+  pesaient dans aucun taux de fiabilité. Trois endroits à tenir ensemble : le
+  parseur (node_id **sans** segment de classe), `_save_results` (JUnit donne
+  `tests.test_51_x` sans classe — prendre `parts[-1]` faisait passer le NOM DU
+  MODULE pour une classe, le résultat ne se rattachait à rien) et `_build_args`
+  (`fichier.py::::nom` ne veut rien dire pour pytest → on rejoue le `node_id`
+  recensé).
 - **API côté app** (`Code/routes/test_panel.py`) : `/testpanel/api/etat`,
   `/api/pages`, `/api/page/<slug>` — le seul contrat entre l'app et le hub.
   `_fiabilite()` **exclut les cas jamais joués** du calcul : les compter comme
   des échecs ferait chuter le score d'une page qu'on n'a pas encore lancée.
-  Tests : `tests/test_65_panel_api.py` (10 cas).
+  Tests : `tests/test_65_panel_api.py` (20 cas).
 - **Pont côté hub** (`hub/panel_client.py`) : le navigateur ne peut pas appeler
   l'instance (deux domaines, aucun CORS) — le hub appelle côté serveur et
   republie sous son domaine. `PANEL_BASE` vise une autre instance pour la mise
   au point locale.
+- ⚠️ **Un POST vers un `*.run.app` DOIT porter un corps**, même vide. Sans
+  `data`, urllib n'envoie pas de `Content-Length` et le **frontend Google**
+  répond **411 Length Required** sans jamais atteindre l'application. Rien ne
+  s'interpose en local : le lancement passait au banc et échouait en ligne.
+  `_appel()` envoie donc `data=b""` sur les POST. Couvert par
+  `tests/test_65_panel_api.py::TestPontDuHub`.
 - **Identité visuelle** : même langage que le hub (Fraunces, arrondis,
   italique des sur-titres) mais on doit voir qu'on a changé de lieu — la
   **verrière** remplace le mur chaulé, le **pignon de serre** remplace l'arche,
