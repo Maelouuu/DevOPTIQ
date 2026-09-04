@@ -870,6 +870,16 @@ Le hub ne se contente plus de pointer vers le panel : il en est la façade.
   Page, gabarit, `ci_github.py` et les routes `/api/tests/*` sont **supprimés**.
   Le workflow `tests.yml` reste (il tourne au push) ; ses journaux sont liés
   depuis le pied du module.
+- ⚠️ **Le blueprint `/testpanel/**` n'a AUCUNE authentification** (y compris
+  `POST /run/all` et `POST /admin/clone_entity`, qui duplique des entités en
+  base). C'était sans conséquence tant que l'image ne contenait aucun test ;
+  chaque appel anonyme coûte désormais deux minutes de deux vCPU. En attendant
+  une vraie décision sur l'accès, un **plafond de 3 pytest simultanés**
+  (`_reserver_creneau` / `_liberer_creneau`) borne la casse. Le garde vit dans
+  le **worker**, pas dans la route : le contrat du panel — un run par demande,
+  id distinct, portée exacte — reste celui que `tests/test_37_test_panel.py`
+  vérifie, et une route qu'un test neutralise n'est jamais bridée. Ce n'est PAS
+  une authentification.
 - **API côté app** (`Code/routes/test_panel.py`) : `/testpanel/api/etat`,
   `/api/pages`, `/api/page/<slug>` — le seul contrat entre l'app et le hub.
   `_fiabilite()` **exclut les cas jamais joués** du calcul : les compter comme

@@ -86,3 +86,67 @@ class TestApiPage:
 
     def test_page_inconnue_donne_404(self, client):
         assert client.get('/testpanel/api/page/page-qui-nexiste-pas').status_code == 404
+
+
+class TestPlafondDesExecutions:
+    """Le blueprint n'a AUCUNE authentification : qui connaît l'URL de
+    l'instance peut demander une exécution. Tant que l'image n'embarquait pas
+    la suite cela ne coûtait rien ; maintenant chaque demande consomme deux
+    minutes de CPU. Le plafond vit dans le WORKER, pas dans la route : le
+    contrat du panel (un run par demande, id distinct, portée exacte) reste
+    celui que test_37 vérifie."""
+
+    def test_les_creneaux_se_prennent_et_se_rendent(self):
+        from Code.routes import test_panel as tp
+
+        pris = [tp._reserver_creneau() for _ in range(tp._MAX_SIMULTANEES)]
+        try:
+            assert all(pris), "les créneaux sous le plafond doivent être accordés"
+            assert tp._reserver_creneau() is False, "au-delà du plafond, on refuse"
+        finally:
+            for _ in pris:
+                tp._liberer_creneau()
+        # Une fois rendus, l'instance repart à neuf.
+        assert tp._reserver_creneau() is True
+        tp._liberer_creneau()
+
+    def test_un_run_refuse_est_clos_sans_lancer_pytest(self, app, monkeypatch):
+        from Code.extensions import db
+        from Code.models.test_models import TestRun
+        from Code.routes import test_panel as tp
+
+        appels = []
+        monkeypatch.setattr(tp, '_executer_run', lambda *a, **k: appels.append(a))
+        monkeypatch.setattr(tp, '_reserver_creneau', lambda: False)
+
+        with app.app_context():
+            run = TestRun(scope='all', status='running')
+            db.session.add(run); db.session.commit()
+            run_id = run.id
+            try:
+                tp._runs[run_id] = {'lines': [], 'done': False}
+                tp._run_thread(run_id, 'all', app)
+                assert not appels, "aucun pytest ne doit démarrer quand c'est refusé"
+                db.session.expire_all()
+                clos = db.session.get(TestRun, run_id)
+                assert clos.status == 'done'
+                assert tp._runs[run_id]['done'] is True
+                assert 'REFUSÉ' in ''.join(tp._runs[run_id]['lines'])
+            finally:
+                tp._runs.pop(run_id, None)
+                ligne = db.session.get(TestRun, run_id)
+                if ligne:
+                    db.session.delete(ligne); db.session.commit()
+
+    def test_le_creneau_est_rendu_meme_si_l_execution_echoue(self, app, monkeypatch):
+        from Code.routes import test_panel as tp
+
+        def _explose(*a, **k):
+            raise RuntimeError("pytest introuvable")
+
+        monkeypatch.setattr(tp, '_executer_run', _explose)
+        avant = tp._actifs
+        with pytest.raises(RuntimeError):
+            tp._run_thread(-1, 'all', app)
+        # Sans le finally, une exécution ratée mangerait un créneau pour de bon.
+        assert tp._actifs == avant

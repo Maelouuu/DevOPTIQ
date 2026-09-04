@@ -350,12 +350,62 @@ def _save_results(db_url: str, run_id: int, xml_path: str, emit):
             _engine.dispose()
 
 
+# Le blueprint n'est protégé par AUCUNE authentification : qui connaît l'URL de
+# l'instance peut demander une exécution. Tant que l'image n'embarquait pas la
+# suite, pytest ne collectait rien et cela ne coûtait rien ; maintenant qu'elle
+# est là et que Cloud Run tourne sans bridage CPU, chaque demande consomme deux
+# minutes de deux vCPU. On borne donc les pytest simultanés SUR CETTE INSTANCE.
+# Le garde vit dans le worker, pas dans la route : le contrat du panel (un run
+# par demande, id distinct, portée exacte) reste intact, et une route qu'un
+# test neutralise n'est jamais bridée. Ce n'est PAS une authentification :
+# cela plafonne la casse.
+_MAX_SIMULTANEES = 3
+_actifs = 0
+_actifs_lock = threading.Lock()
+
+
+def _reserver_creneau():
+    global _actifs
+    with _actifs_lock:
+        if _actifs >= _MAX_SIMULTANEES:
+            return False
+        _actifs += 1
+        return True
+
+
+def _liberer_creneau():
+    global _actifs
+    with _actifs_lock:
+        _actifs = max(0, _actifs - 1)
+
+
 def _run_thread(run_id: int, scope: str, app):
     def emit(line: str):
         with _runs_lock:
             if run_id in _runs:
                 _runs[run_id]['lines'].append(line)
 
+    if not _reserver_creneau():
+        emit(f"[REFUSÉ] {_MAX_SIMULTANEES} exécutions déjà en cours sur cette "
+             "instance — réessayez dans deux minutes.\n")
+        with app.app_context():
+            run = db.session.get(TestRun, run_id)
+            if run:
+                run.status = 'done'
+                run.finished_at = datetime.utcnow()
+                db.session.commit()
+        with _runs_lock:
+            if run_id in _runs:
+                _runs[run_id]['done'] = True
+        return
+
+    try:
+        _executer_run(run_id, scope, app, emit)
+    finally:
+        _liberer_creneau()
+
+
+def _executer_run(run_id: int, scope: str, app, emit):
     with app.app_context():
         db_url = app.config['SQLALCHEMY_DATABASE_URI']
         fd, xml_path = tempfile.mkstemp(suffix='.xml', prefix=f'trun_{run_id}_')
