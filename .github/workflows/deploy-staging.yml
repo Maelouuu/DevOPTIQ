@@ -51,15 +51,24 @@ jobs:
       - name: Configure Docker for Artifact Registry
         run: gcloud auth configure-docker europe-west1-docker.pkg.dev --quiet
 
+      # WITH_TESTS=1 : staging est notre instance de qualité — elle embarque la
+      # suite pour que /testpanel (et le module Panel du hub) puisse la recenser
+      # et la rejouer. L'image client garde le défaut 0.
       - name: Build Docker image
         run: |
-          docker build -t ${{ env.IMAGE }}:${{ github.sha }} -t ${{ env.IMAGE }}:latest .
+          docker build --build-arg WITH_TESTS=1 \
+            -t ${{ env.IMAGE }}:${{ github.sha }} -t ${{ env.IMAGE }}:latest .
 
       - name: Push Docker image
         run: |
           docker push ${{ env.IMAGE }}:${{ github.sha }}
           docker push ${{ env.IMAGE }}:latest
 
+      # --no-cpu-throttling : la suite tourne dans un sous-processus lancé APRÈS
+      # la réponse HTTP. Sans CPU alloué en continu, Cloud Run l'étrangle à ~5 %
+      # dès que la requête est close et une exécution de 3 min en prend 60.
+      # Contrepartie : le CPU est facturé tant qu'une instance vit (staging
+      # redescend quand même à zéro faute de trafic).
       - name: Deploy to Cloud Run (Staging)
         run: |
           gcloud run deploy ${{ env.SERVICE_STAGING }} \
@@ -74,8 +83,10 @@ jobs:
             --set-env-vars "REQUIRE_LICENSE=0" \
             --set-env-vars "TESTPANEL_ENABLED=1" \
             --set-env-vars "PROMPTS_KEY=${{ secrets.PROMPTS_KEY }}" \
-            --memory 2Gi \
-            --timeout 120 \
+            --cpu 2 \
+            --memory 4Gi \
+            --timeout 900 \
+            --no-cpu-throttling \
             --quiet
 
       - name: Print staging URL

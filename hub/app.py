@@ -21,8 +21,8 @@ from flask import (Flask, abort, jsonify, redirect, render_template, request,
                    send_from_directory, session, url_for)
 from werkzeug.security import check_password_hash
 
-import ci_github
 import inventaire
+import panel_client
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 _DOCS = os.path.join(_HERE, "_docs")
@@ -204,35 +204,55 @@ def outils():
     return render_template("outils.html")
 
 
-# ── Tests ─────────────────────────────────────────────────────────────────
-# L'application déployée n'embarque pas `tests/` (exclu par .dockerignore) :
-# elle ne peut donc pas lancer pytest. C'est GitHub Actions qui exécute la
-# suite ; le hub la déclenche et suit son avancement.
-def _url_panel():
-    for i in inventaire.INSTANCES:
-        if i["cle"] == "staging":
-            return i["url"]
-    return ""
+# ── Module Panel de tests ─────────────────────────────────────────────────
+# Remplace l'ancienne page /tests, qui déclenchait la suite via GitHub Actions
+# et exigeait un jeton personnel : l'instance embarque désormais la suite et
+# la rejoue elle-même, sans service tiers ni secret.
+# Le panel vit dans l'application (c'est elle qui possède les fichiers de test
+# et qui sait les exécuter). Le hub en republie les données sous son domaine :
+# le navigateur ne peut pas appeler l'instance directement, faute de CORS.
 
-
-@app.route("/tests")
+@app.route("/panel")
 @login_required
-def tests():
-    return render_template("tests.html", panel_url=_url_panel())
+def panel():
+    return render_template("panel.html", etat=panel_client.etat(),
+                           url_panel=panel_client.url_panel())
 
 
-@app.route("/api/tests/executions")
+@app.route("/panel/<slug>")
 @login_required
-def api_tests_executions():
-    return jsonify(ci_github.executions())
+def panel_page(slug):
+    donnees = panel_client.page(slug)
+    if donnees.get("erreur"):
+        abort(502)
+    return render_template("panel_page.html", page=donnees,
+                           url_panel=panel_client.url_panel())
 
 
-@app.route("/api/tests/lancer", methods=["POST"])
+@app.route("/api/panel/pages")
 @login_required
-def api_tests_lancer():
-    filtre = (request.get_json(silent=True) or {}).get("filtre", "")
-    ok, message = ci_github.lancer(filtre)
-    return jsonify({"ok": ok, "message": message}), (200 if ok else 400)
+def api_panel_pages():
+    return jsonify(panel_client.pages())
+
+
+@app.route("/api/panel/page/<slug>")
+@login_required
+def api_panel_page(slug):
+    return jsonify(panel_client.page(slug))
+
+
+@app.route("/api/panel/lancer", methods=["POST"])
+@login_required
+def api_panel_lancer():
+    portee = (request.get_json(silent=True) or {}).get("portee", "all")
+    ok, charge = panel_client.lancer(portee)
+    return jsonify(dict(charge, ok=ok)), (200 if ok else 502)
+
+
+@app.route("/api/panel/run/<int:run_id>")
+@login_required
+def api_panel_run(run_id):
+    return jsonify(panel_client.statut(run_id))
 
 
 @app.route("/ci")

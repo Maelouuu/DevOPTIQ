@@ -3,3 +3,8 @@
 
 # Pour forcer les fichiers Python (ou d'autres) à utiliser LF dans le dépôt
 *.py text eol=lf
+
+# Les scripts shell doivent garder des fins de ligne LF jusque dans la copie de
+# travail : un `\r` en fin de shebang ou de commande fait échouer bash. Sans
+# cette règle, un poste Windows (core.autocrlf=true) les récupère en CRLF.
+*.sh text eol=lf

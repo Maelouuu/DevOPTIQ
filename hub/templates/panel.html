@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Panel de tests — Optiq Hub</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,700&family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="{{ url_for('static', filename='hub.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='panel.css') }}">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'><rect width='40' height='40' rx='10' fill='%23f2eefb'/><path d='M8 30V18l12-8 12 8v12z' fill='none' stroke='%238b6fb5' stroke-width='2.6'/><path d='M20 10v20M8 18h24' stroke='%238b6fb5' stroke-width='1.6'/></svg>">
+</head>
+<body class="page--panel module">
+
+<div class="fond" aria-hidden="true"></div>
+<div class="verriere" aria-hidden="true"></div>
+<div class="grain" aria-hidden="true"></div>
+
+<svg class="sprite" aria-hidden="true">
+  <symbol id="i-ok" viewBox="0 0 24 24"><path d="m5 13 4 4 10-10"/></symbol>
+  <symbol id="i-lien" viewBox="0 0 24 24"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></symbol>
+  <symbol id="i-retour" viewBox="0 0 24 24"><path d="M19 12H5M11 18l-6-6 6-6"/></symbol>
+  <symbol id="i-jouer" viewBox="0 0 24 24"><path d="M7 4.5v15l13-7.5z"/></symbol>
+  <symbol id="i-fleche" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></symbol>
+</svg>
+
+<a class="saut" href="#contenu">Aller au contenu</a>
+
+{# Bandeau de module : on n'est plus dans le hub courant, et ça doit se voir
+   dès la première seconde — verrière au lieu de mur chaulé, pignon de serre
+   au lieu d'arche, et un chemin de retour explicite. #}
+<header class="mod-barre">
+  <div class="mod-barre-in">
+    <a class="mod-retour" href="/">
+      <svg class="ic"><use href="#i-retour"></use></svg>
+      <span>Optiq Hub</span>
+    </a>
+    <span class="mod-fil">/</span>
+    <span class="mod-jeton">
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M4 20V11l8-6 8 6v9z" fill="none" stroke="currentColor" stroke-width="1.8"/>
+        <path d="M12 5v15M4 11h16" stroke="currentColor" stroke-width="1.1"/>
+      </svg>
+      Module · Panel de tests
+    </span>
+    <a class="mod-sortie" href="{{ url_panel }}" target="_blank" rel="noopener">
+      Panel d'origine <svg class="ic"><use href="#i-lien"></use></svg>
+    </a>
+  </div>
+</header>
+
+<main id="contenu" class="mod-colonne">
+
+  <header class="mod-tete">
+    <div class="mod-mot">
+      <span class="mod-sur">Qualité · fiabilité de l'application</span>
+      <h1>Panel de tests</h1>
+      <p>
+        {% if etat.get('erreur') %}
+          L'instance ne répond pas pour l'instant — les chiffres réapparaîtront dès qu'elle sera revenue.
+        {% else %}
+          {{ etat.get('cas', 0) }} cas répartis sur {{ etat.get('pages', 0) }} pages.
+          La suite s'exécute sur l'instance, dans une base jetable.
+        {% endif %}
+      </p>
+      <div class="mod-actions">
+        <button class="btn-pri" id="btn-tout" type="button">
+          <svg class="ic"><use href="#i-jouer"></use></svg> Lancer toute la suite
+        </button>
+        <button class="btn-sec" id="btn-recharger" type="button">Actualiser</button>
+      </div>
+      <div class="course" id="course" hidden>
+        <div class="course-barre"><i id="course-jauge"></i></div>
+        <p class="course-txt" id="course-txt"></p>
+      </div>
+    </div>
+
+    {# Pignon de serre : la silhouette qui remplace l'arche du hub. #}
+    <div class="serre">
+      <svg class="serre-toit" viewBox="0 0 240 96" aria-hidden="true">
+        <path d="M4 92 120 6l116 86" fill="rgba(255,255,255,.55)" stroke="#8b6fb5" stroke-width="2.4"
+              stroke-linejoin="round"/>
+        <path d="M120 6v86M62 49h116M40 70h160" stroke="#8b6fb5" stroke-width="1.2" opacity=".55"/>
+      </svg>
+      <div class="serre-corps">
+        <div class="jauge-globale">
+          <svg viewBox="0 0 120 120" aria-hidden="true">
+            <circle class="j-fond" cx="60" cy="60" r="50"/>
+            <circle class="j-arc" id="jauge-globale-arc" cx="60" cy="60" r="50"/>
+          </svg>
+          <div class="jauge-txt">
+            <b id="jauge-globale-val">—</b>
+            <span>fiabilité</span>
+          </div>
+        </div>
+        <p class="serre-leg" id="serre-leg">Sur les cas déjà exécutés</p>
+      </div>
+    </div>
+  </header>
+
+  <section class="mod-bloc">
+    <div class="mod-index">
+      <span class="mod-tag">Fiabilité par page</span>
+      <span class="mod-trait"></span>
+      <div class="tri">
+        {# 70 pages : les atteindre à la flèche serait une corvée. #}
+        <input class="tri-champ" id="tri-q" type="search" autocomplete="off"
+               placeholder="Filtrer (carto, tâches, rôles…)" aria-label="Filtrer les pages">
+        <button class="tri-b actif" data-tri="fichier" type="button">Ordre des fichiers</button>
+        <button class="tri-b" data-tri="fiabilite" type="button">Les plus fragiles</button>
+        <button class="tri-b" data-tri="taille" type="button">Les plus fournies</button>
+      </div>
+    </div>
+
+    {# Carrousel : les pages tournent sur un anneau. Seules les voisines sont
+       rendues en volume ; au-delà, elles s'effacent — sinon 70 cartes
+       superposées deviennent illisibles. #}
+    <div class="carrousel" id="carrousel">
+      <button class="car-fleche car-prec" id="car-prec" type="button" aria-label="Page précédente">
+        <svg class="ic"><use href="#i-fleche"></use></svg>
+      </button>
+      <div class="car-scene" id="car-scene" tabindex="0" role="listbox" aria-label="Pages de tests">
+        <p class="car-vide" id="car-vide">Chargement du catalogue…</p>
+      </div>
+      <button class="car-fleche car-suiv" id="car-suiv" type="button" aria-label="Page suivante">
+        <svg class="ic"><use href="#i-fleche"></use></svg>
+      </button>
+      <div class="car-socle" aria-hidden="true"></div>
+    </div>
+
+    <div class="car-pied">
+      <p class="car-compteur" id="car-compteur"></p>
+      <p class="car-aide">Flèches, glisser ou geste horizontal · Entrée pour ouvrir</p>
+    </div>
+  </section>
+
+  {# Ce que le module ne reprend pas volontairement — l'ancienne page /tests y
+     menait, elle a disparu avec son lanceur GitHub. #}
+  <nav class="mod-annexes">
+    <a href="{{ url_panel }}journal" target="_blank" rel="noopener">
+      Carnet de bord <svg class="ic"><use href="#i-lien"></use></svg>
+    </a>
+    <a href="{{ inv.DEPOT }}/actions/workflows/tests.yml" target="_blank" rel="noopener">
+      Journaux GitHub <svg class="ic"><use href="#i-lien"></use></svg>
+    </a>
+    <a href="{{ url_panel }}patches" target="_blank" rel="noopener">
+      Correctifs tracés <svg class="ic"><use href="#i-lien"></use></svg>
+    </a>
+  </nav>
+
+</main>
+
+<script src="{{ url_for('static', filename='panel.js') }}"></script>
+</body>
+</html>

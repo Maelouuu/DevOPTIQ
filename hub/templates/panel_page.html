@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ page.titre }} — Panel de tests</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,700&family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="{{ url_for('static', filename='hub.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='panel.css') }}">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'><rect width='40' height='40' rx='10' fill='%23f2eefb'/><path d='M8 30V18l12-8 12 8v12z' fill='none' stroke='%238b6fb5' stroke-width='2.6'/><path d='M20 10v20M8 18h24' stroke='%238b6fb5' stroke-width='1.6'/></svg>">
+</head>
+<body class="page--panel module">
+
+<div class="fond" aria-hidden="true"></div>
+<div class="verriere" aria-hidden="true"></div>
+<div class="grain" aria-hidden="true"></div>
+
+<svg class="sprite" aria-hidden="true">
+  <symbol id="i-lien" viewBox="0 0 24 24"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></symbol>
+  <symbol id="i-retour" viewBox="0 0 24 24"><path d="M19 12H5M11 18l-6-6 6-6"/></symbol>
+  <symbol id="i-jouer" viewBox="0 0 24 24"><path d="M7 4.5v15l13-7.5z"/></symbol>
+</svg>
+
+<a class="saut" href="#contenu">Aller au contenu</a>
+
+<header class="mod-barre">
+  <div class="mod-barre-in">
+    <a class="mod-retour" href="/panel">
+      <svg class="ic"><use href="#i-retour"></use></svg>
+      <span>Panel de tests</span>
+    </a>
+    <span class="mod-fil">/</span>
+    <span class="mod-jeton">
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M4 20V11l8-6 8 6v9z" fill="none" stroke="currentColor" stroke-width="1.8"/>
+        <path d="M12 5v15M4 11h16" stroke="currentColor" stroke-width="1.1"/>
+      </svg>
+      {{ page.fichier }}
+    </span>
+    <a class="mod-sortie" href="{{ url_panel }}page/{{ page.slug }}" target="_blank" rel="noopener">
+      Panel d'origine <svg class="ic"><use href="#i-lien"></use></svg>
+    </a>
+  </div>
+</header>
+
+<main id="contenu" class="mod-colonne">
+
+  <section class="detail-tete">
+    {# La jauge est la même que sur le carrousel : on retrouve son repère. #}
+    <div class="detail-jauge">
+      <svg viewBox="0 0 120 120" aria-hidden="true">
+        <circle class="j-fond" cx="60" cy="60" r="50"/>
+        <circle class="j-arc" id="detail-arc" cx="60" cy="60" r="50"/>
+      </svg>
+      <div class="cc-val">
+        {% if page.fiabilite is none %}
+          <i>jamais joué</i>
+        {% else %}
+          <b>{{ page.fiabilite }}<span>%</span></b>
+          <span>fiabilité</span>
+        {% endif %}
+      </div>
+    </div>
+
+    <div>
+      <span class="mod-sur">Page de tests</span>
+      <h1>{{ page.titre }}</h1>
+      {% if page.description %}<p>{{ page.description }}</p>{% endif %}
+      <div class="detail-meta">
+        <span class="cc-p {{ 'ok' if page.verts else 'neutre' }}"><i></i>{{ page.verts }} vert{{ 's' if page.verts > 1 }}</span>
+        <span class="cc-p {{ 'ko' if page.rouges else 'neutre' }}"><i></i>{{ page.rouges }} rouge{{ 's' if page.rouges > 1 }}</span>
+        <span class="cc-p neutre">{{ page.total }} cas</span>
+        {% if page.marqueur %}<span class="cc-p neutre">-m {{ page.marqueur }}</span>{% endif %}
+      </div>
+      <div class="mod-actions">
+        <button class="btn-pri" id="btn-page" type="button" data-slug="{{ page.slug }}">
+          <svg class="ic"><use href="#i-jouer"></use></svg> Lancer cette page
+        </button>
+      </div>
+      <div class="course" id="course" hidden>
+        <div class="course-barre"><i id="course-jauge"></i></div>
+        <p class="course-txt" id="course-txt"></p>
+      </div>
+    </div>
+  </section>
+
+  <div class="mod-index">
+    <span class="mod-tag">Les {{ page.total }} cas</span>
+    <span class="mod-trait"></span>
+  </div>
+
+  <div class="cas">
+    {% for c in page.cas %}
+    <div class="cas-l">
+      <span class="cas-pt {{ c.statut or '' }}" title="{{ c.statut or 'jamais joué' }}"></span>
+      <span>
+        <span class="cas-nom">{{ c.nom }}</span>
+        <code class="cas-classe">{{ c.classe }}</code>
+      </span>
+      <span class="cas-quand">{{ (c.quand[:16] | replace('T', ' ')) if c.quand else '—' }}</span>
+    </div>
+    {% endfor %}
+  </div>
+
+</main>
+
+<script>window.PAGE_FIABILITE = {{ (page.fiabilite if page.fiabilite is not none else 'null') | safe }};</script>
+<script src="{{ url_for('static', filename='panel.js') }}"></script>
+</body>
+</html>

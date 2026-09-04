@@ -465,5 +465,26 @@
     ],
     "author": "routine",
     "fixed_at": "2026-08-01T03:13:37"
+  },
+  {
+    "patch_uid": "2026-09-04-pulse-bytecode",
+    "title": "Tests pulse : sauter le chargement par chemin quand l'arbre est en bytecode",
+    "node_ids": [
+      "tests/test_61_pulse.py::TestPulseApp::test_everything_locked_without_login",
+      "tests/test_61_pulse.py::TestPulseApp::test_login_wrong_then_right",
+      "tests/test_61_pulse.py::TestPulseApp::test_rate_limit",
+      "tests/test_61_pulse.py::TestPulseApp::test_overview_end_to_end"
+    ],
+    "page_slug": "pulse",
+    "failure_reason": "La fixture pulse_app charge pulse/app.py par CHEMIN DE FICHIER (spec_from_file_location). L'image applicative ne garde que du bytecode : compileall -b puis suppression des .py. Le fichier n'existe donc pas sur l'instance.",
+    "was_real_bug": false,
+    "root_cause": "test_quality",
+    "error": "FileNotFoundError: [Errno 2] No such file or directory: '/app/pulse/app.py' — 4 erreurs au setup, invisibles en local (les sources y sont) et systematiques des que la suite tourne sur l'instance.",
+    "fix_description": "La fixture saute proprement quand pulse/app.py est absent, au lieu d'echouer. Trouve en repetant la disposition de l'image sans Docker (.verif/repet_image.sh) avant de mettre le module Panel en ligne : la suite est desormais rejouee SUR l'instance depuis le hub, ce chemin n'etait jamais exerce auparavant.",
+    "files_changed": [
+      "tests/test_61_pulse.py"
+    ],
+    "author": "claude",
+    "fixed_at": "2026-09-04T17:17:36"
   }
 ]

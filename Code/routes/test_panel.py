@@ -739,6 +739,97 @@ def reset_stale():
     return jsonify({'expired': len(stale)})
 
 
+# ── API JSON pour Optiq Hub ───────────────────────────────────────────────────
+# Le hub affiche la fiabilité par page et le détail d'une page ; il lui faut du
+# JSON, pas les gabarits du panel. Ces routes ne servent qu'à lire.
+
+def _fiabilite(cases):
+    """Part de cas au vert, sur ceux qui ont déjà tourné.
+
+    Les cas jamais exécutés sont EXCLUS du calcul : les compter comme des
+    échecs ferait chuter le score d'une page simplement parce qu'on ne l'a
+    pas encore jouée, ce qui induirait en erreur.
+    """
+    joues = [c for c in cases if c.last_status in ('passed', 'failed', 'error')]
+    if not joues:
+        return None, 0, 0, 0
+    verts = sum(1 for c in joues if c.last_status == 'passed')
+    return round(100 * verts / len(joues)), verts, len(joues) - verts, len(joues)
+
+
+@test_panel_bp.route('/api/pages')
+def api_pages():
+    sync_tests_to_db()
+    pages = TestPage.query.order_by(TestPage.file_name).all()
+    sortie = []
+    for page in pages:
+        cases = list(page.cases)
+        pct, verts, rouges, joues = _fiabilite(cases)
+        dernier = max((c.last_ran_at for c in cases if c.last_ran_at), default=None)
+        sortie.append({
+            'slug': page.slug,
+            'titre': page.title,
+            'description': page.description,
+            'fichier': page.file_name,
+            'marqueur': page.marker,
+            'total': len(cases),
+            'joues': joues,
+            'verts': verts,
+            'rouges': rouges,
+            'fiabilite': pct,                     # None = jamais joué
+            'dernier': dernier.isoformat() if dernier else None,
+        })
+    return jsonify({'pages': sortie, 'total_cas': sum(p['total'] for p in sortie)})
+
+
+@test_panel_bp.route('/api/page/<slug>')
+def api_page(slug):
+    page = TestPage.query.filter_by(slug=slug).first_or_404()
+    cases = list(page.cases)
+    pct, verts, rouges, joues = _fiabilite(cases)
+    return jsonify({
+        'slug': page.slug,
+        'titre': page.title,
+        'description': page.description,
+        'fichier': page.file_name,
+        'marqueur': page.marker,
+        'fiabilite': pct,
+        'verts': verts,
+        'rouges': rouges,
+        'joues': joues,
+        'total': len(cases),
+        'cas': [{
+            'id': c.id,
+            'nom': c.display_name or c.name,
+            'classe': c.class_name,
+            'description': c.description,
+            'statut': c.last_status,
+            'quand': c.last_ran_at.isoformat() if c.last_ran_at else None,
+        } for c in cases],
+    })
+
+
+@test_panel_bp.route('/api/etat')
+def api_etat():
+    """Ce que le hub doit savoir avant de proposer un lancement."""
+    sync_tests_to_db()
+    en_cours = TestRun.query.filter_by(status='running').order_by(
+        TestRun.started_at.desc()).first()
+    dernier = TestRun.query.filter_by(status='done').order_by(
+        TestRun.finished_at.desc()).first()
+    return jsonify({
+        'suite_presente': _TESTS_DIR.exists() and any(_TESTS_DIR.glob('test_*.py')),
+        'pages': TestPage.query.count(),
+        'cas': TestCase.query.count(),
+        'en_cours': ({'id': en_cours.id, 'scope': en_cours.scope,
+                      'depuis': en_cours.started_at.isoformat() if en_cours.started_at else None}
+                     if en_cours else None),
+        'dernier': ({'id': dernier.id, 'scope': dernier.scope,
+                     'fin': dernier.finished_at.isoformat() if dernier.finished_at else None}
+                    if dernier else None),
+    })
+
+
 @test_panel_bp.route('/global/stats')
 def global_stats():
     from collections import Counter

@@ -836,10 +836,69 @@ workflows. Compte unique `Mael_Girardin` (secret `HUB_PASSWORD`, défaut baké
 - ⚠️ `/health` et **pas** `/healthz` (intercepté par le frontend Google sur
   `*.run.app`) ; `HUB_SECRET_KEY` est conservée d'un déploiement à l'autre,
   sinon chaque livraison déconnecte la session.
-- **Ce que le hub ne fait pas** : lancer les traitements locaux (`pytest`,
-  provisionnement, captures du guide). Une page hébergée ne peut pas exécuter
+- **Ce que le hub ne fait pas** : lancer les traitements locaux
+  (provisionnement, captures du guide). Une page hébergée ne peut pas exécuter
   un script sur le poste de l'utilisateur ; le hub en garde le mode d'emploi et
-  la commande exacte, copiable en un clic.
+  la commande exacte, copiable en un clic. **La suite de tests, elle, tourne
+  bien depuis le hub** — voir le module ci-dessous.
+
+### Module « Panel de tests » (2026-09-04)
+
+Le hub ne se contente plus de pointer vers le panel : il en est la façade.
+`/panel` (carrousel des pages) et `/panel/<slug>` (détail d'une page).
+
+- **L'exécution a lieu SUR l'instance**, pas dans GitHub Actions.
+  `_start_run` lance pytest en sous-processus sur une **base SQLite jetable**
+  (`tests/conftest.py`), jamais sur la base de l'application. Trois
+  conséquences, toutes nécessaires :
+  1. ⚠️ **`tests/` n'est plus exclu par `.dockerignore`** — c'est le
+     **Dockerfile** qui tranche (`ARG WITH_TESTS`, défaut 0). Le build staging
+     passe `--build-arg WITH_TESTS=1` ; l'image client, elle, supprime le
+     dossier. Exclure au niveau du contexte privait les deux du choix, et le
+     panel déployé affichait **0 test** (`sync_tests_to_db` ne trouvait aucun
+     fichier) — le symptôme rapporté.
+  2. ⚠️ **La purge bytecode épargne `tests/`** : pytest collecte des `.py`, pas
+     des `.pyc`, et le panel analyse les sources pour recenser les cas
+     (`compileall -x '(^|/)tests/'` + `find … ! -path "/app/tests/*"`).
+  3. ⚠️ **Cloud Run staging tourne en `--no-cpu-throttling`** : le
+     sous-processus démarre APRÈS la réponse HTTP ; sans CPU alloué en continu
+     il est étranglé à ~5 % et une exécution de 3 min en prend 60.
+     Contrepartie : CPU facturé tant qu'une instance vit (`--cpu 2`,
+     `--memory 4Gi`, `--timeout 900`).
+- **Plus aucun jeton.** L'ancienne page `/tests` déclenchait `tests.yml` via
+  l'API GitHub et exigeait `HUB_GITHUB_TOKEN` — d'où « Jeton GitHub absent ».
+  Page, gabarit, `ci_github.py` et les routes `/api/tests/*` sont **supprimés**.
+  Le workflow `tests.yml` reste (il tourne au push) ; ses journaux sont liés
+  depuis le pied du module.
+- **API côté app** (`Code/routes/test_panel.py`) : `/testpanel/api/etat`,
+  `/api/pages`, `/api/page/<slug>` — le seul contrat entre l'app et le hub.
+  `_fiabilite()` **exclut les cas jamais joués** du calcul : les compter comme
+  des échecs ferait chuter le score d'une page qu'on n'a pas encore lancée.
+  Tests : `tests/test_65_panel_api.py` (10 cas).
+- **Pont côté hub** (`hub/panel_client.py`) : le navigateur ne peut pas appeler
+  l'instance (deux domaines, aucun CORS) — le hub appelle côté serveur et
+  republie sous son domaine. `PANEL_BASE` vise une autre instance pour la mise
+  au point locale.
+- **Identité visuelle** : même langage que le hub (Fraunces, arrondis,
+  italique des sur-titres) mais on doit voir qu'on a changé de lieu — la
+  **verrière** remplace le mur chaulé, le **pignon de serre** remplace l'arche,
+  un bandeau de module donne le chemin de retour. Lavande `#8b6fb5` (couleur de
+  la section Tests). `panel.html` / `panel_page.html` n'étendent PAS
+  `base.html` : un module n'a pas la barre de navigation du hub.
+- ⚠️ **`.car-socle` en `pointer-events:none`** : l'ombre au sol couvre le bas de
+  la carte active et volait le clic sur « Voir le détail ».
+- ⚠️ **La molette verticale n'est PAS captée** par le carrousel : la confisquer
+  empêchait de faire défiler la page dès que le pointeur passait sur l'anneau.
+  Navigation : flèches, clavier, glisser, geste horizontal, champ de filtre
+  (70 pages à la flèche serait une corvée).
+- **`tools/repet_image.sh`** — répète la disposition de l'image SANS Docker
+  (exclusions `.dockerignore` + purge bytecode, `tests/` épargné) et y lance la
+  suite. À passer avant toute livraison qui touche au Dockerfile ou aux tests :
+  depuis que la suite tourne sur l'instance, un test qui lit un fichier SOURCE
+  échoue là-bas en passant ici. C'est ainsi qu'a été trouvé le défaut de
+  `tests/test_61_pulse.py` (fixture `pulse_app` : `spec_from_file_location` sur
+  `pulse/app.py`, absent d'un arbre bytecode → 4 erreurs à chaque exécution).
+  Mesuré : 1867 passés en local, 1863 passés + 4 sautés dans l'arbre d'image.
 
 ## Provisionnement — compléter une carto avec un Excel client
 

@@ -29,7 +29,10 @@ docs/
 doc/
 Archives/
 backup/
-tests/
+# tests/ — PLUS exclu du contexte : c'est le Dockerfile qui tranche
+#   (ARG WITH_TESTS). Nos instances internes embarquent la suite pour
+#   que /testpanel puisse la recenser et la rejouer ; l'image client la
+#   supprime au build. Exclure ici priverait les deux du choix.
 uploads/
 Code.zip
 codeApp.zip
