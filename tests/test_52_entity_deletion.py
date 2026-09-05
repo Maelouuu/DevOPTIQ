@@ -18,6 +18,21 @@ from Code.models.models import (
 )
 
 
+@pytest.fixture(scope='module', autouse=True)
+def _restaurer_la_session(app, client, ids):
+    """Le client de test est partagé par TOUTE la suite (fixture de portée session).
+    Ces tests changent de compte connecté : sans restauration, les modules
+    suivants héritent d'une session appartenant à un compte supprimé."""
+    yield
+    with app.app_context():
+        seed = User.query.filter_by(email='test@devoptiq.com').first()
+        uid, umail = seed.id, seed.email
+    with client.session_transaction() as sess:
+        sess['user_id'] = uid
+        sess['user_email'] = umail
+        sess['active_entity_id'] = ids['entity_id']
+
+
 @pytest.fixture()
 def seeded_entity(app):
     """Entité dédiée avec un exemplaire de CHAQUE table enfant liée à l'entité, ses
@@ -122,3 +137,113 @@ def test_delete_entity_never_fails_on_fk(app, client, seeded_entity):
         assert owner is not None and owner.entity_id is None
         # Nettoyage
         db.session.delete(owner); db.session.commit()
+
+
+def test_delete_entity_requires_auth(client):
+    with client.session_transaction() as s:
+        s.pop("user_id", None)
+    r = client.delete("/activities/api/entities/999999")
+    assert r.status_code == 401
+
+
+def test_delete_entity_404_for_nonexistent_id(client, ids):
+    with client.session_transaction() as s:
+        s["user_id"] = ids["user_id"]
+    r = client.delete("/activities/api/entities/999999999")
+    assert r.status_code == 404
+    assert "error" in r.get_json()
+
+
+@pytest.fixture()
+def other_owner_entity(app):
+    """Une entité appartenant à un AUTRE compte que celui qui tentera de la supprimer."""
+    with app.app_context():
+        owner2 = User(first_name="Other", last_name="Owner", email="other.owner@t.com",
+                      password=generate_password_hash("x"), status="admin")
+        db.session.add(owner2); db.session.flush()
+        ent2 = Entity(name="NotYours", owner_id=owner2.id)
+        db.session.add(ent2); db.session.commit()
+        info = {"entity_id": ent2.id, "owner_id": owner2.id}
+    yield info
+    with app.app_context():
+        e = Entity.query.get(info["entity_id"])
+        if e:
+            db.session.delete(e)
+        u = User.query.get(info["owner_id"])
+        if u:
+            db.session.delete(u)
+        db.session.commit()
+
+
+def test_delete_entity_404_for_other_owners_entity(app, client, ids, other_owner_entity):
+    with client.session_transaction() as s:
+        s["user_id"] = ids["user_id"]
+    r = client.delete(f"/activities/api/entities/{other_owner_entity['entity_id']}")
+    assert r.status_code == 404
+    with app.app_context():
+        # L'entité d'autrui n'a pas été touchée
+        assert Entity.query.get(other_owner_entity["entity_id"]) is not None
+
+
+@pytest.fixture()
+def owner_with_two_entities(app):
+    with app.app_context():
+        owner = User(first_name="Two", last_name="Ent", email="two.ent@t.com",
+                     password=generate_password_hash("x"), status="admin")
+        db.session.add(owner); db.session.flush()
+        ent_a = Entity(name="EntA", owner_id=owner.id)
+        ent_b = Entity(name="EntB", owner_id=owner.id)
+        db.session.add_all([ent_a, ent_b]); db.session.commit()
+        info = {"owner_id": owner.id, "ent_a": ent_a.id, "ent_b": ent_b.id}
+    yield info
+    with app.app_context():
+        for eid in (info["ent_a"], info["ent_b"]):
+            e = Entity.query.get(eid)
+            if e:
+                db.session.delete(e)
+        u = User.query.get(info["owner_id"])
+        if u:
+            db.session.delete(u)
+        db.session.commit()
+
+
+def test_delete_entity_reassigns_active_entity_to_remaining_one(app, client, owner_with_two_entities):
+    o = owner_with_two_entities
+    with client.session_transaction() as s:
+        s["user_id"] = o["owner_id"]
+        s["active_entity_id"] = o["ent_a"]
+    r = client.delete(f"/activities/api/entities/{o['ent_a']}")
+    assert r.status_code == 200
+    with client.session_transaction() as s:
+        assert s["active_entity_id"] == o["ent_b"]
+
+
+@pytest.fixture()
+def owner_with_one_entity(app):
+    with app.app_context():
+        owner = User(first_name="One", last_name="Ent", email="one.ent@t.com",
+                     password=generate_password_hash("x"), status="admin")
+        db.session.add(owner); db.session.flush()
+        ent = Entity(name="EntOnly", owner_id=owner.id)
+        db.session.add(ent); db.session.commit()
+        info = {"owner_id": owner.id, "entity_id": ent.id}
+    yield info
+    with app.app_context():
+        e = Entity.query.get(info["entity_id"])
+        if e:
+            db.session.delete(e)
+        u = User.query.get(info["owner_id"])
+        if u:
+            db.session.delete(u)
+        db.session.commit()
+
+
+def test_delete_entity_clears_active_entity_when_none_remain(app, client, owner_with_one_entity):
+    o = owner_with_one_entity
+    with client.session_transaction() as s:
+        s["user_id"] = o["owner_id"]
+        s["active_entity_id"] = o["entity_id"]
+    r = client.delete(f"/activities/api/entities/{o['entity_id']}")
+    assert r.status_code == 200
+    with client.session_transaction() as s:
+        assert "active_entity_id" not in s
