@@ -20,6 +20,54 @@ pytestmark = pytest.mark.competences_plan
 
 
 # ---------------------------------------------------------------------------
+# Fake client OpenAI — pour couvrir _call_llm_or_dummy() avec une clé IA
+# présente (jamais exercé par les tests "sans clé" ci-dessous).
+# ---------------------------------------------------------------------------
+
+class _FakeMessage:
+    def __init__(self, content):
+        self.content = content
+
+
+class _FakeChoice:
+    def __init__(self, content):
+        self.message = _FakeMessage(content)
+
+
+class _FakeCompletion:
+    def __init__(self, content):
+        self.choices = [_FakeChoice(content)]
+
+
+class _FakeChatCompletions:
+    def __init__(self, content=None, raise_exc=None):
+        self._content = content
+        self._raise_exc = raise_exc
+
+    def create(self, **kwargs):
+        if self._raise_exc is not None:
+            raise self._raise_exc
+        return _FakeCompletion(self._content)
+
+
+class _FakeChat:
+    def __init__(self, content=None, raise_exc=None):
+        self.completions = _FakeChatCompletions(content, raise_exc)
+
+
+class _FakeAIClient:
+    def __init__(self, content=None, raise_exc=None):
+        self.chat = _FakeChat(content, raise_exc)
+
+
+def _mock_ai(monkeypatch, content=None, raise_exc=None, model="gpt-4o-mini"):
+    """Simule une clé IA présente + un client IA (Code.ai_client.make_ai_client)."""
+    monkeypatch.setattr("Code.routes.competences_plan.get_openai_key", lambda: "sk-fake-key")
+    fake_client = _FakeAIClient(content=content, raise_exc=raise_exc)
+    monkeypatch.setattr("Code.ai_client.make_ai_client", lambda: (fake_client, model, None))
+
+
+# ---------------------------------------------------------------------------
 # Fixtures locales
 # ---------------------------------------------------------------------------
 
@@ -265,6 +313,81 @@ class TestGeneratePlan:
         )
         assert r.status_code == 200
         assert r.get_json()["ok"] is True
+
+
+class TestGeneratePlanWithAI:
+    """Couvre _call_llm_or_dummy() avec une clé IA présente (mockée), et les
+    replis de generate_plan (prompts non chargés, exception générique)."""
+
+    def _payload(self, ids):
+        return json.dumps({
+            "user_id": ids["user_id"],
+            "role_id": 1,
+            "activity_id": ids["activity_id"],
+            "payload_contexte": {"role": {"name": "Rôle Test"}, "activity": {"name": "Activité Test"}},
+        })
+
+    def test_ai_success_returns_parsed_json_plan(self, auth_client, ids, monkeypatch):
+        _mock_ai(monkeypatch, content=json.dumps({"type": "PLAN_IA", "axes": []}))
+        r = auth_client.post(
+            "/competences_plan/generate_plan", data=self._payload(ids), content_type="application/json",
+        )
+        assert r.status_code == 200
+        body = r.get_json()
+        assert body["ok"] is True
+        assert body["plan"]["type"] == "PLAN_IA"
+
+    def test_ai_response_with_surrounding_text_extracts_json(self, auth_client, ids, monkeypatch):
+        """Si le modèle entoure le JSON de texte libre, generate_plan l'extrait via regex."""
+        content = "Voici le plan demandé :\n" + json.dumps({"type": "PLAN_EXTRAIT", "axes": []})
+        _mock_ai(monkeypatch, content=content)
+        r = auth_client.post(
+            "/competences_plan/generate_plan", data=self._payload(ids), content_type="application/json",
+        )
+        assert r.status_code == 200
+        assert r.get_json()["plan"]["type"] == "PLAN_EXTRAIT"
+
+    def test_ai_response_unparsable_falls_back_to_dummy(self, auth_client, ids, monkeypatch):
+        """Réponse sans JSON exploitable → plan dummy annoté 'fallback_parse_error'."""
+        _mock_ai(monkeypatch, content="Ceci n'est pas du JSON du tout.")
+        r = auth_client.post(
+            "/competences_plan/generate_plan", data=self._payload(ids), content_type="application/json",
+        )
+        assert r.status_code == 200
+        plan = r.get_json()["plan"]
+        assert plan["meta"]["source"] == "fallback_parse_error"
+
+    def test_ai_exception_falls_back_to_dummy_with_error_meta(self, auth_client, ids, monkeypatch):
+        _mock_ai(monkeypatch, raise_exc=RuntimeError("boom ia"))
+        r = auth_client.post(
+            "/competences_plan/generate_plan", data=self._payload(ids), content_type="application/json",
+        )
+        assert r.status_code == 200
+        plan = r.get_json()["plan"]
+        assert plan["meta"]["source"] == "fallback_exception"
+        assert "boom ia" in plan["meta"]["error"]
+
+    def test_prompts_not_loaded_returns_503(self, auth_client, ids, monkeypatch):
+        monkeypatch.setattr("Code.routes.competences_plan.get_prompt", lambda *a, **k: None)
+        r = auth_client.post(
+            "/competences_plan/generate_plan", data=self._payload(ids), content_type="application/json",
+        )
+        assert r.status_code == 503
+        assert r.get_json()["ok"] is False
+
+    def test_missing_user_id_returns_dummy_plan_with_warning(self, auth_client, ids):
+        """Une exception inattendue (payload invalide) ne doit jamais lever un 500 :
+        generate_plan renvoie un plan dummy annoté 'error_fallback' + un warning."""
+        r = auth_client.post(
+            "/competences_plan/generate_plan",
+            data=json.dumps({"role_id": 1, "activity_id": ids["activity_id"], "payload_contexte": {}}),
+            content_type="application/json",
+        )
+        assert r.status_code == 200
+        body = r.get_json()
+        assert body["ok"] is True
+        assert "warning" in body
+        assert body["plan"]["meta"]["source"] == "error_fallback"
 
 
 # ===========================================================================
