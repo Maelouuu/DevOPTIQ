@@ -268,6 +268,145 @@ class TestGeneratePlan:
 
 
 # ===========================================================================
+# 3bis. generate_plan — chemins avec IA mockée (succès, parse dégradé, erreur SDK)
+#       et chemins d'erreur explicites (prompts absents, exception inattendue).
+# ===========================================================================
+
+class _FakeMessage:
+    def __init__(self, content):
+        self.content = content
+
+
+class _FakeChoice:
+    def __init__(self, content):
+        self.message = _FakeMessage(content)
+
+
+class _FakeCompletion:
+    def __init__(self, content):
+        self.choices = [_FakeChoice(content)]
+
+
+class _FakeChatCompletions:
+    def __init__(self, content):
+        self._content = content
+
+    def create(self, **kwargs):
+        return _FakeCompletion(self._content)
+
+
+class _FakeChat:
+    def __init__(self, content):
+        self.completions = _FakeChatCompletions(content)
+
+
+class _FakeAIClient:
+    def __init__(self, content):
+        self.chat = _FakeChat(content)
+
+
+class TestGeneratePlanWithAI:
+
+    def _payload(self, ids):
+        return json.dumps({
+            "user_id": ids["user_id"],
+            "role_id": 1,
+            "activity_id": ids["activity_id"],
+            "payload_contexte": {"role": {"name": "Rôle Test"}, "activity": {"name": "Activité Test"}},
+        })
+
+    def test_ai_success_returns_parsed_plan(self, auth_client, ids, monkeypatch):
+        monkeypatch.setattr("Code.routes.competences_plan.get_openai_key", lambda: "fake-key")
+        monkeypatch.setattr(
+            "Code.ai_client.make_ai_client",
+            lambda timeout=None: (_FakeAIClient(json.dumps({"type": "PLAN_DE_FORMATION", "axes": []})), "model-x", None),
+        )
+        r = auth_client.post(
+            "/competences_plan/generate_plan",
+            data=self._payload(ids),
+            content_type="application/json",
+        )
+        assert r.status_code == 200
+        plan = r.get_json()["plan"]
+        assert plan["type"] == "PLAN_DE_FORMATION"
+        assert "meta" not in plan
+
+    def test_ai_response_with_surrounding_text_is_extracted_via_regex(self, auth_client, ids, monkeypatch):
+        monkeypatch.setattr("Code.routes.competences_plan.get_openai_key", lambda: "fake-key")
+        raw = "Voici le plan demandé :\n" + json.dumps({"type": "PLAN_DE_FORMATION", "axes": []})
+        monkeypatch.setattr(
+            "Code.ai_client.make_ai_client",
+            lambda timeout=None: (_FakeAIClient(raw), "model-x", None),
+        )
+        r = auth_client.post(
+            "/competences_plan/generate_plan",
+            data=self._payload(ids),
+            content_type="application/json",
+        )
+        plan = r.get_json()["plan"]
+        assert plan["type"] == "PLAN_DE_FORMATION"
+
+    def test_ai_response_unparsable_falls_back_to_dummy(self, auth_client, ids, monkeypatch):
+        monkeypatch.setattr("Code.routes.competences_plan.get_openai_key", lambda: "fake-key")
+        monkeypatch.setattr(
+            "Code.ai_client.make_ai_client",
+            lambda timeout=None: (_FakeAIClient("Ceci n'est pas du JSON."), "model-x", None),
+        )
+        r = auth_client.post(
+            "/competences_plan/generate_plan",
+            data=self._payload(ids),
+            content_type="application/json",
+        )
+        plan = r.get_json()["plan"]
+        assert plan["meta"]["source"] == "fallback_parse_error"
+        assert "raw" in plan["meta"]
+
+    def test_ai_client_exception_falls_back_to_dummy(self, auth_client, ids, monkeypatch):
+        monkeypatch.setattr("Code.routes.competences_plan.get_openai_key", lambda: "fake-key")
+
+        def _boom(timeout=None):
+            raise RuntimeError("SDK indisponible")
+
+        monkeypatch.setattr("Code.ai_client.make_ai_client", _boom)
+        r = auth_client.post(
+            "/competences_plan/generate_plan",
+            data=self._payload(ids),
+            content_type="application/json",
+        )
+        assert r.status_code == 200
+        plan = r.get_json()["plan"]
+        assert plan["meta"]["source"] == "fallback_exception"
+        assert "SDK indisponible" in plan["meta"]["error"]
+
+    def test_missing_prompts_returns_503(self, auth_client, ids, monkeypatch):
+        monkeypatch.setattr("Code.routes.competences_plan.get_prompt", lambda key: None)
+        r = auth_client.post(
+            "/competences_plan/generate_plan",
+            data=self._payload(ids),
+            content_type="application/json",
+        )
+        assert r.status_code == 503
+        assert r.get_json()["ok"] is False
+
+    def test_unexpected_exception_returns_ok_with_dummy_and_warning(self, auth_client, ids):
+        """user_id manquant → KeyError interne : jamais de 500, plan dummy + avertissement."""
+        r = auth_client.post(
+            "/competences_plan/generate_plan",
+            data=json.dumps({
+                "role_id": 1,
+                "activity_id": ids["activity_id"],
+                "payload_contexte": {},
+            }),
+            content_type="application/json",
+        )
+        assert r.status_code == 200
+        body = r.get_json()
+        assert body["ok"] is True
+        assert "warning" in body
+        assert body["plan"]["meta"]["source"] == "error_fallback"
+
+
+# ===========================================================================
 # 4. POST /competences_plan/save_plan — Enregistrement d'un plan personnalisé
 # ===========================================================================
 
