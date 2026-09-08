@@ -533,13 +533,30 @@ propager.
   `GET|POST /api/access/<entity_id>` · `GET /api/changes[?entity_id=&status=]` ·
   `GET /api/changes/<id>` (avec le résumé) · `POST /api/changes` ·
   `POST /api/changes/<id>/approve|reject` · `DELETE /api/changes/<id>` (retrait par l'auteur).
-- **Interface** : bouton **« Accès à la carto »** de la fiche entité (ex-« Partager ») →
-  interrupteur *Carto commune* + liste des rôles avec leur nombre de titulaires ; en
-  lecture seule pour un compte ordinaire, qui voit à qui s'adresser. Dans l'éditeur, un
-  **bandeau** dit d'un coup d'œil si ce qu'on fait s'applique ou part à l'examen, le
-  bouton **Sauvegarder devient « Proposer la modification »** (ambre, icône de
-  proposition, Ctrl+S compris), et les champions ont un bouton **Propositions** avec le
-  compte en attente. Le détail d'une proposition affiche **ce qu'elle change** —
+- **Interface — la page `/share`, un seul écran pour tout le processus.**
+  Régler l'accès se faisait sur la carte, mais dire QUI tient un rôle se faisait sur la
+  page Rôles : deux moitiés de la même décision, à deux endroits. La page Partage
+  (`share_page_bp`, `share.html`, `static/js/share.js`, `static/share.css`) porte les
+  trois temps, dans l'ordre : **1 · Qui a accès** (interrupteur *Carto commune* + les
+  rôles, chacun avec ses **titulaires** ajoutables/retirables sur place) · **2 · Qui
+  ouvre cette carto** (la liste résolue des comptes, avec le motif : propriétaire,
+  champion, ouverte à tous, ou *par son rôle* — le contrôle d'un coup d'œil qui
+  n'existait nulle part) · **3 · Modifications proposées** (file d'examen complète).
+  Nav : juste après Cartographie, cyan `#0891b2` (`page--share`).
+  ⚠️ **Les rôles viennent des bandes de la carto** : on ne peut pas en créer ici, et un
+  rôle créé à la main ailleurs serait effacé au prochain enregistrement de la carto
+  (`_sync_carto_to_db` supprime les rôles absents de la carte). L'écran le dit.
+  ⚠️ `POST /api/access/<e>/roles/<r>/holders` travaille **par PAIRE (compte, rôle)** :
+  les endpoints de la page RH, eux, remplacent TOUS les rôles d'une personne (delete
+  puis insert) — les appeler d'ici lui retirerait ses rôles sur les autres cartos.
+- **La carte ne règle plus l'accès** : « Accès à la carto » de la fiche entité mène à
+  `/share/?entity_id=…` (la modale d'accès a été retirée — deux écrans pour un même
+  réglage finissent par donner deux réponses). **« Envoyer une copie »** est un bouton
+  distinct, à côté : c'est une action sur l'entité, pas le processus de la carto commune.
+- **Dans l'éditeur** : un **bandeau** dit d'un coup d'œil si ce qu'on fait s'applique ou
+  part à l'examen, le bouton **Sauvegarder devient « Proposer la modification »** (ambre,
+  icône de proposition, Ctrl+S compris), et les champions ont un bouton **Propositions**
+  avec le compte en attente. Le détail d'une proposition affiche **ce qu'elle change** —
   activités ajoutées / retirées / renommées / déplacées, flèches — pas du JSON.
   Tout vit dans `static/optiqcarto/carto_sharing.js`, chargé APRÈS `editor.js` :
   la gouvernance n'entre pas dans l'éditeur, qui reste l'éditeur.
@@ -566,10 +583,13 @@ propager.
   colonnes indispensables (`_verifier_colonnes`) et le crie dans les journaux.
 - Tests : `tests/test_66_carto_sharing.py` (34 cas — statuts, lecture par rôle, réglage
   de l'accès, refus d'écriture directe, cycle complet d'une proposition, activation,
-  ménage) et `tests/test_67_schema_postgres.py` (5 cas — le DDL des modèles est
-  compilé avec le dialecte PostgreSQL, sans serveur, et les ALTER écrits à la main
-  dans `create_app` sont relus : c'est le seul filet contre un SQL que SQLite
-  accepte et que la production refuse).
+  ménage), `tests/test_68_share_page.py` (14 cas — la page, l'entité de l'URL, les
+  titulaires par paire, la portée et ses motifs, et l'absence de doublon avec la carte)
+  et `tests/test_67_schema_postgres.py` (5 cas — le DDL des modèles est compilé avec le
+  dialecte PostgreSQL, sans serveur, et les ALTER écrits à la main dans `create_app`
+  sont relus : c'est le seul filet contre un SQL que SQLite accepte et que la production
+  refuse). ⚠️ Ces derniers RELISENT `Code/app.py` : ils sautent dans l'arbre d'image
+  (bytecode-only), comme `tests/test_61_pulse.py` — `tools/repet_image.sh` l'a montré.
 
 ### Envoyer une COPIE indépendante (mécanisme secondaire, conservé)
 

@@ -4678,6 +4678,10 @@ body.connexion-mode-active .activity-item:not(.connexion-match):not(.connexion-o
    c'est la décision principale de cet écran. */
 
 .em-action-share { background: #ede9fe; color: #5b21b6; }
+/* Déposer une copie n'est pas partager : couleur voisine mais distincte,
+   pour qu'on ne clique pas l'un pour l'autre. */
+.em-action-copy { background: #e0f2fe; color: #075985; }
+.em-action-copy:hover { background: #bae6fd; transform: translateY(-2px); }
 
 .access-modal {
   max-width: 560px;

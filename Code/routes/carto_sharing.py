@@ -16,16 +16,20 @@ proposition renverrait à un état qui a pu bouger entre son dépôt et son exam
 import json
 from datetime import datetime
 
-from flask import Blueprint, jsonify, request, session
+from flask import Blueprint, jsonify, redirect, render_template, request, session, url_for
 
 from Code.carto_access import (
-    access_summary, can_edit, can_manage_access, can_read, can_review, set_access,
+    access_summary, can_edit, can_manage_access, can_read, can_review,
+    entity_role_ids, set_access, user_role_ids,
 )
 from Code.extensions import db
-from Code.models.models import CartoChangeRequest, Entity, User
+from Code.models.models import CartoChangeRequest, Entity, Role, User, UserRole
 from Code.permissions import current_user, is_admin, is_champion
 
 carto_sharing_bp = Blueprint("carto_sharing", __name__, url_prefix="/cartography")
+
+# La page vit à la racine (/share) : c'est un lieu, pas une API de la carto.
+share_page_bp = Blueprint("share_page", __name__, url_prefix="/share")
 
 
 def _nom_compte(u):
@@ -87,6 +91,152 @@ def post_access(entity_id):
     set_access(entity, partage, role_ids)
     db.session.commit()
     return jsonify({"status": "ok", **access_summary(entity, user)})
+
+
+# ─────────────────────────────────────────────
+# RÔLES ET LEURS TITULAIRES
+# ─────────────────────────────────────────────
+# Régler l'accès sans pouvoir dire QUI tient le rôle obligeait à faire l'aller-
+# retour avec la page Rôles. Les deux moitiés de la même décision vivent donc
+# ici, et la page /share les montre côte à côte.
+
+def _fiche_compte(u):
+    return {"id": u.id, "name": _nom_compte(u), "email": u.email,
+            "status": u.status or "user"}
+
+
+@carto_sharing_bp.route("/api/access/<int:entity_id>/roles")
+def get_roles(entity_id):
+    """Rôles de la carto, leurs titulaires, et qui accède au total."""
+    user = _connecte()
+    if not user:
+        return jsonify({"error": "Non connecté"}), 401
+
+    entity = db.session.get(Entity, entity_id)
+    if not entity or not can_read(entity, user):
+        return jsonify({"error": "Entité introuvable"}), 404
+
+    comptes = User.query.order_by(User.first_name, User.last_name).all()
+    par_id = {u.id: u for u in comptes}
+    autorises = entity_role_ids(entity.id)
+
+    roles = []
+    for r in Role.query.filter_by(entity_id=entity.id).order_by(Role.name).all():
+        titulaires = [par_id[ur.user_id]
+                      for ur in UserRole.query.filter_by(role_id=r.id).all()
+                      if ur.user_id in par_id]
+        roles.append({
+            "id": r.id, "name": r.name,
+            "granted": r.id in autorises,
+            "holders": [_fiche_compte(u) for u in
+                        sorted(titulaires, key=lambda u: _nom_compte(u).lower())],
+        })
+
+    # Qui ouvre la carto, et à quel titre : c'est la vérification d'un coup
+    # d'œil qu'on ne pouvait faire nulle part.
+    portee = []
+    for u in comptes:
+        if not can_read(entity, u):
+            continue
+        if entity.owner_id == u.id:
+            motif = "owner"
+        elif is_admin(u):
+            motif = "admin"
+        elif is_champion(u):
+            motif = "champion"
+        elif not autorises:
+            motif = "all"
+        else:
+            motif = "role"
+        noms = [r["name"] for r in roles
+                if r["granted"] and any(h["id"] == u.id for h in r["holders"])]
+        portee.append({**_fiche_compte(u), "reason": motif, "roles": noms})
+
+    return jsonify({
+        **access_summary(entity, user),
+        "roles": roles,
+        "accounts": [_fiche_compte(u) for u in comptes],
+        "reach": portee,
+    })
+
+
+@carto_sharing_bp.route("/api/access/<int:entity_id>/roles/<int:role_id>/holders",
+                        methods=["POST"])
+def post_role_holders(entity_id, role_id):
+    """Ajoute ou retire des titulaires — par PAIRE (compte, rôle).
+
+    ⚠️ Les endpoints de la page RH remplacent TOUS les rôles d'une personne
+    (delete puis insert) : les appeler d'ici lui retirerait ses rôles sur les
+    autres cartos. On ne touche donc qu'au couple visé.
+    """
+    user = _connecte()
+    if not user:
+        return jsonify({"error": "Non connecté"}), 401
+
+    entity = db.session.get(Entity, entity_id)
+    if not entity or not can_read(entity, user):
+        return jsonify({"error": "Entité introuvable"}), 404
+    if not can_manage_access(entity, user):
+        return jsonify({"error": "Réservé aux champions et administrateurs",
+                        "code": "forbidden"}), 403
+
+    role = Role.query.filter_by(id=role_id, entity_id=entity.id).first()
+    if not role:
+        return jsonify({"error": "Rôle introuvable"}), 404
+
+    data = request.get_json(silent=True) or {}
+    try:
+        a_ajouter = {int(x) for x in (data.get("add") or [])}
+        a_retirer = {int(x) for x in (data.get("remove") or [])}
+    except (TypeError, ValueError):
+        return jsonify({"error": "Liste de comptes invalide"}), 400
+
+    for uid in a_ajouter:
+        if db.session.get(User, uid) is None:
+            continue
+        if not UserRole.query.filter_by(user_id=uid, role_id=role.id).first():
+            db.session.add(UserRole(user_id=uid, role_id=role.id))
+    if a_retirer:
+        UserRole.query.filter(UserRole.role_id == role.id,
+                              UserRole.user_id.in_(a_retirer)).delete(
+            synchronize_session=False)
+    db.session.commit()
+
+    titulaires = [db.session.get(User, ur.user_id)
+                  for ur in UserRole.query.filter_by(role_id=role.id).all()]
+    return jsonify({"status": "ok", "role_id": role.id,
+                    "holders": [_fiche_compte(u) for u in titulaires if u]})
+
+
+# ─────────────────────────────────────────────
+# PAGE /share — tout le processus au même endroit
+# ─────────────────────────────────────────────
+
+@share_page_bp.route("/")
+def share_home():
+    """Console de partage : accès, titulaires et propositions sur un seul écran."""
+    if not session.get("user_id"):
+        return redirect(url_for("auth.login"))
+
+    user = current_user()
+    entites = Entity.accessible(user.id) if user else []
+    gouverne = can_manage_access(None, user)
+
+    # On arrive souvent depuis la fiche d'une entité de la carte : c'est celle-là
+    # qu'on veut voir, pas l'entité active de la session.
+    demandee = request.args.get("entity_id", type=int)
+    ids = {e.id for e in entites}
+    choisie = demandee if demandee in ids else Entity.get_active_id()
+
+    return render_template(
+        "share.html",
+        entities=[{"id": e.id, "name": e.name,
+                   "is_shared": bool(e.is_shared),
+                   "is_owner": e.owner_id in (None, user.id)} for e in entites],
+        active_entity_id=choisie,
+        can_manage=gouverne,
+        can_review=bool(user and (is_admin(user) or is_champion(user))),
+    )
 
 
 # ─────────────────────────────────────────────

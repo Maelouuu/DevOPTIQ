@@ -1,0 +1,289 @@
+/* ══════════════════════════════════════════════════════════════
+   Page Partage — console d'accès aux cartos communes
+   ══════════════════════════════════════════════════════════════
+   Tout ce qui peut l'être vient du design system (ui-theme.css :
+   .pg-card, .pg-btn, .pg-pill, .pg-table, .pg-modal). Ne vivent ici
+   que les trois objets propres à cet écran : l'interrupteur
+   privée/commune, la ligne de rôle avec ses titulaires, et les
+   cartes de proposition. */
+
+/* ── Choix de la carto ─────────────────────────────────────────── */
+.share-picker-body {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.share-picker-body .pg-select { min-width: 260px; }
+.share-state { margin-left: auto; }
+
+/* ── Interrupteur privée / commune ─────────────────────────────── */
+.share-switch {
+  display: flex;
+  align-items: flex-start;
+  gap: 13px;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-card);
+  background: var(--card-2);
+  cursor: pointer;
+}
+.share-switch.is-locked { cursor: default; }
+.share-switch input { position: absolute; opacity: 0; pointer-events: none; }
+.share-switch-track {
+  flex: none;
+  width: 42px; height: 24px;
+  margin-top: 2px;
+  border-radius: var(--r-pill);
+  background: var(--border-strong);
+  transition: background .16s;
+}
+.share-switch-knob {
+  display: block;
+  width: 18px; height: 18px;
+  margin: 3px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, .28);
+  transition: transform .16s;
+}
+.share-switch input:checked + .share-switch-track { background: var(--pg-accent); }
+.share-switch input:checked + .share-switch-track .share-switch-knob { transform: translateX(18px); }
+.share-switch-text strong { display: block; font-size: var(--fs-card-title); font-weight: 700; }
+.share-switch-text small {
+  display: block;
+  margin-top: 4px;
+  font-size: var(--fs-sm);
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.share-readonly {
+  display: flex; align-items: center; gap: 8px;
+  margin: 14px 0 0;
+  padding: 10px 12px;
+  border-radius: var(--r-btn);
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  font-size: var(--fs-sm);
+  color: #92400e;
+}
+
+/* ── Rôles et leurs titulaires ─────────────────────────────────── */
+.share-roles-block { margin-top: 20px; }
+.share-roles-block.hidden { display: none; }
+.share-roles-intro { margin-bottom: 10px; }
+.share-hint {
+  margin: 5px 0 0;
+  font-size: var(--fs-sm);
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.share-role {
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-card);
+  background: var(--card);
+  transition: border-color .15s, background .15s;
+}
+.share-role + .share-role { margin-top: 8px; }
+/* Un rôle coché ouvre réellement l'accès : il doit se distinguer au premier
+   coup d'œil des rôles simplement listés. */
+.share-role.is-granted {
+  border-color: var(--pg-accent-border);
+  background: var(--pg-accent-softer);
+}
+.share-role-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+}
+.share-role-head input { width: 16px; height: 16px; accent-color: var(--pg-accent); cursor: pointer; }
+.share-role-name { font-size: var(--fs-sm); font-weight: 700; color: var(--ink); }
+
+.share-role-holders {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin: 9px 0 0 26px;
+}
+.share-holder {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 5px 3px 10px;
+  border-radius: var(--r-pill);
+  background: var(--card-2);
+  border: 1px solid var(--border);
+  font-size: var(--fs-badge);
+  color: var(--ink-2);
+}
+.share-holder-x {
+  width: 17px; height: 17px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--faint);
+  font-size: 10px;
+  cursor: pointer;
+}
+.share-holder-x:hover { background: #fee2e2; color: var(--danger); }
+.share-nobody { font-size: var(--fs-badge); font-style: italic; color: var(--faint); }
+.share-add-holder {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  border-radius: var(--r-pill);
+  border: 1px dashed var(--border-strong);
+  background: transparent;
+  font-family: var(--pg-font);
+  font-size: var(--fs-badge);
+  font-weight: 600;
+  color: var(--muted);
+  cursor: pointer;
+}
+.share-add-holder:hover { border-color: var(--pg-accent); color: var(--pg-accent-deep); }
+
+.share-openall {
+  display: flex; align-items: center; gap: 8px;
+  margin: 12px 0 0;
+  font-size: var(--fs-sm);
+  color: var(--ok);
+}
+.share-openall.hidden { display: none; }
+
+/* ── Qui accède au total ───────────────────────────────────────── */
+.share-reach-table td { vertical-align: middle; }
+.share-reach-mail {
+  display: block;
+  font-size: var(--fs-badge);
+  color: var(--faint);
+}
+.share-reach-why { text-align: right; white-space: nowrap; }
+.share-reach-roles {
+  display: block;
+  margin-top: 3px;
+  font-size: var(--fs-badge);
+  color: var(--muted);
+}
+
+/* ── Propositions ──────────────────────────────────────────────── */
+.share-changes { display: flex; flex-direction: column; gap: 9px; }
+.share-change {
+  padding: 13px 15px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-card);
+  background: var(--card);
+  cursor: pointer;
+  transition: border-color .15s, background .15s;
+}
+.share-change:hover { border-color: var(--pg-accent-border); background: var(--pg-accent-softer); }
+.share-change-head { display: flex; align-items: center; gap: 10px; }
+.share-change-title {
+  flex: 1; min-width: 0;
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  color: var(--ink);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.share-change-meta {
+  display: flex; align-items: center; gap: 10px;
+  margin-top: 5px;
+  font-size: var(--fs-badge);
+  color: var(--muted);
+}
+.share-change-date { margin-left: auto; }
+.share-change-msg {
+  margin: 9px 0 0;
+  font-size: var(--fs-sm);
+  color: var(--muted);
+  line-height: 1.55;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.share-back { margin-bottom: 14px; }
+.share-detail-title { margin: 0; font-size: 16px; font-weight: 700; color: var(--ink); }
+.share-detail-msg {
+  margin: 12px 0 0;
+  padding: 11px 13px;
+  border-left: 2px solid var(--pg-accent-border);
+  border-radius: 0 var(--r-btn) var(--r-btn) 0;
+  background: var(--card-2);
+  font-size: var(--fs-sm);
+  color: var(--ink-2);
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
+.share-sum-title { display: block; margin: 20px 0 9px; }
+.share-sum { margin: 0; padding: 0; list-style: none; }
+.share-sum li {
+  display: flex; align-items: baseline; gap: 7px; flex-wrap: wrap;
+  padding: 8px 12px;
+  border-radius: var(--r-btn);
+  background: var(--card-2);
+  font-size: var(--fs-sm);
+  color: var(--ink);
+}
+.share-sum li + li { margin-top: 6px; }
+.share-sum li strong { color: var(--pg-accent-deep); font-size: 15px; }
+.share-sum-names { flex-basis: 100%; font-size: var(--fs-badge); color: var(--muted); }
+.share-comment { width: 100%; margin-top: 16px; }
+.share-detail-actions { display: flex; justify-content: flex-end; gap: 9px; margin-top: 14px; }
+
+/* ── Sélecteur de comptes ──────────────────────────────────────── */
+.share-modal { max-width: 480px; }
+.share-picker-search { width: 100%; margin-bottom: 12px; }
+.share-picker-list { max-height: 42vh; overflow-y: auto; }
+.share-pick {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: var(--r-btn);
+  cursor: pointer;
+}
+.share-pick:hover { background: var(--pg-accent-softer); }
+.share-pick input { width: 16px; height: 16px; accent-color: var(--pg-accent); cursor: pointer; }
+.share-pick-name { font-size: var(--fs-sm); font-weight: 600; color: var(--ink); }
+.share-pick-mail { margin-left: auto; font-size: var(--fs-badge); color: var(--faint); }
+.share-pick.is-in .share-pick-name { color: var(--pg-accent-deep); }
+
+/* ── États et retour ───────────────────────────────────────────── */
+.share-loading, .share-error {
+  margin: 0;
+  padding: 22px;
+  text-align: center;
+  font-size: var(--fs-sm);
+  color: var(--muted);
+}
+.share-error { color: var(--danger); }
+
+.share-toast {
+  position: fixed;
+  left: 50%; bottom: 26px;
+  transform: translate(-50%, 14px);
+  z-index: 10000;
+  padding: 11px 20px;
+  border-radius: var(--r-pill);
+  background: var(--ink);
+  color: #fff;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .2s, transform .2s;
+}
+.share-toast.is-on { opacity: 1; transform: translate(-50%, 0); }
+
+.hidden { display: none !important; }
+
+@media (max-width: 720px) {
+  .share-reach-why { text-align: left; }
+  .share-role-holders { margin-left: 0; }
+}

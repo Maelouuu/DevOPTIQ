@@ -325,8 +325,9 @@ def create_app(test_config=None):
     from Code.routes.cartography_editor import cartography_editor_bp
     app.register_blueprint(cartography_editor_bp)
 
-    from Code.routes.carto_sharing import carto_sharing_bp
+    from Code.routes.carto_sharing import carto_sharing_bp, share_page_bp
     app.register_blueprint(carto_sharing_bp)
+    app.register_blueprint(share_page_bp)
 
     from Code.routes.settings import settings_bp
     app.register_blueprint(settings_bp)

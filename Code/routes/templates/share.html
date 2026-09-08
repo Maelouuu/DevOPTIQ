@@ -1,0 +1,171 @@
+{% include "header_buttons.html" %}
+<link rel="stylesheet" href="{{ url_for('static', filename='share.css') }}">
+
+<script>
+  /* Tout ce que le JS a besoin de savoir, injecté une fois. */
+  window.SHARE_PAGE = {
+    entities:   {{ entities | tojson | safe }},
+    activeId:   {{ (active_entity_id or 'null') | safe }},
+    canManage:  {{ can_manage | tojson }},
+    canReview:  {{ can_review | tojson }},
+  };
+  window.SHARE_L = {
+    sharedLabel:   {{ t('access.shared_label') | tojson }},
+    badgeShared:   {{ t('access.badge_shared') | tojson }},
+    badgePrivate:  {{ t('sharepage.state_private') | tojson }},
+    sharedHint:    {{ t('access.shared_hint') | tojson }},
+    privateHint:   {{ t('access.private_hint') | tojson }},
+    openToAll:     {{ t('access.open_to_all') | tojson }},
+    noRoles:       {{ t('sharepage.no_roles') | tojson }},
+    readonly:      {{ t('access.readonly') | tojson }},
+    saved:         {{ t('access.saved') | tojson }},
+    netError:      {{ t('map.share_net_error') | tojson }},
+    loadError:     {{ t('map.share_load_error') | tojson }},
+    noHolder:      {{ t('sharepage.no_holder') | tojson }},
+    addHolder:     {{ t('sharepage.add_holder') | tojson }},
+    removeHolder:  {{ t('sharepage.remove_holder') | tojson }},
+    searchAccount: {{ t('sharepage.search_account') | tojson }},
+    allIn:         {{ t('sharepage.all_in') | tojson }},
+    reasonOwner:   {{ t('sharepage.reason_owner') | tojson }},
+    reasonAdmin:   {{ t('sharepage.reason_admin') | tojson }},
+    reasonChampion:{{ t('sharepage.reason_champion') | tojson }},
+    reasonAll:     {{ t('sharepage.reason_all') | tojson }},
+    reasonRole:    {{ t('sharepage.reason_role') | tojson }},
+    reachEmpty:    {{ t('sharepage.reach_empty') | tojson }},
+    changesNone:   {{ t('change.none') | tojson }},
+    changeBy:      {{ t('change.by') | tojson }},
+    changeMine:    {{ t('change.mine') | tojson }},
+    statusPending: {{ t('change.status_pending') | tojson }},
+    statusApproved:{{ t('change.status_approved') | tojson }},
+    statusRejected:{{ t('change.status_rejected') | tojson }},
+    summaryTitle:  {{ t('change.summary_title') | tojson }},
+    nothing:       {{ t('change.nothing') | tojson }},
+    added:         {{ t('change.added') | tojson }},
+    added_p:       {{ t('change.added_p') | tojson }},
+    removed:       {{ t('change.removed') | tojson }},
+    removed_p:     {{ t('change.removed_p') | tojson }},
+    renamed:       {{ t('change.renamed') | tojson }},
+    renamed_p:     {{ t('change.renamed_p') | tojson }},
+    moved:         {{ t('change.moved') | tojson }},
+    moved_p:       {{ t('change.moved_p') | tojson }},
+    links_added:   {{ t('change.links_added') | tojson }},
+    links_added_p: {{ t('change.links_added_p') | tojson }},
+    links_removed: {{ t('change.links_removed') | tojson }},
+    links_removed_p: {{ t('change.links_removed_p') | tojson }},
+    approve:       {{ t('change.approve') | tojson }},
+    reject:        {{ t('change.reject') | tojson }},
+    commentPh:     {{ t('change.comment_ph') | tojson }},
+    approved:      {{ t('change.approved') | tojson }},
+    rejected:      {{ t('change.rejected') | tojson }},
+    back:          {{ t('change.back_to_list') | tojson }},
+    proposeTitle:  {{ t('change.propose_title') | tojson }},
+  };
+</script>
+<script defer src="{{ url_for('static', filename='js/share.js') }}"></script>
+
+<div class="pg-root page--share share-page">
+
+  {% with banner_page='share', banner_icon='fa-solid fa-share-nodes',
+          banner_title=t('page.share'), banner_sub=t('page.share_sub') %}
+    {% include "page_banner.html" %}
+  {% endwith %}
+
+  <div class="pg-container">
+
+    {% if not entities %}
+      <div class="pg-card"><div class="pg-empty">{{ t('sharepage.no_entity') }}</div></div>
+    {% else %}
+
+    <!-- ── Choix de la carto ───────────────────────────────────────────── -->
+    <div class="pg-card share-picker">
+      <div class="pg-card-body share-picker-body">
+        <span class="pg-label">{{ t('sharepage.which_map') }}</span>
+        <select id="share-entity" class="pg-select">
+          {% for e in entities %}
+            <option value="{{ e.id }}" {% if e.id == active_entity_id %}selected{% endif %}>{{ e.name }}</option>
+          {% endfor %}
+        </select>
+        <span class="pg-pill share-state" id="share-state"></span>
+      </div>
+    </div>
+
+    <!-- ── 1. La carto est-elle commune, et pour quels rôles ────────────── -->
+    <div class="pg-card">
+      <div class="pg-card-head">
+        <i class="fa-solid fa-users"></i>
+        {{ t('sharepage.step1') }}
+        <span class="pg-spacer"></span>
+        <button class="pg-btn pg-btn--accent pg-btn--sm" id="share-save" type="button">
+          <i class="fa-solid fa-check"></i> {{ t('access.save') }}
+        </button>
+      </div>
+      <div class="pg-card-body">
+
+        <label class="share-switch" id="share-switch-wrap">
+          <input type="checkbox" id="share-shared-cb">
+          <span class="share-switch-track"><span class="share-switch-knob"></span></span>
+          <span class="share-switch-text">
+            <strong>{{ t('access.shared_label') }}</strong>
+            <small id="share-switch-hint"></small>
+          </span>
+        </label>
+
+        <p class="share-readonly hidden" id="share-readonly">
+          <i class="fa-solid fa-lock"></i> {{ t('access.readonly') }}
+        </p>
+
+        <div id="share-roles-block" class="share-roles-block">
+          <div class="share-roles-intro">
+            <span class="pg-label">{{ t('sharepage.roles_title') }}</span>
+            <p class="share-hint">{{ t('sharepage.roles_hint') }}</p>
+          </div>
+          <div id="share-roles"></div>
+          <p class="share-openall hidden" id="share-openall">
+            <i class="fa-solid fa-earth-europe"></i> {{ t('access.open_to_all') }}
+          </p>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ── 2. Qui ouvre la carto, au total ──────────────────────────────── -->
+    <div class="pg-card">
+      <div class="pg-card-head">
+        <i class="fa-solid fa-user-check"></i>
+        {{ t('sharepage.step2') }}
+        <span class="pg-spacer"></span>
+        <span class="pg-pill" id="share-reach-count">—</span>
+      </div>
+      <div class="pg-card-body" id="share-reach"></div>
+    </div>
+
+    <!-- ── 3. Les modifications proposées ───────────────────────────────── -->
+    <div class="pg-card">
+      <div class="pg-card-head">
+        <i class="fa-solid fa-code-pull-request"></i>
+        {{ t('sharepage.step3') }}
+        <span class="pg-spacer"></span>
+        <span class="pg-pill pg-pill--warn hidden" id="share-changes-count"></span>
+      </div>
+      <div class="pg-card-body" id="share-changes"></div>
+    </div>
+
+    {% endif %}
+  </div>
+</div>
+
+<!-- Sélecteur de comptes pour un rôle (construit à la volée par share.js) -->
+<div class="pg-modal-overlay hidden" id="share-picker-modal">
+  <div class="pg-modal share-modal">
+    <div class="pg-modal-head">
+      <i class="fa-solid fa-user-plus"></i>
+      <span id="share-picker-title"></span>
+      <span class="pg-spacer"></span>
+      <button class="pg-btn pg-btn--icon" id="share-picker-close"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="pg-modal-body">
+      <input type="search" class="pg-input share-picker-search" id="share-picker-search">
+      <div id="share-picker-list" class="share-picker-list"></div>
+    </div>
+  </div>
+</div>

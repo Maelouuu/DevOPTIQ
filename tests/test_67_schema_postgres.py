@@ -20,6 +20,15 @@ import pytest
 pytestmark = pytest.mark.schema_postgres
 
 RACINE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+SOURCE_APP = os.path.join(RACINE, "Code", "app.py")
+
+# L'image applicative est bytecode-only : les .py y sont compilés puis supprimés
+# (tests/ excepté). Les contrôles qui RELISENT la source n'ont donc rien à lire
+# là-bas — ils gardent tout leur sens sur un poste de développement et en CI,
+# les deux endroits où un ALTER se rédige.
+sans_source = pytest.mark.skipif(
+    not os.path.exists(SOURCE_APP),
+    reason="Code/app.py absent (arbre bytecode) — contrôle de source")
 
 
 def _ddl_postgres(table):
@@ -51,6 +60,7 @@ class TestDefautsBooleens:
         assert re.search(r"DEFAULT\s+false", ligne, re.I), ligne
 
 
+@sans_source
 class TestMigrationsAChaud:
     """Les ALTER de `create_app` sont du SQL écrit à la main : personne ne les
     compile, et ils ne s'exécutent qu'au démarrage d'une instance déjà en
@@ -58,7 +68,7 @@ class TestMigrationsAChaud:
 
     @staticmethod
     def _alters():
-        source = io.open(os.path.join(RACINE, "Code", "app.py"), encoding="utf-8").read()
+        source = io.open(SOURCE_APP, encoding="utf-8").read()
         return re.findall(r"_safe_add_column\(\s*\"([^\"]+)\"\s*,\s*\"([^\"]+)\"\s*,\s*\"([^\"]+)\"", source)
 
     def test_les_alter_booleens_n_utilisent_pas_0_ou_1(self):
@@ -78,6 +88,6 @@ class TestMigrationsAChaud:
     def test_le_demarrage_verifie_les_colonnes_indispensables(self):
         """_safe_add_column est muet : sans cette vérification, une migration
         ratée ne se voit qu'en 500 sur toutes les pages."""
-        source = io.open(os.path.join(RACINE, "Code", "app.py"), encoding="utf-8").read()
+        source = io.open(SOURCE_APP, encoding="utf-8").read()
         assert "_verifier_colonnes(" in source
         assert '"entities": ["is_shared"]' in source

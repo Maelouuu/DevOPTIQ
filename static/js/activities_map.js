@@ -535,148 +535,21 @@ async function createEntity() {
    Ouvert à tous : seul le CONSENTEMENT change (dépôt direct pour un admin,
    proposition à accepter sinon). */
 
+const ACCESS_L = () => window.ACCESS_I18N || {};
+
 function wireEntityShare() {
-  // Le bouton de la fiche entité ouvre l'ACCÈS (partage par rôle) ; le dépôt
-  // d'une copie indépendante s'atteint depuis le pied de cette modale.
-  $("#wizard-share-btn")?.addEventListener("click", openAccessModal);
-  $("#access-cancel-btn")?.addEventListener("click", () => hideModal("carto-access-modal"));
-  $("#access-save-btn")?.addEventListener("click", saveAccess);
-  $("#access-copy-link")?.addEventListener("click", () => {
-    hideModal("carto-access-modal");
-    openShareModal();
+  // « Accès à la carto » mène à la page Partage : tout le processus (rôles,
+  // titulaires, propositions) y vit. Régler la même chose à deux endroits
+  // finit toujours par donner deux réponses différentes.
+  $("#wizard-share-btn")?.addEventListener("click", () => {
+    const e = wizardState.selectedEntity;
+    window.location.href = e ? `/share/?entity_id=${e.id}` : "/share/";
   });
+  // Déposer une COPIE est autre chose : le destinataire repart avec SA carto,
+  // qui ne reçoit plus rien. Ça reste une action sur l'entité, donc ici.
+  $("#wizard-copy-btn")?.addEventListener("click", openShareModal);
   $("#share-cancel-btn")?.addEventListener("click", () => hideModal("share-entity-modal"));
   $("#share-confirm-btn")?.addEventListener("click", confirmShare);
-}
-
-/* ══════════════════════════════════════════════════
-   ACCÈS À UNE CARTO — par RÔLE, jamais par compte
-   ══════════════════════════════════════════════════
-   Une carto commune est UNE ligne travaillée par plusieurs comptes : ce qui est
-   validé est vu par tout le monde, il n'y a rien à recopier ni à propager. On
-   ouvre l'accès à des RÔLES pour que quelqu'un qui reçoit le rôle demain entre
-   sans qu'on revienne sur cet écran. Aucun rôle coché = ouverte à tous. */
-
-const ACCESS_L = () => window.ACCESS_I18N || {};
-let accessState = null;   // dernier résumé renvoyé par l'API
-
-function accessHolders(n) {
-  const L = ACCESS_L();
-  if (!n) return L.holdersNone || "personne pour le moment";
-  if (n === 1) return L.holdersOne || "1 personne";
-  return (L.holdersMany || "%s personnes").replace("%s", n);
-}
-
-function renderAccessBody() {
-  const L = ACCESS_L();
-  const body = $("#access-body");
-  if (!body || !accessState) return;
-  const d = accessState;
-  const gele = !d.can_manage_access;          // simple lecture
-  const roles = d.roles || [];
-  const aucunCoche = !roles.some(r => r.granted);
-
-  body.innerHTML = `
-    <label class="access-switch${gele ? " is-locked" : ""}">
-      <input type="checkbox" id="access-shared-cb" ${d.is_shared ? "checked" : ""}
-             ${gele ? "disabled" : ""}>
-      <span class="access-switch-track"><span class="access-switch-knob"></span></span>
-      <span class="access-switch-text">
-        <strong>${escHtml(L.sharedLabel || "Carto commune")}</strong>
-        <small>${escHtml(d.is_shared ? (L.sharedHint || "") : (L.privateHint || ""))}</small>
-      </span>
-    </label>
-
-    <div class="access-roles${d.is_shared ? "" : " hidden"}" id="access-roles">
-      <div class="access-roles-head">
-        <span class="access-roles-title">${escHtml(L.rolesTitle || "Ouverte aux rôles")}</span>
-        <span class="access-roles-hint">${escHtml(L.rolesHint || "")}</span>
-      </div>
-      ${roles.length ? `
-        <div class="access-role-list">
-          ${roles.map(r => `
-            <label class="access-role-row${gele ? " is-locked" : ""}">
-              <input type="checkbox" class="access-role-cb" value="${r.id}"
-                     ${r.granted ? "checked" : ""} ${gele ? "disabled" : ""}>
-              <span class="access-role-name">${escHtml(r.name || "")}</span>
-              <span class="access-role-holders">${escHtml(accessHolders(r.holders))}</span>
-            </label>`).join("")}
-        </div>
-        <p class="access-open-note${aucunCoche ? "" : " hidden"}" id="access-open-note">
-          <i class="fa-solid fa-earth-europe"></i> ${escHtml(L.openToAll || "")}
-        </p>`
-      : `<p class="access-empty">${escHtml(L.noRoles || "")}</p>`}
-    </div>`;
-
-  const cb = $("#access-shared-cb");
-  cb?.addEventListener("change", () => {
-    $("#access-roles")?.classList.toggle("hidden", !cb.checked);
-    const petit = body.querySelector(".access-switch-text small");
-    if (petit) petit.textContent = cb.checked ? (L.sharedHint || "") : (L.privateHint || "");
-  });
-  body.querySelectorAll(".access-role-cb").forEach(box =>
-    box.addEventListener("change", () => {
-      const rien = ![...body.querySelectorAll(".access-role-cb")].some(b => b.checked);
-      $("#access-open-note")?.classList.toggle("hidden", !rien);
-    }));
-
-  $("#access-readonly-note")?.classList.toggle("hidden", !gele);
-  const save = $("#access-save-btn");
-  if (save) save.style.display = gele ? "none" : "";
-}
-
-async function openAccessModal() {
-  const entity = wizardState.selectedEntity;
-  if (!entity) return;
-  const L = ACCESS_L();
-  const body = $("#access-body");
-  const nom = $("#access-entity-name");
-  if (nom) nom.textContent = entity.name || "";
-  if (body) body.innerHTML = '<p class="access-loading"><i class="fa-solid fa-spinner fa-spin"></i></p>';
-  showModal("carto-access-modal");
-
-  try {
-    const res = await fetch(`/cartography/api/access/${entity.id}`);
-    const data = await res.json();
-    if (data.error) {
-      if (body) body.innerHTML = `<p class="access-error">${escHtml(data.error)}</p>`;
-      return;
-    }
-    accessState = data;
-    renderAccessBody();
-  } catch (e) {
-    if (body) body.innerHTML = `<p class="access-error">${escHtml(L.loadError || "")}</p>`;
-  }
-}
-
-async function saveAccess() {
-  const L = ACCESS_L();
-  const entity = wizardState.selectedEntity;
-  if (!entity) return;
-  const partage = !!$("#access-shared-cb")?.checked;
-  const roleIds = [...document.querySelectorAll(".access-role-cb:checked")]
-    .map(cb => parseInt(cb.value, 10));
-
-  const btn = $("#access-save-btn");
-  const label = btn ? btn.innerHTML : null;
-  if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>'; }
-  try {
-    const res = await fetch(`/cartography/api/access/${entity.id}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ is_shared: partage, role_ids: roleIds }),
-    });
-    const data = await res.json();
-    if (data.error) { alert(data.error); return; }
-    accessState = data;
-    renderAccessBody();
-    hideModal("carto-access-modal");
-    await loadEntitiesList();
-  } catch (e) {
-    alert(L.netError || "");
-  } finally {
-    if (btn) { btn.disabled = false; if (label !== null) btn.innerHTML = label; }
-  }
 }
 
 const SHARE_L = () => window.SHARE_I18N || {};
