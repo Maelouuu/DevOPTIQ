@@ -65,6 +65,13 @@ class Entity(db.Model):
 
     # DEPRECATED: is_active n'est plus utilisé, l'entité active est dans la session
     is_active = db.Column(db.Boolean, default=False, nullable=False)
+
+    # Carto COMMUNE : lue et travaillée par plusieurs comptes sur la MÊME ligne,
+    # au lieu d'être recopiée chez chacun. Qui y accède est réglé par les rôles
+    # (EntityRoleAccess) ; sans aucune restriction, tous les comptes y accèdent.
+    # Une carto qu'un compte crée pour lui reste privée (is_shared = False).
+    is_shared = db.Column(db.Boolean, default=False, nullable=False,
+                          server_default=db.text('0'))
     
     # Timestamps
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
@@ -80,38 +87,61 @@ class Entity(db.Model):
     def __repr__(self):
         return f'<Entity {self.id}: {self.name}>'
     
+    @staticmethod
+    def _access():
+        """Import différé : carto_access lit les modèles définis dans ce fichier."""
+        from Code import carto_access
+        return carto_access
+
+    @classmethod
+    def accessible(cls, user_id=None):
+        """Entités que ce compte peut ouvrir : les siennes + les cartos communes.
+
+        Une carto commune est UNE ligne travaillée par plusieurs comptes ; c'est
+        ce qui fait qu'une modification validée vaut pour tout le monde sans rien
+        recopier. Qui y accède dépend des rôles (voir Code/carto_access.py).
+        """
+        if user_id is None:
+            user_id = session.get('user_id')
+        if not user_id:
+            return []
+        user = db.session.get(User, user_id)
+        return cls._access().readable_entities(user) if user else []
+
     @classmethod
     def get_active(cls, user_id=None):
         """
         Retourne l'entité active pour l'utilisateur courant.
         L'ID de l'entité active est stocké dans session['active_entity_id'].
-        STRICT: Ne retourne que les entités appartenant à l'utilisateur.
+        Périmètre : ses propres entités + les cartos communes qui lui sont ouvertes.
         """
         if user_id is None:
             user_id = session.get('user_id')
-        
+
         if not user_id:
             return None  # Pas connecté = pas d'entité
-        
+
         active_entity_id = session.get('active_entity_id')
-        
+
         if active_entity_id:
-            # Vérifier que l'entité appartient à cet utilisateur
-            entity = cls.query.filter(
-                cls.id == active_entity_id,
-                cls.owner_id == user_id
-            ).first()
-            
-            if entity:
+            user = db.session.get(User, user_id)
+            entity = db.session.get(cls, active_entity_id)
+            if entity is not None and user is not None and cls._access().can_read(entity, user):
                 return entity
-        
-        # Fallback: retourner la première entité de l'utilisateur
+
+        # Repli : sa première entité — ordre d'insertion, comme avant l'ouverture
+        # aux cartos communes (changer cet ordre change l'entité par défaut de
+        # tous les comptes qui en possèdent plusieurs). Une carto commune ne sert
+        # de repli que si le compte n'en possède aucune.
         first_entity = cls.query.filter_by(owner_id=user_id).first()
-        
+        if first_entity is None:
+            accessibles = cls.accessible(user_id)
+            first_entity = accessibles[0] if accessibles else None
+
         if first_entity:
             session['active_entity_id'] = first_entity.id
             return first_entity
-        
+
         return None
     
     @classmethod
@@ -133,30 +163,30 @@ class Entity(db.Model):
         if not user_id:
             return None  # Pas connecté
         
-        # Vérifier que l'entité appartient à cet utilisateur
-        entity = cls.query.filter_by(id=entity_id, owner_id=user_id).first()
-        
-        if entity:
+        user = db.session.get(User, user_id)
+        entity = db.session.get(cls, entity_id)
+
+        if entity is not None and user is not None and cls._access().can_read(entity, user):
             session['active_entity_id'] = entity.id
             return entity
-        
+
         return None
     
     @classmethod
     def for_user(cls, user_id=None):
         """
-        Retourne les entités appartenant à un utilisateur.
-        STRICT: Ne retourne que les entités avec owner_id correspondant.
+        Entités appartenant à un utilisateur (requête).
+        Pour la liste RÉELLEMENT ouverte au compte — cartos communes comprises —
+        voir `accessible()`, qui filtre par rôle et ne peut pas rester une Query.
         """
         if user_id is None:
             user_id = session.get('user_id')
-        
+
         if user_id:
             return cls.query.filter_by(owner_id=user_id).order_by(cls.name)
-        
+
         # Pas connecté = pas d'entités
         return cls.query.filter(cls.id < 0)  # Query vide
-        return cls.query.order_by(cls.name)
 
 
 # -------------------------------------------------------------------
@@ -825,6 +855,60 @@ class RecentEvent(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     detail = db.Column(db.Text, nullable=True)   # JSON — avant/après ou données de création
     user_id = db.Column(db.Integer, nullable=True)  # utilisateur à l'origine de l'action
+
+
+class EntityRoleAccess(db.Model):
+    """Rôle autorisé sur une carto commune.
+
+    On ouvre l'accès à des RÔLES, jamais à des comptes : quelqu'un qui reçoit le
+    rôle demain accède à la carto sans qu'on ait à y revenir. Aucune ligne pour
+    une entité partagée = ouverte à tous les comptes de la page Comptes.
+    """
+    __tablename__ = 'entity_role_access'
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    entity_id = db.Column(db.Integer, db.ForeignKey('entities.id'), nullable=False, index=True)
+    # Le rôle vient de la carto elle-même (roles.entity_id == entity_id).
+    role_id = db.Column(db.Integer, db.ForeignKey('roles.id'), nullable=False, index=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    __table_args__ = (
+        db.UniqueConstraint('entity_id', 'role_id', name='uq_entity_role_access'),
+    )
+
+
+class CartoChangeRequest(db.Model):
+    """Modification proposée sur une carto commune, en attente d'examen.
+
+    Un compte ordinaire ne peut pas écrire directement sur une carto commune :
+    il en dépose une version, qu'un champion ou un administrateur applique ou
+    refuse. Appliquée, elle vaut pour tous ceux qui ont accès à la carto —
+    c'est la même ligne d'entité, il n'y a rien à propager.
+
+    Le diagramme est recopié ici : la proposition doit rester examinable même si
+    la carto de référence bouge entre-temps. `base_diagram` retient ce que
+    l'auteur avait sous les yeux, pour montrer ce qu'il a changé.
+    """
+    __tablename__ = 'carto_change_requests'
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    entity_id = db.Column(db.Integer, db.ForeignKey('entities.id'), nullable=False, index=True)
+    author_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, index=True)
+
+    title = db.Column(db.String(200), nullable=True)
+    message = db.Column(db.Text, nullable=True)
+    diagram = db.Column(db.Text, nullable=False)
+    base_diagram = db.Column(db.Text, nullable=True)
+
+    status = db.Column(db.String(20), nullable=False, default='pending')  # pending|approved|rejected
+    reviewer_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
+    review_comment = db.Column(db.Text, nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    reviewed_at = db.Column(db.DateTime, nullable=True)
+
+    entity = db.relationship('Entity', foreign_keys=[entity_id])
+    author = db.relationship('User', foreign_keys=[author_id])
+    reviewer = db.relationship('User', foreign_keys=[reviewer_id])
 
 
 class EntityShareOffer(db.Model):

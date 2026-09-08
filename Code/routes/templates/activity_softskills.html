@@ -34,11 +34,11 @@
             </div>
             <div class="form-row">
                 <label for="new-softskill-level-{{ item.activity.id }}">{{ t('propose.hsc_level_label') }}</label>
+                {# value = ce qui part en base (inchangé) ; texte = ce qu'on lit. #}
                 <select id="new-softskill-level-{{ item.activity.id }}" class="task-select-single">
-                    <option value="1 (Aptitude)">1 (Aptitude)</option>
-                    <option value="2 (Acquisition)" selected>2 (Acquisition)</option>
-                    <option value="3 (Maîtrise)">3 (Maîtrise)</option>
-                    <option value="4 (Excellence)">4 (Excellence)</option>
+                    {% for niveau in ['1 (Aptitude)', '2 (Acquisition)', '3 (Maîtrise)', '4 (Excellence)'] %}
+                      <option value="{{ niveau }}" {% if niveau.startswith('2') %}selected{% endif %}>{{ hsc_level_label(niveau) }}</option>
+                    {% endfor %}
                 </select>
             </div>
             <div class="form-row">

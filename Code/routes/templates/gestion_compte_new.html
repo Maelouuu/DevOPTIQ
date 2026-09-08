@@ -83,8 +83,7 @@
               <i class="fa-solid fa-shield search-style-icon"></i>
               <select name="status" class="search-style-input" required>
                 <option value="user">{{ t('account.status_user') }}</option>
-                <option value="rh">{{ t('account.status_rh') }}</option>
-                <option value="manager">{{ t('account.status_manager') }}</option>
+                <option value="champion">{{ t('account.status_champion') }}</option>
                 <option value="administrateur">{{ t('account.status_admin') }}</option>
               </select>
             </div>
@@ -166,9 +165,8 @@
           <select id="statusFilter" class="search-style-input" onchange="filterUsers()">
             <option value="">{{ t('account.all_statuses') }}</option>
             <option value="user">{{ t('account.status_user') }}</option>
-            <option value="rh">{{ t('account.status_rh') }}</option>
-            <option value="manager">{{ t('account.status_manager') }}</option>
-            <option value="administrateur">{{ t('account.status_admin') }}</option>
+            <option value="champion">{{ t('account.status_champion') }}</option>
+            <option value="admin">{{ t('account.status_admin') }}</option>
           </select>
         </div>
         <div class="search-style-wrap search-style-wrap--select filter-sel">
@@ -201,7 +199,7 @@
                 {% set user_roles = item.roles %}
                 <tr class="user-row"
                     data-name="{{ user.first_name }} {{ user.last_name }}"
-                    data-status="{{ user.status }}"
+                    data-status="{% if is_admin_status(user.status) %}admin{% elif is_competency_manager_status(user.status) %}champion{% else %}user{% endif %}"
                     data-role="{{ user_roles|join(',') }}">
                   <td><strong>{{ user.first_name }} {{ user.last_name }}</strong></td>
                   <td class="td-muted">{{ user.email }}</td>
@@ -220,9 +218,7 @@
                     {% if is_admin_status(user.status) %}
                       <span class="badge badge-admin">Admin</span>
                     {% elif is_competency_manager_status(user.status) %}
-                      <span class="badge badge-manager">{{ t('account.status_manager') }}</span>
-                    {% elif user.status == 'rh' %}
-                      <span class="badge badge-rh">RH</span>
+                      <span class="badge badge-champion">{{ t('account.status_champion') }}</span>
                     {% elif user.status and user.status != 'user' %}
                       <span class="badge badge-user" title="{{ t('account.status_unknown_hint') }}">{{ user.status }}</span>
                     {% else %}

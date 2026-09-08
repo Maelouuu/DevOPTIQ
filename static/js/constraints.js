@@ -21,7 +21,7 @@ function submitAddConstraint(activityId) {
   if (!inputElem) return;
   const desc = inputElem.value.trim();
   if (!desc) {
-    alert("Veuillez saisir une description de contrainte.");
+    alert(_CR('need_description'));
     return;
   }
   const picker   = document.getElementById("add-fp-" + activityId);
@@ -35,7 +35,7 @@ function submitAddConstraint(activityId) {
   .then(resp => resp.json())
   .then(data => {
     if (data.error) {
-      alert("Erreur : " + data.error);
+      alert(_CR('err') + ' : ' + data.error);
     } else {
       hideAddConstraintForm(activityId);
       updateConstraints(activityId);
@@ -110,7 +110,7 @@ function submitEditConstraint(activityId, constraintId) {
   if (!inputElem) return;
   const newDesc = inputElem.value.trim();
   if (!newDesc) {
-    alert("Veuillez saisir une description.");
+    alert(_CR('need_description'));
     return;
   }
   const picker   = document.getElementById("edit-fp-" + constraintId);
@@ -124,7 +124,7 @@ function submitEditConstraint(activityId, constraintId) {
   .then(resp => resp.json())
   .then(data => {
     if (data.error) {
-      alert("Erreur : " + data.error);
+      alert(_CR('err') + ' : ' + data.error);
     } else {
       updateConstraints(activityId);
     }
@@ -140,7 +140,7 @@ function deleteConstraint(activityId, constraintId) {
   .then(resp => resp.json())
   .then(data => {
     if (data.error) {
-      alert("Erreur : " + data.error);
+      alert(_CR('err') + ' : ' + data.error);
     } else {
       updateConstraints(activityId);
     }

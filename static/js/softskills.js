@@ -42,7 +42,7 @@ function submitAddSoftskill(activityId) {
     const justification = document.getElementById("new-softskill-justif-" + activityId).value.trim();
 
     if (!habilete || !niveau) {
-        alert("Veuillez renseigner au moins habileté et niveau.");
+        alert(_CR('need_hsc_fields'));
         return;
     }
 
@@ -61,7 +61,7 @@ function submitAddSoftskill(activityId) {
     .then(d => {
         hideSpinner();
         if (d.error) {
-            alert("Erreur ajout HSC : " + d.error);
+            alert(_CR('err_add') + ' ' + d.error);
         } else {
             updateSoftskillsList(activityId);
             hideAddSoftskillForm(activityId);
@@ -70,7 +70,7 @@ function submitAddSoftskill(activityId) {
     .catch(err => {
         hideSpinner();
         console.error("Erreur ajout HSC:", err);
-        alert("Erreur ajout HSC : " + err.message);
+        alert(_CR('err_add') + ' ' + err.message);
     });
 }
 
@@ -95,7 +95,7 @@ async function updateSoftskillsList(activityId) {
         }
     } catch (err) {
         console.error("Erreur updateSoftskillsList:", err);
-        alert("Erreur updateSoftskillsList : " + err.message);
+        alert(_CR('err_refresh') + ' ' + err.message);
     }
 }
 
@@ -136,7 +136,7 @@ function submitEditSoftskill(activityId, ssId) {
     const jus = document.getElementById(`softskill-edit-justif-${ssId}`)?.value.trim();
 
     if (!hab || !niv) {
-        alert("Veuillez renseigner habileté et niveau.");
+        alert(_CR('need_hsc_fields'));
         return;
     }
 
@@ -154,7 +154,7 @@ function submitEditSoftskill(activityId, ssId) {
     .then(async d => {
         hideSpinner();
         if (d.error) {
-            alert("Erreur mise à jour HSC : " + d.error);
+            alert(_CR('err_update') + ' ' + d.error);
         } else {
             await updateSoftskillsList(activityId);
         }
@@ -190,7 +190,7 @@ async function deleteSoftskill(activityId, ssId) {
         hideSpinner();
 
         if (data.error) {
-            alert("Erreur suppression HSC : " + data.error);
+            alert(_CR('err_delete') + ' ' + data.error);
             return;
         }
 
@@ -204,6 +204,6 @@ async function deleteSoftskill(activityId, ssId) {
     } catch (err) {
         hideSpinner();
         console.error("Erreur suppression HSC:", err);
-        alert("Erreur suppression HSC : " + err.message);
+        alert(_CR('err_delete') + ' ' + err.message);
     }
 }

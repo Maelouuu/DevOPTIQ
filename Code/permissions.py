@@ -1,4 +1,6 @@
-"""Droits transverses : qui est administrateur, qui peut créer des comptes.
+"""Droits transverses : les trois statuts de compte et ce qu'ils permettent.
+
+Trois statuts et trois seulement : `user`, `champion`, `admin`.
 
 `User.status` est un texte libre, saisi ou provisionné différemment selon les
 instances (accents, casse, tirets, anglais/français) — et la colonne est un
@@ -18,10 +20,16 @@ from Code.models.models import User
 ADMIN_STATUSES = {"admin", "administrateur", "administrator"}
 
 # Valeur canonique proposée dans les listes déroulantes de la page Comptes.
-# C'est « manager » : la valeur retenue par la distribution client, où le libellé
-# affiché est déjà « Gestionnaire de compétences » / « Competency manager ».
+# « champion » : le statut intermédiaire entre l'utilisateur et l'administrateur
+# — il règle l'accès aux cartos communes et arbitre les modifications proposées.
 # Courte à dessein — elle doit tenir dans users.status (VARCHAR(20)).
-COMPETENCY_MANAGER_STATUS = "manager"
+CHAMPION_STATUS = "champion"
+
+# Les instances déjà en service portent l'ancien libellé (« manager »,
+# « Gestionnaire de compétences », sa troncature à 20 caractères, la variante
+# anglaise). On continue de les reconnaître : personne ne perd ses droits parce
+# que le mot affiché a changé.
+COMPETENCY_MANAGER_STATUS = CHAMPION_STATUS
 
 
 def norm_status(raw):
@@ -35,17 +43,18 @@ def is_admin_status(raw):
     return norm_status(raw) in ADMIN_STATUSES
 
 
-def is_competency_manager_status(raw):
-    """Vrai pour « gestionnaire de compétences » et ses variantes.
+def is_champion_status(raw):
+    """Vrai pour le statut « champion » et tous ses libellés historiques.
 
-    Couvre : la valeur canonique `manager`, le libellé complet écrit à la main,
-    sa troncature à 20 caractères (« gestionnaire de comp »), et les
-    formulations anglaises (« competency manager », « skills manager »).
+    Couvre : la valeur canonique `champion`, l'ancienne valeur `manager`, le
+    libellé complet écrit à la main (« Gestionnaire de compétences »), sa
+    troncature à 20 caractères (« gestionnaire de comp ») et les formulations
+    anglaises (« competency manager », « skills manager »).
     """
     st = norm_status(raw)
     if not st:
         return False
-    if st == COMPETENCY_MANAGER_STATUS:
+    if st in (CHAMPION_STATUS, "manager"):
         return True
     if st.startswith("gestionnaire"):
         return True
@@ -54,8 +63,12 @@ def is_competency_manager_status(raw):
     return False
 
 
+# Ancien nom, conservé : il est appelé depuis les gabarits et les vues.
+is_competency_manager_status = is_champion_status
+
+
 def can_create_accounts_status(raw):
-    return is_admin_status(raw) or is_competency_manager_status(raw)
+    return is_admin_status(raw) or is_champion_status(raw)
 
 
 def current_user():
@@ -66,6 +79,16 @@ def current_user():
 def is_admin(user=None):
     user = user if user is not None else current_user()
     return bool(user and is_admin_status(user.status))
+
+
+def is_champion(user=None):
+    """Champion (ex-gestionnaire de compétences) — PAS les administrateurs.
+
+    Les appelants qui veulent « champion OU admin » écrivent les deux, pour que
+    la lecture du code dise laquelle des deux autorisations s'applique.
+    """
+    user = user if user is not None else current_user()
+    return bool(user and is_champion_status(user.status))
 
 
 def can_create_accounts(user=None):

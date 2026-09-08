@@ -189,7 +189,7 @@ def create_app(test_config=None):
     app.jinja_env.filters["escapejs"] = escapejs_filter
 
     # ── Contexte de traduction (injecte t() et lang dans tous les templates) ──
-    from Code.translations import t as _t
+    from Code.translations import t as _t, hsc_level_label as _hsc_label
 
     # L'anglais est la langue par défaut : on renseigne session['lang'] dès la
     # première requête pour que les dizaines de session.get('lang', 'fr')
@@ -206,7 +206,7 @@ def create_app(test_config=None):
         from flask import session as _sess
         from Code.models.models import DEFAULT_LANG
         lang = _sess.get('lang', DEFAULT_LANG) if _sess else DEFAULT_LANG
-        return {'t': _t, 'lang': lang}
+        return {'t': _t, 'lang': lang, 'hsc_level_label': _hsc_label}
 
     # -----------------------------
     # Blueprints
@@ -325,6 +325,9 @@ def create_app(test_config=None):
     from Code.routes.cartography_editor import cartography_editor_bp
     app.register_blueprint(cartography_editor_bp)
 
+    from Code.routes.carto_sharing import carto_sharing_bp
+    app.register_blueprint(carto_sharing_bp)
+
     from Code.routes.settings import settings_bp
     app.register_blueprint(settings_bp)
 
@@ -430,6 +433,15 @@ def create_app(test_config=None):
         # Table creee par create_all, mais une colonne ajoutee apres coup
         # ne l est pas : les instances deja deployees ont besoin de l ALTER.
         _safe_add_column("entity_share_offers", "deposit_kind", "VARCHAR(20)")
+        # Partage par rôle : entities.is_shared + entity_role_access +
+        # carto_change_requests (ces deux tables viennent de create_all).
+        _safe_add_column("entities", "is_shared", "BOOLEAN DEFAULT 0")
+        try:
+            with _init_conn() as _conn:
+                _conn.execute(_text("UPDATE entities SET is_shared = 0 WHERE is_shared IS NULL"))
+                _conn.commit()
+        except Exception:
+            pass
         # Statut Garant : l'import carto l'écrivait en minuscule, la page Rôles
         # cherchait 'Garant' — un rôle garant d'après la carte n'apparaissait
         # donc nulle part dans sa fiche. On aligne les lignes existantes.

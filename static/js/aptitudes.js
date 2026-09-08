@@ -22,7 +22,7 @@ function showAddAptitudeForm(activityId) {
     if (!inputElem) return;
     const desc = inputElem.value.trim();
     if (!desc) {
-        alert("Veuillez saisir une description pour l'aptitude.");
+        alert(_CR('need_description'));
         return;
     }
 
@@ -42,7 +42,7 @@ function showAddAptitudeForm(activityId) {
     })
     .then(data => {
         if (data.error) {
-            alert("Erreur : " + data.error);
+            alert(_CR('err') + ' : ' + data.error);
         } else {
             updateAptitudes(activityId);
         }
@@ -73,7 +73,7 @@ function updateAptitudesList(activityId) {
     .catch(err => {
       hideSpinner();
       console.error("Erreur updateAptitudesList:", err);
-      alert("Erreur updateAptitudesList : " + err.message);
+      alert(_CR('err_refresh') + ' ' + err.message);
     });
 }
 
@@ -114,7 +114,7 @@ function updateAptitudesList(activityId) {
     if (!inputEl) return;
     const newDesc = inputEl.value.trim();
     if (!newDesc) {
-      alert("Veuillez saisir la description de l'Aptitude.");
+      alert(_CR('need_description'));
       return;
     }
   
@@ -126,7 +126,7 @@ function updateAptitudesList(activityId) {
       .then(resp => resp.json())
       .then(data => {
         if (data.error) {
-          alert("Erreur édition Aptitude : " + data.error);
+          alert(_CR('err_update') + ' ' + data.error);
         } else {
           updateAptitudes(activityId);
         }
@@ -171,7 +171,7 @@ function updateAptitudesList(activityId) {
       .then(resp => resp.json())
       .then(data => {
         if (data.error) {
-          alert("Erreur : " + data.error);
+          alert(_CR('err') + ' : ' + data.error);
         } else {
           updateAptitudes(activityId);
         }

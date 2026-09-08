@@ -144,6 +144,18 @@ transporte le diagramme **tel qu'il est en base**, d'un compte à l'autre.
 - ⚠️ **Contrat DOM editor.js ↔ gabarits** : `editor.js` câble ses boutons SANS garde (`document.getElementById('btn-x').addEventListener(…)`). Un id absent d'un gabarit lève une TypeError qui interrompt TOUTE la suite de l'init, **chargement de la carto compris** — symptôme silencieux : la page Cartographie affiche un cadre gris et vide alors que les données sont en base. Le viewer (lecture seule) déclare donc des **boutons vides** dont le seul rôle est de satisfaire ce câblage. `tests/test_49_carto_dom_contract.py` vérifie que la liste reste complète des deux côtés. Mise au point : `tools/devrun_carto_check.py` (instance jetable SQLite + deux comptes source/cible, port 8123) pour rejouer un import de paquet en local.
 - Tests : `tests/test_48_carto_package.py` (13 cas — aller-retour export/import entre deux comptes, préservation des multi-liens, collision de noms, remplacement, cloisonnement par compte, fichiers invalides).
 
+- ⚠️ **Un import VSDX est une modification NON ENREGISTRÉE.** La fin de l'import
+  repart d'une baseline d'historique neuve (`history = [state]`) : plus aucune
+  « version » ne séparait l'état affiché de son point de départ, `snapshot()`
+  n'était jamais appelé, et `isDirty` restait faux — on quittait la page sans le
+  moindre avertissement, l'import perdu. L'import pose donc `isDirty = true` et
+  relance l'auto-sauvegarde.
+- ⚠️ **Le viewer charge `editor.js` mais n'injectait aucune traduction** : chaque
+  `_L()` y affichait la CLÉ BRUTE (« editor.minimap »). `cartography_viewer.html`
+  reçoit désormais `i18n_data`, comme l'éditeur. Les libellés de la **mini-carte**
+  (titre et trois info-bulles) étaient en dur en français : ils passent par
+  `editor.minimap*`.
+
 ### Import VSDX & flèches (reconstruction classique — mode UNIQUE)
 - **Lecture de la géométrie des connecteurs — CORRIGÉ (bug racine de l'import)** : `readConnGeom()` lisait les `Row` d'une Section Geometry comme si l'origine du repère local était le point **Begin**. C'est **Pin − LocPin** : `LocPinY` valant la demi-hauteur du connecteur, chaque tracé était décalé → flèches en biais sur toute leur longueur. Deuxième bug : une `Cell` X ou Y **absente** d'une Row est **héritée du master** ; on jetait la Row entière, donc la géométrie de la majorité des connecteurs. On reconstruit désormais les valeurs manquantes depuis Begin/End (extrémités) ou le sommet précédent (Visio est orthogonal), on saute les Row `Del='1'`, et on accepte les arcs (`ArcTo`/`EllipticalArcTo`, réduits à leur point d'arrivée — le renderer arrondit). Mesuré : **tracés Visio exacts 38/88 → 88/88** (carto client ARaymond), 178/245 → 245/245 (hard.vsdx), 10/31 → 31/31 (example/CT/TSM) ; **segments en biais : 64 % → 0 %** ; **détours rejetés 9 → 0**.
 - **`orthoClean()` + `finalizeConnPaths()`** (vsdx_importer) : les extrémités d'un tracé sont replacées sur les bords des formes, et `cleanupBands`/`antiOverlap`/`stretchBands` déplacent les formes APRÈS la construction des connexions. `finalizeConnPaths()` (dernière phase) recolle les deux bouts sur les bords définitifs puis `orthoClean()` ré-équerre : bruit flottant Visio (1e-15) aligné, raccord des extrémités par alignement (≤ 4,5 px) ou par vrai coude au-delà, points colinéaires supprimés. `cleanupBands()` décale aussi les `customPath` (il ne le faisait pas, contrairement à `stretchBands`).
@@ -321,6 +333,31 @@ transporte le diagramme **tel qu'il est en base**, d'un compte à l'autre.
   `map.card_title`, `carto.save`, toasts éditeur). Les URLs, fichiers et ids
   restent `cartography` : ce sont des chemins, pas de l'affichage.
 
+## Page Activités — ce qui restait en français
+
+Le gabarit initial était traduit, mais tout ce qui est **re-rendu ou construit
+ensuite** repassait au français. Trois familles, corrigées ensemble :
+
+- **Fragments re-rendus par le serveur** après un ajout/suppression :
+  `softskills_partial.html` et `constraints_partial.html` étaient restés en dur
+  (le partial d'origine, lui, était traduit). Une simple action faisait donc
+  basculer la liste en français.
+- **Niveaux HSC** : la valeur STOCKÉE en base est la chaîne française
+  (« 3 (Maîtrise) ») et ne doit jamais être réécrite — seul l'AFFICHAGE suit la
+  langue. `hsc_level_label()` (Code/translations.py, exposé aux gabarits par le
+  context processor) traduit à la volée ; les `<option value=…>` gardent leur
+  valeur d'origine, seul leur texte change. La table `HSC_LEVELS` (CDC 7.2) vit
+  maintenant dans `translations.py`, `hsc_positioning.py` la ré-exporte.
+- **Messages construits en JS** : l'onglet Temps de la fiche activité
+  (`window.ACTTIME_I18N`), les alertes des listes S/SF/Apt/HSC/contraintes
+  (`window.CRUD_I18N` + helper `_CR()`), les erreurs de tâches
+  (`window.TASK_I18N`), et la modale **Traduire les soft skills** — qui
+  RÉÉCRIVAIT le bouton du gabarit avec « Traduire » en dur, et bâtissait les
+  en-têtes de son tableau en français.
+- ⚠️ **`_CR()` vit dans `optiq_alert.js`**, chargé en premier : ces cinq fichiers
+  partagent la portée globale, un `const` répété dans chacun lèverait une
+  SyntaxError et couperait tout le script.
+
 ## Liste des activités — tâches et outils
 
 - ⚠️ **Ordre des tâches** : `order` seul ne départage pas deux tâches de même
@@ -440,7 +477,19 @@ cadence sur la fiche activité ; panneau de qualification des sorties + badges �
 
 - **Droits** (`Code/routes/gestion_compte.py`) : `User.status` est un texte libre, écrit différemment selon les instances → comparaison sur une forme **normalisée** (minuscules, sans accents, séparateurs unifiés) via `_norm_status()`.
   - `_ADMIN_STATUSES` = admin / administrateur / administrator.
-  - `_ACCOUNT_CREATOR_STATUSES` = gestionnaire de compétences (+ variantes, `competency manager`). **Créer** un compte — formulaire ET import Excel — exige admin OU ce statut.
+  - **Trois statuts et trois seulement** : `user`, `champion`, `admin`. « RH » a été
+    retiré des listes déroulantes et du badge (il ne portait aucun droit ; l'évaluateur
+    « RH » de la page Compétences est un AUTRE mécanisme, conservé).
+  - `champion` = l'ancien « gestionnaire de compétences ». Il **crée des comptes**,
+    **règle l'accès aux cartos communes** et **arbitre les modifications proposées**.
+    `is_champion_status()` reconnaît toujours les libellés déjà en base (`manager`,
+    « Gestionnaire de compétences », sa troncature « gestionnaire de comp »,
+    « competency manager ») : personne ne perd ses droits parce que le mot affiché a
+    changé. `is_competency_manager_status` reste un alias.
+  - ⚠️ Le **filtre de statut** de la liste comparait `users.status` BRUT à la valeur de
+    l'option : un champion enregistré sous un ancien libellé ne ressortait dans aucun
+    filtre. Le gabarit expose désormais la **famille** (`admin` | `champion` | `user`)
+    dans `data-status`.
   - **Modifier** un compte : admin, ou soi-même uniquement (`_can_edit_account`). Le champ `status` n'est appliqué que si l'appelant est admin — sinon on s'auto-promeut depuis l'édition de son propre compte. **Supprimer** : admin seulement.
   - Le gabarit masque les onglets Créer/Import sans le droit, et les boutons Modifier/Supprimer hors périmètre ; les routes refusent quand même côté serveur (le masquage n'est pas une sécurité).
 - **Onglet d'accueil** = **Utilisateurs** (`list-tab`), placé en premier ; Créer et Import viennent après.
@@ -454,11 +503,68 @@ cadence sur la fiche activité ; panneau de qualification des sorties + badges �
   rattrape toute `SQLAlchemyError` en message plutôt qu'en 500.
 - Tests : `tests/test_50_accounts_permissions_lang.py` (36 cas).
 - **Où vivent les droits** : `Code/permissions.py` — source unique pour la page Comptes, les Paramètres et le partage d'entités. `is_competency_manager_status()` reconnaît une **famille** de valeurs plutôt qu'une liste figée : `users.status` est un VARCHAR(20), donc « Gestionnaire de compétences » y arrive **tronqué** (« gestionnaire de comp »), et le libellé est saisi tantôt en français tantôt en anglais. Règle : commence par « gestionnaire », OU contient « manager » + (« competency » | « competence » | « skill »).
-- **Valeur canonique** `gestionnaire` (13 car., tient dans la colonne) proposée dans les listes déroulantes création / édition / filtre. Le badge de la liste affiche la **valeur brute** quand elle n'est reconnue par aucune règle, au lieu de la faire passer pour « Utilisateur » : un statut mal orthographié se voit, au lieu de produire des droits inexpliqués.
+- **Valeur canonique** `champion` (8 car., tient dans la colonne) proposée dans les listes déroulantes création / édition / filtre. Le badge de la liste affiche la **valeur brute** quand elle n'est reconnue par aucune règle, au lieu de la faire passer pour « Utilisateur » : un statut mal orthographié se voit, au lieu de produire des droits inexpliqués.
 
-### Partage d'une entité (tous les statuts, avec consentement)
+### Carto COMMUNE — accès par rôle (modèle principal)
 
-Une entité n'appartient qu'à son propriétaire (`Entity.get_active` est strict sur `owner_id`) : il n'existe pas d'accès partagé. **Partager = déposer une COPIE** chez chaque destinataire, qui repart ensuite avec la sienne sans toucher à l'originale.
+`Code/carto_access.py` — **source unique** de « qui voit, qui modifie, qui arbitre ».
+Recopier l'entité chez chacun (modèle historique, décrit plus bas) fabriquait autant de
+cartos que de comptes : plus rien ne les reliait, et une correction devait être refaite
+sur chaque copie. Une carto **commune** est au contraire **UNE seule ligne** travaillée
+par plusieurs comptes — ce qui est validé est vu par tout le monde, il n'y a rien à
+propager.
+
+- **`Entity.is_shared`** (migration à chaud) : privée par défaut. Une carto qu'un compte
+  crée pour lui n'obéit à rien de ce qui suit.
+- **`entity_role_access`** (entity_id, role_id) : on ouvre l'accès à des **RÔLES**, jamais
+  à des comptes — qui reçoit le rôle demain entre sans qu'on revienne sur l'écran d'accès.
+  **Aucune ligne = ouverte à tous les comptes** de la page Comptes. Les rôles viennent de
+  la carto elle-même (bandes de la carte).
+- **Qui règle l'accès** : champions et administrateurs, y compris sur une carto qui ne
+  leur appartient pas — rendre une carto commune engage toute l'organisation. Le
+  propriétaire d'une carto privée ne peut donc pas la partager seul.
+- **Qui écrit** : sur une carto commune, champion / admin enregistrent directement ; tout
+  autre compte **propose**. Sur une carto privée, son propriétaire fait ce qu'il veut.
+- **`carto_change_requests`** : la proposition emporte une COPIE du diagramme (elle doit
+  rester examinable si la carto bouge entre-temps) et `base_diagram`, ce que l'auteur
+  avait sous les yeux — c'est la référence du résumé. Appliquée, elle écrit sur l'entité
+  commune puis passe par `_sync_carto_to_db`, exactement comme un enregistrement normal.
+- **API** (`Code/routes/carto_sharing.py`, préfixe `/cartography`) :
+  `GET|POST /api/access/<entity_id>` · `GET /api/changes[?entity_id=&status=]` ·
+  `GET /api/changes/<id>` (avec le résumé) · `POST /api/changes` ·
+  `POST /api/changes/<id>/approve|reject` · `DELETE /api/changes/<id>` (retrait par l'auteur).
+- **Interface** : bouton **« Accès à la carto »** de la fiche entité (ex-« Partager ») →
+  interrupteur *Carto commune* + liste des rôles avec leur nombre de titulaires ; en
+  lecture seule pour un compte ordinaire, qui voit à qui s'adresser. Dans l'éditeur, un
+  **bandeau** dit d'un coup d'œil si ce qu'on fait s'applique ou part à l'examen, le
+  bouton **Sauvegarder devient « Proposer la modification »** (ambre, icône de
+  proposition, Ctrl+S compris), et les champions ont un bouton **Propositions** avec le
+  compte en attente. Le détail d'une proposition affiche **ce qu'elle change** —
+  activités ajoutées / retirées / renommées / déplacées, flèches — pas du JSON.
+  Tout vit dans `static/optiqcarto/carto_sharing.js`, chargé APRÈS `editor.js` :
+  la gouvernance n'entre pas dans l'éditeur, qui reste l'éditeur.
+- ⚠️ **Le masquage n'est pas une sécurité** : `/cartography/api/save` refuse aussi côté
+  serveur, avec le code `must_propose` que le JS rattrape pour ouvrir la modale.
+- ⚠️ **`Entity.get_active` n'est plus strict sur `owner_id`** — il accepte une carto
+  commune ouverte au compte. Le **repli** (aucune entité active en session) reste en
+  revanche « sa première entité, ordre d'insertion » : trier par nom changerait l'entité
+  par défaut de tous les comptes qui en possèdent plusieurs. `Entity.accessible()` rend
+  la liste réelle (siennes + communes) ; `Entity.for_user()` reste la requête « les
+  siennes ».
+- ⚠️ **Ménage obligatoire** : supprimer une entité efface `entity_role_access` et
+  `carto_change_requests` (PostgreSQL applique les FK, SQLite non), et
+  `_sync_carto_to_db` efface l'accès d'un rôle qui disparaît de la carte.
+- Tests : `tests/test_66_carto_sharing.py` (31 cas — statuts, lecture par rôle, réglage
+  de l'accès, refus d'écriture directe, cycle complet d'une proposition, ménage).
+
+### Envoyer une COPIE indépendante (mécanisme secondaire, conservé)
+
+Déposer une copie fait autre chose que partager : le destinataire devient propriétaire
+d'une carto **à part**, qu'il fait évoluer de son côté et qui ne reçoit plus rien. Ce
+chemin reste disponible, mais il n'est plus le bouton principal : on l'atteint depuis le
+pied de la modale « Accès à la carto ».
+
+Une entité n'appartient qu'à son propriétaire : **partager par copie = déposer une COPIE** chez chaque destinataire, qui repart ensuite avec la sienne sans toucher à l'originale.
 
 **Tout le monde peut partager ses propres entités.** Ce que change le statut, c'est le
 CONSENTEMENT du destinataire :
@@ -672,7 +778,12 @@ partagent un design system chargé partout via `header_buttons.html` :
 - *(rien)*
 
 ### À faire (par priorité)
-1. Éditeur OptiqCarto côté JS (`static/optiqcarto/editor.js`) — seul élément majeur restant
+1. **`docs/doc_technique.html` + `docs/guide.html` : le partage de carto a changé de
+   modèle** (carto commune, accès par rôle, propositions de modification, statut
+   « champion » à la place de « gestionnaire de compétences », statut « RH » retiré).
+   Les deux documents décrivent encore le partage par COPIE seul. À reprendre à la
+   prochaine routine de documentation, captures comprises.
+2. Éditeur OptiqCarto côté JS (`static/optiqcarto/editor.js`) — seul élément majeur restant
 
 ---
 

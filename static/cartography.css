@@ -4668,3 +4668,175 @@ body.connexion-mode-active .activity-item:not(.connexion-match):not(.connexion-o
 }
 .modal-btn-share:hover { filter: brightness(1.07); }
 .modal-btn-share:disabled { opacity: 0.6; cursor: default; }
+
+/* ════════════════════════════════════════════
+   ACCÈS À LA CARTO — partage par rôle
+   ════════════════════════════════════════════
+   Même vocabulaire visuel que la modale de copie juste au-dessus (violet
+   #7c3aed, rayons 10-12 px, bordures #e2e8f0) : on change de sujet, pas de
+   maison. L'interrupteur porte à lui seul la distinction privée / commune,
+   c'est la décision principale de cet écran. */
+
+.em-action-share { background: #ede9fe; color: #5b21b6; }
+
+.access-modal {
+  max-width: 560px;
+  width: 94%;
+  padding: 26px 26px 20px;
+  text-align: left;
+}
+.access-modal-title {
+  margin: 0 0 4px;
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: #1e293b;
+}
+.access-modal-title i { color: #7c3aed; margin-right: 8px; }
+.access-modal-entity {
+  margin: 0 0 18px;
+  font-size: 0.86rem;
+  font-weight: 700;
+  color: #7c3aed;
+}
+
+/* ── Interrupteur privée / commune ────────────────────────────────────── */
+.access-switch {
+  display: flex;
+  align-items: flex-start;
+  gap: 13px;
+  padding: 14px 15px;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 12px;
+  background: #f8fafc;
+  cursor: pointer;
+}
+.access-switch.is-locked { cursor: default; opacity: 0.85; }
+.access-switch input { position: absolute; opacity: 0; pointer-events: none; }
+.access-switch-track {
+  flex: none;
+  width: 42px; height: 24px;
+  margin-top: 2px;
+  border-radius: 999px;
+  background: #cbd5e1;
+  transition: background 0.16s;
+}
+.access-switch-knob {
+  display: block;
+  width: 18px; height: 18px;
+  margin: 3px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.28);
+  transition: transform 0.16s;
+}
+.access-switch input:checked + .access-switch-track { background: #7c3aed; }
+.access-switch input:checked + .access-switch-track .access-switch-knob {
+  transform: translateX(18px);
+}
+.access-switch-text { display: block; min-width: 0; }
+.access-switch-text strong {
+  display: block;
+  font-size: 0.9rem; font-weight: 800; color: #1e293b;
+}
+.access-switch-text small {
+  display: block;
+  margin-top: 4px;
+  font-size: 0.78rem; font-weight: 500; color: #64748b; line-height: 1.5;
+}
+
+/* ── Rôles autorisés ──────────────────────────────────────────────────── */
+.access-roles { margin-top: 16px; }
+.access-roles.hidden { display: none; }
+.access-roles-head { margin-bottom: 9px; }
+.access-roles-title {
+  display: block;
+  font-size: 0.78rem; font-weight: 800; letter-spacing: 0.02em;
+  text-transform: uppercase; color: #64748b;
+}
+.access-roles-hint {
+  display: block;
+  margin-top: 4px;
+  font-size: 0.78rem; color: #94a3b8; line-height: 1.5;
+}
+.access-role-list {
+  max-height: 260px;
+  overflow-y: auto;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 6px;
+}
+.access-role-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 10px;
+  border-radius: 9px;
+  cursor: pointer;
+  transition: background 0.12s;
+}
+.access-role-row:hover { background: #f8fafc; }
+.access-role-row.is-locked { cursor: default; }
+.access-role-row input { width: 16px; height: 16px; accent-color: #7c3aed; cursor: pointer; }
+.access-role-name { font-size: 0.88rem; font-weight: 700; color: #1e293b; }
+.access-role-holders { font-size: 0.76rem; color: #94a3b8; margin-left: auto; }
+
+.access-open-note {
+  display: flex; align-items: center; gap: 8px;
+  margin: 10px 2px 0;
+  font-size: 0.79rem; color: #15803d;
+}
+.access-open-note.hidden { display: none; }
+.access-open-note i { color: #16a34a; }
+
+.access-empty, .access-loading, .access-error {
+  margin: 0;
+  padding: 18px;
+  text-align: center;
+  font-size: 0.84rem;
+  color: #94a3b8;
+}
+.access-error { color: #b91c1c; }
+
+.access-readonly-note {
+  display: flex; align-items: center; gap: 8px;
+  margin: 14px 0 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: #fef3c7;
+  font-size: 0.79rem; color: #92400e;
+}
+.access-readonly-note.hidden { display: none; }
+
+/* ── Pied ─────────────────────────────────────────────────────────────── */
+.access-modal-actions {
+  display: flex; align-items: center; gap: 10px;
+  margin-top: 20px;
+}
+.access-actions-spacer { flex: 1; }
+.access-copy-link {
+  padding: 0;
+  border: none;
+  background: none;
+  font-family: inherit;
+  font-size: 0.78rem;
+  color: #7c3aed;
+  text-align: left;
+  cursor: pointer;
+}
+.access-copy-link:hover { text-decoration: underline; }
+.access-copy-link i { margin-right: 5px; }
+
+/* Une carto commune se signale dans la liste des entités : on ne travaille pas
+   de la même façon sur la sienne et sur celle de l'organisation. Le badge vit
+   sur la ligne des activités — en haut à droite il disputait sa place à
+   « Active » et tronquait le nom de l'entité. */
+.entity-shared-badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  margin-left: 6px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: #ede9fe;
+  color: #5b21b6;
+  font-size: 0.63rem; font-weight: 800;
+  text-transform: uppercase; letter-spacing: 0.03em;
+  vertical-align: middle;
+}
+.entity-shared-badge i { font-size: 0.6rem; }

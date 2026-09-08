@@ -36,6 +36,30 @@
     cancel:      {{ t('btn.cancel')|tojson }},
     close:       {{ t('btn.close')|tojson }}
   };
+  // Accès par rôle : le vrai partage. La copie ci-dessus reste une action à part.
+  window.ACCESS_I18N = {
+    title:        {{ t('access.title')|tojson }},
+    sharedLabel:  {{ t('access.shared_label')|tojson }},
+    badgeShared:  {{ t('access.badge_shared')|tojson }},
+    sharedHint:   {{ t('access.shared_hint')|tojson }},
+    privateHint:  {{ t('access.private_hint')|tojson }},
+    rolesTitle:   {{ t('access.roles_title')|tojson }},
+    rolesHint:    {{ t('access.roles_hint')|tojson }},
+    openToAll:    {{ t('access.open_to_all')|tojson }},
+    noRoles:      {{ t('access.no_roles')|tojson }},
+    holdersOne:   {{ t('access.holders_one')|tojson }},
+    holdersMany:  {{ t('access.holders_many')|tojson }},
+    holdersNone:  {{ t('access.holders_none')|tojson }},
+    readonly:     {{ t('access.readonly')|tojson }},
+    save:         {{ t('access.save')|tojson }},
+    saved:        {{ t('access.saved')|tojson }},
+    copyLink:     {{ t('access.copy_link')|tojson }},
+    copyHint:     {{ t('access.copy_hint')|tojson }},
+    loadError:    {{ t('map.share_load_error')|tojson }},
+    netError:     {{ t('map.share_net_error')|tojson }},
+    cancel:       {{ t('btn.cancel')|tojson }},
+    close:        {{ t('btn.close')|tojson }}
+  };
 </script>
 
 <!-- Le mode "mise en évidence" est entièrement piloté en JS (highlight-extco-map.js)
@@ -209,6 +233,40 @@
           </div>
         </div>
 
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL ACCÈS À LA CARTO — le partage se règle par RÔLE.
+       Une carto commune est UNE ligne travaillée par plusieurs comptes : ce qui
+       est validé est vu par tout le monde, il n'y a pas de copie à distribuer.
+       Le dépôt d'une copie indépendante reste possible, mais c'est autre chose :
+       il vit dans la modale suivante, atteinte par le lien du pied. -->
+  <div id="carto-access-modal" class="modal hidden">
+    <div class="modal-content access-modal">
+      <h3 class="access-modal-title">
+        <i class="fa-solid fa-users-gear"></i> {{ t('access.title') }}
+      </h3>
+      <p class="access-modal-entity" id="access-entity-name"></p>
+
+      <div class="access-body" id="access-body">
+        <p class="access-loading"><i class="fa-solid fa-spinner fa-spin"></i></p>
+      </div>
+
+      <p class="access-readonly-note hidden" id="access-readonly-note">
+        <i class="fa-solid fa-lock"></i> {{ t('access.readonly') }}
+      </p>
+
+      <div class="access-modal-actions">
+        <button type="button" class="access-copy-link" id="access-copy-link"
+                title="{{ t('access.copy_hint') }}">
+          <i class="fa-solid fa-share-nodes"></i> {{ t('access.copy_link') }}
+        </button>
+        <span class="access-actions-spacer"></span>
+        <button id="access-cancel-btn" class="modal-btn-cancel">{{ t('btn.cancel') }}</button>
+        <button id="access-save-btn" class="modal-btn-share">
+          <i class="fa-solid fa-check"></i> {{ t('access.save') }}
+        </button>
       </div>
     </div>
   </div>

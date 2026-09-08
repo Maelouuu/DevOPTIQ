@@ -17,6 +17,10 @@
     window.OPTIQCARTO_ACTIVE_CALQUE = {{ (active_calque_id or 'null')|safe }};
     /* Traductions injectées depuis Flask */
     window.OPTIQ_I18N = {{ i18n_data | tojson | safe }};
+    /* Carto commune : qui enregistre directement, qui propose, qui arbitre.
+       Le JS s'en sert pour choisir entre « Sauvegarder » et « Proposer ».
+       Ce n'est PAS une sécurité — /api/save refuse aussi côté serveur. */
+    window.OPTIQCARTO_GOV = {{ governance | tojson | safe }};
   </script>
 </head>
 <body>
@@ -214,6 +218,59 @@
   </button>
 
 </header>
+
+<!-- ── Bandeau « carto commune » ──────────────────────────────────────────
+     Ne s'affiche que sur une carto partagée. Il répond d'un coup d'œil à la
+     seule question qui compte en ouvrant l'éditeur : est-ce que ce que je fais
+     ici s'applique, ou est-ce que ça part à l'examen ? -->
+<div id="carto-gov-bar" class="gov-bar" style="display:none">
+  <span class="gov-bar-badge"><i class="fa-solid fa-users"></i> {{ t('access.shared_label') }}</span>
+  <span class="gov-bar-text" id="gov-bar-text"></span>
+  <button type="button" class="gov-bar-btn" id="gov-review-btn" style="display:none">
+    <i class="fa-solid fa-inbox"></i>
+    <span>{{ t('change.review_btn') }}</span>
+    <span class="gov-bar-count" id="gov-review-count">0</span>
+  </button>
+</div>
+
+<!-- ── Proposer une modification (compte sans droit d'écriture directe) ── -->
+<div id="propose-modal" class="gov-modal" style="display:none">
+  <div class="gov-card">
+    <div class="gov-card-head">
+      <i class="fa-solid fa-code-pull-request gov-card-icon"></i>
+      <h3 class="gov-card-title">{{ t('change.propose_title') }}</h3>
+    </div>
+    <p class="gov-card-desc">{{ t('change.propose_hint') }}</p>
+
+    <label class="gov-field">
+      <span class="gov-field-label">{{ t('change.title_label') }}</span>
+      <input type="text" id="propose-title" maxlength="200" placeholder="{{ t('change.title_ph') }}">
+    </label>
+    <label class="gov-field">
+      <span class="gov-field-label">{{ t('change.message_label') }}</span>
+      <textarea id="propose-message" rows="4" placeholder="{{ t('change.message_ph') }}"></textarea>
+    </label>
+
+    <div class="gov-card-actions">
+      <button id="propose-cancel" class="gov-btn gov-btn--ghost">{{ t('btn.cancel') }}</button>
+      <button id="propose-send" class="gov-btn gov-btn--primary">
+        <i class="fa-solid fa-paper-plane"></i> {{ t('change.send') }}
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Examen des modifications proposées (champion / administrateur) ── -->
+<div id="review-modal" class="gov-modal" style="display:none">
+  <div class="gov-card gov-card--wide">
+    <div class="gov-card-head">
+      <i class="fa-solid fa-inbox gov-card-icon"></i>
+      <h3 class="gov-card-title">{{ t('change.review_title') }}</h3>
+      <button class="gov-card-close" id="review-close"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="gov-review-body" id="review-body"></div>
+  </div>
+</div>
 
 <!-- ── Bouton retour flottant bas-gauche ── -->
 <a href="/activities/map" id="btn-back-floating" title="{{ t('editor.btn_back') }}">
@@ -770,6 +827,7 @@
 <script src="{{ url_for('static', filename='optiqcarto/vsdx_importer.js') }}"></script>
 <script src="{{ url_for('static', filename='optiqcarto/optiqarrange.js') }}"></script>
 <script src="{{ url_for('static', filename='optiqcarto/editor.js') }}"></script>
+<script src="{{ url_for('static', filename='optiqcarto/carto_sharing.js') }}"></script>
 
 <!-- ══ Routage orthogonal libavoid (WASM) : exécuté dans un Web Worker (hors du
      thread principal → l'UI ne gèle jamais pendant le calcul) ══ -->

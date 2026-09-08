@@ -15,6 +15,9 @@
     window.OPTIQCARTO_READONLY      = true;
     window.OPTIQCARTO_ACTIVE_CALQUE = {{ (active_calque_id or 'null')|safe }};
     window.OPTIQCARTO_VIEWER_ENTITY_ID = {{ (entity_id or 'null')|safe }};
+    /* Le viewer charge editor.js : sans ce catalogue, chaque _L() y
+       afficherait la clé brute au lieu du libellé traduit. */
+    window.OPTIQ_I18N = {{ i18n_data | tojson | safe }};
   </script>
 
   <style>

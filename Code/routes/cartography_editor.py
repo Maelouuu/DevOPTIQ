@@ -51,14 +51,14 @@ def _require_auth():
 
 
 def _get_active_entity():
+    """Entité active — la sienne, ou une carto commune ouverte à ses rôles."""
     user_id = session.get("user_id")
-    entity_id = session.get("active_entity_id")
     if not user_id:
         return None
-    if entity_id:
-        e = Entity.query.filter_by(id=entity_id, owner_id=user_id).first()
-        if e:
-            return e
+    entity = Entity.get_active(user_id)
+    if entity:
+        return entity
+    # Repli historique : la dernière entité créée par ce compte.
     return Entity.query.filter_by(owner_id=user_id).order_by(Entity.id.desc()).first()
 
 
@@ -113,6 +113,9 @@ def viewer():
                 active_calque_id = None
                 active_calque_name = ''
 
+    from Code.translations import TRANSLATIONS
+    lang = session.get('lang', 'fr')
+
     return render_template(
         "cartography_viewer.html",
         entity_name=entity_name,
@@ -121,6 +124,7 @@ def viewer():
         has_vsdx=has_vsdx,
         active_calque_id=active_calque_id,
         active_calque_name=active_calque_name,
+        i18n_data=TRANSLATIONS.get(lang, TRANSLATIONS['fr']),
     )
 
 
@@ -152,6 +156,9 @@ def editor():
     lang = session.get('lang', 'fr')
     i18n_data = TRANSLATIONS.get(lang, TRANSLATIONS['fr'])
 
+    from Code.carto_access import access_summary
+    gouvernance = access_summary(entity)
+
     return render_template(
         "cartography_editor.html",
         entity_name=entity_name,
@@ -160,6 +167,7 @@ def editor():
         has_optiqcarto=has_optiqcarto,
         active_calque_id=active_calque_id,
         i18n_data=i18n_data,
+        governance=gouvernance,
     )
 
 
@@ -354,6 +362,12 @@ def _do_sync(entity, diagram):
             TimeAnalysis.query.filter(
                 TimeAnalysis.role_id.in_(remove_role_ids)
             ).update({TimeAnalysis.role_id: None}, synchronize_session=False)
+            # Le rôle disparaît de la carte : l'accès qu'il ouvrait disparaît avec
+            # lui. Sans ça, une clé étrangère orpheline bloquerait la suppression.
+            from Code.models.models import EntityRoleAccess
+            EntityRoleAccess.query.filter(
+                EntityRoleAccess.role_id.in_(remove_role_ids)
+            ).delete(synchronize_session=False)
     for role in roles_to_remove:
         db.session.delete(role)
 
@@ -584,6 +598,16 @@ def api_save():
     if not entity:
         return jsonify({"error": "Aucune entité active"}), 400
 
+    from Code.carto_access import can_edit as _can_edit
+    if not _can_edit(entity):
+        # Le masquage côté interface n'est pas une sécurité : on refuse ici aussi.
+        return jsonify({
+            "error": "Cette carto est commune : proposez la modification, "
+                     "un champion ou un administrateur l'appliquera.",
+            "code": "must_propose",
+            "entity_id": entity.id,
+        }), 403
+
     data    = request.get_json(force=True)
     diagram = data.get("diagram", data)  # accepte {diagram: ...} ou le state direct
 
@@ -655,6 +679,12 @@ def api_load(name):
     entity = None
     if user_id and name:
         entity = Entity.query.filter_by(name=name, owner_id=user_id).first()
+        if not entity:
+            # Une carto commune porte le nom de l'entité de son propriétaire.
+            from Code.carto_access import can_read as _can_read
+            entity = next(
+                (e for e in Entity.query.filter_by(name=name).all() if _can_read(e)),
+                None)
     if not entity:
         entity = _get_active_entity()
     if not entity:

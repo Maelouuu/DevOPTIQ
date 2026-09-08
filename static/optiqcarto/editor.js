@@ -240,6 +240,12 @@ const hatchIds = new Set();     // pattern IDs déjà créés dans les defs
 let leftPanelOpen = false;
 let propsOpen = false;
 let isDirty = false;
+
+// Points d'accroche de carto_sharing.js (carto commune). Un `let` de tête n'est
+// pas exposé sur window : sans ces deux portes, le module de gouvernance devrait
+// se raccrocher à des variables internes de l'éditeur.
+window.getCartoState  = () => state;
+window.markCartoSaved = () => { isDirty = false; };
 let _autoSaveTimerId = null;
 let _autoSaveToastInterval = null;
 let activeCalqueId = null;
@@ -3747,12 +3753,12 @@ function _buildMinimap() {
   wrap.id = 'carto-minimap';
   wrap.title = '';
   wrap.innerHTML =
-    `<div class="mini-resize" title="Glissez pour redimensionner la mini-carte"></div>
-     <div class="mini-header" title="Glissez pour déplacer la mini-carte">
-       <span class="mini-grip"></span><span class="mini-title">Mini-carte</span>
+    `<div class="mini-resize" title="${_L('editor.minimap_resize')}"></div>
+     <div class="mini-header" title="${_L('editor.minimap_move')}">
+       <span class="mini-grip"></span><span class="mini-title">${_L('editor.minimap')}</span>
      </div>
      <svg width="${MINI_W}" height="${MINI_H}" viewBox="0 0 ${MINI_W} ${MINI_H}"
-          title="Glissez le cadre pour vous déplacer, ou les coins pour zoomer">
+          title="${_L('editor.minimap_nav')}">
        <rect class="mini-bg" x="0" y="0" width="${MINI_W}" height="${MINI_H}" rx="9"/>
        <g id="mini-content"></g>
        <rect id="mini-frame" class="mini-frame" x="0" y="0" width="10" height="10" rx="2"/>
@@ -5312,6 +5318,13 @@ async function importVSDX(file) {
     const _finalizeImport = () => {
     render();
     history = [JSON.stringify(state)]; histIndex = 0; // baseline = carto reconstruite
+    // ⚠️ La baseline d'historique repart de zéro : plus aucune « version » ne
+    // sépare l'état affiché de son point de départ, donc snapshot() n'a jamais
+    // été appelé et l'éditeur croyait la carto à jour. On quittait la page sans
+    // le moindre avertissement, l'import perdu. L'import EST une modification
+    // non enregistrée : on le déclare tel quel.
+    isDirty = true;
+    _scheduleAutoSave();
     fitView(); updateProps();
 
     document.getElementById('vsdx-dialog').classList.add('hidden');

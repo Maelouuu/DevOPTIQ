@@ -24,7 +24,7 @@ function submitAddSavoir(activityId) {
 
     const desc = input.value.trim();
     if (!desc) {
-        alert("Veuillez saisir une description pour le savoir.");
+        alert(_CR('need_description'));
         return;
     }
 
@@ -46,7 +46,7 @@ function submitAddSavoir(activityId) {
     })
     .catch(err => {
         console.error("Erreur POST /savoirs/add:", err);
-        alert("Erreur lors de l'ajout du savoir.");
+        alert(_CR('err_add'));
     });
 }
 
@@ -93,7 +93,7 @@ function submitEditSavoir(activityId, savoirId) {
 
     const newDesc = input.value.trim();
     if (!newDesc) {
-        alert("Veuillez saisir la description du savoir.");
+        alert(_CR('need_description'));
         return;
     }
 
@@ -115,7 +115,7 @@ function submitEditSavoir(activityId, savoirId) {
     })
     .catch(err => {
         console.error("Erreur PUT /savoirs/<activity>/<id>:", err);
-        alert("Erreur lors de la modification du savoir.");
+        alert(_CR('err_update'));
     });
 }
 
@@ -139,7 +139,7 @@ function deleteSavoir(activityId, savoirId) {
         })
         .catch(err => {
             console.error("Erreur DELETE /savoirs/<activity>/<id>:", err);
-            alert("Erreur lors de la suppression du savoir.");
+            alert(_CR('err_delete'));
         });
 }
 

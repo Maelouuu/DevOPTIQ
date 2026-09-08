@@ -101,6 +101,17 @@
 
   <!-- Translations for dynamically-built proposal modals -->
   <script>
+  /* Messages des listes de la fiche activité (softskills.js, aptitudes.js,
+     savoirs.js, savoir_faires.js, constraints.js) — ils alertaient en dur. */
+  window.CRUD_I18N = {
+    err:              {{ t('crud.err') | tojson }},
+    need_description: {{ t('crud.need_description') | tojson }},
+    need_hsc_fields:  {{ t('crud.need_hsc_fields') | tojson }},
+    err_add:          {{ t('crud.err_add') | tojson }},
+    err_update:       {{ t('crud.err_update') | tojson }},
+    err_delete:       {{ t('crud.err_delete') | tojson }},
+    err_refresh:      {{ t('crud.err_refresh') | tojson }},
+  };
   window.PROPOSE_I18N = {
     title_competencies:     "{{ t('propose.title_competencies') }}",
     title_savoirs:          "{{ t('propose.title_savoirs') }}",
@@ -132,6 +143,12 @@
     err_add_competency:         "{{ t('propose.err_add_competency') }}",
     label_description:          "{{ t('propose.label_description') }}",
     confirm_delete_competency:  "{{ t('propose.confirm_delete_competency') }}",
+    translate_btn:        {{ t('propose.translate_btn') | tojson }},
+    translate_back:       {{ t('propose.translate_back') | tojson }},
+    translate_analyzing:  {{ t('propose.translate_analyzing') | tojson }},
+    translate_err_input:  {{ t('propose.translate_err_input') | tojson }},
+    translate_err_context:{{ t('propose.translate_err_context') | tojson }},
+    translate_err_none:   {{ t('propose.translate_err_none') | tojson }},
     result_singular:            "{{ t('act_list.result_singular') }}",
     result_plural:              "{{ t('act_list.result_plural') }}",
     pf_loaded:            {{ t('pf.loaded') | tojson }},
