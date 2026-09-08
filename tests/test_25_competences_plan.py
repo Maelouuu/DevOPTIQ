@@ -266,6 +266,189 @@ class TestGeneratePlan:
         assert r.status_code == 200
         assert r.get_json()["ok"] is True
 
+    def test_generate_plan_prompts_unavailable_returns_503(self, auth_client, ids, monkeypatch):
+        """Si les prompts IA ne sont pas chargés sur l'instance → 503 explicite."""
+        monkeypatch.setattr("Code.routes.competences_plan.get_prompt", lambda key: None)
+        r = auth_client.post(
+            "/competences_plan/generate_plan",
+            data=self._payload(ids),
+            content_type="application/json",
+        )
+        assert r.status_code == 503
+        body = r.get_json()
+        assert body["ok"] is False
+        assert "error" in body
+
+    def test_generate_plan_invalid_user_id_returns_dummy_with_warning(self, auth_client, ids):
+        """Une exception pendant le traitement (ex: user_id non numérique) renvoie un plan dummy annoté."""
+        r = auth_client.post(
+            "/competences_plan/generate_plan",
+            data=json.dumps({
+                "user_id": "not-a-number",
+                "role_id": 1,
+                "activity_id": ids["activity_id"],
+                "payload_contexte": {},
+            }),
+            content_type="application/json",
+        )
+        assert r.status_code == 200
+        body = r.get_json()
+        assert body["ok"] is True
+        assert "warning" in body
+        assert body["plan"]["meta"]["source"] == "error_fallback"
+
+
+class TestCallLlmOrDummy:
+    """Tests unitaires directs de _call_llm_or_dummy (Code/routes/competences_plan.py)."""
+
+    def test_no_api_key_returns_dummy(self, app, monkeypatch):
+        from Code.routes import competences_plan as cp_mod
+        monkeypatch.setattr(cp_mod, "get_openai_key", lambda: None)
+        with app.app_context():
+            plan = cp_mod._call_llm_or_dummy("prompt")
+        assert plan["meta"]["source"] == "dummy_fallback"
+
+    def test_ai_success_returns_parsed_json(self, app, monkeypatch):
+        from Code.routes import competences_plan as cp_mod
+
+        class _FakeMessage:
+            content = json.dumps({"type": "PLAN_REEL", "axes": []})
+
+        class _FakeChoice:
+            message = _FakeMessage()
+
+        class _FakeCompletion:
+            choices = [_FakeChoice()]
+
+        class _FakeChatCompletions:
+            def create(self, **kwargs):
+                return _FakeCompletion()
+
+        class _FakeChat:
+            completions = _FakeChatCompletions()
+
+        class _FakeClient:
+            chat = _FakeChat()
+
+        monkeypatch.setattr(cp_mod, "get_openai_key", lambda: "fake-key")
+        monkeypatch.setattr("Code.ai_client.make_ai_client", lambda: (_FakeClient(), "fake-model", None))
+        with app.app_context():
+            plan = cp_mod._call_llm_or_dummy("prompt")
+        assert plan == {"type": "PLAN_REEL", "axes": []}
+
+    def test_ai_response_with_surrounding_text_extracts_json(self, app, monkeypatch):
+        from Code.routes import competences_plan as cp_mod
+
+        class _FakeMessage:
+            content = "Voici le plan demandé :\n" + json.dumps({"type": "PLAN_EXTRAIT"})
+
+        class _FakeChoice:
+            message = _FakeMessage()
+
+        class _FakeCompletion:
+            choices = [_FakeChoice()]
+
+        class _FakeChatCompletions:
+            def create(self, **kwargs):
+                return _FakeCompletion()
+
+        class _FakeChat:
+            completions = _FakeChatCompletions()
+
+        class _FakeClient:
+            chat = _FakeChat()
+
+        monkeypatch.setattr(cp_mod, "get_openai_key", lambda: "fake-key")
+        monkeypatch.setattr("Code.ai_client.make_ai_client", lambda: (_FakeClient(), "fake-model", None))
+        with app.app_context():
+            plan = cp_mod._call_llm_or_dummy("prompt")
+        assert plan["type"] == "PLAN_EXTRAIT"
+
+    def test_ai_response_unparseable_returns_dummy_with_raw(self, app, monkeypatch):
+        from Code.routes import competences_plan as cp_mod
+
+        class _FakeMessage:
+            content = "Réponse totalement non structurée, pas de JSON ici."
+
+        class _FakeChoice:
+            message = _FakeMessage()
+
+        class _FakeCompletion:
+            choices = [_FakeChoice()]
+
+        class _FakeChatCompletions:
+            def create(self, **kwargs):
+                return _FakeCompletion()
+
+        class _FakeChat:
+            completions = _FakeChatCompletions()
+
+        class _FakeClient:
+            chat = _FakeChat()
+
+        monkeypatch.setattr(cp_mod, "get_openai_key", lambda: "fake-key")
+        monkeypatch.setattr("Code.ai_client.make_ai_client", lambda: (_FakeClient(), "fake-model", None))
+        with app.app_context():
+            plan = cp_mod._call_llm_or_dummy("prompt")
+        assert plan["meta"]["source"] == "fallback_parse_error"
+        assert "raw" in plan["meta"]
+
+    def test_ai_client_exception_returns_dummy_with_error(self, app, monkeypatch):
+        from Code.routes import competences_plan as cp_mod
+
+        class _FakeChatCompletions:
+            def create(self, **kwargs):
+                raise RuntimeError("panne-llm")
+
+        class _FakeChat:
+            completions = _FakeChatCompletions()
+
+        class _FakeClient:
+            chat = _FakeChat()
+
+        monkeypatch.setattr(cp_mod, "get_openai_key", lambda: "fake-key")
+        monkeypatch.setattr("Code.ai_client.make_ai_client", lambda: (_FakeClient(), "fake-model", None))
+        with app.app_context():
+            plan = cp_mod._call_llm_or_dummy("prompt")
+        assert plan["meta"]["source"] == "fallback_exception"
+        assert "panne-llm" in plan["meta"]["error"]
+
+
+class TestEnsureTablesExist:
+    """Tests unitaires directs de _ensure_tables_exist (branches PostgreSQL/SQLite)."""
+
+    def test_postgres_path_creates_both_tables_when_missing(self, app, monkeypatch):
+        from Code.routes import competences_plan as cp_mod
+
+        executed = []
+
+        class _FakeResult:
+            def scalar(self):
+                return False
+
+        def fake_execute(stmt, *args, **kwargs):
+            executed.append(str(stmt))
+            return _FakeResult()
+
+        with app.app_context():
+            monkeypatch.setattr(cp_mod.db.session, "execute", fake_execute)
+            monkeypatch.setattr(cp_mod.db.session, "commit", lambda: None)
+            cp_mod._ensure_tables_exist()
+
+        assert any("training_plan" in s and "SERIAL" in s for s in executed)
+        assert any("prerequis_comment" in s and "SERIAL" in s for s in executed)
+
+    def test_swallows_failure_when_both_postgres_and_sqlite_creation_fail(self, app, monkeypatch):
+        from Code.routes import competences_plan as cp_mod
+
+        def fake_execute(stmt, *args, **kwargs):
+            raise RuntimeError("db indisponible")
+
+        with app.app_context():
+            monkeypatch.setattr(cp_mod.db.session, "execute", fake_execute)
+            monkeypatch.setattr(cp_mod.db.session, "rollback", lambda: None)
+            cp_mod._ensure_tables_exist()  # ne doit jamais lever, même si tout échoue
+
 
 # ===========================================================================
 # 4. POST /competences_plan/save_plan — Enregistrement d'un plan personnalisé

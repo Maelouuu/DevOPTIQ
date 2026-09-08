@@ -63,6 +63,50 @@ def _cleanup_activity(app, activity_id):
         db.session.commit()
 
 
+class _FakeMessage:
+    def __init__(self, content):
+        self.content = content
+
+
+class _FakeChoice:
+    def __init__(self, content):
+        self.message = _FakeMessage(content)
+
+
+class _FakeCompletion:
+    def __init__(self, content):
+        self.choices = [_FakeChoice(content)]
+
+
+class _FakeChatCompletions:
+    def __init__(self, content=None, raise_exc=None):
+        self._content = content
+        self._raise_exc = raise_exc
+
+    def create(self, **kwargs):
+        if self._raise_exc is not None:
+            raise self._raise_exc
+        return _FakeCompletion(self._content)
+
+
+class _FakeChat:
+    def __init__(self, content=None, raise_exc=None):
+        self.completions = _FakeChatCompletions(content, raise_exc)
+
+
+class _FakeOpenAIClient:
+    def __init__(self, content=None, raise_exc=None):
+        self.chat = _FakeChat(content, raise_exc)
+
+
+def _mock_openai(monkeypatch, content=None, raise_exc=None):
+    fake_client = _FakeOpenAIClient(content=content, raise_exc=raise_exc)
+    monkeypatch.setattr(
+        "Code.routes.result_capabilities.openai_client_or_none",
+        lambda: (fake_client, None),
+    )
+
+
 class TestGenerateCompetence:
 
     def test_unknown_activity_returns_404(self, auth_client):
@@ -93,6 +137,56 @@ class TestGenerateCompetence:
             assert "competence" in data
             assert "source" in data
             assert data["source"] != "AI"
+        finally:
+            _cleanup_activity(app, aid)
+
+    def test_ai_success_returns_competence(self, auth_client, app, ids, monkeypatch):
+        aid = _create_activity(app, ids["entity_id"])
+        did = _create_result_data(app, ids["entity_id"], aid)
+        content = json.dumps({
+            "activity_competence": {"description_fr": "Description FR", "description_en": "Description EN"},
+            "result_ids_used": [did],
+            "granularity_alert": {"alert": False},
+        })
+        _mock_openai(monkeypatch, content=content)
+        try:
+            r = auth_client.post(f"/competence/generate/{aid}")
+            assert r.status_code == 200
+            data = r.get_json()
+            assert data["source"] == "AI"
+            assert data["competence"]["description_fr"] == "Description FR"
+            assert data["competence"]["description_en"] == "Description EN"
+            assert data["result_ids_used"] == [did]
+            assert data["granularity_alert"] == {"alert": False}
+        finally:
+            _cleanup_activity(app, aid)
+
+    def test_ai_filters_unknown_result_ids(self, auth_client, app, ids, monkeypatch):
+        aid = _create_activity(app, ids["entity_id"])
+        did = _create_result_data(app, ids["entity_id"], aid)
+        content = json.dumps({
+            "activity_competence": {"description_fr": "x", "description_en": "y"},
+            "result_ids_used": [did, 999999],
+        })
+        _mock_openai(monkeypatch, content=content)
+        try:
+            r = auth_client.post(f"/competence/generate/{aid}")
+            assert r.status_code == 200
+            assert r.get_json()["result_ids_used"] == [did]
+        finally:
+            _cleanup_activity(app, aid)
+
+    def test_ai_exception_returns_error_source(self, auth_client, app, ids, monkeypatch):
+        aid = _create_activity(app, ids["entity_id"])
+        _create_result_data(app, ids["entity_id"], aid)
+        _mock_openai(monkeypatch, raise_exc=RuntimeError("boom"))
+        try:
+            r = auth_client.post(f"/competence/generate/{aid}")
+            assert r.status_code == 200
+            data = r.get_json()
+            assert data["competence"] is None
+            assert data["source"] == "error"
+            assert "boom" in data["error"]
         finally:
             _cleanup_activity(app, aid)
 
@@ -175,6 +269,135 @@ class TestGenerateResultLinks:
         finally:
             _cleanup_activity(app, aid)
 
+    def test_ai_creates_new_items_and_links(self, auth_client, app, ids, monkeypatch):
+        aid = _create_activity(app, ids["entity_id"])
+        did = _create_result_data(app, ids["entity_id"], aid)
+        content = json.dumps({"results": [{
+            "data_id": did,
+            "savoir_faires": ["Régler la machine 56"],
+            "savoirs": ["Connaître la norme 56"],
+            "hsc": [{"name": "Rigueur 56", "required_level": 3}],
+        }]})
+        _mock_openai(monkeypatch, content=content)
+        try:
+            r = auth_client.post(f"/competence/result_links/generate/{aid}")
+            assert r.status_code == 200
+            data = r.get_json()
+            assert data["source"] == "AI"
+            assert data["created"] == 3
+            items = data["links"]["by_result"][0]["items"]
+            assert len(items) == 3
+            assert all(it["source"] == "AI" for it in items)
+            hsc_item = next(it for it in items if it["item_type"] == "HSC")
+            assert hsc_item["required_level"] == 3
+            assert hsc_item["item_label"] == "Rigueur 56"
+
+            with app.app_context():
+                from Code.models.models import SavoirFaire, Savoir, Softskill
+                assert SavoirFaire.query.filter_by(activity_id=aid, description="Régler la machine 56").count() == 1
+                assert Savoir.query.filter_by(activity_id=aid, description="Connaître la norme 56").count() == 1
+                assert Softskill.query.filter_by(activity_id=aid, habilete="Rigueur 56").count() == 1
+        finally:
+            _cleanup_activity(app, aid)
+
+    def test_ai_reuses_existing_item_case_insensitive(self, auth_client, app, ids, monkeypatch):
+        aid = _create_activity(app, ids["entity_id"])
+        did = _create_result_data(app, ids["entity_id"], aid)
+        sfid = _create_savoir_faire(app, aid, description="Régler la machine Test 56")
+        content = json.dumps({"results": [{
+            "data_id": did, "savoir_faires": ["régler la machine test 56"], "savoirs": [], "hsc": [],
+        }]})
+        _mock_openai(monkeypatch, content=content)
+        try:
+            r = auth_client.post(f"/competence/result_links/generate/{aid}")
+            assert r.status_code == 200
+            data = r.get_json()
+            items = data["links"]["by_result"][0]["items"]
+            assert len(items) == 1
+            assert items[0]["item_id"] == sfid
+
+            with app.app_context():
+                from Code.models.models import SavoirFaire
+                assert SavoirFaire.query.filter_by(activity_id=aid).count() == 1
+        finally:
+            _cleanup_activity(app, aid)
+
+    def test_ai_updates_required_level_on_existing_link_without_level(self, auth_client, app, ids, monkeypatch):
+        aid = _create_activity(app, ids["entity_id"])
+        did = _create_result_data(app, ids["entity_id"], aid)
+        content_no_level = json.dumps({"results": [{
+            "data_id": did, "savoir_faires": [], "savoirs": [],
+            "hsc": [{"name": "Sang-froid 56"}],
+        }]})
+        _mock_openai(monkeypatch, content=content_no_level)
+        try:
+            auth_client.post(f"/competence/result_links/generate/{aid}")
+
+            content_with_level = json.dumps({"results": [{
+                "data_id": did, "savoir_faires": [], "savoirs": [],
+                "hsc": [{"name": "Sang-froid 56", "required_level": 4}],
+            }]})
+            _mock_openai(monkeypatch, content=content_with_level)
+            r = auth_client.post(f"/competence/result_links/generate/{aid}")
+            assert r.status_code == 200
+            data = r.get_json()
+            assert data["created"] == 0
+            items = data["links"]["by_result"][0]["items"]
+            assert len(items) == 1
+            assert items[0]["required_level"] == 4
+        finally:
+            _cleanup_activity(app, aid)
+
+    def test_ai_ignores_unknown_result_data_id(self, auth_client, app, ids, monkeypatch):
+        aid = _create_activity(app, ids["entity_id"])
+        _create_result_data(app, ids["entity_id"], aid)
+        content = json.dumps({"results": [{
+            "data_id": 999999, "savoir_faires": ["Ignoré"], "savoirs": [], "hsc": [],
+        }]})
+        _mock_openai(monkeypatch, content=content)
+        try:
+            r = auth_client.post(f"/competence/result_links/generate/{aid}")
+            assert r.status_code == 200
+            data = r.get_json()
+            assert data["created"] == 0
+            assert data["links"]["by_result"] == []
+        finally:
+            _cleanup_activity(app, aid)
+
+    def test_ai_skips_blank_item_text(self, auth_client, app, ids, monkeypatch):
+        aid = _create_activity(app, ids["entity_id"])
+        did = _create_result_data(app, ids["entity_id"], aid)
+        content = json.dumps({"results": [{
+            "data_id": did, "savoir_faires": ["   "], "savoirs": [], "hsc": [],
+        }]})
+        _mock_openai(monkeypatch, content=content)
+        try:
+            r = auth_client.post(f"/competence/result_links/generate/{aid}")
+            assert r.status_code == 200
+            data = r.get_json()
+            assert data["created"] == 0
+            assert data["links"]["by_result"] == []
+        finally:
+            _cleanup_activity(app, aid)
+
+    def test_ai_exception_rolls_back_and_returns_error_source(self, auth_client, app, ids, monkeypatch):
+        aid = _create_activity(app, ids["entity_id"])
+        did = _create_result_data(app, ids["entity_id"], aid)
+        _mock_openai(monkeypatch, raise_exc=RuntimeError("boom"))
+        try:
+            r = auth_client.post(f"/competence/result_links/generate/{aid}")
+            assert r.status_code == 200
+            data = r.get_json()
+            assert data["links"] == []
+            assert data["source"] == "error"
+            assert "boom" in data["error"]
+
+            with app.app_context():
+                from Code.models.models import ResultCapabilityLink
+                assert ResultCapabilityLink.query.filter_by(activity_id=aid, data_id=did).count() == 0
+        finally:
+            _cleanup_activity(app, aid)
+
 
 class TestGetResultLinks:
 
@@ -190,6 +413,30 @@ class TestGetResultLinks:
             data = r.get_json()
             assert data["by_result"] == []
             assert data["badges"] == {}
+        finally:
+            _cleanup_activity(app, aid)
+
+    def test_label_is_none_for_unknown_item_type_or_dangling_item_id(self, auth_client, app, ids):
+        aid = _create_activity(app, ids["entity_id"])
+        did = _create_result_data(app, ids["entity_id"], aid)
+        sfid = _create_savoir_faire(app, aid)
+        try:
+            with app.app_context():
+                from Code.models.models import ResultCapabilityLink
+                from Code.extensions import db
+                db.session.add(ResultCapabilityLink(
+                    entity_id=ids["entity_id"], activity_id=aid, data_id=did,
+                    item_type="BOGUS", item_id=sfid, source="MANUAL"))
+                db.session.add(ResultCapabilityLink(
+                    entity_id=ids["entity_id"], activity_id=aid, data_id=did,
+                    item_type="SAVOIR_FAIRE", item_id=999999, source="MANUAL"))
+                db.session.commit()
+
+            r = auth_client.get(f"/competence/result_links/{aid}")
+            assert r.status_code == 200
+            items = r.get_json()["by_result"][0]["items"]
+            assert len(items) == 2
+            assert all(it["item_label"] is None for it in items)
         finally:
             _cleanup_activity(app, aid)
 
