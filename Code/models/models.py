@@ -1,5 +1,6 @@
 # Code/models/models.py
 from datetime import datetime
+import sqlalchemy as _sa
 from flask import session
 from sqlalchemy import or_
 from Code.extensions import db
@@ -70,8 +71,10 @@ class Entity(db.Model):
     # au lieu d'être recopiée chez chacun. Qui y accède est réglé par les rôles
     # (EntityRoleAccess) ; sans aucune restriction, tous les comptes y accèdent.
     # Une carto qu'un compte crée pour lui reste privée (is_shared = False).
+    # ⚠️ server_default : `text('0')` rend « DEFAULT 0 » — refusé par PostgreSQL
+    # sur un booléen. `sa.false()` rend « false » en PG et « 0 » en SQLite.
     is_shared = db.Column(db.Boolean, default=False, nullable=False,
-                          server_default=db.text('0'))
+                          server_default=_sa.false())
     
     # Timestamps
     created_at = db.Column(db.DateTime, default=datetime.utcnow)

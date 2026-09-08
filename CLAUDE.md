@@ -554,8 +554,22 @@ propager.
 - ⚠️ **Ménage obligatoire** : supprimer une entité efface `entity_role_access` et
   `carto_change_requests` (PostgreSQL applique les FK, SQLite non), et
   `_sync_carto_to_db` efface l'accès d'un rôle qui disparaît de la carte.
-- Tests : `tests/test_66_carto_sharing.py` (31 cas — statuts, lecture par rôle, réglage
-  de l'accès, refus d'écriture directe, cycle complet d'une proposition, ménage).
+- ⚠️ **`BOOLEAN DEFAULT 0` a mis staging à terre.** PostgreSQL refuse un entier
+  comme défaut de booléen (« column is of type boolean but default expression is
+  of type integer ») ; SQLite l'accepte, donc **aucun test de la suite ne pouvait
+  le voir**. `_safe_add_column` avalant l'erreur (il ne sait pas distinguer
+  « colonne déjà là » d'un DDL invalide), `entities.is_shared` n'était jamais
+  créée et **toute** requête sur `entities` tombait en 500 — page carte comprise.
+  Écrire `DEFAULT FALSE` dans les ALTER, et `sa.false()` (pas `text('0')`) en
+  `server_default` de modèle : `text('0')` rend « DEFAULT 0 » en PG et casserait
+  aussi `create_all` sur une base neuve. Le démarrage vérifie désormais les
+  colonnes indispensables (`_verifier_colonnes`) et le crie dans les journaux.
+- Tests : `tests/test_66_carto_sharing.py` (34 cas — statuts, lecture par rôle, réglage
+  de l'accès, refus d'écriture directe, cycle complet d'une proposition, activation,
+  ménage) et `tests/test_67_schema_postgres.py` (5 cas — le DDL des modèles est
+  compilé avec le dialecte PostgreSQL, sans serveur, et les ALTER écrits à la main
+  dans `create_app` sont relus : c'est le seul filet contre un SQL que SQLite
+  accepte et que la production refuse).
 
 ### Envoyer une COPIE indépendante (mécanisme secondaire, conservé)
 

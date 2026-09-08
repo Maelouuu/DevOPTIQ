@@ -415,6 +415,29 @@ def create_app(test_config=None):
             except Exception:
                 pass  # colonne déjà présente — normal
 
+        def _verifier_colonnes(attendues):
+            """Crie si une colonne que les modèles interrogent manque encore.
+
+            `_safe_add_column` est muet par construction : il ne peut pas
+            distinguer « la colonne existait déjà » (le cas normal) d'un DDL
+            invalide sur ce dialecte. Une colonne manquante ne se voit alors
+            qu'en production, en 500 sur toutes les pages qui lisent la table.
+            """
+            try:
+                from sqlalchemy import inspect as _sa_inspect
+                inspecteur = _sa_inspect(db.engine)
+                for table, colonnes in attendues.items():
+                    if not inspecteur.has_table(table):
+                        continue
+                    presentes = {c["name"] for c in inspecteur.get_columns(table)}
+                    for col in colonnes:
+                        if col not in presentes:
+                            print(f"[DB] ⚠️ COLONNE MANQUANTE {table}.{col} — "
+                                  f"la migration a échoué, les pages qui lisent "
+                                  f"{table} vont tomber en erreur.")
+            except Exception as exc:
+                print(f"[DB] Vérification des colonnes impossible : {exc}")
+
         # 1. Créer les tables manquantes (idempotent, pas de verrou DDL)
         try:
             db.create_all()
@@ -435,13 +458,22 @@ def create_app(test_config=None):
         _safe_add_column("entity_share_offers", "deposit_kind", "VARCHAR(20)")
         # Partage par rôle : entities.is_shared + entity_role_access +
         # carto_change_requests (ces deux tables viennent de create_all).
-        _safe_add_column("entities", "is_shared", "BOOLEAN DEFAULT 0")
+        # ⚠️ DEFAULT **FALSE**, pas 0 : PostgreSQL refuse un entier comme défaut
+        # de booléen (« column is of type boolean but default expression is of
+        # type integer »). _safe_add_column avale l'erreur, la colonne n'était
+        # donc jamais créée et TOUTE requête sur `entities` tombait en 500.
+        _safe_add_column("entities", "is_shared", "BOOLEAN DEFAULT FALSE")
         try:
             with _init_conn() as _conn:
-                _conn.execute(_text("UPDATE entities SET is_shared = 0 WHERE is_shared IS NULL"))
+                _conn.execute(_text(
+                    "UPDATE entities SET is_shared = FALSE WHERE is_shared IS NULL"))
                 _conn.commit()
         except Exception:
             pass
+        # Une colonne que le modèle interroge et qui manque casse toute la page.
+        # _safe_add_column est muet par construction (il ignore « déjà là ») :
+        # on vérifie donc, et on le dit fort.
+        _verifier_colonnes({"entities": ["is_shared"]})
         # Statut Garant : l'import carto l'écrivait en minuscule, la page Rôles
         # cherchait 'Garant' — un rôle garant d'après la carte n'apparaissait
         # donc nulle part dans sa fiche. On aligne les lignes existantes.
