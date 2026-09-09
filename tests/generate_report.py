@@ -77,6 +77,15 @@ PAGE_LABELS = {
     "test_62_activities_constraints_items": "Contraintes/Données (/activities) & API Items d'Activité",
     "test_63_cartography_translate_advanced": "Cartographie (succès/erreur) & Traduction Soft Skills IA",
     "test_64_activities_map_gaps":       "Cartographie — CRUD Entités, Extraction SVG & Liaisons Cross-Carto (Avancé)",
+    "test_48_carto_package":             "Cartographie — Package d'Export Complet",
+    "test_49_carto_dom_contract":        "Cartographie — Contrat DOM de l'Éditeur",
+    "test_50_accounts_permissions_lang": "Comptes — Permissions & Langue",
+    "test_51_entity_share":              "Partage d'Entité",
+    "test_65_panel_api":                 "Panel de Tests — API",
+    "test_66_carto_sharing":             "Cartographie — Partage par Rôle",
+    "test_67_schema_postgres":           "Schéma — Compatibilité PostgreSQL",
+    "test_68_share_page":                "Page de Partage Unifiée",
+    "test_69_competency_color":          "Couleur de Synthèse des Compétences",
 }
 
 
