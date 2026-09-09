@@ -4,6 +4,11 @@ __pycache__/
 *.pyc
 Code/instance/
 
+# Cartos SVG générées à l'exécution (par entité) : sortie, pas source —
+# la suite de tests en génère de nouvelles à chaque run (IDs d'entités
+# éphémères de la DB de test), polluant systématiquement git status.
+Code/static/entities/
+
 # Exclure les fichiers temporaires ou système
 *.log
 *.tmp
