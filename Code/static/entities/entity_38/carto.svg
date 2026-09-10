@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg"
+     xmlns:v="http://schemas.microsoft.com/visio/2003/SVGExtensions/"
+     width="600" height="400">
+  <g v:mID="1" v:layerMember="1"><text>Activite Renommee</text></g>
+  <g v:mID="2" v:layerMember="1"><text>Activite Nouvelle</text></g>
+  <g v:mID="3" v:layerMember="0"><text>Ignoree Hors Layer</text></g>
+  <g v:mID="4" v:layerMember="1"><text>XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX</text></g>
+  <g v:mID="5" v:layerMember="1"><text>Activite Nouvelle</text></g>
+</svg>
