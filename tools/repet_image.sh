@@ -33,7 +33,7 @@ rsync -a --quiet \
   --exclude 'docs/' --exclude 'doc/' --exclude 'Archives/' --exclude 'backup/' \
   --exclude 'tools/' --exclude 'distribution/' --exclude 'uploads/' \
   --exclude '*.vsdx' --exclude '*.db' --exclude 'instance' --exclude '.venv' \
-  --exclude 'hub/_docs' \
+  --exclude 'hub/_docs' --exclude '.github' \
   "$SRC/" "$IMG/"
 
 # WITH_TESTS=1 (nos instances) : tests/ reste, avec ses SOURCES. Puis la purge

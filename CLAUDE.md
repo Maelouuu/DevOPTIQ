@@ -1227,10 +1227,20 @@ rôles de tâche, `Skills` → compétences.
 | `optiqfluent-staging` | `optiqfluent-staging` | `optiqfluent_pilot` | **Pilote ARaymond (Inde).** On n'y touche pas ; les correctifs partent le soir (nuit là-bas). |
 
 - ⚠️ **`nouveau-point`, pas `main`.** C'est cette branche qui alimente le service
-  `devoptiq` (vérifié dans la console Cloud Run). `main` n'a pas bougé depuis mai, et
-  `deploy-production.yml` se déclenche en réalité sur **`prod-stable`** — un troisième
-  chemin, hérité, qu'il faudra clarifier. L'inventaire du hub annonçait « push sur main »
-  et un `deploy-beta.yml` qui n'existe pas : corrigé.
+  `devoptiq` (vérifié dans la console Cloud Run). `main` n'a pas bougé depuis mai.
+  L'inventaire du hub annonçait « push sur main » et un `deploy-beta.yml` qui n'existe
+  pas : corrigé.
+- **`deploy-officielle.yml`** (2026-09-10) : `nouveau-point` → service `devoptiq`,
+  calqué sur `deploy-staging.yml`. Il manquait — la branche avançait sans que
+  l'instance bouge, et `devoptiq` a servi le code de mai 2026 pendant quatre mois.
+  Sans `WITH_TESTS` (le panel de tests reste le rôle de staging : `/testpanel` n'a
+  aucune authentification et chaque appel coûterait deux minutes de CPU).
+- ⚠️ **Un service, un chemin de déploiement.** `deploy-production.yml` visait le
+  MÊME service `devoptiq` sur push de **`prod-stable`**, branche figée au 07/05/2026
+  (pré-OptiqCarto) : un push là-bas aurait ramené la version officielle quatre mois
+  en arrière. Son déclenchement automatique est retiré — il reste lançable à la main,
+  dans le même groupe `concurrency` que `deploy-officielle.yml` pour que les deux ne
+  déploient jamais en même temps.
 - ⚠️ **`neondb` et `optiqfluent_pilot` vivent sur le MÊME endpoint Neon**
   (`ep-solitary-bonus-abrhwgrs`). Une URL mal recopiée efface le travail du client :
   `tools/db/reset_db.py` exige `--expect-db` et refuse d'agir si le nom ne correspond pas.

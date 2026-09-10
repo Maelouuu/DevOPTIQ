@@ -84,8 +84,8 @@ INSTANCES = [
 
 # ── Infrastructure ────────────────────────────────────────────────────────
 SERVICES_RUN = [
-    {"service": "devoptiq", "sert": "DevOPTIQ Production", "accent": "prod",
-     "workflow": "deploy-production.yml", "declencheur": "push sur prod-stable"},
+    {"service": "devoptiq", "sert": "DevOPTIQ — Version officielle", "accent": "prod",
+     "workflow": "deploy-officielle.yml", "declencheur": "push sur nouveau-point"},
     {"service": "devoptiq-staging", "sert": "DevOPTIQ Staging", "accent": "staging",
      "workflow": "deploy-staging.yml", "declencheur": "push sur staging"},
     {"service": "optiqfluent-staging", "sert": "OptiqFluent Pilote", "accent": "pilote",
@@ -189,13 +189,14 @@ BRANCHES = [
      "role": "Version officielle interne AFDEC. On n'y pousse que du fini."},
     {"nom": "optiqfluent-staging", "accent": "pilote", "deploie": "optiqfluent-staging",
      "role": "Pilote ARaymond : rebranding, licence, prompts chiffrés. On n'y touche pas."},
-    {"nom": "prod-stable", "accent": "prod", "deploie": "devoptiq (workflow)",
-     "role": "Déclencheur de deploy-production.yml. Hérité, à clarifier."},
+    {"nom": "prod-stable", "accent": "prod", "deploie": "— (plus de déploiement auto)",
+     "role": "Figée au 07/05/2026, pré-OptiqCarto. Ne rien y pousser."},
 ]
 
 WORKFLOWS = [
     {"fichier": "deploy-staging.yml", "titre": "Deploy → Staging", "cible": "devoptiq-staging"},
-    {"fichier": "deploy-production.yml", "titre": "Deploy → Production", "cible": "devoptiq"},
+    {"fichier": "deploy-officielle.yml", "titre": "Deploy → Version officielle", "cible": "devoptiq"},
+    {"fichier": "deploy-production.yml", "titre": "Deploy → Production (manuel)", "cible": "devoptiq"},
     {"fichier": "deploy-pulse.yml", "titre": "Deploy → OptiqPulse", "cible": "optiq-pulse"},
     {"fichier": "deploy-hub.yml", "titre": "Deploy → Hub", "cible": "optiq-hub"},
     {"fichier": "client-image.yml", "titre": "Image client", "cible": "ghcr.io/maelouuu/optiqfluent"},

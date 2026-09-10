@@ -1,39 +1,47 @@
-name: Deploy → Production (manuel)
+name: Deploy → Version officielle
 
-# ⚠️ Ce workflow et deploy-officielle.yml déploient le MÊME service Cloud Run
-# (`devoptiq`). Depuis que `nouveau-point` est la version officielle interne, il
-# ne se déclenche plus tout seul : `prod-stable` est figée au 07/05/2026
-# (pré-OptiqCarto) et un push là-bas aurait remis l'instance quatre mois en
-# arrière. Il reste lançable à la main pour redéployer une référence précise.
+# `nouveau-point` est la version officielle interne AFDEC, servie par le service
+# Cloud Run `devoptiq`. Sans ce workflow la branche avançait sans que l'instance
+# bouge : elle a tourné sur le code de mai 2026 pendant des mois.
+#
+# ⚠️ Un seul chemin de déploiement par service. `deploy-production.yml` visait le
+# MÊME service depuis `prod-stable` (figée au 07/05/2026, pré-OptiqCarto) : son
+# déclenchement automatique a été retiré, sinon un push là-bas ramènerait la
+# version officielle quatre mois en arrière.
 
 on:
+  push:
+    branches: [nouveau-point]
   workflow_dispatch:
 
+# Deux pushes rapprochés déployaient dans l'ordre d'arrivée des builds, pas dans
+# celui des commits : la version officielle pouvait finir sur l'avant-dernière.
 concurrency:
-  group: deploy-officielle     # jamais en même temps que deploy-officielle.yml
+  group: deploy-officielle
   cancel-in-progress: false
 
 env:
   PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
-  REGION: europe-west1                        # ← adapte si besoin
-  SERVICE_PROD: devoptiq
+  REGION: europe-west1
+  SERVICE: devoptiq
   IMAGE: europe-west1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/cloud-run-source-deploy/devoptiq/devoptiq
 
 jobs:
   deploy:
-    name: Build & Deploy (Production)
+    name: Build & Deploy (Version officielle)
     runs-on: ubuntu-latest
 
     permissions:
       contents: read
-      id-token: write
+      id-token: write   # requis pour Workload Identity Federation
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
       # Le Dockerfile (durci OptiqFluent) refuse de builder sans le bundle de
-      # prompts chiffré — même étape que client-image.yml, même secret.
+      # prompts chiffré — le catalogue en clair est exclu de l'image. Même
+      # étape que deploy-staging.yml, même secret PROMPTS_KEY.
       - name: Chiffrer les prompts IA (prompts.enc requis par le Dockerfile)
         env:
           PROMPTS_KEY: ${{ secrets.PROMPTS_KEY }}
@@ -58,6 +66,9 @@ jobs:
       - name: Configure Docker for Artifact Registry
         run: gcloud auth configure-docker europe-west1-docker.pkg.dev --quiet
 
+      # Pas de WITH_TESTS ici (défaut 0) : le panel de tests est le rôle de
+      # staging. Sur la version officielle il coûterait deux minutes de CPU à
+      # chaque appel anonyme — /testpanel n'a aucune authentification.
       - name: Build Docker image
         run: |
           docker build -t ${{ env.IMAGE }}:${{ github.sha }} -t ${{ env.IMAGE }}:latest .
@@ -67,9 +78,9 @@ jobs:
           docker push ${{ env.IMAGE }}:${{ github.sha }}
           docker push ${{ env.IMAGE }}:latest
 
-      - name: Deploy to Cloud Run (Production)
+      - name: Deploy to Cloud Run (Version officielle)
         run: |
-          gcloud run deploy ${{ env.SERVICE_PROD }} \
+          gcloud run deploy ${{ env.SERVICE }} \
             --image ${{ env.IMAGE }}:${{ github.sha }} \
             --region ${{ env.REGION }} \
             --platform managed \
@@ -83,3 +94,9 @@ jobs:
             --memory 2Gi \
             --timeout 120 \
             --quiet
+
+      - name: Print URL
+        run: |
+          URL=$(gcloud run services describe ${{ env.SERVICE }} \
+            --region ${{ env.REGION }} --format 'value(status.url)')
+          echo "✅ Version officielle déployée : $URL"
