@@ -77,6 +77,13 @@ PAGE_LABELS = {
     "test_62_activities_constraints_items": "Contraintes/Données (/activities) & API Items d'Activité",
     "test_63_cartography_translate_advanced": "Cartographie (succès/erreur) & Traduction Soft Skills IA",
     "test_64_activities_map_gaps":       "Cartographie — CRUD Entités, Extraction SVG & Liaisons Cross-Carto (Avancé)",
+    "test_65_panel_api":                 "API du Panel de Tests (contrat Hub)",
+    "test_66_carto_sharing":             "Partage de Cartographie par Rôle",
+    "test_67_schema_postgres":           "Schéma PostgreSQL (colonnes ajoutées à chaud)",
+    "test_68_share_page":                "Page Partage (Accès & Modifications Proposées)",
+    "test_69_panel_internals":           "Panel de Tests — Fonctions Internes (run, patches, XML)",
+    "test_70_competency_color":          "Couleur de Synthèse des Compétences",
+    "test_71_licensing":                 "Licence OptiqFluent (Signature & Expiration)",
 }
 
 
