@@ -91,11 +91,15 @@
     }
   }
 
+  // Une carto est bien plus HAUTE que large : en pleine largeur de carte elle
+  // se recadrait en un bandeau de couleurs, et toutes les lignes se
+  // ressemblaient. En vignette portrait à gauche du nom, on voit la silhouette
+  // entière de la carte — c'est elle qui distingue deux cartographies.
   function rendreGalerie() {
     $('#sh-gallery-list').innerHTML = cartes.map(c => `
       <button type="button" class="sh-map${c.id === entityId ? ' is-active' : ''}"
               data-id="${c.id}">
-        ${vignette(c)}
+        ${vignette(c, 'sh-thumb--row')}
         <span class="sh-map-body">
           <span class="sh-map-name">${esc(c.name)}</span>
           <span class="sh-map-meta">
@@ -106,6 +110,7 @@
             <span class="sh-map-count">${c.activities} ${esc(L('activities'))}</span>
           </span>
         </span>
+        <i class="fa-solid fa-chevron-right sh-map-chev"></i>
       </button>`).join('');
 
     $('#sh-gallery-list').querySelectorAll('.sh-map').forEach(b =>
@@ -153,7 +158,20 @@
       ${blocPortee()}
       ${blocChangements(attente)}`;
 
+    // Les morceaux arrivent l'un après l'autre : on suit l'ordre de lecture
+    // au lieu de recevoir la page d'un bloc.
+    // ⚠️ Onglet en arrière-plan : le navigateur met les animations en pause, et
+    // une entrée qui PART d'opacité 0 laisserait la page blanche jusqu'au retour
+    // sur l'onglet. On n'anime donc que si la page est réellement visible.
+    if (document.visibilityState === 'visible') {
+      [...$('#sh-main').children].forEach((el, i) => {
+        el.style.setProperty('--rang', i);
+        el.classList.add('sh-enters');
+      });
+    }
+
     brancherEnTete(gele);
+    brancherTuiles();
     brancherRoles(gele);
     brancherPersonnes(gele);
     brancherChangements();
@@ -197,19 +215,43 @@
 
   /* ── Tuiles de chiffres ───────────────────────────────────────────────── */
 
+  // Un chiffre appelle le clic : chaque tuile mène au bloc qui l'explique.
   function tuiles(attente) {
     const n = (etat.reach || []).length;
     const ouverts = (etat.roles || []).filter(r => r.granted).length;
     return `
     <div class="sh-tiles">
-      <div class="sh-tile"><span class="sh-tile-n">${n}</span>
-        <span class="sh-tile-k">${esc(L('statPeople'))}</span></div>
-      <div class="sh-tile"><span class="sh-tile-n${etat.open_to_all ? ' is-word' : ''}">${
-        etat.open_to_all ? esc(L('statAll')) : ouverts}</span>
-        <span class="sh-tile-k">${esc(L('statRoles'))}</span></div>
-      <div class="sh-tile${attente ? ' is-warn' : ''}"><span class="sh-tile-n">${attente}</span>
-        <span class="sh-tile-k">${esc(L('statPending'))}</span></div>
+      <button type="button" class="sh-tile sh-tile--people" data-va="2">
+        <span class="sh-tile-n">${n}</span>
+        <span class="sh-tile-k">${esc(L('statPeople'))}</span>
+        <i class="fa-solid fa-arrow-right sh-tile-go"></i>
+      </button>
+      <button type="button" class="sh-tile sh-tile--roles" data-va="1">
+        <span class="sh-tile-n${etat.open_to_all ? ' is-word' : ''}">${
+          etat.open_to_all ? esc(L('statAll')) : ouverts}</span>
+        <span class="sh-tile-k">${esc(L('statRoles'))}</span>
+        <i class="fa-solid fa-arrow-right sh-tile-go"></i>
+      </button>
+      <button type="button" class="sh-tile sh-tile--pending${attente ? ' is-warn' : ''}" data-va="3">
+        <span class="sh-tile-n">${attente}</span>
+        <span class="sh-tile-k">${esc(L('statPending'))}</span>
+        <i class="fa-solid fa-arrow-right sh-tile-go"></i>
+      </button>
     </div>`;
+  }
+
+  function brancherTuiles() {
+    document.querySelectorAll('.sh-tile').forEach(t =>
+      t.addEventListener('click', () => {
+        const bloc = document.querySelectorAll('.sh-block')[parseInt(t.dataset.va, 10) - 1];
+        if (!bloc) return;
+        bloc.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        // Un défilement seul se remarque mal : le bloc visé s'annonce.
+        bloc.classList.remove('is-pointed');
+        void bloc.offsetWidth;
+        bloc.classList.add('is-pointed');
+        setTimeout(() => bloc.classList.remove('is-pointed'), 1400);
+      }));
   }
 
   /* ── 1 · Accès : les rôles, avec leurs titulaires ─────────────────────── */

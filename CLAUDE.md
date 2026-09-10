@@ -150,6 +150,10 @@ transporte le diagramme **tel qu'il est en base**, d'un compte à l'autre.
   n'était jamais appelé, et `isDirty` restait faux — on quittait la page sans le
   moindre avertissement, l'import perdu. L'import pose donc `isDirty = true` et
   relance l'auto-sauvegarde.
+- ⚠️ **La mini map se posait SUR la pastille de zoom** : les deux occupaient le coin
+  bas-droit du canevas. Elles partagent maintenant le même bord droit (`--corner-gap`),
+  la mini map juste au-dessus (`--zoom-pill-h`). Elle s'appelle **« Mini map »** dans les
+  deux langues — c'est le terme produit, comme « Optiq Map ».
 - ⚠️ **La barre d'outils débordait sur un portable et flottait sur un 27 pouces.**
   Elle est ancrée à gauche ET à droite (`left/right: 10px`), et son contenu du milieu
   était dessiné en pixels fixes : mesuré à 1180 px de large, il passait **68 px sous**
@@ -567,9 +571,11 @@ propager.
   (plafond 3 Mo). Sans l'un ni l'autre → 404 et état vide explicite.
   ⚠️ Les couleurs viennent d'un fichier Visio et partent telles quelles dans le SVG :
   `_echap_couleur` écarte tout ce qui contient `< > " ' &`.
-  Cadrage : la galerie **recadre sur le haut** de la carte (`object-fit: cover`) — une
-  carto est bien plus haute que large, « contenue » elle se réduisait à une colonne
-  perdue dans le blanc ; l'en-tête, lui, montre la carte **entière** (4/3, `contain`).
+  Cadrage : la carto est bien plus **haute que large**. En pleine largeur de carte,
+  recadrée, elle donnait un bandeau de couleurs où toutes les lignes se ressemblaient.
+  La galerie est donc une **liste** : vignette **portrait** (48 px, 3/4, `contain`) à
+  gauche du nom — on voit la silhouette entière, c'est elle qui distingue deux
+  cartographies. L'en-tête montre la carte entière en 4/3.
   `/api/access/previews` ne porte plus que les chiffres et `has_thumbnail`.
 - ⚠️ **La galerie a un plafond de hauteur** (`max-height: min(62vh, 560px)` + défilement
   interne) : sans lui, dix cartographies poussaient la colonne de travail hors de vue.
@@ -584,6 +590,16 @@ propager.
   pas des titulaires).
 - « Rôles ouverts » affiche **Tous / All** quand aucun rôle n'est coché : un « ∞ » ne dit
   pas combien de personnes sont concernées.
+- **Les tuiles de chiffres sont des boutons** : un chiffre appelle le clic. Chacune fait
+  défiler jusqu'au bloc qui l'explique et le **désigne** (`is-pointed`, 1,4 s) — un
+  défilement seul passe inaperçu.
+- **Couleur : la famille FUCHSIA**, déclinée (fuchsia `#c026d3`, violet `#9333ea`, prune
+  `#7e22ce`, rose `#db2777`). Chaque tuile porte sa nuance, les en-têtes de bloc et les
+  dégradés reprennent la famille : la page tient sans grands aplats blancs.
+- ⚠️ **L'entrée en scène des blocs n'est posée que si `document.visibilityState` vaut
+  `visible`.** L'animation PART d'opacité 0 : dans un onglet en arrière-plan le
+  navigateur la met en pause, et la page serait restée blanche jusqu'au retour sur
+  l'onglet.
 - **Chaque bloc ouvre une porte** : *Voir la carte*, *Ouvrir l'éditeur*, *Proposer une
   modification* (affiché seulement à qui doit proposer), *Gérer les comptes*, et quand la
   file d'examen est vide, un appel à l'action vers l'éditeur plutôt qu'un mur.

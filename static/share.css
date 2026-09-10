@@ -1,23 +1,40 @@
 /* ══════════════════════════════════════════════════════════════
    Page Partage — la console d'accès aux cartographies
    ══════════════════════════════════════════════════════════════
-   Jetons et échelle typo : static/ui-theme.css (accent cyan, clé
-   `share`). Trois partis pris propres à cet écran :
+   Jetons et échelle typo : static/ui-theme.css (accent FUCHSIA,
+   clé `share`). Quatre partis pris propres à cet écran :
 
-   · on choisit une carto en la VOYANT — vignette dessinée d'après
-     ses vraies bandes et ses vraies activités ;
+   · on choisit une carto en la VOYANT — la vignette est la vraie
+     carte, en portrait à gauche de son nom. Une carto est bien
+     plus haute que large : recadrée en bandeau pleine largeur,
+     toutes les lignes se ressemblaient ;
    · l'accès se lit en objets, pas en lignes de tableau : une carte
-     par rôle, une carte par personne, avec l'initiale colorée qui
-     sert de repère ;
-   · chaque bloc ouvre une porte (la carte, l'éditeur, les comptes)
-     pour qu'on ne s'arrête jamais dans un cul-de-sac.       */
+     par rôle, une carte par personne, l'initiale colorée en repère ;
+   · la page respire en COULEUR, pas en blanc — la famille fuchsia
+     est déclinée (fuchsia, violet, prune, rose) pour que chaque
+     bloc ait son identité sans sortir du thème ;
+   · tout ce qui bouge le fait pour dire quelque chose : l'entrée
+     des blocs suit l'ordre de lecture, une tuile désigne son bloc.
+                                                                  */
 
-.share-page { --sh-gap: 20px; }
+.share-page {
+  --sh-gap: 20px;
+
+  /* Déclinaisons de la famille — l'accent reste var(--pg-accent). */
+  --sh-fuchsia: #c026d3;
+  --sh-violet:  #9333ea;
+  --sh-prune:   #7e22ce;
+  --sh-rose:    #db2777;
+
+  --sh-fuchsia-soft: #fbf0fd;
+  --sh-violet-soft:  #f6f1fe;
+  --sh-rose-soft:    #fdf1f7;
+}
 
 /* ── Charpente : galerie à gauche, carto choisie à droite ─────── */
 .sh-layout {
   display: grid;
-  grid-template-columns: 292px minmax(0, 1fr);
+  grid-template-columns: 300px minmax(0, 1fr);
   gap: var(--sh-gap);
   align-items: start;
 }
@@ -28,10 +45,26 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: .06em;
-  color: var(--muted);
+  color: var(--pg-accent-deep);
 }
 
 .sh-grow { flex: 1 1 auto; }
+
+/* ── Entrée en scène ──────────────────────────────────────────── */
+@keyframes sh-rise {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: none; }
+}
+.sh-enters {
+  animation: sh-rise .42s cubic-bezier(.22, .9, .3, 1) both;
+  animation-delay: calc(var(--rang, 0) * 70ms);
+}
+@media (prefers-reduced-motion: reduce) {
+  .sh-enters { animation: none; }
+  .sh-map, .sh-tile, .sh-role, .sh-person, .sh-change, .sh-link, .sh-btn {
+    transition: none;
+  }
+}
 
 /* ══════════════════════════════════════════════════════════════
    GALERIE DES CARTOS
@@ -39,105 +72,120 @@
 .sh-gallery {
   position: sticky;
   top: 16px;
-  background: linear-gradient(180deg, var(--card), var(--pg-accent-softer));
-  border: 1px solid var(--border);
+  background:
+    radial-gradient(340px 160px at 20% -40px, var(--sh-fuchsia-soft), transparent 70%),
+    linear-gradient(180deg, var(--card), var(--pg-accent-softer));
+  border: 1px solid var(--pg-accent-border);
   border-radius: var(--r-card);
-  box-shadow: var(--sh-card);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, .04), 0 16px 34px -22px var(--pg-accent-glow);
   padding: 16px 13px;
 }
 .sh-gallery-head { padding: 0 5px 11px; }
+
 /* Sans plafond, dix cartographies faisaient descendre la page indéfiniment et
    la colonne de travail se retrouvait hors de vue. La liste défile chez elle. */
 .sh-gallery-list {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 7px;
   max-height: min(62vh, 560px);
   overflow-y: auto;
   padding-right: 4px;
   scrollbar-width: thin;
+  scrollbar-color: var(--pg-accent-border) transparent;
 }
 .sh-gallery-list::-webkit-scrollbar { width: 7px; }
 .sh-gallery-list::-webkit-scrollbar-thumb {
-  background: var(--border-strong);
+  background: var(--pg-accent-border);
   border-radius: var(--r-pill);
 }
 .sh-gallery-list::-webkit-scrollbar-track { background: transparent; }
 
+/* ── Une ligne = une carto ────────────────────────────────────── */
 .sh-map {
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: 11px;
   width: 100%;
-  padding: 0;
-  border: 1.5px solid var(--border);
+  padding: 8px 10px 8px 8px;
+  border: 1.5px solid transparent;
   border-radius: 13px;
   background: var(--card);
   text-align: left;
   cursor: pointer;
-  overflow: hidden;
   font-family: var(--pg-font);
-  transition: border-color .16s, box-shadow .16s, transform .16s;
+  transition: border-color .18s, box-shadow .18s, transform .18s, background .18s;
 }
 .sh-map:hover {
-  transform: translateY(-2px);
+  transform: translateX(2px);
   border-color: var(--pg-accent-border);
-  box-shadow: 0 10px 22px -10px var(--pg-accent-glow);
+  box-shadow: 0 10px 22px -14px var(--pg-accent-glow);
 }
 .sh-map.is-active {
   border-color: var(--pg-accent);
-  box-shadow: 0 0 0 3px var(--pg-accent-glow), 0 12px 26px -12px var(--pg-accent-glow);
+  background: linear-gradient(120deg, var(--sh-fuchsia-soft), var(--card) 70%);
+  box-shadow: 0 10px 24px -14px var(--pg-accent-glow);
 }
-.sh-map-body { display: block; padding: 9px 11px 11px; }
+.sh-map-body { flex: 1; min-width: 0; }
 .sh-map-name {
   display: block;
   font-size: var(--fs-sm);
   font-weight: 700;
   color: var(--ink);
   line-height: 1.3;
-  margin-bottom: 6px;
+  margin-bottom: 5px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-.sh-map-meta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.sh-map-meta { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
 .sh-map-count { font-size: var(--fs-badge); color: var(--muted); }
+.sh-map-chev {
+  flex: none;
+  font-size: 11px;
+  color: var(--pg-accent-border);
+  opacity: 0;
+  transform: translateX(-4px);
+  transition: opacity .18s, transform .18s;
+}
+.sh-map:hover .sh-map-chev,
+.sh-map.is-active .sh-map-chev { opacity: 1; transform: none; }
+.sh-map.is-active .sh-map-chev { color: var(--pg-accent); }
 
 /* ── La vignette : la carto en petit, pour de vrai ────────────── */
 .sh-thumb {
   position: relative;
   aspect-ratio: 100 / 62;
-  background: #f6f8fb;
-  border-bottom: 1px solid var(--border);
+  border-radius: 9px;
+  background: #f7f9fc;
   overflow: hidden;
 }
-/* Une carto est souvent bien plus haute que large : la laisser « contenue »
-   dans la vignette la réduisait à une colonne perdue au milieu du blanc. Dans
-   la galerie on CADRE sur le haut de la carte — c'est ce qui distingue deux
-   cartographies au premier coup d'œil. */
 .sh-thumb img {
   display: block;
   width: 100%; height: 100%;
-  object-fit: cover;
-  object-position: top center;
-  background: #f7f9fc;
+  object-fit: contain;
+  object-position: center;
+  background: #fbfcfe;
 }
-/* Dans l'en-tête on veut la carte ENTIÈRE : elle dit « voilà ce que vous
-   réglez ». Le cadre est donc plus haut, et l'image contenue. */
-.sh-thumb--hero { aspect-ratio: 4 / 3; }
-.sh-thumb--hero img { object-fit: contain; object-position: center; }
-/* Un voile très léger : la vignette reste une image, pas un écran. */
-.sh-thumb::after {
-  content: "";
-  position: absolute; inset: 0;
-  background: linear-gradient(180deg, rgba(255,255,255,.10), rgba(15,23,42,.05));
-  pointer-events: none;
+/* Portrait dans la liste : on montre la carte ENTIÈRE, c'est sa silhouette
+   qui la distingue d'une autre. */
+.sh-thumb--row {
+  flex: none;
+  width: 48px;
+  aspect-ratio: 3 / 4;
+  border: 1px solid var(--border);
 }
 .sh-thumb--empty {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: 5px;
   color: var(--faint);
   font-size: var(--fs-badge);
+  text-align: center;
 }
-.sh-thumb--empty i { font-size: 20px; opacity: .5; }
+.sh-thumb--row.sh-thumb--empty span { display: none; }
+.sh-thumb--empty i { font-size: 16px; opacity: .5; }
+.sh-thumb--hero.sh-thumb--empty i { font-size: 26px; }
 
 /* ── Pastille d'état ──────────────────────────────────────────── */
 .sh-tag {
@@ -155,7 +203,7 @@
 }
 .sh-tag i { font-size: 10px; }
 .sh-tag--shared {
-  background: var(--pg-accent-soft);
+  background: var(--sh-fuchsia-soft);
   border-color: var(--pg-accent-border);
   color: var(--pg-accent-deep);
 }
@@ -168,32 +216,37 @@
 .sh-hero {
   position: relative;
   display: grid;
-  grid-template-columns: 232px minmax(0, 1fr);
-  gap: 20px;
-  padding: 18px;
+  grid-template-columns: 210px minmax(0, 1fr);
+  gap: 22px;
+  padding: 20px;
   border: 1px solid var(--border);
   border-radius: var(--r-card);
   background: var(--card);
   box-shadow: var(--sh-card);
   overflow: hidden;
 }
-/* Une carto commune se voit avant d'être lue : l'accent baigne la carte. */
+/* Une carto commune se voit avant d'être lue : la famille fuchsia baigne la
+   carte, du violet au rose. */
 .sh-hero.is-shared {
   border-color: var(--pg-accent-border);
   background:
-    radial-gradient(520px 200px at 88% -60px, var(--pg-accent-glow), transparent 70%),
-    linear-gradient(180deg, var(--pg-accent-softer), var(--card) 60%);
+    radial-gradient(680px 260px at 92% -110px,
+      color-mix(in srgb, var(--sh-violet) 20%, transparent), transparent 70%),
+    radial-gradient(420px 200px at 8% 120%,
+      color-mix(in srgb, var(--sh-rose) 14%, transparent), transparent 72%),
+    linear-gradient(160deg, var(--sh-fuchsia-soft), var(--card) 62%);
 }
 .sh-thumb--hero {
+  aspect-ratio: 4 / 3;
   border: 1px solid var(--border);
   border-radius: 12px;
-  box-shadow: 0 8px 20px -12px rgba(15, 23, 42, .35);
+  box-shadow: 0 10px 26px -14px rgba(15, 23, 42, .4);
 }
-.sh-hero-body { min-width: 0; padding-right: 132px; }
+.sh-hero-body { min-width: 0; padding-right: 150px; }
 .sh-hero-name {
   margin: 9px 0 5px;
   font-family: var(--pg-font-display, inherit);
-  font-size: 24px;
+  font-size: 25px;
   font-weight: 700;
   letter-spacing: -.015em;
   color: var(--ink);
@@ -202,16 +255,11 @@
 .sh-hero-hint {
   margin: 0;
   font-size: var(--fs-sm);
-  color: var(--muted);
+  color: var(--ink-2);
   line-height: 1.55;
   max-width: 62ch;
 }
-.sh-hero-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 15px;
-}
+.sh-hero-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
 
 /* ── Liens d'action ───────────────────────────────────────────── */
 .sh-link {
@@ -220,46 +268,54 @@
   gap: 7px;
   padding: 8px 14px;
   border-radius: var(--r-btn);
-  border: 1px solid var(--border-strong);
-  background: var(--card);
+  border: 1px solid var(--pg-accent-border);
+  background: rgba(255, 255, 255, .78);
+  backdrop-filter: blur(4px);
   font-size: var(--fs-sm);
   font-weight: 600;
-  color: var(--ink-2);
-  text-decoration: none;
-  transition: border-color .15s, color .15s, transform .15s, box-shadow .15s;
-}
-.sh-link i { font-size: 12px; color: var(--pg-accent); transition: color .15s; }
-.sh-link:hover {
-  transform: translateY(-1px);
-  border-color: var(--pg-accent);
   color: var(--pg-accent-deep);
-  box-shadow: 0 6px 16px -8px var(--pg-accent-glow);
+  text-decoration: none;
+  transition: border-color .16s, color .16s, transform .16s, box-shadow .16s, background .16s;
+}
+.sh-link i { font-size: 12px; color: var(--pg-accent); transition: color .16s; }
+.sh-link:hover {
+  transform: translateY(-2px);
+  border-color: var(--pg-accent);
+  background: #fff;
+  box-shadow: 0 8px 18px -8px var(--pg-accent-glow);
 }
 .sh-link--accent {
-  background: linear-gradient(135deg, var(--pg-accent), var(--pg-accent-deep));
+  background: linear-gradient(135deg, var(--sh-fuchsia), var(--sh-prune));
   border-color: transparent;
   color: #fff;
-  box-shadow: 0 6px 16px -6px var(--pg-accent-glow);
+  box-shadow: 0 8px 18px -6px var(--pg-accent-glow);
 }
-.sh-link--accent i { color: rgba(255, 255, 255, .9); }
-.sh-link--accent:hover { color: #fff; filter: brightness(1.06); }
+.sh-link--accent i { color: rgba(255, 255, 255, .92); }
+.sh-link--accent:hover {
+  color: #fff;
+  filter: brightness(1.08);
+  background: linear-gradient(135deg, var(--sh-fuchsia), var(--sh-prune));
+}
 .sh-link--accent:hover i { color: #fff; }
 .sh-link--sm { padding: 5px 11px; font-size: var(--fs-badge); }
 
 /* ── Interrupteur privée / commune ────────────────────────────── */
 .sh-switch {
   position: absolute;
-  top: 18px; right: 18px;
+  top: 20px; right: 20px;
   display: inline-flex;
   align-items: center;
   gap: 9px;
   padding: 7px 13px 7px 10px;
   border-radius: var(--r-pill);
-  border: 1px solid var(--border);
-  background: var(--card);
+  border: 1px solid var(--pg-accent-border);
+  background: rgba(255, 255, 255, .86);
+  backdrop-filter: blur(4px);
   box-shadow: var(--sh-card);
   cursor: pointer;
+  transition: box-shadow .16s, border-color .16s;
 }
+.sh-switch:hover { box-shadow: 0 8px 20px -10px var(--pg-accent-glow); }
 .sh-switch.is-locked { cursor: default; opacity: .75; }
 .sh-switch input { position: absolute; opacity: 0; pointer-events: none; }
 .sh-switch-track {
@@ -267,7 +323,7 @@
   border-radius: var(--r-pill);
   background: var(--border-strong);
   flex: none;
-  transition: background .18s;
+  transition: background .2s;
 }
 .sh-switch-knob {
   display: block;
@@ -276,31 +332,65 @@
   border-radius: 50%;
   background: #fff;
   box-shadow: 0 1px 3px rgba(15, 23, 42, .3);
-  transition: transform .18s;
+  transition: transform .2s cubic-bezier(.34, 1.4, .5, 1);
 }
-.sh-switch input:checked + .sh-switch-track { background: var(--pg-accent); }
+.sh-switch input:checked + .sh-switch-track {
+  background: linear-gradient(135deg, var(--sh-fuchsia), var(--sh-prune));
+}
 .sh-switch input:checked + .sh-switch-track .sh-switch-knob { transform: translateX(17px); }
 .sh-switch-label { font-size: var(--fs-badge); font-weight: 700; color: var(--ink-2); }
 
 /* ══════════════════════════════════════════════════════════════
-   TUILES DE CHIFFRES
+   TUILES DE CHIFFRES — chacune mène à son bloc
    ══════════════════════════════════════════════════════════════ */
 .sh-tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
 .sh-tile {
+  position: relative;
   padding: 15px 17px;
   border: 1px solid var(--border);
   border-radius: var(--r-card);
   background: var(--card);
   box-shadow: var(--sh-card);
+  text-align: left;
+  font-family: var(--pg-font);
+  cursor: pointer;
+  overflow: hidden;
+  transition: transform .16s, box-shadow .16s, border-color .16s;
+}
+.sh-tile::after {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 3px;
+  background: var(--tuile, var(--sh-fuchsia));
+}
+.sh-tile:hover {
+  transform: translateY(-3px);
+  border-color: color-mix(in srgb, var(--tuile, var(--sh-fuchsia)) 40%, #fff);
+  box-shadow: 0 14px 28px -16px color-mix(in srgb, var(--tuile, var(--sh-fuchsia)) 60%, transparent);
+}
+/* Chaque tuile porte sa nuance de la famille : on les distingue du coin de l'œil. */
+.sh-tile--people {
+  --tuile: var(--sh-fuchsia);
+  background: linear-gradient(160deg, var(--sh-fuchsia-soft), var(--card) 72%);
+}
+.sh-tile--roles {
+  --tuile: var(--sh-violet);
+  background: linear-gradient(160deg, var(--sh-violet-soft), var(--card) 72%);
+}
+.sh-tile--pending {
+  --tuile: var(--sh-rose);
+  background: linear-gradient(160deg, var(--sh-rose-soft), var(--card) 72%);
 }
 .sh-tile-n {
   display: block;
   font-family: var(--pg-font-display, inherit);
-  font-size: 27px;
+  font-size: 28px;
   font-weight: 700;
   line-height: 1;
-  color: var(--pg-accent-deep);
+  color: var(--tuile, var(--sh-fuchsia));
 }
+.sh-tile-n.is-word { font-size: 22px; letter-spacing: -.01em; }
 .sh-tile-k {
   display: block;
   margin-top: 6px;
@@ -308,9 +398,20 @@
   font-weight: 600;
   color: var(--muted);
 }
-.sh-tile-n.is-word { font-size: 21px; letter-spacing: -.01em; }
-.sh-tile.is-warn { border-color: #fde68a; background: #fffbeb; }
-.sh-tile.is-warn .sh-tile-n { color: #b45309; }
+.sh-tile-go {
+  position: absolute;
+  right: 14px; top: 16px;
+  font-size: 11px;
+  color: var(--tuile, var(--sh-fuchsia));
+  opacity: 0;
+  transform: translateX(-5px);
+  transition: opacity .16s, transform .16s;
+}
+.sh-tile:hover .sh-tile-go { opacity: .85; transform: none; }
+.sh-tile.is-warn {
+  --tuile: #ea580c;
+  background: linear-gradient(160deg, #fff3ea, var(--card) 72%);
+}
 
 /* ══════════════════════════════════════════════════════════════
    BLOCS
@@ -321,39 +422,43 @@
   background: var(--card);
   box-shadow: var(--sh-card);
   overflow: hidden;
+  transition: box-shadow .3s, border-color .3s;
+}
+/* Une tuile a désigné ce bloc : il le dit, sinon le défilement passe inaperçu. */
+.sh-block.is-pointed {
+  border-color: var(--pg-accent);
+  box-shadow: 0 0 0 3px var(--pg-accent-glow), 0 18px 36px -22px var(--pg-accent-glow);
 }
 .sh-block-head {
   display: flex;
   align-items: center;
   gap: 11px;
   padding: 14px 18px;
-  border-bottom: 1px solid var(--border);
-  background: linear-gradient(180deg, var(--pg-accent-softer), var(--card));
+  border-bottom: 1px solid var(--pg-accent-border);
+  background: linear-gradient(100deg, var(--sh-fuchsia-soft), var(--sh-violet-soft) 55%, var(--card));
 }
 .sh-block-ico {
-  width: 30px; height: 30px;
+  width: 31px; height: 31px;
   flex: none;
   display: flex; align-items: center; justify-content: center;
-  border-radius: 9px;
-  background: var(--pg-accent-soft);
-  border: 1px solid var(--pg-accent-border);
-  color: var(--pg-accent-deep);
+  border-radius: 10px;
+  background: linear-gradient(135deg, var(--sh-fuchsia), var(--sh-prune));
+  color: #fff;
   font-size: 13px;
+  box-shadow: 0 4px 10px -4px var(--pg-accent-glow);
 }
-.sh-block-title {
-  margin: 0;
-  font-size: var(--fs-card-title);
-  font-weight: 700;
-  color: var(--ink);
-}
+.sh-block-title { margin: 0; font-size: var(--fs-card-title); font-weight: 700; color: var(--ink); }
 .sh-block-body { padding: 17px 18px; }
 
 .sh-lead {
   margin: 0 0 15px;
+  padding: 11px 14px;
+  border-left: 3px solid var(--pg-accent-border);
+  border-radius: 0 var(--r-btn) var(--r-btn) 0;
+  background: var(--sh-fuchsia-soft);
   font-size: var(--fs-sm);
-  color: var(--muted);
+  color: var(--ink-2);
   line-height: 1.6;
-  max-width: 78ch;
 }
 .sh-readonly {
   display: inline-flex; align-items: center; gap: 6px;
@@ -369,7 +474,7 @@
   min-width: 22px;
   padding: 2px 8px;
   border-radius: var(--r-pill);
-  background: #f59e0b;
+  background: linear-gradient(135deg, #fb923c, #ea580c);
   color: #fff;
   font-size: var(--fs-badge);
   font-weight: 800;
@@ -389,18 +494,19 @@
   border: 1.5px solid var(--border);
   border-radius: 13px;
   background: var(--card-2);
-  transition: border-color .16s, background .16s, box-shadow .16s;
+  transition: border-color .18s, background .18s, box-shadow .18s, transform .18s;
 }
 /* Un rôle coché ouvre réellement l'accès : il doit se distinguer sans lire. */
 .sh-role.is-granted {
   border-color: var(--pg-accent-border);
-  background: var(--pg-accent-softer);
-  box-shadow: 0 6px 18px -12px var(--pg-accent-glow);
+  background: linear-gradient(150deg, var(--sh-fuchsia-soft), var(--card) 78%);
+  box-shadow: 0 8px 20px -14px var(--pg-accent-glow);
 }
 .sh-role.is-clickable { cursor: pointer; }
 .sh-role.is-clickable:hover {
+  transform: translateY(-2px);
   border-color: var(--pg-accent);
-  box-shadow: 0 8px 20px -12px var(--pg-accent-glow);
+  box-shadow: 0 12px 24px -14px var(--pg-accent-glow);
 }
 .sh-role-head { display: flex; align-items: center; gap: 10px; }
 .sh-role-name {
@@ -423,7 +529,7 @@
   text-align: center;
 }
 .sh-role.is-granted .sh-role-n {
-  background: var(--pg-accent);
+  background: linear-gradient(135deg, var(--sh-fuchsia), var(--sh-prune));
   border-color: transparent;
   color: #fff;
 }
@@ -439,16 +545,16 @@
   background: var(--card);
   color: transparent;
   font-size: 10px;
-  transition: background .15s, border-color .15s, color .15s;
+  transition: background .16s, border-color .16s, color .16s, transform .16s;
 }
+.sh-check:hover .sh-check-box { border-color: var(--pg-accent); }
 .sh-check input:checked + .sh-check-box {
-  background: var(--pg-accent);
-  border-color: var(--pg-accent);
+  background: linear-gradient(135deg, var(--sh-fuchsia), var(--sh-prune));
+  border-color: transparent;
   color: #fff;
+  transform: scale(1.06);
 }
-.sh-check input:focus-visible + .sh-check-box {
-  box-shadow: 0 0 0 3px var(--pg-accent-glow);
-}
+.sh-check input:focus-visible + .sh-check-box { box-shadow: 0 0 0 3px var(--pg-accent-glow); }
 .sh-check input:disabled + .sh-check-box { opacity: .5; }
 
 .sh-role-people {
@@ -458,13 +564,13 @@
   flex-wrap: wrap;
   margin-top: 11px;
   padding-top: 11px;
-  border-top: 1px dashed var(--border);
+  border-top: 1px dashed var(--pg-accent-border);
 }
 .sh-nobody { font-size: var(--fs-badge); font-style: italic; color: var(--faint); }
 
 /* ── Initiales colorées : le repère qui remplace une ligne de texte ── */
 .sh-av {
-  --av-h: 200;
+  --av-h: 300;
   width: 26px; height: 26px;
   flex: none;
   display: inline-flex; align-items: center; justify-content: center;
@@ -487,7 +593,9 @@
   border-radius: var(--r-pill);
   background: var(--card);
   border: 1px solid var(--border);
+  transition: border-color .15s;
 }
+.sh-chip:hover { border-color: var(--pg-accent-border); }
 .sh-chip-name {
   font-size: var(--fs-badge);
   font-weight: 600;
@@ -515,20 +623,16 @@
   gap: 6px;
   padding: 4px 12px;
   border-radius: var(--r-pill);
-  border: 1.5px dashed var(--border-strong);
+  border: 1.5px dashed var(--pg-accent-border);
   background: transparent;
   font-family: var(--pg-font);
   font-size: var(--fs-badge);
   font-weight: 700;
-  color: var(--muted);
-  cursor: pointer;
-  transition: border-color .15s, color .15s, background .15s;
-}
-.sh-add:hover {
-  border-color: var(--pg-accent);
   color: var(--pg-accent-deep);
-  background: var(--pg-accent-softer);
+  cursor: pointer;
+  transition: border-color .16s, color .16s, background .16s;
 }
+.sh-add:hover { border-color: var(--pg-accent); background: var(--sh-fuchsia-soft); }
 
 .sh-note {
   display: flex;
@@ -537,13 +641,12 @@
   margin: 14px 0 0;
   padding: 11px 14px;
   border-radius: var(--r-btn);
-  background: var(--card-2);
-  border: 1px solid var(--border);
+  background: var(--sh-violet-soft);
+  border: 1px solid var(--pg-accent-border);
   font-size: var(--fs-sm);
-  color: var(--muted);
+  color: var(--ink-2);
 }
 .sh-note--ok { background: #f0fdf4; border-color: #bbf7d0; color: #15803d; }
-.sh-note i { color: currentColor; }
 
 /* ══════════════════════════════════════════════════════════════
    2 · QUI OUVRE CETTE CARTO
@@ -561,20 +664,23 @@
   border-left: 3px solid var(--border-strong);
   border-radius: 13px;
   background: var(--card);
-  transition: border-color .15s, box-shadow .15s, transform .15s;
+  transition: border-color .16s, box-shadow .16s, transform .16s, background .16s;
 }
 .sh-person.is-clickable { cursor: pointer; }
 .sh-person:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 10px 22px -14px rgba(15, 23, 42, .4);
+  transform: translateY(-3px);
+  box-shadow: 0 14px 26px -16px rgba(15, 23, 42, .4);
 }
-.sh-person.is-clickable:hover { border-color: var(--pg-accent-border); }
+.sh-person.is-clickable:hover {
+  border-color: var(--pg-accent-border);
+  background: linear-gradient(150deg, var(--sh-fuchsia-soft), var(--card) 70%);
+}
 /* Le liseré gauche dit d'où vient l'accès, sans avoir à lire l'étiquette. */
 .sh-person--owner    { border-left-color: #f59e0b; }
-.sh-person--admin    { border-left-color: #e11d48; }
-.sh-person--champion { border-left-color: #16a34a; }
+.sh-person--admin    { border-left-color: var(--sh-rose); }
+.sh-person--champion { border-left-color: var(--sh-violet); }
 .sh-person--all      { border-left-color: var(--border-strong); }
-.sh-person--role     { border-left-color: var(--pg-accent); }
+.sh-person--role     { border-left-color: var(--sh-fuchsia); }
 
 .sh-person-body { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .sh-person-name {
@@ -599,14 +705,10 @@
 }
 .sh-why i { font-size: 10px; }
 .sh-person--owner    .sh-why { color: #b45309; }
-.sh-person--admin    .sh-why { color: #be123c; }
-.sh-person--champion .sh-why { color: #15803d; }
+.sh-person--admin    .sh-why { color: var(--sh-rose); }
+.sh-person--champion .sh-why { color: var(--sh-violet); }
 .sh-person--role     .sh-why { color: var(--pg-accent-deep); }
-.sh-person-roles {
-  font-size: var(--fs-badge);
-  color: var(--muted);
-  line-height: 1.4;
-}
+.sh-person-roles { font-size: var(--fs-badge); color: var(--muted); line-height: 1.4; }
 
 /* ══════════════════════════════════════════════════════════════
    3 · MODIFICATIONS PROPOSÉES
@@ -618,12 +720,13 @@
   border-radius: 13px;
   background: var(--card-2);
   cursor: pointer;
-  transition: border-color .15s, background .15s, transform .15s;
+  transition: border-color .16s, background .16s, transform .16s, box-shadow .16s;
 }
 .sh-change:hover {
   transform: translateY(-2px);
   border-color: var(--pg-accent-border);
-  background: var(--pg-accent-softer);
+  background: linear-gradient(150deg, var(--sh-fuchsia-soft), var(--card) 70%);
+  box-shadow: 0 12px 24px -16px var(--pg-accent-glow);
 }
 .sh-change-top { display: flex; align-items: center; gap: 11px; }
 .sh-change-title {
@@ -664,21 +767,20 @@
   overflow: hidden;
 }
 
-/* ── Appel à l'action quand il n'y a rien : une page vide ne doit
-      pas être un mur, mais une porte. ────────────────────────── */
+/* ── Une page vide ne doit pas être un mur, mais une porte ────── */
 .sh-cta {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 11px;
+  gap: 12px;
   padding: 34px 20px;
-  border: 1.5px dashed var(--border-strong);
+  border: 1.5px dashed var(--pg-accent-border);
   border-radius: var(--r-card);
-  background: var(--card-2);
+  background: linear-gradient(160deg, var(--sh-fuchsia-soft), var(--sh-violet-soft));
   text-align: center;
 }
-.sh-cta i { font-size: 26px; color: var(--pg-accent-border); }
-.sh-cta p { margin: 0; font-size: var(--fs-sm); color: var(--muted); }
+.sh-cta i { font-size: 26px; color: var(--pg-accent); opacity: .55; }
+.sh-cta p { margin: 0; font-size: var(--fs-sm); color: var(--ink-2); }
 
 /* ── Détail d'une proposition ─────────────────────────────────── */
 .sh-back {
@@ -694,8 +796,9 @@
   font-weight: 700;
   color: var(--muted);
   cursor: pointer;
+  transition: color .15s, transform .15s;
 }
-.sh-back:hover { color: var(--pg-accent-deep); }
+.sh-back:hover { color: var(--pg-accent-deep); transform: translateX(-2px); }
 .sh-detail-title {
   flex: 1; min-width: 0;
   margin: 0;
@@ -708,7 +811,7 @@
   padding: 12px 15px;
   border-left: 3px solid var(--pg-accent-border);
   border-radius: 0 var(--r-btn) var(--r-btn) 0;
-  background: var(--card-2);
+  background: var(--sh-fuchsia-soft);
   font-size: var(--fs-sm);
   color: var(--ink-2);
   line-height: 1.6;
@@ -723,8 +826,8 @@
   flex-wrap: wrap;
   padding: 10px 14px;
   border-radius: var(--r-btn);
-  background: var(--card-2);
-  border: 1px solid var(--border);
+  background: linear-gradient(120deg, var(--sh-violet-soft), var(--card-2) 70%);
+  border: 1px solid var(--pg-accent-border);
   font-size: var(--fs-sm);
   color: var(--ink);
 }
@@ -748,20 +851,21 @@
   font-size: var(--fs-sm);
   font-weight: 600;
   cursor: pointer;
-  transition: filter .15s, background .15s;
+  transition: filter .15s, background .15s, transform .15s;
 }
-.sh-btn:disabled { opacity: .6; cursor: default; }
+.sh-btn:hover { transform: translateY(-1px); }
+.sh-btn:disabled { opacity: .6; cursor: default; transform: none; }
 .sh-btn--accent {
-  background: linear-gradient(135deg, var(--pg-accent), var(--pg-accent-deep));
+  background: linear-gradient(135deg, var(--sh-fuchsia), var(--sh-prune));
   color: #fff;
-  box-shadow: 0 6px 16px -6px var(--pg-accent-glow);
+  box-shadow: 0 8px 18px -6px var(--pg-accent-glow);
 }
-.sh-btn--accent:hover { filter: brightness(1.06); }
+.sh-btn--accent:hover { filter: brightness(1.08); }
 .sh-btn--danger { background: #fef2f2; color: var(--danger); border-color: #fecaca; }
 .sh-btn--danger:hover { background: #fee2e2; }
 
 /* ══════════════════════════════════════════════════════════════
-   SÉLECTEUR DE COMPTES
+   FENÊTRE DE GESTION (rôle ↔ personne)
    ══════════════════════════════════════════════════════════════ */
 .sh-overlay {
   position: fixed;
@@ -771,7 +875,7 @@
   align-items: center;
   justify-content: center;
   padding: 20px;
-  background: rgba(15, 23, 42, .45);
+  background: rgba(59, 7, 66, .42);
   backdrop-filter: blur(3px);
   opacity: 0;
   pointer-events: none;
@@ -779,7 +883,7 @@
 }
 .sh-overlay.is-open { opacity: 1; pointer-events: auto; }
 .sh-picker-card {
-  width: min(430px, 100%);
+  width: min(440px, 100%);
   max-height: 84vh;
   display: flex;
   flex-direction: column;
@@ -787,26 +891,35 @@
   background: var(--card);
   box-shadow: var(--sh-pop);
   overflow: hidden;
-  transform: translateY(10px) scale(.98);
-  transition: transform .22s cubic-bezier(.34, 1.2, .4, 1);
+  transform: translateY(12px) scale(.97);
+  transition: transform .24s cubic-bezier(.34, 1.25, .4, 1);
 }
 .sh-overlay.is-open .sh-picker-card { transform: none; }
 .sh-picker-head {
+  position: relative;
   display: flex;
   align-items: flex-start;
   gap: 12px;
   padding: 17px 19px 15px;
-  background: linear-gradient(135deg, var(--pg-accent), var(--pg-accent-deep));
+  background: linear-gradient(125deg, var(--sh-fuchsia), var(--sh-prune) 70%, var(--sh-violet));
   color: #fff;
+  overflow: hidden;
 }
-.sh-picker-head .sh-eyebrow { color: rgba(255, 255, 255, .82); }
-.sh-picker-title strong {
-  display: block;
-  margin-top: 2px;
-  font-size: 16px;
-  font-weight: 700;
+.sh-picker-head::after {
+  content: "";
+  position: absolute;
+  right: -40px; top: -55px;
+  width: 160px; height: 160px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 255, 255, .18), transparent 70%);
+  pointer-events: none;
 }
+.sh-picker-head .sh-eyebrow { color: rgba(255, 255, 255, .85); }
+.sh-picker-title { position: relative; z-index: 1; min-width: 0; }
+.sh-picker-title strong { display: block; margin-top: 2px; font-size: 16px; font-weight: 700; }
 .sh-x {
+  position: relative;
+  z-index: 1;
   margin-left: auto;
   width: 28px; height: 28px;
   flex: none;
@@ -817,15 +930,10 @@
   cursor: pointer;
   transition: background .15s;
 }
-.sh-x:hover { background: rgba(255, 255, 255, .3); }
+.sh-x:hover { background: rgba(255, 255, 255, .32); }
 .sh-picker-body { padding: 15px 15px 17px; overflow-y: auto; }
 
-.sh-search {
-  position: relative;
-  display: flex;
-  align-items: center;
-  margin-bottom: 12px;
-}
+.sh-search { position: relative; display: flex; align-items: center; margin-bottom: 12px; }
 .sh-search i {
   position: absolute;
   left: 12px;
@@ -842,6 +950,7 @@
   font-family: var(--pg-font);
   font-size: var(--fs-sm);
   color: var(--ink);
+  transition: border-color .15s, box-shadow .15s;
 }
 .sh-search input:focus {
   outline: none;
@@ -849,24 +958,6 @@
   box-shadow: 0 0 0 3px var(--pg-accent-glow);
 }
 .sh-search--comment { margin: 18px 0 0; }
-
-/* Côté « rôles d'une personne », la pastille remplace l'avatar : on voit du
-   même coup si le rôle ouvre l'accès ou s'il n'est qu'attribué. */
-.sh-role-ico {
-  width: 26px; height: 26px;
-  flex: none;
-  display: inline-flex; align-items: center; justify-content: center;
-  border-radius: 8px;
-  background: var(--card-2);
-  border: 1px solid var(--border);
-  color: var(--faint);
-  font-size: 11px;
-}
-.sh-role-ico.is-granted {
-  background: var(--pg-accent-soft);
-  border-color: var(--pg-accent-border);
-  color: var(--pg-accent-deep);
-}
 
 .sh-picker-list { display: flex; flex-direction: column; gap: 3px; }
 .sh-pick {
@@ -879,7 +970,7 @@
   cursor: pointer;
   transition: background .14s, border-color .14s;
 }
-.sh-pick:hover { background: var(--pg-accent-softer); }
+.sh-pick:hover { background: var(--sh-fuchsia-soft); }
 .sh-pick input { position: absolute; opacity: 0; width: 0; height: 0; }
 .sh-pick-text { min-width: 0; display: flex; flex-direction: column; }
 .sh-pick-name { font-size: var(--fs-sm); font-weight: 600; color: var(--ink); }
@@ -897,15 +988,31 @@
   border-radius: 50%;
   color: transparent;
   font-size: 10px;
-  transition: background .15s, border-color .15s, color .15s;
+  transition: background .16s, border-color .16s, color .16s, transform .16s;
 }
-.sh-pick.is-in {
-  background: var(--pg-accent-softer);
-  border-color: var(--pg-accent-border);
-}
+.sh-pick.is-in { background: var(--sh-fuchsia-soft); border-color: var(--pg-accent-border); }
 .sh-pick.is-in .sh-pick-state {
-  background: var(--pg-accent);
-  border-color: var(--pg-accent);
+  background: linear-gradient(135deg, var(--sh-fuchsia), var(--sh-prune));
+  border-color: transparent;
+  color: #fff;
+  transform: scale(1.06);
+}
+
+/* Côté « rôles d'une personne », la pastille remplace l'avatar : on voit du
+   même coup si le rôle ouvre l'accès ou s'il n'est qu'attribué. */
+.sh-role-ico {
+  width: 26px; height: 26px;
+  flex: none;
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 8px;
+  background: var(--card-2);
+  border: 1px solid var(--border);
+  color: var(--faint);
+  font-size: 11px;
+}
+.sh-role-ico.is-granted {
+  background: linear-gradient(135deg, var(--sh-fuchsia), var(--sh-prune));
+  border-color: transparent;
   color: #fff;
 }
 
@@ -930,14 +1037,14 @@
   display: flex; align-items: center;
   padding: 11px 21px;
   border-radius: var(--r-pill);
-  background: var(--ink);
+  background: linear-gradient(135deg, var(--sh-fuchsia), var(--sh-prune));
   color: #fff;
   font-size: var(--fs-sm);
   font-weight: 600;
-  box-shadow: var(--sh-pop);
+  box-shadow: 0 16px 34px -12px var(--pg-accent-glow);
   opacity: 0;
   pointer-events: none;
-  transition: opacity .2s, transform .2s;
+  transition: opacity .22s, transform .22s cubic-bezier(.34, 1.3, .5, 1);
 }
 .sh-toast.is-on { opacity: 1; transform: translate(-50%, 0); }
 
@@ -949,12 +1056,14 @@
   .sh-gallery { position: static; }
   .sh-gallery-list {
     flex-direction: row;
+    max-height: none;
     overflow-x: auto;
-    padding-bottom: 4px;
+    padding-bottom: 6px;
   }
-  /* En rangée, `width:100%` ferait remplir toute la largeur à la première
-     carte : on fige la base de flex. */
-  .sh-gallery-list .sh-map { flex: 0 0 218px; width: 218px; }
+  /* En rangée, la ligne se fige : sinon la première carte prendrait toute la
+     largeur disponible. */
+  .sh-gallery-list .sh-map { flex: 0 0 244px; }
+  .sh-map-chev { display: none; }
 }
 @media (max-width: 760px) {
   .sh-hero { grid-template-columns: 1fr; }

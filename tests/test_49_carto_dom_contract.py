@@ -100,3 +100,15 @@ def test_le_zoom_porte_sur_les_ENFANTS_de_la_barre():
     assert "#toolbar > * { zoom: var(--ui-k); }" in css
     assert "--toolbar-h: calc(60px * var(--ui-k));" in css
     assert re.search(r"^#toolbar \{[^}]*zoom:", css, re.M) is None
+
+
+def test_la_mini_map_ne_se_pose_pas_sur_la_pastille_de_zoom():
+    """Les deux occupaient le coin bas-droit du canevas et se chevauchaient.
+    Elles partagent le même bord droit, la mini map juste au-dessus."""
+    css = _read(STYLE_CSS)
+    assert "--corner-gap:" in css and "--zoom-pill-h:" in css
+    mini = re.search(r"#carto-minimap \{[^}]*\}", css, re.S)
+    assert mini, "#carto-minimap introuvable"
+    bloc = mini.group(0)
+    assert "right: var(--corner-gap);" in bloc
+    assert "var(--zoom-pill-h)" in bloc, "la mini map doit se placer AU-DESSUS de la pastille"

@@ -78,7 +78,7 @@
 .page--rh,           body:has(.page--rh)           { --pg-accent: #16a34a; --pg-accent-deep: #15803d; }
 .page--tools,        body:has(.page--tools)        { --pg-accent: #ea580c; --pg-accent-deep: #c2410c; }
 .page--settings,     body:has(.page--settings)     { --pg-accent: #6366f1; --pg-accent-deep: #4f46e5; }
-.page--share,        body:has(.page--share)        { --pg-accent: #0891b2; --pg-accent-deep: #0e7490; }
+.page--share,        body:has(.page--share)        { --pg-accent: #c026d3; --pg-accent-deep: #a21caf; }
 
 /* ════════════════════════════════════════════════════════════════
    FOND DE PAGE COMMUN — l'élément qui lie visuellement les pages :

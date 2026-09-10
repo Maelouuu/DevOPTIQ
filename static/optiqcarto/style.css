@@ -44,6 +44,10 @@
      largeur de la fenêtre. 1 = taille nominale. */
   --ui-k: 1;
   --toolbar-h: calc(60px * var(--ui-k));
+
+  /* Coin bas-droit du canevas : pastille de zoom et mini map alignées. */
+  --corner-gap: 14px;
+  --zoom-pill-h: 26px;
   --left-w:    230px;
   --props-w:   244px;
   --tb-radius:  9px;
@@ -228,8 +232,8 @@ html, body {
 
 #zoom-pill {
   position: absolute;
-  bottom: 14px;
-  right: 14px;
+  bottom: var(--corner-gap);
+  right: var(--corner-gap);
   display: flex;
   align-items: center;
   gap: 6px;
@@ -254,8 +258,8 @@ html, body {
 
 #zoom-sensitivity-popup {
   position: absolute;
-  bottom: calc(14px + 36px + 8px);
-  right: 14px;
+  bottom: calc(var(--corner-gap) + 36px + 8px);
+  right: var(--corner-gap);
   background: #1A231D;
   border: 1px solid var(--green-border);
   border-radius: 14px;
@@ -2673,10 +2677,13 @@ html, body {
 }
 
 /* ── Mini-carte de navigation (outil uniquement) ───────────────────────── */
+/* La pastille de zoom occupe déjà le coin bas-droit : la mini map se posait
+   dessus. Les deux partagent maintenant le même bord droit, la mini map juste
+   au-dessus. `--zoom-pill-h` tient les deux alignements ensemble. */
 #carto-minimap {
   position: absolute;
-  right: 18px;
-  bottom: 18px;
+  right: var(--corner-gap);
+  bottom: calc(var(--corner-gap) + var(--zoom-pill-h) + 10px);
   width: 200px;
   background: rgba(255, 255, 255, 0.96);
   border: 1px solid #d6dbe5;
