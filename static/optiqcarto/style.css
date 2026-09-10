@@ -40,7 +40,10 @@
   --danger:    var(--pink);
 
   /* ── Layout ────────────────────────────────────────── */
-  --toolbar-h: 60px;
+  /* Facteur d'échelle de l'habillage — posé par ui_scale.js d'après la
+     largeur de la fenêtre. 1 = taille nominale. */
+  --ui-k: 1;
+  --toolbar-h: calc(60px * var(--ui-k));
   --left-w:    230px;
   --props-w:   244px;
   --tb-radius:  9px;
@@ -65,6 +68,11 @@ html, body {
 }
 
 /* ══════════════ LAYOUT ══════════════ */
+
+/* ⚠️ Le zoom est posé sur les ENFANTS, pas sur #toolbar : la barre est ancrée
+   à gauche ET à droite (left/right: 10px), et zoomer le conteneur réduirait
+   aussi cette largeur — la barre ne tiendrait plus toute la fenêtre. */
+#toolbar > * { zoom: var(--ui-k); }
 
 #toolbar {
   position: fixed;
@@ -142,6 +150,7 @@ html, body {
 
 /* Bouton retour flottant bas-gauche */
 #btn-back-floating {
+  zoom: var(--ui-k);
   position: fixed;
   bottom: 14px;
   left: 14px;

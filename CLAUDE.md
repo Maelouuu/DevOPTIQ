@@ -150,6 +150,19 @@ transporte le diagramme **tel qu'il est en base**, d'un compte à l'autre.
   n'était jamais appelé, et `isDirty` restait faux — on quittait la page sans le
   moindre avertissement, l'import perdu. L'import pose donc `isDirty = true` et
   relance l'auto-sauvegarde.
+- ⚠️ **La barre d'outils débordait sur un portable et flottait sur un 27 pouces.**
+  Elle est ancrée à gauche ET à droite (`left/right: 10px`), et son contenu du milieu
+  était dessiné en pixels fixes : mesuré à 1180 px de large, il passait **68 px sous**
+  « Panneau » et « Propriétés ». Un facteur unique `--ui-k`
+  (`static/optiqcarto/ui_scale.js`, `largeur / 1400` borné à 0,70–1,25, recalculé au
+  redimensionnement) tient les deux bouts : à 1024 px il reste 22 px de marge de chaque
+  côté, à 2560 px la barre occupe 54 % de l'écran au lieu de 43 %.
+  ⚠️ Le zoom porte sur **`#toolbar > *`**, pas sur `#toolbar` : zoomer le conteneur
+  réduirait aussi sa largeur ancrée, la barre ne tiendrait plus toute la fenêtre.
+  ⚠️ **`zoom` et pas `transform: scale()`** : un `transform` crée un bloc conteneur pour
+  les descendants `position: fixed` — les menus déroulants de la barre se retrouveraient
+  ancrés au mauvais repère. Vérifié : le menu Fichier reste sous son bouton.
+  Contrat gardé par `tests/test_49_carto_dom_contract.py`.
 - ⚠️ **Le viewer charge `editor.js` mais n'injectait aucune traduction** : chaque
   `_L()` y affichait la CLÉ BRUTE (« editor.minimap »). `cartography_viewer.html`
   reçoit désormais `i18n_data`, comme l'éditeur. Les libellés de la **mini-carte**
@@ -543,16 +556,34 @@ propager.
   tous, ou *par son rôle* — le contrôle d'un coup d'œil qui n'existait nulle part) ·
   **3 · Modifications proposées** (file d'examen complète).
   Nav : juste après Cartographie, cyan `#0891b2` (`page--share`).
-- **On choisit sa carto en la VOYANT.** `GET /cartography/api/access/previews` renvoie,
-  pour chaque carto accessible, ses bandes et ses formes en coordonnées **normalisées
-  0..1** (`_apercu_carto`) : le navigateur dessine une vraie vignette SVG — les bandes
-  de la carte, ses activités à leur place, avec leurs couleurs. Une liste déroulante ne
-  disait rien de ce qu'on choisissait. Plafond `_APERCU_MAX_FORMES` (260) : au-delà on
-  ne distingue plus rien et la page s'alourdit pour rien. Carto sans diagramme →
-  `preview: null`, et la vignette affiche un état vide explicite.
+- **On choisit sa carto en la VOYANT.**
+  `GET /cartography/api/access/<id>/thumbnail.svg` rend la **vraie carte** :
+  bandes, flèches sur leur **tracé enregistré** (`_computedOrthopts`, sinon `userPts` /
+  `customPath`, sinon la droite entre les deux formes), activités avec leur couleur.
+  ⚠️ Une abstraction en barres de couleur avait été essayée d'abord : **toutes les
+  cartos se ressemblaient**, c'est la trajectoire des flèches qui les distingue.
+  ⚠️ Une carto **sans `optiqcarto_data`** (importée du temps où seul le SVG Visio était
+  stocké) n'affichait RIEN alors qu'elle existe : on sert alors `svg_content` tel quel
+  (plafond 3 Mo). Sans l'un ni l'autre → 404 et état vide explicite.
+  ⚠️ Les couleurs viennent d'un fichier Visio et partent telles quelles dans le SVG :
+  `_echap_couleur` écarte tout ce qui contient `< > " ' &`.
+  Cadrage : la galerie **recadre sur le haut** de la carte (`object-fit: cover`) — une
+  carto est bien plus haute que large, « contenue » elle se réduisait à une colonne
+  perdue dans le blanc ; l'en-tête, lui, montre la carte **entière** (4/3, `contain`).
+  `/api/access/previews` ne porte plus que les chiffres et `has_thumbnail`.
+- ⚠️ **La galerie a un plafond de hauteur** (`max-height: min(62vh, 560px)` + défilement
+  interne) : sans lui, dix cartographies poussaient la colonne de travail hors de vue.
 - **Rien ne se lit en lignes de tableau** : une carte par rôle (cochée = teintée
   d'accent), une carte par personne avec son initiale colorée (teinte stable, dérivée de
   l'e-mail) et un liseré gauche par motif d'accès. Une petite liste ne se parcourt pas.
+- **Les deux cartes sont des poignées.** Un rôle et une personne sont les deux bouts de
+  la même relation : cliquer un **rôle** ouvre « qui le tient », cliquer une **personne**
+  ouvre « ses rôles sur cette carto » — avec, en face de chaque rôle, s'il *ouvre
+  l'accès* ou non. La même fenêtre sert aux deux et écrit avec le même endpoint par
+  paire. Sur la carte de rôle, la case à cocher garde son clic (elle décide de l'accès,
+  pas des titulaires).
+- « Rôles ouverts » affiche **Tous / All** quand aucun rôle n'est coché : un « ∞ » ne dit
+  pas combien de personnes sont concernées.
 - **Chaque bloc ouvre une porte** : *Voir la carte*, *Ouvrir l'éditeur*, *Proposer une
   modification* (affiché seulement à qui doit proposer), *Gérer les comptes*, et quand la
   file d'examen est vide, un appel à l'action vers l'éditeur plutôt qu'un mur.
@@ -598,7 +629,7 @@ propager.
   colonnes indispensables (`_verifier_colonnes`) et le crie dans les journaux.
 - Tests : `tests/test_66_carto_sharing.py` (34 cas — statuts, lecture par rôle, réglage
   de l'accès, refus d'écriture directe, cycle complet d'une proposition, activation,
-  ménage), `tests/test_68_share_page.py` (18 cas — la page, l'entité de l'URL, les
+  ménage), `tests/test_68_share_page.py` (21 cas — la page, l'entité de l'URL, les
   titulaires par paire, la portée et ses motifs, l'absence de doublon avec la carte
   et les vignettes) et `tests/test_67_schema_postgres.py` (5 cas — le DDL des modèles est compilé avec le
   dialecte PostgreSQL, sans serveur, et les ALTER écrits à la main dans `create_app`

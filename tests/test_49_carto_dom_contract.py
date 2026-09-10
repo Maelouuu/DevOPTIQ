@@ -64,3 +64,39 @@ def test_le_viewer_expose_le_stub_export_carto():
     """Régression directe du cas rencontré : viewer figé sur un cadre gris."""
     html = _read(TEMPLATES[1])
     assert 'id="btn-export-carto"' in html
+
+
+# ══════════════════════════════════════════════════════════════════════════
+# Échelle de l'habillage — la barre d'outils déborde ou flotte selon l'écran
+# ══════════════════════════════════════════════════════════════════════════
+# La barre est ancrée à gauche ET à droite ; son contenu du milieu était dessiné
+# en pixels fixes. Sur un portable il passait SOUS « Panneau » et « Propriétés »
+# (mesuré : 68 px de chevauchement de chaque côté à 1180 px de large) ; sur un
+# 27 pouces il occupait une bande étroite au milieu d'un grand vide. Un facteur
+# unique, `--ui-k`, tient les deux bouts.
+
+UI_SCALE_JS = os.path.join(ROOT, "static", "optiqcarto", "ui_scale.js")
+STYLE_CSS = os.path.join(ROOT, "static", "optiqcarto", "style.css")
+
+
+def test_les_deux_gabarits_chargent_le_facteur_d_echelle():
+    for chemin in TEMPLATES:
+        assert "optiqcarto/ui_scale.js" in _read(chemin), os.path.basename(chemin)
+
+
+def test_le_facteur_est_borne_et_recalcule_au_redimensionnement():
+    js = _read(UI_SCALE_JS)
+    assert "--ui-k" in js
+    assert "innerWidth" in js
+    assert "addEventListener('resize'" in js
+    # Sans bornes, une fenêtre étroite réduirait la barre jusqu'à l'illisible.
+    assert "K_MIN" in js and "K_MAX" in js
+
+
+def test_le_zoom_porte_sur_les_ENFANTS_de_la_barre():
+    """Zoomer #toolbar lui-même réduirait aussi sa largeur : ancrée left/right,
+    elle ne tiendrait plus toute la fenêtre."""
+    css = _read(STYLE_CSS)
+    assert "#toolbar > * { zoom: var(--ui-k); }" in css
+    assert "--toolbar-h: calc(60px * var(--ui-k));" in css
+    assert re.search(r"^#toolbar \{[^}]*zoom:", css, re.M) is None

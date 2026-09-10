@@ -22,7 +22,8 @@
   let cartes = [];        // aperçus de toutes les cartos accessibles
   let etat = null;        // détail de la carto choisie
   let entityId = CTX.activeId || null;
-  let roleEnCours = null;
+  // La fenêtre de gestion sert des DEUX côtés : { mode: 'role'|'person', cible }
+  let fenetre = null;
 
   /* ── Réseau ───────────────────────────────────────────────────────────── */
 
@@ -54,28 +55,18 @@
       >${esc(initiales(personne.name))}</span>`;
   }
 
-  // La vignette : les bandes de la carto en fond, ses activités par-dessus.
-  // Coordonnées déjà normalisées 0..1 par le serveur.
-  function vignette(apercu, classe) {
-    if (!apercu) {
+  // La vignette EST la carto : le serveur la rend en SVG (bandes, tracés réels
+  // des flèches, activités). Deux cartos ne se ressemblent plus.
+  function vignette(carte, classe) {
+    if (!carte || !carte.has_thumbnail) {
       return `<div class="sh-thumb sh-thumb--empty ${classe || ''}">
         <i class="fa-solid fa-diagram-project"></i>
         <span>${esc(L('emptyMap'))}</span></div>`;
     }
-    const W = 100, H = 62;
-    const bandes = apercu.bands.map(b =>
-      `<rect x="0" y="${(b.y * H).toFixed(2)}" width="${W}"
-             height="${Math.max(0.6, b.h * H).toFixed(2)}"
-             fill="${esc(b.color)}" opacity=".55"/>`).join('');
-    const formes = apercu.shapes.map(s =>
-      `<rect x="${(s.x * W).toFixed(2)}" y="${(s.y * H).toFixed(2)}"
-             width="${Math.max(0.9, s.w * W).toFixed(2)}"
-             height="${Math.max(0.8, s.h * H).toFixed(2)}"
-             rx=".7" fill="${esc(s.color)}"/>`).join('');
     return `<div class="sh-thumb ${classe || ''}">
-      <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true">
-        <rect width="${W}" height="${H}" fill="#f6f8fb"/>${bandes}${formes}
-      </svg></div>`;
+      <img src="/cartography/api/access/${carte.id}/thumbnail.svg"
+           alt="${esc(carte.name || '')}" loading="lazy">
+    </div>`;
   }
 
   /* ── Galerie des cartos ───────────────────────────────────────────────── */
@@ -104,7 +95,7 @@
     $('#sh-gallery-list').innerHTML = cartes.map(c => `
       <button type="button" class="sh-map${c.id === entityId ? ' is-active' : ''}"
               data-id="${c.id}">
-        ${vignette(c.preview)}
+        ${vignette(c)}
         <span class="sh-map-body">
           <span class="sh-map-name">${esc(c.name)}</span>
           <span class="sh-map-meta">
@@ -164,6 +155,7 @@
 
     brancherEnTete(gele);
     brancherRoles(gele);
+    brancherPersonnes(gele);
     brancherChangements();
   }
 
@@ -173,7 +165,7 @@
     const commune = !!etat.is_shared;
     return `
     <section class="sh-hero${commune ? ' is-shared' : ''}">
-      ${vignette(c.preview, 'sh-thumb--hero')}
+      ${vignette(c, 'sh-thumb--hero')}
       <div class="sh-hero-body">
         <span class="sh-tag${commune ? ' sh-tag--shared' : ''}">
           <i class="fa-solid ${commune ? 'fa-users' : 'fa-lock'}"></i>
@@ -212,7 +204,8 @@
     <div class="sh-tiles">
       <div class="sh-tile"><span class="sh-tile-n">${n}</span>
         <span class="sh-tile-k">${esc(L('statPeople'))}</span></div>
-      <div class="sh-tile"><span class="sh-tile-n">${etat.open_to_all ? '∞' : ouverts}</span>
+      <div class="sh-tile"><span class="sh-tile-n${etat.open_to_all ? ' is-word' : ''}">${
+        etat.open_to_all ? esc(L('statAll')) : ouverts}</span>
         <span class="sh-tile-k">${esc(L('statRoles'))}</span></div>
       <div class="sh-tile${attente ? ' is-warn' : ''}"><span class="sh-tile-n">${attente}</span>
         <span class="sh-tile-k">${esc(L('statPending'))}</span></div>
@@ -239,7 +232,8 @@
 
   function carteRole(r, gele) {
     return `
-    <article class="sh-role${r.granted ? ' is-granted' : ''}" data-role="${r.id}">
+    <article class="sh-role${r.granted ? ' is-granted' : ''}${gele ? '' : ' is-clickable'}"
+             data-role="${r.id}"${gele ? '' : ` title="${esc(L('manage'))}"`}>
       <header class="sh-role-head">
         <label class="sh-check">
           <input type="checkbox" class="sh-role-cb" value="${r.id}"
@@ -268,10 +262,21 @@
     document.querySelectorAll('.sh-role-cb').forEach(cb =>
       cb.addEventListener('change', enregistrerAcces));
     document.querySelectorAll('.sh-add').forEach(b =>
-      b.addEventListener('click', () => ouvrirSelecteur(parseInt(b.dataset.role, 10))));
+      b.addEventListener('click', (e) => {
+        e.stopPropagation();
+        ouvrirRole(parseInt(b.dataset.role, 10));
+      }));
     document.querySelectorAll('.sh-chip-x').forEach(b =>
-      b.addEventListener('click', () => majTitulaires(
-        parseInt(b.dataset.role, 10), { remove: [parseInt(b.dataset.user, 10)] })));
+      b.addEventListener('click', (e) => {
+        e.stopPropagation();
+        majLien(parseInt(b.dataset.user, 10), parseInt(b.dataset.role, 10), false);
+      }));
+    // Toute la carte est une poignée — sauf la case, qui décide de l'accès.
+    document.querySelectorAll('.sh-role').forEach(el =>
+      el.addEventListener('click', (e) => {
+        if (e.target.closest('.sh-check, button')) return;
+        ouvrirRole(parseInt(el.dataset.role, 10));
+      }));
   }
 
   // Cocher un rôle enregistre tout de suite : un bouton « Enregistrer » de plus
@@ -292,53 +297,98 @@
     } catch (_) { alert(L('netError')); }
   }
 
-  /* ── Titulaires ───────────────────────────────────────────────────────── */
+  /* ── Le lien (compte ↔ rôle), réglable des deux côtés ─────────────────── */
 
-  async function majTitulaires(roleId, delta) {
+  // Un seul endpoint pour les deux sens : il travaille par PAIRE, donc jamais
+  // il ne retire à quelqu'un ses rôles sur les autres cartos.
+  async function majLien(userId, roleId, ajouter) {
     try {
       const data = await postJSON(
-        `/cartography/api/access/${entityId}/roles/${roleId}/holders`, delta);
+        `/cartography/api/access/${entityId}/roles/${roleId}/holders`,
+        ajouter ? { add: [userId] } : { remove: [userId] });
       if (data.error) { alert(data.error); return; }
       await charger();
-      if (roleEnCours && roleEnCours.id === roleId) {
-        roleEnCours = (etat.roles || []).find(r => r.id === roleId) || roleEnCours;
-        rendreSelecteur($('#sh-picker-search').value);
-      }
+      if (fenetre) rafraichirFenetre();
     } catch (_) { alert(L('netError')); }
   }
 
-  function ouvrirSelecteur(roleId) {
-    roleEnCours = (etat.roles || []).find(r => r.id === roleId);
-    if (!roleEnCours) return;
-    $('#sh-picker-role').textContent = roleEnCours.name;
+  function ouvrirRole(roleId) {
+    const r = (etat.roles || []).find(x => x.id === roleId);
+    if (!r || !etat.can_manage_access) return;
+    fenetre = { mode: 'role', id: roleId };
+    ouvrirFenetre(L('roleHolders'), r.name, L('searchAccount'));
+  }
+
+  function ouvrirPersonne(userId) {
+    const u = (etat.accounts || []).find(x => x.id === userId);
+    if (!u || !etat.can_manage_access) return;
+    fenetre = { mode: 'person', id: userId };
+    ouvrirFenetre(L('personRoles'), u.name, L('searchRole'));
+  }
+
+  function ouvrirFenetre(surtitre, titre, invite) {
+    $('#sh-picker-eyebrow').textContent = surtitre;
+    $('#sh-picker-role').textContent = titre;
     const champ = $('#sh-picker-search');
     champ.value = '';
-    champ.placeholder = L('searchAccount');
-    rendreSelecteur('');
+    champ.placeholder = invite;
+    rendreFenetre('');
     $('#sh-picker').classList.add('is-open');
     champ.focus();
   }
 
-  function rendreSelecteur(filtre) {
-    const dedans = new Set((roleEnCours.holders || []).map(h => h.id));
+  function rafraichirFenetre() {
+    rendreFenetre($('#sh-picker-search').value);
+  }
+
+  function rendreFenetre(filtre) {
+    if (!fenetre) return;
     const q = (filtre || '').toLowerCase();
-    const lignes = (etat.accounts || [])
-      .filter(u => !q || u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q))
-      .map(u => `
-        <label class="sh-pick${dedans.has(u.id) ? ' is-in' : ''}">
-          <input type="checkbox" value="${u.id}" ${dedans.has(u.id) ? 'checked' : ''}>
-          ${avatar(u)}
-          <span class="sh-pick-text">
-            <span class="sh-pick-name">${esc(u.name)}</span>
-            <span class="sh-pick-mail">${esc(u.email)}</span>
-          </span>
-          <span class="sh-pick-state"><i class="fa-solid fa-check"></i></span>
-        </label>`).join('');
-    $('#sh-picker-list').innerHTML = lignes || `<p class="sh-empty">—</p>`;
+    const hote = $('#sh-picker-list');
+
+    if (fenetre.mode === 'role') {
+      const r = (etat.roles || []).find(x => x.id === fenetre.id);
+      if (!r) { hote.innerHTML = `<p class="sh-empty">—</p>`; return; }
+      const dedans = new Set((r.holders || []).map(h => h.id));
+      hote.innerHTML = (etat.accounts || [])
+        .filter(u => !q || u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q))
+        .map(u => ligneFenetre(u.id, avatar(u), u.name, u.email, dedans.has(u.id)))
+        .join('') || `<p class="sh-empty">—</p>`;
+      brancherFenetre((id, coche) => majLien(id, r.id, coche));
+      return;
+    }
+
+    const roles = etat.roles || [];
+    if (!roles.length) { hote.innerHTML = `<p class="sh-empty">${esc(L('noRoleHere'))}</p>`; return; }
+    hote.innerHTML = roles
+      .filter(r => !q || r.name.toLowerCase().includes(q))
+      .map(r => ligneFenetre(
+        r.id,
+        `<span class="sh-role-ico${r.granted ? ' is-granted' : ''}">
+           <i class="fa-solid fa-id-badge"></i></span>`,
+        r.name,
+        r.granted ? L('roleOpens') : L('roleClosed'),
+        (r.holders || []).some(h => h.id === fenetre.id)))
+      .join('') || `<p class="sh-empty">—</p>`;
+    brancherFenetre((id, coche) => majLien(fenetre.id, id, coche));
+  }
+
+  function ligneFenetre(id, visuel, titre, sousTitre, coche) {
+    return `
+      <label class="sh-pick${coche ? ' is-in' : ''}">
+        <input type="checkbox" value="${id}" ${coche ? 'checked' : ''}>
+        ${visuel}
+        <span class="sh-pick-text">
+          <span class="sh-pick-name">${esc(titre)}</span>
+          <span class="sh-pick-mail">${esc(sousTitre)}</span>
+        </span>
+        <span class="sh-pick-state"><i class="fa-solid fa-check"></i></span>
+      </label>`;
+  }
+
+  function brancherFenetre(action) {
     $('#sh-picker-list').querySelectorAll('input').forEach(cb =>
-      cb.addEventListener('change', () => majTitulaires(roleEnCours.id,
-        cb.checked ? { add: [parseInt(cb.value, 10)] }
-                   : { remove: [parseInt(cb.value, 10)] })));
+      cb.addEventListener('change', () => action(parseInt(cb.value, 10), cb.checked)));
   }
 
   /* ── 2 · Qui ouvre cette carto ────────────────────────────────────────── */
@@ -358,7 +408,9 @@
         ${gens.map(u => {
           const [cle, ico] = MOTIF[u.reason] || ['reasonRole', 'fa-id-badge'];
           return `
-          <article class="sh-person sh-person--${esc(u.reason)}">
+          <article class="sh-person sh-person--${esc(u.reason)}${
+            etat.can_manage_access ? ' is-clickable' : ''}" data-user="${u.id}"${
+            etat.can_manage_access ? ` title="${esc(L('manage'))}"` : ''}>
             ${avatar(u, 'lg')}
             <div class="sh-person-body">
               <span class="sh-person-name">${esc(u.name)}</span>
@@ -372,6 +424,12 @@
     return section('fa-user-check', L('sharepage_step2'), corps,
       `<a class="sh-link sh-link--sm" href="/comptes">
          <i class="fa-solid fa-users-gear"></i>${esc(L('manageAccounts'))}</a>`);
+  }
+
+  function brancherPersonnes(gele) {
+    if (gele) return;
+    document.querySelectorAll('.sh-person').forEach(el =>
+      el.addEventListener('click', () => ouvrirPersonne(parseInt(el.dataset.user, 10))));
   }
 
   /* ── 3 · Modifications proposées ──────────────────────────────────────── */
@@ -540,7 +598,7 @@
     $('#sh-picker').addEventListener('click', (e) => {
       if (e.target.id === 'sh-picker') e.currentTarget.classList.remove('is-open');
     });
-    $('#sh-picker-search').addEventListener('input', (e) => rendreSelecteur(e.target.value));
+    $('#sh-picker-search').addEventListener('input', (e) => rendreFenetre(e.target.value));
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') $('#sh-picker').classList.remove('is-open');
     });

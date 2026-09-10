@@ -46,7 +46,23 @@
   padding: 16px 13px;
 }
 .sh-gallery-head { padding: 0 5px 11px; }
-.sh-gallery-list { display: flex; flex-direction: column; gap: 10px; }
+/* Sans plafond, dix cartographies faisaient descendre la page indéfiniment et
+   la colonne de travail se retrouvait hors de vue. La liste défile chez elle. */
+.sh-gallery-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: min(62vh, 560px);
+  overflow-y: auto;
+  padding-right: 4px;
+  scrollbar-width: thin;
+}
+.sh-gallery-list::-webkit-scrollbar { width: 7px; }
+.sh-gallery-list::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: var(--r-pill);
+}
+.sh-gallery-list::-webkit-scrollbar-track { background: transparent; }
 
 .sh-map {
   display: block;
@@ -90,7 +106,21 @@
   border-bottom: 1px solid var(--border);
   overflow: hidden;
 }
-.sh-thumb svg { display: block; width: 100%; height: 100%; }
+/* Une carto est souvent bien plus haute que large : la laisser « contenue »
+   dans la vignette la réduisait à une colonne perdue au milieu du blanc. Dans
+   la galerie on CADRE sur le haut de la carte — c'est ce qui distingue deux
+   cartographies au premier coup d'œil. */
+.sh-thumb img {
+  display: block;
+  width: 100%; height: 100%;
+  object-fit: cover;
+  object-position: top center;
+  background: #f7f9fc;
+}
+/* Dans l'en-tête on veut la carte ENTIÈRE : elle dit « voilà ce que vous
+   réglez ». Le cadre est donc plus haut, et l'image contenue. */
+.sh-thumb--hero { aspect-ratio: 4 / 3; }
+.sh-thumb--hero img { object-fit: contain; object-position: center; }
 /* Un voile très léger : la vignette reste une image, pas un écran. */
 .sh-thumb::after {
   content: "";
@@ -278,6 +308,7 @@
   font-weight: 600;
   color: var(--muted);
 }
+.sh-tile-n.is-word { font-size: 21px; letter-spacing: -.01em; }
 .sh-tile.is-warn { border-color: #fde68a; background: #fffbeb; }
 .sh-tile.is-warn .sh-tile-n { color: #b45309; }
 
@@ -365,6 +396,11 @@
   border-color: var(--pg-accent-border);
   background: var(--pg-accent-softer);
   box-shadow: 0 6px 18px -12px var(--pg-accent-glow);
+}
+.sh-role.is-clickable { cursor: pointer; }
+.sh-role.is-clickable:hover {
+  border-color: var(--pg-accent);
+  box-shadow: 0 8px 20px -12px var(--pg-accent-glow);
 }
 .sh-role-head { display: flex; align-items: center; gap: 10px; }
 .sh-role-name {
@@ -527,10 +563,12 @@
   background: var(--card);
   transition: border-color .15s, box-shadow .15s, transform .15s;
 }
+.sh-person.is-clickable { cursor: pointer; }
 .sh-person:hover {
   transform: translateY(-2px);
   box-shadow: 0 10px 22px -14px rgba(15, 23, 42, .4);
 }
+.sh-person.is-clickable:hover { border-color: var(--pg-accent-border); }
 /* Le liseré gauche dit d'où vient l'accès, sans avoir à lire l'étiquette. */
 .sh-person--owner    { border-left-color: #f59e0b; }
 .sh-person--admin    { border-left-color: #e11d48; }
@@ -811,6 +849,24 @@
   box-shadow: 0 0 0 3px var(--pg-accent-glow);
 }
 .sh-search--comment { margin: 18px 0 0; }
+
+/* Côté « rôles d'une personne », la pastille remplace l'avatar : on voit du
+   même coup si le rôle ouvre l'accès ou s'il n'est qu'attribué. */
+.sh-role-ico {
+  width: 26px; height: 26px;
+  flex: none;
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 8px;
+  background: var(--card-2);
+  border: 1px solid var(--border);
+  color: var(--faint);
+  font-size: 11px;
+}
+.sh-role-ico.is-granted {
+  background: var(--pg-accent-soft);
+  border-color: var(--pg-accent-border);
+  color: var(--pg-accent-deep);
+}
 
 .sh-picker-list { display: flex; flex-direction: column; gap: 3px; }
 .sh-pick {

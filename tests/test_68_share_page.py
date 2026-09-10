@@ -302,18 +302,122 @@ class TestPlusDeDoublon:
 # ══════════════════════════════════════════════════════════════════════════
 
 class TestVignettes:
-    """On choisit sa carto en la VOYANT : le serveur envoie de quoi la dessiner."""
+    """On choisit sa carto en la VOYANT : le serveur rend la vraie carte en SVG.
 
-    def test_l_apercu_donne_bandes_et_formes_normalisees(self, client, scene):
+    Une abstraction en barres de couleur rendait toutes les cartos identiques,
+    et une carto sans `optiqcarto_data` (importée du temps où seul le SVG Visio
+    était stocké) n'affichait rien du tout alors qu'elle existe.
+    """
+
+    def test_la_vignette_dessine_bandes_formes_et_fleches(self, client, scene):
         _as(client, scene["champion"], "t68.champion@devoptiq.com")
-        data = client.get("/cartography/api/access/previews").get_json()
-        carte = next(m for m in data["maps"] if m["id"] == scene["entity_a"])
-        apercu = carte["preview"]
-        assert apercu["bands"] and apercu["shapes"]
-        for f in apercu["shapes"]:
-            for cle in ("x", "y", "w", "h"):
-                assert 0.0 <= f[cle] <= 1.0, (cle, f[cle])
-        assert apercu["counts"]["shapes"] == len(DIAGRAM["shapes"])
+        res = client.get(f"/cartography/api/access/{scene['entity_a']}/thumbnail.svg")
+        assert res.status_code == 200
+        assert res.mimetype == "image/svg+xml"
+        svg = res.get_data(as_text=True)
+        assert svg.startswith("<svg") and "viewBox=" in svg
+        assert svg.count("<rect") >= 2          # le fond, la bande, la forme
+        assert "#f7f9fc" in svg                 # fond de la vignette
+
+    def test_le_trace_reel_des_fleches_est_repris(self, app, client, scene):
+        """Une flèche suit son tracé enregistré, pas une droite entre deux boîtes :
+        c'est la trajectoire qui rend une carto reconnaissable."""
+        from Code.extensions import db
+        from Code.models.models import Entity
+        import json as _json
+        diag = _json.loads(_json.dumps(DIAGRAM))
+        diag["shapes"].append({"id": "a2", "type": "process", "label": "T68 Deux",
+                               "x": 600, "y": 300, "w": 120, "h": 60})
+        diag["connections"] = [{
+            "fromId": "a1", "toId": "a2", "color": "#ff0000",
+            "_computedOrthopts": [{"x": 160, "y": 60}, {"x": 160, "y": 330},
+                                  {"x": 600, "y": 330}],
+        }]
+        with app.app_context():
+            ent = db.session.get(Entity, scene["entity_a"])
+            avant = ent.optiqcarto_data
+            ent.optiqcarto_data = _json.dumps(diag)
+            db.session.commit()
+        try:
+            _as(client, scene["champion"], "t68.champion@devoptiq.com")
+            svg = client.get(
+                f"/cartography/api/access/{scene['entity_a']}/thumbnail.svg"
+            ).get_data(as_text=True)
+            assert "<polyline" in svg
+            assert "160.0,330.0" in svg          # le coude du tracé enregistré
+            assert 'stroke="#ff0000"' in svg
+        finally:
+            with app.app_context():
+                ent = db.session.get(Entity, scene["entity_a"])
+                ent.optiqcarto_data = avant
+                db.session.commit()
+
+    def test_une_couleur_douteuse_ne_part_pas_dans_le_svg(self, app, client, scene):
+        """Les couleurs viennent d'un fichier Visio : elles sont recopiées telles
+        quelles dans le SVG, donc on les borne."""
+        from Code.extensions import db
+        from Code.models.models import Entity
+        import json as _json
+        diag = _json.loads(_json.dumps(DIAGRAM))
+        diag["shapes"][0]["color"] = '"><script>alert(1)</script>'
+        with app.app_context():
+            ent = db.session.get(Entity, scene["entity_a"])
+            avant = ent.optiqcarto_data
+            ent.optiqcarto_data = _json.dumps(diag)
+            db.session.commit()
+        try:
+            _as(client, scene["champion"], "t68.champion@devoptiq.com")
+            svg = client.get(
+                f"/cartography/api/access/{scene['entity_a']}/thumbnail.svg"
+            ).get_data(as_text=True)
+            assert "<script" not in svg
+        finally:
+            with app.app_context():
+                ent = db.session.get(Entity, scene["entity_a"])
+                ent.optiqcarto_data = avant
+                db.session.commit()
+
+    def test_sans_diagramme_on_sert_le_svg_visio_d_origine(self, app, client, scene):
+        """C'est le cas qui n'affichait rien : la carto existe, en SVG seulement."""
+        from Code.extensions import db
+        from Code.models.models import Entity
+        with app.app_context():
+            e = Entity.query.filter_by(name="T68 SVG seul").first()
+            if e is None:
+                e = Entity(name="T68 SVG seul", owner_id=scene["champion"])
+                db.session.add(e)
+            e.optiqcarto_data = None
+            e.svg_content = '<svg xmlns="http://www.w3.org/2000/svg"><rect/></svg>'
+            db.session.commit()
+            eid = e.id
+
+        _as(client, scene["champion"], "t68.champion@devoptiq.com")
+        res = client.get(f"/cartography/api/access/{eid}/thumbnail.svg")
+        assert res.status_code == 200
+        assert "<rect/>" in res.get_data(as_text=True)
+
+        listee = next(m for m in client.get(
+            "/cartography/api/access/previews").get_json()["maps"] if m["id"] == eid)
+        assert listee["has_thumbnail"] is True
+
+    def test_une_carto_vraiment_vide_n_a_pas_de_vignette(self, app, client, scene):
+        from Code.extensions import db
+        from Code.models.models import Entity
+        with app.app_context():
+            e = Entity.query.filter_by(name="T68 Sans carto").first()
+            if e is None:
+                e = Entity(name="T68 Sans carto", owner_id=scene["champion"])
+                db.session.add(e)
+            e.optiqcarto_data = None
+            e.svg_content = None
+            db.session.commit()
+            eid = e.id
+
+        _as(client, scene["champion"], "t68.champion@devoptiq.com")
+        assert client.get(f"/cartography/api/access/{eid}/thumbnail.svg").status_code == 404
+        listee = next(m for m in client.get(
+            "/cartography/api/access/previews").get_json()["maps"] if m["id"] == eid)
+        assert listee["has_thumbnail"] is False
 
     def test_la_liste_porte_l_etat_et_les_chiffres(self, client, scene):
         _as(client, scene["champion"], "t68.champion@devoptiq.com")
@@ -323,38 +427,21 @@ class TestVignettes:
         assert carte["is_owner"] is True
         assert "activities" in carte and "roles_open" in carte
 
-    def test_une_carto_sans_diagramme_n_a_pas_d_apercu(self, app, client, scene):
-        """Mieux vaut un état vide explicite qu'un cadre gris sans explication."""
-        from Code.extensions import db
-        from Code.models.models import Entity
-        with app.app_context():
-            vide = Entity.query.filter_by(name="T68 Sans carto").first()
-            if vide is None:
-                vide = Entity(name="T68 Sans carto", owner_id=scene["champion"])
-                db.session.add(vide)
-            vide.optiqcarto_data = None
-            db.session.commit()
-            vide_id = vide.id
-
-        _as(client, scene["champion"], "t68.champion@devoptiq.com")
-        data = client.get("/cartography/api/access/previews").get_json()
-        carte = next(m for m in data["maps"] if m["id"] == vide_id)
-        assert carte["preview"] is None
-
-    def test_un_compte_hors_perimetre_ne_voit_pas_la_vignette(self, app, client, scene):
+    def test_la_vignette_d_une_carto_hors_perimetre_est_refusee(self, app, client, scene):
         from Code.carto_access import set_access
         from Code.extensions import db
-        from Code.models.models import Entity
+        from Code.models.models import Entity, UserRole
         dehors = _mk_user(app, "t68.vignette@devoptiq.com", "user")
         with app.app_context():
-            from Code.models.models import UserRole
             UserRole.query.filter_by(user_id=dehors).delete()
             set_access(db.session.get(Entity, scene["entity_a"]), True, [scene["role_a"]])
             set_access(db.session.get(Entity, scene["entity_b"]), True, [scene["role_b"]])
             db.session.commit()
 
         _as(client, dehors, "t68.vignette@devoptiq.com")
-        data = client.get("/cartography/api/access/previews").get_json()
-        vues = {m["id"] for m in data["maps"]}
+        assert client.get(
+            f"/cartography/api/access/{scene['entity_a']}/thumbnail.svg").status_code == 404
+        vues = {m["id"] for m in client.get(
+            "/cartography/api/access/previews").get_json()["maps"]}
         assert scene["entity_a"] not in vues
         assert scene["entity_b"] not in vues

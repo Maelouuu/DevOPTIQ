@@ -16,7 +16,8 @@ proposition renverrait à un état qui a pu bouger entre son dépôt et son exam
 import json
 from datetime import datetime
 
-from flask import Blueprint, jsonify, redirect, render_template, request, session, url_for
+from flask import (Blueprint, Response, jsonify, redirect, render_template,
+                   request, session, url_for)
 
 from Code.carto_access import (
     access_summary, can_edit, can_manage_access, can_read, can_review,
@@ -94,71 +95,146 @@ def post_access(entity_id):
 
 
 # ─────────────────────────────────────────────
-# APERÇU D'UNE CARTO (vignette)
+# VIGNETTE D'UNE CARTO
 # ─────────────────────────────────────────────
+# On reconnaît sa cartographie à sa FORME : le dessin des bandes, la trajectoire
+# des flèches, la répartition des activités. Une abstraction en barres de couleur
+# rendait toutes les cartos identiques. On rend donc la vraie carte, en petit.
 
-# Une vignette n'a pas besoin de 400 formes : au-delà, on ne distingue plus rien
-# et la page s'alourdit pour rien.
-_APERCU_MAX_FORMES = 260
+# Au-delà, le SVG pèse plus qu'il n'informe : à cette taille on ne distingue
+# plus une flèche de plus.
+_VIGNETTE_MAX_FORMES = 400
+_VIGNETTE_MAX_LIENS = 500
+# Un SVG Visio d'origine peut peser plusieurs Mo : au-delà on renonce plutôt
+# que de faire ramer la page pour une image de 220 px de large.
+_VIGNETTE_MAX_SVG = 3 * 1024 * 1024
 
 
-def _apercu_carto(entity):
-    """Bandes et formes en coordonnées 0..1, prêtes à dessiner.
+def _echap_couleur(valeur, defaut="#94a3b8"):
+    """Une couleur de carto part telle quelle dans le SVG : on la borne."""
+    v = (valeur or "").strip()
+    if len(v) > 24 or any(c in v for c in '<>"\'&'):
+        return defaut
+    return v or defaut
 
-    Renvoie None si la carto est vide : la vignette affiche alors un état vide
-    explicite plutôt qu'un cadre gris sans explication.
-    """
+
+def _points_du_lien(conn, boites):
+    """Le tracé réel de la flèche, ou à défaut la droite entre les deux formes."""
+    for cle in ("_computedOrthopts", "userPts", "customPath"):
+        pts = conn.get(cle)
+        if isinstance(pts, list) and len(pts) >= 2:
+            sortie = [(p.get("x"), p.get("y")) for p in pts
+                      if isinstance(p, dict) and p.get("x") is not None
+                      and p.get("y") is not None]
+            if len(sortie) >= 2:
+                return sortie
+    a = boites.get(str(conn.get("fromId")))
+    b = boites.get(str(conn.get("toId")))
+    if a and b:
+        return [(a[0] + a[2] / 2, a[1] + a[3] / 2), (b[0] + b[2] / 2, b[1] + b[3] / 2)]
+    return []
+
+
+def _svg_vignette(entity):
+    """SVG de la carto, ou None si l'entité n'a rien à montrer."""
     diagram = _diagram(entity.optiqcarto_data)
     if not diagram:
+        # Cartos importées avant `optiqcarto_data` : le SVG Visio est tout ce
+        # qu'on a, et c'est déjà la carte d'origine.
+        brut = entity.svg_content or ""
+        if brut.strip().startswith("<") and len(brut) <= _VIGNETTE_MAX_SVG:
+            return brut
         return None
 
-    bandes_src = [b for b in (diagram.get("bands") or []) if not b.get("deleted")]
-    formes_src = [s for s in (diagram.get("shapes") or [])
-                  if s.get("type") != "decision"]
-    if not bandes_src and not formes_src:
+    bandes = [b for b in (diagram.get("bands") or []) if not b.get("deleted")]
+    formes = list(diagram.get("shapes") or [])
+    if not bandes and not formes:
         return None
 
     # Les bandes s'empilent depuis y = -200 (repère d'OptiqCarto).
-    haut, y = -200.0, -200.0
-    bandes = []
-    for b in bandes_src:
+    y, rubans = -200.0, []
+    for b in bandes:
         h = float(b.get("height") or 0)
-        bandes.append({"y": y, "h": h,
-                       "color": b.get("color") or "#d1d5db",
-                       "label": b.get("label") or ""})
+        rubans.append((y, h, _echap_couleur(b.get("color"), "#d1d5db")))
         y += h
-    bas = y
 
-    largeur = float(diagram.get("bandWidth") or 0)
-    for f in formes_src:
-        largeur = max(largeur, float(f.get("x") or 0) + float(f.get("w") or 0))
-        bas = max(bas, float(f.get("y") or 0) + float(f.get("h") or 0))
-        haut = min(haut, float(f.get("y") or 0))
-    largeur = largeur or 1.0
-    hauteur = (bas - haut) or 1.0
+    boites = {}
+    x0, y0 = 0.0, (-200.0 if bandes else None)
+    x1, y1 = float(diagram.get("bandWidth") or 0), y
+    for f in formes:
+        fx, fy = float(f.get("x") or 0), float(f.get("y") or 0)
+        fw, fh = float(f.get("w") or 0), float(f.get("h") or 0)
+        boites[str(f.get("id"))] = (fx, fy, fw, fh)
+        x0, y0 = min(x0, fx), (fy if y0 is None else min(y0, fy))
+        x1, y1 = max(x1, fx + fw), max(y1, fy + fh)
+    if y0 is None:
+        y0 = 0.0
+    marge = max(40.0, (x1 - x0) * 0.02)
+    x0, y0, x1, y1 = x0 - marge, y0 - marge, x1 + marge, y1 + marge
+    largeur, hauteur = max(1.0, x1 - x0), max(1.0, y1 - y0)
 
-    def norme(v, origine, etendue):
-        return round(max(0.0, min(1.0, (v - origine) / etendue)), 4)
+    # Un trait de vignette doit rester visible : on l'exprime en fraction de la
+    # largeur totale, sinon il disparaît sur les grandes cartos.
+    trait = max(1.5, largeur / 700.0)
 
-    return {
-        "bands": [{"y": norme(b["y"], haut, hauteur),
-                   "h": round(b["h"] / hauteur, 4),
-                   "color": b["color"]} for b in bandes],
-        "shapes": [{"x": norme(float(f.get("x") or 0), 0, largeur),
-                    "y": norme(float(f.get("y") or 0), haut, hauteur),
-                    "w": round(float(f.get("w") or 0) / largeur, 4),
-                    "h": round(float(f.get("h") or 0) / hauteur, 4),
-                    "color": f.get("color") or "#94a3b8"}
-                   for f in formes_src[:_APERCU_MAX_FORMES]],
-        "counts": {"shapes": len(formes_src),
-                   "links": len(diagram.get("connections") or []),
-                   "bands": len(bandes_src)},
-    }
+    parts = [f'<rect x="{x0:.1f}" y="{y0:.1f}" width="{largeur:.1f}" '
+             f'height="{hauteur:.1f}" fill="#f7f9fc"/>']
+    for by, bh, couleur in rubans:
+        parts.append(f'<rect x="{x0:.1f}" y="{by:.1f}" width="{largeur:.1f}" '
+                     f'height="{max(1.0, bh):.1f}" fill="{couleur}" opacity="0.45"/>')
+
+    for c in (diagram.get("connections") or [])[:_VIGNETTE_MAX_LIENS]:
+        pts = _points_du_lien(c, boites)
+        if len(pts) < 2:
+            continue
+        chemin = " ".join(f"{px:.1f},{py:.1f}" for px, py in pts)
+        parts.append(f'<polyline points="{chemin}" fill="none" '
+                     f'stroke="{_echap_couleur(c.get("color"), "#64748b")}" '
+                     f'stroke-width="{trait:.2f}" stroke-opacity="0.7" '
+                     f'stroke-linejoin="round" stroke-linecap="round"/>')
+
+    for f in formes[:_VIGNETTE_MAX_FORMES]:
+        fx, fy, fw, fh = boites[str(f.get("id"))]
+        if fw <= 0 or fh <= 0:
+            continue
+        couleur = _echap_couleur(f.get("color"))
+        if f.get("type") == "decision":
+            cx, cy = fx + fw / 2, fy + fh / 2
+            parts.append(f'<polygon points="{cx:.1f},{fy:.1f} {fx + fw:.1f},{cy:.1f} '
+                         f'{cx:.1f},{fy + fh:.1f} {fx:.1f},{cy:.1f}" fill="{couleur}"/>')
+        else:
+            rayon = min(fw, fh) * (0.5 if f.get("type") == "start-end" else 0.14)
+            parts.append(f'<rect x="{fx:.1f}" y="{fy:.1f}" width="{fw:.1f}" '
+                         f'height="{fh:.1f}" rx="{rayon:.1f}" fill="{couleur}"/>')
+
+    return (f'<svg xmlns="http://www.w3.org/2000/svg" '
+            f'viewBox="{x0:.1f} {y0:.1f} {largeur:.1f} {hauteur:.1f}" '
+            f'preserveAspectRatio="xMidYMid meet">' + "".join(parts) + "</svg>")
+
+
+@carto_sharing_bp.route("/api/access/<int:entity_id>/thumbnail.svg")
+def get_thumbnail(entity_id):
+    """La carto en image, pour la galerie de la page Partage."""
+    user = _connecte()
+    if not user:
+        return ("", 401)
+
+    entity = db.session.get(Entity, entity_id)
+    if not entity or not can_read(entity, user):
+        return ("", 404)
+
+    svg = _svg_vignette(entity)
+    if not svg:
+        return ("", 404)
+    reponse = Response(svg, mimetype="image/svg+xml")
+    # Privée : une carto commune n'est pas publique pour autant.
+    reponse.headers["Cache-Control"] = "private, max-age=120"
+    return reponse
 
 
 @carto_sharing_bp.route("/api/access/previews")
 def get_previews():
-    """Vignette + chiffres de chaque carto ouverte au compte."""
+    """Chiffres de chaque carto ouverte au compte (l'image vient de thumbnail.svg)."""
     user = _connecte()
     if not user:
         return jsonify({"error": "Non connecté"}), 401
@@ -176,7 +252,7 @@ def get_previews():
             "activities": Activities.query.filter_by(entity_id=e.id).count(),
             "roles_open": len(autorises),
             "open_to_all": bool(e.is_shared and not autorises),
-            "preview": _apercu_carto(e),
+            "has_thumbnail": _svg_vignette(e) is not None,
         })
     return jsonify({"maps": sorties})
 
