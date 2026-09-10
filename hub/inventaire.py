@@ -41,19 +41,19 @@ INSTANCES = [
         "cle": "prod", "nom": "DevOPTIQ", "variante": "Production",
         "service": "devoptiq", "url": _url("devoptiq"), "sonde": "/login",
         "accent": "prod",
-        "pour": "Clients en production",
-        "branche": "main",
+        "pour": "AFDEC — version officielle interne",
+        "branche": "nouveau-point",
         "base": "Base de production",
-        "resume": "Version stable. N'y merger que du validé.",
+        "resume": "La version de référence de l'entreprise. N'y pousser que du fini.",
     },
     {
         "cle": "staging", "nom": "DevOPTIQ", "variante": "Staging",
         "service": "devoptiq-staging", "url": _url("devoptiq-staging"), "sonde": "/login",
         "accent": "staging",
-        "pour": "AFDEC — interne",
+        "pour": "Bac à sable — Maël & Claude",
         "branche": "staging",
-        "base": "Base staging",
-        "resume": "L'instance de travail : tout se valide ici.",
+        "base": "Base staging (neuve depuis le 10/09/2026)",
+        "resume": "On y développe sans pression. Base dédiée, 5 comptes de test.",
         "liens": [
             {"libelle": "Panel de tests", "href": "/testpanel/"},
             {"libelle": "Carnet de bord", "href": "/testpanel/journal"},
@@ -85,11 +85,11 @@ INSTANCES = [
 # ── Infrastructure ────────────────────────────────────────────────────────
 SERVICES_RUN = [
     {"service": "devoptiq", "sert": "DevOPTIQ Production", "accent": "prod",
-     "workflow": "deploy-production.yml", "declencheur": "push sur main"},
+     "workflow": "deploy-production.yml", "declencheur": "push sur prod-stable"},
     {"service": "devoptiq-staging", "sert": "DevOPTIQ Staging", "accent": "staging",
      "workflow": "deploy-staging.yml", "declencheur": "push sur staging"},
     {"service": "optiqfluent-staging", "sert": "OptiqFluent Pilote", "accent": "pilote",
-     "workflow": "deploy-beta.yml", "declencheur": "push sur optiqfluent-staging"},
+     "workflow": "— (déploiement manuel)", "declencheur": "tools/deploy/deploy_cloudrun.sh"},
     {"service": "optiq-pulse", "sert": "OptiqPulse", "accent": "pulse",
      "workflow": "deploy-pulse.yml", "declencheur": "push touchant pulse/**"},
     {"service": "optiq-hub", "sert": "Ce hub", "accent": "hub",
@@ -184,17 +184,18 @@ OUTILS = [
 # ── Dépôt ─────────────────────────────────────────────────────────────────
 BRANCHES = [
     {"nom": "staging", "accent": "staging", "deploie": "devoptiq-staging",
-     "role": "Branche de travail. Tout passe par elle."},
-    {"nom": "main", "accent": "prod", "deploie": "devoptiq",
-     "role": "Production stable."},
+     "role": "Bac à sable : on y développe librement, base de données dédiée."},
+    {"nom": "nouveau-point", "accent": "prod", "deploie": "devoptiq",
+     "role": "Version officielle interne AFDEC. On n'y pousse que du fini."},
     {"nom": "optiqfluent-staging", "accent": "pilote", "deploie": "optiqfluent-staging",
-     "role": "Pilote client : rebranding, licence, prompts chiffrés."},
+     "role": "Pilote ARaymond : rebranding, licence, prompts chiffrés. On n'y touche pas."},
+    {"nom": "prod-stable", "accent": "prod", "deploie": "devoptiq (workflow)",
+     "role": "Déclencheur de deploy-production.yml. Hérité, à clarifier."},
 ]
 
 WORKFLOWS = [
     {"fichier": "deploy-staging.yml", "titre": "Deploy → Staging", "cible": "devoptiq-staging"},
     {"fichier": "deploy-production.yml", "titre": "Deploy → Production", "cible": "devoptiq"},
-    {"fichier": "deploy-beta.yml", "titre": "Deploy → Pilote", "cible": "optiqfluent-staging"},
     {"fichier": "deploy-pulse.yml", "titre": "Deploy → OptiqPulse", "cible": "optiq-pulse"},
     {"fichier": "deploy-hub.yml", "titre": "Deploy → Hub", "cible": "optiq-hub"},
     {"fichier": "client-image.yml", "titre": "Image client", "cible": "ghcr.io/maelouuu/optiqfluent"},

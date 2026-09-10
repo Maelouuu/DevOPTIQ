@@ -1218,8 +1218,49 @@ rôles de tâche, `Skills` → compétences.
 - **i18n JS** : page RH → `window.GRH_I18N` (gestion_rh.js) ; fichier DCP →
   clés `pf_*` dans `window.PROPOSE_I18N` (propose_from_file.js, repli français intégré).
   Injecter les chaînes avec `| tojson` (jamais `"{{ t(...) }}"` → entités HTML dans le JS).
-- La branche principale de travail est **`staging`** (pas `main`)
-- `main` = production stable — ne merger que les versions validées
+### Organisation des branches et des bases (2026-09-10)
+
+| Branche | Instance Cloud Run | Base | À quoi elle sert |
+|---------|--------------------|------|------------------|
+| `staging` | `devoptiq-staging` | `neondb` | **Bac à sable Maël + Claude.** On y développe sans pression, on pousse quand une nouveauté est finie. |
+| `nouveau-point` | `devoptiq` | base de production | **Version officielle interne AFDEC.** On n'y pousse que du fini. |
+| `optiqfluent-staging` | `optiqfluent-staging` | `optiqfluent_pilot` | **Pilote ARaymond (Inde).** On n'y touche pas ; les correctifs partent le soir (nuit là-bas). |
+
+- ⚠️ **`nouveau-point`, pas `main`.** C'est cette branche qui alimente le service
+  `devoptiq` (vérifié dans la console Cloud Run). `main` n'a pas bougé depuis mai, et
+  `deploy-production.yml` se déclenche en réalité sur **`prod-stable`** — un troisième
+  chemin, hérité, qu'il faudra clarifier. L'inventaire du hub annonçait « push sur main »
+  et un `deploy-beta.yml` qui n'existe pas : corrigé.
+- ⚠️ **`neondb` et `optiqfluent_pilot` vivent sur le MÊME endpoint Neon**
+  (`ep-solitary-bonus-abrhwgrs`). Une URL mal recopiée efface le travail du client :
+  `tools/db/reset_db.py` exige `--expect-db` et refuse d'agir si le nom ne correspond pas.
+- **Outils de base** : `tools/db/dump_db.py` (sauvegarde JSON complète, sans `pg_dump` —
+  Neon n'est pas joignable avec `psql` depuis tous les postes) et `tools/db/reset_db.py`
+  (efface le schéma, laisse le démarrage NORMAL de l'app le reconstruire — donc les
+  migrations à chaud sont exercées au passage — puis crée les comptes de départ).
+  Trois garde-fous : `--expect-db` obligatoire, `--yes` explicite, sauvegarde exigée.
+- **Base de `staging` refaite le 10/09/2026** : 5 comptes, mot de passe `test`
+  (`afdec.enterprise.services@gmail.com` administrateur, un champion, trois utilisateurs),
+  aucune entité. Ancienne base sauvegardée hors dépôt dans
+  `~/AFDEC/sauvegardes/neondb-2026-09-10` (59 tables, 25 853 lignes).
+- ⚠️ **La remise à zéro a révélé un défaut de longue date** : `user_activity_plans` était
+  lue et écrite en SQL brut par `plan_storage.py` mais **rien ne la créait**. Elle
+  survivait sur les instances anciennes comme vestige d'une migration disparue ; sur
+  toute base NEUVE — donc chez un nouveau client — le premier enregistrement d'un plan
+  tombait en 500. Pire : `tests/test_28_plan_storage.py` **fabriquait la table lui-même**
+  (« absente de SQLAlchemy models », disait son commentaire), si bien que ses 20 tests
+  passaient. La table a maintenant son modèle `UserActivityPlan`, et le contournement du
+  test est devenu une vérification. Même famille que `entreprise_settings` en son temps.
+- ⚠️ **Le hub déclarait des instances « injoignables » alors qu'elles répondent.**
+  Cloud Run redescend à zéro instance ; mesuré depuis un poste, `devoptiq-staging` répond
+  en **15,2 s** à froid (démarrage lourd : create_all + migrations, `--cpu 2`) et
+  `optiqfluent-staging` en 8,9 s — la sonde coupait à **12 s**. Délai porté à 28 s, et un
+  dépassement rend désormais **« en veille »** (bleu calme) et non « injoignable » (rouge
+  d'alerte) : le service dort, il n'est pas cassé.
+
+## Notes importantes (suite)
+
+- `main` = ancienne branche de production, figée depuis mai 2026.
 - Les fichiers `.vsdx` dans `Code/` sont des exemples Visio pour les tests
 - `Code/instance/optiq.db` = base SQLite locale (ne pas committer)
 - Les variables d'environnement sensibles (DB_URL, ANTHROPIC_KEY…) sont dans Cloud Run, pas dans le code

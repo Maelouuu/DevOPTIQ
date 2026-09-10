@@ -860,6 +860,28 @@ class RecentEvent(db.Model):
     user_id = db.Column(db.Integer, nullable=True)  # utilisateur à l'origine de l'action
 
 
+class UserActivityPlan(db.Model):
+    """Plan de compétences enregistré pour un couple (collaborateur, activité).
+
+    ⚠️ Même défaut que `entreprise_settings` en son temps : `plan_storage.py`
+    interroge et écrit cette table en SQL brut, mais rien ne la créait. Elle
+    existait sur les instances anciennes — vestige d'une migration disparue — et
+    manquait donc sur toute base NEUVE : le premier enregistrement d'un plan
+    tombait en 500. Le modèle la rend à `create_all`, partout.
+    """
+    __tablename__ = 'user_activity_plans'
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    user_id = db.Column(db.Integer, nullable=False, index=True)
+    activity_id = db.Column(db.Integer, nullable=False, index=True)
+    role_id = db.Column(db.Integer, nullable=True)
+    content = db.Column(db.Text, nullable=True)
+    # Écrites en ISO par plan_storage (`_now_iso`) : PostgreSQL comme SQLite
+    # convertissent la chaîne, on garde donc un vrai type date.
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
 class EntityRoleAccess(db.Model):
     """Rôle autorisé sur une carto commune.
 

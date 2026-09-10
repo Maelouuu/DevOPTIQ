@@ -11,6 +11,7 @@ import concurrent.futures as futures
 import hmac
 import os
 import secrets
+import socket
 import time
 import urllib.error
 import urllib.request
@@ -112,17 +113,31 @@ _CACHE = {"ts": 0.0, "etats": {}}
 _TTL_S = 25
 
 
+# Un service Cloud Run redescend à zéro instance : la première requête doit
+# attendre son réveil. Mesuré : 15,2 s pour devoptiq-staging (démarrage lourd —
+# create_all + migrations à chaud, --cpu 2), 8,9 s pour optiqfluent-staging.
+# En deçà, la sonde déclarait « injoignable » des services parfaitement en ligne.
+_DELAI_SONDE_S = 28
+
+
 def _sonder(instance):
     url = instance["url"].rstrip("/") + instance.get("sonde", "/")
     debut = time.perf_counter()
     req = urllib.request.Request(url, method="GET",
                                  headers={"User-Agent": "OptiqHub/1.0"})
     try:
-        with urllib.request.urlopen(req, timeout=12) as r:
+        with urllib.request.urlopen(req, timeout=_DELAI_SONDE_S) as r:
             code = r.status
     except urllib.error.HTTPError as e:
         code = e.code            # le service répond : c'est ce qui compte
-    except Exception:
+    except (socket.timeout, TimeoutError):
+        # Le service dort, il ne casse pas : on ne crie pas à la panne.
+        return {"etat": "en veille", "code": None,
+                "ms": int((time.perf_counter() - debut) * 1000)}
+    except Exception as exc:
+        if isinstance(getattr(exc, "reason", None), (socket.timeout, TimeoutError)):
+            return {"etat": "en veille", "code": None,
+                    "ms": int((time.perf_counter() - debut) * 1000)}
         return {"etat": "injoignable", "code": None, "ms": None}
     ms = int((time.perf_counter() - debut) * 1000)
     etat = "en ligne" if code < 400 else ("dégradé" if code < 500 else "en erreur")

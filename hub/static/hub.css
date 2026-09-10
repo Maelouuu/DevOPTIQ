@@ -427,10 +427,14 @@ body{
 .etat-degrade{color:#a06a10;border-color:#f0d79a;background:#fdf6e6}
 .etat-en-erreur{color:#b4603a;border-color:#eec0a8;background:#fdf1ea}
 .etat-injoignable{color:#a8382b;border-color:#eeb3aa;background:#fdeeeb}
+/* En veille : le service dort (Cloud Run à zéro instance). Ce n'est pas
+   une panne — bleu calme, pas rouge d'alerte. */
+.etat-en-veille{color:#4a6a8a;border-color:#bcd0e2;background:#eef4fa}
 .etat-point.etat-en-ligne{background:#588b2f;box-shadow:0 0 0 4px rgba(88,139,47,.2)}
 .etat-point.etat-degrade{background:#e0a015;box-shadow:0 0 0 4px rgba(224,160,21,.2)}
 .etat-point.etat-en-erreur{background:#b4603a;box-shadow:0 0 0 4px rgba(180,96,58,.2)}
 .etat-point.etat-injoignable{background:#c2452f;box-shadow:0 0 0 4px rgba(194,69,47,.2)}
+.etat-point.etat-en-veille{background:#6b8fb0;box-shadow:0 0 0 4px rgba(107,143,176,.2)}
 @keyframes battement{
   0%{box-shadow:0 0 0 0 rgba(88,139,47,.45)}
   70%{box-shadow:0 0 0 7px rgba(88,139,47,0)}
