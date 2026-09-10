@@ -94,6 +94,94 @@ def post_access(entity_id):
 
 
 # ─────────────────────────────────────────────
+# APERÇU D'UNE CARTO (vignette)
+# ─────────────────────────────────────────────
+
+# Une vignette n'a pas besoin de 400 formes : au-delà, on ne distingue plus rien
+# et la page s'alourdit pour rien.
+_APERCU_MAX_FORMES = 260
+
+
+def _apercu_carto(entity):
+    """Bandes et formes en coordonnées 0..1, prêtes à dessiner.
+
+    Renvoie None si la carto est vide : la vignette affiche alors un état vide
+    explicite plutôt qu'un cadre gris sans explication.
+    """
+    diagram = _diagram(entity.optiqcarto_data)
+    if not diagram:
+        return None
+
+    bandes_src = [b for b in (diagram.get("bands") or []) if not b.get("deleted")]
+    formes_src = [s for s in (diagram.get("shapes") or [])
+                  if s.get("type") != "decision"]
+    if not bandes_src and not formes_src:
+        return None
+
+    # Les bandes s'empilent depuis y = -200 (repère d'OptiqCarto).
+    haut, y = -200.0, -200.0
+    bandes = []
+    for b in bandes_src:
+        h = float(b.get("height") or 0)
+        bandes.append({"y": y, "h": h,
+                       "color": b.get("color") or "#d1d5db",
+                       "label": b.get("label") or ""})
+        y += h
+    bas = y
+
+    largeur = float(diagram.get("bandWidth") or 0)
+    for f in formes_src:
+        largeur = max(largeur, float(f.get("x") or 0) + float(f.get("w") or 0))
+        bas = max(bas, float(f.get("y") or 0) + float(f.get("h") or 0))
+        haut = min(haut, float(f.get("y") or 0))
+    largeur = largeur or 1.0
+    hauteur = (bas - haut) or 1.0
+
+    def norme(v, origine, etendue):
+        return round(max(0.0, min(1.0, (v - origine) / etendue)), 4)
+
+    return {
+        "bands": [{"y": norme(b["y"], haut, hauteur),
+                   "h": round(b["h"] / hauteur, 4),
+                   "color": b["color"]} for b in bandes],
+        "shapes": [{"x": norme(float(f.get("x") or 0), 0, largeur),
+                    "y": norme(float(f.get("y") or 0), haut, hauteur),
+                    "w": round(float(f.get("w") or 0) / largeur, 4),
+                    "h": round(float(f.get("h") or 0) / hauteur, 4),
+                    "color": f.get("color") or "#94a3b8"}
+                   for f in formes_src[:_APERCU_MAX_FORMES]],
+        "counts": {"shapes": len(formes_src),
+                   "links": len(diagram.get("connections") or []),
+                   "bands": len(bandes_src)},
+    }
+
+
+@carto_sharing_bp.route("/api/access/previews")
+def get_previews():
+    """Vignette + chiffres de chaque carto ouverte au compte."""
+    user = _connecte()
+    if not user:
+        return jsonify({"error": "Non connecté"}), 401
+
+    from Code.models.models import Activities
+
+    sorties = []
+    for e in Entity.accessible(user.id):
+        autorises = entity_role_ids(e.id)
+        sorties.append({
+            "id": e.id,
+            "name": e.name,
+            "is_shared": bool(e.is_shared),
+            "is_owner": e.owner_id in (None, user.id),
+            "activities": Activities.query.filter_by(entity_id=e.id).count(),
+            "roles_open": len(autorises),
+            "open_to_all": bool(e.is_shared and not autorises),
+            "preview": _apercu_carto(e),
+        })
+    return jsonify({"maps": sorties})
+
+
+# ─────────────────────────────────────────────
 # RÔLES ET LEURS TITULAIRES
 # ─────────────────────────────────────────────
 # Régler l'accès sans pouvoir dire QUI tient le rôle obligeait à faire l'aller-

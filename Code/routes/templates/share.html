@@ -4,10 +4,9 @@
 <script>
   /* Tout ce que le JS a besoin de savoir, injecté une fois. */
   window.SHARE_PAGE = {
-    entities:   {{ entities | tojson | safe }},
-    activeId:   {{ (active_entity_id or 'null') | safe }},
-    canManage:  {{ can_manage | tojson }},
-    canReview:  {{ can_review | tojson }},
+    activeId:  {{ (active_entity_id or 'null') | safe }},
+    canManage: {{ can_manage | tojson }},
+    canReview: {{ can_review | tojson }},
   };
   window.SHARE_L = {
     sharedLabel:   {{ t('access.shared_label') | tojson }},
@@ -25,14 +24,23 @@
     addHolder:     {{ t('sharepage.add_holder') | tojson }},
     removeHolder:  {{ t('sharepage.remove_holder') | tojson }},
     searchAccount: {{ t('sharepage.search_account') | tojson }},
-    allIn:         {{ t('sharepage.all_in') | tojson }},
     reasonOwner:   {{ t('sharepage.reason_owner') | tojson }},
     reasonAdmin:   {{ t('sharepage.reason_admin') | tojson }},
     reasonChampion:{{ t('sharepage.reason_champion') | tojson }},
     reasonAll:     {{ t('sharepage.reason_all') | tojson }},
     reasonRole:    {{ t('sharepage.reason_role') | tojson }},
     reachEmpty:    {{ t('sharepage.reach_empty') | tojson }},
+    emptyMap:      {{ t('sharepage.empty_map') | tojson }},
+    activities:    {{ t('sharepage.activities') | tojson }},
+    statPeople:    {{ t('sharepage.stat_people') | tojson }},
+    statRoles:     {{ t('sharepage.stat_roles') | tojson }},
+    statPending:   {{ t('sharepage.stat_pending') | tojson }},
+    openMap:       {{ t('sharepage.open_map') | tojson }},
+    openEditor:    {{ t('sharepage.open_editor') | tojson }},
+    proposeLink:   {{ t('sharepage.propose_link') | tojson }},
+    manageAccounts:{{ t('sharepage.manage_accounts') | tojson }},
     changesNone:   {{ t('change.none') | tojson }},
+    changesNoneCta:{{ t('sharepage.changes_none_cta') | tojson }},
     changeBy:      {{ t('change.by') | tojson }},
     changeMine:    {{ t('change.mine') | tojson }},
     statusPending: {{ t('change.status_pending') | tojson }},
@@ -59,6 +67,10 @@
     rejected:      {{ t('change.rejected') | tojson }},
     back:          {{ t('change.back_to_list') | tojson }},
     proposeTitle:  {{ t('change.propose_title') | tojson }},
+    sharepage_step1: {{ t('sharepage.step1') | tojson }},
+    sharepage_step2: {{ t('sharepage.step2') | tojson }},
+    sharepage_step3: {{ t('sharepage.step3') | tojson }},
+    rolesHint:     {{ t('sharepage.roles_hint') | tojson }},
   };
 </script>
 <script defer src="{{ url_for('static', filename='js/share.js') }}"></script>
@@ -70,102 +82,44 @@
     {% include "page_banner.html" %}
   {% endwith %}
 
-  <div class="pg-container">
+  <div class="pg-container sh-layout">
 
-    {% if not entities %}
-      <div class="pg-card"><div class="pg-empty">{{ t('sharepage.no_entity') }}</div></div>
-    {% else %}
-
-    <!-- ── Choix de la carto ───────────────────────────────────────────── -->
-    <div class="pg-card share-picker">
-      <div class="pg-card-body share-picker-body">
-        <span class="pg-label">{{ t('sharepage.which_map') }}</span>
-        <select id="share-entity" class="pg-select">
-          {% for e in entities %}
-            <option value="{{ e.id }}" {% if e.id == active_entity_id %}selected{% endif %}>{{ e.name }}</option>
-          {% endfor %}
-        </select>
-        <span class="pg-pill share-state" id="share-state"></span>
+    <!-- ═══ Colonne gauche : la galerie des cartos ═══════════════════════
+         Une liste déroulante ne dit rien de ce qu'on choisit. Ici on voit la
+         carte elle-même — bandes et activités — avant de cliquer. -->
+    <aside class="sh-gallery" id="sh-gallery">
+      <div class="sh-gallery-head">
+        <span class="sh-eyebrow">{{ t('sharepage.your_maps') }}</span>
       </div>
-    </div>
+      <div class="sh-gallery-list" id="sh-gallery-list"></div>
+    </aside>
 
-    <!-- ── 1. La carto est-elle commune, et pour quels rôles ────────────── -->
-    <div class="pg-card">
-      <div class="pg-card-head">
-        <i class="fa-solid fa-users"></i>
-        {{ t('sharepage.step1') }}
-        <span class="pg-spacer"></span>
-        <button class="pg-btn pg-btn--accent pg-btn--sm" id="share-save" type="button">
-          <i class="fa-solid fa-check"></i> {{ t('access.save') }}
-        </button>
-      </div>
-      <div class="pg-card-body">
+    <!-- ═══ Colonne droite : la carto choisie ═══════════════════════════ -->
+    <main class="sh-main" id="sh-main">
+      <div class="sh-skeleton" id="sh-boot"><i class="fa-solid fa-spinner fa-spin"></i></div>
+    </main>
 
-        <label class="share-switch" id="share-switch-wrap">
-          <input type="checkbox" id="share-shared-cb">
-          <span class="share-switch-track"><span class="share-switch-knob"></span></span>
-          <span class="share-switch-text">
-            <strong>{{ t('access.shared_label') }}</strong>
-            <small id="share-switch-hint"></small>
-          </span>
-        </label>
-
-        <p class="share-readonly hidden" id="share-readonly">
-          <i class="fa-solid fa-lock"></i> {{ t('access.readonly') }}
-        </p>
-
-        <div id="share-roles-block" class="share-roles-block">
-          <div class="share-roles-intro">
-            <span class="pg-label">{{ t('sharepage.roles_title') }}</span>
-            <p class="share-hint">{{ t('sharepage.roles_hint') }}</p>
-          </div>
-          <div id="share-roles"></div>
-          <p class="share-openall hidden" id="share-openall">
-            <i class="fa-solid fa-earth-europe"></i> {{ t('access.open_to_all') }}
-          </p>
-        </div>
-
-      </div>
-    </div>
-
-    <!-- ── 2. Qui ouvre la carto, au total ──────────────────────────────── -->
-    <div class="pg-card">
-      <div class="pg-card-head">
-        <i class="fa-solid fa-user-check"></i>
-        {{ t('sharepage.step2') }}
-        <span class="pg-spacer"></span>
-        <span class="pg-pill" id="share-reach-count">—</span>
-      </div>
-      <div class="pg-card-body" id="share-reach"></div>
-    </div>
-
-    <!-- ── 3. Les modifications proposées ───────────────────────────────── -->
-    <div class="pg-card">
-      <div class="pg-card-head">
-        <i class="fa-solid fa-code-pull-request"></i>
-        {{ t('sharepage.step3') }}
-        <span class="pg-spacer"></span>
-        <span class="pg-pill pg-pill--warn hidden" id="share-changes-count"></span>
-      </div>
-      <div class="pg-card-body" id="share-changes"></div>
-    </div>
-
-    {% endif %}
   </div>
 </div>
 
-<!-- Sélecteur de comptes pour un rôle (construit à la volée par share.js) -->
-<div class="pg-modal-overlay hidden" id="share-picker-modal">
-  <div class="pg-modal share-modal">
-    <div class="pg-modal-head">
-      <i class="fa-solid fa-user-plus"></i>
-      <span id="share-picker-title"></span>
-      <span class="pg-spacer"></span>
-      <button class="pg-btn pg-btn--icon" id="share-picker-close"><i class="fa-solid fa-xmark"></i></button>
+<!-- Sélecteur de comptes pour un rôle (rempli par share.js) -->
+<div class="sh-overlay" id="sh-picker">
+  <div class="sh-picker-card">
+    <div class="sh-picker-head">
+      <div class="sh-picker-title">
+        <span class="sh-eyebrow" id="sh-picker-eyebrow">{{ t('sharepage.add_holder') }}</span>
+        <strong id="sh-picker-role"></strong>
+      </div>
+      <button class="sh-x" id="sh-picker-close" aria-label="{{ t('btn.close') }}">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
     </div>
-    <div class="pg-modal-body">
-      <input type="search" class="pg-input share-picker-search" id="share-picker-search">
-      <div id="share-picker-list" class="share-picker-list"></div>
+    <div class="sh-picker-body">
+      <div class="sh-search">
+        <i class="fa-solid fa-magnifying-glass"></i>
+        <input type="search" id="sh-picker-search">
+      </div>
+      <div id="sh-picker-list" class="sh-picker-list"></div>
     </div>
   </div>
 </div>

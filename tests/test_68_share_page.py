@@ -118,9 +118,9 @@ class TestPage:
         res = client.get("/share/")
         assert res.status_code == 200
         html = res.get_data(as_text=True)
-        assert "share-entity" in html          # sélecteur de carto
-        assert "share-roles" in html           # rôles et titulaires
-        assert "share-changes" in html         # file d'examen
+        assert "sh-gallery-list" in html       # galerie des cartos (vignettes)
+        assert "sh-picker" in html             # sélecteur de titulaires
+        assert "share.js" in html and "share.css" in html
 
     def test_un_visiteur_est_renvoye_a_la_connexion(self, client):
         with client.session_transaction() as sess:
@@ -132,10 +132,10 @@ class TestPage:
         """On arrive depuis la fiche d'une entité : c'est celle-là qu'on veut voir."""
         _as(client, scene["champion"], "t68.champion@devoptiq.com")
         html = client.get(f"/share/?entity_id={scene['entity_b']}").get_data(as_text=True)
-        assert f'value="{scene["entity_b"]}" selected' in html
+        assert f"activeId:  {scene['entity_b']}" in html
 
     def test_une_entite_hors_perimetre_est_ignoree(self, app, client, scene):
-        """Un id d'entité au hasard dans l'URL ne doit rien ouvrir de plus."""
+        """Un id d'entité au hasard dans l'URL ne doit pas ouvrir la carto d'autrui."""
         from Code.extensions import db
         from Code.models.models import Entity
         etranger = _mk_user(app, "t68.etranger@devoptiq.com", "user")
@@ -149,7 +149,7 @@ class TestPage:
 
         _as(client, scene["champion"], "t68.champion@devoptiq.com")
         html = client.get(f"/share/?entity_id={priv_id}").get_data(as_text=True)
-        assert f'value="{priv_id}"' not in html
+        assert f"activeId:  {priv_id}" not in html
 
 
 # ══════════════════════════════════════════════════════════════════════════
@@ -295,3 +295,66 @@ class TestPlusDeDoublon:
         assert "carto-access-modal" not in html
         assert "openAccessModal" not in js
         assert "/share/" in js, "le bouton doit mener à la page Partage"
+
+
+# ══════════════════════════════════════════════════════════════════════════
+# 5. Vignettes des cartos
+# ══════════════════════════════════════════════════════════════════════════
+
+class TestVignettes:
+    """On choisit sa carto en la VOYANT : le serveur envoie de quoi la dessiner."""
+
+    def test_l_apercu_donne_bandes_et_formes_normalisees(self, client, scene):
+        _as(client, scene["champion"], "t68.champion@devoptiq.com")
+        data = client.get("/cartography/api/access/previews").get_json()
+        carte = next(m for m in data["maps"] if m["id"] == scene["entity_a"])
+        apercu = carte["preview"]
+        assert apercu["bands"] and apercu["shapes"]
+        for f in apercu["shapes"]:
+            for cle in ("x", "y", "w", "h"):
+                assert 0.0 <= f[cle] <= 1.0, (cle, f[cle])
+        assert apercu["counts"]["shapes"] == len(DIAGRAM["shapes"])
+
+    def test_la_liste_porte_l_etat_et_les_chiffres(self, client, scene):
+        _as(client, scene["champion"], "t68.champion@devoptiq.com")
+        data = client.get("/cartography/api/access/previews").get_json()
+        carte = next(m for m in data["maps"] if m["id"] == scene["entity_a"])
+        assert carte["is_shared"] is True
+        assert carte["is_owner"] is True
+        assert "activities" in carte and "roles_open" in carte
+
+    def test_une_carto_sans_diagramme_n_a_pas_d_apercu(self, app, client, scene):
+        """Mieux vaut un état vide explicite qu'un cadre gris sans explication."""
+        from Code.extensions import db
+        from Code.models.models import Entity
+        with app.app_context():
+            vide = Entity.query.filter_by(name="T68 Sans carto").first()
+            if vide is None:
+                vide = Entity(name="T68 Sans carto", owner_id=scene["champion"])
+                db.session.add(vide)
+            vide.optiqcarto_data = None
+            db.session.commit()
+            vide_id = vide.id
+
+        _as(client, scene["champion"], "t68.champion@devoptiq.com")
+        data = client.get("/cartography/api/access/previews").get_json()
+        carte = next(m for m in data["maps"] if m["id"] == vide_id)
+        assert carte["preview"] is None
+
+    def test_un_compte_hors_perimetre_ne_voit_pas_la_vignette(self, app, client, scene):
+        from Code.carto_access import set_access
+        from Code.extensions import db
+        from Code.models.models import Entity
+        dehors = _mk_user(app, "t68.vignette@devoptiq.com", "user")
+        with app.app_context():
+            from Code.models.models import UserRole
+            UserRole.query.filter_by(user_id=dehors).delete()
+            set_access(db.session.get(Entity, scene["entity_a"]), True, [scene["role_a"]])
+            set_access(db.session.get(Entity, scene["entity_b"]), True, [scene["role_b"]])
+            db.session.commit()
+
+        _as(client, dehors, "t68.vignette@devoptiq.com")
+        data = client.get("/cartography/api/access/previews").get_json()
+        vues = {m["id"] for m in data["maps"]}
+        assert scene["entity_a"] not in vues
+        assert scene["entity_b"] not in vues

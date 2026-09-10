@@ -539,10 +539,25 @@ propager.
   (`share_page_bp`, `share.html`, `static/js/share.js`, `static/share.css`) porte les
   trois temps, dans l'ordre : **1 · Qui a accès** (interrupteur *Carto commune* + les
   rôles, chacun avec ses **titulaires** ajoutables/retirables sur place) · **2 · Qui
-  ouvre cette carto** (la liste résolue des comptes, avec le motif : propriétaire,
-  champion, ouverte à tous, ou *par son rôle* — le contrôle d'un coup d'œil qui
-  n'existait nulle part) · **3 · Modifications proposées** (file d'examen complète).
+  ouvre cette carto** (les comptes, avec le motif : propriétaire, champion, ouverte à
+  tous, ou *par son rôle* — le contrôle d'un coup d'œil qui n'existait nulle part) ·
+  **3 · Modifications proposées** (file d'examen complète).
   Nav : juste après Cartographie, cyan `#0891b2` (`page--share`).
+- **On choisit sa carto en la VOYANT.** `GET /cartography/api/access/previews` renvoie,
+  pour chaque carto accessible, ses bandes et ses formes en coordonnées **normalisées
+  0..1** (`_apercu_carto`) : le navigateur dessine une vraie vignette SVG — les bandes
+  de la carte, ses activités à leur place, avec leurs couleurs. Une liste déroulante ne
+  disait rien de ce qu'on choisissait. Plafond `_APERCU_MAX_FORMES` (260) : au-delà on
+  ne distingue plus rien et la page s'alourdit pour rien. Carto sans diagramme →
+  `preview: null`, et la vignette affiche un état vide explicite.
+- **Rien ne se lit en lignes de tableau** : une carte par rôle (cochée = teintée
+  d'accent), une carte par personne avec son initiale colorée (teinte stable, dérivée de
+  l'e-mail) et un liseré gauche par motif d'accès. Une petite liste ne se parcourt pas.
+- **Chaque bloc ouvre une porte** : *Voir la carte*, *Ouvrir l'éditeur*, *Proposer une
+  modification* (affiché seulement à qui doit proposer), *Gérer les comptes*, et quand la
+  file d'examen est vide, un appel à l'action vers l'éditeur plutôt qu'un mur.
+- ⚠️ **Cocher un rôle enregistre tout de suite** — il n'y a pas de bouton « Enregistrer ».
+  Un bouton de plus laisse partir sans sauver, et l'écran ment alors sur qui a accès.
   ⚠️ **Les rôles viennent des bandes de la carto** : on ne peut pas en créer ici, et un
   rôle créé à la main ailleurs serait effacé au prochain enregistrement de la carto
   (`_sync_carto_to_db` supprime les rôles absents de la carte). L'écran le dit.
@@ -583,9 +598,9 @@ propager.
   colonnes indispensables (`_verifier_colonnes`) et le crie dans les journaux.
 - Tests : `tests/test_66_carto_sharing.py` (34 cas — statuts, lecture par rôle, réglage
   de l'accès, refus d'écriture directe, cycle complet d'une proposition, activation,
-  ménage), `tests/test_68_share_page.py` (14 cas — la page, l'entité de l'URL, les
-  titulaires par paire, la portée et ses motifs, et l'absence de doublon avec la carte)
-  et `tests/test_67_schema_postgres.py` (5 cas — le DDL des modèles est compilé avec le
+  ménage), `tests/test_68_share_page.py` (18 cas — la page, l'entité de l'URL, les
+  titulaires par paire, la portée et ses motifs, l'absence de doublon avec la carte
+  et les vignettes) et `tests/test_67_schema_postgres.py` (5 cas — le DDL des modèles est compilé avec le
   dialecte PostgreSQL, sans serveur, et les ALTER écrits à la main dans `create_app`
   sont relus : c'est le seul filet contre un SQL que SQLite accepte et que la production
   refuse). ⚠️ Ces derniers RELISENT `Code/app.py` : ils sautent dans l'arbre d'image
