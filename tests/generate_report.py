@@ -84,6 +84,8 @@ PAGE_LABELS = {
     "test_69_panel_internals":           "Panel de Tests — Fonctions Internes (run, patches, XML)",
     "test_70_competency_color":          "Couleur de Synthèse des Compétences",
     "test_71_licensing":                 "Licence OptiqFluent (Signature & Expiration)",
+    "test_72_deploiement":               "Cohérence Déploiement (Workflows ↔ Hub)",
+    "test_73_ui_routes":                 "Vue UI Activités (/ui/activities)",
 }
 
 
