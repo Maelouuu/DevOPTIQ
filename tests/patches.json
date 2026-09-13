@@ -547,5 +547,29 @@
     ],
     "author": "claude",
     "fixed_at": "2026-09-04T18:27:23"
+  },
+  {
+    "patch_uid": "2026-09-13-flat-summary-user-status",
+    "title": "Compétences : variable user_status jamais fournie dans global_flat_summary",
+    "node_ids": [
+      "tests/test_13_competences.py::TestGlobalFlatSummaryExtra::test_with_role_activity_and_eval_populates_table",
+      "tests/test_13_competences.py::TestGlobalFlatSummaryExtra::test_created_at_iso_format_is_parsed",
+      "tests/test_13_competences.py::TestGlobalFlatSummaryExtra::test_created_at_none_gives_empty_date_no_crash",
+      "tests/test_13_competences.py::TestGlobalFlatSummaryExtra::test_role_without_activities_is_skipped_in_header",
+      "tests/test_13_competences.py::TestGlobalFlatSummaryExtra::test_created_at_french_format_falls_back_to_strptime"
+    ],
+    "page_slug": "competences",
+    "failure_reason": "Découvert en écrivant des tests de couverture pour /competences/global_flat_summary (aucun test existant ne peuplait row_manager, donc le chemin concerné n'était jamais exécuté).",
+    "was_real_bug": true,
+    "root_cause": "app_bug",
+    "error": "Le template global_flat_summary.html évalue `user_status != 'administrateur'` pour verrouiller les cellules d'évaluation, mais la vue ne passait jamais `user_status` au render_template : la variable était Undefined. Jinja ne plante pas (Undefined non strict) mais `locked` valait alors systématiquement True dès qu'une note existait, y compris pour un administrateur — et même en le corrigeant naïvement, `User.status` vaut 'admin' (pas 'administrateur') dans cette base, donc la comparaison littérale restait fausse pour les vrais admins.",
+    "fix_description": "La vue calcule désormais `is_admin()` (Code.permissions, qui normalise les variantes admin/administrateur/administrator) pour l'utilisateur en session et le passe au template ; le template utilise `not is_admin` au lieu de comparer une chaîne à une variable jamais fournie.",
+    "files_changed": [
+      "Code/routes/competences.py",
+      "Code/routes/templates/global_flat_summary.html",
+      "tests/test_13_competences.py"
+    ],
+    "author": "routine",
+    "fixed_at": "2026-09-13T03:23:49"
   }
 ]

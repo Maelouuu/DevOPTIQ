@@ -9,6 +9,7 @@ from Code.models.models import (
     Competency, Role, Activities, User, UserRole,
     CompetencyEvaluation, Savoir, SavoirFaire, Aptitude, Softskill, activity_roles, PerformancePersonnalisee, Entity
 )
+from Code.permissions import is_admin
 
 competences_bp = Blueprint('competences_bp', __name__, url_prefix='/competences')
 
@@ -560,7 +561,8 @@ def global_flat_summary(user_id):
         header_roles=header_roles,
         header_activities=header_activities,
         row_manager=row_manager,
-        current_date=datetime.now().strftime('%d/%m/%Y') 
+        current_date=datetime.now().strftime('%d/%m/%Y'),
+        is_admin=is_admin()
     )
 
 

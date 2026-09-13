@@ -18,7 +18,7 @@
       {% for eval in row_manager %}
         {% set note = eval.note %}
         {% set date = eval.date %}
-        {% set locked = note != '' and note != 'empty' and user_status != 'administrateur' %}
+        {% set locked = note != '' and note != 'empty' and not is_admin %}
         <td class="eval-cell {{ note if note else 'empty' }}"
             data-eval="manager"
             data-type="activities"
