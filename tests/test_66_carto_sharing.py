@@ -644,3 +644,65 @@ class TestApercuAvantApres:
     def test_seuls_avant_et_apres_sont_acceptes(self, app, client):
         r = client.get("/cartography/api/changes/1/apercu/autrechose.svg")
         assert r.status_code in (401, 404)
+
+class TestApercuEnGrand:
+    """Deux défauts signalés à l'usage, tous deux dans l'agrandissement.
+
+    ⚠️ Ils ne se voient QU'À L'ÉCRAN : un empilement CSS et une différence de
+    moteur de rendu ne font échouer aucune requête.
+    """
+
+    def test_la_loupe_passe_au_dessus_de_la_fenetre_d_examen(self):
+        """`.gov-loupe` était à 9600, `.gov-modal` à 10002 : l'agrandissement
+        s'ouvrait DERRIÈRE la pop-up et ne se découvrait qu'en la fermant."""
+        import io
+        import os
+        import re
+
+        racine = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        chemin = os.path.join(racine, "static", "optiqcarto", "style.css")
+        if not os.path.exists(chemin):
+            import pytest
+            pytest.skip("feuille de style absente (arbre bytecode)")
+        css = io.open(chemin, encoding="utf-8").read()
+
+        def z(selecteur):
+            bloc = re.search(re.escape(selecteur) + r"\s*\{(.*?)\}", css, re.S)
+            assert bloc, "règle %s introuvable" % selecteur
+            val = re.search(r"z-index:\s*(\d+)", bloc.group(1))
+            assert val, "pas de z-index dans %s" % selecteur
+            return int(val.group(1))
+
+        assert z(".gov-loupe") > z(".gov-modal"), (
+            "l'agrandissement doit passer AU-DESSUS de la fenêtre d'examen")
+
+    def test_en_grand_on_charge_le_viewer_pas_la_vignette(self):
+        """La vignette SVG sert à COMPARER (légère, cadrée à l'identique) ;
+        l'agrandir ne montrerait qu'une reconstitution. En grand, on ouvre le
+        viewer d'OptiqCarto, qui rend ce que rend l'éditeur."""
+        import io
+        import os
+
+        racine = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        chemin = os.path.join(racine, "static", "optiqcarto", "carto_sharing.js")
+        if not os.path.exists(chemin):
+            import pytest
+            pytest.skip("script absent (arbre bytecode)")
+        js = io.open(chemin, encoding="utf-8").read()
+
+        debut = js.index("function agrandir(")
+        corps = js[debut:debut + 1600]
+        assert "/changes/${id}/apercu/${quel}" in corps
+        assert "<iframe" in corps
+        assert "apercu/${quel}.svg" not in corps, (
+            "la loupe ne doit plus agrandir la vignette reconstruite")
+
+    def test_le_diagramme_d_une_proposition_est_servi_tel_quel(self, app, client):
+        """Le viewer charge ce JSON : c'est le même format que /api/load, donc
+        le même rendu."""
+        r = client.get("/cartography/api/changes/999999/diagramme/apres")
+        assert r.status_code in (401, 404)
+
+    def test_seuls_avant_et_apres_ouvrent_le_viewer(self, app, client):
+        r = client.get("/cartography/changes/1/apercu/autrechose")
+        assert r.status_code in (401, 404)

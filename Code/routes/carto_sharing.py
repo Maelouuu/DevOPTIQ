@@ -359,6 +359,74 @@ def get_apercu_changement(change_id, quel):
     return reponse
 
 
+def _diagramme_de_proposition(change_id, quel):
+    """(diagramme, erreur_http) pour l'avant ou l'après d'une proposition."""
+    from Code.models.models import CartoChangeRequest
+
+    user = _connecte()
+    if not user:
+        return None, 401
+    if quel not in ("avant", "apres"):
+        return None, 404
+
+    cr = db.session.get(CartoChangeRequest, change_id)
+    if not cr:
+        return None, 404
+    entity = db.session.get(Entity, cr.entity_id)
+    # L'auteur relit sa propre proposition ; les autres doivent pouvoir arbitrer.
+    if not (cr.author_id == user.id or can_review(entity, user)):
+        return None, 404
+
+    diagram = _diagram(cr.base_diagram if quel == "avant" else cr.diagram)
+    return (diagram, None) if diagram else (None, 404)
+
+
+@carto_sharing_bp.route("/api/changes/<int:change_id>/diagramme/<quel>")
+def get_diagramme_changement(change_id, quel):
+    """Le diagramme brut, au format que l'éditeur sait charger.
+
+    C'est ce que consomme le viewer de proposition : même JSON que
+    `/api/load/<nom>`, donc même rendu — pas une vignette reconstruite.
+    """
+    diagram, err = _diagramme_de_proposition(change_id, quel)
+    if err:
+        return jsonify({"error": "Introuvable"}), err
+    return jsonify(diagram)
+
+
+@carto_sharing_bp.route("/changes/<int:change_id>/apercu/<quel>")
+def page_apercu_changement(change_id, quel):
+    """La carto d'une proposition, affichée par le VRAI moteur.
+
+    ⚠️ La vignette SVG (`/apercu/<quel>.svg`) reste ce qu'on montre côté à côté :
+    légère, cadrée à l'identique, elle sert à COMPARER. Mais l'agrandir ne doit
+    pas agrandir une reconstitution — on ouvre alors le viewer d'OptiqCarto, qui
+    rend exactement ce que rend l'éditeur. Un seul crochet suffit :
+    `OPTIQCARTO_LOAD_URL`, qui dit au viewer d'où vient le diagramme.
+    """
+    from flask import render_template
+    from Code.translations import TRANSLATIONS
+
+    diagram, err = _diagramme_de_proposition(change_id, quel)
+    if err:
+        return ("", err)
+
+    cr = db.session.get(CartoChangeRequest, change_id)
+    entity = db.session.get(Entity, cr.entity_id)
+    lang = session.get("lang", "fr")
+    return render_template(
+        "cartography_viewer.html",
+        entity_name=(entity.name if entity else ""),
+        entity_id=(entity.id if entity else None),
+        has_optiqcarto=True,
+        has_vsdx=False,
+        active_calque_id=None,
+        active_calque_name="",
+        i18n_data=TRANSLATIONS.get(lang, TRANSLATIONS["fr"]),
+        carto_load_url=f"/cartography/api/changes/{change_id}/diagramme/{quel}",
+    )
+
+
 @carto_sharing_bp.route("/api/access/previews")
 def get_previews():
     """Chiffres de chaque carto ouverte au compte (l'image vient de thumbnail.svg)."""

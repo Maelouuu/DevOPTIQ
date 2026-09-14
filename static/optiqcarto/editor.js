@@ -4413,6 +4413,16 @@ function _showSaveWarningModal(diff) {
   });
 }
 
+// L'URL d'où vient le diagramme. Par défaut la carto de l'entité ; le viewer
+// d'une PROPOSITION la remplace pour afficher l'avant ou l'après, sans rien
+// changer au rendu — c'est ce qui fait qu'on regarde la vraie carto et non une
+// vignette reconstruite.
+function _cartoLoadUrl(name) {
+  if (window.OPTIQCARTO_LOAD_URL) return window.OPTIQCARTO_LOAD_URL;
+  const base = window.OPTIQCARTO_API_BASE || '/cartography';
+  return `${base}/api/load/${encodeURIComponent(name)}`;
+}
+
 async function saveJSON() {
   // ⚠️ Carto commune, compte sans droit d'écriture : ENREGISTRER, C'EST
   // PROPOSER. Tout passait auparavant par un écouteur en capture posé sur
@@ -4806,7 +4816,7 @@ async function _deactivateCalque() {
   fetch(`${apiBase}/api/calques/deactivate`, { method: 'POST' }).catch(() => {});
   if (window.OPTIQCARTO_HAS_CARTO && window.OPTIQCARTO_DEFAULT_NAME) {
     try {
-      const res  = await fetch(`${apiBase}/api/load/${encodeURIComponent(window.OPTIQCARTO_DEFAULT_NAME)}`);
+      const res  = await fetch(_cartoLoadUrl(window.OPTIQCARTO_DEFAULT_NAME));
       const data = await res.json();
       if (data && !data.error) {
         await _transitionState(data);
@@ -4942,7 +4952,7 @@ async function openLoadDialog() {
     item.innerHTML = `<i class="fa-solid fa-diagram-project"></i><span>${name}</span><button class="load-delete" title="Supprimer"><i class="fa-solid fa-trash"></i></button>`;
 
     item.querySelector('span').addEventListener('click', async () => {
-      const data = await fetch(`${apiBase}/api/load/${encodeURIComponent(name)}`).then(r => r.json());
+      const data = await fetch(_cartoLoadUrl(name)).then(r => r.json());
       if (data.error) { showToast(_L('editor.toast.error_prefix') + data.error); return; }
       state = data;
       if (typeof resetHighlightExtco === 'function') resetHighlightExtco();
@@ -7889,16 +7899,16 @@ function init() {
             });
           } else {
             // Fallback to base carto if calque not found
-            fetch(`${apiBase}/api/load/${encodeURIComponent(window.OPTIQCARTO_DEFAULT_NAME)}`)
+            fetch(_cartoLoadUrl(window.OPTIQCARTO_DEFAULT_NAME))
               .then(r => r.json()).then(_applyLoadedState).catch(() => {});
           }
         })
         .catch(() => {
-          fetch(`${apiBase}/api/load/${encodeURIComponent(window.OPTIQCARTO_DEFAULT_NAME)}`)
+          fetch(_cartoLoadUrl(window.OPTIQCARTO_DEFAULT_NAME))
             .then(r => r.json()).then(_applyLoadedState).catch(() => {});
         });
     } else {
-      fetch(`${apiBase}/api/load/${encodeURIComponent(window.OPTIQCARTO_DEFAULT_NAME)}`)
+      fetch(_cartoLoadUrl(window.OPTIQCARTO_DEFAULT_NAME))
         .then(r => r.json())
         .then(_applyLoadedState)
         .catch(() => {});

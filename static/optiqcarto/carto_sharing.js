@@ -314,6 +314,12 @@
 
   // ⚠️ On ouvre à la taille de la fenêtre, pas « zoomé à fond » : un examinateur
   // veut d'abord revoir l'ensemble, et décider LUI de regarder un détail.
+  //
+  // ⚠️ Et on ouvre la VRAIE carto, pas la vignette agrandie. Les deux images
+  // côte à côte sont des SVG reconstruits — légers, cadrés à l'identique, faits
+  // pour COMPARER. Les grossir ne montrerait qu'une reconstitution floue. En
+  // grand, on charge donc le viewer d'OptiqCarto, qui rend exactement ce que
+  // rend l'éditeur.
   function agrandir(id, quel) {
     document.getElementById('gov-loupe')?.remove();
     const ov = document.createElement('div');
@@ -329,7 +335,8 @@
         <button type="button" class="gov-loupe-fermer" id="gov-loupe-x" aria-label="${
           esc(L('btn.close') || 'Fermer')}"><i class="fa-solid fa-xmark"></i></button>
       </div>
-      <img src="${API}/api/changes/${id}/apercu/${quel}.svg" alt="">`;
+      <iframe class="gov-loupe-vue" title="${esc(L('change.visual_title'))}"
+              src="${API}/changes/${id}/apercu/${quel}"></iframe>`;
     document.body.appendChild(ov);
 
     const fermer = () => { ov.remove(); document.removeEventListener('keydown', auClavier); };

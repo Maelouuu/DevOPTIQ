@@ -60,7 +60,6 @@ class TestDefautsBooleens:
         assert re.search(r"DEFAULT\s+false", ligne, re.I), ligne
 
 
-@sans_source
 class TestLargeurDesColonnes:
     """SQLite ignore `VARCHAR(n)` : il accepte n'importe quelle longueur. Une
     colonne trop étroite ne se voit donc QUE sur PostgreSQL, et seulement une
@@ -89,6 +88,7 @@ class TestLargeurDesColonnes:
             % (colonne.type.length, besoin,
                max(self._libelles_hsc(), key=len)))
 
+    @sans_source
     def test_la_migration_elargit_la_colonne_des_instances_existantes(self):
         """Changer le modèle ne touche PAS une base déjà créée : sans l'ALTER,
         les instances en service gardent leur colonne étroite."""
@@ -98,6 +98,7 @@ class TestLargeurDesColonnes:
             "les bases déjà déployées resteraient en VARCHAR(10).")
 
 
+@sans_source
 class TestMigrationsAChaud:
     """Les ALTER de `create_app` sont du SQL écrit à la main : personne ne les
     compile, et ils ne s'exécutent qu'au démarrage d'une instance déjà en

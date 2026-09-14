@@ -3055,7 +3055,10 @@ body.has-gov-bar #properties { top: calc(var(--toolbar-h) + 66px); }
 
 /* La loupe : plein écran, mais à la taille de la fenêtre — pas zoomée d'office. */
 .gov-loupe {
-  position: fixed; inset: 0; z-index: 9600;
+  /* ⚠️ AU-DESSUS de la fenêtre d'examen (.gov-modal, z-index 10002). À 9600,
+     l'agrandissement s'ouvrait DERRIÈRE la pop-up : on ne le découvrait qu'en
+     fermant celle-ci, ce qui vide l'agrandissement de son sens. */
+  position: fixed; inset: 0; z-index: 10010;
   display: flex; flex-direction: column;
   background: rgba(10,14,12,0.86); backdrop-filter: blur(3px);
   padding: 14px; gap: 10px;
@@ -3076,4 +3079,10 @@ body.has-gov-bar #properties { top: calc(var(--toolbar-h) + 66px); }
 .gov-loupe img {
   flex: 1; min-height: 0; width: 100%;
   object-fit: contain; background: #f7f9fc; border-radius: 12px;
+}
+/* En grand, ce n'est plus une vignette : c'est le viewer OptiqCarto, donc la
+   carto telle que l'éditeur la dessine. */
+.gov-loupe-vue {
+  flex: 1; min-height: 0; width: 100%;
+  border: none; border-radius: 12px; background: #f7f9fc;
 }

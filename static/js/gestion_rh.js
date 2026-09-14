@@ -68,6 +68,20 @@
 
   const nomDe = (p) => `${p.prenom || ''} ${p.nom || ''}`.trim() || p.email;
 
+  // `users.status` est un texte LIBRE, saisi différemment selon les instances
+  // (« admin », « administrateur », « Gestionnaire de compétences »…). On en
+  // déduit une famille pour la couleur, comme le fait Code/permissions.py —
+  // jamais une égalité stricte, qui laisserait un statut mal orthographié se
+  // fondre dans les autres.
+  function famille(statut) {
+    const s = (statut || '').toLowerCase()
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    if (/^admin/.test(s)) return 'admin';
+    if (s.includes('champion') || s.startsWith('gestionnaire')
+        || (s.includes('manager') && /comp|skill/.test(s))) return 'champion';
+    return 'user';
+  }
+
   function personneParId(id) {
     return (D.personnes || []).find((p) => p.id === id) || null;
   }
@@ -265,18 +279,23 @@
           <span>${esc(p.email)}</span>
         </div>
         <div class="grh-person-tags">
+          <span class="grh-col-label">${esc(L('col_status'))}</span>
+          <span class="grh-chip grh-chip--status" data-fam="${famille(p.statut)}"
+            >${esc(p.statut || '—')}</span>
           ${p.est_dev ? `<span class="grh-chip grh-chip--dev" title="${esc(L('permanent_hint'))}">
              <i class="fa-solid fa-seedling"></i> ${esc(L('dev_badge'))}</span>` : ''}
-          <span class="grh-chip grh-chip--status">${esc(p.statut || '')}</span>
         </div>
-        <button type="button" class="grh-person-roles" data-roles="${p.id}"
-                title="${esc(L('manage_roles'))}">
-          ${p.roles.length
-            ? p.roles.slice(0, 3).map((r) =>
-                `<span class="grh-chip">${esc(r.name)}</span>`).join('')
-              + (p.roles.length > 3 ? `<span class="grh-chip">+${p.roles.length - 3}</span>` : '')
-            : `<span class="grh-chip grh-chip--none">${esc(L('no_role'))}</span>`}
-        </button>
+        <div class="grh-person-tags">
+          <span class="grh-col-label">${esc(L('col_roles'))}</span>
+          <button type="button" class="grh-person-roles" data-roles="${p.id}"
+                  title="${esc(L('manage_roles'))}">
+            ${p.roles.length
+              ? p.roles.slice(0, 3).map((r) =>
+                  `<span class="grh-chip">${esc(r.name)}</span>`).join('')
+                + (p.roles.length > 3 ? `<span class="grh-chip">+${p.roles.length - 3}</span>` : '')
+              : `<span class="grh-chip grh-chip--none">${esc(L('no_role'))}</span>`}
+          </button>
+        </div>
         <label class="grh-person-dev">
           <span>${esc(L('dev_label'))}</span>
           <select class="grh-select grh-select--sm" data-dev="${p.id}" ${peut ? '' : 'disabled'}>

@@ -13,6 +13,9 @@
     window.OPTIQCARTO_DEFAULT_NAME  = {{ (entity_name or '')|tojson }};
     window.OPTIQCARTO_HAS_CARTO     = {{ has_optiqcarto|tojson }};
     window.OPTIQCARTO_READONLY      = true;
+    // Le viewer d'une PROPOSITION charge son diagramme ailleurs que
+    // sur l'entité active : même rendu, autre source.
+    {% if carto_load_url %}window.OPTIQCARTO_LOAD_URL = {{ carto_load_url | tojson }};{% endif %}
     window.OPTIQCARTO_ACTIVE_CALQUE = {{ (active_calque_id or 'null')|safe }};
     window.OPTIQCARTO_VIEWER_ENTITY_ID = {{ (entity_id or 'null')|safe }};
     /* Le viewer charge editor.js : sans ce catalogue, chaque _L() y
