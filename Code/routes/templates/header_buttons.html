@@ -34,6 +34,17 @@
     <!-- Items de navigation — même ordre que le guide utilisateur :
          Cartographie en premier (elle pilote l'app), Paramètres en dernier -->
     <div class="card-nav-content" aria-hidden="false">
+
+      <!-- Défilement : deux flèches plutôt qu'un rail à tirer. Elles bordent
+           la zone des ITEMS — le logo et la déconnexion sont en dehors et ne
+           défilent pas, les flèches n'ont donc rien à faire à leur hauteur.
+           Elles s'effacent d'elles-mêmes quand tout tient à l'écran. -->
+      <button type="button" class="card-arrow card-arrow--prev" id="card-arrow-prev"
+              aria-label="{{ t('nav.scroll_left') }}" title="{{ t('nav.scroll_left') }}"
+              tabindex="-1">
+        <i class="fa-solid fa-chevron-left"></i>
+      </button>
+
       <div class="card-scroll">
 
         <a class="nav-card" href="/activities/map"
@@ -92,14 +103,12 @@
 
       </div>
 
-      <!-- Liseré de défilement : la nav défile horizontalement, mais sans
-           trackpad rien ne permettait de la faire glisser. Discret au repos,
-           il apparaît au survol et pendant le défilement — et il se tire. -->
-      <div class="card-scrollbar" id="card-scrollbar" aria-hidden="true">
-        <div class="card-scrollbar-track" id="card-scrollbar-track">
-          <div class="card-scrollbar-thumb"></div>
-        </div>
-      </div>
+      <button type="button" class="card-arrow card-arrow--next" id="card-arrow-next"
+              aria-label="{{ t('nav.scroll_right') }}" title="{{ t('nav.scroll_right') }}"
+              tabindex="-1">
+        <i class="fa-solid fa-chevron-right"></i>
+      </button>
+
     </div>
 
     <!-- Déconnexion -->

@@ -60,98 +60,77 @@
     scroll.addEventListener('touchend', () => { scrolling = false; }, { passive: true });
   }
 
-  // ── Liseré de défilement ───────────────────────────────────────────
-  // Sans trackpad (ni molette horizontale) la nav était impossible à faire
-  // défiler : le liseré est une vraie barre, on peut la tirer, et la molette
-  // verticale déplace la nav tant qu'elle n'est pas en butée.
-  const bar   = document.getElementById('card-scrollbar');
-  const track = bar?.querySelector('.card-scrollbar-track');
-  const thumb = bar?.querySelector('.card-scrollbar-thumb');
+  // ── Flèches de défilement ──────────────────────────────────────────
+  // La nav déborde souvent, et la barre native est masquée : sans trackpad ni
+  // molette horizontale, rien ne permettait de la faire glisser. C'était un
+  // liseré de 3 px qu'on tirait — un geste que rien n'annonçait. Deux flèches
+  // disent d'elles-mêmes ce qu'elles font.
+  const precedent = document.getElementById('card-arrow-prev');
+  const suivant   = document.getElementById('card-arrow-next');
 
-  if (scroll && bar && track && thumb) {
-    let masquer = null;
-
+  if (scroll && precedent && suivant) {
     const debordement = () => scroll.scrollWidth - scroll.clientWidth;
+
+    // Un pas = presque une page, en gardant un item en commun : on ne perd pas
+    // le fil de ce qu'on regardait.
+    const pas = () => Math.max(120, scroll.clientWidth * 0.8);
 
     function rafraichir() {
       const max = debordement();
-      if (max <= 2) { bar.classList.remove('is-scrollable'); return; }
-      bar.classList.add('is-scrollable');
-      const largeurRail = track.clientWidth;
-      const largeur = Math.max(28, largeurRail * (scroll.clientWidth / scroll.scrollWidth));
-      thumb.style.width = largeur + 'px';
-      thumb.style.transform =
-        'translateX(' + ((largeurRail - largeur) * (scroll.scrollLeft / max)) + 'px)';
+      const utile = max > 2;
+      for (const f of [precedent, suivant]) f.classList.toggle('is-usable', utile);
+      // En butée, la flèche reste VISIBLE mais s'estompe : la faire disparaître
+      // ferait sauter la mise en page à chaque extrémité atteinte.
+      precedent.classList.toggle('is-end', utile && scroll.scrollLeft <= 1);
+      suivant.classList.toggle('is-end', utile && scroll.scrollLeft >= max - 1);
     }
 
-    function montrer() {
-      if (!bar.classList.contains('is-scrollable')) return;
-      bar.classList.add('is-active');
-      clearTimeout(masquer);
-      masquer = setTimeout(() => bar.classList.remove('is-active'), 1200);
+    // ⚠️ `scroll-snap-type: x mandatory` et `behavior: 'smooth'` se battent :
+    // chaque image du défilement est ramenée sur l'item le plus proche, et le
+    // trajet met plus d'une seconde pour finir par arriver. On neutralise le
+    // magnétisme le temps du geste — exactement ce que faisait l'ancien liseré
+    // pendant qu'on le tirait — puis on le rend, pour que le repos reste calé
+    // sur un item.
+    let remiseEnPlace = null;
+
+    function glisser(sens) {
+      const max = debordement();
+      if (max <= 2) return;
+      const cible = Math.max(0, Math.min(max, scroll.scrollLeft + sens * pas()));
+
+      clearTimeout(remiseEnPlace);
+      scroll.style.scrollSnapType = 'none';
+      scroll.scrollTo({ left: cible, behavior: 'smooth' });
+
+      remiseEnPlace = setTimeout(() => {
+        scroll.style.scrollSnapType = '';
+        rafraichir();
+      }, 420);
     }
 
-    scroll.addEventListener('scroll', () => { rafraichir(); montrer(); }, { passive: true });
+    precedent.addEventListener('click', () => glisser(-1));
+    suivant.addEventListener('click', () => glisser(1));
+
+    scroll.addEventListener('scroll', rafraichir, { passive: true });
+    scroll.addEventListener('scrollend', rafraichir);
     window.addEventListener('resize', rafraichir);
     if (window.ResizeObserver) new ResizeObserver(rafraichir).observe(scroll);
-    // les icônes Font Awesome arrivent après le premier rendu : la largeur
-    // utile change, donc on recalcule une fois tout chargé.
+    // ⚠️ Les icônes Font Awesome arrivent APRÈS le premier rendu : la largeur
+    // utile change, donc on recalcule une fois tout chargé — sinon les flèches
+    // restent masquées sur une nav qui déborde pourtant.
     window.addEventListener('load', rafraichir);
     rafraichir();
 
     // Molette verticale → défilement horizontal, sauf en butée (sinon on
-    // bloquerait le défilement de la page au survol de la nav).
+    // bloquerait le défilement de la PAGE au survol de la nav).
     scroll.addEventListener('wheel', (e) => {
       const max = debordement();
       if (max <= 2 || Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;
-      const cible = scroll.scrollLeft + e.deltaY;
       if ((e.deltaY < 0 && scroll.scrollLeft <= 0) ||
           (e.deltaY > 0 && scroll.scrollLeft >= max - 1)) return;
       e.preventDefault();
-      scroll.scrollLeft = Math.max(0, Math.min(max, cible));
-      montrer();
+      scroll.scrollLeft = Math.max(0, Math.min(max, scroll.scrollLeft + e.deltaY));
+      rafraichir();
     }, { passive: false });
-
-    // Tirer le liseré (ou cliquer dans le rail pour sauter à cet endroit)
-    let saisi = false, snapInitial = '';
-
-    function positionner(clientX) {
-      // Le clic peut tomber n'importe où dans la zone de captation : on le
-      // ramène sur le rail, bornes comprises.
-      const rail = track.getBoundingClientRect();
-      const largeur = thumb.offsetWidth;
-      const course = rail.width - largeur;
-      if (course <= 0) return;
-      const x = Math.max(0, Math.min(course, clientX - rail.left - largeur / 2));
-      scroll.scrollLeft = (x / course) * debordement();
-    }
-
-    bar.addEventListener('pointerdown', (e) => {
-      if (!bar.classList.contains('is-scrollable')) return;
-      saisi = true;
-      bar.classList.add('is-dragging');
-      bar.setPointerCapture(e.pointerId);
-      // le scroll-snap ferait sauter le curseur pendant le glissé
-      snapInitial = scroll.style.scrollSnapType;
-      scroll.style.scrollSnapType = 'none';
-      if (e.target !== thumb) positionner(e.clientX);
-      e.preventDefault();
-    });
-
-    bar.addEventListener('pointermove', (e) => {
-      if (!saisi) return;
-      positionner(e.clientX);
-      e.preventDefault();
-    });
-
-    function relacher(e) {
-      if (!saisi) return;
-      saisi = false;
-      bar.classList.remove('is-dragging');
-      scroll.style.scrollSnapType = snapInitial;
-      try { bar.releasePointerCapture(e.pointerId); } catch (err) { /* deja relache */ }
-    }
-    bar.addEventListener('pointerup', relacher);
-    bar.addEventListener('pointercancel', relacher);
   }
 })();

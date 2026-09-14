@@ -20,6 +20,8 @@ TRANSLATIONS = {
         'nav.carto':        'Cartographie',
         'nav.share':        'Partage',
         'nav.settings':     'Paramètres',
+        'nav.scroll_left':        'Faire défiler vers la gauche',
+        'nav.scroll_right':       'Faire défiler vers la droite',
         'nav.logout':       'Déconnexion',
 
         # ── Page Settings ────────────────────────────────────────────────────
@@ -1384,6 +1386,8 @@ TRANSLATIONS = {
         'nav.carto':        'Map',
         'nav.share':        'Sharing',
         'nav.settings':     'Settings',
+        'nav.scroll_left':        'Scroll left',
+        'nav.scroll_right':       'Scroll right',
         'nav.logout':       'Log out',
 
         # ── Page Settings ────────────────────────────────────────────────────
