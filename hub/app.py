@@ -38,18 +38,40 @@ app.config.update(SESSION_COOKIE_HTTPONLY=True, SESSION_COOKIE_SAMESITE="Lax",
 HUB_USER = os.getenv("HUB_USER", "Mael_Girardin")
 _DEFAULT_HASH = ("pbkdf2:sha256:600000$9Qza0VOKPsgnMmah$"
                  "9941d508368cfd0acff7115beb3189a6fd655862c9796426ea47d4e9b3760907")
+
+# Le hub n'est plus à une seule personne. Chaque compte porte un HASH, jamais un
+# mot de passe en clair : le dépôt n'a pas à contenir de quoi se connecter.
+# Chacun reste remplaçable par une variable d'environnement, pour qu'on puisse
+# tourner un mot de passe sans toucher au code ni redéployer une image modifiée.
+_COMPTES = (
+    (HUB_USER, "HUB_PASSWORD", "HUB_PASSWORD_HASH", _DEFAULT_HASH),
+    ("Hubert_Grandjean", "HUB_PASSWORD_HG", "HUB_PASSWORD_HASH_HG",
+     "pbkdf2:sha256:600000$V8nNjOiw2deXzKRt$"
+     "9e57de85d70d352a66b2b3fcc2acc9806ce1afed6813b0f8a4e21790bdb31bba"),
+)
+
 _ATTEMPTS = {}
 _MAX_TRIES, _LOCK_WINDOW_S = 8, 900
 
 
 def _check_credentials(username, password):
-    if not hmac.compare_digest(username or "", HUB_USER):
-        return False
-    plain = os.getenv("HUB_PASSWORD")
-    if plain:
-        return hmac.compare_digest(password or "", plain)
-    return check_password_hash(os.getenv("HUB_PASSWORD_HASH") or _DEFAULT_HASH,
-                               password or "")
+    """⚠️ On compare TOUS les comptes, sans court-circuit sur le nom.
+
+    Sortir dès que l'identifiant ne correspond pas rend la réponse plus rapide
+    pour un nom inconnu que pour un nom connu : de quoi énumérer les comptes au
+    chronomètre. On vérifie donc chaque ligne jusqu'au bout.
+    """
+    trouve = False
+    for nom, var_clair, var_hash, defaut in _COMPTES:
+        bon_nom = hmac.compare_digest(username or "", nom)
+        clair = os.getenv(var_clair)
+        if clair:
+            bon_mdp = hmac.compare_digest(password or "", clair)
+        else:
+            bon_mdp = check_password_hash(os.getenv(var_hash) or defaut,
+                                          password or "")
+        trouve = trouve or (bon_nom and bon_mdp)
+    return trouve
 
 
 def _rate_limited(ip):

@@ -1028,8 +1028,10 @@ déployé par `.github/workflows/deploy-hub.yml` sur push `staging` touchant
 avec leur **état sondé en direct** (côté serveur, cache 25 s, pool de threads),
 documentation **servie par le hub** (`/doc`, `/guide`, `/doc/refonte`, médias
 sous `/assets/…`), catalogue des commandes locales copiables, branches et
-workflows. Compte unique `Mael_Girardin` (secret `HUB_PASSWORD`, défaut baké
-`testtest`), anti-force-brute, `noindex`.
+workflows. Deux comptes — `Mael_Girardin` (secret `HUB_PASSWORD`, défaut baké
+`testtest`) et `Hubert_Grandjean` (`HUB_PASSWORD_HG`, défaut baké) — anti-force-brute,
+`noindex`. ⚠️ Le dépôt ne porte que des HASHES, et `_check_credentials` compare tous
+les comptes sans court-circuit (sinon on les énumère au chronomètre).
 
 - ⚠️ **Tout le contenu vit dans `hub/inventaire.py`** — instances, documents,
   commandes, branches, secrets. Le gabarit ne porte aucune donnée en dur :

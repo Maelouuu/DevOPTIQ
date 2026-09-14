@@ -27,12 +27,21 @@ suivi d'audience (OptiqPulse).
 
 ## Accès
 
-Compte unique, comme OptiqPulse — le hub nomme les bases, les secrets et les
-instances internes, ce n'est pas une page publique.
+Comptes nommés — le hub nomme les bases, les secrets et les instances internes,
+ce n'est pas une page publique.
 
-- identifiant : `Mael_Girardin` (surchargé par `HUB_USER`)
-- mot de passe : secret GitHub **`HUB_PASSWORD`** ; sans ce secret, défaut baké
-  `testtest` (à ne pas laisser en l'état).
+| Identifiant | Mot de passe | Variables de surcharge |
+|---|---|---|
+| `Mael_Girardin` | secret `HUB_PASSWORD`, défaut baké `testtest` | `HUB_USER`, `HUB_PASSWORD`, `HUB_PASSWORD_HASH` |
+| `Hubert_Grandjean` | défaut baké | `HUB_PASSWORD_HG`, `HUB_PASSWORD_HASH_HG` |
+
+- ⚠️ Le dépôt ne contient **que des hashes** (pbkdf2-sha256, 600 000 tours) :
+  aucun mot de passe en clair n'y figure. Les défauts baqués restent des
+  défauts — à remplacer par un secret dès qu'un compte compte vraiment.
+- ⚠️ `_check_credentials` parcourt **tous** les comptes sans court-circuit :
+  sortir dès que l'identifiant ne correspond pas rendrait la réponse plus
+  rapide pour un nom inconnu que pour un nom connu, et on énumérerait les
+  comptes au chronomètre.
 - anti-force-brute mémoire : 8 essais / 15 min par IP ; `noindex`.
 
 ## Déploiement
