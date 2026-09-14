@@ -76,19 +76,28 @@
 
   /* ── Proposer ───────────────────────────────────────────────────────── */
 
+  // La fenêtre rend une PROMESSE : le dialogue « vous avez des modifications
+  // non enregistrées » attend de savoir s'il peut quitter la page. Sans ça,
+  // « Proposer et quitter » quitterait avant l'envoi.
+  let _resoudre = null;
+
   function ouvrirProposition() {
     const modal = $id('propose-modal');
-    if (!modal) return;
+    if (!modal) return Promise.resolve(false);
     modal.style.display = 'flex';
     const titre = $id('propose-title');
     if (titre) { titre.value = ''; titre.focus(); }
     const msg = $id('propose-message');
     if (msg) msg.value = '';
+    return new Promise((res) => { _resoudre = res; });
   }
 
-  function fermerProposition() {
+  function fermerProposition(envoye) {
     const modal = $id('propose-modal');
     if (modal) modal.style.display = 'none';
+    const r = _resoudre;
+    _resoudre = null;
+    if (r) r(!!envoye);
   }
 
   async function envoyerProposition() {
@@ -108,7 +117,7 @@
       });
       const data = await res.json();
       if (data.error) { alert(data.error); return; }
-      fermerProposition();
+      fermerProposition(true);
       // La proposition EST l'enregistrement de son travail : on ne doit plus
       // avertir « modifications non enregistrées » en quittant la page.
       if (typeof window.markCartoSaved === 'function') window.markCartoSaved();
@@ -302,8 +311,19 @@
 
   /* ── Détournement du bouton Sauvegarder ─────────────────────────────── */
 
+  /* ── Enregistrer, c'est proposer ─────────────────────────────────────── */
+
+  // Pas de bouton « Proposer » en plus : un bouton qu'on ne peut pas utiliser
+  // à côté d'un bouton qui sert à autre chose, ce n'est pas une interface.
+  // `saveJSON()` d'editor.js est le point de passage UNIQUE de tous les
+  // enregistrements (bouton, Ctrl+S, dialogue de sortie, sauvegarde
+  // automatique) : il consulte ce crochet avant d'appeler /api/save.
   function habilleSauvegarde() {
     if (!doitProposer) return;
+
+    window.cartoProposeInstead = ouvrirProposition;
+
+    // Le bouton principal.
     const btn = $id('btn-save');
     if (btn) {
       const libelle = btn.querySelector('span');
@@ -312,32 +332,33 @@
       btn.classList.add('is-propose');
       const icone = btn.querySelector('i');
       if (icone) icone.className = 'fa-solid fa-code-pull-request';
-      // capture: on passe AVANT le gestionnaire d'editor.js, qui appellerait
-      // /api/save — refusé côté serveur, et l'utilisateur n'aurait qu'une erreur.
-      btn.addEventListener('click', (e) => {
-        e.preventDefault();
-        e.stopImmediatePropagation();
-        ouvrirProposition();
-      }, true);
     }
-    // Ctrl+S mène au même endroit que le bouton.
-    document.addEventListener('keydown', (e) => {
-      if ((e.ctrlKey || e.metaKey) && (e.key === 's' || e.key === 'S')) {
-        e.preventDefault();
-        e.stopImmediatePropagation();
-        ouvrirProposition();
-      }
-    }, true);
+
+    // Et le bouton du dialogue « modifications non enregistrées », qu'on
+    // rencontre en quittant la page : il disait « Enregistrer » et menait tout
+    // droit au refus du serveur.
+    const sortie = $id('unsaved-btn-save');
+    if (sortie) {
+      sortie.innerHTML = '<i class="fa-solid fa-code-pull-request"></i> '
+        + esc(L('change.propose_and_leave')) + ' <kbd>Ctrl+S</kbd>';
+      sortie.title = L('change.propose_hint');
+      sortie.classList.add('is-propose');
+    }
+    const texte = document.querySelector('#unsaved-modal .unsaved-desc');
+    if (texte) texte.textContent = L('change.unsaved_hint');
   }
 
   function demarrer() {
     poseBandeau();
     habilleSauvegarde();
-    $id('propose-cancel')?.addEventListener('click', fermerProposition);
+    // ⚠️ Pas `fermerProposition` en direct : l'écouteur lui passerait l'Event,
+    // qui est vrai — la promesse se résoudrait « envoyé » sur une annulation,
+    // et le dialogue de sortie quitterait la page sans rien avoir proposé.
+    $id('propose-cancel')?.addEventListener('click', () => fermerProposition(false));
     $id('propose-send')?.addEventListener('click', envoyerProposition);
     $id('review-close')?.addEventListener('click', fermerExamen);
     $id('propose-modal')?.addEventListener('click', (e) => {
-      if (e.target.id === 'propose-modal') fermerProposition();
+      if (e.target.id === 'propose-modal') fermerProposition(false);
     });
     $id('review-modal')?.addEventListener('click', (e) => {
       if (e.target.id === 'review-modal') fermerExamen();

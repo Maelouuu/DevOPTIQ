@@ -4414,6 +4414,20 @@ function _showSaveWarningModal(diff) {
 }
 
 async function saveJSON() {
+  // ⚠️ Carto commune, compte sans droit d'écriture : ENREGISTRER, C'EST
+  // PROPOSER. Tout passait auparavant par un écouteur en capture posé sur
+  // #btn-save par carto_sharing.js — fragile par construction : sur l'élément
+  // CIBLE, capture et bouillonnement se déclenchent dans l'ordre d'INSCRIPTION,
+  // et editor.js s'inscrit en premier. Le clic partait donc quand même vers
+  // /api/save, que le serveur refusait : l'utilisateur ne récoltait qu'un
+  // message d'erreur. Et le bouton « Enregistrer » du dialogue de sortie, lui,
+  // n'était pas habillé du tout.
+  // Ici, tous les chemins convergent — bouton, Ctrl+S, dialogue de sortie,
+  // sauvegarde automatique — parce qu'ils appellent tous cette fonction.
+  if (typeof window.cartoProposeInstead === 'function') {
+    return window.cartoProposeInstead();
+  }
+
   const apiBase = window.OPTIQCARTO_API_BASE || '/cartography';
 
   if (activeCalqueId) return _saveCalque(apiBase);

@@ -435,6 +435,9 @@ TRANSLATIONS = {
         'access.copy_hint':          "Une copie est une carto à part, que son destinataire fait évoluer de son côté. Elle ne reçoit plus les modifications de celle-ci.",
         # ── Modifications proposées ─────────────────────────────────────────
         'change.propose':            'Proposer la modification',
+        'change.propose_and_leave':  'Proposer et quitter',
+        'change.unsaved_hint':       "Vos modifications ne sont pas encore parties "
+                                     "à l'examen. Les proposer maintenant ?",
         'change.propose_title':      'Proposer une modification',
         'change.propose_hint':       "Cette carto est commune : votre version part à l'examen d'un champion. Appliquée, elle vaudra pour tous ceux qui y ont accès.",
         'change.title_label':        'Résumé (facultatif)',
@@ -1753,6 +1756,9 @@ TRANSLATIONS = {
         'access.copy_hint':          'A copy is a separate map that its recipient grows on their own. It no longer receives the changes made here.',
         # ── Proposed changes ────────────────────────────────────────────────
         'change.propose':            'Propose the change',
+        'change.propose_and_leave':  'Propose and leave',
+        'change.unsaved_hint':       'Your changes have not been sent for review '
+                                     'yet. Propose them now?',
         'change.propose_title':      'Propose a change',
         'change.propose_hint':       'This map is shared: your version goes to a champion for review. Once applied, it counts for everyone who can open it.',
         'change.title_label':        'Summary (optional)',

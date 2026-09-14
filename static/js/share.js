@@ -127,18 +127,27 @@
   const squelette = () => '<div class="sh-skeleton"><i class="fa-solid fa-spinner fa-spin"></i></div>';
   const erreur = (m) => `<p class="sh-error">${esc(m)}</p>`;
 
-  async function charger() {
+  // ⚠️ Deux situations, deux comportements — les confondre rendait la page
+  // pénible à utiliser. CHANGER de carto, c'est arriver ailleurs : l'attente se
+  // montre, les blocs entrent en scène. METTRE À JOUR après avoir coché un rôle,
+  // c'est rester au même endroit : tout effacer pour afficher un spinner puis
+  // rejouer l'animation d'entrée faisait disparaître la page à chaque clic, et
+  // reperdait la position de défilement au passage.
+  async function charger(opts) {
     if (!entityId) return;
-    $('#sh-main').innerHTML = squelette();
+    const discret = !!(opts && opts.discret);
+    if (!discret) $('#sh-main').innerHTML = squelette();
     try {
       const data = await getJSON(`/cartography/api/access/${entityId}/roles`);
       if (data.error) { $('#sh-main').innerHTML = erreur(data.error); return; }
       etat = data;
       etat.changes = await getJSON(`/cartography/api/changes?entity_id=${entityId}`)
         .catch(() => ({ requests: [] }));
-      rendreMain();
+      const y = window.scrollY;
+      rendreMain({ anime: !discret });
+      if (discret) window.scrollTo(0, y);
     } catch (_) {
-      $('#sh-main').innerHTML = erreur(L('loadError'));
+      if (!discret) $('#sh-main').innerHTML = erreur(L('loadError'));
     }
   }
 
@@ -146,7 +155,8 @@
     return cartes.find(c => c.id === entityId) || {};
   }
 
-  function rendreMain() {
+  function rendreMain(opts) {
+    const anime = !(opts && opts.anime === false);
     const c = carteCourante();
     const gele = !etat.can_manage_access;
     const attente = (etat.changes.requests || []).filter(r => r.status === 'pending').length;
@@ -163,7 +173,7 @@
     // ⚠️ Onglet en arrière-plan : le navigateur met les animations en pause, et
     // une entrée qui PART d'opacité 0 laisserait la page blanche jusqu'au retour
     // sur l'onglet. On n'anime donc que si la page est réellement visible.
-    if (document.visibilityState === 'visible') {
+    if (anime && document.visibilityState === 'visible') {
       [...$('#sh-main').children].forEach((el, i) => {
         el.style.setProperty('--rang', i);
         el.classList.add('sh-enters');
@@ -330,12 +340,12 @@
         role_ids: [...document.querySelectorAll('.sh-role-cb:checked')]
           .map(c => parseInt(c.value, 10)),
       });
-      if (data.error) { alert(data.error); await charger(); return; }
+      if (data.error) { alert(data.error); await charger({ discret: true }); return; }
       annoncer(L('saved'));
       const c = cartes.find(x => x.id === entityId);
       if (c) { c.is_shared = data.is_shared; c.open_to_all = data.open_to_all; }
       rendreGalerie();
-      await charger();
+      await charger({ discret: true });
     } catch (_) { alert(L('netError')); }
   }
 
@@ -349,7 +359,7 @@
         `/cartography/api/access/${entityId}/roles/${roleId}/holders`,
         ajouter ? { add: [userId] } : { remove: [userId] });
       if (data.error) { alert(data.error); return; }
-      await charger();
+      await charger({ discret: true });
       if (fenetre) rafraichirFenetre();
     } catch (_) { alert(L('netError')); }
   }
