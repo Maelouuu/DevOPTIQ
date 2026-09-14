@@ -246,6 +246,7 @@
             <span class="gov-item-date">${esc(dateCourte(r.created_at))}</span>
           </div>
           ${r.message ? `<p class="gov-detail-msg">${esc(r.message)}</p>` : ''}
+          ${avantApres(id)}
           <h5 class="gov-sum-title">${esc(L('change.summary_title'))}</h5>
           ${resumeHtml(r.summary)}
           ${r.can_review ? `
@@ -266,6 +267,7 @@
             </div>` : '')}
         </article>`;
 
+      brancherAvantApres();
       $id('gov-back')?.addEventListener('click', chargerListe);
       $id('gov-approve')?.addEventListener('click', () => trancher(id, 'approve'));
       $id('gov-reject')?.addEventListener('click', () => trancher(id, 'reject'));
@@ -273,6 +275,73 @@
     } catch (_) {
       body.innerHTML = `<p class="gov-error">${esc(L('change.load_error'))}</p>`;
     }
+  }
+
+  /* ── Voir ce que ça change, au lieu de le lire ───────────────────────── */
+
+  // Un résumé dit « 2 activités déplacées » ; il ne dit pas si le résultat tient
+  // debout. Les deux images partagent le MÊME cadrage — sans quoi la carto
+  // entière semblerait avoir bougé parce qu'une forme a changé de place — et
+  // surlignent ce qui est touché : rouge retiré, vert ajouté, ambre modifié.
+  function avantApres(id) {
+    const img = (quel, libelle) => `
+      <figure class="gov-ba-fig">
+        <figcaption>${esc(libelle)}</figcaption>
+        <button type="button" class="gov-ba-shot" data-quel="${quel}" data-id="${id}"
+                title="${esc(L('change.enlarge'))}">
+          <img src="${API}/api/changes/${id}/apercu/${quel}.svg" alt="${esc(libelle)}" loading="lazy">
+          <span class="gov-ba-zoom"><i class="fa-solid fa-up-right-and-down-left-from-center"></i></span>
+        </button>
+      </figure>`;
+    return `
+      <h5 class="gov-sum-title">${esc(L('change.visual_title'))}</h5>
+      <div class="gov-ba">
+        ${img('avant', L('change.before'))}
+        <i class="fa-solid fa-arrow-right gov-ba-arrow"></i>
+        ${img('apres', L('change.after'))}
+      </div>
+      <p class="gov-ba-legend">
+        <span><b class="gov-dot gov-dot--del"></b>${esc(L('change.legend_removed'))}</span>
+        <span><b class="gov-dot gov-dot--add"></b>${esc(L('change.legend_added'))}</span>
+        <span><b class="gov-dot gov-dot--chg"></b>${esc(L('change.legend_changed'))}</span>
+      </p>`;
+  }
+
+  function brancherAvantApres() {
+    document.querySelectorAll('.gov-ba-shot').forEach(b =>
+      b.addEventListener('click', () => agrandir(b.dataset.id, b.dataset.quel)));
+  }
+
+  // ⚠️ On ouvre à la taille de la fenêtre, pas « zoomé à fond » : un examinateur
+  // veut d'abord revoir l'ensemble, et décider LUI de regarder un détail.
+  function agrandir(id, quel) {
+    document.getElementById('gov-loupe')?.remove();
+    const ov = document.createElement('div');
+    ov.id = 'gov-loupe';
+    ov.className = 'gov-loupe';
+    ov.innerHTML = `
+      <div class="gov-loupe-barre">
+        <span class="gov-loupe-titre">${esc(quel === 'avant' ? L('change.before') : L('change.after'))}</span>
+        <button type="button" class="gov-loupe-bascule" id="gov-loupe-autre">
+          <i class="fa-solid fa-right-left"></i> ${esc(
+            quel === 'avant' ? L('change.after') : L('change.before'))}
+        </button>
+        <button type="button" class="gov-loupe-fermer" id="gov-loupe-x" aria-label="${
+          esc(L('btn.close') || 'Fermer')}"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <img src="${API}/api/changes/${id}/apercu/${quel}.svg" alt="">`;
+    document.body.appendChild(ov);
+
+    const fermer = () => { ov.remove(); document.removeEventListener('keydown', auClavier); };
+    function auClavier(e) { if (e.key === 'Escape') fermer(); }
+    document.addEventListener('keydown', auClavier);
+    ov.addEventListener('click', (e) => { if (e.target === ov) fermer(); });
+    ov.querySelector('#gov-loupe-x').addEventListener('click', fermer);
+    // Comparer, c'est basculer de l'un à l'autre sans rien perdre du cadrage.
+    ov.querySelector('#gov-loupe-autre').addEventListener('click', () => {
+      fermer();
+      agrandir(id, quel === 'avant' ? 'apres' : 'avant');
+    });
   }
 
   async function trancher(id, action) {

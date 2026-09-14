@@ -436,6 +436,13 @@ TRANSLATIONS = {
         # ── Modifications proposées ─────────────────────────────────────────
         'change.propose':            'Proposer la modification',
         'change.propose_and_leave':  'Proposer et quitter',
+        'change.visual_title':       'Ce que ça change, en image',
+        'change.before':             'Avant',
+        'change.after':              'Après',
+        'change.enlarge':            'Agrandir',
+        'change.legend_removed':     'retiré',
+        'change.legend_added':       'ajouté',
+        'change.legend_changed':     'déplacé ou renommé',
         'change.unsaved_hint':       "Vos modifications ne sont pas encore parties "
                                      "à l'examen. Les proposer maintenant ?",
         'change.propose_title':      'Proposer une modification',
@@ -1757,6 +1764,13 @@ TRANSLATIONS = {
         # ── Proposed changes ────────────────────────────────────────────────
         'change.propose':            'Propose the change',
         'change.propose_and_leave':  'Propose and leave',
+        'change.visual_title':       'What it changes, in pictures',
+        'change.before':             'Before',
+        'change.after':              'After',
+        'change.enlarge':            'Enlarge',
+        'change.legend_removed':     'removed',
+        'change.legend_added':       'added',
+        'change.legend_changed':     'moved or renamed',
         'change.unsaved_hint':       'Your changes have not been sent for review '
                                      'yet. Propose them now?',
         'change.propose_title':      'Propose a change',

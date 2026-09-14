@@ -135,8 +135,19 @@ def _points_du_lien(conn, boites):
     return []
 
 
+# Ce qu'une marque vaut à l'écran. Les mêmes couleurs des deux côtés : une
+# forme retirée est rouge sur l'AVANT, une forme ajoutée est verte sur l'APRÈS,
+# et une forme touchée est ambrée des deux côtés — on suit l'œil d'une image à
+# l'autre sans avoir à lire une légende.
+_MARQUES = {
+    "removed": "#dc2626",
+    "added":   "#16a34a",
+    "changed": "#d97706",
+}
+
+
 def _svg_vignette(entity):
-    """SVG de la carto, ou None si l'entité n'a rien à montrer."""
+    """SVG de la carto d'une entité, ou None si elle n'a rien à montrer."""
     diagram = _diagram(entity.optiqcarto_data)
     if not diagram:
         # Cartos importées avant `optiqcarto_data` : le SVG Visio est tout ce
@@ -145,7 +156,19 @@ def _svg_vignette(entity):
         if brut.strip().startswith("<") and len(brut) <= _VIGNETTE_MAX_SVG:
             return brut
         return None
+    return _svg_depuis_diagramme(diagram)
 
+
+def _svg_depuis_diagramme(diagram, marques=None, cadre=None):
+    """Rend un diagramme en SVG.
+
+    `marques` : {id_de_forme: 'added'|'removed'|'changed'} — de quoi montrer ce
+    qui change au lieu de le raconter. `cadre` : (x0, y0, largeur, hauteur) pour
+    imposer le MÊME cadrage à deux images qu'on veut comparer — sans quoi
+    l'avant et l'après se recadrent chacun sur leur contenu et tout semble avoir
+    bougé alors que rien n'a changé.
+    """
+    marques = marques or {}
     bandes = [b for b in (diagram.get("bands") or []) if not b.get("deleted")]
     formes = list(diagram.get("shapes") or [])
     if not bandes and not formes:
@@ -172,6 +195,8 @@ def _svg_vignette(entity):
     marge = max(40.0, (x1 - x0) * 0.02)
     x0, y0, x1, y1 = x0 - marge, y0 - marge, x1 + marge, y1 + marge
     largeur, hauteur = max(1.0, x1 - x0), max(1.0, y1 - y0)
+    if cadre:
+        x0, y0, largeur, hauteur = cadre
 
     # Un trait de vignette doit rester visible : on l'exprime en fraction de la
     # largeur totale, sinon il disparaît sur les grandes cartos.
@@ -207,9 +232,67 @@ def _svg_vignette(entity):
             parts.append(f'<rect x="{fx:.1f}" y="{fy:.1f}" width="{fw:.1f}" '
                          f'height="{fh:.1f}" rx="{rayon:.1f}" fill="{couleur}"/>')
 
+        # Le halo de ce qui change, par-dessus la forme : c'est lui qu'on
+        # cherche du regard en comparant les deux images.
+        teinte = _MARQUES.get(marques.get(str(f.get("id"))))
+        if teinte:
+            halo = max(trait * 2.4, min(fw, fh) * 0.09)
+            parts.append(f'<rect x="{fx - halo:.1f}" y="{fy - halo:.1f}" '
+                         f'width="{fw + 2 * halo:.1f}" height="{fh + 2 * halo:.1f}" '
+                         f'rx="{halo * 1.6:.1f}" fill="none" stroke="{teinte}" '
+                         f'stroke-width="{halo:.1f}" stroke-opacity="0.95"/>')
+
     return (f'<svg xmlns="http://www.w3.org/2000/svg" '
             f'viewBox="{x0:.1f} {y0:.1f} {largeur:.1f} {hauteur:.1f}" '
             f'preserveAspectRatio="xMidYMid meet">' + "".join(parts) + "</svg>")
+
+
+def _cadre_commun(*diagrammes):
+    """Le cadrage qui contient TOUS les diagrammes donnés.
+
+    Deux vignettes recadrées chacune sur son contenu se comparent mal : la
+    carto entière paraît avoir bougé parce qu'une seule forme a été déplacée.
+    """
+    x0 = y0 = float("inf")
+    x1 = y1 = float("-inf")
+    for d in diagrammes:
+        if not d:
+            continue
+        bandes = [b for b in (d.get("bands") or []) if not b.get("deleted")]
+        haut = -200.0
+        bas = haut + sum(float(b.get("height") or 0) for b in bandes)
+        if bandes:
+            x0, y0 = min(x0, 0.0), min(y0, haut)
+            x1, y1 = max(x1, float(d.get("bandWidth") or 0)), max(y1, bas)
+        for f in (d.get("shapes") or []):
+            fx, fy = float(f.get("x") or 0), float(f.get("y") or 0)
+            fw, fh = float(f.get("w") or 0), float(f.get("h") or 0)
+            x0, y0 = min(x0, fx), min(y0, fy)
+            x1, y1 = max(x1, fx + fw), max(y1, fy + fh)
+    if x0 == float("inf"):
+        return None
+    marge = max(40.0, (x1 - x0) * 0.02)
+    return (x0 - marge, y0 - marge,
+            max(1.0, (x1 - x0) + 2 * marge), max(1.0, (y1 - y0) + 2 * marge))
+
+
+def _marques_du_changement(avant, apres):
+    """Quelles formes signaler, de chaque côté, et de quelle couleur."""
+    def index(d):
+        return {str(s.get("id")): s for s in ((d or {}).get("shapes") or [])}
+
+    fa, fb = index(avant), index(apres)
+    m_avant, m_apres = {}, {}
+    for i in fa.keys() - fb.keys():
+        m_avant[i] = "removed"
+    for i in fb.keys() - fa.keys():
+        m_apres[i] = "added"
+    for i in fa.keys() & fb.keys():
+        a, b = fa[i], fb[i]
+        if ((a.get("label") or "") != (b.get("label") or "")
+                or a.get("x") != b.get("x") or a.get("y") != b.get("y")):
+            m_avant[i] = m_apres[i] = "changed"
+    return m_avant, m_apres
 
 
 @carto_sharing_bp.route("/api/access/<int:entity_id>/thumbnail.svg")
@@ -229,6 +312,50 @@ def get_thumbnail(entity_id):
     reponse = Response(svg, mimetype="image/svg+xml")
     # Privée : une carto commune n'est pas publique pour autant.
     reponse.headers["Cache-Control"] = "private, max-age=120"
+    return reponse
+
+
+@carto_sharing_bp.route("/api/changes/<int:change_id>/apercu/<quel>.svg")
+def get_apercu_changement(change_id, quel):
+    """L'AVANT et l'APRÈS d'une proposition, en image.
+
+    Un résumé écrit dit « 2 activités déplacées » ; il ne dit pas si le résultat
+    tient debout. Les deux images partagent le même cadrage et surlignent les
+    formes touchées, pour que la comparaison porte sur ce qui change et pas sur
+    un recadrage.
+    """
+    from Code.models.models import CartoChangeRequest
+
+    user = _connecte()
+    if not user:
+        return ("", 401)
+    if quel not in ("avant", "apres"):
+        return ("", 404)
+
+    cr = db.session.get(CartoChangeRequest, change_id)
+    if not cr:
+        return ("", 404)
+    entity = db.session.get(Entity, cr.entity_id)
+    # L'auteur relit sa propre proposition ; les autres doivent pouvoir arbitrer.
+    if not (cr.author_id == user.id or can_review(entity, user)):
+        return ("", 404)
+
+    avant = _diagram(cr.base_diagram)
+    apres = _diagram(cr.diagram)
+    if not (avant or apres):
+        return ("", 404)
+
+    m_avant, m_apres = _marques_du_changement(avant, apres)
+    cadre = _cadre_commun(avant, apres)
+    choisi, marques = ((avant, m_avant) if quel == "avant" else (apres, m_apres))
+    if not choisi:
+        return ("", 404)
+
+    svg = _svg_depuis_diagramme(choisi, marques=marques, cadre=cadre)
+    if not svg:
+        return ("", 404)
+    reponse = Response(svg, mimetype="image/svg+xml")
+    reponse.headers["Cache-Control"] = "private, max-age=60"
     return reponse
 
 

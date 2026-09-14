@@ -567,3 +567,80 @@ class TestActivation:
         _as(client, scene["etranger"], "t66.etranger@devoptiq.com")
         res = client.post(f"/activities/api/entities/{scene['entity_id']}/activate")
         assert res.status_code == 404
+
+class TestApercuAvantApres:
+    """Un résumé écrit dit « 2 activités déplacées » ; il ne dit pas si le
+    résultat tient debout. L'examinateur doit pouvoir REGARDER."""
+
+    @staticmethod
+    def _marques(avant, apres):
+        from Code.routes.carto_sharing import _marques_du_changement
+        return _marques_du_changement(avant, apres)
+
+    def test_le_cadrage_est_commun_aux_deux_images(self, app):
+        """⚠️ Deux vignettes recadrées chacune sur son contenu se comparent mal :
+        déplacer UNE forme fait paraître que toute la carto a bougé."""
+        import re
+        from Code.routes.carto_sharing import _cadre_commun, _svg_depuis_diagramme
+
+        avant = {"bands": [{"id": 1, "height": 200, "color": "#abc"}], "bandWidth": 900,
+                 "shapes": [{"id": "a", "x": 10, "y": 10, "w": 80, "h": 40},
+                            {"id": "b", "x": 200, "y": 10, "w": 80, "h": 40}],
+                 "connections": []}
+        apres = {"bands": avant["bands"], "bandWidth": 900,
+                 "shapes": [dict(avant["shapes"][0]),
+                            {"id": "b", "x": 2000, "y": 900, "w": 80, "h": 40}],
+                 "connections": []}
+        cadre = _cadre_commun(avant, apres)
+        with app.app_context():
+            va = _svg_depuis_diagramme(avant, cadre=cadre)
+            vb = _svg_depuis_diagramme(apres, cadre=cadre)
+        vue = lambda svg: re.search(r'viewBox="([^"]+)"', svg).group(1)
+        assert vue(va) == vue(vb)
+
+    def test_les_formes_touchees_sont_surlignees_du_bon_cote(self, app):
+        """Retiré en rouge sur l'AVANT, ajouté en vert sur l'APRÈS, modifié en
+        ambre des deux côtés — on suit l'œil d'une image à l'autre."""
+        from Code.routes.carto_sharing import _svg_depuis_diagramme
+
+        avant = {"bands": [], "bandWidth": 500, "connections": [],
+                 "shapes": [{"id": "reste", "x": 0, "y": 0, "w": 50, "h": 30},
+                            {"id": "part", "x": 90, "y": 0, "w": 50, "h": 30},
+                            {"id": "bouge", "x": 180, "y": 0, "w": 50, "h": 30}]}
+        apres = {"bands": [], "bandWidth": 500, "connections": [],
+                 "shapes": [{"id": "reste", "x": 0, "y": 0, "w": 50, "h": 30},
+                            {"id": "bouge", "x": 300, "y": 0, "w": 50, "h": 30},
+                            {"id": "neuve", "x": 400, "y": 0, "w": 50, "h": 30}]}
+        m_av, m_ap = self._marques(avant, apres)
+        assert m_av["part"] == "removed"
+        assert m_ap["neuve"] == "added"
+        assert m_av["bouge"] == m_ap["bouge"] == "changed"
+        assert "reste" not in m_av and "reste" not in m_ap
+
+        with app.app_context():
+            va = _svg_depuis_diagramme(avant, marques=m_av)
+            vb = _svg_depuis_diagramme(apres, marques=m_ap)
+        assert 'stroke="#dc2626"' in va and 'stroke="#dc2626"' not in vb
+        assert 'stroke="#16a34a"' in vb and 'stroke="#16a34a"' not in va
+        assert 'stroke="#d97706"' in va and 'stroke="#d97706"' in vb
+
+    def test_la_vignette_de_galerie_reste_sans_halo(self, app):
+        """Le même moteur sert les deux usages : la galerie ne doit pas hériter
+        des couleurs de l'examen."""
+        from Code.routes.carto_sharing import _svg_depuis_diagramme
+
+        diag = {"bands": [], "bandWidth": 300, "connections": [],
+                "shapes": [{"id": "x", "x": 0, "y": 0, "w": 40, "h": 20}]}
+        with app.app_context():
+            svg = _svg_depuis_diagramme(diag)
+        for couleur in ("#dc2626", "#16a34a", "#d97706"):
+            assert couleur not in svg
+
+    def test_l_apercu_est_refuse_a_qui_n_a_rien_a_y_voir(self, app, client):
+        """Ni l'auteur ni un arbitre : 404 — comme le reste de l'API."""
+        r = client.get("/cartography/api/changes/999999/apercu/avant.svg")
+        assert r.status_code in (401, 404)
+
+    def test_seuls_avant_et_apres_sont_acceptes(self, app, client):
+        r = client.get("/cartography/api/changes/1/apercu/autrechose.svg")
+        assert r.status_code in (401, 404)
