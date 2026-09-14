@@ -349,7 +349,11 @@ class Softskill(db.Model):
 
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     habilete = db.Column(db.String(255), nullable=False)
-    niveau = db.Column(db.String(10), nullable=False)
+    # ⚠️ On stocke le LIBELLÉ complet (« 2 (Acquisition) »), pas le chiffre :
+    # c'est ce qui permet à hsc_level_label() de traduire l'affichage sans
+    # jamais réécrire la base. 10 caractères ne suffisaient à AUCUN des quatre
+    # niveaux — voir la migration dans create_app().
+    niveau = db.Column(db.String(50), nullable=False)
     justification = db.Column(db.Text, nullable=True)
     activity_id = db.Column(db.Integer, db.ForeignKey('activities.id'), nullable=False)
 

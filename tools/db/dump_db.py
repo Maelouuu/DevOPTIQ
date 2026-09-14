@@ -11,6 +11,7 @@ la date, la base et le nombre de lignes — de quoi vérifier une restauration.
 ⚠️ À faire AVANT toute remise à zéro : c'est ce qui rend l'opération réversible.
 """
 import argparse
+import base64
 import datetime as dt
 import decimal
 import json
@@ -20,14 +21,26 @@ import sys
 import psycopg2
 
 
+MARQUE_BINAIRE = "__b64__"
+
+
 def _serialisable(v):
-    """JSON ne sait pas écrire une date, un Decimal ni de la mémoire brute."""
+    """JSON ne sait pas écrire une date, un Decimal ni de la mémoire brute.
+
+    ⚠️ Le binaire NE se décode PAS en texte. La première version de ce script
+    faisait `bytes(v).decode("utf-8", "replace")` : chaque octet invalide en
+    UTF-8 devenait U+FFFD, donc perdu pour toujours. Mesuré sur la sauvegarde
+    du 10/09/2026 : les 13 fichiers de `file_blobs` avaient perdu 31 à 45 % de
+    leurs octets, et la base ayant été remise à zéro derrière, la sauvegarde
+    était leur seule copie. On encode en base64, et `restore_db.py` relit la
+    marque pour reconstituer les octets exacts.
+    """
     if isinstance(v, (dt.datetime, dt.date, dt.time)):
         return v.isoformat()
     if isinstance(v, decimal.Decimal):
         return float(v)
     if isinstance(v, (bytes, bytearray, memoryview)):
-        return bytes(v).decode("utf-8", "replace")
+        return {MARQUE_BINAIRE: base64.b64encode(bytes(v)).decode("ascii")}
     return v
 
 

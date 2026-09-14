@@ -61,6 +61,43 @@ class TestDefautsBooleens:
 
 
 @sans_source
+class TestLargeurDesColonnes:
+    """SQLite ignore `VARCHAR(n)` : il accepte n'importe quelle longueur. Une
+    colonne trop étroite ne se voit donc QUE sur PostgreSQL, et seulement une
+    fois qu'une vraie valeur y passe. On confronte ici la largeur DÉCLARÉE à ce
+    que le code écrit réellement."""
+
+    @staticmethod
+    def _libelles_hsc():
+        """Tout ce que `hsc_level_label` peut produire : « 3 (Maîtrise) »,
+        « 3 (Proficient) »… C'est ce qui atterrit dans la colonne."""
+        from Code.translations import HSC_LEVELS
+        return ["%d (%s)" % (n, libelles[lang])
+                for n, libelles in HSC_LEVELS.items()
+                for lang in ("fr", "en")]
+
+    def test_le_niveau_hsc_tient_dans_sa_colonne(self, app):
+        """172 des 207 lignes de la base du 10/09 dépassaient VARCHAR(10)."""
+        from Code.models.models import Softskill
+
+        colonne = Softskill.__table__.c.niveau
+        besoin = max(len(v) for v in self._libelles_hsc())
+        assert colonne.type.length >= besoin, (
+            "softskills.niveau est en VARCHAR(%s) alors que le plus long "
+            "libellé HSC en fait %d (« %s ») : sur PostgreSQL, enregistrer "
+            "une HSC lèverait « value too long for type character varying »."
+            % (colonne.type.length, besoin,
+               max(self._libelles_hsc(), key=len)))
+
+    def test_la_migration_elargit_la_colonne_des_instances_existantes(self):
+        """Changer le modèle ne touche PAS une base déjà créée : sans l'ALTER,
+        les instances en service gardent leur colonne étroite."""
+        source = io.open(SOURCE_APP, encoding="utf-8").read()
+        assert "ALTER TABLE softskills ALTER COLUMN niveau TYPE" in source, (
+            "L'élargissement de softskills.niveau a disparu de create_app : "
+            "les bases déjà déployées resteraient en VARCHAR(10).")
+
+
 class TestMigrationsAChaud:
     """Les ALTER de `create_app` sont du SQL écrit à la main : personne ne les
     compile, et ils ne s'exécutent qu'au démarrage d'une instance déjà en

@@ -541,6 +541,20 @@ def create_app(test_config=None):
         except Exception:
             pass  # SQLite (longueur non contraignante), déjà au bon type, ou verrou occupé
 
+        # softskills.niveau : la valeur STOCKÉE est le libellé HSC entier
+        # (« 2 (Acquisition) », 15 caractères) — jamais le chiffre seul, c'est
+        # ce qui permet de traduire l'affichage sans réécrire la base. Le modèle
+        # la déclarait en VARCHAR(10) : sur toute base NEUVE, enregistrer une
+        # HSC tombait en 500. Invisible pour la suite, qui tourne sur SQLite —
+        # lequel n'applique PAS les longueurs de VARCHAR.
+        try:
+            with _init_conn() as _conn:
+                _conn.execute(_text("ALTER TABLE softskills ALTER COLUMN niveau TYPE VARCHAR(50)"))
+                _conn.commit()
+                print("[DB] Colonne softskills.niveau élargie à VARCHAR(50)")
+        except Exception:
+            pass  # SQLite, déjà au bon type, ou verrou occupé
+
         # 3. Tables supplémentaires
         try:
             from Code.models.models import FileBlob
