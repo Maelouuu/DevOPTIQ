@@ -54,6 +54,17 @@ def gestion_rh_home():
         ensure_manager_id_column()
         active_entity_id = get_active_entity_id()
 
+        # Le développeur de compétences existe dans TOUTE entité : on le crée au
+        # premier affichage plutôt que d'exiger qu'on y pense. Sans lui, la
+        # section Affectation n'a personne à proposer.
+        try:
+            from Code.roles_permanents import assurer_roles_permanents
+            if assurer_roles_permanents(active_entity_id):
+                db.session.commit()
+        except Exception as e:
+            db.session.rollback()
+            print(f"⚠️ rôle permanent non créé : {e}")
+
         # Récupérer les paramètres entreprise
         try:
             _ensure_settings_table()
@@ -369,12 +380,22 @@ def get_users_with_roles():
 def get_users_with_role():
     role_name = request.args.get('role')
     active_entity_id = get_active_entity_id()
-    
-    if active_entity_id:
+
+    # ⚠️ `?role=manager` était le SEUL moyen d'atteindre le développeur de
+    # compétences, par son nom littéral : sur une entité qui n'en avait pas, la
+    # liste revenait vide et la section Affectation semblait morte. On reconnaît
+    # désormais la famille de noms, et on crée le rôle s'il manque — il est
+    # permanent, il doit exister.
+    from Code.roles_permanents import est_dev_competences, role_dev_competences
+    if est_dev_competences(role_name):
+        role = role_dev_competences(active_entity_id)
+        if role:
+            db.session.commit()
+    elif active_entity_id:
         role = Role.query.filter_by(name=role_name, entity_id=active_entity_id).first()
     else:
         role = Role.query.filter_by(name=role_name).first()
-    
+
     if not role:
         return jsonify([])
     

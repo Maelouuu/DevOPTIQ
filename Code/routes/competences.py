@@ -52,11 +52,12 @@ def get_managers():
     # CORRIGÉ: Filtrer par entité active
     active_entity_id = Entity.get_active_id()
     
-    if active_entity_id:
-        role_manager = Role.query.filter_by(name='manager', entity_id=active_entity_id).first()
-    else:
-        role_manager = Role.query.filter_by(name='manager').first()
-    
+    # ⚠️ Chercher le nom littéral 'manager' rendait cette liste vide sur toute
+    # entité qui n'en avait pas — et un rôle créé à la main était effacé par la
+    # synchro de la carto. Le rôle est désormais permanent et reconnu par
+    # famille de noms (les bases anciennes portent encore « manager »).
+    from Code.roles_permanents import role_dev_competences
+    role_manager = role_dev_competences(active_entity_id, creer=False)
     if not role_manager:
         return jsonify([])
     

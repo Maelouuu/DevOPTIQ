@@ -350,7 +350,7 @@ def _do_sync(entity, diagram):
     # Code/roles_permanents.py.
     from Code.roles_permanents import est_permanent
     roles_to_remove = [role for name, role in existing_roles.items()
-                       if name not in new_band_names and not est_permanent(name)]
+                       if name not in new_band_names]
     if roles_to_remove:
         remove_role_ids = [r.id for r in roles_to_remove if r.id]
         if remove_role_ids:
