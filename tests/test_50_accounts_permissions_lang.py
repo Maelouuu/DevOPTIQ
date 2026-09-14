@@ -184,6 +184,7 @@ def test_un_nouveau_compte_nait_en_anglais(app, client, actors):
 
 def test_le_compte_afdec_nait_en_francais(app, client, actors):
     from Code.models.models import default_lang_for, DEFAULT_FRENCH_ACCOUNTS
+    assert default_lang_for("mael.pierre.girardin@icloud.com") == "fr"
     assert default_lang_for("afdec.enterprise.services@gmail.com") == "fr"
     assert default_lang_for("AFDEC.Enterprise.Services@Gmail.com") == "fr"
     assert default_lang_for("quelqun@araymond.com") == "en"

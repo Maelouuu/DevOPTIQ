@@ -506,7 +506,8 @@ class User(db.Model):
 DEFAULT_LANG = 'en'
 
 # Comptes qui restent en français malgré le défaut anglais.
-DEFAULT_FRENCH_ACCOUNTS = {'afdec.enterprise.services@gmail.com'}
+DEFAULT_FRENCH_ACCOUNTS = {'mael.pierre.girardin@icloud.com',
+                           'afdec.enterprise.services@gmail.com'}
 
 
 def default_lang_for(email):

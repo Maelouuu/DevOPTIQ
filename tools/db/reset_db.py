@@ -27,9 +27,9 @@ sys.path.insert(0, RACINE)
 # Comptes de départ de l'instance de développement. Mot de passe volontairement
 # trivial : l'instance est privée et sert à travailler, pas à héberger de la
 # donnée réelle.
-MOT_DE_PASSE = "test"
+MOT_DE_PASSE = "testtest"
 COMPTES = [
-    ("Mael",     "Girardin",  "afdec.enterprise.services@gmail.com", "administrateur"),
+    ("Mael",     "Girardin",  "mael.pierre.girardin@icloud.com",     "administrateur"),
     ("Camille",  "Fontaine",  "camille.fontaine@example.com",        "champion"),
     ("Noe",      "Berthier",  "noe.berthier@example.com",            "user"),
     ("Salome",   "Vasseur",   "salome.vasseur@example.com",          "user"),
