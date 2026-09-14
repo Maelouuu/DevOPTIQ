@@ -443,7 +443,7 @@
           <b>${esc(c.titre || L('tile_changes'))}</b>
           <span>${esc(L('by'))} ${esc(c.auteur)}${c.le ? ' · ' + esc(dateCourte(c.le)) : ''}</span>
         </div>
-        <a class="grh-btn grh-btn--ghost" href="/cartography/editor">
+        <a class="grh-btn grh-btn--ghost" href="/cartography/editor?proposition=${c.id}">
           ${esc(L('changes_review'))} <i class="fa-solid fa-arrow-right"></i>
         </a>
       </article>`).join('')}</div>`;

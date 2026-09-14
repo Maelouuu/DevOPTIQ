@@ -55,7 +55,7 @@
       const btn = $id('gov-review-btn');
       if (btn) {
         btn.style.display = '';
-        btn.addEventListener('click', ouvrirExamen);
+        btn.addEventListener('click', () => ouvrirExamen());
       }
       rafraichirCompteur();
     }
@@ -132,11 +132,13 @@
 
   /* ── Examiner ───────────────────────────────────────────────────────── */
 
-  function ouvrirExamen() {
+  function ouvrirExamen(surId) {
     const modal = $id('review-modal');
     if (!modal) return;
     modal.style.display = 'flex';
-    chargerListe();
+    // Arriver depuis la page RH sur « Examiner », c'est demander CETTE
+    // proposition : ouvrir la liste obligerait à la retrouver soi-même.
+    if (surId) ouvrirDetail(surId); else chargerListe();
   }
 
   function fermerExamen() {
@@ -424,6 +426,20 @@
     if (texte) texte.textContent = L('change.unsaved_hint');
   }
 
+  // `?proposition=<id>` — le lien « Examiner » de la page RH. On nettoie
+  // l'adresse au passage : revenir en arrière ne doit pas rouvrir la fenêtre.
+  function propositionDemandee() {
+    try {
+      const id = parseInt(
+        new URLSearchParams(window.location.search).get('proposition'), 10);
+      if (!id) return null;
+      const url = new URL(window.location.href);
+      url.searchParams.delete('proposition');
+      window.history.replaceState({}, '', url);
+      return id;
+    } catch (_) { return null; }
+  }
+
   function demarrer() {
     poseBandeau();
     habilleSauvegarde();
@@ -439,6 +455,9 @@
     $id('review-modal')?.addEventListener('click', (e) => {
       if (e.target.id === 'review-modal') fermerExamen();
     });
+
+    const demandee = propositionDemandee();
+    if (demandee && peutArbitrer) ouvrirExamen(demandee);
   }
 
   if (document.readyState === 'loading') {

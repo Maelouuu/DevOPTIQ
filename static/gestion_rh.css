@@ -1445,8 +1445,12 @@ select {
 .grh-people { display: flex; flex-direction: column; gap: 8px;
               max-height: min(62vh, 560px); overflow-y: auto; padding-right: 4px; }
 .grh-person {
-    display: grid; align-items: center; gap: 12px;
-    grid-template-columns: auto minmax(150px, 1fr) auto minmax(180px, 1.3fr) auto;
+    display: grid; align-items: start; gap: 12px;
+    /* ⚠️ Largeurs FIXES : chaque carte est sa propre grille, donc des colonnes
+       en `auto` se dimensionnent sur le contenu de LEUR ligne — les en-têtes
+       « Statut » et « Rôles » ne tombaient jamais au même endroit d'une ligne
+       à l'autre. */
+    grid-template-columns: 38px minmax(0, 1fr) 150px minmax(0, 1.6fr) 210px;
     padding: 10px 12px; border: 1px solid var(--border); border-radius: 12px;
     background: var(--card); transition: border-color .14s, box-shadow .14s;
 }
@@ -1456,7 +1460,15 @@ select {
 .grh-person-id b { font-size: 14px; }
 .grh-person-id span { font-size: 12px; color: var(--muted);
                       overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.grh-person-tags { display: flex; flex-direction: column; gap: 4px; align-items: flex-start; }
+.grh-person-tags {
+    display: flex; flex-direction: column; gap: 4px;
+    align-items: flex-start; min-width: 0;
+}
+.grh-person-tags .grh-chip { max-width: 100%; }
+.grh-person-tags .grh-chip--dev {
+    font-size: 10.5px; padding: 3px 7px;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
 /* Chaque colonne dit ce qu'elle contient : sans étiquette, on lisait trois
    séries de pastilles sans savoir laquelle était le statut et laquelle les
    rôles. */
@@ -1472,8 +1484,12 @@ select {
     position: relative;
     display: flex; gap: 5px; flex-wrap: wrap; align-items: center;
     padding: 7px 30px 7px 10px; cursor: pointer; font: inherit; text-align: left;
-    border: 1px dashed var(--pg-accent-border);
-    border-radius: 10px; background: var(--pg-accent-softer);
+    /* ⚠️ Assez de vert pour qu'on le VOIE. Les jetons dérivés du design system
+       (28 % d'accent sur blanc pour la bordure, 5 % pour le fond) donnent un
+       trait qui se lit gris à 1 px : l'affordance disparaissait. */
+    border: 1.5px dashed color-mix(in srgb, var(--pg-accent) 62%, #ffffff);
+    border-radius: 10px;
+    background: color-mix(in srgb, var(--pg-accent) 10%, #ffffff);
     transition: background .14s, border-color .14s;
 }
 .grh-person-roles::after {
@@ -1482,8 +1498,11 @@ select {
     position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
     font-size: 10px; color: var(--pg-accent); opacity: .65;
 }
+/* Au survol, l'inverse : le vert s'efface au profit du gris. Le mouvement se
+   voit, mais ce n'est plus lui qui PORTE l'information « c'est cliquable ». */
 .grh-person-roles:hover {
-    background: var(--card-2); border-color: var(--border-strong, #cbd5e1);
+    background: var(--card-2);
+    border-color: var(--border-strong, #cbd5e1);
 }
 .grh-person-roles:hover::after { color: var(--muted); }
 /* Les rôles, dans ce cadre : neutres et compacts — c'est le CADRE qui porte la
@@ -1502,6 +1521,8 @@ select {
     border: 1px solid hsl(var(--av-h) 55% 84%);
 }
 .grh-av--sm { width: 30px; height: 30px; font-size: 11px; border-radius: 9px; }
+.grh-person > .grh-av { margin-top: 2px; }
+.grh-person-id { padding-top: 3px; }
 
 .grh-chip {
     display: inline-flex; align-items: center; gap: 5px;

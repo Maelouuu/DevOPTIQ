@@ -174,6 +174,23 @@ def get_active_entity():
         session['active_entity_id'] = latest.id
         return latest
 
+    # 4. ⚠️ Et enfin les cartos COMMUNES ouvertes à ses rôles.
+    #
+    # Sans cette étape, un compte qui ne POSSÈDE aucune entité repartait de zéro
+    # à chaque connexion : les étapes 2 et 3 filtrent sur `owner_id`, donc elles
+    # ne trouvaient rien, et la page annonçait « Aucune entité active » alors que
+    # la carto commune lui était parfaitement ouverte. Le symptôme était
+    # déroutant : l'entité restait active tant que la session vivait, et
+    # disparaissait à la reconnexion.
+    #
+    # `Entity.get_active` (models.py) savait déjà le faire ; cette page a sa
+    # propre résolution et ne l'avait pas suivie. Même ordre que là-bas : les
+    # siennes d'abord, une carto commune seulement en dernier recours.
+    accessibles = Entity.accessible(user_id)
+    if accessibles:
+        session['active_entity_id'] = accessibles[0].id
+        return accessibles[0]
+
     return None
 
 
