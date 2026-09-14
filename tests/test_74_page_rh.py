@@ -168,3 +168,72 @@ class TestPageRendue:
         html = client.get("/gestion_rh/").data.decode("utf-8")
         assert "dcp" not in html.lower()
         assert "openRefFileModal" not in html
+
+class TestLienAvecLaPageCompetences:
+    """⚠️ Le MÊME piège que la liste des collaborateurs de la page RH, dans un
+    autre fichier : `User.query.filter_by(manager_id=…, entity_id=…)`.
+
+    `users.entity_id` n'est renseigné NULLE PART — la page des Comptes ne
+    l'écrit pas. Avec une entité active, aucun compte ne correspondait : on
+    désignait quelqu'un comme développeur de compétences dans la page RH, et la
+    page Compétences répondait « Aucun collaborateur ». Deux écrans, une seule
+    règle, deux implémentations.
+    """
+
+    def test_le_collaborateur_affecte_apparait_dans_competences(self, client, scene):
+        from Code.extensions import db
+        from Code.models.models import User
+
+        _connecte(client, scene)
+
+        # On affecte, exactement comme le fait la page RH.
+        r = client.post("/gestion_rh/assign_manager_simple", json={
+            "user_id": scene["simple"], "manager_id": scene["champ"], "role_ids": None})
+        assert r.status_code == 200 and r.get_json()["success"] is True
+
+        # Aucun de ces comptes n'a d'entity_id : c'est justement le piège.
+        with client.application.app_context():
+            assert db.session.get(User, scene["simple"]).entity_id is None
+
+        r = client.get(f"/competences/collaborators/{scene['champ']}")
+        assert r.status_code == 200
+        ids = [c["id"] for c in r.get_json()]
+        assert scene["simple"] in ids, (
+            "le collaborateur affecté dans la page RH doit apparaître dans la "
+            "page Compétences")
+
+    def test_l_affectation_par_role_compte_aussi(self, client, scene):
+        """Deux rattachements coexistent : `users.manager_id` (global) et
+        `user_roles.manager_id` (par rôle). En ignorer un ferait disparaître des
+        collaborateurs selon la façon dont ils ont été affectés."""
+        from Code.extensions import db
+        from Code.models.models import UserRole
+
+        _connecte(client, scene)
+        with client.application.app_context():
+            ur = UserRole(user_id=scene["tiers"], role_id=scene["metier"],
+                          manager_id=scene["champ"])
+            db.session.add(ur)
+            db.session.commit()
+        try:
+            r = client.get(f"/competences/collaborators/{scene['champ']}")
+            ids = [c["id"] for c in r.get_json()]
+            assert scene["tiers"] in ids
+        finally:
+            with client.application.app_context():
+                UserRole.query.filter_by(user_id=scene["tiers"],
+                                         role_id=scene["metier"]).delete()
+                db.session.commit()
+
+    def test_la_liste_des_developpeurs_n_est_plus_vide(self, client, scene):
+        """`/competences/managers` filtrait AUSSI sur `User.entity_id`."""
+        from Code.extensions import db
+        from Code.models.models import UserRole
+
+        _connecte(client, scene)
+        r = client.get("/competences/managers")
+        assert r.status_code == 200
+        ids = [m["id"] for m in r.get_json()]
+        assert scene["champ"] in ids, (
+            "le titulaire du rôle permanent doit figurer parmi les "
+            "développeurs de compétences")

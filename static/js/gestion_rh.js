@@ -296,22 +296,90 @@
               : `<span class="grh-chip grh-chip--none">${esc(L('no_role'))}</span>`}
           </button>
         </div>
-        <label class="grh-person-dev">
-          <span>${esc(L('dev_label'))}</span>
-          <select class="grh-select grh-select--sm" data-dev="${p.id}" ${peut ? '' : 'disabled'}>
-            <option value="">${esc(L('dev_none'))}</option>
-            ${devs.filter((d) => d.id !== p.id).map((d) =>
-              `<option value="${d.id}"${p.dev_id === d.id ? ' selected' : ''}
-                >${esc(nomDe(d))}</option>`).join('')}
-          </select>
-        </label>
+        <div class="grh-person-dev">
+          <span class="grh-col-label">${esc(L('dev_label'))}</span>
+          ${boutonDev(p, devs, peut)}
+        </div>
       </article>`).join('')}</div>`;
 
     document.querySelectorAll('[data-roles]').forEach((b) =>
       b.addEventListener('click', () => ouvrirPersonne(parseInt(b.dataset.roles, 10))));
-    document.querySelectorAll('[data-dev]').forEach((s) =>
-      s.addEventListener('change', () =>
-        affecterDev(parseInt(s.dataset.dev, 10), s.value ? parseInt(s.value, 10) : null)));
+    document.querySelectorAll('.grh-devpick').forEach((b) =>
+      b.addEventListener('click', (e) => { e.stopPropagation(); ouvrirMenuDev(b); }));
+  }
+
+  // ⚠️ Un `<select>` natif rend la liste du SYSTÈME : aucune feuille de style de
+  // la page ne l'atteint. Le bouton fermé était soigné, la liste ouverte ne
+  // pouvait pas l'être. On dessine donc les deux.
+  function boutonDev(p, devs, peut) {
+    const actuel = devs.find((d) => d.id === p.dev_id);
+    return `
+      <button type="button" class="grh-devpick" data-dev="${p.id}" ${peut ? '' : 'disabled'}>
+        ${actuel ? avatar(actuel, 'xs') : '<span class="grh-devpick-none"></span>'}
+        <span class="grh-devpick-name${actuel ? '' : ' is-empty'}"
+          >${esc(actuel ? nomDe(actuel) : L('dev_none'))}</span>
+        <i class="fa-solid fa-chevron-down"></i>
+      </button>`;
+  }
+
+  let menuOuvert = null;
+
+  function fermerMenuDev() {
+    if (!menuOuvert) return;
+    menuOuvert.panneau.remove();
+    menuOuvert.bouton.classList.remove('is-open');
+    menuOuvert = null;
+    document.removeEventListener('keydown', _echapMenu, true);
+  }
+
+  function _echapMenu(e) { if (e.key === 'Escape') fermerMenuDev(); }
+
+  function ouvrirMenuDev(bouton) {
+    const userId = parseInt(bouton.dataset.dev, 10);
+    if (menuOuvert && menuOuvert.userId === userId) { fermerMenuDev(); return; }
+    fermerMenuDev();
+
+    const p = personneParId(userId);
+    const devs = (D.personnes || []).filter((x) => x.est_dev && x.id !== userId);
+
+    const panneau = document.createElement('div');
+    panneau.className = 'grh-devmenu';
+    panneau.innerHTML = `
+      <button type="button" class="grh-devmenu-item${p.dev_id ? '' : ' is-current'}"
+              data-choix="">
+        <span class="grh-devpick-none"></span>
+        <span class="grh-devmenu-name is-empty">${esc(L('dev_none'))}</span>
+        ${p.dev_id ? '' : '<i class="fa-solid fa-check"></i>'}
+      </button>
+      ${devs.length ? devs.map((d) => `
+        <button type="button" class="grh-devmenu-item${p.dev_id === d.id ? ' is-current' : ''}"
+                data-choix="${d.id}">
+          ${avatar(d, 'xs')}
+          <span class="grh-devmenu-name">${esc(nomDe(d))}</span>
+          ${p.dev_id === d.id ? '<i class="fa-solid fa-check"></i>' : ''}
+        </button>`).join('')
+        : `<p class="grh-devmenu-empty">${esc(L('dev_no_candidate'))}</p>`}`;
+
+    document.body.appendChild(panneau);
+    // Position fixe, calée sous le bouton : le menu doit échapper au
+    // `overflow` de la liste des personnes, sinon il serait tronqué.
+    const r = bouton.getBoundingClientRect();
+    const h = panneau.offsetHeight;
+    const enBas = r.bottom + h + 8 < window.innerHeight;
+    panneau.style.left = Math.min(r.left, window.innerWidth - panneau.offsetWidth - 12) + 'px';
+    panneau.style.top = (enBas ? r.bottom + 6 : Math.max(8, r.top - h - 6)) + 'px';
+    panneau.style.minWidth = r.width + 'px';
+
+    bouton.classList.add('is-open');
+    menuOuvert = { userId, bouton, panneau };
+    document.addEventListener('keydown', _echapMenu, true);
+
+    panneau.querySelectorAll('[data-choix]').forEach((b) =>
+      b.addEventListener('click', () => {
+        const v = b.dataset.choix;
+        fermerMenuDev();
+        affecterDev(userId, v ? parseInt(v, 10) : null);
+      }));
   }
 
   async function affecterDev(userId, devId) {
@@ -560,6 +628,12 @@
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape' && fenetre) fermerFenetre();
     });
+    document.addEventListener('click', (e) => {
+      if (menuOuvert && !e.target.closest('.grh-devmenu')) fermerMenuDev();
+    });
+    // Le panneau est en position FIXE : il ne suivrait pas son bouton.
+    window.addEventListener('resize', fermerMenuDev);
+    document.addEventListener('scroll', fermerMenuDev, true);
     initNouveauRole();
     charger();
   }

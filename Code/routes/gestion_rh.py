@@ -356,13 +356,11 @@ def get_users_by_roles():
 
 @gestion_rh_bp.route('/users_with_roles')
 def get_users_with_roles():
-    active_entity_id = get_active_entity_id()
-    
-    if active_entity_id:
-        users = User.query.filter_by(entity_id=active_entity_id).all()
-    else:
-        users = User.query.all()
-    
+    # ⚠️ Filtrer les COMPTES sur `User.entity_id` vide la liste : la colonne
+    # n'est renseignée nulle part. Ce sont les RÔLES qui appartiennent à une
+    # entité — et la boucle ci-dessous ne garde déjà que les comptes qui en ont.
+    users = User.query.all()
+
     result = []
     for user in users:
         roles = [ur.role.name for ur in user.user_roles if ur.role is not None]

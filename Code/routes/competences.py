@@ -61,25 +61,44 @@ def get_managers():
     if not role_manager:
         return jsonify([])
     
-    if active_entity_id:
-        managers = User.query.filter_by(entity_id=active_entity_id).join(UserRole, User.id == UserRole.user_id).filter(UserRole.role_id == role_manager.id).all()
-    else:
-        managers = User.query.join(UserRole, User.id == UserRole.user_id).filter(UserRole.role_id == role_manager.id).all()
+    # ⚠️ Pas de filtre sur `User.entity_id` : la colonne n'est jamais renseignée,
+    # et la liste revenait donc vide dès qu'une entité était active. C'est le
+    # RÔLE qui cadre déjà la réponse — il appartient à l'entité, lui.
+    managers = (User.query
+                .join(UserRole, User.id == UserRole.user_id)
+                .filter(UserRole.role_id == role_manager.id)
+                .all())
     
     return jsonify([{'id': m.id, 'name': f"{m.first_name} {m.last_name}"} for m in managers])
 
 
 @competences_bp.route('/collaborators/<int:manager_id>', methods=['GET'])
 def get_collaborators(manager_id):
-    # CORRIGÉ: Filtrer par entité active
-    active_entity_id = Entity.get_active_id()
-    
-    if active_entity_id:
-        collaborateurs = User.query.filter_by(manager_id=manager_id, entity_id=active_entity_id).all()
-    else:
-        collaborateurs = User.query.filter_by(manager_id=manager_id).all()
-    
-    return jsonify([{'id': u.id, 'first_name': u.first_name, 'last_name': u.last_name} for u in collaborateurs])
+    """Les collaborateurs d'un développeur de compétences.
+
+    ⚠️ Cette liste filtrait AUSSI sur `User.entity_id` — une colonne que la page
+    des Comptes ne renseigne jamais. Avec une entité active, aucun compte ne
+    correspondait : on désignait quelqu'un comme développeur de compétences dans
+    la page RH, et la page Compétences répondait « Aucun collaborateur ».
+    Exactement le même piège que la liste des collaborateurs de la page RH, dans
+    un autre fichier. **Tous les comptes sont des collaborateurs**, quel que soit
+    leur statut : seul le rattachement compte.
+
+    Deux rattachements coexistent : `users.manager_id` (global) et
+    `user_roles.manager_id` (par rôle). Les ignorer l'un ou l'autre ferait
+    disparaître des collaborateurs selon la façon dont ils ont été affectés.
+    """
+    directs = {u.id: u for u in User.query.filter_by(manager_id=manager_id).all()}
+    for ur in UserRole.query.filter_by(manager_id=manager_id).all():
+        if ur.user_id not in directs:
+            u = db.session.get(User, ur.user_id)
+            if u is not None:
+                directs[u.id] = u
+
+    collaborateurs = sorted(directs.values(),
+                            key=lambda u: ((u.last_name or ''), (u.first_name or '')))
+    return jsonify([{'id': u.id, 'first_name': u.first_name, 'last_name': u.last_name}
+                    for u in collaborateurs])
 
 
 @competences_bp.route('/get_user_roles/<int:user_id>', methods=['GET'])
@@ -571,11 +590,13 @@ def users_global_summary():
         # CORRIGÉ: Filtrer par entité active
         active_entity_id = Entity.get_active_id()
 
+        # ⚠️ Les RÔLES appartiennent à une entité, pas les COMPTES : tout le
+        # monde est collaborateur, quel que soit son statut. Filtrer les comptes
+        # sur `User.entity_id` — colonne jamais renseignée — vidait ce tableau.
+        users = User.query.all()
         if active_entity_id:
-            users = User.query.filter_by(entity_id=active_entity_id).all()
             roles = Role.query.filter_by(entity_id=active_entity_id).order_by(Role.name).all()
         else:
-            users = User.query.all()
             roles = Role.query.order_by(Role.name).all()
 
         # Préparer l'ensemble des activités par rôle
