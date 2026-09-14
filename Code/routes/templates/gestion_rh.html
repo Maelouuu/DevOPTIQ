@@ -1,331 +1,166 @@
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="{{ session.get('lang', 'fr') }}">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{{ t('rh.page_title') }}</title>
-
-  <!-- Font Awesome -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-
-  <!-- CSS -->
   <link rel="stylesheet" href="{{ url_for('static', filename='gestion_rh.css') }}">
 </head>
 <body class="pg page--rh">
-  <header>
-    {% include 'header_buttons.html' %}
-  </header>
+  <header>{% include 'header_buttons.html' %}</header>
 
-  <!-- ═══════════════════════════════════════════════════════════════
-       PAGE HEADER — bandeau commun
-  ═══════════════════════════════════════════════════════════════ -->
-  {% with banner_page='rh', banner_icon='fa-solid fa-building-user', banner_title=t('rh.page_title'), banner_sub=t('rh.page_subtitle') %}{% include "page_banner.html" %}{% endwith %}
+  {% with banner_page='rh', banner_icon='fa-solid fa-building-user',
+          banner_title=t('rh.page_title'), banner_sub=t('rh.page_subtitle') %}
+    {% include "page_banner.html" %}
+  {% endwith %}
 
   <div class="grh-container">
 
-    <!-- ═══════════════════════════════════════════════════════════════
-         SECTION 1 : Paramètres de l'entreprise
-    ═══════════════════════════════════════════════════════════════ -->
-    <div class="grh-card">
-      <div class="grh-card-header">
-        <i class="fa-solid fa-gear"></i>
-        {{ t('rh.section_params') }}
-      </div>
-      <div class="grh-card-body">
-        {% set keys = {
-          "work_hours_per_day": t('rh.hours_per_day'),
-          "work_days_per_week": t('rh.days_per_week'),
-          "work_weeks_per_year": t('rh.weeks_per_year'),
-          "work_days_per_year": t('rh.days_per_year')
-        } %}
-        {% for key, label in keys.items() %}
-        <div class="grh-param-row" data-key="{{ key }}">
-          <span class="grh-param-label">{{ label }}</span>
-          <span class="grh-param-value">{{ settings[key] if key in settings else "—" }}</span>
-          <div class="grh-param-actions">
-            <button class="btn btn-icon-only edit-param-btn" title="{{ t('btn.edit') }}">
-              <i class="fa-solid fa-pen"></i>
-            </button>
+    <!-- ═════════════════════════════════════════════════════════════════
+         BANDEAU — de QUELLE entité parle-t-on ?
+         Tout ce qui suit est cadré par ce choix : rôles, accès, propositions.
+         Le poser en tête, une fois, évite de le redemander dans chaque bloc.
+    ═════════════════════════════════════════════════════════════════ -->
+    <section class="grh-topbar" id="grh-topbar"></section>
+
+    <!-- Trois chiffres, trois blocs : les tuiles mènent à leur section. -->
+    <section class="grh-tiles" id="grh-tiles"></section>
+
+    <!-- ① LES PERSONNES ─────────────────────────────────────────────── -->
+    <section class="grh-block" id="bloc-personnes">
+      <header class="grh-block-head">
+        <span class="grh-block-num">1</span>
+        <div class="grh-block-titles">
+          <h2>{{ t('rh.block_people') }}</h2>
+          <p>{{ t('rh.block_people_sub') }}</p>
+        </div>
+        <div class="grh-block-tools">
+          <div class="grh-search">
+            <i class="fa-solid fa-magnifying-glass"></i>
+            <input type="search" id="grh-q" placeholder="{{ t('rh.search_placeholder') }}">
           </div>
-        </div>
-        {% endfor %}
-      </div>
-    </div>
-
-    <!-- ═══════════════════════════════════════════════════════════════
-         SECTION 2 : Gestion des rôles
-    ═══════════════════════════════════════════════════════════════ -->
-    <div class="grh-card">
-      <div class="grh-card-header secondary">
-        <span><i class="fa-solid fa-tags"></i> {{ t('rh.section_roles') }}</span>
-        <button class="btn btn-sm btn-outline" id="show-create-role">
-          <i class="fa-solid fa-plus"></i> {{ t('rh.btn_new_role') }}
-        </button>
-      </div>
-      <div class="grh-card-body">
-        <!-- Formulaire création rôle (caché par défaut) -->
-        <div id="create-role-form" class="grh-create-form hidden">
-          <input type="text" id="new-role-name" placeholder="{{ t('rh.role_name_placeholder') }}" required>
-          <button class="btn btn-sm btn-primary" id="submit-create-role">{{ t('btn.create') }}</button>
-          <button class="btn btn-sm btn-outline" id="cancel-create-role">{{ t('btn.cancel') }}</button>
-        </div>
-
-        <!-- Liste des rôles -->
-        <div id="roles-list" class="grh-scroll-section">
-          {% for role in roles %}
-          <div class="grh-role-row" data-role-id="{{ role.id }}">
-            <div class="grh-role-icon">
-              <i class="fa-solid fa-tag"></i>
-            </div>
-            <span class="grh-role-name">{{ role.name }}</span>
-            <div class="grh-role-actions">
-              <button class="btn btn-icon-only edit-role-btn" title="{{ t('btn.edit') }}">
-                <i class="fa-solid fa-pen"></i>
-              </button>
-              <button class="btn btn-icon-only danger delete-role-btn" title="{{ t('btn.delete') }}">
-                <i class="fa-solid fa-trash"></i>
-              </button>
-            </div>
-          </div>
-          {% endfor %}
-        </div>
-
-        <!-- Import CSV -->
-        <div class="grh-import-section">
-          <i class="fa-solid fa-file-csv"></i>
-          <form method="POST" action="{{ url_for('gestion_rh.import_roles') }}" enctype="multipart/form-data" style="display:flex; gap:12px; align-items:center; flex:1;">
-            <input type="file" name="role_file" accept=".csv" required>
-            <button type="submit" class="btn btn-sm btn-outline">{{ t('btn.import') }}</button>
-          </form>
-        </div>
-      </div>
-    </div>
-
-    <!-- ═══════════════════════════════════════════════════════════════
-         SECTION 3 : Collaborateurs
-    ═══════════════════════════════════════════════════════════════ -->
-    <div class="grh-card">
-      <div class="grh-card-header">
-        <i class="fa-solid fa-users"></i>
-        {{ t('rh.section_collabs') }}
-      </div>
-      <div class="grh-card-body">
-        <div class="grh-search-bar">
-          <input type="text" id="search-collab" placeholder="{{ t('rh.search_placeholder') }}">
-          <select id="filter-role">
+          <select id="grh-filtre-role" class="grh-select">
             <option value="">{{ t('rh.filter_all_roles') }}</option>
           </select>
         </div>
-        <div id="collaborateur-list" class="grh-collab-list grh-scroll-section"></div>
-        <button id="toggle-collab-view" class="grh-toggle-btn">
-          <i class="fa-solid fa-chevron-down"></i>
-          {{ t('rh.toggle_show_all') }}
-        </button>
-      </div>
-    </div>
+      </header>
+      <div class="grh-block-body" id="liste-personnes"></div>
+    </section>
 
-    <!-- ═══════════════════════════════════════════════════════════════
-         SECTION 4 : Affectation des collaborateurs
-    ═══════════════════════════════════════════════════════════════ -->
-    <div class="grh-card">
-      <div class="grh-card-header secondary">
-        <span><i class="fa-solid fa-sitemap"></i> {{ t('rh.section_assign') }}</span>
-        <div class="grh-manager-select">
-          <label>{{ t('rh.manager_label') }}</label>
-          <select id="manager-select">
-            <option value="">{{ t('rh.manager_choose') }}</option>
-          </select>
+    <!-- ② LES RÔLES ─────────────────────────────────────────────────── -->
+    <section class="grh-block" id="bloc-roles">
+      <header class="grh-block-head">
+        <span class="grh-block-num">2</span>
+        <div class="grh-block-titles">
+          <h2>{{ t('rh.block_roles') }}</h2>
+          <p>{{ t('rh.block_roles_sub') }}</p>
         </div>
+        <div class="grh-block-tools">
+          <button class="grh-btn grh-btn--ghost" id="btn-nouveau-role">
+            <i class="fa-solid fa-plus"></i> {{ t('rh.btn_new_role') }}
+          </button>
+        </div>
+      </header>
+      <div class="grh-new-role hidden" id="form-nouveau-role">
+        <input type="text" id="nom-nouveau-role" placeholder="{{ t('rh.role_name_placeholder') }}">
+        <button class="grh-btn grh-btn--primary" id="valider-nouveau-role">{{ t('btn.create') }}</button>
+        <button class="grh-btn grh-btn--ghost" id="annuler-nouveau-role">{{ t('btn.cancel') }}</button>
       </div>
-      <div class="grh-card-body">
-        <div class="grh-role-filter" id="manager-role-filter">
-          <!-- Badges injectés par JS -->
-        </div>
-        <div class="grh-assign-list grh-scroll-section" id="manager-assignment-container">
-          <div class="grh-no-results">{{ t('rh.select_manager_msg') }}</div>
-        </div>
-      </div>
-    </div>
+      <div class="grh-block-body" id="liste-roles"></div>
+      <p class="grh-note" id="note-roles"></p>
+    </section>
 
-    <!-- ═══════════════════════════════════════════════════════════════
-         SECTION 5 : Aperçu global des utilisateurs
-    ═══════════════════════════════════════════════════════════════ -->
-    <div class="grh-card">
-      <div class="grh-card-header">
-        <i class="fa-solid fa-table-cells"></i>
-        {{ t('rh.section_global') }}
-      </div>
-      <div class="grh-card-body" id="global-users-container">
-        <div class="grh-no-results">{{ t('rh.loading') }}</div>
-      </div>
-    </div>
-
-    <!-- ═══════════════════════════════════════════════════════════════
-         SECTION 6 : Fichier de référence DCP
-    ═══════════════════════════════════════════════════════════════ -->
-    <div class="grh-card">
-      <div class="grh-card-header">
-        <i class="fa-solid fa-file-lines"></i>
-        {{ t('rh.dcp_title') }}
-      </div>
-      <div class="grh-card-body">
-        <p style="font-size:0.88rem; color:#64748b; margin-bottom:16px; line-height:1.55;">
-          {{ t('rh.dcp_desc') }}<br>
-          <span style="color:#94a3b8; font-size:0.82rem;">{{ t('rh.dcp_format') }} <code>JobText</code>, <code>GrpName</code>, <code>CompName</code></span>
-        </p>
-        <div id="rh-dcp-status" style="display:flex; align-items:center; gap:10px; padding:10px 14px;
-            background:#f8fafc; border-radius:9px; border:1px solid #e2e8f0; margin-bottom:16px;">
-          <span id="ref-file-label-rh" class="ref-file-bar-label">
-            <i class="fa-solid fa-circle-notch fa-spin" style="font-size:0.75rem"></i>
-          </span>
+    <!-- ③ LES PROPOSITIONS ──────────────────────────────────────────── -->
+    <section class="grh-block" id="bloc-propositions">
+      <header class="grh-block-head">
+        <span class="grh-block-num">3</span>
+        <div class="grh-block-titles">
+          <h2>{{ t('rh.block_changes') }}</h2>
+          <p>{{ t('rh.block_changes_sub') }}</p>
         </div>
-        <button class="btn btn-sm btn-outline" onclick="openRefFileModal()"
-            style="display:flex; align-items:center; gap:7px; font-weight:600;">
-          <i class="fa-solid fa-folder-open"></i> {{ t('rh.dcp_manage') }}
-        </button>
-
-        <!-- Mode propositions -->
-        <div style="margin-top:20px; padding-top:16px; border-top:1px solid #e2e8f0;">
-          <p style="font-size:0.83rem; color:#475569; font-weight:600; margin:0 0 10px;">
-            <i class="fa-solid fa-sliders" style="color:var(--pg-accent); margin-right:5px;"></i>
-            {{ t('rh.dcp_mode_title') }}
-          </p>
-          <div style="display:flex; gap:8px; flex-wrap:wrap;">
-            <button id="btn-mode-standard" class="dcp-mode-btn" onclick="setDcpMode('standard')">
-              <i class="fa-solid fa-wand-magic-sparkles"></i> {{ t('rh.dcp_mode_standard') }}
-            </button>
-            <button id="btn-mode-file" class="dcp-mode-btn" onclick="setDcpMode('file')">
-              <i class="fa-solid fa-file-lines"></i> {{ t('rh.dcp_mode_file') }}
-            </button>
-          </div>
-          <p id="dcp-mode-desc" style="font-size:0.78rem; color:#94a3b8; margin:8px 0 0; line-height:1.5;"></p>
-        </div>
-      </div>
-    </div>
+      </header>
+      <div class="grh-block-body" id="liste-propositions"></div>
+    </section>
 
   </div>
 
-  <!-- ═══════════════════════════════════════════════════════════════
-       MODAL : Affectation d'un collaborateur
-  ═══════════════════════════════════════════════════════════════ -->
-  <div id="modal-assign" class="grh-modal hidden">
-    <div class="grh-modal-backdrop" id="modal-assign-backdrop"></div>
-    <div class="grh-modal-container">
-      <div class="grh-modal-header">
-        <h3 id="modal-assign-title">—</h3>
-        <button class="grh-modal-close" id="modal-assign-close">
+  <!-- Fenêtre unique : elle sert aux deux sens (un rôle ↔ ses titulaires,
+       une personne ↔ ses rôles). Deux écrans pour une même relation
+       finiraient par se contredire. -->
+  <div id="grh-modal" class="grh-modal hidden">
+    <div class="grh-modal-backdrop" id="grh-modal-fond"></div>
+    <div class="grh-modal-box">
+      <header class="grh-modal-head">
+        <div>
+          <p class="grh-modal-over" id="grh-modal-over"></p>
+          <h3 id="grh-modal-titre">—</h3>
+        </div>
+        <button class="grh-modal-x" id="grh-modal-x" aria-label="{{ t('btn.close') }}">
           <i class="fa-solid fa-xmark"></i>
         </button>
+      </header>
+      <div class="grh-modal-search">
+        <i class="fa-solid fa-magnifying-glass"></i>
+        <input type="search" id="grh-modal-q" placeholder="{{ t('rh.search_placeholder') }}">
       </div>
-      <div class="grh-modal-body" id="modal-assign-body">
-        <!-- Contenu injecté par JS -->
-      </div>
+      <div class="grh-modal-body" id="grh-modal-body"></div>
     </div>
   </div>
 
-  <!-- ═══════════════════════════════════════════════════════════════
-       TOAST CONTAINER
-  ═══════════════════════════════════════════════════════════════ -->
   <div id="toast-container"></div>
 
-  <!-- ═══════════════════════════════════════════════════════════════
-       SCRIPTS
-  ═══════════════════════════════════════════════════════════════ -->
   <script>
-    // Traductions pour les textes construits côté JS (gestion_rh.js)
-    window.GRH_I18N = {
-      save:                 {{ t('btn.save') | tojson }},
-      cancel:               {{ t('btn.cancel') | tojson }},
-      param_updated:        {{ t('rh.param_updated') | tojson }},
-      param_save_error:     {{ t('rh.param_save_error') | tojson }},
-      role_created:         {{ t('rh.role_created') | tojson }},
-      role_updated:         {{ t('rh.role_updated') | tojson }},
-      role_deleted:         {{ t('rh.role_deleted') | tojson }},
-      role_delete_confirm:  {{ t('rh.role_delete_confirm') | tojson }},
-      no_role:              {{ t('rh.no_role') | tojson }},
-      save_roles:           {{ t('rh.save_roles') | tojson }},
-      roles_updated:        {{ t('rh.roles_updated') | tojson }},
-      edit_name:            {{ t('rh.edit_name') | tojson }},
-      edit_name_prompt:     {{ t('rh.edit_name_prompt') | tojson }},
-      name_updated:         {{ t('rh.name_updated') | tojson }},
-      update_error:         {{ t('rh.update_error') | tojson }},
-      network_error:        {{ t('rh.network_error') | tojson }},
-      collapse_list:        {{ t('rh.collapse_list') | tojson }},
-      show_all:             {{ t('rh.toggle_show_all') | tojson }},
-      select_manager_msg:   {{ t('rh.select_manager_msg') | tojson }},
-      filter_all:           {{ t('rh.filter_all') | tojson }},
-      filter_assigned:      {{ t('rh.filter_assigned') | tojson }},
-      no_collab_found:      {{ t('rh.no_collab_found') | tojson }},
-      manage_assignment:    {{ t('rh.manage_assignment') | tojson }},
-      comp_color_title:     {{ t('rh.comp_color_title') | tojson }},
-      select_roles_to_assign:{{ t('rh.select_roles_to_assign') | tojson }},
-      select_all:           {{ t('rh.select_all') | tojson }},
-      deselect_all:         {{ t('rh.deselect_all') | tojson }},
-      assigned:             {{ t('rh.assigned') | tojson }},
-      not_assigned:         {{ t('rh.not_assigned') | tojson }},
-      assign_selected:      {{ t('rh.assign_selected') | tojson }},
-      assign_selected_desc: {{ t('rh.assign_selected_desc') | tojson }},
-      unassign_selected:    {{ t('rh.unassign_selected') | tojson }},
-      unassign_selected_desc:{{ t('rh.unassign_selected_desc') | tojson }},
-      select_one_role:      {{ t('rh.select_one_role') | tojson }},
-      roles_assigned_to:    {{ t('rh.roles_assigned_to') | tojson }},
-      assignment_removed:   {{ t('rh.assignment_removed') | tojson }},
-      assignment_error:     {{ t('rh.assignment_error') | tojson }},
-      error:                {{ t('rh.error') | tojson }}
+    window.GRH_CTX = {
+      lang: {{ session.get('lang', 'fr') | tojson }},
     };
-    // Traductions pour propose_from_file.js (section DCP)
-    window.PROPOSE_I18N = Object.assign(window.PROPOSE_I18N || {}, {
-      pf_loaded:            {{ t('pf.loaded') | tojson }},
-      pf_none:              {{ t('pf.none') | tojson }},
-      pf_stats_tech:        {{ t('pf.stats_tech') | tojson }},
-      pf_stats_behav:       {{ t('pf.stats_behav') | tojson }},
-      pf_mode_standard_desc:{{ t('pf.mode_standard_desc') | tojson }},
-      pf_mode_file_desc:    {{ t('pf.mode_file_desc') | tojson }},
-      pf_modal_title:       {{ t('pf.modal_title') | tojson }},
-      pf_drop_here:         {{ t('pf.drop_here') | tojson }},
-      pf_format_hint:       {{ t('pf.format_hint') | tojson }},
-      pf_browse:            {{ t('pf.browse') | tojson }},
-      pf_delete:            {{ t('pf.delete') | tojson }},
-      pf_close:             {{ t('pf.close') | tojson }},
-      pf_save:              {{ t('pf.save') | tojson }},
-      pf_saved:             {{ t('pf.saved') | tojson }},
-      pf_sending:           {{ t('pf.sending') | tojson }},
-      pf_file_saved:        {{ t('pf.file_saved') | tojson }},
-      pf_file_deleted:      {{ t('pf.file_deleted') | tojson }},
-      pf_delete_confirm:    {{ t('pf.delete_confirm') | tojson }},
-      pf_unsupported:       {{ t('pf.unsupported') | tojson }},
-      pf_no_file_warning:   {{ t('pf.no_file_warning') | tojson }},
-      pf_err:               {{ t('pf.err') | tojson }},
-      pf_err_unknown:       {{ t('pf.err_unknown') | tojson }},
-      pf_err_proposals:     {{ t('pf.err_proposals') | tojson }},
-      pf_apt_title:         {{ t('pf.apt_title') | tojson }},
-      pf_hsc_title:         {{ t('pf.hsc_title') | tojson }},
-      pf_cancel:            {{ t('pf.cancel') | tojson }},
-      pf_save_selection:    {{ t('pf.save_selection') | tojson }},
-      pf_none_available:    {{ t('pf.none_available') | tojson }},
-      pf_no_proposal:       {{ t('pf.no_proposal') | tojson }},
-      pf_select_one:        {{ t('pf.select_one') | tojson }},
-      pf_select_one_hsc:    {{ t('pf.select_one_hsc') | tojson }},
-      pf_save_error:        {{ t('pf.save_error') | tojson }},
-      pf_col_skill:         {{ t('pf.col_skill') | tojson }},
-      pf_col_level:         {{ t('pf.col_level') | tojson }},
-      pf_col_justification: {{ t('pf.col_justification') | tojson }}
-    });
+    window.GRH_L = {
+      // Bandeau & tuiles
+      entity_choose:   {{ t('rh.entity_choose') | tojson }},
+      entity_none:     {{ t('rh.entity_none') | tojson }},
+      shared:          {{ t('rh.badge_shared') | tojson }},
+      private:         {{ t('rh.badge_private') | tojson }},
+      calendar:        {{ t('rh.calendar') | tojson }},
+      hours_per_day:   {{ t('rh.hours_per_day') | tojson }},
+      days_per_week:   {{ t('rh.days_per_week') | tojson }},
+      weeks_per_year:  {{ t('rh.weeks_per_year') | tojson }},
+      days_per_year:   {{ t('rh.days_per_year') | tojson }},
+      tile_people:     {{ t('rh.tile_people') | tojson }},
+      tile_roles:      {{ t('rh.tile_roles') | tojson }},
+      tile_changes:    {{ t('rh.tile_changes') | tojson }},
+      // Personnes
+      dev_label:       {{ t('rh.dev_label') | tojson }},
+      dev_none:        {{ t('rh.dev_none') | tojson }},
+      dev_badge:       {{ t('rh.dev_badge') | tojson }},
+      no_role:         {{ t('rh.no_role') | tojson }},
+      people_empty:    {{ t('rh.people_empty') | tojson }},
+      manage_roles:    {{ t('rh.manage_roles') | tojson }},
+      // Rôles
+      holders:         {{ t('rh.holders') | tojson }},
+      opens_map:       {{ t('rh.opens_map') | tojson }},
+      opens_map_hint:  {{ t('rh.opens_map_hint') | tojson }},
+      open_to_all:     {{ t('rh.open_to_all') | tojson }},
+      permanent:       {{ t('rh.permanent') | tojson }},
+      permanent_hint:  {{ t('rh.permanent_hint') | tojson }},
+      roles_from_map:  {{ t('rh.roles_from_map') | tojson }},
+      roles_empty:     {{ t('rh.roles_empty') | tojson }},
+      confirm_delete:  {{ t('rh.confirm_delete_role') | tojson }},
+      // Propositions
+      changes_empty:   {{ t('rh.changes_empty') | tojson }},
+      changes_review:  {{ t('rh.changes_review') | tojson }},
+      by:              {{ t('rh.by') | tojson }},
+      // Divers
+      readonly:        {{ t('rh.readonly') | tojson }},
+      saved:           {{ t('rh.saved') | tojson }},
+      save_error:      {{ t('rh.param_save_error') | tojson }},
+      loading:         {{ t('rh.loading') | tojson }},
+      edit:            {{ t('btn.edit') | tojson }},
+      del:             {{ t('btn.delete') | tojson }},
+      close:           {{ t('btn.close') | tojson }},
+      cancel:          {{ t('btn.cancel') | tojson }},
+      save:            {{ t('btn.save') | tojson }},
+    };
   </script>
-  <script src="{{ url_for('static', filename='js/gestion_rh.js') }}" defer></script>
-  <script src="{{ url_for('static', filename='js/global_users_summary.js') }}"></script>
-  <script src="{{ url_for('static', filename='js/propose_from_file.js') }}"></script>
-  <script>
-    // Charge dynamiquement le tableau récap via AJAX
-    fetch("/competences/users/global_summary")
-      .then(res => res.text())
-      .then(html => {
-        document.getElementById("global-users-container").innerHTML = html;
-      })
-      .catch(err => {
-        document.getElementById("global-users-container").innerHTML = "<p class='grh-no-results'>{{ t('rh.load_error') }}</p>";
-        console.error(err);
-      });
-  </script>
+  <script src="{{ url_for('static', filename='js/gestion_rh.js') }}"></script>
 </body>
 </html>

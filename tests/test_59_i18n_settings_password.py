@@ -109,6 +109,14 @@ class TestPasswordChange:
     def test_set_password_persists_and_login(self, app, client):
         uid = _make_user(app, self.EMAIL, "InitPass123!")
         try:
+            # ⚠️ Ce test passait grâce à une session laissée par un test
+            # précédent : seul, il recevait 403. `/comptes/set_password` exige
+            # d'être administrateur OU soi-même — on pose donc la session, au
+            # lieu de compter sur ce qu'un voisin a laissé traîner.
+            with client.session_transaction() as sess:
+                sess["user_id"] = uid
+                sess["user_email"] = self.EMAIL
+
             r = client.post(f"/comptes/set_password/{uid}",
                             json={"password": "NouveauMdp1!"})
             assert r.status_code == 200 and r.get_json()["ok"] is True
@@ -204,10 +212,16 @@ class TestEntrepriseSettings:
             body = r.get_json()
             assert body["success"] is True and float(body["value"]) == 7.5
 
-            # rechargement de la page : la valeur enregistrée est affichée
-            r = auth_client.get("/gestion_rh/")
+            # ⚠️ Le calendrier n'est plus rendu par le serveur dans le HTML :
+            # la page RH refondue le reçoit de /gestion_rh/api/tableau, avec le
+            # reste. On vérifie donc la persistance LÀ — c'est la même
+            # exigence, à la nouvelle adresse.
+            r = auth_client.get("/gestion_rh/api/tableau")
             assert r.status_code == 200
-            assert "7.5" in r.data.decode()
+            assert float(r.get_json()["calendrier"]["work_hours_per_day"]) == 7.5
+
+            # Et la page se charge toujours.
+            assert auth_client.get("/gestion_rh/").status_code == 200
         finally:
             self._cleanup(app, ids["entity_id"])
 
@@ -349,11 +363,15 @@ class TestRoleTranslation:
 # ═══════════════════════════════════════════════════════════════
 
 class TestGestionRHTranslations:
+    """⚠️ Le bloc DCP a DÉMÉNAGÉ vers les Paramètres (2026-09) : un référentiel
+    de compétences est un réglage de l'application, pas une donnée RH. Il
+    ajoutait à la page RH une septième carte sans lien avec les personnes ni
+    les rôles. Ces tests vérifient la même chose, au nouvel endroit."""
 
     def test_dcp_section_english(self, auth_client):
         _set_lang(auth_client, "en")
         try:
-            body = auth_client.get("/gestion_rh/").data.decode()
+            body = auth_client.get("/parametres/").data.decode()
             assert "DCP reference file" in body
             assert "AI proposal mode" in body
             assert "Ce fichier Excel est utilis" not in body  # plus de FR en dur
@@ -362,18 +380,29 @@ class TestGestionRHTranslations:
 
     def test_dcp_section_french(self, auth_client):
         _set_lang(auth_client, "fr")
-        body = auth_client.get("/gestion_rh/").data.decode()
+        body = auth_client.get("/parametres/").data.decode()
         assert "Fichier de référence DCP" in body
         assert "Mode des propositions IA" in body
 
+    def test_le_dcp_ne_traine_plus_sur_la_page_rh(self, auth_client):
+        """Déplacer, c'est aussi RETIRER : deux exemplaires du même réglage
+        finiraient par se contredire."""
+        body = auth_client.get("/gestion_rh/").data.decode()
+        assert "openRefFileModal" not in body
+        assert "dcp" not in body.lower()
+
     def test_js_i18n_dictionaries_injected(self, auth_client):
+        """La page RH injecte ses libellés sous `GRH_L` (refonte 2026-09) ;
+        ceux du fichier DCP suivent le bloc, sur la page Paramètres."""
         _set_lang(auth_client, "en")
         try:
-            body = auth_client.get("/gestion_rh/").data.decode()
-            assert "GRH_I18N" in body
-            assert "PROPOSE_I18N" in body
-            # quelques clés traduites côté JS
-            assert '"Save roles"' in body
-            assert '"DCP file loaded"' in body
+            rh = auth_client.get("/gestion_rh/").data.decode()
+            assert "GRH_L" in rh
+            assert '"People"' in rh          # rh.block_people, traduit
+            assert '"Opens the map"' in rh   # rh.opens_map
+
+            params = auth_client.get("/parametres/").data.decode()
+            assert "PROPOSE_I18N" in params
+            assert '"DCP file loaded"' in params
         finally:
             _set_lang(auth_client, "fr")
