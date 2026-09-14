@@ -73,10 +73,22 @@ jobs:
           KEY=$(gcloud run services describe ${{ env.SERVICE }} \
                   --region ${{ env.REGION }} \
                   --format='value(spec.template.spec.containers[0].env.filter("name:HUB_SECRET_KEY").extract("value"))' \
-                2>/dev/null | tr -d '[]' || true)
-          if [ -z "$KEY" ]; then
+                2>/dev/null | tr -d '[]' | tr -d '[:space:]' || true)
+
+          # ⚠️ GARDE-FOU — sans lui, le hub finissait par ne plus se déployer.
+          # Quand l'extraction ci-dessus rate, elle ne rend pas la clé mais un
+          # MORCEAU de la description du service. On le réécrivait tel quel dans
+          # HUB_SECRET_KEY, et la valeur grossissait à chaque livraison jusqu'à
+          # dépasser la limite de Cloud Run :
+          #   env[0].value: length cannot exceed 32768
+          # L'échec ne disait rien de la cause, et il empêchait TOUTE mise à jour
+          # du hub. Une clé de session est 64 caractères hexadécimaux : tout ce
+          # qui n'y ressemble pas est jeté, quitte à en régénérer une.
+          case "$KEY" in *[!0-9a-fA-F]*) KEY="" ;; esac
+          if [ ${#KEY} -ne 64 ]; then
             KEY=$(python3 -c "import secrets; print(secrets.token_hex(32))")
-            echo "Clé de session générée (1er déploiement)"
+            echo "Clé de session régénérée (aucune clé valide relue) — les"
+            echo "sessions ouvertes sur le hub seront à refaire, une fois."
           fi
           echo "::add-mask::$KEY"
           echo "HUB_KEY=$KEY" >> "$GITHUB_ENV"
