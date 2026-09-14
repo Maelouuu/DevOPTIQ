@@ -1222,8 +1222,8 @@ rôles de tâche, `Skills` → compétences.
 
 | Branche | Instance Cloud Run | Base | À quoi elle sert |
 |---------|--------------------|------|------------------|
-| `staging` | `devoptiq-staging` | `neondb` | **Bac à sable Maël + Claude.** On y développe sans pression, on pousse quand une nouveauté est finie. |
-| `nouveau-point` | `devoptiq` | base de production | **Version officielle interne AFDEC.** On n'y pousse que du fini. |
+| `staging` | `devoptiq-staging` | `devoptiq_sandbox` | **Bac à sable Maël + Claude.** On y développe sans pression, on pousse quand une nouveauté est finie. |
+| `nouveau-point` | `devoptiq` | `neondb` | **Version officielle interne AFDEC.** On n'y pousse que du fini. |
 | `optiqfluent-staging` | `optiqfluent-staging` | `optiqfluent_pilot` | **Pilote ARaymond (Inde).** On n'y touche pas ; les correctifs partent le soir (nuit là-bas). |
 
 - ⚠️ **`nouveau-point`, pas `main`.** C'est cette branche qui alimente le service
@@ -1241,6 +1241,68 @@ rôles de tâche, `Skills` → compétences.
   en arrière. Son déclenchement automatique est retiré — il reste lançable à la main,
   dans le même groupe `concurrency` que `deploy-officielle.yml` pour que les deux ne
   déploient jamais en même temps.
+### ⚠️ Les deux instances ont partagé UNE SEULE base jusqu'au 14/09/2026
+
+`PROD_DATABASE_URL` et `STAGING_DATABASE_URL` pointaient tous deux sur `neondb`.
+La version officielle de l'entreprise et le bac à sable travaillaient donc sur les
+MÊMES données, sans que rien ne le dise. Conséquence directe : la remise à zéro du
+10/09, faite sur « la base de staging », a effacé les données officielles — 30
+entités, 59 comptes, 991 activités. Remises en place le 14/09 depuis la sauvegarde.
+
+**Séparation faite** : `devoptiq_sandbox` (base neuve) pour staging, `neondb` pour
+la version officielle. ⚠️ Le garde-fou `--expect-db` de `reset_db.py` ne valait rien
+tant que les deux bases portaient le MÊME NOM : il passait des deux côtés. Deux noms
+distincts, c'est ce qui rend la vérification réelle.
+
+**Comptes** (les deux instances) : `mael.pierre.girardin@icloud.com` / `testtest`,
+administrateur. `afdec.enterprise.services@gmail.com` n'existe plus nulle part ;
+elle reste seulement dans `DEFAULT_FRENCH_ACCOUNTS` (langue, pas connexion).
+
+### Sauvegarder et restaurer (`tools/db/`)
+
+- **`dump_db.py`** — sauvegarde JSON complète, un fichier par table, sans `pg_dump`.
+  ⚠️ **Sa première version DÉTRUISAIT le binaire** : `bytes(v).decode("utf-8",
+  "replace")` remplaçait chaque octet non-UTF-8 par U+FFFD. Les 13 fichiers de
+  `file_blobs` de la sauvegarde du 10/09 avaient perdu 31 à 45 % de leurs octets —
+  et la base ayant été vidée derrière, c'était leur seule copie. **Ces 13 fichiers
+  sont perdus** (docx, xlsx, pdf, une photo ; déposés entre avril et juin 2026).
+  Encodage base64 désormais, relu par la restauration.
+- **`restore_db.py`** — retire les 78 clés étrangères, vide, charge, **les remet —
+  ce qui VALIDE les données au passage** — puis repositionne les 47 séquences (sans
+  quoi le prochain enregistrement entre en collision de clé primaire, des jours plus
+  tard). Le tout dans **UNE transaction** : un échec à la 50ᵉ table rend la base
+  intacte (vérifié deux fois en conditions réelles). N'écrit que les colonnes
+  présentes des deux côtés et nomme les écarts. **Contrôle préalable d'unicité** :
+  la base du 10/09 portait 7 e-mails en double alors que `users.email` est devenu
+  UNIQUE depuis — sans ce contrôle on l'apprenait à la 40ᵉ table.
+- **`set_password.py`** — pose un mot de passe connu sur un compte après
+  restauration (les comptes reviennent avec celui de la sauvegarde). Passe par
+  `Code/security.py` et **relit le hash après commit** pour le vérifier.
+- ⚠️ **Une sauvegarde ne se restaure pas dans le schéma qu'elle a quitté.** Trois
+  familles d'écart rencontrées, toutes silencieuses : des tables disparues
+  (`user_competencies`, `performance_personnalisee_historique`), des tables que
+  l'application crée **à l'exécution** et non par `create_all` (`training_plan`,
+  `prerequis_comment` — créées par `competences_plan._ensure_tables_exist`, à créer
+  AVANT la restauration sinon leurs 44 lignes sont perdues), et des contraintes
+  ajoutées après coup que les anciennes données ne respectent pas.
+- ⚠️ **Les migrations à chaud ne s'appliquent qu'au DÉMARRAGE de l'app sur cette
+  base.** `neondb` a refusé la restauration tant que `softskills.niveau` était en
+  VARCHAR(10) : l'instance officielle tournait encore sur le code du 10/09, elle
+  n'avait donc jamais joué l'élargissement. Un `ALTER` à la main a suffi. À garder
+  en tête chaque fois qu'on écrit dans une base que l'app en service n'a pas encore
+  redémarrée avec le code courant.
+
+### ⚠️ `softskills.niveau` était en VARCHAR(10) — 500 sur toute base neuve
+
+La valeur STOCKÉE est le libellé HSC entier (« 2 (Acquisition) », 15 caractères) :
+c'est ce qui permet à `hsc_level_label()` de traduire l'affichage sans jamais
+réécrire la base. **Aucun** des quatre niveaux ne tenait dans 10 caractères — donc
+chez un nouveau client, enregistrer une HSC tombait en 500. Invisible pour la
+suite : elle tourne sur SQLite, **qui n'applique PAS les longueurs de VARCHAR**.
+Même famille que `BOOLEAN DEFAULT 0` et `user_activity_plans`. Modèle élargi à 50,
+migration à chaud pour les bases déjà déployées, test dans
+`tests/test_67_schema_postgres.py` (vérifié rouge sur l'ancien modèle).
+
 - ⚠️ **`neondb` et `optiqfluent_pilot` vivent sur le MÊME endpoint Neon**
   (`ep-solitary-bonus-abrhwgrs`). Une URL mal recopiée efface le travail du client :
   `tools/db/reset_db.py` exige `--expect-db` et refuse d'agir si le nom ne correspond pas.
@@ -1249,10 +1311,10 @@ rôles de tâche, `Skills` → compétences.
   (efface le schéma, laisse le démarrage NORMAL de l'app le reconstruire — donc les
   migrations à chaud sont exercées au passage — puis crée les comptes de départ).
   Trois garde-fous : `--expect-db` obligatoire, `--yes` explicite, sauvegarde exigée.
-- **Base de `staging` refaite le 10/09/2026** : 5 comptes, mot de passe `test`
-  (`afdec.enterprise.services@gmail.com` administrateur, un champion, trois utilisateurs),
-  aucune entité. Ancienne base sauvegardée hors dépôt dans
-  `~/AFDEC/sauvegardes/neondb-2026-09-10` (59 tables, 25 853 lignes).
+- **Sauvegardes hors dépôt** (`~/AFDEC/sauvegardes/`) : `neondb-2026-09-10` (l'état
+  d'avant la remise à zéro — 59 tables, 25 853 lignes), `neondb-2026-09-10-corrige`
+  (la même, doublons d'e-mail résolus : c'est celle qui a été restaurée),
+  `neondb-2026-09-14-avant-restauration` (filet de sécurité pris juste avant).
 - ⚠️ **La remise à zéro a révélé un défaut de longue date** : `user_activity_plans` était
   lue et écrite en SQL brut par `plan_storage.py` mais **rien ne la créait**. Elle
   survivait sur les instances anciennes comme vestige d'une migration disparue ; sur
