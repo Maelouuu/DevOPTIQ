@@ -35,7 +35,9 @@
       save_self: 'Enregistrer mon auto-évaluation',
       evaluate: 'Évaluer', consult: 'Consulter', not_assessed: 'Non évalué', erase: 'Effacer',
       std: 'Standard minimal', saved: 'Évaluation enregistrée',
-      no_activities: 'Aucune activité pour ce rôle.', no_roles: "Ce collaborateur n'a aucun rôle.",
+      no_activities: 'Aucune activité pour ce rôle.',
+      no_caps: "Aucune capacité n'est reliée à ce résultat.",
+      cap_requis: 'Requis', cap_demontre: 'Démontré', cap_non_mesure: 'non mesuré', no_roles: "Ce collaborateur n'a aucun rôle.",
       none: '—', back: '← Évaluation', back_synthese: "Vue d'ensemble", gen_plan: 'Générer le plan',
       cause_q: "Quelle est la cause de l'écart ?", linked_caps: 'Capacités reliées à ce résultat',
       no_gap: 'Aucun résultat en écart : le niveau requis est tenu.', dem: 'démontré', req: 'requis',
@@ -71,8 +73,6 @@
       conf_done_d: "Vous pouvez maintenant évaluer le niveau des collaborateurs sur cette activité.",
       conf_done_r: "Les résultats sont enregistrés. L'évaluation, elle, se fait collaborateur par collaborateur.",
       ia_ou: "L'IA n'intervient qu'ici et dans le plan de formation. Elle ne note jamais personne : les niveaux sont posés par vous.",
-      eval_hint: 'Fixez, pour chaque résultat, le niveau tenu par le collaborateur.',
-      eval_hint_self: 'Situez-vous sur chaque résultat. Votre développeur de compétences verra votre estimation à côté de la sienne.',
       evidence_ph: 'Preuve / commentaire (facultatif)', add_evidence: '+ Ajouter une preuve',
       diagnose: "Diagnostiquer l'écart",
       configuring: 'Analyse des sorties en cours…', loading: 'Chargement…',
@@ -92,19 +92,14 @@
       // Synthèse
       r_open: 'Ouvrir', r_activity_one: 'activité', r_activity_many: 'activités', r_level: 'Niveau du rôle',
       p_title: 'Profil de compétences', p_role_one: 'rôle', p_role_many: 'rôles',
-      p_sub: "Ce que les rôles exigent, et ce qui est tenu. Un axe par activité.",
       p_coverage: 'du requis tenu', p_required: 'Requis', p_demonstrated: 'Démontré',
       p_by_role: 'Par rôle',
       p_on_1: '[[a]] activité évaluée sur [[b]]', p_on_n: '[[a]] activités évaluées sur [[b]]',
-      p_basis: "Calculé sur les seules activités évaluées : une activité non évaluée n'est pas une activité ratée.",
       p_capped: 'Les [[n]] activités les plus en écart sont représentées.',
       p_axes_0: 'aucune activité sur le graphe', p_axes_1: '1 activité sur le graphe',
       p_axes_n: '[[n]] activités sur le graphe',
       p_role_partiel: 'Niveau non calculable',
       p_too_few: "Trop peu d'activités évaluées pour tracer un profil.",
-      p_not_plotted_1: '1 activité pas encore évaluée : absente du graphe.',
-      p_not_plotted: '[[n]] activités pas encore évaluées : absentes du graphe.',
-      r_partial: 'Niveau non calculable tant que toutes les activités ne sont pas évaluées.',
       r_none: 'Aucune activité rattachée à ce rôle.',
       // Les deux notes
       n_official: 'Niveau validé', n_official_tag: 'fait foi', n_self: 'Auto-évaluation', n_you: 'vous',
@@ -160,7 +155,9 @@
       save_self: 'Save my self-assessment',
       evaluate: 'Evaluate', consult: 'View', not_assessed: 'Not assessed', erase: 'Clear',
       std: 'Minimum standard', saved: 'Evaluation saved',
-      no_activities: 'No activity for this role.', no_roles: 'This team member has no role.',
+      no_activities: 'No activity for this role.',
+      no_caps: 'No capability is linked to this result.',
+      cap_requis: 'Required', cap_demontre: 'Demonstrated', cap_non_mesure: 'not measured', no_roles: 'This team member has no role.',
       none: '—', back: '← Evaluation', back_synthese: 'Overview', gen_plan: 'Generate plan',
       cause_q: 'What is the cause of the gap?', linked_caps: 'Capabilities linked to this result',
       no_gap: 'No result below the required level.', dem: 'demonstrated', req: 'required',
@@ -196,8 +193,6 @@
       conf_done_d: 'You can now assess team members on this activity.',
       conf_done_r: 'The results are saved. Assessment itself happens one team member at a time.',
       ia_ou: 'AI only steps in here and in the training plan. It never grades anyone: levels are set by you.',
-      eval_hint: 'For each result, set the level the team member holds.',
-      eval_hint_self: 'Place yourself on each result. Your competency developer will see your estimate next to theirs.',
       evidence_ph: 'Evidence / comment (optional)', add_evidence: '+ Add evidence',
       diagnose: 'Diagnose the gap',
       configuring: 'Analysing outputs…', loading: 'Loading…',
@@ -216,19 +211,14 @@
       target_short: 'required',
       r_open: 'Open', r_activity_one: 'activity', r_activity_many: 'activities', r_level: 'Role level',
       p_title: 'Competency profile', p_role_one: 'role', p_role_many: 'roles',
-      p_sub: 'What the roles require, and what is held. One axis per activity.',
       p_coverage: 'of the requirement met', p_required: 'Required', p_demonstrated: 'Demonstrated',
       p_by_role: 'By role',
       p_on_1: '[[a]] of [[b]] activities assessed', p_on_n: '[[a]] of [[b]] activities assessed',
-      p_basis: 'Computed on assessed activities only: an unassessed activity is not a failed one.',
       p_capped: 'Showing the [[n]] activities with the widest gap.',
       p_axes_0: 'no activity on the chart', p_axes_1: '1 activity on the chart',
       p_axes_n: '[[n]] activities on the chart',
       p_role_partiel: 'Level not computable',
       p_too_few: 'Too few assessed activities to draw a profile.',
-      p_not_plotted_1: '1 activity not assessed yet: not plotted.',
-      p_not_plotted: '[[n]] activities not assessed yet: not plotted.',
-      r_partial: 'Level cannot be computed until every activity is assessed.',
       r_none: 'No activity attached to this role.',
       n_official: 'Validated level', n_official_tag: 'official', n_self: 'Self-assessment', n_you: 'you',
       n_self_mine: 'Your self-assessment', n_by_dev: 'Level validated by your developer',
@@ -440,7 +430,6 @@
       <div class="rc-jauge">${blocJauge(r.level, r.required_level, r.color, r.gap, r.level_label)}</div>
       <div class="cv2-etats">${etats || `<span class="cv2-etat cv2-etat--grey"><i></i>${esc(T('r_none'))}</span>`}</div>
       <div class="rc-pieds">
-        ${partiel ? `<div class="rc-note">${esc(T('r_partial'))}</div>` : ''}
         ${r.n_gap && jeSuisLeDev() ? `<button type="button" class="btn btn-ghost btn-sm" data-plan="1">${esc(T('plan_open'))}</button>` : ''}
         <button type="button" class="btn btn-primary btn-sm" data-ouvrir="1">${esc(T('r_open'))}</button>
       </div>`;
@@ -573,8 +562,10 @@
       : (jeSuisLeDev() ? T('evaluate') : T('self_assess'));
     el.innerHTML = `
       <div>
-        <div class="cv2-nom">${esc(a.activity_name)}</div>
-        ${a.competence ? `<div class="cv2-comp-line" title="${esc(a.competence)}">${esc(a.competence)}</div>` : ''}
+        <div class="cv2-nom">${esc(a.activity_name)}
+          ${a.competence ? `<button type="button" class="cv2-i" data-info="1"
+            aria-label="${esc(T('competence'))}"><i class="fa-solid fa-info"></i></button>` : ''}
+        </div>
         <div class="cv2-meta">${metaActivite(a)}</div>
       </div>
       <div>${blocJauge(a.demonstrated_level, a.required_level, a.color || 'grey', a.gap, a.demonstrated_label)}</div>
@@ -586,8 +577,10 @@
     // ⚠️ Deux boutons, deux fenêtres. « Configurer » parle de l'ACTIVITÉ (que
     // produit-elle ?), « Évaluer » parle d'une PERSONNE. Les mélanger faisait
     // passer l'IA de la configuration pour une IA de notation.
-    el.querySelector('button').onclick = () =>
+    el.querySelector('.cv2-cell-act button').onclick = () =>
       (cat === 'setup' && jeSuisLeDev()) ? ouvrirConfiguration(a) : openDrawer(a);
+    const info = el.querySelector('[data-info]');
+    if (info) brancherInfo(info, T('competence'), a.competence);
     return el;
   }
 
@@ -651,7 +644,6 @@
       <div class="cv2-profil-tete">
         <div>
           <div class="cv2-profil-h">${esc(T('p_title'))}</div>
-          <div class="cv2-profil-d">${esc(T('p_sub'))}</div>
         </div>
         <div class="cv2-profil-kpi">
           <div class="cv2-kpi">
@@ -678,14 +670,11 @@
               <i class="cv2-leg cv2-leg--dem"></i>${esc(T('p_demonstrated'))}</button>
           </div>
           ${trop ? `<div class="cv2-radar-note">${esc(Tv('p_capped', { n: RADAR_MAX_AXES }))}</div>` : ''}
-          ${horsGraphe ? `<div class="cv2-radar-note">${esc(Tv(
-              horsGraphe === 1 ? 'p_not_plotted_1' : 'p_not_plotted', { n: horsGraphe }))}</div>` : ''}
           ${vus.length < 3 ? `<div class="cv2-radar-note">${esc(T('p_too_few'))}</div>` : ''}
         </div>
         <div class="cv2-parrole">
           <div class="cv2-parrole-h">${esc(T('p_by_role'))}</div>
           ${d.roles.map(r => barreRole(r)).join('')}
-          <div class="cv2-parrole-pied">${esc(T('p_basis'))}</div>
         </div>
       </div>`;
 
@@ -878,6 +867,75 @@
       </svg>`;
   }
 
+  // Une explication qui ne tient pas sur une ligne ne doit pas EN PRENDRE une :
+  // elle attend derrière un « i », au survol comme au clic (le survol seul
+  // n'existe pas sur un écran tactile).
+  // ⚠️ La carte est posée sur le BODY, pas sur la ligne : elle survit donc à
+  // la disparition de son bouton. Sans ce ménage, elle restait affichée en
+  // plein milieu de l'écran suivant. Tout ce qui déplace ou remplace ce qu'il y
+  // a dessous la referme : un clic ailleurs, un défilement, un changement de
+  // taille de fenêtre.
+  function fermerInfos() {
+    document.querySelectorAll('.cv2-info').forEach(e => e.remove());
+  }
+  document.addEventListener('click', fermerInfos);
+  window.addEventListener('scroll', fermerInfos, true);
+  window.addEventListener('resize', fermerInfos);
+
+  function brancherInfo(bouton, titre, texte) {
+    if (!texte) return;
+    let carte = null;
+    const fermer = () => { if (carte) { carte.remove(); carte = null; } };
+    const ouvrir = () => {
+      if (carte) return;
+      fermerInfos();
+      carte = document.createElement('div');
+      carte.className = 'cv2-info';
+      carte.innerHTML = `<div class="t">${esc(titre)}</div><div class="d">${esc(texte)}</div>`;
+      document.body.appendChild(carte);
+      // En `position: fixed` sur le body : la liste des activités a son propre
+      // défilement, une carte posée dedans serait tronquée.
+      const r = bouton.getBoundingClientRect(), b = carte.getBoundingClientRect();
+      carte.style.left = Math.max(8, Math.min(r.left, window.innerWidth - b.width - 8)) + 'px';
+      const dessus = r.top - b.height - 8;
+      carte.style.top = (dessus > 8 ? dessus : r.bottom + 8) + 'px';
+    };
+    bouton.addEventListener('mouseenter', ouvrir);
+    bouton.addEventListener('mouseleave', fermer);
+    bouton.addEventListener('focus', ouvrir);
+    bouton.addEventListener('blur', fermer);
+    bouton.addEventListener('click', e => {
+      e.stopPropagation();                 // ne pas ouvrir le rôle derrière
+      carte ? fermer() : ouvrir();
+    });
+  }
+
+  // Une capacité reliée à un résultat : son niveau requis se RÈGLE ici.
+  function carteCapacite(c) {
+    let paliers = '';
+    for (let lv = 1; lv <= 4; lv++) {
+      paliers += `<button type="button" class="cv2-capniv${c.required_level === lv ? ' sel' : ''}"
+        data-cap="1" data-niv="${lv}" title="${esc(levelName(lv))}">${lv}</button>`;
+    }
+    const dem = estNul(c.demonstrated_level)
+      ? `<span class="nonmes">${esc(T('cap_non_mesure'))}</span>`
+      : `<b>${c.demonstrated_level}</b>`;
+    return `<div class="cv2-cap" data-lien="${c.link_id}">
+        <div class="ci">
+          <span class="ct">${esc(c.type_label)}</span>
+          <div class="cl">${esc(c.label || '—')}</div>
+        </div>
+        <div class="cr">
+          <div class="cbloc"><span class="ck">${esc(T('cap_requis'))}</span>
+            <span class="cniv">${paliers}
+              <button type="button" class="cv2-capniv cv2-capniv--off${estNul(c.required_level) ? ' sel' : ''}"
+                data-cap="1" data-niv="">${esc(T('not_set'))}</button></span></div>
+          <div class="cbloc"><span class="ck">${esc(T('cap_demontre'))}</span>
+            <span class="cdem">${dem}</span></div>
+        </div>
+      </div>`;
+  }
+
   // ══ Fenêtre d'évaluation ═══════════════════════════════════════════
   function bindDrawer() {
     $('#cv2-drawer-close').onclick = closeDrawer;
@@ -915,7 +973,10 @@
     const d = $('#cv2-drawer');
     d.dataset.mode = 'eval';
     $('#cv2-drawer-title').textContent = row.activity_name;
-    $('#cv2-drawer-role').textContent = `${state.cibleNom} · ${state.roleName}`;
+    // Le collaborateur et son rôle ne sont pas une légende du titre : ce sont
+    // deux informations de même rang. Côte à côte, les deux peuvent grossir.
+    $('#cv2-drawer-role').innerHTML =
+      `<span class="qui">${esc(state.cibleNom)}</span><span class="ou">${esc(state.roleName)}</span>`;
     d.classList.add('open'); $('#cv2-overlay').classList.add('open');
     $('#cv2-drawer-body').scrollTop = 0;
     showEvaluation();
@@ -929,7 +990,7 @@
     const d = $('#cv2-drawer');
     d.dataset.mode = 'config';
     $('#cv2-drawer-title').textContent = T('conf_title');
-    $('#cv2-drawer-role').textContent = row.activity_name;
+    $('#cv2-drawer-role').innerHTML = `<span class="qui">${esc(row.activity_name)}</span>`;
     d.classList.add('open'); $('#cv2-overlay').classList.add('open');
     $('#cv2-drawer-body').scrollTop = 0;
     showQualify();
@@ -962,7 +1023,8 @@
 
     if (state.activity.competence) {
       const c = document.createElement('div'); c.className = 'cv2-comp';
-      c.innerHTML = `<span class="tag">${esc(T('competence'))}</span>${esc(state.activity.competence)}`;
+      c.innerHTML = `<span class="tag"><i class="fa-solid fa-bullseye"></i>${esc(T('competence'))}</span>`
+        + esc(state.activity.competence);
       body.appendChild(c);
     }
     // ── Bloc 1 : le niveau attendu ──────────────────────────────────
@@ -981,7 +1043,7 @@
         ${blocJauge(st.global_level, estNul(st.required_level) ? null : st.required_level,
                     st.color, st.gap, st.global_label)}
       </div>` : '';
-    const b2 = bloc(2, T('bloc_eval'), jeSuisLeDev() ? T('eval_hint') : T('eval_hint_self'), null, resume);
+    const b2 = bloc(2, T('bloc_eval'), null, 'eval', resume);
     body.appendChild(b2);
 
     if (!aEvaluer) {
@@ -1037,9 +1099,9 @@
         ${peut ? '' : 'disabled'} title="${esc(levelName(lv))}">${lv}</button>`;
     }
     html += `<button type="button" class="cv2-cible-off${req === null ? ' sel' : ''}" data-req=""
-      ${peut ? '' : 'disabled'}>${esc(T('not_set'))}</button></div>
+      ${peut ? '' : 'disabled'}>${esc(T('not_set'))}</button>
       <div class="cv2-cible-dit">${req === null ? esc(T('not_set'))
-        : `${req} · ${esc(levelName(req))}`}</div>`;
+        : `<b>${req}</b> · ${esc(levelName(req))}`}</div></div>`;
     wrap.innerHTML = html;
     if (peut) {
       wrap.querySelectorAll('[data-req]').forEach(b => b.onclick = () => {
@@ -1580,11 +1642,19 @@
     if (selected.has(st.individual_family)) {
       capsBox.classList.remove('hidden');
       capsBox.innerHTML = `<div class="cv2-capstitle">${esc(T('linked_caps'))}</div>` +
-        (st.capabilities.length ? st.capabilities.map(c =>
-          `<div class="cv2-cap"><div><span class="ct">${esc(c.type_label)}</span><div>${esc(c.label || '—')}</div></div>
-           <div class="lvls">${estNul(c.demonstrated_level) ? T('none') : c.demonstrated_level}
-             / ${estNul(c.required_level) ? T('none') : c.required_level}</div></div>`).join('')
-          : `<div class="cv2-emptydom">${esc(T('none'))}</div>`);
+        (st.capabilities.length
+          ? st.capabilities.map(c => carteCapacite(c)).join('')
+          : `<div class="cv2-emptydom">${esc(T('no_caps'))}</div>`);
+      capsBox.querySelectorAll('[data-cap]').forEach(b => b.onclick = () => {
+        const carte = b.closest('.cv2-cap');
+        const v = b.dataset.niv === '' ? null : +b.dataset.niv;
+        carte.querySelectorAll('[data-cap]').forEach(x => x.classList.remove('sel'));
+        b.classList.add('sel');
+        api(`/competence/result_links/${state.activity.activity_id}`, {
+          method: 'POST',
+          body: JSON.stringify({ link_id: +carte.dataset.lien, required_level: v }),
+        });
+      });
       // Le plan complet vit dans sa propre fenêtre : ici on y mène.
       const btn = document.createElement('button');
       btn.className = 'btn btn-primary btn-sm'; btn.style.marginTop = '10px'; btn.textContent = T('plan_open');
@@ -1612,7 +1682,8 @@
   }
 
   async function ouvrirPlan() {
-    $('#cv2-plan-sub').textContent = `${state.cibleNom} · ${state.roleName}`;
+    $('#cv2-plan-sub').innerHTML =
+      `<span class="qui">${esc(state.cibleNom)}</span><span class="ou">${esc(state.roleName)}</span>`;
     $('#cv2-plan-win').classList.add('open'); $('#cv2-overlay').classList.add('open');
     showBusy(null, '#cv2-plan-body');
     setFooter([], '#cv2-plan-footer');

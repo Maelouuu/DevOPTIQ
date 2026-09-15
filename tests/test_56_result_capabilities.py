@@ -6,7 +6,8 @@ Couverture (sans clé IA configurée → repli explicite, jamais de 500) :
   - POST /competence/save/<activity_id>                   → sauvegarde manuelle de la compétence
   - POST /competence/result_links/generate/<activity_id>  → génération S/SF/HSC (repli no_ai / no_result)
   - GET  /competence/result_links/<activity_id>            → lecture des liens groupés par résultat
-  - POST /competence/result_links/<activity_id>            → création/suppression manuelle d'un lien
+  - POST /competence/result_links/<activity_id>            → création/suppression manuelle d'un lien,
+                                                            et réglage du niveau requis (link_id)
 """
 import json
 import pytest
@@ -522,5 +523,124 @@ class TestUpsertResultLink:
             )
             assert r.status_code == 200
             assert r.get_json()["links"]["by_result"] == []
+        finally:
+            _cleanup_activity(app, aid)
+
+
+class TestReglerLeNiveauRequis:
+    """⚠️ La liste des capacités du diagnostic affichait « — / — » sur chaque
+    ligne : `required_level` ne se posait qu'à la CRÉATION du lien, et les liens
+    naissent de l'IA. On cherchait donc dans cet écran un réglage qui n'existait
+    nulle part. Ces cas vérifient le chemin de mise à jour — ils passent au rouge
+    si on retire le bloc `link_id` de `upsert_result_link`."""
+
+    def _lien(self, auth_client, aid, did, sfid):
+        r = auth_client.post(
+            f"/competence/result_links/{aid}",
+            data=json.dumps({"data_id": did, "item_type": "SAVOIR_FAIRE", "item_id": sfid}),
+            content_type="application/json",
+        )
+        return r.get_json()["links"]["by_result"][0]["items"][0]["id"]
+
+    def _relire(self, auth_client, aid, link_id):
+        payload = auth_client.get(f"/competence/result_links/{aid}").get_json()
+        for bloc in payload["by_result"]:
+            for it in bloc["items"]:
+                if it["id"] == link_id:
+                    return it["required_level"]
+        return "absent"
+
+    def test_set_required_level_on_existing_link(self, auth_client, app, ids):
+        aid = _create_activity(app, ids["entity_id"])
+        did = _create_result_data(app, ids["entity_id"], aid)
+        sfid = _create_savoir_faire(app, aid)
+        try:
+            link_id = self._lien(auth_client, aid, did, sfid)
+            assert self._relire(auth_client, aid, link_id) is None
+
+            r = auth_client.post(
+                f"/competence/result_links/{aid}",
+                data=json.dumps({"link_id": link_id, "required_level": 3}),
+                content_type="application/json",
+            )
+            assert r.status_code == 200
+            assert self._relire(auth_client, aid, link_id) == 3
+        finally:
+            _cleanup_activity(app, aid)
+
+    def test_null_clears_the_target(self, auth_client, app, ids):
+        """Revenir à « non défini » doit rester possible : sans ce retour, une
+        cible posée par mégarde ne s'enlève plus."""
+        aid = _create_activity(app, ids["entity_id"])
+        did = _create_result_data(app, ids["entity_id"], aid)
+        sfid = _create_savoir_faire(app, aid)
+        try:
+            link_id = self._lien(auth_client, aid, did, sfid)
+            auth_client.post(
+                f"/competence/result_links/{aid}",
+                data=json.dumps({"link_id": link_id, "required_level": 2}),
+                content_type="application/json",
+            )
+            r = auth_client.post(
+                f"/competence/result_links/{aid}",
+                data=json.dumps({"link_id": link_id, "required_level": None}),
+                content_type="application/json",
+            )
+            assert r.status_code == 200
+            assert self._relire(auth_client, aid, link_id) is None
+        finally:
+            _cleanup_activity(app, aid)
+
+    def test_unknown_link_is_404(self, auth_client, app, ids):
+        aid = _create_activity(app, ids["entity_id"])
+        try:
+            r = auth_client.post(
+                f"/competence/result_links/{aid}",
+                data=json.dumps({"link_id": 999999, "required_level": 2}),
+                content_type="application/json",
+            )
+            assert r.status_code == 404
+        finally:
+            _cleanup_activity(app, aid)
+
+    def test_link_of_another_activity_is_404(self, auth_client, app, ids):
+        """L'id du lien vient du client : il ne doit pas suffire à écrire sur
+        l'activité d'à côté."""
+        aid = _create_activity(app, ids["entity_id"])
+        autre = _create_activity(app, ids["entity_id"])
+        did = _create_result_data(app, ids["entity_id"], aid)
+        sfid = _create_savoir_faire(app, aid)
+        try:
+            link_id = self._lien(auth_client, aid, did, sfid)
+            r = auth_client.post(
+                f"/competence/result_links/{autre}",
+                data=json.dumps({"link_id": link_id, "required_level": 4}),
+                content_type="application/json",
+            )
+            assert r.status_code == 404
+            assert self._relire(auth_client, aid, link_id) is None
+        finally:
+            _cleanup_activity(app, aid)
+            _cleanup_activity(app, autre)
+
+    def test_out_of_range_level_is_refused_and_changes_nothing(self, auth_client, app, ids):
+        aid = _create_activity(app, ids["entity_id"])
+        did = _create_result_data(app, ids["entity_id"], aid)
+        sfid = _create_savoir_faire(app, aid)
+        try:
+            link_id = self._lien(auth_client, aid, did, sfid)
+            auth_client.post(
+                f"/competence/result_links/{aid}",
+                data=json.dumps({"link_id": link_id, "required_level": 2}),
+                content_type="application/json",
+            )
+            for mauvais in (9, -1, "3"):
+                r = auth_client.post(
+                    f"/competence/result_links/{aid}",
+                    data=json.dumps({"link_id": link_id, "required_level": mauvais}),
+                    content_type="application/json",
+                )
+                assert r.status_code == 400, mauvais
+            assert self._relire(auth_client, aid, link_id) == 2
         finally:
             _cleanup_activity(app, aid)

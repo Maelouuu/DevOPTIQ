@@ -784,6 +784,73 @@ collaborateur pour son auto-évaluation.
   de clé prenait l'apparence d'une analyse réussie.
 - Tests : `tests/test_77_competences_deux_notes.py::TestLePlanSuitLEcran` (3 cas,
   le désaccord vérifié **rouge** en remettant l'ancien filtre).
+### Moins de phrases, plus de place pour ce qui compte (2026-09-15)
+
+**Cinq phrases retirées.** Chacune expliquait ce que l'écran montre déjà —
+« Fixez, pour chaque résultat, le niveau tenu… » au-dessus d'une échelle 0→4,
+« Ce que les rôles exigent, et ce qui est tenu » au-dessus d'un radar légendé
+« Requis / Démontré », « Calculé sur les seules activités évaluées… » sous des
+barres qui portent déjà « 4 activités évaluées sur 6 ». Elles occupaient la
+place de ce qu'on vient vraiment lire. Sont parties : `eval_hint`,
+`eval_hint_self`, `p_sub`, `p_basis`, `p_not_plotted*`, `r_partial` (194 clés
+par langue, contre 197).
+
+- ⚠️ **L'explication d'une activité tenait une LIGNE sous son nom**, tronquée et
+  grise : illisible, mais elle volait la place de « évalué le 15/09/2026 », qui,
+  lui, se lit vraiment. Elle attend maintenant derrière un « i » (`brancherInfo`,
+  `.cv2-i` / `.cv2-info`), au survol **comme au clic** — le survol seul n'existe
+  pas sur un écran tactile. La date d'évaluation passe de 11,5 à 13 px.
+  ⚠️ La carte est posée sur le **body** en `position: fixed`, pas dans la ligne :
+  la liste des activités a son propre défilement, une carte posée dedans serait
+  tronquée. Conséquence : elle survit à la disparition de son bouton — elle
+  restait affichée en plein milieu de l'écran suivant. `fermerInfos()` est donc
+  branché sur tout ce qui déplace ce qu'il y a dessous (clic ailleurs,
+  défilement en capture, redimensionnement). ⚠️ Le clic du bouton fait un
+  `stopPropagation` : sans lui, ouvrir la bulle la refermerait aussitôt, et le
+  clic ouvrirait le rôle derrière.
+- **La compétence principale est le SUJET de la fenêtre**, pas une note de bas
+  de page : tout ce qu'on va noter en découle. Elle était écrite en 13 px gris
+  sur un fond à peine teinté, entre deux sections blanches. Elle porte
+  maintenant la couleur de la page en aplat, un liseré d'accent, son icône, et
+  16 px.
+- **La jauge grossit** : pas de 16×11 → 21×14 px, colonne de la liste 256 → 272.
+  ⚠️ En fenêtre étroite (< 980 px) elle redescend à 18×12 — à pleine taille elle
+  chasse le libellé du palier hors de sa colonne. ⚠️ Même cause dans les blocs :
+  le bilan de section perdait « Autonome / compétent » (138 px de texte pour 85
+  disponibles) — le libellé passe à la ligne sous la jauge plutôt que d'élargir
+  le bilan, qui aurait mangé le titre de la section.
+- **Titre et sous-titre côte à côte** (fenêtre d'évaluation ET fenêtre du plan).
+  Ce ne sont pas un titre et sa légende : l'activité d'un côté, la personne et
+  son rôle de l'autre, deux informations de même rang. Côte à côte, les deux
+  peuvent grossir (16 → 19 px, 12,5 → 14 px) ; le rôle devient une pastille.
+  Sous 760 px réels le filet de séparation saute, sinon il se retrouve à gauche
+  d'une ligne repliée.
+- **Le niveau lu passe à DROITE des paliers** (bloc 1) : sous l'échelle, il
+  poussait tout le bloc vers le bas pour une ligne de texte.
+- ⚠️ **Un simple filet séparait les blocs 1 et 2** : deux étendues blanches à la
+  suite, on ne voyait pas où l'une finissait. Le 3 se distinguait déjà (bleu
+  plein). Les trois portent donc chacun SA surface — la cible sur fond neutre,
+  ce qu'on note sur fond clair cerclé d'accent (`.cv2-bloc--eval`), la
+  technicité en bleu — et le filet a disparu.
+
+**La liste des capacités du diagnostic affichait « — / — » sur chaque ligne.**
+Deux nombres que RIEN dans l'application ne remplissait : `required_level` ne se
+posait qu'à la **création** du lien (`upsert_result_link`), et les liens
+naissent de l'IA — on cherchait donc dans cet écran un réglage qui n'existait
+nulle part. Le payload `{link_id, required_level}` règle désormais le niveau
+requis d'un lien existant (`null` pour revenir à « non défini » : sans ce
+retour, une cible posée par mégarde ne s'enlevait plus). ⚠️ Le lien est filtré
+sur `activity_id` : son id vient du client, il ne doit pas suffire à écrire sur
+l'activité d'à côté.
+Le niveau **démontré**, lui, dit en toutes lettres qu'il n'est **pas mesuré** —
+`_capability_demonstrated` lit de vieilles lignes `CompetencyEvaluation`
+(`savoirs` / `savoir_faires` / `hsc`) que la page V1.1 n'écrit jamais. Un tiret
+laissait croire à une valeur manquante ; c'est une valeur qui n'est pas prise.
+Le plan, lui, n'en souffre pas : `_plan_local()` retombe sur l'écart de
+l'activité quand celui de la capacité est nul.
+Tests : `tests/test_56_result_capabilities.py::TestReglerLeNiveauRequis`
+(5 cas, vérifiés **rouges** en retirant le bloc `link_id`).
+
 ---
 
 ## Guide utilisateur (`docs/guide.html`)

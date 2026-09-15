@@ -156,7 +156,7 @@ header { position: sticky; top: 0; z-index: 30; }
 }
 .cv2-entete, .cv2-ligne {
   display: grid; align-items: center; gap: 14px;
-  grid-template-columns: minmax(0, 1fr) 256px 80px 106px;
+  grid-template-columns: minmax(0, 1fr) 272px 80px 106px;
   padding: 0 18px;
 }
 /* La legende du repere : sans elle, le trait sous un pas de la jauge ne dit pas
@@ -177,16 +177,45 @@ header { position: sticky; top: 0; z-index: 30; }
 .cv2-ligne:last-child { border-bottom: none; }
 .cv2-ligne:hover { background: var(--pg-accent-softer); }
 
-.cv2-nom { font-weight: 700; font-size: 14.5px; letter-spacing: -.01em; color: var(--ink); }
-.cv2-comp-line {
-  margin-top: 2px; font-size: 12px; line-height: 1.4; color: var(--muted);
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+.cv2-nom {
+  display: flex; align-items: center; gap: 7px;
+  font-weight: 700; font-size: 14.5px; letter-spacing: -.01em; color: var(--ink);
 }
+/* LE « i »
+   L'explication de la compétence tenait une LIGNE sous chaque activité,
+   tronquée et grise : illisible mais encombrante, et elle volait la place de
+   « évalué le … », qui, lui, se lit vraiment. Elle attend maintenant derrière
+   ce bouton — au survol comme au clic (le survol seul n'existe pas sur un
+   écran tactile). */
+.cv2-i {
+  flex: none; width: 18px; height: 18px; padding: 0; cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 9px; color: var(--pg-accent-deep);
+  background: var(--pg-accent-soft); border: 1px solid var(--pg-accent-border);
+  border-radius: 50%; transition: .13s;
+}
+.cv2-i:hover, .cv2-i:focus-visible {
+  outline: none; background: var(--pg-accent); border-color: transparent; color: #fff;
+}
+/* En `fixed` sur le body, et posée hors champ tant que le JS ne l'a pas placée :
+   la liste des activités a son propre défilement, une carte posée dedans serait
+   tronquée, et une carte placée après mesure clignoterait à son point de chute. */
+.cv2-info {
+  position: fixed; left: -9999px; top: 0; z-index: 90;
+  max-width: 330px; padding: 11px 14px; pointer-events: none;
+  background: var(--card); border: 1px solid var(--border-strong);
+  border-radius: 12px; box-shadow: var(--sh-pop);
+}
+.cv2-info .t {
+  font-size: 10.5px; font-weight: 700; letter-spacing: .05em;
+  text-transform: uppercase; color: var(--pg-accent-deep);
+}
+.cv2-info .d { margin-top: 5px; font-size: 13px; line-height: 1.5; color: var(--ink-2); }
 /* La méta remplace deux colonnes (résultats, dernière éval.) : deux nombres
    isolés dans leur case ne se lisaient pas, une phrase se lit. */
 .cv2-meta {
   display: flex; align-items: center; gap: 7px; flex-wrap: wrap;
-  margin-top: 5px; font-size: 11.5px; color: var(--faint); font-weight: 600;
+  margin-top: 5px; font-size: 13px; color: var(--muted); font-weight: 600;
 }
 .cv2-meta .sep { color: var(--border-strong); }
 .cv2-meta .ok { color: var(--cv-green-deep); }
@@ -200,9 +229,9 @@ header { position: sticky; top: 0; z-index: 30; }
    voit la cible sans la chercher ailleurs. Non évalué = pas pointillés (une
    absence, pas un zéro — la distinction est une règle du CDC). */
 .cv2-jauge { display: flex; align-items: center; gap: 8px; }
-.cv2-pas { display: flex; gap: 3px; flex: none; }
+.cv2-pas { display: flex; gap: 4px; flex: none; }
 .cv2-pas i {
-  position: relative; display: block; width: 16px; height: 11px; border-radius: 3px;
+  position: relative; display: block; width: 21px; height: 14px; border-radius: 4px;
   background: color-mix(in srgb, var(--border) 34%, #fff); box-shadow: inset 0 0 0 1px var(--border-strong);
 }
 .cv2-pas i.on { box-shadow: none; }
@@ -212,8 +241,8 @@ header { position: sticky; top: 0; z-index: 30; }
    à cette densité il disparaissait, et c'est le seul endroit où la ligne dit si
    le niveau suffit. */
 .cv2-pas i.cible::after {
-  content: ""; position: absolute; right: -3px; top: -4px; bottom: -4px;
-  width: 2px; border-radius: 1px; background: var(--ink-2);
+  content: ""; position: absolute; right: -4px; top: -5px; bottom: -5px;
+  width: 2.5px; border-radius: 2px; background: var(--ink-2);
 }
 .cv2-j--green  i.on { background: var(--cv-green); }
 .cv2-j--orange i.on { background: var(--cv-orange); }
@@ -300,8 +329,13 @@ header { position: sticky; top: 0; z-index: 30; }
    contenu long les ÉCRASE. Le sous-titre de la fenêtre (« Untel · Tel rôle »)
    se retrouvait tranché en deux sous la première section — présent à l'écran,
    illisible. */
+/* Le titre et le sous-titre ne sont pas dans un rapport de titre à légende :
+   l'activité d'un côté, la personne et son rôle de l'autre, deux informations
+   de même rang. Côte à côte, les deux peuvent grossir. */
 .cv2-dh {
-  flex: none; position: relative; overflow: hidden; padding: 17px 22px 15px;
+  flex: none; position: relative; overflow: hidden;
+  display: flex; align-items: baseline; gap: 13px; flex-wrap: wrap;
+  padding: 16px 58px 15px 22px;
   background: linear-gradient(135deg, var(--pg-accent), var(--pg-accent-deep)); color: #fff;
 }
 .cv2-dh::after {
@@ -309,8 +343,19 @@ header { position: sticky; top: 0; z-index: 30; }
   border-radius: 50%; pointer-events: none;
   background: radial-gradient(circle, rgba(255, 255, 255, .14), transparent 70%);
 }
-.cv2-dh h2 { margin: 0 0 3px; padding-right: 40px; font-size: 16px; font-weight: 700; letter-spacing: -.01em; }
-.cv2-dh .cv2-sub { margin: 0; font-size: 12.5px; font-weight: 600; color: rgba(255, 255, 255, .85); }
+.cv2-dh h2 { margin: 0; font-size: 19px; font-weight: 700; letter-spacing: -.015em; line-height: 1.2; }
+.cv2-dh .cv2-sub {
+  display: flex; align-items: center; gap: 8px; margin: 0;
+  padding-left: 13px; border-left: 1px solid rgba(255, 255, 255, .32);
+  font-size: 14px; font-weight: 600; color: rgba(255, 255, 255, .94);
+}
+.cv2-dh .cv2-sub .ou {
+  padding: 2px 10px; border-radius: 999px;
+  background: rgba(255, 255, 255, .2); font-size: 12.5px; font-weight: 700;
+}
+@media (max-width: 760px) {
+  .cv2-dh .cv2-sub { padding-left: 0; border-left: none; }
+}
 .cv2-dh .x {
   position: absolute; right: 15px; top: 14px; z-index: 2;
   width: 30px; height: 30px; border: none; border-radius: 9px;
@@ -325,14 +370,20 @@ header { position: sticky; top: 0; z-index: 30; }
   background: var(--card-2); border-top: 1px solid var(--border);
 }
 
-/* Compétence principale : une LIGNE sous l'en-tête, plus une carte encadrée de
-   plus. Elle situe, elle ne se manipule pas. */
+/* LA COMPÉTENCE PRINCIPALE
+   C'est le sujet de la fenêtre : tout ce qu'on va noter en découle. Elle était
+   écrite en 13 px gris sur un fond à peine teinté, entre deux sections
+   blanches — on la prenait pour une note de bas de page. Elle porte désormais
+   la couleur de la page en aplat, et la taille de ce qu'elle est. */
 .cv2-comp {
-  padding: 12px 22px; background: var(--pg-accent-softer);
-  border-bottom: 1px solid var(--border); font-size: 13px; line-height: 1.5; color: var(--ink-2);
+  margin: 14px 22px 16px; padding: 14px 16px 15px;
+  border-radius: 14px; border-left: 4px solid var(--pg-accent-deep);
+  background: linear-gradient(120deg, var(--pg-accent-soft), var(--pg-accent-softer));
+  font-size: 16px; font-weight: 600; line-height: 1.45; color: var(--ink);
 }
 .cv2-comp .tag {
-  display: block; margin-bottom: 3px; font-size: 11px; font-weight: 700;
+  display: flex; align-items: center; gap: 6px; margin-bottom: 6px;
+  font-size: 11.5px; font-weight: 700;
   color: var(--pg-accent-deep); text-transform: uppercase; letter-spacing: .05em;
 }
 
@@ -504,13 +555,38 @@ header { position: sticky; top: 0; z-index: 30; }
 .cv2-fam .fd { margin-top: 4px; font-size: 12px; line-height: 1.4; color: var(--muted); }
 .cv2-caps { margin-top: 12px; padding-top: 12px; border-top: 1px dashed var(--border); }
 .cv2-capstitle { margin-bottom: 6px; font-size: 12px; font-weight: 700; color: var(--ink-2); }
+/* LES CAPACITÉS RELIÉES
+   ⚠️ Chaque ligne affichait « — / — » : deux nombres que RIEN dans l'application
+   ne remplissait. On y cherchait un réglage qui n'existait pas — `required_level`
+   ne se posait qu'à la création du lien, et les liens naissent de l'IA. Le
+   requis se RÈGLE ici ; le démontré, que cet écran ne mesure pas, le dit en
+   toutes lettres au lieu d'un tiret. */
 .cv2-cap {
   display: flex; align-items: center; justify-content: space-between;
-  padding: 9px 0; border-bottom: 1px solid var(--border); font-size: 13.5px;
+  gap: 14px; flex-wrap: wrap;
+  padding: 11px 0; border-bottom: 1px solid var(--border); font-size: 13.5px;
 }
 .cv2-cap:last-child { border-bottom: none; }
+.cv2-cap .ci { min-width: 190px; flex: 1; }
 .cv2-cap .ct { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
-.cv2-cap .lvls { font-weight: 700; color: var(--ink-2); }
+.cv2-cap .cl { margin-top: 2px; font-weight: 600; line-height: 1.4; color: var(--ink); }
+.cv2-cap .cr { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+.cv2-cap .cbloc { display: flex; align-items: center; gap: 8px; }
+.cv2-cap .ck { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+.cv2-cap .cniv { display: flex; align-items: center; gap: 4px; }
+.cv2-cap .cdem { font-size: 14px; font-weight: 700; color: var(--ink-2); }
+.cv2-cap .cdem .nonmes { font-size: 12px; font-style: italic; font-weight: 600; color: var(--faint); }
+.cv2-capniv {
+  width: 30px; padding: 5px 0; cursor: pointer;
+  font-family: inherit; font-size: 12.5px; font-weight: 700; color: var(--muted);
+  background: none; border: 1.5px dashed var(--border-strong); border-radius: 8px; transition: .13s;
+}
+.cv2-capniv:hover { border-color: var(--pg-accent); color: var(--pg-accent-deep); }
+.cv2-capniv.sel {
+  border-style: solid; border-color: var(--pg-accent-deep);
+  background: var(--pg-accent-soft); color: var(--pg-accent-deep);
+}
+.cv2-capniv--off { width: auto; padding: 5px 9px; font-size: 11px; border-style: dashed; border-color: var(--border); }
 .cv2-plan { margin-top: 12px; }
 .cv2-plantitle { margin: 12px 0 6px; font-size: 12.5px; font-weight: 700; color: var(--ink-2); }
 .cv2-planitem {
@@ -573,7 +649,7 @@ header { position: sticky; top: 0; z-index: 30; }
    importance : la technicité d'abord, l'action ensuite (elle passe sous le
    nom), jamais la jauge — c'est elle qu'on vient lire. */
 @media (max-width: 860px) {
-  .cv2-entete, .cv2-ligne { grid-template-columns: minmax(0, 1fr) 256px 106px; }
+  .cv2-entete, .cv2-ligne { grid-template-columns: minmax(0, 1fr) 272px 106px; }
   .cv2-entete .th-tech, .cv2-cell-tech { display: none; }
 }
 @media (max-width: 760px) {
@@ -620,7 +696,6 @@ header { position: sticky; top: 0; z-index: 30; }
 .cv2-rolecard .rc-jauge { margin: 13px 0 12px; }
 .cv2-rolecard .rc-pieds { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
 .cv2-rolecard .rc-pieds { justify-content: flex-end; }
-.cv2-rolecard .rc-note { flex: 1 1 100%; margin-bottom: 2px; font-size: 11px; line-height: 1.35; font-weight: 600; color: var(--faint); }
 
 /* Les quatre états, en pastilles compactes : mêmes couleurs que le bandeau et
    que la liste, pour qu'un coup d'œil suffise à relier les trois. */
@@ -707,7 +782,15 @@ header { position: sticky; top: 0; z-index: 30; }
   border-radius: 9px; cursor: pointer;
 }
 .cv2-cible-off.sel { border-style: solid; color: var(--ink-2); }
-.cv2-cible-dit { margin-top: 7px; font-size: 12px; font-weight: 600; color: var(--muted); }
+/* Le niveau lu se pose à DROITE des paliers, pas dessous : sous l'échelle il
+   poussait tout le bloc vers le bas pour une seule ligne de texte. */
+.cv2-cible-dit {
+  margin: 0 0 0 auto; align-self: center; padding: 6px 13px; border-radius: 999px;
+  background: var(--pg-accent-soft); color: var(--pg-accent-deep);
+  font-size: 13px; font-weight: 600; white-space: nowrap;
+}
+.cv2-cible-dit b { font-size: 15.5px; font-weight: 800; }
+@media (max-width: 760px) { .cv2-cible-dit { margin-left: 0; } }
 
 /* ══════════════════════════════════════════════════════════════════════════
    SECTIONS DE LA FENÊTRE
@@ -716,8 +799,18 @@ header { position: sticky; top: 0; z-index: 30; }
    maîtrise d'un côté, le contexte technique de l'autre) — ils portent donc
    chacun leur en-tête, leur numéro et leur teinte.
    ══════════════════════════════════════════════════════════════════════════ */
-.cv2-bloc { margin: 0 22px 16px; }
-.cv2-bloc + .cv2-bloc { padding-top: 16px; border-top: 1px solid var(--border); }
+/* Un simple filet séparait 1 et 2 : deux étendues blanches à la suite, on ne
+   voyait pas où l'une finissait. La 3 se distinguait déjà (fond bleu plein) —
+   les trois portent donc chacune SA surface : la cible sur un fond neutre, ce
+   qu'on note sur un fond clair cerclé d'accent, la technicité en bleu. */
+.cv2-bloc {
+  margin: 0 22px 14px; padding: 15px 16px 16px;
+  border-radius: 14px; background: var(--card-2); border: 1px solid var(--border);
+}
+.cv2-bloc--eval {
+  background: var(--card);
+  border-color: var(--pg-accent-border); box-shadow: 0 8px 22px -16px var(--pg-accent-glow);
+}
 .cv2-bloc-tete { display: flex; align-items: flex-start; gap: 11px; margin-bottom: 12px; }
 .cv2-bloc-num {
   width: 25px; height: 25px; flex: none; border-radius: 8px;
@@ -778,7 +871,9 @@ header { position: sticky; top: 0; z-index: 30; }
 }
 .cv2-plan-win.open { transform: translate(-50%, -50%) scale(1); opacity: 1; pointer-events: auto; }
 .cv2-ph {
-  flex: none; position: relative; overflow: hidden; padding: 18px 24px 16px; color: #fff;
+  flex: none; position: relative; overflow: hidden; color: #fff;
+  display: flex; align-items: baseline; gap: 13px; flex-wrap: wrap;
+  padding: 17px 60px 16px 24px;
   background: linear-gradient(135deg, #1d4ed8, #4c1d95);
 }
 .cv2-ph::after {
@@ -787,10 +882,20 @@ header { position: sticky; top: 0; z-index: 30; }
   background: radial-gradient(circle, rgba(255, 255, 255, .16), transparent 70%);
 }
 .cv2-ph h2 {
-  margin: 0 0 3px; padding-right: 40px;
-  font-family: var(--pg-font-display); font-size: 19px; font-weight: 700;
+  margin: 0; font-family: var(--pg-font-display); font-size: 21px; font-weight: 700; line-height: 1.2;
 }
-.cv2-ph .cv2-sub { margin: 0; font-size: 12.5px; font-weight: 600; color: rgba(255, 255, 255, .85); }
+.cv2-ph .cv2-sub {
+  display: flex; align-items: center; gap: 8px; margin: 0;
+  padding-left: 13px; border-left: 1px solid rgba(255, 255, 255, .32);
+  font-size: 14px; font-weight: 600; color: rgba(255, 255, 255, .94);
+}
+.cv2-ph .cv2-sub .ou {
+  padding: 2px 10px; border-radius: 999px;
+  background: rgba(255, 255, 255, .2); font-size: 12.5px; font-weight: 700;
+}
+@media (max-width: 760px) {
+  .cv2-ph .cv2-sub { padding-left: 0; border-left: none; }
+}
 .cv2-ph .x {
   position: absolute; right: 16px; top: 15px; z-index: 2;
   width: 30px; height: 30px; border: none; border-radius: 9px;
@@ -942,7 +1047,12 @@ header { position: sticky; top: 0; z-index: 30; }
   margin-bottom: 5px; font-size: 10.5px; font-weight: 700;
   text-transform: uppercase; letter-spacing: .04em; color: var(--muted);
 }
-.cv2-bloc-bilan .cv2-jauge { justify-content: flex-end; }
+/* ⚠️ La jauge a grossi : le nom du palier (« Autonome / compétent ») passait
+   de 138 px disponibles à 85, donc coupé net. On laisse le libellé PASSER À LA
+   LIGNE sous la jauge plutôt que d'élargir le bilan — élargir aurait pris la
+   place du titre de la section, qui se lit en premier. */
+.cv2-bloc-bilan .cv2-jauge { justify-content: flex-end; flex-wrap: wrap; row-gap: 3px; }
+.cv2-bloc-bilan .cv2-jauge-txt .lv { white-space: normal; overflow: visible; }
 
 /* La note de repère tient sur UNE ligne : en trois, elle pesait autant à l'œil
    que celle qui fait foi. */
@@ -1047,8 +1157,6 @@ header { position: sticky; top: 0; z-index: 30; }
   font-family: var(--pg-font-display); font-size: 18px; font-weight: 700;
   letter-spacing: -.01em; color: var(--ink);
 }
-.cv2-profil-d { margin-top: 3px; font-size: 12.5px; line-height: 1.45; color: var(--muted); max-width: 420px; }
-
 .cv2-profil-kpi { display: flex; gap: 9px; margin-left: auto; flex-wrap: wrap; }
 .cv2-kpi {
   min-width: 82px; padding: 9px 13px; text-align: center;
@@ -1132,11 +1240,6 @@ header { position: sticky; top: 0; z-index: 30; }
 .cv2-jb--red i    { background: var(--cv-red); }
 .cv2-jb--grey i   { background: var(--cv-grey); }
 .cv2-parrole-l .pc { font-size: 12.5px; font-weight: 700; text-align: right; color: var(--ink-2); }
-.cv2-parrole-pied {
-  margin-top: 9px; padding-top: 9px; border-top: 1px dashed var(--border);
-  font-size: 10.5px; line-height: 1.45; color: var(--faint);
-}
-
 /* La carte de rôle entière est un bouton : il faut que ça se voie au clavier. */
 .cv2-rolecard { cursor: pointer; }
 .cv2-rolecard:focus-visible { outline: none; border-color: var(--pg-accent); box-shadow: 0 0 0 3px var(--pg-accent-glow); }
@@ -1158,6 +1261,7 @@ header { position: sticky; top: 0; z-index: 30; }
 .cv2-nt .cv2-echelle { margin-top: 8px; }
 .cv2-niv { width: 42px; padding: 7px 0 6px; }
 .cv2-gomme { padding: 7px 10px; }
+.cv2-pas i { width: 18px; height: 12px; }
 .cv2-res { padding: 12px 14px; margin-bottom: 9px; }
 .cv2-res .rname { font-size: 13.5px; }
 .cv2-preuve-btn { margin-top: 8px; }
@@ -1263,8 +1367,6 @@ header { position: sticky; top: 0; z-index: 30; }
 .cv2-db, .cv2-pb { font-size: 14px; }
 .cv2-bloc-h { font-size: 16px; }
 .cv2-bloc-d { font-size: 13px; }
-.cv2-comp { font-size: 14px; }
-.cv2-comp .tag { font-size: 12px; }
 .cv2-nt-lbl { font-size: 12px; }
 .cv2-nt-tag, .cv2-officielle-tag { font-size: 10.5px; }
 .cv2-nt-val { font-size: 13.5px; }
@@ -1274,7 +1376,6 @@ header { position: sticky; top: 0; z-index: 30; }
 .cv2-res .rname { font-size: 14.5px; }
 .cv2-accord { font-size: 12.5px; }
 .cv2-cible-niv { font-size: 14px; }
-.cv2-cible-dit { font-size: 13px; }
 .cv2-preuve-btn, .cv2-ev { font-size: 13.5px; }
 .cv2-prop { font-size: 11.5px; }
 .cv2-ia-t { font-size: 14.5px; }
@@ -1394,11 +1495,10 @@ header { position: sticky; top: 0; z-index: 30; }
    on relit un formulaire blanc posé sous un bandeau.
    ══════════════════════════════════════════════════════════════════════════ */
 .cv2-bloc--tech {
-  padding: 15px 16px 16px; border-radius: 14px;
   background: linear-gradient(140deg, var(--pg-accent), var(--pg-accent-deep));
+  border-color: transparent;
   box-shadow: 0 12px 28px -14px var(--pg-accent-glow);
 }
-.cv2-bloc--tech + .cv2-bloc, .cv2-bloc + .cv2-bloc--tech { border-top: none; }
 .cv2-bloc--tech .cv2-bloc-tete { margin: 0 0 12px; padding: 0; background: none; }
 .cv2-bloc--tech .cv2-bloc-num { background: rgba(255, 255, 255, .22); }
 .cv2-bloc--tech .cv2-bloc-h { color: #fff; }
