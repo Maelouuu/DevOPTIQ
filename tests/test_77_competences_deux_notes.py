@@ -575,3 +575,90 @@ class TestCouvertureEtProfil:
 
 def _role_de(d, scene):
     return next(x for x in d["roles"] if x["role_id"] == scene["role"])
+
+
+class TestLePlanSuitLEcran:
+    """⚠️ L'écran et le plan ne s'accordaient pas sur le mot « écart ».
+
+    L'écran compte une activité « en écart » dès que le niveau démontré est
+    sous 2 — l'autonomie n'est pas démontrée, requis ou pas. Le plan, lui,
+    filtrait sur `gap < 0`, or `gap` est NUL quand le rôle n'a fixé aucun niveau
+    requis. Résultat : le bouton « Plan de formation » s'affichait, et la fenêtre
+    répondait « aucun écart sur ce rôle ».
+    """
+
+    @pytest.fixture
+    def sans_requis(self, app, scene):
+        """Le même rôle, mais sans niveau requis sur l'activité."""
+        from Code.extensions import db
+        from Code.models.models import activity_roles
+        with app.app_context():
+            db.session.execute(activity_roles.update().where(
+                (activity_roles.c.activity_id == scene["act"])
+                & (activity_roles.c.role_id == scene["role"])
+            ).values(required_mastery_level=None))
+            db.session.commit()
+        yield
+        with app.app_context():
+            db.session.execute(activity_roles.update().where(
+                (activity_roles.c.activity_id == scene["act"])
+                & (activity_roles.c.role_id == scene["role"])
+            ).values(required_mastery_level=3))
+            db.session.commit()
+
+    def test_sous_le_seuil_d_autonomie_sans_requis_le_plan_voit_l_ecart(
+            self, client, app, scene, sans_requis):
+        from Code.extensions import db
+        from Code.models.models import CompetencyEvaluation
+        with app.app_context():
+            CompetencyEvaluation.query.filter_by(activity_id=scene["act"]).delete()
+            db.session.commit()
+        _connecte(client, scene["dev"], "dev77@devoptiq.com")
+        for did in (scene["d1"], scene["d2"]):
+            _note(client, scene["collab"], scene["act"], did, "2", 1, scene["role"])
+
+        # L'écran : le tableau du rôle la classe « en écart » (niveau 1 < 2).
+        rows = client.get(
+            f"/mastery/dashboard/{scene['collab']}/{scene['role']}").get_json()["activities"]
+        ligne = next(r for r in rows if r["activity_id"] == scene["act"])
+        assert ligne["demonstrated_level"] == 1
+        assert ligne["gap"] is None, "aucun requis : l'écart chiffré n'existe pas"
+
+        # Le plan doit voir le MÊME écart, avec le seuil d'autonomie pour cible.
+        d = client.get(f"/plan/{scene['collab']}/{scene['role']}").get_json()
+        assert [a["activity_id"] for a in d["activites"]] == [scene["act"]]
+        cible = d["activites"][0]
+        assert cible["required_level"] == 2, "à défaut de requis, la cible est l'autonomie"
+        assert cible["gap"] == -1
+
+    def test_une_activite_NON_EVALUEE_n_entre_jamais_dans_un_plan(
+            self, client, app, scene):
+        """Un plan ne se bâtit que sur du mesuré : une activité qu'on n'a pas
+        regardée n'est pas une activité en retard."""
+        from Code.extensions import db
+        from Code.models.models import CompetencyEvaluation
+        with app.app_context():
+            CompetencyEvaluation.query.filter_by(activity_id=scene["act"]).delete()
+            db.session.commit()
+        _connecte(client, scene["dev"], "dev77@devoptiq.com")
+        d = client.get(f"/plan/{scene['collab']}/{scene['role']}").get_json()
+        assert d["activites"] == []
+
+        r = client.post("/plan/proposer", data=json.dumps({
+            "user_id": scene["collab"], "role_id": scene["role"]}),
+            content_type="application/json")
+        assert r.get_json()["source"] == "no_gap"
+        assert r.get_json()["actions"] == []
+
+    def test_une_evaluation_PARTIELLE_non_plus(self, client, app, scene):
+        """Le niveau d'une activité n'existe que si TOUS ses résultats sont
+        évalués : à moitié notée, elle n'est pas encore jugeable."""
+        from Code.extensions import db
+        from Code.models.models import CompetencyEvaluation
+        with app.app_context():
+            CompetencyEvaluation.query.filter_by(activity_id=scene["act"]).delete()
+            db.session.commit()
+        _connecte(client, scene["dev"], "dev77@devoptiq.com")
+        _note(client, scene["collab"], scene["act"], scene["d1"], "2", 1, scene["role"])
+        d = client.get(f"/plan/{scene['collab']}/{scene['role']}").get_json()
+        assert d["activites"] == []

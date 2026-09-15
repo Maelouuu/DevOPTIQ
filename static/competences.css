@@ -1437,3 +1437,22 @@ header { position: sticky; top: 0; z-index: 30; }
   left: 0; top: 0; transform: translateY(-4px);
 }
 .cv2-radar-bulle.est-la { transform: translateY(0); }
+
+/* ── CONFIGURER n'est pas ÉVALUER ────────────────────────────────────────
+   ⚠️ La qualification des sorties s'ouvrait DANS la fenêtre d'évaluation, sous
+   le nom du collaborateur : l'IA y avait l'air de participer à la notation,
+   alors qu'elle n'y touche jamais. Deux fenêtres, deux sujets — et la couleur
+   de l'en-tête le dit avant qu'on ait lu le titre. */
+.cv2-drawer[data-mode="config"] .cv2-dh {
+  background: linear-gradient(135deg, #475569, #334155);
+}
+.cv2-ia-ou {
+  margin-top: 8px; padding-top: 8px; border-top: 1px dashed rgba(15, 23, 42, .14);
+  font-size: 12px; font-weight: 600; color: var(--ink-2);
+}
+
+/* ⚠️ « IA non configurée » héritait du vert du panneau de bilan : une absence
+   de clé prenait l'apparence d'une analyse réussie. L'état « éteint » passe
+   après, et gagne. */
+.cv2-ia--off, .cv2-ia--off.cv2-ia--bilan { background: var(--card-2); border-color: var(--border); }
+.cv2-ia--off .cv2-ia-ico, .cv2-ia--off.cv2-ia--bilan .cv2-ia-ico { background: var(--border-strong); }

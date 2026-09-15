@@ -63,6 +63,14 @@
       req_set: 'Niveau requis mis à jour', not_set: 'Non défini',
       setup_btn: 'Analyser les sorties avec l’IA', setup_btn_off: 'Qualifier les sorties à la main',
       configure_short: 'Configurer',
+      conf_title: "Configurer l'activité",
+      conf_go: "Configurer cette activité",
+      conf_close: 'Fermer', conf_done_go: 'Évaluer maintenant',
+      rien_a_evaluer: "Cette activité n'a aucun résultat qualifié : il n'y a rien à évaluer pour l'instant. Commencez par la configurer — cela se fait une fois, pour l'activité, pas pour chaque collaborateur.",
+      conf_done_t: 'Activité configurée',
+      conf_done_d: "Vous pouvez maintenant évaluer le niveau des collaborateurs sur cette activité.",
+      conf_done_r: "Les résultats sont enregistrés. L'évaluation, elle, se fait collaborateur par collaborateur.",
+      ia_ou: "L'IA n'intervient qu'ici et dans le plan de formation. Elle ne note jamais personne : les niveaux sont posés par vous.",
       eval_hint: 'Fixez, pour chaque résultat, le niveau tenu par le collaborateur.',
       eval_hint_self: 'Situez-vous sur chaque résultat. Votre développeur de compétences verra votre estimation à côté de la sienne.',
       evidence_ph: 'Preuve / commentaire (facultatif)', add_evidence: '+ Ajouter une preuve',
@@ -180,6 +188,14 @@
       req_set: 'Required level updated', not_set: 'Not set',
       setup_btn: 'Analyse outputs with AI', setup_btn_off: 'Qualify outputs manually',
       configure_short: 'Configure',
+      conf_title: 'Configure the activity',
+      conf_go: 'Configure this activity',
+      conf_close: 'Close', conf_done_go: 'Assess now',
+      rien_a_evaluer: 'This activity has no qualified result: there is nothing to assess yet. Start by configuring it — this is done once, for the activity, not for each team member.',
+      conf_done_t: 'Activity configured',
+      conf_done_d: 'You can now assess team members on this activity.',
+      conf_done_r: 'The results are saved. Assessment itself happens one team member at a time.',
+      ia_ou: 'AI only steps in here and in the training plan. It never grades anyone: levels are set by you.',
       eval_hint: 'For each result, set the level the team member holds.',
       eval_hint_self: 'Place yourself on each result. Your competency developer will see your estimate next to theirs.',
       evidence_ph: 'Evidence / comment (optional)', add_evidence: '+ Add evidence',
@@ -567,7 +583,11 @@
         <button class="btn btn-sm ${cat === 'setup' && jeSuisLeDev() ? 'btn-todo' : 'btn-primary'}">
           ${esc(libelleBtn)}</button>
       </div>`;
-    el.querySelector('button').onclick = () => openDrawer(a);
+    // ⚠️ Deux boutons, deux fenêtres. « Configurer » parle de l'ACTIVITÉ (que
+    // produit-elle ?), « Évaluer » parle d'une PERSONNE. Les mélanger faisait
+    // passer l'IA de la configuration pour une IA de notation.
+    el.querySelector('button').onclick = () =>
+      (cat === 'setup' && jeSuisLeDev()) ? ouvrirConfiguration(a) : openDrawer(a);
     return el;
   }
 
@@ -892,11 +912,27 @@
 
   function openDrawer(row) {
     state.activity = row;
+    const d = $('#cv2-drawer');
+    d.dataset.mode = 'eval';
     $('#cv2-drawer-title').textContent = row.activity_name;
     $('#cv2-drawer-role').textContent = `${state.cibleNom} · ${state.roleName}`;
-    $('#cv2-drawer').classList.add('open'); $('#cv2-overlay').classList.add('open');
+    d.classList.add('open'); $('#cv2-overlay').classList.add('open');
     $('#cv2-drawer-body').scrollTop = 0;
     showEvaluation();
+  }
+
+  // Configurer une activité ne regarde PERSONNE : ni le collaborateur choisi, ni
+  // son niveau. La fenêtre ne porte donc pas son nom — c'est le premier signe
+  // qu'on a changé de sujet.
+  function ouvrirConfiguration(row) {
+    state.activity = row;
+    const d = $('#cv2-drawer');
+    d.dataset.mode = 'config';
+    $('#cv2-drawer-title').textContent = T('conf_title');
+    $('#cv2-drawer-role').textContent = row.activity_name;
+    d.classList.add('open'); $('#cv2-overlay').classList.add('open');
+    $('#cv2-drawer-body').scrollTop = 0;
+    showQualify();
   }
 
   async function showEvaluation() {
@@ -949,18 +985,17 @@
     body.appendChild(b2);
 
     if (!aEvaluer) {
-      // Le collaborateur n'a rien à configurer : lui expliquer ce que l'IA fait
-      // dans un écran qu'il ne peut pas actionner n'aiderait personne.
+      // ⚠️ Plus une trace d'IA ici. Il n'y a rien à évaluer tant que l'activité
+      // n'a pas de résultat qualifié : on le dit, et on renvoie vers l'autre
+      // fenêtre — celle qui parle de l'activité.
+      const w = document.createElement('div'); w.className = 'cv2-warn';
+      w.textContent = jeSuisLeDev() ? T('rien_a_evaluer') : T('pas_configuree');
+      b2.appendChild(w);
       if (jeSuisLeDev()) {
-        b2.appendChild(panneauIA(true));
         const b = document.createElement('button');
-        b.className = 'btn btn-primary';
-        b.textContent = state.iaDispo ? T('setup_btn') : T('setup_btn_off');
-        b.onclick = () => showQualify(b);
+        b.className = 'btn btn-primary'; b.textContent = T('conf_go');
+        b.onclick = () => ouvrirConfiguration(state.activity);
         b2.appendChild(b);
-      } else {
-        const w = document.createElement('div'); w.className = 'cv2-warn';
-        w.textContent = T('pas_configuree'); b2.appendChild(w);
       }
       body.appendChild(blocTechnicite());
       setFooter([]);
@@ -1289,7 +1324,8 @@
       corps = esc(Tv(bilan.n === 1 ? 'ia_done_1' : 'ia_done_n',
                      { n: bilan.n, r: bilan.resultats,
                        m: T(bilan.resultats === 1 ? 'ia_done_r1' : 'ia_done_rn') })) +
-        `<div class="cv2-ia-w">${esc(T('ia_done_w'))}</div>`;
+        `<div class="cv2-ia-w">${esc(T('ia_done_w'))}</div>` +
+        `<div class="cv2-ia-ou">${esc(T('ia_ou'))}</div>`;
     }
     d.innerHTML = `<span class="cv2-ia-ico"><i class="fa-solid ${avant || off ? 'fa-wand-magic-sparkles' : 'fa-clipboard-check'}"></i></span>
       <div><div class="cv2-ia-t">${esc(titre)}</div><div class="cv2-ia-d">${corps}</div></div>`;
@@ -1310,8 +1346,7 @@
   //  Et « Valider » ne peut plus refuser : il reste éteint tant que la
   //  condition n'est pas remplie, en disant laquelle.
   // ══════════════════════════════════════════════════════════════════
-  async function showQualify(btn) {
-    if (btn) { btn.disabled = true; btn.textContent = T('gen'); }
+  async function showQualify() {
     const aid = state.activity.activity_id;
     showBusy(T('configuring'));
     setFooter([]);
@@ -1334,7 +1369,7 @@
     if (!outputs.length) {
       b.insertAdjacentHTML('beforeend',
         `<div class="cv2-warn">${esc((ana && ana.warning) || T('no_out'))}</div>`);
-      setFooter([{ cls: 'btn-quiet', label: T('back'), on: showEvaluation }]);
+      setFooter([{ cls: 'btn-quiet', label: T('conf_close'), on: closeDrawer }]);
       return;
     }
 
@@ -1347,7 +1382,7 @@
     compteur.className = 'cv2-qcompte'; compteur.id = 'cv2-qcompte';
     b.appendChild(compteur);
 
-    setFooter([{ cls: 'btn-quiet', label: T('back'), on: showEvaluation },
+    setFooter([{ cls: 'btn-quiet', label: T('conf_close'), on: closeDrawer },
                { cls: 'btn-primary', label: T('validate_analysis'), on: saveQualify, id: 'cv2-q-ok' }]);
     majCompteQualif();
   }
@@ -1465,8 +1500,23 @@
     await api(`/competence/result_links/generate/${aid}`, { method: 'POST' });
     toast(T('setup_done'));
     await refreshDashboard();
-    state.justConfigured = true;
-    showEvaluation();
+    // ⚠️ On ne bascule PAS tout seul sur l'évaluation. Configurer et évaluer
+    // sont deux décisions : enchaîner d'office redonnerait à l'ensemble l'air
+    // d'un seul parcours, ce qu'on vient précisément de séparer.
+    confTerminee();
+  }
+
+  function confTerminee() {
+    const body = $('#cv2-drawer-body'); body.innerHTML = '';
+    const b = bloc(1, T('conf_done_t'), T('conf_done_d'));
+    body.appendChild(b);
+    const ok = document.createElement('div'); ok.className = 'cv2-ok';
+    ok.textContent = Tv('conf_done_r', { n: (state.lastState && state.lastState.n_results) || '' });
+    b.appendChild(ok);
+    setFooter([
+      { cls: 'btn-quiet', label: T('conf_close'), on: () => { closeDrawer(); } },
+      { cls: 'btn-primary', label: T('conf_done_go'), on: () => openDrawer(state.activity) },
+    ]);
   }
 
   // ══ Diagnostic de l'écart (CDC 6.5-6.9) ════════════════════════════

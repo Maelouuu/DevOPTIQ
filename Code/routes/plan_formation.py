@@ -25,8 +25,8 @@ from Code.extensions import db
 from Code.models.models import Activities, PlanFormation, Role, User
 from Code.permissions import current_user
 from Code.prompts import get_prompt
-from Code.routes.mastery import (activity_mastery, dashboard_rows, level_label,
-                                 required_level)
+from Code.routes.mastery import (activity_mastery, categorie_activite, dashboard_rows,
+                                 level_label, required_level)
 from Code.routes.propose_common import ai_model, openai_client_or_none
 
 plan_bp = Blueprint("plan_formation", __name__, url_prefix="/plan")
@@ -44,6 +44,10 @@ TYPES = {
 # assumé, pas une science — et l'utilisateur le corrige action par action.
 CHARGE_PAR_PAS = {"TERRAIN": 12, "ACCOMPAGNEMENT": 4, "FORMATION": 7}
 
+# Seuil d'autonomie du CDC : sous 2, l'activité n'est pas tenue seule, même
+# si le rôle n'a fixé aucun niveau requis.
+SEUIL_AUTONOMIE = 2
+
 PARAMETRES_DEFAUT = {"heures_semaine": 4, "semaines": 12}
 
 
@@ -57,27 +61,42 @@ def _libelle_type(code, lang=None):
 
 # ── Le besoin : où le collaborateur est en retard sur ce rôle ────────────────
 def contexte_ecart(user_id, role_id):
-    """Ce que le plan doit combler. Aucune IA ici : que de la base."""
+    """Ce que le plan doit combler. Aucune IA ici : que de la base.
+
+    ⚠️ **Un plan ne se bâtit que sur du MESURÉ.** Une activité non évaluée n'est
+    pas en écart — elle n'est pas regardée. `categorie_activite()` ne rend "gap"
+    que pour une activité dont le niveau est posé et insuffisant : c'est la
+    seule porte d'entrée ici.
+
+    ⚠️ Cette fonction filtrait sur `gap < 0`, or `gap` est NUL quand le rôle n'a
+    pas fixé de niveau requis. Une activité évaluée à 1 sans requis était donc
+    comptée « en écart » par l'écran (l'autonomie n'est pas démontrée sous 2) et
+    ignorée par le plan : le bouton s'affichait, la fenêtre répondait « aucun
+    écart sur ce rôle ». Les deux tranchent maintenant avec le MÊME code.
+    """
     activites = []
     for row in dashboard_rows(user_id, role_id):
-        if row["gap"] is None or row["gap"] >= 0:
+        if categorie_activite(row) != "gap":
             continue
         st = activity_mastery(user_id, row["activity_id"], role_id)
-        req = st["required_level"]
+        # Sans niveau requis, la cible est le seuil d'autonomie (2) : c'est ce
+        # qui rend l'activité « en écart » en premier lieu.
+        req = st["required_level"] if st["required_level"] is not None else SEUIL_AUTONOMIE
         resultats = [{
             "data_id": r["data_id"], "name": r["name"],
             "demonstrated_level": r["demonstrated_level"],
             "minimum_performance_text": r["minimum_performance_text"],
         } for r in st["results"]
-            if r["demonstrated_level"] is not None and req is not None
-            and r["demonstrated_level"] < req]
+            if r["demonstrated_level"] is not None and r["demonstrated_level"] < req]
         activites.append({
             "activity_id": row["activity_id"], "activity_name": row["activity_name"],
             "competence": row["competence"],
             "demonstrated_level": row["demonstrated_level"],
             "demonstrated_label": row["demonstrated_label"],
-            "required_level": req, "required_label": row["required_label"],
-            "gap": row["gap"],
+            "required_level": req, "required_label": level_label(req),
+            # L'écart affiché suit la cible retenue — et vaut donc quelque chose
+            # même quand le rôle n'a pas fixé de niveau requis.
+            "gap": row["demonstrated_level"] - req,
             "results_in_gap": resultats,
             "capabilities": _capacites_en_ecart(user_id, row["activity_id"], resultats),
         })

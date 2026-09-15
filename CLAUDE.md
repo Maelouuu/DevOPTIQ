@@ -740,6 +740,50 @@ auto-évaluations volontairement discordantes et des capacités en écart.
   ne se lit plus dès qu'on y saisit quelque chose — et les pastilles d'écart
   gardent leurs couleurs sémantiques. Le texte d'explication a sauté : le
   bandeau et les deux colonnes « Requis / Démontré » disent la même chose.
+
+### CONFIGURER n'est pas ÉVALUER — et où l'IA intervient vraiment (2026-09-15)
+
+**Où l'IA intervient, une bonne fois.** Elle est appelée à DEUX endroits, et
+jamais ailleurs :
+
+1. **la configuration d'une activité** — `/qualify/analyze` propose la NATURE de
+   chaque donnée produite, puis `/competence/generate` et
+   `/competence/result_links/generate` en dérivent la compétence et ses liens ;
+2. **le plan de formation** — `/plan/proposer`.
+
+⚠️ Elle ne touche **jamais** `mastery_level`. Aucune route IA n'écrit un niveau :
+les notes sont posées à la main, par le développeur de compétences ou par le
+collaborateur pour son auto-évaluation.
+
+- ⚠️ **Mais l'écran disait le contraire.** La qualification des sorties s'ouvrait
+  DANS la fenêtre d'évaluation, sous le nom du collaborateur et sous le titre de
+  son activité : l'IA avait donc l'air de participer à la notation. C'était une
+  faute de RANGEMENT, pas de code. Deux fenêtres désormais :
+  - **« Configurer l'activité »** — en-tête ardoise, sous-titre = le nom de
+    l'activité, **aucun nom de personne** : configurer ne regarde personne, et
+    se fait une fois pour toutes, pas par collaborateur ;
+  - **évaluer** — en-tête bleu, sous-titre = « Untel · Tel rôle », et **plus une
+    seule trace d'IA**. Une activité sans résultat qualifié y affiche pourquoi
+    il n'y a rien à évaluer, avec un bouton vers l'autre fenêtre.
+  ⚠️ On ne bascule PAS automatiquement de la configuration à l'évaluation une
+  fois validée : enchaîner d'office redonnerait à l'ensemble l'air d'un seul
+  parcours, ce qu'on vient précisément de séparer. L'écran de fin propose les
+  deux sorties.
+- ⚠️ **L'écran et le plan ne s'accordaient pas sur le mot « écart ».** L'écran
+  compte une activité en écart dès que le niveau démontré est sous 2 (l'autonomie
+  n'est pas démontrée, requis ou pas) ; `contexte_ecart()` filtrait sur
+  `gap < 0`, or `gap` est NUL quand le rôle n'a fixé aucun niveau requis. Le
+  bouton « Plan de formation » s'affichait donc, et la fenêtre répondait « aucun
+  écart sur ce rôle ». Les deux passent maintenant par `categorie_activite()`,
+  et à défaut de requis la cible du plan est le **seuil d'autonomie**
+  (`SEUIL_AUTONOMIE = 2`).
+- **Un plan ne se bâtit que sur du MESURÉ** : une activité non évaluée — ou
+  évaluée à moitié — n'entre jamais dans un plan. Ce n'est pas une activité en
+  retard, c'est une activité qu'on n'a pas regardée.
+- ⚠️ « IA non configurée » héritait du **vert** du panneau de bilan : une absence
+  de clé prenait l'apparence d'une analyse réussie.
+- Tests : `tests/test_77_competences_deux_notes.py::TestLePlanSuitLEcran` (3 cas,
+  le désaccord vérifié **rouge** en remettant l'ancien filtre).
 ---
 
 ## Guide utilisateur (`docs/guide.html`)
