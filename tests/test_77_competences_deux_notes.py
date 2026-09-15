@@ -457,3 +457,121 @@ class TestPlanDeFormation:
         from Code.models.models import PlanFormation
         with app.app_context():
             assert db.inspect(db.engine).has_table(PlanFormation.__tablename__)
+
+
+class TestCouvertureEtProfil:
+    """La vue d'ensemble apporte deux choses que rien ne donnait : un taux de
+    couverture, et le profil qui sert de base au graphe."""
+
+    def _pose(self, client, app, scene, n1, n2):
+        from Code.extensions import db
+        from Code.models.models import CompetencyEvaluation
+        with app.app_context():
+            CompetencyEvaluation.query.filter_by(activity_id=scene["act"]).delete()
+            db.session.commit()
+        _connecte(client, scene["dev"], "dev77@devoptiq.com")
+        if n1 is not None:
+            _note(client, scene["collab"], scene["act"], scene["d1"], "2", n1, scene["role"])
+        if n2 is not None:
+            _note(client, scene["collab"], scene["act"], scene["d2"], "2", n2, scene["role"])
+        return client.get(f"/mastery/synthese/{scene['collab']}").get_json()
+
+    def test_le_requis_tenu_donne_cent_pour_cent(self, client, app, scene):
+        d = self._pose(client, app, scene, 3, 3)     # requis 3
+        assert _role_de(d, scene)["couverture"] == 100
+        assert d["couverture"] == 100
+
+    def test_un_niveau_sous_le_requis_fait_baisser_le_taux(self, client, app, scene):
+        d = self._pose(client, app, scene, 2, 2)     # 2 tenu sur 3 requis
+        assert _role_de(d, scene)["couverture"] == 67
+
+    def test_un_depassement_ne_compense_pas(self, client, app, scene):
+        """⚠️ Chaque activité est plafonnée à SON requis. Sans ce plafond, un
+        expert sur une activité masquerait une lacune sur une autre — et un
+        collaborateur pourrait afficher 100 % en étant en écart quelque part."""
+        from Code.extensions import db
+        from Code.models.models import Activities, Data, activity_roles
+        with app.app_context():
+            entity_id = scene["entity"]
+            autre = Activities(entity_id=entity_id, name="Activité Plafond 77")
+            db.session.add(autre)
+            db.session.commit()
+            db.session.execute(activity_roles.insert().values(
+                activity_id=autre.id, role_id=scene["role"], status="Garant",
+                required_mastery_level=2))
+            d3 = Data(entity_id=entity_id, name="Résultat C 77", type="flux",
+                      producer_activity_id=autre.id, semantic_nature="RESULT")
+            db.session.add(d3)
+            db.session.commit()
+            aid, did = autre.id, d3.id
+        try:
+            self._pose(client, app, scene, 1, 1)          # 1/3 sur la première
+            _note(client, scene["collab"], aid, did, "2", 4, scene["role"])  # 4 pour un requis de 2
+            d = client.get(f"/mastery/synthese/{scene['collab']}").get_json()
+            # 1 (plafonné à 3) + 2 (plafonné à 2) sur 3 + 2 requis = 60 %.
+            assert _role_de(d, scene)["couverture"] == 60
+        finally:
+            with app.app_context():
+                from Code.models.models import CompetencyEvaluation
+                CompetencyEvaluation.query.filter_by(activity_id=aid).delete()
+                db.session.execute(activity_roles.delete().where(
+                    activity_roles.c.activity_id == aid))
+                Data.query.filter_by(producer_activity_id=aid).delete()
+                obj = db.session.get(Activities, aid)
+                if obj:
+                    db.session.delete(obj)
+                db.session.commit()
+
+    def test_une_activite_non_evaluee_ne_compte_pas_comme_un_zero(self, client, app, scene):
+        """⚠️ La distinction que tout le module tient : NULL ≠ 0. Une activité
+        qu'on n'a pas encore regardée n'est pas une activité ratée — elle sort
+        du calcul, et le nombre d'évaluées est renvoyé pour lire le taux."""
+        d = self._pose(client, app, scene, 3, None)   # un seul résultat noté
+        role = _role_de(d, scene)
+        assert role["level"] is None                  # l'activité n'est pas évaluée
+        assert role["couverture"] is None             # donc rien à couvrir encore
+        assert role["n_evaluated"] == 0
+
+    def test_le_profil_porte_un_axe_par_activite(self, client, app, scene):
+        d = self._pose(client, app, scene, 2, 2)
+        axe = next(a for a in d["profil"] if a["activity_id"] == scene["act"])
+        assert axe["required_level"] == 3
+        assert axe["demonstrated_level"] == 2
+        assert axe["role_name"] == "Rôle Test 77"
+        assert d["n_activities_uniques"] == len({a["activity_id"] for a in d["profil"]})
+
+    def test_une_activite_portee_par_deux_roles_ne_compte_qu_une_fois(self, client, app, scene):
+        """Sinon la forme du graphe dirait surtout combien de rôles se
+        partagent la même activité."""
+        from Code.extensions import db
+        from Code.models.models import Role, UserRole, activity_roles
+        with app.app_context():
+            r2 = Role(name="Rôle Doublon 77", entity_id=scene["entity"])
+            db.session.add(r2)
+            db.session.commit()
+            db.session.add(UserRole(user_id=scene["collab"], role_id=r2.id,
+                                    manager_id=scene["dev"]))
+            db.session.execute(activity_roles.insert().values(
+                activity_id=scene["act"], role_id=r2.id, status="Garant",
+                required_mastery_level=2))
+            db.session.commit()
+            r2_id = r2.id
+        try:
+            _connecte(client, scene["dev"], "dev77@devoptiq.com")
+            d = client.get(f"/mastery/synthese/{scene['collab']}").get_json()
+            vus = [a for a in d["profil"] if a["activity_id"] == scene["act"]]
+            assert len(vus) == 1
+            assert d["n_activities"] > d["n_activities_uniques"]
+        finally:
+            with app.app_context():
+                UserRole.query.filter_by(role_id=r2_id).delete()
+                db.session.execute(activity_roles.delete().where(
+                    activity_roles.c.role_id == r2_id))
+                obj = db.session.get(Role, r2_id)
+                if obj:
+                    db.session.delete(obj)
+                db.session.commit()
+
+
+def _role_de(d, scene):
+    return next(x for x in d["roles"] if x["role_id"] == scene["role"])

@@ -295,8 +295,13 @@ header { position: sticky; top: 0; z-index: 30; }
 }
 .cv2-drawer.open { transform: translate(-50%, -50%) scale(1); opacity: 1; pointer-events: auto; }
 
+/* ⚠️ `flex: none`, et pas par confort. En-tête et pied sont des éléments FLEX
+   d'une colonne plafonnée à 90vh : avec leur `flex-shrink` par défaut, un
+   contenu long les ÉCRASE. Le sous-titre de la fenêtre (« Untel · Tel rôle »)
+   se retrouvait tranché en deux sous la première section — présent à l'écran,
+   illisible. */
 .cv2-dh {
-  position: relative; overflow: hidden; padding: 17px 22px 15px;
+  flex: none; position: relative; overflow: hidden; padding: 17px 22px 15px;
   background: linear-gradient(135deg, var(--pg-accent), var(--pg-accent-deep)); color: #fff;
 }
 .cv2-dh::after {
@@ -316,7 +321,7 @@ header { position: sticky; top: 0; z-index: 30; }
 
 .cv2-db { flex: 1; overflow-y: auto; padding: 0 0 18px; }
 .cv2-df {
-  display: flex; gap: 9px; justify-content: flex-end; padding: 13px 22px;
+  flex: none; display: flex; gap: 9px; justify-content: flex-end; padding: 13px 22px;
   background: var(--card-2); border-top: 1px solid var(--border);
 }
 
@@ -378,9 +383,6 @@ header { position: sticky; top: 0; z-index: 30; }
 .cv2-res.est-note { border-left-color: var(--pg-accent); }
 .cv2-res .rtete { display: flex; align-items: flex-start; gap: 10px; }
 .cv2-res .rname { flex: 1; min-width: 0; font-weight: 700; font-size: 14px; color: var(--ink); }
-/* Le standard vit DANS le titre du résultat (il le qualifie) : il faut donc lui
-   rendre un poids normal, sinon il hérite du gras du nom. */
-.cv2-res .rstd { margin-top: 3px; font-size: 12px; font-weight: 500; line-height: 1.4; color: var(--muted); }
 
 /* L'échelle. Cinq paliers en ligne + une gomme « non évalué » à part : effacer
    n'est pas un niveau, et les deux se ressemblaient trait pour trait. */
@@ -416,15 +418,6 @@ header { position: sticky; top: 0; z-index: 30; }
 /* La ligne de lecture : le nom du palier choisi, et le rappel du requis. Les
    cinq noms n'ont pas à être affichés en permanence — seul celui qu'on a pris
    compte, les autres s'obtiennent au survol. */
-.cv2-lu { margin-top: 9px; font-size: 12.5px; font-weight: 700; color: var(--ink-2); min-height: 17px; }
-.cv2-lu .num {
-  display: inline-flex; align-items: center; justify-content: center;
-  width: 19px; height: 19px; margin-right: 6px; border-radius: 6px;
-  background: var(--pg-accent-soft); color: var(--pg-accent-deep); font-size: 11.5px;
-}
-.cv2-lu .rap { margin-left: 8px; font-weight: 600; color: var(--faint); }
-.cv2-lu .rap.sous { color: var(--cv-orange-deep); }
-.cv2-lu.aprendre { color: var(--cv-orange-deep); font-weight: 700; }
 .cv2-auto { margin-top: 6px; font-size: 11.5px; font-weight: 600; color: var(--faint); }
 
 /* La preuve : repliée tant qu'elle est vide. Une zone de saisie ouverte par
@@ -668,10 +661,6 @@ header { position: sticky; top: 0; z-index: 30; }
    peuvent donc pas se ressembler : la note officielle est pleine, l'auto-
    évaluation est un contour.
    ══════════════════════════════════════════════════════════════════════════ */
-.cv2-note .nlbl {
-  display: flex; align-items: center; gap: 5px; margin-bottom: 5px;
-  font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--muted);
-}
 .cv2-note .nlbl .pastille { width: 13px; height: 13px; flex: none; border-radius: 4px; background: var(--pg-accent); }
 .cv2-note--auto .nlbl .pastille { background: none; border: 1.5px dashed var(--border-strong); }
 .cv2-note--auto .nlbl { color: var(--faint); }
@@ -683,10 +672,6 @@ header { position: sticky; top: 0; z-index: 30; }
 /* L'auto-évaluation posée SUR l'échelle du développeur : un contour sur le
    palier que le collaborateur s'est donné. Deux échelles côte à côte feraient
    croire à deux notes de même rang. */
-.cv2-niv.auto::after {
-  content: ""; position: absolute; inset: 3px; border-radius: 7px;
-  border: 2px dashed var(--pg-accent-deep); opacity: .55; pointer-events: none;
-}
 .cv2-niv.sel.auto::after { border-color: rgba(255, 255, 255, .75); opacity: .9; }
 .cv2-accord {
   display: inline-flex; align-items: center; gap: 5px; margin-top: 8px;
@@ -795,7 +780,7 @@ header { position: sticky; top: 0; z-index: 30; }
 }
 .cv2-plan-win.open { transform: translate(-50%, -50%) scale(1); opacity: 1; pointer-events: auto; }
 .cv2-ph {
-  position: relative; overflow: hidden; padding: 18px 24px 16px; color: #fff;
+  flex: none; position: relative; overflow: hidden; padding: 18px 24px 16px; color: #fff;
   background: linear-gradient(135deg, #1d4ed8, #4c1d95);
 }
 .cv2-ph::after {
@@ -963,13 +948,6 @@ header { position: sticky; top: 0; z-index: 30; }
 
 /* La note de repère tient sur UNE ligne : en trois, elle pesait autant à l'œil
    que celle qui fait foi. */
-.cv2-note--ligne {
-  display: flex; align-items: center; gap: 9px; flex-wrap: wrap; margin-top: 9px;
-  padding-top: 9px; border-top: 1px dashed var(--border);
-}
-.cv2-note--ligne .nlbl { margin-bottom: 0; }
-.cv2-note--ligne .cv2-auto { margin-top: 0; font-size: 12.5px; color: var(--ink-2); }
-.cv2-note--ligne .cv2-accord { margin-top: 0; }
 @media (max-width: 720px) { .cv2-bloc-bilan { display: none; } }
 
 /* Les flèches natives d'un input[type=number] mangeaient la moitié du champ :
@@ -977,3 +955,211 @@ header { position: sticky; top: 0; z-index: 30; }
 .cv2-heures input { width: 54px; -moz-appearance: textfield; appearance: textfield; }
 .cv2-heures input::-webkit-outer-spin-button,
 .cv2-heures input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   LES DEUX NOTES — MÊME OBJET, IDENTITÉS DISTINCTES
+   ⚠️ Elles avaient deux POIDS VISUELS différents : la note officielle était une
+   échelle, l'auto-évaluation une ligne de texte minuscule en dessous. On ne
+   savait plus laquelle était laquelle, et la seconde avait l'air d'être un
+   commentaire de la première. Elles portent maintenant le même objet — l'échelle
+   0→4 — et se distinguent par une identité tenue partout :
+
+       niveau validé     BLEU (accent de la page) · écusson · « fait foi »
+       auto-évaluation   VIOLET                   · silhouette
+
+   Celle qui vous appartient se clique ; l'autre est posée, verrouillée.
+   L'ordre ne bouge jamais : celle qui fait foi d'abord, quel que soit le regard.
+   ══════════════════════════════════════════════════════════════════════════ */
+:root { --cv-auto: #7c3aed; --cv-auto-deep: #6d28d9; }
+
+.cv2-nt {
+  margin-top: 11px; padding: 10px 12px 11px;
+  border: 1px solid var(--border); border-radius: 11px; background: var(--card-2);
+}
+.cv2-nt--off {
+  border-color: color-mix(in srgb, var(--pg-accent) 30%, #fff);
+  background: color-mix(in srgb, var(--pg-accent) 5%, #fff);
+}
+.cv2-nt--auto {
+  border-color: color-mix(in srgb, var(--cv-auto) 26%, #fff);
+  background: color-mix(in srgb, var(--cv-auto) 4%, #fff);
+}
+/* Une note posée là pour être lue : pas de survol, pas de curseur, un voile. */
+.cv2-nt.is-posee { opacity: .82; }
+.cv2-nt.is-posee .cv2-niv { cursor: default; }
+
+.cv2-nt-tete { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
+.cv2-nt-ico {
+  width: 20px; height: 20px; flex: none; border-radius: 6px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10px; color: #fff;
+}
+.cv2-nt--off  .cv2-nt-ico { background: var(--pg-accent); }
+.cv2-nt--auto .cv2-nt-ico { background: var(--cv-auto); }
+.cv2-nt-lbl {
+  font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em;
+}
+.cv2-nt--off  .cv2-nt-lbl { color: var(--pg-accent-deep); }
+.cv2-nt--auto .cv2-nt-lbl { color: var(--cv-auto-deep); }
+.cv2-nt-tag {
+  padding: 1px 6px; border-radius: 5px;
+  font-size: 9.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em;
+}
+.cv2-nt--off  .cv2-nt-tag { background: var(--pg-accent-soft); color: var(--pg-accent-deep); }
+.cv2-nt--auto .cv2-nt-tag { background: color-mix(in srgb, var(--cv-auto) 12%, #fff); color: var(--cv-auto-deep); }
+/* La valeur choisie s'écrit à DROITE de son en-tête : elle remplace la ligne de
+   lecture qui vivait sous l'échelle, et chaque note porte donc la sienne. */
+.cv2-nt-val { margin-left: auto; font-size: 12.5px; font-weight: 600; color: var(--ink-2); }
+.cv2-nt-val b { font-size: 13.5px; color: var(--ink); }
+.cv2-nt-vide { font-style: italic; color: var(--faint); font-weight: 600; }
+.cv2-nt .cv2-echelle { margin-top: 10px; }
+
+/* L'échelle de l'auto-évaluation prend le violet : même forme, autre identité. */
+.cv2-nt--auto .cv2-niv.sel {
+  background: linear-gradient(135deg, var(--cv-auto), var(--cv-auto-deep));
+  box-shadow: 0 6px 16px -6px color-mix(in srgb, var(--cv-auto) 40%, transparent);
+}
+.cv2-nt--auto .cv2-niv:hover:not(:disabled):not(.sel) {
+  border-color: var(--cv-auto); color: var(--cv-auto-deep);
+}
+.cv2-nt--auto .cv2-gomme.sel { border-color: color-mix(in srgb, var(--cv-auto) 30%, #fff); }
+.cv2-niv:disabled { cursor: default; }
+.cv2-niv:disabled:hover { border-color: var(--border); background: var(--card-2); color: var(--ink-2); }
+.cv2-nt--auto .cv2-niv:disabled.sel,
+.cv2-nt--off .cv2-niv:disabled.sel { color: #fff; }
+
+/* Le point d'interrogation qui remplace le standard minimal écrit en toutes
+   lettres : la référence reste consultable, elle ne prend plus deux lignes. */
+.cv2-astuce { margin-left: 5px; font-size: 11px; color: var(--faint); cursor: help; }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   LE PROFIL DE COMPÉTENCES
+   La vue d'ensemble n'était qu'une rangée de portes vers les rôles. Elle porte
+   maintenant ce qu'on ne peut voir NULLE PART ailleurs : la forme de ce que la
+   personne tient, superposée à ce que ses rôles exigent.
+   ══════════════════════════════════════════════════════════════════════════ */
+.cv2-profil {
+  margin-bottom: 16px; padding: 17px 19px 15px;
+  background: linear-gradient(180deg, var(--card), var(--pg-accent-softer));
+  border: 1px solid var(--border); border-radius: var(--r-card); box-shadow: var(--sh-card);
+  animation: cv2-entre .28s ease-out;
+}
+.cv2-profil-tete { display: flex; align-items: flex-start; gap: 16px; flex-wrap: wrap; margin-bottom: 14px; }
+.cv2-profil-h {
+  font-family: var(--pg-font-display); font-size: 18px; font-weight: 700;
+  letter-spacing: -.01em; color: var(--ink);
+}
+.cv2-profil-d { margin-top: 3px; font-size: 12.5px; line-height: 1.45; color: var(--muted); max-width: 420px; }
+
+.cv2-profil-kpi { display: flex; gap: 9px; margin-left: auto; flex-wrap: wrap; }
+.cv2-kpi {
+  min-width: 82px; padding: 9px 13px; text-align: center;
+  background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+}
+.cv2-kpi .n {
+  font-family: var(--pg-font-display); font-size: 21px; font-weight: 700; line-height: 1; color: var(--ink);
+}
+.cv2-kpi .n small { font-size: 12px; font-weight: 700; margin-left: 1px; }
+.cv2-kpi .k {
+  margin-top: 5px; font-size: 10.5px; font-weight: 700; color: var(--muted);
+  text-transform: uppercase; letter-spacing: .04em;
+}
+.cv2-kpi--fort {
+  background: linear-gradient(135deg, var(--pg-accent), var(--pg-accent-deep));
+  border-color: transparent; box-shadow: 0 8px 20px -8px var(--pg-accent-glow);
+}
+.cv2-kpi--fort .n, .cv2-kpi--fort .k { color: #fff; }
+.cv2-kpi--fort .k { opacity: .88; }
+
+.cv2-profil-corps { display: grid; gap: 18px; grid-template-columns: minmax(0, 1.15fr) minmax(240px, .85fr); align-items: start; }
+
+/* ── Le radar ─────────────────────────────────────────────────────────── */
+.cv2-radar-zone { min-width: 0; }
+.cv2-radar { display: block; width: 100%; height: auto; max-height: 400px; overflow: visible; }
+.cv2-r-grid { fill: none; stroke: var(--border); stroke-width: 1; }
+.cv2-r-axe  { stroke: var(--border); stroke-width: 1; }
+/* Le requis : un contour, c'est une CIBLE. Le démontré : une surface pleine,
+   c'est ce qui est acquis. On voit d'un coup où la seconde sort de la première. */
+.cv2-r-req {
+  fill: color-mix(in srgb, var(--cv-green) 13%, transparent);
+  stroke: var(--cv-green); stroke-width: 2; stroke-linejoin: round;
+}
+.cv2-r-dem {
+  fill: color-mix(in srgb, var(--pg-accent) 22%, transparent);
+  stroke: var(--pg-accent); stroke-width: 2; stroke-linejoin: round;
+  animation: cv2-radar-in .5s cubic-bezier(.34, 1.1, .4, 1) backwards;
+}
+@keyframes cv2-radar-in { from { opacity: 0; transform: scale(.82); transform-origin: 260px 200px; } }
+.cv2-r-pt { fill: var(--pg-accent); stroke: #fff; stroke-width: 1.5; }
+.cv2-r-pt--vide { fill: #fff; stroke: var(--border-strong); stroke-width: 1.5; }
+.cv2-r-lbl { font-family: var(--pg-font); font-size: 10.5px; font-weight: 600; fill: var(--muted); }
+
+.cv2-radar-leg { display: flex; gap: 16px; justify-content: center; margin-top: 4px; font-size: 11.5px; font-weight: 700; color: var(--muted); }
+.cv2-radar-leg span { display: inline-flex; align-items: center; gap: 6px; }
+.cv2-leg { width: 14px; height: 3px; border-radius: 2px; flex: none; }
+.cv2-leg--req { background: var(--cv-green); }
+.cv2-leg--dem { background: var(--pg-accent); }
+.cv2-radar-note { margin-top: 8px; font-size: 11px; font-style: italic; color: var(--faint); text-align: center; }
+
+/* ── La colonne « par rôle » ──────────────────────────────────────────── */
+.cv2-parrole {
+  padding: 13px 14px; background: var(--card);
+  border: 1px solid var(--border); border-radius: 12px;
+}
+.cv2-parrole-h {
+  margin-bottom: 10px; font-size: 11px; font-weight: 700; color: var(--muted);
+  text-transform: uppercase; letter-spacing: .05em;
+}
+.cv2-parrole-l {
+  display: grid; grid-template-columns: minmax(0, 1fr) 82px 44px; align-items: center; gap: 9px;
+  width: 100%; padding: 8px 7px; margin-bottom: 2px; cursor: pointer; text-align: left;
+  font-family: inherit; background: none; border: none; border-radius: 9px; transition: background .13s;
+}
+.cv2-parrole-l:hover { background: var(--pg-accent-softer); }
+.cv2-parrole-l .nom {
+  min-width: 0; font-size: 13px; font-weight: 700; color: var(--ink);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.cv2-parrole-l .nom .sur { font-size: 10.5px; font-weight: 600; color: var(--faint); }
+.cv2-parrole-l .jauge {
+  height: 7px; border-radius: 4px; background: var(--card-2);
+  box-shadow: inset 0 0 0 1px var(--border); overflow: hidden;
+}
+.cv2-parrole-l .jauge i {
+  display: block; height: 100%; border-radius: 4px;
+  transition: width .5s cubic-bezier(.34, 1.1, .4, 1);
+}
+.cv2-jb--green i  { background: var(--cv-green); }
+.cv2-jb--orange i { background: var(--cv-orange); }
+.cv2-jb--red i    { background: var(--cv-red); }
+.cv2-jb--grey i   { background: var(--cv-grey); }
+.cv2-parrole-l .pc { font-size: 12.5px; font-weight: 700; text-align: right; color: var(--ink-2); }
+.cv2-parrole-pied {
+  margin-top: 9px; padding-top: 9px; border-top: 1px dashed var(--border);
+  font-size: 10.5px; line-height: 1.45; color: var(--faint);
+}
+
+/* La carte de rôle entière est un bouton : il faut que ça se voie au clavier. */
+.cv2-rolecard { cursor: pointer; }
+.cv2-rolecard:focus-visible { outline: none; border-color: var(--pg-accent); box-shadow: 0 0 0 3px var(--pg-accent-glow); }
+
+@media (max-width: 980px) {
+  .cv2-profil-corps { grid-template-columns: minmax(0, 1fr); }
+  .cv2-profil-kpi { margin-left: 0; }
+}
+
+/* Le nom du rôle sur sa ligne, la base du calcul dessous : en suffixe, elle
+   poussait le nom hors de sa colonne et c'est lui qu'on tronquait. */
+.cv2-parrole-l .nom { display: flex; flex-direction: column; gap: 1px; white-space: normal; }
+.cv2-parrole-l .nom .t { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cv2-r-pt--sous { fill: var(--cv-orange); }
+
+/* Donner aux deux notes le même poids double la hauteur d'une carte de
+   résultat : on récupère le surplus sur les marges, pas sur la lisibilité. */
+.cv2-nt { margin-top: 9px; padding: 8px 11px 9px; }
+.cv2-nt .cv2-echelle { margin-top: 8px; }
+.cv2-niv { width: 42px; padding: 7px 0 6px; }
+.cv2-gomme { padding: 7px 10px; }
+.cv2-res { padding: 12px 14px; margin-bottom: 9px; }
+.cv2-res .rname { font-size: 13.5px; }
+.cv2-preuve-btn { margin-top: 8px; }

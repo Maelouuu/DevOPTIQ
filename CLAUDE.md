@@ -610,6 +610,57 @@ suivants qui comptent sur `auth_client` se retrouvent déconnectés.
 Mise au point : `tools/devrun_competences.py` (port 8125) sème aussi des
 auto-évaluations volontairement discordantes et des capacités en écart.
 
+
+### Page Compétences — profil global et lisibilité des deux notes (2026-09-15)
+
+- ⚠️ **`flex: none` sur les en-têtes et pieds de fenêtre.** `.cv2-dh`, `.cv2-ph` et
+  `.cv2-df` sont des éléments FLEX d'une colonne plafonnée à 90vh : avec leur
+  `flex-shrink` par défaut, un contenu long les **écrase**. Le sous-titre
+  (« Untel · Tel rôle ») se retrouvait tranché en deux sous la première section —
+  présent à l'écran, illisible. Le symptôme est trompeur : on cherche un
+  `overflow` ou un `z-index` alors que c'est la boîte qui rétrécit.
+- ⚠️ **Les deux notes avaient deux POIDS VISUELS différents** : le niveau validé
+  était une échelle, l'auto-évaluation une ligne de texte minuscule en dessous —
+  on ne savait plus laquelle était laquelle, et la seconde avait l'air d'un
+  commentaire de la première. Elles portent désormais le MÊME objet (l'échelle
+  0→4) et se distinguent par une identité tenue partout :
+  **niveau validé = bleu (accent de page) + écusson + « fait foi »**,
+  **auto-évaluation = violet `--cv-auto` + silhouette**. Celle qui vous
+  appartient se clique, l'autre est posée (`.is-posee`, boutons `disabled`).
+  ⚠️ **L'ordre ne bouge jamais** — celle qui fait foi d'abord, quel que soit le
+  regard : on sait toujours où regarder. ⚠️ `saveEvaluation` cible
+  `.cv2-nt.is-mienne [data-lv].sel` : la carte porte deux échelles, un
+  `querySelector` non qualifié ramènerait celle du développeur jusque dans
+  l'enregistrement d'un collaborateur.
+- **Moins de petit texte.** Le standard minimal d'un résultat n'est plus écrit
+  (deux lignes par résultat, autant que de résultats) : il reste au survol du nom,
+  signalé par un « ? ». La description du bloc « niveau attendu » a sauté — le
+  titre et l'échelle disent tout.
+- **La vue d'ensemble porte un PROFIL** (`GET /mastery/synthese` enrichi) :
+  nombre de rôles, d'activités, **taux de couverture**, un **radar SVG dessiné à
+  la main** (un axe par activité, requis en contour vert / démontré en surface
+  bleue) et une barre par rôle. Sans lui l'écran n'était qu'une rangée de portes.
+  - ⚠️ **`couverture()` ne compte que les activités ÉVALUÉES.** Compter une
+    activité non évaluée comme un zéro confondrait « pas démontré » et « pas
+    encore regardé » — la distinction que tout le module tient (NULL ≠ 0). Le
+    nombre d'évaluées est renvoyé à côté pour lire le taux avec sa base.
+  - ⚠️ **Chaque activité est plafonnée à SON requis** (`min(dem, req)`) : sans ce
+    plafond, un expert sur une activité masquerait une lacune sur une autre et on
+    afficherait 100 % en étant en écart.
+  - ⚠️ **Le radar ne trace QUE les activités évaluées** : posées à 0, elles
+    effondraient le polygone vers le centre — le graphe disait « rien de
+    démontré » là où la vérité est « pas encore regardé ». Une note sous le
+    graphe dit combien sont absentes. Plafonné à 12 axes (les plus en écart, le
+    serveur trie par écart croissant) ; sous 3 axes, pas de radar.
+  - ⚠️ **Une activité portée par deux rôles ne compte qu'une fois** dans le
+    profil : sinon la forme dirait surtout combien de rôles se la partagent.
+  - Aucune bibliothèque de graphes : elle se paierait à chaque chargement de page
+    pour dix polygones.
+- **La carte de rôle entière s'ouvre** (et au clavier) : elle se soulevait au
+  survol, promesse que seul le bouton « Ouvrir » tenait. ⚠️ Le bouton « Plan de
+  formation » fait un `stopPropagation` — sans lui on ouvrait le rôle DERRIÈRE la
+  fenêtre du plan. Les lignes « par rôle » du profil ouvrent le rôle elles aussi.
+- Tests : `tests/test_77_competences_deux_notes.py::TestCouvertureEtProfil` (6 cas).
 ---
 
 ## Guide utilisateur (`docs/guide.html`)

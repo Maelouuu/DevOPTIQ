@@ -201,6 +201,29 @@ def dashboard(user_id, role_id):
                     "activities": dashboard_rows(user_id, role_id)}), 200
 
 
+def couverture(rows):
+    """Part du niveau requis réellement tenue, en pourcentage.
+
+    ⚠️ Calculée sur les seules activités ÉVALUÉES. Compter une activité non
+    évaluée comme un zéro reviendrait à confondre « pas démontré » et « pas
+    encore regardé » — la distinction que tout le module tient par ailleurs
+    (NULL ≠ 0). Le nombre d'activités évaluées est renvoyé à côté pour que le
+    pourcentage se lise avec sa base.
+
+    Un dépassement ne compense pas un manque : on plafonne chaque activité à son
+    requis (`min`), sinon un expert sur une activité masquerait une lacune sur
+    une autre.
+    """
+    tenu = vise = 0
+    for r in rows:
+        req, dem = r["required_level"], r["demonstrated_level"]
+        if req is None or not req or dem is None:
+            continue
+        vise += req
+        tenu += min(dem, req)
+    return round(tenu / vise * 100) if vise else None
+
+
 def categorie_activite(row):
     """Les quatre états d'une activité, tels que l'écran les compte. Écrits ICI
     et pas dans le JS : la synthèse par rôle et la liste détaillée doivent
@@ -239,7 +262,7 @@ def synthese(user_id):
     if not peut_lire(current_user(), user_id):
         return jsonify({"error": "forbidden"}), 403
 
-    roles = []
+    roles, profil = [], []
     for ur in UserRole.query.filter_by(user_id=user_id).all():
         role = Role.query.get(ur.role_id)
         if role is None:
@@ -257,6 +280,17 @@ def synthese(user_id):
                 requis.append(r["required_level"])
             if r["gap"] is not None and r["gap"] < 0:
                 retards.append(r)
+            # Le PROFIL : un axe par activité, pour le graphe de la vue
+            # d'ensemble. Les niveaux bruts, pas des pourcentages — un radar sert
+            # à voir une forme, et la forme du requis doit se superposer à celle
+            # du démontré.
+            profil.append({
+                "activity_id": r["activity_id"], "activity_name": r["activity_name"],
+                "role_id": role.id, "role_name": role.name,
+                "required_level": r["required_level"],
+                "demonstrated_level": r["demonstrated_level"],
+                "self_level": r["self_level"], "gap": r["gap"],
+            })
         # Niveau du rôle : le minimum, et seulement si TOUT est évalué — sinon
         # un rôle à moitié noté paraîtrait meilleur qu'il n'est.
         evaluables = [r for r in rows if r["n_results"]]
@@ -273,6 +307,8 @@ def synthese(user_id):
             "color": color_for(niveau, req),
             "gap": (niveau - req) if (niveau is not None and req is not None) else None,
             "n_gap": len(retards),
+            "n_evaluated": len(niveaux),
+            "couverture": couverture(rows),
             # De quoi proposer un plan sans recharger : les activités en retard.
             "gap_activities": [{"activity_id": r["activity_id"], "activity_name": r["activity_name"],
                                 "demonstrated_level": r["demonstrated_level"],
@@ -284,11 +320,25 @@ def synthese(user_id):
     for r in roles:
         for k in total:
             total[k] += r["counts"][k]
+    # Une activité peut être portée par plusieurs rôles : sur le profil global
+    # elle ne compte qu'une fois, sinon la forme du graphe dirait surtout
+    # combien de rôles se partagent la même activité.
+    unique, vues = [], set()
+    for a in profil:
+        if a["activity_id"] in vues:
+            continue
+        vues.add(a["activity_id"])
+        unique.append(a)
+    unique.sort(key=lambda a: ((a["gap"] if a["gap"] is not None else 99),
+                               a["activity_name"].lower()))
     return jsonify({
         "user_id": user_id,
         "user_name": f"{cible.first_name or ''} {cible.last_name or ''}".strip(),
         "roles": roles, "totals": total,
         "n_activities": sum(r["n_activities"] for r in roles),
+        "n_activities_uniques": len(unique),
+        "couverture": couverture(unique),
+        "profil": unique,
     }), 200
 
 

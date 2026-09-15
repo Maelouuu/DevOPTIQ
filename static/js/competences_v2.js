@@ -66,10 +66,20 @@
       target_short: 'requis',
       // Synthèse
       r_open: 'Ouvrir', r_activity_one: 'activité', r_activity_many: 'activités', r_level: 'Niveau du rôle',
+      p_title: 'Profil de compétences', p_role_one: 'rôle', p_role_many: 'rôles',
+      p_sub: "Ce que les rôles exigent, et ce qui est tenu. Un axe par activité.",
+      p_coverage: 'du requis tenu', p_required: 'Requis', p_demonstrated: 'Démontré',
+      p_by_role: 'Par rôle',
+      p_on_1: '[[a]] activité évaluée sur [[b]]', p_on_n: '[[a]] activités évaluées sur [[b]]',
+      p_basis: "Calculé sur les seules activités évaluées : une activité non évaluée n'est pas une activité ratée.",
+      p_capped: 'Les [[n]] activités les plus en écart sont représentées.',
+      p_too_few: "Trop peu d'activités évaluées pour tracer un profil.",
+      p_not_plotted_1: '1 activité pas encore évaluée : absente du graphe.',
+      p_not_plotted: '[[n]] activités pas encore évaluées : absentes du graphe.',
       r_partial: 'Niveau non calculable tant que toutes les activités ne sont pas évaluées.',
       r_none: 'Aucune activité rattachée à ce rôle.',
       // Les deux notes
-      n_official: 'Niveau validé', n_official_tag: 'fait foi', n_self: 'Auto-évaluation',
+      n_official: 'Niveau validé', n_official_tag: 'fait foi', n_self: 'Auto-évaluation', n_you: 'vous',
       n_self_mine: 'Votre auto-évaluation', n_by_dev: 'Niveau validé par votre développeur',
       n_none_yet: 'Pas encore validé', n_self_none: 'Pas encore renseignée',
       acc_ok: 'Même lecture', acc_haut: 'Se situe au-dessus', acc_bas: 'Se situe en dessous',
@@ -106,7 +116,7 @@
       plan_sched: 'Répartition semaine par semaine',
       plan_source_ai: 'Proposé par l’IA — à relire et ajuster',
       plan_source_local: 'Construit depuis les capacités en écart relevées en base (aucune clé IA)',
-      plan_gap_intro: 'activité(s) sous le niveau requis',
+      plan_gap_1: 'activité sous le niveau requis', plan_gap_intro: 'activités sous le niveau requis',
       plan_del: 'Retirer cette action',
       plan_target: 'Objectif', plan_proof: 'Preuve attendue', plan_crit: 'Réussi quand',
     },
@@ -154,9 +164,19 @@
       m_last: 'assessed on', m_never: 'never assessed', m_toqualify: 'outputs to qualify',
       target_short: 'required',
       r_open: 'Open', r_activity_one: 'activity', r_activity_many: 'activities', r_level: 'Role level',
+      p_title: 'Competency profile', p_role_one: 'role', p_role_many: 'roles',
+      p_sub: 'What the roles require, and what is held. One axis per activity.',
+      p_coverage: 'of the requirement met', p_required: 'Required', p_demonstrated: 'Demonstrated',
+      p_by_role: 'By role',
+      p_on_1: '[[a]] of [[b]] activities assessed', p_on_n: '[[a]] of [[b]] activities assessed',
+      p_basis: 'Computed on assessed activities only: an unassessed activity is not a failed one.',
+      p_capped: 'Showing the [[n]] activities with the widest gap.',
+      p_too_few: 'Too few assessed activities to draw a profile.',
+      p_not_plotted_1: '1 activity not assessed yet: not plotted.',
+      p_not_plotted: '[[n]] activities not assessed yet: not plotted.',
       r_partial: 'Level cannot be computed until every activity is assessed.',
       r_none: 'No activity attached to this role.',
-      n_official: 'Validated level', n_official_tag: 'official', n_self: 'Self-assessment',
+      n_official: 'Validated level', n_official_tag: 'official', n_self: 'Self-assessment', n_you: 'you',
       n_self_mine: 'Your self-assessment', n_by_dev: 'Level validated by your developer',
       n_none_yet: 'Not validated yet', n_self_none: 'Not filled in yet',
       acc_ok: 'Same reading', acc_haut: 'Rates themselves higher', acc_bas: 'Rates themselves lower',
@@ -190,7 +210,7 @@
       plan_sched: 'Week by week',
       plan_source_ai: 'Proposed by AI — review and adjust',
       plan_source_local: 'Built from the capability gaps recorded in the database (no AI key)',
-      plan_gap_intro: 'activity(ies) below the required level',
+      plan_gap_1: 'activity below the required level', plan_gap_intro: 'activities below the required level',
       plan_del: 'Remove this action',
       plan_target: 'Objective', plan_proof: 'Expected evidence', plan_crit: 'Done when',
     },
@@ -335,6 +355,7 @@
     state.synthese = d;
     montrerEcran('synthese');
     renderBilan($('#cv2-bilan'), d.totals, null);
+    renderProfil(d);
     const box = $('#cv2-rolecards'); box.innerHTML = '';
     if (!d.roles.length) { box.innerHTML = `<div class="cv2-vide">${esc(T('no_roles'))}</div>`; return; }
     d.roles.forEach((r, i) => box.appendChild(carteRole(r, i)));
@@ -371,9 +392,24 @@
         ${r.n_gap && jeSuisLeDev() ? `<button type="button" class="btn btn-ghost btn-sm" data-plan="1">${esc(T('plan_open'))}</button>` : ''}
         <button type="button" class="btn btn-primary btn-sm" data-ouvrir="1">${esc(T('r_open'))}</button>
       </div>`;
-    el.querySelector('[data-ouvrir]').onclick = () => ouvrirRole(r);
+    // ⚠️ Toute la carte ouvre le rôle : viser le bouton « Ouvrir » alors que la
+    // carte entière a l'air cliquable (elle se soulève au survol) est une
+    // promesse que le survol fait et que le clic ne tenait pas.
+    el.onclick = () => ouvrirRole(r);
+    el.tabIndex = 0;
+    el.setAttribute('role', 'button');
+    el.onkeydown = e => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); ouvrirRole(r); }
+    };
     const bp = el.querySelector('[data-plan]');
-    if (bp) bp.onclick = () => { state.roleId = r.role_id; state.roleName = r.role_name; ouvrirPlan(); };
+    if (bp) {
+      // Le plan est une AUTRE destination : son clic ne doit pas remonter à la
+      // carte, sinon on ouvre le rôle derrière la fenêtre du plan.
+      bp.onclick = e => {
+        e.stopPropagation();
+        state.roleId = r.role_id; state.roleName = r.role_name; ouvrirPlan();
+      };
+    }
     return el;
   }
 
@@ -524,6 +560,146 @@
     return dash();
   }
 
+
+  // ══════════════════════════════════════════════════════════════════
+  //  LE PROFIL — ce que la vue d'ensemble apporte de plus que des cartes
+  //  Un radar : un axe par activité, deux formes superposées — ce que les
+  //  rôles EXIGENT et ce que la personne TIENT. On lit d'un coup où la
+  //  seconde rentre dans la première et où elle en sort.
+  //
+  //  ⚠️ Dessiné à la main en SVG. Aucune bibliothèque de graphes n'est chargée
+  //  dans l'application, et en ajouter une pour dix polygones se paierait à
+  //  chaque chargement de page.
+  // ══════════════════════════════════════════════════════════════════
+  const RADAR_MAX_AXES = 12;
+
+  function renderProfil(d) {
+    const box = $('#cv2-profil');
+    // ⚠️ On ne trace QUE ce qui est mesuré. Poser une activité non évaluée à 0
+    // effondrait le polygone vers le centre : le graphe disait « rien de
+    // démontré » là où la vérité est « pas encore regardé » — la distinction
+    // que tout le module tient par ailleurs (NULL ≠ 0).
+    const avecCible = (d.profil || []).filter(a => !estNul(a.required_level) && a.required_level > 0);
+    const axes = avecCible.filter(a => !estNul(a.demonstrated_level));
+    const horsGraphe = avecCible.length - axes.length;
+    if (!d.roles.length) { box.classList.add('hidden'); return; }
+    box.classList.remove('hidden');
+
+    const trop = axes.length > RADAR_MAX_AXES;
+    // Au-delà d'une douzaine d'axes le radar devient illisible : on garde les
+    // plus parlantes — celles où l'écart est le plus grand. Le serveur les a
+    // déjà triées par écart croissant.
+    const vus = trop ? axes.slice(0, RADAR_MAX_AXES) : axes;
+
+    box.innerHTML = `
+      <div class="cv2-profil-tete">
+        <div>
+          <div class="cv2-profil-h">${esc(T('p_title'))}</div>
+          <div class="cv2-profil-d">${esc(T('p_sub'))}</div>
+        </div>
+        <div class="cv2-profil-kpi">
+          <div class="cv2-kpi">
+            <div class="n">${d.roles.length}</div>
+            <div class="k">${esc(d.roles.length === 1 ? T('p_role_one') : T('p_role_many'))}</div>
+          </div>
+          <div class="cv2-kpi">
+            <div class="n">${d.n_activities_uniques}</div>
+            <div class="k">${esc(d.n_activities_uniques === 1 ? T('r_activity_one') : T('r_activity_many'))}</div>
+          </div>
+          <div class="cv2-kpi cv2-kpi--fort">
+            <div class="n">${estNul(d.couverture) ? '—' : d.couverture + '<small>%</small>'}</div>
+            <div class="k">${esc(T('p_coverage'))}</div>
+          </div>
+        </div>
+      </div>
+      <div class="cv2-profil-corps">
+        <div class="cv2-radar-zone">${vus.length >= 3 ? radarSVG(vus) : ''}
+          <div class="cv2-radar-leg">
+            <span><i class="cv2-leg cv2-leg--req"></i>${esc(T('p_required'))}</span>
+            <span><i class="cv2-leg cv2-leg--dem"></i>${esc(T('p_demonstrated'))}</span>
+          </div>
+          ${trop ? `<div class="cv2-radar-note">${esc(Tv('p_capped', { n: RADAR_MAX_AXES }))}</div>` : ''}
+          ${horsGraphe ? `<div class="cv2-radar-note">${esc(Tv(
+              horsGraphe === 1 ? 'p_not_plotted_1' : 'p_not_plotted', { n: horsGraphe }))}</div>` : ''}
+          ${vus.length < 3 ? `<div class="cv2-radar-note">${esc(T('p_too_few'))}</div>` : ''}
+        </div>
+        <div class="cv2-parrole">
+          <div class="cv2-parrole-h">${esc(T('p_by_role'))}</div>
+          ${d.roles.map(r => barreRole(r)).join('')}
+          <div class="cv2-parrole-pied">${esc(T('p_basis'))}</div>
+        </div>
+      </div>`;
+
+    box.querySelectorAll('[data-role]').forEach(b => b.onclick = () => {
+      const r = d.roles.find(x => String(x.role_id) === b.dataset.role);
+      if (r) ouvrirRole(r);
+    });
+  }
+
+  // Une barre par rôle : la part du requis tenue, et sur quelle base elle se lit.
+  function barreRole(r) {
+    const c = r.couverture;
+    const teinte = estNul(c) ? 'grey' : (c >= 100 ? 'green' : (c >= 70 ? 'orange' : 'red'));
+    // La base du calcul va SOUS le nom : en suffixe, elle poussait le nom du
+    // rôle hors de sa colonne et c'est lui qu'on tronquait.
+    const base = r.n_evaluated === r.n_activities ? ''
+      : `<span class="sur">${esc(Tv(r.n_evaluated === 1 ? 'p_on_1' : 'p_on_n',
+                                   { a: r.n_evaluated, b: r.n_activities }))}</span>`;
+    return `<button type="button" class="cv2-parrole-l" data-role="${r.role_id}">
+        <span class="nom"><span class="t">${esc(r.role_name)}</span>${base}</span>
+        <span class="jauge cv2-jb--${teinte}"><i style="width:${estNul(c) ? 0 : Math.min(100, c)}%"></i></span>
+        <span class="pc">${estNul(c) ? '—' : c + ' %'}</span>
+      </button>`;
+  }
+
+  // Le radar. Rayon = niveau 0..4 ; deux polygones, le requis en trait plein
+  // clair et le démontré rempli par-dessus.
+  function radarSVG(axes) {
+    const R = 132, CX = 260, CY = 186, MAX = 4;
+    const n = axes.length;
+    const pt = (i, v) => {
+      const a = (Math.PI * 2 * i / n) - Math.PI / 2;
+      const d = R * (Math.max(0, Math.min(MAX, v)) / MAX);
+      return [CX + Math.cos(a) * d, CY + Math.sin(a) * d];
+    };
+    const poly = vals => vals.map((v, i) => pt(i, v).map(x => x.toFixed(1)).join(',')).join(' ');
+
+    let toile = '';
+    for (let k = 1; k <= MAX; k++) {
+      toile += `<polygon class="cv2-r-grid" points="${poly(axes.map(() => k))}"></polygon>`;
+    }
+    axes.forEach((a, i) => {
+      const [x, y] = pt(i, MAX);
+      toile += `<line class="cv2-r-axe" x1="${CX}" y1="${CY}" x2="${x.toFixed(1)}" y2="${y.toFixed(1)}"></line>`;
+    });
+
+    // Une activité non évaluée n'a pas de point : la laisser à 0 la ferait
+    // passer pour « non démontrée », ce qu'on distingue partout ailleurs.
+    const dem = axes.map(a => a.demonstrated_level);
+    const req = axes.map(a => a.required_level);
+    const points = axes.map((a, i) => {
+      const [x, y] = pt(i, a.demonstrated_level);
+      const sous = a.demonstrated_level < a.required_level ? ' cv2-r-pt--sous' : '';
+      return `<circle class="cv2-r-pt${sous}" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="3.8"></circle>`;
+    }).join('');
+
+    const etiquettes = axes.map((a, i) => {
+      const [x, y] = pt(i, MAX + 0.5);
+      const ancre = Math.abs(x - CX) < 14 ? 'middle' : (x > CX ? 'start' : 'end');
+      const nom = a.activity_name.length > 22 ? a.activity_name.slice(0, 21) + '…' : a.activity_name;
+      return `<text class="cv2-r-lbl" x="${x.toFixed(1)}" y="${(y + 4).toFixed(1)}" text-anchor="${ancre}">
+          <title>${esc(a.activity_name)}</title>${esc(nom)}</text>`;
+    }).join('');
+
+    return `<svg class="cv2-radar" viewBox="14 6 492 370" role="img"
+                 aria-label="${esc(T('p_title'))}">
+        ${toile}
+        <polygon class="cv2-r-req" points="${poly(req)}"></polygon>
+        <polygon class="cv2-r-dem" points="${poly(dem)}"></polygon>
+        ${points}${etiquettes}
+      </svg>`;
+  }
+
   // ══ Fenêtre d'évaluation ═══════════════════════════════════════════
   function bindDrawer() {
     $('#cv2-drawer-close').onclick = closeDrawer;
@@ -599,7 +775,7 @@
     // Il n'y a plus de bandeau récapitulatif au-dessus : il répétait le niveau
     // requis que ce bloc sert justement à régler, et deux affichages du même
     // nombre finissent toujours par diverger.
-    const b1 = bloc(1, T('bloc_cible'), jeSuisLeDev() ? T('bloc_cible_d') : T('bloc_cible_ro'));
+    const b1 = bloc(1, T('bloc_cible'), null);
     b1.appendChild(cibleRequise(st));
     body.appendChild(b1);
 
@@ -684,105 +860,130 @@
   // ── La carte d'un RÉSULTAT ────────────────────────────────────────
   // L'échelle interactive porte MA note ; l'autre note s'affiche à côté, dans
   // une forme qui ne peut pas être confondue avec elle.
+  // ⚠️ Les deux notes avaient deux POIDS VISUELS différents : la note officielle
+  // était une échelle, l'auto-évaluation une ligne de texte minuscule en
+  // dessous. On ne savait plus laquelle était laquelle, et l'une avait l'air
+  // d'être un commentaire de l'autre. Elles ont désormais le MÊME objet —
+  // l'échelle 0→4 — et se distinguent par une identité tenue partout :
+  //
+  //     niveau validé      bleu (accent de la page) · écusson · « fait foi »
+  //     auto-évaluation    violet                   · silhouette
+  //
+  // Celle qui vous appartient est cliquable ; l'autre est posée, verrouillée.
+  // L'ordre ne bouge jamais : la note qui fait foi d'abord, quel que soit le
+  // regard — on sait toujours où regarder.
+  function echelleNote(o) {
+    let paliers = '';
+    for (let lv = 0; lv <= 4; lv++) {
+      const cls = ['cv2-niv'];
+      if (o.niveau === lv) cls.push('sel');
+      if (o.requis === lv) cls.push('cible');
+      const bulle = levelName(lv) + (o.requis === lv ? ` — ${T('target_short')}` : '');
+      paliers += `<button type="button" class="${cls.join(' ')}" data-lv="${lv}"
+        ${o.modifiable ? '' : 'disabled'} title="${esc(bulle)}">${lv}</button>`;
+    }
+    const valeur = estNul(o.niveau)
+      ? `<span class="cv2-nt-vide">${esc(o.modifiable ? T('pick_level') : T('n_none_yet'))}</span>`
+      : `<b>${o.niveau}</b> · ${esc(levelName(o.niveau))}`;
+    return `<div class="cv2-nt cv2-nt--${o.genre}${o.modifiable ? ' is-mienne' : ' is-posee'}"
+                 data-note="${o.genre}">
+        <div class="cv2-nt-tete">
+          <span class="cv2-nt-ico"><i class="fa-solid ${o.genre === 'off' ? 'fa-circle-check' : 'fa-user'}"></i></span>
+          <span class="cv2-nt-lbl">${esc(o.titre)}</span>
+          ${o.tag ? `<span class="cv2-nt-tag">${esc(o.tag)}</span>` : ''}
+          <span class="cv2-nt-val">${valeur}</span>
+        </div>
+        <div class="cv2-echelle">${paliers}
+          ${o.modifiable ? `<button type="button" class="cv2-gomme${estNul(o.niveau) ? ' sel' : ''}" data-lv="">${esc(T('erase'))}</button>` : ''}
+        </div>
+        ${o.accord || ''}
+      </div>`;
+  }
+
   function resultCard(r, requis) {
+    const dev = jeSuisLeDev();
     const card = document.createElement('div');
-    const maNote = jeSuisLeDev() ? r.demonstrated_level : r.self_level;
-    const autreNote = jeSuisLeDev() ? r.self_level : r.demonstrated_level;
+    const maNote = dev ? r.demonstrated_level : r.self_level;
     card.className = 'cv2-res' + (estNul(maNote) ? '' : ' est-note');
     card.dataset.dataId = r.data_id;
     const req = estNul(requis) ? null : requis;
+    const preuve = (dev ? r.evidence : r.self_evidence) || '';
 
-    let paliers = '';
-    for (let lv = 0; lv <= 4; lv++) {
-      const sel = maNote === lv ? ' sel' : '';
-      const cible = req === lv ? ' cible' : '';
-      // Le repère de l'AUTRE note, posé sur l'échelle : on voit l'accord ou le
-      // désaccord pendant qu'on choisit, sans quitter des yeux ce qu'on fait.
-      const autre = (!estNul(autreNote) && autreNote === lv) ? ' auto' : '';
-      const bulle = levelName(lv) + (req === lv ? ` — ${T('target_short')}` : '');
-      paliers += `<button type="button" class="cv2-niv${sel}${cible}${autre}" data-lv="${lv}"
-        title="${esc(bulle)}">${lv}</button>`;
-    }
-    const efface = estNul(maNote) ? ' sel' : '';
-    const preuve = (jeSuisLeDev() ? r.evidence : r.self_evidence) || '';
+    const officielle = echelleNote({
+      genre: 'off', titre: T('n_official'), tag: T('n_official_tag'),
+      niveau: r.demonstrated_level, requis: req, modifiable: dev,
+    });
+    const auto = echelleNote({
+      genre: 'auto', titre: dev ? T('n_self') : T('n_self_mine'), tag: dev ? '' : T('n_you'),
+      niveau: r.self_level, requis: req, modifiable: !dev,
+      accord: accordBadge(r.self_level, r.demonstrated_level, dev),
+    });
 
+    // ⚠️ Le standard minimal n'est plus ÉCRIT : il tenait deux lignes de petit
+    // texte par résultat, et la fenêtre en portait autant que de résultats. Il
+    // reste sous le nom, au survol — c'est une référence qu'on consulte, pas
+    // une consigne qu'on relit à chaque fois.
     card.innerHTML = `
       <div class="rtete">
-        <div class="rname">${esc(r.name)}
-          ${r.minimum_performance_text ? `<div class="rstd">${esc(T('std'))} : ${esc(r.minimum_performance_text)}</div>` : ''}
+        <div class="rname"${r.minimum_performance_text
+          ? ` title="${esc(T('std'))} : ${esc(r.minimum_performance_text)}"` : ''}>${esc(r.name)}
+          ${r.minimum_performance_text ? '<i class="fa-regular fa-circle-question cv2-astuce"></i>' : ''}
         </div>
       </div>
-      <div class="cv2-note">
-        <div class="nlbl"><span class="pastille"></span>${esc(jeSuisLeDev() ? T('n_official') : T('n_self_mine'))}
-          ${jeSuisLeDev() ? `<span class="cv2-officielle-tag">${esc(T('n_official_tag'))}</span>` : ''}</div>
-      </div>
-      <div class="cv2-echelle">
-        ${paliers}
-        <button type="button" class="cv2-gomme${efface}" data-lv="">${esc(T('erase'))}</button>
-      </div>
-      <div class="cv2-lu"></div>
-      ${autreLigne(autreNote, maNote)}
+      ${officielle}${auto}
       <button type="button" class="cv2-preuve-btn${preuve ? ' hidden' : ''}">${esc(T('add_evidence'))}</button>
       <textarea class="cv2-ev${preuve ? '' : ' hidden'}" placeholder="${esc(T('evidence_ph'))}">${esc(preuve)}</textarea>`;
 
-    const lu = card.querySelector('.cv2-lu');
-    const ecrireLecture = () => {
-      const sel = card.querySelector('[data-lv].sel');
-      const brut = sel ? sel.dataset.lv : '';
-      if (brut === '') { lu.className = 'cv2-lu aprendre'; lu.textContent = T('pick_level'); return; }
-      const lv = +brut;
-      const sous = req !== null && lv < req;
-      lu.className = 'cv2-lu';
-      lu.innerHTML = `<span class="num">${lv}</span>${esc(levelName(lv))}` +
-        (req === null ? '' : `<span class="rap${sous ? ' sous' : ''}">${esc(T('target_short'))} : ${req}</span>`);
-    };
-    ecrireLecture();
-
-    card.querySelectorAll('[data-lv]').forEach(b => b.onclick = () => {
-      card.querySelectorAll('[data-lv]').forEach(x => x.classList.remove('sel'));
+    // Seule MA note se clique ; l'autre est posée là pour être lue.
+    const mienne = card.querySelector('.cv2-nt.is-mienne');
+    mienne.querySelectorAll('[data-lv]').forEach(b => b.onclick = () => {
+      mienne.querySelectorAll('[data-lv]').forEach(x => x.classList.remove('sel'));
       b.classList.add('sel');
       card.classList.toggle('est-note', b.dataset.lv !== '');
-      ecrireLecture();
+      majValeur(mienne, card, r, dev);
     });
     const bp = card.querySelector('.cv2-preuve-btn'), ta = card.querySelector('.cv2-ev');
     bp.onclick = () => { bp.classList.add('hidden'); ta.classList.remove('hidden'); ta.focus(); };
     return card;
   }
 
-  // La note de l'autre, et ce qu'elle dit de l'accord entre les deux.
-  function autreLigne(autre, mienne) {
-    const dev = jeSuisLeDev();
-    const titre = dev ? T('n_self') : T('n_by_dev');
-    if (estNul(autre)) {
-      return `<div class="cv2-note cv2-note--auto"><div class="nlbl"><span class="pastille"></span>${esc(titre)}</div>
-        <div class="cv2-auto">${esc(dev ? T('n_self_none') : T('n_none_yet'))}</div></div>`;
-    }
-    let accord = '';
-    if (!estNul(mienne)) {
-      // Comparaison du point de vue de celui qui regarde : « il se situe
-      // au-dessus » pour le développeur, « vous vous situez » pour l'intéressé.
-      const auto = dev ? autre : mienne;
-      const off = dev ? mienne : autre;
-      const cls = auto === off ? 'ok' : (auto > off ? 'haut' : 'bas');
-      const cle = cls === 'ok' ? 'acc_ok'
-        : (dev ? (cls === 'haut' ? 'acc_haut' : 'acc_bas')
-               : (cls === 'haut' ? 'acc_haut_mine' : 'acc_bas_mine'));
-      accord = `<span class="cv2-accord cv2-accord--${cls}">${esc(T(cle))}</span>`;
-    }
-    // Une seule ligne : libellé, niveau et verdict. En trois lignes, la note de
-    // repère pesait autant à l'œil que celle qui fait foi.
-    return `<div class="cv2-note cv2-note--auto cv2-note--ligne">
-        <span class="nlbl"><span class="pastille"></span>${esc(titre)}</span>
-        <span class="cv2-auto"><b>${autre}</b> · ${esc(levelName(autre))}</span>
-        ${accord}
-      </div>`;
+  // Le niveau choisi s'écrit dans l'en-tête de SA note, et le verdict d'accord
+  // se recalcule aussitôt : sinon il resterait celui d'avant le clic.
+  function majValeur(bloc, card, r, dev) {
+    const sel = bloc.querySelector('[data-lv].sel');
+    const brut = sel ? sel.dataset.lv : '';
+    const lv = brut === '' ? null : +brut;
+    bloc.querySelector('.cv2-nt-val').innerHTML = estNul(lv)
+      ? `<span class="cv2-nt-vide">${esc(T('pick_level'))}</span>`
+      : `<b>${lv}</b> · ${esc(levelName(lv))}`;
+    const off = dev ? lv : r.demonstrated_level;
+    const perso = dev ? r.self_level : lv;
+    const cible = card.querySelector('.cv2-nt--auto');
+    const ancien = cible.querySelector('.cv2-accord');
+    if (ancien) ancien.remove();
+    const neuf = accordBadge(perso, off, dev);
+    if (neuf) cible.insertAdjacentHTML('beforeend', neuf);
+  }
+
+  // Le verdict d'accord vit sur l'auto-évaluation : c'est ELLE qu'on situe par
+  // rapport à la note qui fait foi, jamais l'inverse.
+  function accordBadge(auto, officielle, dev) {
+    if (estNul(auto) || estNul(officielle)) return '';
+    const cls = auto === officielle ? 'ok' : (auto > officielle ? 'haut' : 'bas');
+    const cle = cls === 'ok' ? 'acc_ok'
+      : (dev ? (cls === 'haut' ? 'acc_haut' : 'acc_bas')
+             : (cls === 'haut' ? 'acc_haut_mine' : 'acc_bas_mine'));
+    return `<span class="cv2-accord cv2-accord--${cls}">${esc(T(cle))}</span>`;
   }
 
   async function saveEvaluation() {
     const cards = document.querySelectorAll('#cv2-drawer-body .cv2-res');
     const btn = $('#cv2-save-btn'); if (btn) btn.disabled = true;
     for (const c of cards) {
-      const sel = c.querySelector('[data-lv].sel');
+      // ⚠️ Bien `.is-mienne` : la carte porte maintenant DEUX échelles, et un
+      // `querySelector` non qualifié ramènerait la première — celle du
+      // développeur — jusque dans l'enregistrement d'un collaborateur.
+      const sel = c.querySelector('.cv2-nt.is-mienne [data-lv].sel');
       if (!sel) continue;
       const raw = sel.dataset.lv;
       const r = await api('/mastery/evaluate', {
@@ -1131,7 +1332,7 @@
         <div class="cv2-ia-t">${esc(T('plan_empty_t'))}</div>
         <div style="margin-top:6px;max-width:460px;margin-left:auto;margin-right:auto">${esc(T('plan_empty_d'))}</div>
         <div style="margin-top:8px;font-size:12px;color:var(--faint)">
-          ${p.activites.length} ${esc(T('plan_gap_intro'))}</div></div>`;
+          ${p.activites.length} ${esc(p.activites.length === 1 ? T('plan_gap_1') : T('plan_gap_intro'))}</div></div>`;
       setFooter([{ cls: 'btn-primary', label: T('plan_propose'), on: proposerPlan, id: 'cv2-plan-prop' }],
                 '#cv2-plan-footer');
       return;
