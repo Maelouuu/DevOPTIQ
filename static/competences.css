@@ -725,8 +725,6 @@ header { position: sticky; top: 0; z-index: 30; }
   font-size: 12px; font-weight: 700; color: #fff;
   background: linear-gradient(135deg, var(--pg-accent), var(--pg-accent-deep));
 }
-.cv2-bloc--tech .cv2-bloc-num { background: linear-gradient(135deg, #0f766e, #115e59); }
-.cv2-bloc--tech .cv2-bloc-h { color: #115e59; }
 .cv2-bloc-h { font-size: 15px; font-weight: 700; line-height: 1.25; color: var(--ink); }
 .cv2-bloc-d { margin-top: 3px; font-size: 12px; line-height: 1.45; color: var(--muted); }
 
@@ -1163,3 +1161,177 @@ header { position: sticky; top: 0; z-index: 30; }
 .cv2-res { padding: 12px 14px; margin-bottom: 9px; }
 .cv2-res .rname { font-size: 13.5px; }
 .cv2-preuve-btn { margin-top: 8px; }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   QUALIFIER LES SORTIES
+   ⚠️ Cet écran ne disait pas ce qu'il demandait : un menu déroulant « À
+   qualifier » posé à droite d'un nom, et parfois un champ pré-rempli d'un
+   « 100 % » que rien n'expliquait. Les quatre natures sont maintenant des
+   BOUTONS — le choix se voit — celle qu'on prend s'explique juste dessous, et
+   le champ du standard porte son libellé.
+   ══════════════════════════════════════════════════════════════════════════ */
+.cv2-qz {
+  display: block; padding: 14px 15px; margin-bottom: 11px;
+  background: var(--card); border: 1px solid var(--border);
+  border-left: 3px solid var(--border-strong); border-radius: 12px;
+  transition: border-left-color .15s, background .15s;
+}
+/* Un résultat n'est pas une sortie comme les autres : c'est lui qui portera
+   l'évaluation. Il se voit dans la pile. */
+.cv2-qz.est-resultat { border-left-color: var(--pg-accent); background: var(--pg-accent-softer); }
+.cv2-qz-tete { display: flex; align-items: flex-start; gap: 10px; flex-wrap: wrap; }
+.cv2-qz .qn { flex: 1; min-width: 0; font-size: 14.5px; font-weight: 700; color: var(--ink); }
+.cv2-qz .qj {
+  margin-top: 5px; padding-left: 10px; border-left: 2px solid var(--pg-accent-border);
+  font-size: 12.5px; line-height: 1.5; font-style: italic; color: var(--muted);
+}
+.cv2-qq {
+  margin: 13px 0 7px; font-size: 12px; font-weight: 700; color: var(--muted);
+  text-transform: uppercase; letter-spacing: .05em;
+}
+
+/* Les quatre natures, en clair. Elles étaient cachées dans un <select>. */
+.cv2-natures { display: flex; gap: 6px; flex-wrap: wrap; }
+.cv2-nature {
+  padding: 8px 13px; cursor: pointer; font-family: inherit;
+  font-size: 13px; font-weight: 600; color: var(--ink-2);
+  background: var(--card); border: 1px solid var(--border-strong); border-radius: 999px;
+  transition: .13s;
+}
+.cv2-nature:hover { border-color: var(--pg-accent); color: var(--pg-accent-deep); }
+.cv2-nature.sel {
+  background: linear-gradient(135deg, var(--pg-accent), var(--pg-accent-deep));
+  border-color: transparent; color: #fff;
+  box-shadow: 0 6px 16px -6px var(--pg-accent-glow);
+}
+/* « Résultat de l'activité » commande tout l'écran suivant : il se distingue
+   des trois autres avant même d'être choisi. */
+.cv2-nature--cle { border-style: dashed; border-color: var(--pg-accent-border); color: var(--pg-accent-deep); }
+.cv2-nature--cle.sel { border-style: solid; }
+.cv2-nature-dit {
+  margin-top: 9px; font-size: 13px; line-height: 1.5; color: var(--muted);
+}
+.cv2-nature-dit.est-resultat { color: var(--pg-accent-deep); font-weight: 600; }
+
+/* Le standard : un champ qui dit ce qu'il attend, et d'où vient sa valeur.
+   Il apparaissait nu, parfois pré-rempli d'un « 100 % » sorti de nulle part. */
+.cv2-qstd { margin-top: 12px; padding-top: 12px; border-top: 1px dashed var(--pg-accent-border); }
+.cv2-qstd-lbl {
+  display: block; margin-bottom: 6px; font-size: 12px; font-weight: 700;
+  color: var(--pg-accent-deep); text-transform: uppercase; letter-spacing: .04em;
+}
+.cv2-qstd-aide { margin-top: 5px; font-size: 12px; font-style: italic; color: var(--faint); }
+.cv2-minperf {
+  width: 100%; padding: 9px 11px; margin-top: 0;
+  font-family: inherit; font-size: 13.5px; background: var(--card);
+  border: 1px solid var(--border-strong); border-radius: var(--r-btn);
+}
+.cv2-minperf:focus { outline: none; border-color: var(--pg-accent); box-shadow: 0 0 0 3px var(--pg-accent-glow); }
+
+/* Ce qui manque, dit AVANT le clic et près du bouton. Le refus s'affichait
+   après coup, tout en haut de la fenêtre — loin du bouton, loin de la ligne. */
+.cv2-qcompte {
+  display: flex; align-items: center; gap: 9px; margin-top: 14px; padding: 11px 14px;
+  border-radius: 11px; font-size: 13px; font-weight: 600; line-height: 1.45;
+}
+.cv2-qcompte i { font-size: 14px; flex: none; }
+.cv2-qcompte.est-ok { background: #f0fdf4; border: 1px solid #bbf7d0; color: var(--cv-green-deep); }
+.cv2-qcompte.est-manque { background: #fff8ec; border: 1px solid #fadfa6; color: #92590e; }
+.cv2-qcompte .reste { font-weight: 500; opacity: .8; }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   LA TECHNICITÉ — un bandeau BLEU PLEIN
+   Elle était en teal, qui se lit comme du vert et entrait en conflit avec le
+   vert sémantique (« niveau tenu »). Le bandeau plein la sépare franchement de
+   l'évaluation tout en restant dans le bleu de la page.
+   ══════════════════════════════════════════════════════════════════════════ */
+.cv2-bloc--tech .cv2-bloc-tete {
+  margin: 0 0 12px; padding: 11px 13px; border-radius: 11px;
+  background: linear-gradient(135deg, var(--pg-accent), var(--pg-accent-deep));
+}
+.cv2-bloc--tech .cv2-bloc-num { background: rgba(255, 255, 255, .22); }
+.cv2-bloc--tech .cv2-bloc-h { color: #fff; }
+.cv2-bloc--tech .cv2-bloc-d { color: rgba(255, 255, 255, .86); }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   LISIBILITÉ DES FENÊTRES
+   L'app est calibrée à 80 % (`body.pg { zoom: .8 }`) : un « 12 px » y est rendu
+   à moins de 10. Dans une fenêtre où l'on décide d'un niveau, c'est trop petit.
+   On remonte les tailles secondaires des fenêtres — et d'elles seules, pour ne
+   pas déformer les listes de la page.
+   ══════════════════════════════════════════════════════════════════════════ */
+.cv2-db, .cv2-pb { font-size: 14px; }
+.cv2-bloc-h { font-size: 16px; }
+.cv2-bloc-d { font-size: 13px; }
+.cv2-comp { font-size: 14px; }
+.cv2-comp .tag { font-size: 12px; }
+.cv2-nt-lbl { font-size: 12px; }
+.cv2-nt-tag, .cv2-officielle-tag { font-size: 10.5px; }
+.cv2-nt-val { font-size: 13.5px; }
+.cv2-nt-val b { font-size: 15px; }
+.cv2-niv { font-size: 14px; }
+.cv2-gomme { font-size: 13px; }
+.cv2-res .rname { font-size: 14.5px; }
+.cv2-accord { font-size: 12.5px; }
+.cv2-cible-niv { font-size: 14px; }
+.cv2-cible-dit { font-size: 13px; }
+.cv2-preuve-btn, .cv2-ev { font-size: 13.5px; }
+.cv2-prop { font-size: 11.5px; }
+.cv2-ia-t { font-size: 14.5px; }
+.cv2-ia-d { font-size: 13px; }
+.cv2-domrow .dn { font-size: 14px; }
+.cv2-domrow .df .fl, .cv2-emptydom { font-size: 12px; }
+.cv2-fam .fh { font-size: 14px; }
+.cv2-fam .fd { font-size: 12.5px; }
+.cv2-action .ac-t { font-size: 14px; }
+.cv2-action .ac-o, .cv2-action .ac-c { font-size: 12.5px; }
+.cv2-dit { font-size: 13px; }
+.cv2-df .btn { font-size: 14px; }
+
+/* ── Le radar, vivant ────────────────────────────────────────────────────
+   Trois gestes sans clic : survoler une légende met SA couche au premier plan,
+   survoler un rôle n'éclaire que ses activités, survoler un axe donne son
+   détail. Un graphe qui ne réagit pas se lit une fois puis devient un décor. */
+.cv2-radar-zone { position: relative; }
+.cv2-r-req, .cv2-r-dem { transition: fill-opacity .2s, opacity .2s; }
+/* Passer une couche devant : on estompe l'autre plutôt que de réordonner le
+   DOM — le SVG n'a pas de z-index, et bouger les nœuds ferait clignoter. */
+.cv2-radar[data-avant="req"] .cv2-r-dem { opacity: .18; }
+.cv2-radar[data-avant="dem"] .cv2-r-req { opacity: .2; }
+.cv2-radar[data-avant="dem"] .cv2-r-dem { fill-opacity: .42; }
+
+.cv2-leg-b {
+  display: inline-flex; align-items: center; gap: 6px; padding: 4px 9px;
+  font-family: inherit; font-size: inherit; font-weight: 700; color: var(--muted);
+  background: none; border: 1px solid transparent; border-radius: 999px; cursor: pointer;
+  transition: .14s;
+}
+.cv2-leg-b:hover, .cv2-leg-b:focus-visible {
+  outline: none; background: var(--card-2); border-color: var(--border); color: var(--ink-2);
+}
+
+/* La zone sensible d'un axe : un trait épais et transparent, du centre au bord.
+   Viser une étiquette de 10 px serait pénible. */
+.cv2-r-zone { stroke: transparent; stroke-width: 26; cursor: pointer; }
+.cv2-r-axe-g:hover .cv2-r-lbl, .cv2-r-lbl.est-vu { fill: var(--ink); font-weight: 700; }
+.cv2-r-pt { transition: r .16s, fill .16s; }
+.cv2-r-pt.est-vu { r: 6; }
+.est-eteint { opacity: .16; transition: opacity .18s; }
+
+.cv2-radar-bulle {
+  position: absolute; left: 50%; top: 6px; transform: translateX(-50%) translateY(-6px);
+  z-index: 2; opacity: 0; pointer-events: none;
+  max-width: 260px; padding: 9px 12px; border-radius: 11px;
+  background: var(--ink); color: #fff; box-shadow: var(--sh-pop);
+  transition: opacity .16s, transform .16s;
+}
+.cv2-radar-bulle.est-la { opacity: 1; transform: translateX(-50%) translateY(0); }
+.cv2-radar-bulle .t { font-size: 13px; font-weight: 700; line-height: 1.3; }
+.cv2-radar-bulle .r { margin-top: 2px; font-size: 11.5px; opacity: .72; }
+.cv2-radar-bulle .n { display: flex; gap: 10px; margin-top: 6px; font-size: 12px; font-weight: 700; }
+.cv2-radar-bulle .req { color: #86efac; }
+.cv2-radar-bulle .dem { color: #93c5fd; }
+
+/* Un axe mis en avant par le survol d'un rôle : il s'épaissit, il ne bouge pas. */
+.cv2-r-pt.est-vu { r: 6; stroke-width: 2; }
+.cv2-radar-bulle .vide { font-style: italic; opacity: .75; font-weight: 600; }

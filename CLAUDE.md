@@ -661,6 +661,53 @@ auto-évaluations volontairement discordantes et des capacités en écart.
   formation » fait un `stopPropagation` — sans lui on ouvrait le rôle DERRIÈRE la
   fenêtre du plan. Les lignes « par rôle » du profil ouvrent le rôle elles aussi.
 - Tests : `tests/test_77_competences_deux_notes.py::TestCouvertureEtProfil` (6 cas).
+
+### Qualification des sorties, technicité, radar vivant (2026-09-15)
+
+- ⚠️ **L'écran de qualification ne disait pas ce qu'il demandait.** Un menu
+  déroulant « À qualifier » posé à droite d'un nom, et parfois un champ
+  pré-rempli d'un « 100 % » que rien n'expliquait. On ne voyait pas qu'il y avait
+  un choix à faire, et « Valider » refusait **après coup**, avec un message
+  affiché tout en haut de la fenêtre — loin du bouton, loin de la ligne à
+  corriger (`prepend` sur `.cv2-bloc`, donc AU-DESSUS de l'en-tête du bloc).
+  Trois corrections, toutes de même nature — rendre la décision VISIBLE :
+  1. les quatre natures sont des **boutons**, plus un `<select>` ;
+  2. celle qu'on choisit **s'explique** juste en dessous (`q_dit_*`) ;
+  3. le champ du standard porte son libellé et **dit d'où vient sa valeur**
+     (« Proposé par l'IA à partir de l'activité — corrigez-le si besoin »).
+  Et « Valider » ne refuse plus : il reste **éteint** tant qu'aucun résultat
+  n'est marqué, avec un compteur sous les sorties qui dit ce qui manque.
+  Recliquer la nature déjà choisie la retire — sinon on ne pouvait plus revenir
+  à « pas encore décidé » une fois un bouton touché.
+- **La technicité passe en BLEU PLEIN** (bandeau, texte blanc). Elle était en
+  teal, qui se lit comme du vert et entrait en conflit avec le vert sémantique
+  « niveau tenu ». Le bandeau la sépare franchement de l'évaluation tout en
+  restant dans le bleu de la page.
+- ⚠️ **Tailles de police des fenêtres.** L'app est calibrée à 80 %
+  (`body.pg { zoom: .8 }`, ui-theme) : un « 12 px » y est rendu à moins de 10.
+  Dans une fenêtre où l'on décide d'un niveau, c'est trop petit. Les tailles
+  secondaires des **fenêtres seulement** sont remontées d'environ 1 px — pas
+  celles des listes de la page, qui garderaient leur densité.
+- **Le radar devient vivant** (`animerProfil`) : survoler une **légende** met sa
+  couche au premier plan (on estompe l'autre — le SVG n'a pas de `z-index`, et
+  réordonner les nœuds ferait clignoter) ; survoler un **rôle** allume ses axes,
+  éteint les autres et affiche ses deux niveaux ; survoler un **axe** donne le
+  nom complet, le rôle et les deux niveaux dans une bulle.
+  ⚠️ **On ne zoome pas** sur le rôle survolé : agrandir déplacerait les deux
+  polygones, et c'est justement leur superposition qu'on est venu lire.
+  ⚠️ Les noms d'activité sont longs : coupés à 16 signes, la zone sensible d'un
+  axe est un trait transparent de 26 px du centre au bord (viser une étiquette
+  de 10 px serait pénible), et le nom entier vit dans la bulle. Un libellé
+  complet gravé dans le SVG déborderait quoi qu'on fasse.
+- ⚠️ **La fenêtre « Désigner le rôle garant »** (page Liste des activités) était
+  restée à l'état d'ébauche : treize lignes de HTML avec leurs styles EN LIGNE
+  (`top:20%; left:30%`), des libellés **en dur en français** et des `alert()`
+  pour les erreurs. Elle reprend le patron de modale de la page
+  (`.modal-*-propose`), passe par le catalogue (`garant.*`, 10 clés × 2 langues)
+  et écrit ses refus DANS la fenêtre — une alerte système ferme le contexte au
+  moment précis où on a besoin de le relire pour corriger.
+  ⚠️ `.hidden` n'existait **nulle part** dans `activities_list.css` : la classe
+  ne masquait rien. Déclarée à côté de ce qui s'en sert.
 ---
 
 ## Guide utilisateur (`docs/guide.html`)

@@ -41,6 +41,19 @@
       no_gap: 'Aucun résultat en écart : le niveau requis est tenu.', dem: 'démontré', req: 'requis',
       gen: 'Génération…',
       validate_analysis: "Valider l'analyse", to_qualify: 'À qualifier',
+      qualify_lead: "Pour chaque donnée que l'activité produit, dites ce qu'elle est. Au moins une doit être un résultat.",
+      q_question: 'Cette donnée, c’est…',
+      q_dit_none: 'Choisissez une nature ci-dessus.',
+      q_dit_RESULT: "Sa tenue démontre la maîtrise de l'activité. C'est ce niveau que vous évaluerez ensuite.",
+      q_dit_MEASURE: "Elle mesure ou prouve quelque chose, mais ne démontre pas à elle seule que l'activité est tenue.",
+      q_dit_EVENT: "Elle signale un fait qui peut déclencher d'autres actions, sans prouver la maîtrise.",
+      q_dit_INFORMATION: "Elle informe, sans engager la tenue de l'activité.",
+      q_std_label: "À partir de quand ce résultat est-il tenu ?",
+      q_std_aide: "Le repère servira à juger le niveau, pas à le calculer.",
+      q_std_ia: "Proposé par l'IA à partir de l'activité — corrigez-le si besoin.",
+      q_ok_1: '1 résultat marqué : vous pourrez évaluer ce niveau.',
+      q_ok_n: '[[n]] résultats marqués : vous pourrez évaluer ces niveaux.',
+      q_reste_1: '(1 donnée reste sans nature)', q_reste_n: '([[n]] données restent sans nature)',
       setup_done: 'Activité configurée', min_perf_ph: 'Standard minimal de performance…',
       no_out: "Cette activité n'a aucune donnée de sortie à qualifier.",
       req_set: 'Niveau requis mis à jour', not_set: 'Non défini',
@@ -51,7 +64,7 @@
       evidence_ph: 'Preuve / commentaire (facultatif)', add_evidence: '+ Ajouter une preuve',
       diagnose: "Diagnostiquer l'écart",
       configuring: 'Analyse des sorties en cours…', loading: 'Chargement…',
-      need_result: "Marquez au moins une sortie comme « Résultat de l'activité » avant de valider : c'est ce niveau que vous évaluerez ensuite.",
+      need_result: "Marquez au moins une donnée comme « Résultat de l'activité » : c'est ce niveau que vous évaluerez ensuite.",
       configured_go_eval: 'Sorties qualifiées ✓ — évaluez maintenant le niveau du collaborateur pour chaque résultat, puis enregistrez.',
       req_failed: 'Action impossible (erreur réseau ou serveur).',
       forbidden: "Vous n'avez pas le droit de noter ce collaborateur.",
@@ -73,6 +86,9 @@
       p_on_1: '[[a]] activité évaluée sur [[b]]', p_on_n: '[[a]] activités évaluées sur [[b]]',
       p_basis: "Calculé sur les seules activités évaluées : une activité non évaluée n'est pas une activité ratée.",
       p_capped: 'Les [[n]] activités les plus en écart sont représentées.',
+      p_axes_0: 'aucune activité sur le graphe', p_axes_1: '1 activité sur le graphe',
+      p_axes_n: '[[n]] activités sur le graphe',
+      p_role_partiel: 'Niveau non calculable',
       p_too_few: "Trop peu d'activités évaluées pour tracer un profil.",
       p_not_plotted_1: '1 activité pas encore évaluée : absente du graphe.',
       p_not_plotted: '[[n]] activités pas encore évaluées : absentes du graphe.',
@@ -140,6 +156,19 @@
       no_gap: 'No result below the required level.', dem: 'demonstrated', req: 'required',
       gen: 'Generating…',
       validate_analysis: 'Validate analysis', to_qualify: 'To qualify',
+      qualify_lead: 'For each piece of data the activity produces, say what it is. At least one must be a result.',
+      q_question: 'This piece of data is…',
+      q_dit_none: 'Pick a nature above.',
+      q_dit_RESULT: 'Meeting it demonstrates mastery of the activity. That is the level you will assess next.',
+      q_dit_MEASURE: 'It measures or proves something, but does not on its own show the activity is carried out.',
+      q_dit_EVENT: 'It signals a fact that may trigger other actions, without proving mastery.',
+      q_dit_INFORMATION: 'It informs, without committing to the activity being carried out.',
+      q_std_label: 'From what point is this result met?',
+      q_std_aide: 'The benchmark helps judge the level; it does not compute it.',
+      q_std_ia: 'Proposed by AI from the activity — correct it if needed.',
+      q_ok_1: '1 result marked: you will be able to assess that level.',
+      q_ok_n: '[[n]] results marked: you will be able to assess those levels.',
+      q_reste_1: '(1 item still has no nature)', q_reste_n: '([[n]] items still have no nature)',
       setup_done: 'Activity configured', min_perf_ph: 'Minimum performance standard…',
       no_out: 'This activity has no output data to qualify.',
       req_set: 'Required level updated', not_set: 'Not set',
@@ -150,7 +179,7 @@
       evidence_ph: 'Evidence / comment (optional)', add_evidence: '+ Add evidence',
       diagnose: 'Diagnose the gap',
       configuring: 'Analysing outputs…', loading: 'Loading…',
-      need_result: 'Mark at least one output as “Activity result” before validating: that is the level you will evaluate next.',
+      need_result: 'Mark at least one item as “Activity result”: that is the level you will assess next.',
       configured_go_eval: 'Outputs qualified ✓ — now set the team member’s level for each result, then save.',
       req_failed: 'Action failed (network or server error).',
       forbidden: 'You are not allowed to assess this team member.',
@@ -171,6 +200,9 @@
       p_on_1: '[[a]] of [[b]] activities assessed', p_on_n: '[[a]] of [[b]] activities assessed',
       p_basis: 'Computed on assessed activities only: an unassessed activity is not a failed one.',
       p_capped: 'Showing the [[n]] activities with the widest gap.',
+      p_axes_0: 'no activity on the chart', p_axes_1: '1 activity on the chart',
+      p_axes_n: '[[n]] activities on the chart',
+      p_role_partiel: 'Level not computable',
       p_too_few: 'Too few assessed activities to draw a profile.',
       p_not_plotted_1: '1 activity not assessed yet: not plotted.',
       p_not_plotted: '[[n]] activities not assessed yet: not plotted.',
@@ -614,9 +646,12 @@
       </div>
       <div class="cv2-profil-corps">
         <div class="cv2-radar-zone">${vus.length >= 3 ? radarSVG(vus) : ''}
+          <div class="cv2-radar-bulle"></div>
           <div class="cv2-radar-leg">
-            <span><i class="cv2-leg cv2-leg--req"></i>${esc(T('p_required'))}</span>
-            <span><i class="cv2-leg cv2-leg--dem"></i>${esc(T('p_demonstrated'))}</span>
+            <button type="button" class="cv2-leg-b" data-couche="req">
+              <i class="cv2-leg cv2-leg--req"></i>${esc(T('p_required'))}</button>
+            <button type="button" class="cv2-leg-b" data-couche="dem">
+              <i class="cv2-leg cv2-leg--dem"></i>${esc(T('p_demonstrated'))}</button>
           </div>
           ${trop ? `<div class="cv2-radar-note">${esc(Tv('p_capped', { n: RADAR_MAX_AXES }))}</div>` : ''}
           ${horsGraphe ? `<div class="cv2-radar-note">${esc(Tv(
@@ -630,9 +665,86 @@
         </div>
       </div>`;
 
-    box.querySelectorAll('[data-role]').forEach(b => b.onclick = () => {
+    box.querySelectorAll('.cv2-parrole-l').forEach(b => b.onclick = () => {
       const r = d.roles.find(x => String(x.role_id) === b.dataset.role);
       if (r) ouvrirRole(r);
+    });
+    animerProfil(box, vus, d);
+  }
+
+  // ── Le profil, vivant ────────────────────────────────────────────────
+  // Trois gestes, tous réversibles et sans clic : survoler une légende met SA
+  // couche au premier plan ; survoler un rôle n'éclaire que ses activités ;
+  // survoler un axe donne son détail. Un graphe qui ne réagit pas se lit une
+  // fois puis devient un décor.
+  function animerProfil(box, axes, d) {
+    const svg = box.querySelector('.cv2-radar');
+    if (!svg) return;
+
+    box.querySelectorAll('[data-couche]').forEach(b => {
+      const dessus = () => svg.setAttribute('data-avant', b.dataset.couche);
+      const dessous = () => svg.removeAttribute('data-avant');
+      b.addEventListener('mouseenter', dessus);
+      b.addEventListener('focus', dessus);
+      b.addEventListener('mouseleave', dessous);
+      b.addEventListener('blur', dessous);
+    });
+
+    // Survoler un rôle : SES axes s'allument, les autres s'éteignent, et ses
+    // deux niveaux s'affichent. On n'agrandit pas le graphe — un zoom
+    // déplacerait les deux polygones, et c'est justement leur superposition
+    // qu'on est venu lire.
+    const bulleR = box.querySelector('.cv2-radar-bulle');
+    box.querySelectorAll('.cv2-parrole-l').forEach(b => {
+      const r = (d.roles || []).find(x => String(x.role_id) === b.dataset.role);
+      const allume = () => {
+        let vus = 0;
+        svg.querySelectorAll('[data-role]').forEach(el => {
+          const sien = el.dataset.role === b.dataset.role;
+          el.classList.toggle('est-eteint', !sien);
+          el.classList.toggle('est-vu', sien);
+          if (sien && el.classList.contains('cv2-r-pt')) vus += 1;
+        });
+        if (!r || !bulleR) return;
+        // Un rôle dont rien n'est tracé doit le DIRE : sinon on survole et il
+        // ne se passe rien, ce qui ressemble à une panne.
+        const niveaux = estNul(r.level)
+          ? `<span class="vide">${esc(T('p_role_partiel'))}</span>`
+          : `<span class="req">${esc(T('p_required'))} ${estNul(r.required_level) ? '—' : r.required_level}</span>
+             <span class="dem">${esc(T('p_demonstrated'))} ${r.level}</span>`;
+        bulleR.innerHTML = `<div class="t">${esc(r.role_name)}</div>
+          <div class="r">${vus ? Tv(vus === 1 ? 'p_axes_1' : 'p_axes_n', { n: vus })
+            : esc(T('p_axes_0'))}${estNul(r.couverture) ? '' : ' · ' + r.couverture + ' %'}</div>
+          <div class="n">${niveaux}</div>`;
+        bulleR.classList.add('est-la');
+      };
+      const eteint = () => {
+        svg.querySelectorAll('.est-eteint, .est-vu').forEach(el =>
+          el.classList.remove('est-eteint', 'est-vu'));
+        if (bulleR) bulleR.classList.remove('est-la');
+      };
+      b.addEventListener('mouseenter', allume);
+      b.addEventListener('focus', allume);
+      b.addEventListener('mouseleave', eteint);
+      b.addEventListener('blur', eteint);
+    });
+
+    const bulle = box.querySelector('.cv2-radar-bulle');
+    svg.querySelectorAll('[data-axe]').forEach(el => {
+      el.addEventListener('mouseenter', () => {
+        const a = axes[+el.dataset.axe]; if (!a || !bulle) return;
+        svg.querySelectorAll('.est-eteint').forEach(x => x.classList.remove('est-eteint'));
+        svg.querySelectorAll(`[data-axe="${el.dataset.axe}"]`).forEach(x => x.classList.add('est-vu'));
+        bulle.innerHTML = `<div class="t">${esc(a.activity_name)}</div>
+          <div class="r">${esc(a.role_name)}</div>
+          <div class="n"><span class="req">${esc(T('p_required'))} ${a.required_level}</span>
+            <span class="dem">${esc(T('p_demonstrated'))} ${a.demonstrated_level}</span></div>`;
+        bulle.classList.add('est-la');
+      });
+      el.addEventListener('mouseleave', () => {
+        svg.querySelectorAll('.est-vu').forEach(x => x.classList.remove('est-vu'));
+        if (bulle) bulle.classList.remove('est-la');
+      });
     });
   }
 
@@ -680,15 +792,23 @@
     const points = axes.map((a, i) => {
       const [x, y] = pt(i, a.demonstrated_level);
       const sous = a.demonstrated_level < a.required_level ? ' cv2-r-pt--sous' : '';
-      return `<circle class="cv2-r-pt${sous}" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="3.8"></circle>`;
+      return `<circle class="cv2-r-pt${sous}" data-axe="${i}" data-role="${a.role_id}"
+          cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="3.8"></circle>`;
     }).join('');
 
+    // ⚠️ Les noms d'activite sont longs et se chevauchent des qu'on depasse
+    // une poignee d'axes. On coupe court (16 signes) et on rend l'axe SURVOLABLE :
+    // le nom entier, son role et ses deux niveaux s'affichent dans une bulle.
+    // Un libelle complet grave dans le SVG deborderait quoi qu'on fasse.
     const etiquettes = axes.map((a, i) => {
-      const [x, y] = pt(i, MAX + 0.5);
+      const [x, y] = pt(i, MAX + 0.52);
       const ancre = Math.abs(x - CX) < 14 ? 'middle' : (x > CX ? 'start' : 'end');
-      const nom = a.activity_name.length > 22 ? a.activity_name.slice(0, 21) + '…' : a.activity_name;
-      return `<text class="cv2-r-lbl" x="${x.toFixed(1)}" y="${(y + 4).toFixed(1)}" text-anchor="${ancre}">
-          <title>${esc(a.activity_name)}</title>${esc(nom)}</text>`;
+      const nom = a.activity_name.length > 16 ? a.activity_name.slice(0, 15) + '…' : a.activity_name;
+      const [zx, zy] = pt(i, MAX);
+      return `<g class="cv2-r-axe-g" data-axe="${i}" data-role="${a.role_id}">
+          <line class="cv2-r-zone" x1="${CX}" y1="${CY}" x2="${zx.toFixed(1)}" y2="${zy.toFixed(1)}"></line>
+          <text class="cv2-r-lbl" x="${x.toFixed(1)}" y="${(y + 4).toFixed(1)}" text-anchor="${ancre}">${esc(nom)}</text>
+        </g>`;
     }).join('');
 
     return `<svg class="cv2-radar" viewBox="14 6 492 370" role="img"
@@ -1120,17 +1240,33 @@
     return d;
   }
 
+  // ══════════════════════════════════════════════════════════════════
+  //  QUALIFIER LES SORTIES
+  //  ⚠️ Cet écran ne disait pas ce qu'il demandait. Un menu déroulant « À
+  //  qualifier » posé à droite d'un nom, et parfois un champ de saisie
+  //  pré-rempli d'un « 100 % » que rien n'expliquait. On ne voyait pas qu'il y
+  //  avait un choix à faire, et « Valider » refusait sans qu'on sache pourquoi.
+  //
+  //  Trois corrections, toutes de même nature — rendre la décision VISIBLE :
+  //   1. les quatre natures sont des boutons, pas une liste cachée ;
+  //   2. celle qu'on choisit s'explique juste en dessous ;
+  //   3. le champ du standard porte son libellé, et dit d'où vient sa valeur.
+  //  Et « Valider » ne peut plus refuser : il reste éteint tant que la
+  //  condition n'est pas remplie, en disant laquelle.
+  // ══════════════════════════════════════════════════════════════════
   async function showQualify(btn) {
     if (btn) { btn.disabled = true; btn.textContent = T('gen'); }
     const aid = state.activity.activity_id;
     showBusy(T('configuring'));
     setFooter([]);
-    const [outs, ana] = await Promise.all([api(`/qualify/outputs/${aid}`), api(`/qualify/analyze/${aid}`, { method: 'POST' })]);
-    const body = $('#cv2-drawer-body'); body.innerHTML = '';
+    const [outs, ana] = await Promise.all([
+      api(`/qualify/outputs/${aid}`), api(`/qualify/analyze/${aid}`, { method: 'POST' })]);
     // La source dit si une IA a réellement répondu. On ne présente jamais un
     // repli comme une analyse.
     state.iaDispo = !(ana && ana.source && ana.source !== 'AI');
-    const b = bloc(1, T('qualify_title'), null);
+
+    const body = $('#cv2-drawer-body'); body.innerHTML = '';
+    const b = bloc(1, T('qualify_title'), T('qualify_lead'));
     body.appendChild(b);
     b.appendChild(panneauIA(false));
 
@@ -1141,58 +1277,113 @@
       setFooter([{ cls: 'btn-quiet', label: T('back'), on: showEvaluation }]);
       return;
     }
-    if (ana && ana.warning) {
-      b.insertAdjacentHTML('beforeend', `<div class="cv2-warn">${esc(ana.warning)}</div>`);
-    }
+
     const props = {}; (ana.outputs || []).forEach(p => props[p.data_id] = p);
-    outputs.forEach(o => {
-      const p = props[o.data_id] || {}, nature = o.nature || p.suggested_nature || '';
-      const row = document.createElement('div'); row.className = 'cv2-qz'; row.dataset.dataId = o.data_id;
-      const opts = `<option value="">${esc(T('to_qualify'))}</option>` +
-        Object.keys(labels).map(k => `<option value="${esc(k)}" ${nature === k ? 'selected' : ''}>${esc(labels[k])}</option>`).join('');
-      const mv = o.minimum_performance_text || p.suggested_minimum_performance || '';
-      // D'où vient la proposition, et à quel point elle est sûre : sans ça on
-      // valide une suggestion sans savoir que c'en est une.
-      let marque = '';
-      if (o.nature && o.qualification_source === 'MANUAL') {
-        marque = `<span class="cv2-prop cv2-prop--touche">${esc(T('ia_touched'))}</span>`;
-      } else if (p.suggested_nature) {
-        const conf = p.confidence === 'low' ? 'low' : (p.confidence === 'medium' ? 'medium' : 'high');
-        marque = `<span class="cv2-prop${conf === 'high' ? '' : ' cv2-prop--low'}">${esc(T('ia_conf_' + conf))}</span>`;
-      }
-      row.innerHTML = `<div style="flex:1">
-          <div class="qn">${esc(o.name)}</div>
-          ${p.justification ? `<div class="qj">${esc(p.justification)}</div>` : ''}
-          ${marque}
-          <input class="cv2-minperf ${nature === 'RESULT' ? '' : 'hidden'}" placeholder="${esc(T('min_perf_ph'))}" value="${esc(mv)}">
-        </div>
-        <select class="cv2-natsel">${opts}</select>`;
-      const sel = row.querySelector('.cv2-natsel'), mp = row.querySelector('.cv2-minperf');
-      sel.onchange = () => mp.classList.toggle('hidden', sel.value !== 'RESULT');
-      b.appendChild(row);
-    });
+    outputs.forEach(o => b.appendChild(carteSortie(o, props[o.data_id] || {}, labels)));
+
+    // Le compteur vit SOUS les sorties, contre le pied : c'est là qu'on regarde
+    // avant de valider, et il dit ce qui manque plutôt que de le refuser après.
+    const compteur = document.createElement('div');
+    compteur.className = 'cv2-qcompte'; compteur.id = 'cv2-qcompte';
+    b.appendChild(compteur);
+
     setFooter([{ cls: 'btn-quiet', label: T('back'), on: showEvaluation },
-               { cls: 'btn-primary', label: T('validate_analysis'), on: () => saveQualify() }]);
+               { cls: 'btn-primary', label: T('validate_analysis'), on: saveQualify, id: 'cv2-q-ok' }]);
+    majCompteQualif();
+  }
+
+  function carteSortie(o, p, labels) {
+    const nature = o.nature || p.suggested_nature || '';
+    const el = document.createElement('div');
+    el.className = 'cv2-qz'; el.dataset.dataId = o.data_id; el.dataset.nature = nature;
+
+    // D'où vient la proposition, et à quel point elle est sûre : sans ça on
+    // valide une suggestion sans savoir que c'en est une.
+    let marque = '';
+    if (o.nature && o.qualification_source === 'MANUAL') {
+      marque = `<span class="cv2-prop cv2-prop--touche">${esc(T('ia_touched'))}</span>`;
+    } else if (p.suggested_nature) {
+      const conf = p.confidence === 'low' ? 'low' : (p.confidence === 'medium' ? 'medium' : 'high');
+      marque = `<span class="cv2-prop${conf === 'high' ? '' : ' cv2-prop--low'}">${esc(T('ia_conf_' + conf))}</span>`;
+    }
+
+    const choix = ['RESULT', 'MEASURE', 'EVENT', 'INFORMATION']
+      .filter(k => labels[k])
+      .map(k => `<button type="button" class="cv2-nature${nature === k ? ' sel' : ''}${k === 'RESULT' ? ' cv2-nature--cle' : ''}"
+           data-nature="${k}">${esc(labels[k])}</button>`).join('');
+
+    const mv = o.minimum_performance_text || p.suggested_minimum_performance || '';
+    const venuDeLIA = !o.minimum_performance_text && !!p.suggested_minimum_performance;
+
+    el.innerHTML = `
+      <div class="cv2-qz-tete">
+        <div class="qn">${esc(o.name)}</div>
+        ${marque}
+      </div>
+      ${p.justification ? `<div class="qj">${esc(p.justification)}</div>` : ''}
+      <div class="cv2-qq">${esc(T('q_question'))}</div>
+      <div class="cv2-natures">${choix}</div>
+      <div class="cv2-nature-dit"></div>
+      <div class="cv2-qstd${nature === 'RESULT' ? '' : ' hidden'}">
+        <label class="cv2-qstd-lbl">${esc(T('q_std_label'))}</label>
+        <input class="cv2-minperf" placeholder="${esc(T('min_perf_ph'))}" value="${esc(mv)}">
+        <div class="cv2-qstd-aide">${esc(venuDeLIA ? T('q_std_ia') : T('q_std_aide'))}</div>
+      </div>`;
+
+    const dit = el.querySelector('.cv2-nature-dit');
+    const zoneStd = el.querySelector('.cv2-qstd');
+    const ecrire = () => {
+      const n = el.dataset.nature;
+      dit.textContent = n ? T('q_dit_' + n) : T('q_dit_none');
+      dit.classList.toggle('est-resultat', n === 'RESULT');
+      zoneStd.classList.toggle('hidden', n !== 'RESULT');
+      el.classList.toggle('est-resultat', n === 'RESULT');
+    };
+    ecrire();
+
+    el.querySelectorAll('[data-nature]').forEach(b => b.onclick = () => {
+      // Recliquer la nature déjà choisie la retire : sinon on ne peut plus
+      // revenir à « pas encore décidé » une fois qu'on a touché un bouton.
+      const meme = el.dataset.nature === b.dataset.nature;
+      el.querySelectorAll('[data-nature]').forEach(x => x.classList.remove('sel'));
+      el.dataset.nature = meme ? '' : b.dataset.nature;
+      if (!meme) b.classList.add('sel');
+      ecrire();
+      majCompteQualif();
+    });
+    return el;
+  }
+
+  // Ce qui manque, dit AVANT le clic. « Valider » refusait après coup, avec un
+  // message qui s'affichait tout en haut de la fenêtre — loin du bouton, loin
+  // de la ligne à corriger.
+  function majCompteQualif() {
+    const cartes = [...document.querySelectorAll('#cv2-drawer-body .cv2-qz')];
+    const resultats = cartes.filter(c => c.dataset.nature === 'RESULT').length;
+    const restants = cartes.filter(c => !c.dataset.nature).length;
+    const box = $('#cv2-qcompte'); if (!box) return;
+    box.className = 'cv2-qcompte' + (resultats ? ' est-ok' : ' est-manque');
+    box.innerHTML = resultats
+      ? `<i class="fa-solid fa-circle-check"></i> ${esc(Tv(resultats === 1 ? 'q_ok_1' : 'q_ok_n',
+          { n: resultats }))}${restants ? ` <span class="reste">${esc(Tv(
+          restants === 1 ? 'q_reste_1' : 'q_reste_n', { n: restants }))}</span>` : ''}`
+      : `<i class="fa-solid fa-circle-info"></i> ${esc(T('need_result'))}`;
+    const ok = $('#cv2-q-ok');
+    if (ok) { ok.disabled = !resultats; ok.title = resultats ? '' : T('need_result'); }
   }
 
   async function saveQualify() {
     const aid = state.activity.activity_id;
-    const rows = [...document.querySelectorAll('#cv2-drawer-body .cv2-qz')];
-    const outputs = rows.map(r => {
-      const sel = r.querySelector('.cv2-natsel'), mp = r.querySelector('.cv2-minperf');
-      return { data_id: +r.dataset.dataId, nature: sel.value || null,
+    const cartes = [...document.querySelectorAll('#cv2-drawer-body .cv2-qz')];
+    const outputs = cartes.map(c => {
+      const mp = c.querySelector('.cv2-minperf');
+      return { data_id: +c.dataset.dataId, nature: c.dataset.nature || null,
                minimum_performance_text: mp ? mp.value : '', source: 'MANUAL' };
     });
-    if (!outputs.some(o => o.nature === 'RESULT')) {
-      let w = $('#cv2-need-result');
-      if (!w) {
-        w = document.createElement('div'); w.id = 'cv2-need-result'; w.className = 'cv2-warn';
-        const panel = $('#cv2-drawer-body .cv2-bloc'); (panel || $('#cv2-drawer-body')).prepend(w);
-      }
-      w.textContent = T('need_result'); w.scrollIntoView({ block: 'nearest' });
-      return;
-    }
+    if (!outputs.some(o => o.nature === 'RESULT')) { majCompteQualif(); return; }
+
     showBusy(T('configuring'));
+    setFooter([]);
     const save = await api(`/qualify/save/${aid}`, { method: 'POST', body: JSON.stringify({ outputs }) });
     if (save.__error) { return showQualify(); }
     const comp = await api(`/competence/generate/${aid}`, { method: 'POST' });

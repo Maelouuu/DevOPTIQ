@@ -52,6 +52,16 @@ TRANSLATIONS = {
 
         # ── Boutons génériques ───────────────────────────────────────────────
         'btn.save':       'Enregistrer',
+        'garant.title':            'Désigner le rôle garant',
+        'garant.intro':            "Le garant est le rôle responsable de la tenue de cette activité. Choisissez-en un dans la liste, ou saisissez-en un nouveau : il sera créé.",
+        'garant.existing':         'Un rôle existant',
+        'garant.or':               'ou',
+        'garant.new':              'Un nouveau rôle',
+        'garant.new_placeholder':  'Ex. Chef de projet',
+        'garant.need':             'Choisissez un rôle dans la liste, ou saisissez-en un nouveau.',
+        'garant.load_failed':      'Impossible de charger la liste des rôles.',
+        'garant.save_failed':      "Impossible d'enregistrer le garant.",
+        'garant.none':             'Aucun rôle enregistré pour le moment.',
         'btn.cancel':     'Annuler',
         'btn.delete':     'Supprimer',
         'btn.add':        'Ajouter',
@@ -1419,6 +1429,16 @@ TRANSLATIONS = {
 
         # ── Boutons génériques ───────────────────────────────────────────────
         'btn.save':       'Save',
+        'garant.title':            'Set the accountable role',
+        'garant.intro':            'The accountable role is the one responsible for carrying out this activity. Pick one from the list, or type a new one: it will be created.',
+        'garant.existing':         'An existing role',
+        'garant.or':               'or',
+        'garant.new':              'A new role',
+        'garant.new_placeholder':  'e.g. Project manager',
+        'garant.need':             'Pick a role from the list, or type a new one.',
+        'garant.load_failed':      'Could not load the list of roles.',
+        'garant.save_failed':      'Could not save the accountable role.',
+        'garant.none':             'No role recorded yet.',
         'btn.cancel':     'Cancel',
         'btn.delete':     'Delete',
         'btn.add':        'Add',
