@@ -1335,3 +1335,105 @@ header { position: sticky; top: 0; z-index: 30; }
 /* Un axe mis en avant par le survol d'un rôle : il s'épaissit, il ne bouge pas. */
 .cv2-r-pt.est-vu { r: 6; stroke-width: 2; }
 .cv2-radar-bulle .vide { font-style: italic; opacity: .75; font-weight: 600; }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   LE CHOIX D'UNE NATURE — une question, puis un classement
+   ⚠️ « À quoi servent les trois autres boutons ? » La question était juste :
+   quatre boutons de MÊME RANG, dont un seul ouvrait la suite et débloquait
+   l'enregistrement. Or la décision est binaire — est-ce un résultat ? — et les
+   trois autres ne font que RANGER ce qui n'en est pas. La hiérarchie visuelle
+   dit maintenant la hiérarchie réelle.
+   ══════════════════════════════════════════════════════════════════════════ */
+.cv2-choix { margin-top: 4px; }
+.cv2-oui {
+  display: flex; align-items: flex-start; gap: 11px; width: 100%;
+  padding: 12px 14px; cursor: pointer; text-align: left; font-family: inherit;
+  background: var(--card); border: 1.5px solid var(--pg-accent-border);
+  border-radius: 12px; transition: .14s;
+}
+.cv2-oui:hover { border-color: var(--pg-accent); background: var(--pg-accent-softer); }
+.cv2-oui i { margin-top: 1px; font-size: 17px; color: var(--pg-accent-border); transition: color .14s; }
+.cv2-oui:hover i { color: var(--pg-accent); }
+.cv2-oui span { display: block; min-width: 0; }
+.cv2-oui b { display: block; font-size: 14px; font-weight: 700; color: var(--ink); }
+.cv2-oui small { display: block; margin-top: 3px; font-size: 12.5px; line-height: 1.45; color: var(--muted); }
+.cv2-oui.sel {
+  background: linear-gradient(135deg, var(--pg-accent), var(--pg-accent-deep));
+  border-color: transparent; box-shadow: 0 8px 20px -8px var(--pg-accent-glow);
+}
+.cv2-oui.sel i { color: #fff; }
+.cv2-oui.sel b { color: #fff; }
+.cv2-oui.sel small { color: rgba(255, 255, 255, .86); }
+
+/* Le second rang : plus petit, plus sobre — on y range, on n'y décide pas. */
+.cv2-sinon { margin-top: 11px; padding-top: 11px; border-top: 1px dashed var(--border); }
+.cv2-sinon-q {
+  margin-bottom: 7px; font-size: 12px; font-weight: 700; color: var(--muted);
+  text-transform: uppercase; letter-spacing: .04em;
+}
+.cv2-sinon-d { margin-top: 7px; font-size: 12px; line-height: 1.45; font-style: italic; color: var(--faint); }
+.cv2-nature { padding: 7px 12px; font-size: 12.5px; }
+.cv2-nature.sel {
+  background: var(--ink-2); border-color: transparent; color: #fff; box-shadow: none;
+}
+/* Une sortie rangée ailleurs que dans « résultat » reste discrète : elle est
+   traitée, mais ce n'est pas elle qu'on viendra évaluer. */
+.cv2-qz.est-range { border-left-color: var(--border-strong); opacity: .88; }
+
+.cv2-ia--bilan {
+  background: linear-gradient(135deg, #f0fdf4, #ecfdf5);
+  border-color: #bbf7d0;
+}
+.cv2-ia--bilan .cv2-ia-ico { background: linear-gradient(135deg, #22c55e, #15803d); }
+.cv2-ia-w { margin-top: 6px; font-style: italic; }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   LA TECHNICITÉ — toute la section en bleu
+   ⚠️ Seul l'en-tête était bleu : ce qui suivait avait l'air EXCLU de la
+   section. Le bloc entier porte la couleur, et son contenu s'y adapte — sinon
+   on relit un formulaire blanc posé sous un bandeau.
+   ══════════════════════════════════════════════════════════════════════════ */
+.cv2-bloc--tech {
+  padding: 15px 16px 16px; border-radius: 14px;
+  background: linear-gradient(140deg, var(--pg-accent), var(--pg-accent-deep));
+  box-shadow: 0 12px 28px -14px var(--pg-accent-glow);
+}
+.cv2-bloc--tech + .cv2-bloc, .cv2-bloc + .cv2-bloc--tech { border-top: none; }
+.cv2-bloc--tech .cv2-bloc-tete { margin: 0 0 12px; padding: 0; background: none; }
+.cv2-bloc--tech .cv2-bloc-num { background: rgba(255, 255, 255, .22); }
+.cv2-bloc--tech .cv2-bloc-h { color: #fff; }
+
+.cv2-bloc--tech .cv2-domlist {
+  padding: 3px 13px; border-radius: 11px; background: rgba(255, 255, 255, .13);
+}
+.cv2-bloc--tech .cv2-domrow { border-bottom-color: rgba(255, 255, 255, .18); }
+.cv2-bloc--tech .cv2-domrow .dn { color: #fff; }
+.cv2-bloc--tech .cv2-domrow .df .fl { color: rgba(255, 255, 255, .72); }
+.cv2-bloc--tech .cv2-emptydom { padding: 11px 0; color: rgba(255, 255, 255, .8); font-style: italic; }
+/* Les contrôles restent blancs : un champ translucide sur fond bleu ne se lit
+   plus dès qu'on y saisit quelque chose. */
+.cv2-bloc--tech .cv2-domsel, .cv2-bloc--tech .cv2-domadd input {
+  background: #fff; border-color: rgba(255, 255, 255, .4); color: var(--ink);
+}
+.cv2-bloc--tech .cv2-domsel:focus, .cv2-bloc--tech .cv2-domadd input:focus {
+  outline: none; border-color: #fff; box-shadow: 0 0 0 3px rgba(255, 255, 255, .28);
+}
+.cv2-bloc--tech .cv2-domadd { margin-top: 13px; }
+.cv2-bloc--tech .cv2-domadd .btn-ghost {
+  background: rgba(255, 255, 255, .18); border-color: rgba(255, 255, 255, .34); color: #fff;
+}
+.cv2-bloc--tech .cv2-domadd .btn-ghost:hover { background: rgba(255, 255, 255, .3); }
+.cv2-bloc--tech .cv2-domadd .btn-primary {
+  background: #fff; color: var(--pg-accent-deep); box-shadow: none;
+}
+.cv2-bloc--tech .cv2-domadd .btn-primary:hover { background: rgba(255, 255, 255, .88); }
+/* Les pastilles d'écart gardent leur sens : elles ne sont pas décoratives. */
+.cv2-bloc--tech .chip { box-shadow: 0 0 0 1px rgba(255, 255, 255, .25); }
+
+/* La bulle est POSITIONNÉE en JS près du point survolé : plus de centrage fixe,
+   sinon on survole un point à gauche et l'explication surgit en haut au centre,
+   sans rien qui relie l'une à l'autre. */
+.cv2-radar-bulle {
+  left: 0; top: 0; transform: translateY(-4px);
+}
+.cv2-radar-bulle.est-la { transform: translateY(0); }

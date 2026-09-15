@@ -42,12 +42,16 @@
       gen: 'Génération…',
       validate_analysis: "Valider l'analyse", to_qualify: 'À qualifier',
       qualify_lead: "Pour chaque donnée que l'activité produit, dites ce qu'elle est. Au moins une doit être un résultat.",
-      q_question: 'Cette donnée, c’est…',
-      q_dit_none: 'Choisissez une nature ci-dessus.',
-      q_dit_RESULT: "Sa tenue démontre la maîtrise de l'activité. C'est ce niveau que vous évaluerez ensuite.",
-      q_dit_MEASURE: "Elle mesure ou prouve quelque chose, mais ne démontre pas à elle seule que l'activité est tenue.",
-      q_dit_EVENT: "Elle signale un fait qui peut déclencher d'autres actions, sans prouver la maîtrise.",
-      q_dit_INFORMATION: "Elle informe, sans engager la tenue de l'activité.",
+      q_question: 'Cette donnée démontre-t-elle la tenue de l’activité ?',
+      q_oui: "Oui — c'est un résultat de l'activité",
+      q_oui_d: "Sa tenue démontre la maîtrise. C'est ce niveau que vous évaluerez ensuite.",
+      q_sinon: 'Sinon, rangez-la :',
+      q_sinon_d: "Ces trois natures sont enregistrées avec l'activité, mais ne donnent pas lieu à évaluation.",
+      ia_done_t: "Ce que l'IA vient de faire",
+      ia_done_1: "Elle a examiné 1 donnée de sortie et propose une nature, dont [[r]] résultat.",
+      ia_done_n: "Elle a examiné [[n]] données de sortie et propose une nature pour chacune, dont [[r]] [[m]].",
+      ia_done_r1: "résultat", ia_done_rn: "résultats",
+      ia_done_w: "Rien n'est enregistré : corrigez ce qui vous paraît faux, puis validez.",
       q_std_label: "À partir de quand ce résultat est-il tenu ?",
       q_std_aide: "Le repère servira à juger le niveau, pas à le calculer.",
       q_std_ia: "Proposé par l'IA à partir de l'activité — corrigez-le si besoin.",
@@ -102,9 +106,7 @@
       acc_haut_mine: 'Vous vous situez au-dessus', acc_bas_mine: 'Vous vous situez en dessous',
       // Blocs
       bloc_cible: 'Le niveau attendu', bloc_cible_d: 'Ce que le rôle exige sur cette activité. Cliquez un palier pour le fixer.',
-      bloc_cible_ro: "Ce que le rôle exige sur cette activité. Seul votre développeur de compétences peut le changer.",
       bloc_eval: "L'évaluation", bloc_tech: 'La technicité',
-      bloc_tech_d: "Axe SÉPARÉ de la maîtrise : la même activité peut s'exercer dans des contextes techniques différents (ex. Plastique / Métal).",
       // IA
       ia_qualify_t: "Ce que l'IA fait ici",
       ia_qualify_d: "Elle lit l'activité — ses tâches, ses connexions sortantes, ses destinataires — et propose, pour chaque donnée produite, sa nature : est-ce un RÉSULTAT (ce dont la tenue démontre la maîtrise), une mesure, un événement, ou une simple information ?",
@@ -157,12 +159,16 @@
       gen: 'Generating…',
       validate_analysis: 'Validate analysis', to_qualify: 'To qualify',
       qualify_lead: 'For each piece of data the activity produces, say what it is. At least one must be a result.',
-      q_question: 'This piece of data is…',
-      q_dit_none: 'Pick a nature above.',
-      q_dit_RESULT: 'Meeting it demonstrates mastery of the activity. That is the level you will assess next.',
-      q_dit_MEASURE: 'It measures or proves something, but does not on its own show the activity is carried out.',
-      q_dit_EVENT: 'It signals a fact that may trigger other actions, without proving mastery.',
-      q_dit_INFORMATION: 'It informs, without committing to the activity being carried out.',
+      q_question: 'Does this data demonstrate that the activity is carried out?',
+      q_oui: 'Yes — this is an activity result',
+      q_oui_d: 'Meeting it demonstrates mastery. That is the level you will assess next.',
+      q_sinon: 'Otherwise, file it as:',
+      q_sinon_d: 'These three natures are recorded with the activity, but are never assessed.',
+      ia_done_t: 'What the AI just did',
+      ia_done_1: 'It examined 1 output and proposes a nature, including [[r]] result.',
+      ia_done_n: 'It examined [[n]] outputs and proposes a nature for each, including [[r]] [[m]].',
+      ia_done_r1: 'result', ia_done_rn: 'results',
+      ia_done_w: 'Nothing is saved: correct anything that looks wrong, then validate.',
       q_std_label: 'From what point is this result met?',
       q_std_aide: 'The benchmark helps judge the level; it does not compute it.',
       q_std_ia: 'Proposed by AI from the activity — correct it if needed.',
@@ -214,9 +220,7 @@
       acc_ok: 'Same reading', acc_haut: 'Rates themselves higher', acc_bas: 'Rates themselves lower',
       acc_haut_mine: 'You rate yourself higher', acc_bas_mine: 'You rate yourself lower',
       bloc_cible: 'The expected level', bloc_cible_d: 'What the role requires on this activity. Click a step to set it.',
-      bloc_cible_ro: 'What the role requires on this activity. Only your competency developer can change it.',
       bloc_eval: 'The assessment', bloc_tech: 'Technicity',
-      bloc_tech_d: 'A SEPARATE axis from mastery: the same activity can be performed in different technical contexts (e.g. Plastic / Metal).',
       ia_qualify_t: 'What the AI does here',
       ia_qualify_d: 'It reads the activity — its tasks, outgoing connections and recipients — and proposes, for each piece of data produced, its nature: is it a RESULT (what demonstrates mastery when met), a measure, an event, or plain information?',
       ia_qualify_w: 'Nothing is saved until you validate, and every proposal stays editable.',
@@ -716,6 +720,9 @@
           <div class="r">${vus ? Tv(vus === 1 ? 'p_axes_1' : 'p_axes_n', { n: vus })
             : esc(T('p_axes_0'))}${estNul(r.couverture) ? '' : ' · ' + r.couverture + ' %'}</div>
           <div class="n">${niveaux}</div>`;
+        // Un rôle parle de l'ENSEMBLE du graphe : sa bulle se pose au centre,
+        // pas sur un point en particulier.
+        poserBulle(bulleR, box, null);
         bulleR.classList.add('est-la');
       };
       const eteint = () => {
@@ -739,6 +746,10 @@
           <div class="r">${esc(a.role_name)}</div>
           <div class="n"><span class="req">${esc(T('p_required'))} ${a.required_level}</span>
             <span class="dem">${esc(T('p_demonstrated'))} ${a.demonstrated_level}</span></div>`;
+        // ⚠️ Elle se posait TOUJOURS au même endroit : on survolait un point à
+        // gauche et l'explication apparaissait en haut au centre, sans rien qui
+        // relie l'une à l'autre. Elle suit désormais le point survolé.
+        poserBulle(bulle, box, el);
         bulle.classList.add('est-la');
       });
       el.addEventListener('mouseleave', () => {
@@ -762,6 +773,33 @@
         <span class="jauge cv2-jb--${teinte}"><i style="width:${estNul(c) ? 0 : Math.min(100, c)}%"></i></span>
         <span class="pc">${estNul(c) ? '—' : c + ' %'}</span>
       </button>`;
+  }
+
+  // Poser la bulle près de l'élément survolé, sans sortir du cadre. Les
+  // coordonnées d'un nœud SVG sont dans le repère du VIEWBOX : on passe par
+  // `getBoundingClientRect`, qui rend des pixels d'écran, seuls comparables à
+  // ceux de la zone.
+  function poserBulle(bulle, zone, el) {
+    const z = zone.getBoundingClientRect();
+    bulle.style.visibility = 'hidden';
+    bulle.classList.add('est-la');
+    const b = bulle.getBoundingClientRect();
+    bulle.classList.remove('est-la');
+    bulle.style.visibility = '';
+
+    let x, y;
+    if (el) {
+      const r = el.getBoundingClientRect();
+      x = r.left + r.width / 2 - z.left - b.width / 2;
+      y = r.top - z.top - b.height - 10;
+      // Trop haut pour tenir au-dessus : on passe dessous le point.
+      if (y < 2) y = r.bottom - z.top + 10;
+    } else {
+      x = z.width / 2 - b.width / 2;
+      y = 6;
+    }
+    bulle.style.left = Math.max(4, Math.min(x, z.width - b.width - 4)) + 'px';
+    bulle.style.top = Math.max(2, Math.min(y, z.height - b.height - 2)) + 'px';
   }
 
   // Le radar. Rayon = niveau 0..4 ; deux polygones, le requis en trait plein
@@ -1144,7 +1182,9 @@
 
   // ══ Technicité — axe SÉPARÉ de la maîtrise (CDC 4) ═════════════════
   function blocTechnicite() {
-    const b = bloc(3, T('bloc_tech'), T('bloc_tech_d'), 'tech');
+    // Plus de texte d'explication : il disait ce que le bandeau et les deux
+    // colonnes « Requis / Démontré » montrent déjà.
+    const b = bloc(3, T('bloc_tech'), null, 'tech');
     const zone = document.createElement('div');
     zone.innerHTML = `<div class="cv2-domlist"></div><div class="cv2-domadd"></div>`;
     b.appendChild(zone);
@@ -1229,14 +1269,30 @@
   // ══ Ce que l'IA fait ═══════════════════════════════════════════════
   // ⚠️ On lançait une analyse sans jamais dire ce qu'elle allait faire ni ce
   // qu'elle avait fait. Une proposition de la machine s'annonce et se justifie.
-  function panneauIA(avant) {
+  // ⚠️ Le même texte restait affiché APRÈS l'analyse : « ce que l'IA fait ici »
+  // décrit une action déjà faite, et on le relit en cherchant ce qu'il reste à
+  // comprendre. Avant, le panneau ANNONCE ; après, il REND COMPTE — combien de
+  // propositions, combien de résultats, et que rien n'est encore enregistré.
+  function panneauIA(avant, bilan) {
     const off = state.iaDispo === false;
     const d = document.createElement('div');
-    d.className = 'cv2-ia' + (off ? ' cv2-ia--off' : '');
-    d.innerHTML = `<span class="cv2-ia-ico"><i class="fa-solid fa-wand-magic-sparkles"></i></span>
-      <div><div class="cv2-ia-t">${esc(off ? T('ia_off_t') : T('ia_qualify_t'))}</div>
-      <div class="cv2-ia-d">${esc(off ? T('ia_off_d') : T('ia_qualify_d'))}
-      ${off || !avant ? '' : `<div style="margin-top:6px;font-style:italic">${esc(T('ia_qualify_w'))}</div>`}</div></div>`;
+    d.className = 'cv2-ia' + (off ? ' cv2-ia--off' : '') + (avant ? '' : ' cv2-ia--bilan');
+    let titre, corps;
+    if (off) {
+      titre = T('ia_off_t'); corps = esc(T('ia_off_d'));
+    } else if (avant) {
+      titre = T('ia_qualify_t');
+      corps = esc(T('ia_qualify_d')) +
+        `<div class="cv2-ia-w">${esc(T('ia_qualify_w'))}</div>`;
+    } else {
+      titre = T('ia_done_t');
+      corps = esc(Tv(bilan.n === 1 ? 'ia_done_1' : 'ia_done_n',
+                     { n: bilan.n, r: bilan.resultats,
+                       m: T(bilan.resultats === 1 ? 'ia_done_r1' : 'ia_done_rn') })) +
+        `<div class="cv2-ia-w">${esc(T('ia_done_w'))}</div>`;
+    }
+    d.innerHTML = `<span class="cv2-ia-ico"><i class="fa-solid ${avant || off ? 'fa-wand-magic-sparkles' : 'fa-clipboard-check'}"></i></span>
+      <div><div class="cv2-ia-t">${esc(titre)}</div><div class="cv2-ia-d">${corps}</div></div>`;
     return d;
   }
 
@@ -1268,9 +1324,13 @@
     const body = $('#cv2-drawer-body'); body.innerHTML = '';
     const b = bloc(1, T('qualify_title'), T('qualify_lead'));
     body.appendChild(b);
-    b.appendChild(panneauIA(false));
 
     const outputs = outs.outputs || [], labels = outs.labels || {};
+    const propositions = (ana.outputs || []).filter(x => x.suggested_nature);
+    b.appendChild(panneauIA(false, {
+      n: propositions.length,
+      resultats: propositions.filter(x => x.suggested_nature === 'RESULT').length,
+    }));
     if (!outputs.length) {
       b.insertAdjacentHTML('beforeend',
         `<div class="cv2-warn">${esc((ana && ana.warning) || T('no_out'))}</div>`);
@@ -1307,10 +1367,20 @@
       marque = `<span class="cv2-prop${conf === 'high' ? '' : ' cv2-prop--low'}">${esc(T('ia_conf_' + conf))}</span>`;
     }
 
-    const choix = ['RESULT', 'MEASURE', 'EVENT', 'INFORMATION']
-      .filter(k => labels[k])
-      .map(k => `<button type="button" class="cv2-nature${nature === k ? ' sel' : ''}${k === 'RESULT' ? ' cv2-nature--cle' : ''}"
-           data-nature="${k}">${esc(labels[k])}</button>`).join('');
+    const autres = ['MEASURE', 'EVENT', 'INFORMATION'].filter(k => labels[k]);
+    const choix = `
+      <button type="button" class="cv2-oui${nature === 'RESULT' ? ' sel' : ''}" data-nature="RESULT">
+        <i class="fa-solid fa-circle-check"></i>
+        <span><b>${esc(T('q_oui'))}</b><small>${esc(T('q_oui_d'))}</small></span>
+      </button>
+      <div class="cv2-sinon">
+        <div class="cv2-sinon-q">${esc(T('q_sinon'))}</div>
+        <div class="cv2-natures">
+          ${autres.map(k => `<button type="button" class="cv2-nature${nature === k ? ' sel' : ''}"
+               data-nature="${k}">${esc(labels[k])}</button>`).join('')}
+        </div>
+        <div class="cv2-sinon-d">${esc(T('q_sinon_d'))}</div>
+      </div>`;
 
     const mv = o.minimum_performance_text || p.suggested_minimum_performance || '';
     const venuDeLIA = !o.minimum_performance_text && !!p.suggested_minimum_performance;
@@ -1322,22 +1392,19 @@
       </div>
       ${p.justification ? `<div class="qj">${esc(p.justification)}</div>` : ''}
       <div class="cv2-qq">${esc(T('q_question'))}</div>
-      <div class="cv2-natures">${choix}</div>
-      <div class="cv2-nature-dit"></div>
+      <div class="cv2-choix">${choix}</div>
       <div class="cv2-qstd${nature === 'RESULT' ? '' : ' hidden'}">
         <label class="cv2-qstd-lbl">${esc(T('q_std_label'))}</label>
         <input class="cv2-minperf" placeholder="${esc(T('min_perf_ph'))}" value="${esc(mv)}">
         <div class="cv2-qstd-aide">${esc(venuDeLIA ? T('q_std_ia') : T('q_std_aide'))}</div>
       </div>`;
 
-    const dit = el.querySelector('.cv2-nature-dit');
     const zoneStd = el.querySelector('.cv2-qstd');
     const ecrire = () => {
       const n = el.dataset.nature;
-      dit.textContent = n ? T('q_dit_' + n) : T('q_dit_none');
-      dit.classList.toggle('est-resultat', n === 'RESULT');
       zoneStd.classList.toggle('hidden', n !== 'RESULT');
       el.classList.toggle('est-resultat', n === 'RESULT');
+      el.classList.toggle('est-range', !!n && n !== 'RESULT');
     };
     ecrire();
 

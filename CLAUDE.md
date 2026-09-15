@@ -708,6 +708,38 @@ auto-évaluations volontairement discordantes et des capacités en écart.
   moment précis où on a besoin de le relire pour corriger.
   ⚠️ `.hidden` n'existait **nulle part** dans `activities_list.css` : la classe
   ne masquait rien. Déclarée à côté de ce qui s'en sert.
+
+### Qualification : la décision est binaire, pas un menu à quatre entrées (2026-09-15)
+
+- ⚠️ **« À quoi servent les trois autres boutons ? »** La question était juste :
+  quatre natures présentées au MÊME RANG, dont une seule ouvrait la suite et
+  débloquait l'enregistrement — les trois autres semblaient ne mener nulle part.
+  Or la décision est **binaire** (cette donnée démontre-t-elle la tenue de
+  l'activité ?) et les trois autres ne font que **ranger** ce qui n'en est pas.
+  La hiérarchie visuelle dit maintenant la hiérarchie réelle : un grand bouton
+  « Oui — c'est un résultat de l'activité » portant son explication, puis
+  « Sinon, rangez-la : » avec les trois autres en petites pastilles, et la phrase
+  qui manquait — « ces trois natures sont enregistrées avec l'activité, mais ne
+  donnent pas lieu à évaluation ».
+- ⚠️ **Le panneau « Ce que l'IA fait ici » restait affiché APRÈS l'analyse.** Un
+  texte qui décrit une action déjà faite se relit en cherchant ce qu'il reste à
+  comprendre. Avant, le panneau ANNONCE ; après, il REND COMPTE (combien de
+  sorties examinées, combien de résultats proposés, et que rien n'est encore
+  enregistré) — fond vert, icône de presse-papiers : on voit que l'étape est
+  passée.
+- ⚠️ **L'info-bulle du radar se posait TOUJOURS au même endroit.** On survolait
+  un point à gauche et l'explication surgissait en haut au centre, sans rien qui
+  relie l'une à l'autre. `poserBulle()` la place près de l'élément survolé, en la
+  bornant au cadre, et bascule sous le point quand il n'y a pas la place
+  au-dessus. ⚠️ Les coordonnées d'un nœud SVG sont dans le repère du **viewBox** :
+  on passe par `getBoundingClientRect`, seul comparable aux pixels de la zone.
+  Une bulle de rôle, elle, parle de l'ensemble : elle reste centrée.
+- **La technicité est bleue en ENTIER**, plus seulement son en-tête : un bandeau
+  coloré au-dessus d'un contenu blanc laissait croire que ce qui suit est hors de
+  la section. Les contrôles restent blancs — un champ translucide sur fond bleu
+  ne se lit plus dès qu'on y saisit quelque chose — et les pastilles d'écart
+  gardent leurs couleurs sémantiques. Le texte d'explication a sauté : le
+  bandeau et les deux colonnes « Requis / Démontré » disent la même chose.
 ---
 
 ## Guide utilisateur (`docs/guide.html`)
