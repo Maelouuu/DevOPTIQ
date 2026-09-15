@@ -465,6 +465,58 @@ techniques internes (RESULT, DAILY, WORK_ARCHITECTURE…) **jamais affichés** :
 cadence sur la fiche activité ; panneau de qualification des sorties + badges « R1 » sur les
 écrans S/SF/HSC ; widget d'auto-positionnement HSC ; carto : badge cadence (repo OptiqCarto).
 
+### Page Compétences — refonte visuelle (2026-09-15)
+
+Le contenu était juste, l'écran illisible. Deux défauts de structure, chacun avec
+une conséquence mesurable :
+
+- ⚠️ **Le tableau principal était un `<table>` à HUIT colonnes en `min-width: 760px`.**
+  La colonne de droite fait **870 px CSS** (conteneur plafonné à 1200, moins la barre
+  latérale) : le tableau débordait, la page défilait horizontalement, et le bouton
+  **« Évaluer » — l'action principale — se retrouvait hors écran**. Remplacé par une
+  grille CSS (`.cv2-ligne`), qui aligne les lignes sans imposer de largeur minimale.
+  ⚠️ Les points de bascule s'écrivent en px RÉELS, la mise en page en px CSS :
+  `body.pg` porte `zoom: 0.8` (ui-theme), et les media queries ignorent ce zoom.
+  Le conteneur plafonne dès **960 px réels** — retirer une colonne à 1180 px ne
+  servait à rien, rien ne bouge entre 960 et 1440.
+- ⚠️ **La notation était SIX barres pleine largeur empilées PAR RÉSULTAT** : 430 px
+  chacun, **1266 px de défilement dans une fenêtre qui en montre 644** pour une
+  activité à deux résultats. Or le niveau de l'activité est le **MINIMUM** des
+  résultats : ne jamais les voir ensemble, c'est rendre la règle incompréhensible.
+  L'échelle 0→4 est ordonnée, elle se dessine **en ligne** (5 paliers + une gomme
+  « Effacer » à part — effacer n'est pas un niveau de plus). Mesuré après : **685 px
+  pour la même activité**, tout tient dans un écran.
+
+**La jauge** (`jauge()`, `.cv2-pas`) remplace les trois colonnes requis / démontré /
+écart : quatre pas (niveaux 1 à 4 ; le niveau 0 « Non démontré » est une jauge VIDE,
+c'est exactement ce qu'il veut dire), et une **barre verticale après le pas requis** —
+« la jauge doit atteindre ce trait ». Un tiret posé SOUS le pas avait été essayé
+d'abord : à cette densité il disparaissait. L'écart est une distance, il se regarde ;
+ce n'était qu'un nombre à lire. Le badge d'écart ne subsiste que s'il est NÉGATIF
+(le cas qui demande une action) — sinon il mangeait la largeur du libellé.
+
+**Bandeau de situation** : quatre compteurs (tenu / en écart / à évaluer / à configurer)
+qui sont aussi les **filtres** de la liste. Il n'existait pas — pour savoir où en était
+quelqu'un il fallait lire les six lignes une à une.
+
+- ⚠️ **`evidence` était enregistrée et jamais renvoyée.** `/mastery/activity/…` ne
+  portait pas la preuve : l'écran rouvrait la zone de saisie VIDE, et le prochain
+  enregistrement l'écrasait par une chaîne vide. La preuve se perdait au deuxième
+  passage sans que personne ne l'ait effacée. `activity_mastery` renvoie désormais
+  `evidence` (toujours une chaîne) et `n_evaluated` — sans ce dernier, un niveau
+  global vide ne se distingue pas d'une activité qu'on n'a pas commencée.
+- Le `<style>` en ligne (200 lignes dans le `<head>`) devient `static/competences.css`.
+  ⚠️ Le lien reste **dans le `<head>`**, à la place exacte qu'occupait le `<style>` :
+  `header_buttons.html` charge optiq.css et ui-theme.css depuis le `<body>`, donc
+  APRÈS — déplacer le lien change la cascade.
+- « Manager » devient **« Développeur de compétences »** dans les libellés de la page.
+- Mise au point : `tools/devrun_competences.py` (instance jetable SQLite, port 8125,
+  `/devrun/<qui>` pour changer de compte) — un développeur, trois collaborateurs et
+  les **six états** que la page doit savoir montrer présents en même temps : sans ça
+  on ne regarde jamais que le cas heureux.
+- Tests : `tests/test_57_mastery.py::TestPreuveEtAvancement` (4 cas, vérifiés rouges
+  sur l'ancien code).
+
 ---
 
 ## Guide utilisateur (`docs/guide.html`)

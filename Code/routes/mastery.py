@@ -38,8 +38,8 @@ def level_label(lvl, lang=None):
     return MASTERY_SCALE.get(lvl, {}).get(lang, "")
 
 
-def _reference_level(user_id, activity_id, data_id):
-    """Niveau démontré de RÉFÉRENCE d'un résultat = dernier niveau validé par un Garant ou
+def _reference_eval(user_id, activity_id, data_id):
+    """Évaluation de RÉFÉRENCE d'un résultat = dernière validée par un Garant ou
     Manager. L'auto-évaluation reste visible mais ne valide pas seule (CDC 3.6)."""
     q = CompetencyEvaluation.query.filter_by(
         user_id=user_id, activity_id=activity_id, item_type=RESULT_ITEM_TYPE, item_id=data_id)
@@ -48,6 +48,11 @@ def _reference_level(user_id, activity_id, data_id):
         if ev.eval_number in VALIDATING and ev.mastery_level is not None:
             if best is None or (ev.evaluated_at or datetime.min) >= (best.evaluated_at or datetime.min):
                 best = ev
+    return best
+
+
+def _reference_level(user_id, activity_id, data_id):
+    best = _reference_eval(user_id, activity_id, data_id)
     return best.mastery_level if best else None
 
 
@@ -82,13 +87,17 @@ def activity_mastery(user_id, activity_id, role_id=None):
     results = [d for d in get_activity_outputs(activity_id) if d.semantic_nature == "RESULT"]
     per_result, levels, complete = [], [], True
     for d in results:
-        ref = _reference_level(user_id, activity_id, d.id)
+        ev = _reference_eval(user_id, activity_id, d.id)
+        ref = ev.mastery_level if ev else None
         per_result.append({
             "data_id": d.id, "name": d.name,
             "minimum_performance_text": d.minimum_performance_text or "",
             "self_level": _self_level(user_id, activity_id, d.id),
             "demonstrated_level": ref,
             "demonstrated_label": level_label(ref),
+            # ⚠️ La preuve était ENREGISTRÉE mais jamais renvoyée : l'écran la
+            # rouvrait vide et le prochain enregistrement l'effaçait.
+            "evidence": (ev.evidence if ev else None) or "",
         })
         if ref is None:
             complete = False
@@ -104,6 +113,9 @@ def activity_mastery(user_id, activity_id, role_id=None):
         "gap": (global_level - req) if (global_level is not None and req is not None) else None,
         "color": color_for(global_level, req),
         "n_results": len(results),
+        # Combien de résultats sont ÉVALUÉS : sans ce chiffre, un niveau global
+        # vide ne se distingue pas d'une activité qu'on n'a pas commencée.
+        "n_evaluated": len(levels),
         "n_at_required": sum(1 for l in levels if req is None or l >= req),
         "complete": complete,
         "results": per_result,
@@ -145,7 +157,8 @@ def dashboard(user_id, role_id):
             "required_level": st["required_level"], "required_label": st["required_label"],
             "demonstrated_level": st["global_level"], "demonstrated_label": st["global_label"],
             "gap": st["gap"], "color": st["color"],
-            "n_results": st["n_results"], "n_at_required": st["n_at_required"],
+            "n_results": st["n_results"], "n_evaluated": st["n_evaluated"],
+            "n_at_required": st["n_at_required"],
             "complete": st["complete"], "technicity": tech, "technicity_alert": tech == "gap",
             "last_evaluation": last.isoformat() if last else None,
         })
