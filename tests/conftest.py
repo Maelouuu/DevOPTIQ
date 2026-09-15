@@ -121,9 +121,22 @@ def client(app):
     return app.test_client()
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture
 def auth_client(app, client):
-    """Client avec session authentifiée (bypasse le formulaire de login)."""
+    """Client avec session authentifiée (bypasse le formulaire de login).
+
+    ⚠️ Portée FONCTION, et volontairement : `auth_client` et `client` sont le
+    MÊME objet, et plus d'une dizaine de fichiers de tests remettent la session
+    à zéro (`sess.clear()`) pour éprouver un accès anonyme. En portée session,
+    la connexion n'était posée qu'UNE fois : le premier fichier qui nettoyait
+    déconnectait tous les suivants, et leurs tests passaient ou tombaient selon
+    l'ORDRE d'exécution. Invisible tant que les routes concernées ne regardaient
+    pas la session — dix tests de `test_57_mastery` sont devenus rouges le jour
+    où `/mastery/evaluate` a enfin contrôlé qui note qui.
+
+    On ne fait qu'AJOUTER les trois clés d'identité : rien n'est effacé, donc un
+    test qui a posé `lang` ou une entité active garde son réglage.
+    """
     from Code.models.models import User, Entity
 
     with app.app_context():
@@ -133,7 +146,7 @@ def auth_client(app, client):
     with client.session_transaction() as sess:
         sess["user_id"] = user.id
         sess["user_email"] = user.email
-        sess["active_entity_id"] = entity.id
+        sess.setdefault("active_entity_id", entity.id)
 
     return client
 

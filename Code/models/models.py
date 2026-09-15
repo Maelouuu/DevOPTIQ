@@ -887,6 +887,42 @@ class UserActivityPlan(db.Model):
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
+class PlanFormation(db.Model):
+    """Plan de formation d'un collaborateur sur un RÔLE (CDC 6.8).
+
+    Un plan par couple (collaborateur, rôle) : on le reprend, on le rejoue, on
+    déplace les curseurs — il ne s'empile pas. Deux blocs JSON :
+
+    - `parametres` : ce que l'utilisateur règle (heures par semaine, durée
+      visée). C'est la CAPACITÉ.
+    - `actions` : ce qu'il y a à faire, chaque action portant sa charge en
+      heures. C'est le BESOIN.
+
+    L'ordonnancement — est-ce que ça tient, jusqu'à quand — se recalcule à
+    l'affichage et n'est donc jamais stocké : il dépend des deux blocs, et un
+    chiffre figé mentirait dès qu'on touche un curseur.
+
+    ⚠️ Un vrai modèle, pas du SQL brut dans une route : `training_plan` et
+    `user_activity_plans` ont chacune coûté un 500 en production parce que rien
+    ne les créait sur une base neuve.
+    """
+    __tablename__ = 'plans_formation'
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, index=True)
+    role_id = db.Column(db.Integer, db.ForeignKey('roles.id'), nullable=False, index=True)
+    parametres = db.Column(db.Text, nullable=True)      # JSON
+    actions = db.Column(db.Text, nullable=True)         # JSON
+    source = db.Column(db.String(10), nullable=True)    # AI | LOCAL
+    auteur_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    __table_args__ = (
+        db.UniqueConstraint('user_id', 'role_id', name='uq_plan_user_role'),
+    )
+
+
 class EntityRoleAccess(db.Model):
     """Rôle autorisé sur une carto commune.
 

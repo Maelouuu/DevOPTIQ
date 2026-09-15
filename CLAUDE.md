@@ -517,6 +517,99 @@ quelqu'un il fallait lire les six lignes une à une.
 - Tests : `tests/test_57_mastery.py::TestPreuveEtAvancement` (4 cas, vérifiés rouges
   sur l'ancien code).
 
+### Page Compétences — deux notes, synthèse, plan de formation (2026-09-15)
+
+**Les deux notes (CDC 3.6) — et le trou de sécurité qu'elles révélaient.**
+- ⚠️ **`POST /mastery/evaluate` n'avait AUCUN contrôle d'accès.** Tout compte
+  connecté pouvait poser n'importe quel niveau sur n'importe qui — y compris se
+  décerner le niveau qui fait foi. Sans grande conséquence tant que seuls les
+  développeurs de compétences ouvraient l'écran ; plus du tout dès que les
+  collaborateurs y viennent s'auto-évaluer. `Code/competences_acces.py` est la
+  source unique : `peut_noter(acteur, cible, evaluateur)` et `peut_lire(...)`.
+  Règle : l'auto-évaluation (`eval_number '0'`) ne se pose que sur SOI ; le
+  niveau validé (`'1'` garant, `'2'` développeur) par le développeur de la
+  personne, ou par un champion/admin. `/mastery/dashboard`, `/mastery/synthese`
+  et tout `/plan/*` passent par les mêmes portes.
+  ⚠️ `encadre()` regarde les DEUX rattachements (`users.manager_id` global ET
+  `user_roles.manager_id` par rôle) : n'en lire qu'un ferait dépendre le droit
+  de la FAÇON dont l'affectation a été faite.
+- **La page a deux modes**, décidés par un seul appel `GET /competences/contexte` :
+  développeur (liste de collaborateurs, pose le niveau qui fait foi, règle le
+  requis, ouvre le plan) et collaborateur (se voit lui, pose SON auto-évaluation,
+  lit le niveau validé, ne règle rien).
+- **Ce qui fait foi reste le niveau du développeur.** `activity_mastery` rend
+  aussi `self_global_level` (même règle du MINIMUM, jamais la moyenne) et
+  `n_self_evaluated` — mais la synthèse ne remonte jamais l'auto-évaluation comme
+  résultat. À l'écran elles ne se ressemblent pas : la note officielle est une
+  échelle pleine avec la pastille « fait foi », l'auto-évaluation un contour
+  pointillé posé sur le même palier, plus un verdict d'accord (« se situe
+  au-dessus / en dessous »).
+- ⚠️ **`evidence` par évaluateur** : chacun garde la sienne (`evidence` pour le
+  niveau validé, `self_evidence` pour l'auto-évaluation). Les écraser l'une par
+  l'autre faisait disparaître la preuve de celui qui n'avait pas enregistré en
+  dernier.
+
+**La synthèse — `GET /mastery/synthese/<user_id>`.** On entrait directement dans
+le détail d'un rôle : où en était la personne, tous rôles confondus, ne se voyait
+nulle part. Une carte par rôle (jauge, compteurs, écart, accès au plan), puis on
+entre dans le détail. ⚠️ Le niveau d'un rôle est le MINIMUM de ses activités et
+n'existe QUE si toutes sont évaluées — une moyenne partielle laisserait croire
+qu'un rôle à moitié noté est tenu. `dashboard_rows()` a été extrait de la route
+pour que la synthèse et la liste détaillée comptent avec le MÊME code :
+deux implémentations donneraient deux chiffres, ce qu'une vue d'ensemble ne peut
+pas se permettre.
+
+**Le plan de formation — `Code/routes/plan_formation.py`, fenêtre dédiée.**
+Le partage des rôles est volontaire :
+- **l'IA propose le CONTENU** (quelles actions, quelle charge en heures) ;
+- **le calcul décide si ça TIENT** : heures/semaine × durée = capacité, somme des
+  charges = besoin. Le verdict est arithmétique, local et instantané — les
+  curseurs ne rappellent JAMAIS le serveur. Un curseur qui attendrait trois
+  secondes une réponse réseau ne serait pas un curseur.
+  Bouton « au plus juste » = caler la durée sur `ceil(besoin / heures_semaine)`.
+  Un échéancier semaine par semaine montre ce qui déborde.
+- Sans clé IA, `_plan_local()` bâtit le plan depuis les **capacités en écart
+  relevées en base** (`result_capability_links` via `_linked_capabilities`) : plus
+  sec, mais chaque ligne correspond à quelque chose de réel. L'écran dit toujours
+  d'où vient le contenu — on ne présente jamais un repli comme une analyse IA.
+- Modèle `PlanFormation` (table `plans_formation`), UN plan par couple
+  (collaborateur, rôle) : on le reprend, on ne l'empile pas. ⚠️ Un VRAI modèle,
+  pas du SQL brut dans une route — `training_plan` et `user_activity_plans` ont
+  chacune coûté un 500 en production parce que rien ne les créait sur une base
+  neuve. L'ordonnancement n'est jamais stocké : il dépend des deux blocs, un
+  chiffre figé mentirait dès qu'on touche un curseur.
+- Prompt dans le catalogue (`plan_formation.system`), jamais en dur dans la route.
+- ⚠️ `competences_plan.py` / `plan_storage.py` et leurs JS (`plan_formation.js`,
+  `synth_competences.js`) sont les vestiges de l'ANCIENNE page : aucun gabarit ne
+  les charge. Ne pas les confondre avec ce module.
+
+**Trois défauts d'écran corrigés au passage.**
+- ⚠️ **Le niveau requis se réglait par un lien « modifier »** qui dépliait six
+  boutons gris minuscules : rien ne disait que c'était réglable, ni qu'il
+  s'agissait d'une CIBLE et non d'une note. C'est maintenant un bloc à part
+  entière, même échelle que la notation mais **en creux** — une cible se dessine,
+  elle ne se remplit pas.
+- ⚠️ **Évaluation et Technicité se confondaient** : deux blocs blancs à la suite,
+  rien ne disait qu'on changeait de sujet. Ce sont deux AXES distincts (maîtrise
+  d'un côté, contexte technique de l'autre) : blocs numérotés, en-tête propre,
+  et la technicité en TEAL, pas dans l'accent de la page.
+- ⚠️ **L'IA ne disait pas ce qu'elle faisait** : on cliquait « Configurer », ça
+  réfléchissait trois secondes, une liste apparaissait. Un panneau l'annonce
+  AVANT (ce qu'elle lit, ce qu'elle propose, que rien n'est enregistré sans
+  validation), chaque proposition porte sa confiance (`sûr` / `à vérifier` /
+  `peu sûr`) et sa justification, et une ligne corrigée à la main le dit.
+  `/competences/contexte` renvoie `ia_disponible` : promettre une analyse puis
+  servir un repli était exactement le reproche fait à cet écran.
+
+**Tests** : `tests/test_77_competences_deux_notes.py` (28 cas — qui note qui,
+ce qui fait foi, la synthèse, le contexte, le plan), les refus vérifiés **rouges**
+en retirant le contrôle d'accès.
+⚠️ `auth_client` et `client` sont le MÊME objet en portée session : un fichier qui
+remet la session à zéro doit la rendre en fin de module, sinon tous les tests
+suivants qui comptent sur `auth_client` se retrouvent déconnectés.
+Mise au point : `tools/devrun_competences.py` (port 8125) sème aussi des
+auto-évaluations volontairement discordantes et des capacités en écart.
+
 ---
 
 ## Guide utilisateur (`docs/guide.html`)

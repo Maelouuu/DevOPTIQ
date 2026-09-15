@@ -8,7 +8,9 @@
 from datetime import datetime
 from flask import Blueprint, request, jsonify, session
 from Code.extensions import db
-from Code.models.models import (Activities, Data, CompetencyEvaluation, activity_roles)
+from Code.models.models import (Activities, Data, CompetencyEvaluation, UserRole, activity_roles)
+from Code.competences_acces import peut_noter
+from Code.permissions import current_user
 from Code.routes.qualify_outputs import get_activity_outputs
 
 mastery_bp = Blueprint("mastery", __name__, url_prefix="/mastery")
@@ -56,10 +58,16 @@ def _reference_level(user_id, activity_id, data_id):
     return best.mastery_level if best else None
 
 
-def _self_level(user_id, activity_id, data_id):
-    ev = CompetencyEvaluation.query.filter_by(
+def _self_eval(user_id, activity_id, data_id):
+    """L'auto-évaluation du collaborateur (eval_number '0'). Elle est VISIBLE des
+    deux côtés et ne vaut jamais niveau officiel."""
+    return CompetencyEvaluation.query.filter_by(
         user_id=user_id, activity_id=activity_id, item_type=RESULT_ITEM_TYPE,
         item_id=data_id, eval_number="0").first()
+
+
+def _self_level(user_id, activity_id, data_id):
+    ev = _self_eval(user_id, activity_id, data_id)
     return ev.mastery_level if ev else None
 
 
@@ -85,14 +93,17 @@ def color_for(demonstrated, required):
 def activity_mastery(user_id, activity_id, role_id=None):
     """État complet d'évaluation d'une activité pour un individu (base de l'écran P6)."""
     results = [d for d in get_activity_outputs(activity_id) if d.semantic_nature == "RESULT"]
-    per_result, levels, complete = [], [], True
+    per_result, levels, autos, complete = [], [], [], True
     for d in results:
         ev = _reference_eval(user_id, activity_id, d.id)
         ref = ev.mastery_level if ev else None
+        auto = _self_eval(user_id, activity_id, d.id)
         per_result.append({
             "data_id": d.id, "name": d.name,
             "minimum_performance_text": d.minimum_performance_text or "",
-            "self_level": _self_level(user_id, activity_id, d.id),
+            "self_level": auto.mastery_level if auto else None,
+            "self_label": level_label(auto.mastery_level if auto else None),
+            "self_evidence": (auto.evidence if auto else None) or "",
             "demonstrated_level": ref,
             "demonstrated_label": level_label(ref),
             # ⚠️ La preuve était ENREGISTRÉE mais jamais renvoyée : l'écran la
@@ -103,10 +114,18 @@ def activity_mastery(user_id, activity_id, role_id=None):
             complete = False
         else:
             levels.append(ref)
+        if auto is not None and auto.mastery_level is not None:
+            autos.append(auto.mastery_level)
     # niveau global = MINIMUM des résultats ; NULL si un résultat n'est pas encore évalué
     global_level = min(levels) if (levels and complete) else None
+    # L'auto-évaluation suit la MÊME règle du minimum, mais ne vaut jamais niveau
+    # officiel : c'est un repère, pour le collaborateur comme pour son
+    # développeur de compétences (CDC 3.6).
+    self_global = min(autos) if (autos and len(autos) == len(results)) else None
     req = required_level(activity_id, role_id)
     return {
+        "self_global_level": self_global, "self_global_label": level_label(self_global),
+        "n_self_evaluated": len(autos),
         "activity_id": activity_id, "role_id": role_id,
         "required_level": req, "required_label": level_label(req),
         "global_level": global_level, "global_label": level_label(global_level),
@@ -122,14 +141,14 @@ def activity_mastery(user_id, activity_id, role_id=None):
     }
 
 
-@mastery_bp.route("/dashboard/<int:user_id>/<int:role_id>", methods=["GET"])
-def dashboard(user_id, role_id):
-    """Tableau principal (CDC 6.3) : activités du rôle, avec pour chacune niveau requis,
-    niveau démontré (min des résultats), écart, résultats au requis, dernière évaluation."""
-    from Code.models.models import Role, Competency, Entity
-    role = Role.query.get(role_id)
-    if not role:
-        return jsonify({"error": "role_not_found"}), 404
+def dashboard_rows(user_id, role_id):
+    """Les lignes d'activité d'un couple (collaborateur, rôle).
+
+    Extrait de la route pour que la SYNTHÈSE tous rôles s'appuie exactement sur
+    le même calcul : deux implémentations donneraient deux chiffres, et c'est
+    précisément ce que la vue d'ensemble ne doit pas faire.
+    """
+    from Code.models.models import Competency, Entity
     q = db.session.query(Activities).join(
         activity_roles, activity_roles.c.activity_id == Activities.id).filter(
         activity_roles.c.role_id == role_id)
@@ -161,10 +180,116 @@ def dashboard(user_id, role_id):
             "n_at_required": st["n_at_required"],
             "complete": st["complete"], "technicity": tech, "technicity_alert": tech == "gap",
             "last_evaluation": last.isoformat() if last else None,
+            "self_level": st["self_global_level"], "self_label": st["self_global_label"],
         })
     rows.sort(key=lambda r: r["activity_name"].lower())
+    return rows
+
+
+@mastery_bp.route("/dashboard/<int:user_id>/<int:role_id>", methods=["GET"])
+def dashboard(user_id, role_id):
+    """Tableau principal (CDC 6.3) : activités du rôle, avec pour chacune niveau requis,
+    niveau démontré (min des résultats), écart, résultats au requis, dernière évaluation."""
+    from Code.models.models import Role
+    from Code.competences_acces import peut_lire
+    role = Role.query.get(role_id)
+    if not role:
+        return jsonify({"error": "role_not_found"}), 404
+    if not peut_lire(current_user(), user_id):
+        return jsonify({"error": "forbidden"}), 403
     return jsonify({"user_id": user_id, "role_id": role_id, "role_name": role.name,
-                    "activities": rows}), 200
+                    "activities": dashboard_rows(user_id, role_id)}), 200
+
+
+def categorie_activite(row):
+    """Les quatre états d'une activité, tels que l'écran les compte. Écrits ICI
+    et pas dans le JS : la synthèse par rôle et la liste détaillée doivent
+    trancher pareil, sinon les chiffres du haut contredisent les lignes du bas."""
+    if not row["n_results"]:
+        return "setup"
+    dem = row["demonstrated_level"]
+    if dem is None:
+        return "todo"
+    if dem < 2:
+        return "gap"
+    req = row["required_level"]
+    if req is not None and dem < req:
+        return "gap"
+    return "held"
+
+
+@mastery_bp.route("/synthese/<int:user_id>", methods=["GET"])
+def synthese(user_id):
+    """Vue d'ensemble d'un collaborateur : TOUS ses rôles d'un coup.
+
+    On entrait directement dans le détail d'un rôle, sans jamais voir où la
+    personne en est globalement. Le niveau d'un rôle suit la même règle que
+    celui d'une activité — le MINIMUM, jamais la moyenne : un rôle n'est pas
+    tenu à moitié.
+
+    La note qui compte est celle du développeur de compétences. L'auto-évaluation
+    est renvoyée à côté, comme repère, jamais comme résultat.
+    """
+    from Code.models.models import Role, User
+    from Code.competences_acces import peut_lire
+
+    cible = User.query.get(user_id)
+    if not cible:
+        return jsonify({"error": "user_not_found"}), 404
+    if not peut_lire(current_user(), user_id):
+        return jsonify({"error": "forbidden"}), 403
+
+    roles = []
+    for ur in UserRole.query.filter_by(user_id=user_id).all():
+        role = Role.query.get(ur.role_id)
+        if role is None:
+            continue
+        rows = dashboard_rows(user_id, role.id)
+        compte = {"held": 0, "gap": 0, "todo": 0, "setup": 0}
+        niveaux, autos, requis, retards = [], [], [], []
+        for r in rows:
+            compte[categorie_activite(r)] += 1
+            if r["demonstrated_level"] is not None:
+                niveaux.append(r["demonstrated_level"])
+            if r["self_level"] is not None:
+                autos.append(r["self_level"])
+            if r["required_level"] is not None:
+                requis.append(r["required_level"])
+            if r["gap"] is not None and r["gap"] < 0:
+                retards.append(r)
+        # Niveau du rôle : le minimum, et seulement si TOUT est évalué — sinon
+        # un rôle à moitié noté paraîtrait meilleur qu'il n'est.
+        evaluables = [r for r in rows if r["n_results"]]
+        complet = bool(evaluables) and len(niveaux) == len(evaluables)
+        niveau = min(niveaux) if (niveaux and complet) else None
+        req = min(requis) if requis else None
+        roles.append({
+            "role_id": role.id, "role_name": role.name,
+            "n_activities": len(rows),
+            "counts": compte,
+            "level": niveau, "level_label": level_label(niveau),
+            "self_level": (min(autos) if (autos and len(autos) == len(evaluables)) else None),
+            "required_level": req, "required_label": level_label(req),
+            "color": color_for(niveau, req),
+            "gap": (niveau - req) if (niveau is not None and req is not None) else None,
+            "n_gap": len(retards),
+            # De quoi proposer un plan sans recharger : les activités en retard.
+            "gap_activities": [{"activity_id": r["activity_id"], "activity_name": r["activity_name"],
+                                "demonstrated_level": r["demonstrated_level"],
+                                "required_level": r["required_level"], "gap": r["gap"]}
+                               for r in retards],
+        })
+    roles.sort(key=lambda r: r["role_name"].lower())
+    total = {"held": 0, "gap": 0, "todo": 0, "setup": 0}
+    for r in roles:
+        for k in total:
+            total[k] += r["counts"][k]
+    return jsonify({
+        "user_id": user_id,
+        "user_name": f"{cible.first_name or ''} {cible.last_name or ''}".strip(),
+        "roles": roles, "totals": total,
+        "n_activities": sum(r["n_activities"] for r in roles),
+    }), 200
 
 
 @mastery_bp.route("/scale", methods=["GET"])
@@ -217,6 +342,12 @@ def evaluate():
     lvl = p.get("mastery_level")
     if lvl is not None and lvl not in MASTERY_SCALE:
         return jsonify({"error": "invalid_level"}), 400
+    # ⚠️ Cette route n'avait AUCUN contrôle : tout compte connecté pouvait poser
+    # n'importe quel niveau sur n'importe qui — y compris se décerner un niveau
+    # officiel. Le masquage dans l'écran n'est pas une sécurité.
+    ok, motif = peut_noter(current_user(), uid, evaluator)
+    if not ok:
+        return jsonify({"error": "forbidden", "reason": motif}), 403
     d = Data.query.get(did)
     if not d or d.semantic_nature != "RESULT":
         return jsonify({"error": "not_a_result"}), 400

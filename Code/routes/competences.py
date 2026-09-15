@@ -17,6 +17,62 @@ def competences_view():
     return render_template('competences_view.html', lang=session.get('lang', 'fr'))
 
 
+@competences_bp.route('/contexte', methods=['GET'])
+def contexte():
+    """Qui ouvre la page, et à quel titre.
+
+    L'écran servait un seul public : le développeur de compétences. Or les deux
+    notes du CDC 3.6 supposent deux entrées — le collaborateur pose SON
+    auto-évaluation et lit celle de son développeur ; le développeur voit
+    l'auto-évaluation et pose la note qui fait foi.
+
+    Un seul appel décide donc du mode. Le masquage n'est pas une sécurité : les
+    routes d'écriture refusent de leur côté (`Code/competences_acces.py`).
+    """
+    from Code.competences_acces import _statut_eleve
+    from Code.permissions import current_user
+
+    moi = current_user()
+    if moi is None:
+        return jsonify({'error': 'not_logged_in'}), 401
+
+    encadres = {u.id: u for u in User.query.filter_by(manager_id=moi.id).all()}
+    for ur in UserRole.query.filter_by(manager_id=moi.id).all():
+        if ur.user_id not in encadres:
+            u = db.session.get(User, ur.user_id)
+            if u is not None:
+                encadres[u.id] = u
+    est_dev = bool(encadres)
+
+    # Un champion ou un administrateur arbitre partout : il voit tout le monde,
+    # même sans rattachement — sinon il ne pourrait pas reprendre un dossier.
+    if not est_dev and _statut_eleve(moi):
+        encadres = {u.id: u for u in User.query.all() if u.id != moi.id}
+        est_dev = bool(encadres)
+
+    gens = sorted(encadres.values(),
+                  key=lambda u: ((u.last_name or ''), (u.first_name or '')))
+    dev = User.query.get(moi.manager_id) if moi.manager_id else None
+    # Annoncer l'IA AVANT de la lancer : promettre une analyse puis servir un
+    # repli, c'est exactement ce qu'on reprochait à cet écran.
+    try:
+        from Code.routes.propose_common import openai_client_or_none
+        client, _ = openai_client_or_none()
+        ia_dispo = client is not None
+    except Exception:
+        ia_dispo = False
+    return jsonify({
+        'moi': {'id': moi.id, 'first_name': moi.first_name, 'last_name': moi.last_name},
+        'est_dev': est_dev,
+        'ia_disponible': ia_dispo,
+        # Le développeur AFFICHÉ en tête : soi-même quand on encadre, sinon le sien.
+        'dev': ({'id': moi.id, 'name': f"{moi.first_name} {moi.last_name}".strip()} if est_dev
+                else ({'id': dev.id, 'name': f"{dev.first_name} {dev.last_name}".strip()} if dev else None)),
+        'collaborateurs': [{'id': u.id, 'first_name': u.first_name, 'last_name': u.last_name}
+                           for u in gens],
+    })
+
+
 @competences_bp.route('/current_user_manager', methods=['GET'])
 def get_current_user_manager():
     """Manager affiché dans la sidebar : l'utilisateur connecté s'il encadre

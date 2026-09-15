@@ -359,6 +359,9 @@ def create_app(test_config=None):
     from Code.routes.diagnostic import diagnostic_bp
     app.register_blueprint(diagnostic_bp)
 
+    from Code.routes.plan_formation import plan_bp
+    app.register_blueprint(plan_bp)
+
     from Code.routes.technical_domains import domains_bp
     app.register_blueprint(domains_bp)
 

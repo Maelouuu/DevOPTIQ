@@ -66,6 +66,17 @@ PLAN = [
      2, {0: 4}),
 ]
 
+# Auto-evaluations de Noe, par (index d'activite, index de resultat). Volontairement
+# discordantes : au-dessus ici, en-dessous la, identiques ailleurs.
+AUTO_EVAL = {
+    (0, 0): 2,   # il se sous-estime d'un cran
+    (0, 1): 3,   # il se sur-estime d'un cran
+    (1, 0): 3,   # sur-estime nettement
+    (1, 1): 1,   # d'accord avec son developpeur
+    (3, 0): 2,   # s'est evalue alors que personne ne l'a encore note
+    (5, 0): 4,
+}
+
 with app.app_context():
     from Code.models.models import (Activities, Competency, CompetencyEvaluation, Data,
                                     Entity, Role, User, UserRole, activity_roles)
@@ -131,12 +142,50 @@ with app.app_context():
                     item_type="activity_results", eval_number="2", note="green",
                     mastery_level=niveau, evaluated_at=now - timedelta(days=3 * i),
                     evaluator_user_id=dev.id))
-            if i == 0 and j == 0:           # une auto-evaluation, pour la ligne « reference »
+            # Auto-evaluations : le collaborateur se voit souvent un cran
+            # au-dessus. C'est justement l'ecart que les deux notes doivent
+            # rendre visible, des deux cotes.
+            auto = AUTO_EVAL.get((i, j))
+            if auto is not None:
                 db.session.add(CompetencyEvaluation(
                     user_id=noe.id, activity_id=act.id, item_id=d.id,
                     item_type="activity_results", eval_number="0", note="grey",
-                    mastery_level=2, evaluated_at=now))
+                    mastery_level=auto, evaluated_at=now))
         db.session.commit()
+
+    # Des capacites reliees aux resultats en ecart : c'est ce que le plan de
+    # formation travaille. Sans elles il ne peut proposer que de la mise en
+    # situation — ce qui est honnete, mais ne montre pas tout l'ecran.
+    from Code.models.models import ResultCapabilityLink, Savoir, SavoirFaire, Softskill
+    CAPACITES = {
+        "Chiffrer l'offre": [
+            (Savoir, "description", "Structure de cout et taux horaires de l'atelier", "SAVOIR"),
+            (SavoirFaire, "description", "Construire un chiffrage a partir d'une nomenclature", "SAVOIR_FAIRE"),
+            (Softskill, "habilete", "Arbitrage", "HSC"),
+        ],
+        "Analyser la demande client": [
+            (SavoirFaire, "description", "Reformuler un besoin client en exigences tracables", "SAVOIR_FAIRE"),
+            (Softskill, "habilete", "Traitement de l'information", "HSC"),
+        ],
+    }
+    for nom_act, items in CAPACITES.items():
+        act = next((a for a in Activities.query.all() if a.name == nom_act), None)
+        if act is None:
+            continue
+        sorties = Data.query.filter_by(producer_activity_id=act.id).all()
+        if not sorties:
+            continue
+        for modele, champ, libelle, code in items:
+            kw = {champ: libelle, "activity_id": act.id}
+            if modele is Softskill:
+                kw["niveau"] = "3 (Maitrise)"
+            item = modele(**kw)
+            db.session.add(item)
+            db.session.commit()
+            db.session.add(ResultCapabilityLink(
+                entity_id=ent.id, activity_id=act.id, data_id=sorties[0].id,
+                item_type=code, item_id=item.id, required_level=3, source="MANUAL"))
+    db.session.commit()
 
     # L'activite « a configurer » doit avoir de VRAIES connexions sortantes :
     # une donnee de sortie EST une connexion sortante de la carto, et sans elles

@@ -35,42 +35,58 @@
         <div class="cv2-mgr">
           <span class="mav" id="cv2-mgr-av">—</span>
           <div>
-            <span class="lbl" data-i18n="manager">Développeur de compétences</span>
+            <span class="lbl" id="cv2-mgr-lbl" data-i18n="manager">Développeur de compétences</span>
             <span class="nm" id="cv2-mgr-name">—</span>
           </div>
         </div>
-        <div class="cv2-sec-title" data-i18n="collaborators">Collaborateurs</div>
+        <div class="cv2-sec-title" id="cv2-collab-title" data-i18n="collaborators">Collaborateurs</div>
         <ul class="cv2-collab" id="cv2-collab"></ul>
         <p class="cv2-empty-side hidden" id="cv2-collab-empty" data-i18n="no_collab">Aucun collaborateur.</p>
       </aside>
 
       <main class="cv2-main">
-        <div class="cv2-roles-lbl hidden" id="cv2-roles-lbl" data-i18n="roles_label">Rôles du collaborateur</div>
-        <div class="cv2-roles" id="cv2-roles"></div>
+        {# ── Écran 1 : la synthèse ────────────────────────────────────────
+           On entrait directement dans le détail d'un rôle. Où en est la
+           personne, tous rôles confondus, ne se voyait nulle part. #}
+        <section class="cv2-ecran hidden" id="cv2-ecran-synthese">
+          <div class="cv2-bilan" id="cv2-bilan"></div>
+          <div class="cv2-roles-lbl" data-i18n="roles_label">Rôles du collaborateur</div>
+          <div class="cv2-rolecards" id="cv2-rolecards"></div>
+        </section>
 
-        {# Bandeau de situation : quatre compteurs, qui sont aussi les filtres
-           de la liste. Sans lui, « où en est cette personne ? » demandait de
-           lire toutes les lignes une à une. #}
-        <div class="cv2-bilan hidden" id="cv2-bilan"></div>
+        {# ── Écran 2 : le détail d'un rôle ─────────────────────────────── #}
+        <section class="cv2-ecran hidden" id="cv2-ecran-role">
+          <div class="cv2-fil">
+            <button type="button" class="cv2-retour" id="cv2-retour">
+              <span aria-hidden="true">←</span> <span data-i18n="back_synthese">Vue d'ensemble</span>
+            </button>
+            <span class="cv2-fil-sep">/</span>
+            <span class="cv2-fil-role" id="cv2-fil-role"></span>
+            <button type="button" class="btn btn-ghost btn-sm cv2-fil-plan hidden" id="cv2-btn-plan"
+                    data-i18n="plan_open">Plan de formation</button>
+          </div>
+          <div class="cv2-bilan" id="cv2-bilan-role"></div>
+          <div class="cv2-liste" id="cv2-liste">
+            <div class="cv2-entete">
+              <div data-i18n="c_activity">Activité</div>
+              {# Le trait sous un pas de la jauge marque le niveau REQUIS. Dit une
+                 fois dans l'en-tête plutôt que répété à chaque ligne. #}
+              <div><span data-i18n="c_level">Niveau</span><span class="cv2-legende" data-i18n="target_short">requis</span></div>
+              <div class="th-tech" data-i18n="c_tech">Technicité</div>
+              <div></div>
+            </div>
+            <div id="cv2-lignes"></div>
+          </div>
+        </section>
 
         <div class="cv2-placeholder" id="cv2-placeholder" data-i18n="pick_collab2">Sélectionnez un collaborateur puis un rôle.</div>
-
-        <div class="cv2-liste hidden" id="cv2-liste">
-          <div class="cv2-entete">
-            <div data-i18n="c_activity">Activité</div>
-            {# Le trait sous un pas de la jauge marque le niveau REQUIS. Dit une
-               fois dans l'en-tête plutôt que répété à chaque ligne. #}
-            <div><span data-i18n="c_level">Niveau</span><span class="cv2-legende" data-i18n="target_short">requis</span></div>
-            <div class="th-tech" data-i18n="c_tech">Technicité</div>
-            <div></div>
-          </div>
-          <div id="cv2-lignes"></div>
-        </div>
       </main>
     </div>
   </div>
 
   <div class="cv2-overlay" id="cv2-overlay"></div>
+
+  {# Fenêtre d'évaluation #}
   <aside class="cv2-drawer" id="cv2-drawer" role="dialog" aria-modal="true">
     <div class="cv2-dh">
       <button class="x" id="cv2-drawer-close" aria-label="Fermer">&times;</button>
@@ -79,6 +95,18 @@
     </div>
     <div class="cv2-db" id="cv2-drawer-body"></div>
     <div class="cv2-df" id="cv2-footer"></div>
+  </aside>
+
+  {# Fenêtre du plan de formation — séparée : on n'évalue pas et on ne
+     planifie pas dans le même écran. #}
+  <aside class="cv2-plan-win" id="cv2-plan-win" role="dialog" aria-modal="true">
+    <div class="cv2-ph">
+      <button class="x" id="cv2-plan-close" aria-label="Fermer">&times;</button>
+      <h2 data-i18n="plan_title">Plan de formation</h2>
+      <div class="cv2-sub" id="cv2-plan-sub"></div>
+    </div>
+    <div class="cv2-pb" id="cv2-plan-body"></div>
+    <div class="cv2-df" id="cv2-plan-footer"></div>
   </aside>
 
   <div class="cv2-toast" id="cv2-toast"></div>

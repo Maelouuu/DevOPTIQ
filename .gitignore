@@ -30,3 +30,7 @@ hub/_docs/
 # Fichier cree par erreur par un curl mal echappe (-o pris pour un nom de
 # fichier). Il contenait un cookie de session d une instance jetable locale.
 -o
+
+# Config de serveur de dev du panneau navigateur : elle porte un chemin absolu
+# propre a la machine ET au worktree, elle ne se partage pas.
+.claude/launch.json
