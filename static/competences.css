@@ -807,9 +807,21 @@ header { position: sticky; top: 0; z-index: 30; }
   margin: 0 22px 14px; padding: 15px 16px 16px;
   border-radius: 14px; background: var(--card-2); border: 1px solid var(--border);
 }
+/* Bleu pastel, et les cartes de résultat restent BLANCHES dessus : c'est le
+   contraste entre les deux qui fait ressortir chaque activité à noter. Teinter
+   les cartes aussi rendrait la section uniforme, et on perdrait le découpage.
+   ⚠️ Le mélange est écrit ICI, et pas pris dans `--pg-accent-soft` : les quatre
+   dérivés (`-soft`, `-softer`, `-border`, `-glow`) sont déclarés sur `:root`
+   dans ui-theme, où `--pg-accent` vaut encore le GRIS par défaut (#64748b). Une
+   propriété personnalisée est résolue là où elle est DÉCLARÉE, pas là où elle
+   est employée — `.page--competences` ne redéfinit que `--pg-accent` et
+   `--pg-accent-deep`, donc les dérivés restent gris sur toute l'application.
+   Écrire le mélange dans la règle le résout contre le bleu de l'élément, comme
+   le fait déjà `.cv2-nt--off` juste au-dessus. */
 .cv2-bloc--eval {
-  background: var(--card);
-  border-color: var(--pg-accent-border); box-shadow: 0 8px 22px -16px var(--pg-accent-glow);
+  background: color-mix(in srgb, var(--pg-accent) 10%, #fff);
+  border-color: color-mix(in srgb, var(--pg-accent) 26%, #fff);
+  box-shadow: 0 8px 22px -16px color-mix(in srgb, var(--pg-accent) 30%, transparent);
 }
 .cv2-bloc-tete { display: flex; align-items: flex-start; gap: 11px; margin-bottom: 12px; }
 .cv2-bloc-num {

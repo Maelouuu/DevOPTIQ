@@ -851,6 +851,29 @@ l'activité quand celui de la capacité est nul.
 Tests : `tests/test_56_result_capabilities.py::TestReglerLeNiveauRequis`
 (5 cas, vérifiés **rouges** en retirant le bloc `link_id`).
 
+**La section 2 passe en bleu pastel**, ses cartes de résultat restant blanches :
+c'est le contraste entre les deux qui fait ressortir chaque activité à noter.
+
+⚠️ **Et cela a révélé que `--pg-accent-soft` rend du GRIS sur TOUTE
+l'application.** Les quatre dérivés — `--pg-accent-soft`, `-softer`, `-border`,
+`-glow` — sont déclarés sur `:root` dans `ui-theme.css`, où `--pg-accent` vaut
+encore le gris par défaut `#64748b`. Une propriété personnalisée est résolue là
+où elle est **déclarée**, pas là où elle est employée : `.page--competences` (et
+les huit autres classes de page) ne redéfinissent que `--pg-accent` et
+`--pg-accent-deep`, donc les dérivés gardent le gris de la racine. Mesuré dans
+la fenêtre d'évaluation : `--pg-accent` = `#2563eb`, mais `--pg-accent-soft` =
+`color-mix(in srgb, #64748b 10%, #ffffff)`.
+Conséquence visible : sur chaque page, les fonds doux, les bordures d'accent, le
+halo des ombres et les survols de ligne sont gris au lieu de la couleur de la
+page — alors que tout ce qui passe par `var(--pg-accent)` **dans la règle
+elle-même** (y compris un `color-mix` écrit sur place, comme `.cv2-nt--off`) sort
+bien en couleur. D'où l'aspect panaché : la carte « niveau validé » est bleue,
+la pastille du niveau lu est grise.
+`.cv2-bloc--eval` écrit donc son mélange dans la règle. **Le correctif de fond —
+déplacer les quatre dérivés dans chaque classe `.page--*` — n'est PAS fait** :
+il rendrait sa couleur à chaque page d'un coup, ce qui se décide en regardant
+les neuf pages, pas depuis celle-ci.
+
 ---
 
 ## Guide utilisateur (`docs/guide.html`)
