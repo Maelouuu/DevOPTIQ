@@ -120,6 +120,22 @@ class TestAddSavoirFaireUnique:
         assert "description" in data
         _delete_sf(app, data["id"])
 
+    def test_add_sf_db_error_returns_500_and_rolls_back(self, auth_client, ids, monkeypatch):
+        """Une erreur DB pendant le commit (ajout unitaire) → 500 + message d'erreur."""
+        from Code.extensions import db
+
+        def _boom():
+            raise RuntimeError("db down")
+
+        monkeypatch.setattr(db.session, "commit", _boom)
+        r = auth_client.post(
+            "/savoir_faires/add",
+            data=json.dumps({"description": "SF Erreur DB", "activity_id": ids["activity_id"]}),
+            content_type="application/json",
+        )
+        assert r.status_code == 500
+        assert "db down" in r.get_json()["error"]
+
 
 # ===========================================================================
 # 2. POST /savoir_faires/add — ajout en lot (savoir_faires=[...])
@@ -212,6 +228,22 @@ class TestAddSavoirFairesBatch:
         assert item["description"] == "SF Champs Batch"
         _delete_sf(app, item["id"])
 
+    def test_add_sf_batch_db_error_returns_500_and_rolls_back(self, auth_client, ids, monkeypatch):
+        """Une erreur DB pendant le commit (ajout en lot) → 500 + message d'erreur."""
+        from Code.extensions import db
+
+        def _boom():
+            raise RuntimeError("db down")
+
+        monkeypatch.setattr(db.session, "commit", _boom)
+        r = auth_client.post(
+            "/savoir_faires/add",
+            data=json.dumps({"activity_id": ids["activity_id"], "savoir_faires": ["SF Batch Erreur"]}),
+            content_type="application/json",
+        )
+        assert r.status_code == 500
+        assert "db down" in r.get_json()["error"]
+
 
 # ===========================================================================
 # 3. PUT /savoir_faires/<activity_id>/<sf_id> — modifier un savoir-faire
@@ -299,6 +331,28 @@ class TestUpdateSavoirFaire:
         finally:
             _delete_sf(app, sf_id)
 
+    def test_update_sf_db_error_returns_500_and_rolls_back(self, auth_client, ids, app, monkeypatch):
+        """Une erreur DB pendant le commit → 500 + message d'erreur."""
+        from Code.extensions import db
+
+        sf_id = _create_sf(app, ids["activity_id"], "SF Update Erreur DB")
+
+        def _boom():
+            raise RuntimeError("db down")
+
+        try:
+            monkeypatch.setattr(db.session, "commit", _boom)
+            r = auth_client.put(
+                f"/savoir_faires/{ids['activity_id']}/{sf_id}",
+                data=json.dumps({"description": "Nouvelle description"}),
+                content_type="application/json",
+            )
+            assert r.status_code == 500
+            assert "db down" in r.get_json()["error"]
+        finally:
+            monkeypatch.undo()
+            _delete_sf(app, sf_id)
+
 
 # ===========================================================================
 # 4. DELETE /savoir_faires/<activity_id>/<sf_id> — supprimer un savoir-faire
@@ -334,6 +388,24 @@ class TestDeleteSavoirFaire:
             r = auth_client.delete(f"/savoir_faires/999999/{sf_id}")
             assert r.status_code == 404
         finally:
+            _delete_sf(app, sf_id)
+
+    def test_delete_sf_db_error_returns_500_and_rolls_back(self, auth_client, ids, app, monkeypatch):
+        """Une erreur DB pendant le commit → 500 + message d'erreur."""
+        from Code.extensions import db
+
+        sf_id = _create_sf(app, ids["activity_id"], "SF Delete Erreur DB")
+
+        def _boom():
+            raise RuntimeError("db down")
+
+        try:
+            monkeypatch.setattr(db.session, "commit", _boom)
+            r = auth_client.delete(f"/savoir_faires/{ids['activity_id']}/{sf_id}")
+            assert r.status_code == 500
+            assert "db down" in r.get_json()["error"]
+        finally:
+            monkeypatch.undo()
             _delete_sf(app, sf_id)
 
     def test_delete_sf_idempotent_returns_404_on_second_call(self, auth_client, ids, app):

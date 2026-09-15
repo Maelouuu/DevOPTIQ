@@ -354,3 +354,48 @@ def test_la_carto_ecrit_le_statut_garant_capitalise(app, auth_client, ids):
             "WHERE a.name = :n"), {"n": "Activite bande garante"}).fetchall()}
         assert statuts, "la carto doit poser un garant sur l'activite de sa bande"
         assert statuts == {"Garant"}, f"statut attendu 'Garant', obtenu {statuts}"
+
+
+# ── Bloc 4 (aptitudes) et Bloc 5 (titulaires) de la fiche rôle ──────────────
+
+def test_aptitude_et_titulaire_apparaissent_sur_la_fiche_role(app, auth_client, ids):
+    """Une aptitude liée à une activité Garant doit apparaître dans le bloc 4,
+    et un utilisateur affecté au rôle (user_roles) doit apparaître comme titulaire (bloc 5)."""
+    from Code.extensions import db
+    from Code.models.models import Role, Activities, Aptitude, User, UserRole, activity_roles
+
+    with app.app_context():
+        role = Role(name="Role aptitude titulaire", entity_id=ids["entity_id"])
+        db.session.add(role)
+        acte = Activities(name="Activite aptitude titulaire", entity_id=ids["entity_id"])
+        db.session.add(acte)
+        db.session.commit()
+        rid, aid = role.id, acte.id
+        db.session.execute(
+            activity_roles.insert().values(activity_id=aid, role_id=rid, status='Garant'))
+        apt = Aptitude(description="Sens de observation Test 24", activity_id=aid)
+        db.session.add(apt)
+        holder = User(entity_id=ids["entity_id"], first_name="Titulaire", last_name="RoleTest24",
+                      email="titulaire.roletest24@devoptiq.com", password="x")
+        db.session.add(holder)
+        db.session.commit()
+        holder_id = holder.id
+        db.session.add(UserRole(user_id=holder_id, role_id=rid))
+        db.session.commit()
+
+    try:
+        res = auth_client.get("/roles_view/")
+        assert res.status_code == 200
+        page = res.data.decode("utf-8")
+        assert "Sens de observation Test 24" in page
+        assert "Titulaire" in page and "RoleTest24" in page
+    finally:
+        with app.app_context():
+            from sqlalchemy import text
+            db.session.execute(text("DELETE FROM user_roles WHERE user_id = :u"), {"u": holder_id})
+            db.session.execute(text("DELETE FROM activity_roles WHERE role_id = :r"), {"r": rid})
+            Aptitude.query.filter_by(activity_id=aid).delete()
+            db.session.query(User).filter_by(id=holder_id).delete()
+            db.session.query(Activities).filter_by(id=aid).delete()
+            db.session.query(Role).filter_by(id=rid).delete()
+            db.session.commit()

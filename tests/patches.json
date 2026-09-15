@@ -547,5 +547,25 @@
     ],
     "author": "claude",
     "fixed_at": "2026-09-04T18:27:23"
+  },
+  {
+    "patch_uid": "2026-09-15-hsc-lang-defaut-isole",
+    "title": "HSC : tests de libelle FR dependants dun etat de session laisse par un autre test",
+    "node_ids": [
+      "tests/test_54_hsc_positioning.py::TestHscLevels::test_levels_labels_in_french_when_lang_fr",
+      "tests/test_54_hsc_positioning.py::TestHscLevels::test_levels_labels_in_english_by_default",
+      "tests/test_54_hsc_positioning.py::TestHscDescriptors::test_upsert_descriptor_creates_row"
+    ],
+    "page_slug": "hsc_positioning",
+    "failure_reason": "Ces tests supposaient un defaut de langue FR en session, mais Code/app.py::_default_language pose explicitement l anglais par defaut. Ils passaient uniquement dans la suite complete grace a un test precedent qui laissait session[\"lang\"]=\"fr\" sur le client partage (scope=session) ; executes seuls (ou dans un ordre different), ils echouaient (\"Developing\" au lieu de \"Acquisition\"/\"Expertise\").",
+    "was_real_bug": false,
+    "root_cause": "test_isolation",
+    "error": "Assertion dependante dun etat de session laisse par un autre fichier de test, jamais fixee explicitement par le test lui-meme. Decouvert en executant tests/test_54_hsc_positioning.py isolement pendant lajout de tests IA pour /hsc/position (le fichier passait dans la suite complete mais echouait seul).",
+    "fix_description": "Ajout dun helper _force_lang()/_clear_lang() qui fixe ou retire explicitement session[\"lang\"] avant chaque test dependant de la langue, au lieu de compter sur un etat ambiant. Le test de defaut est desormais explicite : sans langue en session, lapp repond en anglais (comportement voulu, pas un bug).",
+    "files_changed": [
+      "tests/test_54_hsc_positioning.py"
+    ],
+    "author": "routine",
+    "fixed_at": "2026-09-15T03:29:31"
   }
 ]

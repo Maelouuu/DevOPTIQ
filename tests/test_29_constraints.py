@@ -105,6 +105,22 @@ class TestConstraintsCreate:
         assert r.status_code == 404
         assert b"not found" in r.data.lower()
 
+    def test_add_constraint_db_error_returns_500_and_rolls_back(self, auth_client, ids, monkeypatch):
+        """Une erreur DB pendant le commit → 500 + message d'erreur."""
+        from Code.extensions import db
+
+        def _boom():
+            raise RuntimeError("db down")
+
+        monkeypatch.setattr(db.session, "commit", _boom)
+        r = auth_client.post(
+            f"/constraints/{ids['activity_id']}/add",
+            data=json.dumps({"description": "Contrainte Erreur DB"}),
+            content_type="application/json",
+        )
+        assert r.status_code == 500
+        assert "db down" in r.get_json()["error"]
+
 
 # ===========================================================================
 # 2. Mise à jour — PUT /constraints/<activity_id>/<constraint_id>
@@ -168,6 +184,28 @@ class TestConstraintsUpdate:
         assert r.status_code == 404
         _delete_constraint(app, cid)
 
+    def test_update_constraint_db_error_returns_500_and_rolls_back(self, auth_client, ids, app, monkeypatch):
+        """Une erreur DB pendant le commit → 500 + message d'erreur."""
+        from Code.extensions import db
+
+        cid = _create_constraint(app, ids["activity_id"], "Contrainte Update Erreur DB")
+
+        def _boom():
+            raise RuntimeError("db down")
+
+        try:
+            monkeypatch.setattr(db.session, "commit", _boom)
+            r = auth_client.put(
+                f"/constraints/{ids['activity_id']}/{cid}",
+                data=json.dumps({"description": "Nouvelle description"}),
+                content_type="application/json",
+            )
+            assert r.status_code == 500
+            assert "db down" in r.get_json()["error"]
+        finally:
+            monkeypatch.undo()
+            _delete_constraint(app, cid)
+
 
 # ===========================================================================
 # 3. Suppression — DELETE /constraints/<activity_id>/<constraint_id>
@@ -186,6 +224,24 @@ class TestConstraintsDelete:
         """Contrainte inexistante → 404."""
         r = auth_client.delete(f"/constraints/{ids['activity_id']}/999999")
         assert r.status_code == 404
+
+    def test_delete_constraint_db_error_returns_500_and_rolls_back(self, auth_client, ids, app, monkeypatch):
+        """Une erreur DB pendant le commit → 500 + message d'erreur."""
+        from Code.extensions import db
+
+        cid = _create_constraint(app, ids["activity_id"], "Contrainte Delete Erreur DB")
+
+        def _boom():
+            raise RuntimeError("db down")
+
+        try:
+            monkeypatch.setattr(db.session, "commit", _boom)
+            r = auth_client.delete(f"/constraints/{ids['activity_id']}/{cid}")
+            assert r.status_code == 500
+            assert "db down" in r.get_json()["error"]
+        finally:
+            monkeypatch.undo()
+            _delete_constraint(app, cid)
 
     def test_delete_constraint_wrong_activity_returns_404(self, auth_client, ids, app):
         """Contrainte existante sur une autre activité → 404."""

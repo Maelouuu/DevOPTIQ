@@ -130,6 +130,22 @@ class TestAddSavoir:
         )
         assert r.status_code == 400
 
+    def test_add_savoir_db_error_returns_500_and_rolls_back(self, auth_client, ids, monkeypatch):
+        """Une erreur DB pendant le commit → 500 + message d'erreur, pas de crash brut."""
+        from Code.extensions import db
+
+        def _boom():
+            raise RuntimeError("db down")
+
+        monkeypatch.setattr(db.session, "commit", _boom)
+        r = auth_client.post(
+            "/savoirs/add",
+            data=json.dumps({"description": "Savoir Erreur DB", "activity_id": ids["activity_id"]}),
+            content_type="application/json",
+        )
+        assert r.status_code == 500
+        assert "db down" in r.get_json()["error"]
+
 
 # ===========================================================================
 # 2. PUT /savoirs/<activity_id>/<savoir_id> — modifier un savoir
@@ -217,6 +233,28 @@ class TestUpdateSavoir:
         finally:
             _delete_savoir(app, savoir_id)
 
+    def test_update_savoir_db_error_returns_500_and_rolls_back(self, auth_client, ids, app, monkeypatch):
+        """Une erreur DB pendant le commit → 500 + message d'erreur, pas de crash brut."""
+        from Code.extensions import db
+
+        savoir_id = _create_savoir(app, ids["activity_id"], "Savoir Update Erreur DB")
+
+        def _boom():
+            raise RuntimeError("db down")
+
+        try:
+            monkeypatch.setattr(db.session, "commit", _boom)
+            r = auth_client.put(
+                f"/savoirs/{ids['activity_id']}/{savoir_id}",
+                data=json.dumps({"description": "Nouvelle description"}),
+                content_type="application/json",
+            )
+            assert r.status_code == 500
+            assert "db down" in r.get_json()["error"]
+        finally:
+            monkeypatch.undo()
+            _delete_savoir(app, savoir_id)
+
 
 # ===========================================================================
 # 3. DELETE /savoirs/<activity_id>/<savoir_id> — supprimer un savoir
@@ -261,6 +299,24 @@ class TestDeleteSavoir:
         auth_client.delete(f"/savoirs/{ids['activity_id']}/{savoir_id}")
         r2 = auth_client.delete(f"/savoirs/{ids['activity_id']}/{savoir_id}")
         assert r2.status_code == 404
+
+    def test_delete_savoir_db_error_returns_500_and_rolls_back(self, auth_client, ids, app, monkeypatch):
+        """Une erreur DB pendant le commit → 500 + message d'erreur, pas de crash brut."""
+        from Code.extensions import db
+
+        savoir_id = _create_savoir(app, ids["activity_id"], "Savoir Delete Erreur DB")
+
+        def _boom():
+            raise RuntimeError("db down")
+
+        try:
+            monkeypatch.setattr(db.session, "commit", _boom)
+            r = auth_client.delete(f"/savoirs/{ids['activity_id']}/{savoir_id}")
+            assert r.status_code == 500
+            assert "db down" in r.get_json()["error"]
+        finally:
+            monkeypatch.undo()
+            _delete_savoir(app, savoir_id)
 
 
 # ===========================================================================

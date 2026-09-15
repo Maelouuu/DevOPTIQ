@@ -13,6 +13,55 @@ import pytest
 pytestmark = pytest.mark.diagnostic
 
 
+# ---------------------------------------------------------------------------
+# Fake client IA — couvre /diagnostic/plan "avec clé IA" (succès + exception),
+# branches non exercées par les tests de repli sans clé.
+# ---------------------------------------------------------------------------
+
+class _FakeMessage:
+    def __init__(self, content):
+        self.content = content
+
+
+class _FakeChoice:
+    def __init__(self, content):
+        self.message = _FakeMessage(content)
+
+
+class _FakeCompletion:
+    def __init__(self, content):
+        self.choices = [_FakeChoice(content)]
+
+
+class _FakeChatCompletions:
+    def __init__(self, content=None, raise_exc=None):
+        self._content = content
+        self._raise_exc = raise_exc
+
+    def create(self, **kwargs):
+        if self._raise_exc is not None:
+            raise self._raise_exc
+        return _FakeCompletion(self._content)
+
+
+class _FakeChat:
+    def __init__(self, content=None, raise_exc=None):
+        self.completions = _FakeChatCompletions(content, raise_exc)
+
+
+class _FakeOpenAIClient:
+    def __init__(self, content=None, raise_exc=None):
+        self.chat = _FakeChat(content, raise_exc)
+
+
+def _mock_ai(monkeypatch, content=None, raise_exc=None):
+    fake_client = _FakeOpenAIClient(content=content, raise_exc=raise_exc)
+    monkeypatch.setattr(
+        "Code.routes.diagnostic.openai_client_or_none",
+        lambda: (fake_client, None),
+    )
+
+
 def _create_activity(app, entity_id, name="Activité Diagnostic Test 58"):
     with app.app_context():
         from Code.models.models import Activities
@@ -73,6 +122,45 @@ def _cleanup(app, activity_id):
         db.session.commit()
 
 
+def _set_reference_level(app, user_id, activity_id, data_id, mastery_level, eval_number="2"):
+    """Crée une évaluation VALIDANTE (Garant/Manager) du résultat, consommée par _reference_level()."""
+    with app.app_context():
+        from Code.models.models import CompetencyEvaluation
+        from Code.extensions import db
+        ev = CompetencyEvaluation(user_id=user_id, activity_id=activity_id, item_id=data_id,
+                                   item_type="activity_results", eval_number=eval_number,
+                                   note="x", mastery_level=mastery_level)
+        db.session.add(ev)
+        db.session.commit()
+
+
+def _create_role_with_required_level(app, activity_id, required_mastery_level, name="Rôle Diagnostic Test 58"):
+    with app.app_context():
+        from Code.models.models import Role, activity_roles
+        from Code.extensions import db
+        role = Role(name=name)
+        db.session.add(role)
+        db.session.flush()
+        rid = role.id
+        db.session.execute(activity_roles.insert().values(
+            activity_id=activity_id, role_id=rid, status="active",
+            required_mastery_level=required_mastery_level))
+        db.session.commit()
+        return rid
+
+
+def _cleanup_role(app, activity_id, role_id):
+    with app.app_context():
+        from Code.models.models import Role, activity_roles
+        from Code.extensions import db
+        db.session.execute(activity_roles.delete().where(
+            activity_roles.c.activity_id == activity_id, activity_roles.c.role_id == role_id))
+        r = Role.query.get(role_id)
+        if r:
+            db.session.delete(r)
+        db.session.commit()
+
+
 class TestFamilies:
 
     def test_families_returns_three_codes(self, auth_client):
@@ -118,6 +206,97 @@ class TestGetDiagnostic:
             assert cap["required_level"] == 3
             assert cap["demonstrated_level"] is None
             assert cap["gap"] is None
+        finally:
+            _cleanup(app, aid)
+
+    def test_status_autonomy_not_demonstrated_below_level_2(self, auth_client, app, ids):
+        aid = _create_activity(app, ids["entity_id"])
+        did = _create_result_data(app, ids["entity_id"], aid)
+        _set_reference_level(app, ids["user_id"], aid, did, mastery_level=1)
+        try:
+            r = auth_client.get(f"/diagnostic/{ids['user_id']}/{aid}/{did}")
+            data = r.get_json()
+            assert data["demonstrated_level"] == 1
+            assert data["status"]["code"] == "autonomy_not_demonstrated"
+        finally:
+            _cleanup(app, aid)
+
+    def test_status_development_gap_below_required(self, auth_client, app, ids):
+        aid = _create_activity(app, ids["entity_id"])
+        did = _create_result_data(app, ids["entity_id"], aid)
+        _set_reference_level(app, ids["user_id"], aid, did, mastery_level=2)
+        rid = _create_role_with_required_level(app, aid, required_mastery_level=3)
+        try:
+            r = auth_client.get(f"/diagnostic/{ids['user_id']}/{aid}/{did}?role_id={rid}")
+            data = r.get_json()
+            assert data["demonstrated_level"] == 2
+            assert data["required_level"] == 3
+            assert data["status"]["code"] == "development_gap"
+        finally:
+            _cleanup_role(app, aid, rid)
+            _cleanup(app, aid)
+
+    def test_status_met_when_demonstrated_covers_required(self, auth_client, app, ids):
+        aid = _create_activity(app, ids["entity_id"])
+        did = _create_result_data(app, ids["entity_id"], aid)
+        _set_reference_level(app, ids["user_id"], aid, did, mastery_level=3)
+        try:
+            r = auth_client.get(f"/diagnostic/{ids['user_id']}/{aid}/{did}")
+            data = r.get_json()
+            assert data["demonstrated_level"] == 3
+            assert data["status"]["code"] == "met"
+        finally:
+            _cleanup(app, aid)
+
+    def test_capability_demonstrated_level_from_valid_evaluation(self, auth_client, app, ids):
+        """Notes parsables en entier → meilleur niveau retenu (max)."""
+        aid = _create_activity(app, ids["entity_id"])
+        did = _create_result_data(app, ids["entity_id"], aid)
+        sfid = _create_savoir_faire(app, aid)
+        _link_capability(app, ids["entity_id"], aid, did, "SAVOIR_FAIRE", sfid, required_level=3)
+        with app.app_context():
+            from Code.models.models import CompetencyEvaluation
+            from Code.extensions import db
+            db.session.add_all([
+                CompetencyEvaluation(user_id=ids["user_id"], activity_id=aid, item_id=sfid,
+                                     item_type="savoir_faires", eval_number="0", note="1"),
+                CompetencyEvaluation(user_id=ids["user_id"], activity_id=aid, item_id=sfid,
+                                     item_type="savoir_faires", eval_number="1", note="2"),
+                CompetencyEvaluation(user_id=ids["user_id"], activity_id=aid, item_id=sfid,
+                                     item_type="savoir_faires", eval_number="2", note="non-numerique"),
+            ])
+            db.session.commit()
+        try:
+            r = auth_client.get(f"/diagnostic/{ids['user_id']}/{aid}/{did}")
+            cap = r.get_json()["capabilities"][0]
+            assert cap["demonstrated_level"] == 2
+            assert cap["gap"] == -1
+        finally:
+            _cleanup(app, aid)
+
+    def test_capability_with_unrecognized_item_type_has_no_demonstrated_level(self, auth_client, app, ids):
+        """item_type inconnu de EVAL_ITEM_TYPE → demonstrated_level=None, label=None (pas de crash)."""
+        aid = _create_activity(app, ids["entity_id"])
+        did = _create_result_data(app, ids["entity_id"], aid)
+        _link_capability(app, ids["entity_id"], aid, did, "BOGUS_TYPE", 999999, required_level=2)
+        try:
+            r = auth_client.get(f"/diagnostic/{ids['user_id']}/{aid}/{did}")
+            cap = r.get_json()["capabilities"][0]
+            assert cap["demonstrated_level"] is None
+            assert cap["label"] is None
+            assert cap["gap"] is None
+        finally:
+            _cleanup(app, aid)
+
+    def test_capability_with_missing_item_has_no_label(self, auth_client, app, ids):
+        """item_type valide mais item_id inexistant → label=None (pas de crash)."""
+        aid = _create_activity(app, ids["entity_id"])
+        did = _create_result_data(app, ids["entity_id"], aid)
+        _link_capability(app, ids["entity_id"], aid, did, "SAVOIR_FAIRE", 999999, required_level=2)
+        try:
+            r = auth_client.get(f"/diagnostic/{ids['user_id']}/{aid}/{did}")
+            cap = r.get_json()["capabilities"][0]
+            assert cap["label"] is None
         finally:
             _cleanup(app, aid)
 
@@ -245,5 +424,44 @@ class TestGeneratePlan:
             )
             assert r.status_code == 200
             assert r.get_json()["source"] != "AI"
+        finally:
+            _cleanup(app, aid)
+
+    def test_plan_with_ai_key_returns_generated_plan(self, auth_client, app, ids, monkeypatch):
+        aid = _create_activity(app, ids["entity_id"])
+        did = _create_result_data(app, ids["entity_id"], aid)
+        _mock_ai(monkeypatch, content=json.dumps({"plan": ["Former sur X", "Tutorat 2 semaines"]}))
+        try:
+            r = auth_client.post(
+                "/diagnostic/plan",
+                data=json.dumps({"user_id": ids["user_id"], "activity_id": aid, "data_id": did,
+                                  "families": ["ABILITY_TO_ACT"]}),
+                content_type="application/json",
+            )
+            assert r.status_code == 200
+            data = r.get_json()
+            assert data["source"] == "AI"
+            assert data["plan"] == ["Former sur X", "Tutorat 2 semaines"]
+            assert data["context"]["result"] == "Résultat Diagnostic Test 58"
+        finally:
+            _cleanup(app, aid)
+
+    def test_plan_ai_exception_returns_error_source(self, auth_client, app, ids, monkeypatch):
+        aid = _create_activity(app, ids["entity_id"])
+        did = _create_result_data(app, ids["entity_id"], aid)
+        _mock_ai(monkeypatch, raise_exc=RuntimeError("ai down"))
+        try:
+            r = auth_client.post(
+                "/diagnostic/plan",
+                data=json.dumps({"user_id": ids["user_id"], "activity_id": aid, "data_id": did,
+                                  "families": ["ABILITY_TO_ACT"]}),
+                content_type="application/json",
+            )
+            assert r.status_code == 200
+            data = r.get_json()
+            assert data["plan"] is None
+            assert data["source"] == "error"
+            assert "ai down" in data["error"]
+            assert "context" in data
         finally:
             _cleanup(app, aid)
