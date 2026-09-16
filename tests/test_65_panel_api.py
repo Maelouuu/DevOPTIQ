@@ -403,3 +403,96 @@ class TestCoutDuRecensement:
                 assert tp._empreinte_tests() != avant
             finally:
                 tp._TESTS_DIR = racine
+
+
+class TestHistoriqueDesExecutions:
+    """⚠️ Le module du hub n'affichait QUE `last_status` — l'état du DERNIER
+    passage. L'historique existait pourtant en base depuis toujours :
+    `test_results` accumule une ligne par cas et par exécution, et rien ne les
+    supprime. Vérifié sur l'instance : après un redéploiement complet, la
+    dernière exécution enregistrée était toujours la même. Ce n'était donc pas
+    une remise à zéro, mais un affichage absent.
+
+    `/api/runs` est le contrat qui le rend visible ; ces cas le tiennent."""
+
+    def test_l_endpoint_rend_les_executions_passees(self, client):
+        r = client.get('/testpanel/api/runs')
+        assert r.status_code == 200
+        d = r.get_json()
+        assert 'runs' in d and isinstance(d['runs'], list)
+        assert 'total' in d and isinstance(d['total'], int)
+
+    def test_chaque_execution_porte_de_quoi_l_afficher(self, client, app):
+        """Une barre de frise a besoin d'une hauteur, d'une couleur et d'une
+        info-bulle : le pourcentage, la date, la portée et le compte."""
+        from datetime import datetime, timedelta
+        from Code.extensions import db
+        from Code.models.test_models import TestRun
+
+        with app.app_context():
+            debut = datetime.utcnow() - timedelta(minutes=3)
+            run = TestRun(scope='all', status='done', started_at=debut,
+                          finished_at=datetime.utcnow())
+            db.session.add(run)
+            db.session.commit()
+            rid = run.id
+        try:
+            d = client.get('/testpanel/api/runs').get_json()
+            mien = next((x for x in d['runs'] if x['id'] == rid), None)
+            assert mien is not None, "l'exécution enregistrée doit ressortir"
+            for champ in ('id', 'at', 'scope', 'passed', 'failed', 'total',
+                          'pct', 'duration_s'):
+                assert champ in mien, "champ manquant : %s" % champ
+            assert mien['duration_s'] and mien['duration_s'] > 0
+        finally:
+            with app.app_context():
+                obj = db.session.get(TestRun, rid)
+                if obj:
+                    db.session.delete(obj)
+                    db.session.commit()
+
+    def test_les_executions_en_cours_ne_faussent_pas_l_historique(self, client, app):
+        """Une exécution encore en route n'a pas de résultat : la compter
+        afficherait une barre à zéro qui ressemble à un échec total."""
+        from Code.extensions import db
+        from Code.models.test_models import TestRun
+
+        with app.app_context():
+            run = TestRun(scope='all', status='running')
+            db.session.add(run)
+            db.session.commit()
+            rid = run.id
+        try:
+            d = client.get('/testpanel/api/runs').get_json()
+            assert all(x['id'] != rid for x in d['runs'])
+        finally:
+            with app.app_context():
+                obj = db.session.get(TestRun, rid)
+                if obj:
+                    db.session.delete(obj)
+                    db.session.commit()
+
+    def test_la_limite_est_bornee(self, client):
+        """Le paramètre vient du client : sans borne, `?limit=100000` ferait
+        remonter toute la table à chaque ouverture de page."""
+        assert client.get('/testpanel/api/runs?limit=99999').status_code == 200
+        assert len(client.get('/testpanel/api/runs?limit=99999').get_json()['runs']) <= 60
+        assert client.get('/testpanel/api/runs?limit=0').status_code == 200
+        assert client.get('/testpanel/api/runs?limit=abc').status_code == 200
+
+    def test_le_pont_du_hub_expose_la_route(self):
+        """Le navigateur ne peut pas appeler l'instance (deux domaines, aucun
+        CORS) : sans la route côté hub, la frise resterait vide."""
+        import io as _io
+        import re as _re
+        from pathlib import Path as _P
+
+        racine = _P(__file__).resolve().parent.parent
+        client_hub = _io.open(racine / 'hub' / 'panel_client.py',
+                              encoding='utf-8').read()
+        assert 'def runs(' in client_hub
+        assert '/testpanel/api/runs' in client_hub
+
+        app_hub = _io.open(racine / 'hub' / 'app.py', encoding='utf-8').read()
+        assert _re.search(r'@app\.route\("/api/panel/runs"\)', app_hub)
+        assert 'panel_client.runs' in app_hub

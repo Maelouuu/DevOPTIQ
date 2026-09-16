@@ -65,6 +65,16 @@
         </button>
         <button class="btn-sec" id="btn-recharger" type="button">Actualiser</button>
       </div>
+      {# L'historique : ce qui manquait. Rempli par le JS, masqué tant qu'il
+         n'y a rien à montrer — une frise vide vaut moins que pas de frise. #}
+      <div class="frise" id="frise" hidden>
+        <div class="frise-tete">
+          <span class="frise-lbl">Exécutions passées</span>
+          <span class="frise-n" id="frise-n"></span>
+        </div>
+        <div class="frise-barres" id="frise-barres"></div>
+      </div>
+
       <div class="course" id="course" hidden>
         <div class="course-barre"><i id="course-jauge"></i></div>
         <p class="course-txt" id="course-txt"></p>

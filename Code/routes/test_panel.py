@@ -906,6 +906,23 @@ def api_pages():
     return jsonify({'pages': sortie, 'total_cas': sum(p['total'] for p in sortie)})
 
 
+@test_panel_bp.route('/api/runs')
+def api_runs():
+    """Les dernières exécutions, pour l'historique du hub.
+
+    ⚠️ Le module du hub n'affichait QUE `last_status` : l'état du dernier
+    passage, jamais ce qui s'était passé avant. D'où l'impression que
+    l'historique « se remet à zéro » — il n'était simplement jamais montré,
+    alors que `test_results` l'accumule depuis toujours.
+
+    Pas de `_sync_tolerant()` ici : on lit des exécutions passées, le
+    recensement des fichiers n'y change rien.
+    """
+    limite = min(max(request.args.get('limit', 20, type=int), 1), 60)
+    runs = _recent_runs(limite)
+    return jsonify({'runs': runs, 'total': TestRun.query.filter_by(status='done').count()})
+
+
 @test_panel_bp.route('/api/page/<slug>')
 def api_page(slug):
     page = TestPage.query.filter_by(slug=slug).first_or_404()

@@ -198,6 +198,30 @@ async function charger() {
   }
 }
 
+/* ── L'historique des exécutions ─────────────────────────────────────────
+   ⚠️ Le module n'affichait QUE l'état du dernier passage. L'historique existait
+   en base depuis toujours (`test_results` s'accumule), mais on ne le montrait
+   nulle part — d'où l'impression qu'il « se remettait à zéro ». */
+async function frise() {
+  const bloc = document.getElementById('frise');
+  if (!bloc) return;
+  try {
+    const r = await fetch('/api/panel/runs?limit=24', { credentials: 'same-origin' });
+    const d = await r.json();
+    const runs = (d.runs || []).slice().reverse();   // la plus récente à droite
+    if (d.erreur || !runs.length) { bloc.hidden = true; return; }
+    bloc.hidden = false;
+    document.getElementById('frise-n').textContent =
+      d.total > runs.length ? `${runs.length} sur ${d.total}` : `${runs.length}`;
+    document.getElementById('frise-barres').innerHTML = runs.map((x) => {
+      const t = `${x.at} · ${x.scope} · ${x.passed}/${x.total}`
+        + (x.duration_s ? ` · ${x.duration_s}s` : '');
+      return `<i class="frise-b" style="--h:${Math.max(6, x.pct)}%;--c:${teinte(x.pct)}"
+                 title="${esc(t)}"><b>${esc(String(x.pct))}%</b></i>`;
+    }).join('');
+  } catch (_) { bloc.hidden = true; }
+}
+
 /* Une suite peut TOURNER pendant qu'on ouvre la page : sans ce rattrapage on
    ne voyait rien et on la relançait par-dessus. */
 async function reprendre() {
@@ -248,6 +272,8 @@ async function suivre(runId) {
     // détail se recharge (ses cas sont rendus côté serveur).
     if (scene) charger();
     else setTimeout(() => location.reload(), 1200);
+    // L'exécution qui vient de finir est une barre de plus sur la frise.
+    frise();
   } catch (_) {
     afficherCourse('Suivi interrompu — rechargez pour voir le résultat.', null);
   }
@@ -356,4 +382,4 @@ if (btnPage) {
   }
 }
 
-if (scene) { charger(); reprendre(); }
+if (scene) { charger(); reprendre(); frise(); }

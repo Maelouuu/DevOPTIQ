@@ -68,6 +68,27 @@ body.module{background:var(--verre)}
 }
 @keyframes resp{0%,100%{opacity:.55}50%{opacity:1}}
 
+/* ── La frise des exécutions passées ────────────────────────────────────
+   Une barre par exécution, la plus récente à DROITE : c'est le sens de lecture
+   d'une chronologie, et le regard tombe d'abord sur ce qui vient d'arriver. */
+.frise { margin-top: 18px; max-width: 520px }
+.frise-tete { display: flex; align-items: baseline; gap: 8px; margin-bottom: 7px }
+.frise-lbl { font-family: var(--f-titre); font-style: italic; font-size: 13px; color: var(--t-fonce) }
+.frise-n { font-size: 12px; color: var(--gris) }
+.frise-barres { display: flex; align-items: flex-end; gap: 4px; height: 44px }
+.frise-b {
+  position: relative; flex: 1 1 0; min-width: 5px; max-width: 18px;
+  height: var(--h); border-radius: 3px 3px 1px 1px;
+  background: var(--c); opacity: .82; transition: opacity .13s, transform .13s;
+}
+.frise-b:hover { opacity: 1; transform: scaleX(1.25) }
+/* Le pourcentage ne tient pas dans 12 px de large : il vit dans l'info-bulle,
+   et la valeur écrite reste là pour les lecteurs d'écran. */
+.frise-b b {
+  position: absolute; width: 1px; height: 1px; overflow: hidden;
+  clip-path: inset(50%); white-space: nowrap;
+}
+
 /* Progression d'une exécution */
 .course{margin-top:16px;max-width:460px}
 .course-barre{height:9px;border-radius:999px;background:rgba(139,111,181,.16);overflow:hidden}

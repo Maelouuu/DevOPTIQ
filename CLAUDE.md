@@ -1644,6 +1644,47 @@ Nouveauté au passage : `/api/panel/etat` est appelé **en parallèle** du
 catalogue et **rattrape une exécution déjà en cours** — en rouvrant la page
 pendant que la suite tournait, on ne voyait rien et on la relançait par-dessus.
 
+### « L'historique des tests se remet à zéro » — il n'était jamais affiché (2026-09-16)
+
+⚠️ **Le module du hub ne montrait AUCUN historique.** `/api/pages` et
+`/api/page/<slug>` ne portent que `last_status` — l'état du DERNIER passage — et
+le gabarit n'affichait rien d'autre. D'où l'impression, très légitime, que tout
+se remettait à zéro : il n'y avait simplement jamais rien à voir.
+
+**Vérifié avant de corriger, plutôt que supposé.** Relevé sur l'instance :
+`dernier = {id: 2, fin: 2026-09-16T12:41:59}`. Après un redéploiement complet de
+staging, la même exécution était **toujours là**. La base ne se vide donc pas, et
+rien dans le code ne supprime `test_runs` / `test_results` — `_save_results`
+ajoute une ligne par cas et par exécution, sans jamais en retirer.
+⚠️ Deux pistes ont été écartées EN CHEMIN, et méritent de l'être par écrit :
+- *« pytest écrase la base de l'app »* — non : `tests/conftest.py` impose
+  `SQLALCHEMY_DATABASE_URI` sur un SQLite temporaire avant tout `create_all`.
+- *« les sept `--set-env-vars` du workflow s'écrasent, donc pas de
+  `DATABASE_URL` »* — non : `deploy-officielle.yml` emploie le même motif et
+  sert les données réelles de l'entreprise depuis des mois.
+
+**Le correctif est un AFFICHAGE, pas une persistance** :
+- `GET /testpanel/api/runs?limit=` — les exécutions terminées, via
+  `_recent_runs()` qui existait déjà pour le tableau de bord de l'app. La limite
+  est **bornée à 60** : le paramètre vient du client, et `?limit=100000`
+  remonterait toute la table à chaque ouverture de page. Pas de
+  `_sync_tolerant()` ici — on lit du passé, le recensement des fichiers n'y
+  change rien.
+- ⚠️ Seules les exécutions `status == 'done'` sortent : une exécution en cours
+  n'a pas encore de résultat, et l'afficher donnerait une barre à zéro qui
+  ressemble à un échec total.
+- `hub/panel_client.runs()` + `GET /api/panel/runs` : le navigateur ne peut pas
+  appeler l'instance (deux domaines, aucun CORS), le hub republie sous le sien.
+- **La frise** (`#frise`, `panel.js::frise()`) : une barre par exécution, hauteur
+  et couleur selon le taux de vert, **la plus récente à DROITE** — sens de
+  lecture d'une chronologie. Masquée tant qu'il n'y a rien : une frise vide vaut
+  moins que pas de frise. Le pourcentage ne tient pas dans 12 px de large, il
+  vit dans l'info-bulle — et reste écrit pour les lecteurs d'écran.
+- Tests : `tests/test_65_panel_api.py::TestHistoriqueDesExecutions` (5 cas —
+  la forme de chaque exécution, l'exclusion des exécutions en cours, la borne de
+  `limit`, et la présence de la route côté hub).
+
+
 
 ## Provisionnement — compléter une carto avec un Excel client
 

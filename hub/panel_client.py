@@ -68,6 +68,11 @@ def page(slug):
     return _appel("/testpanel/api/page/" + slug, delai=30)
 
 
+def runs(limite=20):
+    """Les exécutions passées — ce que le module ne montrait pas."""
+    return _appel("/testpanel/api/runs?limit=%d" % int(limite), delai=25)
+
+
 def lancer(portee="all"):
     """Démarre une exécution. `portee` : 'all' ou 'page:<slug>'.
 

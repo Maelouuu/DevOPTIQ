@@ -276,6 +276,13 @@ def api_panel_pages():
     return jsonify(panel_client.pages())
 
 
+@app.route("/api/panel/runs")
+@login_required
+def api_panel_runs():
+    """L'historique des exécutions, republié sous le domaine du hub."""
+    return jsonify(panel_client.runs(request.args.get("limit", 20, type=int)))
+
+
 @app.route("/api/panel/etat")
 @login_required
 def api_panel_etat():
