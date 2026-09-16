@@ -2050,6 +2050,76 @@ nettoie — sans quoi un retour en arrière se cacherait sous une marge.
   en arrière. Son déclenchement automatique est retiré — il reste lançable à la main,
   dans le même groupe `concurrency` que `deploy-officielle.yml` pour que les deux ne
   déploient jamais en même temps.
+### Le pilote repris sur staging — 108 commits d'un coup (2026-09-17)
+
+`optiqfluent-staging` avait 108 commits de retard et 39 commits propres. Sur le
+fond, pourtant, l'écart tenait à **un seul fichier** : son
+`.github/workflows/deploy-beta.yml`. Les 39 « commits propres » refaisaient un
+travail que staging portait déjà par d'autres commits (losanges, paquet
+`.optiqcarto`, OptiqPulse…). La fusion s'est donc faite en prenant **l'arbre de
+staging à l'identique** puis en y remettant ce workflow — et l'invariant se
+vérifie d'une commande : `git diff --name-status origin/staging` ne doit rendre
+que `deploy-beta.yml`. À rejouer tel quel au prochain report.
+
+⚠️ **Le Dockerfile du pilote ne différait que par l'absence de `WITH_TESTS`**,
+que staging a ajouté depuis. Le durcissement (licence, prompts chiffrés,
+bytecode) vit dans le MÊME Dockerfile pour les deux : il n'y a pas de
+« Dockerfile client » séparé à préserver. Le workflow pilote ne passe pas
+`--build-arg WITH_TESTS=1`, donc l'image du client reste sans tests.
+
+**La bascule aux quatre paliers sur une base en service.** Relevé avant
+(`tools/db/etat_statuts.py`, lecture seule) : 8 comptes — 2 `administrateur`,
+6 `manager`, **aucun `user`**, et 20 cartos toutes PRIVÉES. Conséquences, toutes
+vérifiées après le démarrage :
+- les 6 `manager` sont devenus `coordinateur`, **et rien d'autre n'a bougé sur
+  ces lignes** (comparaison champ à champ avec la sauvegarde) ;
+- aucune carto commune → personne ne perd le droit de proposer, et
+  ⚠️ `can_edit` rend la main au **propriétaire d'une carto privée quel que soit
+  son statut** : les six comptes ARaymond continuent d'éditer la leur ;
+- 16 tables métier comparées à la sauvegarde : **écart nul**.
+
+⚠️ **Sauvegarde AVANT, et relue.** `~/AFDEC/sauvegardes/optiqfluent_pilot-2026-09-17`
+— 49 tables, 11 537 lignes, les 49 relues sans écart avec le manifeste, et les
+4 pièces jointes décodées depuis le base64 jusqu'à leurs octets de signature
+(dont la carte Visio harmonisée du client, 902 Ko). Une sauvegarde qu'on n'a pas
+relue ne prouve rien — c'est ce qui avait coûté 13 fichiers en septembre.
+
+### ⚠️ `/healthz` n'atteint JAMAIS l'application sur un `*.run.app`
+
+Le frontend Google l'intercepte et sert sa PROPRE 404. La route existe pourtant
+bien dans `Code/app.py` : la requête n'arrive simplement pas. **Comment on le
+prouve** — les deux 404 ne se ressemblent pas : celle de `/healthz` n'a ni
+cookie de session Flask ni `x-cloud-trace-context`, alors qu'une route
+réellement inconnue de l'app en porte. C'est le seul moyen de distinguer « la
+route manque » de « la requête n'est pas passée ».
+
+Le hub et pulse avaient déjà basculé sur `/health` pour cette raison ; le test
+de fumée de `deploy-beta.yml`, lui, sondait encore `/healthz` — il **échouait
+donc à chaque livraison du pilote**, après un déploiement pourtant réussi. Un
+contrôle qui rougit toujours n'est plus un contrôle : on finit par ne plus le
+lire, et le jour où il a raison, personne ne regarde.
+
+- `Code/app.py` expose désormais `/health` **à côté de** `/healthz`.
+- ⚠️ `/healthz` est CONSERVÉ : la sonde de `distribution/docker-compose.yml` et
+  `tools/test_install.sh` l'appellent sur `localhost`, où rien ne s'interpose.
+  Le contrôle ne signale donc que les sondes vers une adresse EXTERNE.
+- `tools/deploy/deploy_cloudrun.sh` avait le même défaut.
+- Tests : `test_72::TestLaSondeDeSanteEstJoignable` (2 cas, le second vérifié
+  **rouge** sur la branche pilote avant le correctif).
+
+### Savoir ce qu'une bascule de statuts fera, AVANT de la faire
+
+`tools/db/etat_statuts.py --url … [--details]` — **lecture seule**
+(`set_session(readonly=True)`, et deux tests interdisent toute écriture dans son
+code : il tourne sur la base d'un client). Il répond aux trois questions qui
+décident de la manœuvre : quels libellés sont écrits en base (le champ est du
+texte libre), quel palier chaque compte aura après la reprise, et combien de
+cartos sont COMMUNES — la seule situation où un compte ordinaire perd un droit
+réel.
+⚠️ Sa prédiction est confrontée à `Code/permissions` par un test, sur tous les
+libellés rencontrés : un outil d'inventaire qui diverge du code décide à côté,
+et c'est sur lui qu'on s'autorise à toucher aux comptes d'un client.
+
 ### ⚠️ Les deux instances ont partagé UNE SEULE base jusqu'au 14/09/2026
 
 `PROD_DATABASE_URL` et `STAGING_DATABASE_URL` pointaient tous deux sur `neondb`.
