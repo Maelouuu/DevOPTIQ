@@ -238,12 +238,29 @@ def get_result_links(activity_id):
 
 @result_cap_bp.route("/result_links/<int:activity_id>", methods=["POST"])
 def upsert_result_link(activity_id):
-    """Crée/supprime un lien manuellement (correction utilisateur, source=MANUAL).
-    Payload create : {data_id, item_type, item_id, required_level?}. Payload delete : {delete_id}."""
+    """Crée/supprime/règle un lien manuellement (correction utilisateur, source=MANUAL).
+    Payload create : {data_id, item_type, item_id, required_level?}.
+    Payload réglage : {link_id, required_level} (null pour retirer la cible).
+    Payload delete : {delete_id}."""
     activity = Activities.query.get(activity_id)
     if not activity:
         return jsonify({"error": "activity_not_found"}), 404
     payload = request.get_json(force=True) or {}
+    # ⚠️ Régler le niveau requis d'un lien EXISTANT. Sans ce chemin, la liste des
+    # capacités du diagnostic affichait une cible que RIEN ne pouvait remplir :
+    # `required_level` ne se posait qu'à la création du lien, et les liens naissent
+    # de l'IA. On y lisait donc un tiret en cherchant où saisir la valeur.
+    if payload.get("link_id"):
+        lk = ResultCapabilityLink.query.filter_by(
+            id=payload["link_id"], activity_id=activity_id).first()
+        if not lk:
+            return jsonify({"error": "link_not_found"}), 404
+        lvl = payload.get("required_level")
+        if lvl is not None and (isinstance(lvl, bool) or not isinstance(lvl, int) or not 0 <= lvl <= 4):
+            return jsonify({"error": "invalid_level"}), 400
+        lk.required_level = lvl
+        db.session.commit()
+        return jsonify({"ok": True, "links": _links_payload(activity_id)}), 200
     if payload.get("delete_id"):
         ResultCapabilityLink.query.filter_by(id=payload["delete_id"], activity_id=activity_id).delete()
         db.session.commit()

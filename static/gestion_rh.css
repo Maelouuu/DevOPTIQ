@@ -1292,3 +1292,436 @@ select {
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
 ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+/* ════════════════════════════════════════════════════════════════════════════
+   REFONTE 2026-09 — une page, trois blocs
+   --------------------------------------------------------------------------
+   La page empilait six cartes de même poids : rien ne disait par où commencer,
+   ni ce qui dépendait de quoi. Elle est maintenant construite sur une phrase :
+   « voici l'entité, voici ses gens, voici ses rôles, voici ce qu'on propose d'y
+   changer. » Les blocs sont NUMÉROTÉS parce que cet ordre a un sens — les
+   rôles n'existent que dans une entité, les propositions portent sur sa carto.
+
+   Le rôle est le pivot : il porte des personnes d'un côté, il ouvre (ou non) la
+   cartographie de l'autre. C'est pour ça que l'accès vit dans le bloc des
+   rôles, et pas sur un écran séparé.
+════════════════════════════════════════════════════════════════════════════ */
+
+/* ── Bandeau : de quelle entité parle-t-on ? ─────────────────────────────── */
+.grh-topbar {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 14px 22px;
+    padding: 16px 20px; margin-bottom: 18px;
+    background: linear-gradient(120deg, var(--pg-accent-softer), var(--card));
+    border: 1px solid var(--pg-accent-border);
+    border-radius: var(--r-card, 14px);
+    box-shadow: var(--sh-card);
+}
+.grh-topbar-main { display: flex; align-items: center; gap: 14px; flex: 1; min-width: 260px; }
+.grh-topbar-icon {
+    display: grid; place-items: center;
+    width: 40px; height: 40px; flex: none;
+    border-radius: 11px; font-size: 16px;
+    background: var(--pg-accent-soft); color: var(--pg-accent-deep);
+}
+.grh-topbar-id { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+.grh-topbar-id h2 { font-size: 20px; }
+.grh-topbar-id h2.is-muted { color: var(--muted); font-style: italic; }
+.grh-topbar-pick { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+.grh-topbar-pick > span {
+    font-size: 12.5px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: .03em; color: var(--muted);
+}
+
+/* Le calendrier : un réglage, pas une section — quatre chiffres qu'on corrige
+   sur place. Une pop-up pour changer un nombre serait disproportionnée. */
+.grh-cal { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.grh-cal-label {
+    font-size: 12px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: .03em; color: var(--muted); margin-right: 2px;
+}
+.grh-cal-item {
+    display: flex; flex-direction: column; align-items: center; gap: 1px;
+    min-width: 62px; padding: 6px 10px; cursor: pointer;
+    background: var(--card); border: 1px solid var(--border); border-radius: 10px;
+    font-family: inherit; transition: border-color .14s, box-shadow .14s;
+}
+.grh-cal-item:hover { border-color: var(--pg-accent-border); box-shadow: 0 2px 8px var(--pg-accent-glow); }
+.grh-cal-item b { font-size: 16px; color: var(--ink); }
+.grh-cal-item span { font-size: 11px; color: var(--muted); text-align: center; }
+.grh-cal-item input {
+    width: 58px; text-align: center; font: inherit; font-size: 15px;
+    border: none; background: transparent; color: var(--ink);
+}
+.grh-cal-item input:focus { outline: none; }
+
+/* ── Les tuiles : trois chiffres, trois blocs ────────────────────────────── */
+.grh-tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 20px; }
+.grh-tile {
+    display: flex; align-items: center; gap: 12px;
+    padding: 14px 16px; cursor: pointer; text-align: left;
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: var(--r-card, 14px); font-family: inherit;
+    transition: transform .14s, box-shadow .14s, border-color .14s;
+}
+.grh-tile:hover { transform: translateY(-2px); box-shadow: var(--sh-card); border-color: var(--pg-accent-border); }
+.grh-tile i { font-size: 15px; width: 34px; height: 34px; flex: none;
+              display: grid; place-items: center; border-radius: 10px; }
+.grh-tile b { font-size: 22px; font-family: var(--pg-font-display, serif); }
+.grh-tile span { font-size: 12.5px; font-weight: 700; text-transform: uppercase;
+                 letter-spacing: .03em; color: var(--muted); }
+.grh-tile--a i { background: #dcfce7; color: #15803d; }
+.grh-tile--b i { background: #e0f2fe; color: #0369a1; }
+.grh-tile--c i { background: #fef3c7; color: #b45309; }
+
+/* ── Les blocs ──────────────────────────────────────────────────────────── */
+.grh-block {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: var(--r-card, 14px); box-shadow: var(--sh-card);
+    margin-bottom: 18px; overflow: hidden;
+    transition: box-shadow .3s, border-color .3s;
+}
+/* Un défilement seul passe inaperçu : la tuile DÉSIGNE le bloc qu'elle vise. */
+.grh-block.is-pointed {
+    border-color: var(--pg-accent); box-shadow: 0 0 0 3px var(--pg-accent-glow), var(--sh-card);
+}
+.grh-block-head {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 12px;
+    padding: 14px 18px; border-bottom: 1px solid var(--border);
+    background: var(--card-2);
+}
+.grh-block-num {
+    display: grid; place-items: center; width: 26px; height: 26px; flex: none;
+    border-radius: 8px; font-size: 13px; font-weight: 800;
+    background: var(--pg-accent); color: #fff;
+}
+.grh-block-titles { flex: 1; min-width: 180px; }
+.grh-block-titles h2 { font-size: 16px; }
+.grh-block-titles p { margin: 2px 0 0; font-size: 12.5px; color: var(--muted); }
+.grh-block-tools { display: flex; align-items: center; gap: 10px; }
+.grh-block-body { padding: 16px 18px; }
+.grh-note { margin: 0; padding: 0 18px 14px; font-size: 12px; color: var(--muted); }
+
+.grh-search { position: relative; }
+.grh-search i { position: absolute; left: 11px; top: 50%; transform: translateY(-50%);
+                font-size: 12px; color: var(--faint); pointer-events: none; }
+.grh-search input {
+    padding: 8px 12px 8px 30px; min-width: 210px; font: inherit; font-size: 13.5px;
+    border: 1px solid var(--border); border-radius: var(--r-btn, 9px);
+    background: var(--card); color: var(--ink);
+}
+.grh-search input:focus { outline: none; border-color: var(--pg-accent); }
+.grh-select {
+    padding: 8px 11px; font: inherit; font-size: 13.5px; cursor: pointer;
+    border: 1px solid var(--border); border-radius: var(--r-btn, 9px);
+    background: var(--card); color: var(--ink);
+}
+.grh-select--sm { padding: 5px 9px; font-size: 12.5px; }
+.grh-select:disabled { background: var(--card-2); color: var(--muted); cursor: default; }
+
+.grh-btn {
+    display: inline-flex; align-items: center; gap: 7px;
+    padding: 8px 13px; cursor: pointer; text-decoration: none;
+    border-radius: var(--r-btn, 9px); font: inherit; font-size: 13.5px; font-weight: 600;
+    border: 1px solid transparent; transition: filter .14s, background .14s;
+}
+.grh-btn--primary { background: linear-gradient(135deg, var(--pg-accent), var(--pg-accent-deep)); color: #fff; }
+.grh-btn--primary:hover { filter: brightness(1.06); }
+.grh-btn--ghost { background: var(--card); border-color: var(--border-strong, var(--border)); color: var(--ink-2); }
+.grh-btn--ghost:hover { background: var(--card-2); }
+.grh-icon {
+    display: grid; place-items: center; width: 30px; height: 30px; flex: none;
+    cursor: pointer; border-radius: 8px; font-size: 12px;
+    border: 1px solid var(--border); background: var(--card); color: var(--muted);
+}
+.grh-icon.danger:hover { background: #fef2f2; border-color: #fecaca; color: #b91c1c; }
+
+.grh-new-role { display: flex; gap: 8px; padding: 0 18px 12px; }
+.grh-new-role input {
+    flex: 1; padding: 8px 12px; font: inherit; font-size: 13.5px;
+    border: 1px solid var(--border); border-radius: var(--r-btn, 9px);
+}
+
+/* ── ① Les personnes ────────────────────────────────────────────────────── */
+.grh-people { display: flex; flex-direction: column; gap: 8px;
+              max-height: min(62vh, 560px); overflow-y: auto; padding-right: 4px; }
+.grh-person {
+    display: grid; align-items: start; gap: 12px;
+    /* ⚠️ Largeurs FIXES : chaque carte est sa propre grille, donc des colonnes
+       en `auto` se dimensionnent sur le contenu de LEUR ligne — les en-têtes
+       « Statut » et « Rôles » ne tombaient jamais au même endroit d'une ligne
+       à l'autre. */
+    grid-template-columns: 38px minmax(0, 1fr) 150px minmax(0, 1.6fr) 210px;
+    padding: 10px 12px; border: 1px solid var(--border); border-radius: 12px;
+    background: var(--card); transition: border-color .14s, box-shadow .14s;
+}
+.grh-person:hover { border-color: var(--pg-accent-border); box-shadow: 0 2px 10px var(--pg-accent-glow); }
+.grh-person.is-dev { border-left: 3px solid var(--pg-accent); }
+.grh-person-id { display: flex; flex-direction: column; min-width: 0; }
+.grh-person-id b { font-size: 14px; }
+.grh-person-id span { font-size: 12px; color: var(--muted);
+                      overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.grh-person-tags {
+    display: flex; flex-direction: column; gap: 4px;
+    align-items: flex-start; min-width: 0;
+}
+.grh-person-tags .grh-chip { max-width: 100%; }
+.grh-person-tags .grh-chip--dev {
+    font-size: 10.5px; padding: 3px 7px;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+/* Chaque colonne dit ce qu'elle contient : sans étiquette, on lisait trois
+   séries de pastilles sans savoir laquelle était le statut et laquelle les
+   rôles. */
+.grh-col-label {
+    font-size: 10px; font-weight: 800; text-transform: uppercase;
+    letter-spacing: .05em; color: var(--faint);
+}
+/* ⚠️ Un bouton dont l'apparence ne se révèle qu'au SURVOL n'est pas un bouton :
+   rien ne disait qu'on pouvait cliquer sur les rôles. L'état de repos porte
+   donc l'affordance — cadre vert tireté — et le survol l'ATTÉNUE en gris. Le
+   mouvement se voit quand même, mais on n'a plus besoin de le chercher. */
+.grh-person-roles {
+    position: relative;
+    display: flex; gap: 5px; flex-wrap: wrap; align-items: center;
+    padding: 7px 30px 7px 10px; cursor: pointer; font: inherit; text-align: left;
+    /* ⚠️ Assez de vert pour qu'on le VOIE. Les jetons dérivés du design system
+       (28 % d'accent sur blanc pour la bordure, 5 % pour le fond) donnent un
+       trait qui se lit gris à 1 px : l'affordance disparaissait. */
+    border: 1.5px dashed color-mix(in srgb, var(--pg-accent) 62%, #ffffff);
+    border-radius: 10px;
+    background: color-mix(in srgb, var(--pg-accent) 10%, #ffffff);
+    transition: background .14s, border-color .14s;
+}
+.grh-person-roles::after {
+    content: "\f061";              /* flèche : « ça mène quelque part » */
+    font-family: "Font Awesome 6 Free"; font-weight: 900;
+    position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
+    font-size: 10px; color: var(--pg-accent); opacity: .65;
+}
+/* Au survol, l'inverse : le vert s'efface au profit du gris. Le mouvement se
+   voit, mais ce n'est plus lui qui PORTE l'information « c'est cliquable ». */
+.grh-person-roles:hover {
+    background: var(--card-2);
+    border-color: var(--border-strong, #cbd5e1);
+}
+.grh-person-roles:hover::after { color: var(--muted); }
+/* Les rôles, dans ce cadre : neutres et compacts — c'est le CADRE qui porte la
+   couleur de la page, pas chaque étiquette. */
+.grh-person-roles .grh-chip {
+    background: var(--card); border-color: var(--border); color: var(--ink-2);
+}
+.grh-person-dev { display: flex; flex-direction: column; gap: 3px; }
+.grh-person-dev > span { font-size: 11px; font-weight: 700; text-transform: uppercase;
+                         letter-spacing: .03em; color: var(--muted); }
+
+.grh-av {
+    display: grid; place-items: center; width: 38px; height: 38px; flex: none;
+    border-radius: 11px; font-size: 13px; font-weight: 800; letter-spacing: .02em;
+    color: hsl(var(--av-h) 62% 32%); background: hsl(var(--av-h) 72% 93%);
+    border: 1px solid hsl(var(--av-h) 55% 84%);
+}
+.grh-av--sm { width: 30px; height: 30px; font-size: 11px; border-radius: 9px; }
+.grh-person > .grh-av { margin-top: 2px; }
+.grh-person-id { padding-top: 3px; }
+
+.grh-chip {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 3px 9px; border-radius: 999px; font-size: 12px; font-weight: 600;
+    background: var(--card-2); color: var(--ink-2); border: 1px solid var(--border);
+}
+.grh-chip--shared { background: #dcfce7; color: #15803d; border-color: #bbf7d0; }
+.grh-chip--dev { background: var(--pg-accent-soft); color: var(--pg-accent-deep);
+                 border-color: var(--pg-accent-border); }
+/* ⚠️ Le statut et les rôles se ressemblaient : deux pastilles grises côte à
+   côte, impossible de dire laquelle était quoi. Le statut devient un carré à
+   coins droits, en MAJUSCULES, et sa couleur porte le sens — un administrateur
+   ne se lit plus comme un rôle métier de plus. */
+.grh-chip--status {
+    text-transform: uppercase; letter-spacing: .04em;
+    font-size: 10.5px; font-weight: 800;
+    padding: 4px 8px; border-radius: 6px;
+    background: var(--card-2); color: var(--muted); border-color: var(--border);
+}
+.grh-chip--status[data-fam="admin"]    { background: #fee2e2; color: #b91c1c; border-color: #fecaca; }
+.grh-chip--status[data-fam="champion"] { background: #ede9fe; color: #6d28d9; border-color: #ddd6fe; }
+.grh-chip--status[data-fam="user"]     { background: #f1f5f9; color: #475569; border-color: #e2e8f0; }
+.grh-chip--none { color: var(--faint); font-style: italic; }
+
+/* ── ② Les rôles ────────────────────────────────────────────────────────── */
+.grh-roles { display: flex; flex-direction: column; gap: 8px;
+             max-height: min(62vh, 560px); overflow-y: auto; padding-right: 4px; }
+.grh-role {
+    display: flex; align-items: center; gap: 12px;
+    padding: 4px 12px 4px 4px; border: 1px solid var(--border); border-radius: 12px;
+    background: var(--card); transition: border-color .14s, box-shadow .14s;
+}
+.grh-role:hover { border-color: var(--pg-accent-border); box-shadow: 0 2px 10px var(--pg-accent-glow); }
+.grh-role.is-permanent { border-left: 3px solid var(--pg-accent); }
+.grh-role-main {
+    display: flex; align-items: center; justify-content: space-between; gap: 14px;
+    flex: 1; min-width: 0; padding: 10px; cursor: pointer;
+    background: none; border: none; border-radius: 9px; font: inherit; text-align: left;
+}
+.grh-role-main:hover { background: var(--pg-accent-softer); }
+.grh-role-name { display: flex; align-items: center; gap: 9px; font-size: 14px;
+                 font-weight: 600; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.grh-role-name i { color: var(--pg-accent); font-size: 12px; flex: none; }
+/* ⚠️ Un nom de rôle s'affiche TEL QU'IL EST SAISI. Une règle héritée de
+   l'ancienne page le passait en `capitalize`, ce qui donnait « Développeur De
+   Compétences » — et, sur les rôles venus des bandes Visio, changeait la casse
+   voulue par l'auteur de la carte. */
+.grh-role-name { text-transform: none; }
+.grh-role-count { display: flex; align-items: center; gap: 5px; flex: none;
+                  font-size: 13px; font-weight: 700; color: var(--ink-2); }
+.grh-role-count i { font-size: 11px; color: var(--faint); }
+.grh-role-count em { font-style: normal; font-size: 11.5px; font-weight: 600; color: var(--muted); }
+.grh-role-side { display: flex; align-items: center; gap: 10px; flex: none; }
+.grh-role-dot { width: 10px; height: 10px; border-radius: 4px; flex: none; background: var(--border-strong, #cbd5e1); }
+.grh-role-dot.is-permanent { background: var(--pg-accent); }
+
+.grh-switch { display: inline-flex; align-items: center; gap: 7px; cursor: pointer;
+              font-size: 12.5px; font-weight: 600; color: var(--ink-2); }
+.grh-switch input { width: 15px; height: 15px; accent-color: var(--pg-accent); cursor: pointer; }
+.grh-switch input:disabled { cursor: default; }
+
+/* ── ③ Les propositions ─────────────────────────────────────────────────── */
+.grh-changes { display: flex; flex-direction: column; gap: 8px; }
+.grh-change {
+    display: flex; align-items: center; gap: 12px; padding: 11px 13px;
+    border: 1px solid var(--border); border-left: 3px solid #d97706; border-radius: 12px;
+}
+.grh-change > i { color: #d97706; font-size: 14px; }
+.grh-change-id { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+.grh-change-id b { font-size: 14px; }
+.grh-change-id span { font-size: 12px; color: var(--muted); }
+
+/* ── États ──────────────────────────────────────────────────────────────── */
+.grh-empty, .grh-wait {
+    margin: 0; padding: 22px 10px; text-align: center;
+    font-size: 13.5px; color: var(--muted);
+}
+.grh-wait i { margin-right: 7px; color: var(--pg-accent); }
+
+/* ── La fenêtre, commune aux deux sens ──────────────────────────────────── */
+.grh-modal { position: fixed; inset: 0; z-index: 9400; display: flex;
+             align-items: center; justify-content: center; padding: 20px; }
+.grh-modal.hidden { display: none; }
+.grh-modal-backdrop { position: absolute; inset: 0; background: rgba(15,23,42,.42);
+                      backdrop-filter: blur(2px); }
+.grh-modal-box {
+    position: relative; display: flex; flex-direction: column;
+    width: min(540px, 100%); max-height: min(78vh, 680px);
+    background: var(--card); border-radius: 16px; box-shadow: 0 24px 60px rgba(15,23,42,.24);
+    overflow: hidden;
+}
+.grh-modal-head { display: flex; align-items: flex-start; gap: 12px;
+                  padding: 16px 18px 12px; border-bottom: 1px solid var(--border); }
+.grh-modal-over { margin: 0 0 2px; font-size: 11px; font-weight: 700;
+                  text-transform: uppercase; letter-spacing: .05em; color: var(--pg-accent-deep); }
+.grh-modal-head h3 { font-size: 17px; }
+.grh-modal-x { margin-left: auto; width: 30px; height: 30px; flex: none; cursor: pointer;
+               display: grid; place-items: center; border-radius: 9px;
+               border: 1px solid var(--border); background: var(--card); color: var(--muted); }
+.grh-modal-x:hover { background: var(--card-2); }
+.grh-modal-search { position: relative; padding: 12px 18px 8px; }
+.grh-modal-search i { position: absolute; left: 29px; top: 50%; transform: translateY(-40%);
+                      font-size: 12px; color: var(--faint); }
+.grh-modal-search input {
+    width: 100%; padding: 8px 12px 8px 30px; font: inherit; font-size: 13.5px;
+    border: 1px solid var(--border); border-radius: var(--r-btn, 9px);
+}
+.grh-modal-search input:focus { outline: none; border-color: var(--pg-accent); }
+.grh-modal-body { flex: 1; overflow-y: auto; padding: 4px 18px 18px; }
+
+.grh-row { display: flex; align-items: center; gap: 11px; padding: 8px 9px;
+           border-radius: 10px; cursor: pointer; }
+.grh-row:hover { background: var(--pg-accent-softer); }
+.grh-row-id { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+.grh-row-id b { font-size: 13.5px; font-weight: 600; }
+.grh-row-id span { font-size: 11.5px; color: var(--muted); }
+.grh-pick { width: 17px; height: 17px; accent-color: var(--pg-accent); cursor: pointer; }
+
+/* ── Toasts ─────────────────────────────────────────────────────────────── */
+#toast-container { position: fixed; right: 18px; bottom: 18px; z-index: 9500;
+                   display: flex; flex-direction: column; gap: 8px; }
+.grh-toast {
+    padding: 10px 15px; border-radius: 11px; font-size: 13.5px; font-weight: 600;
+    color: #fff; background: var(--pg-accent-deep);
+    box-shadow: 0 8px 24px rgba(15,23,42,.2);
+    transition: opacity .35s, transform .35s;
+}
+.grh-toast.is-error { background: #b91c1c; }
+.grh-toast.is-out { opacity: 0; transform: translateY(6px); }
+
+@media (max-width: 900px) {
+    .grh-tiles { grid-template-columns: 1fr; }
+    .grh-person { grid-template-columns: auto 1fr; }
+    .grh-person-tags, .grh-person-roles, .grh-person-dev { grid-column: 2; }
+}
+
+/* ── Choix du développeur de compétences ─────────────────────────────────────
+   ⚠️ C'était un `<select>` natif : le bouton fermé se style, mais la liste qui
+   s'ouvre est celle du SYSTÈME — aucune feuille de style de la page ne
+   l'atteint. D'où un bouton soigné et un menu qui ne l'était pas. On dessine
+   donc les deux, dans le même langage que le reste de la page (avatars,
+   teintes stables, coche sur le choix courant). */
+.grh-devpick {
+    display: flex; align-items: center; gap: 8px;
+    width: 100%; padding: 6px 10px; cursor: pointer;
+    font: inherit; font-size: 13px; text-align: left;
+    color: var(--ink);
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: var(--r-btn, 9px);
+    transition: border-color .14s, box-shadow .14s;
+}
+.grh-devpick:hover:not(:disabled),
+.grh-devpick.is-open {
+    border-color: var(--pg-accent); box-shadow: 0 0 0 3px var(--pg-accent-glow);
+}
+.grh-devpick:disabled { background: var(--card-2); color: var(--muted); cursor: default; }
+.grh-devpick i { margin-left: auto; font-size: 10px; color: var(--faint);
+                 transition: transform .16s; }
+.grh-devpick.is-open i { transform: rotate(180deg); }
+.grh-devpick-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.grh-devpick-name.is-empty { color: var(--muted); font-style: italic; }
+.grh-devpick-none {
+    width: 22px; height: 22px; flex: none; border-radius: 7px;
+    border: 1px dashed var(--border-strong, #cbd5e1);
+}
+
+/* ⚠️ Le panneau vit sur `body`, en position FIXE : dans la liste des personnes
+   (qui a son propre `overflow`), il serait tronqué. En contrepartie il ne suit
+   pas son bouton — un défilement ou un redimensionnement le referme. */
+.grh-devmenu {
+    position: fixed; z-index: 9300;
+    max-height: 260px; overflow-y: auto;
+    padding: 5px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    box-shadow: 0 14px 38px rgba(15,23,42,.16), 0 2px 6px rgba(15,23,42,.06);
+    animation: grh-devmenu-in .13s ease-out;
+}
+@keyframes grh-devmenu-in {
+    from { opacity: 0; transform: translateY(-4px); }
+    to   { opacity: 1; transform: none; }
+}
+.grh-devmenu-item {
+    display: flex; align-items: center; gap: 9px;
+    width: 100%; padding: 7px 9px; cursor: pointer;
+    font: inherit; font-size: 13px; text-align: left; color: var(--ink);
+    background: none; border: none; border-radius: 9px;
+}
+.grh-devmenu-item:hover { background: var(--pg-accent-softer); }
+.grh-devmenu-item.is-current { background: var(--pg-accent-soft); font-weight: 600; }
+.grh-devmenu-item i { margin-left: auto; font-size: 11px; color: var(--pg-accent-deep); }
+.grh-devmenu-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.grh-devmenu-name.is-empty { color: var(--muted); font-style: italic; }
+.grh-devmenu-empty {
+    margin: 0; padding: 12px 10px; text-align: center;
+    font-size: 12.5px; color: var(--muted);
+}
+
+.grh-av--xs {
+    width: 22px; height: 22px; font-size: 9.5px; border-radius: 7px;
+}

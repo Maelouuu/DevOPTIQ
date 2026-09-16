@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="{{ session.get('lang', 'fr') }}">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -17,9 +17,24 @@
     window.OPTIQCARTO_ACTIVE_CALQUE = {{ (active_calque_id or 'null')|safe }};
     /* Traductions injectées depuis Flask */
     window.OPTIQ_I18N = {{ i18n_data | tojson | safe }};
+    /* Carto commune : qui enregistre directement, qui propose, qui arbitre.
+       Le JS s'en sert pour choisir entre « Sauvegarder » et « Proposer ».
+       Ce n'est PAS une sécurité — /api/save refuse aussi côté serveur. */
+    window.OPTIQCARTO_GOV = {{ governance | tojson | safe }};
+    /* ⚠️ Un compte `user` consulte la carto, il ne la modifie pas et ne
+       propose rien. editor.js lit ce drapeau pour n'armer aucun outil — le
+       même que celui du viewer. Le refus côté serveur reste (le masquage
+       n'est pas une sécurité), mais on n'invite plus à un travail perdu. */
+    window.OPTIQCARTO_READONLY = {{ (governance.get('lecture_seule') or false) | tojson }};
+    /* ⚠️ Même drapeau de lecture seule que le viewer, mais PAS le même lieu :
+       le viewer est une vignette dans la page Carte et prévient sa page
+       parente quand on clique une forme ; ici il n'y a pas de page parente.
+       `CONSULTATION` dit à editor.js qu'il est l'éditeur ouvert par quelqu'un
+       qui vient lire — un clic ouvre alors la fiche dans le panneau. */
+    window.OPTIQCARTO_CONSULTATION = window.OPTIQCARTO_READONLY;
   </script>
 </head>
-<body>
+<body{% if governance.get('lecture_seule') %} class="carto-consultation"{% endif %}>
 
 <!-- ══════════════ TOOLBAR ══════════════ -->
 <header id="toolbar">
@@ -214,6 +229,59 @@
   </button>
 
 </header>
+
+<!-- ── Bandeau « carto commune » ──────────────────────────────────────────
+     Ne s'affiche que sur une carto partagée. Il répond d'un coup d'œil à la
+     seule question qui compte en ouvrant l'éditeur : est-ce que ce que je fais
+     ici s'applique, ou est-ce que ça part à l'examen ? -->
+<div id="carto-gov-bar" class="gov-bar" style="display:none">
+  <span class="gov-bar-badge"><i class="fa-solid fa-users"></i> {{ t('access.shared_label') }}</span>
+  <span class="gov-bar-text" id="gov-bar-text"></span>
+  <button type="button" class="gov-bar-btn" id="gov-review-btn" style="display:none">
+    <i class="fa-solid fa-inbox"></i>
+    <span>{{ t('change.review_btn') }}</span>
+    <span class="gov-bar-count" id="gov-review-count">0</span>
+  </button>
+</div>
+
+<!-- ── Proposer une modification (compte sans droit d'écriture directe) ── -->
+<div id="propose-modal" class="gov-modal" style="display:none">
+  <div class="gov-card">
+    <div class="gov-card-head">
+      <i class="fa-solid fa-code-pull-request gov-card-icon"></i>
+      <h3 class="gov-card-title">{{ t('change.propose_title') }}</h3>
+    </div>
+    <p class="gov-card-desc">{{ t('change.propose_hint') }}</p>
+
+    <label class="gov-field">
+      <span class="gov-field-label">{{ t('change.title_label') }}</span>
+      <input type="text" id="propose-title" maxlength="200" placeholder="{{ t('change.title_ph') }}">
+    </label>
+    <label class="gov-field">
+      <span class="gov-field-label">{{ t('change.message_label') }}</span>
+      <textarea id="propose-message" rows="4" placeholder="{{ t('change.message_ph') }}"></textarea>
+    </label>
+
+    <div class="gov-card-actions">
+      <button id="propose-cancel" class="gov-btn gov-btn--ghost">{{ t('btn.cancel') }}</button>
+      <button id="propose-send" class="gov-btn gov-btn--primary">
+        <i class="fa-solid fa-paper-plane"></i> {{ t('change.send') }}
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Examen des modifications proposées (champion / administrateur) ── -->
+<div id="review-modal" class="gov-modal" style="display:none">
+  <div class="gov-card gov-card--wide">
+    <div class="gov-card-head">
+      <i class="fa-solid fa-inbox gov-card-icon"></i>
+      <h3 class="gov-card-title">{{ t('change.review_title') }}</h3>
+      <button class="gov-card-close" id="review-close"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="gov-review-body" id="review-body"></div>
+  </div>
+</div>
 
 <!-- ── Bouton retour flottant bas-gauche ── -->
 <a href="/activities/map" id="btn-back-floating" title="{{ t('editor.btn_back') }}">
@@ -764,12 +832,14 @@
 <div id="toast"></div>
 
 
+<script src="{{ url_for('static', filename='optiqcarto/ui_scale.js') }}"></script>
 <script src="{{ url_for('static', filename='optiqcarto/color-utils.js') }}"></script>
 <script src="{{ url_for('static', filename='optiqcarto/geometry.js') }}"></script>
 <script src="{{ url_for('static', filename='optiqcarto/highlight-mode.js') }}"></script>
 <script src="{{ url_for('static', filename='optiqcarto/vsdx_importer.js') }}"></script>
 <script src="{{ url_for('static', filename='optiqcarto/optiqarrange.js') }}"></script>
 <script src="{{ url_for('static', filename='optiqcarto/editor.js') }}"></script>
+<script src="{{ url_for('static', filename='optiqcarto/carto_sharing.js') }}"></script>
 
 <!-- ══ Routage orthogonal libavoid (WASM) : exécuté dans un Web Worker (hors du
      thread principal → l'UI ne gèle jamais pendant le calcul) ══ -->
@@ -810,28 +880,19 @@
     GESTURES.forEach(function(ev){ window.addEventListener(ev, onGesture, true); });
   }
 
-  function showNotif(){
-    if (notifShown) return; notifShown = true;
-    var n = document.createElement('div');
-    n.id = 'carto-fs-notif';
-    n.innerHTML =
-      '<span class="fs-notif-icon"><i class="fa-solid fa-expand"></i></span>' +
-      '<span class="fs-notif-text">Appuyez sur <kbd>Échap</kbd> pour quitter le mode plein écran</span>' +
-      '<button class="fs-notif-close" type="button" aria-label="Fermer">&times;</button>';
-    document.body.appendChild(n);
-    requestAnimationFrame(function(){ n.classList.add('show'); });
-    var timer = null;
-    function close(){
-      if (timer) { clearTimeout(timer); timer = null; }
-      n.classList.remove('show');
-      setTimeout(function(){ if (n.parentNode) n.parentNode.removeChild(n); }, 320);
-    }
-    n.querySelector('.fs-notif-close').addEventListener('click', close);
-    timer = setTimeout(close, 5000);
-  }
+  // ⚠️ Un bandeau « Appuyez sur Échap pour quitter le mode plein écran » était
+  // posé ici, en `position: fixed; top: 74px; right: 18px` — c'est-à-dire PILE
+  // sur la barre de navigation et sur les menus qui s'ouvrent depuis son bord
+  // droit. Il restait cinq secondes ET interceptait les clics
+  // (`pointer-events: auto`) : à l'arrivée dans l'outil, on ne voyait plus la
+  // moitié de la nav et on ne pouvait pas y cliquer.
+  // Il est retiré, pas déplacé : le navigateur affiche DÉJÀ sa propre mention
+  // « Appuyez sur Échap pour quitter le mode plein écran » quand une page
+  // bascule. On répétait donc, par-dessus l'interface, ce que le navigateur
+  // dit déjà tout seul. Le passage en plein écran, lui, est conservé.
 
   function onFsChange(){
-    if (isFs()) { armed = false; removeGestureListeners(); showNotif(); }
+    if (isFs()) { armed = false; removeGestureListeners(); }
   }
   document.addEventListener('fullscreenchange', onFsChange);
   document.addEventListener('webkitfullscreenchange', onFsChange);
@@ -925,56 +986,6 @@ document.addEventListener('DOMContentLoaded', () => {
   white-space: nowrap;
 }
 
-/* ── Notification "plein écran" (item plein écran auto) ── */
-#carto-fs-notif {
-  position: fixed;
-  top: 74px;
-  right: 18px;
-  z-index: 99999;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  max-width: 340px;
-  padding: 11px 12px 11px 14px;
-  background: rgba(17, 24, 39, 0.94);
-  color: #f8fafc;
-  border: 1px solid rgba(148,163,184,0.25);
-  border-left: 3px solid var(--green, #22c55e);
-  border-radius: 10px;
-  box-shadow: 0 12px 34px rgba(0,0,0,0.4);
-  font-size: 13px;
-  line-height: 1.45;
-  opacity: 0;
-  transform: translateY(-8px);
-  transition: opacity .28s ease, transform .28s ease;
-  pointer-events: auto;
-}
-#carto-fs-notif.show { opacity: 1; transform: translateY(0); }
-#carto-fs-notif .fs-notif-icon { color: var(--green, #22c55e); font-size: 15px; flex-shrink: 0; }
-#carto-fs-notif .fs-notif-text { flex: 1; }
-#carto-fs-notif kbd {
-  display: inline-block;
-  padding: 1px 6px;
-  margin: 0 1px;
-  background: rgba(255,255,255,0.14);
-  border: 1px solid rgba(255,255,255,0.28);
-  border-radius: 5px;
-  font-size: 11px;
-  font-weight: 700;
-  font-family: inherit;
-}
-#carto-fs-notif .fs-notif-close {
-  background: none;
-  border: none;
-  color: rgba(248,250,252,0.7);
-  font-size: 18px;
-  line-height: 1;
-  cursor: pointer;
-  padding: 0 2px;
-  flex-shrink: 0;
-  transition: color .15s;
-}
-#carto-fs-notif .fs-notif-close:hover { color: #fff; }
 </style>
 
 </body>

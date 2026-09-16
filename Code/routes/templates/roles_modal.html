@@ -1,14 +1,48 @@
-<!-- Code/routes/templates/roles_modal.html -->
-<div id="garantModal" style="display:none; position: fixed; top:20%; left:30%; width:40%; background: #fff; border:1px solid #aaa; padding:20px; z-index:9999;">
-    <h3>Choisir le rôle Garant</h3>
-    <input type="hidden" id="garant-activity-id" value="">
-    <label for="garant-role-select">Rôle existant :</label>
-    <select id="garant-role-select" style="width:100%;"></select>
-    <br/><br/>
-    <label for="garant-new-role">Ou saisir un nouveau rôle :</label>
-    <input type="text" id="garant-new-role" style="width:100%;" placeholder="Ex: Chef de projet">
-    <br/><br/>
-    <button onclick="submitGarantRole()">Valider</button>
-    <button onclick="closeGarantModal()">Annuler</button>
+<!-- Code/routes/templates/roles_modal.html
+     ⚠️ Cette fenêtre était restée à l'état d'ébauche : treize lignes de HTML
+     avec ses styles EN LIGNE (`top:20%; left:30%`), ses libellés en dur et
+     aucune classe du design system. Elle reprend le patron de modale de la page
+     (`.modal-*-propose`) et passe par le catalogue de traductions. -->
+<div class="modal-overlay-propose" id="garantModal" style="display:none">
+  <div class="modal-content-propose garant-modal">
+    <div class="modal-header-propose">
+      <h3><i class="fa-solid fa-user-shield"></i> {{ t('garant.title') }}</h3>
+      <button type="button" class="modal-close-btn-propose" onclick="closeGarantModal()"
+              aria-label="{{ t('btn.close') }}"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+
+    <div class="modal-body-propose">
+      <p class="garant-intro">{{ t('garant.intro') }}</p>
+      <input type="hidden" id="garant-activity-id" value="">
+
+      <label class="garant-lbl" for="garant-role-select">{{ t('garant.existing') }}</label>
+      <select id="garant-role-select" class="garant-field"></select>
+
+      <div class="garant-ou"><span>{{ t('garant.or') }}</span></div>
+
+      <label class="garant-lbl" for="garant-new-role">{{ t('garant.new') }}</label>
+      <input type="text" id="garant-new-role" class="garant-field"
+             placeholder="{{ t('garant.new_placeholder') }}">
+
+      <p class="garant-note hidden" id="garant-note"></p>
+    </div>
+
+    {# Injecté avec `| tojson` et jamais entre guillemets dans le JS : une
+       apostrophe française deviendrait une entité HTML au milieu du script. #}
+    <script>
+      window.GARANT_I18N = {
+        need:        {{ t('garant.need') | tojson }},
+        load_failed: {{ t('garant.load_failed') | tojson }},
+        save_failed: {{ t('garant.save_failed') | tojson }},
+        none:        {{ t('garant.none') | tojson }}
+      };
+    </script>
+
+    <div class="modal-footer-propose">
+      <button type="button" class="btn-modal-secondary-propose" onclick="closeGarantModal()">
+        {{ t('btn.cancel') }}</button>
+      <button type="button" class="btn-modal-primary-propose" onclick="submitGarantRole()">
+        <i class="fa-solid fa-check"></i> {{ t('btn.validate') }}</button>
+    </div>
   </div>
-  
+</div>

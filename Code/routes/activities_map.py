@@ -144,10 +144,13 @@ def get_active_entity():
 
     # 1. Session valide → récupérer sans filtre strict owner_id
     if entity_id:
-        entity = Entity.query.get(entity_id)
+        entity = db.session.get(Entity, entity_id)
         if entity:
-            # Vérification souple : valide si owner_id est None ou correspond à user
-            if not user_id or entity.owner_id is None or entity.owner_id == user_id:
+            # Souple : sans propriétaire (données anciennes), la sienne, ou une
+            # carto COMMUNE ouverte à ses rôles.
+            from Code.carto_access import can_read as _can_read
+            if not user_id or entity.owner_id is None or entity.owner_id == user_id \
+                    or _can_read(entity):
                 return entity
 
     if not user_id:
@@ -170,6 +173,23 @@ def get_active_entity():
     if latest:
         session['active_entity_id'] = latest.id
         return latest
+
+    # 4. ⚠️ Et enfin les cartos COMMUNES ouvertes à ses rôles.
+    #
+    # Sans cette étape, un compte qui ne POSSÈDE aucune entité repartait de zéro
+    # à chaque connexion : les étapes 2 et 3 filtrent sur `owner_id`, donc elles
+    # ne trouvaient rien, et la page annonçait « Aucune entité active » alors que
+    # la carto commune lui était parfaitement ouverte. Le symptôme était
+    # déroutant : l'entité restait active tant que la session vivait, et
+    # disparaissait à la reconnexion.
+    #
+    # `Entity.get_active` (models.py) savait déjà le faire ; cette page a sa
+    # propre résolution et ne l'avait pas suivie. Même ordre que là-bas : les
+    # siennes d'abord, une carto commune seulement en dernier recours.
+    accessibles = Entity.accessible(user_id)
+    if accessibles:
+        session['active_entity_id'] = accessibles[0].id
+        return accessibles[0]
 
     return None
 
@@ -244,10 +264,10 @@ def activities_map_page():
             if act.shape_id
         }
     
-    # Liste des entités du user
+    # Entités ouvertes au compte : les siennes + les cartos communes de son périmètre
     all_entities = []
     if user_id:
-        entities = Entity.query.filter_by(owner_id=user_id).order_by(Entity.name).all()
+        entities = Entity.accessible(user_id)
         all_entities = []
         for e in entities:
             e_svg_exists, _ = check_svg_exists(e.id)
@@ -261,7 +281,9 @@ def activities_map_page():
                 "is_active": (e.id == active_entity_id),
                 "activities_count": Activities.query.filter_by(entity_id=e.id).count(),
                 "svg_exists": e_svg_exists,
-                "vsdx_exists": e_vsdx_exists
+                "vsdx_exists": e_vsdx_exists,
+                "is_shared": bool(e.is_shared),
+                "is_owner": (e.owner_id in (None, user_id)),
             })
     
     active_entity_dict = None
@@ -394,8 +416,8 @@ def list_entities():
     if not user_id:
         return jsonify([])
     
-    entities = Entity.query.filter_by(owner_id=user_id).order_by(Entity.name).all()
-    
+    entities = Entity.accessible(user_id)
+
     result = []
     for e in entities:
         result.append({
@@ -405,6 +427,8 @@ def list_entities():
             "is_active": (e.id == active_entity_id),
             "activities_count": Activities.query.filter_by(entity_id=e.id).count(),
             "optiqcarto_exists": bool(e.optiqcarto_data),
+            "is_shared": bool(e.is_shared),
+            "is_owner": (e.owner_id in (None, user_id)),
         })
     
     return jsonify(result)
@@ -418,11 +442,12 @@ def get_entity_details(entity_id):
     if not user_id:
         return jsonify({"error": "Non connecté"}), 401
     
-    entity = Entity.query.filter_by(id=entity_id, owner_id=user_id).first()
-    
+    from Code.carto_access import readable_entity
+    entity = readable_entity(entity_id)
+
     if not entity:
         return jsonify({"error": "Entité non trouvée"}), 404
-    
+
     svg_exists, svg_path = check_svg_exists(entity_id)
     vsdx_exists, vsdx_path = check_vsdx_exists(entity_id)
     
@@ -485,13 +510,14 @@ def activate_entity(entity_id):
     if not user_id:
         return jsonify({"error": "Non connecté"}), 401
 
-    entity = Entity.query.get(entity_id)
+    from Code.carto_access import can_read as _can_read
+    entity = db.session.get(Entity, entity_id)
 
     if not entity:
         return jsonify({"error": "Entité non trouvée"}), 404
 
-    # Vérification souple : accepter si owner_id est None ou correspond
-    if entity.owner_id is not None and entity.owner_id != user_id:
+    # La sienne, ou une carto commune ouverte à ses rôles.
+    if not _can_read(entity):
         return jsonify({"error": "Entité non trouvée"}), 404
 
     # Désactiver toutes les autres entités de l'utilisateur en DB
@@ -499,7 +525,11 @@ def activate_entity(entity_id):
     # Couvrir aussi les entités sans owner_id (données legacy)
     if entity.owner_id is None:
         Entity.query.filter(Entity.owner_id == None, Entity.id != entity_id).update({'is_active': False})
-    entity.is_active = True
+    # `is_active` est un reliquat (l'entité active vit en session) : on ne le
+    # pose que sur ses propres entités, sinon activer une carto commune
+    # changerait l'entité par défaut de son propriétaire.
+    if entity.owner_id in (None, user_id):
+        entity.is_active = True
     db.session.commit()
 
     # Mettre aussi à jour la session (double garantie)
@@ -579,6 +609,14 @@ def delete_entity(entity_id):
         liaison_ids = sel(db.select(CrossCartoLiaison.id).where(or_(
             CrossCartoLiaison.extco_entity_id == entity_id,
             CrossCartoLiaison.origin_entity_id == entity_id)))
+
+        # ── Partage : accès par rôle et modifications proposées ──
+        # PostgreSQL applique les clés étrangères : sans ces deux suppressions,
+        # effacer une carto commune échouerait.
+        from Code.models.models import CartoChangeRequest, EntityRoleAccess
+        EntityRoleAccess.query.filter_by(entity_id=entity_id).delete(synchronize_session=False)
+        _del(EntityRoleAccess, EntityRoleAccess.role_id, role_ids)
+        CartoChangeRequest.query.filter_by(entity_id=entity_id).delete(synchronize_session=False)
 
         # ── Tables d'association ──
         _adel(task_tools, task_tools.c.task_id, task_ids)
@@ -2527,6 +2565,9 @@ def api_debug_analyze_file():
     The 'tool' result is computed in the browser via VsdxImporter.
     The 'ai' result is fetched separately via /analyze-file/ai.
     """
+    if not session.get('user_id'):
+        return jsonify({"error": "Non connecté"}), 401
+
     vsdx_file = request.files.get('vsdx')
     if not vsdx_file or not vsdx_file.filename:
         return jsonify({"error": "Aucun fichier fourni"}), 400
@@ -2554,6 +2595,9 @@ def api_debug_analyze_file_ai():
     Accepts a VSDX file upload (multipart field 'vsdx').
     Sends the first page XML to Claude/OpenAI for decision extraction.
     """
+    if not session.get('user_id'):
+        return jsonify({"error": "Non connecté"}), 401
+
     vsdx_file = request.files.get('vsdx')
     if not vsdx_file or not vsdx_file.filename:
         return jsonify({"error": "Aucun fichier fourni"}), 400

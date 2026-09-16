@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="{{ session.get('lang', 'fr') }}">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -13,8 +13,14 @@
     window.OPTIQCARTO_DEFAULT_NAME  = {{ (entity_name or '')|tojson }};
     window.OPTIQCARTO_HAS_CARTO     = {{ has_optiqcarto|tojson }};
     window.OPTIQCARTO_READONLY      = true;
+    // Le viewer d'une PROPOSITION charge son diagramme ailleurs que
+    // sur l'entité active : même rendu, autre source.
+    {% if carto_load_url %}window.OPTIQCARTO_LOAD_URL = {{ carto_load_url | tojson }};{% endif %}
     window.OPTIQCARTO_ACTIVE_CALQUE = {{ (active_calque_id or 'null')|safe }};
     window.OPTIQCARTO_VIEWER_ENTITY_ID = {{ (entity_id or 'null')|safe }};
+    /* Le viewer charge editor.js : sans ce catalogue, chaque _L() y
+       afficherait la clé brute au lieu du libellé traduit. */
+    window.OPTIQ_I18N = {{ i18n_data | tojson | safe }};
   </script>
 
   <style>
@@ -265,6 +271,7 @@
   </div>
 </div></div>
 
+<script src="{{ url_for('static', filename='optiqcarto/ui_scale.js') }}"></script>
 <script src="{{ url_for('static', filename='optiqcarto/color-utils.js') }}"></script>
 <script src="{{ url_for('static', filename='optiqcarto/geometry.js') }}"></script>
 <script src="{{ url_for('static', filename='optiqcarto/highlight-mode.js') }}"></script>

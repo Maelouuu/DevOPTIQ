@@ -42,14 +42,27 @@ RUN test -f Code/prompts/prompts.enc || \
     (echo "ERREUR: Code/prompts/prompts.enc absent — lancer tools/prompts/encrypt_prompts.py avant le build" && exit 1)
 
 # ==========================================================
+# 4a) Suite de tests — nos instances seulement
+#     Le panel /testpanel lit les fichiers pour recenser les cas et les
+#     rejoue dans un sous-processus (base SQLite jetable, jamais celle de
+#     l'app). Il lui faut donc les SOURCES : sans elles le panel affiche
+#     zéro test. L'image client, elle, n'en embarque aucune.
+#     Interne : --build-arg WITH_TESTS=1
+# ==========================================================
+ARG WITH_TESTS=0
+RUN if [ "$WITH_TESTS" != "1" ]; then rm -rf /app/tests; fi
+
+# ==========================================================
 # 4b) Anti-inspection : bytecode uniquement
 #     Compile tout en .pyc (layout legacy, importable sans .py) puis supprime
 #     les sources Python de l'image. Dissuasion, pas protection absolue :
 #     le vrai verrou reste le contrat + la licence + les prompts chiffrés.
 #     gunicorn.conf.py est conservé (lu en source par Gunicorn au démarrage).
+#     tests/ aussi quand il est embarqué : pytest collecte des .py, pas des
+#     .pyc, et le panel analyse les sources pour recenser les cas.
 # ==========================================================
-RUN python -m compileall -b -q /app && \
-    find /app -name "*.py" ! -path "/app/gunicorn.conf.py" -delete && \
+RUN python -m compileall -b -q -x '(^|/)tests/' /app && \
+    find /app -name "*.py" ! -path "/app/gunicorn.conf.py" ! -path "/app/tests/*" -delete && \
     (find /app -name "__pycache__" -type d -exec rm -rf {} + 2>/dev/null || true)
 
 # ==========================================================

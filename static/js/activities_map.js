@@ -40,6 +40,9 @@ const wizardState = {
 
 /* Helpers */
 const $ = (s) => document.querySelector(s);
+const escHtml = (v) => String(v == null ? "" : v)
+  .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+  .replace(/"/g, "&quot;").replace(/'/g, "&#039;");
 const $$ = (s) => document.querySelectorAll(s);
 const formatSize = (b) => b < 1024 ? b + ' o' : b < 1048576 ? (b/1024).toFixed(1) + ' Ko' : (b/1048576).toFixed(1) + ' Mo';
 
@@ -438,12 +441,20 @@ async function loadEntitiesList() {
     if (!data.length) { list.innerHTML = ""; empty?.classList.remove("hidden"); return; }
     empty?.classList.add("hidden");
 
+    // La liste mêle désormais ses propres cartos et les cartos COMMUNES ouvertes
+    // à ses rôles : le badge dit laquelle est laquelle, on n'y travaille pas
+    // de la même façon.
+    const LA = ACCESS_L();
     list.innerHTML = data.map(e => `
       <div class="entity-grid-item ${e.is_active ? 'active' : ''}" data-id="${e.id}">
         <div class="entity-grid-icon"><i class="fa-solid fa-building"></i></div>
         <div class="entity-grid-info">
-          <span class="entity-grid-name">${e.name}</span>
-          <span class="entity-grid-stats">${e.activities_count || 0} activités</span>
+          <span class="entity-grid-name">${escHtml(e.name)}</span>
+          <span class="entity-grid-stats">
+            ${e.activities_count || 0} activités
+            ${e.is_shared ? `<span class="entity-shared-badge"><i class="fa-solid fa-users"></i>${
+              escHtml(LA.badgeShared || "Commune")}</span>` : ''}
+          </span>
         </div>
         ${e.is_active ? '<span class="entity-grid-badge">Active</span>' : ''}
         ${e.optiqcarto_exists ? '<span class="entity-grid-carto"><i class="fa-solid fa-diagram-project"></i></span>' : ''}
@@ -524,8 +535,19 @@ async function createEntity() {
    Ouvert à tous : seul le CONSENTEMENT change (dépôt direct pour un admin,
    proposition à accepter sinon). */
 
+const ACCESS_L = () => window.ACCESS_I18N || {};
+
 function wireEntityShare() {
-  $("#wizard-share-btn")?.addEventListener("click", openShareModal);
+  // « Accès à la carto » mène à la page Partage : tout le processus (rôles,
+  // titulaires, propositions) y vit. Régler la même chose à deux endroits
+  // finit toujours par donner deux réponses différentes.
+  $("#wizard-share-btn")?.addEventListener("click", () => {
+    const e = wizardState.selectedEntity;
+    window.location.href = e ? `/share/?entity_id=${e.id}` : "/share/";
+  });
+  // Déposer une COPIE est autre chose : le destinataire repart avec SA carto,
+  // qui ne reçoit plus rien. Ça reste une action sur l'entité, donc ici.
+  $("#wizard-copy-btn")?.addEventListener("click", openShareModal);
   $("#share-cancel-btn")?.addEventListener("click", () => hideModal("share-entity-modal"));
   $("#share-confirm-btn")?.addEventListener("click", confirmShare);
 }

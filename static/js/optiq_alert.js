@@ -111,3 +111,20 @@
   window.optiqAiCheck = optiqAiCheck;
   window.alert = function (m) { optiqAlert(m); };
 })();
+
+/* ── Libellés des listes de la fiche activité ───────────────────────────
+   window.CRUD_I18N est injecté par display_list.html ; softskills.js,
+   aptitudes.js, savoirs.js, savoir_faires.js et constraints.js alertaient
+   en dur, donc en français quelle que soit la langue. Un seul point de
+   définition : ces fichiers partagent la portée globale, un `const` répété
+   dans chacun lèverait une SyntaxError. */
+window._CRUD_FR = {
+  err: 'Erreur', need_description: 'Veuillez saisir une description.',
+  need_hsc_fields: "Veuillez renseigner l'habileté et son niveau.",
+  err_add: "Erreur lors de l'ajout.", err_update: 'Erreur lors de la modification.',
+  err_delete: 'Erreur lors de la suppression.',
+  err_refresh: 'Erreur lors du rafraîchissement de la liste.',
+};
+function _CR(cle) {
+  return (window.CRUD_I18N && window.CRUD_I18N[cle]) || window._CRUD_FR[cle] || cle;
+}

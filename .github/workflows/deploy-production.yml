@@ -1,8 +1,17 @@
-name: Deploy → Production
+name: Deploy → Production (manuel)
+
+# ⚠️ Ce workflow et deploy-officielle.yml déploient le MÊME service Cloud Run
+# (`devoptiq`). Depuis que `nouveau-point` est la version officielle interne, il
+# ne se déclenche plus tout seul : `prod-stable` est figée au 07/05/2026
+# (pré-OptiqCarto) et un push là-bas aurait remis l'instance quatre mois en
+# arrière. Il reste lançable à la main pour redéployer une référence précise.
 
 on:
-  push:
-    branches: [prod-stable]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-officielle     # jamais en même temps que deploy-officielle.yml
+  cancel-in-progress: false
 
 env:
   PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}

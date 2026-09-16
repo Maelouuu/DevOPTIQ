@@ -50,9 +50,26 @@ def ensure_manager_id_column():
 
 @gestion_rh_bp.route('/')
 def gestion_rh_home():
+    # ⚠️ Cette page n'avait AUCUN contrôle d'accès : tout compte connecté
+    # l'ouvrait, et pouvait de là créer des rôles et affecter des personnes.
+    # Elle est réservée au coordinateur et à l'administrateur.
+    from Code.permissions import can_access_rh, current_user
+    if not can_access_rh(current_user()):
+        return redirect('/')
     try:
         ensure_manager_id_column()
         active_entity_id = get_active_entity_id()
+
+        # Le développeur de compétences existe dans TOUTE entité : on le crée au
+        # premier affichage plutôt que d'exiger qu'on y pense. Sans lui, la
+        # section Affectation n'a personne à proposer.
+        try:
+            from Code.roles_permanents import assurer_roles_permanents
+            if assurer_roles_permanents(active_entity_id):
+                db.session.commit()
+        except Exception as e:
+            db.session.rollback()
+            print(f"⚠️ rôle permanent non créé : {e}")
 
         # Récupérer les paramètres entreprise
         try:
@@ -345,13 +362,11 @@ def get_users_by_roles():
 
 @gestion_rh_bp.route('/users_with_roles')
 def get_users_with_roles():
-    active_entity_id = get_active_entity_id()
-    
-    if active_entity_id:
-        users = User.query.filter_by(entity_id=active_entity_id).all()
-    else:
-        users = User.query.all()
-    
+    # ⚠️ Filtrer les COMPTES sur `User.entity_id` vide la liste : la colonne
+    # n'est renseignée nulle part. Ce sont les RÔLES qui appartiennent à une
+    # entité — et la boucle ci-dessous ne garde déjà que les comptes qui en ont.
+    users = User.query.all()
+
     result = []
     for user in users:
         roles = [ur.role.name for ur in user.user_roles if ur.role is not None]
@@ -369,12 +384,22 @@ def get_users_with_roles():
 def get_users_with_role():
     role_name = request.args.get('role')
     active_entity_id = get_active_entity_id()
-    
-    if active_entity_id:
+
+    # ⚠️ `?role=manager` était le SEUL moyen d'atteindre le développeur de
+    # compétences, par son nom littéral : sur une entité qui n'en avait pas, la
+    # liste revenait vide et la section Affectation semblait morte. On reconnaît
+    # désormais la famille de noms, et on crée le rôle s'il manque — il est
+    # permanent, il doit exister.
+    from Code.roles_permanents import est_dev_competences, role_dev_competences
+    if est_dev_competences(role_name):
+        role = role_dev_competences(active_entity_id)
+        if role:
+            db.session.commit()
+    elif active_entity_id:
         role = Role.query.filter_by(name=role_name, entity_id=active_entity_id).first()
     else:
         role = Role.query.filter_by(name=role_name).first()
-    
+
     if not role:
         return jsonify([])
     
@@ -469,4 +494,155 @@ def assign_manager_simple():
         'success': True,
         'user_id': user.id,
         'manager_id': user.manager_id
+    })
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  Le tableau de la page RH — tout ce dont elle a besoin, en UN appel
+# ═══════════════════════════════════════════════════════════════════════════
+
+@gestion_rh_bp.route('/api/tableau')
+def api_tableau():
+    """Les personnes, les rôles, l'accès à la carto et les propositions.
+
+    La page appelait DIX endpoints qui se recoupaient : chacun refaisait ses
+    requêtes, et deux d'entre eux se contredisaient sur qui est collaborateur.
+    Un seul appel, une seule vérité, un seul rendu.
+
+    ⚠️ **Tous les comptes sont des collaborateurs**, quel que soit leur statut.
+    L'ancienne liste filtrait sur `User.entity_id` — une colonne que la page des
+    Comptes ne remplit jamais. Elle revenait donc VIDE sur toutes les instances,
+    et la page semblait cassée alors que les comptes étaient bien là.
+    """
+    from Code.carto_access import access_summary, can_manage_access, entity_role_ids
+    from Code.models.models import CartoChangeRequest
+    from Code.permissions import is_admin, is_coordinator
+    from Code.roles_permanents import ROLE_DEV_COMPETENCES, est_dev_competences
+
+    moi = db.session.get(User, session.get('user_id')) if session.get('user_id') else None
+    if moi is None:
+        return jsonify({'error': 'Non connecté'}), 401
+
+    # ── L'entité regardée ────────────────────────────────────────────────
+    ouvrables = Entity.accessible(moi.id)
+    demandee = request.args.get('entity_id', type=int)
+    entite = None
+    if demandee:
+        entite = next((e for e in ouvrables if e.id == demandee), None)
+    if entite is None:
+        actif = get_active_entity_id()
+        entite = next((e for e in ouvrables if e.id == actif), None)
+    if entite is None and ouvrables:
+        entite = ouvrables[0]
+
+    entity_id = entite.id if entite else None
+    if entity_id:
+        session['active_entity_id'] = entity_id
+        try:
+            from Code.roles_permanents import assurer_roles_permanents
+            if assurer_roles_permanents(entity_id):
+                db.session.commit()
+        except Exception:
+            db.session.rollback()
+
+    # ── Les rôles de l'entité, leurs titulaires, leur accès ──────────────
+    roles = (Role.query.filter_by(entity_id=entity_id).order_by(Role.name).all()
+             if entity_id else [])
+    ouvrent = entity_role_ids(entity_id) if entity_id else set()
+    titulaires = {}
+    if roles:
+        for ur in UserRole.query.filter(
+                UserRole.role_id.in_([r.id for r in roles])).all():
+            titulaires.setdefault(ur.role_id, []).append(ur.user_id)
+
+    roles_json = [{
+        'id': r.id,
+        'name': r.name,
+        # Le développeur de compétences n'est pas une bande de la carto : il ne
+        # se supprime pas, et l'interface doit le dire au lieu de proposer une
+        # corbeille qui ne marchera pas.
+        'permanent': est_dev_competences(r.name),
+        'ouvre_carto': r.id in ouvrent,
+        'titulaires': sorted(titulaires.get(r.id, [])),
+    } for r in roles]
+
+    id_dev = next((r['id'] for r in roles_json if r['permanent']), None)
+    ids_dev = set(titulaires.get(id_dev, [])) if id_dev else set()
+
+    # ── Les personnes : TOUS les comptes ─────────────────────────────────
+    comptes = User.query.order_by(User.last_name, User.first_name).all()
+    par_role = {}
+    for ur in UserRole.query.all():
+        par_role.setdefault(ur.user_id, []).append(ur)
+    noms_roles = {r.id: r.name for r in Role.query.all()}
+
+    personnes = []
+    for u in comptes:
+        siens = [{'id': ur.role_id, 'name': noms_roles.get(ur.role_id, '—'),
+                  'dev_id': ur.manager_id}
+                 for ur in par_role.get(u.id, [])
+                 if ur.role_id in {r['id'] for r in roles_json}]
+        personnes.append({
+            'id': u.id,
+            'prenom': u.first_name,
+            'nom': u.last_name,
+            'email': u.email,
+            'statut': u.status,
+            'roles': siens,
+            'dev_id': u.manager_id,
+            'est_dev': u.id in ids_dev,
+        })
+
+    # ── Les propositions en attente sur cette carto ──────────────────────
+    propositions = []
+    if entity_id:
+        for cr in (CartoChangeRequest.query
+                   .filter_by(entity_id=entity_id, status='pending')
+                   .order_by(CartoChangeRequest.created_at.desc()).all()):
+            auteur = db.session.get(User, cr.author_id)
+            propositions.append({
+                'id': cr.id,
+                'titre': cr.title or '',
+                'auteur': (f"{auteur.first_name} {auteur.last_name}"
+                           if auteur else '—'),
+                'le': cr.created_at.isoformat() if cr.created_at else None,
+                'a_moi': cr.author_id == moi.id,
+            })
+
+    # ── Le calendrier de travail ─────────────────────────────────────────
+    calendrier = {}
+    try:
+        _ensure_settings_table()
+        row = _get_settings_row(entity_id)
+        if row:
+            for k in SETTING_KEYS:
+                v = getattr(row, k)
+                if v is not None:
+                    calendrier[k] = int(v) if isinstance(v, float) and v.is_integer() else v
+    except Exception:
+        db.session.rollback()
+
+    resume = access_summary(entite) if entite else {}
+    return jsonify({
+        'entites': [{
+            'id': e.id, 'name': e.name,
+            'is_shared': bool(getattr(e, 'is_shared', False)),
+        } for e in ouvrables],
+        'entite': ({'id': entite.id, 'name': entite.name,
+                    'is_shared': bool(entite.is_shared),
+                    'open_to_all': bool(resume.get('open_to_all'))}
+                   if entite else None),
+        'calendrier': calendrier,
+        'personnes': personnes,
+        'roles': roles_json,
+        'role_dev_id': id_dev,
+        'role_dev_nom': ROLE_DEV_COMPETENCES,
+        'propositions': propositions,
+        'moi': {'id': moi.id, 'est_dev': moi.id in ids_dev},
+        'droits': {
+            'gere_acces': bool(entite and can_manage_access(entite, moi)),
+            # Qui peut attribuer un collaborateur : un développeur de
+            # compétences, un champion ou un administrateur.
+            'affecte': bool(moi.id in ids_dev or is_coordinator(moi) or is_admin(moi)),
+            'admin': bool(is_admin(moi)),
+        },
     })

@@ -22,7 +22,7 @@ function updateTasks(activityId) {
   fetch(`/tasks/${activityId}/render`)
     .then(resp => {
       if (!resp.ok) {
-        throw new Error("Impossible de rafraîchir la liste des tâches");
+        throw new Error(_toolI18n('err_refresh'));
       }
       return resp.text();
     })
@@ -49,7 +49,7 @@ function updateTasks(activityId) {
               })
               .then(function(response) { return response.json(); })
               .then(function(data) {
-                if (data.error) { alert("Erreur réordonnancement : " + data.error); }
+                if (data.error) { alert(_toolI18n('err_reorder') + ' ' + data.error); }
               })
               .catch(function(err) { console.error("Erreur lors du réordonnancement : ", err); });
             }
@@ -105,7 +105,7 @@ function submitTask(activityId) {
   const taskFile = fpGetPath(document.getElementById(`task-fp-${activityId}`));
 
   if (!taskName) {
-    alert("Le nom de la tâche est requis.");
+    alert(_toolI18n('err_name_required'));
     return;
   }
 
@@ -130,7 +130,7 @@ function submitTask(activityId) {
   })
   .catch(error => {
     console.error("Erreur lors de l'ajout de la tâche:", error);
-    alert("Impossible d'ajouter la tâche.");
+    alert(_toolI18n('err_add'));
   });
 }
 
@@ -165,7 +165,7 @@ function submitEditTask(activityId, taskId) {
   const newFile = fpGetPath(document.getElementById(`edit-task-fp-${taskId}`));
 
   if (!newName) {
-    alert("Le nom de la tâche est requis.");
+    alert(_toolI18n('err_name_required'));
     return;
   }
 
@@ -184,12 +184,12 @@ function submitEditTask(activityId, taskId) {
   })
   .catch(error => {
     console.error("Erreur lors de la modification de la tâche:", error);
-    alert("Impossible de modifier la tâche.");
+    alert(_toolI18n('err_update'));
   });
 }
 
 function deleteTask(activityId, taskId) {
-  if (!confirm("Confirmez-vous la suppression de cette tâche ?")) return;
+  if (!confirm(_toolI18n('confirm_delete'))) return;
 
   fetch(`/tasks/${taskId}`, {
     method: 'DELETE'
@@ -204,7 +204,7 @@ function deleteTask(activityId, taskId) {
   })
   .catch(error => {
     console.error("Erreur lors de la suppression de la tâche:", error);
-    alert("Impossible de supprimer la tâche.");
+    alert(_toolI18n('err_delete'));
   });
 }
 
@@ -311,6 +311,17 @@ function _toolI18n(cle) {
     drag_or: 'Glisser un fichier ici ou parcourir',
     fp_hint: 'Déposez la notice, la procédure… (optionnel)',
     fp_remove: 'Supprimer le fichier',
+    err_name_required: 'Le nom de la tâche est requis.',
+    err_add: "Impossible d'ajouter la tâche.",
+    err_update: 'Impossible de modifier la tâche.',
+    err_delete: 'Impossible de supprimer la tâche.',
+    err_refresh: 'Impossible de rafraîchir la liste des tâches.',
+    err_reorder: 'Impossible de réordonner les tâches.',
+    confirm_delete: 'Confirmez-vous la suppression de cette tâche ?',
+    confirm_role_delete: 'Supprimer ce rôle de la tâche ?',
+    err_tool_pick: "Sélectionnez un outil existant ou saisissez le nom d'un nouvel outil.",
+    err_tool_create: "Impossible de créer l'outil.",
+    err_network: 'Erreur réseau.',
   };
   return L[cle] || defauts[cle];
 }
@@ -454,7 +465,7 @@ async function submitToolsNew(taskId) {
   // On va d'abord créer l'outil via l'API gestion_outils si fichier, sinon passer via new_tools
 
   if (!existing_tool_ids.length && !newName) {
-    alert("Sélectionnez un outil existant ou saisissez le nom d'un nouvel outil.");
+    alert(_toolI18n('err_tool_pick'));
     return;
   }
 
@@ -468,9 +479,9 @@ async function submitToolsNew(taskId) {
         body: JSON.stringify({ name: newName, file_path: filePath || null }),
       });
       const d = await r.json();
-      if (!r.ok) { alert(d.error || "Impossible de créer l'outil."); return; }
+      if (!r.ok) { alert(d.error || _toolI18n('err_tool_create')); return; }
       new_tool_ids.push(d.id);
-    } catch { alert("Erreur réseau (création outil)."); return; }
+    } catch { alert(_toolI18n('err_network')); return; }
   }
 
   // Lier tous les outils à la tâche
@@ -647,7 +658,7 @@ function loadTaskRolesForDisplay(taskId) {
 }
 
 function deleteRoleFromTask(taskId, roleId) {
-  if (!confirm("Supprimer ce rôle de la tâche ?")) return;
+  if (!confirm(_toolI18n('confirm_role_delete'))) return;
   fetch(`/tasks/${taskId}/roles/${roleId}`, {
     method: 'DELETE'
   })

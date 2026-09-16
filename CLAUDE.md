@@ -144,6 +144,35 @@ transporte le diagramme **tel qu'il est en base**, d'un compte à l'autre.
 - ⚠️ **Contrat DOM editor.js ↔ gabarits** : `editor.js` câble ses boutons SANS garde (`document.getElementById('btn-x').addEventListener(…)`). Un id absent d'un gabarit lève une TypeError qui interrompt TOUTE la suite de l'init, **chargement de la carto compris** — symptôme silencieux : la page Cartographie affiche un cadre gris et vide alors que les données sont en base. Le viewer (lecture seule) déclare donc des **boutons vides** dont le seul rôle est de satisfaire ce câblage. `tests/test_49_carto_dom_contract.py` vérifie que la liste reste complète des deux côtés. Mise au point : `tools/devrun_carto_check.py` (instance jetable SQLite + deux comptes source/cible, port 8123) pour rejouer un import de paquet en local.
 - Tests : `tests/test_48_carto_package.py` (13 cas — aller-retour export/import entre deux comptes, préservation des multi-liens, collision de noms, remplacement, cloisonnement par compte, fichiers invalides).
 
+- ⚠️ **Un import VSDX est une modification NON ENREGISTRÉE.** La fin de l'import
+  repart d'une baseline d'historique neuve (`history = [state]`) : plus aucune
+  « version » ne séparait l'état affiché de son point de départ, `snapshot()`
+  n'était jamais appelé, et `isDirty` restait faux — on quittait la page sans le
+  moindre avertissement, l'import perdu. L'import pose donc `isDirty = true` et
+  relance l'auto-sauvegarde.
+- ⚠️ **La mini map se posait SUR la pastille de zoom** : les deux occupaient le coin
+  bas-droit du canevas. Elles partagent maintenant le même bord droit (`--corner-gap`),
+  la mini map juste au-dessus (`--zoom-pill-h`). Elle s'appelle **« Mini map »** dans les
+  deux langues — c'est le terme produit, comme « Optiq Map ».
+- ⚠️ **La barre d'outils débordait sur un portable et flottait sur un 27 pouces.**
+  Elle est ancrée à gauche ET à droite (`left/right: 10px`), et son contenu du milieu
+  était dessiné en pixels fixes : mesuré à 1180 px de large, il passait **68 px sous**
+  « Panneau » et « Propriétés ». Un facteur unique `--ui-k`
+  (`static/optiqcarto/ui_scale.js`, `largeur / 1400` borné à 0,70–1,25, recalculé au
+  redimensionnement) tient les deux bouts : à 1024 px il reste 22 px de marge de chaque
+  côté, à 2560 px la barre occupe 54 % de l'écran au lieu de 43 %.
+  ⚠️ Le zoom porte sur **`#toolbar > *`**, pas sur `#toolbar` : zoomer le conteneur
+  réduirait aussi sa largeur ancrée, la barre ne tiendrait plus toute la fenêtre.
+  ⚠️ **`zoom` et pas `transform: scale()`** : un `transform` crée un bloc conteneur pour
+  les descendants `position: fixed` — les menus déroulants de la barre se retrouveraient
+  ancrés au mauvais repère. Vérifié : le menu Fichier reste sous son bouton.
+  Contrat gardé par `tests/test_49_carto_dom_contract.py`.
+- ⚠️ **Le viewer charge `editor.js` mais n'injectait aucune traduction** : chaque
+  `_L()` y affichait la CLÉ BRUTE (« editor.minimap »). `cartography_viewer.html`
+  reçoit désormais `i18n_data`, comme l'éditeur. Les libellés de la **mini-carte**
+  (titre et trois info-bulles) étaient en dur en français : ils passent par
+  `editor.minimap*`.
+
 ### Import VSDX & flèches (reconstruction classique — mode UNIQUE)
 - **Lecture de la géométrie des connecteurs — CORRIGÉ (bug racine de l'import)** : `readConnGeom()` lisait les `Row` d'une Section Geometry comme si l'origine du repère local était le point **Begin**. C'est **Pin − LocPin** : `LocPinY` valant la demi-hauteur du connecteur, chaque tracé était décalé → flèches en biais sur toute leur longueur. Deuxième bug : une `Cell` X ou Y **absente** d'une Row est **héritée du master** ; on jetait la Row entière, donc la géométrie de la majorité des connecteurs. On reconstruit désormais les valeurs manquantes depuis Begin/End (extrémités) ou le sommet précédent (Visio est orthogonal), on saute les Row `Del='1'`, et on accepte les arcs (`ArcTo`/`EllipticalArcTo`, réduits à leur point d'arrivée — le renderer arrondit). Mesuré : **tracés Visio exacts 38/88 → 88/88** (carto client ARaymond), 178/245 → 245/245 (hard.vsdx), 10/31 → 31/31 (example/CT/TSM) ; **segments en biais : 64 % → 0 %** ; **détours rejetés 9 → 0**.
 - **`orthoClean()` + `finalizeConnPaths()`** (vsdx_importer) : les extrémités d'un tracé sont replacées sur les bords des formes, et `cleanupBands`/`antiOverlap`/`stretchBands` déplacent les formes APRÈS la construction des connexions. `finalizeConnPaths()` (dernière phase) recolle les deux bouts sur les bords définitifs puis `orthoClean()` ré-équerre : bruit flottant Visio (1e-15) aligné, raccord des extrémités par alignement (≤ 4,5 px) ou par vrai coude au-delà, points colinéaires supprimés. `cleanupBands()` décale aussi les `customPath` (il ne le faisait pas, contrairement à `stretchBands`).
@@ -321,6 +350,31 @@ transporte le diagramme **tel qu'il est en base**, d'un compte à l'autre.
   `map.card_title`, `carto.save`, toasts éditeur). Les URLs, fichiers et ids
   restent `cartography` : ce sont des chemins, pas de l'affichage.
 
+## Page Activités — ce qui restait en français
+
+Le gabarit initial était traduit, mais tout ce qui est **re-rendu ou construit
+ensuite** repassait au français. Trois familles, corrigées ensemble :
+
+- **Fragments re-rendus par le serveur** après un ajout/suppression :
+  `softskills_partial.html` et `constraints_partial.html` étaient restés en dur
+  (le partial d'origine, lui, était traduit). Une simple action faisait donc
+  basculer la liste en français.
+- **Niveaux HSC** : la valeur STOCKÉE en base est la chaîne française
+  (« 3 (Maîtrise) ») et ne doit jamais être réécrite — seul l'AFFICHAGE suit la
+  langue. `hsc_level_label()` (Code/translations.py, exposé aux gabarits par le
+  context processor) traduit à la volée ; les `<option value=…>` gardent leur
+  valeur d'origine, seul leur texte change. La table `HSC_LEVELS` (CDC 7.2) vit
+  maintenant dans `translations.py`, `hsc_positioning.py` la ré-exporte.
+- **Messages construits en JS** : l'onglet Temps de la fiche activité
+  (`window.ACTTIME_I18N`), les alertes des listes S/SF/Apt/HSC/contraintes
+  (`window.CRUD_I18N` + helper `_CR()`), les erreurs de tâches
+  (`window.TASK_I18N`), et la modale **Traduire les soft skills** — qui
+  RÉÉCRIVAIT le bouton du gabarit avec « Traduire » en dur, et bâtissait les
+  en-têtes de son tableau en français.
+- ⚠️ **`_CR()` vit dans `optiq_alert.js`**, chargé en premier : ces cinq fichiers
+  partagent la portée globale, un `const` répété dans chacun lèverait une
+  SyntaxError et couperait tout le script.
+
 ## Liste des activités — tâches et outils
 
 - ⚠️ **Ordre des tâches** : `order` seul ne départage pas deux tâches de même
@@ -411,13 +465,696 @@ techniques internes (RESULT, DAILY, WORK_ARCHITECTURE…) **jamais affichés** :
 cadence sur la fiche activité ; panneau de qualification des sorties + badges « R1 » sur les
 écrans S/SF/HSC ; widget d'auto-positionnement HSC ; carto : badge cadence (repo OptiqCarto).
 
+### Page Compétences — refonte visuelle (2026-09-15)
+
+Le contenu était juste, l'écran illisible. Deux défauts de structure, chacun avec
+une conséquence mesurable :
+
+- ⚠️ **Le tableau principal était un `<table>` à HUIT colonnes en `min-width: 760px`.**
+  La colonne de droite fait **870 px CSS** (conteneur plafonné à 1200, moins la barre
+  latérale) : le tableau débordait, la page défilait horizontalement, et le bouton
+  **« Évaluer » — l'action principale — se retrouvait hors écran**. Remplacé par une
+  grille CSS (`.cv2-ligne`), qui aligne les lignes sans imposer de largeur minimale.
+  ⚠️ Les points de bascule s'écrivent en px RÉELS, la mise en page en px CSS :
+  `body.pg` porte `zoom: 0.8` (ui-theme), et les media queries ignorent ce zoom.
+  Le conteneur plafonne dès **960 px réels** — retirer une colonne à 1180 px ne
+  servait à rien, rien ne bouge entre 960 et 1440.
+- ⚠️ **La notation était SIX barres pleine largeur empilées PAR RÉSULTAT** : 430 px
+  chacun, **1266 px de défilement dans une fenêtre qui en montre 644** pour une
+  activité à deux résultats. Or le niveau de l'activité est le **MINIMUM** des
+  résultats : ne jamais les voir ensemble, c'est rendre la règle incompréhensible.
+  L'échelle 0→4 est ordonnée, elle se dessine **en ligne** (5 paliers + une gomme
+  « Effacer » à part — effacer n'est pas un niveau de plus). Mesuré après : **685 px
+  pour la même activité**, tout tient dans un écran.
+
+**La jauge** (`jauge()`, `.cv2-pas`) remplace les trois colonnes requis / démontré /
+écart : quatre pas (niveaux 1 à 4 ; le niveau 0 « Non démontré » est une jauge VIDE,
+c'est exactement ce qu'il veut dire), et une **barre verticale après le pas requis** —
+« la jauge doit atteindre ce trait ». Un tiret posé SOUS le pas avait été essayé
+d'abord : à cette densité il disparaissait. L'écart est une distance, il se regarde ;
+ce n'était qu'un nombre à lire. Le badge d'écart ne subsiste que s'il est NÉGATIF
+(le cas qui demande une action) — sinon il mangeait la largeur du libellé.
+
+**Bandeau de situation** : quatre compteurs (tenu / en écart / à évaluer / à configurer)
+qui sont aussi les **filtres** de la liste. Il n'existait pas — pour savoir où en était
+quelqu'un il fallait lire les six lignes une à une.
+
+- ⚠️ **`evidence` était enregistrée et jamais renvoyée.** `/mastery/activity/…` ne
+  portait pas la preuve : l'écran rouvrait la zone de saisie VIDE, et le prochain
+  enregistrement l'écrasait par une chaîne vide. La preuve se perdait au deuxième
+  passage sans que personne ne l'ait effacée. `activity_mastery` renvoie désormais
+  `evidence` (toujours une chaîne) et `n_evaluated` — sans ce dernier, un niveau
+  global vide ne se distingue pas d'une activité qu'on n'a pas commencée.
+- Le `<style>` en ligne (200 lignes dans le `<head>`) devient `static/competences.css`.
+  ⚠️ Le lien reste **dans le `<head>`**, à la place exacte qu'occupait le `<style>` :
+  `header_buttons.html` charge optiq.css et ui-theme.css depuis le `<body>`, donc
+  APRÈS — déplacer le lien change la cascade.
+- « Manager » devient **« Développeur de compétences »** dans les libellés de la page.
+- Mise au point : `tools/devrun_competences.py` (instance jetable SQLite, port 8125,
+  `/devrun/<qui>` pour changer de compte) — un développeur, trois collaborateurs et
+  les **six états** que la page doit savoir montrer présents en même temps : sans ça
+  on ne regarde jamais que le cas heureux.
+- Tests : `tests/test_57_mastery.py::TestPreuveEtAvancement` (4 cas, vérifiés rouges
+  sur l'ancien code).
+
+### Page Compétences — deux notes, synthèse, plan de formation (2026-09-15)
+
+**Les deux notes (CDC 3.6) — et le trou de sécurité qu'elles révélaient.**
+- ⚠️ **`POST /mastery/evaluate` n'avait AUCUN contrôle d'accès.** Tout compte
+  connecté pouvait poser n'importe quel niveau sur n'importe qui — y compris se
+  décerner le niveau qui fait foi. Sans grande conséquence tant que seuls les
+  développeurs de compétences ouvraient l'écran ; plus du tout dès que les
+  collaborateurs y viennent s'auto-évaluer. `Code/competences_acces.py` est la
+  source unique : `peut_noter(acteur, cible, evaluateur)` et `peut_lire(...)`.
+  Règle : l'auto-évaluation (`eval_number '0'`) ne se pose que sur SOI ; le
+  niveau validé (`'1'` garant, `'2'` développeur) par le développeur de la
+  personne, ou par un champion/admin. `/mastery/dashboard`, `/mastery/synthese`
+  et tout `/plan/*` passent par les mêmes portes.
+  ⚠️ `encadre()` regarde les DEUX rattachements (`users.manager_id` global ET
+  `user_roles.manager_id` par rôle) : n'en lire qu'un ferait dépendre le droit
+  de la FAÇON dont l'affectation a été faite.
+- **La page a deux modes**, décidés par un seul appel `GET /competences/contexte` :
+  développeur (liste de collaborateurs, pose le niveau qui fait foi, règle le
+  requis, ouvre le plan) et collaborateur (se voit lui, pose SON auto-évaluation,
+  lit le niveau validé, ne règle rien).
+- **Ce qui fait foi reste le niveau du développeur.** `activity_mastery` rend
+  aussi `self_global_level` (même règle du MINIMUM, jamais la moyenne) et
+  `n_self_evaluated` — mais la synthèse ne remonte jamais l'auto-évaluation comme
+  résultat. À l'écran elles ne se ressemblent pas : la note officielle est une
+  échelle pleine avec la pastille « fait foi », l'auto-évaluation un contour
+  pointillé posé sur le même palier, plus un verdict d'accord (« se situe
+  au-dessus / en dessous »).
+- ⚠️ **`evidence` par évaluateur** : chacun garde la sienne (`evidence` pour le
+  niveau validé, `self_evidence` pour l'auto-évaluation). Les écraser l'une par
+  l'autre faisait disparaître la preuve de celui qui n'avait pas enregistré en
+  dernier.
+
+**La synthèse — `GET /mastery/synthese/<user_id>`.** On entrait directement dans
+le détail d'un rôle : où en était la personne, tous rôles confondus, ne se voyait
+nulle part. Une carte par rôle (jauge, compteurs, écart, accès au plan), puis on
+entre dans le détail. ⚠️ Le niveau d'un rôle est le MINIMUM de ses activités et
+n'existe QUE si toutes sont évaluées — une moyenne partielle laisserait croire
+qu'un rôle à moitié noté est tenu. `dashboard_rows()` a été extrait de la route
+pour que la synthèse et la liste détaillée comptent avec le MÊME code :
+deux implémentations donneraient deux chiffres, ce qu'une vue d'ensemble ne peut
+pas se permettre.
+
+**Le plan de formation — `Code/routes/plan_formation.py`, fenêtre dédiée.**
+Le partage des rôles est volontaire :
+- **l'IA propose le CONTENU** (quelles actions, quelle charge en heures) ;
+- **le calcul décide si ça TIENT** : heures/semaine × durée = capacité, somme des
+  charges = besoin. Le verdict est arithmétique, local et instantané — les
+  curseurs ne rappellent JAMAIS le serveur. Un curseur qui attendrait trois
+  secondes une réponse réseau ne serait pas un curseur.
+  Bouton « au plus juste » = caler la durée sur `ceil(besoin / heures_semaine)`.
+  Un échéancier semaine par semaine montre ce qui déborde.
+- Sans clé IA, `_plan_local()` bâtit le plan depuis les **capacités en écart
+  relevées en base** (`result_capability_links` via `_linked_capabilities`) : plus
+  sec, mais chaque ligne correspond à quelque chose de réel. L'écran dit toujours
+  d'où vient le contenu — on ne présente jamais un repli comme une analyse IA.
+- Modèle `PlanFormation` (table `plans_formation`), UN plan par couple
+  (collaborateur, rôle) : on le reprend, on ne l'empile pas. ⚠️ Un VRAI modèle,
+  pas du SQL brut dans une route — `training_plan` et `user_activity_plans` ont
+  chacune coûté un 500 en production parce que rien ne les créait sur une base
+  neuve. L'ordonnancement n'est jamais stocké : il dépend des deux blocs, un
+  chiffre figé mentirait dès qu'on touche un curseur.
+- Prompt dans le catalogue (`plan_formation.system`), jamais en dur dans la route.
+- ⚠️ `competences_plan.py` / `plan_storage.py` et leurs JS (`plan_formation.js`,
+  `synth_competences.js`) sont les vestiges de l'ANCIENNE page : aucun gabarit ne
+  les charge. Ne pas les confondre avec ce module.
+
+**Trois défauts d'écran corrigés au passage.**
+- ⚠️ **Le niveau requis se réglait par un lien « modifier »** qui dépliait six
+  boutons gris minuscules : rien ne disait que c'était réglable, ni qu'il
+  s'agissait d'une CIBLE et non d'une note. C'est maintenant un bloc à part
+  entière, même échelle que la notation mais **en creux** — une cible se dessine,
+  elle ne se remplit pas.
+- ⚠️ **Évaluation et Technicité se confondaient** : deux blocs blancs à la suite,
+  rien ne disait qu'on changeait de sujet. Ce sont deux AXES distincts (maîtrise
+  d'un côté, contexte technique de l'autre) : blocs numérotés, en-tête propre,
+  et la technicité en TEAL, pas dans l'accent de la page.
+- ⚠️ **L'IA ne disait pas ce qu'elle faisait** : on cliquait « Configurer », ça
+  réfléchissait trois secondes, une liste apparaissait. Un panneau l'annonce
+  AVANT (ce qu'elle lit, ce qu'elle propose, que rien n'est enregistré sans
+  validation), chaque proposition porte sa confiance (`sûr` / `à vérifier` /
+  `peu sûr`) et sa justification, et une ligne corrigée à la main le dit.
+  `/competences/contexte` renvoie `ia_disponible` : promettre une analyse puis
+  servir un repli était exactement le reproche fait à cet écran.
+
+**Tests** : `tests/test_77_competences_deux_notes.py` (28 cas — qui note qui,
+ce qui fait foi, la synthèse, le contexte, le plan), les refus vérifiés **rouges**
+en retirant le contrôle d'accès.
+⚠️ `auth_client` et `client` sont le MÊME objet en portée session : un fichier qui
+remet la session à zéro doit la rendre en fin de module, sinon tous les tests
+suivants qui comptent sur `auth_client` se retrouvent déconnectés.
+Mise au point : `tools/devrun_competences.py` (port 8125) sème aussi des
+auto-évaluations volontairement discordantes et des capacités en écart.
+
+
+### Page Compétences — profil global et lisibilité des deux notes (2026-09-15)
+
+- ⚠️ **`flex: none` sur les en-têtes et pieds de fenêtre.** `.cv2-dh`, `.cv2-ph` et
+  `.cv2-df` sont des éléments FLEX d'une colonne plafonnée à 90vh : avec leur
+  `flex-shrink` par défaut, un contenu long les **écrase**. Le sous-titre
+  (« Untel · Tel rôle ») se retrouvait tranché en deux sous la première section —
+  présent à l'écran, illisible. Le symptôme est trompeur : on cherche un
+  `overflow` ou un `z-index` alors que c'est la boîte qui rétrécit.
+- ⚠️ **Les deux notes avaient deux POIDS VISUELS différents** : le niveau validé
+  était une échelle, l'auto-évaluation une ligne de texte minuscule en dessous —
+  on ne savait plus laquelle était laquelle, et la seconde avait l'air d'un
+  commentaire de la première. Elles portent désormais le MÊME objet (l'échelle
+  0→4) et se distinguent par une identité tenue partout :
+  **niveau validé = bleu (accent de page) + écusson + « fait foi »**,
+  **auto-évaluation = violet `--cv-auto` + silhouette**. Celle qui vous
+  appartient se clique, l'autre est posée (`.is-posee`, boutons `disabled`).
+  ⚠️ **L'ordre ne bouge jamais** — celle qui fait foi d'abord, quel que soit le
+  regard : on sait toujours où regarder. ⚠️ `saveEvaluation` cible
+  `.cv2-nt.is-mienne [data-lv].sel` : la carte porte deux échelles, un
+  `querySelector` non qualifié ramènerait celle du développeur jusque dans
+  l'enregistrement d'un collaborateur.
+- **Moins de petit texte.** Le standard minimal d'un résultat n'est plus écrit
+  (deux lignes par résultat, autant que de résultats) : il reste au survol du nom,
+  signalé par un « ? ». La description du bloc « niveau attendu » a sauté — le
+  titre et l'échelle disent tout.
+- **La vue d'ensemble porte un PROFIL** (`GET /mastery/synthese` enrichi) :
+  nombre de rôles, d'activités, **taux de couverture**, un **radar SVG dessiné à
+  la main** (un axe par activité, requis en contour vert / démontré en surface
+  bleue) et une barre par rôle. Sans lui l'écran n'était qu'une rangée de portes.
+  - ⚠️ **`couverture()` ne compte que les activités ÉVALUÉES.** Compter une
+    activité non évaluée comme un zéro confondrait « pas démontré » et « pas
+    encore regardé » — la distinction que tout le module tient (NULL ≠ 0). Le
+    nombre d'évaluées est renvoyé à côté pour lire le taux avec sa base.
+  - ⚠️ **Chaque activité est plafonnée à SON requis** (`min(dem, req)`) : sans ce
+    plafond, un expert sur une activité masquerait une lacune sur une autre et on
+    afficherait 100 % en étant en écart.
+  - ⚠️ **Le radar ne trace QUE les activités évaluées** : posées à 0, elles
+    effondraient le polygone vers le centre — le graphe disait « rien de
+    démontré » là où la vérité est « pas encore regardé ». Une note sous le
+    graphe dit combien sont absentes. Plafonné à 12 axes (les plus en écart, le
+    serveur trie par écart croissant) ; sous 3 axes, pas de radar.
+  - ⚠️ **Une activité portée par deux rôles ne compte qu'une fois** dans le
+    profil : sinon la forme dirait surtout combien de rôles se la partagent.
+  - Aucune bibliothèque de graphes : elle se paierait à chaque chargement de page
+    pour dix polygones.
+- **La carte de rôle entière s'ouvre** (et au clavier) : elle se soulevait au
+  survol, promesse que seul le bouton « Ouvrir » tenait. ⚠️ Le bouton « Plan de
+  formation » fait un `stopPropagation` — sans lui on ouvrait le rôle DERRIÈRE la
+  fenêtre du plan. Les lignes « par rôle » du profil ouvrent le rôle elles aussi.
+- Tests : `tests/test_77_competences_deux_notes.py::TestCouvertureEtProfil` (6 cas).
+
+⚠️ **« Pourquoi j'ai perdu mes données de notation ? » — DEUX PÉRIMÈTRES DANS LE
+MÊME ÉCRAN.** Rien n'était perdu. `synthese` listait **TOUS** les rôles du
+collaborateur, toutes cartos confondues (`UserRole.query.filter_by(user_id=…)`,
+sans entité), tandis que `dashboard_rows` filtre les activités sur
+`Activities.entity_id == Entity.get_active_id()`. Changer de carto active — ce
+que font la page Cartographie **et le sélecteur de la page RH**
+(`api_tableau` pose `session['active_entity_id']`) — affichait donc les rôles
+d'une carto avec les activités d'une AUTRE : « 0 activité » sur chaque rôle,
+« — du requis tenu », et l'écran paraissait vidé de ses évaluations.
+Un rôle qui ne PEUT PAS porter d'activité sur cet écran n'a rien à y faire : la
+synthèse ne retient plus que les rôles de l'entité active. Reproduit puis
+vérifié par `TestPerimetreDeLaSynthese` (2 cas, le premier **rouge** avant le
+correctif — `activities: []`, tous les compteurs à zéro, exactement la capture
+rapportée).
+### Le radar cède la place au détail d'un rôle (2026-09-16)
+
+Le radar répond « quelle est la FORME du profil ». Il ne répond pas « sur quelle
+activité ce rôle décroche » : il superpose requis et démontré de TOUTES les
+activités, et un rôle n'y est qu'une teinte au survol. **Cliquer un point ouvre
+donc les barres de SON rôle**, au même endroit — une ligne par activité, la
+cible marquée sur la piste. Remplacer plutôt que juxtaposer garde l'attention là
+où elle était.
+
+- ⚠️ **Le détail NE PEUT PAS se reconstituer depuis `profil`** : cette liste est
+  **dédupliquée par activité** (une activité portée par deux rôles n'y figure
+  qu'une fois, attribuée à l'un d'eux) — la filtrer par rôle en perdrait
+  silencieusement. Chaque rôle de `/mastery/synthese` porte donc sa propre liste
+  `activities`, complète.
+- ⚠️ **La couleur vient du SERVEUR** (`color_for`, CDC 3.5), pas d'un calcul en
+  JS : deux implémentations d'un même verdict finissent par diverger, comme
+  `dashboard_rows` l'a déjà montré pour les compteurs.
+- ⚠️ **Une activité non évaluée n'a PAS une barre à zéro** : zéro veut dire
+  « non démontré », et tout le module distingue les deux (NULL ≠ 0). Elle écrit
+  « non évalué » à la place de sa barre.
+- Les deux vues vivent dans la MÊME zone (`.cv2-radar-zone[data-vue]`), les
+  barres en `position: absolute` par-dessus : dans le flux, la hauteur de la
+  carte sauterait à chaque bascule. Le retour vide le contenu **après** la
+  transition — le retirer tout de suite ferait disparaître les barres d'un coup
+  au lieu de les laisser s'effacer. Tout est désactivé sous
+  `prefers-reduced-motion`.
+- L'entrée des barres est échelonnée (`--i`, 45 ms) : on LIT la comparaison au
+  lieu de la découvrir d'un bloc.
+- ⚠️ Mise au point : dans un volet navigateur qui ne peint pas, une transition
+  CSS **ne progresse pas** — `getComputedStyle` rend alors la valeur figée en
+  cours de route (opacité 0 alors que `data-vue` vaut déjà `radar`). Couper la
+  transition et relire donne la valeur CIBLE : c'est le seul moyen de distinguer
+  un vrai défaut de CSS d'un volet endormi.
+
+**Page RH** : la phrase « Tous les comptes sont des collaborateurs, quel que soit
+leur statut » est retirée du bloc Personnes (et sa clé `rh.block_people_sub` du
+catalogue). Elle expliquait un choix d'implémentation, pas ce que l'écran montre.
+
+ℹ️ **Le sélecteur de carto de la page RH existe déjà** — bandeau du haut,
+`gestion_rh.js::rendreBandeau`, visible dès qu'un compte a **plus d'une** entité
+accessible. Il passe `?entity_id=` à `/gestion_rh/api/tableau`, qui valide la
+demande contre `Entity.accessible(moi)`. ⚠️ Il pose AUSSI
+`session['active_entity_id']`, et c'est nécessaire : les écritures de la page
+(créer un rôle, affecter un collaborateur) lisent `get_active_entity_id()` —
+changer l'affichage sans changer l'entité active enverrait les modifications
+dans la mauvaise carto.
+
+
+### Qualification des sorties, technicité, radar vivant (2026-09-15)
+
+- ⚠️ **L'écran de qualification ne disait pas ce qu'il demandait.** Un menu
+  déroulant « À qualifier » posé à droite d'un nom, et parfois un champ
+  pré-rempli d'un « 100 % » que rien n'expliquait. On ne voyait pas qu'il y avait
+  un choix à faire, et « Valider » refusait **après coup**, avec un message
+  affiché tout en haut de la fenêtre — loin du bouton, loin de la ligne à
+  corriger (`prepend` sur `.cv2-bloc`, donc AU-DESSUS de l'en-tête du bloc).
+  Trois corrections, toutes de même nature — rendre la décision VISIBLE :
+  1. les quatre natures sont des **boutons**, plus un `<select>` ;
+  2. celle qu'on choisit **s'explique** juste en dessous (`q_dit_*`) ;
+  3. le champ du standard porte son libellé et **dit d'où vient sa valeur**
+     (« Proposé par l'IA à partir de l'activité — corrigez-le si besoin »).
+  Et « Valider » ne refuse plus : il reste **éteint** tant qu'aucun résultat
+  n'est marqué, avec un compteur sous les sorties qui dit ce qui manque.
+  Recliquer la nature déjà choisie la retire — sinon on ne pouvait plus revenir
+  à « pas encore décidé » une fois un bouton touché.
+- **La technicité passe en BLEU PLEIN** (bandeau, texte blanc). Elle était en
+  teal, qui se lit comme du vert et entrait en conflit avec le vert sémantique
+  « niveau tenu ». Le bandeau la sépare franchement de l'évaluation tout en
+  restant dans le bleu de la page.
+- ⚠️ **Tailles de police des fenêtres.** L'app est calibrée à 80 %
+  (`body.pg { zoom: .8 }`, ui-theme) : un « 12 px » y est rendu à moins de 10.
+  Dans une fenêtre où l'on décide d'un niveau, c'est trop petit. Les tailles
+  secondaires des **fenêtres seulement** sont remontées d'environ 1 px — pas
+  celles des listes de la page, qui garderaient leur densité.
+- **Le radar devient vivant** (`animerProfil`) : survoler une **légende** met sa
+  couche au premier plan (on estompe l'autre — le SVG n'a pas de `z-index`, et
+  réordonner les nœuds ferait clignoter) ; survoler un **rôle** allume ses axes,
+  éteint les autres et affiche ses deux niveaux ; survoler un **axe** donne le
+  nom complet, le rôle et les deux niveaux dans une bulle.
+  ⚠️ **On ne zoome pas** sur le rôle survolé : agrandir déplacerait les deux
+  polygones, et c'est justement leur superposition qu'on est venu lire.
+  ⚠️ Les noms d'activité sont longs : coupés à 16 signes, la zone sensible d'un
+  axe est un trait transparent de 26 px du centre au bord (viser une étiquette
+  de 10 px serait pénible), et le nom entier vit dans la bulle. Un libellé
+  complet gravé dans le SVG déborderait quoi qu'on fasse.
+- ⚠️ **La fenêtre « Désigner le rôle garant »** (page Liste des activités) était
+  restée à l'état d'ébauche : treize lignes de HTML avec leurs styles EN LIGNE
+  (`top:20%; left:30%`), des libellés **en dur en français** et des `alert()`
+  pour les erreurs. Elle reprend le patron de modale de la page
+  (`.modal-*-propose`), passe par le catalogue (`garant.*`, 10 clés × 2 langues)
+  et écrit ses refus DANS la fenêtre — une alerte système ferme le contexte au
+  moment précis où on a besoin de le relire pour corriger.
+  ⚠️ `.hidden` n'existait **nulle part** dans `activities_list.css` : la classe
+  ne masquait rien. Déclarée à côté de ce qui s'en sert.
+
+### Qualification : la décision est binaire, pas un menu à quatre entrées (2026-09-15)
+
+- ⚠️ **« À quoi servent les trois autres boutons ? »** La question était juste :
+  quatre natures présentées au MÊME RANG, dont une seule ouvrait la suite et
+  débloquait l'enregistrement — les trois autres semblaient ne mener nulle part.
+  Or la décision est **binaire** (cette donnée démontre-t-elle la tenue de
+  l'activité ?) et les trois autres ne font que **ranger** ce qui n'en est pas.
+  La hiérarchie visuelle dit maintenant la hiérarchie réelle : un grand bouton
+  « Oui — c'est un résultat de l'activité » portant son explication, puis
+  « Sinon, rangez-la : » avec les trois autres en petites pastilles, et la phrase
+  qui manquait — « ces trois natures sont enregistrées avec l'activité, mais ne
+  donnent pas lieu à évaluation ».
+- ⚠️ **Le panneau « Ce que l'IA fait ici » restait affiché APRÈS l'analyse.** Un
+  texte qui décrit une action déjà faite se relit en cherchant ce qu'il reste à
+  comprendre. Avant, le panneau ANNONCE ; après, il REND COMPTE (combien de
+  sorties examinées, combien de résultats proposés, et que rien n'est encore
+  enregistré) — fond vert, icône de presse-papiers : on voit que l'étape est
+  passée.
+- ⚠️ **L'info-bulle du radar se posait TOUJOURS au même endroit.** On survolait
+  un point à gauche et l'explication surgissait en haut au centre, sans rien qui
+  relie l'une à l'autre. `poserBulle()` la place près de l'élément survolé, en la
+  bornant au cadre, et bascule sous le point quand il n'y a pas la place
+  au-dessus. ⚠️ Les coordonnées d'un nœud SVG sont dans le repère du **viewBox** :
+  on passe par `getBoundingClientRect`, seul comparable aux pixels de la zone.
+  Une bulle de rôle, elle, parle de l'ensemble : elle reste centrée.
+- **La technicité est bleue en ENTIER**, plus seulement son en-tête : un bandeau
+  coloré au-dessus d'un contenu blanc laissait croire que ce qui suit est hors de
+  la section. Les contrôles restent blancs — un champ translucide sur fond bleu
+  ne se lit plus dès qu'on y saisit quelque chose — et les pastilles d'écart
+  gardent leurs couleurs sémantiques. Le texte d'explication a sauté : le
+  bandeau et les deux colonnes « Requis / Démontré » disent la même chose.
+
+### CONFIGURER n'est pas ÉVALUER — et où l'IA intervient vraiment (2026-09-15)
+
+**Où l'IA intervient, une bonne fois.** Elle est appelée à DEUX endroits, et
+jamais ailleurs :
+
+1. **la configuration d'une activité** — `/qualify/analyze` propose la NATURE de
+   chaque donnée produite, puis `/competence/generate` et
+   `/competence/result_links/generate` en dérivent la compétence et ses liens ;
+2. **le plan de formation** — `/plan/proposer`.
+
+⚠️ Elle ne touche **jamais** `mastery_level`. Aucune route IA n'écrit un niveau :
+les notes sont posées à la main, par le développeur de compétences ou par le
+collaborateur pour son auto-évaluation.
+
+- ⚠️ **Mais l'écran disait le contraire.** La qualification des sorties s'ouvrait
+  DANS la fenêtre d'évaluation, sous le nom du collaborateur et sous le titre de
+  son activité : l'IA avait donc l'air de participer à la notation. C'était une
+  faute de RANGEMENT, pas de code. Deux fenêtres désormais :
+  - **« Configurer l'activité »** — en-tête ardoise, sous-titre = le nom de
+    l'activité, **aucun nom de personne** : configurer ne regarde personne, et
+    se fait une fois pour toutes, pas par collaborateur ;
+  - **évaluer** — en-tête bleu, sous-titre = « Untel · Tel rôle », et **plus une
+    seule trace d'IA**. Une activité sans résultat qualifié y affiche pourquoi
+    il n'y a rien à évaluer, avec un bouton vers l'autre fenêtre.
+  ⚠️ On ne bascule PAS automatiquement de la configuration à l'évaluation une
+  fois validée : enchaîner d'office redonnerait à l'ensemble l'air d'un seul
+  parcours, ce qu'on vient précisément de séparer. L'écran de fin propose les
+  deux sorties.
+- ⚠️ **L'écran et le plan ne s'accordaient pas sur le mot « écart ».** L'écran
+  compte une activité en écart dès que le niveau démontré est sous 2 (l'autonomie
+  n'est pas démontrée, requis ou pas) ; `contexte_ecart()` filtrait sur
+  `gap < 0`, or `gap` est NUL quand le rôle n'a fixé aucun niveau requis. Le
+  bouton « Plan de formation » s'affichait donc, et la fenêtre répondait « aucun
+  écart sur ce rôle ». Les deux passent maintenant par `categorie_activite()`,
+  et à défaut de requis la cible du plan est le **seuil d'autonomie**
+  (`SEUIL_AUTONOMIE = 2`).
+- **Un plan ne se bâtit que sur du MESURÉ** : une activité non évaluée — ou
+  évaluée à moitié — n'entre jamais dans un plan. Ce n'est pas une activité en
+  retard, c'est une activité qu'on n'a pas regardée.
+- ⚠️ « IA non configurée » héritait du **vert** du panneau de bilan : une absence
+  de clé prenait l'apparence d'une analyse réussie.
+- Tests : `tests/test_77_competences_deux_notes.py::TestLePlanSuitLEcran` (3 cas,
+  le désaccord vérifié **rouge** en remettant l'ancien filtre).
+### Moins de phrases, plus de place pour ce qui compte (2026-09-15)
+
+**Cinq phrases retirées.** Chacune expliquait ce que l'écran montre déjà —
+« Fixez, pour chaque résultat, le niveau tenu… » au-dessus d'une échelle 0→4,
+« Ce que les rôles exigent, et ce qui est tenu » au-dessus d'un radar légendé
+« Requis / Démontré », « Calculé sur les seules activités évaluées… » sous des
+barres qui portent déjà « 4 activités évaluées sur 6 ». Elles occupaient la
+place de ce qu'on vient vraiment lire. Sont parties : `eval_hint`,
+`eval_hint_self`, `p_sub`, `p_basis`, `p_not_plotted*`, `r_partial` (194 clés
+par langue, contre 197).
+
+- ⚠️ **L'explication d'une activité tenait une LIGNE sous son nom**, tronquée et
+  grise : illisible, mais elle volait la place de « évalué le 15/09/2026 », qui,
+  lui, se lit vraiment. Elle attend maintenant derrière un « i » (`brancherInfo`,
+  `.cv2-i` / `.cv2-info`), au survol **comme au clic** — le survol seul n'existe
+  pas sur un écran tactile. La date d'évaluation passe de 11,5 à 13 px.
+  ⚠️ La carte est posée sur le **body** en `position: fixed`, pas dans la ligne :
+  la liste des activités a son propre défilement, une carte posée dedans serait
+  tronquée. Conséquence : elle survit à la disparition de son bouton — elle
+  restait affichée en plein milieu de l'écran suivant. `fermerInfos()` est donc
+  branché sur tout ce qui déplace ce qu'il y a dessous (clic ailleurs,
+  défilement en capture, redimensionnement). ⚠️ Le clic du bouton fait un
+  `stopPropagation` : sans lui, ouvrir la bulle la refermerait aussitôt, et le
+  clic ouvrirait le rôle derrière.
+- **La compétence principale est le SUJET de la fenêtre**, pas une note de bas
+  de page : tout ce qu'on va noter en découle. Elle était écrite en 13 px gris
+  sur un fond à peine teinté, entre deux sections blanches. Elle porte
+  maintenant la couleur de la page en aplat, un liseré d'accent, son icône, et
+  16 px.
+- **La jauge grossit** : pas de 16×11 → 21×14 px, colonne de la liste 256 → 272.
+  ⚠️ En fenêtre étroite (< 980 px) elle redescend à 18×12 — à pleine taille elle
+  chasse le libellé du palier hors de sa colonne. ⚠️ Même cause dans les blocs :
+  le bilan de section perdait « Autonome / compétent » (138 px de texte pour 85
+  disponibles) — le libellé passe à la ligne sous la jauge plutôt que d'élargir
+  le bilan, qui aurait mangé le titre de la section.
+- **Titre et sous-titre côte à côte** (fenêtre d'évaluation ET fenêtre du plan).
+  Ce ne sont pas un titre et sa légende : l'activité d'un côté, la personne et
+  son rôle de l'autre, deux informations de même rang. Côte à côte, les deux
+  peuvent grossir (16 → 19 px, 12,5 → 14 px) ; le rôle devient une pastille.
+  Sous 760 px réels le filet de séparation saute, sinon il se retrouve à gauche
+  d'une ligne repliée.
+- **Le niveau lu passe à DROITE des paliers** (bloc 1) : sous l'échelle, il
+  poussait tout le bloc vers le bas pour une ligne de texte.
+- ⚠️ **Un simple filet séparait les blocs 1 et 2** : deux étendues blanches à la
+  suite, on ne voyait pas où l'une finissait. Le 3 se distinguait déjà (bleu
+  plein). Les trois portent donc chacun SA surface — la cible sur fond neutre,
+  ce qu'on note sur fond clair cerclé d'accent (`.cv2-bloc--eval`), la
+  technicité en bleu — et le filet a disparu.
+
+**La liste des capacités du diagnostic affichait « — / — » sur chaque ligne.**
+Deux nombres que RIEN dans l'application ne remplissait : `required_level` ne se
+posait qu'à la **création** du lien (`upsert_result_link`), et les liens
+naissent de l'IA — on cherchait donc dans cet écran un réglage qui n'existait
+nulle part. Le payload `{link_id, required_level}` règle désormais le niveau
+requis d'un lien existant (`null` pour revenir à « non défini » : sans ce
+retour, une cible posée par mégarde ne s'enlevait plus). ⚠️ Le lien est filtré
+sur `activity_id` : son id vient du client, il ne doit pas suffire à écrire sur
+l'activité d'à côté.
+Le niveau **démontré**, lui, dit en toutes lettres qu'il n'est **pas mesuré** —
+`_capability_demonstrated` lit de vieilles lignes `CompetencyEvaluation`
+(`savoirs` / `savoir_faires` / `hsc`) que la page V1.1 n'écrit jamais. Un tiret
+laissait croire à une valeur manquante ; c'est une valeur qui n'est pas prise.
+Le plan, lui, n'en souffre pas : `_plan_local()` retombe sur l'écart de
+l'activité quand celui de la capacité est nul.
+Tests : `tests/test_56_result_capabilities.py::TestReglerLeNiveauRequis`
+(5 cas, vérifiés **rouges** en retirant le bloc `link_id`).
+
+**La section 2 passe en bleu pastel**, ses cartes de résultat restant blanches :
+c'est le contraste entre les deux qui fait ressortir chaque activité à noter.
+
+⚠️ **Et cela a révélé que `--pg-accent-soft` rend du GRIS sur TOUTE
+l'application.** Les quatre dérivés — `--pg-accent-soft`, `-softer`, `-border`,
+`-glow` — sont déclarés sur `:root` dans `ui-theme.css`, où `--pg-accent` vaut
+encore le gris par défaut `#64748b`. Une propriété personnalisée est résolue là
+où elle est **déclarée**, pas là où elle est employée : `.page--competences` (et
+les huit autres classes de page) ne redéfinissent que `--pg-accent` et
+`--pg-accent-deep`, donc les dérivés gardent le gris de la racine. Mesuré dans
+la fenêtre d'évaluation : `--pg-accent` = `#2563eb`, mais `--pg-accent-soft` =
+`color-mix(in srgb, #64748b 10%, #ffffff)`.
+Conséquence visible : sur chaque page, les fonds doux, les bordures d'accent, le
+halo des ombres et les survols de ligne sont gris au lieu de la couleur de la
+page — alors que tout ce qui passe par `var(--pg-accent)` **dans la règle
+elle-même** (y compris un `color-mix` écrit sur place, comme `.cv2-nt--off`) sort
+bien en couleur. D'où l'aspect panaché : la carte « niveau validé » est bleue,
+la pastille du niveau lu est grise.
+`.cv2-bloc--eval` écrit donc son mélange dans la règle. **Le correctif de fond —
+déplacer les quatre dérivés dans chaque classe `.page--*` — n'est PAS fait** :
+il rendrait sa couleur à chaque page d'un coup, ce qui se décide en regardant
+les neuf pages, pas depuis celle-ci.
+
+---
+
+## Guide utilisateur (`docs/guide.html`)
+
+- **Un seul fichier, deux langues, deux thèmes.** Barre en haut à droite : segment
+  FR/EN à indicateur glissant + bascule clair/sombre (icônes SVG, pas d'emoji —
+  ils ne se rendent pas partout). Choix mémorisés dans `localStorage`, chaque accès
+  en try/catch : un fichier ouvert depuis une clé USB ou une pièce jointe peut
+  refuser le stockage. Au premier affichage le thème suit `prefers-color-scheme`.
+- **Traduction** : les deux versions cohabitent dans le document
+  (`<span class="t-fr">` / `<span class="t-en">`) et le CSS n'affiche que la langue
+  active (`:root[lang=…]`). Aucun rechargement, le fichier reste autonome. ⚠️ Ne
+  jamais envelopper un fragment qui traverse une balise (`…</b><span>…`) : le
+  navigateur répare l'imbrication et le texte reste affiché dans les deux langues.
+- **Thème sombre** : seuls les jetons CSS changent. Les maquettes miniatures (`.mk`)
+  gardent volontairement un fond CLAIR : elles représentent l'application, qui est
+  claire, comme les captures juste à côté.
+- **Vidéos bilingues** : `GUIDE_LANG=fr|en` (voir `tools/guide/README.md`). Chaque
+  `<video>` est doublée `t-fr`/`t-en` ; le changement de langue met en pause les
+  lectures en cours (une vidéo masquée continuerait sinon).
+- **Fichier autonome** : `tools/guide/build_standalone.py` → `docs/guide_standalone.html`
+  (tout en base64, ~32 Mo avec les deux jeux de vidéos ; exclu de git).
+
+---
+
+
+### QUATRE statuts, et « champion » change de sens (2026-09-16)
+
+Une échelle, pas une liste : chaque palier ajoute aux droits du précédent.
+
+    user  <  champion  <  coordinateur  <  admin
+
+| Statut | Cartographie | Page RH | Paramètres |
+|---|---|---|---|
+| `user` | **consulte** — ne modifie rien, ne propose rien | non | langue seule |
+| `champion` | + **propose** une modification | non | langue seule |
+| `coordinateur` | + **modifie** directement, **valide** les propositions, règle l'accès | **oui** | langue seule |
+| `admin` | tout | oui | **tout** |
+
+⚠️ **« champion » désignait l'ARBITRE ; c'est désormais le coordinateur.** Le
+mot nomme maintenant le palier au-dessous, qui propose sans pouvoir valider.
+Conséquences, toutes nécessaires :
+- `is_coordinator_status()` reconnaît **tous les libellés historiques de
+  l'arbitre** (`manager`, « Gestionnaire de compétences », sa troncature à
+  20 caractères, « Competency Manager »). `is_champion_status()` ne reconnaît
+  que le mot exact.
+- ⚠️ **`migrer_anciens_champions()` tourne au DÉMARRAGE**, avant de servir la
+  moindre requête : sans elle, un compte qui validait les propositions se
+  réveillerait avec le droit de seulement les déposer. Elle s'applique donc à
+  CHAQUE instance qui prend ce code — y compris le pilote, le jour où la
+  branche le reçoit.
+- ⚠️⚠️ **Et elle ne se joue QU'UNE FOIS** (marqueur `statuts_quatre_paliers`
+  dans `app_settings`). Rejouée à chaque démarrage — ce qu'elle faisait — elle
+  promouvait `coordinateur` **tout champion créé DEPUIS** : elle lit `champion`
+  au sens ANCIEN, celui de l'arbitre. On nommait donc quelqu'un « champion »
+  pour qu'il propose sans valider, et le redéploiement suivant lui donnait le
+  droit de valider. Le nouveau palier n'existait que jusqu'au prochain
+  démarrage. Le marqueur vit en BASE, pas en mémoire : une instance qui
+  redémarre, se duplique ou se redéploie doit lire la même réponse.
+  `migrer_anciens_champions(force=True)` rejoue la reprise (les tests s'en
+  servent — l'application de test l'a déjà passée à son propre démarrage).
+  Tenu par `test_66::TestRepriseDesComptes` (le cas neuf vérifié **rouge** :
+  « un champion nommé APRÈS la reprise est devenu coordinateur »).
+- Les ~8 appels à `is_champion()` du code voulaient tous dire « l'arbitre » :
+  ils sont devenus `is_coordinator()`. `is_champion()` existe encore, avec le
+  nouveau sens « au moins champion ».
+
+**Ce qui se ferme, et où.** Le masquage n'est jamais une sécurité — chaque règle
+est appliquée côté serveur :
+- `POST /cartography/api/save` distingue **deux refus** : `must_propose` pour un
+  champion (« proposez »), `lecture_seule` pour un `user`. ⚠️ Dire « proposez » à
+  quelqu'un qui n'en a pas le droit l'envoie vers un bouton qui n'existe pas.
+- `POST /cartography/api/changes` ne regardait que `can_read` : un `user`
+  pouvait déposer une proposition en appelant l'API directement. Il exige
+  maintenant `can_propose`.
+- ⚠️ **La page Gestion RH n'avait AUCUN contrôle d'accès** : tout compte
+  connecté l'ouvrait, et pouvait de là créer des rôles et affecter des
+  personnes. Réservée au coordinateur et à l'administrateur.
+- L'éditeur **s'ouvre en lecture seule** pour un `user`
+  (`access_summary()['lecture_seule']` → `window.OPTIQCARTO_READONLY`, le même
+  drapeau que le viewer). Refuser seulement à l'enregistrement laisserait
+  quelqu'un travailler dix minutes avant d'apprendre qu'il n'en a pas le droit.
+- Les Paramètres n'ont pas bougé : la page est ouverte à tous (chacun choisit sa
+  langue) et les sections d'administration ne sont **pas rendues du tout** pour
+  les autres — CSS compris.
+
+Tests : `test_66_carto_sharing.py::TestLesQuatrePaliers` et
+`::TestRepriseDesComptes`, `test_50::TestCeQueChaquePalierOuvre` (les quatre
+paliers × cinq droits, en table). Suite : 2243 passés.
+
+⚠️ **Deux pièges d'isolation rencontrés en chemin**, tous deux invisibles hors
+suite complète (la base est partagée) :
+- une entité de test créée **sans `owner_id`** est lisible par TOUT LE MONDE
+  (`can_read` : `entity.owner_id in (None, user.id)`) — elle entrait dans le
+  repli « aucune entité active » d'un autre fichier ;
+- une carto laissée **commune et ouverte à tous** en fin de module devient le
+  repli des fichiers suivants. `test_66` la rend privée en partant.
+
+### Le filtre par carto active de `dashboard_rows` était REDONDANT et nuisible
+
+⚠️ Suite du signalement « j'ai perdu mes données de notation ». Le premier
+correctif — ne lister que les rôles de la carto active — visait la mauvaise
+moitié : un collaborateur n'a pas forcément ACCÈS à la carto où il tient un rôle
+(`Entity.get_active` valide contre les cartos accessibles, puis retombe sur « sa
+première entité »), et l'écran se vidait alors pour une autre raison.
+
+Le vrai coupable était dans `dashboard_rows` :
+`Activities.entity_id == Entity.get_active_id()`.
+- **Redondant** : `_sync_carto_to_db` crée rôles ET activités avec l'`entity_id`
+  de la même entité — un lien `activity_roles` joint toujours deux objets de la
+  même carto, le rôle borne déjà le périmètre.
+- **Nuisible** : dès que le repli de l'entité active ne tombait pas sur la carto
+  du rôle, toutes ses activités disparaissaient. D'où « 0 activité » sur chaque
+  rôle, « — du requis tenu », et l'impression d'évaluations perdues.
+
+Le filtre est retiré ; un rôle porte ses activités quelle que soit la carto
+active. `TestPerimetreDeLaSynthese` le tient.
+
+### L'éditeur en CONSULTATION — et le dépôt qui tuait la page (2026-09-16)
+
+⚠️ **Le glisser-déposer HTML5 ne passe PAS par `onDown`.** Le garde de lecture
+seule vivait dans le `mousedown` du canevas ; tirer une forme depuis la barre
+d'outils emprunte `dragstart` → `dragover` → `drop`, qui ne le croisent jamais.
+Un compte `user` posait donc des activités sur la carto — et ne l'apprenait
+qu'à l'enregistrement, après le travail. Le `drop` refuse maintenant, et la
+palette n'est même plus `draggable`.
+
+**Ce que voit un `user`** (`window.OPTIQCARTO_CONSULTATION`, classe
+`body.carto-consultation` posée par le gabarit) : la carte, **Sélection**,
+**Centrer**, le zoom (pastille + sensibilité), la **mini map**, le panneau
+Propriétés, et du menu Fichier **les trois exports seulement**. Partent :
+annuler / rétablir, Box, la section Création entière (bandes, formes, calques,
+grouper, pile), le curseur Labels, Vérifier, Supprimer, Enregistrer, Charger,
+Importer Visio.
+- **Cliquer une forme ouvre sa fiche**, en lecture. ⚠️ Le viewer et l'éditeur en
+  consultation partagent `OPTIQCARTO_READONLY` mais n'attendent PAS la même
+  chose d'un clic : le viewer est une vignette dans la page Carte et prévient
+  sa page parente ; ici il n'y a pas de page parente, un `postMessage` n'irait
+  nulle part. D'où le second drapeau.
+- Le panneau est verrouillé **une fois** à l'init (`_verrouillerProprietes`) :
+  il est écrit dans le gabarit, pas reconstruit à chaque sélection. `disabled`
+  n'empêche pas `updateProps()` d'y poser les valeurs — on lit la fiche
+  entière. La feuille de style rend l'encre pleine (un champ désactivé gris
+  serait illisible) et masque les boutons de suppression.
+- ⚠️ **Les boutons sont MASQUÉS, jamais retirés du document.** `editor.js` les
+  câble sans garde : un id absent lève une TypeError qui interrompt TOUTE
+  l'init, chargement de la carto compris — cadre gris et vide alors que les
+  données sont en base. C'est le piège que `tests/test_49_carto_dom_contract.py`
+  garde, et que le viewer contourne avec ses boutons vides. ⚠️ Et ce test lit le
+  gabarit comme du TEXTE : un `{% if %}` autour d'un bouton le laisserait passer
+  au vert tout en faisant disparaître l'id au rendu.
+- ⚠️ **Masquer un bouton ne désarme pas son raccourci.** Suppr, Ctrl+Z, Ctrl+S
+  et « G » appellent directement `deleteSelected` / `undo` / `saveJSON` /
+  `createGroup`, qui n'avaient AUCUN garde. En consultation on sélectionne
+  désormais une forme pour la lire : Suppr l'aurait retirée de l'écran sans
+  rien enregistrer — une carto fausse sous les yeux. Les cinq fonctions qui
+  écrivent se refusent elles-mêmes.
+
+**Le zoom pouvait valoir ZÉRO, et un dépôt empoisonnait alors la carto.**
+`fitView()` posait `vpScale = Math.min(r.width / dw, r.height / dh, 2)` **sans
+borne basse**. Un « ajuster » joué sur un canevas pas encore posé (largeur 0 :
+onglet caché, volet replié, `fit-view` reçu par `postMessage` depuis la page
+Carte) rendait donc un facteur NUL. Reproduit et mesuré :
+`translate(0,0) scale(0)` → `screenToSVG` divise par ce zéro → la forme déposée
+naissait à une abscisse **non finie** → `_fitShapeIntoBand` ajoutait cet infini
+à la hauteur d'une bande → le rendu jetait des `<rect x="Infinity">` et des
+`<circle cx="NaN">`, la carto disparaissait et le navigateur s'étranglait. Rien
+ne lève d'exception dans cette chaîne : la page paraît simplement **gelée**.
+Quatre verrous, du plus amont au plus aval :
+1. `fitView()` borne par `ZOOM_MIN` (0,08 — la même borne que la molette) et
+   **renonce** sur un canevas dégénéré ou des bornes non finies ;
+2. `screenToSVG` ne divise jamais par un facteur nul ou non fini ;
+3. le `drop` **refuse un point hors des nombres** — on ne dépose rien plutôt
+   que n'importe quoi, car la forme serait ENREGISTRÉE ;
+4. dernier filet, `applyViewport` repart du cadrage par défaut plutôt que
+   d'écrire `scale(0)` ou `translate(NaN,NaN)`.
+
+⚠️ **Le défilement au bord s'emballait.** `_edgeScrollStep` se rappelle en
+`requestAnimationFrame` tant qu'une vitesse est posée, et SEULS un `mousemove`
+ou un `mouseleave` sur le canevas l'arrêtaient. Or un glisser-déposer HTML5
+n'émet ni l'un ni l'autre : une fois lancé, la carto filait toute seule sous le
+pointeur et la forme atterrissait ailleurs que là où on visait (mesuré : la
+translation verticale dérivait de 36 px pendant un seul geste). `mouseup`,
+`dragstart`, `dragend`, `drop`, `blur` et le passage de l'onglet en arrière-plan
+le coupent désormais — et `cancelAnimationFrame` annule la frame déjà demandée,
+car remettre la vitesse à zéro ne suffit pas.
+
+Tests : `tests/test_79_carto_consultation.py` (42 cas — 33 vérifiés **rouges**
+sur le code d'avant). Mise au point : `tools/devrun_partage.py` (port 8124)
+sème maintenant les QUATRE paliers, `coord@test.local` étant l'arbitre.
+
+### Le bandeau « Échap pour quitter le plein écran » couvrait la barre de nav
+
+Il était posé en `position: fixed; top: 74px; right: 18px` — sur la barre de
+navigation et sur les menus qui s'ouvrent depuis son bord droit — restait cinq
+secondes et **interceptait les clics** (`pointer-events: auto`). Retiré, pas
+déplacé : le navigateur affiche déjà sa propre mention quand une page bascule en
+plein écran. On répétait, par-dessus l'interface, ce qu'il dit tout seul. Le
+passage en plein écran automatique, lui, est conservé.
+
 ---
 
 ## Page Comptes — droits et langue
 
 - **Droits** (`Code/routes/gestion_compte.py`) : `User.status` est un texte libre, écrit différemment selon les instances → comparaison sur une forme **normalisée** (minuscules, sans accents, séparateurs unifiés) via `_norm_status()`.
   - `_ADMIN_STATUSES` = admin / administrateur / administrator.
-  - `_ACCOUNT_CREATOR_STATUSES` = gestionnaire de compétences (+ variantes, `competency manager`). **Créer** un compte — formulaire ET import Excel — exige admin OU ce statut.
+  - **Trois statuts et trois seulement** : `user`, `champion`, `admin`. « RH » a été
+    retiré des listes déroulantes et du badge (il ne portait aucun droit ; l'évaluateur
+    « RH » de la page Compétences est un AUTRE mécanisme, conservé).
+  - `champion` = l'ancien « gestionnaire de compétences ». Il **crée des comptes**,
+    **règle l'accès aux cartos communes** et **arbitre les modifications proposées**.
+    `is_champion_status()` reconnaît toujours les libellés déjà en base (`manager`,
+    « Gestionnaire de compétences », sa troncature « gestionnaire de comp »,
+    « competency manager ») : personne ne perd ses droits parce que le mot affiché a
+    changé. `is_competency_manager_status` reste un alias.
+  - ⚠️ Le **filtre de statut** de la liste comparait `users.status` BRUT à la valeur de
+    l'option : un champion enregistré sous un ancien libellé ne ressortait dans aucun
+    filtre. Le gabarit expose désormais la **famille** (`admin` | `champion` | `user`)
+    dans `data-status`.
   - **Modifier** un compte : admin, ou soi-même uniquement (`_can_edit_account`). Le champ `status` n'est appliqué que si l'appelant est admin — sinon on s'auto-promeut depuis l'édition de son propre compte. **Supprimer** : admin seulement.
   - Le gabarit masque les onglets Créer/Import sans le droit, et les boutons Modifier/Supprimer hors périmètre ; les routes refusent quand même côté serveur (le masquage n'est pas une sécurité).
 - **Onglet d'accueil** = **Utilisateurs** (`list-tab`), placé en premier ; Créer et Import viennent après.
@@ -431,11 +1168,147 @@ cadence sur la fiche activité ; panneau de qualification des sorties + badges �
   rattrape toute `SQLAlchemyError` en message plutôt qu'en 500.
 - Tests : `tests/test_50_accounts_permissions_lang.py` (36 cas).
 - **Où vivent les droits** : `Code/permissions.py` — source unique pour la page Comptes, les Paramètres et le partage d'entités. `is_competency_manager_status()` reconnaît une **famille** de valeurs plutôt qu'une liste figée : `users.status` est un VARCHAR(20), donc « Gestionnaire de compétences » y arrive **tronqué** (« gestionnaire de comp »), et le libellé est saisi tantôt en français tantôt en anglais. Règle : commence par « gestionnaire », OU contient « manager » + (« competency » | « competence » | « skill »).
-- **Valeur canonique** `gestionnaire` (13 car., tient dans la colonne) proposée dans les listes déroulantes création / édition / filtre. Le badge de la liste affiche la **valeur brute** quand elle n'est reconnue par aucune règle, au lieu de la faire passer pour « Utilisateur » : un statut mal orthographié se voit, au lieu de produire des droits inexpliqués.
+- **Valeur canonique** `champion` (8 car., tient dans la colonne) proposée dans les listes déroulantes création / édition / filtre. Le badge de la liste affiche la **valeur brute** quand elle n'est reconnue par aucune règle, au lieu de la faire passer pour « Utilisateur » : un statut mal orthographié se voit, au lieu de produire des droits inexpliqués.
 
-### Partage d'une entité (tous les statuts, avec consentement)
+### Carto COMMUNE — accès par rôle (modèle principal)
 
-Une entité n'appartient qu'à son propriétaire (`Entity.get_active` est strict sur `owner_id`) : il n'existe pas d'accès partagé. **Partager = déposer une COPIE** chez chaque destinataire, qui repart ensuite avec la sienne sans toucher à l'originale.
+`Code/carto_access.py` — **source unique** de « qui voit, qui modifie, qui arbitre ».
+Recopier l'entité chez chacun (modèle historique, décrit plus bas) fabriquait autant de
+cartos que de comptes : plus rien ne les reliait, et une correction devait être refaite
+sur chaque copie. Une carto **commune** est au contraire **UNE seule ligne** travaillée
+par plusieurs comptes — ce qui est validé est vu par tout le monde, il n'y a rien à
+propager.
+
+- **`Entity.is_shared`** (migration à chaud) : privée par défaut. Une carto qu'un compte
+  crée pour lui n'obéit à rien de ce qui suit.
+- **`entity_role_access`** (entity_id, role_id) : on ouvre l'accès à des **RÔLES**, jamais
+  à des comptes — qui reçoit le rôle demain entre sans qu'on revienne sur l'écran d'accès.
+  **Aucune ligne = ouverte à tous les comptes** de la page Comptes. Les rôles viennent de
+  la carto elle-même (bandes de la carte).
+- **Qui règle l'accès** : champions et administrateurs, y compris sur une carto qui ne
+  leur appartient pas — rendre une carto commune engage toute l'organisation. Le
+  propriétaire d'une carto privée ne peut donc pas la partager seul.
+- **Qui écrit** : sur une carto commune, champion / admin enregistrent directement ; tout
+  autre compte **propose**. Sur une carto privée, son propriétaire fait ce qu'il veut.
+- **`carto_change_requests`** : la proposition emporte une COPIE du diagramme (elle doit
+  rester examinable si la carto bouge entre-temps) et `base_diagram`, ce que l'auteur
+  avait sous les yeux — c'est la référence du résumé. Appliquée, elle écrit sur l'entité
+  commune puis passe par `_sync_carto_to_db`, exactement comme un enregistrement normal.
+- **API** (`Code/routes/carto_sharing.py`, préfixe `/cartography`) :
+  `GET|POST /api/access/<entity_id>` · `GET /api/changes[?entity_id=&status=]` ·
+  `GET /api/changes/<id>` (avec le résumé) · `POST /api/changes` ·
+  `POST /api/changes/<id>/approve|reject` · `DELETE /api/changes/<id>` (retrait par l'auteur).
+- **Interface — la page `/share`, un seul écran pour tout le processus.**
+  Régler l'accès se faisait sur la carte, mais dire QUI tient un rôle se faisait sur la
+  page Rôles : deux moitiés de la même décision, à deux endroits. La page Partage
+  (`share_page_bp`, `share.html`, `static/js/share.js`, `static/share.css`) porte les
+  trois temps, dans l'ordre : **1 · Qui a accès** (interrupteur *Carto commune* + les
+  rôles, chacun avec ses **titulaires** ajoutables/retirables sur place) · **2 · Qui
+  ouvre cette carto** (les comptes, avec le motif : propriétaire, champion, ouverte à
+  tous, ou *par son rôle* — le contrôle d'un coup d'œil qui n'existait nulle part) ·
+  **3 · Modifications proposées** (file d'examen complète).
+  Nav : juste après Cartographie, cyan `#0891b2` (`page--share`).
+- **On choisit sa carto en la VOYANT.**
+  `GET /cartography/api/access/<id>/thumbnail.svg` rend la **vraie carte** :
+  bandes, flèches sur leur **tracé enregistré** (`_computedOrthopts`, sinon `userPts` /
+  `customPath`, sinon la droite entre les deux formes), activités avec leur couleur.
+  ⚠️ Une abstraction en barres de couleur avait été essayée d'abord : **toutes les
+  cartos se ressemblaient**, c'est la trajectoire des flèches qui les distingue.
+  ⚠️ Une carto **sans `optiqcarto_data`** (importée du temps où seul le SVG Visio était
+  stocké) n'affichait RIEN alors qu'elle existe : on sert alors `svg_content` tel quel
+  (plafond 3 Mo). Sans l'un ni l'autre → 404 et état vide explicite.
+  ⚠️ Les couleurs viennent d'un fichier Visio et partent telles quelles dans le SVG :
+  `_echap_couleur` écarte tout ce qui contient `< > " ' &`.
+  Cadrage : la carto est bien plus **haute que large**. En pleine largeur de carte,
+  recadrée, elle donnait un bandeau de couleurs où toutes les lignes se ressemblaient.
+  La galerie est donc une **liste** : vignette **portrait** (48 px, 3/4, `contain`) à
+  gauche du nom — on voit la silhouette entière, c'est elle qui distingue deux
+  cartographies. L'en-tête montre la carte entière en 4/3.
+  `/api/access/previews` ne porte plus que les chiffres et `has_thumbnail`.
+- ⚠️ **La galerie a un plafond de hauteur** (`max-height: min(62vh, 560px)` + défilement
+  interne) : sans lui, dix cartographies poussaient la colonne de travail hors de vue.
+- **Rien ne se lit en lignes de tableau** : une carte par rôle (cochée = teintée
+  d'accent), une carte par personne avec son initiale colorée (teinte stable, dérivée de
+  l'e-mail) et un liseré gauche par motif d'accès. Une petite liste ne se parcourt pas.
+- **Les deux cartes sont des poignées.** Un rôle et une personne sont les deux bouts de
+  la même relation : cliquer un **rôle** ouvre « qui le tient », cliquer une **personne**
+  ouvre « ses rôles sur cette carto » — avec, en face de chaque rôle, s'il *ouvre
+  l'accès* ou non. La même fenêtre sert aux deux et écrit avec le même endpoint par
+  paire. Sur la carte de rôle, la case à cocher garde son clic (elle décide de l'accès,
+  pas des titulaires).
+- « Rôles ouverts » affiche **Tous / All** quand aucun rôle n'est coché : un « ∞ » ne dit
+  pas combien de personnes sont concernées.
+- **Les tuiles de chiffres sont des boutons** : un chiffre appelle le clic. Chacune fait
+  défiler jusqu'au bloc qui l'explique et le **désigne** (`is-pointed`, 1,4 s) — un
+  défilement seul passe inaperçu.
+- **Couleur : la famille FUCHSIA**, déclinée (fuchsia `#c026d3`, violet `#9333ea`, prune
+  `#7e22ce`, rose `#db2777`). Chaque tuile porte sa nuance, les en-têtes de bloc et les
+  dégradés reprennent la famille : la page tient sans grands aplats blancs.
+- ⚠️ **L'entrée en scène des blocs n'est posée que si `document.visibilityState` vaut
+  `visible`.** L'animation PART d'opacité 0 : dans un onglet en arrière-plan le
+  navigateur la met en pause, et la page serait restée blanche jusqu'au retour sur
+  l'onglet.
+- **Chaque bloc ouvre une porte** : *Voir la carte*, *Ouvrir l'éditeur*, *Proposer une
+  modification* (affiché seulement à qui doit proposer), *Gérer les comptes*, et quand la
+  file d'examen est vide, un appel à l'action vers l'éditeur plutôt qu'un mur.
+- ⚠️ **Cocher un rôle enregistre tout de suite** — il n'y a pas de bouton « Enregistrer ».
+  Un bouton de plus laisse partir sans sauver, et l'écran ment alors sur qui a accès.
+  ⚠️ **Les rôles viennent des bandes de la carto** : on ne peut pas en créer ici, et un
+  rôle créé à la main ailleurs serait effacé au prochain enregistrement de la carto
+  (`_sync_carto_to_db` supprime les rôles absents de la carte). L'écran le dit.
+  ⚠️ `POST /api/access/<e>/roles/<r>/holders` travaille **par PAIRE (compte, rôle)** :
+  les endpoints de la page RH, eux, remplacent TOUS les rôles d'une personne (delete
+  puis insert) — les appeler d'ici lui retirerait ses rôles sur les autres cartos.
+- **La carte ne règle plus l'accès** : « Accès à la carto » de la fiche entité mène à
+  `/share/?entity_id=…` (la modale d'accès a été retirée — deux écrans pour un même
+  réglage finissent par donner deux réponses). **« Envoyer une copie »** est un bouton
+  distinct, à côté : c'est une action sur l'entité, pas le processus de la carto commune.
+- **Dans l'éditeur** : un **bandeau** dit d'un coup d'œil si ce qu'on fait s'applique ou
+  part à l'examen, le bouton **Sauvegarder devient « Proposer la modification »** (ambre,
+  icône de proposition, Ctrl+S compris), et les champions ont un bouton **Propositions**
+  avec le compte en attente. Le détail d'une proposition affiche **ce qu'elle change** —
+  activités ajoutées / retirées / renommées / déplacées, flèches — pas du JSON.
+  Tout vit dans `static/optiqcarto/carto_sharing.js`, chargé APRÈS `editor.js` :
+  la gouvernance n'entre pas dans l'éditeur, qui reste l'éditeur.
+- ⚠️ **Le masquage n'est pas une sécurité** : `/cartography/api/save` refuse aussi côté
+  serveur, avec le code `must_propose` que le JS rattrape pour ouvrir la modale.
+- ⚠️ **`Entity.get_active` n'est plus strict sur `owner_id`** — il accepte une carto
+  commune ouverte au compte. Le **repli** (aucune entité active en session) reste en
+  revanche « sa première entité, ordre d'insertion » : trier par nom changerait l'entité
+  par défaut de tous les comptes qui en possèdent plusieurs. `Entity.accessible()` rend
+  la liste réelle (siennes + communes) ; `Entity.for_user()` reste la requête « les
+  siennes ».
+- ⚠️ **Ménage obligatoire** : supprimer une entité efface `entity_role_access` et
+  `carto_change_requests` (PostgreSQL applique les FK, SQLite non), et
+  `_sync_carto_to_db` efface l'accès d'un rôle qui disparaît de la carte.
+- ⚠️ **`BOOLEAN DEFAULT 0` a mis staging à terre.** PostgreSQL refuse un entier
+  comme défaut de booléen (« column is of type boolean but default expression is
+  of type integer ») ; SQLite l'accepte, donc **aucun test de la suite ne pouvait
+  le voir**. `_safe_add_column` avalant l'erreur (il ne sait pas distinguer
+  « colonne déjà là » d'un DDL invalide), `entities.is_shared` n'était jamais
+  créée et **toute** requête sur `entities` tombait en 500 — page carte comprise.
+  Écrire `DEFAULT FALSE` dans les ALTER, et `sa.false()` (pas `text('0')`) en
+  `server_default` de modèle : `text('0')` rend « DEFAULT 0 » en PG et casserait
+  aussi `create_all` sur une base neuve. Le démarrage vérifie désormais les
+  colonnes indispensables (`_verifier_colonnes`) et le crie dans les journaux.
+- Tests : `tests/test_66_carto_sharing.py` (34 cas — statuts, lecture par rôle, réglage
+  de l'accès, refus d'écriture directe, cycle complet d'une proposition, activation,
+  ménage), `tests/test_68_share_page.py` (21 cas — la page, l'entité de l'URL, les
+  titulaires par paire, la portée et ses motifs, l'absence de doublon avec la carte
+  et les vignettes) et `tests/test_67_schema_postgres.py` (5 cas — le DDL des modèles est compilé avec le
+  dialecte PostgreSQL, sans serveur, et les ALTER écrits à la main dans `create_app`
+  sont relus : c'est le seul filet contre un SQL que SQLite accepte et que la production
+  refuse). ⚠️ Ces derniers RELISENT `Code/app.py` : ils sautent dans l'arbre d'image
+  (bytecode-only), comme `tests/test_61_pulse.py` — `tools/repet_image.sh` l'a montré.
+
+### Envoyer une COPIE indépendante (mécanisme secondaire, conservé)
+
+Déposer une copie fait autre chose que partager : le destinataire devient propriétaire
+d'une carto **à part**, qu'il fait évoluer de son côté et qui ne reçoit plus rien. Ce
+chemin reste disponible, mais il n'est plus le bouton principal : on l'atteint depuis le
+pied de la modale « Accès à la carto ».
+
+Une entité n'appartient qu'à son propriétaire : **partager par copie = déposer une COPIE** chez chaque destinataire, qui repart ensuite avec la sienne sans toucher à l'originale.
 
 **Tout le monde peut partager ses propres entités.** Ce que change le statut, c'est le
 CONSENTEMENT du destinataire :
@@ -601,7 +1474,7 @@ partagent un design system chargé partout via `header_buttons.html` :
 
 ### Complété (session 7 — 2026-07-27)
 - **Renommage** : `docs/index.html` → `docs/doc_technique.html` (liens du guide mis à jour)
-- **Doc technique — mise à niveau OptiqFluent & V1.1** : nouvelle section « Refonte Compétences V1.1 » (7 blueprints P1-P7, chaîne Résultat, règles min/NULL), nouvelle section « Distribution OptiqFluent » (durcissement, licence Ed25519, prompts chiffrés Fernet, image bytecode-only, assistant /setup, kit client, CI ghcr.io), nouvelle section « Administration & UX IA » (ai_key, settings admin, logstream, optiq_alert). Sections mises à jour : Stack (IA = OpenAI gpt-4o-mini partout + Claude en secours carto ; auth = security.py PBKDF2 600k), Architecture (~49 blueprints, gunicorn.conf.py, lock_timeout), Modèles (tables V1.1 + app_settings + test_*), Cartographie (import VSDX classique + polish, diagnostic/agencement auto/correction ciblée, curseur labels, losanges), Auth (politique mots de passe), RH (EntrepriseSettings ORM), Chatbot (get_openai_key, 503 ai_unavailable, prompts catalog), Déploiement (variables complètes, branche optiqfluent-staging)
+- **Doc technique — mise à niveau OptiqFluent & V1.1** : nouvelle section « Refonte Compétences V1.1 » (7 blueprints P1-P7, chaîne Résultat, règles min/NULL), nouvelle section « Distribution OptiqFluent » (durcissement, licence Ed25519, prompts chiffrés Fernet, image bytecode-only, assistant /setup, kit client, CI ghcr.io), nouvelle section « Administration & UX IA » (ai_key, settings admin, logstream, optiq_alert). Sections mises à jour : Stack (IA = OpenAI gpt-4o-mini partout + Claude en secours carto ; auth = security.py PBKDF2 600k), Architecture (~49 blueprints, gunicorn.conf.py, lock_timeout), Modèles (tables V1.1 + app_settings + test_*), Cartographie (import VSDX classique + polish, diagnostic/agencement auto/correction ciblée, curseur labels, losanges), Auth (politique mots de passe), RH (EntrepriseSettings ORM), Chatbot (get_openai_key, 503 ai_unavailable, prompts catalog), Déploiement (variables complètes, branche optiqfluent-beta-test)
 - **Guide utilisateur — restructuration + illustrations** : sections réordonnées sur l'ordre de la nav bar (Carto → Activités → Rôles → Compétences → Temps → Comptes → RH → Outils → [IA, Performance, Export] → Paramètres → Glossaire). 3 nouvelles sections illustrées : Rôles (fiche 5 blocs + onboarding IA déplacé depuis RH), Comptes (mockup table + import en masse déplacé depuis RH), Outils (4 cartes cycle de vie). Nouveaux blocs : évaluation par RÉSULTAT (chaîne + mockup tiroir d'éval + diagnostic 3 familles + technicité/cadence/HSC), import Visio fidèle (mockup avant/après), Diagnostic carto (mockup pop-up Corriger les erreurs / Agencement auto), « Et si l'IA n'est pas configurée ? », Paramètres → section Administration (mockup clé IA + console serveur) + note édition OptiqFluent, calendrier de travail déplacé dans RH, 2 entrées de glossaire (Résultat, Diagnostic d'écart)
 - **App — nav bar réordonnée** (`header_buttons.html`) : Cartographie, Activités, Rôles, Compétences, Temps, Comptes, RH, Outils, Paramètres — même ordre que le guide (règle : Cartographie première, Paramètres dernière)
 
@@ -649,11 +1522,16 @@ partagent un design system chargé partout via `header_buttons.html` :
 - *(rien)*
 
 ### À faire (par priorité)
-1. Éditeur OptiqCarto côté JS (`static/optiqcarto/editor.js`) — seul élément majeur restant
+1. **`docs/doc_technique.html` + `docs/guide.html` : le partage de carto a changé de
+   modèle** (carto commune, accès par rôle, propositions de modification, statut
+   « champion » à la place de « gestionnaire de compétences », statut « RH » retiré).
+   Les deux documents décrivent encore le partage par COPIE seul. À reprendre à la
+   prochaine routine de documentation, captures comprises.
+2. Éditeur OptiqCarto côté JS (`static/optiqcarto/editor.js`) — seul élément majeur restant
 
 ---
 
-## Distribution client — branche `optiqfluent-staging`
+## Distribution client — branche `optiqfluent-beta-test`
 
 Branche dédiée à la mise à disposition de l'app chez un client pilote (rebrandée
 **OptiqFluent**), basée sur `staging`. Modèle retenu : **image Docker sur registre
@@ -712,15 +1590,6 @@ privé (ghcr.io) + licence signée à expiration + contrat d'évaluation**. Cont
     confirmation ; ajoute REQUIRE_LICENSE=0, PROMPTS_KEY, TESTPANEL_ENABLED=1).
     ⚠️ `.gcloudignore` obligatoire (sinon gcloud suit .gitignore qui exclut
     prompts.enc → build cassé).
-  - **CI pilote** : `.github/workflows/deploy-beta.yml` — chaque push sur
-    `optiqfluent-staging` redéploie `optiqfluent-staging` (mêmes secrets que
-    deploy-staging.yml). Ne remplace QUE l'image : les env vars posées sur le
-    service (DATABASE_URL, clés, REQUIRE_LICENSE=0…) sont préservées.
-  - **Comptes pilote ARaymond** (cette branche uniquement, `app.py` étape
-    6bis) : 6 comptes seedés au démarrage s'ils n'existent pas (Mael Girardin,
-    Hubert Grandjean + 4 testeurs @araymond.com), statut `manager`, mot de
-    passe initial « password », jamais réécrasé. Login insensible à la casse
-    de l'email (`connexion_routes.py`).
   - **Répétition d'installation client** : `tools/test_install.sh` — rejoue
     INSTALL.md sans Docker (licence de test avec prompts_key embarquée, arbre
     bytecode-only, PostgreSQL 16 vierge, gunicorn, 9 vérifications curl/logs
@@ -741,7 +1610,7 @@ privé (ghcr.io) + licence signée à expiration + contrat d'évaluation**. Cont
     Postgres. ⚠️ Ne s'applique pas à Cloud Run (pas de volume persistant —
     nos déploiements restent configurés par variables d'environnement).
 
-## Administration & UX IA (branche optiqfluent-staging)
+## Administration & UX IA (branche optiqfluent-beta-test)
 
 - **Clé IA à chaud** : `Code/ai_key.py` — `get_openai_key()` / `get_anthropic_key()`
   (table `app_settings` clés `openai_api_key`/`anthropic_api_key` en priorité, puis env).
@@ -799,6 +1668,224 @@ jamais exposées aux utilisateurs). Deux morceaux :
   changer via secret/env `PULSE_PASSWORD`), anti-force-brute, noindex.
   Tests : `tests/test_61_pulse.py` (14). Doc : `pulse/README.md`.
 
+## Optiq Hub — point d'entrée unique (2026-09)
+
+`hub/` — service Cloud Run **séparé de l'app** (même patron qu'OptiqPulse),
+déployé par `.github/workflows/deploy-hub.yml` sur push `staging` touchant
+`hub/**` ou `docs/**`. Il regroupe ce qui était éparpillé : instances en ligne
+avec leur **état sondé en direct** (côté serveur, cache 25 s, pool de threads),
+documentation **servie par le hub** (`/doc`, `/guide`, `/doc/refonte`, médias
+sous `/assets/…`), catalogue des commandes locales copiables, branches et
+workflows. Deux comptes — `Mael_Girardin` (secret `HUB_PASSWORD`, défaut baké
+`testtest`) et `Hubert_Grandjean` (`HUB_PASSWORD_HG`, défaut baké) — anti-force-brute,
+`noindex`. ⚠️ Le dépôt ne porte que des HASHES, et `_check_credentials` compare tous
+les comptes sans court-circuit (sinon on les énumère au chronomètre).
+
+- ⚠️ **Tout le contenu vit dans `hub/inventaire.py`** — instances, documents,
+  commandes, branches, secrets. Le gabarit ne porte aucune donnée en dur :
+  ajouter une instance, c'est éditer une liste Python. **Aucun secret dedans** :
+  on nomme les bases et les secrets GitHub, on ne recopie pas leurs valeurs.
+- ⚠️ **La doc est copiée dans `hub/_docs` par le workflow, jamais versionnée**
+  (`.gitignore`) : le `.dockerignore` de la racine exclut `docs/`, mais le
+  contexte de build du hub est `hub/`, donc cette exclusion ne s'y applique pas.
+  `guide_standalone.html` (~32 Mo) reste dehors — le guide servi charge ses
+  médias depuis `/assets`.
+- ⚠️ `/health` et **pas** `/healthz` (intercepté par le frontend Google sur
+  `*.run.app`) ; `HUB_SECRET_KEY` est conservée d'un déploiement à l'autre,
+  sinon chaque livraison déconnecte la session.
+- **Ce que le hub ne fait pas** : lancer les traitements locaux
+  (provisionnement, captures du guide). Une page hébergée ne peut pas exécuter
+  un script sur le poste de l'utilisateur ; le hub en garde le mode d'emploi et
+  la commande exacte, copiable en un clic. **La suite de tests, elle, tourne
+  bien depuis le hub** — voir le module ci-dessous.
+
+### Module « Panel de tests » (2026-09-04)
+
+Le hub ne se contente plus de pointer vers le panel : il en est la façade.
+`/panel` (carrousel des pages) et `/panel/<slug>` (détail d'une page).
+
+- **L'exécution a lieu SUR l'instance**, pas dans GitHub Actions.
+  `_start_run` lance pytest en sous-processus sur une **base SQLite jetable**
+  (`tests/conftest.py`), jamais sur la base de l'application. Trois
+  conséquences, toutes nécessaires :
+  1. ⚠️ **`tests/` n'est plus exclu par `.dockerignore`** — c'est le
+     **Dockerfile** qui tranche (`ARG WITH_TESTS`, défaut 0). Le build staging
+     passe `--build-arg WITH_TESTS=1` ; l'image client, elle, supprime le
+     dossier. Exclure au niveau du contexte privait les deux du choix, et le
+     panel déployé affichait **0 test** (`sync_tests_to_db` ne trouvait aucun
+     fichier) — le symptôme rapporté.
+  2. ⚠️ **La purge bytecode épargne `tests/`** : pytest collecte des `.py`, pas
+     des `.pyc`, et le panel analyse les sources pour recenser les cas
+     (`compileall -x '(^|/)tests/'` + `find … ! -path "/app/tests/*"`).
+  3. ⚠️ **Cloud Run staging tourne en `--no-cpu-throttling`** : le
+     sous-processus démarre APRÈS la réponse HTTP ; sans CPU alloué en continu
+     il est étranglé à ~5 % et une exécution de 3 min en prend 60.
+     Contrepartie : CPU facturé tant qu'une instance vit (`--cpu 2`,
+     `--memory 4Gi`, `--timeout 900`).
+- **Plus aucun jeton.** L'ancienne page `/tests` déclenchait `tests.yml` via
+  l'API GitHub et exigeait `HUB_GITHUB_TOKEN` — d'où « Jeton GitHub absent ».
+  Page, gabarit, `ci_github.py` et les routes `/api/tests/*` sont **supprimés**.
+  Le workflow `tests.yml` reste (il tourne au push) ; ses journaux sont liés
+  depuis le pied du module.
+- ⚠️ **Le blueprint `/testpanel/**` n'a AUCUNE authentification** (y compris
+  `POST /run/all` et `POST /admin/clone_entity`, qui duplique des entités en
+  base). C'était sans conséquence tant que l'image ne contenait aucun test ;
+  chaque appel anonyme coûte désormais deux minutes de deux vCPU. En attendant
+  une vraie décision sur l'accès, un **plafond de 3 pytest simultanés**
+  (`_reserver_creneau` / `_liberer_creneau`) borne la casse. Le garde vit dans
+  le **worker**, pas dans la route : le contrat du panel — un run par demande,
+  id distinct, portée exacte — reste celui que `tests/test_37_test_panel.py`
+  vérifie, et une route qu'un test neutralise n'est jamais bridée. Ce n'est PAS
+  une authentification.
+- ⚠️ **Un test écrit en fonction de MODULE compte autant qu'un test de classe.**
+  `_parse_test_file` ne parcourait que les `ClassDef` : sept fichiers entiers
+  (`test_48`, `49`, `50`, `51`, `52`, `62`… soit ~120 tests) sortaient à **zéro
+  cas**, affichaient « jamais joué » même après une exécution complète et ne
+  pesaient dans aucun taux de fiabilité. Trois endroits à tenir ensemble : le
+  parseur (node_id **sans** segment de classe), `_save_results` (JUnit donne
+  `tests.test_51_x` sans classe — prendre `parts[-1]` faisait passer le NOM DU
+  MODULE pour une classe, le résultat ne se rattachait à rien) et `_build_args`
+  (`fichier.py::::nom` ne veut rien dire pour pytest → on rejoue le `node_id`
+  recensé).
+- **API côté app** (`Code/routes/test_panel.py`) : `/testpanel/api/etat`,
+  `/api/pages`, `/api/page/<slug>` — le seul contrat entre l'app et le hub.
+  `_fiabilite()` **exclut les cas jamais joués** du calcul : les compter comme
+  des échecs ferait chuter le score d'une page qu'on n'a pas encore lancée.
+  Tests : `tests/test_65_panel_api.py` (21 cas).
+- **Pont côté hub** (`hub/panel_client.py`) : le navigateur ne peut pas appeler
+  l'instance (deux domaines, aucun CORS) — le hub appelle côté serveur et
+  republie sous son domaine. `PANEL_BASE` vise une autre instance pour la mise
+  au point locale.
+- ⚠️ **Un POST vers un `*.run.app` DOIT porter un corps**, même vide. Sans
+  `data`, urllib n'envoie pas de `Content-Length` et le **frontend Google**
+  répond **411 Length Required** sans jamais atteindre l'application. Rien ne
+  s'interpose en local : le lancement passait au banc et échouait en ligne.
+  `_appel()` envoie donc `data=b""` sur les POST. Couvert par
+  `tests/test_65_panel_api.py::TestPontDuHub`.
+- **Identité visuelle** : même langage que le hub (Fraunces, arrondis,
+  italique des sur-titres) mais on doit voir qu'on a changé de lieu — la
+  **verrière** remplace le mur chaulé, le **pignon de serre** remplace l'arche,
+  un bandeau de module donne le chemin de retour. Lavande `#8b6fb5` (couleur de
+  la section Tests). `panel.html` / `panel_page.html` n'étendent PAS
+  `base.html` : un module n'a pas la barre de navigation du hub.
+- ⚠️ **`.car-socle` en `pointer-events:none`** : l'ombre au sol couvre le bas de
+  la carte active et volait le clic sur « Voir le détail ».
+- ⚠️ **La molette verticale n'est PAS captée** par le carrousel : la confisquer
+  empêchait de faire défiler la page dès que le pointeur passait sur l'anneau.
+  Navigation : flèches, clavier, glisser, geste horizontal, champ de filtre
+  (70 pages à la flèche serait une corvée).
+- ⚠️ **La suite tourne désormais là où les CLÉS IA existent.** Des dizaines de
+  tests vérifient le comportement *sans* clé et comptaient sur le fait qu'un
+  poste de développement n'en a pas ; sur l'instance, Cloud Run porte
+  `OPENAI_API_KEY`/`ANTHROPIC_API_KEY` dans l'environnement, que le
+  sous-processus pytest hérite → **15 tests rouges sur 5 fichiers** (16, 22, 47,
+  56, 58), donc un taux de fiabilité faux par construction. `tests/conftest.py`
+  retire ces variables avant de créer l'application : la suite ne dépend plus de
+  la machine (mesuré : 1877 passés avec ET sans clés).
+- **Le panel compte des FONCTIONS, pytest compte des EXÉCUTIONS** : un
+  `@pytest.mark.parametrize` (4 dans `test_50`) rend un cas recensé et plusieurs
+  résultats. L'écart 1860 recensés / 1877 joués est normal.
+- **`tools/repet_image.sh`** — répète la disposition de l'image SANS Docker
+  (exclusions `.dockerignore` + purge bytecode, `tests/` épargné) et y lance la
+  suite. À passer avant toute livraison qui touche au Dockerfile ou aux tests :
+  depuis que la suite tourne sur l'instance, un test qui lit un fichier SOURCE
+  échoue là-bas en passant ici. C'est ainsi qu'a été trouvé le défaut de
+  `tests/test_61_pulse.py` (fixture `pulse_app` : `spec_from_file_location` sur
+  `pulse/app.py`, absent d'un arbre bytecode → 4 erreurs à chaque exécution).
+  Mesuré : 1867 passés en local, 1863 passés + 4 sautés dans l'arbre d'image.
+### Le panel de tests mettait 31 s à répondre — 2318 requêtes pour rien (2026-09-16)
+
+⚠️ **`sync_tests_to_db()` envoyait UNE REQUÊTE PAR CAS.** Il chargeait bien
+`page.cases` pour savoir ce qui existait déjà… puis refaisait un
+`TestCase.query.filter_by(node_id=…).first()` sur chacun. Mesuré au compteur de
+curseur : **2400 requêtes au premier appel, 2318 pour une synchro qui ne change
+rien**, sur 83 pages et 2148 cas. La base vivant sur Neon, à ~15 ms de Cloud
+Run, cela faisait **31 s à chaud** — et il tournait à CHAQUE lecture de
+`/api/etat` et `/api/pages`.
+
+Conséquence en bout de chaîne : `panel_client.DELAI` vaut 25 s, donc l'appel
+**dépassait toujours son délai**. La page `/panel` du hub attendait 25 s, puis
+s'affichait en annonçant « l'instance ne répond pas » — alors que l'instance
+répondait très bien, six secondes plus tard.
+
+- **Le correctif** : deux requêtes pour tout charger (`TestPage.query.all()` +
+  `TestCase.query.all()`), puis un dictionnaire en mémoire. Mesuré après :
+  **4 requêtes** au premier appel, **1** ensuite.
+- **Et on ne resynchronise que si les fichiers ont bougé** (`_empreinte_tests()`
+  = nom, taille, date de chaque `test_*.py`). Les fichiers de test ne changent
+  qu'au déploiement. ⚠️ L'empreinte seule ne suffit pas : un processus qui a
+  déjà synchronisé ne sait rien d'une base remise à zéro sous lui — on vérifie
+  donc aussi que `TestPage` porte des lignes. `sync_tests_to_db(force=True)`
+  refait tout.
+- Effet de bord bienvenu : la suite complète passe de **72 s à 40 s** (le
+  `before_request` du panel synchronisait à chaque requête de test).
+- Tests : `tests/test_65_panel_api.py::TestCoutDuRecensement` (3 cas — vérifiés
+  **rouges** en remettant la requête dans la boucle : 2155 requêtes relevées).
+  ⚠️ Ils comptent des **requêtes**, pas des secondes : la suite tourne sur
+  SQLite, où tout est dans le processus et où le défaut est invisible au
+  chronomètre.
+
+⚠️ **La page `/panel` du hub bloquait son rendu sur un appel inter-services.**
+`render_template("panel.html", etat=panel_client.etat())` : le HTML ne partait
+qu'une fois l'instance interrogée. Elle ne le fait plus — le squelette part
+immédiatement, et les chiffres arrivent par `/api/panel/pages`. Le résumé de
+l'en-tête (`#mod-resume`) est rempli par le JS et **dit qu'il attend** tant que
+la réponse n'est pas là (italique estompé) : « Lecture du catalogue… » posé en
+style définitif se lisait comme un état, pas comme une attente.
+Nouveauté au passage : `/api/panel/etat` est appelé **en parallèle** du
+catalogue et **rattrape une exécution déjà en cours** — en rouvrant la page
+pendant que la suite tournait, on ne voyait rien et on la relançait par-dessus.
+
+### « L'historique des tests se remet à zéro » — il n'était jamais affiché (2026-09-16)
+
+⚠️ **Le module du hub ne montrait AUCUN historique.** `/api/pages` et
+`/api/page/<slug>` ne portent que `last_status` — l'état du DERNIER passage — et
+le gabarit n'affichait rien d'autre. D'où l'impression, très légitime, que tout
+se remettait à zéro : il n'y avait simplement jamais rien à voir.
+
+**Vérifié avant de corriger, plutôt que supposé.** Relevé sur l'instance :
+`dernier = {id: 2, fin: 2026-09-16T12:41:59}`. Après un redéploiement complet de
+staging, la même exécution était **toujours là**. La base ne se vide donc pas, et
+rien dans le code ne supprime `test_runs` / `test_results` — `_save_results`
+ajoute une ligne par cas et par exécution, sans jamais en retirer.
+⚠️ Deux pistes ont été écartées EN CHEMIN, et méritent de l'être par écrit :
+- *« pytest écrase la base de l'app »* — non : `tests/conftest.py` impose
+  `SQLALCHEMY_DATABASE_URI` sur un SQLite temporaire avant tout `create_all`.
+- *« les sept `--set-env-vars` du workflow s'écrasent, donc pas de
+  `DATABASE_URL` »* — non : `deploy-officielle.yml` emploie le même motif et
+  sert les données réelles de l'entreprise depuis des mois.
+
+**Le correctif est un AFFICHAGE, pas une persistance** :
+- `GET /testpanel/api/runs?limit=` — les exécutions terminées, via
+  `_recent_runs()` qui existait déjà pour le tableau de bord de l'app. La limite
+  est **bornée à 60** : le paramètre vient du client, et `?limit=100000`
+  remonterait toute la table à chaque ouverture de page. Pas de
+  `_sync_tolerant()` ici — on lit du passé, le recensement des fichiers n'y
+  change rien.
+- ⚠️ Seules les exécutions `status == 'done'` sortent : une exécution en cours
+  n'a pas encore de résultat, et l'afficher donnerait une barre à zéro qui
+  ressemble à un échec total.
+- `hub/panel_client.runs()` + `GET /api/panel/runs` : le navigateur ne peut pas
+  appeler l'instance (deux domaines, aucun CORS), le hub republie sous le sien.
+- **La frise** (`#frise`, `panel.js::frise()`) : une barre par exécution, hauteur
+  et couleur selon le taux de vert, **la plus récente à DROITE** — sens de
+  lecture d'une chronologie. Masquée tant qu'il n'y a rien : une frise vide vaut
+  moins que pas de frise. Le pourcentage ne tient pas dans 12 px de large, il
+  vit dans l'info-bulle — et reste écrit pour les lecteurs d'écran.
+- ⚠️ **Et l'historique, une fois affiché, a montré son propre mensonge** :
+  l'exécution du 14/09 sortait à « **100 %** » avec **3 échecs** sur 2054 cas —
+  `round(99,85)` rend 100, et la frise l'aurait peinte en vert plein. Cent pour
+  cent ne se lit désormais que si RIEN n'a échoué ; en dessous on plafonne à 99
+  et on arrondit vers le BAS, pour ne jamais annoncer mieux que la réalité.
+- Tests : `tests/test_65_panel_api.py::TestHistoriqueDesExecutions` (7 cas —
+  la forme de chaque exécution, l'exclusion des exécutions en cours, la borne de
+  `limit`, la route côté hub, et les deux cas de l'arrondi).
+  ⚠️ Ces cas créent leur PROPRE page et leur propre cas (`_cas_jetable`) :
+  prendre `TestCase.query.first()` les faisait dépendre du recensement, donc
+  d'un autre test lancé avant — seuls, ils tombaient sur `None`.
+
+
+
 ## Provisionnement — compléter une carto avec un Excel client
 
 `tools/provisioning/provision.py` sait aussi **injecter les tâches d'un tableur
@@ -816,10 +1903,36 @@ rôles de tâche, `Skills` → compétences.
   `match_name_contains` (retrouve l'entité même renommée, **chez ce propriétaire
   seulement**). Si l'entité n'existe pas chez lui, le script s'arrête sans rien
   écrire — même si une entité du même nom existe chez quelqu'un d'autre.
-- `plans/maelg_fluidclip_tasks.json` : carto FluidClip du compte
-  `afdec.enterprise.services@gmail.com` complétée par `CLIP_ RFQ Tasks.xlsx`
-  (25 activités, 96 tâches, 28 outils, 14 rôles, 53 compétences). À lancer avec
-  `DATABASE_URL` sur la base cible (`--dry-run` d'abord).
+- `plans/maelg_fluidclip_tasks.json` : carto « FluidCLip » du compte
+  `mael.pierre.girardin@icloud.com` complétée par `CLIP_ RFQ Tasks.xlsx`.
+  ⚠️ **Sept autres comptes de l'instance pilote possèdent une entité du MÊME
+  nom** — d'où le cloisonnement par propriétaire. Appliqué le 2026-08-30 sur
+  `optiqfluent_pilot` (Neon) : 25/25 activités appariées, 96 tâches, 28 outils,
+  14 rôles, 53 compétences ; entités des autres comptes inchangées (0 tâche).
+  Rejouable tel quel (`--dry-run` d'abord).
+- ⚠️ **La colonne Skills sert aussi à dire qu'il n'y a RIEN à savoir faire** :
+  « No Special skills required » (27 lignes du fichier) et « - » devenaient des
+  compétences portant la phrase elle-même. `_est_non_competence()` écarte ces
+  mentions d'absence (regex « no/not/aucun… » + « skill/compétence », plus une
+  liste de valeurs vides : `-`, `n/a`, `none`…). 17 lignes supprimées après coup
+  sur le pilote : 53 → 36 compétences.
+- ⚠️ **`--dry-run` n'était pas étanche** : `_sync_carto_to_db` finit par un
+  `commit()`, qui figeait tout ce que le plan avait écrit avant lui (le rollback
+  final n'annulait plus que la dernière étape). `_neutraliser_commits()` remplace
+  `commit` par `flush` en simulation. Vérifié au banc : un plan qui crée compte +
+  entité + carto + Excel laisse la base vide après `--dry-run`.
+- `plans/pilote_fluidclip_tasks.json` : les **six** comptes ARaymond gardent leur
+  carto FluidClip et reçoivent les données de l'Excel ; Maël reçoit en plus
+  **« Entité de rendu FluidClip »** (copie de LEUR carto + les mêmes données) pour
+  contrôler leur rendu. Appliqué le 2026-08-30 : 96 tâches / 28 outils / 32 rôles /
+  36 compétences par entité (les tâches saisies à la main par ces comptes sont
+  conservées : Hubert 100, Madhuri 97, Vaishali 97). Priya Bhivare n'avait aucune
+  FluidClip : la sienne a été **créée** depuis le même modèle (42 activités,
+  96 tâches). ⚠️ Une entité portant un bloc `carto` est **re-synchronisée à
+  chaque rejeu**, et `_sync_carto_to_db` efface les rôles absents de la carte :
+  les rôles issus de l'Excel sont donc recréés à chaque passage (leurs `id`
+  changent). D'où l'option **`--only EMAIL`**, qui rejoue un plan pour un seul
+  compte.
 
 ## Notes importantes
 
@@ -847,8 +1960,188 @@ rôles de tâche, `Skills` → compétences.
 - **i18n JS** : page RH → `window.GRH_I18N` (gestion_rh.js) ; fichier DCP →
   clés `pf_*` dans `window.PROPOSE_I18N` (propose_from_file.js, repli français intégré).
   Injecter les chaînes avec `| tojson` (jamais `"{{ t(...) }}"` → entités HTML dans le JS).
-- La branche principale de travail est **`staging`** (pas `main`)
-- `main` = production stable — ne merger que les versions validées
+### Couverture complète de la traduction FR/EN (2026-09-16)
+
+`tests/test_78_i18n_couverture.py` — 40 cas. L'app traduit par **quatre
+mécanismes**, et aucun ne lève d'erreur quand il échoue : c'est ce silence que
+ce fichier ferme, mécanisme par mécanisme.
+
+| Mécanisme | Comment il échoue |
+|---|---|
+| `t('cle')` (catalogue Python) | clé absente en EN → **repli silencieux sur le français** ; absente partout → la clé brute s'affiche |
+| `window.XXX_I18N` injecté par un gabarit | clé oubliée → le JS sert son **repli français en dur** |
+| `data-i18n="cle"` (page Compétences) | clé inconnue du catalogue JS → le français du gabarit **reste affiché** |
+| texte écrit en dur dans un gabarit | ne passe par rien : français dans les deux langues |
+
+**Le contrôle le plus fort ne dépend d'aucun mécanisme** : on demande les
+11 pages EN ANGLAIS et on y cherche les **844 phrases françaises** du catalogue
+(celles dont l'EN diffère). Une phrase du catalogue français n'a aucune raison
+d'apparaître sur une page anglaise, quel que soit le chemin qu'elle a pris.
+- ⚠️ **Et cela ne doit jamais accuser une DONNÉE.** Les noms d'activités, rôles,
+  outils, savoir-faire sont français dans le jeu de test. Deux garde-fous :
+  les libellés de dix modèles sont relus en base et retirés des pièges, et un
+  piège doit être une **phrase** (≥ 12 signes, au moins une espace). Sans le
+  second, « Savoir-faire » faisait tomber la page Activités — parce qu'un AUTRE
+  fichier de tests avait créé un savoir-faire de ce nom. ⚠️ Le défaut ne se
+  voyait **qu'en suite complète**, la base étant partagée : un fichier vert tout
+  seul ne prouve rien ici.
+
+**Ce que le contrôle a trouvé, et qui est corrigé :**
+- ⚠️ **`"{{ t('x') }}"` entre guillemets dans un `<script>` : 34 occurrences,
+  dont 7 déjà visiblement abîmées.** Le navigateur décode les entités HTML dans
+  un ATTRIBUT, jamais dans un script — `propose.err_saving` arrivait donc au JS
+  sous la forme « Impossible d&#39;ajouter… », affichée telle quelle. Mesuré au
+  rendu : en dur → `c&#39;est`, avec `|tojson` → `c'est`. Toutes converties
+  (`display_list.html` 32, `competency_modal.html` 2). **En attribut la même
+  écriture est correcte** — d'où un contrôle strictement limité aux blocs script.
+- **Sept libellés qui avaient déjà leur version anglaise** mais que le gabarit
+  n'employait pas : le `<title>` de la liste des activités, le titre de la
+  pop-up d'import des tâches, le sous-titre du bandeau Compétences, et quatre
+  sur Projection métier / import IA. Trois clés nouvelles créées au passage.
+- ⚠️ **`<html lang="fr">` écrit en dur sur 8 gabarits.** Un lecteur d'écran
+  annonçait la page en français et le navigateur proposait de la traduire
+  *depuis* le français — alors qu'elle s'affichait en anglais.
+- ⚠️ **`/roles/view` n'existe pas** (c'est `/roles_view/`) : la page rendait 404,
+  le contrôle la **sautait**, et elle passait pour vérifiée. Les chemins viennent
+  désormais d'`url_map`. Trois pages ajoutées.
+
+**La dette est ÉCRITE, et elle ne peut que décroître.** 76 fragments français en
+dur sur 12 gabarits — dont trois écrans jamais traduits (`import_full_modal` 25,
+`projection_metier` 14, `import_tasks_modal` 11). Les traduire demande d'écrire
+de vraies tournures anglaises, pas de déplacer du texte : c'est un travail à
+part. `TestFrancaisEnDur` tient donc un **cliquet** : un gabarit hors inventaire
+doit être propre, un gabarit inventorié ne doit pas empirer, et
+`test_l_inventaire_suit_la_realite` exige de **baisser le plafond** dès qu'on
+nettoie — sans quoi un retour en arrière se cacherait sous une marge.
+
+⚠️ Pièges d'analyse rencontrés, tous corrigés dans le fichier :
+- l'injection s'écrit `window.X = Object.assign(window.X || {}, { … })` —
+  prendre « la première accolade après le `=` » tombe sur le `{}` du repli et
+  rend **zéro clé**, donc un contrôle vert qui ne regarde rien ;
+- le compteur d'accolades ne saute ni les chaînes ni les expressions
+  régulières : une accolade dans un littéral fait courir le « corps » d'une
+  fonction jusqu'à la fin du fichier, et on attribuait alors à l'accesseur
+  toutes les chaînes du fichier (« carto-wizard-popup » relevé comme clé) ;
+- chaque test d'analyse est doublé d'un **garde-fou de volume**
+  (`test_le_catalogue_est_bien_garni`, `test_le_jeu_de_pieges_est_consequent`) :
+  si un jour les repères changent et que l'analyse ne trouve plus rien, les
+  contrôles passeraient au vert en ne lisant plus RIEN.
+
+### Organisation des branches et des bases (2026-09-10)
+
+| Branche | Instance Cloud Run | Base | À quoi elle sert |
+|---------|--------------------|------|------------------|
+| `staging` | `devoptiq-staging` | `devoptiq_sandbox` | **Bac à sable Maël + Claude.** On y développe sans pression, on pousse quand une nouveauté est finie. |
+| `nouveau-point` | `devoptiq` | `neondb` | **Version officielle interne AFDEC.** On n'y pousse que du fini. |
+| `optiqfluent-staging` | `optiqfluent-staging` | `optiqfluent_pilot` | **Pilote ARaymond (Inde).** On n'y touche pas ; les correctifs partent le soir (nuit là-bas). |
+
+- ⚠️ **`nouveau-point`, pas `main`.** C'est cette branche qui alimente le service
+  `devoptiq` (vérifié dans la console Cloud Run). `main` n'a pas bougé depuis mai.
+  L'inventaire du hub annonçait « push sur main » et un `deploy-beta.yml` qui n'existe
+  pas : corrigé.
+- **`deploy-officielle.yml`** (2026-09-10) : `nouveau-point` → service `devoptiq`,
+  calqué sur `deploy-staging.yml`. Il manquait — la branche avançait sans que
+  l'instance bouge, et `devoptiq` a servi le code de mai 2026 pendant quatre mois.
+  Sans `WITH_TESTS` (le panel de tests reste le rôle de staging : `/testpanel` n'a
+  aucune authentification et chaque appel coûterait deux minutes de CPU).
+- ⚠️ **Un service, un chemin de déploiement.** `deploy-production.yml` visait le
+  MÊME service `devoptiq` sur push de **`prod-stable`**, branche figée au 07/05/2026
+  (pré-OptiqCarto) : un push là-bas aurait ramené la version officielle quatre mois
+  en arrière. Son déclenchement automatique est retiré — il reste lançable à la main,
+  dans le même groupe `concurrency` que `deploy-officielle.yml` pour que les deux ne
+  déploient jamais en même temps.
+### ⚠️ Les deux instances ont partagé UNE SEULE base jusqu'au 14/09/2026
+
+`PROD_DATABASE_URL` et `STAGING_DATABASE_URL` pointaient tous deux sur `neondb`.
+La version officielle de l'entreprise et le bac à sable travaillaient donc sur les
+MÊMES données, sans que rien ne le dise. Conséquence directe : la remise à zéro du
+10/09, faite sur « la base de staging », a effacé les données officielles — 30
+entités, 59 comptes, 991 activités. Remises en place le 14/09 depuis la sauvegarde.
+
+**Séparation faite** : `devoptiq_sandbox` (base neuve) pour staging, `neondb` pour
+la version officielle. ⚠️ Le garde-fou `--expect-db` de `reset_db.py` ne valait rien
+tant que les deux bases portaient le MÊME NOM : il passait des deux côtés. Deux noms
+distincts, c'est ce qui rend la vérification réelle.
+
+**Comptes** (les deux instances) : `mael.pierre.girardin@icloud.com` / `testtest`,
+administrateur. `afdec.enterprise.services@gmail.com` n'existe plus nulle part ;
+elle reste seulement dans `DEFAULT_FRENCH_ACCOUNTS` (langue, pas connexion).
+
+### Sauvegarder et restaurer (`tools/db/`)
+
+- **`dump_db.py`** — sauvegarde JSON complète, un fichier par table, sans `pg_dump`.
+  ⚠️ **Sa première version DÉTRUISAIT le binaire** : `bytes(v).decode("utf-8",
+  "replace")` remplaçait chaque octet non-UTF-8 par U+FFFD. Les 13 fichiers de
+  `file_blobs` de la sauvegarde du 10/09 avaient perdu 31 à 45 % de leurs octets —
+  et la base ayant été vidée derrière, c'était leur seule copie. **Ces 13 fichiers
+  sont perdus** (docx, xlsx, pdf, une photo ; déposés entre avril et juin 2026).
+  Encodage base64 désormais, relu par la restauration.
+- **`restore_db.py`** — retire les 78 clés étrangères, vide, charge, **les remet —
+  ce qui VALIDE les données au passage** — puis repositionne les 47 séquences (sans
+  quoi le prochain enregistrement entre en collision de clé primaire, des jours plus
+  tard). Le tout dans **UNE transaction** : un échec à la 50ᵉ table rend la base
+  intacte (vérifié deux fois en conditions réelles). N'écrit que les colonnes
+  présentes des deux côtés et nomme les écarts. **Contrôle préalable d'unicité** :
+  la base du 10/09 portait 7 e-mails en double alors que `users.email` est devenu
+  UNIQUE depuis — sans ce contrôle on l'apprenait à la 40ᵉ table.
+- **`set_password.py`** — pose un mot de passe connu sur un compte après
+  restauration (les comptes reviennent avec celui de la sauvegarde). Passe par
+  `Code/security.py` et **relit le hash après commit** pour le vérifier.
+- ⚠️ **Une sauvegarde ne se restaure pas dans le schéma qu'elle a quitté.** Trois
+  familles d'écart rencontrées, toutes silencieuses : des tables disparues
+  (`user_competencies`, `performance_personnalisee_historique`), des tables que
+  l'application crée **à l'exécution** et non par `create_all` (`training_plan`,
+  `prerequis_comment` — créées par `competences_plan._ensure_tables_exist`, à créer
+  AVANT la restauration sinon leurs 44 lignes sont perdues), et des contraintes
+  ajoutées après coup que les anciennes données ne respectent pas.
+- ⚠️ **Les migrations à chaud ne s'appliquent qu'au DÉMARRAGE de l'app sur cette
+  base.** `neondb` a refusé la restauration tant que `softskills.niveau` était en
+  VARCHAR(10) : l'instance officielle tournait encore sur le code du 10/09, elle
+  n'avait donc jamais joué l'élargissement. Un `ALTER` à la main a suffi. À garder
+  en tête chaque fois qu'on écrit dans une base que l'app en service n'a pas encore
+  redémarrée avec le code courant.
+
+### ⚠️ `softskills.niveau` était en VARCHAR(10) — 500 sur toute base neuve
+
+La valeur STOCKÉE est le libellé HSC entier (« 2 (Acquisition) », 15 caractères) :
+c'est ce qui permet à `hsc_level_label()` de traduire l'affichage sans jamais
+réécrire la base. **Aucun** des quatre niveaux ne tenait dans 10 caractères — donc
+chez un nouveau client, enregistrer une HSC tombait en 500. Invisible pour la
+suite : elle tourne sur SQLite, **qui n'applique PAS les longueurs de VARCHAR**.
+Même famille que `BOOLEAN DEFAULT 0` et `user_activity_plans`. Modèle élargi à 50,
+migration à chaud pour les bases déjà déployées, test dans
+`tests/test_67_schema_postgres.py` (vérifié rouge sur l'ancien modèle).
+
+- ⚠️ **`neondb` et `optiqfluent_pilot` vivent sur le MÊME endpoint Neon**
+  (`ep-solitary-bonus-abrhwgrs`). Une URL mal recopiée efface le travail du client :
+  `tools/db/reset_db.py` exige `--expect-db` et refuse d'agir si le nom ne correspond pas.
+- **Outils de base** : `tools/db/dump_db.py` (sauvegarde JSON complète, sans `pg_dump` —
+  Neon n'est pas joignable avec `psql` depuis tous les postes) et `tools/db/reset_db.py`
+  (efface le schéma, laisse le démarrage NORMAL de l'app le reconstruire — donc les
+  migrations à chaud sont exercées au passage — puis crée les comptes de départ).
+  Trois garde-fous : `--expect-db` obligatoire, `--yes` explicite, sauvegarde exigée.
+- **Sauvegardes hors dépôt** (`~/AFDEC/sauvegardes/`) : `neondb-2026-09-10` (l'état
+  d'avant la remise à zéro — 59 tables, 25 853 lignes), `neondb-2026-09-10-corrige`
+  (la même, doublons d'e-mail résolus : c'est celle qui a été restaurée),
+  `neondb-2026-09-14-avant-restauration` (filet de sécurité pris juste avant).
+- ⚠️ **La remise à zéro a révélé un défaut de longue date** : `user_activity_plans` était
+  lue et écrite en SQL brut par `plan_storage.py` mais **rien ne la créait**. Elle
+  survivait sur les instances anciennes comme vestige d'une migration disparue ; sur
+  toute base NEUVE — donc chez un nouveau client — le premier enregistrement d'un plan
+  tombait en 500. Pire : `tests/test_28_plan_storage.py` **fabriquait la table lui-même**
+  (« absente de SQLAlchemy models », disait son commentaire), si bien que ses 20 tests
+  passaient. La table a maintenant son modèle `UserActivityPlan`, et le contournement du
+  test est devenu une vérification. Même famille que `entreprise_settings` en son temps.
+- ⚠️ **Le hub déclarait des instances « injoignables » alors qu'elles répondent.**
+  Cloud Run redescend à zéro instance ; mesuré depuis un poste, `devoptiq-staging` répond
+  en **15,2 s** à froid (démarrage lourd : create_all + migrations, `--cpu 2`) et
+  `optiqfluent-staging` en 8,9 s — la sonde coupait à **12 s**. Délai porté à 28 s, et un
+  dépassement rend désormais **« en veille »** (bleu calme) et non « injoignable » (rouge
+  d'alerte) : le service dort, il n'est pas cassé.
+
+## Notes importantes (suite)
+
+- `main` = ancienne branche de production, figée depuis mai 2026.
 - Les fichiers `.vsdx` dans `Code/` sont des exemples Visio pour les tests
 - `Code/instance/optiq.db` = base SQLite locale (ne pas committer)
 - Les variables d'environnement sensibles (DB_URL, ANTHROPIC_KEY…) sont dans Cloud Run, pas dans le code

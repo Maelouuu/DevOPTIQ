@@ -19,7 +19,7 @@ function submitAddSavoirFaires(activityId) {
 
   const desc = inputElem.value.trim();
   if (!desc) {
-    alert("Veuillez saisir une description pour le savoir-faire.");
+    alert(_CR('need_description'));
     return;
   }
 
@@ -34,7 +34,7 @@ function submitAddSavoirFaires(activityId) {
     })
     .then(async data => {
       if (data.error) {
-        alert("Erreur : " + data.error);
+        alert(_CR('err') + ' : ' + data.error);
       } else {
         inputElem.value = "";
         if (typeof refreshActivityItems === "function") {
@@ -66,7 +66,7 @@ function submitEditSavoirFaires(activityId, savoirFairesId) {
 
   const newDesc = inputEl.value.trim();
   if (!newDesc) {
-    alert("Veuillez saisir la description du savoir-faire.");
+    alert(_CR('need_description'));
     return;
   }
 
@@ -81,7 +81,7 @@ function submitEditSavoirFaires(activityId, savoirFairesId) {
     })
     .then(async data => {
       if (data.error) {
-        alert("Erreur édition savoir-faire : " + data.error);
+        alert(_CR('err_update') + ' ' + data.error);
       } else {
         if (typeof refreshActivityItems === "function") {
           await refreshActivityItems(activityId);
@@ -102,7 +102,7 @@ function deleteSavoirFaires(activityId, savoirFairesId) {
     .then(r => r.json())
     .then(async data => {
       if (data.error) {
-        alert("Erreur : " + data.error);
+        alert(_CR('err') + ' : ' + data.error);
       } else {
         if (typeof refreshActivityItems === "function") {
           await refreshActivityItems(activityId);
@@ -111,7 +111,7 @@ function deleteSavoirFaires(activityId, savoirFairesId) {
     })
     .catch(err => {
       console.error("Erreur suppression savoir-faire :", err);
-      alert("Erreur suppression savoir-faire (voir console).");
+      alert(_CR('err_delete'));
     });
 }
 

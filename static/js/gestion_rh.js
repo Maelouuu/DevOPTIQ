@@ -1,807 +1,646 @@
-/* ════════════════════════════════════════════════════════════════════════════
-   GESTION RH – JavaScript
-   Design System "Minimal Editorial" – Thème Marron
-════════════════════════════════════════════════════════════════════════════ */
+// static/js/gestion_rh.js
+//
+// Gestion RH — les personnes, les rôles, l'accès à la carto, les propositions.
+//
+// Trois principes, tirés de ce qui n'allait pas :
+//
+//   · UN seul appel de données (`/gestion_rh/api/tableau`). La page en faisait
+//     dix qui se recoupaient, et deux se contredisaient sur qui est
+//     collaborateur — d'où des sections vides sans raison visible.
+//   · Le RÔLE est le pivot : il porte des personnes d'un côté, il ouvre (ou
+//     non) la cartographie de l'autre. C'est pour ça que le partage vit ici et
+//     plus sur un écran séparé.
+//   · Un rafraîchissement après une action ne doit RIEN faire disparaître.
+//     Vider la page pour afficher une attente puis tout ré-animer rendait
+//     l'usage pénible (leçon de la page Partage).
 
-// ═══════════════════════════════════════════════════════════════
-// UTILITIES
-// ═══════════════════════════════════════════════════════════════
-// Traductions injectées par le template (window.GRH_I18N) — repli français
-const GRH_FR = {
-    save: 'Enregistrer', cancel: 'Annuler',
-    param_updated: 'Paramètre mis à jour',
-    param_save_error: "Erreur : le paramètre n'a pas pu être enregistré",
-    role_created: 'Rôle créé', role_updated: 'Rôle modifié', role_deleted: 'Rôle supprimé',
-    role_delete_confirm: 'Supprimer ce rôle ?',
-    no_role: 'Aucun rôle', save_roles: 'Enregistrer les rôles', roles_updated: 'Rôles mis à jour',
-    edit_name: 'Modifier le nom', edit_name_prompt: 'Modifier le nom du collaborateur :',
-    name_updated: 'Nom mis à jour', update_error: 'Erreur lors de la mise à jour',
-    network_error: 'Erreur réseau', collapse_list: 'Réduire la liste',
-    show_all: 'Afficher tous les collaborateurs',
-    select_manager_msg: 'Sélectionnez un manager pour voir les collaborateurs',
-    filter_all: 'Tous', filter_assigned: 'Affectés',
-    no_collab_found: 'Aucun collaborateur trouvé', manage_assignment: "Gérer l'affectation",
-    comp_color_title: 'Compétences : moyenne des notes du manager',
-    select_roles_to_assign: 'Sélectionner les rôles à affecter',
-    select_all: 'Tout sélectionner', deselect_all: 'Tout désélectionner',
-    assigned: 'Affecté', not_assigned: 'Non affecté',
-    assign_selected: 'Affecter les rôles sélectionnés',
-    assign_selected_desc: 'Affecter ce collaborateur à {manager} pour les rôles cochés',
-    unassign_selected: 'Retirer les rôles sélectionnés',
-    unassign_selected_desc: "Retirer l'affectation pour les rôles cochés",
-    select_one_role: 'Sélectionnez au moins un rôle',
-    roles_assigned_to: '{count} rôle(s) affecté(s) à {manager}',
-    assignment_removed: 'Affectation retirée', assignment_error: "Erreur d'affectation",
-    error: 'Erreur'
-};
-function T(key, vars) {
-    let s = (window.GRH_I18N && window.GRH_I18N[key]) || GRH_FR[key] || key;
-    if (vars) Object.keys(vars).forEach(k => { s = s.replace('{' + k + '}', vars[k]); });
-    return s;
-}
+(function () {
+  'use strict';
 
-function showToast(message, type = 'success') {
-    const container = document.getElementById('toast-container');
-    const toast = document.createElement('div');
-    toast.className = `grh-toast ${type}`;
-    toast.innerHTML = `<i class="fa-solid ${type === 'error' ? 'fa-circle-exclamation' : 'fa-check-circle'}"></i> ${message}`;
-    container.appendChild(toast);
-    setTimeout(() => toast.remove(), 4000);
-}
+  const L = (k) => (window.GRH_L && window.GRH_L[k]) || k;
+  const $ = (s, r = document) => r.querySelector(s);
 
-function getInitials(firstName, lastName) {
-    return ((firstName || '')[0] || '') + ((lastName || '')[0] || '');
-}
+  const esc = (v) => String(v == null ? '' : v)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#039;');
 
-function capitalize(str) {
-    if (!str) return '';
-    return str.charAt(0).toUpperCase() + str.slice(1);
-}
+  let D = null;            // le tableau renvoyé par le serveur
+  let filtreTexte = '';
+  let filtreRole = '';
+  let fenetre = null;      // { mode: 'role' | 'personne', id }
 
-// ═══════════════════════════════════════════════════════════════
-// STATE
-// ═══════════════════════════════════════════════════════════════
-let allRoles = [];
-let fullCollabData = [];
-let managerAllCollabs = [];
-let managerAllRoles = [];
-let managerActiveFilter = 'all';
-let selectedManagerId = null;
-let selectedManagerName = '';
+  /* ── Réseau ─────────────────────────────────────────────────────────── */
 
-// ═══════════════════════════════════════════════════════════════
-// INIT
-// ═══════════════════════════════════════════════════════════════
-document.addEventListener('DOMContentLoaded', () => {
-    // Load roles first, then collaborators
-    fetch('/gestion_rh/roles')
-        .then(res => res.json())
-        .then(data => {
-            allRoles = data;
-            populateRoleFilter();
-            loadCollaborateurs();
-        });
+  const getJSON = (url) => fetch(url).then((r) => r.json());
+  const postJSON = (url, corps) => fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(corps || {}),
+  }).then((r) => r.json());
 
-    initParamListeners();
-    initRoleListeners();
-    initCollabListeners();
-    initManagerSection();
-    initModalListeners();
-});
+  function toast(message, type) {
+    const hote = $('#toast-container');
+    if (!hote) return;
+    const el = document.createElement('div');
+    el.className = 'grh-toast' + (type === 'error' ? ' is-error' : '');
+    el.textContent = message;
+    hote.appendChild(el);
+    setTimeout(() => el.classList.add('is-out'), 2200);
+    setTimeout(() => el.remove(), 2600);
+  }
 
-// ═══════════════════════════════════════════════════════════════
-// SECTION 1 : PARAMÈTRES ENTREPRISE
-// ═══════════════════════════════════════════════════════════════
-function initParamListeners() {
-    document.querySelectorAll('.grh-param-row').forEach(row => {
-        const key = row.dataset.key;
-        const valueEl = row.querySelector('.grh-param-value');
-        const editBtn = row.querySelector('.edit-param-btn');
-        const actionsEl = row.querySelector('.grh-param-actions');
+  /* ── Petits objets d'affichage ──────────────────────────────────────── */
 
-        editBtn.addEventListener('click', () => {
-            const currentValue = valueEl.textContent.trim();
-            valueEl.innerHTML = `<input type="number" value="${currentValue === '—' ? '' : currentValue}" class="grh-param-input">`;
-            editBtn.style.display = 'none';
+  const initiales = (p) => ((p.prenom || '?')[0] + (p.nom || '')[0] || '?')
+    .toUpperCase();
 
-            const saveBtn = document.createElement('button');
-            saveBtn.className = 'btn btn-sm btn-primary';
-            saveBtn.textContent = T('save');
+  // Une teinte stable par personne : deux collègues ne se confondent pas, et la
+  // couleur ne bouge pas d'un chargement à l'autre.
+  const TEINTES = [198, 262, 340, 24, 152, 288, 8, 174, 42, 316];
+  function teinte(cle) {
+    let h = 0;
+    for (const c of String(cle)) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+    return TEINTES[h % TEINTES.length];
+  }
 
-            const cancelBtn = document.createElement('button');
-            cancelBtn.className = 'btn btn-sm btn-outline';
-            cancelBtn.textContent = T('cancel');
+  const avatar = (p, taille) => `<span class="grh-av${taille ? ' grh-av--' + taille : ''}"
+      style="--av-h:${teinte(p.email || p.id)}">${esc(initiales(p))}</span>`;
 
-            const restore = (text) => {
-                valueEl.textContent = text;
-                editBtn.style.display = '';
-                saveBtn.remove();
-                cancelBtn.remove();
-            };
+  const nomDe = (p) => `${p.prenom || ''} ${p.nom || ''}`.trim() || p.email;
 
-            saveBtn.addEventListener('click', async () => {
-                const input = valueEl.querySelector('input');
-                const newValue = input.value;
-                const formData = new FormData();
-                formData.append('key', key);
-                formData.append('value', newValue);
-                try {
-                    const res = await fetch('/gestion_rh/update_single_setting', { method: 'POST', body: formData });
-                    const data = await res.json().catch(() => ({}));
-                    if (!res.ok || !data.success) {
-                        restore(currentValue);
-                        showToast(data.error || T('param_save_error'), 'error');
-                        return;
-                    }
-                    restore(newValue || '—');
-                    showToast(T('param_updated'));
-                } catch (err) {
-                    restore(currentValue);
-                    showToast(T('network_error'), 'error');
-                }
-            });
+  // `users.status` est un texte LIBRE, saisi différemment selon les instances
+  // (« admin », « administrateur », « Gestionnaire de compétences »…). On en
+  // déduit une famille pour la couleur, comme le fait Code/permissions.py —
+  // jamais une égalité stricte, qui laisserait un statut mal orthographié se
+  // fondre dans les autres.
+  function famille(statut) {
+    const s = (statut || '').toLowerCase()
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    if (/^admin/.test(s)) return 'admin';
+    if (s.includes('champion') || s.startsWith('gestionnaire')
+        || (s.includes('manager') && /comp|skill/.test(s))) return 'champion';
+    return 'user';
+  }
 
-            cancelBtn.addEventListener('click', () => restore(currentValue));
+  function personneParId(id) {
+    return (D.personnes || []).find((p) => p.id === id) || null;
+  }
 
-            actionsEl.appendChild(saveBtn);
-            actionsEl.appendChild(cancelBtn);
-        });
-    });
-}
+  function roleParId(id) {
+    return (D.roles || []).find((r) => r.id === id) || null;
+  }
 
-// ═══════════════════════════════════════════════════════════════
-// SECTION 2 : GESTION DES RÔLES
-// ═══════════════════════════════════════════════════════════════
-function initRoleListeners() {
-    // Toggle create form
-    document.getElementById('show-create-role').addEventListener('click', () => {
-        document.getElementById('create-role-form').classList.remove('hidden');
-    });
+  /* ── Chargement ─────────────────────────────────────────────────────── */
 
-    document.getElementById('cancel-create-role').addEventListener('click', () => {
-        document.getElementById('create-role-form').classList.add('hidden');
-        document.getElementById('new-role-name').value = '';
-    });
-
-    // Submit create role
-    document.getElementById('submit-create-role').addEventListener('click', async () => {
-        const nameInput = document.getElementById('new-role-name');
-        const name = nameInput.value.trim();
-        if (!name) return;
-
-        const formData = new FormData();
-        formData.append('name', name);
-        await fetch('/gestion_rh/role', { method: 'POST', body: formData });
-        showToast(T('role_created'));
-        setTimeout(() => location.reload(), 800);
-    });
-
-    // Edit & delete role buttons
-    document.querySelectorAll('.grh-role-row').forEach(row => {
-        const roleId = row.dataset.roleId;
-        const nameEl = row.querySelector('.grh-role-name');
-        const editBtn = row.querySelector('.edit-role-btn');
-        const deleteBtn = row.querySelector('.delete-role-btn');
-
-        // Delete
-        deleteBtn.addEventListener('click', async (e) => {
-            e.stopPropagation();
-            if (!confirm(T('role_delete_confirm'))) return;
-            const res = await fetch(`/gestion_rh/delete_role/${roleId}`, { method: 'POST' });
-            if (res.ok) {
-                row.remove();
-                showToast(T('role_deleted'));
-            }
-        });
-
-        // Edit
-        editBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            const currentName = nameEl.textContent.trim();
-            nameEl.innerHTML = `<input type="text" value="${currentName}" class="grh-role-input">`;
-            editBtn.style.display = 'none';
-            deleteBtn.style.display = 'none';
-
-            const saveBtn = document.createElement('button');
-            saveBtn.className = 'btn btn-sm btn-primary';
-            saveBtn.textContent = T('save');
-
-            const cancelBtn = document.createElement('button');
-            cancelBtn.className = 'btn btn-sm btn-outline';
-            cancelBtn.textContent = T('cancel');
-
-            saveBtn.addEventListener('click', async () => {
-                const input = nameEl.querySelector('input');
-                const newName = input.value.trim();
-                if (!newName) return;
-
-                const formData = new FormData();
-                formData.append('id', roleId);
-                formData.append('name', newName);
-                await fetch('/gestion_rh/role', { method: 'POST', body: formData });
-                nameEl.textContent = newName;
-                editBtn.style.display = '';
-                deleteBtn.style.display = '';
-                saveBtn.remove();
-                cancelBtn.remove();
-                showToast(T('role_updated'));
-            });
-
-            cancelBtn.addEventListener('click', () => {
-                nameEl.textContent = currentName;
-                editBtn.style.display = '';
-                deleteBtn.style.display = '';
-                saveBtn.remove();
-                cancelBtn.remove();
-            });
-
-            row.querySelector('.grh-role-actions').appendChild(saveBtn);
-            row.querySelector('.grh-role-actions').appendChild(cancelBtn);
-        });
-    });
-}
-
-// ═══════════════════════════════════════════════════════════════
-// SECTION 3 : COLLABORATEURS
-// ═══════════════════════════════════════════════════════════════
-function populateRoleFilter() {
-    const select = document.getElementById('filter-role');
-    while (select.options.length > 1) select.remove(1);
-    allRoles.forEach(role => {
-        const option = document.createElement('option');
-        option.value = role.name;
-        option.textContent = capitalize(role.name);
-        select.appendChild(option);
-    });
-}
-
-function initCollabListeners() {
-    document.getElementById('search-collab').addEventListener('input', loadCollaborateurs);
-    document.getElementById('filter-role').addEventListener('change', loadCollaborateurs);
-}
-
-async function loadCollaborateurs() {
-    const search = document.getElementById('search-collab').value;
-    const role = document.getElementById('filter-role').value;
-
-    const res = await fetch(`/gestion_rh/collaborateurs?search=${encodeURIComponent(search)}&role=${encodeURIComponent(role)}`);
-    fullCollabData = await res.json();
-    renderCollaborateurs(false);
-}
-
-function renderCollaborateurs(showAll = false) {
-    const container = document.getElementById('collaborateur-list');
-    container.innerHTML = '';
-    const data = showAll ? fullCollabData : fullCollabData.slice(0, 4);
-
-    data.forEach(user => {
-        const initials = getInitials(user.name.split(' ')[0], user.name.split(' ').slice(1).join(' '));
-        const rolesText = user.roles.length ? user.roles.map(r => capitalize(r)).join(', ') : T('no_role');
-
-        const div = document.createElement('div');
-        div.className = 'grh-collab-item';
-        div.innerHTML = `
-            <div class="grh-collab-header">
-                <div class="grh-collab-avatar">${initials}</div>
-                <div class="grh-collab-info">
-                    <div class="grh-collab-name">
-                        ${user.name}
-                        <button class="edit-name-btn" title="${T('edit_name')}">
-                            <i class="fa-solid fa-pen"></i>
-                        </button>
-                    </div>
-                    <div class="grh-collab-roles-summary">${rolesText}</div>
-                </div>
-                <i class="fa-solid fa-chevron-down grh-collab-toggle"></i>
-            </div>
-            <div class="grh-collab-edit">
-                <div class="grh-role-checkboxes" id="collab-roles-${user.id}"></div>
-                <div class="grh-collab-save-row">
-                    <button class="btn btn-sm btn-secondary save-collab-roles" data-user-id="${user.id}">${T('save_roles')}</button>
-                </div>
-            </div>
-        `;
-
-        // Toggle expand
-        div.querySelector('.grh-collab-header').addEventListener('click', (e) => {
-            if (e.target.closest('.edit-name-btn')) return;
-            div.classList.toggle('expanded');
-        });
-
-        // Edit name
-        div.querySelector('.edit-name-btn').addEventListener('click', (e) => {
-            e.stopPropagation();
-            editCollaboratorName(user.id, user.name);
-        });
-
-        // Render role checkboxes
-        const roleContainer = div.querySelector(`#collab-roles-${user.id}`);
-        allRoles.forEach(r => {
-            const isActive = user.roles.includes(r.name);
-            const label = document.createElement('label');
-            label.className = `grh-checkbox-label ${isActive ? 'active' : ''}`;
-            const cb = document.createElement('input');
-            cb.type = 'checkbox';
-            cb.value = r.id;
-            cb.checked = isActive;
-
-            cb.addEventListener('change', () => {
-                if (cb.checked) {
-                    label.classList.remove('removed');
-                    label.classList.add('active');
-                } else if (user.roles.includes(r.name)) {
-                    label.classList.remove('active');
-                    label.classList.add('removed');
-                } else {
-                    label.classList.remove('active', 'removed');
-                }
-            });
-
-            label.appendChild(cb);
-            label.appendChild(document.createTextNode(capitalize(r.name)));
-            roleContainer.appendChild(label);
-        });
-
-        // Save roles
-        div.querySelector('.save-collab-roles').addEventListener('click', async () => {
-            const selectedRoles = Array.from(roleContainer.querySelectorAll('input:checked')).map(c => c.value);
-            const formData = new FormData();
-            formData.append('user_id', user.id);
-            selectedRoles.forEach(id => formData.append('role_ids[]', id));
-            await fetch('/gestion_rh/collaborateur_roles', { method: 'POST', body: formData });
-            showToast(T('roles_updated'));
-            loadCollaborateurs();
-            if (selectedManagerId) loadManagerCollabs();
-        });
-
-        container.appendChild(div);
-    });
-
-    // Toggle button
-    const toggleBtn = document.getElementById('toggle-collab-view');
-    if (toggleBtn) {
-        if (showAll) {
-            toggleBtn.innerHTML = `<i class="fa-solid fa-chevron-up"></i> ${T('collapse_list')}`;
-        } else {
-            toggleBtn.innerHTML = `<i class="fa-solid fa-chevron-down"></i> ${T('show_all')}`;
-        }
-        toggleBtn.onclick = () => renderCollaborateurs(!showAll);
-        toggleBtn.style.display = fullCollabData.length > 4 ? '' : 'none';
+  // ⚠️ `discret` : après une action de l'utilisateur, on remet à jour SANS
+  // vider la page ni rejouer les entrées. C'est ce qui rendait la page Partage
+  // insupportable à l'usage.
+  async function charger(opts) {
+    const discret = !!(opts && opts.discret);
+    const cible = opts && opts.entityId;
+    if (!discret) {
+      $('#liste-personnes').innerHTML = attente();
+      $('#liste-roles').innerHTML = attente();
     }
-}
-
-function editCollaboratorName(userId, currentName) {
-    const newName = prompt(T('edit_name_prompt'), currentName);
-    if (newName === null || newName.trim() === '' || newName.trim() === currentName) return;
-
-    fetch('/gestion_rh/update_collaborator_name', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user_id: userId, name: newName.trim() })
-    })
-    .then(res => res.json())
-    .then(data => {
-        if (data.success) {
-            showToast(T('name_updated'));
-            loadCollaborateurs();
-        } else {
-            showToast(T('update_error'), 'error');
-        }
-    })
-    .catch(() => showToast(T('network_error'), 'error'));
-}
-
-// ═══════════════════════════════════════════════════════════════
-// SECTION 4 : AFFECTATION DES COLLABORATEURS
-// ═══════════════════════════════════════════════════════════════
-function initManagerSection() {
-    const managerSelect = document.getElementById('manager-select');
-
-    // Load managers (users with role "manager")
-    fetch('/gestion_rh/users_with_role?role=manager')
-        .then(res => res.json())
-        .then(users => {
-            users.forEach(u => {
-                const opt = document.createElement('option');
-                opt.value = u.id;
-                opt.textContent = `${u.first_name} ${u.last_name}`;
-                managerSelect.appendChild(opt);
-            });
-        });
-
-    // On manager change → load all collabs
-    managerSelect.addEventListener('change', () => {
-        selectedManagerId = managerSelect.value ? parseInt(managerSelect.value) : null;
-        selectedManagerName = managerSelect.options[managerSelect.selectedIndex]?.textContent || '';
-        if (selectedManagerId) {
-            loadManagerCollabs();
-        } else {
-            document.getElementById('manager-assignment-container').innerHTML =
-                `<div class="grh-no-results">${T('select_manager_msg')}</div>`;
-            document.getElementById('manager-role-filter').innerHTML = '';
-        }
-    });
-}
-
-async function loadManagerCollabs() {
     try {
-        const res = await fetch('/gestion_rh/all_collaborators_with_manager');
-        const data = await res.json();
-        managerAllCollabs = data.users || [];
-        managerAllRoles = data.roles || [];
-        managerActiveFilter = 'all';
-        renderManagerRoleFilter();
-        renderManagerCollabList();
-    } catch (err) {
-        console.error('Erreur chargement collaborateurs manager:', err);
+      const url = '/gestion_rh/api/tableau' + (cible ? `?entity_id=${cible}` : '');
+      const data = await getJSON(url);
+      if (data.error) { erreurGlobale(data.error); return; }
+      D = data;
+      const y = window.scrollY;
+      rendre();
+      if (discret) window.scrollTo(0, y);
+      if (fenetre) rendreFenetre();
+    } catch (_) {
+      erreurGlobale(L('save_error'));
     }
-}
+  }
 
-function renderManagerRoleFilter() {
-    const bar = document.getElementById('manager-role-filter');
-    if (!bar) return;
+  const attente = () =>
+    `<div class="grh-wait"><i class="fa-solid fa-spinner fa-spin"></i> ${esc(L('loading'))}</div>`;
 
-    let html = '';
-    html += `<span class="role-filter-badge ${managerActiveFilter === 'all' ? 'active' : ''}" data-filter="all">${T('filter_all')}</span>`;
-    html += `<span class="role-filter-badge ${managerActiveFilter === 'assigned' ? 'active' : ''}" data-filter="assigned">${T('filter_assigned')}</span>`;
-    managerAllRoles.forEach(r => {
-        html += `<span class="role-filter-badge ${managerActiveFilter === String(r.id) ? 'active' : ''}" data-filter="${r.id}">${capitalize(r.name)}</span>`;
+  function erreurGlobale(message) {
+    $('#liste-personnes').innerHTML = `<p class="grh-empty">${esc(message)}</p>`;
+    $('#liste-roles').innerHTML = '';
+  }
+
+  function rendre() {
+    rendreBandeau();
+    rendreTuiles();
+    rendreFiltreRoles();
+    rendrePersonnes();
+    rendreRoles();
+    rendrePropositions();
+  }
+
+  /* ── Bandeau : l'entité, puis le calendrier ─────────────────────────── */
+
+  function rendreBandeau() {
+    const e = D.entite;
+    const cal = D.calendrier || {};
+    const champs = [
+      ['work_hours_per_day', 'hours_per_day'],
+      ['work_days_per_week', 'days_per_week'],
+      ['work_weeks_per_year', 'weeks_per_year'],
+      ['work_days_per_year', 'days_per_year'],
+    ];
+
+    $('#grh-topbar').innerHTML = `
+      <div class="grh-topbar-main">
+        <i class="fa-solid fa-diagram-project grh-topbar-icon"></i>
+        <div class="grh-topbar-id">
+          ${e ? `<h2>${esc(e.name)}</h2>` : `<h2 class="is-muted">${esc(L('entity_none'))}</h2>`}
+          ${e ? `<span class="grh-chip ${e.is_shared ? 'grh-chip--shared' : ''}">
+                   <i class="fa-solid ${e.is_shared ? 'fa-users' : 'fa-lock'}"></i>
+                   ${esc(e.is_shared ? L('shared') : L('private'))}
+                 </span>` : ''}
+        </div>
+        ${(D.entites || []).length > 1 ? `
+          <label class="grh-topbar-pick">
+            <span>${esc(L('entity_choose'))}</span>
+            <select id="grh-entite" class="grh-select">
+              ${(D.entites || []).map((x) => `
+                <option value="${x.id}"${e && x.id === e.id ? ' selected' : ''}
+                  >${esc(x.name)}</option>`).join('')}
+            </select>
+          </label>` : ''}
+      </div>
+      <div class="grh-cal">
+        <span class="grh-cal-label"><i class="fa-regular fa-calendar"></i> ${esc(L('calendar'))}</span>
+        ${champs.map(([cle, lib]) => `
+          <button type="button" class="grh-cal-item" data-cle="${cle}"
+                  title="${esc(L(lib))} — ${esc(L('edit'))}">
+            <b>${cal[cle] != null ? esc(cal[cle]) : '—'}</b>
+            <span>${esc(L(lib))}</span>
+          </button>`).join('')}
+      </div>`;
+
+    $('#grh-entite')?.addEventListener('change', (ev) =>
+      charger({ entityId: parseInt(ev.target.value, 10) }));
+    document.querySelectorAll('.grh-cal-item').forEach((b) =>
+      b.addEventListener('click', () => editerCalendrier(b)));
+  }
+
+  // Modifier sur place : un champ qui remplace le chiffre, Entrée valide.
+  // Une pop-up pour changer un nombre serait disproportionnée.
+  function editerCalendrier(bouton) {
+    const cle = bouton.dataset.cle;
+    const avant = (D.calendrier || {})[cle];
+    if (bouton.querySelector('input')) return;
+    bouton.innerHTML = `<input type="number" min="0" step="0.5" value="${avant != null ? avant : ''}">`;
+    const champ = bouton.querySelector('input');
+    champ.focus();
+    champ.select();
+
+    const finir = async (garder) => {
+      const valeur = champ.value;
+      if (!garder || valeur === String(avant == null ? '' : avant)) { rendreBandeau(); return; }
+      try {
+        const corps = new URLSearchParams({ key: cle, value: valeur });
+        const r = await fetch('/gestion_rh/update_single_setting',
+          { method: 'POST', body: corps });
+        const data = await r.json();
+        if (!data.success) throw new Error(data.error || '');
+        D.calendrier[cle] = data.value;
+        toast(L('saved'));
+      } catch (_) {
+        toast(L('save_error'), 'error');
+      }
+      rendreBandeau();
+    };
+    champ.addEventListener('keydown', (ev) => {
+      if (ev.key === 'Enter') finir(true);
+      if (ev.key === 'Escape') finir(false);
     });
-    bar.innerHTML = html;
+    champ.addEventListener('blur', () => finir(true));
+  }
 
-    bar.querySelectorAll('.role-filter-badge').forEach(badge => {
-        badge.addEventListener('click', () => {
-            managerActiveFilter = badge.dataset.filter;
-            renderManagerRoleFilter();
-            renderManagerCollabList();
-        });
+  /* ── Les tuiles : trois chiffres qui mènent à leur bloc ──────────────── */
+
+  function rendreTuiles() {
+    const tuiles = [
+      ['bloc-personnes', 'fa-users', (D.personnes || []).length, L('tile_people'), 'a'],
+      ['bloc-roles', 'fa-tags', (D.roles || []).length, L('tile_roles'), 'b'],
+      ['bloc-propositions', 'fa-code-pull-request',
+        (D.propositions || []).length, L('tile_changes'), 'c'],
+    ];
+    $('#grh-tiles').innerHTML = tuiles.map(([cible, icone, n, lib, ton]) => `
+      <button type="button" class="grh-tile grh-tile--${ton}" data-cible="${cible}">
+        <i class="fa-solid ${icone}"></i>
+        <b>${n}</b>
+        <span>${esc(lib)}</span>
+      </button>`).join('');
+
+    document.querySelectorAll('.grh-tile').forEach((t) =>
+      t.addEventListener('click', () => {
+        const bloc = document.getElementById(t.dataset.cible);
+        if (!bloc) return;
+        bloc.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        // Un simple défilement passe inaperçu : on DÉSIGNE le bloc atteint.
+        bloc.classList.add('is-pointed');
+        setTimeout(() => bloc.classList.remove('is-pointed'), 1400);
+      }));
+  }
+
+  /* ── ① Les personnes ────────────────────────────────────────────────── */
+
+  function rendreFiltreRoles() {
+    const sel = $('#grh-filtre-role');
+    const avant = sel.value;
+    sel.innerHTML = `<option value="">${esc(L('tile_roles'))}</option>`
+      + (D.roles || []).map((r) =>
+        `<option value="${r.id}">${esc(r.name)}</option>`).join('');
+    sel.value = avant;
+  }
+
+  function personnesVisibles() {
+    const q = filtreTexte.trim().toLowerCase();
+    return (D.personnes || []).filter((p) => {
+      if (filtreRole && !p.roles.some((r) => String(r.id) === filtreRole)) return false;
+      if (!q) return true;
+      return (nomDe(p) + ' ' + p.email).toLowerCase().includes(q);
     });
-}
+  }
 
-function isAssignedToManager(collab, managerId) {
-    // Check if any role has this manager assigned
-    if (collab.roles && collab.roles.length > 0) {
-        return collab.roles.some(r => r.manager_id === managerId);
+  function rendrePersonnes() {
+    const gens = personnesVisibles();
+    if (!gens.length) {
+      $('#liste-personnes').innerHTML = `<p class="grh-empty">${esc(L('people_empty'))}</p>`;
+      return;
     }
-    // Fallback to global manager_id
-    return collab.manager_id === managerId;
-}
+    const devs = (D.personnes || []).filter((p) => p.est_dev);
+    const peut = !!(D.droits || {}).affecte;
 
-function getAssignmentStatus(collab, managerId) {
-    // Returns 'full', 'partial', or 'none'
-    if (!collab.roles || collab.roles.length === 0) {
-        return collab.manager_id === managerId ? 'full' : 'none';
-    }
-    const assignedCount = collab.roles.filter(r => r.manager_id === managerId).length;
-    if (assignedCount === 0) {
-        // Check global fallback
-        return collab.manager_id === managerId ? 'full' : 'none';
-    }
-    if (assignedCount === collab.roles.length) return 'full';
-    return 'partial';
-}
+    $('#liste-personnes').innerHTML = `<div class="grh-people">${gens.map((p) => `
+      <article class="grh-person${p.est_dev ? ' is-dev' : ''}" data-id="${p.id}">
+        ${avatar(p)}
+        <div class="grh-person-id">
+          <b>${esc(nomDe(p))}</b>
+          <span>${esc(p.email)}</span>
+        </div>
+        <div class="grh-person-tags">
+          <span class="grh-col-label">${esc(L('col_status'))}</span>
+          <span class="grh-chip grh-chip--status" data-fam="${famille(p.statut)}"
+            >${esc(p.statut || '—')}</span>
+          ${p.est_dev ? `<span class="grh-chip grh-chip--dev" title="${esc(L('permanent_hint'))}">
+             <i class="fa-solid fa-seedling"></i> ${esc(L('dev_badge'))}</span>` : ''}
+        </div>
+        <div class="grh-person-tags">
+          <span class="grh-col-label">${esc(L('col_roles'))}</span>
+          <button type="button" class="grh-person-roles" data-roles="${p.id}"
+                  title="${esc(L('manage_roles'))}">
+            ${p.roles.length
+              ? p.roles.slice(0, 3).map((r) =>
+                  `<span class="grh-chip">${esc(r.name)}</span>`).join('')
+                + (p.roles.length > 3 ? `<span class="grh-chip">+${p.roles.length - 3}</span>` : '')
+              : `<span class="grh-chip grh-chip--none">${esc(L('no_role'))}</span>`}
+          </button>
+        </div>
+        <div class="grh-person-dev">
+          <span class="grh-col-label">${esc(L('dev_label'))}</span>
+          ${boutonDev(p, devs, peut)}
+        </div>
+      </article>`).join('')}</div>`;
 
-function renderManagerCollabList() {
-    const container = document.getElementById('manager-assignment-container');
+    document.querySelectorAll('[data-roles]').forEach((b) =>
+      b.addEventListener('click', () => ouvrirPersonne(parseInt(b.dataset.roles, 10))));
+    document.querySelectorAll('.grh-devpick').forEach((b) =>
+      b.addEventListener('click', (e) => { e.stopPropagation(); ouvrirMenuDev(b); }));
+  }
 
-    // Filter
-    let filtered = managerAllCollabs;
-    if (managerActiveFilter === 'assigned') {
-        filtered = filtered.filter(c => isAssignedToManager(c, selectedManagerId));
-    } else if (managerActiveFilter !== 'all') {
-        const roleId = parseInt(managerActiveFilter);
-        filtered = filtered.filter(c => c.roles && c.roles.some(r => r.id === roleId));
-    }
+  // ⚠️ Un `<select>` natif rend la liste du SYSTÈME : aucune feuille de style de
+  // la page ne l'atteint. Le bouton fermé était soigné, la liste ouverte ne
+  // pouvait pas l'être. On dessine donc les deux.
+  function boutonDev(p, devs, peut) {
+    const actuel = devs.find((d) => d.id === p.dev_id);
+    return `
+      <button type="button" class="grh-devpick" data-dev="${p.id}" ${peut ? '' : 'disabled'}>
+        ${actuel ? avatar(actuel, 'xs') : '<span class="grh-devpick-none"></span>'}
+        <span class="grh-devpick-name${actuel ? '' : ' is-empty'}"
+          >${esc(actuel ? nomDe(actuel) : L('dev_none'))}</span>
+        <i class="fa-solid fa-chevron-down"></i>
+      </button>`;
+  }
 
-    if (filtered.length === 0) {
-        container.innerHTML = `<div class="grh-no-results">${T('no_collab_found')}</div>`;
-        return;
-    }
+  let menuOuvert = null;
 
-    // Sort: assigned first
-    filtered.sort((a, b) => {
-        const aStatus = getAssignmentStatus(a, selectedManagerId);
-        const bStatus = getAssignmentStatus(b, selectedManagerId);
-        const order = { full: 0, partial: 1, none: 2 };
-        if (order[aStatus] !== order[bStatus]) return order[aStatus] - order[bStatus];
-        return `${a.first_name} ${a.last_name}`.localeCompare(`${b.first_name} ${b.last_name}`);
-    });
+  function fermerMenuDev() {
+    if (!menuOuvert) return;
+    menuOuvert.panneau.remove();
+    menuOuvert.bouton.classList.remove('is-open');
+    menuOuvert = null;
+    document.removeEventListener('keydown', _echapMenu, true);
+  }
 
-    container.innerHTML = filtered.map(c => {
-        const initials = getInitials(c.first_name, c.last_name);
-        const status = getAssignmentStatus(c, selectedManagerId);
+  function _echapMenu(e) { if (e.key === 'Escape') fermerMenuDev(); }
 
-        // Build role tags showing assignment status per role
-        let rolesHtml = '';
-        if (c.roles && c.roles.length > 0) {
-            rolesHtml = c.roles.map(r => {
-                const isRoleAssigned = r.manager_id === selectedManagerId;
-                // Couleur = moyenne des notes du manager pour ce user sur ce rôle
-                const colStyle = r.comp_color
-                    ? ` style="border-color:${r.comp_color};color:${r.comp_color};font-weight:600;"`
-                    : '';
-                const colTitle = r.comp_color ? ` title="${T('comp_color_title')}"` : '';
-                return `<span class="grh-assign-role-tag ${isRoleAssigned ? 'assigned' : 'unassigned'}"${colStyle}${colTitle}>${capitalize(r.name)}</span>`;
-            }).join('');
-        } else {
-            rolesHtml = `<span style="color:#94a3b8; font-size:11px;">${T('no_role')}</span>`;
-        }
+  function ouvrirMenuDev(bouton) {
+    const userId = parseInt(bouton.dataset.dev, 10);
+    if (menuOuvert && menuOuvert.userId === userId) { fermerMenuDev(); return; }
+    fermerMenuDev();
 
-        let dotHtml = '';
-        if (status === 'full') {
-            dotHtml = '<span class="grh-assign-dot"></span>';
-        } else if (status === 'partial') {
-            dotHtml = '<span class="grh-assign-dot partial"></span>';
-        }
+    const p = personneParId(userId);
+    const devs = (D.personnes || []).filter((x) => x.est_dev && x.id !== userId);
 
-        return `
-            <div class="grh-assign-item ${status === 'none' ? 'unassigned' : ''}" data-user-id="${c.id}" onclick="openAssignModal(${c.id})">
-                ${dotHtml}
-                <div class="grh-assign-avatar">${initials}</div>
-                <div class="grh-assign-info">
-                    <div class="grh-assign-name">${c.first_name} ${c.last_name}</div>
-                    <div class="grh-assign-roles">${rolesHtml}</div>
-                </div>
-                <button class="grh-assign-btn" title="${T('manage_assignment')}">
-                    <i class="fa-solid fa-link"></i>
-                </button>
-            </div>
-        `;
-    }).join('');
-}
+    const panneau = document.createElement('div');
+    panneau.className = 'grh-devmenu';
+    panneau.innerHTML = `
+      <button type="button" class="grh-devmenu-item${p.dev_id ? '' : ' is-current'}"
+              data-choix="">
+        <span class="grh-devpick-none"></span>
+        <span class="grh-devmenu-name is-empty">${esc(L('dev_none'))}</span>
+        ${p.dev_id ? '' : '<i class="fa-solid fa-check"></i>'}
+      </button>
+      ${devs.length ? devs.map((d) => `
+        <button type="button" class="grh-devmenu-item${p.dev_id === d.id ? ' is-current' : ''}"
+                data-choix="${d.id}">
+          ${avatar(d, 'xs')}
+          <span class="grh-devmenu-name">${esc(nomDe(d))}</span>
+          ${p.dev_id === d.id ? '<i class="fa-solid fa-check"></i>' : ''}
+        </button>`).join('')
+        : `<p class="grh-devmenu-empty">${esc(L('dev_no_candidate'))}</p>`}`;
 
-// ═══════════════════════════════════════════════════════════════
-// MODAL AFFECTATION (avec sélection par rôle)
-// ═══════════════════════════════════════════════════════════════
-function openAssignModal(userId) {
-    const user = managerAllCollabs.find(u => u.id === userId);
-    if (!user) return;
+    document.body.appendChild(panneau);
+    // Position fixe, calée sous le bouton : le menu doit échapper au
+    // `overflow` de la liste des personnes, sinon il serait tronqué.
+    const r = bouton.getBoundingClientRect();
+    const h = panneau.offsetHeight;
+    const enBas = r.bottom + h + 8 < window.innerHeight;
+    panneau.style.left = Math.min(r.left, window.innerWidth - panneau.offsetWidth - 12) + 'px';
+    panneau.style.top = (enBas ? r.bottom + 6 : Math.max(8, r.top - h - 6)) + 'px';
+    panneau.style.minWidth = r.width + 'px';
 
-    const initials = getInitials(user.first_name, user.last_name);
-    const fullName = `${user.first_name} ${user.last_name}`;
+    bouton.classList.add('is-open');
+    menuOuvert = { userId, bouton, panneau };
+    document.addEventListener('keydown', _echapMenu, true);
 
-    document.getElementById('modal-assign-title').textContent = fullName;
+    panneau.querySelectorAll('[data-choix]').forEach((b) =>
+      b.addEventListener('click', () => {
+        const v = b.dataset.choix;
+        fermerMenuDev();
+        affecterDev(userId, v ? parseInt(v, 10) : null);
+      }));
+  }
 
-    const body = document.getElementById('modal-assign-body');
-    let rolesHtml = '';
-    if (user.roles && user.roles.length > 0) {
-        rolesHtml = user.roles.map(r => {
-            const colStyle = r.comp_color ? ` style="border-color:${r.comp_color};color:${r.comp_color};font-weight:600;"` : '';
-            return `<span class="grh-assign-role-badge"${colStyle}>${capitalize(r.name)}</span>`;
-        }).join('');
+  async function affecterDev(userId, devId) {
+    try {
+      const data = await postJSON('/gestion_rh/assign_manager_simple',
+        { user_id: userId, manager_id: devId, role_ids: null });
+      if (!data.success) throw new Error();
+      toast(L('saved'));
+      await charger({ discret: true });
+    } catch (_) { toast(L('save_error'), 'error'); }
+  }
+
+  /* ── ② Les rôles — le pivot de la page ──────────────────────────────── */
+
+  function rendreRoles() {
+    const roles = D.roles || [];
+    const gere = !!(D.droits || {}).gere_acces;
+    const commune = !!(D.entite && D.entite.is_shared);
+    const tous = !!(D.entite && D.entite.open_to_all);
+
+    if (!roles.length) {
+      $('#liste-roles').innerHTML = `<p class="grh-empty">${esc(L('roles_empty'))}</p>`;
     } else {
-        rolesHtml = `<span style="color:#94a3b8; font-size:12px; font-style:italic;">${T('no_role')}</span>`;
+      $('#liste-roles').innerHTML = `<div class="grh-roles">${roles.map((r) => `
+        <article class="grh-role${r.permanent ? ' is-permanent' : ''}" data-id="${r.id}">
+          <button type="button" class="grh-role-main" data-holders="${r.id}">
+            <span class="grh-role-name">
+              <i class="fa-solid ${r.permanent ? 'fa-seedling' : 'fa-tag'}"></i>
+              ${esc(r.name)}
+            </span>
+            <span class="grh-role-count">
+              <i class="fa-solid fa-user"></i> ${r.titulaires.length}
+              <em>${esc(L('holders'))}</em>
+            </span>
+          </button>
+          <div class="grh-role-side">
+            ${commune ? `
+              <label class="grh-switch" title="${esc(L('opens_map_hint'))}">
+                <input type="checkbox" class="grh-acces" value="${r.id}"
+                       ${r.ouvre_carto ? 'checked' : ''} ${gere ? '' : 'disabled'}>
+                <span>${esc(L('opens_map'))}</span>
+              </label>` : ''}
+            ${r.permanent
+              ? `<span class="grh-chip grh-chip--dev" title="${esc(L('permanent_hint'))}">
+                   ${esc(L('permanent'))}</span>`
+              : `<button type="button" class="grh-icon danger" data-suppr="${r.id}"
+                         title="${esc(L('del'))}"><i class="fa-solid fa-trash"></i></button>`}
+          </div>
+        </article>`).join('')}</div>`;
     }
 
-    // Build role selection checkboxes
-    let roleSelectHtml = '';
-    if (user.roles && user.roles.length > 0) {
-        const allAssigned = user.roles.every(r => r.manager_id === selectedManagerId);
+    // Ce que l'écran doit dire de lui-même, sans qu'on ait à le deviner.
+    const notes = [L('roles_from_map')];
+    if (commune && tous) notes.push(L('open_to_all'));
+    if (!gere) notes.push(L('readonly'));
+    $('#note-roles').textContent = notes.join(' · ');
 
-        roleSelectHtml = `
-            <div class="grh-modal-section-title">
-                <i class="fa-solid fa-list-check"></i>
-                ${T('select_roles_to_assign')}
-                <button class="grh-modal-select-all" id="modal-toggle-all">
-                    ${allAssigned ? T('deselect_all') : T('select_all')}
-                </button>
-            </div>
-            <div class="grh-modal-role-select" id="modal-role-select">
-                ${user.roles.map(r => {
-                    const isRoleAssigned = r.manager_id === selectedManagerId;
-                    return `
-                        <label class="grh-modal-role-item ${isRoleAssigned ? 'selected' : ''}" data-role-id="${r.id}">
-                            <input type="checkbox" value="${r.id}" ${isRoleAssigned ? 'checked' : ''}>
-                            <span class="role-label">${capitalize(r.name)}</span>
-                            <span class="role-status ${isRoleAssigned ? 'assigned' : 'not-assigned'}">
-                                ${isRoleAssigned ? T('assigned') : T('not_assigned')}
-                            </span>
-                        </label>
-                    `;
-                }).join('')}
-            </div>
-        `;
-    }
+    document.querySelectorAll('[data-holders]').forEach((b) =>
+      b.addEventListener('click', () => ouvrirRole(parseInt(b.dataset.holders, 10))));
+    document.querySelectorAll('[data-suppr]').forEach((b) =>
+      b.addEventListener('click', () => supprimerRole(parseInt(b.dataset.suppr, 10))));
+    document.querySelectorAll('.grh-acces').forEach((c) =>
+      c.addEventListener('change', enregistrerAcces));
+  }
 
-    body.innerHTML = `
-        <div class="grh-assign-collab-info">
-            <div class="grh-assign-collab-avatar">${initials}</div>
-            <div class="grh-assign-collab-details">
-                <h4>${fullName}</h4>
-                <div class="grh-assign-collab-roles-list">${rolesHtml}</div>
-            </div>
-        </div>
-        ${roleSelectHtml}
-        <div class="grh-assign-actions">
-            <button class="grh-assign-action-btn" id="modal-assign-btn">
-                <div class="grh-assign-action-icon">
-                    <i class="fa-solid fa-link"></i>
-                </div>
-                <div class="grh-assign-action-text">
-                    <strong>${T('assign_selected')}</strong>
-                    <span>${T('assign_selected_desc', { manager: selectedManagerName })}</span>
-                </div>
-            </button>
-            <button class="grh-assign-action-btn danger" id="modal-unassign-btn">
-                <div class="grh-assign-action-icon">
-                    <i class="fa-solid fa-link-slash"></i>
-                </div>
-                <div class="grh-assign-action-text">
-                    <strong>${T('unassign_selected')}</strong>
-                    <span>${T('unassign_selected_desc', { manager: selectedManagerName })}</span>
-                </div>
-            </button>
-        </div>
-    `;
-
-    // Bind checkbox visual toggle
-    body.querySelectorAll('.grh-modal-role-item').forEach(item => {
-        const cb = item.querySelector('input[type="checkbox"]');
-        cb.addEventListener('change', () => {
-            item.classList.toggle('selected', cb.checked);
-            updateModalButtons(userId);
-        });
-    });
-
-    // Toggle all
-    const toggleAllBtn = body.querySelector('#modal-toggle-all');
-    if (toggleAllBtn) {
-        toggleAllBtn.addEventListener('click', () => {
-            const checkboxes = body.querySelectorAll('#modal-role-select input[type="checkbox"]');
-            const allChecked = Array.from(checkboxes).every(cb => cb.checked);
-            checkboxes.forEach(cb => {
-                cb.checked = !allChecked;
-                cb.closest('.grh-modal-role-item').classList.toggle('selected', !allChecked);
-            });
-            toggleAllBtn.textContent = allChecked ? T('select_all') : T('deselect_all');
-            updateModalButtons(userId);
-        });
-    }
-
-    // Bind assign button
-    body.querySelector('#modal-assign-btn').addEventListener('click', () => {
-        const selectedRoleIds = getSelectedModalRoleIds();
-        if (selectedRoleIds.length === 0) {
-            showToast(T('select_one_role'), 'error');
-            return;
-        }
-        assignToManager(userId, selectedManagerId, selectedRoleIds);
-    });
-
-    // Bind unassign button
-    body.querySelector('#modal-unassign-btn').addEventListener('click', () => {
-        const selectedRoleIds = getSelectedModalRoleIds();
-        if (selectedRoleIds.length === 0) {
-            showToast(T('select_one_role'), 'error');
-            return;
-        }
-        unassignFromManager(userId, selectedRoleIds);
-    });
-
-    updateModalButtons(userId);
-    document.getElementById('modal-assign').classList.remove('hidden');
-}
-
-function getSelectedModalRoleIds() {
-    const checkboxes = document.querySelectorAll('#modal-role-select input[type="checkbox"]:checked');
-    return Array.from(checkboxes).map(cb => parseInt(cb.value));
-}
-
-function updateModalButtons(userId) {
-    const assignBtn = document.querySelector('#modal-assign-btn');
-    const unassignBtn = document.querySelector('#modal-unassign-btn');
-    if (!assignBtn || !unassignBtn) return;
-
-    const selectedRoleIds = getSelectedModalRoleIds();
-    const user = managerAllCollabs.find(u => u.id === userId);
-    if (!user) return;
-
-    // Check if any selected role is not yet assigned
-    const hasUnassigned = selectedRoleIds.some(rid => {
-        const role = user.roles.find(r => r.id === rid);
-        return role && role.manager_id !== selectedManagerId;
-    });
-
-    // Check if any selected role is already assigned
-    const hasAssigned = selectedRoleIds.some(rid => {
-        const role = user.roles.find(r => r.id === rid);
-        return role && role.manager_id === selectedManagerId;
-    });
-
-    assignBtn.disabled = selectedRoleIds.length === 0 || !hasUnassigned;
-    unassignBtn.disabled = selectedRoleIds.length === 0 || !hasAssigned;
-}
-
-function closeAssignModal() {
-    document.getElementById('modal-assign').classList.add('hidden');
-}
-
-function initModalListeners() {
-    document.getElementById('modal-assign-close').addEventListener('click', closeAssignModal);
-    document.getElementById('modal-assign-backdrop').addEventListener('click', closeAssignModal);
-}
-
-async function assignToManager(userId, managerId, roleIds) {
+  // Cocher enregistre tout de suite : un bouton « Enregistrer » de plus laisse
+  // partir sans sauver, et l'écran ment alors sur qui a accès.
+  async function enregistrerAcces() {
+    if (!D.entite) return;
     try {
-        const res = await fetch('/gestion_rh/assign_manager_simple', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                user_id: userId,
-                manager_id: managerId,
-                role_ids: roleIds || null
-            })
-        });
-        const data = await res.json();
-        if (data.success) {
-            // Update local state
-            const user = managerAllCollabs.find(u => u.id === userId);
-            if (user && roleIds) {
-                user.roles.forEach(r => {
-                    if (roleIds.includes(r.id)) {
-                        r.manager_id = managerId;
-                    }
-                });
-            } else if (user) {
-                user.manager_id = managerId;
-                user.roles.forEach(r => { r.manager_id = managerId; });
-            }
-            closeAssignModal();
-            renderManagerCollabList();
-            showToast(T('roles_assigned_to', { count: roleIds ? roleIds.length : allRoles.length, manager: selectedManagerName }));
-        } else {
-            showToast(data.message || T('error'), 'error');
-        }
-    } catch (err) {
-        console.error('Assignment error:', err);
-        showToast(T('assignment_error'), 'error');
-    }
-}
+      const data = await postJSON(`/cartography/api/access/${D.entite.id}`, {
+        is_shared: true,
+        role_ids: [...document.querySelectorAll('.grh-acces:checked')]
+          .map((c) => parseInt(c.value, 10)),
+      });
+      if (data.error) { toast(data.error, 'error'); await charger({ discret: true }); return; }
+      toast(L('saved'));
+      await charger({ discret: true });
+    } catch (_) { toast(L('save_error'), 'error'); }
+  }
 
-async function unassignFromManager(userId, roleIds) {
+  async function supprimerRole(roleId) {
+    const r = roleParId(roleId);
+    if (!r || r.permanent) return;
+    if (!window.confirm(L('confirm_delete').replace('%s', r.name))) return;
     try {
-        const res = await fetch('/gestion_rh/assign_manager_simple', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                user_id: userId,
-                manager_id: null,
-                role_ids: roleIds || null
-            })
-        });
-        const data = await res.json();
-        if (data.success) {
-            // Update local state
-            const user = managerAllCollabs.find(u => u.id === userId);
-            if (user && roleIds) {
-                user.roles.forEach(r => {
-                    if (roleIds.includes(r.id)) {
-                        r.manager_id = null;
-                    }
-                });
-                // If all roles are unassigned, also clear global
-                if (user.roles.every(r => r.manager_id === null)) {
-                    user.manager_id = null;
-                }
-            } else if (user) {
-                user.manager_id = null;
-                user.roles.forEach(r => { r.manager_id = null; });
-            }
-            closeAssignModal();
-            renderManagerCollabList();
-            showToast(T('assignment_removed'));
-        } else {
-            showToast(data.message || T('error'), 'error');
-        }
-    } catch (err) {
-        console.error('Unassignment error:', err);
-        showToast(T('assignment_error'), 'error');
-    }
-}
+      const rep = await fetch(`/gestion_rh/delete_role/${roleId}`, { method: 'POST' });
+      if (!rep.ok) throw new Error();
+      toast(L('saved'));
+      await charger({ discret: true });
+    } catch (_) { toast(L('save_error'), 'error'); }
+  }
 
-// ═══════════════════════════════════════════════════════════════
-// EXPOSE GLOBAL
-// ═══════════════════════════════════════════════════════════════
-window.openAssignModal = openAssignModal;
-window.assignToManager = assignToManager;
-window.unassignFromManager = unassignFromManager;
+  function initNouveauRole() {
+    const form = $('#form-nouveau-role');
+    $('#btn-nouveau-role').addEventListener('click', () => {
+      form.classList.toggle('hidden');
+      if (!form.classList.contains('hidden')) $('#nom-nouveau-role').focus();
+    });
+    $('#annuler-nouveau-role').addEventListener('click', () => form.classList.add('hidden'));
+    $('#valider-nouveau-role').addEventListener('click', async () => {
+      const nom = $('#nom-nouveau-role').value.trim();
+      if (!nom) return;
+      try {
+        const corps = new URLSearchParams({ name: nom });
+        const rep = await fetch('/gestion_rh/role', { method: 'POST', body: corps });
+        if (!rep.ok) throw new Error();
+        $('#nom-nouveau-role').value = '';
+        form.classList.add('hidden');
+        toast(L('saved'));
+        await charger({ discret: true });
+      } catch (_) { toast(L('save_error'), 'error'); }
+    });
+  }
+
+  /* ── ③ Les propositions ─────────────────────────────────────────────── */
+
+  function rendrePropositions() {
+    const liste = D.propositions || [];
+    if (!liste.length) {
+      $('#liste-propositions').innerHTML = `
+        <p class="grh-empty">${esc(L('changes_empty'))}</p>`;
+      return;
+    }
+    $('#liste-propositions').innerHTML = `<div class="grh-changes">${liste.map((c) => `
+      <article class="grh-change">
+        <i class="fa-solid fa-code-pull-request"></i>
+        <div class="grh-change-id">
+          <b>${esc(c.titre || L('tile_changes'))}</b>
+          <span>${esc(L('by'))} ${esc(c.auteur)}${c.le ? ' · ' + esc(dateCourte(c.le)) : ''}</span>
+        </div>
+        <a class="grh-btn grh-btn--ghost" href="/cartography/editor?proposition=${c.id}">
+          ${esc(L('changes_review'))} <i class="fa-solid fa-arrow-right"></i>
+        </a>
+      </article>`).join('')}</div>`;
+  }
+
+  function dateCourte(iso) {
+    try {
+      return new Date(iso).toLocaleDateString(window.GRH_CTX?.lang === 'en' ? 'en-GB' : 'fr-FR',
+        { day: '2-digit', month: 'short' });
+    } catch (_) { return ''; }
+  }
+
+  /* ── La fenêtre : un rôle ↔ ses titulaires, une personne ↔ ses rôles ── */
+
+  function ouvrirRole(roleId) {
+    if (!(D.droits || {}).affecte) return;
+    fenetre = { mode: 'role', id: roleId };
+    ouvrir();
+  }
+
+  function ouvrirPersonne(userId) {
+    if (!(D.droits || {}).affecte) return;
+    fenetre = { mode: 'personne', id: userId };
+    ouvrir();
+  }
+
+  function ouvrir() {
+    $('#grh-modal').classList.remove('hidden');
+    $('#grh-modal-q').value = '';
+    rendreFenetre();
+    setTimeout(() => $('#grh-modal-q').focus(), 40);
+  }
+
+  function fermerFenetre() {
+    fenetre = null;
+    $('#grh-modal').classList.add('hidden');
+  }
+
+  function rendreFenetre() {
+    if (!fenetre) return;
+    const q = ($('#grh-modal-q').value || '').trim().toLowerCase();
+
+    if (fenetre.mode === 'role') {
+      const r = roleParId(fenetre.id);
+      if (!r) { fermerFenetre(); return; }
+      $('#grh-modal-over').textContent = L('tile_roles');
+      $('#grh-modal-titre').textContent = r.name;
+      const gens = (D.personnes || []).filter((p) =>
+        !q || (nomDe(p) + ' ' + p.email).toLowerCase().includes(q));
+      $('#grh-modal-body').innerHTML = gens.map((p) => ligne(
+        avatar(p, 'sm'), nomDe(p), p.email,
+        r.titulaires.includes(p.id), `${p.id}:${r.id}`)).join('')
+        || `<p class="grh-empty">${esc(L('people_empty'))}</p>`;
+    } else {
+      const p = personneParId(fenetre.id);
+      if (!p) { fermerFenetre(); return; }
+      $('#grh-modal-over').textContent = L('manage_roles');
+      $('#grh-modal-titre').textContent = nomDe(p);
+      const roles = (D.roles || []).filter((r) => !q || r.name.toLowerCase().includes(q));
+      $('#grh-modal-body').innerHTML = roles.map((r) => ligne(
+        `<span class="grh-role-dot${r.permanent ? ' is-permanent' : ''}"></span>`,
+        r.name,
+        r.ouvre_carto && D.entite && D.entite.is_shared ? L('opens_map') : '',
+        r.titulaires.includes(p.id), `${p.id}:${r.id}`)).join('')
+        || `<p class="grh-empty">${esc(L('roles_empty'))}</p>`;
+    }
+
+    document.querySelectorAll('.grh-pick').forEach((el) =>
+      el.addEventListener('change', () => {
+        const [u, r] = el.dataset.paire.split(':').map(Number);
+        majLien(u, r, el.checked);
+      }));
+  }
+
+  const ligne = (visuel, titre, sousTitre, coche, paire) => `
+    <label class="grh-row">
+      ${visuel}
+      <span class="grh-row-id">
+        <b>${esc(titre)}</b>
+        ${sousTitre ? `<span>${esc(sousTitre)}</span>` : ''}
+      </span>
+      <input type="checkbox" class="grh-pick" data-paire="${paire}" ${coche ? 'checked' : ''}>
+    </label>`;
+
+  // ⚠️ Un seul endpoint pour les deux sens, et il travaille PAR PAIRE : les
+  // routes de la page Comptes, elles, remplacent TOUS les rôles d'une personne
+  // (delete puis insert) — les appeler d'ici lui retirerait ses rôles sur les
+  // autres cartos.
+  async function majLien(userId, roleId, ajouter) {
+    if (!D.entite) return;
+    try {
+      const data = await postJSON(
+        `/cartography/api/access/${D.entite.id}/roles/${roleId}/holders`,
+        ajouter ? { add: [userId] } : { remove: [userId] });
+      if (data.error) { toast(data.error, 'error'); return; }
+      await charger({ discret: true });
+    } catch (_) { toast(L('save_error'), 'error'); }
+  }
+
+  /* ── Démarrage ──────────────────────────────────────────────────────── */
+
+  function demarrer() {
+    $('#grh-q').addEventListener('input', (e) => {
+      filtreTexte = e.target.value;
+      rendrePersonnes();
+    });
+    $('#grh-filtre-role').addEventListener('change', (e) => {
+      filtreRole = e.target.value;
+      rendrePersonnes();
+    });
+    $('#grh-modal-q').addEventListener('input', rendreFenetre);
+    $('#grh-modal-x').addEventListener('click', fermerFenetre);
+    $('#grh-modal-fond').addEventListener('click', fermerFenetre);
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && fenetre) fermerFenetre();
+    });
+    document.addEventListener('click', (e) => {
+      if (menuOuvert && !e.target.closest('.grh-devmenu')) fermerMenuDev();
+    });
+    // Le panneau est en position FIXE : il ne suivrait pas son bouton.
+    window.addEventListener('resize', fermerMenuDev);
+    document.addEventListener('scroll', fermerMenuDev, true);
+    initNouveauRole();
+    charger();
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', demarrer);
+  } else {
+    demarrer();
+  }
+})();

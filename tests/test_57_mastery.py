@@ -337,3 +337,108 @@ class TestDashboard:
             assert r.get_json()["activities"] == []
         finally:
             _cleanup(app, role_id=rid)
+
+
+class TestPreuveEtAvancement:
+    """Ce que l'écran d'évaluation a besoin de relire.
+
+    Deux manques, tous deux invisibles côté serveur tant qu'on ne regardait
+    que l'aller : la PREUVE partait en base et n'en revenait jamais, et rien
+    ne disait COMBIEN de résultats sont déjà évalués.
+    """
+
+    def test_la_preuve_revient_avec_l_etat(self, auth_client, app, ids):
+        """⚠️ `evidence` était enregistrée puis jamais renvoyée : l'écran
+        rouvrait la zone de saisie VIDE, et le prochain enregistrement écrasait
+        le texte par une chaîne vide. La preuve se perdait au deuxième passage
+        sans que personne ne l'ait effacée."""
+        aid = _create_activity(app, ids["entity_id"], name="Activité Preuve Test 57")
+        did = _create_result_data(app, ids["entity_id"], aid, name="Résultat Preuve Test 57")
+        try:
+            r = auth_client.post(
+                "/mastery/evaluate",
+                data=json.dumps({"user_id": ids["user_id"], "activity_id": aid,
+                                 "data_id": did, "evaluator": "2", "mastery_level": 3,
+                                 "evidence": "Campagne EP-2026-14 conduite seul."}),
+                content_type="application/json",
+            )
+            assert r.status_code == 200
+
+            r = auth_client.get(f"/mastery/activity/{ids['user_id']}/{aid}")
+            assert r.status_code == 200
+            res = next(x for x in r.get_json()["results"] if x["data_id"] == did)
+            assert res["evidence"] == "Campagne EP-2026-14 conduite seul."
+        finally:
+            _cleanup(app, activity_id=aid)
+
+    def test_la_preuve_est_une_chaine_quand_il_n_y_en_a_pas(self, auth_client, app, ids):
+        """Jamais None : l'écran pose la valeur dans un <textarea>."""
+        aid = _create_activity(app, ids["entity_id"], name="Activité Sans Preuve Test 57")
+        did = _create_result_data(app, ids["entity_id"], aid, name="Résultat Sans Preuve Test 57")
+        try:
+            r = auth_client.get(f"/mastery/activity/{ids['user_id']}/{aid}")
+            res = next(x for x in r.get_json()["results"] if x["data_id"] == did)
+            assert res["evidence"] == ""
+        finally:
+            _cleanup(app, activity_id=aid)
+
+    def test_n_evaluated_compte_les_resultats_deja_notes(self, auth_client, app, ids):
+        """Un niveau global vide ne dit pas s'il reste UN résultat à évaluer ou
+        si l'on n'a rien commencé. `n_evaluated` fait la différence, sur l'état
+        d'une activité comme sur le tableau du rôle."""
+        aid = _create_activity(app, ids["entity_id"], name="Activité Avancement Test 57")
+        d1 = _create_result_data(app, ids["entity_id"], aid, name="Résultat A Test 57")
+        d2 = _create_result_data(app, ids["entity_id"], aid, name="Résultat B Test 57")
+        rid = _create_role(app, ids["entity_id"], name="Rôle Avancement Test 57")
+        _link_role_activity(app, aid, rid)
+        try:
+            r = auth_client.get(f"/mastery/activity/{ids['user_id']}/{aid}")
+            assert r.get_json()["n_evaluated"] == 0
+
+            auth_client.post(
+                "/mastery/evaluate",
+                data=json.dumps({"user_id": ids["user_id"], "activity_id": aid,
+                                 "data_id": d1, "evaluator": "2", "mastery_level": 2}),
+                content_type="application/json",
+            )
+            st = auth_client.get(f"/mastery/activity/{ids['user_id']}/{aid}").get_json()
+            assert st["n_evaluated"] == 1
+            assert st["n_results"] == 2
+            assert st["complete"] is False
+            assert st["global_level"] is None       # min sur des résultats incomplets = rien
+
+            r = auth_client.get(f"/mastery/dashboard/{ids['user_id']}/{rid}")
+            row = next(x for x in r.get_json()["activities"] if x["activity_id"] == aid)
+            assert row["n_evaluated"] == 1
+
+            auth_client.post(
+                "/mastery/evaluate",
+                data=json.dumps({"user_id": ids["user_id"], "activity_id": aid,
+                                 "data_id": d2, "evaluator": "2", "mastery_level": 4}),
+                content_type="application/json",
+            )
+            st = auth_client.get(f"/mastery/activity/{ids['user_id']}/{aid}").get_json()
+            assert st["n_evaluated"] == 2
+            assert st["global_level"] == 2          # le MINIMUM, jamais la moyenne
+        finally:
+            _cleanup(app, activity_id=aid, role_id=rid)
+
+    def test_l_auto_evaluation_ne_compte_pas_comme_evaluee(self, auth_client, app, ids):
+        """Seuls Garant et Manager valident (CDC 3.6) : une auto-évaluation
+        laisse le résultat à évaluer."""
+        aid = _create_activity(app, ids["entity_id"], name="Activité Auto Test 57")
+        did = _create_result_data(app, ids["entity_id"], aid, name="Résultat Auto Test 57")
+        try:
+            auth_client.post(
+                "/mastery/evaluate",
+                data=json.dumps({"user_id": ids["user_id"], "activity_id": aid,
+                                 "data_id": did, "evaluator": "0", "mastery_level": 4}),
+                content_type="application/json",
+            )
+            st = auth_client.get(f"/mastery/activity/{ids['user_id']}/{aid}").get_json()
+            assert st["n_evaluated"] == 0
+            res = next(x for x in st["results"] if x["data_id"] == did)
+            assert res["self_level"] == 4
+            assert res["demonstrated_level"] is None
+        finally:
+            _cleanup(app, activity_id=aid)

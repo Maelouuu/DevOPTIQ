@@ -1,0 +1,1663 @@
+/* ── Page Compétences ────────────────────────────────────────────────────────
+   Accent de page : BLEU var(--pg-accent) / #2563eb (clé `competences`).
+   Design system : static/ui-theme.css. Échelle typo : corps 15 · secondaire /
+   boutons / cellules 13.5 · libellés uppercase 12.5/700/.05em · méta 12 (min 11).
+   Rayons : cartes var(--r-card) · sous-blocs 12 · contrôles var(--r-btn).
+
+   ⚠️ Ce fichier est lié dans le <head>, AVANT `header_buttons.html` (qui charge
+   optiq.css et ui-theme.css depuis le <body>) : à spécificité égale, ce sont eux
+   qui gagnent. C'était déjà le cas du <style> en ligne qu'il remplace — ne pas
+   déplacer le lien sans revérifier la cascade.
+
+   Les échelles SÉMANTIQUES (gris non évalué / rouge autonomie non démontrée /
+   orange écart / vert tenu) viennent du serveur (`color_for`, mastery.py) et ne
+   suivent pas l'accent de page : ce sont des feux, pas de la décoration.
+   ─────────────────────────────────────────────────────────────────────────── */
+:root {
+  --cv-green: #22c55e;
+  --cv-green-deep: #15803d;
+  --cv-red: #ef4444;
+  --cv-red-deep: #b91c1c;
+  --cv-orange: #f59e0b;
+  --cv-orange-deep: #b45309;
+  --cv-grey: #cbd5e1;
+}
+
+* { box-sizing: border-box; }
+header { position: sticky; top: 0; z-index: 30; }
+.hidden { display: none !important; }
+
+.cv2-layout { display: flex; gap: 18px; padding: 0 0 26px; align-items: flex-start; }
+
+/* ══ Colonne de gauche : le développeur et ses collaborateurs ═══════════════ */
+.cv2-sidebar {
+  width: 268px; flex-shrink: 0; position: sticky; top: 16px;
+  background: linear-gradient(180deg, var(--card), var(--pg-accent-softer));
+  border: 1px solid var(--border); border-radius: var(--r-card);
+  padding: 16px 14px; box-shadow: var(--sh-card);
+}
+.cv2-mgr {
+  display: flex; align-items: center; gap: 12px; padding: 13px 14px;
+  border-radius: 12px; margin-bottom: 18px; position: relative; overflow: hidden;
+  background: linear-gradient(135deg, var(--pg-accent), var(--pg-accent-deep));
+  color: #fff; box-shadow: 0 10px 24px -8px var(--pg-accent-glow);
+}
+.cv2-mgr::after {
+  content: ""; position: absolute; right: -30px; top: -30px;
+  width: 100px; height: 100px; border-radius: 50%; pointer-events: none;
+  background: radial-gradient(circle, rgba(255, 255, 255, .20), transparent 70%);
+}
+.cv2-mgr .mav {
+  width: 38px; height: 38px; border-radius: 12px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(255, 255, 255, .20); font-weight: 700; font-size: 14px;
+}
+.cv2-mgr .lbl {
+  display: block; margin-bottom: 1px; font-size: 11px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .05em; opacity: .85;
+}
+.cv2-mgr .nm { font-weight: 700; font-size: 15px; line-height: 1.15; }
+
+.cv2-sec-title {
+  margin: 4px 8px 9px; font-size: 12.5px; font-weight: 700; color: var(--muted);
+  text-transform: uppercase; letter-spacing: .05em;
+}
+.cv2-collab { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 3px; }
+.cv2-collab li {
+  display: flex; align-items: center; gap: 11px; padding: 8px 10px;
+  border: 1px solid transparent; border-radius: 12px; cursor: pointer;
+  font-weight: 600; font-size: 13.5px; color: var(--ink-2); transition: .15s;
+}
+.cv2-collab li:hover {
+  background: var(--card); border-color: var(--border);
+  box-shadow: 0 6px 16px -6px var(--pg-accent-glow); transform: translateY(-1px);
+}
+.cv2-collab li.active {
+  background: linear-gradient(135deg, var(--pg-accent), var(--pg-accent-deep));
+  color: #fff; border-color: transparent; box-shadow: 0 10px 22px -6px var(--pg-accent-glow);
+}
+.cv2-collab li .av {
+  width: 30px; height: 30px; border-radius: 9px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 12px; font-weight: 700; color: #fff;
+  background: linear-gradient(135deg, var(--pg-accent), var(--pg-accent-deep));
+  box-shadow: 0 3px 8px -2px var(--pg-accent-glow);
+}
+.cv2-collab li.active .av { background: rgba(255, 255, 255, .22); box-shadow: none; }
+.cv2-collab li .chev { margin-left: auto; opacity: 0; font-size: 15px; color: var(--pg-accent-border); transition: .15s; }
+.cv2-collab li:hover .chev, .cv2-collab li.active .chev { opacity: 1; }
+.cv2-collab li.active .chev { color: rgba(255, 255, 255, .8); }
+.cv2-empty-side { padding: 10px 6px; font-size: 12px; color: var(--muted); }
+
+/* ══ Colonne de droite ═════════════════════════════════════════════════════ */
+.cv2-main { flex: 1; min-width: 0; }
+
+/* Rôles — l'onglet du haut : de quel rôle parle-t-on ? */
+.cv2-roles-lbl {
+  margin: 2px 2px 8px; font-size: 12.5px; font-weight: 700; color: var(--muted);
+  text-transform: uppercase; letter-spacing: .05em;
+}
+.cv2-roles { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+.cv2-role {
+  padding: 8px 17px; border-radius: 999px; cursor: pointer; font-family: inherit;
+  border: 1px solid var(--pg-accent-border); background: var(--card);
+  font-weight: 600; font-size: 13.5px; color: var(--pg-accent-deep);
+  box-shadow: var(--sh-card); transition: .15s;
+}
+.cv2-role:hover { border-color: var(--pg-accent); transform: translateY(-1px); }
+.cv2-role.active {
+  background: linear-gradient(135deg, var(--pg-accent), var(--pg-accent-deep));
+  color: #fff; border-color: transparent; box-shadow: 0 8px 20px -6px var(--pg-accent-glow);
+}
+
+/* ── Le bandeau de situation ───────────────────────────────────────────────
+   Il n'existait pas : pour savoir où en était quelqu'un, il fallait lire les
+   six lignes une à une. Les compteurs sont des FILTRES — un chiffre appelle le
+   clic, et « montre-moi les trois en écart » est la question qu'on se pose. */
+.cv2-bilan {
+  display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px;
+}
+.cv2-tuile {
+  flex: 1 1 130px; min-width: 120px; padding: 11px 13px; cursor: pointer;
+  text-align: left; font-family: inherit;
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 12px; box-shadow: var(--sh-card);
+  transition: border-color .14s, box-shadow .14s, transform .14s;
+}
+.cv2-tuile:hover { transform: translateY(-1px); box-shadow: 0 8px 20px -10px rgba(15, 23, 42, .22); }
+.cv2-tuile .n {
+  display: flex; align-items: baseline; gap: 7px;
+  font-family: var(--pg-font-display); font-size: 22px; font-weight: 700; line-height: 1;
+}
+.cv2-tuile .n .pt { width: 9px; height: 9px; border-radius: 50%; flex: none; }
+.cv2-tuile .k {
+  margin-top: 5px; font-size: 12px; font-weight: 700; color: var(--muted);
+  text-transform: uppercase; letter-spacing: .04em;
+}
+.cv2-tuile.is-on { border-color: var(--pg-accent); box-shadow: 0 0 0 3px var(--pg-accent-glow); }
+/* Quatre tons, quatre natures : tenu (vert), en écart (orange = un problème),
+   à évaluer (accent = le travail qui attend), à configurer (gris = une étape
+   préparatoire, pas une alerte — elle était rouge, elle criait pour rien). */
+.cv2-tuile--green  .n { color: var(--cv-green-deep); }  .cv2-tuile--green  .pt { background: var(--cv-green); }
+.cv2-tuile--orange .n { color: var(--cv-orange-deep); } .cv2-tuile--orange .pt { background: var(--cv-orange); }
+.cv2-tuile--blue   .n { color: var(--pg-accent-deep); } .cv2-tuile--blue   .pt { background: var(--pg-accent); }
+.cv2-tuile--grey   .n { color: var(--ink-2); }          .cv2-tuile--grey   .pt { background: var(--cv-grey); }
+
+/* ── La liste des activités ────────────────────────────────────────────────
+   ⚠️ C'ÉTAIT UN <table> À HUIT COLONNES, en `min-width: 760px`. Dans la colonne
+   de droite il ne tenait pas : la page défilait horizontalement et le bouton
+   « Évaluer » — l'action principale — se retrouvait HORS ÉCRAN. Une grille CSS
+   aligne les lignes sans imposer de largeur minimale, et les trois colonnes
+   « requis / démontré / écart » deviennent UN objet : la jauge. L'écart est une
+   distance, il se regarde ; ce n'était qu'un nombre à lire. */
+.cv2-liste {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: var(--r-card); box-shadow: var(--sh-card); overflow: hidden;
+}
+.cv2-entete, .cv2-ligne {
+  display: grid; align-items: center; gap: 14px;
+  grid-template-columns: minmax(0, 1fr) 272px 80px 106px;
+  padding: 0 18px;
+}
+/* La legende du repere : sans elle, le trait sous un pas de la jauge ne dit pas
+   ce qu il marque. Elle vit dans l en-tete, pas repetee sur chaque ligne. */
+.cv2-legende { display: inline-flex; align-items: center; gap: 4px; margin-left: 9px;
+  font-size: 10.5px; font-weight: 700; letter-spacing: .03em; color: var(--faint); }
+.cv2-legende::before { content: ""; width: 2px; height: 11px; border-radius: 1px; background: var(--ink-2); }
+.cv2-entete {
+  padding-top: 11px; padding-bottom: 11px;
+  background: var(--card-2); border-bottom: 1px solid var(--border);
+  font-size: 12px; font-weight: 700; color: var(--muted);
+  text-transform: uppercase; letter-spacing: .04em;
+}
+.cv2-ligne {
+  padding-top: 13px; padding-bottom: 13px;
+  border-bottom: 1px solid var(--border); transition: background .12s;
+}
+.cv2-ligne:last-child { border-bottom: none; }
+.cv2-ligne:hover { background: var(--pg-accent-softer); }
+
+.cv2-nom {
+  display: flex; align-items: center; gap: 7px;
+  font-weight: 700; font-size: 14.5px; letter-spacing: -.01em; color: var(--ink);
+}
+/* LE « i »
+   L'explication de la compétence tenait une LIGNE sous chaque activité,
+   tronquée et grise : illisible mais encombrante, et elle volait la place de
+   « évalué le … », qui, lui, se lit vraiment. Elle attend maintenant derrière
+   ce bouton — au survol comme au clic (le survol seul n'existe pas sur un
+   écran tactile). */
+.cv2-i {
+  flex: none; width: 18px; height: 18px; padding: 0; cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 9px; color: var(--pg-accent-deep);
+  background: var(--pg-accent-soft); border: 1px solid var(--pg-accent-border);
+  border-radius: 50%; transition: .13s;
+}
+.cv2-i:hover, .cv2-i:focus-visible {
+  outline: none; background: var(--pg-accent); border-color: transparent; color: #fff;
+}
+/* En `fixed` sur le body, et posée hors champ tant que le JS ne l'a pas placée :
+   la liste des activités a son propre défilement, une carte posée dedans serait
+   tronquée, et une carte placée après mesure clignoterait à son point de chute. */
+.cv2-info {
+  position: fixed; left: -9999px; top: 0; z-index: 90;
+  max-width: 330px; padding: 11px 14px; pointer-events: none;
+  background: var(--card); border: 1px solid var(--border-strong);
+  border-radius: 12px; box-shadow: var(--sh-pop);
+}
+.cv2-info .t {
+  font-size: 10.5px; font-weight: 700; letter-spacing: .05em;
+  text-transform: uppercase; color: var(--pg-accent-deep);
+}
+.cv2-info .d { margin-top: 5px; font-size: 13px; line-height: 1.5; color: var(--ink-2); }
+/* La méta remplace deux colonnes (résultats, dernière éval.) : deux nombres
+   isolés dans leur case ne se lisaient pas, une phrase se lit. */
+.cv2-meta {
+  display: flex; align-items: center; gap: 7px; flex-wrap: wrap;
+  margin-top: 5px; font-size: 13px; color: var(--muted); font-weight: 600;
+}
+.cv2-meta .sep { color: var(--border-strong); }
+.cv2-meta .ok { color: var(--cv-green-deep); }
+
+.cv2-cell-tech { display: flex; justify-content: flex-start; }
+.cv2-cell-act { display: flex; justify-content: flex-end; }
+
+/* ── La jauge — cœur de la lecture ─────────────────────────────────────────
+   Quatre pas (niveaux 1 à 4) ; le niveau 0 « Non démontré » est une jauge VIDE,
+   ce qui est exactement ce qu'il veut dire. Le pas REQUIS porte un repère : on
+   voit la cible sans la chercher ailleurs. Non évalué = pas pointillés (une
+   absence, pas un zéro — la distinction est une règle du CDC). */
+.cv2-jauge { display: flex; align-items: center; gap: 8px; }
+.cv2-pas { display: flex; gap: 4px; flex: none; }
+.cv2-pas i {
+  position: relative; display: block; width: 21px; height: 14px; border-radius: 4px;
+  background: color-mix(in srgb, var(--border) 34%, #fff); box-shadow: inset 0 0 0 1px var(--border-strong);
+}
+.cv2-pas i.on { box-shadow: none; }
+.cv2-pas i.vide { background: transparent; box-shadow: inset 0 0 0 1px var(--border-strong); }
+/* Le repère du requis : une BARRE VERTICALE juste après le pas visé — « la jauge
+   doit atteindre ce trait ». Un tiret posé sous le pas avait été essayé d'abord :
+   à cette densité il disparaissait, et c'est le seul endroit où la ligne dit si
+   le niveau suffit. */
+.cv2-pas i.cible::after {
+  content: ""; position: absolute; right: -4px; top: -5px; bottom: -5px;
+  width: 2.5px; border-radius: 2px; background: var(--ink-2);
+}
+.cv2-j--green  i.on { background: var(--cv-green); }
+.cv2-j--orange i.on { background: var(--cv-orange); }
+.cv2-j--red    i.on { background: var(--cv-red); }
+.cv2-j--grey   i.on { background: var(--cv-grey); }
+.cv2-j--blue   i.on { background: var(--pg-accent); }
+.cv2-jauge-txt { min-width: 0; font-size: 12px; font-weight: 700; line-height: 1.25; }
+.cv2-jauge-txt .lv { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cv2-jauge-txt .sur { display: block; margin-top: 1px; font-size: 11px; font-weight: 600; color: var(--faint); }
+.cv2-j--green  .cv2-jauge-txt .lv { color: var(--cv-green-deep); }
+.cv2-j--orange .cv2-jauge-txt .lv { color: var(--cv-orange-deep); }
+.cv2-j--red    .cv2-jauge-txt .lv { color: var(--cv-red-deep); }
+.cv2-j--grey   .cv2-jauge-txt .lv { color: var(--muted); }
+.cv2-j--blue   .cv2-jauge-txt .lv { color: var(--pg-accent-deep); }
+
+/* Badges d'appoint */
+.cv2-ecart {
+  display: inline-flex; align-items: center; padding: 3px 7px; border-radius: 7px;
+  font-size: 11.5px; font-weight: 700;
+}
+.cv2-ecart.pos  { background: #e9fbf0; color: var(--cv-green-deep); }
+.cv2-ecart.neg  { background: #fdecec; color: var(--cv-red-deep); }
+.cv2-ecart.zero { background: #eef1f7; color: #5b6577; }
+.cv2-dash { color: var(--faint); font-weight: 700; }
+.chip {
+  display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px;
+  border-radius: 999px; font-weight: 700; font-size: 12px; white-space: nowrap;
+}
+.chip .lv { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+.chip.grey   { background: #eef1f7; color: #5b6577; }         .chip.grey .lv   { background: var(--cv-grey); }
+.chip.red    { background: #fef2f2; color: var(--cv-red-deep); }    .chip.red .lv    { background: var(--cv-red); }
+.chip.orange { background: #fff7ed; color: var(--cv-orange-deep); } .chip.orange .lv { background: var(--cv-orange); }
+.chip.green  { background: #f0fdf4; color: var(--cv-green-deep); }  .chip.green .lv  { background: var(--cv-green); }
+.chip.blue   { background: var(--pg-accent-soft); color: var(--pg-accent-deep); } .chip.blue .lv { background: var(--pg-accent); }
+
+/* Boutons */
+.btn {
+  border: 1px solid transparent; border-radius: var(--r-btn); padding: 8px 14px;
+  font-family: inherit; font-weight: 600; font-size: 13.5px; cursor: pointer; transition: .15s;
+}
+.btn:disabled { opacity: .5; cursor: default; }
+.btn-primary {
+  background: linear-gradient(135deg, var(--pg-accent), var(--pg-accent-deep));
+  color: #fff; box-shadow: 0 4px 12px -4px var(--pg-accent-glow);
+}
+.btn-primary:hover:not(:disabled) { filter: brightness(1.06); transform: translateY(-1px); }
+.btn-ghost { background: var(--pg-accent-soft); color: var(--pg-accent-deep); border-color: var(--pg-accent-border); }
+.btn-ghost:hover:not(:disabled) { background: color-mix(in srgb, var(--pg-accent) 16%, #fff); }
+.btn-quiet { background: var(--card); color: var(--ink-2); border-color: var(--border-strong); }
+.btn-quiet:hover:not(:disabled) { background: var(--card-2); }
+.btn-sm { padding: 6px 11px; font-size: 12.5px; border-radius: 8px; }
+/* Une action « à configurer » ne se déguise pas en « évaluer » : l'ambre dit
+   qu'il manque une étape avant de pouvoir noter. */
+.btn-todo { background: #fff8ec; color: #92590e; border-color: #fadfa6; }
+.btn-todo:hover:not(:disabled) { background: #fdf0d8; }
+
+.cv2-placeholder {
+  max-width: 540px; margin: 0 auto; padding: 44px 26px;
+  text-align: center; font-size: 13.5px; font-weight: 600; line-height: 1.55; color: var(--muted);
+  background: rgba(255, 255, 255, .7); border: 1.5px dashed var(--border-strong);
+  border-radius: var(--r-card);
+}
+.cv2-vide { padding: 34px 20px; text-align: center; font-size: 13.5px; color: var(--muted); font-weight: 600; }
+
+/* ══ Fenêtre d'évaluation ══════════════════════════════════════════════════ */
+.cv2-overlay {
+  position: fixed; inset: 0; z-index: 50; opacity: 0; pointer-events: none;
+  background: rgba(15, 23, 42, .45); backdrop-filter: blur(4px); transition: opacity .22s;
+}
+.cv2-overlay.open { opacity: 1; pointer-events: auto; }
+.cv2-drawer {
+  position: fixed; top: 50%; left: 50%; z-index: 51;
+  transform: translate(-50%, -46%) scale(.97); opacity: 0; pointer-events: none;
+  width: min(720px, 94vw); max-height: 90vh;
+  display: flex; flex-direction: column; overflow: hidden;
+  background: var(--card); border: 1px solid var(--border); border-radius: 16px;
+  box-shadow: var(--sh-pop);
+  transition: transform .24s cubic-bezier(.34, 1.2, .4, 1), opacity .2s;
+}
+.cv2-drawer.open { transform: translate(-50%, -50%) scale(1); opacity: 1; pointer-events: auto; }
+
+/* ⚠️ `flex: none`, et pas par confort. En-tête et pied sont des éléments FLEX
+   d'une colonne plafonnée à 90vh : avec leur `flex-shrink` par défaut, un
+   contenu long les ÉCRASE. Le sous-titre de la fenêtre (« Untel · Tel rôle »)
+   se retrouvait tranché en deux sous la première section — présent à l'écran,
+   illisible. */
+/* Le titre et le sous-titre ne sont pas dans un rapport de titre à légende :
+   l'activité d'un côté, la personne et son rôle de l'autre, deux informations
+   de même rang. Côte à côte, les deux peuvent grossir. */
+.cv2-dh {
+  flex: none; position: relative; overflow: hidden;
+  display: flex; align-items: baseline; gap: 13px; flex-wrap: wrap;
+  padding: 16px 58px 15px 22px;
+  background: linear-gradient(135deg, var(--pg-accent), var(--pg-accent-deep)); color: #fff;
+}
+.cv2-dh::after {
+  content: ""; position: absolute; right: -40px; top: -50px; width: 150px; height: 150px;
+  border-radius: 50%; pointer-events: none;
+  background: radial-gradient(circle, rgba(255, 255, 255, .14), transparent 70%);
+}
+.cv2-dh h2 { margin: 0; font-size: 19px; font-weight: 700; letter-spacing: -.015em; line-height: 1.2; }
+.cv2-dh .cv2-sub {
+  display: flex; align-items: center; gap: 8px; margin: 0;
+  padding-left: 13px; border-left: 1px solid rgba(255, 255, 255, .32);
+  font-size: 14px; font-weight: 600; color: rgba(255, 255, 255, .94);
+}
+.cv2-dh .cv2-sub .ou {
+  padding: 2px 10px; border-radius: 999px;
+  background: rgba(255, 255, 255, .2); font-size: 12.5px; font-weight: 700;
+}
+@media (max-width: 760px) {
+  .cv2-dh .cv2-sub { padding-left: 0; border-left: none; }
+}
+.cv2-dh .x {
+  position: absolute; right: 15px; top: 14px; z-index: 2;
+  width: 30px; height: 30px; border: none; border-radius: 9px;
+  background: rgba(255, 255, 255, .16); color: #fff;
+  font-size: 18px; line-height: 1; cursor: pointer; transition: .15s;
+}
+.cv2-dh .x:hover { background: rgba(255, 255, 255, .28); }
+
+.cv2-db { flex: 1; overflow-y: auto; padding: 0 0 18px; }
+.cv2-df {
+  flex: none; display: flex; gap: 9px; justify-content: flex-end; padding: 13px 22px;
+  background: var(--card-2); border-top: 1px solid var(--border);
+}
+
+/* LA COMPÉTENCE PRINCIPALE
+   C'est le sujet de la fenêtre : tout ce qu'on va noter en découle. Elle était
+   écrite en 13 px gris sur un fond à peine teinté, entre deux sections
+   blanches — on la prenait pour une note de bas de page. Elle porte désormais
+   la couleur de la page en aplat, et la taille de ce qu'elle est. */
+.cv2-comp {
+  margin: 14px 22px 16px; padding: 14px 16px 15px;
+  border-radius: 14px; border-left: 4px solid var(--pg-accent-deep);
+  background: linear-gradient(120deg, var(--pg-accent-soft), var(--pg-accent-softer));
+  font-size: 16px; font-weight: 600; line-height: 1.45; color: var(--ink);
+}
+.cv2-comp .tag {
+  display: flex; align-items: center; gap: 6px; margin-bottom: 6px;
+  font-size: 11.5px; font-weight: 700;
+  color: var(--pg-accent-deep); text-transform: uppercase; letter-spacing: .05em;
+}
+
+/* ── La synthèse : requis · démontré · écart, sur une seule ligne ──────────
+   C'étaient trois cellules encadrées dans une carte encadrée dans la fenêtre.
+   Trois boîtes pour trois nombres. */
+.cv2-synth {
+  display: flex; align-items: flex-start; gap: 22px; flex-wrap: wrap;
+  padding: 15px 22px; border-bottom: 1px solid var(--border);
+}
+.cv2-synth .sm { min-width: 0; }
+.cv2-synth .k {
+  margin-bottom: 6px; font-size: 11px; font-weight: 700; color: var(--muted);
+  text-transform: uppercase; letter-spacing: .05em;
+}
+.cv2-synth .v { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.cv2-link {
+  padding: 0; border: none; background: none; cursor: pointer;
+  font-family: inherit; font-size: 12px; font-weight: 700;
+  color: var(--pg-accent-deep); text-decoration: underline;
+}
+.cv2-reqedit { display: flex; gap: 4px; margin-top: 8px; flex-wrap: wrap; }
+.cv2-reqedit button {
+  padding: 4px 9px; border: 1px solid var(--border); border-radius: 8px;
+  background: var(--card); font-family: inherit; font-size: 12px; font-weight: 700;
+  color: var(--muted); cursor: pointer;
+}
+.cv2-reqedit button:hover { border-color: var(--pg-accent); color: var(--pg-accent-deep); }
+.cv2-reqedit button.sel { background: var(--pg-accent); border-color: var(--pg-accent); color: #fff; }
+
+.cv2-section { padding: 16px 22px 0; }
+.cv2-evalhead { margin-bottom: 12px; }
+.cv2-evalhead .eh { font-size: 15px; font-weight: 700; color: var(--ink); }
+.cv2-evalsub { margin-top: 2px; font-size: 12.5px; color: var(--muted); }
+
+/* ── La carte d'un RÉSULTAT ────────────────────────────────────────────────
+   ⚠️ La notation était SIX BARRES pleine largeur empilées, par résultat : ~430 px
+   chacun, 1266 px de défilement pour une activité à deux résultats dans une
+   fenêtre qui en montre 644. On ne voyait jamais deux résultats ensemble, alors
+   que le niveau de l'activité est le MINIMUM des deux — comparer est tout le
+   travail. L'échelle est ordonnée (0→4) : elle se dessine en ligne. */
+.cv2-res {
+  margin-bottom: 11px; padding: 14px 16px;
+  background: var(--card); border: 1px solid var(--border);
+  border-left: 3px solid var(--pg-accent-border); border-radius: 12px;
+  transition: border-left-color .15s;
+}
+.cv2-res.est-note { border-left-color: var(--pg-accent); }
+.cv2-res .rtete { display: flex; align-items: flex-start; gap: 10px; }
+.cv2-res .rname { flex: 1; min-width: 0; font-weight: 700; font-size: 14px; color: var(--ink); }
+
+/* L'échelle. Cinq paliers en ligne + une gomme « non évalué » à part : effacer
+   n'est pas un niveau, et les deux se ressemblaient trait pour trait. */
+.cv2-echelle { display: flex; align-items: flex-end; gap: 6px; margin-top: 15px; flex-wrap: wrap; }
+.cv2-niv {
+  position: relative; width: 46px; padding: 9px 0 8px; cursor: pointer;
+  font-family: inherit; font-size: 14px; font-weight: 700; color: var(--ink-2);
+  background: var(--card-2); border: 1px solid var(--border); border-radius: 10px;
+  transition: .13s;
+}
+.cv2-niv:hover { border-color: var(--pg-accent); background: var(--card); color: var(--pg-accent-deep); }
+.cv2-niv.sel {
+  background: linear-gradient(135deg, var(--pg-accent), var(--pg-accent-deep));
+  border-color: transparent; color: #fff; box-shadow: 0 6px 16px -6px var(--pg-accent-glow);
+}
+/* Le requis, marqué SUR l'échelle : c'est là qu'on choisit, c'est là qu'il faut
+   savoir où est la cible. Il fallait la retenir du bloc du dessus. */
+/* Un simple trait : le mot « requis » était écrit au-dessus, il chevauchait le
+   standard minimal du résultat — et la ligne de lecture le dit déjà en toutes
+   lettres, juste en dessous. */
+.cv2-niv.cible::before {
+  content: ""; position: absolute; left: 50%; top: -7px; transform: translateX(-50%);
+  width: 18px; height: 3px; border-radius: 2px; background: var(--ink-2);
+}
+.cv2-gomme {
+  margin-left: 4px; padding: 9px 11px; cursor: pointer; align-self: stretch;
+  font-family: inherit; font-size: 12px; font-weight: 700; color: var(--muted);
+  background: none; border: 1px dashed var(--border-strong); border-radius: 10px; transition: .13s;
+}
+.cv2-gomme:hover { color: var(--ink-2); border-color: var(--muted); }
+.cv2-gomme.sel { background: #eef1f7; border-style: solid; border-color: var(--border-strong); color: #5b6577; }
+
+/* La ligne de lecture : le nom du palier choisi, et le rappel du requis. Les
+   cinq noms n'ont pas à être affichés en permanence — seul celui qu'on a pris
+   compte, les autres s'obtiennent au survol. */
+.cv2-auto { margin-top: 6px; font-size: 11.5px; font-weight: 600; color: var(--faint); }
+
+/* La preuve : repliée tant qu'elle est vide. Une zone de saisie ouverte par
+   résultat prenait 60 px pour un champ facultatif. */
+.cv2-preuve-btn {
+  margin-top: 9px; padding: 0; border: none; background: none; cursor: pointer;
+  font-family: inherit; font-size: 12px; font-weight: 700; color: var(--pg-accent-deep);
+}
+.cv2-preuve-btn:hover { text-decoration: underline; }
+.cv2-ev {
+  width: 100%; margin-top: 9px; min-height: 38px; padding: 8px 10px; resize: vertical;
+  font-family: inherit; font-size: 13px;
+  background: var(--card-2); border: 1px solid var(--border); border-radius: var(--r-btn);
+}
+.cv2-ev:focus { outline: none; border-color: var(--pg-accent); background: var(--card); }
+
+/* Bannières */
+.cv2-warn {
+  margin: 0 0 13px; padding: 11px 13px; font-size: 12.5px;
+  background: #fff8ec; border: 1px solid #fadfa6; color: #92590e; border-radius: 12px;
+}
+.cv2-ok {
+  margin-bottom: 13px; padding: 11px 14px; font-size: 12.5px; font-weight: 700;
+  background: linear-gradient(135deg, #effdf4, #e7fbee); border: 1px solid #bbf7d0;
+  color: var(--cv-green-deep); border-radius: 12px;
+}
+.cv2-busy {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 15px; padding: 70px 20px; text-align: center;
+  font-size: 13.5px; font-weight: 600; color: var(--muted);
+}
+.cv2-spin {
+  width: 36px; height: 36px; border-radius: 50%;
+  border: 3px solid var(--pg-accent-border); border-top-color: var(--pg-accent);
+  animation: cv2spin .8s linear infinite;
+}
+@keyframes cv2spin { to { transform: rotate(360deg); } }
+
+/* Configuration (qualification des sorties) */
+.cv2-setup {
+  margin-bottom: 13px; padding: 15px 17px;
+  background: linear-gradient(180deg, var(--card), var(--pg-accent-softer));
+  border: 1px solid var(--pg-accent-border); border-radius: 12px; box-shadow: var(--sh-card);
+}
+.cv2-setup .st { margin-bottom: 4px; font-size: 15px; font-weight: 700; color: var(--ink); }
+.cv2-setup .sd { margin-bottom: 12px; font-size: 12px; line-height: 1.45; color: var(--muted); }
+.cv2-qz {
+  display: flex; align-items: flex-start; justify-content: space-between; gap: 10px;
+  padding: 11px 0; border-bottom: 1px solid var(--border);
+}
+.cv2-qz:last-of-type { border-bottom: none; }
+.cv2-qz .qn { font-size: 13.5px; font-weight: 700; color: var(--ink); }
+.cv2-qz .qj { margin-top: 2px; font-size: 12px; line-height: 1.35; color: var(--muted); }
+.cv2-natsel, .cv2-domsel {
+  padding: 7px 9px; font-family: inherit; font-size: 13px; font-weight: 600;
+  color: var(--ink); background: var(--card);
+  border: 1px solid var(--border-strong); border-radius: var(--r-btn);
+}
+.cv2-natsel:focus, .cv2-domsel:focus { outline: none; border-color: var(--pg-accent); }
+.cv2-minperf {
+  width: 100%; margin-top: 9px; padding: 8px 10px; font-family: inherit; font-size: 13px;
+  background: var(--card); border: 1px solid var(--border-strong); border-radius: var(--r-btn);
+}
+.cv2-minperf:focus { outline: none; border-color: var(--pg-accent); }
+
+/* Diagnostic */
+.cv2-diagres {
+  margin-bottom: 13px; padding: 15px 16px;
+  background: var(--card); border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--sh-card);
+}
+.cv2-diagres .dtitle {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  flex-wrap: wrap; font-weight: 700; color: var(--ink);
+}
+.cv2-diagsub { margin-top: 4px; font-size: 12px; color: var(--muted); }
+.cv2-question { margin: 12px 0 2px; font-size: 12.5px; font-weight: 700; color: var(--ink-2); }
+.cv2-fams { display: flex; flex-direction: column; gap: 8px; margin: 10px 0; }
+.cv2-fam { padding: 11px 13px; border: 1px solid var(--border); border-radius: 12px; cursor: pointer; transition: .13s; }
+.cv2-fam:hover { border-color: var(--pg-accent-border); }
+.cv2-fam.sel { border-color: var(--pg-accent); background: var(--pg-accent-soft); }
+.cv2-fam .fh { display: flex; align-items: center; gap: 8px; font-size: 13.5px; font-weight: 700; color: var(--ink); }
+.cv2-fam .fh .bx { width: 17px; height: 17px; flex: none; border: 1.5px solid var(--muted); border-radius: 6px; transition: .13s; }
+.cv2-fam.sel .fh .bx { background: var(--pg-accent); border-color: var(--pg-accent); box-shadow: inset 0 0 0 2px #fff; }
+.cv2-fam .fd { margin-top: 4px; font-size: 12px; line-height: 1.4; color: var(--muted); }
+.cv2-caps { margin-top: 12px; padding-top: 12px; border-top: 1px dashed var(--border); }
+.cv2-capstitle { margin-bottom: 6px; font-size: 12px; font-weight: 700; color: var(--ink-2); }
+/* LES CAPACITÉS RELIÉES
+   ⚠️ Chaque ligne affichait « — / — » : deux nombres que RIEN dans l'application
+   ne remplissait. On y cherchait un réglage qui n'existait pas — `required_level`
+   ne se posait qu'à la création du lien, et les liens naissent de l'IA. Le
+   requis se RÈGLE ici ; le démontré, que cet écran ne mesure pas, le dit en
+   toutes lettres au lieu d'un tiret. */
+.cv2-cap {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 14px; flex-wrap: wrap;
+  padding: 11px 0; border-bottom: 1px solid var(--border); font-size: 13.5px;
+}
+.cv2-cap:last-child { border-bottom: none; }
+.cv2-cap .ci { min-width: 190px; flex: 1; }
+.cv2-cap .ct { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+.cv2-cap .cl { margin-top: 2px; font-weight: 600; line-height: 1.4; color: var(--ink); }
+.cv2-cap .cr { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+.cv2-cap .cbloc { display: flex; align-items: center; gap: 8px; }
+.cv2-cap .ck { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+.cv2-cap .cniv { display: flex; align-items: center; gap: 4px; }
+.cv2-cap .cdem { font-size: 14px; font-weight: 700; color: var(--ink-2); }
+.cv2-cap .cdem .nonmes { font-size: 12px; font-style: italic; font-weight: 600; color: var(--faint); }
+.cv2-capniv {
+  width: 30px; padding: 5px 0; cursor: pointer;
+  font-family: inherit; font-size: 12.5px; font-weight: 700; color: var(--muted);
+  background: none; border: 1.5px dashed var(--border-strong); border-radius: 8px; transition: .13s;
+}
+.cv2-capniv:hover { border-color: var(--pg-accent); color: var(--pg-accent-deep); }
+.cv2-capniv.sel {
+  border-style: solid; border-color: var(--pg-accent-deep);
+  background: var(--pg-accent-soft); color: var(--pg-accent-deep);
+}
+.cv2-capniv--off { width: auto; padding: 5px 9px; font-size: 11px; border-style: dashed; border-color: var(--border); }
+.cv2-plan { margin-top: 12px; }
+.cv2-plantitle { margin: 12px 0 6px; font-size: 12.5px; font-weight: 700; color: var(--ink-2); }
+.cv2-planitem {
+  margin-bottom: 9px; padding: 11px 13px; font-size: 12.5px;
+  background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 12px;
+}
+.cv2-planitem b { color: var(--cv-green-deep); }
+.cv2-planitem .steps { margin-top: 4px; color: var(--muted); }
+.cv2-noplan {
+  margin-top: 10px; padding: 11px 13px; font-size: 12.5px;
+  background: var(--pg-accent-soft); border: 1px solid var(--pg-accent-border);
+  color: var(--pg-accent-deep); border-radius: 12px;
+}
+
+/* Technicité */
+.cv2-tech {
+  margin-top: 6px; overflow: hidden;
+  background: var(--card); border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--sh-card);
+}
+.cv2-tech > summary {
+  display: flex; align-items: center; gap: 10px; padding: 13px 15px;
+  list-style: none; cursor: pointer; font-size: 13.5px; font-weight: 700; color: var(--ink);
+}
+.cv2-tech > summary::-webkit-details-marker { display: none; }
+.cv2-tech > summary .ti {
+  width: 27px; height: 27px; flex-shrink: 0; border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  background: linear-gradient(135deg, var(--pg-accent), var(--pg-accent-deep));
+}
+.cv2-tech > summary .caret { margin-left: auto; color: var(--muted); transition: .2s; }
+.cv2-tech[open] > summary .caret { transform: rotate(90deg); }
+.cv2-tech .tbody { padding: 2px 15px 15px; }
+.cv2-tech .texp { margin-bottom: 12px; font-size: 12px; line-height: 1.5; color: var(--muted); }
+.cv2-domrow {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  padding: 10px 0; border-bottom: 1px solid var(--border);
+}
+.cv2-domrow:last-child { border-bottom: none; }
+.cv2-domrow .dn { flex: 1; min-width: 120px; font-size: 13.5px; font-weight: 700; color: var(--ink); }
+.cv2-domrow .df { display: flex; flex-direction: column; gap: 3px; }
+.cv2-domrow .df .fl { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+.cv2-domadd { display: flex; gap: 8px; align-items: center; margin-top: 12px; flex-wrap: wrap; }
+.cv2-domadd input {
+  flex: 1; min-width: 140px; padding: 7px 10px; font-family: inherit; font-size: 13.5px;
+  background: var(--card); border: 1px solid var(--border-strong); border-radius: var(--r-btn);
+}
+.cv2-emptydom { padding: 6px 0 2px; font-size: 12px; color: var(--muted); }
+
+/* Toast */
+.cv2-toast {
+  position: fixed; bottom: 24px; left: 50%; z-index: 60;
+  transform: translateX(-50%) translateY(10px); opacity: 0; pointer-events: none;
+  padding: 12px 20px; border-radius: 12px; box-shadow: var(--sh-pop);
+  background: var(--ink); color: #fff; font-size: 13.5px; font-weight: 700; transition: .25s;
+}
+.cv2-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+/* ── Écrans étroits ───────────────────────────────────────────────────────
+   La grille perd ses colonnes une par une, dans l'ordre inverse de leur
+   importance : la technicité d'abord, l'action ensuite (elle passe sous le
+   nom), jamais la jauge — c'est elle qu'on vient lire. */
+@media (max-width: 860px) {
+  .cv2-entete, .cv2-ligne { grid-template-columns: minmax(0, 1fr) 272px 106px; }
+  .cv2-entete .th-tech, .cv2-cell-tech { display: none; }
+}
+@media (max-width: 760px) {
+  .cv2-layout { flex-direction: column; }
+  .cv2-sidebar { width: 100%; position: static; }
+}
+@media (max-width: 640px) {
+  .cv2-entete { display: none; }
+  .cv2-ligne { grid-template-columns: minmax(0, 1fr); gap: 9px; padding: 14px 16px; }
+  .cv2-cell-act { justify-content: flex-start; }
+  .cv2-synth { gap: 16px; }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   ÉCRAN 1 — LA SYNTHÈSE
+   On entrait directement dans le détail d'un rôle : où en était la personne,
+   tous rôles confondus, ne se voyait nulle part. Une carte par rôle, la même
+   jauge que partout ailleurs, et le chemin pour entrer dans le détail.
+   ══════════════════════════════════════════════════════════════════════════ */
+.cv2-ecran { animation: cv2-entre .22s ease-out; }
+@keyframes cv2-entre { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+.cv2-rolecards { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); }
+.cv2-rolecard {
+  position: relative; overflow: hidden; padding: 16px 17px 14px;
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: var(--r-card); box-shadow: var(--sh-card);
+  transition: transform .16s, box-shadow .16s, border-color .16s;
+}
+.cv2-rolecard:hover { transform: translateY(-2px); box-shadow: 0 14px 30px -16px rgba(15, 23, 42, .3); }
+/* Un filet de couleur en tête de carte : l'état du rôle se voit avant de lire. */
+.cv2-rolecard::before {
+  content: ""; position: absolute; left: 0; right: 0; top: 0; height: 3px; background: var(--cv-grey);
+}
+.cv2-rolecard--green::before  { background: var(--cv-green); }
+.cv2-rolecard--orange::before { background: var(--cv-orange); }
+.cv2-rolecard--red::before    { background: var(--cv-red); }
+.cv2-rolecard .rc-tete { display: flex; align-items: flex-start; gap: 10px; }
+.cv2-rolecard .rc-nom {
+  flex: 1; min-width: 0; font-family: var(--pg-font-display);
+  font-size: 17px; font-weight: 700; letter-spacing: -.01em; color: var(--ink);
+}
+.cv2-rolecard .rc-n { margin-top: 2px; font-size: 11.5px; font-weight: 600; color: var(--faint); }
+.cv2-rolecard .rc-jauge { margin: 13px 0 12px; }
+.cv2-rolecard .rc-pieds { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
+.cv2-rolecard .rc-pieds { justify-content: flex-end; }
+
+/* Les quatre états, en pastilles compactes : mêmes couleurs que le bandeau et
+   que la liste, pour qu'un coup d'œil suffise à relier les trois. */
+.cv2-etats { display: flex; gap: 5px; flex-wrap: wrap; }
+.cv2-etat {
+  display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px;
+  border-radius: 999px; font-size: 11.5px; font-weight: 700;
+  background: var(--card-2); color: var(--ink-2);
+}
+.cv2-etat i { width: 7px; height: 7px; border-radius: 50%; flex: none; }
+.cv2-etat--green  { background: #f0fdf4; color: var(--cv-green-deep); }
+.cv2-etat--green i  { background: var(--cv-green); }
+.cv2-etat--orange { background: #fff7ed; color: var(--cv-orange-deep); }
+.cv2-etat--orange i { background: var(--cv-orange); }
+.cv2-etat--blue   { background: var(--pg-accent-soft); color: var(--pg-accent-deep); }
+.cv2-etat--blue i { background: var(--pg-accent); }
+.cv2-etat--grey   { background: #eef1f7; color: #5b6577; }
+.cv2-etat--grey i   { background: var(--cv-grey); }
+
+/* Le fil d'Ariane du détail : on doit savoir d'où l'on vient et comment
+   revenir, sinon la vue d'ensemble est un cul-de-sac. */
+.cv2-fil { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; margin-bottom: 13px; }
+.cv2-retour {
+  display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px;
+  font-family: inherit; font-size: 13px; font-weight: 700; color: var(--pg-accent-deep);
+  background: var(--card); border: 1px solid var(--pg-accent-border);
+  border-radius: 999px; cursor: pointer; transition: .14s;
+}
+.cv2-retour:hover { background: var(--pg-accent-soft); transform: translateX(-2px); }
+.cv2-fil-sep { color: var(--faint); font-weight: 700; }
+.cv2-fil-role { font-family: var(--pg-font-display); font-size: 17px; font-weight: 700; color: var(--ink); }
+.cv2-fil-plan { margin-left: auto; }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   LES DEUX NOTES
+   Le niveau qui fait foi est celui du développeur de compétences ;
+   l'auto-évaluation est un REPÈRE, jamais un résultat (CDC 3.6). Elles ne
+   peuvent donc pas se ressembler : la note officielle est pleine, l'auto-
+   évaluation est un contour.
+   ══════════════════════════════════════════════════════════════════════════ */
+.cv2-note .nlbl .pastille { width: 13px; height: 13px; flex: none; border-radius: 4px; background: var(--pg-accent); }
+.cv2-note--auto .nlbl .pastille { background: none; border: 1.5px dashed var(--border-strong); }
+.cv2-note--auto .nlbl { color: var(--faint); }
+.cv2-officielle-tag {
+  padding: 1px 6px; border-radius: 5px; font-size: 9.5px; letter-spacing: .04em;
+  background: var(--pg-accent-soft); color: var(--pg-accent-deep);
+}
+
+/* L'auto-évaluation posée SUR l'échelle du développeur : un contour sur le
+   palier que le collaborateur s'est donné. Deux échelles côte à côte feraient
+   croire à deux notes de même rang. */
+.cv2-niv.sel.auto::after { border-color: rgba(255, 255, 255, .75); opacity: .9; }
+.cv2-accord {
+  display: inline-flex; align-items: center; gap: 5px; margin-top: 8px;
+  padding: 3px 9px; border-radius: 999px; font-size: 11.5px; font-weight: 700;
+}
+.cv2-accord--ok   { background: #f0fdf4; color: var(--cv-green-deep); }
+.cv2-accord--haut { background: #fff7ed; color: var(--cv-orange-deep); }
+.cv2-accord--bas  { background: var(--pg-accent-soft); color: var(--pg-accent-deep); }
+.cv2-lecture-seule { opacity: .72; pointer-events: none; }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   LE NIVEAU REQUIS
+   ⚠️ C'était un lien « modifier » qui dépliait six boutons gris minuscules :
+   rien ne disait que c'était réglable, et une fois déplié rien ne disait que
+   c'était une CIBLE et non une note. Même échelle que la notation, mais en
+   creux — une cible se dessine, elle ne se remplit pas.
+   ══════════════════════════════════════════════════════════════════════════ */
+.cv2-cible { display: flex; align-items: flex-end; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+.cv2-cible-niv {
+  position: relative; width: 40px; padding: 7px 0 6px; cursor: pointer;
+  font-family: inherit; font-size: 13px; font-weight: 700; color: var(--muted);
+  background: none; border: 1.5px dashed var(--border-strong); border-radius: 9px; transition: .13s;
+}
+.cv2-cible-niv:hover:not(:disabled) { border-color: var(--pg-accent); color: var(--pg-accent-deep); }
+.cv2-cible-niv.sel {
+  border-style: solid; border-color: var(--pg-accent-deep);
+  background: var(--pg-accent-soft); color: var(--pg-accent-deep); box-shadow: inset 0 0 0 2px #fff;
+}
+.cv2-cible-niv:disabled { cursor: default; opacity: .8; }
+.cv2-cible-off {
+  padding: 7px 10px; font-family: inherit; font-size: 11.5px; font-weight: 700;
+  color: var(--faint); background: none; border: 1.5px dashed var(--border);
+  border-radius: 9px; cursor: pointer;
+}
+.cv2-cible-off.sel { border-style: solid; color: var(--ink-2); }
+/* Le niveau lu se pose à DROITE des paliers, pas dessous : sous l'échelle il
+   poussait tout le bloc vers le bas pour une seule ligne de texte. */
+.cv2-cible-dit {
+  margin: 0 0 0 auto; align-self: center; padding: 6px 13px; border-radius: 999px;
+  background: var(--pg-accent-soft); color: var(--pg-accent-deep);
+  font-size: 13px; font-weight: 600; white-space: nowrap;
+}
+.cv2-cible-dit b { font-size: 15.5px; font-weight: 800; }
+@media (max-width: 760px) { .cv2-cible-dit { margin-left: 0; } }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   SECTIONS DE LA FENÊTRE
+   ⚠️ Évaluation et Technicité se confondaient : deux blocs blancs à la suite,
+   rien ne disait qu'on changeait de sujet. Ce sont deux AXES distincts (la
+   maîtrise d'un côté, le contexte technique de l'autre) — ils portent donc
+   chacun leur en-tête, leur numéro et leur teinte.
+   ══════════════════════════════════════════════════════════════════════════ */
+/* Un simple filet séparait 1 et 2 : deux étendues blanches à la suite, on ne
+   voyait pas où l'une finissait. La 3 se distinguait déjà (fond bleu plein) —
+   les trois portent donc chacune SA surface : la cible sur un fond neutre, ce
+   qu'on note sur un fond clair cerclé d'accent, la technicité en bleu. */
+.cv2-bloc {
+  margin: 0 22px 14px; padding: 15px 16px 16px;
+  border-radius: 14px; background: var(--card-2); border: 1px solid var(--border);
+}
+/* Bleu pastel, et les cartes de résultat restent BLANCHES dessus : c'est le
+   contraste entre les deux qui fait ressortir chaque activité à noter. Teinter
+   les cartes aussi rendrait la section uniforme, et on perdrait le découpage.
+   ⚠️ Le mélange est écrit ICI, et pas pris dans `--pg-accent-soft` : les quatre
+   dérivés (`-soft`, `-softer`, `-border`, `-glow`) sont déclarés sur `:root`
+   dans ui-theme, où `--pg-accent` vaut encore le GRIS par défaut (#64748b). Une
+   propriété personnalisée est résolue là où elle est DÉCLARÉE, pas là où elle
+   est employée — `.page--competences` ne redéfinit que `--pg-accent` et
+   `--pg-accent-deep`, donc les dérivés restent gris sur toute l'application.
+   Écrire le mélange dans la règle le résout contre le bleu de l'élément, comme
+   le fait déjà `.cv2-nt--off` juste au-dessus. */
+.cv2-bloc--eval {
+  background: color-mix(in srgb, var(--pg-accent) 10%, #fff);
+  border-color: color-mix(in srgb, var(--pg-accent) 26%, #fff);
+  box-shadow: 0 8px 22px -16px color-mix(in srgb, var(--pg-accent) 30%, transparent);
+}
+.cv2-bloc-tete { display: flex; align-items: flex-start; gap: 11px; margin-bottom: 12px; }
+.cv2-bloc-num {
+  width: 25px; height: 25px; flex: none; border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 12px; font-weight: 700; color: #fff;
+  background: linear-gradient(135deg, var(--pg-accent), var(--pg-accent-deep));
+}
+.cv2-bloc-h { font-size: 15px; font-weight: 700; line-height: 1.25; color: var(--ink); }
+.cv2-bloc-d { margin-top: 3px; font-size: 12px; line-height: 1.45; color: var(--muted); }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   CE QUE L'IA APPORTE
+   ⚠️ On cliquait « Configurer », ça réfléchissait trois secondes, une liste
+   apparaissait — sans jamais dire ce qui venait d'être fait ni par qui. Une
+   proposition de la machine s'annonce, se justifie, et reste corrigeable.
+   ══════════════════════════════════════════════════════════════════════════ */
+.cv2-ia {
+  display: flex; align-items: flex-start; gap: 11px; padding: 13px 15px; margin-bottom: 13px;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--pg-accent) 7%, #fff), var(--pg-accent-softer));
+  border: 1px solid var(--pg-accent-border); border-radius: 12px;
+}
+.cv2-ia-ico {
+  width: 28px; height: 28px; flex: none; border-radius: 9px;
+  display: flex; align-items: center; justify-content: center; font-size: 13px; color: #fff;
+  background: linear-gradient(135deg, var(--pg-accent), var(--pg-accent-deep));
+}
+.cv2-ia-t { font-size: 13.5px; font-weight: 700; color: var(--ink); }
+.cv2-ia-d { margin-top: 3px; font-size: 12px; line-height: 1.5; color: var(--ink-2); }
+.cv2-ia-d ul { margin: 6px 0 0; padding-left: 17px; }
+.cv2-ia-d li { margin-bottom: 2px; }
+.cv2-ia--off { background: var(--card-2); border-color: var(--border); }
+.cv2-ia--off .cv2-ia-ico { background: var(--border-strong); }
+
+/* Pastille « proposé par l'IA » sur une ligne, avec son degré de confiance. */
+.cv2-prop {
+  display: inline-flex; align-items: center; gap: 5px; margin-top: 4px;
+  padding: 2px 8px; border-radius: 999px; font-size: 10.5px; font-weight: 700;
+  background: var(--pg-accent-soft); color: var(--pg-accent-deep);
+}
+.cv2-prop--low { background: #fff7ed; color: var(--cv-orange-deep); }
+.cv2-prop--touche { background: #eef1f7; color: #5b6577; }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   LE PLAN DE FORMATION
+   Le besoin (les actions et leurs heures) d'un côté, la capacité (ce qu'on peut
+   y consacrer) de l'autre, et entre les deux un verdict qui bouge en direct.
+   Les curseurs ne rappellent JAMAIS le serveur : le calcul est local, sinon on
+   n'oserait pas les faire glisser.
+   ══════════════════════════════════════════════════════════════════════════ */
+.cv2-plan-win {
+  position: fixed; top: 50%; left: 50%; z-index: 51;
+  transform: translate(-50%, -46%) scale(.97); opacity: 0; pointer-events: none;
+  width: min(940px, 95vw); max-height: 92vh;
+  display: flex; flex-direction: column; overflow: hidden;
+  background: var(--card); border: 1px solid var(--border); border-radius: 18px;
+  box-shadow: var(--sh-pop);
+  transition: transform .26s cubic-bezier(.34, 1.2, .4, 1), opacity .22s;
+}
+.cv2-plan-win.open { transform: translate(-50%, -50%) scale(1); opacity: 1; pointer-events: auto; }
+.cv2-ph {
+  flex: none; position: relative; overflow: hidden; color: #fff;
+  display: flex; align-items: baseline; gap: 13px; flex-wrap: wrap;
+  padding: 17px 60px 16px 24px;
+  background: linear-gradient(135deg, #1d4ed8, #4c1d95);
+}
+.cv2-ph::after {
+  content: ""; position: absolute; right: -60px; top: -70px; width: 200px; height: 200px;
+  border-radius: 50%; pointer-events: none;
+  background: radial-gradient(circle, rgba(255, 255, 255, .16), transparent 70%);
+}
+.cv2-ph h2 {
+  margin: 0; font-family: var(--pg-font-display); font-size: 21px; font-weight: 700; line-height: 1.2;
+}
+.cv2-ph .cv2-sub {
+  display: flex; align-items: center; gap: 8px; margin: 0;
+  padding-left: 13px; border-left: 1px solid rgba(255, 255, 255, .32);
+  font-size: 14px; font-weight: 600; color: rgba(255, 255, 255, .94);
+}
+.cv2-ph .cv2-sub .ou {
+  padding: 2px 10px; border-radius: 999px;
+  background: rgba(255, 255, 255, .2); font-size: 12.5px; font-weight: 700;
+}
+@media (max-width: 760px) {
+  .cv2-ph .cv2-sub { padding-left: 0; border-left: none; }
+}
+.cv2-ph .x {
+  position: absolute; right: 16px; top: 15px; z-index: 2;
+  width: 30px; height: 30px; border: none; border-radius: 9px;
+  background: rgba(255, 255, 255, .16); color: #fff; font-size: 18px; line-height: 1; cursor: pointer;
+}
+.cv2-ph .x:hover { background: rgba(255, 255, 255, .3); }
+.cv2-pb { flex: 1; overflow-y: auto; padding: 18px 24px 20px; }
+
+.cv2-plan-grille { display: grid; gap: 18px; grid-template-columns: minmax(0, 1.55fr) minmax(258px, 1fr); }
+.cv2-plan-h {
+  display: flex; align-items: baseline; gap: 8px; margin-bottom: 9px;
+  font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--muted);
+}
+.cv2-plan-h .tot { margin-left: auto; font-size: 12.5px; color: var(--ink-2); text-transform: none; letter-spacing: 0; }
+
+/* Une action : la charge est modifiable à la main — l'estimation est un point
+   de départ, pas un verdict. */
+.cv2-action {
+  display: flex; align-items: flex-start; gap: 11px; padding: 11px 13px; margin-bottom: 8px;
+  background: var(--card); border: 1px solid var(--border); border-left: 3px solid var(--pg-accent-border);
+  border-radius: 11px; animation: cv2-entre .24s ease-out backwards;
+}
+.cv2-action--TERRAIN        { border-left-color: #16a34a; }
+.cv2-action--ACCOMPAGNEMENT { border-left-color: #d97706; }
+.cv2-action--FORMATION      { border-left-color: var(--pg-accent); }
+.cv2-action .ac-corps { flex: 1; min-width: 0; }
+.cv2-action .ac-t { font-size: 13.5px; font-weight: 700; color: var(--ink); }
+.cv2-action .ac-m { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; margin-top: 4px; }
+.cv2-action .ac-o { margin-top: 4px; font-size: 12px; line-height: 1.45; color: var(--muted); }
+.cv2-action .ac-c {
+  margin-top: 5px; padding: 6px 9px; border-radius: 8px;
+  font-size: 11.5px; line-height: 1.4; background: var(--card-2); color: var(--ink-2);
+}
+.cv2-action .ac-c b { color: var(--cv-green-deep); }
+.cv2-typetag {
+  padding: 2px 8px; border-radius: 999px; font-size: 10.5px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .04em;
+}
+.cv2-typetag--TERRAIN        { background: #f0fdf4; color: var(--cv-green-deep); }
+.cv2-typetag--ACCOMPAGNEMENT { background: #fff7ed; color: var(--cv-orange-deep); }
+.cv2-typetag--FORMATION      { background: var(--pg-accent-soft); color: var(--pg-accent-deep); }
+.cv2-heures { display: inline-flex; align-items: center; gap: 3px; font-size: 12px; font-weight: 700; color: var(--ink-2); }
+.cv2-heures input {
+  width: 46px; padding: 3px 5px; text-align: right;
+  font-family: inherit; font-size: 12px; font-weight: 700; color: var(--ink);
+  background: var(--card-2); border: 1px solid var(--border); border-radius: 7px;
+}
+.cv2-heures input:focus { outline: none; border-color: var(--pg-accent); background: var(--card); }
+.cv2-action .ac-x {
+  width: 24px; height: 24px; flex: none; padding: 0; border: none; border-radius: 7px;
+  background: none; color: var(--faint); font-size: 15px; line-height: 1; cursor: pointer; transition: .13s;
+}
+.cv2-action .ac-x:hover { background: #fef2f2; color: var(--cv-red-deep); }
+
+/* Le panneau des curseurs */
+.cv2-reglages {
+  position: sticky; top: 0; padding: 15px 16px;
+  background: linear-gradient(180deg, var(--card-2), var(--card));
+  border: 1px solid var(--border); border-radius: 14px;
+}
+.cv2-curseur { margin-bottom: 15px; }
+.cv2-curseur .cl {
+  display: flex; align-items: baseline; gap: 8px; margin-bottom: 7px;
+  font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--muted);
+}
+.cv2-curseur .cv {
+  margin-left: auto; font-family: var(--pg-font-display); font-size: 17px;
+  text-transform: none; letter-spacing: 0; color: var(--pg-accent-deep);
+}
+.cv2-curseur input[type=range] {
+  width: 100%; height: 22px; margin: 0; padding: 0;
+  background: none; -webkit-appearance: none; appearance: none; cursor: pointer;
+}
+.cv2-curseur input[type=range]::-webkit-slider-runnable-track {
+  height: 6px; border-radius: 3px;
+  background: linear-gradient(90deg, var(--pg-accent) var(--p, 50%), var(--border) var(--p, 50%));
+}
+.cv2-curseur input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none; margin-top: -6px;
+  width: 18px; height: 18px; border-radius: 50%;
+  background: #fff; border: 2px solid var(--pg-accent-deep);
+  box-shadow: 0 2px 6px rgba(15, 23, 42, .2); transition: transform .12s;
+}
+.cv2-curseur input[type=range]:active::-webkit-slider-thumb { transform: scale(1.18); }
+.cv2-curseur input[type=range]::-moz-range-track { height: 6px; border-radius: 3px; background: var(--border); }
+.cv2-curseur input[type=range]::-moz-range-progress { height: 6px; border-radius: 3px; background: var(--pg-accent); }
+.cv2-curseur input[type=range]::-moz-range-thumb {
+  width: 16px; height: 16px; border-radius: 50%;
+  background: #fff; border: 2px solid var(--pg-accent-deep); box-shadow: 0 2px 6px rgba(15, 23, 42, .2);
+}
+
+/* Le verdict : une barre besoin/capacité et une phrase. La barre bouge en même
+   temps que le curseur — c'est elle qui rend le réglage jouable. */
+.cv2-verdict { margin-top: 4px; padding-top: 14px; border-top: 1px dashed var(--border); }
+.cv2-barre {
+  position: relative; height: 12px; border-radius: 6px; overflow: hidden;
+  background: var(--card-2); box-shadow: inset 0 0 0 1px var(--border);
+}
+.cv2-barre i {
+  position: absolute; left: 0; top: 0; bottom: 0; border-radius: 6px;
+  background: linear-gradient(90deg, var(--cv-green), #16a34a);
+  transition: width .35s cubic-bezier(.4, 1.3, .5, 1), background .3s;
+}
+.cv2-barre.tendu i { background: linear-gradient(90deg, #fbbf24, var(--cv-orange)); }
+.cv2-barre.trop i  { background: linear-gradient(90deg, #f87171, var(--cv-red)); }
+.cv2-chiffres {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-top: 9px;
+  font-size: 11.5px; font-weight: 700; color: var(--muted);
+}
+.cv2-chiffres b { font-family: var(--pg-font-display); font-size: 15px; color: var(--ink); }
+.cv2-dit { margin-top: 11px; padding: 10px 12px; border-radius: 10px; font-size: 12.5px; font-weight: 600; line-height: 1.5; }
+.cv2-dit--ok    { background: #f0fdf4; border: 1px solid #bbf7d0; color: var(--cv-green-deep); }
+.cv2-dit--tendu { background: #fff8ec; border: 1px solid #fadfa6; color: #92590e; }
+.cv2-dit--trop  { background: #fef2f2; border: 1px solid #fecaca; color: var(--cv-red-deep); }
+.cv2-juste {
+  width: 100%; margin-top: 10px; padding: 8px 12px; cursor: pointer;
+  font-family: inherit; font-size: 12.5px; font-weight: 700; color: var(--pg-accent-deep);
+  background: var(--card); border: 1px dashed var(--pg-accent-border); border-radius: 9px; transition: .14s;
+}
+.cv2-juste:hover { background: var(--pg-accent-soft); border-style: solid; }
+
+/* L'échéancier : où tombe chaque action dans les semaines disponibles. */
+.cv2-semaines { display: flex; gap: 3px; margin-top: 12px; }
+.cv2-semaine {
+  flex: 1; height: 26px; border-radius: 5px; background: var(--card-2);
+  box-shadow: inset 0 0 0 1px var(--border);
+  display: flex; align-items: flex-end; overflow: hidden;
+}
+.cv2-semaine i { width: 100%; border-radius: 4px 4px 0 0; background: var(--pg-accent); transition: height .3s cubic-bezier(.4, 1.3, .5, 1); }
+.cv2-semaine.deborde i { background: var(--cv-red); }
+.cv2-echlbl { margin-top: 6px; font-size: 11px; font-weight: 600; color: var(--faint); text-align: center; }
+
+.cv2-plan-vide { padding: 40px 20px; text-align: center; font-size: 13.5px; font-weight: 600; color: var(--muted); }
+
+@media (max-width: 860px) {
+  .cv2-plan-grille { grid-template-columns: minmax(0, 1fr); }
+  .cv2-reglages { position: static; }
+  /* En colonne, les curseurs passent DEVANT : ce sont eux qu'on vient
+     manipuler, et ils se retrouvaient sous cinq cartes d'action. */
+  .cv2-plan-grille > div:last-child { order: -1; }
+}
+
+/* L'en-tête d'un bloc peut porter son propre bilan à droite : le niveau qui
+   fait foi appartient à la section qui le produit, pas à un bandeau séparé qui
+   répéterait les mêmes nombres. */
+.cv2-bloc-txt { flex: 1; min-width: 0; }
+.cv2-bloc-bilan { flex: none; max-width: 210px; text-align: right; }
+.cv2-bloc-bilan .k {
+  margin-bottom: 5px; font-size: 10.5px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .04em; color: var(--muted);
+}
+/* ⚠️ La jauge a grossi : le nom du palier (« Autonome / compétent ») passait
+   de 138 px disponibles à 85, donc coupé net. On laisse le libellé PASSER À LA
+   LIGNE sous la jauge plutôt que d'élargir le bilan — élargir aurait pris la
+   place du titre de la section, qui se lit en premier. */
+.cv2-bloc-bilan .cv2-jauge { justify-content: flex-end; flex-wrap: wrap; row-gap: 3px; }
+.cv2-bloc-bilan .cv2-jauge-txt .lv { white-space: normal; overflow: visible; }
+
+/* La note de repère tient sur UNE ligne : en trois, elle pesait autant à l'œil
+   que celle qui fait foi. */
+@media (max-width: 720px) { .cv2-bloc-bilan { display: none; } }
+
+/* Les flèches natives d'un input[type=number] mangeaient la moitié du champ :
+   à 46 px le nombre se retrouvait coupé. */
+.cv2-heures input { width: 54px; -moz-appearance: textfield; appearance: textfield; }
+.cv2-heures input::-webkit-outer-spin-button,
+.cv2-heures input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   LES DEUX NOTES — MÊME OBJET, IDENTITÉS DISTINCTES
+   ⚠️ Elles avaient deux POIDS VISUELS différents : la note officielle était une
+   échelle, l'auto-évaluation une ligne de texte minuscule en dessous. On ne
+   savait plus laquelle était laquelle, et la seconde avait l'air d'être un
+   commentaire de la première. Elles portent maintenant le même objet — l'échelle
+   0→4 — et se distinguent par une identité tenue partout :
+
+       niveau validé     BLEU (accent de la page) · écusson · « fait foi »
+       auto-évaluation   VIOLET                   · silhouette
+
+   Celle qui vous appartient se clique ; l'autre est posée, verrouillée.
+   L'ordre ne bouge jamais : celle qui fait foi d'abord, quel que soit le regard.
+   ══════════════════════════════════════════════════════════════════════════ */
+:root { --cv-auto: #7c3aed; --cv-auto-deep: #6d28d9; }
+
+.cv2-nt {
+  margin-top: 11px; padding: 10px 12px 11px;
+  border: 1px solid var(--border); border-radius: 11px; background: var(--card-2);
+}
+.cv2-nt--off {
+  border-color: color-mix(in srgb, var(--pg-accent) 30%, #fff);
+  background: color-mix(in srgb, var(--pg-accent) 5%, #fff);
+}
+.cv2-nt--auto {
+  border-color: color-mix(in srgb, var(--cv-auto) 26%, #fff);
+  background: color-mix(in srgb, var(--cv-auto) 4%, #fff);
+}
+/* Une note posée là pour être lue : pas de survol, pas de curseur, un voile. */
+.cv2-nt.is-posee { opacity: .82; }
+.cv2-nt.is-posee .cv2-niv { cursor: default; }
+
+.cv2-nt-tete { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
+.cv2-nt-ico {
+  width: 20px; height: 20px; flex: none; border-radius: 6px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10px; color: #fff;
+}
+.cv2-nt--off  .cv2-nt-ico { background: var(--pg-accent); }
+.cv2-nt--auto .cv2-nt-ico { background: var(--cv-auto); }
+.cv2-nt-lbl {
+  font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em;
+}
+.cv2-nt--off  .cv2-nt-lbl { color: var(--pg-accent-deep); }
+.cv2-nt--auto .cv2-nt-lbl { color: var(--cv-auto-deep); }
+.cv2-nt-tag {
+  padding: 1px 6px; border-radius: 5px;
+  font-size: 9.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em;
+}
+.cv2-nt--off  .cv2-nt-tag { background: var(--pg-accent-soft); color: var(--pg-accent-deep); }
+.cv2-nt--auto .cv2-nt-tag { background: color-mix(in srgb, var(--cv-auto) 12%, #fff); color: var(--cv-auto-deep); }
+/* La valeur choisie s'écrit à DROITE de son en-tête : elle remplace la ligne de
+   lecture qui vivait sous l'échelle, et chaque note porte donc la sienne. */
+.cv2-nt-val { margin-left: auto; font-size: 12.5px; font-weight: 600; color: var(--ink-2); }
+.cv2-nt-val b { font-size: 13.5px; color: var(--ink); }
+.cv2-nt-vide { font-style: italic; color: var(--faint); font-weight: 600; }
+.cv2-nt .cv2-echelle { margin-top: 10px; }
+
+/* L'échelle de l'auto-évaluation prend le violet : même forme, autre identité. */
+.cv2-nt--auto .cv2-niv.sel {
+  background: linear-gradient(135deg, var(--cv-auto), var(--cv-auto-deep));
+  box-shadow: 0 6px 16px -6px color-mix(in srgb, var(--cv-auto) 40%, transparent);
+}
+.cv2-nt--auto .cv2-niv:hover:not(:disabled):not(.sel) {
+  border-color: var(--cv-auto); color: var(--cv-auto-deep);
+}
+.cv2-nt--auto .cv2-gomme.sel { border-color: color-mix(in srgb, var(--cv-auto) 30%, #fff); }
+.cv2-niv:disabled { cursor: default; }
+.cv2-niv:disabled:hover { border-color: var(--border); background: var(--card-2); color: var(--ink-2); }
+.cv2-nt--auto .cv2-niv:disabled.sel,
+.cv2-nt--off .cv2-niv:disabled.sel { color: #fff; }
+
+/* Le point d'interrogation qui remplace le standard minimal écrit en toutes
+   lettres : la référence reste consultable, elle ne prend plus deux lignes. */
+.cv2-astuce { margin-left: 5px; font-size: 11px; color: var(--faint); cursor: help; }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   LE PROFIL DE COMPÉTENCES
+   La vue d'ensemble n'était qu'une rangée de portes vers les rôles. Elle porte
+   maintenant ce qu'on ne peut voir NULLE PART ailleurs : la forme de ce que la
+   personne tient, superposée à ce que ses rôles exigent.
+   ══════════════════════════════════════════════════════════════════════════ */
+.cv2-profil {
+  margin-bottom: 16px; padding: 17px 19px 15px;
+  background: linear-gradient(180deg, var(--card), var(--pg-accent-softer));
+  border: 1px solid var(--border); border-radius: var(--r-card); box-shadow: var(--sh-card);
+  animation: cv2-entre .28s ease-out;
+}
+.cv2-profil-tete { display: flex; align-items: flex-start; gap: 16px; flex-wrap: wrap; margin-bottom: 14px; }
+.cv2-profil-h {
+  font-family: var(--pg-font-display); font-size: 18px; font-weight: 700;
+  letter-spacing: -.01em; color: var(--ink);
+}
+.cv2-profil-kpi { display: flex; gap: 9px; margin-left: auto; flex-wrap: wrap; }
+.cv2-kpi {
+  min-width: 82px; padding: 9px 13px; text-align: center;
+  background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+}
+.cv2-kpi .n {
+  font-family: var(--pg-font-display); font-size: 21px; font-weight: 700; line-height: 1; color: var(--ink);
+}
+.cv2-kpi .n small { font-size: 12px; font-weight: 700; margin-left: 1px; }
+.cv2-kpi .k {
+  margin-top: 5px; font-size: 10.5px; font-weight: 700; color: var(--muted);
+  text-transform: uppercase; letter-spacing: .04em;
+}
+.cv2-kpi--fort {
+  background: linear-gradient(135deg, var(--pg-accent), var(--pg-accent-deep));
+  border-color: transparent; box-shadow: 0 8px 20px -8px var(--pg-accent-glow);
+}
+.cv2-kpi--fort .n, .cv2-kpi--fort .k { color: #fff; }
+.cv2-kpi--fort .k { opacity: .88; }
+
+.cv2-profil-corps { display: grid; gap: 18px; grid-template-columns: minmax(0, 1.15fr) minmax(240px, .85fr); align-items: start; }
+
+/* ── Le radar ─────────────────────────────────────────────────────────── */
+.cv2-radar-zone { min-width: 0; }
+.cv2-radar { display: block; width: 100%; height: auto; max-height: 400px; overflow: visible; }
+.cv2-r-grid { fill: none; stroke: var(--border); stroke-width: 1; }
+.cv2-r-axe  { stroke: var(--border); stroke-width: 1; }
+/* Le requis : un contour, c'est une CIBLE. Le démontré : une surface pleine,
+   c'est ce qui est acquis. On voit d'un coup où la seconde sort de la première. */
+.cv2-r-req {
+  fill: color-mix(in srgb, var(--cv-green) 13%, transparent);
+  stroke: var(--cv-green); stroke-width: 2; stroke-linejoin: round;
+}
+.cv2-r-dem {
+  fill: color-mix(in srgb, var(--pg-accent) 22%, transparent);
+  stroke: var(--pg-accent); stroke-width: 2; stroke-linejoin: round;
+  animation: cv2-radar-in .5s cubic-bezier(.34, 1.1, .4, 1) backwards;
+}
+@keyframes cv2-radar-in { from { opacity: 0; transform: scale(.82); transform-origin: 260px 200px; } }
+.cv2-r-pt { fill: var(--pg-accent); stroke: #fff; stroke-width: 1.5; }
+.cv2-r-pt--vide { fill: #fff; stroke: var(--border-strong); stroke-width: 1.5; }
+.cv2-r-lbl { font-family: var(--pg-font); font-size: 10.5px; font-weight: 600; fill: var(--muted); }
+
+.cv2-radar-leg { display: flex; gap: 16px; justify-content: center; margin-top: 4px; font-size: 11.5px; font-weight: 700; color: var(--muted); }
+.cv2-radar-leg span { display: inline-flex; align-items: center; gap: 6px; }
+.cv2-leg { width: 14px; height: 3px; border-radius: 2px; flex: none; }
+.cv2-leg--req { background: var(--cv-green); }
+.cv2-leg--dem { background: var(--pg-accent); }
+.cv2-radar-note { margin-top: 8px; font-size: 11px; font-style: italic; color: var(--faint); text-align: center; }
+
+/* ── La colonne « par rôle » ──────────────────────────────────────────── */
+.cv2-parrole {
+  padding: 13px 14px; background: var(--card);
+  border: 1px solid var(--border); border-radius: 12px;
+}
+.cv2-parrole-h {
+  margin-bottom: 10px; font-size: 11px; font-weight: 700; color: var(--muted);
+  text-transform: uppercase; letter-spacing: .05em;
+}
+.cv2-parrole-l {
+  display: grid; grid-template-columns: minmax(0, 1fr) 82px 44px; align-items: center; gap: 9px;
+  width: 100%; padding: 8px 7px; margin-bottom: 2px; cursor: pointer; text-align: left;
+  font-family: inherit; background: none; border: none; border-radius: 9px; transition: background .13s;
+}
+.cv2-parrole-l:hover { background: var(--pg-accent-softer); }
+.cv2-parrole-l .nom {
+  min-width: 0; font-size: 13px; font-weight: 700; color: var(--ink);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.cv2-parrole-l .nom .sur { font-size: 10.5px; font-weight: 600; color: var(--faint); }
+.cv2-parrole-l .jauge {
+  height: 7px; border-radius: 4px; background: var(--card-2);
+  box-shadow: inset 0 0 0 1px var(--border); overflow: hidden;
+}
+.cv2-parrole-l .jauge i {
+  display: block; height: 100%; border-radius: 4px;
+  transition: width .5s cubic-bezier(.34, 1.1, .4, 1);
+}
+.cv2-jb--green i  { background: var(--cv-green); }
+.cv2-jb--orange i { background: var(--cv-orange); }
+.cv2-jb--red i    { background: var(--cv-red); }
+.cv2-jb--grey i   { background: var(--cv-grey); }
+.cv2-parrole-l .pc { font-size: 12.5px; font-weight: 700; text-align: right; color: var(--ink-2); }
+/* La carte de rôle entière est un bouton : il faut que ça se voie au clavier. */
+.cv2-rolecard { cursor: pointer; }
+.cv2-rolecard:focus-visible { outline: none; border-color: var(--pg-accent); box-shadow: 0 0 0 3px var(--pg-accent-glow); }
+
+@media (max-width: 980px) {
+  .cv2-profil-corps { grid-template-columns: minmax(0, 1fr); }
+  .cv2-profil-kpi { margin-left: 0; }
+}
+
+/* Le nom du rôle sur sa ligne, la base du calcul dessous : en suffixe, elle
+   poussait le nom hors de sa colonne et c'est lui qu'on tronquait. */
+.cv2-parrole-l .nom { display: flex; flex-direction: column; gap: 1px; white-space: normal; }
+.cv2-parrole-l .nom .t { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cv2-r-pt--sous { fill: var(--cv-orange); }
+
+/* Donner aux deux notes le même poids double la hauteur d'une carte de
+   résultat : on récupère le surplus sur les marges, pas sur la lisibilité. */
+.cv2-nt { margin-top: 9px; padding: 8px 11px 9px; }
+.cv2-nt .cv2-echelle { margin-top: 8px; }
+.cv2-niv { width: 42px; padding: 7px 0 6px; }
+.cv2-gomme { padding: 7px 10px; }
+.cv2-pas i { width: 18px; height: 12px; }
+.cv2-res { padding: 12px 14px; margin-bottom: 9px; }
+.cv2-res .rname { font-size: 13.5px; }
+.cv2-preuve-btn { margin-top: 8px; }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   QUALIFIER LES SORTIES
+   ⚠️ Cet écran ne disait pas ce qu'il demandait : un menu déroulant « À
+   qualifier » posé à droite d'un nom, et parfois un champ pré-rempli d'un
+   « 100 % » que rien n'expliquait. Les quatre natures sont maintenant des
+   BOUTONS — le choix se voit — celle qu'on prend s'explique juste dessous, et
+   le champ du standard porte son libellé.
+   ══════════════════════════════════════════════════════════════════════════ */
+.cv2-qz {
+  display: block; padding: 14px 15px; margin-bottom: 11px;
+  background: var(--card); border: 1px solid var(--border);
+  border-left: 3px solid var(--border-strong); border-radius: 12px;
+  transition: border-left-color .15s, background .15s;
+}
+/* Un résultat n'est pas une sortie comme les autres : c'est lui qui portera
+   l'évaluation. Il se voit dans la pile. */
+.cv2-qz.est-resultat { border-left-color: var(--pg-accent); background: var(--pg-accent-softer); }
+.cv2-qz-tete { display: flex; align-items: flex-start; gap: 10px; flex-wrap: wrap; }
+.cv2-qz .qn { flex: 1; min-width: 0; font-size: 14.5px; font-weight: 700; color: var(--ink); }
+.cv2-qz .qj {
+  margin-top: 5px; padding-left: 10px; border-left: 2px solid var(--pg-accent-border);
+  font-size: 12.5px; line-height: 1.5; font-style: italic; color: var(--muted);
+}
+.cv2-qq {
+  margin: 13px 0 7px; font-size: 12px; font-weight: 700; color: var(--muted);
+  text-transform: uppercase; letter-spacing: .05em;
+}
+
+/* Les quatre natures, en clair. Elles étaient cachées dans un <select>. */
+.cv2-natures { display: flex; gap: 6px; flex-wrap: wrap; }
+.cv2-nature {
+  padding: 8px 13px; cursor: pointer; font-family: inherit;
+  font-size: 13px; font-weight: 600; color: var(--ink-2);
+  background: var(--card); border: 1px solid var(--border-strong); border-radius: 999px;
+  transition: .13s;
+}
+.cv2-nature:hover { border-color: var(--pg-accent); color: var(--pg-accent-deep); }
+.cv2-nature.sel {
+  background: linear-gradient(135deg, var(--pg-accent), var(--pg-accent-deep));
+  border-color: transparent; color: #fff;
+  box-shadow: 0 6px 16px -6px var(--pg-accent-glow);
+}
+/* « Résultat de l'activité » commande tout l'écran suivant : il se distingue
+   des trois autres avant même d'être choisi. */
+.cv2-nature--cle { border-style: dashed; border-color: var(--pg-accent-border); color: var(--pg-accent-deep); }
+.cv2-nature--cle.sel { border-style: solid; }
+.cv2-nature-dit {
+  margin-top: 9px; font-size: 13px; line-height: 1.5; color: var(--muted);
+}
+.cv2-nature-dit.est-resultat { color: var(--pg-accent-deep); font-weight: 600; }
+
+/* Le standard : un champ qui dit ce qu'il attend, et d'où vient sa valeur.
+   Il apparaissait nu, parfois pré-rempli d'un « 100 % » sorti de nulle part. */
+.cv2-qstd { margin-top: 12px; padding-top: 12px; border-top: 1px dashed var(--pg-accent-border); }
+.cv2-qstd-lbl {
+  display: block; margin-bottom: 6px; font-size: 12px; font-weight: 700;
+  color: var(--pg-accent-deep); text-transform: uppercase; letter-spacing: .04em;
+}
+.cv2-qstd-aide { margin-top: 5px; font-size: 12px; font-style: italic; color: var(--faint); }
+.cv2-minperf {
+  width: 100%; padding: 9px 11px; margin-top: 0;
+  font-family: inherit; font-size: 13.5px; background: var(--card);
+  border: 1px solid var(--border-strong); border-radius: var(--r-btn);
+}
+.cv2-minperf:focus { outline: none; border-color: var(--pg-accent); box-shadow: 0 0 0 3px var(--pg-accent-glow); }
+
+/* Ce qui manque, dit AVANT le clic et près du bouton. Le refus s'affichait
+   après coup, tout en haut de la fenêtre — loin du bouton, loin de la ligne. */
+.cv2-qcompte {
+  display: flex; align-items: center; gap: 9px; margin-top: 14px; padding: 11px 14px;
+  border-radius: 11px; font-size: 13px; font-weight: 600; line-height: 1.45;
+}
+.cv2-qcompte i { font-size: 14px; flex: none; }
+.cv2-qcompte.est-ok { background: #f0fdf4; border: 1px solid #bbf7d0; color: var(--cv-green-deep); }
+.cv2-qcompte.est-manque { background: #fff8ec; border: 1px solid #fadfa6; color: #92590e; }
+.cv2-qcompte .reste { font-weight: 500; opacity: .8; }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   LA TECHNICITÉ — un bandeau BLEU PLEIN
+   Elle était en teal, qui se lit comme du vert et entrait en conflit avec le
+   vert sémantique (« niveau tenu »). Le bandeau plein la sépare franchement de
+   l'évaluation tout en restant dans le bleu de la page.
+   ══════════════════════════════════════════════════════════════════════════ */
+.cv2-bloc--tech .cv2-bloc-tete {
+  margin: 0 0 12px; padding: 11px 13px; border-radius: 11px;
+  background: linear-gradient(135deg, var(--pg-accent), var(--pg-accent-deep));
+}
+.cv2-bloc--tech .cv2-bloc-num { background: rgba(255, 255, 255, .22); }
+.cv2-bloc--tech .cv2-bloc-h { color: #fff; }
+.cv2-bloc--tech .cv2-bloc-d { color: rgba(255, 255, 255, .86); }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   LISIBILITÉ DES FENÊTRES
+   L'app est calibrée à 80 % (`body.pg { zoom: .8 }`) : un « 12 px » y est rendu
+   à moins de 10. Dans une fenêtre où l'on décide d'un niveau, c'est trop petit.
+   On remonte les tailles secondaires des fenêtres — et d'elles seules, pour ne
+   pas déformer les listes de la page.
+   ══════════════════════════════════════════════════════════════════════════ */
+.cv2-db, .cv2-pb { font-size: 14px; }
+.cv2-bloc-h { font-size: 16px; }
+.cv2-bloc-d { font-size: 13px; }
+.cv2-nt-lbl { font-size: 12px; }
+.cv2-nt-tag, .cv2-officielle-tag { font-size: 10.5px; }
+.cv2-nt-val { font-size: 13.5px; }
+.cv2-nt-val b { font-size: 15px; }
+.cv2-niv { font-size: 14px; }
+.cv2-gomme { font-size: 13px; }
+.cv2-res .rname { font-size: 14.5px; }
+.cv2-accord { font-size: 12.5px; }
+.cv2-cible-niv { font-size: 14px; }
+.cv2-preuve-btn, .cv2-ev { font-size: 13.5px; }
+.cv2-prop { font-size: 11.5px; }
+.cv2-ia-t { font-size: 14.5px; }
+.cv2-ia-d { font-size: 13px; }
+.cv2-domrow .dn { font-size: 14px; }
+.cv2-domrow .df .fl, .cv2-emptydom { font-size: 12px; }
+.cv2-fam .fh { font-size: 14px; }
+.cv2-fam .fd { font-size: 12.5px; }
+.cv2-action .ac-t { font-size: 14px; }
+.cv2-action .ac-o, .cv2-action .ac-c { font-size: 12.5px; }
+.cv2-dit { font-size: 13px; }
+.cv2-df .btn { font-size: 14px; }
+
+/* ── Le radar, vivant ────────────────────────────────────────────────────
+   Trois gestes sans clic : survoler une légende met SA couche au premier plan,
+   survoler un rôle n'éclaire que ses activités, survoler un axe donne son
+   détail. Un graphe qui ne réagit pas se lit une fois puis devient un décor. */
+.cv2-radar-zone { position: relative; }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   DEUX VUES DANS LA MÊME ZONE — le radar, puis le détail d'un rôle
+   Le radar dit la FORME du profil ; il ne dit pas sur quelle activité un rôle
+   décroche. Cliquer un point ouvre les barres de SON rôle, au même endroit :
+   remplacer plutôt que juxtaposer garde l'attention là où elle était.
+   ══════════════════════════════════════════════════════════════════════════ */
+.cv2-radar-zone > .cv2-radar,
+.cv2-radar-zone > .cv2-radar-leg,
+.cv2-radar-zone > .cv2-radar-note { transition: opacity .26s ease, transform .26s ease; }
+.cv2-radar-zone[data-vue="barres"] > .cv2-radar,
+.cv2-radar-zone[data-vue="barres"] > .cv2-radar-leg,
+.cv2-radar-zone[data-vue="barres"] > .cv2-radar-note {
+  opacity: 0; transform: scale(.94); pointer-events: none;
+}
+
+/* ⚠️ Les barres se SUPERPOSENT au radar (absolute) : les mettre dans le flux
+   ferait sauter la hauteur de la carte à chaque bascule. */
+.cv2-barres-zone {
+  position: absolute; inset: 0; display: flex; flex-direction: column;
+  opacity: 0; transform: scale(.97); pointer-events: none;
+  transition: opacity .26s ease, transform .26s ease;
+}
+.cv2-radar-zone[data-vue="barres"] .cv2-barres-zone {
+  opacity: 1; transform: none; pointer-events: auto;
+}
+
+/* Un point cliquable doit se voir comme tel — sans quoi personne n'essaie. */
+.cv2-radar .est-cliquable { cursor: pointer; }
+.cv2-radar circle.est-cliquable:hover { r: 5.4; }
+
+.cv2-barres { display: flex; flex-direction: column; height: 100%; min-height: 0; }
+.cv2-barres-tete { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+.cv2-barres-retour {
+  display: inline-flex; align-items: center; gap: 7px; flex: none;
+  padding: 5px 11px; cursor: pointer;
+  font-family: inherit; font-size: 12.5px; font-weight: 700;
+  color: var(--pg-accent-deep); background: color-mix(in srgb, var(--pg-accent) 9%, #fff);
+  border: 1px solid color-mix(in srgb, var(--pg-accent) 24%, #fff); border-radius: 999px;
+  transition: .13s;
+}
+.cv2-barres-retour:hover { background: color-mix(in srgb, var(--pg-accent) 16%, #fff); }
+.cv2-barres-t {
+  min-width: 0; font-family: var(--pg-font-display); font-size: 17px;
+  font-weight: 700; color: var(--ink);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.cv2-barres-corps { flex: 1; min-height: 0; overflow-y: auto; padding-right: 4px; }
+.cv2-barres-note { margin-top: 10px; font-size: 11.5px; font-style: italic; color: var(--faint); }
+
+.cv2-bar-l {
+  display: grid; grid-template-columns: minmax(0, 1fr) minmax(90px, 1.25fr) 52px;
+  align-items: center; gap: 11px; padding: 7px 0;
+}
+.cv2-bar-l + .cv2-bar-l { border-top: 1px solid var(--border); }
+.cv2-bar-nom {
+  min-width: 0; font-size: 13px; font-weight: 600; color: var(--ink);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.cv2-bar-piste {
+  position: relative; height: 13px; border-radius: 7px;
+  background: var(--card-2); box-shadow: inset 0 0 0 1px var(--border);
+}
+.cv2-bar-plein {
+  display: block; height: 100%; width: var(--w); border-radius: 7px;
+  /* L'entrée en scène part de zéro et s'échelonne : on LIT la comparaison au
+     lieu de la découvrir d'un bloc. */
+  animation: cv2-pousse .42s cubic-bezier(.34, 1.1, .4, 1) backwards;
+  animation-delay: calc(var(--i, 0) * 45ms);
+}
+@keyframes cv2-pousse { from { width: 0; } }
+.cv2-bar--green  { background: var(--cv-green); }
+.cv2-bar--orange { background: var(--cv-orange); }
+.cv2-bar--red    { background: var(--cv-red); }
+.cv2-bar--grey   { background: var(--cv-grey); }
+/* La cible : un trait sur la piste, comme le repère de la jauge des listes. */
+.cv2-bar-cible {
+  position: absolute; top: -3px; bottom: -3px; left: var(--x);
+  width: 2.5px; border-radius: 2px; background: var(--ink-2); transform: translateX(-50%);
+}
+.cv2-bar-vide {
+  display: block; padding-left: 9px; line-height: 13px;
+  font-size: 11px; font-style: italic; color: var(--faint);
+}
+.cv2-bar-val { font-size: 13px; font-weight: 700; color: var(--ink-2); text-align: right; }
+.cv2-bar-val small { font-weight: 600; color: var(--faint); }
+
+@media (prefers-reduced-motion: reduce) {
+  .cv2-radar-zone > .cv2-radar,
+  .cv2-radar-zone > .cv2-radar-leg,
+  .cv2-barres-zone { transition: none; }
+  .cv2-bar-plein { animation: none; }
+}
+.cv2-r-req, .cv2-r-dem { transition: fill-opacity .2s, opacity .2s; }
+/* Passer une couche devant : on estompe l'autre plutôt que de réordonner le
+   DOM — le SVG n'a pas de z-index, et bouger les nœuds ferait clignoter. */
+.cv2-radar[data-avant="req"] .cv2-r-dem { opacity: .18; }
+.cv2-radar[data-avant="dem"] .cv2-r-req { opacity: .2; }
+.cv2-radar[data-avant="dem"] .cv2-r-dem { fill-opacity: .42; }
+
+.cv2-leg-b {
+  display: inline-flex; align-items: center; gap: 6px; padding: 4px 9px;
+  font-family: inherit; font-size: inherit; font-weight: 700; color: var(--muted);
+  background: none; border: 1px solid transparent; border-radius: 999px; cursor: pointer;
+  transition: .14s;
+}
+.cv2-leg-b:hover, .cv2-leg-b:focus-visible {
+  outline: none; background: var(--card-2); border-color: var(--border); color: var(--ink-2);
+}
+
+/* La zone sensible d'un axe : un trait épais et transparent, du centre au bord.
+   Viser une étiquette de 10 px serait pénible. */
+.cv2-r-zone { stroke: transparent; stroke-width: 26; cursor: pointer; }
+.cv2-r-axe-g:hover .cv2-r-lbl, .cv2-r-lbl.est-vu { fill: var(--ink); font-weight: 700; }
+.cv2-r-pt { transition: r .16s, fill .16s; }
+.cv2-r-pt.est-vu { r: 6; }
+.est-eteint { opacity: .16; transition: opacity .18s; }
+
+.cv2-radar-bulle {
+  position: absolute; left: 50%; top: 6px; transform: translateX(-50%) translateY(-6px);
+  z-index: 2; opacity: 0; pointer-events: none;
+  max-width: 260px; padding: 9px 12px; border-radius: 11px;
+  background: var(--ink); color: #fff; box-shadow: var(--sh-pop);
+  transition: opacity .16s, transform .16s;
+}
+.cv2-radar-bulle.est-la { opacity: 1; transform: translateX(-50%) translateY(0); }
+.cv2-radar-bulle .t { font-size: 13px; font-weight: 700; line-height: 1.3; }
+.cv2-radar-bulle .r { margin-top: 2px; font-size: 11.5px; opacity: .72; }
+.cv2-radar-bulle .n { display: flex; gap: 10px; margin-top: 6px; font-size: 12px; font-weight: 700; }
+.cv2-radar-bulle .req { color: #86efac; }
+.cv2-radar-bulle .dem { color: #93c5fd; }
+
+/* Un axe mis en avant par le survol d'un rôle : il s'épaissit, il ne bouge pas. */
+.cv2-r-pt.est-vu { r: 6; stroke-width: 2; }
+.cv2-radar-bulle .vide { font-style: italic; opacity: .75; font-weight: 600; }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   LE CHOIX D'UNE NATURE — une question, puis un classement
+   ⚠️ « À quoi servent les trois autres boutons ? » La question était juste :
+   quatre boutons de MÊME RANG, dont un seul ouvrait la suite et débloquait
+   l'enregistrement. Or la décision est binaire — est-ce un résultat ? — et les
+   trois autres ne font que RANGER ce qui n'en est pas. La hiérarchie visuelle
+   dit maintenant la hiérarchie réelle.
+   ══════════════════════════════════════════════════════════════════════════ */
+.cv2-choix { margin-top: 4px; }
+.cv2-oui {
+  display: flex; align-items: flex-start; gap: 11px; width: 100%;
+  padding: 12px 14px; cursor: pointer; text-align: left; font-family: inherit;
+  background: var(--card); border: 1.5px solid var(--pg-accent-border);
+  border-radius: 12px; transition: .14s;
+}
+.cv2-oui:hover { border-color: var(--pg-accent); background: var(--pg-accent-softer); }
+.cv2-oui i { margin-top: 1px; font-size: 17px; color: var(--pg-accent-border); transition: color .14s; }
+.cv2-oui:hover i { color: var(--pg-accent); }
+.cv2-oui span { display: block; min-width: 0; }
+.cv2-oui b { display: block; font-size: 14px; font-weight: 700; color: var(--ink); }
+.cv2-oui small { display: block; margin-top: 3px; font-size: 12.5px; line-height: 1.45; color: var(--muted); }
+.cv2-oui.sel {
+  background: linear-gradient(135deg, var(--pg-accent), var(--pg-accent-deep));
+  border-color: transparent; box-shadow: 0 8px 20px -8px var(--pg-accent-glow);
+}
+.cv2-oui.sel i { color: #fff; }
+.cv2-oui.sel b { color: #fff; }
+.cv2-oui.sel small { color: rgba(255, 255, 255, .86); }
+
+/* Le second rang : plus petit, plus sobre — on y range, on n'y décide pas. */
+.cv2-sinon { margin-top: 11px; padding-top: 11px; border-top: 1px dashed var(--border); }
+.cv2-sinon-q {
+  margin-bottom: 7px; font-size: 12px; font-weight: 700; color: var(--muted);
+  text-transform: uppercase; letter-spacing: .04em;
+}
+.cv2-sinon-d { margin-top: 7px; font-size: 12px; line-height: 1.45; font-style: italic; color: var(--faint); }
+.cv2-nature { padding: 7px 12px; font-size: 12.5px; }
+.cv2-nature.sel {
+  background: var(--ink-2); border-color: transparent; color: #fff; box-shadow: none;
+}
+/* Une sortie rangée ailleurs que dans « résultat » reste discrète : elle est
+   traitée, mais ce n'est pas elle qu'on viendra évaluer. */
+.cv2-qz.est-range { border-left-color: var(--border-strong); opacity: .88; }
+
+.cv2-ia--bilan {
+  background: linear-gradient(135deg, #f0fdf4, #ecfdf5);
+  border-color: #bbf7d0;
+}
+.cv2-ia--bilan .cv2-ia-ico { background: linear-gradient(135deg, #22c55e, #15803d); }
+.cv2-ia-w { margin-top: 6px; font-style: italic; }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   LA TECHNICITÉ — toute la section en bleu
+   ⚠️ Seul l'en-tête était bleu : ce qui suivait avait l'air EXCLU de la
+   section. Le bloc entier porte la couleur, et son contenu s'y adapte — sinon
+   on relit un formulaire blanc posé sous un bandeau.
+   ══════════════════════════════════════════════════════════════════════════ */
+.cv2-bloc--tech {
+  background: linear-gradient(140deg, var(--pg-accent), var(--pg-accent-deep));
+  border-color: transparent;
+  box-shadow: 0 12px 28px -14px var(--pg-accent-glow);
+}
+.cv2-bloc--tech .cv2-bloc-tete { margin: 0 0 12px; padding: 0; background: none; }
+.cv2-bloc--tech .cv2-bloc-num { background: rgba(255, 255, 255, .22); }
+.cv2-bloc--tech .cv2-bloc-h { color: #fff; }
+
+.cv2-bloc--tech .cv2-domlist {
+  padding: 3px 13px; border-radius: 11px; background: rgba(255, 255, 255, .13);
+}
+.cv2-bloc--tech .cv2-domrow { border-bottom-color: rgba(255, 255, 255, .18); }
+.cv2-bloc--tech .cv2-domrow .dn { color: #fff; }
+.cv2-bloc--tech .cv2-domrow .df .fl { color: rgba(255, 255, 255, .72); }
+.cv2-bloc--tech .cv2-emptydom { padding: 11px 0; color: rgba(255, 255, 255, .8); font-style: italic; }
+/* Les contrôles restent blancs : un champ translucide sur fond bleu ne se lit
+   plus dès qu'on y saisit quelque chose. */
+.cv2-bloc--tech .cv2-domsel, .cv2-bloc--tech .cv2-domadd input {
+  background: #fff; border-color: rgba(255, 255, 255, .4); color: var(--ink);
+}
+.cv2-bloc--tech .cv2-domsel:focus, .cv2-bloc--tech .cv2-domadd input:focus {
+  outline: none; border-color: #fff; box-shadow: 0 0 0 3px rgba(255, 255, 255, .28);
+}
+.cv2-bloc--tech .cv2-domadd { margin-top: 13px; }
+.cv2-bloc--tech .cv2-domadd .btn-ghost {
+  background: rgba(255, 255, 255, .18); border-color: rgba(255, 255, 255, .34); color: #fff;
+}
+.cv2-bloc--tech .cv2-domadd .btn-ghost:hover { background: rgba(255, 255, 255, .3); }
+.cv2-bloc--tech .cv2-domadd .btn-primary {
+  background: #fff; color: var(--pg-accent-deep); box-shadow: none;
+}
+.cv2-bloc--tech .cv2-domadd .btn-primary:hover { background: rgba(255, 255, 255, .88); }
+/* Les pastilles d'écart gardent leur sens : elles ne sont pas décoratives. */
+.cv2-bloc--tech .chip { box-shadow: 0 0 0 1px rgba(255, 255, 255, .25); }
+
+/* La bulle est POSITIONNÉE en JS près du point survolé : plus de centrage fixe,
+   sinon on survole un point à gauche et l'explication surgit en haut au centre,
+   sans rien qui relie l'une à l'autre. */
+.cv2-radar-bulle {
+  left: 0; top: 0; transform: translateY(-4px);
+}
+.cv2-radar-bulle.est-la { transform: translateY(0); }
+
+/* ── CONFIGURER n'est pas ÉVALUER ────────────────────────────────────────
+   ⚠️ La qualification des sorties s'ouvrait DANS la fenêtre d'évaluation, sous
+   le nom du collaborateur : l'IA y avait l'air de participer à la notation,
+   alors qu'elle n'y touche jamais. Deux fenêtres, deux sujets — et la couleur
+   de l'en-tête le dit avant qu'on ait lu le titre. */
+.cv2-drawer[data-mode="config"] .cv2-dh {
+  background: linear-gradient(135deg, #475569, #334155);
+}
+.cv2-ia-ou {
+  margin-top: 8px; padding-top: 8px; border-top: 1px dashed rgba(15, 23, 42, .14);
+  font-size: 12px; font-weight: 600; color: var(--ink-2);
+}
+
+/* ⚠️ « IA non configurée » héritait du vert du panneau de bilan : une absence
+   de clé prenait l'apparence d'une analyse réussie. L'état « éteint » passe
+   après, et gagne. */
+.cv2-ia--off, .cv2-ia--off.cv2-ia--bilan { background: var(--card-2); border-color: var(--border); }
+.cv2-ia--off .cv2-ia-ico, .cv2-ia--off.cv2-ia--bilan .cv2-ia-ico { background: var(--border-strong); }

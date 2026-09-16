@@ -14,28 +14,33 @@ pytestmark = pytest.mark.plan_storage
 
 
 # ---------------------------------------------------------------------------
-# Fixture : crée la table user_activity_plans absente de SQLAlchemy models
+# ⚠️ Ce module fabriquait lui-même `user_activity_plans` — « absente de
+# SQLAlchemy models », disait son commentaire. C'est exactement ce qui a laissé
+# passer le défaut : la table n'existait sur les instances anciennes que comme
+# vestige d'une migration disparue, donc sur toute base NEUVE le premier
+# enregistrement d'un plan tombait en 500, pendant que ces 20 tests passaient.
+# La table a désormais son modèle (UserActivityPlan) : on VÉRIFIE, on ne
+# compense plus.
 # ---------------------------------------------------------------------------
 
+def test_la_table_des_plans_vient_bien_des_modeles(app):
+    """Sans modèle, `create_all` ne la crée nulle part — et seule la base de
+    test, qui la fabriquait à la main, faisait illusion."""
+    from sqlalchemy import inspect
+    from Code.extensions import db
+    from Code.models.models import UserActivityPlan
+
+    assert UserActivityPlan.__tablename__ == "user_activity_plans"
+    with app.app_context():
+        assert "user_activity_plans" in inspect(db.engine).get_table_names()
+
+
 @pytest.fixture(scope="module", autouse=True)
-def create_plan_table(app):
-    """Crée user_activity_plans dans la DB de test avant les tests du module."""
+def _table_propre(app):
+    """La table est créée par create_all ; on la rend juste vide après coup."""
     from sqlalchemy import text
     from Code.extensions import db
 
-    with app.app_context():
-        db.session.execute(text("""
-            CREATE TABLE IF NOT EXISTS user_activity_plans (
-                id         INTEGER PRIMARY KEY AUTOINCREMENT,
-                user_id    INTEGER NOT NULL,
-                activity_id INTEGER NOT NULL,
-                role_id    INTEGER,
-                content    TEXT NOT NULL,
-                created_at TEXT,
-                updated_at TEXT
-            )
-        """))
-        db.session.commit()
     yield
     with app.app_context():
         db.session.execute(text("DELETE FROM user_activity_plans"))

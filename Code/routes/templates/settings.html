@@ -234,6 +234,31 @@
       .stt-lang-grid { grid-template-columns: 1fr; }
       .stt-card { padding: 20px 16px 24px; }
     }
+  
+/* ── Référentiel DCP (déplacé depuis la page RH) ─────────────────────────────
+   Un référentiel de compétences est un RÉGLAGE de l'application, pas une donnée
+   de ressources humaines : il encombrait la page RH d'une carte sans rapport
+   avec les personnes ni les rôles. */
+.stt-dcp-format { display: block; margin-top: 4px; font-size: 12px; color: var(--muted); }
+.stt-dcp-format code {
+    padding: 1px 5px; border-radius: 5px; font-size: 11.5px;
+    background: var(--card-2); border: 1px solid var(--border);
+}
+.stt-dcp-status {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 14px; margin: 14px 0;
+    background: var(--card-2); border: 1px solid var(--border); border-radius: 9px;
+    font-size: 13.5px;
+}
+.stt-dcp-modes { margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--border); }
+.stt-dcp-modes-title {
+    display: flex; align-items: center; gap: 6px;
+    margin: 0 0 10px; font-size: 13px; font-weight: 700; color: var(--ink-2);
+}
+.stt-dcp-modes-title i { color: var(--pg-accent); }
+.stt-dcp-modes-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.stt-dcp-modes-desc { margin: 8px 0 0; font-size: 12.5px; color: var(--muted); line-height: 1.5; }
+
   </style>
 </head>
 <body class="pg page--settings">
@@ -290,6 +315,53 @@
           <div class="stt-lang-card__native">English</div>
         </div>
 
+      </div>
+    </div>
+
+
+    <!-- ── Section : Référentiel DCP ─────────────────────────────────────────
+         Déplacé depuis la page RH : un référentiel de compétences n'est pas une
+         donnée de ressources humaines, c'est un RÉGLAGE de l'application. Il
+         encombrait la page RH d'une carte sans rapport avec les personnes ni
+         les rôles. -->
+    <p class="stt-section-label">{{ t('rh.dcp_title') }}</p>
+
+    <div class="stt-card">
+      <div class="stt-card__head">
+        <div class="stt-card__head-icon"><i class="fa-solid fa-file-lines"></i></div>
+        <h2 class="stt-card__title">{{ t('rh.dcp_title') }}</h2>
+      </div>
+      <p class="stt-card__desc">
+        {{ t('rh.dcp_desc') }}<br>
+        <span class="stt-dcp-format">{{ t('rh.dcp_format') }}
+          <code>JobText</code>, <code>GrpName</code>, <code>CompName</code></span>
+      </p>
+
+      <div class="stt-dcp-status" id="rh-dcp-status">
+        <span id="ref-file-label-rh" class="ref-file-bar-label">
+          <i class="fa-solid fa-circle-notch fa-spin"></i>
+        </span>
+      </div>
+
+      <button class="stt-btn stt-btn--ghost" type="button" onclick="openRefFileModal()">
+        <i class="fa-solid fa-folder-open"></i> {{ t('rh.dcp_manage') }}
+      </button>
+
+      <div class="stt-dcp-modes">
+        <p class="stt-dcp-modes-title">
+          <i class="fa-solid fa-sliders"></i> {{ t('rh.dcp_mode_title') }}
+        </p>
+        <div class="stt-dcp-modes-row">
+          <button id="btn-mode-standard" type="button" class="dcp-mode-btn"
+                  onclick="setDcpMode('standard')">
+            <i class="fa-solid fa-wand-magic-sparkles"></i> {{ t('rh.dcp_mode_standard') }}
+          </button>
+          <button id="btn-mode-file" type="button" class="dcp-mode-btn"
+                  onclick="setDcpMode('file')">
+            <i class="fa-solid fa-file-lines"></i> {{ t('rh.dcp_mode_file') }}
+          </button>
+        </div>
+        <p id="dcp-mode-desc" class="stt-dcp-modes-desc"></p>
       </div>
     </div>
 
@@ -506,5 +578,45 @@
     })();
   </script>
 
+  <script>
+    window.PROPOSE_I18N = Object.assign(window.PROPOSE_I18N || {}, {
+      pf_loaded:            {{ t('pf.loaded') | tojson }},
+      pf_none:              {{ t('pf.none') | tojson }},
+      pf_stats_tech:        {{ t('pf.stats_tech') | tojson }},
+      pf_stats_behav:       {{ t('pf.stats_behav') | tojson }},
+      pf_mode_standard_desc:{{ t('pf.mode_standard_desc') | tojson }},
+      pf_mode_file_desc:    {{ t('pf.mode_file_desc') | tojson }},
+      pf_modal_title:       {{ t('pf.modal_title') | tojson }},
+      pf_drop_here:         {{ t('pf.drop_here') | tojson }},
+      pf_format_hint:       {{ t('pf.format_hint') | tojson }},
+      pf_browse:            {{ t('pf.browse') | tojson }},
+      pf_delete:            {{ t('pf.delete') | tojson }},
+      pf_close:             {{ t('pf.close') | tojson }},
+      pf_save:              {{ t('pf.save') | tojson }},
+      pf_saved:             {{ t('pf.saved') | tojson }},
+      pf_sending:           {{ t('pf.sending') | tojson }},
+      pf_file_saved:        {{ t('pf.file_saved') | tojson }},
+      pf_file_deleted:      {{ t('pf.file_deleted') | tojson }},
+      pf_delete_confirm:    {{ t('pf.delete_confirm') | tojson }},
+      pf_unsupported:       {{ t('pf.unsupported') | tojson }},
+      pf_no_file_warning:   {{ t('pf.no_file_warning') | tojson }},
+      pf_err:               {{ t('pf.err') | tojson }},
+      pf_err_unknown:       {{ t('pf.err_unknown') | tojson }},
+      pf_err_proposals:     {{ t('pf.err_proposals') | tojson }},
+      pf_apt_title:         {{ t('pf.apt_title') | tojson }},
+      pf_hsc_title:         {{ t('pf.hsc_title') | tojson }},
+      pf_cancel:            {{ t('pf.cancel') | tojson }},
+      pf_save_selection:    {{ t('pf.save_selection') | tojson }},
+      pf_none_available:    {{ t('pf.none_available') | tojson }},
+      pf_no_proposal:       {{ t('pf.no_proposal') | tojson }},
+      pf_select_one:        {{ t('pf.select_one') | tojson }},
+      pf_select_one_hsc:    {{ t('pf.select_one_hsc') | tojson }},
+      pf_save_error:        {{ t('pf.save_error') | tojson }},
+      pf_col_skill:         {{ t('pf.col_skill') | tojson }},
+      pf_col_level:         {{ t('pf.col_level') | tojson }},
+      pf_col_justification: {{ t('pf.col_justification') | tojson }}
+    });
+  </script>
+  <script src="{{ url_for('static', filename='js/propose_from_file.js') }}"></script>
 </body>
 </html>

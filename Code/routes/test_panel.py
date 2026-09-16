@@ -52,22 +52,34 @@ def _parse_test_file(fpath: Path) -> dict:
                             marker = v.elts[0].attr
 
     cases = []
+
+    def _ajouter(fonction, classe, doc_parent):
+        doc = ast.get_docstring(fonction) or doc_parent
+        # node_id pytest : avec la classe quand il y en a une, sans sinon.
+        node_id = (f"tests/{fpath.name}::{classe}::{fonction.name}" if classe
+                   else f"tests/{fpath.name}::{fonction.name}")
+        cases.append({
+            'node_id':      node_id,
+            'class_name':   classe or '',
+            'name':         fonction.name,
+            'display_name': fonction.name[5:].replace('_', ' ').capitalize(),
+            'description':  doc,
+        })
+
+    # ⚠️ Les tests écrits en fonctions de MODULE comptent autant que ceux
+    # rangés dans une classe. Ne recenser que les classes laissait sept pages
+    # entières (test_48, 49, 50, 51, 52, 62…) à zéro cas : elles affichaient
+    # « jamais joué » même après une exécution complète, et leurs ~120 tests
+    # ne pesaient dans aucun taux de fiabilité.
+    _FONCTIONS = (ast.FunctionDef, ast.AsyncFunctionDef)
     for node in tree.body:
-        if not isinstance(node, ast.ClassDef):
-            continue
-        class_doc = ast.get_docstring(node) or ''
-        for item in node.body:
-            if not isinstance(item, ast.FunctionDef) or not item.name.startswith('test_'):
-                continue
-            doc = ast.get_docstring(item) or class_doc
-            display = item.name[5:].replace('_', ' ').capitalize()
-            cases.append({
-                'node_id':      f"tests/{fpath.name}::{node.name}::{item.name}",
-                'class_name':   node.name,
-                'name':         item.name,
-                'display_name': display,
-                'description':  doc,
-            })
+        if isinstance(node, ast.ClassDef):
+            class_doc = ast.get_docstring(node) or ''
+            for item in node.body:
+                if isinstance(item, _FONCTIONS) and item.name.startswith('test_'):
+                    _ajouter(item, node.name, class_doc)
+        elif isinstance(node, _FONCTIONS) and node.name.startswith('test_'):
+            _ajouter(node, None, '')
 
     # slug: remove numeric prefix → e.g. test_01_auth → auth
     parts = fpath.stem.split('_')
@@ -77,29 +89,67 @@ def _parse_test_file(fpath: Path) -> dict:
                 description=mod_doc, marker=marker, cases=cases)
 
 
-def sync_tests_to_db():
+# ⚠️ Empreinte de l'arbre de tests. Le recensement relit 83 fichiers et
+# réécrit ~2150 cas : mesuré, il envoyait **2318 requêtes pour ne RIEN changer**
+# — et il tournait à chaque lecture de `/api/etat` et `/api/pages`. La base
+# étant sur Neon, à ~15 ms de Cloud Run, cela faisait 31 s par appel, à chaud.
+# Les fichiers de test ne bougent qu'au déploiement : on ne resynchronise que
+# lorsque leur empreinte change.
+_EMPREINTE_VUE = None
+
+
+def _empreinte_tests():
+    """Nom, taille et date de chaque fichier de test — sans les lire."""
+    marques = []
+    for f in sorted(_TESTS_DIR.glob('test_*.py')):
+        try:
+            st = f.stat()
+        except OSError:
+            continue
+        marques.append((f.name, st.st_size, int(st.st_mtime)))
+    return tuple(marques)
+
+
+def sync_tests_to_db(force=False):
+    """Recense les fichiers de test en base. Ne fait rien si rien n'a bougé."""
+    global _EMPREINTE_VUE
+    empreinte = _empreinte_tests()
+    # ⚠️ On vérifie AUSSI que la base porte quelque chose : une empreinte
+    # inchangée dans un processus qui a déjà synchronisé ne dit rien d'une base
+    # qu'on vient de remettre à zéro sous lui.
+    if not force and empreinte == _EMPREINTE_VUE and TestPage.query.count():
+        return
+
+    # Deux requêtes pour tout charger, au lieu d'une par page puis une par cas.
+    pages = {p.slug: p for p in TestPage.query.all()}
+    cas = {}
+    for c in TestCase.query.all():
+        cas[c.node_id] = c
+
     for fpath in sorted(_TESTS_DIR.glob('test_*.py')):
         info = _parse_test_file(fpath)
-        page = TestPage.query.filter_by(slug=info['slug']).first()
+        page = pages.get(info['slug'])
         if not page:
             page = TestPage(slug=info['slug'])
             db.session.add(page)
+            pages[info['slug']] = page
         page.title       = info['title']
         page.description = info['description']
         page.file_name   = info['file_name']
         page.marker      = info['marker']
         db.session.flush()
 
-        existing = {c.node_id for c in page.cases}
         for c in info['cases']:
-            if c['node_id'] in existing:
-                case = TestCase.query.filter_by(node_id=c['node_id']).first()
-                if case:
-                    case.display_name = c['display_name']
-                    case.description  = c['description']
+            case = cas.get(c['node_id'])
+            if case:
+                case.display_name = c['display_name']
+                case.description  = c['description']
             else:
-                db.session.add(TestCase(page_id=page.id, **c))
+                nouveau = TestCase(page_id=page.id, **c)
+                db.session.add(nouveau)
+                cas[c['node_id']] = nouveau
     db.session.commit()
+    _EMPREINTE_VUE = empreinte
 
 
 # ── Sync patch registry → DB ──────────────────────────────────────────────────
@@ -212,7 +262,13 @@ def _recent_runs(limit=20):
             'passed':     passed,
             'failed':     total - passed,
             'total':      total,
-            'pct':        round(100 * passed / total) if total else 0,
+            # ⚠️ `round()` rend 100 dès 99,5 % : l'exécution du 14/09 affichait
+            # « 100 % » avec 3 échecs sur 2054 cas — et la frise l'aurait peinte
+            # en vert plein. Cent pour cent ne se lit que si RIEN n'a échoué ;
+            # au-dessous on plafonne à 99 et on arrondit vers le BAS, pour ne
+            # jamais annoncer mieux que la réalité.
+            'pct':        (100 if total and passed == total
+                           else (min(99, int(100 * passed / total)) if total else 0)),
             'duration_s': dur,
         })
     return out
@@ -232,7 +288,10 @@ def _build_args(scope: str, xml_path: str) -> list[str]:
     elif scope.startswith('case:'):
         case = db.session.get(TestCase, int(scope[5:]))
         if case:
-            base += [f'tests/{case.page.file_name}::{case.class_name}::{case.name}']
+            # node_id tel qu'il a été recensé : un test écrit en fonction de
+            # module n'a pas de classe, et « fichier::::nom » ne veut rien dire
+            # pour pytest.
+            base += [case.node_id]
     return base
 
 
@@ -257,12 +316,19 @@ def _save_results(db_url: str, run_id: int, xml_path: str, emit):
     for tc in root.findall('.//testcase'):
         classname = tc.get('classname', '')
         name      = tc.get('name', '')
+        # JUnit donne « tests.test_50_x.TestY » pour un test de classe et
+        # « tests.test_50_x » pour un test écrit en fonction de module. Prendre
+        # parts[-1] comme classe faisait passer le NOM DU MODULE pour une
+        # classe : le node_id ne correspondait à rien et le résultat était
+        # perdu. La classe est ce qui SUIT le module, s'il y a quelque chose.
         parts     = classname.split('.')
-        file_mod  = next((p for p in parts if p.startswith('test_')), '')
-        class_nm  = parts[-1] if len(parts) > 1 else ''
-        node_id   = f"tests/{file_mod}.py::{class_nm}::{name}" if file_mod else ''
-        if not node_id:
+        idx       = next((i for i, p in enumerate(parts) if p.startswith('test_')), None)
+        if idx is None:
             continue
+        file_mod  = parts[idx]
+        class_nm  = '.'.join(parts[idx + 1:])
+        node_id   = (f"tests/{file_mod}.py::{class_nm}::{name}" if class_nm
+                     else f"tests/{file_mod}.py::{name}")
         failure = tc.find('failure')
         error   = tc.find('error')
         if failure is not None:
@@ -350,12 +416,62 @@ def _save_results(db_url: str, run_id: int, xml_path: str, emit):
             _engine.dispose()
 
 
+# Le blueprint n'est protégé par AUCUNE authentification : qui connaît l'URL de
+# l'instance peut demander une exécution. Tant que l'image n'embarquait pas la
+# suite, pytest ne collectait rien et cela ne coûtait rien ; maintenant qu'elle
+# est là et que Cloud Run tourne sans bridage CPU, chaque demande consomme deux
+# minutes de deux vCPU. On borne donc les pytest simultanés SUR CETTE INSTANCE.
+# Le garde vit dans le worker, pas dans la route : le contrat du panel (un run
+# par demande, id distinct, portée exacte) reste intact, et une route qu'un
+# test neutralise n'est jamais bridée. Ce n'est PAS une authentification :
+# cela plafonne la casse.
+_MAX_SIMULTANEES = 3
+_actifs = 0
+_actifs_lock = threading.Lock()
+
+
+def _reserver_creneau():
+    global _actifs
+    with _actifs_lock:
+        if _actifs >= _MAX_SIMULTANEES:
+            return False
+        _actifs += 1
+        return True
+
+
+def _liberer_creneau():
+    global _actifs
+    with _actifs_lock:
+        _actifs = max(0, _actifs - 1)
+
+
 def _run_thread(run_id: int, scope: str, app):
     def emit(line: str):
         with _runs_lock:
             if run_id in _runs:
                 _runs[run_id]['lines'].append(line)
 
+    if not _reserver_creneau():
+        emit(f"[REFUSÉ] {_MAX_SIMULTANEES} exécutions déjà en cours sur cette "
+             "instance — réessayez dans deux minutes.\n")
+        with app.app_context():
+            run = db.session.get(TestRun, run_id)
+            if run:
+                run.status = 'done'
+                run.finished_at = datetime.utcnow()
+                db.session.commit()
+        with _runs_lock:
+            if run_id in _runs:
+                _runs[run_id]['done'] = True
+        return
+
+    try:
+        _executer_run(run_id, scope, app, emit)
+    finally:
+        _liberer_creneau()
+
+
+def _executer_run(run_id: int, scope: str, app, emit):
     with app.app_context():
         db_url = app.config['SQLALCHEMY_DATABASE_URI']
         fd, xml_path = tempfile.mkstemp(suffix='.xml', prefix=f'trun_{run_id}_')
@@ -737,6 +853,128 @@ def reset_stale():
         r.status = 'done'
     db.session.commit()
     return jsonify({'expired': len(stale)})
+
+
+# ── API JSON pour Optiq Hub ───────────────────────────────────────────────────
+# Le hub affiche la fiabilité par page et le détail d'une page ; il lui faut du
+# JSON, pas les gabarits du panel. Ces routes ne servent qu'à lire.
+
+def _fiabilite(cases):
+    """Part de cas au vert, sur ceux qui ont déjà tourné.
+
+    Les cas jamais exécutés sont EXCLUS du calcul : les compter comme des
+    échecs ferait chuter le score d'une page simplement parce qu'on ne l'a
+    pas encore jouée, ce qui induirait en erreur.
+    """
+    joues = [c for c in cases if c.last_status in ('passed', 'failed', 'error')]
+    if not joues:
+        return None, 0, 0, 0
+    verts = sum(1 for c in joues if c.last_status == 'passed')
+    return round(100 * verts / len(joues)), verts, len(joues) - verts, len(joues)
+
+
+def _sync_tolerant():
+    """Recenser si possible, lire quoi qu'il arrive.
+
+    Le recensement réécrit 71 pages et ~1900 cas à chaque appel ; sur Postgres
+    il lui arrive de dépasser le temps imparti. Sans ce filet, le hub affichait
+    « l'instance ne répond pas » alors que le catalogue était parfaitement
+    lisible en base. Même parti pris que le `before_request` des pages visuelles.
+    """
+    try:
+        sync_tests_to_db()
+    except Exception:
+        db.session.rollback()
+
+
+@test_panel_bp.route('/api/pages')
+def api_pages():
+    _sync_tolerant()
+    pages = TestPage.query.order_by(TestPage.file_name).all()
+    sortie = []
+    for page in pages:
+        cases = list(page.cases)
+        pct, verts, rouges, joues = _fiabilite(cases)
+        dernier = max((c.last_ran_at for c in cases if c.last_ran_at), default=None)
+        sortie.append({
+            'slug': page.slug,
+            'titre': page.title,
+            'description': page.description,
+            'fichier': page.file_name,
+            'marqueur': page.marker,
+            'total': len(cases),
+            'joues': joues,
+            'verts': verts,
+            'rouges': rouges,
+            'fiabilite': pct,                     # None = jamais joué
+            'dernier': dernier.isoformat() if dernier else None,
+        })
+    return jsonify({'pages': sortie, 'total_cas': sum(p['total'] for p in sortie)})
+
+
+@test_panel_bp.route('/api/runs')
+def api_runs():
+    """Les dernières exécutions, pour l'historique du hub.
+
+    ⚠️ Le module du hub n'affichait QUE `last_status` : l'état du dernier
+    passage, jamais ce qui s'était passé avant. D'où l'impression que
+    l'historique « se remet à zéro » — il n'était simplement jamais montré,
+    alors que `test_results` l'accumule depuis toujours.
+
+    Pas de `_sync_tolerant()` ici : on lit des exécutions passées, le
+    recensement des fichiers n'y change rien.
+    """
+    limite = min(max(request.args.get('limit', 20, type=int), 1), 60)
+    runs = _recent_runs(limite)
+    return jsonify({'runs': runs, 'total': TestRun.query.filter_by(status='done').count()})
+
+
+@test_panel_bp.route('/api/page/<slug>')
+def api_page(slug):
+    page = TestPage.query.filter_by(slug=slug).first_or_404()
+    cases = list(page.cases)
+    pct, verts, rouges, joues = _fiabilite(cases)
+    return jsonify({
+        'slug': page.slug,
+        'titre': page.title,
+        'description': page.description,
+        'fichier': page.file_name,
+        'marqueur': page.marker,
+        'fiabilite': pct,
+        'verts': verts,
+        'rouges': rouges,
+        'joues': joues,
+        'total': len(cases),
+        'cas': [{
+            'id': c.id,
+            'nom': c.display_name or c.name,
+            'classe': c.class_name,
+            'description': c.description,
+            'statut': c.last_status,
+            'quand': c.last_ran_at.isoformat() if c.last_ran_at else None,
+        } for c in cases],
+    })
+
+
+@test_panel_bp.route('/api/etat')
+def api_etat():
+    """Ce que le hub doit savoir avant de proposer un lancement."""
+    _sync_tolerant()
+    en_cours = TestRun.query.filter_by(status='running').order_by(
+        TestRun.started_at.desc()).first()
+    dernier = TestRun.query.filter_by(status='done').order_by(
+        TestRun.finished_at.desc()).first()
+    return jsonify({
+        'suite_presente': _TESTS_DIR.exists() and any(_TESTS_DIR.glob('test_*.py')),
+        'pages': TestPage.query.count(),
+        'cas': TestCase.query.count(),
+        'en_cours': ({'id': en_cours.id, 'scope': en_cours.scope,
+                      'depuis': en_cours.started_at.isoformat() if en_cours.started_at else None}
+                     if en_cours else None),
+        'dernier': ({'id': dernier.id, 'scope': dernier.scope,
+                     'fin': dernier.finished_at.isoformat() if dernier.finished_at else None}
+                    if dernier else None),
+    })
 
 
 @test_panel_bp.route('/global/stats')

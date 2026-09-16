@@ -255,8 +255,14 @@ def pulse_app(pulse_source, monkeypatch):
     monkeypatch.setenv("PULSE_INSECURE_COOKIE", "1")
     monkeypatch.delenv("PULSE_PASSWORD", raising=False)
     monkeypatch.delenv("PULSE_PASSWORD_HASH", raising=False)
-    spec = importlib.util.spec_from_file_location(
-        "pulse_service_app", os.path.join(PULSE_DIR, "app.py"))
+    # Chargement PAR CHEMIN de fichier : impossible dans l'image applicative,
+    # qui ne garde que du bytecode (`compileall -b` puis suppression des .py).
+    # La suite tourne là-bas depuis que le panel la rejoue sur l'instance — on
+    # saute plutôt que d'afficher quatre rouges sans rapport avec le code.
+    source = os.path.join(PULSE_DIR, "app.py")
+    if not os.path.exists(source):
+        pytest.skip("pulse/app.py absent (arbre bytecode) — service séparé")
+    spec = importlib.util.spec_from_file_location("pulse_service_app", source)
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
     mod.app.config["TESTING"] = True

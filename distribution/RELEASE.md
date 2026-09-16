@@ -39,7 +39,7 @@ Le kit remis au client, lui, est décrit dans `INSTALL.md`.
 ## 1. Publier une version
 
 ```bash
-git checkout optiqfluent-staging
+git checkout optiqfluent-beta-test
 # ... s'assurer que tout est committé et testé ...
 git tag client-v1.0.0
 git push origin client-v1.0.0

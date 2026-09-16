@@ -144,6 +144,132 @@ class TestGenerateOnboarding:
         )
         assert r.content_type.startswith("application/json")
 
+    def test_prompt_indisponible_retourne_500(self, auth_client, app, ids, monkeypatch):
+        """get_prompt() renvoie None (prompts non chargés) → 500."""
+        import Code.routes.onboarding as onboarding_mod
+
+        monkeypatch.setattr(onboarding_mod, "get_prompt", lambda *a, **k: None)
+
+        role_id = _create_role(app, ids)
+        try:
+            r = auth_client.post(
+                f"/roles/{role_id}/onboarding/generate",
+                json={"hsc_list": ["Auto-organisation"]},
+                content_type="application/json",
+            )
+            assert r.status_code == 500
+            data = r.get_json()
+            assert "error" in data
+        finally:
+            _delete_role(app, role_id)
+
+    def test_prompt_indisponible_message_anglais(self, auth_client, app, ids, monkeypatch):
+        """get_prompt() renvoie None avec lang='en' → message anglais."""
+        import Code.routes.onboarding as onboarding_mod
+
+        monkeypatch.setattr(onboarding_mod, "get_prompt", lambda *a, **k: None)
+
+        role_id = _create_role(app, ids)
+        try:
+            with auth_client.session_transaction() as sess:
+                sess["lang"] = "en"
+            r = auth_client.post(
+                f"/roles/{role_id}/onboarding/generate",
+                json={"hsc_list": []},
+                content_type="application/json",
+            )
+            assert r.status_code == 500
+            data = r.get_json()
+            assert "prompts not loaded" in data["error"]
+        finally:
+            with auth_client.session_transaction() as sess:
+                sess.pop("lang", None)
+            _delete_role(app, role_id)
+
+    def test_generation_reussie_retourne_plan(self, auth_client, app, ids, monkeypatch):
+        """Clé + client IA fonctionnels → 200 et le plan est sauvegardé sur le rôle."""
+        import Code.routes.onboarding as onboarding_mod
+        import Code.ai_client as ai_client_mod
+        from Code.extensions import db
+        from Code.models.models import Role
+
+        monkeypatch.setattr(onboarding_mod, "get_openai_key", lambda: "fake-key")
+
+        class _FakeMessage:
+            content = "Plan d'onboarding généré (fake)."
+
+        class _FakeChoice:
+            message = _FakeMessage()
+
+        class _FakeResponse:
+            choices = [_FakeChoice()]
+
+        class _FakeCompletions:
+            def create(self, **kwargs):
+                return _FakeResponse()
+
+        class _FakeChat:
+            completions = _FakeCompletions()
+
+        class _FakeClient:
+            chat = _FakeChat()
+
+        monkeypatch.setattr(
+            ai_client_mod, "make_ai_client", lambda *a, **k: (_FakeClient(), "fake-model", None)
+        )
+
+        role_id = _create_role(app, ids)
+        try:
+            r = auth_client.post(
+                f"/roles/{role_id}/onboarding/generate",
+                json={"hsc_list": ["Auto-organisation"]},
+                content_type="application/json",
+            )
+            assert r.status_code == 200
+            data = r.get_json()
+            assert data["onboarding_plan"] == "Plan d'onboarding généré (fake)."
+            assert "message" in data
+
+            with app.app_context():
+                role = Role.query.get(role_id)
+                assert role.onboarding_plan == "Plan d'onboarding généré (fake)."
+        finally:
+            _delete_role(app, role_id)
+
+    def test_generation_exception_client_retourne_500(self, auth_client, app, ids, monkeypatch):
+        """Exception levée par le client IA → 500 avec le message de l'exception."""
+        import Code.routes.onboarding as onboarding_mod
+        import Code.ai_client as ai_client_mod
+
+        monkeypatch.setattr(onboarding_mod, "get_openai_key", lambda: "fake-key")
+
+        class _FakeCompletions:
+            def create(self, **kwargs):
+                raise RuntimeError("boom IA")
+
+        class _FakeChat:
+            completions = _FakeCompletions()
+
+        class _FakeClient:
+            chat = _FakeChat()
+
+        monkeypatch.setattr(
+            ai_client_mod, "make_ai_client", lambda *a, **k: (_FakeClient(), "fake-model", None)
+        )
+
+        role_id = _create_role(app, ids)
+        try:
+            r = auth_client.post(
+                f"/roles/{role_id}/onboarding/generate",
+                json={"hsc_list": []},
+                content_type="application/json",
+            )
+            assert r.status_code == 500
+            data = r.get_json()
+            assert data["error"] == "boom IA"
+        finally:
+            _delete_role(app, role_id)
+
 
 # ===========================================================================
 # 3. POST /translate_softskills/translate

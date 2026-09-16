@@ -1,0 +1,23 @@
+{
+  "label": "ARaymond — instance pilote (compte Vikrant Khadapkar + carto RFQ FluidClip)",
+  "users": [
+    {
+      "email": "vikrant.khadapkar@araymond.com",
+      "first_name": "Vikrant",
+      "last_name": "Khadapkar",
+      "status": "manager",
+      "password": "password",
+      "entity": "ARaymond — RFQ FluidClip"
+    }
+  ],
+  "entities": [
+    {
+      "name": "ARaymond — RFQ FluidClip",
+      "description": "Processus RFQ FluidClip — de la demande client (RFI/RFQ) au PPAP et à la clôture projet.",
+      "owner_email": "vikrant.khadapkar@araymond.com",
+      "managers": ["vikrant.khadapkar@araymond.com"],
+      "vsdx_filename": "Map_RFQ_FluidClip_Harmonized_HG_v9.vsdx",
+      "carto": "../carto/map_rfq_fluidclip.json"
+    }
+  ]
+}

@@ -8,7 +8,8 @@ from Code.models.models import (User, Role, UserRole, Entity, CompetencyEvaluati
 from Code.security import hash_password, verify_password
 from Code.permissions import (can_create_accounts,
                               can_edit_account, current_user, is_admin,
-                              is_admin_status, is_competency_manager_status)
+                              is_admin_status, is_champion_status,
+                              is_competency_manager_status, is_coordinator_status)
 
 gestion_compte_bp = Blueprint('gestion_compte', __name__, url_prefix='/comptes')
 
@@ -90,6 +91,8 @@ def list_users():
             current_user_id=(me.id if me else None),
             is_admin_status=is_admin_status,
             is_competency_manager_status=is_competency_manager_status,
+            is_coordinator_status=is_coordinator_status,
+            is_champion_status=is_champion_status,
         )
 
     except Exception as e:
@@ -130,11 +133,11 @@ def create_user():
         return redirect(url_for('gestion_compte.list_users', msg='error_missing_email'))
     if not password or len(password) < 6:
         return redirect(url_for('gestion_compte.list_users', msg='error_missing_password'))
+    # Rôle FACULTATIF : un compte peut exister sans rôle (ex. premier admin
+    # avant que les rôles de l'entité soient créés).
     if User.query.filter_by(email=email).first():
         return redirect(url_for('gestion_compte.list_users', msg='error_email_exists'))
 
-    # Rôle FACULTATIF : un compte peut exister sans rôle (ex. premier admin
-    # avant que les rôles de l'entité soient créés).
     try:
         role_id = int(role_id_raw) if role_id_raw else None
     except ValueError:
@@ -284,7 +287,9 @@ def update_user(user_id):
     current_role = UserRole.query.filter_by(user_id=user.id).first()
     return render_template('edit_user.html', user=user, roles=roles, current_role=current_role,
                            is_admin_status=is_admin_status,
-                           is_competency_manager_status=is_competency_manager_status)
+                           is_competency_manager_status=is_competency_manager_status,
+                           is_coordinator_status=is_coordinator_status,
+                           is_champion_status=is_champion_status)
 
 @gestion_compte_bp.route('/managers')
 def get_managers():

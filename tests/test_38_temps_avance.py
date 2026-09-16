@@ -481,3 +481,159 @@ class TestWeaknessCalculation:
         data = r.get_json()
         assert data["ok"] is True
         assert "calc" in data
+
+
+# ===========================================================================
+# 7. Charges — Analyse Activité (/api/activity_workload*)
+# ===========================================================================
+
+class TestActivityWorkload:
+
+    def _create(self, auth_client, activity_id, **overrides):
+        payload = {
+            "activity_id": activity_id,
+            "duration": 30,
+            "duration_unit": "minutes",
+            "recurrence": "journalier",
+            "frequency": 1,
+            "nb_people": 1,
+        }
+        payload.update(overrides)
+        return auth_client.post(
+            "/temps/api/activity_workload",
+            data=json.dumps(payload),
+            content_type="application/json",
+        )
+
+    def test_create_returns_id_and_total(self, auth_client, ids):
+        r = self._create(auth_client, ids["activity_id"])
+        assert r.status_code == 200
+        data = r.get_json()
+        assert data["ok"] is True
+        assert isinstance(data["id"], int)
+        assert data["total_minutes"] == pytest.approx(30.0)
+
+    def test_create_hours_converted_to_minutes(self, auth_client, ids):
+        r = self._create(auth_client, ids["activity_id"], duration=2, duration_unit="heures")
+        assert r.status_code == 200
+        assert r.get_json()["total_minutes"] == pytest.approx(120.0)
+
+    def test_read_returns_item_with_activity_name(self, auth_client, ids):
+        wk_id = self._create(auth_client, ids["activity_id"]).get_json()["id"]
+        r = auth_client.get(f"/temps/api/activity_workload/{wk_id}")
+        assert r.status_code == 200
+        item = r.get_json()["item"]
+        assert item["id"] == wk_id
+        assert item["activity_id"] == ids["activity_id"]
+        assert item["activity"] == "Activité Test"
+
+    def test_read_unknown_id_returns_404(self, auth_client):
+        r = auth_client.get("/temps/api/activity_workload/999999")
+        assert r.status_code == 404
+
+    def test_update_duration_recomputes_total(self, auth_client, ids):
+        wk_id = self._create(auth_client, ids["activity_id"], duration=10, frequency=1).get_json()["id"]
+        r = auth_client.patch(
+            f"/temps/api/activity_workload/{wk_id}",
+            data=json.dumps({"duration": 40, "duration_unit": "minutes"}),
+            content_type="application/json",
+        )
+        assert r.status_code == 200
+        data = r.get_json()
+        assert data["ok"] is True
+        assert data["total_minutes"] == pytest.approx(40.0)
+
+    def test_update_unknown_id_returns_404(self, auth_client):
+        r = auth_client.patch(
+            "/temps/api/activity_workload/999999",
+            data=json.dumps({"duration": 5}),
+            content_type="application/json",
+        )
+        assert r.status_code == 404
+
+    def _create_task_type_analysis(self, app, activity_id, task_id):
+        with app.app_context():
+            from Code.models.models import TimeAnalysis
+            from Code.extensions import db
+            ta = TimeAnalysis(
+                type='task', activity_id=activity_id, task_id=task_id,
+                duration=15, recurrence='journalier', frequency=1, delay=0
+            )
+            db.session.add(ta)
+            db.session.commit()
+            return ta.id
+
+    def test_update_wrong_type_returns_400(self, app, auth_client, ids):
+        ta_id = self._create_task_type_analysis(app, ids["activity_id"], ids["task_id"])
+        r = auth_client.patch(
+            f"/temps/api/activity_workload/{ta_id}",
+            data=json.dumps({"duration": 5}),
+            content_type="application/json",
+        )
+        assert r.status_code == 400
+        assert r.get_json()["ok"] is False
+
+    def test_delete_removes_item(self, app, auth_client, ids):
+        wk_id = self._create(auth_client, ids["activity_id"]).get_json()["id"]
+        r = auth_client.delete(f"/temps/api/activity_workload/{wk_id}")
+        assert r.status_code == 200
+        assert r.get_json()["deleted"] is True
+        with app.app_context():
+            from Code.models.models import TimeAnalysis
+            assert TimeAnalysis.query.get(wk_id) is None
+
+    def test_delete_unknown_id_returns_404(self, auth_client):
+        r = auth_client.delete("/temps/api/activity_workload/999999")
+        assert r.status_code == 404
+
+    def test_delete_wrong_type_returns_400(self, app, auth_client, ids):
+        ta_id = self._create_task_type_analysis(app, ids["activity_id"], ids["task_id"])
+        r = auth_client.delete(f"/temps/api/activity_workload/{ta_id}")
+        assert r.status_code == 400
+        assert r.get_json()["ok"] is False
+
+    def test_list_contains_created_item(self, auth_client, ids):
+        wk_id = self._create(auth_client, ids["activity_id"]).get_json()["id"]
+        r = auth_client.get("/temps/api/activity_workloads")
+        assert r.status_code == 200
+        data = r.get_json()
+        assert data["ok"] is True
+        assert any(it["id"] == wk_id for it in data["items"])
+
+
+# ===========================================================================
+# 8. Charges — Activités d'un Rôle (/api/role_activities/<role_id>)
+# ===========================================================================
+
+class TestRoleActivities:
+
+    def _link_activity_to_role(self, app, activity_id, role_id):
+        with app.app_context():
+            from Code.extensions import db
+            from Code.models.models import activity_roles
+            db.session.execute(
+                activity_roles.insert().values(
+                    activity_id=activity_id, role_id=role_id, status="garant"
+                )
+            )
+            db.session.commit()
+
+    def test_returns_linked_activities(self, app, auth_client, ids):
+        role_id = _create_role(app, ids["entity_id"], name="Rôle Charges Test")
+        self._link_activity_to_role(app, ids["activity_id"], role_id)
+        r = auth_client.get(f"/temps/api/role_activities/{role_id}")
+        assert r.status_code == 200
+        data = r.get_json()
+        assert data["ok"] is True
+        assert {"id": ids["activity_id"], "name": "Activité Test"} in data["activities"]
+
+    def test_role_without_activities_returns_empty_list(self, app, auth_client, ids):
+        role_id = _create_role(app, ids["entity_id"], name="Rôle Sans Activité")
+        r = auth_client.get(f"/temps/api/role_activities/{role_id}")
+        assert r.status_code == 200
+        assert r.get_json()["activities"] == []
+
+    def test_unknown_role_returns_empty_list(self, auth_client):
+        r = auth_client.get("/temps/api/role_activities/999999")
+        assert r.status_code == 200
+        assert r.get_json()["activities"] == []

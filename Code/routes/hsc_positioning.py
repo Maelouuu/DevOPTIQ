@@ -12,12 +12,9 @@ from Code.routes.propose_common import ai_model, openai_client_or_none
 hsc_bp = Blueprint("hsc_positioning", __name__, url_prefix="/hsc")
 
 # Libellés de niveau STABILISÉS partout (CDC 7.2). « Excellence » supprimé : niveau 4 = Expertise.
-HSC_LEVELS = {
-    1: {"fr": "Aptitude",   "en": "Basic"},
-    2: {"fr": "Acquisition", "en": "Developing"},
-    3: {"fr": "Maîtrise",   "en": "Proficient"},
-    4: {"fr": "Expertise",  "en": "Expert"},
-}
+# Table unique, tenue dans Code/translations.py (les gabarits en ont besoin aussi,
+# via hsc_level_label) — ré-exportée ici pour ne rien casser des appelants.
+from Code.translations import HSC_LEVELS  # noqa: E402  (ré-export)
 
 
 def _lang():

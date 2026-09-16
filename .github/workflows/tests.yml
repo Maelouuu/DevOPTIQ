@@ -1,0 +1,81 @@
+name: Tests
+
+# Exécute la suite pytest en CI. Déclenchable à la main — c'est ce que fait le
+# bouton « Lancer » d'Optiq Hub, via l'API GitHub (workflow_dispatch).
+#
+# ⚠️ Pourquoi la CI et pas l'application déployée : `.dockerignore` exclut
+# `tests/` de l'image, l'app en ligne n'embarque donc pas la suite et ne peut
+# pas lancer pytest. Le panel de tests de l'app reste l'écran de consultation
+# détaillée, alimenté par des exécutions locales.
+
+on:
+  workflow_dispatch:
+    inputs:
+      filtre:
+        description: "Filtre pytest (-k), vide = toute la suite"
+        required: false
+        default: ""
+  push:
+    branches: [staging]
+    paths:
+      - 'Code/**'
+      - 'tests/**'
+      - '.github/workflows/tests.yml'
+
+jobs:
+  pytest:
+    name: Suite pytest
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+
+      - name: Dépendances
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest pytest-html
+
+      - name: Exécuter la suite
+        id: run
+        env:
+          FILTRE: ${{ github.event.inputs.filtre }}
+        run: |
+          set +e
+          if [ -n "$FILTRE" ]; then
+            python -m pytest tests/ -q -p no:warnings -k "$FILTRE" --junitxml=resultats.xml | tee sortie.txt
+          else
+            python -m pytest tests/ -q -p no:warnings --junitxml=resultats.xml | tee sortie.txt
+          fi
+          CODE=${PIPESTATUS[0]}
+          echo "code=$CODE" >> "$GITHUB_OUTPUT"
+          # Dernière ligne de pytest : « N passed in X.XXs » — c'est le résumé
+          # que le hub affiche.
+          echo "resume=$(tail -3 sortie.txt | grep -E 'passed|failed|error' | tail -1)" >> "$GITHUB_OUTPUT"
+          exit $CODE
+
+      - name: Résumé
+        if: always()
+        run: |
+          echo "## Suite de tests DevOPTIQ" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          tail -20 sortie.txt >> "$GITHUB_STEP_SUMMARY" 2>/dev/null || echo "(pas de sortie)" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Rapports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: resultats-pytest
+          path: |
+            resultats.xml
+            sortie.txt
+          retention-days: 14

@@ -1,5 +1,23 @@
 // Code/static/js/translate_softskills.js
 
+// Le gabarit rend bien ses libellés traduits, mais ce fichier RÉÉCRIT le bouton
+// et construit le tableau de résultats : sans catalogue, la modale repassait au
+// français dès son ouverture. Mêmes clés que les autres modales de proposition.
+const _TS_FR = {
+  translate_btn:         'Traduire',
+  translate_back:        'Retour',
+  translate_analyzing:   'Analyse en cours…',
+  translate_err_input:   'Veuillez saisir vos soft skills dans le champ prévu.',
+  translate_err_context: "Erreur lors de la récupération du contexte de l'activité.",
+  translate_err_none:    "L'IA n'a renvoyé aucune HSC.",
+  hsc_skill:             'Habileté',
+  hsc_level:             'Niveau',
+  hsc_justification:     'Justification',
+  save_selection:        'Enregistrer la sélection',
+  select_one_hsc:        'Veuillez sélectionner au moins une HSC.',
+};
+const _TS = (k) => (window.PROPOSE_I18N && window.PROPOSE_I18N[k]) || _TS_FR[k] || k;
+
 function openTranslateSoftskillsModal(activityId) {
   window.translateSoftskillsActivityId = activityId;
   // Reset to input view
@@ -10,7 +28,7 @@ function openTranslateSoftskillsModal(activityId) {
   if (resultsView) { resultsView.style.display = 'none'; resultsView.innerHTML = ''; }
   if (submitBtn) {
     submitBtn.style.display = '';
-    submitBtn.innerHTML = '<i class="fa-solid fa-wand-magic-sparkles"></i> Traduire';
+    submitBtn.innerHTML = '<i class="fa-solid fa-wand-magic-sparkles"></i> ' + _escapeHtmlT(_TS('translate_btn'));
     submitBtn.onclick = submitSoftskillsTranslation;
   }
   const inputElem = document.getElementById('translateSoftskillsInput');
@@ -40,15 +58,12 @@ function _getNiveauNumT(niveau) {
 
 function submitSoftskillsTranslation() {
   const activityId = window.translateSoftskillsActivityId;
-  if (!activityId) {
-    alert("Erreur : activityId introuvable.");
-    return;
-  }
+  if (!activityId) return;
 
   const userInputElem = document.getElementById('translateSoftskillsInput');
   const userInput = (userInputElem?.value || "").trim();
   if (!userInput) {
-    alert("Veuillez saisir quelque chose dans le champ des soft skills.");
+    alert(_TS('translate_err_input'));
     return;
   }
 
@@ -64,7 +79,7 @@ function submitSoftskillsTranslation() {
   resultsView.innerHTML = `
     <div class="modal-loading">
       <div class="spinner-ring"></div>
-      <span>Analyse en cours...</span>
+      <span>${_escapeHtmlT(_TS('translate_analyzing'))}</span>
     </div>
   `;
   if (submitBtn) submitBtn.style.display = 'none';
@@ -72,7 +87,7 @@ function submitSoftskillsTranslation() {
   // (1) Fetch activity details
   fetch(`/activities/${savedActivityId}/details`)
     .then(resp => {
-      if (!resp.ok) throw new Error("Erreur lors de la récupération du contexte.");
+      if (!resp.ok) throw new Error(_TS('translate_err_context'));
       return resp.json();
     })
     .then(activityData => {
@@ -102,7 +117,7 @@ function submitSoftskillsTranslation() {
       if (data.error) throw new Error(data.error);
       const proposals = data.proposals;
       if (!proposals || !Array.isArray(proposals) || proposals.length === 0) {
-        throw new Error("L'IA n'a renvoyé aucune HSC.");
+        throw new Error(_TS('translate_err_none'));
       }
 
       // Render table
@@ -119,11 +134,11 @@ function submitSoftskillsTranslation() {
       // Show a "Retour" button
       if (submitBtn) {
         submitBtn.style.display = '';
-        submitBtn.innerHTML = '<i class="fa-solid fa-arrow-left"></i> Retour';
+        submitBtn.innerHTML = '<i class="fa-solid fa-arrow-left"></i> ' + _escapeHtmlT(_TS('translate_back'));
         submitBtn.onclick = () => {
           inputView.style.display = '';
           resultsView.style.display = 'none';
-          submitBtn.innerHTML = '<i class="fa-solid fa-wand-magic-sparkles"></i> Traduire';
+          submitBtn.innerHTML = '<i class="fa-solid fa-wand-magic-sparkles"></i> ' + _escapeHtmlT(_TS('translate_btn'));
           submitBtn.onclick = submitSoftskillsTranslation;
         };
       }
@@ -160,9 +175,9 @@ function showTranslateResults(proposals, activityId) {
       <thead>
         <tr>
           <th class="col-check"><input type="checkbox" id="translate-select-all" checked></th>
-          <th class="col-habilete">Habileté</th>
-          <th class="col-niveau">Niveau</th>
-          <th class="col-justification">Justification</th>
+          <th class="col-habilete">${_escapeHtmlT(_TS('hsc_skill'))}</th>
+          <th class="col-niveau">${_escapeHtmlT(_TS('hsc_level'))}</th>
+          <th class="col-justification">${_escapeHtmlT(_TS('hsc_justification'))}</th>
         </tr>
       </thead>
       <tbody id="translateResultsBody">${tableRows}</tbody>
@@ -196,14 +211,13 @@ function showTranslateResults(proposals, activityId) {
     });
   });
 
-  // Change submit button to "Enregistrer"
   if (submitBtn) {
     submitBtn.style.display = '';
-    submitBtn.innerHTML = '<i class="fa-solid fa-check"></i> Enregistrer la sélection';
+    submitBtn.innerHTML = '<i class="fa-solid fa-check"></i> ' + _escapeHtmlT(_TS('save_selection'));
     submitBtn.onclick = () => {
       const selected = resultsView.querySelectorAll('#translateResultsBody input[type="checkbox"]:checked');
       if (!selected.length) {
-        alert("Veuillez sélectionner au moins une HSC.");
+        alert(_TS('select_one_hsc'));
         return;
       }
 

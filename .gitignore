@@ -22,6 +22,15 @@ tools/prompts/prompts_key.txt
 Code/prompts/prompts.enc
 docs/guide_standalone.html
 tools/guide/auth_state.json
-
-# Base SQLite jetable du pipeline du guide
 tools/guide/demo_v2.db*
+
+# Hub : la doc est copiee dans l image au build, jamais versionnee ici
+hub/_docs/
+
+# Fichier cree par erreur par un curl mal echappe (-o pris pour un nom de
+# fichier). Il contenait un cookie de session d une instance jetable locale.
+-o
+
+# Config de serveur de dev du panneau navigateur : elle porte un chemin absolu
+# propre a la machine ET au worktree, elle ne se partage pas.
+.claude/launch.json

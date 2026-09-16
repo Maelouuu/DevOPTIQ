@@ -189,7 +189,7 @@ def create_app(test_config=None):
     app.jinja_env.filters["escapejs"] = escapejs_filter
 
     # ── Contexte de traduction (injecte t() et lang dans tous les templates) ──
-    from Code.translations import t as _t
+    from Code.translations import t as _t, hsc_level_label as _hsc_label
 
     # L'anglais est la langue par défaut : on renseigne session['lang'] dès la
     # première requête pour que les dizaines de session.get('lang', 'fr')
@@ -206,7 +206,7 @@ def create_app(test_config=None):
         from flask import session as _sess
         from Code.models.models import DEFAULT_LANG
         lang = _sess.get('lang', DEFAULT_LANG) if _sess else DEFAULT_LANG
-        return {'t': _t, 'lang': lang}
+        return {'t': _t, 'lang': lang, 'hsc_level_label': _hsc_label}
 
     # -----------------------------
     # Blueprints
@@ -325,6 +325,10 @@ def create_app(test_config=None):
     from Code.routes.cartography_editor import cartography_editor_bp
     app.register_blueprint(cartography_editor_bp)
 
+    from Code.routes.carto_sharing import carto_sharing_bp, share_page_bp
+    app.register_blueprint(carto_sharing_bp)
+    app.register_blueprint(share_page_bp)
+
     from Code.routes.settings import settings_bp
     app.register_blueprint(settings_bp)
 
@@ -354,6 +358,9 @@ def create_app(test_config=None):
 
     from Code.routes.diagnostic import diagnostic_bp
     app.register_blueprint(diagnostic_bp)
+
+    from Code.routes.plan_formation import plan_bp
+    app.register_blueprint(plan_bp)
 
     from Code.routes.technical_domains import domains_bp
     app.register_blueprint(domains_bp)
@@ -412,6 +419,29 @@ def create_app(test_config=None):
             except Exception:
                 pass  # colonne déjà présente — normal
 
+        def _verifier_colonnes(attendues):
+            """Crie si une colonne que les modèles interrogent manque encore.
+
+            `_safe_add_column` est muet par construction : il ne peut pas
+            distinguer « la colonne existait déjà » (le cas normal) d'un DDL
+            invalide sur ce dialecte. Une colonne manquante ne se voit alors
+            qu'en production, en 500 sur toutes les pages qui lisent la table.
+            """
+            try:
+                from sqlalchemy import inspect as _sa_inspect
+                inspecteur = _sa_inspect(db.engine)
+                for table, colonnes in attendues.items():
+                    if not inspecteur.has_table(table):
+                        continue
+                    presentes = {c["name"] for c in inspecteur.get_columns(table)}
+                    for col in colonnes:
+                        if col not in presentes:
+                            print(f"[DB] ⚠️ COLONNE MANQUANTE {table}.{col} — "
+                                  f"la migration a échoué, les pages qui lisent "
+                                  f"{table} vont tomber en erreur.")
+            except Exception as exc:
+                print(f"[DB] Vérification des colonnes impossible : {exc}")
+
         # 1. Créer les tables manquantes (idempotent, pas de verrou DDL)
         try:
             db.create_all()
@@ -430,6 +460,24 @@ def create_app(test_config=None):
         # Table creee par create_all, mais une colonne ajoutee apres coup
         # ne l est pas : les instances deja deployees ont besoin de l ALTER.
         _safe_add_column("entity_share_offers", "deposit_kind", "VARCHAR(20)")
+        # Partage par rôle : entities.is_shared + entity_role_access +
+        # carto_change_requests (ces deux tables viennent de create_all).
+        # ⚠️ DEFAULT **FALSE**, pas 0 : PostgreSQL refuse un entier comme défaut
+        # de booléen (« column is of type boolean but default expression is of
+        # type integer »). _safe_add_column avale l'erreur, la colonne n'était
+        # donc jamais créée et TOUTE requête sur `entities` tombait en 500.
+        _safe_add_column("entities", "is_shared", "BOOLEAN DEFAULT FALSE")
+        try:
+            with _init_conn() as _conn:
+                _conn.execute(_text(
+                    "UPDATE entities SET is_shared = FALSE WHERE is_shared IS NULL"))
+                _conn.commit()
+        except Exception:
+            pass
+        # Une colonne que le modèle interroge et qui manque casse toute la page.
+        # _safe_add_column est muet par construction (il ignore « déjà là ») :
+        # on vérifie donc, et on le dit fort.
+        _verifier_colonnes({"entities": ["is_shared"]})
         # Statut Garant : l'import carto l'écrivait en minuscule, la page Rôles
         # cherchait 'Garant' — un rôle garant d'après la carte n'apparaissait
         # donc nulle part dans sa fiche. On aligne les lignes existantes.
@@ -496,6 +544,20 @@ def create_app(test_config=None):
         except Exception:
             pass  # SQLite (longueur non contraignante), déjà au bon type, ou verrou occupé
 
+        # softskills.niveau : la valeur STOCKÉE est le libellé HSC entier
+        # (« 2 (Acquisition) », 15 caractères) — jamais le chiffre seul, c'est
+        # ce qui permet de traduire l'affichage sans réécrire la base. Le modèle
+        # la déclarait en VARCHAR(10) : sur toute base NEUVE, enregistrer une
+        # HSC tombait en 500. Invisible pour la suite, qui tourne sur SQLite —
+        # lequel n'applique PAS les longueurs de VARCHAR.
+        try:
+            with _init_conn() as _conn:
+                _conn.execute(_text("ALTER TABLE softskills ALTER COLUMN niveau TYPE VARCHAR(50)"))
+                _conn.commit()
+                print("[DB] Colonne softskills.niveau élargie à VARCHAR(50)")
+        except Exception:
+            pass  # SQLite, déjà au bon type, ou verrou occupé
+
         # 3. Tables supplémentaires
         try:
             from Code.models.models import FileBlob
@@ -518,6 +580,19 @@ def create_app(test_config=None):
             print("[DB] Tables test panel prêtes")
         except Exception as e:
             print(f"[DB] test panel tables: {e}")
+
+        # ⚠️ « champion » a changé de sens : il désignait l'arbitre, c'est
+        # désormais le coordinateur. Sans cette reprise, les comptes en service
+        # PERDRAIENT leur droit de valider au premier démarrage du nouveau code.
+        # Idempotente, et jouée avant de servir la moindre requête.
+        try:
+            from Code.permissions import migrer_anciens_champions
+            repris = migrer_anciens_champions()
+            if repris:
+                print(f"[DB] {repris} compte(s) champion → coordinateur")
+        except Exception as e:
+            db.session.rollback()
+            print(f"[DB] reprise des statuts: {e}")
 
         try:
             from Code.models.models import RecentEvent
@@ -657,50 +732,6 @@ def create_app(test_config=None):
         except Exception as e:
             db.session.rollback()
             print(f"[BOOTSTRAP] Création admin: {e}")
-
-        # 6bis. Comptes pilote (branche optiqfluent-staging uniquement) :
-        # AFDEC en administrateur, testeurs ARaymond en manager (affiché
-        # « Gestionnaire de compétences »). Idempotent — créé seulement si
-        # l'email n'existe pas encore ; un mot de passe changé ensuite n'est
-        # donc jamais réécrasé au redémarrage. Convergence one-shot du
-        # statut : un compte AFDEC resté « manager » (valeur du seed initial)
-        # est promu administrateur ; un statut changé à la main ensuite n'est
-        # plus jamais touché.
-        try:
-            from sqlalchemy import func as _func
-            from Code.models.models import User as _User
-            from Code.security import hash_password as _hash_password
-            _PILOT_ACCOUNTS = [
-                ("Mael", "Girardin", "mael.pierre.girardin@icloud.com", "administrateur"),
-                ("Hubert", "Grandjean", "h.grandjean@afdec.fr", "administrateur"),
-                ("Aditya", "Vaze", "aditya.vaze@araymond.com", "manager"),
-                ("Rakesh", "Khandelwal", "rakesh.khandelwal@araymond.com", "manager"),
-                ("Vaishali", "Erande", "vaishali.erande@araymond.com", "manager"),
-                ("Madhuri", "Sindhankar", "madhuri.sindhankar@araymond.com", "manager"),
-            ]
-            _pwd = None
-            _created, _promoted = [], []
-            for _fn, _ln, _em, _st in _PILOT_ACCOUNTS:
-                _u = _User.query.filter(_func.lower(_User.email) == _em).first()
-                if _u:
-                    if _st == "administrateur" and _u.status == "manager":
-                        _u.status = _st
-                        _promoted.append(_em)
-                    continue
-                if _pwd is None:
-                    _pwd = _hash_password("password")
-                db.session.add(_User(first_name=_fn, last_name=_ln, email=_em,
-                                     password=_pwd, status=_st))
-                _created.append(_em)
-            if _created or _promoted:
-                db.session.commit()
-                if _created:
-                    print(f"[BOOTSTRAP] Comptes pilote créés : {', '.join(_created)}")
-                if _promoted:
-                    print(f"[BOOTSTRAP] Comptes promus administrateur : {', '.join(_promoted)}")
-        except Exception as e:
-            db.session.rollback()
-            print(f"[BOOTSTRAP] Comptes pilote: {e}")
 
         # 6ter. Rétention télémétrie OptiqPulse : les battements (1/min/user)
         # sont volumineux et n'ont d'intérêt que récents ; les événements

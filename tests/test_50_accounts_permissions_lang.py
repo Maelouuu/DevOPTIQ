@@ -184,6 +184,7 @@ def test_un_nouveau_compte_nait_en_anglais(app, client, actors):
 
 def test_le_compte_afdec_nait_en_francais(app, client, actors):
     from Code.models.models import default_lang_for, DEFAULT_FRENCH_ACCOUNTS
+    assert default_lang_for("mael.pierre.girardin@icloud.com") == "fr"
     assert default_lang_for("afdec.enterprise.services@gmail.com") == "fr"
     assert default_lang_for("AFDEC.Enterprise.Services@Gmail.com") == "fr"
     assert default_lang_for("quelqun@araymond.com") == "en"
@@ -352,3 +353,115 @@ def test_le_role_est_facultatif_a_la_modification(app, client, actors):
         from Code.models.models import User, UserRole as UR
         assert UR.query.filter_by(user_id=actors["other"]).first() is None
         assert User.query.get(actors["other"]).age == 42
+
+
+class TestCeQueChaquePalierOuvre:
+    """L'échelle `user < champion < coordinateur < admin`, vue des écrans.
+
+    ⚠️ Deux règles se ressemblent et ne disent pas la même chose :
+      · la PAGE Paramètres est ouverte à TOUS — chacun doit pouvoir choisir la
+        langue de son interface ;
+      · ses sections d'ADMINISTRATION ne sont rendues que pour l'administrateur,
+        et pas seulement masquées : elles n'existent pas dans le HTML, CSS
+        compris.
+    La page Gestion RH, elle, se ferme aux deux premiers paliers.
+    """
+
+    PALIERS = ("user", "champion", "coordinateur", "admin")
+
+    def _compte(self, app, statut):
+        from Code.extensions import db
+        from Code.models.models import User
+        from Code.security import hash_password
+        mail = "t50.palier.%s@devoptiq.com" % statut
+        with app.app_context():
+            u = User.query.filter_by(email=mail).first()
+            if u is None:
+                u = User(first_name="T50", last_name=statut.capitalize(),
+                         email=mail, password=hash_password("Motdepasse123!"),
+                         status=statut)
+                db.session.add(u)
+            u.status = statut
+            db.session.commit()
+            return u.id, mail
+
+    def _as(self, client, uid, mail):
+        with client.session_transaction() as sess:
+            sess.clear()
+            sess["user_id"] = uid
+            sess["user_email"] = mail
+            sess["lang"] = "fr"
+
+    # ⚠️ On s'ancre sur des repères de STRUCTURE, pas sur du texte : Jinja
+    # échappe les apostrophes (« Langue de l&#39;interface »), et une assertion
+    # sur le libellé échouait à l'endroit où elle aurait dû passer — ou pire,
+    # passait à tort dans le sens négatif.
+    def test_la_page_parametres_est_ouverte_a_tous(self, app, client):
+        for statut in self.PALIERS:
+            uid, mail = self._compte(app, statut)
+            self._as(client, uid, mail)
+            r = client.get("/parametres/")
+            assert r.status_code == 200, "%s doit pouvoir ouvrir les Paramètres" % statut
+            assert "stt-lang-card" in r.data.decode(), (
+                "%s doit voir la carte de langue" % statut)
+
+    def test_seul_l_admin_voit_les_sections_d_administration(self, app, client):
+        for statut in self.PALIERS:
+            uid, mail = self._compte(app, statut)
+            self._as(client, uid, mail)
+            corps = client.get("/parametres/").data.decode()
+            if statut == "admin":
+                assert "stt-admin-row" in corps, "l'administrateur doit voir sa section"
+            else:
+                assert "stt-admin-row" not in corps, (
+                    "%s ne doit voir AUCUNE trace de l'administration — CSS compris"
+                    % statut)
+
+    def test_la_page_rh_se_ferme_aux_deux_premiers_paliers(self, app, client):
+        for statut in self.PALIERS:
+            uid, mail = self._compte(app, statut)
+            self._as(client, uid, mail)
+            code = client.get("/gestion_rh/").status_code
+            if statut in ("coordinateur", "admin"):
+                assert code == 200, "%s doit ouvrir la Gestion RH" % statut
+            else:
+                assert code in (302, 403), (
+                    "%s ne doit pas ouvrir la Gestion RH (obtenu %s)" % (statut, code))
+
+    def test_les_droits_carto_suivent_l_echelle(self, app):
+        from Code.permissions import (can_access_rh, can_edit_carto,
+                                      can_propose_carto, can_review_carto,
+                                      can_see_admin_settings)
+        from Code.extensions import db
+        from Code.models.models import User
+
+        attendu = {
+            #            propose  édite  arbitre   RH   admin
+            "user":         (False, False, False, False, False),
+            "champion":     (True,  False, False, False, False),
+            "coordinateur": (True,  True,  True,  True,  False),
+            "admin":        (True,  True,  True,  True,  True),
+        }
+        with app.app_context():
+            for statut, (prop, edit, rev, rh, adm) in attendu.items():
+                uid, _ = self._compte(app, statut)
+                u = db.session.get(User, uid)
+                assert can_propose_carto(u) is prop, statut
+                assert can_edit_carto(u) is edit, statut
+                assert can_review_carto(u) is rev, statut
+                assert can_access_rh(u) is rh, statut
+                assert can_see_admin_settings(u) is adm, statut
+
+    def test_les_comptes_du_banc_sont_nettoyes(self, app):
+        """La base est partagée : ces comptes ne doivent pas traîner derrière."""
+        from Code.extensions import db
+        from Code.models.models import User
+        with app.app_context():
+            for statut in self.PALIERS:
+                u = User.query.filter_by(
+                    email="t50.palier.%s@devoptiq.com" % statut).first()
+                if u:
+                    db.session.delete(u)
+            db.session.commit()
+            assert User.query.filter(
+                User.email.like("t50.palier.%")).count() == 0

@@ -1,0 +1,579 @@
+/* ══════════════════════════════════════════════════════════════════════════
+   OPTIQ HUB — direction artistique « JARDIN »
+
+   Architecture méditerranéenne : les toiles sont vues À TRAVERS des arches à
+   clé de voûte, posées sur des murs chaulés. Des pétales descendent en fond,
+   une guirlande végétale souligne le titre, les icônes sont cerclées.
+
+   Trois règles :
+   1. le mur (fond) est chaulé et teinté par la couleur de la section ;
+   2. la couleur vit dans les ARCHES, les bandeaux et les pastilles — jamais
+      en filet décoratif ;
+   3. l'italique de Fraunces est la voix du jardin : sur-titres, libellés de
+      tableau, légendes.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+:root{
+  --f-corps:'DM Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+  --f-titre:'Fraunces',Georgia,serif;
+  --f-mono:ui-monospace,'SF Mono','Cascadia Mono',Menlo,monospace;
+
+  --chaux:#fbf6ec; --chaux2:#f3ebdc; --chaux3:#ece2ce;
+  --encre:#2b2a20; --encre2:#4b4739; --gris:#847c6c; --gris2:#a8a091;
+  --trait:rgba(43,42,32,.10); --trait2:rgba(43,42,32,.18);
+
+  --r-arche:150px; --r-carte:20px; --r-pilule:999px;
+  --om1:0 8px 20px -16px rgba(43,42,32,.5);
+  --om2:0 14px 32px -22px rgba(43,42,32,.55);
+  --om3:0 24px 50px -26px rgba(43,42,32,.62);
+
+  --t:#588b2f;             /* signature de la section */
+}
+
+/* Chaque section a sa couleur, tirée de la toile qu'elle accroche. */
+.page--accueil        { --t:#588b2f; }   /* coteau vert       */
+.page--instances      { --t:#e0a015; }   /* collines d'or     */
+.page--infrastructure { --t:#0e4cf7; }   /* champ outremer    */
+.page--documentation  { --t:#7d8c2e; }   /* blés et oliviers  */
+.page--tests          { --t:#8b6fb5; }   /* lavande           */
+.page--outils         { --t:#b4603a; }   /* terre de Sienne   */
+.page--ci             { --t:#2f5fa8; }   /* crépuscule        */
+
+/* Gammes du paysage peint — il sert de repli dans l'arche quand une section
+   n'a pas de toile (aujourd'hui : Tests). Même dessin, gamme de la section. */
+.page--accueil{--p1:#7cc7ea;--p2:#a8dcf2;--p3:#dff1fa;--p4:#b9e24d;--p5:#86c93c;
+  --p6:#59a831;--p7:#3d8a2b;--p-soleil:#f4b924;--p-cypres:#2c6b26;--p-fleur:#fdfbb4;--p-touche:#e6fa96}
+.page--instances{--p1:#7cc0ea;--p2:#a8d6f2;--p3:#e0eefb;--p4:#f8de4c;--p5:#efc72e;
+  --p6:#d2a41e;--p7:#ad8214;--p-soleil:#fff6b0;--p-cypres:#6a5a1b;--p-fleur:#fffbe0;--p-touche:#ffef9a}
+.page--infrastructure{--p1:#4d80f0;--p2:#7fa5f5;--p3:#c3d6fb;--p4:#2f6be0;--p5:#2453c8;
+  --p6:#1c40aa;--p7:#16338c;--p-soleil:#dce9ff;--p-cypres:#11307e;--p-fleur:#d2e2ff;--p-touche:#82aaf6}
+.page--documentation{--p1:#7cc7ea;--p2:#a8dcf2;--p3:#e2f2fa;--p4:#d2e45c;--p5:#9ac93f;
+  --p6:#7d8c2e;--p7:#5c6a22;--p-soleil:#f4d94a;--p-cypres:#3f5219;--p-fleur:#fdfcb2;--p-touche:#e9f89c}
+.page--tests{--p1:#8fb8ea;--p2:#b6d0f2;--p3:#e2ecfb;--p4:#c3aee8;--p5:#a288d6;
+  --p6:#8b6fb5;--p7:#6d5292;--p-soleil:#f7dd8f;--p-cypres:#4a3670;--p-fleur:#f3eaff;--p-touche:#d6c6f2}
+.page--outils{--p1:#f2b64a;--p2:#f7d07c;--p3:#fbe8bd;--p4:#e08a4c;--p5:#cf6f38;
+  --p6:#b4603a;--p7:#8f4728;--p-soleil:#fff0cd;--p-cypres:#5b2f17;--p-fleur:#ffdaa2;--p-touche:#ffc578}
+.page--ci{--p1:#6d8ed8;--p2:#9ab0e6;--p3:#d2ddf5;--p4:#5f7cc4;--p5:#4566ae;
+  --p6:#2f5fa8;--p7:#254a85;--p-soleil:#ffe9a0;--p-cypres:#1e3560;--p-fleur:#e1e8ff;--p-touche:#a9bef0}
+
+/* Accent local (carte, ligne, commande) */
+.acc-accueil,.acc-hub,.acc-staging   { --a:#588b2f; }
+.acc-instances                       { --a:#e0a015; }
+.acc-tests                           { --a:#8b6fb5; }
+.acc-infra,.acc-pulse                { --a:#0e4cf7; }
+.acc-docs,.acc-guide                 { --a:#7d8c2e; }
+.acc-outils,.acc-provisioning        { --a:#b4603a; }
+.acc-ci                              { --a:#2f5fa8; }
+.acc-prod                            { --a:#c2452f; }
+.acc-pilote                          { --a:#e0a015; }
+.acc-refonte                         { --a:#b5497e; }
+.acc-distrib                         { --a:#2a8b8b; }
+
+*{margin:0;padding:0;box-sizing:border-box}
+
+body{
+  font-family:var(--f-corps); font-size:15px; line-height:1.55;
+  color:var(--encre2); background:var(--chaux); min-height:100vh;
+  -webkit-font-smoothing:antialiased;
+}
+
+/* ══ Mur chaulé ═══════════════════════════════════════════════════════════
+   Marbrure très douce teintée par la section : le fond n'est jamais un aplat. */
+.fond{position:fixed;inset:0;z-index:0;pointer-events:none;
+  background:
+    radial-gradient(58rem 34rem at 84% -10%, color-mix(in srgb, var(--t) 20%, transparent), transparent 62%),
+    radial-gradient(44rem 30rem at 4% 104%, color-mix(in srgb, var(--t) 13%, transparent), transparent 60%),
+    radial-gradient(30rem 22rem at 42% 40%, rgba(255,255,255,.7), transparent 70%)}
+.grain{position:fixed;inset:0;z-index:1;pointer-events:none;opacity:.4;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.75' numOctaves='4'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23n)' opacity='.2'/%3E%3C/svg%3E")}
+
+/* ══ Pétales ══════════════════════════════════════════════════════════════
+   Ils descendent en diagonale, très lentement. Décoratif : aucun ne porte
+   d'information, et le mouvement se coupe sur `prefers-reduced-motion`. */
+.petales{position:fixed;inset:0;z-index:1;pointer-events:none;overflow:hidden}
+.petale{position:absolute;border-radius:50% 0 50% 50%;opacity:.42;
+  animation:tomber linear infinite}
+@keyframes tomber{
+  0%{transform:translate3d(0,-8vh,0) rotate(0deg);opacity:0}
+  8%{opacity:.42}
+  92%{opacity:.42}
+  100%{transform:translate3d(14vw,104vh,0) rotate(220deg);opacity:0}
+}
+
+.sprite{position:absolute;width:0;height:0;overflow:hidden}
+.ic{width:1em;height:1em;fill:none;stroke:currentColor;stroke-width:1.8;
+  stroke-linecap:round;stroke-linejoin:round;flex-shrink:0}
+.saut{position:absolute;left:-9999px}
+.saut:focus{left:12px;top:12px;z-index:99;background:#fff;padding:10px 14px;
+  border-radius:var(--r-pilule);box-shadow:var(--om2)}
+
+/* ══ Barre ════════════════════════════════════════════════════════════════ */
+.navbar{position:sticky;top:0;z-index:30;
+  background:rgba(251,246,236,.86);backdrop-filter:blur(14px) saturate(1.3);
+  border-bottom:1px solid var(--trait)}
+.navbar-in{max-width:1280px;margin:0 auto;padding:13px 32px;
+  display:flex;align-items:center;gap:20px}
+
+.marque{display:flex;align-items:center;gap:11px;text-decoration:none;color:var(--encre);flex-shrink:0}
+.marque svg{width:34px;height:34px;flex-shrink:0}
+.marque-txt{font-family:var(--f-titre);font-size:18px;font-weight:700;letter-spacing:-.01em}
+.marque-txt i{font-style:italic;font-weight:400;color:var(--gris)}
+
+.nav-liens{display:flex;align-items:center;gap:4px;margin-left:auto;
+  overflow-x:auto;scrollbar-width:none}
+.nav-liens::-webkit-scrollbar{display:none}
+.nav-lien{display:inline-flex;align-items:center;gap:8px;white-space:nowrap;
+  padding:9px 15px;border-radius:var(--r-pilule);text-decoration:none;
+  color:#6b6455;font-size:13.5px;font-weight:600;
+  transition:background .16s,color .16s}
+.nav-lien .ic{width:16px;height:16px;color:var(--gris2);transition:color .16s}
+.nav-lien:hover{background:color-mix(in srgb,var(--a) 12%,#fff);color:var(--encre)}
+.nav-lien:hover .ic{color:var(--a)}
+.nav-lien.actif{background:var(--a);color:#fff}
+.nav-lien.actif .ic{color:#fff}
+
+.nav-sortie{flex-shrink:0;font-size:12.5px;font-weight:600;color:var(--gris);
+  text-decoration:none;padding:8px 14px;border-radius:var(--r-pilule);
+  border:1px solid var(--trait2);background:rgba(255,255,255,.6)}
+.nav-sortie:hover{background:#fff;color:var(--encre)}
+
+.cadre{position:relative;z-index:2}
+.colonne{max-width:1280px;margin:0 auto;padding:30px 32px 64px}
+
+/* ══ Héros : le mot, la guirlande, l'arche ════════════════════════════════ */
+.heros{display:grid;grid-template-columns:1fr 288px;gap:44px;align-items:center;
+  margin-bottom:30px;position:relative}
+.heros-mot{padding-bottom:6px}
+.heros-sur{display:inline-flex;align-items:center;gap:10px;
+  font-family:var(--f-titre);font-style:italic;font-size:14.5px;color:var(--t);margin-bottom:8px}
+.heros-sur::before{content:"";width:26px;height:1px;background:currentColor}
+.heros h1{font-family:var(--f-titre);font-size:56px;font-weight:600;color:var(--encre);
+  line-height:1;letter-spacing:-.022em;margin-bottom:10px;text-wrap:balance}
+.heros p{font-size:15.5px;max-width:52ch;line-height:1.6}
+.guirlande{display:block;margin-top:18px;max-width:100%;height:auto}
+.heros-extra{display:flex;gap:9px;flex-wrap:wrap;margin-top:18px}
+
+/* L'arche : plein cintre, encadrement chaulé, clé de voûte, socle. */
+.arche{position:relative;width:288px;height:340px;justify-self:end;--r-arche:144px}
+.arche-cadre{position:absolute;inset:0;padding:10px;background:var(--chaux2);
+  border-radius:var(--r-arche) var(--r-arche) 16px 16px;box-shadow:var(--om3);
+  transition:transform .3s ease,box-shadow .3s ease}
+.arche img,.arche .paysage{display:block;width:100%;height:100%;object-fit:cover;
+  border-radius:calc(var(--r-arche) - 10px) calc(var(--r-arche) - 10px) 8px 8px}
+.arche-cle{position:absolute;top:-13px;left:50%;transform:translateX(-50%);
+  width:28px;height:28px;border-radius:50%;background:var(--t);
+  box-shadow:0 5px 14px -5px rgba(43,42,32,.6);transition:box-shadow .3s ease}
+.arche-socle{position:absolute;bottom:-15px;left:-18px;right:-18px;height:15px;
+  border-radius:5px;background:var(--chaux2);box-shadow:0 10px 22px -15px rgba(43,42,32,.65)}
+.heros:hover .arche-cadre{transform:translateY(-4px)}
+.heros:hover .arche-cle{box-shadow:0 0 0 7px color-mix(in srgb,var(--t) 22%,transparent),
+  0 5px 14px -5px rgba(43,42,32,.6)}
+
+/* ══ Bandeau de section ═══════════════════════════════════════════════════ */
+.bande{margin-bottom:32px}
+.bande-index{display:flex;align-items:center;gap:14px;margin-bottom:15px}
+.bande-tag{display:inline-flex;align-items:center;gap:9px;
+  background:var(--a,var(--t));color:#fff;font-family:var(--f-titre);font-style:italic;
+  font-size:14px;padding:6px 16px;border-radius:var(--r-pilule);
+  box-shadow:0 6px 16px -9px color-mix(in srgb,var(--a,var(--t)) 90%,#000)}
+.bande-tag .ic{width:15px;height:15px}
+.bande-trait{flex:1;height:1px;
+  background:repeating-linear-gradient(90deg,var(--trait2) 0 4px,transparent 4px 9px)}
+.puce-cat{width:9px;height:9px;border-radius:50% 0 50% 50%;background:currentColor;
+  display:inline-block;transform:rotate(-45deg)}
+
+/* ══ Boutons ══════════════════════════════════════════════════════════════ */
+.btn-pri,.btn-sec{display:inline-flex;align-items:center;gap:7px;
+  font-family:var(--f-corps);font-size:13px;font-weight:600;
+  padding:9px 17px;border-radius:var(--r-pilule);text-decoration:none;cursor:pointer;
+  border:1px solid transparent;transition:filter .16s,background .16s,border-color .16s,transform .12s}
+.btn-pri{background:var(--a,var(--t));color:#fff;
+  box-shadow:0 8px 18px -11px color-mix(in srgb,var(--a,var(--t)) 90%,#000)}
+.btn-pri:hover{filter:brightness(1.07);transform:translateY(-1px)}
+.btn-sec{background:#fff;color:var(--encre2);border-color:var(--trait2)}
+.btn-sec:hover{border-color:var(--a,var(--t));color:var(--a,var(--t))}
+.btn-sec .ic{width:14px;height:14px}
+
+/* ══ Accueil ══════════════════════════════════════════════════════════════ */
+.etat-bande{display:grid;grid-template-columns:repeat(auto-fit,minmax(232px,1fr));
+  gap:14px;margin-bottom:28px}
+.etat-puce{display:flex;align-items:center;gap:11px;text-decoration:none;
+  background:#fff;border:1px solid var(--trait);border-radius:var(--r-pilule);
+  padding:11px 19px;box-shadow:var(--om1);
+  transition:box-shadow .18s,transform .18s}
+.etat-puce:hover{box-shadow:var(--om2);transform:translateY(-2px)}
+.etat-puce-txt{display:flex;flex-direction:column;min-width:0;line-height:1.2}
+.etat-puce b{font-size:13.5px;color:var(--encre);font-weight:700;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.etat-puce-txt>span{font-family:var(--f-titre);font-style:italic;font-size:12px;color:var(--gris);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.etat-puce em{margin-left:auto;font-style:normal;font-family:var(--f-mono);
+  font-size:11px;color:var(--gris2);white-space:nowrap}
+.etat-point{width:9px;height:9px;border-radius:50%;background:var(--gris2);flex-shrink:0}
+
+.tuiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:18px}
+.tuile{position:relative;overflow:hidden;display:block;text-decoration:none;
+  background:#fff;border:1px solid var(--trait);border-radius:var(--r-carte) var(--r-carte) 8px 8px;
+  padding:20px;box-shadow:var(--om1);
+  transition:box-shadow .18s,transform .18s,border-color .18s}
+.tuile:hover{box-shadow:var(--om2);transform:translateY(-3px);
+  border-color:color-mix(in srgb,var(--a) 42%,#fff)}
+/* La voûte : l'ombre d'une arche derrière l'icône. */
+.tuile::before{content:"";position:absolute;top:-50px;left:50%;transform:translateX(-50%);
+  width:160px;height:106px;border-radius:0 0 80px 80px;
+  background:color-mix(in srgb,var(--a) 17%,#fff)}
+.tuile-ic{position:relative;width:44px;height:44px;border-radius:50%;display:grid;place-items:center;
+  background:color-mix(in srgb,var(--a) 15%,#fff);margin-bottom:14px}
+.tuile-ic .ic{width:21px;height:21px;color:var(--a)}
+.tuile h2{position:relative;font-family:var(--f-titre);font-size:19px;font-weight:600;
+  color:var(--encre);margin-bottom:5px}
+.tuile p{position:relative;font-size:13px;color:var(--gris);line-height:1.5}
+.tuile-num{position:absolute;right:18px;top:16px;font-family:var(--f-titre);font-style:italic;
+  font-size:16px;color:color-mix(in srgb,var(--a) 45%,#fff)}
+.tuile-fleche{position:relative;display:inline-flex;align-items:center;gap:7px;margin-top:13px;
+  font-family:var(--f-titre);font-style:italic;font-size:13.5px;color:var(--a)}
+.tuile-fleche::after{content:"→";transition:transform .18s}
+.tuile:hover .tuile-fleche::after{transform:translateX(4px)}
+
+/* ══ L'arbre — carte de l'écosystème ══════════════════════════════════════
+   Un tronc central, six branches, six nœuds. Ce n'est pas une grille de
+   cartes redite : c'est une CARTE — les liens sont dessinés, et chaque nœud
+   porte un chiffre réel.
+
+   Deux couches superposées : un SVG qui trace les branches (viewBox 1200×560,
+   `preserveAspectRatio="none"` pour que ses coordonnées suivent exactement
+   les pourcentages des nœuds) et les nœuds en HTML par-dessus, pour garder
+   une vraie typographie et des liens accessibles.
+   ══════════════════════════════════════════════════════════════════════ */
+.arbre{position:relative;height:560px;margin-top:4px}
+
+.branches{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
+.br{fill:none;stroke:var(--trait2);stroke-width:2.2;stroke-linecap:round;
+  transition:stroke .25s ease,stroke-width .25s ease}
+/* Les branches poussent depuis le tronc au chargement. */
+.br{stroke-dasharray:520;stroke-dashoffset:520;animation:pousse-br 1.5s ease-out forwards}
+.br-instances{animation-delay:.15s}.br-infrastructure{animation-delay:.3s}
+.br-documentation{animation-delay:.45s}.br-tests{animation-delay:.6s}
+.br-outils{animation-delay:.75s}.br-ci{animation-delay:.9s}
+@keyframes pousse-br{to{stroke-dashoffset:0}}
+
+.feuilles ellipse{fill:#588b2f;opacity:0;animation:eclot-f .6s ease-out forwards 1.4s}
+@keyframes eclot-f{to{opacity:.5}}
+
+/* Branche mise en avant quand son nœud est survolé (classe posée par hub.js). */
+.arbre[data-actif] .br{stroke:var(--trait);opacity:.5}
+.arbre[data-actif] .br.vive{stroke:var(--acc-vif);stroke-width:3.4;opacity:1}
+.arbre[data-actif] .feuilles ellipse{opacity:.22}
+
+/* ── Tronc ── */
+.noeud-centre{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+  z-index:3;width:186px;padding:20px 18px 18px;text-align:center;
+  background:linear-gradient(168deg,#fff,var(--chaux2));
+  border:1px solid var(--trait);border-radius:93px 93px 16px 16px;
+  box-shadow:0 18px 40px -22px rgba(43,42,32,.6)}
+.noeud-centre svg{width:44px;height:44px;margin-bottom:8px}
+.noeud-centre b{display:block;font-family:var(--f-titre);font-size:19px;font-weight:600;color:var(--encre)}
+.noeud-centre span{font-family:var(--f-titre);font-style:italic;font-size:12.5px;color:var(--gris)}
+
+/* ── Nœuds ── */
+.noeud{position:absolute;left:var(--x);top:var(--y);transform:translate(-50%,-50%);
+  z-index:2;width:196px;padding:16px 14px 14px;text-align:center;text-decoration:none;
+  background:linear-gradient(168deg,#fff,color-mix(in srgb,var(--a) 8%,#fff));
+  border:1px solid var(--trait);border-radius:98px 98px 14px 14px;
+  box-shadow:var(--om1);
+  transition:transform .25s ease,box-shadow .25s ease,border-color .25s ease}
+.noeud:hover{transform:translate(-50%,-50%) translateY(-6px) scale(1.03);
+  box-shadow:0 26px 52px -24px color-mix(in srgb,var(--a) 70%,rgba(43,42,32,.85));
+  border-color:color-mix(in srgb,var(--a) 45%,#fff);z-index:4}
+.arbre[data-actif] .noeud{opacity:.55}
+.arbre[data-actif] .noeud:hover{opacity:1}
+
+.noeud-vign{display:grid;place-items:center;height:76px;margin-bottom:8px}
+.noeud .vign{width:96px;height:80px;overflow:visible}
+.noeud b{display:block;font-family:var(--f-titre);font-size:17px;font-weight:600;
+  color:var(--encre);margin-bottom:2px}
+.noeud em{font-family:var(--f-titre);font-style:italic;font-size:12.5px;color:var(--gris)}
+
+@media (prefers-reduced-motion:reduce){
+  .br{stroke-dashoffset:0;animation:none}
+  .feuilles ellipse{opacity:.5;animation:none}
+}
+
+/* En colonne étroite, la carte n'a plus de sens : les nœuds redeviennent une
+   liste et les branches disparaissent. */
+@media (max-width:1000px){
+  .arbre{height:auto;display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px}
+  .branches{display:none}
+  .noeud,.noeud-centre{position:static;transform:none;width:auto}
+  .noeud:hover{transform:translateY(-4px)}
+  .noeud-centre{grid-column:1/-1}
+}
+
+/* ── Traits communs des saynètes ── */
+.vign [class^="v-"]{fill:none;stroke:var(--a);stroke-width:2.4;
+  stroke-linecap:round;stroke-linejoin:round}
+
+/* ── Instances : les fenêtres s'allument l'une après l'autre ── */
+.v-fen{fill:#fff}
+.v-fen3{opacity:.3}.v-fen2{opacity:.55}
+.v-led{fill:var(--a);stroke:none;animation:respire 2.6s ease-in-out infinite}
+.v-pt{fill:color-mix(in srgb,var(--a) 22%,#fff);stroke:none;
+  animation:respire 2.6s ease-in-out infinite .5s}
+@keyframes respire{0%,100%{opacity:.35}50%{opacity:1}}
+
+/* ── Infrastructure : les anneaux tournent, les voyants clignotent ── */
+.v-disque{fill:#fff}
+.v-anneau{opacity:.5;animation:tourne 3.4s linear infinite}
+.v-a2{animation-delay:-1.7s}
+@keyframes tourne{0%{transform:scaleX(1)}50%{transform:scaleX(.82)}100%{transform:scaleX(1)}}
+.v-anneau{transform-origin:center}
+.v-voyant{fill:var(--a);stroke:none;opacity:.25;animation:clignote 1.8s ease-in-out infinite}
+.v-t2{animation-delay:.25s}.v-t3{animation-delay:.5s}
+@keyframes clignote{0%,70%,100%{opacity:.25}35%{opacity:1}}
+
+/* ── Documentation : les pages se tournent ── */
+.v-couv{fill:#fff}
+.v-page{fill:#fff;transform-origin:left center;animation:feuillette 4.2s ease-in-out infinite}
+.v-p2{animation-delay:-2.1s}
+@keyframes feuillette{
+  0%,12%{transform:scaleX(1);opacity:1}
+  46%{transform:scaleX(-.06);opacity:.75}
+  50%,100%{transform:scaleX(-.06);opacity:0}
+}
+.v-lignes path{stroke-width:2;opacity:.45}
+
+/* ── Tests : la coche se dessine, l'orbe s'élargit ── */
+.v-cercle{fill:#fff;opacity:.9}
+.v-orbe{opacity:.35;transform-origin:center;animation:onde 2.8s ease-out infinite}
+@keyframes onde{0%{transform:scale(.8);opacity:.5}70%,100%{transform:scale(1.18);opacity:0}}
+.v-coche{stroke-width:4;stroke-dasharray:52;stroke-dashoffset:52;
+  animation:trace 2.8s ease-in-out infinite}
+@keyframes trace{0%{stroke-dashoffset:52}30%,72%{stroke-dashoffset:0}92%,100%{stroke-dashoffset:52}}
+
+/* ── Outils : la clé serre le boulon, qui tourne d'un cran ── */
+.v-cle{transform-origin:20px 20px;animation:serre 3s ease-in-out infinite}
+.v-cle path{stroke-width:.7}
+@keyframes serre{0%,58%,100%{transform:rotate(0deg)}22%,44%{transform:rotate(-17deg)}}
+.v-boulon{transform-origin:center;animation:cran 3s ease-in-out infinite}
+@keyframes cran{0%,20%{transform:rotate(0deg)}46%,100%{transform:rotate(-60deg)}}
+
+/* ── Dépôt : la branche pousse, les nœuds éclosent ── */
+.v-tronc{stroke-dasharray:62;stroke-dashoffset:62;animation:pousse 4.4s ease-out infinite}
+.v-branche{stroke-dasharray:66;stroke-dashoffset:66;animation:pousse 4.4s ease-out infinite .9s}
+@keyframes pousse{0%{stroke-dashoffset:var(--l,66)}34%,86%{stroke-dashoffset:0}100%{stroke-dashoffset:0}}
+.v-noeud{fill:#fff;transform-origin:center;animation:eclot 4.4s ease-out infinite}
+.v-n2{animation-delay:.5s}.v-n3{animation-delay:1.4s}.v-n4{animation-delay:1s}
+@keyframes eclot{0%,6%{transform:scale(0)}20%{transform:scale(1.15)}28%,92%{transform:scale(1)}100%{transform:scale(0)}}
+
+@media (prefers-reduced-motion:reduce){
+  .vign *{animation:none!important}
+  .v-coche,.v-tronc,.v-branche{stroke-dashoffset:0}
+  .v-noeud{transform:scale(1)}
+  .v-page{opacity:0}
+  .secteur-eclat{display:none}
+}
+
+/* ══ Cartes ═══════════════════════════════════════════════════════════════ */
+.grille-3{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:18px;align-items:start}
+.grille-paire{display:grid;grid-template-columns:repeat(auto-fit,minmax(420px,1fr));gap:18px;align-items:start}
+.grille-2{display:grid;grid-template-columns:repeat(auto-fit,minmax(350px,1fr));gap:16px;align-items:start}
+
+.carte{position:relative;overflow:hidden;background:#fff;border:1px solid var(--trait);
+  border-radius:var(--r-carte) var(--r-carte) 8px 8px;box-shadow:var(--om1);
+  transition:box-shadow .18s,transform .18s,border-color .18s}
+.carte:hover{box-shadow:var(--om2)}
+.carte-lien{text-decoration:none;display:block}
+.carte-lien:hover{transform:translateY(-3px);border-color:color-mix(in srgb,var(--a) 42%,#fff)}
+.carte-liseret{display:none}                 /* remplacé par le bandeau plein */
+.carte-bandeau{display:flex;align-items:center;gap:9px;padding:10px 18px;
+  background:var(--a);color:#fff}
+.carte-bandeau .ic{width:15px;height:15px}
+.carte-bandeau code,.carte-bandeau span{font-family:var(--f-mono);font-size:11.5px;color:rgba(255,255,255,.95)}
+.carte-corps{padding:18px 20px 20px}
+.carte-tete{display:flex;align-items:flex-start;gap:12px;margin-bottom:11px}
+.carte h2{font-family:var(--f-titre);font-size:22px;font-weight:600;color:var(--encre);
+  line-height:1.1;letter-spacing:-.01em}
+.carte-variante{display:block;font-family:var(--f-titre);font-style:italic;font-size:13px;
+  color:var(--a);margin-top:3px}
+.carte-resume{font-size:13.5px;color:var(--gris);margin-bottom:14px}
+
+.chips{list-style:none;display:flex;flex-direction:column;margin-bottom:16px}
+.chips li{display:flex;align-items:baseline;gap:12px;font-size:13px;color:var(--encre2);
+  padding:8px 0;border-bottom:1px dotted var(--trait2)}
+.chips li:last-child{border-bottom:0}
+.chips span{font-family:var(--f-titre);font-style:italic;font-size:12.5px;color:var(--gris);min-width:70px}
+.chips code{font-family:var(--f-mono);font-size:12px;color:var(--encre)}
+.carte-pied{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.latence{margin-left:auto;font-family:var(--f-mono);font-size:11px;color:var(--gris2)}
+
+.doc-ic{width:46px;height:46px;border-radius:50%;display:grid;place-items:center;
+  background:color-mix(in srgb,var(--a) 15%,#fff);margin-bottom:14px}
+.doc-ic .ic{width:22px;height:22px;color:var(--a)}
+.carte-cta{display:inline-flex;align-items:center;gap:7px;font-family:var(--f-titre);
+  font-style:italic;font-size:13.5px;color:var(--a)}
+.branche-nom code{font-family:var(--f-mono);font-size:16px;font-weight:700;color:var(--encre)}
+.fleche-deploie{font-family:var(--f-titre);font-style:italic;font-size:13px;color:var(--gris)}
+.fleche-deploie code{font-family:var(--f-mono);font-style:normal;color:var(--a);font-weight:600}
+
+/* ══ Pastilles d'état ═════════════════════════════════════════════════════ */
+.pill{margin-left:auto;display:inline-flex;align-items:center;gap:7px;white-space:nowrap;
+  font-family:var(--f-titre);font-style:italic;font-size:12.5px;
+  padding:4px 13px 4px 10px;border-radius:var(--r-pilule);
+  border:1px solid var(--trait2);background:var(--chaux2);color:var(--gris)}
+.pill.mini{margin-left:0;font-size:12px}
+.pill i{width:7px;height:7px;border-radius:50%;background:currentColor;flex-shrink:0}
+.etat-en-ligne{color:#3f7a24;border-color:#b6d99a;background:#f0f7e8}
+.etat-en-ligne i{animation:battement 2.8s ease-out infinite}
+.etat-degrade{color:#a06a10;border-color:#f0d79a;background:#fdf6e6}
+.etat-en-erreur{color:#b4603a;border-color:#eec0a8;background:#fdf1ea}
+.etat-injoignable{color:#a8382b;border-color:#eeb3aa;background:#fdeeeb}
+/* En veille : le service dort (Cloud Run à zéro instance). Ce n'est pas
+   une panne — bleu calme, pas rouge d'alerte. */
+.etat-en-veille{color:#4a6a8a;border-color:#bcd0e2;background:#eef4fa}
+.etat-point.etat-en-ligne{background:#588b2f;box-shadow:0 0 0 4px rgba(88,139,47,.2)}
+.etat-point.etat-degrade{background:#e0a015;box-shadow:0 0 0 4px rgba(224,160,21,.2)}
+.etat-point.etat-en-erreur{background:#b4603a;box-shadow:0 0 0 4px rgba(180,96,58,.2)}
+.etat-point.etat-injoignable{background:#c2452f;box-shadow:0 0 0 4px rgba(194,69,47,.2)}
+.etat-point.etat-en-veille{background:#6b8fb0;box-shadow:0 0 0 4px rgba(107,143,176,.2)}
+@keyframes battement{
+  0%{box-shadow:0 0 0 0 rgba(88,139,47,.45)}
+  70%{box-shadow:0 0 0 7px rgba(88,139,47,0)}
+  100%{box-shadow:0 0 0 0 rgba(88,139,47,0)}
+}
+
+/* ══ Volets & tables ══════════════════════════════════════════════════════ */
+.volet{margin-bottom:30px}
+.volet-tete{display:flex;align-items:center;gap:13px;margin-bottom:14px}
+.volet-tete h2{display:flex;align-items:center;gap:10px;font-family:var(--f-titre);
+  font-size:19px;font-weight:600;color:var(--encre)}
+.volet-tete h2 .ic{width:18px;height:18px;color:var(--t)}
+.volet-tete .btn-sec{margin-left:auto}
+
+.tab-enveloppe{background:#fff;border:1px solid var(--trait);border-radius:var(--r-carte);
+  box-shadow:var(--om1);overflow:hidden}
+.tab{width:100%;border-collapse:collapse}
+.tab th{text-align:left;font-family:var(--f-titre);font-style:italic;font-size:13px;
+  font-weight:400;color:#fff;padding:13px 20px;background:var(--t)}
+.tab td{padding:14px 20px;font-size:13.5px;color:var(--encre2);
+  border-bottom:1px dotted var(--trait2);vertical-align:middle}
+.tab tbody tr:last-child td{border-bottom:0}
+.tab tbody tr{transition:background .14s}
+.tab tbody tr:hover{background:color-mix(in srgb,var(--a,var(--t)) 6%,#fff)}
+.tab code{font-family:var(--f-mono);font-size:12.5px;color:var(--encre)}
+.tab code.petit{font-size:11.5px;color:var(--gris)}
+.tab code.secret{color:#8a5a12;background:#fdf6e6;padding:3px 9px;border-radius:var(--r-pilule);
+  border:1px solid #f0d79a;font-size:11px;font-weight:600}
+.sous-ligne{display:block;font-size:11.5px;color:var(--gris2);margin-top:3px}
+.colonne-action{text-align:right;white-space:nowrap}
+.muet{color:var(--gris2);font-family:var(--f-titre);font-style:italic;font-size:13px}
+/* Repère en forme de feuille — le motif du jardin jusque dans les tableaux. */
+.tag-serveur{display:inline-flex;align-items:center;gap:11px}
+.tag-serveur i{width:13px;height:13px;border-radius:50% 0 50% 50%;background:var(--a);
+  transform:rotate(-45deg);flex-shrink:0}
+.note{font-family:var(--f-titre);font-style:italic;font-size:13px;color:var(--gris);
+  margin-top:11px;padding-left:14px;border-left:2px solid var(--trait2)}
+.note code{font-family:var(--f-mono);font-style:normal;font-size:12px}
+
+/* ══ Commandes ════════════════════════════════════════════════════════════ */
+.cmd{position:relative;background:#fff;border:1px solid var(--trait);border-radius:18px;
+  padding:17px 19px 18px;box-shadow:var(--om1);transition:border-color .16s,box-shadow .16s}
+.cmd:hover{border-color:color-mix(in srgb,var(--a) 42%,#fff);box-shadow:var(--om2)}
+/* La tige : une pousse le long de la carte. */
+.cmd::before{content:"";position:absolute;left:0;top:17px;bottom:17px;width:3px;
+  border-radius:3px;background:var(--a)}
+.cmd-tete{display:flex;align-items:center;gap:11px;margin-bottom:4px}
+.cmd h3{font-family:var(--f-titre);font-size:16px;font-weight:600;color:var(--encre);flex:1}
+.cmd p{font-size:12.5px;color:var(--gris);margin-bottom:12px}
+.cmd code{display:block;font-family:var(--f-mono);font-size:11.5px;line-height:1.7;color:var(--encre2);
+  background:color-mix(in srgb,var(--a) 7%,#fff);border:1px solid color-mix(in srgb,var(--a) 20%,#fff);
+  border-radius:12px;padding:12px 13px;white-space:pre-wrap;word-break:break-word}
+.btn-copie{width:32px;height:32px;flex-shrink:0;display:grid;place-items:center;background:#fff;
+  border:1px solid var(--trait2);border-radius:50%;color:var(--gris);cursor:pointer;
+  transition:color .15s,border-color .15s,background .15s}
+.btn-copie:hover{color:var(--a);border-color:var(--a);background:color-mix(in srgb,var(--a) 8%,#fff)}
+.btn-copie .ic{width:15px;height:15px}
+.btn-copie .ic-ok{display:none}
+.btn-copie.fait{color:#3f7a24;border-color:#b6d99a;background:#f0f7e8}
+.btn-copie.fait .ic{display:none}
+.btn-copie.fait .ic-ok{display:block}
+
+/* ══ Secrets ══════════════════════════════════════════════════════════════ */
+.secrets{list-style:none;display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:10px}
+.secrets li{display:flex;align-items:baseline;gap:12px;background:#fff;border:1px solid var(--trait);
+  border-left:3px solid #e0a015;border-radius:14px;padding:11px 15px}
+.secrets code{font-family:var(--f-mono);font-size:12px;color:#8a5a12;white-space:nowrap;font-weight:600}
+.secrets span{font-size:12.5px;color:var(--gris)}
+
+/* ══ Lanceur de tests ═════════════════════════════════════════════════════ */
+.lanceur{background:#fff;border:1px solid var(--trait);border-left:4px solid var(--a);
+  border-radius:18px;padding:19px 21px;box-shadow:var(--om1)}
+.lanceur-champ{display:flex;align-items:center;gap:15px;flex-wrap:wrap}
+.lanceur-champ label{font-family:var(--f-titre);font-style:italic;font-size:13.5px;color:var(--gris)}
+.lanceur-champ label code{font-family:var(--f-mono);font-style:normal;color:var(--a)}
+.lanceur-champ label span{font-size:12.5px;color:var(--gris2)}
+.lanceur-champ input{flex:1;min-width:220px;padding:10px 15px;font-family:var(--f-mono);
+  font-size:12.5px;color:var(--encre);background:#fff;border:1px solid var(--trait2);
+  border-radius:var(--r-pilule)}
+.lanceur-champ input:focus{outline:0;border-color:var(--a);
+  box-shadow:0 0 0 3px color-mix(in srgb,var(--a) 18%,transparent)}
+.lanceur-aide{font-size:12.5px;color:var(--gris);margin-top:12px}
+.lanceur-retour{margin-top:14px;padding:11px 15px;border-radius:14px;font-size:13px}
+.lanceur-retour.ok{background:#f0f7e8;border:1px solid #b6d99a;color:#3f7a24}
+.lanceur-retour.ko{background:#fdf1ea;border:1px solid #eec0a8;color:#b4603a}
+
+/* ══ Connexion ════════════════════════════════════════════════════════════ */
+.page-login{position:relative;z-index:2;min-height:100vh;display:grid;place-items:center;padding:24px}
+.boite-login{position:relative;overflow:hidden;width:min(410px,100%);background:#fff;
+  border:1px solid var(--trait);border-radius:var(--r-arche) var(--r-arche) 20px 20px;
+  padding:0 32px 30px;box-shadow:var(--om3)}
+.boite-login-tete{margin:0 -32px 24px;padding:34px 32px 24px;text-align:center;
+  background:var(--chaux2);position:relative}
+.boite-login-tete::before{content:"";position:absolute;bottom:-1px;left:50%;transform:translateX(-50%);
+  width:34px;height:6px;border-radius:3px;background:var(--t)}
+.boite-login-tete .marque{justify-content:center;padding-bottom:12px}
+.boite-login h1{font-family:var(--f-titre);font-size:22px;font-weight:600;color:var(--encre)}
+.boite-login .sous{font-family:var(--f-titre);font-style:italic;font-size:13.5px;color:var(--gris)}
+.champ{margin-bottom:14px}
+.champ label{display:block;font-family:var(--f-titre);font-style:italic;font-size:13px;
+  color:var(--gris);margin-bottom:6px}
+.champ input{width:100%;padding:11px 16px;font-family:var(--f-corps);font-size:14px;color:var(--encre);
+  background:#fff;border:1px solid var(--trait2);border-radius:var(--r-pilule)}
+.champ input:focus{outline:0;border-color:var(--t);
+  box-shadow:0 0 0 3px color-mix(in srgb,var(--t) 18%,transparent)}
+.btn-login{width:100%;padding:12px;border:0;border-radius:var(--r-pilule);cursor:pointer;
+  font-family:var(--f-corps);font-size:14.5px;font-weight:700;color:#fff;background:var(--t);
+  box-shadow:0 10px 22px -13px rgba(88,139,47,.9)}
+.btn-login:hover{filter:brightness(1.06)}
+.erreur{background:#fdeeeb;border:1px solid #eeb3aa;border-left:3px solid #c2452f;color:#a8382b;
+  padding:11px 15px;border-radius:14px;font-size:13px;margin-bottom:15px}
+
+/* ══ Markdown ═════════════════════════════════════════════════════════════ */
+.page-md{position:relative;z-index:2;max-width:880px;margin:0 auto;padding:34px 26px 60px}
+.page-md h1{font-family:var(--f-titre);font-size:34px;font-weight:600;color:var(--encre);
+  margin-bottom:20px;letter-spacing:-.02em}
+.page-md pre{background:#fff;border:1px solid var(--trait);border-left:4px solid var(--t);
+  border-radius:18px;padding:24px;box-shadow:var(--om1);font-family:var(--f-mono);
+  font-size:12.5px;line-height:1.8;color:var(--encre2);white-space:pre-wrap;word-break:break-word}
+.retour{display:inline-flex;align-items:center;gap:8px;font-family:var(--f-titre);font-style:italic;
+  font-size:14px;color:var(--gris);text-decoration:none;margin-bottom:18px}
+.retour:hover{color:var(--encre)}
+
+/* ══ Accessibilité & responsive ═══════════════════════════════════════════ */
+a:focus-visible,button:focus-visible,input:focus-visible{
+  outline:2px solid var(--t);outline-offset:2px;border-radius:6px}
+@media (prefers-reduced-motion:reduce){
+  *{transition-duration:.001ms!important;animation-duration:.001ms!important;
+    animation-iteration-count:1!important}
+  .petale{display:none}
+}
+@media (max-width:980px){
+  .heros{grid-template-columns:1fr;gap:26px}
+  .arche{justify-self:start;width:250px;height:326px;--r-arche:125px}
+}
+@media (max-width:920px){
+  .navbar-in{padding:11px 16px;gap:12px}
+  .nav-lien span{display:none}
+  .nav-lien.actif span{display:inline}
+  .colonne{padding:20px 16px 48px}
+  .heros h1{font-size:38px}
+}

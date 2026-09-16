@@ -36,6 +36,9 @@
     cancel:      {{ t('btn.cancel')|tojson }},
     close:       {{ t('btn.close')|tojson }}
   };
+  // Le badge « Commune » de la liste des entités ; tout le reste du partage
+  // vit sur la page /share.
+  window.ACCESS_I18N = { badgeShared: {{ t('access.badge_shared')|tojson }} };
 </script>
 
 <!-- Le mode "mise en évidence" est entièrement piloté en JS (highlight-extco-map.js)
@@ -148,10 +151,6 @@
             <button id="wizard-create-entity-btn" class="em-btn-create">
               <i class="fa-solid fa-plus"></i> {{ t('map.entity_create_btn') }}
             </button>
-            <button id="wizard-import-carto-btn" class="em-btn-import-carto" title="{{ t('map.entity_import_carto_hint') }}">
-              <i class="fa-solid fa-file-import"></i> {{ t('map.entity_import_carto') }}
-            </button>
-            <input type="file" id="wizard-import-carto-file" accept=".optiqcarto,.json" hidden>
           </div>
           <div class="entities-grid" id="wizard-entities-list"></div>
           <div class="wizard-entities-empty hidden" id="wizard-entities-empty">
@@ -196,6 +195,11 @@
               <button id="wizard-share-btn" class="em-action-btn em-action-share">
                 <i class="fa-solid fa-share-nodes"></i>
                 <span>{{ t('map.entity_btn_share') }}</span>
+              </button>
+              <button id="wizard-copy-btn" class="em-action-btn em-action-copy"
+                      title="{{ t('access.copy_hint') }}">
+                <i class="fa-solid fa-copy"></i>
+                <span>{{ t('map.entity_btn_copy') }}</span>
               </button>
               <button id="wizard-delete-btn" class="em-action-btn em-action-delete">
                 <i class="fa-solid fa-trash"></i>

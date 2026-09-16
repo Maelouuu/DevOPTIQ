@@ -240,6 +240,12 @@ const hatchIds = new Set();     // pattern IDs déjà créés dans les defs
 let leftPanelOpen = false;
 let propsOpen = false;
 let isDirty = false;
+
+// Points d'accroche de carto_sharing.js (carto commune). Un `let` de tête n'est
+// pas exposé sur window : sans ces deux portes, le module de gouvernance devrait
+// se raccrocher à des variables internes de l'éditeur.
+window.getCartoState  = () => state;
+window.markCartoSaved = () => { isDirty = false; };
 let _autoSaveTimerId = null;
 let _autoSaveToastInterval = null;
 let activeCalqueId = null;
@@ -275,15 +281,36 @@ const labelEd   = document.getElementById('label-editor');
    COORD TRANSFORMS
    ══════════════════════════════════════════════════ */
 
+// Bornes du zoom — les MÊMES que la molette. `fitView` les ignorait, et un
+// « ajuster » joué sur un canevas pas encore posé (largeur 0 : onglet caché,
+// iframe repliée) rendait un facteur NUL. Tout ce qui divise par le zoom
+// partait alors à l'infini. Mesuré : scale(0) → une forme déposée naissait à
+// une abscisse non finie, la carto devenait invisible et le navigateur
+// s'étranglait sur des attributs SVG « NaN ».
+const ZOOM_MIN = 0.08, ZOOM_MAX = 6;
+
 function screenToSVG(sx, sy) {
   const r = canvas.getBoundingClientRect();
+  // ⚠️ Jamais de division par un zoom nul : le point rendu doit rester un point.
+  const k = (Number.isFinite(vpScale) && vpScale > 0) ? vpScale : ZOOM_MIN;
   return {
-    x: (sx - r.left - vpX) / vpScale,
-    y: (sy - r.top  - vpY) / vpScale,
+    x: (sx - r.left - vpX) / k,
+    y: (sy - r.top  - vpY) / k,
   };
 }
 
 function applyViewport() {
+  // ⚠️ Dernier filet. Un `scale(0)` ou un `translate(NaN,NaN)` ne se voit pas
+  // comme une erreur : la carto DISPARAÎT, le navigateur s'étrangle sur des
+  // attributs SVG « NaN » et la page paraît gelée — sans qu'aucune exception
+  // ne soit levée. Les chemins connus sont bouchés en amont (fitView borne son
+  // facteur, screenToSVG ne divise plus par zéro, le dépôt refuse un point non
+  // fini) ; celui-ci garantit qu'aucun chemin restant ne peut rendre la vue
+  // illisible. On repart du cadrage par défaut plutôt que d'écrire l'absurde.
+  if (!Number.isFinite(vpX) || !Number.isFinite(vpY)
+      || !Number.isFinite(vpScale) || vpScale <= 0) {
+    vpX = 0; vpY = 280; vpScale = 0.5;
+  }
   rootGroup.setAttribute('transform', `translate(${vpX},${vpY}) scale(${vpScale})`);
   // vpScale 0.5 = "100%", 1.0 = "200%" (×200 pour que le défaut 50% s'affiche 100%)
   if (statusZoom) statusZoom.textContent = Math.round(vpScale * 200) + '%';
@@ -1960,6 +1987,7 @@ function _restoreCollapsedPiles() {
 }
 
 function undo() {
+  if (window.OPTIQCARTO_READONLY) return;
   if (histIndex <= 0) return;
   histIndex--;
   state = JSON.parse(history[histIndex]);
@@ -1971,6 +1999,7 @@ function undo() {
 }
 
 function redo() {
+  if (window.OPTIQCARTO_READONLY) return;
   if (histIndex >= history.length - 1) return;
   histIndex++;
   state = JSON.parse(history[histIndex]);
@@ -2124,6 +2153,7 @@ function _finalizeLasso() {
    ══════════════════════════════════════════════════ */
 
 function createPile() {
+  if (window.OPTIQCARTO_READONLY) return;
   if (selectedShapes.size < 2) {
     showToast('Select at least 2 shapes to create a pile.');
     return;
@@ -2242,7 +2272,25 @@ function _updateEdgeScroll(clientX, clientY) {
   }, EDGE_DWELL_MS);
 }
 
-canvas.addEventListener('mouseleave', () => { edgeScrollVX = 0; edgeScrollVY = 0; _clearEdgeDwell(); });
+function _stopEdgeScroll() {
+  edgeScrollVX = 0; edgeScrollVY = 0;
+  _clearEdgeDwell();
+  if (edgeScrollRaf) { cancelAnimationFrame(edgeScrollRaf); edgeScrollRaf = null; }
+}
+
+canvas.addEventListener('mouseleave', _stopEdgeScroll);
+
+// ⚠️ `_edgeScrollStep` se rappelle lui-même tant qu'une vitesse est posée, et
+// SEULS un déplacement de souris ou une sortie du canevas l'arrêtaient. Or un
+// glisser-déposer HTML5 (une forme tirée depuis la barre d'outils) n'émet NI
+// mousemove NI mouseleave : une fois lancé, le défilement continuait sous le
+// pointeur, la carto filait toute seule et la forme atterrissait ailleurs que
+// là où on visait. Tout ce qui met fin au geste le coupe désormais.
+for (const ev of ['mouseup', 'dragstart', 'dragend', 'drop', 'blur'])
+  window.addEventListener(ev, _stopEdgeScroll);
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) _stopEdgeScroll();
+});
 
 /* ══════════════════════════════════════════════════
    MOUSE EVENTS
@@ -2268,9 +2316,32 @@ function onDown(e) {
   }
   if (e.button !== 0) return;
 
-  // ── Mode lecture seule : pan + shape-click → postMessage uniquement ──
+  // ── Mode lecture seule ──────────────────────────────────────────────
+  // Deux lieux, un seul drapeau, et ils n'attendent PAS la même chose d'un clic
+  // sur une forme :
+  //   · le viewer est une vignette posée dans la page Carte — il previent sa
+  //     page parente, qui ouvre la fiche de l'activité ;
+  //   · l'éditeur ouvert par un compte qui consulte n'a pas de page parente :
+  //     un message envoyé à lui-même ne mènerait nulle part. Il montre donc la
+  //     forme dans son panneau Propriétés, en lecture.
   if (window.OPTIQCARTO_READONLY) {
     const shapeTarget = e.target.closest('[data-type="shape"]');
+    if (window.OPTIQCARTO_CONSULTATION) {
+      if (shapeTarget) {
+        const sid = parseInt(shapeTarget.getAttribute('data-id'));
+        if (state.shapes.some(sh => sh.id === sid)) {
+          selectShape(sid);
+          render(); updateProps(); setPropsOpen(true);
+          return;
+        }
+      }
+      // Cliquer le fond referme la fiche : sans ça le panneau reste sur une
+      // activité qu'on ne regarde plus.
+      clearSelection(); render(); updateProps();
+      isPanning = true;
+      panStart = { sx: e.clientX, sy: e.clientY, vpX, vpY, moved: false };
+      return;
+    }
     if (shapeTarget) {
       const sid = parseInt(shapeTarget.getAttribute('data-id'));
       const s = state.shapes.find(s => s.id === sid);
@@ -3265,6 +3336,7 @@ function commitLabel() {
    ══════════════════════════════════════════════════ */
 
 function deleteSelected() {
+  if (window.OPTIQCARTO_READONLY) return;
   if (selectedShapes.size > 0) {
     const ids = [...selectedShapes];
     state.shapes = state.shapes.filter(s => !ids.includes(s.id));
@@ -3711,7 +3783,16 @@ function fitView() {
   const pad = 60;
   const dw = maxX - minX + pad * 2;
   const dh = maxY - minY + pad * 2;
-  vpScale = Math.min(r.width / dw, r.height / dh, 2);
+
+  // ⚠️ Un canevas pas encore posé mesure 0 — et une carto dont une forme porte
+  // une coordonnée non finie donne des bornes non finies. Dans les deux cas le
+  // facteur calculé ci-dessous n'est pas un zoom : on ne cadre pas plutôt que
+  // de poser un zoom nul, qui rend la carto invisible ET empoisonne tout ce qui
+  // se calcule à partir de lui.
+  if (!(r.width > 0 && r.height > 0) || !Number.isFinite(dw) || !Number.isFinite(dh)
+      || dw <= 0 || dh <= 0) return;
+
+  vpScale = Math.max(ZOOM_MIN, Math.min(r.width / dw, r.height / dh, 2));
   vpX = (r.width  - dw * vpScale) / 2 - (minX - pad) * vpScale;
   vpY = (r.height - dh * vpScale) / 2 - (minY - pad) * vpScale;
   applyViewport();
@@ -3747,12 +3828,12 @@ function _buildMinimap() {
   wrap.id = 'carto-minimap';
   wrap.title = '';
   wrap.innerHTML =
-    `<div class="mini-resize" title="Glissez pour redimensionner la mini-carte"></div>
-     <div class="mini-header" title="Glissez pour déplacer la mini-carte">
-       <span class="mini-grip"></span><span class="mini-title">Mini-carte</span>
+    `<div class="mini-resize" title="${_L('editor.minimap_resize')}"></div>
+     <div class="mini-header" title="${_L('editor.minimap_move')}">
+       <span class="mini-grip"></span><span class="mini-title">${_L('editor.minimap')}</span>
      </div>
      <svg width="${MINI_W}" height="${MINI_H}" viewBox="0 0 ${MINI_W} ${MINI_H}"
-          title="Glissez le cadre pour vous déplacer, ou les coins pour zoomer">
+          title="${_L('editor.minimap_nav')}">
        <rect class="mini-bg" x="0" y="0" width="${MINI_W}" height="${MINI_H}" rx="9"/>
        <g id="mini-content"></g>
        <rect id="mini-frame" class="mini-frame" x="0" y="0" width="10" height="10" rx="2"/>
@@ -3852,7 +3933,10 @@ function _updateMinimapFrame() {
 }
 
 function renderMinimap() {
-  if (window.OPTIQCARTO_READONLY) return;   // mini-carte = OUTIL uniquement
+  // La mini map déplace le REGARD, pas la carto : elle a toute sa place chez
+  // qui vient consulter. Elle reste absente du viewer, qui est une vignette
+  // posée dans la page Carte et n'a pas à porter son propre plan.
+  if (window.OPTIQCARTO_READONLY && !window.OPTIQCARTO_CONSULTATION) return;
   if (!_mini) _buildMinimap();
   const b = _miniBounds();
   if (!b) { _mini.wrap.style.display = 'none'; _miniSig = ''; return; }
@@ -4332,6 +4416,7 @@ function newCarto() {
    ══════════════════════════════════════════════════ */
 
 function createGroup() {
+  if (window.OPTIQCARTO_READONLY) return;
   if (selectedShapes.size < 2) {
     showToast(_L('editor.toast.group_min'));
     return;
@@ -4407,7 +4492,32 @@ function _showSaveWarningModal(diff) {
   });
 }
 
+// L'URL d'où vient le diagramme. Par défaut la carto de l'entité ; le viewer
+// d'une PROPOSITION la remplace pour afficher l'avant ou l'après, sans rien
+// changer au rendu — c'est ce qui fait qu'on regarde la vraie carto et non une
+// vignette reconstruite.
+function _cartoLoadUrl(name) {
+  if (window.OPTIQCARTO_LOAD_URL) return window.OPTIQCARTO_LOAD_URL;
+  const base = window.OPTIQCARTO_API_BASE || '/cartography';
+  return `${base}/api/load/${encodeURIComponent(name)}`;
+}
+
 async function saveJSON() {
+  if (window.OPTIQCARTO_READONLY) return;
+  // ⚠️ Carto commune, compte sans droit d'écriture : ENREGISTRER, C'EST
+  // PROPOSER. Tout passait auparavant par un écouteur en capture posé sur
+  // #btn-save par carto_sharing.js — fragile par construction : sur l'élément
+  // CIBLE, capture et bouillonnement se déclenchent dans l'ordre d'INSCRIPTION,
+  // et editor.js s'inscrit en premier. Le clic partait donc quand même vers
+  // /api/save, que le serveur refusait : l'utilisateur ne récoltait qu'un
+  // message d'erreur. Et le bouton « Enregistrer » du dialogue de sortie, lui,
+  // n'était pas habillé du tout.
+  // Ici, tous les chemins convergent — bouton, Ctrl+S, dialogue de sortie,
+  // sauvegarde automatique — parce qu'ils appellent tous cette fonction.
+  if (typeof window.cartoProposeInstead === 'function') {
+    return window.cartoProposeInstead();
+  }
+
   const apiBase = window.OPTIQCARTO_API_BASE || '/cartography';
 
   if (activeCalqueId) return _saveCalque(apiBase);
@@ -4786,7 +4896,7 @@ async function _deactivateCalque() {
   fetch(`${apiBase}/api/calques/deactivate`, { method: 'POST' }).catch(() => {});
   if (window.OPTIQCARTO_HAS_CARTO && window.OPTIQCARTO_DEFAULT_NAME) {
     try {
-      const res  = await fetch(`${apiBase}/api/load/${encodeURIComponent(window.OPTIQCARTO_DEFAULT_NAME)}`);
+      const res  = await fetch(_cartoLoadUrl(window.OPTIQCARTO_DEFAULT_NAME));
       const data = await res.json();
       if (data && !data.error) {
         await _transitionState(data);
@@ -4922,7 +5032,7 @@ async function openLoadDialog() {
     item.innerHTML = `<i class="fa-solid fa-diagram-project"></i><span>${name}</span><button class="load-delete" title="Supprimer"><i class="fa-solid fa-trash"></i></button>`;
 
     item.querySelector('span').addEventListener('click', async () => {
-      const data = await fetch(`${apiBase}/api/load/${encodeURIComponent(name)}`).then(r => r.json());
+      const data = await fetch(_cartoLoadUrl(name)).then(r => r.json());
       if (data.error) { showToast(_L('editor.toast.error_prefix') + data.error); return; }
       state = data;
       if (typeof resetHighlightExtco === 'function') resetHighlightExtco();
@@ -5312,6 +5422,13 @@ async function importVSDX(file) {
     const _finalizeImport = () => {
     render();
     history = [JSON.stringify(state)]; histIndex = 0; // baseline = carto reconstruite
+    // ⚠️ La baseline d'historique repart de zéro : plus aucune « version » ne
+    // sépare l'état affiché de son point de départ, donc snapshot() n'a jamais
+    // été appelé et l'éditeur croyait la carto à jour. On quittait la page sans
+    // le moindre avertissement, l'import perdu. L'import EST une modification
+    // non enregistrée : on le déclare tel quel.
+    isDirty = true;
+    _scheduleAutoSave();
     fitView(); updateProps();
 
     document.getElementById('vsdx-dialog').classList.add('hidden');
@@ -7476,13 +7593,29 @@ function _createBulkShapes(shapeType, shapeSubtype, counts, baseName = '', autoN
    INIT
    ══════════════════════════════════════════════════ */
 
+function _verrouillerProprietes() {
+  // ⚠️ Le panneau Propriétés est écrit dans le gabarit, pas reconstruit à
+  // chaque sélection : on le verrouille UNE fois. Un `disabled` n'empêche pas
+  // `updateProps()` de poser les valeurs — on lit donc la fiche entière, sans
+  // pouvoir y toucher. La feuille de style masque en plus les boutons de
+  // suppression : un bouton grisé invite encore à essayer.
+  const panneau = document.getElementById('properties');
+  if (!panneau) return;
+  panneau.querySelectorAll('input, textarea, select').forEach(c => {
+    c.disabled = true;
+    c.setAttribute('aria-disabled', 'true');
+  });
+}
+
 function init() {
+  if (window.OPTIQCARTO_CONSULTATION) _verrouillerProprietes();
   // Toolbar tool buttons — shape tools use drag & drop, other tools use click
   const SHAPE_TOOLS = ['process', 'start-end', 'special', 'decision'];
   document.querySelectorAll('[data-tool]').forEach(btn => {
     if (SHAPE_TOOLS.includes(btn.dataset.tool)) {
-      btn.setAttribute('draggable', 'true');
+      btn.setAttribute('draggable', String(!window.OPTIQCARTO_READONLY));
       btn.addEventListener('dragstart', e => {
+        if (window.OPTIQCARTO_READONLY) { e.preventDefault(); return; }
         e.dataTransfer.effectAllowed = 'copy';
         e.dataTransfer.setData('text/plain', btn.dataset.tool);
         // subtype par défaut = normal pour le bouton principal
@@ -7503,8 +7636,9 @@ function init() {
 
   // Sous-boutons de la dropdown activité (subtype normal / external)
   document.querySelectorAll('.shape-sub-btn[data-shape-type]').forEach(btn => {
-    btn.setAttribute('draggable', 'true');
+    btn.setAttribute('draggable', String(!window.OPTIQCARTO_READONLY));
     btn.addEventListener('dragstart', e => {
+      if (window.OPTIQCARTO_READONLY) { e.preventDefault(); return; }
       e.dataTransfer.effectAllowed = 'copy';
       e.dataTransfer.setData('text/plain', btn.dataset.shapeType);
       e.dataTransfer.setData('text/shape-subtype', btn.dataset.shapeSubtype || 'normal');
@@ -7590,9 +7724,19 @@ function init() {
   canvas.addEventListener('dragover', e => { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; });
   canvas.addEventListener('drop', e => {
     e.preventDefault();
+    // ⚠️ Le glisser-déposer HTML5 ne passe PAS par `onDown` : le garde de
+    // lecture seule posé là ne le voyait pas, et un compte qui n'a le droit
+    // que de consulter posait des activités sur la carto. Le serveur refusait
+    // l'enregistrement — beaucoup plus tard, après le travail.
+    if (window.OPTIQCARTO_READONLY) return;
     const shapeType = e.dataTransfer.getData('text/plain');
     if (!SHAPE_DEFAULTS[shapeType]) return;
     const { x, y } = screenToSVG(e.clientX, e.clientY);
+    // ⚠️ Une forme née hors du domaine des nombres empoisonne la carto pour de
+    // bon : `_fitShapeIntoBand` ajoute sa débordée à la hauteur d'une bande,
+    // le rendu jette des attributs SVG « NaN », et l'enregistrement propage le
+    // tout en base. On ne dépose rien plutôt que de déposer n'importe quoi.
+    if (!Number.isFinite(x) || !Number.isFinite(y)) return;
     const def = SHAPE_DEFAULTS[shapeType];
     const shapeSubtype = e.dataTransfer.getData('text/shape-subtype') || def.subtype || 'normal';
     const labelKey = shapeSubtype === 'external' ? 'editor.shape_ext_activity'
@@ -7862,16 +8006,16 @@ function init() {
             });
           } else {
             // Fallback to base carto if calque not found
-            fetch(`${apiBase}/api/load/${encodeURIComponent(window.OPTIQCARTO_DEFAULT_NAME)}`)
+            fetch(_cartoLoadUrl(window.OPTIQCARTO_DEFAULT_NAME))
               .then(r => r.json()).then(_applyLoadedState).catch(() => {});
           }
         })
         .catch(() => {
-          fetch(`${apiBase}/api/load/${encodeURIComponent(window.OPTIQCARTO_DEFAULT_NAME)}`)
+          fetch(_cartoLoadUrl(window.OPTIQCARTO_DEFAULT_NAME))
             .then(r => r.json()).then(_applyLoadedState).catch(() => {});
         });
     } else {
-      fetch(`${apiBase}/api/load/${encodeURIComponent(window.OPTIQCARTO_DEFAULT_NAME)}`)
+      fetch(_cartoLoadUrl(window.OPTIQCARTO_DEFAULT_NAME))
         .then(r => r.json())
         .then(_applyLoadedState)
         .catch(() => {});

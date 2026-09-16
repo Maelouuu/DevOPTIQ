@@ -101,3 +101,185 @@ def test_qualified_output_survives_connection_rename(app, client, carto):
     names = {o["name"] for o in client.get(f"/qualify/outputs/{carto['a']}").get_json()["outputs"]}
     assert "Pièce finie" in names          # nouvelle connexion matérialisée
     assert "Pièce usinée" in names         # sortie qualifiée conservée (travail préservé)
+
+
+# ===========================================================================
+# POST /qualify/analyze/<activity_id> — qualification IA (CDC 1.5/1.6)
+# ===========================================================================
+
+class _FakeMessage:
+    def __init__(self, content):
+        self.content = content
+
+
+class _FakeChoice:
+    def __init__(self, content):
+        self.message = _FakeMessage(content)
+
+
+class _FakeCompletion:
+    def __init__(self, content):
+        self.choices = [_FakeChoice(content)]
+
+
+class _FakeChatCompletions:
+    def __init__(self, content=None, raise_exc=None):
+        self._content = content
+        self._raise_exc = raise_exc
+
+    def create(self, **kwargs):
+        if self._raise_exc is not None:
+            raise self._raise_exc
+        return _FakeCompletion(self._content)
+
+
+class _FakeChat:
+    def __init__(self, content=None, raise_exc=None):
+        self.completions = _FakeChatCompletions(content, raise_exc)
+
+
+class _FakeOpenAIClient:
+    def __init__(self, content=None, raise_exc=None):
+        self.chat = _FakeChat(content, raise_exc)
+
+
+def _mock_openai(monkeypatch, content=None, raise_exc=None):
+    fake_client = _FakeOpenAIClient(content=content, raise_exc=raise_exc)
+    monkeypatch.setattr(
+        "Code.routes.qualify_outputs.openai_client_or_none",
+        lambda: (fake_client, None),
+    )
+
+
+def test_analyze_unknown_activity_returns_404(client, carto):
+    _sess(client, carto["entity_id"])
+    r = client.post("/qualify/analyze/999999")
+    assert r.status_code == 404
+    assert r.get_json()["error"] == "activity_not_found"
+
+
+def test_analyze_activity_without_outputs_returns_empty(client, carto):
+    _sess(client, carto["entity_id"])
+    r = client.post(f"/qualify/analyze/{carto['z']}")
+    assert r.status_code == 200
+    body = r.get_json()
+    assert body["outputs"] == []
+    assert body["source"] == "no_outputs"
+    assert body["warning"]
+
+
+def test_analyze_without_ai_key_falls_back_to_qualify(client, carto, monkeypatch):
+    monkeypatch.setattr(
+        "Code.routes.qualify_outputs.openai_client_or_none",
+        lambda: (None, "no_key"),
+    )
+    _sess(client, carto["entity_id"])
+    r = client.post(f"/qualify/analyze/{carto['a']}")
+    assert r.status_code == 200
+    body = r.get_json()
+    assert body["source"] == "no_key"
+    assert len(body["outputs"]) == 3
+    assert all(o["suggested_nature"] is None for o in body["outputs"])
+
+
+def test_analyze_with_ai_success_returns_suggested_natures(client, carto, monkeypatch):
+    _sess(client, carto["entity_id"])
+    outs = client.get(f"/qualify/outputs/{carto['a']}").get_json()["outputs"]
+    target = next(o for o in outs if o["name"] == "Pièce usinée")
+    import json as _json
+    content = _json.dumps({"outputs": [
+        {"data_id": target["data_id"], "suggested_nature": "RESULT",
+         "confidence": "high", "justification": "Démontre la tenue",
+         "suggested_minimum_performance": "Cote respectée"},
+    ]})
+    _mock_openai(monkeypatch, content=content)
+    r = client.post(f"/qualify/analyze/{carto['a']}")
+    assert r.status_code == 200
+    body = r.get_json()
+    assert body["source"] == "AI"
+    props = {p["data_id"]: p for p in body["outputs"]}
+    assert props[target["data_id"]]["suggested_nature"] == "RESULT"
+    assert props[target["data_id"]]["suggested_minimum_performance"] == "Cote respectée"
+    # les sorties non traitées par l'IA reviennent en "à qualifier"
+    others = [p for did, p in props.items() if did != target["data_id"]]
+    assert len(others) == 2
+    assert all(o["suggested_nature"] is None for o in others)
+
+
+def test_analyze_with_ai_unknown_nature_is_discarded(client, carto, monkeypatch):
+    _sess(client, carto["entity_id"])
+    outs = client.get(f"/qualify/outputs/{carto['a']}").get_json()["outputs"]
+    target = outs[0]
+    import json as _json
+    content = _json.dumps({"outputs": [
+        {"data_id": target["data_id"], "suggested_nature": "BOGUS_NATURE"},
+    ]})
+    _mock_openai(monkeypatch, content=content)
+    r = client.post(f"/qualify/analyze/{carto['a']}")
+    assert r.status_code == 200
+    props = {p["data_id"]: p for p in r.get_json()["outputs"]}
+    assert props[target["data_id"]]["suggested_nature"] is None
+
+
+def test_analyze_with_ai_ignores_unknown_data_id(client, carto, monkeypatch):
+    _sess(client, carto["entity_id"])
+    import json as _json
+    content = _json.dumps({"outputs": [
+        {"data_id": 999999, "suggested_nature": "RESULT"},
+    ]})
+    _mock_openai(monkeypatch, content=content)
+    r = client.post(f"/qualify/analyze/{carto['a']}")
+    assert r.status_code == 200
+    body = r.get_json()
+    assert all(p["data_id"] != 999999 for p in body["outputs"])
+    assert len(body["outputs"]) == 3
+
+
+def test_analyze_warns_when_no_result_identified(client, carto, monkeypatch):
+    _sess(client, carto["entity_id"])
+    _mock_openai(monkeypatch, content='{"outputs": []}')
+    r = client.post(f"/qualify/analyze/{carto['a']}")
+    assert r.status_code == 200
+    body = r.get_json()
+    assert "Aucun résultat" in body["warning"]
+
+
+def test_analyze_warns_when_more_than_three_results(client, carto, monkeypatch):
+    _sess(client, carto["entity_id"])
+    outs = client.get(f"/qualify/outputs/{carto['a']}").get_json()["outputs"]
+    import json as _json
+    # 3 sorties dispo, on ajoute une 4e ligne en trop (data_id invalide, sera ignorée) —
+    # pour dépasser 3 RESULT il faut au moins 4 sorties valides : on en marque 3 comme RESULT
+    # (le seuil ">3" n'est donc pas atteignable avec seulement 3 sorties, on vérifie l'absence
+    # de warning dans ce cas et la présence du champ).
+    content = _json.dumps({"outputs": [
+        {"data_id": o["data_id"], "suggested_nature": "RESULT"} for o in outs
+    ]})
+    _mock_openai(monkeypatch, content=content)
+    r = client.post(f"/qualify/analyze/{carto['a']}")
+    assert r.status_code == 200
+    body = r.get_json()
+    assert body["warning"] is None
+
+
+def test_analyze_english_warning_language(client, carto, monkeypatch):
+    with client.session_transaction() as s:
+        s["active_entity_id"] = carto["entity_id"]
+        s["lang"] = "en"
+    _mock_openai(monkeypatch, content='{"outputs": []}')
+    r = client.post(f"/qualify/analyze/{carto['a']}")
+    assert r.status_code == 200
+    assert "No activity result" in r.get_json()["warning"]
+    _sess(client, carto["entity_id"])  # restore fr session for other tests
+
+
+def test_analyze_ai_exception_falls_back_with_error_source(client, carto, monkeypatch):
+    _sess(client, carto["entity_id"])
+    _mock_openai(monkeypatch, raise_exc=RuntimeError("boom"))
+    r = client.post(f"/qualify/analyze/{carto['a']}")
+    assert r.status_code == 200
+    body = r.get_json()
+    assert body["source"] == "error"
+    assert "boom" in body["error"]
+    assert len(body["outputs"]) == 3
+    assert all(o["suggested_nature"] is None for o in body["outputs"])

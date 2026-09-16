@@ -12,14 +12,14 @@
             <input type="radio" name="time-mode-{{ activity.id }}" value="activity" checked>
             <span class="mode-label">
                 <i class="fa-solid fa-stopwatch"></i>
-                Durée globale
+                {{ t('acttime.mode_global') }}
             </span>
         </label>
         <label class="time-mode-option">
             <input type="radio" name="time-mode-{{ activity.id }}" value="tasks">
             <span class="mode-label">
                 <i class="fa-solid fa-list-check"></i>
-                Par tâches
+                {{ t('acttime.mode_tasks') }}
             </span>
         </label>
     </div>
@@ -28,7 +28,7 @@
     <div class="time-block time-global-block" id="time-global-{{ activity.id }}">
         <div class="time-fields-row">
             <div class="time-field">
-                <label>Durée de l'activité</label>
+                <label>{{ t('acttime.duration') }}</label>
                 <div class="time-input-group">
                     <input type="number" step="0.1" min="0"
                            class="time-input"
@@ -42,7 +42,7 @@
                 </div>
             </div>
             <div class="time-field">
-                <label>Délai de production</label>
+                <label>{{ t('acttime.delay') }}</label>
                 <div class="time-input-group">
                     <input type="number" step="0.1" min="0"
                            class="time-input"
@@ -64,9 +64,9 @@
             <table class="time-tasks-table">
                 <thead>
                     <tr>
-                        <th>Tâche</th>
-                        <th>Durée</th>
-                        <th>Unité</th>
+                        <th>{{ t('acttime.th_task') }}</th>
+                        <th>{{ t('acttime.th_duration') }}</th>
+                        <th>{{ t('acttime.th_unit') }}</th>
                     </tr>
                 </thead>
                 <tbody id="time-tasks-body-{{ activity.id }}">
@@ -82,24 +82,24 @@
                             </td>
                             <td>
                                 <select class="time-unit-select time-task-unit" data-task-id="{{ task.id }}">
-                                    <option value="minutes">min</option>
-                                    <option value="heures">h</option>
-                                    <option value="jours">j</option>
+                                    <option value="minutes">{{ t('acttime.unit_min') }}</option>
+                                    <option value="heures">{{ t('acttime.unit_hour') }}</option>
+                                    <option value="jours">{{ t('acttime.unit_day') }}</option>
                                 </select>
                             </td>
                         </tr>
                         {% endfor %}
                     {% else %}
                         <tr class="no-tasks-row">
-                            <td colspan="3">Aucune tâche définie</td>
+                            <td colspan="3">{{ t('acttime.no_tasks') }}</td>
                         </tr>
                     {% endif %}
                 </tbody>
                 <tfoot>
                     <tr class="time-sum-row">
-                        <td><strong>Total</strong></td>
+                        <td><strong>{{ t('acttime.total') }}</strong></td>
                         <td colspan="2">
-                            <span class="time-sum-value" id="time-sum-{{ activity.id }}">0</span> min
+                            <span class="time-sum-value" id="time-sum-{{ activity.id }}">0</span> {{ t('acttime.unit_min') }}
                         </td>
                     </tr>
                 </tfoot>
@@ -107,16 +107,16 @@
         </div>
 
         <div class="time-field" style="margin-top: 10px;">
-            <label>Délai de production (global)</label>
+            <label>{{ t('acttime.delay_global') }}</label>
             <div class="time-input-group">
                 <input type="number" step="0.1" min="0"
                        class="time-input"
                        id="time-delay-tasks-{{ activity.id }}"
                        placeholder="0">
                 <select class="time-unit-select" id="delay-tasks-unit-{{ activity.id }}">
-                    <option value="minutes">min</option>
-                    <option value="heures">h</option>
-                    <option value="jours">j</option>
+                    <option value="minutes">{{ t('acttime.unit_min') }}</option>
+                    <option value="heures">{{ t('acttime.unit_hour') }}</option>
+                    <option value="jours">{{ t('acttime.unit_day') }}</option>
                 </select>
             </div>
         </div>
@@ -125,15 +125,25 @@
     <!-- Boutons d'action -->
     <div class="time-actions">
         <button type="button" class="btn-action-primary" onclick="saveActivityTime('{{ activity.id }}')">
-            <i class="fa-solid fa-save"></i> Enregistrer
+            <i class="fa-solid fa-save"></i> {{ t('btn.save') }}
         </button>
         <button type="button" class="btn-action-secondary" onclick="resetActivityTime('{{ activity.id }}')">
-            <i class="fa-solid fa-undo"></i> Réinitialiser
+            <i class="fa-solid fa-undo"></i> {{ t('acttime.reset') }}
         </button>
     </div>
 </div>
 
 <script>
+/* Le partial est inclus une fois par activité : affectation idempotente. */
+window.ACTTIME_I18N = {
+  saved:         {{ t('acttime.saved') | tojson }},
+  save_error:    {{ t('acttime.save_error') | tojson }},
+  reset_confirm: {{ t('acttime.reset_confirm') | tojson }},
+  reset_done:    {{ t('acttime.reset_done') | tojson }},
+  reset_error:   {{ t('acttime.reset_error') | tojson }},
+  err_unknown:   {{ t('acttime.err_unknown') | tojson }},
+};
+function _AT(k) { return (window.ACTTIME_I18N || {})[k] || k; }
 (function() {
     const activityId = '{{ activity.id }}';
     const modeRadios = document.querySelectorAll(`input[name="time-mode-${activityId}"]`);
@@ -266,17 +276,17 @@ function saveActivityTime(activityId) {
     .then(r => r.json())
     .then(resp => {
         if (resp.ok) {
-            showTimeFeedback(activityId, true, 'Temps enregistré avec succès');
+            showTimeFeedback(activityId, true, _AT('saved'));
         } else {
-            showTimeFeedback(activityId, false, 'Erreur : ' + (resp.error || 'Erreur inconnue'));
+            showTimeFeedback(activityId, false, resp.error || _AT('err_unknown'));
         }
     })
-    .catch(() => showTimeFeedback(activityId, false, "Erreur lors de l'enregistrement"));
+    .catch(() => showTimeFeedback(activityId, false, _AT('save_error')));
 }
 
 /* ---------- Réinitialisation ---------- */
 function resetActivityTime(activityId) {
-    if (!confirm('Réinitialiser les valeurs de temps pour cette activité ?')) return;
+    if (!confirm(_AT('reset_confirm'))) return;
 
     fetch(`/temps/api/activity_time/${activityId}`, { method: 'DELETE' })
     .then(r => r.json())
@@ -293,11 +303,11 @@ function resetActivityTime(activityId) {
             });
             const sumEl = document.getElementById(`time-sum-${activityId}`);
             if (sumEl) sumEl.textContent = '0';
-            showTimeFeedback(activityId, true, 'Valeurs réinitialisées');
+            showTimeFeedback(activityId, true, _AT('reset_done'));
         } else {
-            showTimeFeedback(activityId, false, 'Erreur lors de la réinitialisation');
+            showTimeFeedback(activityId, false, _AT('reset_error'));
         }
     })
-    .catch(() => showTimeFeedback(activityId, false, 'Erreur lors de la réinitialisation'));
+    .catch(() => showTimeFeedback(activityId, false, _AT('reset_error')));
 }
 </script>

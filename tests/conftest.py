@@ -11,6 +11,22 @@ from werkzeug.security import generate_password_hash
 import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
+# ⚠️ AUCUNE clé IA pendant la suite, quelle que soit la machine.
+#
+# Des dizaines de tests vérifient le comportement SANS clé (repli, 500 explicite,
+# champ `source` de secours) ; ils s'appuyaient sur le fait qu'un poste de
+# développement n'en a pas. Depuis que le panel rejoue la suite SUR l'instance,
+# elle tourne là où les clés SONT présentes dans l'environnement : quinze de ces
+# tests viraient au rouge, sur cinq fichiers, pour une raison qui n'a rien à voir
+# avec le code — et faussaient le taux de fiabilité que le panel existe pour
+# montrer. Certains fichiers faisaient déjà ce `delenv` chacun de leur côté ; on
+# le fait une fois pour toutes, ici, avant la création de l'application.
+#
+# Les tests qui vérifient le chemin AVEC clé ne passent pas par l'environnement :
+# ils remplacent `get_openai_key` par une valeur factice.
+for _cle_ia in ("OPENAI_API_KEY", "ANTHROPIC_API_KEY", "ANTHROPIC_KEY"):
+    os.environ.pop(_cle_ia, None)
+
 
 @pytest.fixture(scope="session")
 def app():
@@ -105,9 +121,22 @@ def client(app):
     return app.test_client()
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture
 def auth_client(app, client):
-    """Client avec session authentifiée (bypasse le formulaire de login)."""
+    """Client avec session authentifiée (bypasse le formulaire de login).
+
+    ⚠️ Portée FONCTION, et volontairement : `auth_client` et `client` sont le
+    MÊME objet, et plus d'une dizaine de fichiers de tests remettent la session
+    à zéro (`sess.clear()`) pour éprouver un accès anonyme. En portée session,
+    la connexion n'était posée qu'UNE fois : le premier fichier qui nettoyait
+    déconnectait tous les suivants, et leurs tests passaient ou tombaient selon
+    l'ORDRE d'exécution. Invisible tant que les routes concernées ne regardaient
+    pas la session — dix tests de `test_57_mastery` sont devenus rouges le jour
+    où `/mastery/evaluate` a enfin contrôlé qui note qui.
+
+    On ne fait qu'AJOUTER les trois clés d'identité : rien n'est effacé, donc un
+    test qui a posé `lang` ou une entité active garde son réglage.
+    """
     from Code.models.models import User, Entity
 
     with app.app_context():
@@ -117,7 +146,7 @@ def auth_client(app, client):
     with client.session_transaction() as sess:
         sess["user_id"] = user.id
         sess["user_email"] = user.email
-        sess["active_entity_id"] = entity.id
+        sess.setdefault("active_entity_id", entity.id)
 
     return client
 
