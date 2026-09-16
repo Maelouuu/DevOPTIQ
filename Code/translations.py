@@ -645,7 +645,6 @@ TRANSLATIONS = {
 
         # ── Page Gestion RH (gestion_rh) ────────────────────────────────────
         'rh.block_people':        'Les personnes',
-        'rh.block_people_sub':    "Tous les comptes sont des collaborateurs, quel que soit leur statut.",
         'rh.block_roles':         'Les rôles',
         'rh.block_roles_sub':     "Qui les tient, et lesquels ouvrent la cartographie.",
         'rh.block_changes':       'Les modifications proposées',
@@ -2025,7 +2024,6 @@ TRANSLATIONS = {
 
         # ── Page Gestion RH (gestion_rh) ────────────────────────────────────
         'rh.block_people':        'People',
-        'rh.block_people_sub':    'Every account is a collaborator, whatever their status.',
         'rh.block_roles':         'Roles',
         'rh.block_roles_sub':     'Who holds them, and which ones open the map.',
         'rh.block_changes':       'Proposed changes',

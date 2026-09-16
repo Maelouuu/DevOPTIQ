@@ -94,6 +94,10 @@
       p_title: 'Profil de compétences', p_role_one: 'rôle', p_role_many: 'rôles',
       p_coverage: 'du requis tenu', p_required: 'Requis', p_demonstrated: 'Démontré',
       p_by_role: 'Par rôle',
+      p_detail: 'Détail du rôle', p_back_radar: 'Revenir au profil',
+      p_bars_hint: 'Cliquez un point du graphe pour ouvrir le détail d\u2019un rôle.',
+      p_bars_one: 'Ce rôle ne porte qu\u2019une activité : le graphe la dit déjà.',
+      p_not_assessed: 'non évalué',
       p_on_1: '[[a]] activité évaluée sur [[b]]', p_on_n: '[[a]] activités évaluées sur [[b]]',
       p_capped: 'Les [[n]] activités les plus en écart sont représentées.',
       p_axes_0: 'aucune activité sur le graphe', p_axes_1: '1 activité sur le graphe',
@@ -213,6 +217,10 @@
       p_title: 'Competency profile', p_role_one: 'role', p_role_many: 'roles',
       p_coverage: 'of the requirement met', p_required: 'Required', p_demonstrated: 'Demonstrated',
       p_by_role: 'By role',
+      p_detail: 'Role detail', p_back_radar: 'Back to the profile',
+      p_bars_hint: 'Click a point on the chart to open a role\u2019s detail.',
+      p_bars_one: 'This role holds a single activity: the chart already shows it.',
+      p_not_assessed: 'not assessed',
       p_on_1: '[[a]] of [[b]] activities assessed', p_on_n: '[[a]] of [[b]] activities assessed',
       p_capped: 'Showing the [[n]] activities with the widest gap.',
       p_axes_0: 'no activity on the chart', p_axes_1: '1 activity on the chart',
@@ -661,7 +669,8 @@
         </div>
       </div>
       <div class="cv2-profil-corps">
-        <div class="cv2-radar-zone">${vus.length >= 3 ? radarSVG(vus) : ''}
+        <div class="cv2-radar-zone" data-vue="radar">${vus.length >= 3 ? radarSVG(vus) : ''}
+          <div class="cv2-barres-zone"></div>
           <div class="cv2-radar-bulle"></div>
           <div class="cv2-radar-leg">
             <button type="button" class="cv2-leg-b" data-couche="req">
@@ -681,6 +690,18 @@
     box.querySelectorAll('.cv2-parrole-l').forEach(b => b.onclick = () => {
       const r = d.roles.find(x => String(x.role_id) === b.dataset.role);
       if (r) ouvrirRole(r);
+    });
+    // ⚠️ Un point du radar porte UNE activité, mais le radar superpose tout :
+    // il ne dit pas où un rôle en est activité par activité. Le clic ouvre donc
+    // le détail du rôle auquel ce point appartient — c'est le geste naturel,
+    // puisque survoler un rôle allume déjà ses points.
+    box.querySelectorAll('.cv2-radar-zone [data-role]').forEach(el => {
+      el.classList.add('est-cliquable');
+      el.addEventListener('click', ev => {
+        ev.stopPropagation();
+        const r = (d.roles || []).find(x => String(x.role_id) === el.dataset.role);
+        if (r) ouvrirBarres(box, r);
+      });
     });
     animerProfil(box, vus, d);
   }
@@ -813,6 +834,61 @@
 
   // Le radar. Rayon = niveau 0..4 ; deux polygones, le requis en trait plein
   // clair et le démontré rempli par-dessus.
+  // ── Le détail d'un rôle, en barres ─────────────────────────────────
+  // Le radar répond « quelle est la FORME du profil » ; il ne répond pas
+  // « sur quelle activité ce rôle décroche ». Les barres répondent à ça :
+  // une ligne par activité, la cible marquée sur la piste.
+  function barresRole(role) {
+    const actes = (role.activities || []).slice()
+      .sort((a, b) => (a.gap == null ? 99 : a.gap) - (b.gap == null ? 99 : b.gap)
+                      || a.activity_name.localeCompare(b.activity_name));
+    const lignes = actes.map((a, i) => {
+      const dem = estNul(a.demonstrated_level) ? null : a.demonstrated_level;
+      const req = estNul(a.required_level) ? null : a.required_level;
+      const coul = a.color || 'grey';
+      // ⚠️ Une activité non évaluée n'a PAS une barre à zéro : zéro veut dire
+      // « non démontré », et tout le module distingue les deux. Elle le dit.
+      const piste = dem === null
+        ? `<span class="cv2-bar-vide">${esc(T('p_not_assessed'))}</span>`
+        : `<i class="cv2-bar-plein cv2-bar--${coul}" style="--w:${(dem / 4) * 100}%"></i>`;
+      const cible = req === null ? ''
+        : `<i class="cv2-bar-cible" style="--x:${(req / 4) * 100}%" title="${esc(T('p_required'))} ${req}"></i>`;
+      return `<div class="cv2-bar-l" style="--i:${i}">
+          <span class="cv2-bar-nom" title="${esc(a.activity_name)}">${esc(a.activity_name)}</span>
+          <span class="cv2-bar-piste">${piste}${cible}</span>
+          <span class="cv2-bar-val">${dem === null ? '—' : dem}<small>/${req === null ? '—' : req}</small></span>
+        </div>`;
+    }).join('');
+
+    return `<div class="cv2-barres">
+        <div class="cv2-barres-tete">
+          <button type="button" class="cv2-barres-retour">
+            <i class="fa-solid fa-arrow-left"></i> ${esc(T('p_back_radar'))}</button>
+          <div class="cv2-barres-t">${esc(role.role_name)}</div>
+        </div>
+        ${actes.length > 1 ? `<div class="cv2-barres-corps">${lignes}</div>`
+          : `<div class="cv2-barres-corps">${lignes}
+             <p class="cv2-barres-note">${esc(T('p_bars_one'))}</p></div>`}
+      </div>`;
+  }
+
+  function ouvrirBarres(box, role) {
+    const zone = box.querySelector('.cv2-radar-zone');
+    const hote = box.querySelector('.cv2-barres-zone');
+    if (!zone || !hote) return;
+    box.querySelector('.cv2-radar-bulle')?.classList.remove('est-la');
+    hote.innerHTML = barresRole(role);
+    // Le changement de vue se fait sur l'attribut : le CSS porte l'animation,
+    // et rien ne bouge si l'utilisateur a demandé moins de mouvement.
+    zone.dataset.vue = 'barres';
+    hote.querySelector('.cv2-barres-retour')?.addEventListener('click', () => {
+      zone.dataset.vue = 'radar';
+      // On vide APRÈS la transition : retirer le contenu tout de suite ferait
+      // disparaître les barres d'un coup au lieu de les laisser s'effacer.
+      setTimeout(() => { if (zone.dataset.vue === 'radar') hote.innerHTML = ''; }, 320);
+    });
+  }
+
   function radarSVG(axes) {
     const R = 132, CX = 260, CY = 186, MAX = 4;
     const n = axes.length;

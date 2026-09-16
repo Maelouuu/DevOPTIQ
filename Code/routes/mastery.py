@@ -309,6 +309,20 @@ def synthese(user_id):
             "n_gap": len(retards),
             "n_evaluated": len(niveaux),
             "couverture": couverture(rows),
+            # Le détail activité par activité, pour le graphique en barres du
+            # profil. ⚠️ Il ne peut PAS se reconstituer depuis `profil`, qui est
+            # dédupliqué par activité : une activité portée par deux rôles n'y
+            # figure qu'une fois, et manquerait donc à l'autre rôle.
+            "activities": [{"activity_id": r["activity_id"],
+                            "activity_name": r["activity_name"],
+                            "demonstrated_level": r["demonstrated_level"],
+                            "required_level": r["required_level"],
+                            "gap": r["gap"], "n_results": r["n_results"],
+                            # La couleur est CALCULÉE par le serveur (CDC 3.5) :
+                            # la refaire en JS donnerait deux règles pour un
+                            # seul verdict, et elles finiraient par diverger.
+                            "color": r["color"]}
+                           for r in rows],
             # De quoi proposer un plan sans recharger : les activités en retard.
             "gap_activities": [{"activity_id": r["activity_id"], "activity_name": r["activity_name"],
                                 "demonstrated_level": r["demonstrated_level"],

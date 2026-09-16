@@ -1406,6 +1406,99 @@ header { position: sticky; top: 0; z-index: 30; }
    survoler un rôle n'éclaire que ses activités, survoler un axe donne son
    détail. Un graphe qui ne réagit pas se lit une fois puis devient un décor. */
 .cv2-radar-zone { position: relative; }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   DEUX VUES DANS LA MÊME ZONE — le radar, puis le détail d'un rôle
+   Le radar dit la FORME du profil ; il ne dit pas sur quelle activité un rôle
+   décroche. Cliquer un point ouvre les barres de SON rôle, au même endroit :
+   remplacer plutôt que juxtaposer garde l'attention là où elle était.
+   ══════════════════════════════════════════════════════════════════════════ */
+.cv2-radar-zone > .cv2-radar,
+.cv2-radar-zone > .cv2-radar-leg,
+.cv2-radar-zone > .cv2-radar-note { transition: opacity .26s ease, transform .26s ease; }
+.cv2-radar-zone[data-vue="barres"] > .cv2-radar,
+.cv2-radar-zone[data-vue="barres"] > .cv2-radar-leg,
+.cv2-radar-zone[data-vue="barres"] > .cv2-radar-note {
+  opacity: 0; transform: scale(.94); pointer-events: none;
+}
+
+/* ⚠️ Les barres se SUPERPOSENT au radar (absolute) : les mettre dans le flux
+   ferait sauter la hauteur de la carte à chaque bascule. */
+.cv2-barres-zone {
+  position: absolute; inset: 0; display: flex; flex-direction: column;
+  opacity: 0; transform: scale(.97); pointer-events: none;
+  transition: opacity .26s ease, transform .26s ease;
+}
+.cv2-radar-zone[data-vue="barres"] .cv2-barres-zone {
+  opacity: 1; transform: none; pointer-events: auto;
+}
+
+/* Un point cliquable doit se voir comme tel — sans quoi personne n'essaie. */
+.cv2-radar .est-cliquable { cursor: pointer; }
+.cv2-radar circle.est-cliquable:hover { r: 5.4; }
+
+.cv2-barres { display: flex; flex-direction: column; height: 100%; min-height: 0; }
+.cv2-barres-tete { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+.cv2-barres-retour {
+  display: inline-flex; align-items: center; gap: 7px; flex: none;
+  padding: 5px 11px; cursor: pointer;
+  font-family: inherit; font-size: 12.5px; font-weight: 700;
+  color: var(--pg-accent-deep); background: color-mix(in srgb, var(--pg-accent) 9%, #fff);
+  border: 1px solid color-mix(in srgb, var(--pg-accent) 24%, #fff); border-radius: 999px;
+  transition: .13s;
+}
+.cv2-barres-retour:hover { background: color-mix(in srgb, var(--pg-accent) 16%, #fff); }
+.cv2-barres-t {
+  min-width: 0; font-family: var(--pg-font-display); font-size: 17px;
+  font-weight: 700; color: var(--ink);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.cv2-barres-corps { flex: 1; min-height: 0; overflow-y: auto; padding-right: 4px; }
+.cv2-barres-note { margin-top: 10px; font-size: 11.5px; font-style: italic; color: var(--faint); }
+
+.cv2-bar-l {
+  display: grid; grid-template-columns: minmax(0, 1fr) minmax(90px, 1.25fr) 52px;
+  align-items: center; gap: 11px; padding: 7px 0;
+}
+.cv2-bar-l + .cv2-bar-l { border-top: 1px solid var(--border); }
+.cv2-bar-nom {
+  min-width: 0; font-size: 13px; font-weight: 600; color: var(--ink);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.cv2-bar-piste {
+  position: relative; height: 13px; border-radius: 7px;
+  background: var(--card-2); box-shadow: inset 0 0 0 1px var(--border);
+}
+.cv2-bar-plein {
+  display: block; height: 100%; width: var(--w); border-radius: 7px;
+  /* L'entrée en scène part de zéro et s'échelonne : on LIT la comparaison au
+     lieu de la découvrir d'un bloc. */
+  animation: cv2-pousse .42s cubic-bezier(.34, 1.1, .4, 1) backwards;
+  animation-delay: calc(var(--i, 0) * 45ms);
+}
+@keyframes cv2-pousse { from { width: 0; } }
+.cv2-bar--green  { background: var(--cv-green); }
+.cv2-bar--orange { background: var(--cv-orange); }
+.cv2-bar--red    { background: var(--cv-red); }
+.cv2-bar--grey   { background: var(--cv-grey); }
+/* La cible : un trait sur la piste, comme le repère de la jauge des listes. */
+.cv2-bar-cible {
+  position: absolute; top: -3px; bottom: -3px; left: var(--x);
+  width: 2.5px; border-radius: 2px; background: var(--ink-2); transform: translateX(-50%);
+}
+.cv2-bar-vide {
+  display: block; padding-left: 9px; line-height: 13px;
+  font-size: 11px; font-style: italic; color: var(--faint);
+}
+.cv2-bar-val { font-size: 13px; font-weight: 700; color: var(--ink-2); text-align: right; }
+.cv2-bar-val small { font-weight: 600; color: var(--faint); }
+
+@media (prefers-reduced-motion: reduce) {
+  .cv2-radar-zone > .cv2-radar,
+  .cv2-radar-zone > .cv2-radar-leg,
+  .cv2-barres-zone { transition: none; }
+  .cv2-bar-plein { animation: none; }
+}
 .cv2-r-req, .cv2-r-dem { transition: fill-opacity .2s, opacity .2s; }
 /* Passer une couche devant : on estompe l'autre plutôt que de réordonner le
    DOM — le SVG n'a pas de z-index, et bouger les nœuds ferait clignoter. */

@@ -661,6 +661,53 @@ auto-évaluations volontairement discordantes et des capacités en écart.
   formation » fait un `stopPropagation` — sans lui on ouvrait le rôle DERRIÈRE la
   fenêtre du plan. Les lignes « par rôle » du profil ouvrent le rôle elles aussi.
 - Tests : `tests/test_77_competences_deux_notes.py::TestCouvertureEtProfil` (6 cas).
+### Le radar cède la place au détail d'un rôle (2026-09-16)
+
+Le radar répond « quelle est la FORME du profil ». Il ne répond pas « sur quelle
+activité ce rôle décroche » : il superpose requis et démontré de TOUTES les
+activités, et un rôle n'y est qu'une teinte au survol. **Cliquer un point ouvre
+donc les barres de SON rôle**, au même endroit — une ligne par activité, la
+cible marquée sur la piste. Remplacer plutôt que juxtaposer garde l'attention là
+où elle était.
+
+- ⚠️ **Le détail NE PEUT PAS se reconstituer depuis `profil`** : cette liste est
+  **dédupliquée par activité** (une activité portée par deux rôles n'y figure
+  qu'une fois, attribuée à l'un d'eux) — la filtrer par rôle en perdrait
+  silencieusement. Chaque rôle de `/mastery/synthese` porte donc sa propre liste
+  `activities`, complète.
+- ⚠️ **La couleur vient du SERVEUR** (`color_for`, CDC 3.5), pas d'un calcul en
+  JS : deux implémentations d'un même verdict finissent par diverger, comme
+  `dashboard_rows` l'a déjà montré pour les compteurs.
+- ⚠️ **Une activité non évaluée n'a PAS une barre à zéro** : zéro veut dire
+  « non démontré », et tout le module distingue les deux (NULL ≠ 0). Elle écrit
+  « non évalué » à la place de sa barre.
+- Les deux vues vivent dans la MÊME zone (`.cv2-radar-zone[data-vue]`), les
+  barres en `position: absolute` par-dessus : dans le flux, la hauteur de la
+  carte sauterait à chaque bascule. Le retour vide le contenu **après** la
+  transition — le retirer tout de suite ferait disparaître les barres d'un coup
+  au lieu de les laisser s'effacer. Tout est désactivé sous
+  `prefers-reduced-motion`.
+- L'entrée des barres est échelonnée (`--i`, 45 ms) : on LIT la comparaison au
+  lieu de la découvrir d'un bloc.
+- ⚠️ Mise au point : dans un volet navigateur qui ne peint pas, une transition
+  CSS **ne progresse pas** — `getComputedStyle` rend alors la valeur figée en
+  cours de route (opacité 0 alors que `data-vue` vaut déjà `radar`). Couper la
+  transition et relire donne la valeur CIBLE : c'est le seul moyen de distinguer
+  un vrai défaut de CSS d'un volet endormi.
+
+**Page RH** : la phrase « Tous les comptes sont des collaborateurs, quel que soit
+leur statut » est retirée du bloc Personnes (et sa clé `rh.block_people_sub` du
+catalogue). Elle expliquait un choix d'implémentation, pas ce que l'écran montre.
+
+ℹ️ **Le sélecteur de carto de la page RH existe déjà** — bandeau du haut,
+`gestion_rh.js::rendreBandeau`, visible dès qu'un compte a **plus d'une** entité
+accessible. Il passe `?entity_id=` à `/gestion_rh/api/tableau`, qui valide la
+demande contre `Entity.accessible(moi)`. ⚠️ Il pose AUSSI
+`session['active_entity_id']`, et c'est nécessaire : les écritures de la page
+(créer un rôle, affecter un collaborateur) lisent `get_active_entity_id()` —
+changer l'affichage sans changer l'entité active enverrait les modifications
+dans la mauvaise carto.
+
 
 ### Qualification des sorties, technicité, radar vivant (2026-09-15)
 
