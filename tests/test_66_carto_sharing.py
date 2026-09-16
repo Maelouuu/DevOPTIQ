@@ -934,3 +934,74 @@ class TestRepriseDesComptes:
         with app.app_context():
             assert db.session.get(AppSetting, CLE_REPRISE) is not None, (
                 "la reprise doit laisser sa trace en base, sinon elle se rejoue")
+
+    def test_l_outil_d_inventaire_predit_exactement_la_reprise(self):
+        """`tools/db/etat_statuts.py` sert à décider AVANT de déployer sur une
+        instance en service : il annonce le palier que chaque compte aura.
+
+        ⚠️ S'il prédit autre chose que ce que le code fera, l'inventaire ment —
+        et c'est sur cet inventaire qu'on décide de toucher, ou non, aux comptes
+        d'un client. Les deux implémentations doivent donc s'accorder sur TOUS
+        les libellés rencontrés en base.
+        """
+        import importlib.util
+        import os
+
+        import pytest as _pytest
+        from Code.permissions import (COORDINATOR_STATUS, is_admin_status,
+                                      is_coordinator_status, norm_status)
+
+        racine = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        chemin = os.path.join(racine, "tools", "db", "etat_statuts.py")
+        if not os.path.exists(chemin):
+            # `tools/` est exclu de l'image : ce cas n'a rien à vérifier là-bas.
+            _pytest.skip("tools/ absent (arbre d'image)")
+        spec = importlib.util.spec_from_file_location("etat_statuts", chemin)
+        outil = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(outil)
+
+        libelles = [
+            "admin", "administrateur", "Administrator", "ADMIN",
+            "champion", "Champion",
+            "coordinateur", "Coordinateur", "coordinator",
+            "manager", "Manager",
+            "Gestionnaire de compétences", "gestionnaire de comp",
+            "Competency Manager", "Skills Manager",
+            "user", "User", "rh", "", None, "n'importe quoi",
+        ]
+        for libelle in libelles:
+            # Ce que l'APPLICATION fera : la reprise monte l'arbitre d'hier au
+            # palier coordinateur, le reste garde son libellé.
+            if is_admin_status(libelle):
+                attendu = "admin"
+            elif norm_status(libelle) == "champion" or is_coordinator_status(libelle):
+                # ⚠️ « champion » compris : sur une base d'AVANT la bascule, le
+                # mot désigne l'arbitre. C'est tout l'objet de la reprise.
+                attendu = COORDINATOR_STATUS
+            else:
+                attendu = "user"
+            assert outil.palier_apres(libelle) == attendu, (
+                "« %s » : l'outil annonce %s, le code fera %s"
+                % (libelle, outil.palier_apres(libelle), attendu))
+
+        # Et la normalisation doit être la MÊME des deux côtés.
+        for libelle in libelles:
+            assert outil.norm(libelle) == norm_status(libelle), libelle
+
+    def test_l_outil_d_inventaire_n_ecrit_rien(self):
+        """Il tourne sur la base d'un CLIENT : il ne doit pas pouvoir écrire."""
+        import io as _io
+        import os
+        import pytest as _pytest
+        racine = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        chemin = os.path.join(racine, "tools", "db", "etat_statuts.py")
+        if not os.path.exists(chemin):
+            _pytest.skip("tools/ absent (arbre d'image)")
+        src = _io.open(chemin, encoding="utf-8").read()
+        assert "set_session(readonly=True)" in src, (
+            "la connexion doit être ouverte en lecture seule")
+        assert "commit()" not in src, "l'outil ne doit rien valider"
+        for verbe in ("INSERT ", "UPDATE ", "DELETE ", "ALTER ", "DROP "):
+            assert verbe not in src.upper(), (
+                "l'outil contient « %s » — il doit rester en lecture"
+                % verbe.strip())
