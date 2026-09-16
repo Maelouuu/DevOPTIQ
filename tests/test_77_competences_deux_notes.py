@@ -459,6 +459,180 @@ class TestPlanDeFormation:
             assert db.inspect(db.engine).has_table(PlanFormation.__tablename__)
 
 
+class _FakeMessagePlan:
+    def __init__(self, content):
+        self.content = content
+
+
+class _FakeChoicePlan:
+    def __init__(self, content):
+        self.message = _FakeMessagePlan(content)
+
+
+class _FakeCompletionPlan:
+    def __init__(self, content):
+        self.choices = [_FakeChoicePlan(content)]
+
+
+class _FakeOpenAIClientPlan:
+    """Simule le SDK OpenAI pour couvrir /plan/proposer avec une clé IA
+    disponible — sans appel réseau réel."""
+    def __init__(self, content=None, raise_exc=None):
+        self._content = content
+        self._raise_exc = raise_exc
+
+        class _Completions:
+            def create(_self, **kwargs):
+                if self._raise_exc is not None:
+                    raise self._raise_exc
+                return _FakeCompletionPlan(self._content)
+
+        class _Chat:
+            completions = _Completions()
+
+        self.chat = _Chat()
+
+
+class TestPlanDeFormationErreursEtSuppression:
+    """Validations d'entrée, suppression du plan, et proposition avec clé IA
+    disponible — chemins non exercés par TestPlanDeFormation ci-dessus."""
+
+    def _en_ecart(self, client, app, scene):
+        from Code.extensions import db
+        from Code.models.models import CompetencyEvaluation
+        with app.app_context():
+            CompetencyEvaluation.query.filter_by(activity_id=scene["act"]).delete()
+            db.session.commit()
+        _connecte(client, scene["dev"], "dev77@devoptiq.com")
+        for did in (scene["d1"], scene["d2"]):
+            _note(client, scene["collab"], scene["act"], did, "2", 2, scene["role"])
+
+    def test_lire_un_role_inexistant_est_404(self, client, scene):
+        _connecte(client, scene["dev"], "dev77@devoptiq.com")
+        r = client.get(f"/plan/{scene['collab']}/999999")
+        assert r.status_code == 404
+        assert r.get_json()["error"] == "role_not_found"
+
+    def test_proposer_sans_role_id_est_400(self, client, scene):
+        _connecte(client, scene["dev"], "dev77@devoptiq.com")
+        r = client.post("/plan/proposer", data=json.dumps({"user_id": scene["collab"]}),
+                         content_type="application/json")
+        assert r.status_code == 400
+        assert r.get_json()["error"] == "invalid_payload"
+
+    def test_enregistrer_sans_user_id_est_400(self, client, scene):
+        _connecte(client, scene["dev"], "dev77@devoptiq.com")
+        r = client.post("/plan/enregistrer", data=json.dumps({"role_id": scene["role"]}),
+                         content_type="application/json")
+        assert r.status_code == 400
+        assert r.get_json()["error"] == "invalid_payload"
+
+    def test_enregistrer_pour_un_utilisateur_inexistant_est_404(self, client, scene):
+        _connecte(client, scene["admin"], "test@devoptiq.com")
+        r = client.post("/plan/enregistrer", data=json.dumps({
+            "user_id": 999999, "role_id": scene["role"],
+            "parametres": {}, "actions": []}), content_type="application/json")
+        assert r.status_code == 404
+        assert r.get_json()["error"] == "not_found"
+
+    def test_enregistrer_pour_un_role_inexistant_est_404(self, client, scene):
+        _connecte(client, scene["admin"], "test@devoptiq.com")
+        r = client.post("/plan/enregistrer", data=json.dumps({
+            "user_id": scene["collab"], "role_id": 999999,
+            "parametres": {}, "actions": []}), content_type="application/json")
+        assert r.status_code == 404
+        assert r.get_json()["error"] == "not_found"
+
+    def test_supprimer_efface_le_plan_enregistre(self, client, app, scene):
+        from Code.models.models import PlanFormation
+        _connecte(client, scene["dev"], "dev77@devoptiq.com")
+        client.post("/plan/enregistrer", data=json.dumps({
+            "user_id": scene["collab"], "role_id": scene["role"],
+            "parametres": {"heures_semaine": 5, "semaines": 6}, "actions": []}),
+            content_type="application/json")
+        with app.app_context():
+            assert PlanFormation.query.filter_by(
+                user_id=scene["collab"], role_id=scene["role"]).first() is not None
+
+        r = client.delete(f"/plan/{scene['collab']}/{scene['role']}")
+        assert r.status_code == 200
+        assert r.get_json() == {"ok": True}
+        with app.app_context():
+            assert PlanFormation.query.filter_by(
+                user_id=scene["collab"], role_id=scene["role"]).first() is None
+
+    def test_supprimer_un_plan_deja_absent_reste_ok(self, client, scene):
+        """Idempotent : rien à effacer n'est pas une erreur."""
+        _connecte(client, scene["dev"], "dev77@devoptiq.com")
+        r = client.delete(f"/plan/{scene['collab']}/{scene['role']}")
+        assert r.status_code == 200
+        assert r.get_json() == {"ok": True}
+
+    def test_un_tiers_ne_peut_pas_supprimer_le_plan_d_un_autre(self, client, scene):
+        _connecte(client, scene["tiers"], "tiers77@devoptiq.com")
+        r = client.delete(f"/plan/{scene['collab']}/{scene['role']}")
+        assert r.status_code == 403
+
+    def test_avec_cle_IA_le_plan_vient_du_modele(self, client, app, scene, monkeypatch):
+        """Avec un client IA disponible, le contenu proposé vient du modèle —
+        pas du repli local — et la source l'indique."""
+        self._en_ecart(client, app, scene)
+        contenu = json.dumps({"actions": [{
+            "titre": "Reprendre un dossier en binôme", "type": "TERRAIN",
+            "activite": "Activité Test 77", "objectif": "Fiabiliser le résultat",
+            "heures": 14, "livrable": "", "critere": "Zéro écart au standard"}]})
+        monkeypatch.setattr(
+            "Code.routes.plan_formation.openai_client_or_none",
+            lambda: (_FakeOpenAIClientPlan(content=contenu), None))
+
+        r = client.post("/plan/proposer", data=json.dumps({
+            "user_id": scene["collab"], "role_id": scene["role"]}),
+            content_type="application/json")
+        assert r.status_code == 200
+        d = r.get_json()
+        assert d["source"] == "AI"
+        assert d["actions"][0]["activity_id"] == scene["act"]
+        assert d["actions"][0]["heures"] == 14
+        assert d["actions"][0]["type"] == "TERRAIN"
+
+    def test_avec_cle_IA_une_erreur_retombe_sur_le_repli(self, client, app, scene, monkeypatch):
+        """Le modèle plante : la source le dit, mais le collaborateur reçoit
+        quand même un plan — le repli local ne dépend pas de l'IA."""
+        self._en_ecart(client, app, scene)
+        monkeypatch.setattr(
+            "Code.routes.plan_formation.openai_client_or_none",
+            lambda: (_FakeOpenAIClientPlan(raise_exc=RuntimeError("boom")), None))
+
+        r = client.post("/plan/proposer", data=json.dumps({
+            "user_id": scene["collab"], "role_id": scene["role"]}),
+            content_type="application/json")
+        assert r.status_code == 200
+        d = r.get_json()
+        assert d["source"] == "error"
+        assert d["actions"], "le repli doit tout de même produire un plan"
+
+    def test_avec_cle_IA_une_charge_non_numerique_ne_casse_pas_le_plan(
+            self, client, app, scene, monkeypatch):
+        """Le modèle répond une charge qui n'est pas un nombre : l'action est
+        quand même gardée, bornée au minimum plutôt que rejetée."""
+        self._en_ecart(client, app, scene)
+        contenu = json.dumps({"actions": [{
+            "titre": "Reprendre un dossier en binôme", "type": "TERRAIN",
+            "activite": "Activité Test 77", "objectif": "Fiabiliser le résultat",
+            "heures": "beaucoup", "livrable": "", "critere": ""}]})
+        monkeypatch.setattr(
+            "Code.routes.plan_formation.openai_client_or_none",
+            lambda: (_FakeOpenAIClientPlan(content=contenu), None))
+
+        r = client.post("/plan/proposer", data=json.dumps({
+            "user_id": scene["collab"], "role_id": scene["role"]}),
+            content_type="application/json")
+        assert r.status_code == 200
+        d = r.get_json()
+        assert d["source"] == "AI"
+        assert d["actions"][0]["heures"] == 1
+
+
 class TestCouvertureEtProfil:
     """La vue d'ensemble apporte deux choses que rien ne donnait : un taux de
     couverture, et le profil qui sert de base au graphe."""

@@ -84,6 +84,17 @@ PAGE_LABELS = {
     "test_69_panel_internals":           "Panel de Tests — Fonctions Internes (run, patches, XML)",
     "test_70_competency_color":          "Couleur de Synthèse des Compétences",
     "test_71_licensing":                 "Licence OptiqFluent (Signature & Expiration)",
+    "test_48_carto_package":             "Export/Import de Cartographie (Paquet Complet)",
+    "test_49_carto_dom_contract":        "Contrat DOM des Gabarits Carto (Zoom & Mini-map)",
+    "test_50_accounts_permissions_lang": "Comptes — Permissions & Droits d'Accès",
+    "test_51_entity_share":              "Partage d'Entité entre Comptes",
+    "test_62_task_tool_files":           "Pièces Jointes Tâches & Outils",
+    "test_72_deploiement":               "Déploiement — Branches & Services",
+    "test_73_role_permanent":            "Rôles Permanents (Reconnaissance & Synchro Carto)",
+    "test_74_page_rh":                   "Page RH — Tableau & Lien Compétences",
+    "test_75_entite_active_partagee":    "Entité Active Partagée (Repli & Nettoyage UI)",
+    "test_76_nav_fleches":               "Navigation par Flèches (Placement & Comportement)",
+    "test_77_competences_deux_notes":    "Compétences — Deux Notes, Synthèse & Plan de Formation",
 }
 
 
