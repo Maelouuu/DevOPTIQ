@@ -296,10 +296,9 @@ class TestRecensementDesCas:
 
 
 class TestSyncTolerant:
-    """Le recensement réécrit 71 pages et ~1900 cas à chaque appel ; sur
-    Postgres il lui arrive de dépasser le temps imparti. Le catalogue reste
-    lisible en base : une panne du recensement ne doit pas rendre 500, sinon le
-    hub annonce « l'instance ne répond pas » pour rien."""
+    """Le recensement peut échouer (base lente, verrou) : le catalogue reste
+    lisible en base, et une panne du recensement ne doit pas rendre 500, sinon
+    le hub annonce « l'instance ne répond pas » pour rien."""
 
     def test_le_catalogue_reste_lisible_si_le_recensement_echoue(self, client, monkeypatch):
         from Code.routes import test_panel as tp
@@ -315,3 +314,92 @@ class TestSyncTolerant:
         r = client.get('/testpanel/api/etat')
         assert r.status_code == 200
         assert r.get_json()['pages'] > 0
+
+
+class TestCoutDuRecensement:
+    """⚠️ `sync_tests_to_db` envoyait UNE REQUÊTE PAR CAS pour vérifier qu'il
+    existait déjà — alors qu'il venait de charger la liste. Mesuré : **2318
+    requêtes pour une synchro qui ne change rien**, sur les 2148 cas recensés.
+    La base vivant sur Neon, à ~15 ms de Cloud Run, `/api/etat` et
+    `/api/pages` mettaient **31 secondes à chaud** — le hub, lui, coupait à 25
+    et affichait « l'instance ne répond pas ».
+
+    Ces cas gardent les deux moitiés du correctif : le nombre de requêtes, et
+    le fait qu'une synchro inutile n'en envoie aucune. Ils passent au rouge dès
+    qu'on remet une requête dans la boucle."""
+
+    def _compter(self, app, travail):
+        """Nombre d'aller-retours SQL pendant `travail()`.
+
+        C'est le nombre qui compte, pas le temps : la suite tourne sur SQLite,
+        où tout est dans le processus. En production chaque requête traverse le
+        réseau.
+        """
+        from sqlalchemy import event
+        from Code.extensions import db
+
+        moteur = db.session.get_bind()
+        n = [0]
+
+        def _tic(conn, cur, stmt, params, ctx, many):
+            n[0] += 1
+
+        event.listen(moteur, 'before_cursor_execute', _tic)
+        try:
+            travail()
+        finally:
+            event.remove(moteur, 'before_cursor_execute', _tic)
+        return n[0]
+
+    def test_une_synchro_inutile_ne_coute_presque_rien(self, app):
+        from Code.models.test_models import TestCase
+        from Code.routes.test_panel import sync_tests_to_db
+
+        with app.app_context():
+            sync_tests_to_db(force=True)          # tout est en base
+            total = TestCase.query.count()
+            assert total > 500, "le banc n'a de sens qu'avec un vrai catalogue"
+
+            n = self._compter(app, sync_tests_to_db)
+            # Une poignée de requêtes, pas une par cas. Le seuil est large :
+            # on garde l'ORDRE DE GRANDEUR, pas un chiffre exact.
+            assert n <= 10, (
+                f"{n} requêtes pour ne rien changer sur {total} cas — "
+                "la boucle en a repris une par cas")
+
+    def test_un_recensement_complet_ne_boucle_pas_sur_la_base(self, app):
+        from Code.models.test_models import TestCase, TestPage
+        from Code.routes.test_panel import sync_tests_to_db
+
+        with app.app_context():
+            sync_tests_to_db(force=True)
+            total = TestCase.query.count()
+            pages = TestPage.query.count()
+
+            # `force` refait tout le travail, y compris relire les fichiers.
+            n = self._compter(app, lambda: sync_tests_to_db(force=True))
+            assert n < pages, (
+                f"{n} requêtes pour {total} cas sur {pages} pages — "
+                "le recensement doit charger en bloc, pas page par page")
+
+    def test_un_fichier_modifie_est_bien_repris(self, app, tmp_path):
+        """L'empreinte ne doit pas figer le catalogue : un fichier qui change
+        doit être relu. Sinon on gagne du temps en servant du périmé."""
+        from Code.routes import test_panel as tp
+
+        with app.app_context():
+            tp.sync_tests_to_db(force=True)
+            avant = tp._empreinte_tests()
+            assert avant, "l'empreinte doit voir les fichiers de test"
+
+            # Deux empreintes du même arbre inchangé sont identiques.
+            assert tp._empreinte_tests() == avant
+
+            # Un arbre vide donne une empreinte DIFFÉRENTE : c'est ce qui
+            # déclenche la relecture.
+            racine = tp._TESTS_DIR
+            tp._TESTS_DIR = tmp_path
+            try:
+                assert tp._empreinte_tests() != avant
+            finally:
+                tp._TESTS_DIR = racine

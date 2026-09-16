@@ -59,6 +59,15 @@ body.module{background:var(--verre)}
 .mod-tete p{font-size:15.5px;color:var(--encre2);max-width:54ch}
 .mod-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:18px}
 
+/* Le résumé arrive APRÈS le HTML : tant qu'il attend l'instance il le dit —
+   en italique et estompé, comme les autres attentes du hub. Sans cette
+   distinction, « Lecture du catalogue… » se lisait comme un état définitif. */
+.mod-resume.est-charge{font-family:var(--f-titre);font-style:italic;color:var(--gris)}
+@media (prefers-reduced-motion:no-preference){
+  .mod-resume.est-charge{animation:resp 1.6s ease-in-out infinite}
+}
+@keyframes resp{0%,100%{opacity:.55}50%{opacity:1}}
+
 /* Progression d'une exécution */
 .course{margin-top:16px;max-width:460px}
 .course-barre{height:9px;border-radius:999px;background:rgba(139,111,181,.16);overflow:hidden}

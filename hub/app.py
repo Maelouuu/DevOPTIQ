@@ -252,8 +252,12 @@ def outils():
 @app.route("/panel")
 @login_required
 def panel():
-    return render_template("panel.html", etat=panel_client.etat(),
-                           url_panel=panel_client.url_panel())
+    # ⚠️ La route n'interroge PLUS l'instance. Elle le faisait pour deux
+    # nombres (cas et pages) et bloquait le rendu du HTML le temps d'un appel
+    # inter-services — 25 s d'attente, puis un dépassement de délai, puis une
+    # page qui s'affichait en annonçant « l'instance ne répond pas ». Le
+    # squelette part immédiatement ; les chiffres arrivent par `/api/panel/*`.
+    return render_template("panel.html", url_panel=panel_client.url_panel())
 
 
 @app.route("/panel/<slug>")
@@ -270,6 +274,14 @@ def panel_page(slug):
 @login_required
 def api_panel_pages():
     return jsonify(panel_client.pages())
+
+
+@app.route("/api/panel/etat")
+@login_required
+def api_panel_etat():
+    """Sert surtout à retrouver une exécution DÉJÀ en cours : en rouvrant la
+    page pendant que la suite tourne, on ne voyait rien et on relançait."""
+    return jsonify(panel_client.etat())
 
 
 @app.route("/api/panel/page/<slug>")

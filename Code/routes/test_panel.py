@@ -89,29 +89,67 @@ def _parse_test_file(fpath: Path) -> dict:
                 description=mod_doc, marker=marker, cases=cases)
 
 
-def sync_tests_to_db():
+# ⚠️ Empreinte de l'arbre de tests. Le recensement relit 83 fichiers et
+# réécrit ~2150 cas : mesuré, il envoyait **2318 requêtes pour ne RIEN changer**
+# — et il tournait à chaque lecture de `/api/etat` et `/api/pages`. La base
+# étant sur Neon, à ~15 ms de Cloud Run, cela faisait 31 s par appel, à chaud.
+# Les fichiers de test ne bougent qu'au déploiement : on ne resynchronise que
+# lorsque leur empreinte change.
+_EMPREINTE_VUE = None
+
+
+def _empreinte_tests():
+    """Nom, taille et date de chaque fichier de test — sans les lire."""
+    marques = []
+    for f in sorted(_TESTS_DIR.glob('test_*.py')):
+        try:
+            st = f.stat()
+        except OSError:
+            continue
+        marques.append((f.name, st.st_size, int(st.st_mtime)))
+    return tuple(marques)
+
+
+def sync_tests_to_db(force=False):
+    """Recense les fichiers de test en base. Ne fait rien si rien n'a bougé."""
+    global _EMPREINTE_VUE
+    empreinte = _empreinte_tests()
+    # ⚠️ On vérifie AUSSI que la base porte quelque chose : une empreinte
+    # inchangée dans un processus qui a déjà synchronisé ne dit rien d'une base
+    # qu'on vient de remettre à zéro sous lui.
+    if not force and empreinte == _EMPREINTE_VUE and TestPage.query.count():
+        return
+
+    # Deux requêtes pour tout charger, au lieu d'une par page puis une par cas.
+    pages = {p.slug: p for p in TestPage.query.all()}
+    cas = {}
+    for c in TestCase.query.all():
+        cas[c.node_id] = c
+
     for fpath in sorted(_TESTS_DIR.glob('test_*.py')):
         info = _parse_test_file(fpath)
-        page = TestPage.query.filter_by(slug=info['slug']).first()
+        page = pages.get(info['slug'])
         if not page:
             page = TestPage(slug=info['slug'])
             db.session.add(page)
+            pages[info['slug']] = page
         page.title       = info['title']
         page.description = info['description']
         page.file_name   = info['file_name']
         page.marker      = info['marker']
         db.session.flush()
 
-        existing = {c.node_id for c in page.cases}
         for c in info['cases']:
-            if c['node_id'] in existing:
-                case = TestCase.query.filter_by(node_id=c['node_id']).first()
-                if case:
-                    case.display_name = c['display_name']
-                    case.description  = c['description']
+            case = cas.get(c['node_id'])
+            if case:
+                case.display_name = c['display_name']
+                case.description  = c['description']
             else:
-                db.session.add(TestCase(page_id=page.id, **c))
+                nouveau = TestCase(page_id=page.id, **c)
+                db.session.add(nouveau)
+                cas[c['node_id']] = nouveau
     db.session.commit()
+    _EMPREINTE_VUE = empreinte
 
 
 # ── Sync patch registry → DB ──────────────────────────────────────────────────

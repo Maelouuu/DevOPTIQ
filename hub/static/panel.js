@@ -159,27 +159,57 @@ function majGlobale() {
     : "Aucun cas exécuté pour l'instant — lancez la suite";
 }
 
-/* ── Chargement du catalogue ────────────────────────────────────────────── */
+/* ── Chargement du catalogue ──────────────────────────────────────────────
+   Le HTML part sans rien attendre : c'est ici que la page se remplit. Les deux
+   appels sont LANCÉS ENSEMBLE — l'un dépend de l'autre pour rien, et les
+   enchaîner doublait le temps avant que l'écran dise quelque chose. */
+function resume(txt, enCours) {
+  const el = $('#mod-resume');
+  if (!el) return;
+  el.textContent = txt;
+  el.classList.toggle('est-charge', !!enCours);
+}
+
 async function charger() {
   const vide = $('#car-vide');
+  resume("Lecture du catalogue sur l'instance…", true);
   try {
     const r = await fetch('/api/panel/pages', { credentials: 'same-origin' });
     const d = await r.json();
     if (d.erreur) {
       if (vide) vide.textContent = "L'instance ne répond pas — réessayez dans un instant.";
+      resume("L'instance ne répond pas — les chiffres reviendront avec elle.", false);
       return;
     }
     pages = d.pages || [];
     if (!pages.length) {
       if (vide) vide.textContent = 'Aucune page de tests trouvée sur l’instance.';
+      resume('Aucune page de tests sur cette instance.', false);
       return;
     }
     actif = 0;
     dessiner();
     majGlobale();
+    resume(`${d.total_cas || 0} cas répartis sur ${pages.length} pages. `
+           + "La suite s'exécute sur l'instance, dans une base jetable.", false);
   } catch (_) {
     if (vide) vide.textContent = 'Chargement impossible.';
+    resume('Chargement impossible.', false);
   }
+}
+
+/* Une suite peut TOURNER pendant qu'on ouvre la page : sans ce rattrapage on
+   ne voyait rien et on la relançait par-dessus. */
+async function reprendre() {
+  try {
+    const r = await fetch('/api/panel/etat', { credentials: 'same-origin' });
+    const d = await r.json();
+    if (d && d.en_cours && d.en_cours.id) {
+      afficherCourse('Une exécution est déjà en cours…', null);
+      suiviFin = Date.now() + 15 * 60 * 1000;
+      suivre(d.en_cours.id);
+    }
+  } catch (_) { /* le catalogue suffit à faire vivre la page */ }
 }
 
 /* ── Lancement et suivi ─────────────────────────────────────────────────── */
@@ -326,4 +356,4 @@ if (btnPage) {
   }
 }
 
-if (scene) charger();
+if (scene) { charger(); reprendre(); }

@@ -56,14 +56,9 @@
     <div class="mod-mot">
       <span class="mod-sur">Qualité · fiabilité de l'application</span>
       <h1>Panel de tests</h1>
-      <p>
-        {% if etat.get('erreur') %}
-          L'instance ne répond pas pour l'instant — les chiffres réapparaîtront dès qu'elle sera revenue.
-        {% else %}
-          {{ etat.get('cas', 0) }} cas répartis sur {{ etat.get('pages', 0) }} pages.
-          La suite s'exécute sur l'instance, dans une base jetable.
-        {% endif %}
-      </p>
+      {# Rempli par le JS : la page ne retient plus son affichage le temps
+         d'un appel à l'instance. #}
+      <p id="mod-resume" class="mod-resume est-charge">Lecture du catalogue sur l'instance…</p>
       <div class="mod-actions">
         <button class="btn-pri" id="btn-tout" type="button">
           <svg class="ic"><use href="#i-jouer"></use></svg> Lancer toute la suite

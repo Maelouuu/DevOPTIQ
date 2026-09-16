@@ -1554,6 +1554,49 @@ Le hub ne se contente plus de pointer vers le panel : il en est la façade.
   `tests/test_61_pulse.py` (fixture `pulse_app` : `spec_from_file_location` sur
   `pulse/app.py`, absent d'un arbre bytecode → 4 erreurs à chaque exécution).
   Mesuré : 1867 passés en local, 1863 passés + 4 sautés dans l'arbre d'image.
+### Le panel de tests mettait 31 s à répondre — 2318 requêtes pour rien (2026-09-16)
+
+⚠️ **`sync_tests_to_db()` envoyait UNE REQUÊTE PAR CAS.** Il chargeait bien
+`page.cases` pour savoir ce qui existait déjà… puis refaisait un
+`TestCase.query.filter_by(node_id=…).first()` sur chacun. Mesuré au compteur de
+curseur : **2400 requêtes au premier appel, 2318 pour une synchro qui ne change
+rien**, sur 83 pages et 2148 cas. La base vivant sur Neon, à ~15 ms de Cloud
+Run, cela faisait **31 s à chaud** — et il tournait à CHAQUE lecture de
+`/api/etat` et `/api/pages`.
+
+Conséquence en bout de chaîne : `panel_client.DELAI` vaut 25 s, donc l'appel
+**dépassait toujours son délai**. La page `/panel` du hub attendait 25 s, puis
+s'affichait en annonçant « l'instance ne répond pas » — alors que l'instance
+répondait très bien, six secondes plus tard.
+
+- **Le correctif** : deux requêtes pour tout charger (`TestPage.query.all()` +
+  `TestCase.query.all()`), puis un dictionnaire en mémoire. Mesuré après :
+  **4 requêtes** au premier appel, **1** ensuite.
+- **Et on ne resynchronise que si les fichiers ont bougé** (`_empreinte_tests()`
+  = nom, taille, date de chaque `test_*.py`). Les fichiers de test ne changent
+  qu'au déploiement. ⚠️ L'empreinte seule ne suffit pas : un processus qui a
+  déjà synchronisé ne sait rien d'une base remise à zéro sous lui — on vérifie
+  donc aussi que `TestPage` porte des lignes. `sync_tests_to_db(force=True)`
+  refait tout.
+- Effet de bord bienvenu : la suite complète passe de **72 s à 40 s** (le
+  `before_request` du panel synchronisait à chaque requête de test).
+- Tests : `tests/test_65_panel_api.py::TestCoutDuRecensement` (3 cas — vérifiés
+  **rouges** en remettant la requête dans la boucle : 2155 requêtes relevées).
+  ⚠️ Ils comptent des **requêtes**, pas des secondes : la suite tourne sur
+  SQLite, où tout est dans le processus et où le défaut est invisible au
+  chronomètre.
+
+⚠️ **La page `/panel` du hub bloquait son rendu sur un appel inter-services.**
+`render_template("panel.html", etat=panel_client.etat())` : le HTML ne partait
+qu'une fois l'instance interrogée. Elle ne le fait plus — le squelette part
+immédiatement, et les chiffres arrivent par `/api/panel/pages`. Le résumé de
+l'en-tête (`#mod-resume`) est rempli par le JS et **dit qu'il attend** tant que
+la réponse n'est pas là (italique estompé) : « Lecture du catalogue… » posé en
+style définitif se lisait comme un état, pas comme une attente.
+Nouveauté au passage : `/api/panel/etat` est appelé **en parallèle** du
+catalogue et **rattrape une exécution déjà en cours** — en rouvrant la page
+pendant que la suite tournait, on ne voyait rien et on la relançait par-dessus.
+
 
 ## Provisionnement — compléter une carto avec un Excel client
 
