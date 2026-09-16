@@ -1680,9 +1680,17 @@ ajoute une ligne par cas et par exécution, sans jamais en retirer.
   lecture d'une chronologie. Masquée tant qu'il n'y a rien : une frise vide vaut
   moins que pas de frise. Le pourcentage ne tient pas dans 12 px de large, il
   vit dans l'info-bulle — et reste écrit pour les lecteurs d'écran.
-- Tests : `tests/test_65_panel_api.py::TestHistoriqueDesExecutions` (5 cas —
+- ⚠️ **Et l'historique, une fois affiché, a montré son propre mensonge** :
+  l'exécution du 14/09 sortait à « **100 %** » avec **3 échecs** sur 2054 cas —
+  `round(99,85)` rend 100, et la frise l'aurait peinte en vert plein. Cent pour
+  cent ne se lit désormais que si RIEN n'a échoué ; en dessous on plafonne à 99
+  et on arrondit vers le BAS, pour ne jamais annoncer mieux que la réalité.
+- Tests : `tests/test_65_panel_api.py::TestHistoriqueDesExecutions` (7 cas —
   la forme de chaque exécution, l'exclusion des exécutions en cours, la borne de
-  `limit`, et la présence de la route côté hub).
+  `limit`, la route côté hub, et les deux cas de l'arrondi).
+  ⚠️ Ces cas créent leur PROPRE page et leur propre cas (`_cas_jetable`) :
+  prendre `TestCase.query.first()` les faisait dépendre du recensement, donc
+  d'un autre test lancé avant — seuls, ils tombaient sur `None`.
 
 
 

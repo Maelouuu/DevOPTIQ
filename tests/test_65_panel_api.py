@@ -8,6 +8,28 @@ import pytest
 from Code.routes.test_panel import _fiabilite
 
 
+def _cas_jetable(db, marque):
+    """Une page et un cas à nous, créés à la demande.
+
+    ⚠️ Prendre `TestCase.query.first()` faisait dépendre le test du RECENSEMENT
+    — donc d'un autre test lancé avant lui. Seul, il tombait sur `None`. La base
+    est partagée (`scope=session`) : chaque cas apporte ses propres données.
+    """
+    from Code.models.test_models import TestCase as _TC, TestPage as _TP
+
+    page = _TP.query.filter_by(slug=marque).first()
+    if not page:
+        page = _TP(slug=marque, title=marque, file_name=marque + '.py')
+        db.session.add(page)
+        db.session.flush()
+    cas = _TC.query.filter_by(node_id=marque + '::cas').first()
+    if not cas:
+        cas = _TC(page_id=page.id, node_id=marque + '::cas', name='cas')
+        db.session.add(cas)
+    db.session.commit()
+    return cas
+
+
 class _Cas:
     """Le minimum que `_fiabilite` regarde d'un TestCase."""
     def __init__(self, statut):
@@ -496,3 +518,67 @@ class TestHistoriqueDesExecutions:
         app_hub = _io.open(racine / 'hub' / 'app.py', encoding='utf-8').read()
         assert _re.search(r'@app\.route\("/api/panel/runs"\)', app_hub)
         assert 'panel_client.runs' in app_hub
+
+    def test_cent_pour_cent_ne_se_lit_que_sans_aucun_echec(self, client, app):
+        """⚠️ Relevé sur l'instance : l'exécution du 14/09 sortait à « 100 % »
+        avec 3 échecs sur 2054 cas — `round()` arrondit 99,85 à 100, et la
+        frise l'aurait peinte en vert plein. Un taux ne doit jamais annoncer
+        mieux que la réalité.
+
+        On reproduit avec 200 verts et 1 rouge : 99,5 %, le seuil exact où
+        l'ancien arrondi basculait à 100."""
+        from Code.extensions import db
+        from Code.models.test_models import TestCase, TestResult, TestRun
+
+        with app.app_context():
+            cas = _cas_jetable(db, 't65-arrondi')
+            run = TestRun(scope='all', status='done')
+            db.session.add(run)
+            db.session.commit()
+            rid = run.id
+            db.session.add_all(
+                [TestResult(run_id=rid, case_id=cas.id, status='passed')
+                 for _ in range(200)]
+                + [TestResult(run_id=rid, case_id=cas.id, status='failed')])
+            db.session.commit()
+        try:
+            d = client.get('/testpanel/api/runs?limit=60').get_json()
+            mien = next((x for x in d['runs'] if x['id'] == rid), None)
+            assert mien is not None
+            assert (mien['passed'], mien['failed']) == (200, 1)
+            assert mien['pct'] == 99, (
+                "un échec ne doit pas s'afficher « 100 %% » (obtenu : %s)"
+                % mien['pct'])
+        finally:
+            with app.app_context():
+                TestResult.query.filter_by(run_id=rid).delete()
+                obj = db.session.get(TestRun, rid)
+                if obj:
+                    db.session.delete(obj)
+                db.session.commit()
+
+    def test_sans_aucun_echec_le_taux_reste_cent(self, client, app):
+        """Le garde-fou ne doit pas rogner un sans-faute."""
+        from Code.extensions import db
+        from Code.models.test_models import TestCase, TestResult, TestRun
+
+        with app.app_context():
+            cas = _cas_jetable(db, 't65-sansfaute')
+            run = TestRun(scope='all', status='done')
+            db.session.add(run)
+            db.session.commit()
+            rid = run.id
+            db.session.add_all([TestResult(run_id=rid, case_id=cas.id, status='passed')
+                                for _ in range(7)])
+            db.session.commit()
+        try:
+            d = client.get('/testpanel/api/runs?limit=60').get_json()
+            mien = next((x for x in d['runs'] if x['id'] == rid), None)
+            assert mien and mien['pct'] == 100 and mien['failed'] == 0
+        finally:
+            with app.app_context():
+                TestResult.query.filter_by(run_id=rid).delete()
+                obj = db.session.get(TestRun, rid)
+                if obj:
+                    db.session.delete(obj)
+                db.session.commit()

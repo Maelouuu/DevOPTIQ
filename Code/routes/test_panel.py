@@ -262,7 +262,13 @@ def _recent_runs(limit=20):
             'passed':     passed,
             'failed':     total - passed,
             'total':      total,
-            'pct':        round(100 * passed / total) if total else 0,
+            # ⚠️ `round()` rend 100 dès 99,5 % : l'exécution du 14/09 affichait
+            # « 100 % » avec 3 échecs sur 2054 cas — et la frise l'aurait peinte
+            # en vert plein. Cent pour cent ne se lit que si RIEN n'a échoué ;
+            # au-dessous on plafonne à 99 et on arrondit vers le BAS, pour ne
+            # jamais annoncer mieux que la réalité.
+            'pct':        (100 if total and passed == total
+                           else (min(99, int(100 * passed / total)) if total else 0)),
             'duration_s': dur,
         })
     return out
