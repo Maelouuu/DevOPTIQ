@@ -165,13 +165,21 @@ jobs:
       # --retry seul ne réessaie PAS sur un 404 : juste après la bascule de
       # trafic, la nouvelle révision peut mettre quelques secondes à répondre
       # (constaté au run #1). --retry-all-errors couvre ce délai de propagation.
+      #
+      # ⚠️ /health et PAS /healthz. Sur un *.run.app, le frontend Google
+      # INTERCEPTE /healthz et sert sa propre 404 : la requête n'atteint jamais
+      # l'application. Mesuré sur ce service — cette 404 n'a ni cookie de
+      # session Flask ni x-cloud-trace-context, alors qu'une route réellement
+      # inconnue de l'app en porte. Ce test échouait donc à CHAQUE livraison,
+      # après un déploiement pourtant réussi ; un contrôle qui rougit toujours
+      # n'est plus un contrôle. Le hub et pulse avaient déjà basculé.
       - name: Smoke test
         run: |
           URL=$(gcloud run services describe ${{ env.SERVICE }} \
             --region ${{ env.REGION }} --format='value(status.url)')
           echo "Service : $URL"
-          curl -fsS --retry 12 --retry-delay 5 --retry-all-errors "$URL/healthz" \
-            && echo " ← healthz OK"
+          curl -fsS --retry 12 --retry-delay 5 --retry-all-errors "$URL/health" \
+            && echo " ← health OK"
           # Connexion réelle d'un compte pilote (seedé au boot) : le login
           # renvoie 302 → /activities/map si OK, 302 → /login sinon.
           LOC=$(curl -sS -o /dev/null -w '%{redirect_url}' \
