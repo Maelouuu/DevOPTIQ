@@ -984,10 +984,21 @@ Conséquences, toutes nécessaires :
   que le mot exact.
 - ⚠️ **`migrer_anciens_champions()` tourne au DÉMARRAGE**, avant de servir la
   moindre requête : sans elle, un compte qui validait les propositions se
-  réveillerait avec le droit de seulement les déposer. Idempotente, elle ne
-  touche que les libellés de l'ancien arbitre. Elle s'applique donc à CHAQUE
-  instance qui prend ce code — y compris le pilote, le jour où la branche le
-  reçoit.
+  réveillerait avec le droit de seulement les déposer. Elle s'applique donc à
+  CHAQUE instance qui prend ce code — y compris le pilote, le jour où la
+  branche le reçoit.
+- ⚠️⚠️ **Et elle ne se joue QU'UNE FOIS** (marqueur `statuts_quatre_paliers`
+  dans `app_settings`). Rejouée à chaque démarrage — ce qu'elle faisait — elle
+  promouvait `coordinateur` **tout champion créé DEPUIS** : elle lit `champion`
+  au sens ANCIEN, celui de l'arbitre. On nommait donc quelqu'un « champion »
+  pour qu'il propose sans valider, et le redéploiement suivant lui donnait le
+  droit de valider. Le nouveau palier n'existait que jusqu'au prochain
+  démarrage. Le marqueur vit en BASE, pas en mémoire : une instance qui
+  redémarre, se duplique ou se redéploie doit lire la même réponse.
+  `migrer_anciens_champions(force=True)` rejoue la reprise (les tests s'en
+  servent — l'application de test l'a déjà passée à son propre démarrage).
+  Tenu par `test_66::TestRepriseDesComptes` (le cas neuf vérifié **rouge** :
+  « un champion nommé APRÈS la reprise est devenu coordinateur »).
 - Les ~8 appels à `is_champion()` du code voulaient tous dire « l'arbitre » :
   ils sont devenus `is_coordinator()`. `is_champion()` existe encore, avec le
   nouveau sens « au moins champion ».
@@ -1042,6 +1053,79 @@ Le vrai coupable était dans `dashboard_rows` :
 
 Le filtre est retiré ; un rôle porte ses activités quelle que soit la carto
 active. `TestPerimetreDeLaSynthese` le tient.
+
+### L'éditeur en CONSULTATION — et le dépôt qui tuait la page (2026-09-16)
+
+⚠️ **Le glisser-déposer HTML5 ne passe PAS par `onDown`.** Le garde de lecture
+seule vivait dans le `mousedown` du canevas ; tirer une forme depuis la barre
+d'outils emprunte `dragstart` → `dragover` → `drop`, qui ne le croisent jamais.
+Un compte `user` posait donc des activités sur la carto — et ne l'apprenait
+qu'à l'enregistrement, après le travail. Le `drop` refuse maintenant, et la
+palette n'est même plus `draggable`.
+
+**Ce que voit un `user`** (`window.OPTIQCARTO_CONSULTATION`, classe
+`body.carto-consultation` posée par le gabarit) : la carte, **Sélection**,
+**Centrer**, le zoom (pastille + sensibilité), la **mini map**, le panneau
+Propriétés, et du menu Fichier **les trois exports seulement**. Partent :
+annuler / rétablir, Box, la section Création entière (bandes, formes, calques,
+grouper, pile), le curseur Labels, Vérifier, Supprimer, Enregistrer, Charger,
+Importer Visio.
+- **Cliquer une forme ouvre sa fiche**, en lecture. ⚠️ Le viewer et l'éditeur en
+  consultation partagent `OPTIQCARTO_READONLY` mais n'attendent PAS la même
+  chose d'un clic : le viewer est une vignette dans la page Carte et prévient
+  sa page parente ; ici il n'y a pas de page parente, un `postMessage` n'irait
+  nulle part. D'où le second drapeau.
+- Le panneau est verrouillé **une fois** à l'init (`_verrouillerProprietes`) :
+  il est écrit dans le gabarit, pas reconstruit à chaque sélection. `disabled`
+  n'empêche pas `updateProps()` d'y poser les valeurs — on lit la fiche
+  entière. La feuille de style rend l'encre pleine (un champ désactivé gris
+  serait illisible) et masque les boutons de suppression.
+- ⚠️ **Les boutons sont MASQUÉS, jamais retirés du document.** `editor.js` les
+  câble sans garde : un id absent lève une TypeError qui interrompt TOUTE
+  l'init, chargement de la carto compris — cadre gris et vide alors que les
+  données sont en base. C'est le piège que `tests/test_49_carto_dom_contract.py`
+  garde, et que le viewer contourne avec ses boutons vides. ⚠️ Et ce test lit le
+  gabarit comme du TEXTE : un `{% if %}` autour d'un bouton le laisserait passer
+  au vert tout en faisant disparaître l'id au rendu.
+- ⚠️ **Masquer un bouton ne désarme pas son raccourci.** Suppr, Ctrl+Z, Ctrl+S
+  et « G » appellent directement `deleteSelected` / `undo` / `saveJSON` /
+  `createGroup`, qui n'avaient AUCUN garde. En consultation on sélectionne
+  désormais une forme pour la lire : Suppr l'aurait retirée de l'écran sans
+  rien enregistrer — une carto fausse sous les yeux. Les cinq fonctions qui
+  écrivent se refusent elles-mêmes.
+
+**Le zoom pouvait valoir ZÉRO, et un dépôt empoisonnait alors la carto.**
+`fitView()` posait `vpScale = Math.min(r.width / dw, r.height / dh, 2)` **sans
+borne basse**. Un « ajuster » joué sur un canevas pas encore posé (largeur 0 :
+onglet caché, volet replié, `fit-view` reçu par `postMessage` depuis la page
+Carte) rendait donc un facteur NUL. Reproduit et mesuré :
+`translate(0,0) scale(0)` → `screenToSVG` divise par ce zéro → la forme déposée
+naissait à une abscisse **non finie** → `_fitShapeIntoBand` ajoutait cet infini
+à la hauteur d'une bande → le rendu jetait des `<rect x="Infinity">` et des
+`<circle cx="NaN">`, la carto disparaissait et le navigateur s'étranglait. Rien
+ne lève d'exception dans cette chaîne : la page paraît simplement **gelée**.
+Quatre verrous, du plus amont au plus aval :
+1. `fitView()` borne par `ZOOM_MIN` (0,08 — la même borne que la molette) et
+   **renonce** sur un canevas dégénéré ou des bornes non finies ;
+2. `screenToSVG` ne divise jamais par un facteur nul ou non fini ;
+3. le `drop` **refuse un point hors des nombres** — on ne dépose rien plutôt
+   que n'importe quoi, car la forme serait ENREGISTRÉE ;
+4. dernier filet, `applyViewport` repart du cadrage par défaut plutôt que
+   d'écrire `scale(0)` ou `translate(NaN,NaN)`.
+
+⚠️ **Le défilement au bord s'emballait.** `_edgeScrollStep` se rappelle en
+`requestAnimationFrame` tant qu'une vitesse est posée, et SEULS un `mousemove`
+ou un `mouseleave` sur le canevas l'arrêtaient. Or un glisser-déposer HTML5
+n'émet ni l'un ni l'autre : une fois lancé, la carto filait toute seule sous le
+pointeur et la forme atterrissait ailleurs que là où on visait (mesuré : la
+translation verticale dérivait de 36 px pendant un seul geste). `mouseup`,
+`dragstart`, `dragend`, `drop`, `blur` et le passage de l'onglet en arrière-plan
+le coupent désormais — et `cancelAnimationFrame` annule la frame déjà demandée,
+car remettre la vitesse à zéro ne suffit pas.
+
+Tests : `tests/test_79_carto_consultation.py` (42 cas — 33 vérifiés **rouges**
+sur le code d'avant). Mise au point : `tools/devrun_partage.py` (port 8124)
+sème maintenant les QUATRE paliers, `coord@test.local` étant l'arbitre.
 
 ### Le bandeau « Échap pour quitter le plein écran » couvrait la barre de nav
 

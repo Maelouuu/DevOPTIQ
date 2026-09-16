@@ -194,8 +194,33 @@ def can_edit_account(target_user_id, user=None):
 
 # ── Reprise des comptes existants ───────────────────────────────────────────
 
-def migrer_anciens_champions():
-    """Les arbitres d'hier deviennent « coordinateur ».
+# Marqueur posé en base une fois la reprise faite. Il vit dans `app_settings`,
+# c'est-à-dire DANS la base migrée : une instance qui redémarre, se duplique ou
+# se redéploie lit le même marqueur, alors qu'un drapeau en mémoire repartirait
+# à zéro à chaque démarrage.
+CLE_REPRISE = "statuts_quatre_paliers"
+
+
+def _reprise_deja_faite():
+    from Code.models.models import AppSetting
+    try:
+        return db.session.get(AppSetting, CLE_REPRISE) is not None
+    except Exception:
+        # Table absente (base neuve, migration pas encore jouée) : on laissera
+        # la reprise s'exécuter, elle ne trouvera rien à reprendre.
+        db.session.rollback()
+        return False
+
+
+def _marquer_reprise():
+    from Code.models.models import AppSetting
+    if db.session.get(AppSetting, CLE_REPRISE) is None:
+        db.session.add(AppSetting(key=CLE_REPRISE, value="1"))
+    db.session.commit()
+
+
+def migrer_anciens_champions(force=False):
+    """Les arbitres d'hier deviennent « coordinateur ». UNE SEULE FOIS.
 
     ⚠️ Sans cette reprise, le changement de sens du mot « champion » RETIRERAIT
     des droits à des comptes en service : celui qui validait les propositions se
@@ -203,9 +228,18 @@ def migrer_anciens_champions():
     avant de servir la moindre requête, pour qu'il n'existe aucune fenêtre
     pendant laquelle la base et le code ne disent pas la même chose.
 
-    Idempotente : elle ne touche que les libellés de l'ancien arbitre, et
-    `coordinateur` n'en fait pas partie. Renvoie le nombre de comptes repris.
+    ⚠️ **Et elle ne doit surtout pas se rejouer.** Elle lit `champion` au sens
+    ANCIEN — l'arbitre. Rejouée à chaque démarrage, elle promouvait
+    `coordinateur` tout champion créé DEPUIS, c'est-à-dire exactement le palier
+    qu'on venait d'introduire : on nommait quelqu'un « champion » pour qu'il
+    propose sans valider, et le redéploiement suivant lui donnait le droit de
+    valider. Un marqueur en base tranche : après la reprise, le mot ne veut plus
+    dire que sa nouvelle définition.
+
+    Renvoie le nombre de comptes repris (0 si la reprise a déjà eu lieu).
     """
+    if not force and _reprise_deja_faite():
+        return 0
     repris = 0
     for u in User.query.all():
         st = norm_status(u.status)
@@ -216,6 +250,5 @@ def migrer_anciens_champions():
         if ancien_arbitre and st != COORDINATOR_STATUS:
             u.status = COORDINATOR_STATUS
             repris += 1
-    if repris:
-        db.session.commit()
+    _marquer_reprise()
     return repris

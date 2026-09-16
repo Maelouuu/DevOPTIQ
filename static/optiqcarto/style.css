@@ -3086,3 +3086,49 @@ body.has-gov-bar #properties { top: calc(var(--toolbar-h) + 66px); }
   flex: 1; min-height: 0; width: 100%;
   border: none; border-radius: 12px; background: #f7f9fc;
 }
+
+/* ══════════════════════════════════════════════════
+   CONSULTATION — l'éditeur ouvert par qui ne modifie rien
+   ══════════════════════════════════════════════════
+   ⚠️ Les boutons sont MASQUÉS, pas retirés du document. `editor.js` les câble
+   sans garde (`document.getElementById('btn-x').addEventListener(…)`) : un id
+   absent lève une TypeError qui interrompt TOUTE la suite de l'init, chargement
+   de la carto compris — la page afficherait un cadre gris et vide alors que les
+   données sont en base. C'est le même piège que le viewer contourne avec ses
+   boutons vides, et que `tests/test_49_carto_dom_contract.py` garde.
+
+   Et ce masquage n'est pas la sécurité : /cartography/api/save et
+   /cartography/api/changes refusent tous les deux côté serveur. Il dit
+   simplement la vérité à l'écran, au lieu de laisser travailler puis refuser.
+
+   Reste donc : la carte, le zoom, la mini map, le panneau Propriétés en
+   lecture, et les EXPORTS du menu Fichier. */
+
+body.carto-consultation #btn-undo,
+body.carto-consultation #btn-redo,
+body.carto-consultation #btn-lasso-select,
+body.carto-consultation .tb-section--create,
+body.carto-consultation .tb-section--create + .tb-divider-v,
+body.carto-consultation #label-pos-ctl,
+body.carto-consultation #btn-architect,
+body.carto-consultation #btn-delete,
+body.carto-consultation #btn-save,
+body.carto-consultation #btn-load,
+body.carto-consultation #btn-import-vsdx { display: none !important; }
+
+/* Une poignée de redimensionnement sur une sélection qu'on ne peut pas bouger
+   est une promesse que rien ne tient. */
+body.carto-consultation #g-handles { display: none; }
+
+/* Les champs du panneau restent LISIBLES : ils portent la fiche de l'activité,
+   c'est ce qu'on est venu voir. Le gris par défaut d'un champ désactivé la
+   rendrait illisible — on garde l'encre, on retire l'invitation à saisir. */
+body.carto-consultation #properties input:disabled,
+body.carto-consultation #properties textarea:disabled,
+body.carto-consultation #properties select:disabled {
+  opacity: 1;
+  cursor: default;
+  -webkit-text-fill-color: currentColor;
+}
+body.carto-consultation #properties input[type="color"]:disabled { cursor: default; }
+body.carto-consultation .prop-delete-btn { display: none; }

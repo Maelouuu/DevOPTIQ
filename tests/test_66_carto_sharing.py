@@ -837,7 +837,11 @@ class TestRepriseDesComptes:
                          password="x", status=libelle)
                 db.session.add(u)
             db.session.commit()
-            migrer_anciens_champions()
+            # ⚠️ `force` : la reprise s'est déjà jouée au DÉMARRAGE de
+            # l'application de test, et elle ne se rejoue pas toute seule (c'est
+            # tout l'objet du cas suivant). Sans ce forçage on n'éprouverait
+            # plus la reprise, seulement son marqueur.
+            migrer_anciens_champions(force=True)
             for i in range(3):
                 u = User.query.filter_by(
                     email="t66.reprise%d@devoptiq.com" % i).first()
@@ -847,7 +851,7 @@ class TestRepriseDesComptes:
         try:
             # Idempotente : un second passage ne change plus rien.
             with app.app_context():
-                assert migrer_anciens_champions() == 0 or True
+                assert migrer_anciens_champions(force=True) == 0
         finally:
             with app.app_context():
                 for i in ids:
@@ -870,7 +874,7 @@ class TestRepriseDesComptes:
             uid = u.id
         try:
             with app.app_context():
-                migrer_anciens_champions()
+                migrer_anciens_champions(force=True)
                 assert db.session.get(User, uid).status == "user"
         finally:
             with app.app_context():
@@ -878,3 +882,55 @@ class TestRepriseDesComptes:
                 if u:
                     db.session.delete(u)
                     db.session.commit()
+
+    def test_un_champion_NOUVEAU_n_est_jamais_promu_au_redemarrage(self, app):
+        """⚠️ Le cas qui manquait, et qui vidait le palier de sa raison d'être.
+
+        La reprise lit « champion » au sens ANCIEN — l'arbitre. Jouée à CHAQUE
+        démarrage, elle promouvait `coordinateur` tout champion créé depuis :
+        on nommait quelqu'un champion pour qu'il propose sans valider, et le
+        redéploiement suivant lui donnait le droit de valider. Le palier
+        n'existait donc que jusqu'au prochain démarrage.
+
+        Un marqueur en base (`app_settings`) tranche : la reprise appartient au
+        passé, le mot ne veut plus dire que sa nouvelle définition.
+        """
+        from Code.extensions import db
+        from Code.models.models import User
+        from Code.permissions import (CHAMPION_STATUS, migrer_anciens_champions,
+                                      niveau_status, NIVEAU_CHAMPION)
+
+        with app.app_context():
+            u = User(first_name="T66", last_name="Neuf",
+                     email="t66.champion.neuf@devoptiq.com",
+                     password="x", status=CHAMPION_STATUS)
+            db.session.add(u)
+            db.session.commit()
+            uid = u.id
+        try:
+            with app.app_context():
+                # Trois « démarrages » de plus : la base a déjà été reprise.
+                for _ in range(3):
+                    assert migrer_anciens_champions() == 0
+                u = db.session.get(User, uid)
+                assert u.status == CHAMPION_STATUS, (
+                    "un champion nommé APRÈS la reprise est devenu « %s »"
+                    % u.status)
+                assert niveau_status(u.status) == NIVEAU_CHAMPION
+        finally:
+            with app.app_context():
+                u = db.session.get(User, uid)
+                if u:
+                    db.session.delete(u)
+                    db.session.commit()
+
+    def test_le_marqueur_de_reprise_est_pose_en_base(self, app):
+        """Un drapeau en mémoire repartirait à zéro à chaque démarrage, et à
+        chaque instance : le marqueur doit vivre dans la base migrée."""
+        from Code.extensions import db
+        from Code.models.models import AppSetting
+        from Code.permissions import CLE_REPRISE
+
+        with app.app_context():
+            assert db.session.get(AppSetting, CLE_REPRISE) is not None, (
+                "la reprise doit laisser sa trace en base, sinon elle se rejoue")

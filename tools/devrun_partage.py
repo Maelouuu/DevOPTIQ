@@ -2,9 +2,10 @@
 
     python tools/devrun_partage.py           → http://127.0.0.1:8124
 
-Trois comptes, mot de passe `Test1234!` :
-    champion@test.local  champion      — règle l'accès, arbitre les propositions
-    user@test.local      user          — DOIT proposer ; aucune entité à lui
+Les QUATRE paliers, mot de passe `Test1234!` :
+    user@test.local      user          — CONSULTE : ne modifie rien, ne propose rien
+    champion@test.local  champion      — propose, ne valide pas
+    coord@test.local     coordinateur  — règle l'accès, arbitre les propositions
     admin@test.local     administrateur
 
 Une carto commune (ouverte à tous, aucun rôle coché) appartenant au champion, et
@@ -68,17 +69,19 @@ with app.app_context():
     payload = json.load(open(CARTO, encoding="utf-8"))
     diagram = payload.get("diagram") if payload.get("format") == "optiqcarto/entity" else payload
 
-    champion = User(first_name="Camille", last_name="Fontaine", email="champion@test.local",
+    coord = User(first_name="Camille", last_name="Fontaine", email="coord@test.local",
+                 password=hash_password("Test1234!"), status="coordinateur", lang="fr")
+    champion = User(first_name="Lou", last_name="Vasseur", email="champion@test.local",
                     password=hash_password("Test1234!"), status="champion", lang="fr")
     simple = User(first_name="Noe", last_name="Berthier", email="user@test.local",
                   password=hash_password("Test1234!"), status="user", lang="fr")
     admin = User(first_name="Mael", last_name="Girardin", email="admin@test.local",
                  password=hash_password("Test1234!"), status="administrateur", lang="fr")
-    db.session.add_all([champion, simple, admin])
+    db.session.add_all([coord, champion, simple, admin])
     db.session.commit()
 
     ent = Entity(name="Carto commune — RFQ FluidClip", description="carto de référence",
-                 owner_id=champion.id, is_active=True, is_shared=True,
+                 owner_id=coord.id, is_active=True, is_shared=True,
                  optiqcarto_data=json.dumps(diagram, ensure_ascii=False))
     db.session.add(ent)
     db.session.commit()
@@ -86,7 +89,7 @@ with app.app_context():
 
     propose = _modifier(diagram)
     cr = CartoChangeRequest(
-        entity_id=ent.id, author_id=simple.id, status="pending",
+        entity_id=ent.id, author_id=champion.id, status="pending",
         title="Réorganisation du bloc amont",
         message="J'ai renommé la première activité, déplacé deux formes et retiré un doublon.",
         diagram=json.dumps(propose, ensure_ascii=False),
@@ -97,8 +100,9 @@ with app.app_context():
     print(f"[devrun] base      : {db_path}")
     print(f"[devrun] carto     : {len(diagram.get('shapes', []))} formes, "
           f"{len(diagram.get('connections', []))} connexions — commune, ouverte à tous")
-    print(f"[devrun] champion  : champion@test.local / Test1234!  (entité {ent.id})")
-    print(f"[devrun] user      : user@test.local     / Test1234!  (doit proposer, 0 entité)")
+    print(f"[devrun] user      : user@test.local     / Test1234!  (consulte seulement)")
+    print(f"[devrun] champion  : champion@test.local / Test1234!  (propose)")
+    print(f"[devrun] coord     : coord@test.local    / Test1234!  (entité {ent.id})")
     print(f"[devrun] admin     : admin@test.local    / Test1234!")
     print(f"[devrun] proposition en attente : #{cr.id}")
     print(f"[devrun] http://127.0.0.1:{PORT}/login")

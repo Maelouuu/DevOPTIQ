@@ -26,9 +26,15 @@
        même que celui du viewer. Le refus côté serveur reste (le masquage
        n'est pas une sécurité), mais on n'invite plus à un travail perdu. */
     window.OPTIQCARTO_READONLY = {{ (governance.get('lecture_seule') or false) | tojson }};
+    /* ⚠️ Même drapeau de lecture seule que le viewer, mais PAS le même lieu :
+       le viewer est une vignette dans la page Carte et prévient sa page
+       parente quand on clique une forme ; ici il n'y a pas de page parente.
+       `CONSULTATION` dit à editor.js qu'il est l'éditeur ouvert par quelqu'un
+       qui vient lire — un clic ouvre alors la fiche dans le panneau. */
+    window.OPTIQCARTO_CONSULTATION = window.OPTIQCARTO_READONLY;
   </script>
 </head>
-<body>
+<body{% if governance.get('lecture_seule') %} class="carto-consultation"{% endif %}>
 
 <!-- ══════════════ TOOLBAR ══════════════ -->
 <header id="toolbar">
