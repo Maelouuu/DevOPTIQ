@@ -181,3 +181,65 @@ class TestLeHubDitLaVerite:
             assert branche in reelles, (
                 "%s : le hub annonce « %s », le workflow écoute %s"
                 % (fichier, annonce, reelles))
+
+
+APP_PY = os.path.join(RACINE, "Code", "app.py")
+
+sans_app = pytest.mark.skipif(
+    not os.path.exists(APP_PY),
+    reason="Code/app.py absent (arbre d'image bytecode-only)")
+
+
+class TestLaSondeDeSanteEstJoignable:
+    """⚠️ `/healthz` n'atteint JAMAIS l'application sur un `*.run.app`.
+
+    Le frontend Google l'intercepte et sert sa propre 404. Mesuré sur le
+    pilote : cette 404 n'a ni cookie de session Flask ni
+    `x-cloud-trace-context`, alors qu'une route réellement inconnue de l'app en
+    porte. Le hub et pulse ont déjà basculé sur `/health` pour cette raison.
+
+    Conséquence tant que ce n'était pas fait : le test de fumée du déploiement
+    pilote échouait à CHAQUE livraison — après un déploiement pourtant réussi.
+    Un contrôle qui rougit toujours n'est plus un contrôle.
+    """
+
+    @sans_app
+    def test_l_application_expose_aussi_health(self):
+        source = io.open(APP_PY, encoding="utf-8").read()
+        # La route de PRODUCTION, pas celles des modes test / installation :
+        # on la reconnaît à ce qu'elle est déclarée juste avant la racine.
+        assert '@app.route("/health")' in source, (
+            "Code/app.py n'expose pas /health — le frontend Google avale "
+            "/healthz, aucune sonde externe ne peut alors répondre")
+        assert '@app.route("/healthz")' in source, (
+            "/healthz reste nécessaire : la sonde de docker-compose et "
+            "tools/test_install.sh l'appellent en local, sans frontend Google")
+
+    @sans_source
+    def test_rien_ne_sonde_healthz_depuis_le_DEHORS(self):
+        """Le piège se rejouerait au prochain workflow écrit sur ce modèle.
+
+        ⚠️ En LOCAL, `/healthz` est parfaitement joignable — rien ne s'interpose.
+        La sonde de `distribution/docker-compose.yml` et `tools/test_install.sh`
+        l'appellent sur `localhost` et doivent le garder. On ne signale donc que
+        les appels vers une adresse EXTERNE.
+        """
+        dossiers = [WORKFLOWS, os.path.join(RACINE, "tools", "deploy")]
+        fautifs = []
+        for dossier in dossiers:
+            if not os.path.isdir(dossier):
+                continue
+            for nom in sorted(os.listdir(dossier)):
+                if not nom.endswith((".yml", ".yaml", ".sh")):
+                    continue
+                chemin = os.path.join(dossier, nom)
+                for ligne in io.open(chemin, encoding="utf-8").read().splitlines():
+                    if "curl" not in ligne or "/healthz" not in ligne:
+                        continue
+                    if "localhost" in ligne or "127.0.0.1" in ligne:
+                        continue          # en local, rien ne s'interpose
+                    fautifs.append("%s : %s" % (nom, ligne.strip()))
+        assert not fautifs, (
+            "sonde externe sur /healthz — le frontend Google rend sa propre 404 "
+            "et le contrôle échoue toujours, même sur un service sain :\n  "
+            + "\n  ".join(fautifs))

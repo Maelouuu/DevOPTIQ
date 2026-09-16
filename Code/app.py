@@ -767,7 +767,19 @@ def create_app(test_config=None):
     from Code.licensing import init_license_enforcement
     init_license_enforcement(app)
 
+    # ⚠️ `/healthz` N'EST PAS JOIGNABLE de l'extérieur sur un `*.run.app` : le
+    # frontend Google l'intercepte et sert sa PROPRE 404, la requête n'atteint
+    # jamais l'application. Mesuré sur le pilote : cette 404 n'a ni cookie de
+    # session Flask ni `x-cloud-trace-context`, alors qu'une route réellement
+    # inconnue de l'app en porte. Le hub et pulse ont déjà basculé sur
+    # `/health` pour cette raison ; le test de fumée du déploiement pilote,
+    # lui, sondait encore `/healthz` — et échouait donc à CHAQUE livraison,
+    # après un déploiement pourtant réussi. Un contrôle qui rougit toujours
+    # n'est plus un contrôle : on finit par ne plus le lire.
+    # `/healthz` est conservé : la sonde interne de Docker Compose et
+    # `tools/test_install.sh` l'appellent en local, où rien ne s'interpose.
     @app.route("/healthz")
+    @app.route("/health")
     def healthz():
         return "ok", 200
 

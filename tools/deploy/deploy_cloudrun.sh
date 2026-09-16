@@ -68,7 +68,10 @@ gcloud run deploy "$NEW_SERVICE" \
 
 URL=$(gcloud run services describe "$NEW_SERVICE" --region "$REGION" --format='value(status.url)')
 echo "== Vérification =="
-curl -fsS "$URL/healthz" && echo " ← healthz OK sur $URL"
+# /health et PAS /healthz : sur un *.run.app, le frontend Google intercepte
+# /healthz et sert sa propre 404 — la requête n'atteint jamais l'application,
+# et la vérification échouerait sur un service pourtant sain.
+curl -fsS "$URL/health" && echo " ← health OK sur $URL"
 
 echo
 read -r -p "Supprimer l'ancien service $OLD_SERVICE ? [y/N] " CONFIRM
