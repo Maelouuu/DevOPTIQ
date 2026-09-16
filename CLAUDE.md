@@ -661,6 +661,21 @@ auto-évaluations volontairement discordantes et des capacités en écart.
   formation » fait un `stopPropagation` — sans lui on ouvrait le rôle DERRIÈRE la
   fenêtre du plan. Les lignes « par rôle » du profil ouvrent le rôle elles aussi.
 - Tests : `tests/test_77_competences_deux_notes.py::TestCouvertureEtProfil` (6 cas).
+
+⚠️ **« Pourquoi j'ai perdu mes données de notation ? » — DEUX PÉRIMÈTRES DANS LE
+MÊME ÉCRAN.** Rien n'était perdu. `synthese` listait **TOUS** les rôles du
+collaborateur, toutes cartos confondues (`UserRole.query.filter_by(user_id=…)`,
+sans entité), tandis que `dashboard_rows` filtre les activités sur
+`Activities.entity_id == Entity.get_active_id()`. Changer de carto active — ce
+que font la page Cartographie **et le sélecteur de la page RH**
+(`api_tableau` pose `session['active_entity_id']`) — affichait donc les rôles
+d'une carto avec les activités d'une AUTRE : « 0 activité » sur chaque rôle,
+« — du requis tenu », et l'écran paraissait vidé de ses évaluations.
+Un rôle qui ne PEUT PAS porter d'activité sur cet écran n'a rien à y faire : la
+synthèse ne retient plus que les rôles de l'entité active. Reproduit puis
+vérifié par `TestPerimetreDeLaSynthese` (2 cas, le premier **rouge** avant le
+correctif — `activities: []`, tous les compteurs à zéro, exactement la capture
+rapportée).
 ### Le radar cède la place au détail d'un rôle (2026-09-16)
 
 Le radar répond « quelle est la FORME du profil ». Il ne répond pas « sur quelle

@@ -662,3 +662,96 @@ class TestLePlanSuitLEcran:
         _note(client, scene["collab"], scene["act"], scene["d1"], "2", 1, scene["role"])
         d = client.get(f"/plan/{scene['collab']}/{scene['role']}").get_json()
         assert d["activites"] == []
+
+
+class TestPerimetreDeLaSynthese:
+    """⚠️ « Pourquoi j'ai perdu mes données relatives à la notation ? »
+
+    Rien n'était perdu : l'écran mélangeait DEUX PÉRIMÈTRES.
+      · `synthese` listait TOUS les rôles du collaborateur, toutes cartos
+        confondues (`UserRole.query.filter_by(user_id=…)`, sans entité) ;
+      · `dashboard_rows` filtre les activités sur l'entité ACTIVE.
+    Changer de carto active — ce que fait le sélecteur de la page RH, et la page
+    Cartographie — affichait donc les rôles d'une carto avec les activités d'une
+    autre : zéro partout, « — du requis tenu », et l'impression que tout avait
+    disparu.
+
+    Un rôle qui ne PEUT PAS porter d'activité n'a rien à faire sur cet écran.
+    """
+
+    def _entite(self, app, nom):
+        from Code.extensions import db
+        from Code.models.models import Entity
+        with app.app_context():
+            e = Entity.query.filter_by(name=nom).first()
+            if not e:
+                e = Entity(name=nom)
+                db.session.add(e)
+                db.session.commit()
+            return e.id
+
+    def test_un_role_d_une_autre_carto_ne_s_affiche_pas_a_zero(self, app, auth_client, ids):
+        """Le cas exact du signalement : la carto active n'est pas celle du rôle."""
+        from Code.extensions import db
+        from Code.models.models import Activities, Role, User, UserRole
+        from Code.models.models import activity_roles
+
+        autre = self._entite(app, "t77-autre-carto")
+        with app.app_context():
+            u = User.query.filter_by(email="test@devoptiq.com").first()
+            role = Role(name="t77-role-ailleurs", entity_id=ids["entity_id"])
+            db.session.add(role)
+            db.session.commit()
+            act = Activities(name="t77-activite", entity_id=ids["entity_id"])
+            db.session.add(act)
+            db.session.commit()
+            db.session.execute(activity_roles.insert().values(
+                activity_id=act.id, role_id=role.id, status="Garant"))
+            db.session.add(UserRole(user_id=u.id, role_id=role.id))
+            db.session.commit()
+            uid, rid, aid = u.id, role.id, act.id
+
+        try:
+            # 1. Sur la BONNE carto, le rôle porte bien son activité.
+            with auth_client.session_transaction() as sess:
+                sess["active_entity_id"] = ids["entity_id"]
+            d = auth_client.get("/mastery/synthese/%d" % uid).get_json()
+            mien = next((r for r in d["roles"] if r["role_id"] == rid), None)
+            assert mien and mien["n_activities"] == 1, (
+                "sur sa propre carto, le rôle doit porter son activité")
+
+            # 2. Sur une AUTRE carto, il ne doit pas apparaître à zéro.
+            with auth_client.session_transaction() as sess:
+                sess["active_entity_id"] = autre
+            d = auth_client.get("/mastery/synthese/%d" % uid).get_json()
+            fantome = next((r for r in d["roles"] if r["role_id"] == rid), None)
+            assert fantome is None, (
+                "un rôle d'une AUTRE carto ne doit pas s'afficher avec 0 activité "
+                "— c'est ce qui fait croire que les notes ont disparu")
+        finally:
+            with app.app_context():
+                db.session.execute(activity_roles.delete().where(
+                    activity_roles.c.role_id == rid))
+                UserRole.query.filter_by(role_id=rid).delete()
+                a = db.session.get(Activities, aid)
+                if a:
+                    db.session.delete(a)
+                r = db.session.get(Role, rid)
+                if r:
+                    db.session.delete(r)
+                db.session.commit()
+            with auth_client.session_transaction() as sess:
+                sess["active_entity_id"] = ids["entity_id"]
+
+    def test_les_totaux_suivent_les_roles_affiches(self, app, auth_client, ids):
+        """Le compte d'activités ne doit jamais additionner des rôles qu'on
+        n'affiche pas : deux chiffres pour un même écran, c'est ce que la vue
+        d'ensemble existe pour éviter."""
+        uid = None
+        from Code.models.models import User
+        with app.app_context():
+            uid = User.query.filter_by(email="test@devoptiq.com").first().id
+        with auth_client.session_transaction() as sess:
+            sess["active_entity_id"] = ids["entity_id"]
+        d = auth_client.get("/mastery/synthese/%d" % uid).get_json()
+        assert d["n_activities"] == sum(r["n_activities"] for r in d["roles"])

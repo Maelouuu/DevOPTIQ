@@ -262,10 +262,23 @@ def synthese(user_id):
     if not peut_lire(current_user(), user_id):
         return jsonify({"error": "forbidden"}), 403
 
+    # ⚠️ DEUX PÉRIMÈTRES DANS LE MÊME ÉCRAN — d'où « j'ai perdu mes notes ».
+    # Cette boucle listait TOUS les rôles du collaborateur, toutes cartos
+    # confondues, tandis que `dashboard_rows` filtre les activités sur l'entité
+    # ACTIVE. Changer de carto active — ce que font la page Cartographie ET le
+    # sélecteur de la page RH — affichait donc les rôles d'une carto avec les
+    # activités d'une autre : zéro partout, « — du requis tenu », et l'écran
+    # avait l'air vidé de ses évaluations alors que rien n'était perdu.
+    # Un rôle qui ne PEUT PAS porter d'activité ici n'a rien à y faire.
+    from Code.models.models import Entity
+    entite_active = Entity.get_active_id()
+
     roles, profil = [], []
     for ur in UserRole.query.filter_by(user_id=user_id).all():
         role = Role.query.get(ur.role_id)
         if role is None:
+            continue
+        if entite_active and role.entity_id and role.entity_id != entite_active:
             continue
         rows = dashboard_rows(user_id, role.id)
         compte = {"held": 0, "gap": 0, "todo": 0, "setup": 0}
