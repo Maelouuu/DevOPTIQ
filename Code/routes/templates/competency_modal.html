@@ -25,8 +25,8 @@
 let proposalsGlobal = [];
 let currentActivityId = null;
 const _compModalI18n = {
-  select_one:        "{{ t('propose.select_one') }}",
-  saved:             "{{ t('propose.saved_competencies') }}",
+  select_one:        {{ t('propose.select_one')|tojson }},
+  saved:             {{ t('propose.saved_competencies')|tojson }},
 };
 
 function showProposalsModal(proposals, activityId) {

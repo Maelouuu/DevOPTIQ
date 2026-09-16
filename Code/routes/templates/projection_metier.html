@@ -5,7 +5,7 @@
 <div class="pm-page pg-root page--competences">
 
   {% with banner_page='competences', banner_icon='fa-solid fa-briefcase',
-          banner_title='Projection Métiers ROME 4.0',
+          banner_title=t('page.career') ~ ' ROME 4.0',
           banner_sub='Identifiez les métiers maîtrisables et envisageables pour chaque collaborateur' %}
     {% include "page_banner.html" %}
   {% endwith %}
@@ -41,7 +41,7 @@
       <div class="pm-card pm-card-stats">
         <div class="pm-card-head">
           <span class="pm-card-icon pm-card-icon--muted"><i class="fa-solid fa-chart-bar"></i></span>
-          <h2 class="pm-card-title">Vue d'ensemble</h2>
+          <h2 class="pm-card-title">{{ t('activity.overview') }}</h2>
         </div>
         <div class="pm-stats-row">
           <div class="pm-stat pm-stat--green">
@@ -53,7 +53,7 @@
             <span class="pm-stat-lbl">Envisageables</span>
           </div>
         </div>
-        <p class="pm-help">Sélectionnez un collaborateur pour lancer l'analyse ROME.</p>
+        <p class="pm-help">{{ t('career.pick_collab_rome') }}</p>
       </div>
 
       <div class="pm-card pm-card-legend">
@@ -88,7 +88,7 @@
 
         <div class="pm-loader" id="pm-loader-wrap">
           <span id="spinner" class="pm-spinner" aria-label="Chargement"></span>
-          <span class="pm-loader-label">Sélectionnez un collaborateur pour lancer l'analyse.</span>
+          <span class="pm-loader-label">{{ t('career.pick_collab_short') }}</span>
         </div>
 
         <div class="pm-results" id="pm-results">

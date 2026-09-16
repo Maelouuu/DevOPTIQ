@@ -1672,6 +1672,73 @@ rôles de tâche, `Skills` → compétences.
 - **i18n JS** : page RH → `window.GRH_I18N` (gestion_rh.js) ; fichier DCP →
   clés `pf_*` dans `window.PROPOSE_I18N` (propose_from_file.js, repli français intégré).
   Injecter les chaînes avec `| tojson` (jamais `"{{ t(...) }}"` → entités HTML dans le JS).
+### Couverture complète de la traduction FR/EN (2026-09-16)
+
+`tests/test_78_i18n_couverture.py` — 40 cas. L'app traduit par **quatre
+mécanismes**, et aucun ne lève d'erreur quand il échoue : c'est ce silence que
+ce fichier ferme, mécanisme par mécanisme.
+
+| Mécanisme | Comment il échoue |
+|---|---|
+| `t('cle')` (catalogue Python) | clé absente en EN → **repli silencieux sur le français** ; absente partout → la clé brute s'affiche |
+| `window.XXX_I18N` injecté par un gabarit | clé oubliée → le JS sert son **repli français en dur** |
+| `data-i18n="cle"` (page Compétences) | clé inconnue du catalogue JS → le français du gabarit **reste affiché** |
+| texte écrit en dur dans un gabarit | ne passe par rien : français dans les deux langues |
+
+**Le contrôle le plus fort ne dépend d'aucun mécanisme** : on demande les
+11 pages EN ANGLAIS et on y cherche les **844 phrases françaises** du catalogue
+(celles dont l'EN diffère). Une phrase du catalogue français n'a aucune raison
+d'apparaître sur une page anglaise, quel que soit le chemin qu'elle a pris.
+- ⚠️ **Et cela ne doit jamais accuser une DONNÉE.** Les noms d'activités, rôles,
+  outils, savoir-faire sont français dans le jeu de test. Deux garde-fous :
+  les libellés de dix modèles sont relus en base et retirés des pièges, et un
+  piège doit être une **phrase** (≥ 12 signes, au moins une espace). Sans le
+  second, « Savoir-faire » faisait tomber la page Activités — parce qu'un AUTRE
+  fichier de tests avait créé un savoir-faire de ce nom. ⚠️ Le défaut ne se
+  voyait **qu'en suite complète**, la base étant partagée : un fichier vert tout
+  seul ne prouve rien ici.
+
+**Ce que le contrôle a trouvé, et qui est corrigé :**
+- ⚠️ **`"{{ t('x') }}"` entre guillemets dans un `<script>` : 34 occurrences,
+  dont 7 déjà visiblement abîmées.** Le navigateur décode les entités HTML dans
+  un ATTRIBUT, jamais dans un script — `propose.err_saving` arrivait donc au JS
+  sous la forme « Impossible d&#39;ajouter… », affichée telle quelle. Mesuré au
+  rendu : en dur → `c&#39;est`, avec `|tojson` → `c'est`. Toutes converties
+  (`display_list.html` 32, `competency_modal.html` 2). **En attribut la même
+  écriture est correcte** — d'où un contrôle strictement limité aux blocs script.
+- **Sept libellés qui avaient déjà leur version anglaise** mais que le gabarit
+  n'employait pas : le `<title>` de la liste des activités, le titre de la
+  pop-up d'import des tâches, le sous-titre du bandeau Compétences, et quatre
+  sur Projection métier / import IA. Trois clés nouvelles créées au passage.
+- ⚠️ **`<html lang="fr">` écrit en dur sur 8 gabarits.** Un lecteur d'écran
+  annonçait la page en français et le navigateur proposait de la traduire
+  *depuis* le français — alors qu'elle s'affichait en anglais.
+- ⚠️ **`/roles/view` n'existe pas** (c'est `/roles_view/`) : la page rendait 404,
+  le contrôle la **sautait**, et elle passait pour vérifiée. Les chemins viennent
+  désormais d'`url_map`. Trois pages ajoutées.
+
+**La dette est ÉCRITE, et elle ne peut que décroître.** 76 fragments français en
+dur sur 12 gabarits — dont trois écrans jamais traduits (`import_full_modal` 25,
+`projection_metier` 14, `import_tasks_modal` 11). Les traduire demande d'écrire
+de vraies tournures anglaises, pas de déplacer du texte : c'est un travail à
+part. `TestFrancaisEnDur` tient donc un **cliquet** : un gabarit hors inventaire
+doit être propre, un gabarit inventorié ne doit pas empirer, et
+`test_l_inventaire_suit_la_realite` exige de **baisser le plafond** dès qu'on
+nettoie — sans quoi un retour en arrière se cacherait sous une marge.
+
+⚠️ Pièges d'analyse rencontrés, tous corrigés dans le fichier :
+- l'injection s'écrit `window.X = Object.assign(window.X || {}, { … })` —
+  prendre « la première accolade après le `=` » tombe sur le `{}` du repli et
+  rend **zéro clé**, donc un contrôle vert qui ne regarde rien ;
+- le compteur d'accolades ne saute ni les chaînes ni les expressions
+  régulières : une accolade dans un littéral fait courir le « corps » d'une
+  fonction jusqu'à la fin du fichier, et on attribuait alors à l'accesseur
+  toutes les chaînes du fichier (« carto-wizard-popup » relevé comme clé) ;
+- chaque test d'analyse est doublé d'un **garde-fou de volume**
+  (`test_le_catalogue_est_bien_garni`, `test_le_jeu_de_pieges_est_consequent`) :
+  si un jour les repères changent et que l'analyse ne trouve plus rien, les
+  contrôles passeraient au vert en ne lisant plus RIEN.
+
 ### Organisation des branches et des bases (2026-09-10)
 
 | Branche | Instance Cloud Run | Base | À quoi elle sert |
