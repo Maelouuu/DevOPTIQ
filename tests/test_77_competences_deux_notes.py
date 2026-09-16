@@ -34,6 +34,7 @@ def scene(app, client):
     cree = {}
     with app.app_context():
         entity = Entity.query.filter_by(name="Entité Test").first()
+        _ENTITE_TEST["id"] = entity.id
         dev = User(first_name="Dev", last_name="Test77", email="dev77@devoptiq.com",
                    password=hash_password(MDP), status="user")
         collab = User(first_name="Collab", last_name="Test77", email="collab77@devoptiq.com",
@@ -101,12 +102,24 @@ def scene(app, client):
         db.session.commit()
 
 
-def _connecte(client, user_id, email):
+# Rempli par la fixture `scene` : la carto sur laquelle ce fichier travaille.
+_ENTITE_TEST = {"id": None}
+
+
+def _connecte(client, user_id, email, entity_id=None):
     with client.session_transaction() as sess:
         sess.clear()
         sess["user_id"] = user_id
         sess["user_email"] = email
         sess["lang"] = "fr"
+        # ⚠️ Sans carto ACTIVE, `Entity.get_active` retombe sur « la
+        # première entité du compte » — donc sur ce qu'un AUTRE fichier de
+        # tests a créé entre-temps, la base étant partagée. La synthèse étant
+        # cadrée par la carto active, les résultats devenaient dépendants de
+        # l'ORDRE : verts seuls, rouges dans la suite complète.
+        eid = entity_id if entity_id is not None else _ENTITE_TEST["id"]
+        if eid:
+            sess["active_entity_id"] = eid
 
 
 def _note(client, user_id, activity_id, data_id, evaluateur, niveau, role_id=None, preuve=""):
@@ -680,12 +693,20 @@ class TestPerimetreDeLaSynthese:
     """
 
     def _entite(self, app, nom):
+        """Une carto de travail, AVEC un propriétaire.
+
+        ⚠️ Sans `owner_id`, `can_read` la rend lisible par TOUT LE MONDE
+        (`entity.owner_id in (None, user.id)`) : elle entrait alors dans le repli
+        « aucune entité active » d'autres fichiers de tests et faisait tomber
+        `test_75`. La base est partagée — une donnée laissée sans maître circule.
+        """
         from Code.extensions import db
-        from Code.models.models import Entity
+        from Code.models.models import Entity, User
         with app.app_context():
             e = Entity.query.filter_by(name=nom).first()
             if not e:
-                e = Entity(name=nom)
+                proprio = User.query.filter_by(email="test@devoptiq.com").first()
+                e = Entity(name=nom, owner_id=proprio.id if proprio else None)
                 db.session.add(e)
                 db.session.commit()
             return e.id
@@ -720,14 +741,19 @@ class TestPerimetreDeLaSynthese:
             assert mien and mien["n_activities"] == 1, (
                 "sur sa propre carto, le rôle doit porter son activité")
 
-            # 2. Sur une AUTRE carto, il ne doit pas apparaître à zéro.
+            # 2. Depuis une AUTRE carto active, le rôle garde SES activités.
+            #    ⚠️ C'est le cœur du signalement : il s'affichait à « 0 activité »
+            #    parce que les activités, elles, étaient filtrées sur la carto
+            #    active. Les masquer n'était pas la réponse — un rôle porte ses
+            #    activités, quelle que soit la carto qu'on regarde par ailleurs.
             with auth_client.session_transaction() as sess:
                 sess["active_entity_id"] = autre
             d = auth_client.get("/mastery/synthese/%d" % uid).get_json()
-            fantome = next((r for r in d["roles"] if r["role_id"] == rid), None)
-            assert fantome is None, (
-                "un rôle d'une AUTRE carto ne doit pas s'afficher avec 0 activité "
-                "— c'est ce qui fait croire que les notes ont disparu")
+            ailleurs = next((r for r in d["roles"] if r["role_id"] == rid), None)
+            assert ailleurs is not None, "le rôle ne doit pas disparaître"
+            assert ailleurs["n_activities"] == 1, (
+                "un rôle ne doit JAMAIS tomber à 0 activité parce qu'une autre "
+                "carto est active — c'est ce qui fait croire à une perte")
         finally:
             with app.app_context():
                 db.session.execute(activity_roles.delete().where(

@@ -50,6 +50,12 @@ def ensure_manager_id_column():
 
 @gestion_rh_bp.route('/')
 def gestion_rh_home():
+    # ⚠️ Cette page n'avait AUCUN contrôle d'accès : tout compte connecté
+    # l'ouvrait, et pouvait de là créer des rôles et affecter des personnes.
+    # Elle est réservée au coordinateur et à l'administrateur.
+    from Code.permissions import can_access_rh, current_user
+    if not can_access_rh(current_user()):
+        return redirect('/')
     try:
         ensure_manager_id_column()
         active_entity_id = get_active_entity_id()
@@ -509,7 +515,7 @@ def api_tableau():
     """
     from Code.carto_access import access_summary, can_manage_access, entity_role_ids
     from Code.models.models import CartoChangeRequest
-    from Code.permissions import is_admin, is_champion
+    from Code.permissions import is_admin, is_coordinator
     from Code.roles_permanents import ROLE_DEV_COMPETENCES, est_dev_competences
 
     moi = db.session.get(User, session.get('user_id')) if session.get('user_id') else None
@@ -636,7 +642,7 @@ def api_tableau():
             'gere_acces': bool(entite and can_manage_access(entite, moi)),
             # Qui peut attribuer un collaborateur : un développeur de
             # compétences, un champion ou un administrateur.
-            'affecte': bool(moi.id in ids_dev or is_champion(moi) or is_admin(moi)),
+            'affecte': bool(moi.id in ids_dev or is_coordinator(moi) or is_admin(moi)),
             'admin': bool(is_admin(moi)),
         },
     })

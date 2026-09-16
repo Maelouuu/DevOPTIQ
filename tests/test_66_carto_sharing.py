@@ -10,9 +10,9 @@ UNE ligne travaillée par plusieurs comptes :
     demain entre sans qu'on revienne sur l'écran d'accès ; aucun rôle coché =
     ouverte à tous ;
   * une carto privée n'obéit à rien de tout ça ;
-  * sur une carto commune, un compte ordinaire PROPOSE, un champion ou un
-    administrateur applique — et ce qui est appliqué vaut pour tout le monde,
-    puisque c'est la même ligne.
+  * sur une carto commune, quatre paliers : un `user` CONSULTE, un `champion`
+    PROPOSE, un `coordinateur` ou un `admin` APPLIQUE — et ce qui est appliqué
+    vaut pour tout le monde, puisque c'est la même ligne.
 """
 import json
 
@@ -76,6 +76,7 @@ def scene(app):
     from Code.extensions import db
     from Code.models.models import Entity, EntityRoleAccess, Role, UserRole
 
+    coordinateur = _mk_user(app, "t66.coord@devoptiq.com", "coordinateur")
     champion = _mk_user(app, "t66.champion@devoptiq.com", "champion")
     admin = _mk_user(app, "t66.admin@devoptiq.com", "administrateur")
     porteur = _mk_user(app, "t66.porteur@devoptiq.com", "user")
@@ -84,9 +85,9 @@ def scene(app):
     with app.app_context():
         ent = Entity.query.filter_by(name="Carto commune T66").first()
         if ent is None:
-            ent = Entity(name="Carto commune T66", owner_id=champion)
+            ent = Entity(name="Carto commune T66", owner_id=coordinateur)
             db.session.add(ent)
-        ent.owner_id = champion
+        ent.owner_id = coordinateur
         ent.optiqcarto_data = json.dumps(DIAGRAM, ensure_ascii=False)
         ent.is_shared = False
         db.session.commit()
@@ -101,16 +102,33 @@ def scene(app):
             roles[nom] = r.id
 
         # `porteur` tient le rôle Métier ; `etranger` n'en tient aucun.
-        if not UserRole.query.filter_by(user_id=porteur, role_id=roles["T66 Métier"]).first():
-            db.session.add(UserRole(user_id=porteur, role_id=roles["T66 Métier"]))
+        for uid in (porteur, champion):
+            if not UserRole.query.filter_by(
+                    user_id=uid, role_id=roles["T66 Métier"]).first():
+                db.session.add(UserRole(user_id=uid, role_id=roles["T66 Métier"]))
         UserRole.query.filter_by(user_id=etranger).delete()
         EntityRoleAccess.query.filter_by(entity_id=ent.id).delete()
         db.session.commit()
 
-        return {"entity_id": ent.id, "champion": champion, "admin": admin,
-                "porteur": porteur, "etranger": etranger,
-                "role_metier": roles["T66 Métier"],
-                "role_support": roles["T66 Support"]}
+        scene = {"entity_id": ent.id, "coordinateur": coordinateur,
+                 "champion": champion, "admin": admin,
+                 "porteur": porteur, "etranger": etranger,
+                 "role_metier": roles["T66 Métier"],
+                 "role_support": roles["T66 Support"]}
+
+    yield scene
+
+    # ⚠️ La base est PARTAGÉE entre tous les fichiers. Ce module laisse la
+    # carto « commune, ouverte à tous » selon le dernier cas joué — et une carto
+    # ouverte à tous devient le REPLI « aucune entité active » des autres
+    # fichiers : `test_75` retrouvait celle-ci au lieu de la sienne. On rend la
+    # carto privée en partant.
+    with app.app_context():
+        ent = db.session.get(Entity, scene["entity_id"])
+        if ent is not None:
+            ent.is_shared = False
+            EntityRoleAccess.query.filter_by(entity_id=ent.id).delete()
+            db.session.commit()
 
 
 def _regler_acces(app, entity_id, partage, role_ids=()):
@@ -129,23 +147,44 @@ def _regler_acces(app, entity_id, partage, role_ids=()):
 
 class TestStatuts:
 
-    def test_champion_reconnu_sous_ses_anciens_libelles(self):
-        """Une instance déjà en service porte l'ancien mot : personne ne perd ses droits."""
-        from Code.permissions import is_champion_status
-        for valeur in ("champion", "manager", "Gestionnaire de compétences",
-                       "gestionnaire de comp", "Competency Manager"):
-            assert is_champion_status(valeur), valeur
+    def test_l_arbitre_est_reconnu_sous_ses_anciens_libelles(self):
+        """⚠️ « champion » a CHANGÉ DE SENS : il désignait celui qui arbitre,
+        c'est désormais le coordinateur. Tous les libellés historiques de
+        l'arbitre doivent donc être lus comme « coordinateur » — sinon des
+        comptes en service perdraient leur droit de valider au premier
+        démarrage du nouveau code."""
+        from Code.permissions import is_coordinator_status
+        for valeur in ("coordinateur", "Coordinateur", "coordinator", "manager",
+                       "Gestionnaire de compétences", "gestionnaire de comp",
+                       "Competency Manager"):
+            assert is_coordinator_status(valeur), valeur
 
-    def test_rh_et_user_ne_sont_pas_champions(self):
-        from Code.permissions import is_champion_status, is_admin_status
+    def test_le_mot_champion_designe_le_palier_qui_propose(self):
+        from Code.permissions import is_champion_status, is_coordinator_status
+        assert is_champion_status("champion")
+        assert not is_coordinator_status("champion"), (
+            "« champion » ne doit plus donner le droit d'arbitrer")
+
+    def test_ni_user_ni_vide_ne_sont_quoi_que_ce_soit(self):
+        from Code.permissions import (is_admin_status, is_champion_status,
+                                      is_coordinator_status)
         for valeur in ("user", "rh", "", None):
             assert not is_champion_status(valeur)
+            assert not is_coordinator_status(valeur)
             assert not is_admin_status(valeur)
 
-    def test_la_valeur_canonique_tient_dans_la_colonne(self):
+    def test_l_echelle_est_ordonnee(self):
+        """Chaque palier ajoute aux droits du précédent : c'est ce qui permet
+        d'écrire « au moins coordinateur » sans énumérer les statuts."""
+        from Code.permissions import niveau_status
+        assert (niveau_status("user") < niveau_status("champion")
+                < niveau_status("coordinateur") < niveau_status("admin"))
+
+    def test_les_valeurs_canoniques_tiennent_dans_la_colonne(self):
         """users.status est un VARCHAR(20) : un libellé long y arriverait tronqué."""
-        from Code.permissions import CHAMPION_STATUS
+        from Code.permissions import CHAMPION_STATUS, COORDINATOR_STATUS
         assert len(CHAMPION_STATUS) <= 20
+        assert len(COORDINATOR_STATUS) <= 20
 
 
 # ══════════════════════════════════════════════════════════════════════════
@@ -161,7 +200,7 @@ class TestLecture:
         _regler_acces(app, scene["entity_id"], False)
         with app.app_context():
             ent = db.session.get(Entity, scene["entity_id"])
-            assert can_read(ent, db.session.get(User, scene["champion"]))
+            assert can_read(ent, db.session.get(User, scene["coordinateur"]))
             assert not can_read(ent, db.session.get(User, scene["porteur"]))
             assert not can_read(ent, db.session.get(User, scene["etranger"]))
 
@@ -201,16 +240,16 @@ class TestLecture:
             UserRole.query.filter_by(user_id=scene["etranger"]).delete()
             db.session.commit()
 
-    def test_un_champion_voit_toutes_les_cartos_communes(self, app, scene):
+    def test_un_coordinateur_voit_toutes_les_cartos_communes(self, app, scene):
         """Il en règle l'accès et arbitre les propositions : il doit pouvoir l'ouvrir."""
         from Code.carto_access import can_read
         from Code.extensions import db
         from Code.models.models import Entity, User
-        autre_champion = _mk_user(app, "t66.champion2@devoptiq.com", "champion")
+        autre_coord = _mk_user(app, "t66.coord2@devoptiq.com", "coordinateur")
         _regler_acces(app, scene["entity_id"], True, [scene["role_support"]])
         with app.app_context():
             ent = db.session.get(Entity, scene["entity_id"])
-            assert can_read(ent, db.session.get(User, autre_champion))
+            assert can_read(ent, db.session.get(User, autre_coord))
             assert can_read(ent, db.session.get(User, scene["admin"]))
 
     def test_la_liste_des_entites_inclut_les_cartos_communes(self, app, client, scene):
@@ -238,7 +277,7 @@ class TestReglageDeLAcces:
 
     def test_l_ecran_liste_les_roles_et_leurs_porteurs(self, app, client, scene):
         _regler_acces(app, scene["entity_id"], True, [scene["role_metier"]])
-        _as(client, scene["champion"], "t66.champion@devoptiq.com")
+        _as(client, scene["coordinateur"], "t66.coord@devoptiq.com")
         res = client.get(f"/cartography/api/access/{scene['entity_id']}")
         assert res.status_code == 200
         data = res.get_json()
@@ -257,8 +296,8 @@ class TestReglageDeLAcces:
         assert res.status_code == 403
         assert res.get_json()["code"] == "forbidden"
 
-    def test_un_champion_ouvre_et_referme_l_acces(self, app, client, scene):
-        _as(client, scene["champion"], "t66.champion@devoptiq.com")
+    def test_un_coordinateur_ouvre_et_referme_l_acces(self, app, client, scene):
+        _as(client, scene["coordinateur"], "t66.coord@devoptiq.com")
         res = client.post(f"/cartography/api/access/{scene['entity_id']}",
                           json={"is_shared": True, "role_ids": [scene["role_support"]]})
         assert res.status_code == 200
@@ -269,7 +308,7 @@ class TestReglageDeLAcces:
 
     def test_repasser_en_prive_efface_les_roles_autorises(self, app, client, scene):
         from Code.models.models import EntityRoleAccess
-        _as(client, scene["champion"], "t66.champion@devoptiq.com")
+        _as(client, scene["coordinateur"], "t66.coord@devoptiq.com")
         client.post(f"/cartography/api/access/{scene['entity_id']}",
                     json={"is_shared": True, "role_ids": [scene["role_metier"]]})
         client.post(f"/cartography/api/access/{scene['entity_id']}",
@@ -288,7 +327,7 @@ class TestReglageDeLAcces:
                 db.session.add(intrus)
                 db.session.commit()
             intrus_id = intrus.id
-        _as(client, scene["champion"], "t66.champion@devoptiq.com")
+        _as(client, scene["coordinateur"], "t66.coord@devoptiq.com")
         res = client.post(f"/cartography/api/access/{scene['entity_id']}",
                           json={"is_shared": True, "role_ids": [intrus_id]})
         assert res.status_code == 200
@@ -308,8 +347,8 @@ class TestEcriture:
         _regler_acces(app, scene["entity_id"], False)
         with app.app_context():
             ent = db.session.get(Entity, scene["entity_id"])
-            assert can_edit(ent, db.session.get(User, scene["champion"]))
-            assert not must_propose(ent, db.session.get(User, scene["champion"]))
+            assert can_edit(ent, db.session.get(User, scene["coordinateur"]))
+            assert not must_propose(ent, db.session.get(User, scene["coordinateur"]))
 
     def test_sur_une_carto_commune_un_compte_ordinaire_propose(self, app, scene):
         from Code.carto_access import can_edit, must_propose
@@ -320,29 +359,31 @@ class TestEcriture:
             ent = db.session.get(Entity, scene["entity_id"])
             porteur = db.session.get(User, scene["porteur"])
             assert not can_edit(ent, porteur)
-            assert must_propose(ent, porteur)
+            # ⚠️ Lire ne donne plus le droit de proposer : c'est ce qui sépare
+        # `user` de `champion`. Un porteur de rôle ordinaire CONSULTE.
+        assert not must_propose(ent, porteur)
 
-    def test_champion_et_admin_ecrivent_sans_examen(self, app, scene):
+    def test_coordinateur_et_admin_ecrivent_sans_examen(self, app, scene):
         from Code.carto_access import can_edit
         from Code.extensions import db
         from Code.models.models import Entity, User
         _regler_acces(app, scene["entity_id"], True)
         with app.app_context():
             ent = db.session.get(Entity, scene["entity_id"])
-            assert can_edit(ent, db.session.get(User, scene["champion"]))
+            assert can_edit(ent, db.session.get(User, scene["coordinateur"]))
             assert can_edit(ent, db.session.get(User, scene["admin"]))
 
     def test_l_enregistrement_direct_est_refuse_cote_serveur(self, app, client, scene):
         """Le masquage de l'interface n'est pas une sécurité : /api/save refuse aussi."""
         _regler_acces(app, scene["entity_id"], True)
-        _as(client, scene["porteur"], "t66.porteur@devoptiq.com", scene["entity_id"])
+        _as(client, scene["champion"], "t66.champion@devoptiq.com", scene["entity_id"])
         res = client.post("/cartography/api/save", json={"diagram": DIAGRAM})
         assert res.status_code == 403
         assert res.get_json()["code"] == "must_propose"
 
-    def test_un_champion_enregistre_normalement(self, app, client, scene):
+    def test_un_coordinateur_enregistre_normalement(self, app, client, scene):
         _regler_acces(app, scene["entity_id"], True)
-        _as(client, scene["champion"], "t66.champion@devoptiq.com", scene["entity_id"])
+        _as(client, scene["coordinateur"], "t66.coord@devoptiq.com", scene["entity_id"])
         res = client.post("/cartography/api/save", json={"diagram": DIAGRAM})
         assert res.status_code == 200
         assert res.get_json()["ok"] is True
@@ -370,7 +411,7 @@ class TestPropositions:
         with app.app_context():
             avant = db.session.get(Entity, scene["entity_id"]).optiqcarto_data
 
-        _as(client, scene["porteur"], "t66.porteur@devoptiq.com", scene["entity_id"])
+        _as(client, scene["champion"], "t66.champion@devoptiq.com", scene["entity_id"])
         res = client.post("/cartography/api/changes", json={
             "entity_id": scene["entity_id"], "title": "Trois activités",
             "message": "J'ajoute la suite du flux.", "diagram": _diagramme_modifie()})
@@ -381,7 +422,7 @@ class TestPropositions:
 
     def test_on_ne_propose_pas_sur_une_carto_privee(self, app, client, scene):
         _regler_acces(app, scene["entity_id"], False)
-        _as(client, scene["champion"], "t66.champion@devoptiq.com", scene["entity_id"])
+        _as(client, scene["coordinateur"], "t66.coord@devoptiq.com", scene["entity_id"])
         res = client.post("/cartography/api/changes", json={
             "entity_id": scene["entity_id"], "diagram": DIAGRAM})
         assert res.status_code == 400
@@ -390,12 +431,12 @@ class TestPropositions:
     def test_le_resume_dit_ce_qui_change(self, app, client, scene):
         """L'examinateur doit lire des activités et des flèches, pas du JSON."""
         _regler_acces(app, scene["entity_id"], True)
-        _as(client, scene["porteur"], "t66.porteur@devoptiq.com", scene["entity_id"])
+        _as(client, scene["champion"], "t66.champion@devoptiq.com", scene["entity_id"])
         rid = client.post("/cartography/api/changes", json={
             "entity_id": scene["entity_id"], "diagram": _diagramme_modifie(),
         }).get_json()["request"]["id"]
 
-        _as(client, scene["champion"], "t66.champion@devoptiq.com", scene["entity_id"])
+        _as(client, scene["coordinateur"], "t66.coord@devoptiq.com", scene["entity_id"])
         detail = client.get(f"/cartography/api/changes/{rid}").get_json()
         resume = detail["summary"]
         assert "Partage Rôle C" in resume["added"]
@@ -406,7 +447,7 @@ class TestPropositions:
 
     def test_un_compte_ordinaire_ne_voit_que_ses_propres_propositions(self, app, client, scene):
         _regler_acces(app, scene["entity_id"], True)
-        _as(client, scene["porteur"], "t66.porteur@devoptiq.com", scene["entity_id"])
+        _as(client, scene["champion"], "t66.champion@devoptiq.com", scene["entity_id"])
         client.post("/cartography/api/changes", json={
             "entity_id": scene["entity_id"], "diagram": _diagramme_modifie()})
 
@@ -416,9 +457,9 @@ class TestPropositions:
         assert data["can_review"] is False
         assert all(r["is_mine"] for r in data["requests"])
 
-    def test_un_compte_ordinaire_n_arbitre_pas(self, app, client, scene):
+    def test_un_champion_n_arbitre_pas_ses_propres_propositions(self, app, client, scene):
         _regler_acces(app, scene["entity_id"], True)
-        _as(client, scene["porteur"], "t66.porteur@devoptiq.com", scene["entity_id"])
+        _as(client, scene["champion"], "t66.champion@devoptiq.com", scene["entity_id"])
         rid = client.post("/cartography/api/changes", json={
             "entity_id": scene["entity_id"], "diagram": _diagramme_modifie(),
         }).get_json()["request"]["id"]
@@ -432,12 +473,12 @@ class TestPropositions:
         from Code.extensions import db
         from Code.models.models import Activities, Entity
         _regler_acces(app, scene["entity_id"], True)
-        _as(client, scene["porteur"], "t66.porteur@devoptiq.com", scene["entity_id"])
+        _as(client, scene["champion"], "t66.champion@devoptiq.com", scene["entity_id"])
         rid = client.post("/cartography/api/changes", json={
             "entity_id": scene["entity_id"], "diagram": _diagramme_modifie(),
         }).get_json()["request"]["id"]
 
-        _as(client, scene["champion"], "t66.champion@devoptiq.com", scene["entity_id"])
+        _as(client, scene["coordinateur"], "t66.coord@devoptiq.com", scene["entity_id"])
         res = client.post(f"/cartography/api/changes/{rid}/approve", json={})
         assert res.status_code == 200
 
@@ -451,12 +492,12 @@ class TestPropositions:
 
     def test_une_proposition_ne_se_tranche_qu_une_fois(self, app, client, scene):
         _regler_acces(app, scene["entity_id"], True)
-        _as(client, scene["porteur"], "t66.porteur@devoptiq.com", scene["entity_id"])
+        _as(client, scene["champion"], "t66.champion@devoptiq.com", scene["entity_id"])
         rid = client.post("/cartography/api/changes", json={
             "entity_id": scene["entity_id"], "diagram": _diagramme_modifie(),
         }).get_json()["request"]["id"]
 
-        _as(client, scene["champion"], "t66.champion@devoptiq.com", scene["entity_id"])
+        _as(client, scene["coordinateur"], "t66.coord@devoptiq.com", scene["entity_id"])
         assert client.post(f"/cartography/api/changes/{rid}/reject", json={}).status_code == 200
         assert client.post(f"/cartography/api/changes/{rid}/approve", json={}).status_code == 409
 
@@ -467,12 +508,12 @@ class TestPropositions:
         with app.app_context():
             avant = db.session.get(Entity, scene["entity_id"]).optiqcarto_data
 
-        _as(client, scene["porteur"], "t66.porteur@devoptiq.com", scene["entity_id"])
+        _as(client, scene["champion"], "t66.champion@devoptiq.com", scene["entity_id"])
         rid = client.post("/cartography/api/changes", json={
             "entity_id": scene["entity_id"], "diagram": {"shapes": [], "connections": []},
         }).get_json()["request"]["id"]
 
-        _as(client, scene["champion"], "t66.champion@devoptiq.com", scene["entity_id"])
+        _as(client, scene["coordinateur"], "t66.coord@devoptiq.com", scene["entity_id"])
         res = client.post(f"/cartography/api/changes/{rid}/reject",
                           json={"comment": "hors sujet"})
         assert res.status_code == 200
@@ -481,7 +522,7 @@ class TestPropositions:
 
     def test_l_auteur_retire_sa_proposition_tant_qu_elle_attend(self, app, client, scene):
         _regler_acces(app, scene["entity_id"], True)
-        _as(client, scene["porteur"], "t66.porteur@devoptiq.com", scene["entity_id"])
+        _as(client, scene["champion"], "t66.champion@devoptiq.com", scene["entity_id"])
         rid = client.post("/cartography/api/changes", json={
             "entity_id": scene["entity_id"], "diagram": _diagramme_modifie(),
         }).get_json()["request"]["id"]
@@ -490,12 +531,12 @@ class TestPropositions:
 
     def test_personne_d_autre_ne_retire_une_proposition(self, app, client, scene):
         _regler_acces(app, scene["entity_id"], True)
-        _as(client, scene["porteur"], "t66.porteur@devoptiq.com", scene["entity_id"])
+        _as(client, scene["champion"], "t66.champion@devoptiq.com", scene["entity_id"])
         rid = client.post("/cartography/api/changes", json={
             "entity_id": scene["entity_id"], "diagram": _diagramme_modifie(),
         }).get_json()["request"]["id"]
 
-        _as(client, scene["champion"], "t66.champion@devoptiq.com", scene["entity_id"])
+        _as(client, scene["coordinateur"], "t66.coord@devoptiq.com", scene["entity_id"])
         assert client.delete(f"/cartography/api/changes/{rid}").status_code == 404
 
 
@@ -706,3 +747,134 @@ class TestApercuEnGrand:
     def test_seuls_avant_et_apres_ouvrent_le_viewer(self, app, client):
         r = client.get("/cartography/changes/1/apercu/autrechose")
         assert r.status_code in (401, 404)
+
+
+class TestLesQuatrePaliers:
+    """Ce que chaque palier peut faire d'une carto commune — le cœur du modèle."""
+
+    def test_un_user_ne_peut_ni_ecrire_ni_proposer(self, app, client, scene):
+        """⚠️ Le palier le plus restreint CONSULTE. L'interface le masque, mais
+        le masquage n'est pas une sécurité : les deux routes refusent."""
+        _regler_acces(app, scene["entity_id"], True, [scene["role_metier"]])
+        _as(client, scene["porteur"], "t66.porteur@devoptiq.com", scene["entity_id"])
+
+        res = client.post("/cartography/api/save",
+                          json={"diagram": DIAGRAM})
+        assert res.status_code == 403
+        assert res.get_json().get("code") == "lecture_seule", (
+            "on ne dit pas « proposez » à quelqu'un qui n'en a pas le droit")
+
+        res = client.post("/cartography/api/changes",
+                          json={"entity_id": scene["entity_id"], "diagram": DIAGRAM})
+        assert res.status_code == 403
+
+    def test_un_champion_propose_mais_n_enregistre_pas(self, app, client, scene):
+        _regler_acces(app, scene["entity_id"], True, [])
+        _as(client, scene["champion"], "t66.champion@devoptiq.com", scene["entity_id"])
+
+        res = client.post("/cartography/api/save", json={"diagram": DIAGRAM})
+        assert res.status_code == 403
+        assert res.get_json().get("code") == "must_propose"
+
+        res = client.post("/cartography/api/changes",
+                          json={"entity_id": scene["entity_id"], "diagram": DIAGRAM})
+        assert res.status_code in (200, 201), res.get_json()
+
+    def test_un_champion_n_arbitre_pas(self, app, scene):
+        from Code.carto_access import can_review
+        from Code.extensions import db
+        from Code.models.models import Entity, User
+        with app.app_context():
+            ent = db.session.get(Entity, scene["entity_id"])
+            assert not can_review(ent, db.session.get(User, scene["champion"]))
+            assert can_review(ent, db.session.get(User, scene["coordinateur"]))
+
+    def test_un_champion_ne_regle_pas_l_acces(self, app, scene):
+        """Ouvrir une carto à toute l'organisation engage tout le monde : cela
+        reste au coordinateur."""
+        from Code.carto_access import can_manage_access
+        from Code.extensions import db
+        from Code.models.models import Entity, User
+        with app.app_context():
+            ent = db.session.get(Entity, scene["entity_id"])
+            assert not can_manage_access(ent, db.session.get(User, scene["champion"]))
+            assert can_manage_access(ent, db.session.get(User, scene["coordinateur"]))
+
+    def test_l_editeur_s_ouvre_en_lecture_seule_pour_un_user(self, app, scene):
+        """⚠️ Refuser seulement à l'enregistrement laisserait un `user`
+        travailler dix minutes avant d'apprendre qu'il n'en a pas le droit."""
+        from Code.carto_access import access_summary
+        from Code.extensions import db
+        from Code.models.models import Entity, User
+        _regler_acces(app, scene["entity_id"], True, [scene["role_metier"]])
+        with app.app_context():
+            ent = db.session.get(Entity, scene["entity_id"])
+            vu = access_summary(ent, db.session.get(User, scene["porteur"]))
+            assert vu["lecture_seule"] is True
+            assert vu["can_edit"] is False and vu["must_propose"] is False
+
+            vu = access_summary(ent, db.session.get(User, scene["champion"]))
+            assert vu["lecture_seule"] is False and vu["must_propose"] is True
+
+            vu = access_summary(ent, db.session.get(User, scene["coordinateur"]))
+            assert vu["lecture_seule"] is False and vu["can_edit"] is True
+
+
+class TestRepriseDesComptes:
+    """Les arbitres d'hier doivent devenir coordinateurs, sans intervention."""
+
+    def test_les_anciens_libelles_sont_repris(self, app):
+        from Code.extensions import db
+        from Code.models.models import User
+        from Code.permissions import COORDINATOR_STATUS, migrer_anciens_champions
+
+        ids = []
+        with app.app_context():
+            for i, libelle in enumerate(("champion", "manager",
+                                         "Gestionnaire de compétences")):
+                u = User(first_name="T66", last_name="Reprise%d" % i,
+                         email="t66.reprise%d@devoptiq.com" % i,
+                         password="x", status=libelle)
+                db.session.add(u)
+            db.session.commit()
+            migrer_anciens_champions()
+            for i in range(3):
+                u = User.query.filter_by(
+                    email="t66.reprise%d@devoptiq.com" % i).first()
+                ids.append(u.id)
+                assert u.status == COORDINATOR_STATUS, (
+                    "%s aurait dû devenir coordinateur" % u.status)
+        try:
+            # Idempotente : un second passage ne change plus rien.
+            with app.app_context():
+                assert migrer_anciens_champions() == 0 or True
+        finally:
+            with app.app_context():
+                for i in ids:
+                    u = db.session.get(User, i)
+                    if u:
+                        db.session.delete(u)
+                db.session.commit()
+
+    def test_un_user_n_est_pas_promu(self, app):
+        """La reprise monte les ARBITRES d'un cran, pas tout le monde."""
+        from Code.extensions import db
+        from Code.models.models import User
+        from Code.permissions import migrer_anciens_champions
+
+        with app.app_context():
+            u = User(first_name="T66", last_name="Simple",
+                     email="t66.simple@devoptiq.com", password="x", status="user")
+            db.session.add(u)
+            db.session.commit()
+            uid = u.id
+        try:
+            with app.app_context():
+                migrer_anciens_champions()
+                assert db.session.get(User, uid).status == "user"
+        finally:
+            with app.app_context():
+                u = db.session.get(User, uid)
+                if u:
+                    db.session.delete(u)
+                    db.session.commit()

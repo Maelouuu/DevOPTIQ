@@ -29,7 +29,7 @@ def carto_partagee(app):
 
     with app.app_context():
         patron = User(first_name="Pro", last_name="Prio75", email="p75@x.tld",
-                      password="x", status="champion")
+                      password="x", status="coordinateur")
         sans_rien = User(first_name="Noe", last_name="Sans75", email="n75@x.tld",
                          password="x", status="user")
         etranger = User(first_name="Eta", last_name="Nger75", email="e75@x.tld",

@@ -400,6 +400,9 @@ a { text-decoration: none; }
 .badge-more   { background: var(--card-2); color: var(--muted); border: 1px solid var(--border); cursor: pointer; }
 .badge-user   { background: #dbeafe; color: #1d4ed8; }
 .badge-champion { background: #dcfce7; color: #15803d; }
+/* Le coordinateur tranche : sa pastille est plus soutenue que celle du
+   champion, plus sobre que celle de l'administrateur. */
+.badge-coordinateur { background: #fef3c7; color: #b45309; }
 .badge-admin  { background: var(--pg-accent-soft); color: var(--pg-accent-deep); }
 
 /* ════════════════════════════════════════════

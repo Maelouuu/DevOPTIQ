@@ -581,6 +581,19 @@ def create_app(test_config=None):
         except Exception as e:
             print(f"[DB] test panel tables: {e}")
 
+        # ⚠️ « champion » a changé de sens : il désignait l'arbitre, c'est
+        # désormais le coordinateur. Sans cette reprise, les comptes en service
+        # PERDRAIENT leur droit de valider au premier démarrage du nouveau code.
+        # Idempotente, et jouée avant de servir la moindre requête.
+        try:
+            from Code.permissions import migrer_anciens_champions
+            repris = migrer_anciens_champions()
+            if repris:
+                print(f"[DB] {repris} compte(s) champion → coordinateur")
+        except Exception as e:
+            db.session.rollback()
+            print(f"[DB] reprise des statuts: {e}")
+
         try:
             from Code.models.models import RecentEvent
             RecentEvent.__table__.create(db.engine, checkfirst=True)

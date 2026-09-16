@@ -29,7 +29,7 @@ def scene(app):
 
     with app.app_context():
         champ = User(first_name="Cam", last_name="Fon74", email="c74@x.tld",
-                     password="x", status="champion")
+                     password="x", status="coordinateur")
         simple = User(first_name="Noe", last_name="Ber74", email="n74@x.tld",
                       password="x", status="user")
         tiers = User(first_name="Sal", last_name="Vas74", email="s74@x.tld",

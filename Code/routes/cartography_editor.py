@@ -605,12 +605,22 @@ def api_save():
     if not entity:
         return jsonify({"error": "Aucune entité active"}), 400
 
-    from Code.carto_access import can_edit as _can_edit
+    from Code.carto_access import can_edit as _can_edit, can_propose as _can_propose
     if not _can_edit(entity):
         # Le masquage côté interface n'est pas une sécurité : on refuse ici aussi.
+        # ⚠️ Deux refus DIFFÉRENTS : proposer une modification est un droit
+        # (champion et au-dessus), et dire « proposez » à quelqu'un qui n'en a
+        # pas le droit l'envoie vers un bouton qui n'existe pas pour lui.
+        if not _can_propose(entity):
+            return jsonify({
+                "error": "Votre compte consulte la cartographie mais ne peut pas "
+                         "la modifier.",
+                "code": "lecture_seule",
+                "entity_id": entity.id,
+            }), 403
         return jsonify({
             "error": "Cette carto est commune : proposez la modification, "
-                     "un champion ou un administrateur l'appliquera.",
+                     "un coordinateur ou un administrateur l'appliquera.",
             "code": "must_propose",
             "entity_id": entity.id,
         }), 403

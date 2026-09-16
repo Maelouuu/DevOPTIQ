@@ -149,12 +149,19 @@ def dashboard_rows(user_id, role_id):
     précisément ce que la vue d'ensemble ne doit pas faire.
     """
     from Code.models.models import Competency, Entity
+    # ⚠️ Un filtre `Activities.entity_id == Entity.get_active_id()` vivait ici.
+    # Il était REDONDANT : `_sync_carto_to_db` crée les rôles ET les activités
+    # avec l'`entity_id` de la même entité, donc un lien `activity_roles` joint
+    # toujours deux objets de la même carto — le rôle borne déjà le périmètre.
+    # Et il était NUISIBLE : `Entity.get_active_id()` résout l'entité active en
+    # la validant contre les cartos ACCESSIBLES au compte, puis retombe sur « sa
+    # première entité » à défaut. Dès que ce repli ne tombait pas sur la carto du
+    # rôle, toutes ses activités disparaissaient — d'où des rôles affichés à
+    # « 0 activité », un taux « — », et l'impression que les évaluations avaient
+    # été perdues. Elles n'avaient jamais bougé.
     q = db.session.query(Activities).join(
         activity_roles, activity_roles.c.activity_id == Activities.id).filter(
         activity_roles.c.role_id == role_id)
-    active_entity_id = Entity.get_active_id()
-    if active_entity_id:
-        q = q.filter(Activities.entity_id == active_entity_id)
     rows = []
     for act in q.all():
         st = activity_mastery(user_id, act.id, role_id)
@@ -262,23 +269,20 @@ def synthese(user_id):
     if not peut_lire(current_user(), user_id):
         return jsonify({"error": "forbidden"}), 403
 
-    # ⚠️ DEUX PÉRIMÈTRES DANS LE MÊME ÉCRAN — d'où « j'ai perdu mes notes ».
-    # Cette boucle listait TOUS les rôles du collaborateur, toutes cartos
-    # confondues, tandis que `dashboard_rows` filtre les activités sur l'entité
-    # ACTIVE. Changer de carto active — ce que font la page Cartographie ET le
-    # sélecteur de la page RH — affichait donc les rôles d'une carto avec les
-    # activités d'une autre : zéro partout, « — du requis tenu », et l'écran
-    # avait l'air vidé de ses évaluations alors que rien n'était perdu.
-    # Un rôle qui ne PEUT PAS porter d'activité ici n'a rien à y faire.
-    from Code.models.models import Entity
-    entite_active = Entity.get_active_id()
-
+    # ⚠️ « J'ai perdu mes données de notation » venait d'ICI : cette boucle
+    # liste TOUS les rôles du collaborateur, toutes cartos confondues, alors que
+    # `dashboard_rows` filtrait ses activités sur la carto ACTIVE. Deux
+    # périmètres dans le même écran : changer de carto active affichait les
+    # rôles de l'une avec les activités de l'autre, donc zéro partout.
+    # On a d'abord restreint les rôles à la carto active — mauvaise moitié du
+    # problème : un collaborateur n'a pas forcément ACCÈS à la carto où il tient
+    # un rôle (`Entity.get_active` valide contre les cartos accessibles), et
+    # l'écran se vidait alors pour une autre raison. C'est le filtre des
+    # activités qui était de trop : voir `dashboard_rows`.
     roles, profil = [], []
     for ur in UserRole.query.filter_by(user_id=user_id).all():
         role = Role.query.get(ur.role_id)
         if role is None:
-            continue
-        if entite_active and role.entity_id and role.entity_id != entite_active:
             continue
         rows = dashboard_rows(user_id, role.id)
         compte = {"held": 0, "gap": 0, "todo": 0, "setup": 0}

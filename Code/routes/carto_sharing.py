@@ -25,7 +25,7 @@ from Code.carto_access import (
 )
 from Code.extensions import db
 from Code.models.models import CartoChangeRequest, Entity, Role, User, UserRole
-from Code.permissions import current_user, is_admin, is_champion
+from Code.permissions import current_user, is_admin, is_coordinator
 
 carto_sharing_bp = Blueprint("carto_sharing", __name__, url_prefix="/cartography")
 
@@ -501,7 +501,7 @@ def get_roles(entity_id):
             motif = "owner"
         elif is_admin(u):
             motif = "admin"
-        elif is_champion(u):
+        elif is_coordinator(u):
             motif = "champion"
         elif not autorises:
             motif = "all"
@@ -594,7 +594,7 @@ def share_home():
                    "is_owner": e.owner_id in (None, user.id)} for e in entites],
         active_entity_id=choisie,
         can_manage=gouverne,
-        can_review=bool(user and (is_admin(user) or is_champion(user))),
+        can_review=bool(user and (is_admin(user) or is_coordinator(user))),
     )
 
 
@@ -687,7 +687,7 @@ def list_changes():
     if statut in ("pending", "approved", "rejected"):
         q = q.filter(CartoChangeRequest.status == statut)
 
-    arbitre = is_admin(user) or is_champion(user)
+    arbitre = is_admin(user) or is_coordinator(user)
     if not arbitre:
         q = q.filter(CartoChangeRequest.author_id == user.id)
 
@@ -737,6 +737,15 @@ def create_change():
     if not entity.is_shared:
         return jsonify({"error": "Cette carto n'est pas commune : elle s'enregistre "
                                  "directement.", "code": "not_shared"}), 400
+    # ⚠️ Lire ne donne pas le droit de proposer : c'est ce qui sépare `user` de
+    # `champion`. Cette route ne regardait que `can_read`, donc un compte en
+    # lecture seule pouvait déposer une proposition en appelant l'API
+    # directement — le masquage de l'interface n'est pas une sécurite.
+    from Code.carto_access import can_propose as _can_propose
+    if not _can_propose(entity, user):
+        return jsonify({"error": "Votre compte consulte la cartographie mais ne "
+                                 "peut pas proposer de modification.",
+                        "code": "lecture_seule"}), 403
 
     diagram = data.get("diagram")
     if not isinstance(diagram, dict):

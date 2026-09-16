@@ -25,7 +25,8 @@ from Code.extensions import db
 from Code.models.models import (
     Entity, EntityRoleAccess, Role, UserRole,
 )
-from Code.permissions import current_user, is_admin, is_champion
+from Code.permissions import (can_propose_carto, current_user, is_admin,
+                              is_coordinator)
 
 
 # ── Rôles d'un compte ───────────────────────────────────────────────────────
@@ -57,9 +58,9 @@ def can_read(entity, user=None):
         return True
     if not entity.is_shared:
         return False
-    # Champions et administrateurs voient toutes les cartos communes : ce sont
-    # eux qui en règlent l'accès et qui arbitrent les propositions.
-    if is_admin(user) or is_champion(user):
+    # Coordinateurs et administrateurs voient toutes les cartos communes : ce
+    # sont eux qui en règlent l'accès et qui arbitrent les propositions.
+    if is_admin(user) or is_coordinator(user):
         return True
     autorises = entity_role_ids(entity.id)
     if not autorises:
@@ -98,8 +99,9 @@ def readable_entity(entity_id, user=None):
 def can_edit(entity, user=None):
     """Le compte peut-il enregistrer directement sur cette carto ?
 
-    Sur une carto commune, seuls champions et administrateurs écrivent sans
-    passer par un examen ; les autres déposent une proposition.
+    Sur une carto commune, seuls coordinateurs et administrateurs écrivent sans
+    passer par un examen ; les champions déposent une proposition, et un `user`
+    ne fait ni l'un ni l'autre.
     """
     if entity is None:
         return False
@@ -108,12 +110,40 @@ def can_edit(entity, user=None):
         return False
     if not entity.is_shared:
         return entity.owner_id in (None, user.id)
-    return bool(is_admin(user) or is_champion(user))
+    return bool(is_admin(user) or is_coordinator(user))
+
+
+def can_propose(entity, user=None):
+    """Le compte peut-il DÉPOSER une proposition sur cette carto ?
+
+    ⚠️ Lire ne donne plus le droit de proposer : c'est précisément ce qui
+    sépare `user` de `champion`. Un `user` consulte la carto et rien d'autre.
+    """
+    if not can_read(entity, user):
+        return False
+    if can_edit(entity, user):
+        return False          # il enregistre directement, il n'a rien à proposer
+    return bool(can_propose_carto(user if user is not None else current_user()))
 
 
 def must_propose(entity, user=None):
-    """Vrai quand le compte a accès en lecture mais doit faire valider."""
-    return bool(can_read(entity, user) and not can_edit(entity, user))
+    """Vrai quand le compte a accès en lecture mais doit faire valider.
+
+    Conservé sous ce nom : l'éditeur s'en sert pour basculer son bouton
+    « Sauvegarder » en « Proposer la modification ».
+    """
+    return can_propose(entity, user)
+
+
+def est_lecture_seule(entity, user=None):
+    """Vrai quand le compte ne peut NI enregistrer NI proposer.
+
+    C'est l'état d'un `user` : l'éditeur doit alors s'ouvrir sans ses outils,
+    pas seulement refuser au moment d'enregistrer.
+    """
+    return bool(can_read(entity, user)
+                and not can_edit(entity, user)
+                and not can_propose(entity, user))
 
 
 def can_review(entity=None, user=None):
@@ -123,7 +153,7 @@ def can_review(entity=None, user=None):
         return False
     if entity is not None and not entity.is_shared:
         return False
-    return bool(is_admin(user) or is_champion(user))
+    return bool(is_admin(user) or is_coordinator(user))
 
 
 def can_manage_access(entity=None, user=None):
@@ -136,7 +166,7 @@ def can_manage_access(entity=None, user=None):
     user = user if user is not None else current_user()
     if user is None:
         return False
-    return bool(is_admin(user) or is_champion(user))
+    return bool(is_admin(user) or is_coordinator(user))
 
 
 # ── Description pour les gabarits et les API ────────────────────────────────
@@ -165,6 +195,10 @@ def access_summary(entity, user=None):
         "open_to_all": bool(entity and entity.is_shared and not autorises),
         "can_edit": can_edit(entity, user),
         "must_propose": must_propose(entity, user),
+        # ⚠️ Ni enregistrer ni proposer : l'éditeur doit alors s'ouvrir SANS ses
+        # outils. Refuser seulement au moment d'enregistrer laisserait un `user`
+        # travailler dix minutes avant d'apprendre qu'il n'en a pas le droit.
+        "lecture_seule": est_lecture_seule(entity, user),
         "can_review": can_review(entity, user),
         "can_manage_access": gere,
         "roles": roles,

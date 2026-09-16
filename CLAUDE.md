@@ -961,6 +961,99 @@ les neuf pages, pas depuis celle-ci.
 
 ---
 
+
+### QUATRE statuts, et « champion » change de sens (2026-09-16)
+
+Une échelle, pas une liste : chaque palier ajoute aux droits du précédent.
+
+    user  <  champion  <  coordinateur  <  admin
+
+| Statut | Cartographie | Page RH | Paramètres |
+|---|---|---|---|
+| `user` | **consulte** — ne modifie rien, ne propose rien | non | langue seule |
+| `champion` | + **propose** une modification | non | langue seule |
+| `coordinateur` | + **modifie** directement, **valide** les propositions, règle l'accès | **oui** | langue seule |
+| `admin` | tout | oui | **tout** |
+
+⚠️ **« champion » désignait l'ARBITRE ; c'est désormais le coordinateur.** Le
+mot nomme maintenant le palier au-dessous, qui propose sans pouvoir valider.
+Conséquences, toutes nécessaires :
+- `is_coordinator_status()` reconnaît **tous les libellés historiques de
+  l'arbitre** (`manager`, « Gestionnaire de compétences », sa troncature à
+  20 caractères, « Competency Manager »). `is_champion_status()` ne reconnaît
+  que le mot exact.
+- ⚠️ **`migrer_anciens_champions()` tourne au DÉMARRAGE**, avant de servir la
+  moindre requête : sans elle, un compte qui validait les propositions se
+  réveillerait avec le droit de seulement les déposer. Idempotente, elle ne
+  touche que les libellés de l'ancien arbitre. Elle s'applique donc à CHAQUE
+  instance qui prend ce code — y compris le pilote, le jour où la branche le
+  reçoit.
+- Les ~8 appels à `is_champion()` du code voulaient tous dire « l'arbitre » :
+  ils sont devenus `is_coordinator()`. `is_champion()` existe encore, avec le
+  nouveau sens « au moins champion ».
+
+**Ce qui se ferme, et où.** Le masquage n'est jamais une sécurité — chaque règle
+est appliquée côté serveur :
+- `POST /cartography/api/save` distingue **deux refus** : `must_propose` pour un
+  champion (« proposez »), `lecture_seule` pour un `user`. ⚠️ Dire « proposez » à
+  quelqu'un qui n'en a pas le droit l'envoie vers un bouton qui n'existe pas.
+- `POST /cartography/api/changes` ne regardait que `can_read` : un `user`
+  pouvait déposer une proposition en appelant l'API directement. Il exige
+  maintenant `can_propose`.
+- ⚠️ **La page Gestion RH n'avait AUCUN contrôle d'accès** : tout compte
+  connecté l'ouvrait, et pouvait de là créer des rôles et affecter des
+  personnes. Réservée au coordinateur et à l'administrateur.
+- L'éditeur **s'ouvre en lecture seule** pour un `user`
+  (`access_summary()['lecture_seule']` → `window.OPTIQCARTO_READONLY`, le même
+  drapeau que le viewer). Refuser seulement à l'enregistrement laisserait
+  quelqu'un travailler dix minutes avant d'apprendre qu'il n'en a pas le droit.
+- Les Paramètres n'ont pas bougé : la page est ouverte à tous (chacun choisit sa
+  langue) et les sections d'administration ne sont **pas rendues du tout** pour
+  les autres — CSS compris.
+
+Tests : `test_66_carto_sharing.py::TestLesQuatrePaliers` et
+`::TestRepriseDesComptes`, `test_50::TestCeQueChaquePalierOuvre` (les quatre
+paliers × cinq droits, en table). Suite : 2243 passés.
+
+⚠️ **Deux pièges d'isolation rencontrés en chemin**, tous deux invisibles hors
+suite complète (la base est partagée) :
+- une entité de test créée **sans `owner_id`** est lisible par TOUT LE MONDE
+  (`can_read` : `entity.owner_id in (None, user.id)`) — elle entrait dans le
+  repli « aucune entité active » d'un autre fichier ;
+- une carto laissée **commune et ouverte à tous** en fin de module devient le
+  repli des fichiers suivants. `test_66` la rend privée en partant.
+
+### Le filtre par carto active de `dashboard_rows` était REDONDANT et nuisible
+
+⚠️ Suite du signalement « j'ai perdu mes données de notation ». Le premier
+correctif — ne lister que les rôles de la carto active — visait la mauvaise
+moitié : un collaborateur n'a pas forcément ACCÈS à la carto où il tient un rôle
+(`Entity.get_active` valide contre les cartos accessibles, puis retombe sur « sa
+première entité »), et l'écran se vidait alors pour une autre raison.
+
+Le vrai coupable était dans `dashboard_rows` :
+`Activities.entity_id == Entity.get_active_id()`.
+- **Redondant** : `_sync_carto_to_db` crée rôles ET activités avec l'`entity_id`
+  de la même entité — un lien `activity_roles` joint toujours deux objets de la
+  même carto, le rôle borne déjà le périmètre.
+- **Nuisible** : dès que le repli de l'entité active ne tombait pas sur la carto
+  du rôle, toutes ses activités disparaissaient. D'où « 0 activité » sur chaque
+  rôle, « — du requis tenu », et l'impression d'évaluations perdues.
+
+Le filtre est retiré ; un rôle porte ses activités quelle que soit la carto
+active. `TestPerimetreDeLaSynthese` le tient.
+
+### Le bandeau « Échap pour quitter le plein écran » couvrait la barre de nav
+
+Il était posé en `position: fixed; top: 74px; right: 18px` — sur la barre de
+navigation et sur les menus qui s'ouvrent depuis son bord droit — restait cinq
+secondes et **interceptait les clics** (`pointer-events: auto`). Retiré, pas
+déplacé : le navigateur affiche déjà sa propre mention quand une page bascule en
+plein écran. On répétait, par-dessus l'interface, ce qu'il dit tout seul. Le
+passage en plein écran automatique, lui, est conservé.
+
+---
+
 ## Page Comptes — droits et langue
 
 - **Droits** (`Code/routes/gestion_compte.py`) : `User.status` est un texte libre, écrit différemment selon les instances → comparaison sur une forme **normalisée** (minuscules, sans accents, séparateurs unifiés) via `_norm_status()`.

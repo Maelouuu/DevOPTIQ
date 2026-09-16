@@ -67,7 +67,7 @@ def scene(app):
     from Code.extensions import db
     from Code.models.models import Entity, EntityRoleAccess, Role, UserRole
 
-    champion = _mk_user(app, "t68.champion@devoptiq.com", "champion")
+    champion = _mk_user(app, "t68.coord@devoptiq.com", "coordinateur")
     simple = _mk_user(app, "t68.simple@devoptiq.com", "user")
 
     with app.app_context():
@@ -114,7 +114,7 @@ def scene(app):
 class TestPage:
 
     def test_la_page_s_ouvre_pour_un_compte_connecte(self, client, scene):
-        _as(client, scene["champion"], "t68.champion@devoptiq.com")
+        _as(client, scene["champion"], "t68.coord@devoptiq.com")
         res = client.get("/share/")
         assert res.status_code == 200
         html = res.get_data(as_text=True)
@@ -130,7 +130,7 @@ class TestPage:
 
     def test_l_entite_de_l_url_est_celle_qui_s_affiche(self, client, scene):
         """On arrive depuis la fiche d'une entité : c'est celle-là qu'on veut voir."""
-        _as(client, scene["champion"], "t68.champion@devoptiq.com")
+        _as(client, scene["champion"], "t68.coord@devoptiq.com")
         html = client.get(f"/share/?entity_id={scene['entity_b']}").get_data(as_text=True)
         assert f"activeId:  {scene['entity_b']}" in html
 
@@ -147,7 +147,7 @@ class TestPage:
                 db.session.commit()
             priv_id = priv.id
 
-        _as(client, scene["champion"], "t68.champion@devoptiq.com")
+        _as(client, scene["champion"], "t68.coord@devoptiq.com")
         html = client.get(f"/share/?entity_id={priv_id}").get_data(as_text=True)
         assert f"activeId:  {priv_id}" not in html
 
@@ -159,7 +159,7 @@ class TestPage:
 class TestTitulaires:
 
     def test_l_ecran_donne_les_roles_avec_leurs_titulaires(self, client, scene):
-        _as(client, scene["champion"], "t68.champion@devoptiq.com")
+        _as(client, scene["champion"], "t68.coord@devoptiq.com")
         data = client.get(f"/cartography/api/access/{scene['entity_b']}/roles").get_json()
         role = next(r for r in data["roles"] if r["id"] == scene["role_b"])
         assert [h["id"] for h in role["holders"]] == [scene["simple"]]
@@ -168,7 +168,7 @@ class TestTitulaires:
     def test_ajouter_un_titulaire_ne_touche_pas_ses_autres_roles(self, app, client, scene):
         """Le piège des endpoints RH : ils remplacent TOUS les rôles d'un compte."""
         from Code.models.models import UserRole
-        _as(client, scene["champion"], "t68.champion@devoptiq.com")
+        _as(client, scene["champion"], "t68.coord@devoptiq.com")
         res = client.post(
             f"/cartography/api/access/{scene['entity_a']}/roles/{scene['role_a']}/holders",
             json={"add": [scene["simple"]]})
@@ -183,7 +183,7 @@ class TestTitulaires:
 
     def test_ajouter_deux_fois_ne_duplique_pas(self, app, client, scene):
         from Code.models.models import UserRole
-        _as(client, scene["champion"], "t68.champion@devoptiq.com")
+        _as(client, scene["champion"], "t68.coord@devoptiq.com")
         for _ in range(2):
             client.post(
                 f"/cartography/api/access/{scene['entity_a']}/roles/{scene['role_a']}/holders",
@@ -195,7 +195,7 @@ class TestTitulaires:
 
     def test_retirer_un_titulaire(self, app, client, scene):
         from Code.models.models import UserRole
-        _as(client, scene["champion"], "t68.champion@devoptiq.com")
+        _as(client, scene["champion"], "t68.coord@devoptiq.com")
         client.post(
             f"/cartography/api/access/{scene['entity_a']}/roles/{scene['role_a']}/holders",
             json={"add": [scene["simple"]]})
@@ -218,7 +218,7 @@ class TestTitulaires:
 
     def test_un_role_d_une_autre_carto_est_refuse(self, client, scene):
         """L'id du rôle doit appartenir à la carto de l'URL."""
-        _as(client, scene["champion"], "t68.champion@devoptiq.com")
+        _as(client, scene["champion"], "t68.coord@devoptiq.com")
         res = client.post(
             f"/cartography/api/access/{scene['entity_a']}/roles/{scene['role_b']}/holders",
             json={"add": [scene["simple"]]})
@@ -240,7 +240,7 @@ class TestPortee:
             db.session.commit()
             total = User.query.count()
 
-        _as(client, scene["champion"], "t68.champion@devoptiq.com")
+        _as(client, scene["champion"], "t68.coord@devoptiq.com")
         data = client.get(f"/cartography/api/access/{scene['entity_a']}/roles").get_json()
         assert len(data["reach"]) == total
         assert {u["reason"] for u in data["reach"]} <= {"owner", "admin", "champion", "all"}
@@ -249,7 +249,7 @@ class TestPortee:
         from Code.carto_access import set_access
         from Code.extensions import db
         from Code.models.models import Entity
-        _as(client, scene["champion"], "t68.champion@devoptiq.com")
+        _as(client, scene["champion"], "t68.coord@devoptiq.com")
         client.post(
             f"/cartography/api/access/{scene['entity_a']}/roles/{scene['role_a']}/holders",
             json={"add": [scene["simple"]]})
@@ -273,7 +273,7 @@ class TestPortee:
             set_access(db.session.get(Entity, scene["entity_a"]), True, [scene["role_a"]])
             db.session.commit()
 
-        _as(client, scene["champion"], "t68.champion@devoptiq.com")
+        _as(client, scene["champion"], "t68.coord@devoptiq.com")
         data = client.get(f"/cartography/api/access/{scene['entity_a']}/roles").get_json()
         assert all(u["id"] != dehors for u in data["reach"])
 
@@ -310,7 +310,7 @@ class TestVignettes:
     """
 
     def test_la_vignette_dessine_bandes_formes_et_fleches(self, client, scene):
-        _as(client, scene["champion"], "t68.champion@devoptiq.com")
+        _as(client, scene["champion"], "t68.coord@devoptiq.com")
         res = client.get(f"/cartography/api/access/{scene['entity_a']}/thumbnail.svg")
         assert res.status_code == 200
         assert res.mimetype == "image/svg+xml"
@@ -339,7 +339,7 @@ class TestVignettes:
             ent.optiqcarto_data = _json.dumps(diag)
             db.session.commit()
         try:
-            _as(client, scene["champion"], "t68.champion@devoptiq.com")
+            _as(client, scene["champion"], "t68.coord@devoptiq.com")
             svg = client.get(
                 f"/cartography/api/access/{scene['entity_a']}/thumbnail.svg"
             ).get_data(as_text=True)
@@ -366,7 +366,7 @@ class TestVignettes:
             ent.optiqcarto_data = _json.dumps(diag)
             db.session.commit()
         try:
-            _as(client, scene["champion"], "t68.champion@devoptiq.com")
+            _as(client, scene["champion"], "t68.coord@devoptiq.com")
             svg = client.get(
                 f"/cartography/api/access/{scene['entity_a']}/thumbnail.svg"
             ).get_data(as_text=True)
@@ -391,7 +391,7 @@ class TestVignettes:
             db.session.commit()
             eid = e.id
 
-        _as(client, scene["champion"], "t68.champion@devoptiq.com")
+        _as(client, scene["champion"], "t68.coord@devoptiq.com")
         res = client.get(f"/cartography/api/access/{eid}/thumbnail.svg")
         assert res.status_code == 200
         assert "<rect/>" in res.get_data(as_text=True)
@@ -413,14 +413,14 @@ class TestVignettes:
             db.session.commit()
             eid = e.id
 
-        _as(client, scene["champion"], "t68.champion@devoptiq.com")
+        _as(client, scene["champion"], "t68.coord@devoptiq.com")
         assert client.get(f"/cartography/api/access/{eid}/thumbnail.svg").status_code == 404
         listee = next(m for m in client.get(
             "/cartography/api/access/previews").get_json()["maps"] if m["id"] == eid)
         assert listee["has_thumbnail"] is False
 
     def test_la_liste_porte_l_etat_et_les_chiffres(self, client, scene):
-        _as(client, scene["champion"], "t68.champion@devoptiq.com")
+        _as(client, scene["champion"], "t68.coord@devoptiq.com")
         data = client.get("/cartography/api/access/previews").get_json()
         carte = next(m for m in data["maps"] if m["id"] == scene["entity_a"])
         assert carte["is_shared"] is True
