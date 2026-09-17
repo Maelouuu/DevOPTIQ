@@ -2050,6 +2050,121 @@ nettoie — sans quoi un retour en arrière se cacherait sous une marge.
   en arrière. Son déclenchement automatique est retiré — il reste lançable à la main,
   dans le même groupe `concurrency` que `deploy-officielle.yml` pour que les deux ne
   déploient jamais en même temps.
+### Import global IA : l'écran entier était en dur, des TROIS côtés (2026-09-17)
+
+La fenêtre d'import de la page Carte s'affichait en français dans l'interface
+anglaise. Pas à un endroit — à trois, et le troisième est celui qu'on oublie :
+
+1. le **gabarit** (`import_full_modal.html`, 25 fragments — c'est l'un des trois
+   écrans jamais traduits que `TestFrancaisEnDur` inventoriait) ;
+2. les phrases **bâties par `import_full.js`** (« 1 tâche », « Sûr », le bilan
+   chiffré, les unités de taille de fichier) ;
+3. ⚠️ **celles que la ROUTE renvoie** — `analysis_notes`, les motifs
+   d'appariement, les messages d'erreur. Elles ne ressemblent pas à de
+   l'affichage dans le code (`return jsonify({'error': …})`), mais elles sont
+   recopiées telles quelles dans la fenêtre : un anglophone lisait « Analyse
+   terminée : 4 activité(s) mappée(s) » au milieu d'une page anglaise.
+
+73 clés `impf.*` par langue. Le JS les reçoit par `window.IMPF_I18N`
+(`| tojson`, jamais une traduction entre guillemets dans un `<script>`), avec
+son repli français en dur : un oubli d'injection dégrade, il ne casse pas.
+
+⚠️ **Deux tests cherchaient des MOTS FRANÇAIS** dans ces messages
+(`"entit" in error`, `"probable" in reason`) : ils tombaient dès que la session
+tournait en anglais — et surtout ils ne vérifiaient plus rien d'utile. Ils
+confrontent maintenant le message rendu aux DEUX formulations du catalogue, ce
+qui éprouve du même coup que la traduction est bien celle qui sort.
+
+**La fonctionnalité, elle, marchait.** Éprouvée quatre fois avant de conclure :
+API directe (4 appariées / 21 à résoudre sur le vrai fichier client, injection
+201 avec 18 tâches), interface FR, interface EN, et résolution manuelle d'un
+groupe non apparié. Rien à corriger de ce côté.
+ℹ️ Au passage : `buildReviewScreen` est déclarée **deux fois** dans
+`import_full.js` (l.273 et l.687, la seconde écrase la première — c'est elle
+qui tourne, et c'est elle qui pose `data-groupIndex`). ~120 lignes de la
+première sont mortes. Ne pas les corriger en croyant corriger l'écran.
+
+### Page RH : un rôle sur PLUSIEURS cartos (2026-09-17)
+
+Ouvrir une carto à un rôle se faisait carto par carto : changer l'entité en
+haut de page, cocher, recommencer — cinq cartos, cinq allers-retours — et
+aucun endroit d'où VOIR ce qu'un rôle ouvre au total. La carte de rôle porte
+un bouton **« Cartos »** : une fenêtre, toutes les cartos accessibles, tout
+part de là. `GET|POST /gestion_rh/role_cartos`.
+
+⚠️ **`set_access` (page Partage) n'accepte que les rôles DE l'entité réglée, et
+c'est juste là-bas** : on y règle une carto et on coche parmi SES bandes. Ici
+on part du rôle. `can_read` s'en accommode depuis toujours — il compare les
+rôles du compte aux rôles autorisés **sans jamais demander à quelle entité ces
+rôles appartiennent**. Seul l'écrivain était restrictif.
+
+⚠️ **Deux conséquences que l'écran annonce AVANT le clic**, parce qu'elles
+décident de qui voit quoi :
+- une carto **privée** ignore les rôles (`can_read` rend la main au
+  propriétaire avant même de les consulter) — la cocher la rend commune, sinon
+  on enregistrerait un accès qui ne produit rien ;
+- une carto commune **sans aucun rôle autorisé est ouverte à TOUS**. Y poser le
+  premier rôle la RESTREINT : cocher peut retirer l'accès à des gens qui
+  l'avaient. C'est le piège de cet écran, il est écrit ligne par ligne.
+
+⚠️ On ne réécrit QUE la ligne de ce rôle : régler un rôle ne doit pas effacer le
+travail fait sur les autres.
+
+### Page RH : un développeur de compétences PAR RÔLE (2026-09-17)
+
+⚠️ **Il existait déjà en base et aucun écran ne le posait.**
+`user_roles.manager_id` porte ce lien, `competences_acces.encadre()` le lit
+déjà (il regarde les DEUX rattachements), et `assign_manager_simple` accepte
+un paramètre `role_ids` — mais la page envoyait `role_ids: null`, c'est-à-dire
+« le même développeur pour tous les rôles ». La capacité était là, injoignable.
+
+Or celui qui suit quelqu'un sur « Qualité » ne le suit pas forcément sur
+« Logistique ». La fiche d'une personne donne donc un sélecteur **par rôle
+TENU** (`POST /gestion_rh/role_dev`) — poser un développeur sur un rôle qu'elle
+ne tient pas n'aurait aucun lien pour le porter, la route refuse et l'écran le
+dit plutôt que d'offrir un bouton qui échoue.
+- Le même menu sert aux deux portées (global et par rôle) : deux menus pour un
+  même choix finiraient par se contredire, et le second oublierait la coche
+  « aucun », qui est ce qui RETIRE l'affectation.
+- La liste annonce **« n développeurs »** quand ils diffèrent d'un rôle à
+  l'autre : afficher un seul nom serait un mensonge.
+
+### Page RH ④ : ce que chaque palier ouvre se RÈGLE (2026-09-17)
+
+L'échelle `user < champion < coordinateur < admin` est la grammaire du produit
+et ne bouge pas. Ce que chaque palier OUVRE se règle, parce qu'une entreprise
+n'a pas les mêmes usages qu'une autre. Une matrice (7 droits × 4 paliers) en
+section 4 de la page RH ; `GET|POST /gestion_rh/droits`.
+
+- **Où c'est branché** : `Code/permissions.py` — `DROITS_DEFAUT`,
+  `droits_effectifs()`, `a_le_droit(droit, user)`. Les `can_*` délèguent toutes
+  à `a_le_droit`, y compris `can_manage_access` (carto_access).
+- ⚠️ **Le tableau par défaut EST le comportement d'hier.** Une instance qui n'a
+  jamais rien réglé ne change pas de comportement en prenant ce code — sans
+  cette règle, une livraison redistribuerait silencieusement les droits de tout
+  le monde. Vérifié par `test_81::TestLeDefautEstLeComportementDHier`.
+- ⚠️ **La colonne `admin` est verrouillée à VRAI, et le SERVEUR la reforce.**
+  Se retirer les Paramètres, ce serait perdre l'écran depuis lequel on les
+  remettrait : la porte se refermerait de l'intérieur, sans poignée.
+- ⚠️ **Seul un administrateur ÉCRIT** ; un coordinateur LIT. Un coordinateur qui
+  pourrait s'attribuer les sections d'administration s'attribuerait la clé IA
+  de l'entreprise. La ligne `parametres_admin` porte d'ailleurs, en clair, ce
+  qu'elle ouvre : clé IA, adresse de la base, console serveur.
+- ⚠️ **On ne stocke que les ÉCARTS** au défaut. Enregistrer la table entière
+  figerait les valeurs d'origine : le jour où le produit en change une, les
+  instances qui n'y avaient jamais touché garderaient l'ancienne sans le savoir.
+- ⚠️ **Pas de cache dans `flask.g`** — une première version en posait un pour
+  éviter une dizaine de lectures par page. `g` vit aussi longtemps que le
+  CONTEXTE, pas la requête : la suite de tests garde un contexte applicatif
+  ouvert du début à la fin (`conftest.app`), si bien que le premier réglage lu
+  y restait figé pour toute la session. Deux tests tombaient, et le défaut
+  aurait frappé n'importe quel contexte long. `db.session.get()` sur une clé
+  primaire passe déjà par la carte d'identité : un aller en base par session,
+  c'est-à-dire par requête — la granularité voulue, sans la dépasser.
+
+Tests : `tests/test_80_rh_acces_et_dev.py` (15 cas) et
+`tests/test_81_droits_reglables.py` (11 cas). Suite : 2328 passés.
+
 ### Le pilote repris sur staging — 108 commits d'un coup (2026-09-17)
 
 `optiqfluent-staging` avait 108 commits de retard et 39 commits propres. Sur le

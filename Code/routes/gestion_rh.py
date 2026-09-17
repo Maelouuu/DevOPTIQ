@@ -801,3 +801,58 @@ def set_role_dev():
     db.session.commit()
     return jsonify({'ok': True, 'user_id': lien.user_id,
                     'role_id': lien.role_id, 'dev_id': lien.manager_id})
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  Ce que chaque palier ouvre — le tableau des droits
+# ═══════════════════════════════════════════════════════════════════════════
+# L'échelle `user < champion < coordinateur < admin` est la grammaire du
+# produit et ne se règle pas. Ce que chaque palier OUVRE, si : une entreprise
+# où tout le monde propose n'a pas les mêmes usages qu'une où seul un
+# coordinateur touche à la carto.
+#
+# ⚠️ **Seul un ADMINISTRATEUR écrit ce tableau**, et la colonne `admin` y est
+# verrouillée à vrai. Sans ces deux règles, on pourrait se retirer l'accès aux
+# Paramètres — c'est-à-dire perdre l'écran depuis lequel on le remettrait. La
+# porte se refermerait de l'intérieur, sans poignée.
+#
+# Un coordinateur LIT le tableau : savoir ce qui est ouvert à qui fait partie
+# de son travail, même quand il ne le décide pas.
+
+@gestion_rh_bp.route('/droits')
+def lire_droits():
+    from Code.permissions import (DROITS_DEFAUT, PALIERS, can_access_rh,
+                                  current_user, droits_effectifs, is_admin)
+
+    moi = current_user()
+    if not can_access_rh(moi):
+        return jsonify({'error': 'Accès refusé'}), 403
+    return jsonify({
+        'paliers': list(PALIERS),
+        'droits': droits_effectifs(),
+        'defaut': {d: dict(v, admin=True) for d, v in DROITS_DEFAUT.items()},
+        'modifiable': bool(is_admin(moi)),
+    })
+
+
+@gestion_rh_bp.route('/droits', methods=['POST'])
+def ecrire_droits():
+    from Code.permissions import (can_access_rh, current_user,
+                                  droits_effectifs, enregistrer_droits,
+                                  is_admin)
+
+    moi = current_user()
+    if not can_access_rh(moi):
+        return jsonify({'error': 'Accès refusé'}), 403
+    if not is_admin(moi):
+        # ⚠️ Un coordinateur qui pourrait s'attribuer les Paramètres
+        # d'administration s'attribuerait la clé IA de l'entreprise. Le tableau
+        # se lit à son palier, il ne s'écrit qu'au-dessus.
+        return jsonify({'error': 'Seul un administrateur règle les droits'}), 403
+
+    data = request.get_json(silent=True) or {}
+    table = data.get('droits')
+    if not isinstance(table, dict):
+        return jsonify({'error': 'Tableau attendu'}), 400
+    enregistrer_droits(table)
+    return jsonify({'ok': True, 'droits': droits_effectifs()})

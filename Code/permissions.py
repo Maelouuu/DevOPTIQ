@@ -141,39 +141,178 @@ def is_champion(user=None):
     return niveau(user) >= NIVEAU_CHAMPION
 
 
+# ── Ce que chaque palier ouvre — RÉGLABLE ───────────────────────────────────
+#
+# L'échelle (`user < champion < coordinateur < admin`) ne bouge pas : c'est la
+# grammaire du produit. Ce qui se règle, c'est ce que CHAQUE palier ouvre —
+# parce qu'une entreprise n'a pas les mêmes usages qu'une autre. Chez l'une,
+# tout le monde propose ; chez l'autre, seul un coordinateur touche à la carto.
+#
+# ⚠️ **Le tableau par défaut EST le comportement d'hier.** Une instance qui n'a
+# jamais rien réglé ne change pas de comportement en prenant ce code : sans
+# ligne en base, on rend exactement ces valeurs. C'est la seule façon de livrer
+# un réglage sans surprendre les instances en service.
+#
+# ⚠️ **La colonne `admin` est verrouillée à VRAI et ne se règle pas.** Se
+# retirer l'accès aux Paramètres, c'est perdre l'écran depuis lequel on le
+# remettrait : la porte se refermerait de l'intérieur, sans poignée. Un
+# administrateur peut donc toujours tout rouvrir.
+
+CLE_DROITS = "droits_par_palier"
+
+PALIERS = ("user", "champion", "coordinateur", "admin")
+
+DROITS_DEFAUT = {
+    # proposer une modification de carto
+    "propose_carto":      {"user": False, "champion": True,  "coordinateur": True},
+    # enregistrer directement sur une carto commune
+    "edit_carto":         {"user": False, "champion": False, "coordinateur": True},
+    # valider ou refuser une proposition
+    "review_carto":       {"user": False, "champion": False, "coordinateur": True},
+    # régler qui accède à une carto commune
+    "manage_acces":       {"user": False, "champion": False, "coordinateur": True},
+    # ouvrir la page Gestion RH
+    "acces_rh":           {"user": False, "champion": False, "coordinateur": True},
+    # créer des comptes depuis la page Comptes
+    "cree_comptes":       {"user": False, "champion": False, "coordinateur": True},
+    # ⚠️ sections d'administration des Paramètres : clé IA, URL de la base,
+    # console serveur. Ouvrir cette porte donne la clé IA de l'entreprise.
+    "parametres_admin":   {"user": False, "champion": False, "coordinateur": False},
+}
+
+
+def _reglages_stockes():
+    """Ce qui est écrit en base, ou {} — jamais d'exception vers l'appelant.
+
+    ⚠️ **Aucun cache applicatif ici, volontairement.** Une première version
+    gardait la valeur dans `flask.g` pour éviter une dizaine de lectures par
+    page. C'était un piège : `g` vit aussi longtemps que le CONTEXTE, et un
+    contexte peut durer bien plus qu'une requête — la suite de tests en garde
+    un ouvert du début à la fin, si bien que le tout premier réglage lu y
+    restait figé pour toute la session.
+
+    La lecture n'a pas besoin de ce cache : `db.session.get()` sur une clé
+    primaire passe par la carte d'identité de SQLAlchemy, donc un seul aller
+    en base par SESSION — c'est-à-dire par requête, exactement la granularité
+    qu'on voulait, et sans la garder plus longtemps que la requête.
+    """
+    from flask import has_app_context
+    if not has_app_context():
+        return {}
+    try:
+        from Code.models.models import AppSetting
+        row = db.session.get(AppSetting, CLE_DROITS)
+        if row and row.value:
+            import json
+            brut = json.loads(row.value)
+            if isinstance(brut, dict):
+                return brut
+    except Exception:
+        # Table absente (base neuve), JSON abîmé : on retombe sur les valeurs
+        # par défaut plutôt que de refuser tous les droits — un réglage illisible
+        # ne doit pas verrouiller l'application.
+        try:
+            db.session.rollback()
+        except Exception:
+            pass
+    return {}
+
+
+def droits_effectifs():
+    """Le tableau complet, défauts + réglages, colonne admin verrouillée."""
+    stockes = _reglages_stockes()
+    table = {}
+    for droit, defaut in DROITS_DEFAUT.items():
+        ligne = {p: bool(defaut.get(p, False)) for p in PALIERS if p != "admin"}
+        pose = stockes.get(droit) or {}
+        for palier in list(ligne):
+            if palier in pose:
+                ligne[palier] = bool(pose[palier])
+        ligne["admin"] = True          # verrouillé — voir plus haut
+        table[droit] = ligne
+    return table
+
+
+def a_le_droit(droit, user=None):
+    """Ce compte a-t-il ce droit, d'après le tableau en vigueur ?"""
+    user = user if user is not None else current_user()
+    if user is None:
+        return False
+    if is_admin(user):
+        return True
+    n = niveau(user)
+    palier = ("user" if n <= NIVEAU_USER
+              else "champion" if n == NIVEAU_CHAMPION
+              else "coordinateur")
+    return bool(droits_effectifs().get(droit, {}).get(palier, False))
+
+
+def enregistrer_droits(table):
+    """Écrit le tableau. Ne garde que ce qui DIFFÈRE du défaut.
+
+    ⚠️ Enregistrer la table entière figerait les défauts : le jour où le produit
+    change un réglage d'origine, les instances qui n'y avaient jamais touché
+    garderaient l'ancien sans le savoir. On ne stocke que les écarts.
+    """
+    import json
+    from Code.models.models import AppSetting
+
+    ecarts = {}
+    for droit, defaut in DROITS_DEFAUT.items():
+        pose = (table or {}).get(droit) or {}
+        ligne = {}
+        for palier in PALIERS:
+            if palier == "admin":
+                continue           # verrouillé : jamais stocké
+            if palier in pose and bool(pose[palier]) != bool(defaut.get(palier, False)):
+                ligne[palier] = bool(pose[palier])
+        if ligne:
+            ecarts[droit] = ligne
+
+    row = db.session.get(AppSetting, CLE_DROITS)
+    if row is None:
+        row = AppSetting(key=CLE_DROITS)
+        db.session.add(row)
+    row.value = json.dumps(ecarts, ensure_ascii=False)
+    db.session.commit()
+    return ecarts
+
+
 # ── Ce que chaque palier ouvre ──────────────────────────────────────────────
 
 def can_propose_carto(user=None):
-    """Déposer une proposition de modification. À partir de champion.
+    """Déposer une proposition de modification. Champion par défaut.
 
-    ⚠️ Un `user` ne propose PAS : il consulte. C'est ce qui distingue les deux
-    premiers paliers, et l'éditeur doit s'ouvrir en lecture seule pour lui.
+    ⚠️ Un `user` ne propose PAS tant que personne n'a réglé le contraire : c'est
+    ce qui distingue les deux premiers paliers, et l'éditeur s'ouvre en lecture
+    seule pour lui.
     """
-    return niveau(user) >= NIVEAU_CHAMPION
+    return a_le_droit("propose_carto", user)
 
 
 def can_edit_carto(user=None):
-    """Enregistrer directement sur une carto commune. À partir de coordinateur."""
-    return niveau(user) >= NIVEAU_COORDINATEUR
+    """Enregistrer directement sur une carto commune. Coordinateur par défaut."""
+    return a_le_droit("edit_carto", user)
 
 
 def can_review_carto(user=None):
-    """Valider ou refuser une proposition. À partir de coordinateur."""
-    return niveau(user) >= NIVEAU_COORDINATEUR
+    """Valider ou refuser une proposition. Coordinateur par défaut."""
+    return a_le_droit("review_carto", user)
 
 
 def can_access_rh(user=None):
-    """Ouvrir la page Gestion RH. À partir de coordinateur."""
-    return niveau(user) >= NIVEAU_COORDINATEUR
+    """Ouvrir la page Gestion RH. Coordinateur par défaut."""
+    return a_le_droit("acces_rh", user)
 
 
 def can_see_admin_settings(user=None):
-    """Les sections d'administration des Paramètres. Administrateurs seuls.
+    """Les sections d'administration des Paramètres. Administrateurs par défaut.
 
     ⚠️ La PAGE Paramètres, elle, reste ouverte à tous : chacun doit pouvoir
-    choisir la langue de son interface.
+    choisir la langue de son interface. Ce droit-ci ne porte que sur les
+    sections d'administration — clé IA, URL de la base, console serveur.
     """
-    return is_admin(user)
+    return a_le_droit("parametres_admin", user)
 
 
 def can_create_accounts_status(raw):
@@ -181,7 +320,7 @@ def can_create_accounts_status(raw):
 
 
 def can_create_accounts(user=None):
-    return niveau(user) >= NIVEAU_COORDINATEUR
+    return a_le_droit("cree_comptes", user)
 
 
 def can_edit_account(target_user_id, user=None):
