@@ -10,6 +10,11 @@ from difflib import SequenceMatcher
 import openpyxl
 from flask import Blueprint, request, jsonify, session
 from Code.ai_key import get_openai_key
+# ⚠️ Cette route ne rend pas que des données : `analysis_notes`, les motifs
+# d'appariement et les erreurs sont AFFICHÉS tels quels dans la fenêtre. Ils
+# étaient en dur en français — un anglophone lisait « Analyse terminée : 4
+# activité(s)… » au milieu d'une interface anglaise.
+from Code.translations import t
 from Code.prompts import get_prompt, prompts_available
 from sqlalchemy import func
 
@@ -192,7 +197,7 @@ def _algorithmic_match(excel_groups: list, db_activities: list) -> dict:
             if excel_norm == db_norm:
                 best_act = act
                 best_score = 1.0
-                best_reason = 'Correspondance exacte'
+                best_reason = t('impf.match_exact')
                 break
 
             # 2. Inclusion
@@ -201,7 +206,7 @@ def _algorithmic_match(excel_groups: list, db_activities: list) -> dict:
                 if score > best_score:
                     best_act = act
                     best_score = score
-                    best_reason = 'Correspondance partielle (contenu dans l\'autre)'
+                    best_reason = t('impf.match_partial')
                 continue
 
             # 3. Fuzzy
@@ -209,7 +214,7 @@ def _algorithmic_match(excel_groups: list, db_activities: list) -> dict:
             if score > best_score:
                 best_act = act
                 best_score = score
-                best_reason = f'Correspondance approximative ({score:.0%})'
+                best_reason = t('impf.match_approx').replace('{score}', f'{score:.0%}')
 
         if best_act and best_score >= 0.90:
             # Correspondance sûre uniquement → section "Mappé"
@@ -238,13 +243,13 @@ def _algorithmic_match(excel_groups: list, db_activities: list) -> dict:
                 for a in scored[:3]
             ]
             if best_act and best_score >= 0.75:
-                reason = f'Correspondance probable ({best_score:.0%}) — vérification recommandée.'
+                reason = t('impf.reason_probable').replace('{score}', f'{best_score:.0%}')
             elif best_act and best_score >= 0.60:
-                reason = f'Correspondance incertaine ({best_score:.0%}) — vérification recommandée.'
+                reason = t('impf.reason_uncertain').replace('{score}', f'{best_score:.0%}')
             else:
                 reason = (
-                    f'Meilleur score : {best_score:.0%} — aucune correspondance fiable.'
-                    if best_act else 'Aucune activité dans la base.'
+                    t('impf.reason_best').replace('{score}', f'{best_score:.0%}')
+                    if best_act else t('impf.reason_none')
                 )
             unmatched_groups.append({
                 'activity_name_excel': excel_name,
@@ -254,10 +259,9 @@ def _algorithmic_match(excel_groups: list, db_activities: list) -> dict:
                 'tasks': group['tasks'],
             })
 
-    notes = (
-        f'Analyse terminée : {len(matched_groups)} activité(s) mappée(s), '
-        f'{len(unmatched_groups)} à résoudre manuellement.'
-    )
+    notes = (t('impf.notes')
+             .replace('{matched}', str(len(matched_groups)))
+             .replace('{unmatched}', str(len(unmatched_groups))))
     return {
         'matched_groups': matched_groups,
         'unmatched_groups': unmatched_groups,
@@ -317,30 +321,28 @@ def analyze_excel():
     enrichit optionnellement avec OpenAI pour les non-matchés.
     """
     if 'file' not in request.files:
-        return jsonify({'error': 'Aucun fichier fourni'}), 400
+        return jsonify({'error': t('impf.err_no_file')}), 400
 
     file = request.files['file']
     if not file.filename:
-        return jsonify({'error': 'Fichier vide'}), 400
+        return jsonify({'error': t('impf.err_empty_file')}), 400
 
     allowed = ('.xlsx', '.xls', '.xlsm')
     if not any(file.filename.lower().endswith(e) for e in allowed):
-        return jsonify({'error': 'Format non supporté — utilisez .xlsx, .xls ou .xlsm'}), 400
+        return jsonify({'error': t('impf.err_bad_format')}), 400
 
     entity_id = session.get('active_entity_id')
     if not entity_id:
-        return jsonify({
-            'error': 'Aucune entité active — activez une entité dans la cartographie.'
-        }), 400
+        return jsonify({'error': t('impf.err_no_entity')}), 400
 
     # Parse Excel
     try:
         excel_groups = _parse_excel_bytes(file.read())
     except Exception as e:
-        return jsonify({'error': f'Erreur lecture Excel : {str(e)}'}), 400
+        return jsonify({'error': t('impf.err_read').replace('{detail}', str(e))}), 400
 
     if not excel_groups:
-        return jsonify({'error': 'Aucune donnée trouvée dans le fichier'}), 400
+        return jsonify({'error': t('impf.err_no_data')}), 400
 
     # Activités en base
     activities = Activities.query.filter_by(entity_id=entity_id).order_by(Activities.name).all()
@@ -348,7 +350,7 @@ def analyze_excel():
 
     if not db_activities:
         return jsonify({
-            'error': 'Aucune activité dans cette entité. Importez d\'abord votre cartographie SVG.'
+            'error': t('impf.err_no_activity')
         }), 400
 
     # 1. Matching algorithmique (toujours)
@@ -374,7 +376,7 @@ def analyze_excel():
                             'activity_id': r['activity_id'],
                             'activity_name_db': r['activity_name_db'],
                             'confidence': 'high',
-                            'match_reason': r.get('match_reason', 'Résolu par IA'),
+                            'match_reason': r.get('match_reason', t('impf.ai_resolved')),
                             'guarantor': grp.get('guarantor', ''),
                             'tasks': grp['tasks'],
                         })
@@ -391,7 +393,10 @@ def analyze_excel():
                             existing_possible = [ai_suggestion] + existing_possible
                         still_unmatched.append({
                             **grp,
-                            'reason': f"Suggestion IA ({ai_conf}) — {r.get('match_reason', 'Résolu par IA')}",
+                            'reason': (t('impf.ai_suggestion')
+                                       .replace('{conf}', str(ai_conf))
+                                       .replace('{reason}', r.get('match_reason',
+                                                                  t('impf.ai_resolved')))),
                             'possible_matches': existing_possible[:3],
                         })
                 else:
@@ -399,8 +404,9 @@ def analyze_excel():
 
             analysis['unmatched_groups'] = still_unmatched
             analysis['analysis_notes'] = (
-                f'Analyse hybride (algo + IA) : {len(analysis["matched_groups"])} mappée(s), '
-                f'{len(analysis["unmatched_groups"])} à résoudre.'
+                t('impf.notes_ai')
+                .replace('{matched}', str(len(analysis["matched_groups"])))
+                .replace('{unmatched}', str(len(analysis["unmatched_groups"])))
             )
 
     # Statistiques
@@ -437,7 +443,7 @@ def inject_full():
     groups = data.get('groups', [])
 
     if not groups:
-        return jsonify({'error': 'Aucun groupe à injecter'}), 400
+        return jsonify({'error': t('impf.err_no_group')}), 400
 
     entity_id = session.get('active_entity_id')
     if not entity_id:

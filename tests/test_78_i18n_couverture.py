@@ -589,11 +589,16 @@ class TestFrancaisEnDur:
     texte — c'est un travail à part entière. En attendant, la dette est ÉCRITE
     ici, et elle ne peut que décroître : un gabarit absent de l'inventaire doit
     être propre, et un gabarit présent ne doit pas empirer.
+
+    ✅ 17/09/2026 — `import_full_modal` est SORTI de l'inventaire : l'écran
+    entier passe par le catalogue (`impf.*`), y compris les phrases bâties par
+    `import_full.js` et celles que la route RENVOIE (`analysis_notes`, motifs
+    d'appariement, erreurs). Le cliquet a fait son travail : il a refusé de
+    laisser le plafond à 25 pour 0 fragment réel.
     """
 
     # gabarit → nombre de fragments français tolérés aujourd'hui.
     DETTE = {
-        "import_full_modal.html":       25,
         "projection_metier.html":       14,
         "import_tasks_modal.html":      11,
         "cartography_editor.html":       7,

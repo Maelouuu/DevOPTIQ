@@ -3,6 +3,39 @@
      Inclus dans activities_map.html
      ============================================================ -->
 <link rel="stylesheet" href="{{ url_for('static', filename='import_full.css') }}">
+<script>
+  /* ⚠️ `| tojson`, et surtout jamais une traduction posée entre guillemets :
+     le navigateur décode les entités HTML dans un ATTRIBUT, jamais dans un
+     bloc script — « l'IA » arriverait au JS sous la forme « l&#39;IA » et
+     s'afficherait ainsi. Posé AVANT le script, qui est en `defer`. */
+  window.IMPF_I18N = Object.assign(window.IMPF_I18N || {}, {
+    bad_format:    {{ t('impf.bad_format')|tojson }},
+    server_error:  {{ t('impf.server_error')|tojson }},
+    analysis_error:{{ t('impf.analysis_error')|tojson }},
+    conf_high:     {{ t('impf.conf_high')|tojson }},
+    conf_medium:   {{ t('impf.conf_medium')|tojson }},
+    conf_low:      {{ t('impf.conf_low')|tojson }},
+    task_one:      {{ t('impf.task_one')|tojson }},
+    task_many:     {{ t('impf.task_many')|tojson }},
+    none_selected: {{ t('impf.none_selected')|tojson }},
+    group_one:     {{ t('impf.group_one')|tojson }},
+    group_many:    {{ t('impf.group_many')|tojson }},
+    importing:     {{ t('impf.importing')|tojson }},
+    inject_btn:    {{ t('impf.inject_btn')|tojson }},
+    similarity:    {{ t('impf.similarity')|tojson }},
+    unit_b:        {{ t('impf.unit_b')|tojson }},
+    unit_kb:       {{ t('impf.unit_kb')|tojson }},
+    unit_mb:       {{ t('impf.unit_mb')|tojson }},
+    proc_read:     {{ t('impf.proc_read')|tojson }},
+    proc_match:    {{ t('impf.proc_match')|tojson }},
+    proc_struct:   {{ t('impf.proc_struct')|tojson }},
+    stat_tasks:        {{ t('impf.stat_tasks')|tojson }},
+    stat_tools:        {{ t('impf.stat_tools')|tojson }},
+    stat_roles:        {{ t('impf.stat_roles')|tojson }},
+    stat_competencies: {{ t('impf.stat_competencies')|tojson }},
+    stat_activities:   {{ t('impf.stat_activities')|tojson }}
+  });
+</script>
 <script defer src="{{ url_for('static', filename='js/import_full.js') }}"></script>
 
 <!-- ── Overlay principal ────────────────────────────────────── -->
@@ -16,11 +49,11 @@
           <i class="fa-solid fa-wand-magic-sparkles"></i>
         </div>
         <div class="if-header-text">
-          <h2>Import global IA</h2>
-          <span class="if-header-sub">Analyse intelligente de votre fichier Excel</span>
+          <h2>{{ t('impf.title') }}</h2>
+          <span class="if-header-sub">{{ t('impf.subtitle') }}</span>
         </div>
       </div>
-      <button class="if-close-btn" id="if-close-btn" title="Fermer">
+      <button class="if-close-btn" id="if-close-btn" title="{{ t('btn.close') }}">
         <i class="fa-solid fa-xmark"></i>
       </button>
     </div>
@@ -29,22 +62,22 @@
     <div class="if-stepper" id="if-stepper">
       <div class="if-step active" data-step="1">
         <div class="if-step-dot"><span>1</span></div>
-        <span class="if-step-label">Fichier</span>
+        <span class="if-step-label">{{ t('impf.step_file') }}</span>
       </div>
       <div class="if-step-line"></div>
       <div class="if-step" data-step="2">
         <div class="if-step-dot"><span>2</span></div>
-        <span class="if-step-label">Analyse IA</span>
+        <span class="if-step-label">{{ t('impf.step_analysis') }}</span>
       </div>
       <div class="if-step-line"></div>
       <div class="if-step" data-step="3">
         <div class="if-step-dot"><span>3</span></div>
-        <span class="if-step-label">Validation</span>
+        <span class="if-step-label">{{ t('impf.step_review') }}</span>
       </div>
       <div class="if-step-line"></div>
       <div class="if-step" data-step="4">
         <div class="if-step-dot"><span>4</span></div>
-        <span class="if-step-label">Résultat</span>
+        <span class="if-step-label">{{ t('impf.step_result') }}</span>
       </div>
     </div>
 
@@ -57,8 +90,8 @@
           <div class="if-upload-icon">
             <i class="fa-solid fa-file-excel"></i>
           </div>
-          <p class="if-upload-title">Déposez votre fichier Excel ici</p>
-          <p class="if-upload-hint">ou cliquez pour sélectionner</p>
+          <p class="if-upload-title">{{ t('impf.drop_title') }}</p>
+          <p class="if-upload-hint">{{ t('impf.drop_hint') }}</p>
           <p class="if-upload-formats">.xlsx · .xls · .xlsm</p>
           <input type="file" id="if-file-input" accept=".xlsx,.xls,.xlsm" hidden>
         </div>
@@ -71,7 +104,7 @@
             <span class="if-file-name" id="if-file-name">fichier.xlsx</span>
             <span class="if-file-size" id="if-file-size">0 KB</span>
           </div>
-          <button class="if-file-remove" id="if-file-remove" title="Supprimer">
+          <button class="if-file-remove" id="if-file-remove" title="{{ t('btn.delete') }}">
             <i class="fa-solid fa-xmark"></i>
           </button>
         </div>
@@ -79,16 +112,16 @@
         <div class="if-info-box">
           <i class="fa-solid fa-circle-info"></i>
           <div>
-            <strong>Comment ça marche ?</strong>
-            <p>L'assistant IA analyse votre fichier, détecte les activités et tâches, puis les mappe intelligemment aux activités déjà présentes dans la cartographie active. Vous validez avant tout import.</p>
+            <strong>{{ t('impf.how_title') }}</strong>
+            <p>{{ t('impf.how_text') }}</p>
           </div>
         </div>
 
         <div class="if-footer">
-          <button class="if-btn-secondary" id="if-cancel-1">Annuler</button>
+          <button class="if-btn-secondary" id="if-cancel-1">{{ t('btn.cancel') }}</button>
           <button class="if-btn-primary" id="if-analyze-btn" disabled>
             <i class="fa-solid fa-magnifying-glass-chart"></i>
-            Analyser avec l'IA
+            {{ t('impf.analyze_btn') }}
           </button>
         </div>
       </div>
@@ -108,18 +141,18 @@
           <div class="if-loading-steps">
             <div class="if-loading-step active" id="proc-read">
               <i class="fa-solid fa-circle-notch fa-spin"></i>
-              Lecture du fichier Excel
+              {{ t('impf.proc_read') }}
             </div>
             <div class="if-loading-step" id="proc-match">
               <i class="fa-solid fa-circle-notch fa-spin"></i>
-              Matching des activités
+              {{ t('impf.proc_match') }}
             </div>
             <div class="if-loading-step" id="proc-struct">
               <i class="fa-solid fa-circle-notch fa-spin"></i>
-              Structuration des données
+              {{ t('impf.proc_struct') }}
             </div>
           </div>
-          <p class="if-loading-note">Cela peut prendre quelques secondes selon la taille du fichier.</p>
+          <p class="if-loading-note">{{ t('impf.loading_note') }}</p>
         </div>
       </div>
 
@@ -130,15 +163,15 @@
         <div class="if-review-summary" id="if-review-summary">
           <div class="if-summary-card matched">
             <div class="if-summary-num" id="if-sum-matched">0</div>
-            <div class="if-summary-label">Activités mappées</div>
+            <div class="if-summary-label">{{ t('impf.sum_matched') }}</div>
           </div>
           <div class="if-summary-card unmatched">
             <div class="if-summary-num" id="if-sum-unmatched">0</div>
-            <div class="if-summary-label">À résoudre</div>
+            <div class="if-summary-label">{{ t('impf.to_resolve') }}</div>
           </div>
           <div class="if-summary-card tasks">
             <div class="if-summary-num" id="if-sum-tasks">0</div>
-            <div class="if-summary-label">Tâches détectées</div>
+            <div class="if-summary-label">{{ t('impf.sum_tasks') }}</div>
           </div>
         </div>
 
@@ -152,11 +185,11 @@
         <div class="if-tabs">
           <button class="if-tab active" data-tab="matched">
             <i class="fa-solid fa-circle-check"></i>
-            Données mappées <span class="if-tab-badge" id="tab-badge-matched">0</span>
+            {{ t('impf.tab_matched') }} <span class="if-tab-badge" id="tab-badge-matched">0</span>
           </button>
           <button class="if-tab" data-tab="unmatched">
             <i class="fa-solid fa-triangle-exclamation"></i>
-            À résoudre <span class="if-tab-badge unmatched" id="tab-badge-unmatched">0</span>
+            {{ t('impf.to_resolve') }} <span class="if-tab-badge unmatched" id="tab-badge-unmatched">0</span>
           </button>
         </div>
 
@@ -164,7 +197,7 @@
         <div class="if-tab-content active" id="if-tab-matched">
           <div class="if-tab-info">
             <i class="fa-solid fa-circle-info"></i>
-            Ces données seront importées dans les activités correspondantes. Décochez celles à exclure.
+            {{ t('impf.info_matched') }}
           </div>
           <div id="if-matched-list" class="if-groups-list"></div>
         </div>
@@ -173,18 +206,18 @@
         <div class="if-tab-content" id="if-tab-unmatched">
           <div class="if-tab-info unmatched">
             <i class="fa-solid fa-triangle-exclamation"></i>
-            Ces groupes n'ont pas été mappés automatiquement. Assignez-les manuellement ou ignorez-les.
+            {{ t('impf.info_unmatched') }}
           </div>
           <div id="if-unmatched-list" class="if-groups-list"></div>
         </div>
 
         <div class="if-footer">
-          <button class="if-btn-secondary" id="if-back-3">← Recommencer</button>
+          <button class="if-btn-secondary" id="if-back-3">← {{ t('impf.restart') }}</button>
           <div class="if-footer-right">
             <span class="if-footer-note" id="if-inject-preview"></span>
             <button class="if-btn-success" id="if-inject-btn">
               <i class="fa-solid fa-bolt"></i>
-              Importer les données validées
+              {{ t('impf.inject_btn') }}
             </button>
           </div>
         </div>
@@ -196,22 +229,22 @@
           <div class="if-result-icon success">
             <i class="fa-solid fa-circle-check"></i>
           </div>
-          <h3>Import réussi !</h3>
-          <p class="if-result-subtitle">Les données ont été importées avec succès dans la cartographie.</p>
+          <h3>{{ t('impf.success_title') }}</h3>
+          <p class="if-result-subtitle">{{ t('impf.success_sub') }}</p>
           <div class="if-result-stats" id="if-result-stats"></div>
         </div>
         <div class="if-result-zone hidden" id="if-result-error">
           <div class="if-result-icon error">
             <i class="fa-solid fa-circle-xmark"></i>
           </div>
-          <h3>Une erreur s'est produite</h3>
+          <h3>{{ t('impf.error_title') }}</h3>
           <p class="if-result-error-msg" id="if-result-error-msg"></p>
         </div>
         <div class="if-footer">
-          <button class="if-btn-secondary hidden" id="if-retry-btn">Réessayer</button>
+          <button class="if-btn-secondary hidden" id="if-retry-btn">{{ t('impf.retry') }}</button>
           <button class="if-btn-primary" id="if-done-btn">
             <i class="fa-solid fa-xmark"></i>
-            Fermer
+            {{ t('btn.close') }}
           </button>
         </div>
       </div>
@@ -238,7 +271,7 @@
         <span class="if-group-match-name"></span>
         <span class="if-group-tasks-count"></span>
       </div>
-      <button class="if-group-toggle" title="Développer">
+      <button class="if-group-toggle" title="{{ t('impf.expand') }}">
         <i class="fa-solid fa-chevron-down"></i>
       </button>
     </div>
@@ -246,15 +279,15 @@
       <div class="if-match-reason"></div>
       <div class="if-group-guarantor hidden">
         <i class="fa-solid fa-shield-halved"></i>
-        <span>Garant : </span><strong class="if-guarantor-name"></strong>
+        <span>{{ t('impf.guarantor') }}</span><strong class="if-guarantor-name"></strong>
       </div>
       <table class="if-tasks-table">
         <thead>
           <tr>
-            <th>Tâche</th>
-            <th>Outils</th>
-            <th>Doer</th>
-            <th>Compétences</th>
+            <th>{{ t('impf.th_task') }}</th>
+            <th>{{ t('impf.th_tools') }}</th>
+            <th>{{ t('impf.th_doer') }}</th>
+            <th>{{ t('impf.th_skills') }}</th>
           </tr>
         </thead>
         <tbody class="if-tasks-tbody"></tbody>
@@ -274,7 +307,7 @@
         <span class="if-group-activity-name"></span>
         <span class="if-group-tasks-count"></span>
       </div>
-      <button class="if-group-toggle" title="Développer">
+      <button class="if-group-toggle" title="{{ t('impf.expand') }}">
         <i class="fa-solid fa-chevron-down"></i>
       </button>
     </div>
@@ -282,30 +315,30 @@
       <div class="if-unmatched-reason"></div>
       <div class="if-group-guarantor hidden">
         <i class="fa-solid fa-shield-halved"></i>
-        <span>Garant : </span><strong class="if-guarantor-name"></strong>
+        <span>{{ t('impf.guarantor') }}</span><strong class="if-guarantor-name"></strong>
       </div>
       <div class="if-unmatched-assign">
         <label class="if-assign-label">
           <i class="fa-solid fa-link"></i>
-          Assigner à une activité :
+          {{ t('impf.assign_label') }}
         </label>
         <div class="if-assign-row">
           <select class="if-activity-select">
-            <option value="">— Ignorer ce groupe —</option>
+            <option value="">{{ t('impf.ignore_group') }}</option>
           </select>
         </div>
       </div>
       <div class="if-possible-matches hidden">
-        <p class="if-pm-title"><i class="fa-solid fa-lightbulb"></i> Suggestions de l'IA :</p>
+        <p class="if-pm-title"><i class="fa-solid fa-lightbulb"></i> {{ t('impf.ai_suggestions') }}</p>
         <div class="if-pm-list"></div>
       </div>
       <table class="if-tasks-table">
         <thead>
           <tr>
-            <th>Tâche</th>
-            <th>Outils</th>
-            <th>Doer</th>
-            <th>Compétences</th>
+            <th>{{ t('impf.th_task') }}</th>
+            <th>{{ t('impf.th_tools') }}</th>
+            <th>{{ t('impf.th_doer') }}</th>
+            <th>{{ t('impf.th_skills') }}</th>
           </tr>
         </thead>
         <tbody class="if-tasks-tbody"></tbody>

@@ -439,7 +439,14 @@ class TestImportFullAnalyzeEdgeCases:
         )
         assert r.status_code == 400
         data = json.loads(r.data)
-        assert "entit" in data["error"].lower()
+        # ⚠️ Ce message est AFFICHÉ dans la fenêtre d'import : il est traduit
+        # depuis le catalogue. Y chercher le mot français « entité » faisait
+        # échouer le test dès que la session tournait en anglais — et surtout
+        # ne vérifiait plus rien de ce qui compte : que l'écran reçoive LE
+        # message prévu, dans la langue de l'utilisateur.
+        from Code.translations import t
+        assert data["error"] in (t("impf.err_no_entity", lang="fr"),
+                                 t("impf.err_no_entity", lang="en"))
 
     def test_analyze_partial_inclusion_match_goes_to_unmatched(self, auth_client):
         """Nom DB inclus dans nom Excel (score inclusion=0.88 < seuil 0.90) → unmatched_groups."""
@@ -458,7 +465,14 @@ class TestImportFullAnalyzeEdgeCases:
         assert "Activité Test Process" in unmatched_names
 
     def test_analyze_unmatched_has_probable_reason_for_close_match(self, auth_client):
-        """Activité proche mais sous le seuil 0.90 → reason contient 'probable' ou 'incertain'."""
+        """Activité proche mais sous le seuil 0.90 → le motif dit lequel.
+
+        ⚠️ Ce motif est AFFICHÉ dans la fenêtre : il passe par le catalogue.
+        Chercher les mots français « probable » / « incertain » faisait échouer
+        le test dès que la session tournait en anglais. On confronte donc le
+        motif rendu aux DEUX formulations du catalogue — ce qui vérifie du même
+        coup que la traduction est bien celle qui sort.
+        """
         excel = _make_excel(activity_name="Activité Test Process")
         r = auth_client.post(
             "/api/import-full/analyze",
@@ -469,8 +483,14 @@ class TestImportFullAnalyzeEdgeCases:
         data = json.loads(r.data)
         unmatched = [g for g in data["analysis"]["unmatched_groups"] if g["activity_name_excel"] == "Activité Test Process"]
         assert len(unmatched) == 1
-        reason = unmatched[0]["reason"].lower()
-        assert "probable" in reason or "incertain" in reason or "score" in reason
+        from Code.translations import t
+        reason = unmatched[0]["reason"]
+        familles = [t(cle, lang=lg).split("{score}")[0].strip()
+                    for cle in ("impf.reason_probable", "impf.reason_uncertain",
+                                "impf.reason_best")
+                    for lg in ("fr", "en")]
+        assert any(reason.startswith(f) for f in familles), (
+            "motif « %s » : aucune des formulations du catalogue" % reason)
 
     def test_analyze_multiple_activities_in_file(self, auth_client):
         """Excel avec deux activités → total_groups_excel=2, matched + unmatched = 2."""

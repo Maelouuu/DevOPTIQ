@@ -9,6 +9,15 @@
   // ── State ──────────────────────────────────────────────────────
   let currentFile = null;
   let analysisResult = null;   // réponse complète de /api/import-full/analyze
+
+  // ⚠️ Cet écran bâtit des phrases ; elles étaient écrites EN DUR en français
+  // et s'affichaient telles quelles dans l'interface anglaise. Le gabarit
+  // injecte `window.IMPF_I18N` (avec `| tojson`) ; le repli français reste ici
+  // pour qu'un oubli d'injection dégrade sans casser l'écran.
+  // ⚠️ Déclaré DANS l'IIFE : `optiq_alert.js` et les autres scripts de la page
+  // partagent la portée globale, un nom répété y lèverait une SyntaxError.
+  const _IFT = (cle, repli) => (window.IMPF_I18N || {})[cle] || repli;
+  const _IFN = (cle, repli, n) => _IFT(cle, repli).replace('{n}', n);
   let dbActivities = [];       // [{id, name}] pour les selects unmatched
 
   // ── DOM refs ───────────────────────────────────────────────────
@@ -135,7 +144,7 @@
     const allowed = ['.xlsx', '.xls', '.xlsm'];
     const ext = '.' + f.name.split('.').pop().toLowerCase();
     if (!allowed.includes(ext)) {
-      showToast('Format non supporté. Utilisez .xlsx, .xls ou .xlsm', 'error');
+      showToast(_IFT('bad_format', 'Format non supporté. Utilisez .xlsx, .xls ou .xlsm'), 'error');
       return;
     }
     currentFile = f;
@@ -155,9 +164,9 @@
   }
 
   function formatSize(bytes) {
-    if (bytes < 1024) return bytes + ' o';
-    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' Ko';
-    return (bytes / (1024 * 1024)).toFixed(1) + ' Mo';
+    if (bytes < 1024) return bytes + ' ' + _IFT('unit_b', 'o');
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' ' + _IFT('unit_kb', 'Ko');
+    return (bytes / (1024 * 1024)).toFixed(1) + ' ' + _IFT('unit_mb', 'Mo');
   }
 
   // ── Stepper ────────────────────────────────────────────────────
@@ -209,13 +218,13 @@
       setTimeout(() => {
         procMatch.classList.remove('active');
         procMatch.classList.add('done');
-        procMatch.innerHTML = '<i class="fa-solid fa-check"></i> Matching des activités';
+        procMatch.innerHTML = '<i class="fa-solid fa-check"></i> ' + _IFT('proc_match', 'Appariement des activités');
         procStruct.classList.add('active');
       }, 1800);
       setTimeout(() => {
         procStruct.classList.remove('active');
         procStruct.classList.add('done');
-        procStruct.innerHTML = '<i class="fa-solid fa-check"></i> Structuration des données';
+        procStruct.innerHTML = '<i class="fa-solid fa-check"></i> ' + _IFT('proc_struct', 'Structuration des données');
         resolve();
       }, 2800);
     });
@@ -232,8 +241,8 @@
       s.classList.remove('active', 'done');
     });
     procRead.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Lecture du fichier Excel';
-    procMatch.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Matching des activités';
-    procStruct.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Structuration des données';
+    procMatch.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> ' + _IFT('proc_match', 'Appariement des activités');
+    procStruct.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> ' + _IFT('proc_struct', 'Structuration des données');
 
     // Lancer l'animation et l'appel API en parallèle
     const animPromise = animateLoadingSteps();
@@ -250,12 +259,12 @@
       data = await resp.json();
 
       if (!resp.ok) {
-        throw new Error(data.error || 'Erreur serveur');
+        throw new Error(data.error || _IFT('server_error', 'Erreur serveur'));
       }
     } catch (err) {
       // Attendre au moins la fin de l'animation pour cohérence UX
       await animPromise;
-      showErrorScreen(err.message || 'Erreur lors de l\'analyse');
+      showErrorScreen(err.message || _IFT('analysis_error', "Erreur lors de l'analyse"));
       return;
     }
 
@@ -323,11 +332,17 @@
 
     const badge = card.querySelector('.if-group-confidence-badge');
     const conf = group.confidence || 'medium';
-    badge.textContent = { high: 'Sûr', medium: 'Probable', low: 'Incertain' }[conf] || conf;
+    badge.textContent = {
+      high:   _IFT('conf_high',   'Sûr'),
+      medium: _IFT('conf_medium', 'Probable'),
+      low:    _IFT('conf_low',    'Incertain'),
+    }[conf] || conf;
     badge.classList.add('confidence-' + conf);
 
     const tasks = group.tasks || [];
-    card.querySelector('.if-group-tasks-count').textContent = tasks.length + ' tâche' + (tasks.length > 1 ? 's' : '');
+    card.querySelector('.if-group-tasks-count').textContent = tasks.length > 1
+      ? _IFN('task_many', '{n} tâches', tasks.length)
+      : _IFN('task_one', '{n} tâche', tasks.length);
 
     const reason = group.match_reason || '';
     if (reason) card.querySelector('.if-match-reason').textContent = reason;
@@ -378,7 +393,9 @@
 
     card.querySelector('.if-group-activity-name').textContent = group.activity_name_excel;
     const tasks = group.tasks || [];
-    card.querySelector('.if-group-tasks-count').textContent = tasks.length + ' tâche' + (tasks.length > 1 ? 's' : '');
+    card.querySelector('.if-group-tasks-count').textContent = tasks.length > 1
+      ? _IFN('task_many', '{n} tâches', tasks.length)
+      : _IFN('task_one', '{n} tâche', tasks.length);
 
     const reason = group.reason || '';
     if (reason) card.querySelector('.if-unmatched-reason').textContent = reason;
@@ -403,7 +420,7 @@
         const btn = document.createElement('button');
         btn.className = 'if-pm-item';
         btn.textContent = pm.activity_name;
-        btn.title = 'Similarité : ' + (pm.similarity || '?');
+        btn.title = _IFT('similarity', 'Similarité : ') + (pm.similarity || '?');
         btn.addEventListener('click', () => {
           select.value = pm.activity_id;
           select.dispatchEvent(new Event('change'));
@@ -528,10 +545,12 @@
 
     const total = countMatched + countUnmatched;
     if (total === 0) {
-      injectPreview.textContent = 'Aucun groupe sélectionné';
+      injectPreview.textContent = _IFT('none_selected', 'Aucun groupe sélectionné');
       injectBtn.disabled = true;
     } else {
-      injectPreview.textContent = `${total} groupe${total > 1 ? 's' : ''} à importer`;
+      injectPreview.textContent = total > 1
+        ? _IFN('group_many', '{n} groupes à importer', total)
+        : _IFN('group_one', '{n} groupe à importer', total);
       injectBtn.disabled = false;
     }
   }
@@ -540,12 +559,12 @@
   async function runInject() {
     const groups = collectGroupsToInject();
     if (!groups.length) {
-      showToast('Aucun groupe sélectionné', 'error');
+      showToast(_IFT('none_selected', 'Aucun groupe sélectionné'), 'error');
       return;
     }
 
     injectBtn.disabled = true;
-    injectBtn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Importation…';
+    injectBtn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> ' + _IFT('importing', 'Importation…');
 
     try {
       const resp = await fetch('/api/import-full/inject', {
@@ -555,14 +574,14 @@
       });
       const data = await resp.json();
 
-      if (!resp.ok) throw new Error(data.error || 'Erreur serveur');
+      if (!resp.ok) throw new Error(data.error || _IFT('server_error', 'Erreur serveur'));
 
       showSuccessScreen(data.stats || {});
     } catch (err) {
       showErrorScreen(err.message);
     } finally {
       injectBtn.disabled = false;
-      injectBtn.innerHTML = '<i class="fa-solid fa-bolt"></i> Importer les données validées';
+      injectBtn.innerHTML = '<i class="fa-solid fa-bolt"></i> ' + _IFT('inject_btn', 'Importer les données validées');
     }
   }
 
@@ -643,11 +662,11 @@
 
     resultStats.innerHTML = '';
     const items = [
-      { num: stats.tasks_created || 0,        label: 'Tâches créées' },
-      { num: stats.tools_created || 0,         label: 'Outils ajoutés' },
-      { num: stats.roles_created || 0,         label: 'Rôles créés' },
-      { num: stats.competencies_created || 0,  label: 'Compétences' },
-      { num: stats.activities_updated || 0,    label: 'Activités mises à jour' },
+      { num: stats.tasks_created || 0,       label: _IFT('stat_tasks', 'Tâches créées') },
+      { num: stats.tools_created || 0,        label: _IFT('stat_tools', 'Outils ajoutés') },
+      { num: stats.roles_created || 0,        label: _IFT('stat_roles', 'Rôles créés') },
+      { num: stats.competencies_created || 0, label: _IFT('stat_competencies', 'Compétences') },
+      { num: stats.activities_updated || 0,   label: _IFT('stat_activities', 'Activités mises à jour') },
     ];
     items.forEach(item => {
       const div = document.createElement('div');
