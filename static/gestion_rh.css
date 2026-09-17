@@ -1793,6 +1793,120 @@ select {
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
+   Le développeur de compétences : QUI, et SUR QUOI
+   ══════════════════════════════════════════════════════════════════════════
+   ⚠️ Le bouton portait un NOM SEUL : « Lou Vasseur » se lisait exactement
+   pareil que le développeur suive les trois rôles de la personne ou un seul.
+   Il porte donc sa PORTÉE sur une seconde ligne, et une portée PARTIELLE est
+   en AMBRE — ce n'est pas une erreur, c'est la nuance qu'on n'avait aucun
+   moyen de voir. */
+.grh-devpick-txt {
+    min-width: 0; display: flex; flex-direction: column; gap: 1px;
+}
+.grh-devpick-scope {
+    font-size: 12px; line-height: 1.25; color: var(--muted, #64748b);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.grh-devpick-scope.is-partial { color: #b45309; font-weight: 600; }
+.grh-devpick.is-partial {
+    border-left: 3px solid #f59e0b; padding-left: 8px;
+}
+
+/* La pastille d'un rôle SUIVI, dans la liste des personnes : on voyait les
+   rôles sans jamais voir lesquels ont un développeur. */
+.grh-chip--suivi {
+    background: color-mix(in srgb, var(--pg-accent) 12%, #ffffff);
+    border-color: color-mix(in srgb, var(--pg-accent) 28%, #ffffff);
+    color: var(--pg-accent-deep);
+    font-weight: 600;
+}
+.grh-chip--suivi i { font-size: 9.5px; opacity: .85; }
+
+/* Le panneau de portée. Plus large que la liste simple : il porte deux
+   questions (sur quels rôles, puis qui) et les rôles de la personne. */
+.grh-devmenu--portee {
+    min-width: 320px; max-width: 390px; max-height: 440px;
+}
+.grh-devmenu--portee .grh-devmenu-scope:not(:first-child) {
+    margin-top: 6px; border-top: 1px solid var(--border, #e2e8f0);
+}
+.grh-scope {
+    display: flex; align-items: flex-start; gap: 9px;
+    width: 100%; padding: 8px 9px; cursor: pointer;
+    font: inherit; text-align: left; color: var(--ink);
+    background: none; border: none; border-radius: 9px;
+}
+.grh-scope:hover { background: var(--pg-accent-softer); }
+.grh-scope.is-current {
+    background: color-mix(in srgb, var(--pg-accent) 9%, #ffffff);
+}
+.grh-scope > span { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.grh-scope b { font-size: 13px; font-weight: 600; }
+.grh-scope em { font-size: 11.5px; font-style: normal; color: var(--muted, #64748b); }
+/* Un vrai `<input type=radio>` demanderait un `name` partagé et une gestion de
+   groupe pour deux boutons qui se redessinent à chaque changement. */
+.grh-radio {
+    width: 15px; height: 15px; flex: none; margin-top: 2px;
+    border-radius: 50%; background: var(--card);
+    border: 2px solid var(--border-strong, #cbd5e1);
+}
+.grh-radio.is-on {
+    background: var(--pg-accent);
+    border-color: var(--pg-accent);
+    box-shadow: inset 0 0 0 2.5px var(--card, #fff);
+}
+.grh-scope-roles {
+    display: flex; flex-direction: column; gap: 2px;
+    margin: 0 4px 6px 30px; padding: 4px;
+    background: var(--card-2, #f8fafc); border-radius: 10px;
+}
+.grh-scope-role {
+    display: flex; align-items: center; gap: 8px;
+    padding: 6px 8px; border-radius: 8px; cursor: pointer; font-size: 12.5px;
+}
+.grh-scope-role:hover { background: var(--card, #fff); }
+.grh-scope-role input { accent-color: var(--pg-accent); flex: none; }
+.grh-scope-role b {
+    font-weight: 600; min-width: 0;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.grh-scope-role > span {
+    margin-left: auto; flex: none; padding-left: 8px;
+    font-size: 11.5px; font-style: italic; color: var(--muted, #64748b);
+}
+.grh-scope-role.is-suivi > span {
+    font-style: normal; font-weight: 600; color: var(--pg-accent-deep);
+}
+/* Ce qui manque pour pouvoir valider — posé LÀ où on va cliquer, pas en haut
+   du panneau. */
+.grh-devmenu-note {
+    margin: 4px 6px 6px; font-size: 11.5px; color: #b45309;
+}
+.grh-devmenu-item:disabled { opacity: .45; cursor: default; }
+.grh-devmenu-item:disabled:hover { background: none; }
+
+/* Le bilan de la fiche d'une personne : « lesquels sont suivis » ne se lisait
+   qu'en parcourant les dix-neuf lignes. */
+.grh-dev-bilan {
+    display: flex; flex-direction: column; gap: 3px;
+    margin: 0 0 10px; padding: 9px 12px;
+    background: var(--card-2, #f8fafc);
+    border: 1px solid var(--border, #e2e8f0);
+    border-left: 3px solid var(--border-strong, #cbd5e1);
+    border-radius: 10px;
+}
+.grh-dev-bilan.is-complet { border-left-color: var(--pg-accent); }
+.grh-dev-bilan b { font-size: 13px; color: var(--ink); }
+.grh-dev-bilan span { font-size: 11.5px; color: var(--muted, #64748b); }
+.grh-row--role.is-suivi {
+    background: color-mix(in srgb, var(--pg-accent) 5%, #ffffff);
+    border-radius: 10px;
+}
+.grh-row--role.is-suivi .grh-devpick--row {
+    border-color: color-mix(in srgb, var(--pg-accent) 32%, #ffffff);
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
    ④ Ce que chaque palier ouvre
    ══════════════════════════════════════════════════════════════════════════
    Une MATRICE, pas une liste : on lit un droit en ligne et un statut en

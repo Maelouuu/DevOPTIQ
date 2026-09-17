@@ -773,6 +773,26 @@ def set_role_cartos():
 # tous les rôles ». Or celui qui suit quelqu'un sur « Qualité » ne le suit pas
 # forcément sur « Logistique ».
 
+def _dissoudre_lien_global(user):
+    """Reporte le développeur GLOBAL sur chaque rôle tenu, puis l'efface.
+
+    ⚠️ **Sans ça, régler un rôle ne produit RIEN.** `encadre()` lit les DEUX
+    rattachements (`users.manager_id` et `user_roles.manager_id`) : tant que le
+    lien global existe, il couvre tous les rôles — y compris celui dont on
+    vient de retirer le développeur. On ne perd personne au passage, ce que le
+    lien global couvrait est repris rôle par rôle ; ensuite seulement la
+    portée demandée veut dire quelque chose.
+    """
+    if user is None or user.manager_id is None:
+        return False
+    global_id = user.manager_id
+    for ur in user.user_roles:
+        if ur.manager_id is None:
+            ur.manager_id = global_id
+    user.manager_id = None
+    return True
+
+
 @gestion_rh_bp.route('/role_dev', methods=['POST'])
 def set_role_dev():
     """Qui suit CE collaborateur sur CE rôle. `dev_id` nul = personne."""
@@ -797,10 +817,78 @@ def set_role_dev():
             return jsonify({'error': 'Développeur introuvable'}), 404
         if dev_id == lien.user_id:
             return jsonify({'error': 'Un collaborateur ne se suit pas lui-même'}), 400
+    _dissoudre_lien_global(db.session.get(User, lien.user_id))
     lien.manager_id = dev_id
     db.session.commit()
     return jsonify({'ok': True, 'user_id': lien.user_id,
                     'role_id': lien.role_id, 'dev_id': lien.manager_id})
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  … et la PORTÉE de ce développeur, en une seule décision
+# ═══════════════════════════════════════════════════════════════════════════
+# ⚠️ Poser un développeur et choisir sur quoi il suit la personne sont deux
+# moitiés de la MÊME décision. Les faire en deux appels laissait un état
+# intermédiaire faux — le développeur posé partout le temps que la portée
+# arrive — et surtout deux écrans pour une seule question, ce qu'on vient de
+# reprocher à cette page.
+
+@gestion_rh_bp.route('/dev_scope', methods=['POST'])
+def set_dev_scope():
+    """Qui suit ce collaborateur, et SUR QUELS RÔLES.
+
+    `role_ids` nul = tous ses rôles : c'est le lien global, et il couvrira
+    aussi les rôles qu'il recevra plus tard. Une LISTE = exactement ces
+    rôles — ce développeur est retiré des autres, sans jamais toucher aux
+    affectations des autres développeurs.
+    """
+    from Code.permissions import can_access_rh, current_user
+
+    moi = current_user()
+    if not can_access_rh(moi):
+        return jsonify({'error': 'Accès refusé'}), 403
+
+    data = request.get_json(silent=True) or {}
+    user = (db.session.get(User, int(data['user_id']))
+            if data.get('user_id') else None)
+    if user is None:
+        return jsonify({'error': 'Utilisateur introuvable'}), 404
+
+    dev_id = data.get('dev_id')
+    if dev_id is not None:
+        dev_id = int(dev_id)
+        if db.session.get(User, dev_id) is None:
+            return jsonify({'error': 'Développeur introuvable'}), 404
+        if dev_id == user.id:
+            return jsonify({'error': 'Un collaborateur ne se suit pas lui-même'}), 400
+
+    role_ids = data.get('role_ids', None)
+    if role_ids is None:
+        # Tous ses rôles : le lien global, ET chaque lien de rôle — l'écran
+        # lit les liens de rôle, il doit dire la même chose que le droit.
+        user.manager_id = dev_id
+        for ur in user.user_roles:
+            ur.manager_id = dev_id
+    else:
+        demandes = {int(x) for x in role_ids}
+        tenus = {ur.role_id for ur in user.user_roles}
+        inconnus = sorted(demandes - tenus)
+        if inconnus:
+            # Le lien qui porterait l'information n'existe pas : mieux vaut le
+            # dire que d'enregistrer une portée qui ne s'applique à rien.
+            return jsonify({'error': 'Ce compte ne tient pas ce rôle',
+                            'roles': inconnus}), 404
+        _dissoudre_lien_global(user)
+        for ur in user.user_roles:
+            if ur.role_id in demandes:
+                ur.manager_id = dev_id
+            elif dev_id is not None and ur.manager_id == dev_id:
+                ur.manager_id = None
+
+    db.session.commit()
+    return jsonify({'ok': True, 'user_id': user.id, 'dev_id': user.manager_id,
+                    'roles': [{'id': ur.role_id, 'dev_id': ur.manager_id}
+                              for ur in user.user_roles]})
 
 
 # ═══════════════════════════════════════════════════════════════════════════

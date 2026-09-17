@@ -2165,6 +2165,64 @@ section 4 de la page RH ; `GET|POST /gestion_rh/droits`.
 Tests : `tests/test_80_rh_acces_et_dev.py` (15 cas) et
 `tests/test_81_droits_reglables.py` (11 cas). Suite : 2328 passés.
 
+### Le développeur par rôle : QUI et SUR QUOI, au même endroit (2026-09-17)
+
+La capacité était branchée, l'écran la rendait introuvable et illisible. Trois
+reproches, trois causes distinctes — dont une de FOND.
+
+⚠️ **Le fond : restreindre à un rôle ne produisait RIEN.** `encadre()` lit les
+DEUX rattachements (`users.manager_id` global ET `user_roles.manager_id`). Tant
+que le lien global existe, il couvre TOUS les rôles — y compris celui dont on
+venait de retirer le développeur. On affichait donc une restriction que le
+droit ignorait. `_dissoudre_lien_global()` reporte le lien global sur chaque
+rôle tenu puis l'efface : ce qu'il couvrait reste couvert, et la portée
+demandée veut enfin dire quelque chose. Appelé par `/role_dev` comme par
+`/dev_scope`.
+
+- **`POST /gestion_rh/dev_scope`** `{user_id, dev_id|null, role_ids}` porte la
+  décision ENTIÈRE. `role_ids` nul = tous ses rôles (le lien global, qui
+  couvrira aussi les rôles reçus plus tard) ; une LISTE = exactement ces rôles,
+  le développeur étant retiré des autres **sans toucher aux affectations des
+  autres développeurs**. ⚠️ Un seul appel : en deux requêtes, un refus au
+  milieu laissait un développeur posé partout en attendant une portée qui
+  n'arrivait jamais.
+- **La portée se choisit dans le menu « Développeur de compétences »**, dans la
+  liste des personnes. Elle vivait dans la fiche de la personne, derrière le
+  bouton des RÔLES : personne ne l'y cherchait, et le menu du développeur ne
+  proposait que des noms. Une question, un endroit — et le panneau s'ouvre sur
+  la RÉALITÉ (couverture partielle = déjà dépliée, rôles cochés).
+- **Un NOM SEUL était un mensonge par omission** : « Lou Vasseur » se lisait
+  pareil que le développeur suive les trois rôles ou un seul. Le bouton porte
+  sa portée en seconde ligne — « tous ses rôles » en gris, « 1 rôle sur 2 » en
+  AMBRE avec un liseré (ce n'est pas une erreur, c'est la nuance qu'on n'avait
+  aucun moyen de voir) — et les pastilles de rôle de la liste marquent celles
+  qui sont SUIVIES. La fiche d'une personne annonce « Rôles suivis : 1 sur 2 »
+  avant de détailler.
+- ⚠️ **`couverture()` calcule la portée EFFECTIVE, pas la saisie** : un rôle
+  dont la ligne est vide est couvert par le lien global, et une personne qui ne
+  tient AUCUN rôle de la carto regardée peut très bien avoir un développeur
+  global — afficher « Aucun » serait faux dans les deux cas.
+- ⚠️ **Le bouton « n développeurs » était `disabled`** : avec deux développeurs
+  sur deux rôles, on ne pouvait plus rien changer depuis la liste — exactement
+  la situation où on en a besoin. Il ouvre le panneau comme les autres.
+
+Deux défauts d'interface trouvés en éprouvant l'écran, tous deux antérieurs :
+
+- ⚠️ **Le menu était dessiné 20 % trop haut et trop à gauche de son bouton.**
+  `body.pg` porte `zoom: .8` : un enfant du body en `position: fixed` voit ses
+  coordonnées MULTIPLIÉES par ce zoom, alors que `getBoundingClientRect()` les
+  rend déjà en pixels d'écran. Invisible tant que le menu était étroit, criant
+  dès qu'il s'élargit. `offsetWidth`, lui, est déjà dans le repère du body.
+- ⚠️ **Un clic DANS le panneau le refermait.** Le clic du document ferme le
+  menu quand sa cible n'est pas dans `.grh-devmenu` — or changer la portée
+  REDESSINE le panneau : la cible est déjà DÉTACHÉE quand l'événement remonte,
+  `closest()` ne trouve plus rien. La remontée s'arrête donc au panneau.
+
+Tests : `tests/test_80_rh_acces_et_dev.py::TestLaPorteeDUnDeveloppeur` (8 cas —
+la dissolution du lien global vérifiée **rouge** sur le code d'avant). Suite :
+2336 passés. Éprouvé dans les DEUX langues sur `tools/devrun_partage.py` :
+poser, resserrer, élargir, retirer, et une personne sans aucun rôle.
+
 ### Le pilote repris sur staging — 108 commits d'un coup (2026-09-17)
 
 `optiqfluent-staging` avait 108 commits de retard et 39 commits propres. Sur le

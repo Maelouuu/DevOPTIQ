@@ -366,3 +366,129 @@ class TestDeveloppeurParRole:
             lien.manager_id = None
             db.session.commit()
             assert encadre(scene["dev"], scene["collab"]) is False
+
+
+# ══════════════════════════════════════════════════════════════════════
+#  3 · La PORTÉE d'un développeur : sur tous ses rôles, ou sur certains
+# ══════════════════════════════════════════════════════════════════════
+# ⚠️ Le défaut de fond que ces cas ferment : `encadre()` lit les DEUX
+# rattachements. Tant que `users.manager_id` est posé, il couvre TOUS les
+# rôles — donc « restreindre à un rôle » ne produisait RIEN, et l'écran
+# affichait une restriction qui n'existait pas.
+
+class TestLaPorteeDUnDeveloppeur:
+
+    def _etat(self, app, scene):
+        from Code.extensions import db
+        from Code.models.models import User, UserRole
+        with app.app_context():
+            u = db.session.get(User, scene["collab"])
+            liens = {ur.role_id: ur.manager_id for ur in
+                     UserRole.query.filter_by(user_id=scene["collab"]).all()}
+            return u.manager_id, liens
+
+    def test_tous_ses_roles_pose_le_lien_global_ET_chaque_role(self, app, client, scene):
+        """Le lien global couvre aussi les rôles reçus PLUS TARD : c'est ce qui
+        distingue « tous ses rôles » d'une liste qui les nommerait tous."""
+        _en_tant_que(client, app, scene["coord"])
+        r = client.post("/gestion_rh/dev_scope", json={
+            "user_id": scene["collab"], "dev_id": scene["dev"], "role_ids": None})
+        assert r.status_code == 200, r.get_json()
+        glob, liens = self._etat(app, scene)
+        assert glob == scene["dev"]
+        assert liens[scene["role"]] == scene["dev"]
+        assert liens[scene["role2"]] == scene["dev"]
+
+    def test_restreindre_a_un_role_DISSOUT_le_lien_global(self, app, client, scene):
+        """⚠️ Le cas qui ne marchait pas. Sans dissolution, le lien global
+        continuait de couvrir le second rôle : l'écran disait « 1 rôle sur 2 »
+        et le droit disait « les deux »."""
+        from Code.competences_acces import encadre
+        _en_tant_que(client, app, scene["coord"])
+        client.post("/gestion_rh/dev_scope", json={
+            "user_id": scene["collab"], "dev_id": scene["dev"], "role_ids": None})
+        r = client.post("/gestion_rh/dev_scope", json={
+            "user_id": scene["collab"], "dev_id": scene["dev"],
+            "role_ids": [scene["role"]]})
+        assert r.status_code == 200, r.get_json()
+        glob, liens = self._etat(app, scene)
+        assert glob is None, "le lien global aurait couvert les deux rôles"
+        assert liens[scene["role"]] == scene["dev"]
+        assert liens[scene["role2"]] is None
+        with app.app_context():
+            assert encadre(scene["dev"], scene["collab"]) is True
+
+    def test_restreindre_n_efface_pas_l_AUTRE_developpeur(self, app, client, scene):
+        """On règle la portée d'UN développeur ; celui du rôle voisin ne
+        bouge pas, sinon régler l'un déferait le travail fait sur l'autre."""
+        _en_tant_que(client, app, scene["coord"])
+        client.post("/gestion_rh/role_dev", json={
+            "user_id": scene["collab"], "role_id": scene["role2"],
+            "dev_id": scene["coord"]})
+        client.post("/gestion_rh/dev_scope", json={
+            "user_id": scene["collab"], "dev_id": scene["dev"],
+            "role_ids": [scene["role"]]})
+        glob, liens = self._etat(app, scene)
+        assert liens[scene["role"]] == scene["dev"]
+        assert liens[scene["role2"]] == scene["coord"]
+        assert glob is None
+
+    def test_on_retire_le_developpeur_de_partout(self, app, client, scene):
+        _en_tant_que(client, app, scene["coord"])
+        client.post("/gestion_rh/dev_scope", json={
+            "user_id": scene["collab"], "dev_id": scene["dev"], "role_ids": None})
+        r = client.post("/gestion_rh/dev_scope", json={
+            "user_id": scene["collab"], "dev_id": None, "role_ids": None})
+        assert r.status_code == 200
+        glob, liens = self._etat(app, scene)
+        assert glob is None
+        assert set(liens.values()) == {None}
+
+    def test_poser_un_developpeur_PAR_ROLE_dissout_aussi_le_lien_global(
+            self, app, client, scene):
+        """⚠️ Vérifié ROUGE sur le code d'avant : `/role_dev` écrivait le rôle
+        et laissait le lien global en place, qui recouvrait tout."""
+        _en_tant_que(client, app, scene["coord"])
+        client.post("/gestion_rh/dev_scope", json={
+            "user_id": scene["collab"], "dev_id": scene["dev"], "role_ids": None})
+        r = client.post("/gestion_rh/role_dev", json={
+            "user_id": scene["collab"], "role_id": scene["role"], "dev_id": None})
+        assert r.status_code == 200
+        glob, liens = self._etat(app, scene)
+        assert glob is None, "sinon le développeur retiré suivait encore ce rôle"
+        assert liens[scene["role"]] is None
+        assert liens[scene["role2"]] == scene["dev"], (
+            "ce que le lien global couvrait doit être repris rôle par rôle, "
+            "sinon on retirerait le développeur du second rôle par surprise")
+
+    def test_un_role_que_la_personne_ne_tient_pas_est_refuse(self, app, client, scene):
+        _en_tant_que(client, app, scene["coord"])
+        r = client.post("/gestion_rh/dev_scope", json={
+            "user_id": scene["dev"], "dev_id": scene["coord"],
+            "role_ids": [scene["role"]]})
+        assert r.status_code == 404
+
+    def test_on_ne_se_suit_pas_soi_meme(self, app, client, scene):
+        _en_tant_que(client, app, scene["coord"])
+        r = client.post("/gestion_rh/dev_scope", json={
+            "user_id": scene["collab"], "dev_id": scene["collab"],
+            "role_ids": None})
+        assert r.status_code == 400
+
+    def test_un_user_ne_regle_aucune_portee(self, app, client, scene):
+        """Le masquage n'est pas une sécurité : la route refuse aussi."""
+        from Code.extensions import db
+        from Code.models.models import User
+        with app.app_context():
+            db.session.get(User, scene["coord"]).status = "user"
+            db.session.commit()
+        try:
+            _en_tant_que(client, app, scene["coord"])
+            r = client.post("/gestion_rh/dev_scope", json={
+                "user_id": scene["collab"], "dev_id": scene["dev"],
+                "role_ids": None})
+            assert r.status_code == 403
+        finally:
+            with app.app_context():
+                db.session.get(User, scene["coord"]).status = "coordinateur"
+                db.session.commit()
