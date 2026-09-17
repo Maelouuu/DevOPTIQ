@@ -1725,3 +1725,69 @@ select {
 .grh-av--xs {
     width: 22px; height: 22px; font-size: 9.5px; border-radius: 7px;
 }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Un rôle sur PLUSIEURS cartos, et un développeur PAR RÔLE
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* Le bouton qui ouvre « ce que ce rôle ouvre ». Il vit à côté de
+   l'interrupteur « ouvre la carto » : l'un règle la carto regardée, l'autre
+   les autres — on ne quitte plus la page pour ça. */
+.grh-role-maps {
+    display: inline-flex; align-items: center; gap: 7px;
+    padding: 6px 11px; border-radius: var(--r-btn, 9px);
+    border: 1px solid var(--border-strong, #cbd5e1); background: var(--card, #fff);
+    font: inherit; font-size: 12.5px; font-weight: 600; color: var(--ink-2, #334155);
+    cursor: pointer; white-space: nowrap;
+}
+.grh-role-maps:hover { border-color: var(--pg-accent); color: var(--pg-accent-deep); }
+.grh-role-maps i { font-size: 11px; color: var(--pg-accent); }
+
+/* La phrase qui explique la fenêtre, en tête de liste. */
+.grh-modal-hint {
+    margin: 0 0 10px; padding: 9px 11px; border-radius: 10px;
+    background: color-mix(in srgb, var(--pg-accent) 8%, #fff);
+    border: 1px solid color-mix(in srgb, var(--pg-accent) 22%, #fff);
+    font-size: 12.5px; line-height: 1.45; color: var(--ink-2, #334155);
+}
+
+/* Une carto : pleine = commune, creuse = privée. */
+.grh-map-dot {
+    width: 10px; height: 10px; border-radius: 3px; flex: none;
+    border: 2px solid var(--border-strong, #cbd5e1); background: transparent;
+}
+.grh-map-dot.is-shared { background: var(--pg-accent); border-color: var(--pg-accent); }
+
+/* ⚠️ Ce que cocher va FAIRE, dit avant le clic : rendre une carto commune, ou
+   restreindre une carto ouverte à tous. Ce n'est pas une erreur — c'est une
+   conséquence, d'où l'ambre et non le rouge. */
+.grh-row-warn { color: #b45309 !important; font-weight: 600; }
+
+/* La ligne d'un rôle dans la fiche d'une personne : elle porte maintenant DEUX
+   décisions — tient-il ce rôle, et qui l'y suit. */
+.grh-row--role {
+    flex-wrap: wrap; align-items: stretch; cursor: default;
+    padding: 7px 9px; gap: 8px;
+}
+.grh-row--role:hover { background: transparent; }
+.grh-row-main {
+    display: flex; align-items: center; gap: 11px; flex: 1 1 100%;
+    cursor: pointer; border-radius: 8px;
+}
+.grh-row-main:hover { background: var(--pg-accent-softer); }
+.grh-row-note {
+    flex: 1 1 100%; padding-left: 21px;
+    font-size: 11.5px; font-style: italic; color: var(--faint, #94a3b8);
+}
+.grh-devpick--row {
+    flex: 1 1 100%; margin-left: 21px; width: auto;
+    padding: 5px 9px; font-size: 12.5px;
+}
+/* Le menu dit sur QUOI porte le choix : sans ce titre, le même menu ouvert
+   depuis deux endroits ne se distingue pas. */
+.grh-devmenu-scope {
+    margin: 0; padding: 7px 11px 6px;
+    font-size: 11px; font-weight: 700; letter-spacing: .04em;
+    text-transform: uppercase; color: var(--muted, #64748b);
+    border-bottom: 1px solid var(--border, #e2e8f0);
+}

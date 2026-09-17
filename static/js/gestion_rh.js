@@ -312,7 +312,21 @@
   // la page ne l'atteint. Le bouton fermé était soigné, la liste ouverte ne
   // pouvait pas l'être. On dessine donc les deux.
   function boutonDev(p, devs, peut) {
-    const actuel = devs.find((d) => d.id === p.dev_id);
+    // ⚠️ Un seul nom affiché alors que trois rôles ont trois développeurs
+    // différents serait un mensonge : on annonce le nombre, et la fiche de la
+    // personne donne le détail.
+    const parRole = [...new Set((p.roles || [])
+      .map((r) => r.dev_id).filter(Boolean))];
+    if (parRole.length > 1) {
+      return `
+        <button type="button" class="grh-devpick" data-dev="${p.id}" disabled
+                title="${esc(L('dev_per_role_hint'))}">
+          <span class="grh-devpick-none"></span>
+          <span class="grh-devpick-name"
+            >${esc(L('dev_mixed').replace('{n}', parRole.length))}</span>
+        </button>`;
+    }
+    const actuel = devs.find((d) => d.id === (p.dev_id || parRole[0]));
     return `
       <button type="button" class="grh-devpick" data-dev="${p.id}" ${peut ? '' : 'disabled'}>
         ${actuel ? avatar(actuel, 'xs') : '<span class="grh-devpick-none"></span>'}
@@ -334,29 +348,37 @@
 
   function _echapMenu(e) { if (e.key === 'Escape') fermerMenuDev(); }
 
+  // ⚠️ Le même menu sert aux deux portées : le développeur GLOBAL (liste des
+  // personnes) et le développeur d'UN RÔLE (fiche de la personne). Deux menus
+  // pour un même choix finiraient par se contredire — et le second oublierait
+  // la coche « aucun », qui est ce qui retire l'affectation.
   function ouvrirMenuDev(bouton) {
     const userId = parseInt(bouton.dataset.dev, 10);
-    if (menuOuvert && menuOuvert.userId === userId) { fermerMenuDev(); return; }
+    const roleId = bouton.dataset.role ? parseInt(bouton.dataset.role, 10) : null;
+    const cle = userId + ':' + (roleId || '');
+    if (menuOuvert && menuOuvert.cle === cle) { fermerMenuDev(); return; }
     fermerMenuDev();
 
     const p = personneParId(userId);
     const devs = (D.personnes || []).filter((x) => x.est_dev && x.id !== userId);
+    const actuelId = roleId ? devDuRole(p, roleId) : p.dev_id;
 
     const panneau = document.createElement('div');
     panneau.className = 'grh-devmenu';
     panneau.innerHTML = `
-      <button type="button" class="grh-devmenu-item${p.dev_id ? '' : ' is-current'}"
+      ${roleId ? `<p class="grh-devmenu-scope">${esc(L('dev_for_role'))}</p>` : ''}
+      <button type="button" class="grh-devmenu-item${actuelId ? '' : ' is-current'}"
               data-choix="">
         <span class="grh-devpick-none"></span>
         <span class="grh-devmenu-name is-empty">${esc(L('dev_none'))}</span>
-        ${p.dev_id ? '' : '<i class="fa-solid fa-check"></i>'}
+        ${actuelId ? '' : '<i class="fa-solid fa-check"></i>'}
       </button>
       ${devs.length ? devs.map((d) => `
-        <button type="button" class="grh-devmenu-item${p.dev_id === d.id ? ' is-current' : ''}"
+        <button type="button" class="grh-devmenu-item${actuelId === d.id ? ' is-current' : ''}"
                 data-choix="${d.id}">
           ${avatar(d, 'xs')}
           <span class="grh-devmenu-name">${esc(nomDe(d))}</span>
-          ${p.dev_id === d.id ? '<i class="fa-solid fa-check"></i>' : ''}
+          ${actuelId === d.id ? '<i class="fa-solid fa-check"></i>' : ''}
         </button>`).join('')
         : `<p class="grh-devmenu-empty">${esc(L('dev_no_candidate'))}</p>`}`;
 
@@ -371,15 +393,38 @@
     panneau.style.minWidth = r.width + 'px';
 
     bouton.classList.add('is-open');
-    menuOuvert = { userId, bouton, panneau };
+    menuOuvert = { cle, userId, roleId, bouton, panneau };
     document.addEventListener('keydown', _echapMenu, true);
 
     panneau.querySelectorAll('[data-choix]').forEach((b) =>
       b.addEventListener('click', () => {
         const v = b.dataset.choix;
+        const devId = v ? parseInt(v, 10) : null;
         fermerMenuDev();
-        affecterDev(userId, v ? parseInt(v, 10) : null);
+        if (roleId) affecterDevRole(userId, roleId, devId);
+        else affecterDev(userId, devId);
       }));
+  }
+
+  // Le développeur posé sur CE rôle (null s'il n'y en a pas).
+  function devDuRole(p, roleId) {
+    const lien = (p.roles || []).find((r) => r.id === roleId);
+    return lien ? (lien.dev_id || null) : null;
+  }
+
+  /* ⚠️ `user_roles.manager_id` portait ce lien depuis toujours et
+     `encadre()` le lisait déjà — mais aucun écran ne le posait : la page
+     envoyait « le même développeur pour tous les rôles ». Or celui qui suit
+     quelqu'un sur « Qualité » ne le suit pas forcément sur « Logistique ». */
+  async function affecterDevRole(userId, roleId, devId) {
+    try {
+      const d = await postJSON('/gestion_rh/role_dev',
+        { user_id: userId, role_id: roleId, dev_id: devId });
+      if (!d.ok) throw new Error();
+      toast(L('saved'));
+      await charger({ discret: true });
+      if (fenetre) rendreFenetre();
+    } catch (_) { toast(L('save_error'), 'error'); }
   }
 
   async function affecterDev(userId, devId) {
@@ -422,6 +467,12 @@
                        ${r.ouvre_carto ? 'checked' : ''} ${gere ? '' : 'disabled'}>
                 <span>${esc(L('opens_map'))}</span>
               </label>` : ''}
+            ${gere ? `
+              <button type="button" class="grh-role-maps" data-maps="${r.id}"
+                      title="${esc(L('role_maps_hint'))}">
+                <i class="fa-solid fa-layer-group"></i>
+                <span>${esc(L('role_maps'))}</span>
+              </button>` : ''}
             ${r.permanent
               ? `<span class="grh-chip grh-chip--dev" title="${esc(L('permanent_hint'))}">
                    ${esc(L('permanent'))}</span>`
@@ -443,6 +494,50 @@
       b.addEventListener('click', () => supprimerRole(parseInt(b.dataset.suppr, 10))));
     document.querySelectorAll('.grh-acces').forEach((c) =>
       c.addEventListener('change', enregistrerAcces));
+    document.querySelectorAll('[data-maps]').forEach((b) =>
+      b.addEventListener('click', () => ouvrirCartos(parseInt(b.dataset.maps, 10))));
+  }
+
+  /* ── Un rôle, PLUSIEURS cartos ──────────────────────────────────────────
+     Ouvrir une carto à un rôle se faisait carto par carto : changer l'entité
+     en haut de page, cocher, recommencer. Et il n'existait aucun endroit d'où
+     VOIR ce qu'un rôle ouvre au total. ⚠️ Cocher enregistre tout de suite,
+     comme partout sur cette page : un bouton « Enregistrer » de plus laisse
+     partir sans sauver, et l'écran ment alors sur qui a accès. */
+  function ouvrirCartos(roleId) {
+    fenetre = { mode: 'cartos', id: roleId, cartos: null };
+    ouvrir();
+    charger_cartos(roleId);
+  }
+
+  async function charger_cartos(roleId) {
+    try {
+      const r = await fetch(`/gestion_rh/role_cartos/${roleId}`);
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error || '');
+      if (fenetre && fenetre.mode === 'cartos' && fenetre.id === roleId) {
+        fenetre.cartos = d.cartos || [];
+        rendreFenetre();
+      }
+    } catch (_) {
+      if (fenetre && fenetre.mode === 'cartos') { fenetre.cartos = []; rendreFenetre(); }
+      toast(L('save_error'), 'error');
+    }
+  }
+
+  async function enregistrerCartos(roleId) {
+    const ids = [...document.querySelectorAll('.grh-map-pick:checked')]
+      .map((c) => parseInt(c.value, 10));
+    try {
+      const d = await postJSON('/gestion_rh/role_cartos',
+        { role_id: roleId, entity_ids: ids });
+      if (!d.ok) throw new Error();
+      toast(L('maps_saved'));
+      // Une carto rendue commune change d'état : on relit plutôt que de
+      // supposer, sinon l'avertissement affiché ne correspondrait plus.
+      await charger_cartos(roleId);
+      await charger({ discret: true });
+    } catch (_) { toast(L('save_error'), 'error'); }
   }
 
   // Cocher enregistre tout de suite : un bouton « Enregistrer » de plus laisse
@@ -554,6 +649,26 @@
     if (!fenetre) return;
     const q = ($('#grh-modal-q').value || '').trim().toLowerCase();
 
+    if (fenetre.mode === 'cartos') {
+      const r = roleParId(fenetre.id);
+      $('#grh-modal-over').textContent = L('role_maps_title');
+      $('#grh-modal-titre').textContent = r ? r.name : '—';
+      if (fenetre.cartos === null) {
+        $('#grh-modal-body').innerHTML =
+          `<p class="grh-empty">${esc(L('loading'))}</p>`;
+        return;
+      }
+      const liste = fenetre.cartos.filter((c) =>
+        !q || (c.name || '').toLowerCase().includes(q));
+      $('#grh-modal-body').innerHTML = liste.length
+        ? `<p class="grh-modal-hint">${esc(L('role_maps_hint'))}</p>`
+          + liste.map((c) => ligneCarto(c)).join('')
+        : `<p class="grh-empty">${esc(L('maps_none'))}</p>`;
+      document.querySelectorAll('.grh-map-pick').forEach((el) =>
+        el.addEventListener('change', () => enregistrerCartos(fenetre.id)));
+      return;
+    }
+
     if (fenetre.mode === 'role') {
       const r = roleParId(fenetre.id);
       if (!r) { fermerFenetre(); return; }
@@ -571,12 +686,11 @@
       $('#grh-modal-over').textContent = L('manage_roles');
       $('#grh-modal-titre').textContent = nomDe(p);
       const roles = (D.roles || []).filter((r) => !q || r.name.toLowerCase().includes(q));
-      $('#grh-modal-body').innerHTML = roles.map((r) => ligne(
-        `<span class="grh-role-dot${r.permanent ? ' is-permanent' : ''}"></span>`,
-        r.name,
-        r.ouvre_carto && D.entite && D.entite.is_shared ? L('opens_map') : '',
-        r.titulaires.includes(p.id), `${p.id}:${r.id}`)).join('')
-        || `<p class="grh-empty">${esc(L('roles_empty'))}</p>`;
+      const devs = (D.personnes || []).filter((x) => x.est_dev && x.id !== p.id);
+      $('#grh-modal-body').innerHTML = roles.length
+        ? `<p class="grh-modal-hint">${esc(L('dev_per_role_hint'))}</p>`
+          + roles.map((r) => ligneRolePersonne(p, r, devs)).join('')
+        : `<p class="grh-empty">${esc(L('roles_empty'))}</p>`;
     }
 
     document.querySelectorAll('.grh-pick').forEach((el) =>
@@ -584,6 +698,64 @@
         const [u, r] = el.dataset.paire.split(':').map(Number);
         majLien(u, r, el.checked);
       }));
+    document.querySelectorAll('.grh-devpick[data-role]').forEach((b) =>
+      b.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation();
+        ouvrirMenuDev(b); }));
+  }
+
+  // Une ligne de la fiche : tient-il ce rôle, et qui l'y suit.
+  // ⚠️ Le sélecteur n'apparaît que sur un rôle RÉELLEMENT tenu : le lien
+  // `user_roles` qui porterait le développeur n'existe pas avant, et la route
+  // refuserait — autant le dire plutôt que d'offrir un bouton qui échoue.
+  function ligneRolePersonne(p, r, devs) {
+    const tenu = r.titulaires.includes(p.id);
+    const devId = devDuRole(p, r.id);
+    const dev = devs.find((d) => d.id === devId);
+    return `
+      <div class="grh-row grh-row--role">
+        <label class="grh-row-main">
+          <span class="grh-role-dot${r.permanent ? ' is-permanent' : ''}"></span>
+          <span class="grh-row-id">
+            <b>${esc(r.name)}</b>
+            ${r.ouvre_carto && D.entite && D.entite.is_shared
+              ? `<span>${esc(L('opens_map'))}</span>` : ''}
+          </span>
+          <input type="checkbox" class="grh-pick" data-paire="${p.id}:${r.id}"
+                 ${tenu ? 'checked' : ''}>
+        </label>
+        ${tenu ? `
+          <button type="button" class="grh-devpick grh-devpick--row"
+                  data-dev="${p.id}" data-role="${r.id}"
+                  title="${esc(L('dev_for_role'))}">
+            ${dev ? avatar(dev, 'xs') : '<span class="grh-devpick-none"></span>'}
+            <span class="grh-devpick-name${dev ? '' : ' is-empty'}"
+              >${esc(dev ? nomDe(dev) : L('dev_none'))}</span>
+            <i class="fa-solid fa-chevron-down"></i>
+          </button>`
+          : `<span class="grh-row-note">${esc(L('dev_hold_first'))}</span>`}
+      </div>`;
+  }
+
+  // ⚠️ Deux conséquences que l'écran doit annoncer AVANT le clic :
+  //   · une carto PRIVÉE ignore les rôles — la cocher la rendra commune ;
+  //   · une carto commune SANS aucun rôle autorisé est ouverte à TOUS, et y
+  //     poser le premier rôle la RESTREINT : cocher peut retirer l'accès à
+  //     des gens qui l'avaient. C'est le piège de cet écran.
+  function ligneCarto(c) {
+    const avertit = !c.commune ? L('map_will_share')
+                  : (c.sans_filtre && !c.ouverte) ? L('map_open_to_all')
+                  : L('map_n_roles').replace('{n}', c.n_roles);
+    const grave = !c.commune || (c.sans_filtre && !c.ouverte);
+    return `
+      <label class="grh-row">
+        <span class="grh-map-dot${c.commune ? ' is-shared' : ''}"></span>
+        <span class="grh-row-id">
+          <b>${esc(c.name)}</b>
+          <span class="${grave ? 'grh-row-warn' : ''}">${esc(avertit)}</span>
+        </span>
+        <input type="checkbox" class="grh-map-pick" value="${c.id}"
+               ${c.ouverte ? 'checked' : ''}>
+      </label>`;
   }
 
   const ligne = (visuel, titre, sousTitre, coche, paire) => `

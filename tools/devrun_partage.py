@@ -87,6 +87,35 @@ with app.app_context():
     db.session.commit()
     _sync_carto_to_db(ent, diagram)
 
+    # ── Une SECONDE carto, et un collaborateur à deux rôles ──────────────
+    # ⚠️ Sans elles, la page RH ne montre jamais ce qu'on vient y régler :
+    # « un rôle sur plusieurs cartos » demande plusieurs cartos, et « un
+    # développeur par rôle » demande quelqu'un qui en tienne plus d'un.
+    ent2 = Entity(name="Seconde carto (privée)", description="pour la page RH",
+                  owner_id=coord.id, is_shared=False,
+                  optiqcarto_data=json.dumps(diagram, ensure_ascii=False))
+    db.session.add(ent2)
+    db.session.commit()
+    _sync_carto_to_db(ent2, diagram)
+
+    from Code.models.models import Role, UserRole
+    from Code.roles_permanents import assurer_roles_permanents
+    assurer_roles_permanents(ent.id)
+    db.session.commit()
+
+    deux = Role.query.filter_by(entity_id=ent.id).order_by(Role.id).limit(2).all()
+    for r in deux:
+        if not UserRole.query.filter_by(user_id=simple.id, role_id=r.id).first():
+            db.session.add(UserRole(user_id=simple.id, role_id=r.id))
+    # Le champion devient développeur de compétences : la page a besoin d'au
+    # moins un candidat à proposer, sinon le sélecteur est vide.
+    dev_role = Role.query.filter_by(entity_id=ent.id).filter(
+        Role.name.ilike("%ompétence%")).first()
+    if dev_role and not UserRole.query.filter_by(
+            user_id=champion.id, role_id=dev_role.id).first():
+        db.session.add(UserRole(user_id=champion.id, role_id=dev_role.id))
+    db.session.commit()
+
     propose = _modifier(diagram)
     cr = CartoChangeRequest(
         entity_id=ent.id, author_id=champion.id, status="pending",
@@ -104,6 +133,9 @@ with app.app_context():
     print(f"[devrun] champion  : champion@test.local / Test1234!  (propose)")
     print(f"[devrun] coord     : coord@test.local    / Test1234!  (entité {ent.id})")
     print(f"[devrun] admin     : admin@test.local    / Test1234!")
+    print(f"[devrun] seconde carto : « {ent2.name} » (entité {ent2.id}, privée)")
+    print(f"[devrun] {simple.email} tient {len(deux)} rôle(s) : "
+          + ", ".join(r.name for r in deux))
     print(f"[devrun] proposition en attente : #{cr.id}")
     print(f"[devrun] http://127.0.0.1:{PORT}/login")
 
