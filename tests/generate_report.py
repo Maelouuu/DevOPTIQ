@@ -92,6 +92,8 @@ PAGE_LABELS = {
     "test_77_competences_deux_notes":     "Compétences — Deux Notes & Plan de Formation",
     "test_78_i18n_couverture":            "Traduction FR/EN — Couverture Complète",
     "test_79_carto_consultation":         "Cartographie — Mode Consultation (Palier user)",
+    "test_80_rh_acces_et_dev":            "Gestion RH — Accès Multi-Cartos & Développeur par Rôle",
+    "test_81_droits_reglables":           "Gestion RH — Droits par Palier (Réglables)",
 }
 
 
