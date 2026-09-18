@@ -1104,10 +1104,25 @@ Corrigé :
   les attributs. `competences_view.html` sort de l'inventaire de dette de
   `test_78` : son dernier fragment français était ce titre.
 
-Vu en chemin, **hors de ces deux pages, non corrigé** : le journal « Activité
-récente » de la fenêtre de bienvenue est écrit dans la langue de la personne
-qui agit (piège `RecentEvent` déjà noté plus haut) ; le titre d'onglet de la
-page de connexion est « OptiqFluent — Connexion » en dur.
+Vu en chemin, puis corrigé dans la foulée :
+- ⚠️ **Le journal « Activité récente » se lit dans la langue de CELUI QUI LIT.**
+  Il était écrit dans celle de la personne qui agissait (« Rôle créé : Qualité »
+  pour un anglophone, parce qu'un francophone avait créé le rôle). Le libellé
+  est rebâti à la lecture (`changelog._libelle_evenement`) depuis le TYPE
+  d'événement et le nom de l'objet ; le libellé stocké ne sert plus que de repli
+  pour un type inconnu du catalogue. À l'écriture, les « modifié » gardent
+  désormais le NOM de l'objet et des CLÉS de champ (`name`, `description`,
+  `mission`) au lieu de « Nom » / « Mission » ; les anciennes lignes sont
+  relues telles quelles (nom retrouvé dans le libellé, champ français mappé).
+  ⚠️ SQLAlchemy ne connaît l'ancienne valeur que si l'attribut a été LU avant
+  d'être modifié : sur un objet expiré, `history.deleted` est vide et aucun
+  « avant → après » n'est enregistré. En route c'est toujours le cas ; en test,
+  il faut lire l'attribut d'abord.
+- Le titre d'onglet de la page de connexion suit la langue.
+Tests : `tests/test_83_journal_dans_la_langue_du_lecteur.py` (6 cas, 5 vérifiés
+rouges). ⚠️ `test_82` et `test_83` rendent la session telle qu'ils l'ont
+trouvée (`_session_rendue`) : `client` est partagé, une langue laissée à « en »
+changerait les messages que les fichiers suivants comparent.
 
 Tests : `tests/test_82_traduction_competences_rh.py` (12 cas, 10 vérifiés
 **rouges** sur le code d'avant — les deux autres confirment que la page RH

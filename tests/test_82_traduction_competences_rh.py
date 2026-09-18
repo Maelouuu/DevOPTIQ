@@ -29,6 +29,19 @@ def _lire(*chemin):
         return f.read()
 
 
+@pytest.fixture(autouse=True)
+def _session_rendue(client):
+    """Rend la session telle qu'on l'a trouvée : `client` est partagé par tous
+    les fichiers, et une langue laissée à « en » changerait les messages que
+    les fichiers suivants comparent."""
+    with client.session_transaction() as s:
+        avant = dict(s)
+    yield
+    with client.session_transaction() as s:
+        s.clear()
+        s.update(avant)
+
+
 @pytest.fixture()
 def scene(app):
     """Un coordinateur, une entité, un rôle ordinaire, une activité reliée."""
