@@ -607,7 +607,6 @@ class TestFrancaisEnDur:
         "activities_map.html":           3,
         "cartography_viewer.html":       2,
         "setup_wizard.html":             2,
-        "competences_view.html":         1,
         "gestion_compte_new.html":       1,
         "settings.html":                 1,
     }

@@ -554,9 +554,10 @@ def api_tableau():
                 UserRole.role_id.in_([r.id for r in roles])).all():
             titulaires.setdefault(ur.role_id, []).append(ur.user_id)
 
+    from Code.role_i18n import nom_affiche
     roles_json = [{
         'id': r.id,
-        'name': r.name,
+        'name': nom_affiche(r),
         # Le développeur de compétences n'est pas une bande de la carto : il ne
         # se supprime pas, et l'interface doit le dire au lieu de proposer une
         # corbeille qui ne marchera pas.
@@ -564,6 +565,9 @@ def api_tableau():
         'ouvre_carto': r.id in ouvrent,
         'titulaires': sorted(titulaires.get(r.id, [])),
     } for r in roles]
+    # Le tri suit le nom AFFICHÉ : trié sur le nom en base, le rôle système
+    # restait à la place de « Développeur » dans une liste anglaise.
+    roles_json.sort(key=lambda r: r["name"].lower())
 
     id_dev = next((r['id'] for r in roles_json if r['permanent']), None)
     ids_dev = set(titulaires.get(id_dev, [])) if id_dev else set()
@@ -573,7 +577,7 @@ def api_tableau():
     par_role = {}
     for ur in UserRole.query.all():
         par_role.setdefault(ur.user_id, []).append(ur)
-    noms_roles = {r.id: r.name for r in Role.query.all()}
+    noms_roles = {r.id: nom_affiche(r) for r in Role.query.all()}
 
     personnes = []
     for u in comptes:

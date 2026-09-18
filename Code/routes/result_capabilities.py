@@ -97,11 +97,17 @@ def save_competence(activity_id):
     if not activity:
         return jsonify({"error": "activity_not_found"}), 404
     payload = request.get_json(force=True) or {}
-    desc = (payload.get("description") or "").strip()
+    fr = (payload.get("description_fr") or "").strip() or None
+    en = (payload.get("description_en") or "").strip() or None
+    # `description` reste la version de référence : celle de la langue de
+    # l'écran quand on l'a, sinon ce qui a été envoyé.
+    desc = ((payload.get("description") or "").strip()
+            or (en if _lang() == "en" else fr) or fr or en)
     if not desc:
         return jsonify({"error": "empty_description"}), 400
     Competency.query.filter_by(activity_id=activity_id).delete()
-    db.session.add(Competency(activity_id=activity_id, description=desc))
+    db.session.add(Competency(activity_id=activity_id, description=desc,
+                              description_fr=fr, description_en=en))
     db.session.commit()
     return jsonify({"ok": True, "description": desc}), 200
 

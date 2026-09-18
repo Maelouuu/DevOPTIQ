@@ -1058,6 +1058,61 @@ ci-dessus). Suite : 2350 passés. Éprouvé dans les deux langues, sans IA ET av
 une réponse d'IA simulée (pré-cochage, doute, repères proposés, décocher,
 enregistrer, relire en base).
 
+
+### Compétences et Gestion RH en anglais : ce qui échappait aux catalogues (2026-09-18)
+
+Vérification demandée après les refontes de la journée. **Les catalogues
+étaient complets** : 202 libellés × 2 langues dans `competences_v2.js`, 84 clés
+injectées dans `GRH_L`, toutes présentes en FR et en EN (`test_78` le tient
+déjà). Ce qui restait en français, c'est ce qui NE passe PAS par une clé — et
+qu'on ne trouve qu'en parcourant les écrans en anglais. Méthode : un détecteur
+injecté dans la page, qui cherche les 1 028 phrases françaises des catalogues
+(celles dont l'anglais diffère) plus les accents et mots-outils français dans le
+texte ET les attributs (`title`, `aria-label`, `placeholder`), passé sur chaque
+écran et chaque fenêtre — profil, radar et ses bulles, liste, évaluation (vue
+développeur et vue collaborateur), preuve, diagnostic, capacités, plan de
+formation, configuration ; et côté RH chaque section, le menu du développeur,
+les fiches personne / rôle / cartos, le nouveau rôle, le calendrier, la matrice
+des droits (administrateur ET coordinateur).
+
+Corrigé :
+- ⚠️ **Le rôle système « Développeur de compétences »** est créé en français
+  pour chaque entité : l'interface anglaise l'affichait tel quel partout où les
+  rôles sont listés. `role_i18n.nom_affiche(role, lang)` : le rôle système vient
+  du catalogue (`rh.dev_badge`), les autres prennent la traduction EN CACHE
+  (remplie par la page Rôles), sinon leur nom d'origine — **sans appel IA**
+  depuis ces pages, qui se chargent à chaque visite. Branché dans
+  `api_tableau` (RH) et `/mastery/dashboard|synthese`. La liste des rôles est
+  triée sur le nom AFFICHÉ, sinon le rôle système restait à la lettre D.
+- ⚠️ **La compétence principale n'existait qu'en UNE langue** : l'IA la rédige
+  en français ET en anglais, et on ne gardait que celle de la personne qui
+  configurait. `Competency` porte désormais `description_fr` / `description_en`
+  (migration à chaud) et `texte(lang)` ; `description` reste la version de
+  référence, et une compétence d'avant s'affiche telle quelle.
+- **« Libellé : valeur »** : l'espace avant les deux-points est une règle
+  FRANÇAISE, écrite en dur dans trois infobulles (`DP` suit la langue).
+- **« S1 · 4 h »** dans l'échéancier du plan : « W1 » en anglais (`plan_wk`).
+- **« 1 holders »** : singulier/pluriel, et le singulier ne couvre pas les
+  mêmes nombres — « 0 titulaire » en français, « 0 holders » en anglais.
+- **« Main competence »** → « Main competency », seul écart de terminologie.
+- Le message au collaborateur sur une activité non configurée parlait encore de
+  « qualifier ses données de sortie » : aligné sur l'écran de configuration.
+- ⚠️ **Écrits en dur, invisibles à l'œil** : le `<title>` de la page
+  (« OPTIQ — Compétences » dans l'onglet anglais), `aria-label="Fermer"` ×2,
+  « Ouvrir le menu » et « Navigation principale » (en-tête, toutes les pages).
+  Les contrôles qui ne lisent que le texte ne les voient pas — `test_82` lit
+  les attributs. `competences_view.html` sort de l'inventaire de dette de
+  `test_78` : son dernier fragment français était ce titre.
+
+Vu en chemin, **hors de ces deux pages, non corrigé** : le journal « Activité
+récente » de la fenêtre de bienvenue est écrit dans la langue de la personne
+qui agit (piège `RecentEvent` déjà noté plus haut) ; le titre d'onglet de la
+page de connexion est « OptiqFluent — Connexion » en dur.
+
+Tests : `tests/test_82_traduction_competences_rh.py` (12 cas, 10 vérifiés
+**rouges** sur le code d'avant — les deux autres confirment que la page RH
+était déjà propre sur ces points). Suite : 2361 passés.
+
 ---
 
 ## Guide utilisateur (`docs/guide.html`)

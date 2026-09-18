@@ -18,6 +18,9 @@
   'use strict';
 
   const L = (k) => (window.GRH_L && window.GRH_L[k]) || k;
+  // Le singulier ne couvre pas les mêmes nombres : « 0 titulaire » en
+  // français, « 0 holders » en anglais.
+  const unSeul = (n) => ((window.GRH_CTX || {}).lang === 'en' ? n === 1 : n <= 1);
   const $ = (s, r = document) => r.querySelector(s);
 
   const esc = (v) => String(v == null ? '' : v)
@@ -742,7 +745,7 @@
             </span>
             <span class="grh-role-count">
               <i class="fa-solid fa-user"></i> ${r.titulaires.length}
-              <em>${esc(L('holders'))}</em>
+              <em>${esc(L(unSeul(r.titulaires.length) ? 'holder_1' : 'holders'))}</em>
             </span>
           </button>
           <div class="grh-role-side">

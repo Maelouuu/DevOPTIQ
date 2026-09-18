@@ -342,6 +342,16 @@ class Competency(db.Model):
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     description = db.Column(db.Text, nullable=False)
     activity_id = db.Column(db.Integer, db.ForeignKey('activities.id'), nullable=False)
+    # ⚠️ L'IA rédige la compétence dans les DEUX langues, et on n'en gardait
+    # qu'une : celle de la personne qui configurait. Un anglophone lisait donc
+    # la phrase française. `description` reste la saisie d'origine ; ces deux
+    # colonnes sont les versions par langue, quand on les a.
+    description_fr = db.Column(db.Text, nullable=True)
+    description_en = db.Column(db.Text, nullable=True)
+
+    def texte(self, lang=None):
+        """La compétence dans la langue demandée, à défaut l'originale."""
+        return getattr(self, "description_" + (lang or "fr"), None) or self.description
 
 
 class Softskill(db.Model):

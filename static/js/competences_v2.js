@@ -73,7 +73,7 @@
       forbidden: "Vous n'avez pas le droit de noter ce collaborateur.",
       pick_level: 'À évaluer', roles_label: 'Rôles du collaborateur',
       self_assess: "S'auto-évaluer",
-      pas_configuree: "Cette activité n'est pas encore configurée : son développeur de compétences doit d'abord qualifier ses données de sortie.",
+      pas_configuree: "Cette activité n'est pas encore configurée : son développeur de compétences doit d'abord dire sur quoi la juger.",
       b_held: 'Niveau tenu', b_gap: 'En écart', b_todo: 'À évaluer', b_setup: 'À configurer',
       filter_off: 'Tout afficher', no_match: 'Aucune activité dans cette catégorie.',
       m_result_one: 'résultat', m_result_many: 'résultats', m_partial: 'sur',
@@ -134,7 +134,7 @@
       plan_steps_1: '1 étape', plan_steps_n: '[[n]] étapes',
       plan_week_1: 'Semaine [[a]]', plan_week_n: 'Semaines [[a]] → [[b]]',
       plan_week_over: 'dépasse la durée visée',
-      plan_week_step_1: 'étape [[l]]', plan_week_step_n: 'étapes [[l]]',
+      plan_week_step_1: 'étape [[l]]', plan_week_step_n: 'étapes [[l]]', plan_wk: 'S',
       plan_load: 'Charge en heures', plan_less: 'Moins d’heures', plan_more: 'Plus d’heures',
       plan_remove: 'Retirer', plan_mix: 'Répartition des heures par nature d’action',
       plan_gap_from_to: 'Niveau actuel → niveau visé',
@@ -149,7 +149,7 @@
       c_activity: 'Activity', c_level: 'Level', c_required: 'Required level',
       c_demonstrated: 'Demonstrated level', c_gap: 'Gap', c_tech: 'Technicity',
       tech_gap: 'Gap', tech_ok: 'Met',
-      competence: 'Main competence', save_eval: 'Save evaluation',
+      competence: 'Main competency', save_eval: 'Save evaluation',
       save_self: 'Save my self-assessment',
       evaluate: 'Evaluate', consult: 'View', not_assessed: 'Not assessed', erase: 'Clear',
       std: 'Minimum standard', saved: 'Evaluation saved',
@@ -190,7 +190,7 @@
       forbidden: 'You are not allowed to assess this team member.',
       pick_level: 'To assess', roles_label: "Team member's roles",
       self_assess: 'Self-assess',
-      pas_configuree: 'This activity is not configured yet: its competency developer must first qualify its output data.',
+      pas_configuree: 'This activity is not configured yet: its competency developer must first say what to judge it on.',
       b_held: 'Level met', b_gap: 'Below target', b_todo: 'To assess', b_setup: 'To configure',
       filter_off: 'Show all', no_match: 'No activity in this category.',
       m_result_one: 'result', m_result_many: 'results', m_partial: 'of',
@@ -246,7 +246,7 @@
       plan_steps_1: '1 step', plan_steps_n: '[[n]] steps',
       plan_week_1: 'Week [[a]]', plan_week_n: 'Weeks [[a]] → [[b]]',
       plan_week_over: 'runs past the target duration',
-      plan_week_step_1: 'step [[l]]', plan_week_step_n: 'steps [[l]]',
+      plan_week_step_1: 'step [[l]]', plan_week_step_n: 'steps [[l]]', plan_wk: 'W',
       plan_load: 'Workload in hours', plan_less: 'Fewer hours', plan_more: 'More hours',
       plan_remove: 'Remove', plan_mix: 'Hours by kind of action',
       plan_gap_from_to: 'Current level → target level',
@@ -269,12 +269,15 @@
   const T = k => (I18N[LANG][k] || k);
   const Tv = (k, vars) => Object.keys(vars || {}).reduce(
     (s, v) => s.split('[[' + v + ']]').join(vars[v]), T(k));
+  // « Libellé : valeur » en français, « Label: value » en anglais : l'espace
+  // avant les deux-points est une règle de typographie FRANÇAISE.
+  const DP = LANG === 'fr' ? ' : ' : ': ';
 
   const state = {
     moi: null, estDev: false,
     cible: null, cibleNom: '',
     ecran: null, roleId: null, roleName: null,
-    scale: {}, notAssessed: 'Non évalué', domScale: {},
+    scale: {}, notAssessed: '', domScale: {},
     rows: [], filtre: null, activity: null, lastState: null,
     plan: null,
   };
@@ -454,8 +457,8 @@
     const req = estNul(requis) ? null : requis;
     const inconnu = estNul(niveau);
     const titre = [
-      `${T('c_demonstrated')} : ${inconnu ? state.notAssessed : (libelle || levelName(niveau))}`,
-      req === null ? '' : `${T('target_short')} : ${req} · ${levelName(req)}`,
+      `${T('c_demonstrated')}${DP}${inconnu ? state.notAssessed : (libelle || levelName(niveau))}`,
+      req === null ? '' : `${T('target_short')}${DP}${req} · ${levelName(req)}`,
     ].filter(Boolean).join(' — ');
     return `<div class="cv2-jauge cv2-j--${esc(couleur || 'grey')}" title="${esc(titre)}">
         ${jauge(niveau, req, couleur)}
@@ -1243,7 +1246,7 @@
     card.innerHTML = `
       <div class="rtete">
         <div class="rname"${r.minimum_performance_text
-          ? ` title="${esc(T('std'))} : ${esc(r.minimum_performance_text)}"` : ''}>${esc(r.name)}
+          ? ` title="${esc(T('std'))}${DP}${esc(r.minimum_performance_text)}"` : ''}>${esc(r.name)}
           ${r.minimum_performance_text ? '<i class="fa-regular fa-circle-question cv2-astuce"></i>' : ''}
         </div>
       </div>
@@ -1566,10 +1569,16 @@
     const comp = await api(`/competence/generate/${aid}`, { method: 'POST' });
     let competence = '';
     if (comp.competence && (comp.competence.description_fr || comp.competence.description_en)) {
-      competence = (LANG === 'en' ? comp.competence.description_en : comp.competence.description_fr)
-        || comp.competence.description_fr || comp.competence.description_en;
+      const c = comp.competence;
+      competence = (LANG === 'en' ? c.description_en : c.description_fr)
+        || c.description_fr || c.description_en;
+      // ⚠️ L'IA rédige les deux versions : n'en garder qu'une montrait la
+      // phrase française à un anglophone (et l'inverse).
       await api(`/competence/save/${aid}`, {
-        method: 'POST', body: JSON.stringify({ description: competence }),
+        method: 'POST',
+        body: JSON.stringify({ description: competence,
+                               description_fr: c.description_fr || '',
+                               description_en: c.description_en || '' }),
       });
     }
     await api(`/competence/result_links/generate/${aid}`, { method: 'POST' });
@@ -2059,7 +2068,7 @@
       el.className = 'cv2-semaine' + (i >= c.sem && pris > 0 ? ' deborde' : '');
       const dedans = (state.planning || [])
         .map((st, k) => (i + 1 >= st.ws && i + 1 <= st.we ? k + 1 : 0)).filter(Boolean);
-      el.title = `S${i + 1} · ${pris} ${T('plan_h')}` + (dedans.length
+      el.title = `${T('plan_wk')}${i + 1} · ${pris} ${T('plan_h')}` + (dedans.length
         ? ' · ' + Tv(dedans.length === 1 ? 'plan_week_step_1' : 'plan_week_step_n', { l: dedans.join(', ') })
         : '');
       el.innerHTML = `<i style="height:${c.hs ? (pris / c.hs * 100) : 0}%"></i>`;

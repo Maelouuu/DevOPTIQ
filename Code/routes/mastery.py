@@ -12,6 +12,7 @@ from Code.models.models import (Activities, Data, CompetencyEvaluation, UserRole
 from Code.competences_acces import peut_noter
 from Code.permissions import current_user
 from Code.routes.qualify_outputs import get_activity_outputs
+from Code.role_i18n import nom_affiche
 
 mastery_bp = Blueprint("mastery", __name__, url_prefix="/mastery")
 
@@ -179,7 +180,7 @@ def dashboard_rows(user_id, role_id):
             tech = "none"
         rows.append({
             "activity_id": act.id, "activity_name": act.name,
-            "competence": comp.description if comp else None,
+            "competence": comp.texte(_lang()) if comp else None,
             "required_level": st["required_level"], "required_label": st["required_label"],
             "demonstrated_level": st["global_level"], "demonstrated_label": st["global_label"],
             "gap": st["gap"], "color": st["color"],
@@ -204,7 +205,7 @@ def dashboard(user_id, role_id):
         return jsonify({"error": "role_not_found"}), 404
     if not peut_lire(current_user(), user_id):
         return jsonify({"error": "forbidden"}), 403
-    return jsonify({"user_id": user_id, "role_id": role_id, "role_name": role.name,
+    return jsonify({"user_id": user_id, "role_id": role_id, "role_name": nom_affiche(role),
                     "activities": dashboard_rows(user_id, role_id)}), 200
 
 
@@ -303,7 +304,7 @@ def synthese(user_id):
             # du démontré.
             profil.append({
                 "activity_id": r["activity_id"], "activity_name": r["activity_name"],
-                "role_id": role.id, "role_name": role.name,
+                "role_id": role.id, "role_name": nom_affiche(role),
                 "required_level": r["required_level"],
                 "demonstrated_level": r["demonstrated_level"],
                 "self_level": r["self_level"], "gap": r["gap"],
@@ -315,7 +316,7 @@ def synthese(user_id):
         niveau = min(niveaux) if (niveaux and complet) else None
         req = min(requis) if requis else None
         roles.append({
-            "role_id": role.id, "role_name": role.name,
+            "role_id": role.id, "role_name": nom_affiche(role),
             "n_activities": len(rows),
             "counts": compte,
             "level": niveau, "level_label": level_label(niveau),

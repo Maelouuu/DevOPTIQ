@@ -9,7 +9,7 @@
 <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
 
 <div class="card-nav-container">
-  <nav id="card-nav" class="card-nav" aria-label="Navigation principale">
+  <nav id="card-nav" class="card-nav" aria-label="{{ t('nav.main') }}">
 
     <!-- Logo cercle translucide -->
     <a class="logo-container" href="/activities/map" title="OPTIQ">
@@ -26,7 +26,7 @@
 
     <!-- Hamburger (mobile uniquement) -->
     <div id="hamburger" class="hamburger-menu" role="button"
-         aria-label="Ouvrir le menu" tabindex="0">
+         aria-label="{{ t('nav.open_menu') }}" tabindex="0">
       <div class="hamburger-line"></div>
       <div class="hamburger-line"></div>
     </div>

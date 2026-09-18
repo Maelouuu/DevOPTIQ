@@ -530,6 +530,9 @@ def create_app(test_config=None):
         # Traduction des noms de rôles (caches FR/EN, affichage selon la langue)
         _safe_add_column("roles", "name_fr", "VARCHAR(200)")
         _safe_add_column("roles", "name_en", "VARCHAR(200)")
+        # La compétence principale dans les deux langues (l'IA rédige les deux)
+        _safe_add_column("competencies", "description_fr", "TEXT")
+        _safe_add_column("competencies", "description_en", "TEXT")
         # Paramètres entreprise : les tables historiques n'avaient pas entity_id
         _safe_add_column("entreprise_settings", "entity_id", "INTEGER")
 
