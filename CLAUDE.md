@@ -998,6 +998,66 @@ dans les deux langues sur `tools/devrun_competences.py`, avec le repli ET un
 plan de forme IA (actions mêlées entre deux activités, livrables, critères) :
 regroupement, +/−, frappe, retrait, curseurs, « caler », enregistrement relu.
 
+
+### « Configurer l'activité » : une question, pas un cours de méthode (2026-09-18)
+
+« Je ne comprends pas ce qu'on est en train de faire, pourquoi tu me parles
+d'une sortie, après on peut rentrer du texte on ne sait pas pourquoi. » Le
+reproche était exact : l'écran s'appelait « Qualification des sorties », et
+chaque ligne empilait une question (« Cette donnée démontre-t-elle la tenue de
+l'activité ? »), un grand bouton avec sa phrase, « Sinon, rangez-la : » et trois
+pastilles avec encore une phrase — sept bouts de texte par ligne, sous un
+paragraphe de trois lignes sur l'IA.
+
+⚠️ **Et la moitié de ce qu'on demandait ne servait à RIEN.** Seule la nature
+`RESULT` est lue quelque part (`mastery`, `diagnostic`, `result_capabilities`) ;
+Mesure, Événement et Information ne sont lues par AUCUN code. On faisait classer
+à l'utilisateur ce que personne ne lit. La décision réelle est binaire.
+`tests/test_51_qualify_outputs.py::test_seule_la_nature_RESULTAT_est_lue_par_l_application`
+le tient : le jour où une autre nature sert, l'écran devra la redemander.
+
+**L'écran pose désormais UNE question** — « Sur quoi jugerez-vous cette
+activité ? » — suivie d'une phrase qui dit aussi à quoi sert le champ de texte
+(« …puis dites à quoi on voit que c'est réussi : c'est le repère de
+l'évaluation »). Puis :
+- **« Ce que l'activité produit · les flèches qui en partent sur la carte »**,
+  une liste à cocher. ⚠️ « Sortie » est un mot de méthode : chaque ligne est
+  montrée comme la FLÈCHE qu'elle est, avec sa destination (« → vers « Chiffrer
+  l'offre » »). `/qualify/outputs` renvoie `vers` et `sans_libelle` — une flèche
+  sans libellé n'a pour nom que sa destination, affichée telle quelle on lirait
+  que l'activité « produit » une autre activité : elle devient « Flèche vers … ».
+- **Un seul champ, « Réussi quand… »**, et seulement pour ce qui est coché (il
+  prend le focus au moment où on coche). Un champ offert à côté d'une case
+  vide ne disait pas à quoi il servait.
+- **L'IA en une ligne** (« L'IA a pré-coché ce qui lui semble juste. Vérifiez
+  avant d'enregistrer. ») et une étiquette « IA » sur ce qu'elle a coché — en
+  ambre « à vérifier » quand elle doute, sa justification au survol.
+- ⚠️ **Ce qui est ENREGISTRÉ l'emporte sur la proposition** : rouvrir la fenêtre
+  ne laisse pas l'IA revenir sur un choix fait par quelqu'un. Et une ligne
+  décochée garde sa nature d'avant (`data-autre`) : l'écran ne la montre plus,
+  ce n'est pas une raison de l'effacer.
+- **Le compte vit dans le pied**, à côté du bouton qu'il conditionne
+  (« 1 élément retenu », ambre au-delà de trois : l'activité en regroupe
+  peut-être plusieurs). « Enregistrer » reste éteint tant que rien n'est coché.
+- **L'écran de fin MONTRE ce qui a été produit** — la compétence rédigée et
+  « Elle sera évaluée sur » avec chaque repère — au lieu de deux phrases qui
+  disaient que c'était fait.
+- La liste des activités disait « sorties à qualifier » : elle dit « pas encore
+  configurée ».
+
+Retirés : `panneauIA`, 35 clés de catalogue par langue (`q_*`, `ia_qualify_*`, `ia_done_*`,
+`need_result`…) et ~176 lignes de CSS mort de TROIS générations du même écran
+(`.cv2-qz`, `.cv2-oui`, `.cv2-sinon`, `.cv2-nature*`, `.cv2-qstd`, `.cv2-setup`,
+`.cv2-natsel`…). ⚠️ Mise au point : dans le volet navigateur qui ne peint pas,
+les transitions CSS restent figées en cours de route — la case cochée paraissait
+vide et le bouton éteint alors que leurs styles calculés étaient justes. Couper
+les transitions avant la capture.
+
+Tests : `test_51` (+2 : la destination de chaque flèche, et le garde-fou
+ci-dessus). Suite : 2350 passés. Éprouvé dans les deux langues, sans IA ET avec
+une réponse d'IA simulée (pré-cochage, doute, repères proposés, décocher,
+enregistrer, relire en base).
+
 ---
 
 ## Guide utilisateur (`docs/guide.html`)
