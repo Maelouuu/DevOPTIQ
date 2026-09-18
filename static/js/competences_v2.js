@@ -143,7 +143,15 @@
       plan_source_local: 'Construit depuis les capacités en écart relevées en base (aucune clé IA)',
       plan_gap_1: 'activité sous le niveau requis', plan_gap_intro: 'activités sous le niveau requis',
       plan_del: 'Retirer cette action',
-      plan_target: 'Objectif', plan_proof: 'Preuve attendue', plan_crit: 'Réussi quand',
+      plan_target: 'Objectif', plan_deliv: 'Livrable', plan_crit: 'Réussi quand',
+      plan_other: 'Autres actions',
+      plan_steps_1: '1 étape', plan_steps_n: '[[n]] étapes',
+      plan_week_1: 'Semaine [[a]]', plan_week_n: 'Semaines [[a]] → [[b]]',
+      plan_week_over: 'dépasse la durée visée',
+      plan_week_step_1: 'étape [[l]]', plan_week_step_n: 'étapes [[l]]',
+      plan_load: 'Charge en heures', plan_less: 'Moins d’heures', plan_more: 'Plus d’heures',
+      plan_remove: 'Retirer', plan_mix: 'Répartition des heures par nature d’action',
+      plan_gap_from_to: 'Niveau actuel → niveau visé',
     },
     en: {
       manager: 'Competency developer', my_dev: 'Your competency developer',
@@ -262,7 +270,15 @@
       plan_source_local: 'Built from the capability gaps recorded in the database (no AI key)',
       plan_gap_1: 'activity below the required level', plan_gap_intro: 'activities below the required level',
       plan_del: 'Remove this action',
-      plan_target: 'Objective', plan_proof: 'Expected evidence', plan_crit: 'Done when',
+      plan_target: 'Objective', plan_deliv: 'Deliverable', plan_crit: 'Done when',
+      plan_other: 'Other actions',
+      plan_steps_1: '1 step', plan_steps_n: '[[n]] steps',
+      plan_week_1: 'Week [[a]]', plan_week_n: 'Weeks [[a]] → [[b]]',
+      plan_week_over: 'runs past the target duration',
+      plan_week_step_1: 'step [[l]]', plan_week_step_n: 'steps [[l]]',
+      plan_load: 'Workload in hours', plan_less: 'Fewer hours', plan_more: 'More hours',
+      plan_remove: 'Remove', plan_mix: 'Hours by kind of action',
+      plan_gap_from_to: 'Current level → target level',
     },
   };
   // Clés communes aux deux langues, déclarées une fois.
@@ -1770,6 +1786,7 @@
       actions: (d.actions || []).map(a => Object.assign({}, a)),
       activites: d.activites || [], source: d.source, types: d.types || {},
     };
+    state.plan.actions = ordonner(state.plan.actions);
     renderPlan();
   }
 
@@ -1799,6 +1816,7 @@
           ${p.source === 'AI'
             ? `<div class="cv2-prop" style="margin:0 0 9px">${esc(T('plan_source_ai'))}</div>`
             : `<div class="cv2-prop cv2-prop--touche" style="margin:0 0 9px">${esc(T('plan_source_local'))}</div>`}
+          <div class="cv2-mix" id="cv2-mix" title="${esc(T('plan_mix'))}"></div>
           <div id="cv2-actions"></div>
         </div>
         <div>
@@ -1821,7 +1839,7 @@
         </div>
       </div>`;
 
-    renderActions();
+    renderActions(true);
     ['heures_semaine', 'semaines'].forEach(cle => {
       const inp = body.querySelector(`[data-curseur="${cle}"]`);
       inp.addEventListener('input', () => {
@@ -1861,33 +1879,200 @@
     if (lbl) lbl.textContent = v;
   }
 
-  function renderActions() {
-    const box = $('#cv2-actions'); box.innerHTML = '';
-    state.plan.actions.forEach((a, i) => {
-      const el = document.createElement('div');
-      el.className = `cv2-action cv2-action--${esc(a.type || 'FORMATION')}`;
-      el.style.animationDelay = (i * 35) + 'ms';
-      const nomAct = (state.plan.activites.find(x => x.activity_id === a.activity_id) || {}).activity_name;
-      el.innerHTML = `<div class="ac-corps">
-          <div class="ac-t">${esc(a.titre)}</div>
-          <div class="ac-m">
-            <span class="cv2-typetag cv2-typetag--${esc(a.type || 'FORMATION')}">${esc(state.plan.types[a.type] || a.type || '')}</span>
-            <span class="cv2-heures"><input type="number" min="1" max="200" value="${+a.heures || 1}"> ${esc(T('plan_h'))}</span>
-            ${nomAct ? `<span style="font-size:11.5px;color:var(--faint);font-weight:600">${esc(nomAct)}</span>` : ''}
+  /* ══ Le parcours ═══════════════════════════════════════════════════════
+     ⚠️ La liste était une PILE de cartes : les actions de toutes les activités
+     mêlées, et dans chaque carte un type minuscule, un champ d'heures et le nom
+     de l'activité posés sur une même ligne sans rien pour les distinguer, puis
+     un « Objectif » qui répétait souvent le titre. On ne savait ni POURQUOI une
+     action était là, ni DANS QUEL ORDRE les faire, ni QUAND elles tombaient —
+     alors que le panneau de droite calcule justement les semaines.
+     Désormais : une section par activité (l'écart qu'on vient combler, du
+     niveau actuel au niveau visé), des étapes NUMÉROTÉES dans l'ordre du plan,
+     et dans chaque carte trois zones qui ne se mélangent plus — la nature et la
+     charge en tête, l'action, puis ses champs étiquetés — et en pied, les
+     semaines où elle tombe. */
+
+  // La nature d'une action porte sa couleur et son pictogramme partout : la
+  // pastille numérotée, l'étiquette de la carte, la barre de répartition.
+  const NATURES = {
+    TERRAIN: 'fa-briefcase',
+    ACCOMPAGNEMENT: 'fa-handshake-angle',
+    FORMATION: 'fa-graduation-cap',
+  };
+  const nature = a => (NATURES[a.type] ? a.type : 'FORMATION');
+  const connue = id => id != null && state.plan.activites.some(x => x.activity_id === id);
+
+  /* ⚠️ Le plan est une SUITE : l'IA ordonne ses actions (« ce qui conditionne
+     le reste d'abord ») et l'échéancier remplit les semaines dans cet ordre.
+     On regroupe par activité en gardant l'ordre de PREMIÈRE apparition — un
+     tri par écart déferait la séquence proposée. Appliqué au chargement : l'ordre
+     affiché, l'ordre enregistré et l'ordre des semaines sont le même. */
+  function ordonner(actions) {
+    const ordre = [], paquets = {};
+    actions.forEach(a => {
+      const k = connue(a.activity_id) ? String(a.activity_id) : '_';
+      if (!paquets[k]) { paquets[k] = []; if (k !== '_') ordre.push(k); }
+      paquets[k].push(a);
+    });
+    if (paquets._) ordre.push('_');
+    return ordre.reduce((tout, k) => tout.concat(paquets[k]), []);
+  }
+
+  // Où tombe chaque action : on les enchaîne à hauteur de ce qu'on a dit
+  // pouvoir y consacrer par semaine — le même remplissage que l'échéancier.
+  function planning(c) {
+    let cumul = 0;
+    return state.plan.actions.map(a => {
+      const ws = Math.floor(cumul / c.hs) + 1;
+      cumul += Math.max(1, +a.heures || 1);
+      const we = Math.ceil(cumul / c.hs);
+      return { ws, we, deborde: we > c.sem };
+    });
+  }
+  const dateEtape = st => (st.ws === st.we ? Tv('plan_week_1', { a: st.ws })
+                                           : Tv('plan_week_n', { a: st.ws, b: st.we }));
+
+  function renderActions(anime) {
+    const p = state.plan;
+    const groupes = [];
+    p.actions.forEach((a, i) => {
+      const k = connue(a.activity_id) ? a.activity_id : null;
+      let g = groupes[groupes.length - 1];
+      if (!g || g.k !== k) { g = { k, items: [] }; groupes.push(g); }
+      g.items.push(i);
+    });
+    const box = $('#cv2-actions');
+    box.innerHTML = groupes.map(g => {
+      const act = g.k != null ? p.activites.find(x => x.activity_id === g.k) : null;
+      // ⚠️ Un <div>, pas un <header> : competences.css déclare
+      // `header { position: sticky }` pour TOUTE la page — un <header> ici
+      // collait en haut de la fenêtre et passait par-dessus les cartes.
+      return `<section class="cv2-etapes-g">
+          <div class="cv2-etapes-gh">
+            <div class="l1">
+              <div class="t">${esc(act ? act.activity_name : T('plan_other'))}</div>
+              <div class="tot" data-gtot></div>
+            </div>
+            ${act ? `<div class="niv" title="${esc(T('plan_gap_from_to'))}">
+                <span>${esc(act.demonstrated_label)}</span>
+                <i class="fa-solid fa-arrow-right"></i>
+                <b>${esc(act.required_label)}</b></div>` : ''}
           </div>
-          ${a.objectif ? `<div class="ac-o"><b>${esc(T('plan_target'))} :</b> ${esc(a.objectif)}</div>` : ''}
-          ${a.critere ? `<div class="ac-c"><b>${esc(T('plan_crit'))}</b> ${esc(a.critere)}</div>` : ''}
+          <ol class="cv2-etapes">${g.items.map(i => carteEtape(p.actions[i], i, anime)).join('')}</ol>
+        </section>`;
+    }).join('');
+    brancherEtapes(box);
+  }
+
+  function carteEtape(a, i, anime) {
+    const n = nature(a);
+    // Seuls les champs remplis s'affichent : une étiquette suivie de rien se
+    // lit comme une information manquante.
+    const champs = [[T('plan_target'), a.objectif], [T('plan_deliv'), a.livrable],
+                    [T('plan_crit'), a.critere]].filter(([, v]) => v && String(v).trim());
+    return `<li class="cv2-etape cv2-t--${n}" data-i="${i}"
+                ${anime ? `style="animation-delay:${i * 35}ms"` : 'data-calme="1"'}>
+        <span class="cv2-etape-n" aria-hidden="true">${i + 1}</span>
+        <div class="cv2-etape-c">
+          <div class="cv2-etape-h">
+            <span class="cv2-etape-type"><i class="fa-solid ${NATURES[n]}"></i>${esc(state.plan.types[n] || n)}</span>
+            <span class="cv2-pas" role="group" aria-label="${esc(T('plan_load'))}">
+              <button type="button" data-pas="-1" aria-label="${esc(T('plan_less'))}">&minus;</button>
+              <input type="number" min="1" max="200" value="${Math.max(1, +a.heures || 1)}"
+                     aria-label="${esc(T('plan_load'))}">
+              <span class="u">${esc(T('plan_h'))}</span>
+              <button type="button" data-pas="1" aria-label="${esc(T('plan_more'))}">+</button>
+            </span>
+          </div>
+          <div class="cv2-etape-t">${esc(a.titre)}</div>
+          ${champs.length ? `<dl class="cv2-etape-d">${champs.map(([k, v]) =>
+              `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join('')}</dl>` : ''}
+          <div class="cv2-etape-f">
+            <span class="cv2-etape-sem"><i class="fa-regular fa-calendar"></i><span data-sem></span></span>
+            <button type="button" class="cv2-etape-x" title="${esc(T('plan_del'))}">
+              <i class="fa-solid fa-trash-can"></i>${esc(T('plan_remove'))}</button>
+          </div>
         </div>
-        <button type="button" class="ac-x" title="${esc(T('plan_del'))}">&times;</button>`;
-      el.querySelector('input').addEventListener('input', e => {
-        a.heures = Math.max(1, Math.min(200, +e.target.value || 1));
+      </li>`;
+  }
+
+  function brancherEtapes(box) {
+    box.querySelectorAll('.cv2-etape').forEach(li => {
+      const i = +li.dataset.i;
+      const a = state.plan.actions[i];
+      const inp = li.querySelector('.cv2-pas input');
+      const poser = h => {
+        a.heures = Math.max(1, Math.min(200, Math.round(+h) || 1));
+        recalculer();
+      };
+      inp.addEventListener('input', () => poser(inp.value));
+      // Le champ se corrige à la SORTIE, pas pendant la frappe : effacer « 12 »
+      // pour taper « 8 » passerait sinon par un « 1 » imposé.
+      inp.addEventListener('change', () => { inp.value = a.heures; });
+      // Le pas suit l'ordre de grandeur : une heure près d'une charge de 3 h,
+      // cinq près d'une charge de 60.
+      li.querySelectorAll('[data-pas]').forEach(b => b.addEventListener('click', () => {
+        const h = +a.heures || 1;
+        poser(h + (+b.dataset.pas) * (h < 10 ? 1 : (h < 40 ? 2 : 5)));
+        inp.value = a.heures;
+      }));
+      li.querySelector('.cv2-etape-x').addEventListener('click', () => {
+        state.plan.actions.splice(i, 1);
+        renderActions(false);
         recalculer();
       });
-      el.querySelector('.ac-x').onclick = () => {
-        state.plan.actions.splice(i, 1); renderActions(); recalculer();
-      };
-      box.appendChild(el);
+      li.addEventListener('mouseenter', () => eclairer(i, nature(a)));
+      li.addEventListener('mouseleave', () => eclairer(null));
     });
+  }
+
+  // Survoler une étape allume SES semaines dans l'échéancier : la liste et les
+  // curseurs parlent enfin du même temps.
+  function eclairer(i, n) {
+    const box = $('#cv2-semaines');
+    const st = (i == null || !state.planning) ? null : state.planning[i];
+    if (!box) return;
+    box.classList.toggle('is-lit', !!st);
+    if (st) box.dataset.nature = n; else delete box.dataset.nature;
+    box.querySelectorAll('.cv2-semaine').forEach((el, w) =>
+      el.classList.toggle('lit', !!st && w + 1 >= st.ws && w + 1 <= st.we));
+  }
+
+  // Ce qui dépend des heures se met à jour SUR PLACE : réécrire les cartes à
+  // chaque frappe ferait perdre le curseur du champ qu'on est en train de taper.
+  function majEtapes(c) {
+    const plan = state.planning;
+    document.querySelectorAll('#cv2-actions .cv2-etape').forEach(li => {
+      const st = plan[+li.dataset.i];
+      if (!st) return;
+      li.classList.toggle('deborde', st.deborde);
+      li.querySelector('[data-sem]').textContent =
+        dateEtape(st) + (st.deborde ? ' · ' + T('plan_week_over') : '');
+    });
+    document.querySelectorAll('#cv2-actions .cv2-etapes-g').forEach(g => {
+      const idx = [...g.querySelectorAll('.cv2-etape')].map(li => +li.dataset.i);
+      const h = idx.reduce((t, i) => t + (+state.plan.actions[i].heures || 0), 0);
+      g.querySelector('[data-gtot]').textContent =
+        (idx.length === 1 ? T('plan_steps_1') : Tv('plan_steps_n', { n: idx.length }))
+        + ` · ${h} ${T('plan_h')}`;
+    });
+    majMix();
+  }
+
+  // La répartition par nature, et du même coup la légende des couleurs. Le CDC
+  // veut qu'un écart se comble D'ABORD en situation : cette barre le montre.
+  function majMix() {
+    const box = $('#cv2-mix');
+    if (!box) return;
+    const par = {};
+    state.plan.actions.forEach(a => { par[nature(a)] = (par[nature(a)] || 0) + (+a.heures || 0); });
+    const total = Object.keys(par).reduce((t, k) => t + par[k], 0) || 1;
+    const ordre = ['TERRAIN', 'ACCOMPAGNEMENT', 'FORMATION'].filter(n => par[n]);
+    box.innerHTML = `<div class="cv2-mix-bar">${ordre.map(n =>
+        `<i class="cv2-t--${n}" style="flex-basis:${par[n] / total * 100}%"></i>`).join('')}</div>
+      <div class="cv2-mix-leg">${ordre.map(n =>
+        `<span class="cv2-t--${n}"><i class="fa-solid ${NATURES[n]}"></i>${esc(state.plan.types[n] || n)}
+          <b>${par[n]} ${esc(T('plan_h'))}</b></span>`).join('')}</div>`;
   }
 
   // Le calcul : besoin, capacité, et ce qu'il faudrait pour que ça tienne.
@@ -1908,6 +2093,7 @@
 
   function recalculer() {
     const c = calcul();
+    state.planning = planning(c);
     $('#cv2-tot').textContent = `${c.besoin} ${T('plan_h')}`;
     $('#cv2-besoin').textContent = `${c.besoin} ${T('plan_h')}`;
     $('#cv2-capacite').textContent = `${c.capacite} ${T('plan_h')}`;
@@ -1928,6 +2114,7 @@
     juste.textContent = Tv('plan_juste', { s: c.semainesNecessaires });
     juste.classList.toggle('hidden', c.semainesNecessaires === c.sem);
 
+    majEtapes(c);
     renderSemaines(c);
   }
 
@@ -1942,7 +2129,11 @@
       reste -= pris;
       const el = document.createElement('div');
       el.className = 'cv2-semaine' + (i >= c.sem && pris > 0 ? ' deborde' : '');
-      el.title = `S${i + 1} · ${pris} ${T('plan_h')}`;
+      const dedans = (state.planning || [])
+        .map((st, k) => (i + 1 >= st.ws && i + 1 <= st.we ? k + 1 : 0)).filter(Boolean);
+      el.title = `S${i + 1} · ${pris} ${T('plan_h')}` + (dedans.length
+        ? ' · ' + Tv(dedans.length === 1 ? 'plan_week_step_1' : 'plan_week_step_n', { l: dedans.join(', ') })
+        : '');
       el.innerHTML = `<i style="height:${c.hs ? (pris / c.hs * 100) : 0}%"></i>`;
       box.appendChild(el);
     }
@@ -1957,8 +2148,8 @@
                              parametres: state.plan.parametres }),
     });
     if (r.__error) { if (btn) { btn.disabled = false; btn.textContent = T('plan_propose'); } return; }
-    state.plan.actions = r.actions || [];
     state.plan.activites = r.activites || state.plan.activites;
+    state.plan.actions = ordonner(r.actions || []);
     state.plan.source = r.source === 'AI' ? 'AI' : 'LOCAL';
     renderPlan();
   }

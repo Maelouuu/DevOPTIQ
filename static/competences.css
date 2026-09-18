@@ -923,44 +923,155 @@ header { position: sticky; top: 0; z-index: 30; }
 }
 .cv2-plan-h .tot { margin-left: auto; font-size: 12.5px; color: var(--ink-2); text-transform: none; letter-spacing: 0; }
 
-/* Une action : la charge est modifiable à la main — l'estimation est un point
-   de départ, pas un verdict. */
-.cv2-action {
-  display: flex; align-items: flex-start; gap: 11px; padding: 11px 13px; margin-bottom: 8px;
-  background: var(--card); border: 1px solid var(--border); border-left: 3px solid var(--pg-accent-border);
-  border-radius: 11px; animation: cv2-entre .24s ease-out backwards;
+/* ══ Le parcours : ce qu'il y a à faire, dans l'ordre ═══════════════════════
+   ⚠️ C'était une PILE de cartes où tout se mêlait : les activités entre elles,
+   et dans chaque carte le type, les heures et l'activité sur une même ligne,
+   sans étiquette. Désormais une section par activité, des étapes numérotées
+   reliées par un rail, et une carte en trois zones — nature et charge en tête,
+   l'action, ses champs étiquetés — avec en pied les semaines où elle tombe. */
+
+/* Une nature d'action = une couleur, tenue partout (pastille, étiquette,
+   répartition, semaines éclairées). Écrites EN DUR : les dérivés
+   `--pg-accent-soft/-border` rendent du gris sur toute l'application. */
+.cv2-t--TERRAIN        { --c: #16a34a; --c-soft: #f0fdf4; --c-line: #bbf7d0; --c-deep: #15803d; }
+.cv2-t--ACCOMPAGNEMENT { --c: #d97706; --c-soft: #fff7ed; --c-line: #fed7aa; --c-deep: #b45309; }
+.cv2-t--FORMATION      { --c: #2563eb; --c-soft: #eff6ff; --c-line: #bfdbfe; --c-deep: #1d4ed8; }
+
+/* La répartition par nature — et la légende des couleurs du même coup. */
+.cv2-mix { margin: 0 0 16px; }
+.cv2-mix-bar {
+  display: flex; gap: 2px; height: 8px; overflow: hidden;
+  border-radius: 999px; background: var(--card-2);
 }
-.cv2-action--TERRAIN        { border-left-color: #16a34a; }
-.cv2-action--ACCOMPAGNEMENT { border-left-color: #d97706; }
-.cv2-action--FORMATION      { border-left-color: var(--pg-accent); }
-.cv2-action .ac-corps { flex: 1; min-width: 0; }
-.cv2-action .ac-t { font-size: 13.5px; font-weight: 700; color: var(--ink); }
-.cv2-action .ac-m { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; margin-top: 4px; }
-.cv2-action .ac-o { margin-top: 4px; font-size: 12px; line-height: 1.45; color: var(--muted); }
-.cv2-action .ac-c {
-  margin-top: 5px; padding: 6px 9px; border-radius: 8px;
-  font-size: 11.5px; line-height: 1.4; background: var(--card-2); color: var(--ink-2);
+.cv2-mix-bar i { display: block; min-width: 4px; background: var(--c); transition: flex-basis .3s ease; }
+.cv2-mix-leg {
+  display: flex; flex-wrap: wrap; gap: 5px 16px; margin-top: 8px;
+  font-size: 12.5px; font-weight: 600; color: var(--ink-2);
 }
-.cv2-action .ac-c b { color: var(--cv-green-deep); }
-.cv2-typetag {
-  padding: 2px 8px; border-radius: 999px; font-size: 10.5px; font-weight: 700;
-  text-transform: uppercase; letter-spacing: .04em;
+.cv2-mix-leg span { display: inline-flex; align-items: center; gap: 6px; }
+.cv2-mix-leg span > i { font-size: 11px; color: var(--c); }
+.cv2-mix-leg b { font-weight: 700; color: var(--ink); }
+
+/* Une section par activité : l'écart qu'elle vient combler, en toutes lettres. */
+.cv2-etapes-g + .cv2-etapes-g { margin-top: 20px; }
+/* Deux lignes FIXES : le nom et le total, puis l'écart. Laissés en un seul
+   flux, le total tombait à la ligne selon la longueur du nom. */
+.cv2-etapes-gh {
+  margin-bottom: 11px; padding: 10px 13px;
+  background: var(--card-2); border: 1px solid var(--border); border-radius: 12px;
 }
-.cv2-typetag--TERRAIN        { background: #f0fdf4; color: var(--cv-green-deep); }
-.cv2-typetag--ACCOMPAGNEMENT { background: #fff7ed; color: var(--cv-orange-deep); }
-.cv2-typetag--FORMATION      { background: var(--pg-accent-soft); color: var(--pg-accent-deep); }
-.cv2-heures { display: inline-flex; align-items: center; gap: 3px; font-size: 12px; font-weight: 700; color: var(--ink-2); }
-.cv2-heures input {
-  width: 46px; padding: 3px 5px; text-align: right;
-  font-family: inherit; font-size: 12px; font-weight: 700; color: var(--ink);
-  background: var(--card-2); border: 1px solid var(--border); border-radius: 7px;
+.cv2-etapes-gh .l1 { display: flex; align-items: baseline; gap: 12px; }
+.cv2-etapes-gh .t { flex: 1; min-width: 0; font-size: 14.5px; font-weight: 700; color: var(--ink); }
+.cv2-etapes-gh .tot {
+  flex: none; white-space: nowrap;
+  font-size: 12.5px; font-weight: 700; color: var(--ink-2);
 }
-.cv2-heures input:focus { outline: none; border-color: var(--pg-accent); background: var(--card); }
-.cv2-action .ac-x {
-  width: 24px; height: 24px; flex: none; padding: 0; border: none; border-radius: 7px;
-  background: none; color: var(--faint); font-size: 15px; line-height: 1; cursor: pointer; transition: .13s;
+.cv2-etapes-gh .niv {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 3px 7px; margin-top: 3px;
+  font-size: 12.5px; font-weight: 600; color: var(--muted);
 }
-.cv2-action .ac-x:hover { background: #fef2f2; color: var(--cv-red-deep); }
+.cv2-etapes-gh .niv i { font-size: 10px; color: var(--faint); }
+.cv2-etapes-gh .niv b { color: var(--ink); }
+
+.cv2-etapes { margin: 0; padding: 0; list-style: none; }
+.cv2-etape {
+  position: relative; display: flex; gap: 12px; padding-bottom: 12px;
+  animation: cv2-entre .24s ease-out backwards;
+}
+.cv2-etape[data-calme] { animation: none; }
+.cv2-etape:last-child { padding-bottom: 0; }
+/* Le rail relie les pastilles : on lit une suite, pas une pile. */
+.cv2-etape::before {
+  content: ""; position: absolute; left: 14px; top: 38px; bottom: 0;
+  width: 2px; border-radius: 1px; background: var(--border);
+}
+.cv2-etape:last-child::before { display: none; }
+.cv2-etape-n {
+  position: relative; z-index: 1; flex: none;
+  width: 30px; height: 30px; margin-top: 7px;
+  display: grid; place-items: center; border-radius: 50%;
+  font-size: 13.5px; font-weight: 800; color: #fff; background: var(--c);
+  box-shadow: 0 0 0 4px var(--card);
+}
+.cv2-etape-c {
+  flex: 1; min-width: 0; padding: 11px 14px 10px;
+  background: var(--card); border: 1px solid var(--border); border-radius: 13px;
+  transition: border-color .15s, box-shadow .15s;
+}
+.cv2-etape:hover .cv2-etape-c { border-color: var(--c-line); box-shadow: 0 4px 16px rgba(15, 23, 42, .07); }
+
+.cv2-etape-h { display: flex; align-items: center; gap: 10px; }
+.cv2-etape-type {
+  display: inline-flex; align-items: center; gap: 7px; min-width: 0;
+  font-size: 11.5px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
+  color: var(--c-deep);
+}
+.cv2-etape-type i {
+  flex: none; width: 24px; height: 24px; display: grid; place-items: center;
+  border-radius: 8px; font-size: 11.5px; color: var(--c); background: var(--c-soft);
+}
+.cv2-etape-t { margin-top: 8px; font-size: 15px; font-weight: 700; line-height: 1.35; color: var(--ink); }
+
+/* Les champs portent leur ÉTIQUETTE dans une colonne à part : l'œil descend
+   les libellés, puis lit la valeur qui l'intéresse. */
+.cv2-etape-d {
+  display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 6px 14px;
+  margin: 10px 0 0; padding: 10px 12px; border-radius: 10px; background: var(--card-2);
+}
+.cv2-etape-d dt {
+  padding-top: 2px; font-size: 11px; font-weight: 700; letter-spacing: .04em;
+  text-transform: uppercase; color: var(--muted);
+}
+.cv2-etape-d dd {
+  margin: 0; font-size: 13px; line-height: 1.45; color: var(--ink-2);
+  white-space: pre-line;   /* un critère par ligne quand il y en a plusieurs */
+}
+
+.cv2-etape-f { display: flex; align-items: center; gap: 10px; margin-top: 9px; }
+.cv2-etape-sem {
+  display: inline-flex; align-items: center; gap: 7px;
+  font-size: 12.5px; font-weight: 700; color: var(--ink-2);
+}
+.cv2-etape-sem i { font-size: 12px; color: var(--muted); }
+.cv2-etape.deborde .cv2-etape-sem,
+.cv2-etape.deborde .cv2-etape-sem i { color: var(--cv-red-deep); }
+.cv2-etape-x {
+  margin-left: auto; display: inline-flex; align-items: center; gap: 6px;
+  padding: 5px 9px; border: none; border-radius: 8px; background: none; cursor: pointer;
+  font-family: inherit; font-size: 12.5px; font-weight: 600; color: var(--faint);
+  transition: background .13s, color .13s;
+}
+.cv2-etape-x:hover { background: #fef2f2; color: var(--cv-red-deep); }
+.cv2-etape-x i { font-size: 11.5px; }
+
+/* La charge est un RÉGLAGE — c'est elle qui nourrit le besoin, à droite — et
+   elle se présente comme tel : moins, la valeur, plus.
+   ⚠️ Les flèches natives d'un input[type=number] mangeaient la moitié du
+   champ : à 46 px le nombre se retrouvait coupé. Elles sont retirées, les
+   boutons les remplacent. */
+.cv2-pas {
+  margin-left: auto; flex: none; display: inline-flex; align-items: stretch; height: 30px;
+  border: 1px solid var(--border); border-radius: 9px; overflow: hidden; background: var(--card);
+}
+.cv2-pas button {
+  width: 28px; padding: 0; border: none; cursor: pointer;
+  font-family: inherit; font-size: 16px; font-weight: 700; line-height: 1;
+  color: var(--ink-2); background: var(--card-2); transition: background .12s, color .12s;
+}
+.cv2-pas button:hover { background: var(--c-soft); color: var(--c-deep); }
+.cv2-pas input {
+  width: 40px; padding: 0 2px 0 0; border: none; text-align: right;
+  font-family: var(--pg-font-display); font-size: 16px; font-weight: 700; color: var(--ink);
+  background: var(--card); -moz-appearance: textfield; appearance: textfield;
+}
+.cv2-pas input::-webkit-outer-spin-button,
+.cv2-pas input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.cv2-pas input:focus { outline: none; background: var(--c-soft); }
+.cv2-pas .u {
+  display: flex; align-items: center; padding: 0 7px 0 2px;
+  font-size: 12.5px; font-weight: 700; color: var(--muted); background: var(--card);
+}
+.cv2-pas:focus-within { border-color: var(--c); box-shadow: 0 0 0 3px var(--c-soft); }
 
 /* Le panneau des curseurs */
 .cv2-reglages {
@@ -1038,6 +1149,14 @@ header { position: sticky; top: 0; z-index: 30; }
 }
 .cv2-semaine i { width: 100%; border-radius: 4px 4px 0 0; background: var(--pg-accent); transition: height .3s cubic-bezier(.4, 1.3, .5, 1); }
 .cv2-semaine.deborde i { background: var(--cv-red); }
+/* Survoler une étape allume SES semaines, dans SA couleur. */
+.cv2-semaine { transition: opacity .15s; }
+.cv2-semaines.is-lit .cv2-semaine { opacity: .32; }
+.cv2-semaines.is-lit .cv2-semaine.lit { opacity: 1; }
+.cv2-semaines[data-nature="TERRAIN"] .lit i        { background: #16a34a; }
+.cv2-semaines[data-nature="ACCOMPAGNEMENT"] .lit i { background: #d97706; }
+.cv2-semaines[data-nature="FORMATION"] .lit i      { background: #2563eb; }
+.cv2-semaines.is-lit .cv2-semaine.lit.deborde i    { background: var(--cv-red); }
 .cv2-echlbl { margin-top: 6px; font-size: 11px; font-weight: 600; color: var(--faint); text-align: center; }
 
 .cv2-plan-vide { padding: 40px 20px; text-align: center; font-size: 13.5px; font-weight: 600; color: var(--muted); }
@@ -1070,11 +1189,6 @@ header { position: sticky; top: 0; z-index: 30; }
    que celle qui fait foi. */
 @media (max-width: 720px) { .cv2-bloc-bilan { display: none; } }
 
-/* Les flèches natives d'un input[type=number] mangeaient la moitié du champ :
-   à 46 px le nombre se retrouvait coupé. */
-.cv2-heures input { width: 54px; -moz-appearance: textfield; appearance: textfield; }
-.cv2-heures input::-webkit-outer-spin-button,
-.cv2-heures input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 
 /* ══════════════════════════════════════════════════════════════════════════
    LES DEUX NOTES — MÊME OBJET, IDENTITÉS DISTINCTES
@@ -1396,8 +1510,6 @@ header { position: sticky; top: 0; z-index: 30; }
 .cv2-domrow .df .fl, .cv2-emptydom { font-size: 12px; }
 .cv2-fam .fh { font-size: 14px; }
 .cv2-fam .fd { font-size: 12.5px; }
-.cv2-action .ac-t { font-size: 14px; }
-.cv2-action .ac-o, .cv2-action .ac-c { font-size: 12.5px; }
 .cv2-dit { font-size: 13px; }
 .cv2-df .btn { font-size: 14px; }
 

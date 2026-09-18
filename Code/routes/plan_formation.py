@@ -123,6 +123,9 @@ def _capacites_en_ecart(user_id, activity_id, resultats):
                     continue
                 vues.add(cle)
                 if c.get("gap") is None or c.get("gap") < 0:
+                    # Le résultat qui réclame cette capacité : c'est lui qui dit
+                    # POURQUOI l'action existe.
+                    c["resultat"] = r["name"]
                     sortie.append(c)
         except Exception:                      # le diagnostic bouge, le plan tient
             current_app.logger.debug("capacites indisponibles", exc_info=True)
@@ -130,41 +133,82 @@ def _capacites_en_ecart(user_id, activity_id, resultats):
 
 
 # ── Le contenu : l'IA propose, le repli se débrouille ────────────────────────
+# Nature d'action par famille de capacité, pour le plan construit SANS IA. Un
+# savoir s'apprend ; un savoir-faire s'exerce, mieux avec quelqu'un à côté ;
+# une HSC se travaille en accompagnement. Ce n'est pas un catalogue inventé :
+# c'est la règle OPTIQ appliquée à ce que la base contient déjà.
+NATURE_PAR_CAPACITE = {"SAVOIR": "FORMATION", "SAVOIR_FAIRE": "ACCOMPAGNEMENT",
+                       "HSC": "ACCOMPAGNEMENT"}
+
+_TITRE_CAPACITE = {
+    "FORMATION":      {"fr": "Se former : {x}", "en": "Learn: {x}"},
+    "ACCOMPAGNEMENT": {"fr": "S'exercer avec un appui : {x}", "en": "Practise with support: {x}"},
+}
+
+
+def _critere(resultat, standard, en=False):
+    if not (resultat and standard):
+        return standard or ""
+    return f"“{resultat}”: {standard}" if en else f"« {resultat} » : {standard}"
+
+
 def _plan_local(activites, lang):
     """Plan bâti sans IA, depuis les capacités en écart relevées en base.
 
     Une action par capacité à combler, plus une mise en situation par activité :
-    c'est maigre, mais chaque ligne correspond à quelque chose de réel. Mieux
+    c'est sec, mais chaque ligne correspond à quelque chose de réel. Mieux
     qu'un plan générique qui aurait l'air complet.
+
+    ⚠️ Chaque champ doit AJOUTER quelque chose au titre. La première version
+    écrivait « Combler : Arbitrage » puis « Objectif : HSC — Arbitrage » : deux
+    fois la même information, et nulle part ce qu'il fallait faire ni à quoi on
+    verrait que c'est fait. Désormais le titre dit l'action, l'objectif dit le
+    résultat qui la réclame, et la mise en situation porte les standards de
+    ces résultats : c'est là, et seulement là, qu'ils se vérifient.
     """
+    en = lang != "fr"
     actions, n = [], 0
     for a in activites:
         pas = max(1, abs(a["gap"] or 1))
         for c in a["capabilities"][:4]:
             n += 1
             manque = pas if c.get("gap") is None else max(1, abs(c["gap"]))
+            nature = NATURE_PAR_CAPACITE.get(c.get("item_type"), "FORMATION")
+            libelle = c.get("label") or c.get("type_label") or ""
+            resultat = c.get("resultat") or ""
             actions.append({
                 "id": f"L{n}",
-                "titre": (f"Combler : {c.get('label') or c.get('type_label')}" if lang == "fr"
-                          else f"Close the gap on: {c.get('label') or c.get('type_label')}"),
-                "type": "FORMATION",
+                "titre": _TITRE_CAPACITE[nature]["en" if en else "fr"].format(x=libelle),
+                "type": nature,
                 "activity_id": a["activity_id"],
-                "objectif": (f"{c.get('type_label')} — {c.get('label') or ''}").strip(" —"),
-                "heures": CHARGE_PAR_PAS["FORMATION"] * manque,
+                "objectif": ((f"{c.get('type_label')} required by “{resultat}”" if en
+                              else f"{c.get('type_label')} que demande « {resultat} »")
+                             if resultat else ""),
+                "heures": CHARGE_PAR_PAS[nature] * manque,
+                # ⚠️ Pas de critère ici : le standard du résultat se vérifie EN
+                # SITUATION, sur l'action de terrain qui suit. Le recopier sur
+                # chaque capacité répétait la même ligne trois fois — et
+                # prétendait qu'une formation suffit à le tenir.
                 "livrable": "", "critere": "",
             })
         n += 1
+        resultats = a["results_in_gap"]
         actions.append({
             "id": f"L{n}",
-            "titre": (f"Tenir « {a['activity_name']} » en situation réelle" if lang == "fr"
-                      else f"Perform “{a['activity_name']}” in real conditions"),
+            "titre": (f"Perform “{a['activity_name']}” in real conditions" if en
+                      else f"Tenir « {a['activity_name']} » en situation réelle"),
             "type": "TERRAIN",
             "activity_id": a["activity_id"],
-            "objectif": (f"Atteindre {a['required_label']}" if lang == "fr"
-                         else f"Reach {a['required_label']}"),
+            "objectif": (f"Move from “{a['demonstrated_label']}” to “{a['required_label']}”" if en
+                         else f"Passer de « {a['demonstrated_label']} » "
+                              f"à « {a['required_label']} »"),
             "heures": CHARGE_PAR_PAS["TERRAIN"] * pas,
-            "livrable": "", "critere": a["results_in_gap"][0]["minimum_performance_text"]
-            if a["results_in_gap"] else "",
+            # Tenir l'activité en situation, c'est produire SES résultats : ce
+            # sont eux, le livrable — et leurs standards, le critère.
+            "livrable": ", ".join(r["name"] for r in resultats),
+            # Un standard par ligne : enchaînés, ils se lisaient « … réalisé. ; … ».
+            "critere": "\n".join(_critere(r["name"], r["minimum_performance_text"], en)
+                                  for r in resultats if r.get("minimum_performance_text")),
         })
     return actions
 

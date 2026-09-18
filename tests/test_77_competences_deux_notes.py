@@ -996,3 +996,125 @@ class TestPerimetreDeLaSynthese:
             sess["active_entity_id"] = ids["entity_id"]
         d = auth_client.get("/mastery/synthese/%d" % uid).get_json()
         assert d["n_activities"] == sum(r["n_activities"] for r in d["roles"])
+
+
+# ══════════════════════════════════════════════════════════════════════
+#  Le plan construit SANS IA dit quoi FAIRE — pas deux fois la même chose
+# ══════════════════════════════════════════════════════════════════════
+# ⚠️ La première version écrivait « Combler : Arbitrage », puis « Objectif :
+# HSC — Arbitrage » : deux fois l'information, et nulle part ce qu'il fallait
+# faire ni à quoi on verrait que c'est fait. `_plan_local` est une fonction
+# PURE (ni base, ni session) : on l'éprouve directement.
+
+def _activite_en_ecart():
+    return [{
+        "activity_id": 7, "activity_name": "Chiffrer l'offre", "competence": "",
+        "demonstrated_level": 1, "demonstrated_label": "En acquisition",
+        "required_level": 3, "required_label": "Maîtrise étendue", "gap": -2,
+        "results_in_gap": [
+            {"data_id": 1, "name": "Devis chiffré", "demonstrated_level": 1,
+             "minimum_performance_text": "Écart de marge inférieur à 3 %."},
+            {"data_id": 2, "name": "Hypothèses de coût", "demonstrated_level": 1,
+             "minimum_performance_text": "Chaque poste supérieur à 5 k€ documenté."},
+        ],
+        "capabilities": [
+            {"item_type": "SAVOIR", "type_label": "Savoir", "label": "Structure de coût",
+             "gap": None, "resultat": "Devis chiffré"},
+            {"item_type": "SAVOIR_FAIRE", "type_label": "Savoir-faire",
+             "label": "Chiffrer une nomenclature", "gap": None, "resultat": "Devis chiffré"},
+            {"item_type": "HSC", "type_label": "HSC", "label": "Arbitrage",
+             "gap": None, "resultat": "Hypothèses de coût"},
+        ],
+    }]
+
+
+class TestLeRepliDitQuoiFaire:
+
+    def _plan(self, lang="fr"):
+        from Code.routes.plan_formation import _plan_local
+        return _plan_local(_activite_en_ecart(), lang)
+
+    def test_la_nature_suit_la_famille_de_capacite(self):
+        """Un savoir s'apprend ; un savoir-faire s'exerce et une HSC se
+        travaille, avec quelqu'un à côté. Tout était « Formation »."""
+        par_titre = {a["titre"]: a["type"] for a in self._plan()}
+        assert par_titre["Se former : Structure de coût"] == "FORMATION"
+        assert par_titre["S'exercer avec un appui : Chiffrer une nomenclature"] == "ACCOMPAGNEMENT"
+        assert par_titre["S'exercer avec un appui : Arbitrage"] == "ACCOMPAGNEMENT"
+
+    def test_l_objectif_n_est_pas_le_titre_repete(self):
+        """L'objectif dit POURQUOI : le résultat qui réclame la capacité."""
+        for a in self._plan():
+            assert a["objectif"] and a["objectif"] != a["titre"]
+        arbitrage = next(a for a in self._plan() if "Arbitrage" in a["titre"])
+        assert "Hypothèses de coût" in arbitrage["objectif"]
+        assert "Arbitrage" not in arbitrage["objectif"], (
+            "le libellé de la capacité est déjà dans le titre")
+
+    def test_le_critere_vit_sur_la_mise_en_situation_seulement(self):
+        """⚠️ Recopié sur chaque capacité, le standard du résultat se lisait
+        trois fois de suite — et laissait croire qu'une formation suffit à le
+        tenir. Il se vérifie EN SITUATION."""
+        plan = self._plan()
+        for a in plan:
+            if a["type"] != "TERRAIN":
+                assert a["critere"] == ""
+        terrain = [a for a in plan if a["type"] == "TERRAIN"]
+        assert len(terrain) == 1
+        assert "Écart de marge" in terrain[0]["critere"]
+
+    def test_la_mise_en_situation_produit_les_resultats_de_l_activite(self):
+        t = next(a for a in self._plan() if a["type"] == "TERRAIN")
+        assert t["livrable"] == "Devis chiffré, Hypothèses de coût"
+        assert "En acquisition" in t["objectif"] and "Maîtrise étendue" in t["objectif"]
+
+    def test_un_standard_par_ligne(self):
+        """Enchaînés, ils se lisaient « … 3 %. ; Chaque poste… »."""
+        t = next(a for a in self._plan() if a["type"] == "TERRAIN")
+        lignes = t["critere"].split("\n")
+        assert len(lignes) == 2
+        assert lignes[0].startswith("« Devis chiffré »")
+        assert " ; " not in t["critere"]
+
+    def test_l_anglais_n_a_pas_de_guillemets_francais(self):
+        for a in self._plan("en"):
+            for champ in ("titre", "objectif", "livrable", "critere"):
+                assert "«" not in a[champ] and "»" not in a[champ], (champ, a[champ])
+        t = next(a for a in self._plan("en") if a["type"] == "TERRAIN")
+        assert t["critere"].split("\n")[0].startswith("“Devis chiffré”: ")
+
+    def test_chaque_action_a_une_charge(self):
+        """Une action sans charge ne s'ordonnance pas dans les semaines."""
+        from Code.routes.plan_formation import CHARGE_PAR_PAS
+        for a in self._plan():
+            assert a["heures"] >= CHARGE_PAR_PAS[a["type"]]
+
+    def test_la_capacite_garde_le_resultat_qui_la_reclame(self, client, app, scene):
+        """De bout en bout : la capacité relevée en base porte le NOM du
+        résultat en écart, et l'objectif du repli s'en sert."""
+        from Code.extensions import db
+        from Code.models.models import ResultCapabilityLink, SavoirFaire
+        TestPlanDeFormation()._en_ecart(client, app, scene)
+        with app.app_context():
+            sf = SavoirFaire(activity_id=scene["act"], description="Régler la presse 77")
+            db.session.add(sf)
+            db.session.commit()
+            db.session.add(ResultCapabilityLink(
+                entity_id=scene["entity"], activity_id=scene["act"], data_id=scene["d1"],
+                item_type="SAVOIR_FAIRE", item_id=sf.id, required_level=2, source="MANUAL"))
+            db.session.commit()
+        try:
+            d = client.get(f"/plan/{scene['collab']}/{scene['role']}").get_json()
+            cap = d["activites"][0]["capabilities"][0]
+            assert cap["resultat"], "la capacité doit dire quel résultat la réclame"
+            r = client.post("/plan/proposer", data=json.dumps({
+                "user_id": scene["collab"], "role_id": scene["role"]}),
+                content_type="application/json")
+            action = next(a for a in r.get_json()["actions"]
+                          if "Régler la presse 77" in a["titre"])
+            assert cap["resultat"] in action["objectif"]
+        finally:
+            with app.app_context():
+                ResultCapabilityLink.query.filter_by(activity_id=scene["act"]).delete()
+                SavoirFaire.query.filter_by(activity_id=scene["act"]).delete()
+                db.session.commit()

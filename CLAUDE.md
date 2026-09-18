@@ -936,6 +936,68 @@ déplacer les quatre dérivés dans chaque classe `.page--*` — n'est PAS fait*
 il rendrait sa couleur à chaque page d'un coup, ce qui se décide en regardant
 les neuf pages, pas depuis celle-ci.
 
+
+### Le plan de formation : un PARCOURS, pas une pile de cartes (2026-09-18)
+
+Le panneau de droite (curseurs, verdict, échéancier) plaisait : c'est lui qui
+rend le plan modulable. La liste de gauche, elle, ne se comprenait pas. Quatre
+défauts, tous corrigés dans `competences_v2.js` (`renderActions` et suivantes) :
+
+- ⚠️ **Les actions de toutes les activités étaient MÊLÉES** dans une seule pile,
+  et l'activité visée n'était qu'un mot gris perdu dans la ligne de méta. On ne
+  savait pas POURQUOI une action était là. Une section par activité, avec
+  l'écart qu'elle vient combler en toutes lettres (« En acquisition →
+  Maîtrise étendue ») et son sous-total.
+- ⚠️ **Rien ne disait l'ORDRE ni le MOMENT.** L'IA ordonne ses actions (« ce qui
+  conditionne le reste d'abord ») et l'échéancier remplit les semaines dans cet
+  ordre — mais la liste n'était pas numérotée et ne disait pas quand chaque
+  action tombait. Les étapes sont numérotées sur un rail, et chaque carte porte
+  ses semaines (`planning()`, le MÊME remplissage que l'échéancier) — en rouge
+  quand elle dépasse la durée visée. Survoler une étape allume SES semaines
+  dans l'échéancier : la liste et les curseurs parlent enfin du même temps.
+- ⚠️ **Chaque carte posait sur une même ligne, sans étiquette**, un type
+  minuscule, un champ d'heures et le nom de l'activité. La carte a désormais
+  trois zones qui ne se mélangent plus : la nature (pictogramme + couleur) et
+  la charge en tête, l'action, puis des champs ÉTIQUETÉS (Objectif, Livrable,
+  Réussi quand) — seuls ceux qui sont remplis. Le **livrable** que l'IA fournit
+  n'était jamais affiché.
+- **La charge se présente comme un réglage** (− valeur +, pas adapté à l'ordre
+  de grandeur) : c'est elle qui nourrit le besoin, à droite.
+- Une **barre de répartition** par nature (situation de travail, accompagnement,
+  formation) sert aussi de légende des couleurs — et montre d'un coup d'œil la
+  règle du CDC : un écart se comble d'abord en situation.
+
+⚠️ **Le regroupement garde l'ordre de PREMIÈRE apparition** (`ordonner()`), pas un
+tri par écart : trier déferait la séquence proposée. Il est appliqué au
+chargement et à la proposition, donc l'ordre affiché, l'ordre enregistré et
+l'ordre des semaines sont le même.
+⚠️ Ce qui dépend des heures (semaines, sous-totaux, répartition) se met à jour
+**sur place** (`majEtapes`) : réécrire les cartes à chaque frappe ferait perdre
+le curseur du champ qu'on tape. Et le champ se corrige à la SORTIE, pas pendant
+la frappe — effacer « 12 » pour taper « 8 » passerait sinon par un « 1 » imposé.
+⚠️ **`competences.css` déclare `header { position: sticky }` pour TOUTE la
+page.** Un `<header>` d'en-tête de groupe collait donc en haut de la fenêtre et
+passait par-dessus les cartes au défilement : l'en-tête est un `<div>`.
+
+**Le plan construit SANS IA disait deux fois la même chose** (`_plan_local`) :
+« Combler : Arbitrage », puis « Objectif : HSC — Arbitrage ». Désormais :
+- le titre dit l'action, et la nature suit la famille de capacité
+  (`NATURE_PAR_CAPACITE` : un savoir s'apprend → Formation ; un savoir-faire et
+  une HSC se travaillent avec un appui → Accompagnement) ;
+- l'objectif dit le RÉSULTAT qui réclame la capacité (`_capacites_en_ecart`
+  garde désormais `resultat`) ;
+- la mise en situation porte les **standards des résultats** comme critère —
+  un par ligne — et **ces résultats comme livrable**. ⚠️ Le standard n'est PAS
+  recopié sur chaque capacité : il se lisait trois fois de suite, et laissait
+  croire qu'une formation suffit à le tenir. Il se vérifie en situation.
+- En anglais, plus de guillemets français dans les champs construits.
+
+Tests : `tests/test_77_competences_deux_notes.py::TestLeRepliDitQuoiFaire`
+(8 cas, 6 vérifiés **rouges** sur l'ancien repli). Suite : 2348 passés. Éprouvé
+dans les deux langues sur `tools/devrun_competences.py`, avec le repli ET un
+plan de forme IA (actions mêlées entre deux activités, livrables, critères) :
+regroupement, +/−, frappe, retrait, curseurs, « caler », enregistrement relu.
+
 ---
 
 ## Guide utilisateur (`docs/guide.html`)
