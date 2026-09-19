@@ -210,7 +210,7 @@ def create_or_update_role():
             on_role_name_saved(role, name)
     else:
         active_entity_id = get_active_entity_id()
-        new_role = Role(name=name, entity_id=active_entity_id)
+        new_role = Role(name=name, entity_id=active_entity_id, hors_carte=True)
         on_role_name_saved(new_role, name)
         db.session.add(new_role)
     db.session.commit()

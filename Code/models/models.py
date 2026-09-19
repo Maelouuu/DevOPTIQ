@@ -381,6 +381,13 @@ class Role(db.Model):
     name_en = db.Column(db.String(200), nullable=True)
     onboarding_plan = db.Column(db.Text, nullable=True)
     mission_generale = db.Column(db.Text, nullable=True)
+    # ⚠️ Un rôle créé HORS de la carte — importé, créé depuis la page RH, ou
+    # désigné garant — n'est pas une bande. `_sync_carto_to_db` effaçait à
+    # chaque enregistrement de la carto tout rôle absent des bandes, avec ses
+    # titulaires, ses liens aux tâches et ses accès : importer des rôles ne
+    # servait à rien, ils disparaissaient au premier enregistrement.
+    hors_carte = db.Column(db.Boolean, default=False, nullable=False,
+                           server_default=_sa.false())
 
     __table_args__ = (
         db.UniqueConstraint('entity_id', 'name', name='uq_entity_role_name'),

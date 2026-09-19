@@ -600,7 +600,7 @@ class TestFrancaisEnDur:
     # gabarit → nombre de fragments français tolérés aujourd'hui.
     DETTE = {
         "projection_metier.html":       14,
-        "import_tasks_modal.html":      11,
+        "import_tasks_modal.html":      10,
         "cartography_editor.html":       7,
         "chatbot_widget.html":           5,
         "license_blocked.html":          4,

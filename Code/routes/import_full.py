@@ -5,6 +5,7 @@
 import io
 import os
 import json
+import re
 from difflib import SequenceMatcher
 
 import openpyxl
@@ -25,6 +26,21 @@ from Code.models.models import (
 )
 
 import_full_bp = Blueprint('import_full', __name__, url_prefix='/api/import-full')
+
+
+# La colonne « Skills » sert aussi à dire qu'il n'y a RIEN à savoir faire :
+# « No Special skills required », « - », « n/a ». Enregistrées telles quelles,
+# ces mentions devenaient des compétences portant la phrase elle-même (même
+# règle que `tools/provisioning/provision.py`, pour les outils aussi).
+_MENTION_VIDE = {'-', '--', '/', 'x', 'n/a', 'na', 'none', 'nil', 'aucune', 'aucun',
+                 'néant', 'neant', 'rien', 'nothing'}
+_SANS = re.compile(r"^\W*(no|not|non|aucun|aucune|pas|sans)\b.*\b(skill|competenc|compétenc|"
+                   r"tool|outil|logiciel|software)", re.IGNORECASE)
+
+
+def est_mention_vide(libelle) -> bool:
+    texte = str(libelle or '').strip()
+    return (not texte) or texte.lower() in _MENTION_VIDE or bool(_SANS.match(texte))
 
 
 # ---------------------------------------------------------------------------
@@ -157,6 +173,49 @@ def _parse_excel_bytes(data: bytes) -> list:
                 if t not in current_group['tasks'][-1]['tools']:
                     current_group['tasks'][-1]['tools'].append(t)
 
+    return [g for g in groups if g['tasks']]
+
+
+def grouper_lignes(lignes: list) -> list:
+    """Regroupe des lignes DÉJÀ lues ({activity, department, guarantor, task,
+    tool, doer, approver, skills, commentary}) en groupes par activité.
+
+    Même règle que `_parse_excel_bytes` — cellules fusionnées propagées, outils
+    et compétences séparés par « , » ou « ; » — mais sans rien savoir du
+    fichier : le hub d'import lit xlsx ET csv, et l'IA peut avoir choisi les
+    colonnes.
+    """
+    def _split(v):
+        return [x.strip() for x in str(v or '').replace(';', ',').split(',')
+                if not est_mention_vide(x)]
+
+    groups, courant = [], None
+    derniere = {'activity': '', 'department': '', 'guarantor': ''}
+    for l in lignes:
+        val = {k: str(l.get(k) or '').strip() for k in (
+            'activity', 'department', 'guarantor', 'task', 'tool',
+            'doer', 'approver', 'skills', 'commentary')}
+        for k in ('activity', 'department', 'guarantor'):
+            if val[k]:
+                derniere[k] = val[k]
+            else:
+                val[k] = derniere[k]
+        if not val['activity']:
+            continue
+        if courant is None or courant['activity_name'] != val['activity']:
+            courant = {'activity_name': val['activity'], 'department': val['department'],
+                       'guarantor': val['guarantor'], 'tasks': []}
+            groups.append(courant)
+        if val['task']:
+            courant['tasks'].append({
+                'name': val['task'], 'tools': _split(val['tool']),
+                'doer': val['doer'], 'approver': val['approver'],
+                'skills': _split(val['skills']), 'commentary': val['commentary'],
+            })
+        elif val['tool'] and courant['tasks']:
+            for t_ in _split(val['tool']):
+                if t_ not in courant['tasks'][-1]['tools']:
+                    courant['tasks'][-1]['tools'].append(t_)
     return [g for g in groups if g['tasks']]
 
 
@@ -344,14 +403,19 @@ def analyze_excel():
     if not excel_groups:
         return jsonify({'error': t('impf.err_no_data')}), 400
 
-    # Activités en base
+    resultat = analyser_groupes(excel_groups, entity_id)
+    if resultat is None:
+        return jsonify({'error': t('impf.err_no_activity')}), 400
+    return jsonify(resultat)
+
+
+def analyser_groupes(excel_groups: list, entity_id: int):
+    """Apparie des groupes d'activités aux activités de la carto (algorithme,
+    puis IA pour les restes). None si la carto n'a aucune activité."""
     activities = Activities.query.filter_by(entity_id=entity_id).order_by(Activities.name).all()
     db_activities = [{'id': a.id, 'name': a.name} for a in activities]
-
     if not db_activities:
-        return jsonify({
-            'error': t('impf.err_no_activity')
-        }), 400
+        return None
 
     # 1. Matching algorithmique (toujours)
     analysis = _algorithmic_match(excel_groups, db_activities)
@@ -415,7 +479,7 @@ def analyze_excel():
     total_tasks = sum(len(g['tasks']) for g in matched + unmatched)
     matched_tasks = sum(len(g['tasks']) for g in matched)
 
-    return jsonify({
+    return {
         'status': 'ok',
         'analysis': analysis,
         'stats': {
@@ -427,7 +491,7 @@ def analyze_excel():
             'unmatched_tasks': total_tasks - matched_tasks,
         },
         'db_activities': db_activities,
-    })
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -448,7 +512,24 @@ def inject_full():
     entity_id = session.get('active_entity_id')
     if not entity_id:
         return jsonify({'error': 'Aucune entité active'}), 400
+    # ⚠️ Cette route écrit : elle exige le droit d'écrire dans la carto, comme
+    # l'import de la page Carte (`/api/import`). Lire la carto ne suffit pas.
+    from Code.carto_access import can_edit
+    if not can_edit(db.session.get(Entity, entity_id)):
+        return jsonify({'error': t('imph.err_droits')}), 403
 
+    try:
+        stats = injecter_groupes(groups, entity_id)
+        db.session.commit()
+        return jsonify({'status': 'ok', 'stats': stats}), 201
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
+
+
+def injecter_groupes(groups: list, entity_id: int) -> dict:
+    """Crée tâches, outils, rôles et compétences des groupes validés, dans
+    l'entité donnée. Ne commit pas : l'appelant décide."""
     stats = {
         'tasks_created': 0,
         'tools_created': 0,
@@ -456,96 +537,88 @@ def inject_full():
         'competencies_created': 0,
         'activities_updated': 0,
     }
+    for group in groups:
+        activity_id = group.get('activity_id')
+        if not activity_id:
+            continue
 
-    try:
-        for group in groups:
-            activity_id = group.get('activity_id')
-            if not activity_id:
+        activity = Activities.query.get(activity_id)
+        if not activity or activity.entity_id != entity_id:
+            continue
+
+        guarantor_name = (group.get('guarantor') or '').strip()
+
+        # ── Garant ───────────────────────────────────────────────────
+        if guarantor_name:
+            role = _get_or_create_role(guarantor_name, entity_id, stats)
+            _link_role_to_activity(role, activity, 'Garant')
+
+        # ── Tâches ───────────────────────────────────────────────────
+        max_order = (
+            db.session.query(func.max(Task.order))
+            .filter_by(activity_id=activity_id)
+            .scalar() or 0
+        )
+
+        for i, task_in in enumerate(group.get('tasks', [])):
+            task_name = (task_in.get('name') or '').strip()
+            if not task_name:
                 continue
 
-            activity = Activities.query.get(activity_id)
-            if not activity or activity.entity_id != entity_id:
+            # Éviter les doublons : vérifier si la tâche existe déjà pour cette activité
+            existing_task = Task.query.filter(
+                Task.activity_id == activity_id,
+                func.lower(Task.name) == task_name.lower()
+            ).first()
+            if existing_task:
                 continue
 
-            guarantor_name = (group.get('guarantor') or '').strip()
-
-            # ── Garant ───────────────────────────────────────────────────
-            if guarantor_name:
-                role = _get_or_create_role(guarantor_name, entity_id, stats)
-                _link_role_to_activity(role, activity, 'Garant')
-
-            # ── Tâches ───────────────────────────────────────────────────
-            max_order = (
-                db.session.query(func.max(Task.order))
-                .filter_by(activity_id=activity_id)
-                .scalar() or 0
+            task = Task(
+                name=task_name,
+                description=task_in.get('commentary', '') or '',
+                order=max_order + i + 1,
+                activity_id=activity_id,
             )
+            db.session.add(task)
+            db.session.flush()
+            stats['tasks_created'] += 1
 
-            for i, task_in in enumerate(group.get('tasks', [])):
-                task_name = (task_in.get('name') or '').strip()
-                if not task_name:
+            # Outils
+            for tool_name in (task_in.get('tools') or []):
+                tool_name = tool_name.strip()
+                if est_mention_vide(tool_name):
                     continue
+                tool = _get_or_create_tool(tool_name, entity_id, stats)
+                if tool not in task.tools:
+                    task.tools.append(tool)
 
-                # Éviter les doublons : vérifier si la tâche existe déjà pour cette activité
-                existing_task = Task.query.filter(
-                    Task.activity_id == activity_id,
-                    func.lower(Task.name) == task_name.lower()
-                ).first()
-                if existing_task:
+            # Doer
+            doer_name = (task_in.get('doer') or '').strip()
+            if doer_name:
+                doer_role = _get_or_create_role(doer_name, entity_id, stats)
+                _link_role_to_task(doer_role, task, 'executant')
+
+            # Approbateur
+            approver_name = (task_in.get('approver') or '').strip()
+            if approver_name:
+                approver_role = _get_or_create_role(approver_name, entity_id, stats)
+                _link_role_to_task(approver_role, task, 'approbateur')
+
+            # Compétences
+            for skill in (task_in.get('skills') or []):
+                skill = skill.strip()
+                if est_mention_vide(skill):
                     continue
-
-                task = Task(
-                    name=task_name,
-                    description=task_in.get('commentary', '') or '',
-                    order=max_order + i + 1,
+                exists = Competency.query.filter_by(
                     activity_id=activity_id,
-                )
-                db.session.add(task)
-                db.session.flush()
-                stats['tasks_created'] += 1
+                    description=skill,
+                ).first()
+                if not exists:
+                    db.session.add(Competency(activity_id=activity_id, description=skill))
+                    stats['competencies_created'] += 1
 
-                # Outils
-                for tool_name in (task_in.get('tools') or []):
-                    tool_name = tool_name.strip()
-                    if not tool_name:
-                        continue
-                    tool = _get_or_create_tool(tool_name, entity_id, stats)
-                    if tool not in task.tools:
-                        task.tools.append(tool)
-
-                # Doer
-                doer_name = (task_in.get('doer') or '').strip()
-                if doer_name:
-                    doer_role = _get_or_create_role(doer_name, entity_id, stats)
-                    _link_role_to_task(doer_role, task, 'executant')
-
-                # Approbateur
-                approver_name = (task_in.get('approver') or '').strip()
-                if approver_name:
-                    approver_role = _get_or_create_role(approver_name, entity_id, stats)
-                    _link_role_to_task(approver_role, task, 'approbateur')
-
-                # Compétences
-                for skill in (task_in.get('skills') or []):
-                    skill = skill.strip()
-                    if not skill:
-                        continue
-                    exists = Competency.query.filter_by(
-                        activity_id=activity_id,
-                        description=skill,
-                    ).first()
-                    if not exists:
-                        db.session.add(Competency(activity_id=activity_id, description=skill))
-                        stats['competencies_created'] += 1
-
-            stats['activities_updated'] += 1
-
-        db.session.commit()
-        return jsonify({'status': 'ok', 'stats': stats}), 201
-
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({'error': str(e)}), 500
+        stats['activities_updated'] += 1
+    return stats
 
 
 # ---------------------------------------------------------------------------
@@ -571,7 +644,7 @@ def _get_or_create_role(name: str, entity_id: int, stats: dict) -> Role:
         func.lower(Role.name) == name.lower(),
     ).first()
     if not role:
-        role = Role(name=name, entity_id=entity_id)
+        role = Role(name=name, entity_id=entity_id, hors_carte=True)
         db.session.add(role)
         db.session.flush()
         stats['roles_created'] += 1

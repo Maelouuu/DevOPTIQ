@@ -315,6 +315,8 @@ def create_app(test_config=None):
 
     from Code.routes.import_full import import_full_bp
     app.register_blueprint(import_full_bp)
+    from Code.routes.import_hub import import_hub_bp
+    app.register_blueprint(import_hub_bp)
 
     from Code.routes.changelog import changelog_bp
     app.register_blueprint(changelog_bp)
@@ -530,6 +532,8 @@ def create_app(test_config=None):
         # Traduction des noms de rôles (caches FR/EN, affichage selon la langue)
         _safe_add_column("roles", "name_fr", "VARCHAR(200)")
         _safe_add_column("roles", "name_en", "VARCHAR(200)")
+        # Un rôle créé hors de la carte survit à son enregistrement
+        _safe_add_column("roles", "hors_carte", "BOOLEAN DEFAULT FALSE")
         # La compétence principale dans les deux langues (l'IA rédige les deux)
         _safe_add_column("competencies", "description_fr", "TEXT")
         _safe_add_column("competencies", "description_en", "TEXT")
@@ -596,6 +600,18 @@ def create_app(test_config=None):
         except Exception as e:
             db.session.rollback()
             print(f"[DB] reprise des statuts: {e}")
+
+        # ⚠️ Les rôles créés HORS de la carte (page RH, garants, imports) étaient
+        # effacés au prochain enregistrement de leur carte. Ceux qui existent
+        # déjà reçoivent la marque qui les protège — une seule fois.
+        try:
+            from Code.roles_permanents import reprendre_roles_hors_carte
+            marques = reprendre_roles_hors_carte()
+            if marques:
+                print(f"[DB] {marques} rôle(s) hors carte protégé(s)")
+        except Exception as e:
+            db.session.rollback()
+            print(f"[DB] reprise des rôles hors carte: {e}")
 
         try:
             from Code.models.models import RecentEvent

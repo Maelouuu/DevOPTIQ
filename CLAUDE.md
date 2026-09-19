@@ -113,7 +113,8 @@ DevOPTIQ/
 | `gestion_rh.py` | `/rh/` | Gestion RH / collaborateurs |
 | `competences.py` | `/competences/` | Gestion des compétences |
 | `performance.py` | `/performance/` | Tableaux de bord performance |
-| `import_full.py` | `/import/` | Import IA global (Claude API) |
+| `import_full.py` | `/import/` | Moteur d'appariement et d'injection des tâches (réutilisé par `import_hub`) |
+| `import_hub.py` | `/api/import` | Fenêtre « Importer des données » de la page Carte |
 | `chatbot.py` | `/chatbot/` | Chatbot IA intégré |
 | `connexion_routes.py` | `/login` | Authentification |
 
@@ -1720,6 +1721,9 @@ partagent un design system chargé partout via `header_buttons.html` :
    Les deux documents décrivent encore le partage par COPIE seul. À reprendre à la
    prochaine routine de documentation, captures comprises.
 2. Éditeur OptiqCarto côté JS (`static/optiqcarto/editor.js`) — seul élément majeur restant
+3. **La fenêtre « Importer des données »** (page Carte) remplace l'ancien import global IA :
+   le guide et la doc technique décrivent encore l'ancien écran (étapes analyse → revue),
+   captures comprises.
 
 ---
 
@@ -2242,39 +2246,103 @@ nettoie — sans quoi un retour en arrière se cacherait sous une marge.
   en arrière. Son déclenchement automatique est retiré — il reste lançable à la main,
   dans le même groupe `concurrency` que `deploy-officielle.yml` pour que les deux ne
   déploient jamais en même temps.
-### Import global IA : l'écran entier était en dur, des TROIS côtés (2026-09-17)
+### Importer des données — la fenêtre d'import de la page Carte (2026-09-19)
 
-La fenêtre d'import de la page Carte s'affichait en français dans l'interface
-anglaise. Pas à un endroit — à trois, et le troisième est celui qu'on oublie :
+Remplace l'ancien « Import IA global » : `import_full_modal.html`,
+`import_full.js` et `import_full.css` sont supprimés, et les 57 clés `impf.*`
+qu'eux seuls lisaient ont quitté le catalogue (restent celles que la route
+`import_full.py` renvoie). Serveur : `Code/routes/import_hub.py` (`/api/import`) ;
+écran : `import_hub_modal.html` + `static/js/import_hub.js` +
+`static/import_hub.css` (clés `imph.*`, injectées par `IMPH_I18N` en `| tojson`).
 
-1. le **gabarit** (`import_full_modal.html`, 25 fragments — c'est l'un des trois
-   écrans jamais traduits que `TestFrancaisEnDur` inventoriait) ;
-2. les phrases **bâties par `import_full.js`** (« 1 tâche », « Sûr », le bilan
-   chiffré, les unités de taille de fichier) ;
-3. ⚠️ **celles que la ROUTE renvoie** — `analysis_notes`, les motifs
-   d'appariement, les messages d'erreur. Elles ne ressemblent pas à de
-   l'affichage dans le code (`return jsonify({'error': …})`), mais elles sont
-   recopiées telles quelles dans la fenêtre : un anglophone lisait « Analyse
-   terminée : 4 activité(s) mappée(s) » au milieu d'une page anglaise.
+- **Une carte par nature** — rôles, collaborateurs, tâches, outils — dans la
+  couleur de la page où vivent ses données (Rôles `#059669`, Comptes `#e11d48`,
+  Activités `#7c3aed`, Outils `#ea580c`), avec ses colonnes (obligatoires
+  marquées) et sa portée. Plus l'**import multiple** : plusieurs fichiers, ou un
+  classeur dont CHAQUE feuille est reconnue (nature déduite des en-têtes,
+  départagée par le nom de la feuille ou du fichier).
+- **Parcours** : lire → (organiser avec l'IA) → vérifier → importer.
+  `GET contexte` · `GET modele/<nature|multiple>` · `POST lire` ·
+  `POST organiser` · `POST verifier` · `POST rapprocher` · `POST importer`.
+- **Lu tel quel quand c'est lisible** : xlsx/xlsm (valeurs calculées), csv
+  (séparateur deviné, cp1252 en repli) ; en-tête cherché dans les dix premières
+  lignes ; synonymes FR/EN comparés au MOT près (« prénom » ne contient pas
+  « nom ») ; un nom complet dans une seule colonne est scindé (le mot en
+  CAPITALES est le nom de famille) ; cellules fusionnées propagées ; mentions
+  d'absence (« No special skills required », « - ») retirées DÈS la lecture —
+  l'aperçu montre ce qui sera vraiment importé. ⚠️ `.xls` est refusé en clair :
+  openpyxl ne le lit pas, l'accepter ferait échouer plus loin sans explication.
+- ⚠️ **Le code ne devine pas.** Un fichier non reconnu n'est pas lu « à
+  moitié » : l'écran dit ce qui manque, montre le début du fichier tel quel
+  (colonnes repérées par leur lettre) et propose l'IA ou le modèle.
+- ⚠️ **L'IA désigne les colonnes, elle n'écrit AUCUNE donnée** (prompt
+  `import.correspondance`) : ligne d'en-tête et numéro de colonne par champ, puis
+  le code relit les valeurs dans le fichier. Une réponse qui porterait des
+  lignes est ignorée, un numéro hors du fichier écarté. L'écran montre la
+  correspondance (« Adresse » → E-mail) et la confiance. Une IA qui réécrirait
+  les lignes pourrait en inventer ; une IA qui désigne des colonnes se vérifie
+  d'un coup d'œil.
+- **La portée dépend de la donnée.** Les comptes valent pour toute l'instance —
+  les cartos choisies ne servent qu'à leur attribuer leur rôle (option « créer
+  les rôles absents ») ; rôles et outils vont dans une, plusieurs ou toutes les
+  cartos, avec le statut « à compléter » quand ils n'en manquent qu'à une
+  partie ; une tâche va dans chaque carto où son activité existe.
+  ⚠️ Seulement les cartos où le compte ÉCRIT (`can_edit`) : un identifiant venu
+  du navigateur ne suffit jamais.
+- **Une tâche se rattache à SON activité** : au nom près ou à 90 % de
+  ressemblance ; en dessous, l'utilisateur choisit (les plus proches d'abord) et
+  « Rapprocher avec l'IA » (prompt `import.enrich`) PROPOSE par le sens
+  (« Identify Part » → « Develop Preliminary Technical Solution »). Une
+  proposition dont l'IA doute n'est pas appliquée : elle s'affiche sous le
+  groupe. L'écriture passe par `injecter_groupes`, carto par carto.
+- ⚠️ **Le garant ne déborde plus d'une activité sur la suivante** : la
+  propagation des cellules fusionnées repart de zéro à chaque nouvelle
+  activité. Un garant manquant se voit et se complète ; un garant FAUX lie un
+  rôle à une activité qu'il ne tient pas.
+- ⚠️ **Une feuille ambiguë n'est pas importée tant qu'on ne l'a pas dite**
+  (« Nom | Description » : des rôles ou des outils ?) — « Tout importer » aurait
+  créé des presses à injecter comme rôles.
+- **L'import revérifie tout** — rien de ce que renvoie le navigateur n'est cru,
+  ni le statut d'une ligne ni le niveau d'un compte (un coordinateur ne crée pas
+  d'administrateur) — et un import multiple s'écrit en UNE transaction, dans
+  l'ordre rôles → outils → comptes → tâches : un rôle créé par la feuille
+  « Rôles » existe quand la feuille « Collaborateurs » l'attribue.
+- ⚠️ **Mots de passe** : la vérification n'en reçoit que la LONGUEUR (masquée)
+  et n'en renvoie aucun ; un mot de passe absent ou trop court est généré,
+  montré UNE fois et téléchargeable en csv, puis effacé de la page à la
+  fermeture.
+- ⚠️ **Les messages que la ROUTE renvoie s'affichent tels quels** (motifs de
+  statut, erreurs) : ils passent par le catalogue comme le reste — c'était le
+  troisième côté oublié de l'ancien écran.
 
-73 clés `impf.*` par langue. Le JS les reçoit par `window.IMPF_I18N`
-(`| tojson`, jamais une traduction entre guillemets dans un `<script>`), avec
-son repli français en dur : un oubli d'injection dégrade, il ne casse pas.
+⚠️ **`Role.hors_carte`** (migration à chaud) — le défaut de fond que l'import a
+mis au jour. `_sync_carto_to_db` effaçait, à chaque enregistrement de la carte,
+tout rôle absent de ses bandes : un rôle importé, créé depuis la page RH ou
+désigné garant disparaissait avec ses titulaires et ses liens aux tâches.
+Importer des rôles ne servait à rien. Les rôles créés hors de la carte portent
+désormais la marque et survivent ; `reprendre_roles_hors_carte()`
+(`roles_permanents.py`) marque UNE fois (marqueur `roles_hors_carte` en base)
+ceux qui existaient déjà — reconnus à ce qu'ils manquent aux bandes de la carto
+ENREGISTRÉE. Une carto sans diagramme lisible est laissée telle quelle.
 
-⚠️ **Deux tests cherchaient des MOTS FRANÇAIS** dans ces messages
-(`"entit" in error`, `"probable" in reason`) : ils tombaient dès que la session
-tournait en anglais — et surtout ils ne vérifiaient plus rien d'utile. Ils
-confrontent maintenant le message rendu aux DEUX formulations du catalogue, ce
-qui éprouve du même coup que la traduction est bien celle qui sort.
+⚠️ `/api/import-full/inject` — l'ancienne route, gardée pour ses fonctions —
+écrivait dans l'entité active sans demander le droit d'y écrire : elle exige
+désormais `can_edit`.
 
-**La fonctionnalité, elle, marchait.** Éprouvée quatre fois avant de conclure :
-API directe (4 appariées / 21 à résoudre sur le vrai fichier client, injection
-201 avec 18 tâches), interface FR, interface EN, et résolution manuelle d'un
-groupe non apparié. Rien à corriger de ce côté.
-ℹ️ Au passage : `buildReviewScreen` est déclarée **deux fois** dans
-`import_full.js` (l.273 et l.687, la seconde écrase la première — c'est elle
-qui tourne, et c'est elle qui pose `data-groupIndex`). ~120 lignes de la
-première sont mortes. Ne pas les corriger en croyant corriger l'écran.
+- ⚠️ Piège de test : `t("imph.t_" + x)` est relevé par `test_78` comme la clé
+  « imph.t_ ». Écrire `t("imph.t_%s" % x)` ; ces clés construites sont tenues
+  par `test_84::test_les_libelles_construits_existent_dans_les_deux_langues`.
+- `import_tasks_modal.html` : « Télécharger le modèle » passe par le catalogue,
+  sa dette tombe de 11 à 10 fragments.
+- Mise au point : `tools/devrun_import.py` (port 8126, `/devrun/admin`) — deux
+  cartos, des fichiers d'exemple servis sous `/devrun/fichier/<nom>` (propre,
+  export RH désordonné, csv, tableau du client, classeur multiple avec une
+  feuille ambiguë et une illisible) et une IA SIMULÉE. La simulation vit dans
+  l'outil, jamais dans l'application.
+- Tests : `tests/test_84_import_hub.py` (41 cas — lecture, IA, portée, import,
+  transaction, droits, modèles relus dans les deux langues, reprise des rôles ;
+  la survie des rôles importés et le contrôle de l'ancienne route vérifiés
+  **rouges** sur le code d'avant).
 
 ### Page RH : un rôle sur PLUSIEURS cartos (2026-09-17)
 
