@@ -1,20 +1,21 @@
 # -*- coding: utf-8 -*-
 """La fenêtre « Importer des données » de la page Carte (`/api/import`).
 
-Quatre natures (rôles, collaborateurs, tâches, outils) et un import multiple,
-un même parcours : lire → (organiser avec l'IA) → vérifier → importer.
+Trois natures (rôles, tâches, outils) et un import multiple, un même
+parcours : lire → (organiser avec l'IA) → vérifier → importer.
 
 Ce que ces tests tiennent, dans l'ordre où l'utilisateur le rencontre :
 * un fichier au bon format est lu TEL QUEL — en-tête plus bas, anglais, csv
-  au point-virgule, nom complet d'une seule colonne, cellules fusionnées ;
+  au point-virgule, cellules fusionnées ;
 * un fichier qui ne l'est pas n'est PAS deviné par le code : c'est l'IA qui
   désigne les colonnes, et elle ne peut rien écrire d'autre que des numéros ;
+* une liste de COLLABORATEURS n'est jamais importée ici — ni lue comme des
+  rôles : elle est repérée et renvoyée à la page Comptes ;
 * le statut de chaque ligne dépend de la PORTÉE, et une carto où le compte
   n'écrit pas n'en fait jamais partie ;
 * l'import revérifie tout, écrit en une transaction, et un rôle importé
   survit à l'enregistrement de la carte (`hors_carte`).
 """
-import csv
 import io
 import json
 
@@ -44,7 +45,8 @@ def _session_rendue(client):
 @pytest.fixture()
 def scene(app):
     """Un administrateur et un coordinateur, deux cartos à l'administrateur
-    (A et B), une carto à quelqu'un d'autre (C, hors de portée)."""
+    (A et B), une carto à quelqu'un d'autre (C, hors de portée), un compte
+    qui n'écrit dans aucune carto."""
     from Code.models.models import (Activities, Entity, Role, Task, Tool, User, UserRole,
                                     Competency, activity_roles, task_roles)
     from Code.security import hash_password
@@ -55,7 +57,9 @@ def scene(app):
                      password=hash_password("Motdepasse123!"), status="coordinateur")
         autre = User(first_name="T84", last_name="Autre", email="t84.autre@devoptiq.com",
                      password=hash_password("Motdepasse123!"), status="user")
-        db.session.add_all([admin, coord, autre])
+        lecteur = User(first_name="T84", last_name="Lecteur", email="t84.lecteur@devoptiq.com",
+                       password=hash_password("Motdepasse123!"), status="user")
+        db.session.add_all([admin, coord, autre, lecteur])
         db.session.flush()
         a = Entity(name="T84 Carto A", owner_id=admin.id)
         b = Entity(name="T84 Carto B", owner_id=admin.id)
@@ -71,7 +75,7 @@ def scene(app):
             Role(name="Qualité", name_fr="Qualité", name_en="Quality", entity_id=a.id),
         ])
         db.session.commit()
-        ids = {"admin": admin.id, "coord": coord.id, "autre": autre.id,
+        ids = {"admin": admin.id, "coord": coord.id, "autre": autre.id, "lecteur": lecteur.id,
                "a": a.id, "b": b.id, "c": c.id, "k": k.id}
     yield ids
     with app.app_context():
@@ -127,8 +131,7 @@ def _lire(client, type_, fichiers, **extra):
     """fichiers : [(nom, octets)]."""
     data = {"type": type_, **extra}
     data["fichiers"] = [(io.BytesIO(o), n) for n, o in fichiers]
-    r = client.post(f"{API}/lire", data=data, content_type="multipart/form-data")
-    return r
+    return client.post(f"{API}/lire", data=data, content_type="multipart/form-data")
 
 
 def _verifier(client, type_, lignes, cibles, **extra):
@@ -137,10 +140,9 @@ def _verifier(client, type_, lignes, cibles, **extra):
         content_type="application/json")
 
 
-def _importer(client, parts, cibles, options=None):
-    return client.post(f"{API}/importer", data=json.dumps(
-        {"parts": parts, "cibles": cibles, "options": options or {}}),
-        content_type="application/json")
+def _importer(client, parts, cibles):
+    return client.post(f"{API}/importer", data=json.dumps({"parts": parts, "cibles": cibles}),
+                       content_type="application/json")
 
 
 # ══════════════════════════════════════════════════════════════════════
@@ -172,25 +174,15 @@ class TestLectureTelleQuelle:
         assert p["reconnu"]
         assert [l["nom"] for l in p["lignes"]] == ["SAP", "Étau"]
 
-    def test_un_nom_complet_se_scinde_selon_les_capitales(self, app, client, scene):
-        _connecte(client, app, scene["admin"], scene["a"])
-        f = _xlsx(("Effectif", [["Nom complet", "Mail"], ["DUPONT Jean", "jean@x.fr"],
-                                ["Marie CURIE", "marie@x.fr"]]))
-        p = _lire(client, "users", [("u.xlsx", f)]).get_json()["parts"][0]
-        assert p["reconnu"], p["manquants"]
-        assert [(l["prenom"], l["nom"]) for l in p["lignes"]] == [("Jean", "DUPONT"),
-                                                                    ("Marie", "CURIE")]
-
     def test_ce_qui_n_est_pas_reconnu_n_est_pas_devine(self, app, client, scene):
-        """Pas de colonne e-mail reconnaissable : le code ne tente rien — c'est
-        le rôle de l'IA, qui montre ensuite ce qu'elle a désigné."""
+        """Pas de colonne reconnaissable : le code ne tente rien — c'est le
+        rôle de l'IA, dont la lecture est montrée avant d'être acceptée."""
         _connecte(client, app, scene["admin"], scene["a"])
-        f = _xlsx(("Feuil1", [["Personne", "Contact"], ["Jean Dupont", "jean@x.fr"]]))
-        p = _lire(client, "users", [("u.xlsx", f)]).get_json()["parts"][0]
-        assert not p["reconnu"]
-        assert "email" in p["manquants"]
+        f = _xlsx(("Feuil1", [["Moyen", "Commentaire"], ["Presse 250 t", "Atelier 2"]]))
+        p = _lire(client, "outils", [("o.xlsx", f)]).get_json()["parts"][0]
+        assert not p["reconnu"] and p["manquants"] == ["nom"]
         assert p["lignes"] == []
-        assert p["echantillon"][1] == ["Jean Dupont", "jean@x.fr"]
+        assert p["echantillon"][1] == ["Presse 250 t", "Atelier 2"]
 
     def test_les_cellules_fusionnees_propagent_l_activite(self, app, client, scene):
         _connecte(client, app, scene["admin"], scene["a"])
@@ -224,6 +216,63 @@ class TestLectureTelleQuelle:
         assert d["parts"] == [] and d["erreurs"][0]["fichier"] == "notes.txt"
 
 
+# ══════════════════════════════════════════════════════════════════════
+#  2 · Les collaborateurs ne s'importent pas ici
+# ══════════════════════════════════════════════════════════════════════
+class TestLesCollaborateursRestentALaPageComptes:
+
+    @pytest.mark.parametrize("entetes, valeurs", [
+        (["Prénom", "Nom", "Poste"], ["Jean", "Dupont", "Acheteur"]),
+        (["Nom", "Contact"], ["Jean Dupont", "jean.dupont@exemple.fr"]),
+        (["Collaborateur", "E-mail"], ["DUPONT Jean", "jean.dupont@exemple.fr"]),
+    ])
+    def test_une_liste_de_personnes_n_est_pas_lue_comme_des_roles(
+            self, app, client, scene, entetes, valeurs):
+        """⚠️ Sans ce repérage, « Nom » passait pour le nom d'un rôle : chaque
+        nom de famille devenait un rôle de la carto."""
+        _connecte(client, app, scene["admin"], scene["a"])
+        f = _xlsx(("Feuil1", [entetes, valeurs, valeurs]))
+        p = _lire(client, "roles", [("personnes.xlsx", f)]).get_json()["parts"][0]
+        assert p["type"] == "comptes" and not p["reconnu"] and p["lignes"] == []
+
+    def test_un_role_au_nom_compose_n_est_pas_une_personne(self, app, client, scene):
+        _connecte(client, app, scene["admin"], scene["a"])
+        f = _xlsx(("Feuil1", [["Nom", "Mission"], ["Chef de projet", "Piloter"],
+                              ["Responsable qualité", "Garantir"]]))
+        p = _lire(client, "roles", [("r.xlsx", f)]).get_json()["parts"][0]
+        assert p["type"] == "roles" and p["reconnu"]
+
+    def test_un_tableau_de_taches_complet_l_emporte(self, app, client, scene):
+        """Une colonne d'e-mails dans un tableau de tâches ne fait pas de lui
+        une liste de personnes : l'activité et la tâche sont là."""
+        _connecte(client, app, scene["admin"], scene["a"])
+        f = _xlsx(("Tâches", [["Activité", "Tâche", "Nom", "Mail"],
+                              ["Chiffrer l'offre", "Estimer", "Dupont", "j.dupont@x.fr"],
+                              ["Chiffrer l'offre", "Relire", "Martin", "l.martin@x.fr"]]))
+        p = _lire(client, "taches", [("t.xlsx", f)]).get_json()["parts"][0]
+        assert p["type"] == "taches" and p["reconnu"]
+
+    def test_l_utilisateur_peut_passer_outre(self, app, client, scene):
+        """Le repérage peut se tromper : dire soi-même ce que contient la
+        feuille suffit à la faire lire comme telle."""
+        _connecte(client, app, scene["admin"], scene["a"])
+        f = _xlsx(("Feuil1", [["Nom", "Contact"], ["Chef de projet", "pmo@x.fr"],
+                              ["Acheteur", "achats@x.fr"]]))
+        assert _lire(client, "roles", [("r.xlsx", f)]).get_json()["parts"][0]["type"] == "comptes"
+        p = _lire(client, "roles", [("r.xlsx", f)], comme="roles").get_json()["parts"][0]
+        assert p["type"] == "roles" and [l["nom"] for l in p["lignes"]] == ["Chef de projet", "Acheteur"]
+
+    def test_la_nature_comptes_n_est_jamais_importee(self, app, client, scene):
+        _connecte(client, app, scene["admin"], scene["a"])
+        assert _verifier(client, "users", [{"nom": "X"}], [scene["a"]]).status_code == 404
+        assert _importer(client, [{"type": "comptes", "lignes": []}], [scene["a"]]).status_code == 400
+        assert client.get(f"{API}/modele/users").status_code == 404
+        ctx = client.get(f"{API}/contexte").get_json()
+        assert set(ctx["natures"]) == {"roles", "taches", "outils", "multiple"}
+        # la fenêtre sait où renvoyer — et si le lien mène quelque part
+        assert ctx["comptes"]["url"].startswith("/comptes") and ctx["comptes"]["peut"] is True
+
+
 class TestImportMultiple:
 
     def test_chaque_feuille_est_reconnue(self, app, client, scene):
@@ -234,13 +283,13 @@ class TestImportMultiple:
                   ("Tâches", [["Activité", "Tâche"], ["Chiffrer l'offre", "Estimer"]]),
                   ("Vide", []))
         parts = _lire(client, "multiple", [("tout.xlsx", f)]).get_json()["parts"]
-        assert {p["feuille"]: p["type"] for p in parts} == {
-            "Rôles": "roles", "Collaborateurs": "users", "Outils": "outils", "Tâches": "taches"}
-        assert all(p["reconnu"] for p in parts)
+        assert {p["feuille"]: (p["type"], p["reconnu"]) for p in parts} == {
+            "Rôles": ("roles", True), "Collaborateurs": ("comptes", False),
+            "Outils": ("outils", True), "Tâches": ("taches", True)}
 
     def test_une_feuille_ambigue_le_dit(self, app, client, scene):
         """« Nom | Description » : un rôle ou un outil ? Le nom de la feuille ne
-        tranche pas — l'écran demande de vérifier au lieu de choisir en silence."""
+        tranche pas — l'écran demande de choisir au lieu de décider en silence."""
         _connecte(client, app, scene["admin"], scene["a"])
         f = _xlsx(("Feuil1", [["Nom", "Description"], ["SAP", "ERP"]]))
         p = _lire(client, "multiple", [("x.xlsx", f)]).get_json()["parts"][0]
@@ -255,17 +304,17 @@ class TestImportMultiple:
 
 
 # ══════════════════════════════════════════════════════════════════════
-#  2 · L'IA désigne les colonnes, elle n'écrit rien
+#  3 · L'IA désigne les colonnes, elle n'écrit rien
 # ══════════════════════════════════════════════════════════════════════
 class TestOrganiserAvecLIA:
 
-    FICHIER = _xlsx(("Feuil1", [["Personne", "Contact", "Poste"],
-                               ["Jean Dupont", "jean@x.fr", "Acheteur"],
-                               ["Marie Curie", "marie@x.fr", "Chimiste"]]))
+    FICHIER = _xlsx(("Feuil1", [["Bloc", "Ce qu'on fait", "Avec quoi"],
+                               ["Chiffrer l'offre", "Estimer les heures", "SAP"],
+                               ["Chiffrer l'offre", "Relire le devis", "Excel"]]))
 
-    def _organiser(self, client, type_="users"):
+    def _organiser(self, client, type_="taches"):
         return client.post(f"{API}/organiser", data={
-            "type": type_, "fichier": (io.BytesIO(self.FICHIER), "u.xlsx")},
+            "type": type_, "fichier": (io.BytesIO(self.FICHIER), "t.xlsx")},
             content_type="multipart/form-data")
 
     def test_les_valeurs_viennent_du_fichier(self, app, client, scene, monkeypatch):
@@ -274,47 +323,49 @@ class TestOrganiserAvecLIA:
 
         def ia(systeme, contenu):
             vu.update(contenu)
-            return {"type": "users", "ligne_entete": 0, "colonnes": {"email": 1, "role": 2},
-                    "nom_complet": 0, "ordre_nom": "prenom_nom", "confiance": "high",
-                    "remarque": "Personne = nom complet."}
+            return {"type": "taches", "ligne_entete": 0,
+                    "colonnes": {"activite": 0, "tache": 1, "outils": 2},
+                    "confiance": "high", "remarque": "« Bloc » porte l'activité."}
         monkeypatch.setattr(import_hub, "_appeler_ia", ia)
         _connecte(client, app, scene["admin"], scene["a"])
         p = self._organiser(client).get_json()["part"]
         assert p["reconnu"] and p["source"] == "IA" and p["confiance"] == "high"
-        assert [(l["prenom"], l["nom"], l["email"], l["role"]) for l in p["lignes"]] == [
-            ("Jean", "Dupont", "jean@x.fr", "Acheteur"), ("Marie", "Curie", "marie@x.fr", "Chimiste")]
+        assert [(l["activite"], l["tache"], l["outils"]) for l in p["lignes"]] == [
+            ("Chiffrer l'offre", "Estimer les heures", "SAP"),
+            ("Chiffrer l'offre", "Relire le devis", "Excel")]
         # ce que l'IA a vu : les premières lignes, cellules numérotées, et le schéma
-        assert vu["lignes"][1]["cellules"] == {"0": "Jean Dupont", "1": "jean@x.fr", "2": "Acheteur"}
-        assert {c["champ"] for c in vu["schemas"]["users"]} >= {"prenom", "nom", "email"}
+        assert vu["lignes"][1]["cellules"] == {"0": "Chiffrer l'offre", "1": "Estimer les heures",
+                                               "2": "SAP"}
+        assert {c["champ"] for c in vu["schemas"]["taches"]} >= {"activite", "tache"}
 
     def test_l_ia_ne_peut_pas_glisser_de_lignes(self, app, client, scene, monkeypatch):
         """Une réponse qui porterait des DONNÉES est ignorée : seuls les numéros
         de colonnes comptent, les valeurs sont relues dans le fichier."""
         from Code.routes import import_hub
         monkeypatch.setattr(import_hub, "_appeler_ia", lambda s, c: {
-            "type": "users", "ligne_entete": 0, "colonnes": {"email": 1}, "nom_complet": 0,
-            "lignes": [{"prenom": "Inventé", "nom": "Personne", "email": "faux@x.fr"}]})
+            "type": "taches", "ligne_entete": 0, "colonnes": {"activite": 0, "tache": 1},
+            "lignes": [{"activite": "Inventée", "tache": "Tâche fantôme"}]})
         _connecte(client, app, scene["admin"], scene["a"])
         p = self._organiser(client).get_json()["part"]
-        assert "faux@x.fr" not in json.dumps(p)
-        assert [l["email"] for l in p["lignes"]] == ["jean@x.fr", "marie@x.fr"]
+        assert "fantôme" not in json.dumps(p, ensure_ascii=False)
+        assert [l["tache"] for l in p["lignes"]] == ["Estimer les heures", "Relire le devis"]
 
     def test_une_colonne_hors_du_fichier_est_ecartee(self, app, client, scene, monkeypatch):
         from Code.routes import import_hub
         monkeypatch.setattr(import_hub, "_appeler_ia", lambda s, c: {
-            "type": "users", "ligne_entete": 0, "colonnes": {"email": 42, "prenom": -1, "nom": "x"}})
+            "type": "taches", "ligne_entete": 0, "colonnes": {"activite": 42, "tache": -1}})
         _connecte(client, app, scene["admin"], scene["a"])
         p = self._organiser(client).get_json()["part"]
         assert not p["reconnu"]
-        assert set(p["manquants"]) == {"prenom", "nom", "email"}
+        assert set(p["manquants"]) == {"activite", "tache"}
 
     def test_sans_ia_un_refus_explicite(self, app, client, scene, monkeypatch):
         from Code.routes import import_hub
+        from Code.translations import t
         monkeypatch.setattr(import_hub, "_appeler_ia", lambda s, c: None)
         _connecte(client, app, scene["admin"], scene["a"])
         r = self._organiser(client)
         assert r.status_code == 503
-        from Code.translations import t
         assert r.get_json()["error"] == t("imph.err_ia", "fr")
 
     def test_rapprocher_propose_sans_appliquer(self, app, client, scene, monkeypatch):
@@ -333,9 +384,24 @@ class TestOrganiserAvecLIA:
         assert r.get_json()["propositions"] == {"Price the bid": {
             "activite": "Chiffrer l'offre", "confiance": "high", "raison": "même sens"}}
 
+    @pytest.mark.parametrize("lang, langue", [("fr", "français"), ("en", "English")])
+    def test_la_justification_est_ecrite_dans_la_langue_de_l_ecran(
+            self, app, client, scene, monkeypatch, lang, langue):
+        """La raison de chaque rapprochement s'affiche telle quelle dans le
+        compte rendu : l'IA doit l'écrire dans la langue de celui qui le lit."""
+        from Code.routes import import_hub
+        vu = {}
+        monkeypatch.setattr(import_hub, "_appeler_ia",
+                            lambda s, c: vu.update(c) or {"resolved": []})
+        _connecte(client, app, scene["admin"], scene["a"], lang=lang)
+        client.post(f"{API}/rapprocher", data=json.dumps(
+            {"noms": ["Price the bid"], "cibles": [scene["a"]]}), content_type="application/json")
+        assert vu["langue_des_remarques"] == langue
+        _connecte(client, app, scene["admin"], scene["a"])
+
 
 # ══════════════════════════════════════════════════════════════════════
-#  3 · Vérifier : le statut dépend de la portée
+#  4 · Vérifier : le statut dépend de la portée
 # ══════════════════════════════════════════════════════════════════════
 class TestVerifier:
 
@@ -393,43 +459,9 @@ class TestVerifier:
         assert modes == {"Price the bid": "manuel", "Chiffrer l'offre": "ignore"}
         assert [l["statut"] for l in d["lignes"]] == ["nouveau", "ignore"]
 
-    def test_les_collaborateurs(self, app, client, scene):
-        _connecte(client, app, scene["coord"], scene["k"])
-        lignes = [
-            {"prenom": "Jean", "nom": "Neuf", "email": "t84.jean@x.fr", "_i": 0},
-            {"prenom": "T84", "nom": "Admin", "email": "T84.ADMIN@devoptiq.com", "_i": 1},
-            {"prenom": "Sans", "nom": "Mail", "email": "pas-un-mail", "_i": 2},
-            {"prenom": "Chef", "nom": "Suprême", "email": "t84.chef@x.fr", "statut": "Administrateur",
-             "_i": 3},
-            {"prenom": "Paul", "nom": "Flou", "email": "t84.paul@x.fr", "statut": "Stagiaire",
-             "mot_de_passe": "zq9", "_i": 4},
-        ]
-        d = _verifier(client, "users", lignes, []).get_json()
-        assert [l["statut"] for l in d["lignes"]] == [
-            "nouveau", "present", "invalide", "invalide", "nouveau"]
-        # un coordinateur ne crée pas d'administrateur
-        from Code.translations import t
-        assert d["lignes"][3]["raison"] == t("imph.st_statut_superieur", "fr")
-        assert "Stagiaire" in d["lignes"][4]["avertissement"]
-        # ⚠️ aucun mot de passe ne revient vers l'écran
-        assert all("mot_de_passe" not in l for l in d["lignes"])
-        assert "zq9" not in json.dumps(d)
-
-    def test_un_role_inconnu_est_signale_ou_annonce(self, app, client, scene):
-        _connecte(client, app, scene["admin"], scene["a"])
-        lignes = [{"prenom": "Jean", "nom": "Neuf", "email": "t84.jean@x.fr", "role": "Magasinier"}]
-        sans = _verifier(client, "users", lignes, [scene["a"]]).get_json()["lignes"][0]
-        assert "Magasinier" in sans["avertissement"]
-        avec = _verifier(client, "users", lignes, [scene["a"]],
-                         options={"creer_roles": True}).get_json()["lignes"][0]
-        assert "avertissement" not in avec and "Magasinier" in avec["info"]
-        prevu = _verifier(client, "users", lignes, [scene["a"]],
-                          options={"roles_prevus": ["magasinier"]}).get_json()["lignes"][0]
-        assert "avertissement" not in prevu
-
 
 # ══════════════════════════════════════════════════════════════════════
-#  4 · Importer
+#  5 · Importer
 # ══════════════════════════════════════════════════════════════════════
 class TestImporter:
 
@@ -494,55 +526,21 @@ class TestImporter:
             n = Task.query.join(Activities).filter(Task.name == "Appeler T84").count()
         assert n == 1
 
-    def test_des_comptes_avec_leur_role_et_leurs_identifiants(self, app, client, scene):
-        from Code.models.models import Role, User, UserRole
-        from Code.security import verify_password
-        _connecte(client, app, scene["admin"], scene["a"])
-        lignes = [
-            {"prenom": "Jean", "nom": "Neuf", "email": "T84.Jean@X.fr", "statut": "Coordinator",
-             "role": "Quality", "mot_de_passe": "Secret123", "_i": 0},
-            {"prenom": "Lou", "nom": "Sans", "email": "t84.lou@x.fr", "_i": 1},
-        ]
-        res = _importer(client, [{"type": "users", "lignes": lignes}],
-                        [scene["a"]]).get_json()["resultats"][0]
-        assert res["crees"] == 2 and res["roles_attribues"] == 1
-        # seul le mot de passe GÉNÉRÉ est rendu, une fois
-        assert [x["email"] for x in res["identifiants"]] == ["t84.lou@x.fr"]
-        with app.app_context():
-            jean = User.query.filter_by(email="t84.jean@x.fr").one()
-            assert jean.status == "coordinateur"
-            assert verify_password(jean.password, "Secret123")
-            qualite = Role.query.filter_by(entity_id=scene["a"], name="Qualité").one()
-            assert UserRole.query.filter_by(user_id=jean.id, role_id=qualite.id).count() == 1
-            lou = User.query.filter_by(email="t84.lou@x.fr").one()
-            assert verify_password(lou.password, res["identifiants"][0]["mot_de_passe"])
-
-    def test_le_statut_se_reverifie_a_l_import(self, app, client, scene):
-        """Le navigateur ne décide de rien : un administrateur envoyé tel quel
-        par un coordinateur n'est pas créé."""
-        from Code.models.models import User
-        _connecte(client, app, scene["coord"], scene["k"])
-        res = _importer(client, [{"type": "users", "lignes": [
-            {"prenom": "Chef", "nom": "Suprême", "email": "t84.chef@x.fr", "statut": "admin"}]}],
-            []).get_json()["resultats"][0]
-        assert res["crees"] == 0
-        with app.app_context():
-            assert User.query.filter_by(email="t84.chef@x.fr").count() == 0
-
     def test_un_import_multiple_ordonne_ses_ecritures(self, app, client, scene):
-        """Le rôle créé par la part « rôles » existe quand la part
-        « collaborateurs » l'attribue — même envoyées dans l'autre sens."""
-        from Code.models.models import User, UserRole
+        """L'outil décrit par la feuille « Outils » existe AVANT que la feuille
+        « Tâches » ne s'en serve — même envoyées dans l'autre sens : la tâche
+        retrouve l'outil avec sa description au lieu d'en créer un vide."""
+        from Code.models.models import Tool
         _connecte(client, app, scene["admin"], scene["a"])
         d = _importer(client, [
-            {"type": "users", "lignes": [{"prenom": "Ana", "nom": "Lyse", "email": "t84.ana@x.fr",
-                                          "role": "Magasinier T84"}]},
-            {"type": "roles", "lignes": [{"nom": "Magasinier T84"}]},
+            {"type": "taches", "lignes": [{"activite": "Chiffrer l'offre", "tache": "Chiffrer T84",
+                                           "outils": "Chiffreur T84"}]},
+            {"type": "outils", "lignes": [{"nom": "Chiffreur T84", "description": "Logiciel de devis"}]},
         ], [scene["a"]]).get_json()
-        assert [x["type"] for x in d["resultats"]] == ["roles", "users"]
+        assert [x["type"] for x in d["resultats"]] == ["outils", "taches"]
         with app.app_context():
-            ana = User.query.filter_by(email="t84.ana@x.fr").one()
-            assert UserRole.query.filter_by(user_id=ana.id).count() == 1
+            outils = Tool.query.filter_by(entity_id=scene["a"], name="Chiffreur T84").all()
+            assert len(outils) == 1 and outils[0].description == "Logiciel de devis"
 
     def test_une_part_qui_echoue_n_en_laisse_aucune(self, app, client, scene, monkeypatch):
         from Code.models.models import Role
@@ -550,11 +548,11 @@ class TestImporter:
 
         def casse(*a, **k):
             raise RuntimeError("panne")
-        monkeypatch.setattr(import_hub, "_importer_users", casse)
+        monkeypatch.setattr(import_hub, "_importer_taches", casse)
         _connecte(client, app, scene["admin"], scene["a"])
         r = _importer(client, [
             {"type": "roles", "lignes": [{"nom": "Fantôme T84"}]},
-            {"type": "users", "lignes": [{"prenom": "A", "nom": "B", "email": "t84.b@x.fr"}]},
+            {"type": "taches", "lignes": [{"activite": "Chiffrer l'offre", "tache": "X"}]},
         ], [scene["a"]])
         assert r.status_code == 500
         with app.app_context():
@@ -618,7 +616,7 @@ class TestLAncienneRouteDImport:
 
 
 # ══════════════════════════════════════════════════════════════════════
-#  5 · Droits
+#  6 · Droits
 # ══════════════════════════════════════════════════════════════════════
 class TestDroits:
 
@@ -628,22 +626,22 @@ class TestDroits:
         assert client.get(f"{API}/contexte").status_code == 401
         assert _verifier(client, "roles", [{"nom": "X"}], [1]).status_code == 403
 
-    def test_un_utilisateur_ne_cree_pas_de_comptes(self, app, client, scene):
-        _connecte(client, app, scene["autre"], scene["c"])
+    def test_sans_carto_ou_ecrire_rien_ne_s_importe(self, app, client, scene, monkeypatch):
+        """⚠️ Les cartos sans propriétaire laissées par d'autres fichiers de
+        tests sont modifiables par tous : on fixe donc le périmètre ici."""
+        from Code.routes import import_hub
+        monkeypatch.setattr(import_hub, "_cibles_possibles", lambda moi: [])
+        _connecte(client, app, scene["lecteur"])
         ctx = client.get(f"{API}/contexte").get_json()
-        assert ctx["droits"]["users"] is False
-        # il est propriétaire de sa carto : il y importe des rôles
-        assert ctx["droits"]["roles"] is True
-        cibles = {c["id"] for c in ctx["cibles"]}
-        assert scene["c"] in cibles and scene["a"] not in cibles
-        r = _importer(client, [{"type": "users", "lignes": [
-            {"prenom": "A", "nom": "B", "email": "t84.x@x.fr"}]}], [])
-        assert r.status_code == 403
+        assert ctx["peut"] is False and ctx["comptes"]["peut"] is False
+        f = _xlsx(("R", [["Nom du rôle"], ["Acheteur"]]))
+        assert _lire(client, "roles", [("r.xlsx", f)]).status_code == 403
+        assert _verifier(client, "roles", [{"nom": "X"}], [scene["a"]]).status_code == 403
 
     def test_le_contexte_parle_la_langue_de_l_ecran(self, app, client, scene):
         _connecte(client, app, scene["admin"], scene["a"], lang="en")
         ctx = client.get(f"{API}/contexte").get_json()
-        assert ctx["natures"]["users"]["nom"] == "Users"
+        assert ctx["natures"]["taches"]["nom"] == "Tasks"
         assert ctx["natures"]["roles"]["champs"][0]["label"] == "Role name"
         assert ctx["active"]["id"] == scene["a"]
         assert {c["id"] for c in ctx["cibles"]} >= {scene["a"], scene["b"]}
@@ -651,12 +649,11 @@ class TestDroits:
 
 
 # ══════════════════════════════════════════════════════════════════════
-#  6 · Le modèle téléchargé se relit tel quel, dans les deux langues
+#  7 · Le modèle téléchargé se relit tel quel, dans les deux langues
 # ══════════════════════════════════════════════════════════════════════
 class TestLeModeleSeRelit:
 
     EXEMPLES = {"roles": ["Acheteur", "Négocier"],
-                "users": ["Jean", "Dupont", "t84.modele@x.fr", "", "", ""],
                 "taches": ["Chiffrer l'offre", "Estimer", "", "", "", "", "", ""],
                 "outils": ["SAP", "ERP"]}
 
@@ -664,16 +661,16 @@ class TestLeModeleSeRelit:
     def test_chaque_modele_est_reconnu(self, app, client, scene, lang):
         _connecte(client, app, scene["admin"], scene["a"], lang=lang)
         wb = openpyxl.load_workbook(io.BytesIO(client.get(f"{API}/modele/multiple").data))
-        assert len(wb.worksheets) == 4
-        for ws, ty in zip(wb.worksheets, ("roles", "outils", "users", "taches")):
+        assert len(wb.worksheets) == 3
+        for ws, ty in zip(wb.worksheets, ("roles", "outils", "taches")):
             ws.append(self.EXEMPLES[ty])
         out = io.BytesIO()
         wb.save(out)
         parts = _lire(client, "multiple", [("modele.xlsx", out.getvalue())]).get_json()["parts"]
         assert [(p["type"], p["reconnu"]) for p in parts] == [
-            ("roles", True), ("outils", True), ("users", True), ("taches", True)]
+            ("roles", True), ("outils", True), ("taches", True)]
         # et un modèle SEUL se relit dans son propre import
-        for ty in ("roles", "users", "taches", "outils"):
+        for ty in ("roles", "taches", "outils"):
             wb = openpyxl.load_workbook(io.BytesIO(client.get(f"{API}/modele/{ty}").data))
             wb.active.append(self.EXEMPLES[ty])
             out = io.BytesIO()
@@ -683,7 +680,7 @@ class TestLeModeleSeRelit:
 
 
 # ══════════════════════════════════════════════════════════════════════
-#  7 · La fenêtre elle-même
+#  8 · La fenêtre elle-même
 # ══════════════════════════════════════════════════════════════════════
 class TestLaFenetre:
 

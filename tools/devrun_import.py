@@ -5,10 +5,12 @@
 Deux cartos (la carte RFQ FluidClip et sa copie « site Inde ») à un
 administrateur, une troisième à un coordinateur — de quoi éprouver la PORTÉE.
 Et des fichiers d'exemple, servis sous /devrun/fichier/<nom>, qui couvrent les
-cas que l'écran doit savoir montrer : un fichier propre, un export RH
-désordonné qu'il faut faire organiser, un csv, le tableau de tâches du client
-avec ses cellules fusionnées, un classeur à plusieurs feuilles dont une
-ambiguë et une illisible.
+cas que l'écran doit savoir montrer : un fichier propre, des fichiers aux
+colonnes inconnues qu'il faut faire lire par l'IA (`moyens.xlsx`,
+`taches_blocs.xlsx`), le tableau de tâches du client avec ses cellules
+fusionnées, des listes de COLLABORATEURS (`export_sirh.xlsx`,
+`utilisateurs.csv` — écartées vers la page Comptes), un classeur à plusieurs
+feuilles dont une ambiguë et une illisible.
 
 ⚠️ L'IA est SIMULÉE (heuristiques sur les en-têtes et le contenu) : sans clé,
 les écrans « organiser » et « rapprocher » ne s'afficheraient jamais. La
@@ -105,6 +107,16 @@ _classeur("export_sirh.xlsx", ("Export", [
     ["BHIVARE Priya", "priya.bhivare@exemple.in", "Sales engineer", "Pune"],
     ["DURAND Paul", "paul.durand@exemple", "Buyer", "Pune"],
     ["LÀ Déjà", "deja@test.local", "", ""]]))
+_classeur("moyens.xlsx", ("Inventaire", [
+    ["Inventaire des moyens — atelier 2"], [None],
+    ["Moyen", "Commentaire", "Atelier"],
+    ["Presse 250 t", "Presse à injecter", "A2"], ["Moule M12", "Moule 4 empreintes", "A2"],
+    ["Teamcenter", "PLM", "—"]]))
+_classeur("taches_blocs.xlsx", ("Feuil1", [
+    ["Bloc", "Ce qu'on fait", "Avec quoi", "Qui fait"],
+    ["Clarify RFQ Requirements", "Lister les exigences", "Excel", "Sales engineer"],
+    [None, "Valider avec le client", "Teams", "Sales manager"],
+    ["Cost estimation", "Chiffrer les pièces", "SAP", "Cost engineer"]]))
 _classeur("classeur_complet.xlsx",
           ("Rôles", ROLES[:5]), ("Collaborateurs", COLLABS), ("Outils", OUTILS),
           ("Tâches", TACHES[:6]),
@@ -166,14 +178,14 @@ with app.app_context():
 from Code.routes import import_hub   # noqa: E402
 
 _MOTS = {
-    "email": ("mail", "adresse", "contact", "courriel"),
-    "role": ("fonction", "poste", "metier", "role", "title"),
-    "statut": ("statut", "profil"),
-    "tache": ("etape", "action", "task"),
-    "activite": ("process", "activite", "semi"),
-    "nom": ("nom", "name", "outil", "libelle"),
-    "mission": ("mission", "description"),
-    "description": ("description", "usage", "detail"),
+    "activite": ("process", "activite", "semi", "bloc"),
+    "tache": ("etape", "action", "task", "fait"),
+    "outils": ("avec quoi", "moyens", "outil"),
+    "realisateur": ("qui fait", "realise"),
+    "garant": ("garant", "pilote"),
+    "nom": ("nom", "name", "outil", "libelle", "moyen", "intitule"),
+    "mission": ("mission", "descriptif"),
+    "description": ("description", "usage", "detail", "commentaire"),
 }
 
 
@@ -196,34 +208,30 @@ def _ia_simulee(systeme, contenu):
                             "match_reason": "IA simulée (devrun) : sens voisin"})
         return {"resolved": resolus}
 
-    types = list(contenu["schemas"])
     lignes = contenu["lignes"]
     entete = next((l for l in lignes if len(l["cellules"]) >= 2), lignes[0])
     idx = entete["ligne"]
-    data = [l for l in lignes if l["ligne"] > idx]
-    cols = {}
-    nom_complet = None
-    for j, titre in entete["cellules"].items():
-        t_ = import_hub._norm(titre)
-        valeurs = [l["cellules"].get(j, "") for l in data]
-        if valeurs and sum("@" in v for v in valeurs) >= len(valeurs) / 2:
-            cols["email"] = int(j)
-            continue
-        if valeurs and sum(len(v.split()) == 2 for v in valeurs) >= len(valeurs) / 2 \
-                and "users" in types and nom_complet is None and "@" not in "".join(valeurs):
-            nom_complet = int(j)
-            continue
-        for champ, mots in _MOTS.items():
-            if champ not in cols and any(m in t_ for m in mots):
-                cols[champ] = int(j)
-                break
-    if not cols and nom_complet is None:
+    meilleur = None
+    for ty, schema in contenu["schemas"].items():
+        champs = {c["champ"] for c in schema}
+        requis = {c["champ"] for c in schema if c["obligatoire"]}
+        cols, lus = {}, []
+        for j, titre in entete["cellules"].items():
+            t_ = import_hub._norm(titre)
+            for champ, mots in _MOTS.items():
+                if champ in champs and champ not in cols and any(m in t_ for m in mots):
+                    cols[champ] = int(j)
+                    lus.append(f"« {titre} » → {champ}")
+                    break
+        note = (requis <= set(cols), len(cols))
+        if cols and (meilleur is None or note > meilleur[0]):
+            meilleur = (note, ty, cols, lus)
+    if meilleur is None:
         return {"type": None, "remarque": "IA simulée : aucune donnée importable ici."}
-    ty = "users" if ("email" in cols or nom_complet is not None) and "users" in types else types[0]
-    return {"type": ty, "ligne_entete": idx, "colonnes": cols, "nom_complet": nom_complet,
-            "ordre_nom": None, "confiance": "medium",
-            "remarque": "IA simulée (devrun) : « Collaborateur » porte le nom complet, "
-                        "« Adresse » l'e-mail, « Fonction » le rôle ; « Site » est ignoré."}
+    _, ty, cols, lus = meilleur
+    return {"type": ty, "ligne_entete": idx, "colonnes": cols,
+            "confiance": "medium" if meilleur[0][0] else "low",
+            "remarque": "IA simulée (devrun) : " + ", ".join(lus) + "."}
 
 
 import_hub._appeler_ia = _ia_simulee

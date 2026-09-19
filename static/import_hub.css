@@ -328,7 +328,7 @@ body.imh-ouvert { overflow: hidden; }
 /* ══════════════════════════════════════════════════════════════════
    1 · Choisir la nature
    ══════════════════════════════════════════════════════════════════ */
-.imh-cartes { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+.imh-cartes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
 
 .imh-carte {
   appearance: none;
@@ -727,16 +727,6 @@ body.imh-ouvert { overflow: hidden; }
   background: #16a34a;
 }
 .is-ia .imh-source-ic { background: linear-gradient(135deg, var(--imh-ia-a), var(--imh-ia-b)); }
-.imh-conf {
-  padding: 2px 9px;
-  border-radius: 999px;
-  font-size: 11.5px;
-  font-weight: 700;
-}
-.imh-conf.c-high { color: var(--imh-ok); background: var(--imh-ok-bg); }
-.imh-conf.c-medium { color: var(--imh-warn); background: var(--imh-warn-bg); }
-.imh-conf.c-low { color: var(--imh-bad); background: var(--imh-bad-bg); }
-.imh-source-rq { margin: 8px 0 0; font-size: 13.5px; color: var(--imh-ink-2); }
 .imh-maps { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
 .imh-map {
   display: inline-flex;
@@ -751,15 +741,6 @@ body.imh-ouvert { overflow: hidden; }
 .imh-map-col { color: var(--imh-muted); max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .imh-map i { font-size: 10px; color: var(--imh-faint); }
 .imh-map-f { font-weight: 700; color: color-mix(in srgb, var(--tc) 78%, #000); }
-.imh-source-note {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin: 10px 0 0;
-  font-size: 12.5px;
-  color: var(--imh-muted);
-}
-.imh-source-note i { color: var(--imh-ia-b); }
 
 /* ── Où importer ? ── */
 .imh-portee {
@@ -862,40 +843,6 @@ body.imh-ouvert { overflow: hidden; }
 .imh-carto.on { border-color: #5eead4; background: #f0fdfa; color: #0f3d38; }
 .imh-carto.on i { color: #0d9488; }
 
-.imh-bascule {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  font-size: 13.5px;
-  font-weight: 500;
-  color: var(--imh-ink-2);
-  cursor: pointer;
-  align-self: flex-start;
-}
-.imh-bascule input { position: absolute; opacity: 0; pointer-events: none; }
-.imh-bascule-rail {
-  position: relative;
-  width: 36px;
-  height: 21px;
-  border-radius: 99px;
-  background: #d8dbe6;
-  transition: background .2s;
-}
-.imh-bascule-rail span {
-  position: absolute;
-  top: 3px;
-  left: 3px;
-  width: 15px;
-  height: 15px;
-  border-radius: 50%;
-  background: #fff;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, .2);
-  transition: transform .2s cubic-bezier(.2, .8, .2, 1);
-}
-.imh-bascule input:checked + .imh-bascule-rail { background: #0d9488; }
-.imh-bascule input:checked + .imh-bascule-rail span { transform: translateX(15px); }
-.imh-bascule input:focus-visible + .imh-bascule-rail { box-shadow: 0 0 0 3px rgba(13, 148, 136, .3); }
-
 /* ── Compteurs = filtres ── */
 .imh-liste-zone { display: flex; flex-direction: column; gap: 12px; transition: opacity .2s; }
 .imh-liste-zone.is-maj { opacity: .6; }
@@ -931,12 +878,6 @@ body.imh-ouvert { overflow: hidden; }
   background: color-mix(in srgb, var(--tt) 6%, #fff);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--tt) 14%, transparent);
 }
-.imh-tuile.t-nouveau { --tt: #15803d; }
-.imh-tuile.t-partiel { --tt: #0e7490; }
-.imh-tuile.t-present { --tt: #64748b; }
-.imh-tuile.t-a_rattacher { --tt: #b45309; }
-.imh-tuile.t-ignore { --tt: #94a3b8; }
-.imh-tuile.t-invalide { --tt: #b91c1c; }
 .imh-tout {
   display: inline-flex;
   align-items: center;
@@ -971,8 +912,6 @@ body.imh-ouvert { overflow: hidden; }
 .imh-l:first-child { border-top: 0; }
 .imh-l:hover { background: #fafbfd; }
 .imh-l .imh-cb { margin-top: 3px; }
-.imh-l.is-off:not(.st-present):not(.st-invalide):not(.st-a_rattacher):not(.st-ignore) { opacity: .5; }
-.imh-l.st-present .imh-l-c, .imh-l.st-ignore .imh-l-c { opacity: .6; }
 .imh-l.st-invalide { background: #fffafa; }
 .imh-l-c { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; min-width: 0; }
 .imh-l-t { display: flex; flex-direction: column; min-width: 0; flex: 1 1 260px; }
@@ -986,18 +925,6 @@ body.imh-ouvert { overflow: hidden; }
   overflow: hidden;
 }
 .imh-l-puces { display: flex; flex-wrap: wrap; gap: 5px; }
-.imh-av {
-  flex: none;
-  width: 34px;
-  height: 34px;
-  border-radius: 50%;
-  display: grid;
-  place-items: center;
-  font-size: 12.5px;
-  font-weight: 700;
-  color: hsl(var(--h) 55% 32%);
-  background: hsl(var(--h) 70% 92%);
-}
 .imh-chip {
   display: inline-flex;
   align-items: center;
@@ -1014,12 +941,13 @@ body.imh-ouvert { overflow: hidden; }
   text-overflow: ellipsis;
 }
 .imh-chip i { font-size: 10.5px; color: var(--imh-faint); }
-.imh-chip.c-statut { color: #9f1239; background: #ffe4ea; font-weight: 600; }
 .imh-chip.c-outil { color: #9a3412; background: #fff1e6; }
 .imh-chip.c-outil i { color: #ea580c; }
 .imh-chip.c-comp { color: #1e40af; background: #e8effe; }
 .imh-chip.c-comp i { color: #2563eb; }
-.imh-chip.c-garant { color: #065f46; background: #e3f6ee; font-weight: 600; }
+/* Le garant a toute la largeur de l'en-tête de groupe : à 260 px, « Guarantor: »
+   coupait le nom du rôle en anglais. */
+.imh-chip.c-garant { max-width: 100%; color: #065f46; background: #e3f6ee; font-weight: 600; }
 .imh-chip.c-garant i { color: #059669; }
 
 .imh-notes { display: flex; flex-direction: column; gap: 3px; flex-basis: 100%; }
@@ -1044,12 +972,6 @@ body.imh-ouvert { overflow: hidden; }
   background: color-mix(in srgb, var(--pc) 11%, #fff);
 }
 .imh-pas i { font-size: 10.5px; }
-.imh-pas.st-nouveau { --pc: #15803d; }
-.imh-pas.st-partiel { --pc: #0e7490; }
-.imh-pas.st-present { --pc: #64748b; }
-.imh-pas.st-invalide { --pc: #b91c1c; }
-.imh-pas.st-a_rattacher { --pc: #b45309; }
-.imh-pas.st-ignore { --pc: #94a3b8; }
 
 /* ── Tâches : une carte par activité du fichier ── */
 .imh-groupes { display: flex; flex-direction: column; gap: 12px; }
@@ -1093,42 +1015,6 @@ body.imh-ouvert { overflow: hidden; }
 }
 .imh-sel:focus { outline: none; border-color: var(--tc); box-shadow: 0 0 0 3px color-mix(in srgb, var(--tc) 18%, transparent); }
 .m-a_rattacher .imh-sel { border-color: #e9b949; background-color: #fffbf0; }
-.imh-bm {
-  --bc: #64748b;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 3px 9px;
-  border-radius: 999px;
-  font-size: 11.5px;
-  font-weight: 700;
-  white-space: nowrap;
-  color: var(--bc);
-  background: color-mix(in srgb, var(--bc) 11%, #fff);
-}
-.imh-bm.b-exact { --bc: #15803d; }
-.imh-bm.b-proche { --bc: #0e7490; }
-.imh-bm.b-manuel { --bc: #4338ca; }
-.imh-bm.b-a_rattacher { --bc: #b45309; }
-.imh-bm.b-ignore { --bc: #94a3b8; }
-.imh-bm.b-ia { color: #fff; background: linear-gradient(120deg, var(--imh-ia-a), var(--imh-ia-b)); }
-.imh-bm.b-ia.is-doute { color: #9d174d; background: #fce7f3; }
-.imh-suggest {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  margin-top: 7px;
-  padding: 5px 10px;
-  border-radius: 9px;
-  border: 1px dashed #f0a6cf;
-  font: inherit;
-  font-size: 12.5px;
-  font-weight: 600;
-  color: #9d174d;
-  background: #fdf2f8;
-  cursor: pointer;
-}
-.imh-suggest:hover { background: #fce7f3; }
 .imh-g-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; padding: 0 16px 10px; }
 .imh-g-n { font-size: 12.5px; font-weight: 600; color: var(--imh-muted); }
 .imh-g .imh-liste { border-radius: 0; border: 0; border-top: 1px solid var(--imh-line-2); }
@@ -1146,6 +1032,10 @@ body.imh-ouvert { overflow: hidden; }
 }
 .imh-ia-barre.is-sans { background: var(--imh-warn-bg); border-color: #f3dfae; }
 .imh-ia-barre.is-sans .imh-ia-ic { color: var(--imh-warn); background: #fff; }
+/* L'IA a déjà rendu son avis : plus rien ne l'appelle, la barre se calme. */
+.imh-ia-barre.is-vu { background: var(--imh-line-2); border-color: var(--imh-line); }
+.imh-ia-barre.is-vu .imh-ia-ic { color: var(--imh-ia-b); background: #fff; }
+.imh-ia-barre.is-vu .imh-btn-lien { color: #9d174d; font-weight: 700; }
 .imh-ia-ic {
   flex: none;
   width: 34px;
@@ -1467,55 +1357,225 @@ body.imh-ouvert { overflow: hidden; }
 .imh-res-txt span { font-size: 13.5px; font-weight: 600; }
 .imh-res-txt small { margin-top: 5px; font-size: 12.5px; color: var(--imh-muted); }
 
-.imh-ids {
-  width: 100%;
-  margin-top: 18px;
-  text-align: left;
-  border-radius: 18px;
-  background: #fff;
-  border: 1px solid #f3dfae;
-  box-shadow: 0 0 0 4px #fdf4df;
-  overflow: hidden;
-  animation: imhCarte .45s .6s cubic-bezier(.2, .8, .2, 1) both;
+/* ── Ce qu'il advient des lignes : compteurs et pastilles disent pareil ── */
+.imh-tuile.t-tous { --tt: var(--imh-ink-2); }
+.imh-tuile.t-ajoutes { --tt: #15803d; }
+.imh-tuile.t-deja { --tt: #64748b; }
+.imh-tuile.t-ecartes { --tt: #94a3b8; }
+.imh-tuile.t-a_rattacher { --tt: #b45309; }
+.imh-tuile.t-invalide { --tt: #b91c1c; }
+.imh-l.is-off .imh-l-c { opacity: .5; }
+.imh-l.st-present .imh-l-c, .imh-l.st-ignore .imh-l-c { opacity: .6; }
+.imh-pas.p-ajoutes { --pc: #15803d; }
+.imh-pas.p-deja { --pc: #64748b; }
+.imh-pas.p-ecartes { --pc: #94a3b8; }
+.imh-pas.p-a_rattacher { --pc: #b45309; }
+.imh-pas.p-invalide { --pc: #b91c1c; }
+
+/* ── La confiance de l'IA : trois traits et un mot, partout pareil ── */
+.imh-jauge {
+  --jc: #64748b;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--jc);
+  white-space: nowrap;
 }
-.imh-ids-tete { display: flex; align-items: center; gap: 14px; padding: 14px 16px; background: #fffbf0; }
-.imh-ids-tete > div { flex: 1; }
-.imh-ids-tete strong { font-size: 14.5px; }
-.imh-ids-tete p { margin: 2px 0 0; font-size: 13px; color: var(--imh-warn); }
-.imh-ids-ic {
-  flex: none;
-  width: 38px;
-  height: 38px;
+.imh-jauge-t { display: inline-flex; gap: 2px; }
+.imh-jauge-t i {
+  display: block;
+  width: 5px;
+  height: 11px;
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--jc) 22%, #fff);
+}
+.imh-jauge.c-high { --jc: #15803d; }
+.imh-jauge.c-medium { --jc: #b45309; }
+.imh-jauge.c-low { --jc: #b91c1c; }
+.imh-jauge.c-high .imh-jauge-t i,
+.imh-jauge.c-medium .imh-jauge-t i:nth-child(-n+2),
+.imh-jauge.c-low .imh-jauge-t i:first-child { background: var(--jc); }
+
+/* ── D'où vient un rattachement : une ligne de TEXTE, rien qui se clique ── */
+.imh-g-dest .imh-sel { width: 100%; }
+.imh-leg {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  margin: 6px 0 0;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--imh-muted);
+}
+.imh-leg > i { font-size: 11px; }
+.imh-leg.is-ok { color: #15803d; }
+.imh-leg.is-proche { color: #0e7490; }
+.imh-leg.is-warn { color: #b45309; }
+.imh-leg.is-off { color: var(--imh-faint); }
+.imh-leg.is-ia { color: #9d174d; }
+.imh-leg.is-ia > i { color: var(--imh-ia-a); }
+.imh-leg em {
+  flex-basis: 100%;
+  font-style: italic;
+  font-weight: 400;
+  color: var(--imh-muted);
+}
+.imh-g.is-ia { border-color: #f4c6e0; }
+.imh-g.is-ia .imh-g-tete { background: linear-gradient(180deg, #fdf5fa, #fff); }
+.imh-g.is-recent { animation: imhRecent 2.4s ease-out both; }
+
+.imh-ia-bilan {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 14px;
+  border-radius: 12px;
+  font-size: 13.5px;
+  font-weight: 500;
+  color: #9d174d;
+  background: #fdf2f8;
+}
+.imh-ia-bilan > i { color: var(--imh-ia-a); }
+.imh-ia-bilan span { flex: 1; }
+.imh-ia-bilan .imh-btn-lien { color: #9d174d; font-weight: 700; }
+
+/* ── Les deux comptes rendus de l'IA ── */
+.imh-rapport {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 20px;
+  border-radius: 20px;
+  border: 1px solid transparent;
+  background:
+    linear-gradient(180deg, #fdf6fc, #fff 160px) padding-box,
+    linear-gradient(120deg, #f6b3d6, #c4b1fb) border-box;
+  animation: imhCarte .35s cubic-bezier(.2, .8, .2, 1) both;
+}
+.imh-rp-tete { display: flex; align-items: flex-start; gap: 14px; }
+.imh-rp-tete > div { flex: 1; min-width: 0; }
+.imh-rp-tete .imh-ia-ic { width: 42px; height: 42px; border-radius: 13px; font-size: 16px; }
+.imh-rp-tete h3 {
+  margin: 0;
+  font-family: var(--pg-font-display, 'Fraunces', Georgia, serif);
+  font-size: 20px;
+  font-weight: 600;
+}
+.imh-rp-tete p { margin: 3px 0 0; font-size: 13.5px; color: var(--imh-ink-2); }
+.imh-rp-consigne {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 0;
+  padding: 10px 12px;
   border-radius: 11px;
+  font-size: 13px;
+  color: var(--imh-ink-2);
+  background: rgba(255, 255, 255, .75);
+  border: 1px dashed #e7cce0;
+}
+.imh-rp-consigne i { color: var(--imh-ia-b); }
+.imh-rp-liste { display: flex; flex-direction: column; gap: 8px; }
+.imh-rp {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto minmax(0, 1.25fr);
+  align-items: center;
+  gap: 14px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid var(--imh-line);
+  background: #fff;
+  cursor: pointer;
+  transition: border-color .15s, box-shadow .15s, background .15s;
+  animation: imhCarte .35s cubic-bezier(.2, .8, .2, 1) both;
+  animation-delay: calc(var(--i, 0) * 45ms);
+}
+.imh-rp input { position: absolute; opacity: 0; pointer-events: none; }
+.imh-rp-case {
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
   display: grid;
   place-items: center;
-  color: #fff;
-  background: linear-gradient(135deg, #f59e0b, #d97706);
+  font-size: 11px;
+  color: transparent;
+  border: 1.5px solid #cfd3df;
+  background: #fff;
+  transition: background .15s, border-color .15s, color .15s;
 }
-.imh-ids .imh-btn-prim { --tc: #d97706; }
-.imh-ids-t { max-height: 220px; overflow: auto; }
-.imh-ids table { width: 100%; border-collapse: collapse; font-size: 13px; }
-.imh-ids th {
-  position: sticky;
-  top: 0;
-  padding: 8px 16px;
+.imh-rp.on { border-color: #e9a8cc; box-shadow: 0 6px 18px rgba(219, 39, 119, .08); }
+.imh-rp.on .imh-rp-case { color: #fff; border-color: transparent; background: linear-gradient(135deg, var(--imh-ia-a), var(--imh-ia-b)); }
+.imh-rp input:focus-visible + .imh-rp-case { box-shadow: 0 0 0 3px rgba(219, 39, 119, .25); }
+.imh-rp:not(.on):not(.is-vide) .imh-rp-dest strong { color: var(--imh-muted); }
+.imh-rp.is-vide { cursor: default; background: #fafbfc; }
+.imh-rp.is-vide .imh-rp-case { visibility: hidden; }
+.imh-rp.is-vide .imh-rp-dest strong { color: var(--imh-faint); font-style: italic; font-weight: 600; }
+.imh-rp-src strong, .imh-rp-dest strong { display: block; font-size: 14.5px; font-weight: 700; overflow-wrap: anywhere; }
+.imh-rp-fl { color: #e9a8cc; font-size: 17px; }
+.imh-rp-dest { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; min-width: 0; }
+.imh-rp-dest small { font-size: 12.5px; color: var(--imh-muted); font-style: italic; }
+
+.imh-lc {
+  border-radius: 14px;
+  border: 1px solid var(--imh-line);
+  background: #fff;
+  overflow: hidden;
+}
+.imh-lc-l {
+  display: grid;
+  grid-template-columns: minmax(0, .9fr) minmax(0, 1fr) minmax(0, 1.6fr);
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border-top: 1px solid var(--imh-line-2);
+  font-size: 13.5px;
+}
+.imh-lc-l.is-tete {
+  border-top: 0;
   font-size: 11px;
   font-weight: 700;
-  letter-spacing: .05em;
+  letter-spacing: .06em;
   text-transform: uppercase;
-  text-align: left;
   color: var(--imh-faint);
-  background: #fff;
-  border-bottom: 1px solid var(--imh-line);
+  background: #f8f9fc;
 }
-.imh-ids td { padding: 8px 16px; border-bottom: 1px solid var(--imh-line-2); }
-.imh-ids code {
-  padding: 2px 7px;
-  border-radius: 6px;
-  font-family: var(--pg-font-mono, ui-monospace, monospace);
+.imh-lc-champ { font-weight: 700; }
+.imh-lc-champ em { font-style: normal; color: color-mix(in srgb, var(--tc) 80%, #000); margin-left: 2px; }
+.imh-lc-col { color: #9d174d; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.imh-lc-ex { display: flex; flex-wrap: wrap; gap: 5px; min-width: 0; }
+.imh-lc-ex span {
+  max-width: 190px;
+  padding: 2px 8px;
+  border-radius: 7px;
   font-size: 12.5px;
-  background: #f4f5f9;
+  color: var(--imh-ink-2);
+  background: var(--imh-line-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
+.imh-lc-l.is-absent .imh-lc-col { color: var(--imh-faint); font-weight: 500; font-style: italic; }
+.imh-lc-l.is-absent .imh-lc-champ { color: var(--imh-muted); }
+.imh-lc-l.is-manque { background: #fffafa; }
+.imh-lc-l.is-manque .imh-lc-col { color: var(--imh-bad); font-style: normal; font-weight: 700; }
+.imh-lc-bilan {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 13.5px;
+  font-weight: 600;
+}
+.imh-lc-bilan.is-ok { color: var(--imh-ok); }
+.imh-lc-bilan.is-manque { color: var(--imh-bad); }
+
+/* ── Une liste de collaborateurs : reconnue, puis renvoyée à sa page ── */
+.imh-cpt .imh-nr-tete { align-items: center; }
+.imh-cpt .imh-nr-tete > div { flex: 1; }
+.imh-nr-ic.is-cpt { color: #be123c; background: #ffe4ea; }
 
 /* ── Animations ────────────────────────────────────────────────────── */
 @keyframes imhFondu { from { opacity: 0; } to { opacity: 1; } }
@@ -1526,6 +1586,7 @@ body.imh-ouvert { overflow: hidden; }
 @keyframes imhPulse { 0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(219, 39, 119, .35); } 50% { transform: scale(1.06); box-shadow: 0 0 0 8px rgba(219, 39, 119, 0); } }
 @keyframes imhReflet { from { background-position: 200% 0; } to { background-position: 0 0; } }
 @keyframes imhTrace { to { stroke-dashoffset: 0; } }
+@keyframes imhRecent { 0%, 30% { box-shadow: 0 0 0 4px rgba(219, 39, 119, .28); } 100% { box-shadow: 0 1px 2px rgba(16, 24, 40, .03); } }
 
 @media (prefers-reduced-motion: reduce) {
   .imh *, .imh *::before, .imh *::after { animation: none !important; transition: none !important; }
@@ -1534,13 +1595,18 @@ body.imh-ouvert { overflow: hidden; }
 
 /* ── Fenêtres étroites ─────────────────────────────────────────────── */
 @media (max-width: 1040px) {
-  .imh-cartes { grid-template-columns: repeat(2, 1fr); }
   .imh-etapes li em { display: none; }
   .imh-etapes li { padding: 5px; }
   .imh-etapes li.ici em { display: inline; }
   .imh-etapes li.ici { padding-right: 11px; }
 }
 @media (max-width: 820px) {
+  .imh-cartes { grid-template-columns: 1fr; }
+  .imh-rp { grid-template-columns: auto minmax(0, 1fr); }
+  .imh-rp-fl { display: none; }
+  .imh-rp-dest { grid-column: 2; }
+  .imh-lc-l { grid-template-columns: 1fr 1fr; }
+  .imh-lc-ex { grid-column: 1 / -1; }
   .imh-split { grid-template-columns: 1fr; }
   .imh-rail { position: static; flex-direction: row; overflow-x: auto; }
   .imh-rail > .imh-mini { display: none; }

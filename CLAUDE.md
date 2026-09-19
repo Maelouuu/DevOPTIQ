@@ -2255,9 +2255,9 @@ qu'eux seuls lisaient ont quitté le catalogue (restent celles que la route
 écran : `import_hub_modal.html` + `static/js/import_hub.js` +
 `static/import_hub.css` (clés `imph.*`, injectées par `IMPH_I18N` en `| tojson`).
 
-- **Une carte par nature** — rôles, collaborateurs, tâches, outils — dans la
-  couleur de la page où vivent ses données (Rôles `#059669`, Comptes `#e11d48`,
-  Activités `#7c3aed`, Outils `#ea580c`), avec ses colonnes (obligatoires
+- **Une carte par nature** — rôles, tâches, outils — dans la couleur de la page
+  où vivent ses données (Rôles `#059669`, Activités `#7c3aed`, Outils
+  `#ea580c`), avec ses colonnes (obligatoires
   marquées) et sa portée. Plus l'**import multiple** : plusieurs fichiers, ou un
   classeur dont CHAQUE feuille est reconnue (nature déduite des en-têtes,
   départagée par le nom de la feuille ou du fichier).
@@ -2267,8 +2267,7 @@ qu'eux seuls lisaient ont quitté le catalogue (restent celles que la route
 - **Lu tel quel quand c'est lisible** : xlsx/xlsm (valeurs calculées), csv
   (séparateur deviné, cp1252 en repli) ; en-tête cherché dans les dix premières
   lignes ; synonymes FR/EN comparés au MOT près (« prénom » ne contient pas
-  « nom ») ; un nom complet dans une seule colonne est scindé (le mot en
-  CAPITALES est le nom de famille) ; cellules fusionnées propagées ; mentions
+  « nom ») ; cellules fusionnées propagées ; mentions
   d'absence (« No special skills required », « - ») retirées DÈS la lecture —
   l'aperçu montre ce qui sera vraiment importé. ⚠️ `.xls` est refusé en clair :
   openpyxl ne le lit pas, l'accepter ferait échouer plus loin sans explication.
@@ -2282,19 +2281,18 @@ qu'eux seuls lisaient ont quitté le catalogue (restent celles que la route
   correspondance (« Adresse » → E-mail) et la confiance. Une IA qui réécrirait
   les lignes pourrait en inventer ; une IA qui désigne des colonnes se vérifie
   d'un coup d'œil.
-- **La portée dépend de la donnée.** Les comptes valent pour toute l'instance —
-  les cartos choisies ne servent qu'à leur attribuer leur rôle (option « créer
-  les rôles absents ») ; rôles et outils vont dans une, plusieurs ou toutes les
-  cartos, avec le statut « à compléter » quand ils n'en manquent qu'à une
-  partie ; une tâche va dans chaque carto où son activité existe.
+- **La portée dépend de la donnée.** Rôles et outils vont dans une, plusieurs
+  ou toutes les cartos, avec le statut « ajouté en partie » quand ils n'en
+  manquent qu'à une partie ; une tâche va dans chaque carto où son activité
+  existe.
   ⚠️ Seulement les cartos où le compte ÉCRIT (`can_edit`) : un identifiant venu
   du navigateur ne suffit jamais.
 - **Une tâche se rattache à SON activité** : au nom près ou à 90 % de
   ressemblance ; en dessous, l'utilisateur choisit (les plus proches d'abord) et
   « Rapprocher avec l'IA » (prompt `import.enrich`) PROPOSE par le sens
-  (« Identify Part » → « Develop Preliminary Technical Solution »). Une
-  proposition dont l'IA doute n'est pas appliquée : elle s'affiche sous le
-  groupe. L'écriture passe par `injecter_groupes`, carto par carto.
+  (« Identify Part » → « Develop Preliminary Technical Solution ») — dans un
+  compte rendu, jamais directement dans la liste (voir plus bas). L'écriture
+  passe par `injecter_groupes`, carto par carto.
 - ⚠️ **Le garant ne déborde plus d'une activité sur la suivante** : la
   propagation des cellules fusionnées repart de zéro à chaque nouvelle
   activité. Un garant manquant se voit et se complète ; un garant FAUX lie un
@@ -2303,14 +2301,9 @@ qu'eux seuls lisaient ont quitté le catalogue (restent celles que la route
   (« Nom | Description » : des rôles ou des outils ?) — « Tout importer » aurait
   créé des presses à injecter comme rôles.
 - **L'import revérifie tout** — rien de ce que renvoie le navigateur n'est cru,
-  ni le statut d'une ligne ni le niveau d'un compte (un coordinateur ne crée pas
-  d'administrateur) — et un import multiple s'écrit en UNE transaction, dans
-  l'ordre rôles → outils → comptes → tâches : un rôle créé par la feuille
-  « Rôles » existe quand la feuille « Collaborateurs » l'attribue.
-- ⚠️ **Mots de passe** : la vérification n'en reçoit que la LONGUEUR (masquée)
-  et n'en renvoie aucun ; un mot de passe absent ou trop court est généré,
-  montré UNE fois et téléchargeable en csv, puis effacé de la page à la
-  fermeture.
+  pas même le statut d'une ligne — et un import multiple s'écrit en UNE
+  transaction, dans l'ordre rôles → outils → tâches : un rôle créé par la
+  feuille « Rôles » existe quand une tâche le désigne comme garant.
 - ⚠️ **Les messages que la ROUTE renvoie s'affichent tels quels** (motifs de
   statut, erreurs) : ils passent par le catalogue comme le reste — c'était le
   troisième côté oublié de l'ancien écran.
@@ -2339,10 +2332,68 @@ désormais `can_edit`.
   export RH désordonné, csv, tableau du client, classeur multiple avec une
   feuille ambiguë et une illisible) et une IA SIMULÉE. La simulation vit dans
   l'outil, jamais dans l'application.
-- Tests : `tests/test_84_import_hub.py` (41 cas — lecture, IA, portée, import,
-  transaction, droits, modèles relus dans les deux langues, reprise des rôles ;
-  la survie des rôles importés et le contrôle de l'ancienne route vérifiés
-  **rouges** sur le code d'avant).
+- Tests : `tests/test_84_import_hub.py` (45 cas — lecture, IA, portée, import,
+  transaction, droits, modèles relus dans les deux langues, reprise des rôles,
+  listes de personnes reconnues et jamais importées ; la survie des rôles
+  importés et le contrôle de l'ancienne route vérifiés **rouges** sur le code
+  d'avant).
+
+#### Les comptes restent à la page Comptes ; l'IA rend compte AVANT d'agir
+
+- ⚠️ **L'import ne crée plus de comptes.** Créer un compte engage toute
+  l'instance et relève de ceux qui les gèrent (`can_create_accounts`) : c'est
+  la page Comptes, avec ses propres droits. La nature `users` a quitté le
+  serveur comme l'écran, et `/importer` refuse (400) toute part qui n'est pas
+  rôles, outils ou tâches.
+- **Une liste de personnes est RECONNUE, jamais importée** (`_personnes`) : une
+  colonne titrée exactement « Nom » (ou « Nom complet »…) à côté d'un prénom ou
+  d'e-mails (au titre, ou ≥ 60 % des valeurs d'une colonne). La feuille devient
+  une part `comptes`, sans lignes, avec un lien vers `/comptes/?tab=import-tab`
+  (qui ouvre l'onglet d'import) pour qui a le droit — sinon une phrase dit que
+  c'est réservé.
+  ⚠️ « Nom du rôle » n'est pas « Nom », et un tableau de tâches complet
+  l'emporte toujours. En cas d'erreur, l'utilisateur a le dernier mot : « Lire
+  quand même comme des rôles » (paramètre `comme` de `/lire`, qui force la
+  nature).
+- **Les compteurs disent ce qu'il ADVIENT des lignes, et de QUELLES lignes** :
+  « 60 tâches ajoutées », plus « 60 New ». Six issues (`issue()`) — ajoutée,
+  ajoutée en partie, écartée (décochée), déjà là, à rattacher, à corriger —
+  libellées par nature et au pluriel (`tu_<issue>_<nature>`, `pas_*`).
+  ⚠️ Décocher fait NAÎTRE une tuile (« 1 tâche écartée ») : `majCompteurs`
+  redessine la rangée quand l'ensemble des tuiles change, et garde celle qu'on
+  filtre même à zéro — la retirer sous le pointeur laisserait une liste sans
+  titre.
+- ⚠️ **Rien de ce que propose l'IA ne touche la liste sans compte rendu.**
+  « Rapprocher avec l'IA » appliquait tout d'un coup : on retombait sur la
+  liste, ses rattachements mêlés à ceux qu'on avait déjà validés, sans savoir
+  lesquels venaient d'elle. Deux comptes rendus désormais :
+  - **rapprochement** (`blocRapport`) : pour chaque activité, ce que l'IA
+    propose, sa confiance et sa raison ; ce dont elle doute (`low`) arrive
+    décoché ; « Appliquer n choix ». Ensuite la liste défile jusqu'aux groupes
+    rattachés, les met en évidence, et « Ne voir qu'elles » les isole ;
+  - **lecture** (`blocLecture`, « Organiser avec l'IA ») : champ → colonne du
+    fichier → premières valeurs lues ; « Utiliser cette lecture » reste éteint
+    s'il manque un champ obligatoire.
+- **L'IA ne se relance pas pour rien** : ce qu'elle a examiné est mémorisé par
+  part ET par portée (`S.examen`, clé = cartos visées : d'autres cartos, ce
+  sont d'autres activités candidates). Si elle a déjà vu les activités
+  restantes, la barre le dit (« choisissez-la dans la liste ») et propose
+  « Revoir ses propositions » — rien de pré-coché, on revient sur un choix
+  délibéré.
+- **Sa raison est écrite dans la langue de l'écran** : elle s'affiche telle
+  quelle. `/rapprocher` transmet `langue_des_remarques`, et `import.enrich`
+  demande aussi de laisser un groupe dans `still_unmatched` plutôt que de
+  forcer un rapprochement.
+- **Trois styles pour un même fait.** Le résultat de l'IA dans la liste avait
+  une apparence par niveau de confiance, et ressemblait à des boutons. C'est
+  une LIGNE de texte sous le choix d'activité (`legende()`) : « Rattachée par
+  l'IA », une jauge à trois barres et son mot (élevée / moyenne / faible), la
+  raison en italique. Les autres origines prennent la même forme (« Même nom
+  que dans la carto », « Nom proche (91 %) : vérifiez », « Choisie à la
+  main ») : rien là ne se clique, rien ne doit en avoir l'air.
+- Suite : 2412 passés. Éprouvé dans les deux langues sur
+  `tools/devrun_import.py` (fichiers `moyens.xlsx` et `taches_blocs.xlsx`
+  ajoutés, IA simulée qui choisit la nature la mieux couverte).
 
 ### Page RH : un rôle sur PLUSIEURS cartos (2026-09-17)
 
