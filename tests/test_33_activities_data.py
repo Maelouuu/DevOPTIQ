@@ -127,6 +127,76 @@ class TestActivityDetails:
         assert isinstance(data["input_data"], list)
         assert isinstance(data["output_data"], list)
 
+    def test_details_outgoing_contient_performance_liee(self, auth_client, app, ids):
+        """Un lien SORTANT (source_activity_id) avec une Performance attachée
+        apparaît dans 'outgoing' avec son id/name/description — pas juste
+        {"performance": None}."""
+        from Code.extensions import db
+        from Code.models.models import Activities, Link, Performance
+
+        with app.app_context():
+            source = Activities(entity_id=ids["entity_id"], name="Source Outgoing Perf", description="")
+            db.session.add(source)
+            db.session.flush()
+            link = Link(entity_id=ids["entity_id"], source_activity_id=source.id, type="sortante")
+            db.session.add(link)
+            db.session.flush()
+            perf = Performance(link_id=link.id, name="Perf Outgoing", description="Desc Outgoing")
+            db.session.add(perf)
+            db.session.commit()
+            source_id, link_id, perf_id = source.id, link.id, perf.id
+
+        try:
+            r = auth_client.get(f"/activities/{source_id}/details")
+            assert r.status_code == 200
+            data = r.get_json()
+            matches = [o for o in data["outgoing"] if o.get("performance") and o["performance"]["name"] == "Perf Outgoing"]
+            assert len(matches) == 1
+            assert matches[0]["performance"]["id"] == perf_id
+            assert matches[0]["performance"]["description"] == "Desc Outgoing"
+        finally:
+            with app.app_context():
+                p = db.session.get(Performance, perf_id)
+                if p:
+                    db.session.delete(p)
+                l = db.session.get(Link, link_id)
+                if l:
+                    db.session.delete(l)
+                a = db.session.get(Activities, source_id)
+                if a:
+                    db.session.delete(a)
+                db.session.commit()
+
+    def test_details_outgoing_sans_performance(self, auth_client, app, ids):
+        """Un lien sortant SANS Performance attachée apparaît comme
+        {"performance": None} dans 'outgoing'."""
+        from Code.extensions import db
+        from Code.models.models import Activities, Link
+
+        with app.app_context():
+            source = Activities(entity_id=ids["entity_id"], name="Source Outgoing Sans Perf", description="")
+            db.session.add(source)
+            db.session.flush()
+            link = Link(entity_id=ids["entity_id"], source_activity_id=source.id, type="sortante")
+            db.session.add(link)
+            db.session.commit()
+            source_id, link_id = source.id, link.id
+
+        try:
+            r = auth_client.get(f"/activities/{source_id}/details")
+            assert r.status_code == 200
+            data = r.get_json()
+            assert {"performance": None} in data["outgoing"]
+        finally:
+            with app.app_context():
+                l = db.session.get(Link, link_id)
+                if l:
+                    db.session.delete(l)
+                a = db.session.get(Activities, source_id)
+                if a:
+                    db.session.delete(a)
+                db.session.commit()
+
 
 # ===========================================================================
 # 2. GET /activities/performance/render/<link_id>
