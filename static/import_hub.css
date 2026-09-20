@@ -912,6 +912,9 @@ body.imh-ouvert { overflow: hidden; }
 .imh-l:first-child { border-top: 0; }
 .imh-l:hover { background: #fafbfd; }
 .imh-l .imh-cb { margin-top: 3px; }
+/* Place de la case, sans la case : une ligne qu'on ne peut pas cocher garde
+   l'alignement des autres sans afficher un carré inerte. */
+.imh-l-sanscase { flex: none; width: 17px; }
 .imh-l.st-invalide { background: #fffafa; }
 .imh-l-c { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; min-width: 0; }
 .imh-l-t { display: flex; flex-direction: column; min-width: 0; flex: 1 1 260px; }
@@ -1514,6 +1517,7 @@ body.imh-ouvert { overflow: hidden; }
 .imh-rp.is-vide .imh-rp-case { visibility: hidden; }
 .imh-rp.is-vide .imh-rp-dest strong { color: var(--imh-faint); font-style: italic; font-weight: 600; }
 .imh-rp-src strong, .imh-rp-dest strong { display: block; font-size: 14.5px; font-weight: 700; overflow-wrap: anywhere; }
+.imh-rp-src small { display: block; margin-top: 2px; font-size: 12.5px; color: var(--imh-muted); }
 .imh-rp-fl { color: #e9a8cc; font-size: 17px; }
 .imh-rp-dest { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; min-width: 0; }
 .imh-rp-dest small { font-size: 12.5px; color: var(--imh-muted); font-style: italic; }

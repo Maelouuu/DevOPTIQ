@@ -457,8 +457,10 @@
     if (!cibles.length) {
       return `<section class="imh-portee is-bloque"><span class="imh-portee-ic"><i class="fa-solid fa-lock"></i></span><p>${esc(L('portee_aucune'))}</p></section>`;
     }
+    // Les tâches n'ont pas de phrase : la liste montre déjà, activité par
+    // activité, où chacune va tomber.
     const texte = S.type === 'multiple' ? L('portee_multiple')
-      : { roles: L('portee_roles'), outils: L('portee_outils'), taches: L('portee_taches') }[S.type];
+      : { roles: L('portee_roles'), outils: L('portee_outils'), taches: '' }[S.type];
     const active = cibles.find(c => c.active);
     const seg = cibles.length > 1
       ? `<div class="imh-seg" role="radiogroup" aria-label="${esc(L('portee_titre'))}">
@@ -476,7 +478,7 @@
     return `<section class="imh-portee">
       <div class="imh-portee-tete">
         <span class="imh-portee-ic"><i class="fa-solid fa-location-crosshairs"></i></span>
-        <div class="imh-portee-txt"><h4>${esc(L('portee_titre'))}</h4><p>${esc(texte)}</p></div>
+        <div class="imh-portee-txt"><h4>${esc(L('portee_titre'))}</h4>${texte ? `<p>${esc(texte)}</p>` : ''}</div>
         ${seg}
       </div>
       ${liste}
@@ -526,11 +528,17 @@
     return `<div class="imh-liste">${lignes.map(l => ligne(p, l)).join('')}</div>`;
   }
 
+  // ⚠️ Une ligne qu'on ne peut pas garder n'a PAS de case à cocher : un carré
+  // blanc désactivé se lit comme une case qu'on aurait oublié de cocher. La
+  // pastille de droite dit déjà ce qui lui arrive.
   function ligne(p, l) {
     const gardable = GARDABLES.has(l.statut);
     const garde = gardable && !exclus(p).has(l._i);
+    const case_ = gardable
+      ? `<input type="checkbox" class="imh-cb" data-i="${l._i}"${garde ? ' checked' : ''} aria-label="${esc(L('garder'))}">`
+      : '<span class="imh-l-sanscase" aria-hidden="true"></span>';
     return `<div class="imh-l${garde || !gardable ? '' : ' is-off'} st-${l.statut}" data-i="${l._i}">
-      <input type="checkbox" class="imh-cb" data-i="${l._i}"${garde ? ' checked' : ''}${gardable ? '' : ' disabled'} aria-label="${esc(L('garder'))}">
+      ${case_}
       <div class="imh-l-c">${contenu(p.type, l)}${notes(l)}</div>
       ${pastille(p, l)}
     </div>`;
@@ -573,12 +581,15 @@
     const vus = examinees(p);
     const aExaminer = restants.filter(g => !(g.activite_fichier in vus));
     const parIA = S.parIA[p.id] || {};
-    const nIA = v.groupes.filter(g => estParIA(g, parIA)).length;
+    const groupesIA = v.groupes.filter(g => estParIA(g, parIA));
+    const nIA = groupesIA.length;
     const seul = S.seulIA[p.id] && nIA;
-    const barre = aExaminer.length ? barreRapprocher(aExaminer.length)
+    // ⚠️ On compte en TÂCHES, pas en activités du fichier : c'est ce qu'on
+    // importe, et le reste de la fenêtre ne parle que de ça.
+    const barre = aExaminer.length ? barreRapprocher(nbTaches(aExaminer))
       : restants.length ? barreDejaVu(restants, vus) : '';
     const bilanIA = nIA ? `<div class="imh-ia-bilan"><i class="fa-solid fa-wand-magic-sparkles"></i>
-        <span>${esc(P('rp_appliques', nIA))}</span>
+        <span>${esc(P('rp_appliques', nbTaches(groupesIA)))}</span>
         <button type="button" class="imh-btn-lien" data-action="seul-ia">${esc(seul ? L('voir_tout') : L('voir_ia'))}</button></div>` : '';
     const recents = S.recents && S.recents.partId === p.id ? new Set(S.recents.noms) : new Set();
     const groupes = v.groupes
@@ -589,6 +600,8 @@
 
   const estParIA = (g, parIA) => g.mode === 'manuel' && parIA[g.activite_fichier]
     && parIA[g.activite_fichier].activite === g.choix;
+
+  const nbTaches = groupes => groupes.reduce((n, g) => n + g.lignes.length, 0);
 
   function barreRapprocher(n) {
     if (!CTX.ia) {
@@ -617,7 +630,7 @@
     const avecProposition = restants.some(g => vus[g.activite_fichier]);
     return `<div class="imh-ia-barre is-vu">
       <span class="imh-ia-ic"><i class="fa-solid fa-wand-magic-sparkles"></i></span>
-      <span class="imh-ia-txt">${esc(P('ia_deja_vu', restants.length))}</span>
+      <span class="imh-ia-txt">${esc(P('ia_deja_vu', nbTaches(restants)))}</span>
       ${avecProposition ? `<button type="button" class="imh-btn-lien" data-action="revoir"><i class="fa-solid fa-rotate-left"></i>${esc(L('ia_revoir'))}</button>` : ''}
     </div>`;
   }
@@ -678,10 +691,16 @@
   // ── Les deux comptes rendus de l'IA — rien n'est appliqué sans eux ──
   function blocRapport() {
     const r = S.rapport;
-    const trouves = r.noms.filter(n => r.props[n]).length;
+    // Le compte rendu parle de TÂCHES comme le reste de la fenêtre : une
+    // ligne, c'est le nom d'activité écrit dans le fichier — et les tâches
+    // qu'il porte.
+    const combien = n => (r.taches && r.taches[n]) || 0;
+    const total = r.noms.reduce((s, n) => s + combien(n), 0);
+    const trouves = r.noms.reduce((s, n) => s + (r.props[n] ? combien(n) : 0), 0);
     const lignes = r.noms.map((n, i) => {
       const pr = r.props[n];
-      const src = `<div class="imh-rp-src"><span class="imh-mini">${esc(L('dans_fichier'))}</span><strong>${esc(n)}</strong></div>
+      const src = `<div class="imh-rp-src"><span class="imh-mini">${esc(L('dans_fichier'))}</span><strong>${esc(n)}</strong>
+          ${combien(n) ? `<small>${esc(P('n_taches', combien(n)))}</small>` : ''}</div>
         <i class="fa-solid fa-arrow-right-long imh-rp-fl" aria-hidden="true"></i>`;
       if (!pr) {
         return `<div class="imh-rp is-vide" style="--i:${i}"><span class="imh-rp-case"></span>${src}
@@ -699,7 +718,7 @@
     return `<div class="imh-rapport">
       <div class="imh-rp-tete">
         <span class="imh-ia-ic"><i class="fa-solid fa-wand-magic-sparkles"></i></span>
-        <div><h3>${esc(L('rp_titre'))}</h3><p>${esc(P('rp_examinees', r.noms.length))} · ${esc(P('rp_rapprochees', trouves))}</p></div>
+        <div><h3>${esc(L('rp_titre'))}</h3><p>${esc(P('rp_examinees', total))} · ${esc(P('rp_rapprochees', trouves))}</p></div>
       </div>
       <p class="imh-rp-consigne"><i class="fa-solid fa-circle-info"></i>${esc(L('rp_consigne'))}</p>
       <div class="imh-rp-liste">${lignes}</div>
@@ -1191,8 +1210,10 @@
     const v = S.verifs[p.id];
     if (!v || S.occupe) return;
     const vus = examinees(p);
-    const noms = v.groupes.filter(g => g.mode === 'a_rattacher' && !(g.activite_fichier in vus))
-      .map(g => g.activite_fichier);
+    const groupes = v.groupes.filter(g => g.mode === 'a_rattacher' && !(g.activite_fichier in vus));
+    const noms = groupes.map(g => g.activite_fichier);
+    const taches = {};
+    groupes.forEach(g => { taches[g.activite_fichier] = g.lignes.length; });
     if (!noms.length) return;
     const cle = S.cibles.join(',');
     S.occupe = 'rapprocher';
@@ -1201,7 +1222,7 @@
       const rep = await envoyer('/api/import/rapprocher', { noms, cibles: S.cibles }, true);
       const props = rep.propositions || {};
       S.rapport = {
-        partId: p.id, noms, props,
+        partId: p.id, noms, props, taches,
         retenus: new Set(noms.filter(n => props[n] && props[n].confiance !== 'low')),
       };
       const ex = S.examen[p.id] && S.examen[p.id].cle === cle ? S.examen[p.id]
@@ -1220,12 +1241,16 @@
     const v = S.verifs[p.id];
     if (!v) return;
     const vus = examinees(p);
-    const noms = v.groupes.filter(g => g.mode === 'a_rattacher' && vus[g.activite_fichier])
-      .map(g => g.activite_fichier);
+    const groupes = v.groupes.filter(g => g.mode === 'a_rattacher' && vus[g.activite_fichier]);
+    const noms = groupes.map(g => g.activite_fichier);
     if (!noms.length) return;
     const props = {};
-    noms.forEach(n => { props[n] = vus[n]; });
-    S.rapport = { partId: p.id, noms, props, retenus: new Set() };
+    const taches = {};
+    groupes.forEach(g => {
+      props[g.activite_fichier] = vus[g.activite_fichier];
+      taches[g.activite_fichier] = g.lignes.length;
+    });
+    S.rapport = { partId: p.id, noms, props, taches, retenus: new Set() };
     rendre();
   }
 
