@@ -1005,3 +1005,128 @@ class TestRepriseDesComptes:
             assert verbe not in src.upper(), (
                 "l'outil contient « %s » — il doit rester en lecture"
                 % verbe.strip())
+
+
+class TestLaMatriceDesAcces:
+    """« Qui ouvre quelles cartos » — un rôle en ligne, une carto en colonne.
+
+    Le réglage carto par carto existait déjà ; ce qui manquait, c'est la vue
+    d'ensemble et les deux gestes qui vont avec : cocher une colonne (tous les
+    rôles sur cette carto), cocher une ligne (ce rôle sur toutes les cartos).
+    """
+
+    URL = "/cartography/api/access/matrice"
+
+    @pytest.fixture()
+    def carto(self, app, scene):
+        """Sa PROPRE carto et ses propres rôles : le décor du module est
+        remanié par les tests de ménage (une bande retirée emporte son rôle),
+        et une matrice bâtie dessus dépendrait de l'ordre d'exécution."""
+        from Code.extensions import db
+        from Code.models.models import Entity, EntityRoleAccess, Role
+        with app.app_context():
+            ent = Entity.query.filter_by(name="Carto matrice T66").first()
+            if ent is None:
+                ent = Entity(name="Carto matrice T66", owner_id=scene["coordinateur"])
+                db.session.add(ent)
+                db.session.commit()
+            ent.is_shared = False
+            roles = {}
+            for nom in ("T66M Un", "T66M Deux"):
+                r = Role.query.filter_by(entity_id=ent.id, name=nom).first()
+                if r is None:
+                    r = Role(entity_id=ent.id, name=nom)
+                    db.session.add(r)
+                    db.session.commit()
+                roles[nom] = r.id
+            EntityRoleAccess.query.filter_by(entity_id=ent.id).delete()
+            db.session.commit()
+            decor = {"id": ent.id, "un": roles["T66M Un"], "deux": roles["T66M Deux"]}
+        yield decor
+        with app.app_context():
+            from Code.extensions import db
+            EntityRoleAccess.query.filter_by(entity_id=decor["id"]).delete()
+            Role.query.filter(Role.id.in_([decor["un"], decor["deux"]])).delete(
+                synchronize_session=False)
+            Entity.query.filter_by(id=decor["id"]).delete()
+            db.session.commit()
+
+    def test_un_user_ne_voit_pas_la_matrice(self, app, client, scene):
+        """Réservée à qui règle l'accès : le masquage du bouton ne suffit pas."""
+        _as(client, scene["porteur"], "t66.porteur@devoptiq.com", scene["entity_id"])
+        assert client.get(self.URL).status_code == 403
+        r = client.post(self.URL, json={"cases": [
+            {"role_id": scene["role_metier"], "entity_id": scene["entity_id"], "on": True}]})
+        assert r.status_code == 403
+
+    def test_les_lignes_portent_la_carto_d_ou_vient_le_role(self, app, client, scene, carto):
+        """Deux cartos peuvent porter un rôle du même nom : la ligne dit d'où
+        il vient, sinon on ne sait pas laquelle on coche."""
+        _as(client, scene["coordinateur"], "t66.coord@devoptiq.com", carto["id"])
+        d = client.get(self.URL).get_json()
+        assert carto["id"] in [c["id"] for c in d["cartos"]]
+        un = next(r for r in d["roles"] if r["id"] == carto["un"])
+        assert un["carto"] == "Carto matrice T66"
+
+    def test_cocher_une_case_rend_la_carto_commune(self, app, client, scene, carto):
+        """⚠️ Une carto PRIVÉE ignore les rôles : y donner un accès sans la
+        rendre commune enregistrerait un réglage qui ne produit rien."""
+        from Code.extensions import db
+        from Code.models.models import Entity
+        _as(client, scene["coordinateur"], "t66.coord@devoptiq.com", carto["id"])
+        d = client.post(self.URL, json={"cases": [
+            {"role_id": carto["un"], "entity_id": carto["id"], "on": True}]}).get_json()
+        assert carto["id"] in d["rendues_communes"]
+        with app.app_context():
+            assert db.session.get(Entity, carto["id"]).is_shared is True
+        ligne = next(r for r in d["roles"] if r["id"] == carto["un"])
+        assert carto["id"] in ligne["cartos"]
+
+    def test_une_colonne_se_coche_d_un_coup(self, app, client, scene, carto):
+        _as(client, scene["coordinateur"], "t66.coord@devoptiq.com", carto["id"])
+        d = client.get(self.URL).get_json()
+        cases = [{"role_id": r["id"], "entity_id": carto["id"], "on": True}
+                 for r in d["roles"]]
+        d = client.post(self.URL, json={"cases": cases}).get_json()
+        col = next(c for c in d["cartos"] if c["id"] == carto["id"])
+        assert col["n_roles"] == len(d["roles"]) and col["ouverte_a_tous"] is False
+
+    def test_on_n_ecrit_que_les_cases_envoyees(self, app, client, scene, carto):
+        """⚠️ Jamais la table entière : une case absente de l'envoi ne doit pas
+        fermer un accès que personne n'a décidé de fermer."""
+        _regler_acces(app, carto["id"], True, [carto["un"], carto["deux"]])
+        _as(client, scene["coordinateur"], "t66.coord@devoptiq.com", carto["id"])
+        d = client.post(self.URL, json={"cases": [
+            {"role_id": carto["un"], "entity_id": carto["id"], "on": False}]}).get_json()
+        deux = next(r for r in d["roles"] if r["id"] == carto["deux"])
+        un = next(r for r in d["roles"] if r["id"] == carto["un"])
+        assert carto["id"] in deux["cartos"]
+        assert carto["id"] not in un["cartos"]
+
+    def test_une_carto_hors_de_portee_est_ignoree(self, app, client, scene, carto):
+        """Un identifiant venu du navigateur n'ouvre jamais une carto qu'on ne
+        règle pas : la case est écartée en silence, rien n'est écrit."""
+        from Code.extensions import db
+        from Code.models.models import Entity, EntityRoleAccess
+        with app.app_context():
+            autre = Entity.query.filter_by(name="Carto d'un autre T66").first()
+            if autre is None:
+                autre = Entity(name="Carto d'un autre T66", owner_id=scene["etranger"])
+                db.session.add(autre)
+                db.session.commit()
+            autre_id = autre.id
+        _as(client, scene["coordinateur"], "t66.coord@devoptiq.com", scene["entity_id"])
+        client.post(self.URL, json={"cases": [
+            {"role_id": carto["un"], "entity_id": autre_id, "on": True}]})
+        with app.app_context():
+            assert EntityRoleAccess.query.filter_by(entity_id=autre_id).count() == 0
+            Entity.query.filter_by(id=autre_id).delete()
+            db.session.commit()
+
+    def test_le_bouton_n_est_offert_qu_a_qui_regle_l_acces(self, app, client, scene):
+        _as(client, scene["porteur"], "t66.porteur@devoptiq.com", scene["entity_id"])
+        html = client.get("/activities/map").get_data(as_text=True)
+        assert 'id="btn-carto-acces"' not in html
+        _as(client, scene["coordinateur"], "t66.coord@devoptiq.com", scene["entity_id"])
+        html = client.get("/activities/map").get_data(as_text=True)
+        assert 'id="btn-carto-acces"' in html and 'id="cacc"' in html

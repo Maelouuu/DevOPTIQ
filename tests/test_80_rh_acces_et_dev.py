@@ -492,3 +492,83 @@ class TestLaPorteeDUnDeveloppeur:
             with app.app_context():
                 db.session.get(User, scene["coord"]).status = "coordinateur"
                 db.session.commit()
+
+
+class TestPlusieursDeveloppeurs:
+    """Un collaborateur peut être suivi par PLUSIEURS développeurs — un par
+    rôle. Celui qui l'accompagne sur « Qualité » n'est pas forcément celui qui
+    le suit sur « Logistique ».
+
+    ⚠️ L'inverse est impossible par construction : le lien vit sur la ligne
+    (compte, rôle) de `user_roles`, qui porte UN `manager_id`. Deux
+    développeurs sur le même rôle ne peuvent pas exister — poser le second
+    remplace le premier, et c'est ce que ces cas tiennent.
+    """
+
+    def _liens(self, app, scene):
+        from Code.models.models import UserRole
+        with app.app_context():
+            return {ur.role_id: ur.manager_id for ur in
+                    UserRole.query.filter_by(user_id=scene["collab"]).all()}
+
+    def _second_dev(self, app):
+        from Code.extensions import db
+        from Code.models.models import User
+        from Code.security import hash_password
+        with app.app_context():
+            u = User.query.filter_by(email="t80.dev2@devoptiq.com").first()
+            if u is None:
+                u = User(first_name="T80", last_name="Dev2",
+                         email="t80.dev2@devoptiq.com",
+                         password=hash_password("Motdepasse123!"), status="user")
+                db.session.add(u)
+                db.session.commit()
+            return u.id
+
+    def test_deux_developpeurs_sur_deux_roles(self, app, client, scene):
+        from Code.competences_acces import encadre
+        dev2 = self._second_dev(app)
+        _en_tant_que(client, app, scene["coord"])
+        client.post("/gestion_rh/dev_scope", json={
+            "user_id": scene["collab"], "dev_id": scene["dev"],
+            "role_ids": [scene["role"]]})
+        r = client.post("/gestion_rh/dev_scope", json={
+            "user_id": scene["collab"], "dev_id": dev2, "role_ids": [scene["role2"]]})
+        assert r.status_code == 200, r.get_json()
+        liens = self._liens(app, scene)
+        assert liens[scene["role"]] == scene["dev"], "le premier a été chassé"
+        assert liens[scene["role2"]] == dev2
+        # les deux encadrent, chacun sur son rôle
+        with app.app_context():
+            assert encadre(scene["dev"], scene["collab"]) is True
+            assert encadre(dev2, scene["collab"]) is True
+
+    def test_un_role_ne_porte_qu_un_developpeur(self, app, client, scene):
+        """Poser un second développeur sur le MÊME rôle remplace le premier :
+        la ligne n'en porte qu'un, et l'écran ne peut pas en montrer deux."""
+        dev2 = self._second_dev(app)
+        _en_tant_que(client, app, scene["coord"])
+        client.post("/gestion_rh/dev_scope", json={
+            "user_id": scene["collab"], "dev_id": scene["dev"],
+            "role_ids": [scene["role"]]})
+        client.post("/gestion_rh/role_dev", json={
+            "user_id": scene["collab"], "role_id": scene["role"], "dev_id": dev2})
+        liens = self._liens(app, scene)
+        assert liens[scene["role"]] == dev2
+
+    def test_le_tableau_rend_le_developpeur_de_chaque_role(self, app, client, scene):
+        """L'écran doit pouvoir DIRE « 2 développeurs » : il lui faut le
+        développeur rôle par rôle, pas seulement le lien global."""
+        dev2 = self._second_dev(app)
+        _en_tant_que(client, app, scene["coord"])
+        client.post("/gestion_rh/dev_scope", json={
+            "user_id": scene["collab"], "dev_id": scene["dev"],
+            "role_ids": [scene["role"]]})
+        client.post("/gestion_rh/dev_scope", json={
+            "user_id": scene["collab"], "dev_id": dev2, "role_ids": [scene["role2"]]})
+        d = client.get("/gestion_rh/api/tableau?entity_id=%d" % scene["carto_a"]).get_json()
+        moi = next(p for p in d["personnes"] if p["id"] == scene["collab"])
+        par_role = {r["id"]: r.get("dev_id") for r in moi["roles"]}
+        assert par_role[scene["role"]] == scene["dev"]
+        assert par_role[scene["role2"]] == dev2
+        assert moi["dev_id"] is None, "aucun lien global ne doit rester"

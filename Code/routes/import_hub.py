@@ -1044,7 +1044,9 @@ def contexte():
     if not comptes_seuls:
         # Les comptes s'importent depuis la page Comptes, et seulement par qui
         # peut en créer : l'écran le dit, avec le lien quand il mène quelque part.
-        rep["comptes"] = {"url": url_for("gestion_compte.list_users", tab="import"),
+        # `import` est un mot réservé : il passe par le dictionnaire, sinon
+        # `import_=1` donnerait « ?import_=1 », que la page ne lit pas.
+        rep["comptes"] = {"url": url_for("gestion_compte.list_users", **{"import": 1}),
                           "peut": bool(can_create_accounts(moi))}
     return jsonify(rep), 200
 

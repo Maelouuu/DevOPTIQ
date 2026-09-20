@@ -227,6 +227,16 @@ def _map_is_admin():
         return False
 
 
+def _peut_regler_acces():
+    """Qui règle « qui ouvre quelles cartos » : coordinateurs et
+    administrateurs par défaut, selon le tableau des droits."""
+    try:
+        from Code.carto_access import can_manage_access
+        return bool(can_manage_access(None))
+    except Exception:
+        return False
+
+
 @activities_map_bp.route("/map")
 def activities_map_page():
     user_id = session.get('user_id')
@@ -340,6 +350,9 @@ def activities_map_page():
         extco_activity_ids=extco_activity_ids,
         active_calque_id=active_calque_id,
         is_admin=_map_is_admin(),
+        # Qui ouvre quelles cartos : le bouton n'apparaît que pour qui règle
+        # l'accès (la route refuse de son côté — le masquage n'est pas un droit).
+        peut_regler_acces=bool(_peut_regler_acces()),
     )
 
 

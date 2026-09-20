@@ -2255,6 +2255,9 @@ qu'eux seuls lisaient ont quitté le catalogue (restent celles que la route
 écran : `import_hub_modal.html` + `static/js/import_hub.js` +
 `static/import_hub.css` (clés `imph.*`, injectées par `IMPH_I18N` en `| tojson`).
 
+⚠️ **La même fenêtre sert à la page Comptes** (`?pour=comptes`), où elle ne
+propose que les collaborateurs — voir « La page Comptes refaite » plus bas.
+
 - **Une carte par nature** — rôles, tâches, outils — dans la couleur de la page
   où vivent ses données (Rôles `#059669`, Activités `#7c3aed`, Outils
   `#ea580c`), avec ses colonnes (obligatoires
@@ -2338,13 +2341,12 @@ désormais `can_edit`.
   importés et le contrôle de l'ancienne route vérifiés **rouges** sur le code
   d'avant).
 
-#### Les comptes restent à la page Comptes ; l'IA rend compte AVANT d'agir
+#### Les comptes s'importent depuis la page Comptes ; l'IA rend compte AVANT d'agir
 
-- ⚠️ **L'import ne crée plus de comptes.** Créer un compte engage toute
-  l'instance et relève de ceux qui les gèrent (`can_create_accounts`) : c'est
-  la page Comptes, avec ses propres droits. La nature `users` a quitté le
-  serveur comme l'écran, et `/importer` refuse (400) toute part qui n'est pas
-  rôles, outils ou tâches.
+- ⚠️ **L'import de la CARTE ne crée pas de comptes.** Créer un compte engage
+  toute l'instance et relève de ceux qui les gèrent (`can_create_accounts`) :
+  c'est la page Comptes, qui ouvre la même fenêtre avec `?pour=comptes`. La
+  carte n'en propose pas la carte, un import multiple ne les prend jamais.
 - **Une liste de personnes est RECONNUE, jamais importée** (`_personnes`) : une
   colonne titrée exactement « Nom » (ou « Nom complet »…) à côté d'un prénom ou
   d'e-mails (au titre, ou ≥ 60 % des valeurs d'une colonne). La feuille devient
@@ -2394,6 +2396,107 @@ désormais `can_edit`.
 - Suite : 2412 passés. Éprouvé dans les deux langues sur
   `tools/devrun_import.py` (fichiers `moyens.xlsx` et `taches_blocs.xlsx`
   ajoutés, IA simulée qui choisit la nature la mieux couverte).
+
+### La page Comptes refaite, et ce qui y a déménagé (2026-09-20)
+
+**L'écran** (`gestion_compte_new.html` + `static/gestion_compte_new.css` +
+`static/js/gestion_compte_new.js`) : plus d'onglets. Une liste, et la fiche
+d'un compte PAR-DESSUS elle.
+
+- ⚠️ **Créer et modifier posaient les mêmes questions dans deux écrans
+  différents** — une page `edit_user.html` à part, avec sa propre identité
+  visuelle, et le mot de passe en section séparée « sans risque d'autofill ».
+  Une seule fiche désormais, trois groupes qui disent ce qu'on demande :
+  identité · connexion · place dans l'organisation. Les libellés sont
+  AU-DESSUS des champs (un `placeholder` disparaît dès qu'on tape) et le
+  niveau d'accès se choisit en lisant ce qu'il ouvre, pas dans une liste de
+  quatre mots. `GET /comptes/update/<id>` **redirige** vers la liste
+  (`?edit=<id>`, la fiche s'ouvre dessus) ; `edit_user.html` est supprimé.
+- **Les compteurs par palier SONT les filtres** de la liste, et chaque palier
+  garde sa couleur de la tuile jusqu'à la pastille de la ligne.
+- ⚠️ **`/comptes/create` n'empêchait pas de créer AU-DESSUS de soi** : un
+  compte autorisé à créer des comptes se fabriquait un administrateur. Le
+  niveau demandé est comparé au sien (`niveau_status` / `niveau`), comme le
+  fait l'import depuis toujours. Le masquage du champ dans la page ne coûtait
+  rien à contourner.
+- **La liste ne fait plus deux requêtes par ligne** : les rôles de tout le
+  monde sont chargés en deux requêtes, puis indexés en mémoire.
+
+**L'import IA des comptes revient — page Comptes, et là seulement.** C'est la
+MÊME fenêtre que la page Carte (`/api/import`, `import_hub_modal.html`),
+ouverte avec `?pour=comptes` : elle ne propose alors que les collaborateurs et
+s'ouvre DIRECTEMENT sur le dépôt (un choix à une seule carte n'est pas un
+choix). L'ancien import Excel de la page (`/comptes/import_excel`, son
+aperçu et son modale de format) est supprimé.
+- ⚠️ `_peut(moi, type_)` : les comptes ne suivent pas les droits carto —
+  `can_create_accounts` décide, et lui seul, **même sans aucune carto**
+  (`verifier`/`importer` acceptent une liste de cartos vide pour `users` :
+  les cartos ne servent qu'à attribuer le rôle).
+- ⚠️ `_analyser_feuille` n'écarte une liste de personnes (`comptes`) que
+  lorsque `users` n'est PAS une nature attendue : le repérage qui protège la
+  carte ne doit pas écarter le fichier qu'on vient justement importer ici.
+- ⚠️ Un import MULTIPLE ne prend jamais les comptes (`CARTO` = rôles, outils,
+  tâches) : créer un compte engage l'instance, cela ne se glisse pas dans une
+  feuille d'un classeur déposé sur la carte.
+- Le reste est celui d'avant, restauré : nom complet scindé (« DUPONT Jean »,
+  cas courant d'un export RH), statut refusé au-dessus du sien, rôle inconnu
+  signalé ou créé (« créer les rôles absents »), mots de passe jamais renvoyés
+  à l'écran et provisoires montrés UNE fois, téléchargeables en csv.
+
+**« Droits par statut » quitte la page RH pour la page Comptes.** C'est ici
+qu'on donne un statut à quelqu'un : c'est ici qu'on doit lire ce qu'il ouvre.
+`GET|POST /comptes/droits` (lecture : administrateur ou qui crée les comptes ;
+écriture : administrateur seul, colonne `admin` verrouillée). Les clés du
+catalogue passent de `rh.right_*` / `rh.rights_*` à `droit.*`. La section 4 de
+la page RH et son JS sont retirés.
+
+Tests : `test_84` (53 cas, les comptes reviennent avec leurs droits),
+`test_18`, `test_50`, `test_81` (l'URL des droits suit), et
+`gestion_compte_new.html` sort de l'inventaire de dette de `test_78`.
+
+### Page Carto : « Qui ouvre quelles cartos », en une matrice (2026-09-20)
+
+Bouton **Accès** dans l'en-tête de la page Carte (coordinateurs et
+administrateurs — `can_manage_access`, réglable par le tableau des droits).
+Une fenêtre, une MATRICE : un rôle en ligne, une carto en colonne, une case à
+cocher à l'intersection. Cliquer l'en-tête d'une **colonne** coche (ou
+décoche) tous les rôles de cette carto ; cliquer un **rôle** fait de même sur
+toutes les cartos. `GET|POST /cartography/api/access/matrice`,
+`carto_acces_modal.html` + `static/js/carto_acces.js` + `static/carto_acces.css`.
+
+- ⚠️ **On envoie des CASES, jamais la table entière.** Deux personnes qui
+  règlent l'accès en même temps s'effaceraient l'une l'autre, et une case
+  oubliée dans l'envoi fermerait un accès que personne n'a décidé de fermer.
+- ⚠️ Les deux pièges de l'accès sont écrits DANS l'en-tête de chaque colonne :
+  une carto **privée** ignore les rôles (la cocher la rend commune, ce que la
+  réponse annonce en retour), une carto commune **sans aucun rôle est ouverte
+  à tous** (y poser le premier rôle la restreint).
+- Une ligne porte le nom du rôle ET la carto d'où il vient : deux cartos
+  peuvent avoir un rôle du même intitulé.
+- ⚠️ Cette matrice ne remplace pas la page **Partage** : là-bas on travaille
+  UNE carto (ses titulaires, ses propositions, sa vignette), ici on regarde
+  l'ensemble. Les deux écrivent la même table (`entity_role_access`) — ils ne
+  peuvent pas diverger sur le fond.
+- Tests : `tests/test_66_carto_sharing.py::TestLaMatriceDesAcces` (7 cas —
+  le refus pour un `user`, la carto rendue commune, la colonne d'un coup, les
+  cases non envoyées qu'on ne touche pas, une carto hors de portée ignorée, et
+  le bouton absent pour qui ne règle rien). ⚠️ Ces cas montent LEUR propre
+  carto : le décor du module est remanié par les tests de ménage (une bande
+  retirée emporte son rôle), une matrice bâtie dessus dépendrait de l'ordre.
+
+### Plusieurs développeurs de compétences pour une personne (2026-09-20)
+
+C'était déjà vrai en base et dans les routes (`user_roles.manager_id`,
+`/gestion_rh/dev_scope` qui ne touche jamais aux affectations des AUTRES
+développeurs) : un collaborateur peut être suivi par Lou sur « Qualité » et
+par Sacha sur « Logistique ». L'inverse est impossible **par construction** —
+le lien vit sur la ligne (compte, rôle), qui porte UN développeur ; poser le
+second remplace le premier.
+Ce qui manquait : le dire. Le panneau « Seulement certains rôles » porte
+désormais « Un autre développeur peut suivre les rôles restants. »
+Tests : `test_80::TestPlusieursDeveloppeurs` (3 cas). Banc :
+`tools/devrun_partage.py` sème un SECOND développeur (`dev2@test.local`) —
+avec un seul candidat, le cas ne pouvait même pas se jouer.
 
 ### Page RH : un rôle sur PLUSIEURS cartos (2026-09-17)
 

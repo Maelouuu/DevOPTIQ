@@ -77,7 +77,12 @@ with app.app_context():
                   password=hash_password("Test1234!"), status="user", lang="fr")
     admin = User(first_name="Mael", last_name="Girardin", email="admin@test.local",
                  password=hash_password("Test1234!"), status="administrateur", lang="fr")
-    db.session.add_all([coord, champion, simple, admin])
+    # DEUX développeurs de compétences : un collaborateur peut être suivi par
+    # l'un sur un rôle et par l'autre sur un second — avec un seul candidat, ce
+    # cas ne peut même pas se jouer au banc.
+    dev2 = User(first_name="Sacha", last_name="Morel", email="dev2@test.local",
+                password=hash_password("Test1234!"), status="user", lang="fr")
+    db.session.add_all([coord, champion, simple, admin, dev2])
     db.session.commit()
 
     ent = Entity(name="Carto commune — RFQ FluidClip", description="carto de référence",
@@ -111,9 +116,10 @@ with app.app_context():
     # moins un candidat à proposer, sinon le sélecteur est vide.
     dev_role = Role.query.filter_by(entity_id=ent.id).filter(
         Role.name.ilike("%ompétence%")).first()
-    if dev_role and not UserRole.query.filter_by(
-            user_id=champion.id, role_id=dev_role.id).first():
-        db.session.add(UserRole(user_id=champion.id, role_id=dev_role.id))
+    for qui in (champion, dev2):
+        if dev_role and not UserRole.query.filter_by(
+                user_id=qui.id, role_id=dev_role.id).first():
+            db.session.add(UserRole(user_id=qui.id, role_id=dev_role.id))
     db.session.commit()
 
     propose = _modifier(diagram)
@@ -133,6 +139,7 @@ with app.app_context():
     print(f"[devrun] champion  : champion@test.local / Test1234!  (propose)")
     print(f"[devrun] coord     : coord@test.local    / Test1234!  (entité {ent.id})")
     print(f"[devrun] admin     : admin@test.local    / Test1234!")
+    print(f"[devrun] dev2      : dev2@test.local     / Test1234!  (2e développeur)")
     print(f"[devrun] seconde carto : « {ent2.name} » (entité {ent2.id}, privée)")
     print(f"[devrun] {simple.email} tient {len(deux)} rôle(s) : "
           + ", ".join(r.name for r in deux))

@@ -444,7 +444,8 @@
         <button type="button" class="grh-scope${portee.mode === 'precis' ? ' is-current' : ''}"
                 data-mode="precis">
           ${radio(portee.mode === 'precis')}
-          <span><b>${esc(L('dev_scope_pick'))}</b></span>
+          <span><b>${esc(L('dev_scope_pick'))}</b>
+            ${c.devs.length ? `<em>${esc(L('dev_plusieurs'))}</em>` : ''}</span>
         </button>
         ${portee.mode === 'precis' ? `<div class="grh-scope-roles">${c.roles.map((x) => `
           <label class="grh-scope-role${x.dev ? ' is-suivi' : ''}">

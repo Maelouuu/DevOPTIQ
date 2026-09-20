@@ -1,5 +1,6 @@
 {% include "header_buttons.html" %}
 {% include "import_hub_modal.html" %}
+{% if peut_regler_acces %}{% include "carto_acces_modal.html" %}{% endif %}
 <link rel="stylesheet" href="{{ url_for('static', filename='cartography.css') }}">
 
 <script>
@@ -72,6 +73,9 @@
         <span id="cross-carto-label">{{ t('map.btn_connections') }}</span>
         <span class="cross-carto-dot"></span>
       </button>
+      {% if peut_regler_acces %}
+      <button id="btn-carto-acces" class="carto-wizard-btn"><i class="fa-solid fa-user-lock"></i> {{ t('map.btn_acces') }}</button>
+      {% endif %}
       <button id="carto-wizard-btn" class="carto-wizard-btn"><i class="fa-solid fa-building-columns"></i> {{ t('map.btn_entities') }}</button>
     </div>
   </div>

@@ -232,8 +232,16 @@
       const ligne = $(`.acc-ligne[data-id="${cssEchap(edit)}"]`);
       if (ligne) setTimeout(() => ouvrirFiche(ligne), 60);
     }
+    // On arrive de la carte, qui renvoie ici une liste de collaborateurs :
+    // la fenêtre d'import s'ouvre d'elle-même, sinon il faudrait redire quoi
+    // faire à quelqu'un qu'on vient d'envoyer ici pour ça.
+    if (p.get('import') && window.OptiqImport) {
+      setTimeout(() => window.OptiqImport.ouvrir('comptes'), 80);
+    }
     // L'URL nettoyée : rafraîchir la page ne rejoue pas le message.
-    if (msg || edit) window.history.replaceState({}, '', window.location.pathname);
+    if (msg || edit || p.get('import')) {
+      window.history.replaceState({}, '', window.location.pathname);
+    }
   }
 
   /* ── Branchements ──────────────────────────────────────────────────── */

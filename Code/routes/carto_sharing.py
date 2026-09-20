@@ -95,6 +95,114 @@ def post_access(entity_id):
 
 
 # ─────────────────────────────────────────────
+# QUI OUVRE QUOI — la matrice rôles × cartos
+# ─────────────────────────────────────────────
+# Régler l'accès carto par carto oblige à tenir la vue d'ensemble de tête :
+# on ouvrait une carto, on changeait d'entité, on recommençait. La MATRICE
+# montre le tout — un rôle en ligne, une carto en colonne — et c'est la
+# comparaison entre lignes qui renseigne.
+#
+# ⚠️ Deux pièges, annoncés par l'écran parce qu'ils décident de qui voit quoi :
+#   · une carto PRIVÉE ignore les rôles (`can_read` rend la main au
+#     propriétaire avant de les consulter) : cocher la rend commune ;
+#   · une carto commune SANS aucun rôle autorisé est ouverte à TOUS. Y poser
+#     le premier rôle la RESTREINT — cocher peut retirer l'accès à des gens
+#     qui l'avaient.
+
+def _cartos_reglables(user):
+    """Les cartos dont ce compte règle l'accès, indexées par id."""
+    return {e.id: e for e in Entity.accessible(user.id) if can_manage_access(e, user)}
+
+
+def _matrice(user):
+    from Code.role_i18n import nom_affiche
+    lang = session.get("lang", "fr")
+    cartos = sorted(_cartos_reglables(user).values(), key=lambda e: (e.name or "").lower())
+    ouverts = {e.id: entity_role_ids(e.id) for e in cartos}
+    noms = {e.id: e.name for e in cartos}
+    roles = Role.query.filter(Role.entity_id.in_(list(noms) or [-1])).all()
+    lignes = []
+    for r in roles:
+        lignes.append({
+            "id": r.id,
+            "nom": nom_affiche(r, lang),
+            # D'où vient ce rôle : deux cartos peuvent porter le même intitulé,
+            # et on doit savoir lequel on coche.
+            "carto": noms.get(r.entity_id, ""),
+            "cartos": sorted(e.id for e in cartos if r.id in ouverts[e.id]),
+        })
+    lignes.sort(key=lambda x: ((x["nom"] or "").lower(), (x["carto"] or "").lower()))
+    return {
+        "peut": True,
+        "cartos": [{"id": e.id, "name": e.name,
+                    "commune": bool(getattr(e, "is_shared", False)),
+                    "ouverte_a_tous": bool(getattr(e, "is_shared", False)) and not ouverts[e.id],
+                    "n_roles": len(ouverts[e.id])} for e in cartos],
+        "roles": lignes,
+    }
+
+
+@carto_sharing_bp.route("/api/access/matrice")
+def get_matrice():
+    user = _connecte()
+    if not user:
+        return jsonify({"error": "Non connecté"}), 401
+    if not can_manage_access(None, user):
+        return jsonify({"peut": False, "cartos": [], "roles": []}), 403
+    return jsonify(_matrice(user))
+
+
+@carto_sharing_bp.route("/api/access/matrice", methods=["POST"])
+def post_matrice():
+    """Applique des CASES, une par une : cocher une colonne ou une ligne, c'est
+    en envoyer plusieurs.
+
+    ⚠️ Jamais la table entière : deux personnes qui règlent l'accès en même
+    temps s'effaceraient l'une l'autre, et une case oubliée dans l'envoi
+    fermerait un accès que personne n'a décidé de fermer.
+    """
+    from Code.models.models import EntityRoleAccess
+
+    user = _connecte()
+    if not user:
+        return jsonify({"error": "Non connecté"}), 401
+    if not can_manage_access(None, user):
+        return jsonify({"error": "Réservé aux coordinateurs et administrateurs",
+                        "code": "forbidden"}), 403
+
+    cases = (request.get_json(silent=True) or {}).get("cases")
+    if not isinstance(cases, list):
+        return jsonify({"error": "Cases attendues"}), 400
+
+    reglables = _cartos_reglables(user)
+    roles = {r.id: r for r in Role.query.filter(
+        Role.entity_id.in_(list(reglables) or [-1])).all()}
+    communes = []
+    for case in cases[:2000]:
+        if not isinstance(case, dict):
+            continue
+        try:
+            eid, rid = int(case.get("entity_id")), int(case.get("role_id"))
+        except (TypeError, ValueError):
+            continue
+        entite = reglables.get(eid)
+        if entite is None or rid not in roles:
+            continue
+        ligne = EntityRoleAccess.query.filter_by(entity_id=eid, role_id=rid).first()
+        if case.get("on") and ligne is None:
+            if not getattr(entite, "is_shared", False):
+                entite.is_shared = True
+                communes.append(eid)
+            db.session.add(EntityRoleAccess(entity_id=eid, role_id=rid))
+        elif not case.get("on") and ligne is not None:
+            db.session.delete(ligne)
+    db.session.commit()
+    rep = _matrice(user)
+    rep["rendues_communes"] = communes
+    return jsonify(rep)
+
+
+# ─────────────────────────────────────────────
 # VIGNETTE D'UNE CARTO
 # ─────────────────────────────────────────────
 # On reconnaît sa cartographie à sa FORME : le dessin des bandes, la trajectoire
