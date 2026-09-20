@@ -1,12 +1,15 @@
 /* ════════════════════════════════════════════════════════════════════
-   Importer des données — la fenêtre d'import de la page Carte.
+   Importer des données — la fenêtre d'import, page Carte et page Comptes.
 
-   Trois natures (rôles, tâches, outils) et un import multiple. Les règles
-   vivent côté serveur (Code/routes/import_hub.py) ; ici on les MONTRE :
-   choisir → déposer → vérifier → importer.
+   Page Carte : trois natures (rôles, tâches, outils) et un import multiple.
+   Page Comptes : les collaborateurs, et eux seuls — la fenêtre s'ouvre alors
+   DIRECTEMENT sur le dépôt, un choix à une seule carte n'est pas un choix.
+   Les règles vivent côté serveur (Code/routes/import_hub.py) ; ici on les
+   MONTRE : choisir → déposer → vérifier → importer.
 
-   ⚠️ Les comptes n'entrent pas ici : une liste de collaborateurs est repérée
-   et renvoyée vers la page Comptes, qui garde ses propres droits.
+   ⚠️ Les comptes n'entrent pas par la carte : une liste de collaborateurs
+   déposée là-bas est repérée et renvoyée vers la page Comptes, qui garde ses
+   propres droits.
    ⚠️ Ce que propose l'IA n'est JAMAIS appliqué d'office : sa lecture d'un
    fichier comme ses rattachements d'activités passent par un compte rendu
    qu'on accepte — ou pas.
@@ -34,11 +37,13 @@
 
   // Chaque nature porte la couleur de la page où vivent ses données.
   const COULEUR = { roles: '#059669', taches: '#7c3aed', outils: '#ea580c', multiple: '#0d9488',
-                    comptes: '#e11d48' };
+                    comptes: '#e11d48', users: '#e11d48' };
   const ICONE = { roles: 'fa-user-tie', taches: 'fa-list-check', outils: 'fa-screwdriver-wrench',
-                  multiple: 'fa-layer-group', comptes: 'fa-users' };
-  const CARTES = ['roles', 'taches', 'outils'];
-  const ORDRE = ['roles', 'outils', 'taches'];
+                  multiple: 'fa-layer-group', comptes: 'fa-users', users: 'fa-users' };
+  const ORDRE = ['roles', 'outils', 'users', 'taches'];
+  // Ce que la fenêtre propose dépend d'où elle s'ouvre (`CTX.pour`).
+  const cartes = () => (CTX && CTX.pour === 'comptes' ? ['users'] : ['roles', 'taches', 'outils']);
+  const modeComptes = () => !!(CTX && CTX.pour === 'comptes');
   const GARDABLES = new Set(['nouveau', 'partiel']);
   const EXT = /\.(xlsx|xlsm|csv)$/i;
   const MAX_FICHIERS = 8;
@@ -55,6 +60,8 @@
       exclus: {}, choix: {}, parIA: {}, ignorees: {}, filtres: {}, seulIA: {},
       active: null, cibles: [], portee: 'active',
       occupe: null, erreur: null, resultat: null, quitter: false, ecranRendu: null,
+      pour: null,      // 'comptes' quand la fenêtre s'ouvre depuis la page Comptes
+      options: { creer_roles: false },
       rapport: null,   // rattachements proposés par l'IA, en attente de validation
       lecture: null,   // lecture d'une feuille par l'IA, en attente de validation
       recents: null,   // groupes que l'IA vient de rattacher : mis en évidence
@@ -69,7 +76,7 @@
   // ⚠️ Une feuille dont la nature est AMBIGUË (« Nom | Description » : des
   // rôles ou des outils ?) n'est pas importée tant qu'on ne l'a pas dite :
   // « Tout importer » aurait sinon créé des presses à injecter comme rôles.
-  const inclue = p => !!(p && CARTES.includes(p.type) && p.reconnu && !S.ignorees[p.id]
+  const inclue = p => !!(p && cartes().includes(p.type) && p.reconnu && !S.ignorees[p.id]
                          && !aConfirmer(p));
   const exclus = p => (S.exclus[p.id] = S.exclus[p.id] || new Set());
   const listeDe = v => String(v || '').split(/[,;\n]/).map(x => x.trim()).filter(Boolean);
@@ -127,14 +134,20 @@
       taches: { tous: P('tu_tous_taches', n), ajoutes: P('tu_ajoutes_taches', n),
                 deja: P('tu_deja_taches', n), ecartes: P('tu_ecartes_taches', n),
                 invalide: P('tu_invalide_taches', n), a_rattacher: P('tu_rattacher_taches', n) },
+      users: { tous: P('tu_tous_users', n), ajoutes: P('tu_ajoutes_users', n),
+               deja: P('tu_deja_users', n), ecartes: P('tu_ecartes_users', n),
+               invalide: P('tu_invalide_users', n) },
     }[ty][cat];
   }
 
   function libPastille(cat, ty, partiel) {
     const genre = {
-      ajoutes: { roles: L('pas_ajoute_roles'), outils: L('pas_ajoute_outils'), taches: L('pas_ajoute_taches') },
-      partiel: { roles: L('pas_partiel_roles'), outils: L('pas_partiel_outils'), taches: L('pas_partiel_taches') },
-      ecartes: { roles: L('pas_ecarte_roles'), outils: L('pas_ecarte_outils'), taches: L('pas_ecarte_taches') },
+      ajoutes: { roles: L('pas_ajoute_roles'), outils: L('pas_ajoute_outils'),
+                 taches: L('pas_ajoute_taches'), users: L('pas_ajoute_users') },
+      partiel: { roles: L('pas_partiel_roles'), outils: L('pas_partiel_outils'),
+                 taches: L('pas_partiel_taches'), users: L('pas_partiel_users') },
+      ecartes: { roles: L('pas_ecarte_roles'), outils: L('pas_ecarte_outils'),
+                 taches: L('pas_ecarte_taches'), users: L('pas_ecarte_users') },
     };
     if (cat === 'ajoutes') return (partiel ? genre.partiel : genre.ajoutes)[ty];
     if (cat === 'ecartes') return genre.ecartes[ty];
@@ -151,8 +164,9 @@
   // ══════════════════════════════════════════════════════════════════
   //  Ouvrir, fermer
   // ══════════════════════════════════════════════════════════════════
-  function ouvrir() {
+  function ouvrir(pour) {
     S = neuf();
+    S.pour = pour === 'comptes' ? 'comptes' : null;
     CTX = null;     // l'entité active a pu changer depuis la dernière ouverture
     dom.racine.hidden = false;
     document.body.classList.add('imh-ouvert');
@@ -177,10 +191,13 @@
 
   async function chargerContexte() {
     try {
-      const r = await fetch('/api/import/contexte', { credentials: 'same-origin' });
+      const r = await fetch('/api/import/contexte' + (S.pour ? '?pour=' + S.pour : ''),
+                            { credentials: 'same-origin' });
       if (!r.ok) throw new Error(L('err_reseau'));
       CTX = await r.json();
       porteeParDefaut();
+      // Une seule nature : on entre directement sur le dépôt du fichier.
+      if (modeComptes()) { S.type = 'users'; S.ecran = 'depot'; }
     } catch (e) {
       S.erreur = e.message || L('err_reseau');
     }
@@ -212,8 +229,12 @@
   }
 
   function rendreTete() {
-    const i = ['choix', 'depot', 'revue', 'fin'].indexOf(S.ecran);
-    const etapes = [L('etape_nature'), L('etape_fichier'), L('etape_verif'), L('etape_import')];
+    // Sans choix de nature, l'étape « Nature » n'existe pas : une étape déjà
+    // franchie avant d'avoir rien fait se lit comme une étape sautée.
+    const ecrans = modeComptes() ? ['depot', 'revue', 'fin'] : ['choix', 'depot', 'revue', 'fin'];
+    const i = ecrans.indexOf(S.ecran);
+    const etapes = [L('etape_nature'), L('etape_fichier'), L('etape_verif'), L('etape_import')]
+      .slice(modeComptes() ? 1 : 0);
     dom.etapes.innerHTML = etapes.map((lib, j) => {
       const cl = j < i ? 'fait' : (j === i ? 'ici' : '');
       const puce = j < i ? '<i class="fa-solid fa-check"></i>' : String(j + 1);
@@ -245,8 +266,8 @@
       ['fa-map-location-dot', L('promesse_portee')],
     ];
     return `<div class="imh-choix">
-      <div class="imh-cartes">${CARTES.map(carte).join('')}</div>
-      ${carteMultiple()}
+      <div class="imh-cartes">${cartes().map(carte).join('')}</div>
+      ${modeComptes() ? '' : carteMultiple()}
       <ul class="imh-promesses">${promesses.map(([ic, txt], i) =>
         `<li style="--i:${i + 4}"><i class="fa-solid ${ic}"></i><span>${esc(txt)}</span></li>`).join('')}</ul>
     </div>`;
@@ -264,14 +285,14 @@
       <span class="imh-carte-t">${esc(n.nom)}</span>
       <span class="imh-carte-d">${esc(n.desc)}</span>
       <span class="imh-carte-champs">${n.champs.map(puce).join('')}</span>
-      <span class="imh-carte-portee"><i class="fa-solid fa-map-location-dot"></i>${esc(n.portee)}</span>
-      ${ok ? '' : `<span class="imh-carte-verrou"><i class="fa-solid fa-lock"></i>${esc(L('verrou_cartos'))}</span>`}
+      <span class="imh-carte-portee"><i class="fa-solid ${ty === 'users' ? 'fa-globe' : 'fa-map-location-dot'}"></i>${esc(n.portee)}</span>
+      ${ok ? '' : `<span class="imh-carte-verrou"><i class="fa-solid fa-lock"></i>${esc(ty === 'users' ? L('verrou_comptes') : L('verrou_cartos'))}</span>`}
     </button>`;
   }
 
   function carteMultiple() {
     const n = nature('multiple'), ok = !!CTX.peut;
-    const ics = CARTES.map(ty => `<span style="--tc:${COULEUR[ty]}"><i class="fa-solid ${ICONE[ty]}"></i></span>`).join('');
+    const ics = cartes().map(ty => `<span style="--tc:${COULEUR[ty]}"><i class="fa-solid ${ICONE[ty]}"></i></span>`).join('');
     return `<button type="button" class="imh-carte imh-carte--multi" data-type="multiple" style="--tc:${COULEUR.multiple};--i:3"${ok ? '' : ' disabled'}>
       <span class="imh-multi-ics" aria-hidden="true">${ics}</span>
       <span class="imh-multi-txt">
@@ -288,7 +309,7 @@
     const ty = S.type, multi = ty === 'multiple', n = nature(ty);
     const lecture = S.occupe === 'lecture';
     const attendu = multi
-      ? `<span class="imh-attendu-t">${esc(L('multi_reconnues'))}</span>` + CARTES.map(t =>
+      ? `<span class="imh-attendu-t">${esc(L('multi_reconnues'))}</span>` + cartes().map(t =>
           `<span class="imh-puce is-type" style="--tc:${COULEUR[t]}"><i class="fa-solid ${ICONE[t]}"></i>${esc(nature(t).nom)}</span>`).join('')
       : `<span class="imh-attendu-t">${esc(L('colonnes_reconnues'))}</span>${n.champs.map(puce).join('')}
          <span class="imh-attendu-leg"><i></i>${esc(L('obligatoire'))}</span>`;
@@ -380,7 +401,7 @@
   // Import multiple : la nature se corrige d'un clic, la feuille est relue.
   function boutonsNature(p, tous) {
     const doute = aConfirmer(p);
-    return CARTES.map(ty => {
+    return cartes().map(ty => {
       const on = !tous && p.type === ty && !doute;
       return `<button type="button" class="imh-nat${on ? ' on' : ''}" data-comme="${ty}" style="--tc:${COULEUR[ty]}"${on || S.occupe ? ' disabled' : ''} aria-pressed="${on}"><i class="fa-solid ${ICONE[ty]}"></i>${esc(nature(ty).nom)}</button>`;
     }).join('');
@@ -451,16 +472,26 @@
     return `<button type="button" role="radio" class="imh-seg-b${on ? ' on' : ''}" aria-checked="${on}" data-portee="${k}"><i class="fa-solid ${ic}"></i><span>${esc(lib)}</span></button>`;
   }
 
+  // Un fichier de comptes ne parle de cartos que s'il porte une colonne
+  // « rôle » : sans elle, il n'y a rien à attribuer et rien à choisir.
+  const comptesAvecRole = () => S.parts.some(
+    p => p.type === 'users' && inclue(p) && p.lignes.some(l => l.role));
+
   function blocPortee() {
     const cibles = CTX.cibles || [];
     if (!S.parts.some(inclue)) return '';
+    if (S.type === 'users' && !comptesAvecRole()) {
+      return `<section class="imh-portee is-instance"><span class="imh-portee-ic"><i class="fa-solid fa-globe"></i></span>
+        <p>${esc(L('portee_instance'))}</p></section>`;
+    }
     if (!cibles.length) {
       return `<section class="imh-portee is-bloque"><span class="imh-portee-ic"><i class="fa-solid fa-lock"></i></span><p>${esc(L('portee_aucune'))}</p></section>`;
     }
     // Les tâches n'ont pas de phrase : la liste montre déjà, activité par
     // activité, où chacune va tomber.
     const texte = S.type === 'multiple' ? L('portee_multiple')
-      : { roles: L('portee_roles'), outils: L('portee_outils'), taches: '' }[S.type];
+      : { roles: L('portee_roles'), outils: L('portee_outils'), taches: '',
+          users: L('portee_users') }[S.type];
     const active = cibles.find(c => c.active);
     const seg = cibles.length > 1
       ? `<div class="imh-seg" role="radiogroup" aria-label="${esc(L('portee_titre'))}">
@@ -475,19 +506,24 @@
           return `<button type="button" class="imh-carto${on ? ' on' : ''}" data-carto="${c.id}" aria-pressed="${on}"><i class="fa-${on ? 'solid fa-square-check' : 'regular fa-square'}"></i><span>${esc(c.name)}</span>${c.active ? `<em>${esc(L('carto_active'))}</em>` : ''}${c.shared ? `<em class="is-commune">${esc(L('carto_commune'))}</em>` : ''}</button>`;
         }).join('')}</div>`
       : '';
+    // Un rôle qui n'existe dans aucune carto choisie : on le crée, ou le
+    // compte naît sans rôle. C'est une décision, elle se pose ici.
+    const option = S.type === 'users'
+      ? `<label class="imh-bascule"><input type="checkbox" data-option="creer_roles"${S.options.creer_roles ? ' checked' : ''}><span class="imh-bascule-rail"><span></span></span><span>${esc(L('opt_creer_roles'))}</span></label>`
+      : '';
     return `<section class="imh-portee">
       <div class="imh-portee-tete">
         <span class="imh-portee-ic"><i class="fa-solid fa-location-crosshairs"></i></span>
         <div class="imh-portee-txt"><h4>${esc(L('portee_titre'))}</h4>${texte ? `<p>${esc(texte)}</p>` : ''}</div>
         ${seg}
       </div>
-      ${liste}
+      ${liste}${option}
     </section>`;
   }
 
   function blocListe(p) {
     const v = S.verifs[p.id];
-    if (!S.cibles.length) {
+    if (!S.cibles.length && p.type !== 'users') {
       return `<div class="imh-vide"><i class="fa-solid fa-map-location-dot"></i>${esc(L('choisir_carto'))}</div>`;
     }
     if (!v) return `<div class="imh-attente"><i class="fa-solid fa-circle-notch fa-spin"></i>${esc(L('verification'))}</div>`;
@@ -544,7 +580,28 @@
     </div>`;
   }
 
+  const initiales = l => ((l.prenom || '')[0] || '' ) + ((l.nom || '')[0] || '')
+    || (l.email || '?')[0].toUpperCase();
+  // Teinte stable dérivée du texte : deux personnes ne se ressemblent pas,
+  // et la même personne garde sa couleur d'un écran à l'autre.
+  const teinte = s => {
+    let h = 0;
+    String(s || '').split('').forEach(c => { h = (h * 31 + c.charCodeAt(0)) % 360; });
+    return h;
+  };
+  const libStatut = s => ({ user: L('statut_user'), champion: L('statut_champion'),
+                            coordinateur: L('statut_coordinateur'),
+                            admin: L('statut_admin') }[s] || s);
+
   function contenu(ty, l) {
+    if (ty === 'users') {
+      const nom = [l.prenom, l.nom].filter(Boolean).join(' ');
+      const puces = (l.statut_compte ? `<span class="imh-chip c-statut">${esc(libStatut(l.statut_compte))}</span>` : '')
+        + (l.role ? `<span class="imh-chip"><i class="fa-solid fa-user-tie"></i>${esc(l.role)}</span>` : '');
+      return `<span class="imh-av" style="--h:${teinte(l.email || nom)}">${esc(initiales(l).toUpperCase())}</span>
+        <span class="imh-l-t"><strong>${esc(nom || '—')}</strong><span class="imh-l-s">${esc(l.email || '—')}</span></span>
+        ${puces ? `<span class="imh-l-puces">${puces}</span>` : ''}`;
+    }
     if (ty === 'taches') {
       const puces = [
         ...listeDe(l.outils).map(x => `<span class="imh-chip c-outil"><i class="fa-solid fa-screwdriver-wrench"></i>${esc(x)}</span>`),
@@ -565,6 +622,8 @@
     if (l.statut === 'partiel') {
       out.push(`<span class="imh-note n-info">${esc(F('partiel_detail', { deja: l.n_deja, total: l.n_nouveau + l.n_deja }))}</span>`);
     }
+    if (l.avertissement) out.push(`<span class="imh-note n-warn"><i class="fa-solid fa-triangle-exclamation"></i>${esc(l.avertissement)}</span>`);
+    if (l.info) out.push(`<span class="imh-note n-info"><i class="fa-solid fa-circle-info"></i>${esc(l.info)}</span>`);
     return out.length ? `<span class="imh-notes">${out.join('')}</span>` : '';
   }
 
@@ -745,13 +804,19 @@
       return `<div class="imh-rapport">${tete}<div class="imh-vide"><i class="fa-regular fa-folder-open"></i>${esc(L('lc_rien'))}</div></div>`;
     }
     const champs = nature(np.type).champs;
+    // ⚠️ Prénom et nom peuvent venir d'UNE colonne, scindée par le code : les
+    // afficher « non trouvés » ferait croire à un import bancal alors que la
+    // lecture est bonne.
+    const nc = np.nom_complet;
     const lignes = champs.map(c => {
-      const col = np.correspondance[c.cle];
+      const scinde = nc != null && (c.cle === 'prenom' || c.cle === 'nom')
+        && np.correspondance[c.cle] == null;
+      const col = scinde ? nc : np.correspondance[c.cle];
       const trouve = col != null;
       const ex = trouve ? exemples(np, c.cle) : [];
       return `<div class="imh-lc-l${trouve ? '' : ' is-absent'}${c.requis && !trouve ? ' is-manque' : ''}">
         <span class="imh-lc-champ">${esc(c.label)}${c.requis ? '<em aria-hidden="true">*</em>' : ''}</span>
-        <span class="imh-lc-col">${trouve ? esc(colonne(np, col)) : esc(L('lc_absent'))}</span>
+        <span class="imh-lc-col">${trouve ? esc(colonne(np, col)) + (scinde ? ' · ' + esc(L('prenom_et_nom')) : '') : esc(L('lc_absent'))}</span>
         <span class="imh-lc-ex">${ex.map(x => `<span>${esc(x)}</span>`).join('')}</span>
       </div>`;
     }).join('');
@@ -847,9 +912,12 @@
   function parNature(resultats) {
     const out = {};
     resultats.forEach(x => {
-      const o = out[x.type] = out[x.type] || { type: x.type, par_carto: {} };
+      const o = out[x.type] = out[x.type] || { type: x.type, par_carto: {}, identifiants: [] };
       Object.keys(x).forEach(k => { if (typeof x[k] === 'number') o[k] = (o[k] || 0) + x[k]; });
       Object.keys(x.par_carto || {}).forEach(c => { o.par_carto[c] = (o.par_carto[c] || 0) + x.par_carto[c]; });
+      // Les mots de passe provisoires ne se montrent qu'une fois : ils ne
+      // doivent pas se perdre dans le regroupement.
+      o.identifiants = o.identifiants.concat(x.identifiants || []);
     });
     return ORDRE.filter(t => out[t]).map(t => out[t]);
   }
@@ -858,13 +926,51 @@
     const r = S.resultat || { resultats: [], cibles: [] };
     const res = parNature(r.resultats);
     const total = res.reduce((n, x) => n + (x.crees || x.tasks_created || 0), 0);
-    const ou = F('fin_dans', { x: (r.cibles || []).map(c => c.name).join(', ') });
+    const ids = [].concat(...res.map(x => x.identifiants || []));
+    // Un compte ne vit dans aucune carto : dire « dans telle carto » serait faux.
+    const ou = (r.cibles || []).length && res.some(x => x.type !== 'users')
+      ? F('fin_dans', { x: (r.cibles || []).map(c => c.name).join(', ') })
+      : L('fin_instance');
     return `<div class="imh-fin">
       <div class="imh-fin-ic${total ? '' : ' is-neutre'}"><svg viewBox="0 0 52 52" aria-hidden="true"><circle cx="26" cy="26" r="24"/><path d="M15 27l7 7 15-16"/></svg></div>
       <h3>${esc(total ? L('fin_titre') : L('fin_rien_titre'))}</h3>
       <p class="imh-fin-sous">${esc(total ? ou : L('fin_rien'))}</p>
       <div class="imh-fin-blocs">${res.map(blocResultat).join('')}</div>
+      ${ids.length ? blocIdentifiants(ids) : ''}
     </div>`;
+  }
+
+  // ⚠️ Les mots de passe provisoires ne sont montrés QU'ICI, une fois : le
+  // serveur ne les stocke jamais en clair et ne les renverra pas.
+  function blocIdentifiants(ids) {
+    const lignes = ids.map(x => `<tr><td>${esc([x.prenom, x.nom].filter(Boolean).join(' '))}</td><td>${esc(x.email)}</td><td><code>${esc(x.mot_de_passe)}</code></td></tr>`).join('');
+    return `<div class="imh-ids">
+      <div class="imh-ids-tete">
+        <span class="imh-ids-ic"><i class="fa-solid fa-key"></i></span>
+        <div><strong>${esc(P('ids_titre', ids.length))}</strong><p>${esc(L('ids_texte'))}</p></div>
+        <button type="button" class="imh-btn-prim is-petit" data-action="csv"><i class="fa-solid fa-download"></i>${esc(L('ids_csv'))}</button>
+      </div>
+      <div class="imh-ids-t"><table>
+        <thead><tr><th>${esc(L('ids_personne'))}</th><th>${esc(L('ids_email'))}</th><th>${esc(L('ids_mdp'))}</th></tr></thead>
+        <tbody>${lignes}</tbody>
+      </table></div>
+    </div>`;
+  }
+
+  function telechargerCsv() {
+    const ids = [].concat(...parNature((S.resultat || {}).resultats || [])
+      .map(x => x.identifiants || []));
+    const cel = v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
+    const lignes = [[L('ids_prenom'), L('ids_nom'), L('ids_email'), L('ids_mdp')].map(cel).join(';')]
+      .concat(ids.map(x => [x.prenom, x.nom, x.email, x.mot_de_passe].map(cel).join(';')));
+    const blob = new Blob(['﻿' + lignes.join('\r\n')], { type: 'text/csv;charset=utf-8' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = L('ids_fichier') + '.csv';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 2000);
   }
 
   function blocResultat(x, i) {
@@ -875,6 +981,10 @@
       if (x.roles_created) details.push(x.roles_created + ' ' + P('res_roles', x.roles_created));
       if (x.competencies_created) details.push(x.competencies_created + ' ' + P('res_competences', x.competencies_created));
       if (x.activities_updated) details.push(x.activities_updated + ' ' + P('res_activites', x.activities_updated));
+    } else if (x.type === 'users') {
+      n = x.crees; lib = P('res_comptes', n);
+      if (x.roles_attribues) details.push(x.roles_attribues + ' ' + P('res_attributions', x.roles_attribues));
+      if (x.roles_crees) details.push(x.roles_crees + ' ' + P('res_roles', x.roles_crees));
     } else {
       n = x.crees; lib = x.type === 'roles' ? P('res_roles', n) : P('res_outils', n);
       // Le détail par carto ne dit quelque chose qu'à partir de deux cartos :
@@ -899,7 +1009,7 @@
       return;
     }
     let g = '', d = '';
-    if (S.ecran === 'depot') {
+    if (S.ecran === 'depot' && !modeComptes()) {
       g = `<button type="button" class="imh-btn-sec" data-action="retour"><i class="fa-solid fa-arrow-left"></i>${esc(L('retour_nature'))}</button>`;
     }
     if (S.ecran === 'revue' && S.rapport) {
@@ -934,11 +1044,13 @@
 
   function libelleImport(n) {
     if (S.type === 'multiple') return F('btn_multiple', { n });
-    return { roles: P('btn_roles', n), taches: P('btn_taches', n), outils: P('btn_outils', n) }[S.type];
+    return { roles: P('btn_roles', n), taches: P('btn_taches', n), outils: P('btn_outils', n),
+             users: P('btn_users', n) }[S.type];
   }
 
   function resume(n) {
     if (!n) return L('rien_a_importer');
+    if (S.type === 'users' && !comptesAvecRole()) return L('resume_instance');
     const cibles = (CTX.cibles || []).filter(c => S.cibles.includes(c.id));
     return cibles.length === 1 ? F('resume_une', { x: cibles[0].name }) : P('resume_cartos', cibles.length);
   }
@@ -998,8 +1110,8 @@
   }
 
   function reprendreFichier() {
-    const { type, cibles, portee } = S;
-    S = Object.assign(neuf(), { type, cibles, portee, ecran: 'depot' });
+    const { type, cibles, portee, pour } = S;
+    S = Object.assign(neuf(), { type, cibles, portee, pour, ecran: 'depot' });
     rendre();
   }
 
@@ -1059,7 +1171,8 @@
   // vérification porte un jeton, seule la dernière demandée s'affiche.
   async function verifier(p) {
     if (!inclue(p)) return;
-    if (!S.cibles.length) { delete S.verifs[p.id]; rendre(); return; }
+    // Un compte se vérifie même sans carto : il n'appartient à aucune.
+    if (!S.cibles.length && p.type !== 'users') { delete S.verifs[p.id]; rendre(); return; }
     const jeton = S.jetons[p.id] = (S.jetons[p.id] || 0) + 1;
     S.enCours[p.id] = true;
     rendrePied();
@@ -1068,6 +1181,7 @@
     try {
       const res = await envoyer('/api/import/verifier', {
         type: p.type, lignes: p.lignes, cibles: S.cibles, choix: S.choix[p.id] || {},
+        options: p.type === 'users' ? { creer_roles: !!S.options.creer_roles } : {},
       }, true);
       if (jeton !== S.jetons[p.id]) return;
       S.verifs[p.id] = res;
@@ -1150,7 +1264,7 @@
       fd.append('fichier', f);
       fd.append('feuille', p.feuille);
       fd.append('id', p.id);
-      if (p.nature_choisie && CARTES.includes(p.type)) fd.append('comme', p.type);
+      if (p.nature_choisie && cartes().includes(p.type)) fd.append('comme', p.type);
       const rep = await envoyer('/api/import/organiser', fd);
       rep.part.nature_choisie = p.nature_choisie;
       S.lecture = { partId: p.id, part: rep.part };
@@ -1284,7 +1398,9 @@
     rendrePied();
     dom.fenetre.classList.add('is-import');
     try {
-      const rep = await envoyer('/api/import/importer', { parts, cibles: S.cibles }, true);
+      const rep = await envoyer('/api/import/importer', {
+        parts, cibles: S.cibles, options: { creer_roles: !!S.options.creer_roles },
+      }, true);
       S.resultat = rep;
       S.ecran = 'fin';
       document.dispatchEvent(new CustomEvent('optiq:import-termine', { detail: rep }));
@@ -1329,9 +1445,11 @@
         if (!S.ignorees[p.id]) verifier(p);
         return;
       case 'importer': return importer();
+      case 'csv': return telechargerCsv();
       case 'encore': {
-        const { cibles, portee } = S;
-        S = Object.assign(neuf(), { cibles, portee });
+        const { cibles, portee, pour } = S;
+        S = Object.assign(neuf(), { cibles, portee, pour });
+        if (modeComptes()) { S.type = 'users'; S.ecran = 'depot'; }
         return rendre();
       }
       case 'rester': S.quitter = false; return rendrePied();
@@ -1349,6 +1467,11 @@
     }
     const p = partActive();
     if (!p) return;
+    if (el.dataset.option === 'creer_roles') {
+      S.options.creer_roles = el.checked;
+      rendre();
+      return planifier(verifierTout);
+    }
     if (el.classList.contains('imh-rp-cb') && S.rapport) {
       if (el.checked) S.rapport.retenus.add(el.dataset.nom); else S.rapport.retenus.delete(el.dataset.nom);
       el.closest('.imh-rp').classList.toggle('on', el.checked);
@@ -1421,8 +1544,9 @@
     dom.sous = document.getElementById('imh-sous');
     dom.logo = document.getElementById('imh-logo');
     brancher();
-    const declencheur = document.getElementById('btn-import-full');
-    if (declencheur) declencheur.addEventListener('click', ouvrir);
+    // La page dit d'où la fenêtre s'ouvre : la carte (défaut) ou les comptes.
+    document.querySelectorAll('#btn-import-full, [data-import-hub]').forEach(b =>
+      b.addEventListener('click', () => ouvrir(b.dataset.importHub)));
     window.OptiqImport = { ouvrir };
   }
 

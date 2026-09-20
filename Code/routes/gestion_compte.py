@@ -26,21 +26,27 @@ def _forbidden(msg_key):
     """Refus sur une soumission de formulaire : retour à la liste avec message."""
     return redirect(url_for('gestion_compte.list_users', tab='list-tab', msg=msg_key))
 
+def _famille(statut):
+    """Le palier d'un statut écrit en clair : le libellé varie d'une instance
+    à l'autre, le palier non — c'est lui qui filtre et qui colore."""
+    if is_admin_status(statut):
+        return 'admin'
+    if is_coordinator_status(statut):
+        return 'coordinateur'
+    if is_champion_status(statut):
+        return 'champion'
+    return 'user'
+
+
 @gestion_compte_bp.route('/')
 def list_users():
+    me = _current_user()
     try:
-        # MODIFIÉ: Filtrer par entité active
+        # Les rôles de l'entité active : ce sont eux qu'on attribue depuis
+        # cette page.
         active_entity_id = Entity.get_active_id()
-
-        print(f"🔍 Active entity ID: {active_entity_id}")
-
-        # Récupérer les rôles
-        if active_entity_id:
-            roles = Role.query.filter_by(entity_id=active_entity_id).all()
-        else:
-            roles = Role.query.all()
-
-        print(f"📊 Nombre de rôles trouvés: {len(roles)}")
+        roles = (Role.query.filter_by(entity_id=active_entity_id).order_by(Role.name).all()
+                 if active_entity_id else Role.query.order_by(Role.name).all())
 
         # Tous les utilisateurs de la base, SANS filtre d'entité : la page
         # Comptes administre les comptes de l'instance entière — filtrer par
@@ -48,71 +54,97 @@ def list_users():
         # dès qu'une entité était sélectionnée).
         users = User.query.order_by(User.first_name, User.last_name).all()
 
-        print(f"👥 Nombre d'utilisateurs trouvés: {len(users)}")
+        # Les rôles de chacun en DEUX requêtes : une par utilisateur faisait
+        # deux allers en base par ligne de la liste.
+        noms = {r.id: r.name for r in Role.query.all()}
+        par_user = {}
+        pour_le_role = {}
+        for ur in UserRole.query.all():
+            if ur.role_id in noms:
+                par_user.setdefault(ur.user_id, []).append(noms[ur.role_id])
+                pour_le_role.setdefault(ur.user_id, []).append(ur.role_id)
+        users_with_roles = [{'user': u, 'roles': sorted(par_user.get(u.id, [])),
+                             'role_ids': pour_le_role.get(u.id, []),
+                             'famille': _famille(u.status)} for u in users]
 
-        # Créer un dictionnaire utilisateur -> liste de rôles
-        users_with_roles = []
-        for user in users:
-            user_roles = UserRole.query.filter_by(user_id=user.id).all()
-            role_names = [Role.query.get(ur.role_id).name for ur in user_roles if Role.query.get(ur.role_id)]
-            users_with_roles.append({
-                'user': user,
-                'roles': role_names
-            })
-
-        # Pour compatibilité avec le template existant, créer aussi role_users
-        role_users = {}
-        for role in roles:
-            role_users[role.name] = []
-
-        # Récupérer les managers
-        if active_entity_id:
-            manager_role = Role.query.filter_by(name="manager", entity_id=active_entity_id).first()
-        else:
-            manager_role = Role.query.filter_by(name="manager").first()
-
-        if manager_role:
-            managers = User.query.join(UserRole, User.id == UserRole.user_id).filter(UserRole.role_id == manager_role.id).all()
-        else:
-            managers = []
-
-        print(f"👔 Nombre de managers trouvés: {len(managers)}")
-
-        me = _current_user()
+        familles = {f: sum(1 for x in users_with_roles if x['famille'] == f)
+                    for f in ('admin', 'coordinateur', 'champion', 'user')}
         return render_template(
             'gestion_compte_new.html',
-            role_users=role_users,
             roles=roles,
             users=users,
             users_with_roles=users_with_roles,
-            managers=managers,
+            familles=familles,
             is_admin=_is_admin(me),
             can_create_accounts=_can_create_accounts(me),
             current_user_id=(me.id if me else None),
-            is_admin_status=is_admin_status,
-            is_competency_manager_status=is_competency_manager_status,
-            is_coordinator_status=is_coordinator_status,
-            is_champion_status=is_champion_status,
         )
 
-    except Exception as e:
-        print(f"❌ Erreur dans list_users: {e}")
+    except Exception:
         import traceback
         traceback.print_exc()
-
-        # Retourner une page avec des listes vides en cas d'erreur
-        me = _current_user()
+        # Une page vide plutôt qu'une 500 : la liste est le cœur de l'écran,
+        # mais le reste (créer, importer) doit rester joignable.
         return render_template(
             'gestion_compte_new.html',
-            role_users={},
-            roles=[],
-            users=[],
-            users_with_roles=[],
-            managers=[],
+            roles=[], users=[], users_with_roles=[],
+            familles={'admin': 0, 'coordinateur': 0, 'champion': 0, 'user': 0},
             is_admin=_is_admin(me),
             can_create_accounts=_can_create_accounts(me),
             current_user_id=(me.id if me else None),
         )
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  Ce que chaque palier ouvre — le tableau des droits
+# ═══════════════════════════════════════════════════════════════════════════
+# L'échelle `user < champion < coordinateur < admin` est la grammaire du
+# produit et ne se règle pas. Ce que chaque palier OUVRE, si : une entreprise
+# où tout le monde propose n'a pas les mêmes usages qu'une où seul un
+# coordinateur touche à la carto.
+#
+# ⚠️ **Seul un ADMINISTRATEUR écrit ce tableau**, et la colonne `admin` y est
+# verrouillée à vrai. Sans ces deux règles, on pourrait se retirer l'accès aux
+# Paramètres — c'est-à-dire perdre l'écran depuis lequel on le remettrait. La
+# porte se refermerait de l'intérieur, sans poignée.
+#
+# Le tableau vit sur la page Comptes : c'est là qu'on donne un statut à
+# quelqu'un, donc là qu'on doit pouvoir lire ce que ce statut ouvre.
+
+@gestion_compte_bp.route('/droits')
+def lire_droits():
+    from Code.permissions import DROITS_DEFAUT, PALIERS, droits_effectifs
+
+    me = _current_user()
+    if not (_is_admin(me) or _can_create_accounts(me)):
+        return jsonify({'error': 'Accès refusé'}), 403
+    return jsonify({
+        'paliers': list(PALIERS),
+        'droits': droits_effectifs(),
+        'defaut': {d: dict(v, admin=True) for d, v in DROITS_DEFAUT.items()},
+        'modifiable': bool(_is_admin(me)),
+    })
+
+
+@gestion_compte_bp.route('/droits', methods=['POST'])
+def ecrire_droits():
+    from Code.permissions import droits_effectifs, enregistrer_droits
+
+    me = _current_user()
+    if not (_is_admin(me) or _can_create_accounts(me)):
+        return jsonify({'error': 'Accès refusé'}), 403
+    if not _is_admin(me):
+        # ⚠️ Un coordinateur qui pourrait s'attribuer les Paramètres
+        # d'administration s'attribuerait la clé IA de l'entreprise. Le tableau
+        # se lit à son palier, il ne s'écrit qu'au-dessus.
+        return jsonify({'error': 'Seul un administrateur règle les droits'}), 403
+
+    data = request.get_json(silent=True) or {}
+    table = data.get('droits')
+    if not isinstance(table, dict):
+        return jsonify({'error': 'Tableau attendu'}), 400
+    enregistrer_droits(table)
+    return jsonify({'ok': True, 'droits': droits_effectifs()})
 
 @gestion_compte_bp.route('/create', methods=['POST'])
 def create_user():
@@ -137,6 +169,14 @@ def create_user():
     # avant que les rôles de l'entité soient créés).
     if User.query.filter_by(email=email).first():
         return redirect(url_for('gestion_compte.list_users', msg='error_email_exists'))
+
+    # ⚠️ On ne crée pas AU-DESSUS de soi : sans ce contrôle, un compte
+    # autorisé à créer des comptes se fabriquait un administrateur — et se
+    # donnait par la bande des droits qu'il n'a pas. Le masquage du champ
+    # dans la page n'y suffit pas, il ne coûte rien de le contourner.
+    from Code.permissions import niveau, niveau_status
+    if niveau_status(status) > niveau(_current_user()):
+        return redirect(url_for('gestion_compte.list_users', msg='error_status_too_high'))
 
     try:
         role_id = int(role_id_raw) if role_id_raw else None
@@ -163,7 +203,7 @@ def create_user():
         db.session.add(UserRole(user_id=user.id, role_id=role_id))
         db.session.commit()
 
-    return redirect(url_for('gestion_compte.list_users', tab='list-tab', msg='created'))
+    return redirect(url_for('gestion_compte.list_users', msg='created'))
 
 @gestion_compte_bp.route('/delete/<int:user_id>', methods=['POST'])
 def delete_user(user_id):
@@ -282,14 +322,12 @@ def update_user(user_id):
             import traceback
             traceback.print_exc()
             return redirect(url_for('gestion_compte.list_users', msg='error_update'))
-        return redirect(url_for('gestion_compte.list_users', tab='list-tab', msg='updated'))
+        return redirect(url_for('gestion_compte.list_users', msg='updated'))
 
-    current_role = UserRole.query.filter_by(user_id=user.id).first()
-    return render_template('edit_user.html', user=user, roles=roles, current_role=current_role,
-                           is_admin_status=is_admin_status,
-                           is_competency_manager_status=is_competency_manager_status,
-                           is_coordinator_status=is_coordinator_status,
-                           is_champion_status=is_champion_status)
+    # La modification se fait dans la liste, pas sur une page à part : créer
+    # et modifier un compte posent les mêmes questions, elles méritaient le
+    # même écran. Un lien direct ouvre donc la fiche par-dessus la liste.
+    return redirect(url_for('gestion_compte.list_users', edit=user.id))
 
 @gestion_compte_bp.route('/managers')
 def get_managers():
@@ -396,119 +434,3 @@ def set_password(user_id):
                         'error': "La modification n'a pas été persistée en base. Contactez l'administrateur."}), 500
     return jsonify({'ok': True})
 
-
-@gestion_compte_bp.route('/import_excel', methods=['POST'])
-def import_excel():
-    """
-    Import d'utilisateurs via fichier Excel
-    Format attendu: prenom, nom, email, age, mot_de_passe, role, statut
-    """
-    if not _can_create_accounts():
-        return jsonify({'success': False,
-                        'error': "Seuls les administrateurs et les gestionnaires de compétences "
-                                 "peuvent créer des comptes."}), 403
-    try:
-        print("📥 Import Excel - Début")
-        data = request.get_json()
-        print(f"📊 Data reçue: {data}")
-
-        users_data = data.get('users', [])
-        print(f"👥 Nombre d'utilisateurs à importer: {len(users_data)}")
-
-        if not users_data:
-            print("⚠️ Aucune donnée fournie")
-            return jsonify({'success': False, 'message': 'Aucune donnée fournie'}), 400
-
-        active_entity_id = Entity.get_active_id()
-        print(f"🏢 Active entity ID: {active_entity_id}")
-
-        imported_count = 0
-        errors = []
-
-        for idx, user_data in enumerate(users_data):
-            print(f"\n--- Traitement utilisateur {idx + 1}/{len(users_data)} ---")
-            print(f"📧 Email: {user_data.get('email')}")
-            print(f"👤 Nom: {user_data.get('prenom')} {user_data.get('nom')}")
-            try:
-                # Vérifier que l'email n'existe pas déjà
-                existing_user = User.query.filter_by(email=user_data.get('email')).first()
-                if existing_user:
-                    error_msg = f"Email {user_data.get('email')} déjà existant"
-                    print(f"⚠️ {error_msg}")
-                    errors.append(error_msg)
-                    continue
-
-                # Trouver le rôle
-                role_name = user_data.get('role', '').strip()
-                print(f"🔍 Recherche du rôle: '{role_name}'")
-
-                role = Role.query.filter_by(name=role_name, entity_id=active_entity_id).first() if role_name else None
-
-                if not role and role_name:
-                    error_msg = f"Rôle '{role_name}' introuvable pour {user_data.get('email')}"
-                    print(f"⚠️ {error_msg}")
-                    errors.append(error_msg)
-                    continue
-
-                print(f"✅ Rôle trouvé: {role.name if role else 'Aucun'}")
-
-                # Créer l'utilisateur
-                print(f"➕ Création de l'utilisateur...")
-                user = User(
-                    first_name=user_data.get('prenom', '').strip(),
-                    last_name=user_data.get('nom', '').strip(),
-                    email=user_data.get('email', '').strip(),
-                    age=int(user_data.get('age')) if user_data.get('age') and str(user_data.get('age')).strip() else None,
-                    password=hash_password(user_data.get('mot_de_passe', '').strip()),
-                    status=user_data.get('statut', 'user').strip(),
-                    lang=default_lang_for(user_data.get('email', '')),
-                    entity_id=active_entity_id
-                )
-                db.session.add(user)
-                db.session.flush()  # Pour obtenir l'ID
-                print(f"✅ Utilisateur créé avec ID: {user.id}")
-
-                # Associer le rôle si trouvé
-                if role:
-                    print(f"🔗 Association du rôle {role.name}")
-                    user_role = UserRole(user_id=user.id, role_id=role.id)
-                    db.session.add(user_role)
-
-                imported_count += 1
-                print(f"✅ Utilisateur importé avec succès ({imported_count}/{len(users_data)})")
-
-            except Exception as e:
-                error_msg = f"Erreur pour {user_data.get('email')}: {str(e)}"
-                print(f"❌ {error_msg}")
-                import traceback
-                traceback.print_exc()
-                errors.append(error_msg)
-                continue
-
-        print(f"\n💾 Commit de la transaction...")
-        db.session.commit()
-        print(f"✅ Transaction commitée avec succès")
-
-        message = f"{imported_count} utilisateur(s) importé(s)"
-        if errors:
-            message += f". {len(errors)} erreur(s): {', '.join(errors[:3])}"
-
-        print(f"\n📊 Résultat final:")
-        print(f"   - Importés: {imported_count}")
-        print(f"   - Erreurs: {len(errors)}")
-        if errors:
-            print(f"   - Liste des erreurs: {errors}")
-
-        return jsonify({
-            'success': True,
-            'imported': imported_count,
-            'errors': errors,
-            'message': message
-        })
-
-    except Exception as e:
-        print(f"\n❌ ERREUR GLOBALE: {e}")
-        import traceback
-        traceback.print_exc()
-        db.session.rollback()
-        return jsonify({'success': False, 'message': f'Erreur serveur: {str(e)}'}), 500

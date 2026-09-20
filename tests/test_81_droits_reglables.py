@@ -253,20 +253,20 @@ class TestLesGardeFous:
         table["acces_rh"]["user"] = True
 
         _en_tant_que(client, comptes["coordinateur"], "t81.coordinateur@devoptiq.com")
-        assert client.get("/gestion_rh/droits").status_code == 200, (
+        assert client.get("/comptes/droits").status_code == 200, (
             "un coordinateur doit POUVOIR lire le tableau")
-        r = client.post("/gestion_rh/droits", json={"droits": table})
+        r = client.post("/comptes/droits", json={"droits": table})
         assert r.status_code == 403
 
         _en_tant_que(client, comptes["admin"], "t81.admin@devoptiq.com")
-        assert client.post("/gestion_rh/droits",
+        assert client.post("/comptes/droits",
                            json={"droits": table}).status_code == 200
 
     def test_un_user_ne_lit_meme_pas_le_tableau(self, app, client, table_propre,
                                                 comptes):
         _en_tant_que(client, comptes["user"], "t81.user@devoptiq.com")
-        assert client.get("/gestion_rh/droits").status_code == 403
-        assert client.post("/gestion_rh/droits", json={"droits": {}}).status_code == 403
+        assert client.get("/comptes/droits").status_code == 403
+        assert client.post("/comptes/droits", json={"droits": {}}).status_code == 403
 
     def test_on_ne_stocke_que_les_ECARTS(self, app, table_propre, comptes):
         """Enregistrer la table entière figerait les défauts : le jour où le
@@ -302,7 +302,7 @@ class TestLesGardeFous:
     def test_le_tableau_rendu_porte_les_quatre_paliers(self, app, client,
                                                        table_propre, comptes):
         _en_tant_que(client, comptes["admin"], "t81.admin@devoptiq.com")
-        d = client.get("/gestion_rh/droits").get_json()
+        d = client.get("/comptes/droits").get_json()
         assert d["paliers"] == ["user", "champion", "coordinateur", "admin"]
         assert d["modifiable"] is True
         for droit, ligne in d["droits"].items():

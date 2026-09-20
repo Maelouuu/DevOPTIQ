@@ -607,8 +607,9 @@ class TestFrancaisEnDur:
         "activities_map.html":           3,
         "cartography_viewer.html":       2,
         "setup_wizard.html":             2,
-        "gestion_compte_new.html":       1,
         "settings.html":                 1,
+        # `gestion_compte_new.html` est sorti de l'inventaire : la page Comptes
+        # a été refaite, tout y passe par le catalogue.
     }
 
     def test_aucun_gabarit_neuf_ne_porte_du_francais_en_dur(self):

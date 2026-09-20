@@ -82,26 +82,7 @@
       <div class="grh-block-body" id="liste-propositions"></div>
     </section>
 
-    <!-- ④ Ce que chaque palier ouvre ────────────────────────────────────
-         L'échelle des quatre statuts est la grammaire du produit ; ce
-         qu'elle DONNE se règle, parce qu'une entreprise n'a pas les mêmes
-         usages qu'une autre. -->
-    <section class="grh-block" id="bloc-droits">
-      <header class="grh-block-head">
-        <span class="grh-block-num">4</span>
-        <div class="grh-block-titles">
-          <h2>{{ t('rh.block_rights') }}</h2>
-          <p>{{ t('rh.block_rights_sub') }}</p>
-        </div>
-        <div class="grh-block-tools">
-          <button type="button" class="grh-btn-ghost hidden" id="grh-droits-reset">
-            <i class="fa-solid fa-rotate-left"></i>
-            <span>{{ t('rh.rights_reset') }}</span>
-          </button>
-        </div>
-      </header>
-      <div class="grh-block-body" id="liste-droits"></div>
-    </section>
+         on y donne les statuts, on doit y lire ce qu'ils ouvrent. -->
 
   </div>
 
@@ -178,24 +159,6 @@
       map_n_roles:     {{ t('rh.map_n_roles') | tojson }},
       maps_none:       {{ t('rh.maps_none') | tojson }},
       maps_saved:      {{ t('rh.maps_saved') | tojson }},
-      // Ce que chaque palier ouvre
-      block_rights:    {{ t('rh.block_rights') | tojson }},
-      rights_admin_locked: {{ t('rh.rights_admin_locked') | tojson }},
-      rights_readonly: {{ t('rh.rights_readonly') | tojson }},
-      rights_saved:    {{ t('rh.rights_saved') | tojson }},
-      rights_default:  {{ t('rh.rights_default') | tojson }},
-      right_propose_carto:    {{ t('rh.right_propose_carto') | tojson }},
-      right_edit_carto:       {{ t('rh.right_edit_carto') | tojson }},
-      right_review_carto:     {{ t('rh.right_review_carto') | tojson }},
-      right_manage_acces:     {{ t('rh.right_manage_acces') | tojson }},
-      right_acces_rh:         {{ t('rh.right_acces_rh') | tojson }},
-      right_cree_comptes:     {{ t('rh.right_cree_comptes') | tojson }},
-      right_parametres_admin: {{ t('rh.right_parametres_admin') | tojson }},
-      right_parametres_admin_warn: {{ t('rh.right_parametres_admin_warn') | tojson }},
-      st_user:         {{ t('account.status_user') | tojson }},
-      st_champion:     {{ t('account.status_champion') | tojson }},
-      st_coordinateur: {{ t('account.status_coordinator') | tojson }},
-      st_admin:        {{ t('account.status_admin') | tojson }},
       // Un développeur par rôle
       dev_for_role:    {{ t('rh.dev_for_role') | tojson }},
       dev_per_role_hint: {{ t('rh.dev_per_role_hint') | tojson }},

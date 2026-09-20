@@ -1,316 +1,303 @@
 {% include "header_buttons.html" %}
 <link rel="stylesheet" href="{{ url_for('static', filename='gestion_compte_new.css') }}">
 <script defer src="{{ url_for('static', filename='js/gestion_compte_new.js') }}"></script>
+{# La fenêtre d'import apporte sa feuille de style et son script : elle est
+   incluse plus bas, une fois, pour qui peut créer des comptes. #}
 
-<div class="accounts-page pg-root page--accounts">
+<div class="acc pg-root page--accounts">
 
-  {% with banner_page='accounts', banner_icon='fa-solid fa-users-gear', banner_title=t('page.accounts'), banner_sub=t('account.subtitle'), banner_stat_id='usersCount', banner_stat_value=users|length, banner_stat_label=t('account.users_count') %}{% include "page_banner.html" %}{% endwith %}
+  {% with banner_page='accounts', banner_icon='fa-solid fa-users-gear',
+          banner_title=t('page.accounts'), banner_sub=t('account.subtitle'),
+          banner_stat_id='usersCount', banner_stat_value=users|length,
+          banner_stat_label=t('account.users_count') %}{% include "page_banner.html" %}{% endwith %}
 
-  <!-- ── Tabs ── -->
-  <div class="tabs-row" role="tablist">
-    <button class="tab-btn active" role="tab" aria-selected="true" data-tab="list-tab">
-      <i class="fa-solid fa-list"></i> {{ t('account.users_tab') }}
-    </button>
-    {% if can_create_accounts %}
-    <button class="tab-btn" role="tab" aria-selected="false" data-tab="create-tab">
-      <i class="fa-solid fa-user-plus"></i> {{ t('account.tab_create') }}
-    </button>
-    <button class="tab-btn" role="tab" aria-selected="false" data-tab="import-tab">
-      <i class="fa-solid fa-file-excel"></i> {{ t('account.tab_import') }}
-    </button>
-    {% endif %}
-  </div>
-
-  <!-- ── ONGLET : Créer un utilisateur (administrateurs + gestionnaires) ── -->
-  {% if can_create_accounts %}
-  <div id="create-tab" class="tab-pane">
-    <section class="section-card" aria-labelledby="create-title">
-      <div class="section-card__head">
-        <div class="section-card__head-left">
-          <span class="section-icon"><i class="fa-solid fa-user-plus"></i></span>
-          <div>
-            <h2 id="create-title" class="section-card__title">{{ t('account.new_user_title') }}</h2>
-            <p class="section-card__subtitle">{{ t('account.fill_info') }}</p>
-          </div>
-        </div>
+  <!-- ① LES COMPTES ─────────────────────────────────────────────────────
+       Une seule liste, et les deux façons de la remplir juste au-dessus :
+       à la main ou depuis un fichier. -->
+  <section class="acc-bloc" id="acc-bloc-comptes">
+    <header class="acc-bloc-tete">
+      <span class="acc-bloc-num">1</span>
+      <div class="acc-bloc-titres">
+        <h2>{{ t('account.block_people') }}</h2>
+        <p>{{ t('account.block_people_sub') }}</p>
       </div>
-
-      <form action="{{ url_for('gestion_compte.create_user') }}" method="POST" id="createUserForm">
-        <div class="create-grid">
-          <div class="field">
-            <div class="search-style-wrap">
-              <i class="fa-solid fa-user search-style-icon"></i>
-              <input type="text" name="first_name" class="search-style-input" placeholder="{{ t('account.field_firstname') }} *" required autocomplete="off">
-            </div>
-          </div>
-          <div class="field">
-            <div class="search-style-wrap">
-              <i class="fa-solid fa-user search-style-icon"></i>
-              <input type="text" name="last_name" class="search-style-input" placeholder="{{ t('account.field_lastname') }} *" required autocomplete="off">
-            </div>
-          </div>
-          <div class="field">
-            <div class="search-style-wrap">
-              <i class="fa-solid fa-envelope search-style-icon"></i>
-              <input type="email" name="email" class="search-style-input" placeholder="Email *" required autocomplete="off">
-            </div>
-          </div>
-          <div class="field">
-            <div class="search-style-wrap">
-              <i class="fa-solid fa-calendar search-style-icon"></i>
-              <input type="number" name="age" class="search-style-input" placeholder="{{ t('account.field_age') }}" min="18" max="100" autocomplete="off">
-            </div>
-          </div>
-          <div class="field">
-            <div class="search-style-wrap">
-              <i class="fa-solid fa-lock search-style-icon"></i>
-              <input type="password" name="password" class="search-style-input search-style-input--pass" placeholder="{{ t('account.field_password') }} *" required minlength="6">
-            </div>
-          </div>
-          <div class="field">
-            <div class="search-style-wrap search-style-wrap--select">
-              <i class="fa-solid fa-briefcase search-style-icon"></i>
-              <select name="role_id" class="search-style-input">
-                <option value="">{{ t('account.role_none') }}</option>
-                {% for role in roles %}
-                  <option value="{{ role.id }}">{{ role.name }}</option>
-                {% endfor %}
-              </select>
-            </div>
-          </div>
-          <div class="field">
-            <div class="search-style-wrap search-style-wrap--select">
-              <i class="fa-solid fa-shield search-style-icon"></i>
-              <select name="status" class="search-style-input" required>
-                <option value="user">{{ t('account.status_user') }}</option>
-                <option value="champion">{{ t('account.status_champion') }}</option>
-                <option value="coordinateur">{{ t('account.status_coordinator') }}</option>
-                <option value="administrateur">{{ t('account.status_admin') }}</option>
-              </select>
-            </div>
-          </div>
-          <div class="field-btn">
-            <button type="submit" class="btn btn-pink create-submit-btn">
-              <i class="fa-solid fa-check"></i> {{ t('account.btn_create_user') }}
-            </button>
-          </div>
-        </div>
-      </form>
-    </section>
-  </div>
-
-  <!-- ── ONGLET 2 : Import Excel ── -->
-  <div id="import-tab" class="tab-pane">
-    <section class="section-card" aria-labelledby="import-title">
-      <div class="section-card__head">
-        <div class="section-card__head-left">
-          <span class="section-icon"><i class="fa-solid fa-file-excel"></i></span>
-          <div>
-            <h2 id="import-title" class="section-card__title">{{ t('account.import_title') }}</h2>
-            <p class="section-card__subtitle">{{ t('account.import_subtitle') }}</p>
-          </div>
-        </div>
+      {% if can_create_accounts %}
+      <div class="acc-bloc-outils">
+        <button type="button" class="acc-btn acc-btn--prim" data-action="nouveau">
+          <i class="fa-solid fa-user-plus"></i><span>{{ t('account.btn_new_account') }}</span>
+        </button>
+        <button type="button" class="acc-btn" data-import-hub="comptes">
+          <i class="fa-solid fa-file-import"></i><span>{{ t('account.btn_import') }}</span>
+        </button>
       </div>
+      {% endif %}
+    </header>
 
-      <div class="drag-drop-zone" id="dropZone">
-        <i class="fa-solid fa-cloud-arrow-up"></i>
-        <p>{{ t('account.drag_drop') }}</p>
-        <p class="dz-sub">{{ t('account.drag_drop_or') }}</p>
-        <input type="file" id="excelFileInput" accept=".xlsx,.xls,.csv" style="display:none;">
+    <!-- Les compteurs sont les filtres : un chiffre appelle le clic. -->
+    <div class="acc-tuiles" role="group" aria-label="{{ t('account.all_statuses') }}">
+      {% set total = users|length %}
+      {% for cle, nb, lib in [
+            ('tous', total, t('account.f_all')),
+            ('admin', familles['admin'], t('account.f_admin')),
+            ('coordinateur', familles['coordinateur'], t('account.f_coord')),
+            ('champion', familles['champion'], t('account.f_champion')),
+            ('user', familles['user'], t('account.f_user'))] %}
+      <button type="button" class="acc-tuile t-{{ cle }}{% if cle == 'tous' %} on{% endif %}"
+              data-filtre="{{ cle }}" aria-pressed="{{ 'true' if cle == 'tous' else 'false' }}">
+        <b>{{ nb }}</b><span>{{ lib }}</span>
+      </button>
+      {% endfor %}
+    </div>
+
+    <div class="acc-filtres">
+      <div class="acc-rech">
+        <i class="fa-solid fa-magnifying-glass"></i>
+        <input type="search" id="acc-q" placeholder="{{ t('account.search_by_name') }}" autocomplete="off">
       </div>
+      <select id="acc-role" class="acc-select" aria-label="{{ t('account.all_roles') }}">
+        <option value="">{{ t('account.all_roles') }}</option>
+        {% for role in roles %}<option value="{{ role.name }}">{{ role.name }}</option>{% endfor %}
+      </select>
+    </div>
 
-      <div class="info-strip">
-        <i class="fa-solid fa-lightbulb"></i>
-        <span>{{ t('account.expected_columns') }} <strong>prenom, nom, email, age, mot_de_passe, role, statut</strong>
-          <button class="link-btn" onclick="showFormatModal()"><i class="fa-solid fa-circle-info"></i> {{ t('account.see_format') }}</button>
-        </span>
-      </div>
-
-      <div id="previewZone" class="preview-zone" style="display:none;">
-        <h3 class="preview-title"><i class="fa-solid fa-eye"></i> {{ t('account.preview') }}</h3>
-        <div id="previewTable"></div>
-        <div class="preview-actions">
-          <button class="btn btn-pink" onclick="confirmImport()">
-            <i class="fa-solid fa-check"></i> {{ t('account.confirm_import') }}
-          </button>
-          <button class="btn btn-ghost" onclick="cancelImport()">
-            <i class="fa-solid fa-times"></i> {{ t('btn.cancel') }}
-          </button>
-        </div>
-      </div>
-    </section>
-  </div>
-
-  <!-- ── ONGLET 3 : Liste des utilisateurs ── -->
-  {% endif %}
-
-  <div id="list-tab" class="tab-pane active">
-    <section class="section-card" aria-labelledby="list-title">
-      <div class="section-card__head">
-        <div class="section-card__head-left">
-          <span class="section-icon section-icon--muted"><i class="fa-solid fa-users"></i></span>
-          <div>
-            <h2 id="list-title" class="section-card__title">{{ t('account.list_title') }}</h2>
-            <p class="section-card__subtitle">{{ t('account.list_subtitle') }}</p>
+    <div class="acc-liste" id="acc-liste">
+      {% for item in users_with_roles %}
+        {% set u = item.user %}
+        <article class="acc-ligne" data-nom="{{ u.first_name }} {{ u.last_name }} {{ u.email }}"
+                 data-famille="{{ item.famille }}" data-roles="{{ item.roles|join('|') }}"
+                 data-id="{{ u.id }}" data-prenom="{{ u.first_name }}" data-nom-famille="{{ u.last_name }}"
+                 data-email="{{ u.email }}" data-age="{{ u.age or '' }}"
+                 data-role-id="{{ item.role_ids[0] if item.role_ids else '' }}">
+          <span class="acc-av acc-av--{{ item.famille }}">{{ (u.first_name or u.email)[:1]|upper }}{{ (u.last_name or '')[:1]|upper }}</span>
+          <div class="acc-qui">
+            <strong>{{ u.first_name }} {{ u.last_name }}
+              {% if u.id == current_user_id %}<em class="acc-vous">{{ t('account.you') }}</em>{% endif %}
+            </strong>
+            <span>{{ u.email }}</span>
           </div>
-        </div>
-      </div>
-
-      <div class="filter-row">
-        <div class="search-wrap">
-          <i class="fa-solid fa-magnifying-glass search-icon"></i>
-          <input type="search" id="searchInput" class="search-input" placeholder="{{ t('account.search_by_name') }}" autocomplete="off" onkeyup="filterUsers()">
-        </div>
-        <div class="search-style-wrap search-style-wrap--select filter-sel">
-          <i class="fa-solid fa-shield search-style-icon"></i>
-          <select id="statusFilter" class="search-style-input" onchange="filterUsers()">
-            <option value="">{{ t('account.all_statuses') }}</option>
-            <option value="user">{{ t('account.status_user') }}</option>
-            <option value="champion">{{ t('account.status_champion') }}</option>
-            <option value="coordinateur">{{ t('account.status_coordinator') }}</option>
-            <option value="admin">{{ t('account.status_admin') }}</option>
-          </select>
-        </div>
-        <div class="search-style-wrap search-style-wrap--select filter-sel">
-          <i class="fa-solid fa-briefcase search-style-icon"></i>
-          <select id="roleFilter" class="search-style-input" onchange="filterUsers()">
-            <option value="">{{ t('account.all_roles') }}</option>
-            {% for role in roles %}
-              <option value="{{ role.name }}">{{ role.name }}</option>
-            {% endfor %}
-          </select>
-        </div>
-      </div>
-
-      <div class="table-wrap">
-        <table class="users-table">
-          <thead>
-            <tr>
-              <th>{{ t('account.th_fullname') }}</th>
-              <th>{{ t('account.th_email') }}</th>
-              <th>{{ t('account.th_age') }}</th>
-              <th>{{ t('account.th_role') }}</th>
-              <th>{{ t('account.th_status') }}</th>
-              <th>{{ t('account.th_actions') }}</th>
-            </tr>
-          </thead>
-          <tbody id="usersTableBody">
-            {% if users_with_roles and users_with_roles|length > 0 %}
-              {% for item in users_with_roles %}
-                {% set user = item.user %}
-                {% set user_roles = item.roles %}
-                <tr class="user-row"
-                    data-name="{{ user.first_name }} {{ user.last_name }}"
-                    data-status="{% if is_admin_status(user.status) %}admin{% elif is_coordinator_status(user.status) %}coordinateur{% elif is_champion_status(user.status) %}champion{% else %}user{% endif %}"
-                    data-role="{{ user_roles|join(',') }}">
-                  <td><strong>{{ user.first_name }} {{ user.last_name }}</strong></td>
-                  <td class="td-muted">{{ user.email }}</td>
-                  <td class="td-muted">{{ user.age or '—' }}</td>
-                  <td>
-                    {% for role in user_roles[:2] %}
-                      <span class="badge badge-role">{{ role }}</span>
-                    {% endfor %}
-                    {% if user_roles|length > 2 %}
-                      <button class="badge badge-more" onclick="showAllRoles(event, {{ user.id }})" data-roles="{{ user_roles|join(',') }}">
-                        +{{ user_roles|length - 2 }}
-                      </button>
-                    {% endif %}
-                  </td>
-                  <td>
-                    {% if is_admin_status(user.status) %}
-                      <span class="badge badge-admin">Admin</span>
-                    {% elif is_coordinator_status(user.status) %}
-                      <span class="badge badge-coordinateur"
-                            title="{{ t('account.status_coordinator_hint') }}">{{ t('account.status_coordinator') }}</span>
-                    {% elif is_champion_status(user.status) %}
-                      <span class="badge badge-champion"
-                            title="{{ t('account.status_champion_hint') }}">{{ t('account.status_champion') }}</span>
-                    {% elif user.status and user.status != 'user' %}
-                      <span class="badge badge-user" title="{{ t('account.status_unknown_hint') }}">{{ user.status }}</span>
-                    {% else %}
-                      <span class="badge badge-user">{{ t('account.status_user') }}</span>
-                    {% endif %}
-                  </td>
-                  <td class="td-actions">
-                    {% if is_admin or user.id == current_user_id %}
-                    <a href="{{ url_for('gestion_compte.update_user', user_id=user.id) }}" class="btn btn-sm btn-outline">
-                      <i class="fa-solid fa-pencil"></i> {{ t('account.btn_modify') }}
-                    </a>
-                    {% endif %}
-                    {% if is_admin %}
-                    <button type="button" class="btn btn-sm btn-danger"
-                            onclick="confirmDelete('{{ user.id }}', '{{ user.first_name }} {{ user.last_name }}')">
-                      <i class="fa-solid fa-trash"></i> {{ t('account.btn_delete') }}
-                    </button>
-                    {% endif %}
-                    {% if not is_admin and user.id != current_user_id %}
-                    <span class="td-muted">—</span>
-                    {% endif %}
-                  </td>
-                </tr>
-              {% endfor %}
-            {% else %}
-              <tr>
-                <td colspan="6" class="td-empty">
-                  <i class="fa-solid fa-inbox"></i>
-                  <p>{{ t('account.no_users_found') }}</p>
-                </td>
-              </tr>
+          <div class="acc-roles">
+            {% for role in item.roles[:2] %}<span class="acc-pastille">{{ role }}</span>{% endfor %}
+            {% if item.roles|length > 2 %}
+              <span class="acc-pastille acc-pastille--plus"
+                    title="{{ item.roles|join(', ') }}">+{{ item.roles|length - 2 }}</span>
+            {% elif not item.roles %}
+              <span class="acc-vide">—</span>
             {% endif %}
-          </tbody>
-        </table>
+          </div>
+          <span class="acc-statut s-{{ item.famille }}">
+            {% if item.famille == 'admin' %}{{ t('account.status_admin') }}
+            {% elif item.famille == 'coordinateur' %}{{ t('account.status_coordinator') }}
+            {% elif item.famille == 'champion' %}{{ t('account.status_champion') }}
+            {% else %}{{ t('account.status_user') }}{% endif %}
+          </span>
+          <div class="acc-actions">
+            {% if is_admin or u.id == current_user_id %}
+            <button type="button" class="acc-ico" data-action="modifier" data-id="{{ u.id }}"
+                    title="{{ t('account.btn_modify') }}" aria-label="{{ t('account.btn_modify') }}">
+              <i class="fa-solid fa-pencil"></i>
+            </button>
+            {% endif %}
+            {% if is_admin and u.id != current_user_id %}
+            <button type="button" class="acc-ico acc-ico--danger" data-action="supprimer" data-id="{{ u.id }}"
+                    data-qui="{{ u.first_name }} {{ u.last_name }}"
+                    title="{{ t('account.btn_delete') }}" aria-label="{{ t('account.btn_delete') }}">
+              <i class="fa-solid fa-trash"></i>
+            </button>
+            {% endif %}
+          </div>
+        </article>
+      {% endfor %}
+      <p class="acc-rien" id="acc-rien" hidden>
+        <i class="fa-regular fa-folder-open"></i> {{ t('account.no_users_found') }}
+      </p>
+    </div>
+  </section>
+
+  <!-- ② CE QUE CHAQUE PALIER OUVRE ───────────────────────────────────────
+       C'est ici qu'on donne un statut : c'est ici qu'on doit pouvoir lire ce
+       que ce statut ouvre. Le bloc se cache tout seul pour qui n'y a pas droit. -->
+  <section class="acc-bloc" id="acc-bloc-droits" hidden>
+    <header class="acc-bloc-tete">
+      <span class="acc-bloc-num">2</span>
+      <div class="acc-bloc-titres">
+        <h2>{{ t('droit.titre') }}</h2>
+        <p>{{ t('droit.sous_titre') }}</p>
       </div>
-    </section>
-  </div>
-
-
+      <div class="acc-bloc-outils">
+        <button type="button" class="acc-btn" id="acc-droits-reset" hidden>
+          <i class="fa-solid fa-rotate-left"></i><span>{{ t('droit.reset') }}</span>
+        </button>
+      </div>
+    </header>
+    <div class="acc-bloc-corps" id="acc-droits"></div>
+  </section>
 </div>
 
-<!-- ── Modal Format Excel ── -->
-<div class="modal hidden" id="formatModal" aria-hidden="true">
-  <div class="modal-card">
-    <div class="modal-header">
-      <h3 class="modal-title"><i class="fa-solid fa-circle-info"></i> {{ t('account.modal_format_title') }}</h3>
-      <button class="modal-close" onclick="closeFormatModal()" aria-label="{{ t('btn.close') }}"><i class="fa-solid fa-xmark"></i></button>
-    </div>
-    <div class="modal-body">
-      <p class="mb-12">{{ t('account.modal_format_cols') }}</p>
-      <div class="format-example">
-        <strong>{{ t('account.modal_format_headers') }}</strong>
-        <code>prenom | nom | email | age | mot_de_passe | role | statut</code>
+<!-- ── La fiche d'un compte : la MÊME pour créer et pour modifier ──────────
+     Créer et modifier posent les mêmes questions ; deux écrans différents
+     pour un même formulaire, c'était deux fois à comprendre. -->
+{% if can_create_accounts or current_user_id %}
+<div class="acc-modal" id="acc-fiche" hidden>
+  <div class="acc-modal-fond" data-action="fermer-fiche"></div>
+  <div class="acc-modal-boite" role="dialog" aria-modal="true" aria-labelledby="acc-fiche-titre">
+    <header class="acc-modal-tete">
+      <span class="acc-modal-ic"><i class="fa-solid fa-user-pen"></i></span>
+      <div>
+        <h3 id="acc-fiche-titre">{{ t('account.modal_new') }}</h3>
+        <p id="acc-fiche-sous"></p>
       </div>
-      <div class="format-example">
-        <strong>{{ t('account.modal_format_example') }}</strong>
-        <code>Jean | Dupont | jean@mail.com | 30 | pass123 | Développeur | user</code>
+      <button type="button" class="acc-modal-x" data-action="fermer-fiche" aria-label="{{ t('btn.close') }}">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+    </header>
+
+    <form method="POST" id="acc-form" action="{{ url_for('gestion_compte.create_user') }}">
+      <div class="acc-modal-corps">
+        <fieldset class="acc-grp">
+          <legend>{{ t('account.sec_identity') }}</legend>
+          <div class="acc-champs">
+            <label class="acc-champ">
+              <span>{{ t('account.f_firstname') }} <em>*</em></span>
+              <input type="text" name="first_name" id="acc-prenom" required autocomplete="off">
+            </label>
+            <label class="acc-champ">
+              <span>{{ t('account.f_lastname') }} <em>*</em></span>
+              <input type="text" name="last_name" id="acc-nom" required autocomplete="off">
+            </label>
+            <label class="acc-champ acc-champ--court">
+              <span>{{ t('account.f_age') }}</span>
+              <input type="number" name="age" id="acc-age" min="16" max="100" autocomplete="off">
+            </label>
+          </div>
+        </fieldset>
+
+        <fieldset class="acc-grp">
+          <legend>{{ t('account.sec_login') }}</legend>
+          <div class="acc-champs">
+            <label class="acc-champ acc-champ--large">
+              <span>{{ t('account.f_email') }} <em>*</em></span>
+              <input type="email" name="email" id="acc-email" required autocomplete="off">
+              <small>{{ t('account.email_hint') }}</small>
+            </label>
+            <label class="acc-champ">
+              <span>{{ t('account.f_password') }} <em id="acc-mdp-etoile">*</em></span>
+              <input type="password" name="password" id="acc-mdp" minlength="6" autocomplete="new-password">
+              <small id="acc-mdp-aide">{{ t('account.pw_hint_new') }}</small>
+            </label>
+          </div>
+        </fieldset>
+
+        <fieldset class="acc-grp">
+          <legend>{{ t('account.sec_place') }}</legend>
+          <div class="acc-champs">
+            <label class="acc-champ">
+              <span>{{ t('account.f_role') }}</span>
+              <select name="role_id" id="acc-role-sel">
+                <option value="">{{ t('account.role_none') }}</option>
+                {% for role in roles %}<option value="{{ role.id }}">{{ role.name }}</option>{% endfor %}
+              </select>
+            </label>
+            {% if is_admin %}
+            <div class="acc-champ acc-champ--large">
+              <span>{{ t('account.f_status') }}</span>
+              <div class="acc-paliers" id="acc-paliers">
+                {% for cle, lib, aide in [
+                      ('user', t('account.status_user'), t('account.status_user_hint')),
+                      ('champion', t('account.status_champion'), t('account.status_champion_hint')),
+                      ('coordinateur', t('account.status_coordinator'), t('account.status_coordinator_hint')),
+                      ('administrateur', t('account.status_admin'), t('account.status_admin_hint'))] %}
+                <label class="acc-palier p-{{ cle }}">
+                  <input type="radio" name="status" value="{{ cle }}"{% if cle == 'user' %} checked{% endif %}>
+                  <span class="acc-palier-t">{{ lib }}</span>
+                  <span class="acc-palier-d">{{ aide }}</span>
+                </label>
+                {% endfor %}
+              </div>
+            </div>
+            {% endif %}
+          </div>
+        </fieldset>
       </div>
-      <div class="info-strip info-strip--warn" style="margin-top:12px;">
-        <i class="fa-solid fa-triangle-exclamation"></i>
-        <span>{{ t('account.modal_format_warning') }} <code>user</code>, <code>rh</code>, <code>administrateur</code></span>
-      </div>
+
+      <footer class="acc-modal-pied">
+        <button type="button" class="acc-btn" data-action="fermer-fiche">{{ t('btn.cancel') }}</button>
+        <button type="submit" class="acc-btn acc-btn--prim" id="acc-valider">
+          <i class="fa-solid fa-check"></i><span>{{ t('account.btn_create_user') }}</span>
+        </button>
+      </footer>
+    </form>
+  </div>
+</div>
+{% endif %}
+
+<!-- ── Supprimer un compte ───────────────────────────────────────────── -->
+<div class="acc-modal" id="acc-suppr" hidden>
+  <div class="acc-modal-fond" data-action="fermer-suppr"></div>
+  <div class="acc-modal-boite acc-modal-boite--etroite" role="dialog" aria-modal="true">
+    <header class="acc-modal-tete acc-modal-tete--danger">
+      <span class="acc-modal-ic"><i class="fa-solid fa-triangle-exclamation"></i></span>
+      <div><h3>{{ t('account.delete_title') }}</h3></div>
+      <button type="button" class="acc-modal-x" data-action="fermer-suppr" aria-label="{{ t('btn.close') }}">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+    </header>
+    <div class="acc-modal-corps">
+      <p>{{ t('account.delete_question') }} <strong id="acc-suppr-qui"></strong> ?</p>
+      <p class="acc-danger">{{ t('account.delete_irreversible') }}</p>
     </div>
-    <div class="modal-footer">
-      <button class="btn btn-pink" onclick="closeFormatModal()"><i class="fa-solid fa-check"></i> {{ t('account.modal_understood') }}</button>
-    </div>
+    <footer class="acc-modal-pied">
+      <button type="button" class="acc-btn" data-action="fermer-suppr">{{ t('btn.cancel') }}</button>
+      <form method="POST" id="acc-suppr-form">
+        <button type="submit" class="acc-btn acc-btn--danger">
+          <i class="fa-solid fa-trash"></i><span>{{ t('account.btn_delete') }}</span>
+        </button>
+      </form>
+    </footer>
   </div>
 </div>
 
-<!-- ── Modal Suppression ── -->
-<div class="modal hidden" id="deleteConfirmModal" aria-hidden="true">
-  <div class="modal-card">
-    <div class="modal-header modal-header--danger">
-      <h3 class="modal-title"><i class="fa-solid fa-triangle-exclamation"></i> {{ t('account.delete_title') }}</h3>
-      <button class="modal-close modal-close--dark" onclick="closeDeleteModal()" aria-label="{{ t('btn.close') }}"><i class="fa-solid fa-xmark"></i></button>
-    </div>
-    <div class="modal-body">
-      <p>{{ t('account.delete_question') }} <strong id="deleteUserName"></strong> ?</p>
-      <p class="danger-note">{{ t('account.delete_irreversible') }}</p>
-    </div>
-    <div class="modal-footer">
-      <button class="btn btn-pink-danger" onclick="executeDelete()"><i class="fa-solid fa-trash"></i> {{ t('account.btn_delete') }}</button>
-      <button class="btn btn-ghost" onclick="closeDeleteModal()">{{ t('btn.cancel') }}</button>
-    </div>
-  </div>
-</div>
+{% if can_create_accounts %}{% include "import_hub_modal.html" %}{% endif %}
 
-<!-- Toast -->
-<div id="toast" class="toast" role="status" aria-live="polite"></div>
+<div id="acc-toast" class="acc-toast" role="status" aria-live="polite"></div>
+
+<script>
+  window.ACC_CTX = {
+    peutCreer: {{ (can_create_accounts | default(false)) | tojson }},
+    moi: {{ (current_user_id or 0) | tojson }},
+    urlUpdate: {{ url_for('gestion_compte.update_user', user_id=0) | tojson }},
+    urlDelete: {{ url_for('gestion_compte.delete_user', user_id=0) | tojson }},
+    urlCreate: {{ url_for('gestion_compte.create_user') | tojson }},
+  };
+  window.ACC_L = {
+    modal_new:     {{ t('account.modal_new') | tojson }},
+    modal_edit:    {{ t('account.modal_edit') | tojson }},
+    btn_create:    {{ t('account.btn_create_user') | tojson }},
+    btn_save:      {{ t('btn.save') | tojson }},
+    pw_hint_new:   {{ t('account.pw_hint_new') | tojson }},
+    pw_hint_edit:  {{ t('account.pw_hint_edit') | tojson }},
+    no_match:      {{ t('account.no_match') | tojson }},
+    // Ce que chaque palier ouvre
+    st_user:         {{ t('account.status_user') | tojson }},
+    st_champion:     {{ t('account.status_champion') | tojson }},
+    st_coordinateur: {{ t('account.status_coordinator') | tojson }},
+    st_admin:        {{ t('account.status_admin') | tojson }},
+    droit_propose_carto:    {{ t('droit.propose_carto') | tojson }},
+    droit_edit_carto:       {{ t('droit.edit_carto') | tojson }},
+    droit_review_carto:     {{ t('droit.review_carto') | tojson }},
+    droit_manage_acces:     {{ t('droit.manage_acces') | tojson }},
+    droit_acces_rh:         {{ t('droit.acces_rh') | tojson }},
+    droit_cree_comptes:     {{ t('droit.cree_comptes') | tojson }},
+    droit_parametres_admin: {{ t('droit.parametres_admin') | tojson }},
+    droit_parametres_admin_warn: {{ t('droit.parametres_admin_warn') | tojson }},
+    admin_verrou:  {{ t('droit.admin_verrou') | tojson }},
+    lecture_seule: {{ t('droit.lecture_seule') | tojson }},
+    defaut:        {{ t('droit.defaut') | tojson }},
+    enregistre:    {{ t('droit.enregistre') | tojson }},
+    err_save:      {{ t('account.err_save') | tojson }},
+    // Messages de la page (retour d'un formulaire)
+    msg_created:   {{ t('account.msg_created') | tojson }},
+    msg_updated:   {{ t('account.msg_updated') | tojson }},
+    msg_deleted:   {{ t('account.msg_deleted') | tojson }},
+    msg_error:     {{ t('account.msg_error') | tojson }}
+  };
+</script>

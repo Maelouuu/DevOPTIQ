@@ -1636,3 +1636,109 @@ body.imh-ouvert { overflow: hidden; }
   .imh-tuile { min-width: 0; flex: 1 1 30%; }
   .imh-tout { margin-left: 0; }
 }
+
+/* ══════════════════════════════════════════════════════════════════════
+   Les comptes — la même fenêtre, ouverte depuis la page Comptes
+   ══════════════════════════════════════════════════════════════════════ */
+.imh-bascule {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 4px;
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--imh-ink-2);
+  cursor: pointer;
+  align-self: flex-start;
+}
+.imh-bascule input { position: absolute; opacity: 0; pointer-events: none; }
+.imh-bascule-rail {
+  position: relative;
+  width: 36px;
+  height: 21px;
+  border-radius: 99px;
+  background: #d8dbe6;
+  transition: background .2s;
+}
+.imh-bascule-rail span {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, .2);
+  transition: transform .2s cubic-bezier(.2, .8, .2, 1);
+}
+.imh-bascule input:checked + .imh-bascule-rail { background: var(--tc, #0d9488); }
+.imh-bascule input:checked + .imh-bascule-rail span { transform: translateX(15px); }
+.imh-bascule input:focus-visible + .imh-bascule-rail { box-shadow: 0 0 0 3px rgba(225, 29, 72, .3); }
+
+/* Une pastille de couleur stable par personne : on reconnaît une ligne
+   d'un coup d'œil, sans lire l'adresse en entier. */
+.imh-av {
+  flex: none;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: hsl(var(--h) 55% 32%);
+  background: hsl(var(--h) 70% 92%);
+}
+.imh-chip.c-statut { color: #9f1239; background: #ffe4ea; font-weight: 600; }
+.imh-portee.is-instance { display: flex; align-items: center; gap: 12px; }
+.imh-portee.is-instance p { margin: 0; font-size: 13.5px; color: var(--imh-ink-2); }
+
+.imh-ids {
+  width: 100%;
+  margin-top: 18px;
+  text-align: left;
+  border-radius: 18px;
+  background: #fff;
+  border: 1px solid #f3dfae;
+  box-shadow: 0 0 0 4px #fdf4df;
+  overflow: hidden;
+  animation: imhCarte .45s .6s cubic-bezier(.2, .8, .2, 1) both;
+}
+.imh-ids-tete { display: flex; align-items: center; gap: 14px; padding: 14px 16px; background: #fffbf0; }
+.imh-ids-tete > div { flex: 1; }
+.imh-ids-tete strong { font-size: 14.5px; }
+.imh-ids-tete p { margin: 2px 0 0; font-size: 13px; color: var(--imh-warn); }
+.imh-ids-ic {
+  flex: none;
+  width: 38px;
+  height: 38px;
+  border-radius: 11px;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+}
+.imh-ids .imh-btn-prim { --tc: #d97706; }
+.imh-ids-t { max-height: 220px; overflow: auto; }
+.imh-ids table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.imh-ids th {
+  position: sticky;
+  top: 0;
+  padding: 8px 16px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+  text-align: left;
+  color: var(--imh-faint);
+  background: #fff;
+  border-bottom: 1px solid var(--imh-line);
+}
+.imh-ids td { padding: 8px 16px; border-bottom: 1px solid var(--imh-line-2); }
+.imh-ids code {
+  padding: 2px 7px;
+  border-radius: 6px;
+  font-family: var(--pg-font-mono, ui-monospace, monospace);
+  font-size: 12.5px;
+  background: #f4f5f9;
+}

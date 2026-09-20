@@ -186,7 +186,16 @@ _MOTS = {
     "nom": ("nom", "name", "outil", "libelle", "moyen", "intitule"),
     "mission": ("mission", "descriptif"),
     "description": ("description", "usage", "detail", "commentaire"),
+    # Collaborateurs : les titres d'un export RH, qui ne sont jamais ceux
+    # qu'on attend.
+    "prenom": ("prenom", "first"),
+    "email": ("adresse", "contact", "mail", "courriel"),
+    "role": ("fonction", "poste", "metier"),
+    "statut": ("statut", "profil", "habilitation"),
 }
+# Une colonne qui porte le nom ENTIER d'une personne : l'IA la désigne à part
+# (`nom_complet`), et le code la scinde.
+_MOTS_NOM_COMPLET = ("collaborateur", "personne", "salarie", "employe", "nom complet")
 
 
 def _ia_simulee(systeme, contenu):
@@ -223,15 +232,27 @@ def _ia_simulee(systeme, contenu):
                     cols[champ] = int(j)
                     lus.append(f"« {titre} » → {champ}")
                     break
-        note = (requis <= set(cols), len(cols))
-        if cols and (meilleur is None or note > meilleur[0]):
-            meilleur = (note, ty, cols, lus)
+        nc = None
+        if ty == "users":
+            for j, titre in entete["cellules"].items():
+                t_ = import_hub._norm(titre)
+                if int(j) not in cols.values() and any(m in t_ for m in _MOTS_NOM_COMPLET):
+                    nc = int(j)
+                    lus.append("« %s » → prénom + nom" % titre)
+                    break
+        couverts = set(cols) | ({"prenom", "nom"} if nc is not None else set())
+        note = (requis <= couverts, len(couverts))
+        if couverts and (meilleur is None or note > meilleur[0]):
+            meilleur = (note, ty, cols, lus, nc)
     if meilleur is None:
         return {"type": None, "remarque": "IA simulée : aucune donnée importable ici."}
-    _, ty, cols, lus = meilleur
-    return {"type": ty, "ligne_entete": idx, "colonnes": cols,
-            "confiance": "medium" if meilleur[0][0] else "low",
-            "remarque": "IA simulée (devrun) : " + ", ".join(lus) + "."}
+    _, ty, cols, lus, nc = meilleur
+    rep = {"type": ty, "ligne_entete": idx, "colonnes": cols,
+           "confiance": "medium" if meilleur[0][0] else "low",
+           "remarque": "IA simulée (devrun) : " + ", ".join(lus) + "."}
+    if nc is not None:
+        rep.update(nom_complet=nc, ordre_nom=None)
+    return rep
 
 
 import_hub._appeler_ia = _ia_simulee

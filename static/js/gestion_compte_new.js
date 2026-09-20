@@ -1,285 +1,277 @@
-/**
- * gestion_compte_new.js
- */
+/* ════════════════════════════════════════════════════════════════════
+   Page Comptes — la liste, la fiche d'un compte, ce que chaque palier ouvre.
 
-let excelData = [];
+   Une seule liste, rendue par le serveur : on ne filtre ici que l'affichage.
+   ⚠️ Créer et modifier passent par la MÊME fiche — ce sont les mêmes
+   questions, et deux écrans finissaient par ne plus se ressembler.
+   ⚠️ Rien de ce qui est masqué ici n'est un droit : chaque route refuse de
+   son côté (Code/routes/gestion_compte.py).
+   ════════════════════════════════════════════════════════════════════ */
+(function () {
+  'use strict';
 
-// ── ONGLETS ─────────────────────────────────────────────────────────────────
+  const CTX = window.ACC_CTX || {};
+  const L = (cle) => (window.ACC_L || {})[cle] || cle;
+  const $ = (s, r) => (r || document).querySelector(s);
+  const $$ = (s, r) => Array.from((r || document).querySelectorAll(s));
+  const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g,
+    (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
-document.querySelectorAll('.tab-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-        const tabId = btn.dataset.tab;
-        document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
-        document.querySelectorAll('.tab-btn').forEach(b => { b.classList.remove('active'); b.setAttribute('aria-selected', 'false'); });
-        document.getElementById(tabId).classList.add('active');
-        btn.classList.add('active');
-        btn.setAttribute('aria-selected', 'true');
+  /* ── La liste : filtrer ce qui est déjà là ─────────────────────────── */
+  let filtre = 'tous';
+
+  function filtrer() {
+    const q = ($('#acc-q').value || '').trim().toLowerCase();
+    const role = $('#acc-role').value;
+    let n = 0;
+    $$('.acc-ligne').forEach((l) => {
+      const ok = (filtre === 'tous' || l.dataset.famille === filtre)
+        && (!q || l.dataset.nom.toLowerCase().includes(q))
+        && (!role || (l.dataset.roles || '').split('|').includes(role));
+      l.hidden = !ok;
+      if (ok) n += 1;
     });
-});
+    $('#acc-rien').hidden = n > 0;
+  }
 
-// ── DRAG & DROP EXCEL ────────────────────────────────────────────────────────
-
-const dropZone   = document.getElementById('dropZone');
-const fileInput  = document.getElementById('excelFileInput');
-
-if (dropZone) {
-    dropZone.addEventListener('click', () => fileInput.click());
-    dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
-    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
-    dropZone.addEventListener('drop', e => {
-        e.preventDefault();
-        dropZone.classList.remove('dragover');
-        if (e.dataTransfer.files.length > 0) handleFileUpload(e.dataTransfer.files[0]);
-    });
-}
-
-if (fileInput) {
-    fileInput.addEventListener('change', e => {
-        if (e.target.files.length > 0) handleFileUpload(e.target.files[0]);
-    });
-}
-
-function handleFileUpload(file) {
-    const ext = file.name.split('.').pop().toLowerCase();
-    if (!['xlsx', 'xls', 'csv'].includes(ext)) {
-        alert('Format non supporté. Utilisez .xlsx, .xls ou .csv');
-        return;
+  /* ── La fiche d'un compte ──────────────────────────────────────────── */
+  function ouvrirFiche(ligne) {
+    const f = $('#acc-fiche');
+    if (!f) return;
+    const form = $('#acc-form');
+    const creation = !ligne;
+    form.reset();
+    if (creation) {
+      form.action = CTX.urlCreate;
+      $('#acc-fiche-titre').textContent = L('modal_new');
+      $('#acc-fiche-sous').textContent = '';
+      $('#acc-mdp').required = true;
+      $('#acc-mdp-aide').textContent = L('pw_hint_new');
+      $('#acc-mdp-etoile').hidden = false;
+      $('#acc-valider').querySelector('span').textContent = L('btn_create');
+    } else {
+      const d = ligne.dataset;
+      form.action = String(CTX.urlUpdate).replace(/0$/, d.id);
+      $('#acc-fiche-titre').textContent = L('modal_edit');
+      $('#acc-fiche-sous').textContent = d.email;
+      $('#acc-prenom').value = d.prenom || '';
+      $('#acc-nom').value = d.nomFamille || '';
+      $('#acc-email').value = d.email || '';
+      $('#acc-age').value = d.age || '';
+      const sel = $('#acc-role-sel');
+      if (sel) sel.value = d.roleId || '';
+      const palier = $(`#acc-paliers input[value="${cssEchap(famillePourFormulaire(d.famille))}"]`);
+      if (palier) palier.checked = true;
+      // ⚠️ Un mot de passe vide ne change rien : c'est la seule façon de
+      // modifier un nom sans toucher au mot de passe.
+      $('#acc-mdp').required = false;
+      $('#acc-mdp-aide').textContent = L('pw_hint_edit');
+      $('#acc-mdp-etoile').hidden = true;
+      $('#acc-valider').querySelector('span').textContent = L('btn_save');
     }
-    const reader = new FileReader();
-    reader.onload = e => {
-        try {
-            if (typeof XLSX !== 'undefined') {
-                const data = new Uint8Array(e.target.result);
-                const wb   = XLSX.read(data, { type: 'array' });
-                const ws   = wb.Sheets[wb.SheetNames[0]];
-                const json = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '', blankrows: false });
-                excelData  = parseExcelData(json);
-            } else {
-                excelData = parseExcelData(e.target.result.split('\n').map(l => l.split(',')));
-            }
-            displayPreview(excelData);
-        } catch(err) {
-            console.error(err);
-            alert('Erreur de lecture du fichier.');
-        }
-    };
-    ext === 'csv' ? reader.readAsText(file) : reader.readAsArrayBuffer(file);
-}
+    f.hidden = false;
+    document.body.classList.add('acc-modal-ouverte');
+    setTimeout(() => $('#acc-prenom').focus(), 40);
+  }
 
-function parseExcelData(raw) {
-    if (!raw.length) { alert('Fichier vide.'); return []; }
-    const first    = raw[0];
-    const keywords = ['prenom','prénom','nom','email','age','âge','mot de passe','password','role','rôle','statut'];
-    const isHeader = first.some(c => typeof c === 'string' && keywords.includes(c.toLowerCase().trim()));
-    const rows     = isHeader ? raw.slice(1) : raw;
-    return rows
-        .filter(r => r && r.length > 0 && (r[0] || r[2]))
-        .map(r => ({
-            prenom:      String(r[0] || '').trim(),
-            nom:         String(r[1] || '').trim(),
-            email:       String(r[2] || '').trim(),
-            age:         r[3] || '',
-            mot_de_passe:String(r[4] || '').trim(),
-            role:        String(r[5] || '').trim(),
-            statut:      String(r[6] || 'user').trim()
-        }));
-}
+  // Le formulaire écrit « administrateur », la liste range en « admin ».
+  const famillePourFormulaire = (f) => (f === 'admin' ? 'administrateur' : f || 'user');
+  const cssEchap = (v) => String(v).replace(/"/g, '\\"');
 
-function displayPreview(data) {
-    if (!data.length) { alert('Aucune donnée valide trouvée.'); return; }
-    const previewTable = document.getElementById('previewTable');
-    let html = '<table><thead><tr><th>Prénom</th><th>Nom</th><th>Email</th><th>Âge</th><th>Mot de passe</th><th>Rôle</th><th>Statut</th></tr></thead><tbody>';
-    data.forEach(u => {
-        html += `<tr><td>${u.prenom}</td><td>${u.nom}</td><td>${u.email}</td><td>${u.age}</td><td>••••••</td><td>${u.role}</td><td><span class="badge badge-user">${u.statut}</span></td></tr>`;
-    });
-    html += '</tbody></table>';
-    previewTable.innerHTML = html;
-    document.getElementById('previewZone').style.display = 'block';
-}
+  function fermerFiche() {
+    const f = $('#acc-fiche');
+    if (f) f.hidden = true;
+    document.body.classList.remove('acc-modal-ouverte');
+  }
 
-function confirmImport() {
-    if (!excelData.length) { alert('Aucune donnée à importer.'); return; }
-    fetch('/comptes/import_excel', {
-        method:  'POST',
+  function ouvrirSuppression(id, qui) {
+    $('#acc-suppr-qui').textContent = qui;
+    $('#acc-suppr-form').action = String(CTX.urlDelete).replace(/0$/, id);
+    $('#acc-suppr').hidden = false;
+    document.body.classList.add('acc-modal-ouverte');
+  }
+
+  function fermerSuppression() {
+    $('#acc-suppr').hidden = true;
+    document.body.classList.remove('acc-modal-ouverte');
+  }
+
+  /* ── ② Ce que chaque palier ouvre ───────────────────────────────────
+     Une MATRICE, pas une liste : on lit un droit en ligne et un palier en
+     colonne, et c'est la comparaison entre paliers qui renseigne.
+
+     ⚠️ La colonne `admin` est cochée et VERROUILLÉE. Se retirer les
+     Paramètres, ce serait perdre l'écran depuis lequel on les remettrait —
+     la porte se refermerait de l'intérieur, sans poignée. */
+  const ORDRE_DROITS = ['propose_carto', 'edit_carto', 'review_carto', 'manage_acces',
+                        'acces_rh', 'cree_comptes', 'parametres_admin'];
+  let DR = null;
+
+  async function chargerDroits() {
+    try {
+      const r = await fetch('/comptes/droits', { credentials: 'same-origin' });
+      if (!r.ok) return;                 // pas le droit de lire : le bloc reste absent
+      DR = await r.json();
+      $('#acc-bloc-droits').hidden = false;
+      rendreDroits();
+    } catch (_) { /* le bloc reste absent : il n'est pas le sujet de la page */ }
+  }
+
+  const nomPalier = (p) => L('st_' + p) || p;
+
+  function rendreDroits() {
+    if (!DR) return;
+    const paliers = DR.paliers || [];
+    const mod = !!DR.modifiable;
+    const lignes = ORDRE_DROITS.filter((d) => DR.droits[d]).map((d) => {
+      const sensible = d === 'parametres_admin';
+      return `
+      <tr class="${sensible ? 'is-sensible' : ''}">
+        <th scope="row">
+          <span>${esc(L('droit_' + d))}</span>
+          ${sensible ? `<em>${esc(L('droit_parametres_admin_warn'))}</em>` : ''}
+        </th>
+        ${paliers.map((p) => {
+          const coche = !!DR.droits[d][p];
+          const verrou = p === 'admin';
+          const change = !verrou && coche !== !!(DR.defaut[d] || {})[p];
+          const bulle = verrou ? L('admin_verrou')
+            : (change ? L('defaut') + ' : ' + ((DR.defaut[d] || {})[p] ? '✓' : '—') : '');
+          return `<td${change ? ' class="a-change"' : ''}>
+            <label title="${esc(bulle)}">
+              <input type="checkbox" class="acc-droit" data-droit="${d}" data-palier="${p}"
+                     ${coche ? 'checked' : ''} ${(verrou || !mod) ? 'disabled' : ''}>
+            </label>
+          </td>`;
+        }).join('')}
+      </tr>`;
+    }).join('');
+
+    $('#acc-droits').innerHTML = `
+      <div class="acc-droits-wrap">
+        <table class="acc-droits">
+          <thead>
+            <tr>
+              <td></td>
+              ${paliers.map((p) => `<th scope="col"
+                class="${p === 'admin' ? 'is-locked' : ''}">${esc(nomPalier(p))}</th>`).join('')}
+            </tr>
+          </thead>
+          <tbody>${lignes}</tbody>
+        </table>
+      </div>
+      <p class="acc-droits-note">
+        <i class="fa-solid fa-lock"></i> ${esc(L('admin_verrou'))}
+        ${mod ? '' : ' · ' + esc(L('lecture_seule'))}
+      </p>`;
+
+    const bouton = $('#acc-droits-reset');
+    if (bouton) {
+      bouton.hidden = !mod || !aUnEcart();
+      bouton.onclick = () => enregistrerDroits(DR.defaut);
+    }
+    $$('.acc-droit').forEach((c) => c.addEventListener('change', () => {
+      DR.droits[c.dataset.droit][c.dataset.palier] = c.checked;
+      enregistrerDroits(DR.droits);
+    }));
+  }
+
+  // Y a-t-il quoi que ce soit qui s'écarte de l'origine ? C'est ce qui décide
+  // d'afficher « revenir aux valeurs d'origine » : un bouton toujours là
+  // laisserait croire qu'on a réglé quelque chose.
+  function aUnEcart() {
+    return ORDRE_DROITS.some((d) => DR.droits[d] && Object.keys(DR.droits[d])
+      .some((p) => p !== 'admin' && !!DR.droits[d][p] !== !!(DR.defaut[d] || {})[p]));
+  }
+
+  async function enregistrerDroits(table) {
+    try {
+      const r = await fetch('/comptes/droits', {
+        method: 'POST', credentials: 'same-origin',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ users: excelData })
-    })
-    .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
-    .then(d => {
-        if (d.success) {
-            showToast(`${d.imported} utilisateur(s) importé(s)`, 'ok');
-            setTimeout(() => location.reload(), 1200);
-        } else {
-            showToast(`Erreur : ${d.message}`, 'err');
-        }
-    })
-    .catch(err => showToast('Erreur serveur : ' + err.message, 'err'));
-}
+        body: JSON.stringify({ droits: table }),
+      });
+      const d = await r.json();
+      if (!r.ok || !d.ok) throw new Error();
+      DR.droits = d.droits;
+      rendreDroits();
+      toast(L('enregistre'));
+    } catch (_) {
+      toast(L('err_save'), true);
+      chargerDroits();      // on relit plutôt que de laisser l'écran mentir
+    }
+  }
 
-function cancelImport() {
-    excelData = [];
-    document.getElementById('previewZone').style.display = 'none';
-    document.getElementById('excelFileInput').value = '';
-}
-
-// ── MODALS ───────────────────────────────────────────────────────────────────
-
-function showFormatModal()        { openModal('formatModal'); }
-function closeFormatModal()       { closeModal('formatModal'); }
-function closeAddCollaboratorModal() { closeModal('addCollaboratorModal'); }
-
-function openModal(id) {
-    const m = document.getElementById(id);
-    if (m) { m.classList.remove('hidden'); m.setAttribute('aria-hidden', 'false'); }
-}
-function closeModal(id) {
-    const m = document.getElementById(id);
-    if (m) { m.classList.add('hidden'); m.setAttribute('aria-hidden', 'true'); }
-}
-
-// Close on backdrop click
-document.querySelectorAll('.modal').forEach(modal => {
-    modal.addEventListener('click', e => {
-        if (e.target === modal) modal.classList.add('hidden');
-    });
-});
-
-// ── FILTRES ──────────────────────────────────────────────────────────────────
-
-function filterUsers() {
-    const search = (document.getElementById('searchInput')?.value || '').toLowerCase();
-    const status = document.getElementById('statusFilter')?.value || '';
-    const role   = document.getElementById('roleFilter')?.value   || '';
-    document.querySelectorAll('.user-row').forEach(row => {
-        const matchName   = row.dataset.name.toLowerCase().includes(search);
-        const matchStatus = !status || row.dataset.status === status;
-        const matchRole   = !role   || row.dataset.role === role;
-        row.style.display = (matchName && matchStatus && matchRole) ? '' : 'none';
-    });
-}
-
-// ── MANAGERS ─────────────────────────────────────────────────────────────────
-
-function toggleManagerSubordinates(managerId) {
-    const div  = document.getElementById(`subordinates-${managerId}`);
-    const icon = document.getElementById(`icon-manager-${managerId}`);
-    const open = div.style.display === 'none' || div.style.display === '';
-    div.style.display = open ? 'block' : 'none';
-    icon.classList.toggle('rotated', open);
-}
-
-function showAddCollaboratorModal(managerId, managerName) {
-    document.getElementById('modalManagerId').value     = managerId;
-    document.getElementById('managerNameDisplay').textContent = managerName;
-    openModal('addCollaboratorModal');
-}
-
-// ── RÔLES SUPPLÉMENTAIRES ────────────────────────────────────────────────────
-
-function showAllRoles(event, userId) {
-    event.preventDefault();
-    const roles  = event.currentTarget.dataset.roles.split(',');
-    const overlay = document.createElement('div');
-    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(59,10,31,.45);z-index:9999;display:flex;align-items:center;justify-content:center;';
-    overlay.id = 'roles-overlay';
-    const box = document.createElement('div');
-    box.style.cssText = 'background:#fff;border-radius:12px;padding:24px;min-width:280px;max-width:400px;box-shadow:0 8px 32px rgba(157,23,77,.2);';
-    box.innerHTML = `<h3 style="margin:0 0 14px;color:#3b0a1f;font-size:.95rem;">Tous les rôles</h3>
-      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px;">${roles.map(r => `<span class="badge badge-role">${r}</span>`).join('')}</div>
-      <button onclick="closeRolesPopup()" style="width:100%;padding:9px;background:#9d174d;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:600;font-size:.84rem;">Fermer</button>`;
-    overlay.appendChild(box);
-    overlay.addEventListener('click', e => { if (e.target === overlay) closeRolesPopup(); });
-    document.body.appendChild(overlay);
-}
-
-function closeRolesPopup() {
-    document.getElementById('roles-overlay')?.remove();
-}
-
-// ── SUPPRESSION ──────────────────────────────────────────────────────────────
-
-let deleteUserId = null;
-
-function confirmDelete(userId, userName) {
-    deleteUserId = userId;
-    document.getElementById('deleteUserName').textContent = userName;
-    openModal('deleteConfirmModal');
-}
-
-function closeDeleteModal() {
-    deleteUserId = null;
-    closeModal('deleteConfirmModal');
-}
-
-function executeDelete() {
-    if (!deleteUserId) return;
-    const form = document.createElement('form');
-    form.method = 'POST';
-    form.action = `/comptes/delete/${deleteUserId}`;
-    document.body.appendChild(form);
-    form.submit();
-}
-
-// ── TOAST ────────────────────────────────────────────────────────────────────
-
-function showToast(msg, type = '') {
-    const t = document.getElementById('toast');
+  /* ── Messages ──────────────────────────────────────────────────────── */
+  let minuterie = null;
+  function toast(texte, erreur) {
+    const t = $('#acc-toast');
     if (!t) return;
-    t.textContent = msg;
-    t.className   = 'toast' + (type ? ' toast-' + type : '');
-    t.classList.add('show');
-    setTimeout(() => t.classList.remove('show'), 3200);
-}
+    t.textContent = texte;
+    t.classList.toggle('is-err', !!erreur);
+    t.classList.add('on');
+    clearTimeout(minuterie);
+    minuterie = setTimeout(() => t.classList.remove('on'), 3200);
+  }
 
-// ── INIT ─────────────────────────────────────────────────────────────────────
+  const MESSAGES = {
+    created: () => L('msg_created'),
+    updated: () => L('msg_updated'),
+    deleted: () => L('msg_deleted'),
+  };
 
-document.addEventListener('DOMContentLoaded', () => {
-    // Charger SheetJS dynamiquement
-    if (typeof XLSX === 'undefined') {
-        const s = document.createElement('script');
-        s.src   = 'https://cdn.sheetjs.com/xlsx-0.20.0/package/dist/xlsx.full.min.js';
-        document.head.appendChild(s);
+  function messageDeLUrl() {
+    const p = new URLSearchParams(window.location.search);
+    const msg = p.get('msg');
+    if (msg) {
+      const lib = MESSAGES[msg] ? MESSAGES[msg]() : L('msg_error');
+      setTimeout(() => toast(lib, !MESSAGES[msg]), 120);
     }
-
-    // Lire les paramètres URL pour activer le bon onglet et afficher un toast
-    const params = new URLSearchParams(window.location.search);
-    const tabParam = params.get('tab');
-    const msgParam = params.get('msg');
-
-    if (tabParam) {
-        document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
-        document.querySelectorAll('.tab-btn').forEach(b => {
-            b.classList.remove('active');
-            b.setAttribute('aria-selected', 'false');
-        });
-        const targetPane = document.getElementById(tabParam);
-        const targetBtn  = document.querySelector(`.tab-btn[data-tab="${tabParam}"]`);
-        if (targetPane) targetPane.classList.add('active');
-        if (targetBtn)  { targetBtn.classList.add('active'); targetBtn.setAttribute('aria-selected', 'true'); }
+    const edit = p.get('edit');
+    if (edit) {
+      const ligne = $(`.acc-ligne[data-id="${cssEchap(edit)}"]`);
+      if (ligne) setTimeout(() => ouvrirFiche(ligne), 60);
     }
+    // L'URL nettoyée : rafraîchir la page ne rejoue pas le message.
+    if (msg || edit) window.history.replaceState({}, '', window.location.pathname);
+  }
 
-    const toastMessages = {
-        created:               'Utilisateur créé avec succès.',
-        updated:               'Modifications enregistrées.',
-        deleted:               'Utilisateur supprimé.',
-        error_missing_name:    'Veuillez renseigner le prénom et le nom.',
-        error_missing_email:   'Veuillez renseigner l\'adresse email.',
-        error_missing_password:'Le mot de passe doit contenir au moins 6 caractères.',
-        error_missing_role:    'Veuillez sélectionner un rôle.',
-        error_email_exists:    'Cette adresse email est déjà utilisée.',
-        error_invalid_age:     'L\'âge doit être un nombre.',
-        error_update:          'Modification impossible : vérifiez les champs saisis.',
-        error_forbidden_create:'Seuls les administrateurs et les gestionnaires de compétences peuvent créer des comptes.',
-        error_forbidden_edit:  'Vous ne pouvez modifier que votre propre compte.',
-    };
-    if (msgParam && toastMessages[msgParam]) {
-        const isError = msgParam.startsWith('error_');
-        setTimeout(() => showToast(toastMessages[msgParam], isError ? 'err' : 'ok'), 80);
-    }
+  /* ── Branchements ──────────────────────────────────────────────────── */
+  function init() {
+    if (!$('.acc')) return;
+    $('#acc-q').addEventListener('input', filtrer);
+    $('#acc-role').addEventListener('change', filtrer);
+    $$('.acc-tuile').forEach((b) => b.addEventListener('click', () => {
+      filtre = b.dataset.filtre;
+      $$('.acc-tuile').forEach((x) => {
+        x.classList.toggle('on', x === b);
+        x.setAttribute('aria-pressed', String(x === b));
+      });
+      filtrer();
+    }));
 
-    // Nettoyer l'URL pour éviter un re-toast au rafraîchissement
-    if (tabParam || msgParam) {
-        const clean = window.location.pathname;
-        window.history.replaceState({}, '', clean);
-    }
-});
+    document.addEventListener('click', (e) => {
+      const el = e.target.closest('[data-action]');
+      if (!el) return;
+      switch (el.dataset.action) {
+        case 'nouveau': return ouvrirFiche(null);
+        case 'modifier': return ouvrirFiche(el.closest('.acc-ligne'));
+        case 'supprimer': return ouvrirSuppression(el.dataset.id, el.dataset.qui);
+        case 'fermer-fiche': return fermerFiche();
+        case 'fermer-suppr': return fermerSuppression();
+        default:
+      }
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key !== 'Escape') return;
+      fermerFiche();
+      fermerSuppression();
+    });
+
+    chargerDroits();
+    messageDeLUrl();
+  }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+  else init();
+})();

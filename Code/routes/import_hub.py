@@ -1,9 +1,14 @@
 # -*- coding: utf-8 -*-
-"""Importer des données depuis un fichier — la fenêtre d'import de la page Carte.
+"""Importer des données depuis un fichier — page Carte et page Comptes.
 
-Une carte par nature de donnée (rôles, tâches, outils) et un import MULTIPLE :
-plusieurs fichiers, ou un classeur dont chaque feuille porte une nature
-différente. Pour chacune, le même parcours :
+La MÊME fenêtre sert aux deux, parce que c'est le même travail : lire un
+fichier, le faire relire par l'IA s'il n'a pas la forme attendue, vérifier
+chaque ligne, écrire ce qu'on a gardé. Seul le catalogue change :
+
+  · page Carte   — rôles, tâches, outils (`CARTO`), plus l'import MULTIPLE ;
+  · page Comptes — les collaborateurs (`users`), et eux seuls.
+
+Pour chacune, le même parcours :
 
   1. LIRE — le fichier est lu tel quel quand ses colonnes sont reconnues :
      synonymes français et anglais, casse et accents ignorés, ligne d'en-tête
@@ -18,22 +23,26 @@ différente. Pour chacune, le même parcours :
      choisie. Rien n'est écrit.
   4. IMPORTER — seulement ce que l'utilisateur a gardé, en UNE transaction.
 
-⚠️ Les COMPTES n'entrent pas ici : créer des collaborateurs reste l'affaire de
-la page Comptes, réservée à ceux qui en ont le droit. Une feuille de
-collaborateurs est pourtant REPÉRÉE (`COMPTES`) — pour être écartée avec un
-renvoi vers la bonne page : sans ce repérage, « Prénom | Nom | E-mail »
-passerait pour une liste de rôles, et chaque nom de famille deviendrait un rôle.
+⚠️ Les COMPTES ne s'importent que depuis la page Comptes, et seulement par qui
+peut en créer (`can_create_accounts`) : créer un compte engage toute
+l'instance. La fenêtre de la carte n'en propose donc pas la carte, un import
+multiple ne les prend pas — et une feuille de collaborateurs déposée là-bas est
+REPÉRÉE (`COMPTES`) pour être écartée avec un renvoi vers la bonne page : sans
+ce repérage, « Prénom | Nom | E-mail » passerait pour une liste de rôles, et
+chaque nom de famille deviendrait un rôle.
 
-⚠️ La portée dépend de la donnée : un rôle, un outil se posent dans une ou
-plusieurs cartos ; une tâche appartient à une activité, donc aux cartos où
-cette activité existe. Et on n'écrit jamais que dans une carto où le compte
-écrit déjà (`can_edit`) : un identifiant venu du navigateur ne suffit pas.
+⚠️ La portée dépend de la donnée. Un compte vaut pour toute l'instance ; un
+rôle, un outil se posent dans une ou plusieurs cartos ; une tâche appartient à
+une activité, donc aux cartos où cette activité existe. Et on n'écrit jamais
+que dans une carto où le compte écrit déjà (`can_edit`) : un identifiant venu
+du navigateur ne suffit pas.
 """
 import csv
 import io
 import json
 import os
 import re
+import secrets
 import unicodedata
 from difflib import SequenceMatcher
 
@@ -41,7 +50,7 @@ import openpyxl
 from flask import Blueprint, current_app, jsonify, request, send_file, session, url_for
 
 from Code.extensions import db
-from Code.models.models import Activities, Entity, Role, Task, Tool
+from Code.models.models import Activities, Entity, Role, Task, Tool, User, UserRole
 from Code.translations import t
 
 import_hub_bp = Blueprint("import_hub", __name__, url_prefix="/api/import")
@@ -50,9 +59,13 @@ MAX_OCTETS = 5 * 1024 * 1024
 MAX_LIGNES = 2000
 MAX_FICHIERS = 8
 EXTENSIONS = (".xlsx", ".xlsm", ".csv")
-# L'ordre d'écriture d'un import multiple : les outils avant les tâches qui
-# s'en servent — une tâche retrouve alors l'outil AVEC sa description.
-ORDRE = ("roles", "outils", "taches")
+# Même règle que la création d'un compte à la main (gestion_compte).
+MDP_MIN = 6
+# L'ordre d'écriture d'un import multiple : les rôles avant les comptes qui
+# les reçoivent, les outils avant les tâches qui s'en servent.
+ORDRE = ("roles", "outils", "users", "taches")
+# Ce que la fenêtre de la page Carte propose : les comptes n'y sont pas.
+CARTO = ("roles", "outils", "taches")
 
 # ── Le catalogue des natures ────────────────────────────────────────────────
 # `aide` décrit le champ à l'IA (jamais affiché : l'écran a ses libellés).
@@ -70,6 +83,30 @@ TYPES = {
              "syn": ["mission", "missions", "mission generale", "description", "descriptif",
                      "objectif", "purpose", "responsabilites", "responsabilités",
                      "responsibilities"]},
+        ],
+    },
+    "users": {
+        "noms": ["utilisateur", "utilisateurs", "collaborateur", "collaborateurs", "compte",
+                 "comptes", "personne", "personnes", "salarie", "salaries", "employe",
+                 "employes", "user", "users", "account", "accounts", "people", "staff",
+                 "employee", "employees", "equipe", "team", "effectif", "effectifs"],
+        "champs": [
+            {"cle": "prenom", "requis": True, "aide": "prénom de la personne",
+             "syn": ["prenom", "prénom", "first name", "firstname", "given name", "forename"]},
+            {"cle": "nom", "requis": True, "aide": "nom de famille de la personne",
+             "syn": ["nom", "nom de famille", "last name", "lastname", "surname", "family name"]},
+            {"cle": "email", "requis": True, "aide": "adresse e-mail (sert d'identifiant)",
+             "syn": ["email", "e-mail", "mail", "courriel", "adresse mail", "adresse e-mail",
+                     "email address", "e mail", "adresse electronique"]},
+            {"cle": "statut", "requis": False,
+             "aide": "niveau d'accès : utilisateur, champion, coordinateur ou administrateur",
+             "syn": ["statut", "status", "profil", "profile", "droits", "access", "acces",
+                     "niveau d'acces", "access level", "habilitation"]},
+            {"cle": "role", "requis": False, "aide": "rôle ou poste tenu dans l'organisation",
+             "syn": ["role", "rôle", "poste", "fonction", "job", "job title", "position",
+                     "metier", "métier"]},
+            {"cle": "mot_de_passe", "requis": False, "aide": "mot de passe initial",
+             "syn": ["mot de passe", "password", "mdp", "pwd", "pass"]},
         ],
     },
     "taches": {
@@ -130,6 +167,9 @@ COMPTES = {
 NOM_COMPLET = {"nom complet", "full name", "fullname", "nom et prenom", "nom prenom",
                "prenom nom", "prenom et nom", "collaborateur", "employee", "employe",
                "salarie", "personne", "person", "identite", "name surname", "complete name"}
+
+UTILISATEUR = {"user", "users", "utilisateur", "collaborateur", "membre", "member",
+               "employee", "salarie", "lecteur", "viewer", "consultation", "standard"}
 
 EMAIL = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
@@ -295,6 +335,47 @@ def _personnes(lignes):
     return False
 
 
+def _nom_complet(entetes, cor, donnees):
+    """(correspondance, colonne du nom complet) — pour les collaborateurs dont
+    prénom et nom tiennent dans UNE colonne, cas courant des exports RH."""
+    if "prenom" in cor and "nom" in cor:
+        return cor, None
+    if "prenom" not in cor:
+        for i, e in enumerate(entetes):
+            if _norm(e) in NOM_COMPLET and (i not in cor.values() or cor.get("nom") == i):
+                return {k: v for k, v in cor.items() if k != "nom"}, i
+    if "nom" in cor and "prenom" not in cor:
+        col = cor["nom"]
+        vals = [l[col] for l in donnees if col < len(l) and l[col]]
+        if vals and sum(1 for v in vals if len(v.split()) >= 2) >= 0.6 * len(vals):
+            return {k: v for k, v in cor.items() if k != "nom"}, col
+    return cor, None
+
+
+def _scinder(texte, ordre=None):
+    """(prénom, nom) d'un nom complet. Sans ordre connu, le mot écrit en
+    CAPITALES est le nom de famille (« DUPONT Jean », « Jean DUPONT ») ; à
+    défaut, le prénom vient en premier."""
+    mots = texte.split()
+    if not mots:
+        return "", ""
+    if len(mots) == 1:
+        return "", mots[0]
+    if ordre not in ("prenom_nom", "nom_prenom"):
+        maj = [m.isupper() and len(m) > 1 for m in mots]
+        if not all(maj):
+            if maj[0]:
+                k = maj.index(False)
+                return " ".join(mots[k:]), " ".join(mots[:k])
+            if maj[-1]:
+                k = len(maj) - maj[::-1].index(False)
+                return " ".join(mots[:k]), " ".join(mots[k:])
+        ordre = "prenom_nom"
+    if ordre == "nom_prenom":
+        return " ".join(mots[1:]), mots[0]
+    return mots[0], " ".join(mots[1:])
+
+
 def _nom_correspond(type_, nom):
     mots = f" {_norm(nom)} "
     return any(f" {s} " in mots for s in TYPES[type_]["noms"])
@@ -302,19 +383,22 @@ def _nom_correspond(type_, nom):
 
 def _evaluer(type_, nom_feuille, lignes):
     """La meilleure ligne d'en-tête de cette feuille pour cette nature :
-    (score, index, correspondance) ou None."""
+    (score, index, correspondance, colonne du nom complet) ou None."""
     requis = [c["cle"] for c in TYPES[type_]["champs"] if c["requis"]]
     nom_ok = _nom_correspond(type_, nom_feuille)
     meilleur = None
     for idx, ligne in enumerate(lignes[:10]):
         cor = _correspondance(type_, ligne)
-        couverts = set(cor)
+        nc = None
+        if type_ == "users":
+            cor, nc = _nom_complet(ligne, cor, lignes[idx + 1: idx + 40])
+        couverts = set(cor) | ({"prenom", "nom"} if nc is not None else set())
         if not couverts:
             continue
         n_req = sum(1 for r in requis if r in couverts)
         score = (n_req == len(requis), nom_ok, n_req, len(couverts))
         if meilleur is None or score > meilleur[0]:
-            meilleur = (score, idx, cor)
+            meilleur = (score, idx, cor, nc)
     return meilleur
 
 
@@ -356,7 +440,7 @@ def _propager_taches(lignes):
     return out
 
 
-def _extraire(type_, lignes, idx, cor):
+def _extraire(type_, lignes, idx, cor, nc=None, ordre=None):
     """Les lignes de données en dictionnaires {champ: texte}, un index `_i`
     pour que l'écran s'y retrouve."""
     champs = [c["cle"] for c in TYPES[type_]["champs"]]
@@ -364,6 +448,8 @@ def _extraire(type_, lignes, idx, cor):
     for ligne in lignes[idx + 1:]:
         d = {c: "" for c in champs}
         d.update({cle: (ligne[i] if i < len(ligne) else "") for cle, i in cor.items()})
+        if nc is not None and not d.get("prenom") and not d.get("nom"):
+            d["prenom"], d["nom"] = _scinder(ligne[nc] if nc < len(ligne) else "", ordre)
         if any(d.values()):
             out.append(d)
     if type_ == "taches":
@@ -373,25 +459,27 @@ def _extraire(type_, lignes, idx, cor):
     return out
 
 
-def _part(pid, fichier, feuille, type_, lignes, idx=None, cor=None, source="FICHIER", **extra):
+def _part(pid, fichier, feuille, type_, lignes, idx=None, cor=None, nc=None, ordre=None,
+          source="FICHIER", **extra):
     """Ce que l'écran reçoit pour une feuille : reconnue ou non, et pourquoi."""
     cor = cor or {}
     rep = {
         "id": pid, "fichier": fichier, "feuille": feuille, "type": type_,
         "source": source, "ligne_entete": idx,
         "entetes": lignes[idx] if idx is not None and 0 <= idx < len(lignes) else [],
-        "correspondance": cor,
+        "correspondance": cor, "nom_complet": nc,
         "echantillon": [l[:12] for l in lignes[:7]],
         "reconnu": False, "manquants": [], "lignes": [],
     }
     rep.update(extra)
     if type_ is None or type_ == "comptes":
         return rep
+    couverts = set(cor) | ({"prenom", "nom"} if nc is not None else set())
     rep["manquants"] = [c["cle"] for c in TYPES[type_]["champs"]
-                        if c["requis"] and c["cle"] not in cor]
+                        if c["requis"] and c["cle"] not in couverts]
     if rep["manquants"] or idx is None:
         return rep
-    donnees = _extraire(type_, lignes, idx, cor)
+    donnees = _extraire(type_, lignes, idx, cor, nc, ordre)
     if len(donnees) > MAX_LIGNES:
         rep["erreur"] = t("imph.err_trop_de_lignes").replace("{n}", str(MAX_LIGNES))
         return rep
@@ -404,8 +492,10 @@ def _analyser_feuille(pid, fichier, nom, lignes, types, force=False):
 
     Deux natures à égalité (« Nom | Description » : un rôle ou un outil ?) :
     on garde la première dans `ORDRE`, et l'écran demande de trancher.
-    ⚠️ Une liste de COLLABORATEURS est écartée (`comptes`) au lieu d'être lue
-    comme la nature demandée — les noms de famille deviendraient des rôles.
+    ⚠️ Une liste de COLLABORATEURS déposée là où les comptes ne s'importent pas
+    (la fenêtre de la carte) est écartée (`comptes`) au lieu d'être lue comme
+    la nature demandée — les noms de famille deviendraient des rôles. Elle
+    n'est évidemment pas écartée quand `users` est justement ce qu'on importe.
     Seul un tableau de tâches COMPLET (activité + tâche) passe outre, et
     l'utilisateur, s'il dit lui-même ce que contient la feuille (`force`).
     """
@@ -417,12 +507,12 @@ def _analyser_feuille(pid, fichier, nom, lignes, types, force=False):
     meilleur = max((sc for sc, _, _ in notes), default=None)
     ex_aequo = sorted((ty for sc, ty, _ in notes if sc == meilleur), key=ORDRE.index)
     taches_completes = bool(meilleur and meilleur[0] and "taches" in ex_aequo)
-    if not force and not taches_completes and _personnes(lignes):
+    if not force and "users" not in types and not taches_completes and _personnes(lignes):
         return _part(pid, fichier, nom, "comptes", lignes)
     if not notes:
         return _part(pid, fichier, nom, types[0] if len(types) == 1 else None, lignes)
-    _, idx, cor = next(r for sc, ty, r in notes if ty == ex_aequo[0])
-    return _part(pid, fichier, nom, ex_aequo[0], lignes, idx, cor,
+    _, idx, cor, nc = next(r for sc, ty, r in notes if ty == ex_aequo[0])
+    return _part(pid, fichier, nom, ex_aequo[0], lignes, idx, cor, nc,
                  ambigu=ex_aequo if len(ex_aequo) > 1 else None)
 
 
@@ -496,8 +586,12 @@ def _organiser_ia(pid, fichier, nom, lignes, types):
         if cle in cles and isinstance(col, int) and 0 <= col < largeur and col not in prises:
             cor[cle] = col
             prises.add(col)
+    nc = brut.get("nom_complet")
+    nc = nc if (ty == "users" and isinstance(nc, int) and 0 <= nc < largeur
+                and nc not in prises) else None
+    ordre = brut.get("ordre_nom") if brut.get("ordre_nom") in ("prenom_nom", "nom_prenom") else None
     conf = brut.get("confiance") if brut.get("confiance") in ("high", "medium", "low") else "medium"
-    return _part(pid, fichier, nom, ty, lignes, idx, cor, source="IA",
+    return _part(pid, fichier, nom, ty, lignes, idx, cor, nc, ordre, source="IA",
                  remarque=remarque, confiance=conf)
 
 
@@ -532,6 +626,18 @@ def _cibles_demandees(moi, ids):
 
 def _peut_importer(moi):
     return bool(moi) and bool(_cibles_possibles(moi))
+
+
+def _peut(moi, type_):
+    """Qui importe cette nature. ⚠️ Les comptes ne suivent pas les cartos :
+    créer un collaborateur engage l'instance entière, c'est le droit de la
+    page Comptes qui décide — et lui seul, même sans aucune carto."""
+    from Code.permissions import can_create_accounts
+    if moi is None:
+        return False
+    if type_ == "users":
+        return bool(can_create_accounts(moi))
+    return _peut_importer(moi)
 
 
 def _lignes(type_, brutes):
@@ -591,6 +697,88 @@ def _verifier_simple(type_, lignes, cibles):
             r.update(statut=_statut(len(cibles), deja), n_deja=deja,
                      n_nouveau=len(cibles) - deja)
         vus.add(_norm(nom))
+        out.append(r)
+    return {"lignes": out}
+
+
+def _index_roles(entity_id):
+    """{nom normalisé: rôle} d'une carto, traductions comprises."""
+    idx = {}
+    for r in Role.query.filter_by(entity_id=entity_id).all():
+        for v in (r.name, r.name_fr, r.name_en):
+            if v:
+                idx.setdefault(_norm(v), r)
+    return idx
+
+
+def _statut_compte(brut):
+    """(statut canonique, reconnu ?) — un libellé inconnu devient « user »."""
+    from Code.permissions import (is_admin_status, is_champion_status, is_coordinator_status,
+                                  norm_status)
+    if not norm_status(brut):
+        return "user", True
+    if is_admin_status(brut):
+        return "admin", True
+    if is_coordinator_status(brut):
+        return "coordinateur", True
+    if is_champion_status(brut):
+        return "champion", True
+    return "user", _norm(brut) in UTILISATEUR
+
+
+def _verifier_users(lignes, moi, cibles, options):
+    from Code.permissions import niveau, niveau_status
+    existants = {e.lower() for (e,) in db.session.query(User.email).all() if e}
+    roles = {e.id: _index_roles(e.id) for e in cibles}
+    prevus = {_norm(x) for x in (options.get("roles_prevus") or [])}
+    creer = bool(options.get("creer_roles"))
+    mon_niveau = niveau(moi)
+    vus, out = set(), []
+    for l in lignes:
+        r = {k: v for k, v in l.items() if k != "mot_de_passe"}
+        mail = l.get("email", "").lower()
+        prenom, nom = l.get("prenom", ""), l.get("nom", "")
+        if not prenom and not nom:
+            r.update(statut="invalide", raison=t("imph.st_nom_vide"))
+        elif not EMAIL.match(mail):
+            r.update(statut="invalide", raison=t("imph.st_email_invalide"))
+        elif mail in vus:
+            r.update(statut="invalide", raison=t("imph.st_doublon"))
+        elif mail in existants:
+            r.update(statut="present", raison=t("imph.st_compte_existe"))
+        elif len(mail) > 200 or len(prenom) > 100 or len(nom) > 100:
+            r.update(statut="invalide", raison=t("imph.st_trop_long"))
+        else:
+            statut, connu = _statut_compte(l.get("statut"))
+            if niveau_status(statut) > mon_niveau:
+                r.update(statut="invalide", raison=t("imph.st_statut_superieur"))
+            else:
+                avert, info = [], []
+                if not connu:
+                    avert.append(t("imph.st_statut_inconnu").replace("{x}", l.get("statut", "")))
+                role = l.get("role", "")
+                if role:
+                    trouve = sum(1 for e in cibles if _norm(role) in roles[e.id])
+                    if not cibles:
+                        avert.append(t("imph.st_role_sans_carto"))
+                    elif _norm(role) in prevus:
+                        info.append(t("imph.st_role_prevu"))
+                    elif trouve == 0 and creer:
+                        info.append(t("imph.st_role_cree").replace("{x}", role))
+                    elif trouve == 0:
+                        avert.append(t("imph.st_role_inconnu").replace("{x}", role))
+                mdp = l.get("mot_de_passe", "")
+                if mdp and len(mdp) < MDP_MIN:
+                    avert.append(t("imph.st_mdp_court"))
+                elif not mdp:
+                    info.append(t("imph.st_mdp_genere"))
+                r.update(statut="nouveau", statut_compte=statut)
+                if avert:
+                    r["avertissement"] = " · ".join(avert)
+                if info:
+                    r["info"] = " · ".join(info)
+        r["a_mot_de_passe"] = len(l.get("mot_de_passe", "")) >= MDP_MIN
+        vus.add(mail)
         out.append(r)
     return {"lignes": out}
 
@@ -738,6 +926,53 @@ def _importer_simple(type_, lignes, cibles):
     return {"crees": crees, "par_carto": par_carto}
 
 
+def _importer_users(lignes, moi, cibles, options):
+    from Code.models.models import default_lang_for
+    from Code.role_i18n import on_role_name_saved
+    from Code.security import hash_password
+    verifiees = _verifier_users(lignes, moi, cibles, options)["lignes"]
+    creer = bool(options.get("creer_roles"))
+    roles = {e.id: _index_roles(e.id) for e in cibles}
+    active = Entity.get_active_id()
+    crees, attribues, roles_crees, identifiants = 0, 0, 0, []
+    # La vérification rend ses lignes dans l'ordre reçu : on les apparie par
+    # POSITION, jamais par l'index `_i` venu du navigateur.
+    for l, v in zip(lignes, verifiees):
+        if v.get("statut") != "nouveau":
+            continue
+        mdp = l.get("mot_de_passe", "")
+        genere = len(mdp) < MDP_MIN
+        if genere:
+            mdp = secrets.token_urlsafe(9)
+        u = User(first_name=l.get("prenom", "")[:100], last_name=l.get("nom", "")[:100],
+                 email=l["email"].lower(), password=hash_password(mdp),
+                 status=v.get("statut_compte", "user"), lang=default_lang_for(l["email"]),
+                 entity_id=active)
+        db.session.add(u)
+        db.session.flush()
+        role = l.get("role", "")
+        for e in (cibles if role else []):
+            r = roles[e.id].get(_norm(role))
+            if r is None and creer:
+                r = Role(name=role[:100], entity_id=e.id, hors_carte=True)
+                on_role_name_saved(r, role[:100])
+                db.session.add(r)
+                db.session.flush()
+                roles[e.id][_norm(role)] = r
+                roles_crees += 1
+            if r is not None:
+                db.session.add(UserRole(user_id=u.id, role_id=r.id))
+                attribues += 1
+        crees += 1
+        if genere:
+            # ⚠️ Montré UNE fois, dans cette réponse, et jamais stocké en clair.
+            identifiants.append({"prenom": u.first_name, "nom": u.last_name,
+                                 "email": u.email, "mot_de_passe": mdp})
+    db.session.flush()
+    return {"crees": crees, "roles_attribues": attribues, "roles_crees": roles_crees,
+            "identifiants": identifiants}
+
+
 def _liste(v):
     return [x.strip() for x in re.split(r"[,;\n]", v or "") if x.strip()]
 
@@ -774,34 +1009,44 @@ def _importer_taches(lignes, cibles, choix):
 # ══════════════════════════════════════════════════════════════════════
 @import_hub_bp.route("/contexte", methods=["GET"])
 def contexte():
-    """Ce que la fenêtre doit savoir avant tout : les cartos où écrire, et si
-    l'IA est là. Et où s'importent les comptes — pas ici."""
+    """Ce que la fenêtre doit savoir avant tout : ce qu'elle a le droit
+    d'importer d'où elle est ouverte, les cartos où écrire, et si l'IA est là.
+
+    ⚠️ `pour=comptes` (page Comptes) est le SEUL contexte qui propose les
+    collaborateurs : sur la carte, la question ne se pose pas."""
     from Code.permissions import can_create_accounts
     moi = _moi()
     if moi is None:
         return jsonify({"error": "unauthorized"}), 401
+    comptes_seuls = request.args.get("pour") == "comptes"
     active = Entity.get_active_id()
     cibles = _cibles_possibles(moi)
+    offertes = ["users"] if comptes_seuls else list(CARTO) + ["multiple"]
     natures = {k: {"nom": t("imph.t_%s" % k), "desc": t("imph.d_%s" % k),
-                   "portee": t("imph.p_%s" % k)} for k in list(TYPES) + ["multiple"]}
-    for k, v in TYPES.items():
-        natures[k]["champs"] = [{"cle": c["cle"], "requis": c["requis"],
-                                 "label": t("imph.f_%s_%s" % (k, c["cle"]))} for c in v["champs"]]
-    return jsonify({
+                   "portee": t("imph.p_%s" % k)} for k in offertes}
+    for k in offertes:
+        if k in TYPES:
+            natures[k]["champs"] = [
+                {"cle": c["cle"], "requis": c["requis"],
+                 "label": t("imph.f_%s_%s" % (k, c["cle"]))} for c in TYPES[k]["champs"]]
+    rep = {
         "natures": natures,
         "ordre": list(ORDRE),
+        "pour": "comptes" if comptes_seuls else "carto",
         "cibles": [{"id": e.id, "name": e.name, "active": e.id == active,
                     "shared": bool(getattr(e, "is_shared", False))} for e in cibles],
         "active": next(({"id": e.id, "name": e.name} for e in cibles if e.id == active), None),
-        "peut": bool(cibles),
-        # Les comptes s'importent depuis la page Comptes, et seulement par qui
-        # peut en créer : l'écran le dit, avec le lien quand il mène quelque part.
-        "comptes": {"url": url_for("gestion_compte.list_users", tab="import-tab"),
-                    "peut": bool(can_create_accounts(moi))},
+        "peut": bool(can_create_accounts(moi)) if comptes_seuls else bool(cibles),
         "ia": _ia_disponible(),
         "max_mo": MAX_OCTETS // (1024 * 1024),
         "max_lignes": MAX_LIGNES,
-    }), 200
+    }
+    if not comptes_seuls:
+        # Les comptes s'importent depuis la page Comptes, et seulement par qui
+        # peut en créer : l'écran le dit, avec le lien quand il mène quelque part.
+        rep["comptes"] = {"url": url_for("gestion_compte.list_users", tab="import"),
+                          "peut": bool(can_create_accounts(moi))}
+    return jsonify(rep), 200
 
 
 @import_hub_bp.route("/modele/<type_>", methods=["GET"])
@@ -813,8 +1058,8 @@ def modele(type_):
     lang = _lang()
     wb = openpyxl.Workbook()
     wb.remove(wb.active)
-    couleurs = {"roles": "059669", "taches": "7C3AED", "outils": "EA580C"}
-    for ty in (ORDRE if type_ == "multiple" else (type_,)):
+    couleurs = {"roles": "059669", "users": "E11D48", "taches": "7C3AED", "outils": "EA580C"}
+    for ty in (CARTO if type_ == "multiple" else (type_,)):
         ws = wb.create_sheet(t("imph.t_%s" % ty, lang)[:31])
         champs = TYPES[ty]["champs"]
         ws.append([t("imph.f_%s_%s" % (ty, c["cle"]), lang) for c in champs])
@@ -838,7 +1083,9 @@ def modele(type_):
 def _types_voulus(type_, comme):
     if comme in TYPES:
         return [comme]
-    return list(ORDRE) if type_ == "multiple" else [type_]
+    # ⚠️ Un import multiple ne prend JAMAIS les comptes : ils ne s'importent
+    # que depuis la page Comptes, une feuille à la fois, à son propre droit.
+    return list(CARTO) if type_ == "multiple" else [type_]
 
 
 def _type_valide(type_):
@@ -852,7 +1099,7 @@ def lire():
     type_ = request.form.get("type", "")
     if not _type_valide(type_):
         return jsonify({"error": t("imph.err_type")}), 404
-    if not _peut_importer(moi):
+    if not _peut(moi, type_):
         return jsonify({"error": t("imph.err_droits")}), 403
     fichiers = request.files.getlist("fichiers")[:MAX_FICHIERS if type_ == "multiple" else 1]
     if not fichiers:
@@ -898,7 +1145,7 @@ def organiser():
     type_ = request.form.get("type", "")
     if not _type_valide(type_):
         return jsonify({"error": t("imph.err_type")}), 404
-    if not _peut_importer(moi):
+    if not _peut(moi, type_):
         return jsonify({"error": t("imph.err_droits")}), 403
     f = request.files.get("fichier")
     if f is None:
@@ -929,14 +1176,19 @@ def verifier():
     type_ = p.get("type")
     if type_ not in TYPES:
         return jsonify({"error": t("imph.err_type")}), 404
-    if not _peut_importer(moi):
+    if not _peut(moi, type_):
         return jsonify({"error": t("imph.err_droits")}), 403
     cibles = _cibles_demandees(moi, p.get("cibles"))
-    if not cibles:
+    # Un compte vaut pour toute l'instance : il s'importe même sans carto (les
+    # cartos choisies ne servent qu'à lui attribuer son rôle).
+    if type_ != "users" and not cibles:
         return jsonify({"error": t("imph.err_aucune_cible")}), 400
     lignes = _lignes(type_, p.get("lignes"))
-    res = (_verifier_taches(lignes, cibles, p.get("choix") or {}) if type_ == "taches"
-           else _verifier_simple(type_, lignes, cibles))
+    if type_ == "users":
+        res = _verifier_users(lignes, moi, cibles, p.get("options") or {})
+    else:
+        res = (_verifier_taches(lignes, cibles, p.get("choix") or {}) if type_ == "taches"
+               else _verifier_simple(type_, lignes, cibles))
     res["totaux"] = _totaux(res["lignes"])
     res["cibles"] = [e.id for e in cibles]
     return jsonify(res), 200
@@ -950,7 +1202,7 @@ def rapprocher():
     l'écran en fait un compte rendu, l'utilisateur garde ce qu'il veut."""
     from Code.prompts import get_prompt
     moi = _moi()
-    if not _peut_importer(moi):
+    if not _peut(moi, "taches"):
         return jsonify({"error": t("imph.err_droits")}), 403
     p = request.get_json(silent=True) or {}
     cibles = _cibles_demandees(moi, p.get("cibles"))
@@ -998,11 +1250,12 @@ def importer():
     parts = [x for x in parts if isinstance(x, dict)]
     if not parts or any(x.get("type") not in TYPES for x in parts):
         return jsonify({"error": t("imph.err_type")}), 400
-    if not _peut_importer(moi):
+    if any(not _peut(moi, x["type"]) for x in parts):
         return jsonify({"error": t("imph.err_droits")}), 403
     cibles = _cibles_demandees(moi, p.get("cibles"))
-    if not cibles:
+    if any(x["type"] != "users" for x in parts) and not cibles:
         return jsonify({"error": t("imph.err_aucune_cible")}), 400
+    options = p.get("options") or {}
 
     resultats = []
     try:
@@ -1010,6 +1263,8 @@ def importer():
             lignes = _lignes(x["type"], x.get("lignes"))
             if x["type"] == "taches":
                 res = _importer_taches(lignes, cibles, x.get("choix") or {})
+            elif x["type"] == "users":
+                res = _importer_users(lignes, moi, cibles, options)
             else:
                 res = _importer_simple(x["type"], lignes, cibles)
             resultats.append(dict(type=x["type"], id=x.get("id"), **res))

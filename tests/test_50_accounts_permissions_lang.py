@@ -71,9 +71,11 @@ def actors(app):
 # ── Modification d'un compte ──────────────────────────────────────────────────
 
 def test_un_utilisateur_peut_ouvrir_son_propre_compte(app, client, actors):
+    """La fiche s'ouvre PAR-DESSUS la liste : le lien direct y renvoie."""
     _as(client, actors["user"], "perm.user@devoptiq.com")
     res = client.get(f"/comptes/update/{actors['user']}")
-    assert res.status_code == 200
+    assert res.status_code == 302
+    assert ("edit=%d" % actors["user"]) in res.headers["Location"]
 
 
 def test_un_utilisateur_ne_peut_pas_ouvrir_le_compte_d_un_autre(app, client, actors):
@@ -99,7 +101,8 @@ def test_un_utilisateur_ne_peut_pas_modifier_le_compte_d_un_autre(app, client, a
 def test_un_admin_peut_modifier_un_autre_compte(app, client, actors):
     _as(client, actors["admin"], "perm.admin@devoptiq.com")
     res = client.get(f"/comptes/update/{actors['other']}")
-    assert res.status_code == 200
+    assert res.status_code == 302
+    assert ("edit=%d" % actors["other"]) in res.headers["Location"]
 
 
 def test_un_non_admin_ne_peut_pas_s_auto_promouvoir(app, client, actors):
@@ -149,9 +152,12 @@ def test_creation_reservee_admin_et_gestionnaire(app, client, actors, who, autor
         assert "error_forbidden_create" in res.headers["Location"]
 
 
-def test_import_excel_refuse_sans_le_droit(app, client, actors):
+def test_l_import_des_comptes_refuse_sans_le_droit(app, client, actors):
+    """L'import Excel d'autrefois est remplacé par la fenêtre d'import
+    (`/api/import`), qui garde le même garde-fou : créer des comptes est un
+    droit, pas une conséquence de savoir déposer un fichier."""
     _as(client, actors["user"], "perm.user@devoptiq.com")
-    res = client.post("/comptes/import_excel", json={"users": []})
+    res = client.post("/api/import/verifier", json={"type": "users", "lignes": [], "cibles": []})
     assert res.status_code == 403
 
 
@@ -160,16 +166,16 @@ def test_import_excel_refuse_sans_le_droit(app, client, actors):
 def test_la_page_s_ouvre_sur_la_liste_des_utilisateurs(app, client, actors):
     _as(client, actors["admin"], "perm.admin@devoptiq.com")
     html = client.get("/comptes/").data.decode("utf-8")
-    assert '<div id="list-tab" class="tab-pane active">' in html
-    assert '<div id="create-tab" class="tab-pane">' in html
+    assert 'id="acc-liste"' in html
+    assert 'data-action="nouveau"' in html
 
 
-def test_les_onglets_de_creation_sont_masques_sans_le_droit(app, client, actors):
+def test_les_boutons_de_creation_sont_masques_sans_le_droit(app, client, actors):
     _as(client, actors["user"], "perm.user@devoptiq.com")
     html = client.get("/comptes/").data.decode("utf-8")
-    assert 'data-tab="create-tab"' not in html
-    assert 'data-tab="import-tab"' not in html
-    assert 'data-tab="list-tab"' in html
+    assert 'data-action="nouveau"' not in html
+    assert 'data-import-hub' not in html
+    assert 'id="acc-liste"' in html
 
 
 # ── Langue ────────────────────────────────────────────────────────────────────
@@ -258,13 +264,13 @@ def test_le_statut_canonique_tient_dans_la_colonne():
     assert len(COMPETENCY_MANAGER_STATUS) <= 20
 
 
-def test_un_gestionnaire_voit_les_onglets_de_creation(app, client):
-    """Régression : le statut canonique doit ouvrir Créer et Import Excel."""
+def test_un_gestionnaire_voit_les_boutons_de_creation(app, client):
+    """Régression : le statut canonique doit ouvrir la création et l'import."""
     uid = _mk_user(app, "perm.gest2@devoptiq.com", "manager")
     _as(client, uid, "perm.gest2@devoptiq.com")
     html = client.get("/comptes/").data.decode("utf-8")
-    assert 'data-tab="create-tab"' in html
-    assert 'data-tab="import-tab"' in html
+    assert 'data-action="nouveau"' in html
+    assert 'data-import-hub="comptes"' in html
 
 
 # ── Modification d'un compte : robustesse du formulaire ──────────────────────

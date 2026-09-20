@@ -134,7 +134,6 @@
     rendrePersonnes();
     rendreRoles();
     rendrePropositions();
-    chargerDroits();
   }
 
   /* ── Bandeau : l'entité, puis le calendrier ─────────────────────────── */
@@ -617,112 +616,6 @@
       await charger({ discret: true });
       if (fenetre) rendreFenetre();
     } catch (_) { toast(L('save_error'), 'error'); }
-  }
-
-  /* ── ④ Ce que chaque palier ouvre ───────────────────────────────────────
-     L'échelle `user < champion < coordinateur < admin` est la grammaire du
-     produit et ne se règle pas. Ce que chaque palier OUVRE, si : une
-     entreprise où tout le monde propose n'a pas les mêmes usages qu'une où
-     seul un coordinateur touche à la carto.
-
-     ⚠️ La colonne `admin` est cochée et VERROUILLÉE. Se retirer les Paramètres,
-     ce serait perdre l'écran depuis lequel on les remettrait — la porte se
-     refermerait de l'intérieur, sans poignée. */
-
-  const ORDRE_DROITS = ['propose_carto', 'edit_carto', 'review_carto',
-                        'manage_acces', 'acces_rh', 'cree_comptes',
-                        'parametres_admin'];
-  let DR = null;   // { paliers, droits, defaut, modifiable }
-
-  async function chargerDroits() {
-    try {
-      const r = await fetch('/gestion_rh/droits');
-      if (!r.ok) { $('#bloc-droits').classList.add('hidden'); return; }
-      DR = await r.json();
-      rendreDroits();
-    } catch (_) { $('#bloc-droits').classList.add('hidden'); }
-  }
-
-  const nomPalier = (p) => L('st_' + p) || p;
-
-  function rendreDroits() {
-    if (!DR) return;
-    const paliers = DR.paliers || [];
-    const mod = !!DR.modifiable;
-
-    const lignes = ORDRE_DROITS.filter((d) => DR.droits[d]).map((d) => {
-      const sensible = d === 'parametres_admin';
-      return `
-      <tr class="${sensible ? 'is-sensible' : ''}">
-        <th scope="row">
-          <span>${esc(L('right_' + d))}</span>
-          ${sensible ? `<em>${esc(L('right_parametres_admin_warn'))}</em>` : ''}
-        </th>
-        ${paliers.map((p) => {
-          const coche = !!DR.droits[d][p];
-          const verrou = p === 'admin';
-          const change = !verrou && coche !== !!(DR.defaut[d] || {})[p];
-          return `<td${change ? ' class="a-change"' : ''}>
-            <label title="${esc(verrou ? L('rights_admin_locked')
-                                       : (change ? L('rights_default') + ' : '
-                                            + ((DR.defaut[d]||{})[p] ? '✓' : '—') : ''))}">
-              <input type="checkbox" class="grh-droit" data-droit="${d}" data-palier="${p}"
-                     ${coche ? 'checked' : ''} ${(verrou || !mod) ? 'disabled' : ''}>
-            </label>
-          </td>`;
-        }).join('')}
-      </tr>`;
-    }).join('');
-
-    $('#liste-droits').innerHTML = `
-      <div class="grh-droits-wrap">
-        <table class="grh-droits">
-          <thead>
-            <tr>
-              <td></td>
-              ${paliers.map((p) => `<th scope="col"
-                class="${p === 'admin' ? 'is-locked' : ''}">${esc(nomPalier(p))}</th>`).join('')}
-            </tr>
-          </thead>
-          <tbody>${lignes}</tbody>
-        </table>
-      </div>
-      <p class="grh-droits-note">
-        <i class="fa-solid fa-lock"></i> ${esc(L('rights_admin_locked'))}
-        ${mod ? '' : ' · ' + esc(L('rights_readonly'))}
-      </p>`;
-
-    const bouton = $('#grh-droits-reset');
-    if (bouton) {
-      bouton.classList.toggle('hidden', !mod || !aUnEcart());
-      bouton.onclick = () => enregistrerDroits(DR.defaut);
-    }
-    document.querySelectorAll('.grh-droit').forEach((c) =>
-      c.addEventListener('change', () => {
-        DR.droits[c.dataset.droit][c.dataset.palier] = c.checked;
-        enregistrerDroits(DR.droits);
-      }));
-  }
-
-  // Y a-t-il quoi que ce soit qui s'écarte de l'origine ? C'est ce qui décide
-  // d'afficher « revenir aux valeurs d'origine » : un bouton toujours là
-  // laisserait croire qu'on a réglé quelque chose.
-  function aUnEcart() {
-    return ORDRE_DROITS.some((d) => DR.droits[d] && Object.keys(DR.droits[d])
-      .some((p) => p !== 'admin' && !!DR.droits[d][p] !== !!(DR.defaut[d] || {})[p]));
-  }
-
-  async function enregistrerDroits(table) {
-    try {
-      const d = await postJSON('/gestion_rh/droits', { droits: table });
-      if (!d.ok) throw new Error();
-      DR.droits = d.droits;
-      rendreDroits();
-      toast(L('rights_saved'));
-    } catch (_) {
-      toast(L('save_error'), 'error');
-      chargerDroits();     // on relit plutôt que de laisser l'écran mentir
-    }
   }
 
   /* ── ② Les rôles — le pivot de la page ──────────────────────────────── */

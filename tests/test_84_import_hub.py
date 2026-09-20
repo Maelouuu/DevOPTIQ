@@ -1,16 +1,18 @@
 # -*- coding: utf-8 -*-
-"""La fenêtre « Importer des données » de la page Carte (`/api/import`).
+"""La fenêtre « Importer des données » (`/api/import`), pages Carte et Comptes.
 
-Trois natures (rôles, tâches, outils) et un import multiple, un même
-parcours : lire → (organiser avec l'IA) → vérifier → importer.
+Page Carte : trois natures (rôles, tâches, outils) et un import multiple.
+Page Comptes : les collaborateurs, et eux seuls. Un même parcours pour tous :
+lire → (organiser avec l'IA) → vérifier → importer.
 
 Ce que ces tests tiennent, dans l'ordre où l'utilisateur le rencontre :
 * un fichier au bon format est lu TEL QUEL — en-tête plus bas, anglais, csv
   au point-virgule, cellules fusionnées ;
 * un fichier qui ne l'est pas n'est PAS deviné par le code : c'est l'IA qui
   désigne les colonnes, et elle ne peut rien écrire d'autre que des numéros ;
-* une liste de COLLABORATEURS n'est jamais importée ici — ni lue comme des
-  rôles : elle est repérée et renvoyée à la page Comptes ;
+* une liste de COLLABORATEURS déposée sur la carte n'y est jamais importée —
+  ni lue comme des rôles : elle est repérée et renvoyée à la page Comptes,
+  où elle est au contraire lue comme ce qu'elle est ;
 * le statut de chaque ligne dépend de la PORTÉE, et une carto où le compte
   n'écrit pas n'en fait jamais partie ;
 * l'import revérifie tout, écrit en une transaction, et un rôle importé
@@ -140,8 +142,9 @@ def _verifier(client, type_, lignes, cibles, **extra):
         content_type="application/json")
 
 
-def _importer(client, parts, cibles):
-    return client.post(f"{API}/importer", data=json.dumps({"parts": parts, "cibles": cibles}),
+def _importer(client, parts, cibles, **extra):
+    return client.post(f"{API}/importer",
+                       data=json.dumps({"parts": parts, "cibles": cibles, **extra}),
                        content_type="application/json")
 
 
@@ -262,15 +265,132 @@ class TestLesCollaborateursRestentALaPageComptes:
         p = _lire(client, "roles", [("r.xlsx", f)], comme="roles").get_json()["parts"][0]
         assert p["type"] == "roles" and [l["nom"] for l in p["lignes"]] == ["Chef de projet", "Acheteur"]
 
-    def test_la_nature_comptes_n_est_jamais_importee(self, app, client, scene):
+    def test_la_carte_ne_propose_pas_les_comptes(self, app, client, scene):
+        """Sur la carte, la question ne se pose pas : pas de carte
+        « Collaborateurs », pas de feuille de comptes dans un import multiple —
+        mais un renvoi vers la page qui, elle, sait les créer."""
         _connecte(client, app, scene["admin"], scene["a"])
-        assert _verifier(client, "users", [{"nom": "X"}], [scene["a"]]).status_code == 404
         assert _importer(client, [{"type": "comptes", "lignes": []}], [scene["a"]]).status_code == 400
-        assert client.get(f"{API}/modele/users").status_code == 404
         ctx = client.get(f"{API}/contexte").get_json()
         assert set(ctx["natures"]) == {"roles", "taches", "outils", "multiple"}
+        assert ctx["pour"] == "carto"
         # la fenêtre sait où renvoyer — et si le lien mène quelque part
         assert ctx["comptes"]["url"].startswith("/comptes") and ctx["comptes"]["peut"] is True
+
+
+# ══════════════════════════════════════════════════════════════════════
+#  2 bis · Les comptes s'importent, mais depuis la page Comptes
+# ══════════════════════════════════════════════════════════════════════
+class TestLesComptesSImportentDepuisLaPageComptes:
+
+    def test_le_contexte_de_la_page_comptes_n_offre_que_les_comptes(self, app, client, scene):
+        _connecte(client, app, scene["admin"], scene["a"])
+        ctx = client.get(f"{API}/contexte?pour=comptes").get_json()
+        assert set(ctx["natures"]) == {"users"} and ctx["pour"] == "comptes"
+        assert ctx["peut"] is True
+        # rien à renvoyer ailleurs : on y est
+        assert "comptes" not in ctx
+
+    def test_une_liste_de_personnes_y_est_lue_comme_telle(self, app, client, scene):
+        """Le repérage qui l'écarte de la carte ne doit pas l'écarter ICI."""
+        _connecte(client, app, scene["admin"], scene["a"])
+        f = _xlsx(("Feuil1", [["Prénom", "Nom", "E-mail"],
+                              ["Jean", "Dupont", "t84.jean@x.fr"]]))
+        p = _lire(client, "users", [("u.xlsx", f)]).get_json()["parts"][0]
+        assert p["type"] == "users" and p["reconnu"]
+        assert [l["email"] for l in p["lignes"]] == ["t84.jean@x.fr"]
+
+    def test_un_nom_complet_se_scinde_selon_les_capitales(self, app, client, scene):
+        """Cas courant d'un export RH : « DUPONT Jean » dans une seule colonne."""
+        _connecte(client, app, scene["admin"], scene["a"])
+        f = _xlsx(("Effectif", [["Nom complet", "Mail"], ["DUPONT Jean", "jean@x.fr"],
+                                ["Marie CURIE", "marie@x.fr"]]))
+        p = _lire(client, "users", [("u.xlsx", f)]).get_json()["parts"][0]
+        assert p["reconnu"], p["manquants"]
+        assert [(l["prenom"], l["nom"]) for l in p["lignes"]] == [("Jean", "DUPONT"),
+                                                                  ("Marie", "CURIE")]
+
+    def test_les_comptes_se_verifient_sans_aucune_carto(self, app, client, scene):
+        """Un compte n'appartient à aucune carto : il se vérifie et s'importe
+        sans en choisir une. ⚠️ Et aucun mot de passe ne revient vers l'écran."""
+        from Code.translations import t
+        _connecte(client, app, scene["coord"], scene["k"])
+        lignes = [
+            {"prenom": "Jean", "nom": "Neuf", "email": "t84.jean@x.fr", "_i": 0},
+            {"prenom": "T84", "nom": "Admin", "email": "T84.ADMIN@devoptiq.com", "_i": 1},
+            {"prenom": "Sans", "nom": "Mail", "email": "pas-un-mail", "_i": 2},
+            {"prenom": "Chef", "nom": "Suprême", "email": "t84.chef@x.fr",
+             "statut": "Administrateur", "_i": 3},
+            {"prenom": "Paul", "nom": "Flou", "email": "t84.paul@x.fr", "statut": "Stagiaire",
+             "mot_de_passe": "zq9", "_i": 4},
+        ]
+        d = _verifier(client, "users", lignes, []).get_json()
+        assert [l["statut"] for l in d["lignes"]] == [
+            "nouveau", "present", "invalide", "invalide", "nouveau"]
+        # un coordinateur ne crée pas d'administrateur
+        assert d["lignes"][3]["raison"] == t("imph.st_statut_superieur", "fr")
+        assert "Stagiaire" in d["lignes"][4]["avertissement"]
+        assert all("mot_de_passe" not in l for l in d["lignes"])
+        assert "zq9" not in json.dumps(d)
+
+    def test_un_role_inconnu_est_signale_ou_annonce(self, app, client, scene):
+        _connecte(client, app, scene["admin"], scene["a"])
+        lignes = [{"prenom": "Jean", "nom": "Neuf", "email": "t84.jean@x.fr",
+                   "role": "Magasinier"}]
+        sans = _verifier(client, "users", lignes, [scene["a"]]).get_json()["lignes"][0]
+        assert "Magasinier" in sans["avertissement"]
+        avec = _verifier(client, "users", lignes, [scene["a"]],
+                         options={"creer_roles": True}).get_json()["lignes"][0]
+        assert "avertissement" not in avec and "Magasinier" in avec["info"]
+
+    def test_des_comptes_avec_leur_role_et_leurs_identifiants(self, app, client, scene):
+        from Code.models.models import Role, User, UserRole
+        from Code.security import verify_password
+        _connecte(client, app, scene["admin"], scene["a"])
+        lignes = [
+            {"prenom": "Jean", "nom": "Neuf", "email": "T84.Jean@X.fr", "statut": "Coordinator",
+             "role": "Quality", "mot_de_passe": "Secret123", "_i": 0},
+            {"prenom": "Lou", "nom": "Sans", "email": "t84.lou@x.fr", "_i": 1},
+        ]
+        res = _importer(client, [{"type": "users", "lignes": lignes}],
+                        [scene["a"]]).get_json()["resultats"][0]
+        assert res["crees"] == 2 and res["roles_attribues"] == 1
+        # seul le mot de passe GÉNÉRÉ est rendu, une fois
+        assert [x["email"] for x in res["identifiants"]] == ["t84.lou@x.fr"]
+        with app.app_context():
+            jean = User.query.filter_by(email="t84.jean@x.fr").one()
+            assert jean.status == "coordinateur"
+            assert verify_password(jean.password, "Secret123")
+            qualite = Role.query.filter_by(entity_id=scene["a"], name="Qualité").one()
+            assert UserRole.query.filter_by(user_id=jean.id, role_id=qualite.id).count() == 1
+            lou = User.query.filter_by(email="t84.lou@x.fr").one()
+            assert verify_password(lou.password, res["identifiants"][0]["mot_de_passe"])
+
+    def test_le_statut_se_reverifie_a_l_import(self, app, client, scene):
+        """Le navigateur ne décide de rien : un administrateur envoyé tel quel
+        par un coordinateur n'est pas créé."""
+        from Code.models.models import User
+        _connecte(client, app, scene["coord"], scene["k"])
+        res = _importer(client, [{"type": "users", "lignes": [
+            {"prenom": "Chef", "nom": "Suprême", "email": "t84.chef@x.fr", "statut": "admin"}]}],
+            []).get_json()["resultats"][0]
+        assert res["crees"] == 0
+        with app.app_context():
+            assert User.query.filter_by(email="t84.chef@x.fr").count() == 0
+
+    def test_qui_ne_cree_pas_de_comptes_n_en_importe_pas(self, app, client, scene):
+        """⚠️ Écrire dans une carto ne donne PAS le droit de créer des comptes :
+        c'est le droit de la page Comptes qui décide, et lui seul."""
+        _connecte(client, app, scene["autre"], scene["c"])
+        ctx = client.get(f"{API}/contexte?pour=comptes").get_json()
+        assert ctx["peut"] is False
+        # il est propriétaire de sa carto : il y importe bien des rôles
+        assert client.get(f"{API}/contexte").get_json()["peut"] is True
+        assert _verifier(client, "users", [{"prenom": "A", "nom": "B", "email": "t84.x@x.fr"}],
+                         []).status_code == 403
+        r = _importer(client, [{"type": "users", "lignes": [
+            {"prenom": "A", "nom": "B", "email": "t84.x@x.fr"}]}], [])
+        assert r.status_code == 403
 
 
 class TestImportMultiple:
@@ -655,7 +775,8 @@ class TestLeModeleSeRelit:
 
     EXEMPLES = {"roles": ["Acheteur", "Négocier"],
                 "taches": ["Chiffrer l'offre", "Estimer", "", "", "", "", "", ""],
-                "outils": ["SAP", "ERP"]}
+                "outils": ["SAP", "ERP"],
+                "users": ["Jean", "Dupont", "t84.modele@x.fr", "", "", ""]}
 
     @pytest.mark.parametrize("lang", ["fr", "en"])
     def test_chaque_modele_est_reconnu(self, app, client, scene, lang):
@@ -669,8 +790,9 @@ class TestLeModeleSeRelit:
         parts = _lire(client, "multiple", [("modele.xlsx", out.getvalue())]).get_json()["parts"]
         assert [(p["type"], p["reconnu"]) for p in parts] == [
             ("roles", True), ("outils", True), ("taches", True)]
-        # et un modèle SEUL se relit dans son propre import
-        for ty in ("roles", "taches", "outils"):
+        # et un modèle SEUL se relit dans son propre import — comptes compris,
+        # même si l'import multiple, lui, ne les prend jamais
+        for ty in ("roles", "taches", "outils", "users"):
             wb = openpyxl.load_workbook(io.BytesIO(client.get(f"{API}/modele/{ty}").data))
             wb.active.append(self.EXEMPLES[ty])
             out = io.BytesIO()
