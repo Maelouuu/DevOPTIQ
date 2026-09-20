@@ -164,6 +164,122 @@ class TestCurrentUserManager:
         data = json.loads(r.data)
         assert "error" in data
 
+    def test_current_user_manager_is_manager_true_when_managing_someone(self, client, app, ids):
+        """Un compte qui encadre un collaborateur (users.manager_id) est
+        reconnu comme son propre manager affiché."""
+        collab_id = _create_user(app, ids, email="comp_cum_collab@test.com",
+                                  first="Collab", last="CUM", manager_id=ids["user_id"])
+        try:
+            with client.session_transaction() as sess:
+                sess["user_id"] = ids["user_id"]
+                sess["user_email"] = "test@devoptiq.com"
+                sess["active_entity_id"] = ids["entity_id"]
+            r = client.get("/competences/current_user_manager")
+            assert r.status_code == 200
+            data = json.loads(r.data)
+            assert data["is_manager"] is True
+            assert data["manager_id"] == ids["user_id"]
+        finally:
+            _delete_user(app, collab_id)
+
+    def test_current_user_manager_returns_own_manager_when_not_managing(self, client, app, ids):
+        """Un compte qui n'encadre personne mais a un manager reçoit CE
+        manager, pas une erreur."""
+        dev_id = _create_user(app, ids, email="comp_cum_dev@test.com", first="Dev", last="CUM")
+        collab_id = _create_user(app, ids, email="comp_cum_collab2@test.com",
+                                  first="Collab2", last="CUM", manager_id=dev_id)
+        try:
+            with client.session_transaction() as sess:
+                sess["user_id"] = collab_id
+                sess["user_email"] = "comp_cum_collab2@test.com"
+                sess["active_entity_id"] = ids["entity_id"]
+            r = client.get("/competences/current_user_manager")
+            assert r.status_code == 200
+            data = json.loads(r.data)
+            assert data["is_manager"] is False
+            assert data["manager_id"] == dev_id
+        finally:
+            with client.session_transaction() as sess:
+                sess["user_id"] = ids["user_id"]
+                sess["user_email"] = "test@devoptiq.com"
+                sess["active_entity_id"] = ids["entity_id"]
+            _delete_user(app, collab_id)
+            _delete_user(app, dev_id)
+
+
+# ===========================================================================
+# 2bis. Contexte (qui note qui, sur cette page)
+# ===========================================================================
+
+class TestContexteEndpoint:
+    """GET /competences/contexte — décide qui note qui et qui est visible."""
+
+    def test_admin_sans_collaborateur_direct_voit_tout_le_monde(self, client, app, ids):
+        """Un statut élevé (admin/champion) sans rattachement direct passe
+        quand même en mode développeur, avec tous les autres comptes."""
+        uid = _create_user(app, ids, email="comp_ctx_tiers@test.com", first="Tiers", last="Ctx")
+        try:
+            with client.session_transaction() as sess:
+                sess["user_id"] = ids["user_id"]
+                sess["user_email"] = "test@devoptiq.com"
+                sess["active_entity_id"] = ids["entity_id"]
+            r = client.get("/competences/contexte")
+            assert r.status_code == 200
+            data = r.get_json()
+            assert data["est_dev"] is True
+            assert uid in [c["id"] for c in data["collaborateurs"]]
+        finally:
+            _delete_user(app, uid)
+
+    def test_encadrement_par_role_sans_rattachement_direct(self, client, app, ids):
+        """Un collaborateur rattaché seulement via user_roles.manager_id
+        (pas users.manager_id) apparaît quand même dans la liste."""
+        dev_id = _create_user(app, ids, email="comp_ctx_dev@test.com", first="Dev", last="Ctx")
+        collab_id = _create_user(app, ids, email="comp_ctx_collab@test.com", first="Collab", last="Ctx")
+        rid = _create_role(app, ids, name="Rôle Ctx UserRole")
+        with app.app_context():
+            from Code.models.models import UserRole
+            from Code.extensions import db
+            db.session.add(UserRole(user_id=collab_id, role_id=rid, manager_id=dev_id))
+            db.session.commit()
+        try:
+            with client.session_transaction() as sess:
+                sess["user_id"] = dev_id
+                sess["user_email"] = "comp_ctx_dev@test.com"
+            r = client.get("/competences/contexte")
+            assert r.status_code == 200
+            data = r.get_json()
+            assert data["est_dev"] is True
+            assert collab_id in [c["id"] for c in data["collaborateurs"]]
+        finally:
+            with client.session_transaction() as sess:
+                sess["user_id"] = ids["user_id"]
+                sess["user_email"] = "test@devoptiq.com"
+                sess["active_entity_id"] = ids["entity_id"]
+            _delete_role(app, rid)
+            _delete_user(app, collab_id)
+            _delete_user(app, dev_id)
+
+    def test_ia_disponible_reste_false_si_le_client_ia_leve_une_exception(
+        self, client, ids, monkeypatch
+    ):
+        """Une panne du client IA ne doit jamais faire planter la page :
+        `ia_disponible` retombe sur False."""
+        import Code.routes.propose_common as propose_common
+
+        def _boom():
+            raise RuntimeError("panne IA simulée")
+
+        monkeypatch.setattr(propose_common, "openai_client_or_none", _boom)
+        with client.session_transaction() as sess:
+            sess["user_id"] = ids["user_id"]
+            sess["user_email"] = "test@devoptiq.com"
+            sess["active_entity_id"] = ids["entity_id"]
+        r = client.get("/competences/contexte")
+        assert r.status_code == 200
+        data = r.get_json()
+        assert data["ia_disponible"] is False
+
 
 # ===========================================================================
 # 3. API Managers
@@ -544,6 +660,82 @@ class TestGetEvaluationsByUser:
             _delete_evaluations(app, uid)
             _delete_user(app, uid)
 
+    def test_get_evaluations_null_created_at_returns_empty_string(self, auth_client, app, ids):
+        """Une évaluation sans date de création renvoie created_at vide, sans planter."""
+        uid = _create_user(app, ids, email="comp_eval_no_date@test.com")
+        eid = _create_evaluation(
+            app, uid, ids["activity_id"],
+            item_id=None, item_type="activities", eval_number="rh", note="green"
+        )
+        with app.app_context():
+            from Code.models.models import CompetencyEvaluation
+            from Code.extensions import db
+            ev = CompetencyEvaluation.query.get(eid)
+            ev.created_at = None
+            db.session.commit()
+        try:
+            r = auth_client.get(f"/competences/get_user_evaluations_by_user/{uid}")
+            assert r.status_code == 200
+            data = json.loads(r.data)
+            assert len(data) >= 1
+            assert data[0]["created_at"] == ""
+        finally:
+            _delete_evaluations(app, uid)
+            _delete_user(app, uid)
+
+    def test_get_evaluations_unparseable_date_string_returned_as_is(self, auth_client, app, ids):
+        """Une date stockée dans un format inconnu est renvoyée telle quelle
+        (repli défensif), au lieu de faire échouer l'appel."""
+        uid = _create_user(app, ids, email="comp_eval_bad_date@test.com")
+        eid = _create_evaluation(
+            app, uid, ids["activity_id"],
+            item_id=None, item_type="activities", eval_number="garant", note="orange"
+        )
+        with app.app_context():
+            from Code.models.models import CompetencyEvaluation
+            from Code.extensions import db
+            ev = CompetencyEvaluation.query.get(eid)
+            ev.created_at = "n'importe quoi"
+            db.session.commit()
+        try:
+            r = auth_client.get(f"/competences/get_user_evaluations_by_user/{uid}")
+            assert r.status_code == 200
+            data = json.loads(r.data)
+            assert data[0]["created_at"] == "n'importe quoi"
+        finally:
+            _delete_evaluations(app, uid)
+            _delete_user(app, uid)
+
+    def test_get_evaluations_without_active_entity_returns_all(self, client, app, ids):
+        """Un compte sans aucune entité accessible voit quand même les
+        évaluations demandées (repli sans filtre d'entité active)."""
+        orphan_id = _create_user(app, ids, email="comp_eval_orphan@test.com",
+                                  first="Orphan", last="NoEnt")
+        eval_id = _create_evaluation(
+            app, ids["user_id"], ids["activity_id"],
+            item_id=None, item_type="activities", eval_number="manager", note="green"
+        )
+        try:
+            with client.session_transaction() as sess:
+                sess.clear()
+                sess["user_id"] = orphan_id
+                sess["user_email"] = "comp_eval_orphan@test.com"
+            r = client.get(f"/competences/get_user_evaluations_by_user/{ids['user_id']}")
+            assert r.status_code == 200
+            data = json.loads(r.data)
+            assert any(e["activity_id"] == ids["activity_id"] for e in data)
+        finally:
+            with client.session_transaction() as sess:
+                sess["user_id"] = ids["user_id"]
+                sess["user_email"] = "test@devoptiq.com"
+                sess["active_entity_id"] = ids["entity_id"]
+            with app.app_context():
+                from Code.models.models import CompetencyEvaluation
+                from Code.extensions import db
+                CompetencyEvaluation.query.filter_by(id=eval_id).delete()
+                db.session.commit()
+            _delete_user(app, orphan_id)
+
 
 # ===========================================================================
 # 8. Structure de rôle
@@ -615,6 +807,33 @@ class TestRoleStructure:
             _unlink_activity_from_role(app, ids["activity_id"], rid)
             _delete_role(app, rid)
 
+    def test_role_structure_synthese_evals_populated_from_activity_level_evaluation(
+        self, auth_client, app, ids
+    ):
+        """Une évaluation posée sur l'ACTIVITÉ elle-même (garant/manager/rh)
+        apparaît dans la synthèse du rôle, pas seulement les évaluations
+        d'items (savoirs/savoir-faire/HSC)."""
+        rid = _create_role(app, ids, name="Rôle Synthèse Activité")
+        _link_activity_to_role(app, ids["activity_id"], rid)
+        eval_id = _create_evaluation(
+            app, ids["user_id"], ids["activity_id"],
+            item_id=None, item_type="activities", eval_number="garant", note="green"
+        )
+        try:
+            r = auth_client.get(f"/competences/role_structure/{ids['user_id']}/{rid}")
+            assert r.status_code == 200
+            data = json.loads(r.data)
+            entry = next(e for e in data["synthese"] if e["activity_id"] == ids["activity_id"])
+            assert entry["evals"]["garant"].get("note") == "green"
+        finally:
+            with app.app_context():
+                from Code.models.models import CompetencyEvaluation
+                from Code.extensions import db
+                CompetencyEvaluation.query.filter_by(id=eval_id).delete()
+                db.session.commit()
+            _unlink_activity_from_role(app, ids["activity_id"], rid)
+            _delete_role(app, rid)
+
 
 # ===========================================================================
 # 9. Synthèse globale par utilisateur
@@ -659,6 +878,62 @@ class TestGlobalSummary:
                 db.session.commit()
             _delete_role(app, rid)
 
+    def test_global_summary_role_without_activities_shows_message(self, auth_client, app, ids):
+        """Un rôle assigné sans aucune activité liée affiche le message dédié
+        plutôt qu'un tableau vide silencieux."""
+        rid = _create_role(app, ids, name="Rôle Sans Activité GS")
+        _assign_role(app, ids["user_id"], rid)
+        try:
+            r = auth_client.get(f"/competences/global_summary/{ids['user_id']}")
+            assert r.status_code == 200
+            body = r.data.decode("utf-8", errors="replace")
+            assert "No activity for this role." in body
+        finally:
+            with app.app_context():
+                from Code.models.models import UserRole
+                from Code.extensions import db
+                UserRole.query.filter_by(user_id=ids["user_id"], role_id=rid).delete()
+                db.session.commit()
+            _delete_role(app, rid)
+
+    def test_global_summary_activity_evals_rendered_in_table(self, auth_client, app, ids):
+        """Une évaluation d'activité (garant/manager/rh) colore la cellule
+        correspondante dans le tableau de synthèse."""
+        rid = _create_role(app, ids, name="Rôle GS Eval")
+        _assign_role(app, ids["user_id"], rid)
+        _link_activity_to_role(app, ids["activity_id"], rid)
+        eval_id = _create_evaluation(
+            app, ids["user_id"], ids["activity_id"],
+            item_id=None, item_type="activities", eval_number="manager", note="green"
+        )
+        try:
+            r = auth_client.get(f"/competences/global_summary/{ids['user_id']}")
+            assert r.status_code == 200
+            body = r.data.decode("utf-8", errors="replace")
+            assert "eval-cell green" in body
+        finally:
+            with app.app_context():
+                from Code.models.models import CompetencyEvaluation, UserRole
+                from Code.extensions import db
+                CompetencyEvaluation.query.filter_by(id=eval_id).delete()
+                UserRole.query.filter_by(user_id=ids["user_id"], role_id=rid).delete()
+                db.session.commit()
+            _unlink_activity_from_role(app, ids["activity_id"], rid)
+            _delete_role(app, rid)
+
+    def test_global_summary_internal_error_returns_500(self, auth_client, ids, monkeypatch):
+        """Une panne interne renvoie un JSON d'erreur (500), jamais une page cassée."""
+        from Code.models.models import Entity
+
+        def _boom(*a, **kw):
+            raise RuntimeError("panne simulée")
+
+        monkeypatch.setattr(Entity, "get_active_id", staticmethod(_boom))
+        r = auth_client.get(f"/competences/global_summary/{ids['user_id']}")
+        assert r.status_code == 500
+        data = json.loads(r.data)
+        assert "error" in data
+
 
 # ===========================================================================
 # 10. Synthèse à plat (flat_summary)
@@ -695,6 +970,40 @@ class TestGlobalFlatSummary:
         finally:
             _delete_user(app, uid)
 
+    def test_flat_summary_role_with_eval_shows_note_and_excludes_empty_role(
+        self, auth_client, app, ids
+    ):
+        """Le tableau à plat affiche la note manager (avec sa date), colore
+        l'en-tête du rôle en vert quand tout est validé, et ignore les rôles
+        sans aucune activité liée."""
+        role_with = _create_role(app, ids, name="Rôle Flat Avec Activité")
+        role_empty = _create_role(app, ids, name="Rôle Flat Vide")
+        _assign_role(app, ids["user_id"], role_with)
+        _assign_role(app, ids["user_id"], role_empty)
+        _link_activity_to_role(app, ids["activity_id"], role_with)
+        eval_id = _create_evaluation(
+            app, ids["user_id"], ids["activity_id"],
+            item_id=None, item_type="activities", eval_number="manager", note="green"
+        )
+        try:
+            r = auth_client.get(f"/competences/global_flat_summary/{ids['user_id']}")
+            assert r.status_code == 200
+            body = r.data.decode("utf-8", errors="replace")
+            assert "Rôle Flat Avec Activité" in body
+            assert "Rôle Flat Vide" not in body
+            assert 'class="eval-cell green"' in body
+        finally:
+            with app.app_context():
+                from Code.models.models import CompetencyEvaluation, UserRole
+                from Code.extensions import db
+                CompetencyEvaluation.query.filter_by(id=eval_id).delete()
+                UserRole.query.filter_by(user_id=ids["user_id"], role_id=role_with).delete()
+                UserRole.query.filter_by(user_id=ids["user_id"], role_id=role_empty).delete()
+                db.session.commit()
+            _unlink_activity_from_role(app, ids["activity_id"], role_with)
+            _delete_role(app, role_with)
+            _delete_role(app, role_empty)
+
 
 # ===========================================================================
 # 11. Synthèse globale de tous les utilisateurs
@@ -724,6 +1033,39 @@ class TestUsersGlobalSummary:
         finally:
             _delete_user(app, uid)
             _delete_role(app, rid)
+
+    def test_users_global_summary_without_active_entity_uses_all_roles(self, client, app, ids):
+        """Un compte sans entité active voit quand même la synthèse (repli
+        sans filtre d'entité pour la liste des rôles)."""
+        orphan_id = _create_user(app, ids, email="comp_ugs_orphan@test.com",
+                                  first="Orphan", last="UGS")
+        try:
+            with client.session_transaction() as sess:
+                sess.clear()
+                sess["user_id"] = orphan_id
+                sess["user_email"] = "comp_ugs_orphan@test.com"
+            r = client.get("/competences/users/global_summary")
+            assert r.status_code == 200
+        finally:
+            with client.session_transaction() as sess:
+                sess["user_id"] = ids["user_id"]
+                sess["user_email"] = "test@devoptiq.com"
+                sess["active_entity_id"] = ids["entity_id"]
+            _delete_user(app, orphan_id)
+
+    def test_users_global_summary_internal_error_returns_html_500(self, auth_client, monkeypatch):
+        """Une panne interne renvoie un message HTML explicite (500), pas un
+        crash brut sans contexte."""
+        from Code.models.models import Entity
+
+        def _boom(*a, **kw):
+            raise RuntimeError("panne simulée")
+
+        monkeypatch.setattr(Entity, "get_active_id", staticmethod(_boom))
+        r = auth_client.get("/competences/users/global_summary")
+        assert r.status_code == 500
+        body = r.data.decode("utf-8", errors="replace")
+        assert "Erreur" in body
 
 
 # ===========================================================================
