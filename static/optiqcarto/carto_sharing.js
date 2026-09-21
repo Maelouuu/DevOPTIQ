@@ -124,7 +124,7 @@
       if (typeof window.showToast === 'function') window.showToast(L('change.sent'));
       else alert(L('change.sent'));
     } catch (_) {
-      alert(L('editor.toast.error_network') || 'Erreur réseau');
+      alert(L('editor.err_network_propose'));
     } finally {
       if (btn) { btn.disabled = false; if (avant !== null) btn.innerHTML = avant; }
     }

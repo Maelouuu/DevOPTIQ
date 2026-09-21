@@ -2690,6 +2690,61 @@ l'éditeur (`carto_sharing.js`) : deux écrans qui ne peuvent plus diverger.
   l'ancien code, dont le rôle effacé). Banc : `tools/devrun_partage.py` donne à
   `user@test.local` un rôle sur la carto PRIVÉE du coordinateur.
 
+### Tout ce qui a été ajouté, relu dans les DEUX langues (2026-09-21)
+
+Avant de livrer sur `nouveau-point` et le pilote. Trois passes :
+1. **Les tests existants** (`test_78`, `82`, `83`, `85`) : verts.
+2. **Une analyse statique des nouveaux écrans** : chaque JS lit un catalogue
+   (`CEX_I18N`, `CDP_I18N`, `ACC_L`, `GRH_L`, `RHC_I18N`, `IMPH_I18N`,
+   `CACC_L`, `SHARE_L`, `OPTIQ_I18N`) par un accesseur qui rend la CLÉ quand
+   elle manque — aucun repli français. Toutes les clés lues sont injectées.
+3. **Les vrais écrans parcourus en anglais PUIS en français** (Playwright,
+   bancs `devrun_partage` / `devrun_competences`), avec un détecteur injecté
+   qui relève dans le texte ET les attributs (`title`, `aria-label`,
+   `placeholder`) les phrases du catalogue de l'autre langue, les accents et
+   mots-outils de l'autre langue, et les clés affichées telles quelles — après
+   avoir retiré les DONNÉES (tout texte lu dans les bases de mise au point).
+   ⚠️ Pièges du banc : `pg.evaluate()` ATTEND une promesse — appeler une
+   fonction qui ouvre une fenêtre (`cartoProposeInstead`, `_promptLiaisonLabel`,
+   `_confirmBandDelete`…) le bloque jusqu'à sa fermeture : l'envelopper dans
+   `() => { f(); }`. Et le banc `devrun_partage` CONSOMME ses propositions (on
+   les tranche) : le relancer entre les deux langues.
+
+**Les écrans ajoutés étaient propres.** Ce qui ne l'était pas, et qui est
+corrigé — tout sur des écrans plus anciens, que le pilote (anglophone) ouvre
+tous les jours :
+- **Éditeur** : info-bulles écrites en dur, en français (« Position des
+  labels… », « Créer une pile… ») ET en anglais (« Box select — drag… ») ;
+  les avertissements des piles (en anglais) ; et des fenêtres ENTIÈRES bâties
+  en JS sans catalogue : diagnostic carto, correction des erreurs, placement
+  des losanges, fichier Visio incomplet, suppression d'une bande. 80 clés
+  `editor.*`. ⚠️ `_L()` substitue `{0}`, `{1}`… dans l'ordre des arguments.
+- **Éditeur** : une erreur réseau à l'envoi d'une proposition affichait
+  `editor.toast.error_network` — une clé qui n'a jamais existé
+  (`editor.err_network_propose` désormais).
+- **Page Carte** : « 42 activités » (gestion des entités, et le compteur de la
+  recherche dès qu'on tapait une lettre), toute la fenêtre des liaisons entre
+  cartos (officialiser, dé-officialiser, nom affiché sous l'activité), les
+  erreurs des entités. Nouveau catalogue `window.MAP_I18N` (accesseurs
+  `ML()` / `MF()` dans `activities_map.js`).
+- Six info-bulles en dur sur des pages traduites (fiche activité, tâches,
+  rôles, bienvenue, connexion).
+
+⚠️ `activities_map.js` porte encore du français en dur, mais dans du code
+MORT : les étapes de l'ancien import VSDX/SVG (écrans `step1`–`step3` absents
+du gabarit), `loadSvgInline` (`#svg-container` n'existe plus), les panneaux
+SCS/VCM, l'import de paquet (`#wizard-import-carto-btn` absent) et la modale
+d'export (`#btn-export` absent). Rien de tout cela ne s'affiche ; à supprimer
+plutôt qu'à traduire.
+
+Restent en français, connus et inventoriés : `projection_metier`,
+`import_tasks_modal`, `chatbot_widget`, l'assistant d'installation.
+`tests/test_89_libelles_carte_et_editeur.py` : cliquet des ATTRIBUTS en dur
+(que `test_78` ne lit pas), toute clé `_L()` de l'éditeur présente dans les
+deux langues, et les pages Carte / éditeur rendues en anglais.
+`cartography_editor.html`, `activities_map.html` et `cartography_viewer.html`
+sortent de l'inventaire de dette de `test_78`. Suite : 2573 passés.
+
 ### Page RH ③ : les compétences de chacun, toutes cartos (2026-09-21)
 
 Le tableau global d'autrefois (`/competences/users/global_summary`, une

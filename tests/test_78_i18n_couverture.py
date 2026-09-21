@@ -601,15 +601,15 @@ class TestFrancaisEnDur:
     DETTE = {
         "projection_metier.html":       14,
         "import_tasks_modal.html":      10,
-        "cartography_editor.html":       7,
         "chatbot_widget.html":           5,
         "license_blocked.html":          4,
-        "activities_map.html":           3,
-        "cartography_viewer.html":       2,
         "setup_wizard.html":             2,
         "settings.html":                 1,
         # `gestion_compte_new.html` est sorti de l'inventaire : la page Comptes
         # a été refaite, tout y passe par le catalogue.
+        # ✅ 21/09/2026 — `cartography_editor.html`, `activities_map.html` et
+        # `cartography_viewer.html` sortent à leur tour : la page Carte et
+        # l'éditeur sont ce que le pilote (anglophone) utilise tous les jours.
     }
 
     def test_aucun_gabarit_neuf_ne_porte_du_francais_en_dur(self):

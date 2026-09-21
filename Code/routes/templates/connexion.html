@@ -53,7 +53,7 @@
           <div class="field-wrap">
             <i class="fa-solid fa-envelope field-icon"></i>
             <input type="email" id="login-email" name="email"
-              class="field-input" placeholder="nom@exemple.fr"
+              class="field-input" placeholder="{{ t('login.email_ph') }}"
               required autocomplete="email">
           </div>
         </div>
@@ -96,7 +96,7 @@
         <div class="field-wrap" style="margin-bottom:14px">
           <i class="fa-solid fa-envelope field-icon"></i>
           <input type="email" id="forgot-email" name="email"
-            class="field-input" placeholder="nom@exemple.fr" required>
+            class="field-input" placeholder="{{ t('login.email_ph') }}" required>
         </div>
         <button type="submit" class="btn-login">
           <i class="fa-solid fa-paper-plane"></i> {{ t('login.reset_send') }}

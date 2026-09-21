@@ -119,10 +119,10 @@
 {% if not has_optiqcarto %}
 <div id="viewer-placeholder">
   <i class="fa-solid fa-diagram-project"></i>
-  <p>Aucune cartographie pour cette entité</p>
+  <p>{{ t('map.viewer_no_carto') }}</p>
   <button id="vp-go-editor" onclick="(window.parent !== window ? window.parent : window).location.href='/cartography/editor'">
-    {% if has_vsdx %}<i class="fa-solid fa-file-import"></i> Importer depuis Visio
-    {% else %}<i class="fa-solid fa-plus"></i> Créer une cartographie
+    {% if has_vsdx %}<i class="fa-solid fa-file-import"></i> {{ t('map.viewer_import_visio') }}
+    {% else %}<i class="fa-solid fa-plus"></i> {{ t('map.viewer_create') }}
     {% endif %}
   </button>
 </div>

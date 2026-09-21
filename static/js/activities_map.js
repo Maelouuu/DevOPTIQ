@@ -291,7 +291,7 @@ function initActivitySearch() {
   const countEl = document.querySelector(".activities-panel-count");
   const total = items.length;
   const norm = (s) => (s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
-  const plural = (n) => "activité" + (n > 1 ? "s" : "");
+  const plural = (n) => ML(n === 1 ? "activity" : "activities");
   input.addEventListener("input", () => {
     const q = norm(input.value.trim());
     let shown = 0;
@@ -451,12 +451,12 @@ async function loadEntitiesList() {
         <div class="entity-grid-info">
           <span class="entity-grid-name">${escHtml(e.name)}</span>
           <span class="entity-grid-stats">
-            ${e.activities_count || 0} activités
+            ${escHtml(nbActivites(e.activities_count || 0))}
             ${e.is_shared ? `<span class="entity-shared-badge"><i class="fa-solid fa-users"></i>${
               escHtml(LA.badgeShared || "Commune")}</span>` : ''}
           </span>
         </div>
-        ${e.is_active ? '<span class="entity-grid-badge">Active</span>' : ''}
+        ${e.is_active ? `<span class="entity-grid-badge">${escHtml(ML('active'))}</span>` : ''}
         ${e.optiqcarto_exists ? '<span class="entity-grid-carto"><i class="fa-solid fa-diagram-project"></i></span>' : ''}
       </div>
     `).join("");
@@ -465,7 +465,7 @@ async function loadEntitiesList() {
       item.addEventListener("click", () => selectEntity(parseInt(item.dataset.id)));
     });
   } catch (e) {
-    list.innerHTML = '<p class="error">Erreur de chargement</p>';
+    list.innerHTML = `<p class="error">${escHtml(ML('err_loading'))}</p>`;
   }
 }
 
@@ -509,7 +509,7 @@ async function importCartoPackage(file) {
 async function createEntity() {
   const input = $("#wizard-new-entity-name");
   const name = input?.value.trim();
-  if (!name) { alert("Nom requis"); return; }
+  if (!name) { alert(ML('err_name')); return; }
 
   try {
     const res = await fetch("/activities/api/entities", {
@@ -523,7 +523,7 @@ async function createEntity() {
     input.value = "";
     await loadEntitiesList();
     setTimeout(() => selectEntity(data.entity.id), 50);
-  } catch (e) { alert("Erreur réseau"); }
+  } catch (e) { alert(ML('err_network')); }
 }
 
 /* ══════════════════════════════════════════════════
@@ -536,6 +536,16 @@ async function createEntity() {
    proposition à accepter sinon). */
 
 const ACCESS_L = () => window.ACCESS_I18N || {};
+
+// Ce que cette page écrit elle-même : window.MAP_I18N (activities_map.html).
+// ⚠️ Une clé absente rend la clé brute — un oubli se VOIT, il ne retombe pas
+// en silence sur le français.
+function ML(cle) { return (window.MAP_I18N || {})[cle] || cle; }
+function MF(cle, vars) {
+  const s = (window.MAP_I18N || {})[cle] || cle;
+  return s.replace(/\{(\w+)\}/g, (m, k) => (vars && k in vars) ? vars[k] : m);
+}
+const nbActivites = (n) => `${n} ${ML(n === 1 ? 'activity' : 'activities')}`;
 
 function wireEntityShare() {
   // « Accès à la carto » mène à la page Partage : tout le processus (rôles,
@@ -720,7 +730,7 @@ async function confirmShare() {
 async function createEntity() {
   const input = $("#wizard-new-entity-name");
   const name = input?.value.trim();
-  if (!name) { alert("Nom requis"); return; }
+  if (!name) { alert(ML('err_name')); return; }
 
   try {
     const res = await fetch("/activities/api/entities", {
@@ -734,7 +744,7 @@ async function createEntity() {
     input.value = "";
     await loadEntitiesList();
     setTimeout(() => selectEntity(data.entity.id), 50);
-  } catch (e) { alert("Erreur réseau"); }
+  } catch (e) { alert(ML('err_network')); }
 }
 
 /* ══════════════════════════════════════════════════
@@ -772,7 +782,7 @@ async function activateEntity() {
     const data = await res.json();
     if (data.error) { alert(data.error); return; }
     window.location.reload();
-  } catch (e) { alert("Erreur réseau"); }
+  } catch (e) { alert(ML('err_network')); }
 }
 
 async function deleteEntity() {
@@ -780,28 +790,28 @@ async function deleteEntity() {
   const btn = document.getElementById("confirm-delete-btn");
   if (btn) {
     btn.disabled = true;
-    btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Suppression…';
+    btn.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin"></i> ${escHtml(ML('deleting'))}`;
   }
   try {
     const res  = await fetch(`/activities/api/entities/${wizardState.selectedEntity.id}`, { method: "DELETE" });
     const data = await res.json();
     if (data.error) {
       alert(data.error);
-      if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-trash"></i> Supprimer'; }
+      if (btn) { btn.disabled = false; btn.innerHTML = `<i class="fa-solid fa-trash"></i> ${escHtml(ML('delete'))}`; }
       return;
     }
     hideModal("confirm-delete-modal");
     window.location.reload();
   } catch (e) {
-    alert("Erreur réseau");
-    if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-trash"></i> Supprimer'; }
+    alert(ML('err_network'));
+    if (btn) { btn.disabled = false; btn.innerHTML = `<i class="fa-solid fa-trash"></i> ${escHtml(ML('delete'))}`; }
   }
 }
 
 async function renameEntity() {
   if (!wizardState.selectedEntity) return;
   const name = $("#rename-input")?.value.trim();
-  if (!name) { alert("Nom requis"); return; }
+  if (!name) { alert(ML('err_name')); return; }
   try {
     const res = await fetch(`/activities/api/entities/${wizardState.selectedEntity.id}`, {
       method: "PATCH",
@@ -814,7 +824,7 @@ async function renameEntity() {
     wizardState.selectedEntity.name = name;
     $("#selected-entity-name").textContent = name;
     await loadEntitiesList();
-  } catch (e) { alert("Erreur réseau"); }
+  } catch (e) { alert(ML('err_network')); }
 }
 
 /* Navigation wizard */
@@ -1342,7 +1352,7 @@ function handleCrossCartoClick(activityName, matches) {
   listEl.innerHTML = "";
 
   if (!matches || matches.length === 0) {
-    listEl.innerHTML = '<div class="cross-entity-empty"><i class="fa-solid fa-circle-info"></i> Aucune liaison trouvée dans les autres cartographies.</div>';
+    listEl.innerHTML = `<div class="cross-entity-empty"><i class="fa-solid fa-circle-info"></i> ${escHtml(ML('cx_none'))}</div>`;
     popup.classList.remove("hidden");
     return;
   }
@@ -1352,13 +1362,13 @@ function handleCrossCartoClick(activityName, matches) {
     item.className = "cross-entity-item";
     const officializeHtml = m.has_active_liaison
       ? `<div class="cross-entity-officialized-row">
-           <span class="cross-entity-badge-ok"><i class="fa-solid fa-check"></i> Officialisée</span>
-           <button class="cross-entity-btn-deoffice" data-liaison-id="${m.liaison_id}" title="Dé-officialiser">
+           <span class="cross-entity-badge-ok"><i class="fa-solid fa-check"></i> ${escHtml(ML('cx_officialized'))}</span>
+           <button class="cross-entity-btn-deoffice" data-liaison-id="${m.liaison_id}" title="${escHtml(ML('cx_deofficialize'))}">
              <i class="fa-solid fa-link-slash"></i>
            </button>
          </div>`
-      : `<button class="cross-entity-btn-officialize" title="Officialiser cette liaison">
-           <i class="fa-solid fa-link"></i> Officialiser
+      : `<button class="cross-entity-btn-officialize" title="${escHtml(ML('cx_officialize_title'))}">
+           <i class="fa-solid fa-link"></i> ${escHtml(ML('cx_officialize'))}
          </button>`;
     item.innerHTML = `
       <div class="cross-entity-item-info">
@@ -1367,7 +1377,7 @@ function handleCrossCartoClick(activityName, matches) {
         <span class="cross-entity-act-name">${m.activity_name}</span>
       </div>
       <div class="cross-entity-item-actions">
-        <button class="cross-entity-btn-preview" title="Voir la cartographie">
+        <button class="cross-entity-btn-preview" title="${escHtml(ML('cx_view_map'))}">
           <i class="fa-solid fa-eye"></i>
         </button>
         ${officializeHtml}
@@ -1384,7 +1394,7 @@ function handleCrossCartoClick(activityName, matches) {
         e.stopPropagation();
         const btn = e.currentTarget;
         if (!extcoActivityId) {
-          alert("Impossible d'identifier l'activité hachurée.");
+          alert(ML('cx_unknown_activity'));
           return;
         }
         const label = await _promptLiaisonLabel(m.entity_name);
@@ -1429,7 +1439,7 @@ function _handleOriginClick(activityName, liaisons) {
   listEl.innerHTML = "";
 
   if (!liaisons || liaisons.length === 0) {
-    listEl.innerHTML = '<div class="cross-entity-empty"><i class="fa-solid fa-circle-info"></i> Aucune référence trouvée.</div>';
+    listEl.innerHTML = `<div class="cross-entity-empty"><i class="fa-solid fa-circle-info"></i> ${escHtml(ML('cx_no_reference'))}</div>`;
     popup.classList.remove("hidden");
     return;
   }
@@ -1443,7 +1453,7 @@ function _handleOriginClick(activityName, liaisons) {
         <span class="cross-entity-act-name" style="font-style:italic">${m.activity_name}</span>
       </div>
       <div class="cross-entity-item-actions">
-        <button class="cross-entity-btn-preview" title="Voir la cartographie">
+        <button class="cross-entity-btn-preview" title="${escHtml(ML('cx_view_map'))}">
           <i class="fa-solid fa-eye"></i>
         </button>
       </div>`;
@@ -1467,14 +1477,14 @@ function _promptLiaisonLabel(defaultLabel) {
     overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:9999;display:flex;align-items:center;justify-content:center';
     overlay.innerHTML = `
       <div style="background:#fff;border-radius:12px;padding:24px;min-width:320px;max-width:420px;box-shadow:0 8px 32px rgba(0,0,0,0.2)">
-        <h3 style="margin:0 0 8px;font-size:1rem;font-weight:700;color:#1e293b"><i class="fa-solid fa-tag" style="color:#ec4899;margin-right:6px"></i>Nom affiché sous l'activité</h3>
-        <p style="margin:0 0 14px;font-size:0.82rem;color:#64748b">Ce nom apparaîtra sous l'activité hachurée dans la cartographie.</p>
-        <input id="_liaison-label-input" type="text" value="${defaultLabel || ''}"
+        <h3 style="margin:0 0 8px;font-size:1rem;font-weight:700;color:#1e293b"><i class="fa-solid fa-tag" style="color:#ec4899;margin-right:6px"></i>${escHtml(ML('cx_label_title'))}</h3>
+        <p style="margin:0 0 14px;font-size:0.82rem;color:#64748b">${escHtml(ML('cx_label_hint'))}</p>
+        <input id="_liaison-label-input" type="text" value="${escHtml(defaultLabel || '')}"
           style="width:100%;box-sizing:border-box;padding:8px 10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:0.9rem;outline:none"
           maxlength="100">
         <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">
-          <button id="_liaison-cancel" style="padding:7px 16px;border:1.5px solid #e2e8f0;border-radius:8px;background:#fff;cursor:pointer;font-size:0.85rem">Annuler</button>
-          <button id="_liaison-confirm" style="padding:7px 16px;border:none;border-radius:8px;background:#ec4899;color:#fff;cursor:pointer;font-size:0.85rem;font-weight:600">Confirmer</button>
+          <button id="_liaison-cancel" style="padding:7px 16px;border:1.5px solid #e2e8f0;border-radius:8px;background:#fff;cursor:pointer;font-size:0.85rem">${escHtml(ML('cancel'))}</button>
+          <button id="_liaison-confirm" style="padding:7px 16px;border:none;border-radius:8px;background:#ec4899;color:#fff;cursor:pointer;font-size:0.85rem;font-weight:600">${escHtml(ML('confirm'))}</button>
         </div>
       </div>`;
     document.body.appendChild(overlay);
@@ -1511,18 +1521,18 @@ async function officializeLiaison(extcoActivityId, originEntityId, originActivit
     const data = await res.json();
     if (data.error) {
       alert(data.error);
-      if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-link"></i> Officialiser'; }
+      if (btn) { btn.disabled = false; btn.innerHTML = `<i class="fa-solid fa-link"></i> ${escHtml(ML('cx_officialize'))}`; }
       return false;
     } else {
       if (btn) {
-        btn.innerHTML = '<i class="fa-solid fa-check"></i> Officialisée';
+        btn.innerHTML = `<i class="fa-solid fa-check"></i> ${escHtml(ML('cx_officialized'))}`;
         btn.style.background = "#22c55e";
         btn.classList.add("cross-entity-btn-officialized");
       }
       return true;
     }
   } catch (_) {
-    if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-link"></i> Officialiser'; }
+    if (btn) { btn.disabled = false; btn.innerHTML = `<i class="fa-solid fa-link"></i> ${escHtml(ML('cx_officialize'))}`; }
     return false;
   }
 }
@@ -1544,25 +1554,25 @@ async function _confirmDeoffice(liaisonId, originEntityName) {
         }</ul>`
       : '';
     const lines = [
-      preview?.connections_to_remove ? `${preview.connections_to_remove} connexion(s) associée(s)` : null,
-      preview?.db_links_to_remove    ? `${preview.db_links_to_remove} lien(s) DB croisés`          : null,
+      preview?.connections_to_remove ? MF('cx_deoffice_conns', { n: preview.connections_to_remove }) : null,
+      preview?.db_links_to_remove    ? MF('cx_deoffice_links', { n: preview.db_links_to_remove })    : null,
     ].filter(Boolean);
 
     overlay.innerHTML = `
       <div style="background:#fff;border-radius:12px;padding:24px;min-width:340px;max-width:460px;box-shadow:0 8px 32px rgba(0,0,0,0.25)">
         <h3 style="margin:0 0 10px;font-size:1rem;font-weight:700;color:#dc2626">
-          <i class="fa-solid fa-triangle-exclamation" style="margin-right:6px"></i>Dé-officialiser la liaison
+          <i class="fa-solid fa-triangle-exclamation" style="margin-right:6px"></i>${escHtml(ML('cx_deoffice_title'))}
         </h3>
         <p style="margin:0 0 6px;font-size:0.85rem;color:#374151">
-          Cette action supprimera dans la cartographie <strong>${preview?.origin_entity_name || originEntityName || '?'}</strong> :
+          ${MF('cx_deoffice_intro', { nom: `<strong>${escHtml(preview?.origin_entity_name || originEntityName || '?')}</strong>` })}
         </p>
         ${shapesHtml}
         ${lines.map(l => `<p style="margin:3px 0 0;font-size:0.82rem;color:#475569">+ ${l}</p>`).join('')}
-        <p style="margin:12px 0 0;font-size:0.8rem;color:#94a3b8;font-style:italic">Cette action est irréversible.</p>
+        <p style="margin:12px 0 0;font-size:0.8rem;color:#94a3b8;font-style:italic">${escHtml(ML('cx_irreversible'))}</p>
         <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">
-          <button id="_deoffice-cancel" style="padding:7px 16px;border:1.5px solid #e2e8f0;border-radius:8px;background:#fff;cursor:pointer;font-size:0.85rem">Annuler</button>
+          <button id="_deoffice-cancel" style="padding:7px 16px;border:1.5px solid #e2e8f0;border-radius:8px;background:#fff;cursor:pointer;font-size:0.85rem">${escHtml(ML('cancel'))}</button>
           <button id="_deoffice-confirm" style="padding:7px 16px;border:none;border-radius:8px;background:#dc2626;color:#fff;cursor:pointer;font-size:0.85rem;font-weight:600">
-            <i class="fa-solid fa-link-slash" style="margin-right:5px"></i>Dé-officialiser
+            <i class="fa-solid fa-link-slash" style="margin-right:5px"></i>${escHtml(ML('cx_deofficialize'))}
           </button>
         </div>
       </div>`;
@@ -1707,13 +1717,13 @@ function initCartoPreview() {
     activateBtn.addEventListener("click", async () => {
       if (!_previewEntityId) return;
       activateBtn.disabled = true;
-      activateBtn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Activation…';
+      activateBtn.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin"></i> ${escHtml(ML('activating'))}`;
       try {
         await fetch(`/activities/api/entities/${_previewEntityId}/activate`, { method: "POST" });
         window.location.reload();
       } catch (e) {
         activateBtn.disabled = false;
-        activateBtn.innerHTML = '<i class="fa-solid fa-bolt"></i> Rendre la carto active';
+        activateBtn.innerHTML = `<i class="fa-solid fa-bolt"></i> ${escHtml(ML('activate'))}`;
       }
     });
   }
@@ -2086,7 +2096,7 @@ async function initCalqueStrip() {
          </li>`
       ).join("");
       const countEl = document.querySelector(".activities-panel-count");
-      if (countEl) countEl.textContent = acts.length + " activité" + (acts.length !== 1 ? "s" : "");
+      if (countEl) countEl.textContent = nbActivites(acts.length);
       // Re-wire click handlers on new items
       initListClicks();
     } catch (_) {}
