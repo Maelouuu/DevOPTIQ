@@ -346,9 +346,29 @@
       : [{ id: ctx.moi.id, first_name: ctx.moi.first_name, last_name: ctx.moi.last_name, moi: true }];
     $('#cv2-collab-title').textContent = state.estDev ? T('collaborators') : T('me');
     renderCollabs(gens);
+    if (await ouvrirDemande(gens)) return;
     // Un seul dossier à regarder : on l'ouvre, personne n'a envie de cliquer
     // sur son propre nom pour entrer chez soi.
     if (gens.length === 1) choisirCollab(gens[0], $('#cv2-collab').firstElementChild);
+  }
+
+  // `?personne=<id>&role=<id>` — une case du tableau global de la page RH.
+  // Arriver ici pour y chercher soi-même la personne puis son rôle, c'est
+  // refaire le chemin qu'on vient de désigner d'un clic. L'adresse est
+  // nettoyée : revenir en arrière ne doit pas rouvrir le même dossier.
+  async function ouvrirDemande(gens) {
+    let q;
+    try { q = new URLSearchParams(window.location.search); } catch (_) { return false; }
+    const pid = parseInt(q.get('personne'), 10);
+    if (!pid) return false;
+    try { window.history.replaceState({}, '', window.location.pathname); } catch (_) { /* rien */ }
+    const i = gens.findIndex(u => u.id === pid);
+    if (i < 0) return false;
+    await choisirCollab(gens[i], $('#cv2-collab').children[i]);
+    const rid = parseInt(q.get('role'), 10);
+    const r = rid && ((state.synthese && state.synthese.roles) || []).find(x => x.role_id === rid);
+    if (r) await ouvrirRole(r);
+    return true;
   }
 
   function renderCollabs(list) {

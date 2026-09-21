@@ -132,6 +132,30 @@ with app.app_context():
     db.session.add(cr)
     db.session.commit()
 
+    # Une TROISIÈME carto, commune, avec sa propre proposition : le bandeau de
+    # la page Carte réunit les propositions de TOUTES les cartos — avec une
+    # seule, on ne voit jamais qu'il le fait. Et la carto a bougé APRÈS le
+    # dépôt : c'est le cas où l'appliquer effacerait une retouche, que la
+    # fenêtre d'examen doit annoncer.
+    ent3 = Entity(name="Troisième carto (commune)", description="pour le bandeau",
+                  owner_id=coord.id, is_shared=True,
+                  optiqcarto_data=json.dumps(diagram, ensure_ascii=False))
+    db.session.add(ent3)
+    db.session.commit()
+    _sync_carto_to_db(ent3, diagram)
+    cr3 = CartoChangeRequest(
+        entity_id=ent3.id, author_id=champion.id, status="pending",
+        title="Ajout d'un contrôle qualité",
+        message="Un contrôle manquait entre la réception et le chiffrage.",
+        diagram=json.dumps(_modifier(diagram), ensure_ascii=False),
+        base_diagram=json.dumps(diagram, ensure_ascii=False))
+    db.session.add(cr3)
+    retouche = copy.deepcopy(diagram)
+    for s in retouche.get("shapes", [])[-2:]:
+        s["x"] = int(s.get("x", 0)) - 180
+    ent3.optiqcarto_data = json.dumps(retouche, ensure_ascii=False)
+    db.session.commit()
+
     print(f"[devrun] base      : {db_path}")
     print(f"[devrun] carto     : {len(diagram.get('shapes', []))} formes, "
           f"{len(diagram.get('connections', []))} connexions — commune, ouverte à tous")
@@ -143,7 +167,7 @@ with app.app_context():
     print(f"[devrun] seconde carto : « {ent2.name} » (entité {ent2.id}, privée)")
     print(f"[devrun] {simple.email} tient {len(deux)} rôle(s) : "
           + ", ".join(r.name for r in deux))
-    print(f"[devrun] proposition en attente : #{cr.id}")
+    print(f"[devrun] propositions en attente : #{cr.id}, #{cr3.id} (carto retouchée depuis)")
     print(f"[devrun] http://127.0.0.1:{PORT}/login")
 
 @app.route("/devrun/as/<email>")

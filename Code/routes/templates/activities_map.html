@@ -1,6 +1,7 @@
 {% include "header_buttons.html" %}
 {% include "import_hub_modal.html" %}
 {% if peut_regler_acces %}{% include "carto_acces_modal.html" %}{% endif %}
+{% if examen %}{% include "carto_examen_modal.html" %}{% endif %}
 <link rel="stylesheet" href="{{ url_for('static', filename='cartography.css') }}">
 
 <script>
@@ -79,6 +80,21 @@
       <button id="carto-wizard-btn" class="carto-wizard-btn"><i class="fa-solid fa-building-columns"></i> {{ t('map.btn_entities') }}</button>
     </div>
   </div>
+
+  {% if examen %}
+  <!-- ⚠️ Toutes cartos confondues : celui qui valide n'a pas à activer une
+       carto pour apprendre qu'on attend sa décision dessus. -->
+  <button type="button" class="cex-bandeau" id="cex-bandeau"
+          data-n="{{ examen.n }}" data-cartos="{{ examen.cartos }}"
+          data-carto="{{ examen.carto or '' }}">
+    <span class="cex-bandeau-ic"><i class="fa-solid fa-code-pull-request"></i></span>
+    <span class="cex-bandeau-txt">
+      <strong id="cex-bandeau-titre">{% if examen.n == 1 %}{{ t('examen.bandeau_1') }}{% else %}{{ t('examen.bandeau_n') | replace('{n}', examen.n) }}{% endif %}</strong>
+      <span id="cex-bandeau-sous">{% if examen.carto %}{{ t('examen.sur_carto') | replace('{nom}', examen.carto) }}{% else %}{{ t('examen.sur_n_cartos') | replace('{n}', examen.cartos) }}{% endif %}</span>
+    </span>
+    <span class="cex-bandeau-cta">{{ t('examen.ouvrir') }} <i class="fa-solid fa-arrow-right"></i></span>
+  </button>
+  {% endif %}
 
   <!-- INFO NAVIGATION -->
   <div class="carto-info-message" id="carto-info-default">

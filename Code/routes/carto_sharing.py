@@ -702,7 +702,7 @@ def share_home():
                    "is_owner": e.owner_id in (None, user.id)} for e in entites],
         active_entity_id=choisie,
         can_manage=gouverne,
-        can_review=bool(user and (is_admin(user) or is_coordinator(user))),
+        can_review=bool(user and can_review(None, user)),
     )
 
 
@@ -795,7 +795,7 @@ def list_changes():
     if statut in ("pending", "approved", "rejected"):
         q = q.filter(CartoChangeRequest.status == statut)
 
-    arbitre = is_admin(user) or is_coordinator(user)
+    arbitre = can_review(None, user)
     if not arbitre:
         q = q.filter(CartoChangeRequest.author_id == user.id)
 
@@ -825,7 +825,66 @@ def get_change(req_id):
 
     detail = _en_json(cr, user, avec_resume=True)
     detail["can_review"] = bool(can_review(cr.entity, user) and cr.status == "pending")
+    detail["since"] = _depuis_le_depot(cr) if cr.status == "pending" else None
     return jsonify(detail)
+
+
+def _depuis_le_depot(cr):
+    """Ce qui a changé sur la carto ENTRE le dépôt et maintenant, ou None.
+
+    ⚠️ Appliquer une proposition REMPLACE la carto par la version proposée
+    (`entity.optiqcarto_data = cr.diagram`). Si la carto a bougé depuis — une
+    autre proposition appliquée, une retouche d'un coordinateur — l'appliquer
+    efface ces changements, sans que rien ne le dise. Celui qui valide doit le
+    savoir AVANT de cliquer.
+
+    On compare des formes et des flèches (`_resume_changement`), pas le texte
+    du JSON : un simple réenregistrement réécrit le texte sans rien changer à
+    la carto, et on alerterait pour rien.
+    """
+    base = _diagram(cr.base_diagram)
+    actuel = _diagram(cr.entity.optiqcarto_data) if cr.entity is not None else None
+    if base is None or actuel is None:
+        return None
+    ecart = _resume_changement(base, actuel)
+    touche = (ecart["added"] or ecart["removed"] or ecart["renamed"]
+              or ecart["moved"] or ecart["links_added"] or ecart["links_removed"])
+    return ecart if touche else None
+
+
+def propositions_a_examiner(user):
+    """Les propositions EN ATTENTE que ce compte peut trancher, toutes cartos.
+
+    Source unique du bandeau de la page Carte et de sa fenêtre d'examen : le
+    chiffre annoncé et la liste ouverte ne peuvent pas diverger. Ses propres
+    propositions n'y figurent pas — on ne s'alerte pas soi-même.
+    """
+    if user is None or not can_review(None, user):
+        return []
+    demandes = (CartoChangeRequest.query
+                .filter(CartoChangeRequest.status == "pending",
+                        CartoChangeRequest.author_id != user.id)
+                .order_by(CartoChangeRequest.created_at.asc())
+                .all())
+    return [cr for cr in demandes if can_review(cr.entity, user)]
+
+
+@carto_sharing_bp.route("/api/changes/a_examiner")
+def list_a_examiner():
+    """Ce qui attend la décision du compte connecté, sur TOUTES les cartos.
+
+    ⚠️ Pas seulement la carto active : c'est précisément ce qui manquait — une
+    proposition n'était vue qu'en ouvrant la carto qu'elle vise.
+    """
+    user = _connecte()
+    if not user:
+        return jsonify({"error": "Non connecté"}), 401
+    demandes = propositions_a_examiner(user)
+    return jsonify({
+        "requests": [_en_json(cr, user) for cr in demandes],
+        "n": len(demandes),
+        "cartos": len({cr.entity_id for cr in demandes}),
+    })
 
 
 @carto_sharing_bp.route("/api/changes", methods=["POST"])

@@ -237,6 +237,32 @@ def _peut_regler_acces():
         return False
 
 
+def _examen_en_attente():
+    """Le bandeau « modifications proposées » : {n, cartos, carto} ou None.
+
+    ⚠️ Toutes cartos confondues, pas seulement l'active : une proposition
+    n'était vue qu'en ouvrant la carto qu'elle vise — donc souvent jamais.
+    Rien pour qui ne valide pas, et rien quand il n'y a rien : un bandeau
+    d'alerte qui s'affiche à vide cesse d'être lu.
+    """
+    try:
+        from Code.permissions import current_user
+        from Code.routes.carto_sharing import propositions_a_examiner
+        user = current_user() if session.get('user_id') else None
+        demandes = propositions_a_examiner(user)
+        if not demandes:
+            return None
+        cartos = {d.entity_id: (d.entity.name if d.entity else '') for d in demandes}
+        return {
+            "n": len(demandes),
+            "cartos": len(cartos),
+            "carto": next(iter(cartos.values())) if len(cartos) == 1 else None,
+        }
+    except Exception as exc:
+        print(f"[CARTO] propositions à examiner : {exc}")
+        return None
+
+
 @activities_map_bp.route("/map")
 def activities_map_page():
     user_id = session.get('user_id')
@@ -353,6 +379,7 @@ def activities_map_page():
         # Qui ouvre quelles cartos : le bouton n'apparaît que pour qui règle
         # l'accès (la route refuse de son côté — le masquage n'est pas un droit).
         peut_regler_acces=bool(_peut_regler_acces()),
+        examen=_examen_en_attente(),
     )
 
 

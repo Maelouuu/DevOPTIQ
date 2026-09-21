@@ -502,7 +502,7 @@ def assign_manager_simple():
 
 @gestion_rh_bp.route('/api/tableau')
 def api_tableau():
-    """Les personnes, les rôles, l'accès à la carto et les propositions.
+    """Les personnes, les rôles et l'accès à la carto.
 
     La page appelait DIX endpoints qui se recoupaient : chacun refaisait ses
     requêtes, et deux d'entre eux se contredisaient sur qui est collaborateur.
@@ -514,7 +514,6 @@ def api_tableau():
     et la page semblait cassée alors que les comptes étaient bien là.
     """
     from Code.carto_access import access_summary, can_manage_access, entity_role_ids
-    from Code.models.models import CartoChangeRequest
     from Code.permissions import is_admin, is_coordinator
     from Code.roles_permanents import ROLE_DEV_COMPETENCES, est_dev_competences
 
@@ -596,22 +595,6 @@ def api_tableau():
             'est_dev': u.id in ids_dev,
         })
 
-    # ── Les propositions en attente sur cette carto ──────────────────────
-    propositions = []
-    if entity_id:
-        for cr in (CartoChangeRequest.query
-                   .filter_by(entity_id=entity_id, status='pending')
-                   .order_by(CartoChangeRequest.created_at.desc()).all()):
-            auteur = db.session.get(User, cr.author_id)
-            propositions.append({
-                'id': cr.id,
-                'titre': cr.title or '',
-                'auteur': (f"{auteur.first_name} {auteur.last_name}"
-                           if auteur else '—'),
-                'le': cr.created_at.isoformat() if cr.created_at else None,
-                'a_moi': cr.author_id == moi.id,
-            })
-
     # ── Le calendrier de travail ─────────────────────────────────────────
     calendrier = {}
     try:
@@ -640,7 +623,6 @@ def api_tableau():
         'roles': roles_json,
         'role_dev_id': id_dev,
         'role_dev_nom': ROLE_DEV_COMPETENCES,
-        'propositions': propositions,
         'moi': {'id': moi.id, 'est_dev': moi.id in ids_dev},
         'droits': {
             'gere_acces': bool(entite and can_manage_access(entite, moi)),
@@ -650,6 +632,30 @@ def api_tableau():
             'admin': bool(is_admin(moi)),
         },
     })
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  Les compétences de tout le monde, sur toutes les cartos
+# ═══════════════════════════════════════════════════════════════════════════
+
+@gestion_rh_bp.route('/api/competences')
+def api_competences():
+    """Le tableau global : chaque personne × chacun de ses rôles.
+
+    ⚠️ Indépendant de la carto choisie en haut de page : celle-ci cadre les
+    personnes et les rôles qu'on RÈGLE, alors que ce tableau sert à VOIR, et
+    la vue utile à la RH est d'abord celle de toute l'entreprise. Le filtre
+    `?entity_id=` le resserre sur une carto quand on en a besoin.
+    """
+    from Code.competences_globales import tableau_global
+    from Code.permissions import can_access_rh, current_user
+
+    moi = current_user()
+    if moi is None:
+        return jsonify({'error': 'Non connecté'}), 401
+    if not can_access_rh(moi):
+        return jsonify({'error': 'Accès refusé'}), 403
+    return jsonify(tableau_global(moi, request.args.get('entity_id', type=int)))
 
 
 # ═══════════════════════════════════════════════════════════════════════════

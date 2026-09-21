@@ -114,12 +114,16 @@ class TestTableau:
         metier = next(r for r in d["roles"] if r["id"] == scene["metier"])
         assert metier["permanent"] is False
 
-    def test_les_propositions_en_attente_sont_la(self, client, scene):
+    def test_les_propositions_s_examinent_depuis_la_page_carte(self, client, scene):
+        """Elles vivaient ici, cadrées par la carto active : celui qui valide ne
+        les voyait qu'en activant la carto visée. Elles sont désormais sur la
+        page Carte, toutes cartos confondues (tests/test_86)."""
         _connecte(client, scene)
         d = client.get("/gestion_rh/api/tableau").get_json()
-        assert len(d["propositions"]) == 1
-        assert d["propositions"][0]["titre"] == "Proposition 74"
-        assert "Noe" in d["propositions"][0]["auteur"]
+        assert "propositions" not in d
+        a_voir = client.get("/cartography/api/changes/a_examiner").get_json()["requests"]
+        la_notre = [r for r in a_voir if r["title"] == "Proposition 74"]
+        assert len(la_notre) == 1 and "Noe" in la_notre[0]["author"]
 
     def test_un_titulaire_du_role_permanent_peut_affecter(self, client, scene):
         _connecte(client, scene, "champ")
@@ -158,8 +162,9 @@ class TestPageRendue:
         r = client.get("/gestion_rh/")
         assert r.status_code == 200
         html = r.data.decode("utf-8")
-        for bloc in ("bloc-personnes", "bloc-roles", "bloc-propositions"):
+        for bloc in ("bloc-personnes", "bloc-roles", "bloc-competences"):
             assert f'id="{bloc}"' in html
+        assert 'id="bloc-propositions"' not in html
         assert "grh-topbar" in html
 
     def test_le_fichier_dcp_a_quitte_la_page_rh(self, client, scene):

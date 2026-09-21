@@ -1719,7 +1719,9 @@ partagent un design system chargé partout via `header_buttons.html` :
    modèle** (carto commune, accès par rôle, propositions de modification, statut
    « champion » à la place de « gestionnaire de compétences », statut « RH » retiré).
    Les deux documents décrivent encore le partage par COPIE seul. À reprendre à la
-   prochaine routine de documentation, captures comprises.
+   prochaine routine de documentation, captures comprises — avec l'examen des
+   propositions depuis le bandeau de la page Carte et le tableau global des
+   compétences de la page RH (2026-09-21).
 2. Éditeur OptiqCarto côté JS (`static/optiqcarto/editor.js`) — seul élément majeur restant
 3. **La fenêtre « Importer des données »** (page Carte) remplace l'ancien import global IA :
    le guide et la doc technique décrivent encore l'ancien écran (étapes analyse → revue),
@@ -2492,11 +2494,137 @@ développeurs) : un collaborateur peut être suivi par Lou sur « Qualité » et
 par Sacha sur « Logistique ». L'inverse est impossible **par construction** —
 le lien vit sur la ligne (compte, rôle), qui porte UN développeur ; poser le
 second remplace le premier.
-Ce qui manquait : le dire. Le panneau « Seulement certains rôles » porte
-désormais « Un autre développeur peut suivre les rôles restants. »
-Tests : `test_80::TestPlusieursDeveloppeurs` (3 cas). Banc :
-`tools/devrun_partage.py` sème un SECOND développeur (`dev2@test.local`) —
-avec un seul candidat, le cas ne pouvait même pas se jouer.
+Ce qui manquait : le dire. Tests : `test_80::TestPlusieursDeveloppeurs`
+(3 cas). Banc : `tools/devrun_partage.py` sème un SECOND développeur
+(`dev2@test.local`) — avec un seul candidat, le cas ne pouvait même pas se
+jouer.
+
+**La fenêtre refaite (2026-09-21)** — « on ne sait pas si cela enlève le
+précédent ». Le panneau présentait un choix global (tous ses rôles / certains
+rôles) puis une liste de cases : poser un second développeur avait l'air de
+remplacer le premier. Il montre désormais la SEULE chose vraie — **un
+développeur par rôle** — sous la forme d'une ligne par rôle tenu, chacune avec
+SON développeur (« Qui accompagne Noe ? »). Cliquer une ligne la déplie sur les
+candidats ; en choisir un n'écrit que CE rôle (`/gestion_rh/role_dev`), et la
+phrase « Un développeur par rôle : en changer un ne touche pas aux autres » le
+dit une fois pour toutes. En pied, « Le même pour tous ses rôles »
+(`/gestion_rh/dev_scope`, `role_ids: null`) est un raccourci séparé.
+- ⚠️ La fenêtre **reste ouverte** après chaque choix : on règle deux rôles de
+  suite sans la rouvrir. La page se redessine derrière (`charger({discret})`) ;
+  le panneau se raccroche au bouton RECRÉÉ (`raccrocher()`), et un drapeau
+  (`tenirOuvert`) empêche le défilement de rattrapage de la refermer.
+- La ligne qui vient d'être écrite s'éclaire une seconde (`is-recent`) : sans
+  ça, rien ne montrait où l'écriture avait porté.
+
+### Page Comptes : les tuiles filtrent enfin (2026-09-21)
+
+⚠️ Cliquer une tuile ne faisait RIEN : le JS posait bien `hidden` sur les
+lignes écartées, mais `.acc-ligne { display: grid }` l'emportait sur la règle
+du navigateur `[hidden] { display: none }` — une règle d'auteur bat toujours
+la feuille par défaut. `.acc-ligne[hidden] { display: none; }`. Deux phrases
+d'en-tête ont aussi quitté la page (« Qui entre dans l'application… », « L'échelle
+des quatre paliers ne change pas… ») : elles décrivaient ce que l'écran montre.
+
+`tests/test_85_gabarits_bien_formes.py` — un commentaire HTML ouvert sans être
+fermé (ou l'inverse) affiche du texte brut dans la page : c'est arrivé sur la
+page RH, en retirant une section ligne à ligne. Le contrôle compte `<!--` et
+`-->` dans chaque gabarit (commentaires Jinja retirés).
+
+### Les propositions s'examinent depuis la page CARTE, toutes cartos (2026-09-21)
+
+Elles vivaient dans la page RH (section ③), cadrées par la carto ACTIVE : celui
+qui valide ne les voyait qu'en activant la carto visée — donc souvent jamais.
+Un **bandeau d'alerte** sur la page Carte (`#cex-bandeau`, ambre) les annonce
+désormais toutes (« 2 modifications proposées attendent votre décision · sur 2
+cartos »), et le clic ouvre la **fenêtre d'examen** (`carto_examen_modal.html`
++ `static/js/carto_examen.js` + `static/carto_examen.css`, catalogue
+`CEX_I18N` / clés `examen.*`) : la liste groupée par carto à gauche, la
+proposition à droite — avant/après en image (la loupe ouvre le VRAI viewer),
+ce qu'elle change, puis un commentaire et Refuser / Appliquer à la carto.
+- **Source unique** : `carto_sharing.propositions_a_examiner(user)` — en
+  attente, pas les siennes, et seulement là où `can_review(entity)`. Elle sert
+  au bandeau (`activities_map._examen_en_attente`, rendu serveur : pas de
+  bandeau qui clignote, ni de bandeau vide) ET à la liste
+  (`GET /cartography/api/changes/a_examiner`) : le chiffre annoncé et la
+  liste ouverte ne peuvent pas diverger.
+- ⚠️ **Appliquer REMPLACE la carto par la version proposée.** Si la carto a
+  bougé depuis le dépôt (autre proposition appliquée, retouche d'un
+  coordinateur), l'appliquer efface ces changements sans que rien ne le dise.
+  `GET /api/changes/<id>` renvoie `since` — ce qui a changé entre le dépôt et
+  maintenant, comparé en formes et en flèches (`_resume_changement`), pas en
+  texte : un simple réenregistrement réécrit le JSON sans rien changer.
+- Une proposition appliquée sur la carto AFFICHÉE recharge la page à la
+  fermeture de la fenêtre (pas avant : on peut avoir d'autres propositions à
+  traiter). Un 409 (déjà tranchée ailleurs) retire la ligne au lieu d'afficher
+  une erreur. Les dates du serveur sont en UTC SANS fuseau : le JS ajoute le
+  `Z`, sinon deux heures de décalage à Paris.
+- La section ③ de la page RH, sa tuile, `rendrePropositions()`, le champ
+  `propositions` de `/gestion_rh/api/tableau` et six clés `rh.*` sont retirés.
+
+⚠️ **Et les lignes « valider » / « enregistrer directement » du tableau des
+droits ne décidaient de RIEN.** `carto_access.can_review` et `can_edit`
+lisaient le statut brut (`is_admin or is_coordinator`), jamais
+`can_review_carto` / `can_edit_carto` : cocher « valider » pour le champion ne
+lui ouvrait rien, le décocher pour le coordinateur ne lui retirait rien. Ils
+passent désormais par le tableau — le défaut reproduit exactement l'ancienne
+règle — et exigent en plus de pouvoir OUVRIR la carto (`can_read`) : un
+champion à qui l'on confierait l'examen ne tranche pas sur une carto qu'il ne
+voit pas.
+
+### Page RH ③ : les compétences de chacun, toutes cartos (2026-09-21)
+
+Le tableau global d'autrefois (`/competences/users/global_summary`, une
+personne par ligne, un rôle par colonne) revient, dans la page RH et avec le
+modèle V1.1 : `GET /gestion_rh/api/competences[?entity_id=]` →
+`Code/competences_globales.py::tableau_global`, écran
+`static/js/rh_competences.js` (catalogue `RHC_I18N`, clés `rh.comp_*`).
+Une ligne par personne, une colonne par rôle **groupée par carto**, dans chaque
+case la jauge de la page Compétences (quatre pas, trait au requis, pointillés
+tant que ce n'est pas évalué) et ce qui reste (« 2 en écart », « 1 à évaluer »,
+« Niveau tenu », « À configurer ») ; une colonne « Ensemble » porte la
+couverture de la personne. Filtres : carto (défaut **toutes**), recherche, et
+quatre puces d'état (tout le monde / en écart / à évaluer / au niveau). La
+tuile « En écart » en tête de page mène au bloc ET filtre. Une case ouvre la
+page Compétences sur CETTE personne et CE rôle (`?personne=&role=`,
+`ouvrirDemande()` dans `competences_v2.js`, adresse nettoyée ensuite).
+- ⚠️ **Indépendant de la carto choisie en haut de la page RH** : celle-ci cadre
+  ce qu'on RÈGLE (personnes, rôles, accès) ; ce tableau sert à VOIR, et la vue
+  utile d'abord est celle de toute l'entreprise.
+- ⚠️ **Mêmes chiffres que la page Compétences, par construction** : la
+  couleur, l'état d'une activité et la couverture viennent de `mastery`
+  (`color_for`, `categorie_activite`, `couverture`) ; le niveau d'une activité
+  et celui d'un rôle suivent la règle du MINIMUM (NULL tant que ce n'est pas
+  complet). `test_86::test_memes_chiffres_que_la_page_competences` compare
+  champ par champ avec `/mastery/synthese`.
+- ⚠️ **Pas `dashboard_rows` en boucle** : ~6 requêtes par activité et par
+  personne — soixante personnes, deux rôles, quinze activités, dix mille
+  requêtes, deux minutes et demie sur Neon. Le calcul est fait en BLOC, en un
+  nombre FIXE de requêtes (`test_le_cout_ne_grandit_pas_avec_l_effectif`
+  compte les requêtes avant et après six personnes de plus : égalité).
+- ⚠️ **`get_activity_outputs` ÉCRIT** (il matérialise les sorties en `Data`) :
+  on ne l'appelle pas depuis une page de lecture. `_resultats()` relit ce qu'il
+  a déjà matérialisé, avec sa règle exacte (index par nom normalisé, le
+  dernier l'emporte ; résultats hérités via `Link.target_data_id`).
+- Un rôle sans activité (le développeur de compétences, une bande vide) ou que
+  personne ne tient n'a pas de colonne. Qui voit qui : coordinateur et
+  administrateur, tout le monde ; sinon soi-même et ceux qu'on encadre (la
+  règle de `peut_lire`, en bloc).
+
+⚠️ **`competences_acces._statut_eleve` donnait l'arbitrage au mauvais
+palier.** Elle disait « champion ou administrateur ». Depuis les quatre
+paliers, `champion` nomme le palier du DESSOUS (il propose sans valider) et
+l'ancien arbitre s'appelle `coordinateur` : un champion pouvait lire et NOTER
+tout le monde — jusqu'à se décerner le niveau qui fait foi — et le coordinateur
+ne voyait plus que ses propres collaborateurs sur la page Compétences. Règle
+désormais : `niveau_status(statut) >= NIVEAU_COORDINATEUR`. C'était un appel
+de STATUT (`is_champion_status`), pas `is_champion()` : la reprise des
+« ~8 appels à `is_champion()` » ne pouvait pas le voir.
+
+Tests : `tests/test_86_examen_et_competences_rh.py` (25 cas ; les huit qui
+portent sur les droits vérifiés **rouges** sur le code d'avant). Bancs :
+`tools/devrun_partage.py` sème une troisième carto commune avec sa proposition,
+retouchée APRÈS le dépôt (l'avertissement `since`) ; `tools/devrun_competences.py`
+une seconde carto « Atelier » (tenu, en écart, pas évalué).
 
 ### Page RH : un rôle sur PLUSIEURS cartos (2026-09-17)
 

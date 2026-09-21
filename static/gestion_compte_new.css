@@ -162,6 +162,11 @@
     border-bottom: 1px solid var(--card-2, #f1f5f9);
 }
 .acc-ligne:last-of-type { border-bottom: none; }
+/* ⚠️ `display: grid` l'emporte sur l'attribut `hidden` (qui ne pèse qu'un
+   `display: none` de la feuille du navigateur) : sans cette règle, le filtre
+   masquait les lignes… qui restaient affichées. La tuile se colorait, la liste
+   ne bougeait pas. */
+.acc-ligne[hidden] { display: none; }
 .acc-ligne:hover { background: color-mix(in srgb, var(--pg-accent) 4%, #fff); }
 .acc-av {
     width: 34px;

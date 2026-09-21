@@ -1,6 +1,6 @@
 // static/js/gestion_rh.js
 //
-// Gestion RH — les personnes, les rôles, l'accès à la carto, les propositions.
+// Gestion RH — les personnes, les rôles, l'accès à la carto.
 //
 // Trois principes, tirés de ce qui n'allait pas :
 //
@@ -114,6 +114,9 @@
       rendre();
       if (discret) window.scrollTo(0, y);
       if (fenetre) rendreFenetre();
+      // Une action vient de changer qui tient quoi : le tableau des
+      // compétences (bloc ③) se remet à jour de son côté.
+      if (discret) document.dispatchEvent(new Event('grh:charge'));
     } catch (_) {
       erreurGlobale(L('save_error'));
     }
@@ -133,7 +136,6 @@
     rendreFiltreRoles();
     rendrePersonnes();
     rendreRoles();
-    rendrePropositions();
   }
 
   /* ── Bandeau : l'entité, puis le calendrier ─────────────────────────── */
@@ -224,8 +226,10 @@
     const tuiles = [
       ['bloc-personnes', 'fa-users', (D.personnes || []).length, L('tile_people'), 'a'],
       ['bloc-roles', 'fa-tags', (D.roles || []).length, L('tile_roles'), 'b'],
-      ['bloc-propositions', 'fa-code-pull-request',
-        (D.propositions || []).length, L('tile_changes'), 'c'],
+      // Le chiffre vient du bloc ③ (rh_competences.js), qui le calcule sur
+      // toute l'entreprise ; « … » tant qu'il n'est pas arrivé.
+      ['bloc-competences', 'fa-chart-simple',
+        (window.RHC_RESUME || {}).n_gap ?? '…', L('tile_comp'), 'c'],
     ];
     $('#grh-tiles').innerHTML = tuiles.map(([cible, icone, n, lib, ton]) => `
       <button type="button" class="grh-tile grh-tile--${ton}" data-cible="${cible}">
@@ -239,6 +243,10 @@
         const bloc = document.getElementById(t.dataset.cible);
         if (!bloc) return;
         bloc.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        // La tuile « En écart » ne fait pas que mener au tableau : elle montre QUI.
+        if (t.dataset.cible === 'bloc-competences') {
+          document.dispatchEvent(new CustomEvent('rhc:filtre', { detail: 'gap' }));
+        }
         // Un simple défilement passe inaperçu : on DÉSIGNE le bloc atteint.
         bloc.classList.add('is-pointed');
         setTimeout(() => bloc.classList.remove('is-pointed'), 1400);
@@ -396,6 +404,7 @@
   }
 
   let menuOuvert = null;
+  let tenirOuvert = false;   // le temps de redessiner la liste après un réglage
 
   function fermerMenuDev() {
     if (!menuOuvert) return;
@@ -407,72 +416,66 @@
 
   function _echapMenu(e) { if (e.key === 'Escape') fermerMenuDev(); }
 
-  // Le développeur en place SUR CETTE PORTÉE — c'est lui qui porte la coche.
-  // `cible` nul = tous ses rôles.
-  function devDePortee(c, cible) {
-    if (cible === null) return c.total ? c.devs[0] : c.global;
-    const ids = [...new Set(cible.map((id) => {
-      const x = c.roles.find((y) => y.id === id);
-      return x ? x.dev : null;
-    }))];
-    return (ids.length === 1 && ids[0]) ? ids[0] : null;
+  /* ⚠️ **Une ligne par rôle, et chaque ligne a SON développeur.** Le panneau
+     demandait d'abord « sur quels rôles ? », puis « qui ? » : on cochait des
+     rôles, on cliquait un nom — et rien ne disait si ce nom REMPLAÇAIT le
+     développeur déjà posé sur les autres rôles, ou s'y ajoutait. La réponse
+     est dans la structure : un rôle, un développeur, et changer celui d'un
+     rôle ne touche jamais aux autres (`/gestion_rh/role_dev`). Le choix
+     global reste possible, séparé, et dit ce qu'il fait : « le même pour tous
+     ses rôles ». */
+  let deplie = null;     // le rôle dont la liste de développeurs est ouverte
+  let recent = null;     // le rôle qu'on vient de régler : il s'allume un instant
+
+  function choixDevs(devs, actuel, attr) {
+    return `
+      <div class="grh-dr-choix">
+        <button type="button" class="grh-dr-opt${actuel ? '' : ' is-on'}" ${attr}="">
+          <span class="grh-devpick-none"></span><span>${esc(L('dev_none'))}</span>
+        </button>
+        ${devs.map((d) => `
+          <button type="button" class="grh-dr-opt${actuel === d.id ? ' is-on' : ''}" ${attr}="${d.id}">
+            ${avatar(d, 'xs')}<span>${esc(nomDe(d))}</span>
+          </button>`).join('')}
+      </div>`;
   }
 
-  let portee = null;   // { mode: 'tous' | 'precis', roles: Set }
-
-  /* ⚠️ **La portée se choisit ICI, dans le menu du développeur.** Elle vivait
-     dans la fiche de la personne, derrière le bouton des RÔLES : personne ne
-     l'y cherchait, et le menu « Développeur de compétences » ne proposait que
-     des noms — on ne pouvait pas dire sur quoi. Une question, un endroit. */
-  function panneauPortee(p, devs) {
+  function panneauParRole(p, devs) {
     const c = couverture(p);
-    const cible = portee.mode === 'tous' ? null : [...portee.roles];
-    const actuelId = devDePortee(c, cible);
-    const bloque = portee.mode === 'precis' && portee.roles.size === 0;
-    const radio = (on) => `<span class="grh-radio${on ? ' is-on' : ''}"></span>`;
-
-    const bloc_portee = !c.n
-      ? `<p class="grh-devmenu-note">${esc(L('dev_no_role_scope'))}</p>`
-      : `
-        <p class="grh-devmenu-scope">${esc(L('dev_scope_title'))}</p>
-        <button type="button" class="grh-scope${portee.mode === 'tous' ? ' is-current' : ''}"
-                data-mode="tous">
-          ${radio(portee.mode === 'tous')}
-          <span><b>${esc(L('dev_scope_all'))} (${c.n})</b>
-                <em>${esc(L('dev_scope_all_hint'))}</em></span>
-        </button>
-        <button type="button" class="grh-scope${portee.mode === 'precis' ? ' is-current' : ''}"
-                data-mode="precis">
-          ${radio(portee.mode === 'precis')}
-          <span><b>${esc(L('dev_scope_pick'))}</b>
-            ${c.devs.length ? `<em>${esc(L('dev_plusieurs'))}</em>` : ''}</span>
-        </button>
-        ${portee.mode === 'precis' ? `<div class="grh-scope-roles">${c.roles.map((x) => `
-          <label class="grh-scope-role${x.dev ? ' is-suivi' : ''}">
-            <input type="checkbox" data-role-pick="${x.id}"
-                   ${portee.roles.has(x.id) ? 'checked' : ''}>
-            <b>${esc(x.name)}</b>
-            <span>${esc(x.dev ? nomCompte(x.dev) : L('dev_none'))}</span>
-          </label>`).join('')}</div>` : ''}`;
-
+    if (!devs.length) {
+      return `<p class="grh-devmenu-scope">${esc(L('dev_who_follows').replace('{nom}', nomDe(p)))}</p>
+        <p class="grh-devmenu-empty">${esc(L('dev_no_candidate'))}</p>`;
+    }
+    const lignes = c.roles.map((x) => {
+      const d = x.dev ? personneParId(x.dev) : null;
+      const ouvert = deplie === x.id;
+      return `
+        <div class="grh-dr-ligne${ouvert ? ' is-open' : ''}${recent === x.id ? ' is-recent' : ''}">
+          <button type="button" class="grh-dr-tete" data-row="${x.id}" aria-expanded="${ouvert}">
+            <span class="grh-dr-role">${esc(x.name)}</span>
+            <span class="grh-dr-dev${x.dev ? '' : ' is-empty'}">
+              ${d ? avatar(d, 'xs') : '<span class="grh-devpick-none"></span>'}
+              <span>${esc(x.dev ? nomCompte(x.dev) : L('dev_none'))}</span>
+              <i class="fa-solid fa-chevron-down"></i>
+            </span>
+          </button>
+          ${ouvert ? choixDevs(devs, x.dev, 'data-pick-dev') : ''}
+        </div>`;
+    }).join('');
+    // Le choix global n'est « en place » que s'il couvre VRAIMENT tout : un
+    // seul développeur, aucun rôle laissé de côté.
+    const global = c.total ? c.devs[0] : null;
     return `
-      ${bloc_portee}
-      <p class="grh-devmenu-scope">${esc(L('dev_who_title'))}</p>
-      ${bloque ? `<p class="grh-devmenu-note">${esc(L('dev_scope_none_yet'))}</p>` : ''}
-      <button type="button" class="grh-devmenu-item${actuelId ? '' : ' is-current'}"
-              data-choix="" ${bloque ? 'disabled' : ''}>
-        <span class="grh-devpick-none"></span>
-        <span class="grh-devmenu-name is-empty">${esc(L('dev_none'))}</span>
-        ${actuelId ? '' : '<i class="fa-solid fa-check"></i>'}
-      </button>
-      ${devs.length ? devs.map((d) => `
-        <button type="button" class="grh-devmenu-item${actuelId === d.id ? ' is-current' : ''}"
-                data-choix="${d.id}" ${bloque ? 'disabled' : ''}>
-          ${avatar(d, 'xs')}
-          <span class="grh-devmenu-name">${esc(nomDe(d))}</span>
-          ${actuelId === d.id ? '<i class="fa-solid fa-check"></i>' : ''}
-        </button>`).join('')
-        : `<p class="grh-devmenu-empty">${esc(L('dev_no_candidate'))}</p>`}`;
+      <p class="grh-devmenu-scope">${esc(L('dev_who_follows').replace('{nom}', nomDe(p)))}</p>
+      ${c.n ? `
+        <p class="grh-dr-regle"><i class="fa-solid fa-circle-info"></i>${esc(L('dev_per_role_rule'))}</p>
+        <div class="grh-dr-lignes">${lignes}</div>`
+        : `<p class="grh-devmenu-note">${esc(L('dev_no_role_scope'))}</p>`}
+      <div class="grh-dr-tous${recent === 'tous' ? ' is-recent' : ''}">
+        <p class="grh-dr-tous-t">${esc(L('dev_same_all'))}</p>
+        <p class="grh-dr-tous-d">${esc(L('dev_scope_all_hint'))}</p>
+        ${choixDevs(devs, global, 'data-pick-all')}
+      </div>`;
   }
 
   // Liste simple : le développeur d'UN rôle, depuis la fiche de la personne.
@@ -503,28 +506,21 @@
     const cle = userId + ':' + (roleId || '');
     if (menuOuvert && menuOuvert.cle === cle) { fermerMenuDev(); return; }
     fermerMenuDev();
-
-    const p = personneParId(userId);
-    if (!p) return;
-    const devs = (D.personnes || []).filter((x) => x.est_dev && x.id !== userId);
-    const c = couverture(p);
-    // On ouvre sur la RÉALITÉ : une couverture partielle s'affiche déjà
-    // dépliée, ses rôles cochés — sinon l'écran demanderait de refaire un
-    // choix sans montrer celui qui est en place.
-    portee = (c.n > 0 && c.k > 0 && !c.total)
-      ? { mode: 'precis', roles: new Set(c.roles.filter((x) => x.dev).map((x) => x.id)) }
-      : { mode: 'tous', roles: new Set() };
+    if (!personneParId(userId)) return;
+    deplie = null;
+    recent = null;
 
     const panneau = document.createElement('div');
     panneau.className = 'grh-devmenu' + (roleId ? '' : ' grh-devmenu--portee');
     /* ⚠️ **Un clic DANS le panneau le refermait.** Le clic du dessous
        (document) ferme le menu quand sa cible n'est pas dans `.grh-devmenu` —
-       or changer la portée REDESSINE le panneau, si bien que la cible du clic
-       est déjà DÉTACHÉE quand l'événement remonte : `closest()` ne trouve plus
+       or chaque réglage REDESSINE le panneau, si bien que la cible du clic est
+       déjà DÉTACHÉE quand l'événement remonte : `closest()` ne trouve plus
        rien et le menu se fermait au premier réglage. On arrête donc la
        remontée au panneau, une fois pour toutes. */
     panneau.addEventListener('click', (e) => e.stopPropagation());
     document.body.appendChild(panneau);
+    menuOuvert = { cle, userId, roleId, bouton, panneau };
 
     /* Position fixe, calée sous le bouton : le menu doit échapper au
        `overflow` de la liste des personnes, sinon il serait tronqué.
@@ -532,12 +528,12 @@
        ⚠️ **`body.pg` porte `zoom: .8`** (ui-theme). Un enfant du body posé en
        `position: fixed` voit ses coordonnées MULTIPLIÉES par ce zoom, alors
        que `getBoundingClientRect()` les rend déjà en pixels d'écran : le menu
-       était dessiné 20 % trop haut et trop à gauche de son bouton. Invisible
-       tant qu'il était étroit, criant dès qu'il s'élargit. `offsetWidth`, lui,
-       est déjà dans le repère du body — il faut donc le convertir dans l'autre
-       sens pour le comparer à `window.innerWidth`. */
+       était dessiné 20 % trop haut et trop à gauche de son bouton. `offsetWidth`,
+       lui, est déjà dans le repère du body — il faut donc le convertir dans
+       l'autre sens pour le comparer à `window.innerWidth`. */
     const poser = () => {
-      const r = bouton.getBoundingClientRect();
+      const b = menuOuvert.bouton;
+      const r = b.getBoundingClientRect();
       const z = parseFloat(getComputedStyle(document.body).zoom) || 1;
       const w = panneau.offsetWidth * z;
       const h = panneau.offsetHeight * z;
@@ -549,45 +545,93 @@
       if (roleId) panneau.style.minWidth = (r.width / z) + 'px';
     };
 
-    const appliquer = (v) => {
-      const devId = v ? parseInt(v, 10) : null;
-      const roles = roleId ? [roleId]
-                  : (portee.mode === 'tous' ? null : [...portee.roles]);
-      fermerMenuDev();
-      affecterPortee(userId, devId, roles);
+    const devsDe = () => (D.personnes || []).filter((x) => x.est_dev && x.id !== userId);
+
+    /* ⚠️ Après un réglage, la liste des personnes est redessinée : le bouton
+       auquel le panneau est accroché est REMPLACÉ. On retrouve le nouveau
+       pour rester posé au même endroit — et le panneau reste OUVERT : régler
+       un second rôle juste après le premier est le cas courant. */
+    const raccrocher = () => {
+      const sel = roleId
+        ? `.grh-devpick[data-dev="${userId}"][data-role="${roleId}"]`
+        : `.grh-devpick[data-dev="${userId}"]:not([data-role])`;
+      const neuf = document.querySelector(sel);
+      if (neuf) {
+        menuOuvert.bouton = neuf;
+        neuf.classList.add('is-open');
+      }
+    };
+
+    const enregistrer = async (url, corps, marque) => {
+      try {
+        const d = await postJSON(url, corps);
+        if (!d.ok) throw new Error();
+        tenirOuvert = true;
+        await charger({ discret: true });
+        if (!menuOuvert || menuOuvert.panneau !== panneau) return;
+        raccrocher();
+        recent = marque;
+        redessiner();
+        toast(L('saved'));
+        setTimeout(() => {
+          if (recent === marque && menuOuvert && menuOuvert.panneau === panneau) {
+            recent = null;
+            redessiner();
+          }
+        }, 1600);
+      } catch (_) {
+        toast(L('save_error'), 'error');
+      } finally {
+        // Une trame plus tard : le défilement que le redessin a pu provoquer
+        // est passé.
+        setTimeout(() => { tenirOuvert = false; }, 60);
+      }
     };
 
     const brancher = () => {
-      panneau.querySelectorAll('[data-mode]').forEach((b) =>
+      if (roleId) {
+        panneau.querySelectorAll('[data-choix]').forEach((b) =>
+          b.addEventListener('click', () => {
+            const v = b.dataset.choix;
+            fermerMenuDev();
+            affecterPortee(userId, v ? parseInt(v, 10) : null, [roleId]);
+          }));
+        return;
+      }
+      panneau.querySelectorAll('[data-row]').forEach((b) =>
         b.addEventListener('click', () => {
-          portee.mode = b.dataset.mode;
-          if (portee.mode === 'precis' && !portee.roles.size) {
-            // Rien de coché : on part de ce qui est en place plutôt que d'une
-            // liste vide, qui demanderait de tout ressaisir.
-            c.roles.filter((x) => x.dev).forEach((x) => portee.roles.add(x.id));
-          }
+          const id = parseInt(b.dataset.row, 10);
+          deplie = deplie === id ? null : id;
           redessiner();
         }));
-      panneau.querySelectorAll('[data-role-pick]').forEach((el) =>
-        el.addEventListener('change', () => {
-          const id = parseInt(el.dataset.rolePick, 10);
-          if (el.checked) portee.roles.add(id); else portee.roles.delete(id);
-          redessiner();
+      panneau.querySelectorAll('[data-pick-dev]').forEach((b) =>
+        b.addEventListener('click', () => {
+          const role = deplie;
+          const v = b.dataset.pickDev;
+          deplie = null;
+          enregistrer('/gestion_rh/role_dev',
+            { user_id: userId, role_id: role, dev_id: v ? parseInt(v, 10) : null }, role);
         }));
-      panneau.querySelectorAll('[data-choix]').forEach((b) =>
-        b.addEventListener('click', () => { if (!b.disabled) appliquer(b.dataset.choix); }));
+      panneau.querySelectorAll('[data-pick-all]').forEach((b) =>
+        b.addEventListener('click', () => {
+          const v = b.dataset.pickAll;
+          deplie = null;
+          enregistrer('/gestion_rh/dev_scope',
+            { user_id: userId, dev_id: v ? parseInt(v, 10) : null, role_ids: null }, 'tous');
+        }));
     };
 
     const redessiner = () => {
-      panneau.innerHTML = roleId ? panneauSimple(p, devs, roleId)
-                                 : panneauPortee(p, devs);
+      const p = personneParId(userId);
+      if (!p) { fermerMenuDev(); return; }
+      panneau.innerHTML = roleId ? panneauSimple(p, devsDe(), roleId)
+                                 : panneauParRole(p, devsDe());
       brancher();
       poser();
     };
     redessiner();
 
     bouton.classList.add('is-open');
-    menuOuvert = { cle, userId, roleId, bouton, panneau };
     document.addEventListener('keydown', _echapMenu, true);
   }
 
@@ -770,35 +814,6 @@
         await charger({ discret: true });
       } catch (_) { toast(L('save_error'), 'error'); }
     });
-  }
-
-  /* ── ③ Les propositions ─────────────────────────────────────────────── */
-
-  function rendrePropositions() {
-    const liste = D.propositions || [];
-    if (!liste.length) {
-      $('#liste-propositions').innerHTML = `
-        <p class="grh-empty">${esc(L('changes_empty'))}</p>`;
-      return;
-    }
-    $('#liste-propositions').innerHTML = `<div class="grh-changes">${liste.map((c) => `
-      <article class="grh-change">
-        <i class="fa-solid fa-code-pull-request"></i>
-        <div class="grh-change-id">
-          <b>${esc(c.titre || L('tile_changes'))}</b>
-          <span>${esc(L('by'))} ${esc(c.auteur)}${c.le ? ' · ' + esc(dateCourte(c.le)) : ''}</span>
-        </div>
-        <a class="grh-btn grh-btn--ghost" href="/cartography/editor?proposition=${c.id}">
-          ${esc(L('changes_review'))} <i class="fa-solid fa-arrow-right"></i>
-        </a>
-      </article>`).join('')}</div>`;
-  }
-
-  function dateCourte(iso) {
-    try {
-      return new Date(iso).toLocaleDateString(window.GRH_CTX?.lang === 'en' ? 'en-GB' : 'fr-FR',
-        { day: '2-digit', month: 'short' });
-    } catch (_) { return ''; }
   }
 
   /* ── La fenêtre : un rôle ↔ ses titulaires, une personne ↔ ses rôles ── */
@@ -995,8 +1010,15 @@
           && !e.target.closest('.grh-devmenu')) fermerMenuDev();
     });
     // Le panneau est en position FIXE : il ne suivrait pas son bouton.
+    // ⚠️ Sauf quand c'est le panneau LUI-MÊME qui défile (il a sa propre
+    // hauteur maximale), ou pendant qu'on redessine la liste après un réglage :
+    // le fermer là, c'était le perdre au moment précis où on s'en sert.
     window.addEventListener('resize', fermerMenuDev);
-    document.addEventListener('scroll', fermerMenuDev, true);
+    document.addEventListener('scroll', (e) => {
+      if (tenirOuvert) return;
+      if (menuOuvert && e.target instanceof Node && menuOuvert.panneau.contains(e.target)) return;
+      fermerMenuDev();
+    }, true);
     initNouveauRole();
     charger();
   }

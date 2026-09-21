@@ -1,0 +1,83 @@
+<!-- ============================================================
+     EXAMINER LES MODIFICATIONS PROPOSÉES — page Carte.
+     Toutes cartos confondues : Code/routes/carto_sharing.py
+     (`propositions_a_examiner`, `/api/changes/a_examiner`).
+     L'écran : static/js/carto_examen.js — tout le texte passe par CEX_I18N.
+     ============================================================ -->
+<link rel="stylesheet" href="{{ url_for('static', filename='carto_examen.css') }}">
+<script>
+  /* ⚠️ `| tojson`, jamais une traduction entre guillemets dans un script : le
+     navigateur ne décode pas les entités HTML ici. */
+  window.CEX_I18N = {
+    bandeau_1:      {{ t('examen.bandeau_1') | tojson }},
+    bandeau_n:      {{ t('examen.bandeau_n') | tojson }},
+    sur_carto:      {{ t('examen.sur_carto') | tojson }},
+    sur_n_cartos:   {{ t('examen.sur_n_cartos') | tojson }},
+    titre:          {{ t('examen.titre') | tojson }},
+    compte_1:       {{ t('examen.compte_1') | tojson }},
+    compte_n:       {{ t('examen.compte_n') | tojson }},
+    sans_titre:     {{ t('examen.sans_titre') | tojson }},
+    par:            {{ t('change.by') | tojson }},
+    depuis_titre:   {{ t('examen.depuis_titre') | tojson }},
+    depuis_txt:     {{ t('examen.depuis_txt') | tojson }},
+    image:          {{ t('change.visual_title') | tojson }},
+    avant:          {{ t('change.before') | tojson }},
+    apres:          {{ t('change.after') | tojson }},
+    agrandir:       {{ t('change.enlarge') | tojson }},
+    leg_retire:     {{ t('change.legend_removed') | tojson }},
+    leg_ajoute:     {{ t('change.legend_added') | tojson }},
+    leg_change:     {{ t('change.legend_changed') | tojson }},
+    resume:         {{ t('change.summary_title') | tojson }},
+    rien:           {{ t('change.nothing') | tojson }},
+    added:          {{ t('change.added') | tojson }},
+    added_p:        {{ t('change.added_p') | tojson }},
+    removed:        {{ t('change.removed') | tojson }},
+    removed_p:      {{ t('change.removed_p') | tojson }},
+    renamed:        {{ t('change.renamed') | tojson }},
+    renamed_p:      {{ t('change.renamed_p') | tojson }},
+    moved:          {{ t('change.moved') | tojson }},
+    moved_p:        {{ t('change.moved_p') | tojson }},
+    links_added:    {{ t('change.links_added') | tojson }},
+    links_added_p:  {{ t('change.links_added_p') | tojson }},
+    links_removed:  {{ t('change.links_removed') | tojson }},
+    links_removed_p:{{ t('change.links_removed_p') | tojson }},
+    decision:       {{ t('examen.decision') | tojson }},
+    commentaire:    {{ t('examen.commentaire') | tojson }},
+    commentaire_ph: {{ t('examen.commentaire_ph') | tojson }},
+    appliquer:      {{ t('examen.appliquer') | tojson }},
+    refuser:        {{ t('examen.refuser') | tojson }},
+    applique:       {{ t('change.approved') | tojson }},
+    refuse:         {{ t('change.rejected') | tojson }},
+    fini:           {{ t('examen.fini') | tojson }},
+    fini_sous:      {{ t('examen.fini_sous') | tojson }},
+    recharge:       {{ t('examen.recharge') | tojson }},
+    deja:           {{ t('examen.deja') | tojson }},
+    interdit:       {{ t('examen.interdit') | tojson }},
+    err:            {{ t('examen.err') | tojson }},
+    err_decision:   {{ t('examen.err_decision') | tojson }},
+    avert_sync:     {{ t('examen.avert_sync') | tojson }},
+    fermer:         {{ t('btn.close') | tojson }},
+    lang:           {{ session.get('lang', 'fr') | tojson }}
+  };
+</script>
+<script defer src="{{ url_for('static', filename='js/carto_examen.js') }}"></script>
+
+<div class="cex" id="cex" hidden>
+  <div class="cex-fond" data-cex="fermer"></div>
+  <div class="cex-boite" role="dialog" aria-modal="true" aria-labelledby="cex-titre">
+    <header class="cex-tete">
+      <span class="cex-ic"><i class="fa-solid fa-code-pull-request"></i></span>
+      <div>
+        <h3 id="cex-titre">{{ t('examen.titre') }}</h3>
+        <p id="cex-sous"></p>
+      </div>
+      <button type="button" class="cex-x" data-cex="fermer" aria-label="{{ t('btn.close') }}">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+    </header>
+    <div class="cex-corps" id="cex-corps">
+      <aside class="cex-liste" id="cex-liste"></aside>
+      <section class="cex-detail" id="cex-detail"></section>
+    </div>
+  </div>
+</div>
