@@ -95,6 +95,47 @@ class TestActivityDetails:
         data = r.get_json()
         assert isinstance(data["outgoing"], list)
 
+    def test_details_outgoing_avec_performance_attachee(self, auth_client, app, ids):
+        """Un lien SORTANT (source_activity_id) avec une Performance attachée apparaît dans 'outgoing'."""
+        from Code.models.models import Performance, Link, Data
+        from Code.extensions import db
+
+        with app.app_context():
+            data_obj = Data(entity_id=ids["entity_id"], name="Donnée Sortante Test", type="nourrissante")
+            db.session.add(data_obj)
+            db.session.flush()
+            link = Link(
+                entity_id=ids["entity_id"],
+                source_activity_id=ids["activity_id"],
+                target_data_id=data_obj.id,
+                type="nourrissante",
+            )
+            db.session.add(link)
+            db.session.flush()
+            perf = Performance(link_id=link.id, name="Perf Sortante", description="Desc")
+            db.session.add(perf)
+            db.session.commit()
+            link_id, data_id, perf_id = link.id, data_obj.id, perf.id
+
+        try:
+            r = auth_client.get(f"/activities/{ids['activity_id']}/details")
+            data = r.get_json()
+            matches = [o for o in data["outgoing"] if o.get("performance") and o["performance"]["name"] == "Perf Sortante"]
+            assert len(matches) >= 1
+            assert matches[0]["performance"]["description"] == "Desc"
+        finally:
+            with app.app_context():
+                p = db.session.get(Performance, perf_id)
+                if p:
+                    db.session.delete(p)
+                l = db.session.get(Link, link_id)
+                if l:
+                    db.session.delete(l)
+                d = db.session.get(Data, data_id)
+                if d:
+                    db.session.delete(d)
+                db.session.commit()
+
     def test_details_activite_inexistante_404(self, auth_client):
         """Activité inconnue → 404."""
         r = auth_client.get("/activities/999999/details")

@@ -521,6 +521,28 @@ class TestToolsTaskAPI:
             )
             _delete_tool(app, tid)
 
+    def test_add_tools_db_error_rolls_back_and_returns_500(self, auth_client, ids, monkeypatch):
+        """Une erreur DB au commit de l'association outil↔tâche → rollback + 500."""
+        from Code.extensions import db
+
+        def _boom():
+            raise RuntimeError("commit-boom-tools-add")
+
+        monkeypatch.setattr(db.session, "commit", _boom)
+        try:
+            r = auth_client.post(
+                "/tools/add",
+                data=json.dumps({
+                    "task_id": ids["task_id"],
+                    "new_tools": ["Outil Qui Va Échouer"],
+                }),
+                content_type="application/json",
+            )
+        finally:
+            monkeypatch.undo()
+        assert r.status_code == 500
+        assert "commit-boom-tools-add" in json.loads(r.data)["error"]
+
     def test_delete_tool_from_task_missing_fields(self, auth_client):
         """POST /tools/delete sans les champs requis → 400."""
         r = auth_client.post(
@@ -578,6 +600,38 @@ class TestToolsTaskAPI:
             content_type="application/json",
         )
         assert r.status_code == 200
+        _delete_tool(app, tid)
+
+    def test_delete_tool_from_task_db_error_rolls_back_and_returns_500(self, auth_client, ids, app, monkeypatch):
+        """Une erreur DB au commit du retrait outil↔tâche → rollback + 500."""
+        from Code.extensions import db
+
+        tid = _create_tool(app, ids, name="Outil Delete DB Erreur")
+        auth_client.post(
+            "/tools/add",
+            data=json.dumps({"task_id": ids["task_id"], "existing_tool_ids": [tid]}),
+            content_type="application/json",
+        )
+
+        def _boom():
+            raise RuntimeError("commit-boom-tools-delete")
+
+        monkeypatch.setattr(db.session, "commit", _boom)
+        try:
+            r = auth_client.post(
+                "/tools/delete",
+                data=json.dumps({"task_id": ids["task_id"], "tool_id": tid}),
+                content_type="application/json",
+            )
+        finally:
+            monkeypatch.undo()
+        assert r.status_code == 500
+        assert "commit-boom-tools-delete" in json.loads(r.data)["error"]
+        auth_client.post(
+            "/tools/delete",
+            data=json.dumps({"task_id": ids["task_id"], "tool_id": tid}),
+            content_type="application/json",
+        )
         _delete_tool(app, tid)
 
 
