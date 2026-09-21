@@ -120,6 +120,25 @@ class TestAddSavoirFaireUnique:
         assert "description" in data
         _delete_sf(app, data["id"])
 
+    def test_add_sf_db_error_rolls_back_and_returns_500(self, auth_client, ids, monkeypatch):
+        """Une erreur DB au commit (ajout unitaire) → rollback + 500."""
+        from Code.extensions import db
+
+        def _boom():
+            raise RuntimeError("commit-boom-sf-add")
+
+        monkeypatch.setattr(db.session, "commit", _boom)
+        try:
+            r = auth_client.post(
+                "/savoir_faires/add",
+                data=json.dumps({"description": "Va échouer", "activity_id": ids["activity_id"]}),
+                content_type="application/json",
+            )
+        finally:
+            monkeypatch.undo()
+        assert r.status_code == 500
+        assert "commit-boom-sf-add" in json.loads(r.data)["error"]
+
 
 # ===========================================================================
 # 2. POST /savoir_faires/add — ajout en lot (savoir_faires=[...])
@@ -212,6 +231,28 @@ class TestAddSavoirFairesBatch:
         assert item["description"] == "SF Champs Batch"
         _delete_sf(app, item["id"])
 
+    def test_add_sf_batch_db_error_rolls_back_and_returns_500(self, auth_client, ids, monkeypatch):
+        """Une erreur DB au commit (ajout en lot) → rollback + 500."""
+        from Code.extensions import db
+
+        def _boom():
+            raise RuntimeError("commit-boom-sf-batch")
+
+        monkeypatch.setattr(db.session, "commit", _boom)
+        try:
+            r = auth_client.post(
+                "/savoir_faires/add",
+                data=json.dumps({
+                    "activity_id": ids["activity_id"],
+                    "savoir_faires": ["SF qui va échouer"],
+                }),
+                content_type="application/json",
+            )
+        finally:
+            monkeypatch.undo()
+        assert r.status_code == 500
+        assert "commit-boom-sf-batch" in json.loads(r.data)["error"]
+
 
 # ===========================================================================
 # 3. PUT /savoir_faires/<activity_id>/<sf_id> — modifier un savoir-faire
@@ -299,6 +340,28 @@ class TestUpdateSavoirFaire:
         finally:
             _delete_sf(app, sf_id)
 
+    def test_update_sf_db_error_rolls_back_and_returns_500(self, auth_client, ids, app, monkeypatch):
+        """Une erreur DB au commit lors de la mise à jour → rollback + 500."""
+        from Code.extensions import db
+
+        sf_id = _create_sf(app, ids["activity_id"], "SF Avant erreur DB")
+
+        def _boom():
+            raise RuntimeError("commit-boom-sf-update")
+
+        monkeypatch.setattr(db.session, "commit", _boom)
+        try:
+            r = auth_client.put(
+                f"/savoir_faires/{ids['activity_id']}/{sf_id}",
+                data=json.dumps({"description": "Ne passera pas"}),
+                content_type="application/json",
+            )
+        finally:
+            monkeypatch.undo()
+        assert r.status_code == 500
+        assert "commit-boom-sf-update" in json.loads(r.data)["error"]
+        _delete_sf(app, sf_id)
+
 
 # ===========================================================================
 # 4. DELETE /savoir_faires/<activity_id>/<sf_id> — supprimer un savoir-faire
@@ -342,6 +405,24 @@ class TestDeleteSavoirFaire:
         auth_client.delete(f"/savoir_faires/{ids['activity_id']}/{sf_id}")
         r2 = auth_client.delete(f"/savoir_faires/{ids['activity_id']}/{sf_id}")
         assert r2.status_code == 404
+
+    def test_delete_sf_db_error_rolls_back_and_returns_500(self, auth_client, ids, app, monkeypatch):
+        """Une erreur DB au commit lors de la suppression → rollback + 500."""
+        from Code.extensions import db
+
+        sf_id = _create_sf(app, ids["activity_id"], "SF À supprimer avec erreur")
+
+        def _boom():
+            raise RuntimeError("commit-boom-sf-delete")
+
+        monkeypatch.setattr(db.session, "commit", _boom)
+        try:
+            r = auth_client.delete(f"/savoir_faires/{ids['activity_id']}/{sf_id}")
+        finally:
+            monkeypatch.undo()
+        assert r.status_code == 500
+        assert "commit-boom-sf-delete" in json.loads(r.data)["error"]
+        _delete_sf(app, sf_id)
 
 
 # ===========================================================================

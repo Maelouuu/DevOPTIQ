@@ -1,5 +1,7 @@
 {% include "header_buttons.html" %}
-{% include "import_full_modal.html" %}
+{% include "import_hub_modal.html" %}
+{% if peut_regler_acces %}{% include "carto_acces_modal.html" %}{% endif %}
+{% if examen %}{% include "carto_examen_modal.html" %}{% endif %}
 <link rel="stylesheet" href="{{ url_for('static', filename='cartography.css') }}">
 
 <script>
@@ -39,6 +41,37 @@
   // Le badge « Commune » de la liste des entités ; tout le reste du partage
   // vit sur la page /share.
   window.ACCESS_I18N = { badgeShared: {{ t('access.badge_shared')|tojson }} };
+  // Ce que activities_map.js écrit lui-même (liste des entités, liaisons entre
+  // cartos, erreurs) : sans ce catalogue, ces textes restaient en français.
+  window.MAP_I18N = {
+    activity:        {{ t('map.count_activity')|tojson }},
+    activities:      {{ t('map.count_activities')|tojson }},
+    active:          {{ t('map.entity_active_badge')|tojson }},
+    err_network:     {{ t('map.err_network')|tojson }},
+    err_name:        {{ t('map.err_name_required')|tojson }},
+    err_loading:     {{ t('map.err_loading')|tojson }},
+    deleting:        {{ t('map.deleting')|tojson }},
+    delete:          {{ t('btn.delete')|tojson }},
+    cancel:          {{ t('btn.cancel')|tojson }},
+    confirm:         {{ t('btn.confirm')|tojson }},
+    cx_none:         {{ t('map.cx_none')|tojson }},
+    cx_no_reference: {{ t('map.cx_no_reference')|tojson }},
+    cx_officialized: {{ t('map.cx_officialized')|tojson }},
+    cx_officialize:  {{ t('map.cx_officialize')|tojson }},
+    cx_officialize_title: {{ t('map.cx_officialize_title')|tojson }},
+    cx_deofficialize: {{ t('map.cx_deofficialize')|tojson }},
+    cx_view_map:     {{ t('map.cx_view_map')|tojson }},
+    cx_unknown_activity: {{ t('map.cx_unknown_activity')|tojson }},
+    cx_label_title:  {{ t('map.cx_label_title')|tojson }},
+    cx_label_hint:   {{ t('map.cx_label_hint')|tojson }},
+    cx_deoffice_title: {{ t('map.cx_deoffice_title')|tojson }},
+    cx_deoffice_intro: {{ t('map.cx_deoffice_intro')|tojson }},
+    cx_deoffice_conns: {{ t('map.cx_deoffice_conns')|tojson }},
+    cx_deoffice_links: {{ t('map.cx_deoffice_links')|tojson }},
+    cx_irreversible: {{ t('map.cx_irreversible')|tojson }},
+    activating:      {{ t('map.preview_activating')|tojson }},
+    activate:        {{ t('map.preview_activate')|tojson }}
+  };
 </script>
 
 <!-- Le mode "mise en évidence" est entièrement piloté en JS (highlight-extco-map.js)
@@ -72,9 +105,27 @@
         <span id="cross-carto-label">{{ t('map.btn_connections') }}</span>
         <span class="cross-carto-dot"></span>
       </button>
+      {% if peut_regler_acces %}
+      <button id="btn-carto-acces" class="carto-wizard-btn"><i class="fa-solid fa-user-lock"></i> {{ t('map.btn_acces') }}</button>
+      {% endif %}
       <button id="carto-wizard-btn" class="carto-wizard-btn"><i class="fa-solid fa-building-columns"></i> {{ t('map.btn_entities') }}</button>
     </div>
   </div>
+
+  {% if examen %}
+  <!-- ⚠️ Toutes cartos confondues : celui qui valide n'a pas à activer une
+       carto pour apprendre qu'on attend sa décision dessus. -->
+  <button type="button" class="cex-bandeau" id="cex-bandeau"
+          data-n="{{ examen.n }}" data-cartos="{{ examen.cartos }}"
+          data-carto="{{ examen.carto or '' }}">
+    <span class="cex-bandeau-ic"><i class="fa-solid fa-code-pull-request"></i></span>
+    <span class="cex-bandeau-txt">
+      <strong id="cex-bandeau-titre">{% if examen.n == 1 %}{{ t('examen.bandeau_1') }}{% else %}{{ t('examen.bandeau_n') | replace('{n}', examen.n) }}{% endif %}</strong>
+      <span id="cex-bandeau-sous">{% if examen.carto %}{{ t('examen.sur_carto') | replace('{nom}', examen.carto) }}{% else %}{{ t('examen.sur_n_cartos') | replace('{n}', examen.cartos) }}{% endif %}</span>
+    </span>
+    <span class="cex-bandeau-cta">{{ t('examen.ouvrir') }} <i class="fa-solid fa-arrow-right"></i></span>
+  </button>
+  {% endif %}
 
   <!-- INFO NAVIGATION -->
   <div class="carto-info-message" id="carto-info-default">
@@ -110,7 +161,7 @@
           <i class="fa-solid fa-diagram-project"></i>
           <span id="carto-preview-title">{{ t('map.card_title') }}</span>
         </div>
-        <button id="carto-preview-close" class="carto-preview-close" title="Fermer">
+        <button id="carto-preview-close" class="carto-preview-close" title="{{ t('btn.close') }}">
           <i class="fa-solid fa-xmark"></i>
         </button>
       </div>
@@ -166,7 +217,7 @@
             <div class="em-detail-card">
               <div class="em-detail-icon"><i class="fa-solid fa-building"></i></div>
               <div class="em-detail-info">
-                <h3 id="selected-entity-name">Entité</h3>
+                <h3 id="selected-entity-name">{{ t('map.entity_label') }}</h3>
                 <div class="em-detail-meta">
                   <span><strong id="selected-entity-activities">0</strong> {{ t('map.entity_activities_badge') }}</span>
                   <span id="em-carto-badge" class="em-carto-badge hidden">
@@ -308,7 +359,7 @@
         <div class="carto-viewer-wrap" style="position:relative">
           <div id="calque-loading-overlay" style="display:none;position:absolute;inset:0;background:rgba(255,255,255,0.82);z-index:10;align-items:center;justify-content:center;flex-direction:column;gap:10px">
             <div style="width:36px;height:36px;border:3px solid #f1f5f9;border-top-color:#ec4899;border-radius:50%;animation:spin .7s linear infinite"></div>
-            <span style="font-size:0.82rem;color:#64748b;font-weight:600">Chargement…</span>
+            <span style="font-size:0.82rem;color:#64748b;font-weight:600">{{ t('status.loading') }}</span>
           </div>
           <iframe id="carto-viewer-frame" src="/cartography/viewer" frameborder="0" allowfullscreen></iframe>
         </div>
@@ -319,7 +370,7 @@
         <div class="carto-no-carto-card">
           <div class="carto-no-carto-icon"><i class="fa-solid fa-diagram-project"></i></div>
           <h3 class="carto-no-carto-title">{{ t('map.no_carto_title') }}</h3>
-          <p class="carto-no-carto-sub">Entité active : <strong>{{ active_entity.name }}</strong></p>
+          <p class="carto-no-carto-sub">{{ t('map.active_entity_label') }} <strong>{{ active_entity.name }}</strong></p>
           <p class="carto-no-carto-hint">{{ t('map.no_carto_hint') }}</p>
           <div class="carto-no-carto-actions">
             <a href="/cartography/editor" class="btn-carto-primary">
@@ -360,7 +411,7 @@
             </li>
           {% endfor %}
         </ul>
-        <div class="carto-activity-noresult" id="carto-activity-noresult" style="display:none">Aucune activité ne correspond.</div>
+        <div class="carto-activity-noresult" id="carto-activity-noresult" style="display:none">{{ t('map.search_no_result') }}</div>
       {% else %}
         <div class="no-activities">
           <p>{{ t('map.no_activities') }}</p>

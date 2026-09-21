@@ -37,7 +37,7 @@ def set_garant_role(activity_id):
     if not existing:
         # MODIFIÉ: Créer le rôle avec l'entité active
         active_entity_id = Entity.get_active_id()
-        existing = Role(name=role_name, entity_id=active_entity_id)
+        existing = Role(name=role_name, entity_id=active_entity_id, hors_carte=True)
         on_role_name_saved(existing, role_name)
         db.session.add(existing)
         db.session.commit()

@@ -471,6 +471,221 @@ class TestPlanDeFormation:
         with app.app_context():
             assert db.inspect(db.engine).has_table(PlanFormation.__tablename__)
 
+    def test_role_inexistant_sur_lire_donne_404(self, client, scene):
+        _connecte(client, scene["dev"], "dev77@devoptiq.com")
+        r = client.get(f"/plan/{scene['collab']}/999999")
+        assert r.status_code == 404
+        assert r.get_json()["error"] == "role_not_found"
+
+    def test_payload_invalide_sur_proposer_et_enregistrer(self, client, scene):
+        _connecte(client, scene["dev"], "dev77@devoptiq.com")
+        r = client.post("/plan/proposer", data=json.dumps({"user_id": scene["collab"]}),
+                         content_type="application/json")
+        assert r.status_code == 400
+        assert r.get_json()["error"] == "invalid_payload"
+        r = client.post("/plan/enregistrer", data=json.dumps({"role_id": scene["role"]}),
+                         content_type="application/json")
+        assert r.status_code == 400
+        assert r.get_json()["error"] == "invalid_payload"
+
+    def test_enregistrer_avec_utilisateur_ou_role_inexistant_404(self, client, scene):
+        """Un admin est habilité quelle que soit la cible : seul le 404
+        « ressource absente » doit rester à tester ici, pas le 403."""
+        _connecte(client, scene["admin"], "test@devoptiq.com")
+        r = client.post("/plan/enregistrer", data=json.dumps({
+            "user_id": 999999, "role_id": scene["role"],
+            "parametres": {}, "actions": []}), content_type="application/json")
+        assert r.status_code == 404
+        assert r.get_json()["error"] == "not_found"
+        r = client.post("/plan/enregistrer", data=json.dumps({
+            "user_id": scene["collab"], "role_id": 999999,
+            "parametres": {}, "actions": []}), content_type="application/json")
+        assert r.status_code == 404
+
+    def test_supprimer_est_reserve_a_qui_note(self, client, scene):
+        _connecte(client, scene["collab"], "collab77@devoptiq.com")
+        r = client.delete(f"/plan/{scene['collab']}/{scene['role']}")
+        assert r.status_code == 403
+
+    def test_supprimer_efface_le_plan_enregistre(self, client, app, scene):
+        from Code.models.models import PlanFormation
+        self._en_ecart(client, app, scene)
+        client.post("/plan/enregistrer", data=json.dumps({
+            "user_id": scene["collab"], "role_id": scene["role"],
+            "parametres": {"heures_semaine": 5, "semaines": 6}, "actions": []}),
+            content_type="application/json")
+        r = client.delete(f"/plan/{scene['collab']}/{scene['role']}")
+        assert r.status_code == 200
+        assert r.get_json()["ok"] is True
+        with app.app_context():
+            assert PlanFormation.query.filter_by(
+                user_id=scene["collab"], role_id=scene["role"]).first() is None
+
+    def test_supprimer_un_plan_absent_ne_plante_pas(self, client, scene):
+        """Rien à effacer n'est pas une erreur : idempotent."""
+        _connecte(client, scene["dev"], "dev77@devoptiq.com")
+        r = client.delete(f"/plan/{scene['collab']}/{scene['role']}")
+        assert r.status_code == 200
+        assert r.get_json()["ok"] is True
+
+    def test_les_capacites_en_ecart_apparaissent_et_se_dedupliquent(self, client, app, scene):
+        """Un même savoir-faire relié à DEUX résultats en écart ne doit
+        apparaître qu'UNE fois — et nourrit le plan de repli local."""
+        from Code.extensions import db
+        from Code.models.models import ResultCapabilityLink, SavoirFaire
+        self._en_ecart(client, app, scene)
+        with app.app_context():
+            sf = SavoirFaire(activity_id=scene["act"], description="Régler la machine 77")
+            db.session.add(sf)
+            db.session.commit()
+            sf_id = sf.id
+            for did in (scene["d1"], scene["d2"]):
+                db.session.add(ResultCapabilityLink(
+                    entity_id=scene["entity"], activity_id=scene["act"], data_id=did,
+                    item_type="SAVOIR_FAIRE", item_id=sf_id, required_level=2, source="MANUAL"))
+            db.session.commit()
+        try:
+            d = client.get(f"/plan/{scene['collab']}/{scene['role']}").get_json()
+            caps = d["activites"][0]["capabilities"]
+            assert len(caps) == 1, "le même savoir-faire relié à 2 résultats ne compte qu'une fois"
+            assert caps[0]["type_label"]
+            assert caps[0]["label"] == "Régler la machine 77"
+
+            r = client.post("/plan/proposer", data=json.dumps({
+                "user_id": scene["collab"], "role_id": scene["role"]}),
+                content_type="application/json")
+            actions = r.get_json()["actions"]
+            assert any("Régler la machine 77" in a["titre"] for a in actions), (
+                "le repli local doit produire une action pour la capacité en écart")
+        finally:
+            with app.app_context():
+                ResultCapabilityLink.query.filter_by(activity_id=scene["act"]).delete()
+                SavoirFaire.query.filter_by(activity_id=scene["act"]).delete()
+                db.session.commit()
+
+    def _ia(self, monkeypatch, content=None, raise_exc=None):
+        class _Msg:
+            def __init__(self, content):
+                self.content = content
+
+        class _Choice:
+            def __init__(self, content):
+                self.message = _Msg(content)
+
+        class _Completions:
+            def __init__(self, content, raise_exc):
+                self._content, self._raise_exc = content, raise_exc
+
+            def create(self, **kw):
+                if self._raise_exc is not None:
+                    raise self._raise_exc
+                return type("R", (), {"choices": [_Choice(self._content)]})()
+
+        class _Chat:
+            def __init__(self, content, raise_exc):
+                self.completions = _Completions(content, raise_exc)
+
+        class _Client:
+            def __init__(self, content, raise_exc):
+                self.chat = _Chat(content, raise_exc)
+
+        fake = _Client(content, raise_exc)
+        monkeypatch.setattr("Code.routes.plan_formation.openai_client_or_none",
+                             lambda: (fake, None))
+
+    def test_avec_cle_IA_le_plan_vient_du_modele(self, client, app, scene, monkeypatch):
+        self._en_ecart(client, app, scene)
+        contenu = json.dumps({"actions": [
+            {"titre": "Reprendre 2 chiffrages en binôme", "type": "TERRAIN",
+             "activite": "Activité Test 77", "objectif": "Fiabiliser la marge",
+             "heures": 9000, "livrable": "Compte-rendu", "critere": "Écart < 3 %"},
+            {"titre": "Type inconnu retombe en formation", "type": "BALLET",
+             "activite": "Activité inconnue", "objectif": "", "heures": 0,
+             "livrable": "", "critere": ""},
+            {"titre": "", "type": "FORMATION", "activite": "", "objectif": "",
+             "heures": 5, "livrable": "", "critere": ""},
+        ]})
+        self._ia(monkeypatch, content=contenu)
+        r = client.post("/plan/proposer", data=json.dumps({
+            "user_id": scene["collab"], "role_id": scene["role"]}),
+            content_type="application/json")
+        d = r.get_json()
+        assert d["source"] == "AI"
+        # l'action au titre vide est filtrée : il n'en reste que 2.
+        assert len(d["actions"]) == 2
+        a1, a2 = d["actions"]
+        assert a1["activity_id"] == scene["act"]
+        assert a1["heures"] == 200, "une charge doit être bornée à 200h"
+        assert a2["type"] == "FORMATION", "un type hors catalogue retombe sur FORMATION"
+        assert a2["activity_id"] is None, "une activité qui ne matche aucun nom reste orpheline"
+        assert a2["heures"] == 1, "une charge nulle ne peut pas être gratuite : bornée à 1h"
+
+    def test_avec_cle_IA_une_charge_non_numerique_ne_fait_pas_planter(self, client, app, scene, monkeypatch):
+        """`heures` texte, illisible : on ne plante pas, on la traite comme
+        absente (0, puis bornée à 1) plutôt que de perdre l'action entière."""
+        self._en_ecart(client, app, scene)
+        contenu = json.dumps({"actions": [
+            {"titre": "Charge illisible", "type": "FORMATION",
+             "activite": "Activité Test 77", "objectif": "", "heures": "beaucoup",
+             "livrable": "", "critere": ""},
+        ]})
+        self._ia(monkeypatch, content=contenu)
+        r = client.post("/plan/proposer", data=json.dumps({
+            "user_id": scene["collab"], "role_id": scene["role"]}),
+            content_type="application/json")
+        d = r.get_json()
+        assert d["source"] == "AI"
+        assert d["actions"][0]["heures"] == 1
+
+    def test_capacites_en_ecart_survit_a_une_erreur_du_diagnostic(self, client, app, scene, monkeypatch):
+        """Le diagnostic est un module qui bouge ; s'il lève, le plan ne doit
+        pas planter — juste ignorer les capacités de ce résultat-là."""
+        from Code.extensions import db
+        from Code.models.models import ResultCapabilityLink, SavoirFaire
+        self._en_ecart(client, app, scene)
+        with app.app_context():
+            sf = SavoirFaire(activity_id=scene["act"], description="Capacité qui casse")
+            db.session.add(sf)
+            db.session.commit()
+            sf_id = sf.id
+            db.session.add(ResultCapabilityLink(
+                entity_id=scene["entity"], activity_id=scene["act"], data_id=scene["d1"],
+                item_type="SAVOIR_FAIRE", item_id=sf_id, required_level=2, source="MANUAL"))
+            db.session.commit()
+
+        def _casse(*a, **kw):
+            raise RuntimeError("diagnostic indisponible")
+        monkeypatch.setattr("Code.routes.diagnostic._linked_capabilities", _casse)
+        try:
+            r = client.get(f"/plan/{scene['collab']}/{scene['role']}")
+            assert r.status_code == 200
+            assert r.get_json()["activites"][0]["capabilities"] == []
+        finally:
+            with app.app_context():
+                ResultCapabilityLink.query.filter_by(activity_id=scene["act"]).delete()
+                SavoirFaire.query.filter_by(activity_id=scene["act"]).delete()
+                db.session.commit()
+
+    def test_avec_cle_IA_une_exception_retombe_sur_le_repli(self, client, app, scene, monkeypatch):
+        self._en_ecart(client, app, scene)
+        self._ia(monkeypatch, raise_exc=RuntimeError("boom"))
+        r = client.post("/plan/proposer", data=json.dumps({
+            "user_id": scene["collab"], "role_id": scene["role"]}),
+            content_type="application/json")
+        d = r.get_json()
+        assert d["source"] == "error"
+        assert d["actions"], "l'exception ne doit pas laisser l'écran sans proposition"
+
+    def test_IA_sans_actions_exploitables_retombe_aussi_sur_le_repli(self, client, app, scene, monkeypatch):
+        self._en_ecart(client, app, scene)
+        self._ia(monkeypatch, content=json.dumps({"actions": [{"titre": "", "heures": 1}]}))
+        r = client.post("/plan/proposer", data=json.dumps({
+            "user_id": scene["collab"], "role_id": scene["role"]}),
+            content_type="application/json")
+        d = r.get_json()
+        assert d["source"] == "empty"
+        assert d["actions"], "aucune action exploitable côté IA : le repli local prend le relais"
+
 
 class TestCouvertureEtProfil:
     """La vue d'ensemble apporte deux choses que rien ne donnait : un taux de
@@ -781,3 +996,125 @@ class TestPerimetreDeLaSynthese:
             sess["active_entity_id"] = ids["entity_id"]
         d = auth_client.get("/mastery/synthese/%d" % uid).get_json()
         assert d["n_activities"] == sum(r["n_activities"] for r in d["roles"])
+
+
+# ══════════════════════════════════════════════════════════════════════
+#  Le plan construit SANS IA dit quoi FAIRE — pas deux fois la même chose
+# ══════════════════════════════════════════════════════════════════════
+# ⚠️ La première version écrivait « Combler : Arbitrage », puis « Objectif :
+# HSC — Arbitrage » : deux fois l'information, et nulle part ce qu'il fallait
+# faire ni à quoi on verrait que c'est fait. `_plan_local` est une fonction
+# PURE (ni base, ni session) : on l'éprouve directement.
+
+def _activite_en_ecart():
+    return [{
+        "activity_id": 7, "activity_name": "Chiffrer l'offre", "competence": "",
+        "demonstrated_level": 1, "demonstrated_label": "En acquisition",
+        "required_level": 3, "required_label": "Maîtrise étendue", "gap": -2,
+        "results_in_gap": [
+            {"data_id": 1, "name": "Devis chiffré", "demonstrated_level": 1,
+             "minimum_performance_text": "Écart de marge inférieur à 3 %."},
+            {"data_id": 2, "name": "Hypothèses de coût", "demonstrated_level": 1,
+             "minimum_performance_text": "Chaque poste supérieur à 5 k€ documenté."},
+        ],
+        "capabilities": [
+            {"item_type": "SAVOIR", "type_label": "Savoir", "label": "Structure de coût",
+             "gap": None, "resultat": "Devis chiffré"},
+            {"item_type": "SAVOIR_FAIRE", "type_label": "Savoir-faire",
+             "label": "Chiffrer une nomenclature", "gap": None, "resultat": "Devis chiffré"},
+            {"item_type": "HSC", "type_label": "HSC", "label": "Arbitrage",
+             "gap": None, "resultat": "Hypothèses de coût"},
+        ],
+    }]
+
+
+class TestLeRepliDitQuoiFaire:
+
+    def _plan(self, lang="fr"):
+        from Code.routes.plan_formation import _plan_local
+        return _plan_local(_activite_en_ecart(), lang)
+
+    def test_la_nature_suit_la_famille_de_capacite(self):
+        """Un savoir s'apprend ; un savoir-faire s'exerce et une HSC se
+        travaille, avec quelqu'un à côté. Tout était « Formation »."""
+        par_titre = {a["titre"]: a["type"] for a in self._plan()}
+        assert par_titre["Se former : Structure de coût"] == "FORMATION"
+        assert par_titre["S'exercer avec un appui : Chiffrer une nomenclature"] == "ACCOMPAGNEMENT"
+        assert par_titre["S'exercer avec un appui : Arbitrage"] == "ACCOMPAGNEMENT"
+
+    def test_l_objectif_n_est_pas_le_titre_repete(self):
+        """L'objectif dit POURQUOI : le résultat qui réclame la capacité."""
+        for a in self._plan():
+            assert a["objectif"] and a["objectif"] != a["titre"]
+        arbitrage = next(a for a in self._plan() if "Arbitrage" in a["titre"])
+        assert "Hypothèses de coût" in arbitrage["objectif"]
+        assert "Arbitrage" not in arbitrage["objectif"], (
+            "le libellé de la capacité est déjà dans le titre")
+
+    def test_le_critere_vit_sur_la_mise_en_situation_seulement(self):
+        """⚠️ Recopié sur chaque capacité, le standard du résultat se lisait
+        trois fois de suite — et laissait croire qu'une formation suffit à le
+        tenir. Il se vérifie EN SITUATION."""
+        plan = self._plan()
+        for a in plan:
+            if a["type"] != "TERRAIN":
+                assert a["critere"] == ""
+        terrain = [a for a in plan if a["type"] == "TERRAIN"]
+        assert len(terrain) == 1
+        assert "Écart de marge" in terrain[0]["critere"]
+
+    def test_la_mise_en_situation_produit_les_resultats_de_l_activite(self):
+        t = next(a for a in self._plan() if a["type"] == "TERRAIN")
+        assert t["livrable"] == "Devis chiffré, Hypothèses de coût"
+        assert "En acquisition" in t["objectif"] and "Maîtrise étendue" in t["objectif"]
+
+    def test_un_standard_par_ligne(self):
+        """Enchaînés, ils se lisaient « … 3 %. ; Chaque poste… »."""
+        t = next(a for a in self._plan() if a["type"] == "TERRAIN")
+        lignes = t["critere"].split("\n")
+        assert len(lignes) == 2
+        assert lignes[0].startswith("« Devis chiffré »")
+        assert " ; " not in t["critere"]
+
+    def test_l_anglais_n_a_pas_de_guillemets_francais(self):
+        for a in self._plan("en"):
+            for champ in ("titre", "objectif", "livrable", "critere"):
+                assert "«" not in a[champ] and "»" not in a[champ], (champ, a[champ])
+        t = next(a for a in self._plan("en") if a["type"] == "TERRAIN")
+        assert t["critere"].split("\n")[0].startswith("“Devis chiffré”: ")
+
+    def test_chaque_action_a_une_charge(self):
+        """Une action sans charge ne s'ordonnance pas dans les semaines."""
+        from Code.routes.plan_formation import CHARGE_PAR_PAS
+        for a in self._plan():
+            assert a["heures"] >= CHARGE_PAR_PAS[a["type"]]
+
+    def test_la_capacite_garde_le_resultat_qui_la_reclame(self, client, app, scene):
+        """De bout en bout : la capacité relevée en base porte le NOM du
+        résultat en écart, et l'objectif du repli s'en sert."""
+        from Code.extensions import db
+        from Code.models.models import ResultCapabilityLink, SavoirFaire
+        TestPlanDeFormation()._en_ecart(client, app, scene)
+        with app.app_context():
+            sf = SavoirFaire(activity_id=scene["act"], description="Régler la presse 77")
+            db.session.add(sf)
+            db.session.commit()
+            db.session.add(ResultCapabilityLink(
+                entity_id=scene["entity"], activity_id=scene["act"], data_id=scene["d1"],
+                item_type="SAVOIR_FAIRE", item_id=sf.id, required_level=2, source="MANUAL"))
+            db.session.commit()
+        try:
+            d = client.get(f"/plan/{scene['collab']}/{scene['role']}").get_json()
+            cap = d["activites"][0]["capabilities"][0]
+            assert cap["resultat"], "la capacité doit dire quel résultat la réclame"
+            r = client.post("/plan/proposer", data=json.dumps({
+                "user_id": scene["collab"], "role_id": scene["role"]}),
+                content_type="application/json")
+            action = next(a for a in r.get_json()["actions"]
+                          if "Régler la presse 77" in a["titre"])
+            assert cap["resultat"] in action["objectif"]
+        finally:
+            with app.app_context():
+                ResultCapabilityLink.query.filter_by(activity_id=scene["act"]).delete()
+                SavoirFaire.query.filter_by(activity_id=scene["act"]).delete()
+                db.session.commit()

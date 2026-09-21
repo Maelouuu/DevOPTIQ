@@ -11,6 +11,7 @@ Code/instance/
 Z-Dev bis/
 .env
 .venv/
+.coverage
 /Archives/
 export_code.docx
 

@@ -589,22 +589,27 @@ class TestFrancaisEnDur:
     texte — c'est un travail à part entière. En attendant, la dette est ÉCRITE
     ici, et elle ne peut que décroître : un gabarit absent de l'inventaire doit
     être propre, et un gabarit présent ne doit pas empirer.
+
+    ✅ 17/09/2026 — `import_full_modal` est SORTI de l'inventaire : l'écran
+    entier passe par le catalogue (`impf.*`), y compris les phrases bâties par
+    `import_full.js` et celles que la route RENVOIE (`analysis_notes`, motifs
+    d'appariement, erreurs). Le cliquet a fait son travail : il a refusé de
+    laisser le plafond à 25 pour 0 fragment réel.
     """
 
     # gabarit → nombre de fragments français tolérés aujourd'hui.
     DETTE = {
-        "import_full_modal.html":       25,
         "projection_metier.html":       14,
-        "import_tasks_modal.html":      11,
-        "cartography_editor.html":       7,
+        "import_tasks_modal.html":      10,
         "chatbot_widget.html":           5,
         "license_blocked.html":          4,
-        "activities_map.html":           3,
-        "cartography_viewer.html":       2,
         "setup_wizard.html":             2,
-        "competences_view.html":         1,
-        "gestion_compte_new.html":       1,
         "settings.html":                 1,
+        # `gestion_compte_new.html` est sorti de l'inventaire : la page Comptes
+        # a été refaite, tout y passe par le catalogue.
+        # ✅ 21/09/2026 — `cartography_editor.html`, `activities_map.html` et
+        # `cartography_viewer.html` sortent à leur tour : la page Carte et
+        # l'éditeur sont ce que le pilote (anglophone) utilise tous les jours.
     }
 
     def test_aucun_gabarit_neuf_ne_porte_du_francais_en_dur(self):

@@ -349,8 +349,11 @@ def _do_sync(entity, diagram):
     # la section Affectation de la page RH redevenait muette. Voir
     # Code/roles_permanents.py.
     from Code.roles_permanents import est_permanent
+    # ⚠️ …et un rôle créé HORS de la carte (import, page RH, garant) aussi :
+    # il n'a jamais été une bande, son absence des bandes ne dit rien.
     roles_to_remove = [role for name, role in existing_roles.items()
-                       if name not in new_band_names and not est_permanent(name)]
+                       if name not in new_band_names and not est_permanent(name)
+                       and not getattr(role, "hors_carte", False)]
     if roles_to_remove:
         remove_role_ids = [r.id for r in roles_to_remove if r.id]
         if remove_role_ids:

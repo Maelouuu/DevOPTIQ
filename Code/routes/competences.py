@@ -44,7 +44,7 @@ def contexte():
                 encadres[u.id] = u
     est_dev = bool(encadres)
 
-    # Un champion ou un administrateur arbitre partout : il voit tout le monde,
+    # Un coordinateur ou un administrateur arbitre partout : il voit tout le monde,
     # même sans rattachement — sinon il ne pourrait pas reprendre un dossier.
     if not est_dev and _statut_eleve(moi):
         encadres = {u.id: u for u in User.query.all() if u.id != moi.id}

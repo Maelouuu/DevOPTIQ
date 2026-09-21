@@ -124,7 +124,7 @@
       if (typeof window.showToast === 'function') window.showToast(L('change.sent'));
       else alert(L('change.sent'));
     } catch (_) {
-      alert(L('editor.toast.error_network') || 'Erreur réseau');
+      alert(L('editor.err_network_propose'));
     } finally {
       if (btn) { btn.disabled = false; if (avant !== null) btn.innerHTML = avant; }
     }
@@ -143,6 +143,7 @@
 
   function fermerExamen() {
     const modal = $id('review-modal');
+    demonterComparaison();
     if (modal) modal.style.display = 'none';
   }
 
@@ -152,10 +153,14 @@
     rejected: 'change.status_rejected',
   };
 
+  // ⚠️ Le serveur écrit ses dates en UTC SANS fuseau : lues telles quelles,
+  // elles passaient pour l'heure locale (deux heures d'écart à Paris). Et la
+  // langue est celle de l'APPLICATION, pas celle du navigateur.
   function dateCourte(iso) {
     if (!iso) return '';
+    const utc = /[zZ]|[+-]\d\d:\d\d$/.test(iso) ? iso : iso + 'Z';
     try {
-      return new Date(iso).toLocaleDateString(undefined,
+      return new Date(utc).toLocaleString((document.documentElement.lang || 'fr') === 'en' ? 'en-GB' : 'fr-FR',
         { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
     } catch (_) { return iso.slice(0, 10); }
   }
@@ -163,6 +168,7 @@
   async function chargerListe() {
     const body = $id('review-body');
     if (!body) return;
+    demonterComparaison();
     body.innerHTML = '<p class="gov-loading"><i class="fa-solid fa-spinner fa-spin"></i></p>';
     try {
       const res = await fetch(`${API}/api/changes?entity_id=${GOV.entity_id}`);
@@ -213,6 +219,22 @@
     return `<li><strong>${n}</strong> ${esc(L(n > 1 ? cle + '_p' : cle))}${detail}</li>`;
   }
 
+  // La décision, et le mot de celui qui l'a prise : c'est à l'auteur qu'il
+  // est adressé — il le relit ici, avec sa proposition.
+  function decisionHtml(r) {
+    if (!r || r.status === 'pending') return '';
+    const refusee = r.status === 'rejected';
+    const par = L(refusee ? 'decision.refusee_par' : 'decision.appliquee_par')
+      .split('{nom}').join(r.reviewer || '—');
+    const mot = (r.review_comment || '').trim();
+    return `
+      <div class="gov-decision gov-decision--${refusee ? 'non' : 'oui'}">
+        <p class="gov-decision-qui"><i class="fa-solid ${refusee ? 'fa-xmark' : 'fa-check'}"></i> ${
+          esc(par)} · ${esc(dateCourte(r.reviewed_at))}</p>
+        <p class="gov-decision-mot${mot ? '' : ' is-vide'}">${esc(mot || L('decision.sans_message'))}</p>
+      </div>`;
+  }
+
   function resumeHtml(s) {
     if (!s) return '';
     const lignes = [
@@ -248,7 +270,9 @@
             <span class="gov-item-date">${esc(dateCourte(r.created_at))}</span>
           </div>
           ${r.message ? `<p class="gov-detail-msg">${esc(r.message)}</p>` : ''}
-          ${avantApres(id)}
+          ${decisionHtml(r)}
+          <h5 class="gov-sum-title">${esc(L('change.visual_title'))}</h5>
+          <div class="gov-cmp" id="gov-cmp"></div>
           <h5 class="gov-sum-title">${esc(L('change.summary_title'))}</h5>
           ${resumeHtml(r.summary)}
           ${r.can_review ? `
@@ -269,7 +293,7 @@
             </div>` : '')}
         </article>`;
 
-      brancherAvantApres();
+      monterComparaison(r);
       $id('gov-back')?.addEventListener('click', chargerListe);
       $id('gov-approve')?.addEventListener('click', () => trancher(id, 'approve'));
       $id('gov-reject')?.addEventListener('click', () => trancher(id, 'reject'));
@@ -279,78 +303,29 @@
     }
   }
 
-  /* ── Voir ce que ça change, au lieu de le lire ───────────────────────── */
+  /* ── Voir ce que ça change : les vraies cartos ──────────────────────────
+     Le composant est celui de la page Carte (static/js/carto_comparaison.js) :
+     vignettes au même cadre, formes touchées entourées, grand format sans
+     rechargement et bascule avant / après qui garde le zoom. */
+  let _cmp = null;
 
-  // Un résumé dit « 2 activités déplacées » ; il ne dit pas si le résultat tient
-  // debout. Les deux images partagent le MÊME cadrage — sans quoi la carto
-  // entière semblerait avoir bougé parce qu'une forme a changé de place — et
-  // surlignent ce qui est touché : rouge retiré, vert ajouté, ambre modifié.
-  function avantApres(id) {
-    const img = (quel, libelle) => `
-      <figure class="gov-ba-fig">
-        <figcaption>${esc(libelle)}</figcaption>
-        <button type="button" class="gov-ba-shot" data-quel="${quel}" data-id="${id}"
-                title="${esc(L('change.enlarge'))}">
-          <img src="${API}/api/changes/${id}/apercu/${quel}.svg" alt="${esc(libelle)}" loading="lazy">
-          <span class="gov-ba-zoom"><i class="fa-solid fa-up-right-and-down-left-from-center"></i></span>
-        </button>
-      </figure>`;
-    return `
-      <h5 class="gov-sum-title">${esc(L('change.visual_title'))}</h5>
-      <div class="gov-ba">
-        ${img('avant', L('change.before'))}
-        <i class="fa-solid fa-arrow-right gov-ba-arrow"></i>
-        ${img('apres', L('change.after'))}
-      </div>
-      <p class="gov-ba-legend">
-        <span><b class="gov-dot gov-dot--del"></b>${esc(L('change.legend_removed'))}</span>
-        <span><b class="gov-dot gov-dot--add"></b>${esc(L('change.legend_added'))}</span>
-        <span><b class="gov-dot gov-dot--chg"></b>${esc(L('change.legend_changed'))}</span>
-      </p>`;
-  }
-
-  function brancherAvantApres() {
-    document.querySelectorAll('.gov-ba-shot').forEach(b =>
-      b.addEventListener('click', () => agrandir(b.dataset.id, b.dataset.quel)));
-  }
-
-  // ⚠️ On ouvre à la taille de la fenêtre, pas « zoomé à fond » : un examinateur
-  // veut d'abord revoir l'ensemble, et décider LUI de regarder un détail.
-  //
-  // ⚠️ Et on ouvre la VRAIE carto, pas la vignette agrandie. Les deux images
-  // côte à côte sont des SVG reconstruits — légers, cadrés à l'identique, faits
-  // pour COMPARER. Les grossir ne montrerait qu'une reconstitution floue. En
-  // grand, on charge donc le viewer d'OptiqCarto, qui rend exactement ce que
-  // rend l'éditeur.
-  function agrandir(id, quel) {
-    document.getElementById('gov-loupe')?.remove();
-    const ov = document.createElement('div');
-    ov.id = 'gov-loupe';
-    ov.className = 'gov-loupe';
-    ov.innerHTML = `
-      <div class="gov-loupe-barre">
-        <span class="gov-loupe-titre">${esc(quel === 'avant' ? L('change.before') : L('change.after'))}</span>
-        <button type="button" class="gov-loupe-bascule" id="gov-loupe-autre">
-          <i class="fa-solid fa-right-left"></i> ${esc(
-            quel === 'avant' ? L('change.after') : L('change.before'))}
-        </button>
-        <button type="button" class="gov-loupe-fermer" id="gov-loupe-x" aria-label="${
-          esc(L('btn.close') || 'Fermer')}"><i class="fa-solid fa-xmark"></i></button>
-      </div>
-      <iframe class="gov-loupe-vue" title="${esc(L('change.visual_title'))}"
-              src="${API}/changes/${id}/apercu/${quel}"></iframe>`;
-    document.body.appendChild(ov);
-
-    const fermer = () => { ov.remove(); document.removeEventListener('keydown', auClavier); };
-    function auClavier(e) { if (e.key === 'Escape') fermer(); }
-    document.addEventListener('keydown', auClavier);
-    ov.addEventListener('click', (e) => { if (e.target === ov) fermer(); });
-    ov.querySelector('#gov-loupe-x').addEventListener('click', fermer);
-    // Comparer, c'est basculer de l'un à l'autre sans rien perdre du cadrage.
-    ov.querySelector('#gov-loupe-autre').addEventListener('click', () => {
-      fermer();
-      agrandir(id, quel === 'avant' ? 'apres' : 'avant');
+  function monterComparaison(r) {
+    demonterComparaison();
+    const hote = $id('gov-cmp');
+    if (!hote || !window.CartoComparaison) return;
+    _cmp = window.CartoComparaison.monter(hote, {
+      id: r.id,
+      marques: r.marques,
+      libelles: {
+        avant: L('change.before'), apres: L('change.after'), agrandir: L('change.enlarge'),
+        fermer: L('btn.close'), leg_retire: L('change.legend_removed'),
+        leg_ajoute: L('change.legend_added'), leg_change: L('change.legend_changed'),
+      },
     });
+  }
+
+  function demonterComparaison() {
+    if (_cmp) { _cmp.detruire(); _cmp = null; }
   }
 
   async function trancher(id, action) {

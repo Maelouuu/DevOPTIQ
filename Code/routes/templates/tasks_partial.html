@@ -120,7 +120,7 @@
                   <button class="icon-btn" onclick="showEditTaskForm('{{ activity.id }}', '{{ task.id }}', '{{ task.name|escapejs }}', '{{ task.description|default('')|escapejs }}', '{{ task.file_path|default('')|escapejs }}')" title="{{ t('btn.edit') }}">
                     <i class="fa-solid fa-pencil"></i>
                   </button>
-                  <button class="icon-btn icon-btn-danger" onclick="deleteTask('{{ activity.id }}', '{{ task.id }}')" title="Supprimer">
+                  <button class="icon-btn icon-btn-danger" onclick="deleteTask('{{ activity.id }}', '{{ task.id }}')" title="{{ t('btn.delete') }}">
                     <i class="fa-solid fa-trash"></i>
                   </button>
                 </div>

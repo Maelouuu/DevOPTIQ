@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Optiq Map — {{ entity_name or 'Éditeur' }}</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='optiqcarto/style.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='carto_comparaison.css') }}">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
   <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 
@@ -65,7 +66,7 @@
         <i class="fa-solid fa-arrow-pointer"></i>
         <span>{{ t('editor.tool_select') }}</span>
       </button>
-      <button class="tool-btn-top" id="btn-lasso-select" title="Box select — drag to select shapes (holds selection when off)">
+      <button class="tool-btn-top" id="btn-lasso-select" title="{{ t('editor.box_select_hint') }}">
         <i class="fa-solid fa-vector-square"></i>
         <span>Box</span>
       </button>
@@ -153,7 +154,7 @@
         <i class="fa-solid fa-object-group"></i>
         <span>{{ t('editor.tool_group') }}</span>
       </button>
-      <button class="tool-btn-top" id="btn-add-pile" title="Créer une pile depuis la sélection (regroupement visuel)">
+      <button class="tool-btn-top" id="btn-add-pile" title="{{ t('editor.pile_create_hint') }}">
         <i class="fa-solid fa-layer-group"></i>
         <span>Pile</span>
       </button>
@@ -205,9 +206,9 @@
         </button>
       </div>
     </div>
-      <div class="tool-btn-top tb-labelpos" id="label-pos-ctl" title="Position des labels le long des flèches — glisser vers la pointe ou vers l'origine">
+      <div class="tool-btn-top tb-labelpos" id="label-pos-ctl" title="{{ t('editor.label_pos_hint') }}">
         <i class="fa-solid fa-tag"></i>
-        <input type="range" id="label-pos-slider" min="0" max="100" value="82" step="1" aria-label="Position des labels">
+        <input type="range" id="label-pos-slider" min="0" max="100" value="82" step="1" aria-label="{{ t('editor.label_pos') }}">
         <span class="tb-labelpos-caption">Labels</span>
       </div>
       <button class="tool-btn-top tb-check-btn" id="btn-architect" title="{{ t('editor.btn_verify') }}">
@@ -317,7 +318,7 @@
 <div id="calque-badge" style="display:none">
   <i class="fa-solid fa-copy"></i>
   <span id="calque-badge-name">Calque</span>
-  <button id="calque-badge-deactivate" title="Revenir à la carto de base">
+  <button id="calque-badge-deactivate" title="{{ t('editor.calque_back_base') }}">
     <i class="fa-solid fa-xmark"></i> {{ t('editor.calque_deactivate') }}
   </button>
 </div>
@@ -413,10 +414,10 @@
   <!-- Multi-select floating badge -->
   <div id="multiselect-badge" style="display:none;position:absolute;top:14px;left:50%;transform:translateX(-50%);z-index:50;display:none;flex-direction:column;align-items:center;gap:4px;pointer-events:none;">
     <div style="background:linear-gradient(135deg,#ec4899,#be185d);color:#fff;font-size:13px;font-weight:700;padding:5px 18px;border-radius:20px;letter-spacing:0.04em;box-shadow:0 2px 14px rgba(236,72,153,0.45);white-space:nowrap;">
-      <i class="fa-solid fa-object-group" style="margin-right:7px;font-size:12px;"></i><span id="multiselect-count">0</span>&nbsp;SÉLECTION MULTIPLE
+      <i class="fa-solid fa-object-group" style="margin-right:7px;font-size:12px;"></i><span id="multiselect-count">0</span>&nbsp;{{ t('editor.multiselect') }}
     </div>
     <div style="background:rgba(0,0,0,0.55);color:rgba(255,255,255,0.88);font-size:11px;font-weight:500;padding:3px 12px;border-radius:10px;letter-spacing:0.02em;backdrop-filter:blur(4px);white-space:nowrap;">
-      Shift + drag pour déplacer la sélection
+      {{ t('editor.multiselect_hint') }}
     </div>
   </div>
   <svg id="canvas" xmlns="http://www.w3.org/2000/svg">
@@ -547,7 +548,7 @@
       </div>
       <div class="prop-validation-hint">
         <i class="fa-solid fa-circle-check"></i>
-        <span>Affiche un symbole ✓ en bas à droite</span>
+        <span>{{ t('editor.validation_hint') }}</span>
       </div>
     </div>
     <div class="prop-row">
@@ -604,7 +605,7 @@
     <div class="prop-group">
       <label class="prop-label">{{ t('editor.prop_band_color') }}</label>
       <input type="color" id="band-color" class="prop-color">
-      <div id="band-pastel-preview" title="Dérivé pastel automatique"></div>
+      <div id="band-pastel-preview" title="{{ t('editor.band_pastel_hint') }}"></div>
     </div>
     <div class="prop-row">
       <div class="prop-group half">
@@ -692,12 +693,12 @@
     </div>
     <div class="modal-body">
       <p style="font-size:13px;line-height:1.7;color:var(--text-muted);margin:0 0 16px">
-        Vous avez une cartographie <strong>Visio</strong> existante pour l'entité
+        {{ t('editor.vsdx_migrate_intro') }}
         <strong>{{ entity_name }}</strong>.<br>
-        Voulez-vous l'importer automatiquement dans Optiq Map ?
+        {{ t('editor.vsdx_migrate_question') }}
       </p>
       <p style="font-size:11.5px;color:var(--text-muted);opacity:.7;margin:0">
-        Les formes et connexions seront reconstruites depuis votre fichier VSDX.
+        {{ t('editor.vsdx_migrate_note') }}
       </p>
     </div>
     <div class="modal-footer" style="gap:8px;display:flex;justify-content:flex-end">
@@ -839,6 +840,7 @@
 <script src="{{ url_for('static', filename='optiqcarto/vsdx_importer.js') }}"></script>
 <script src="{{ url_for('static', filename='optiqcarto/optiqarrange.js') }}"></script>
 <script src="{{ url_for('static', filename='optiqcarto/editor.js') }}"></script>
+<script src="{{ url_for('static', filename='js/carto_comparaison.js') }}"></script>
 <script src="{{ url_for('static', filename='optiqcarto/carto_sharing.js') }}"></script>
 
 <!-- ══ Routage orthogonal libavoid (WASM) : exécuté dans un Web Worker (hors du

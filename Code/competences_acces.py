@@ -12,24 +12,32 @@ Deux notes, deux portées (CDC 3.6) :
 - **auto-évaluation** (`eval_number = '0'`) — chacun la pose sur SOI, personne
   d'autre. C'est un repère partagé, jamais un niveau officiel.
 - **niveau validé** (`'1'` garant, `'2'` développeur de compétences) — posé par
-  le développeur de compétences du collaborateur, ou par un champion/admin.
-  C'est LUI qui fait foi dans les synthèses.
+  le développeur de compétences du collaborateur, ou par un coordinateur ou un
+  administrateur. C'est LUI qui fait foi dans les synthèses.
 
 Le masquage dans l'interface n'est pas une sécurité : les routes refusent.
 """
 from Code.models.models import User, UserRole
-from Code.permissions import is_admin_status, is_champion_status
+from Code.permissions import NIVEAU_COORDINATEUR, niveau_status
 
 AUTO = "0"
 VALIDANTS = ("1", "2")
 
 
 def _statut_eleve(user):
-    """Champion et administrateur arbitrent partout : ce sont eux qui règlent
-    l'accès aux cartos communes et qui créent les comptes."""
+    """Coordinateur et administrateur arbitrent partout : ce sont eux qui
+    règlent l'accès aux cartos communes et qui créent les comptes.
+
+    ⚠️ Cette règle disait « champion ou administrateur ». Depuis les quatre
+    paliers, le mot « champion » nomme le palier du DESSOUS — celui qui propose
+    sans valider — et l'ancien arbitre s'appelle coordinateur. Restée telle
+    quelle, elle donnait à un champion le droit de lire et de NOTER tout le
+    monde (jusqu'à se décerner le niveau qui fait foi), et le retirait au
+    coordinateur, qui ne voyait plus que ses propres collaborateurs.
+    """
     if user is None:
         return False
-    return is_admin_status(user.status) or is_champion_status(user.status)
+    return niveau_status(user.status) >= NIVEAU_COORDINATEUR
 
 
 def encadre(dev_id, collaborateur_id):
@@ -67,7 +75,7 @@ def peut_noter(acteur, cible_id, evaluateur):
 
 def peut_lire(acteur, cible_id):
     """On lit son propre dossier, celui de ses collaborateurs, et — pour un
-    champion ou un admin — celui de tout le monde."""
+    coordinateur ou un administrateur — celui de tout le monde."""
     if acteur is None:
         return False
     return acteur.id == cible_id or _statut_eleve(acteur) or encadre(acteur.id, cible_id)

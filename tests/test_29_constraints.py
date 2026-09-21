@@ -105,6 +105,25 @@ class TestConstraintsCreate:
         assert r.status_code == 404
         assert b"not found" in r.data.lower()
 
+    def test_add_constraint_db_error_rolls_back_and_returns_500(self, auth_client, ids, monkeypatch):
+        """Une erreur DB au commit → rollback + 500 avec le message d'erreur."""
+        from Code.extensions import db
+
+        def _boom():
+            raise RuntimeError("commit-boom-constraint-add")
+
+        monkeypatch.setattr(db.session, "commit", _boom)
+        try:
+            r = auth_client.post(
+                f"/constraints/{ids['activity_id']}/add",
+                data=json.dumps({"description": "Va échouer"}),
+                content_type="application/json",
+            )
+        finally:
+            monkeypatch.undo()
+        assert r.status_code == 500
+        assert "commit-boom-constraint-add" in json.loads(r.data)["error"]
+
 
 # ===========================================================================
 # 2. Mise à jour — PUT /constraints/<activity_id>/<constraint_id>
@@ -168,6 +187,28 @@ class TestConstraintsUpdate:
         assert r.status_code == 404
         _delete_constraint(app, cid)
 
+    def test_update_constraint_db_error_rolls_back_and_returns_500(self, auth_client, ids, app, monkeypatch):
+        """Une erreur DB au commit lors de la mise à jour → rollback + 500."""
+        from Code.extensions import db
+
+        cid = _create_constraint(app, ids["activity_id"], "Avant erreur DB")
+
+        def _boom():
+            raise RuntimeError("commit-boom-constraint-update")
+
+        monkeypatch.setattr(db.session, "commit", _boom)
+        try:
+            r = auth_client.put(
+                f"/constraints/{ids['activity_id']}/{cid}",
+                data=json.dumps({"description": "Ne passera pas"}),
+                content_type="application/json",
+            )
+        finally:
+            monkeypatch.undo()
+        assert r.status_code == 500
+        assert "commit-boom-constraint-update" in json.loads(r.data)["error"]
+        _delete_constraint(app, cid)
+
 
 # ===========================================================================
 # 3. Suppression — DELETE /constraints/<activity_id>/<constraint_id>
@@ -201,6 +242,24 @@ class TestConstraintsDelete:
         assert r1.status_code == 200
         r2 = auth_client.delete(f"/constraints/{ids['activity_id']}/{cid}")
         assert r2.status_code == 404
+
+    def test_delete_constraint_db_error_rolls_back_and_returns_500(self, auth_client, ids, app, monkeypatch):
+        """Une erreur DB au commit lors de la suppression → rollback + 500."""
+        from Code.extensions import db
+
+        cid = _create_constraint(app, ids["activity_id"], "À supprimer avec erreur")
+
+        def _boom():
+            raise RuntimeError("commit-boom-constraint-delete")
+
+        monkeypatch.setattr(db.session, "commit", _boom)
+        try:
+            r = auth_client.delete(f"/constraints/{ids['activity_id']}/{cid}")
+        finally:
+            monkeypatch.undo()
+        assert r.status_code == 500
+        assert "commit-boom-constraint-delete" in json.loads(r.data)["error"]
+        _delete_constraint(app, cid)
 
 
 # ===========================================================================

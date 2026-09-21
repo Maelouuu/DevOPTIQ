@@ -1,0 +1,141 @@
+/* ══════════════════════════════════════════════════════════════════════════
+   Comparer AVANT / APRÈS — les vraies cartos (static/js/carto_comparaison.js).
+   Servi sur fond clair (page Carte) comme sur fond sombre (éditeur) : les
+   textes héritent de la couleur de leur hôte.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+.cmp-barre { display: none; }
+
+.cmp-scene {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    align-items: center;
+    gap: 12px;
+}
+.cmp.is-une .cmp-scene { grid-template-columns: minmax(0, 1fr); }
+.cmp.is-une .cmp-fleche { display: none; }
+
+.cmp-vue { margin: 0; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.cmp-vue figcaption { font-size: 12.5px; font-weight: 700; color: inherit; opacity: .85; }
+
+/* Les MÊMES proportions que les anciennes vignettes : c'est la carte qui
+   change, pas la place qu'elle prend dans la fenêtre. */
+.cmp-cadre {
+    position: relative;
+    aspect-ratio: 4 / 3;
+    border-radius: 12px;
+    overflow: hidden;
+    border: 1px solid rgba(148, 163, 184, .45);
+    background: #f0f4f0;
+}
+.cmp-cadre iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; display: block; }
+.cmp-attente {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    font-size: 18px;
+    color: #94a3b8;
+    background: #f0f4f0;
+}
+.cmp-vue.is-pret .cmp-attente { display: none; }
+
+/* En vignette, la carte est une IMAGE : un voile prend le clic (agrandir) et
+   laisse la molette faire défiler la fenêtre au lieu de zoomer la carto. */
+.cmp-voile {
+    position: absolute;
+    inset: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    cursor: zoom-in;
+}
+.cmp-voile:hover { background: rgba(15, 23, 42, .04); }
+.cmp-voile:focus-visible { outline: 3px solid #14b8a6; outline-offset: -3px; }
+.cmp-zoom {
+    position: absolute;
+    right: 8px;
+    bottom: 8px;
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+    display: grid;
+    place-items: center;
+    font-size: 12px;
+    color: #fff;
+    background: rgba(15, 23, 42, .55);
+}
+.cmp-fleche { color: #94a3b8; }
+
+.cmp-leg, .cmp-barre-leg { display: flex; flex-wrap: wrap; gap: 14px; font-size: 12.5px; }
+.cmp-leg { margin: 8px 0 0; opacity: .8; }
+.cmp-leg span, .cmp-barre-leg span { display: inline-flex; align-items: center; gap: 6px; }
+.cmp-pt { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+.cmp-pt--del { background: #ef4444; }
+.cmp-pt--add { background: #22c55e; }
+.cmp-pt--chg { background: #f59e0b; }
+
+/* ── Grand format ───────────────────────────────────────────────────────
+   ⚠️ Les MÊMES iframes, agrandies en CSS : déplacer une iframe dans la page
+   la recharge, et c'est ce rechargement qu'on voulait supprimer. Les deux
+   vues sont empilées ; celle qu'on ne regarde pas est en `visibility:
+   hidden` — PAS `display: none`, qui lui retirerait sa taille (un viewer de
+   taille nulle ne se cadre plus) : la bascule reste instantanée. */
+.cmp[data-mode="loupe"] {
+    position: fixed;
+    inset: 16px;
+    z-index: 13500;
+    display: flex;
+    flex-direction: column;
+    border-radius: 16px;
+    overflow: hidden;
+    color: #fff;
+    background: #0f172a;
+    box-shadow: 0 0 0 100vmax rgba(8, 12, 22, .72), 0 24px 60px rgba(0, 0, 0, .4);
+}
+.cmp[data-mode="loupe"] .cmp-barre { display: flex; align-items: center; gap: 16px; padding: 10px 12px; }
+.cmp-bascule { display: inline-flex; padding: 3px; border-radius: 11px; background: rgba(255, 255, 255, .1); }
+.cmp-onglet {
+    min-width: 92px;
+    padding: 7px 16px;
+    border: 0;
+    border-radius: 8px;
+    background: none;
+    font: inherit;
+    font-size: 13.5px;
+    font-weight: 700;
+    color: rgba(255, 255, 255, .75);
+    cursor: pointer;
+}
+.cmp-onglet:hover { color: #fff; }
+.cmp-onglet.is-on { color: #0f172a; background: #fff; }
+.cmp-barre-leg { flex: 1; margin: 0; color: rgba(255, 255, 255, .8); }
+.cmp-x {
+    flex: none;
+    width: 34px;
+    height: 34px;
+    border: 0;
+    border-radius: 9px;
+    display: grid;
+    place-items: center;
+    color: #fff;
+    background: rgba(255, 255, 255, .12);
+    cursor: pointer;
+}
+.cmp-x:hover { background: rgba(255, 255, 255, .24); }
+.cmp[data-mode="loupe"] .cmp-scene { flex: 1; min-height: 0; position: relative; display: block; }
+.cmp[data-mode="loupe"] .cmp-vue { position: absolute; inset: 0; }
+.cmp[data-mode="loupe"] figcaption,
+.cmp[data-mode="loupe"] .cmp-fleche,
+.cmp[data-mode="loupe"] .cmp-voile,
+.cmp[data-mode="loupe"] > .cmp-leg { display: none; }
+.cmp[data-mode="loupe"] .cmp-cadre { height: 100%; aspect-ratio: auto; border: 0; border-radius: 0; }
+.cmp[data-mode="loupe"][data-vue="avant"] .cmp-vue[data-quel="apres"],
+.cmp[data-mode="loupe"][data-vue="apres"] .cmp-vue[data-quel="avant"] { visibility: hidden; }
+
+@media (max-width: 820px) {
+    .cmp-scene { grid-template-columns: minmax(0, 1fr); }
+    .cmp-fleche { transform: rotate(90deg); justify-self: center; }
+    .cmp[data-mode="loupe"] { inset: 0; border-radius: 0; }
+    .cmp[data-mode="loupe"] .cmp-barre-leg { display: none; }
+}

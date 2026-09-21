@@ -80,6 +80,24 @@ def display_name(role, lang=None):
     return display_names([role], lang).get(role.id, role.name)
 
 
+def nom_affiche(role, lang=None):
+    """Le nom d'un rôle tel qu'on l'affiche, SANS appel à l'IA.
+
+    ⚠️ Le rôle système « Développeur de compétences » est créé en français
+    pour chaque entité : sans cette règle, l'interface anglaise l'affichait en
+    français partout où les rôles sont listés. Il vient donc du catalogue.
+    Les autres rôles prennent la traduction déjà en cache (remplie par la page
+    Rôles), à défaut leur nom d'origine — on ne déclenche pas d'appel IA depuis
+    les pages RH et Compétences, qui se chargent à chaque visite.
+    """
+    from Code.roles_permanents import est_dev_competences
+    from Code.translations import t
+    lang = lang or current_lang()
+    if est_dev_competences(role.name):
+        return t('rh.dev_badge', lang)
+    return getattr(role, 'name_' + lang, None) or role.name
+
+
 def _translate_batch(names, lang):
     """Traduit une liste de noms de rôles vers `lang` via OpenAI.
 

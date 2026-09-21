@@ -283,3 +283,41 @@ def test_analyze_ai_exception_falls_back_with_error_source(client, carto, monkey
     assert "boom" in body["error"]
     assert len(body["outputs"]) == 3
     assert all(o["suggested_nature"] is None for o in body["outputs"])
+
+
+def test_chaque_sortie_dit_ou_part_sa_fleche(client, carto):
+    """« Sortie » est un mot de méthode : l'écran de configuration montre la
+    FLÈCHE de la carte, avec sa destination. Une flèche sans libellé n'a pour nom
+    que celui de sa destination — on le signale, sinon l'activité aurait l'air
+    de « produire » une autre activité."""
+    _sess(client, carto["entity_id"])
+    sorties = {o["name"]: o for o in
+               client.get(f"/qualify/outputs/{carto['a']}").get_json()["outputs"]}
+    assert sorties["Pièce usinée"]["vers"] == "Contrôle qualité"
+    assert sorties["Pièce usinée"]["sans_libelle"] is False
+    assert sorties["Contrôle qualité"]["vers"] == "Contrôle qualité"
+    assert sorties["Contrôle qualité"]["sans_libelle"] is True
+
+
+def test_seule_la_nature_RESULTAT_est_lue_par_l_application():
+    """⚠️ L'écran « Configurer l'activité » ne demande plus que « sur quoi la
+    juger » — résultat ou pas. Les trois autres natures (mesure, événement,
+    information) ne sont lues par AUCUN code : on les faisait classer pour rien.
+    Le jour où l'une d'elles sert à quelque chose, l'écran doit la redemander —
+    ce test le rappellera."""
+    import os
+    import re
+    racine = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "Code")
+    lectures = []
+    for dossier, _, fichiers in os.walk(racine):
+        for nom in fichiers:
+            if not nom.endswith(".py") or nom == "qualify_outputs.py":
+                continue
+            with open(os.path.join(dossier, nom), encoding="utf-8") as f:
+                texte = f.read()
+            lectures += [(nom, m.group(1)) for m in
+                         re.finditer(r"semantic_nature\s*(?:==|!=)\s*(\S+)", texte)]
+    if not lectures:
+        pytest.skip("aucune source à relire (arbre bytecode)")
+    autres = [(n, v) for n, v in lectures if "RESULT" not in v]
+    assert not autres, f"une autre nature est lue quelque part : {autres}"

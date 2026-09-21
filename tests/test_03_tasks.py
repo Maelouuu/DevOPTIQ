@@ -138,3 +138,32 @@ class TestTasksReorder:
             content_type="application/json",
         )
         assert r.status_code in (200, 404, 405)
+
+    def test_reorder_tasks_missing_order_returns_400(self, auth_client, ids):
+        """Payload sans 'order' (ou liste vide) → 400."""
+        r = auth_client.post(
+            f"/activities/{ids['activity_id']}/tasks/reorder",
+            data=json.dumps({}),
+            content_type="application/json",
+        )
+        assert r.status_code == 400
+        assert "error" in json.loads(r.data)
+
+    def test_reorder_tasks_db_error_rolls_back_and_returns_500(self, auth_client, ids, monkeypatch):
+        """Une erreur DB au commit du réordonnancement → rollback + 500."""
+        from Code.extensions import db
+
+        def _boom():
+            raise RuntimeError("commit-boom-reorder-tasks")
+
+        monkeypatch.setattr(db.session, "commit", _boom)
+        try:
+            r = auth_client.post(
+                f"/activities/{ids['activity_id']}/tasks/reorder",
+                data=json.dumps({"order": [ids["task_id"]]}),
+                content_type="application/json",
+            )
+        finally:
+            monkeypatch.undo()
+        assert r.status_code == 500
+        assert "commit-boom-reorder-tasks" in json.loads(r.data)["error"]

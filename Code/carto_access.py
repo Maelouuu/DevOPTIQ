@@ -25,7 +25,8 @@ from Code.extensions import db
 from Code.models.models import (
     Entity, EntityRoleAccess, Role, UserRole,
 )
-from Code.permissions import (can_propose_carto, current_user, is_admin,
+from Code.permissions import (can_edit_carto, can_propose_carto,
+                              can_review_carto, current_user, is_admin,
                               is_coordinator)
 
 
@@ -110,7 +111,11 @@ def can_edit(entity, user=None):
         return False
     if not entity.is_shared:
         return entity.owner_id in (None, user.id)
-    return bool(is_admin(user) or is_coordinator(user))
+    # ⚠️ Le tableau des droits (page Comptes) porte une ligne « enregistrer
+    # directement » : c'est elle qui décide, sinon la cocher ne produirait
+    # rien. Son défaut est exactement l'ancienne règle (coordinateur et
+    # administrateur, qui ouvrent toutes les cartos communes).
+    return bool(can_edit_carto(user) and can_read(entity, user))
 
 
 def can_propose(entity, user=None):
@@ -147,26 +152,41 @@ def est_lecture_seule(entity, user=None):
 
 
 def can_review(entity=None, user=None):
-    """Le compte examine-t-il les propositions ? (champion ou administrateur)"""
+    """Le compte valide-t-il les propositions ? Coordinateur et administrateur
+    par défaut, selon le tableau des droits (ligne « valider »).
+
+    Sans `entity`, la question est « valide-t-il en général ? » — celle que
+    pose la page Carte avant d'afficher son bandeau. Avec une entité, il faut
+    en plus qu'elle soit commune ET qu'il puisse l'ouvrir : un champion à qui
+    l'on confierait l'examen ne doit pas trancher sur une carto qu'il ne voit
+    pas.
+    """
     user = user if user is not None else current_user()
     if user is None:
         return False
-    if entity is not None and not entity.is_shared:
+    if not can_review_carto(user):
         return False
-    return bool(is_admin(user) or is_coordinator(user))
+    if entity is None:
+        return True
+    return bool(entity.is_shared and can_read(entity, user))
 
 
 def can_manage_access(entity=None, user=None):
     """Le compte règle-t-il qui accède à une carto ?
 
-    Réservé aux champions et administrateurs — un compte ordinaire ne décide
+    Coordinateurs et administrateurs par défaut — un compte ordinaire ne décide
     pas de qui voit la cartographie de l'organisation, même s'il en est le
     propriétaire : rendre sa carto commune, c'est engager tout le monde.
+
+    ⚠️ Passe par le tableau des droits (page RH, section 4) : une entreprise
+    peut ouvrir ce réglage au champion. Le défaut reproduit exactement ce qui
+    précédait, donc rien ne bouge sans décision explicite.
     """
+    from Code.permissions import a_le_droit
     user = user if user is not None else current_user()
     if user is None:
         return False
-    return bool(is_admin(user) or is_coordinator(user))
+    return a_le_droit("manage_acces", user)
 
 
 # ── Description pour les gabarits et les API ────────────────────────────────

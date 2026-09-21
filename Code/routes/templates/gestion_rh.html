@@ -19,7 +19,7 @@
 
     <!-- ═════════════════════════════════════════════════════════════════
          BANDEAU — de QUELLE entité parle-t-on ?
-         Tout ce qui suit est cadré par ce choix : rôles, accès, propositions.
+         Les blocs ① et ② sont cadrés par ce choix : personnes, rôles, accès.
          Le poser en tête, une fois, évite de le redemander dans chaque bloc.
     ═════════════════════════════════════════════════════════════════ -->
     <section class="grh-topbar" id="grh-topbar"></section>
@@ -70,17 +70,31 @@
       <p class="grh-note" id="note-roles"></p>
     </section>
 
-    <!-- ③ LES PROPOSITIONS ──────────────────────────────────────────── -->
-    <section class="grh-block" id="bloc-propositions">
+    <!-- ③ LES COMPÉTENCES ─────────────────────────────────────────────
+         ⚠️ Toute l'entreprise par défaut, et PAS la carto choisie en haut de
+         page : celle-ci cadre ce qu'on RÈGLE, ce tableau sert à VOIR où en
+         sont les gens. Son propre filtre le resserre sur une carto. -->
+    <section class="grh-block" id="bloc-competences">
       <header class="grh-block-head">
         <span class="grh-block-num">3</span>
         <div class="grh-block-titles">
-          <h2>{{ t('rh.block_changes') }}</h2>
-          <p>{{ t('rh.block_changes_sub') }}</p>
+          <h2>{{ t('rh.block_comp') }}</h2>
+        </div>
+        <div class="grh-block-tools">
+          <div class="grh-search">
+            <i class="fa-solid fa-magnifying-glass"></i>
+            <input type="search" id="rhc-q" placeholder="{{ t('rh.search_placeholder') }}">
+          </div>
+          <select id="rhc-carto" class="grh-select" aria-label="{{ t('rh.comp_all_maps') }}">
+            <option value="">{{ t('rh.comp_all_maps') }}</option>
+          </select>
         </div>
       </header>
-      <div class="grh-block-body" id="liste-propositions"></div>
+      <div class="grh-block-body" id="rhc-corps"></div>
     </section>
+
+    <!-- ⚠️ « Ce que chaque palier ouvre » vit désormais sur la page Comptes :
+         on y donne les statuts, on doit y lire ce qu'ils ouvrent. -->
 
   </div>
 
@@ -126,7 +140,7 @@
       days_per_year:   {{ t('rh.days_per_year') | tojson }},
       tile_people:     {{ t('rh.tile_people') | tojson }},
       tile_roles:      {{ t('rh.tile_roles') | tojson }},
-      tile_changes:    {{ t('rh.tile_changes') | tojson }},
+      tile_comp:       {{ t('rh.tile_comp') | tojson }},
       // Personnes
       col_status:      {{ t('rh.col_status') | tojson }},
       col_roles:       {{ t('rh.col_roles') | tojson }},
@@ -139,6 +153,7 @@
       manage_roles:    {{ t('rh.manage_roles') | tojson }},
       // Rôles
       holders:         {{ t('rh.holders') | tojson }},
+      holder_1:        {{ t('rh.holder_1') | tojson }},
       opens_map:       {{ t('rh.opens_map') | tojson }},
       opens_map_hint:  {{ t('rh.opens_map_hint') | tojson }},
       open_to_all:     {{ t('rh.open_to_all') | tojson }},
@@ -147,10 +162,32 @@
       roles_from_map:  {{ t('rh.roles_from_map') | tojson }},
       roles_empty:     {{ t('rh.roles_empty') | tojson }},
       confirm_delete:  {{ t('rh.confirm_delete_role') | tojson }},
-      // Propositions
-      changes_empty:   {{ t('rh.changes_empty') | tojson }},
-      changes_review:  {{ t('rh.changes_review') | tojson }},
-      by:              {{ t('rh.by') | tojson }},
+      // Un rôle sur plusieurs cartos
+      role_maps:       {{ t('rh.role_maps') | tojson }},
+      role_maps_title: {{ t('rh.role_maps_title') | tojson }},
+      role_maps_hint:  {{ t('rh.role_maps_hint') | tojson }},
+      map_will_share:  {{ t('rh.map_will_share') | tojson }},
+      map_open_to_all: {{ t('rh.map_open_to_all') | tojson }},
+      map_n_roles:     {{ t('rh.map_n_roles') | tojson }},
+      maps_none:       {{ t('rh.maps_none') | tojson }},
+      maps_saved:      {{ t('rh.maps_saved') | tojson }},
+      // Un développeur par rôle
+      dev_for_role:    {{ t('rh.dev_for_role') | tojson }},
+      dev_per_role_hint: {{ t('rh.dev_per_role_hint') | tojson }},
+      dev_mixed:       {{ t('rh.dev_mixed') | tojson }},
+      dev_hold_first:  {{ t('rh.dev_hold_first') | tojson }},
+      dev_by_role:    {{ t('rh.dev_by_role') | tojson }},
+      dev_all_roles:  {{ t('rh.dev_all_roles') | tojson }},
+      dev_scope_1:    {{ t('rh.dev_scope_1') | tojson }},
+      dev_scope_n:    {{ t('rh.dev_scope_n') | tojson }},
+      dev_scope_title: {{ t('rh.dev_scope_title') | tojson }},
+      dev_who_follows: {{ t('rh.dev_who_follows') | tojson }},
+      dev_per_role_rule: {{ t('rh.dev_per_role_rule') | tojson }},
+      dev_same_all:   {{ t('rh.dev_same_all') | tojson }},
+      dev_scope_all_hint: {{ t('rh.dev_scope_all_hint') | tojson }},
+      dev_no_role_scope: {{ t('rh.dev_no_role_scope') | tojson }},
+      dev_followed_by: {{ t('rh.dev_followed_by') | tojson }},
+      dev_roles_followed: {{ t('rh.dev_roles_followed') | tojson }},
       // Divers
       readonly:        {{ t('rh.readonly') | tojson }},
       saved:           {{ t('rh.saved') | tojson }},
@@ -163,6 +200,42 @@
       save:            {{ t('btn.save') | tojson }},
     };
   </script>
+  <script>
+    /* ⚠️ `| tojson`, jamais une traduction entre guillemets dans un script. */
+    window.RHC_I18N = {
+      lang:           {{ session.get('lang', 'fr') | tojson }},
+      loading:        {{ t('rh.loading') | tojson }},
+      all_maps:       {{ t('rh.comp_all_maps') | tojson }},
+      person:         {{ t('rh.comp_person') | tojson }},
+      overall:        {{ t('rh.comp_overall') | tojson }},
+      f_all:          {{ t('rh.comp_f_all') | tojson }},
+      f_gap:          {{ t('rh.comp_f_gap') | tojson }},
+      f_todo:         {{ t('rh.comp_f_todo') | tojson }},
+      f_held:         {{ t('rh.comp_f_held') | tojson }},
+      n_gap:          {{ t('rh.comp_n_gap') | tojson }},
+      n_todo:         {{ t('rh.comp_n_todo') | tojson }},
+      n_held:         {{ t('rh.comp_n_held') | tojson }},
+      n_setup:        {{ t('rh.comp_n_setup') | tojson }},
+      setup:          {{ t('rh.comp_setup') | tojson }},
+      held:           {{ t('rh.comp_held') | tojson }},
+      coverage:       {{ t('rh.comp_coverage') | tojson }},
+      evaluated:      {{ t('rh.comp_evaluated') | tojson }},
+      tip_level:      {{ t('rh.comp_tip_level') | tojson }},
+      tip_required:   {{ t('rh.comp_tip_required') | tojson }},
+      tip_activities: {{ t('rh.comp_tip_activities') | tojson }},
+      tip_open:       {{ t('rh.comp_tip_open') | tojson }},
+      not_held:       {{ t('rh.comp_not_held') | tojson }},
+      empty:          {{ t('rh.comp_empty') | tojson }},
+      no_match:       {{ t('rh.comp_no_match') | tojson }},
+      err:            {{ t('rh.comp_err') | tojson }},
+      leg_green:      {{ t('rh.comp_leg_green') | tojson }},
+      leg_orange:     {{ t('rh.comp_leg_orange') | tojson }},
+      leg_red:        {{ t('rh.comp_leg_red') | tojson }},
+      leg_grey:       {{ t('rh.comp_leg_grey') | tojson }},
+      leg_tick:       {{ t('rh.comp_leg_tick') | tojson }},
+    };
+  </script>
   <script src="{{ url_for('static', filename='js/gestion_rh.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/rh_competences.js') }}"></script>
 </body>
 </html>

@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>OPTIQ — Compétences</title>
+  <title>OPTIQ — {{ t('page.competences') }}</title>
   {# ⚠️ Le lien reste ICI, dans le <head>, à la place qu'occupait le <style> en
      ligne : `header_buttons.html` charge optiq.css et ui-theme.css depuis le
      <body>, donc APRÈS. Déplacer ce lien change la cascade. #}
@@ -93,7 +93,7 @@
   {# Fenêtre d'évaluation #}
   <aside class="cv2-drawer" id="cv2-drawer" role="dialog" aria-modal="true">
     <div class="cv2-dh">
-      <button class="x" id="cv2-drawer-close" aria-label="Fermer">&times;</button>
+      <button class="x" id="cv2-drawer-close" aria-label="{{ t('btn.close') }}">&times;</button>
       <h2 id="cv2-drawer-title">—</h2>
       <div class="cv2-sub" id="cv2-drawer-role"></div>
     </div>
@@ -105,7 +105,7 @@
      planifie pas dans le même écran. #}
   <aside class="cv2-plan-win" id="cv2-plan-win" role="dialog" aria-modal="true">
     <div class="cv2-ph">
-      <button class="x" id="cv2-plan-close" aria-label="Fermer">&times;</button>
+      <button class="x" id="cv2-plan-close" aria-label="{{ t('btn.close') }}">&times;</button>
       <h2 data-i18n="plan_title">Plan de formation</h2>
       <div class="cv2-sub" id="cv2-plan-sub"></div>
     </div>

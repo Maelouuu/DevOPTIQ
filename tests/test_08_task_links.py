@@ -138,6 +138,65 @@ class TestTaskLinkAssignments:
         assert data.get("ok") is True
 
 
+class TestTaskLinkAssignmentsDbErrors:
+    """Vérifie le comportement des routes /task-links/* quand la base échoue."""
+
+    def test_assign_db_error_rolls_back_and_returns_500(self, auth_client, ids, monkeypatch):
+        if not ids.get("link_id"):
+            pytest.skip("Aucun lien disponible")
+        from Code.extensions import db
+
+        def _boom(*args, **kwargs):
+            raise RuntimeError("execute-boom-task-link-assign")
+
+        monkeypatch.setattr(db.session, "execute", _boom)
+        try:
+            r = auth_client.post(
+                "/task-links/assign",
+                data=json.dumps({
+                    "link_id": ids["link_id"],
+                    "task_id": ids["task_id"],
+                    "direction": "incoming",
+                }),
+                content_type="application/json",
+            )
+        finally:
+            monkeypatch.undo()
+        assert r.status_code == 500
+        assert "execute-boom-task-link-assign" in json.loads(r.data)["error"]
+
+    def test_unassign_db_error_rolls_back_and_returns_500(self, auth_client, ids, monkeypatch):
+        if not ids.get("link_id"):
+            pytest.skip("Aucun lien disponible")
+        from Code.extensions import db
+
+        def _boom(*args, **kwargs):
+            raise RuntimeError("execute-boom-task-link-unassign")
+
+        monkeypatch.setattr(db.session, "execute", _boom)
+        try:
+            r = auth_client.delete(f"/task-links/{ids['link_id']}/incoming")
+        finally:
+            monkeypatch.undo()
+        assert r.status_code == 500
+        assert "execute-boom-task-link-unassign" in json.loads(r.data)["error"]
+
+    def test_get_assignments_db_error_returns_empty_list(self, auth_client, ids, monkeypatch):
+        """La lecture avale l'erreur DB et renvoie une liste vide plutôt qu'un 500."""
+        from Code.extensions import db
+
+        def _boom(*args, **kwargs):
+            raise RuntimeError("execute-boom-task-link-read")
+
+        monkeypatch.setattr(db.session, "execute", _boom)
+        try:
+            r = auth_client.get(f"/task-links/activity/{ids['activity_id']}")
+        finally:
+            monkeypatch.undo()
+        assert r.status_code == 200
+        assert json.loads(r.data) == []
+
+
 class TestTaskLinkAssignmentsAuth:
     """Vérifie que les endpoints /task-links/* exigent une session authentifiée.
 

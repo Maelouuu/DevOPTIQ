@@ -155,12 +155,14 @@ class TestCreateUser:
 
 class TestUpdateUser:
 
-    def test_update_user_get_returns_200(self, auth_client, ids, app):
-        """GET /comptes/update/<id> retourne le formulaire (200)."""
+    def test_update_user_get_ouvre_la_fiche_sur_la_liste(self, auth_client, ids, app):
+        """La fiche d'un compte s'ouvre PAR-DESSUS la liste : un lien direct
+        renvoie donc vers la liste, fiche ouverte."""
         uid = _create_user(app, ids, "update.get.test@devoptiq.com")
         try:
             r = auth_client.get(f"/comptes/update/{uid}")
-            assert r.status_code == 200
+            assert r.status_code == 302
+            assert ("edit=%d" % uid) in r.headers["Location"]
         finally:
             _delete_user(app, uid)
 
@@ -421,150 +423,6 @@ class TestRemoveCollaborator:
             _delete_user(app, manager_id)
 
 
-# ===========================================================================
-# 10. POST /comptes/import_excel — import JSON d'utilisateurs
-# ===========================================================================
-
-class TestImportExcel:
-
-    def test_import_excel_no_data_returns_400(self, auth_client):
-        """POST sans users → 400."""
-        r = auth_client.post(
-            "/comptes/import_excel",
-            data=json.dumps({"users": []}),
-            content_type="application/json",
-        )
-        assert r.status_code == 400
-        data = json.loads(r.data)
-        assert data["success"] is False
-
-    def test_import_excel_duplicate_email_reports_error(self, auth_client, ids):
-        """Email déjà existant → erreur signalée, imported=0."""
-        r = auth_client.post(
-            "/comptes/import_excel",
-            data=json.dumps({
-                "users": [{
-                    "prenom": "Test",
-                    "nom": "User",
-                    "email": "test@devoptiq.com",
-                    "age": "",
-                    "mot_de_passe": "Pass123!",
-                    "role": "",
-                    "statut": "user",
-                }]
-            }),
-            content_type="application/json",
-        )
-        assert r.status_code == 200
-        data = json.loads(r.data)
-        assert data["imported"] == 0
-        assert len(data["errors"]) >= 1
-
-    def test_import_excel_unknown_role_reports_error(self, auth_client, ids):
-        """Rôle inconnu → erreur signalée pour cet utilisateur."""
-        r = auth_client.post(
-            "/comptes/import_excel",
-            data=json.dumps({
-                "users": [{
-                    "prenom": "Nouveau",
-                    "nom": "Import",
-                    "email": "import.role.inconnu@devoptiq.com",
-                    "age": "",
-                    "mot_de_passe": "Pass123!",
-                    "role": "RôleInexistantXYZ",
-                    "statut": "user",
-                }]
-            }),
-            content_type="application/json",
-        )
-        assert r.status_code == 200
-        data = json.loads(r.data)
-        assert data["imported"] == 0
-        assert len(data["errors"]) >= 1
-
-    def test_import_excel_valid_user_no_role_creates_user(self, auth_client, ids, app):
-        """Utilisateur sans rôle (role vide) → créé si email unique."""
-        r = auth_client.post(
-            "/comptes/import_excel",
-            data=json.dumps({
-                "users": [{
-                    "prenom": "Importé",
-                    "nom": "Excel",
-                    "email": "importe.excel.test@devoptiq.com",
-                    "age": "28",
-                    "mot_de_passe": "Pass123!",
-                    "role": "",
-                    "statut": "user",
-                }]
-            }),
-            content_type="application/json",
-        )
-        assert r.status_code == 200
-        data = json.loads(r.data)
-        assert data["success"] is True
-        assert data["imported"] == 1
-        # Cleanup
-        with app.app_context():
-            from Code.models.models import User, UserRole
-            from Code.extensions import db
-            u = User.query.filter_by(email="importe.excel.test@devoptiq.com").first()
-            if u:
-                UserRole.query.filter_by(user_id=u.id).delete()
-                db.session.delete(u)
-                db.session.commit()
-
-    def test_import_excel_with_valid_role_creates_user(self, auth_client, ids, app):
-        """Utilisateur avec rôle existant → créé avec UserRole associé.
-
-        import_excel utilise Entity.get_active_id() pour chercher le rôle.
-        On s'assure que entity.owner_id est renseigné pour que le filtre fonctionne.
-        """
-        with app.app_context():
-            from Code.models.models import Entity
-            from Code.extensions import db
-            entity = Entity.query.get(ids["entity_id"])
-            entity.owner_id = ids["user_id"]
-            db.session.commit()
-        role_id = _create_role(app, ids, name="Rôle Import Excel")
-        try:
-            r = auth_client.post(
-                "/comptes/import_excel",
-                data=json.dumps({
-                    "users": [{
-                        "prenom": "Importé",
-                        "nom": "Rôlé",
-                        "email": "importe.role.test@devoptiq.com",
-                        "age": "",
-                        "mot_de_passe": "Pass123!",
-                        "role": "Rôle Import Excel",
-                        "statut": "user",
-                    }]
-                }),
-                content_type="application/json",
-            )
-            assert r.status_code == 200
-            data = json.loads(r.data)
-            assert data["success"] is True
-            assert data["imported"] == 1
-        finally:
-            with app.app_context():
-                from Code.models.models import User, UserRole
-                from Code.extensions import db
-                u = User.query.filter_by(email="importe.role.test@devoptiq.com").first()
-                if u:
-                    UserRole.query.filter_by(user_id=u.id).delete()
-                    db.session.delete(u)
-                    db.session.commit()
-            _delete_role(app, role_id)
-
-    def test_import_excel_response_fields(self, auth_client, ids):
-        """La réponse contient success, imported, errors, message."""
-        r = auth_client.post(
-            "/comptes/import_excel",
-            data=json.dumps({"users": []}),
-            content_type="application/json",
-        )
-        assert r.status_code == 400
-        data = json.loads(r.data)
-        assert "success" in data
-        assert "message" in data
+# ⚠️ L'import Excel de cette page (`/comptes/import_excel`) a été RETIRÉ : les
+# comptes s'importent désormais par la fenêtre d'import, avec l'IA qui relit
+# un fichier mal formé — voir `tests/test_84_import_hub.py`.

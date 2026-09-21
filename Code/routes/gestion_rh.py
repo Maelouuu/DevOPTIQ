@@ -210,7 +210,7 @@ def create_or_update_role():
             on_role_name_saved(role, name)
     else:
         active_entity_id = get_active_entity_id()
-        new_role = Role(name=name, entity_id=active_entity_id)
+        new_role = Role(name=name, entity_id=active_entity_id, hors_carte=True)
         on_role_name_saved(new_role, name)
         db.session.add(new_role)
     db.session.commit()
@@ -502,7 +502,7 @@ def assign_manager_simple():
 
 @gestion_rh_bp.route('/api/tableau')
 def api_tableau():
-    """Les personnes, les rôles, l'accès à la carto et les propositions.
+    """Les personnes, les rôles et l'accès à la carto.
 
     La page appelait DIX endpoints qui se recoupaient : chacun refaisait ses
     requêtes, et deux d'entre eux se contredisaient sur qui est collaborateur.
@@ -514,7 +514,6 @@ def api_tableau():
     et la page semblait cassée alors que les comptes étaient bien là.
     """
     from Code.carto_access import access_summary, can_manage_access, entity_role_ids
-    from Code.models.models import CartoChangeRequest
     from Code.permissions import is_admin, is_coordinator
     from Code.roles_permanents import ROLE_DEV_COMPETENCES, est_dev_competences
 
@@ -554,9 +553,10 @@ def api_tableau():
                 UserRole.role_id.in_([r.id for r in roles])).all():
             titulaires.setdefault(ur.role_id, []).append(ur.user_id)
 
+    from Code.role_i18n import nom_affiche
     roles_json = [{
         'id': r.id,
-        'name': r.name,
+        'name': nom_affiche(r),
         # Le développeur de compétences n'est pas une bande de la carto : il ne
         # se supprime pas, et l'interface doit le dire au lieu de proposer une
         # corbeille qui ne marchera pas.
@@ -564,6 +564,9 @@ def api_tableau():
         'ouvre_carto': r.id in ouvrent,
         'titulaires': sorted(titulaires.get(r.id, [])),
     } for r in roles]
+    # Le tri suit le nom AFFICHÉ : trié sur le nom en base, le rôle système
+    # restait à la place de « Développeur » dans une liste anglaise.
+    roles_json.sort(key=lambda r: r["name"].lower())
 
     id_dev = next((r['id'] for r in roles_json if r['permanent']), None)
     ids_dev = set(titulaires.get(id_dev, [])) if id_dev else set()
@@ -573,7 +576,7 @@ def api_tableau():
     par_role = {}
     for ur in UserRole.query.all():
         par_role.setdefault(ur.user_id, []).append(ur)
-    noms_roles = {r.id: r.name for r in Role.query.all()}
+    noms_roles = {r.id: nom_affiche(r) for r in Role.query.all()}
 
     personnes = []
     for u in comptes:
@@ -591,22 +594,6 @@ def api_tableau():
             'dev_id': u.manager_id,
             'est_dev': u.id in ids_dev,
         })
-
-    # ── Les propositions en attente sur cette carto ──────────────────────
-    propositions = []
-    if entity_id:
-        for cr in (CartoChangeRequest.query
-                   .filter_by(entity_id=entity_id, status='pending')
-                   .order_by(CartoChangeRequest.created_at.desc()).all()):
-            auteur = db.session.get(User, cr.author_id)
-            propositions.append({
-                'id': cr.id,
-                'titre': cr.title or '',
-                'auteur': (f"{auteur.first_name} {auteur.last_name}"
-                           if auteur else '—'),
-                'le': cr.created_at.isoformat() if cr.created_at else None,
-                'a_moi': cr.author_id == moi.id,
-            })
 
     # ── Le calendrier de travail ─────────────────────────────────────────
     calendrier = {}
@@ -636,7 +623,6 @@ def api_tableau():
         'roles': roles_json,
         'role_dev_id': id_dev,
         'role_dev_nom': ROLE_DEV_COMPETENCES,
-        'propositions': propositions,
         'moi': {'id': moi.id, 'est_dev': moi.id in ids_dev},
         'droits': {
             'gere_acces': bool(entite and can_manage_access(entite, moi)),
@@ -646,3 +632,275 @@ def api_tableau():
             'admin': bool(is_admin(moi)),
         },
     })
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  Les compétences de tout le monde, sur toutes les cartos
+# ═══════════════════════════════════════════════════════════════════════════
+
+@gestion_rh_bp.route('/api/competences')
+def api_competences():
+    """Le tableau global : chaque personne × chacun de ses rôles.
+
+    ⚠️ Indépendant de la carto choisie en haut de page : celle-ci cadre les
+    personnes et les rôles qu'on RÈGLE, alors que ce tableau sert à VOIR, et
+    la vue utile à la RH est d'abord celle de toute l'entreprise. Le filtre
+    `?entity_id=` le resserre sur une carto quand on en a besoin.
+    """
+    from Code.competences_globales import tableau_global
+    from Code.permissions import can_access_rh, current_user
+
+    moi = current_user()
+    if moi is None:
+        return jsonify({'error': 'Non connecté'}), 401
+    if not can_access_rh(moi):
+        return jsonify({'error': 'Accès refusé'}), 403
+    return jsonify(tableau_global(moi, request.args.get('entity_id', type=int)))
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  Un rôle, PLUSIEURS cartos — en une manœuvre
+# ═══════════════════════════════════════════════════════════════════════════
+# Ouvrir une carto à un rôle se faisait carto par carto : il fallait changer
+# l'entité en haut de page, cocher, recommencer. Pour cinq cartos, cinq
+# allers-retours — et aucun endroit d'où VOIR ce qu'un rôle ouvre au total.
+#
+# ⚠️ `set_access` (page Partage) n'accepte que les rôles DE l'entité réglée.
+# C'est juste là-bas : on y règle une carto et on coche parmi SES bandes. Ici
+# on part du rôle, et le rôle appartient à la carto d'où on le regarde — le
+# même rôle est donc légitimement posé sur d'autres cartos. `can_read` s'en
+# accommode depuis toujours : il compare les rôles du compte aux rôles
+# autorisés, sans jamais demander à quelle entité ces rôles appartiennent.
+
+def _entites_gerables(moi):
+    """Les cartos dont CE compte règle l'accès, indexées par id."""
+    from Code.carto_access import can_manage_access
+    return {e.id: e for e in Entity.accessible(moi.id)
+            if can_manage_access(e, moi)}
+
+
+@gestion_rh_bp.route('/role_cartos/<int:role_id>')
+def role_cartos(role_id):
+    """Ce qu'un rôle ouvre, et ce qu'il POURRAIT ouvrir.
+
+    Chaque carto porte de quoi décider en connaissance de cause :
+      · `ouverte`    — ce rôle y donne-t-il accès aujourd'hui ;
+      · `commune`    — une carto PRIVÉE ignore les rôles (`can_read` rend la
+                       main au propriétaire avant même de les consulter) : la
+                       cocher la rendra donc commune, et l'écran doit le dire ;
+      · `sans_filtre`— ⚠️ une carto commune SANS aucun rôle autorisé est
+                       ouverte à TOUS les comptes. Y ajouter le premier rôle
+                       la RESTREINT. Cocher peut donc retirer l'accès à des
+                       gens qui l'avaient : c'est le piège de cet écran, il
+                       est annoncé ligne par ligne.
+    """
+    from Code.carto_access import entity_role_ids
+    from Code.permissions import can_access_rh, current_user
+
+    moi = current_user()
+    if not can_access_rh(moi):
+        return jsonify({'error': 'Accès refusé'}), 403
+    role = db.session.get(Role, role_id)
+    if role is None:
+        return jsonify({'error': 'Rôle introuvable'}), 404
+
+    gerables = _entites_gerables(moi)
+    cartos = []
+    for e in sorted(gerables.values(), key=lambda x: (x.name or '').lower()):
+        autorises = entity_role_ids(e.id)
+        cartos.append({
+            'id': e.id,
+            'name': e.name,
+            'commune': bool(getattr(e, 'is_shared', False)),
+            'ouverte': role.id in autorises,
+            'sans_filtre': bool(getattr(e, 'is_shared', False)) and not autorises,
+            'n_roles': len(autorises),
+        })
+    return jsonify({
+        'role': {'id': role.id, 'name': role.name, 'entity_id': role.entity_id},
+        'cartos': cartos,
+    })
+
+
+@gestion_rh_bp.route('/role_cartos', methods=['POST'])
+def set_role_cartos():
+    """Pose ce rôle sur les cartos cochées, le retire des autres. UNE manœuvre.
+
+    ⚠️ On ne touche QUE les cartos dont l'appelant règle l'accès, et on ne
+    touche QUE la ligne de CE rôle : les autres rôles autorisés sur ces cartos
+    ne bougent pas. Sans cette précaution, régler un rôle effacerait le travail
+    fait sur les autres.
+    """
+    from Code.models.models import EntityRoleAccess
+    from Code.permissions import can_access_rh, current_user
+
+    moi = current_user()
+    if not can_access_rh(moi):
+        return jsonify({'error': 'Accès refusé'}), 403
+
+    data = request.get_json(silent=True) or {}
+    role = db.session.get(Role, data.get('role_id'))
+    if role is None:
+        return jsonify({'error': 'Rôle introuvable'}), 404
+    voulues = {int(x) for x in (data.get('entity_ids') or [])}
+
+    gerables = _entites_gerables(moi)
+    refusees = sorted(voulues - set(gerables))
+    voulues &= set(gerables)
+
+    ouvertes, fermees, rendues_communes = [], [], []
+    for eid, entite in gerables.items():
+        ligne = EntityRoleAccess.query.filter_by(
+            entity_id=eid, role_id=role.id).first()
+        if eid in voulues and ligne is None:
+            # Une carto privée ignore les rôles : la cocher la rend commune,
+            # sinon on enregistrerait un accès qui ne produit rien.
+            if not getattr(entite, 'is_shared', False):
+                entite.is_shared = True
+                rendues_communes.append(eid)
+            db.session.add(EntityRoleAccess(entity_id=eid, role_id=role.id))
+            ouvertes.append(eid)
+        elif eid not in voulues and ligne is not None:
+            db.session.delete(ligne)
+            fermees.append(eid)
+    db.session.commit()
+
+    return jsonify({
+        'ok': True,
+        'ouvertes': ouvertes,
+        'fermees': fermees,
+        'rendues_communes': rendues_communes,
+        'refusees': refusees,
+    })
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  Le développeur de compétences, RÔLE PAR RÔLE
+# ═══════════════════════════════════════════════════════════════════════════
+# ⚠️ `user_roles.manager_id` porte ce lien depuis toujours, et
+# `competences_acces.encadre()` le lit déjà — mais AUCUN écran ne le posait :
+# la page envoyait `role_ids: null`, c'est-à-dire « le même développeur pour
+# tous les rôles ». Or celui qui suit quelqu'un sur « Qualité » ne le suit pas
+# forcément sur « Logistique ».
+
+def _dissoudre_lien_global(user):
+    """Reporte le développeur GLOBAL sur chaque rôle tenu, puis l'efface.
+
+    ⚠️ **Sans ça, régler un rôle ne produit RIEN.** `encadre()` lit les DEUX
+    rattachements (`users.manager_id` et `user_roles.manager_id`) : tant que le
+    lien global existe, il couvre tous les rôles — y compris celui dont on
+    vient de retirer le développeur. On ne perd personne au passage, ce que le
+    lien global couvrait est repris rôle par rôle ; ensuite seulement la
+    portée demandée veut dire quelque chose.
+    """
+    if user is None or user.manager_id is None:
+        return False
+    global_id = user.manager_id
+    for ur in user.user_roles:
+        if ur.manager_id is None:
+            ur.manager_id = global_id
+    user.manager_id = None
+    return True
+
+
+@gestion_rh_bp.route('/role_dev', methods=['POST'])
+def set_role_dev():
+    """Qui suit CE collaborateur sur CE rôle. `dev_id` nul = personne."""
+    from Code.permissions import can_access_rh, current_user
+
+    moi = current_user()
+    if not can_access_rh(moi):
+        return jsonify({'error': 'Accès refusé'}), 403
+
+    data = request.get_json(silent=True) or {}
+    lien = UserRole.query.filter_by(user_id=data.get('user_id'),
+                                    role_id=data.get('role_id')).first()
+    if lien is None:
+        # Poser un développeur sur un rôle que la personne ne tient pas n'a pas
+        # de sens : le lien qui porterait l'information n'existe pas.
+        return jsonify({'error': 'Ce compte ne tient pas ce rôle'}), 404
+
+    dev_id = data.get('dev_id')
+    if dev_id is not None:
+        dev_id = int(dev_id)
+        if db.session.get(User, dev_id) is None:
+            return jsonify({'error': 'Développeur introuvable'}), 404
+        if dev_id == lien.user_id:
+            return jsonify({'error': 'Un collaborateur ne se suit pas lui-même'}), 400
+    _dissoudre_lien_global(db.session.get(User, lien.user_id))
+    lien.manager_id = dev_id
+    db.session.commit()
+    return jsonify({'ok': True, 'user_id': lien.user_id,
+                    'role_id': lien.role_id, 'dev_id': lien.manager_id})
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  … et la PORTÉE de ce développeur, en une seule décision
+# ═══════════════════════════════════════════════════════════════════════════
+# ⚠️ Poser un développeur et choisir sur quoi il suit la personne sont deux
+# moitiés de la MÊME décision. Les faire en deux appels laissait un état
+# intermédiaire faux — le développeur posé partout le temps que la portée
+# arrive — et surtout deux écrans pour une seule question, ce qu'on vient de
+# reprocher à cette page.
+
+@gestion_rh_bp.route('/dev_scope', methods=['POST'])
+def set_dev_scope():
+    """Qui suit ce collaborateur, et SUR QUELS RÔLES.
+
+    `role_ids` nul = tous ses rôles : c'est le lien global, et il couvrira
+    aussi les rôles qu'il recevra plus tard. Une LISTE = exactement ces
+    rôles — ce développeur est retiré des autres, sans jamais toucher aux
+    affectations des autres développeurs.
+    """
+    from Code.permissions import can_access_rh, current_user
+
+    moi = current_user()
+    if not can_access_rh(moi):
+        return jsonify({'error': 'Accès refusé'}), 403
+
+    data = request.get_json(silent=True) or {}
+    user = (db.session.get(User, int(data['user_id']))
+            if data.get('user_id') else None)
+    if user is None:
+        return jsonify({'error': 'Utilisateur introuvable'}), 404
+
+    dev_id = data.get('dev_id')
+    if dev_id is not None:
+        dev_id = int(dev_id)
+        if db.session.get(User, dev_id) is None:
+            return jsonify({'error': 'Développeur introuvable'}), 404
+        if dev_id == user.id:
+            return jsonify({'error': 'Un collaborateur ne se suit pas lui-même'}), 400
+
+    role_ids = data.get('role_ids', None)
+    if role_ids is None:
+        # Tous ses rôles : le lien global, ET chaque lien de rôle — l'écran
+        # lit les liens de rôle, il doit dire la même chose que le droit.
+        user.manager_id = dev_id
+        for ur in user.user_roles:
+            ur.manager_id = dev_id
+    else:
+        demandes = {int(x) for x in role_ids}
+        tenus = {ur.role_id for ur in user.user_roles}
+        inconnus = sorted(demandes - tenus)
+        if inconnus:
+            # Le lien qui porterait l'information n'existe pas : mieux vaut le
+            # dire que d'enregistrer une portée qui ne s'applique à rien.
+            return jsonify({'error': 'Ce compte ne tient pas ce rôle',
+                            'roles': inconnus}), 404
+        _dissoudre_lien_global(user)
+        for ur in user.user_roles:
+            if ur.role_id in demandes:
+                ur.manager_id = dev_id
+            elif dev_id is not None and ur.manager_id == dev_id:
+                ur.manager_id = None
+
+    db.session.commit()
+    return jsonify({'ok': True, 'user_id': user.id, 'dev_id': user.manager_id,
+                    'roles': [{'id': ur.role_id, 'dev_id': ur.manager_id}
+                              for ur in user.user_roles]})
+
+
+# ⚠️ Le tableau « ce que chaque palier ouvre » a déménagé sur la page Comptes
+# (`/comptes/droits`) : c'est là qu'on donne un statut à quelqu'un, donc là
+# qu'on doit pouvoir lire ce que ce statut ouvre.

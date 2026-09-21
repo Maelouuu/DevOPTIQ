@@ -1,0 +1,182 @@
+<!-- carto_decision_popup.html — la décision prise sur VOS propositions.
+     Celui qui valide une modification de carto peut écrire un mot à son
+     auteur, qu'il applique ou qu'il refuse. Ce mot était enregistré et lu par
+     personne : aucun écran ne le montrait à son destinataire. Cette fenêtre le
+     lui annonce, à sa prochaine page, jusqu'à ce qu'il clique « Compris ».
+     Routes : /cartography/api/changes/decisions (+ /vues). -->
+<style>
+  #cdp-overlay{
+    position:fixed; inset:0; z-index:10040;
+    display:none; align-items:center; justify-content:center;
+    background:rgba(8,12,22,.55); backdrop-filter:blur(6px);
+    opacity:0; transition:opacity .25s ease;
+  }
+  #cdp-overlay.cdp-visible{opacity:1}
+  #cdp-card{
+    width:min(94vw,540px); max-height:min(86vh,720px);
+    display:flex; flex-direction:column;
+    background:#fff; color:#111827;
+    border-radius:16px; overflow:hidden;
+    box-shadow:0 24px 60px rgba(8,12,22,.32);
+    transform:translateY(10px) scale(.985);
+    transition:transform .25s cubic-bezier(.4,0,.2,1);
+    font-family:'DM Sans',system-ui,sans-serif;
+  }
+  #cdp-overlay.cdp-visible #cdp-card{transform:none}
+  .cdp-head{flex:none; padding:20px 22px 16px; color:#fff;
+    background:linear-gradient(135deg,#14b8a6,#0d9488)}
+  .cdp-badge{display:inline-flex; align-items:center; gap:6px;
+    font-size:11.5px; font-weight:700; letter-spacing:.06em; text-transform:uppercase;
+    background:rgba(255,255,255,.18); border-radius:999px; padding:4px 10px}
+  .cdp-title{margin:10px 0 0; font-family:'Fraunces',Georgia,serif;
+    font-size:20px; font-weight:600; line-height:1.25}
+  .cdp-body{flex:1; min-height:0; overflow:auto; padding:16px 22px;
+    display:flex; flex-direction:column; gap:12px}
+  .cdp-item{border:1px solid #e2e8f0; border-radius:12px; padding:13px 14px;
+    border-left:4px solid var(--cdp,#16a34a)}
+  .cdp-item.is-rejected{--cdp:#e11d48}
+  .cdp-top{display:flex; align-items:center; flex-wrap:wrap; gap:6px 10px; margin:0 0 6px}
+  .cdp-etat{display:inline-flex; align-items:center; gap:6px; padding:2px 9px;
+    border-radius:999px; font-size:12px; font-weight:700; color:#166534; background:#dcfce7}
+  .cdp-item.is-rejected .cdp-etat{color:#9f1239; background:#ffe4ea}
+  .cdp-carto{font-size:12.5px; font-weight:600; color:#0f766e}
+  .cdp-carto i{margin-right:5px; font-size:11px}
+  .cdp-titre{margin:0; font-size:15px; font-weight:700; color:#0f172a}
+  .cdp-meta{margin:3px 0 0; font-size:12.5px; color:#64748b}
+  .cdp-mot{margin:10px 0 0; padding:9px 12px; border-radius:10px;
+    background:#f8fafc; border:1px solid #e2e8f0;
+    font-size:14px; line-height:1.5; color:#1e293b; white-space:pre-line}
+  .cdp-mot i{margin-right:7px; color:#94a3b8}
+  .cdp-mot.is-vide{font-style:italic; color:#94a3b8}
+  .cdp-foot{flex:none; display:flex; justify-content:flex-end; gap:10px;
+    padding:14px 22px; border-top:1px solid #eef2f7; background:#f8fafc}
+  .cdp-btn{display:inline-flex; align-items:center; gap:8px; padding:10px 18px;
+    border:0; border-radius:10px; font:inherit; font-size:14px; font-weight:700;
+    color:#fff; background:linear-gradient(135deg,#14b8a6,#0d9488); cursor:pointer}
+  .cdp-btn:disabled{opacity:.6; cursor:default}
+</style>
+
+<div id="cdp-overlay" role="dialog" aria-modal="true" aria-labelledby="cdp-title">
+  <div id="cdp-card">
+    <div class="cdp-head">
+      <span class="cdp-badge"><i class="fa-solid fa-code-pull-request"></i>{{ t('decision.badge') }}</span>
+      <h3 class="cdp-title" id="cdp-title"></h3>
+    </div>
+    <div class="cdp-body" id="cdp-body"></div>
+    <div class="cdp-foot">
+      <button type="button" class="cdp-btn" id="cdp-ok"><i class="fa-solid fa-check"></i>{{ t('decision.compris') }}</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+  /* ⚠️ `| tojson` : jamais une traduction entre guillemets dans un script. */
+  const CDP_I18N = {
+    titre_1:       {{ t('decision.titre_1') | tojson }},
+    titre_n:       {{ t('decision.titre_n') | tojson }},
+    appliquee:     {{ t('decision.appliquee') | tojson }},
+    refusee:       {{ t('decision.refusee') | tojson }},
+    appliquee_par: {{ t('decision.appliquee_par') | tojson }},
+    refusee_par:   {{ t('decision.refusee_par') | tojson }},
+    sans_message:  {{ t('decision.sans_message') | tojson }},
+    sans_titre:    {{ t('examen.sans_titre') | tojson }},
+    lang:          {{ session.get('lang', 'fr') | tojson }}
+  };
+  const L = (k) => CDP_I18N[k] || k;
+  const el = (id) => document.getElementById(id);
+  const esc = (v) => String(v == null ? '' : v)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+  let decisions = [];
+
+  // ⚠️ Le serveur écrit ses dates en UTC SANS fuseau : lues telles quelles,
+  // elles seraient prises pour l'heure locale.
+  function quand(iso) {
+    if (!iso) return '';
+    const utc = /[zZ]|[+-]\d\d:\d\d$/.test(iso) ? iso : iso + 'Z';
+    try {
+      return new Date(utc).toLocaleString(L('lang') === 'en' ? 'en-GB' : 'fr-FR',
+        { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+    } catch (_) { return iso.slice(0, 10); }
+  }
+
+  function carte(d) {
+    const refusee = d.status === 'rejected';
+    const par = L(refusee ? 'refusee_par' : 'appliquee_par').split('{nom}').join(d.reviewer || '—');
+    const mot = (d.review_comment || '').trim();
+    return `
+      <article class="cdp-item${refusee ? ' is-rejected' : ''}">
+        <p class="cdp-top">
+          <span class="cdp-etat"><i class="fa-solid ${refusee ? 'fa-xmark' : 'fa-check'}"></i>${
+            esc(L(refusee ? 'refusee' : 'appliquee'))}</span>
+          <span class="cdp-carto"><i class="fa-solid fa-diagram-project"></i>${esc(d.entity_name || '—')}</span>
+        </p>
+        <h4 class="cdp-titre">${esc(d.title || L('sans_titre'))}</h4>
+        <p class="cdp-meta">${esc(par)} · ${esc(quand(d.reviewed_at))}</p>
+        <p class="cdp-mot${mot ? '' : ' is-vide'}">${mot
+          ? `<i class="fa-solid fa-quote-left"></i>${esc(mot)}` : esc(L('sans_message'))}</p>
+      </article>`;
+  }
+
+  function afficher() {
+    const n = decisions.length;
+    el('cdp-title').textContent = n === 1 ? L('titre_1') : L('titre_n').split('{n}').join(n);
+    el('cdp-body').innerHTML = decisions.map(carte).join('');
+    const ov = el('cdp-overlay');
+    ov.style.display = 'flex';
+    requestAnimationFrame(() => ov.classList.add('cdp-visible'));
+    setTimeout(() => el('cdp-ok').focus(), 60);
+  }
+
+  async function compris() {
+    const bouton = el('cdp-ok');
+    bouton.disabled = true;
+    try {
+      await fetch('/cartography/api/changes/decisions/vues', {
+        method: 'POST', credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: decisions.map((d) => d.id) }),
+      });
+    } catch (_) { /* la fenêtre reviendra à la prochaine page : rien de perdu */ }
+    const ov = el('cdp-overlay');
+    ov.classList.remove('cdp-visible');
+    setTimeout(() => { ov.style.display = 'none'; }, 250);
+  }
+
+  el('cdp-ok').addEventListener('click', compris);
+
+  // On ne s'empile pas sur une autre fenêtre : la bienvenue et le transfert
+  // d'une entité passent d'abord.
+  function libre() {
+    return ['welcome-popup-overlay', 'eso-overlay'].every((id) => {
+      const x = document.getElementById(id);
+      return !x || getComputedStyle(x).display === 'none';
+    });
+  }
+
+  function quandLibre(suite) {
+    if (libre()) { suite(); return; }
+    const obs = new MutationObserver(() => {
+      if (libre()) { obs.disconnect(); suite(); }
+    });
+    ['welcome-popup-overlay', 'eso-overlay'].forEach((id) => {
+      const x = document.getElementById(id);
+      if (x) obs.observe(x, { attributes: true, attributeFilter: ['style', 'class'] });
+    });
+  }
+
+  async function charger() {
+    try {
+      const rep = await fetch('/cartography/api/changes/decisions', { credentials: 'same-origin' });
+      if (!rep.ok) return;
+      decisions = (await rep.json()).decisions || [];
+      if (decisions.length) setTimeout(() => quandLibre(afficher), 400);
+    } catch (_) { /* jamais bloquant */ }
+  }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', charger);
+  else charger();
+})();
+</script>

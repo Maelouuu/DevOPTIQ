@@ -42,52 +42,43 @@
       cause_q: "Quelle est la cause de l'écart ?", linked_caps: 'Capacités reliées à ce résultat',
       no_gap: 'Aucun résultat en écart : le niveau requis est tenu.', dem: 'démontré', req: 'requis',
       gen: 'Génération…',
-      validate_analysis: "Valider l'analyse", to_qualify: 'À qualifier',
-      qualify_lead: "Pour chaque donnée que l'activité produit, dites ce qu'elle est. Au moins une doit être un résultat.",
-      q_question: 'Cette donnée démontre-t-elle la tenue de l’activité ?',
-      q_oui: "Oui — c'est un résultat de l'activité",
-      q_oui_d: "Sa tenue démontre la maîtrise. C'est ce niveau que vous évaluerez ensuite.",
-      q_sinon: 'Sinon, rangez-la :',
-      q_sinon_d: "Ces trois natures sont enregistrées avec l'activité, mais ne donnent pas lieu à évaluation.",
-      ia_done_t: "Ce que l'IA vient de faire",
-      ia_done_1: "Elle a examiné 1 donnée de sortie et propose une nature, dont [[r]] résultat.",
-      ia_done_n: "Elle a examiné [[n]] données de sortie et propose une nature pour chacune, dont [[r]] [[m]].",
-      ia_done_r1: "résultat", ia_done_rn: "résultats",
-      ia_done_w: "Rien n'est enregistré : corrigez ce qui vous paraît faux, puis validez.",
-      q_std_label: "À partir de quand ce résultat est-il tenu ?",
-      q_std_aide: "Le repère servira à juger le niveau, pas à le calculer.",
-      q_std_ia: "Proposé par l'IA à partir de l'activité — corrigez-le si besoin.",
-      q_ok_1: '1 résultat marqué : vous pourrez évaluer ce niveau.',
-      q_ok_n: '[[n]] résultats marqués : vous pourrez évaluer ces niveaux.',
-      q_reste_1: '(1 donnée reste sans nature)', q_reste_n: '([[n]] données restent sans nature)',
-      setup_done: 'Activité configurée', min_perf_ph: 'Standard minimal de performance…',
-      no_out: "Cette activité n'a aucune donnée de sortie à qualifier.",
       req_set: 'Niveau requis mis à jour', not_set: 'Non défini',
       setup_btn: 'Analyser les sorties avec l’IA', setup_btn_off: 'Qualifier les sorties à la main',
       configure_short: 'Configurer',
       conf_title: "Configurer l'activité",
+      // Configurer une activité : UNE question, pas un cours de méthode.
+      conf_q: 'Sur quoi jugerez-vous cette activité ?',
+      conf_q_d: 'Cochez ce qu’elle doit produire, puis dites à quoi on voit que c’est réussi : c’est le repère de l’évaluation.',
+      conf_list: 'Ce que l’activité produit', conf_list_d: 'les flèches qui en partent sur la carte',
+      conf_vers: 'vers « [[x]] »', conf_fleche: 'Flèche vers « [[x]] »',
+      conf_std: 'Réussi quand…', conf_std_lu: 'Réussi quand :', conf_std_ph: 'ex. : validé par le client sans reprise',
+      conf_ia_on: 'L’IA a pré-coché ce qui lui semble juste. Vérifiez avant d’enregistrer.',
+      conf_ia_off: 'Pas d’IA sur cette instance : cochez vous-même.',
+      conf_ia_tag: 'IA', conf_ia_check: 'à vérifier',
+      conf_n_0: 'Cochez au moins un élément', conf_n_1: '1 élément retenu', conf_n_n: '[[n]] éléments retenus',
+      conf_trop: 'Plus de trois : l’activité en regroupe peut-être plusieurs.',
+      conf_save: 'Enregistrer', conf_cancel: 'Annuler',
+      conf_busy_open: 'L’IA lit l’activité…', conf_busy_save: 'Enregistrement…',
+      conf_empty: 'Aucune flèche ne part de cette activité sur la carte : elle ne produit rien sur quoi la juger. Ajoutez une flèche sortante dans la cartographie, puis revenez ici.',
+      conf_done_comp: 'Compétence', conf_done_on: 'Elle sera évaluée sur',
       conf_go: "Configurer cette activité",
       conf_close: 'Fermer', conf_done_go: 'Évaluer maintenant',
-      rien_a_evaluer: "Cette activité n'a aucun résultat qualifié : il n'y a rien à évaluer pour l'instant. Commencez par la configurer — cela se fait une fois, pour l'activité, pas pour chaque collaborateur.",
+      rien_a_evaluer: "Cette activité n'est pas encore configurée : on ne sait pas encore sur quoi la juger. Configurez-la d'abord — une fois pour l'activité, pas pour chaque collaborateur.",
       conf_done_t: 'Activité configurée',
-      conf_done_d: "Vous pouvez maintenant évaluer le niveau des collaborateurs sur cette activité.",
-      conf_done_r: "Les résultats sont enregistrés. L'évaluation, elle, se fait collaborateur par collaborateur.",
-      ia_ou: "L'IA n'intervient qu'ici et dans le plan de formation. Elle ne note jamais personne : les niveaux sont posés par vous.",
       evidence_ph: 'Preuve / commentaire (facultatif)', add_evidence: '+ Ajouter une preuve',
       diagnose: "Diagnostiquer l'écart",
-      configuring: 'Analyse des sorties en cours…', loading: 'Chargement…',
-      need_result: "Marquez au moins une donnée comme « Résultat de l'activité » : c'est ce niveau que vous évaluerez ensuite.",
+      loading: 'Chargement…',
       configured_go_eval: 'Sorties qualifiées ✓ — évaluez maintenant le niveau du collaborateur pour chaque résultat, puis enregistrez.',
       req_failed: 'Action impossible (erreur réseau ou serveur).',
       forbidden: "Vous n'avez pas le droit de noter ce collaborateur.",
       pick_level: 'À évaluer', roles_label: 'Rôles du collaborateur',
       self_assess: "S'auto-évaluer",
-      pas_configuree: "Cette activité n'est pas encore configurée : son développeur de compétences doit d'abord qualifier ses données de sortie.",
+      pas_configuree: "Cette activité n'est pas encore configurée : son développeur de compétences doit d'abord dire sur quoi la juger.",
       b_held: 'Niveau tenu', b_gap: 'En écart', b_todo: 'À évaluer', b_setup: 'À configurer',
       filter_off: 'Tout afficher', no_match: 'Aucune activité dans cette catégorie.',
       m_result_one: 'résultat', m_result_many: 'résultats', m_partial: 'sur',
       m_eval_one: 'évalué', m_eval_many: 'évalués',
-      m_last: 'évalué le', m_never: 'jamais évaluée', m_toqualify: 'sorties à qualifier',
+      m_last: 'évalué le', m_never: 'jamais évaluée', m_toqualify: 'pas encore configurée',
       target_short: 'requis',
       // Synthèse
       r_open: 'Ouvrir', r_activity_one: 'activité', r_activity_many: 'activités', r_level: 'Niveau du rôle',
@@ -115,11 +106,6 @@
       bloc_cible: 'Le niveau attendu', bloc_cible_d: 'Ce que le rôle exige sur cette activité. Cliquez un palier pour le fixer.',
       bloc_eval: "L'évaluation", bloc_tech: 'La technicité',
       // IA
-      ia_qualify_t: "Ce que l'IA fait ici",
-      ia_qualify_d: "Elle lit l'activité — ses tâches, ses connexions sortantes, ses destinataires — et propose, pour chaque donnée produite, sa nature : est-ce un RÉSULTAT (ce dont la tenue démontre la maîtrise), une mesure, un événement, ou une simple information ?",
-      ia_qualify_w: 'Rien n’est enregistré tant que vous n’avez pas validé, et chaque proposition reste modifiable.',
-      ia_off_t: 'IA non configurée',
-      ia_off_d: "Aucune clé IA n'est renseignée sur cette instance : qualifiez les sorties à la main. Rien n'est inventé à la place.",
       ia_conf_high: 'IA — sûr', ia_conf_medium: 'IA — à vérifier', ia_conf_low: 'IA — peu sûr',
       ia_touched: 'Corrigé à la main',
       // Plan de formation
@@ -143,7 +129,15 @@
       plan_source_local: 'Construit depuis les capacités en écart relevées en base (aucune clé IA)',
       plan_gap_1: 'activité sous le niveau requis', plan_gap_intro: 'activités sous le niveau requis',
       plan_del: 'Retirer cette action',
-      plan_target: 'Objectif', plan_proof: 'Preuve attendue', plan_crit: 'Réussi quand',
+      plan_target: 'Objectif', plan_deliv: 'Livrable', plan_crit: 'Réussi quand',
+      plan_other: 'Autres actions',
+      plan_steps_1: '1 étape', plan_steps_n: '[[n]] étapes',
+      plan_week_1: 'Semaine [[a]]', plan_week_n: 'Semaines [[a]] → [[b]]',
+      plan_week_over: 'dépasse la durée visée',
+      plan_week_step_1: 'étape [[l]]', plan_week_step_n: 'étapes [[l]]', plan_wk: 'S',
+      plan_load: 'Charge en heures', plan_less: 'Moins d’heures', plan_more: 'Plus d’heures',
+      plan_remove: 'Retirer', plan_mix: 'Répartition des heures par nature d’action',
+      plan_gap_from_to: 'Niveau actuel → niveau visé',
     },
     en: {
       manager: 'Competency developer', my_dev: 'Your competency developer',
@@ -155,7 +149,7 @@
       c_activity: 'Activity', c_level: 'Level', c_required: 'Required level',
       c_demonstrated: 'Demonstrated level', c_gap: 'Gap', c_tech: 'Technicity',
       tech_gap: 'Gap', tech_ok: 'Met',
-      competence: 'Main competence', save_eval: 'Save evaluation',
+      competence: 'Main competency', save_eval: 'Save evaluation',
       save_self: 'Save my self-assessment',
       evaluate: 'Evaluate', consult: 'View', not_assessed: 'Not assessed', erase: 'Clear',
       std: 'Minimum standard', saved: 'Evaluation saved',
@@ -166,52 +160,42 @@
       cause_q: 'What is the cause of the gap?', linked_caps: 'Capabilities linked to this result',
       no_gap: 'No result below the required level.', dem: 'demonstrated', req: 'required',
       gen: 'Generating…',
-      validate_analysis: 'Validate analysis', to_qualify: 'To qualify',
-      qualify_lead: 'For each piece of data the activity produces, say what it is. At least one must be a result.',
-      q_question: 'Does this data demonstrate that the activity is carried out?',
-      q_oui: 'Yes — this is an activity result',
-      q_oui_d: 'Meeting it demonstrates mastery. That is the level you will assess next.',
-      q_sinon: 'Otherwise, file it as:',
-      q_sinon_d: 'These three natures are recorded with the activity, but are never assessed.',
-      ia_done_t: 'What the AI just did',
-      ia_done_1: 'It examined 1 output and proposes a nature, including [[r]] result.',
-      ia_done_n: 'It examined [[n]] outputs and proposes a nature for each, including [[r]] [[m]].',
-      ia_done_r1: 'result', ia_done_rn: 'results',
-      ia_done_w: 'Nothing is saved: correct anything that looks wrong, then validate.',
-      q_std_label: 'From what point is this result met?',
-      q_std_aide: 'The benchmark helps judge the level; it does not compute it.',
-      q_std_ia: 'Proposed by AI from the activity — correct it if needed.',
-      q_ok_1: '1 result marked: you will be able to assess that level.',
-      q_ok_n: '[[n]] results marked: you will be able to assess those levels.',
-      q_reste_1: '(1 item still has no nature)', q_reste_n: '([[n]] items still have no nature)',
-      setup_done: 'Activity configured', min_perf_ph: 'Minimum performance standard…',
-      no_out: 'This activity has no output data to qualify.',
       req_set: 'Required level updated', not_set: 'Not set',
       setup_btn: 'Analyse outputs with AI', setup_btn_off: 'Qualify outputs manually',
       configure_short: 'Configure',
       conf_title: 'Configure the activity',
+      conf_q: 'What will you judge this activity on?',
+      conf_q_d: 'Tick what it must produce, then say how you can tell it is done well: that is the benchmark for assessment.',
+      conf_list: 'What the activity produces', conf_list_d: 'the arrows leaving it on the map',
+      conf_vers: 'to “[[x]]”', conf_fleche: 'Arrow to “[[x]]”',
+      conf_std: 'Done well when…', conf_std_lu: 'Done well when:', conf_std_ph: 'e.g. approved by the client with no rework',
+      conf_ia_on: 'The AI has pre-ticked what it thinks fits. Check before saving.',
+      conf_ia_off: 'No AI on this instance: tick them yourself.',
+      conf_ia_tag: 'AI', conf_ia_check: 'check this',
+      conf_n_0: 'Tick at least one item', conf_n_1: '1 item selected', conf_n_n: '[[n]] items selected',
+      conf_trop: 'More than three: the activity may bundle several.',
+      conf_save: 'Save', conf_cancel: 'Cancel',
+      conf_busy_open: 'The AI is reading the activity…', conf_busy_save: 'Saving…',
+      conf_empty: 'No arrow leaves this activity on the map: it produces nothing to judge it on. Add an outgoing arrow in the map, then come back here.',
+      conf_done_comp: 'Competency', conf_done_on: 'It will be assessed on',
       conf_go: 'Configure this activity',
       conf_close: 'Close', conf_done_go: 'Assess now',
-      rien_a_evaluer: 'This activity has no qualified result: there is nothing to assess yet. Start by configuring it — this is done once, for the activity, not for each team member.',
+      rien_a_evaluer: 'This activity is not configured yet: nothing says what to judge it on. Configure it first — once for the activity, not for each team member.',
       conf_done_t: 'Activity configured',
-      conf_done_d: 'You can now assess team members on this activity.',
-      conf_done_r: 'The results are saved. Assessment itself happens one team member at a time.',
-      ia_ou: 'AI only steps in here and in the training plan. It never grades anyone: levels are set by you.',
       evidence_ph: 'Evidence / comment (optional)', add_evidence: '+ Add evidence',
       diagnose: 'Diagnose the gap',
-      configuring: 'Analysing outputs…', loading: 'Loading…',
-      need_result: 'Mark at least one item as “Activity result”: that is the level you will assess next.',
+      loading: 'Loading…',
       configured_go_eval: 'Outputs qualified ✓ — now set the team member’s level for each result, then save.',
       req_failed: 'Action failed (network or server error).',
       forbidden: 'You are not allowed to assess this team member.',
       pick_level: 'To assess', roles_label: "Team member's roles",
       self_assess: 'Self-assess',
-      pas_configuree: 'This activity is not configured yet: its competency developer must first qualify its output data.',
+      pas_configuree: 'This activity is not configured yet: its competency developer must first say what to judge it on.',
       b_held: 'Level met', b_gap: 'Below target', b_todo: 'To assess', b_setup: 'To configure',
       filter_off: 'Show all', no_match: 'No activity in this category.',
       m_result_one: 'result', m_result_many: 'results', m_partial: 'of',
       m_eval_one: 'assessed', m_eval_many: 'assessed',
-      m_last: 'assessed on', m_never: 'never assessed', m_toqualify: 'outputs to qualify',
+      m_last: 'assessed on', m_never: 'never assessed', m_toqualify: 'not configured yet',
       target_short: 'required',
       r_open: 'Open', r_activity_one: 'activity', r_activity_many: 'activities', r_level: 'Role level',
       p_title: 'Competency profile', p_role_one: 'role', p_role_many: 'roles',
@@ -235,11 +219,6 @@
       acc_haut_mine: 'You rate yourself higher', acc_bas_mine: 'You rate yourself lower',
       bloc_cible: 'The expected level', bloc_cible_d: 'What the role requires on this activity. Click a step to set it.',
       bloc_eval: 'The assessment', bloc_tech: 'Technicity',
-      ia_qualify_t: 'What the AI does here',
-      ia_qualify_d: 'It reads the activity — its tasks, outgoing connections and recipients — and proposes, for each piece of data produced, its nature: is it a RESULT (what demonstrates mastery when met), a measure, an event, or plain information?',
-      ia_qualify_w: 'Nothing is saved until you validate, and every proposal stays editable.',
-      ia_off_t: 'AI not configured',
-      ia_off_d: 'No AI key is set on this instance: qualify the outputs manually. Nothing is invented in its place.',
       ia_conf_high: 'AI — confident', ia_conf_medium: 'AI — check it', ia_conf_low: 'AI — unsure',
       ia_touched: 'Edited manually',
       plan_title: 'Training plan', plan_open: 'Training plan',
@@ -262,7 +241,15 @@
       plan_source_local: 'Built from the capability gaps recorded in the database (no AI key)',
       plan_gap_1: 'activity below the required level', plan_gap_intro: 'activities below the required level',
       plan_del: 'Remove this action',
-      plan_target: 'Objective', plan_proof: 'Expected evidence', plan_crit: 'Done when',
+      plan_target: 'Objective', plan_deliv: 'Deliverable', plan_crit: 'Done when',
+      plan_other: 'Other actions',
+      plan_steps_1: '1 step', plan_steps_n: '[[n]] steps',
+      plan_week_1: 'Week [[a]]', plan_week_n: 'Weeks [[a]] → [[b]]',
+      plan_week_over: 'runs past the target duration',
+      plan_week_step_1: 'step [[l]]', plan_week_step_n: 'steps [[l]]', plan_wk: 'W',
+      plan_load: 'Workload in hours', plan_less: 'Fewer hours', plan_more: 'More hours',
+      plan_remove: 'Remove', plan_mix: 'Hours by kind of action',
+      plan_gap_from_to: 'Current level → target level',
     },
   };
   // Clés communes aux deux langues, déclarées une fois.
@@ -276,19 +263,21 @@
     tech_link: { fr: 'Ajouter', en: 'Add' },
     tech_pick: { fr: 'Choisir un domaine existant…', en: 'Pick an existing domain…' },
     tech_empty: { fr: 'Aucun domaine technique lié à cette activité.', en: 'No technical domain linked to this activity.' },
-    qualify_title: { fr: 'Qualification des sorties', en: 'Output qualification' },
   };
   Object.keys(COMMUN).forEach(k => { I18N.fr[k] = COMMUN[k].fr; I18N.en[k] = COMMUN[k].en; });
 
   const T = k => (I18N[LANG][k] || k);
   const Tv = (k, vars) => Object.keys(vars || {}).reduce(
     (s, v) => s.split('[[' + v + ']]').join(vars[v]), T(k));
+  // « Libellé : valeur » en français, « Label: value » en anglais : l'espace
+  // avant les deux-points est une règle de typographie FRANÇAISE.
+  const DP = LANG === 'fr' ? ' : ' : ': ';
 
   const state = {
     moi: null, estDev: false,
     cible: null, cibleNom: '',
     ecran: null, roleId: null, roleName: null,
-    scale: {}, notAssessed: 'Non évalué', domScale: {},
+    scale: {}, notAssessed: '', domScale: {},
     rows: [], filtre: null, activity: null, lastState: null,
     plan: null,
   };
@@ -357,9 +346,29 @@
       : [{ id: ctx.moi.id, first_name: ctx.moi.first_name, last_name: ctx.moi.last_name, moi: true }];
     $('#cv2-collab-title').textContent = state.estDev ? T('collaborators') : T('me');
     renderCollabs(gens);
+    if (await ouvrirDemande(gens)) return;
     // Un seul dossier à regarder : on l'ouvre, personne n'a envie de cliquer
     // sur son propre nom pour entrer chez soi.
     if (gens.length === 1) choisirCollab(gens[0], $('#cv2-collab').firstElementChild);
+  }
+
+  // `?personne=<id>&role=<id>` — une case du tableau global de la page RH.
+  // Arriver ici pour y chercher soi-même la personne puis son rôle, c'est
+  // refaire le chemin qu'on vient de désigner d'un clic. L'adresse est
+  // nettoyée : revenir en arrière ne doit pas rouvrir le même dossier.
+  async function ouvrirDemande(gens) {
+    let q;
+    try { q = new URLSearchParams(window.location.search); } catch (_) { return false; }
+    const pid = parseInt(q.get('personne'), 10);
+    if (!pid) return false;
+    try { window.history.replaceState({}, '', window.location.pathname); } catch (_) { /* rien */ }
+    const i = gens.findIndex(u => u.id === pid);
+    if (i < 0) return false;
+    await choisirCollab(gens[i], $('#cv2-collab').children[i]);
+    const rid = parseInt(q.get('role'), 10);
+    const r = rid && ((state.synthese && state.synthese.roles) || []).find(x => x.role_id === rid);
+    if (r) await ouvrirRole(r);
+    return true;
   }
 
   function renderCollabs(list) {
@@ -468,8 +477,8 @@
     const req = estNul(requis) ? null : requis;
     const inconnu = estNul(niveau);
     const titre = [
-      `${T('c_demonstrated')} : ${inconnu ? state.notAssessed : (libelle || levelName(niveau))}`,
-      req === null ? '' : `${T('target_short')} : ${req} · ${levelName(req)}`,
+      `${T('c_demonstrated')}${DP}${inconnu ? state.notAssessed : (libelle || levelName(niveau))}`,
+      req === null ? '' : `${T('target_short')}${DP}${req} · ${levelName(req)}`,
     ].filter(Boolean).join(' — ');
     return `<div class="cv2-jauge cv2-j--${esc(couleur || 'grey')}" title="${esc(titre)}">
         ${jauge(niveau, req, couleur)}
@@ -1257,7 +1266,7 @@
     card.innerHTML = `
       <div class="rtete">
         <div class="rname"${r.minimum_performance_text
-          ? ` title="${esc(T('std'))} : ${esc(r.minimum_performance_text)}"` : ''}>${esc(r.name)}
+          ? ` title="${esc(T('std'))}${DP}${esc(r.minimum_performance_text)}"` : ''}>${esc(r.name)}
           ${r.minimum_performance_text ? '<i class="fa-regular fa-circle-question cv2-astuce"></i>' : ''}
         </div>
       </div>
@@ -1439,218 +1448,182 @@
     refreshDashboard();
   }
 
-  // ══ Ce que l'IA fait ═══════════════════════════════════════════════
-  // ⚠️ On lançait une analyse sans jamais dire ce qu'elle allait faire ni ce
-  // qu'elle avait fait. Une proposition de la machine s'annonce et se justifie.
-  // ⚠️ Le même texte restait affiché APRÈS l'analyse : « ce que l'IA fait ici »
-  // décrit une action déjà faite, et on le relit en cherchant ce qu'il reste à
-  // comprendre. Avant, le panneau ANNONCE ; après, il REND COMPTE — combien de
-  // propositions, combien de résultats, et que rien n'est encore enregistré.
-  function panneauIA(avant, bilan) {
-    const off = state.iaDispo === false;
-    const d = document.createElement('div');
-    d.className = 'cv2-ia' + (off ? ' cv2-ia--off' : '') + (avant ? '' : ' cv2-ia--bilan');
-    let titre, corps;
-    if (off) {
-      titre = T('ia_off_t'); corps = esc(T('ia_off_d'));
-    } else if (avant) {
-      titre = T('ia_qualify_t');
-      corps = esc(T('ia_qualify_d')) +
-        `<div class="cv2-ia-w">${esc(T('ia_qualify_w'))}</div>`;
-    } else {
-      titre = T('ia_done_t');
-      corps = esc(Tv(bilan.n === 1 ? 'ia_done_1' : 'ia_done_n',
-                     { n: bilan.n, r: bilan.resultats,
-                       m: T(bilan.resultats === 1 ? 'ia_done_r1' : 'ia_done_rn') })) +
-        `<div class="cv2-ia-w">${esc(T('ia_done_w'))}</div>` +
-        `<div class="cv2-ia-ou">${esc(T('ia_ou'))}</div>`;
-    }
-    d.innerHTML = `<span class="cv2-ia-ico"><i class="fa-solid ${avant || off ? 'fa-wand-magic-sparkles' : 'fa-clipboard-check'}"></i></span>
-      <div><div class="cv2-ia-t">${esc(titre)}</div><div class="cv2-ia-d">${corps}</div></div>`;
-    return d;
-  }
-
   // ══════════════════════════════════════════════════════════════════
-  //  QUALIFIER LES SORTIES
-  //  ⚠️ Cet écran ne disait pas ce qu'il demandait. Un menu déroulant « À
-  //  qualifier » posé à droite d'un nom, et parfois un champ de saisie
-  //  pré-rempli d'un « 100 % » que rien n'expliquait. On ne voyait pas qu'il y
-  //  avait un choix à faire, et « Valider » refusait sans qu'on sache pourquoi.
-  //
-  //  Trois corrections, toutes de même nature — rendre la décision VISIBLE :
-  //   1. les quatre natures sont des boutons, pas une liste cachée ;
-  //   2. celle qu'on choisit s'explique juste en dessous ;
-  //   3. le champ du standard porte son libellé, et dit d'où vient sa valeur.
-  //  Et « Valider » ne peut plus refuser : il reste éteint tant que la
-  //  condition n'est pas remplie, en disant laquelle.
+  //  CONFIGURER UNE ACTIVITÉ — sur quoi la jugera-t-on ?
+  //  ⚠️ L'écran était un cours de méthode : « Qualification des sorties », une
+  //  question par ligne (« Cette donnée démontre-t-elle la tenue… »), un grand
+  //  bouton et sa phrase, trois pastilles « Mesure / Événement / Information »
+  //  et encore une phrase, un paragraphe sur l'IA — sept bouts de texte par
+  //  ligne pour une décision qui est BINAIRE.
+  //  ⚠️ Et les trois autres natures ne servaient à RIEN : aucun code de l'app ne
+  //  lit autre chose que RESULT (mastery, diagnostic, result_capabilities). On
+  //  faisait classer à l'utilisateur ce que personne ne lit.
+  //  Désormais : une question, une liste à cocher de ce que l'activité produit
+  //  — montré comme la FLÈCHE de la carte qu'il est, avec sa destination —, et
+  //  pour ce qui est coché, un seul champ : « Réussi quand… ».
   // ══════════════════════════════════════════════════════════════════
   async function showQualify() {
     const aid = state.activity.activity_id;
-    showBusy(T('configuring'));
+    showBusy(T('conf_busy_open'));
     setFooter([]);
     const [outs, ana] = await Promise.all([
       api(`/qualify/outputs/${aid}`), api(`/qualify/analyze/${aid}`, { method: 'POST' })]);
-    // La source dit si une IA a réellement répondu. On ne présente jamais un
+    // La source dit si une IA a réellement répondu : on ne présente jamais un
     // repli comme une analyse.
-    state.iaDispo = !(ana && ana.source && ana.source !== 'AI');
+    const ia = !!(ana && ana.source === 'AI');
 
     const body = $('#cv2-drawer-body'); body.innerHTML = '';
-    const b = bloc(1, T('qualify_title'), T('qualify_lead'));
-    body.appendChild(b);
+    const tete = document.createElement('div');
+    tete.className = 'cv2-cf-tete';
+    tete.innerHTML = `<h3>${esc(T('conf_q'))}</h3><p>${esc(T('conf_q_d'))}</p>`;
+    body.appendChild(tete);
 
-    const outputs = outs.outputs || [], labels = outs.labels || {};
-    const propositions = (ana.outputs || []).filter(x => x.suggested_nature);
-    b.appendChild(panneauIA(false, {
-      n: propositions.length,
-      resultats: propositions.filter(x => x.suggested_nature === 'RESULT').length,
-    }));
+    const outputs = outs.outputs || [];
     if (!outputs.length) {
-      b.insertAdjacentHTML('beforeend',
-        `<div class="cv2-warn">${esc((ana && ana.warning) || T('no_out'))}</div>`);
+      body.insertAdjacentHTML('beforeend',
+        `<div class="cv2-cf-vide"><i class="fa-solid fa-arrow-right-long"></i>
+           <span>${esc(T('conf_empty'))}</span></div>`);
       setFooter([{ cls: 'btn-quiet', label: T('conf_close'), on: closeDrawer }]);
       return;
     }
 
-    const props = {}; (ana.outputs || []).forEach(p => props[p.data_id] = p);
-    outputs.forEach(o => b.appendChild(carteSortie(o, props[o.data_id] || {}, labels)));
+    body.insertAdjacentHTML('beforeend',
+      `<div class="cv2-cf-ia${ia ? '' : ' is-off'}">
+         <i class="fa-solid ${ia ? 'fa-wand-magic-sparkles' : 'fa-hand-pointer'}"></i>
+         <span>${esc(T(ia ? 'conf_ia_on' : 'conf_ia_off'))}</span></div>
+       <div class="cv2-cf-lh">${esc(T('conf_list'))} <span>· ${esc(T('conf_list_d'))}</span></div>`);
 
-    // Le compteur vit SOUS les sorties, contre le pied : c'est là qu'on regarde
-    // avant de valider, et il dit ce qui manque plutôt que de le refuser après.
-    const compteur = document.createElement('div');
-    compteur.className = 'cv2-qcompte'; compteur.id = 'cv2-qcompte';
-    b.appendChild(compteur);
+    const props = {}; (ana.outputs || []).forEach(x => props[x.data_id] = x);
+    const liste = document.createElement('div');
+    liste.className = 'cv2-cf-liste';
+    outputs.forEach(o => liste.appendChild(ligneProduit(o, props[o.data_id] || {})));
+    body.appendChild(liste);
 
-    setFooter([{ cls: 'btn-quiet', label: T('conf_close'), on: closeDrawer },
-               { cls: 'btn-primary', label: T('validate_analysis'), on: saveQualify, id: 'cv2-q-ok' }]);
+    setFooter([{ cls: 'btn-quiet', label: T('conf_cancel'), on: closeDrawer },
+               { cls: 'btn-primary', label: T('conf_save'), on: saveQualify, id: 'cv2-q-ok' }]);
+    // Le compte vit DANS le pied, à côté du bouton qu'il conditionne.
+    const compte = document.createElement('div');
+    compte.className = 'cv2-cf-compte'; compte.id = 'cv2-qcompte';
+    $('#cv2-footer').prepend(compte);
     majCompteQualif();
   }
 
-  function carteSortie(o, p, labels) {
-    const nature = o.nature || p.suggested_nature || '';
+  function ligneProduit(o, p) {
+    // Ce qui est ENREGISTRÉ l'emporte sur la proposition : l'IA ne revient pas
+    // sur un choix déjà fait par quelqu'un.
+    const coche = o.nature ? o.nature === 'RESULT' : p.suggested_nature === 'RESULT';
+    const parIA = !o.nature && p.suggested_nature === 'RESULT';
+    const std = o.minimum_performance_text || (coche ? (p.suggested_minimum_performance || '') : '');
+    // Ce qui n'est pas coché garde sa nature d'avant : l'écran ne la montre plus,
+    // ce n'est pas une raison de l'effacer.
+    const autre = (o.nature && o.nature !== 'RESULT') ? o.nature
+                : (p.suggested_nature && p.suggested_nature !== 'RESULT' ? p.suggested_nature : '');
+
+    const nom = o.sans_libelle ? Tv('conf_fleche', { x: o.vers }) : o.name;
+    const vers = (!o.sans_libelle && o.vers) ? Tv('conf_vers', { x: o.vers }) : '';
+    const doute = parIA && p.confidence && p.confidence !== 'high';
+
     const el = document.createElement('div');
-    el.className = 'cv2-qz'; el.dataset.dataId = o.data_id; el.dataset.nature = nature;
-
-    // D'où vient la proposition, et à quel point elle est sûre : sans ça on
-    // valide une suggestion sans savoir que c'en est une.
-    let marque = '';
-    if (o.nature && o.qualification_source === 'MANUAL') {
-      marque = `<span class="cv2-prop cv2-prop--touche">${esc(T('ia_touched'))}</span>`;
-    } else if (p.suggested_nature) {
-      const conf = p.confidence === 'low' ? 'low' : (p.confidence === 'medium' ? 'medium' : 'high');
-      marque = `<span class="cv2-prop${conf === 'high' ? '' : ' cv2-prop--low'}">${esc(T('ia_conf_' + conf))}</span>`;
-    }
-
-    const autres = ['MEASURE', 'EVENT', 'INFORMATION'].filter(k => labels[k]);
-    const choix = `
-      <button type="button" class="cv2-oui${nature === 'RESULT' ? ' sel' : ''}" data-nature="RESULT">
-        <i class="fa-solid fa-circle-check"></i>
-        <span><b>${esc(T('q_oui'))}</b><small>${esc(T('q_oui_d'))}</small></span>
-      </button>
-      <div class="cv2-sinon">
-        <div class="cv2-sinon-q">${esc(T('q_sinon'))}</div>
-        <div class="cv2-natures">
-          ${autres.map(k => `<button type="button" class="cv2-nature${nature === k ? ' sel' : ''}"
-               data-nature="${k}">${esc(labels[k])}</button>`).join('')}
-        </div>
-        <div class="cv2-sinon-d">${esc(T('q_sinon_d'))}</div>
-      </div>`;
-
-    const mv = o.minimum_performance_text || p.suggested_minimum_performance || '';
-    const venuDeLIA = !o.minimum_performance_text && !!p.suggested_minimum_performance;
-
+    el.className = 'cv2-cf-item' + (coche ? ' is-on' : '');
+    el.dataset.dataId = o.data_id;
+    el.dataset.autre = autre;
     el.innerHTML = `
-      <div class="cv2-qz-tete">
-        <div class="qn">${esc(o.name)}</div>
-        ${marque}
-      </div>
-      ${p.justification ? `<div class="qj">${esc(p.justification)}</div>` : ''}
-      <div class="cv2-qq">${esc(T('q_question'))}</div>
-      <div class="cv2-choix">${choix}</div>
-      <div class="cv2-qstd${nature === 'RESULT' ? '' : ' hidden'}">
-        <label class="cv2-qstd-lbl">${esc(T('q_std_label'))}</label>
-        <input class="cv2-minperf" placeholder="${esc(T('min_perf_ph'))}" value="${esc(mv)}">
-        <div class="cv2-qstd-aide">${esc(venuDeLIA ? T('q_std_ia') : T('q_std_aide'))}</div>
+      <label class="cv2-cf-l">
+        <input type="checkbox" ${coche ? 'checked' : ''}>
+        <span class="cv2-cf-box"><i class="fa-solid fa-check"></i></span>
+        <span class="cv2-cf-nom">
+          <b>${esc(nom)}</b>
+          ${vers ? `<small><i class="fa-solid fa-arrow-right-long"></i>${esc(vers)}</small>` : ''}
+        </span>
+        ${parIA ? `<span class="cv2-cf-tag${doute ? ' is-doute' : ''}"
+            ${p.justification ? `title="${esc(p.justification)}"` : ''}>
+            <i class="fa-solid fa-wand-magic-sparkles"></i>${esc(T('conf_ia_tag'))}${doute
+              ? ` · ${esc(T('conf_ia_check'))}` : ''}</span>` : ''}
+      </label>
+      <div class="cv2-cf-std">
+        <label>${esc(T('conf_std'))}</label>
+        <input type="text" class="cv2-cf-in" value="${esc(std)}" placeholder="${esc(T('conf_std_ph'))}">
       </div>`;
-
-    const zoneStd = el.querySelector('.cv2-qstd');
-    const ecrire = () => {
-      const n = el.dataset.nature;
-      zoneStd.classList.toggle('hidden', n !== 'RESULT');
-      el.classList.toggle('est-resultat', n === 'RESULT');
-      el.classList.toggle('est-range', !!n && n !== 'RESULT');
-    };
-    ecrire();
-
-    el.querySelectorAll('[data-nature]').forEach(b => b.onclick = () => {
-      // Recliquer la nature déjà choisie la retire : sinon on ne peut plus
-      // revenir à « pas encore décidé » une fois qu'on a touché un bouton.
-      const meme = el.dataset.nature === b.dataset.nature;
-      el.querySelectorAll('[data-nature]').forEach(x => x.classList.remove('sel'));
-      el.dataset.nature = meme ? '' : b.dataset.nature;
-      if (!meme) b.classList.add('sel');
-      ecrire();
+    const cb = el.querySelector('input[type=checkbox]');
+    cb.addEventListener('change', () => {
+      el.classList.toggle('is-on', cb.checked);
       majCompteQualif();
+      // On vient de cocher : c'est le repère qu'on va écrire ensuite.
+      if (cb.checked) {
+        const champ = el.querySelector('.cv2-cf-in');
+        if (!champ.value && p.suggested_minimum_performance) champ.value = p.suggested_minimum_performance;
+        setTimeout(() => champ.focus(), 30);
+      }
     });
     return el;
   }
 
-  // Ce qui manque, dit AVANT le clic. « Valider » refusait après coup, avec un
-  // message qui s'affichait tout en haut de la fenêtre — loin du bouton, loin
-  // de la ligne à corriger.
+  // Ce qui manque, dit AVANT le clic, à côté du bouton qu'il conditionne.
   function majCompteQualif() {
-    const cartes = [...document.querySelectorAll('#cv2-drawer-body .cv2-qz')];
-    const resultats = cartes.filter(c => c.dataset.nature === 'RESULT').length;
-    const restants = cartes.filter(c => !c.dataset.nature).length;
+    const n = document.querySelectorAll('#cv2-drawer-body .cv2-cf-item.is-on').length;
     const box = $('#cv2-qcompte'); if (!box) return;
-    box.className = 'cv2-qcompte' + (resultats ? ' est-ok' : ' est-manque');
-    box.innerHTML = resultats
-      ? `<i class="fa-solid fa-circle-check"></i> ${esc(Tv(resultats === 1 ? 'q_ok_1' : 'q_ok_n',
-          { n: resultats }))}${restants ? ` <span class="reste">${esc(Tv(
-          restants === 1 ? 'q_reste_1' : 'q_reste_n', { n: restants }))}</span>` : ''}`
-      : `<i class="fa-solid fa-circle-info"></i> ${esc(T('need_result'))}`;
+    box.className = 'cv2-cf-compte' + (n ? (n > 3 ? ' is-trop' : ' is-ok') : ' is-vide');
+    box.textContent = n === 0 ? T('conf_n_0') : (n === 1 ? T('conf_n_1') : Tv('conf_n_n', { n }));
+    box.title = n > 3 ? T('conf_trop') : '';
+    if (n > 3) box.textContent += ' — ' + T('conf_trop');
     const ok = $('#cv2-q-ok');
-    if (ok) { ok.disabled = !resultats; ok.title = resultats ? '' : T('need_result'); }
+    if (ok) ok.disabled = !n;
   }
 
   async function saveQualify() {
     const aid = state.activity.activity_id;
-    const cartes = [...document.querySelectorAll('#cv2-drawer-body .cv2-qz')];
-    const outputs = cartes.map(c => {
-      const mp = c.querySelector('.cv2-minperf');
-      return { data_id: +c.dataset.dataId, nature: c.dataset.nature || null,
-               minimum_performance_text: mp ? mp.value : '', source: 'MANUAL' };
+    const lignes = [...document.querySelectorAll('#cv2-drawer-body .cv2-cf-item')];
+    const outputs = lignes.map(l => {
+      const on = l.classList.contains('is-on');
+      return { data_id: +l.dataset.dataId,
+               nature: on ? 'RESULT' : (l.dataset.autre || null),
+               minimum_performance_text: on ? l.querySelector('.cv2-cf-in').value : '',
+               source: 'MANUAL' };
     });
     if (!outputs.some(o => o.nature === 'RESULT')) { majCompteQualif(); return; }
 
-    showBusy(T('configuring'));
+    showBusy(T('conf_busy_save'));
     setFooter([]);
     const save = await api(`/qualify/save/${aid}`, { method: 'POST', body: JSON.stringify({ outputs }) });
     if (save.__error) { return showQualify(); }
     const comp = await api(`/competence/generate/${aid}`, { method: 'POST' });
+    let competence = '';
     if (comp.competence && (comp.competence.description_fr || comp.competence.description_en)) {
+      const c = comp.competence;
+      competence = (LANG === 'en' ? c.description_en : c.description_fr)
+        || c.description_fr || c.description_en;
+      // ⚠️ L'IA rédige les deux versions : n'en garder qu'une montrait la
+      // phrase française à un anglophone (et l'inverse).
       await api(`/competence/save/${aid}`, {
         method: 'POST',
-        body: JSON.stringify({
-          description: (LANG === 'en' ? comp.competence.description_en : comp.competence.description_fr)
-            || comp.competence.description_fr || comp.competence.description_en }),
+        body: JSON.stringify({ description: competence,
+                               description_fr: c.description_fr || '',
+                               description_en: c.description_en || '' }),
       });
     }
     await api(`/competence/result_links/generate/${aid}`, { method: 'POST' });
-    toast(T('setup_done'));
     await refreshDashboard();
     // ⚠️ On ne bascule PAS tout seul sur l'évaluation. Configurer et évaluer
     // sont deux décisions : enchaîner d'office redonnerait à l'ensemble l'air
     // d'un seul parcours, ce qu'on vient précisément de séparer.
-    confTerminee();
+    confTerminee(competence || state.activity.competence || '',
+                 (save.outputs || []).filter(x => x.nature === 'RESULT'));
   }
 
-  function confTerminee() {
+  // L'écran de fin MONTRE ce que la configuration a produit — la compétence et
+  // ce sur quoi on jugera — au lieu de deux phrases qui disaient que c'était fait.
+  function confTerminee(competence, resultats) {
     const body = $('#cv2-drawer-body'); body.innerHTML = '';
-    const b = bloc(1, T('conf_done_t'), T('conf_done_d'));
-    body.appendChild(b);
-    const ok = document.createElement('div'); ok.className = 'cv2-ok';
-    ok.textContent = Tv('conf_done_r', { n: (state.lastState && state.lastState.n_results) || '' });
-    b.appendChild(ok);
+    body.insertAdjacentHTML('beforeend', `
+      <div class="cv2-cf-fin">
+        <div class="cv2-cf-fin-t"><i class="fa-solid fa-circle-check"></i>${esc(T('conf_done_t'))}</div>
+        ${competence ? `<div class="cv2-cf-fin-k">${esc(T('conf_done_comp'))}</div>
+          <div class="cv2-cf-fin-comp">${esc(competence)}</div>` : ''}
+        <div class="cv2-cf-fin-k">${esc(T('conf_done_on'))}</div>
+        <ul class="cv2-cf-fin-l">${resultats.map(r => `<li><b>${esc(r.name)}</b>${
+          r.minimum_performance_text ? `<span>${esc(T('conf_std_lu'))} ${esc(r.minimum_performance_text)}</span>` : ''
+        }</li>`).join('')}</ul>
+      </div>`);
     setFooter([
       { cls: 'btn-quiet', label: T('conf_close'), on: () => { closeDrawer(); } },
       { cls: 'btn-primary', label: T('conf_done_go'), on: () => openDrawer(state.activity) },
@@ -1770,6 +1743,7 @@
       actions: (d.actions || []).map(a => Object.assign({}, a)),
       activites: d.activites || [], source: d.source, types: d.types || {},
     };
+    state.plan.actions = ordonner(state.plan.actions);
     renderPlan();
   }
 
@@ -1799,6 +1773,7 @@
           ${p.source === 'AI'
             ? `<div class="cv2-prop" style="margin:0 0 9px">${esc(T('plan_source_ai'))}</div>`
             : `<div class="cv2-prop cv2-prop--touche" style="margin:0 0 9px">${esc(T('plan_source_local'))}</div>`}
+          <div class="cv2-mix" id="cv2-mix" title="${esc(T('plan_mix'))}"></div>
           <div id="cv2-actions"></div>
         </div>
         <div>
@@ -1821,7 +1796,7 @@
         </div>
       </div>`;
 
-    renderActions();
+    renderActions(true);
     ['heures_semaine', 'semaines'].forEach(cle => {
       const inp = body.querySelector(`[data-curseur="${cle}"]`);
       inp.addEventListener('input', () => {
@@ -1861,33 +1836,200 @@
     if (lbl) lbl.textContent = v;
   }
 
-  function renderActions() {
-    const box = $('#cv2-actions'); box.innerHTML = '';
-    state.plan.actions.forEach((a, i) => {
-      const el = document.createElement('div');
-      el.className = `cv2-action cv2-action--${esc(a.type || 'FORMATION')}`;
-      el.style.animationDelay = (i * 35) + 'ms';
-      const nomAct = (state.plan.activites.find(x => x.activity_id === a.activity_id) || {}).activity_name;
-      el.innerHTML = `<div class="ac-corps">
-          <div class="ac-t">${esc(a.titre)}</div>
-          <div class="ac-m">
-            <span class="cv2-typetag cv2-typetag--${esc(a.type || 'FORMATION')}">${esc(state.plan.types[a.type] || a.type || '')}</span>
-            <span class="cv2-heures"><input type="number" min="1" max="200" value="${+a.heures || 1}"> ${esc(T('plan_h'))}</span>
-            ${nomAct ? `<span style="font-size:11.5px;color:var(--faint);font-weight:600">${esc(nomAct)}</span>` : ''}
+  /* ══ Le parcours ═══════════════════════════════════════════════════════
+     ⚠️ La liste était une PILE de cartes : les actions de toutes les activités
+     mêlées, et dans chaque carte un type minuscule, un champ d'heures et le nom
+     de l'activité posés sur une même ligne sans rien pour les distinguer, puis
+     un « Objectif » qui répétait souvent le titre. On ne savait ni POURQUOI une
+     action était là, ni DANS QUEL ORDRE les faire, ni QUAND elles tombaient —
+     alors que le panneau de droite calcule justement les semaines.
+     Désormais : une section par activité (l'écart qu'on vient combler, du
+     niveau actuel au niveau visé), des étapes NUMÉROTÉES dans l'ordre du plan,
+     et dans chaque carte trois zones qui ne se mélangent plus — la nature et la
+     charge en tête, l'action, puis ses champs étiquetés — et en pied, les
+     semaines où elle tombe. */
+
+  // La nature d'une action porte sa couleur et son pictogramme partout : la
+  // pastille numérotée, l'étiquette de la carte, la barre de répartition.
+  const NATURES = {
+    TERRAIN: 'fa-briefcase',
+    ACCOMPAGNEMENT: 'fa-handshake-angle',
+    FORMATION: 'fa-graduation-cap',
+  };
+  const nature = a => (NATURES[a.type] ? a.type : 'FORMATION');
+  const connue = id => id != null && state.plan.activites.some(x => x.activity_id === id);
+
+  /* ⚠️ Le plan est une SUITE : l'IA ordonne ses actions (« ce qui conditionne
+     le reste d'abord ») et l'échéancier remplit les semaines dans cet ordre.
+     On regroupe par activité en gardant l'ordre de PREMIÈRE apparition — un
+     tri par écart déferait la séquence proposée. Appliqué au chargement : l'ordre
+     affiché, l'ordre enregistré et l'ordre des semaines sont le même. */
+  function ordonner(actions) {
+    const ordre = [], paquets = {};
+    actions.forEach(a => {
+      const k = connue(a.activity_id) ? String(a.activity_id) : '_';
+      if (!paquets[k]) { paquets[k] = []; if (k !== '_') ordre.push(k); }
+      paquets[k].push(a);
+    });
+    if (paquets._) ordre.push('_');
+    return ordre.reduce((tout, k) => tout.concat(paquets[k]), []);
+  }
+
+  // Où tombe chaque action : on les enchaîne à hauteur de ce qu'on a dit
+  // pouvoir y consacrer par semaine — le même remplissage que l'échéancier.
+  function planning(c) {
+    let cumul = 0;
+    return state.plan.actions.map(a => {
+      const ws = Math.floor(cumul / c.hs) + 1;
+      cumul += Math.max(1, +a.heures || 1);
+      const we = Math.ceil(cumul / c.hs);
+      return { ws, we, deborde: we > c.sem };
+    });
+  }
+  const dateEtape = st => (st.ws === st.we ? Tv('plan_week_1', { a: st.ws })
+                                           : Tv('plan_week_n', { a: st.ws, b: st.we }));
+
+  function renderActions(anime) {
+    const p = state.plan;
+    const groupes = [];
+    p.actions.forEach((a, i) => {
+      const k = connue(a.activity_id) ? a.activity_id : null;
+      let g = groupes[groupes.length - 1];
+      if (!g || g.k !== k) { g = { k, items: [] }; groupes.push(g); }
+      g.items.push(i);
+    });
+    const box = $('#cv2-actions');
+    box.innerHTML = groupes.map(g => {
+      const act = g.k != null ? p.activites.find(x => x.activity_id === g.k) : null;
+      // ⚠️ Un <div>, pas un <header> : competences.css déclare
+      // `header { position: sticky }` pour TOUTE la page — un <header> ici
+      // collait en haut de la fenêtre et passait par-dessus les cartes.
+      return `<section class="cv2-etapes-g">
+          <div class="cv2-etapes-gh">
+            <div class="l1">
+              <div class="t">${esc(act ? act.activity_name : T('plan_other'))}</div>
+              <div class="tot" data-gtot></div>
+            </div>
+            ${act ? `<div class="niv" title="${esc(T('plan_gap_from_to'))}">
+                <span>${esc(act.demonstrated_label)}</span>
+                <i class="fa-solid fa-arrow-right"></i>
+                <b>${esc(act.required_label)}</b></div>` : ''}
           </div>
-          ${a.objectif ? `<div class="ac-o"><b>${esc(T('plan_target'))} :</b> ${esc(a.objectif)}</div>` : ''}
-          ${a.critere ? `<div class="ac-c"><b>${esc(T('plan_crit'))}</b> ${esc(a.critere)}</div>` : ''}
+          <ol class="cv2-etapes">${g.items.map(i => carteEtape(p.actions[i], i, anime)).join('')}</ol>
+        </section>`;
+    }).join('');
+    brancherEtapes(box);
+  }
+
+  function carteEtape(a, i, anime) {
+    const n = nature(a);
+    // Seuls les champs remplis s'affichent : une étiquette suivie de rien se
+    // lit comme une information manquante.
+    const champs = [[T('plan_target'), a.objectif], [T('plan_deliv'), a.livrable],
+                    [T('plan_crit'), a.critere]].filter(([, v]) => v && String(v).trim());
+    return `<li class="cv2-etape cv2-t--${n}" data-i="${i}"
+                ${anime ? `style="animation-delay:${i * 35}ms"` : 'data-calme="1"'}>
+        <span class="cv2-etape-n" aria-hidden="true">${i + 1}</span>
+        <div class="cv2-etape-c">
+          <div class="cv2-etape-h">
+            <span class="cv2-etape-type"><i class="fa-solid ${NATURES[n]}"></i>${esc(state.plan.types[n] || n)}</span>
+            <span class="cv2-pas" role="group" aria-label="${esc(T('plan_load'))}">
+              <button type="button" data-pas="-1" aria-label="${esc(T('plan_less'))}">&minus;</button>
+              <input type="number" min="1" max="200" value="${Math.max(1, +a.heures || 1)}"
+                     aria-label="${esc(T('plan_load'))}">
+              <span class="u">${esc(T('plan_h'))}</span>
+              <button type="button" data-pas="1" aria-label="${esc(T('plan_more'))}">+</button>
+            </span>
+          </div>
+          <div class="cv2-etape-t">${esc(a.titre)}</div>
+          ${champs.length ? `<dl class="cv2-etape-d">${champs.map(([k, v]) =>
+              `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join('')}</dl>` : ''}
+          <div class="cv2-etape-f">
+            <span class="cv2-etape-sem"><i class="fa-regular fa-calendar"></i><span data-sem></span></span>
+            <button type="button" class="cv2-etape-x" title="${esc(T('plan_del'))}">
+              <i class="fa-solid fa-trash-can"></i>${esc(T('plan_remove'))}</button>
+          </div>
         </div>
-        <button type="button" class="ac-x" title="${esc(T('plan_del'))}">&times;</button>`;
-      el.querySelector('input').addEventListener('input', e => {
-        a.heures = Math.max(1, Math.min(200, +e.target.value || 1));
+      </li>`;
+  }
+
+  function brancherEtapes(box) {
+    box.querySelectorAll('.cv2-etape').forEach(li => {
+      const i = +li.dataset.i;
+      const a = state.plan.actions[i];
+      const inp = li.querySelector('.cv2-pas input');
+      const poser = h => {
+        a.heures = Math.max(1, Math.min(200, Math.round(+h) || 1));
+        recalculer();
+      };
+      inp.addEventListener('input', () => poser(inp.value));
+      // Le champ se corrige à la SORTIE, pas pendant la frappe : effacer « 12 »
+      // pour taper « 8 » passerait sinon par un « 1 » imposé.
+      inp.addEventListener('change', () => { inp.value = a.heures; });
+      // Le pas suit l'ordre de grandeur : une heure près d'une charge de 3 h,
+      // cinq près d'une charge de 60.
+      li.querySelectorAll('[data-pas]').forEach(b => b.addEventListener('click', () => {
+        const h = +a.heures || 1;
+        poser(h + (+b.dataset.pas) * (h < 10 ? 1 : (h < 40 ? 2 : 5)));
+        inp.value = a.heures;
+      }));
+      li.querySelector('.cv2-etape-x').addEventListener('click', () => {
+        state.plan.actions.splice(i, 1);
+        renderActions(false);
         recalculer();
       });
-      el.querySelector('.ac-x').onclick = () => {
-        state.plan.actions.splice(i, 1); renderActions(); recalculer();
-      };
-      box.appendChild(el);
+      li.addEventListener('mouseenter', () => eclairer(i, nature(a)));
+      li.addEventListener('mouseleave', () => eclairer(null));
     });
+  }
+
+  // Survoler une étape allume SES semaines dans l'échéancier : la liste et les
+  // curseurs parlent enfin du même temps.
+  function eclairer(i, n) {
+    const box = $('#cv2-semaines');
+    const st = (i == null || !state.planning) ? null : state.planning[i];
+    if (!box) return;
+    box.classList.toggle('is-lit', !!st);
+    if (st) box.dataset.nature = n; else delete box.dataset.nature;
+    box.querySelectorAll('.cv2-semaine').forEach((el, w) =>
+      el.classList.toggle('lit', !!st && w + 1 >= st.ws && w + 1 <= st.we));
+  }
+
+  // Ce qui dépend des heures se met à jour SUR PLACE : réécrire les cartes à
+  // chaque frappe ferait perdre le curseur du champ qu'on est en train de taper.
+  function majEtapes(c) {
+    const plan = state.planning;
+    document.querySelectorAll('#cv2-actions .cv2-etape').forEach(li => {
+      const st = plan[+li.dataset.i];
+      if (!st) return;
+      li.classList.toggle('deborde', st.deborde);
+      li.querySelector('[data-sem]').textContent =
+        dateEtape(st) + (st.deborde ? ' · ' + T('plan_week_over') : '');
+    });
+    document.querySelectorAll('#cv2-actions .cv2-etapes-g').forEach(g => {
+      const idx = [...g.querySelectorAll('.cv2-etape')].map(li => +li.dataset.i);
+      const h = idx.reduce((t, i) => t + (+state.plan.actions[i].heures || 0), 0);
+      g.querySelector('[data-gtot]').textContent =
+        (idx.length === 1 ? T('plan_steps_1') : Tv('plan_steps_n', { n: idx.length }))
+        + ` · ${h} ${T('plan_h')}`;
+    });
+    majMix();
+  }
+
+  // La répartition par nature, et du même coup la légende des couleurs. Le CDC
+  // veut qu'un écart se comble D'ABORD en situation : cette barre le montre.
+  function majMix() {
+    const box = $('#cv2-mix');
+    if (!box) return;
+    const par = {};
+    state.plan.actions.forEach(a => { par[nature(a)] = (par[nature(a)] || 0) + (+a.heures || 0); });
+    const total = Object.keys(par).reduce((t, k) => t + par[k], 0) || 1;
+    const ordre = ['TERRAIN', 'ACCOMPAGNEMENT', 'FORMATION'].filter(n => par[n]);
+    box.innerHTML = `<div class="cv2-mix-bar">${ordre.map(n =>
+        `<i class="cv2-t--${n}" style="flex-basis:${par[n] / total * 100}%"></i>`).join('')}</div>
+      <div class="cv2-mix-leg">${ordre.map(n =>
+        `<span class="cv2-t--${n}"><i class="fa-solid ${NATURES[n]}"></i>${esc(state.plan.types[n] || n)}
+          <b>${par[n]} ${esc(T('plan_h'))}</b></span>`).join('')}</div>`;
   }
 
   // Le calcul : besoin, capacité, et ce qu'il faudrait pour que ça tienne.
@@ -1908,6 +2050,7 @@
 
   function recalculer() {
     const c = calcul();
+    state.planning = planning(c);
     $('#cv2-tot').textContent = `${c.besoin} ${T('plan_h')}`;
     $('#cv2-besoin').textContent = `${c.besoin} ${T('plan_h')}`;
     $('#cv2-capacite').textContent = `${c.capacite} ${T('plan_h')}`;
@@ -1928,6 +2071,7 @@
     juste.textContent = Tv('plan_juste', { s: c.semainesNecessaires });
     juste.classList.toggle('hidden', c.semainesNecessaires === c.sem);
 
+    majEtapes(c);
     renderSemaines(c);
   }
 
@@ -1942,7 +2086,11 @@
       reste -= pris;
       const el = document.createElement('div');
       el.className = 'cv2-semaine' + (i >= c.sem && pris > 0 ? ' deborde' : '');
-      el.title = `S${i + 1} · ${pris} ${T('plan_h')}`;
+      const dedans = (state.planning || [])
+        .map((st, k) => (i + 1 >= st.ws && i + 1 <= st.we ? k + 1 : 0)).filter(Boolean);
+      el.title = `${T('plan_wk')}${i + 1} · ${pris} ${T('plan_h')}` + (dedans.length
+        ? ' · ' + Tv(dedans.length === 1 ? 'plan_week_step_1' : 'plan_week_step_n', { l: dedans.join(', ') })
+        : '');
       el.innerHTML = `<i style="height:${c.hs ? (pris / c.hs * 100) : 0}%"></i>`;
       box.appendChild(el);
     }
@@ -1957,8 +2105,8 @@
                              parametres: state.plan.parametres }),
     });
     if (r.__error) { if (btn) { btn.disabled = false; btn.textContent = T('plan_propose'); } return; }
-    state.plan.actions = r.actions || [];
     state.plan.activites = r.activites || state.plan.activites;
+    state.plan.actions = ordonner(r.actions || []);
     state.plan.source = r.source === 'AI' ? 'AI' : 'LOCAL';
     renderPlan();
   }

@@ -113,7 +113,8 @@ DevOPTIQ/
 | `gestion_rh.py` | `/rh/` | Gestion RH / collaborateurs |
 | `competences.py` | `/competences/` | Gestion des compétences |
 | `performance.py` | `/performance/` | Tableaux de bord performance |
-| `import_full.py` | `/import/` | Import IA global (Claude API) |
+| `import_full.py` | `/import/` | Moteur d'appariement et d'injection des tâches (réutilisé par `import_hub`) |
+| `import_hub.py` | `/api/import` | Fenêtre « Importer des données » de la page Carte |
 | `chatbot.py` | `/chatbot/` | Chatbot IA intégré |
 | `connexion_routes.py` | `/login` | Authentification |
 
@@ -936,6 +937,198 @@ déplacer les quatre dérivés dans chaque classe `.page--*` — n'est PAS fait*
 il rendrait sa couleur à chaque page d'un coup, ce qui se décide en regardant
 les neuf pages, pas depuis celle-ci.
 
+
+### Le plan de formation : un PARCOURS, pas une pile de cartes (2026-09-18)
+
+Le panneau de droite (curseurs, verdict, échéancier) plaisait : c'est lui qui
+rend le plan modulable. La liste de gauche, elle, ne se comprenait pas. Quatre
+défauts, tous corrigés dans `competences_v2.js` (`renderActions` et suivantes) :
+
+- ⚠️ **Les actions de toutes les activités étaient MÊLÉES** dans une seule pile,
+  et l'activité visée n'était qu'un mot gris perdu dans la ligne de méta. On ne
+  savait pas POURQUOI une action était là. Une section par activité, avec
+  l'écart qu'elle vient combler en toutes lettres (« En acquisition →
+  Maîtrise étendue ») et son sous-total.
+- ⚠️ **Rien ne disait l'ORDRE ni le MOMENT.** L'IA ordonne ses actions (« ce qui
+  conditionne le reste d'abord ») et l'échéancier remplit les semaines dans cet
+  ordre — mais la liste n'était pas numérotée et ne disait pas quand chaque
+  action tombait. Les étapes sont numérotées sur un rail, et chaque carte porte
+  ses semaines (`planning()`, le MÊME remplissage que l'échéancier) — en rouge
+  quand elle dépasse la durée visée. Survoler une étape allume SES semaines
+  dans l'échéancier : la liste et les curseurs parlent enfin du même temps.
+- ⚠️ **Chaque carte posait sur une même ligne, sans étiquette**, un type
+  minuscule, un champ d'heures et le nom de l'activité. La carte a désormais
+  trois zones qui ne se mélangent plus : la nature (pictogramme + couleur) et
+  la charge en tête, l'action, puis des champs ÉTIQUETÉS (Objectif, Livrable,
+  Réussi quand) — seuls ceux qui sont remplis. Le **livrable** que l'IA fournit
+  n'était jamais affiché.
+- **La charge se présente comme un réglage** (− valeur +, pas adapté à l'ordre
+  de grandeur) : c'est elle qui nourrit le besoin, à droite.
+- Une **barre de répartition** par nature (situation de travail, accompagnement,
+  formation) sert aussi de légende des couleurs — et montre d'un coup d'œil la
+  règle du CDC : un écart se comble d'abord en situation.
+
+⚠️ **Le regroupement garde l'ordre de PREMIÈRE apparition** (`ordonner()`), pas un
+tri par écart : trier déferait la séquence proposée. Il est appliqué au
+chargement et à la proposition, donc l'ordre affiché, l'ordre enregistré et
+l'ordre des semaines sont le même.
+⚠️ Ce qui dépend des heures (semaines, sous-totaux, répartition) se met à jour
+**sur place** (`majEtapes`) : réécrire les cartes à chaque frappe ferait perdre
+le curseur du champ qu'on tape. Et le champ se corrige à la SORTIE, pas pendant
+la frappe — effacer « 12 » pour taper « 8 » passerait sinon par un « 1 » imposé.
+⚠️ **`competences.css` déclare `header { position: sticky }` pour TOUTE la
+page.** Un `<header>` d'en-tête de groupe collait donc en haut de la fenêtre et
+passait par-dessus les cartes au défilement : l'en-tête est un `<div>`.
+
+**Le plan construit SANS IA disait deux fois la même chose** (`_plan_local`) :
+« Combler : Arbitrage », puis « Objectif : HSC — Arbitrage ». Désormais :
+- le titre dit l'action, et la nature suit la famille de capacité
+  (`NATURE_PAR_CAPACITE` : un savoir s'apprend → Formation ; un savoir-faire et
+  une HSC se travaillent avec un appui → Accompagnement) ;
+- l'objectif dit le RÉSULTAT qui réclame la capacité (`_capacites_en_ecart`
+  garde désormais `resultat`) ;
+- la mise en situation porte les **standards des résultats** comme critère —
+  un par ligne — et **ces résultats comme livrable**. ⚠️ Le standard n'est PAS
+  recopié sur chaque capacité : il se lisait trois fois de suite, et laissait
+  croire qu'une formation suffit à le tenir. Il se vérifie en situation.
+- En anglais, plus de guillemets français dans les champs construits.
+
+Tests : `tests/test_77_competences_deux_notes.py::TestLeRepliDitQuoiFaire`
+(8 cas, 6 vérifiés **rouges** sur l'ancien repli). Suite : 2348 passés. Éprouvé
+dans les deux langues sur `tools/devrun_competences.py`, avec le repli ET un
+plan de forme IA (actions mêlées entre deux activités, livrables, critères) :
+regroupement, +/−, frappe, retrait, curseurs, « caler », enregistrement relu.
+
+
+### « Configurer l'activité » : une question, pas un cours de méthode (2026-09-18)
+
+« Je ne comprends pas ce qu'on est en train de faire, pourquoi tu me parles
+d'une sortie, après on peut rentrer du texte on ne sait pas pourquoi. » Le
+reproche était exact : l'écran s'appelait « Qualification des sorties », et
+chaque ligne empilait une question (« Cette donnée démontre-t-elle la tenue de
+l'activité ? »), un grand bouton avec sa phrase, « Sinon, rangez-la : » et trois
+pastilles avec encore une phrase — sept bouts de texte par ligne, sous un
+paragraphe de trois lignes sur l'IA.
+
+⚠️ **Et la moitié de ce qu'on demandait ne servait à RIEN.** Seule la nature
+`RESULT` est lue quelque part (`mastery`, `diagnostic`, `result_capabilities`) ;
+Mesure, Événement et Information ne sont lues par AUCUN code. On faisait classer
+à l'utilisateur ce que personne ne lit. La décision réelle est binaire.
+`tests/test_51_qualify_outputs.py::test_seule_la_nature_RESULTAT_est_lue_par_l_application`
+le tient : le jour où une autre nature sert, l'écran devra la redemander.
+
+**L'écran pose désormais UNE question** — « Sur quoi jugerez-vous cette
+activité ? » — suivie d'une phrase qui dit aussi à quoi sert le champ de texte
+(« …puis dites à quoi on voit que c'est réussi : c'est le repère de
+l'évaluation »). Puis :
+- **« Ce que l'activité produit · les flèches qui en partent sur la carte »**,
+  une liste à cocher. ⚠️ « Sortie » est un mot de méthode : chaque ligne est
+  montrée comme la FLÈCHE qu'elle est, avec sa destination (« → vers « Chiffrer
+  l'offre » »). `/qualify/outputs` renvoie `vers` et `sans_libelle` — une flèche
+  sans libellé n'a pour nom que sa destination, affichée telle quelle on lirait
+  que l'activité « produit » une autre activité : elle devient « Flèche vers … ».
+- **Un seul champ, « Réussi quand… »**, et seulement pour ce qui est coché (il
+  prend le focus au moment où on coche). Un champ offert à côté d'une case
+  vide ne disait pas à quoi il servait.
+- **L'IA en une ligne** (« L'IA a pré-coché ce qui lui semble juste. Vérifiez
+  avant d'enregistrer. ») et une étiquette « IA » sur ce qu'elle a coché — en
+  ambre « à vérifier » quand elle doute, sa justification au survol.
+- ⚠️ **Ce qui est ENREGISTRÉ l'emporte sur la proposition** : rouvrir la fenêtre
+  ne laisse pas l'IA revenir sur un choix fait par quelqu'un. Et une ligne
+  décochée garde sa nature d'avant (`data-autre`) : l'écran ne la montre plus,
+  ce n'est pas une raison de l'effacer.
+- **Le compte vit dans le pied**, à côté du bouton qu'il conditionne
+  (« 1 élément retenu », ambre au-delà de trois : l'activité en regroupe
+  peut-être plusieurs). « Enregistrer » reste éteint tant que rien n'est coché.
+- **L'écran de fin MONTRE ce qui a été produit** — la compétence rédigée et
+  « Elle sera évaluée sur » avec chaque repère — au lieu de deux phrases qui
+  disaient que c'était fait.
+- La liste des activités disait « sorties à qualifier » : elle dit « pas encore
+  configurée ».
+
+Retirés : `panneauIA`, 35 clés de catalogue par langue (`q_*`, `ia_qualify_*`, `ia_done_*`,
+`need_result`…) et ~176 lignes de CSS mort de TROIS générations du même écran
+(`.cv2-qz`, `.cv2-oui`, `.cv2-sinon`, `.cv2-nature*`, `.cv2-qstd`, `.cv2-setup`,
+`.cv2-natsel`…). ⚠️ Mise au point : dans le volet navigateur qui ne peint pas,
+les transitions CSS restent figées en cours de route — la case cochée paraissait
+vide et le bouton éteint alors que leurs styles calculés étaient justes. Couper
+les transitions avant la capture.
+
+Tests : `test_51` (+2 : la destination de chaque flèche, et le garde-fou
+ci-dessus). Suite : 2350 passés. Éprouvé dans les deux langues, sans IA ET avec
+une réponse d'IA simulée (pré-cochage, doute, repères proposés, décocher,
+enregistrer, relire en base).
+
+
+### Compétences et Gestion RH en anglais : ce qui échappait aux catalogues (2026-09-18)
+
+Vérification demandée après les refontes de la journée. **Les catalogues
+étaient complets** : 202 libellés × 2 langues dans `competences_v2.js`, 84 clés
+injectées dans `GRH_L`, toutes présentes en FR et en EN (`test_78` le tient
+déjà). Ce qui restait en français, c'est ce qui NE passe PAS par une clé — et
+qu'on ne trouve qu'en parcourant les écrans en anglais. Méthode : un détecteur
+injecté dans la page, qui cherche les 1 028 phrases françaises des catalogues
+(celles dont l'anglais diffère) plus les accents et mots-outils français dans le
+texte ET les attributs (`title`, `aria-label`, `placeholder`), passé sur chaque
+écran et chaque fenêtre — profil, radar et ses bulles, liste, évaluation (vue
+développeur et vue collaborateur), preuve, diagnostic, capacités, plan de
+formation, configuration ; et côté RH chaque section, le menu du développeur,
+les fiches personne / rôle / cartos, le nouveau rôle, le calendrier, la matrice
+des droits (administrateur ET coordinateur).
+
+Corrigé :
+- ⚠️ **Le rôle système « Développeur de compétences »** est créé en français
+  pour chaque entité : l'interface anglaise l'affichait tel quel partout où les
+  rôles sont listés. `role_i18n.nom_affiche(role, lang)` : le rôle système vient
+  du catalogue (`rh.dev_badge`), les autres prennent la traduction EN CACHE
+  (remplie par la page Rôles), sinon leur nom d'origine — **sans appel IA**
+  depuis ces pages, qui se chargent à chaque visite. Branché dans
+  `api_tableau` (RH) et `/mastery/dashboard|synthese`. La liste des rôles est
+  triée sur le nom AFFICHÉ, sinon le rôle système restait à la lettre D.
+- ⚠️ **La compétence principale n'existait qu'en UNE langue** : l'IA la rédige
+  en français ET en anglais, et on ne gardait que celle de la personne qui
+  configurait. `Competency` porte désormais `description_fr` / `description_en`
+  (migration à chaud) et `texte(lang)` ; `description` reste la version de
+  référence, et une compétence d'avant s'affiche telle quelle.
+- **« Libellé : valeur »** : l'espace avant les deux-points est une règle
+  FRANÇAISE, écrite en dur dans trois infobulles (`DP` suit la langue).
+- **« S1 · 4 h »** dans l'échéancier du plan : « W1 » en anglais (`plan_wk`).
+- **« 1 holders »** : singulier/pluriel, et le singulier ne couvre pas les
+  mêmes nombres — « 0 titulaire » en français, « 0 holders » en anglais.
+- **« Main competence »** → « Main competency », seul écart de terminologie.
+- Le message au collaborateur sur une activité non configurée parlait encore de
+  « qualifier ses données de sortie » : aligné sur l'écran de configuration.
+- ⚠️ **Écrits en dur, invisibles à l'œil** : le `<title>` de la page
+  (« OPTIQ — Compétences » dans l'onglet anglais), `aria-label="Fermer"` ×2,
+  « Ouvrir le menu » et « Navigation principale » (en-tête, toutes les pages).
+  Les contrôles qui ne lisent que le texte ne les voient pas — `test_82` lit
+  les attributs. `competences_view.html` sort de l'inventaire de dette de
+  `test_78` : son dernier fragment français était ce titre.
+
+Vu en chemin, puis corrigé dans la foulée :
+- ⚠️ **Le journal « Activité récente » se lit dans la langue de CELUI QUI LIT.**
+  Il était écrit dans celle de la personne qui agissait (« Rôle créé : Qualité »
+  pour un anglophone, parce qu'un francophone avait créé le rôle). Le libellé
+  est rebâti à la lecture (`changelog._libelle_evenement`) depuis le TYPE
+  d'événement et le nom de l'objet ; le libellé stocké ne sert plus que de repli
+  pour un type inconnu du catalogue. À l'écriture, les « modifié » gardent
+  désormais le NOM de l'objet et des CLÉS de champ (`name`, `description`,
+  `mission`) au lieu de « Nom » / « Mission » ; les anciennes lignes sont
+  relues telles quelles (nom retrouvé dans le libellé, champ français mappé).
+  ⚠️ SQLAlchemy ne connaît l'ancienne valeur que si l'attribut a été LU avant
+  d'être modifié : sur un objet expiré, `history.deleted` est vide et aucun
+  « avant → après » n'est enregistré. En route c'est toujours le cas ; en test,
+  il faut lire l'attribut d'abord.
+- Le titre d'onglet de la page de connexion suit la langue.
+Tests : `tests/test_83_journal_dans_la_langue_du_lecteur.py` (6 cas, 5 vérifiés
+rouges). ⚠️ `test_82` et `test_83` rendent la session telle qu'ils l'ont
+trouvée (`_session_rendue`) : `client` est partagé, une langue laissée à « en »
+changerait les messages que les fichiers suivants comparent.
+
+Tests : `tests/test_82_traduction_competences_rh.py` (12 cas, 10 vérifiés
+**rouges** sur le code d'avant — les deux autres confirment que la page RH
+était déjà propre sur ces points). Suite : 2361 passés.
+
 ---
 
 ## Guide utilisateur (`docs/guide.html`)
@@ -1526,8 +1719,13 @@ partagent un design system chargé partout via `header_buttons.html` :
    modèle** (carto commune, accès par rôle, propositions de modification, statut
    « champion » à la place de « gestionnaire de compétences », statut « RH » retiré).
    Les deux documents décrivent encore le partage par COPIE seul. À reprendre à la
-   prochaine routine de documentation, captures comprises.
+   prochaine routine de documentation, captures comprises — avec l'examen des
+   propositions depuis le bandeau de la page Carte et le tableau global des
+   compétences de la page RH (2026-09-21).
 2. Éditeur OptiqCarto côté JS (`static/optiqcarto/editor.js`) — seul élément majeur restant
+3. **La fenêtre « Importer des données »** (page Carte) remplace l'ancien import global IA :
+   le guide et la doc technique décrivent encore l'ancien écran (étapes analyse → revue),
+   captures comprises.
 
 ---
 
@@ -2050,6 +2248,697 @@ nettoie — sans quoi un retour en arrière se cacherait sous une marge.
   en arrière. Son déclenchement automatique est retiré — il reste lançable à la main,
   dans le même groupe `concurrency` que `deploy-officielle.yml` pour que les deux ne
   déploient jamais en même temps.
+### Importer des données — la fenêtre d'import de la page Carte (2026-09-19)
+
+Remplace l'ancien « Import IA global » : `import_full_modal.html`,
+`import_full.js` et `import_full.css` sont supprimés, et les 57 clés `impf.*`
+qu'eux seuls lisaient ont quitté le catalogue (restent celles que la route
+`import_full.py` renvoie). Serveur : `Code/routes/import_hub.py` (`/api/import`) ;
+écran : `import_hub_modal.html` + `static/js/import_hub.js` +
+`static/import_hub.css` (clés `imph.*`, injectées par `IMPH_I18N` en `| tojson`).
+
+⚠️ **La même fenêtre sert à la page Comptes** (`?pour=comptes`), où elle ne
+propose que les collaborateurs — voir « La page Comptes refaite » plus bas.
+
+- **Une carte par nature** — rôles, tâches, outils — dans la couleur de la page
+  où vivent ses données (Rôles `#059669`, Activités `#7c3aed`, Outils
+  `#ea580c`), avec ses colonnes (obligatoires
+  marquées) et sa portée. Plus l'**import multiple** : plusieurs fichiers, ou un
+  classeur dont CHAQUE feuille est reconnue (nature déduite des en-têtes,
+  départagée par le nom de la feuille ou du fichier).
+- **Parcours** : lire → (organiser avec l'IA) → vérifier → importer.
+  `GET contexte` · `GET modele/<nature|multiple>` · `POST lire` ·
+  `POST organiser` · `POST verifier` · `POST rapprocher` · `POST importer`.
+- **Lu tel quel quand c'est lisible** : xlsx/xlsm (valeurs calculées), csv
+  (séparateur deviné, cp1252 en repli) ; en-tête cherché dans les dix premières
+  lignes ; synonymes FR/EN comparés au MOT près (« prénom » ne contient pas
+  « nom ») ; cellules fusionnées propagées ; mentions
+  d'absence (« No special skills required », « - ») retirées DÈS la lecture —
+  l'aperçu montre ce qui sera vraiment importé. ⚠️ `.xls` est refusé en clair :
+  openpyxl ne le lit pas, l'accepter ferait échouer plus loin sans explication.
+- ⚠️ **Le code ne devine pas.** Un fichier non reconnu n'est pas lu « à
+  moitié » : l'écran dit ce qui manque, montre le début du fichier tel quel
+  (colonnes repérées par leur lettre) et propose l'IA ou le modèle.
+- ⚠️ **L'IA désigne les colonnes, elle n'écrit AUCUNE donnée** (prompt
+  `import.correspondance`) : ligne d'en-tête et numéro de colonne par champ, puis
+  le code relit les valeurs dans le fichier. Une réponse qui porterait des
+  lignes est ignorée, un numéro hors du fichier écarté. L'écran montre la
+  correspondance (« Adresse » → E-mail) et la confiance. Une IA qui réécrirait
+  les lignes pourrait en inventer ; une IA qui désigne des colonnes se vérifie
+  d'un coup d'œil.
+- **La portée dépend de la donnée.** Rôles et outils vont dans une, plusieurs
+  ou toutes les cartos, avec le statut « ajouté en partie » quand ils n'en
+  manquent qu'à une partie ; une tâche va dans chaque carto où son activité
+  existe.
+  ⚠️ Seulement les cartos où le compte ÉCRIT (`can_edit`) : un identifiant venu
+  du navigateur ne suffit jamais.
+- **Une tâche se rattache à SON activité** : au nom près ou à 90 % de
+  ressemblance ; en dessous, l'utilisateur choisit (les plus proches d'abord) et
+  « Rapprocher avec l'IA » (prompt `import.enrich`) PROPOSE par le sens
+  (« Identify Part » → « Develop Preliminary Technical Solution ») — dans un
+  compte rendu, jamais directement dans la liste (voir plus bas). L'écriture
+  passe par `injecter_groupes`, carto par carto.
+- ⚠️ **Le garant ne déborde plus d'une activité sur la suivante** : la
+  propagation des cellules fusionnées repart de zéro à chaque nouvelle
+  activité. Un garant manquant se voit et se complète ; un garant FAUX lie un
+  rôle à une activité qu'il ne tient pas.
+- ⚠️ **Une feuille ambiguë n'est pas importée tant qu'on ne l'a pas dite**
+  (« Nom | Description » : des rôles ou des outils ?) — « Tout importer » aurait
+  créé des presses à injecter comme rôles.
+- **L'import revérifie tout** — rien de ce que renvoie le navigateur n'est cru,
+  pas même le statut d'une ligne — et un import multiple s'écrit en UNE
+  transaction, dans l'ordre rôles → outils → tâches : un rôle créé par la
+  feuille « Rôles » existe quand une tâche le désigne comme garant.
+- ⚠️ **Les messages que la ROUTE renvoie s'affichent tels quels** (motifs de
+  statut, erreurs) : ils passent par le catalogue comme le reste — c'était le
+  troisième côté oublié de l'ancien écran.
+
+⚠️ **`Role.hors_carte`** (migration à chaud) — le défaut de fond que l'import a
+mis au jour. `_sync_carto_to_db` effaçait, à chaque enregistrement de la carte,
+tout rôle absent de ses bandes : un rôle importé, créé depuis la page RH ou
+désigné garant disparaissait avec ses titulaires et ses liens aux tâches.
+Importer des rôles ne servait à rien. Les rôles créés hors de la carte portent
+désormais la marque et survivent ; `reprendre_roles_hors_carte()`
+(`roles_permanents.py`) marque UNE fois (marqueur `roles_hors_carte` en base)
+ceux qui existaient déjà — reconnus à ce qu'ils manquent aux bandes de la carto
+ENREGISTRÉE. Une carto sans diagramme lisible est laissée telle quelle.
+
+⚠️ `/api/import-full/inject` — l'ancienne route, gardée pour ses fonctions —
+écrivait dans l'entité active sans demander le droit d'y écrire : elle exige
+désormais `can_edit`.
+
+- ⚠️ Piège de test : `t("imph.t_" + x)` est relevé par `test_78` comme la clé
+  « imph.t_ ». Écrire `t("imph.t_%s" % x)` ; ces clés construites sont tenues
+  par `test_84::test_les_libelles_construits_existent_dans_les_deux_langues`.
+- `import_tasks_modal.html` : « Télécharger le modèle » passe par le catalogue,
+  sa dette tombe de 11 à 10 fragments.
+- Mise au point : `tools/devrun_import.py` (port 8126, `/devrun/admin`) — deux
+  cartos, des fichiers d'exemple servis sous `/devrun/fichier/<nom>` (propre,
+  export RH désordonné, csv, tableau du client, classeur multiple avec une
+  feuille ambiguë et une illisible) et une IA SIMULÉE. La simulation vit dans
+  l'outil, jamais dans l'application.
+- Tests : `tests/test_84_import_hub.py` (45 cas — lecture, IA, portée, import,
+  transaction, droits, modèles relus dans les deux langues, reprise des rôles,
+  listes de personnes reconnues et jamais importées ; la survie des rôles
+  importés et le contrôle de l'ancienne route vérifiés **rouges** sur le code
+  d'avant).
+
+#### Les comptes s'importent depuis la page Comptes ; l'IA rend compte AVANT d'agir
+
+- ⚠️ **L'import de la CARTE ne crée pas de comptes.** Créer un compte engage
+  toute l'instance et relève de ceux qui les gèrent (`can_create_accounts`) :
+  c'est la page Comptes, qui ouvre la même fenêtre avec `?pour=comptes`. La
+  carte n'en propose pas la carte, un import multiple ne les prend jamais.
+- **Une liste de personnes est RECONNUE, jamais importée** (`_personnes`) : une
+  colonne titrée exactement « Nom » (ou « Nom complet »…) à côté d'un prénom ou
+  d'e-mails (au titre, ou ≥ 60 % des valeurs d'une colonne). La feuille devient
+  une part `comptes`, sans lignes, avec un lien vers `/comptes/?tab=import-tab`
+  (qui ouvre l'onglet d'import) pour qui a le droit — sinon une phrase dit que
+  c'est réservé.
+  ⚠️ « Nom du rôle » n'est pas « Nom », et un tableau de tâches complet
+  l'emporte toujours. En cas d'erreur, l'utilisateur a le dernier mot : « Lire
+  quand même comme des rôles » (paramètre `comme` de `/lire`, qui force la
+  nature).
+- **Les compteurs disent ce qu'il ADVIENT des lignes, et de QUELLES lignes** :
+  « 60 tâches ajoutées », plus « 60 New ». Six issues (`issue()`) — ajoutée,
+  ajoutée en partie, écartée (décochée), déjà là, à rattacher, à corriger —
+  libellées par nature et au pluriel (`tu_<issue>_<nature>`, `pas_*`).
+  ⚠️ Décocher fait NAÎTRE une tuile (« 1 tâche écartée ») : `majCompteurs`
+  redessine la rangée quand l'ensemble des tuiles change, et garde celle qu'on
+  filtre même à zéro — la retirer sous le pointeur laisserait une liste sans
+  titre.
+- ⚠️ **Rien de ce que propose l'IA ne touche la liste sans compte rendu.**
+  « Rapprocher avec l'IA » appliquait tout d'un coup : on retombait sur la
+  liste, ses rattachements mêlés à ceux qu'on avait déjà validés, sans savoir
+  lesquels venaient d'elle. Deux comptes rendus désormais :
+  - **rapprochement** (`blocRapport`) : pour chaque activité, ce que l'IA
+    propose, sa confiance et sa raison ; ce dont elle doute (`low`) arrive
+    décoché ; « Appliquer n choix ». Ensuite la liste défile jusqu'aux groupes
+    rattachés, les met en évidence, et « Ne voir qu'elles » les isole ;
+  - **lecture** (`blocLecture`, « Organiser avec l'IA ») : champ → colonne du
+    fichier → premières valeurs lues ; « Utiliser cette lecture » reste éteint
+    s'il manque un champ obligatoire.
+- **L'IA ne se relance pas pour rien** : ce qu'elle a examiné est mémorisé par
+  part ET par portée (`S.examen`, clé = cartos visées : d'autres cartos, ce
+  sont d'autres activités candidates). Si elle a déjà vu les activités
+  restantes, la barre le dit (« choisissez-la dans la liste ») et propose
+  « Revoir ses propositions » — rien de pré-coché, on revient sur un choix
+  délibéré.
+- **Sa raison est écrite dans la langue de l'écran** : elle s'affiche telle
+  quelle. `/rapprocher` transmet `langue_des_remarques`, et `import.enrich`
+  demande aussi de laisser un groupe dans `still_unmatched` plutôt que de
+  forcer un rapprochement.
+- **Trois styles pour un même fait.** Le résultat de l'IA dans la liste avait
+  une apparence par niveau de confiance, et ressemblait à des boutons. C'est
+  une LIGNE de texte sous le choix d'activité (`legende()`) : « Rattachée par
+  l'IA », une jauge à trois barres et son mot (élevée / moyenne / faible), la
+  raison en italique. Les autres origines prennent la même forme (« Même nom
+  que dans la carto », « Nom proche (91 %) : vérifiez », « Choisie à la
+  main ») : rien là ne se clique, rien ne doit en avoir l'air.
+- Suite : 2412 passés. Éprouvé dans les deux langues sur
+  `tools/devrun_import.py` (fichiers `moyens.xlsx` et `taches_blocs.xlsx`
+  ajoutés, IA simulée qui choisit la nature la mieux couverte).
+
+### La page Comptes refaite, et ce qui y a déménagé (2026-09-20)
+
+**L'écran** (`gestion_compte_new.html` + `static/gestion_compte_new.css` +
+`static/js/gestion_compte_new.js`) : plus d'onglets. Une liste, et la fiche
+d'un compte PAR-DESSUS elle.
+
+- ⚠️ **Créer et modifier posaient les mêmes questions dans deux écrans
+  différents** — une page `edit_user.html` à part, avec sa propre identité
+  visuelle, et le mot de passe en section séparée « sans risque d'autofill ».
+  Une seule fiche désormais, trois groupes qui disent ce qu'on demande :
+  identité · connexion · place dans l'organisation. Les libellés sont
+  AU-DESSUS des champs (un `placeholder` disparaît dès qu'on tape) et le
+  niveau d'accès se choisit en lisant ce qu'il ouvre, pas dans une liste de
+  quatre mots. `GET /comptes/update/<id>` **redirige** vers la liste
+  (`?edit=<id>`, la fiche s'ouvre dessus) ; `edit_user.html` est supprimé.
+- **Les compteurs par palier SONT les filtres** de la liste, et chaque palier
+  garde sa couleur de la tuile jusqu'à la pastille de la ligne.
+- ⚠️ **`/comptes/create` n'empêchait pas de créer AU-DESSUS de soi** : un
+  compte autorisé à créer des comptes se fabriquait un administrateur. Le
+  niveau demandé est comparé au sien (`niveau_status` / `niveau`), comme le
+  fait l'import depuis toujours. Le masquage du champ dans la page ne coûtait
+  rien à contourner.
+- **La liste ne fait plus deux requêtes par ligne** : les rôles de tout le
+  monde sont chargés en deux requêtes, puis indexés en mémoire.
+
+**L'import IA des comptes revient — page Comptes, et là seulement.** C'est la
+MÊME fenêtre que la page Carte (`/api/import`, `import_hub_modal.html`),
+ouverte avec `?pour=comptes` : elle ne propose alors que les collaborateurs et
+s'ouvre DIRECTEMENT sur le dépôt (un choix à une seule carte n'est pas un
+choix). L'ancien import Excel de la page (`/comptes/import_excel`, son
+aperçu et son modale de format) est supprimé.
+- ⚠️ `_peut(moi, type_)` : les comptes ne suivent pas les droits carto —
+  `can_create_accounts` décide, et lui seul, **même sans aucune carto**
+  (`verifier`/`importer` acceptent une liste de cartos vide pour `users` :
+  les cartos ne servent qu'à attribuer le rôle).
+- ⚠️ `_analyser_feuille` n'écarte une liste de personnes (`comptes`) que
+  lorsque `users` n'est PAS une nature attendue : le repérage qui protège la
+  carte ne doit pas écarter le fichier qu'on vient justement importer ici.
+- ⚠️ Un import MULTIPLE ne prend jamais les comptes (`CARTO` = rôles, outils,
+  tâches) : créer un compte engage l'instance, cela ne se glisse pas dans une
+  feuille d'un classeur déposé sur la carte.
+- Le reste est celui d'avant, restauré : nom complet scindé (« DUPONT Jean »,
+  cas courant d'un export RH), statut refusé au-dessus du sien, rôle inconnu
+  signalé ou créé (« créer les rôles absents »), mots de passe jamais renvoyés
+  à l'écran et provisoires montrés UNE fois, téléchargeables en csv.
+
+**« Droits par statut » quitte la page RH pour la page Comptes.** C'est ici
+qu'on donne un statut à quelqu'un : c'est ici qu'on doit lire ce qu'il ouvre.
+`GET|POST /comptes/droits` (lecture : administrateur ou qui crée les comptes ;
+écriture : administrateur seul, colonne `admin` verrouillée). Les clés du
+catalogue passent de `rh.right_*` / `rh.rights_*` à `droit.*`. La section 4 de
+la page RH et son JS sont retirés.
+
+Tests : `test_84` (53 cas, les comptes reviennent avec leurs droits),
+`test_18`, `test_50`, `test_81` (l'URL des droits suit), et
+`gestion_compte_new.html` sort de l'inventaire de dette de `test_78`.
+
+### Page Carto : « Qui ouvre quelles cartos », en une matrice (2026-09-20)
+
+Bouton **Accès** dans l'en-tête de la page Carte (coordinateurs et
+administrateurs — `can_manage_access`, réglable par le tableau des droits).
+Une fenêtre, une MATRICE : un rôle en ligne, une carto en colonne, une case à
+cocher à l'intersection. Cliquer l'en-tête d'une **colonne** coche (ou
+décoche) tous les rôles de cette carto ; cliquer un **rôle** fait de même sur
+toutes les cartos. `GET|POST /cartography/api/access/matrice`,
+`carto_acces_modal.html` + `static/js/carto_acces.js` + `static/carto_acces.css`.
+
+- ⚠️ **On envoie des CASES, jamais la table entière.** Deux personnes qui
+  règlent l'accès en même temps s'effaceraient l'une l'autre, et une case
+  oubliée dans l'envoi fermerait un accès que personne n'a décidé de fermer.
+- ⚠️ Les deux pièges de l'accès sont écrits DANS l'en-tête de chaque colonne :
+  une carto **privée** ignore les rôles (la cocher la rend commune, ce que la
+  réponse annonce en retour), une carto commune **sans aucun rôle est ouverte
+  à tous** (y poser le premier rôle la restreint).
+- Une ligne porte le nom du rôle ET la carto d'où il vient : deux cartos
+  peuvent avoir un rôle du même intitulé.
+- ⚠️ Cette matrice ne remplace pas la page **Partage** : là-bas on travaille
+  UNE carto (ses titulaires, ses propositions, sa vignette), ici on regarde
+  l'ensemble. Les deux écrivent la même table (`entity_role_access`) — ils ne
+  peuvent pas diverger sur le fond.
+- Tests : `tests/test_66_carto_sharing.py::TestLaMatriceDesAcces` (7 cas —
+  le refus pour un `user`, la carto rendue commune, la colonne d'un coup, les
+  cases non envoyées qu'on ne touche pas, une carto hors de portée ignorée, et
+  le bouton absent pour qui ne règle rien). ⚠️ Ces cas montent LEUR propre
+  carto : le décor du module est remanié par les tests de ménage (une bande
+  retirée emporte son rôle), une matrice bâtie dessus dépendrait de l'ordre.
+
+### Plusieurs développeurs de compétences pour une personne (2026-09-20)
+
+C'était déjà vrai en base et dans les routes (`user_roles.manager_id`,
+`/gestion_rh/dev_scope` qui ne touche jamais aux affectations des AUTRES
+développeurs) : un collaborateur peut être suivi par Lou sur « Qualité » et
+par Sacha sur « Logistique ». L'inverse est impossible **par construction** —
+le lien vit sur la ligne (compte, rôle), qui porte UN développeur ; poser le
+second remplace le premier.
+Ce qui manquait : le dire. Tests : `test_80::TestPlusieursDeveloppeurs`
+(3 cas). Banc : `tools/devrun_partage.py` sème un SECOND développeur
+(`dev2@test.local`) — avec un seul candidat, le cas ne pouvait même pas se
+jouer.
+
+**La fenêtre refaite (2026-09-21)** — « on ne sait pas si cela enlève le
+précédent ». Le panneau présentait un choix global (tous ses rôles / certains
+rôles) puis une liste de cases : poser un second développeur avait l'air de
+remplacer le premier. Il montre désormais la SEULE chose vraie — **un
+développeur par rôle** — sous la forme d'une ligne par rôle tenu, chacune avec
+SON développeur (« Qui accompagne Noe ? »). Cliquer une ligne la déplie sur les
+candidats ; en choisir un n'écrit que CE rôle (`/gestion_rh/role_dev`), et la
+phrase « Un développeur par rôle : en changer un ne touche pas aux autres » le
+dit une fois pour toutes. En pied, « Le même pour tous ses rôles »
+(`/gestion_rh/dev_scope`, `role_ids: null`) est un raccourci séparé.
+- ⚠️ La fenêtre **reste ouverte** après chaque choix : on règle deux rôles de
+  suite sans la rouvrir. La page se redessine derrière (`charger({discret})`) ;
+  le panneau se raccroche au bouton RECRÉÉ (`raccrocher()`), et un drapeau
+  (`tenirOuvert`) empêche le défilement de rattrapage de la refermer.
+- La ligne qui vient d'être écrite s'éclaire une seconde (`is-recent`) : sans
+  ça, rien ne montrait où l'écriture avait porté.
+
+### Page Comptes : les tuiles filtrent enfin (2026-09-21)
+
+⚠️ Cliquer une tuile ne faisait RIEN : le JS posait bien `hidden` sur les
+lignes écartées, mais `.acc-ligne { display: grid }` l'emportait sur la règle
+du navigateur `[hidden] { display: none }` — une règle d'auteur bat toujours
+la feuille par défaut. `.acc-ligne[hidden] { display: none; }`. Deux phrases
+d'en-tête ont aussi quitté la page (« Qui entre dans l'application… », « L'échelle
+des quatre paliers ne change pas… ») : elles décrivaient ce que l'écran montre.
+
+`tests/test_85_gabarits_bien_formes.py` — un commentaire HTML ouvert sans être
+fermé (ou l'inverse) affiche du texte brut dans la page : c'est arrivé sur la
+page RH, en retirant une section ligne à ligne. Le contrôle compte `<!--` et
+`-->` dans chaque gabarit (commentaires Jinja retirés).
+
+### Les propositions s'examinent depuis la page CARTE, toutes cartos (2026-09-21)
+
+Elles vivaient dans la page RH (section ③), cadrées par la carto ACTIVE : celui
+qui valide ne les voyait qu'en activant la carto visée — donc souvent jamais.
+Un **bandeau d'alerte** sur la page Carte (`#cex-bandeau`, ambre) les annonce
+désormais toutes (« 2 modifications proposées attendent votre décision · sur 2
+cartos »), et le clic ouvre la **fenêtre d'examen** (`carto_examen_modal.html`
++ `static/js/carto_examen.js` + `static/carto_examen.css`, catalogue
+`CEX_I18N` / clés `examen.*`) : la liste groupée par carto à gauche, la
+proposition à droite — avant/après en image (la loupe ouvre le VRAI viewer),
+ce qu'elle change, puis un commentaire et Refuser / Appliquer à la carto.
+- **Source unique** : `carto_sharing.propositions_a_examiner(user)` — en
+  attente, pas les siennes, et seulement là où `can_review(entity)`. Elle sert
+  au bandeau (`activities_map._examen_en_attente`, rendu serveur : pas de
+  bandeau qui clignote, ni de bandeau vide) ET à la liste
+  (`GET /cartography/api/changes/a_examiner`) : le chiffre annoncé et la
+  liste ouverte ne peuvent pas diverger.
+- ⚠️ **Appliquer REMPLACE la carto par la version proposée.** Si la carto a
+  bougé depuis le dépôt (autre proposition appliquée, retouche d'un
+  coordinateur), l'appliquer efface ces changements sans que rien ne le dise.
+  `GET /api/changes/<id>` renvoie `since` — ce qui a changé entre le dépôt et
+  maintenant, comparé en formes et en flèches (`_resume_changement`), pas en
+  texte : un simple réenregistrement réécrit le JSON sans rien changer.
+- Une proposition appliquée sur la carto AFFICHÉE recharge la page à la
+  fermeture de la fenêtre (pas avant : on peut avoir d'autres propositions à
+  traiter). Un 409 (déjà tranchée ailleurs) retire la ligne au lieu d'afficher
+  une erreur. Les dates du serveur sont en UTC SANS fuseau : le JS ajoute le
+  `Z`, sinon deux heures de décalage à Paris.
+- La section ③ de la page RH, sa tuile, `rendrePropositions()`, le champ
+  `propositions` de `/gestion_rh/api/tableau` et six clés `rh.*` sont retirés.
+
+⚠️ **Et les lignes « valider » / « enregistrer directement » du tableau des
+droits ne décidaient de RIEN.** `carto_access.can_review` et `can_edit`
+lisaient le statut brut (`is_admin or is_coordinator`), jamais
+`can_review_carto` / `can_edit_carto` : cocher « valider » pour le champion ne
+lui ouvrait rien, le décocher pour le coordinateur ne lui retirait rien. Ils
+passent désormais par le tableau — le défaut reproduit exactement l'ancienne
+règle — et exigent en plus de pouvoir OUVRIR la carto (`can_read`) : un
+champion à qui l'on confierait l'examen ne tranche pas sur une carto qu'il ne
+voit pas.
+
+### Le mot du valideur parvient à l'auteur (2026-09-21)
+
+⚠️ **Le message à l'auteur était enregistré et lu par personne.** La fenêtre
+d'examen offrait « un mot pour l'auteur » ; `review_comment` était bien écrit…
+et AUCUN écran ne le montrait : ni la page Partage, ni l'éditeur, ni la moindre
+notification. L'utilisateur a conclu, à raison, que « ça ne marche pas » —
+qu'on applique ou qu'on refuse.
+- `CartoChangeRequest.author_seen_at` (migration à chaud, `TIMESTAMP`) : NULL
+  sur une proposition tranchée = à annoncer. Appliquer / Refuser le remettent à
+  NULL (`_annoncer_a_l_auteur`) ; on ne s'annonce pas sa propre décision.
+- `GET /cartography/api/changes/decisions` (mes décisions non lues) et
+  `POST …/decisions/vues` `{ids}` (« Compris » — seulement celles dont on est
+  l'AUTEUR : les ids viennent du navigateur).
+- `carto_decision_popup.html`, incluse par `header_buttons.html` : la décision
+  (appliquée / refusée), la carto, qui, quand, et le mot — sur n'importe quelle
+  page, jusqu'à « Compris ». Elle attend que la bienvenue ET la notification de
+  transfert d'entité soient refermées : on n'empile pas deux fenêtres.
+- Le mot se relit aussi là où l'auteur relit sa proposition : bloc « Décision »
+  de la page Partage (`share.js::decisionHtml`) et de l'éditeur
+  (`carto_sharing.js::decisionHtml`, style sombre `.gov-decision` dans
+  `style.css`).
+- Côté valideur, le champ nomme son destinataire (« Votre message à Lou
+  Vasseur — il le recevra avec votre décision ») et l'annonce le confirme.
+- Au passage : les dates des propositions (page Partage, éditeur) suivaient la
+  langue du NAVIGATEUR et l'heure UTC (13:31 pour 15:31 à Paris) : le serveur
+  écrit en UTC sans fuseau, le JS ajoute le `Z` et suit la langue de l'appli.
+- Tests : `tests/test_88_decision_a_l_auteur.py` (8 cas).
+
+### Avant / après : les VRAIES cartos, et une bascule instantanée (2026-09-21)
+
+`static/js/carto_comparaison.js` + `static/carto_comparaison.css` — UN composant
+pour la fenêtre d'examen de la page Carte (`carto_examen.js`) ET celle de
+l'éditeur (`carto_sharing.js`) : deux écrans qui ne peuvent plus diverger.
+- **Les vignettes SONT le viewer d'OptiqCarto** (`/cartography/changes/<id>/
+  apercu/<quel>`), pas un schéma reconstruit. Même taille qu'avant (4/3). Un
+  voile prend le clic (agrandir) et laisse la molette faire défiler la fenêtre
+  au lieu de zoomer la carte.
+- **Un seul cadre pour les deux** : les bornes RÉUNIES des deux cartos,
+  imposées aux deux viewers. `editor.js` expose `window.cartoViewport`
+  (`get` / `set` / `bounds` / `fit`) et `fitView(bornes, plancher)`.
+  ⚠️ Le plancher par défaut reste `ZOOM_MIN` (0,08, celui de la molette) ; le
+  cadre imposé descend à 0,004 — sinon une grande carto ne tenait pas dans une
+  vignette et n'en montrait qu'un morceau (mesuré : la carto FluidClip exige
+  0,045). `test_79` garde le plancher STRICTEMENT positif.
+- **Les formes touchées sont entourées dans la vraie carto** (retirée rouge sur
+  l'avant, ajoutée verte sur l'après, déplacée / renommée ambre des deux côtés)
+  par une feuille de style injectée dans chaque viewer — `marques` vient de
+  `GET /api/changes/<id>`. ⚠️ `vector-effect: non-scaling-stroke` : un trait
+  en unités de carte fait moins d'un pixel en vignette et devient épais en
+  grand ; en pixels d'écran il se voit partout.
+- **Agrandir ne recharge rien** : les MÊMES iframes, agrandies en CSS
+  (`.cmp[data-mode="loupe"]`, fixe, 16 px du bord). ⚠️ Déplacer une iframe
+  dans la page la recharge — c'est ce demi-seconde que l'utilisateur voyait à
+  chaque bascule. La vue masquée est en `visibility: hidden`, JAMAIS
+  `display: none` (un viewer de taille nulle ne se cadre plus).
+- **La bascule garde le cadrage** : on recopie `get()` de la vue affichée sur
+  l'autre AVANT de la montrer — on compare le même endroit, au même zoom.
+  Mesuré : 35 ms, clic compris. Tab bascule, Échap referme le grand format
+  (pas la fenêtre d'examen) — y compris quand le viewer a le focus (écouteurs
+  posés dans chaque iframe). ⚠️ Pas l'espace : maintenu, il déplace la carte.
+- ⚠️ **Dans l'éditeur, la fiche d'examen s'ouvre sur une animation en
+  `transform`** conservée (`both`) : elle devenait le repère des éléments fixes
+  et le grand format y restait enfermé. `#review-modal .gov-card {
+  animation-fill-mode: backwards; }` — rien ne change à l'œil.
+- ⚠️ **Les viewers de la comparaison préviennent leur page à chaque clic sur
+  une forme** (`shape-click`), et la page Carte part alors vers la fiche de
+  l'activité. `activities_map.js` ignore les messages des iframes de `#cex` —
+  vérifié à l'écran : sans ce filtre, cliquer « Clarify RFI Scope » en grand
+  quittait la page.
+- Retirés : la route SVG `/api/changes/<id>/apercu/<quel>.svg`, `_cadre_commun`,
+  les marques de `_svg_depuis_diagramme` (qui ne sert plus qu'à la galerie de la
+  page Partage), la loupe de `carto_examen.js` et `carto_sharing.js`, et les
+  styles `.gov-ba*` / `.gov-dot*` / `.gov-loupe*`.
+- `editor.js` et `style.css` synchronisés dans le dépôt OptiqCarto (contenus
+  identiques, fins de ligne LF là-bas).
+- Tests : `test_66::TestApercuAvantApres` / `::TestApercuEnGrand` réécrits sur
+  les nouvelles garanties (cadre commun, pas de rechargement, bascule qui garde
+  le cadrage, vue masquée qui garde sa taille, grand format fixe, filtre des
+  clics).
+
+### La fiche de compte, deuxième passe (2026-09-21)
+
+« Pas satisfaisant, plus d'ergonomie. » Et en la reprenant, un défaut de FOND :
+- ⚠️ **Corriger un nom pouvait retirer un rôle — et l'accès à une carto.** La
+  fiche ne portait qu'UN rôle, choisi parmi ceux de la carto ACTIVE, et
+  `update_user` remplaçait « le » rôle de la personne (`UserRole…first()`).
+  Pour quelqu'un qui tenait un rôle ailleurs, un simple « Enregistrer » envoyait
+  un rôle vide : son rôle était supprimé. Les rôles bougent désormais PAR PAIRE
+  (`roles_ajout` / `roles_retrait`, `_appliquer_roles`) et seulement ceux que la
+  fiche nomme ; le développeur de compétences posé sur chaque rôle reste. Un
+  `role_id` (ancien formulaire) ne fait plus qu'ajouter. `test_50::
+  test_le_role_est_facultatif_a_la_modification` affirmait l'ANCIEN comportement
+  destructeur : il affirme maintenant que rien n'est retiré.
+- Qui attribue quoi : un rôle ouvre des cartos, donc seuls l'administrateur et
+  qui ouvre la page RH (`can_access_rh`) en attribuent ; un administrateur
+  n'importe lequel, les autres ceux des cartos qu'ils ouvrent. On ne se donne pas
+  de rôle depuis sa propre fiche. Une fiche refusée n'écrit RIEN (pas même le
+  nom), et une création refusée ne laisse pas de compte à moitié fait.
+- ⚠️ **Un administrateur ne change pas son propre niveau** : il perdrait
+  l'écran depuis lequel il le remettrait.
+- **L'envoi se fait en arrière-plan** (`Accept: application/json` →
+  `{ok, code, champ}`) : une erreur s'écrit SOUS le champ fautif et la saisie
+  reste. Avant, un e-mail déjà pris rechargeait la page et tout était perdu.
+  Sans cet en-tête, les routes redirigent comme avant.
+- **L'écran** : un en-tête qui montre la PERSONNE (initiales et couleur de son
+  niveau, qui suivent la saisie), deux colonnes — identité et connexion ;
+  niveau d'accès en **échelle** (les marches inférieures restent allumées :
+  chaque palier inclut le précédent) et **rôles carto par carto** (retirés
+  barrés avec « annuler », ajoutés marqués, sélecteur avec recherche). Le mot
+  de passe se change SUR DEMANDE, avec « Générer » (sans 0/O/1/l) et
+  « Afficher ». « Enregistrer » ne s'allume qu'avec une modification, et le
+  pied dit combien.
+- ⚠️ Choisir un rôle redessine la liste : l'élément cliqué est DÉTACHÉ quand le
+  clic remonte, et le « clic à l'extérieur » refermait le sélecteur (puis Échap
+  fermait la fiche). Un élément détaché venait forcément de l'intérieur.
+- Tests : `tests/test_87_fiche_compte.py` (15 cas ; 5 vérifiés **rouges** sur
+  l'ancien code, dont le rôle effacé). Banc : `tools/devrun_partage.py` donne à
+  `user@test.local` un rôle sur la carto PRIVÉE du coordinateur.
+
+### Tout ce qui a été ajouté, relu dans les DEUX langues (2026-09-21)
+
+Avant de livrer sur `nouveau-point` et le pilote. Trois passes :
+1. **Les tests existants** (`test_78`, `82`, `83`, `85`) : verts.
+2. **Une analyse statique des nouveaux écrans** : chaque JS lit un catalogue
+   (`CEX_I18N`, `CDP_I18N`, `ACC_L`, `GRH_L`, `RHC_I18N`, `IMPH_I18N`,
+   `CACC_L`, `SHARE_L`, `OPTIQ_I18N`) par un accesseur qui rend la CLÉ quand
+   elle manque — aucun repli français. Toutes les clés lues sont injectées.
+3. **Les vrais écrans parcourus en anglais PUIS en français** (Playwright,
+   bancs `devrun_partage` / `devrun_competences`), avec un détecteur injecté
+   qui relève dans le texte ET les attributs (`title`, `aria-label`,
+   `placeholder`) les phrases du catalogue de l'autre langue, les accents et
+   mots-outils de l'autre langue, et les clés affichées telles quelles — après
+   avoir retiré les DONNÉES (tout texte lu dans les bases de mise au point).
+   ⚠️ Pièges du banc : `pg.evaluate()` ATTEND une promesse — appeler une
+   fonction qui ouvre une fenêtre (`cartoProposeInstead`, `_promptLiaisonLabel`,
+   `_confirmBandDelete`…) le bloque jusqu'à sa fermeture : l'envelopper dans
+   `() => { f(); }`. Et le banc `devrun_partage` CONSOMME ses propositions (on
+   les tranche) : le relancer entre les deux langues.
+
+**Les écrans ajoutés étaient propres.** Ce qui ne l'était pas, et qui est
+corrigé — tout sur des écrans plus anciens, que le pilote (anglophone) ouvre
+tous les jours :
+- **Éditeur** : info-bulles écrites en dur, en français (« Position des
+  labels… », « Créer une pile… ») ET en anglais (« Box select — drag… ») ;
+  les avertissements des piles (en anglais) ; et des fenêtres ENTIÈRES bâties
+  en JS sans catalogue : diagnostic carto, correction des erreurs, placement
+  des losanges, fichier Visio incomplet, suppression d'une bande. 80 clés
+  `editor.*`. ⚠️ `_L()` substitue `{0}`, `{1}`… dans l'ordre des arguments.
+- **Éditeur** : une erreur réseau à l'envoi d'une proposition affichait
+  `editor.toast.error_network` — une clé qui n'a jamais existé
+  (`editor.err_network_propose` désormais).
+- **Page Carte** : « 42 activités » (gestion des entités, et le compteur de la
+  recherche dès qu'on tapait une lettre), toute la fenêtre des liaisons entre
+  cartos (officialiser, dé-officialiser, nom affiché sous l'activité), les
+  erreurs des entités. Nouveau catalogue `window.MAP_I18N` (accesseurs
+  `ML()` / `MF()` dans `activities_map.js`).
+- Six info-bulles en dur sur des pages traduites (fiche activité, tâches,
+  rôles, bienvenue, connexion).
+
+⚠️ `activities_map.js` porte encore du français en dur, mais dans du code
+MORT : les étapes de l'ancien import VSDX/SVG (écrans `step1`–`step3` absents
+du gabarit), `loadSvgInline` (`#svg-container` n'existe plus), les panneaux
+SCS/VCM, l'import de paquet (`#wizard-import-carto-btn` absent) et la modale
+d'export (`#btn-export` absent). Rien de tout cela ne s'affiche ; à supprimer
+plutôt qu'à traduire.
+
+Restent en français, connus et inventoriés : `projection_metier`,
+`import_tasks_modal`, `chatbot_widget`, l'assistant d'installation.
+`tests/test_89_libelles_carte_et_editeur.py` : cliquet des ATTRIBUTS en dur
+(que `test_78` ne lit pas), toute clé `_L()` de l'éditeur présente dans les
+deux langues, et les pages Carte / éditeur rendues en anglais.
+`cartography_editor.html`, `activities_map.html` et `cartography_viewer.html`
+sortent de l'inventaire de dette de `test_78`. Suite : 2573 passés.
+
+### Page RH ③ : les compétences de chacun, toutes cartos (2026-09-21)
+
+Le tableau global d'autrefois (`/competences/users/global_summary`, une
+personne par ligne, un rôle par colonne) revient, dans la page RH et avec le
+modèle V1.1 : `GET /gestion_rh/api/competences[?entity_id=]` →
+`Code/competences_globales.py::tableau_global`, écran
+`static/js/rh_competences.js` (catalogue `RHC_I18N`, clés `rh.comp_*`).
+Une ligne par personne, une colonne par rôle **groupée par carto**, dans chaque
+case la jauge de la page Compétences (quatre pas, trait au requis, pointillés
+tant que ce n'est pas évalué) et ce qui reste (« 2 en écart », « 1 à évaluer »,
+« Niveau tenu », « À configurer ») ; une colonne « Ensemble » porte la
+couverture de la personne. Filtres : carto (défaut **toutes**), recherche, et
+quatre puces d'état (tout le monde / en écart / à évaluer / au niveau). La
+tuile « En écart » en tête de page mène au bloc ET filtre. Une case ouvre la
+page Compétences sur CETTE personne et CE rôle (`?personne=&role=`,
+`ouvrirDemande()` dans `competences_v2.js`, adresse nettoyée ensuite).
+- ⚠️ **Indépendant de la carto choisie en haut de la page RH** : celle-ci cadre
+  ce qu'on RÈGLE (personnes, rôles, accès) ; ce tableau sert à VOIR, et la vue
+  utile d'abord est celle de toute l'entreprise.
+- ⚠️ **Mêmes chiffres que la page Compétences, par construction** : la
+  couleur, l'état d'une activité et la couverture viennent de `mastery`
+  (`color_for`, `categorie_activite`, `couverture`) ; le niveau d'une activité
+  et celui d'un rôle suivent la règle du MINIMUM (NULL tant que ce n'est pas
+  complet). `test_86::test_memes_chiffres_que_la_page_competences` compare
+  champ par champ avec `/mastery/synthese`.
+- ⚠️ **Pas `dashboard_rows` en boucle** : ~6 requêtes par activité et par
+  personne — soixante personnes, deux rôles, quinze activités, dix mille
+  requêtes, deux minutes et demie sur Neon. Le calcul est fait en BLOC, en un
+  nombre FIXE de requêtes (`test_le_cout_ne_grandit_pas_avec_l_effectif`
+  compte les requêtes avant et après six personnes de plus : égalité).
+- ⚠️ **`get_activity_outputs` ÉCRIT** (il matérialise les sorties en `Data`) :
+  on ne l'appelle pas depuis une page de lecture. `_resultats()` relit ce qu'il
+  a déjà matérialisé, avec sa règle exacte (index par nom normalisé, le
+  dernier l'emporte ; résultats hérités via `Link.target_data_id`).
+- Un rôle sans activité (le développeur de compétences, une bande vide) ou que
+  personne ne tient n'a pas de colonne. Qui voit qui : coordinateur et
+  administrateur, tout le monde ; sinon soi-même et ceux qu'on encadre (la
+  règle de `peut_lire`, en bloc).
+
+⚠️ **`competences_acces._statut_eleve` donnait l'arbitrage au mauvais
+palier.** Elle disait « champion ou administrateur ». Depuis les quatre
+paliers, `champion` nomme le palier du DESSOUS (il propose sans valider) et
+l'ancien arbitre s'appelle `coordinateur` : un champion pouvait lire et NOTER
+tout le monde — jusqu'à se décerner le niveau qui fait foi — et le coordinateur
+ne voyait plus que ses propres collaborateurs sur la page Compétences. Règle
+désormais : `niveau_status(statut) >= NIVEAU_COORDINATEUR`. C'était un appel
+de STATUT (`is_champion_status`), pas `is_champion()` : la reprise des
+« ~8 appels à `is_champion()` » ne pouvait pas le voir.
+
+Tests : `tests/test_86_examen_et_competences_rh.py` (25 cas ; les huit qui
+portent sur les droits vérifiés **rouges** sur le code d'avant). Bancs :
+`tools/devrun_partage.py` sème une troisième carto commune avec sa proposition,
+retouchée APRÈS le dépôt (l'avertissement `since`) ; `tools/devrun_competences.py`
+une seconde carto « Atelier » (tenu, en écart, pas évalué).
+
+### Page RH : un rôle sur PLUSIEURS cartos (2026-09-17)
+
+Ouvrir une carto à un rôle se faisait carto par carto : changer l'entité en
+haut de page, cocher, recommencer — cinq cartos, cinq allers-retours — et
+aucun endroit d'où VOIR ce qu'un rôle ouvre au total. La carte de rôle porte
+un bouton **« Cartos »** : une fenêtre, toutes les cartos accessibles, tout
+part de là. `GET|POST /gestion_rh/role_cartos`.
+
+⚠️ **`set_access` (page Partage) n'accepte que les rôles DE l'entité réglée, et
+c'est juste là-bas** : on y règle une carto et on coche parmi SES bandes. Ici
+on part du rôle. `can_read` s'en accommode depuis toujours — il compare les
+rôles du compte aux rôles autorisés **sans jamais demander à quelle entité ces
+rôles appartiennent**. Seul l'écrivain était restrictif.
+
+⚠️ **Deux conséquences que l'écran annonce AVANT le clic**, parce qu'elles
+décident de qui voit quoi :
+- une carto **privée** ignore les rôles (`can_read` rend la main au
+  propriétaire avant même de les consulter) — la cocher la rend commune, sinon
+  on enregistrerait un accès qui ne produit rien ;
+- une carto commune **sans aucun rôle autorisé est ouverte à TOUS**. Y poser le
+  premier rôle la RESTREINT : cocher peut retirer l'accès à des gens qui
+  l'avaient. C'est le piège de cet écran, il est écrit ligne par ligne.
+
+⚠️ On ne réécrit QUE la ligne de ce rôle : régler un rôle ne doit pas effacer le
+travail fait sur les autres.
+
+### Page RH : un développeur de compétences PAR RÔLE (2026-09-17)
+
+⚠️ **Il existait déjà en base et aucun écran ne le posait.**
+`user_roles.manager_id` porte ce lien, `competences_acces.encadre()` le lit
+déjà (il regarde les DEUX rattachements), et `assign_manager_simple` accepte
+un paramètre `role_ids` — mais la page envoyait `role_ids: null`, c'est-à-dire
+« le même développeur pour tous les rôles ». La capacité était là, injoignable.
+
+Or celui qui suit quelqu'un sur « Qualité » ne le suit pas forcément sur
+« Logistique ». La fiche d'une personne donne donc un sélecteur **par rôle
+TENU** (`POST /gestion_rh/role_dev`) — poser un développeur sur un rôle qu'elle
+ne tient pas n'aurait aucun lien pour le porter, la route refuse et l'écran le
+dit plutôt que d'offrir un bouton qui échoue.
+- Le même menu sert aux deux portées (global et par rôle) : deux menus pour un
+  même choix finiraient par se contredire, et le second oublierait la coche
+  « aucun », qui est ce qui RETIRE l'affectation.
+- La liste annonce **« n développeurs »** quand ils diffèrent d'un rôle à
+  l'autre : afficher un seul nom serait un mensonge.
+
+### Page RH ④ : ce que chaque palier ouvre se RÈGLE (2026-09-17)
+
+L'échelle `user < champion < coordinateur < admin` est la grammaire du produit
+et ne bouge pas. Ce que chaque palier OUVRE se règle, parce qu'une entreprise
+n'a pas les mêmes usages qu'une autre. Une matrice (7 droits × 4 paliers) en
+section 4 de la page RH ; `GET|POST /gestion_rh/droits`.
+
+- **Où c'est branché** : `Code/permissions.py` — `DROITS_DEFAUT`,
+  `droits_effectifs()`, `a_le_droit(droit, user)`. Les `can_*` délèguent toutes
+  à `a_le_droit`, y compris `can_manage_access` (carto_access).
+- ⚠️ **Le tableau par défaut EST le comportement d'hier.** Une instance qui n'a
+  jamais rien réglé ne change pas de comportement en prenant ce code — sans
+  cette règle, une livraison redistribuerait silencieusement les droits de tout
+  le monde. Vérifié par `test_81::TestLeDefautEstLeComportementDHier`.
+- ⚠️ **La colonne `admin` est verrouillée à VRAI, et le SERVEUR la reforce.**
+  Se retirer les Paramètres, ce serait perdre l'écran depuis lequel on les
+  remettrait : la porte se refermerait de l'intérieur, sans poignée.
+- ⚠️ **Seul un administrateur ÉCRIT** ; un coordinateur LIT. Un coordinateur qui
+  pourrait s'attribuer les sections d'administration s'attribuerait la clé IA
+  de l'entreprise. La ligne `parametres_admin` porte d'ailleurs, en clair, ce
+  qu'elle ouvre : clé IA, adresse de la base, console serveur.
+- ⚠️ **On ne stocke que les ÉCARTS** au défaut. Enregistrer la table entière
+  figerait les valeurs d'origine : le jour où le produit en change une, les
+  instances qui n'y avaient jamais touché garderaient l'ancienne sans le savoir.
+- ⚠️ **Pas de cache dans `flask.g`** — une première version en posait un pour
+  éviter une dizaine de lectures par page. `g` vit aussi longtemps que le
+  CONTEXTE, pas la requête : la suite de tests garde un contexte applicatif
+  ouvert du début à la fin (`conftest.app`), si bien que le premier réglage lu
+  y restait figé pour toute la session. Deux tests tombaient, et le défaut
+  aurait frappé n'importe quel contexte long. `db.session.get()` sur une clé
+  primaire passe déjà par la carte d'identité : un aller en base par session,
+  c'est-à-dire par requête — la granularité voulue, sans la dépasser.
+
+Tests : `tests/test_80_rh_acces_et_dev.py` (15 cas) et
+`tests/test_81_droits_reglables.py` (11 cas). Suite : 2328 passés.
+
+### Le développeur par rôle : QUI et SUR QUOI, au même endroit (2026-09-17)
+
+La capacité était branchée, l'écran la rendait introuvable et illisible. Trois
+reproches, trois causes distinctes — dont une de FOND.
+
+⚠️ **Le fond : restreindre à un rôle ne produisait RIEN.** `encadre()` lit les
+DEUX rattachements (`users.manager_id` global ET `user_roles.manager_id`). Tant
+que le lien global existe, il couvre TOUS les rôles — y compris celui dont on
+venait de retirer le développeur. On affichait donc une restriction que le
+droit ignorait. `_dissoudre_lien_global()` reporte le lien global sur chaque
+rôle tenu puis l'efface : ce qu'il couvrait reste couvert, et la portée
+demandée veut enfin dire quelque chose. Appelé par `/role_dev` comme par
+`/dev_scope`.
+
+- **`POST /gestion_rh/dev_scope`** `{user_id, dev_id|null, role_ids}` porte la
+  décision ENTIÈRE. `role_ids` nul = tous ses rôles (le lien global, qui
+  couvrira aussi les rôles reçus plus tard) ; une LISTE = exactement ces rôles,
+  le développeur étant retiré des autres **sans toucher aux affectations des
+  autres développeurs**. ⚠️ Un seul appel : en deux requêtes, un refus au
+  milieu laissait un développeur posé partout en attendant une portée qui
+  n'arrivait jamais.
+- **La portée se choisit dans le menu « Développeur de compétences »**, dans la
+  liste des personnes. Elle vivait dans la fiche de la personne, derrière le
+  bouton des RÔLES : personne ne l'y cherchait, et le menu du développeur ne
+  proposait que des noms. Une question, un endroit — et le panneau s'ouvre sur
+  la RÉALITÉ (couverture partielle = déjà dépliée, rôles cochés).
+- **Un NOM SEUL était un mensonge par omission** : « Lou Vasseur » se lisait
+  pareil que le développeur suive les trois rôles ou un seul. Le bouton porte
+  sa portée en seconde ligne — « tous ses rôles » en gris, « 1 rôle sur 2 » en
+  AMBRE avec un liseré (ce n'est pas une erreur, c'est la nuance qu'on n'avait
+  aucun moyen de voir) — et les pastilles de rôle de la liste marquent celles
+  qui sont SUIVIES. La fiche d'une personne annonce « Rôles suivis : 1 sur 2 »
+  avant de détailler.
+- ⚠️ **`couverture()` calcule la portée EFFECTIVE, pas la saisie** : un rôle
+  dont la ligne est vide est couvert par le lien global, et une personne qui ne
+  tient AUCUN rôle de la carto regardée peut très bien avoir un développeur
+  global — afficher « Aucun » serait faux dans les deux cas.
+- ⚠️ **Le bouton « n développeurs » était `disabled`** : avec deux développeurs
+  sur deux rôles, on ne pouvait plus rien changer depuis la liste — exactement
+  la situation où on en a besoin. Il ouvre le panneau comme les autres.
+
+Deux défauts d'interface trouvés en éprouvant l'écran, tous deux antérieurs :
+
+- ⚠️ **Le menu était dessiné 20 % trop haut et trop à gauche de son bouton.**
+  `body.pg` porte `zoom: .8` : un enfant du body en `position: fixed` voit ses
+  coordonnées MULTIPLIÉES par ce zoom, alors que `getBoundingClientRect()` les
+  rend déjà en pixels d'écran. Invisible tant que le menu était étroit, criant
+  dès qu'il s'élargit. `offsetWidth`, lui, est déjà dans le repère du body.
+- ⚠️ **Un clic DANS le panneau le refermait.** Le clic du document ferme le
+  menu quand sa cible n'est pas dans `.grh-devmenu` — or changer la portée
+  REDESSINE le panneau : la cible est déjà DÉTACHÉE quand l'événement remonte,
+  `closest()` ne trouve plus rien. La remontée s'arrête donc au panneau.
+
+Tests : `tests/test_80_rh_acces_et_dev.py::TestLaPorteeDUnDeveloppeur` (8 cas —
+la dissolution du lien global vérifiée **rouge** sur le code d'avant). Suite :
+2336 passés. Éprouvé dans les DEUX langues sur `tools/devrun_partage.py` :
+poser, resserrer, élargir, retirer, et une personne sans aucun rôle.
+
 ### Le pilote repris sur staging — 108 commits d'un coup (2026-09-17)
 
 `optiqfluent-staging` avait 108 commits de retard et 39 commits propres. Sur le

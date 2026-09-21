@@ -63,6 +63,28 @@ def _current_output_specs(activity):
     return specs
 
 
+def _destinataires(activity):
+    """Pour chaque sortie (clé = nom normalisé), ce qu'il y a AU BOUT de la flèche.
+
+    ⚠️ « Sortie » est un mot de méthode : à l'écran, personne ne sait ce que
+    c'est. Une sortie EST une flèche qui part de l'activité sur la carte — la
+    montrer comme telle (« vers Chiffrer l'offre ») la rend reconnaissable.
+    """
+    vers = {}
+    for lk in Link.query.filter(Link.source_activity_id == activity.id).order_by(Link.id).all():
+        cible = None
+        if lk.target_activity_id:
+            ta = Activities.query.get(lk.target_activity_id)
+            cible = (ta.name or "").strip() if ta else None
+        elif lk.target_data_id:
+            td = Data.query.get(lk.target_data_id)
+            cible = (td.name or "").strip() if td else None
+        nom = (lk.description or "").strip() or (cible or "")
+        if nom and cible and _norm(nom) not in vers:
+            vers[_norm(nom)] = cible
+    return vers
+
+
 def materialize_activity_outputs(activity_id):
     """Matérialise les connexions sortantes de l'activité en lignes Data durables (CDC §8).
     Idempotent : get-or-create par (producer_activity_id, nom). Les Data matérialisées n'ont pas
@@ -186,9 +208,20 @@ def outputs(activity_id):
         return jsonify({"error": "activity_not_found"}), 404
     lang = _lang()
     outs = get_activity_outputs(activity_id)
+    vers = _destinataires(activity)
+
+    def _avec_destination(d):
+        o = _serialize_output(d, lang)
+        cible = vers.get(_norm(d.name))
+        o["vers"] = cible
+        # Flèche SANS libellé : son seul nom est celui de sa destination. Affiché
+        # tel quel, on lirait que l'activité « produit » une autre activité.
+        o["sans_libelle"] = bool(cible) and _norm(cible) == _norm(d.name)
+        return o
+
     return jsonify({
         "activity_id": activity_id,
-        "outputs": [_serialize_output(d, lang) for d in outs],
+        "outputs": [_avec_destination(d) for d in outs],
         "labels": {k: v[lang] for k, v in NATURE_LABELS.items()},
         "all_qualified": all(d.semantic_nature for d in outs) if outs else False,
     }), 200

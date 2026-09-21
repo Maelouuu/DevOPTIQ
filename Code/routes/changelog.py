@@ -178,6 +178,39 @@ def _format_date(dt):
     return f"{dt.day} {libelle[dt.month - 1]} {t('event.date_at')} {dt.strftime('%H:%M')}"
 
 
+# ⚠️ Le journal était écrit dans la langue de la personne qui AGISSAIT : un
+# anglophone lisait « Rôle créé : Qualité » parce qu'un francophone avait créé
+# le rôle. Le libellé stocké reste (il sert de repli pour un type inconnu), mais
+# on le REBÂTIT à la lecture : type d'événement → catalogue, dans la langue de
+# celui qui lit, plus le nom de l'objet.
+_CHAMPS = {"nom": "event.field_name", "name": "event.field_name",
+           "description": "event.field_description",
+           "mission": "event.field_mission", "onboarding_plan": "event.field_mission"}
+
+
+def _nom_champ(champ, lang):
+    cle = _CHAMPS.get(str(champ or "").strip().lower())
+    return t(cle, lang) if cle else champ
+
+
+def _libelle_evenement(ev, detail, lang):
+    cle = "event." + (ev.event_type or "")
+    prefixe = t(cle, lang)
+    if prefixe == cle:                       # type inconnu du catalogue
+        return ev.label
+    detail = detail if isinstance(detail, dict) else {}
+    nom = detail.get("name") or detail.get("tool")
+    if not nom:
+        # les anciens « modifié » ne gardaient pas le nom : il est dans le libellé
+        for sep in (" : ", ": "):
+            if sep in (ev.label or ""):
+                nom = ev.label.split(sep, 1)[1]
+                break
+    if not nom:
+        return prefixe
+    return f"{prefixe}{' : ' if lang == 'fr' else ': '}{nom}"
+
+
 @changelog_bp.route('/api/recent-activity', methods=['GET'])
 def get_recent_activity():
     """Retourne les 20 derniers événements depuis recent_events."""
@@ -197,6 +230,7 @@ def get_recent_activity():
                 u = User.query.get(ev.user_id)
                 user_cache[ev.user_id] = (f"{u.first_name} {u.last_name}" if u else None)
 
+        lang = _lang()
         items = []
         for ev in events:
             detail = None
@@ -205,9 +239,13 @@ def get_recent_activity():
                     detail = _j.loads(ev.detail)
                 except Exception:
                     pass
+            if isinstance(detail, dict):
+                for ch in detail.get("changes") or []:
+                    if isinstance(ch, dict):
+                        ch["field"] = _nom_champ(ch.get("field"), lang)
             items.append({
                 "icon":        ev.icon,
-                "label":       ev.label,
+                "label":       _libelle_evenement(ev, detail, lang),
                 "type":        ev.event_type,
                 "event_label": _event_kind(ev.event_type),
                 "color":       _event_color(ev.event_type),

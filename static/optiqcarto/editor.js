@@ -246,6 +246,22 @@ let isDirty = false;
 // se raccrocher à des variables internes de l'éditeur.
 window.getCartoState  = () => state;
 window.markCartoSaved = () => { isDirty = false; };
+// Le cadrage, piloté par la page qui embarque le viewer : la fenêtre
+// d'examen des propositions montre deux cartos (avant / après) qui doivent
+// partager le même cadre, et passer de l'une à l'autre ne doit pas le perdre.
+window.cartoViewport = {
+  get: () => ({ x: vpX, y: vpY, scale: vpScale }),
+  set: (v) => {
+    if (!v || !Number.isFinite(+v.x) || !Number.isFinite(+v.y)
+        || !Number.isFinite(+v.scale) || +v.scale <= 0) return;
+    vpX = +v.x; vpY = +v.y; vpScale = +v.scale;
+    applyViewport();
+  },
+  bounds: () => _boundsForFit(),
+  // Plancher bas : le cadre imposé sert aussi aux vignettes, où une grande
+  // carto doit tenir ENTIÈRE.
+  fit: (bornes) => fitView(bornes, 0.004),
+};
 let _autoSaveTimerId = null;
 let _autoSaveToastInterval = null;
 let activeCalqueId = null;
@@ -1936,7 +1952,7 @@ function renderCanvasMap() {
   if (state.connections.length > 0) {
     const cl = document.createElement('div');
     cl.className = 'left-section-label';
-    cl.innerHTML = '<i class="fa-solid fa-bezier-curve"></i> Connexions';
+    cl.innerHTML = `<i class="fa-solid fa-bezier-curve"></i> ${_L('carto.connections')}`;
     list.appendChild(cl);
 
     const connSorted = [...state.connections].sort((a, b) => {
@@ -2155,7 +2171,7 @@ function _finalizeLasso() {
 function createPile() {
   if (window.OPTIQCARTO_READONLY) return;
   if (selectedShapes.size < 2) {
-    showToast('Select at least 2 shapes to create a pile.');
+    showToast(_L('editor.pile_min2'));
     return;
   }
   const selIds = [...selectedShapes];
@@ -2174,11 +2190,11 @@ function createPile() {
   const targetIds = Object.keys(connsToTarget);
 
   if (targetIds.length === 0) {
-    showToast('Pile prerequisite not met: selected shapes must all connect to a common target.');
+    showToast(_L('editor.pile_no_target'));
     return;
   }
   if (targetIds.length > 1) {
-    showToast(`Pile prerequisite not met: shapes connect to ${targetIds.length} different targets — they must all connect to the same shape.`);
+    showToast(_L('editor.pile_many_targets', targetIds.length));
     return;
   }
 
@@ -2189,7 +2205,7 @@ function createPile() {
   const connectedFromIds = new Set(entries.map(e => e.fromId));
   for (const id of selIds) {
     if (!connectedFromIds.has(id)) {
-      showToast('Pile prerequisite not met: not all selected shapes have a connection to the common target.');
+      showToast(_L('editor.pile_not_all'));
       return;
     }
   }
@@ -2197,7 +2213,8 @@ function createPile() {
   // Check all connections share the same label
   const uniqueLabels = [...new Set(entries.map(e => e.label))];
   if (uniqueLabels.length > 1) {
-    showToast(`Pile prerequisite not met: connections to the target must all carry the same label (found: ${uniqueLabels.map(l => '"' + (l || '(empty)') + '"').join(', ')}).`);
+    showToast(_L('editor.pile_labels',
+      uniqueLabels.map(l => '"' + (l || _L('editor.pile_empty_label')) + '"').join(', ')));
     return;
   }
 
@@ -2216,7 +2233,7 @@ function createPile() {
   selectedGroup = id;
   snapshot();
   render();
-  showToast('Pile created.');
+  showToast(_L('editor.pile_created'));
 }
 
 /* ══════════════════════════════════════════════════
@@ -3545,12 +3562,12 @@ function _renderGroupShapesList(grp) {
     h.textContent = texte;
     container.appendChild(h);
   };
-  if (membres.length) titre(`Dans le groupe (${membres.length})`);
+  if (membres.length) titre(_L('editor.group_members', membres.length));
   let separateurPose = false;
 
   for (const s of membres.concat(autres)) {
     if (!separateurPose && !grp.shapeIds.includes(s.id)) {
-      titre('Ajouter au groupe');
+      titre(_L('editor.group_add'));
       separateurPose = true;
     }
     const inGroup = grp.shapeIds.includes(s.id);
@@ -3765,13 +3782,10 @@ function bindProps() {
    FIT VIEW
    ══════════════════════════════════════════════════ */
 
-function fitView() {
-  if (state.shapes.length === 0) {
-    vpX = 0; vpY = 280; vpScale = 0.5;
-    applyViewport(); return;
-  }
-
-  const r = canvas.getBoundingClientRect();
+// Les bornes que `fitView` cadre : les formes, plus la colonne d'index des
+// bandes quand elles sont visibles. null sur une carto vide.
+function _boundsForFit() {
+  if (!state.shapes.length) return null;
   let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
   for (const s of state.shapes) {
     minX = Math.min(minX, s.x); minY = Math.min(minY, s.y);
@@ -3779,6 +3793,24 @@ function fitView() {
   }
   // Inclure la zone index SVG dans le bounding-box quand les bandes sont visibles
   if (state.showBands && state.bands.length > 0) minX = Math.min(minX, 0);
+  return { minX, minY, maxX, maxY };
+}
+
+// `bornes` : un cadre imposé de l'extérieur (deux cartos comparées doivent
+// partager le même). ⚠️ fitView sert aussi d'écouteur de clic et reçoit alors
+// un Event : on n'accepte que de vraies bornes.
+// `plancher` : le plus petit zoom admis. ZOOM_MIN (celui de la molette) par
+// défaut ; une VIGNETTE doit pouvoir descendre plus bas, sinon une grande
+// carto n'y tient pas et n'en montre qu'un morceau.
+function fitView(bornes, plancher) {
+  const b = (bornes && Number.isFinite(bornes.minX)) ? bornes : _boundsForFit();
+  if (!b) {
+    vpX = 0; vpY = 280; vpScale = 0.5;
+    applyViewport(); return;
+  }
+
+  const r = canvas.getBoundingClientRect();
+  const { minX, minY, maxX, maxY } = b;
 
   const pad = 60;
   const dw = maxX - minX + pad * 2;
@@ -3792,7 +3824,8 @@ function fitView() {
   if (!(r.width > 0 && r.height > 0) || !Number.isFinite(dw) || !Number.isFinite(dh)
       || dw <= 0 || dh <= 0) return;
 
-  vpScale = Math.max(ZOOM_MIN, Math.min(r.width / dw, r.height / dh, 2));
+  const minimum = (Number.isFinite(plancher) && plancher > 0) ? plancher : ZOOM_MIN;
+  vpScale = Math.max(minimum, Math.min(r.width / dw, r.height / dh, 2));
   vpX = (r.width  - dw * vpScale) / 2 - (minX - pad) * vpScale;
   vpY = (r.height - dh * vpScale) / 2 - (minY - pad) * vpScale;
   applyViewport();
@@ -4392,7 +4425,7 @@ function exportPDF() {
 <script>
   var img = document.querySelector('img');
   img.onload = function() { setTimeout(function() { window.print(); }, 200); };
-  img.onerror = function() { document.body.innerHTML += '<p style="color:red;padding:20px">Erreur de rendu SVG</p>'; };
+  img.onerror = function() { document.body.innerHTML += '<p style="color:red;padding:20px">${_L('editor.print_error')}</p>'; };
 </script>
 </body></html>`);
   win.document.close();
@@ -4603,7 +4636,7 @@ async function _offerMasterPropagation(apiBase) {
         if (d.ok) ok++; else fail++;
       } catch (_) { fail++; }
     }));
-    showToast(ok + ' ' + _L('editor.master_propagate_done') + (fail ? ` (${fail} échecs)` : ''));
+    showToast(ok + ' ' + _L('editor.master_propagate_done') + (fail ? ' ' + _L('editor.propagate_failures', fail) : ''));
   });
 }
 
@@ -4760,7 +4793,7 @@ function _showCalDiffWarning(diffPct) {
     const modal = document.getElementById('cal-diff-modal');
     const desc  = document.getElementById('cal-diff-desc');
     if (!modal) { resolve(true); return; }
-    if (desc) desc.textContent = `${Math.round(diffPct * 100)} % des éléments de la carto classique sont modifiés ou absents dans ce calque. Êtes-vous sûr ? Si la divergence est trop importante, il peut être plus judicieux de créer une nouvelle entité avec une nouvelle cartographie.`;
+    if (desc) desc.textContent = _L('editor.cal_diff_warn', Math.round(diffPct * 100));
     modal.style.display = 'flex';
     function cleanup(result) {
       modal.style.display = 'none';
@@ -5022,7 +5055,7 @@ async function openLoadDialog() {
   list.innerHTML = '';
 
   if (files.length === 0) {
-    list.innerHTML = '<div class="load-empty"><i class="fa-solid fa-folder-open" style="font-size:28px;opacity:.3;display:block;margin-bottom:12px"></i>Aucune cartographie sauvegardée.</div>';
+    list.innerHTML = '<div class="load-empty"><i class="fa-solid fa-folder-open" style="font-size:28px;opacity:.3;display:block;margin-bottom:12px"></i>' + _L('editor.load_empty') + '</div>';
     return;
   }
 
@@ -5281,44 +5314,44 @@ async function importVSDX(file) {
   dropzone.style.display = 'none';
   statusEl.style.display = 'none';
   loadingEl.style.display = '';
-  if (loadingMsg) loadingMsg.textContent = 'Lecture du fichier\u2026';
+  if (loadingMsg) loadingMsg.textContent = _L('editor.vsdx_reading');
 
   // Orphan dialog: runs inside vsdxParse before final layout
   async function onOrphans(orphans) {
-    setStatus(`\u26a0 ${orphans.length} forme(s) vide(s) non connect\u00e9e(s) d\u00e9tect\u00e9e(s).`);
+    setStatus(_L('editor.vsdx_orphans_status', orphans.length));
     await new Promise(r => setTimeout(r, 0));
     return new Promise(resolve => {
       const ov = document.createElement('div');
       ov.className = 'modal-overlay';
       ov.style.zIndex = '10000';
       const types = [...new Set(orphans.map(s =>
-        s.type === 'decision' ? 'losange' : s.type === 'start-end' ? 'ellipse' : 'activit\u00e9'
+        s.type === 'decision' ? _L('editor.vsdx_type_diamond')
+          : s.type === 'start-end' ? _L('editor.vsdx_type_ellipse') : _L('editor.vsdx_type_activity')
       ))].join(', ');
       ov.innerHTML = `
         <div class="modal-card" style="max-width:430px;border-top:3px solid var(--pink)">
           <div class="modal-header">
             <h2 style="color:var(--pink)">
-              <i class="fa-solid fa-triangle-exclamation" style="margin-right:8px;opacity:0.9"></i>Fichier incomplet
+              <i class="fa-solid fa-triangle-exclamation" style="margin-right:8px;opacity:0.9"></i>${_L('editor.vsdx_orphans_title')}
             </h2>
           </div>
           <div class="modal-body" style="display:flex;flex-direction:column;gap:14px">
             <p style="font-size:13px;color:var(--text-muted);margin:0;line-height:1.6">
-              Ce fichier contient <strong style="color:var(--green-lt)">${orphans.length} forme(s)</strong>
-              sans texte et sans connexion (${types}).<br>
-              <span style="font-size:12px;color:rgba(255,255,255,0.35)">Ces \u00e9l\u00e9ments sont probablement des artefacts Visio sans contenu.</span>
+              ${_L('editor.vsdx_orphans_text', `<strong style="color:var(--green-lt)">${orphans.length}</strong>`, types)}<br>
+              <span style="font-size:12px;color:rgba(255,255,255,0.35)">${_L('editor.vsdx_orphans_artefacts')}</span>
             </p>
             <p style="font-size:12px;color:rgba(255,255,255,0.38);margin:0">
-              Voulez-vous nettoyer ces \u00e9l\u00e9ments ou fournir un fichier corrig\u00e9&nbsp;?
+              ${_L('editor.vsdx_orphans_question')}
             </p>
             <div style="display:flex;flex-direction:column;gap:7px">
               <button id="_orph-clean" class="btn-ok" style="width:100%;text-align:left;display:flex;align-items:center;gap:9px;padding:11px 14px;border-radius:10px">
-                <i class="fa-solid fa-broom"></i> Nettoyer et continuer l\u2019import
+                <i class="fa-solid fa-broom"></i> ${_L('editor.vsdx_orphans_clean')}
               </button>
               <button id="_orph-keep" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:var(--text-muted);border-radius:10px;padding:10px 14px;font-size:12px;font-weight:600;cursor:pointer;text-align:left;display:flex;align-items:center;gap:9px;font-family:inherit;width:100%">
-                <i class="fa-solid fa-forward"></i> Continuer sans nettoyer
+                <i class="fa-solid fa-forward"></i> ${_L('editor.vsdx_orphans_keep')}
               </button>
               <button id="_orph-cancel" style="background:transparent;border:none;color:rgba(244,184,208,0.5);padding:8px 14px;font-size:11px;cursor:pointer;text-align:left;display:flex;align-items:center;gap:9px;font-family:inherit;width:100%">
-                <i class="fa-solid fa-xmark"></i> Annuler \u2014 je vais corriger mon fichier
+                <i class="fa-solid fa-xmark"></i> ${_L('editor.vsdx_orphans_cancel')}
               </button>
             </div>
           </div>
@@ -5337,13 +5370,13 @@ async function importVSDX(file) {
     // gardés tels quels → les losanges décoratifs restent posés sur leur flèche.
     const result = await vsdxParse(file, setStatus, onOrphans, { spliceDecisions: false });
     if (!result) {
-      setStatus('Import annul\u00e9. Vous pouvez d\u00e9poser un fichier corrig\u00e9.', true);
+      setStatus(_L('editor.vsdx_cancelled'), true);
       return;
     }
 
     const { bands, shapes, connections, groups, nextOid } = result;
     if (shapes.length === 0) {
-      setStatus('Aucune activit\u00e9 trouv\u00e9e dans ce fichier.', true);
+      setStatus(_L('editor.vsdx_no_activity'), true);
       return;
     }
 
@@ -5478,20 +5511,20 @@ function openBandsDialog() {
 
 function _confirmBandDelete(band, shapes) {
   return new Promise(resolve => {
-    const list = shapes.map(s => `<span style="display:block;padding:1px 0">• ${s.label || 'Forme sans nom'}</span>`).join('');
+    const list = shapes.map(s => `<span style="display:block;padding:1px 0">• ${s.label || _L('editor.shape_unnamed')}</span>`).join('');
     const ov = document.createElement('div');
     ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.55);display:flex;align-items:center;justify-content:center;z-index:9500;backdrop-filter:blur(2px)';
     ov.innerHTML = `
       <div style="background:#1a2030;border:1px solid rgba(255,255,255,0.09);border-radius:20px;padding:28px 32px;min-width:340px;max-width:460px;box-shadow:0 32px 80px rgba(0,0,0,0.6)">
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
           <i class="fa-solid fa-triangle-exclamation" style="color:#f59e0b;font-size:18px"></i>
-          <span style="font-size:15px;font-weight:700;color:#e2e8f0">Supprimer « ${band.label || 'Bande'} » ?</span>
+          <span style="font-size:15px;font-weight:700;color:#e2e8f0">${_L('editor.band_delete_q', band.label || _L('editor.band_default'))}</span>
         </div>
-        <p style="font-size:12.5px;color:#94a3b8;margin:0 0 12px">Cette bande contient <strong style="color:#e2e8f0">${shapes.length} forme(s)</strong> qui seront également supprimées :</p>
+        <p style="font-size:12.5px;color:#94a3b8;margin:0 0 12px">${_L('editor.band_delete_text', `<strong style="color:#e2e8f0">${shapes.length}</strong>`)}</p>
         <div style="background:rgba(255,255,255,0.04);border-radius:8px;padding:10px 14px;max-height:150px;overflow-y:auto;margin-bottom:20px;font-size:11.5px;color:#cbd5e1;line-height:1.7">${list}</div>
         <div style="display:flex;gap:10px;justify-content:flex-end">
-          <button id="_bdc-cancel" style="padding:8px 20px;border-radius:10px;border:1px solid rgba(255,255,255,0.12);background:transparent;color:#94a3b8;font-size:13px;cursor:pointer">Annuler</button>
-          <button id="_bdc-confirm" style="padding:8px 20px;border-radius:10px;border:none;background:#ec4899;color:#fff;font-size:13px;font-weight:600;cursor:pointer">Supprimer quand même</button>
+          <button id="_bdc-cancel" style="padding:8px 20px;border-radius:10px;border:1px solid rgba(255,255,255,0.12);background:transparent;color:#94a3b8;font-size:13px;cursor:pointer">${_L('btn.cancel')}</button>
+          <button id="_bdc-confirm" style="padding:8px 20px;border-radius:10px;border:none;background:#ec4899;color:#fff;font-size:13px;font-weight:600;cursor:pointer">${_L('editor.band_delete_confirm')}</button>
         </div>
       </div>`;
     document.body.appendChild(ov);
@@ -6033,17 +6066,17 @@ function _showCheckPanel(issues) {
   const hdr = `
     <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid rgba(77,184,104,0.12);flex-shrink:0">
       <span style="font-size:13.5px;font-weight:700;color:#D6EDD9;display:flex;align-items:center;gap:8px">
-        <i class="fa-solid fa-magnifying-glass-chart" style="color:#4DB868"></i> Diagnostic carto
+        <i class="fa-solid fa-magnifying-glass-chart" style="color:#4DB868"></i> ${_L('editor.chk_title')}
       </span>
-      <button id="_ccp-close" style="background:none;border:none;color:#567460;font-size:20px;cursor:pointer;line-height:1;padding:0 4px" title="Fermer">×</button>
+      <button id="_ccp-close" style="background:none;border:none;color:#567460;font-size:20px;cursor:pointer;line-height:1;padding:0 4px" title="${_L('btn.close')}">×</button>
     </div>`;
 
   let body;
   if (issues.length === 0) {
     body = `<div style="padding:28px 18px;text-align:center">
       <i class="fa-solid fa-circle-check" style="font-size:30px;color:#4DB868;display:block;margin-bottom:12px"></i>
-      <div style="font-size:13px;font-weight:600;color:#D6EDD9">Aucun problème détecté</div>
-      <div style="font-size:11.5px;color:#567460;margin-top:6px">La cartographie est cohérente</div>
+      <div style="font-size:13px;font-weight:600;color:#D6EDD9">${_L('editor.chk_ok')}</div>
+      <div style="font-size:11.5px;color:#567460;margin-top:6px">${_L('editor.chk_ok_sub')}</div>
     </div>`;
   } else {
     const rows = issues.map((issue, i) => {
@@ -6051,12 +6084,12 @@ function _showCheckPanel(issues) {
       return `<div style="display:flex;align-items:center;gap:10px;padding:9px 14px;border-bottom:1px solid rgba(77,184,104,0.06)">
         <i class="fa-solid ${ic.icon}" style="color:${ic.color};font-size:13px;flex-shrink:0"></i>
         <span style="flex:1;font-size:11.5px;color:#D6EDD9;line-height:1.4">${issue.msg}</span>
-        <button class="_ccp-goto" data-i="${i}" style="padding:4px 10px;border-radius:6px;border:1px solid rgba(77,184,104,0.22);background:transparent;color:#4DB868;font-size:11px;cursor:pointer;white-space:nowrap;flex-shrink:0">Voir →</button>
+        <button class="_ccp-goto" data-i="${i}" style="padding:4px 10px;border-radius:6px;border:1px solid rgba(77,184,104,0.22);background:transparent;color:#4DB868;font-size:11px;cursor:pointer;white-space:nowrap;flex-shrink:0">${_L('editor.chk_goto')}</button>
       </div>`;
     }).join('');
 
     body = `<div style="overflow-y:auto;flex:1">
-      <div style="padding:10px 14px 4px;font-size:10.5px;color:#567460;font-weight:600;text-transform:uppercase;letter-spacing:0.05em">${issues.length} problème(s) trouvé(s)</div>
+      <div style="padding:10px 14px 4px;font-size:10.5px;color:#567460;font-weight:600;text-transform:uppercase;letter-spacing:0.05em">${_L('editor.chk_count', issues.length)}</div>
       ${rows}
     </div>`;
   }
@@ -6066,16 +6099,16 @@ function _showCheckPanel(issues) {
   // erreurs repositionnables (hors-bande / chevauchement).
   const fixBtn = nFixable > 0 ? `
       <button id="_ccp-fix" style="width:100%;display:flex;align-items:center;justify-content:center;gap:8px;padding:10px 14px;border-radius:10px;border:1px solid rgba(77,184,104,0.55);background:rgba(77,184,104,0.18);color:#B7F0C8;font-size:12.5px;font-weight:700;cursor:pointer;transition:background .15s;margin-bottom:9px">
-        <i class="fa-solid fa-screwdriver-wrench"></i> Corriger les erreurs (${nFixable})
+        <i class="fa-solid fa-screwdriver-wrench"></i> ${_L('editor.fix_btn', nFixable)}
       </button>
-      <div style="font-size:10px;color:#567460;margin:-3px 0 11px;line-height:1.4;text-align:center">Aperçu zoomé + validation avant application. Ne corrige que les erreurs relevées (hors-bande, chevauchement, renvoi orphelin, doublon) — le reste de la carto reste tel quel</div>` : '';
+      <div style="font-size:10px;color:#567460;margin:-3px 0 11px;line-height:1.4;text-align:center">${_L('editor.fix_btn_hint')}</div>` : '';
   const footer = `
     <div style="padding:12px 14px;border-top:1px solid rgba(77,184,104,0.12);flex-shrink:0">
       ${fixBtn}
       <button id="_ccp-arrange" style="width:100%;display:flex;align-items:center;justify-content:center;gap:8px;padding:10px 14px;border-radius:10px;border:1px solid rgba(77,184,104,0.35);background:rgba(77,184,104,0.10);color:#7BE0A0;font-size:12.5px;font-weight:600;cursor:pointer;transition:background .15s">
-        <i class="fa-solid fa-wand-magic-sparkles"></i> Agencement auto
+        <i class="fa-solid fa-wand-magic-sparkles"></i> ${_L('editor.btn_auto_layout')}
       </button>
-      <div style="font-size:10px;color:#567460;margin-top:7px;line-height:1.4;text-align:center">Réorganise TOUTE la carto en flux gauche→droite (chaque forme reste dans sa bande)</div>
+      <div style="font-size:10px;color:#567460;margin-top:7px;line-height:1.4;text-align:center">${_L('editor.arrange_hint')}</div>
     </div>`;
 
   panel.innerHTML = hdr + body + footer;
@@ -6133,7 +6166,7 @@ function runCartoCheck() {
   // 1. Activités sans connexion
   for (const s of activityShapes) {
     if (!connectedIds.has(s.id)) {
-      issues.push({ type: 'isolated', shape: s, msg: `« ${s.label || 'Sans nom'} » n'a aucune connexion` });
+      issues.push({ type: 'isolated', shape: s, msg: _L('editor.chk_isolated', s.label || _L('editor.no_name')) });
     }
   }
 
@@ -6141,7 +6174,7 @@ function runCartoCheck() {
   for (const s of state.shapes.filter(s => s.type === 'start-end')) {
     const label = (s.label || '').trim();
     if (!label || !activityLabelsLower.has(label.toLowerCase())) {
-      issues.push({ type: 'renvoi', shape: s, msg: `Renvoi « ${label || 'Sans nom'} » sans activité correspondante` });
+      issues.push({ type: 'renvoi', shape: s, msg: _L('editor.chk_renvoi', label || _L('editor.no_name')) });
     }
   }
 
@@ -6150,7 +6183,7 @@ function runCartoCheck() {
     for (const s of activityShapes) {
       const midY = s.y + s.h / 2;
       if (!bandRanges.some(b => midY >= b.y && midY < b.yEnd)) {
-        issues.push({ type: 'outofband', shape: s, msg: `« ${s.label || 'Sans nom'} » est hors de toute bande` });
+        issues.push({ type: 'outofband', shape: s, msg: _L('editor.chk_outofband', s.label || _L('editor.no_name')) });
       }
     }
   }
@@ -6166,7 +6199,7 @@ function runCartoCheck() {
   }
   for (const [label, shapes] of Object.entries(labelGroups)) {
     if (shapes.length > 1) {
-      shapes.forEach(s => issues.push({ type: 'duplicate', shape: s, msg: `Nom en doublon : « ${label} »` }));
+      shapes.forEach(s => issues.push({ type: 'duplicate', shape: s, msg: _L('editor.chk_duplicate', label) }));
     }
   }
 
@@ -6184,7 +6217,7 @@ function runCartoCheck() {
         flaggedOverlap.add(mv.id);
         const other = mv === b ? a : b;
         issues.push({ type: 'overlap', shape: mv,
-          msg: `« ${mv.label || 'Sans nom'} » chevauche « ${other.label || 'Sans nom'} »` });
+          msg: _L('editor.chk_overlap', mv.label || _L('editor.no_name'), other.label || _L('editor.no_name')) });
       }
     }
   }
@@ -6254,14 +6287,14 @@ function _computeFixes(issues) {
     if (it.type === 'outofband') {
       const b = _nearestBand(s.y + s.h / 2, ranges);
       if (b) fixes.push({ type: 'outofband', shape: s, after: { x: s.x, y: Math.round(b.y + (b.yEnd - b.y - s.h) / 2) },
-        desc: `Recentrer « ${s.label || 'Sans nom'} » dans sa bande` });
+        desc: _L('editor.fix_outofband', s.label || _L('editor.no_name')) });
     } else if (it.type === 'overlap') {
       const others = state.shapes.filter(o => o !== s && _isFlowShape(o));
       const spot = _findFreeSpot(s, others, 10, ranges);
       if (spot) fixes.push({ type: 'overlap', shape: s, after: spot,
-        desc: `Écarter « ${s.label || 'Sans nom'} » (chevauchement)` });
+        desc: _L('editor.fix_overlap', s.label || _L('editor.no_name')) });
     } else if (it.type === 'renvoi') {
-      fixes.push({ type: 'renvoi', shape: s, desc: `Supprimer le renvoi orphelin « ${s.label || 'Sans nom'} »` });
+      fixes.push({ type: 'renvoi', shape: s, desc: _L('editor.fix_renvoi', s.label || _L('editor.no_name')) });
     } else if (it.type === 'duplicate') {
       const base = (s.label || '').trim();
       dupSeen[base] = (dupSeen[base] || 0) + 1;
@@ -6269,7 +6302,7 @@ function _computeFixes(issues) {
       let n = dupSeen[base], name;
       do { name = `${base} (${n})`; n++; } while (usedNames.has(name));
       usedNames.add(name);
-      fixes.push({ type: 'duplicate', shape: s, newLabel: name, desc: `Renommer le doublon « ${base} » → « ${name} »` });
+      fixes.push({ type: 'duplicate', shape: s, newLabel: name, desc: _L('editor.fix_duplicate', base, name) });
     }
   }
   return fixes;
@@ -6303,7 +6336,7 @@ function _applyFixes(fixes) {
     }
   }
   render();
-  showToast(`${fixes.length} correction(s) appliquée(s)`);
+  showToast(_L('editor.fix_applied', fixes.length));
   runCartoCheck();   // ré-analyse et rafraîchit le panneau
 }
 
@@ -6373,7 +6406,7 @@ function _fixThumb(f) {
 // Pop-up de VALIDATION : aperçu zoomé de chaque correction + cases à cocher. Rien n'est
 // appliqué tant que l'utilisateur n'a pas validé la sélection.
 function _showFixPreview(fixes) {
-  if (!fixes || !fixes.length) { showToast('Aucune erreur corrigeable'); return; }
+  if (!fixes || !fixes.length) { showToast(_L('editor.fix_none')); return; }
   document.getElementById('_carto-fix-overlay')?.remove();
   const sBtn = 'padding:9px 15px;border-radius:9px;border:1px solid var(--green-border,#3a5a44);background:rgba(77,184,104,0.08);color:var(--text-muted,#9fb0a4);font-size:12.5px;font-weight:600;cursor:pointer;font-family:inherit';
   const pBtn = 'padding:9px 17px;border-radius:9px;border:1px solid var(--green-dark,#2f8f52);background:linear-gradient(135deg,#4DB868 0%,#2f8f52 100%);color:#fff;font-size:12.5px;font-weight:700;cursor:pointer;font-family:inherit';
@@ -6393,16 +6426,16 @@ function _showFixPreview(fixes) {
   overlay.innerHTML = `
     <div class="modal-card" style="max-width:540px;max-height:88vh;display:flex;flex-direction:column">
       <div class="modal-header">
-        <h2><i class="fa-solid fa-screwdriver-wrench" style="color:var(--green,#4DB868);margin-right:8px"></i>Corriger les erreurs</h2>
-        <span style="font-size:12px;color:var(--green-lt,#7BE0A0);font-weight:700">${fixes.length} correction(s)</span>
+        <h2><i class="fa-solid fa-screwdriver-wrench" style="color:var(--green,#4DB868);margin-right:8px"></i>${_L('editor.fix_title')}</h2>
+        <span style="font-size:12px;color:var(--green-lt,#7BE0A0);font-weight:700">${_L('editor.fix_count', fixes.length)}</span>
       </div>
       <div class="modal-body" style="overflow-y:auto;padding:14px 18px">
-        <p class="modal-hint" style="margin:0 0 12px">Vérifiez chaque correction sur l'aperçu zoomé (position actuelle en <b style="color:#ef4444">rouge</b>, cible en <b style="color:#16a34a">vert</b>) puis validez. Seules les cases cochées sont appliquées — le reste de la carto reste inchangé.</p>
+        <p class="modal-hint" style="margin:0 0 12px">${_L('editor.fix_hint')}</p>
         ${cards}
       </div>
       <div class="modal-footer" style="justify-content:space-between">
-        <button id="_cfx-cancel" style="${sBtn}">Annuler</button>
-        <button id="_cfx-apply" style="${pBtn}"><i class="fa-solid fa-check" style="margin-right:6px"></i>Appliquer <span id="_cfx-n">(${fixes.length})</span></button>
+        <button id="_cfx-cancel" style="${sBtn}">${_L('btn.cancel')}</button>
+        <button id="_cfx-apply" style="${pBtn}"><i class="fa-solid fa-check" style="margin-right:6px"></i>${_L('editor.fix_apply')} <span id="_cfx-n">(${fixes.length})</span></button>
       </div>
     </div>`;
   document.body.appendChild(overlay);
@@ -6412,7 +6445,7 @@ function _showFixPreview(fixes) {
   overlay.querySelector('#_cfx-apply').onclick = () => {
     const sel = [...overlay.querySelectorAll('._cfx:checked')].map(cb => fixes[parseInt(cb.dataset.i)]);
     overlay.remove();
-    if (sel.length) _applyFixes(sel); else showToast('Aucune correction sélectionnée');
+    if (sel.length) _applyFixes(sel); else showToast(_L('editor.fix_none_selected'));
   };
 }
 
@@ -6425,7 +6458,7 @@ function _showFixPreview(fixes) {
 
 function _computeAutoArrange() {
   if (typeof OptiqArrange === 'undefined' || !OptiqArrange.arrange) {
-    showToast('Agencement auto indisponible'); return;
+    showToast(_L('editor.arrange_unavailable')); return;
   }
   if (!state.shapes.length) { showToast(_L('editor.toast.no_shapes_check')); return; }
   snapshot();
@@ -6472,7 +6505,7 @@ function _computeAutoArrange() {
   }
   for (const c of state.connections) { delete c._back; delete c._span; }
   if (typeof fitView === 'function') fitView();
-  showToast('Agencement auto appliqué');
+  showToast(_L('editor.arrange_done'));
 }
 
 /* ══════════════════════════════════════════════════
@@ -6855,20 +6888,20 @@ function _startDiamondPlacement(onDone) {
   overlay.innerHTML = `
     <div class="modal-card" style="max-width:${SVGW + 44}px">
       <div class="modal-header">
-        <h2><i class="fa-solid fa-gem" style="color:var(--green);margin-right:8px"></i>Placement des losanges</h2>
+        <h2><i class="fa-solid fa-gem" style="color:var(--green);margin-right:8px"></i>${_L('editor.dp_title')}</h2>
         <span id="dp-progress" style="font-size:12px;color:var(--green-lt);font-weight:700"></span>
       </div>
       <div class="modal-body" style="padding:14px 18px 12px">
-        <p class="modal-hint" style="margin:0 0 11px">Glissez le <b style="color:#cfd3cf">losange gris</b> (sa flèche est <b style="color:#e0a500">surlignée</b>) et, si besoin, les <b style="color:#e0a500">étiquettes</b> pour les positionner l'un par rapport à l'autre, puis validez.</p>
+        <p class="modal-hint" style="margin:0 0 11px">${_L('editor.dp_hint')}</p>
         <div style="border:1px solid var(--border);border-radius:12px;overflow:hidden;background:#F3F5F2;background-image:radial-gradient(circle,rgba(0,0,0,0.07) 1px,transparent 1px);background-size:20px 20px">
           <svg id="dp-frame" width="${SVGW}" height="${SVGH}" style="display:block;touch-action:none"></svg>
         </div>
       </div>
       <div class="modal-footer" style="justify-content:space-between;align-items:center;gap:10px">
-        <button id="dp-skip" style="${sBtn}">Tout garder</button>
+        <button id="dp-skip" style="${sBtn}">${_L('editor.dp_keep_all')}</button>
         <div style="display:flex;gap:8px">
-          <button id="dp-prev" style="${sBtn}">← Précédent</button>
-          <button id="dp-valid" style="${pBtn}">Valider →</button>
+          <button id="dp-prev" style="${sBtn}">${_L('editor.dp_prev')}</button>
+          <button id="dp-valid" style="${pBtn}">${_L('editor.dp_next')}</button>
         </div>
       </div>
     </div>`;
@@ -6997,10 +7030,10 @@ function _startDiamondPlacement(onDone) {
     const g = shapeNode(D, true);
     svg.appendChild(g);
     _bindDrag(D, g);
-    prog.textContent = `Losange ${idx + 1} / ${diamonds.length}`;
+    prog.textContent = _L('editor.dp_progress', idx + 1, diamonds.length);
     prevBtn.style.opacity = idx === 0 ? '0.4' : '1';
     prevBtn.style.pointerEvents = idx === 0 ? 'none' : 'auto';
-    validBtn.textContent = idx === diamonds.length - 1 ? 'Terminer ✓' : 'Valider →';
+    validBtn.textContent = idx === diamonds.length - 1 ? _L('editor.dp_finish') : _L('editor.dp_next');
   }
 
   function _bindDrag(D, g) {
@@ -7860,7 +7893,7 @@ function init() {
       const st = document.getElementById('vsdx-status');
       st.style.display = '';
       st.className = 'vsdx-status error';
-      st.textContent = 'Fichier invalide — seul le format .vsdx est accepté.';
+      st.textContent = _L('editor.vsdx_invalid');
     }
   });
 

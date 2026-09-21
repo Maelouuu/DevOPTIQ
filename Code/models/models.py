@@ -342,6 +342,16 @@ class Competency(db.Model):
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     description = db.Column(db.Text, nullable=False)
     activity_id = db.Column(db.Integer, db.ForeignKey('activities.id'), nullable=False)
+    # ⚠️ L'IA rédige la compétence dans les DEUX langues, et on n'en gardait
+    # qu'une : celle de la personne qui configurait. Un anglophone lisait donc
+    # la phrase française. `description` reste la saisie d'origine ; ces deux
+    # colonnes sont les versions par langue, quand on les a.
+    description_fr = db.Column(db.Text, nullable=True)
+    description_en = db.Column(db.Text, nullable=True)
+
+    def texte(self, lang=None):
+        """La compétence dans la langue demandée, à défaut l'originale."""
+        return getattr(self, "description_" + (lang or "fr"), None) or self.description
 
 
 class Softskill(db.Model):
@@ -371,6 +381,13 @@ class Role(db.Model):
     name_en = db.Column(db.String(200), nullable=True)
     onboarding_plan = db.Column(db.Text, nullable=True)
     mission_generale = db.Column(db.Text, nullable=True)
+    # ⚠️ Un rôle créé HORS de la carte — importé, créé depuis la page RH, ou
+    # désigné garant — n'est pas une bande. `_sync_carto_to_db` effaçait à
+    # chaque enregistrement de la carto tout rôle absent des bandes, avec ses
+    # titulaires, ses liens aux tâches et ses accès : importer des rôles ne
+    # servait à rien, ils disparaissaient au premier enregistrement.
+    hors_carte = db.Column(db.Boolean, default=False, nullable=False,
+                           server_default=_sa.false())
 
     __table_args__ = (
         db.UniqueConstraint('entity_id', 'name', name='uq_entity_role_name'),
@@ -971,6 +988,11 @@ class CartoChangeRequest(db.Model):
     review_comment = db.Column(db.Text, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     reviewed_at = db.Column(db.DateTime, nullable=True)
+    # Quand l'AUTEUR a pris connaissance de la décision (et du message qui
+    # l'accompagne). NULL sur une proposition tranchée = à lui annoncer.
+    # ⚠️ Sans elle, le message du valideur était enregistré et lu par
+    # personne : aucun écran ne le montrait à celui à qui il était adressé.
+    author_seen_at = db.Column(db.DateTime, nullable=True)
 
     entity = db.relationship('Entity', foreign_keys=[entity_id])
     author = db.relationship('User', foreign_keys=[author_id])
@@ -1068,13 +1090,13 @@ def _on_activity_insert(mapper, connection, target):
 
 @event.listens_for(Activities, 'before_update')
 def _before_activity_update(mapper, connection, target):
-    target._prev_changes = _capture_changes(target, {"name": "Nom", "description": "Description"})
+    target._prev_changes = _capture_changes(target, {"name": "name", "description": "description"})
 
 
 @event.listens_for(Activities, 'after_update')
 def _on_activity_update(mapper, connection, target):
     changes = getattr(target, '_prev_changes', None) or []
-    detail = {"changes": changes} if changes else None
+    detail = {"name": target.name, "changes": changes} if changes else {"name": target.name}
     _log_recent(connection, 'activity_updated', 'fa-solid fa-pen-to-square',
                 f'{_event_label("event.activity_updated")} : {target.name}', target.entity_id, detail=detail)
 
@@ -1089,13 +1111,13 @@ def _on_task_insert(mapper, connection, target):
 
 @event.listens_for(Task, 'before_update')
 def _before_task_update(mapper, connection, target):
-    target._prev_changes = _capture_changes(target, {"name": "Nom", "description": "Description"})
+    target._prev_changes = _capture_changes(target, {"name": "name", "description": "description"})
 
 
 @event.listens_for(Task, 'after_update')
 def _on_task_update(mapper, connection, target):
     changes = getattr(target, '_prev_changes', None) or []
-    detail = {"changes": changes} if changes else None
+    detail = {"name": target.name, "changes": changes} if changes else {"name": target.name}
     _log_recent(connection, 'task_updated', 'fa-solid fa-pen-to-square',
                 f'{_event_label("event.task_updated")} : {target.name}', detail=detail)
 
@@ -1110,13 +1132,13 @@ def _on_role_insert(mapper, connection, target):
 
 @event.listens_for(Role, 'before_update')
 def _before_role_update(mapper, connection, target):
-    target._prev_changes = _capture_changes(target, {"name": "Nom", "onboarding_plan": "Mission"})
+    target._prev_changes = _capture_changes(target, {"name": "name", "onboarding_plan": "mission"})
 
 
 @event.listens_for(Role, 'after_update')
 def _on_role_update(mapper, connection, target):
     changes = getattr(target, '_prev_changes', None) or []
-    detail = {"changes": changes} if changes else None
+    detail = {"name": target.name, "changes": changes} if changes else {"name": target.name}
     _log_recent(connection, 'role_updated', 'fa-solid fa-pen-to-square',
                 f'{_event_label("event.role_updated")} : {target.name}', target.entity_id, detail=detail)
 
@@ -1131,13 +1153,13 @@ def _on_tool_insert(mapper, connection, target):
 
 @event.listens_for(Tool, 'before_update')
 def _before_tool_update(mapper, connection, target):
-    target._prev_changes = _capture_changes(target, {"name": "Nom", "description": "Description"})
+    target._prev_changes = _capture_changes(target, {"name": "name", "description": "description"})
 
 
 @event.listens_for(Tool, 'after_update')
 def _on_tool_update(mapper, connection, target):
     changes = getattr(target, '_prev_changes', None) or []
-    detail = {"changes": changes} if changes else None
+    detail = {"name": target.name, "changes": changes} if changes else {"name": target.name}
     _log_recent(connection, 'tool_updated', 'fa-solid fa-pen-to-square',
                 f'{_event_label("event.tool_updated")} : {target.name}', target.entity_id, detail=detail)
 

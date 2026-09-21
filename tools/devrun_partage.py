@@ -77,7 +77,12 @@ with app.app_context():
                   password=hash_password("Test1234!"), status="user", lang="fr")
     admin = User(first_name="Mael", last_name="Girardin", email="admin@test.local",
                  password=hash_password("Test1234!"), status="administrateur", lang="fr")
-    db.session.add_all([coord, champion, simple, admin])
+    # DEUX développeurs de compétences : un collaborateur peut être suivi par
+    # l'un sur un rôle et par l'autre sur un second — avec un seul candidat, ce
+    # cas ne peut même pas se jouer au banc.
+    dev2 = User(first_name="Sacha", last_name="Morel", email="dev2@test.local",
+                password=hash_password("Test1234!"), status="user", lang="fr")
+    db.session.add_all([coord, champion, simple, admin, dev2])
     db.session.commit()
 
     ent = Entity(name="Carto commune — RFQ FluidClip", description="carto de référence",
@@ -86,6 +91,42 @@ with app.app_context():
     db.session.add(ent)
     db.session.commit()
     _sync_carto_to_db(ent, diagram)
+
+    # ── Une SECONDE carto, et un collaborateur à deux rôles ──────────────
+    # ⚠️ Sans elles, la page RH ne montre jamais ce qu'on vient y régler :
+    # « un rôle sur plusieurs cartos » demande plusieurs cartos, et « un
+    # développeur par rôle » demande quelqu'un qui en tienne plus d'un.
+    ent2 = Entity(name="Seconde carto (privée)", description="pour la page RH",
+                  owner_id=coord.id, is_shared=False,
+                  optiqcarto_data=json.dumps(diagram, ensure_ascii=False))
+    db.session.add(ent2)
+    db.session.commit()
+    _sync_carto_to_db(ent2, diagram)
+
+    from Code.models.models import Role, UserRole
+    from Code.roles_permanents import assurer_roles_permanents
+    assurer_roles_permanents(ent.id)
+    db.session.commit()
+
+    deux = Role.query.filter_by(entity_id=ent.id).order_by(Role.id).limit(2).all()
+    for r in deux:
+        if not UserRole.query.filter_by(user_id=simple.id, role_id=r.id).first():
+            db.session.add(UserRole(user_id=simple.id, role_id=r.id))
+    # Et un rôle sur la carto PRIVÉE du coordinateur, que l'administrateur
+    # n'ouvre pas : c'est le rôle que l'ancienne fiche de compte effaçait dès
+    # qu'on y corrigeait un nom.
+    ailleurs = Role.query.filter_by(entity_id=ent2.id).order_by(Role.id).first()
+    if ailleurs and not UserRole.query.filter_by(user_id=simple.id, role_id=ailleurs.id).first():
+        db.session.add(UserRole(user_id=simple.id, role_id=ailleurs.id))
+    # Le champion devient développeur de compétences : la page a besoin d'au
+    # moins un candidat à proposer, sinon le sélecteur est vide.
+    dev_role = Role.query.filter_by(entity_id=ent.id).filter(
+        Role.name.ilike("%ompétence%")).first()
+    for qui in (champion, dev2):
+        if dev_role and not UserRole.query.filter_by(
+                user_id=qui.id, role_id=dev_role.id).first():
+            db.session.add(UserRole(user_id=qui.id, role_id=dev_role.id))
+    db.session.commit()
 
     propose = _modifier(diagram)
     cr = CartoChangeRequest(
@@ -97,6 +138,30 @@ with app.app_context():
     db.session.add(cr)
     db.session.commit()
 
+    # Une TROISIÈME carto, commune, avec sa propre proposition : le bandeau de
+    # la page Carte réunit les propositions de TOUTES les cartos — avec une
+    # seule, on ne voit jamais qu'il le fait. Et la carto a bougé APRÈS le
+    # dépôt : c'est le cas où l'appliquer effacerait une retouche, que la
+    # fenêtre d'examen doit annoncer.
+    ent3 = Entity(name="Troisième carto (commune)", description="pour le bandeau",
+                  owner_id=coord.id, is_shared=True,
+                  optiqcarto_data=json.dumps(diagram, ensure_ascii=False))
+    db.session.add(ent3)
+    db.session.commit()
+    _sync_carto_to_db(ent3, diagram)
+    cr3 = CartoChangeRequest(
+        entity_id=ent3.id, author_id=champion.id, status="pending",
+        title="Ajout d'un contrôle qualité",
+        message="Un contrôle manquait entre la réception et le chiffrage.",
+        diagram=json.dumps(_modifier(diagram), ensure_ascii=False),
+        base_diagram=json.dumps(diagram, ensure_ascii=False))
+    db.session.add(cr3)
+    retouche = copy.deepcopy(diagram)
+    for s in retouche.get("shapes", [])[-2:]:
+        s["x"] = int(s.get("x", 0)) - 180
+    ent3.optiqcarto_data = json.dumps(retouche, ensure_ascii=False)
+    db.session.commit()
+
     print(f"[devrun] base      : {db_path}")
     print(f"[devrun] carto     : {len(diagram.get('shapes', []))} formes, "
           f"{len(diagram.get('connections', []))} connexions — commune, ouverte à tous")
@@ -104,7 +169,11 @@ with app.app_context():
     print(f"[devrun] champion  : champion@test.local / Test1234!  (propose)")
     print(f"[devrun] coord     : coord@test.local    / Test1234!  (entité {ent.id})")
     print(f"[devrun] admin     : admin@test.local    / Test1234!")
-    print(f"[devrun] proposition en attente : #{cr.id}")
+    print(f"[devrun] dev2      : dev2@test.local     / Test1234!  (2e développeur)")
+    print(f"[devrun] seconde carto : « {ent2.name} » (entité {ent2.id}, privée)")
+    print(f"[devrun] {simple.email} tient {len(deux)} rôle(s) : "
+          + ", ".join(r.name for r in deux))
+    print(f"[devrun] propositions en attente : #{cr.id}, #{cr3.id} (carto retouchée depuis)")
     print(f"[devrun] http://127.0.0.1:{PORT}/login")
 
 @app.route("/devrun/as/<email>")

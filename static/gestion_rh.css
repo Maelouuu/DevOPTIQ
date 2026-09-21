@@ -1584,16 +1584,136 @@ select {
 .grh-switch input { width: 15px; height: 15px; accent-color: var(--pg-accent); cursor: pointer; }
 .grh-switch input:disabled { cursor: default; }
 
-/* ── ③ Les propositions ─────────────────────────────────────────────────── */
-.grh-changes { display: flex; flex-direction: column; gap: 8px; }
-.grh-change {
-    display: flex; align-items: center; gap: 12px; padding: 11px 13px;
-    border: 1px solid var(--border); border-left: 3px solid #d97706; border-radius: 12px;
+/* ── ③ Les compétences : tout le monde × tous ses rôles ─────────────────────
+   La jauge est celle de la page Compétences (quatre pas, trait au requis,
+   pointillés tant que ce n'est pas évalué) : on lit les deux écrans pareil.
+   ⚠️ Les couleurs sont écrites ici, pas via `--pg-accent-soft` & co : ces
+   dérivés sont résolus sur `:root`, où l'accent vaut encore le gris. */
+.rhc-puces { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+.rhc-puce {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 7px 12px; cursor: pointer; font: inherit; font-size: 13px; font-weight: 600;
+    color: var(--ink-2); background: var(--card);
+    border: 1px solid var(--border); border-radius: 999px;
+    transition: border-color .14s, background .14s, color .14s;
 }
-.grh-change > i { color: #d97706; font-size: 14px; }
-.grh-change-id { flex: 1; display: flex; flex-direction: column; min-width: 0; }
-.grh-change-id b { font-size: 14px; }
-.grh-change-id span { font-size: 12px; color: var(--muted); }
+.rhc-puce b {
+    min-width: 22px; padding: 1px 7px; border-radius: 999px; text-align: center;
+    font-size: 12px; background: var(--card-2); color: var(--ink);
+}
+.rhc-puce:hover { border-color: #16a34a; }
+.rhc-puce.is-on { color: #fff; background: #16a34a; border-color: #16a34a; }
+.rhc-puce.is-on b { background: rgba(255, 255, 255, .22); color: #fff; }
+.rhc-puce--red.is-on   { background: #dc2626; border-color: #dc2626; }
+.rhc-puce--grey.is-on  { background: #64748b; border-color: #64748b; }
+.rhc-puce--green.is-on { background: #16a34a; border-color: #16a34a; }
+.rhc-puce .rhc-pt { width: 9px; height: 9px; border-radius: 3px; }
+.rhc-puce--red .rhc-pt   { background: #ef4444; }
+.rhc-puce--grey .rhc-pt  { background: transparent; box-shadow: inset 0 0 0 1.5px #94a3b8; }
+.rhc-puce--green .rhc-pt { background: #22c55e; }
+.rhc-puce.is-on .rhc-pt  { background: #fff; box-shadow: none; }
+
+/* La matrice défile dans les deux sens, en-têtes et noms collés : une case
+   ne veut rien dire sans le rôle au-dessus et la personne à gauche. */
+.rhc-scroll {
+    overflow: auto; max-height: min(68vh, 720px);
+    border: 1px solid var(--border); border-radius: 12px;
+}
+.rhc-t { border-collapse: separate; border-spacing: 0; min-width: 100%; }
+.rhc-t th, .rhc-t td { border-bottom: 1px solid var(--border); background: var(--card); }
+.rhc-t thead th { position: sticky; z-index: 2; background: var(--card-2); }
+.rhc-t1 th { top: 0; height: 36px; box-sizing: border-box; }
+.rhc-t2 th { top: 36px; }
+.rhc-coin {
+    left: 0; z-index: 4 !important; min-width: 210px; padding: 0 14px; text-align: left;
+    font-size: 12px; font-weight: 700; letter-spacing: .03em; text-transform: uppercase;
+    color: var(--muted); border-right: 1px solid var(--border);
+}
+.rhc-carto {
+    padding: 0 10px; text-align: left; white-space: nowrap;
+    font-size: 12px; font-weight: 700; color: #15803d;
+    border-left: 2px solid #bbf7d0;
+}
+.rhc-carto span { display: inline-flex; align-items: center; gap: 7px; }
+.rhc-role {
+    min-width: 118px; max-width: 150px; padding: 7px 10px; text-align: left; vertical-align: bottom;
+    font-size: 12.5px; font-weight: 700; color: var(--ink-2);
+}
+.rhc-role span {
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+    overflow: hidden; line-height: 1.3;
+}
+/* ⚠️ Le `flex` vit dans un enfant : posé sur la cellule elle-même, il lui
+   retire son rôle de cellule de tableau et la ligne perd sa hauteur. */
+.rhc-pers {
+    position: sticky; left: 0; z-index: 1;
+    padding: 8px 14px; text-align: left; font-weight: 600; font-size: 13.5px;
+    border-right: 1px solid var(--border);
+}
+.rhc-pers-in { display: flex; align-items: center; gap: 10px; max-width: 240px; }
+.rhc-av {
+    flex: none; width: 30px; height: 30px; border-radius: 50%;
+    display: grid; place-items: center; font-size: 11.5px; font-weight: 800;
+    color: hsl(var(--h) 55% 30%); background: hsl(var(--h) 70% 90%);
+}
+.rhc-nom { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rhc-t tbody tr:hover th, .rhc-t tbody tr:hover td { background: #f7fdf9; }
+
+.rhc-c { padding: 5px 6px; vertical-align: middle; }
+.rhc-c--vide { text-align: center; }
+.rhc-rien { display: inline-block; width: 5px; height: 5px; border-radius: 50%; background: var(--border-strong, #cbd5e1); }
+.rhc-cel {
+    display: flex; flex-direction: column; gap: 6px;
+    padding: 7px 9px; border-radius: 9px; text-decoration: none; color: inherit;
+    border: 1px solid transparent; transition: border-color .14s, background .14s;
+}
+.rhc-cel:hover { border-color: #86efac; background: #fff; }
+.rhc-cel:focus-visible { outline: 2px solid #16a34a; outline-offset: 1px; }
+.rhc-pas { display: flex; gap: 3px; }
+.rhc-pas i {
+    position: relative; display: block; width: 18px; height: 11px; border-radius: 3px;
+    background: #eef2f7; box-shadow: inset 0 0 0 1px #cbd5e1;
+}
+.rhc-pas i.on { box-shadow: none; }
+.rhc-pas i.vide { background: transparent; box-shadow: none; border: 1px dashed #b6c2d2; box-sizing: border-box; }
+.rhc-pas i.cible::after {
+    content: ""; position: absolute; right: -3px; top: -4px; bottom: -4px;
+    width: 2px; border-radius: 2px; background: #334155;
+}
+.rhc-j--green  .rhc-pas i.on { background: #22c55e; }
+.rhc-j--orange .rhc-pas i.on { background: #f59e0b; }
+.rhc-j--red    .rhc-pas i.on { background: #ef4444; }
+.rhc-j--grey   .rhc-pas i.on { background: #94a3b8; }
+.rhc-cel-bas { display: flex; flex-wrap: wrap; gap: 4px 8px; }
+.rhc-m { font-size: 11.5px; font-weight: 700; white-space: nowrap; }
+.rhc-m i { margin-right: 4px; font-size: 10px; }
+.rhc-m--gap   { color: #b91c1c; }
+.rhc-m--todo  { color: #64748b; }
+.rhc-m--held  { color: #15803d; }
+.rhc-m--setup { color: #94a3b8; font-weight: 600; font-style: italic; }
+
+.rhc-ens {
+    min-width: 130px; padding: 8px 14px; text-align: left;
+    border-left: 1px solid var(--border);
+}
+.rhc-ens--tete {
+    font-size: 12px; font-weight: 700; letter-spacing: .03em; text-transform: uppercase;
+    color: var(--muted);
+}
+.rhc-cov { display: block; font-family: var(--pg-font-display, serif); font-size: 17px; font-weight: 700; color: var(--ink); }
+.rhc-cov small { font-size: 11px; margin-left: 1px; color: var(--muted); }
+.rhc-cov-barre { display: block; height: 5px; margin: 4px 0 3px; border-radius: 3px; background: #e2e8f0; overflow: hidden; }
+.rhc-cov-barre i { display: block; height: 100%; border-radius: 3px; background: linear-gradient(90deg, #4ade80, #16a34a); }
+.rhc-cov-sur { display: block; font-size: 11.5px; color: var(--muted); white-space: nowrap; }
+
+.rhc-leg { display: flex; flex-wrap: wrap; gap: 8px 18px; margin: 12px 2px 0; font-size: 12.5px; color: var(--muted); }
+.rhc-leg span { display: inline-flex; align-items: center; gap: 7px; }
+.rhc-pt { display: inline-block; width: 12px; height: 9px; border-radius: 3px; }
+.rhc-pt--green  { background: #22c55e; }
+.rhc-pt--orange { background: #f59e0b; }
+.rhc-pt--red    { background: #ef4444; }
+.rhc-pt--vide   { border: 1px dashed #94a3b8; box-sizing: border-box; }
+.rhc-trait { display: inline-block; width: 2px; height: 14px; border-radius: 2px; background: #334155; }
 
 /* ── États ──────────────────────────────────────────────────────────────── */
 .grh-empty, .grh-wait {
@@ -1724,4 +1844,281 @@ select {
 
 .grh-av--xs {
     width: 22px; height: 22px; font-size: 9.5px; border-radius: 7px;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Un rôle sur PLUSIEURS cartos, et un développeur PAR RÔLE
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* Le bouton qui ouvre « ce que ce rôle ouvre ». Il vit à côté de
+   l'interrupteur « ouvre la carto » : l'un règle la carto regardée, l'autre
+   les autres — on ne quitte plus la page pour ça. */
+.grh-role-maps {
+    display: inline-flex; align-items: center; gap: 7px;
+    padding: 6px 11px; border-radius: var(--r-btn, 9px);
+    border: 1px solid var(--border-strong, #cbd5e1); background: var(--card, #fff);
+    font: inherit; font-size: 12.5px; font-weight: 600; color: var(--ink-2, #334155);
+    cursor: pointer; white-space: nowrap;
+}
+.grh-role-maps:hover { border-color: var(--pg-accent); color: var(--pg-accent-deep); }
+.grh-role-maps i { font-size: 11px; color: var(--pg-accent); }
+
+/* La phrase qui explique la fenêtre, en tête de liste. */
+.grh-modal-hint {
+    margin: 0 0 10px; padding: 9px 11px; border-radius: 10px;
+    background: color-mix(in srgb, var(--pg-accent) 8%, #fff);
+    border: 1px solid color-mix(in srgb, var(--pg-accent) 22%, #fff);
+    font-size: 12.5px; line-height: 1.45; color: var(--ink-2, #334155);
+}
+
+/* Une carto : pleine = commune, creuse = privée. */
+.grh-map-dot {
+    width: 10px; height: 10px; border-radius: 3px; flex: none;
+    border: 2px solid var(--border-strong, #cbd5e1); background: transparent;
+}
+.grh-map-dot.is-shared { background: var(--pg-accent); border-color: var(--pg-accent); }
+
+/* ⚠️ Ce que cocher va FAIRE, dit avant le clic : rendre une carto commune, ou
+   restreindre une carto ouverte à tous. Ce n'est pas une erreur — c'est une
+   conséquence, d'où l'ambre et non le rouge. */
+.grh-row-warn { color: #b45309 !important; font-weight: 600; }
+
+/* La ligne d'un rôle dans la fiche d'une personne : elle porte maintenant DEUX
+   décisions — tient-il ce rôle, et qui l'y suit. */
+.grh-row--role {
+    flex-wrap: wrap; align-items: stretch; cursor: default;
+    padding: 7px 9px; gap: 8px;
+}
+.grh-row--role:hover { background: transparent; }
+.grh-row-main {
+    display: flex; align-items: center; gap: 11px; flex: 1 1 100%;
+    cursor: pointer; border-radius: 8px;
+}
+.grh-row-main:hover { background: var(--pg-accent-softer); }
+.grh-row-note {
+    flex: 1 1 100%; padding-left: 21px;
+    font-size: 11.5px; font-style: italic; color: var(--faint, #94a3b8);
+}
+.grh-devpick--row {
+    flex: 1 1 100%; margin-left: 21px; width: auto;
+    padding: 5px 9px; font-size: 12.5px;
+}
+/* Le menu dit sur QUOI porte le choix : sans ce titre, le même menu ouvert
+   depuis deux endroits ne se distingue pas. */
+.grh-devmenu-scope {
+    margin: 0; padding: 7px 11px 6px;
+    font-size: 11px; font-weight: 700; letter-spacing: .04em;
+    text-transform: uppercase; color: var(--muted, #64748b);
+    border-bottom: 1px solid var(--border, #e2e8f0);
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Le développeur de compétences : QUI, et SUR QUOI
+   ══════════════════════════════════════════════════════════════════════════
+   ⚠️ Le bouton portait un NOM SEUL : « Lou Vasseur » se lisait exactement
+   pareil que le développeur suive les trois rôles de la personne ou un seul.
+   Il porte donc sa PORTÉE sur une seconde ligne, et une portée PARTIELLE est
+   en AMBRE — ce n'est pas une erreur, c'est la nuance qu'on n'avait aucun
+   moyen de voir. */
+.grh-devpick-txt {
+    min-width: 0; display: flex; flex-direction: column; gap: 1px;
+}
+.grh-devpick-scope {
+    font-size: 12px; line-height: 1.25; color: var(--muted, #64748b);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.grh-devpick-scope.is-partial { color: #b45309; font-weight: 600; }
+.grh-devpick.is-partial {
+    border-left: 3px solid #f59e0b; padding-left: 8px;
+}
+
+/* La pastille d'un rôle SUIVI, dans la liste des personnes : on voyait les
+   rôles sans jamais voir lesquels ont un développeur. */
+.grh-chip--suivi {
+    background: color-mix(in srgb, var(--pg-accent) 12%, #ffffff);
+    border-color: color-mix(in srgb, var(--pg-accent) 28%, #ffffff);
+    color: var(--pg-accent-deep);
+    font-weight: 600;
+}
+.grh-chip--suivi i { font-size: 9.5px; opacity: .85; }
+
+/* Le panneau « qui accompagne cette personne » : UNE LIGNE PAR RÔLE, et
+   chaque ligne porte SON développeur. Changer celui d'un rôle ne touche pas
+   aux autres — la structure le dit avant que la phrase le dise. */
+.grh-devmenu--portee {
+    width: 420px; max-width: calc(100vw - 32px); max-height: 470px;
+    padding: 6px;
+}
+.grh-dr-regle {
+    display: flex; align-items: flex-start; gap: 7px;
+    margin: 8px 6px 6px; font-size: 12px; line-height: 1.45;
+    color: var(--ink-2, #334155);
+}
+.grh-dr-regle i { margin-top: 2px; font-size: 11px; color: var(--pg-accent); }
+.grh-dr-lignes {
+    display: flex; flex-direction: column; gap: 4px;
+    margin: 0 2px 8px;
+}
+.grh-dr-ligne {
+    border: 1px solid var(--border, #e2e8f0);
+    border-radius: 10px;
+    background: var(--card, #fff);
+    transition: border-color .15s, box-shadow .15s, background .3s;
+}
+.grh-dr-ligne.is-open {
+    border-color: color-mix(in srgb, var(--pg-accent) 45%, #ffffff);
+    box-shadow: 0 4px 14px rgba(15, 23, 42, .06);
+}
+/* Le rôle qu'on vient de régler s'allume un instant : on voit ce qui a
+   changé — et donc aussi ce qui n'a PAS changé. */
+.grh-dr-ligne.is-recent, .grh-dr-tous.is-recent {
+    background: color-mix(in srgb, var(--pg-accent) 10%, #ffffff);
+    border-color: var(--pg-accent);
+}
+.grh-dr-tete {
+    display: flex; align-items: center; gap: 10px;
+    width: 100%; padding: 8px 10px;
+    border: 0; background: none; font: inherit; text-align: left; cursor: pointer;
+    border-radius: 10px;
+}
+.grh-dr-tete:hover { background: var(--pg-accent-softer, #f6f8fb); }
+.grh-dr-role {
+    flex: 1; min-width: 0;
+    font-size: 13px; font-weight: 600; color: var(--ink, #0f172a);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.grh-dr-dev {
+    flex: none; display: inline-flex; align-items: center; gap: 6px;
+    max-width: 55%;
+    padding: 3px 8px 3px 4px;
+    border-radius: 99px;
+    background: color-mix(in srgb, var(--pg-accent) 10%, #ffffff);
+    font-size: 12px; font-weight: 600; color: var(--pg-accent-deep);
+}
+.grh-dr-dev > span:not(.grh-av):not(.grh-devpick-none) {
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.grh-dr-dev.is-empty {
+    background: var(--card-2, #f1f5f9); color: var(--muted, #64748b);
+    font-weight: 500; font-style: italic;
+}
+.grh-dr-dev i { font-size: 9.5px; opacity: .7; transition: transform .15s; }
+.grh-dr-ligne.is-open .grh-dr-dev i { transform: rotate(180deg); }
+.grh-dr-choix {
+    display: flex; flex-wrap: wrap; gap: 6px;
+    padding: 2px 10px 10px;
+}
+.grh-dr-opt {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 4px 10px 4px 4px;
+    border: 1px solid var(--border, #e2e8f0);
+    border-radius: 99px;
+    background: var(--card, #fff);
+    font: inherit; font-size: 12.5px; color: var(--ink, #0f172a); cursor: pointer;
+    transition: border-color .15s, background .15s;
+}
+.grh-dr-opt:hover { border-color: var(--pg-accent); }
+.grh-dr-opt.is-on {
+    border-color: var(--pg-accent);
+    background: color-mix(in srgb, var(--pg-accent) 12%, #ffffff);
+    font-weight: 600; color: var(--pg-accent-deep);
+}
+.grh-dr-opt .grh-devpick-none { width: 22px; height: 22px; }
+/* Le choix GLOBAL, à part : il dit ce qu'il fait (tous les rôles, y compris
+   ceux reçus plus tard) — c'est lui, et lui seul, qui remplace tout. */
+.grh-dr-tous {
+    margin: 2px 2px 0;
+    padding: 10px 0 2px;
+    border-top: 1px dashed var(--border-strong, #cbd5e1);
+    border-radius: 10px;
+    transition: background .3s;
+}
+.grh-dr-tous-t {
+    margin: 0 10px; font-size: 12px; font-weight: 700;
+    letter-spacing: .03em; text-transform: uppercase; color: var(--muted, #64748b);
+}
+.grh-dr-tous-d { margin: 2px 10px 8px; font-size: 11.5px; color: var(--muted, #64748b); }
+/* Ce qui manque pour pouvoir valider — posé LÀ où on va cliquer, pas en haut
+   du panneau. */
+.grh-devmenu-note {
+    margin: 4px 6px 6px; font-size: 11.5px; color: #b45309;
+}
+.grh-devmenu-item:disabled { opacity: .45; cursor: default; }
+.grh-devmenu-item:disabled:hover { background: none; }
+
+/* Le bilan de la fiche d'une personne : « lesquels sont suivis » ne se lisait
+   qu'en parcourant les dix-neuf lignes. */
+.grh-dev-bilan {
+    display: flex; flex-direction: column; gap: 3px;
+    margin: 0 0 10px; padding: 9px 12px;
+    background: var(--card-2, #f8fafc);
+    border: 1px solid var(--border, #e2e8f0);
+    border-left: 3px solid var(--border-strong, #cbd5e1);
+    border-radius: 10px;
+}
+.grh-dev-bilan.is-complet { border-left-color: var(--pg-accent); }
+.grh-dev-bilan b { font-size: 13px; color: var(--ink); }
+.grh-dev-bilan span { font-size: 11.5px; color: var(--muted, #64748b); }
+.grh-row--role.is-suivi {
+    background: color-mix(in srgb, var(--pg-accent) 5%, #ffffff);
+    border-radius: 10px;
+}
+.grh-row--role.is-suivi .grh-devpick--row {
+    border-color: color-mix(in srgb, var(--pg-accent) 32%, #ffffff);
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   ④ Ce que chaque palier ouvre
+   ══════════════════════════════════════════════════════════════════════════
+   Une MATRICE, pas une liste : on lit un droit en ligne et un statut en
+   colonne, et la comparaison entre paliers est l'information principale. Une
+   suite de cartes obligerait à la reconstruire de tête. */
+.grh-droits-wrap { overflow-x: auto; }
+.grh-droits { width: 100%; border-collapse: collapse; }
+.grh-droits th, .grh-droits td { padding: 9px 10px; }
+.grh-droits thead th {
+    font-size: 12px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: .04em; color: var(--muted, #64748b);
+    text-align: center; background: var(--card-2, #f8fafc);
+    border-bottom: 1px solid var(--border, #e2e8f0); white-space: nowrap;
+}
+.grh-droits thead th.is-locked { color: var(--pg-accent-deep); }
+.grh-droits tbody th {
+    text-align: left; font-weight: 600; font-size: 13.5px; color: var(--ink, #0f172a);
+    display: flex; flex-direction: column; gap: 2px;
+}
+/* ⚠️ Ce droit-ci ouvre la clé IA de l'entreprise : la ligne le dit, en
+   ambre — c'est une conséquence à peser, pas une erreur. */
+.grh-droits tbody th em {
+    font-style: normal; font-size: 11.5px; font-weight: 600; color: #b45309;
+}
+.grh-droits tbody tr { border-bottom: 1px solid var(--border, #e2e8f0); }
+.grh-droits tbody tr:last-child { border-bottom: none; }
+.grh-droits tbody tr:hover { background: var(--pg-accent-softer); }
+.grh-droits td { text-align: center; }
+.grh-droits td label { display: inline-flex; padding: 3px; cursor: pointer; }
+.grh-droits input { width: 17px; height: 17px; accent-color: var(--pg-accent); cursor: pointer; }
+.grh-droits input:disabled { cursor: default; }
+/* Une case qui s'écarte de l'origine se voit : sinon on ne sait plus ce qui a
+   été décidé ici et ce qui vient du produit. */
+.grh-droits td.a-change { position: relative; }
+.grh-droits td.a-change::after {
+    content: ''; position: absolute; top: 6px; right: 8px;
+    width: 5px; height: 5px; border-radius: 50%; background: var(--pg-accent);
+}
+.grh-droits-note {
+    margin: 12px 0 0; font-size: 12px; line-height: 1.5; color: var(--muted, #64748b);
+}
+.grh-droits-note i { color: var(--pg-accent); margin-right: 5px; }
+.grh-btn-ghost {
+    display: inline-flex; align-items: center; gap: 7px;
+    padding: 6px 12px; border-radius: var(--r-btn, 9px);
+    border: 1px solid var(--border-strong, #cbd5e1); background: var(--card, #fff);
+    font: inherit; font-size: 12.5px; font-weight: 600; color: var(--ink-2, #334155);
+    cursor: pointer;
+}
+.grh-btn-ghost:hover { border-color: var(--pg-accent); color: var(--pg-accent-deep); }
+
+@media (max-width: 720px) {
+    .grh-droits tbody th { min-width: 190px; }
 }

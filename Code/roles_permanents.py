@@ -111,3 +111,65 @@ def assurer_roles_permanents(entity_id):
     doit pas écrire tout seul dans une transaction qu'il ne maîtrise pas.
     """
     return [role_dev_competences(entity_id)] if entity_id is not None else []
+
+
+# Marqueur en BASE, comme la reprise des statuts : une instance qui redémarre,
+# se duplique ou se redéploie doit lire la même réponse.
+CLE_REPRISE_HORS_CARTE = "roles_hors_carte"
+
+
+def _bandes(entity):
+    """Les libellés des bandes de la carto ENREGISTRÉE, ou None si illisible."""
+    import json
+    try:
+        d = json.loads(entity.optiqcarto_data or "")
+    except (TypeError, ValueError):
+        return None
+    if isinstance(d, dict) and d.get("format") == "optiqcarto/entity":
+        d = d.get("diagram")
+    if not isinstance(d, dict):
+        return None
+    return {(b.get("label") or "").strip() for b in d.get("bands") or [] if isinstance(b, dict)}
+
+
+def reprendre_roles_hors_carte(force=False, entity_ids=None):
+    """Marque `hors_carte` les rôles DÉJÀ en base qui ne sont pas une bande.
+
+    ⚠️ `_sync_carto_to_db` effaçait, à chaque enregistrement de la carte, tout
+    rôle absent de ses bandes — y compris ceux créés depuis la page RH, désignés
+    garants ou importés, avec leurs titulaires et leurs liens aux tâches. Le
+    code les crée désormais marqués ; ceux qui existent déjà resteraient
+    exposés sans cette reprise.
+    On les reconnaît à ce qu'ils manquent aux bandes de la carto enregistrée :
+    la synchro supprime aussitôt le rôle d'une bande retirée, donc un rôle
+    présent en base et absent des bandes n'a jamais été une bande. Une carto
+    sans diagramme lisible est laissée telle quelle — on ne devine pas.
+
+    Une seule fois : ensuite, un rôle né d'une bande suit la règle ordinaire.
+    `entity_ids` restreint la reprise (les tests ne touchent qu'à leurs cartos).
+    Renvoie le nombre de rôles marqués (0 si la reprise a déjà eu lieu).
+    """
+    from Code.models.models import AppSetting, Entity
+    if not force:
+        try:
+            if db.session.get(AppSetting, CLE_REPRISE_HORS_CARTE) is not None:
+                return 0
+        except Exception:
+            db.session.rollback()
+            return 0
+    marques = 0
+    q = Entity.query.filter(Entity.optiqcarto_data.isnot(None))
+    if entity_ids is not None:
+        q = q.filter(Entity.id.in_(entity_ids))
+    for e in q.all():
+        bandes = _bandes(e)
+        if bandes is None:
+            continue
+        for r in Role.query.filter_by(entity_id=e.id).all():
+            if not r.hors_carte and r.name not in bandes and not est_permanent(r.name):
+                r.hors_carte = True
+                marques += 1
+    if db.session.get(AppSetting, CLE_REPRISE_HORS_CARTE) is None:
+        db.session.add(AppSetting(key=CLE_REPRISE_HORS_CARTE, value="1"))
+    db.session.commit()
+    return marques

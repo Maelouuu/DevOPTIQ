@@ -84,6 +84,16 @@ PAGE_LABELS = {
     "test_69_panel_internals":           "Panel de Tests — Fonctions Internes (run, patches, XML)",
     "test_70_competency_color":          "Couleur de Synthèse des Compétences",
     "test_71_licensing":                 "Licence OptiqFluent (Signature & Expiration)",
+    "test_72_deploiement":                "Hub — Fiabilité des Infos de Déploiement",
+    "test_73_role_permanent":             "Développeur de Compétences — Affectation RH",
+    "test_74_page_rh":                    "Page RH Refondue (Appel Unique)",
+    "test_75_entite_active_partagee":     "Entité Active — Carto Partagée (Persistance)",
+    "test_76_nav_fleches":                "Navigation — Flèches de Défilement",
+    "test_77_competences_deux_notes":     "Compétences — Deux Notes & Plan de Formation",
+    "test_78_i18n_couverture":            "Traduction FR/EN — Couverture Complète",
+    "test_79_carto_consultation":         "Cartographie — Mode Consultation (Palier user)",
+    "test_80_rh_acces_et_dev":            "Gestion RH — Accès Multi-Cartos & Développeur par Rôle",
+    "test_81_droits_reglables":           "Gestion RH — Droits par Palier (Réglables)",
 }
 
 

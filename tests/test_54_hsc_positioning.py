@@ -113,6 +113,50 @@ class TestHscDescriptors:
             _cleanup_descriptors(app, name)
 
 
+class _FakeMessage:
+    def __init__(self, content):
+        self.content = content
+
+
+class _FakeChoice:
+    def __init__(self, content):
+        self.message = _FakeMessage(content)
+
+
+class _FakeCompletion:
+    def __init__(self, content):
+        self.choices = [_FakeChoice(content)]
+
+
+class _FakeChatCompletions:
+    def __init__(self, content=None, raise_exc=None):
+        self._content = content
+        self._raise_exc = raise_exc
+
+    def create(self, **kwargs):
+        if self._raise_exc is not None:
+            raise self._raise_exc
+        return _FakeCompletion(self._content)
+
+
+class _FakeChat:
+    def __init__(self, content=None, raise_exc=None):
+        self.completions = _FakeChatCompletions(content, raise_exc)
+
+
+class _FakeOpenAIClient:
+    def __init__(self, content=None, raise_exc=None):
+        self.chat = _FakeChat(content, raise_exc)
+
+
+def _mock_openai(monkeypatch, content=None, raise_exc=None):
+    fake_client = _FakeOpenAIClient(content=content, raise_exc=raise_exc)
+    monkeypatch.setattr(
+        "Code.routes.hsc_positioning.openai_client_or_none",
+        lambda: (fake_client, None),
+    )
+
+
 class TestHscPosition:
 
     def test_position_missing_name_returns_400(self, auth_client):
@@ -143,3 +187,76 @@ class TestHscPosition:
             content_type="application/json",
         )
         assert r.status_code == 200
+
+    def test_position_ai_success_returns_proposal(self, auth_client, monkeypatch):
+        with auth_client.session_transaction() as sess:
+            sess["lang"] = "fr"
+        content = json.dumps({
+            "probable_level": 3,
+            "confidence": "high",
+            "evidence_summary": "Planifie et ajuste seul.",
+            "missing_evidence_for_next_level": "Former d'autres personnes.",
+            "development_focus": "Coaching d'équipe.",
+        })
+        _mock_openai(monkeypatch, content=content)
+        r = auth_client.post(
+            "/hsc/position",
+            data=json.dumps({"hsc_name": "Auto-organisation", "responses": ["Je planifie ma semaine seul."]}),
+            content_type="application/json",
+        )
+        assert r.status_code == 200
+        data = r.get_json()
+        assert data["source"] == "AI"
+        proposal = data["proposal"]
+        assert proposal["hsc_name"] == "Auto-organisation"
+        assert proposal["probable_level"] == 3
+        assert proposal["probable_label"] == "Maîtrise"
+        assert proposal["confidence"] == "high"
+        assert proposal["evidence_summary"] == "Planifie et ajuste seul."
+        assert proposal["missing_evidence_for_next_level"] == "Former d'autres personnes."
+        assert proposal["development_focus"] == "Coaching d'équipe."
+
+    def test_position_ai_uses_examples_and_defaults_confidence(self, auth_client, monkeypatch):
+        """Sans 'confidence' dans la réponse IA → repli 'medium' ; le champ 'examples' est accepté."""
+        content = json.dumps({"probable_level": 1})
+        _mock_openai(monkeypatch, content=content)
+        r = auth_client.post(
+            "/hsc/position",
+            data=json.dumps({
+                "hsc_name": "Coopération",
+                "responses": ["Travaille seul le plus souvent."],
+                "examples": "N'a jamais coanimé de réunion.",
+            }),
+            content_type="application/json",
+        )
+        assert r.status_code == 200
+        data = r.get_json()
+        assert data["proposal"]["confidence"] == "medium"
+        assert data["proposal"]["evidence_summary"] == ""
+
+    def test_position_ai_invalid_level_returns_none_level(self, auth_client, monkeypatch):
+        """Un 'probable_level' hors 1-4 renvoyé par l'IA est neutralisé (pas de niveau fantaisiste)."""
+        content = json.dumps({"probable_level": 99, "confidence": "low"})
+        _mock_openai(monkeypatch, content=content)
+        r = auth_client.post(
+            "/hsc/position",
+            data=json.dumps({"hsc_name": "Rigueur", "responses": ["x"]}),
+            content_type="application/json",
+        )
+        assert r.status_code == 200
+        proposal = r.get_json()["proposal"]
+        assert proposal["probable_level"] is None
+        assert proposal["probable_label"] is None
+
+    def test_position_ai_exception_returns_error_source(self, auth_client, monkeypatch):
+        _mock_openai(monkeypatch, raise_exc=RuntimeError("boom"))
+        r = auth_client.post(
+            "/hsc/position",
+            data=json.dumps({"hsc_name": "Auto-organisation", "responses": ["x"]}),
+            content_type="application/json",
+        )
+        assert r.status_code == 200
+        data = r.get_json()
+        assert data["proposal"] is None
+        assert data["source"] == "error"
+        assert "boom" in data["error"]

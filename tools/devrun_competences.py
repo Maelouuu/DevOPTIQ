@@ -214,6 +214,36 @@ with app.app_context():
     except Exception as e:                  # le module bouge, l'outil ne doit pas bloquer
         print("[devrun] technicite sautee : %s" % e)
 
+    # Une SECONDE carto : le tableau global de la page RH réunit toutes les
+    # cartos de l'entreprise, groupées — avec une seule, on ne voit jamais
+    # qu'il le fait. Trois cas : tenu (Lina), en écart (Theo), pas évalué (Noe).
+    atelier = Entity(name="Atelier", description="seconde carto", owner_id=dev.id)
+    db.session.add(atelier)
+    db.session.commit()
+    regleur = Role(name="Regleur", entity_id=atelier.id)
+    db.session.add(regleur)
+    db.session.commit()
+    notes_atelier = {lina.id: (3, 2), theo.id: (1, 2)}
+    for u in (lina, theo, noe):
+        db.session.add(UserRole(user_id=u.id, role_id=regleur.id, manager_id=dev.id))
+    for k, (nom, sortie, requis) in enumerate((("Regler la presse", "Premiere piece bonne", 2),
+                                              ("Changer la serie", "Changement en moins de 30 min", 2))):
+        act = Activities(name=nom, entity_id=atelier.id, shape_id="at-%d" % k)
+        db.session.add(act)
+        db.session.commit()
+        db.session.execute(activity_roles.insert().values(
+            activity_id=act.id, role_id=regleur.id, status="Garant", required_mastery_level=requis))
+        d = Data(entity_id=atelier.id, name=sortie, type="flux", producer_activity_id=act.id,
+                 semantic_nature="RESULT", qualification_source="MANUAL", qualification_updated_at=now)
+        db.session.add(d)
+        db.session.commit()
+        for uid, niveaux in notes_atelier.items():
+            db.session.add(CompetencyEvaluation(
+                user_id=uid, activity_id=act.id, item_id=d.id, item_type="activity_results",
+                eval_number="2", note="", mastery_level=niveaux[k], evaluated_at=now,
+                evaluator_user_id=dev.id))
+    db.session.commit()
+
     print("[devrun] base   : %s" % db_path)
     print("[devrun] dev    : dev@test.local / Test1234!  (developpeur de competences)")
     print("[devrun] collab : Noe (evalue), Lina, Theo")
