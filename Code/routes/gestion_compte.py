@@ -22,9 +22,101 @@ _can_create_accounts = can_create_accounts
 _can_edit_account = can_edit_account
 
 
+def _veut_json():
+    """La fiche envoie en arrière-plan et le dit (`Accept: application/json`).
+
+    ⚠️ Un envoi classique rechargeait la page sur la moindre erreur : un e-mail
+    déjà pris, et tout ce qu'on venait de saisir était perdu. La fiche reste
+    désormais ouverte et montre l'erreur SOUS le champ fautif. Le retour par
+    redirection est gardé pour tout autre appelant.
+    """
+    return 'application/json' in (request.headers.get('Accept') or '')
+
+
+# Le champ que chaque refus désigne : c'est sous lui que la fiche l'écrit.
+_CHAMP_EN_CAUSE = {
+    'error_missing_name': 'first_name',
+    'error_missing_email': 'email',
+    'error_email_exists': 'email',
+    'error_missing_password': 'password',
+    'error_invalid_age': 'age',
+    'error_status_too_high': 'status',
+    'error_role_unknown': 'roles',
+    'error_forbidden_roles': 'roles',
+}
+
+
+def _fin(code, ok=False, http=400):
+    if _veut_json():
+        return jsonify({'ok': ok, 'code': code,
+                        'champ': None if ok else _CHAMP_EN_CAUSE.get(code)}), (200 if ok else http)
+    return redirect(url_for('gestion_compte.list_users', msg=code))
+
+
 def _forbidden(msg_key):
     """Refus sur une soumission de formulaire : retour à la liste avec message."""
+    if _veut_json():
+        return jsonify({'ok': False, 'code': msg_key, 'champ': None}), 403
     return redirect(url_for('gestion_compte.list_users', tab='list-tab', msg=msg_key))
+
+
+def _peut_gerer_roles(moi):
+    """Donner ou retirer un rôle ouvre ou ferme des cartos : c'est le travail
+    de qui règle la page RH, pas de quiconque modifie son propre compte."""
+    from Code.permissions import can_access_rh
+    return bool(moi and (_is_admin(moi) or can_access_rh(moi)))
+
+
+def _ids_de(form, cle):
+    ids = []
+    for brut in form.getlist(cle):
+        try:
+            ids.append(int(brut))
+        except (TypeError, ValueError):
+            continue
+    return ids
+
+
+def _appliquer_roles(moi, user, ajout, retrait):
+    """Ajoute et retire des rôles PAR PAIRE (compte, rôle). Renvoie un code
+    d'erreur, ou None.
+
+    ⚠️ Jamais « remplacer les rôles de la personne par ceux du formulaire ».
+    L'ancienne fiche ne portait qu'UN rôle, pris parmi ceux de la carto
+    active : pour quelqu'un qui en tenait un sur une autre carto, corriger son
+    nom renvoyait un rôle vide — et son rôle était SUPPRIMÉ, avec l'accès à la
+    carto qu'il ouvrait. Seul ce que la fiche nomme bouge ; le reste est
+    intact, y compris le développeur de compétences posé sur chaque rôle.
+    """
+    if not ajout and not retrait:
+        return None
+    if not _peut_gerer_roles(moi):
+        return 'error_forbidden_roles'
+    # Un administrateur a tous les droits ; les autres n'attribuent que les
+    # rôles des cartos qu'ils ouvrent (un rôle ouvre une carto : on ne donne
+    # pas accès à ce qu'on ne voit pas soi-même).
+    admin = _is_admin(moi)
+    ouvrables = set() if admin else {e.id for e in Entity.accessible(moi.id)}
+
+    def autorise(role):
+        if role is None:
+            return False
+        return admin or role.entity_id in ouvrables
+
+    for rid in dict.fromkeys(ajout):
+        role = db.session.get(Role, rid)
+        if not autorise(role):
+            return 'error_role_unknown'
+        if not UserRole.query.filter_by(user_id=user.id, role_id=rid).first():
+            db.session.add(UserRole(user_id=user.id, role_id=rid))
+    for rid in dict.fromkeys(retrait):
+        if rid in ajout:
+            continue
+        role = db.session.get(Role, rid)
+        if not autorise(role):
+            return 'error_role_unknown'
+        UserRole.query.filter_by(user_id=user.id, role_id=rid).delete()
+    return None
 
 def _famille(statut):
     """Le palier d'un statut écrit en clair : le libellé varie d'une instance
@@ -54,21 +146,45 @@ def list_users():
         # dès qu'une entité était sélectionnée).
         users = User.query.order_by(User.first_name, User.last_name).all()
 
-        # Les rôles de chacun en DEUX requêtes : une par utilisateur faisait
+        # Les rôles de chacun en TROIS requêtes : une par utilisateur faisait
         # deux allers en base par ligne de la liste.
-        noms = {r.id: r.name for r in Role.query.all()}
+        from Code.role_i18n import nom_affiche
+        tous_roles = {r.id: r for r in Role.query.all()}
+        cartos = {e.id: e.name for e in Entity.query.all()}
         par_user = {}
-        pour_le_role = {}
+        detail = {}
         for ur in UserRole.query.all():
-            if ur.role_id in noms:
-                par_user.setdefault(ur.user_id, []).append(noms[ur.role_id])
-                pour_le_role.setdefault(ur.user_id, []).append(ur.role_id)
+            r = tous_roles.get(ur.role_id)
+            if r is None:
+                continue
+            par_user.setdefault(ur.user_id, []).append(r.name)
+            # La fiche montre chaque rôle AVEC sa carto : deux cartos ont
+            # souvent un rôle du même nom.
+            detail.setdefault(ur.user_id, []).append({
+                'id': r.id, 'name': nom_affiche(r),
+                'carto_id': r.entity_id, 'carto': cartos.get(r.entity_id) or '—',
+            })
         users_with_roles = [{'user': u, 'roles': sorted(par_user.get(u.id, [])),
-                             'role_ids': pour_le_role.get(u.id, []),
+                             'roles_detail': sorted(detail.get(u.id, []),
+                                                    key=lambda x: (x['carto'].lower(),
+                                                                   x['name'].lower())),
                              'famille': _famille(u.status)} for u in users]
 
         familles = {f: sum(1 for x in users_with_roles if x['famille'] == f)
                     for f in ('admin', 'coordinateur', 'champion', 'user')}
+
+        # Ce que la fiche peut attribuer : les rôles des cartos que CE compte
+        # ouvre, rangés par carto.
+        from Code.permissions import niveau
+        catalogue = []
+        if me is not None:
+            for e in sorted(Entity.accessible(me.id), key=lambda x: (x.name or '').lower()):
+                siens = sorted((r for r in tous_roles.values() if r.entity_id == e.id),
+                               key=lambda r: nom_affiche(r).lower())
+                if siens:
+                    catalogue.append({'carto_id': e.id, 'carto': e.name,
+                                      'roles': [{'id': r.id, 'name': nom_affiche(r)}
+                                                for r in siens]})
         return render_template(
             'gestion_compte_new.html',
             roles=roles,
@@ -78,6 +194,9 @@ def list_users():
             is_admin=_is_admin(me),
             can_create_accounts=_can_create_accounts(me),
             current_user_id=(me.id if me else None),
+            catalogue_roles=catalogue,
+            peut_gerer_roles=_peut_gerer_roles(me),
+            mon_niveau=niveau(me) if me else -1,
         )
 
     except Exception:
@@ -92,6 +211,7 @@ def list_users():
             is_admin=_is_admin(me),
             can_create_accounts=_can_create_accounts(me),
             current_user_id=(me.id if me else None),
+            catalogue_roles=[], peut_gerer_roles=False, mon_niveau=-1,
         )
 
 
@@ -160,30 +280,35 @@ def create_user():
 
     # Validation des champs obligatoires
     if not first_name or not last_name:
-        return redirect(url_for('gestion_compte.list_users', msg='error_missing_name'))
+        return _fin('error_missing_name')
     if not email:
-        return redirect(url_for('gestion_compte.list_users', msg='error_missing_email'))
+        return _fin('error_missing_email')
     if not password or len(password) < 6:
-        return redirect(url_for('gestion_compte.list_users', msg='error_missing_password'))
+        return _fin('error_missing_password')
     # Rôle FACULTATIF : un compte peut exister sans rôle (ex. premier admin
     # avant que les rôles de l'entité soient créés).
     if User.query.filter_by(email=email).first():
-        return redirect(url_for('gestion_compte.list_users', msg='error_email_exists'))
+        return _fin('error_email_exists')
 
     # ⚠️ On ne crée pas AU-DESSUS de soi : sans ce contrôle, un compte
     # autorisé à créer des comptes se fabriquait un administrateur — et se
     # donnait par la bande des droits qu'il n'a pas. Le masquage du champ
     # dans la page n'y suffit pas, il ne coûte rien de le contourner.
     from Code.permissions import niveau, niveau_status
-    if niveau_status(status) > niveau(_current_user()):
-        return redirect(url_for('gestion_compte.list_users', msg='error_status_too_high'))
+    moi = _current_user()
+    if niveau_status(status) > niveau(moi):
+        return _fin('error_status_too_high', http=403)
 
     try:
-        role_id = int(role_id_raw) if role_id_raw else None
+        age = int(age_raw) if age_raw else None
     except ValueError:
-        role_id = None
+        return _fin('error_invalid_age')
 
-    age = int(age_raw) if age_raw else None
+    # Les rôles de départ : la fiche en envoie plusieurs (`roles_ajout`) ;
+    # `role_id` reste compris pour qui envoie encore l'ancien formulaire.
+    ajout = _ids_de(request.form, 'roles_ajout')
+    if role_id_raw:
+        ajout += _ids_de(request.form, 'role_id')
 
     active_entity_id = Entity.get_active_id()
     user = User(
@@ -197,13 +322,15 @@ def create_user():
         entity_id=active_entity_id
     )
     db.session.add(user)
+    db.session.flush()
+    erreur = _appliquer_roles(moi, user, ajout, [])
+    if erreur:
+        # Rien n'est créé à moitié : un compte sans les rôles demandés
+        # laisserait croire que tout est en place.
+        db.session.rollback()
+        return _fin(erreur, http=403 if erreur == 'error_forbidden_roles' else 400)
     db.session.commit()
-
-    if role_id:
-        db.session.add(UserRole(user_id=user.id, role_id=role_id))
-        db.session.commit()
-
-    return redirect(url_for('gestion_compte.list_users', msg='created'))
+    return _fin('created', ok=True)
 
 @gestion_compte_bp.route('/delete/<int:user_id>', methods=['POST'])
 def delete_user(user_id):
@@ -259,15 +386,16 @@ def update_user(user_id):
 
     if request.method == 'POST':
         form = request.form
+        moi = _current_user()
         prenom = (form.get('first_name') or '').strip()
         nom    = (form.get('last_name')  or '').strip()
         email  = (form.get('email')      or '').strip()
         if not prenom or not nom:
-            return redirect(url_for('gestion_compte.list_users', msg='error_missing_name'))
+            return _fin('error_missing_name')
         if not email:
-            return redirect(url_for('gestion_compte.list_users', msg='error_missing_email'))
+            return _fin('error_missing_email')
         if User.query.filter(User.email == email, User.id != user.id).first():
-            return redirect(url_for('gestion_compte.list_users', msg='error_email_exists'))
+            return _fin('error_email_exists')
 
         # Un champ « âge » laissé vide arrive comme '' : tel quel dans une
         # colonne entière, PostgreSQL rejette la requête et TOUTE modification
@@ -276,7 +404,11 @@ def update_user(user_id):
         try:
             age = int(age_brut) if age_brut else None
         except ValueError:
-            return redirect(url_for('gestion_compte.list_users', msg='error_invalid_age'))
+            return _fin('error_invalid_age')
+
+        new_password = form.get('password', '').strip()
+        if new_password and len(new_password) < 6:
+            return _fin('error_missing_password')
 
         user.first_name = prenom
         user.last_name = nom
@@ -284,34 +416,30 @@ def update_user(user_id):
         user.age = age
         # Seul un administrateur change un statut : sinon n'importe qui
         # s'auto-promeut depuis l'édition de son propre compte.
-        if _is_admin():
+        # ⚠️ Et pas le SIEN : un administrateur qui se retire son palier perd
+        # l'écran depuis lequel il le remettrait — la porte se refermerait de
+        # l'intérieur. C'est un autre administrateur qui le fait.
+        if _is_admin(moi) and moi.id != user.id and form.get('status'):
             # La colonne fait 20 caractères : un libellé plus long serait tronqué
             # par la base (ou refusé), avec des droits inexpliqués à la clé.
-            statut = (form.get('status') or user.status or 'user').strip()
-            user.status = statut[:20]
+            user.status = form.get('status').strip()[:20]
 
-        new_password = form.get('password', '').strip()
         if new_password:
             new_hash = hash_password(new_password)
             user.password = new_hash
             flag_modified(user, 'password')  # force SQLAlchemy à inclure password dans l'UPDATE
 
-        # Mise à jour du rôle — FACULTATIF : vide = « aucun rôle » (le rôle
-        # existant est retiré). Exiger un rôle empêchait p.ex. de passer un
-        # compte en administrateur avant la création des rôles de l'entité.
-        new_role_raw = (form.get('role_id') or '').strip()
-        user_role = UserRole.query.filter_by(user_id=user.id).first()
-        if new_role_raw:
-            try:
-                new_role_id = int(new_role_raw)
-            except ValueError:
-                return redirect(url_for('gestion_compte.list_users', msg='error_missing_role'))
-            if user_role:
-                user_role.role_id = new_role_id
-            else:
-                db.session.add(UserRole(user_id=user.id, role_id=new_role_id))
-        elif user_role:
-            db.session.delete(user_role)
+        # Les rôles bougent PAR PAIRE, et seulement ceux que la fiche nomme.
+        # `role_id` (ancien formulaire) ne fait plus qu'AJOUTER : vide, il ne
+        # retire plus rien — c'était la porte par laquelle un simple
+        # « Enregistrer » effaçait un rôle tenu sur une autre carto.
+        ajout = _ids_de(form, 'roles_ajout')
+        if (form.get('role_id') or '').strip():
+            ajout += _ids_de(form, 'role_id')
+        erreur = _appliquer_roles(moi, user, ajout, _ids_de(form, 'roles_retrait'))
+        if erreur:
+            db.session.rollback()
+            return _fin(erreur, http=403 if erreur == 'error_forbidden_roles' else 400)
 
         db.session.add(user)
         try:
@@ -321,8 +449,8 @@ def update_user(user_id):
             db.session.rollback()
             import traceback
             traceback.print_exc()
-            return redirect(url_for('gestion_compte.list_users', msg='error_update'))
-        return redirect(url_for('gestion_compte.list_users', msg='updated'))
+            return _fin('error_update', http=500)
+        return _fin('updated', ok=True)
 
     # La modification se fait dans la liste, pas sur une page à part : créer
     # et modifier un compte posent les mêmes questions, elles méritaient le

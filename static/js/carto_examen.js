@@ -12,7 +12,8 @@
    bougé depuis le dépôt, le détail le dit AVANT le clic (`since`).
 
    Routes : /cartography/api/changes/a_examiner, /api/changes/<id>,
-            /api/changes/<id>/approve|reject, /api/changes/<id>/apercu/<quel>.svg
+            /api/changes/<id>/approve|reject ; la comparaison avant / après
+            vient de static/js/carto_comparaison.js.
    ══════════════════════════════════════════════════════════════════════════ */
 
 (function () {
@@ -52,6 +53,7 @@
     detail: null,       // son détail (résumé, écart depuis le dépôt…)
     recharger: false,   // la carto AFFICHÉE a changé : recharger à la fermeture
     occupe: false,
+    cmp: null,          // la comparaison avant / après montée dans le détail
   };
 
   /* ── Ouvrir, fermer ──────────────────────────────────────────────────── */
@@ -83,6 +85,7 @@
     const fen = $('#cex');
     if (!fen || fen.hidden) return;
     fen.hidden = true;
+    demonter();
     document.body.classList.remove('cex-ouverte');
     // La carto affichée derrière la fenêtre n'est plus la bonne : la laisser
     // telle quelle, c'est montrer une version qui n'existe plus.
@@ -134,6 +137,7 @@
     S.choisi = id;
     rendreListe();
     const zone = $('#cex-detail');
+    demonter();
     zone.innerHTML = attente();
     try {
       const rep = await fetch(`/cartography/api/changes/${id}`);
@@ -141,9 +145,10 @@
       if (!rep.ok) throw new Error(r.error || '');
       if (S.choisi !== id) return;      // on a cliqué ailleurs entre-temps
       S.detail = r;
+      demonter();
       zone.innerHTML = detailHtml(r);
       zone.scrollTop = 0;
-      brancherImages(zone);
+      monterComparaison(r);
     } catch (_) {
       if (S.choisi === id) zone.innerHTML = `<p class="cex-err">${esc(L('err'))}</p>`;
     }
@@ -174,15 +179,6 @@
   }
 
   function detailHtml(r) {
-    const image = (quel, libelle) => `
-      <figure class="cex-ba-fig" data-quel="${quel}">
-        <figcaption>${esc(libelle)}</figcaption>
-        <button type="button" class="cex-ba-shot" data-loupe="${quel}" title="${esc(L('agrandir'))}">
-          <img src="/cartography/api/changes/${r.id}/apercu/${quel}.svg" alt="${esc(libelle)}">
-          <span class="cex-ba-zoom"><i class="fa-solid fa-up-right-and-down-left-from-center"></i></span>
-        </button>
-      </figure>`;
-
     return `
       <div class="cex-d-tete">
         <span class="cex-chip"><i class="fa-solid fa-diagram-project"></i>${esc(r.entity_name || '—')}</span>
@@ -205,16 +201,7 @@
         </div>` : ''}
 
       <h5 class="cex-h">${esc(L('image'))}</h5>
-      <div class="cex-ba">
-        ${image('avant', L('avant'))}
-        <i class="fa-solid fa-arrow-right cex-ba-fleche"></i>
-        ${image('apres', L('apres'))}
-      </div>
-      <p class="cex-leg">
-        <span><b class="cex-pt cex-pt--del"></b>${esc(L('leg_retire'))}</span>
-        <span><b class="cex-pt cex-pt--add"></b>${esc(L('leg_ajoute'))}</span>
-        <span><b class="cex-pt cex-pt--chg"></b>${esc(L('leg_change'))}</span>
-      </p>
+      <div class="cex-cmp" id="cex-cmp"></div>
 
       <h5 class="cex-h">${esc(L('resume'))}</h5>
       ${resumeHtml(r.summary)}
@@ -222,8 +209,9 @@
       ${r.can_review ? `
         <div class="cex-decision">
           <h5 class="cex-h">${esc(L('decision'))}</h5>
-          <label class="cex-lab" for="cex-comment">${esc(L('commentaire'))}</label>
+          <label class="cex-lab" for="cex-comment">${esc(F('commentaire', { nom: r.author }))}</label>
           <textarea id="cex-comment" rows="2" placeholder="${esc(L('commentaire_ph'))}"></textarea>
+          <small class="cex-aide">${esc(L('commentaire_aide'))}</small>
           <div class="cex-actions">
             <button type="button" class="cex-btn cex-btn--non" data-trancher="reject">
               <i class="fa-solid fa-xmark"></i>${esc(L('refuser'))}</button>
@@ -233,45 +221,23 @@
         </div>` : ''}`;
   }
 
-  // Une proposition déposée avant qu'on garde « ce que l'auteur avait sous
-  // les yeux » n'a pas d'AVANT : on retire la vignette plutôt que d'afficher
-  // une image cassée.
-  function brancherImages(zone) {
-    zone.querySelectorAll('.cex-ba-fig img').forEach((img) => {
-      img.addEventListener('error', () => {
-        const fig = img.closest('.cex-ba-fig');
-        if (fig) fig.remove();
-        zone.querySelector('.cex-ba')?.classList.add('is-une');
-      }, { once: true });
+  /* ── Avant / après : les vraies cartos (static/js/carto_comparaison.js) ── */
+
+  function monterComparaison(r) {
+    const hote = $('#cex-cmp');
+    if (!hote || !window.CartoComparaison) return;
+    S.cmp = window.CartoComparaison.monter(hote, {
+      id: r.id,
+      marques: r.marques,
+      libelles: {
+        avant: L('avant'), apres: L('apres'), agrandir: L('agrandir'), fermer: L('fermer'),
+        leg_retire: L('leg_retire'), leg_ajoute: L('leg_ajoute'), leg_change: L('leg_change'),
+      },
     });
   }
 
-  /* ── Voir en grand : la VRAIE carto, pas la vignette agrandie ────────── */
-
-  // Les deux vignettes sont des SVG reconstruits, faits pour COMPARER. En
-  // grand, on charge le viewer d'OptiqCarto, qui rend ce que rend l'éditeur.
-  function agrandir(id, quel) {
-    document.getElementById('cex-loupe')?.remove();
-    const ov = document.createElement('div');
-    ov.id = 'cex-loupe';
-    ov.className = 'cex-loupe';
-    const autre = quel === 'avant' ? 'apres' : 'avant';
-    ov.innerHTML = `
-      <div class="cex-loupe-barre">
-        <span class="cex-loupe-titre">${esc(L(quel))}</span>
-        <button type="button" class="cex-loupe-bascule" data-loupe-autre="${autre}">
-          <i class="fa-solid fa-right-left"></i>${esc(L(autre))}</button>
-        <button type="button" class="cex-loupe-x" data-loupe-fermer aria-label="${esc(L('fermer'))}">
-          <i class="fa-solid fa-xmark"></i></button>
-      </div>
-      <iframe class="cex-loupe-vue" title="${esc(L('image'))}"
-              src="/cartography/changes/${id}/apercu/${quel}"></iframe>`;
-    document.body.appendChild(ov);
-    ov.addEventListener('click', (e) => {
-      if (e.target === ov || e.target.closest('[data-loupe-fermer]')) ov.remove();
-      const b = e.target.closest('[data-loupe-autre]');
-      if (b) agrandir(id, b.dataset.loupeAutre);
-    });
+  function demonter() {
+    if (S.cmp) { S.cmp.detruire(); S.cmp = null; }
   }
 
   /* ── Trancher ────────────────────────────────────────────────────────── */
@@ -310,14 +276,17 @@
       return;
     }
 
+    // La décision part à l'auteur, avec le message s'il y en a un : on le
+    // dit, sinon on croirait l'avoir écrit pour soi.
+    const averti = ' ' + F('averti', { nom: r.author });
     if (action === 'approve') {
       const active = window.ACTIVE_ENTITY && window.ACTIVE_ENTITY.id;
       if (active && Number(active) === Number(r.entity_id)) S.recharger = true;
       annoncer(data.sync_warning ? L('avert_sync')
-        : (S.recharger ? L('applique') + ' ' + L('recharge') : L('applique')),
+        : L('applique') + averti + (S.recharger ? ' ' + L('recharge') : ''),
       data.sync_warning ? 'warn' : 'ok');
     } else {
-      annoncer(L('refuse'), 'ok');
+      annoncer(L('refuse') + averti, 'ok');
     }
     retirer(r.id);
   }
@@ -339,6 +308,7 @@
     // Plus de liste ni de proposition : la fenêtre se resserre sur son message
     // au lieu de le laisser flotter dans un grand cadre vide.
     $('#cex .cex-boite').classList.add('is-fini');
+    demonter();
     $('#cex-sous').textContent = '';
     $('#cex-corps').classList.add('is-seule');
     $('#cex-liste').innerHTML = '';
@@ -394,16 +364,15 @@
       if (e.target.closest('[data-cex="fermer"]')) { fermer(); return; }
       const item = e.target.closest('.cex-item');
       if (item) { choisir(parseInt(item.dataset.id, 10)); return; }
-      const loupe = e.target.closest('[data-loupe]');
-      if (loupe && S.detail) { agrandir(S.detail.id, loupe.dataset.loupe); return; }
       const t = e.target.closest('[data-trancher]');
       if (t) trancher(t.dataset.trancher);
     });
 
     document.addEventListener('keydown', (e) => {
       if (e.key !== 'Escape') return;
-      const loupe = document.getElementById('cex-loupe');
-      if (loupe) { loupe.remove(); return; }       // la loupe d'abord
+      // La comparaison en grand format se referme d'elle-même sur Échap (elle
+      // arrête l'événement) : on n'arrive ici que si elle est en vignettes.
+      if (S.cmp && S.cmp.enLoupe()) return;
       fermer();
     });
   }

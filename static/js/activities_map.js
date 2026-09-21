@@ -1246,6 +1246,12 @@ function initCrossCartoMode() {
   // Messages entrants depuis le viewer iframe
   window.addEventListener("message", function(e) {
     if (!e.data) return;
+    // ⚠️ La fenêtre d'examen des propositions (#cex) embarque DEUX viewers
+    // (avant / après) : ils préviennent eux aussi leur page à chaque clic sur
+    // une forme. Sans ce filtre, cliquer une activité pour la regarder de près
+    // faisait quitter la page Carte vers sa fiche.
+    const vuesExamen = document.querySelectorAll("#cex iframe");
+    for (const f of vuesExamen) { if (f.contentWindow === e.source) return; }
 
     // connexion-shape-click : envoyé par le viewer quand connexion mode est actif
     // et que l'utilisateur clique sur une forme hachurée.

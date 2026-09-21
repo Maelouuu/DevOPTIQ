@@ -609,65 +609,66 @@ class TestActivation:
         res = client.post(f"/activities/api/entities/{scene['entity_id']}/activate")
         assert res.status_code == 404
 
+def _source(*chemin):
+    """Le texte d'un fichier statique — ou un saut si l'arbre n'en a pas
+    (image bytecode-only : voir tools/repet_image.sh)."""
+    import io
+    import os
+    racine = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    fichier = os.path.join(racine, *chemin)
+    if not os.path.exists(fichier):
+        pytest.skip("%s absent (arbre bytecode)" % "/".join(chemin))
+    return io.open(fichier, encoding="utf-8").read()
+
+
+def _corps_de(source, signature, longueur=1600):
+    debut = source.index(signature)
+    return source[debut:debut + longueur]
+
+
 class TestApercuAvantApres:
     """Un résumé écrit dit « 2 activités déplacées » ; il ne dit pas si le
-    résultat tient debout. L'examinateur doit pouvoir REGARDER."""
+    résultat tient debout. L'examinateur doit pouvoir REGARDER — les vraies
+    cartos, pas des schémas reconstruits (static/js/carto_comparaison.js)."""
 
-    @staticmethod
-    def _marques(avant, apres):
+    def test_les_formes_touchees_sont_marquees_du_bon_cote(self):
+        """Retiré sur l'AVANT, ajouté sur l'APRÈS, modifié des deux côtés — on
+        suit l'œil d'une carte à l'autre."""
         from Code.routes.carto_sharing import _marques_du_changement
-        return _marques_du_changement(avant, apres)
 
-    def test_le_cadrage_est_commun_aux_deux_images(self, app):
-        """⚠️ Deux vignettes recadrées chacune sur son contenu se comparent mal :
-        déplacer UNE forme fait paraître que toute la carto a bougé."""
-        import re
-        from Code.routes.carto_sharing import _cadre_commun, _svg_depuis_diagramme
-
-        avant = {"bands": [{"id": 1, "height": 200, "color": "#abc"}], "bandWidth": 900,
-                 "shapes": [{"id": "a", "x": 10, "y": 10, "w": 80, "h": 40},
-                            {"id": "b", "x": 200, "y": 10, "w": 80, "h": 40}],
-                 "connections": []}
-        apres = {"bands": avant["bands"], "bandWidth": 900,
-                 "shapes": [dict(avant["shapes"][0]),
-                            {"id": "b", "x": 2000, "y": 900, "w": 80, "h": 40}],
-                 "connections": []}
-        cadre = _cadre_commun(avant, apres)
-        with app.app_context():
-            va = _svg_depuis_diagramme(avant, cadre=cadre)
-            vb = _svg_depuis_diagramme(apres, cadre=cadre)
-        vue = lambda svg: re.search(r'viewBox="([^"]+)"', svg).group(1)
-        assert vue(va) == vue(vb)
-
-    def test_les_formes_touchees_sont_surlignees_du_bon_cote(self, app):
-        """Retiré en rouge sur l'AVANT, ajouté en vert sur l'APRÈS, modifié en
-        ambre des deux côtés — on suit l'œil d'une image à l'autre."""
-        from Code.routes.carto_sharing import _svg_depuis_diagramme
-
-        avant = {"bands": [], "bandWidth": 500, "connections": [],
-                 "shapes": [{"id": "reste", "x": 0, "y": 0, "w": 50, "h": 30},
+        avant = {"shapes": [{"id": "reste", "x": 0, "y": 0, "w": 50, "h": 30},
                             {"id": "part", "x": 90, "y": 0, "w": 50, "h": 30},
                             {"id": "bouge", "x": 180, "y": 0, "w": 50, "h": 30}]}
-        apres = {"bands": [], "bandWidth": 500, "connections": [],
-                 "shapes": [{"id": "reste", "x": 0, "y": 0, "w": 50, "h": 30},
+        apres = {"shapes": [{"id": "reste", "x": 0, "y": 0, "w": 50, "h": 30},
                             {"id": "bouge", "x": 300, "y": 0, "w": 50, "h": 30},
                             {"id": "neuve", "x": 400, "y": 0, "w": 50, "h": 30}]}
-        m_av, m_ap = self._marques(avant, apres)
+        m_av, m_ap = _marques_du_changement(avant, apres)
         assert m_av["part"] == "removed"
         assert m_ap["neuve"] == "added"
         assert m_av["bouge"] == m_ap["bouge"] == "changed"
         assert "reste" not in m_av and "reste" not in m_ap
 
-        with app.app_context():
-            va = _svg_depuis_diagramme(avant, marques=m_av)
-            vb = _svg_depuis_diagramme(apres, marques=m_ap)
-        assert 'stroke="#dc2626"' in va and 'stroke="#dc2626"' not in vb
-        assert 'stroke="#16a34a"' in vb and 'stroke="#16a34a"' not in va
-        assert 'stroke="#d97706"' in va and 'stroke="#d97706"' in vb
+    def test_chaque_cote_entoure_ses_propres_formes(self):
+        """Le composant lit les marques DU côté qu'il dessine."""
+        js = _source("static", "js", "carto_comparaison.js")
+        corps = _corps_de(js, "function surligner(")
+        assert "(o.marques || {})[q]" in corps
+        assert "data-shape-fill" in corps
+
+    def test_le_cadrage_est_commun_aux_deux_cartos(self):
+        """⚠️ Deux cartes cadrées chacune sur son contenu se comparent mal :
+        déplacer UNE forme fait paraître que toute la carto a bougé. Le
+        composant réunit les bornes des deux et les impose aux deux viewers."""
+        js = _source("static", "js", "carto_comparaison.js")
+        corps = _corps_de(js, "function cadrerEnsemble(")
+        assert "Math.min(" in corps and "Math.max(" in corps
+        assert ".fit(b)" in corps
+        editeur = _source("static", "optiqcarto", "editor.js")
+        assert "window.cartoViewport" in editeur
+        assert "fit: (bornes) => fitView(bornes," in editeur
 
     def test_la_vignette_de_galerie_reste_sans_halo(self, app):
-        """Le même moteur sert les deux usages : la galerie ne doit pas hériter
-        des couleurs de l'examen."""
+        """La galerie de la page Partage garde son SVG, sans couleurs d'examen."""
         from Code.routes.carto_sharing import _svg_depuis_diagramme
 
         diag = {"bands": [], "bandWidth": 300, "connections": [],
@@ -679,64 +680,64 @@ class TestApercuAvantApres:
 
     def test_l_apercu_est_refuse_a_qui_n_a_rien_a_y_voir(self, app, client):
         """Ni l'auteur ni un arbitre : 404 — comme le reste de l'API."""
-        r = client.get("/cartography/api/changes/999999/apercu/avant.svg")
+        r = client.get("/cartography/changes/999999/apercu/avant")
         assert r.status_code in (401, 404)
 
-    def test_seuls_avant_et_apres_sont_acceptes(self, app, client):
-        r = client.get("/cartography/api/changes/1/apercu/autrechose.svg")
-        assert r.status_code in (401, 404)
 
 class TestApercuEnGrand:
-    """Deux défauts signalés à l'usage, tous deux dans l'agrandissement.
+    """Le grand format : les MÊMES viewers, agrandis — et une bascule avant /
+    après instantanée, qui garde le zoom.
 
-    ⚠️ Ils ne se voient QU'À L'ÉCRAN : un empilement CSS et une différence de
-    moteur de rendu ne font échouer aucune requête.
+    ⚠️ Ces défauts ne se voient QU'À L'ÉCRAN (un empilement CSS, un iframe
+    recréé) : aucune requête n'échoue. D'où des contrôles sur les sources.
     """
 
-    def test_la_loupe_passe_au_dessus_de_la_fenetre_d_examen(self):
-        """`.gov-loupe` était à 9600, `.gov-modal` à 10002 : l'agrandissement
-        s'ouvrait DERRIÈRE la pop-up et ne se découvrait qu'en la fermant."""
-        import io
-        import os
-        import re
+    def test_agrandir_ne_recharge_rien(self):
+        """Chaque bascule recréait un iframe — une demi-seconde à recharger la
+        carto à chaque fois. On agrandit désormais en CSS les deux viewers déjà
+        chargés : aucune iframe n'est créée en grand format."""
+        js = _source("static", "js", "carto_comparaison.js")
+        for signature in ("function agrandir(", "function montrer("):
+            corps = _corps_de(js, signature, 900)
+            assert "iframe" not in corps.lower().split("function", 2)[1], signature
+            assert "createElement" not in corps.split("function", 2)[1], signature
 
-        racine = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        chemin = os.path.join(racine, "static", "optiqcarto", "style.css")
-        if not os.path.exists(chemin):
-            import pytest
-            pytest.skip("feuille de style absente (arbre bytecode)")
-        css = io.open(chemin, encoding="utf-8").read()
+    def test_la_bascule_garde_le_cadrage(self):
+        """Comparer, c'est regarder le MÊME endroit des deux cartes."""
+        js = _source("static", "js", "carto_comparaison.js")
+        corps = _corps_de(js, "function montrer(", 900)
+        assert ".set(api(avant).get())" in corps
 
-        def z(selecteur):
-            bloc = re.search(re.escape(selecteur) + r"\s*\{(.*?)\}", css, re.S)
-            assert bloc, "règle %s introuvable" % selecteur
-            val = re.search(r"z-index:\s*(\d+)", bloc.group(1))
-            assert val, "pas de z-index dans %s" % selecteur
-            return int(val.group(1))
+    def test_la_vue_masquee_garde_sa_taille(self):
+        """`display: none` retirerait sa taille au viewer masqué : il ne se
+        cadrerait plus, et la bascule le montrerait vide."""
+        css = _source("static", "carto_comparaison.css")
+        assert "visibility: hidden" in css
+        bloc = css[css.index('.cmp[data-mode="loupe"][data-vue="avant"]'):]
+        bloc = bloc[:bloc.index("}")]
+        assert "display: none" not in bloc
 
-        assert z(".gov-loupe") > z(".gov-modal"), (
-            "l'agrandissement doit passer AU-DESSUS de la fenêtre d'examen")
+    def test_le_grand_format_couvre_la_fenetre(self):
+        """⚠️ Une animation en `transform` conservée après coup fait de la fiche
+        d'examen de l'éditeur le repère des éléments fixes : le grand format y
+        restait enfermé. Elle ne conserve plus rien une fois jouée."""
+        css = _source("static", "carto_comparaison.css")
+        bloc = css[css.index('.cmp[data-mode="loupe"] {'):]
+        bloc = bloc[:bloc.index("}")]
+        assert "position: fixed" in bloc
+        style = _source("static", "optiqcarto", "style.css")
+        assert "#review-modal .gov-card { animation-fill-mode: backwards; }" in style
 
-    def test_en_grand_on_charge_le_viewer_pas_la_vignette(self):
-        """La vignette SVG sert à COMPARER (légère, cadrée à l'identique) ;
-        l'agrandir ne montrerait qu'une reconstitution. En grand, on ouvre le
-        viewer d'OptiqCarto, qui rend ce que rend l'éditeur."""
-        import io
-        import os
-
-        racine = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        chemin = os.path.join(racine, "static", "optiqcarto", "carto_sharing.js")
-        if not os.path.exists(chemin):
-            import pytest
-            pytest.skip("script absent (arbre bytecode)")
-        js = io.open(chemin, encoding="utf-8").read()
-
-        debut = js.index("function agrandir(")
-        corps = js[debut:debut + 1600]
-        assert "/changes/${id}/apercu/${quel}" in corps
-        assert "<iframe" in corps
-        assert "apercu/${quel}.svg" not in corps, (
-            "la loupe ne doit plus agrandir la vignette reconstruite")
+    def test_un_clic_dans_la_comparaison_ne_quitte_pas_la_page(self):
+        """Les viewers de la comparaison préviennent leur page à chaque clic sur
+        une forme (`shape-click`), comme celui de la page Carte — qui part alors
+        vers la fiche de l'activité. Vérifié à l'écran : sans ce filtre, cliquer
+        « Clarify RFI Scope » en grand format quittait la page Carte."""
+        js = _source("static", "js", "activities_map.js")
+        debut = js.index('window.addEventListener("message", function(e) {')
+        corps = js[debut:debut + 1400]
+        assert '#cex iframe' in corps
+        assert corps.index('#cex iframe') < corps.index('shape-click')
 
     def test_le_diagramme_d_une_proposition_est_servi_tel_quel(self, app, client):
         """Le viewer charge ce JSON : c'est le même format que /api/load, donc

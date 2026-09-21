@@ -5,6 +5,8 @@
      L'écran : static/js/carto_examen.js — tout le texte passe par CEX_I18N.
      ============================================================ -->
 <link rel="stylesheet" href="{{ url_for('static', filename='carto_examen.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='carto_comparaison.css') }}">
+<script defer src="{{ url_for('static', filename='js/carto_comparaison.js') }}"></script>
 <script>
   /* ⚠️ `| tojson`, jamais une traduction entre guillemets dans un script : le
      navigateur ne décode pas les entités HTML ici. */
@@ -44,6 +46,8 @@
     decision:       {{ t('examen.decision') | tojson }},
     commentaire:    {{ t('examen.commentaire') | tojson }},
     commentaire_ph: {{ t('examen.commentaire_ph') | tojson }},
+    commentaire_aide: {{ t('examen.commentaire_aide') | tojson }},
+    averti:         {{ t('examen.averti') | tojson }},
     appliquer:      {{ t('examen.appliquer') | tojson }},
     refuser:        {{ t('examen.refuser') | tojson }},
     applique:       {{ t('change.approved') | tojson }},

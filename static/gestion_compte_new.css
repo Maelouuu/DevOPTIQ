@@ -342,69 +342,449 @@
     background: var(--card-2, #f8fafc);
 }
 
-/* Trois groupes, trois questions : qui est-ce, comment il se connecte, quelle
-   place il tient. Un formulaire d'un seul tenant ne disait rien de tout ça. */
-.acc-grp { margin: 0; padding: 0; border: 0; }
-.acc-grp legend {
-    padding: 0 0 8px;
-    font-size: 12.5px;
+/* ── La fiche d'un compte ───────────────────────────────────────────────
+   Un en-tête qui montre la PERSONNE (il suit la saisie), puis deux colonnes :
+   qui elle est et comment elle se connecte ; ce qu'elle peut faire. */
+.acc-fiche { width: min(920px, calc(100vw - 32px)); max-height: min(92vh, 940px); }
+
+.acc-fiche-tete {
+    flex: none;
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 20px 22px 18px;
+    border-bottom: 1px solid var(--border, #e2e8f0);
+    background: linear-gradient(180deg, color-mix(in srgb, var(--pg-accent) 5%, #fff), #fff);
+}
+.acc-fiche-tete::before {
+    content: "";
+    position: absolute;
+    inset: 0 0 auto;
+    height: 4px;
+    background: linear-gradient(90deg, var(--pg-accent), var(--pg-accent-deep));
+}
+.acc-fiche-av {
+    flex: none;
+    width: 54px;
+    height: 54px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    font-size: 19px;
     font-weight: 700;
-    letter-spacing: .04em;
+    letter-spacing: .02em;
+    color: #fff;
+    box-shadow: 0 0 0 4px #fff, 0 6px 16px rgba(15, 23, 42, .18);
+    transition: background .2s;
+}
+.acc-fiche-av i { font-size: 18px; }
+.acc-fiche-id { flex: 1; min-width: 0; }
+.acc-fiche-sur {
+    margin: 0 0 2px;
+    font-size: 11.5px;
+    font-weight: 700;
+    letter-spacing: .06em;
     text-transform: uppercase;
     color: var(--pg-accent-deep);
 }
-.acc-champs { display: flex; flex-wrap: wrap; gap: 12px; }
-.acc-champ { flex: 1 1 220px; display: flex; flex-direction: column; gap: 5px; min-width: 0; }
-.acc-champ--large { flex-basis: 100%; }
-.acc-champ--court { flex: 0 1 120px; }
-.acc-champ > span {
+.acc-fiche-id h3 {
+    margin: 0;
+    font-family: var(--pg-font-display, inherit);
+    font-size: 21px;
+    font-weight: 700;
+    line-height: 1.2;
+    color: var(--ink, #0f172a);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.acc-fiche-meta {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px 10px;
+    margin: 5px 0 0;
+    font-size: 13px;
+    color: var(--muted, #64748b);
+}
+.acc-fiche-meta #acc-fiche-mail:empty { display: none; }
+.acc-fiche-x {
+    flex: none;
+    align-self: flex-start;
+    width: 34px;
+    height: 34px;
+    border-radius: 10px;
+    border: 1px solid var(--border, #e2e8f0);
+    display: grid;
+    place-items: center;
+    color: var(--muted, #64748b);
+    background: #fff;
+    cursor: pointer;
+}
+.acc-fiche-x:hover { color: var(--ink, #0f172a); border-color: var(--border-strong, #cbd5e1); }
+
+.acc-fiche-alerte {
+    flex: none;
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    margin: 14px 22px 0;
+    padding: 10px 13px;
+    border-radius: 10px;
+    border: 1px solid #fecdd3;
+    background: #fff1f2;
+    color: #9f1239;
+    font-size: 13.5px;
+    font-weight: 600;
+}
+.acc-fiche-alerte[hidden] { display: none; }
+
+.acc-fiche-corps {
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr);
+}
+.acc-fiche-col { padding: 20px 22px 8px; }
+.acc-fiche-col + .acc-fiche-col {
+    border-left: 1px solid var(--border, #e2e8f0);
+    background: var(--card-2, #f8fafc);
+}
+
+.acc-sec { margin: 0 0 20px; }
+.acc-sec h4 {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    margin: 0 0 12px;
+    font-size: 12.5px;
+    font-weight: 700;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+    color: var(--ink-2, #334155);
+}
+.acc-sec h4 i {
+    width: 26px;
+    height: 26px;
+    border-radius: 8px;
+    display: grid;
+    place-items: center;
+    font-size: 12px;
+    color: var(--pg-accent-deep);
+    background: color-mix(in srgb, var(--pg-accent) 12%, #fff);
+}
+
+.acc-rang { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.acc-champ { display: flex; flex-direction: column; gap: 6px; min-width: 0; margin-bottom: 12px; }
+.acc-champ--age { max-width: 130px; }
+.acc-champ > span, .acc-mdp-lib {
     font-size: 12.5px;
     font-weight: 600;
     color: var(--ink-2, #334155);
 }
-.acc-champ > span em { font-style: normal; color: var(--pg-accent); }
-.acc-champ input, .acc-champ select {
-    padding: 9px 12px;
-    border-radius: var(--r-btn, 9px);
-    border: 1px solid var(--border, #e2e8f0);
-    background: var(--card, #fff);
+.acc-champ em, .acc-mdp-lib em { font-style: normal; color: var(--pg-accent); }
+.acc-champ input:not([type=radio]) {
+    height: 42px;
+    padding: 0 13px;
+    border-radius: 10px;
+    border: 1.5px solid var(--border, #e2e8f0);
+    background: #fff;
     font: inherit;
-    font-size: 14px;
+    font-size: 14.5px;
     color: var(--ink, #0f172a);
+    transition: border-color .15s, box-shadow .15s;
 }
-.acc-champ input:focus, .acc-champ select:focus {
+.acc-champ input:not([type=radio]):hover { border-color: var(--border-strong, #cbd5e1); }
+.acc-champ input:not([type=radio]):focus {
     outline: none;
     border-color: var(--pg-accent);
-    box-shadow: 0 0 0 3px color-mix(in srgb, var(--pg-accent) 18%, transparent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--pg-accent) 16%, transparent);
 }
-.acc-champ small { font-size: 12px; color: var(--muted, #64748b); }
+.acc-champ-aide { font-size: 12px; color: var(--muted, #64748b); }
+.acc-champ-err { font-size: 12.5px; font-weight: 600; color: #be123c; }
+.acc-champ-err:empty { display: none; }
+.is-err input:not([type=radio]) { border-color: #e11d48 !important; box-shadow: 0 0 0 3px rgba(225, 29, 72, .14) !important; }
+.is-err .acc-champ-aide { display: none; }
 
-/* Le statut se CHOISIT en lisant ce qu'il ouvre : une liste déroulante
-   n'aurait montré que quatre mots. */
-/* Deux par deux : quatre paliers sur une seule ligne donnent quatre colonnes
-   étroites où la phrase de chacun ne tient plus. */
-.acc-paliers { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 8px; }
-.acc-palier {
+/* Le mot de passe : un bouton en modification, le champ à la création. */
+.acc-mdp[data-ouvert="0"] .acc-mdp-champ { display: none; }
+.acc-mdp[data-ouvert="1"] .acc-mdp-ouvrir { display: none; }
+.acc-mdp[data-creation="1"] #acc-mdp-garder { display: none; }
+.acc-mdp-ouvrir {
+    width: 100%;
     display: flex;
-    flex-direction: column;
-    gap: 2px;
+    align-items: center;
+    gap: 10px;
+    padding: 11px 14px;
+    border-radius: 10px;
+    border: 1.5px dashed var(--border-strong, #cbd5e1);
+    background: #fff;
+    font: inherit;
+    font-size: 13.5px;
+    font-weight: 600;
+    color: var(--ink-2, #334155);
+    cursor: pointer;
+    transition: border-color .15s, color .15s;
+}
+.acc-mdp-ouvrir i { color: var(--pg-accent); }
+.acc-mdp-ouvrir:hover { border-color: var(--pg-accent); color: var(--pg-accent-deep); }
+.acc-mdp-lib { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.acc-lien {
+    padding: 0;
+    border: 0;
+    background: none;
+    font: inherit;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--pg-accent-deep);
+    cursor: pointer;
+}
+.acc-lien:hover { text-decoration: underline; }
+.acc-mdp-saisie { display: flex; gap: 6px; }
+.acc-mdp-saisie input { flex: 1; min-width: 0; font-family: ui-monospace, SFMono-Regular, Menlo, monospace !important; letter-spacing: .02em; }
+.acc-mdp-btn {
+    flex: none;
+    height: 42px;
+    min-width: 42px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    padding: 0 12px;
+    border-radius: 10px;
+    border: 1.5px solid var(--border, #e2e8f0);
+    background: #fff;
+    font: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ink-2, #334155);
+    cursor: pointer;
+}
+.acc-mdp-btn:hover { border-color: var(--pg-accent); color: var(--pg-accent-deep); }
+.acc-mdp-genere {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 7px;
+    margin: 0;
+    padding: 8px 11px;
+    border-radius: 9px;
+    background: #fffbeb;
+    border: 1px solid #fde68a;
+    font-size: 12.5px;
+    color: #92400e;
+}
+.acc-mdp-genere[hidden] { display: none; }
+.acc-mdp-genere span { flex: 1; min-width: 160px; }
+
+/* Le niveau d'accès : une ÉCHELLE. Chaque palier ajoute aux droits du
+   précédent — les marches du dessous restent allumées quand on monte. */
+.acc-echelle { position: relative; display: flex; flex-direction: column; gap: 6px; }
+.acc-echelle::before {
+    content: "";
+    position: absolute;
+    left: 29px;
+    top: 26px;
+    bottom: 26px;
+    width: 2px;
+    border-radius: 2px;
+    background: var(--border, #e2e8f0);
+}
+.acc-marche {
+    --mc: #0f766e;
+    --mc-fond: #ccfbf1;
+    position: relative;
+    display: grid;
+    grid-template-columns: 34px minmax(0, 1fr) 16px;
+    align-items: center;
+    gap: 12px;
     padding: 10px 12px;
     border-radius: 12px;
-    border: 1px solid var(--border, #e2e8f0);
-    background: var(--card, #fff);
+    border: 1.5px solid var(--border, #e2e8f0);
+    background: #fff;
     cursor: pointer;
-    transition: border-color .15s, background .15s;
+    transition: border-color .15s, background .15s, box-shadow .15s;
 }
-.acc-palier input { position: absolute; opacity: 0; pointer-events: none; }
-.acc-palier-t { font-size: 13.5px; font-weight: 700; color: var(--ink, #0f172a); }
-.acc-palier-d { font-size: 12px; line-height: 1.45; color: var(--muted, #64748b); }
-.acc-palier:hover { border-color: var(--pg-accent); }
-.acc-palier:has(input:checked) {
-    border-color: var(--pg-accent);
-    background: color-mix(in srgb, var(--pg-accent) 7%, #fff);
+.acc-marche.m-champion { --mc: #7c3aed; --mc-fond: #ede9fe; }
+.acc-marche.m-coordinateur { --mc: #b45309; --mc-fond: #fef3c7; }
+.acc-marche.m-administrateur { --mc: #be123c; --mc-fond: #ffe4ea; }
+.acc-marche input { position: absolute; opacity: 0; pointer-events: none; }
+.acc-marche-pt {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    font-size: 13px;
+    color: var(--faint, #94a3b8);
+    background: #fff;
+    border: 2px solid var(--border, #e2e8f0);
+    transition: background .15s, border-color .15s, color .15s;
 }
-.acc-palier:has(input:checked) .acc-palier-t { color: var(--pg-accent-deep); }
-.acc-palier:has(input:focus-visible) { box-shadow: 0 0 0 3px color-mix(in srgb, var(--pg-accent) 22%, transparent); }
+.acc-marche-txt { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.acc-marche-t { font-size: 14px; font-weight: 700; color: var(--ink, #0f172a); }
+.acc-marche-d { font-size: 12.5px; line-height: 1.4; color: var(--muted, #64748b); }
+.acc-marche-ok { font-size: 13px; color: var(--mc); opacity: 0; transition: opacity .15s; }
+.acc-marche:hover:not(.is-off) { border-color: color-mix(in srgb, var(--mc) 55%, #fff); }
+.acc-marche.is-inclus .acc-marche-pt { color: var(--mc); background: var(--mc-fond); border-color: color-mix(in srgb, var(--mc) 40%, #fff); }
+.acc-marche.is-choisi {
+    border-color: var(--mc);
+    background: color-mix(in srgb, var(--mc-fond) 55%, #fff);
+    box-shadow: 0 6px 16px color-mix(in srgb, var(--mc) 16%, transparent);
+}
+.acc-marche.is-choisi .acc-marche-pt { color: #fff; background: var(--mc); border-color: var(--mc); }
+.acc-marche.is-choisi .acc-marche-t { color: var(--mc); }
+.acc-marche.is-choisi .acc-marche-ok { opacity: 1; }
+.acc-marche:has(input:focus-visible) { box-shadow: 0 0 0 3px color-mix(in srgb, var(--mc) 25%, transparent); }
+.acc-marche.is-off { cursor: not-allowed; }
+.acc-marche.is-off:not(.is-choisi) { opacity: .55; }
+
+.acc-note {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 10px 0 0;
+    font-size: 12.5px;
+    color: var(--muted, #64748b);
+}
+.acc-note[hidden] { display: none; }
+.acc-note i { font-size: 11px; }
+
+/* Les rôles, carto par carto : deux cartos ont souvent un rôle du même nom. */
+.acc-roles-vide { margin: 0 0 10px; font-size: 13.5px; color: var(--muted, #64748b); font-style: italic; }
+.acc-roles-carto { margin: 0 0 12px; }
+.acc-roles-carto-nom {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    margin: 0 0 7px;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--muted, #64748b);
+}
+.acc-roles-carto-nom i { font-size: 11px; color: var(--pg-accent); }
+.acc-puces { display: flex; flex-wrap: wrap; gap: 6px; }
+.acc-puce {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 6px 5px 11px;
+    border-radius: 999px;
+    border: 1px solid var(--border-strong, #cbd5e1);
+    background: #fff;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ink-2, #334155);
+}
+.acc-puce:not(:has(button)) { padding-right: 11px; }
+.acc-puce em {
+    padding: 1px 7px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-style: normal;
+    font-weight: 700;
+}
+.acc-puce.is-ajoute { border-color: #86efac; background: #f0fdf4; color: #166534; }
+.acc-puce.is-ajoute em { color: #fff; background: #16a34a; }
+.acc-puce.is-retire { border-style: dashed; background: #fff; color: var(--faint, #94a3b8); }
+.acc-puce.is-retire .acc-puce-nom { text-decoration: line-through; }
+.acc-puce.is-retire em { color: #9f1239; background: #ffe4ea; }
+.acc-puce-btn {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    border: 0;
+    display: grid;
+    place-items: center;
+    font-size: 11px;
+    color: var(--muted, #64748b);
+    background: var(--card-2, #f1f5f9);
+    cursor: pointer;
+}
+.acc-puce-btn:hover { color: #fff; background: var(--pg-accent); }
+
+.acc-ajout[hidden] { display: none; }
+.acc-ajout-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 13px;
+    border-radius: 999px;
+    border: 1.5px dashed var(--border-strong, #cbd5e1);
+    background: #fff;
+    font: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ink-2, #334155);
+    cursor: pointer;
+}
+.acc-ajout-btn:hover, .acc-ajout-btn[aria-expanded="true"] { border-color: var(--pg-accent); color: var(--pg-accent-deep); }
+/* Le sélecteur s'ouvre DANS la fiche, pas par-dessus : une liste flottante
+   serait coupée par le défilement du corps. */
+.acc-ajout-panneau {
+    margin-top: 8px;
+    border-radius: 12px;
+    border: 1px solid var(--border, #e2e8f0);
+    background: #fff;
+    box-shadow: 0 10px 24px rgba(15, 23, 42, .1);
+    overflow: hidden;
+}
+.acc-ajout-panneau[hidden] { display: none; }
+.acc-ajout-rech { position: relative; border-bottom: 1px solid var(--border, #e2e8f0); }
+.acc-ajout-rech i { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); font-size: 12px; color: var(--faint, #94a3b8); }
+.acc-ajout-rech input {
+    width: 100%;
+    box-sizing: border-box;
+    height: 40px;
+    padding: 0 12px 0 34px;
+    border: 0;
+    font: inherit;
+    font-size: 13.5px;
+}
+.acc-ajout-rech input:focus { outline: none; }
+.acc-ajout-liste { max-height: 240px; overflow: auto; padding: 6px; }
+.acc-ajout-groupe + .acc-ajout-groupe { margin-top: 6px; }
+.acc-ajout-carto {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    margin: 4px 6px 3px;
+    font-size: 11.5px;
+    font-weight: 700;
+    letter-spacing: .03em;
+    text-transform: uppercase;
+    color: var(--muted, #64748b);
+}
+.acc-ajout-item {
+    display: block;
+    width: 100%;
+    padding: 7px 10px;
+    border: 0;
+    border-radius: 8px;
+    background: none;
+    font: inherit;
+    font-size: 13.5px;
+    text-align: left;
+    color: var(--ink, #0f172a);
+    cursor: pointer;
+}
+.acc-ajout-item:hover, .acc-ajout-item:focus-visible { outline: none; background: color-mix(in srgb, var(--pg-accent) 9%, #fff); }
+.acc-ajout-vide { margin: 8px; font-size: 13px; color: var(--muted, #64748b); }
+
+.acc-fiche-pied { align-items: center; }
+.acc-pied-etat { margin-right: auto; font-size: 13px; color: var(--muted, #64748b); }
+.acc-pied-etat.is-modifie { color: var(--pg-accent-deep); font-weight: 600; }
+.acc-btn:disabled { opacity: .5; cursor: default; filter: none; transform: none; }
+
+@media (max-width: 760px) {
+    .acc-fiche-corps { grid-template-columns: minmax(0, 1fr); }
+    .acc-fiche-col + .acc-fiche-col { border-left: 0; border-top: 1px solid var(--border, #e2e8f0); }
+    .acc-rang { grid-template-columns: minmax(0, 1fr); gap: 0; }
+    .acc-fiche-tete { padding: 18px 16px 14px; }
+    .acc-fiche-col { padding: 16px 16px 4px; }
+}
 
 /* ── ② Ce que chaque palier ouvre ─────────────────────────────────────
    Une MATRICE, pas une liste : on lit un droit en ligne et un palier en

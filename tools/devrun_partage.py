@@ -112,6 +112,12 @@ with app.app_context():
     for r in deux:
         if not UserRole.query.filter_by(user_id=simple.id, role_id=r.id).first():
             db.session.add(UserRole(user_id=simple.id, role_id=r.id))
+    # Et un rôle sur la carto PRIVÉE du coordinateur, que l'administrateur
+    # n'ouvre pas : c'est le rôle que l'ancienne fiche de compte effaçait dès
+    # qu'on y corrigeait un nom.
+    ailleurs = Role.query.filter_by(entity_id=ent2.id).order_by(Role.id).first()
+    if ailleurs and not UserRole.query.filter_by(user_id=simple.id, role_id=ailleurs.id).first():
+        db.session.add(UserRole(user_id=simple.id, role_id=ailleurs.id))
     # Le champion devient développeur de compétences : la page a besoin d'au
     # moins un candidat à proposer, sinon le sélecteur est vide.
     dev_role = Role.query.filter_by(entity_id=ent.id).filter(

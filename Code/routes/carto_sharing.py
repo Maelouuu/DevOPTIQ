@@ -243,17 +243,6 @@ def _points_du_lien(conn, boites):
     return []
 
 
-# Ce qu'une marque vaut à l'écran. Les mêmes couleurs des deux côtés : une
-# forme retirée est rouge sur l'AVANT, une forme ajoutée est verte sur l'APRÈS,
-# et une forme touchée est ambrée des deux côtés — on suit l'œil d'une image à
-# l'autre sans avoir à lire une légende.
-_MARQUES = {
-    "removed": "#dc2626",
-    "added":   "#16a34a",
-    "changed": "#d97706",
-}
-
-
 def _svg_vignette(entity):
     """SVG de la carto d'une entité, ou None si elle n'a rien à montrer."""
     diagram = _diagram(entity.optiqcarto_data)
@@ -267,16 +256,12 @@ def _svg_vignette(entity):
     return _svg_depuis_diagramme(diagram)
 
 
-def _svg_depuis_diagramme(diagram, marques=None, cadre=None):
-    """Rend un diagramme en SVG.
+def _svg_depuis_diagramme(diagram):
+    """Rend un diagramme en SVG — la vignette de la galerie (page Partage).
 
-    `marques` : {id_de_forme: 'added'|'removed'|'changed'} — de quoi montrer ce
-    qui change au lieu de le raconter. `cadre` : (x0, y0, largeur, hauteur) pour
-    imposer le MÊME cadrage à deux images qu'on veut comparer — sans quoi
-    l'avant et l'après se recadrent chacun sur leur contenu et tout semble avoir
-    bougé alors que rien n'a changé.
+    ⚠️ La comparaison AVANT / APRÈS d'une proposition ne passe plus par ici :
+    elle montre les vraies cartos (static/js/carto_comparaison.js).
     """
-    marques = marques or {}
     bandes = [b for b in (diagram.get("bands") or []) if not b.get("deleted")]
     formes = list(diagram.get("shapes") or [])
     if not bandes and not formes:
@@ -303,8 +288,6 @@ def _svg_depuis_diagramme(diagram, marques=None, cadre=None):
     marge = max(40.0, (x1 - x0) * 0.02)
     x0, y0, x1, y1 = x0 - marge, y0 - marge, x1 + marge, y1 + marge
     largeur, hauteur = max(1.0, x1 - x0), max(1.0, y1 - y0)
-    if cadre:
-        x0, y0, largeur, hauteur = cadre
 
     # Un trait de vignette doit rester visible : on l'exprime en fraction de la
     # largeur totale, sinon il disparaît sur les grandes cartos.
@@ -340,48 +323,10 @@ def _svg_depuis_diagramme(diagram, marques=None, cadre=None):
             parts.append(f'<rect x="{fx:.1f}" y="{fy:.1f}" width="{fw:.1f}" '
                          f'height="{fh:.1f}" rx="{rayon:.1f}" fill="{couleur}"/>')
 
-        # Le halo de ce qui change, par-dessus la forme : c'est lui qu'on
-        # cherche du regard en comparant les deux images.
-        teinte = _MARQUES.get(marques.get(str(f.get("id"))))
-        if teinte:
-            halo = max(trait * 2.4, min(fw, fh) * 0.09)
-            parts.append(f'<rect x="{fx - halo:.1f}" y="{fy - halo:.1f}" '
-                         f'width="{fw + 2 * halo:.1f}" height="{fh + 2 * halo:.1f}" '
-                         f'rx="{halo * 1.6:.1f}" fill="none" stroke="{teinte}" '
-                         f'stroke-width="{halo:.1f}" stroke-opacity="0.95"/>')
 
     return (f'<svg xmlns="http://www.w3.org/2000/svg" '
             f'viewBox="{x0:.1f} {y0:.1f} {largeur:.1f} {hauteur:.1f}" '
             f'preserveAspectRatio="xMidYMid meet">' + "".join(parts) + "</svg>")
-
-
-def _cadre_commun(*diagrammes):
-    """Le cadrage qui contient TOUS les diagrammes donnés.
-
-    Deux vignettes recadrées chacune sur son contenu se comparent mal : la
-    carto entière paraît avoir bougé parce qu'une seule forme a été déplacée.
-    """
-    x0 = y0 = float("inf")
-    x1 = y1 = float("-inf")
-    for d in diagrammes:
-        if not d:
-            continue
-        bandes = [b for b in (d.get("bands") or []) if not b.get("deleted")]
-        haut = -200.0
-        bas = haut + sum(float(b.get("height") or 0) for b in bandes)
-        if bandes:
-            x0, y0 = min(x0, 0.0), min(y0, haut)
-            x1, y1 = max(x1, float(d.get("bandWidth") or 0)), max(y1, bas)
-        for f in (d.get("shapes") or []):
-            fx, fy = float(f.get("x") or 0), float(f.get("y") or 0)
-            fw, fh = float(f.get("w") or 0), float(f.get("h") or 0)
-            x0, y0 = min(x0, fx), min(y0, fy)
-            x1, y1 = max(x1, fx + fw), max(y1, fy + fh)
-    if x0 == float("inf"):
-        return None
-    marge = max(40.0, (x1 - x0) * 0.02)
-    return (x0 - marge, y0 - marge,
-            max(1.0, (x1 - x0) + 2 * marge), max(1.0, (y1 - y0) + 2 * marge))
 
 
 def _marques_du_changement(avant, apres):
@@ -420,50 +365,6 @@ def get_thumbnail(entity_id):
     reponse = Response(svg, mimetype="image/svg+xml")
     # Privée : une carto commune n'est pas publique pour autant.
     reponse.headers["Cache-Control"] = "private, max-age=120"
-    return reponse
-
-
-@carto_sharing_bp.route("/api/changes/<int:change_id>/apercu/<quel>.svg")
-def get_apercu_changement(change_id, quel):
-    """L'AVANT et l'APRÈS d'une proposition, en image.
-
-    Un résumé écrit dit « 2 activités déplacées » ; il ne dit pas si le résultat
-    tient debout. Les deux images partagent le même cadrage et surlignent les
-    formes touchées, pour que la comparaison porte sur ce qui change et pas sur
-    un recadrage.
-    """
-    from Code.models.models import CartoChangeRequest
-
-    user = _connecte()
-    if not user:
-        return ("", 401)
-    if quel not in ("avant", "apres"):
-        return ("", 404)
-
-    cr = db.session.get(CartoChangeRequest, change_id)
-    if not cr:
-        return ("", 404)
-    entity = db.session.get(Entity, cr.entity_id)
-    # L'auteur relit sa propre proposition ; les autres doivent pouvoir arbitrer.
-    if not (cr.author_id == user.id or can_review(entity, user)):
-        return ("", 404)
-
-    avant = _diagram(cr.base_diagram)
-    apres = _diagram(cr.diagram)
-    if not (avant or apres):
-        return ("", 404)
-
-    m_avant, m_apres = _marques_du_changement(avant, apres)
-    cadre = _cadre_commun(avant, apres)
-    choisi, marques = ((avant, m_avant) if quel == "avant" else (apres, m_apres))
-    if not choisi:
-        return ("", 404)
-
-    svg = _svg_depuis_diagramme(choisi, marques=marques, cadre=cadre)
-    if not svg:
-        return ("", 404)
-    reponse = Response(svg, mimetype="image/svg+xml")
-    reponse.headers["Cache-Control"] = "private, max-age=60"
     return reponse
 
 
@@ -506,10 +407,10 @@ def get_diagramme_changement(change_id, quel):
 def page_apercu_changement(change_id, quel):
     """La carto d'une proposition, affichée par le VRAI moteur.
 
-    ⚠️ La vignette SVG (`/apercu/<quel>.svg`) reste ce qu'on montre côté à côté :
-    légère, cadrée à l'identique, elle sert à COMPARER. Mais l'agrandir ne doit
-    pas agrandir une reconstitution — on ouvre alors le viewer d'OptiqCarto, qui
-    rend exactement ce que rend l'éditeur. Un seul crochet suffit :
+    C'est ce que montre la comparaison AVANT / APRÈS (carto_comparaison.js),
+    en vignette comme en grand : le viewer d'OptiqCarto rend exactement ce que
+    rend l'éditeur. Les schémas SVG reconstruits d'autrefois se comparaient
+    mal — ce n'était pas la carte. Un seul crochet suffit :
     `OPTIQCARTO_LOAD_URL`, qui dit au viewer d'où vient le diagramme.
     """
     from flask import render_template
@@ -826,6 +727,10 @@ def get_change(req_id):
     detail = _en_json(cr, user, avec_resume=True)
     detail["can_review"] = bool(can_review(cr.entity, user) and cr.status == "pending")
     detail["since"] = _depuis_le_depot(cr) if cr.status == "pending" else None
+    # Les formes à entourer dans la comparaison (static/js/carto_comparaison.js),
+    # de chaque côté : retirées (avant), ajoutées (après), déplacées ou renommées.
+    m_avant, m_apres = _marques_du_changement(_diagram(cr.base_diagram), _diagram(cr.diagram))
+    detail["marques"] = {"avant": m_avant, "apres": m_apres}
     return jsonify(detail)
 
 
@@ -932,6 +837,61 @@ def create_change():
     return jsonify({"status": "ok", "request": _en_json(cr, user)}), 201
 
 
+def _annoncer_a_l_auteur(cr, valideur):
+    """La décision part à l'auteur : elle lui sera annoncée à sa prochaine
+    page (`/api/changes/decisions`). On ne s'annonce pas sa propre décision."""
+    cr.author_seen_at = datetime.utcnow() if valideur.id == cr.author_id else None
+
+
+@carto_sharing_bp.route("/api/changes/decisions")
+def mes_decisions():
+    """Les décisions prises sur MES propositions, que je n'ai pas encore lues.
+
+    ⚠️ Le message du valideur était enregistré et montré à personne : ni la
+    page Partage ni l'éditeur n'affichaient `review_comment`, et rien ne
+    prévenait l'auteur qu'une décision était tombée. Il est désormais annoncé
+    à l'auteur, qu'on ait appliqué OU refusé — c'est quand on refuse qu'il y a
+    le plus à expliquer.
+    """
+    user = _connecte()
+    if not user:
+        return jsonify({"error": "Non connecté"}), 401
+    decisions = (CartoChangeRequest.query
+                 .filter(CartoChangeRequest.author_id == user.id,
+                         CartoChangeRequest.status.in_(("approved", "rejected")),
+                         CartoChangeRequest.author_seen_at.is_(None))
+                 .order_by(CartoChangeRequest.reviewed_at.desc())
+                 .limit(50).all())
+    return jsonify({"decisions": [_en_json(cr, user) for cr in decisions]})
+
+
+@carto_sharing_bp.route("/api/changes/decisions/vues", methods=["POST"])
+def decisions_vues():
+    """« Compris » : ces décisions ne seront plus annoncées.
+
+    ⚠️ Seulement celles dont on est l'AUTEUR : les identifiants viennent du
+    navigateur, ils ne suffisent pas à marquer lues les décisions d'un autre.
+    """
+    user = _connecte()
+    if not user:
+        return jsonify({"error": "Non connecté"}), 401
+    ids = []
+    for brut in ((request.get_json(silent=True) or {}).get("ids") or []):
+        try:
+            ids.append(int(brut))
+        except (TypeError, ValueError):
+            continue
+    n = 0
+    if ids:
+        n = (CartoChangeRequest.query
+             .filter(CartoChangeRequest.id.in_(ids),
+                     CartoChangeRequest.author_id == user.id,
+                     CartoChangeRequest.status.in_(("approved", "rejected")))
+             .update({"author_seen_at": datetime.utcnow()}, synchronize_session=False))
+        db.session.commit()
+    return jsonify({"ok": True, "n": n})
+
+
 @carto_sharing_bp.route("/api/changes/<int:req_id>/approve", methods=["POST"])
 def approve_change(req_id):
     """Applique la proposition à la carto commune — donc à tous ses lecteurs."""
@@ -959,7 +919,8 @@ def approve_change(req_id):
     cr.status = "approved"
     cr.reviewer_id = user.id
     cr.reviewed_at = datetime.utcnow()
-    cr.review_comment = (request.get_json(silent=True) or {}).get("comment") or None
+    cr.review_comment = ((request.get_json(silent=True) or {}).get("comment") or "").strip() or None
+    _annoncer_a_l_auteur(cr, user)
     db.session.commit()
 
     avertissement = None
@@ -994,6 +955,7 @@ def reject_change(req_id):
     cr.reviewer_id = user.id
     cr.reviewed_at = datetime.utcnow()
     cr.review_comment = ((request.get_json(silent=True) or {}).get("comment") or "").strip() or None
+    _annoncer_a_l_auteur(cr, user)
     db.session.commit()
     return jsonify({"status": "ok"})
 

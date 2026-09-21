@@ -9,6 +9,7 @@
     canReview: {{ can_review | tojson }},
   };
   window.SHARE_L = {
+    lang:          {{ session.get('lang', 'fr') | tojson }},
     sharedLabel:   {{ t('access.shared_label') | tojson }},
     badgeShared:   {{ t('access.badge_shared') | tojson }},
     badgePrivate:  {{ t('sharepage.state_private') | tojson }},
@@ -54,6 +55,10 @@
     statusPending: {{ t('change.status_pending') | tojson }},
     statusApproved:{{ t('change.status_approved') | tojson }},
     statusRejected:{{ t('change.status_rejected') | tojson }},
+    decision:      {{ t('decision.decision') | tojson }},
+    appliqueePar:  {{ t('decision.appliquee_par') | tojson }},
+    refuseePar:    {{ t('decision.refusee_par') | tojson }},
+    sansMessage:   {{ t('decision.sans_message') | tojson }},
     summaryTitle:  {{ t('change.summary_title') | tojson }},
     nothing:       {{ t('change.nothing') | tojson }},
     added:         {{ t('change.added') | tojson }},

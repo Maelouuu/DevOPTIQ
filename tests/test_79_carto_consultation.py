@@ -121,8 +121,12 @@ class TestLeZoomNePeutPasValoirZero:
     SVG « NaN » — et l'enregistrement aurait propagé le tout en base."""
 
     def test_fitview_borne_le_facteur_et_refuse_un_canevas_degenere(self):
-        corps = _corps(_lire(EDITOR_JS), "function fitView() {")
+        # `bornes` et `plancher` : un cadre imposé et un zoom minimum plus bas,
+        # pour les vignettes de la comparaison avant / après. Le plancher reste
+        # STRICTEMENT positif — c'est tout l'objet de ce test.
+        corps = _corps(_lire(EDITOR_JS), "function fitView(bornes, plancher) {")
         assert "ZOOM_MIN" in corps, "fitView ne borne pas le zoom par le bas"
+        assert "plancher > 0" in corps, "un plancher nul rendrait un zoom nul possible"
         assert "r.width > 0" in corps and "r.height > 0" in corps, (
             "fitView doit renoncer sur un canevas pas encore posé")
         assert "Number.isFinite(dw)" in corps and "Number.isFinite(dh)" in corps, (

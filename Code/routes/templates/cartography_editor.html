@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Optiq Map — {{ entity_name or 'Éditeur' }}</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='optiqcarto/style.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='carto_comparaison.css') }}">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
   <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 
@@ -839,6 +840,7 @@
 <script src="{{ url_for('static', filename='optiqcarto/vsdx_importer.js') }}"></script>
 <script src="{{ url_for('static', filename='optiqcarto/optiqarrange.js') }}"></script>
 <script src="{{ url_for('static', filename='optiqcarto/editor.js') }}"></script>
+<script src="{{ url_for('static', filename='js/carto_comparaison.js') }}"></script>
 <script src="{{ url_for('static', filename='optiqcarto/carto_sharing.js') }}"></script>
 
 <!-- ══ Routage orthogonal libavoid (WASM) : exécuté dans un Web Worker (hors du

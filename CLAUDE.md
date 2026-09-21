@@ -2571,6 +2571,125 @@ règle — et exigent en plus de pouvoir OUVRIR la carto (`can_read`) : un
 champion à qui l'on confierait l'examen ne tranche pas sur une carto qu'il ne
 voit pas.
 
+### Le mot du valideur parvient à l'auteur (2026-09-21)
+
+⚠️ **Le message à l'auteur était enregistré et lu par personne.** La fenêtre
+d'examen offrait « un mot pour l'auteur » ; `review_comment` était bien écrit…
+et AUCUN écran ne le montrait : ni la page Partage, ni l'éditeur, ni la moindre
+notification. L'utilisateur a conclu, à raison, que « ça ne marche pas » —
+qu'on applique ou qu'on refuse.
+- `CartoChangeRequest.author_seen_at` (migration à chaud, `TIMESTAMP`) : NULL
+  sur une proposition tranchée = à annoncer. Appliquer / Refuser le remettent à
+  NULL (`_annoncer_a_l_auteur`) ; on ne s'annonce pas sa propre décision.
+- `GET /cartography/api/changes/decisions` (mes décisions non lues) et
+  `POST …/decisions/vues` `{ids}` (« Compris » — seulement celles dont on est
+  l'AUTEUR : les ids viennent du navigateur).
+- `carto_decision_popup.html`, incluse par `header_buttons.html` : la décision
+  (appliquée / refusée), la carto, qui, quand, et le mot — sur n'importe quelle
+  page, jusqu'à « Compris ». Elle attend que la bienvenue ET la notification de
+  transfert d'entité soient refermées : on n'empile pas deux fenêtres.
+- Le mot se relit aussi là où l'auteur relit sa proposition : bloc « Décision »
+  de la page Partage (`share.js::decisionHtml`) et de l'éditeur
+  (`carto_sharing.js::decisionHtml`, style sombre `.gov-decision` dans
+  `style.css`).
+- Côté valideur, le champ nomme son destinataire (« Votre message à Lou
+  Vasseur — il le recevra avec votre décision ») et l'annonce le confirme.
+- Au passage : les dates des propositions (page Partage, éditeur) suivaient la
+  langue du NAVIGATEUR et l'heure UTC (13:31 pour 15:31 à Paris) : le serveur
+  écrit en UTC sans fuseau, le JS ajoute le `Z` et suit la langue de l'appli.
+- Tests : `tests/test_88_decision_a_l_auteur.py` (8 cas).
+
+### Avant / après : les VRAIES cartos, et une bascule instantanée (2026-09-21)
+
+`static/js/carto_comparaison.js` + `static/carto_comparaison.css` — UN composant
+pour la fenêtre d'examen de la page Carte (`carto_examen.js`) ET celle de
+l'éditeur (`carto_sharing.js`) : deux écrans qui ne peuvent plus diverger.
+- **Les vignettes SONT le viewer d'OptiqCarto** (`/cartography/changes/<id>/
+  apercu/<quel>`), pas un schéma reconstruit. Même taille qu'avant (4/3). Un
+  voile prend le clic (agrandir) et laisse la molette faire défiler la fenêtre
+  au lieu de zoomer la carte.
+- **Un seul cadre pour les deux** : les bornes RÉUNIES des deux cartos,
+  imposées aux deux viewers. `editor.js` expose `window.cartoViewport`
+  (`get` / `set` / `bounds` / `fit`) et `fitView(bornes, plancher)`.
+  ⚠️ Le plancher par défaut reste `ZOOM_MIN` (0,08, celui de la molette) ; le
+  cadre imposé descend à 0,004 — sinon une grande carto ne tenait pas dans une
+  vignette et n'en montrait qu'un morceau (mesuré : la carto FluidClip exige
+  0,045). `test_79` garde le plancher STRICTEMENT positif.
+- **Les formes touchées sont entourées dans la vraie carto** (retirée rouge sur
+  l'avant, ajoutée verte sur l'après, déplacée / renommée ambre des deux côtés)
+  par une feuille de style injectée dans chaque viewer — `marques` vient de
+  `GET /api/changes/<id>`. ⚠️ `vector-effect: non-scaling-stroke` : un trait
+  en unités de carte fait moins d'un pixel en vignette et devient épais en
+  grand ; en pixels d'écran il se voit partout.
+- **Agrandir ne recharge rien** : les MÊMES iframes, agrandies en CSS
+  (`.cmp[data-mode="loupe"]`, fixe, 16 px du bord). ⚠️ Déplacer une iframe
+  dans la page la recharge — c'est ce demi-seconde que l'utilisateur voyait à
+  chaque bascule. La vue masquée est en `visibility: hidden`, JAMAIS
+  `display: none` (un viewer de taille nulle ne se cadre plus).
+- **La bascule garde le cadrage** : on recopie `get()` de la vue affichée sur
+  l'autre AVANT de la montrer — on compare le même endroit, au même zoom.
+  Mesuré : 35 ms, clic compris. Tab bascule, Échap referme le grand format
+  (pas la fenêtre d'examen) — y compris quand le viewer a le focus (écouteurs
+  posés dans chaque iframe). ⚠️ Pas l'espace : maintenu, il déplace la carte.
+- ⚠️ **Dans l'éditeur, la fiche d'examen s'ouvre sur une animation en
+  `transform`** conservée (`both`) : elle devenait le repère des éléments fixes
+  et le grand format y restait enfermé. `#review-modal .gov-card {
+  animation-fill-mode: backwards; }` — rien ne change à l'œil.
+- ⚠️ **Les viewers de la comparaison préviennent leur page à chaque clic sur
+  une forme** (`shape-click`), et la page Carte part alors vers la fiche de
+  l'activité. `activities_map.js` ignore les messages des iframes de `#cex` —
+  vérifié à l'écran : sans ce filtre, cliquer « Clarify RFI Scope » en grand
+  quittait la page.
+- Retirés : la route SVG `/api/changes/<id>/apercu/<quel>.svg`, `_cadre_commun`,
+  les marques de `_svg_depuis_diagramme` (qui ne sert plus qu'à la galerie de la
+  page Partage), la loupe de `carto_examen.js` et `carto_sharing.js`, et les
+  styles `.gov-ba*` / `.gov-dot*` / `.gov-loupe*`.
+- `editor.js` et `style.css` synchronisés dans le dépôt OptiqCarto (contenus
+  identiques, fins de ligne LF là-bas).
+- Tests : `test_66::TestApercuAvantApres` / `::TestApercuEnGrand` réécrits sur
+  les nouvelles garanties (cadre commun, pas de rechargement, bascule qui garde
+  le cadrage, vue masquée qui garde sa taille, grand format fixe, filtre des
+  clics).
+
+### La fiche de compte, deuxième passe (2026-09-21)
+
+« Pas satisfaisant, plus d'ergonomie. » Et en la reprenant, un défaut de FOND :
+- ⚠️ **Corriger un nom pouvait retirer un rôle — et l'accès à une carto.** La
+  fiche ne portait qu'UN rôle, choisi parmi ceux de la carto ACTIVE, et
+  `update_user` remplaçait « le » rôle de la personne (`UserRole…first()`).
+  Pour quelqu'un qui tenait un rôle ailleurs, un simple « Enregistrer » envoyait
+  un rôle vide : son rôle était supprimé. Les rôles bougent désormais PAR PAIRE
+  (`roles_ajout` / `roles_retrait`, `_appliquer_roles`) et seulement ceux que la
+  fiche nomme ; le développeur de compétences posé sur chaque rôle reste. Un
+  `role_id` (ancien formulaire) ne fait plus qu'ajouter. `test_50::
+  test_le_role_est_facultatif_a_la_modification` affirmait l'ANCIEN comportement
+  destructeur : il affirme maintenant que rien n'est retiré.
+- Qui attribue quoi : un rôle ouvre des cartos, donc seuls l'administrateur et
+  qui ouvre la page RH (`can_access_rh`) en attribuent ; un administrateur
+  n'importe lequel, les autres ceux des cartos qu'ils ouvrent. On ne se donne pas
+  de rôle depuis sa propre fiche. Une fiche refusée n'écrit RIEN (pas même le
+  nom), et une création refusée ne laisse pas de compte à moitié fait.
+- ⚠️ **Un administrateur ne change pas son propre niveau** : il perdrait
+  l'écran depuis lequel il le remettrait.
+- **L'envoi se fait en arrière-plan** (`Accept: application/json` →
+  `{ok, code, champ}`) : une erreur s'écrit SOUS le champ fautif et la saisie
+  reste. Avant, un e-mail déjà pris rechargeait la page et tout était perdu.
+  Sans cet en-tête, les routes redirigent comme avant.
+- **L'écran** : un en-tête qui montre la PERSONNE (initiales et couleur de son
+  niveau, qui suivent la saisie), deux colonnes — identité et connexion ;
+  niveau d'accès en **échelle** (les marches inférieures restent allumées :
+  chaque palier inclut le précédent) et **rôles carto par carto** (retirés
+  barrés avec « annuler », ajoutés marqués, sélecteur avec recherche). Le mot
+  de passe se change SUR DEMANDE, avec « Générer » (sans 0/O/1/l) et
+  « Afficher ». « Enregistrer » ne s'allume qu'avec une modification, et le
+  pied dit combien.
+- ⚠️ Choisir un rôle redessine la liste : l'élément cliqué est DÉTACHÉ quand le
+  clic remonte, et le « clic à l'extérieur » refermait le sélecteur (puis Échap
+  fermait la fiche). Un élément détaché venait forcément de l'intérieur.
+- Tests : `tests/test_87_fiche_compte.py` (15 cas ; 5 vérifiés **rouges** sur
+  l'ancien code, dont le rôle effacé). Banc : `tools/devrun_partage.py` donne à
+  `user@test.local` un rôle sur la carto PRIVÉE du coordinateur.
+
 ### Page RH ③ : les compétences de chacun, toutes cartos (2026-09-21)
 
 Le tableau global d'autrefois (`/competences/users/global_summary`, une

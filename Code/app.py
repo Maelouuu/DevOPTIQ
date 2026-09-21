@@ -476,10 +476,14 @@ def create_app(test_config=None):
                 _conn.commit()
         except Exception:
             pass
+        # La décision sur une proposition doit parvenir à son auteur : on
+        # retient quand il l'a lue (NULL = à lui annoncer).
+        _safe_add_column("carto_change_requests", "author_seen_at", "TIMESTAMP")
         # Une colonne que le modèle interroge et qui manque casse toute la page.
         # _safe_add_column est muet par construction (il ignore « déjà là ») :
         # on vérifie donc, et on le dit fort.
-        _verifier_colonnes({"entities": ["is_shared"]})
+        _verifier_colonnes({"entities": ["is_shared"],
+                            "carto_change_requests": ["author_seen_at"]})
         # Statut Garant : l'import carto l'écrivait en minuscule, la page Rôles
         # cherchait 'Garant' — un rôle garant d'après la carte n'apparaissait
         # donc nulle part dans sa fiche. On aligne les lignes existantes.

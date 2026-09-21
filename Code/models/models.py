@@ -988,6 +988,11 @@ class CartoChangeRequest(db.Model):
     review_comment = db.Column(db.Text, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     reviewed_at = db.Column(db.DateTime, nullable=True)
+    # Quand l'AUTEUR a pris connaissance de la décision (et du message qui
+    # l'accompagne). NULL sur une proposition tranchée = à lui annoncer.
+    # ⚠️ Sans elle, le message du valideur était enregistré et lu par
+    # personne : aucun écran ne le montrait à celui à qui il était adressé.
+    author_seen_at = db.Column(db.DateTime, nullable=True)
 
     entity = db.relationship('Entity', foreign_keys=[entity_id])
     author = db.relationship('User', foreign_keys=[author_id])

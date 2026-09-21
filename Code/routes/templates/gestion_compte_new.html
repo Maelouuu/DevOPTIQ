@@ -66,7 +66,7 @@
                  data-famille="{{ item.famille }}" data-roles="{{ item.roles|join('|') }}"
                  data-id="{{ u.id }}" data-prenom="{{ u.first_name }}" data-nom-famille="{{ u.last_name }}"
                  data-email="{{ u.email }}" data-age="{{ u.age or '' }}"
-                 data-role-id="{{ item.role_ids[0] if item.role_ids else '' }}">
+                 data-roles-json='{{ item.roles_detail | tojson }}'>
           <span class="acc-av acc-av--{{ item.famille }}">{{ (u.first_name or u.email)[:1]|upper }}{{ (u.last_name or '')[:1]|upper }}</span>
           <div class="acc-qui">
             <strong>{{ u.first_name }} {{ u.last_name }}
@@ -133,91 +133,148 @@
 
 <!-- ── La fiche d'un compte : la MÊME pour créer et pour modifier ──────────
      Créer et modifier posent les mêmes questions ; deux écrans différents
-     pour un même formulaire, c'était deux fois à comprendre. -->
+     pour un même formulaire, c'était deux fois à comprendre.
+     À gauche QUI est la personne et comment elle se connecte ; à droite ce
+     qu'elle peut faire — son niveau d'accès et ses rôles, carto par carto.
+     ⚠️ L'envoi se fait en arrière-plan (gestion_compte_new.js) : une erreur
+     s'écrit sous le champ fautif, et la saisie n'est pas perdue. -->
 {% if can_create_accounts or current_user_id %}
 <div class="acc-modal" id="acc-fiche" hidden>
   <div class="acc-modal-fond" data-action="fermer-fiche"></div>
-  <div class="acc-modal-boite" role="dialog" aria-modal="true" aria-labelledby="acc-fiche-titre">
-    <header class="acc-modal-tete">
-      <span class="acc-modal-ic"><i class="fa-solid fa-user-pen"></i></span>
-      <div>
-        <h3 id="acc-fiche-titre">{{ t('account.modal_new') }}</h3>
-        <p id="acc-fiche-sous"></p>
-      </div>
-      <button type="button" class="acc-modal-x" data-action="fermer-fiche" aria-label="{{ t('btn.close') }}">
-        <i class="fa-solid fa-xmark"></i>
-      </button>
-    </header>
+  <div class="acc-modal-boite acc-fiche" role="dialog" aria-modal="true" aria-labelledby="acc-fiche-nom">
+    <form method="POST" id="acc-form" action="{{ url_for('gestion_compte.create_user') }}" novalidate>
+      <header class="acc-fiche-tete">
+        <span class="acc-fiche-av" id="acc-fiche-av" data-famille="user" aria-hidden="true"></span>
+        <div class="acc-fiche-id">
+          <p class="acc-fiche-sur" id="acc-fiche-titre">{{ t('account.modal_new') }}</p>
+          <h3 id="acc-fiche-nom"></h3>
+          <p class="acc-fiche-meta">
+            <span id="acc-fiche-mail"></span>
+            <span class="acc-statut s-user" id="acc-fiche-statut"></span>
+          </p>
+        </div>
+        <button type="button" class="acc-fiche-x" data-action="fermer-fiche" aria-label="{{ t('btn.close') }}">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </header>
 
-    <form method="POST" id="acc-form" action="{{ url_for('gestion_compte.create_user') }}">
-      <div class="acc-modal-corps">
-        <fieldset class="acc-grp">
-          <legend>{{ t('account.sec_identity') }}</legend>
-          <div class="acc-champs">
-            <label class="acc-champ">
-              <span>{{ t('account.f_firstname') }} <em>*</em></span>
-              <input type="text" name="first_name" id="acc-prenom" required autocomplete="off">
-            </label>
-            <label class="acc-champ">
-              <span>{{ t('account.f_lastname') }} <em>*</em></span>
-              <input type="text" name="last_name" id="acc-nom" required autocomplete="off">
-            </label>
-            <label class="acc-champ acc-champ--court">
+      <div class="acc-fiche-alerte" id="acc-fiche-alerte" role="alert" hidden></div>
+
+      <div class="acc-fiche-corps">
+        <div class="acc-fiche-col">
+          <section class="acc-sec">
+            <h4><i class="fa-solid fa-id-card"></i>{{ t('account.sec_identity') }}</h4>
+            <div class="acc-rang">
+              <label class="acc-champ" data-champ="first_name">
+                <span>{{ t('account.f_firstname') }} <em title="{{ t('account.required_hint') }}">*</em></span>
+                <input type="text" name="first_name" id="acc-prenom" autocomplete="off">
+                <small class="acc-champ-err"></small>
+              </label>
+              <label class="acc-champ" data-champ="last_name">
+                <span>{{ t('account.f_lastname') }} <em title="{{ t('account.required_hint') }}">*</em></span>
+                <input type="text" name="last_name" id="acc-nom" autocomplete="off">
+                <small class="acc-champ-err"></small>
+              </label>
+            </div>
+            <label class="acc-champ acc-champ--age" data-champ="age">
               <span>{{ t('account.f_age') }}</span>
               <input type="number" name="age" id="acc-age" min="16" max="100" autocomplete="off">
+              <small class="acc-champ-err"></small>
             </label>
-          </div>
-        </fieldset>
+          </section>
 
-        <fieldset class="acc-grp">
-          <legend>{{ t('account.sec_login') }}</legend>
-          <div class="acc-champs">
-            <label class="acc-champ acc-champ--large">
-              <span>{{ t('account.f_email') }} <em>*</em></span>
-              <input type="email" name="email" id="acc-email" required autocomplete="off">
-              <small>{{ t('account.email_hint') }}</small>
+          <section class="acc-sec">
+            <h4><i class="fa-solid fa-right-to-bracket"></i>{{ t('account.sec_login') }}</h4>
+            <label class="acc-champ" data-champ="email">
+              <span>{{ t('account.f_email') }} <em title="{{ t('account.required_hint') }}">*</em></span>
+              <input type="email" name="email" id="acc-email" autocomplete="off">
+              <small class="acc-champ-aide">{{ t('account.email_hint') }}</small>
+              <small class="acc-champ-err"></small>
             </label>
-            <label class="acc-champ">
-              <span>{{ t('account.f_password') }} <em id="acc-mdp-etoile">*</em></span>
-              <input type="password" name="password" id="acc-mdp" minlength="6" autocomplete="new-password">
-              <small id="acc-mdp-aide">{{ t('account.pw_hint_new') }}</small>
-            </label>
-          </div>
-        </fieldset>
 
-        <fieldset class="acc-grp">
-          <legend>{{ t('account.sec_place') }}</legend>
-          <div class="acc-champs">
-            <label class="acc-champ">
-              <span>{{ t('account.f_role') }}</span>
-              <select name="role_id" id="acc-role-sel">
-                <option value="">{{ t('account.role_none') }}</option>
-                {% for role in roles %}<option value="{{ role.id }}">{{ role.name }}</option>{% endfor %}
-              </select>
-            </label>
-            {% if is_admin %}
-            <div class="acc-champ acc-champ--large">
-              <span>{{ t('account.f_status') }}</span>
-              <div class="acc-paliers" id="acc-paliers">
-                {% for cle, lib, aide in [
-                      ('user', t('account.status_user'), t('account.status_user_hint')),
-                      ('champion', t('account.status_champion'), t('account.status_champion_hint')),
-                      ('coordinateur', t('account.status_coordinator'), t('account.status_coordinator_hint')),
-                      ('administrateur', t('account.status_admin'), t('account.status_admin_hint'))] %}
-                <label class="acc-palier p-{{ cle }}">
-                  <input type="radio" name="status" value="{{ cle }}"{% if cle == 'user' %} checked{% endif %}>
-                  <span class="acc-palier-t">{{ lib }}</span>
-                  <span class="acc-palier-d">{{ aide }}</span>
-                </label>
-                {% endfor %}
+            <!-- En modification, le mot de passe ne se montre que sur demande :
+                 « laissez vide pour ne pas le changer » était une règle à
+                 lire, un bouton est une décision qu'on prend. -->
+            <div class="acc-mdp" id="acc-mdp-zone" data-ouvert="0">
+              <button type="button" class="acc-mdp-ouvrir" data-action="mdp-ouvrir">
+                <i class="fa-solid fa-key"></i><span>{{ t('account.pw_change') }}</span>
+              </button>
+              <div class="acc-champ acc-mdp-champ" data-champ="password">
+                <span class="acc-mdp-lib">
+                  <label for="acc-mdp">{{ t('account.f_password') }} <em id="acc-mdp-etoile">*</em></label>
+                  <button type="button" class="acc-lien" data-action="mdp-fermer" id="acc-mdp-garder">{{ t('account.pw_keep') }}</button>
+                </span>
+                <div class="acc-mdp-saisie">
+                  <input type="password" name="password" id="acc-mdp" minlength="6" autocomplete="new-password">
+                  <button type="button" class="acc-mdp-btn" data-action="mdp-voir"
+                          title="{{ t('account.pw_show') }}" aria-label="{{ t('account.pw_show') }}">
+                    <i class="fa-solid fa-eye"></i>
+                  </button>
+                  <button type="button" class="acc-mdp-btn acc-mdp-btn--gen" data-action="mdp-generer">
+                    <i class="fa-solid fa-wand-magic-sparkles"></i><span>{{ t('account.pw_generate') }}</span>
+                  </button>
+                </div>
+                <small class="acc-champ-aide" id="acc-mdp-aide">{{ t('account.pw_hint_new') }}</small>
+                <p class="acc-mdp-genere" id="acc-mdp-genere" hidden>
+                  <i class="fa-solid fa-circle-info"></i>
+                  <span>{{ t('account.pw_generated') }}</span>
+                  <button type="button" class="acc-lien" data-action="mdp-copier">{{ t('account.pw_copy') }}</button>
+                </p>
+                <small class="acc-champ-err"></small>
               </div>
             </div>
-            {% endif %}
-          </div>
-        </fieldset>
+          </section>
+        </div>
+
+        <div class="acc-fiche-col">
+          <section class="acc-sec" data-champ="status">
+            <h4><i class="fa-solid fa-stairs"></i>{{ t('account.sec_access') }}</h4>
+            <!-- Une ÉCHELLE, pas une liste : chaque palier ajoute aux droits du
+                 précédent. Les marches sous le palier choisi restent allumées. -->
+            <div class="acc-echelle" id="acc-paliers" role="radiogroup" aria-label="{{ t('account.sec_access') }}">
+              {% for cle, niv, ico, lib, aide in [
+                    ('user', 0, 'fa-eye', t('account.status_user'), t('account.status_user_hint')),
+                    ('champion', 1, 'fa-lightbulb', t('account.status_champion'), t('account.status_champion_hint')),
+                    ('coordinateur', 2, 'fa-circle-check', t('account.status_coordinator'), t('account.status_coordinator_hint')),
+                    ('administrateur', 3, 'fa-shield-halved', t('account.status_admin'), t('account.status_admin_hint'))] %}
+              <label class="acc-marche m-{{ cle }}" data-niveau="{{ niv }}">
+                <input type="radio" name="status" value="{{ cle }}"{% if cle == 'user' %} checked{% endif %}>
+                <span class="acc-marche-pt"><i class="fa-solid {{ ico }}"></i></span>
+                <span class="acc-marche-txt">
+                  <span class="acc-marche-t">{{ lib }}</span>
+                  <span class="acc-marche-d">{{ aide }}</span>
+                </span>
+                <i class="fa-solid fa-check acc-marche-ok"></i>
+              </label>
+              {% endfor %}
+            </div>
+            <p class="acc-note" id="acc-statut-note" hidden><i class="fa-solid fa-lock"></i><span></span></p>
+            <small class="acc-champ-err"></small>
+          </section>
+
+          <section class="acc-sec" data-champ="roles">
+            <h4><i class="fa-solid fa-id-badge"></i>{{ t('account.sec_roles') }}</h4>
+            <div class="acc-roles-zone" id="acc-roles-zone"></div>
+            <div class="acc-ajout" id="acc-ajout">
+              <button type="button" class="acc-ajout-btn" data-action="roles-ouvrir" aria-expanded="false">
+                <i class="fa-solid fa-plus"></i><span>{{ t('account.roles_add') }}</span>
+              </button>
+              <div class="acc-ajout-panneau" id="acc-ajout-panneau" hidden>
+                <div class="acc-ajout-rech">
+                  <i class="fa-solid fa-magnifying-glass"></i>
+                  <input type="search" id="acc-ajout-q" placeholder="{{ t('account.roles_search') }}" autocomplete="off">
+                </div>
+                <div class="acc-ajout-liste" id="acc-ajout-liste"></div>
+              </div>
+            </div>
+            <p class="acc-note" id="acc-roles-note" hidden><i class="fa-solid fa-lock"></i><span>{{ t('account.roles_readonly') }}</span></p>
+            <small class="acc-champ-err"></small>
+          </section>
+        </div>
       </div>
 
-      <footer class="acc-modal-pied">
+      <footer class="acc-modal-pied acc-fiche-pied">
+        <span class="acc-pied-etat" id="acc-pied-etat"></span>
         <button type="button" class="acc-btn" data-action="fermer-fiche">{{ t('btn.cancel') }}</button>
         <button type="submit" class="acc-btn acc-btn--prim" id="acc-valider">
           <i class="fa-solid fa-check"></i><span>{{ t('account.btn_create_user') }}</span>
@@ -265,7 +322,13 @@
     urlUpdate: {{ url_for('gestion_compte.update_user', user_id=0) | tojson }},
     urlDelete: {{ url_for('gestion_compte.delete_user', user_id=0) | tojson }},
     urlCreate: {{ url_for('gestion_compte.create_user') | tojson }},
+    estAdmin: {{ (is_admin | default(false)) | tojson }},
+    monNiveau: {{ (mon_niveau | default(-1)) | tojson }},
+    gereRoles: {{ (peut_gerer_roles | default(false)) | tojson }},
+    lang: {{ session.get('lang', 'fr') | tojson }},
   };
+  // Ce que la fiche peut attribuer : les rôles des cartos que ce compte ouvre.
+  window.ACC_ROLES = {{ (catalogue_roles | default([])) | tojson }};
   window.ACC_L = {
     modal_new:     {{ t('account.modal_new') | tojson }},
     modal_edit:    {{ t('account.modal_edit') | tojson }},
@@ -274,6 +337,45 @@
     pw_hint_new:   {{ t('account.pw_hint_new') | tojson }},
     pw_hint_edit:  {{ t('account.pw_hint_edit') | tojson }},
     no_match:      {{ t('account.no_match') | tojson }},
+    // La fiche
+    sec_access: {{ t('account.sec_access') | tojson }},
+    pw_change: {{ t('account.pw_change') | tojson }},
+    pw_keep: {{ t('account.pw_keep') | tojson }},
+    pw_show: {{ t('account.pw_show') | tojson }},
+    pw_hide: {{ t('account.pw_hide') | tojson }},
+    pw_generate: {{ t('account.pw_generate') | tojson }},
+    pw_generated: {{ t('account.pw_generated') | tojson }},
+    pw_copy: {{ t('account.pw_copy') | tojson }},
+    pw_copied: {{ t('account.pw_copied') | tojson }},
+    pw_unchanged: {{ t('account.pw_unchanged') | tojson }},
+    roles_none: {{ t('account.roles_none') | tojson }},
+    roles_nothing_left: {{ t('account.roles_nothing_left') | tojson }},
+    roles_no_match: {{ t('account.roles_no_match') | tojson }},
+    roles_new: {{ t('account.roles_new') | tojson }},
+    roles_removed: {{ t('account.roles_removed') | tojson }},
+    roles_remove: {{ t('account.roles_remove') | tojson }},
+    roles_undo: {{ t('account.roles_undo') | tojson }},
+    status_locked_self: {{ t('account.status_locked_self') | tojson }},
+    status_locked_admin: {{ t('account.status_locked_admin') | tojson }},
+    status_above: {{ t('account.status_above') | tojson }},
+    changes_none: {{ t('account.changes_none') | tojson }},
+    changes_n: {{ t('account.changes_n') | tojson }},
+    err_email_exists: {{ t('account.err_email_exists') | tojson }},
+    err_missing_name: {{ t('account.err_missing_name') | tojson }},
+    err_missing_email: {{ t('account.err_missing_email') | tojson }},
+    err_email_format: {{ t('account.err_email_format') | tojson }},
+    err_password_short: {{ t('account.err_password_short') | tojson }},
+    err_invalid_age: {{ t('account.err_invalid_age') | tojson }},
+    err_status_too_high: {{ t('account.err_status_too_high') | tojson }},
+    err_role_unknown: {{ t('account.err_role_unknown') | tojson }},
+    err_forbidden_roles: {{ t('account.err_forbidden_roles') | tojson }},
+    err_forbidden: {{ t('account.err_forbidden') | tojson }},
+    err_generic: {{ t('account.err_generic') | tojson }},
+    saving: {{ t('account.saving') | tojson }},
+    st_user_f:         {{ t('account.status_user') | tojson }},
+    st_champion_f:     {{ t('account.status_champion') | tojson }},
+    st_coordinateur_f: {{ t('account.status_coordinator') | tojson }},
+    st_administrateur_f: {{ t('account.status_admin') | tojson }},
     // Ce que chaque palier ouvre
     st_user:         {{ t('account.status_user') | tojson }},
     st_champion:     {{ t('account.status_champion') | tojson }},

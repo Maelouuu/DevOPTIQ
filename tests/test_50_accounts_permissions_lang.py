@@ -133,8 +133,11 @@ def test_seul_un_admin_supprime_un_compte(app, client, actors):
 # ── Création de comptes ───────────────────────────────────────────────────────
 
 def _create_payload(email):
+    # ⚠️ Pas de `role_id` arbitraire : il n'était jamais vérifié, et un rôle
+    # inexistant créait une affectation orpheline (refusée par PostgreSQL).
+    # Le rôle est facultatif, et ces tests ne portent pas sur lui.
     return {"first_name": "N", "last_name": "N", "email": email,
-            "password": "Test1234!", "role_id": "1", "status": "user"}
+            "password": "Test1234!", "status": "user"}
 
 
 @pytest.mark.parametrize("who,autorise", [("admin", True), ("gest", True),
@@ -332,7 +335,14 @@ def test_un_email_deja_pris_est_refuse(app, client, actors):
 
 
 def test_le_role_est_facultatif_a_la_modification(app, client, actors):
-    """Sans rôle sélectionné, l'affectation existante est retirée — pas de 500."""
+    """Sans rôle envoyé, RIEN n'est retiré — et pas de 500.
+
+    ⚠️ Ce test affirmait l'inverse : un `role_id` vide RETIRAIT l'affectation.
+    C'était la porte d'une perte de données — la fiche ne proposait que les
+    rôles de la carto ACTIVE, donc pour quelqu'un qui tenait un rôle ailleurs,
+    corriger son nom envoyait un rôle vide et le lui retirait, avec l'accès à
+    la carto qu'il ouvrait. Un rôle ne se retire plus que sur demande
+    explicite (`roles_retrait`, voir tests/test_87_fiche_compte.py)."""
     from Code.models.models import UserRole, Role
     from Code.extensions import db
     with app.app_context():
@@ -357,7 +367,7 @@ def test_le_role_est_facultatif_a_la_modification(app, client, actors):
     assert "msg=updated" in res.headers["Location"]
     with app.app_context():
         from Code.models.models import User, UserRole as UR
-        assert UR.query.filter_by(user_id=actors["other"]).first() is None
+        assert UR.query.filter_by(user_id=actors["other"]).first() is not None
         assert User.query.get(actors["other"]).age == 42
 
 

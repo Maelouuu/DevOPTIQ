@@ -246,6 +246,22 @@ let isDirty = false;
 // se raccrocher à des variables internes de l'éditeur.
 window.getCartoState  = () => state;
 window.markCartoSaved = () => { isDirty = false; };
+// Le cadrage, piloté par la page qui embarque le viewer : la fenêtre
+// d'examen des propositions montre deux cartos (avant / après) qui doivent
+// partager le même cadre, et passer de l'une à l'autre ne doit pas le perdre.
+window.cartoViewport = {
+  get: () => ({ x: vpX, y: vpY, scale: vpScale }),
+  set: (v) => {
+    if (!v || !Number.isFinite(+v.x) || !Number.isFinite(+v.y)
+        || !Number.isFinite(+v.scale) || +v.scale <= 0) return;
+    vpX = +v.x; vpY = +v.y; vpScale = +v.scale;
+    applyViewport();
+  },
+  bounds: () => _boundsForFit(),
+  // Plancher bas : le cadre imposé sert aussi aux vignettes, où une grande
+  // carto doit tenir ENTIÈRE.
+  fit: (bornes) => fitView(bornes, 0.004),
+};
 let _autoSaveTimerId = null;
 let _autoSaveToastInterval = null;
 let activeCalqueId = null;
@@ -3765,13 +3781,10 @@ function bindProps() {
    FIT VIEW
    ══════════════════════════════════════════════════ */
 
-function fitView() {
-  if (state.shapes.length === 0) {
-    vpX = 0; vpY = 280; vpScale = 0.5;
-    applyViewport(); return;
-  }
-
-  const r = canvas.getBoundingClientRect();
+// Les bornes que `fitView` cadre : les formes, plus la colonne d'index des
+// bandes quand elles sont visibles. null sur une carto vide.
+function _boundsForFit() {
+  if (!state.shapes.length) return null;
   let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
   for (const s of state.shapes) {
     minX = Math.min(minX, s.x); minY = Math.min(minY, s.y);
@@ -3779,6 +3792,24 @@ function fitView() {
   }
   // Inclure la zone index SVG dans le bounding-box quand les bandes sont visibles
   if (state.showBands && state.bands.length > 0) minX = Math.min(minX, 0);
+  return { minX, minY, maxX, maxY };
+}
+
+// `bornes` : un cadre imposé de l'extérieur (deux cartos comparées doivent
+// partager le même). ⚠️ fitView sert aussi d'écouteur de clic et reçoit alors
+// un Event : on n'accepte que de vraies bornes.
+// `plancher` : le plus petit zoom admis. ZOOM_MIN (celui de la molette) par
+// défaut ; une VIGNETTE doit pouvoir descendre plus bas, sinon une grande
+// carto n'y tient pas et n'en montre qu'un morceau.
+function fitView(bornes, plancher) {
+  const b = (bornes && Number.isFinite(bornes.minX)) ? bornes : _boundsForFit();
+  if (!b) {
+    vpX = 0; vpY = 280; vpScale = 0.5;
+    applyViewport(); return;
+  }
+
+  const r = canvas.getBoundingClientRect();
+  const { minX, minY, maxX, maxY } = b;
 
   const pad = 60;
   const dw = maxX - minX + pad * 2;
@@ -3792,7 +3823,8 @@ function fitView() {
   if (!(r.width > 0 && r.height > 0) || !Number.isFinite(dw) || !Number.isFinite(dh)
       || dw <= 0 || dh <= 0) return;
 
-  vpScale = Math.max(ZOOM_MIN, Math.min(r.width / dw, r.height / dh, 2));
+  const minimum = (Number.isFinite(plancher) && plancher > 0) ? plancher : ZOOM_MIN;
+  vpScale = Math.max(minimum, Math.min(r.width / dw, r.height / dh, 2));
   vpX = (r.width  - dw * vpScale) / 2 - (minX - pad) * vpScale;
   vpY = (r.height - dh * vpScale) / 2 - (minY - pad) * vpScale;
   applyViewport();

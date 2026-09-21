@@ -488,10 +488,14 @@
 
   const STATUT = { pending: 'statusPending', approved: 'statusApproved', rejected: 'statusRejected' };
 
+  // ⚠️ Le serveur écrit ses dates en UTC SANS fuseau : lues telles quelles,
+  // elles passaient pour l'heure locale (deux heures d'écart à Paris). Et la
+  // langue est celle de l'APPLICATION, pas celle du navigateur.
   function dateCourte(iso) {
     if (!iso) return '';
+    const utc = /[zZ]|[+-]\d\d:\d\d$/.test(iso) ? iso : iso + 'Z';
     try {
-      return new Date(iso).toLocaleDateString(undefined,
+      return new Date(utc).toLocaleString(L('lang') === 'en' ? 'en-GB' : 'fr-FR',
         { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
     } catch (_) { return iso.slice(0, 10); }
   }
@@ -542,6 +546,22 @@
     return `<li><strong>${n}</strong><span>${esc(L(n > 1 ? cle + '_p' : cle))}</span>${detail}</li>`;
   }
 
+  // La décision, et le mot de celui qui l'a prise : c'est à l'auteur qu'il
+  // est adressé, il doit le trouver là où il relit sa proposition.
+  function decisionHtml(r) {
+    if (!r || r.status === 'pending') return '';
+    const refusee = r.status === 'rejected';
+    const par = L(refusee ? 'refuseePar' : 'appliqueePar').split('{nom}').join(r.reviewer || '—');
+    const mot = (r.review_comment || '').trim();
+    return `
+      <div class="sh-decision sh-decision--${refusee ? 'non' : 'oui'}">
+        <span class="sh-eyebrow">${esc(L('decision'))}</span>
+        <p class="sh-decision-qui"><i class="fa-solid ${refusee ? 'fa-xmark' : 'fa-check'}"></i>${
+          esc(par)} · ${esc(dateCourte(r.reviewed_at))}</p>
+        <p class="sh-decision-mot${mot ? '' : ' is-vide'}">${esc(mot || L('sansMessage'))}</p>
+      </div>`;
+  }
+
   function resumeHtml(s) {
     if (!s) return '';
     const lignes = [
@@ -576,6 +596,7 @@
             <span class="sh-change-date">${esc(dateCourte(r.created_at))}</span>
           </div>
           ${r.message ? `<p class="sh-detail-msg">${esc(r.message)}</p>` : ''}
+          ${decisionHtml(r)}
           <span class="sh-eyebrow sh-sum-title">${esc(L('summaryTitle'))}</span>
           ${resumeHtml(r.summary)}
           ${r.can_review ? `

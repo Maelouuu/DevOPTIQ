@@ -1071,3 +1071,13 @@
   .sh-switch { position: static; margin-top: 12px; align-self: flex-start; }
   .sh-tiles { grid-template-columns: 1fr; }
 }
+
+/* La décision et le mot du valideur, adressés à l'auteur. */
+.sh-decision { margin: 14px 0 6px; padding: 12px 14px; border-radius: 12px;
+    border: 1px solid #bbf7d0; border-left: 4px solid #16a34a; background: #f0fdf4; }
+.sh-decision--non { border-color: #fecdd3; border-left-color: #e11d48; background: #fff1f2; }
+.sh-decision-qui { display: flex; align-items: center; gap: 8px; margin: 6px 0 0;
+    font-size: 13.5px; font-weight: 700; color: #166534; }
+.sh-decision--non .sh-decision-qui { color: #9f1239; }
+.sh-decision-mot { margin: 8px 0 0; font-size: 14px; line-height: 1.5; color: #1e293b; white-space: pre-line; }
+.sh-decision-mot.is-vide { font-style: italic; color: #94a3b8; }
