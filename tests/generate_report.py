@@ -94,6 +94,14 @@ PAGE_LABELS = {
     "test_79_carto_consultation":         "Cartographie — Mode Consultation (Palier user)",
     "test_80_rh_acces_et_dev":            "Gestion RH — Accès Multi-Cartos & Développeur par Rôle",
     "test_81_droits_reglables":           "Gestion RH — Droits par Palier (Réglables)",
+    "test_82_traduction_competences_rh":  "Compétences & RH — Traduction FR/EN (hors catalogues)",
+    "test_83_journal_dans_la_langue_du_lecteur": "Journal d'Activité — Langue du Lecteur",
+    "test_84_import_hub":                 "Import de Données — Fenêtre Unifiée (Carte & Comptes)",
+    "test_85_gabarits_bien_formes":        "Gabarits HTML — Bonne Formation (Commentaires, Templates)",
+    "test_86_examen_et_competences_rh":    "Examen des Propositions & Tableau Global des Compétences",
+    "test_87_fiche_compte":                "Fiche de Compte — Rôles Multi-Cartos & Erreurs en Arrière-Plan",
+    "test_88_decision_a_l_auteur":         "Décisions sur Propositions — Notification à l'Auteur",
+    "test_89_libelles_carte_et_editeur":   "Cartographie & Éditeur — Libellés Traduits (JS inclus)",
 }
 
 

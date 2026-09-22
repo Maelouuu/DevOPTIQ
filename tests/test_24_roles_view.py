@@ -60,6 +60,20 @@ class TestRolesViewPage:
         r = auth_client.get("/roles_view/")
         assert len(r.data) > 100
 
+    def test_page_lists_holders_of_a_role(self, auth_client, app, ids):
+        """Bloc 5 (titulaires) : un rôle affecté à un user doit apparaître, sans planter."""
+        role_id = _create_role(app, ids, name="Rôle Titulaire")
+        with app.app_context():
+            from Code.models.models import UserRole
+            from Code.extensions import db
+            if not UserRole.query.filter_by(user_id=ids["user_id"], role_id=role_id).first():
+                db.session.add(UserRole(user_id=ids["user_id"], role_id=role_id))
+                db.session.commit()
+        r = auth_client.get("/roles_view/")
+        assert r.status_code == 200
+        assert f'data-user-id="{ids["user_id"]}"'.encode() in r.data
+        assert b"User Test" in r.data
+
 
 # ===========================================================================
 # 2. PUT /roles_view/<role_id>/mission — Mise à jour de la mission générale
@@ -188,6 +202,68 @@ class TestValidationLevel:
         r = auth_client.get("/roles_view/validation_level/999999/999999")
         assert r.status_code == 200
         assert r.get_json()["level"] is None
+
+
+class TestValidationLevelWithTable:
+    """_get_validation_level lit une VRAIE table — jamais exercé tant que
+    `user_role_validations` / `role_validations` n'existe pas en base. Chaque
+    test crée sa table, l'interroge, puis la supprime (DB de session partagée)."""
+
+    def test_reads_level_from_user_role_validations(self, app, auth_client, ids):
+        with app.app_context():
+            from Code.extensions import db
+            db.session.execute(db.text(
+                "CREATE TABLE user_role_validations "
+                "(id INTEGER PRIMARY KEY, user_id INTEGER, role_id INTEGER, level INTEGER)"
+            ))
+            db.session.execute(db.text(
+                "INSERT INTO user_role_validations (user_id, role_id, level) VALUES (:u, :r, :l)"
+            ), {"u": ids["user_id"], "r": 42, "l": 3})
+            db.session.commit()
+        try:
+            r = auth_client.get(f"/roles_view/validation_level/{ids['user_id']}/42")
+            assert r.get_json()["level"] == 3
+        finally:
+            with app.app_context():
+                db.session.execute(db.text("DROP TABLE user_role_validations"))
+                db.session.commit()
+
+    def test_supports_alternate_column_names(self, app, auth_client, ids):
+        """role_validations / users_id / validation_level — variante attendue par le code."""
+        with app.app_context():
+            from Code.extensions import db
+            db.session.execute(db.text(
+                "CREATE TABLE role_validations "
+                "(id INTEGER PRIMARY KEY, users_id INTEGER, role_id INTEGER, validation_level INTEGER)"
+            ))
+            db.session.execute(db.text(
+                "INSERT INTO role_validations (users_id, role_id, validation_level) VALUES (:u, :r, :l)"
+            ), {"u": ids["user_id"], "r": 43, "l": 7})
+            db.session.commit()
+        try:
+            r = auth_client.get(f"/roles_view/validation_level/{ids['user_id']}/43")
+            assert r.get_json()["level"] == 7
+        finally:
+            with app.app_context():
+                db.session.execute(db.text("DROP TABLE role_validations"))
+                db.session.commit()
+
+    def test_returns_none_when_expected_columns_missing(self, app, auth_client, ids):
+        """Table présente mais sans role_id exploitable : repli sur None, pas d'erreur 500."""
+        with app.app_context():
+            from Code.extensions import db
+            db.session.execute(db.text(
+                "CREATE TABLE user_role_validations (id INTEGER PRIMARY KEY, user_id INTEGER, level INTEGER)"
+            ))
+            db.session.commit()
+        try:
+            r = auth_client.get(f"/roles_view/validation_level/{ids['user_id']}/44")
+            assert r.status_code == 200
+            assert r.get_json()["level"] is None
+        finally:
+            with app.app_context():
+                db.session.execute(db.text("DROP TABLE user_role_validations"))
+                db.session.commit()
 
 
 # ===========================================================================
