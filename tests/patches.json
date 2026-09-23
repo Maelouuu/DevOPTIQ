@@ -547,5 +547,26 @@
     ],
     "author": "claude",
     "fixed_at": "2026-09-04T18:27:23"
+  },
+  {
+    "patch_uid": "2026-09-23-activity-details-input-output-data",
+    "title": "Fiche activité : input_data/output_data toujours vides (jamais alimentés par les Link)",
+    "node_ids": [
+      "tests/test_33_activities_data.py::TestActivityDetails::test_details_input_data_contient_donnee_entrante",
+      "tests/test_33_activities_data.py::TestActivityDetails::test_details_output_data_contient_donnee_sortante",
+      "tests/test_33_activities_data.py::TestActivityDetails::test_details_input_output_data_sans_lien_sont_vides"
+    ],
+    "page_slug": "activities_data",
+    "failure_reason": "Ecrit en couvrant activities_data.py (76% de couverture) : le bloc censé peupler input_data/output_data lisait activity.data_items puis activity.data, deux attributs qui n'existent pas sur le modèle Activities (aucune relation directe vers Data — seule la table Link relie une Activity à une Data, via source_data_id/target_data_id).",
+    "was_real_bug": true,
+    "root_cause": "app_bug",
+    "error": "getattr(activity, \"data_items\", []) et getattr(activity, \"data\", []) retournaient systématiquement la valeur par défaut [] (les deux attributs n'existent pas sur Activities), donc la boucle de classification par direction ne s'exécutait jamais : GET /activities/<id>/details renvoyait input_data=[] et output_data=[] quelle que soit la cartographie réelle. Or ces deux champs alimentent directement le prompt IA de proposition de compétences (Code/prompts/catalog.py : [[input_data]]/[[output_data]]) — la fonctionnalité était silencieusement cassée, sans test qui vérifiait un contenu (seulement isinstance(list)). Le seed conftest.py crée pourtant un Link entrant (source_data_id -> target_activity_id) manifestement destiné à couvrir ce cas.",
+    "fix_description": "Remplacé la lecture des attributs inexistants par une requête sur Link : input_data = Data associées aux Link où target_activity_id == activity.id et source_data_id renseigné (donnée entrante) ; output_data = Data associées aux Link où source_activity_id == activity.id et target_data_id renseigné (donnée sortante), même logique que le bloc \"outgoing\" juste au-dessus et que activities_view.py. Dédupliqué via _unique_sorted déjà présent dans le fichier.",
+    "files_changed": [
+      "Code/routes/activities_data.py",
+      "tests/test_33_activities_data.py"
+    ],
+    "author": "claude",
+    "fixed_at": "2026-09-23T03:25:36"
   }
 ]

@@ -354,3 +354,75 @@ def test_la_carto_ecrit_le_statut_garant_capitalise(app, auth_client, ids):
             "WHERE a.name = :n"), {"n": "Activite bande garante"}).fetchall()}
         assert statuts, "la carto doit poser un garant sur l'activite de sa bande"
         assert statuts == {"Garant"}, f"statut attendu 'Garant', obtenu {statuts}"
+
+
+# ===========================================================================
+# 5. Bloc 4 (aptitudes) et Bloc 5 (titulaires) de la fiche rôle
+# ===========================================================================
+
+class TestBlock4EtTitulaires:
+
+    def test_aptitude_d_une_activite_garante_apparait_dans_block4(self, app, auth_client, ids):
+        """Une Aptitude rattachée à une activité Garant apparaît en type 'aptitude'."""
+        from Code.extensions import db
+        from Code.models.models import Role, Activities, Aptitude, activity_roles
+
+        with app.app_context():
+            role = Role(name="Rôle Aptitude Garant", entity_id=ids["entity_id"])
+            db.session.add(role)
+            acte = Activities(name="Activité Aptitude Garant", entity_id=ids["entity_id"])
+            db.session.add(acte)
+            db.session.commit()
+            rid, aid = role.id, acte.id
+            db.session.execute(
+                activity_roles.insert().values(activity_id=aid, role_id=rid, status="Garant"))
+            apt = Aptitude(description="Savoir arbitrer sous pression", activity_id=aid)
+            db.session.add(apt)
+            db.session.commit()
+
+        try:
+            res = auth_client.get("/roles_view/")
+            assert res.status_code == 200
+            page = res.data.decode("utf-8")
+            assert "Savoir arbitrer sous pression" in page
+        finally:
+            with app.app_context():
+                from sqlalchemy import text
+                db.session.execute(text("DELETE FROM activity_roles WHERE role_id = :r"), {"r": rid})
+                db.session.query(Aptitude).filter_by(activity_id=aid).delete()
+                db.session.query(Activities).filter_by(id=aid).delete()
+                db.session.query(Role).filter_by(id=rid).delete()
+                db.session.commit()
+
+    def test_titulaire_du_role_apparait_avec_sa_couleur_de_competence(self, app, auth_client, ids):
+        """Un utilisateur affecté au rôle (user_roles) apparaît dans les titulaires."""
+        from Code.extensions import db
+        from Code.models.models import Role, User, UserRole
+        from werkzeug.security import generate_password_hash
+
+        with app.app_context():
+            role = Role(name="Rôle Avec Titulaire", entity_id=ids["entity_id"])
+            db.session.add(role)
+            holder = User(
+                first_name="Camille", last_name="Titulaire",
+                email="camille.titulaire@devoptiq.com",
+                password=generate_password_hash("x"),
+                entity_id=ids["entity_id"],
+            )
+            db.session.add(holder)
+            db.session.commit()
+            rid, hid = role.id, holder.id
+            db.session.add(UserRole(user_id=hid, role_id=rid))
+            db.session.commit()
+
+        try:
+            res = auth_client.get("/roles_view/")
+            assert res.status_code == 200
+            page = res.data.decode("utf-8")
+            assert "Camille" in page and "Titulaire" in page
+        finally:
+            with app.app_context():
+                db.session.query(UserRole).filter_by(user_id=hid, role_id=rid).delete()
+                db.session.query(Role).filter_by(id=rid).delete()
+                db.session.query(User).filter_by(id=hid).delete()
+                db.session.commit()

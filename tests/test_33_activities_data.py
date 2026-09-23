@@ -168,6 +168,100 @@ class TestActivityDetails:
         assert isinstance(data["input_data"], list)
         assert isinstance(data["output_data"], list)
 
+    def test_details_input_data_contient_donnee_entrante(self, auth_client, app, ids):
+        """Un Link entrant (Data → activité) doit apparaître dans 'input_data'.
+
+        Donnée dédiée + cleanup : le Link entrant du seed (`conftest._seed_db`)
+        n'est pas fiable ici, un autre test (`test_15_activities_map.py::
+        test_list_connections_empty`) vide tous les Link de l'entité seed.
+        """
+        from Code.models.models import Data, Link
+        from Code.extensions import db
+
+        with app.app_context():
+            data_obj = Data(entity_id=ids["entity_id"], name="Donnée Entrante Details", type="nourrissante")
+            db.session.add(data_obj)
+            db.session.flush()
+            link = Link(
+                entity_id=ids["entity_id"],
+                source_data_id=data_obj.id,
+                target_activity_id=ids["activity_id"],
+                type="nourrissante",
+            )
+            db.session.add(link)
+            db.session.commit()
+            link_id, data_id = link.id, data_obj.id
+
+        try:
+            r = auth_client.get(f"/activities/{ids['activity_id']}/details")
+            data = r.get_json()
+            assert "Donnée Entrante Details" in data["input_data"]
+            assert "Donnée Entrante Details" not in data["output_data"]
+        finally:
+            with app.app_context():
+                l = db.session.get(Link, link_id)
+                if l:
+                    db.session.delete(l)
+                d = db.session.get(Data, data_id)
+                if d:
+                    db.session.delete(d)
+                db.session.commit()
+
+    def test_details_output_data_contient_donnee_sortante(self, auth_client, app, ids):
+        """Un Link sortant (activité → Data) doit apparaître dans 'output_data'."""
+        from Code.models.models import Data, Link
+        from Code.extensions import db
+
+        with app.app_context():
+            data_obj = Data(entity_id=ids["entity_id"], name="Donnée Sortante Details", type="nourrissante")
+            db.session.add(data_obj)
+            db.session.flush()
+            link = Link(
+                entity_id=ids["entity_id"],
+                source_activity_id=ids["activity_id"],
+                target_data_id=data_obj.id,
+                type="nourrissante",
+            )
+            db.session.add(link)
+            db.session.commit()
+            link_id, data_id = link.id, data_obj.id
+
+        try:
+            r = auth_client.get(f"/activities/{ids['activity_id']}/details")
+            data = r.get_json()
+            assert "Donnée Sortante Details" in data["output_data"]
+            assert "Donnée Sortante Details" not in data["input_data"]
+        finally:
+            with app.app_context():
+                l = db.session.get(Link, link_id)
+                if l:
+                    db.session.delete(l)
+                d = db.session.get(Data, data_id)
+                if d:
+                    db.session.delete(d)
+                db.session.commit()
+
+    def test_details_input_output_data_sans_lien_sont_vides(self, auth_client, app, ids):
+        """Une activité sans Link data → [] pour input_data et output_data."""
+        from Code.models.models import Activities
+        from Code.extensions import db
+        with app.app_context():
+            a = Activities(entity_id=ids["entity_id"], name="Activité Sans Data", description="")
+            db.session.add(a)
+            db.session.commit()
+            aid = a.id
+        try:
+            r = auth_client.get(f"/activities/{aid}/details")
+            data = r.get_json()
+            assert data["input_data"] == []
+            assert data["output_data"] == []
+        finally:
+            with app.app_context():
+                obj = db.session.get(Activities, aid)
+                if obj:
+                    db.session.delete(obj)
+                    db.session.commit()
+
 
 # ===========================================================================
 # 2. GET /activities/performance/render/<link_id>

@@ -80,31 +80,30 @@ def get_activity_details(activity_id):
     ]
 
     # -----------------------------
-    # Données d'entrée / sortie (si ton modèle Data possède un champ "direction")
+    # Données d'entrée / sortie : portées par les Link de la cartographie,
+    # pas par une relation directe Activities → Data (qui n'existe pas dans le
+    # modèle). Entrant = Link.target_activity_id == activity, source = Data.
+    # Sortant = Link.source_activity_id == activity, cible = Data.
     # On renvoie des LISTES (pas de string placeholder) pour que le LLM/JS fonctionne mieux.
     # -----------------------------
     input_data = []
+    for link in Link.query.filter_by(target_activity_id=activity.id).all():
+        if link.source_data_id:
+            d = Data.query.get(link.source_data_id)
+            text = (getattr(d, "name", None) or getattr(d, "description", None) or "").strip() if d else ""
+            if text:
+                input_data.append(text)
+
     output_data = []
-    for d in _safe_list(getattr(activity, "data_items", [])) or _safe_list(
-        getattr(activity, "data", [])
-    ):
-        # on tente de lire direction/name/label/description
-        direction = getattr(d, "direction", None)
-        text = (
-            getattr(d, "name", None)
-            or getattr(d, "label", None)
-            or getattr(d, "description", None)
-            or ""
-        ).strip()
-        if not text:
-            continue
-        if direction in ("in", "input", "entrée", "entree"):
-            input_data.append(text)
-        elif direction in ("out", "output", "sortie"):
-            output_data.append(text)
-        else:
-            # si pas de direction ; on met dans input par défaut pour alimenter le contexte
-            input_data.append(text)
+    for link in Link.query.filter_by(source_activity_id=activity.id).all():
+        if link.target_data_id:
+            d = Data.query.get(link.target_data_id)
+            text = (getattr(d, "name", None) or getattr(d, "description", None) or "").strip() if d else ""
+            if text:
+                output_data.append(text)
+
+    input_data = _unique_sorted(input_data)
+    output_data = _unique_sorted(output_data)
 
     # -----------------------------
     # Performances "sortantes" via liens (source_activity_id → performance)
