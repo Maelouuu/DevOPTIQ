@@ -87,7 +87,7 @@ def ensure_time_role_schema():
 def page():
     # MODIFIÉ: Filtrer par entité active
     activities = Activities.for_active_entity().order_by(Activities.name.asc()).all()
-    roles = Role.for_active_entity().order_by(Role.name.asc()).all()
+    roles = Role.query.order_by(Role.name.asc()).all()
     return render_template('time_dashboard.html', activities=activities, roles=roles)
 
 @time_bp.route('/api/calendar_params', methods=['GET'])

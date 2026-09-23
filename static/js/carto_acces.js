@@ -1,5 +1,6 @@
 /* ════════════════════════════════════════════════════════════════════
-   Qui ouvre quelles cartos — la matrice rôles × cartos (page Carte).
+   Qui ouvre quelles cartos — page Carte. Deux matrices : les RÔLES et les
+   STATUTS, une carto par colonne.
 
    Un rôle en ligne, une carto en colonne : c'est la comparaison entre
    lignes qui renseigne, et une carto par écran obligeait à la tenir de tête.
@@ -23,7 +24,7 @@
     (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const $ = (s, r) => (r || document).querySelector(s);
 
-  let D = null;          // { cartos, roles }
+  let D = null;          // { cartos, roles, statuts }
   let filtre = '';
   let occupe = false;
 
@@ -54,7 +55,51 @@
     rendre();
   }
 
-  const ouvert = (role, eid) => (role.cartos || []).includes(eid);
+  const ouvert = (ligne, eid) => (ligne.cartos || []).includes(eid);
+
+  function colonnes(sec) {
+    return D.cartos.map(c => {
+      const combien = sec === 'statut'
+        ? P('n_statuts', (D.statuts || []).filter(s => ouvert(s, c.id)).length)
+        : P('n_roles', c.n_roles);
+      const etat = !c.commune ? `<em class="est-privee">${esc(L('privee'))}</em>`
+        : (sec === 'role' && c.ouverte_a_tous
+          ? `<em class="est-ouverte">${esc(L('ouverte'))}</em>`
+          : `<em>${esc(combien)}</em>`);
+      return `<th scope="col">
+        <button type="button" class="cacc-col" data-carto="${c.id}" data-sec="${sec}"
+                title="${esc(L('tout_carto'))}">
+          <span>${esc(c.name)}</span>${etat}
+        </button>
+      </th>`;
+    }).join('');
+  }
+
+  function table(sec, coin, lignes, titreLigne) {
+    const corps = lignes.map(l => `
+      <tr${l.verrou ? ' class="est-verrou"' : ''}>
+        <th scope="row">
+          ${l.verrou
+            ? `<span class="cacc-lig est-verrou" title="${esc(L('verrou'))}">
+                 <span>${esc(l.nom)}</span><i class="fa-solid fa-lock"></i>
+               </span>`
+            : `<button type="button" class="cacc-lig" data-cle="${esc(String(l.id))}" data-sec="${sec}"
+                       title="${esc(titreLigne)}"><span>${esc(l.nom)}</span></button>`}
+        </th>
+        ${D.cartos.map(c => `<td>
+          <label><input type="checkbox" class="cacc-case" data-sec="${sec}"
+                        data-cle="${esc(String(l.id))}" data-carto="${c.id}"
+                        ${ouvert(l, c.id) ? 'checked' : ''}
+                        ${l.verrou ? 'disabled' : ''}></label>
+        </td>`).join('')}
+      </tr>`).join('');
+    return `<div class="cacc-table-wrap">
+        <table class="cacc-table">
+          <thead><tr><td class="cacc-coin">${esc(coin)}</td>${colonnes(sec)}</tr></thead>
+          <tbody>${corps || `<tr><td colspan="${D.cartos.length + 1}" class="cacc-vide">${esc(L('vide'))}</td></tr>`}</tbody>
+        </table>
+      </div>`;
+  }
 
   function rendre() {
     const zone = $('#cacc-corps');
@@ -63,68 +108,74 @@
       return;
     }
     const q = filtre.trim().toLowerCase();
-    const roles = D.roles.filter(r => !q
-      || (r.nom || '').toLowerCase().includes(q) || (r.carto || '').toLowerCase().includes(q));
-
-    const colonnes = D.cartos.map(c => {
-      // Une carto dit son état : privée (cocher la rendra commune) ou ouverte
-      // à tous (cocher la restreindra). C'est la conséquence, pas l'étiquette.
-      const etat = !c.commune ? `<em class="est-privee">${esc(L('privee'))}</em>`
-        : (c.ouverte_a_tous ? `<em class="est-ouverte">${esc(L('ouverte'))}</em>`
-          : `<em>${esc(P('n_roles', c.n_roles))}</em>`);
-      return `<th scope="col">
-        <button type="button" class="cacc-col" data-carto="${c.id}" title="${esc(L('tout_carto'))}">
-          <span>${esc(c.name)}</span>${etat}
-        </button>
-      </th>`;
-    }).join('');
-
-    const lignes = roles.map(r => `
-      <tr data-role="${r.id}">
-        <th scope="row">
-          <button type="button" class="cacc-lig" data-role="${r.id}" title="${esc(L('tout_role'))}">
-            <span>${esc(r.nom)}</span><em>${esc(r.carto)}</em>
-          </button>
-        </th>
-        ${D.cartos.map(c => `<td>
-          <label><input type="checkbox" class="cacc-case" data-role="${r.id}" data-carto="${c.id}"
-                        ${ouvert(r, c.id) ? 'checked' : ''}></label>
-        </td>`).join('')}
-      </tr>`).join('');
+    const roles = D.roles
+      .filter(r => !q || (r.nom || '').toLowerCase().includes(q))
+      .map(r => ({ id: r.id, nom: r.nom, cartos: r.cartos }));
+    const statuts = (D.statuts || [])
+      .map(s => ({ id: s.cle, nom: s.nom, cartos: s.cartos, verrou: !!s.verrou }));
 
     zone.innerHTML = `
-      <div class="cacc-table-wrap">
-        <table class="cacc-table">
-          <thead><tr><td class="cacc-coin">${esc(L('role'))}</td>${colonnes}</tr></thead>
-          <tbody>${lignes || `<tr><td colspan="${D.cartos.length + 1}" class="cacc-vide">${esc(L('vide'))}</td></tr>`}</tbody>
-        </table>
-      </div>`;
+      <section class="cacc-sec cacc-sec--roles">
+        <h4 class="cacc-sec-tete"><i class="fa-solid fa-id-badge"></i>${esc(L('sec_roles'))}</h4>
+        ${table('role', L('role'), roles, L('tout_role'))}
+      </section>
+      <section class="cacc-sec cacc-sec--statuts">
+        <h4 class="cacc-sec-tete"><i class="fa-solid fa-shield-halved"></i>${esc(L('sec_statuts'))}</h4>
+        ${table('statut', L('statut'), statuts, L('tout_statut'))}
+      </section>`;
+    accorderDefilement(zone);
+  }
+
+  /* Les deux tables ont les MÊMES colonnes : chacune défile de son côté, et
+     lire un statut sous une carto qui n'est plus la même ne veut rien dire. */
+  function accorderDefilement(zone) {
+    const wraps = [].slice.call(zone.querySelectorAll('.cacc-table-wrap'));
+    let enCours = false;
+    wraps.forEach((w) => w.addEventListener('scroll', () => {
+      if (enCours) return;
+      enCours = true;
+      wraps.forEach((autre) => { if (autre !== w) autre.scrollLeft = w.scrollLeft; });
+      enCours = false;
+    }));
   }
 
   /* Cocher une colonne ou une ligne = envoyer ses cases. Si tout est déjà
      coché, le même clic décoche : un bouton qui ne fait rien la deuxième fois
      laisse croire qu'il a échoué. */
-  function casesColonne(eid) {
+  function casesColonne(eid, sec) {
+    if (sec === 'statut') {
+      const st = (D.statuts || []).filter(s => !s.verrou);
+      const tous = st.every(s => ouvert(s, eid));
+      return { cases_statut: st.map(s => ({ statut: s.cle, entity_id: eid, on: !tous })) };
+    }
     const tous = D.roles.every(r => ouvert(r, eid));
-    return D.roles.map(r => ({ role_id: r.id, entity_id: eid, on: !tous }));
+    return { cases: D.roles.map(r => ({ role_id: r.id, entity_id: eid, on: !tous })) };
   }
 
-  function casesLigne(rid) {
+  function casesLigne(cle, sec) {
+    if (sec === 'statut') {
+      const s = (D.statuts || []).find(x => x.cle === cle);
+      if (!s) return {};
+      const tous = D.cartos.every(c => ouvert(s, c.id));
+      return { cases_statut: D.cartos.map(c => ({ statut: cle, entity_id: c.id, on: !tous })) };
+    }
+    const rid = Number(cle);
     const role = D.roles.find(r => r.id === rid);
-    if (!role) return [];
+    if (!role) return {};
     const tous = D.cartos.every(c => ouvert(role, c.id));
-    return D.cartos.map(c => ({ role_id: rid, entity_id: c.id, on: !tous }));
+    return { cases: D.cartos.map(c => ({ role_id: rid, entity_id: c.id, on: !tous })) };
   }
 
   async function envoyer(cases) {
-    if (occupe || !cases.length) return;
+    const combien = (cases.cases || []).length + (cases.cases_statut || []).length;
+    if (occupe || !combien) return;
     occupe = true;
     $('#cacc-corps').classList.add('est-occupe');
     try {
       const r = await fetch('/cartography/api/access/matrice', {
         method: 'POST', credentials: 'same-origin',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ cases }),
+        body: JSON.stringify(cases),
       });
       const d = await r.json();
       if (!r.ok) throw new Error(d.error || L('err'));
@@ -165,14 +216,20 @@
       const el = e.target.closest('[data-cacc], .cacc-col, .cacc-lig');
       if (!el) return;
       if (el.dataset.cacc === 'fermer') return fermer();
-      if (el.classList.contains('cacc-col')) return envoyer(casesColonne(Number(el.dataset.carto)));
-      if (el.classList.contains('cacc-lig')) return envoyer(casesLigne(Number(el.dataset.role)));
+      if (el.classList.contains('cacc-col')) {
+        return envoyer(casesColonne(Number(el.dataset.carto), el.dataset.sec));
+      }
+      if (el.classList.contains('cacc-lig')) {
+        return envoyer(casesLigne(el.dataset.cle, el.dataset.sec));
+      }
     });
     f.addEventListener('change', (e) => {
       const el = e.target;
       if (!el.classList.contains('cacc-case')) return;
-      envoyer([{ role_id: Number(el.dataset.role), entity_id: Number(el.dataset.carto),
-                 on: el.checked }]);
+      const eid = Number(el.dataset.carto);
+      envoyer(el.dataset.sec === 'statut'
+        ? { cases_statut: [{ statut: el.dataset.cle, entity_id: eid, on: el.checked }] }
+        : { cases: [{ role_id: Number(el.dataset.cle), entity_id: eid, on: el.checked }] });
     });
     const q = $('#cacc-q');
     if (q) q.addEventListener('input', () => { filtre = q.value; rendre(); });

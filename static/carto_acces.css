@@ -1,5 +1,6 @@
 /* ══════════════════════════════════════════════════════════════════════════
-   Qui ouvre quelles cartos — la matrice rôles × cartos (page Carte).
+   Qui ouvre quelles cartos — page Carte. Deux matrices : rôles × cartos et
+   statuts × cartos.
    Le teal de la page Cartographie, une table qui défile dans les deux sens
    avec ses en-têtes collés : on garde toujours le nom du rôle et celui de la
    carto sous les yeux, sinon une case ne veut plus rien dire.
@@ -70,14 +71,53 @@
 }
 .cacc-rech input:focus { outline: none; border-color: #0d9488; box-shadow: 0 0 0 3px rgba(13, 148, 136, .18); }
 
-.cacc-corps { flex: 1; min-height: 0; overflow: auto; transition: opacity .15s; }
+.cacc-corps {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    transition: opacity .15s;
+}
 .cacc-corps.est-occupe { opacity: .55; pointer-events: none; }
 .cacc-attente { padding: 40px; text-align: center; color: #64748b; }
 .cacc-vide, .cacc-err { padding: 28px 18px; text-align: center; font-size: 13.5px; color: #64748b; }
 .cacc-err { color: #be123c; }
 
-.cacc-table-wrap { overflow: auto; max-height: 100%; }
+/* Deux sections : les rôles, puis les statuts. Chacune porte son en-tête et
+   sa teinte — on doit voir d'un coup d'œil dans laquelle on coche.
+   ⚠️ Les rôles prennent la place restante et défilent (leur en-tête de table
+   reste collé DANS leur propre zone) ; les quatre paliers tiennent toujours,
+   donc la section des statuts garde sa hauteur au lieu d'être écrasée. */
+.cacc-sec { display: flex; flex-direction: column; min-height: 0; }
+.cacc-sec--roles { flex: 1 1 auto; border-bottom: 3px solid #e2e8f0; }
+.cacc-sec--statuts { flex: none; padding-bottom: 8px; }
+.cacc-sec-tete {
+    flex: none;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    padding: 11px 18px;
+    font-family: var(--pg-font-display, inherit);
+    font-size: 13.5px;
+    font-weight: 700;
+    color: #0f766e;
+    background: #ecfeff;
+    border-bottom: 1px solid #cffafe;
+}
+.cacc-sec--statuts .cacc-sec-tete { color: #7c2d12; background: #fff7ed; border-bottom-color: #fed7aa; }
+.cacc-sec--statuts .cacc-table tbody tr:hover th,
+.cacc-sec--statuts .cacc-table tbody tr:hover td { background: #fff7ed; }
+.cacc-sec--statuts .cacc-col:hover, .cacc-sec--statuts .cacc-lig:hover { background: rgba(234, 88, 12, .1); }
+.cacc-sec--statuts .cacc-table input { accent-color: #ea580c; }
+
+.cacc-table-wrap { flex: 1 1 auto; min-height: 0; overflow: auto; }
 .cacc-table { border-collapse: separate; border-spacing: 0; width: 100%; }
+/* ⚠️ Première colonne à largeur FIXE dans les deux tables : sans elle, chacune
+   se dimensionne sur son propre contenu et les colonnes de cartos ne tombent
+   pas en face — on lirait un statut sous la mauvaise carto. */
+.cacc-table .cacc-coin, .cacc-table tbody th { width: 300px; min-width: 300px; }
 .cacc-table thead th, .cacc-table .cacc-coin {
     position: sticky;
     top: 0;
@@ -128,17 +168,11 @@
 .cacc-col em.est-privee { color: #b45309; }
 .cacc-col em.est-ouverte { color: #0e7490; }
 .cacc-col:hover, .cacc-lig:hover { background: rgba(13, 148, 136, .1); }
-.cacc-lig { min-width: 220px; }
+.cacc-lig { min-width: 0; }
+.cacc-lig.est-verrou { cursor: default; display: flex; flex-direction: row; align-items: center; gap: 8px; }
+.cacc-lig.est-verrou i { font-size: 11px; color: #94a3b8; }
+.cacc-table tr.est-verrou input { cursor: default; opacity: .75; }
 .cacc-table input { width: 17px; height: 17px; accent-color: #0d9488; cursor: pointer; }
-
-.cacc-pied {
-    flex: none;
-    padding: 12px 18px;
-    border-top: 1px solid #e2e8f0;
-    background: #f8fafc;
-}
-.cacc-pied p { margin: 0; font-size: 12.5px; color: #64748b; }
-.cacc-pied i { color: #0d9488; margin-right: 6px; }
 
 .cacc-msg {
     position: fixed;

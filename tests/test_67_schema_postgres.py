@@ -118,14 +118,19 @@ class TestMigrationsAChaud:
 
     def test_la_colonne_du_partage_est_bien_declaree(self):
         alters = {(t, c): ty for t, c, ty in self._alters()}
-        assert ("entities", "is_shared") in alters, (
-            "L'ALTER de entities.is_shared a disparu : les instances déjà "
-            "déployées n'auraient pas la colonne.")
-        assert re.search(r"DEFAULT\s+FALSE", alters[("entities", "is_shared")], re.I)
+        for colonne in ("is_shared", "statuts_regles"):
+            assert ("entities", colonne) in alters, (
+                f"L'ALTER de entities.{colonne} a disparu : les instances déjà "
+                "déployées n'auraient pas la colonne.")
+            assert re.search(r"DEFAULT\s+FALSE", alters[("entities", colonne)], re.I)
 
     def test_le_demarrage_verifie_les_colonnes_indispensables(self):
         """_safe_add_column est muet : sans cette vérification, une migration
         ratée ne se voit qu'en 500 sur toutes les pages."""
         source = io.open(SOURCE_APP, encoding="utf-8").read()
         assert "_verifier_colonnes(" in source
-        assert '"entities": ["is_shared"]' in source
+        bloc = source.split("_verifier_colonnes(", 1)[1].split("})", 1)[0]
+        attendues = re.search(r'"entities":\s*\[([^\]]*)\]', bloc)
+        assert attendues, "entities ne figure plus dans les colonnes vérifiées"
+        colonnes = {c.strip().strip('"') for c in attendues.group(1).split(",") if c.strip()}
+        assert {"is_shared", "statuts_regles"} <= colonnes

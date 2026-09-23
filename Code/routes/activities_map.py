@@ -589,9 +589,16 @@ def delete_entity(entity_id):
     if not user_id:
         return jsonify({"error": "Non connecté"}), 401
     
-    entity = Entity.query.filter_by(id=entity_id, owner_id=user_id).first()
-    
-    if not entity:
+    # ⚠️ Une entité SANS propriétaire (importée, provisionnée, héritée d'une
+    # version où la colonne n'était pas remplie) se voit dans la liste — elle
+    # est lisible par tout le monde — mais `owner_id = user_id` ne la trouvait
+    # jamais : impossible à supprimer, elle revenait à chaque ouverture. Une
+    # carto commune posait le même problème pour qui n'en est pas propriétaire.
+    entity = db.session.get(Entity, entity_id)
+    if entity is None:
+        return jsonify({"error": "Entité non trouvée"}), 404
+    from Code.permissions import is_admin
+    if entity.owner_id not in (None, user_id) and not is_admin():
         return jsonify({"error": "Entité non trouvée"}), 404
     
     entity_name = entity.name
@@ -629,7 +636,11 @@ def delete_entity(entity_id):
 
         # ── Rassembler les identifiants liés à l'entité ──
         act_ids  = sel(db.select(Activities.id).where(Activities.entity_id == entity_id))
-        role_ids = sel(db.select(Role.id).where(Role.entity_id == entity_id))
+        # Un rôle est commun à l'entreprise : on ne retient que ceux que CETTE
+        # carto portait, et on ne les effacera que s'ils ne servent plus à rien.
+        role_ids = sel(db.select(activity_roles.c.role_id).where(
+            activity_roles.c.activity_id.in_(act_ids))) if act_ids else []
+        role_ids = sorted(set(role_ids))
         tool_ids = sel(db.select(Tool.id).where(Tool.entity_id == entity_id))
         dom_ids  = sel(db.select(TechnicalDomain.id).where(TechnicalDomain.entity_id == entity_id))
         task_ids = sel(db.select(Task.id).where(Task.activity_id.in_(act_ids))) if act_ids else []
@@ -655,16 +666,12 @@ def delete_entity(entity_id):
         # effacer une carto commune échouerait.
         from Code.models.models import CartoChangeRequest, EntityRoleAccess
         EntityRoleAccess.query.filter_by(entity_id=entity_id).delete(synchronize_session=False)
-        _del(EntityRoleAccess, EntityRoleAccess.role_id, role_ids)
         CartoChangeRequest.query.filter_by(entity_id=entity_id).delete(synchronize_session=False)
 
         # ── Tables d'association ──
         _adel(task_tools, task_tools.c.task_id, task_ids)
         _adel(task_roles, task_roles.c.task_id, task_ids)
-        _adel(task_roles, task_roles.c.role_id, role_ids)
         _adel(activity_roles, activity_roles.c.activity_id, act_ids)
-        _adel(activity_roles, activity_roles.c.role_id, role_ids)
-        _del(UserRole, UserRole.role_id, role_ids)
 
         # ── Enfants des liens (avant les liens) ──
         _del(Performance, Performance.link_id, link_ids)
@@ -696,13 +703,11 @@ def delete_entity(entity_id):
         _del(TimeWeakness, TimeWeakness.task_id, task_ids)
         _del(TimeAnalysis, TimeAnalysis.activity_id, act_ids)
         _del(TimeAnalysis, TimeAnalysis.task_id, task_ids)
-        _del(TimeAnalysis, TimeAnalysis.role_id, role_ids)
 
         # ── Domaines techniques (enfants avant domaines) ──
         _del(ActivityTechnicalDomain, ActivityTechnicalDomain.activity_id, act_ids)
         _del(ActivityTechnicalDomain, ActivityTechnicalDomain.domain_id, dom_ids)
         _del(RoleActivityDomainRequirement, RoleActivityDomainRequirement.activity_id, act_ids)
-        _del(RoleActivityDomainRequirement, RoleActivityDomainRequirement.role_id, role_ids)
         _del(RoleActivityDomainRequirement, RoleActivityDomainRequirement.domain_id, dom_ids)
         _del(UserDomainLevel, UserDomainLevel.domain_id, dom_ids)
 
@@ -719,7 +724,15 @@ def delete_entity(entity_id):
 
         # ── Objets principaux de l'entité ──
         Activities.query.filter_by(entity_id=entity_id).delete(synchronize_session=False)
-        _del(Role, Role.id, role_ids)
+        # Le rôle reste : il est commun à l'entreprise. On n'efface que ceux
+        # qui ne portent plus rien — ni titulaire, ni activité, ni tâche.
+        if role_ids:
+            db.session.flush()
+            from Code.roles_communs import est_utilise
+            from Code.roles_permanents import est_permanent
+            for r in Role.query.filter(Role.id.in_(role_ids)).all():
+                if not est_utilise(r) and not est_permanent(r.name):
+                    db.session.delete(r)
         _del(Tool, Tool.id, tool_ids)
         _del(TechnicalDomain, TechnicalDomain.id, dom_ids)
         HscLevelDescriptor.query.filter_by(entity_id=entity_id).delete(synchronize_session=False)

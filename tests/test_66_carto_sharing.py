@@ -124,10 +124,13 @@ def scene(app):
     # fichiers : `test_75` retrouvait celle-ci au lieu de la sienne. On rend la
     # carto privée en partant.
     with app.app_context():
+        from Code.models.models import EntityStatusAccess
         ent = db.session.get(Entity, scene["entity_id"])
         if ent is not None:
             ent.is_shared = False
+            ent.statuts_regles = False
             EntityRoleAccess.query.filter_by(entity_id=ent.id).delete()
+            EntityStatusAccess.query.filter_by(entity_id=ent.id).delete()
             db.session.commit()
 
 
@@ -316,22 +319,25 @@ class TestReglageDeLAcces:
         with app.app_context():
             assert EntityRoleAccess.query.filter_by(entity_id=scene["entity_id"]).count() == 0
 
-    def test_un_role_d_une_autre_carto_est_ignore(self, app, client, scene, ids):
-        """On ne doit pas pouvoir ouvrir une carto au rôle d'une AUTRE carto."""
+    def test_un_role_ne_de_l_ailleurs_ouvre_la_carto(self, app, client, scene, ids):
+        """Un rôle appartient à l'entreprise : celui né sur une autre carto
+        ouvre celle-ci comme les siens."""
         from Code.extensions import db
         from Code.models.models import Role
         with app.app_context():
-            intrus = Role.query.filter(Role.entity_id != scene["entity_id"]).first()
-            if intrus is None:
-                intrus = Role(entity_id=ids["entity_id"], name="T66 Intrus")
-                db.session.add(intrus)
+            ailleurs = Role.query.filter(Role.entity_id != scene["entity_id"]).first()
+            if ailleurs is None:
+                ailleurs = Role(entity_id=ids["entity_id"], name="T66 Ailleurs")
+                db.session.add(ailleurs)
                 db.session.commit()
-            intrus_id = intrus.id
+            ailleurs_id = ailleurs.id
         _as(client, scene["coordinateur"], "t66.coord@devoptiq.com")
         res = client.post(f"/cartography/api/access/{scene['entity_id']}",
-                          json={"is_shared": True, "role_ids": [intrus_id]})
+                          json={"is_shared": True, "role_ids": [ailleurs_id]})
         assert res.status_code == 200
-        assert res.get_json()["open_to_all"] is True   # rien de valide n'a été retenu
+        d = res.get_json()
+        assert d["open_to_all"] is False
+        assert any(r["id"] == ailleurs_id and r["granted"] for r in d["roles"])
 
 
 # ══════════════════════════════════════════════════════════════════════════
@@ -546,22 +552,31 @@ class TestPropositions:
 
 class TestMenage:
 
-    def test_un_role_supprime_de_la_carte_emporte_son_acces(self, app, scene):
-        """Sinon une clé étrangère orpheline bloquerait la suppression du rôle."""
+    def test_un_role_retire_de_la_carte_ne_part_que_s_il_ne_sert_plus(self, app, scene):
+        """Le rôle est commun à l'entreprise : retirer sa bande ne l'efface
+        pas tant qu'il porte quelque chose. Celui que plus personne ne tient
+        part, et son accès avec lui — sinon une clé étrangère orpheline
+        bloquerait la suppression."""
         from Code.extensions import db
         from Code.models.models import EntityRoleAccess, Entity, Role
         from Code.routes.cartography_editor import _sync_carto_to_db
 
-        _regler_acces(app, scene["entity_id"], True, [scene["role_metier"]])
+        _regler_acces(app, scene["entity_id"], True,
+                      [scene["role_metier"], scene["role_support"]])
         with app.app_context():
             ent = db.session.get(Entity, scene["entity_id"])
-            # Une carto sans la bande « T66 Métier » : le rôle disparaît.
             sans_bande = json.loads(json.dumps(DIAGRAM))
-            sans_bande["bands"] = [{"id": "b9", "label": "T66 Support", "height": 200}]
+            sans_bande["bands"] = [{"id": "b9", "label": "T66 Autre", "height": 200}]
             _sync_carto_to_db(ent, sans_bande)
             db.session.commit()
-            assert Role.query.filter_by(entity_id=ent.id, name="T66 Métier").first() is None
-            assert EntityRoleAccess.query.filter_by(role_id=scene["role_metier"]).count() == 0
+            # « T66 Métier » a des titulaires : il reste, et son accès aussi.
+            assert db.session.get(Role, scene["role_metier"]) is not None
+            assert EntityRoleAccess.query.filter_by(
+                role_id=scene["role_metier"]).count() == 1
+            # « T66 Support » ne sert plus à personne : il part avec son accès.
+            assert db.session.get(Role, scene["role_support"]) is None
+            assert EntityRoleAccess.query.filter_by(
+                role_id=scene["role_support"]).count() == 0
 
 
 # ══════════════════════════════════════════════════════════════════════════
@@ -989,13 +1004,14 @@ class TestRepriseDesComptes:
         for libelle in libelles:
             assert outil.norm(libelle) == norm_status(libelle), libelle
 
-    def test_l_outil_d_inventaire_n_ecrit_rien(self):
+    @pytest.mark.parametrize("outil", ["etat_statuts.py", "etat_entites.py"])
+    def test_l_outil_d_inventaire_n_ecrit_rien(self, outil):
         """Il tourne sur la base d'un CLIENT : il ne doit pas pouvoir écrire."""
         import io as _io
         import os
         import pytest as _pytest
         racine = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        chemin = os.path.join(racine, "tools", "db", "etat_statuts.py")
+        chemin = os.path.join(racine, "tools", "db", outil)
         if not os.path.exists(chemin):
             _pytest.skip("tools/ absent (arbre d'image)")
         src = _io.open(chemin, encoding="utf-8").read()
@@ -1006,6 +1022,28 @@ class TestRepriseDesComptes:
             assert verbe not in src.upper(), (
                 "l'outil contient « %s » — il doit rester en lecture"
                 % verbe.strip())
+
+    def test_l_inventaire_des_roles_normalise_comme_l_application(self):
+        """Il annonce quels rôles seront RÉUNIS : s'il ne rapproche pas les
+        noms de la même façon que `roles_communs`, il annonce autre chose que
+        ce qui se passera au démarrage."""
+        import importlib.util
+        import os
+
+        import pytest as _pytest
+        from Code.roles_communs import normalise
+
+        racine = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        chemin = os.path.join(racine, "tools", "db", "etat_entites.py")
+        if not os.path.exists(chemin):
+            _pytest.skip("tools/ absent (arbre d'image)")
+        spec = importlib.util.spec_from_file_location("etat_entites", chemin)
+        outil = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(outil)
+        for nom in ("Qualité", "qualite", "  Qualité  ", "Chef d'atelier",
+                    "Market Analysis / Communication", "Support  client",
+                    "chef-d-atelier", "", None):
+            assert outil.norm(nom) == normalise(nom), nom
 
 
 class TestLaMatriceDesAcces:
@@ -1046,6 +1084,8 @@ class TestLaMatriceDesAcces:
         yield decor
         with app.app_context():
             from Code.extensions import db
+            from Code.models.models import EntityStatusAccess
+            EntityStatusAccess.query.filter_by(entity_id=decor["id"]).delete()
             EntityRoleAccess.query.filter_by(entity_id=decor["id"]).delete()
             Role.query.filter(Role.id.in_([decor["un"], decor["deux"]])).delete(
                 synchronize_session=False)
@@ -1060,14 +1100,15 @@ class TestLaMatriceDesAcces:
             {"role_id": scene["role_metier"], "entity_id": scene["entity_id"], "on": True}]})
         assert r.status_code == 403
 
-    def test_les_lignes_portent_la_carto_d_ou_vient_le_role(self, app, client, scene, carto):
-        """Deux cartos peuvent porter un rôle du même nom : la ligne dit d'où
-        il vient, sinon on ne sait pas laquelle on coche."""
+    def test_chaque_role_n_a_qu_une_ligne(self, app, client, scene, carto):
+        """Un rôle est commun à l'entreprise : une ligne, quel que soit le
+        nombre de cartos qui en portent la bande."""
         _as(client, scene["coordinateur"], "t66.coord@devoptiq.com", carto["id"])
         d = client.get(self.URL).get_json()
         assert carto["id"] in [c["id"] for c in d["cartos"]]
-        un = next(r for r in d["roles"] if r["id"] == carto["un"])
-        assert un["carto"] == "Carto matrice T66"
+        ids = [r["id"] for r in d["roles"]]
+        assert ids.count(carto["un"]) == 1
+        assert len(ids) == len(set(ids))
 
     def test_cocher_une_case_rend_la_carto_commune(self, app, client, scene, carto):
         """⚠️ Une carto PRIVÉE ignore les rôles : y donner un accès sans la
@@ -1131,3 +1172,142 @@ class TestLaMatriceDesAcces:
         _as(client, scene["coordinateur"], "t66.coord@devoptiq.com", scene["entity_id"])
         html = client.get("/activities/map").get_data(as_text=True)
         assert 'id="btn-carto-acces"' in html and 'id="cacc"' in html
+
+
+class TestLAccesParStatut:
+    """La deuxième matrice de la fenêtre d'accès : un PALIER par ligne.
+
+    Un rôle dit ce qu'on fait dans l'organisation ; un statut dit ce qu'on est
+    dans l'application. Les deux ouvrent une carto, et l'écran les sépare.
+    """
+
+    URL = "/cartography/api/access/matrice"
+
+    @pytest.fixture()
+    def carto(self, app, scene):
+        """Une carto d'un AUTRE compte : chez soi, on entre toujours.
+
+        ⚠️ Son propre champion : `TestRepriseDesComptes` rejoue la bascule des
+        anciens libellés (force=True) et promeut tout champion en coordinateur.
+        Celui du décor commun n'en est donc plus un quand on arrive ici.
+        """
+        from Code.extensions import db
+        from Code.models.models import (Entity, EntityRoleAccess,
+                                        EntityStatusAccess, Role)
+        champion = _mk_user(app, "t66s.champion@devoptiq.com", "champion")
+        with app.app_context():
+            ent = Entity.query.filter_by(name="Carto statuts T66").first()
+            if ent is None:
+                ent = Entity(name="Carto statuts T66", owner_id=scene["etranger"])
+                db.session.add(ent)
+                db.session.commit()
+            ent.owner_id = scene["etranger"]
+            ent.is_shared = True
+            ent.statuts_regles = False
+            r = Role.query.filter_by(entity_id=ent.id, name="T66S Fermé").first()
+            if r is None:
+                r = Role(entity_id=ent.id, name="T66S Fermé")
+                db.session.add(r)
+                db.session.commit()
+            # Un rôle que PERSONNE ne tient : sans cela, la carto reste ouverte
+            # à tous et le palier ne déciderait de rien.
+            EntityStatusAccess.query.filter_by(entity_id=ent.id).delete()
+            EntityRoleAccess.query.filter_by(entity_id=ent.id).delete()
+            db.session.add(EntityRoleAccess(entity_id=ent.id, role_id=r.id))
+            db.session.commit()
+            decor = {"id": ent.id, "role": r.id, "champion": champion}
+        yield decor
+        with app.app_context():
+            EntityStatusAccess.query.filter_by(entity_id=decor["id"]).delete()
+            EntityRoleAccess.query.filter_by(entity_id=decor["id"]).delete()
+            Role.query.filter_by(id=decor["role"]).delete()
+            Entity.query.filter_by(id=decor["id"]).delete()
+            db.session.commit()
+
+    def _lit(self, app, entity_id, user_id):
+        from Code.carto_access import can_read
+        from Code.extensions import db
+        from Code.models.models import Entity, User
+        with app.app_context():
+            return can_read(db.session.get(Entity, entity_id),
+                            db.session.get(User, user_id))
+
+    def test_par_defaut_le_coordinateur_et_l_admin_entrent(self, app, scene, carto):
+        """Le défaut demandé : coordinateur et administrateur sur toutes les
+        cartos, les autres paliers uniquement par leur rôle."""
+        assert self._lit(app, carto["id"], scene["coordinateur"])
+        assert self._lit(app, carto["id"], scene["admin"])
+        assert not self._lit(app, carto["id"], carto["champion"])
+        assert not self._lit(app, carto["id"], scene["porteur"])
+
+    def test_cocher_un_palier_ouvre_la_carto(self, app, client, scene, carto):
+        _as(client, scene["coordinateur"], "t66.coord@devoptiq.com", carto["id"])
+        r = client.post(self.URL, json={"cases_statut": [
+            {"statut": "champion", "entity_id": carto["id"], "on": True}]})
+        assert r.status_code == 200
+        assert self._lit(app, carto["id"], carto["champion"])
+        assert not self._lit(app, carto["id"], scene["porteur"])
+
+    def test_decocher_un_palier_la_referme(self, app, client, scene, carto):
+        _as(client, scene["admin"], "t66.admin@devoptiq.com", carto["id"])
+        client.post(self.URL, json={"cases_statut": [
+            {"statut": "coordinateur", "entity_id": carto["id"], "on": False}]})
+        assert not self._lit(app, carto["id"], scene["coordinateur"])
+        assert self._lit(app, carto["id"], scene["admin"])
+
+    def test_l_administrateur_ne_se_decoche_pas(self, app, client, scene, carto):
+        """⚠️ Se retirer une carto qu'on ne possède pas, ce serait la perdre de
+        la fenêtre d'accès — donc plus aucun écran d'où se la rendre."""
+        _as(client, scene["admin"], "t66.admin@devoptiq.com", carto["id"])
+        d = client.post(self.URL, json={"cases_statut": [
+            {"statut": "admin", "entity_id": carto["id"], "on": False}]}).get_json()
+        ligne = next(s for s in d["statuts"] if s["cle"] == "admin")
+        assert carto["id"] in ligne["cartos"] and ligne["verrou"] is True
+        assert self._lit(app, carto["id"], scene["admin"])
+
+    def test_la_matrice_porte_les_quatre_paliers(self, app, client, scene, carto):
+        _as(client, scene["coordinateur"], "t66.coord@devoptiq.com", carto["id"])
+        d = client.get(self.URL).get_json()
+        assert [s["cle"] for s in d["statuts"]] == ["user", "champion",
+                                                    "coordinateur", "admin"]
+        coches = {s["cle"] for s in d["statuts"] if carto["id"] in s["cartos"]}
+        assert coches == {"coordinateur", "admin"}
+
+    def test_on_n_ecrit_que_les_cases_envoyees(self, app, client, scene, carto):
+        """⚠️ Le premier réglage doit d'abord GRAVER le défaut : sans cela,
+        décocher un palier rouvrirait l'autre."""
+        _as(client, scene["coordinateur"], "t66.coord@devoptiq.com", carto["id"])
+        d = client.post(self.URL, json={"cases_statut": [
+            {"statut": "user", "entity_id": carto["id"], "on": True}]}).get_json()
+        coches = {s["cle"] for s in d["statuts"] if carto["id"] in s["cartos"]}
+        assert coches == {"user", "coordinateur", "admin"}
+
+    def test_cocher_un_palier_rend_la_carto_commune(self, app, client, scene, carto):
+        """Une carto privée ignore ses réglages d'accès : la cocher la rend
+        commune, comme pour un rôle."""
+        from Code.extensions import db
+        from Code.models.models import Entity
+        with app.app_context():
+            ent = db.session.get(Entity, carto["id"])
+            ent.is_shared = False
+            ent.owner_id = scene["coordinateur"]
+            db.session.commit()
+        _as(client, scene["coordinateur"], "t66.coord@devoptiq.com", carto["id"])
+        d = client.post(self.URL, json={"cases_statut": [
+            {"statut": "champion", "entity_id": carto["id"], "on": True}]}).get_json()
+        assert carto["id"] in d["rendues_communes"]
+
+    def test_un_palier_inconnu_est_ignore(self, app, client, scene, carto):
+        _as(client, scene["coordinateur"], "t66.coord@devoptiq.com", carto["id"])
+        r = client.post(self.URL, json={"cases_statut": [
+            {"statut": "patron", "entity_id": carto["id"], "on": True}]})
+        assert r.status_code == 200
+        assert [s["cle"] for s in r.get_json()["statuts"]] == [
+            "user", "champion", "coordinateur", "admin"]
+
+    def test_un_user_ne_regle_pas_les_statuts(self, app, client, scene, carto):
+        _as(client, scene["porteur"], "t66.porteur@devoptiq.com", carto["id"])
+        r = client.post(self.URL, json={"cases_statut": [
+            {"statut": "user", "entity_id": carto["id"], "on": True}]})
+        assert r.status_code == 403
+        assert not self._lit(app, carto["id"], scene["porteur"])

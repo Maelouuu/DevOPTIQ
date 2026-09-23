@@ -431,12 +431,12 @@ class TestTableauGlobal:
         assert u2["roles"][str(equipe["ra1"])]["counts"]["todo"] == 1
         assert u2["roles"][str(equipe["ra1"])]["level"] is None       # NULL ≠ 0
 
-    def test_les_colonnes_groupees_par_carto(self, client, monde, equipe):
+    def test_les_colonnes_sont_les_roles_de_l_entreprise(self, client, monde, equipe):
+        """Sans filtre de carto, une colonne par rôle tenu — les rôles ne se
+        rangent plus par carto, ils sont communs."""
         t = _tableau(client, monde)
-        par_carto = {g["carto_id"]: {r["id"] for r in g["roles"]} for g in t["colonnes"]}
-        assert equipe["ra1"] in par_carto[monde["ea"]]
-        assert equipe["rb1"] in par_carto[monde["eb"]]
-        tous = set().union(*par_carto.values())
+        tous = {r["id"] for g in t["colonnes"] for r in g["roles"]}
+        assert equipe["ra1"] in tous and equipe["rb1"] in tous
         assert equipe["ra_vide"] not in tous       # rien à évaluer
         assert equipe["ra_sans"] not in tous       # personne ne le tient
 

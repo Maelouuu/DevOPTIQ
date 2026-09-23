@@ -2745,6 +2745,92 @@ deux langues, et les pages Carte / éditeur rendues en anglais.
 `cartography_editor.html`, `activities_map.html` et `cartography_viewer.html`
 sortent de l'inventaire de dette de `test_78`. Suite : 2573 passés.
 
+### Les rôles sont COMMUNS à l'entreprise (2026-09-23)
+
+« On a des rôles différents en fonction de l'entité choisie. » C'était exact, et
+c'était le modèle : `Role.entity_id` faisait d'un rôle une chose de SA carto.
+Deux cartos qui portent la bande « Qualité » donnaient deux rôles « Qualité »
+sans rien qui les relie — un titulaire ici n'était pas titulaire là, et
+`entity_role_access` ouvrait l'accès à l'un sans rien dire de l'autre. Comme les
+comptes, un rôle est une chose de l'ENTREPRISE : `Code/roles_communs.py` est
+désormais la source unique.
+
+- `role_par_nom(nom, …)` : **une ligne par nom** (comparaison normalisée —
+  minuscules, sans accents, espaces resserrés ; un tiret n'est PAS un
+  séparateur). `entity_id` ne dit plus que l'ORIGINE, et ne filtre plus rien :
+  ni la page RH, ni la fiche de compte, ni la matrice d'accès, ni l'import.
+- ⚠️ **`_sync_carto_to_db` ne supprime plus un rôle qui sert ailleurs.** Il
+  effaçait tout rôle absent des bandes de la carte : enregistrer la carto A
+  emportait le rôle que la carto B venait de créer. Il DÉTACHE maintenant les
+  liens de CETTE carto, et ne supprime que si `est_utilise(role)` est faux
+  (aucun titulaire, aucune activité, aucune tâche — toutes cartos confondues).
+- ⚠️ **`fusionner_doublons()` réunit les doublons d'hier, UNE fois** (marqueur
+  `roles_communs` en base, `force=True` pour rejouer). Le rôle gardé est celui
+  qui a le plus de titulaires, puis le plus petit id ; tout ce qui pointait vers
+  les autres est re-pointé (titulaires, activités, tâches, accès aux cartos,
+  plans de formation, exigences de domaine, analyses de temps). Sans ce
+  rapprochement, la mise en commun laisserait l'existant tel quel : le défaut
+  serait « corrigé » pour les rôles à venir seulement.
+- ⚠️ **Le rôle système « Développeur de compétences » est lui aussi unique.**
+  `assurer_roles_permanents(entity_id)` en rendait un PAR carto ; il rend le
+  rôle global, et `reprendre_roles_hors_carte` ne marque que les rôles des
+  cartos qu'on peut ouvrir.
+- ⚠️ `_compute_removals` (avertissement « ce que l'enregistrement va retirer »)
+  lisait les bandes du diagramme en MÉMOIRE : une bande sans activité n'y
+  figurait pas, et sa disparition n'était pas annoncée. Il part du diagramme
+  ENREGISTRÉ (`roles_permanents._bandes`).
+- Tests : `test_66` (un rôle né ailleurs ouvre la carto, un rôle retiré de la
+  carte ne part que s'il ne sert plus, une seule ligne par rôle), `test_68`,
+  `test_73`, `test_52`, `test_84`, `test_86`, `test_87`.
+
+**L'entité « fantôme » qu'on ne pouvait pas supprimer.**
+⚠️ `delete_entity` cherchait `Entity.query.filter_by(id=…, owner_id=user_id)` :
+une carto dont `owner_id` est **NULL** — ou appartenant à quelqu'un d'autre —
+n'était jamais trouvée. Elle s'affichait pourtant dans la liste
+(`can_read` rend la main sur `owner_id in (None, user.id)`), d'où le message
+« entité fantôme » et l'impossibilité d'en sortir. La route lit maintenant
+l'entité par son id et refuse seulement si elle appartient à un AUTRE compte et
+qu'on n'est pas administrateur. Elle ne supprime plus que les rôles devenus
+orphelins (les rôles sont communs).
+`tools/db/etat_entites.py --url … [--nom purchase]` inventorie une base en
+**lecture seule** : cartos sans propriétaire joignable, noms portés par
+plusieurs cartos, et les rôles que le démarrage va réunir.
+
+**Page RH : « coordinateur » s'affichait en français dans l'interface anglaise.**
+Le tableau envoyait `users.status` BRUT (un texte libre, écrit tel qu'il a été
+saisi) là où la page Comptes passe par le catalogue. `api_tableau` envoie
+désormais le **palier** (`famille_statut`), et le JS l'affiche traduit
+(`st_user` / `st_champion` / `st_coordinateur` / `st_admin`, repris de
+`account.status_*`).
+
+### La fenêtre d'accès a deux sections : par rôle, par statut (2026-09-23)
+
+Un rôle dit ce qu'on FAIT dans l'organisation ; un statut dit ce qu'on EST dans
+l'application. Les deux ouvrent une carto, et la fenêtre « Qui ouvre quelles
+cartos » (page Carte) les sépare : deux matrices, même colonnes, en-tête teal
+pour les rôles, ambre pour les statuts.
+
+- `EntityStatusAccess` (`entity_status_access`, unique par (carto, palier)) +
+  `Entity.statuts_regles` (migration à chaud, `BOOLEAN DEFAULT FALSE`).
+- **Par défaut, coordinateur et administrateur ouvrent toutes les cartos**
+  (`STATUTS_DEFAUT`) — exactement ce que `can_read` faisait avant, en dur.
+- ⚠️ **Le premier réglage GRAVE d'abord le défaut** : sans cela, décocher
+  « coordinateur » aurait rouvert l'accès par le défaut resté implicite.
+- ⚠️ **La ligne `admin` est verrouillée** (`STATUT_VERROU`, cases `disabled`, et
+  le SERVEUR refuse de la retirer). Se décocher sur une carto qu'on ne possède
+  pas la ferait disparaître de la fenêtre d'accès — il n'existerait plus aucun
+  écran d'où se la rendre. Même raison que la colonne `admin` du tableau des
+  droits.
+- ⚠️ **Les deux tables ont une première colonne à largeur FIXE** : chacune se
+  dimensionnait sur son propre contenu, et les colonnes de cartos ne tombaient
+  pas en face — on lisait un statut sous la mauvaise carto. Leur défilement
+  horizontal est accordé pour la même raison.
+- Les rôles prennent la place restante et défilent ; les quatre paliers tiennent
+  toujours, donc leur section garde sa hauteur au lieu d'être écrasée.
+- `POST /cartography/api/access/matrice` accepte `cases` et/ou `cases_statut`,
+  toujours **case par case** — jamais la table entière.
+- Tests : `test_66::TestLAccesParStatut` (9 cas ; le verrou vérifié **rouge**).
+
 ### Page RH ③ : les compétences de chacun, toutes cartos (2026-09-21)
 
 Le tableau global d'autrefois (`/competences/users/global_summary`, une

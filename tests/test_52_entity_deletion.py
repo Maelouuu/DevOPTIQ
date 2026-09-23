@@ -108,8 +108,11 @@ def test_delete_entity_never_fails_on_fk(app, client, seeded_entity):
         assert Performance.query.filter_by(link_id=ids["link_id"]).count() == 0
         assert Task.query.filter_by(activity_id=ids["a1"]).count() == 0
         assert Tool.query.filter_by(entity_id=ids["entity_id"]).count() == 0
-        assert Role.query.filter_by(entity_id=ids["entity_id"]).count() == 0
-        assert UserRole.query.filter_by(role_id=ids["role_id"]).count() == 0
+        # ⚠️ Le rôle SURVIT : il appartient à l'entreprise, pas à la carto —
+        # comme le compte qui le tient. Supprimer une carto ne retire son rôle
+        # à personne.
+        assert db.session.get(Role, ids["role_id"]) is not None
+        assert UserRole.query.filter_by(role_id=ids["role_id"]).count() == 1
         assert TimeProject.query.filter_by(entity_id=ids["entity_id"]).count() == 0
         assert TimeProjectLine.query.filter_by(activity_id=ids["a1"]).count() == 0
         assert TimeRoleLine.query.filter_by(activity_id=ids["a1"]).count() == 0
@@ -120,5 +123,9 @@ def test_delete_entity_never_fails_on_fk(app, client, seeded_entity):
         # Le compte propriétaire est CONSERVÉ, seulement détaché de l'entité
         owner = User.query.get(ids["owner_id"])
         assert owner is not None and owner.entity_id is None
-        # Nettoyage
+        # Nettoyage — le rôle survit à la carto, donc son titulaire aussi.
+        UserRole.query.filter_by(user_id=owner.id).delete()
+        r = db.session.get(Role, ids["role_id"])
+        if r is not None:
+            db.session.delete(r)
         db.session.delete(owner); db.session.commit()

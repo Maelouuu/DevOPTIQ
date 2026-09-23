@@ -72,18 +72,10 @@
   const nomDe = (p) => `${p.prenom || ''} ${p.nom || ''}`.trim() || p.email;
 
   // `users.status` est un texte LIBRE, saisi différemment selon les instances
-  // (« admin », « administrateur », « Gestionnaire de compétences »…). On en
-  // déduit une famille pour la couleur, comme le fait Code/permissions.py —
-  // jamais une égalité stricte, qui laisserait un statut mal orthographié se
-  // fondre dans les autres.
-  function famille(statut) {
-    const s = (statut || '').toLowerCase()
-      .normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-    if (/^admin/.test(s)) return 'admin';
-    if (s.includes('champion') || s.startsWith('gestionnaire')
-        || (s.includes('manager') && /comp|skill/.test(s))) return 'champion';
-    return 'user';
-  }
+  // (« admin », « administrateur », « Gestionnaire de compétences »…) : c'est
+  // le PALIER calculé par le serveur qui colore et qui s'affiche, traduit.
+  const palierDe = (p) => p.palier || 'user';
+  const libelleStatut = (p) => L('st_' + palierDe(p));
 
   function personneParId(id) {
     return (D.personnes || []).find((p) => p.id === id) || null;
@@ -291,8 +283,8 @@
         </div>
         <div class="grh-person-tags">
           <span class="grh-col-label">${esc(L('col_status'))}</span>
-          <span class="grh-chip grh-chip--status" data-fam="${famille(p.statut)}"
-            >${esc(p.statut || '—')}</span>
+          <span class="grh-chip grh-chip--status" data-fam="${palierDe(p)}"
+            >${esc(libelleStatut(p))}</span>
           ${p.est_dev ? `<span class="grh-chip grh-chip--dev" title="${esc(L('permanent_hint'))}">
              <i class="fa-solid fa-seedling"></i> ${esc(L('dev_badge'))}</span>` : ''}
         </div>

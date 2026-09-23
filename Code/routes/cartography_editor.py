@@ -28,7 +28,7 @@ from Code.ai_key import get_openai_key
 from Code.prompts import get_prompt, prompts_available
 from Code.models.models import (
     Activities, CartoCalque, CompetencyEvaluation, CrossCartoLiaison,
-    Entity, Link, Role, TimeAnalysis, TimeProjectLine, TimeRoleLine,
+    Entity, Link, Role, Task, TimeAnalysis, TimeProjectLine, TimeRoleLine,
     TimeRoleAnalysis, TimeWeakness, UserRole, activity_roles, task_roles,
 )
 
@@ -201,10 +201,16 @@ def _compute_removals(entity, new_diagram):
     new_labels    = {(s.get('label') or '').strip() or f"Activité {s['id']}" for s in act_shapes}
     new_band_names = {(b.get('label') or '').strip() for b in new_bands}
 
+    from Code.roles_communs import normalise
+    from Code.roles_permanents import _bandes
+
     existing_acts  = Activities.query.filter_by(entity_id=entity.id).filter(
         Activities.shape_id.isnot(None)
     ).all()
-    existing_roles = Role.query.filter_by(entity_id=entity.id).all()
+    # Ce que la carto ENREGISTRÉE porte comme bandes : un rôle est commun à
+    # l'entreprise, `entity_id` ne dit plus qui s'en sert.
+    bandes_avant = _bandes(entity) or set()
+    noms_bandes = {normalise(n) for n in new_band_names if n}
 
     # Cohérent avec _do_sync : une activité est supprimée seulement si
     # ni son shape_id ni son nom ne sont dans la nouvelle carto, ou si
@@ -212,7 +218,8 @@ def _compute_removals(entity, new_diagram):
     removed_activities = [a.name for a in existing_acts
                           if (a.shape_id not in new_shape_ids and a.name not in new_labels)
                           or (a.shape_id in renvoi_sids_cr and a.name in new_labels)]
-    removed_roles      = [r.name for r in existing_roles if r.name not in new_band_names]
+    removed_roles      = [b for b in sorted(bandes_avant)
+                          if b and normalise(b) not in noms_bandes]
     return {'removed_activities': removed_activities, 'removed_roles': removed_roles}
 
 
@@ -327,8 +334,14 @@ def _do_sync(entity, diagram):
 
     db.session.flush()  # obtenir les IDs des nouvelles activités
 
-    # ── Roles (bands) — upsert ───────────────────────────────────────────────
-    existing_roles = {r.name: r for r in Role.query.filter_by(entity_id=entity.id).all()}
+    # ── Rôles (bandes) — un rôle est COMMUN à l'entreprise ───────────────────
+    # Une bande retrouve le rôle de l'entreprise qui porte son intitulé ; deux
+    # cartos qui ont la bande « Achats » travaillent avec LE MÊME rôle.
+    from Code.roles_communs import (est_utilise, index_par_nom, normalise,
+                                    role_par_nom)
+    from Code.roles_permanents import est_permanent
+
+    index_roles  = index_par_nom()
     new_band_names = {(b.get('label') or '').strip() for b in bands}
     band_to_role   = {}
 
@@ -336,49 +349,51 @@ def _do_sync(entity, diagram):
         name = (band.get('label') or '').strip()
         if not name:
             continue
-        if name in existing_roles:
-            role = existing_roles[name]
-        else:
-            role = Role(entity_id=entity.id, name=name)
-            db.session.add(role)
-        band_to_role[band['id']] = role
+        band_to_role[band['id']] = role_par_nom(name, entity_id=entity.id,
+                                                index=index_roles)
 
-    # ⚠️ Les rôles PERMANENTS survivent à une carto qui ne les mentionne pas.
-    # « Développeur de compétences » est un rôle d'organisation, pas une bande :
-    # créé à la main, il disparaissait au premier enregistrement de la carte, et
-    # la section Affectation de la page RH redevenait muette. Voir
-    # Code/roles_permanents.py.
-    from Code.roles_permanents import est_permanent
-    # ⚠️ …et un rôle créé HORS de la carte (import, page RH, garant) aussi :
-    # il n'a jamais été une bande, son absence des bandes ne dit rien.
-    roles_to_remove = [role for name, role in existing_roles.items()
-                       if name not in new_band_names and not est_permanent(name)
-                       and not getattr(role, "hors_carte", False)]
-    if roles_to_remove:
-        remove_role_ids = [r.id for r in roles_to_remove if r.id]
-        if remove_role_ids:
-            db.session.execute(
-                activity_roles.delete().where(activity_roles.c.role_id.in_(remove_role_ids))
-            )
-            db.session.execute(
-                task_roles.delete().where(task_roles.c.role_id.in_(remove_role_ids))
-            )
-            UserRole.query.filter(
-                UserRole.role_id.in_(remove_role_ids)
-            ).delete(synchronize_session=False)
-            TimeRoleAnalysis.query.filter(
-                TimeRoleAnalysis.role_id.in_(remove_role_ids)
-            ).delete(synchronize_session=False)
-            TimeAnalysis.query.filter(
-                TimeAnalysis.role_id.in_(remove_role_ids)
-            ).update({TimeAnalysis.role_id: None}, synchronize_session=False)
-            # Le rôle disparaît de la carte : l'accès qu'il ouvrait disparaît avec
-            # lui. Sans ça, une clé étrangère orpheline bloquerait la suppression.
-            from Code.models.models import EntityRoleAccess
-            EntityRoleAccess.query.filter(
-                EntityRoleAccess.role_id.in_(remove_role_ids)
-            ).delete(synchronize_session=False)
-    for role in roles_to_remove:
+    # Ce que CETTE carto portait : les rôles reliés à ses activités.
+    noms_bandes = {normalise(n) for n in new_band_names if n}
+    act_ids_entite = [a.id for a in Activities.query.filter_by(entity_id=entity.id).all() if a.id]
+    portes_avant = set()
+    if act_ids_entite:
+        portes_avant = {row.role_id for row in db.session.execute(
+            activity_roles.select().where(
+                activity_roles.c.activity_id.in_(act_ids_entite))).fetchall()}
+    # ⚠️ Les rôles PERMANENTS (« Développeur de compétences ») et ceux créés
+    # HORS de la carte (import, page RH, garant) ne sont pas des bandes.
+    # On regarde aussi les rôles NÉS ici : une bande sans activité n'a aucun
+    # lien qui la trahisse.
+    portes_avant |= {r.id for r in Role.query.filter_by(entity_id=entity.id).all()}
+    candidats = [db.session.get(Role, rid) for rid in portes_avant]
+    roles_a_detacher = [r for r in candidats
+                        if r is not None and normalise(r.name) not in noms_bandes
+                        and not est_permanent(r.name)
+                        and not getattr(r, "hors_carte", False)]
+
+    if roles_a_detacher and act_ids_entite:
+        ids = [r.id for r in roles_a_detacher]
+        task_ids_entite = [t.id for t in Task.query.filter(
+            Task.activity_id.in_(act_ids_entite)).all()]
+        db.session.execute(activity_roles.delete().where(db.and_(
+            activity_roles.c.role_id.in_(ids),
+            activity_roles.c.activity_id.in_(act_ids_entite))))
+        if task_ids_entite:
+            db.session.execute(task_roles.delete().where(db.and_(
+                task_roles.c.role_id.in_(ids),
+                task_roles.c.task_id.in_(task_ids_entite))))
+        db.session.flush()
+
+    # Le rôle n'est effacé que s'il ne sert plus NULLE PART : ni titulaire, ni
+    # activité, ni tâche. Ailleurs il reste, avec ce qu'il porte.
+    for role in roles_a_detacher:
+        if est_utilise(role):
+            continue
+        TimeRoleAnalysis.query.filter_by(role_id=role.id).delete(synchronize_session=False)
+        TimeAnalysis.query.filter_by(role_id=role.id).update(
+            {TimeAnalysis.role_id: None}, synchronize_session=False)
+        from Code.models.models import EntityRoleAccess
+        EntityRoleAccess.query.filter_by(role_id=role.id).delete(synchronize_session=False)
         db.session.delete(role)
 
     db.session.flush()

@@ -60,22 +60,33 @@ class TestCreationAutomatique:
             db.session.add(e)
             db.session.commit()
 
+            # Un seul pour toute l'entreprise : on part d'une base sans lui.
+            from Code.models.models import Role
+            from Code.roles_permanents import est_dev_competences
+            for r in Role.query.all():
+                if est_dev_competences(r.name):
+                    db.session.delete(r)
+            db.session.commit()
+
             role = role_dev_competences(e.id)
             db.session.commit()
             assert role is not None
             assert role.name == ROLE_DEV_COMPETENCES
             assert role.entity_id == e.id
 
-            # Deux appels ne font pas deux rôles.
-            encore = role_dev_competences(e.id)
-            assert encore.id == role.id
+            # Deux appels ne font pas deux rôles — ni pour une AUTRE carto.
+            assert role_dev_competences(e.id).id == role.id
+            autre = Entity(name="Entité 73a bis", owner_id=u.id)
+            db.session.add(autre)
+            db.session.commit()
+            assert role_dev_competences(autre.id).id == role.id
 
     def test_un_manager_existant_est_REPRIS_pas_double(self, app):
         """Créer un doublon à côté d'un `manager` qui a déjà des titulaires
         perdrait ces rattachements sans rien dire."""
         from Code.extensions import db
         from Code.models.models import Entity, Role, User
-        from Code.roles_permanents import role_dev_competences
+        from Code.roles_permanents import est_dev_competences, role_dev_competences
 
         with app.app_context():
             u = User(first_name="T", last_name="73b", email="t73b@x.tld",
@@ -85,13 +96,16 @@ class TestCreationAutomatique:
             e = Entity(name="Entité 73b", owner_id=u.id)
             db.session.add(e)
             db.session.commit()
+            for r in Role.query.all():
+                if est_dev_competences(r.name):
+                    db.session.delete(r)
             ancien = Role(entity_id=e.id, name="manager")
             db.session.add(ancien)
             db.session.commit()
 
             trouve = role_dev_competences(e.id)
             assert trouve.id == ancien.id
-            assert Role.query.filter_by(entity_id=e.id).count() == 1
+            assert sum(1 for r in Role.query.all() if est_dev_competences(r.name)) == 1
 
 
     def test_quand_les_deux_coexistent_c_est_celui_qui_a_des_titulaires(self, app):
@@ -112,6 +126,10 @@ class TestCreationAutomatique:
             db.session.add(e)
             db.session.commit()
 
+            from Code.roles_permanents import est_dev_competences
+            for r in Role.query.all():
+                if est_dev_competences(r.name):
+                    db.session.delete(r)
             ancien = Role(entity_id=e.id, name="manager")
             neuf = Role(entity_id=e.id, name=ROLE_DEV_COMPETENCES)
             db.session.add_all([ancien, neuf])
@@ -148,7 +166,7 @@ class TestSurvieALaSynchroCarto:
             db.session.commit()
 
             permanent = role_dev_competences(e.id)
-            metier = Role(entity_id=e.id, name="Bande métier")
+            metier = Role(entity_id=e.id, name="Bande métier 73c")
             db.session.add(metier)
             db.session.commit()
             id_permanent, id_metier = permanent.id, metier.id

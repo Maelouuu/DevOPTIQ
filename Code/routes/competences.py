@@ -646,14 +646,11 @@ def users_global_summary():
         # CORRIGÉ: Filtrer par entité active
         active_entity_id = Entity.get_active_id()
 
-        # ⚠️ Les RÔLES appartiennent à une entité, pas les COMPTES : tout le
-        # monde est collaborateur, quel que soit son statut. Filtrer les comptes
-        # sur `User.entity_id` — colonne jamais renseignée — vidait ce tableau.
+        # ⚠️ Ni les rôles ni les comptes ne se filtrent sur l'entité active :
+        # les deux sont communs à l'entreprise. Filtrer les comptes sur
+        # `User.entity_id` — colonne jamais renseignée — vidait ce tableau.
         users = User.query.all()
-        if active_entity_id:
-            roles = Role.query.filter_by(entity_id=active_entity_id).order_by(Role.name).all()
-        else:
-            roles = Role.query.order_by(Role.name).all()
+        roles = Role.query.order_by(Role.name).all()
 
         # Préparer l'ensemble des activités par rôle
         role_activities_map = {}

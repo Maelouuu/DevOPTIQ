@@ -147,13 +147,12 @@ class TestLesRolesBougentParPaire:
             **_fiche(monde), "roles_retrait": [str(monde["r2"])]})
         assert set(_roles_de(app, monde["cible"])) == {monde["r1"], monde["r3"]}
 
-    def test_un_role_hors_de_portee_est_refuse_et_rien_ne_bouge(self, app, client, monde):
-        """Un rôle ouvre une carto : on ne donne pas accès à ce qu'on ne voit
-        pas soi-même. Et la fiche refusée n'écrit RIEN, pas même le nom."""
+    def test_un_role_inconnu_est_refuse_et_rien_ne_bouge(self, app, client, monde):
+        """Une fiche refusée n'écrit RIEN, pas même le nom."""
         _as(client, monde["coord2"], "t87.coord2@devoptiq.com")
         rep = client.post(f"/comptes/update/{monde['coord2']}", headers=JSON, data={
             "first_name": "Coord", "last_name": "Jamais", "email": "t87.coord2@devoptiq.com",
-            "roles_ajout": [str(monde["r3"])]})
+            "roles_ajout": ["999999"]})
         assert rep.status_code == 400
         assert rep.get_json() == {"ok": False, "code": "error_role_unknown", "champ": "roles"}
         assert _roles_de(app, monde["coord2"]) == {}
@@ -250,7 +249,7 @@ class TestLaCreation:
         _as(client, monde["coord2"], "t87.coord2@devoptiq.com")
         rep = client.post("/comptes/create", headers=JSON, data={
             "first_name": "Moitié", "last_name": "T87", "email": "t87.moitie@devoptiq.com",
-            "password": "Test1234!", "status": "user", "roles_ajout": [str(monde["r3"])]})
+            "password": "Test1234!", "status": "user", "roles_ajout": ["999999"]})
         assert rep.status_code == 400
         with app.app_context():
             from Code.models.models import User
@@ -267,19 +266,18 @@ class TestLaCreation:
 
 class TestLaPage:
 
-    def test_chaque_role_porte_sa_carto(self, client, monde):
+    def test_la_fiche_liste_les_roles_tenus(self, client, monde):
         _as(client, monde["admin"], "t87.admin@devoptiq.com")
         html = client.get("/comptes/").get_data(as_text=True)
-        assert "T87 Carto commune" in html and "T87 Carto priv" in html
-        assert "window.ACC_ROLES" in html
+        assert "T87 Qualité" in html and "window.ACC_ROLES" in html
 
-    def test_le_catalogue_ne_propose_que_les_cartos_ouvertes(self, client, monde):
-        """On n'attribue pas un rôle d'une carto qu'on ne voit pas."""
+    def test_le_catalogue_propose_les_roles_de_l_entreprise(self, client, monde):
+        """Un rôle appartient à l'entreprise : la fiche les propose tous, quelle
+        que soit la carto où sa bande existe."""
         import json
         _as(client, monde["coord2"], "t87.coord2@devoptiq.com")
         html = client.get("/comptes/").get_data(as_text=True)
         debut = html.index("window.ACC_ROLES = ") + len("window.ACC_ROLES = ")
         catalogue = json.loads(html[debut:html.index(";\n", debut)])
-        cartos = {g["carto_id"] for g in catalogue}
-        assert monde["commune"] in cartos
-        assert monde["privee"] not in cartos
+        ids = {r["id"] for r in catalogue}
+        assert {monde["r1"], monde["r2"], monde["r3"]} <= ids

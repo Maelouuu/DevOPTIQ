@@ -133,7 +133,7 @@
     const etats = [c.held && P('n_held', c.held), c.gap && P('n_gap', c.gap),
       c.todo && P('n_todo', c.todo), c.setup && P('n_setup', c.setup)].filter(Boolean);
     return [
-      `${r.name} · ${carto}`,
+      carto ? `${r.name} · ${carto}` : r.name,
       P('tip_level', 0, { v: s.level_label }),
       s.required_level === null ? '' : P('tip_required', 0, { v: s.required_label }),
       `${P('tip_activities', s.n_activities)} — ${etats.join(', ')}`,
@@ -181,7 +181,10 @@
     }
     const gens = d.personnes.filter(correspond);
     const roles = d.colonnes.flatMap((g) => g.roles.map((r) => ({ r, carto: g.carto })));
-    const tete1 = d.colonnes.map((g) =>
+    // Une rangée de cartos n'a de sens que si on en filtre une : les rôles
+    // sont communs à l'entreprise.
+    const parCarto = d.colonnes.some((g) => g.carto);
+    const tete1 = !parCarto ? '' : d.colonnes.map((g) =>
       `<th class="rhc-carto" colspan="${g.roles.length}"><span><i class="fa-solid fa-diagram-project"></i>${esc(g.carto)}</span></th>`).join('');
     const tete2 = roles.map(({ r }) =>
       `<th class="rhc-role" title="${esc(r.name)}"><span>${esc(r.name)}</span></th>`).join('');
@@ -201,12 +204,18 @@
       <div class="rhc-scroll">
         <table class="rhc-t">
           <thead>
+            ${parCarto ? `
             <tr class="rhc-t1">
               <th class="rhc-coin" rowspan="2">${esc(L('person'))}</th>
               ${tete1}
               <th class="rhc-ens rhc-ens--tete" rowspan="2">${esc(L('overall'))}</th>
             </tr>
-            <tr class="rhc-t2">${tete2}</tr>
+            <tr class="rhc-t2">${tete2}</tr>` : `
+            <tr class="rhc-t2">
+              <th class="rhc-coin">${esc(L('person'))}</th>
+              ${tete2}
+              <th class="rhc-ens rhc-ens--tete">${esc(L('overall'))}</th>
+            </tr>`}
           </thead>
           <tbody>${corps}</tbody>
         </table>

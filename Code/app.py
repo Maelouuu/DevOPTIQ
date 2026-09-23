@@ -482,7 +482,7 @@ def create_app(test_config=None):
         # Une colonne que le modèle interroge et qui manque casse toute la page.
         # _safe_add_column est muet par construction (il ignore « déjà là ») :
         # on vérifie donc, et on le dit fort.
-        _verifier_colonnes({"entities": ["is_shared"],
+        _verifier_colonnes({"entities": ["is_shared", "statuts_regles"],
                             "carto_change_requests": ["author_seen_at"]})
         # Statut Garant : l'import carto l'écrivait en minuscule, la page Rôles
         # cherchait 'Garant' — un rôle garant d'après la carte n'apparaissait
@@ -538,6 +538,7 @@ def create_app(test_config=None):
         _safe_add_column("roles", "name_en", "VARCHAR(200)")
         # Un rôle créé hors de la carte survit à son enregistrement
         _safe_add_column("roles", "hors_carte", "BOOLEAN DEFAULT FALSE")
+        _safe_add_column("entities", "statuts_regles", "BOOLEAN DEFAULT FALSE")
         # La compétence principale dans les deux langues (l'IA rédige les deux)
         _safe_add_column("competencies", "description_fr", "TEXT")
         _safe_add_column("competencies", "description_en", "TEXT")
@@ -616,6 +617,18 @@ def create_app(test_config=None):
         except Exception as e:
             db.session.rollback()
             print(f"[DB] reprise des rôles hors carte: {e}")
+
+        # ⚠️ Un rôle appartenait à une CARTO : « Purchasing » existait autant de
+        # fois qu'il y avait de cartos, avec ses propres titulaires. Il est
+        # commun à l'entreprise — les doublons sont réunis, une seule fois.
+        try:
+            from Code.roles_communs import fusionner_doublons
+            reunis = fusionner_doublons()
+            if reunis:
+                print(f"[DB] {reunis} rôle(s) en double réuni(s)")
+        except Exception as e:
+            db.session.rollback()
+            print(f"[DB] réunion des rôles: {e}")
 
         try:
             from Code.models.models import RecentEvent

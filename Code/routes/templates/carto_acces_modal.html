@@ -1,5 +1,6 @@
 <!-- ============================================================
-     QUI OUVRE QUELLES CARTOS — la matrice rôles × cartos.
+     QUI OUVRE QUELLES CARTOS — deux matrices : rôles × cartos et
+     statuts × cartos.
      Les règles : Code/routes/carto_sharing.py (`/api/access/matrice`).
      L'écran : static/js/carto_acces.js — tout le texte passe par CACC_L.
      ============================================================ -->
@@ -9,20 +10,24 @@
      navigateur ne décode pas les entités HTML ici. */
   window.CACC_L = {
     titre:        {{ t('map.acces_titre') | tojson }},
-    sous:         {{ t('map.acces_sous') | tojson }},
     role:         {{ t('map.acces_role') | tojson }},
+    statut:       {{ t('map.acces_statut') | tojson }},
+    sec_roles:    {{ t('map.acces_sec_roles') | tojson }},
+    sec_statuts:  {{ t('map.acces_sec_statuts') | tojson }},
+    tout_statut:  {{ t('map.acces_tout_statut') | tojson }},
+    verrou:       {{ t('map.acces_verrou') | tojson }},
     filtre:       {{ t('map.acces_filtre') | tojson }},
     vide:         {{ t('map.acces_vide') | tojson }},
     aucune:       {{ t('map.acces_aucune') | tojson }},
     privee:       {{ t('map.acces_privee') | tojson }},
     ouverte:      {{ t('map.acces_ouverte') | tojson }},
     n_roles:      {{ t('map.acces_n_roles') | tojson }},
+    n_statuts:    {{ t('map.acces_n_statuts') | tojson }},
     tout_carto:   {{ t('map.acces_tout_carto') | tojson }},
     tout_role:    {{ t('map.acces_tout_role') | tojson }},
     enregistre:   {{ t('map.acces_enregistre') | tojson }},
     commune_faite:{{ t('map.acces_commune_faite') | tojson }},
     err:          {{ t('map.acces_err') | tojson }},
-    pied:         {{ t('map.acces_pied') | tojson }},
     fermer:       {{ t('btn.close') | tojson }},
     lang:         {{ session.get('lang', 'fr') | tojson }}
   };
@@ -36,7 +41,6 @@
       <span class="cacc-ic"><i class="fa-solid fa-user-lock"></i></span>
       <div>
         <h3 id="cacc-titre">{{ t('map.acces_titre') }}</h3>
-        <p>{{ t('map.acces_sous') }}</p>
       </div>
       <button type="button" class="cacc-x" data-cacc="fermer" aria-label="{{ t('btn.close') }}">
         <i class="fa-solid fa-xmark"></i>
@@ -49,8 +53,5 @@
       </div>
     </div>
     <div class="cacc-corps" id="cacc-corps"></div>
-    <footer class="cacc-pied">
-      <p><i class="fa-solid fa-circle-info"></i> {{ t('map.acces_pied') }}</p>
-    </footer>
   </div>
 </div>

@@ -65,7 +65,6 @@
 
   const creation = () => !FICHE.ligne;
   const palierChoisi = () => ($('#acc-paliers input:checked') || {}).value || 'user';
-  const cartosOuvertes = () => new Set((window.ACC_ROLES || []).map((g) => g.carto_id));
 
   function ouvrirFiche(ligne) {
     const f = $('#acc-fiche');
@@ -201,7 +200,7 @@
     });
   }
 
-  /* Les rôles, carto par carto. */
+  /* Les rôles de l'entreprise. */
   function reglerRoles() {
     $('#acc-ajout').hidden = !CTX.gereRoles;
     $('#acc-roles-note').hidden = !!CTX.gereRoles;
@@ -216,25 +215,13 @@
       zone.innerHTML = `<p class="acc-roles-vide">${esc(L('roles_none'))}</p>`;
       return;
     }
-    const ouvertes = cartosOuvertes();
-    const groupes = new Map();
-    affiches.forEach((r) => {
-      if (!groupes.has(r.carto)) groupes.set(r.carto, []);
-      groupes.get(r.carto).push(r);
-    });
-    zone.innerHTML = Array.from(groupes.entries()).map(([carto, roles]) => `
-      <div class="acc-roles-carto">
-        <p class="acc-roles-carto-nom"><i class="fa-solid fa-diagram-project"></i>${esc(carto)}</p>
-        <div class="acc-puces">${roles.map((r) => puce(r, ouvertes)).join('')}</div>
-      </div>`).join('');
+    zone.innerHTML = `<div class="acc-puces">${affiches.map(puce).join('')}</div>`;
   }
 
-  function puce(r, ouvertes) {
+  function puce(r) {
     const nouveau = FICHE.ajout.has(r.id);
     const retire = FICHE.retrait.has(r.id);
-    // On ne retire que ce qu'on pourrait rendre : un rôle d'une carto qu'on
-    // n'ouvre pas se voit, il ne se touche pas.
-    const modifiable = CTX.gereRoles && (nouveau || ouvertes.has(r.carto_id));
+    const modifiable = CTX.gereRoles;
     let bouton = '';
     if (modifiable) {
       bouton = retire
@@ -270,31 +257,22 @@
     const q = ($('#acc-ajout-q').value || '').trim().toLowerCase();
     const tenus = new Set(FICHE.roles.filter((r) => !FICHE.retrait.has(r.id)).map((r) => r.id));
     FICHE.ajout.forEach((_, id) => tenus.add(id));
-    let restant = 0;
-    const html = (window.ACC_ROLES || []).map((g) => {
-      const libres = g.roles.filter((r) => !tenus.has(r.id));
-      restant += libres.length;
-      const vus = libres.filter((r) => !q || r.name.toLowerCase().includes(q)
-        || String(g.carto).toLowerCase().includes(q));
-      if (!vus.length) return '';
-      return `<div class="acc-ajout-groupe">
-        <p class="acc-ajout-carto"><i class="fa-solid fa-diagram-project"></i>${esc(g.carto)}</p>
-        ${vus.map((r) => `<button type="button" class="acc-ajout-item" data-action="role-ajouter"
-            data-id="${r.id}" data-carto="${g.carto_id}">${esc(r.name)}</button>`).join('')}
-      </div>`;
-    }).join('');
+    const libres = (window.ACC_ROLES || []).filter((r) => !tenus.has(r.id));
+    const restant = libres.length;
+    const vus = libres.filter((r) => !q || r.name.toLowerCase().includes(q));
+    const html = vus.map((r) => `<button type="button" class="acc-ajout-item"
+        data-action="role-ajouter" data-id="${r.id}">${esc(r.name)}</button>`).join('');
     $('#acc-ajout-liste').innerHTML = html
       || `<p class="acc-ajout-vide">${esc(L(restant ? 'roles_no_match' : 'roles_nothing_left'))}</p>`;
   }
 
-  function ajouterRole(id, cartoId) {
+  function ajouterRole(id) {
     if (FICHE.retrait.has(id)) {
       FICHE.retrait.delete(id);             // on revient sur un retrait : rien à AJOUTER
     } else {
-      const g = (window.ACC_ROLES || []).find((x) => x.carto_id === cartoId);
-      const r = g && g.roles.find((x) => x.id === id);
+      const r = (window.ACC_ROLES || []).find((x) => x.id === id);
       if (!r) return;
-      FICHE.ajout.set(id, { id, name: r.name, carto_id: g.carto_id, carto: g.carto });
+      FICHE.ajout.set(id, { id, name: r.name });
     }
     rendreRoles();
     rendreAjout();
@@ -679,7 +657,7 @@
           const panneau = $('#acc-ajout-panneau');
           return panneau.hidden ? ouvrirAjout() : fermerAjout();
         }
-        case 'role-ajouter': return ajouterRole(Number(el.dataset.id), Number(el.dataset.carto));
+        case 'role-ajouter': return ajouterRole(Number(el.dataset.id));
         case 'role-retirer': return retirerRole(Number(el.dataset.id));
         case 'role-remettre': return remettreRole(Number(el.dataset.id));
         default:
