@@ -469,6 +469,10 @@ def create_app(test_config=None):
         # type integer »). _safe_add_column avale l'erreur, la colonne n'était
         # donc jamais créée et TOUTE requête sur `entities` tombait en 500.
         _safe_add_column("entities", "is_shared", "BOOLEAN DEFAULT FALSE")
+        # ⚠️ AVANT `_verifier_colonnes` : la vérification annonçait la colonne
+        # manquante à chaque premier démarrage, puis l'ALTER l'ajoutait dix
+        # lignes plus bas. Un avertissement qui crie toujours ne se lit plus.
+        _safe_add_column("entities", "statuts_regles", "BOOLEAN DEFAULT FALSE")
         try:
             with _init_conn() as _conn:
                 _conn.execute(_text(
@@ -538,7 +542,6 @@ def create_app(test_config=None):
         _safe_add_column("roles", "name_en", "VARCHAR(200)")
         # Un rôle créé hors de la carte survit à son enregistrement
         _safe_add_column("roles", "hors_carte", "BOOLEAN DEFAULT FALSE")
-        _safe_add_column("entities", "statuts_regles", "BOOLEAN DEFAULT FALSE")
         # La compétence principale dans les deux langues (l'IA rédige les deux)
         _safe_add_column("competencies", "description_fr", "TEXT")
         _safe_add_column("competencies", "description_en", "TEXT")

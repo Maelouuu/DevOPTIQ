@@ -1311,3 +1311,70 @@ class TestLAccesParStatut:
             {"statut": "user", "entity_id": carto["id"], "on": True}]})
         assert r.status_code == 403
         assert not self._lit(app, carto["id"], scene["porteur"])
+
+
+class TestLaReunionDesRoles:
+    """`fusionner_doublons()` — la reprise qui ramène une base en service au
+    modèle « un rôle par intitulé ».
+
+    ⚠️ Elle n'était jouée par aucun test : sur staging, elle tombait à l'import
+    (`Code/routes/time_extra.py` redéclarait cinq tables de `models.py`), le
+    message partait dans les journaux et les doublons restaient.
+    """
+
+    def test_le_doublon_rend_tout_ce_qu_il_portait(self, app, scene):
+        from Code.extensions import db
+        from Code.models.models import (Activities, Role, UserRole,
+                                        activity_roles)
+        from Code.roles_communs import fusionner_doublons
+
+        with app.app_context():
+            garde = Role(entity_id=scene["entity_id"], name="T66F Qualité")
+            doublon = Role(entity_id=scene["entity_id"], name="t66f  qualite")
+            db.session.add_all([garde, doublon])
+            db.session.commit()
+            acte = Activities(name="T66F activité", entity_id=scene["entity_id"])
+            db.session.add(acte)
+            db.session.commit()
+            db.session.add(UserRole(user_id=scene["porteur"], role_id=garde.id))
+            db.session.add(UserRole(user_id=scene["etranger"], role_id=doublon.id))
+            db.session.execute(activity_roles.insert().values(
+                activity_id=acte.id, role_id=doublon.id, status="Garant"))
+            db.session.commit()
+            garde_id, doublon_id, acte_id = garde.id, doublon.id, acte.id
+
+        with app.app_context():
+            assert fusionner_doublons(force=True) >= 1
+
+        with app.app_context():
+            # ⚠️ Le rôle gardé est celui qui a le PLUS de titulaires : ici les
+            # deux en ont un, donc le plus ancien (id le plus petit).
+            assert db.session.get(Role, doublon_id) is None
+            assert db.session.get(Role, garde_id) is not None
+            titulaires = {ur.user_id for ur in
+                          UserRole.query.filter_by(role_id=garde_id).all()}
+            assert titulaires == {scene["porteur"], scene["etranger"]}
+            lien = db.session.execute(db.select(activity_roles).where(
+                activity_roles.c.activity_id == acte_id)).mappings().all()
+            assert [l["role_id"] for l in lien] == [garde_id]
+
+            # Ménage
+            UserRole.query.filter_by(role_id=garde_id).delete()
+            db.session.execute(activity_roles.delete().where(
+                activity_roles.c.role_id == garde_id))
+            Role.query.filter_by(id=garde_id).delete()
+            Activities.query.filter_by(id=acte_id).delete()
+            db.session.commit()
+
+    def test_elle_ne_se_joue_qu_une_fois(self, app):
+        """Le marqueur vit en BASE : une instance qui redémarre, se duplique ou
+        se redéploie doit lire la même réponse."""
+        from Code.extensions import db
+        from Code.models.models import AppSetting
+        from Code.roles_communs import CLE_FUSION, fusionner_doublons
+
+        with app.app_context():
+            if db.session.get(AppSetting, CLE_FUSION) is None:
+                db.session.add(AppSetting(key=CLE_FUSION, value="1"))
+                db.session.commit()
+            assert fusionner_doublons() == 0

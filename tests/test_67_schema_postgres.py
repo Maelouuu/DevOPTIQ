@@ -124,6 +124,38 @@ class TestMigrationsAChaud:
                 "déployées n'auraient pas la colonne.")
             assert re.search(r"DEFAULT\s+FALSE", alters[("entities", colonne)], re.I)
 
+    def test_aucune_table_n_est_declaree_deux_fois(self):
+        """⚠️ Deux modèles pour la même table : `Table 'x' is already defined
+        for this MetaData instance` DÈS QU'ON IMPORTE le second — et l'erreur
+        frappe l'appelant, pas le fichier fautif.
+
+        `Code/routes/time_extra.py` redéclarait cinq tables de `models.py`.
+        Personne ne l'importait : c'est ce qui l'a laissé passer des mois, et la
+        première importation (la réunion des rôles) est tombée en production.
+        """
+        import glob
+        import os
+
+        racine = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        motif = re.compile(r"""__tablename__\s*=\s*['"]([^'"]+)['"]""")
+        ou = {}
+        for chemin in glob.glob(os.path.join(racine, "Code", "**", "*.py"),
+                                recursive=True):
+            src = io.open(chemin, encoding="utf-8", errors="replace").read()
+            for trouve in motif.finditer(src):
+                # ⚠️ Le voisinage, pas le fichier : `models.py` déclare
+                # `extend_existing` sur ses tables d'ASSOCIATION, et sauter le
+                # fichier entier rendait le contrôle aveugle à ses 60 modèles.
+                autour = src[max(0, trouve.start() - 400):trouve.end() + 400]
+                if "extend_existing" in autour:
+                    continue      # redéclaration assumée
+                ou.setdefault(trouve.group(1), []).append(
+                    os.path.relpath(chemin, racine))
+        fautifs = {t: sorted(set(f)) for t, f in ou.items() if len(set(f)) > 1}
+        assert not fautifs, (
+            "tables déclarées dans plusieurs fichiers :\n  "
+            + "\n  ".join("%s → %s" % (t, ", ".join(f)) for t, f in fautifs.items()))
+
     def test_le_demarrage_verifie_les_colonnes_indispensables(self):
         """_safe_add_column est muet : sans cette vérification, une migration
         ratée ne se voit qu'en 500 sur toutes les pages."""

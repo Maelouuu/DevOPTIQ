@@ -96,9 +96,8 @@ def _fusionner_paire(garde, doublon):
     reporte quand la place est libre, on jette la ligne sinon."""
     from Code.models.models import (
         EntityRoleAccess, PlanFormation, RoleActivityDomainRequirement,
-        TimeAnalysis, UserActivityPlan,
+        TimeAnalysis, TimeRoleAnalysis, UserActivityPlan,
     )
-    from Code.routes.time_extra import TimeRoleAnalysis
 
     # 1 · Titulaires (user_id, role_id) — on garde le développeur s'il manque.
     for ur in UserRole.query.filter_by(role_id=doublon.id).all():

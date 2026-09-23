@@ -2780,8 +2780,37 @@ désormais la source unique.
   figurait pas, et sa disparition n'était pas annoncée. Il part du diagramme
   ENREGISTRÉ (`roles_permanents._bandes`).
 - Tests : `test_66` (un rôle né ailleurs ouvre la carto, un rôle retiré de la
-  carte ne part que s'il ne sert plus, une seule ligne par rôle), `test_68`,
-  `test_73`, `test_52`, `test_84`, `test_86`, `test_87`.
+  carte ne part que s'il ne sert plus, une seule ligne par rôle, et la réunion
+  elle-même — `TestLaReunionDesRoles`), `test_68`, `test_73`, `test_52`,
+  `test_84`, `test_86`, `test_87`.
+
+⚠️⚠️ **Et la réunion est tombée EN PRODUCTION, sans qu'aucun test la voie.**
+Relevé dans la console serveur de staging après la livraison :
+`[DB] réunion des rôles: Table 'time_project' is already defined for this
+MetaData instance`. Deux causes qui se sont additionnées :
+- **`Code/routes/time_extra.py` redéclarait CINQ tables déjà définies dans
+  `models.py`** (`time_project`, `time_project_line`, `time_role_analysis`,
+  `time_role_line`, `time_weakness`). Deux modèles pour une même table lèvent
+  cette erreur **dès qu'on importe le second**, et elle frappe l'APPELANT, pas
+  le fichier fautif. Personne n'importait ce module : il dormait depuis des
+  mois, et `_fusionner_paire` a été le premier à y toucher. Fichier supprimé,
+  `TimeRoleAnalysis` vient de `models.py`. Cliquet :
+  `test_67::test_aucune_table_n_est_declaree_deux_fois`.
+  ⚠️ Ce contrôle sautait d'abord `models.py` EN ENTIER parce qu'il contient
+  `extend_existing` (pour ses tables d'ASSOCIATION) : il regarde désormais le
+  VOISINAGE de chaque `__tablename__`, pas le fichier.
+- **Aucun test n'appelait `fusionner_doublons()`.** Une reprise qui ne tourne
+  qu'au démarrage n'est vérifiée par rien tant qu'on ne la joue pas
+  explicitement. Mesuré sur staging avant correctif : 73 lignes de rôles pour
+  68 noms — les doublons étaient restés.
+⚠️ Le marqueur `roles_communs` n'avait PAS été posé (l'exception précède le
+commit) : la reprise rejouera au prochain démarrage, rien à réparer à la main.
+
+⚠️ **`_verifier_colonnes` criait avant l'ALTER qu'il attendait.** Journal :
+« COLONNE MANQUANTE entities.statuts_regles », puis dix lignes plus bas
+« Colonne entities.statuts_regles ajoutée ». L'ALTER est remonté AVANT la
+vérification — un avertissement qui crie à chaque premier démarrage ne se lit
+plus le jour où il a raison.
 
 **L'entité « fantôme » qu'on ne pouvait pas supprimer.**
 ⚠️ `delete_entity` cherchait `Entity.query.filter_by(id=…, owner_id=user_id)` :
