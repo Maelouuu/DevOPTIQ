@@ -547,5 +547,26 @@
     ],
     "author": "claude",
     "fixed_at": "2026-09-04T18:27:23"
+  },
+  {
+    "patch_uid": "2026-09-24-activity-details-input-output-data",
+    "title": "Détail activité : input_data/output_data toujours vides (relations inexistantes)",
+    "node_ids": [
+      "tests/test_33_activities_data.py::TestActivityDetails::test_details_output_data_contient_les_donnees_produites",
+      "tests/test_33_activities_data.py::TestActivityDetails::test_details_input_data_contient_les_donnees_entrantes",
+      "tests/test_33_activities_data.py::TestActivityDetails::test_details_input_data_sans_nom_utilise_la_description"
+    ],
+    "page_slug": "activities_data",
+    "failure_reason": "Découvert via l'analyse de couverture (pas un test rouge) : GET /activities/<id>/details renvoyait TOUJOURS input_data=[] et output_data=[], quelles que soient les données réellement liées à l'activité.",
+    "was_real_bug": true,
+    "root_cause": "app_bug",
+    "error": "Le code lisait getattr(activity, \"data_items\", []) puis getattr(activity, \"data\", []), et un champ getattr(d, \"direction\", None) sur Data : aucune de ces relations/colonnes n'existe dans models.py (Activities n'a pas de data_items/data, Data n'a pas de direction). Les deux boucles ne trouvaient donc jamais rien.",
+    "fix_description": "Remplacé par les relations réelles du modèle : output_data = Data.query.filter_by(producer_activity_id=activity.id) (même convention que qualify_outputs.py) ; input_data = Data atteintes via Link.filter_by(target_activity_id=activity.id) sur source_data_id (lien \"nourrissante\"), avec repli sur description si le nom est vide/blanc.",
+    "files_changed": [
+      "Code/routes/activities_data.py",
+      "tests/test_33_activities_data.py"
+    ],
+    "author": "routine",
+    "fixed_at": "2026-09-24T03:24:03"
   }
 ]

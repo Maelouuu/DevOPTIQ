@@ -122,6 +122,93 @@ class TestEntityCrudGaps:
         data = resp.get_json()
         assert data["entity"]["description"] == "Nouvelle description détaillée"
 
+    def test_delete_entity_cross_owner_denied_for_non_admin(self, app, client):
+        """DELETE sur l'entité d'un autre compte (non admin) → 404, comme une entité inexistante."""
+        from Code.models.models import User
+        from Code.extensions import db
+        from werkzeug.security import generate_password_hash
+
+        with app.app_context():
+            owner = User(first_name="Owner", last_name="X", email="owner.cross@t.com",
+                         password=generate_password_hash("x"), status="admin")
+            intruder = User(first_name="Intru", last_name="X", email="intruder.cross@t.com",
+                            password=generate_password_hash("x"), status="user")
+            db.session.add_all([owner, intruder])
+            db.session.commit()
+            owner_id, intruder_id = owner.id, intruder.id
+
+        eid = _create_entity(app, owner_id, "Entité D'Autrui")
+
+        with client.session_transaction() as sess:
+            sess["user_id"] = intruder_id
+
+        resp = client.delete(f"/activities/api/entities/{eid}")
+        assert resp.status_code == 404
+
+        with app.app_context():
+            from Code.models.models import Entity
+            assert Entity.query.get(eid) is not None
+            Entity.query.filter_by(id=eid).delete()
+            User.query.filter(User.id.in_([owner_id, intruder_id])).delete(synchronize_session=False)
+            db.session.commit()
+
+    def test_delete_entity_cross_owner_allowed_for_admin(self, app, client):
+        """DELETE sur l'entité d'un autre compte, par un ADMINISTRATEUR → autorisé."""
+        from Code.models.models import User, Entity
+        from Code.extensions import db
+        from werkzeug.security import generate_password_hash
+
+        with app.app_context():
+            owner = User(first_name="Owner2", last_name="X", email="owner.cross2@t.com",
+                         password=generate_password_hash("x"), status="user")
+            admin = User(first_name="Admin", last_name="X", email="admin.cross2@t.com",
+                        password=generate_password_hash("x"), status="admin")
+            db.session.add_all([owner, admin])
+            db.session.commit()
+            owner_id, admin_id = owner.id, admin.id
+
+        eid = _create_entity(app, owner_id, "Entité D'Autrui 2")
+
+        with client.session_transaction() as sess:
+            sess["user_id"] = admin_id
+
+        resp = client.delete(f"/activities/api/entities/{eid}")
+        assert resp.status_code == 200
+
+        with app.app_context():
+            assert Entity.query.get(eid) is None
+            User.query.filter(User.id.in_([owner_id, admin_id])).delete(synchronize_session=False)
+            db.session.commit()
+
+    def test_update_entity_cross_owner_denied(self, app, client):
+        """PATCH sur l'entité d'un autre compte → 404, même pour un administrateur (filtre strict par owner_id)."""
+        from Code.models.models import User, Entity
+        from Code.extensions import db
+        from werkzeug.security import generate_password_hash
+
+        with app.app_context():
+            owner = User(first_name="Owner3", last_name="X", email="owner.cross3@t.com",
+                         password=generate_password_hash("x"), status="user")
+            admin = User(first_name="Admin3", last_name="X", email="admin.cross3@t.com",
+                        password=generate_password_hash("x"), status="admin")
+            db.session.add_all([owner, admin])
+            db.session.commit()
+            owner_id, admin_id = owner.id, admin.id
+
+        eid = _create_entity(app, owner_id, "Entité D'Autrui 3")
+
+        with client.session_transaction() as sess:
+            sess["user_id"] = admin_id
+
+        resp = client.patch(f"/activities/api/entities/{eid}", json={"name": "Piratée"})
+        assert resp.status_code == 404
+
+        with app.app_context():
+            assert Entity.query.get(eid).name == "Entité D'Autrui 3"
+            Entity.query.filter_by(id=eid).delete()
+            User.query.filter(User.id.in_([owner_id, admin_id])).delete(synchronize_session=False)
+            db.session.commit()
+
 
 # ===========================================================================
 # 2. Extraction SVG Visio + synchro activités
