@@ -568,5 +568,24 @@
     ],
     "author": "routine",
     "fixed_at": "2026-09-24T03:24:03"
+  },
+  {
+    "patch_uid": "2026-09-25-debug-decisions-ai-legacy-crash",
+    "title": "POST /api/debug-decisions/ai (legacy) plantait en 500 dès qu un VSDX existait réellement",
+    "node_ids": [
+      "tests/test_44_cross_carto_liaisons.py::TestDebugDecisionsAI::test_avec_vsdx_reel_ne_plante_pas"
+    ],
+    "page_slug": "cross_carto_liaisons",
+    "failure_reason": "Découvert via l analyse de couverture (pas un test rouge) : les tests existants ne couvraient que les cas 400/404 (pas d entité active, pas de fichier VSDX). Le seul chemin où le fichier existe réellement n était jamais exercé.",
+    "was_real_bug": true,
+    "root_cause": "app_bug",
+    "error": "api_debug_decisions_ai() lisait le XML brut de la premiere page du VSDX via _read_vsdx_page_xml() (une str) puis le passait tel quel a _ai_extract_decisions(), qui attend un dict {\"decisions\": [...], \"total_shapes\":..., \"total_connectors\":...} (celui que produit extract_decisions_from_vsdx). vsdx_result.get(...) levait AttributeError: str object has no attribute get, non rattrapee => 500 sans corps JSON des qu un fichier VSDX etait reellement stocke pour l entite.",
+    "fix_description": "La route appelle desormais extract_decisions_from_vsdx(vsdx_path) pour obtenir le dict attendu avant de le passer a _ai_extract_decisions(), comme le fait deja l endpoint non-legacy /analyze-file/ai. Le helper _read_vsdx_page_xml, devenu sans appelant, a ete retire.",
+    "files_changed": [
+      "Code/routes/activities_map.py",
+      "tests/test_44_cross_carto_liaisons.py"
+    ],
+    "author": "routine",
+    "fixed_at": "2026-09-25T03:27:34"
   }
 ]

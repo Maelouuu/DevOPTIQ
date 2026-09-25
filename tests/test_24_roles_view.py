@@ -354,3 +354,64 @@ def test_la_carto_ecrit_le_statut_garant_capitalise(app, auth_client, ids):
             "WHERE a.name = :n"), {"n": "Activite bande garante"}).fetchall()}
         assert statuts, "la carto doit poser un garant sur l'activite de sa bande"
         assert statuts == {"Garant"}, f"statut attendu 'Garant', obtenu {statuts}"
+
+
+# ---------------------------------------------------------------------------
+# Bloc 4 (HSC) et titulaires ("holders") — jamais exercés jusqu'ici : les
+# tests existants créent un rôle Garant mais sans HSC associée ni utilisateur
+# affecté au rôle (table user_roles), donc ces deux portions de view_roles()
+# n'étaient jamais traversées.
+# ---------------------------------------------------------------------------
+
+def test_titulaire_et_hsc_apparaissent_sur_la_fiche_role(app, auth_client, ids):
+    from Code.extensions import db
+    from Code.models.models import Role, Activities, activity_roles, Softskill, User, UserRole
+    from werkzeug.security import generate_password_hash
+
+    with app.app_context():
+        role = Role(name="Role avec titulaire", entity_id=ids["entity_id"])
+        acte = Activities(name="Activite HSC titulaire", entity_id=ids["entity_id"])
+        db.session.add_all([role, acte])
+        db.session.commit()
+        rid, aid = role.id, acte.id
+
+        db.session.execute(
+            activity_roles.insert().values(activity_id=aid, role_id=rid, status='Garant'))
+
+        softskill = Softskill(
+            habilete="Ecoute active", niveau="2 (Acquisition)",
+            justification="Justification titulaire test", activity_id=aid,
+        )
+        db.session.add(softskill)
+
+        titulaire = User(
+            entity_id=ids["entity_id"], first_name="Titulaire", last_name="Durole",
+            email="titulaire.duole@devoptiq-test.com",
+            password=generate_password_hash("x"), status="collaborateur",
+        )
+        db.session.add(titulaire)
+        db.session.commit()
+        uid = titulaire.id
+        db.session.add(UserRole(user_id=uid, role_id=rid))
+        db.session.commit()
+
+    try:
+        res = auth_client.get("/roles_view/")
+        assert res.status_code == 200
+        page = res.data.decode("utf-8")
+        assert "Durole" in page and "Titulaire" in page, (
+            "un utilisateur affecté au rôle (user_roles) doit apparaître "
+            "dans le bloc des titulaires de la fiche rôle")
+        assert "Ecoute active" in page, (
+            "une softskill (HSC) d'une activité Garant doit apparaître "
+            "dans le bloc 4 de la fiche rôle")
+    finally:
+        with app.app_context():
+            from sqlalchemy import text
+            db.session.execute(text("DELETE FROM user_roles WHERE role_id = :r"), {"r": rid})
+            db.session.execute(text("DELETE FROM softskills WHERE activity_id = :a"), {"a": aid})
+            db.session.execute(text("DELETE FROM activity_roles WHERE role_id = :r"), {"r": rid})
+            db.session.query(User).filter_by(id=uid).delete()
+            db.session.query(Activities).filter_by(id=aid).delete()
+            db.session.query(Role).filter_by(id=rid).delete()
+            db.session.commit()

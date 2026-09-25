@@ -2543,19 +2543,6 @@ def _tool_decisions_from_entity(entity) -> Dict:
     }
 
 
-def _read_vsdx_page_xml(vsdx_path: str) -> str:
-    """Returns the first page XML content from a VSDX archive."""
-    import zipfile as _zf
-    with _zf.ZipFile(vsdx_path, 'r') as zf:
-        page_files = sorted(
-            f for f in zf.namelist()
-            if f.startswith('visio/pages/page') and f.endswith('.xml')
-        )
-        if not page_files:
-            raise ValueError('Aucune page dans le VSDX')
-        return zf.read(page_files[0]).decode('utf-8', errors='replace')
-
-
 def _ai_extract_decisions(vsdx_result: Dict, context_name: str = '') -> Dict:
     """
     Envoie un résumé compact des losanges déjà extraits à OpenAI pour validation.
@@ -2697,8 +2684,6 @@ def api_debug_decisions():
 @activities_map_bp.route("/api/debug-decisions/ai", methods=["POST"])
 def api_debug_decisions_ai():
     """Legacy: AI analysis of entity's stored VSDX."""
-    import json as _json
-
     entity = get_active_entity()
     if not entity:
         return jsonify({"error": "Aucune entité active"}), 400
@@ -2708,11 +2693,11 @@ def api_debug_decisions_ai():
         return jsonify({"error": "Pas de fichier VSDX pour cette entité"}), 404
 
     try:
-        xml_content = _read_vsdx_page_xml(vsdx_path)
+        vsdx_result = extract_decisions_from_vsdx(vsdx_path)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-    result = _ai_extract_decisions(xml_content, entity.name)
+    result = _ai_extract_decisions(vsdx_result, entity.name)
     return jsonify(result)
 
 

@@ -670,3 +670,33 @@ class TestDebugDecisionsAI:
         fresh = app.test_client()
         r = fresh.post("/activities/api/debug-decisions/ai")
         assert r.status_code == 400
+
+    def test_avec_vsdx_reel_ne_plante_pas(self, app, auth_client, ids):
+        """Avec un VSDX réellement stocké pour l'entité → 200, jamais un 500.
+
+        Régression : la route appelait _ai_extract_decisions() avec le XML brut
+        (une str) alors que cette fonction attend un dict {"decisions": [...]}
+        (celui que renvoie extract_decisions_from_vsdx) — AttributeError sur
+        `.get()` non rattrapée, donc 500 dès qu'un fichier existait vraiment.
+        """
+        import os
+        import zipfile
+        from Code.routes.activities_map import get_entity_vsdx_path, ensure_entity_dir
+
+        entity_id = ids["entity_id"]
+        ensure_entity_dir(entity_id)
+        vsdx_path = get_entity_vsdx_path(entity_id)
+
+        ns = "http://schemas.microsoft.com/office/visio/2012/main"
+        page_xml = f'<PageContents xmlns="{ns}"><Shapes></Shapes></PageContents>'
+        with zipfile.ZipFile(vsdx_path, "w") as zf:
+            zf.writestr("visio/pages/page1.xml", page_xml)
+
+        try:
+            r = auth_client.post("/activities/api/debug-decisions/ai")
+            assert r.status_code == 200
+            data = r.get_json()
+            assert "source" in data
+            assert "data" in data
+        finally:
+            os.remove(vsdx_path)
