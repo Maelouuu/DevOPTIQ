@@ -320,6 +320,43 @@ def test_un_garant_en_minuscule_est_bien_liste(app, auth_client, ids):
         db.session.commit()
 
 
+def test_une_aptitude_de_l_activite_garante_apparait_dans_le_bloc4(app, auth_client, ids):
+    """Une Aptitude rattachée à une activité dont le rôle est Garant doit être
+    listée dans le bloc 4 (Savoirs/SF/Aptitudes/HSC) de la fiche rôle."""
+    from Code.extensions import db
+    from Code.models.models import Role, Activities, Aptitude, activity_roles
+    from sqlalchemy import text
+
+    with app.app_context():
+        role = Role(name="Role garant aptitude", entity_id=ids["entity_id"])
+        db.session.add(role)
+        acte = Activities(name="Activite garante avec aptitude", entity_id=ids["entity_id"])
+        db.session.add(acte)
+        db.session.commit()
+        rid, aid = role.id, acte.id
+        db.session.execute(
+            activity_roles.insert().values(activity_id=aid, role_id=rid, status='Garant'))
+        apt = Aptitude(description="Aptitude bloc4 unique", activity_id=aid)
+        db.session.add(apt)
+        db.session.commit()
+
+    try:
+        res = auth_client.get("/roles_view/")
+        assert res.status_code == 200
+        page = res.data.decode("utf-8")
+        assert "Aptitude bloc4 unique" in page, (
+            "l'aptitude de l'activité garante doit apparaître dans le bloc 4 "
+            "de la fiche rôle")
+    finally:
+        with app.app_context():
+            db.session.query(Aptitude).filter_by(activity_id=aid).delete()
+            db.session.execute(text(
+                "DELETE FROM activity_roles WHERE role_id = :r"), {"r": rid})
+            db.session.query(Activities).filter_by(id=aid).delete()
+            db.session.query(Role).filter_by(id=rid).delete()
+            db.session.commit()
+
+
 def test_la_carto_ecrit_le_statut_garant_capitalise(app, auth_client, ids):
     """Une carto enregistree doit poser status='Garant', comme le reste de l'app."""
     from Code.extensions import db

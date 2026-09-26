@@ -87,6 +87,44 @@ class TestInstrumentation:
                 UsageEvent.query.delete()
                 db.session.commit()
 
+    def test_post_action_is_logged_as_action_kind(self, app, auth_client, ids):
+        """Une requête POST (quel que soit son statut) est journalisée avec
+        kind='action', jamais 'view' — même sur une route inexistante."""
+        from Code.models.models import UsageEvent
+        app.config["PULSE_FORCE"] = True
+        try:
+            auth_client.post(f"/activities/{ids['activity_id']}/introuvable-xyz")
+            with app.app_context():
+                ev = (UsageEvent.query.filter_by(method="POST")
+                      .order_by(UsageEvent.id.desc()).first())
+                assert ev is not None
+                assert ev.kind == "action"
+        finally:
+            app.config["PULSE_FORCE"] = False
+            with app.app_context():
+                from Code.extensions import db
+                UsageEvent.query.delete()
+                db.session.commit()
+
+    def test_json_response_is_not_logged_as_view(self, app, auth_client, ids):
+        """Une réponse JSON (ex : API de détail) n'est pas un 'view' HTML :
+        elle n'est pas journalisée du tout (ni view, ni action)."""
+        from Code.models.models import UsageEvent
+        app.config["PULSE_FORCE"] = True
+        try:
+            path = f"/activities/{ids['activity_id']}/details"
+            r = auth_client.get(path)
+            assert r.status_code == 200
+            assert "application/json" in r.content_type
+            with app.app_context():
+                assert UsageEvent.query.filter_by(path=path).count() == 0
+        finally:
+            app.config["PULSE_FORCE"] = False
+            with app.app_context():
+                from Code.extensions import db
+                UsageEvent.query.delete()
+                db.session.commit()
+
     def test_beat_requires_login_but_never_errors(self, app):
         from Code.models.models import UsageBeat
         app.config["PULSE_FORCE"] = True
