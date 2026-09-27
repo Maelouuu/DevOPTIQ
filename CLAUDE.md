@@ -1788,18 +1788,29 @@ la page Temps doit l'inclure elle-même, avant `time.js`. Sept clés `time.del_*
 **Page Carte : l'ordre des boutons** suit ce qu'on fait — gérer les entités,
 importer, régler l'accès, puis afficher les connexions.
 
-**Page RH, « les compétences de chacun » : la case ne porte plus que sa
-COULEUR.** La jauge à quatre pas y était répétée sur toute la grille
-(N personnes × M rôles) : un damier qu'on ne lit pas. Le verdict se prend à la
-pastille ; la jauge, les niveaux, les compteurs et la couverture attendent dans
-une **bulle**, au survol MAINTENU (900 ms — on traverse la grille sans être
-dérangé). ⚠️ Posée sur le BODY en `position: fixed` : le tableau a son propre
-défilement, une bulle posée dedans serait tronquée. Elle se ferme sur tout ce
-qui déplace ce qu'il y a dessous (défilement en capture, redimensionnement,
-clic) et s'ouvre SANS attendre au clavier, où le survol n'existe pas.
+**Page RH, « les compétences de chacun » : la case ne porte QUE sa couleur.**
+Une pastille, rien d'autre — ni jauge, ni texte. La jauge à quatre pas y était
+répétée sur toute la grille (N personnes × M rôles) : un damier qu'on ne lit
+pas ; et la ligne « 2 en écart » / « Niveau tenu » qui l'accompagnait mettait
+autant de phrases que de cases. Tout cela — barème, niveaux, ce qui reste à
+faire, compteurs, couverture — vit dans une **bulle**, au survol MAINTENU
+(900 ms : on traverse la grille sans être dérangé).
+⚠️ Posée sur le BODY en `position: fixed` : le tableau a son propre défilement,
+une bulle posée dedans serait tronquée. Elle se ferme sur tout ce qui déplace
+ce qu'il y a dessous (défilement en capture, redimensionnement, clic) et
+s'ouvre SANS attendre au clavier, où le survol n'existe pas.
 ⚠️ Pas d'attribut `title` sur la case : il ouvrirait la bulle du système
 par-dessus la nôtre. ⚠️ `pointer-events: none` sur la bulle — elle ne doit
 jamais voler le clic de la case qu'elle explique.
+⚠️⚠️ **Et elle se dessinait 20 % trop haut et trop à gauche de sa case** :
+`body.pg` porte `zoom: .8` (ui-theme), donc un enfant du body en
+`position: fixed` voit ses coordonnées MULTIPLIÉES par ce zoom, alors que
+`getBoundingClientRect()` les rend déjà en pixels d'écran. On divise par le
+zoom avant d'écrire `left`/`top`, et on multiplie `offsetWidth` pour le
+comparer à `window.innerWidth`. **Exactement le même piège que le menu du
+développeur de compétences** (`gestion_rh.js`) — c'est la deuxième fois : tout
+élément posé sur le body en `fixed` dans cette application doit faire cette
+conversion. Mesuré après : écart horizontal 0,0 px avec le centre de la case.
 
 ### À faire (par priorité)
 1. **`docs/doc_technique.html` + `docs/guide.html` : le partage de carto a changé de

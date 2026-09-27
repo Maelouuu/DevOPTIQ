@@ -123,14 +123,16 @@
     return `<span class="rhc-pas">${pas}</span>`;
   }
 
-  function bas(s) {
+  // Ce qui RESTE à faire sur ce rôle : une ligne de texte par case mettait
+  // autant de phrases que de cases sur la grille. Elle ne vit plus que dans
+  // la bulle, où l'on vient chercher le détail d'UNE case.
+  function reste(s) {
     const c = s.counts;
-    if (c.setup === s.n_activities) return `<span class="rhc-m rhc-m--setup">${esc(L('setup'))}</span>`;
+    if (c.setup === s.n_activities) return L('setup');
     const morceaux = [];
-    if (c.gap) morceaux.push(`<span class="rhc-m rhc-m--gap">${esc(P('n_gap', c.gap))}</span>`);
-    if (c.todo) morceaux.push(`<span class="rhc-m rhc-m--todo">${esc(P('n_todo', c.todo))}</span>`);
-    if (!morceaux.length) morceaux.push(`<span class="rhc-m rhc-m--held"><i class="fa-solid fa-check"></i>${esc(L('held'))}</span>`);
-    return morceaux.join('');
+    if (c.gap) morceaux.push(P('n_gap', c.gap));
+    if (c.todo) morceaux.push(P('n_todo', c.todo));
+    return morceaux.length ? morceaux.join(', ') : L('held');
   }
 
   function bulle(r, carto, s) {
@@ -161,7 +163,6 @@
       <a class="rhc-cel rhc-j--${esc(s.color)}" href="${url}" data-b="${esc(cle)}"
          aria-label="${esc(bulle(r, carto, s))}">
         <span class="rhc-tem" aria-hidden="true"></span>
-        <span class="rhc-cel-bas">${bas(s)}</span>
       </a></td>`;
   }
 
@@ -186,6 +187,7 @@
     if (s.required_level !== null) {
       lignes.push(`<div class="rhc-b-l">${esc(P('tip_required', 0, { v: s.required_label }))}</div>`);
     }
+    lignes.push(`<div class="rhc-b-l"><b class="rhc-b-reste">${esc(reste(s))}</b></div>`);
     lignes.push(`<div class="rhc-b-l">${esc(P('tip_activities', s.n_activities))}${
       etats.length ? ' — ' + esc(etats.join(', ')) : ''}</div>`);
     if (s.couverture !== null) {
@@ -209,17 +211,26 @@
     b.innerHTML = contenuBulle(d);
     document.body.appendChild(b);
 
+    /* ⚠️ `body.pg` porte `zoom: .8` (ui-theme). Un enfant du body posé en
+       `position: fixed` voit ses coordonnées MULTIPLIÉES par ce zoom, alors
+       que `getBoundingClientRect()` les rend déjà en pixels d'écran : la bulle
+       se dessinait 20 % trop haut et trop à gauche de sa case. `offsetWidth`,
+       lui, est déjà dans le repère du body — on le convertit dans l'autre sens
+       pour le comparer à `window.innerWidth`. Même piège que le menu du
+       développeur de compétences (gestion_rh.js). */
     const r = lien.getBoundingClientRect();
-    const bb = b.getBoundingClientRect();
+    const z = parseFloat(getComputedStyle(document.body).zoom) || 1;
+    const w = b.offsetWidth * z;
+    const h = b.offsetHeight * z;
     const marge = 10;
-    let x = r.left + r.width / 2 - bb.width / 2;
-    x = Math.max(marge, Math.min(x, window.innerWidth - bb.width - marge));
+    let x = r.left + r.width / 2 - w / 2;
+    x = Math.max(marge, Math.min(x, window.innerWidth - w - marge));
     // Au-dessus quand il y a la place, sinon en dessous : une bulle qui sort
     // de l'écran ne dit rien.
-    let y = r.top - bb.height - 8;
+    let y = r.top - h - 8;
     if (y < marge) y = r.bottom + 8;
-    b.style.left = Math.round(x) + 'px';
-    b.style.top = Math.round(y) + 'px';
+    b.style.left = (x / z) + 'px';
+    b.style.top = (y / z) + 'px';
     requestAnimationFrame(() => b.classList.add('on'));
   }
 
