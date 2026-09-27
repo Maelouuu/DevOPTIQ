@@ -12,7 +12,7 @@
 .cacc-boite {
     position: relative;
     width: min(1080px, calc(100vw - 32px));
-    max-height: min(88vh, 860px);
+    max-height: min(93vh, 940px);
     display: flex;
     flex-direction: column;
     border-radius: 18px;
@@ -71,53 +71,68 @@
 }
 .cacc-rech input:focus { outline: none; border-color: #0d9488; box-shadow: 0 0 0 3px rgba(13, 148, 136, .18); }
 
-.cacc-corps {
-    flex: 1;
-    min-height: 0;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-    transition: opacity .15s;
-}
+.cacc-corps { flex: 1; min-height: 0; overflow: auto; transition: opacity .15s; }
 .cacc-corps.est-occupe { opacity: .55; pointer-events: none; }
 .cacc-attente { padding: 40px; text-align: center; color: #64748b; }
 .cacc-vide, .cacc-err { padding: 28px 18px; text-align: center; font-size: 13.5px; color: #64748b; }
 .cacc-err { color: #be123c; }
 
-/* Deux sections : les rôles, puis les statuts. Chacune porte son en-tête et
-   sa teinte — on doit voir d'un coup d'œil dans laquelle on coche.
-   ⚠️ Les rôles prennent la place restante et défilent (leur en-tête de table
-   reste collé DANS leur propre zone) ; les quatre paliers tiennent toujours,
-   donc la section des statuts garde sa hauteur au lieu d'être écrasée. */
-.cacc-sec { display: flex; flex-direction: column; min-height: 0; }
-.cacc-sec--roles { flex: 1 1 auto; border-bottom: 3px solid #e2e8f0; }
-.cacc-sec--statuts { flex: none; padding-bottom: 8px; }
-.cacc-sec-tete {
-    flex: none;
-    margin: 0;
+/* Deux groupes dans la MÊME table, chacun ouvert par une bande colorée : on
+   voit qu'on change de sujet sans payer un second en-tête de colonnes. */
+/* ⚠️ `.cacc-grp` en tête : `.cacc-table tbody th` porte `background: #fff`
+   à la MÊME spécificité et est déclarée plus bas — la première cellule de la
+   bande restait blanche pendant que le reste de la ligne était teinté. */
+.cacc-grp .cacc-bande th, .cacc-grp .cacc-bande td {
+    background: #ecfeff;
+    border-top: 1px solid #cffafe;
+    border-bottom: 1px solid #cffafe;
+    padding: 0;
+}
+/* ⚠️ `display: flex` sur un `th` le sort de la mise en page de TABLE : sa
+   colonne n'est plus tenue et les cartos se décalent. Le flex vit dedans. */
+.cacc-bande th { position: sticky; left: 0; z-index: 2; }
+.cacc-bande-t {
     display: flex;
     align-items: center;
     gap: 9px;
-    padding: 11px 18px;
+    padding: 8px 14px;
     font-family: var(--pg-font-display, inherit);
-    font-size: 13.5px;
+    font-size: 13px;
     font-weight: 700;
     color: #0f766e;
-    background: #ecfeff;
-    border-bottom: 1px solid #cffafe;
 }
-.cacc-sec--statuts .cacc-sec-tete { color: #7c2d12; background: #fff7ed; border-bottom-color: #fed7aa; }
-.cacc-sec--statuts .cacc-table tbody tr:hover th,
-.cacc-sec--statuts .cacc-table tbody tr:hover td { background: #fff7ed; }
-.cacc-sec--statuts .cacc-col:hover, .cacc-sec--statuts .cacc-lig:hover { background: rgba(234, 88, 12, .1); }
-.cacc-sec--statuts .cacc-table input { accent-color: #ea580c; }
+.cacc-bande i { font-size: 12px; }
+.cacc-bande .cacc-col {
+    align-items: center;
+    padding: 6px 10px;
+    font-size: 12.5px;
+    font-weight: 700;
+    color: #0f766e;
+}
+.cacc-grp--statuts .cacc-bande th, .cacc-grp--statuts .cacc-bande td {
+    background: #fff7ed;
+    /* même raison : on repasse derrière la règle des `th` de corps. */
+    border-top-color: #fed7aa;
+    border-bottom-color: #fed7aa;
+}
+.cacc-grp--statuts .cacc-bande-t, .cacc-grp--statuts .cacc-bande .cacc-col { color: #7c2d12; }
+.cacc-grp--statuts tr:hover th, .cacc-grp--statuts tr:hover td { background: #fff7ed; }
+.cacc-grp--statuts .cacc-col:hover, .cacc-grp--statuts .cacc-lig:hover { background: rgba(234, 88, 12, .12); }
+.cacc-grp--statuts input { accent-color: #ea580c; }
 
-.cacc-table-wrap { flex: 1 1 auto; min-height: 0; overflow: auto; }
 .cacc-table { border-collapse: separate; border-spacing: 0; width: 100%; }
-/* ⚠️ Première colonne à largeur FIXE dans les deux tables : sans elle, chacune
-   se dimensionne sur son propre contenu et les colonnes de cartos ne tombent
-   pas en face — on lirait un statut sous la mauvaise carto. */
-.cacc-table .cacc-coin, .cacc-table tbody th { width: 300px; min-width: 300px; }
+/* Première colonne à largeur FIXE : les libellés sont longs et la table se
+   dimensionnerait sur eux, chassant les cartos hors de l'écran. */
+.cacc-table .cacc-coin, .cacc-table tbody th { width: 280px; min-width: 280px; }
+.cacc-table thead th {
+    padding: 9px 12px;
+    text-align: left;
+    vertical-align: bottom;
+}
+.cacc-table thead th span { display: block; font-size: 13px; font-weight: 700; color: #0f172a; }
+.cacc-table thead th em { font-style: normal; font-size: 11.5px; color: #64748b; }
+.cacc-table thead th em.est-privee { color: #b45309; }
+.cacc-table thead th em.est-ouverte { color: #0e7490; }
 .cacc-table thead th, .cacc-table .cacc-coin {
     position: sticky;
     top: 0;
@@ -145,17 +160,18 @@
     padding: 0;
 }
 .cacc-table tbody tr:hover th, .cacc-table tbody tr:hover td { background: #f0fdfa; }
-.cacc-table td { padding: 6px 10px; text-align: center; border-bottom: 1px solid #f1f5f9; }
+.cacc-table td { padding: 4px 10px; text-align: center; border-bottom: 1px solid #f1f5f9; }
 
-/* Les en-têtes SONT des boutons : cliquer une carto coche tous ses rôles,
-   cliquer un rôle coche toutes ses cartos. */
+/* Une bande de groupe et un libellé de ligne SONT des boutons : cocher une
+   colonne dans la bande coche tout ce groupe pour cette carto, cliquer un rôle
+   ou un statut le coche sur toutes les cartos. */
 .cacc-col, .cacc-lig {
     display: flex;
     flex-direction: column;
     gap: 2px;
     width: 100%;
     min-width: 132px;
-    padding: 9px 12px;
+    padding: 7px 12px;
     border: 0;
     background: none;
     font: inherit;

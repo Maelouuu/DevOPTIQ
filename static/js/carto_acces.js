@@ -57,26 +57,45 @@
 
   const ouvert = (ligne, eid) => (ligne.cartos || []).includes(eid);
 
-  function colonnes(sec) {
-    return D.cartos.map(c => {
-      const combien = sec === 'statut'
-        ? P('n_statuts', (D.statuts || []).filter(s => ouvert(s, c.id)).length)
-        : P('n_roles', c.n_roles);
-      const etat = !c.commune ? `<em class="est-privee">${esc(L('privee'))}</em>`
-        : (sec === 'role' && c.ouverte_a_tous
-          ? `<em class="est-ouverte">${esc(L('ouverte'))}</em>`
-          : `<em>${esc(combien)}</em>`);
-      return `<th scope="col">
-        <button type="button" class="cacc-col" data-carto="${c.id}" data-sec="${sec}"
-                title="${esc(L('tout_carto'))}">
-          <span>${esc(c.name)}</span>${etat}
-        </button>
-      </th>`;
+  /* ⚠️ UNE seule table pour les deux sections. Deux tables, c'était deux
+     en-têtes de colonnes (les mêmes cartos, écrites deux fois) et deux zones
+     de défilement : les quatre paliers prenaient toute la place et il ne
+     restait que deux lignes de rôles à l'écran. Ici l'en-tête est écrit une
+     fois, collé en haut, et chaque groupe n'ajoute qu'une BANDE — qui porte
+     aussi le « tout cocher » de chaque colonne. */
+  function enTete() {
+    const cols = D.cartos.map(c => {
+      const etat = !c.commune
+        ? `<em class="est-privee">${esc(L('privee'))}</em>`
+        : (c.ouverte_a_tous ? `<em class="est-ouverte">${esc(L('ouverte'))}</em>` : '');
+      return `<th scope="col"><span>${esc(c.name)}</span>${etat}</th>`;
     }).join('');
+    return `<thead><tr><td class="cacc-coin">${esc(L('qui'))}</td>${cols}</tr></thead>`;
   }
 
-  function table(sec, coin, lignes, titreLigne) {
-    const corps = lignes.map(l => `
+  function bande(sec, titre, icone, compte) {
+    const cols = D.cartos.map(c => {
+      const n = compte(c);
+      // Le chiffre seul ne dit pas ce qu'il compte : l'info-bulle le dit, et
+      // rappelle ce que fait le clic.
+      const quoi = P(sec === 'statut' ? 'n_statuts' : 'n_roles', n);
+      return `<td>
+      <button type="button" class="cacc-col" data-carto="${c.id}" data-sec="${sec}"
+              title="${esc(quoi + ' · ' + L('tout_carto'))}">${esc(String(n))}</button>
+    </td>`;
+    }).join('');
+    return `<tr class="cacc-bande">
+      <th scope="row">
+        <span class="cacc-bande-t"><i class="fa-solid ${icone}"></i>${esc(titre)}</span>
+      </th>${cols}
+    </tr>`;
+  }
+
+  function lignes(sec, liste, titreLigne) {
+    if (!liste.length) {
+      return `<tr><td colspan="${D.cartos.length + 1}" class="cacc-vide">${esc(L('vide'))}</td></tr>`;
+    }
+    return liste.map(l => `
       <tr${l.verrou ? ' class="est-verrou"' : ''}>
         <th scope="row">
           ${l.verrou
@@ -93,12 +112,6 @@
                         ${l.verrou ? 'disabled' : ''}></label>
         </td>`).join('')}
       </tr>`).join('');
-    return `<div class="cacc-table-wrap">
-        <table class="cacc-table">
-          <thead><tr><td class="cacc-coin">${esc(coin)}</td>${colonnes(sec)}</tr></thead>
-          <tbody>${corps || `<tr><td colspan="${D.cartos.length + 1}" class="cacc-vide">${esc(L('vide'))}</td></tr>`}</tbody>
-        </table>
-      </div>`;
   }
 
   function rendre() {
@@ -114,29 +127,21 @@
     const statuts = (D.statuts || [])
       .map(s => ({ id: s.cle, nom: s.nom, cartos: s.cartos, verrou: !!s.verrou }));
 
+    // Les statuts d'abord : quatre lignes fixes, donc toujours visibles ;
+    // les rôles sont une liste longue, elle prend la suite et défile.
     zone.innerHTML = `
-      <section class="cacc-sec cacc-sec--roles">
-        <h4 class="cacc-sec-tete"><i class="fa-solid fa-id-badge"></i>${esc(L('sec_roles'))}</h4>
-        ${table('role', L('role'), roles, L('tout_role'))}
-      </section>
-      <section class="cacc-sec cacc-sec--statuts">
-        <h4 class="cacc-sec-tete"><i class="fa-solid fa-shield-halved"></i>${esc(L('sec_statuts'))}</h4>
-        ${table('statut', L('statut'), statuts, L('tout_statut'))}
-      </section>`;
-    accorderDefilement(zone);
-  }
-
-  /* Les deux tables ont les MÊMES colonnes : chacune défile de son côté, et
-     lire un statut sous une carto qui n'est plus la même ne veut rien dire. */
-  function accorderDefilement(zone) {
-    const wraps = [].slice.call(zone.querySelectorAll('.cacc-table-wrap'));
-    let enCours = false;
-    wraps.forEach((w) => w.addEventListener('scroll', () => {
-      if (enCours) return;
-      enCours = true;
-      wraps.forEach((autre) => { if (autre !== w) autre.scrollLeft = w.scrollLeft; });
-      enCours = false;
-    }));
+      <table class="cacc-table">
+        ${enTete()}
+        <tbody class="cacc-grp cacc-grp--statuts">
+          ${bande('statut', L('sec_statuts'), 'fa-shield-halved',
+                  (c) => statuts.filter(s => ouvert(s, c.id)).length)}
+          ${lignes('statut', statuts, L('tout_statut'))}
+        </tbody>
+        <tbody class="cacc-grp cacc-grp--roles">
+          ${bande('role', L('sec_roles'), 'fa-id-badge', (c) => c.n_roles)}
+          ${lignes('role', roles, L('tout_role'))}
+        </tbody>
+      </table>`;
   }
 
   /* Cocher une colonne ou une ligne = envoyer ses cases. Si tout est déjà

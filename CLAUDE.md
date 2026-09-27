@@ -2850,12 +2850,24 @@ pour les rôles, ambre pour les statuts.
   pas la ferait disparaître de la fenêtre d'accès — il n'existerait plus aucun
   écran d'où se la rendre. Même raison que la colonne `admin` du tableau des
   droits.
-- ⚠️ **Les deux tables ont une première colonne à largeur FIXE** : chacune se
-  dimensionnait sur son propre contenu, et les colonnes de cartos ne tombaient
-  pas en face — on lisait un statut sous la mauvaise carto. Leur défilement
-  horizontal est accordé pour la même raison.
-- Les rôles prennent la place restante et défilent ; les quatre paliers tiennent
-  toujours, donc leur section garde sa hauteur au lieu d'être écrasée.
+- ⚠️ **UNE table, deux BANDES — pas deux tables.** Deux tables, c'était deux
+  en-têtes de colonnes (les mêmes cartos, écrites deux fois), deux titres de
+  section et deux zones de défilement : les quatre paliers, en `flex: none`,
+  prenaient tout ce qu'il leur fallait et il ne restait **deux lignes de rôles
+  à l'écran**. L'en-tête des cartos est donc écrit UNE fois, collé en haut, et
+  chaque groupe n'ajoute qu'une bande colorée — qui porte aussi le « tout
+  cocher » de chaque colonne, et son compte. Mesuré sur une fenêtre de 760 px :
+  **2 lignes de rôles → 9**, plus les 4 paliers, tout le temps visibles.
+  Les colonnes s'alignent par construction (une seule table) : plus de
+  défilement horizontal à synchroniser.
+- **Les statuts d'abord** : quatre lignes fixes, donc toujours sous les yeux ;
+  les rôles sont une liste longue, ils prennent la suite et défilent.
+- ⚠️ **`display: flex` sur un `th` le sort de la mise en page de TABLE** : sa
+  colonne n'est plus tenue et les cartos se décalent. Le flex de la bande vit
+  dans un `<span>` à l'intérieur.
+- ⚠️ **Le fond de la bande perdait sa première cellule** : `.cacc-table tbody
+  th { background: #fff }` a la MÊME spécificité et est déclarée plus bas. Les
+  règles de bande passent par `.cacc-grp`.
 - `POST /cartography/api/access/matrice` accepte `cases` et/ou `cases_statut`,
   toujours **case par case** — jamais la table entière.
 - Tests : `test_66::TestLAccesParStatut` (9 cas ; le verrou vérifié **rouge**).
