@@ -1714,6 +1714,33 @@ partagent un design system chargé partout via `header_buttons.html` :
 ### En cours
 - *(rien)*
 
+### ⚠️ EN PANNE — le déploiement de staging ne démarre plus (depuis 2026-09-26)
+
+`Deploy → Staging` réussit son build puis échoue : *« The user-provided
+container failed to start and listen on the port … PORT=8080 »*. L'instance en
+ligne sert donc encore la révision du **24/09** ; tout ce qui a été poussé
+depuis est sur la branche, pas en ligne.
+
+**Ce qui est établi** (ne pas le re-chercher) :
+- Le premier échec est le commit du 26/09, qui ne touche **que des fichiers de
+  `tests/`** — aucun code applicatif. Le déploiement du 24/09, lui, a réussi.
+- Rejoué à l'identique le 27/09 : **même échec**. Ce n'est pas passager.
+- Ce n'est **pas un défaut d'import** : `tools/repet_image.sh` monte l'arbre de
+  l'image (exclusions `.dockerignore` + purge bytecode) et y passe la suite —
+  2587 passés, 27 sautés, le seul échec étant `test_65::
+  test_le_pont_du_hub_expose_la_route`, qui lit `hub/panel_client.py`, absent
+  de l'image (même famille que `test_61_pulse`, il devrait sauter).
+- Ce n'est pas la taille : `tests/` fait 16 Mo.
+- Le recensement des tests ne tourne **pas** au démarrage (il vit dans un
+  `before_request` du panel) — piste écartée.
+
+**Où chercher** : `gunicorn.conf.py` pose `preload_app = True`, donc
+`create_app()` — `create_all`, les migrations à chaud, les reprises — s'exécute
+AVANT que le port s'ouvre. Un démarrage trop long produit exactement ce
+message. Il faut les **logs Cloud Run de la révision** (lien donné en fin de
+journal du workflow) pour voir où l'init s'arrête ; aucun poste de dev n'a
+`gcloud` installé pour les lire d'ici.
+
 ### À faire (par priorité)
 1. **`docs/doc_technique.html` + `docs/guide.html` : le partage de carto a changé de
    modèle** (carto commune, accès par rôle, propositions de modification, statut
