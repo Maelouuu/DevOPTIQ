@@ -1663,13 +1663,26 @@ select {
 .rhc-c { padding: 5px 6px; vertical-align: middle; }
 .rhc-c--vide { text-align: center; }
 .rhc-rien { display: inline-block; width: 5px; height: 5px; border-radius: 50%; background: var(--border-strong, #cbd5e1); }
+/* ⚠️ La case ne porte que la COULEUR. La jauge à quatre pas y était répétée
+   sur toute la grille (N personnes × M rôles) : un damier qu'on ne lit pas.
+   Le verdict se prend à la couleur, le détail se demande à la bulle. */
 .rhc-cel {
-    display: flex; flex-direction: column; gap: 6px;
-    padding: 7px 9px; border-radius: 9px; text-decoration: none; color: inherit;
+    display: flex; align-items: center; gap: 9px;
+    padding: 8px 10px; border-radius: 9px; text-decoration: none; color: inherit;
     border: 1px solid transparent; transition: border-color .14s, background .14s;
 }
 .rhc-cel:hover { border-color: #86efac; background: #fff; }
 .rhc-cel:focus-visible { outline: 2px solid #16a34a; outline-offset: 1px; }
+.rhc-tem {
+    flex: none; width: 14px; height: 14px; border-radius: 50%;
+    background: #94a3b8; box-shadow: 0 0 0 3px rgba(148, 163, 184, .18);
+}
+.rhc-j--green  .rhc-tem { background: #22c55e; box-shadow: 0 0 0 3px rgba(34, 197, 94, .18); }
+.rhc-j--orange .rhc-tem { background: #f59e0b; box-shadow: 0 0 0 3px rgba(245, 158, 11, .2); }
+.rhc-j--red    .rhc-tem { background: #ef4444; box-shadow: 0 0 0 3px rgba(239, 68, 68, .18); }
+/* Non évalué : un contour, pas un disque — une absence n'est pas un verdict. */
+.rhc-j--grey   .rhc-tem { background: #fff; border: 2px dashed #b6c2d2; box-shadow: none; }
+
 .rhc-pas { display: flex; gap: 3px; }
 .rhc-pas i {
     position: relative; display: block; width: 18px; height: 11px; border-radius: 3px;
@@ -1685,7 +1698,38 @@ select {
 .rhc-j--orange .rhc-pas i.on { background: #f59e0b; }
 .rhc-j--red    .rhc-pas i.on { background: #ef4444; }
 .rhc-j--grey   .rhc-pas i.on { background: #94a3b8; }
-.rhc-cel-bas { display: flex; flex-wrap: wrap; gap: 4px 8px; }
+.rhc-cel-bas { display: flex; flex-wrap: wrap; gap: 4px 8px; min-width: 0; }
+
+/* La bulle — posée sur le BODY, donc jamais tronquée par le défilement du
+   tableau. Elle ne s'ouvre qu'au survol MAINTENU : on traverse la grille sans
+   être dérangé, et on obtient le détail quand on s'arrête. */
+.rhc-bulle {
+    position: fixed; z-index: 9000; width: 264px;
+    padding: 12px 14px; border-radius: 12px;
+    background: #0f172a; color: #e2e8f0;
+    box-shadow: 0 18px 44px rgba(15, 23, 42, .32);
+    font-size: 12.5px; line-height: 1.5;
+    opacity: 0; transform: translateY(4px);
+    transition: opacity .12s ease, transform .12s ease;
+    pointer-events: none;   /* elle ne doit jamais voler le clic de la case */
+}
+.rhc-bulle.on { opacity: 1; transform: none; }
+.rhc-b-tete {
+    font-weight: 800; color: #fff; font-size: 13px;
+    margin-bottom: 8px; padding-bottom: 7px;
+    border-bottom: 1px solid rgba(255, 255, 255, .14);
+}
+.rhc-b-lv { display: flex; align-items: center; gap: 9px; margin-bottom: 6px; }
+.rhc-b-lv b { color: #fff; font-size: 12.5px; }
+/* Sur fond sombre, le gris des pas vides disparaît. */
+.rhc-bulle .rhc-pas i { background: rgba(255, 255, 255, .13); box-shadow: none; }
+.rhc-bulle .rhc-pas i.vide { border-color: rgba(255, 255, 255, .35); }
+.rhc-bulle .rhc-pas i.cible::after { background: #fff; }
+.rhc-b-l { color: #cbd5e1; }
+.rhc-b-pied {
+    margin-top: 9px; padding-top: 7px; font-size: 11.5px; color: #94a3b8;
+    border-top: 1px solid rgba(255, 255, 255, .14);
+}
 .rhc-m { font-size: 11.5px; font-weight: 700; white-space: nowrap; }
 .rhc-m i { margin-right: 4px; font-size: 10px; }
 .rhc-m--gap   { color: #b91c1c; }

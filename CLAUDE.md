@@ -1755,6 +1755,52 @@ Cliquet : `test_72::TestLesDependancesSontEpinglees` (3 cas, deux vérifiés
 `requirements.txt`, lancer la suite ET `tools/repet_image.sh`, puis livrer.
 Ce n'est plus un effet de bord d'une reconstruction.
 
+### Quatre écrans repris : l'import, la page Temps, la carte, la page RH (2026-09-27)
+
+**L'écran « Vérifier » de l'import était illisible** — « trop d'info, on est
+surchargé ». Trois blocs de MÉTA occupaient le haut avant qu'on voie la
+moindre ligne de données : une carte pleine largeur « Où importer ? » (titre +
+phrase + segment), une rangée « Cette feuille contient : [Rôles][Tâches]
+[Outils] » qu'on ne touche jamais quand la nature est certaine, et un encadré
+« Lu tel quel » étalant SEPT pastilles de correspondance. Aucun n'est une
+décision : ce sont des confirmations.
+- la **destination** devient une barre d'une ligne (`is-barre`), sans titre ni
+  phrase — le pied de la fenêtre disait déjà « → carto » ;
+- la **correspondance des colonnes** se replie en « 7 colonnes reconnues »,
+  qui s'ouvre d'un clic. ⚠️ Sauf quand c'est l'IA qui a lu : là il y a vraiment
+  quelque chose à vérifier, elle reste dépliée ;
+- la **nature** attend derrière « Ce n'est pas ça ? » : on ne la déplie que
+  pour CONTESTER ce qui a été lu ;
+- le **rail des feuilles** répétait le nom du fichier sur chaque ligne (six
+  fois « Purchase Task.xlsx › … »), ce qui chassait le nom de l'onglet. Il est
+  dit UNE fois en tête, et le nom d'onglet disparaît quand il redit la nature
+  (« Rôles » / « Rôles »).
+
+**Page Temps : `window.confirm` pour supprimer.** La fenêtre du navigateur,
+avec ses styles système et un texte français écrit en dur — cinq fois.
+`optiqConfirm(message, {title, ok, cancel, danger})` rejoint `optiqAlert` dans
+`static/js/optiq_alert.js` : même pop-up que le reste de l'app, rend une
+PROMESSE (les cinq appelants étaient déjà `async`). ⚠️ Le focus part sur
+**Annuler** et un clic à côté annule : sur une suppression, le geste ambigu ne
+vaut jamais un oui. ⚠️ `header_buttons.html` ne charge PAS `optiq_alert.js` —
+la page Temps doit l'inclure elle-même, avant `time.js`. Sept clés `time.del_*`.
+
+**Page Carte : l'ordre des boutons** suit ce qu'on fait — gérer les entités,
+importer, régler l'accès, puis afficher les connexions.
+
+**Page RH, « les compétences de chacun » : la case ne porte plus que sa
+COULEUR.** La jauge à quatre pas y était répétée sur toute la grille
+(N personnes × M rôles) : un damier qu'on ne lit pas. Le verdict se prend à la
+pastille ; la jauge, les niveaux, les compteurs et la couverture attendent dans
+une **bulle**, au survol MAINTENU (900 ms — on traverse la grille sans être
+dérangé). ⚠️ Posée sur le BODY en `position: fixed` : le tableau a son propre
+défilement, une bulle posée dedans serait tronquée. Elle se ferme sur tout ce
+qui déplace ce qu'il y a dessous (défilement en capture, redimensionnement,
+clic) et s'ouvre SANS attendre au clavier, où le survol n'existe pas.
+⚠️ Pas d'attribut `title` sur la case : il ouvrirait la bulle du système
+par-dessus la nôtre. ⚠️ `pointer-events: none` sur la bulle — elle ne doit
+jamais voler le clic de la case qu'elle explique.
+
 ### À faire (par priorité)
 1. **`docs/doc_technique.html` + `docs/guide.html` : le partage de carto a changé de
    modèle** (carto commune, accès par rôle, propositions de modification, statut

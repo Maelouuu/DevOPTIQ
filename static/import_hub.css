@@ -715,7 +715,16 @@ body.imh-ouvert { overflow: hidden; }
     linear-gradient(180deg, #fdf6fc, #fff 70%) padding-box,
     linear-gradient(110deg, color-mix(in srgb, var(--imh-ia-a) 45%, #fff), color-mix(in srgb, var(--imh-ia-b) 45%, #fff)) border-box;
 }
-.imh-source-t { display: flex; align-items: center; flex-wrap: wrap; gap: 9px; font-size: 14.5px; }
+.imh-source-t {
+    display: flex; align-items: center; flex-wrap: wrap; gap: 9px;
+    width: 100%; padding: 0; border: 0; background: none; font: inherit;
+    font-size: 14.5px; text-align: left; cursor: pointer; color: inherit;
+}
+.imh-source-t[disabled] { cursor: default; }
+.imh-source-chev { margin-left: auto; font-size: 11px; opacity: .55; transition: transform .15s; }
+.imh-source.is-ouvert .imh-source-chev { transform: rotate(180deg); }
+/* Replié, ce n'est plus un encadré : une ligne de confirmation. */
+.imh-source:not(.is-ouvert) { padding-top: 8px; padding-bottom: 8px; }
 .imh-source-ic {
   width: 26px;
   height: 26px;
@@ -768,6 +777,16 @@ body.imh-ouvert { overflow: hidden; }
   background: #e4f6f3;
 }
 .imh-portee-txt { flex: 1; min-width: 220px; }
+/* La destination est un RÉGLAGE : une barre d'une ligne, pas une carte avec
+   son titre et sa phrase — elles occupaient la hauteur de trois lignes de
+   données, au-dessus de ce qu'on vient vérifier. */
+.imh-portee.is-barre { padding: 8px 12px; gap: 8px; }
+.imh-portee.is-barre .imh-portee-tete { gap: 10px; }
+.imh-portee.is-barre .imh-portee-ic { width: 28px; height: 28px; font-size: 13px; }
+.imh-portee-lib {
+    font-size: 13px; font-weight: 700; color: var(--imh-ink-2);
+    white-space: nowrap;
+}
 .imh-portee h4 { margin: 0; font-size: 14.5px; font-weight: 700; }
 .imh-portee-txt p { margin: 1px 0 0; font-size: 13px; color: var(--imh-muted); }
 .imh-portee-une {
@@ -1211,7 +1230,21 @@ body.imh-ouvert { overflow: hidden; }
 }
 .imh-rail-plus:hover, .imh-rail-plus.survol { border-color: #0d9488; color: #0d9488; background: #f0fdfa; }
 
+/* Le fichier, dit UNE fois au-dessus des feuilles. */
+.imh-rail-fichier {
+    display: flex; align-items: center; gap: 7px;
+    margin: 2px 2px 8px; padding-bottom: 8px;
+    font-size: 12.5px; font-weight: 700; color: var(--imh-ink-2);
+    border-bottom: 1px solid var(--imh-border, #e2e8f0);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.imh-rail-fichier i { flex: none; color: #16794c; font-size: 12px; }
+
 .imh-nats { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+/* Replié : un lien, pas une rangée de boutons qu'on ne touche jamais. */
+.imh-nats.is-repli { padding: 0 2px; }
+.imh-nats.is-repli .imh-btn-lien { font-size: 12.5px; opacity: .8; }
+.imh-nats.is-repli .imh-btn-lien:hover { opacity: 1; }
 .imh-nats .imh-mini { margin-right: 4px; }
 .imh-nat {
   display: inline-flex;

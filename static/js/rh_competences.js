@@ -105,6 +105,11 @@
   // Quatre pas = les niveaux 1 à 4 ; le niveau 0 « Non démontré » est une
   // jauge VIDE. Non évalué (null) se dessine en pointillés : une absence, pas
   // un zéro. Le trait suit le pas REQUIS — « la jauge doit atteindre ce trait ».
+  //
+  // ⚠️ Elle ne vit plus DANS la case : sur une grille de N personnes × M rôles,
+  // autant de jauges à quatre pas faisaient un damier qu'on ne lit pas. La
+  // case ne porte que la COULEUR — le verdict, d'un coup d'œil — et la jauge
+  // attend dans la bulle, où on vient chercher le détail d'UNE case.
   function jauge(niveau, requis) {
     const inconnu = niveau === null || niveau === undefined;
     let pas = '';
@@ -148,11 +153,100 @@
       return `<td class="rhc-c rhc-c--vide" title="${esc(L('not_held'))}"><span class="rhc-rien"></span></td>`;
     }
     const url = `/competences/view?personne=${p.id}&role=${r.id}`;
+    const cle = p.id + ':' + r.id;
+    DETAIL.set(cle, { r: r, carto: carto, s: s });
+    // ⚠️ Pas d'attribut `title` : il ouvrirait la bulle DU SYSTÈME par-dessus
+    // la nôtre, avec son texte brut et son propre retard.
     return `<td class="rhc-c">
-      <a class="rhc-cel rhc-j--${esc(s.color)}" href="${url}" title="${esc(bulle(r, carto, s))}">
-        ${jauge(s.level, s.required_level)}
+      <a class="rhc-cel rhc-j--${esc(s.color)}" href="${url}" data-b="${esc(cle)}"
+         aria-label="${esc(bulle(r, carto, s))}">
+        <span class="rhc-tem" aria-hidden="true"></span>
         <span class="rhc-cel-bas">${bas(s)}</span>
       </a></td>`;
+  }
+
+  /* ── La bulle : le détail d'UNE case, au survol maintenu ─────────────── */
+
+  const DETAIL = new Map();
+  let minuterieBulle = null;
+
+  function fermerBulle() {
+    clearTimeout(minuterieBulle);
+    const b = document.getElementById('rhc-bulle');
+    if (b) b.remove();
+  }
+
+  function contenuBulle(d) {
+    const s = d.s, c = s.counts;
+    const etats = [c.held && P('n_held', c.held), c.gap && P('n_gap', c.gap),
+      c.todo && P('n_todo', c.todo), c.setup && P('n_setup', c.setup)].filter(Boolean);
+    const lignes = [];
+    lignes.push(`<div class="rhc-b-lv rhc-j--${esc(s.color)}">${jauge(s.level, s.required_level)}
+      <b>${esc(s.level_label)}</b></div>`);
+    if (s.required_level !== null) {
+      lignes.push(`<div class="rhc-b-l">${esc(P('tip_required', 0, { v: s.required_label }))}</div>`);
+    }
+    lignes.push(`<div class="rhc-b-l">${esc(P('tip_activities', s.n_activities))}${
+      etats.length ? ' — ' + esc(etats.join(', ')) : ''}</div>`);
+    if (s.couverture !== null) {
+      lignes.push(`<div class="rhc-b-l">${s.couverture} % ${esc(L('coverage'))}</div>`);
+    }
+    return `<div class="rhc-b-tete">${esc(d.carto ? d.r.name + ' · ' + d.carto : d.r.name)}</div>
+      ${lignes.join('')}
+      <div class="rhc-b-pied">${esc(L('tip_open'))}</div>`;
+  }
+
+  // ⚠️ Posée sur le BODY en `position: fixed` : le tableau a son propre
+  // défilement, une bulle posée dedans serait tronquée par ses bords.
+  function ouvrirBulle(lien) {
+    const d = DETAIL.get(lien.dataset.b);
+    if (!d) return;
+    fermerBulle();
+    const b = document.createElement('div');
+    b.id = 'rhc-bulle';
+    b.className = 'rhc-bulle';
+    b.setAttribute('role', 'tooltip');
+    b.innerHTML = contenuBulle(d);
+    document.body.appendChild(b);
+
+    const r = lien.getBoundingClientRect();
+    const bb = b.getBoundingClientRect();
+    const marge = 10;
+    let x = r.left + r.width / 2 - bb.width / 2;
+    x = Math.max(marge, Math.min(x, window.innerWidth - bb.width - marge));
+    // Au-dessus quand il y a la place, sinon en dessous : une bulle qui sort
+    // de l'écran ne dit rien.
+    let y = r.top - bb.height - 8;
+    if (y < marge) y = r.bottom + 8;
+    b.style.left = Math.round(x) + 'px';
+    b.style.top = Math.round(y) + 'px';
+    requestAnimationFrame(() => b.classList.add('on'));
+  }
+
+  function brancherBulle() {
+    const zone = $('#rhc-corps');
+    if (!zone || zone.dataset.bulle === '1') return;
+    zone.dataset.bulle = '1';
+    const RETARD = 900;   // on ne dérange pas quelqu'un qui traverse la grille
+    zone.addEventListener('mouseover', (e) => {
+      const lien = e.target.closest('.rhc-cel');
+      if (!lien) return;
+      clearTimeout(minuterieBulle);
+      minuterieBulle = setTimeout(() => ouvrirBulle(lien), RETARD);
+    });
+    zone.addEventListener('mouseout', (e) => {
+      if (e.target.closest('.rhc-cel')) fermerBulle();
+    });
+    // Au clavier, sans attendre : le survol n'existe pas.
+    zone.addEventListener('focusin', (e) => {
+      const lien = e.target.closest('.rhc-cel');
+      if (lien) ouvrirBulle(lien);
+    });
+    zone.addEventListener('focusout', fermerBulle);
+    // Tout ce qui déplace ce qu'il y a dessous laisserait la bulle en l'air.
+    window.addEventListener('scroll', fermerBulle, true);
+    window.addEventListener('resize', fermerBulle);
+    document.addEventListener('click', fermerBulle);
   }
 
   function ensemble(p) {
@@ -173,6 +267,10 @@
   function rendre() {
     const zone = $('#rhc-corps');
     if (!zone || !S.data) return;
+    // Le tableau est réécrit en entier : la bulle ouverte pointerait dans le
+    // vide, et l'index des cases grossirait à chaque filtre.
+    fermerBulle();
+    DETAIL.clear();
     rendreCartos();
     const d = S.data;
     if (!d.personnes.length) {
@@ -227,6 +325,7 @@
         <span><b class="rhc-pt rhc-pt--vide"></b>${esc(L('leg_grey'))}</span>
         <span><b class="rhc-trait"></b>${esc(L('leg_tick'))}</span>
       </p>`;
+    brancherBulle();
   }
 
   /* ── Branchements ────────────────────────────────────────────────────── */

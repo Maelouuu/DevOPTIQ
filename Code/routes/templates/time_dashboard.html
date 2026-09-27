@@ -23,8 +23,19 @@
                        no_analysis:   {{ t('time.no_analysis')|tojson }},
                        meta_duration: {{ t('time.meta_duration')|tojson }},
                        meta_total:    {{ t('time.meta_total')|tojson }},
-                       meta_acts:     {{ t('time.meta_acts')|tojson }} };
+                       meta_acts:     {{ t('time.meta_acts')|tojson }},
+                       del_title:     {{ t('time.del_title')|tojson }},
+                       del_ok:        {{ t('time.del_ok')|tojson }},
+                       del_cancel:    {{ t('btn.cancel')|tojson }},
+                       del_project:   {{ t('time.del_project')|tojson }},
+                       del_project_line: {{ t('time.del_project_line')|tojson }},
+                       del_activity_analysis: {{ t('time.del_activity_analysis')|tojson }},
+                       del_role_analysis: {{ t('time.del_role_analysis')|tojson }},
+                       del_role_line: {{ t('time.del_role_line')|tojson }} };
 </script>
+<!-- ⚠️ AVANT time.js : c'est lui qui fournit optiqConfirm. `header_buttons`
+     ne charge pas ce script, d'où les pop-up du navigateur sur cette page. -->
+<script src="{{ url_for('static', filename='js/optiq_alert.js') }}"></script>
 <script defer src="{{ url_for('static', filename='js/time.js') }}"></script>
 
 <div id="page-temps" class="container pg-root page--time">

@@ -94,21 +94,23 @@
         <span class="entity-badge inactive"><i class="fa-solid fa-triangle-exclamation"></i> {{ t('map.no_entity') }}</span>
       {% endif %}
     </div>
+    <!-- Ordre voulu, de gauche à droite : ce qu'on gère, ce qu'on importe, qui
+         y accède, puis l'affichage des connexions. -->
     <div class="carto-header-right">
+      <button id="carto-wizard-btn" class="carto-wizard-btn"><i class="fa-solid fa-building-columns"></i> {{ t('map.btn_entities') }}</button>
       <button id="btn-import-full" class="btn-import-full">
         <img src="{{ url_for('static', filename='img/artificial-intelligence.png') }}" alt="IA" class="btn-icon-img">
         {{ t('map.btn_import_ia') }}
       </button>
+      {% if peut_regler_acces %}
+      <button id="btn-carto-acces" class="carto-wizard-btn"><i class="fa-solid fa-user-lock"></i> {{ t('map.btn_acces') }}</button>
+      {% endif %}
       <!-- Bouton "Connexions" — toggle mise en évidence des activités externes/hachurées -->
       <button id="cross-carto-btn" class="cross-carto-btn" title="{{ t('map.cross_carto_title') }}">
         <img src="{{ url_for('static', filename='img/connexion.png') }}" alt="" class="btn-icon-img cross-carto-icon">
         <span id="cross-carto-label">{{ t('map.btn_connections') }}</span>
         <span class="cross-carto-dot"></span>
       </button>
-      {% if peut_regler_acces %}
-      <button id="btn-carto-acces" class="carto-wizard-btn"><i class="fa-solid fa-user-lock"></i> {{ t('map.btn_acces') }}</button>
-      {% endif %}
-      <button id="carto-wizard-btn" class="carto-wizard-btn"><i class="fa-solid fa-building-columns"></i> {{ t('map.btn_entities') }}</button>
     </div>
   </div>
 
