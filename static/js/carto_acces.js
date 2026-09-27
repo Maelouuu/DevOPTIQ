@@ -142,6 +142,10 @@
           ${lignes('role', roles, L('tout_role'))}
         </tbody>
       </table>`;
+    // La bande reste collée SOUS l'en-tête : il faut donc sa hauteur réelle,
+    // qui dépend des libellés de cartos (un nom long passe à la ligne).
+    const te = zone.querySelector('thead');
+    zone.style.setProperty('--cacc-thead', (te ? te.offsetHeight : 62) + 'px');
   }
 
   /* Cocher une colonne ou une ligne = envoyer ses cases. Si tout est déjà

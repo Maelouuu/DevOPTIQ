@@ -2891,6 +2891,23 @@ pour les rôles, ambre pour les statuts.
   pas la ferait disparaître de la fenêtre d'accès — il n'existerait plus aucun
   écran d'où se la rendre. Même raison que la colonne `admin` du tableau des
   droits.
+- ⚠️ **La table unique donne les lignes, elle ne donne pas la FRONTIÈRE.**
+  Premier jet : deux bandes pastel, et l'ensemble se lisait comme un seul bloc
+  (« c'est trop un tout »). La séparation se rejoue donc sur TROIS plans, tous
+  sans coût en hauteur : une bande **pleine** en couleur soutenue (teal pour
+  les rôles, ambre pour les statuts) à texte blanc ; cette bande reste
+  **collée sous l'en-tête** pendant qu'on défile — on sait toujours dans quel
+  groupe on coche ; et un **liseré vertical** court sur toute la hauteur du
+  groupe, la zone des statuts portant en plus son propre fond.
+  ⚠️ `top` de la bande = hauteur RÉELLE de l'en-tête, mesurée après le rendu
+  (`--cacc-thead`) : un nom de carto qui passe à la ligne la change.
+  ⚠️ **Ordre d'empilement** : coin (7), en-tête (6), bande (4/3), première
+  colonne du corps (1). La bande vient APRÈS l'en-tête dans le document — à
+  `z-index` égal, c'est elle qui passerait par-dessus lui.
+  ⚠️ Et le fond de ZONE des statuts repeignait la BANDE (même spécificité,
+  déclarée plus bas) : son texte blanc devenait invisible. Troisième fois que
+  ce piège mord dans cette feuille — une règle de bande se met APRÈS celle de
+  la zone, et plus spécifique.
 - ⚠️ **UNE table, deux BANDES — pas deux tables.** Deux tables, c'était deux
   en-têtes de colonnes (les mêmes cartos, écrites deux fois), deux titres de
   section et deux zones de défilement : les quatre paliers, en `flex: none`,
