@@ -14,6 +14,7 @@ exercées par test_15/test_42/test_44/test_50 :
 import io
 import json
 import uuid
+import zipfile
 from urllib.parse import quote
 
 import pytest
@@ -286,6 +287,223 @@ class TestSvgExtractAndSync:
         assert resp.status_code == 200
         body = resp.get_json()
         assert body["stats"]["activities"] >= 1
+
+
+# ===========================================================================
+# 2bis. Import VSDX (connexions) — upload-cartography avec vsdx_file
+# ===========================================================================
+
+NS_VSDX = "http://schemas.microsoft.com/office/visio/2012/main"
+
+
+def _vsdx_bytes(source_name, target_name, data_name="Donnee Test", connector_name="N-Flux"):
+    """Construit un .vsdx (zip) minimal : deux formes reliées par un connecteur
+    dont le Name porte le préfixe de type (N-/T-) et le Text porte le nom de la donnée."""
+    page = (
+        f'<PageContents xmlns="{NS_VSDX}">'
+        "<Shapes>"
+        f'<Shape ID="1" Name="ShapeSrc"><Text>{source_name}</Text></Shape>'
+        f'<Shape ID="2" Name="ShapeTgt"><Text>{target_name}</Text></Shape>'
+        f'<Shape ID="9" Name="{connector_name}"><Text>{data_name}</Text></Shape>'
+        "</Shapes>"
+        "<Connects>"
+        '<Connect FromSheet="9" FromCell="BeginX" ToSheet="1"/>'
+        '<Connect FromSheet="9" FromCell="EndX" ToSheet="2"/>'
+        "</Connects>"
+        "</PageContents>"
+    )
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as zf:
+        zf.writestr("visio/pages/page1.xml", page)
+    return buf.getvalue()
+
+
+class TestVsdxUploadImportsConnections:
+
+    def test_upload_vsdx_creates_link_with_data(self, app, auth_client, ids):
+        eid = _create_entity(app, ids["user_id"], "Entité Import Vsdx")
+        src_id = _create_activity(app, eid, "Source Vsdx Test")
+        tgt_id = _create_activity(app, eid, "Cible Vsdx Test")
+        _set_active(auth_client, ids["user_id"], eid)
+
+        resp = auth_client.post(
+            "/activities/upload-cartography",
+            data={
+                "entity_id": str(eid),
+                "mode": "update",
+                "keep_svg": "true",
+                "vsdx_file": (io.BytesIO(_vsdx_bytes("Source Vsdx Test", "Cible Vsdx Test")), "connections.vsdx"),
+            },
+            content_type="multipart/form-data",
+        )
+        assert resp.status_code == 200
+        stats = resp.get_json()["stats"]
+        assert stats["vsdx_updated"] is True
+        assert stats["connections"] == 1
+        assert stats["invalid_connections"] == 0
+
+        with app.app_context():
+            from Code.models.models import Link, Data
+            link = Link.query.filter_by(entity_id=eid, source_activity_id=src_id, target_activity_id=tgt_id).first()
+            assert link is not None
+            assert link.type == "nourrissante"
+            data = Data.query.get(link.source_data_id)
+            assert data.name == "Donnee Test"
+
+    def test_upload_vsdx_twice_does_not_duplicate_link(self, app, auth_client, ids):
+        eid = _create_entity(app, ids["user_id"], "Entité Import Vsdx Doublon")
+        _create_activity(app, eid, "Source Doublon")
+        _create_activity(app, eid, "Cible Doublon")
+        _set_active(auth_client, ids["user_id"], eid)
+
+        base_payload = {
+            "entity_id": str(eid),
+            "mode": "update",
+            "keep_svg": "true",
+        }
+
+        resp1 = auth_client.post(
+            "/activities/upload-cartography",
+            data={**base_payload, "vsdx_file": (io.BytesIO(_vsdx_bytes("Source Doublon", "Cible Doublon")), "connections.vsdx")},
+            content_type="multipart/form-data",
+        )
+        assert resp1.get_json()["stats"]["connections"] == 1
+
+        resp2 = auth_client.post(
+            "/activities/upload-cartography",
+            data={**base_payload, "vsdx_file": (io.BytesIO(_vsdx_bytes("Source Doublon", "Cible Doublon")), "connections.vsdx")},
+            content_type="multipart/form-data",
+        )
+        assert resp2.status_code == 200
+        # Rien de nouveau importé (le lien existe déjà) : le compteur retombe sur le total en base
+        assert resp2.get_json()["stats"]["connections"] == 1
+
+        with app.app_context():
+            from Code.models.models import Link
+            assert Link.query.filter_by(entity_id=eid).count() == 1
+
+    def test_clear_connections_wipes_existing_links_before_import(self, app, auth_client, ids):
+        eid = _create_entity(app, ids["user_id"], "Entité Vsdx Clear Connections")
+        src_id = _create_activity(app, eid, "Source Clear")
+        tgt_id = _create_activity(app, eid, "Cible Clear")
+        other_id = _create_activity(app, eid, "Autre Activite Clear")
+        _create_link(app, eid, source_activity_id=src_id, target_activity_id=other_id)
+        _set_active(auth_client, ids["user_id"], eid)
+
+        resp = auth_client.post(
+            "/activities/upload-cartography",
+            data={
+                "entity_id": str(eid),
+                "mode": "update",
+                "keep_svg": "true",
+                "clear_connections": "true",
+                "vsdx_file": (io.BytesIO(_vsdx_bytes("Source Clear", "Cible Clear")), "connections.vsdx"),
+            },
+            content_type="multipart/form-data",
+        )
+        assert resp.status_code == 200
+
+        with app.app_context():
+            from Code.models.models import Link
+            links = Link.query.filter_by(entity_id=eid).all()
+            # L'ancien lien (vers other_id) a été purgé par clear_connections,
+            # seul le lien nouvellement importé (Source Clear -> Cible Clear) reste.
+            assert len(links) == 1
+            assert links[0].target_activity_id == tgt_id
+            assert all(l.target_activity_id != other_id for l in links)
+
+    def test_upload_vsdx_unmatched_activity_reports_missing(self, app, auth_client, ids):
+        eid = _create_entity(app, ids["user_id"], "Entité Vsdx Sans Correspondance")
+        _create_activity(app, eid, "Source Connue")
+        _set_active(auth_client, ids["user_id"], eid)
+
+        resp = auth_client.post(
+            "/activities/upload-cartography",
+            data={
+                "entity_id": str(eid),
+                "mode": "update",
+                "keep_svg": "true",
+                "vsdx_file": (io.BytesIO(_vsdx_bytes("Source Connue", "Cible Inconnue")), "connections.vsdx"),
+            },
+            content_type="multipart/form-data",
+        )
+        assert resp.status_code == 200
+        stats = resp.get_json()["stats"]
+        assert stats["connections"] == 0
+        assert stats["invalid_connections"] == 1
+        assert "Cible Inconnue" in stats["missing_activities"]
+
+        with app.app_context():
+            from Code.models.models import Link
+            assert Link.query.filter_by(entity_id=eid).count() == 0
+
+    def test_upload_vsdx_reuses_existing_data_by_name(self, app, auth_client, ids):
+        eid = _create_entity(app, ids["user_id"], "Entité Vsdx Data Existante")
+        _create_activity(app, eid, "Source Data Existante")
+        _create_activity(app, eid, "Cible Data Existante")
+        with app.app_context():
+            from Code.models.models import Data
+            from Code.extensions import db
+            existing = Data(entity_id=eid, name="Donnee Test", type="nourrissante")
+            db.session.add(existing)
+            db.session.commit()
+            existing_data_id = existing.id
+        _set_active(auth_client, ids["user_id"], eid)
+
+        resp = auth_client.post(
+            "/activities/upload-cartography",
+            data={
+                "entity_id": str(eid),
+                "mode": "update",
+                "keep_svg": "true",
+                "vsdx_file": (io.BytesIO(_vsdx_bytes("Source Data Existante", "Cible Data Existante")), "connections.vsdx"),
+            },
+            content_type="multipart/form-data",
+        )
+        assert resp.status_code == 200
+
+        with app.app_context():
+            from Code.models.models import Data, Link
+            assert Data.query.filter_by(entity_id=eid, name="Donnee Test").count() == 1
+            link = Link.query.filter_by(entity_id=eid).first()
+            assert link.source_data_id == existing_data_id
+
+    def test_keep_vsdx_with_existing_file_reports_kept(self, app, auth_client, ids):
+        eid = _create_entity(app, ids["user_id"], "Entité Keep Vsdx")
+        _create_activity(app, eid, "Source Keep Vsdx")
+        _create_activity(app, eid, "Cible Keep Vsdx")
+        _set_active(auth_client, ids["user_id"], eid)
+
+        auth_client.post(
+            "/activities/upload-cartography",
+            data={
+                "entity_id": str(eid),
+                "mode": "update",
+                "keep_svg": "true",
+                "vsdx_file": (io.BytesIO(_vsdx_bytes("Source Keep Vsdx", "Cible Keep Vsdx")), "connections.vsdx"),
+            },
+            content_type="multipart/form-data",
+        )
+
+        resp = auth_client.post(
+            "/activities/upload-cartography",
+            data={"entity_id": str(eid), "mode": "update", "keep_svg": "true", "keep_vsdx": "true"},
+            content_type="multipart/form-data",
+        )
+        assert resp.status_code == 200
+        assert resp.get_json()["stats"]["vsdx_kept"] is True
+
+    def test_keep_vsdx_without_existing_file_does_not_crash(self, app, auth_client, ids):
+        eid = _create_entity(app, ids["user_id"], "Entité Keep Vsdx Sans Fichier")
+        _set_active(auth_client, ids["user_id"], eid)
+
+        resp = auth_client.post(
+            "/activities/upload-cartography",
+            data={"entity_id": str(eid), "mode": "update", "keep_svg": "true", "keep_vsdx": "true"},
+            content_type="multipart/form-data",
+        )
+        assert resp.status_code == 200
+        assert resp.get_json()["stats"]["vsdx_kept"] is False
 
 
 # ===========================================================================
