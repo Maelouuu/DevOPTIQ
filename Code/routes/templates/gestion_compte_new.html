@@ -327,7 +327,6 @@
     gereRoles: {{ (peut_gerer_roles | default(false)) | tojson }},
     lang: {{ session.get('lang', 'fr') | tojson }},
   };
-  // Ce que la fiche peut attribuer : les rôles des cartos que ce compte ouvre.
   window.ACC_ROLES = {{ (catalogue_roles | default([])) | tojson }};
   window.ACC_L = {
     modal_new:     {{ t('account.modal_new') | tojson }},

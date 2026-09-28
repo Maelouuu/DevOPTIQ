@@ -17,9 +17,18 @@ GABARITS = os.path.join(RACINE, "Code", "routes", "templates")
 
 
 def _gabarits():
+    """Tous les gabarits .html, y compris ceux des sous-dossiers (`ui/`,
+    `test_panel/`…) : un `os.listdir` à plat les laissait hors de portée de
+    CE contrôle-là — silencieusement, comme le défaut qu'il existe pour
+    attraper."""
     if not os.path.isdir(GABARITS):
         return []
-    return sorted(n for n in os.listdir(GABARITS) if n.endswith(".html"))
+    trouves = []
+    for racine, _dirs, noms in os.walk(GABARITS):
+        for nom in noms:
+            if nom.endswith(".html"):
+                trouves.append(os.path.relpath(os.path.join(racine, nom), GABARITS))
+    return sorted(trouves)
 
 
 def test_il_y_a_des_gabarits_a_relire():

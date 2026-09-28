@@ -667,10 +667,14 @@ def _statut(n_cibles, n_deja):
 
 
 def _noms_existants(modele, entity_id):
-    """Les noms déjà posés dans une carto, sous leur forme normalisée — et pour
-    un rôle, ses traductions : « Quality » EST le rôle « Qualité »."""
+    """Les noms déjà posés, sous leur forme normalisée — et pour un rôle, ses
+    traductions : « Quality » EST le rôle « Qualité ».
+
+    Un rôle appartient à l'entreprise, un outil à sa carto.
+    """
     noms = set()
-    for x in modele.query.filter_by(entity_id=entity_id).all():
+    q = modele.query if modele is Role else modele.query.filter_by(entity_id=entity_id)
+    for x in q.all():
         noms.add(_norm(x.name))
         for attr in ("name_fr", "name_en"):
             if getattr(x, attr, None):
@@ -678,10 +682,20 @@ def _noms_existants(modele, entity_id):
     return noms
 
 
+def _existants_par_carto(modele, cibles):
+    """{id de carto: noms déjà posés}. Pour un rôle — commun à l'entreprise —
+    toutes les cartos partagent le MÊME ensemble : créé pour l'une, il existe
+    pour les autres."""
+    if modele is Role:
+        commun = _noms_existants(modele, None)
+        return {e.id: commun for e in cibles}
+    return {e.id: _noms_existants(modele, e.id) for e in cibles}
+
+
 def _verifier_simple(type_, lignes, cibles):
-    """Rôles et outils : un nom par ligne, créé dans chaque carto où il manque."""
+    """Rôles et outils : un nom par ligne, créé là où il manque."""
     modele = Role if type_ == "roles" else Tool
-    existants = {e.id: _noms_existants(modele, e.id) for e in cibles}
+    existants = _existants_par_carto(modele, cibles)
     vus, out = set(), []
     for l in lignes:
         nom = l.get("nom", "")
@@ -701,10 +715,10 @@ def _verifier_simple(type_, lignes, cibles):
     return {"lignes": out}
 
 
-def _index_roles(entity_id):
-    """{nom normalisé: rôle} d'une carto, traductions comprises."""
+def _index_roles(entity_id=None):
+    """{nom normalisé: rôle} de l'entreprise, traductions comprises."""
     idx = {}
-    for r in Role.query.filter_by(entity_id=entity_id).all():
+    for r in Role.query.all():
         for v in (r.name, r.name_fr, r.name_en):
             if v:
                 idx.setdefault(_norm(v), r)
@@ -729,7 +743,8 @@ def _statut_compte(brut):
 def _verifier_users(lignes, moi, cibles, options):
     from Code.permissions import niveau, niveau_status
     existants = {e.lower() for (e,) in db.session.query(User.email).all() if e}
-    roles = {e.id: _index_roles(e.id) for e in cibles}
+    index = _index_roles()
+    roles = {e.id: index for e in cibles}
     prevus = {_norm(x) for x in (options.get("roles_prevus") or [])}
     creer = bool(options.get("creer_roles"))
     mon_niveau = niveau(moi)
@@ -904,7 +919,7 @@ def _importer_simple(type_, lignes, cibles):
     from Code.role_i18n import on_role_name_saved
     verifiees = _verifier_simple(type_, lignes, cibles)["lignes"]
     modele = Role if type_ == "roles" else Tool
-    existants = {e.id: _noms_existants(modele, e.id) for e in cibles}
+    existants = _existants_par_carto(modele, cibles)
     crees, par_carto = 0, {}
     for l in verifiees:
         if l["statut"] not in ("nouveau", "partiel"):
@@ -913,12 +928,13 @@ def _importer_simple(type_, lignes, cibles):
             if _norm(l["nom"]) in existants[e.id]:
                 continue
             if type_ == "roles":
-                obj = Role(name=l["nom"], entity_id=e.id, hors_carte=True,
-                           mission_generale=l.get("mission") or None)
+                from Code.roles_communs import role_par_nom
+                obj = role_par_nom(l["nom"], entity_id=e.id, hors_carte=True)
+                obj.mission_generale = obj.mission_generale or (l.get("mission") or None)
                 on_role_name_saved(obj, l["nom"])
             else:
                 obj = Tool(name=l["nom"], entity_id=e.id, description=l.get("description") or None)
-            db.session.add(obj)
+                db.session.add(obj)
             existants[e.id].add(_norm(l["nom"]))
             crees += 1
             par_carto[e.name] = par_carto.get(e.name, 0) + 1
@@ -932,7 +948,8 @@ def _importer_users(lignes, moi, cibles, options):
     from Code.security import hash_password
     verifiees = _verifier_users(lignes, moi, cibles, options)["lignes"]
     creer = bool(options.get("creer_roles"))
-    roles = {e.id: _index_roles(e.id) for e in cibles}
+    index = _index_roles()
+    roles = {e.id: index for e in cibles}
     active = Entity.get_active_id()
     crees, attribues, roles_crees, identifiants = 0, 0, 0, []
     # La vérification rend ses lignes dans l'ordre reçu : on les apparie par
@@ -954,13 +971,13 @@ def _importer_users(lignes, moi, cibles, options):
         for e in (cibles if role else []):
             r = roles[e.id].get(_norm(role))
             if r is None and creer:
-                r = Role(name=role[:100], entity_id=e.id, hors_carte=True)
+                from Code.roles_communs import role_par_nom
+                r = role_par_nom(role[:100], entity_id=e.id, hors_carte=True)
                 on_role_name_saved(r, role[:100])
-                db.session.add(r)
-                db.session.flush()
                 roles[e.id][_norm(role)] = r
                 roles_crees += 1
-            if r is not None:
+            if r is not None and not UserRole.query.filter_by(
+                    user_id=u.id, role_id=r.id).first():
                 db.session.add(UserRole(user_id=u.id, role_id=r.id))
                 attribues += 1
         crees += 1

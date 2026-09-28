@@ -114,24 +114,41 @@ def _cartos_reglables(user):
     return {e.id: e for e in Entity.accessible(user.id) if can_manage_access(e, user)}
 
 
+#: Le libellé de chaque palier, dans la langue de l'interface.
+LIBELLE_PALIER = {
+    "user": "account.status_user",
+    "champion": "account.status_champion",
+    "coordinateur": "account.status_coordinator",
+    "admin": "account.status_admin",
+}
+
+
+def _lignes_statuts(cartos, lang):
+    from Code.carto_access import entity_statuts
+    from Code.permissions import PALIERS
+    from Code.translations import t
+    ouverts = {e.id: entity_statuts(e) for e in cartos}
+    from Code.carto_access import STATUT_VERROU
+    return [{"cle": p, "nom": t(LIBELLE_PALIER[p], lang),
+             "verrou": p == STATUT_VERROU,
+             "cartos": sorted(e.id for e in cartos if p in ouverts[e.id])}
+            for p in PALIERS]
+
+
 def _matrice(user):
     from Code.role_i18n import nom_affiche
     lang = session.get("lang", "fr")
     cartos = sorted(_cartos_reglables(user).values(), key=lambda e: (e.name or "").lower())
     ouverts = {e.id: entity_role_ids(e.id) for e in cartos}
     noms = {e.id: e.name for e in cartos}
-    roles = Role.query.filter(Role.entity_id.in_(list(noms) or [-1])).all()
     lignes = []
-    for r in roles:
+    for r in Role.query.all():
         lignes.append({
             "id": r.id,
             "nom": nom_affiche(r, lang),
-            # D'où vient ce rôle : deux cartos peuvent porter le même intitulé,
-            # et on doit savoir lequel on coche.
-            "carto": noms.get(r.entity_id, ""),
             "cartos": sorted(e.id for e in cartos if r.id in ouverts[e.id]),
         })
-    lignes.sort(key=lambda x: ((x["nom"] or "").lower(), (x["carto"] or "").lower()))
+    lignes.sort(key=lambda x: (x["nom"] or "").lower())
     return {
         "peut": True,
         "cartos": [{"id": e.id, "name": e.name,
@@ -139,6 +156,7 @@ def _matrice(user):
                     "ouverte_a_tous": bool(getattr(e, "is_shared", False)) and not ouverts[e.id],
                     "n_roles": len(ouverts[e.id])} for e in cartos],
         "roles": lignes,
+        "statuts": _lignes_statuts(cartos, lang),
     }
 
 
@@ -148,7 +166,7 @@ def get_matrice():
     if not user:
         return jsonify({"error": "Non connecté"}), 401
     if not can_manage_access(None, user):
-        return jsonify({"peut": False, "cartos": [], "roles": []}), 403
+        return jsonify({"peut": False, "cartos": [], "roles": [], "statuts": []}), 403
     return jsonify(_matrice(user))
 
 
@@ -170,13 +188,16 @@ def post_matrice():
         return jsonify({"error": "Réservé aux coordinateurs et administrateurs",
                         "code": "forbidden"}), 403
 
-    cases = (request.get_json(silent=True) or {}).get("cases")
-    if not isinstance(cases, list):
+    corps = request.get_json(silent=True) or {}
+    cases = corps.get("cases")
+    cases_statut = corps.get("cases_statut")
+    if not isinstance(cases, list) and not isinstance(cases_statut, list):
         return jsonify({"error": "Cases attendues"}), 400
+    cases = cases if isinstance(cases, list) else []
+    cases_statut = cases_statut if isinstance(cases_statut, list) else []
 
     reglables = _cartos_reglables(user)
-    roles = {r.id: r for r in Role.query.filter(
-        Role.entity_id.in_(list(reglables) or [-1])).all()}
+    roles = {r.id: r for r in Role.query.all()}
     communes = []
     for case in cases[:2000]:
         if not isinstance(case, dict):
@@ -196,6 +217,24 @@ def post_matrice():
             db.session.add(EntityRoleAccess(entity_id=eid, role_id=rid))
         elif not case.get("on") and ligne is not None:
             db.session.delete(ligne)
+
+    from Code.carto_access import set_statut
+    for case in cases_statut[:200]:
+        if not isinstance(case, dict):
+            continue
+        try:
+            eid = int(case.get("entity_id"))
+        except (TypeError, ValueError):
+            continue
+        entite = reglables.get(eid)
+        if entite is None:
+            continue
+        ouvert = bool(case.get("on"))
+        if ouvert and not getattr(entite, "is_shared", False):
+            entite.is_shared = True
+            communes.append(eid)
+        set_statut(entite, str(case.get("statut") or ""), ouvert)
+
     db.session.commit()
     rep = _matrice(user)
     rep["rendues_communes"] = communes
@@ -489,7 +528,7 @@ def get_roles(entity_id):
     autorises = entity_role_ids(entity.id)
 
     roles = []
-    for r in Role.query.filter_by(entity_id=entity.id).order_by(Role.name).all():
+    for r in Role.query.order_by(Role.name).all():
         titulaires = [par_id[ur.user_id]
                       for ur in UserRole.query.filter_by(role_id=r.id).all()
                       if ur.user_id in par_id]
@@ -548,7 +587,7 @@ def post_role_holders(entity_id, role_id):
         return jsonify({"error": "Réservé aux champions et administrateurs",
                         "code": "forbidden"}), 403
 
-    role = Role.query.filter_by(id=role_id, entity_id=entity.id).first()
+    role = db.session.get(Role, role_id)
     if not role:
         return jsonify({"error": "Rôle introuvable"}), 404
 

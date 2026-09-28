@@ -652,19 +652,7 @@
 .acc-note[hidden] { display: none; }
 .acc-note i { font-size: 11px; }
 
-/* Les rôles, carto par carto : deux cartos ont souvent un rôle du même nom. */
 .acc-roles-vide { margin: 0 0 10px; font-size: 13.5px; color: var(--muted, #64748b); font-style: italic; }
-.acc-roles-carto { margin: 0 0 12px; }
-.acc-roles-carto-nom {
-    display: flex;
-    align-items: center;
-    gap: 7px;
-    margin: 0 0 7px;
-    font-size: 12px;
-    font-weight: 700;
-    color: var(--muted, #64748b);
-}
-.acc-roles-carto-nom i { font-size: 11px; color: var(--pg-accent); }
 .acc-puces { display: flex; flex-wrap: wrap; gap: 6px; }
 .acc-puce {
     display: inline-flex;
@@ -745,18 +733,6 @@
 }
 .acc-ajout-rech input:focus { outline: none; }
 .acc-ajout-liste { max-height: 240px; overflow: auto; padding: 6px; }
-.acc-ajout-groupe + .acc-ajout-groupe { margin-top: 6px; }
-.acc-ajout-carto {
-    display: flex;
-    align-items: center;
-    gap: 7px;
-    margin: 4px 6px 3px;
-    font-size: 11.5px;
-    font-weight: 700;
-    letter-spacing: .03em;
-    text-transform: uppercase;
-    color: var(--muted, #64748b);
-}
 .acc-ajout-item {
     display: block;
     width: 100%;

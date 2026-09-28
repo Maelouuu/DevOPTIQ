@@ -8,7 +8,15 @@
   const $$ = (s, c=document) => Array.from(c.querySelectorAll(s));
   const v = (sel) => $(sel)?.value;
   const n = (sel) => parseFloat(v(sel) || "0");
-  const confirmDel = (msg)=> window.confirm(msg || 'Confirmer la suppression ?');
+  /* ⚠️ Une PROMESSE, pas un booléen : `window.confirm` sortait de
+     l'application (fenêtre du navigateur, styles du système) et affichait un
+     texte en dur que rien ne traduisait. Tous les appelants sont `async`. */
+  const confirmDel = (cle, defaut) => window.optiqConfirm(
+    tl(cle, defaut),
+    { title: tl('del_title', 'Supprimer ?'),
+      ok: tl('del_ok', 'Supprimer'),
+      cancel: tl('del_cancel', 'Annuler'),
+      danger: true });
 
   let currentActivityEditId = null;
   let calendarParams = {hours_per_day:7, days_per_week:5, weeks_per_year:47};
@@ -490,7 +498,7 @@
             btn.onclick = async ()=>{
               const tr = btn.closest('tr');
               const lineId = tr.dataset.line;
-              if (!confirmDel('Supprimer cette activité du projet ?')) return;
+              if (!(await confirmDel('del_project_line', 'Supprimer cette activité du projet ?'))) return;
               const rr2 = await fetch(`/temps/api/project_line/${lineId}`, {method:'DELETE'});
               const resp = await rr2.json();
               if (resp.ok) {
@@ -508,7 +516,7 @@
 
       item.querySelector('.del-proj').onclick = async (e)=>{
         e.stopPropagation();
-        if (!confirmDel('Supprimer ce projet ?')) return;
+        if (!(await confirmDel('del_project', 'Supprimer ce projet ?'))) return;
         const r = await fetch(`/temps/api/project/${id}`, {method:'DELETE'});
         const j = await r.json();
         if (j.ok) {
@@ -638,7 +646,7 @@
 
       item.querySelector('.del-aw').onclick = async (e)=>{
         e.stopPropagation();
-        if (!confirmDel('Supprimer cette analyse activité ?')) return;
+        if (!(await confirmDel('del_activity_analysis', 'Supprimer cette analyse activité ?'))) return;
         const r = await fetch(`/temps/api/activity_workload/${id}`, {method:'DELETE'});
         const j = await r.json();
         if (j.ok) {
@@ -900,7 +908,7 @@
             btn.onclick = async ()=>{
               const tr = btn.closest('tr');
               const lineId = tr.dataset.line;
-              if (!confirmDel("Supprimer cette activité de l'analyse ?")) return;
+              if (!(await confirmDel('del_role_line', "Supprimer cette activité de l'analyse ?"))) return;
               const rr2 = await fetch(`/temps/api/role_line/${lineId}`, {method:'DELETE'});
               const resp = await rr2.json();
               if (resp.ok){
@@ -918,7 +926,7 @@
 
       item.querySelector('.del-role').onclick = async (e)=>{
         e.stopPropagation();
-        if (!confirmDel('Supprimer cette analyse rôle ?')) return;
+        if (!(await confirmDel('del_role_analysis', 'Supprimer cette analyse rôle ?'))) return;
         const r = await fetch(`/temps/api/role_analysis/${id}`, {method:'DELETE'});
         const j = await r.json();
         if (j.ok){

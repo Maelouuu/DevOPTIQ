@@ -61,25 +61,14 @@ def est_permanent(nom):
     return est_dev_competences(nom)
 
 
-def role_dev_competences(entity_id, creer=True):
-    """Le rôle « Développeur de compétences » de cette entité.
+def role_dev_competences(entity_id=None, creer=True):
+    """Le rôle « Développeur de compétences » de l'entreprise.
 
     Cherche d'abord le nom canonique, puis les noms hérités — on ne veut pas
     fabriquer un doublon à côté d'un `manager` qui a déjà des titulaires.
+    `entity_id` ne sert plus qu'à renseigner la carto d'origine à la création.
     """
-    if entity_id is None:
-        # Sans entité active on ne peut rien cadrer — et surtout rien créer, au
-        # risque de semer des rôles orphelins. On se contente de retrouver un
-        # rôle existant, comme le faisait le code d'origine : des appels (la
-        # liste des managers de la page Compétences) arrivent encore sans
-        # entité en session, et leur retirer ce repli les rendrait muets.
-        for r in Role.query.all():
-            if est_dev_competences(r.name):
-                return r
-        return None
-
-    candidats = [r for r in Role.query.filter_by(entity_id=entity_id).all()
-                 if est_dev_competences(r.name)]
+    candidats = [r for r in Role.query.all() if est_dev_competences(r.name)]
     if candidats:
         # ⚠️ Quand le nom canonique ET un héritage coexistent — le cas d'une base
         # où le rôle vient d'être créé à côté d'un vieux « manager » — c'est
@@ -104,13 +93,13 @@ def role_dev_competences(entity_id, creer=True):
     return role
 
 
-def assurer_roles_permanents(entity_id):
-    """À appeler quand on affiche une entité : elle doit avoir ses rôles.
+def assurer_roles_permanents(entity_id=None):
+    """L'entreprise a ses rôles permanents — un seul, toutes cartos confondues.
 
     Ne commit pas — l'appelant décide quand valider, et un simple affichage ne
     doit pas écrire tout seul dans une transaction qu'il ne maîtrise pas.
     """
-    return [role_dev_competences(entity_id)] if entity_id is not None else []
+    return [role_dev_competences(entity_id)]
 
 
 # Marqueur en BASE, comme la reprise des statuts : une instance qui redémarre,
@@ -161,12 +150,20 @@ def reprendre_roles_hors_carte(force=False, entity_ids=None):
     q = Entity.query.filter(Entity.optiqcarto_data.isnot(None))
     if entity_ids is not None:
         q = q.filter(Entity.id.in_(entity_ids))
+    # Un rôle est commun à l'entreprise : il est « hors carte » quand son
+    # intitulé n'est une bande NULLE PART. ⚠️ On ne juge que les rôles nés
+    # d'une carto LISIBLE : d'une carto sans diagramme, on ne sait rien.
+    toutes_bandes, lisibles = set(), []
     for e in q.all():
         bandes = _bandes(e)
         if bandes is None:
             continue
-        for r in Role.query.filter_by(entity_id=e.id).all():
-            if not r.hors_carte and r.name not in bandes and not est_permanent(r.name):
+        lisibles.append(e.id)
+        toutes_bandes |= {_normalise(b) for b in bandes if b}
+    if lisibles:
+        for r in Role.query.filter(Role.entity_id.in_(lisibles)).all():
+            if not r.hors_carte and _normalise(r.name) not in toutes_bandes \
+                    and not est_permanent(r.name):
                 r.hors_carte = True
                 marques += 1
     if db.session.get(AppSetting, CLE_REPRISE_HORS_CARTE) is None:

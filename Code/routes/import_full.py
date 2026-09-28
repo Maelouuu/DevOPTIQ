@@ -639,14 +639,10 @@ def _get_or_create_tool(name: str, entity_id: int, stats: dict) -> Tool:
 
 
 def _get_or_create_role(name: str, entity_id: int, stats: dict) -> Role:
-    role = Role.query.filter(
-        Role.entity_id == entity_id,
-        func.lower(Role.name) == name.lower(),
-    ).first()
+    from Code.roles_communs import role_par_nom
+    role = role_par_nom(name, creer=False)
     if not role:
-        role = Role(name=name, entity_id=entity_id, hors_carte=True)
-        db.session.add(role)
-        db.session.flush()
+        role = role_par_nom(name, entity_id=entity_id, hors_carte=True)
         stats['roles_created'] += 1
     return role
 

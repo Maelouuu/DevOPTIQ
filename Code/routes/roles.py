@@ -12,9 +12,8 @@ roles_bp = Blueprint('roles', __name__, url_prefix='/roles')
 def list_roles():
     """
     Retourne la liste de tous les rôles, triés par ordre alphabétique insensible à la casse.
-    MODIFIÉ: Filtrer par entité active
     """
-    roles = Role.for_active_entity().order_by(func.lower(Role.name)).all()
+    roles = Role.query.order_by(func.lower(Role.name)).all()
     data = [{"id": r.id, "name": r.name} for r in roles]
     return jsonify(data), 200
 
@@ -32,14 +31,12 @@ def set_garant_role(activity_id):
     if not role_name:
         return jsonify({"error": "role_name is required"}), 400
 
-    # MODIFIÉ: Vérifier si le rôle existe déjà pour l'entité active
-    existing = Role.for_active_entity().filter_by(name=role_name).first()
+    from Code.roles_communs import role_par_nom
+    existing = role_par_nom(role_name, creer=False)
     if not existing:
-        # MODIFIÉ: Créer le rôle avec l'entité active
-        active_entity_id = Entity.get_active_id()
-        existing = Role(name=role_name, entity_id=active_entity_id, hors_carte=True)
+        existing = role_par_nom(role_name, entity_id=Entity.get_active_id(),
+                                hors_carte=True)
         on_role_name_saved(existing, role_name)
-        db.session.add(existing)
         db.session.commit()
 
     # Supprimer l'ancien Garant

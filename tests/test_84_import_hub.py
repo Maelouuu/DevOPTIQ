@@ -525,14 +525,15 @@ class TestOrganiserAvecLIA:
 # ══════════════════════════════════════════════════════════════════════
 class TestVerifier:
 
-    def test_le_statut_d_un_role_depend_des_cartos_visees(self, app, client, scene):
+    def test_le_statut_d_un_role_ne_depend_pas_des_cartos_visees(self, app, client, scene):
+        """Un rôle appartient à l'entreprise : il existe ou il n'existe pas."""
         _connecte(client, app, scene["admin"], scene["a"])
         lignes = [{"nom": "Qualité", "_i": 0}, {"nom": "Logistique", "_i": 1},
                   {"nom": "", "_i": 2}, {"nom": "QUALITE", "_i": 3}]
         une = _verifier(client, "roles", lignes, [scene["a"]]).get_json()["lignes"]
         assert [l["statut"] for l in une] == ["present", "nouveau", "invalide", "invalide"]
         deux = _verifier(client, "roles", lignes, [scene["a"], scene["b"]]).get_json()["lignes"]
-        assert deux[0]["statut"] == "partiel" and deux[0]["n_nouveau"] == 1
+        assert [l["statut"] for l in deux] == [l["statut"] for l in une]
 
     def test_la_traduction_d_un_role_compte_comme_le_role(self, app, client, scene):
         _connecte(client, app, scene["admin"], scene["a"])
@@ -592,12 +593,11 @@ class TestImporter:
             {"nom": "Logistique", "mission": "Livrer à l'heure", "_i": 0},
             {"nom": "Qualité", "_i": 1}]}], [scene["a"], scene["b"]])
         res = r.get_json()["resultats"][0]
-        # Logistique ×2, Qualité seulement dans B (déjà dans A)
-        assert res["crees"] == 3
+        # Un seul « Logistique » pour l'entreprise ; « Qualité » existait déjà.
+        assert res["crees"] == 1
         with app.app_context():
-            logs = Role.query.filter_by(name="Logistique").filter(
-                Role.entity_id.in_([scene["a"], scene["b"]])).all()
-            assert len(logs) == 2 and all(x.hors_carte for x in logs)
+            logs = Role.query.filter_by(name="Logistique").all()
+            assert len(logs) == 1 and logs[0].hors_carte
             assert logs[0].mission_generale == "Livrer à l'heure"
 
     def test_un_role_importe_survit_a_l_enregistrement_de_la_carte(self, app, client, scene):

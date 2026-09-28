@@ -87,12 +87,10 @@ def gestion_rh_home():
             db.session.rollback()  # IMPORTANT: Rollback pour réinitialiser la transaction
             settings = {}
 
-        # Filtrer par entité active
+        roles = Role.query.order_by(Role.name).all()
         if active_entity_id:
-            roles = Role.query.filter_by(entity_id=active_entity_id).order_by(Role.name).all()
             users = User.query.filter_by(entity_id=active_entity_id).order_by(User.first_name).all()
         else:
-            roles = Role.query.order_by(Role.name).all()
             users = User.query.order_by(User.first_name).all()
 
         return render_template('gestion_rh.html', settings=settings, roles=roles, users=users)
@@ -209,10 +207,10 @@ def create_or_update_role():
         if role:
             on_role_name_saved(role, name)
     else:
-        active_entity_id = get_active_entity_id()
-        new_role = Role(name=name, entity_id=active_entity_id, hors_carte=True)
+        from Code.roles_communs import role_par_nom
+        new_role = role_par_nom(name, entity_id=get_active_entity_id(),
+                                hors_carte=True)
         on_role_name_saved(new_role, name)
-        db.session.add(new_role)
     db.session.commit()
     return jsonify(success=True)
 
@@ -329,13 +327,7 @@ def assign_manager():
 
 @gestion_rh_bp.route('/roles')
 def get_all_roles():
-    active_entity_id = get_active_entity_id()
-    
-    if active_entity_id:
-        roles = Role.query.filter_by(entity_id=active_entity_id).order_by(Role.name).all()
-    else:
-        roles = Role.query.order_by(Role.name).all()
-    
+    roles = Role.query.order_by(Role.name).all()
     return jsonify([{'id': r.id, 'name': r.name} for r in roles])
 
 
@@ -412,12 +404,11 @@ def get_all_collaborators_with_manager():
     """Retourne TOUS les collaborateurs de l'entité avec leurs rôles et affectations manager par rôle"""
     active_entity_id = get_active_entity_id()
 
+    all_roles = Role.query.order_by(Role.name).all()
     if active_entity_id:
         users = User.query.filter_by(entity_id=active_entity_id).order_by(User.last_name).all()
-        all_roles = Role.query.filter_by(entity_id=active_entity_id).order_by(Role.name).all()
     else:
         users = User.query.order_by(User.last_name).all()
-        all_roles = Role.query.order_by(Role.name).all()
 
     # Activités (Garant) par rôle — pour scoper la couleur de compétences au rôle
     from Code.competency_color import user_competency_hex
@@ -514,6 +505,7 @@ def api_tableau():
     et la page semblait cassée alors que les comptes étaient bien là.
     """
     from Code.carto_access import access_summary, can_manage_access, entity_role_ids
+    from Code.permissions import famille_statut
     from Code.permissions import is_admin, is_coordinator
     from Code.roles_permanents import ROLE_DEV_COMPETENCES, est_dev_competences
 
@@ -543,9 +535,8 @@ def api_tableau():
         except Exception:
             db.session.rollback()
 
-    # ── Les rôles de l'entité, leurs titulaires, leur accès ──────────────
-    roles = (Role.query.filter_by(entity_id=entity_id).order_by(Role.name).all()
-             if entity_id else [])
+    # ── Les rôles de l'entreprise, leurs titulaires, leur accès ──────────
+    roles = Role.query.order_by(Role.name).all()
     ouvrent = entity_role_ids(entity_id) if entity_id else set()
     titulaires = {}
     if roles:
@@ -590,6 +581,8 @@ def api_tableau():
             'nom': u.last_name,
             'email': u.email,
             'statut': u.status,
+            # Le palier : c'est lui qui s'affiche, traduit, et qui colore.
+            'palier': famille_statut(u.status),
             'roles': siens,
             'dev_id': u.manager_id,
             'est_dev': u.id in ids_dev,

@@ -105,6 +105,11 @@
   // Quatre pas = les niveaux 1 à 4 ; le niveau 0 « Non démontré » est une
   // jauge VIDE. Non évalué (null) se dessine en pointillés : une absence, pas
   // un zéro. Le trait suit le pas REQUIS — « la jauge doit atteindre ce trait ».
+  //
+  // ⚠️ Elle ne vit plus DANS la case : sur une grille de N personnes × M rôles,
+  // autant de jauges à quatre pas faisaient un damier qu'on ne lit pas. La
+  // case ne porte que la COULEUR — le verdict, d'un coup d'œil — et la jauge
+  // attend dans la bulle, où on vient chercher le détail d'UNE case.
   function jauge(niveau, requis) {
     const inconnu = niveau === null || niveau === undefined;
     let pas = '';
@@ -118,14 +123,16 @@
     return `<span class="rhc-pas">${pas}</span>`;
   }
 
-  function bas(s) {
+  // Ce qui RESTE à faire sur ce rôle : une ligne de texte par case mettait
+  // autant de phrases que de cases sur la grille. Elle ne vit plus que dans
+  // la bulle, où l'on vient chercher le détail d'UNE case.
+  function reste(s) {
     const c = s.counts;
-    if (c.setup === s.n_activities) return `<span class="rhc-m rhc-m--setup">${esc(L('setup'))}</span>`;
+    if (c.setup === s.n_activities) return L('setup');
     const morceaux = [];
-    if (c.gap) morceaux.push(`<span class="rhc-m rhc-m--gap">${esc(P('n_gap', c.gap))}</span>`);
-    if (c.todo) morceaux.push(`<span class="rhc-m rhc-m--todo">${esc(P('n_todo', c.todo))}</span>`);
-    if (!morceaux.length) morceaux.push(`<span class="rhc-m rhc-m--held"><i class="fa-solid fa-check"></i>${esc(L('held'))}</span>`);
-    return morceaux.join('');
+    if (c.gap) morceaux.push(P('n_gap', c.gap));
+    if (c.todo) morceaux.push(P('n_todo', c.todo));
+    return morceaux.length ? morceaux.join(', ') : L('held');
   }
 
   function bulle(r, carto, s) {
@@ -133,7 +140,7 @@
     const etats = [c.held && P('n_held', c.held), c.gap && P('n_gap', c.gap),
       c.todo && P('n_todo', c.todo), c.setup && P('n_setup', c.setup)].filter(Boolean);
     return [
-      `${r.name} · ${carto}`,
+      carto ? `${r.name} · ${carto}` : r.name,
       P('tip_level', 0, { v: s.level_label }),
       s.required_level === null ? '' : P('tip_required', 0, { v: s.required_label }),
       `${P('tip_activities', s.n_activities)} — ${etats.join(', ')}`,
@@ -148,11 +155,109 @@
       return `<td class="rhc-c rhc-c--vide" title="${esc(L('not_held'))}"><span class="rhc-rien"></span></td>`;
     }
     const url = `/competences/view?personne=${p.id}&role=${r.id}`;
+    const cle = p.id + ':' + r.id;
+    DETAIL.set(cle, { r: r, carto: carto, s: s });
+    // ⚠️ Pas d'attribut `title` : il ouvrirait la bulle DU SYSTÈME par-dessus
+    // la nôtre, avec son texte brut et son propre retard.
     return `<td class="rhc-c">
-      <a class="rhc-cel rhc-j--${esc(s.color)}" href="${url}" title="${esc(bulle(r, carto, s))}">
-        ${jauge(s.level, s.required_level)}
-        <span class="rhc-cel-bas">${bas(s)}</span>
+      <a class="rhc-cel rhc-j--${esc(s.color)}" href="${url}" data-b="${esc(cle)}"
+         aria-label="${esc(bulle(r, carto, s))}">
+        <span class="rhc-tem" aria-hidden="true"></span>
       </a></td>`;
+  }
+
+  /* ── La bulle : le détail d'UNE case, au survol maintenu ─────────────── */
+
+  const DETAIL = new Map();
+  let minuterieBulle = null;
+
+  function fermerBulle() {
+    clearTimeout(minuterieBulle);
+    const b = document.getElementById('rhc-bulle');
+    if (b) b.remove();
+  }
+
+  function contenuBulle(d) {
+    const s = d.s, c = s.counts;
+    const etats = [c.held && P('n_held', c.held), c.gap && P('n_gap', c.gap),
+      c.todo && P('n_todo', c.todo), c.setup && P('n_setup', c.setup)].filter(Boolean);
+    const lignes = [];
+    lignes.push(`<div class="rhc-b-lv rhc-j--${esc(s.color)}">${jauge(s.level, s.required_level)}
+      <b>${esc(s.level_label)}</b></div>`);
+    if (s.required_level !== null) {
+      lignes.push(`<div class="rhc-b-l">${esc(P('tip_required', 0, { v: s.required_label }))}</div>`);
+    }
+    lignes.push(`<div class="rhc-b-l"><b class="rhc-b-reste">${esc(reste(s))}</b></div>`);
+    lignes.push(`<div class="rhc-b-l">${esc(P('tip_activities', s.n_activities))}${
+      etats.length ? ' — ' + esc(etats.join(', ')) : ''}</div>`);
+    if (s.couverture !== null) {
+      lignes.push(`<div class="rhc-b-l">${s.couverture} % ${esc(L('coverage'))}</div>`);
+    }
+    return `<div class="rhc-b-tete">${esc(d.carto ? d.r.name + ' · ' + d.carto : d.r.name)}</div>
+      ${lignes.join('')}
+      <div class="rhc-b-pied">${esc(L('tip_open'))}</div>`;
+  }
+
+  // ⚠️ Posée sur le BODY en `position: fixed` : le tableau a son propre
+  // défilement, une bulle posée dedans serait tronquée par ses bords.
+  function ouvrirBulle(lien) {
+    const d = DETAIL.get(lien.dataset.b);
+    if (!d) return;
+    fermerBulle();
+    const b = document.createElement('div');
+    b.id = 'rhc-bulle';
+    b.className = 'rhc-bulle';
+    b.setAttribute('role', 'tooltip');
+    b.innerHTML = contenuBulle(d);
+    document.body.appendChild(b);
+
+    /* ⚠️ `body.pg` porte `zoom: .8` (ui-theme). Un enfant du body posé en
+       `position: fixed` voit ses coordonnées MULTIPLIÉES par ce zoom, alors
+       que `getBoundingClientRect()` les rend déjà en pixels d'écran : la bulle
+       se dessinait 20 % trop haut et trop à gauche de sa case. `offsetWidth`,
+       lui, est déjà dans le repère du body — on le convertit dans l'autre sens
+       pour le comparer à `window.innerWidth`. Même piège que le menu du
+       développeur de compétences (gestion_rh.js). */
+    const r = lien.getBoundingClientRect();
+    const z = parseFloat(getComputedStyle(document.body).zoom) || 1;
+    const w = b.offsetWidth * z;
+    const h = b.offsetHeight * z;
+    const marge = 10;
+    let x = r.left + r.width / 2 - w / 2;
+    x = Math.max(marge, Math.min(x, window.innerWidth - w - marge));
+    // Au-dessus quand il y a la place, sinon en dessous : une bulle qui sort
+    // de l'écran ne dit rien.
+    let y = r.top - h - 8;
+    if (y < marge) y = r.bottom + 8;
+    b.style.left = (x / z) + 'px';
+    b.style.top = (y / z) + 'px';
+    requestAnimationFrame(() => b.classList.add('on'));
+  }
+
+  function brancherBulle() {
+    const zone = $('#rhc-corps');
+    if (!zone || zone.dataset.bulle === '1') return;
+    zone.dataset.bulle = '1';
+    const RETARD = 900;   // on ne dérange pas quelqu'un qui traverse la grille
+    zone.addEventListener('mouseover', (e) => {
+      const lien = e.target.closest('.rhc-cel');
+      if (!lien) return;
+      clearTimeout(minuterieBulle);
+      minuterieBulle = setTimeout(() => ouvrirBulle(lien), RETARD);
+    });
+    zone.addEventListener('mouseout', (e) => {
+      if (e.target.closest('.rhc-cel')) fermerBulle();
+    });
+    // Au clavier, sans attendre : le survol n'existe pas.
+    zone.addEventListener('focusin', (e) => {
+      const lien = e.target.closest('.rhc-cel');
+      if (lien) ouvrirBulle(lien);
+    });
+    zone.addEventListener('focusout', fermerBulle);
+    // Tout ce qui déplace ce qu'il y a dessous laisserait la bulle en l'air.
+    window.addEventListener('scroll', fermerBulle, true);
+    window.addEventListener('resize', fermerBulle);
+    document.addEventListener('click', fermerBulle);
   }
 
   function ensemble(p) {
@@ -173,6 +278,10 @@
   function rendre() {
     const zone = $('#rhc-corps');
     if (!zone || !S.data) return;
+    // Le tableau est réécrit en entier : la bulle ouverte pointerait dans le
+    // vide, et l'index des cases grossirait à chaque filtre.
+    fermerBulle();
+    DETAIL.clear();
     rendreCartos();
     const d = S.data;
     if (!d.personnes.length) {
@@ -181,7 +290,10 @@
     }
     const gens = d.personnes.filter(correspond);
     const roles = d.colonnes.flatMap((g) => g.roles.map((r) => ({ r, carto: g.carto })));
-    const tete1 = d.colonnes.map((g) =>
+    // Une rangée de cartos n'a de sens que si on en filtre une : les rôles
+    // sont communs à l'entreprise.
+    const parCarto = d.colonnes.some((g) => g.carto);
+    const tete1 = !parCarto ? '' : d.colonnes.map((g) =>
       `<th class="rhc-carto" colspan="${g.roles.length}"><span><i class="fa-solid fa-diagram-project"></i>${esc(g.carto)}</span></th>`).join('');
     const tete2 = roles.map(({ r }) =>
       `<th class="rhc-role" title="${esc(r.name)}"><span>${esc(r.name)}</span></th>`).join('');
@@ -201,12 +313,18 @@
       <div class="rhc-scroll">
         <table class="rhc-t">
           <thead>
+            ${parCarto ? `
             <tr class="rhc-t1">
               <th class="rhc-coin" rowspan="2">${esc(L('person'))}</th>
               ${tete1}
               <th class="rhc-ens rhc-ens--tete" rowspan="2">${esc(L('overall'))}</th>
             </tr>
-            <tr class="rhc-t2">${tete2}</tr>
+            <tr class="rhc-t2">${tete2}</tr>` : `
+            <tr class="rhc-t2">
+              <th class="rhc-coin">${esc(L('person'))}</th>
+              ${tete2}
+              <th class="rhc-ens rhc-ens--tete">${esc(L('overall'))}</th>
+            </tr>`}
           </thead>
           <tbody>${corps}</tbody>
         </table>
@@ -218,6 +336,7 @@
         <span><b class="rhc-pt rhc-pt--vide"></b>${esc(L('leg_grey'))}</span>
         <span><b class="rhc-trait"></b>${esc(L('leg_tick'))}</span>
       </p>`;
+    brancherBulle();
   }
 
   /* ── Branchements ────────────────────────────────────────────────────── */

@@ -1151,14 +1151,10 @@ def admin_clone_entity():
         data_map     = {}
         link_map     = {}
 
-        # 1. Roles
-        for r in Role.query.filter_by(entity_id=source_id).all():
-            nr = Role(entity_id=target_id, name=r.name,
-                      onboarding_plan=r.onboarding_plan,
-                      mission_generale=r.mission_generale)
-            db.session.add(nr)
-            db.session.flush()
-            role_map[r.id] = nr.id
+        # 1. Rôles — communs à l'entreprise : la copie les REPREND, elle n'en
+        # fabrique pas de nouveaux.
+        role_map = {r.id: r.id for r in Role.query.all()}
+        roles_repris = set()
 
         # 2. Tools
         for t in Tool.query.filter_by(entity_id=source_id).all():
@@ -1214,6 +1210,7 @@ def admin_clone_entity():
                 new_act  = activity_map.get(row[0])
                 new_role = role_map.get(row[1])
                 if new_act and new_role:
+                    roles_repris.add(new_role)
                     db.session.execute(
                         text("INSERT INTO activity_roles (activity_id, role_id, status) VALUES (:a, :r, :s) ON CONFLICT DO NOTHING"),
                         {'a': new_act, 'r': new_role, 's': row[2]}
@@ -1284,7 +1281,7 @@ def admin_clone_entity():
 
         db.session.commit()
         return jsonify({'ok': True, 'source': source.name, 'target': target.name,
-                        'roles': len(role_map), 'tools': len(tool_map),
+                        'roles': len(roles_repris), 'tools': len(tool_map),
                         'activities': len(activity_map), 'tasks': len(task_map),
                         'data_shapes': len(data_map), 'links': len(link_map)})
 

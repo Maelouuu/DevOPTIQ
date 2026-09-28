@@ -25,8 +25,8 @@ from collections import defaultdict
 from datetime import datetime
 
 from Code.extensions import db
-from Code.models.models import (CompetencyEvaluation, Data, Entity, Link, Role,
-                                User, UserRole, activity_roles)
+from Code.models.models import (Activities, CompetencyEvaluation, Data, Entity,
+                                Link, Role, User, UserRole, activity_roles)
 from Code.routes.mastery import (RESULT_ITEM_TYPE, VALIDATING, categorie_activite,
                                  color_for, couverture, level_label)
 from Code.routes.qualify_outputs import _norm
@@ -168,18 +168,19 @@ def tableau_global(moi, entity_id=None):
         visees = cartos
     nom_carto = {e.id: e.name for e in visees}
 
-    roles = (Role.query.filter(Role.entity_id.in_(list(nom_carto))).all()
-             if nom_carto else [])
-    role_ids = [r.id for r in roles]
-
-    # Les activités de chaque rôle, avec leur niveau requis.
+    # Un rôle est commun à l'entreprise : ce qui le rattache à une carto, ce
+    # sont ses ACTIVITÉS.
     par_role = defaultdict(list)
-    if role_ids:
+    if nom_carto:
         for act_id, role_id, requis in db.session.execute(
                 db.select(activity_roles.c.activity_id, activity_roles.c.role_id,
                           activity_roles.c.required_mastery_level)
-                .where(activity_roles.c.role_id.in_(role_ids))).all():
+                .select_from(activity_roles.join(
+                    Activities, Activities.id == activity_roles.c.activity_id))
+                .where(Activities.entity_id.in_(list(nom_carto)))).all():
             par_role[role_id].append((act_id, requis))
+    roles = (Role.query.filter(Role.id.in_(list(par_role))).all()
+             if par_role else [])
     # Un rôle sans activité n'a rien à évaluer (le développeur de compétences,
     # une bande vide) : une colonne entière de cases vides n'apprend rien.
     roles = [r for r in roles if par_role.get(r.id)]
@@ -197,16 +198,14 @@ def tableau_global(moi, entity_id=None):
     resultats = _resultats(act_ids)
     refs = _references([u.id for u in gens], act_ids)
 
-    # Les colonnes : les rôles tenus par au moins une personne, groupés par carto.
+    # Les colonnes : les rôles tenus par au moins une personne.
     tenus_par_qqn = {rid for rids in tenus.values() for rid in rids}
-    colonnes = defaultdict(list)
-    for r in roles:
-        if r.id in tenus_par_qqn:
-            colonnes[r.entity_id].append({"id": r.id, "name": nom_affiche(r),
-                                          "n_activities": len(par_role[r.id])})
-    groupes = [{"carto_id": eid, "carto": nom_carto[eid],
-                "roles": sorted(colonnes[eid], key=lambda x: x["name"].lower())}
-               for eid in sorted(colonnes, key=lambda i: (nom_carto[i] or "").lower())]
+    colonnes = [{"id": r.id, "name": nom_affiche(r),
+                 "n_activities": len(par_role[r.id])}
+                for r in roles if r.id in tenus_par_qqn]
+    groupes = [{"carto_id": entity_id,
+                "carto": nom_carto.get(entity_id, "") if entity_id else "",
+                "roles": sorted(colonnes, key=lambda x: x["name"].lower())}] if colonnes else []
 
     personnes, totaux = [], dict.fromkeys(ETATS, 0)
     for u in gens:

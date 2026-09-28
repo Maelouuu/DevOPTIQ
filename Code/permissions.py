@@ -110,6 +110,23 @@ def niveau_status(raw):
     return NIVEAU_USER
 
 
+def famille_statut(raw):
+    """Le palier d'un libellé de statut : « user », « champion »,
+    « coordinateur » ou « admin ».
+
+    `users.status` est un texte libre, écrit différemment selon les instances
+    (« manager », « Gestionnaire de compétences »…) : c'est le palier qui
+    filtre, qui colore et qui s'affiche traduit.
+    """
+    if is_admin_status(raw):
+        return "admin"
+    if is_coordinator_status(raw):
+        return "coordinateur"
+    if is_champion_status(raw):
+        return "champion"
+    return "user"
+
+
 def current_user():
     uid = session.get("user_id")
     return db.session.get(User, uid) if uid else None

@@ -94,6 +94,19 @@ PAGE_LABELS = {
     "test_79_carto_consultation":         "Cartographie — Mode Consultation (Palier user)",
     "test_80_rh_acces_et_dev":            "Gestion RH — Accès Multi-Cartos & Développeur par Rôle",
     "test_81_droits_reglables":           "Gestion RH — Droits par Palier (Réglables)",
+    "test_48_carto_package":              "Paquet de Cartographie (.optiqcarto — Export/Import)",
+    "test_49_carto_dom_contract":         "Contrat DOM — Éditeur & Gabarits OptiqCarto",
+    "test_50_accounts_permissions_lang":  "Comptes — Droits d'Accès & Langue par Défaut",
+    "test_51_entity_share":               "Partage d'Entité entre Comptes",
+    "test_62_task_tool_files":            "Fichiers joints — Tâches & Outils",
+    "test_82_traduction_competences_rh":  "Traduction — Pages Compétences & Gestion RH",
+    "test_83_journal_dans_la_langue_du_lecteur": "Journal — Langue du Lecteur",
+    "test_84_import_hub":                 "Fenêtre d'Import de Données (Carte & Comptes)",
+    "test_85_gabarits_bien_formes":       "Gabarits Jinja2 — Validité Structurelle",
+    "test_86_examen_et_competences_rh":   "Examen des Propositions & Compétences RH",
+    "test_87_fiche_compte":               "Fiche de Compte — Rôles Multi-Cartos",
+    "test_88_decision_a_l_auteur":        "Mot du Valideur — Retour à l'Auteur",
+    "test_89_libelles_carte_et_editeur":  "Libellés Carte & Éditeur — Langue Choisie",
 }
 
 

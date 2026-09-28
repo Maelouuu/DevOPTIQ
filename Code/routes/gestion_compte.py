@@ -95,25 +95,16 @@ def _appliquer_roles(moi, user, ajout, retrait):
     # Un administrateur a tous les droits ; les autres n'attribuent que les
     # rôles des cartos qu'ils ouvrent (un rôle ouvre une carto : on ne donne
     # pas accès à ce qu'on ne voit pas soi-même).
-    admin = _is_admin(moi)
-    ouvrables = set() if admin else {e.id for e in Entity.accessible(moi.id)}
-
-    def autorise(role):
-        if role is None:
-            return False
-        return admin or role.entity_id in ouvrables
-
     for rid in dict.fromkeys(ajout):
         role = db.session.get(Role, rid)
-        if not autorise(role):
+        if role is None:
             return 'error_role_unknown'
         if not UserRole.query.filter_by(user_id=user.id, role_id=rid).first():
             db.session.add(UserRole(user_id=user.id, role_id=rid))
     for rid in dict.fromkeys(retrait):
         if rid in ajout:
             continue
-        role = db.session.get(Role, rid)
-        if not autorise(role):
+        if db.session.get(Role, rid) is None:
             return 'error_role_unknown'
         UserRole.query.filter_by(user_id=user.id, role_id=rid).delete()
     return None
@@ -121,24 +112,15 @@ def _appliquer_roles(moi, user, ajout, retrait):
 def _famille(statut):
     """Le palier d'un statut écrit en clair : le libellé varie d'une instance
     à l'autre, le palier non — c'est lui qui filtre et qui colore."""
-    if is_admin_status(statut):
-        return 'admin'
-    if is_coordinator_status(statut):
-        return 'coordinateur'
-    if is_champion_status(statut):
-        return 'champion'
-    return 'user'
+    from Code.permissions import famille_statut
+    return famille_statut(statut)
 
 
 @gestion_compte_bp.route('/')
 def list_users():
     me = _current_user()
     try:
-        # Les rôles de l'entité active : ce sont eux qu'on attribue depuis
-        # cette page.
-        active_entity_id = Entity.get_active_id()
-        roles = (Role.query.filter_by(entity_id=active_entity_id).order_by(Role.name).all()
-                 if active_entity_id else Role.query.order_by(Role.name).all())
+        roles = Role.query.order_by(Role.name).all()
 
         # Tous les utilisateurs de la base, SANS filtre d'entité : la page
         # Comptes administre les comptes de l'instance entière — filtrer par
@@ -158,33 +140,20 @@ def list_users():
             if r is None:
                 continue
             par_user.setdefault(ur.user_id, []).append(r.name)
-            # La fiche montre chaque rôle AVEC sa carto : deux cartos ont
-            # souvent un rôle du même nom.
-            detail.setdefault(ur.user_id, []).append({
-                'id': r.id, 'name': nom_affiche(r),
-                'carto_id': r.entity_id, 'carto': cartos.get(r.entity_id) or '—',
-            })
+            detail.setdefault(ur.user_id, []).append({'id': r.id, 'name': nom_affiche(r)})
         users_with_roles = [{'user': u, 'roles': sorted(par_user.get(u.id, [])),
                              'roles_detail': sorted(detail.get(u.id, []),
-                                                    key=lambda x: (x['carto'].lower(),
-                                                                   x['name'].lower())),
+                                                    key=lambda x: x['name'].lower()),
                              'famille': _famille(u.status)} for u in users]
 
         familles = {f: sum(1 for x in users_with_roles if x['famille'] == f)
                     for f in ('admin', 'coordinateur', 'champion', 'user')}
 
-        # Ce que la fiche peut attribuer : les rôles des cartos que CE compte
-        # ouvre, rangés par carto.
+        # Ce que la fiche peut attribuer : les rôles de l'entreprise.
         from Code.permissions import niveau
-        catalogue = []
-        if me is not None:
-            for e in sorted(Entity.accessible(me.id), key=lambda x: (x.name or '').lower()):
-                siens = sorted((r for r in tous_roles.values() if r.entity_id == e.id),
-                               key=lambda r: nom_affiche(r).lower())
-                if siens:
-                    catalogue.append({'carto_id': e.id, 'carto': e.name,
-                                      'roles': [{'id': r.id, 'name': nom_affiche(r)}
-                                                for r in siens]})
+        catalogue = [{'id': r.id, 'name': nom_affiche(r)}
+                     for r in sorted(tous_roles.values(),
+                                     key=lambda r: nom_affiche(r).lower())]
         return render_template(
             'gestion_compte_new.html',
             roles=roles,
@@ -381,8 +350,7 @@ def update_user(user_id):
     if not _can_edit_account(user_id):
         return _forbidden('error_forbidden_edit')
     user = User.query.get_or_404(user_id)
-    # MODIFIÉ: Filtrer les rôles par entité active
-    roles = Role.for_active_entity().all()
+    roles = Role.query.all()
 
     if request.method == 'POST':
         form = request.form

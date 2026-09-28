@@ -168,6 +168,139 @@ class TestActivityDetails:
         assert isinstance(data["input_data"], list)
         assert isinstance(data["output_data"], list)
 
+    def test_details_output_data_contient_les_donnees_produites(self, auth_client, app, ids):
+        """Une Data ancrée via producer_activity_id apparaît dans 'output_data'.
+
+        ⚠️ `getattr(activity, "data_items"/"data", [])` : aucune des deux relations
+        n'existe sur Activities/Data, donc cette liste était TOUJOURS vide en
+        production, quelles que soient les données réellement produites.
+        """
+        from Code.models.models import Data
+        from Code.extensions import db
+
+        with app.app_context():
+            d = Data(entity_id=ids["entity_id"], name="Rapport Produit", type="nourrissante",
+                      producer_activity_id=ids["activity_id"])
+            db.session.add(d)
+            db.session.commit()
+            d_id = d.id
+        try:
+            r = auth_client.get(f"/activities/{ids['activity_id']}/details")
+            data = r.get_json()
+            assert "Rapport Produit" in data["output_data"]
+        finally:
+            with app.app_context():
+                obj = db.session.get(Data, d_id)
+                if obj:
+                    db.session.delete(obj)
+                    db.session.commit()
+
+    def test_details_input_data_contient_les_donnees_entrantes(self, auth_client, app, ids):
+        """Une Data reliée par un Link "nourrissante" (source_data_id → target_activity_id)
+        apparaît dans 'input_data'."""
+        from Code.models.models import Data, Link
+        from Code.extensions import db
+
+        with app.app_context():
+            d = Data(entity_id=ids["entity_id"], name="Commande Entrante", type="nourrissante")
+            db.session.add(d)
+            db.session.flush()
+            lk = Link(entity_id=ids["entity_id"], source_data_id=d.id,
+                      target_activity_id=ids["activity_id"], type="nourrissante")
+            db.session.add(lk)
+            db.session.commit()
+            d_id, lk_id = d.id, lk.id
+        try:
+            r = auth_client.get(f"/activities/{ids['activity_id']}/details")
+            data = r.get_json()
+            assert "Commande Entrante" in data["input_data"]
+        finally:
+            with app.app_context():
+                l = db.session.get(Link, lk_id)
+                if l:
+                    db.session.delete(l)
+                obj = db.session.get(Data, d_id)
+                if obj:
+                    db.session.delete(obj)
+                db.session.commit()
+
+    def test_details_input_data_ignore_link_sans_source_data_id(self, auth_client, app, ids):
+        """Un Link entrant SANS source_data_id (flux non renseigné) n'est pas
+        exploité par erreur : il est simplement absent de 'input_data'."""
+        from Code.models.models import Link
+        from Code.extensions import db
+
+        with app.app_context():
+            lk = Link(entity_id=ids["entity_id"], source_data_id=None,
+                      target_activity_id=ids["activity_id"], type="nourrissante")
+            db.session.add(lk)
+            db.session.commit()
+            lk_id = lk.id
+        try:
+            r = auth_client.get(f"/activities/{ids['activity_id']}/details")
+            assert r.status_code == 200
+            data = r.get_json()
+            assert isinstance(data["input_data"], list)
+        finally:
+            with app.app_context():
+                l = db.session.get(Link, lk_id)
+                if l:
+                    db.session.delete(l)
+                db.session.commit()
+
+    def test_details_input_data_ignore_link_vers_data_supprimee(self, auth_client, app, ids):
+        """Un Link entrant dont la Data source a disparu (ID orphelin) est
+        ignoré sans planter la route."""
+        from Code.models.models import Link
+        from Code.extensions import db
+
+        with app.app_context():
+            lk = Link(entity_id=ids["entity_id"], source_data_id=999999999,
+                      target_activity_id=ids["activity_id"], type="nourrissante")
+            db.session.add(lk)
+            db.session.commit()
+            lk_id = lk.id
+        try:
+            r = auth_client.get(f"/activities/{ids['activity_id']}/details")
+            assert r.status_code == 200
+            data = r.get_json()
+            assert isinstance(data["input_data"], list)
+        finally:
+            with app.app_context():
+                l = db.session.get(Link, lk_id)
+                if l:
+                    db.session.delete(l)
+                db.session.commit()
+
+    def test_details_input_data_sans_nom_utilise_la_description(self, auth_client, app, ids):
+        """Data sans 'name' exploitable → on retombe sur 'description'."""
+        from Code.models.models import Data, Link
+        from Code.extensions import db
+
+        with app.app_context():
+            d = Data(entity_id=ids["entity_id"], name=" ", type="nourrissante",
+                      description="Flux décrit sans nom")
+            db.session.add(d)
+            db.session.flush()
+            lk = Link(entity_id=ids["entity_id"], source_data_id=d.id,
+                      target_activity_id=ids["activity_id"], type="nourrissante")
+            db.session.add(lk)
+            db.session.commit()
+            d_id, lk_id = d.id, lk.id
+        try:
+            r = auth_client.get(f"/activities/{ids['activity_id']}/details")
+            data = r.get_json()
+            assert "Flux décrit sans nom" in data["input_data"]
+        finally:
+            with app.app_context():
+                l = db.session.get(Link, lk_id)
+                if l:
+                    db.session.delete(l)
+                obj = db.session.get(Data, d_id)
+                if obj:
+                    db.session.delete(obj)
+                db.session.commit()
+
 
 # ===========================================================================
 # 2. GET /activities/performance/render/<link_id>

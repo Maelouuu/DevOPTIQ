@@ -23,11 +23,19 @@ from sqlalchemy import or_
 
 from Code.extensions import db
 from Code.models.models import (
-    Entity, EntityRoleAccess, Role, UserRole,
+    Entity, EntityRoleAccess, EntityStatusAccess, Role, UserRole,
 )
-from Code.permissions import (can_edit_carto, can_propose_carto,
-                              can_review_carto, current_user, is_admin,
-                              is_coordinator)
+from Code.permissions import (PALIERS, can_edit_carto, can_propose_carto,
+                              can_review_carto, current_user, famille_statut,
+                              is_admin, is_coordinator)
+
+#: Les paliers qui ouvrent une carto commune tant que personne n'a réglé.
+STATUTS_DEFAUT = ("coordinateur", "admin")
+
+#: ⚠️ Le palier qu'on ne retire pas. Décocher l'administrateur sur une carto
+#: qu'il ne possède pas la lui ferait disparaître de la fenêtre d'accès —
+#: donc plus aucun écran d'où la lui rendre.
+STATUT_VERROU = "admin"
 
 
 # ── Rôles d'un compte ───────────────────────────────────────────────────────
@@ -46,6 +54,39 @@ def entity_role_ids(entity_id):
     return {a.role_id for a in lignes}
 
 
+def entity_statuts(entity):
+    """Les paliers qui ouvrent cette carto."""
+    if entity is None:
+        return set()
+    if not getattr(entity, "statuts_regles", False):
+        return set(STATUTS_DEFAUT)
+    ouverts = {l.statut for l in
+               EntityStatusAccess.query.filter_by(entity_id=entity.id).all()}
+    ouverts.add(STATUT_VERROU)
+    return ouverts
+
+
+def set_statut(entity, statut, ouvert):
+    """Ouvre ou ferme une carto à un palier. Ne commit pas."""
+    if statut not in PALIERS:
+        return False
+    if statut == STATUT_VERROU and not ouvert:
+        return False
+    if not getattr(entity, "statuts_regles", False):
+        # Premier réglage : on écrit d'abord ce qui valait par défaut, sinon
+        # décocher un palier en rouvrirait un autre.
+        for p in STATUTS_DEFAUT:
+            if EntityStatusAccess.query.filter_by(entity_id=entity.id, statut=p).first() is None:
+                db.session.add(EntityStatusAccess(entity_id=entity.id, statut=p))
+        entity.statuts_regles = True
+    ligne = EntityStatusAccess.query.filter_by(entity_id=entity.id, statut=statut).first()
+    if ouvert and ligne is None:
+        db.session.add(EntityStatusAccess(entity_id=entity.id, statut=statut))
+    elif not ouvert and ligne is not None:
+        db.session.delete(ligne)
+    return True
+
+
 # ── Lecture ─────────────────────────────────────────────────────────────────
 
 def can_read(entity, user=None):
@@ -59,9 +100,10 @@ def can_read(entity, user=None):
         return True
     if not entity.is_shared:
         return False
-    # Coordinateurs et administrateurs voient toutes les cartos communes : ce
-    # sont eux qui en règlent l'accès et qui arbitrent les propositions.
-    if is_admin(user) or is_coordinator(user):
+    # Le palier du compte ouvre la carto quand il y est autorisé — par défaut
+    # le coordinateur et l'administrateur, qui règlent les accès et arbitrent
+    # les propositions.
+    if famille_statut(user.status) in entity_statuts(entity):
         return True
     autorises = entity_role_ids(entity.id)
     if not autorises:
@@ -200,7 +242,7 @@ def access_summary(entity, user=None):
     roles = []
     autorises = entity_role_ids(entity.id) if entity is not None else set()
     if entity is not None and gere:
-        for r in Role.query.filter_by(entity_id=entity.id).order_by(Role.name).all():
+        for r in Role.query.order_by(Role.name).all():
             roles.append({
                 "id": r.id,
                 "name": r.name,
@@ -213,6 +255,7 @@ def access_summary(entity, user=None):
         "is_shared": bool(entity and entity.is_shared),
         "is_owner": bool(entity and user and entity.owner_id == user.id),
         "open_to_all": bool(entity and entity.is_shared and not autorises),
+        "statuts": sorted(entity_statuts(entity)) if entity is not None else [],
         "can_edit": can_edit(entity, user),
         "must_propose": must_propose(entity, user),
         # ⚠️ Ni enregistrer ni proposer : l'éditeur doit alors s'ouvrir SANS ses
@@ -232,7 +275,6 @@ def set_access(entity, is_shared, role_ids):
     if entity.is_shared:
         valides = {
             r.id for r in Role.query.filter(
-                Role.entity_id == entity.id,
                 Role.id.in_(list(role_ids) or [-1])).all()
         }
         for rid in sorted(valides):

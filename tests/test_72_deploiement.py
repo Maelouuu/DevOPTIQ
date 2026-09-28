@@ -243,3 +243,46 @@ class TestLaSondeDeSanteEstJoignable:
             "sonde externe sur /healthz — le frontend Google rend sa propre 404 "
             "et le contrôle échoue toujours, même sur un service sain :\n  "
             + "\n  ".join(fautifs))
+
+
+class TestLesDependancesSontEpinglees:
+    """⚠️ Un nom nu dans `requirements.txt`, c'est « la dernière version le
+    jour de la construction » — donc une image qui peut cesser de démarrer
+    sans qu'aucun commit ne change.
+
+    C'est arrivé le 2026-09-26 : le déploiement du 24/09 avait réussi, le
+    suivant — un commit qui ne touchait QUE des fichiers de tests — n'a plus
+    démarré. Entre les deux, `SQLAlchemy` était passé de 2.0.x à 2.1.1 sans
+    être déclaré nulle part : il arrivait comme dépendance de
+    `flask_sqlalchemy`, qui accepte `>=2.0.16`.
+
+    ⚠️ Et cela ne se voit PAS en local : le venv de développement garde les
+    versions du jour où il a été créé. La suite reste verte pendant que
+    l'image part sur autre chose — c'est pourquoi ce contrôle lit le FICHIER,
+    et pas l'environnement dans lequel il tourne.
+    """
+
+    CHEMIN = os.path.join(RACINE, "requirements.txt")
+
+    def _lignes(self):
+        src = io.open(self.CHEMIN, encoding="utf-8").read()
+        return [l.strip() for l in src.splitlines()
+                if l.strip() and not l.strip().startswith("#")]
+
+    def test_chaque_dependance_porte_une_version_exacte(self):
+        nus = [l for l in self._lignes() if "==" not in l]
+        assert not nus, (
+            "sans version exacte, l'image change toute seule :\n  "
+            + "\n  ".join(nus))
+
+    def test_sqlalchemy_est_declaree_explicitement(self):
+        """Elle décide du dialecte SQL de toute l'application ; la laisser
+        choisir par `flask_sqlalchemy` revient à ne pas la choisir."""
+        noms = [l.split("==")[0].strip().lower() for l in self._lignes()]
+        assert "sqlalchemy" in noms
+
+    def test_le_fichier_est_bien_garni(self):
+        """Garde-fou : si un jour le fichier change de forme et que l'analyse
+        ne lit plus rien, les deux contrôles ci-dessus passeraient au vert en
+        ne regardant RIEN."""
+        assert len(self._lignes()) >= 15

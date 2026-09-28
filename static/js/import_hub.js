@@ -66,6 +66,8 @@
       lecture: null,   // lecture d'une feuille par l'IA, en attente de validation
       recents: null,   // groupes que l'IA vient de rattacher : mis en évidence
       examen: {},      // ce que l'IA a déjà examiné, par part et par portée
+      deplie: {},      // correspondance des colonnes ouverte, par part
+      natOuverte: {},  // « ce n'est pas ça ? » ouvert, par part
     };
   }
 
@@ -407,7 +409,17 @@
     }).join('');
   }
 
+  /* ⚠️ « Cette feuille contient : [Rôles][Tâches][Outils] » restait affiché
+     même quand la nature était certaine — une rangée de boutons qu'on ne
+     touche jamais, juste au-dessus des données. Elle attend derrière un lien :
+     on ne la déplie que pour CONTESTER ce qui a été lu. */
   function choixNature(p) {
+    if (!S.natOuverte[p.id]) {
+      return `<div class="imh-nats is-repli">
+        <button type="button" class="imh-btn-lien" data-action="deplier-nature">
+          <i class="fa-solid fa-shuffle"></i>${esc(L('pas_la_bonne_nature'))}</button>
+      </div>`;
+    }
     return `<div class="imh-nats"><span class="imh-mini">${esc(L('feuille_contient'))}</span>${boutonsNature(p, false)}</div>`;
   }
 
@@ -454,16 +466,26 @@
     return titre ? F('citation', { x: titre }) : F('colonne', { x: lettre(i) });
   }
 
+  /* ⚠️ Quand le fichier est lu TEL QUEL, la correspondance des colonnes est
+     une confirmation, pas une décision : elle tenait un encadré de sept
+     pastilles au-dessus des données, et on ne voyait plus ce qu'on venait
+     vérifier. Elle se replie en UNE ligne, qui dit combien de colonnes ont
+     été reconnues et s'ouvre d'un clic.
+     L'IA, elle, reste DÉPLIÉE : là, il y a quelque chose à vérifier. */
   function blocSource(p) {
     const ia = p.source === 'IA';
-    const maps = nature(p.type).champs.filter(c => p.correspondance[c.cle] != null).map(c =>
+    const champs = nature(p.type).champs.filter(c => p.correspondance[c.cle] != null);
+    const maps = champs.map(c =>
       `<span class="imh-map"><span class="imh-map-col">${esc(colonne(p, p.correspondance[c.cle]))}</span><i class="fa-solid fa-arrow-right"></i><span class="imh-map-f">${esc(c.label)}</span></span>`);
-    return `<div class="imh-source ${ia ? 'is-ia' : 'is-fichier'}">
-      <div class="imh-source-t">
+    const ouvert = ia || !!S.deplie[p.id];
+    return `<div class="imh-source ${ia ? 'is-ia' : 'is-fichier'}${ouvert ? ' is-ouvert' : ''}">
+      <button type="button" class="imh-source-t" data-action="deplier-source"${ia ? ' disabled' : ''}
+              aria-expanded="${ouvert}">
         <span class="imh-source-ic"><i class="fa-solid ${ia ? 'fa-wand-magic-sparkles' : 'fa-circle-check'}"></i></span>
-        <strong>${esc(ia ? L('source_ia') : L('source_fichier'))}</strong>${ia ? jauge(p.confiance) : ''}
-      </div>
-      <div class="imh-maps">${maps.join('')}</div>
+        <strong>${esc(ia ? L('source_ia') : P('colonnes_n', champs.length))}</strong>${ia ? jauge(p.confiance) : ''}
+        ${ia ? '' : '<i class="fa-solid fa-chevron-down imh-source-chev"></i>'}
+      </button>
+      ${ouvert ? `<div class="imh-maps">${maps.join('')}</div>` : ''}
     </div>`;
   }
 
@@ -511,10 +533,13 @@
     const option = S.type === 'users'
       ? `<label class="imh-bascule"><input type="checkbox" data-option="creer_roles"${S.options.creer_roles ? ' checked' : ''}><span class="imh-bascule-rail"><span></span></span><span>${esc(L('opt_creer_roles'))}</span></label>`
       : '';
-    return `<section class="imh-portee">
+    // ⚠️ Une BARRE, pas une carte : c'est un réglage, pas le sujet de l'écran.
+    // Le titre et la phrase qui l'accompagnaient occupaient, à eux seuls, la
+    // hauteur de trois lignes de données.
+    return `<section class="imh-portee is-barre">
       <div class="imh-portee-tete">
         <span class="imh-portee-ic"><i class="fa-solid fa-location-crosshairs"></i></span>
-        <div class="imh-portee-txt"><h4>${esc(L('portee_titre'))}</h4>${texte ? `<p>${esc(texte)}</p>` : ''}</div>
+        <span class="imh-portee-lib">${esc(L('portee_titre'))}</span>
         ${seg}
       </div>
       ${liste}${option}
@@ -879,7 +904,17 @@
     return `<div class="imh-vide is-ignoree"><i class="fa-solid fa-eye-slash"></i>${esc(L('feuille_ignoree'))}</div>`;
   }
 
+  // La seconde ligne d'un item ne répète ni le fichier (dit une fois en tête)
+  // ni le nom de l'onglet quand il redit déjà la nature (« Rôles » / « Rôles »).
+  function sous(p, titre, unSeulFichier) {
+    const feuille = p.n_feuilles > 1 && normNom(p.feuille) !== normNom(titre) ? p.feuille : '';
+    if (unSeulFichier) return feuille ? `<small>${esc(feuille)}</small>` : '';
+    return `<small>${esc(p.fichier)}${feuille ? ' › ' + esc(feuille) : ''}</small>`;
+  }
+  const normNom = (x) => String(x || '').trim().toLocaleLowerCase();
+
   function rail() {
+    const unSeulFichier = new Set(S.parts.map(p => p.fichier)).size === 1;
     const items = S.parts.map(p => {
       const v = S.verifs[p.id];
       const etat = S.ignorees[p.id] ? L('rail_ignoree')
@@ -894,13 +929,20 @@
       return `<button type="button" class="imh-rail-i ${cl}" data-part="${esc(p.id)}" style="--tc:${COULEUR[p.type] || '#94a3b8'}"${S.rapport || S.lecture ? ' disabled' : ''}>
         <span class="imh-rail-ic"><i class="fa-solid ${ICONE[p.type] || 'fa-question'}"></i></span>
         <span class="imh-rail-txt"><strong>${esc(titre)}</strong>
-          <small>${esc(p.fichier)}${p.n_feuilles > 1 ? ' › ' + esc(p.feuille) : ''}</small></span>
+          ${sous(p, titre, unSeulFichier)}</span>
         <span class="imh-rail-etat">${esc(etat)}</span>
       </button>`;
     }).join('');
     const plein = S.fichiers.length >= MAX_FICHIERS || S.rapport || S.lecture;
+    // Un seul fichier pour toutes les feuilles : son nom se dit UNE fois, en
+    // tête — répété sur chaque ligne, il poussait le nom de l'onglet dehors.
+    const fichiers = [...new Set(S.parts.map(p => p.fichier))];
+    const entete = fichiers.length === 1
+      ? `<span class="imh-rail-fichier"><i class="fa-regular fa-file-excel"></i>${esc(fichiers[0])}</span>`
+      : '';
     return `<nav class="imh-rail" aria-label="${esc(L('feuilles'))}">
       <span class="imh-mini">${esc(P('n_feuilles', S.parts.length))}</span>
+      ${entete}
       ${items}
       ${plein ? '' : `<label class="imh-rail-plus"><input type="file" data-role="ajout" accept=".xlsx,.xlsm,.csv" multiple hidden><i class="fa-solid fa-plus"></i>${esc(L('ajouter_fichiers'))}</label>`}
     </nav>`;
@@ -1438,6 +1480,8 @@
       case 'rp-appliquer': return appliquerRapport();
       case 'rp-annuler': S.rapport = null; return rendre();
       case 'seul-ia': S.seulIA[p.id] = !S.seulIA[p.id]; return rendre();
+      case 'deplier-source': S.deplie[p.id] = !S.deplie[p.id]; return rendre();
+      case 'deplier-nature': S.natOuverte[p.id] = true; return rendre();
       case 'revoir': return revoir(p);
       case 'ignorer':
         S.ignorees[p.id] = !S.ignorees[p.id];

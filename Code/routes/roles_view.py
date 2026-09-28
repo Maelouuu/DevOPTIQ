@@ -58,8 +58,7 @@ def _get_validation_level(user_id: int, role_id: int):
 
 @roles_view_bp.route('/', methods=['GET'])
 def view_roles():
-    # MODIFIÉ: Filtrer les rôles par entité active
-    roles = Role.for_active_entity().order_by(func.lower(Role.name)).all()
+    roles = Role.query.order_by(func.lower(Role.name)).all()
 
     # Noms affichés dans la langue de l'interface (traduits + mis en cache,
     # nom d'origine conservé dans role.name)

@@ -1,5 +1,6 @@
 /* ══════════════════════════════════════════════════════════════════════════
-   Qui ouvre quelles cartos — la matrice rôles × cartos (page Carte).
+   Qui ouvre quelles cartos — page Carte. Deux matrices : rôles × cartos et
+   statuts × cartos.
    Le teal de la page Cartographie, une table qui défile dans les deux sens
    avec ses en-têtes collés : on garde toujours le nom du rôle et celui de la
    carto sous les yeux, sinon une case ne veut plus rien dire.
@@ -11,7 +12,7 @@
 .cacc-boite {
     position: relative;
     width: min(1080px, calc(100vw - 32px));
-    max-height: min(88vh, 860px);
+    max-height: min(93vh, 940px);
     display: flex;
     flex-direction: column;
     border-radius: 18px;
@@ -76,18 +77,95 @@
 .cacc-vide, .cacc-err { padding: 28px 18px; text-align: center; font-size: 13.5px; color: #64748b; }
 .cacc-err { color: #be123c; }
 
-.cacc-table-wrap { overflow: auto; max-height: 100%; }
+/* Deux groupes dans la MÊME table. Une table unique donne les lignes (l'écran
+   n'en montrait que deux quand il y avait deux tables) — mais elle donne aussi
+   un bloc indistinct. La frontière se rejoue donc sur TROIS plans, tous sans
+   coût en hauteur :
+     1. une bande PLEINE, en couleur soutenue, texte blanc ;
+     2. cette bande reste COLLÉE sous l'en-tête pendant qu'on défile : on sait
+        toujours dans quel groupe on coche ;
+     3. un liseré vertical court sur toute la hauteur du groupe, et la zone des
+        statuts porte son propre fond.
+   ⚠️ `.cacc-grp` en tête de sélecteur : `.cacc-table tbody th` porte
+   `background: #fff` à la MÊME spécificité et est déclarée plus bas. */
+.cacc-grp .cacc-bande th, .cacc-grp .cacc-bande td {
+    position: sticky;
+    top: var(--cacc-thead, 62px);
+    z-index: 3;
+    background: #0f766e;
+    padding: 0;
+    box-shadow: inset 0 -1px 0 rgba(255, 255, 255, .25);
+}
+/* ⚠️ `display: flex` sur un `th` le sort de la mise en page de TABLE : sa
+   colonne n'est plus tenue et les cartos se décalent. Le flex vit dedans. */
+.cacc-grp .cacc-bande th { left: 0; z-index: 4; }
+.cacc-bande-t {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    padding: 9px 14px;
+    font-family: var(--pg-font-display, inherit);
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: .02em;
+    color: #fff;
+}
+.cacc-bande i { font-size: 12px; opacity: .85; }
+.cacc-grp .cacc-bande .cacc-col {
+    align-items: center;
+    padding: 7px 10px;
+    font-size: 12.5px;
+    font-weight: 700;
+    color: #fff;
+    border-radius: 7px;
+}
+.cacc-grp .cacc-bande .cacc-col:hover { background: rgba(255, 255, 255, .22); }
+
+/* Le liseré qui tient toute la hauteur du groupe : c'est lui qui dit où le
+   groupe commence et où il finit, même à mi-liste. */
+.cacc-grp th:first-child { border-left: 4px solid #0f766e; }
+.cacc-grp--statuts th:first-child { border-left-color: #b45309; }
+/* La zone des statuts porte son propre fond, du liseré jusqu'à la dernière
+   ligne — deux étendues blanches à la suite ne se distinguent pas. */
+.cacc-table .cacc-grp--statuts th, .cacc-table .cacc-grp--statuts td { background: #fffaf3; }
+.cacc-table .cacc-grp--statuts tr:hover th,
+.cacc-table .cacc-grp--statuts tr:hover td { background: #fff1e0; }
+/* ⚠️ APRÈS le fond de zone, et plus spécifique : sinon la règle ci-dessus
+   repeint la bande en crème et son texte blanc devient invisible. */
+.cacc-table .cacc-grp--statuts .cacc-bande th,
+.cacc-table .cacc-grp--statuts .cacc-bande td { background: #b45309; }
+.cacc-grp--statuts .cacc-lig:hover { background: rgba(234, 88, 12, .12); }
+.cacc-grp--statuts input { accent-color: #ea580c; }
+/* Un vrai blanc avant la bande suivante : la respiration fait la coupure. */
+.cacc-grp--roles .cacc-bande th, .cacc-grp--roles .cacc-bande td { border-top: 10px solid #fff; }
+
 .cacc-table { border-collapse: separate; border-spacing: 0; width: 100%; }
+/* Première colonne à largeur FIXE : les libellés sont longs et la table se
+   dimensionnerait sur eux, chassant les cartos hors de l'écran. */
+.cacc-table .cacc-coin, .cacc-table tbody th { width: 280px; min-width: 280px; }
+.cacc-table thead th {
+    padding: 9px 12px;
+    text-align: left;
+    vertical-align: bottom;
+}
+.cacc-table thead th span { display: block; font-size: 13px; font-weight: 700; color: #0f172a; }
+.cacc-table thead th em { font-style: normal; font-size: 11.5px; color: #64748b; }
+.cacc-table thead th em.est-privee { color: #b45309; }
+.cacc-table thead th em.est-ouverte { color: #0e7490; }
+/* ⚠️ Ordre d'empilement, du plus haut au plus bas : coin de l'en-tête (7),
+   en-tête (6), première cellule d'une bande (4), reste de la bande (3),
+   première colonne du corps (1). La bande vient APRÈS l'en-tête dans le
+   document : à z-index égal, c'est elle qui passerait par-dessus lui. */
 .cacc-table thead th, .cacc-table .cacc-coin {
     position: sticky;
     top: 0;
-    z-index: 2;
+    z-index: 6;
     background: #f8fafc;
     border-bottom: 1px solid #e2e8f0;
 }
 .cacc-coin {
     left: 0;
-    z-index: 3;
+    z-index: 7;
     padding: 10px 14px;
     font-size: 12px;
     font-weight: 700;
@@ -105,17 +183,18 @@
     padding: 0;
 }
 .cacc-table tbody tr:hover th, .cacc-table tbody tr:hover td { background: #f0fdfa; }
-.cacc-table td { padding: 6px 10px; text-align: center; border-bottom: 1px solid #f1f5f9; }
+.cacc-table td { padding: 4px 10px; text-align: center; border-bottom: 1px solid #f1f5f9; }
 
-/* Les en-têtes SONT des boutons : cliquer une carto coche tous ses rôles,
-   cliquer un rôle coche toutes ses cartos. */
+/* Une bande de groupe et un libellé de ligne SONT des boutons : cocher une
+   colonne dans la bande coche tout ce groupe pour cette carto, cliquer un rôle
+   ou un statut le coche sur toutes les cartos. */
 .cacc-col, .cacc-lig {
     display: flex;
     flex-direction: column;
     gap: 2px;
     width: 100%;
     min-width: 132px;
-    padding: 9px 12px;
+    padding: 7px 12px;
     border: 0;
     background: none;
     font: inherit;
@@ -128,17 +207,11 @@
 .cacc-col em.est-privee { color: #b45309; }
 .cacc-col em.est-ouverte { color: #0e7490; }
 .cacc-col:hover, .cacc-lig:hover { background: rgba(13, 148, 136, .1); }
-.cacc-lig { min-width: 220px; }
+.cacc-lig { min-width: 0; }
+.cacc-lig.est-verrou { cursor: default; display: flex; flex-direction: row; align-items: center; gap: 8px; }
+.cacc-lig.est-verrou i { font-size: 11px; color: #94a3b8; }
+.cacc-table tr.est-verrou input { cursor: default; opacity: .75; }
 .cacc-table input { width: 17px; height: 17px; accent-color: #0d9488; cursor: pointer; }
-
-.cacc-pied {
-    flex: none;
-    padding: 12px 18px;
-    border-top: 1px solid #e2e8f0;
-    background: #f8fafc;
-}
-.cacc-pied p { margin: 0; font-size: 12.5px; color: #64748b; }
-.cacc-pied i { color: #0d9488; margin-right: 6px; }
 
 .cacc-msg {
     position: fixed;

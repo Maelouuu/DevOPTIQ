@@ -216,11 +216,19 @@ class TestTitulaires:
         assert res.status_code == 403
         assert res.get_json()["code"] == "forbidden"
 
-    def test_un_role_d_une_autre_carto_est_refuse(self, client, scene):
-        """L'id du rôle doit appartenir à la carto de l'URL."""
+    def test_un_role_ne_ailleurs_se_regle_ici_aussi(self, client, scene):
+        """Les rôles sont communs à l'entreprise : celui né sur une autre
+        carto s'attribue depuis cette page comme les autres."""
         _as(client, scene["champion"], "t68.coord@devoptiq.com")
         res = client.post(
             f"/cartography/api/access/{scene['entity_a']}/roles/{scene['role_b']}/holders",
+            json={"add": [scene["simple"]]})
+        assert res.status_code == 200
+
+    def test_un_role_inconnu_est_refuse(self, client, scene):
+        _as(client, scene["champion"], "t68.coord@devoptiq.com")
+        res = client.post(
+            f"/cartography/api/access/{scene['entity_a']}/roles/999999/holders",
             json={"add": [scene["simple"]]})
         assert res.status_code == 404
 

@@ -75,6 +75,10 @@ class Entity(db.Model):
     # sur un booléen. `sa.false()` rend « false » en PG et « 0 » en SQLite.
     is_shared = db.Column(db.Boolean, default=False, nullable=False,
                           server_default=_sa.false())
+    # Tant que personne n'a réglé les statuts sur cette carto, ce sont les
+    # paliers par défaut qui l'ouvrent (coordinateur et administrateur).
+    statuts_regles = db.Column(db.Boolean, default=False, nullable=False,
+                               server_default=_sa.false())
     
     # Timestamps
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
@@ -957,6 +961,22 @@ class EntityRoleAccess(db.Model):
 
     __table_args__ = (
         db.UniqueConstraint('entity_id', 'role_id', name='uq_entity_role_access'),
+    )
+
+
+class EntityStatusAccess(db.Model):
+    """Palier autorisé sur une carto commune (user, champion, coordinateur,
+    admin). Sans réglage, `Entity.statuts_regles` vaut faux et ce sont le
+    coordinateur et l'administrateur qui l'ouvrent."""
+    __tablename__ = 'entity_status_access'
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    entity_id = db.Column(db.Integer, db.ForeignKey('entities.id'), nullable=False, index=True)
+    statut = db.Column(db.String(20), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    __table_args__ = (
+        db.UniqueConstraint('entity_id', 'statut', name='uq_entity_status_access'),
     )
 
 

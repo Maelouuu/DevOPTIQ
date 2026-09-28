@@ -1714,6 +1714,104 @@ partagent un design system chargé partout via `header_buttons.html` :
 ### En cours
 - *(rien)*
 
+### ⚠️ Rien n'était ÉPINGLÉ : une image pouvait cesser de démarrer sans qu'aucun commit ne change (2026-09-27)
+
+`Deploy → Staging` a réussi son build puis échoué au démarrage — *« The
+user-provided container failed to start and listen on the port … PORT=8080 »* —
+le **26/09**, sur un commit qui ne touchait **QUE des fichiers de `tests/`**.
+Le déploiement du 24/09, lui, était passé. Rejoué à l'identique : même échec.
+
+**La cause n'est pas dans le code, elle est dans `requirements.txt` :** aucune
+version n'y était épinglée. Chaque construction d'image installait « la
+dernière version du jour ». Et **`SQLAlchemy` n'y était même pas déclarée** :
+elle arrivait comme dépendance de `flask_sqlalchemy`, qui accepte
+`>=2.0.16`. Mesuré en montant un venv neuf depuis le fichier d'alors :
+**2.1.1** — une version MAJEURE — là où tout ce qui avait été éprouvé et
+déployé tournait sur **2.0.52**.
+
+⚠️ **Et cela ne se voit PAS en local.** Le venv de développement garde les
+versions du jour où il a été créé : la suite reste verte, `tools/repet_image.sh`
+aussi, pendant que l'image part sur autre chose. C'est exactement le piège de
+`tests/conftest.py` qui retire les clés IA — un contrôle qui dépend de la
+machine ne contrôle rien.
+
+**Ce qui a été écarté en chemin, mesuré, à ne pas re-chercher :**
+- pas un défaut d'import ni de bytecode : l'arbre d'image (`repet_image.sh`)
+  passe la suite, et **gunicorn y démarre et répond 200 sur `/health`** —
+  y compris avec les dépendances NEUVES ;
+- pas gunicorn : 26.2.0 des deux côtés ;
+- pas la taille (`tests/` = 16 Mo) ; pas le recensement des tests (il vit dans
+  un `before_request` du panel, pas au démarrage).
+
+**Le correctif** : les 19 dépendances déclarées portent une version exacte, et
+`SQLAlchemy==2.0.52` est déclarée EXPLICITEMENT — elle décide du dialecte SQL
+de toute l'application, la laisser choisir par `flask_sqlalchemy` revient à ne
+pas la choisir. Vérifié : installation depuis zéro dans un venv neuf, imports,
+et démarrage gunicorn dans l'arbre d'image.
+Cliquet : `test_72::TestLesDependancesSontEpinglees` (3 cas, deux vérifiés
+**rouges** en remettant les noms nus).
+
+⚠️ **Monter une version est désormais un CHANGEMENT** : la modifier dans
+`requirements.txt`, lancer la suite ET `tools/repet_image.sh`, puis livrer.
+Ce n'est plus un effet de bord d'une reconstruction.
+
+### Quatre écrans repris : l'import, la page Temps, la carte, la page RH (2026-09-27)
+
+**L'écran « Vérifier » de l'import était illisible** — « trop d'info, on est
+surchargé ». Trois blocs de MÉTA occupaient le haut avant qu'on voie la
+moindre ligne de données : une carte pleine largeur « Où importer ? » (titre +
+phrase + segment), une rangée « Cette feuille contient : [Rôles][Tâches]
+[Outils] » qu'on ne touche jamais quand la nature est certaine, et un encadré
+« Lu tel quel » étalant SEPT pastilles de correspondance. Aucun n'est une
+décision : ce sont des confirmations.
+- la **destination** devient une barre d'une ligne (`is-barre`), sans titre ni
+  phrase — le pied de la fenêtre disait déjà « → carto » ;
+- la **correspondance des colonnes** se replie en « 7 colonnes reconnues »,
+  qui s'ouvre d'un clic. ⚠️ Sauf quand c'est l'IA qui a lu : là il y a vraiment
+  quelque chose à vérifier, elle reste dépliée ;
+- la **nature** attend derrière « Ce n'est pas ça ? » : on ne la déplie que
+  pour CONTESTER ce qui a été lu ;
+- le **rail des feuilles** répétait le nom du fichier sur chaque ligne (six
+  fois « Purchase Task.xlsx › … »), ce qui chassait le nom de l'onglet. Il est
+  dit UNE fois en tête, et le nom d'onglet disparaît quand il redit la nature
+  (« Rôles » / « Rôles »).
+
+**Page Temps : `window.confirm` pour supprimer.** La fenêtre du navigateur,
+avec ses styles système et un texte français écrit en dur — cinq fois.
+`optiqConfirm(message, {title, ok, cancel, danger})` rejoint `optiqAlert` dans
+`static/js/optiq_alert.js` : même pop-up que le reste de l'app, rend une
+PROMESSE (les cinq appelants étaient déjà `async`). ⚠️ Le focus part sur
+**Annuler** et un clic à côté annule : sur une suppression, le geste ambigu ne
+vaut jamais un oui. ⚠️ `header_buttons.html` ne charge PAS `optiq_alert.js` —
+la page Temps doit l'inclure elle-même, avant `time.js`. Sept clés `time.del_*`.
+
+**Page Carte : l'ordre des boutons** suit ce qu'on fait — gérer les entités,
+importer, régler l'accès, puis afficher les connexions.
+
+**Page RH, « les compétences de chacun » : la case ne porte QUE sa couleur.**
+Une pastille, rien d'autre — ni jauge, ni texte. La jauge à quatre pas y était
+répétée sur toute la grille (N personnes × M rôles) : un damier qu'on ne lit
+pas ; et la ligne « 2 en écart » / « Niveau tenu » qui l'accompagnait mettait
+autant de phrases que de cases. Tout cela — barème, niveaux, ce qui reste à
+faire, compteurs, couverture — vit dans une **bulle**, au survol MAINTENU
+(900 ms : on traverse la grille sans être dérangé).
+⚠️ Posée sur le BODY en `position: fixed` : le tableau a son propre défilement,
+une bulle posée dedans serait tronquée. Elle se ferme sur tout ce qui déplace
+ce qu'il y a dessous (défilement en capture, redimensionnement, clic) et
+s'ouvre SANS attendre au clavier, où le survol n'existe pas.
+⚠️ Pas d'attribut `title` sur la case : il ouvrirait la bulle du système
+par-dessus la nôtre. ⚠️ `pointer-events: none` sur la bulle — elle ne doit
+jamais voler le clic de la case qu'elle explique.
+⚠️⚠️ **Et elle se dessinait 20 % trop haut et trop à gauche de sa case** :
+`body.pg` porte `zoom: .8` (ui-theme), donc un enfant du body en
+`position: fixed` voit ses coordonnées MULTIPLIÉES par ce zoom, alors que
+`getBoundingClientRect()` les rend déjà en pixels d'écran. On divise par le
+zoom avant d'écrire `left`/`top`, et on multiplie `offsetWidth` pour le
+comparer à `window.innerWidth`. **Exactement le même piège que le menu du
+développeur de compétences** (`gestion_rh.js`) — c'est la deuxième fois : tout
+élément posé sur le body en `fixed` dans cette application doit faire cette
+conversion. Mesuré après : écart horizontal 0,0 px avec le centre de la case.
+
 ### À faire (par priorité)
 1. **`docs/doc_technique.html` + `docs/guide.html` : le partage de carto a changé de
    modèle** (carto commune, accès par rôle, propositions de modification, statut
@@ -2744,6 +2842,150 @@ Restent en français, connus et inventoriés : `projection_metier`,
 deux langues, et les pages Carte / éditeur rendues en anglais.
 `cartography_editor.html`, `activities_map.html` et `cartography_viewer.html`
 sortent de l'inventaire de dette de `test_78`. Suite : 2573 passés.
+
+### Les rôles sont COMMUNS à l'entreprise (2026-09-23)
+
+« On a des rôles différents en fonction de l'entité choisie. » C'était exact, et
+c'était le modèle : `Role.entity_id` faisait d'un rôle une chose de SA carto.
+Deux cartos qui portent la bande « Qualité » donnaient deux rôles « Qualité »
+sans rien qui les relie — un titulaire ici n'était pas titulaire là, et
+`entity_role_access` ouvrait l'accès à l'un sans rien dire de l'autre. Comme les
+comptes, un rôle est une chose de l'ENTREPRISE : `Code/roles_communs.py` est
+désormais la source unique.
+
+- `role_par_nom(nom, …)` : **une ligne par nom** (comparaison normalisée —
+  minuscules, sans accents, espaces resserrés ; un tiret n'est PAS un
+  séparateur). `entity_id` ne dit plus que l'ORIGINE, et ne filtre plus rien :
+  ni la page RH, ni la fiche de compte, ni la matrice d'accès, ni l'import.
+- ⚠️ **`_sync_carto_to_db` ne supprime plus un rôle qui sert ailleurs.** Il
+  effaçait tout rôle absent des bandes de la carte : enregistrer la carto A
+  emportait le rôle que la carto B venait de créer. Il DÉTACHE maintenant les
+  liens de CETTE carto, et ne supprime que si `est_utilise(role)` est faux
+  (aucun titulaire, aucune activité, aucune tâche — toutes cartos confondues).
+- ⚠️ **`fusionner_doublons()` réunit les doublons d'hier, UNE fois** (marqueur
+  `roles_communs` en base, `force=True` pour rejouer). Le rôle gardé est celui
+  qui a le plus de titulaires, puis le plus petit id ; tout ce qui pointait vers
+  les autres est re-pointé (titulaires, activités, tâches, accès aux cartos,
+  plans de formation, exigences de domaine, analyses de temps). Sans ce
+  rapprochement, la mise en commun laisserait l'existant tel quel : le défaut
+  serait « corrigé » pour les rôles à venir seulement.
+- ⚠️ **Le rôle système « Développeur de compétences » est lui aussi unique.**
+  `assurer_roles_permanents(entity_id)` en rendait un PAR carto ; il rend le
+  rôle global, et `reprendre_roles_hors_carte` ne marque que les rôles des
+  cartos qu'on peut ouvrir.
+- ⚠️ `_compute_removals` (avertissement « ce que l'enregistrement va retirer »)
+  lisait les bandes du diagramme en MÉMOIRE : une bande sans activité n'y
+  figurait pas, et sa disparition n'était pas annoncée. Il part du diagramme
+  ENREGISTRÉ (`roles_permanents._bandes`).
+- Tests : `test_66` (un rôle né ailleurs ouvre la carto, un rôle retiré de la
+  carte ne part que s'il ne sert plus, une seule ligne par rôle, et la réunion
+  elle-même — `TestLaReunionDesRoles`), `test_68`, `test_73`, `test_52`,
+  `test_84`, `test_86`, `test_87`.
+
+⚠️⚠️ **Et la réunion est tombée EN PRODUCTION, sans qu'aucun test la voie.**
+Relevé dans la console serveur de staging après la livraison :
+`[DB] réunion des rôles: Table 'time_project' is already defined for this
+MetaData instance`. Deux causes qui se sont additionnées :
+- **`Code/routes/time_extra.py` redéclarait CINQ tables déjà définies dans
+  `models.py`** (`time_project`, `time_project_line`, `time_role_analysis`,
+  `time_role_line`, `time_weakness`). Deux modèles pour une même table lèvent
+  cette erreur **dès qu'on importe le second**, et elle frappe l'APPELANT, pas
+  le fichier fautif. Personne n'importait ce module : il dormait depuis des
+  mois, et `_fusionner_paire` a été le premier à y toucher. Fichier supprimé,
+  `TimeRoleAnalysis` vient de `models.py`. Cliquet :
+  `test_67::test_aucune_table_n_est_declaree_deux_fois`.
+  ⚠️ Ce contrôle sautait d'abord `models.py` EN ENTIER parce qu'il contient
+  `extend_existing` (pour ses tables d'ASSOCIATION) : il regarde désormais le
+  VOISINAGE de chaque `__tablename__`, pas le fichier.
+- **Aucun test n'appelait `fusionner_doublons()`.** Une reprise qui ne tourne
+  qu'au démarrage n'est vérifiée par rien tant qu'on ne la joue pas
+  explicitement. Mesuré sur staging avant correctif : 73 lignes de rôles pour
+  68 noms — les doublons étaient restés.
+⚠️ Le marqueur `roles_communs` n'avait PAS été posé (l'exception précède le
+commit) : la reprise rejouera au prochain démarrage, rien à réparer à la main.
+
+⚠️ **`_verifier_colonnes` criait avant l'ALTER qu'il attendait.** Journal :
+« COLONNE MANQUANTE entities.statuts_regles », puis dix lignes plus bas
+« Colonne entities.statuts_regles ajoutée ». L'ALTER est remonté AVANT la
+vérification — un avertissement qui crie à chaque premier démarrage ne se lit
+plus le jour où il a raison.
+
+**L'entité « fantôme » qu'on ne pouvait pas supprimer.**
+⚠️ `delete_entity` cherchait `Entity.query.filter_by(id=…, owner_id=user_id)` :
+une carto dont `owner_id` est **NULL** — ou appartenant à quelqu'un d'autre —
+n'était jamais trouvée. Elle s'affichait pourtant dans la liste
+(`can_read` rend la main sur `owner_id in (None, user.id)`), d'où le message
+« entité fantôme » et l'impossibilité d'en sortir. La route lit maintenant
+l'entité par son id et refuse seulement si elle appartient à un AUTRE compte et
+qu'on n'est pas administrateur. Elle ne supprime plus que les rôles devenus
+orphelins (les rôles sont communs).
+`tools/db/etat_entites.py --url … [--nom purchase]` inventorie une base en
+**lecture seule** : cartos sans propriétaire joignable, noms portés par
+plusieurs cartos, et les rôles que le démarrage va réunir.
+
+**Page RH : « coordinateur » s'affichait en français dans l'interface anglaise.**
+Le tableau envoyait `users.status` BRUT (un texte libre, écrit tel qu'il a été
+saisi) là où la page Comptes passe par le catalogue. `api_tableau` envoie
+désormais le **palier** (`famille_statut`), et le JS l'affiche traduit
+(`st_user` / `st_champion` / `st_coordinateur` / `st_admin`, repris de
+`account.status_*`).
+
+### La fenêtre d'accès a deux sections : par rôle, par statut (2026-09-23)
+
+Un rôle dit ce qu'on FAIT dans l'organisation ; un statut dit ce qu'on EST dans
+l'application. Les deux ouvrent une carto, et la fenêtre « Qui ouvre quelles
+cartos » (page Carte) les sépare : deux matrices, même colonnes, en-tête teal
+pour les rôles, ambre pour les statuts.
+
+- `EntityStatusAccess` (`entity_status_access`, unique par (carto, palier)) +
+  `Entity.statuts_regles` (migration à chaud, `BOOLEAN DEFAULT FALSE`).
+- **Par défaut, coordinateur et administrateur ouvrent toutes les cartos**
+  (`STATUTS_DEFAUT`) — exactement ce que `can_read` faisait avant, en dur.
+- ⚠️ **Le premier réglage GRAVE d'abord le défaut** : sans cela, décocher
+  « coordinateur » aurait rouvert l'accès par le défaut resté implicite.
+- ⚠️ **La ligne `admin` est verrouillée** (`STATUT_VERROU`, cases `disabled`, et
+  le SERVEUR refuse de la retirer). Se décocher sur une carto qu'on ne possède
+  pas la ferait disparaître de la fenêtre d'accès — il n'existerait plus aucun
+  écran d'où se la rendre. Même raison que la colonne `admin` du tableau des
+  droits.
+- ⚠️ **La table unique donne les lignes, elle ne donne pas la FRONTIÈRE.**
+  Premier jet : deux bandes pastel, et l'ensemble se lisait comme un seul bloc
+  (« c'est trop un tout »). La séparation se rejoue donc sur TROIS plans, tous
+  sans coût en hauteur : une bande **pleine** en couleur soutenue (teal pour
+  les rôles, ambre pour les statuts) à texte blanc ; cette bande reste
+  **collée sous l'en-tête** pendant qu'on défile — on sait toujours dans quel
+  groupe on coche ; et un **liseré vertical** court sur toute la hauteur du
+  groupe, la zone des statuts portant en plus son propre fond.
+  ⚠️ `top` de la bande = hauteur RÉELLE de l'en-tête, mesurée après le rendu
+  (`--cacc-thead`) : un nom de carto qui passe à la ligne la change.
+  ⚠️ **Ordre d'empilement** : coin (7), en-tête (6), bande (4/3), première
+  colonne du corps (1). La bande vient APRÈS l'en-tête dans le document — à
+  `z-index` égal, c'est elle qui passerait par-dessus lui.
+  ⚠️ Et le fond de ZONE des statuts repeignait la BANDE (même spécificité,
+  déclarée plus bas) : son texte blanc devenait invisible. Troisième fois que
+  ce piège mord dans cette feuille — une règle de bande se met APRÈS celle de
+  la zone, et plus spécifique.
+- ⚠️ **UNE table, deux BANDES — pas deux tables.** Deux tables, c'était deux
+  en-têtes de colonnes (les mêmes cartos, écrites deux fois), deux titres de
+  section et deux zones de défilement : les quatre paliers, en `flex: none`,
+  prenaient tout ce qu'il leur fallait et il ne restait **deux lignes de rôles
+  à l'écran**. L'en-tête des cartos est donc écrit UNE fois, collé en haut, et
+  chaque groupe n'ajoute qu'une bande colorée — qui porte aussi le « tout
+  cocher » de chaque colonne, et son compte. Mesuré sur une fenêtre de 760 px :
+  **2 lignes de rôles → 9**, plus les 4 paliers, tout le temps visibles.
+  Les colonnes s'alignent par construction (une seule table) : plus de
+  défilement horizontal à synchroniser.
+- **Les statuts d'abord** : quatre lignes fixes, donc toujours sous les yeux ;
+  les rôles sont une liste longue, ils prennent la suite et défilent.
+- ⚠️ **`display: flex` sur un `th` le sort de la mise en page de TABLE** : sa
+  colonne n'est plus tenue et les cartos se décalent. Le flex de la bande vit
+  dans un `<span>` à l'intérieur.
+- ⚠️ **Le fond de la bande perdait sa première cellule** : `.cacc-table tbody
+  th { background: #fff }` a la MÊME spécificité et est déclarée plus bas. Les
+  règles de bande passent par `.cacc-grp`.
+- `POST /cartography/api/access/matrice` accepte `cases` et/ou `cases_statut`,
+  toujours **case par case** — jamais la table entière.
+- Tests : `test_66::TestLAccesParStatut` (9 cas ; le verrou vérifié **rouge**).
 
 ### Page RH ③ : les compétences de chacun, toutes cartos (2026-09-21)
 

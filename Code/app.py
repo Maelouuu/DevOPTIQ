@@ -469,6 +469,10 @@ def create_app(test_config=None):
         # type integer »). _safe_add_column avale l'erreur, la colonne n'était
         # donc jamais créée et TOUTE requête sur `entities` tombait en 500.
         _safe_add_column("entities", "is_shared", "BOOLEAN DEFAULT FALSE")
+        # ⚠️ AVANT `_verifier_colonnes` : la vérification annonçait la colonne
+        # manquante à chaque premier démarrage, puis l'ALTER l'ajoutait dix
+        # lignes plus bas. Un avertissement qui crie toujours ne se lit plus.
+        _safe_add_column("entities", "statuts_regles", "BOOLEAN DEFAULT FALSE")
         try:
             with _init_conn() as _conn:
                 _conn.execute(_text(
@@ -482,7 +486,7 @@ def create_app(test_config=None):
         # Une colonne que le modèle interroge et qui manque casse toute la page.
         # _safe_add_column est muet par construction (il ignore « déjà là ») :
         # on vérifie donc, et on le dit fort.
-        _verifier_colonnes({"entities": ["is_shared"],
+        _verifier_colonnes({"entities": ["is_shared", "statuts_regles"],
                             "carto_change_requests": ["author_seen_at"]})
         # Statut Garant : l'import carto l'écrivait en minuscule, la page Rôles
         # cherchait 'Garant' — un rôle garant d'après la carte n'apparaissait
@@ -616,6 +620,18 @@ def create_app(test_config=None):
         except Exception as e:
             db.session.rollback()
             print(f"[DB] reprise des rôles hors carte: {e}")
+
+        # ⚠️ Un rôle appartenait à une CARTO : « Purchasing » existait autant de
+        # fois qu'il y avait de cartos, avec ses propres titulaires. Il est
+        # commun à l'entreprise — les doublons sont réunis, une seule fois.
+        try:
+            from Code.roles_communs import fusionner_doublons
+            reunis = fusionner_doublons()
+            if reunis:
+                print(f"[DB] {reunis} rôle(s) en double réuni(s)")
+        except Exception as e:
+            db.session.rollback()
+            print(f"[DB] réunion des rôles: {e}")
 
         try:
             from Code.models.models import RecentEvent

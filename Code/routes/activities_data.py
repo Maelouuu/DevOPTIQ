@@ -80,31 +80,30 @@ def get_activity_details(activity_id):
     ]
 
     # -----------------------------
-    # Données d'entrée / sortie (si ton modèle Data possède un champ "direction")
-    # On renvoie des LISTES (pas de string placeholder) pour que le LLM/JS fonctionne mieux.
+    # Données d'entrée / sortie.
+    # Il n'existe pas de relation "data_items"/"data" ni de colonne "direction" sur
+    # Activities/Data : ces attributs n'ont jamais existé dans le modèle, si bien que
+    # ces deux listes étaient TOUJOURS vides, quoi qu'il y ait en base. La sortie d'une
+    # activité est une Data ancrée via `producer_activity_id` (cf. qualify_outputs.py) ;
+    # son entrée est une Data qui l'alimente via un Link "nourrissante".
     # -----------------------------
+    output_data = [
+        (d.name or "").strip()
+        for d in Data.query.filter_by(producer_activity_id=activity.id).all()
+        if (d.name or "").strip()
+    ]
+
     input_data = []
-    output_data = []
-    for d in _safe_list(getattr(activity, "data_items", [])) or _safe_list(
-        getattr(activity, "data", [])
-    ):
-        # on tente de lire direction/name/label/description
-        direction = getattr(d, "direction", None)
-        text = (
-            getattr(d, "name", None)
-            or getattr(d, "label", None)
-            or getattr(d, "description", None)
-            or ""
-        ).strip()
-        if not text:
+    for link in Link.query.filter_by(target_activity_id=activity.id).all():
+        if not link.source_data_id:
             continue
-        if direction in ("in", "input", "entrée", "entree"):
+        source_data = db.session.get(Data, link.source_data_id)
+        if source_data is None:
+            continue
+        text = (source_data.name or "").strip() or (source_data.description or "").strip()
+        if text:
             input_data.append(text)
-        elif direction in ("out", "output", "sortie"):
-            output_data.append(text)
-        else:
-            # si pas de direction ; on met dans input par défaut pour alimenter le contexte
-            input_data.append(text)
+    input_data = _unique_sorted(input_data)
 
     # -----------------------------
     # Performances "sortantes" via liens (source_activity_id → performance)
