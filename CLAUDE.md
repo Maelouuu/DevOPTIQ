@@ -3181,6 +3181,48 @@ la dissolution du lien global vérifiée **rouge** sur le code d'avant). Suite :
 2336 passés. Éprouvé dans les DEUX langues sur `tools/devrun_partage.py` :
 poser, resserrer, élargir, retirer, et une personne sans aucun rôle.
 
+### Report sur le pilote : 380 rôles réunis en 56, sans rien perdre (2026-09-28)
+
+Report habituel, rejoué **tel quel** d'après la recette du 17/09 : l'arbre de
+staging à l'identique, plus le seul fichier propre au pilote
+(`.github/workflows/deploy-beta.yml`), et l'invariant vérifié AVANT de pousser —
+`git diff --name-status origin/staging <commit>` ne rend que ce fichier.
+Construit avec un **index temporaire** (`GIT_INDEX_FILE` + `read-tree` +
+`commit-tree`, deux parents) : rien à sortir ni à remettre dans le worktree
+courant, donc rien à casser en chemin. 11 commits de retard rattrapés.
+
+**Ce que la réunion des rôles a fait sur une base EN SERVICE.** Relevé avant
+(`tools/db/etat_entites.py`, lecture seule) : **380 lignes de rôles pour 56
+noms distincts**, 34 noms à réunir — le modèle « un rôle par carto » avait
+fabriqué jusqu'à **14 exemplaires du même rôle** (« Supplier », « Network »…).
+Après le démarrage : **56 lignes pour 56 noms, plus aucun doublon.**
+⚠️ Et surtout, **écart NUL sur toutes les autres tables métier** (comparées au
+manifeste de la sauvegarde) : 8 titulaires, 813 `activity_roles`, 579
+`task_roles`, 601 activités, 932 tâches, 985 liens, 348 compétences, 4 pièces
+jointes. La réunion re-pointe, elle ne perd pas.
+- ⚠️ Deux rôles « Développeur de compétences » portaient CHACUN un titulaire
+  (#607 et #608) : à égalité, c'est le plus petit id qui est gardé et l'autre
+  titulaire est reporté dessus — les deux se retrouvent sur le même rôle.
+- 3 cartos **sans propriétaire joignable** (#12, #28, #30) : elles redeviennent
+  supprimables. `purchase` #30 en fait partie — c'est l'« entité fantôme »
+  signalée par l'utilisateur.
+
+⚠️ **Sauvegarde AVANT, et relue.**
+`~/AFDEC/sauvegardes/optiqfluent_pilot-2026-09-28` — 53 tables, 13 470 lignes,
+les 53 relues sans écart avec le manifeste, et les 4 pièces jointes décodées
+depuis le base64 jusqu'à leurs octets de signature (dont la carte Visio
+harmonisée du client, 902 068 octets — le même compte qu'au 17/09).
+L'inventaire d'avant est archivé À CÔTÉ de la sauvegarde
+(`_inventaire_avant.txt`) : sans lui, on ne peut plus dire ce que la réunion a
+changé une fois qu'elle a eu lieu.
+
+⚠️ **Livré à 11h38, lundi matin en Inde** — contre la règle « les correctifs
+partent le soir ». Décision explicite de l'utilisateur, après lui avoir posé la
+question avec l'heure locale et le fait que la reprise TOUCHE AUX DONNÉES.
+Aucune conséquence observée (le service répond, les tables métier sont
+intactes), mais la règle reste la bonne : un redémarrage coupe les requêtes en
+vol, et une migration de données ne se rattrape que par la sauvegarde.
+
 ### Le pilote repris sur staging — 108 commits d'un coup (2026-09-17)
 
 `optiqfluent-staging` avait 108 commits de retard et 39 commits propres. Sur le
