@@ -6,6 +6,9 @@ Couvre : pages viewer/editor, API save/load/list/delete/save-diff,
 """
 import io
 import json
+import zipfile
+import tempfile
+import os
 import pytest
 
 pytestmark = pytest.mark.cartography_editor
@@ -33,6 +36,22 @@ DIAGRAM_TWO_CONNECTED = {
     "bands":  [{"id": "b1", "label": "Bande Conn", "height": 180}],
     "connections": [{"fromId": "s1", "toId": "s2", "label": "flux test"}],
 }
+
+
+_VSDX_NS = "http://schemas.microsoft.com/office/visio/2012/main"
+
+
+def _vsdx_bytes(page_xml):
+    """Construit un .vsdx (zip) en mémoire avec une seule page, pour l'upload."""
+    fd, path = tempfile.mkstemp(suffix=".vsdx")
+    os.close(fd)
+    try:
+        with zipfile.ZipFile(path, "w") as zf:
+            zf.writestr("visio/pages/page1.xml", page_xml)
+        with open(path, "rb") as f:
+            return f.read()
+    finally:
+        os.unlink(path)
 
 
 # ── Helpers DB ────────────────────────────────────────────────────────────────
@@ -489,3 +508,107 @@ class TestCartoApiVsdx:
         )
         assert r.status_code == 400
         assert "invalide" in r.get_json().get("error", "").lower()
+
+    def test_vsdx_compare_computes_full_diff(self, auth_client, app, ids):
+        """Exerce le chemin complet de /api/vsdx-compare : activités et
+        connexions communes, propres à la carto, propres au VSDX, ainsi que
+        l'exclusion des shapes de type 'decision' du comptage carto."""
+        carto = {
+            "shapes": [
+                {"id": "s1", "type": "process", "label": "Activite Match",
+                 "x": 0, "y": 0, "w": 120, "h": 60},
+                {"id": "s2", "type": "process", "label": "Activite Cible Match",
+                 "x": 200, "y": 0, "w": 120, "h": 60},
+                {"id": "s3", "type": "process", "label": "Seulement Carto",
+                 "x": 400, "y": 0, "w": 120, "h": 60},
+                {"id": "s4", "type": "decision", "label": "Une Decision",
+                 "x": 600, "y": 0, "w": 120, "h": 60},
+            ],
+            "bands": [{"id": "b1", "label": "Bande", "height": 180}],
+            "connections": [{"fromId": "s1", "toId": "s2", "label": "flux"}],
+        }
+        _set_carto(app, ids, carto)
+
+        page = f"""<PageContents xmlns="{_VSDX_NS}">
+            <Shapes>
+              <Shape ID="1"><Text>Activite Match</Text></Shape>
+              <Shape ID="2"><Text>Activite Cible Match</Text></Shape>
+              <Shape ID="3"><Text>Seulement Vsdx</Text></Shape>
+              <Shape ID="10" Name="Connecteur1"><Text>Donnee A</Text></Shape>
+              <Shape ID="11" Name="Connecteur2"><Text>Donnee B</Text></Shape>
+            </Shapes>
+            <Connects>
+              <Connect FromSheet="10" FromCell="BeginX" ToSheet="1"/>
+              <Connect FromSheet="10" FromCell="EndX" ToSheet="2"/>
+              <Connect FromSheet="11" FromCell="BeginX" ToSheet="2"/>
+              <Connect FromSheet="11" FromCell="EndX" ToSheet="3"/>
+            </Connects>
+        </PageContents>"""
+
+        r = auth_client.post(
+            "/cartography/api/vsdx-compare",
+            data={"file": (io.BytesIO(_vsdx_bytes(page)), "connexions.vsdx")},
+            content_type="multipart/form-data",
+        )
+        assert r.status_code == 200
+        body = r.get_json()
+
+        assert body["counts"]["vsdx_activities"] == 3
+        assert body["counts"]["carto_activities"] == 3  # decision exclue
+        assert body["counts"]["matched_activities"] == 2
+        assert body["counts"]["extra_activities"] == 1   # "Seulement Carto"
+        assert body["counts"]["missing_activities"] == 1  # "Seulement Vsdx"
+        assert body["counts"]["matched_connections"] == 1
+        assert body["counts"]["missing_connections"] == 1  # cible -> seulement vsdx
+        assert body["counts"]["carto_shapes_by_type"]["decision"] == 1
+
+        only_carto_labels = {d["label"] for d in body["differences"]["activities_only_in_carto"]}
+        assert only_carto_labels == {"seulement carto"}
+        assert body["differences"]["activities_only_in_vsdx"] == ["seulement vsdx"]
+
+        assert 0 <= body["compatibility"]["global"] <= 100
+        assert body["parse_errors"] == []
+
+    def test_vsdx_compare_success_updates_nothing_when_perfect_match(self, auth_client, app, ids):
+        """Carto et VSDX identiques → compatibilité à 100 % sur toutes les métriques."""
+        carto = {
+            "shapes": [
+                {"id": "s1", "type": "process", "label": "Alpha",
+                 "x": 0, "y": 0, "w": 120, "h": 60},
+                {"id": "s2", "type": "process", "label": "Beta",
+                 "x": 200, "y": 0, "w": 120, "h": 60},
+            ],
+            "bands": [{"id": "b1", "label": "Bande", "height": 180}],
+            "connections": [{"fromId": "s1", "toId": "s2", "label": "flux"}],
+        }
+        _set_carto(app, ids, carto)
+
+        page = f"""<PageContents xmlns="{_VSDX_NS}">
+            <Shapes>
+              <Shape ID="1"><Text>Alpha</Text></Shape>
+              <Shape ID="2"><Text>Beta</Text></Shape>
+              <Shape ID="10" Name="Connecteur1"><Text>Donnee</Text></Shape>
+            </Shapes>
+            <Connects>
+              <Connect FromSheet="10" FromCell="BeginX" ToSheet="1"/>
+              <Connect FromSheet="10" FromCell="EndX" ToSheet="2"/>
+            </Connects>
+        </PageContents>"""
+
+        r = auth_client.post(
+            "/cartography/api/vsdx-compare",
+            data={"file": (io.BytesIO(_vsdx_bytes(page)), "connexions.vsdx")},
+            content_type="multipart/form-data",
+        )
+        assert r.status_code == 200
+        body = r.get_json()
+        assert body["compatibility"] == {"global": 100, "activities": 100, "connections": 100}
+        assert body["differences"]["activities_only_in_carto"] == []
+        assert body["differences"]["activities_only_in_vsdx"] == []
+
+    def test_vsdx_compare_returns_403_without_auth(self, client, app, ids):
+        _set_carto(app, ids, EMPTY_DIAGRAM)
+        with client.session_transaction() as sess:
+            sess.clear()
+        r = client.post("/cartography/api/vsdx-compare", data={})
+        assert r.status_code == 403

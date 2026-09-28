@@ -59,6 +59,31 @@ def _create_time_analysis(app, activity_id):
         return ta.id
 
 
+def _create_activity_with_task(app, entity_id, act_name="Activité Temps Dédiée", task_name="Tâche Temps Dédiée"):
+    with app.app_context():
+        from Code.models.models import Activities, Task
+        from Code.extensions import db
+        act = Activities(entity_id=entity_id, name=act_name, description="")
+        db.session.add(act)
+        db.session.flush()
+        task = Task(name=task_name, description="", activity_id=act.id, order=1)
+        db.session.add(task)
+        db.session.commit()
+        return act.id, task.id
+
+
+def _delete_activity_with_task(app, activity_id):
+    with app.app_context():
+        from Code.models.models import Activities, Task, TimeAnalysis
+        from Code.extensions import db
+        TimeAnalysis.query.filter_by(activity_id=activity_id).delete()
+        Task.query.filter_by(activity_id=activity_id).delete()
+        act = Activities.query.get(activity_id)
+        if act:
+            db.session.delete(act)
+        db.session.commit()
+
+
 def _create_role_analysis(auth_client, role_id, activity_id, name="Analyse Rôle Test"):
     r = auth_client.post(
         "/temps/api/role_analysis",
@@ -637,3 +662,133 @@ class TestRoleActivities:
         r = auth_client.get("/temps/api/role_activities/999999")
         assert r.status_code == 200
         assert r.get_json()["activities"] == []
+
+
+# ===========================================================================
+# 6. Renommage de projet — PATCH /api/project/<id>
+# ===========================================================================
+
+class TestProjectRename:
+
+    def test_rename_with_valid_name_updates_it(self, auth_client, ids):
+        pid = _create_project(auth_client, ids["activity_id"], name="Projet Avant Renommage").get_json()["project_id"]
+        try:
+            r = auth_client.patch(
+                f"/temps/api/project/{pid}",
+                data=json.dumps({"name": "Projet Renommé"}),
+                content_type="application/json",
+            )
+            assert r.status_code == 200
+            data = r.get_json()
+            assert data["ok"] is True
+            assert data["name"] == "Projet Renommé"
+
+            read = auth_client.get(f"/temps/api/project/{pid}")
+            assert read.get_json()["project"]["name"] == "Projet Renommé"
+        finally:
+            auth_client.delete(f"/temps/api/project/{pid}")
+
+    def test_rename_unknown_project_returns_404(self, auth_client):
+        r = auth_client.patch(
+            "/temps/api/project/999999",
+            data=json.dumps({"name": "Peu importe"}),
+            content_type="application/json",
+        )
+        assert r.status_code == 404
+
+
+# ===========================================================================
+# 7. Temps par tâche — mode='tasks' de /api/activity_time et /api/time_analysis
+# ===========================================================================
+
+class TestActivityTimeTasksMode:
+
+    def test_post_mode_tasks_sums_task_durations_into_activity(self, app, auth_client, ids):
+        activity_id, task_id = _create_activity_with_task(app, ids["entity_id"])
+        try:
+            r = auth_client.post(
+                f"/temps/api/activity_time/{activity_id}",
+                data=json.dumps({
+                    "mode": "tasks",
+                    "delay": 5,
+                    "delay_unit": "minutes",
+                    "tasks": [{"task_id": task_id, "duration": 45, "duration_unit": "minutes"}],
+                }),
+                content_type="application/json",
+            )
+            assert r.status_code == 200
+            data = r.get_json()
+            assert data["ok"] is True
+            assert data["duration_minutes"] == 45.0
+            assert data["delay_minutes"] == 5.0
+
+            read = auth_client.get(f"/temps/api/activity_time/{activity_id}")
+            body = read.get_json()
+            assert body["tasks"][0]["duration_minutes"] == 45.0
+            assert body["mode"] == "tasks"
+        finally:
+            _delete_activity_with_task(app, activity_id)
+
+    def test_post_mode_tasks_ignores_task_from_another_activity(self, app, auth_client, ids):
+        activity_id, task_id = _create_activity_with_task(app, ids["entity_id"], act_name="Activité Temps Isolée A")
+        other_activity_id, other_task_id = _create_activity_with_task(
+            app, ids["entity_id"], act_name="Activité Temps Isolée B", task_name="Tâche Isolée B")
+        try:
+            r = auth_client.post(
+                f"/temps/api/activity_time/{activity_id}",
+                data=json.dumps({
+                    "mode": "tasks",
+                    "tasks": [{"task_id": other_task_id, "duration": 99, "duration_unit": "minutes"}],
+                }),
+                content_type="application/json",
+            )
+            assert r.status_code == 200
+            assert r.get_json()["duration_minutes"] == 0.0  # tâche d'une autre activité ignorée
+        finally:
+            _delete_activity_with_task(app, activity_id)
+            _delete_activity_with_task(app, other_activity_id)
+
+
+class TestTimeAnalysisTasksModeAndFilter:
+
+    def test_create_mode_tasks_persists_a_task_analysis(self, app, auth_client, ids):
+        activity_id, task_id = _create_activity_with_task(app, ids["entity_id"], act_name="Activité Analyse Tâche")
+        try:
+            r = auth_client.post(
+                "/temps/api/time_analysis",
+                data=json.dumps({
+                    "mode": "tasks",
+                    "activity_id": activity_id,
+                    "recurrence": "journalier",
+                    "frequency": 1,
+                    "tasks": [{"task_id": task_id, "duration": 20, "duration_unit": "minutes"}],
+                }),
+                content_type="application/json",
+            )
+            assert r.status_code == 200
+            assert r.get_json()["ok"] is True
+
+            listed = auth_client.get(f"/temps/api/time_analyses?activity_id={activity_id}")
+            items = listed.get_json()["items"]
+            assert len(items) == 1
+            assert items[0]["type"] == "task"
+            assert items[0]["task_id"] == task_id
+            assert items[0]["activity"] == "Activité Analyse Tâche"
+        finally:
+            _delete_activity_with_task(app, activity_id)
+
+    def test_list_filtered_by_activity_id_excludes_other_activities(self, app, auth_client, ids):
+        activity_id, _ = _create_activity_with_task(app, ids["entity_id"], act_name="Activité Filtre A")
+        other_id = _create_time_analysis(app, ids["activity_id"])
+        try:
+            r = auth_client.get(f"/temps/api/time_analyses?activity_id={activity_id}")
+            assert r.status_code == 200
+            ids_returned = [it["id"] for it in r.get_json()["items"]]
+            assert other_id not in ids_returned
+        finally:
+            _delete_activity_with_task(app, activity_id)
+            from Code.models.models import TimeAnalysis
+            from Code.extensions import db
+            with app.app_context():
+                TimeAnalysis.query.filter_by(id=other_id).delete()
+                db.session.commit()

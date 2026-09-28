@@ -836,3 +836,151 @@ class TestImportFullInjectEdgeCases:
             if role:
                 db.session.delete(role)
             db.session.commit()
+
+
+# ===========================================================================
+# 4. _parse_excel_bytes — cellules fusionnées : outil ajouté sur ligne suivante
+# ===========================================================================
+
+class TestParseExcelBytesMergedTools:
+    """Une ligne sans activité/tâche mais avec un outil complète la dernière
+    tâche du groupe courant (cellules Excel fusionnées sur plusieurs lignes)."""
+
+    def test_extra_tool_row_appended_to_last_task(self, auth_client):
+        wb_bytes = _make_excel_multi_rows([
+            ["Dept", "Activité Multi Outils", "Garant", "Tâche Unique", "SAP", "Role A", "Role B", "", ""],
+            ["", "", "", "", "Excel", "", "", "", ""],  # ligne fusionnée : outil supplémentaire
+        ])
+        r = auth_client.post(
+            "/api/import-full/analyze",
+            data={"file": (io.BytesIO(wb_bytes), "import.xlsx")},
+            content_type="multipart/form-data",
+        )
+        assert r.status_code == 200
+        analysis = json.loads(r.data)["analysis"]
+        group = _find_group(analysis, "Activité Multi Outils")
+        assert len(group["tasks"]) == 1
+        assert set(group["tasks"][0]["tools"]) == {"SAP", "Excel"}
+
+    def test_duplicate_tool_on_merged_row_not_added_twice(self, auth_client):
+        wb_bytes = _make_excel_multi_rows([
+            ["Dept", "Activité Outil Dupliqué", "Garant", "Tâche Unique", "SAP", "Role A", "Role B", "", ""],
+            ["", "", "", "", "SAP", "", "", "", ""],  # même outil répété
+        ])
+        r = auth_client.post(
+            "/api/import-full/analyze",
+            data={"file": (io.BytesIO(wb_bytes), "import.xlsx")},
+            content_type="multipart/form-data",
+        )
+        assert r.status_code == 200
+        analysis = json.loads(r.data)["analysis"]
+        group = _find_group(analysis, "Activité Outil Dupliqué")
+        assert group["tasks"][0]["tools"] == ["SAP"]
+
+
+def _find_group(analysis: dict, activity_name: str) -> dict:
+    """Cherche un groupe (matched ou unmatched) par son nom d'activité Excel."""
+    for g in analysis.get("matched_groups", []) + analysis.get("unmatched_groups", []):
+        if g.get("activity_name_excel") == activity_name:
+            return g
+    raise AssertionError(f"Aucun groupe trouvé pour {activity_name!r}: {analysis}")
+
+
+def _make_excel_multi_rows(rows: list) -> bytes:
+    """Comme _make_excel, mais avec plusieurs lignes de données brutes
+    (pour simuler des cellules Excel fusionnées sur plusieurs lignes)."""
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Activities"
+    ws.append(["Department", "Activity", "Guarantor", "Task", "Tool", "Doer", "Approver", "Skills", "Commentary"])
+    for row in rows:
+        ws.append(row)
+    buf = io.BytesIO()
+    wb.save(buf)
+    return buf.getvalue()
+
+
+# ===========================================================================
+# 5. grouper_lignes — regroupement de lignes déjà lues (hub d'import)
+# ===========================================================================
+
+class TestGrouperLignes:
+    """`grouper_lignes` reproduit la même logique que `_parse_excel_bytes`
+    mais à partir de dicts déjà lus (utilisé quand la source n'est pas un
+    classeur Excel direct). Couvre : propagation des cellules fusionnées,
+    plusieurs tâches pour une même activité, ligne d'outil supplémentaire,
+    et exclusion des groupes sans tâche."""
+
+    def _lignes(self, *rows):
+        keys = ("activity", "department", "guarantor", "task", "tool",
+                "doer", "approver", "skills", "commentary")
+        return [dict(zip(keys, row)) for row in rows]
+
+    def test_single_line_produces_one_group_one_task(self):
+        from Code.routes.import_full import grouper_lignes
+        lignes = self._lignes(
+            ("Activité A", "Dept", "Garant", "Tâche 1", "Outil1,Outil2", "D1", "A1", "S1", "Note"),
+        )
+        groups = grouper_lignes(lignes)
+        assert len(groups) == 1
+        g = groups[0]
+        assert g["activity_name"] == "Activité A"
+        assert g["department"] == "Dept"
+        assert g["guarantor"] == "Garant"
+        assert len(g["tasks"]) == 1
+        assert g["tasks"][0]["tools"] == ["Outil1", "Outil2"]
+
+    def test_merged_cells_propagate_activity_department_guarantor(self):
+        from Code.routes.import_full import grouper_lignes
+        lignes = self._lignes(
+            ("Activité B", "Dept B", "Garant B", "Tâche 1", "", "", "", "", ""),
+            ("", "", "", "Tâche 2", "", "", "", "", ""),  # activité/dept/garant hérités
+        )
+        groups = grouper_lignes(lignes)
+        assert len(groups) == 1
+        g = groups[0]
+        assert g["department"] == "Dept B"
+        assert g["guarantor"] == "Garant B"
+        assert [t["name"] for t in g["tasks"]] == ["Tâche 1", "Tâche 2"]
+
+    def test_extra_tool_row_appended_to_last_task(self):
+        from Code.routes.import_full import grouper_lignes
+        lignes = self._lignes(
+            ("Activité C", "Dept", "Garant", "Tâche Unique", "SAP", "", "", "", ""),
+            ("", "", "", "", "Excel", "", "", "", ""),
+        )
+        groups = grouper_lignes(lignes)
+        assert len(groups) == 1
+        assert set(groups[0]["tasks"][0]["tools"]) == {"SAP", "Excel"}
+
+    def test_duplicate_tool_not_added_twice(self):
+        from Code.routes.import_full import grouper_lignes
+        lignes = self._lignes(
+            ("Activité D", "Dept", "Garant", "Tâche Unique", "SAP", "", "", "", ""),
+            ("", "", "", "", "SAP", "", "", "", ""),
+        )
+        groups = grouper_lignes(lignes)
+        assert groups[0]["tasks"][0]["tools"] == ["SAP"]
+
+    def test_line_without_activity_and_no_prior_group_is_skipped(self):
+        from Code.routes.import_full import grouper_lignes
+        lignes = self._lignes(
+            ("", "Dept", "Garant", "Tâche Orpheline", "", "", "", "", ""),
+        )
+        assert grouper_lignes(lignes) == []
+
+    def test_group_without_any_task_is_excluded(self):
+        from Code.routes.import_full import grouper_lignes
+        lignes = self._lignes(
+            ("Activité Sans Tâche", "Dept", "Garant", "", "", "", "", "", ""),
+        )
+        assert grouper_lignes(lignes) == []
+
+    def test_new_activity_starts_a_new_group(self):
+        from Code.routes.import_full import grouper_lignes
+        lignes = self._lignes(
+            ("Activité E1", "Dept", "Garant", "Tâche 1", "", "", "", "", ""),
+            ("Activité E2", "Dept", "Garant", "Tâche 2", "", "", "", "", ""),
+        )
+        groups = grouper_lignes(lignes)
+        assert [g["activity_name"] for g in groups] == ["Activité E1", "Activité E2"]
