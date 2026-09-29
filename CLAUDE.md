@@ -1827,7 +1827,7 @@ conversion. Mesuré après : écart horizontal 0,0 px avec le centre de la case.
 
 ---
 
-## Distribution client — branche `optiqfluent-beta-test`
+## Distribution client — branche `optiqfluent-staging`
 
 Branche dédiée à la mise à disposition de l'app chez un client pilote (rebrandée
 **OptiqFluent**), basée sur `staging`. Modèle retenu : **image Docker sur registre
@@ -1906,7 +1906,7 @@ privé (ghcr.io) + licence signée à expiration + contrat d'évaluation**. Cont
     Postgres. ⚠️ Ne s'applique pas à Cloud Run (pas de volume persistant —
     nos déploiements restent configurés par variables d'environnement).
 
-## Administration & UX IA (branche optiqfluent-beta-test)
+## Administration & UX IA (branche optiqfluent-staging)
 
 - **Clé IA à chaud** : `Code/ai_key.py` — `get_openai_key()` / `get_anthropic_key()`
   (table `app_settings` clés `openai_api_key`/`anthropic_api_key` en priorité, puis env).
@@ -3181,6 +3181,43 @@ la dissolution du lien global vérifiée **rouge** sur le code d'avant). Suite :
 2336 passés. Éprouvé dans les DEUX langues sur `tools/devrun_partage.py` :
 poser, resserrer, élargir, retirer, et une personne sans aucun rôle.
 
+### Report sur le pilote : 15 cartos homonymes numérotées, écart nul ailleurs (2026-09-29)
+
+Report habituel, rejoué d'après la recette du 17/09 (arbre de staging à
+l'identique + `.github/workflows/deploy-beta.yml`, index temporaire, invariant
+vérifié avant de pousser : `git diff --name-status origin/staging <commit>` ne
+rend que ce fichier). 3 commits de retard rattrapés.
+
+⚠️ **La branche du pilote s'appelle `optiqfluent-staging`**, pas
+« optiqfluent-beta-test » : ce nom-là n'existe plus sur le dépôt (seul le
+workflow a gardé le nom `deploy-beta.yml`). Les titres de section qui le
+citaient encore sont corrigés.
+
+**Ce que la numérotation a fait sur une base EN SERVICE.** Relevé avant
+(`tools/db/etat_entites.py`, lecture seule) : 20 cartos pour 17 noms, trois
+groupes d'homonymes — **9 « FluidCLip »**, 4 « test », 2 « Purchase ». Après le
+démarrage : **0 nom porté par plusieurs cartos**, 15 renommages, aucune carto
+perdue. Chacune a gardé son ORTHOGRAPHE : #22 s'écrivait « FluidClip » (c
+minuscule), elle est devenue « FluidClip 9 » et non « FluidCLip 9 ».
+⚠️ Et **écart NUL sur les 52 autres tables** (comparées au manifeste de la
+sauvegarde) ; seuls `app_settings` (+1, le marqueur `entites_nom_unique`) et
+`usage_events` (+4, les sondes de contrôle) bougent, comme prévu.
+
+⚠️ **Sauvegarde AVANT, et relue.**
+`~/AFDEC/sauvegardes/optiqfluent_pilot-2026-09-29` — 54 tables, 15 518 lignes,
+les 54 relues sans écart, et les 4 pièces jointes décodées depuis le base64
+jusqu'à leurs octets de signature (la carte Visio harmonisée du client :
+902 068 octets, le même compte qu'aux 17 et 28/09). L'inventaire d'avant est
+archivé à côté (`_inventaire_avant.txt`).
+⚠️ Le binaire est écrit `{"__b64__": "…"}` (`dump_db.MARQUE_BINAIRE`) : un
+script de relecture qui attend une chaîne annonce « base64 illisible » sur les
+quatre pièces jointes et laisse croire à une sauvegarde abîmée.
+
+Livré à **21h58 en Inde**, mardi soir — la règle est tenue. Vérifié en ligne :
+`/health` 200, les fichiers servis portent bien les nouveautés
+(`openImportHistory`, `imh-hist-head`, `btn-sans-taches`), et les fichiers de
+l'ancien import de tâches rendent 404.
+
 ### Une carto par nom, un historique des imports, un filtre « sans tâches » (2026-09-29)
 
 **Deux cartos ne peuvent plus porter le même nom.** `Code/entites_uniques.py`
@@ -3227,11 +3264,30 @@ tâches d'un atelier le lendemain, un fichier client le mois suivant. Sans
 trace, « d'où vient cette tâche, et qui l'a mise là ? » n'a aucune réponse — les
 données importées ne se distinguent plus de celles saisies à la main.
 
-- **Où** : bouton **« Historique des imports »** dans la fiche d'entité de la
-  pop-up Gestion des entités (page Carte), là où l'entité vit déjà. Une frise,
-  le dernier dépôt en haut, la couleur de la page où la donnée habite (rôles
-  vert, outils orange, tâches violet, comptes rouge) — la convention de la
-  fenêtre d'import, pour reconnaître la nature sans lire son nom.
+- **Où** : un **écran de la fenêtre « Importer des données »** — c'est elle qui
+  regroupe déjà tout ce qui concerne les imports, et une seconde porte ailleurs
+  finirait par ne plus dire la même chose. On y entre par une barre au bas de
+  l'écran d'accueil de la fenêtre, et par un bouton de l'écran de fin (ce qu'on
+  vient d'écrire a laissé une trace : la montrer ferme la boucle). Une frise, le
+  dernier dépôt en haut, la couleur de la page où la donnée habite (rôles vert,
+  outils orange, tâches violet, comptes rouge) — la convention des cartes de
+  nature, pour reconnaître ce qui a été ajouté sans lire son nom.
+  ⚠️ **Ce n'est pas une ÉTAPE** : le rail des quatre étapes est vidé et le titre
+  de la fenêtre devient « Historique des imports » (puis reprend celui du
+  gabarit en sortant) — laisser le rail ferait croire qu'on a quitté le parcours
+  en cours de route. Le retour ramène à l'écran d'où l'on vient.
+  ⚠️ **Le détail est REPLIÉ par défaut** : ouvert, une entrée de dix-huit
+  libellés occupe tout l'écran et on ne voit plus qu'un import à la fois. Un
+  historique se parcourt d'abord du regard, le détail se demande.
+  ⚠️ En mode **Comptes** (`?pour=comptes`) l'entrée n'existe pas : un compte ne
+  vit dans aucune carto.
+  ⚠️ Plusieurs cartos accessibles → un `<select>` dit LAQUELLE on regarde et en
+  change sans repasser par l'accueil ; l'aller-retour réseau vérifie qu'on est
+  toujours sur la même avant d'écrire la réponse à l'écran.
+  ⚠️ **`data-carto` était DÉJÀ pris** : le répartiteur de clics de la fenêtre le
+  lit AVANT le `switch` (`if (ds.carto) return basculerCarto(…)`), si bien que
+  l'entrée de l'historique ne faisait que cocher une carto dans la portée — sans
+  la moindre erreur. L'attribut s'appelle `data-histo-carto`.
 - **Une ligne par (dépôt, carto, nature)**, réunies par `lot` : c'est ce qui
   permet de dire « le même dépôt a servi à … », qu'on ne peut pas deviner ligne
   par ligne. ⚠️ Un **rôle** importé dans deux cartos ne laisse qu'UNE trace : un
@@ -3275,8 +3331,10 @@ sans contrôle d'accès), `tests/test_26_import_tasks.py` et les deux clés
 - **`/activities/map` est rendue comme un FRAGMENT** — pas de `<!DOCTYPE>`, pas
   de `<html>`, pas de `<head>` : le navigateur bâtit un document implicite dont
   `documentElement.lang` est VIDE, et les dates de l'historique repartaient en
-  français dans l'interface anglaise. La langue voyage donc avec les libellés
-  (`MAP_I18N.lang`). Le défaut de structure de la page, lui, reste entier.
+  français dans l'interface anglaise. Toute date affichée par un script de cette
+  page doit donc lire la langue du catalogue qui l'accompagne — `IMPH_I18N.lang`
+  pour la fenêtre d'import, qui le portait déjà. Le défaut de structure de la
+  page, lui, reste entier.
 - **Une clé i18n CONSTRUITE se relit tronquée à son préfixe** : `ML('h_nat_' +
   n)` est relevé comme la clé « h_nat_ ». Les quatre clés sont écrites en
   entier. ⚠️ Et le contrôle lit aussi les COMMENTAIRES : écrire l'appel fautif

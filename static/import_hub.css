@@ -1775,3 +1775,150 @@ body.imh-ouvert { overflow: hidden; }
   font-size: 12.5px;
   background: #f4f5f9;
 }
+
+/* ════════════════════════════════════════════════════════════════════
+   HISTORIQUE DES IMPORTS
+   ════════════════════════════════════════════════════════════════════
+   Un ÉCRAN de cette fenêtre, pas une étape : on ne le traverse pas pour
+   importer, on le consulte. Chaque entrée porte la couleur de la page où
+   sa donnée habite — la même convention que les cartes de nature, pour
+   reconnaître ce qui a été ajouté sans lire son nom. */
+.imh-histo-entree {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  margin-top: 14px;
+  padding: 12px 14px;
+  border: 1px solid var(--imh-line);
+  border-radius: 14px;
+  background: #fff;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color .15s ease, box-shadow .15s ease, transform .15s ease;
+  animation: imhCarte .45s cubic-bezier(.2, .8, .2, 1) both;
+  animation-delay: calc(var(--i, 0) * 55ms);
+}
+.imh-histo-entree:hover {
+  border-color: #cfd3e2;
+  box-shadow: 0 6px 18px rgba(21, 23, 38, .07);
+  transform: translateY(-1px);
+}
+.imh-histo-ic {
+  flex: none;
+  width: 34px; height: 34px;
+  border-radius: 11px;
+  display: grid; place-items: center;
+  color: #b45309;
+  background: var(--imh-warn-bg);
+}
+.imh-histo-txt { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.imh-histo-txt strong { font-size: 13.5px; color: var(--imh-ink); }
+.imh-histo-txt small { font-size: 12.5px; color: var(--imh-muted); }
+.imh-histo-go { margin-left: auto; color: var(--imh-faint); }
+.imh-histo-entree:hover .imh-histo-go { color: var(--imh-ink-2); }
+
+.imh-histo-tete {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 4px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--imh-line-2);
+}
+.imh-histo-carto, .imh-histo-sel {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--imh-ink-2);
+}
+.imh-histo-carto i, .imh-histo-sel i { color: var(--imh-faint); }
+.imh-histo-sel select {
+  font: inherit;
+  font-weight: 600;
+  color: var(--imh-ink-2);
+  padding: 6px 10px;
+  border: 1px solid var(--imh-line);
+  border-radius: 9px;
+  background: #fff;
+  max-width: 320px;
+}
+
+.imh-histo-liste { list-style: none; margin: 0; padding: 0; }
+.imh-histo-l {
+  display: flex;
+  gap: 12px;
+  padding: 13px 0;
+  border-bottom: 1px solid var(--imh-line-2);
+}
+.imh-histo-l:last-child { border-bottom: 0; }
+.imh-histo-puce {
+  flex: none;
+  width: 32px; height: 32px;
+  border-radius: 10px;
+  display: grid; place-items: center;
+  font-size: 13px;
+  color: var(--tc, #64748b);
+  background: color-mix(in srgb, var(--tc, #64748b) 13%, #fff);
+}
+.imh-histo-corps { flex: 1; min-width: 0; }
+.imh-histo-h { display: flex; align-items: baseline; flex-wrap: wrap; gap: 6px; }
+.imh-histo-nat {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--tc, #64748b) 14%, #fff);
+  color: var(--tc, #64748b);
+  font-size: 12px; font-weight: 700;
+}
+.imh-histo-n   { font-size: 15px; font-weight: 700; color: var(--imh-ink); }
+.imh-histo-mot { font-size: 13px; color: var(--imh-ink-2); }
+.imh-histo-quand { margin-left: auto; font-size: 12px; color: var(--imh-muted); }
+.imh-histo-src {
+  margin: 3px 0 0;
+  display: flex; align-items: center; gap: 6px;
+  font-size: 12.5px; color: var(--imh-muted);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.imh-histo-aussi {
+  margin: 4px 0 0;
+  display: flex; align-items: center; gap: 6px;
+  font-size: 12.5px;
+  color: var(--imh-warn);
+}
+.imh-histo-aussi i { font-size: 11px; opacity: .75; }
+.imh-histo-detail {
+  margin: 7px 0 0;
+  max-height: 260px;
+  overflow-y: auto;
+  padding: 8px 10px 8px 26px;
+  list-style: disc;
+  border-radius: 10px;
+  background: var(--imh-bg);
+  font-size: 12.5px;
+  color: var(--imh-ink-2);
+}
+.imh-histo-detail li { margin: 1px 0; }
+.imh-histo-reste { list-style: none; margin-left: -14px; color: var(--imh-muted); font-style: italic; }
+.imh-histo .imh-btn-lien { margin-top: 6px; }
+
+.imh-histo-vide {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 48px 20px;
+  text-align: center;
+}
+.imh-histo-vide-ic {
+  width: 46px; height: 46px;
+  border-radius: 14px;
+  display: grid; place-items: center;
+  font-size: 19px;
+  color: var(--imh-faint);
+  background: var(--imh-bg);
+}
+.imh-histo-vide strong { font-size: 14px; color: var(--imh-ink-2); }
+.imh-histo-vide small { font-size: 12.5px; color: var(--imh-muted); }

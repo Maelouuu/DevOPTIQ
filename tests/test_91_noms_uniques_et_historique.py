@@ -326,11 +326,15 @@ class TestHistoriqueDesImports:
             from Code.models.models import ImportRecord
             assert ImportRecord.query.filter_by(entity_id=scene["b"]).count() == 0
 
-    def test_la_fiche_d_entite_porte_le_bouton(self, app, client, scene):
+    def test_il_s_ouvre_depuis_la_fenetre_d_import(self, app, client, scene):
+        """⚠️ Et de là SEULEMENT : c'est cette fenêtre qui regroupe tout ce qui
+        concerne les imports. Une seconde porte dans la fiche d'entité finirait
+        par ne plus dire la même chose."""
         _connecte(client, app, scene["admin"], scene["a"])
         page = client.get("/activities/map").get_data(as_text=True)
-        assert 'id="wizard-history-btn"' in page
-        assert 'id="import-history-modal"' in page
+        assert 'h_entree:' in page and 'h_nat_roles:' in page
+        assert "wizard-history-btn" not in page
+        assert "import-history-modal" not in page
 
 
 # ══════════════════════════════════════════════════════════════════════

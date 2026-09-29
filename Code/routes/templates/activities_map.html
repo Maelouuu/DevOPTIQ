@@ -43,11 +43,7 @@
   window.ACCESS_I18N = { badgeShared: {{ t('access.badge_shared')|tojson }} };
   // Ce que activities_map.js écrit lui-même (liste des entités, liaisons entre
   // cartos, erreurs) : sans ce catalogue, ces textes restaient en français.
-  // ⚠️ `lang` voyage avec les libellés : `/activities/map` n'a pas de balise
-  // <html>, donc `documentElement.lang` y est VIDE et les dates repartaient en
-  // français dans l'interface anglaise.
   window.MAP_I18N = {
-    lang:            {{ session.get('lang', 'fr')|tojson }},
     activity:        {{ t('map.count_activity')|tojson }},
     activities:      {{ t('map.count_activities')|tojson }},
     active:          {{ t('map.entity_active_badge')|tojson }},
@@ -74,21 +70,7 @@
     cx_deoffice_links: {{ t('map.cx_deoffice_links')|tojson }},
     cx_irreversible: {{ t('map.cx_irreversible')|tojson }},
     activating:      {{ t('map.preview_activating')|tojson }},
-    activate:        {{ t('map.preview_activate')|tojson }},
-    h_vide:          {{ t('hist.vide')|tojson }},
-    h_erreur:        {{ t('hist.erreur')|tojson }},
-    h_chargement:    {{ t('hist.chargement')|tojson }},
-    h_ajoutes:       {{ t('hist.ajoutes')|tojson }},
-    h_ajoute:        {{ t('hist.ajoute')|tojson }},
-    h_aussi:         {{ t('hist.aussi')|tojson }},
-    h_par:           {{ t('hist.par')|tojson }},
-    h_voir:          {{ t('hist.voir')|tojson }},
-    h_replier:       {{ t('hist.replier')|tojson }},
-    h_reste:         {{ t('hist.reste')|tojson }},
-    h_nat_roles:     {{ t('hist.nat_roles')|tojson }},
-    h_nat_outils:    {{ t('hist.nat_outils')|tojson }},
-    h_nat_taches:    {{ t('hist.nat_taches')|tojson }},
-    h_nat_users:     {{ t('hist.nat_users')|tojson }}
+    activate:        {{ t('map.preview_activate')|tojson }}
   };
 </script>
 
@@ -264,10 +246,6 @@
                 <i class="fa-solid fa-pen"></i>
                 <span>{{ t('map.entity_btn_rename') }}</span>
               </button>
-              <button id="wizard-history-btn" class="em-action-btn em-action-history">
-                <i class="fa-solid fa-clock-rotate-left"></i>
-                <span>{{ t('map.entity_btn_history') }}</span>
-              </button>
               <button id="wizard-share-btn" class="em-action-btn em-action-share">
                 <i class="fa-solid fa-share-nodes"></i>
                 <span>{{ t('map.entity_btn_share') }}</span>
@@ -322,25 +300,6 @@
           <i class="fa-solid fa-paper-plane"></i> {{ t('map.share_confirm') }}
         </button>
       </div>
-    </div>
-  </div>
-
-  <!-- MODAL HISTORIQUE DES IMPORTS -->
-  <div id="import-history-modal" class="modal hidden">
-    <div class="modal-content imh-hist">
-      <div class="imh-hist-head">
-        <div class="imh-hist-titre">
-          <i class="fa-solid fa-clock-rotate-left"></i>
-          <div>
-            <h3>{{ t('hist.title') }}</h3>
-            <span id="imh-hist-entite"></span>
-          </div>
-        </div>
-        <button class="imh-hist-x" id="imh-hist-close" aria-label="{{ t('btn.close') }}">
-          <i class="fa-solid fa-xmark"></i>
-        </button>
-      </div>
-      <div class="imh-hist-corps" id="imh-hist-corps"></div>
     </div>
   </div>
 
