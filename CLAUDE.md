@@ -3181,6 +3181,119 @@ la dissolution du lien global vérifiée **rouge** sur le code d'avant). Suite :
 2336 passés. Éprouvé dans les DEUX langues sur `tools/devrun_partage.py` :
 poser, resserrer, élargir, retirer, et une personne sans aucun rôle.
 
+### Une carto par nom, un historique des imports, un filtre « sans tâches » (2026-09-29)
+
+**Deux cartos ne peuvent plus porter le même nom.** `Code/entites_uniques.py`
+est la source unique. Le nom d'une carto est ce qui la désigne PARTOUT :
+sélecteur d'entité active, galerie de la page Partage, colonnes de la matrice
+d'accès, tableau des compétences de la page RH, file des propositions. Cinq
+« FluidClip » — ce que le dépôt de copies avait fabriqué sur le pilote —
+rendent tous ces écrans indéchiffrables : rien ne dit laquelle on regarde.
+
+- ⚠️ **La comparaison est NORMALISÉE** (minuscules, sans accents, espaces
+  resserrés) : « FluidClip », « fluidclip » et « Fluid  Clip » désignent la même
+  chose pour un lecteur, et c'est le lecteur qu'on protège. Elle est donc plus
+  stricte qu'une contrainte UNIQUE en base, qui laisserait passer les trois —
+  d'où l'absence d'index unique et le passage OBLIGÉ par ce module.
+- ⚠️ **Créer ou renommer est REFUSÉ** (409, `code: "nom_pris"`), jamais corrigé
+  en douce : on vient de taper ce nom, une carto qui s'appelle autrement est
+  introuvable. Les chemins AUTOMATIQUES, eux, cherchent un nom libre
+  (`nom_unique` → « Nom (2) ») : dépôt d'une copie, import d'un paquet
+  `.optiqcarto`, clone du panel.
+- ⚠️ **L'unicité est celle de l'INSTANCE, plus celle d'un compte.** Les deux
+  anciens helpers (`_unique_entity_name_for`, `_unique_entity_name`) ne
+  regardaient que les entités du destinataire : déposer la même carto chez six
+  comptes donnait six homonymes, légalement.
+- ⚠️ **Conséquence à rattraper** : la copie reçue ne porte plus le nom de la
+  source, donc le rapprochement « l'entité de MÊME NOM qu'il possède déjà » ne
+  trouvait plus rien et le bouton « Mettre à jour la mienne » disparaissait.
+  `_entite_jumelle` compare désormais les noms de BASE (`base_nom`, qui retire
+  un « (n) » final — et LUI SEUL : « Atelier 2 » est peut-être le vrai nom d'un
+  second atelier). Quatre cas de `test_51` affirmaient l'ancienne règle ; ils
+  affirment la nouvelle.
+- **Les homonymes déjà en base** : `numeroter_doublons()` au démarrage,
+  marqueur `entites_nom_unique` en BASE. La plus ANCIENNE prend le « 1 », puis
+  « 2 », « 3 »… (`created_at`, à défaut l'id — les lignes d'avant la colonne la
+  portent à NULL, ce sont les plus anciennes). ⚠️ **Chaque carto garde son
+  ORTHOGRAPHE** : on numérote pour distinguer, on ne réécrit pas ce que
+  quelqu'un a saisi. ⚠️ Et la reprise ne se joue qu'UNE fois : rejouée à chaque
+  démarrage, elle renommerait « X 1 » en « X 1 1 » au premier homonyme suivant.
+
+**L'historique des imports** — modèle `ImportRecord` (`import_records`), écrit
+par `/api/import/importer` dans la MÊME transaction que l'import (une trace qui
+survivrait à un import annulé mentirait), lu par `GET /api/import/historique`.
+Une carto se remplit par petits bouts : un classeur de rôles un jour, les
+tâches d'un atelier le lendemain, un fichier client le mois suivant. Sans
+trace, « d'où vient cette tâche, et qui l'a mise là ? » n'a aucune réponse — les
+données importées ne se distinguent plus de celles saisies à la main.
+
+- **Où** : bouton **« Historique des imports »** dans la fiche d'entité de la
+  pop-up Gestion des entités (page Carte), là où l'entité vit déjà. Une frise,
+  le dernier dépôt en haut, la couleur de la page où la donnée habite (rôles
+  vert, outils orange, tâches violet, comptes rouge) — la convention de la
+  fenêtre d'import, pour reconnaître la nature sans lire son nom.
+- **Une ligne par (dépôt, carto, nature)**, réunies par `lot` : c'est ce qui
+  permet de dire « le même dépôt a servi à … », qu'on ne peut pas deviner ligne
+  par ligne. ⚠️ Un **rôle** importé dans deux cartos ne laisse qu'UNE trace : un
+  rôle appartient à l'entreprise, créé pour l'une il existe pour les autres —
+  deux traces diraient qu'il a été ajouté deux fois. Un **outil** appartient à
+  sa carto, lui en laisse deux.
+- ⚠️ `detail` porte les **LIBELLÉS**, pas des identifiants : l'historique doit
+  rester lisible même si l'objet a été renommé ou supprimé depuis. Plafonné à
+  400 entrées par ligne ; au-delà, « et n de plus ».
+- ⚠️ **Rien n'est écrit quand rien n'a été ajouté** : relire un fichier déjà
+  importé est le geste le plus courant, une trace vide ferait croire à un
+  import.
+- ⚠️ **Lisible par qui peut OUVRIR la carto**, pas seulement par qui a importé :
+  la question se pose d'abord à celui qui trouve la tâche.
+- ⚠️ `fichier` et `feuille` viennent du navigateur : tronqués, jamais
+  interprétés — des étiquettes, pas des chemins.
+- ⚠️ Supprimer une carto efface ses `import_records` — **et ses
+  `entity_status_access`, qui manquaient** au ménage de `delete_entity` depuis
+  la section « accès par statut » : PostgreSQL applique les clés étrangères,
+  effacer une carto dont les statuts avaient été réglés aurait échoué.
+
+**Le filtre « sans tâches »** (liste des activités) : les activités nées de la
+carto qu'on n'a pas encore complétées. ⚠️ Le cadrage est **SERVEUR**
+(`_cadrer`) : la liste arrive par lots de 20 et la recherche passe déjà par le
+serveur — un masquage en JS ne cacherait que ce qui est déjà à l'écran, et le
+compte serait faux. L'état vit dans l'URL (`?sans_taches=1`), donc il survit au
+rechargement et se partage ; `/view/more` et `/view/search` le portent aussi.
+⚠️ Le compteur du bouton porte sur **toute la carto**, pas sur le lot affiché :
+il dit ce qui reste à faire, il ne bouge pas quand on filtre.
+
+**Le bouton « Importer des tâches » a quitté la page Activités** : l'import
+passe par la page Carte, deux portes pour un même geste finissent par donner
+deux comportements. Supprimés avec lui : `import_tasks_modal.html`,
+`static/js/import_tasks.js`, `static/import_tasks.css`, le blueprint
+`Code/routes/import_tasks.py` (`/api/import-tasks/*`, injoignable désormais et
+sans contrôle d'accès), `tests/test_26_import_tasks.py` et les deux clés
+`act_list.import_*`. `import_tasks_modal.html` sort des inventaires de dette de
+`test_78` et `test_89`.
+
+⚠️ **Trois pièges rencontrés, tous déjà connus sous une autre forme :**
+- **`/activities/map` est rendue comme un FRAGMENT** — pas de `<!DOCTYPE>`, pas
+  de `<html>`, pas de `<head>` : le navigateur bâtit un document implicite dont
+  `documentElement.lang` est VIDE, et les dates de l'historique repartaient en
+  français dans l'interface anglaise. La langue voyage donc avec les libellés
+  (`MAP_I18N.lang`). Le défaut de structure de la page, lui, reste entier.
+- **Une clé i18n CONSTRUITE se relit tronquée à son préfixe** : `ML('h_nat_' +
+  n)` est relevé comme la clé « h_nat_ ». Les quatre clés sont écrites en
+  entier. ⚠️ Et le contrôle lit aussi les COMMENTAIRES : écrire l'appel fautif
+  dans le commentaire qui l'explique le fait échouer à nouveau.
+- **`_CLE` exige un `{` ou une `,` juste avant la clé** : un commentaire glissé
+  entre l'accolade ouvrante et la première clé d'un `window.XXX_I18N` rend
+  cette clé invisible au contrôle d'injection. Le commentaire se met AVANT
+  l'affectation.
+
+Tests : `tests/test_91_noms_uniques_et_historique.py` (26 cas ; 13 vérifiés
+**rouges** en neutralisant `nom_libre`, `_tracer` et `_cadrer`). Suite : 2644
+passés, et `tools/repet_image.sh` 2616 passés + 28 sautés.
+⚠️ `test_65::test_le_pont_du_hub_expose_la_route` relit les sources de `hub/`,
+absentes de l'arbre d'image : il échouait à CHAQUE répétition depuis le 16/09.
+Il saute désormais, comme la fixture `pulse_app` — un contrôle qui rougit
+toujours n'est plus lu, et le jour où il a raison personne ne regarde.
+
 ### Report sur le pilote : 380 rôles réunis en 56, sans rien perdre (2026-09-28)
 
 Report habituel, rejoué **tel quel** d'après la recette du 17/09 : l'arbre de

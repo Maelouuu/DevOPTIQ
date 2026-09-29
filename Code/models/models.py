@@ -980,6 +980,40 @@ class EntityStatusAccess(db.Model):
     )
 
 
+class ImportRecord(db.Model):
+    """Ce qu'un import a ajouté à une carto — daté, signé, et détaillé.
+
+    Une carto se remplit par petits bouts : un classeur de rôles un jour, les
+    tâches d'un atelier le lendemain, un fichier client le mois suivant. Sans
+    trace, la seule question qui compte — « d'où vient cette tâche, et qui l'a
+    mise là ? » — n'a aucune réponse : les données importées ne se distinguent
+    plus de celles saisies à la main.
+
+    Une ligne par (dépôt, carto, nature) : un même dépôt visant trois cartos en
+    écrit trois, réunies par `lot` — c'est ce qui permet de dire « le même
+    fichier a servi ailleurs ».
+
+    ⚠️ `detail` porte les LIBELLÉS ajoutés, pas des identifiants : ce qui est
+    consulté ici doit rester lisible même si l'objet a été renommé ou supprimé
+    depuis. Un historique qui renvoie des lignes vides ne sert à rien.
+    """
+    __tablename__ = 'import_records'
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    entity_id = db.Column(db.Integer, db.ForeignKey('entities.id'),
+                          nullable=False, index=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
+    #: Réunit les lignes d'un même dépôt (plusieurs cartos, plusieurs natures).
+    lot = db.Column(db.String(40), index=True)
+    #: roles | outils | taches | users
+    nature = db.Column(db.String(20), nullable=False)
+    fichier = db.Column(db.String(255))
+    feuille = db.Column(db.String(160))
+    ajoutes = db.Column(db.Integer, default=0, nullable=False)
+    detail = db.Column(db.Text)
+
+
 class CartoChangeRequest(db.Model):
     """Modification proposée sur une carto commune, en attente d'examen.
 

@@ -510,6 +510,8 @@ class TestHistoriqueDesExecutions:
         from pathlib import Path as _P
 
         racine = _P(__file__).resolve().parent.parent
+        if not (racine / 'hub' / 'panel_client.py').exists():
+            pytest.skip("hub/ absent (arbre bytecode) — service séparé")
         client_hub = _io.open(racine / 'hub' / 'panel_client.py',
                               encoding='utf-8').read()
         assert 'def runs(' in client_hub

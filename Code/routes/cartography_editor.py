@@ -784,17 +784,9 @@ def _read_carto_package(payload):
 
 
 def _unique_entity_name(base, user_id):
-    """Évite d'écraser une entité existante : « Nom », « Nom (2) », « Nom (3) »…"""
-    name = (base or "Cartographie importée").strip()[:200]
-    taken = {
-        e.name for e in Entity.query.filter_by(owner_id=user_id).all() if e.name
-    }
-    if name not in taken:
-        return name
-    i = 2
-    while f"{name} ({i})"[:200] in taken:
-        i += 1
-    return f"{name} ({i})"[:200]
+    """« Nom », « Nom (2) », « Nom (3) »… libre pour toute l'instance."""
+    from Code.entites_uniques import nom_unique
+    return nom_unique(base, defaut="Cartographie importée")
 
 
 @cartography_editor_bp.route("/api/export")

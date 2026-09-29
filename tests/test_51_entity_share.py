@@ -138,7 +138,11 @@ def test_le_partage_depose_une_copie_complete(app, client, cast):
         for item in body["shared"]:
             copie = Entity.query.get(item["entity_id"])
             assert copie.owner_id == item["user_id"]
-            assert copie.name == "Entité à partager"
+            # ⚠️ La copie ne PREND PAS le nom de la source : deux cartos
+            # homonymes ne se distinguent sur aucun écran (sélecteur d'entité
+            # active, matrice d'accès, tableau RH). Elle en dérive.
+            assert copie.name.startswith("Entité à partager")
+            assert copie.name != "Entité à partager"
             assert copie.vsdx_filename == "src.vsdx"
             assert json.loads(copie.optiqcarto_data) == DIAGRAM
             # les activités sont dérivées comme après un import Visio
@@ -150,23 +154,26 @@ def test_le_partage_depose_une_copie_complete(app, client, cast):
 
 
 def test_le_second_partage_ne_remplace_pas_le_premier(app, client, cast):
-    """Deux envois au même compte → deux entités, la seconde suffixée."""
+    """Deux envois au même compte → deux entités, chacune son nom."""
     _as(client, cast["owner"], "share.admin@devoptiq.com")
     res = client.post(f"/activities/api/entities/{cast['entity_id']}/share",
                       json={"user_ids": [cast["dest1"]]})
     nom = res.get_json()["shared"][0]["entity_name"]
-    assert nom == "Entité à partager (2)"
+    assert nom.startswith("Entité à partager (")
     with app.app_context():
         from Code.models.models import Entity
-        n = Entity.query.filter_by(owner_id=cast["dest1"]).count()
-        assert n >= 2
+        siennes = Entity.query.filter_by(owner_id=cast["dest1"]).all()
+        assert len(siennes) >= 2
+        # Aucun doublon de nom, ni chez lui ni ailleurs.
+        noms = [e.name for e in Entity.query.all()]
+        assert len(noms) == len(set(noms))
 
 
 def test_le_destinataire_voit_son_entite(app, client, cast):
     _as(client, cast["dest2"], "share.dest2@devoptiq.com")
     res = client.get("/activities/api/entities")
     noms = [e["name"] for e in res.get_json()]
-    assert "Entité à partager" in noms
+    assert any(n.startswith("Entité à partager") for n in noms)
 
 
 def test_les_candidats_signalent_une_copie_deja_deposee(app, client, cast):
@@ -514,7 +521,9 @@ def test_un_depot_d_autorite_laisse_une_notification(app, client, cast):
     assert len(offres) == 1
     notice = offres[0]
     assert notice["kind"] == "notice"
-    assert notice["entity_name"] == "Entité à partager"
+    # La notification nomme la carto TELLE QU'ELLE A ÉTÉ DÉPOSÉE : lui annoncer
+    # le nom de la source l'enverrait chercher une carto qu'il n'a pas.
+    assert notice["entity_name"].startswith("Entité à partager")
     assert notice["from"]
     return notice
 

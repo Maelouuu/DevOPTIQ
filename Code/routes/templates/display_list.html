@@ -10,8 +10,6 @@
   <link rel="stylesheet" href="/static/spinner.css">
   <!-- CSS chatbot -->
   <link rel="stylesheet" href="/static/chatbot.css">
-  <!-- CSS import tâches -->
-  <link rel="stylesheet" href="/static/import_tasks.css">
   <!-- CSS file picker (drag & drop) -->
   <link rel="stylesheet" href="/static/css/file-picker.css">
   <!-- SheetJS (lecture Excel .xlsx côté client) -->
@@ -27,7 +25,7 @@
 
   <div class="pg-container">
 
-  <!-- Barre de recherche + bouton import -->
+  <!-- Barre de recherche, dépliage, filtre -->
   <div class="activity-search-wrapper">
     <div class="activity-search-box">
       <i class="fa-solid fa-magnifying-glass activity-search-icon"></i>
@@ -46,9 +44,16 @@
             data-label-close="{{ t('act_list.collapse_all') }}">
       <i class="fa-solid fa-angles-down"></i> <span>{{ t('act_list.expand_all') }}</span>
     </button>
-    <button class="btn-import-tasks" onclick="openImportModal()" title="{{ t('act_list.import_title') }}">
-      <i class="fa-solid fa-file-import"></i> {{ t('act_list.import_tasks') }}
-    </button>
+    <!-- Filtre : les activités nées de la carto qu'on n'a pas encore
+         complétées. Les chercher à la main dans la liste était le travail que
+         cet écran doit faire à notre place. -->
+    <a class="btn-sans-taches{% if sans_taches %} is-on{% endif %}"
+       href="{{ url_for('activities.view_activities') }}{% if not sans_taches %}?sans_taches=1{% endif %}"
+       aria-pressed="{{ 'true' if sans_taches else 'false' }}">
+      <i class="fa-solid fa-list-check"></i>
+      <span>{{ t('act_list.sans_taches') }}</span>
+      <b>{{ n_sans_taches }}</b>
+    </a>
   </div>
 
   <!-- Section spéciale : activité mise en avant depuis la carto -->
@@ -97,7 +102,6 @@
   {% include "chatbot_widget.html" %}
 
   <!-- Modal import de tâches -->
-  {% include "import_tasks_modal.html" %}
 
   <!-- Translations for dynamically-built proposal modals -->
   <script>
@@ -195,7 +199,6 @@
   <script defer src="{{ url_for('static', filename='js/activities_time.js') }}"></script>
   <script defer src="{{ url_for('static', filename='js/activity_highlight.js') }}"></script>
   <script defer src="{{ url_for('static', filename='js/chatbot.js') }}"></script>
-  <script defer src="{{ url_for('static', filename='js/import_tasks.js') }}"></script>
 
   <script>
   (function() {
@@ -230,6 +233,9 @@
         try {
           let fetchUrl = `/activities/view/more?offset=${nextOffset}`;
           if (excludeId) fetchUrl += `&exclude_id=${excludeId}`;
+          // Le filtre est un cadrage SERVEUR : la suite de la liste doit le
+          // porter, sinon « charger plus » ramènerait les activités écartées.
+          if (sansTaches) fetchUrl += '&sans_taches=1';
           const resp = await fetch(fetchUrl);
           const data = await resp.json();
           if (data.html) {
@@ -274,6 +280,10 @@
     }
 
     // ── Recherche (toutes activités via API) ─────────────────────────────────
+    // Posé par le gabarit : l'état du filtre vit dans l'URL, donc il survit
+    // au rechargement et se partage.
+    const sansTaches = {{ 'true' if sans_taches else 'false' }};
+
     let _searchTimer = null;
     window.filterActivities = function(query) {
       const q = query.trim();
@@ -296,6 +306,7 @@
         try {
           let url = `/activities/view/search?q=${encodeURIComponent(q)}`;
           if (excludeId) url += `&exclude_id=${excludeId}`;
+          if (sansTaches) url += '&sans_taches=1';
           const resp = await fetch(url);
           const data = await resp.json();
           mainList.innerHTML = data.html || '';

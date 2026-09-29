@@ -584,7 +584,7 @@ class TestFrancaisEnDur:
 
     ⚠️ Ce contrôle est un CLIQUET, pas un mur. Relevé le 16/09/2026 : 78
     fragments sur 12 gabarits, dont trois écrans jamais traduits
-    (`import_full_modal`, `projection_metier`, `import_tasks_modal`). Les
+    (`import_full_modal`, `projection_metier`). Les
     traduire demande d'écrire de vraies tournures anglaises, pas de déplacer du
     texte — c'est un travail à part entière. En attendant, la dette est ÉCRITE
     ici, et elle ne peut que décroître : un gabarit absent de l'inventaire doit
@@ -600,7 +600,6 @@ class TestFrancaisEnDur:
     # gabarit → nombre de fragments français tolérés aujourd'hui.
     DETTE = {
         "projection_metier.html":       14,
-        "import_tasks_modal.html":      10,
         "chatbot_widget.html":           5,
         "license_blocked.html":          4,
         "setup_wizard.html":             2,
