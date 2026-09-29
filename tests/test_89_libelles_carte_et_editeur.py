@@ -58,7 +58,6 @@ class TestAttributsEnDur:
     # l'assistant d'installation : un chantier à part entière chacun.
     DETTE = {
         "chatbot_widget.html":    6,
-        "import_tasks_modal.html": 3,
         "setup_wizard.html":      3,
         "projection_metier.html": 2,
     }

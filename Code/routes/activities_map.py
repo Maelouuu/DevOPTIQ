@@ -27,6 +27,7 @@ from sqlalchemy import or_
 from sqlalchemy.orm.attributes import flag_modified
 
 from Code.extensions import db
+from Code.translations import t as _t
 from Code.prompts import get_prompt, prompts_available
 from Code.models.models import Activities, Entity, Link, Data, Task, Role, CrossCartoLiaison, activity_roles, task_roles, task_tools
 
@@ -509,9 +510,15 @@ def create_entity():
     data = request.get_json()
     
     if not data or not data.get("name"):
-        return jsonify({"error": "Nom requis"}), 400
+        return jsonify({"error": _t('map.err_name_required')}), 400
     
     user_id = session.get('user_id')
+
+    # ⚠️ Le nom est REFUSÉ, pas corrigé en douce : on vient de le taper, et une
+    # carto qui s'appelle autrement que ce qu'on a demandé est introuvable.
+    from Code.entites_uniques import nom_libre
+    if not nom_libre(data["name"]):
+        return jsonify({"error": _t('map.err_nom_pris'), "code": "nom_pris"}), 409
     
     # Désactiver les autres entités avant de créer la nouvelle
     Entity.query.filter_by(owner_id=user_id).update({'is_active': False})
@@ -661,12 +668,15 @@ def delete_entity(entity_id):
             CrossCartoLiaison.extco_entity_id == entity_id,
             CrossCartoLiaison.origin_entity_id == entity_id)))
 
-        # ── Partage : accès par rôle et modifications proposées ──
-        # PostgreSQL applique les clés étrangères : sans ces deux suppressions,
+        # ── Partage, accès par statut, propositions, historique des imports ──
+        # PostgreSQL applique les clés étrangères : sans ces suppressions,
         # effacer une carto commune échouerait.
-        from Code.models.models import CartoChangeRequest, EntityRoleAccess
+        from Code.models.models import (CartoChangeRequest, EntityRoleAccess,
+                                        EntityStatusAccess, ImportRecord)
         EntityRoleAccess.query.filter_by(entity_id=entity_id).delete(synchronize_session=False)
+        EntityStatusAccess.query.filter_by(entity_id=entity_id).delete(synchronize_session=False)
         CartoChangeRequest.query.filter_by(entity_id=entity_id).delete(synchronize_session=False)
+        ImportRecord.query.filter_by(entity_id=entity_id).delete(synchronize_session=False)
 
         # ── Tables d'association ──
         _adel(task_tools, task_tools.c.task_id, task_ids)
@@ -774,15 +784,14 @@ def delete_entity(entity_id):
 # acceptation (voir EntityShareOffer et /api/share/offers).
 
 def _unique_entity_name_for(base, user_id):
-    """« Nom », puis « Nom (2) », « Nom (3) »… chez le destinataire."""
-    name = (base or "Entité partagée").strip()[:200]
-    taken = {e.name for e in Entity.query.filter_by(owner_id=user_id).all() if e.name}
-    if name not in taken:
-        return name
-    i = 2
-    while f"{name} ({i})"[:200] in taken:
-        i += 1
-    return f"{name} ({i})"[:200]
+    """« Nom », puis « Nom (2) », « Nom (3) »…
+
+    ⚠️ Libre pour TOUTE l'instance, plus seulement chez le destinataire : déposer
+    la même carto chez six comptes fabriquait six « FluidClip » que plus aucun
+    écran ne distinguait.
+    """
+    from Code.entites_uniques import nom_unique
+    return nom_unique(base, defaut="Entité partagée")
 
 
 def _deposer_copie(source, target_id, nom=None):
@@ -860,8 +869,20 @@ def _carto_json(donnees):
 
 
 def _entite_jumelle(nom, user_id):
-    """Entité du compte portant déjà ce nom — celle qu'on peut mettre à jour."""
-    return Entity.query.filter_by(owner_id=user_id, name=(nom or '').strip()).first()
+    """Entité du compte portant déjà ce nom — celle qu'on peut mettre à jour.
+
+    ⚠️ Comparée sur le nom de BASE : depuis que les noms sont uniques, la copie
+    reçue s'appelle « Nom (2) » — un rapprochement au nom exact ne trouverait
+    plus rien et le bouton « Mettre à jour la mienne » disparaîtrait.
+    """
+    from Code.entites_uniques import base_nom, normalise
+    cle = normalise(base_nom(nom))
+    if not cle:
+        return None
+    for e in Entity.query.filter_by(owner_id=user_id).order_by(Entity.id).all():
+        if normalise(base_nom(e.name)) == cle:
+            return e
+    return None
 
 
 def _nom_compte(u):
@@ -893,7 +914,7 @@ def share_candidates(entity_id):
     out = []
     for u in users:
         siennes = Entity.query.filter_by(owner_id=u.id).order_by(Entity.name).all()
-        deja = any(e.name == entity.name for e in siennes)
+        deja = _entite_jumelle(entity.name, u.id) is not None
         ligne = {
             "id": u.id,
             "name": _nom_compte(u),
@@ -1163,6 +1184,9 @@ def update_entity(entity_id):
     data = request.get_json()
     
     if data.get("name"):
+        from Code.entites_uniques import nom_libre
+        if not nom_libre(data["name"], sauf_id=entity.id):
+            return jsonify({"error": _t('map.err_nom_pris'), "code": "nom_pris"}), 409
         entity.name = data["name"]
     if "description" in data:
         entity.description = data["description"]

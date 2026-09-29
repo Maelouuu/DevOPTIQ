@@ -3160,3 +3160,50 @@ body.dnd-active .task-conn-slot.task-conn-outgoing:not(.has-conn) {
     font-size: 12.5px; font-weight: 600; line-height: 1.45;
     background: #fff8ec; border: 1px solid #fadfa6; color: #92590e;
 }
+
+/* ── Filtre « sans tâches » ───────────────────────────────────────────────────
+   Même patron que « Tout ouvrir » : ce sont deux réglages de la même barre, ils
+   ne doivent pas avoir deux poids visuels. Allumé, il prend l'accent de la page
+   PLEIN — un filtre actif cadre tout ce qu'on lit en dessous, il doit se voir
+   depuis le bas de la liste.
+   ⚠️ Le compte est celui des activités sans tâche dans TOUTE la carto, pas dans
+   le lot affiché : c'est ce qui reste à faire, il ne bouge pas quand on filtre. */
+.btn-sans-taches {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border: 1px solid var(--border-strong, #cbd5e1);
+  border-radius: var(--r-btn, 9px);
+  background: var(--card, #fff);
+  color: var(--ink-2, #334155);
+  font-size: 13.5px;
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background .15s ease, border-color .15s ease, color .15s ease;
+}
+.btn-sans-taches:hover {
+  background: var(--card-2, #f8fafc);
+  border-color: var(--pg-accent, #7c3aed);
+  color: var(--pg-accent, #7c3aed);
+}
+.btn-sans-taches b {
+  min-width: 22px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--pg-accent, #7c3aed) 12%, #fff);
+  color: var(--pg-accent, #7c3aed);
+  font-size: 12px;
+  font-weight: 700;
+  text-align: center;
+}
+.btn-sans-taches.is-on {
+  background: linear-gradient(135deg, var(--pg-accent, #7c3aed), var(--pg-accent-deep, #6d28d9));
+  border-color: transparent;
+  color: #fff;
+}
+.btn-sans-taches.is-on b {
+  background: rgba(255, 255, 255, .22);
+  color: #fff;
+}

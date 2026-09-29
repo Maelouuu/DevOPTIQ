@@ -1338,8 +1338,9 @@ def admin_migrate_entities():
         # 2. Dupliquer l'entité de base pour Hubert
         new_entity = None
         if base_entity:
+            from Code.entites_uniques import nom_unique
             new_entity = Entity(
-                name            = base_entity.name + ' — Hubert',
+                name            = nom_unique(base_entity.name + ' — Hubert'),
                 description     = base_entity.description,
                 owner_id        = hubert.id,
                 svg_filename    = base_entity.svg_filename,

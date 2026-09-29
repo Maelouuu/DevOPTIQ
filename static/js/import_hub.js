@@ -1432,7 +1432,10 @@
   async function importer() {
     const parts = S.parts.filter(p => nbGardees(p) > 0).map(p => {
       const g = new Set(gardees(p));
-      return { type: p.type, id: p.id, lignes: p.lignes.filter(l => g.has(l._i)), choix: S.choix[p.id] || {} };
+      // fichier/feuille voyagent avec la part : l'historique de la carto doit
+      // pouvoir dire de QUEL dépôt vient chaque ligne.
+      return { type: p.type, id: p.id, fichier: p.fichier, feuille: p.feuille,
+               lignes: p.lignes.filter(l => g.has(l._i)), choix: S.choix[p.id] || {} };
     });
     if (!parts.length || S.occupe) return;
     S.occupe = 'import';

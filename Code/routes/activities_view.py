@@ -10,6 +10,25 @@ PAGE_SIZE    = 20
 SPECIAL_SIZE = 10
 
 
+def _sans_taches_demande():
+    return (request.args.get('sans_taches') or '').strip() in ('1', 'true', 'on')
+
+
+def _cadrer(q, sans_taches):
+    """⚠️ Le filtre ne peut PAS se faire en JS : la liste arrive par lots de
+    20 et la recherche passe déjà par le serveur — on ne masquerait que ce qui
+    est déjà à l'écran, et le compte serait faux."""
+    if not sans_taches:
+        return q
+    sans = ~db.session.query(Task.id).filter(
+        Task.activity_id == Activities.id).exists()
+    return q.filter(sans)
+
+
+def _compte_sans_taches():
+    return _cadrer(Activities.for_active_entity(), True).count()
+
+
 def _norm(s):
     """Normalise pour une recherche insensible à la casse ET aux accents.
 
@@ -37,17 +56,20 @@ def view_activities():
                 'roles': 'act_list.selected_from_roles'}
     pinned_label = origines.get((request.args.get('from') or '').strip().lower(),
                                 'act_list.selected')
-    total       = Activities.for_active_entity().count()
+    sans_taches   = _sans_taches_demande()
+    n_sans_taches = _compte_sans_taches()
+    base          = _cadrer(Activities.for_active_entity(), sans_taches)
+    total         = base.count()
 
     if not total:
         return render_template('display_list.html', activity_data=[],
                                has_more=False, next_offset=0, total=0,
-                               pinned_activity_id=None, pinned_label=pinned_label)
+                               pinned_activity_id=None, pinned_label=pinned_label,
+                               sans_taches=sans_taches, n_sans_taches=n_sans_taches)
 
     if activity_id:
         target = Activities.for_active_entity().filter(Activities.id == activity_id).first()
-        others = (Activities.for_active_entity()
-                  .filter(Activities.id != activity_id)
+        others = (base.filter(Activities.id != activity_id)
                   .order_by(Activities.name)
                   .limit(SPECIAL_SIZE).all())
         to_load     = ([target] if target else []) + others
@@ -55,7 +77,7 @@ def view_activities():
         others_total = total - (1 if target else 0)
         has_more     = others_total > SPECIAL_SIZE
     else:
-        to_load     = Activities.for_active_entity().order_by(Activities.name).limit(PAGE_SIZE).all()
+        to_load     = base.order_by(Activities.name).limit(PAGE_SIZE).all()
         next_offset = PAGE_SIZE
         has_more    = total > PAGE_SIZE
 
@@ -66,7 +88,9 @@ def view_activities():
                            next_offset=next_offset,
                            total=total,
                            pinned_activity_id=activity_id,
-                           pinned_label=pinned_label)
+                           pinned_label=pinned_label,
+                           sans_taches=sans_taches,
+                           n_sans_taches=n_sans_taches)
 
 
 @activities_bp.route('/view/more', methods=['GET'])
@@ -74,7 +98,8 @@ def view_activities_more():
     offset     = request.args.get('offset', PAGE_SIZE, type=int)
     exclude_id = request.args.get('exclude_id', type=int)
 
-    q = Activities.for_active_entity().order_by(Activities.name)
+    q = _cadrer(Activities.for_active_entity(), _sans_taches_demande())
+    q = q.order_by(Activities.name)
     if exclude_id:
         q = q.filter(Activities.id != exclude_id)
 
@@ -101,7 +126,8 @@ def search_activities():
     if not q:
         return jsonify({'html': '', 'count': 0})
     qn = _norm(q)
-    matches = [a for a in Activities.for_active_entity().order_by(Activities.name).all()
+    base = _cadrer(Activities.for_active_entity(), _sans_taches_demande())
+    matches = [a for a in base.order_by(Activities.name).all()
                if qn in _norm(a.name)]
     activity_data = _build_activity_data(matches)
     html = render_template('activity_cards_partial.html', activity_data=activity_data)

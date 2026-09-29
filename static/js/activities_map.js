@@ -2167,3 +2167,109 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   });
 });
+/* ══════════════════════════════════════════════════════════════════════
+   HISTORIQUE DES IMPORTS D'UNE CARTO
+   ══════════════════════════════════════════════════════════════════════
+   Une carto se remplit par petits bouts — un classeur de rôles, les tâches d'un
+   atelier, un fichier client. Sans trace, « d'où vient cette tâche, et qui l'a
+   mise là ? » reste sans réponse : l'importé ne se distingue plus du saisi.
+   L'historique vit dans la fiche de l'entité, là où l'entité vit déjà. */
+
+const HIST_TEINTE = {           // la couleur de la page où la donnée habite
+  roles:  "#059669",
+  outils: "#ea580c",
+  taches: "#7c3aed",
+  users:  "#e11d48",
+};
+
+// ⚠️ Les quatre clés sont écrites EN ENTIER. Une clé CONSTRUITE par
+// concaténation se relit tronquée à son préfixe — une clé qui n'existe pas,
+// et que le contrôle d'injection signale (piège déjà rencontré côté Python).
+function histNature(n) {
+  if (n === 'roles')  return ML('h_nat_roles');
+  if (n === 'outils') return ML('h_nat_outils');
+  if (n === 'taches') return ML('h_nat_taches');
+  return ML('h_nat_users');
+}
+
+function histQuand(iso) {
+  if (!iso) return "";
+  // ⚠️ Le serveur écrit en UTC SANS fuseau : sans le « Z » on lit deux heures
+  // de moins à Paris.
+  const d = new Date(/[Zz+]|\d{2}:\d{2}$/.test(iso.slice(10)) ? iso : iso + "Z");
+  if (isNaN(d)) return "";
+  const lang = ((window.MAP_I18N || {}).lang === "en") ? "en-GB" : "fr-FR";
+  return d.toLocaleString(lang, { day: "2-digit", month: "short", year: "numeric",
+                                  hour: "2-digit", minute: "2-digit" });
+}
+
+function histLigne(l, i) {
+  const teinte = HIST_TEINTE[l.nature] || "#64748b";
+  const source = [l.fichier, l.feuille].filter(Boolean).map(escHtml).join(" › ");
+  const qui    = l.qui ? `${escHtml(ML('h_par'))} ${escHtml(l.qui)}` : "";
+  const reste  = Math.max(0, (l.ajoutes || 0) - (l.detail || []).length);
+  const items  = (l.detail || []).map(x => `<li>${escHtml(x)}</li>`).join("");
+  const suite  = reste ? `<li class="imh-h-reste">${escHtml(MF('h_reste', { 0: reste }))}</li>` : "";
+  const aussi  = (l.aussi || []).length
+    ? `<div class="imh-h-aussi"><i class="fa-solid fa-arrows-turn-right"></i>
+         ${escHtml(ML('h_aussi'))} ${escHtml(l.aussi.join(", "))}</div>`
+    : "";
+  return `
+    <article class="imh-h-ligne" style="--imh-teinte:${teinte}">
+      <div class="imh-h-puce"><i class="fa-solid fa-file-import"></i></div>
+      <div class="imh-h-corps">
+        <div class="imh-h-tete">
+          <span class="imh-h-nat">${escHtml(histNature(l.nature))}</span>
+          <strong class="imh-h-n">${l.ajoutes || 0}</strong>
+          <span class="imh-h-mot">${escHtml((l.ajoutes || 0) === 1 ? ML('h_ajoute') : ML('h_ajoutes'))}</span>
+          <span class="imh-h-quand">${escHtml(histQuand(l.quand))}${qui ? " · " + qui : ""}</span>
+        </div>
+        ${source ? `<div class="imh-h-src"><i class="fa-regular fa-file-excel"></i>${source}</div>` : ""}
+        ${aussi}
+        ${items ? `
+          <button type="button" class="imh-h-voir" data-hist="${i}"
+                  aria-expanded="false">${escHtml(ML('h_voir'))}</button>
+          <ul class="imh-h-detail" id="imh-h-d-${i}" hidden>${items}${suite}</ul>` : ""}
+      </div>
+    </article>`;
+}
+
+async function openImportHistory() {
+  const e = wizardState.selectedEntity;
+  if (!e) return;
+  const corps = $("#imh-hist-corps");
+  const titre = $("#imh-hist-entite");
+  if (titre) titre.textContent = e.name || "";
+  if (corps) corps.innerHTML = `<p class="imh-h-attente">${escHtml(ML('h_chargement'))}</p>`;
+  showModal("import-history-modal");
+  try {
+    const res  = await fetch(`/api/import/historique?entity_id=${e.id}`);
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "");
+    if (!corps) return;
+    corps.innerHTML = (data.lignes || []).length
+      ? data.lignes.map(histLigne).join("")
+      : `<p class="imh-h-vide"><i class="fa-regular fa-folder-open"></i>${escHtml(ML('h_vide'))}</p>`;
+  } catch (_) {
+    if (corps) corps.innerHTML = `<p class="imh-h-vide">${escHtml(ML('h_erreur'))}</p>`;
+  }
+}
+
+function wireImportHistory() {
+  $("#wizard-history-btn")?.addEventListener("click", openImportHistory);
+  $("#imh-hist-close")?.addEventListener("click", () => hideModal("import-history-modal"));
+  // Le détail se déplie sur place : ouvrir une deuxième fenêtre pour lire une
+  // liste de noms ferait perdre la ligne qu'on était en train de lire.
+  $("#imh-hist-corps")?.addEventListener("click", (ev) => {
+    const b = ev.target.closest("[data-hist]");
+    if (!b) return;
+    const ul = document.getElementById("imh-h-d-" + b.dataset.hist);
+    if (!ul) return;
+    const ouvert = !ul.hidden;
+    ul.hidden = ouvert;
+    b.setAttribute("aria-expanded", String(!ouvert));
+    b.textContent = ouvert ? ML('h_voir') : ML('h_replier');
+  });
+}
+
+document.addEventListener("DOMContentLoaded", wireImportHistory);

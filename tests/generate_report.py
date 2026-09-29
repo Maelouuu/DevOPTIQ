@@ -37,7 +37,6 @@ PAGE_LABELS = {
     "test_23_performance_perso": "Performance Personnalisée",
     "test_24_roles_view":        "Vues des Rôles & Items Activité",
     "test_25_competences_plan":  "Plan de Compétences & Prérequis",
-    "test_26_import_tasks":      "Import de Tâches CSV/JSON",
     "test_27_activities_view":   "Vue Paginée des Activités",
     "test_28_plan_storage":      "Plan Compétences & Paramètres",
     "test_29_constraints":       "API Contraintes & Données",
@@ -107,6 +106,7 @@ PAGE_LABELS = {
     "test_87_fiche_compte":               "Fiche de Compte — Rôles Multi-Cartos",
     "test_88_decision_a_l_auteur":        "Mot du Valideur — Retour à l'Auteur",
     "test_89_libelles_carte_et_editeur":  "Libellés Carte & Éditeur — Langue Choisie",
+    "test_90_tasks_roles_par_nom":        "Tâches — Rôles ajoutés par nom",
 }
 
 

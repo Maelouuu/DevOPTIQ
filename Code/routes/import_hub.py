@@ -44,6 +44,7 @@ import os
 import re
 import secrets
 import unicodedata
+import uuid
 from difflib import SequenceMatcher
 
 import openpyxl
@@ -921,6 +922,7 @@ def _importer_simple(type_, lignes, cibles):
     modele = Role if type_ == "roles" else Tool
     existants = _existants_par_carto(modele, cibles)
     crees, par_carto = 0, {}
+    ajouts = {e.id: [] for e in cibles}
     for l in verifiees:
         if l["statut"] not in ("nouveau", "partiel"):
             continue
@@ -936,10 +938,11 @@ def _importer_simple(type_, lignes, cibles):
                 obj = Tool(name=l["nom"], entity_id=e.id, description=l.get("description") or None)
                 db.session.add(obj)
             existants[e.id].add(_norm(l["nom"]))
+            ajouts[e.id].append(l["nom"])
             crees += 1
             par_carto[e.name] = par_carto.get(e.name, 0) + 1
     db.session.flush()
-    return {"crees": crees, "par_carto": par_carto}
+    return {"crees": crees, "par_carto": par_carto, "ajouts": ajouts}
 
 
 def _importer_users(lignes, moi, cibles, options):
@@ -952,6 +955,7 @@ def _importer_users(lignes, moi, cibles, options):
     roles = {e.id: index for e in cibles}
     active = Entity.get_active_id()
     crees, attribues, roles_crees, identifiants = 0, 0, 0, []
+    ajouts = {e.id: [] for e in cibles}
     # La vérification rend ses lignes dans l'ordre reçu : on les apparie par
     # POSITION, jamais par l'index `_i` venu du navigateur.
     for l, v in zip(lignes, verifiees):
@@ -980,6 +984,9 @@ def _importer_users(lignes, moi, cibles, options):
                     user_id=u.id, role_id=r.id).first():
                 db.session.add(UserRole(user_id=u.id, role_id=r.id))
                 attribues += 1
+                # Le compte est de l'entreprise, le RÔLE est de la carto : c'est
+                # cette attribution-là qui appartient à son historique.
+                ajouts[e.id].append("%s — %s" % (u.email, r.name))
         crees += 1
         if genere:
             # ⚠️ Montré UNE fois, dans cette réponse, et jamais stocké en clair.
@@ -987,7 +994,7 @@ def _importer_users(lignes, moi, cibles, options):
                                  "email": u.email, "mot_de_passe": mdp})
     db.session.flush()
     return {"crees": crees, "roles_attribues": attribues, "roles_crees": roles_crees,
-            "identifiants": identifiants}
+            "identifiants": identifiants, "ajouts": ajouts}
 
 
 def _liste(v):
@@ -1003,6 +1010,7 @@ def _importer_taches(lignes, cibles, choix):
     acts = _activites(cibles)
     stats = {"tasks_created": 0, "tools_created": 0, "roles_created": 0,
              "competencies_created": 0, "activities_updated": 0}
+    ajouts = {e.id: [] for e in cibles}
     for g in verif["groupes"]:
         if not g["choix"]:
             continue
@@ -1017,8 +1025,35 @@ def _importer_taches(lignes, cibles, choix):
                                    "tasks": taches}], eid)
             for k in stats:
                 stats[k] += s.get(k, 0)
+            ajouts.setdefault(eid, []).extend(
+                "%s — %s" % (a.name, x["name"]) for x in taches)
     db.session.flush()
-    return stats
+    return dict(stats, ajouts=ajouts)
+
+
+def _tracer(part, res, cibles, moi, lot):
+    """Une ligne d'historique par carto touchée — dans la MÊME transaction que
+    l'import : une trace qui survivrait à un import annulé mentirait.
+
+    ⚠️ `fichier` et `feuille` viennent du navigateur : tronqués, jamais
+    interprétés. Ce sont des étiquettes, pas des chemins.
+    """
+    from Code.models.models import ImportRecord
+    ajouts = res.get("ajouts") or {}
+    for e in cibles:
+        libelles = ajouts.get(e.id) or []
+        if not libelles:
+            continue
+        db.session.add(ImportRecord(
+            entity_id=e.id,
+            user_id=getattr(moi, "id", None),
+            lot=lot,
+            nature=part["type"],
+            fichier=(_txt(part.get("fichier")) or "")[:255] or None,
+            feuille=(_txt(part.get("feuille")) or "")[:160] or None,
+            ajoutes=len(libelles),
+            detail=json.dumps(libelles[:400], ensure_ascii=False),
+        ))
 
 
 # ══════════════════════════════════════════════════════════════════════
@@ -1275,6 +1310,7 @@ def importer():
     if any(x["type"] != "users" for x in parts) and not cibles:
         return jsonify({"error": t("imph.err_aucune_cible")}), 400
     options = p.get("options") or {}
+    lot = uuid.uuid4().hex[:12]
 
     resultats = []
     try:
@@ -1286,7 +1322,9 @@ def importer():
                 res = _importer_users(lignes, moi, cibles, options)
             else:
                 res = _importer_simple(x["type"], lignes, cibles)
-            resultats.append(dict(type=x["type"], id=x.get("id"), **res))
+            _tracer(x, res, cibles, moi, lot)
+            resultats.append(dict(type=x["type"], id=x.get("id"),
+                                  **{k: v for k, v in res.items() if k != "ajouts"}))
         db.session.commit()
     except Exception:
         db.session.rollback()
@@ -1294,3 +1332,67 @@ def importer():
         return jsonify({"error": t("imph.err_import")}), 500
     return jsonify({"ok": True, "resultats": resultats,
                     "cibles": [{"id": e.id, "name": e.name} for e in cibles]}), 200
+
+
+@import_hub_bp.route("/historique", methods=["GET"])
+def historique():
+    """Ce qui a été importé dans une carto, du plus récent au plus ancien.
+
+    ⚠️ Lisible par qui peut OUVRIR la carto, pas seulement par qui l'a importée :
+    l'historique répond à « d'où vient cette tâche ? », question que se pose
+    d'abord celui qui la trouve, pas celui qui l'a mise là.
+    """
+    from Code.carto_access import readable_entity
+    from Code.models.models import ImportRecord
+    moi = _moi()
+    if moi is None:
+        return jsonify({"error": t("imph.err_droits")}), 403
+    entity_id = request.args.get("entity_id", type=int) or Entity.get_active_id()
+    entity = readable_entity(entity_id) if entity_id else None
+    if entity is None:
+        return jsonify({"error": t("imph.err_aucune_cible")}), 404
+
+    lignes = (ImportRecord.query.filter_by(entity_id=entity.id)
+              .order_by(ImportRecord.created_at.desc(), ImportRecord.id.desc())
+              .limit(200).all())
+    qui = {}
+    if lignes:
+        ids = {l.user_id for l in lignes if l.user_id}
+        if ids:
+            qui = {u.id: (("%s %s" % (u.first_name or "", u.last_name or "")).strip()
+                          or u.email)
+                   for u in User.query.filter(User.id.in_(ids)).all()}
+
+    # Les cartos qui ont reçu le MÊME dépôt : c'est ce qui explique qu'une tâche
+    # se retrouve ailleurs, et on ne peut pas le deviner ligne par ligne.
+    lots = {l.lot for l in lignes if l.lot}
+    ailleurs = {}
+    if lots:
+        for r in (ImportRecord.query
+                  .filter(ImportRecord.lot.in_(lots),
+                          ImportRecord.entity_id != entity.id).all()):
+            ailleurs.setdefault(r.lot, set()).add(r.entity_id)
+        noms = {e.id: e.name for e in Entity.query.filter(
+            Entity.id.in_({i for s in ailleurs.values() for i in s})).all()}
+    else:
+        noms = {}
+
+    out = []
+    for l in lignes:
+        try:
+            detail = json.loads(l.detail or "[]")
+        except ValueError:
+            detail = []
+        out.append({
+            "id": l.id,
+            "nature": l.nature,
+            "fichier": l.fichier,
+            "feuille": l.feuille,
+            "ajoutes": l.ajoutes or 0,
+            "detail": detail if isinstance(detail, list) else [],
+            "quand": l.created_at.isoformat() if l.created_at else None,
+            "qui": qui.get(l.user_id),
+            "aussi": sorted(noms.get(i, "") for i in ailleurs.get(l.lot, ()) if noms.get(i)),
+        })
+    return jsonify({"entity": {"id": entity.id, "name": entity.name},
+                    "lignes": out}), 200

@@ -310,8 +310,6 @@ def create_app(test_config=None):
     from Code.routes.chatbot import chatbot_bp
     app.register_blueprint(chatbot_bp)
 
-    from Code.routes.import_tasks import import_tasks_bp
-    app.register_blueprint(import_tasks_bp)
 
     from Code.routes.import_full import import_full_bp
     app.register_blueprint(import_full_bp)
@@ -632,6 +630,17 @@ def create_app(test_config=None):
         except Exception as e:
             db.session.rollback()
             print(f"[DB] réunion des rôles: {e}")
+
+        try:
+            from Code.entites_uniques import numeroter_doublons
+            renommees = numeroter_doublons()
+            for _id, _avant, _apres in renommees:
+                print(f"[DB] entité #{_id} : « {_avant} » -> « {_apres} »")
+            if renommees:
+                print(f"[DB] {len(renommees)} carto(s) homonyme(s) numérotée(s)")
+        except Exception as e:
+            db.session.rollback()
+            print(f"[DB] numérotation des cartos homonymes: {e}")
 
         try:
             from Code.models.models import RecentEvent
