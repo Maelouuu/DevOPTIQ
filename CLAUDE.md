@@ -3264,11 +3264,30 @@ tâches d'un atelier le lendemain, un fichier client le mois suivant. Sans
 trace, « d'où vient cette tâche, et qui l'a mise là ? » n'a aucune réponse — les
 données importées ne se distinguent plus de celles saisies à la main.
 
-- **Où** : bouton **« Historique des imports »** dans la fiche d'entité de la
-  pop-up Gestion des entités (page Carte), là où l'entité vit déjà. Une frise,
-  le dernier dépôt en haut, la couleur de la page où la donnée habite (rôles
-  vert, outils orange, tâches violet, comptes rouge) — la convention de la
-  fenêtre d'import, pour reconnaître la nature sans lire son nom.
+- **Où** : un **écran de la fenêtre « Importer des données »** — c'est elle qui
+  regroupe déjà tout ce qui concerne les imports, et une seconde porte ailleurs
+  finirait par ne plus dire la même chose. On y entre par une barre au bas de
+  l'écran d'accueil de la fenêtre, et par un bouton de l'écran de fin (ce qu'on
+  vient d'écrire a laissé une trace : la montrer ferme la boucle). Une frise, le
+  dernier dépôt en haut, la couleur de la page où la donnée habite (rôles vert,
+  outils orange, tâches violet, comptes rouge) — la convention des cartes de
+  nature, pour reconnaître ce qui a été ajouté sans lire son nom.
+  ⚠️ **Ce n'est pas une ÉTAPE** : le rail des quatre étapes est vidé et le titre
+  de la fenêtre devient « Historique des imports » (puis reprend celui du
+  gabarit en sortant) — laisser le rail ferait croire qu'on a quitté le parcours
+  en cours de route. Le retour ramène à l'écran d'où l'on vient.
+  ⚠️ **Le détail est REPLIÉ par défaut** : ouvert, une entrée de dix-huit
+  libellés occupe tout l'écran et on ne voit plus qu'un import à la fois. Un
+  historique se parcourt d'abord du regard, le détail se demande.
+  ⚠️ En mode **Comptes** (`?pour=comptes`) l'entrée n'existe pas : un compte ne
+  vit dans aucune carto.
+  ⚠️ Plusieurs cartos accessibles → un `<select>` dit LAQUELLE on regarde et en
+  change sans repasser par l'accueil ; l'aller-retour réseau vérifie qu'on est
+  toujours sur la même avant d'écrire la réponse à l'écran.
+  ⚠️ **`data-carto` était DÉJÀ pris** : le répartiteur de clics de la fenêtre le
+  lit AVANT le `switch` (`if (ds.carto) return basculerCarto(…)`), si bien que
+  l'entrée de l'historique ne faisait que cocher une carto dans la portée — sans
+  la moindre erreur. L'attribut s'appelle `data-histo-carto`.
 - **Une ligne par (dépôt, carto, nature)**, réunies par `lot` : c'est ce qui
   permet de dire « le même dépôt a servi à … », qu'on ne peut pas deviner ligne
   par ligne. ⚠️ Un **rôle** importé dans deux cartos ne laisse qu'UNE trace : un
@@ -3312,8 +3331,10 @@ sans contrôle d'accès), `tests/test_26_import_tasks.py` et les deux clés
 - **`/activities/map` est rendue comme un FRAGMENT** — pas de `<!DOCTYPE>`, pas
   de `<html>`, pas de `<head>` : le navigateur bâtit un document implicite dont
   `documentElement.lang` est VIDE, et les dates de l'historique repartaient en
-  français dans l'interface anglaise. La langue voyage donc avec les libellés
-  (`MAP_I18N.lang`). Le défaut de structure de la page, lui, reste entier.
+  français dans l'interface anglaise. Toute date affichée par un script de cette
+  page doit donc lire la langue du catalogue qui l'accompagne — `IMPH_I18N.lang`
+  pour la fenêtre d'import, qui le portait déjà. Le défaut de structure de la
+  page, lui, reste entier.
 - **Une clé i18n CONSTRUITE se relit tronquée à son préfixe** : `ML('h_nat_' +
   n)` est relevé comme la clé « h_nat_ ». Les quatre clés sont écrites en
   entier. ⚠️ Et le contrôle lit aussi les COMMENTAIRES : écrire l'appel fautif

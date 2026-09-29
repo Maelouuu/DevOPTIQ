@@ -47,6 +47,7 @@
   const GARDABLES = new Set(['nouveau', 'partiel']);
   const EXT = /\.(xlsx|xlsm|csv)$/i;
   const MAX_FICHIERS = 8;
+  let TITRE = '';   // le titre du gabarit, relevé à l'init et remis en sortant
 
   let CTX = null;
   let S = neuf();
@@ -68,6 +69,8 @@
       examen: {},      // ce que l'IA a déjà examiné, par part et par portée
       deplie: {},      // correspondance des colonnes ouverte, par part
       natOuverte: {},  // « ce n'est pas ça ? » ouvert, par part
+      histo: null,     // historique chargé : { carto, nom, lignes, deplies }
+      histoRetour: 'choix',  // l'écran d'où on est venu le consulter
     };
   }
 
@@ -223,7 +226,8 @@
     dom.fenetre.style.setProperty('--tc', COULEUR[S.type] || '#db2777');
     dom.fenetre.dataset.ecran = S.ecran;
     rendreTete();
-    const ecran = { choix: ecranChoix, depot: ecranDepot, revue: ecranRevue, fin: ecranFin }[S.ecran];
+    const ecran = { choix: ecranChoix, depot: ecranDepot, revue: ecranRevue,
+                    fin: ecranFin, historique: ecranHistorique }[S.ecran];
     dom.corps.innerHTML = erreurHtml() + ecran();
     rendrePied();
     dom.corps.scrollTop = S.ecranRendu === vue ? haut : 0;
@@ -231,6 +235,19 @@
   }
 
   function rendreTete() {
+    // ⚠️ L'historique n'est pas une ÉTAPE : on ne le traverse pas pour
+    // importer, on le consulte. Laisser le rail affiché ferait croire qu'on a
+    // quitté le parcours en cours de route.
+    if (S.ecran === 'historique') {
+      dom.etapes.innerHTML = '';
+      dom.titre.textContent = L('h_titre');
+      dom.sous.textContent = (S.histo && S.histo.nom) || L('h_sous');
+      dom.logo.innerHTML = '<i class="fa-solid fa-clock-rotate-left"></i>';
+      return;
+    }
+    // ⚠️ Le titre est rendu par le gabarit : on le remet tel quel en sortant,
+    // sinon la fenêtre garderait « Historique » pour importer.
+    dom.titre.textContent = TITRE;
     // Sans choix de nature, l'étape « Nature » n'existe pas : une étape déjà
     // franchie avant d'avoir rien fait se lit comme une étape sautée.
     const ecrans = modeComptes() ? ['depot', 'revue', 'fin'] : ['choix', 'depot', 'revue', 'fin'];
@@ -272,6 +289,7 @@
       ${modeComptes() ? '' : carteMultiple()}
       <ul class="imh-promesses">${promesses.map(([ic, txt], i) =>
         `<li style="--i:${i + 4}"><i class="fa-solid ${ic}"></i><span>${esc(txt)}</span></li>`).join('')}</ul>
+      ${modeComptes() ? '' : entreeHistorique()}
     </div>`;
   }
 
@@ -964,6 +982,134 @@
     return ORDRE.filter(t => out[t]).map(t => out[t]);
   }
 
+  // ── L'historique des imports de la carto ───────────────────────────
+  // ⚠️ Il vit ICI, pas dans la fiche d'entité de la page Carte : c'est cette
+  // fenêtre qui regroupe tout ce qui concerne les imports. Une seconde porte
+  // ailleurs finirait par ne plus dire la même chose.
+  // ⚠️ Le détail est REPLIÉ par défaut : ouvert, une entrée de dix-huit
+  // libellés occupe tout l'écran et on ne voit plus qu'un import à la fois.
+  // Un historique se parcourt d'abord du regard.
+
+  function cartoHisto() {
+    const cibles = (CTX && CTX.cibles) || [];
+    if (S.histo && S.histo.carto) return S.histo.carto;
+    const active = cibles.find(c => c.active);
+    return active ? active.id : (cibles[0] ? cibles[0].id : null);
+  }
+
+  function nomCarto(id) {
+    const c = ((CTX && CTX.cibles) || []).find(x => x.id === id);
+    return c ? c.name : '';
+  }
+
+  function entreeHistorique() {
+    const id = cartoHisto();
+    if (!id) return '';
+    return `<button type="button" class="imh-histo-entree" data-action="historique" data-histo-carto="${id}" style="--i:7">
+      <span class="imh-histo-ic"><i class="fa-solid fa-clock-rotate-left"></i></span>
+      <span class="imh-histo-txt"><strong>${esc(L('h_entree'))}</strong><small>${esc(L('h_sous'))}</small></span>
+      <span class="imh-histo-go" aria-hidden="true"><i class="fa-solid fa-arrow-right"></i></span>
+    </button>`;
+  }
+
+  async function ouvrirHistorique(carto) {
+    if (S.ecran !== 'historique') S.histoRetour = S.ecran;
+    const id = carto || cartoHisto();
+    if (!id) return;
+    S.ecran = 'historique';
+    S.histo = { carto: id, nom: nomCarto(id), lignes: null, deplies: new Set() };
+    rendre();
+    try {
+      const r = await fetch('/api/import/historique?entity_id=' + id, { credentials: 'same-origin' });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error || L('h_erreur'));
+      // On a pu changer de carto — ou d'écran — pendant l'aller-retour.
+      if (S.ecran !== 'historique' || !S.histo || S.histo.carto !== id) return;
+      S.histo.lignes = d.lignes || [];
+      S.histo.nom = (d.entity && d.entity.name) || S.histo.nom;
+    } catch (_) {
+      if (S.histo) S.histo.lignes = [];
+      S.erreur = L('h_erreur');
+    }
+    rendre();
+  }
+
+  function ecranHistorique() {
+    const h = S.histo || {};
+    const cibles = (CTX && CTX.cibles) || [];
+    // Plusieurs cartos accessibles : on dit LAQUELLE on regarde, et on en
+    // change sans repasser par l'accueil.
+    const choix = cibles.length > 1
+      ? `<label class="imh-histo-sel"><i class="fa-solid fa-map-location-dot"></i>
+           <select id="imh-histo-carto">${cibles.map(c =>
+             `<option value="${c.id}"${c.id === h.carto ? ' selected' : ''}>${esc(c.name)}</option>`).join('')}</select></label>`
+      : `<span class="imh-histo-carto"><i class="fa-solid fa-map-location-dot"></i>${esc(h.nom || '')}</span>`;
+    let corps;
+    if (h.lignes === null || h.lignes === undefined) {
+      corps = `<div class="imh-attente"><i class="fa-solid fa-circle-notch fa-spin"></i></div>`;
+    } else if (!h.lignes.length) {
+      corps = `<div class="imh-histo-vide">
+        <span class="imh-histo-vide-ic"><i class="fa-regular fa-folder-open"></i></span>
+        <strong>${esc(L('h_vide'))}</strong><small>${esc(L('h_vide_sous'))}</small></div>`;
+    } else {
+      corps = `<ol class="imh-histo-liste">${h.lignes.map(histoLigne).join('')}</ol>`;
+    }
+    return `<div class="imh-histo"><div class="imh-histo-tete">${choix}</div>${corps}</div>`;
+  }
+
+  // ⚠️ Les quatre clés sont écrites EN ENTIER. Une clé construite par
+  // concaténation se relit tronquée à son préfixe — une clé qui n'existe pas,
+  // et que le contrôle d'injection signale.
+  function histoNature(n) {
+    if (n === 'roles') return L('h_nat_roles');
+    if (n === 'outils') return L('h_nat_outils');
+    if (n === 'taches') return L('h_nat_taches');
+    return L('h_nat_users');
+  }
+
+  function histoQuand(iso) {
+    if (!iso) return '';
+    // ⚠️ Le serveur écrit en UTC SANS fuseau : sans le « Z » on lit deux heures
+    // de moins à Paris.
+    const d = new Date(/[Zz+]|\d{2}:\d{2}$/.test(iso.slice(10)) ? iso : iso + 'Z');
+    if (isNaN(d)) return '';
+    const l = ((window.IMPH_I18N || {}).lang === 'en') ? 'en-GB' : 'fr-FR';
+    return d.toLocaleString(l, { day: '2-digit', month: 'short', year: 'numeric',
+                                 hour: '2-digit', minute: '2-digit' });
+  }
+
+  function histoLigne(l) {
+    const ouvert = !!(S.histo && S.histo.deplies.has(l.id));
+    const teinte = COULEUR[l.nature] || '#64748b';
+    const source = [l.fichier, l.feuille].filter(Boolean).map(esc).join(' › ');
+    const qui = l.qui ? `${esc(L('h_par'))} ${esc(l.qui)}` : '';
+    const detail = l.detail || [];
+    const reste = Math.max(0, (l.ajoutes || 0) - detail.length);
+    const items = !ouvert ? '' : detail.map(x => `<li>${esc(x)}</li>`).join('')
+      + (reste ? `<li class="imh-histo-reste">${esc(F('h_reste', { 0: reste }))}</li>` : '');
+    const aussi = (l.aussi || []).length
+      ? `<p class="imh-histo-aussi"><i class="fa-solid fa-arrows-turn-right"></i>${esc(L('h_aussi'))} ${esc(l.aussi.join(', '))}</p>`
+      : '';
+    const plus = detail.length
+      ? `<button type="button" class="imh-btn-lien" data-action="histo-detail" data-ligne="${l.id}" aria-expanded="${ouvert}"><i class="fa-solid fa-chevron-${ouvert ? 'up' : 'down'}"></i>${esc(ouvert ? L('h_replier') : L('h_voir'))}</button>`
+      : '';
+    return `<li class="imh-histo-l" style="--tc:${teinte}">
+      <span class="imh-histo-puce"><i class="fa-solid ${ICONE[l.nature] || 'fa-file-import'}"></i></span>
+      <div class="imh-histo-corps">
+        <div class="imh-histo-h">
+          <span class="imh-histo-nat">${esc(histoNature(l.nature))}</span>
+          <strong class="imh-histo-n">${l.ajoutes || 0}</strong>
+          <span class="imh-histo-mot">${esc((l.ajoutes || 0) === 1 ? L('h_ajoute') : L('h_ajoutes'))}</span>
+          <span class="imh-histo-quand">${esc(histoQuand(l.quand))}${qui ? ' · ' + qui : ''}</span>
+        </div>
+        ${source ? `<p class="imh-histo-src"><i class="fa-regular fa-file-excel"></i>${source}</p>` : ''}
+        ${aussi}
+        ${plus}
+        ${items ? `<ul class="imh-histo-detail">${items}</ul>` : ''}
+      </div>
+    </li>`;
+  }
+
   function ecranFin() {
     const r = S.resultat || { resultats: [], cibles: [] };
     const res = parNature(r.resultats);
@@ -1077,8 +1223,15 @@
       }
     }
     if (S.ecran === 'fin') {
-      g = `<button type="button" class="imh-btn-sec" data-action="encore"><i class="fa-solid fa-rotate-right"></i>${esc(L('encore'))}</button>`;
+      // Ce qu'on vient d'écrire a laissé une trace : la montrer ferme la
+      // boucle, au lieu de laisser croire qu'il faut la chercher ailleurs.
+      const cibles = ((S.resultat || {}).cibles || []);
+      g = `<button type="button" class="imh-btn-sec" data-action="encore"><i class="fa-solid fa-rotate-right"></i>${esc(L('encore'))}</button>`
+        + (cibles.length ? `<button type="button" class="imh-btn-sec" data-action="historique" data-histo-carto="${cibles[0].id}"><i class="fa-solid fa-clock-rotate-left"></i>${esc(L('h_entree'))}</button>` : '');
       d = `<button type="button" class="imh-btn-prim" data-action="fermer"><i class="fa-solid fa-check"></i>${esc(L('terminer'))}</button>`;
+    }
+    if (S.ecran === 'historique') {
+      g = `<button type="button" class="imh-btn-sec" data-action="histo-retour"><i class="fa-solid fa-arrow-left"></i>${esc(L('h_retour'))}</button>`;
     }
     dom.pied.hidden = !g && !d;
     dom.pied.innerHTML = `<div class="imh-pied-g">${g}</div><div class="imh-pied-d">${d}</div>`;
@@ -1491,6 +1644,15 @@
         rendre();
         if (!S.ignorees[p.id]) verifier(p);
         return;
+      case 'historique': return ouvrirHistorique(Number(ds.histoCarto) || null);
+      case 'histo-retour': S.ecran = S.histoRetour || 'choix'; S.histo = null; return rendre();
+      case 'histo-detail': {
+        const id = Number(ds.ligne);
+        if (S.histo) {
+          if (S.histo.deplies.has(id)) S.histo.deplies.delete(id); else S.histo.deplies.add(id);
+        }
+        return rendre();
+      }
       case 'importer': return importer();
       case 'csv': return telechargerCsv();
       case 'encore': {
@@ -1507,6 +1669,7 @@
 
   function changement(e) {
     const el = e.target;
+    if (el.id === 'imh-histo-carto') return ouvrirHistorique(Number(el.value));
     if (el.id === 'imh-input' || el.dataset.role === 'ajout') {
       recevoir(el.files);
       el.value = '';
@@ -1588,6 +1751,8 @@
     dom.corps = document.getElementById('imh-corps');
     dom.pied = document.getElementById('imh-pied');
     dom.etapes = document.getElementById('imh-etapes');
+    dom.titre = document.getElementById('imh-titre');
+    TITRE = dom.titre.textContent;
     dom.sous = document.getElementById('imh-sous');
     dom.logo = document.getElementById('imh-logo');
     brancher();
