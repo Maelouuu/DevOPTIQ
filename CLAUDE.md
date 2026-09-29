@@ -1827,7 +1827,7 @@ conversion. Mesuré après : écart horizontal 0,0 px avec le centre de la case.
 
 ---
 
-## Distribution client — branche `optiqfluent-beta-test`
+## Distribution client — branche `optiqfluent-staging`
 
 Branche dédiée à la mise à disposition de l'app chez un client pilote (rebrandée
 **OptiqFluent**), basée sur `staging`. Modèle retenu : **image Docker sur registre
@@ -1906,7 +1906,7 @@ privé (ghcr.io) + licence signée à expiration + contrat d'évaluation**. Cont
     Postgres. ⚠️ Ne s'applique pas à Cloud Run (pas de volume persistant —
     nos déploiements restent configurés par variables d'environnement).
 
-## Administration & UX IA (branche optiqfluent-beta-test)
+## Administration & UX IA (branche optiqfluent-staging)
 
 - **Clé IA à chaud** : `Code/ai_key.py` — `get_openai_key()` / `get_anthropic_key()`
   (table `app_settings` clés `openai_api_key`/`anthropic_api_key` en priorité, puis env).
@@ -3180,6 +3180,43 @@ Tests : `tests/test_80_rh_acces_et_dev.py::TestLaPorteeDUnDeveloppeur` (8 cas �
 la dissolution du lien global vérifiée **rouge** sur le code d'avant). Suite :
 2336 passés. Éprouvé dans les DEUX langues sur `tools/devrun_partage.py` :
 poser, resserrer, élargir, retirer, et une personne sans aucun rôle.
+
+### Report sur le pilote : 15 cartos homonymes numérotées, écart nul ailleurs (2026-09-29)
+
+Report habituel, rejoué d'après la recette du 17/09 (arbre de staging à
+l'identique + `.github/workflows/deploy-beta.yml`, index temporaire, invariant
+vérifié avant de pousser : `git diff --name-status origin/staging <commit>` ne
+rend que ce fichier). 3 commits de retard rattrapés.
+
+⚠️ **La branche du pilote s'appelle `optiqfluent-staging`**, pas
+« optiqfluent-beta-test » : ce nom-là n'existe plus sur le dépôt (seul le
+workflow a gardé le nom `deploy-beta.yml`). Les titres de section qui le
+citaient encore sont corrigés.
+
+**Ce que la numérotation a fait sur une base EN SERVICE.** Relevé avant
+(`tools/db/etat_entites.py`, lecture seule) : 20 cartos pour 17 noms, trois
+groupes d'homonymes — **9 « FluidCLip »**, 4 « test », 2 « Purchase ». Après le
+démarrage : **0 nom porté par plusieurs cartos**, 15 renommages, aucune carto
+perdue. Chacune a gardé son ORTHOGRAPHE : #22 s'écrivait « FluidClip » (c
+minuscule), elle est devenue « FluidClip 9 » et non « FluidCLip 9 ».
+⚠️ Et **écart NUL sur les 52 autres tables** (comparées au manifeste de la
+sauvegarde) ; seuls `app_settings` (+1, le marqueur `entites_nom_unique`) et
+`usage_events` (+4, les sondes de contrôle) bougent, comme prévu.
+
+⚠️ **Sauvegarde AVANT, et relue.**
+`~/AFDEC/sauvegardes/optiqfluent_pilot-2026-09-29` — 54 tables, 15 518 lignes,
+les 54 relues sans écart, et les 4 pièces jointes décodées depuis le base64
+jusqu'à leurs octets de signature (la carte Visio harmonisée du client :
+902 068 octets, le même compte qu'aux 17 et 28/09). L'inventaire d'avant est
+archivé à côté (`_inventaire_avant.txt`).
+⚠️ Le binaire est écrit `{"__b64__": "…"}` (`dump_db.MARQUE_BINAIRE`) : un
+script de relecture qui attend une chaîne annonce « base64 illisible » sur les
+quatre pièces jointes et laisse croire à une sauvegarde abîmée.
+
+Livré à **21h58 en Inde**, mardi soir — la règle est tenue. Vérifié en ligne :
+`/health` 200, les fichiers servis portent bien les nouveautés
+(`openImportHistory`, `imh-hist-head`, `btn-sans-taches`), et les fichiers de
+l'ancien import de tâches rendent 404.
 
 ### Une carto par nom, un historique des imports, un filtre « sans tâches » (2026-09-29)
 
