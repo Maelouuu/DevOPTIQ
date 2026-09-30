@@ -107,6 +107,7 @@ PAGE_LABELS = {
     "test_88_decision_a_l_auteur":        "Mot du Valideur — Retour à l'Auteur",
     "test_89_libelles_carte_et_editeur":  "Libellés Carte & Éditeur — Langue Choisie",
     "test_90_tasks_roles_par_nom":        "Tâches — Rôles ajoutés par nom",
+    "test_92_tasks_erreurs":              "Tâches — Chemins d'erreur",
 }
 
 
