@@ -3253,12 +3253,14 @@ encore **320 px, soit +26 % de largeur**.
   dans `localStorage` : il se retrouve replié à la visite suivante.
 - **Plein écran** (bouton, raccourci `f`) et **recentrage** (le logo, `c`).
 
-⚠️ **On ne recadre PAS la carto quand le tiroir se replie ou qu'on passe en
-plein écran.** L'utilisateur vient peut-être de zoomer sur une zone précise :
-lui reprendre son cadrage pour « bien faire » lui fait perdre ce qu'il
-regardait. La zone visible s'agrandit, le point de vue ne bouge pas — ce que
-fait n'importe quel outil de dessin. Recentrer reste un geste, et il a son
-bouton.
+⚠️ **On RECADRE la carto après un repli ou un passage en plein écran** — et il
+a fallu le voir à l'écran pour le trancher. Le premier jet ne recadrait pas,
+au nom du « on ne vole pas son point de vue à l'utilisateur » que respecte tout
+outil de dessin. Sauf que le viewer ancre la carto par son **coin**, pas par
+son centre : replier le tiroir ne donnait donc pas « plus de marge autour du
+dessin », il donnait **320 px de vide à droite**. Or on replie précisément pour
+voir plus grand. Le recadrage attend la fin de la transition (380 ms) : plus
+tôt, le viewer se cadrerait sur une largeur qui n'est pas encore la bonne.
 
 ⚠️ **Le tiroir POUSSE la carto, il ne la recouvre pas.** La mini map et la
 pastille de zoom du viewer vivent en bas à droite : un panneau flottant posé

@@ -5,12 +5,13 @@
    recentrer. Le reste de la page (fenêtres d'entités, d'import, d'accès,
    d'examen) vit dans activities_map.js — ce fichier ne touche qu'au cadre.
 
-   ⚠️ On ne RECENTRE PAS la carto quand le tiroir se replie ou qu'on passe en
-   plein écran. L'utilisateur vient peut-être de zoomer sur une zone précise :
-   lui reprendre son cadrage pour « bien faire » lui fait perdre ce qu'il
-   regardait. La zone visible s'agrandit, le point de vue ne bouge pas —
-   c'est ce que fait n'importe quel outil de dessin. Recentrer reste un
-   geste, et il a son bouton.
+   ⚠️ On RECADRE la carto après un repli ou un passage en plein écran, et ce
+   n'était pas évident : un outil de dessin garde d'ordinaire le point de vue
+   de l'utilisateur quand son cadre change de taille. Mais le viewer ancre la
+   carto par son COIN, pas par son centre : sans recadrage, replier le tiroir
+   ne donnait pas « plus de marge autour du dessin », il donnait 320 px de
+   VIDE à droite. Or on replie précisément pour voir plus grand. Le geste est
+   explicite, le recadrage l'est donc aussi.
    ════════════════════════════════════════════════════════════════════ */
 (function () {
   'use strict';
@@ -49,6 +50,9 @@
 
   function basculerTiroir() {
     poserTiroir(!scene.classList.contains('is-replie'), true);
+    // Après la transition (320 ms) : avant, le viewer recadrerait sur une
+    // largeur qui n'est pas encore la bonne.
+    setTimeout(recentrer, 380);
   }
 
   // ── Plein écran ────────────────────────────────────────────────────
@@ -94,7 +98,11 @@
     if (quoi === 'fit') return recentrer();
   });
 
-  document.addEventListener('fullscreenchange', () => { majPlein(); ajusterHauteur(); });
+  document.addEventListener('fullscreenchange', () => {
+    majPlein();
+    ajusterHauteur();
+    setTimeout(recentrer, 140);
+  });
 
   // Raccourcis — ⚠️ jamais pendant une saisie : la recherche d'activité est à
   // deux centimètres, et « f » y servirait à écrire, pas à ouvrir l'écran.
