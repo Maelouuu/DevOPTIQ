@@ -3281,9 +3281,25 @@ données importées ne se distinguent plus de celles saisies à la main.
   historique se parcourt d'abord du regard, le détail se demande.
   ⚠️ En mode **Comptes** (`?pour=comptes`) l'entrée n'existe pas : un compte ne
   vit dans aucune carto.
-  ⚠️ Plusieurs cartos accessibles → un `<select>` dit LAQUELLE on regarde et en
-  change sans repasser par l'accueil ; l'aller-retour réseau vérifie qu'on est
-  toujours sur la même avant d'écrire la réponse à l'écran.
+  ⚠️ **Deux vues, deux questions.** « Qu'a-t-on importé DANS cette carto ? » —
+  et « qu'a-t-on importé, tout court ? », celle qui manquait : quand on cherche
+  d'où vient quelque chose on ne sait pas toujours où regarder, et un dépôt qui
+  visait trois cartos ne se lisait qu'en les ouvrant une à une. `?portee=tout`
+  balaie toutes les cartos LISIBLES, `?entity_id=` n'en regarde qu'une. Le
+  `<select>` porte « Toutes les cartos » en tête, et chaque entrée de la vue
+  d'ensemble porte **sa** carto en pastille — cliquable, elle ouvre cette carto
+  seule.
+  ⚠️ **La vue d'ensemble a EXACTEMENT la même portée que la vue par carto** :
+  elle ne montre rien qu'on ne puisse déjà aller lire. Et les cartos du
+  `<select>` viennent de la RÉPONSE, pas de `CTX.cibles` (les cartos où l'on
+  ÉCRIT) : tout ce qui paraît dans l'ensemble doit pouvoir s'ouvrir seul, sinon
+  le sélecteur et la liste se contredisent.
+  ⚠️ **« Le même dépôt a servi à … » disparaît en vue d'ensemble** : les deux
+  lignes y sont côte à côte, le redire ne ferait que répéter ce qu'on voit.
+  ⚠️ L'entrée de l'ACCUEIL ouvre l'ensemble (on vient y chercher d'où vient
+  quelque chose) ; le bouton de l'écran de FIN ouvre la carto qu'on vient de
+  remplir. L'aller-retour réseau vérifie qu'on est toujours sur la même portée
+  avant d'écrire la réponse à l'écran.
   ⚠️ **`data-carto` était DÉJÀ pris** : le répartiteur de clics de la fenêtre le
   lit AVANT le `switch` (`if (ds.carto) return basculerCarto(…)`), si bien que
   l'entrée de l'historique ne faisait que cocher une carto dans la portée — sans
@@ -3308,6 +3324,13 @@ données importées ne se distinguent plus de celles saisies à la main.
   `entity_status_access`, qui manquaient** au ménage de `delete_entity` depuis
   la section « accès par statut » : PostgreSQL applique les clés étrangères,
   effacer une carto dont les statuts avaient été réglés aurait échoué.
+
+**Les trois « promesses » de l'écran d'accueil de l'import sont retirées**
+(`.imh-promesses`, quatre clés `imph.promesse_*`) : « Vous voyez chaque ligne
+avant d'importer », « L'IA les retrouve, sans rien inventer », « Une carto,
+plusieurs, ou toutes à la fois ». Elles annonçaient ce que la fenêtre fait de
+toute façon, et occupaient une rangée entière au-dessus des cartes qu'on vient
+choisir.
 
 **Le filtre « sans tâches »** (liste des activités) : les activités nées de la
 carto qu'on n'a pas encore complétées. ⚠️ Le cadrage est **SERVEUR**

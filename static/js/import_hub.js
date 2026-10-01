@@ -69,7 +69,7 @@
       examen: {},      // ce que l'IA a déjà examiné, par part et par portée
       deplie: {},      // correspondance des colonnes ouverte, par part
       natOuverte: {},  // « ce n'est pas ça ? » ouvert, par part
-      histo: null,     // historique chargé : { carto, nom, lignes, deplies }
+      histo: null,     // historique chargé : { tout, carto, nom, lignes, deplies }
       histoRetour: 'choix',  // l'écran d'où on est venu le consulter
     };
   }
@@ -241,7 +241,8 @@
     if (S.ecran === 'historique') {
       dom.etapes.innerHTML = '';
       dom.titre.textContent = L('h_titre');
-      dom.sous.textContent = (S.histo && S.histo.nom) || L('h_sous');
+      dom.sous.textContent = (S.histo && S.histo.tout)
+        ? L('h_toutes') : ((S.histo && S.histo.nom) || L('h_sous'));
       dom.logo.innerHTML = '<i class="fa-solid fa-clock-rotate-left"></i>';
       return;
     }
@@ -279,16 +280,9 @@
   // ── 1 · Choisir la nature ──────────────────────────────────────────
   function ecranChoix() {
     if (!CTX) return S.erreur ? '' : `<div class="imh-attente"><i class="fa-solid fa-circle-notch fa-spin"></i></div>`;
-    const promesses = [
-      ['fa-eye', L('promesse_apercu')],
-      CTX.ia ? ['fa-wand-magic-sparkles', L('promesse_ia')] : ['fa-file-arrow-down', L('promesse_modele')],
-      ['fa-map-location-dot', L('promesse_portee')],
-    ];
     return `<div class="imh-choix">
       <div class="imh-cartes">${cartes().map(carte).join('')}</div>
       ${modeComptes() ? '' : carteMultiple()}
-      <ul class="imh-promesses">${promesses.map(([ic, txt], i) =>
-        `<li style="--i:${i + 4}"><i class="fa-solid ${ic}"></i><span>${esc(txt)}</span></li>`).join('')}</ul>
       ${modeComptes() ? '' : entreeHistorique()}
     </div>`;
   }
@@ -1003,29 +997,37 @@
   }
 
   function entreeHistorique() {
-    const id = cartoHisto();
-    if (!id) return '';
-    return `<button type="button" class="imh-histo-entree" data-action="historique" data-histo-carto="${id}" style="--i:7">
+    if (!cartoHisto()) return '';
+    // ⚠️ Depuis l'accueil on ouvre TOUTES les cartos : on vient y chercher d'où
+    // vient quelque chose, et on ne sait pas encore où regarder. Depuis l'écran
+    // de fin, au contraire, on sait — c'est la carto qu'on vient de remplir.
+    return `<button type="button" class="imh-histo-entree" data-action="historique" data-histo-carto="tout" style="--i:7">
       <span class="imh-histo-ic"><i class="fa-solid fa-clock-rotate-left"></i></span>
       <span class="imh-histo-txt"><strong>${esc(L('h_entree'))}</strong><small>${esc(L('h_sous'))}</small></span>
       <span class="imh-histo-go" aria-hidden="true"><i class="fa-solid fa-arrow-right"></i></span>
     </button>`;
   }
 
-  async function ouvrirHistorique(carto) {
+  async function ouvrirHistorique(quoi) {
     if (S.ecran !== 'historique') S.histoRetour = S.ecran;
-    const id = carto || cartoHisto();
-    if (!id) return;
+    const tout = quoi === 'tout';
+    const id = tout ? null : (Number(quoi) || cartoHisto());
+    if (!tout && !id) return;
     S.ecran = 'historique';
-    S.histo = { carto: id, nom: nomCarto(id), lignes: null, deplies: new Set() };
+    S.histo = { tout, carto: id, nom: tout ? '' : nomCarto(id),
+                cartos: (S.histo && S.histo.cartos) || null, lignes: null, deplies: new Set() };
     rendre();
     try {
-      const r = await fetch('/api/import/historique?entity_id=' + id, { credentials: 'same-origin' });
+      const url = tout ? '/api/import/historique?portee=tout'
+                       : '/api/import/historique?entity_id=' + id;
+      const r = await fetch(url, { credentials: 'same-origin' });
       const d = await r.json();
       if (!r.ok) throw new Error(d.error || L('h_erreur'));
-      // On a pu changer de carto — ou d'écran — pendant l'aller-retour.
-      if (S.ecran !== 'historique' || !S.histo || S.histo.carto !== id) return;
+      // On a pu changer de portée — ou d'écran — pendant l'aller-retour.
+      if (S.ecran !== 'historique' || !S.histo
+          || S.histo.tout !== tout || S.histo.carto !== id) return;
       S.histo.lignes = d.lignes || [];
+      S.histo.cartos = d.cartos || [];
       S.histo.nom = (d.entity && d.entity.name) || S.histo.nom;
     } catch (_) {
       if (S.histo) S.histo.lignes = [];
@@ -1036,14 +1038,19 @@
 
   function ecranHistorique() {
     const h = S.histo || {};
-    const cibles = (CTX && CTX.cibles) || [];
-    // Plusieurs cartos accessibles : on dit LAQUELLE on regarde, et on en
-    // change sans repasser par l'accueil.
-    const choix = cibles.length > 1
+    // ⚠️ Les cartos viennent de la RÉPONSE, pas de `CTX.cibles` : celles-là sont
+    // les cartos où l'on écrit, l'historique se lit sur toutes celles qu'on
+    // ouvre. Tout ce qui paraît dans la vue d'ensemble doit pouvoir s'ouvrir
+    // seul, sinon le sélecteur et la liste se contredisent.
+    const cartos = h.cartos || (CTX && CTX.cibles) || [];
+    const choix = cartos.length > 1
       ? `<label class="imh-histo-sel"><i class="fa-solid fa-map-location-dot"></i>
-           <select id="imh-histo-carto">${cibles.map(c =>
-             `<option value="${c.id}"${c.id === h.carto ? ' selected' : ''}>${esc(c.name)}</option>`).join('')}</select></label>`
-      : `<span class="imh-histo-carto"><i class="fa-solid fa-map-location-dot"></i>${esc(h.nom || '')}</span>`;
+           <select id="imh-histo-carto">
+             <option value="tout"${h.tout ? ' selected' : ''}>${esc(L('h_toutes'))}</option>
+             ${cartos.map(c =>
+               `<option value="${c.id}"${!h.tout && c.id === h.carto ? ' selected' : ''}>${esc(c.name)}</option>`).join('')}
+           </select></label>`
+      : `<span class="imh-histo-carto"><i class="fa-solid fa-map-location-dot"></i>${esc(h.nom || L('h_toutes'))}</span>`;
     let corps;
     if (h.lignes === null || h.lignes === undefined) {
       corps = `<div class="imh-attente"><i class="fa-solid fa-circle-notch fa-spin"></i></div>`;
@@ -1093,6 +1100,11 @@
     const plus = detail.length
       ? `<button type="button" class="imh-btn-lien" data-action="histo-detail" data-ligne="${l.id}" aria-expanded="${ouvert}"><i class="fa-solid fa-chevron-${ouvert ? 'up' : 'down'}"></i>${esc(ouvert ? L('h_replier') : L('h_voir'))}</button>`
       : '';
+    // Sans le nom de la carto, une liste qui les mêle toutes ne dit plus où
+    // chaque ligne a porté.
+    const ou = (S.histo && S.histo.tout && l.carto)
+      ? `<button type="button" class="imh-histo-ou" data-action="historique" data-histo-carto="${l.entity_id}"><i class="fa-solid fa-map-location-dot"></i>${esc(l.carto)}</button>`
+      : '';
     return `<li class="imh-histo-l" style="--tc:${teinte}">
       <span class="imh-histo-puce"><i class="fa-solid ${ICONE[l.nature] || 'fa-file-import'}"></i></span>
       <div class="imh-histo-corps">
@@ -1102,6 +1114,7 @@
           <span class="imh-histo-mot">${esc((l.ajoutes || 0) === 1 ? L('h_ajoute') : L('h_ajoutes'))}</span>
           <span class="imh-histo-quand">${esc(histoQuand(l.quand))}${qui ? ' · ' + qui : ''}</span>
         </div>
+        ${ou}
         ${source ? `<p class="imh-histo-src"><i class="fa-regular fa-file-excel"></i>${source}</p>` : ''}
         ${aussi}
         ${plus}
@@ -1644,7 +1657,7 @@
         rendre();
         if (!S.ignorees[p.id]) verifier(p);
         return;
-      case 'historique': return ouvrirHistorique(Number(ds.histoCarto) || null);
+      case 'historique': return ouvrirHistorique(ds.histoCarto);
       case 'histo-retour': S.ecran = S.histoRetour || 'choix'; S.histo = null; return rendre();
       case 'histo-detail': {
         const id = Number(ds.ligne);
@@ -1669,7 +1682,7 @@
 
   function changement(e) {
     const el = e.target;
-    if (el.id === 'imh-histo-carto') return ouvrirHistorique(Number(el.value));
+    if (el.id === 'imh-histo-carto') return ouvrirHistorique(el.value);
     if (el.id === 'imh-input' || el.dataset.role === 'ajout') {
       recevoir(el.files);
       el.value = '';

@@ -307,6 +307,64 @@ class TestHistoriqueDesImports:
                 for e in (scene["a"], scene["b"]))
         assert n == 1
 
+    def test_la_vue_d_ensemble_rassemble_toutes_les_cartos(self, app, client, scene):
+        """On cherche d'où vient quelque chose SANS savoir dans quelle carto
+        regarder : la vue par carto obligeait à les ouvrir une à une."""
+        _connecte(client, app, scene["admin"], scene["a"])
+        _importer_outils(client, [scene["a"]], ["T91 Marbre"], fichier="a.xlsx")
+        _importer_outils(client, [scene["b"]], ["T91 Tour"], fichier="b.xlsx")
+
+        res = client.get(f"{API}/historique?portee=tout")
+        assert res.status_code == 200
+        body = res.get_json()
+        assert body["tout"] is True
+        assert body["entity"] is None
+        fichiers = {l["fichier"] for l in body["lignes"]}
+        assert {"a.xlsx", "b.xlsx"} <= fichiers
+        # ⚠️ Sans le nom de la carto, une liste qui les mêle toutes ne dit plus
+        # où chaque ligne a porté.
+        par_fichier = {l["fichier"]: l for l in body["lignes"]}
+        assert par_fichier["a.xlsx"]["carto"] == "T91 Carto A"
+        assert par_fichier["b.xlsx"]["carto"] == "T91 Carto B"
+        assert par_fichier["a.xlsx"]["entity_id"] == scene["a"]
+
+    def test_la_vue_d_ensemble_a_la_MEME_portee_que_la_vue_par_carto(
+            self, app, client, scene):
+        """Elle ne montre rien qu'on ne puisse déjà aller lire : la carto d'un
+        autre compte reste dehors, exactement comme son historique l'est."""
+        _connecte(client, app, scene["admin"], scene["a"])
+        _importer_outils(client, [scene["a"]], ["T91 Marbre"], fichier="chez_moi.xlsx")
+        _connecte(client, app, scene["autre"], scene["c"])
+        _importer_outils(client, [scene["c"]], ["T91 Presse"], fichier="chez_lui.xlsx")
+
+        _connecte(client, app, scene["admin"], scene["a"])
+        body = client.get(f"{API}/historique?portee=tout").get_json()
+        fichiers = {l["fichier"] for l in body["lignes"]}
+        assert "chez_moi.xlsx" in fichiers
+        assert "chez_lui.xlsx" not in fichiers
+        cartos = {c["name"] for c in body["cartos"]}
+        assert "T91 Carto Privee" not in cartos
+
+    def test_le_selecteur_porte_les_cartos_de_la_vue_d_ensemble(
+            self, app, client, scene):
+        """Tout ce qui paraît dans l'ensemble doit pouvoir s'ouvrir seul, sinon
+        le sélecteur et la liste se contredisent."""
+        _connecte(client, app, scene["admin"], scene["a"])
+        _importer_outils(client, [scene["a"], scene["b"]], ["T91 Marbre"])
+        body = client.get(f"{API}/historique?portee=tout").get_json()
+        ids = {c["id"] for c in body["cartos"]}
+        assert {l["entity_id"] for l in body["lignes"]} <= ids
+
+    def test_le_meme_depot_ne_se_redit_pas_en_vue_d_ensemble(self, app, client, scene):
+        """« Le même dépôt a servi à … » explique ce qu'on ne voit pas. Dans
+        l'ensemble les deux lignes sont côte à côte : le redire est du bruit."""
+        _connecte(client, app, scene["admin"], scene["a"])
+        _importer_outils(client, [scene["a"], scene["b"]], ["T91 Marbre"])
+        une = client.get(f"{API}/historique?entity_id={scene['a']}").get_json()
+        assert une["lignes"][0]["aussi"] == ["T91 Carto B"]
+        tout = client.get(f"{API}/historique?portee=tout").get_json()
+        assert all(not l["aussi"] for l in tout["lignes"])
+
     def test_l_historique_d_une_carto_qu_on_n_ouvre_pas_est_refuse(self, app, client, scene):
         _connecte(client, app, scene["admin"], scene["a"])
         _importer_roles(client, [scene["a"]], ["T91 Metrologie"])

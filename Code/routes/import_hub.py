@@ -1336,25 +1336,42 @@ def importer():
 
 @import_hub_bp.route("/historique", methods=["GET"])
 def historique():
-    """Ce qui a été importé dans une carto, du plus récent au plus ancien.
+    """Ce qui a été importé, du plus récent au plus ancien.
+
+    Deux vues : `?portee=tout` balaie TOUTES les cartos que le compte peut
+    ouvrir, `?entity_id=` n'en regarde qu'une. La première répond à « d'où vient
+    ceci ? » quand on ne sait pas encore dans quelle carto chercher — et un
+    dépôt qui visait trois cartos ne se lisait qu'en les ouvrant une à une.
 
     ⚠️ Lisible par qui peut OUVRIR la carto, pas seulement par qui l'a importée :
-    l'historique répond à « d'où vient cette tâche ? », question que se pose
-    d'abord celui qui la trouve, pas celui qui l'a mise là.
+    la question se pose d'abord à celui qui trouve la tâche, pas à celui qui l'a
+    mise là. La vue d'ensemble a donc EXACTEMENT la même portée, carto par
+    carto : elle ne montre rien qu'on ne puisse déjà aller lire.
     """
     from Code.carto_access import readable_entity
     from Code.models.models import ImportRecord
     moi = _moi()
     if moi is None:
         return jsonify({"error": t("imph.err_droits")}), 403
-    entity_id = request.args.get("entity_id", type=int) or Entity.get_active_id()
-    entity = readable_entity(entity_id) if entity_id else None
-    if entity is None:
-        return jsonify({"error": t("imph.err_aucune_cible")}), 404
 
-    lignes = (ImportRecord.query.filter_by(entity_id=entity.id)
-              .order_by(ImportRecord.created_at.desc(), ImportRecord.id.desc())
-              .limit(200).all())
+    lisibles = Entity.accessible(moi.id) or []
+    tout = (request.args.get("portee") == "tout")
+    if tout:
+        visees = lisibles
+    else:
+        entity_id = request.args.get("entity_id", type=int) or Entity.get_active_id()
+        entity = readable_entity(entity_id) if entity_id else None
+        if entity is None:
+            return jsonify({"error": t("imph.err_aucune_cible")}), 404
+        visees = [entity]
+    noms_vises = {e.id: e.name for e in visees}
+
+    lignes = []
+    if noms_vises:
+        lignes = (ImportRecord.query
+                  .filter(ImportRecord.entity_id.in_(list(noms_vises)))
+                  .order_by(ImportRecord.created_at.desc(), ImportRecord.id.desc())
+                  .limit(200).all())
     qui = {}
     if lignes:
         ids = {l.user_id for l in lignes if l.user_id}
@@ -1365,17 +1382,18 @@ def historique():
 
     # Les cartos qui ont reçu le MÊME dépôt : c'est ce qui explique qu'une tâche
     # se retrouve ailleurs, et on ne peut pas le deviner ligne par ligne.
-    lots = {l.lot for l in lignes if l.lot}
-    ailleurs = {}
+    # ⚠️ Inutile en vue d'ensemble : les deux lignes y sont côte à côte, et le
+    # redire sur chacune ne ferait que répéter ce qu'on voit.
+    ailleurs, noms = {}, {}
+    lots = {l.lot for l in lignes if l.lot} if not tout else set()
     if lots:
+        vise = next(iter(noms_vises))
         for r in (ImportRecord.query
                   .filter(ImportRecord.lot.in_(lots),
-                          ImportRecord.entity_id != entity.id).all()):
+                          ImportRecord.entity_id != vise).all()):
             ailleurs.setdefault(r.lot, set()).add(r.entity_id)
         noms = {e.id: e.name for e in Entity.query.filter(
             Entity.id.in_({i for s in ailleurs.values() for i in s})).all()}
-    else:
-        noms = {}
 
     out = []
     for l in lignes:
@@ -1385,6 +1403,8 @@ def historique():
             detail = []
         out.append({
             "id": l.id,
+            "entity_id": l.entity_id,
+            "carto": noms_vises.get(l.entity_id),
             "nature": l.nature,
             "fichier": l.fichier,
             "feuille": l.feuille,
@@ -1394,5 +1414,9 @@ def historique():
             "qui": qui.get(l.user_id),
             "aussi": sorted(noms.get(i, "") for i in ailleurs.get(l.lot, ()) if noms.get(i)),
         })
-    return jsonify({"entity": {"id": entity.id, "name": entity.name},
+    # `cartos` sert au sélecteur : tout ce qui se voit en vue d'ensemble doit
+    # pouvoir s'ouvrir seul, sinon le sélecteur et la liste se contredisent.
+    return jsonify({"tout": tout,
+                    "entity": None if tout else {"id": visees[0].id, "name": visees[0].name},
+                    "cartos": [{"id": e.id, "name": e.name} for e in lisibles],
                     "lignes": out}), 200
