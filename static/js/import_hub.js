@@ -69,6 +69,8 @@
       examen: {},      // ce que l'IA a déjà examiné, par part et par portée
       deplie: {},      // correspondance des colonnes ouverte, par part
       natOuverte: {},  // « ce n'est pas ça ? » ouvert, par part
+      inverse: {},     // on part des activités VIDES, par part
+      invFiltre: {},   // le filtre de cette liste, par part
       histo: null,     // historique chargé : { tout, carto, nom, lignes, deplies }
       histoRetour: 'choix',  // l'écran d'où on est venu le consulter
     };
@@ -687,11 +689,17 @@
     const bilanIA = nIA ? `<div class="imh-ia-bilan"><i class="fa-solid fa-wand-magic-sparkles"></i>
         <span>${esc(P('rp_appliques', nbTaches(groupesIA)))}</span>
         <button type="button" class="imh-btn-lien" data-action="seul-ia">${esc(seul ? L('voir_tout') : L('voir_ia'))}</button></div>` : '';
+    // ⚠️ L'autre sens de lecture n'a de raison d'être que s'il RESTE des
+    // activités du fichier sans correspondance : tout rattaché, la bascule
+    // n'ouvrirait qu'un écran vide. Mais une fois DEDANS on y reste — placer le
+    // dernier groupe ne doit pas refermer l'écran sous le pointeur.
+    if (S.inverse[p.id]) return panneauInverse(p, v, restants);
+    const bascule = restants.length ? boutonInverse() : '';
     const recents = S.recents && S.recents.partId === p.id ? new Set(S.recents.noms) : new Set();
     const groupes = v.groupes
       .filter(g => !seul || estParIA(g, parIA))
       .map((g, i) => groupe(p, g, i, filtre, v, recents.has(g.activite_fichier))).join('');
-    return `${barre}${bilanIA}<div class="imh-groupes">${groupes || `<div class="imh-vide">${esc(L('filtre_vide'))}</div>`}</div>`;
+    return `${barre}${bascule}${bilanIA}<div class="imh-groupes">${groupes || `<div class="imh-vide">${esc(L('filtre_vide'))}</div>`}</div>`;
   }
 
   const estParIA = (g, parIA) => g.mode === 'manuel' && parIA[g.activite_fichier]
@@ -729,6 +737,78 @@
       <span class="imh-ia-txt">${esc(P('ia_deja_vu', nbTaches(restants)))}</span>
       ${avecProposition ? `<button type="button" class="imh-btn-lien" data-action="revoir"><i class="fa-solid fa-rotate-left"></i>${esc(L('ia_revoir'))}</button>` : ''}
     </div>`;
+  }
+
+  // ══════════════════════════════════════════════════════════════════
+  //  L'autre sens : partir des activités VIDES
+  // ══════════════════════════════════════════════════════════════════
+  // L'écran lit fichier → carto : pour chaque activité du fichier, laquelle de
+  // la carto ? Quand il en reste sans correspondance, la question se pose dans
+  // l'autre sens — « cette activité n'a aucune tâche : laquelle de ces lignes
+  // la remplit ? ». Même état (`S.choix`), même vérification : deux lectures
+  // d'une seule décision, jamais deux décisions.
+  function boutonInverse() {
+    return `<div class="imh-inv-bascule">
+      <button type="button" class="imh-btn-sec is-petit" data-action="inverse">
+        <i class="fa-solid fa-right-left"></i>${esc(L('inv_bouton'))}</button>
+    </div>`;
+  }
+
+  function panneauInverse(p, v, restants) {
+    const vides = v.activites_vides || [];
+    const q = S.invFiltre[p.id] || '';
+    // Quel groupe vise déjà cette activité — qu'il ait été choisi à la main ou
+    // rattaché tout seul : sans ça on proposerait de remplir ce qui l'est déjà.
+    const pris = {};
+    v.groupes.forEach(g => { if (g.choix) pris[g.choix] = g; });
+    const places = vides.filter(a => pris[a.nom]).length;
+    const corps = vides.length
+      ? `<ul class="imh-inv-liste">${vides.map((a, i) => ligneInverse(a, pris[a.nom], restants, i, q)).join('')}</ul>`
+        + `<div class="imh-vide imh-inv-rien"${vides.some(a => correspond(a.nom, q)) ? ' hidden' : ''}>${esc(L('filtre_vide'))}</div>`
+      : `<div class="imh-inv-vide"><i class="fa-regular fa-circle-check"></i>${esc(L('inv_aucune'))}</div>`;
+    return `<div class="imh-inv">
+      <div class="imh-inv-tete">
+        <div class="imh-inv-t">
+          <span class="imh-inv-ic"><i class="fa-solid fa-right-left"></i></span>
+          <div><strong>${esc(L('inv_titre'))}</strong><small>${esc(L('inv_sous'))}</small></div>
+        </div>
+        <button type="button" class="imh-btn-sec is-petit" data-action="inverse">
+          <i class="fa-solid fa-arrow-left"></i>${esc(L('inv_retour'))}</button>
+      </div>
+      <label class="imh-inv-q"><i class="fa-solid fa-magnifying-glass"></i>
+        <input type="search" id="imh-inv-q" value="${esc(q)}" placeholder="${esc(L('inv_filtre'))}"></label>
+      <div class="imh-inv-compte">
+        <span>${esc(restants.length ? P('inv_reste', nbTaches(restants)) : L('inv_fini'))}</span>
+        ${places ? `<span class="imh-inv-ok"><i class="fa-solid fa-check"></i>${esc(P('inv_placees', places))}</span>` : ''}
+      </div>
+      ${corps}
+    </div>`;
+  }
+
+  // ⚠️ Le filtre MASQUE, il ne re-rend pas : réécrire le panneau à chaque
+  // frappe ferait perdre le curseur du champ qu'on tape.
+  const correspond = (nom, q) => !q || _norm(nom).includes(_norm(q));
+  const _norm = s => String(s || '').toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+
+  function ligneInverse(a, g, restants, i, q) {
+    // Les groupes offerts : ceux qui restent à placer, plus celui qui vise déjà
+    // cette activité — sinon on ne pourrait plus le retirer.
+    const offerts = restants.slice();
+    if (g && !offerts.some(x => x.activite_fichier === g.activite_fichier)) offerts.unshift(g);
+    const val = g ? g.activite_fichier : '';
+    return `<li class="imh-inv-l${g ? ' is-pris' : ''}" style="--i:${Math.min(i, 12)}"
+        data-nom="${esc(a.nom)}"${correspond(a.nom, q) ? '' : ' hidden'}>
+      <div class="imh-inv-act">
+        <strong>${esc(a.nom)}</strong>
+        ${a.cartos > 1 ? `<span class="imh-inv-n">${esc(P('dans_n_cartos', a.cartos))}</span>` : ''}
+      </div>
+      <i class="fa-solid fa-arrow-left-long imh-inv-fl" aria-hidden="true"></i>
+      <select class="imh-sel-inv" data-activite="${esc(a.nom)}" aria-label="${esc(L('inv_titre'))}">
+        <option value=""${val ? '' : ' selected'}>${esc(L('inv_rien'))}</option>
+        ${offerts.map(x => `<option value="${esc(x.activite_fichier)}"${x.activite_fichier === val ? ' selected' : ''}>${esc(x.activite_fichier)} · ${esc(P('n_taches', x.lignes.length))}</option>`).join('')}
+      </select>
+    </li>`;
   }
 
   function groupe(p, g, i, filtre, v, recent) {
@@ -1649,6 +1729,7 @@
       case 'rp-appliquer': return appliquerRapport();
       case 'rp-annuler': S.rapport = null; return rendre();
       case 'seul-ia': S.seulIA[p.id] = !S.seulIA[p.id]; return rendre();
+      case 'inverse': S.inverse[p.id] = !S.inverse[p.id]; return rendre();
       case 'deplier-source': S.deplie[p.id] = !S.deplie[p.id]; return rendre();
       case 'deplier-nature': S.natOuverte[p.id] = true; return rendre();
       case 'revoir': return revoir(p);
@@ -1682,6 +1763,7 @@
 
   function changement(e) {
     const el = e.target;
+    if (el.id === 'imh-inv-q') return filtrerInverse(el.value);
     if (el.id === 'imh-histo-carto') return ouvrirHistorique(el.value);
     if (el.id === 'imh-input' || el.dataset.role === 'ajout') {
       recevoir(el.files);
@@ -1712,6 +1794,18 @@
       v.lignes.filter(l => GARDABLES.has(l.statut)).forEach(l => (el.checked ? ex.delete(l._i) : ex.add(l._i)));
       return rendre();
     }
+    if (el.classList.contains('imh-sel-inv')) {
+      const choix = S.choix[p.id] = S.choix[p.id] || {};
+      const act = el.dataset.activite;
+      // Une activité ne reçoit qu'un groupe : on retire ce qu'elle portait
+      // avant d'écrire le nouveau.
+      Object.keys(choix).forEach(k => { if (choix[k] === act) delete choix[k]; });
+      if (el.value) {
+        choix[el.value] = act;
+        if (S.parIA[p.id]) delete S.parIA[p.id][el.value];
+      }
+      return verifier(p);
+    }
     if (el.classList.contains('imh-sel')) {
       const choix = S.choix[p.id] = S.choix[p.id] || {};
       if (el.value === '__ignorer__') choix[el.dataset.groupe] = '';
@@ -1723,11 +1817,29 @@
     }
   }
 
+  function filtrerInverse(q) {
+    const p = partActive();
+    if (p) S.invFiltre[p.id] = q;
+    let visibles = 0;
+    dom.corps.querySelectorAll('.imh-inv-l').forEach(li => {
+      const ok = correspond(li.dataset.nom || '', q);
+      li.hidden = !ok;
+      if (ok) visibles += 1;
+    });
+    const rien = dom.corps.querySelector('.imh-inv-rien');
+    if (rien) rien.hidden = visibles > 0;
+  }
+
   const cibleDepot = e => e.target.closest && e.target.closest('.imh-zone, .imh-rail-plus');
 
   function brancher() {
     dom.racine.addEventListener('click', clic);
     dom.racine.addEventListener('change', changement);
+    // ⚠️ `change` n'arrive qu'à la perte de focus : un champ de recherche doit
+    // écouter `input`, sinon il ne filtre rien pendant qu'on tape.
+    dom.racine.addEventListener('input', e => {
+      if (e.target.id === 'imh-inv-q') filtrerInverse(e.target.value);
+    });
     // ⚠️ Un fichier lâché à côté de la zone ouvrirait le navigateur dessus et
     // ferait quitter la page : on l'intercepte partout dans la fenêtre.
     dom.racine.addEventListener('dragover', e => {

@@ -1907,3 +1907,126 @@ body.imh-ouvert { overflow: hidden; }
 }
 .imh-histo-ou:hover { border-color: #cfd3e2; background: var(--imh-bg); }
 .imh-histo-ou i { font-size: 10.5px; color: var(--imh-faint); }
+
+/* ════════════════════════════════════════════════════════════════════
+   L'AUTRE SENS : partir des activités vides
+   ════════════════════════════════════════════════════════════════════
+   La flèche pointe vers la GAUCHE, vers l'activité : c'est elle qui reçoit.
+   Tout le reste de l'écran lit fichier → carto ; ici on lit carto ← fichier,
+   et la flèche est ce qui le dit sans phrase. */
+.imh-inv-bascule { margin: 10px 0 0; display: flex; justify-content: flex-end; }
+
+.imh-inv-tete {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+.imh-inv-t { display: flex; align-items: center; gap: 11px; min-width: 0; }
+.imh-inv-ic {
+  flex: none;
+  width: 34px; height: 34px;
+  border-radius: 11px;
+  display: grid; place-items: center;
+  color: #fff;
+  background: linear-gradient(135deg, #7c3aed, #5b21b6);
+}
+.imh-inv-t strong { display: block; font-size: 14px; color: var(--imh-ink); }
+.imh-inv-t small { display: block; font-size: 12.5px; color: var(--imh-muted); }
+
+.imh-inv-compte {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+  padding: 7px 11px;
+  border-radius: 10px;
+  background: var(--imh-bg);
+  font-size: 12.5px;
+  color: var(--imh-ink-2);
+}
+.imh-inv-ok { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; color: var(--imh-ok); font-weight: 600; }
+
+.imh-inv-liste { list-style: none; margin: 0; padding: 0; }
+.imh-inv-l {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 12px;
+  margin-bottom: 7px;
+  border: 1px solid var(--imh-line);
+  border-radius: 12px;
+  background: #fff;
+  animation: imhCarte .45s cubic-bezier(.2, .8, .2, 1) both;
+  animation-delay: calc(var(--i, 0) * 35ms);
+}
+.imh-inv-l.is-pris { border-color: #c4b5fd; background: #faf8ff; }
+.imh-inv-act { flex: 1; min-width: 0; }
+.imh-inv-act strong {
+  display: block;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--imh-ink);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.imh-inv-n { font-size: 12px; color: var(--imh-muted); }
+.imh-inv-fl { flex: none; color: var(--imh-faint); font-size: 13px; }
+.imh-inv-l.is-pris .imh-inv-fl { color: #7c3aed; }
+.imh-sel-inv {
+  flex: none;
+  width: 42%;
+  max-width: 340px;
+  font: inherit;
+  font-size: 13px;
+  padding: 7px 10px;
+  border: 1px solid var(--imh-line);
+  border-radius: 9px;
+  background: #fff;
+  color: var(--imh-ink-2);
+}
+.imh-sel-inv:focus { outline: 2px solid #c4b5fd; outline-offset: 1px; }
+
+.imh-inv-vide {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  padding: 38px 20px;
+  color: var(--imh-muted);
+  font-size: 13.5px;
+}
+.imh-inv-vide i { color: var(--imh-ok); }
+
+@media (max-width: 760px) {
+  .imh-inv-l { flex-wrap: wrap; }
+  .imh-sel-inv { width: 100%; max-width: none; }
+  .imh-inv-fl { display: none; }
+}
+
+/* ⚠️ `[hidden]` est une règle du NAVIGATEUR : `display: flex` d'auteur
+   l'emporterait, et le filtre ne masquerait rien (le piège déjà rencontré sur
+   les tuiles de la page Comptes). */
+.imh-inv-l[hidden], .imh-inv-rien[hidden] { display: none; }
+.imh-inv-q {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+  padding: 0 11px;
+  border: 1px solid var(--imh-line);
+  border-radius: 10px;
+  background: #fff;
+}
+.imh-inv-q i { color: var(--imh-faint); font-size: 12.5px; }
+.imh-inv-q input {
+  flex: 1;
+  font: inherit;
+  font-size: 13px;
+  padding: 8px 0;
+  border: 0;
+  background: none;
+  color: var(--imh-ink);
+}
+.imh-inv-q input:focus { outline: none; }
+.imh-inv-q:focus-within { border-color: #c4b5fd; }

@@ -570,6 +570,64 @@ class TestVerifier:
         assert g["n_cartos"] == 2 and g["n_cibles"] == 2
         assert d["totaux"]["a_rattacher"] == 1
 
+    def test_les_activites_SANS_TACHES_sont_listees_a_part(self, app, client, scene):
+        """C'est l'entrée de l'autre sens de lecture : on part de l'activité
+        vide et on lui attribue ce que le fichier apporte."""
+        from Code.models.models import Activities, Task
+        _connecte(client, app, scene["admin"], scene["a"])
+        with app.app_context():
+            pleine = Activities.query.filter_by(
+                entity_id=scene["a"], name="Chiffrer l'offre").first()
+            db.session.add(Task(name="t84 deja la", activity_id=pleine.id))
+            db.session.commit()
+        d = _verifier(client, "taches", [{"activite": "X", "tache": "Y", "_i": 0}],
+                      [scene["a"]]).get_json()
+        vides = {a["nom"] for a in d["activites_vides"]}
+        assert "Qualifier le besoin client" in vides
+        assert "Chiffrer l'offre" not in vides
+        # Toutes les activités restent proposables dans l'autre sens de lecture.
+        assert vides <= set(d["activites"])
+
+    def test_une_activite_remplie_dans_UNE_carto_n_est_pas_vide(self, app, client, scene):
+        """⚠️ « Vide » veut dire vide PARTOUT dans les cartos visées : on ne
+        propose que ce qui est vraiment vierge."""
+        from Code.models.models import Activities, Task
+        _connecte(client, app, scene["admin"], scene["a"])
+        with app.app_context():
+            dans_b = Activities.query.filter_by(
+                entity_id=scene["b"], name="Chiffrer l'offre").first()
+            db.session.add(Task(name="t84 seulement dans b", activity_id=dans_b.id))
+            db.session.commit()
+        d = _verifier(client, "taches", [{"activite": "X", "tache": "Y", "_i": 0}],
+                      [scene["a"], scene["b"]]).get_json()
+        assert "Chiffrer l'offre" not in {a["nom"] for a in d["activites_vides"]}
+        # Seule, la carto A la porte encore nue : elle redevient à remplir.
+        seule = _verifier(client, "taches", [{"activite": "X", "tache": "Y", "_i": 0}],
+                          [scene["a"]]).get_json()
+        assert "Chiffrer l'offre" in {a["nom"] for a in seule["activites_vides"]}
+
+    def test_elle_dit_dans_combien_de_cartos_elle_existe(self, app, client, scene):
+        _connecte(client, app, scene["admin"], scene["a"])
+        d = _verifier(client, "taches", [{"activite": "X", "tache": "Y", "_i": 0}],
+                      [scene["a"], scene["b"]]).get_json()
+        par_nom = {a["nom"]: a["cartos"] for a in d["activites_vides"]}
+        assert par_nom["Chiffrer l'offre"] == 2
+        assert par_nom["Qualifier le besoin client"] == 1
+
+    def test_l_autre_sens_pose_EXACTEMENT_le_meme_choix(self, app, client, scene):
+        """Deux lectures d'une seule décision : attribuer un groupe à une
+        activité, c'est le `choix` que fait déjà la liste — jamais un second
+        mécanisme qui pourrait en dire autre chose."""
+        _connecte(client, app, scene["admin"], scene["a"])
+        lignes = [{"activite": "Totalement autre chose", "tache": "Rien", "_i": 0}]
+        avant = _verifier(client, "taches", lignes, [scene["a"]]).get_json()
+        assert avant["groupes"][0]["mode"] == "a_rattacher"
+        apres = _verifier(client, "taches", lignes, [scene["a"]],
+                          choix={"Totalement autre chose": "Qualifier le besoin client"}).get_json()
+        assert apres["groupes"][0]["mode"] == "manuel"
+        assert apres["groupes"][0]["choix"] == "Qualifier le besoin client"
+        assert apres["totaux"]["a_rattacher"] == 0
+
     def test_le_choix_de_l_utilisateur_l_emporte(self, app, client, scene):
         _connecte(client, app, scene["admin"], scene["a"])
         lignes = [{"activite": "Price the bid", "tache": "Estimer", "_i": 0},
