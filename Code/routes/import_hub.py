@@ -898,7 +898,30 @@ def _verifier_taches(lignes, cibles, choix):
                 l.update(statut=_statut(len(cartos), n), n_deja=n, n_nouveau=len(cartos) - n)
             vues.add(nom)
     return {"groupes": groupes, "lignes": [l for g in groupes for l in g["lignes"]],
-            "activites": sorted((v["nom"] for v in acts.values()), key=lambda s: s.lower())}
+            "activites": sorted((v["nom"] for v in acts.values()), key=lambda s: s.lower()),
+            "activites_vides": _activites_sans_taches(acts)}
+
+
+def _activites_sans_taches(acts):
+    """Les activités des cartos visées qui ne portent ENCORE aucune tâche.
+
+    C'est l'entrée de l'autre sens de lecture : on part de l'activité vide et on
+    lui attribue ce que le fichier apporte.
+
+    ⚠️ « Vide » veut dire vide PARTOUT dans les cartos visées : une activité qui
+    a déjà des tâches dans l'une d'elles n'est pas une activité à remplir, même
+    si une autre carto la porte encore nue — on ne propose que ce qui est
+    vraiment vierge.
+    """
+    ids = [a.id for v in acts.values() for a in v["cartos"].values()]
+    pleines = set()
+    if ids:
+        pleines = {r[0] for r in db.session.query(Task.activity_id)
+                   .filter(Task.activity_id.in_(ids)).distinct().all()}
+    vides = [{"nom": v["nom"], "cartos": len(v["cartos"])}
+             for v in acts.values()
+             if not any(a.id in pleines for a in v["cartos"].values())]
+    return sorted(vides, key=lambda x: x["nom"].lower())
 
 
 def _totaux(lignes):

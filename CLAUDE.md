@@ -3218,6 +3218,62 @@ Livré à **21h58 en Inde**, mardi soir — la règle est tenue. Vérifié en li
 (`openImportHistory`, `imh-hist-head`, `btn-sans-taches`), et les fichiers de
 l'ancien import de tâches rendent 404.
 
+### L'import se lit aussi dans l'AUTRE SENS (2026-10-01)
+
+L'écran de vérification des tâches ne savait poser qu'une question : pour chaque
+activité DU FICHIER, laquelle de la carto ? Quand il en reste sans
+correspondance, la question se pose pourtant à l'envers — « cette activité de ma
+carto n'a aucune tâche : laquelle de ces lignes la remplit ? ». La bascule
+**« Partir des activités sans tâches »** ouvre cette seconde lecture.
+
+- **UNE décision, deux lectures.** Le panneau écrit dans le MÊME `S.choix` que
+  la liste et rappelle la MÊME vérification : attribuer un groupe à une activité
+  ici, ou choisir l'activité là-bas, produit exactement la même chose. Deux
+  mécanismes auraient fini par dire deux choses —
+  `test_84::test_l_autre_sens_pose_EXACTEMENT_le_meme_choix` le tient.
+- ⚠️ **La bascule n'existe que s'il RESTE des lignes à placer** (au moins un
+  groupe en `a_rattacher`) : tout rattaché, elle n'ouvrirait qu'un écran vide.
+  ⚠️ Mais une fois DEDANS on y reste — la première version refermait le panneau
+  d'un coup quand on plaçait le dernier groupe (`restants` tombait à zéro, la
+  liste revenait sous le pointeur). La règle porte sur l'ACCÈS, pas sur le
+  maintien de l'écran qu'on est en train d'utiliser ; le compte dit alors
+  « Tout est placé. ».
+- **`activites_vides`** (`_activites_sans_taches`, renvoyé par `/verifier`) :
+  les activités des cartos visées qui ne portent encore AUCUNE tâche. ⚠️ « Vide »
+  veut dire vide PARTOUT dans les cartos visées — une activité déjà remplie dans
+  l'une d'elles n'est pas une activité à remplir, même si une autre carto la
+  porte encore nue : on ne propose que ce qui est vraiment vierge.
+- **Une activité ne reçoit qu'un groupe** : poser le nouveau retire d'abord ce
+  qu'elle portait. Et un groupe déjà placé quitte les options des autres lignes
+  (le serveur le repasse en `manuel`, il sort des « restants »).
+- Les options montrent les groupes restants **plus celui qui vise déjà cette
+  activité** — qu'il ait été choisi à la main ou rattaché tout seul : sans lui
+  on ne pourrait plus le retirer, et on proposerait de remplir ce qui l'est déjà.
+- La flèche de chaque ligne pointe **vers la gauche**, vers l'activité : tout
+  l'écran lit fichier → carto, ici on lit carto ← fichier, et c'est la flèche
+  qui le dit sans phrase.
+- ⚠️ **Un champ de recherche, sinon l'écran n'est pas utilisable** : mesuré au
+  banc, 42 activités vides pour 2 groupes à placer. Il **MASQUE**, il ne re-rend
+  pas — réécrire le panneau à chaque frappe ferait perdre le curseur du champ
+  qu'on tape (le piège déjà rencontré sur les cartes du plan de formation). Son
+  texte vit dans `S.invFiltre` pour survivre au re-rendu que déclenche chaque
+  attribution.
+- ⚠️ **`change` ne se déclenche qu'à la PERTE DE FOCUS** : branché là, le champ
+  ne filtrait rien pendant qu'on tape — 42 lignes visibles quoi qu'on écrive, et
+  aucune erreur pour le dire. Il lui faut `input`.
+- ⚠️ **`[hidden]` est une règle du NAVIGATEUR** : `.imh-inv-l { display: flex }`
+  et `.imh-vide { display: flex }` l'emportaient, et le masquage ne masquait
+  rien. Troisième fois que ce piège mord (les tuiles de la page Comptes en
+  premier) — toute classe d'auteur qui pose un `display` doit déclarer son
+  `[hidden]`.
+
+Tests : `test_84::TestVerifier` (+4 ; 2 vérifiés **rouges** en retirant le
+filtre). Suite : 2693 passés. Éprouvé dans les deux langues sur
+`tools/devrun_import.py` : la bascule, l'attribution, le groupe qui quitte les
+autres options, le retour qui montre le rattachement dans la liste, le filtre
+(frappe, accents, sans résultat, survie au re-rendu), le dernier placement et la
+bascule qui disparaît ensuite.
+
 ### Une carto par nom, un historique des imports, un filtre « sans tâches » (2026-09-29)
 
 **Deux cartos ne peuvent plus porter le même nom.** `Code/entites_uniques.py`
