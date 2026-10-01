@@ -108,6 +108,7 @@ PAGE_LABELS = {
     "test_89_libelles_carte_et_editeur":  "Libellés Carte & Éditeur — Langue Choisie",
     "test_90_tasks_roles_par_nom":        "Tâches — Rôles ajoutés par nom",
     "test_92_tasks_erreurs":              "Tâches — Chemins d'erreur",
+    "test_93_plan_formation":             "Plan de Formation (routes /plan)",
 }
 
 
