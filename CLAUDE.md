@@ -3306,6 +3306,53 @@ devient illisible au moment où elle compte.
 masqués) : replier ou passer en plein écran n'a aucun sens devant un écran
 d'accueil.
 
+#### La barre, l'écho et le fond — deuxième passe (2026-10-02)
+
+« Toute la section du haut, c'est hideux. » C'était exact, et chiffrable : la
+barre alignait **cinq vocabulaires de boutons** côte à côte — trois pleins
+roses, un en contour rose, un sombre, puis trois icônes blanches — et deux de
+ses icônes étaient des **PNG recolorés par un filtre CSS** à côté d'icônes
+vectorielles. Tout criait au même volume, donc rien ne ressortait.
+
+- **UN seul bouton** (`.cs-b`), et **une seule action primaire** : ouvrir
+  l'éditeur. Les réglages (entités, import, accès, connexions) partagent la
+  même forme discrète ; « Connexions » est un interrupteur, donc il a un état
+  plein — en bleu, pour ne pas se confondre avec l'action primaire.
+  ⚠️ Sa classe `.active` est posée par `activities_map.js` : ne pas la renommer.
+- **Les trois gestes de la scène** (aide, plein écran, tiroir) sont réunis dans
+  un segment : ils parlent de l'ÉCRAN, pas des données.
+- **Le nom de la carto devient le titre** — c'est lui qu'on vient lire.
+  « Cartographie des activités » passe en surtitre.
+- Les deux `<img>` deviennent des icônes Font Awesome. Un PNG qu'on recolore
+  au `filter` ne suivra jamais l'état du bouton.
+
+**L'écho — trois contours, chacun un peu plus grand.**
+⚠️ **Premier jet en `box-shadow` : invisible.** Six ombres emboîtées, alternant
+blanc et filet sombre — à taille réelle, un halo mou. Un anneau d'ombre doit se
+détacher sur la couleur EXACTE du fond pour qu'on voie l'écart, et ce fond
+porte deux dégradés radiaux : l'anneau « vide » ne tombe jamais pile dessus.
+Ce sont donc **deux pseudo-éléments en `border`** sur `.carto-left` : de vrais
+traits, transparents au milieu, qui se voient sur n'importe quoi.
+⚠️ **Et il a coûté 10 POINTS de surface au premier essai** : 66 % → 56,6 % sur
+un 1920×1080, 53,6 % → 41,7 % sur un 1280×800 — on revenait vers l'état d'avant
+la refonte, alors que « on ne voit pas la carto en grand » était le reproche de
+départ. Les anneaux se resserrent (−6 / −12), le padding de la scène cède la
+place à celui du corps (ils s'additionnaient), et l'écart carte/tiroir tombe à
+26 px. Résultat : **63,8 %**, l'écho coûte 2,3 points. Sous 1480 px il se
+resserre encore (−4 / −8), sous 1100 il n'en reste qu'un.
+⚠️ Le tiroir n'a PAS d'écho : deux échos côte à côte, c'est aucun centre.
+
+**Le fond.** `--bg-canvas: #F3F5F2` plus une trame de points NOIRS à 8 % tous
+les 22 px : un gris plat et sale sur lequel une carto claire ne ressort pas. Le
+canevas devient une **feuille** (#fdfdff, trame deux fois plus discrète, halos
+froids dans les angles) posée sur un **plan de travail** plus soutenu
+(#e9e7f2 + halos). C'est l'écart entre les deux qui détache le dessin, pas la
+beauté de l'un ou de l'autre.
+⚠️ La règle du canevas vit dans `cartography_viewer.html`, **pas** dans
+`static/optiqcarto/style.css` : cette feuille est partagée avec l'ÉDITEUR et
+recopiée dans le dépôt OptiqCarto. Le fond de l'éditeur est une autre décision,
+qu'on ne prend pas en passant.
+
 Tests : `tests/test_94_page_carte_scene.py` (9 cas — la structure qui donne ces
 pixels, qu'une retouche distraite remettrait en place sans s'en apercevoir).
 Suite : 2702 passés, `repet_image` 2674 + 28 sautés. Éprouvé au banc

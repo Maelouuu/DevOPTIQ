@@ -4871,7 +4871,9 @@ body.a-carto-scene { margin-bottom: 0; }
   --cs-tiroir-w: 320px;
   max-width: none;
   margin: 0;
-  padding: 0 var(--cs-gap) var(--cs-gap);
+  /* ⚠️ Pas de padding latéral ici : `.carto-container` porte le sien, et
+     les deux s'additionnaient. */
+  padding: 0 6px 6px;
   /* ⚠️ `--cs-top` est MESURÉ par carto_scene.js : ce qui est au-dessus de la
      scène (barre de navigation et sa marge) n'a pas de hauteur fixe, et une
      constante devinée remettait la page à défiler. En plein écran la scène
@@ -5098,7 +5100,7 @@ body.a-carto-scene { margin-bottom: 0; }
 }
 
 /* ── Plein écran ───────────────────────────────────────────────────── */
-.carto-scene:fullscreen { background: #f6f7fb; padding: var(--cs-gap); height: 100vh; }
+.carto-scene:fullscreen { padding: 6px; height: 100vh; }
 .carto-scene:fullscreen .cs-bar { height: 52px; }
 
 /* ── Entrée en scène ───────────────────────────────────────────────── */
@@ -5134,4 +5136,247 @@ body.a-carto-scene { margin-bottom: 0; }
   .cs-languette { position: static; border-radius: 12px; border-right: 1px solid #f1d5e4; }
   .cs-bar { height: auto; flex-wrap: wrap; padding: 8px 0; }
   .cs-actions { flex-wrap: wrap; }
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   LA SCÈNE, deuxième passe (2026-10-02)
+   ════════════════════════════════════════════════════════════════════
+   « Toute la section du haut, c'est hideux. » C'était exact : la barre
+   alignait CINQ vocabulaires de boutons — trois pleins roses, un en
+   contour rose, un sombre, puis trois icônes blanches — et deux de ses
+   icônes étaient des PNG recolorés par un filtre CSS, à côté d'icônes
+   vectorielles. Tout criait au même volume, donc rien ne ressortait.
+
+   Un seul vocabulaire : `.cs-b`. Une seule action primaire (ouvrir
+   l'éditeur). Les trois gestes de la scène réunis dans un segment, parce
+   qu'ils parlent de l'ÉCRAN, pas des données. Et le nom de la carto
+   devient le titre — c'est lui qu'on vient lire. */
+
+.carto-scene {
+  --cs-ink: #1b1d29;
+  --cs-ink-2: #5a6070;
+  --cs-line: #e6e3ee;
+  --cs-fond: #e9e7f2;
+  --cs-bar-h: 62px;
+}
+
+/* ── Identité ──────────────────────────────────────────────────────── */
+.carto-scene .cs-logo {
+  width: 42px; height: 42px;
+  border-radius: 14px;
+  font-size: 17px;
+}
+.cs-id-txt { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.cs-sur {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: .09em;
+  text-transform: uppercase;
+  color: var(--cs-ink-2);
+  opacity: .75;
+  line-height: 1;
+}
+.carto-scene .cs-id-txt h1 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -.015em;
+  color: var(--cs-ink);
+  max-width: 34vw;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.carto-scene .cs-id-txt h1.is-vide { color: #9a3412; }
+.carto-scene .cs-lecture {
+  align-self: center;
+  margin-left: 4px;
+  background: #fff;
+  border: 1px solid var(--cs-line);
+  color: var(--cs-ink-2);
+  font-size: 11.5px;
+  padding: 4px 10px;
+}
+
+/* ── UN seul bouton ────────────────────────────────────────────────── */
+.cs-b {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 38px;
+  padding: 0 14px;
+  border: 1px solid var(--cs-line);
+  border-radius: 11px;
+  background: #fff;
+  color: var(--cs-ink);
+  font: inherit;
+  font-size: 13.5px;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+  text-decoration: none;
+  cursor: pointer;
+  box-shadow: 0 1px 2px rgba(27, 29, 41, .04);
+  transition: background .16s ease, border-color .16s ease,
+              color .16s ease, transform .16s ease, box-shadow .16s ease;
+}
+.cs-b > i { font-size: 13px; color: var(--cs-ink-2); transition: color .16s ease; }
+.cs-b:hover {
+  background: #fff;
+  border-color: #d6d2e2;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(27, 29, 41, .08);
+}
+.cs-b:hover > i { color: var(--cs-rose-deep); }
+.cs-b:active { transform: translateY(0) scale(.985); }
+
+/* L'action primaire — la seule couleur pleine de la barre. */
+.cs-b--prim {
+  border-color: transparent;
+  color: #fff;
+  background: linear-gradient(135deg, var(--cs-rose), var(--cs-rose-deep));
+  box-shadow: 0 5px 16px rgba(190, 24, 93, .28);
+}
+.cs-b--prim > i { color: rgba(255, 255, 255, .9); }
+.cs-b--prim:hover {
+  background: linear-gradient(135deg, var(--cs-rose), var(--cs-rose-deep));
+  border-color: transparent;
+  box-shadow: 0 9px 24px rgba(190, 24, 93, .36);
+}
+.cs-b--prim:hover > i { color: #fff; }
+
+/* L'interrupteur « Connexions » : même forme, état net.
+   ⚠️ `.active` est posée par activities_map.js — ne pas la renommer. */
+.carto-scene .cs-b--bascule { position: relative; }
+.carto-scene .cs-b--bascule.active {
+  background: linear-gradient(135deg, #0ea5e9, #0369a1);
+  border-color: transparent;
+  color: #fff;
+  box-shadow: 0 5px 16px rgba(3, 105, 161, .3);
+}
+.carto-scene .cs-b--bascule.active > i,
+.carto-scene .cs-b--bascule.active .cross-carto-icon { color: #fff; filter: none; }
+.carto-scene .cs-b .cross-carto-icon {
+  width: auto; height: auto;
+  filter: none;          /* c'est une icône vectorielle, plus un PNG teinté */
+}
+.carto-scene .cs-b .cross-carto-dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: #22c55e;
+  margin-left: 2px;
+}
+
+/* ── Le segment des gestes de la scène ─────────────────────────────── */
+.cs-seg {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px;
+  gap: 2px;
+  border: 1px solid var(--cs-line);
+  border-radius: 13px;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(27, 29, 41, .04);
+}
+.carto-scene .cs-ic {
+  width: 32px; height: 32px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--cs-ink-2);
+  font-size: 13px;
+  box-shadow: none;
+}
+.carto-scene .cs-ic:hover {
+  background: var(--cs-fond);
+  color: var(--cs-rose-deep);
+  transform: none;
+}
+.carto-scene .cs-ic.is-on {
+  background: linear-gradient(135deg, var(--cs-rose), var(--cs-rose-deep));
+  color: #fff;
+}
+.carto-scene .cs-sep { display: none; }
+
+/* ── Le cadre de la carto : trois anneaux en écho ──────────────────── */
+/* Les anneaux ALTERNENT trait / fond : un `box-shadow` étalé donne des
+   cercles COLLÉS, pas espacés. C'est la couleur du fond, répétée entre
+   deux traits, qui creuse l'écart. */
+/* L'écart carte / tiroir fait place à l'écho : il lui faut 12 px d'air de
+   chaque côté, sinon le dernier anneau passerait sous le tiroir. */
+.carto-scene { --cs-gap: 26px; }
+.carto-scene .carto-container { padding: 12px; }
+
+/* L'ÉCHO — trois contours, chacun un peu plus grand que le précédent.
+   ⚠️ Ce sont deux pseudo-éléments en `border`, pas des `box-shadow` : un
+   anneau d'ombre doit se détacher sur la couleur EXACTE du fond pour qu'on
+   voie l'écart, et ce fond porte deux dégradés. Un trait, lui, se voit sur
+   n'importe quoi. */
+.carto-scene .carto-left { position: relative; }
+.carto-scene .carto-left::before,
+.carto-scene .carto-left::after {
+  content: '';
+  position: absolute;
+  pointer-events: none;
+  border: 1px solid rgba(190, 24, 93, .26);
+  border-radius: 24px;
+  inset: -6px;
+  animation: csEcho .7s cubic-bezier(.22, 1, .36, 1) both;
+}
+.carto-scene .carto-left::after {
+  inset: -12px;
+  border-radius: 30px;
+  border-color: rgba(190, 24, 93, .13);
+  animation-delay: .08s;
+}
+@keyframes csEcho {
+  from { opacity: 0; transform: scale(.985); }
+  to   { opacity: 1; transform: none; }
+}
+
+.carto-scene .carto-viewer-card {
+  border-color: rgba(190, 24, 93, .22);
+  box-shadow: 0 18px 48px rgba(27, 29, 41, .10);
+}
+/* ⚠️ Le tiroir n'a PAS d'écho : deux échos côte à côte, c'est aucun centre. */
+.carto-scene .carto-right {
+  border-color: rgba(255, 255, 255, .9);
+  box-shadow:
+    0 0 0 1px rgba(27, 29, 41, .06),
+    0 14px 34px rgba(27, 29, 41, .08);
+}
+/* La languette vit DANS cet écho : elle doit passer par-dessus. */
+.cs-languette { right: 2px; z-index: 7; }
+
+/* ── Le fond de la page ────────────────────────────────────────────── */
+/* Le gris plat de l'application ne soutenait rien. Un halo très doux,
+   centré en haut, donne de la profondeur sans attirer le regard. */
+body.a-carto-scene {
+  background:
+    radial-gradient(1300px 560px at 50% -160px, rgba(236, 72, 153, .10), transparent 70%),
+    radial-gradient(1000px 520px at 90% 112%, rgba(99, 102, 241, .085), transparent 70%),
+    #e9e7f2;
+  background-attachment: fixed;
+}
+
+@media (max-width: 1480px) {
+  /* L'écho se resserre avant de coûter de la carto. */
+  .carto-scene { --cs-gap: 18px; }
+  .carto-scene .carto-container { padding: 8px; }
+  .carto-scene .carto-left::before { inset: -4px; border-radius: 22px; }
+  .carto-scene .carto-left::after  { inset: -8px; border-radius: 26px; }
+}
+
+@media (max-width: 1280px) {
+  .carto-scene .cs-b > span { display: none; }   /* les libellés tombent, les icônes restent */
+  .carto-scene .cs-b { padding: 0 12px; }
+  .carto-scene .cs-b--prim > span { display: inline; }
+  .carto-scene .cs-id-txt h1 { max-width: 26vw; }
+}
+@media (max-width: 1100px) {
+  .carto-scene { --cs-gap: 14px; }
+  .carto-scene .carto-container { padding: 10px; }
+  .carto-scene .carto-left::after { display: none; }   /* un seul écho : la place manque */
+  .carto-scene .carto-left::before { inset: -6px; border-radius: 24px; }
 }

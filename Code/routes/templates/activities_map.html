@@ -94,61 +94,71 @@
        faire à droite. Le titre, le nom de l'entité et « lecture seule » ne
        s'écrivent qu'ICI : ils étaient répétés dans l'en-tête de la carte,
        juste en dessous. -->
+  <!-- ⚠️ UN SEUL vocabulaire de boutons (`cs-b`). La barre en alignait cinq :
+       trois pleins roses, un en contour, un sombre, puis trois icônes — plus
+       deux icônes en PNG recolorées par un filtre CSS, à côté d'icônes
+       vectorielles. Tout criait, donc rien ne ressortait.
+       Une seule action primaire : ouvrir l'éditeur. -->
   <header class="cs-bar">
     <div class="cs-id">
-      <button type="button" class="cs-logo" data-cs="fit" title="{{ t('map.fit_view') }}">
+      <button type="button" class="cs-logo" data-cs="fit" title="{{ t('map.fit_view') }}"
+              aria-label="{{ t('map.fit_view') }}">
         <i class="fa-solid fa-diagram-project"></i>
       </button>
       <div class="cs-id-txt">
-        <h1>{{ t('map.title') }}</h1>
-        <div class="cs-meta">
-          {% if active_entity %}
-            <span class="cs-entite"><i class="fa-solid fa-building"></i>{{ active_entity.name }}</span>
-          {% else %}
-            <span class="cs-entite is-vide"><i class="fa-solid fa-triangle-exclamation"></i>{{ t('map.no_entity') }}</span>
-          {% endif %}
-          {% if has_optiqcarto %}
-          <span class="cs-lecture" title="{{ t('map.viewer_readonly') }}"><i class="fa-solid fa-eye"></i>{{ t('map.viewer_readonly') }}</span>
-          {% endif %}
-        </div>
+        <!-- Le NOM DE LA CARTO est ce qu'on vient lire : il prend le titre, et
+             « Cartographie des activités » passe en surtitre. -->
+        <span class="cs-sur">{{ t('map.title') }}</span>
+        {% if active_entity %}
+          <h1 title="{{ active_entity.name }}">{{ active_entity.name }}</h1>
+        {% else %}
+          <h1 class="is-vide">{{ t('map.no_entity') }}</h1>
+        {% endif %}
       </div>
+      {% if has_optiqcarto %}
+      <span class="cs-lecture" title="{{ t('map.viewer_readonly') }}">
+        <i class="fa-solid fa-eye"></i>{{ t('map.viewer_readonly') }}
+      </span>
+      {% endif %}
     </div>
 
     <!-- Ordre voulu, de gauche à droite : ce qu'on gère, ce qu'on importe, qui
          y accède, puis l'affichage des connexions. -->
     <div class="cs-actions">
-      <button id="carto-wizard-btn" class="carto-wizard-btn"><i class="fa-solid fa-building-columns"></i> {{ t('map.btn_entities') }}</button>
-      <button id="btn-import-full" class="btn-import-full">
-        <img src="{{ url_for('static', filename='img/artificial-intelligence.png') }}" alt="IA" class="btn-icon-img">
-        {{ t('map.btn_import_ia') }}
-      </button>
+      <button id="carto-wizard-btn" class="cs-b"><i class="fa-solid fa-building-columns"></i><span>{{ t('map.btn_entities') }}</span></button>
+      <button id="btn-import-full" class="cs-b"><i class="fa-solid fa-wand-magic-sparkles"></i><span>{{ t('map.btn_import_ia') }}</span></button>
       {% if peut_regler_acces %}
-      <button id="btn-carto-acces" class="carto-wizard-btn"><i class="fa-solid fa-user-lock"></i> {{ t('map.btn_acces') }}</button>
+      <button id="btn-carto-acces" class="cs-b"><i class="fa-solid fa-user-lock"></i><span>{{ t('map.btn_acces') }}</span></button>
       {% endif %}
-      <button id="cross-carto-btn" class="cross-carto-btn" title="{{ t('map.cross_carto_title') }}">
-        <img src="{{ url_for('static', filename='img/connexion.png') }}" alt="" class="btn-icon-img cross-carto-icon">
+      <!-- Un INTERRUPTEUR, pas une action : il garde sa classe `.active`, que
+           pose activities_map.js. -->
+      <button id="cross-carto-btn" class="cs-b cs-b--bascule" title="{{ t('map.cross_carto_title') }}">
+        <i class="fa-solid fa-link cross-carto-icon"></i>
         <span id="cross-carto-label">{{ t('map.btn_connections') }}</span>
         <span class="cross-carto-dot"></span>
       </button>
 
       {% if has_optiqcarto %}
-      <span class="cs-sep" aria-hidden="true"></span>
-      <a href="/cartography/editor" class="cs-editeur"><i class="fa-solid fa-pen-ruler"></i>{{ t('map.viewer_open_editor') }}</a>
-      <!-- Le rappel de navigation tenait une LIGNE ENTIÈRE au-dessus du
-           dessin ; il attend maintenant au survol du « ? ». -->
-      <button type="button" class="cs-ic cs-aide" title="{{ t('map.nav_hint') }} {{ t('map.nav_detail') }}"
-              aria-label="{{ t('map.nav_hint') }} {{ t('map.nav_detail') }}">
-        <i class="fa-regular fa-circle-question"></i>
-      </button>
-      <button type="button" class="cs-ic" data-cs="plein" id="cs-plein"
-              title="{{ t('map.sc_plein') }}" aria-label="{{ t('map.sc_plein') }}">
-        <i class="fa-solid fa-expand"></i>
-      </button>
-      <button type="button" class="cs-ic" data-cs="panneau" id="cs-panneau"
-              title="{{ t('map.sc_panneau_fermer') }}" aria-label="{{ t('map.sc_panneau_fermer') }}"
-              aria-expanded="true">
-        <i class="fa-solid fa-table-columns"></i>
-      </button>
+      <!-- Les trois gestes de la SCÈNE, réunis : ils ne parlent pas des
+           données, ils parlent de l'écran. -->
+      <span class="cs-seg">
+        <!-- Le rappel de navigation tenait une LIGNE ENTIÈRE au-dessus du
+             dessin ; il attend maintenant au survol du « ? ». -->
+        <button type="button" class="cs-ic cs-aide" title="{{ t('map.nav_hint') }} {{ t('map.nav_detail') }}"
+                aria-label="{{ t('map.nav_hint') }} {{ t('map.nav_detail') }}">
+          <i class="fa-regular fa-circle-question"></i>
+        </button>
+        <button type="button" class="cs-ic" data-cs="plein" id="cs-plein"
+                title="{{ t('map.sc_plein') }}" aria-label="{{ t('map.sc_plein') }}">
+          <i class="fa-solid fa-expand"></i>
+        </button>
+        <button type="button" class="cs-ic" data-cs="panneau" id="cs-panneau"
+                title="{{ t('map.sc_panneau_fermer') }}" aria-label="{{ t('map.sc_panneau_fermer') }}"
+                aria-expanded="true">
+          <i class="fa-solid fa-table-columns"></i>
+        </button>
+      </span>
+      <a href="/cartography/editor" class="cs-b cs-b--prim"><i class="fa-solid fa-pen-ruler"></i><span>{{ t('map.viewer_open_editor') }}</span></a>
       {% endif %}
     </div>
   </header>

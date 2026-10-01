@@ -105,9 +105,11 @@ class TestLaCartoPrendToutePlace:
         l'en-tête de la carte, à 60 px d'écart.
 
         ⚠️ On compte ce qui est AFFICHÉ : le nom vit aussi dans un `<script>`
-        (`window.ACTIVE_ENTITY`), où il ne se lit pas."""
-        html = _page(client, app, scene["u"], scene["avec"])
-        assert _sans_script(html).count("T94 Avec carto") == 1
+        (`window.ACTIVE_ENTITY`) et dans l'attribut `title` du titre — qui le
+        rend quand il est tronqué. Ni l'un ni l'autre ne se LIT."""
+        html = _sans_script(_page(client, app, scene["u"], scene["avec"]))
+        assert html.count(">T94 Avec carto<") == 1
+        assert html.count("T94 Avec carto") == 2   # le texte, et son title
         assert 'carto-viewer-cardheader' not in html
         assert 'carto-viewer-cardentity' not in html
 
@@ -141,7 +143,7 @@ class TestLesDeuxLangues:
 
     @pytest.mark.parametrize("lang,attendus", [
         # ⚠️ Jinja échappe l'apostrophe : « Ouvrir l&#39;éditeur » dans le rendu.
-        ("fr", ["Plein écran", "Replier la liste", "diteur</a>"]),
+        ("fr", ["Plein écran", "Replier la liste", "diteur</span>"]),
         ("en", ["Full screen", "Collapse the list", "Open editor"]),
     ])
     def test_les_libelles_de_la_scene_suivent_la_langue(self, app, client, scene,
