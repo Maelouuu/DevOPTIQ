@@ -3218,6 +3218,100 @@ Livré à **21h58 en Inde**, mardi soir — la règle est tenue. Vérifié en li
 (`openImportHistory`, `imh-hist-head`, `btn-sans-taches`), et les fichiers de
 l'ancien import de tâches rendent 404.
 
+### La page Carte devient une SCÈNE (2026-10-01)
+
+« C'est dommage qu'on ne voie pas la carto en plus grand, c'est le cœur de
+l'app. » Le reproche était chiffrable, et il l'a été avant de toucher à quoi
+que ce soit :
+
+| Écran | Carto affichée | Haut du dessin | Page |
+|---|---|---|---|
+| 1920×1080 | 1226×580 — **34 % de la fenêtre** | à 311 px du bord | 390 px de vide en bas |
+| 1440×900 | 1050×580 — 47 % | à 311 px | **débordait** (941 px) |
+| 1280×800 | 890×580 — 50 % | à 367 px | **débordait** (996 px) |
+
+Le viewer était plafonné à **580 px de haut quel que soit l'écran** —
+`.carto-right { height: 650px }` fixait la hauteur du panneau, et la carte
+s'alignait dessus. Au-dessus, **trois bandeaux empilés** répétaient la même
+chose : barre de page (titre + nom d'entité), rappel de navigation (une ligne
+entière pour dire qu'on déplace à la souris), en-tête de carte (titre + nom
+d'entité À NOUVEAU, à 60 px du premier).
+
+**Après** : 66 % de la fenêtre sur un 1920×1080, le dessin commence à 175 px,
+et **plus aucun défilement** aux trois tailles. Tiroir replié, la carto gagne
+encore **320 px, soit +26 % de largeur**.
+
+**Ce qui a changé.**
+- `.carto-scene` : une colonne de la hauteur de l'écran, `overflow: hidden`.
+  Une barre, la carto, un tiroir. Les anciennes règles ne sont pas touchées —
+  la nouvelle section arrive APRÈS dans `cartography.css` et les écrase par
+  l'ordre de déclaration ; elles servent encore aux fenêtres de la page.
+- **Une seule barre** (58 px) : titre, entité, « lecture seule », puis les
+  actions. L'en-tête de carte est supprimé, le rappel de navigation aussi —
+  son texte attend derrière un « ? ».
+- **Le tiroir se replie** (bouton, languette, raccourci `l`), et son état vit
+  dans `localStorage` : il se retrouve replié à la visite suivante.
+- **Plein écran** (bouton, raccourci `f`) et **recentrage** (le logo, `c`).
+
+⚠️ **On ne recadre PAS la carto quand le tiroir se replie ou qu'on passe en
+plein écran.** L'utilisateur vient peut-être de zoomer sur une zone précise :
+lui reprendre son cadrage pour « bien faire » lui fait perdre ce qu'il
+regardait. La zone visible s'agrandit, le point de vue ne bouge pas — ce que
+fait n'importe quel outil de dessin. Recentrer reste un geste, et il a son
+bouton.
+
+⚠️ **Le tiroir POUSSE la carto, il ne la recouvre pas.** La mini map et la
+pastille de zoom du viewer vivent en bas à droite : un panneau flottant posé
+par-dessus les masquerait.
+
+⚠️ **`100vh - 86px` était une constante DEVINÉE.** La barre de navigation et sa
+marge occupent 106 px : la page débordait de 28 px et se remettait à défiler,
+ce qu'on venait justement de supprimer. `--cs-top` est désormais **mesuré** par
+`carto_scene.js` (`getBoundingClientRect().top`), recalculé au redimensionnement
+et au passage en plein écran — où il vaut 0, et la règle donne 100vh toute
+seule.
+
+⚠️ **Il restait 8 px de défilement** : `optiq.css` ne remet pas la marge du
+`body` à zéro, et celle du navigateur s'ajoute SOUS la scène, qui finit
+pourtant pile au bord. Huit pixels suffisent à faire réapparaître la barre de
+défilement d'une page calibrée pour n'en avoir aucune. La classe
+`body.a-carto-scene`, posée par le script, la neutralise — sans rien changer
+ailleurs.
+
+⚠️ **`position: absolute` cherche son repère dans le premier ANCÊTRE
+positionné.** Le bandeau des connexions était resté AU-DESSUS du corps : il se
+posait n'importe où. Il vit maintenant DANS `.carto-container`, dont la
+position est relative. Tenu par `test_94`.
+
+⚠️ **Les raccourcis ne se déclenchent jamais pendant une saisie** : la
+recherche d'activité est à deux centimètres, et « f » y sert à écrire. Ni
+quand une fenêtre est ouverte par-dessus : Échap doit la fermer, pas sortir du
+plein écran.
+
+⚠️ **`requestFullscreen` rend une PROMESSE** qui peut être rejetée (permission,
+iframe) : sans `.catch()`, un simple refus remplit la console d'erreurs non
+gérées.
+
+⚠️ **L'entrée en scène part d'une opacité nulle** : elle n'est posée que si
+l'onglet est visible, sinon le navigateur met l'animation en pause et la page
+reste blanche jusqu'au retour dessus. (Même piège que la page Partage.)
+
+⚠️ **Le bandeau d'examen des propositions est un enfant FLEX de la scène** :
+sans `flex: none` il se laisse écraser quand la place manque, et l'alerte
+devient illisible au moment où elle compte.
+
+**Sans carto**, les boutons de la scène ne sont pas RENDUS (pas seulement
+masqués) : replier ou passer en plein écran n'a aucun sens devant un écran
+d'accueil.
+
+Tests : `tests/test_94_page_carte_scene.py` (9 cas — la structure qui donne ces
+pixels, qu'une retouche distraite remettrait en place sans s'en apercevoir).
+Suite : 2702 passés, `repet_image` 2674 + 28 sautés. Éprouvé au banc
+(`tools/devrun_import.py`) dans les deux langues : repli et sa mémoire,
+languette, raccourcis, plein écran et sortie par `f`, mode Connexions, défilement
+du tiroir jusqu'à la dernière activité, entité sans carto, et les fenêtres de la
+page (entités, import) qui s'ouvrent entières malgré `overflow: hidden`.
+
 ### L'import se lit aussi dans l'AUTRE SENS (2026-10-01)
 
 L'écran de vérification des tâches ne savait poser qu'une question : pour chaque

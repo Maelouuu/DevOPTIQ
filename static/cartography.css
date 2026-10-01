@@ -4845,3 +4845,293 @@ body.connexion-mode-active .activity-item:not(.connexion-match):not(.connexion-o
 }
 .entity-shared-badge i { font-size: 0.6rem; }
 
+
+/* ════════════════════════════════════════════════════════════════════
+   LA SCÈNE — la carto prend toute la place (2026-10-01)
+   ════════════════════════════════════════════════════════════════════
+   Mesuré avant : 34 % de la fenêtre sur un 1920×1080, le dessin commençant
+   à 311 px du bord, et une page qui DÉBORDAIT sur 1280×800. Trois bandeaux
+   empilés répétaient le titre et le nom de l'entité avant qu'on voie quoi
+   que ce soit. La page est désormais une scène de la hauteur de l'écran :
+   une barre, la carto, un tiroir.
+   ⚠️ Ces règles arrivent APRÈS celles d'origine : elles les écrasent par
+   l'ordre de déclaration, sans qu'on ait à toucher aux 3900 lignes
+   au-dessus — celles-ci servent encore aux fenêtres de la page. */
+/* ⚠️ La marge par défaut du `body` (8 px, que `optiq.css` ne remet pas à zéro)
+   s'ajoute SOUS la scène : elle suffit à faire réapparaître la barre de
+   défilement d'une page calibrée pour n'en avoir aucune. La classe est posée
+   par carto_scene.js — ainsi rien ne change sur les autres pages. */
+body.a-carto-scene { margin-bottom: 0; }
+
+.carto-scene {
+  --cs-bar-h: 58px;
+  --cs-gap: 14px;
+  --cs-rose: #ec4899;
+  --cs-rose-deep: #be185d;
+  --cs-tiroir-w: 320px;
+  max-width: none;
+  margin: 0;
+  padding: 0 var(--cs-gap) var(--cs-gap);
+  /* ⚠️ `--cs-top` est MESURÉ par carto_scene.js : ce qui est au-dessus de la
+     scène (barre de navigation et sa marge) n'a pas de hauteur fixe, et une
+     constante devinée remettait la page à défiler. En plein écran la scène
+     touche le bord, `--cs-top` vaut 0, et la règle donne 100vh toute seule. */
+  height: calc(100vh - var(--cs-top, 106px));
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  overflow: hidden;
+}
+
+/* ── La barre ─────────────────────────────────────────────────────── */
+.cs-bar {
+  flex: none;
+  height: var(--cs-bar-h);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 0 6px 0 0;
+}
+.cs-id { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.cs-logo {
+  flex: none;
+  width: 40px; height: 40px;
+  display: grid; place-items: center;
+  border: 0;
+  border-radius: 13px;
+  color: #fff;
+  font-size: 16px;
+  cursor: pointer;
+  background: linear-gradient(135deg, var(--cs-rose), var(--cs-rose-deep));
+  box-shadow: 0 6px 18px rgba(236, 72, 153, .32);
+  transition: transform .18s cubic-bezier(.2, .8, .2, 1), box-shadow .18s ease;
+}
+.cs-logo:hover { transform: translateY(-1px) scale(1.04); box-shadow: 0 9px 24px rgba(236, 72, 153, .4); }
+.cs-logo:active { transform: scale(.96); }
+.cs-id-txt { min-width: 0; }
+.carto-scene .cs-id-txt h1 {
+  margin: 0;
+  font-size: 19px;
+  font-weight: 700;
+  line-height: 1.15;
+  letter-spacing: -.01em;
+  white-space: nowrap;
+}
+.cs-meta { display: flex; align-items: center; gap: 7px; margin-top: 1px; }
+.cs-entite, .cs-lecture {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
+  padding: 3px 9px;
+  border-radius: 999px;
+  white-space: nowrap;
+  max-width: 320px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cs-entite { background: #fdf2f8; color: #9d174d; border: 1px solid #fbcfe8; }
+.cs-entite.is-vide { background: #fff7ed; color: #9a3412; border-color: #fed7aa; }
+.cs-lecture { background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; }
+.cs-entite i, .cs-lecture i { font-size: 10px; opacity: .8; }
+
+.cs-actions { display: flex; align-items: center; gap: 8px; flex-wrap: nowrap; }
+.cs-sep { width: 1px; height: 24px; background: #e2e8f0; margin: 0 2px; flex: none; }
+
+.cs-editeur {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 38px;
+  padding: 0 15px;
+  border-radius: 11px;
+  font-size: 13.5px;
+  font-weight: 650;
+  text-decoration: none;
+  color: #fff;
+  background: linear-gradient(135deg, #0f172a, #334155);
+  box-shadow: 0 4px 14px rgba(15, 23, 42, .22);
+  transition: transform .16s ease, box-shadow .16s ease, filter .16s ease;
+}
+.cs-editeur:hover { transform: translateY(-1px); box-shadow: 0 8px 20px rgba(15, 23, 42, .3); filter: brightness(1.08); }
+
+.cs-ic {
+  flex: none;
+  width: 38px; height: 38px;
+  display: grid; place-items: center;
+  border: 1px solid #e9ecf3;
+  border-radius: 11px;
+  background: #fff;
+  color: #475569;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background .16s ease, color .16s ease, border-color .16s ease, transform .16s ease;
+}
+.cs-ic:hover { background: #fdf2f8; color: var(--cs-rose-deep); border-color: #fbcfe8; transform: translateY(-1px); }
+.cs-ic:active { transform: scale(.94); }
+.cs-ic.is-on { background: linear-gradient(135deg, var(--cs-rose), var(--cs-rose-deep)); color: #fff; border-color: transparent; }
+
+/* Le clavier doit voir où il est : ces boutons n'ont pas de libellé visible,
+   un anneau de focus est la seule chose qui les situe. */
+.cs-logo:focus-visible, .cs-ic:focus-visible, .cs-editeur:focus-visible,
+.cs-languette:focus-visible, .cs-tiroir-x:focus-visible {
+  outline: 2px solid var(--cs-rose);
+  outline-offset: 2px;
+}
+
+/* ⚠️ Le bandeau « des modifications attendent votre décision » est un enfant
+   FLEX de la scène : sans `flex: none` il se laisse écraser quand la place
+   manque, et l'alerte devient illisible au moment où elle compte. */
+.carto-scene .cex-bandeau { flex: none; margin: 0; }
+
+/* ── Le corps : carte + tiroir ─────────────────────────────────────── */
+.carto-scene .carto-container {
+  flex: 1;
+  min-height: 0;          /* sans ça un enfant flex refuse de rétrécir */
+  position: relative;
+  display: flex;
+  gap: var(--cs-gap);
+  align-items: stretch;
+}
+.carto-scene .carto-left { flex: 1; min-width: 0; display: flex; }
+
+.carto-scene .carto-viewer-card {
+  flex: 1;
+  height: 100%;
+  min-height: 0;
+  border-radius: 18px;
+  border: 1px solid #f1d5e4;
+  box-shadow: 0 10px 40px rgba(190, 24, 93, .09), 0 2px 6px rgba(15, 23, 42, .04);
+  background: #fff;
+  overflow: hidden;
+}
+.carto-scene .carto-viewer-wrap { flex: 1; min-height: 0; height: auto; }
+.carto-scene #carto-viewer-frame { width: 100%; height: 100%; display: block; border: 0; }
+
+/* ── Le tiroir ─────────────────────────────────────────────────────── */
+.carto-scene .carto-right {
+  width: var(--cs-tiroir-w);
+  height: 100%;
+  flex: none;
+  padding: 16px;
+  border-radius: 18px;
+  border: 1px solid #f1d5e4;
+  box-shadow: 0 10px 40px rgba(190, 24, 93, .09);
+  /* ⚠️ Le tiroir POUSSE la carto, il ne la recouvre pas : la mini map et la
+     pastille de zoom du viewer vivent en bas à droite, un panneau posé
+     par-dessus les masquerait. */
+  transition: width .32s cubic-bezier(.22, 1, .36, 1),
+              opacity .22s ease, transform .32s cubic-bezier(.22, 1, .36, 1),
+              padding .32s cubic-bezier(.22, 1, .36, 1),
+              border-width .32s ease;
+}
+.carto-scene.is-replie .carto-right {
+  width: 0;
+  padding-left: 0;
+  padding-right: 0;
+  border-width: 0;
+  opacity: 0;
+  transform: translateX(18px);
+  pointer-events: none;
+}
+.carto-scene .activities-panel-header { position: relative; }
+.cs-tiroir-x {
+  position: absolute;
+  top: -2px; right: -2px;
+  width: 28px; height: 28px;
+  display: grid; place-items: center;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: #94a3b8;
+  cursor: pointer;
+  transition: background .15s ease, color .15s ease;
+}
+.cs-tiroir-x:hover { background: #fdf2f8; color: var(--cs-rose-deep); }
+
+/* La languette : quand le tiroir est replié, c'est elle qui dit qu'il existe. */
+.cs-languette {
+  position: absolute;
+  top: 18px; right: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 40px;
+  padding: 0 14px 0 12px;
+  border: 1px solid #f1d5e4;
+  border-right: 0;
+  border-radius: 12px 0 0 12px;
+  background: #fff;
+  color: var(--cs-rose-deep);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 650;
+  cursor: pointer;
+  box-shadow: -6px 6px 22px rgba(190, 24, 93, .12);
+  opacity: 0;
+  transform: translateX(12px);
+  pointer-events: none;
+  transition: opacity .24s ease .08s, transform .3s cubic-bezier(.22, 1, .36, 1) .08s;
+  z-index: 5;
+}
+.carto-scene.is-replie .cs-languette { opacity: 1; transform: none; pointer-events: auto; }
+.cs-languette:hover { background: #fdf2f8; padding-right: 18px; }
+
+/* ── Le bandeau des connexions se pose SUR la carto ────────────────── */
+.carto-scene .cs-flot {
+  position: absolute;
+  top: 14px; left: 50%;
+  transform: translateX(-50%);
+  z-index: 6;
+  margin: 0;
+  max-width: min(760px, 70%);
+  backdrop-filter: blur(10px);
+  box-shadow: 0 8px 28px rgba(15, 23, 42, .12);
+  animation: csFlot .34s cubic-bezier(.22, 1, .36, 1) both;
+}
+@keyframes csFlot {
+  from { opacity: 0; transform: translateX(-50%) translateY(-10px); }
+  to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
+/* ── Plein écran ───────────────────────────────────────────────────── */
+.carto-scene:fullscreen { background: #f6f7fb; padding: var(--cs-gap); height: 100vh; }
+.carto-scene:fullscreen .cs-bar { height: 52px; }
+
+/* ── Entrée en scène ───────────────────────────────────────────────── */
+/* ⚠️ Posée par le JS seulement quand l'onglet est VISIBLE : l'animation part
+   d'une opacité nulle, et un onglet en arrière-plan la met en pause — la
+   page resterait blanche jusqu'au retour dessus. */
+.carto-scene.cs-entre .cs-bar,
+.carto-scene.cs-entre .carto-viewer-card,
+.carto-scene.cs-entre .carto-right {
+  animation: csMonte .5s cubic-bezier(.22, 1, .36, 1) both;
+}
+.carto-scene.cs-entre .carto-viewer-card { animation-delay: .06s; }
+.carto-scene.cs-entre .carto-right { animation-delay: .12s; }
+@keyframes csMonte {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .carto-scene *, .carto-scene *::before, .carto-scene *::after {
+    animation-duration: .01ms !important;
+    transition-duration: .01ms !important;
+  }
+}
+
+/* ── Écrans étroits : le tiroir repasse sous la carto ──────────────── */
+@media (max-width: 1100px) {
+  .carto-scene { height: auto; overflow: visible; }
+  .carto-scene .carto-container { flex-direction: column; }
+  .carto-scene .carto-left { min-height: 62vh; }
+  .carto-scene .carto-right { width: 100%; height: 380px; }
+  .carto-scene.is-replie .carto-right { height: 0; }
+  .cs-languette { position: static; border-radius: 12px; border-right: 1px solid #f1d5e4; }
+  .cs-bar { height: auto; flex-wrap: wrap; padding: 8px 0; }
+  .cs-actions { flex-wrap: wrap; }
+}

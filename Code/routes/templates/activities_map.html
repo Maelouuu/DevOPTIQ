@@ -70,7 +70,11 @@
     cx_deoffice_links: {{ t('map.cx_deoffice_links')|tojson }},
     cx_irreversible: {{ t('map.cx_irreversible')|tojson }},
     activating:      {{ t('map.preview_activating')|tojson }},
-    activate:        {{ t('map.preview_activate')|tojson }}
+    activate:        {{ t('map.preview_activate')|tojson }},
+    sc_plein:        {{ t('map.sc_plein')|tojson }},
+    sc_quitter_plein: {{ t('map.sc_quitter_plein')|tojson }},
+    sc_panneau_fermer: {{ t('map.sc_panneau_fermer')|tojson }},
+    sc_panneau_ouvrir: {{ t('map.sc_panneau_ouvrir')|tojson }}
   };
 </script>
 
@@ -82,22 +86,37 @@
 <script defer src="{{ url_for('static', filename='js/highlight-extco-map.js') }}"></script>
 <script defer src="{{ url_for('static', filename='js/optiq_alert.js') }}"></script>
 <script defer src="{{ url_for('static', filename='js/activities_map.js') }}"></script>
+<script defer src="{{ url_for('static', filename='js/carto_scene.js') }}"></script>
 
-<div class="carto-page">
+<div class="carto-page carto-scene" id="carto-scene">
 
-  <!-- HEADER -->
-  <div class="carto-header">
-    <div class="carto-header-left">
-      <h1>{{ t('map.title') }}</h1>
-      {% if active_entity %}
-        <span class="entity-badge active"><i class="fa-solid fa-building"></i> {{ active_entity.name }}</span>
-      {% else %}
-        <span class="entity-badge inactive"><i class="fa-solid fa-triangle-exclamation"></i> {{ t('map.no_entity') }}</span>
-      {% endif %}
+  <!-- UNE SEULE BARRE — l'identité de la carto à gauche, ce qu'on peut en
+       faire à droite. Le titre, le nom de l'entité et « lecture seule » ne
+       s'écrivent qu'ICI : ils étaient répétés dans l'en-tête de la carte,
+       juste en dessous. -->
+  <header class="cs-bar">
+    <div class="cs-id">
+      <button type="button" class="cs-logo" data-cs="fit" title="{{ t('map.fit_view') }}">
+        <i class="fa-solid fa-diagram-project"></i>
+      </button>
+      <div class="cs-id-txt">
+        <h1>{{ t('map.title') }}</h1>
+        <div class="cs-meta">
+          {% if active_entity %}
+            <span class="cs-entite"><i class="fa-solid fa-building"></i>{{ active_entity.name }}</span>
+          {% else %}
+            <span class="cs-entite is-vide"><i class="fa-solid fa-triangle-exclamation"></i>{{ t('map.no_entity') }}</span>
+          {% endif %}
+          {% if has_optiqcarto %}
+          <span class="cs-lecture" title="{{ t('map.viewer_readonly') }}"><i class="fa-solid fa-eye"></i>{{ t('map.viewer_readonly') }}</span>
+          {% endif %}
+        </div>
+      </div>
     </div>
+
     <!-- Ordre voulu, de gauche à droite : ce qu'on gère, ce qu'on importe, qui
          y accède, puis l'affichage des connexions. -->
-    <div class="carto-header-right">
+    <div class="cs-actions">
       <button id="carto-wizard-btn" class="carto-wizard-btn"><i class="fa-solid fa-building-columns"></i> {{ t('map.btn_entities') }}</button>
       <button id="btn-import-full" class="btn-import-full">
         <img src="{{ url_for('static', filename='img/artificial-intelligence.png') }}" alt="IA" class="btn-icon-img">
@@ -106,14 +125,33 @@
       {% if peut_regler_acces %}
       <button id="btn-carto-acces" class="carto-wizard-btn"><i class="fa-solid fa-user-lock"></i> {{ t('map.btn_acces') }}</button>
       {% endif %}
-      <!-- Bouton "Connexions" — toggle mise en évidence des activités externes/hachurées -->
       <button id="cross-carto-btn" class="cross-carto-btn" title="{{ t('map.cross_carto_title') }}">
         <img src="{{ url_for('static', filename='img/connexion.png') }}" alt="" class="btn-icon-img cross-carto-icon">
         <span id="cross-carto-label">{{ t('map.btn_connections') }}</span>
         <span class="cross-carto-dot"></span>
       </button>
+
+      {% if has_optiqcarto %}
+      <span class="cs-sep" aria-hidden="true"></span>
+      <a href="/cartography/editor" class="cs-editeur"><i class="fa-solid fa-pen-ruler"></i>{{ t('map.viewer_open_editor') }}</a>
+      <!-- Le rappel de navigation tenait une LIGNE ENTIÈRE au-dessus du
+           dessin ; il attend maintenant au survol du « ? ». -->
+      <button type="button" class="cs-ic cs-aide" title="{{ t('map.nav_hint') }} {{ t('map.nav_detail') }}"
+              aria-label="{{ t('map.nav_hint') }} {{ t('map.nav_detail') }}">
+        <i class="fa-regular fa-circle-question"></i>
+      </button>
+      <button type="button" class="cs-ic" data-cs="plein" id="cs-plein"
+              title="{{ t('map.sc_plein') }}" aria-label="{{ t('map.sc_plein') }}">
+        <i class="fa-solid fa-expand"></i>
+      </button>
+      <button type="button" class="cs-ic" data-cs="panneau" id="cs-panneau"
+              title="{{ t('map.sc_panneau_fermer') }}" aria-label="{{ t('map.sc_panneau_fermer') }}"
+              aria-expanded="true">
+        <i class="fa-solid fa-table-columns"></i>
+      </button>
+      {% endif %}
     </div>
-  </div>
+  </header>
 
   {% if examen %}
   <!-- ⚠️ Toutes cartos confondues : celui qui valide n'a pas à activer une
@@ -129,19 +167,6 @@
     <span class="cex-bandeau-cta">{{ t('examen.ouvrir') }} <i class="fa-solid fa-arrow-right"></i></span>
   </button>
   {% endif %}
-
-  <!-- INFO NAVIGATION -->
-  <div class="carto-info-message" id="carto-info-default">
-    <img src="{{ url_for('static', filename='img/navigation.png') }}" alt="" class="carto-nav-icon">
-    <strong>{{ t('map.nav_hint') }}</strong>
-    {{ t('map.nav_detail') }}
-  </div>
-  <div class="carto-info-message carto-info-cross hidden" id="carto-info-cross">
-    <i class="fa-solid fa-highlighter"></i>
-    <strong>{{ t('map.external_label') }}</strong>
-    {{ t('map.external_detail') | safe }}
-    <span id="cross-carto-count" class="cross-count-badge">0</span> {{ t('map.external_count_suffix') }}
-  </div>
 
   <!-- Popup entité choice (cross-carto click with multiple matches) -->
   <div id="cross-entity-popup" class="cross-entity-popup hidden">
@@ -333,25 +358,18 @@
 
   <!-- CONTENU PRINCIPAL -->
   <div class="carto-container">
+  <!-- Le bandeau des connexions ne pousse plus le dessin : il se pose dessus,
+       et seulement quand le mode est allumé. -->
+  <div class="carto-info-message carto-info-cross cs-flot hidden" id="carto-info-cross">
+    <i class="fa-solid fa-highlighter"></i>
+    <strong>{{ t('map.external_label') }}</strong>
+    {{ t('map.external_detail') | safe }}
+    <span id="cross-carto-count" class="cross-count-badge">0</span> {{ t('map.external_count_suffix') }}
+  </div>
     <div class="carto-left">
       {% if has_optiqcarto %}
       <!-- Viewer OptiqCarto actif -->
       <div class="carto-viewer-card">
-        <div class="carto-viewer-cardheader">
-          <div class="carto-viewer-cardheader-left">
-            <div class="carto-viewer-cardicon" onclick="fitViewer()" title="{{ t('map.fit_view') }}" style="cursor:pointer"><i class="fa-solid fa-diagram-project"></i></div>
-            <div>
-              <h3 class="carto-viewer-cardtitle">{{ t('map.card_title') }}</h3>
-              {% if active_entity %}<span class="carto-viewer-cardentity">{{ active_entity.name }}</span>{% endif %}
-            </div>
-          </div>
-          <div class="carto-viewer-cardheader-right">
-            <span class="viewer-readonly-badge-inline"><i class="fa-solid fa-eye"></i> {{ t('map.viewer_readonly') }}</span>
-            <a href="/cartography/editor" class="btn-open-editor-inline">
-              <i class="fa-solid fa-pen-ruler"></i> {{ t('map.viewer_open_editor') }}
-            </a>
-          </div>
-        </div>
         <!-- Calque selector strip -->
         <div id="calque-strip" class="calque-strip" style="display:none">
           <span class="calque-strip-label"><i class="fa-solid fa-layer-group"></i> {{ t('map.calque_label') }}</span>
@@ -393,13 +411,17 @@
       </div>
       {% endif %}
     </div>
-    <div class="carto-right">
+    <aside class="carto-right cs-tiroir" id="carto-right">
       <div class="activities-panel-header">
         <div class="activities-panel-icon"><i class="fa-solid fa-list-check"></i></div>
         <div>
           <h3 class="activities-panel-title">{{ t('map.panel_title') }}</h3>
           <span class="activities-panel-count">{{ activities|length }} {{ t('map.count_activities') if activities|length != 1 else t('map.count_activity') }}</span>
         </div>
+        <button type="button" class="cs-tiroir-x" data-cs="panneau"
+                title="{{ t('map.sc_panneau_fermer') }}" aria-label="{{ t('map.sc_panneau_fermer') }}">
+          <i class="fa-solid fa-chevron-right"></i>
+        </button>
       </div>
       {% if activities %}
         <div class="carto-activity-search">
@@ -421,7 +443,14 @@
           <p class="hint">{{ t('map.no_activities_hint') }}</p>
         </div>
       {% endif %}
-    </div>
+    </aside>
+    <!-- Rouvrir le tiroir quand il est replié : une languette collée au bord,
+         sinon rien ne dirait qu'il existe encore. -->
+    <button type="button" class="cs-languette" data-cs="panneau" id="cs-languette"
+            title="{{ t('map.sc_panneau_ouvrir') }}" aria-label="{{ t('map.sc_panneau_ouvrir') }}">
+      <i class="fa-solid fa-list-check"></i>
+      <span>{{ t('map.panel_title') }}</span>
+    </button>
   </div>
 
 
