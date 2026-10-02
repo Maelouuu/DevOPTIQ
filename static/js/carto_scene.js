@@ -23,6 +23,10 @@
   const L = (cle) => (window.MAP_I18N || {})[cle] || cle;
 
   document.body.classList.add('a-carto-scene');
+  // ⚠️ L'écho encadre la CARTO. Sans elle, il entourait l'écran d'accueil :
+  // trois anneaux lumineux autour de rien. La feuille de style ne peut pas
+  // le savoir, c'est donc le script qui le dit.
+  if (document.getElementById('carto-viewer-frame')) scene.classList.add('a-carto');
 
   // ── Le tiroir ──────────────────────────────────────────────────────
   const btnPanneau = document.getElementById('cs-panneau');

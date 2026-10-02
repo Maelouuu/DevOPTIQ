@@ -3353,6 +3353,70 @@ beauté de l'un ou de l'autre.
 recopiée dans le dépôt OptiqCarto. Le fond de l'éditeur est une autre décision,
 qu'on ne prend pas en passant.
 
+#### LE STUDIO — la carto sur une scène sombre (2026-10-02)
+
+« Ça ne m'en met pas plein les yeux. » Deux passes **claires** n'y avaient rien
+changé, et pour une raison de fond : la carto est un objet **CLAIR** — une
+feuille blanche couverte de bandes pâles. Posée sur un fond clair, elle ne peut
+pas éclater, il n'y a aucun écart à exploiter. On ne pend pas un tableau sur un
+mur de la même couleur que lui.
+
+La page devient donc une **scène sombre**. Le dessin est la seule chose
+lumineuse de l'écran ; tout le reste — îlots de commande, tiroir, languette —
+est en verre sombre et ne lui dispute jamais le regard. Bénéfice qu'on n'avait
+pas vu venir : la barre de navigation de l'application est un galet
+**graphite**, et elle flottait jusqu'ici sur du lavande pâle. Les deux se
+raccordent enfin. La page Carte est explicitement HORS du design system clair
+(voir « Design system UI ») : c'est la seule page qui a droit à cette identité.
+
+- **La scène** : bleu de nuit `#080a14` (le noir pur écrase, celui-ci garde de
+  la matière), une trame de 46 px pour l'échelle, trois halos aux angles, une
+  **vignette** qui éteint les bords, et **3,8 % de grain** — sans lui, un fond
+  fait de dégradés purs a l'air plat et numérique. Un souffle de 40 s derrière
+  la carto : la page RESPIRE, elle ne clignote pas.
+- **DEUX ÎLOTS, pas un bandeau.** Sur un 1920, une barre pleine largeur laissait
+  700 px de vide entre le titre et les actions — et ce vide était du verre, donc
+  il bouchait le haut de la scène. Deux îlots laissent passer l'aurore : ce qui
+  est plein ne l'est que là où il y a quelque chose.
+- **Le nom de la carto prend la police d'affichage** (Fraunces) : c'est le titre
+  de la scène, une graisse de plus ne suffisait pas à le dire.
+- **Les boutons sont en verre**, et il n'y a **qu'une seule couleur pleine** :
+  ouvrir l'éditeur. Un éclat la traverse au survol — la seule fantaisie, et elle
+  ne dure que le temps du geste. L'interrupteur « Connexions » s'allume en cyan,
+  et son bandeau reprend ce cyan : on voit d'où il vient.
+- **L'écho** (trois contours espacés) devient **lumineux** : sur du sombre, un
+  trait PORTE. Il ne se dessine que s'il y a une carto (classe `a-carto`, posée
+  par `carto_scene.js`) — sinon il encadrait l'écran d'accueil, trois anneaux
+  autour de rien. ⚠️ Le tiroir n'en a pas : deux échos côte à côte, c'est aucun
+  centre.
+
+⚠️⚠️ **Le verre ne fonctionne QUE sur fond sombre.** Replié, le tiroir laisse la
+carto s'étendre SOUS la languette : son fond devenait la feuille blanche et son
+libellé clair disparaissait dessus — une pastille blanche avec du texte blanc.
+Tout ce qui peut atterrir sur le dessin (languette, bandeau des connexions) est
+donc une pastille **sombre et opaque**, jamais du verre.
+
+⚠️ **Les trois états vifs d'une activité** — survol depuis le dessin, cible
+d'une liaison, origine d'une liaison — étaient des fonds PÂLES posés en
+`!important`. Sur le tiroir sombre, le libellé est clair : le fond pâle le
+rendait invisible. Mêmes signaux, mêmes couleurs, en version lumineuse.
+
+⚠️ **Remplacer une passe de style emporte aussi sa MISE EN PAGE.** La passe
+précédente portait les deux ; la retirer a emporté `display: inline-flex` et
+`gap` avec elle — icône et libellé se chevauchaient, et le segment des trois
+gestes tombait hors de la barre. La structure des commandes est désormais
+écrite à part, avant leur peau.
+
+⚠️ `color: var(--st-encre)` était posé sur le **body**, alors que la variable
+est déclarée sur `.carto-scene` : une propriété personnalisée se résout là où
+elle est DÉCLARÉE, la règle ne faisait donc rien. Et la poser vraiment sur le
+body aurait éclairci le texte des **fenêtres claires** de la page.
+
+**La surface reste tenue** : **62,8 %** de la fenêtre sur un 1920×1080 (34 %
+avant la refonte de la veille), rien ne déborde aux trois tailles. L'écho a déjà
+coûté 10 points une fois — il se resserre sous 1480 px, et il n'en reste qu'un
+sous 1100.
+
 Tests : `tests/test_94_page_carte_scene.py` (9 cas — la structure qui donne ces
 pixels, qu'une retouche distraite remettrait en place sans s'en apercevoir).
 Suite : 2702 passés, `repet_image` 2674 + 28 sautés. Éprouvé au banc
