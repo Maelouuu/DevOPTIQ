@@ -389,6 +389,14 @@ def _do_sync(entity, diagram):
     for role in roles_a_detacher:
         if est_utilise(role):
             continue
+        # Suppression en masse : le cascade ORM ne joue pas, et SQLite ne fait pas
+        # respecter ON DELETE CASCADE — les lignes seraient orphelines puis
+        # héritées par une nouvelle analyse réutilisant le même id.
+        analyses_ids = [a.id for a in TimeRoleAnalysis.query.filter_by(role_id=role.id).all()]
+        if analyses_ids:
+            TimeRoleLine.query.filter(
+                TimeRoleLine.role_analysis_id.in_(analyses_ids)
+            ).delete(synchronize_session=False)
         TimeRoleAnalysis.query.filter_by(role_id=role.id).delete(synchronize_session=False)
         TimeAnalysis.query.filter_by(role_id=role.id).update(
             {TimeAnalysis.role_id: None}, synchronize_session=False)

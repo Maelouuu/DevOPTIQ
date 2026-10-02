@@ -568,5 +568,27 @@
     ],
     "author": "routine",
     "fixed_at": "2026-09-24T03:24:03"
+  },
+  {
+    "patch_uid": "2026-10-02-role-analysis-orphan-lines",
+    "title": "Suppression d'un rôle : les lignes de ses analyses de temps ne restent plus orphelines",
+    "node_ids": [
+      "tests/test_95_temps_calculs.py::TestSuppressionRoleNeLaisseAucuneLigneOrpheline::test_retirer_la_bande_d_un_role_efface_les_lignes_de_ses_analyses",
+      "tests/test_95_temps_calculs.py::TestRoleAnalysisSummary::test_summary_annual_uses_calendar_params",
+      "tests/test_95_temps_calculs.py::TestRoleAnalysisSummary::test_line_without_duration_falls_back_to_activity_duration",
+      "tests/test_95_temps_calculs.py::TestRoleAnalysisSummary::test_frequency_zero_counts_as_one_in_weight",
+      "tests/test_95_temps_calculs.py::TestRoleAnalysisSummary::test_list_includes_role_name_and_summary"
+    ],
+    "page_slug": "temps_calculs",
+    "failure_reason": "Dans la suite complète, la synthèse d'une analyse de rôle fraîchement créée contenait des durées fantômes (30 min au lieu de 12, etc.) ; le test passait seul.",
+    "was_real_bug": true,
+    "root_cause": "app_bug",
+    "error": "_sync_carto_to_db supprimait les TimeRoleAnalysis d'un rôle retiré de la carte par query.delete() en masse : le cascade ORM ne joue pas et SQLite n'applique pas ON DELETE CASCADE. Les TimeRoleLine restaient orphelines, et une nouvelle analyse réutilisant le même id en héritait.",
+    "fix_description": "Suppression explicite des TimeRoleLine des analyses concernées avant la suppression en masse des analyses.",
+    "files_changed": [
+      "Code/routes/cartography_editor.py"
+    ],
+    "author": "routine",
+    "fixed_at": "2026-10-02T03:32:51"
   }
 ]
