@@ -157,7 +157,7 @@ def get_activity_details(activity_id):
     savoirs = _collect_query(Savoir, "description")
     savoir_faires = _collect_query(SavoirFaire, "description")
 
-    # Softskill: ton modèle peut avoir "name" ou "description"
+    # Softskill n'a ni `name` ni `description` : son libellé est `habilete`.
     softskills_items = []
     try:
         qss = Softskill.query.filter_by(activity_id=activity.id).order_by(Softskill.id.asc())
@@ -165,8 +165,8 @@ def get_activity_details(activity_id):
             softskills_items.append(
                 {
                     "id": getattr(ss, "id", None),
-                    "name": getattr(ss, "name", None) or getattr(ss, "description", ""),
-                    "description": getattr(ss, "description", "") or getattr(ss, "name", ""),
+                    "name": ss.habilete or "",
+                    "description": ss.habilete or "",
                 }
             )
     except Exception:

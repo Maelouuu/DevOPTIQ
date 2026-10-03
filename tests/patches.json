@@ -590,5 +590,23 @@
     ],
     "author": "routine",
     "fixed_at": "2026-10-02T03:32:51"
+  },
+  {
+    "patch_uid": "2026-10-03-details-softskills-libelle-vide",
+    "title": "GET /activities/<id>/details renvoyait des softskills au libellé vide",
+    "node_ids": [
+      "tests/test_96_activities_data_contenu.py::TestDetailsContenu::test_softskill_nom_et_description_viennent_de_habilete"
+    ],
+    "page_slug": "activities_data_contenu",
+    "failure_reason": "name et description des softskills valaient \"\" au lieu de l habilete saisie.",
+    "was_real_bug": true,
+    "root_cause": "app_bug",
+    "error": "La route lisait getattr(ss, name/description) alors que le modele Softskill n a que la colonne habilete : apres chaque rafraichissement front (competences_crud.js), les softskills s affichaient sans texte.",
+    "fix_description": "La route utilise ss.habilete pour name et description.",
+    "files_changed": [
+      "Code/routes/activities_data.py"
+    ],
+    "author": "routine",
+    "fixed_at": "2026-10-03T03:16:10"
   }
 ]
