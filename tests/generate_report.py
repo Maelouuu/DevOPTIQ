@@ -51,6 +51,7 @@ PAGE_LABELS = {
     "test_38_temps_avance":    "Gestion du Temps — Avancé (Projets, Rôles, Faiblesses)",
     "test_95_temps_calculs":   "Gestion du Temps — Calculs et cas limites",
     "test_96_activities_data_contenu": "Détails d'activité — Contenu (softskills, outils, savoirs)",
+    "test_97_gestion_outils_avance": "Gestion des Outils — Cas avancés",
     "test_39_propose_from_file": "Propositions depuis Fichier Excel & Rendu Performances",
     "test_40_cartography_translate": "Cartographie (update) & Traduction HSC (OpenAI)",
     "test_41_activities_form":       "Performance Activité (CRUD via /activities)",
