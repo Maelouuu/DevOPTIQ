@@ -36,6 +36,8 @@ PAGE_LABELS = {
     "test_22_propose_ia":        "Propositions IA & Compétences API",
     "test_23_performance_perso": "Performance Personnalisée",
     "test_24_roles_view":        "Vues des Rôles & Items Activité",
+    "test_98_roles_view_validation": "Vues des Rôles — Validation & Titulaires",
+    "test_99_settings_admin_gaps": "Paramètres — Branches limites",
     "test_25_competences_plan":  "Plan de Compétences & Prérequis",
     "test_27_activities_view":   "Vue Paginée des Activités",
     "test_28_plan_storage":      "Plan Compétences & Paramètres",
