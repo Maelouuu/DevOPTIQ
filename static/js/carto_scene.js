@@ -1,36 +1,32 @@
 /* ════════════════════════════════════════════════════════════════════
-   La page Carte comme une SCÈNE : la carto prend toute la place.
+   La page Carte : la carto prend TOUT, les commandes se posent dessus.
 
-   Trois gestes, et rien d'autre : replier la liste, passer en plein écran,
-   recentrer. Le reste de la page (fenêtres d'entités, d'import, d'accès,
-   d'examen) vit dans activities_map.js — ce fichier ne touche qu'au cadre.
+   Trois gestes, et rien d'autre : replier les réglages, recadrer le dessin,
+   replier la liste. Le reste de la page (fenêtres d'entités, d'import,
+   d'accès, d'examen) vit dans activities_map.js — ce fichier ne touche
+   qu'au cadre.
 
-   ⚠️ On RECADRE la carto après un repli ou un passage en plein écran, et ce
-   n'était pas évident : un outil de dessin garde d'ordinaire le point de vue
-   de l'utilisateur quand son cadre change de taille. Mais le viewer ancre la
-   carto par son COIN, pas par son centre : sans recadrage, replier le tiroir
-   ne donnait pas « plus de marge autour du dessin », il donnait 320 px de
-   VIDE à droite. Or on replie précisément pour voir plus grand. Le geste est
-   explicite, le recadrage l'est donc aussi.
+   ⚠️ Le PLEIN ÉCRAN a été retiré : agrandir la fenêtre ne sert presque
+   jamais sur cette page, alors que RECADRER — remettre le dessin au milieu
+   de la zone d'affichage — est le geste qu'on fait sans arrêt. Le bouton qui
+   portait le cadre porte maintenant ce geste-là.
+
+   ⚠️ Et on ne recadre PLUS après avoir replié la liste. Tant qu'elle
+   poussait la carto, replier changeait la taille de la zone d'affichage et
+   laissait 320 px de vide à droite ; maintenant elle se POSE dessus, la zone
+   ne bouge pas, et recadrer ferait sauter le dessin pour rien.
    ════════════════════════════════════════════════════════════════════ */
 (function () {
   'use strict';
 
-  const CLE_TIROIR = 'optiq_carto_tiroir';   // replié ou non, d'une visite à l'autre
+  const CLE_TIROIR  = 'optiq_carto_tiroir';    // replié ou non, d'une visite à l'autre
+  const CLE_REGLAGE = 'optiq_carto_reglages';  // idem pour les réglages
   const scene = document.getElementById('carto-scene');
   if (!scene) return;
 
   const L = (cle) => (window.MAP_I18N || {})[cle] || cle;
 
   document.body.classList.add('a-carto-scene');
-  // ⚠️ L'écho encadre la CARTO. Sans elle, il entourait l'écran d'accueil :
-  // trois anneaux lumineux autour de rien. La feuille de style ne peut pas
-  // le savoir, c'est donc le script qui le dit.
-  if (document.getElementById('carto-viewer-frame')) scene.classList.add('a-carto');
-
-  // ── Le tiroir ──────────────────────────────────────────────────────
-  const btnPanneau = document.getElementById('cs-panneau');
-  const languette = document.getElementById('cs-languette');
 
   function lire(cle) {
     try { return localStorage.getItem(cle); } catch (e) { return null; }
@@ -38,6 +34,10 @@
   function ecrire(cle, val) {
     try { localStorage.setItem(cle, val); } catch (e) { /* stockage refusé */ }
   }
+
+  // ── Le tiroir ──────────────────────────────────────────────────────
+  const btnPanneau = document.getElementById('cs-panneau');
+  const languette = document.getElementById('cs-languette');
 
   function poserTiroir(replie, memoriser) {
     scene.classList.toggle('is-replie', replie);
@@ -52,39 +52,29 @@
     if (memoriser) ecrire(CLE_TIROIR, replie ? '1' : '0');
   }
 
-  function basculerTiroir() {
-    poserTiroir(!scene.classList.contains('is-replie'), true);
-    // Après la transition (320 ms) : avant, le viewer recadrerait sur une
-    // largeur qui n'est pas encore la bonne.
-    setTimeout(recentrer, 380);
-  }
+  // ── Les réglages ───────────────────────────────────────────────────
+  // « Les boutons prennent trop de place » : ils se rangent derrière un
+  // chevron, et l'îlot tombe à deux pastilles.
+  const actions = document.getElementById('cs-actions');
+  const btnPlier = document.getElementById('cs-plier');
 
-  // ── Plein écran ────────────────────────────────────────────────────
-  const btnPlein = document.getElementById('cs-plein');
-
-  function basculerPlein() {
-    // ⚠️ `requestFullscreen` peut être refusé (permission, iframe) : on rend
-    // une promesse qu'il faut attraper, sinon la console se remplit d'erreurs
-    // non gérées sur un simple refus.
-    if (document.fullscreenElement) {
-      (document.exitFullscreen() || Promise.resolve()).catch(() => {});
-    } else if (scene.requestFullscreen) {
-      (scene.requestFullscreen() || Promise.resolve()).catch(() => {});
+  function poserReglages(plie, memoriser) {
+    if (!actions) return;
+    actions.classList.toggle('is-plie', plie);
+    if (btnPlier) {
+      const lib = L(plie ? 'sc_actions_deplier' : 'sc_actions_plier');
+      btnPlier.title = lib;
+      btnPlier.setAttribute('aria-label', lib);
+      btnPlier.setAttribute('aria-expanded', String(!plie));
+      const ic = btnPlier.querySelector('i');
+      // Le chevron montre où va le contenu : l'îlot est ancré à DROITE, donc
+      // il se replie vers la droite et se redéplie vers la gauche.
+      if (ic) ic.className = plie ? 'fa-solid fa-chevron-left' : 'fa-solid fa-chevron-right';
     }
+    if (memoriser) ecrire(CLE_REGLAGE, plie ? '1' : '0');
   }
 
-  function majPlein() {
-    const dedans = document.fullscreenElement === scene;
-    if (!btnPlein) return;
-    const lib = L(dedans ? 'sc_quitter_plein' : 'sc_plein');
-    btnPlein.title = lib;
-    btnPlein.setAttribute('aria-label', lib);
-    btnPlein.classList.toggle('is-on', dedans);
-    const ic = btnPlein.querySelector('i');
-    if (ic) ic.className = dedans ? 'fa-solid fa-compress' : 'fa-solid fa-expand';
-  }
-
-  // ── Recentrer ──────────────────────────────────────────────────────
+  // ── Recadrer ───────────────────────────────────────────────────────
   function recentrer() {
     const frame = document.getElementById('carto-viewer-frame');
     if (frame && frame.contentWindow) {
@@ -97,30 +87,24 @@
     const el = e.target.closest('[data-cs]');
     if (!el || !scene.contains(el)) return;
     const quoi = el.dataset.cs;
-    if (quoi === 'panneau') return basculerTiroir();
-    if (quoi === 'plein') return basculerPlein();
+    if (quoi === 'panneau') return poserTiroir(!scene.classList.contains('is-replie'), true);
+    if (quoi === 'actions') return poserReglages(!actions.classList.contains('is-plie'), true);
     if (quoi === 'fit') return recentrer();
   });
 
-  document.addEventListener('fullscreenchange', () => {
-    majPlein();
-    ajusterHauteur();
-    setTimeout(recentrer, 140);
-  });
-
   // Raccourcis — ⚠️ jamais pendant une saisie : la recherche d'activité est à
-  // deux centimètres, et « f » y servirait à écrire, pas à ouvrir l'écran.
+  // deux centimètres, et « c » y servirait à écrire, pas à recadrer.
   document.addEventListener('keydown', (e) => {
     if (e.ctrlKey || e.metaKey || e.altKey) return;
     const t = e.target;
     if (t && (t.closest('input, textarea, select, [contenteditable]'))) return;
     // Une fenêtre ouverte par-dessus a la priorité : ses propres raccourcis,
-    // et Échap doit la fermer, pas sortir du plein écran.
+    // et Échap doit la fermer.
     if (document.querySelector('.popup:not(.hidden), .modal:not(.hidden), #imh:not([hidden])')) return;
     const k = e.key.toLowerCase();
-    if (k === 'f') { e.preventDefault(); basculerPlein(); }
-    else if (k === 'c') { e.preventDefault(); recentrer(); }
-    else if (k === 'l') { e.preventDefault(); basculerTiroir(); }
+    if (k === 'c') { e.preventDefault(); recentrer(); }
+    else if (k === 'l') { e.preventDefault(); poserTiroir(!scene.classList.contains('is-replie'), true); }
+    else if (k === 'b') { e.preventDefault(); poserReglages(!actions.classList.contains('is-plie'), true); }
   });
 
   // ── La hauteur de la scène se MESURE ───────────────────────────────
@@ -139,12 +123,12 @@
 
   // ── État initial ───────────────────────────────────────────────────
   poserTiroir(lire(CLE_TIROIR) === '1', false);
-  majPlein();
+  poserReglages(lire(CLE_REGLAGE) === '1', false);
   ajusterHauteur();
 
   // ⚠️ L'entrée en scène PART d'une opacité nulle : dans un onglet en
-  // arrière-plan le navigateur met l'animation en pause, et la page resterait
-  // blanche jusqu'au retour dessus. On ne la pose que si l'onglet est visible.
+  // arrière-plan le navigateur met l'animation en pause, et les îlots
+  // resteraient invisibles jusqu'au retour dessus.
   if (document.visibilityState === 'visible') {
     scene.classList.add('cs-entre');
     setTimeout(() => scene.classList.remove('cs-entre'), 900);

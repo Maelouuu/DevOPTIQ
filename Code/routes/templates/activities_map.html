@@ -71,8 +71,8 @@
     cx_irreversible: {{ t('map.cx_irreversible')|tojson }},
     activating:      {{ t('map.preview_activating')|tojson }},
     activate:        {{ t('map.preview_activate')|tojson }},
-    sc_plein:        {{ t('map.sc_plein')|tojson }},
-    sc_quitter_plein: {{ t('map.sc_quitter_plein')|tojson }},
+    sc_actions_plier:   {{ t('map.sc_actions_plier')|tojson }},
+    sc_actions_deplier: {{ t('map.sc_actions_deplier')|tojson }},
     sc_panneau_fermer: {{ t('map.sc_panneau_fermer')|tojson }},
     sc_panneau_ouvrir: {{ t('map.sc_panneau_ouvrir')|tojson }}
   };
@@ -90,78 +90,6 @@
 
 <div class="carto-page carto-scene" id="carto-scene">
 
-  <!-- UNE SEULE BARRE — l'identité de la carto à gauche, ce qu'on peut en
-       faire à droite. Le titre, le nom de l'entité et « lecture seule » ne
-       s'écrivent qu'ICI : ils étaient répétés dans l'en-tête de la carte,
-       juste en dessous. -->
-  <!-- ⚠️ UN SEUL vocabulaire de boutons (`cs-b`). La barre en alignait cinq :
-       trois pleins roses, un en contour, un sombre, puis trois icônes — plus
-       deux icônes en PNG recolorées par un filtre CSS, à côté d'icônes
-       vectorielles. Tout criait, donc rien ne ressortait.
-       Une seule action primaire : ouvrir l'éditeur. -->
-  <header class="cs-bar">
-    <div class="cs-id">
-      <button type="button" class="cs-logo" data-cs="fit" title="{{ t('map.fit_view') }}"
-              aria-label="{{ t('map.fit_view') }}">
-        <i class="fa-solid fa-diagram-project"></i>
-      </button>
-      <div class="cs-id-txt">
-        <!-- Le NOM DE LA CARTO est ce qu'on vient lire : il prend le titre, et
-             « Cartographie des activités » passe en surtitre. -->
-        <span class="cs-sur">{{ t('map.title') }}</span>
-        {% if active_entity %}
-          <h1 title="{{ active_entity.name }}">{{ active_entity.name }}</h1>
-        {% else %}
-          <h1 class="is-vide">{{ t('map.no_entity') }}</h1>
-        {% endif %}
-      </div>
-      {% if has_optiqcarto %}
-      <span class="cs-lecture" title="{{ t('map.viewer_readonly') }}">
-        <i class="fa-solid fa-eye"></i>{{ t('map.viewer_readonly') }}
-      </span>
-      {% endif %}
-    </div>
-
-    <!-- Ordre voulu, de gauche à droite : ce qu'on gère, ce qu'on importe, qui
-         y accède, puis l'affichage des connexions. -->
-    <div class="cs-actions">
-      <button id="carto-wizard-btn" class="cs-b"><i class="fa-solid fa-building-columns"></i><span>{{ t('map.btn_entities') }}</span></button>
-      <button id="btn-import-full" class="cs-b"><i class="fa-solid fa-wand-magic-sparkles"></i><span>{{ t('map.btn_import_ia') }}</span></button>
-      {% if peut_regler_acces %}
-      <button id="btn-carto-acces" class="cs-b"><i class="fa-solid fa-user-lock"></i><span>{{ t('map.btn_acces') }}</span></button>
-      {% endif %}
-      <!-- Un INTERRUPTEUR, pas une action : il garde sa classe `.active`, que
-           pose activities_map.js. -->
-      <button id="cross-carto-btn" class="cs-b cs-b--bascule" title="{{ t('map.cross_carto_title') }}">
-        <i class="fa-solid fa-link cross-carto-icon"></i>
-        <span id="cross-carto-label">{{ t('map.btn_connections') }}</span>
-        <span class="cross-carto-dot"></span>
-      </button>
-
-      {% if has_optiqcarto %}
-      <!-- Les trois gestes de la SCÈNE, réunis : ils ne parlent pas des
-           données, ils parlent de l'écran. -->
-      <span class="cs-seg">
-        <!-- Le rappel de navigation tenait une LIGNE ENTIÈRE au-dessus du
-             dessin ; il attend maintenant au survol du « ? ». -->
-        <button type="button" class="cs-ic cs-aide" title="{{ t('map.nav_hint') }} {{ t('map.nav_detail') }}"
-                aria-label="{{ t('map.nav_hint') }} {{ t('map.nav_detail') }}">
-          <i class="fa-regular fa-circle-question"></i>
-        </button>
-        <button type="button" class="cs-ic" data-cs="plein" id="cs-plein"
-                title="{{ t('map.sc_plein') }}" aria-label="{{ t('map.sc_plein') }}">
-          <i class="fa-solid fa-expand"></i>
-        </button>
-        <button type="button" class="cs-ic" data-cs="panneau" id="cs-panneau"
-                title="{{ t('map.sc_panneau_fermer') }}" aria-label="{{ t('map.sc_panneau_fermer') }}"
-                aria-expanded="true">
-          <i class="fa-solid fa-table-columns"></i>
-        </button>
-      </span>
-      <a href="/cartography/editor" class="cs-b cs-b--prim"><i class="fa-solid fa-pen-ruler"></i><span>{{ t('map.viewer_open_editor') }}</span></a>
-      {% endif %}
-    </div>
-  </header>
 
   {% if examen %}
   <!-- ⚠️ Toutes cartos confondues : celui qui valide n'a pas à activer une
@@ -376,6 +304,75 @@
     {{ t('map.external_detail') | safe }}
     <span id="cross-carto-count" class="cross-count-badge">0</span> {{ t('map.external_count_suffix') }}
   </div>
+
+  <!-- LES COMMANDES SE POSENT SUR LE DESSIN : rien ne le pousse, rien ne le
+       rétrécit. L'identité à gauche, ce qu'on peut faire à droite.
+       ⚠️ Elles vivent DANS `.carto-container` : posées au-dessus, elles
+       auraient repris de la hauteur au dessin, ce qu'on vient d'enlever. -->
+  <header class="cs-bar">
+    <div class="cs-id">
+      <div class="cs-id-txt">
+        <span class="cs-sur">{{ t('map.title') }}</span>
+        {% if active_entity %}
+          <h1 title="{{ active_entity.name }}">{{ active_entity.name }}</h1>
+        {% else %}
+          <h1 class="is-vide">{{ t('map.no_entity') }}</h1>
+        {% endif %}
+      </div>
+      {% if has_optiqcarto %}
+      <span class="cs-lecture" title="{{ t('map.viewer_readonly') }}">
+        <i class="fa-solid fa-eye"></i>{{ t('map.viewer_readonly') }}
+      </span>
+      {% endif %}
+    </div>
+
+    <div class="cs-actions" id="cs-actions">
+      <!-- ⚠️ Le repli ne concerne QUE les réglages. « Recadrer » est le geste
+           le plus utile de l'écran : il reste toujours à un clic. -->
+      <button type="button" class="cs-plier" id="cs-plier" data-cs="actions"
+              title="{{ t('map.sc_actions_plier') }}" aria-label="{{ t('map.sc_actions_plier') }}"
+              aria-expanded="true" aria-controls="cs-pliable">
+        <i class="fa-solid fa-chevron-right"></i>
+      </button>
+
+      <span class="cs-pliable" id="cs-pliable">
+        <button id="carto-wizard-btn" class="cs-b"><i class="fa-solid fa-building-columns"></i><span>{{ t('map.btn_entities') }}</span></button>
+        <button id="btn-import-full" class="cs-b"><i class="fa-solid fa-wand-magic-sparkles"></i><span>{{ t('map.btn_import_ia') }}</span></button>
+        {% if peut_regler_acces %}
+        <button id="btn-carto-acces" class="cs-b"><i class="fa-solid fa-user-lock"></i><span>{{ t('map.btn_acces') }}</span></button>
+        {% endif %}
+        <!-- Un INTERRUPTEUR, pas une action : il garde sa classe `.active`, que
+             pose activities_map.js, et s'allume en VERT. -->
+        <button id="cross-carto-btn" class="cs-b cs-b--bascule" title="{{ t('map.cross_carto_title') }}">
+          <i class="fa-solid fa-link cross-carto-icon"></i>
+          <span id="cross-carto-label">{{ t('map.btn_connections') }}</span>
+          <span class="cross-carto-dot"></span>
+        </button>
+        {% if has_optiqcarto %}
+        <a href="/cartography/editor" class="cs-b cs-b--prim"><i class="fa-solid fa-pen-ruler"></i><span>{{ t('map.viewer_open_editor') }}</span></a>
+        {% endif %}
+      </span>
+
+      {% if has_optiqcarto %}
+      <!-- Les gestes de l'ÉCRAN : ils ne parlent pas des données. -->
+      <span class="cs-seg">
+        <button type="button" class="cs-ic cs-aide" title="{{ t('map.nav_hint') }} {{ t('map.nav_detail') }}"
+                aria-label="{{ t('map.nav_hint') }} {{ t('map.nav_detail') }}">
+          <i class="fa-regular fa-circle-question"></i>
+        </button>
+        <button type="button" class="cs-ic" data-cs="fit" id="cs-recadrer"
+                title="{{ t('map.fit_view') }}" aria-label="{{ t('map.fit_view') }}">
+          <i class="fa-solid fa-crosshairs"></i>
+        </button>
+        <button type="button" class="cs-ic" data-cs="panneau" id="cs-panneau"
+                title="{{ t('map.sc_panneau_fermer') }}" aria-label="{{ t('map.sc_panneau_fermer') }}"
+                aria-expanded="true">
+          <i class="fa-solid fa-table-columns"></i>
+        </button>
+      </span>
+      {% endif %}
+    </div>
+  </header>
     <div class="carto-left">
       {% if has_optiqcarto %}
       <!-- Viewer OptiqCarto actif -->

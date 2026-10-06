@@ -3417,6 +3417,73 @@ avant la refonte de la veille), rien ne déborde aux trois tailles. L'écho a d�
 coûté 10 points une fois — il se resserre sous 1480 px, et il n'en reste qu'un
 sous 1100.
 
+#### FLOTTANT — tranché sur maquettes, pas dans le code (2026-10-06)
+
+Deux refontes écrites directement dans le code ont été refusées l'une après
+l'autre (« hideux », puis « ça ne m'en met pas plein les yeux »). La troisième
+est passée par un **canvas de maquettes** : cinq organisations dessinées à
+l'échelle, la même carto et la même nav dans toutes, une seule décision à
+prendre. **C'est la bonne méthode pour cette page** — une passe de style coûte
+une demi-journée de code et se juge en trois secondes.
+
+⚠️ **Et les deux premières ont échoué pour la même raison : j'avais redessiné
+ce qui ne devait pas bouger.** La barre de navigation est un galet ARGENTÉ
+clair à tuiles blanches — je l'avais maquettée en sombre ; et je changeais le
+fond du dessin à chaque direction. Les deux sont fixes, au pixel près.
+
+**Ce qui est retenu — la carto prend tout, les commandes se posent dessus.**
+
+| Écran | Dessin affiché |
+|---|---|
+| 1920×1080 | 1904×974 — **89,4 %** de la fenêtre |
+| 1440×900 | 1424×794 — 87,2 % |
+| 1280×800 | 1264×694 — 85,7 % |
+
+(34 % avant la première refonte, 62,8 % avec la scène sombre.) Rien ne déborde
+aux trois tailles.
+
+- **Deux couleurs, et deux seulement** : **ROSE** pour l'action et la sélection
+  (ouvrir l'éditeur, la ligne choisie), **VERT** pour l'état actif (le mode
+  Connexions, sa pastille, son bandeau). Tout le reste est neutre. Les passes
+  précédentes empilaient sombre + rose + violet + cyan + ambre : « multicolore
+  de partout ».
+- **Deux îlots blancs** posés sur le dessin : l'identité à gauche, les
+  commandes à droite. ⚠️ Ils vivent DANS `.carto-container` — posés au-dessus,
+  ils reprendraient au dessin la hauteur qu'on vient de lui rendre. Et la barre
+  qui les porte est en `pointer-events: none` : elle couvre toute la largeur,
+  sans ça on ne pourrait plus déplacer la carto sous elle.
+- **Les réglages se REPLIENT** (`#cs-plier`, classe `is-plie` sur `#cs-actions`,
+  mémorisée dans `localStorage`) : l'îlot tombe de sept boutons à quatre
+  pastilles. ⚠️ Le repli n'emporte QUE les réglages — recadrer est le geste le
+  plus utile de l'écran, il reste dehors, toujours à un clic.
+- ⚠️ **Le PLEIN ÉCRAN est retiré, remplacé par RECADRER.** Agrandir la fenêtre
+  ne sert presque jamais sur cette page ; remettre le dessin au milieu de la
+  zone, on le fait sans arrêt. Partis avec lui : `basculerPlein`, `majPlein`,
+  le raccourci `f`, l'écouteur `fullscreenchange`, les règles `:fullscreen` et
+  les clés `map.sc_plein` / `map.sc_quitter_plein`. Raccourcis restants :
+  `c` recadrer, `l` la liste, `b` les réglages.
+
+⚠️⚠️ **Renversement d'une décision écrite noir sur blanc ici-même.** « Le
+tiroir POUSSE la carto, il ne la recouvre pas : la mini map et la pastille de
+zoom du viewer vivent en bas à droite. » **C'était faux pour le viewer** — relu
+dans le code plutôt que supposé : `renderMinimap()` sort immédiatement
+(`OPTIQCARTO_READONLY && !CONSULTATION`), et `#zoom-pill` n'est pas dans
+`cartography_viewer.html`. Ces deux pièces appartiennent à l'ÉDITEUR. Le coin
+est libre, le panneau peut s'y poser — et c'est ce qui rend ces 89 % possibles.
+⚠️ Conséquence : **on ne recadre plus après un repli**. La zone d'affichage ne
+change pas de taille quand le panneau s'efface ; recadrer ferait sauter le
+dessin pour rien. L'autre moitié de la note de la veille tombe avec.
+
+⚠️ **Remplacer une passe de style emporte aussi sa MISE EN PAGE** — deuxième
+fois. La structure des commandes (`display: inline-flex`, `gap`) est réécrite
+en tête de la nouvelle section, avant leur peau.
+
+Tests : `tests/test_94_page_carte_scene.py` (10 cas — le geste de recadrage à
+la place du plein écran, le repli qui n'emporte que les réglages, et tout ce
+qui flotte vérifié À L'INTÉRIEUR du corps). Suite : 2736 passés.
+Maquettes : canvas « Page Carto — 5 organisations » (Dock/Capsule, Papier,
+Volets, Flottant, Colonne).
+
 Tests : `tests/test_94_page_carte_scene.py` (9 cas — la structure qui donne ces
 pixels, qu'une retouche distraite remettrait en place sans s'en apercevoir).
 Suite : 2702 passés, `repet_image` 2674 + 28 sautés. Éprouvé au banc
