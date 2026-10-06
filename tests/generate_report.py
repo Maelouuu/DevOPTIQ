@@ -55,6 +55,7 @@ PAGE_LABELS = {
     "test_96_activities_data_contenu": "Détails d'activité — Contenu (softskills, outils, savoirs)",
     "test_97_gestion_outils_avance": "Gestion des Outils — Cas avancés",
     "test_39_propose_from_file": "Propositions depuis Fichier Excel & Rendu Performances",
+    "test_100_propose_from_file_algo": "Algorithme Propositions Fichier Excel",
     "test_40_cartography_translate": "Cartographie (update) & Traduction HSC (OpenAI)",
     "test_41_activities_form":       "Performance Activité (CRUD via /activities)",
     "test_42_activities_search_admin": "Recherche Activités & Admin Entités",
