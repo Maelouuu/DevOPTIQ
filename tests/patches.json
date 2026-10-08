@@ -608,5 +608,21 @@
     ],
     "author": "routine",
     "fixed_at": "2026-10-03T03:16:10"
+  },
+  {
+    "patch_uid": "2026-10-08-generate-report-syntax-error",
+    "title": "generate_report.py : entrée PAGE_LABELS corrompue (SyntaxError)",
+    "node_ids": [],
+    "page_slug": "performance_items_gaps",
+    "failure_reason": "Le rapport visuel ne pouvait pas être généré : generate_report.py levait une SyntaxError (ligne 41, deux entrées fusionnées par une mauvaise résolution de conflit).",
+    "was_real_bug": false,
+    "root_cause": "test_quality",
+    "error": "Le libellé de test_100_performance_items_gaps contenait une autre entrée du dictionnaire imbriquée dans une chaîne.",
+    "fix_description": "Entrée restaurée proprement ; ajout du libellé de test_101_pulse_plan_gaps.",
+    "files_changed": [
+      "tests/generate_report.py"
+    ],
+    "author": "routine",
+    "fixed_at": "2026-10-08T03:22:35"
   }
 ]
