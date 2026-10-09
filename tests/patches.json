@@ -624,5 +624,23 @@
     ],
     "author": "routine",
     "fixed_at": "2026-10-08T03:22:35"
+  },
+  {
+    "patch_uid": "2026-10-09-domains-scale-lang-isolation",
+    "title": "Échelle des domaines : forcer la langue FR dans le test",
+    "node_ids": [
+      "tests/test_55_technical_domains.py::TestScale::test_scale_returns_five_levels"
+    ],
+    "page_slug": "technical_domains",
+    "failure_reason": "Le test échouait seul : libellé reçu en anglais (Technical expert) au lieu de Référence technique.",
+    "was_real_bug": false,
+    "root_cause": "test_isolation",
+    "error": "Le test dépendait de la langue de session posée par un test précédent ; seul, la langue par défaut du client authentifié n est pas le français.",
+    "fix_description": "Langue forcée à fr via session_transaction avant l appel.",
+    "files_changed": [
+      "tests/test_55_technical_domains.py"
+    ],
+    "author": "routine",
+    "fixed_at": "2026-10-09T03:23:02"
   }
 ]
